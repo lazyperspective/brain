@@ -113,7 +113,14 @@ load. `regionTint` in `lib/brainField.ts` works out which component a point
 belongs to — cerebrum, temporal lobe, cerebellum, stem — by re-evaluating the
 same primitives the field is built from, and returns a hue offset on the palette
 ring. Weights are soft, so points near a boundary blend instead of banding. The
-cerebellum runs cool, the stem warm, the cerebrum stays on the base hue.
+cerebellum runs sky blue, the stem orange, the cerebrum stays on the base hue.
+
+The palette ring is indigo → orchid → orange → sky blue. The cortex only samples
+the cool arc of it, which is why sky blue lands on the body for free while
+orange stays an accent: only elements that are actively firing — sparking
+points, charge pulses on a minority of fibres, the brainstem, an arriving
+thought — travel far enough round the ring to reach it. Widening that sampling
+range is what would turn the accent into a scheme, and is deliberately not done.
 
 Colour temperature also follows the light: lit crowns drift warm, sulci and
 occluded creases fall cool, and the far half of the body cools as it recedes.

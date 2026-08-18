@@ -2,11 +2,11 @@ import {
   analyticField,
   analyticNormal,
   brainField,
-  massField,
+  gyralHeight,
   regionTint,
   BOUNDS,
 } from "./brainField";
-import { perlin3, rng } from "./noise";
+import { rng } from "./noise";
 
 export type BrainData = {
   count: number;
@@ -72,7 +72,7 @@ function bakeAO(
 
   // Soft inside test, so occlusion ramps rather than banding across samples.
   const inside = (px: number, py: number, pz: number) => {
-    const f = massField(px, py, pz);
+    const f = analyticField(px, py, pz);
     return f > 0.05 ? 0 : f < 0 ? 1 : 1 - f / 0.05;
   };
 
@@ -235,7 +235,7 @@ export function buildBrain(): BrainData {
 
     const [nx, ny, nz] = analyticNormal(x, y, z);
     // Same field the gyri were carved from: 1 on a fold crest, 0 in a sulcus.
-    const ridge = 1 - Math.min(1, Math.abs(perlin3(x * 5.6, y * 5.9, z * 5.2)) / 0.42);
+    const ridge = gyralHeight(x, y, z);
     push(x, y, z, nx, ny, nz, 0, ridge, bakeAO(x, y, z, nx, ny, nz));
     sCount++;
   }

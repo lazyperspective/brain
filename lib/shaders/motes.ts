@@ -54,7 +54,7 @@ void main(){
   float core = pow(1.0 - d, 2.2);
   float halo = exp(-d * 2.6) * 0.5;
 
-  vec3 col = animaPalette(vHue) * (1.1 + vHead * 1.4);
+  vec3 col = animaPalette(vHue) * (0.85 + vHead * 1.05);
   col += vec3(1.0, 0.97, 0.94) * core * core * vHead * 1.6;
 
   gl_FragColor = vec4(col, (core + halo) * vAlpha);

@@ -105,10 +105,10 @@ void main(){
   }
 
   float hue = vHue + pulses * 0.14 + vFlare * 0.3;
-  vec3 col = animaPalette(hue) * (0.78 + pulses * 2.5 + vFlare * 2.2);
+  vec3 col = animaPalette(hue) * (0.62 + pulses * 1.7 + vFlare * 2.0);
   col += vec3(1.0, 0.95, 0.9) * core * (pulses * 1.35 + vFlare * 1.1);
 
-  float a = body * env * vis * uReveal * (0.26 + pulses * 0.95 + vFlare * 0.8);
+  float a = body * env * vis * uReveal * (0.22 + pulses * 0.72 + vFlare * 0.8);
 
   gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>

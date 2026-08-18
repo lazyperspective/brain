@@ -7,6 +7,43 @@ export function smoothstep(e0: number, e1: number, x: number) {
   return t * t * (3 - 2 * t);
 }
 
+const GYRI_MAIN = 0.058;
+const GYRI_FINE = 0.020;
+
+/** Scratch for the warp, so the hot path allocates nothing. */
+const _warp = { x: 0, y: 0, z: 0 };
+
+/**
+ * Slow domain warp applied before the ridge noise. Un-warped ridged noise is
+ * isotropic and reads as coral; bending the sample point with a low-frequency
+ * field turns the ridge contours into the meandering runs a cortex has.
+ */
+function gyriWarp(x: number, y: number, z: number) {
+  const wf = 1.9;
+  const wa = 0.085;
+  _warp.x = x + perlin3(x * wf + 11.3, y * wf - 4.1, z * wf + 7.7) * wa;
+  _warp.y = y + perlin3(x * wf - 3.7, y * wf + 9.2, z * wf - 2.4) * wa;
+  _warp.z = z + perlin3(x * wf + 5.1, y * wf + 1.8, z * wf + 13.6) * wa;
+  return _warp;
+}
+
+/**
+ * Ridged noise, smoothstepped. Plain `1 - |n|` is a tent — it leaves a crease
+ * along every crest and every valley floor, which reads as sharp coral rather
+ * than tissue. Smoothstepping flattens the derivative at both ends, giving
+ * rounded crowns and soft-bottomed sulci.
+ */
+function ridged(x: number, y: number, z: number) {
+  const r = clamp01(1 - Math.abs(perlin3(x, y, z)) / 0.42);
+  return r * r * (3 - 2 * r);
+}
+
+/** Normalised fold height: 0 down in a sulcus, 1 on a gyral crown. */
+export function gyralHeight(x: number, y: number, z: number): number {
+  const w = gyriWarp(x, y, z);
+  return ridged(w.x * 6.4, w.y * 6.2, w.z * 3.4);
+}
+
 function smin(a: number, b: number, k: number) {
   const h = Math.max(k - Math.abs(a - b), 0) / k;
   return Math.min(a, b) - h * h * k * 0.25;
@@ -68,8 +105,8 @@ export function massField(x: number, y: number, z: number): number {
   f = smin(f, temporal, 0.2);
 
   // Cerebellum: two tucked lobes behind and below.
-  const cereb = ellip(Math.abs(x) - 0.2, y + 0.45, z + 0.63, 0.26, 0.215, 0.28);
-  f = smin(f, cereb, 0.13);
+  const cereb = ellip(Math.abs(x) - 0.21, y + 0.46, z + 0.63, 0.285, 0.235, 0.30);
+  f = smin(f, cereb, 0.105);
 
   // Brain stem: tapered capsule dropping from the midbrain.
   {
@@ -77,7 +114,7 @@ export function massField(x: number, y: number, z: number): number {
     const pay = y + 0.26;
     const paz = z + 0.3;
     // The stem lies on the midline, so the axis has no x component.
-    const bay = -0.52;
+    const bay = -0.57;
     const baz = 0.16;
     const bb = bay * bay + baz * baz;
     let h = (pay * bay + paz * baz) / bb;
@@ -85,7 +122,7 @@ export function massField(x: number, y: number, z: number): number {
     const qx = pax;
     const qy = pay - bay * h;
     const qz = paz - baz * h;
-    const r = 0.115 - 0.055 * h;
+    const r = 0.128 - 0.060 * h;
     const stem = Math.sqrt(qx * qx + qy * qy + qz * qz) - r;
     f = smin(f, stem, 0.1);
   }
@@ -113,7 +150,7 @@ export function analyticField(x: number, y: number, z: number): number {
   // Lateral (Sylvian) fissure, ascending toward the back.
   const dLat = y + 0.11 + 0.16 * z;
   f +=
-    0.044 *
+    0.056 *
     Math.exp((-dLat * dLat) / (2 * 0.045 * 0.045)) *
     smoothstep(0.24, 0.46, Math.abs(x)) *
     smoothstep(-0.78, -0.5, z);
@@ -129,7 +166,7 @@ export function analyticField(x: number, y: number, z: number): number {
   // Masked away from the midline so the cerebellum stays tethered to the stem.
   const dTr = y + 0.29;
   f +=
-    0.055 *
+    0.068 *
     Math.exp((-dTr * dTr) / (2 * 0.05 * 0.05)) *
     smoothstep(-0.26, -0.52, z) *
     smoothstep(0.08, 0.24, Math.abs(x));
@@ -145,11 +182,14 @@ export function analyticField(x: number, y: number, z: number): number {
 export function brainField(x: number, y: number, z: number): number {
   let f = analyticField(x, y, z);
 
-  const n1 = perlin3(x * 5.6, y * 5.9, z * 5.2);
-  const r1 = 1 - Math.min(1, Math.abs(n1) / 0.42);
-  const n2 = perlin3(x * 11.5 + 31.2, y * 12.1 - 8.4, z * 11.0 + 17.7);
-  const r2 = 1 - Math.min(1, Math.abs(n2) / 0.42);
-  f -= 0.05 * r1 * r1 + 0.016 * r2 * r2;
+  // Gyri shift the surface by at most ~0.08, so past that the detail cannot
+  // change the sign and the noise below is wasted work.
+  if (f > 0.15 || f < -0.15) return f;
+
+  const w = gyriWarp(x, y, z);
+  const s1 = ridged(w.x * 6.4, w.y * 6.2, w.z * 3.4);
+  const s2 = ridged(w.x * 10.2 + 31.2, w.y * 10.6 - 8.4, w.z * 6.2 + 17.7);
+  f -= GYRI_MAIN * s1 + GYRI_FINE * s2;
 
   // Cerebellum wears much finer, near-horizontal striations.
   const cd = Math.sqrt(
@@ -224,8 +264,8 @@ export function regionTint(x: number, y: number, z: number): number {
   // Cerebrum stays on the base hue; the rest pull away from it.
   const CEREBRUM = 0.0;
   const TEMPORAL = 0.10; // warmer, toward orchid
-  const CEREBELLUM = -0.10; // cooler, toward ice
-  const STEM = 0.30; // warm accent
+  const CEREBELLUM = -0.16; // cooler, onto sky blue
+  const STEM = 0.56; // warm accent, onto orange
 
   // A frontal/occipital drift so the front of the brain reads warmer than the back.
   const axial = (front - back) * 0.05;

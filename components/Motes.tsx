@@ -71,7 +71,7 @@ export function Motes({ data }: { data: BrainData }) {
     const offset = -now * speed;
     const size = 0.5 + Math.random() * 1.5;
     const hue =
-      Math.random() < 0.14 ? 0.44 + Math.random() * 0.16 : 0.04 + Math.random() * 0.2;
+      Math.random() < 0.12 ? 0.45 + Math.random() * 0.09 : 0.04 + Math.random() * 0.2;
 
     for (let k2 = 0; k2 < TRAIL; k2++) {
       const i = m * TRAIL + k2;

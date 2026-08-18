@@ -152,7 +152,7 @@ void main(){
        - (1.0 - aRidge) * 0.09 * (1.0 - aDepth)
        - (1.0 - aAO) * 0.10 * (1.0 - aDepth)
        - (1.0 - depthCue) * 0.10
-       + firing * 0.30 + ring * 0.28 + min(act, 1.2) * 0.09;
+       + firing * 0.56 + ring * 0.42 + min(act, 1.2) * 0.09;
 
   vCore = firing + ring;
   vAlpha = rv * mix(1.0, 0.5, aDepth) * mix(0.45, 1.0, faceDim) * uDim;

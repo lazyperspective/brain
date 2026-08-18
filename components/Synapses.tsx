@@ -129,7 +129,7 @@ export function Synapses({ data }: { data: BrainData }) {
 
       pool.aHue[i] =
         opts?.hue ??
-        (Math.random() < 0.09 ? 0.42 + Math.random() * 0.12 : 0.02 + Math.random() * 0.2);
+        (Math.random() < 0.10 ? 0.44 + Math.random() * 0.09 : 0.02 + Math.random() * 0.2);
     }
   ).current;
 

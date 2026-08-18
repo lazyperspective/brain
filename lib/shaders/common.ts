@@ -8,8 +8,8 @@ vec3 animaPalette(float t){
   t = fract(t);
   vec3 A = vec3(0.357, 0.247, 0.910);   // indigo violet
   vec3 B = vec3(1.000, 0.322, 0.784);   // electric orchid
-  vec3 C = vec3(1.000, 0.690, 0.478);   // warm amber rose
-  vec3 D = vec3(0.498, 0.941, 1.000);   // pale ice
+  vec3 C = vec3(1.000, 0.560, 0.215);   // orange
+  vec3 D = vec3(0.360, 0.680, 1.000);   // sky blue
   float s = t * 4.0;
   vec3 col = A;
   col = mix(col, B, smoothstep(0.0, 1.0, clamp(s,       0.0, 1.0)));
