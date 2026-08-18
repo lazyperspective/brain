@@ -51,10 +51,10 @@ export function Overlay() {
     <div className="overlay">
       <motion.header className="mark" {...fade}>
         <span className="wordmark">
-          ANIMA
+          BRAIN
           <i className="pulse" aria-hidden />
         </span>
-        <span className="tagline">a collective mind</span>
+        <span className="byline">Pradeep Kapoor</span>
       </motion.header>
 
       <motion.div

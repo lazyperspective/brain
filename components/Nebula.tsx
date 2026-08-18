@@ -16,6 +16,7 @@ export function Nebula() {
       uParallax: { value: new Vector2() },
       uBreath: { value: 0 },
       uFlash: { value: 0 },
+      uMotion: { value: 1 },
     }),
     []
   );
@@ -26,6 +27,7 @@ export function Nebula() {
     uniforms.uParallax.value.set(world.pointerSmooth.x, world.pointerSmooth.y);
     uniforms.uBreath.value = world.breath;
     uniforms.uFlash.value = world.flash;
+    uniforms.uMotion.value = world.reducedMotion ? 0.25 : 1;
   });
 
   const material = useShaderMaterial(() => ({

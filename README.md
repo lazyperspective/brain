@@ -1,4 +1,6 @@
-# ANIMA — a collective mind
+# BRAIN
+
+*Pradeep Kapoor*
 
 A living brain assembled from people's thoughts. It arrives already thinking:
 fibres forming and fading, charge running the network, slow swells of activation
@@ -166,7 +168,9 @@ and stays fitted from ultrawide to phone.
 ### Persistence
 
 Thoughts are seeded from `lib/thoughts.ts` and the visitor's own are kept in
-`localStorage` (`anima.thoughts.v1`). There is no backend — swapping
+`localStorage` under `anima.thoughts.v1` — the key predates the rename and is
+deliberately left alone, since changing it would discard every thought anyone
+had already saved. There is no backend — swapping
 `loadThoughts`/`persistOwn` for a real store is the only change needed to make
 the collective genuinely shared.
 

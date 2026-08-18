@@ -108,10 +108,12 @@ body {
   58% { opacity: 0.72; transform: scale(1); }
 }
 
-.tagline {
+.byline {
   font-size: 10.5px;
-  letter-spacing: 0.16em;
-  color: var(--faint);
+  /* Looser than body text but tighter than the wordmark — enough to sit as a
+     credit line, not so much that it stops reading as a name. */
+  letter-spacing: 0.11em;
+  color: rgba(214, 203, 255, 0.34);
 }
 
 /* ---------- counter ---------- */
@@ -353,7 +355,7 @@ body {
 }
 
 @media (max-width: 640px) {
-  .tagline { display: none; }
+  .byline { display: none; }
   .composer-wrap { bottom: 11vh; width: 84vw; }
   .hint { font-size: 9.5px; letter-spacing: 0.1em; }
 }
