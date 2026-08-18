@@ -1,0 +1,363 @@
+:root {
+  --bg: #05030e;
+  --ink: rgba(255, 255, 255, 0.94);
+  --muted: rgba(214, 203, 255, 0.42);
+  --faint: rgba(214, 203, 255, 0.22);
+  --accent: #cbb0ff;
+  --glow: rgba(176, 128, 255, 0.5);
+
+  --edge: clamp(20px, 3.4vw, 42px);
+
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", Inter, system-ui, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  cursor: grab;
+  /* Drag must rotate the brain, not pan or pull-to-refresh the page. */
+  touch-action: none;
+}
+.stage:active {
+  cursor: grabbing;
+}
+
+.canvas {
+  position: fixed !important;
+  inset: 0;
+  z-index: 1;
+  display: block;
+}
+
+/* Seats the UI against a brain that may be blazing behind it. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 50% 118%, rgba(5, 3, 14, 0.82) 0%, transparent 62%),
+    radial-gradient(110% 55% at 50% -18%, rgba(5, 3, 14, 0.6) 0%, transparent 58%);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+[data-ui] {
+  pointer-events: auto;
+}
+
+/* ---------- wordmark ---------- */
+
+.mark {
+  position: absolute;
+  top: var(--edge);
+  left: var(--edge);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.wordmark {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.42em;
+  color: rgba(255, 255, 255, 0.82);
+  text-indent: 0.42em;
+}
+
+.pulse {
+  width: 4px;
+  height: 4px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px 1px var(--glow);
+  animation: beat 3.6s ease-in-out infinite;
+}
+
+@keyframes beat {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  42% { opacity: 1; transform: scale(1.25); }
+  58% { opacity: 0.72; transform: scale(1); }
+}
+
+.tagline {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--faint);
+}
+
+/* ---------- counter ---------- */
+
+.counter {
+  position: absolute;
+  top: var(--edge);
+  right: var(--edge);
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.counter span:first-child {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.counter-unit {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  color: var(--faint);
+}
+
+/* ---------- hovered thought ---------- */
+
+.thought-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.thought-label-inner {
+  position: absolute;
+  left: 16px;
+  top: -9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+
+.thought-tick {
+  width: 16px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(203, 176, 255, 0.7), transparent);
+}
+
+.thought-label[data-side="left"] .thought-label-inner {
+  left: auto;
+  right: 16px;
+  flex-direction: row-reverse;
+}
+
+.thought-label[data-side="left"] .thought-tick {
+  background: linear-gradient(270deg, rgba(203, 176, 255, 0.7), transparent);
+}
+
+.thought-text {
+  font-size: 12.5px;
+  letter-spacing: 0.012em;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 18px rgba(10, 4, 24, 0.95), 0 1px 3px rgba(10, 4, 24, 0.9);
+}
+
+/* ---------- composer ---------- */
+
+.composer-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: 9vh;
+  transform: translateX(-50%);
+  width: min(520px, 78vw);
+}
+
+.composer {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.composer-field {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.composer-input {
+  width: 100%;
+  padding: 6px 0 12px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  text-align: center;
+  font-family: inherit;
+  font-size: clamp(15px, 1.35vw, 17px);
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  caret-color: var(--accent);
+}
+
+.composer-input::placeholder {
+  color: rgba(214, 203, 255, 0.3);
+  letter-spacing: 0.06em;
+  transition: color 0.5s ease;
+}
+
+.composer:hover .composer-input::placeholder {
+  color: rgba(214, 203, 255, 0.46);
+}
+
+/* Hairline that lights from the centre outward on focus. */
+.composer-rule {
+  position: relative;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(214, 203, 255, 0.2) 22%,
+    rgba(214, 203, 255, 0.28) 50%,
+    rgba(214, 203, 255, 0.2) 78%,
+    transparent
+  );
+}
+
+.composer-rule::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: scaleX(0.2);
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent) 35%,
+    #ffffff 50%,
+    var(--accent) 65%,
+    transparent
+  );
+  box-shadow: 0 0 16px 1px var(--glow);
+  transition:
+    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.5s ease;
+}
+
+.composer.is-focused .composer-rule::after {
+  transform: scaleX(1);
+  opacity: 0.9;
+}
+
+/* Soft bloom under the field while it has focus. */
+.composer::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -34px;
+  width: 76%;
+  height: 92px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, var(--glow), transparent 72%);
+  opacity: 0;
+  filter: blur(14px);
+  transition: opacity 0.8s ease;
+  pointer-events: none;
+}
+
+.composer.is-focused::before {
+  opacity: 0.42;
+}
+
+.composer-count {
+  position: absolute;
+  right: -4px;
+  bottom: -22px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- submit collapse ---------- */
+
+.collapse-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 6px;
+  font-size: clamp(15px, 1.35vw, 17px);
+  color: var(--ink);
+  pointer-events: none;
+  white-space: pre;
+}
+
+.seed {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, var(--accent) 45%, transparent 72%);
+  box-shadow: 0 0 26px 5px var(--glow);
+}
+
+/* ---------- hint ---------- */
+
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: 3.6vh;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  letter-spacing: 0.15em;
+  color: rgba(214, 203, 255, 0.28);
+  white-space: nowrap;
+}
+
+/* ---------- a11y ---------- */
+
+.composer-input:focus-visible {
+  outline: none;
+}
+
+.composer-input:focus-visible ~ .composer-rule::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .tagline { display: none; }
+  .composer-wrap { bottom: 11vh; width: 84vw; }
+  .hint { font-size: 9.5px; letter-spacing: 0.1em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; opacity: 0.8; }
+}
