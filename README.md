@@ -135,6 +135,15 @@ range is what would turn the accent into a scheme, and is deliberately not done.
 Colour temperature also follows the light: lit crowns drift warm, sulci and
 occluded creases fall cool, and the far half of the body cools as it recedes.
 
+A blood-red contour closes the silhouette. It sits on the narrow band where the
+surface normal turns perpendicular to the view — which is exactly the angle the
+grazing-angle compensation suppresses hardest, so the floor is deliberately
+lifted back up for that band alone. The colour is *mixed toward* rather than
+added: adding it would only make the rim brighter, which is the opposite of an
+outline. Its green and blue are kept near zero so additive accumulation cannot
+lift it toward salmon, and its overall level stays under the bloom threshold —
+a rim that blooms stops being an outline and becomes a halo.
+
 ### State
 
 Per-frame values (breath, cursor, impact, lenses) live in a plain mutable

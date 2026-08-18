@@ -24,6 +24,7 @@ varying float vAlpha;
 varying float vGlow;
 varying float vHue;
 varying float vCore;
+varying float vEdge;
 
 void main(){
   vec3 p = position;
@@ -74,6 +75,12 @@ void main(){
   // brightness by cos(theta) — i.e. |facing| — cancels that almost exactly.
   float graze = 0.22 + 0.78 * abs(facing);
 
+  // The silhouette band the outline is drawn on. It sits at exactly the angle
+  // the graze term suppresses hardest, so the floor is lifted back up for it —
+  // a controlled amount of the very rim-brightening that term exists to cancel.
+  float edge = smoothstep(0.76, 0.995, 1.0 - abs(facing)) * (1.0 - aDepth);
+  graze = mix(graze, 0.52, edge);
+
   // Interior points carry a synthetic radial normal, so neither term is
   // meaningful for them; hold both near neutral instead.
   faceDim = mix(faceDim, 0.72, aDepth);
@@ -109,19 +116,21 @@ void main(){
   vec3 KEY  = normalize(vec3(-0.40, 0.66, 0.62));
   vec3 FILL = normalize(vec3( 0.76, -0.28, 0.34));
 
-  // Biased past half-lambert so a real portion of the body falls into shadow.
-  float key = clamp(dot(nView, KEY) * 0.62 + 0.38, 0.0, 1.0);
+  // Biased well past half-lambert so a large portion of the body falls into
+  // shadow, and the terminator lands hard rather than rolling off.
+  float key = clamp(dot(nView, KEY) * 0.70 + 0.30, 0.0, 1.0);
   key = key * key * (3.0 - 2.0 * key);
-  key = pow(key, 1.5);
+  key = pow(key, 1.7);
+  // The fill exists to keep the shadow side readable, not to lift it.
   float fill = clamp(dot(nView, FILL) * 0.5 + 0.5, 0.0, 1.0);
 
   // Sulci are cavities: they lose the key light first and stay dark, which is
   // what reads as folding rather than as texture.
-  float cavity = mix(0.15, 1.0, aRidge);
-  float occl = mix(0.10, 1.0, aAO);
-  float lit = (0.05 + 1.20 * key * cavity + 0.20 * fill * mix(0.35, 1.0, aRidge)) * occl;
+  float cavity = mix(0.12, 1.0, aRidge);
+  float occl = mix(0.07, 1.0, aAO);
+  float lit = (0.035 + 1.32 * key * cavity + 0.13 * fill * mix(0.30, 1.0, aRidge)) * occl;
   // Interior points carry synthetic normals, so light them flatly.
-  lit = mix(lit, 0.42, aDepth);
+  lit = mix(lit, 0.34, aDepth);
 
   // Aerial perspective: the near half of the body sits forward of the far half.
   float relZ = mv.z - (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).z;
@@ -129,7 +138,7 @@ void main(){
 
   float body = mix(1.30, 0.40, aDepth);
   vGlow = body * faceDim * graze * depthCue * lit
-          * (0.70 + 0.10 * pulse + 0.09 * rim + min(act, 1.3) * 0.20)
+          * (0.76 + 0.09 * pulse + 0.08 * rim + min(act, 1.1) * 0.13)
         + firing * 0.85
         + infl * 2.6
         + ring * 2.0;
@@ -150,15 +159,16 @@ void main(){
        // doing the same job as the value shading.
        + key * 0.10
        - (1.0 - aRidge) * 0.09 * (1.0 - aDepth)
-       - (1.0 - aAO) * 0.10 * (1.0 - aDepth)
+       - (1.0 - aAO) * 0.14 * (1.0 - aDepth)
        - (1.0 - depthCue) * 0.10
        + firing * 0.56 + ring * 0.42 + min(act, 1.2) * 0.09;
 
   vCore = firing + ring;
+  vEdge = edge;
   vAlpha = rv * mix(1.0, 0.5, aDepth) * mix(0.45, 1.0, faceDim) * uDim;
 
   float size = uSize * mix(1.0, 0.62, aDepth) * (0.68 + aSeed * 0.62);
-  size *= 1.0 + firing * 1.0 + act * 0.28 + infl * 3.2 + ring * 2.4;
+  size *= 1.0 + firing * 1.0 + act * 0.28 + edge * 0.45 + infl * 3.2 + ring * 2.4;
   gl_PointSize = size * uScale / max(0.001, -mv.z);
 }
 `;
@@ -169,6 +179,7 @@ varying float vAlpha;
 varying float vGlow;
 varying float vHue;
 varying float vCore;
+varying float vEdge;
 
 ${GLSL_PALETTE}
 
@@ -183,6 +194,14 @@ void main(){
   float a = (core + halo) * vAlpha;
 
   vec3 col = animaPalette(vHue) * vGlow;
+
+  // Blood-red contour. Mixed toward rather than added, so the silhouette reads
+  // as a dark edge closing the form off — adding it would only make the rim
+  // brighter, which is the opposite of an outline.
+  vec3 BLOOD = vec3(0.46, 0.018, 0.048);
+  col = mix(col, BLOOD, vEdge);
+
+  // Sparks still punch through the outline.
   col += vec3(1.0, 0.96, 0.92) * core * core * vCore * 1.15;
 
   gl_FragColor = vec4(col, a);
