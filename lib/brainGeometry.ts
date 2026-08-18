@@ -2,6 +2,7 @@ import {
   analyticField,
   analyticNormal,
   brainField,
+  massField,
   regionTint,
   BOUNDS,
 } from "./brainField";
@@ -71,7 +72,7 @@ function bakeAO(
 
   // Soft inside test, so occlusion ramps rather than banding across samples.
   const inside = (px: number, py: number, pz: number) => {
-    const f = analyticField(px, py, pz);
+    const f = massField(px, py, pz);
     return f > 0.05 ? 0 : f < 0 ? 1 : 1 - f / 0.05;
   };
 

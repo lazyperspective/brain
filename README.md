@@ -33,19 +33,22 @@ Gyri come from **ridged noise**: the zero-crossing contours of a 3D Perlin field
 are winding closed curves, which is the topology of cortical folds. Pushing the
 surface outward along those contours raises gyri and leaves sulci between them.
 
-`lib/brainGeometry.ts` rejection-samples that field into ~90k points — a dense
+`lib/brainGeometry.ts` rejection-samples that field into ~100k points — a dense
 shell hugging the cortex plus a sparser interior fill — and thins the surface set
 into ~1200 evenly-spread synapse anchors with a candidate edge graph over them.
-The smooth field acts as a cheap prefilter so the expensive noise only runs on
-samples near the surface. Whole build: ~380ms, deferred two frames past first
-paint so the backdrop is on screen before it runs.
+Each surface point also carries its fold height, its baked occlusion, and a hue
+offset for the structure it belongs to. The smooth field acts as a cheap
+prefilter so the expensive noise only runs on samples near the surface.
+
+Whole build is ~600ms, so it runs in a **worker** and never touches the frame
+loop; the backdrop is already on screen while it works.
 
 ### Rendering layers
 
 | Layer | Technique |
 |---|---|
 | Backdrop | Clip-space quad, domain-warped fbm thresholded into sparse wisps |
-| Cortex | Two point passes — dim wide sprites for a continuous body, full-density small sprites for grain |
+| Cortex | Two point passes — dim wide sprites for a continuous body, full-density small sprites for grain. Lit by a fixed key/fill pair with baked occlusion |
 | Fibres | ~780 instanced billboard ribbons on quadratic Béziers, recycled from a lifetime pool |
 | Charge | ~560 GPU-animated motes with 4-point trails, re-routed only as each run completes |
 | Depth | 3400 drifting dust motes outside the brain group, so parallax comes from real 3D depth |
@@ -79,6 +82,42 @@ uses Khronos Neutral, which preserves hue through the roll-off.
 **`gl_PointSize = size * uScale / dist` makes `size` a world diameter,** not
 pixels — with `uScale = height · dpr · 0.5 / tan(fov/2)`.
 
+**A point cloud shaded only by view-relative terms has no form.** Facing, grazing
+and rim angle all move with the camera, so the body reads as an even glow no
+matter how much contrast you put into them. What gives it shape is a light
+*direction*: a fixed key/fill pair in **view space**, so the brain has a lit side
+and a shadowed side that hold as it rotates under them.
+
+**Occlusion cannot be measured by marching the field along the normal.**
+`analyticField` is a scaled approximation, not a true distance — the value grows
+slower than the step, so every point reads as occluded and the whole body just
+dims. Sampling a hemisphere and asking which points land *inside* the body is
+immune to that scaling, and it finds the creases that actually define the
+anatomy: the longitudinal fissure, the notch above the cerebellum, the underside
+of the temporal lobes.
+
+**Bloom erases form.** At a low luminance threshold with a wide radius, every lit
+point bleeds into the sulci and flattens the occlusion back out. It is restricted
+here to genuine highlights, which is what let the folds and the shadow side read.
+
+**A worker must not import the module that references it.** Putting
+`new Worker(new URL('./x.worker.ts', ...))` inside a module that `x.worker.ts`
+itself imports makes the worker's dependency graph point back at the worker. Dev
+tolerates the cycle; `next build` walks it forever and never finishes. The
+reference lives in `lib/buildBrainAsync.ts`, outside the worker's own graph.
+
+### Colour and shadow
+
+Value alone would not separate the structures, so colour carries part of the
+load. `regionTint` in `lib/brainField.ts` works out which component a point
+belongs to — cerebrum, temporal lobe, cerebellum, stem — by re-evaluating the
+same primitives the field is built from, and returns a hue offset on the palette
+ring. Weights are soft, so points near a boundary blend instead of banding. The
+cerebellum runs cool, the stem warm, the cerebrum stays on the base hue.
+
+Colour temperature also follows the light: lit crowns drift warm, sulci and
+occluded creases fall cool, and the far half of the body cools as it recedes.
+
 ### State
 
 Per-frame values (breath, cursor, impact, lenses) live in a plain mutable
@@ -108,4 +147,5 @@ the collective genuinely shared.
 ## Performance
 
 120fps (display-capped) at a 1332×1724 draw buffer on an M-series Mac; p95 frame
-9.4ms. DPR is capped at 2 and the composer runs without MSAA.
+9.3ms. DPR is capped at 2 and the composer runs without MSAA. Geometry is built
+in a worker, so the ~600ms of field sampling never costs a frame.

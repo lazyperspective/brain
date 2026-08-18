@@ -38,11 +38,12 @@ export const BOUNDS = {
 };
 
 /**
- * Smooth anatomical mass: two hemispheres, temporal lobes, cerebellum, stem,
- * plus the three sulci that actually carry the silhouette.
+ * The lobe-scale mass alone — hemispheres, temporal lobes, cerebellum, stem —
+ * with no sulci carved into it. Occlusion only cares about structure at this
+ * scale, and skipping the sulci saves it four exp() calls per sample.
  * Negative = inside.
  */
-export function analyticField(x: number, y: number, z: number): number {
+export function massField(x: number, y: number, z: number): number {
   // Frontal and occipital poles are narrower than the parietal midsection.
   const front = smoothstep(0.08, 0.94, z);
   const back = smoothstep(-0.12, -0.92, z);
@@ -88,6 +89,16 @@ export function analyticField(x: number, y: number, z: number): number {
     const stem = Math.sqrt(qx * qx + qy * qy + qz * qz) - r;
     f = smin(f, stem, 0.1);
   }
+
+  return f;
+}
+
+/**
+ * The full smooth field: the mass above, with the sulci that carry the
+ * silhouette carved into it. Negative = inside.
+ */
+export function analyticField(x: number, y: number, z: number): number {
+  let f = massField(x, y, z);
 
   // --- sulci: positive terms carve inward ---
   // Their combined amplitude is bounded by 0.21, so far from the surface they

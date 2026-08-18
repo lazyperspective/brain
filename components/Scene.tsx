@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { NoToneMapping } from "three";
-import { buildBrain, type BrainData } from "@/lib/brainGeometry";
+import { buildBrainAsync } from "@/lib/buildBrainAsync";
+import { type BrainData } from "@/lib/brainGeometry";
 import { BrainPoints } from "./BrainPoints";
 import { Dust } from "./Dust";
 import { Effects } from "./Effects";
@@ -21,13 +22,19 @@ export function Scene() {
 
   useEffect(() => {
     init();
-    // Sampling the cortex costs ~250ms of main thread. Hand the browser two
-    // frames first so the nebula and dust are already on screen when it runs.
+    // Sampling the cortex is ~600ms of arithmetic, so it runs in a worker.
+    // Two frames of grace first, so the nebula and dust are already on screen.
+    let cancelled = false;
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setData(buildBrain()));
+      raf2 = requestAnimationFrame(() => {
+        buildBrainAsync().then((d) => {
+          if (!cancelled) setData(d);
+        });
+      });
     });
     return () => {
+      cancelled = true;
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
