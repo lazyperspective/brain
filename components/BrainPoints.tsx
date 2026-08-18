@@ -23,6 +23,7 @@ function buildGeometry(data: BrainData, stride: number) {
     g.setAttribute("aRidge", new BufferAttribute(data.ridges, 1));
     g.setAttribute("aTint", new BufferAttribute(data.tints, 1));
     g.setAttribute("aAO", new BufferAttribute(data.ao, 1));
+    g.setAttribute("aSeam", new BufferAttribute(data.seams, 1));
     return g;
   }
   const n = Math.floor(data.count / stride);
@@ -34,6 +35,7 @@ function buildGeometry(data: BrainData, stride: number) {
   const rid = new Float32Array(n);
   const tin = new Float32Array(n);
   const occ = new Float32Array(n);
+  const sea = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const j = i * stride;
     for (let k = 0; k < 3; k++) {
@@ -46,6 +48,7 @@ function buildGeometry(data: BrainData, stride: number) {
     rid[i] = data.ridges[j];
     tin[i] = data.tints[j];
     occ[i] = data.ao[j];
+    sea[i] = data.seams[j];
   }
   g.setAttribute("position", new BufferAttribute(pos, 3));
   g.setAttribute("aNormal", new BufferAttribute(nor, 3));
@@ -55,6 +58,7 @@ function buildGeometry(data: BrainData, stride: number) {
   g.setAttribute("aRidge", new BufferAttribute(rid, 1));
   g.setAttribute("aTint", new BufferAttribute(tin, 1));
   g.setAttribute("aAO", new BufferAttribute(occ, 1));
+  g.setAttribute("aSeam", new BufferAttribute(sea, 1));
   return g;
 }
 

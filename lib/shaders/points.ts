@@ -17,6 +17,7 @@ attribute float aDepth;
 attribute float aRidge;
 attribute float aTint;
 attribute float aAO;
+attribute float aSeam;
 attribute vec3  aNormal;
 attribute vec3  aScatter;
 
@@ -25,6 +26,7 @@ varying float vGlow;
 varying float vHue;
 varying float vCore;
 varying float vEdge;
+varying float vSeam;
 
 void main(){
   vec3 p = position;
@@ -79,6 +81,11 @@ void main(){
   // the graze term suppresses hardest, so the floor is lifted back up for it —
   // a controlled amount of the very rim-brightening that term exists to cancel.
   float edge = smoothstep(0.76, 0.995, 1.0 - abs(facing)) * (1.0 - aDepth);
+
+  // Major fissures. Widened from the raw gaussian: a narrow seam gets buried
+  // under the sprites of the bright gyri either side of it, because those
+  // overlap the groove additively.
+  float seam = smoothstep(0.22, 0.72, aSeam) * (1.0 - aDepth);
   graze = mix(graze, 0.52, edge);
 
   // Interior points carry a synthetic radial normal, so neither term is
@@ -129,6 +136,7 @@ void main(){
   float cavity = mix(0.12, 1.0, aRidge);
   float occl = mix(0.07, 1.0, aAO);
   float lit = (0.035 + 1.32 * key * cavity + 0.13 * fill * mix(0.30, 1.0, aRidge)) * occl;
+  lit *= 1.0 - 0.72 * seam;
   // Interior points carry synthetic normals, so light them flatly.
   lit = mix(lit, 0.34, aDepth);
 
@@ -165,10 +173,11 @@ void main(){
 
   vCore = firing + ring;
   vEdge = edge;
+  vSeam = seam;
   vAlpha = rv * mix(1.0, 0.5, aDepth) * mix(0.45, 1.0, faceDim) * uDim;
 
   float size = uSize * mix(1.0, 0.62, aDepth) * (0.68 + aSeed * 0.62);
-  size *= 1.0 + firing * 1.0 + act * 0.28 + edge * 0.45 + infl * 3.2 + ring * 2.4;
+  size *= 1.0 + firing * 1.0 + act * 0.28 + edge * 0.45 + seam * 0.4 + infl * 3.2 + ring * 2.4;
   gl_PointSize = size * uScale / max(0.001, -mv.z);
 }
 `;
@@ -180,6 +189,7 @@ varying float vGlow;
 varying float vHue;
 varying float vCore;
 varying float vEdge;
+varying float vSeam;
 
 ${GLSL_PALETTE}
 
@@ -200,6 +210,10 @@ void main(){
   // brighter, which is the opposite of an outline.
   vec3 BLOOD = vec3(0.46, 0.018, 0.048);
   col = mix(col, BLOOD, vEdge);
+
+  // The same red run down the major fissures, so the divisions between the
+  // hemispheres and around the cerebellum read as definite lines.
+  col = mix(col, BLOOD * 1.30, vSeam);
 
   // Sparks still punch through the outline.
   col += vec3(1.0, 0.96, 0.92) * core * core * vCore * 1.15;

@@ -212,7 +212,7 @@ export function Rig({ active }: { active: boolean }) {
     const par = Math.min(1, aspect / 1.15) * rm;
     // The parallax excursion has to be inside the framing budget, or the lean
     // pushes the brain off the edge of a portrait window.
-    const halfW = FIT_HALF_W + 0.42 * par;
+    const halfW = FIT_HALF_W + 0.58 * par;
     const base = Math.max(
       3.42,
       Math.max(FIT_HALF_H / tanHalf, halfW / (tanHalf * aspect)) * 1.06

@@ -279,3 +279,32 @@ export function regionTint(x: number, y: number, z: number): number {
     (wc * CEREBRUM + wt * TEMPORAL + wb * CEREBELLUM + ws * STEM) / total + axial
   );
 }
+
+/**
+ * How deep inside a major fissure a point sits, 0..1.
+ *
+ * Reuses the exact gaussians that carve those fissures in `analyticField`, so
+ * the seam always lands in the groove rather than beside it. Three of them:
+ * the longitudinal fissure between the hemispheres, the transverse notch where
+ * the cerebellum meets the occipital lobe, and the midline where the two
+ * cerebellar lobes meet.
+ */
+export function fissureSeam(x: number, y: number, z: number): number {
+  // Between the cerebral hemispheres.
+  const longitudinal =
+    Math.exp((-x * x) / (2 * 0.058 * 0.058)) * smoothstep(-0.22, 0.16, y);
+
+  // Between cerebellum and occipital lobe.
+  const dTr = y + 0.3;
+  const transverse =
+    Math.exp((-dTr * dTr) / (2 * 0.05 * 0.05)) *
+    smoothstep(-0.26, -0.52, z) *
+    smoothstep(0.06, 0.22, Math.abs(x));
+
+  // Between the two cerebellar lobes.
+  const inCerebellum = smoothstep(0.06, -0.06, cerebellumField(x, y, z));
+  const cerebellarMidline =
+    Math.exp((-x * x) / (2 * 0.055 * 0.055)) * inCerebellum;
+
+  return clamp01(Math.max(longitudinal, Math.max(transverse, cerebellarMidline)));
+}

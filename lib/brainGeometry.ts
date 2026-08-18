@@ -2,6 +2,7 @@ import {
   analyticField,
   analyticNormal,
   brainField,
+  fissureSeam,
   gyralHeight,
   regionTint,
   BOUNDS,
@@ -20,6 +21,8 @@ export type BrainData = {
   tints: Float32Array;
   /** Baked ambient occlusion: dark where the anatomy folds in on itself. */
   ao: Float32Array;
+  /** Depth inside a major fissure, for the dark seams between structures. */
+  seams: Float32Array;
   scatter: Float32Array;
   nodes: Float32Array;
   nodeNormals: Float32Array;
@@ -160,6 +163,7 @@ export function buildBrain(): BrainData {
   const ridges = new Float32Array(total);
   const tints = new Float32Array(total);
   const aos = new Float32Array(total);
+  const seams = new Float32Array(total);
 
   const spanX = BOUNDS.xMax - BOUNDS.xMin;
   const spanY = BOUNDS.yMax - BOUNDS.yMin;
@@ -179,7 +183,8 @@ export function buildBrain(): BrainData {
     nz: number,
     depth: number,
     ridge: number,
-    ao: number
+    ao: number,
+    seam: number
   ) => {
     const o = write * 3;
     positions[o] = x;
@@ -199,6 +204,7 @@ export function buildBrain(): BrainData {
     ridges[write] = ridge;
     tints[write] = regionTint(x, y, z);
     aos[write] = ao;
+    seams[write] = seam;
     write++;
   };
 
@@ -215,7 +221,7 @@ export function buildBrain(): BrainData {
     if (fa < -0.2) {
       if (iCount < INTERIOR_TARGET && rng() < 0.1) {
         const l = Math.sqrt(x * x + y * y + z * z) || 1;
-        push(x, y, z, x / l, y / l, z / l, 0.6 + rng() * 0.4, 0.5, 0.55);
+        push(x, y, z, x / l, y / l, z / l, 0.6 + rng() * 0.4, 0.5, 0.55, 0);
         iCount++;
       }
       continue;
@@ -226,7 +232,7 @@ export function buildBrain(): BrainData {
     if (f < -0.036) {
       if (iCount < INTERIOR_TARGET && rng() < 0.05) {
         const l = Math.sqrt(x * x + y * y + z * z) || 1;
-        push(x, y, z, x / l, y / l, z / l, 0.55 + rng() * 0.45, 0.5, 0.55);
+        push(x, y, z, x / l, y / l, z / l, 0.55 + rng() * 0.45, 0.5, 0.55, 0);
         iCount++;
       }
       continue;
@@ -236,7 +242,7 @@ export function buildBrain(): BrainData {
     const [nx, ny, nz] = analyticNormal(x, y, z);
     // Same field the gyri were carved from: 1 on a fold crest, 0 in a sulcus.
     const ridge = gyralHeight(x, y, z);
-    push(x, y, z, nx, ny, nz, 0, ridge, bakeAO(x, y, z, nx, ny, nz));
+    push(x, y, z, nx, ny, nz, 0, ridge, bakeAO(x, y, z, nx, ny, nz), fissureSeam(x, y, z));
     sCount++;
   }
 
@@ -360,6 +366,7 @@ export function buildBrain(): BrainData {
     ridges: ridges.subarray(0, count),
     tints: tints.subarray(0, count),
     ao: aos.subarray(0, count),
+    seams: seams.subarray(0, count),
     scatter: scatter.subarray(0, count * 3),
     nodes,
     nodeNormals,

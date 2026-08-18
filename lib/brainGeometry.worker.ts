@@ -15,6 +15,7 @@ self.onmessage = () => {
     ridges: d.ridges.slice(),
     tints: d.tints.slice(),
     ao: d.ao.slice(),
+    seams: d.seams.slice(),
     scatter: d.scatter.slice(),
   };
   (self as unknown as Worker).postMessage(out, [
@@ -25,6 +26,7 @@ self.onmessage = () => {
     out.ridges.buffer,
     out.tints.buffer,
     out.ao.buffer,
+    out.seams.buffer,
     out.scatter.buffer,
     out.nodes.buffer,
     out.nodeNormals.buffer,

@@ -46,34 +46,39 @@ void main(){
   float f2 = smoothstep(0.52, 0.95, mid);
   float f3 = smoothstep(0.63, 0.97, near);
 
-  vec3 col = vec3(0.007, 0.005, 0.020);
+  vec3 col = vec3(0.003, 0.003, 0.008);
 
-  col += vec3(0.085, 0.030, 0.170) * f1 * 0.26;   // deep plum body
-  col += vec3(0.140, 0.055, 0.250) * f2 * 0.16;   // violet mid clouds
-  col += vec3(0.230, 0.080, 0.110) * f3 * 0.11;   // sparse warm filaments
+  col += vec3(0.085, 0.030, 0.170) * f1 * 0.05;   // deep plum body
+  col += vec3(0.140, 0.055, 0.250) * f2 * 0.035;   // violet mid clouds
+  col += vec3(0.230, 0.080, 0.110) * f3 * 0.05;   // sparse warm filaments
   col += vec3(0.020, 0.060, 0.120) * f2           // cool counterweight, low field
-       * smoothstep(0.70, -0.10, uv.y) * 0.18;
+       * smoothstep(0.70, -0.10, uv.y) * 0.07;
 
   // Two light veils crossing at different angles and rates, so the field is
   // never quite still. exp(-v*v) turns each sine into a soft band rather than a
   // stripe, and the differing speeds mean they never settle into a pattern.
+  // A squared falloff instead of exp(): this runs on every pixel of a fullscreen
+  // pass, and the shape is indistinguishable once the band is this soft.
   float vt = uTime * uMotion;
   float v1 = sin(p.x * 0.85 - p.y * 1.35 + vt * 0.055);
-  col += vec3(0.030, 0.058, 0.135) * exp(-v1 * v1 * 2.1) * 0.55;
+  float b1 = max(0.0, 1.0 - v1 * v1 * 2.2);
+  col += vec3(0.034, 0.066, 0.150) * b1 * b1 * 0.85;
 
   float v2 = sin(p.x * 1.45 + p.y * 0.65 - vt * 0.037 + 2.1);
-  col += vec3(0.105, 0.042, 0.016) * exp(-v2 * v2 * 3.0) * 0.42;
+  float b2 = max(0.0, 1.0 - v2 * v2 * 2.9);
+  col += vec3(0.120, 0.048, 0.018) * b2 * b2 * 0.70;
 
   // A third, much broader and slower swell keeps the whole field breathing.
   float v3 = sin(p.y * 0.7 + vt * 0.021 - 1.2);
-  col += vec3(0.040, 0.022, 0.075) * exp(-v3 * v3 * 1.4) * 0.5;
+  float b3 = max(0.0, 1.0 - v3 * v3 * 1.45);
+  col += vec3(0.042, 0.024, 0.080) * b3 * b3 * 0.70;
 
   // The halo the brain sits inside, breathing with it.
   vec2 c = p - uParallax * 0.020 - vec2(0.0, -0.02);
   float r = length(c * vec2(1.0, 1.22));
   float halo = exp(-r * r * 2.6);
-  col += vec3(0.024, 0.009, 0.046) * halo * (0.9 + uBreath * 0.22);
-  col += vec3(0.010, 0.004, 0.020) * exp(-r * 1.4);
+  col += vec3(0.008, 0.003, 0.016) * halo * (0.9 + uBreath * 0.22);
+  col += vec3(0.004, 0.002, 0.009) * exp(-r * 1.4);
 
   // Thought-submission wash
   col += vec3(0.16, 0.09, 0.26) * halo * uFlash;

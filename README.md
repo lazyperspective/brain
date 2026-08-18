@@ -59,7 +59,7 @@ loop; the backdrop is already on screen while it works.
 
 | Layer | Technique |
 |---|---|
-| Backdrop | Clip-space quad, domain-warped fbm thresholded into sparse wisps |
+| Backdrop | Clip-space quad, near-black; domain-warped fbm wisps plus three drifting light veils |
 | Cortex | Two point passes — dim wide sprites for a continuous body, full-density small sprites for grain. Lit by a fixed key/fill pair with baked occlusion |
 | Fibres | ~780 instanced billboard ribbons on quadratic Béziers, recycled from a lifetime pool |
 | Charge | ~560 GPU-animated motes with 4-point trails, re-routed only as each run completes |
@@ -136,6 +136,15 @@ range is what would turn the accent into a scheme, and is deliberately not done.
 
 Colour temperature also follows the light: lit crowns drift warm, sulci and
 occluded creases fall cool, and the far half of the body cools as it recedes.
+
+The same blood red runs down the major fissures — between the hemispheres,
+across the notch where the cerebellum meets the occipital lobe, and along the
+cerebellar midline. Those seams reuse the exact gaussians that carve the
+fissures into the field, so a seam always lands in its groove rather than beside
+it. The raw gaussian is deliberately widened before use: a narrow seam gets
+buried under the sprites of the bright gyri either side, because those overlap
+the groove additively. It also emits its own crimson rather than only darkening,
+for the same reason — a purely dark line loses to the glow around it.
 
 A blood-red contour closes the silhouette. It sits on the narrow band where the
 surface normal turns perpendicular to the view — which is exactly the angle the
