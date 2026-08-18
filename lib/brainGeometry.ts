@@ -1,4 +1,10 @@
-import { analyticField, analyticNormal, brainField, BOUNDS } from "./brainField";
+import {
+  analyticField,
+  analyticNormal,
+  brainField,
+  regionTint,
+  BOUNDS,
+} from "./brainField";
 import { perlin3, rng } from "./noise";
 
 export type BrainData = {
@@ -9,6 +15,10 @@ export type BrainData = {
   depths: Float32Array;
   /** 0 in a sulcal valley, 1 on a gyral crown. Shades the folds. */
   ridges: Float32Array;
+  /** Per-structure hue offset, so the lobes read apart. */
+  tints: Float32Array;
+  /** Baked ambient occlusion: dark where the anatomy folds in on itself. */
+  ao: Float32Array;
   scatter: Float32Array;
   nodes: Float32Array;
   nodeNormals: Float32Array;
@@ -21,6 +31,77 @@ export type BrainData = {
 const SURFACE_TARGET = 76000;
 const INTERIOR_TARGET = 24000;
 const MAX_ITER = 4_000_000;
+
+/**
+ * Ambient occlusion by hemisphere sampling.
+ *
+ * Marching the field along the normal does NOT work here: `analyticField` is a
+ * scaled approximation, not a true distance, so the value grows slower than the
+ * step and every point reads as occluded. Testing whether sample points around
+ * the hemisphere land inside the body is immune to that scaling, and measures
+ * the thing we actually want — where the anatomy folds back on itself, under
+ * the temporal lobes, in the notch above the cerebellum, down the fissure.
+ */
+function bakeAO(
+  x: number,
+  y: number,
+  z: number,
+  nx: number,
+  ny: number,
+  nz: number
+) {
+  // Orthonormal basis around the normal.
+  let tx: number, ty: number, tz: number;
+  if (Math.abs(nz) < 0.9) {
+    tx = -ny;
+    ty = nx;
+    tz = 0;
+  } else {
+    tx = 0;
+    ty = -nz;
+    tz = ny;
+  }
+  const tl = Math.sqrt(tx * tx + ty * ty + tz * tz) || 1;
+  tx /= tl;
+  ty /= tl;
+  tz /= tl;
+  const bx = ny * tz - nz * ty;
+  const by = nz * tx - nx * tz;
+  const bz = nx * ty - ny * tx;
+
+  // Soft inside test, so occlusion ramps rather than banding across samples.
+  const inside = (px: number, py: number, pz: number) => {
+    const f = analyticField(px, py, pz);
+    return f > 0.05 ? 0 : f < 0 ? 1 : 1 - f / 0.05;
+  };
+
+  let occ = 0;
+  let n = 0;
+  // Straight out along the normal, at two scales.
+  for (const r of [0.09, 0.2]) {
+    occ += inside(x + nx * r, y + ny * r, z + nz * r);
+    n++;
+  }
+  // Two rings tilted off the normal — these are what catch the creases.
+  for (const ring of [
+    { r: 0.11, c: 0.62 },
+    { r: 0.24, c: 0.44 },
+  ]) {
+    const s2 = Math.sqrt(1 - ring.c * ring.c);
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2 + 0.4;
+      const ca = Math.cos(a) * s2;
+      const sa = Math.sin(a) * s2;
+      const dx = nx * ring.c + tx * ca + bx * sa;
+      const dy = ny * ring.c + ty * ca + by * sa;
+      const dz = nz * ring.c + tz * ca + bz * sa;
+      occ += inside(x + dx * ring.r, y + dy * ring.r, z + dz * ring.r);
+      n++;
+    }
+  }
+  const ao = 1 - occ / n;
+  return ao < 0 ? 0 : ao > 1 ? 1 : ao;
+}
 
 const NODE_MIN_DIST = 0.082;
 const NODE_CAP = 1600;
@@ -76,6 +157,8 @@ export function buildBrain(): BrainData {
   const seeds = new Float32Array(total);
   const depths = new Float32Array(total);
   const ridges = new Float32Array(total);
+  const tints = new Float32Array(total);
+  const aos = new Float32Array(total);
 
   const spanX = BOUNDS.xMax - BOUNDS.xMin;
   const spanY = BOUNDS.yMax - BOUNDS.yMin;
@@ -94,7 +177,8 @@ export function buildBrain(): BrainData {
     ny: number,
     nz: number,
     depth: number,
-    ridge: number
+    ridge: number,
+    ao: number
   ) => {
     const o = write * 3;
     positions[o] = x;
@@ -112,6 +196,8 @@ export function buildBrain(): BrainData {
     seeds[write] = rng();
     depths[write] = depth;
     ridges[write] = ridge;
+    tints[write] = regionTint(x, y, z);
+    aos[write] = ao;
     write++;
   };
 
@@ -128,7 +214,7 @@ export function buildBrain(): BrainData {
     if (fa < -0.2) {
       if (iCount < INTERIOR_TARGET && rng() < 0.1) {
         const l = Math.sqrt(x * x + y * y + z * z) || 1;
-        push(x, y, z, x / l, y / l, z / l, 0.6 + rng() * 0.4, 0.5);
+        push(x, y, z, x / l, y / l, z / l, 0.6 + rng() * 0.4, 0.5, 0.55);
         iCount++;
       }
       continue;
@@ -139,7 +225,7 @@ export function buildBrain(): BrainData {
     if (f < -0.036) {
       if (iCount < INTERIOR_TARGET && rng() < 0.05) {
         const l = Math.sqrt(x * x + y * y + z * z) || 1;
-        push(x, y, z, x / l, y / l, z / l, 0.55 + rng() * 0.45, 0.5);
+        push(x, y, z, x / l, y / l, z / l, 0.55 + rng() * 0.45, 0.5, 0.55);
         iCount++;
       }
       continue;
@@ -149,7 +235,7 @@ export function buildBrain(): BrainData {
     const [nx, ny, nz] = analyticNormal(x, y, z);
     // Same field the gyri were carved from: 1 on a fold crest, 0 in a sulcus.
     const ridge = 1 - Math.min(1, Math.abs(perlin3(x * 5.6, y * 5.9, z * 5.2)) / 0.42);
-    push(x, y, z, nx, ny, nz, 0, ridge);
+    push(x, y, z, nx, ny, nz, 0, ridge, bakeAO(x, y, z, nx, ny, nz));
     sCount++;
   }
 
@@ -271,6 +357,8 @@ export function buildBrain(): BrainData {
     seeds: seeds.subarray(0, count),
     depths: depths.subarray(0, count),
     ridges: ridges.subarray(0, count),
+    tints: tints.subarray(0, count),
+    ao: aos.subarray(0, count),
     scatter: scatter.subarray(0, count * 3),
     nodes,
     nodeNormals,

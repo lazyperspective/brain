@@ -21,6 +21,8 @@ function buildGeometry(data: BrainData, stride: number) {
     g.setAttribute("aSeed", new BufferAttribute(data.seeds, 1));
     g.setAttribute("aDepth", new BufferAttribute(data.depths, 1));
     g.setAttribute("aRidge", new BufferAttribute(data.ridges, 1));
+    g.setAttribute("aTint", new BufferAttribute(data.tints, 1));
+    g.setAttribute("aAO", new BufferAttribute(data.ao, 1));
     return g;
   }
   const n = Math.floor(data.count / stride);
@@ -30,6 +32,8 @@ function buildGeometry(data: BrainData, stride: number) {
   const see = new Float32Array(n);
   const dep = new Float32Array(n);
   const rid = new Float32Array(n);
+  const tin = new Float32Array(n);
+  const occ = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const j = i * stride;
     for (let k = 0; k < 3; k++) {
@@ -40,6 +44,8 @@ function buildGeometry(data: BrainData, stride: number) {
     see[i] = data.seeds[j];
     dep[i] = data.depths[j];
     rid[i] = data.ridges[j];
+    tin[i] = data.tints[j];
+    occ[i] = data.ao[j];
   }
   g.setAttribute("position", new BufferAttribute(pos, 3));
   g.setAttribute("aNormal", new BufferAttribute(nor, 3));
@@ -47,6 +53,8 @@ function buildGeometry(data: BrainData, stride: number) {
   g.setAttribute("aSeed", new BufferAttribute(see, 1));
   g.setAttribute("aDepth", new BufferAttribute(dep, 1));
   g.setAttribute("aRidge", new BufferAttribute(rid, 1));
+  g.setAttribute("aTint", new BufferAttribute(tin, 1));
+  g.setAttribute("aAO", new BufferAttribute(occ, 1));
   return g;
 }
 
@@ -80,7 +88,7 @@ export function BrainPoints({ data }: { data: BrainData }) {
     [shared]
   );
   const hazeU = useMemo(
-    () => ({ ...shared, uSize: { value: 0.024 }, uDim: { value: 0.085 } }),
+    () => ({ ...shared, uSize: { value: 0.024 }, uDim: { value: 0.045 } }),
     [shared]
   );
 

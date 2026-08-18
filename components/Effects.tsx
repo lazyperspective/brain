@@ -43,7 +43,7 @@ export function Effects() {
       l.setWarp(world.breath * 0.004 + world.flash * 0.02);
     }
     if (bloom.current) {
-      bloom.current.intensity = 1.15 + world.bloomPump * 1.7;
+      bloom.current.intensity = 0.95 + world.bloomPump * 1.7;
     }
   });
 
@@ -53,10 +53,10 @@ export function Effects() {
       <Bloom
         ref={bloom}
         mipmapBlur
-        intensity={1.15}
-        luminanceThreshold={0.5}
-        luminanceSmoothing={0.35}
-        radius={0.86}
+        intensity={0.95}
+        luminanceThreshold={0.82}
+        luminanceSmoothing={0.28}
+        radius={0.55}
       />
       <Chroma offset={chroma} radialModulation modulationOffset={0.42} />
       <Vignette offset={0.26} darkness={0.66} eskil={false} />

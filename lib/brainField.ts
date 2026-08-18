@@ -166,3 +166,60 @@ export function analyticNormal(x: number, y: number, z: number) {
   const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
   return [nx / len, ny / len, nz / len] as const;
 }
+
+/**
+ * Which structure a point belongs to, as a hue offset on the palette ring
+ * (0 indigo, .25 orchid, .5 amber, .75 ice). Colouring the lobes apart is what
+ * lets the eye separate cerebrum from cerebellum from stem at a glance.
+ *
+ * Weights are soft, so points near a boundary blend rather than banding.
+ */
+export function regionTint(x: number, y: number, z: number): number {
+  const front = smoothstep(0.08, 0.94, z);
+  const back = smoothstep(-0.12, -0.92, z);
+  const xs = x * (1 + 0.34 * front + 0.3 * back);
+  const ys =
+    y -
+    0.16 * front * smoothstep(0.08, -0.44, y) +
+    0.1 * front * smoothstep(0.05, 0.45, y);
+
+  const dy = ys - 0.115;
+  const dz = z + 0.03;
+  const cerebrum = Math.min(
+    ellip(xs + 0.285, dy, dz, 0.415, 0.545, 0.865),
+    ellip(xs - 0.285, dy, dz, 0.415, 0.545, 0.865)
+  );
+  const temporal = ellip(Math.abs(xs) - 0.42, y + 0.3, z - 0.14, 0.2, 0.235, 0.42);
+  const cereb = ellip(Math.abs(x) - 0.2, y + 0.45, z + 0.63, 0.26, 0.215, 0.28);
+
+  const pay = y + 0.26;
+  const paz = z + 0.3;
+  const bay = -0.52;
+  const baz = 0.16;
+  let h = (pay * bay + paz * baz) / (bay * bay + baz * baz);
+  h = h < 0 ? 0 : h > 1 ? 1 : h;
+  const qy = pay - bay * h;
+  const qz = paz - baz * h;
+  const stem = Math.sqrt(x * x + qy * qy + qz * qz) - (0.115 - 0.055 * h);
+
+  // Anything at or inside a component weighs 1; influence falls away outside it.
+  const w = (d: number) => Math.exp(-Math.max(d, 0) * 16);
+  const wc = w(cerebrum);
+  const wt = w(temporal);
+  const wb = w(cereb);
+  const ws = w(stem);
+  const total = wc + wt + wb + ws || 1;
+
+  // Cerebrum stays on the base hue; the rest pull away from it.
+  const CEREBRUM = 0.0;
+  const TEMPORAL = 0.10; // warmer, toward orchid
+  const CEREBELLUM = -0.10; // cooler, toward ice
+  const STEM = 0.30; // warm accent
+
+  // A frontal/occipital drift so the front of the brain reads warmer than the back.
+  const axial = (front - back) * 0.05;
+
+  return (
+    (wc * CEREBRUM + wt * TEMPORAL + wb * CEREBELLUM + ws * STEM) / total + axial
+  );
+}

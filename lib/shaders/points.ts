@@ -15,6 +15,8 @@ uniform float uDim;
 attribute float aSeed;
 attribute float aDepth;
 attribute float aRidge;
+attribute float aTint;
+attribute float aAO;
 attribute vec3  aNormal;
 attribute vec3  aScatter;
 
@@ -65,7 +67,7 @@ void main(){
   vec3 viewDir = normalize(-mv.xyz);
   float facing = dot(nView, viewDir);
   float rim = pow(1.0 - abs(facing), 3.0);
-  float faceDim = mix(0.25, 1.0, smoothstep(-0.75, 0.45, facing));
+  float faceDim = mix(0.14, 1.0, smoothstep(-0.75, 0.45, facing));
 
   // A ray grazing the shell crosses ~1/cos(theta) times as many points as one
   // hitting it face-on, which renders the cortex as a hollow ring. Scaling
@@ -100,11 +102,34 @@ void main(){
   // Twinkle concentrates wherever a swell is currently passing.
   float firing = smoothstep(0.94 - act * 0.22, 1.0, pulse);
 
-  // Crowns catch the light, sulci fall away — this is what makes the folding
-  // legible instead of an even glow.
-  float fold = mix(0.60, 1.30, aRidge);
-  float body = mix(1.3, 0.9, aDepth) * mix(fold, 1.0, aDepth);
-  vGlow = body * faceDim * graze * (0.56 + 0.12 * pulse + 0.10 * rim + act * 0.46)
+  // --- form lighting -------------------------------------------------------
+  // Every other term here is view-relative, which means the body had no light
+  // direction and therefore no form. A fixed key/fill pair in VIEW space gives
+  // it a lit side and a shadowed side that hold as the brain turns beneath it.
+  vec3 KEY  = normalize(vec3(-0.40, 0.66, 0.62));
+  vec3 FILL = normalize(vec3( 0.76, -0.28, 0.34));
+
+  // Biased past half-lambert so a real portion of the body falls into shadow.
+  float key = clamp(dot(nView, KEY) * 0.62 + 0.38, 0.0, 1.0);
+  key = key * key * (3.0 - 2.0 * key);
+  key = pow(key, 1.5);
+  float fill = clamp(dot(nView, FILL) * 0.5 + 0.5, 0.0, 1.0);
+
+  // Sulci are cavities: they lose the key light first and stay dark, which is
+  // what reads as folding rather than as texture.
+  float cavity = mix(0.15, 1.0, aRidge);
+  float occl = mix(0.10, 1.0, aAO);
+  float lit = (0.05 + 1.20 * key * cavity + 0.20 * fill * mix(0.35, 1.0, aRidge)) * occl;
+  // Interior points carry synthetic normals, so light them flatly.
+  lit = mix(lit, 0.42, aDepth);
+
+  // Aerial perspective: the near half of the body sits forward of the far half.
+  float relZ = mv.z - (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).z;
+  float depthCue = mix(0.58, 1.12, clamp(relZ / 1.9 + 0.5, 0.0, 1.0));
+
+  float body = mix(1.30, 0.40, aDepth);
+  vGlow = body * faceDim * graze * depthCue * lit
+          * (0.70 + 0.10 * pulse + 0.09 * rim + min(act, 1.3) * 0.20)
         + firing * 0.85
         + infl * 2.6
         + ring * 2.0;
@@ -117,11 +142,17 @@ void main(){
   // so any hue variation in z gets integrated away along each view ray. Varying
   // it in y keeps the gradient coherent from front to back and it survives.
   vHue = 0.92
-       + 0.26 * sin(p.y * 1.6 + uTime * 0.04)
-       + 0.09 * sin(p.x * 1.4 + uTime * 0.031)
+       + aTint * (1.0 - aDepth * 0.6)
+       + 0.13 * sin(p.y * 1.6 + uTime * 0.04)
+       + 0.06 * sin(p.x * 1.4 + uTime * 0.031)
        + 0.035 * fract(aSeed * 13.7)
-       + firing * 0.34 + ring * 0.30 + act * 0.16
-       - (1.0 - aRidge) * 0.04 * (1.0 - aDepth);
+       // Lit crowns run warm, shadowed sulci fall cool — colour temperature
+       // doing the same job as the value shading.
+       + key * 0.10
+       - (1.0 - aRidge) * 0.09 * (1.0 - aDepth)
+       - (1.0 - aAO) * 0.10 * (1.0 - aDepth)
+       - (1.0 - depthCue) * 0.10
+       + firing * 0.30 + ring * 0.28 + min(act, 1.2) * 0.09;
 
   vCore = firing + ring;
   vAlpha = rv * mix(1.0, 0.5, aDepth) * mix(0.45, 1.0, faceDim) * uDim;
