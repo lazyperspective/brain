@@ -74,6 +74,72 @@ export const BOUNDS = {
   zMax: 1.12,
 };
 
+/** Scratch for shaped coordinates, so the hot path allocates nothing. */
+const _shaped = { xs: 0, ys: 0, occ: 0 };
+
+/**
+ * Anterior/posterior shaping applied before the hemispheres are evaluated.
+ *
+ * The two poles are not alike, and that difference is what tells you which way
+ * the brain is facing. The frontal pole is markedly narrower than the parietal
+ * midsection; the occipital does not merely narrow, it draws down to a blunt
+ * point. The crown slopes down toward the front, which puts the highest point
+ * of the brain behind centre, the way a real one sits.
+ */
+function shapeCoords(x: number, y: number, z: number) {
+  const front = smoothstep(0.08, 0.94, z);
+  const back = smoothstep(-0.12, -0.92, z);
+  const occ = smoothstep(-0.46, -0.95, z);
+  _shaped.xs = x * (1 + 0.46 * front + 0.16 * back + 0.44 * occ);
+  _shaped.ys =
+    y -
+    0.16 * front * smoothstep(0.08, -0.44, y) +
+    0.19 * front * smoothstep(0.05, 0.45, y);
+  _shaped.occ = occ;
+  return _shaped;
+}
+
+// --- the four structures -----------------------------------------------------
+// These are the single definition of each lobe. `regionTint` used to carry its
+// own copies and they silently drifted out of step with the geometry, which put
+// the per-structure colours slightly off the structures they were colouring.
+
+/** Cerebral hemispheres, softly fused across the midline. Squeezing the
+ *  vertical extent at the back turns the occipital into a pole, not a round end. */
+function cerebrumField(xs: number, ys: number, z: number, occ: number) {
+  const dy = (ys - 0.115) * (1 + 0.5 * occ);
+  const dz = z + 0.03;
+  return smin(
+    ellip(xs + 0.285, dy, dz, 0.415, 0.545, 0.865),
+    ellip(xs - 0.285, dy, dz, 0.415, 0.545, 0.865),
+    0.3
+  );
+}
+
+/** Temporal lobes, mirrored via |x| — they never cross the midline. */
+function temporalField(xs: number, y: number, z: number) {
+  return ellip(Math.abs(xs) - 0.42, y + 0.3, z - 0.14, 0.2, 0.235, 0.42);
+}
+
+/** Cerebellum: two lobes slung below and behind the occipital pole. */
+function cerebellumField(x: number, y: number, z: number) {
+  return ellip(Math.abs(x) - 0.215, y + 0.51, z + 0.62, 0.31, 0.255, 0.315);
+}
+
+/** Brain stem: tapered capsule dropping from the midbrain. */
+function stemField(x: number, y: number, z: number) {
+  const pay = y + 0.26;
+  const paz = z + 0.3;
+  // The stem lies on the midline, so the axis has no x component.
+  const bay = -0.68;
+  const baz = 0.16;
+  let h = (pay * bay + paz * baz) / (bay * bay + baz * baz);
+  h = h < 0 ? 0 : h > 1 ? 1 : h;
+  const qy = pay - bay * h;
+  const qz = paz - baz * h;
+  return Math.sqrt(x * x + qy * qy + qz * qz) - (0.15 - 0.072 * h);
+}
+
 /**
  * The lobe-scale mass alone — hemispheres, temporal lobes, cerebellum, stem —
  * with no sulci carved into it. Occlusion only cares about structure at this
@@ -81,52 +147,11 @@ export const BOUNDS = {
  * Negative = inside.
  */
 export function massField(x: number, y: number, z: number): number {
-  // Frontal and occipital poles are narrower than the parietal midsection.
-  const front = smoothstep(0.08, 0.94, z);
-  const back = smoothstep(-0.12, -0.92, z);
-  const widen = 1 + 0.34 * front + 0.3 * back;
-  const xs = x * widen;
-
-  // Orbital surface sits high and flat; the vertex slopes down toward the frontal pole.
-  const ys =
-    y -
-    0.16 * front * smoothstep(0.08, -0.44, y) +
-    0.1 * front * smoothstep(0.05, 0.45, y);
-
-  // Cerebral hemispheres, softly fused across the midline.
-  const dy = ys - 0.115;
-  const dz = z + 0.03;
-  const left = ellip(xs + 0.285, dy, dz, 0.415, 0.545, 0.865);
-  const right = ellip(xs - 0.285, dy, dz, 0.415, 0.545, 0.865);
-  let f = smin(left, right, 0.3);
-
-  // Temporal lobes (mirrored via |x|, they never cross the midline).
-  const temporal = ellip(Math.abs(xs) - 0.42, y + 0.3, z - 0.14, 0.2, 0.235, 0.42);
-  f = smin(f, temporal, 0.2);
-
-  // Cerebellum: two tucked lobes behind and below.
-  const cereb = ellip(Math.abs(x) - 0.21, y + 0.46, z + 0.63, 0.285, 0.235, 0.30);
-  f = smin(f, cereb, 0.105);
-
-  // Brain stem: tapered capsule dropping from the midbrain.
-  {
-    const pax = x;
-    const pay = y + 0.26;
-    const paz = z + 0.3;
-    // The stem lies on the midline, so the axis has no x component.
-    const bay = -0.57;
-    const baz = 0.16;
-    const bb = bay * bay + baz * baz;
-    let h = (pay * bay + paz * baz) / bb;
-    h = h < 0 ? 0 : h > 1 ? 1 : h;
-    const qx = pax;
-    const qy = pay - bay * h;
-    const qz = paz - baz * h;
-    const r = 0.128 - 0.060 * h;
-    const stem = Math.sqrt(qx * qx + qy * qy + qz * qz) - r;
-    f = smin(f, stem, 0.1);
-  }
-
+  const s = shapeCoords(x, y, z);
+  let f = cerebrumField(s.xs, s.ys, z, s.occ);
+  f = smin(f, temporalField(s.xs, y, z), 0.2);
+  f = smin(f, cerebellumField(x, y, z), 0.085);
+  f = smin(f, stemField(x, y, z), 0.1);
   return f;
 }
 
@@ -164,9 +189,9 @@ export function analyticField(x: number, y: number, z: number): number {
 
   // Transverse fissure: the notch that separates occipital lobe from cerebellum.
   // Masked away from the midline so the cerebellum stays tethered to the stem.
-  const dTr = y + 0.29;
+  const dTr = y + 0.30;
   f +=
-    0.068 *
+    0.082 *
     Math.exp((-dTr * dTr) / (2 * 0.05 * 0.05)) *
     smoothstep(-0.26, -0.52, z) *
     smoothstep(0.08, 0.24, Math.abs(x));
@@ -193,12 +218,12 @@ export function brainField(x: number, y: number, z: number): number {
 
   // Cerebellum wears much finer, near-horizontal striations.
   const cd = Math.sqrt(
-    x * x * 0.55 + (y + 0.45) * (y + 0.45) * 1.6 + (z + 0.63) * (z + 0.63) * 1.4
+    x * x * 0.5 + (y + 0.51) * (y + 0.51) * 1.5 + (z + 0.62) * (z + 0.62) * 1.3
   );
-  const cbMask = smoothstep(0.44, 0.14, cd);
+  const cbMask = smoothstep(0.48, 0.14, cd);
   if (cbMask > 0.002) {
-    const nc = perlin3(x * 4.0, (y + 0.45) * 30.0, (z + 0.63) * 21.0);
-    f -= cbMask * 0.03 * (1 - Math.min(1, Math.abs(nc) / 0.45));
+    const nc = perlin3(x * 4.0, (y + 0.51) * 32.0, (z + 0.62) * 22.0);
+    f -= cbMask * 0.04 * (1 - Math.min(1, Math.abs(nc) / 0.45));
   }
 
   return f;
@@ -226,32 +251,11 @@ export function analyticNormal(x: number, y: number, z: number) {
  * Weights are soft, so points near a boundary blend rather than banding.
  */
 export function regionTint(x: number, y: number, z: number): number {
-  const front = smoothstep(0.08, 0.94, z);
-  const back = smoothstep(-0.12, -0.92, z);
-  const xs = x * (1 + 0.34 * front + 0.3 * back);
-  const ys =
-    y -
-    0.16 * front * smoothstep(0.08, -0.44, y) +
-    0.1 * front * smoothstep(0.05, 0.45, y);
-
-  const dy = ys - 0.115;
-  const dz = z + 0.03;
-  const cerebrum = Math.min(
-    ellip(xs + 0.285, dy, dz, 0.415, 0.545, 0.865),
-    ellip(xs - 0.285, dy, dz, 0.415, 0.545, 0.865)
-  );
-  const temporal = ellip(Math.abs(xs) - 0.42, y + 0.3, z - 0.14, 0.2, 0.235, 0.42);
-  const cereb = ellip(Math.abs(x) - 0.2, y + 0.45, z + 0.63, 0.26, 0.215, 0.28);
-
-  const pay = y + 0.26;
-  const paz = z + 0.3;
-  const bay = -0.52;
-  const baz = 0.16;
-  let h = (pay * bay + paz * baz) / (bay * bay + baz * baz);
-  h = h < 0 ? 0 : h > 1 ? 1 : h;
-  const qy = pay - bay * h;
-  const qz = paz - baz * h;
-  const stem = Math.sqrt(x * x + qy * qy + qz * qz) - (0.115 - 0.055 * h);
+  const s = shapeCoords(x, y, z);
+  const cerebrum = cerebrumField(s.xs, s.ys, z, s.occ);
+  const temporal = temporalField(s.xs, y, z);
+  const cereb = cerebellumField(x, y, z);
+  const stem = stemField(x, y, z);
 
   // Anything at or inside a component weighs 1; influence falls away outside it.
   const w = (d: number) => Math.exp(-Math.max(d, 0) * 16);
@@ -268,7 +272,8 @@ export function regionTint(x: number, y: number, z: number): number {
   const STEM = 0.56; // warm accent, onto orange
 
   // A frontal/occipital drift so the front of the brain reads warmer than the back.
-  const axial = (front - back) * 0.05;
+  const axial =
+    (smoothstep(0.08, 0.94, z) - smoothstep(-0.12, -0.92, z)) * 0.05;
 
   return (
     (wc * CEREBRUM + wt * TEMPORAL + wb * CEREBELLUM + ws * STEM) / total + axial

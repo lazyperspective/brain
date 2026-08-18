@@ -29,6 +29,16 @@ brainstem capsule — then carves the four sulci that actually carry the silhoue
 (longitudinal, lateral/Sylvian, central, and the transverse notch separating
 occipital lobe from cerebellum).
 
+Each structure has exactly one definition, shared by the field and by the
+per-structure colouring. They were duplicated once and silently drifted apart,
+which left the lobe colours sitting slightly off the lobes they were colouring.
+
+The two ends are deliberately unalike, because that asymmetry is what makes the
+orientation readable at a glance: the frontal pole is markedly narrower than the
+parietal midsection, the occipital is squeezed vertically so it draws down to a
+blunt point rather than a rounded end, and the crown slopes forward so the
+highest point of the brain sits behind centre.
+
 Gyri come from **ridged noise**: the zero-crossing contours of a 3D Perlin field
 are winding closed curves, which is the topology of cortical folds. Pushing the
 surface outward along those contours raises gyri and leaves sulci between them.
