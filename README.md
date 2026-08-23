@@ -4,6 +4,10 @@
 
 ### [→ brainani.vercel.app](https://brainani.vercel.app)
 
+![BRAIN](docs/demo.gif)
+
+*The loop above is a few seconds of it. [Full 35-second capture →](docs/demo.mp4)*
+
 It arrives already thinking: fibres forming and fading, charge running the
 network, slow swells of activation drifting through the cortex. Add a thought
 and it collapses into a droplet, arcs into the cortex, and detonates on the node
