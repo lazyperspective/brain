@@ -1,7 +1,25 @@
 {
-  "name": "brainani",
-  "version": "0.1.0",
+  "name": "brain",
+  "version": "1.0.0",
   "private": true,
+  "description": "A living brain rendered entirely at runtime \u2014 a procedural signed distance field, a GPU-animated neural network, and the thoughts of everyone who visits it.",
+  "license": "MIT",
+  "author": "Pradeep Kapoor",
+  "homepage": "https://brainani.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lazyperspective/brain.git"
+  },
+  "keywords": [
+    "webgl",
+    "threejs",
+    "react-three-fiber",
+    "shaders",
+    "generative",
+    "signed-distance-field",
+    "creative-coding",
+    "nextjs"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

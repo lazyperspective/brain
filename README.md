@@ -1,23 +1,38 @@
 # BRAIN
 
-*Pradeep Kapoor*
+**A living brain, built from the thoughts of everyone who visits it.**
 
-A living brain assembled from people's thoughts. It arrives already thinking:
-fibres forming and fading, charge running the network, slow swells of activation
-drifting through the cortex. Add a thought and it collapses into a droplet,
-arcs into the brain, and detonates on the cortical node it will occupy from then on.
+### [→ brainani.vercel.app](https://brainani.vercel.app)
 
-Hover any light to read the thought living there.
+It arrives already thinking: fibres forming and fading, charge running the
+network, slow swells of activation drifting through the cortex. Add a thought
+and it collapses into a droplet, arcs into the cortex, and detonates on the node
+it will occupy from then on. Hover any light to read the thought living there.
 
-## Running it
+Every pixel is generated at runtime. There are no models, no textures, and no
+asset files of any kind — the anatomy is a signed distance field, the cortical
+folds are ridged noise, and the network is instanced geometry animated on the
+GPU. It holds 120fps at a 1332×1724 draw buffer.
+
+Built with Next.js, React Three Fiber and a pile of hand-written GLSL.
+MIT licensed — take it apart.
+
+## Quick start
 
 ```bash
+npm install
 npm run dev
 ```
+
+Then open [localhost:3000](http://localhost:3000).
 
 ```bash
 npm run build && npm start
 ```
+
+Nothing to configure — no environment variables, no API keys, no backend.
+Thoughts are seeded in `lib/thoughts.ts` and the visitor's own are kept in
+`localStorage`.
 
 ## How it is put together
 
@@ -188,3 +203,9 @@ the collective genuinely shared.
 120fps (display-capped) at a 1332×1724 draw buffer on an M-series Mac; p95 frame
 9.3ms. DPR is capped at 2 and the composer runs without MSAA. Geometry is built
 in a worker, so the ~600ms of field sampling never costs a frame.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
+
+Built by Pradeep Kapoor.
