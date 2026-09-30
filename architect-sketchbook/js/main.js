@@ -96,7 +96,7 @@
       scene.build(P, scene.index + 1, TOTAL);
       this.page = P; this.ops = P.ops; this.i = 0; this.j = 0; this.credit = 0; this.seed = scene.seed;
       // animated groups: op ranges the scene marked as live; after the pen finishes they are redrawn every frame
-      this.anims = (P.anims || []).map(a => Object.assign({ st: {} }, a)); this.skip = new Uint8Array(this.ops.length); this.anims.forEach(a => this.skip.fill(1, a.i0, a.i1)); this.base = null; this.t0 = null;
+      this.anims = (P.anims || []).map(a => Object.assign({ st: {} }, a)); this.skip = new Uint8Array(this.ops.length); this.anims.forEach(a => this.skip.fill(1, a.i0, a.i1)); this.base = null; this.t0 = null; this.reveal = !!scene.reveal; this.full = null;
       this.total = 0;
       for (const op of this.ops) this.total += this.units(op) * this.ucost(op);
     }
@@ -117,13 +117,47 @@
         const uc = this.ucost(op), avail = Math.floor(this.credit / uc);
         if (avail < 1) break;
         const take = Math.min(avail, N - this.j);
-        this.draw(op, this.j, this.j + take);
+        this.draw(op, this.j, this.j + take, ictx, this.pat);
         this.j += take; this.credit -= take * uc;
         if (this.j >= N) { this.i++; this.j = 0; }
       }
       if (this.done) this.credit = 0;
     }
     finish() { this.advance(Infinity); }
+    /* ---- reveal mode: the finished page is rendered up front and the pen uncovers it stroke by stroke,
+       so strokes that end up hidden (back faces in the 3D painter's order) never flash on screen ---- */
+    ensure() {
+      if (!this.reveal && !this.anims.length) return;
+      if (this.reveal && (!this.full || this.full.k !== k)) {
+        const c = document.createElement('canvas'); c.width = inkC.width; c.height = inkC.height; const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, 0, 0); this.drawAll(this.ops, x);
+        const pat = ictx.createPattern(c, 'no-repeat'); pat.setTransform(new DOMMatrix([1 / k, 0, 0, 1 / k, 0, 0])); this.full = { c, k, pat };
+      }
+      if (this.anims.length && (!this.base || this.base.k !== k)) { this.buildBase(); this.anims.forEach(a => { a.st.at = undefined; }); }
+    }
+    get pat() { return this.reveal && this.full ? this.full.pat : null; }
+    drawReveal(op, from, to, c, rv) {
+      c.fillStyle = rv;
+      switch (op.k) {
+        case 's': {
+          const p = op.p, L = [], Rr = [];
+          for (let n = from; n <= to; n++) {
+            const q = p[n], a = p[Math.max(0, n - 1)], b = p[Math.min(p.length - 1, n + 1)];
+            let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+            const hw = q[2] * 1.1 + 0.8;
+            L.push(q[0] - ty * hw, q[1] + tx * hw); Rr.push(q[0] + ty * hw, q[1] - tx * hw);
+          }
+          c.beginPath(); c.moveTo(L[0], L[1]); for (let n = 2; n < L.length; n += 2) c.lineTo(L[n], L[n + 1]); for (let n = Rr.length - 2; n >= 0; n -= 2) c.lineTo(Rr[n], Rr[n + 1]); c.closePath(); c.fill();
+          break;
+        }
+        case 'f': {
+          if (from > 0 || (!op.g && op.a >= 1 && /^#f{3,6}$/i.test(op.c))) break; // white occluders only hide things: nothing to uncover
+          c.beginPath(); c.moveTo(op.poly[0][0], op.poly[0][1]); for (let n = 1; n < op.poly.length; n++) c.lineTo(op.poly[n][0], op.poly[n][1]); c.closePath(); c.fill();
+          break;
+        }
+        case 'd': c.beginPath(); c.arc(op.x, op.y, op.r + 0.8, 0, 6.3); c.fill(); break;
+        case 'D': for (const q of op.p) { c.beginPath(); c.arc(q[0], q[1], q[2] + 0.8, 0, 6.3); c.fill(); } break;
+      }
+    }
     /* ---- live animation ---- */
     drawAll(ops, c, skip) { for (let n = 0; n < ops.length; n++) { if (skip && skip[n]) continue; const op = ops[n], N = this.units(op); if (N === 0) continue; this.draw(op, 0, N, c); } }
     buildBase() {
@@ -142,7 +176,7 @@
     }
     animate(now) {
       if (this.t0 === null) this.t0 = now; const t = (now - this.t0) / 1000;
-      if (!this.base || this.base.k !== k) { this.buildBase(); this.anims.forEach(a => { a.st.at = undefined; }); }
+      this.ensure();
       const c = ictx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, inkC.width, inkC.height); c.drawImage(this.base.c, 0, 0);
       for (const a of this.anims) {
         const st = a.st, fps = a.fps ?? 24;
@@ -156,15 +190,16 @@
     /* redraw everything already drawn (after a resize / sheet switch) */
     replay() {
       const ti = this.i, tj = this.j;
-      this.reset();
+      this.ensure(); this.reset();
       for (let n = 0; n <= ti && n < this.ops.length; n++) {
         const op = this.ops[n], N = this.units(op);
         if (N === 0) continue;
-        this.draw(op, 0, n < ti ? N : tj);
+        this.draw(op, 0, n < ti ? N : tj, ictx, this.pat);
       }
     }
-    draw(op, from, to, c = ictx) {
+    draw(op, from, to, c = ictx, rv = null) {
       if (to <= from && op.k !== 'e') return;
+      if (rv) return this.drawReveal(op, from, to, c, rv);
       switch (op.k) {
         case 's': {
           const p = op.p, fs = op.fs || (op.fs = S.rgba(op.c, op.a));
@@ -258,7 +293,7 @@
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     if (cur >= 0 && !switching) {
       const p = playerFor(cur);
-      if (!p.done) { p.advance(Math.max(140, p.total / DURATION) * speedMul * dt); p.t0 = null; }
+      if (!p.done) { p.ensure(); p.advance(Math.max(140, p.total / DURATION) * speedMul * dt); p.t0 = null; }
       else if (p.anims.length && !paused) p.animate(now);
     }
     requestAnimationFrame(frame);
@@ -291,7 +326,7 @@
     show(start, true);
     // if the handwriting font arrives late, re-lay the lettering out
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
-      players.forEach(p => { if (p) { p.ops.forEach(o => { if (o.lay) o.lay = null; }); p.base = null; } });
+      players.forEach(p => { if (p) { p.ops.forEach(o => { if (o.lay) o.lay = null; }); p.base = null; p.full = null; } });
       if (cur >= 0) playerFor(cur).replay();
     });
     requestAnimationFrame(frame);

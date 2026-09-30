@@ -1,7 +1,7 @@
 /* SHEET 18 — "Clock Island": a Gothic tower on a hill, crowned by a heap of machinery.
    True 3D masses for perspective and occlusion; every face then gets dense hand-inked detail projected onto it. */
 (window.SCENES = window.SCENES || []).push({
-  name: 'Clock Island', seed: 4242, ink: '#0c0c0c', theme: 'pencil',
+  name: 'Clock Island', seed: 4242, ink: '#0c0c0c', theme: 'pencil', reveal: true,
   build(P, n, t) {
     const S = Sketch, D = S.D3, V = S.V3, TAU = S.TAU, lerp = S.lerp, K = '#0c0c0c', Wh = '#ffffff', R = (a, b) => P.r(a, b);
     const CAM = D.camera({ eye: [-1100, -1700, 420], target: [0, 0, 260], f: 1550, cx: 800, cy: 330 });
