@@ -140,7 +140,21 @@
       const i = Math.floor(t), f = t - i, u = f * f * (3 - 2 * f);
       return this.tab[i & 255] * (1 - u) + this.tab[(i + 1) & 255] * u;
     }
-    push(op) { this.ops.push(op); return this; }
+    /* transform stack: everything drawn between xf() and xfEnd() is scaled about (cx,cy) and moved to (tx,ty) */
+    xf(sc, cx, cy, tx, ty, wexp = 0.5) { this._xf = { s: sc, cx, cy, tx, ty, ws: Math.pow(sc, wexp) }; return this; }
+    xfEnd() { this._xf = null; return this; }
+    push(op) {
+      const X = this._xf;
+      if (X) {
+        const mx = x => X.tx + (x - X.cx) * X.s, my = y => X.ty + (y - X.cy) * X.s;
+        switch (op.k) {
+          case 's': case 'D': op.p = op.p.map(q => [mx(q[0]), my(q[1]), q[2] * X.ws]); break;
+          case 'f': case 'e': op.poly = op.poly.map(q => [mx(q[0]), my(q[1])]); if (op.g) op.g = Object.assign({}, op.g, { x0: mx(op.g.x0), y0: my(op.g.y0), x1: mx(op.g.x1), y1: my(op.g.y1) }); break;
+          case 'd': op.x = mx(op.x); op.y = my(op.y); op.r *= X.ws; break;
+        }
+      }
+      this.ops.push(op); return this;
+    }
 
     /* ---------- lines ---------- */
     line(x1, y1, x2, y2, o = {}) {
@@ -449,6 +463,43 @@
       }
       return this;
     }
+
+    /* Engraved "grain lines" that follow a centre path (bark, branches, stems): n curves across the width,
+       thick on the shadow side, thin on the light side, broken into runs like a burin lifting off the plate. */
+    strands(pts, h0, h1, n, o = {}) {
+      const S = catmull(pts, false, o.step || 5), m = S.length; if (m < 3) return this;
+      const hw = typeof h0 === 'function' ? h0 : t => lerp(h0, h1, t), edges = o.edges ?? true, sh = o.shadow ?? 1;
+      const N = []; for (let i = 0; i < m; i++) { const a = S[Math.max(0, i - 1)], b = S[Math.min(m - 1, i + 1)]; let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; N.push([-ty / l, tx / l]); }
+      const side = (a, u, wob) => S.slice(a[0], a[1]).map((p, j) => { const i = a[0] + j, t = i / (m - 1), w = hw(t) * (u + this.nz(wob + i * 0.07) * 0.035); return [p[0] + N[i][0] * w, p[1] + N[i][1] * w]; });
+      if (edges) for (const u of [-1, 1]) { this.path(side([0, m], u, this.r(0, 100)), { rough: o.rough ?? 0.5, w: (o.w ?? 1.3) * (u * sh > 0 ? 1.25 : 0.85), c: o.c, a: o.a ?? 0.95, passes: 1 }); }
+      for (let k = 0; k < n; k++) {
+        const r = (k + 0.5) / n * 2 - 1, u = Math.sign(r) * Math.pow(Math.abs(r), 0.85) * 0.94, wob = this.r(0, 200);
+        const lightF = Math.max(0.25, Math.min(1.5, 0.75 + u * sh * 0.65));
+        let i = Math.floor(this.r(0, 10));
+        while (i < m - 2) {
+          const run = Math.max(3, Math.floor(this.r(o.runMin ?? 6, o.runMax ?? 30)));
+          const seg = side([i, Math.min(m, i + run)], u, wob);
+          if (seg.length > 2) this.path(seg, { rough: 0.3, w: (o.w ?? 1.3) * 0.5 * lightF, c: o.c, a: (o.a ?? 0.95) * this.r(0.55, 0.95) * Math.min(1, 0.55 + lightF * 0.35), passes: 1 });
+          i += run + Math.floor(this.r(0, o.gap ?? 6));
+        }
+      }
+      return this;
+    }
+    /* Botanical leaf: pointed outline, midrib and paired veins. */
+    leaf(x, y, ang, len, w, o = {}) {
+      const ca = Math.cos(ang), sa = Math.sin(ang), T = (u, v) => [x + ca * u - sa * v, y + sa * u + ca * v];
+      const L = [T(0, 0), T(len * 0.25, -w * 0.9), T(len * 0.62, -w * 0.72), T(len, 0)], R = [T(0, 0), T(len * 0.25, w * 0.9), T(len * 0.62, w * 0.72), T(len, 0)];
+      const oo = { rough: 0.25, w: o.w ?? 0.8, c: o.c, a: o.a ?? 0.85, passes: 1 };
+      this.curve(L, oo); this.curve(R, oo);
+      if (!o.simple) {
+        const a = T(0, 0), b = T(len * 0.94, 0); this.line(a[0], a[1], b[0], b[1], { w: (o.w ?? 0.8) * 0.8, c: o.c, a: (o.a ?? 0.85) * 0.9, passes: 1, over: 0, rough: 0.15 });
+        const nv = o.veins ?? 3;
+        for (let i = 1; i <= nv; i++) { const t = i / (nv + 1) * 0.85 + 0.1, p = T(len * t, 0), e1 = T(len * (t + 0.16), -w * 0.6 * (1 - t * 0.5)), e2 = T(len * (t + 0.16), w * 0.6 * (1 - t * 0.5)); this.line(p[0], p[1], e1[0], e1[1], { w: 0.4, c: o.c, a: 0.55, passes: 1, over: 0, rough: 0.1 }); this.line(p[0], p[1], e2[0], e2[1], { w: 0.4, c: o.c, a: 0.55, passes: 1, over: 0, rough: 0.1 }); }
+      }
+      return this;
+    }
+    /* opaque patch that hides what is behind it (erase() would show the bare paper on cyanotype) */
+    occlude(poly, color) { return this.push({ k: 'f', poly, c: color, a: 1, g: null, edge: 0, steps: 1 }); }
 
     /* ---------- sheet furniture ---------- */
     frame(title, sub, n, total, o = {}) {

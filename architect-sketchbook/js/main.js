@@ -20,6 +20,7 @@
     mint: { base: '#edf4f0', blot: ['rgba(120,160,150,0.10)', 'rgba(255,255,255,0.20)'], grid: { minor: 10, major: 50, mc: 'rgba(60,140,140,0.15)', Mc: 'rgba(60,140,140,0.30)' }, fib: ['rgba(80,120,110,0.06)', 'rgba(255,255,255,0.4)'], vig: 'rgba(70,110,100,0.16)', tape: false, blend: 'multiply', grain: [240, 250, 246, 55] },
     pcb: { base: '#eeefe9', blot: ['rgba(160,150,110,0.08)', 'rgba(255,255,255,0.2)'], grid: { minor: 20, major: 100, mc: 'rgba(60,90,200,0.06)', Mc: 'rgba(60,90,200,0.14)' }, fib: ['rgba(100,100,80,0.06)', 'rgba(255,255,255,0.4)'], vig: 'rgba(120,110,70,0.18)', tape: false, blend: 'multiply', grain: [250, 250, 244, 50] },
     pencil: { base: '#f3efe2', blot: ['rgba(200,180,130,0.10)', 'rgba(255,255,255,0.16)'], grid: null, fib: ['rgba(110,96,64,0.06)', 'rgba(255,255,255,0.35)'], vig: 'rgba(120,100,60,0.18)', tape: false, blend: 'multiply', grain: [250, 246, 234, 70] },
+    cyan: { base: '#e9e3d0', blot: ['rgba(150,120,70,0.10)', 'rgba(255,255,255,0.18)'], grid: null, fib: ['rgba(110,90,50,0.08)', 'rgba(255,255,255,0.45)'], vig: 'rgba(80,60,20,0.28)', tape: false, blend: 'normal', grain: [220, 240, 255, 34], glow: 'drop-shadow(0 0 1.1px rgba(190,225,255,0.55))' },
     bluepen: { base: '#efe6d0', blot: ['rgba(200,170,110,0.12)', 'rgba(255,255,255,0.14)'], grid: null, fib: ['rgba(120,96,60,0.07)', 'rgba(255,255,255,0.3)'], vig: 'rgba(140,110,50,0.24)', tape: false, blend: 'multiply', grain: [250, 244, 226, 44] },
   };
   let theme = THEMES.cream;
@@ -80,6 +81,7 @@
   function applyTheme(scene) {
     theme = themeFor(scene);
     inkC.style.mixBlendMode = theme.blend;
+    inkC.style.filter = theme.glow || 'none';
     makeGrain();
     if (paperC.width) paintPaper();
   }
