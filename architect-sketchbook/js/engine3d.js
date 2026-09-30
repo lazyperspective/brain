@@ -25,7 +25,7 @@
     for (let i = 0; i < n; i++) {
       const p = pts[i], q = pts[(i + 1) % n], nn = EN[i], nx = EN[(i + 1) % n], pv = EN[(i + n - 1) % n];
       const hr = Math.acos(Math.max(-1, Math.min(1, dot(nn, nx)))) > (o.crease ?? 0.5), hl = Math.acos(Math.max(-1, Math.min(1, dot(nn, pv)))) > (o.crease ?? 0.5);
-      faces.push({ v: [[p[0], p[1], z0], [q[0], q[1], z0], [q[0], q[1], z1], [p[0], p[1], z1]], n: nn, hard: [!!o.bottomEdge, hr, true, hl], c: o.sideColor, ghost: o.ghost });
+      faces.push({ v: [[p[0], p[1], z0], [q[0], q[1], z0], [q[0], q[1], z1], [p[0], p[1], z1]], n: nn, hard: [!!o.bottomEdge, hr, true, hl], c: o.sideColor, ghost: o.ghost, hdir: [0, 0, 1] });
     }
     return faces;
   }
@@ -79,8 +79,9 @@
         P.occlude(poly, paper);
         if (f.c) P.wash(poly, f.c, (f.ca ?? 0.55) * (1 - 0.35 * fk), { edge: 0, jit: 0.2, steps: 1 });
         const lam = Math.max(0, dot(f.n, L)), tone = Math.min(1, amb + (1 - amb) * lam), dark = f.tone !== undefined ? f.tone : 1 - tone;
-        if (dark > 0.1 && !f.noHatch) {
-          const az = Math.atan2(f.n[1], f.n[0]), ang = f.n[2] > 0.9 ? -48 : f.n[2] < -0.9 ? 60 : 62 + Math.sin(az) * 26;
+        if (dark > (o.hatchMin ?? 0.1) && !f.noHatch) {
+          const az = Math.atan2(f.n[1], f.n[0]); let ang = f.n[2] > 0.9 ? -48 : f.n[2] < -0.9 ? 60 : 62 + Math.sin(az) * 26;
+          if (f.hdir && Math.abs(dot(f.hdir, f.n)) < 0.7) { const q0 = cam.project(it.c), q1 = cam.project(add(it.c, mul(f.hdir, 10))); if (q0 && q1) ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]) * 180 / Math.PI; }
           let area2 = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; area2 += p[0] * q[1] - q[0] * p[1]; } area2 = Math.abs(area2) / 2;
           if (area2 > 3) P.hatch(poly, { ang, gap: Math.max(1.3, (o.gap ?? 5.6) - dark * 4.4 + (f.n[2] > 0.9 ? 0.8 : 0)) * (1 + 0.5 * fk), a: Math.min(0.78, 0.3 + dark * 0.6) * fa, w: 0.5, c: ink, inset: 0.3, ragged: 0.4, jit: 0.15, cross: dark > 0.72 && area2 > 60 ? 42 : undefined });
         }
@@ -96,6 +97,29 @@
   function dashed3(P, a, b, cam, pat, o = {}) { const pa = cam.project(a), pb = cam.project(b); if (pa && pb) P.dashed(pa[0], pa[1], pb[0], pb[1], pat || [8, 4], o); }
   function label3(P, txt, at, cam, dx, dy, o = {}) { const p = cam.project(at); if (!p) return; P.note(txt, p[0] + dx, p[1] + dy, p[0], p[1], o); }
 
+  /* lathe: revolve a profile [[r, z], ...] about the vertical axis through (cx, cy). Faces point outward
+     (or inward where the profile runs back down, e.g. a lens bore). o.seg segments, o.a0..a1 for partial cut-aways. */
+  function revolve(cx, cy, prof, o = {}) {
+    const seg = o.seg ?? 36, a0 = o.a0 ?? 0, a1 = o.a1 ?? TAU, full = Math.abs(a1 - a0 - TAU) < 1e-6, faces = [];
+    for (let j = 0; j + 1 < prof.length; j++) {
+      const [r0, z0] = prof[j], [r1, z1] = prof[j + 1], dr = r1 - r0, dz = z1 - z0, L = Math.hypot(dr, dz) || 1;
+      const nr = dz / L, nz = -dr / L;                                   // outward normal in (r,z) for a profile walked bottom->top on the outside
+      const sharpPrev = j > 0 && (() => { const [pr, pz] = prof[j - 1]; const a = Math.atan2(z0 - pz, r0 - pr), b = Math.atan2(dz, dr); return Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a))) > (o.crease ?? 0.45); })();
+      for (let i = 0; i < seg; i++) {
+        const t0 = a0 + (a1 - a0) * i / seg, t1 = a0 + (a1 - a0) * (i + 1) / seg, tm = (t0 + t1) / 2;
+        const P = (r, z, t) => [cx + Math.cos(t) * r, cy + Math.sin(t) * r, z];
+        const v = [P(r0, z0, t0), P(r0, z0, t1), P(r1, z1, t1), P(r1, z1, t0)];
+        faces.push({ v, hdir: [0, 0, 1], tone: nr < -0.3 && o.darkBore !== false ? 0.88 : undefined, n: norm([Math.cos(tm) * nr, Math.sin(tm) * nr, nz]), hard: [sharpPrev || j === 0, !full && i === seg - 1, j === prof.length - 2, !full && i === 0], c: o.color, ghost: o.ghost, double: o.double });
+      }
+    }
+    if (!full) [[a0, -1], [a1, 1]].forEach(([t, sg]) => { const v = prof.map(([r, z]) => [cx + Math.cos(t) * r, cy + Math.sin(t) * r, z]); v.push([cx, cy, prof[prof.length - 1][1]], [cx, cy, prof[0][1]]); faces.push({ v: sg > 0 ? v : v.slice().reverse(), n: [-Math.sin(t) * sg, Math.cos(t) * sg, 0], hard: v.map(() => true), tone: o.cutTone ?? 0.62, cut: true }); });
+    return faces;
+  }
+  /* knurl / grip ridges on a cylinder, as short vertical strokes (drawn through the camera, only on the visible side) */
+  function knurl(P, cam, cx, cy, r, z0, z1, n, o = {}) { const eye = cam.eye; for (let i = 0; i < n; i++) { const a = i * TAU / n, nx = Math.cos(a), ny = Math.sin(a), px = cx + nx * r, py = cy + ny * r; if ((eye[0] - px) * nx + (eye[1] - py) * ny <= 0) continue; const p0 = cam.project([px, py, z0]), p1 = cam.project([px, py, z1]); if (p0 && p1) P.line(p0[0], p0[1], p1[0], p1[1], Object.assign({ w: 0.55, a: 0.8, passes: 1, over: 0, rough: 0.15 }, o)); } }
+  /* coil spring along z as a helix polyline */
+  function helix(cx, cy, r, z0, z1, turns, k = 14) { const pts = []; for (let i = 0; i <= turns * k; i++) { const t = i / (turns * k), a = t * turns * TAU; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, lerp3(z0, z1, t)]); } return pts; }
+  const lerp3 = (a, b, t) => a + (b - a) * t;
   /* polygon with a normal oriented toward `inside` */
   function poly3(v, inside, o = {}) {
     let n = norm(cross(sub(v[1], v[0]), sub(v[2], v[0]))), c = [0, 0, 0]; v.forEach(q => { c[0] += q[0] / v.length; c[1] += q[1] / v.length; c[2] += q[2] / v.length; });
@@ -105,5 +129,5 @@
   /* project a point along light direction onto the plane z = gz */
   const onFloor = (p, Ld, gz = 0) => { const t = (p[2] - gz) / -Ld[2]; return [p[0] + Ld[0] * t, p[1] + Ld[1] * t, gz]; };
   g.Sketch.V3 = { add, sub, mul, dot, cross, norm };
-  g.Sketch.D3 = { camera, extrude, cylinder, ringSolid, gearMesh, bodyOfBar, circlePts, place, shift, render, poly3, onFloor, polyline3, dashed3, label3 };
+  g.Sketch.D3 = { camera, extrude, cylinder, ringSolid, gearMesh, bodyOfBar, circlePts, place, shift, render, poly3, onFloor, revolve, knurl, helix, polyline3, dashed3, label3 };
 })(window);

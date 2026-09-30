@@ -1,0 +1,229 @@
+/* SHEET 12 — Exploded view of a vintage rangefinder camera. True 3D, three-quarter view from above.
+   Black fineliner, cross-hatch shading, red only on springs and screws. */
+(window.SCENES = window.SCENES || []).push({
+  name: 'Camera (exploded)', seed: 151, ink: '#141414', theme: 'archive',
+  build(P, n, t) {
+    const S = Sketch, D = S.D3, V = S.V3, TAU = S.TAU, lerp = S.lerp;
+    const INK = '#141414', RED = '#c3272b', PAPER = '#ffffff';
+    const tg = [30, -80, 44], yaw = -0.98, pit = 0.46, dist = 1500;
+    const CAM = D.camera({ eye: [tg[0] + dist * Math.sin(yaw) * Math.cos(pit), tg[1] - dist * Math.cos(yaw) * Math.cos(pit), tg[2] + dist * Math.sin(pit)], target: tg, f: 3500, cx: 600, cy: 505 });
+    const faces = [], add = f => { (Array.isArray(f) ? f : [f]).forEach(x => faces.push(x)); return f; };
+    const custom = (c, fn, bias = 0) => faces.push({ custom: fn, c, bias: bias < 0 ? -bias * 12 + 18 : bias });
+    const anchors = [];                                     // [label, world point] for callouts
+    const tag = (label, p) => anchors.push([label, p]);
+
+    /* ---------- geometry helpers ---------- */
+    const stadium = (hw, r, cx = 0, cy = 0, seg = 10) => { const pts = []; for (let i = 0; i <= seg; i++) { const a = -Math.PI / 2 + Math.PI * i / seg; pts.push([cx + hw + Math.cos(a) * r, cy + Math.sin(a) * r]); } for (let i = 0; i <= seg; i++) { const a = Math.PI / 2 + Math.PI * i / seg; pts.push([cx - hw + Math.cos(a) * r, cy + Math.sin(a) * r]); } return pts; };
+    const shell = (outer, inner, z0, z1, o = {}) => {            // hollow wall: outer faces, inner faces, top rim
+      const out = D.extrude(outer, z0, z1, { top: false, crease: 0.5 }), inn = D.extrude(inner, z0, z1, { top: false, crease: 0.5 }).map(f => Object.assign({}, f, { v: f.v.slice().reverse(), n: [-f.n[0], -f.n[1], -f.n[2]], hard: [false, false, false, false], tone: 0.82 }));
+      const rim = []; for (let i = 0; i < outer.length; i++) { const j = (i + 1) % outer.length; rim.push({ v: [[outer[i][0], outer[i][1], z1], [outer[j][0], outer[j][1], z1], [inner[j][0], inner[j][1], z1], [inner[i][0], inner[i][1], z1]], n: [0, 0, 1], hard: [true, false, true, false] }); }
+      return out.concat(inn, rim);
+    };
+    const box = (x0, y0, z0, x1, y1, z1, o = {}) => D.extrude([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], z0, z1, Object.assign({ crease: 0.3, bottom: !!o.bottom }, o));
+    // rotate a lathe part so its local z axis points along -y (toward the viewer), placed at (x0, y0, z0)
+    const toFront = (fs, x0, y0, z0) => fs.map(f => Object.assign({}, f, { v: f.v.map(([x, y, z]) => [x0 + x, y0 - z, z0 + y]), n: [f.n[0], -f.n[2], f.n[1]], hdir: f.hdir ? [f.hdir[0], -f.hdir[2], f.hdir[1]] : undefined }));
+    const shiftZ = (fs, dz) => D.shift(fs, 0, 0, dz);
+    const hole = (x, y, z, r, seg = 12) => ({ v: Array.from({ length: seg }, (_, i) => [x + Math.cos(i * TAU / seg) * r, y + Math.sin(i * TAU / seg) * r, z + 0.05]), n: [0, 0, 1], hard: Array(seg).fill(true), all: true, tone: 0.95, bias: 0.5 });
+    const screw = (x, y, z, r = 2.2, len = 7) => {                  // red countersunk screw, head up, with slot
+      add(D.cylinder(x, y, r * 0.5, z - len, z, 8).map(f => Object.assign(f, { c: RED, ca: 0.35 })));
+      add(D.revolve(x, y, [[r * 0.5, z], [r, z + 1.2], [r, z + 1.8], [0.01, z + 1.8]], { seg: 14 }).map(f => Object.assign(f, { c: RED, ca: 0.55 })));
+      custom([x, y, z + 1.9], (PP, cm) => { const a = cm.project([x - r * 0.8, y, z + 1.85]), b = cm.project([x + r * 0.8, y, z + 1.85]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 1, c: RED, a: 1, passes: 1, over: 0, rough: 0.1 }); const pts = []; for (let i = 0; i <= 5 * 10; i++) { const tt = i / 50; pts.push([x + Math.cos(tt * 5 * TAU) * r * 0.52, y + Math.sin(tt * 5 * TAU) * r * 0.52, z - len * tt]); } D.polyline3(PP, pts.filter((_, k) => k % 10 < 5 || true), cm, { w: 0.5, c: RED, a: 0.8 }); }, -1);
+    };
+    const spring = (x, y, z0, z1, r, turns, axis = 'z') => custom([x, y, (z0 + z1) / 2], (PP, cm) => { const pts = D.helix(0, 0, r, z0, z1, turns, 16).map(([u, v, w]) => axis === 'z' ? [x + u, y + v, w] : [x + u, y - (w - z0) + 0, z0 + v]); D.polyline3(PP, pts, cm, { w: 1.1, c: RED, a: 0.95 }); D.polyline3(PP, pts.map(([a, b, c]) => [a + 0.25, b, c - 0.25]), cm, { w: 0.5, c: RED, a: 0.6 }); }, -2);
+    const guide = (a, b) => custom([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], (PP, cm) => D.dashed3(PP, a, b, cm, [7, 4], { w: 0.55, c: INK, a: 0.75 }), 1e6);
+
+    /* ================= the body (z 0..60), open at the top so the film chamber reads ================= */
+    const HW = 52, RR = 17;
+    const bodyOut = stadium(HW, RR), bodyIn = stadium(HW - 0.4, RR - 2.6);
+    add(shell(bodyOut, bodyIn, 0, 60));
+    add({ v: stadium(HW - 0.4, RR - 2.6).map(([x, y]) => [x, y, 3]), n: [0, 0, 1], hard: Array(22).fill(true), all: true, tone: 0.55 });
+    // film chamber partitions, pressure rails, frame aperture window
+    add(box(-34, -14.4, 3, -31, 14.4, 58)); add(box(31, -14.4, 3, 34, 14.4, 58));
+    add(box(-31, -3, 3, 31, 3, 50)); add(box(-19, -3.4, 12, 19, -2.6, 44));
+    // film cassette + take-up spool inside chambers (seen from above)
+    add(D.revolve(-44, 0, [[11.6, 4], [11.6, 55], [0.01, 55]], { seg: 28 })); add(D.revolve(-44, 0, [[3, 55], [3, 60], [0.01, 60]], { seg: 12 }));
+    add(D.revolve(44, 0, [[9, 4], [9, 50], [0.01, 50]], { seg: 24 })); add(D.gearMesh(44, 0, 11.5, 22, 50, 53, 0.1, { root: 0.84 }));
+    add(D.gearMesh(20, 8, 7, 16, 50, 53, 0.2, { root: 0.8 })); add(D.gearMesh(-20, 8, 7, 16, 50, 53, 0.4, { root: 0.8 })); add(D.cylinder(20, 8, 1.4, 50, 57, 8)); add(D.cylinder(-20, 8, 1.4, 50, 57, 8));
+    // shutter curtain drums (horizontal, across the chamber)
+    [[-10, 9], [10, 9]].forEach(([yy]) => {});
+    // lens mount flange on the front face
+    add(toFront(D.revolve(0, 0, [[24, 0], [24, 2.4], [18, 2.4], [18, 0]], { seg: 32 }), 0, -RR, 30));
+    // leatherette on the front: tiny pebbled texture
+    custom([0, -RR - 0.2, 30], (PP, cm) => { const pts = []; for (let i = 0; i < 1100; i++) { const x = P.r(-HW, HW), z = P.r(7, 53); if (Math.hypot(x, z - 30) < 25) continue; const q = cm.project([x, -RR - 0.25, z]); if (q) pts.push([q[0], q[1], P.r(0.35, 0.8)]); } PP.dots(pts, INK, 0.55); [7, 53].forEach(z => { const a = cm.project([-HW, -RR - 0.3, z]), b = cm.project([HW, -RR - 0.3, z]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.7, c: INK, a: 0.9, passes: 1, over: 0, rough: 0.2 }); }); }, -3);
+    // strap lugs
+    [-1, 1].forEach(sg => add(box(sg * (HW + RR) - 1.5, -3, 44, sg * (HW + RR) + (sg > 0 ? 3 : -3) * 0 + 1.5, 3, 52)));
+    tag('BODY SHELL, DIE-CAST', [-HW - RR, -6, 20]); tag('FILM CASSETTE CHAMBER', [-44, 8, 55]); tag('TAKE-UP SPOOL', [44, 8, 52]); tag('FRAME APERTURE 24 X 36', [0, -3, 44]); tag('BAYONET FLANGE', [22, -RR - 2, 38]);
+
+
+    /* ================= Z-stack above the body ================= */
+    const ZM = 84, ZD = 128, ZT = ZD + 12;                // rangefinder module, top deck base, deck top
+    /* ---- rangefinder / gear module floating between body and deck ---- */
+    { add(box(-62, -12, ZM, -22, 10, ZM + 16));                                            // optical block
+      add(box(-60, -13, ZM + 16, -26, 9, ZM + 18));
+      add(D.extrude([[-58, -10], [-50, -10], [-58, -2]], ZM + 18, ZM + 30, { crease: 0.3 }));  // beam-splitter prism
+      add(D.extrude([[-34, -10], [-28, -10], [-28, 6], [-34, 6]], ZM + 18, ZM + 20));
+      add(D.bodyOfBar([-30, -2], [-6, 12], 1.6, 1.2, ZM + 6, ZM + 9, { crease: 0.3 })); add(D.cylinder(-30, -2, 3, ZM + 4, ZM + 12, 12)); spring(-8, 12, ZM + 2, ZM + 14, 2, 7);   // RF cam lever + spring
+      add(D.gearMesh(40, 2, 13, 30, ZM + 4, ZM + 8, 0.1, { root: 0.86 })); add(D.gearMesh(40, 2, 6, 14, ZM + 8, ZM + 12, 0.2, { root: 0.8 }));
+      add(D.gearMesh(20, 6, 8, 20, ZM + 4, ZM + 8, 0.3, { root: 0.84 })); add(D.gearMesh(56, -6, 7, 16, ZM + 4, ZM + 8, 0.1, { root: 0.82 }));
+      add(box(10, -12, ZM, 64, 14, ZM + 3)); [[40, 2], [20, 6], [56, -6]].forEach(([x, y]) => add(D.cylinder(x, y, 1.3, ZM + 3, ZM + 14, 8)));
+      add(D.bodyOfBar([28, -10], [60, 10], 2, 2, ZM + 3, ZM + 5, { crease: 0.3 })); spring(62, 12, ZM + 3, ZM + 14, 1.6, 6);
+      tag('RANGEFINDER BLOCK', [-42, -12, ZM + 8]); tag('CAM FOLLOWER + RETURN SPRING', [-8, 12, ZM + 14]); tag('WIND TRAIN, 3 WHEELS', [40, 2, ZM + 12]); 
+    }
+    /* ---- the top deck ---- */
+    { const deckOut = stadium(HW, RR);
+      add(D.extrude(deckOut, ZD, ZT, { crease: 0.5, bottom: false }));
+      add(box(-66, -15, ZT, -18, 12, ZT + 14));                                             // rangefinder housing on the deck
+      add(box(-64, -13, ZT + 14, -20, 10, ZT + 16));
+      // windows on the housing front (dark glass, framed)
+      const win = (x0, x1, z0, z1) => { add({ v: [[x0, -15.05, z0], [x1, -15.05, z0], [x1, -15.05, z1], [x0, -15.05, z1]], n: [0, -1, 0], hard: [true, true, true, true], tone: 0.95, bias: 0.8 }); add({ v: [[x0 - 1.2, -15.03, z0 - 1.2], [x1 + 1.2, -15.03, z0 - 1.2], [x1 + 1.2, -15.03, z1 + 1.2], [x0 - 1.2, -15.03, z1 + 1.2]], n: [0, -1, 0], hard: [true, true, true, true], tone: 0.2, bias: 0.5 }); };
+      win(-62, -52, ZT + 3, ZT + 11); win(-40, -24, ZT + 3, ZT + 11);
+      add(box(-48, -14.2, ZT + 5, -44, -13.6, ZT + 9));
+      // accessory shoe
+      add(box(-52, -8, ZT + 16, -32, 8, ZT + 17)); add(box(-52, -9, ZT + 17, -32, -6, ZT + 19)); add(box(-52, 6, ZT + 17, -32, 9, ZT + 19));
+      [[-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => add(hole(x, y, ZT, 1.6)));
+      [[36, 0, 5], [56, 0, 5.6], [22, -6, 2.4], [48, -11, 2.2]].forEach(([x, y, r]) => add(hole(x, y, ZT, r)));
+      tag('TOP DECK, CHROME BRASS', [0, -RR, ZD + 6]); tag('VIEWFINDER WINDOW', [-32, -15, ZT + 7]); tag('RANGEFINDER WINDOW', [-57, -15, ZT + 7]); tag('ACCESSORY SHOE', [-42, 8, ZT + 19]);
+    }
+    /* ---- dials, knobs, buttons floating above the deck, each with its spring and screw ---- */
+    const knurledKnob = (x, y, z, r, h, o = {}) => { add(D.revolve(x, y, [[r, z], [r, z + h], [r - 1.2, z + h + 1.2], [0.01, z + h + 1.2]], { seg: 32 })); custom([x, y, z + h / 2], (PP, cm) => D.knurl(PP, cm, x, y, r + 0.05, z + 0.6, z + h - 0.6, o.n || 64, { c: INK, w: 0.55 }), -0.5); };
+    { const ZS = ZT + 46;
+      // shutter speed dial: skirt, knurled cap, engraved speeds, index
+      add(D.revolve(36, 0, [[8.2, ZS - 3], [8.2, ZS], [0.01, ZS]], { seg: 28 })); knurledKnob(36, 0, ZS, 9.4, 6, { n: 72 });
+      custom([36, 0, ZS + 7.3], (PP, cm) => { ['1', '2', '5', '10', '25', '50', '100', '250', '500', 'B'].forEach((txt, i) => { const a = -1.4 + i * 0.36, q = cm.project([36 + Math.cos(a) * 6.4, Math.sin(a) * 6.4, ZS + 7.25]); if (q) PP.text(txt, q[0], q[1] + 2, { size: 4.2, c: INK, align: 'center', a: 0.95 }); }); const a = cm.project([36, 0, ZS + 7.25]), b = cm.project([36, -9.4, ZS + 7.25]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.5, c: INK, passes: 1, over: 0 }); }, -3);
+      spring(36, 0, ZT + 20, ZS - 8, 3.4, 8); screw(36, 0, ZT + 30, 2.4, 5);
+      // film advance knob with its frame counter
+      knurledKnob(56, 0, ZS + 18, 10.6, 10, { n: 80 }); add(D.revolve(56, 0, [[4.4, ZS + 8], [4.4, ZS + 18], [0.01, ZS + 18]], { seg: 16 }));
+      add(D.revolve(56, 0, [[6.4, ZS + 29.2], [6.4, ZS + 30.2], [0.01, ZS + 30.2]], { seg: 24 })); custom([56, 0, ZS + 30.3], (PP, cm) => { for (let i = 0; i < 36; i++) { const a = i * TAU / 36, p0 = cm.project([56 + Math.cos(a) * 4.2, Math.sin(a) * 4.2, ZS + 30.3]), p1 = cm.project([56 + Math.cos(a) * 6, Math.sin(a) * 6, ZS + 30.3]); if (p0 && p1) PP.line(p0[0], p0[1], p1[0], p1[1], { w: i % 6 ? 0.3 : 0.6, c: INK, a: 0.9, passes: 1, over: 0 }); } }, -3);
+      spring(56, 0, ZT + 12, ZT + 34, 4.6, 7); screw(56, 0, ZT + 44, 2.6, 6);
+      // shutter release with its return spring and a threaded collar
+      add(D.revolve(22, -6, [[2.6, ZT + 70], [2.6, ZT + 76], [2.0, ZT + 77], [0.01, ZT + 77]], { seg: 16 })); add(D.revolve(22, -6, [[4, ZT + 60], [4, ZT + 64], [0.01, ZT + 64]], { seg: 18 })); spring(22, -6, ZT + 42, ZT + 58, 2, 9);
+      // rewind knob with fold-out crank
+      knurledKnob(-42, 0, ZT + 66, 8.6, 7, { n: 56 }); add(D.revolve(-42, 0, [[3, ZT + 50], [3, ZT + 66], [0.01, ZT + 66]], { seg: 12 })); add(D.bodyOfBar([-42, 0], [-58, 10], 2, 1.4, ZT + 74, ZT + 75.6, { crease: 0.3 })); add(D.cylinder(-58, 10, 1.8, ZT + 75.6, ZT + 82, 10));
+      spring(-42, 0, ZT + 34, ZT + 46, 2.6, 6);
+      // frame counter window & diopter
+      add(D.revolve(48, -11, [[2.4, ZT + 26], [2.4, ZT + 30], [0.01, ZT + 30]], { seg: 12 }));
+      // four deck screws, lifted out
+      [[-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => screw(x, y, ZT + 22, 1.9, 6));
+      tag('SHUTTER SPEED DIAL 1 - 1/500', [36, -9.4, ZS + 4]); tag('FILM ADVANCE KNOB', [56 + 10.6, 0, ZS + 24]); tag('FRAME COUNTER', [56, -6, ZS + 30]); tag('SHUTTER RELEASE', [22, -8, ZT + 76]); tag('REWIND KNOB + CRANK', [-58, 10, ZT + 82]); tag('DIAL SPRING', [36 + 3.4, 0, ZT + 26]); tag('DECK SCREW M1.6', [-HW - 6, -5, ZT + 24]);
+      [[36, 0], [56, 0], [22, -6], [-42, 0], [-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => guide([x, y, 0 + 60], [x, y, ZT + 90]));
+    }
+
+    // engraving on the deck: maker, model, serial, and the index dots
+    custom([10, 0, ZT], (PP, cm) => { const line = (txt, x0, x1, y, sz) => { const a = cm.project([x0, y, ZT + 0.05]), b = cm.project([x1, y, ZT + 0.05]); if (a && b) PP.text(txt, a[0], a[1], { size: sz, c: INK, rot: Math.atan2(b[1] - a[1], b[0] - a[0]), a: 0.9 }); }; line('AURELIA  II', -10, 26, -8, 6.4); line('No. 371204  GERMANY', -10, 26, 4, 3.6); [[30, -12], [44, -12]].forEach(([x, y]) => { const q = cm.project([x, y, ZT + 0.05]); if (q) PP.dot(q[0], q[1], 1.1, { c: INK }); }); }, 6);
+    // bayonet lugs on the mount, three of them
+    [0.3, 2.4, 4.5].forEach(a => add(toFront(D.extrude([[Math.cos(a - 0.3) * 16.5, Math.sin(a - 0.3) * 16.5], [Math.cos(a - 0.3) * 20.5, Math.sin(a - 0.3) * 20.5], [Math.cos(a + 0.3) * 20.5, Math.sin(a + 0.3) * 20.5], [Math.cos(a + 0.3) * 16.5, Math.sin(a + 0.3) * 16.5]], 6.4, 8.8, { crease: 0.3 }), 0, -RR - 22, 30)));
+
+    /* ================= Z-stack below the body ================= */
+    const ZB = -76;
+    { // film cassette dropping out of the bottom-loading chamber
+      add(D.revolve(-44, 0, [[12, -52], [12, -14], [0.01, -14]], { seg: 28 })); add(D.revolve(-44, 0, [[4, -14], [4, -9], [0.01, -9]], { seg: 14 })); add(D.revolve(-44, 0, [[4, -57], [4, -52], [0.01, -52]], { seg: 14 }));
+      add(box(-44, -13, -48, -31, -11, -18)); custom([-44, -12, -33], (PP, cm) => { for (let z = -47; z < -19; z += 3.2) { const a = cm.project([-40, -13.1, z]), b = cm.project([-33, -13.1, z]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.4, c: INK, a: 0.8, passes: 1, over: 0 }); } }, -2);
+      add(D.revolve(44, 0, [[8, -50], [8, -16], [0.01, -16]], { seg: 22 })); add(D.revolve(44, 0, [[10.5, -18], [10.5, -16], [0.01, -16]], { seg: 22 })); add(D.revolve(44, 0, [[10.5, -52], [10.5, -50], [0.01, -50]], { seg: 22 }));
+      // baseplate with the locking key, tripod socket
+      add(D.extrude(stadium(HW, RR), ZB - 5, ZB, { crease: 0.5 }));
+      add(D.revolve(-44, 0, [[6, ZB], [6, ZB + 2], [0.01, ZB + 2]], { seg: 20 })); add(box(-50, -1.4, ZB + 2, -38, 1.4, ZB + 5));
+      add(hole(10, 0, ZB, 3.2)); add(D.revolve(10, 0, [[3.2, ZB + 0.05], [3.2, ZB + 4], [0.01, ZB + 4]], { seg: 14 }));
+      spring(-44, 0, ZB + 7, -60, 3.6, 4); guide([-44, 0, ZB], [-44, 0, 0]); guide([44, 0, ZB], [44, 0, 0]); guide([10, 0, ZB], [10, 0, 0]);
+      tag('35 MM FILM CASSETTE', [-56, 0, -30]); tag('TAKE-UP SPOOL, REMOVABLE', [52.5, 0, -30]); tag('BASEPLATE + LOCKING KEY', [-50, 0, ZB + 5]); tag('TRIPOD SOCKET 1/4 IN', [10, -3, ZB + 4]); tag('CASSETTE SPRING', [-40, 0, -70]);
+    }
+
+    /* ================= focal-plane shutter unit, lifted out to the right; its parts float apart vertically ================= */
+    { const SX = 196, SY = -44, SZ = 34, LEN = 46;
+      const drum = (z, r, label, gearT) => { const f = pr => add(toFront(D.revolve(0, 0, pr, { seg: 28 }), SX, SY, z));
+        f([[r, 0], [r, LEN], [0.01, LEN]]); f([[r + 2.6, -1.8], [r + 2.6, 0], [0.01, 0]]); f([[r + 2.6, LEN], [r + 2.6, LEN + 1.8], [0.01, LEN + 1.8]]); f([[1.5, -10], [1.5, LEN + 10], [0.01, LEN + 10]]);
+        custom([SX, SY - LEN / 2, z], (PP, cm) => { for (let k = 1; k < 9; k++) { const pts = []; for (let i = 0; i <= 14; i++) { const a = Math.PI * 0.2 + i * 0.1; pts.push([SX + Math.cos(a) * (r + 0.05), SY - k * LEN / 9, z + Math.sin(a) * (r + 0.05)]); } D.polyline3(PP, pts, cm, { w: 0.4, c: INK, a: 0.7 }); } }, 5);
+        if (gearT) add(toFront(D.gearMesh(0, 0, r + 4.4, gearT, LEN + 2.2, LEN + 5.2, 0.1, { root: 0.86 }), SX, SY, z));
+        if (label) tag(label, [SX + r, SY - LEN / 2, z]); };
+      drum(SZ + 116, 7.6, 'FIRST CURTAIN DRUM', 26); drum(SZ + 70, 4.4, 'TENSION ROLLER'); drum(SZ + 24, 7.6, 'SECOND CURTAIN DRUM', 26);
+      // the cloth curtain: a ribbon running from the drum down to the roller, with its brass-edged slit
+      custom([SX + 8, SY - LEN / 2, SZ + 93], (PP, cm) => { const c = [[SX + 7.6, SY - 1, SZ + 116], [SX + 7.6, SY - LEN + 1, SZ + 116], [SX + 4.4, SY - LEN + 1, SZ + 70], [SX + 4.4, SY - 1, SZ + 70]].map(q => cm.project(q)); if (!c.every(Boolean)) return; const pp = c.map(q => [q[0], q[1]]); PP.occlude(pp, '#ffffff'); PP.hatch(pp, { ang: Math.atan2(pp[1][1] - pp[0][1], pp[1][0] - pp[0][0]) * 180 / Math.PI + 90, gap: 1.9, a: 0.75, w: 0.45, c: INK, cross: 70 }); PP.path(pp.concat([pp[0]]), { w: 1.1, c: INK, a: 0.95, rough: 0.2, passes: 1 }); [0.42, 0.5].forEach(u => { const a = cm.project([SX + lerp(7.6, 4.4, u), SY - 1, SZ + lerp(116, 70, u)]), b = cm.project([SX + lerp(7.6, 4.4, u), SY - LEN + 1, SZ + lerp(116, 70, u)]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 1.2, c: INK, a: 0.95, passes: 1, over: 0 }); }); const a = cm.project([SX + 6, SY - 1, SZ + 95]), b = cm.project([SX + 6, SY - LEN + 1, SZ + 95]); if (a && b) PP.occlude([[a[0], a[1] - 3], [b[0], b[1] - 3], [b[0], b[1] + 3], [a[0], a[1] + 3]], '#ffffff'); }, 10);
+      // curtain springs inside the drums, pulled out beside them (red)
+      [[SZ + 116, 4.2], [SZ + 24, 4.2], [SZ + 70, 2.6]].forEach(([z, r]) => custom([SX, SY + 18, z], (PP, cm) => { const pts = D.helix(0, 0, r, 0, 26, 10, 14).map(([u, v, w]) => [SX + u, SY + 12 + w, z + v]); D.polyline3(PP, pts, cm, { w: 1, c: RED, a: 0.95 }); }, 8));
+      // shutter crate: a frame plate floating below, with its gate and fixing screws
+      add(box(SX - 16, SY - LEN - 4, SZ - 30, SX + 16, SY + 4, SZ - 27)); add(box(SX - 10, SY - LEN + 6, SZ - 27, SX + 10, SY - 6, SZ - 26.4));
+      [[-12, 0], [12, 0], [-12, -LEN], [12, -LEN]].forEach(([u, v]) => screw(SX + u, SY + v, SZ - 12, 1.7, 5));
+      add(D.gearMesh(SX + 20, SY + 6, 6, 14, SZ + 132, SZ + 135, 0.2, { root: 0.8 }));
+      [SZ + 116, SZ + 70, SZ + 24].forEach(z => custom([SX, SY - LEN / 2, z], (PP, cm) => D.dashed3(PP, [SX, SY + 16, z], [SX, SY - LEN - 16, z], cm, [7, 4], { w: 0.55, c: INK, a: 0.75 }), 1e6));
+      custom([SX, SY, 100], (PP, cm) => { D.dashed3(PP, [SX, SY - LEN / 2, SZ - 30], [SX, SY - LEN / 2, SZ + 140], cm, [7, 4], { w: 0.55, c: INK, a: 0.75 }); D.dashed3(PP, [SX - 20, SY - LEN / 2, SZ + 70], [22, -2, 30], cm, [2, 5], { w: 0.5, c: INK, a: 0.55 }); }, 1e6);
+      tag('CURTAIN, RUBBERISED SILK', [SX + 6, SY - LEN / 2, SZ + 93]); tag('CURTAIN TENSION SPRINGS', [SX, SY + 24, SZ + 116]); tag('SHUTTER CRATE', [SX + 16, SY - LEN, SZ - 28]);
+    }
+    /* ================= extra body detail: front controls, rim screws, rails, engraving ================= */
+    { // slow-speed dial on the front, self-timer lever, flash sync sockets, focusing tab
+      add(toFront(D.revolve(0, 0, [[6.6, 0], [6.6, 3], [5.6, 4], [0.01, 4]], { seg: 24 }), -34, -RR, 44)); custom([-34, -RR - 4, 44], (PP, cm) => { for (let i = 0; i < 40; i++) { const a = i * TAU / 40, p0 = cm.project([-34 + Math.cos(a) * 6.62, -RR - 0.4, 44 + Math.sin(a) * 6.62]), p1 = cm.project([-34 + Math.cos(a) * 6.62, -RR - 2.8, 44 + Math.sin(a) * 6.62]); if (p0 && p1) PP.line(p0[0], p0[1], p1[0], p1[1], { w: 0.45, c: INK, a: 0.8, passes: 1, over: 0 }); } }, 4);
+      add(toFront(D.revolve(0, 0, [[3, 0], [3, 5], [0.01, 5]], { seg: 14 }), 34, -RR, 14)); add(toFront(D.revolve(0, 0, [[3, 0], [3, 5], [0.01, 5]], { seg: 14 }), 42, -RR, 14));
+      add(D.bodyOfBar([-38, -RR - 1], [-46, -RR - 12], 1.8, 1.4, 22, 24.4, { crease: 0.3 })); add(D.cylinder(-38, -RR - 1, 3.4, 20, 26, 12));
+      spring(-38, -RR - 1, 26, 34, 1.8, 4);
+      // engraved maker's line on the body front
+      custom([0, -RR, 10], (PP, cm) => { const a = cm.project([-46, -RR - 0.4, 9]); if (a) { const b = cm.project([-10, -RR - 0.4, 9]); PP.text('AURELIA  WETZLAR-STYLE  No. 371 204', a[0], a[1], { size: 4.2, c: INK, rot: Math.atan2(b[1] - a[1], b[0] - a[0]) }); } }, 6);
+      // screw heads around the top rim of the body
+      [[-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => add(hole(x, y, 60, 1.4)));
+      tag('SLOW-SPEED DIAL', [-34, -RR - 4, 50]); tag('SELF-TIMER LEVER', [-46, -RR - 12, 24]); tag('FLASH SYNC SOCKETS', [38, -RR - 5, 17]); 
+    }
+
+    /* ================= the lens, pulled forward along its optical axis ================= */
+    { const LX = 0, LZ = 30, Y0 = -RR, G = 38;
+      const glass = (lf, cx, y, z) => lf;
+      const part = (prof, dy, o = {}) => add(toFront(D.revolve(0, 0, prof, Object.assign({ seg: 36 }, o)), LX, Y0 - dy, LZ));
+      part([[23, 0], [23, 3], [19, 3], [19, 7], [16.5, 7], [16.5, 0]], 22);                                  // bayonet mount
+      [0, 1, 2].forEach(i => { const a = i * TAU / 3 + 0.4; add(toFront(D.revolve(0, 0, [[0.01, 0], [0.01, 0]], {}), 0, 0, 0)); });
+      part([[18, 0], [18, 14], [21.6, 14], [21.6, 26], [18, 26], [18, 32], [15.5, 32], [15.5, 0]], 22 + G);       // helicoid + focus ring
+      custom([0, Y0 - 22 - G - 20, LZ], (PP, cm) => { for (let i = 0; i < 70; i++) { const a = i * TAU / 70, x = Math.cos(a) * 21.7, z = Math.sin(a) * 21.7; const nx = Math.cos(a), nz = Math.sin(a); if ((cm.eye[0] - x) * nx + (cm.eye[2] - (LZ + z)) * nz < 0) continue; const p0 = cm.project([LX + x, Y0 - 22 - G - 14.5, LZ + z]), p1 = cm.project([LX + x, Y0 - 22 - G - 25.5, LZ + z]); if (p0 && p1) PP.line(p0[0], p0[1], p1[0], p1[1], { w: 0.55, c: INK, a: 0.85, passes: 1, over: 0, rough: 0.1 }); } }, -1);
+      // aperture unit: ring + iris blades + rear glass
+      part([[19, 0], [19, 8], [11, 8], [11, 0]], 22 + 2 * G + 20);
+      custom([0, Y0 - 22 - 2 * G - 24, LZ], (PP, cm) => { for (let k = 0; k < 10; k++) { const a0 = k * TAU / 10, pts = []; for (let q = 0; q <= 8; q++) { const a = a0 + q * 0.09; pts.push([LX + Math.cos(a) * lerp(11, 5, q / 8), Y0 - 22 - 2 * G - 24, LZ + Math.sin(a) * lerp(11, 5, q / 8)]); } D.polyline3(PP, pts, cm, { w: 0.6, c: INK, a: 0.9 }); } }, -2);
+      part([[14, 0], [15, 2], [15, 5], [13, 7], [0.01, 8]], 22 + 2 * G + 36, { seg: 28 });                           // rear element
+      part([[20.5, 0], [20.5, 18], [21.5, 20], [21.5, 26], [17, 26], [17, 0]], 22 + 3 * G + 40);                  // front barrel + name ring
+      custom([0, Y0 - 22 - 3 * G - 60, LZ], (PP, cm) => { 'SUMMAR 1:2 F=5CM'.split('').forEach((ch, i) => { const a = Math.PI * 0.62 - i * 0.12, q = cm.project([LX + Math.cos(a) * 19.3, Y0 - 22 - 3 * G - 40 - 26.05, LZ + Math.sin(a) * 19.3]); if (q) PP.text(ch, q[0], q[1] + 1.5, { size: 3.8, c: INK, align: 'center' }); }); }, -3);
+      part([[16, 0], [17, 3], [17, 6], [14, 9], [0.01, 11]], 22 + 4 * G + 44, { seg: 28 });                          // front element
+      part([[21, 0], [22, 0], [28, 22], [27, 22]], 22 + 4 * G + 72);                                                // hood
+      part([[29, 0], [29, 6], [0.01, 6]], 22 + 5 * G + 84);                                                         // cap
+      // retaining screws on the mount + spring clip
+      [0.5, 2.6, 4.7].forEach(a => { const x = Math.cos(a) * 20.5, z = LZ + Math.sin(a) * 20.5; custom([x, Y0 - 16, z], (PP, cm) => { const c0 = [x, Y0 - 8, z]; const pts = []; for (let i = 0; i <= 10; i++) pts.push([x + Math.cos(i * 0.6) * 1.2, Y0 - 6 - i * 1, z + Math.sin(i * 0.6) * 1.2]); D.polyline3(PP, pts, cm, { w: 0.8, c: RED, a: 0.95 }); const q = cm.project(c0); if (q) { PP.circle(q[0], q[1], 2.2, { w: 1, c: RED, passes: 1 }); PP.line(q[0] - 1.6, q[1], q[0] + 1.6, q[1], { w: 0.8, c: RED, passes: 1, over: 0 }); } D.dashed3(PP, [x, Y0 - 16, z], [x, Y0, z], cm, [3, 3], { w: 0.4, c: INK, a: 0.7 }); }, -1); });
+
+      // engraved focus scale on the helicoid and aperture numbers on the aperture ring
+      custom([0, Y0 - 22 - G - 10, LZ], (PP, cm) => { ['INF', '10', '5', '3', '2', '1.5', '1.2', '1'].forEach((txt, i) => { const a = Math.PI * 0.32 + i * 0.2, x = Math.cos(a) * 18.05, z = Math.sin(a) * 18.05; const q = cm.project([LX + x, Y0 - 22 - G - 6, LZ + z]); if (q) PP.text(txt, q[0], q[1] + 1.4, { size: 3.8, c: INK, align: 'center' }); const q0 = cm.project([LX + x, Y0 - 22 - G - 9.5, LZ + z]), q1 = cm.project([LX + x, Y0 - 22 - G - 11.5, LZ + z]); if (q0 && q1) PP.line(q0[0], q0[1], q1[0], q1[1], { w: 0.4, c: INK, passes: 1, over: 0 }); }); }, 6);
+      custom([0, Y0 - 22 - 2 * G - 24, LZ], (PP, cm) => { ['2', '2.8', '4', '5.6', '8', '11', '16'].forEach((txt, i) => { const a = Math.PI * 0.3 + i * 0.25, q = cm.project([LX + Math.cos(a) * 19.05, Y0 - 22 - 2 * G - 24, LZ + Math.sin(a) * 19.05]); if (q) PP.text(txt, q[0], q[1] + 1.4, { size: 3.6, c: INK, align: 'center' }); }); }, 6);
+      [[22 + 2 * G + 36, 15], [22 + 4 * G + 44, 17]].forEach(([dy, r]) => custom([0, Y0 - dy - 8, LZ], (PP, cm) => { [0.55, 0.38].forEach((k, j) => { const pts = []; for (let i = 0; i <= 10; i++) { const a = 2.2 + i * 0.1 + j * 0.2; pts.push([LX + Math.cos(a) * r * k, Y0 - dy - 9, LZ + Math.sin(a) * r * k]); } D.polyline3(PP, pts, cm, { w: 0.8, c: INK, a: 0.8 }); }); }, 8));
+
+      guide([LX, Y0, LZ], [LX, Y0 - 22 - 5 * G - 96, LZ]);
+      tag('BAYONET MOUNT', [23, Y0 - 25, LZ]); tag('HELICOID + FOCUS RING', [21.7, Y0 - 22 - G - 20, LZ]); tag('IRIS DIAPHRAGM, 10 BLADES', [0, Y0 - 22 - 2 * G - 24, LZ + 19]); tag('REAR ELEMENT', [15, Y0 - 22 - 2 * G - 40, LZ]); tag('FRONT BARREL', [21.5, Y0 - 22 - 3 * G - 60, LZ]); tag('FRONT ELEMENT', [17, Y0 - 22 - 4 * G - 50, LZ]); tag('LENS HOOD', [28, Y0 - 22 - 4 * G - 94, LZ]); tag('LENS CAP', [29, Y0 - 22 - 5 * G - 90, LZ]); 
+    }
+
+
+    D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.55, -0.35, 0.7], ambient: 0.1, gap: 4.0, w: 1.25, rough: 0.22, zw: 0, hatchMin: 0.3 });
+
+    /* ================= the archive plate: border, fold, callouts, parts table, title band ================= */
+    { const L0 = 58, T0 = 52, R0 = 1542, B0 = 900;
+      P.rect(L0, T0, R0 - L0, B0 - T0, { w: 0.9, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 }); P.rect(L0 - 6, T0 - 6, R0 - L0 + 12, B0 - T0 + 12, { w: 0.4, c: INK, a: 0.6, rough: 0.2, over: 0, passes: 1 });
+      // the fold down the middle of the archive sheet
+      for (let y = 20; y < 980; y += 3) P.line(800 + P.r(-0.4, 0.4), y, 800 + P.r(-0.4, 0.4), y + 3, { w: 0.5, c: '#b8a882', a: 0.35, passes: 1, over: 0, rough: 0.1 });
+      // project the anchors and split them into a left and right column
+      const pts = anchors.map(([lb, p], i) => { const q = CAM.project(p); return q ? { lb, x: q[0], y: q[1], i } : null; }).filter(Boolean);
+      const left = pts.filter(q => q.x < 640 && !(q.x > 560 && q.y > 420)).sort((a, b) => a.y - b.y), right = pts.filter(q => !(q.x < 640 && !(q.x > 560 && q.y > 420))).sort((a, b) => a.y - b.y);
+      const settle = (arr, top, bot, gap) => { arr.forEach(q => q.ly = q.y); for (let k = 1; k < arr.length; k++) arr[k].ly = Math.max(arr[k].ly, arr[k - 1].ly + gap); const over = arr.length ? arr[arr.length - 1].ly - bot : 0; if (over > 0) arr.forEach(q => q.ly -= over); for (let k = arr.length - 2; k >= 0; k--) arr[k].ly = Math.min(arr[k].ly, arr[k + 1].ly - gap); if (arr.length && arr[0].ly < top) { const d = top - arr[0].ly; arr.forEach(q => q.ly += d); } };
+      settle(left, T0 + 24, 836, 20); settle(right, T0 + 24, 836, 20);
+      let num = 1; const all = left.concat(right); all.forEach(q => q.n = num++);
+      const draw = (q, side) => { const lx = side < 0 ? 236 : 1112, tx = side < 0 ? lx - 16 : lx + 16, kx = side < 0 ? lx + 22 : lx - 22;
+        P.dot(q.x, q.y, 1.6, { c: INK, a: 0.95 });
+        P.line(q.x, q.y, kx, q.ly, { w: 0.45, c: INK, a: 0.8, passes: 1, over: 0, rough: 0.15 }); P.line(kx, q.ly, lx, q.ly, { w: 0.45, c: INK, a: 0.8, passes: 1, over: 0, rough: 0.1 });
+        P.circle(lx + side * -0, q.ly, 7.6, { w: 0.7, c: INK, passes: 1, rough: 0.1 }); P.text(String(q.n), lx, q.ly + 3.2, { size: 8.2, c: INK, align: 'center' });
+        P.text(q.lb, tx, q.ly + 3.4, { size: 9, c: INK, align: side < 0 ? 'right' : 'left', a: 0.95 }); };
+      left.forEach(q => draw(q, -1)); right.forEach(q => draw(q, 1));
+      // parts schedule on the right
+      const tx0 = 1330, tx1 = R0 - 10; let ty = T0 + 14; P.rect(tx0, T0 + 8, tx1 - tx0, 620, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 });
+      P.text('SCHEDULE OF PARTS', (tx0 + tx1) / 2, ty + 14, { size: 11, c: INK, align: 'center', font: S.HAND }); ty += 24; P.line(tx0, ty, tx1, ty, { w: 0.6, c: INK, passes: 1, over: 0 });
+      P.text('NO', tx0 + 8, ty + 12, { size: 6.6, c: INK }); P.text('DESCRIPTION', tx0 + 28, ty + 12, { size: 6.6, c: INK }); P.text('QTY', tx1 - 34, ty + 12, { size: 6.6, c: INK }); P.text('MAT', tx1 - 18, ty + 12, { size: 6.6, c: INK }); ty += 17; P.line(tx0, ty, tx1, ty, { w: 0.4, c: INK, passes: 1, over: 0 });
+      const mats = ['ZN', 'BR', 'ST', 'AL', 'GL', 'CU']; all.slice().sort((a, b) => a.n - b.n).forEach(q => { const d = q.lb.length > 24 ? q.lb.slice(0, 24) : q.lb; P.text(String(q.n), tx0 + 8, ty + 11, { size: 6.4, c: INK }); P.text(d, tx0 + 28, ty + 11, { size: 6.2, c: INK, a: 0.92 }); const red = /SCREW|SPRING/.test(q.lb); P.text(red ? String(2 + q.n % 3) : '1', tx1 - 30, ty + 11, { size: 6.4, c: red ? RED : INK }); P.text(red ? 'ST' : mats[q.n % 6], tx1 - 18, ty + 11, { size: 6.2, c: INK }); ty += 13; P.line(tx0 + 4, ty, tx1 - 4, ty, { w: 0.25, c: INK, a: 0.45, passes: 1, over: 0 }); });
+      P.line(tx0 + 22, T0 + 46, tx0 + 22, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 36, T0 + 46, tx1 - 36, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 20, T0 + 46, tx1 - 20, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 });
+      // notes block
+      const ny = T0 + 640; P.rect(tx0, ny, tx1 - tx0, 150, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 }); P.text('NOTES', tx0 + 10, ny + 16, { size: 9, c: INK, font: S.HAND });
+      ['1. SPRINGS AND SCREWS SHOWN IN RED.', '2. DASHED LINES = ASSEMBLY AXES.', '3. PARTS LIFTED ALONG THE AXIS OF', '    THEIR ASSEMBLY, NOT TO SCALE.', '4. LUBRICATE HELICOID WITH LIGHT', '    GREASE ONLY. NO OIL ON SHUTTER.', '5. FOCUS 1 M TO INFINITY.'].forEach((l, i) => P.text(l, tx0 + 10, ny + 36 + i * 15, { size: 6.4, c: INK, a: 0.92 }));
+      // title band
+      P.line(L0, B0 - 44, R0, B0 - 44, { w: 0.8, c: INK, passes: 1, over: 0, rough: 0.2 });
+      [300, 700, 1000, 1330].forEach(x => P.line(x, B0 - 44, x, B0, { w: 0.6, c: INK, passes: 1, over: 0 }));
+      P.text('AURELIA II  -  35 MM RANGEFINDER', L0 + 12, B0 - 18, { size: 14, c: INK, font: S.HAND }); P.text('EXPLODED VIEW, THREE-QUARTER FROM ABOVE', 312, B0 - 24, { size: 9, c: INK }); P.text('PLATE 12 OF 12  -  MUSEUM OF OPTICS ARCHIVE', 312, B0 - 10, { size: 7.4, c: INK, a: 0.85 });
+      P.text('DRAWN  A.R.   CHECKED  M.K.', 712, B0 - 24, { size: 8, c: INK }); P.text('SCALE 2 : 1   DIM. MM', 712, B0 - 10, { size: 7.4, c: INK, a: 0.85 }); P.text('INV. NO. 1954-0371', 1012, B0 - 24, { size: 9, c: INK }); P.text('INK ON CARTRIDGE', 1012, B0 - 10, { size: 7.4, c: INK, a: 0.85 }); P.text('SHEET 12', 1436, B0 - 18, { size: 12, c: INK, align: 'center', font: S.HAND });
+    }
+
+  }
+});

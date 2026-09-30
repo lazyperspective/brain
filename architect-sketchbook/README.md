@@ -15,6 +15,8 @@ Open `index.html` in a browser, or serve the folder with `python3 -m http.server
 | 8 | Cathedral of St. Aubert | sepia ink and wash architectural sections: longitudinal, transverse with flying buttresses, and detail plates |
 | 9 | Watch movement (plan) | black ink + red: flat plan of a tourbillon / perpetual-calendar / repeater movement, escapement in four stages |
 | 10 | Watch movement (3D) | true perspective exploded view built on `engine3d.js`: solids, hidden surfaces, light-driven hatching, six 3D detail plates |
+| 11 | Nave (cinematic 3D) | low-angle one-point perspective, hatched by the light, depth fog |
+| 12 | Camera, exploded | 3D exploded rangefinder: vertical explosion, lens and shutter sub-assemblies, red springs and screws, callouts, parts schedule |
 | 7 | The Library Tree (original) | cyanotype: engraved white line-work on brush-edged Prussian blue, lit rooms drawn in negative |
 
 Controls: `←` / `→` change sheet, `Space` finishes the drawing, `R` redraws it, and the speed button cycles 0.5× to 4×.
