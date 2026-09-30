@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "dev": "next dev",
+    "prebuild": "rm -rf public/sketchbook && mkdir -p public && cp -r sketchbook public/sketchbook",
     "build": "next build",
     "start": "next start"
   },
