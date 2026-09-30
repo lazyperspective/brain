@@ -139,11 +139,12 @@
     for (let i = N - 1; i >= 0; i--) poly.push(Rp[i]);
     const c0 = capPts(0, -1, o.cap0 || 'sphere');
     c0.reverse();
+    const startSkip = o.openStart ? [poly.length, poly.length + c0.length] : null;
     poly.push(...c0);
     return {
       kind: 'tube', total: m.reduce((a, p, i) => a + (i ? Math.hypot(p[0] - m[i - 1][0], p[1] - m[i - 1][1]) : 0), 0), name: o.name, group: o.group, N, m, hw, zc, zf, zr, perp, ax, poly,
       flat: o.flat || 1, faceN: o.faceN, tiltW: o.tiltW == null ? 0.5 : o.tiltW, cs, rings, Lp, Rp,
-      linked: new Set(), skipRange, digit: o.digit, seg: o.seg, ringFn: o.ringFn, bow: o.bow || 0,
+      linked: new Set(), skipRange, startSkip, digit: o.digit, seg: o.seg, ringFn: o.ringFn, bow: o.bow || 0,
     };
   }
 
@@ -177,7 +178,7 @@
     const bodyNormal = cam.dir([0, 4, 0], [0, 0, 1]);
     const body = add(tubeForm(cam, {
       name: 'body', group: 'body', centers: ys.map((y) => [0, y, P.zc(0, y)]), ringFn: ringBody, lat: [1, 0, 0],
-      zr: ys.map((y) => P.H(y)), cap0: 'ring', cap1: 'ring', flat: 2.3, tiltW: 0.85, faceN: bodyNormal,
+      zr: ys.map((y) => P.H(y)), cap0: 'ring', cap1: 'ring', openStart: true, flat: 2.3, tiltW: 0.85, faceN: bodyNormal,
       endPts: (cs, Lp, Rp, m, ax, perp, rings, hw) => {
         const Ne = cs.length - 1, pr = perp[Ne], out = [];
         // distal edge of the palm: hull of the last section and the knuckle arc, far half only
@@ -268,10 +269,6 @@
       if ((curl(i) + curl(i + 1)) / 2 > 0.8 || fa.total < 1.5 * fa.hw[0] || fb.total < 1.5 * fb.hw[0]) continue;
       const i1 = Math.round(wl * 5);
       mkWeb(fa, 0, i1, fb, 0, i1, pose.webArch == null ? 0.42 : pose.webArch, 'web' + i);
-    }
-    if (curl(0) < 0.8 && fingers[0][0].total > 1.5 * fingers[0][0].hw[0]) {
-      const tw = mkWeb(thumb[1], 0, 2, fingers[0][0], 0, 3, 0.62, 'thumbweb');
-      link(tw, thumb[0]);
     }
 
     for (const f of forms) f.bbox = bboxOf(f.poly);

@@ -193,13 +193,13 @@
   function stipple(S, C, finish) {
     const { rng, ink } = C;
     const w = S.gx1 - S.gx0, h = S.gy1 - S.gy0;
-    const tries = floor(w * h * 0.1 * finish);
+    const tries = floor(w * h * 0.075 * finish);
     for (let n = 0; n < tries; n++) {
       const x = S.gx0 + rng() * w, y = S.gy0 + rng() * h;
       const f = HS.owner(S, x, y);
       if (!f) continue;
       const t = HS.tone(S, f, x, y);
-      const p = 0.17 * smooth(0.04, 0.2, t) * (1 - smooth(0.34, 0.55, t));
+      const p = 0.22 * smooth(0.06, 0.2, t) * (1 - smooth(0.32, 0.5, t)) * smooth(-0.15, 0.45, C.noise(x * 0.018, y * 0.018, 21.3));
       if (rng() > p) continue;
       const r = 0.55 + rng() * 0.5, a = rng() * PI, dx = cos(a) * r, dy = sin(a) * r;
       ink.stroke([x - dx, y - dy, x, y, x + dx, y + dy], [0.4, r * 1.3, 0.4]);
@@ -224,14 +224,16 @@
     const px = x - nx * 1.9, py = y - ny * 1.9;
     const list = S.at(px, py);
     if (!list) return 1;
-    let occl = 0;
+    let occl = 0, joint = 0;
     for (let i = 0; i < list.length; i++) {
       const B = list[i];
       if (B === f || !S.inside(B, px, py)) continue;
       const dA = HS.depthOf(S, f, px, py), dB = HS.depthOf(S, B, px, py);
       if (f.linked.has(B.id) && abs(dA - dB) < 0.9) return 0;
       if (dB < dA - 0.02) return 0;
+      if (f.linked.has(B.id) && B.kind === 'tube') joint = 1;
     }
+    if (joint) return 3;
     // occluding edge: something lies farther behind just outside
     const qx = x + nx * 2.6, qy = y + ny * 2.6, l2 = S.at(qx, qy);
     if (l2) for (let i = 0; i < l2.length; i++) {
@@ -244,7 +246,8 @@
 
   function contourForm(S, C, f) {
     const { rng, noise, ink } = C;
-    const flags = f.skipFlags ? f.skipFlags.slice() : f.poly.map((_, i) => (f.skipRange && i >= f.skipRange[0] && i < f.skipRange[1] ? 1 : 0));
+    const inR = (r, i) => r && i >= r[0] && i < r[1];
+    const flags = f.skipFlags ? f.skipFlags.slice() : f.poly.map((_, i) => (inR(f.skipRange, i) || inR(f.startSkip, i) ? 1 : 0));
     const sm = chaikin(f.poly, flags, 2);
     const pts = sm.pts, n = pts.length;
     const sgn = f.area >= 0 ? 1 : -1;
@@ -266,7 +269,7 @@
           const lit = nx * ss[0] + ny * ss[1]; // +1 facing the light
           const shade = clamp(0.5 - 0.5 * lit, 0, 1);
           const lost = 0.4 + 0.6 * smooth(-0.7 + 0.7 * lit, 0.2, noise(x * 0.012, y * 0.012, 9.1));
-          w = (1.05 + 1.7 * Math.pow(shade, 1.2)) * (vis === 2 ? 1.3 : 1) * lost * (C.pose.line || 1) * 1.15;
+          w = (1.05 + 1.7 * Math.pow(shade, 1.2)) * (vis === 2 ? 1.3 : vis === 3 ? 0.5 : 1) * lost * (C.pose.line || 1) * 1.15;
           if (f.isBody && S.fadeY) {
             HS.owner(S, x - nx * 2, y - ny * 2);
             w *= S.ev.fade;
@@ -311,7 +314,7 @@
     const digits = [];
     sc.fingers.forEach((segs, i) => digits.push({ segs, dg: sk.fingers[i], isThumb: false }));
     digits.push({ segs: sc.thumb, dg: sk.thumb, isThumb: true });
-    const parentSet = (segs) => new Set(segs.map((s) => s.id).concat(...segs.map((s) => [...s.linked])));
+    const parentSet = (segs) => new Set(segs.map((s) => s.id));
     const ringPt = (dg, seg, t, phi, out) => {
       const fr = dg.frames[seg];
       const tot = dg.L[0] + dg.L[1] + dg.L[2];
@@ -331,6 +334,7 @@
       const par = parentSet(segs);
       const dorsalFacing = segs[0].faceN[2];
       for (let j = 0; j < 2; j++) {
+        const jf = 0.5 * (segs[j].faceN[2] + segs[j + 1].faceN[2]);
         const lenJ = dg.L[j];
         // palmar creases across the joint
         const offs = j === 0 ? [-0.18, 0.02, 0.24] : [-0.1, 0.14];
@@ -342,7 +346,7 @@
             const seg = so <= 0 ? j : j + 1, t = so <= 0 ? 1 + so / lenJ : so / dg.L[j + 1];
             pts.push(ringPt(dg, seg, clamp(t, 0, 1), ph + 0.03 * Math.sin(a)));
           }
-          F.push({ pts, w: (k === 0 ? 1.9 : 1.3), kind: 'crease', par, face: -dorsalFacing });
+          F.push({ pts, w: (k === 0 ? 1.9 : 1.3), kind: 'crease', par, face: -jf });
         });
         // dorsal knuckle wrinkles
         const nw = j === 0 ? 4 : 3;
@@ -355,7 +359,7 @@
             const seg = so2 <= 0 ? j : j + 1, t = so2 <= 0 ? 1 + so2 / lenJ : so2 / dg.L[j + 1];
             pts.push(ringPt(dg, seg, clamp(t, 0, 1), ph));
           }
-          F.push({ pts, w: 1.05, kind: 'wrinkle', par, face: dorsalFacing });
+          F.push({ pts, w: 1.05, kind: 'wrinkle', par, face: jf });
         }
       }
       if (!D.isThumb) {
@@ -371,30 +375,38 @@
       for (let a = 1; a <= 6; a++) { const th = (a / 7) * 2 - 1; nail.push(ringPt(dg, 2, t1 + 0.012 * (1 - th * th), PI / 2 - halfAng(t1) * th)); }
       for (let a = 14; a >= 0; a--) { const t = lerp(t0, t1, a / 14); nail.push(ringPt(dg, 2, t, PI / 2 - halfAng(t))); }
       for (let a = 1; a <= 8; a++) { const th = (a / 9) * 2 - 1; const tt = t0 - 0.05 * (1 - th * th); nail.push(ringPt(dg, 2, tt, PI / 2 + halfAng(t0 + 0.14) * th)); }
-      F.push({ pts: nail, w: 1.35, kind: 'nail', closed: true, par: parentSet([segs[2]]), face: dorsalFacing });
+      F.push({ pts: nail, w: 1.35, kind: 'nail', closed: true, par: parentSet([segs[2]]), face: segs[2].faceN[2] });
       const fe = [];
       for (let a = 0; a <= 10; a++) { const th = (a / 10) * 1.7 - 0.85; fe.push(ringPt(dg, 2, t1 - 0.1 + 0.02 * th * th, PI / 2 - halfAng(t1) * th)); }
-      F.push({ pts: fe, w: 0.85, kind: 'nailfine', par: parentSet([segs[2]]), face: dorsalFacing });
+      F.push({ pts: fe, w: 0.85, kind: 'nailfine', par: parentSet([segs[2]]), face: segs[2].faceN[2] });
       const lun = [];
       for (let a = 0; a <= 10; a++) { const th = (a / 10) * 1.7 - 0.85; lun.push(ringPt(dg, 2, t0 + 0.2 - 0.09 * th * th, PI / 2 - halfAng(t1) * th * 0.8)); }
-      F.push({ pts: lun, w: 0.7, kind: 'nailfine', par: parentSet([segs[2]]), face: dorsalFacing });
+      F.push({ pts: lun, w: 0.7, kind: 'nailfine', par: parentSet([segs[2]]), face: segs[2].faceN[2] });
     });
 
     // palm / wrist / dorsal
-    const P = sk.palm, bodyPar = new Set([S.body.id, ...S.body.linked]);
+    const P = sk.palm, bodyPar = new Set([S.body.id]);
     const bodyDorsal = S.body.faceN[2];
     const spl = (pts, top) => HS.catmull(pts, 8).map((p) => cam.proj(P.face(p[0], p[1], top)));
     const pal = (pts, w) => F.push({ pts: spl(pts, false), w, kind: 'crease', par: bodyPar, face: -bodyDorsal });
-    pal([[3.9, 6.5], [2.4, 6.95], [0.7, 7.45], [-1.2, 8.05], [-2.7, 8.55]], 1.5);
-    pal([[-3.5, 6.6], [-1.7, 5.95], [0.3, 5.5], [2.1, 5.0], [3.5, 4.3]], 1.4);
-    pal([[-3.4, 6.7], [-3.75, 5.4], [-3.4, 3.8], [-2.6, 2.2], [-1.6, 1.0], [-0.9, 0.3]], 1.6);
-    pal([[-2.9, 0.15], [-1.4, 0.4], [0, 0.42], [1.4, 0.35], [2.8, 0.1]], 1.2);
-    pal([[-2.7, -0.9], [-1.2, -0.7], [0.1, -0.65], [1.4, -0.75], [2.6, -0.95]], 0.9);
-    pal([[-3.0, 4.0], [-2.4, 4.6], [-1.6, 5.4]], 0.9);
-    pal([[2.9, 3.0], [2.2, 3.9], [1.6, 4.6]], 0.8);
+    pal([[4.0, 6.25], [3.0, 6.7], [1.7, 7.0], [0.4, 7.5], [-0.8, 8.15], [-1.3, 8.8]], 1.6);   // heart line
+    pal([[-3.55, 6.45], [-2.3, 5.95], [-0.8, 5.55], [0.7, 5.05], [2.0, 4.35]], 1.45);          // head line
+    pal([[-3.35, 6.55], [-3.8, 5.3], [-3.5, 3.7], [-2.75, 2.2], [-1.8, 1.05], [-1.1, 0.35]], 1.7); // life line
+    pal([[0.5, 1.0], [0.3, 2.6], [0.05, 4.2], [-0.2, 5.5]], 0.8);                             // fate line, faint
+    pal([[-2.3, 0.2], [-1.2, 0.45], [0.1, 0.45], [1.3, 0.35], [2.3, 0.05]], 1.25);            // wrist creases
+    pal([[-2.0, -0.85], [-0.8, -0.7], [0.4, -0.72], [1.7, -0.9]], 0.85);
+    pal([[-3.0, 4.0], [-2.4, 4.6], [-1.7, 5.3]], 0.8);
+    pal([[2.9, 3.0], [2.2, 3.9], [1.6, 4.6]], 0.75);
+    for (let q = 0; q < 16; q++) {                                                          // fine skin lines
+      const onThenar = q < 9;
+      const cx = onThenar ? lerp(-3.4, -1.5, rng()) : lerp(1.4, 3.4, rng());
+      const cy = onThenar ? lerp(1.4, 4.8, rng()) : lerp(1.2, 5.0, rng());
+      const a = (onThenar ? 0.55 : -0.4) + (rng() - 0.5) * 0.9, l = 0.22 + rng() * 0.3;
+      pal([[cx - cos(a) * l, cy - sin(a) * l], [cx + 0.05 * (rng() - 0.5), cy + 0.05 * (rng() - 0.5)], [cx + cos(a) * l, cy + sin(a) * l]], 0.45 + rng() * 0.2);
+    }
     const dor = (pts, w, kind) => F.push({ pts: spl(pts, true), w, kind, par: bodyPar, face: bodyDorsal });
-    dor([[-2.6, -0.4], [-1.0, -0.15], [0.6, -0.15], [2.4, -0.35]], 0.85, 'crease');
-    dor([[-2.5, -1.5], [-1.0, -1.35], [0.6, -1.35], [2.3, -1.5]], 0.7, 'crease');
+    dor([[-2.3, -0.4], [-1.0, -0.2], [0.6, -0.2], [2.1, -0.4]], 0.85, 'crease');
+    dor([[-2.0, -1.5], [-0.8, -1.38], [0.6, -1.4], [1.9, -1.55]], 0.7, 'crease');
     const nv = 3 + floor(rng() * 2);
     for (let v = 0; v < nv; v++) {
       let x = lerp(-2.8, 2.6, (v + rng() * 0.7) / nv), y = 7.8 + rng() * 0.6, vx = (rng() - 0.5) * 0.5;
@@ -447,7 +459,8 @@
         let x = dense[i][0], y = dense[i][1];
         if (side) { const e = sin(PI * i / (n - 1)) ** 0.5 * 0.11 * S.k * 0.5; x += -ty * e * side; y += tx * e * side; }
         const o = HS.owner(S, x, y);
-        const ok = o && ft.par.has(o.id);
+        let ok = o && ft.par.has(o.id);
+        if (ok && !ft.closed && ft.kind !== 'vein' && noise(i * 0.09 + seed * 7, seed, 11.7) < -0.42) ok = false;
         if (ok) {
           const prof = ft.closed ? 1 : 0.35 + 0.65 * sin(PI * clamp(i / (n - 1), 0.02, 0.98)) ** 0.6;
           const w = ft.w * (0.7 + 0.45 * noise(i * 0.3 + seed, seed, 3)) * prof * fw * (side ? 0.55 : 1) * (C.pose.line || 1);
@@ -462,7 +475,7 @@
   function underdrawing(S, C, strong) {
     const { rng, noise, ink } = C;
     const ctx = ink.ctx;
-    ctx.save(); ctx.globalAlpha = strong ? 0.6 : 0.3;
+    ctx.save(); ctx.globalAlpha = strong ? 0.5 : 0.22;
     const cam = S.cam, k = S.k;
     const line = (a, b, w) => {
       const X = [], Y = [], W = [], n = Math.max(3, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 6));
@@ -470,7 +483,7 @@
       drawStroke(ink, rng, noise, X, Y, W, { wob: 0.7, overshoot: 3 + rng() * 4, jit: 1.2, tail: 0.25 });
     };
     const circle = (c, r, w) => {
-      for (let pass = 0; pass < (strong ? 2 : 1); pass++) {
+      for (let pass = 0; pass < 1; pass++) {
         const X = [], Y = [], W = [];
         const a0 = rng() * 6.28, sq = 0.9 + rng() * 0.2, rot = rng() * 0.6;
         for (let i = 0; i <= 26; i++) {
@@ -486,13 +499,13 @@
       const J = dgs[i].joints.map((j) => cam.proj(j));
       if (!strong) {
         const o = HS.owner(S, J[1][0], J[1][1]);
-        if (!o || !(segs[0] === o || segs[1] === o || segs[2] === o)) return;
+        if (!o || !(segs[0] === o || segs[1] === o || segs[2] === o) || rng() < 0.55) return;
       }
       for (let s = 0; s < 3; s++) {
         const dx = J[s + 1][0] - J[s][0], dy = J[s + 1][1] - J[s][1], l = Math.hypot(dx, dy) || 1, ex = 0.12 * l + 4;
         if (l > 5) line([J[s][0] - dx / l * ex, J[s][1] - dy / l * ex], [J[s + 1][0] + dx / l * ex, J[s + 1][1] + dy / l * ex], strong ? 0.8 : 0.6);
       }
-      J.forEach((p, jn) => { const seg = segs[Math.min(jn, 2)]; const hw = seg.hw[jn > 2 ? seg.N - 1 : 0]; if (jn < 3) circle(p, hw * (jn === 0 ? 1.05 : 0.85), strong ? 0.8 : 0.6); });
+      J.forEach((p, jn) => { const seg = segs[Math.min(jn, 2)]; const hw = seg.hw[jn > 2 ? seg.N - 1 : 0]; if (jn < (strong ? 3 : 2) && (strong || rng() < 0.6)) circle(p, hw * (jn === 0 ? 1.05 : 0.85), strong ? 0.75 : 0.55); });
     });
     const P = S.sk.palm;
     const c = [[-3.3, 0.5], [3.1, 0.5], [3.5, 8.6], [-3.9, 9.2]].map((q) => cam.proj(P.face(q[0], q[1], true)));
@@ -529,6 +542,13 @@
     underdrawing(S, C, !!pose.construction);
     yield;
 
+    if (finish > 0.5) {
+      for (const u of S.units) {
+        const L = u.isBody ? { kind: 'ang', a: 70, thr: 0.07, sp: 6.8, w: 0.8, len: [24, 70] } : { kind: 'cross', thr: 0.07, sp: 6.2, w: 0.75, len: [16, 50] };
+        if (L.kind === 'cross') crossFamily(S, C, L, u, opt); else angledFamily(S, C, L, u, opt);
+      }
+      ink.flush(); yield;
+    }
     for (let li = 0; li < nLayers; li++) {
       for (const u of S.units) {
         const L = (u.isBody ? BODY_LAYERS : DIGIT_LAYERS)[li];

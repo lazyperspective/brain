@@ -123,12 +123,12 @@
     bump(-0.6, -5.0, true, 2.2, 1.7, 0.28);
     bump(-2.4, 3.0, false, 2.4, 1.9, 0.9 * (pose.thenar == null ? 0.9 : pose.thenar), [-3.2, 4.4]);
     bump(2.4, 3.9, false, 2.4, 1.2, 0.5);
-    bump(0.2, 5.4, false, 1.7, 1.7, -0.4 * (0.4 + (pose.cup || 0)));
+    bump(0.2, 5.4, false, 2.2, 2.2, -0.22 * (0.4 + (pose.cup || 0)));
     S.bumps = bumps;
     const bodyF = forms.find((f) => f.isBody);
     S.body = bodyF;
     S.bumpW = { 1: smooth(0.05, 0.5, bodyF.faceZ), '-1': smooth(0.05, 0.5, -bodyF.faceZ) };
-    S.fadeY = pose.fadeArm ? [P.y0 + 0.2, P.y0 + Math.min(sk.arm * 0.78, 5.2)] : null;
+    S.fadeY = pose.fadeArm ? [P.y0 + 0.2, P.y0 + Math.min(sk.arm * 0.78, 5.2)] : [P.y0 - 0.4, P.y0 + sk.arm * 0.5];
 
     S.ev = { depth: 0, nx: 0, ny: 0, nz: 1, t: 0, fade: 1, nz0: 1 };
     return S;
@@ -201,6 +201,7 @@
       HS.evalForm(S, f, x, y, tmp);
       let d = tmp.depth;
       if (f.kind === 'web') d += 0.05;
+      if (f.isThumb && f.seg === 0) d += 0.3; // the thumb's metacarpal sits under the palm's skin
       if (d < bd) { bd = d; best = f; const e = S.ev; e.depth = tmp.depth; e.nx = tmp.nx; e.ny = tmp.ny; e.nz = tmp.nz; e.t = tmp.t; e.fade = tmp.fade; e.hw = tmp.hw; e.valley = tmp.valley; e.nz0 = tmp.nz0; }
     }
     return best;

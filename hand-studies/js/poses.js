@@ -19,6 +19,7 @@
     /* 2 — back of a relaxed hand */
     backRelaxed: {
       side: 1, cup: 0.15, thenar: 0.6, arm: 6, interosseous: 1.2,
+      light: [-0.15, 0.7, 0.7],
       fingers: mk([[0.30, 0.42, 0.22, -0.10], [0.36, 0.55, 0.30, -0.01], [0.46, 0.64, 0.36, 0.05], [0.56, 0.70, 0.40, 0.14]]),
       thumb: { abd: 0.55, flex: 0.2, roll: 0.8, mcp: 0.18, ip: 0.2 },
       wrist: { flex: -0.15, dev: -0.05 },
@@ -75,7 +76,7 @@
     /* 9 — clawed, hyper-splayed, palm-on and foreshortened */
     claw: {
       side: -1, cup: 0.3, thenar: 1.0, arm: 5,
-      fingers: mk([[-0.15, 0.55, 0.45, -0.22], [-0.1, 0.6, 0.5, -0.08], [-0.1, 0.62, 0.5, 0.08], [-0.05, 0.6, 0.45, 0.28]]),
+      fingers: mk([[-0.12, 0.62, 0.22, -0.22], [-0.08, 0.66, 0.26, -0.08], [-0.06, 0.68, 0.26, 0.08], [0.0, 0.62, 0.22, 0.28]]),
       thumb: { abd: 1.0, flex: 0.1, roll: 1.0, mcp: -0.1, ip: 0.2 },
       wrist: { flex: -0.25, dev: 0 },
       view: { yaw: PI + 0.35, pitch: 0.9, roll: 0.25, dist: 36, pivot: [0, 6, 0] },
