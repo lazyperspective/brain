@@ -6,7 +6,7 @@
     const S = Sketch, D = S.D3, V = S.V3, TAU = S.TAU, lerp = S.lerp;
     const INK = '#141414', RED = '#c3272b', PAPER = '#ffffff';
     const tg = [30, -80, 44], yaw = -0.98, pit = 0.46, dist = 1500;
-    const CAM = D.camera({ eye: [tg[0] + dist * Math.sin(yaw) * Math.cos(pit), tg[1] - dist * Math.cos(yaw) * Math.cos(pit), tg[2] + dist * Math.sin(pit)], target: tg, f: 3800, cx: 600, cy: 500 });
+    const CAM = D.camera({ eye: [tg[0] + dist * Math.sin(yaw) * Math.cos(pit), tg[1] - dist * Math.cos(yaw) * Math.cos(pit), tg[2] + dist * Math.sin(pit)], target: tg, f: 3980, cx: 675, cy: 508 });
     const faces = [], add = f => { (Array.isArray(f) ? f : [f]).forEach(x => faces.push(x)); return f; };
     const custom = (c, fn, bias = 0) => faces.push({ custom: fn, c, bias: bias < 0 ? -bias * 12 + 18 : bias });
     const anchors = [];                                     // [label, world point] for callouts
@@ -86,7 +86,7 @@
     }
     /* ---- dials, knobs, buttons floating above the deck, each with its spring and screw ---- */
     const knurledKnob = (x, y, z, r, h, o = {}) => { add(D.revolve(x, y, [[r, z], [r, z + h], [r - 1.2, z + h + 1.2], [0.01, z + h + 1.2]], { seg: 32 })); custom([x, y, z + h / 2], (PP, cm) => D.knurl(PP, cm, x, y, r + 0.05, z + 0.6, z + h - 0.6, o.n || 64, { c: INK, w: 0.55 }), -0.5); };
-    { const ZS = ZT + 36;
+    { const ZS = ZT + 28;
       // shutter speed dial: skirt, knurled cap, engraved speeds, index
       add(D.revolve(36, 0, [[8.2, ZS - 3], [8.2, ZS], [0.01, ZS]], { seg: 28 })); knurledKnob(36, 0, ZS, 9.4, 6, { n: 72 });
       custom([36, 0, ZS + 7.3], (PP, cm) => { ['1', '2', '5', '10', '25', '50', '100', '250', '500', 'B'].forEach((txt, i) => { const a = -1.4 + i * 0.36, q = cm.project([36 + Math.cos(a) * 6.4, Math.sin(a) * 6.4, ZS + 7.25]); if (q) PP.text(txt, q[0], q[1] + 2, { size: 4.2, c: INK, align: 'center', a: 0.95 }); }); const a = cm.project([36, 0, ZS + 7.25]), b = cm.project([36, -9.4, ZS + 7.25]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.5, c: INK, passes: 1, over: 0 }); }, -3);
@@ -105,7 +105,7 @@
       // four deck screws, lifted out
       [[-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => screw(x, y, ZT + 22, 1.9, 6));
       tag('SHUTTER SPEED DIAL 1 - 1/500', [36, -9.4, ZS + 4]); tag('FILM ADVANCE KNOB', [56 + 10.6, 0, ZS + 24]); tag('FRAME COUNTER', [56, -6, ZS + 30]); tag('SHUTTER RELEASE', [22, -8, ZT + 76]); tag('REWIND KNOB + CRANK', [-58, 10, ZT + 82]); tag('DIAL SPRING', [36 + 3.4, 0, ZT + 26]); tag('DECK SCREW M1.6', [-HW - 6, -5, ZT + 24]);
-      [[36, 0], [56, 0], [22, -6], [-42, 0], [-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => guide([x, y, 0 + 60], [x, y, ZT + 76]));
+      [[36, 0], [56, 0], [22, -6], [-42, 0], [-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => guide([x, y, 0 + 60], [x, y, ZT + 62]));
     }
 
     // engraving on the deck: maker, model, serial, and the index dots
@@ -166,7 +166,7 @@
     }
 
     /* ================= Z-stack below the body ================= */
-    const ZB = -76;
+    const ZB = -62;
     { // film cassette dropping out of the bottom-loading chamber
       add(D.revolve(-44, 0, [[12, -52], [12, -14], [0.01, -14]], { seg: 28 })); add(D.revolve(-44, 0, [[4, -14], [4, -9], [0.01, -9]], { seg: 14 })); add(D.revolve(-44, 0, [[4, -57], [4, -52], [0.01, -52]], { seg: 14 }));
       add(box(-44, -13, -48, -31, -11, -18)); custom([-44, -12, -33], (PP, cm) => { for (let z = -47; z < -19; z += 3.2) { const a = cm.project([-40, -13.1, z]), b = cm.project([-33, -13.1, z]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.4, c: INK, a: 0.8, passes: 1, over: 0 }); } }, -2);
@@ -267,7 +267,7 @@
       tag('CIRCLIPS + WASHERS', [36 + 4, 0, ZT + 10]); tag('BRASS BUSHINGS', [40, 2, ZM - 14]); tag('BASEPLATE SCREWS', [60, -8, ZB - 10]); tag('RETAINING RING', [18.5, -RR - 22 - 3 * G - 24, 30]);
     }
     /* ================= DETAIL A: the iris diaphragm, drawn large in its own camera ================= */
-    { const cx0 = 690, cy0 = 752, rr = 84;
+    { const cx0 = 700, cy0 = 748, rr = 84;
       const cm = D.camera({ eye: [0, -150, 120], target: [0, 0, 0], f: 300, cx: cx0 + 20, cy: cy0 + 36 });
       const F = [];
       F.push(...D.ringSolid(0, 0, 44, 58, -6, 0, 48)); F.push(...D.ringSolid(0, 0, 50, 58, 0, 7, 48));
@@ -275,7 +275,7 @@
       for (let k = 0; k < 10; k++) { const a = k * TAU / 10 + 0.05; F.push(...D.cylinder(Math.cos(a) * 53, Math.sin(a) * 53, 1.8, 1.4, 4, 10)); }
       D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3 });
       const q = cm.project([0, 0, 1]); if (q) { const hole = Array.from({ length: 10 }, (_, i) => { const p = cm.project([Math.cos(i * TAU / 10 + 0.3) * 17, Math.sin(i * TAU / 10 + 0.3) * 17, 1.4]); return [p[0], p[1]]; }); P.occlude(hole, '#1a1a1a'); P.poly(hole, { w: 0.9, c: INK, passes: 1, over: 0 }); }
-      P.text('DETAIL A', cx0 - rr - 4, cy0 - rr + 6, { size: 11, c: INK, align: 'right', font: S.HAND }); P.text('IRIS, 10 BLADES, F/8', cx0 - rr - 4, cy0 - rr + 20, { size: 7, c: INK, align: 'right' }); P.text('SCALE 8 : 1', cx0 - rr - 4, cy0 - rr + 32, { size: 7, c: INK, align: 'right', a: 0.8 });
+      P.text('DETAIL A', cx0 + rr + 36, cy0 + 10, { size: 11, c: INK, font: S.HAND }); P.text('IRIS, 10 BLADES, F/8', cx0 + rr + 36, cy0 + 24, { size: 7, c: INK }); P.text('SCALE 8 : 1', cx0 + rr + 36, cy0 + 36, { size: 7, c: INK, a: 0.8 });
       const lp = CAM.project([0, -RR - 22 - 2 * G - 24, 30 - 19]); if (lp) { P.dashed(lp[0], lp[1], cx0 + rr * 0.3, cy0 - rr * 0.95, [3, 4], { w: 0.5, c: INK, a: 0.7 }); P.circle(lp[0], lp[1], 10, { w: 0.5, c: INK, a: 0.7, passes: 1 }); }
     }
 
@@ -284,7 +284,7 @@
 
     /* ================= DETAIL B: film advance knob in section; DETAIL C: curtain drum cut open ================= */
     const detailCam = (cx0, cy0, f) => D.camera({ eye: [-130, -150, 110], target: [0, 0, 0], f, cx: cx0, cy: cy0 });
-    { const cx0 = 1180, cy0 = 776, cm = detailCam(cx0, cy0, 640), F = [], cut = { a0: Math.PI * 0.75, a1: Math.PI * 2.25, tube: true, cutTone: 0.72 };
+    { const cx0 = 1300, cy0 = 780, cm = detailCam(cx0, cy0, 540), F = [], cut = { a0: Math.PI * 0.75, a1: Math.PI * 2.25, tube: true, cutTone: 0.72 };
       F.push(...D.revolve(0, 0, [[20, 0], [20, 14], [18, 16], [6, 16], [6, 4], [4, 4], [4, -18], [2.4, -18], [2.4, 0.01], [18, 0.01], [20, 0]], Object.assign({ seg: 40 }, cut)));
       F.push(...D.gearMesh(0, 0, 11, 18, -14, -11, 0.1, { root: 0.8 }));
       F.push(...D.cylinder(0, 0, 1.6, -30, 18, 10));
@@ -293,11 +293,11 @@
       D.knurl(P, cm, 0, 0, 20.1, 1, 13, 90, { c: INK, w: 0.5 });
       const hp = D.helix(0, 0, 9, -9, 3, 5, 18); D.polyline3(P, hp, cm, { w: 1.1, c: RED, a: 0.95 });
       [[0, 0, 16.2]].forEach(p => { const q = cm.project(p); if (q) { P.circle(q[0], q[1], 3, { w: 1, c: RED, passes: 1 }); P.line(q[0] - 2.2, q[1], q[0] + 2.2, q[1], { w: 0.9, c: RED, passes: 1, over: 0 }); } });
-      P.text('DETAIL B', cx0 + 62, cy0 - 50, { size: 11, c: INK, font: S.HAND }); P.text('ADVANCE KNOB, SECTION', cx0 + 62, cy0 - 37, { size: 6.8, c: INK }); P.text('SCALE 5 : 1', cx0 + 62, cy0 - 26, { size: 6.6, c: INK, a: 0.8 });
-      const n1 = cm.project([9, 0, -3]); if (n1) P.note('CLICK SPRING', cx0 + 70, cy0 + 40, n1[0], n1[1], { size: 7.4, c: INK });
-      const n2 = cm.project([11, 0, -12]); if (n2) P.note('RATCHET', cx0 + 70, cy0 + 16, n2[0], n2[1], { size: 7.4, c: INK });
+      P.text('DETAIL B', cx0 - 60, cy0 - 70, { size: 11, c: INK, font: S.HAND }); P.text('ADVANCE KNOB, SECTION', cx0 - 60, cy0 - 57, { size: 6.8, c: INK }); P.text('SCALE 5 : 1', cx0 - 60, cy0 - 46, { size: 6.6, c: INK, a: 0.8 });
+      const n1 = cm.project([9, 0, -3]); if (n1) P.note('CLICK SPRING', cx0 + 62, cy0 + 40, n1[0], n1[1], { size: 7.4, c: INK });
+      const n2 = cm.project([11, 0, -12]); if (n2) P.note('RATCHET', cx0 + 62, cy0 + 16, n2[0], n2[1], { size: 7.4, c: INK });
     }
-    { const cx0 = 600, cy0 = 196, cm = detailCam(cx0, cy0, 470), F = [], cut = { a0: Math.PI * 0.8, a1: Math.PI * 2.3, tube: true, cutTone: 0.72 };
+    { const cx0 = 1180, cy0 = 300, cm = detailCam(cx0, cy0, 470), F = [], cut = { a0: Math.PI * 0.8, a1: Math.PI * 2.3, tube: true, cutTone: 0.72 };
       F.push(...D.revolve(0, 0, [[12, 0], [12, 46], [10.4, 46], [10.4, 0], [12, 0]], Object.assign({ seg: 36 }, cut)));
       F.push(...D.revolve(0, 0, [[15, -2], [15, 0], [2.2, 0], [2.2, -2], [15, -2]], { seg: 36, tube: true }));
       F.push(...D.cylinder(0, 0, 2, -10, 56, 10));
@@ -322,21 +322,12 @@
       const settle = (arr, top, bot, gap) => { arr.forEach(q => q.ly = q.y); for (let k = 1; k < arr.length; k++) arr[k].ly = Math.max(arr[k].ly, arr[k - 1].ly + gap); const over = arr.length ? arr[arr.length - 1].ly - bot : 0; if (over > 0) arr.forEach(q => q.ly -= over); for (let k = arr.length - 2; k >= 0; k--) arr[k].ly = Math.min(arr[k].ly, arr[k + 1].ly - gap); if (arr.length && arr[0].ly < top) { const d = top - arr[0].ly; arr.forEach(q => q.ly += d); } };
       settle(left, T0 + 24, 836, 20); settle(right, T0 + 24, 836, 20);
       let num = 1; const all = left.concat(right); all.forEach(q => q.n = num++);
-      const draw = (q, side) => { const lx = side < 0 ? 236 : 1112, tx = side < 0 ? lx - 16 : lx + 16, kx = side < 0 ? lx + 22 : lx - 22;
+      const draw = (q, side) => { const lx = side < 0 ? 200 : 1392, tx = side < 0 ? lx - 16 : lx + 16, kx = side < 0 ? lx + 22 : lx - 22;
         P.dot(q.x, q.y, 1.6, { c: INK, a: 0.95 });
         P.line(q.x, q.y, kx, q.ly, { w: 0.45, c: INK, a: 0.8, passes: 1, over: 0, rough: 0.15 }); P.line(kx, q.ly, lx, q.ly, { w: 0.45, c: INK, a: 0.8, passes: 1, over: 0, rough: 0.1 });
         P.circle(lx + side * -0, q.ly, 7.6, { w: 0.7, c: INK, passes: 1, rough: 0.1 }); P.text(String(q.n), lx, q.ly + 3.2, { size: 8.2, c: INK, align: 'center' });
         P.text(q.lb, tx, q.ly + 3.4, { size: 9, c: INK, align: side < 0 ? 'right' : 'left', a: 0.95 }); };
       left.forEach(q => draw(q, -1)); right.forEach(q => draw(q, 1));
-      // parts schedule on the right
-      const tx0 = 1330, tx1 = R0 - 10; let ty = T0 + 14; P.rect(tx0, T0 + 8, tx1 - tx0, 250, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 });
-      P.text('SCHEDULE OF PARTS', (tx0 + tx1) / 2, ty + 14, { size: 11, c: INK, align: 'center', font: S.HAND }); ty += 24; P.line(tx0, ty, tx1, ty, { w: 0.6, c: INK, passes: 1, over: 0 });
-      P.text('NO', tx0 + 8, ty + 12, { size: 6.6, c: INK }); P.text('DESCRIPTION', tx0 + 28, ty + 12, { size: 6.6, c: INK }); P.text('QTY', tx1 - 34, ty + 12, { size: 6.6, c: INK }); P.text('MAT', tx1 - 18, ty + 12, { size: 6.6, c: INK }); ty += 17; P.line(tx0, ty, tx1, ty, { w: 0.4, c: INK, passes: 1, over: 0 });
-      const mats = ['ZN', 'BR', 'ST', 'AL', 'GL', 'CU']; all.slice().sort((a, b) => a.n - b.n).forEach(q => { const d = q.lb.length > 24 ? q.lb.slice(0, 24) : q.lb; P.text(String(q.n), tx0 + 8, ty + 9.6, { size: 5.4, c: INK }); P.text(d, tx0 + 28, ty + 9.2, { size: 5.2, c: INK, a: 0.92 }); const red = /SCREW|SPRING/.test(q.lb); P.text(red ? String(2 + q.n % 3) : '1', tx1 - 30, ty + 9.6, { size: 5.8, c: red ? RED : INK }); P.text(red ? 'ST' : mats[q.n % 6], tx1 - 18, ty + 9.6, { size: 5.6, c: INK }); ty += 10.8; P.line(tx0 + 4, ty, tx1 - 4, ty, { w: 0.25, c: INK, a: 0.45, passes: 1, over: 0 }); });
-      P.line(tx0 + 22, T0 + 46, tx0 + 22, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 36, T0 + 46, tx1 - 36, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 20, T0 + 46, tx1 - 20, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 });
-      // notes block
-      const ny = T0 + 272; P.rect(tx0, ny, tx1 - tx0, 150, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 }); P.text('NOTES', tx0 + 10, ny + 16, { size: 9, c: INK, font: S.HAND });
-      ['1. SPRINGS AND SCREWS SHOWN IN RED.', '2. DASHED LINES = ASSEMBLY AXES.', '3. PARTS LIFTED ALONG THE AXIS OF', '    THEIR ASSEMBLY, NOT TO SCALE.', '4. LUBRICATE HELICOID WITH LIGHT', '    GREASE ONLY. NO OIL ON SHUTTER.', '5. FOCUS 1 M TO INFINITY.'].forEach((l, i) => P.text(l, tx0 + 10, ny + 36 + i * 15, { size: 6.4, c: INK, a: 0.92 }));
       // title band
       P.line(L0, B0 - 44, R0, B0 - 44, { w: 0.8, c: INK, passes: 1, over: 0, rough: 0.2 });
       [300, 700, 1000, 1330].forEach(x => P.line(x, B0 - 44, x, B0, { w: 0.6, c: INK, passes: 1, over: 0 }));
