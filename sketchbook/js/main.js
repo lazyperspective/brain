@@ -94,7 +94,7 @@
     constructor(scene) {
       const P = new S.Page(scene.seed, { ink: scene.ink });
       scene.build(P, scene.index + 1, TOTAL);
-      this.page = P; this.ops = P.ops; this.i = 0; this.j = 0; this.credit = 0; this.seed = scene.seed;
+      this.page = P; this.ops = P.ops; this.i = 0; this.j = 0; this.credit = 0; this.seed = scene.seed; this.scene = scene;
       // animated groups: op ranges the scene marked as live; after the pen finishes they are redrawn every frame
       this.anims = (P.anims || []).map(a => Object.assign({ st: {} }, a)); this.skip = new Uint8Array(this.ops.length); this.anims.forEach(a => this.skip.fill(1, a.i0, a.i1)); this.base = null; this.t0 = null; this.reveal = !!scene.reveal; this.full = null;
       this.total = 0;
@@ -187,6 +187,7 @@
     }
     animate(now) {
       if (this.t0 === null) this.t0 = now; const t = (now - this.t0) / 1000;
+      if (this.scene.takeover) { const c = ictx; c.setTransform(1, 0, 0, 1, 0, 0); if (this.scene.takeover(c, t, inkC.width, inkC.height, this)) return; }
       this.ensure();
       const c = ictx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, inkC.width, inkC.height); c.drawImage(this.base.c, 0, 0);
       for (const a of this.anims) {
@@ -209,6 +210,10 @@
       }
     }
     draw(op, from, to, c = ictx, rv = null) {
+      if (op.blend && !rv) { c.save(); c.globalCompositeOperation = op.blend; try { this.drawOp(op, from, to, c, rv); } finally { c.restore(); } return; }
+      this.drawOp(op, from, to, c, rv);
+    }
+    drawOp(op, from, to, c = ictx, rv = null) {
       if (to <= from && op.k !== 'e') return;
       if (rv) return this.drawReveal(op, from, to, c, rv);
       switch (op.k) {
@@ -234,7 +239,7 @@
           c.closePath();
           for (let s = from; s < to; s++) {
             if (op.g) {
-              const g = op.g, gr = c.createLinearGradient(g.x0, g.y0, g.x1, g.y1);
+              const g = op.g, gr = g.r1 !== undefined ? c.createRadialGradient(g.x0, g.y0, g.r0 || 0, g.x0, g.y0, g.r1) : c.createLinearGradient(g.x0, g.y0, g.x1, g.y1);
               gr.addColorStop(0, S.rgba(g.c0, aStep(g.a0))); gr.addColorStop(1, S.rgba(g.c1, aStep(g.a1)));
               c.fillStyle = gr;
             } else c.fillStyle = S.rgba(op.c, aStep(op.a));
@@ -305,7 +310,8 @@
     if (cur >= 0 && !switching) {
       const p = playerFor(cur);
       if (!p.done) { p.ensure(); p.advance(Math.max(140, p.total / DURATION) * speedMul * dt); p.t0 = null; }
-      else if (p.anims.length && !paused) p.animate(now);
+      else if ((p.anims.length || p.scene.takeover) && !paused) p.animate(now);
+      if (p.scene.pump) p.scene.pump(p.done);
     }
     requestAnimationFrame(frame);
   }

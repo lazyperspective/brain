@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Everything Inside Everything</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#15120f;overflow:hidden;color:#efe6d2;font-family:"Architects Daughter",cursive}
+#c{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#hud{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:15px;opacity:.75;pointer-events:none}
+#load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.85;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="load">sharpening the pencil…</div>
+<div id="hud"></div>
+<script src="js/engine.js"></script>
+<script src="js/zoom/engine.js"></script>
+<script src="js/zoom/lib.js"></script>
+<script>
+/* worlds load in order; ?worlds=w00-city,w01-studio picks a subset for testing */
+(function () {
+  const ALL = ['w00-city', 'w01-studio', 'w02-board', 'w03-forest', 'w04-leaf', 'w05-cells', 'w06-chloroplast', 'w07-membrane', 'w08-molecule', 'w09-atom', 'w10-galaxy', 'w11-earth'];
+  const qs = new URLSearchParams(location.search), list = (qs.get('worlds') || ALL.join(',')).split(',');
+  let i = 0; const next = () => { if (i >= list.length) { window.__zoomStart(); return; } const sc = document.createElement('script'); sc.src = 'js/zoom/' + list[i++] + '.js'; sc.onload = next; sc.onerror = next; document.body.appendChild(sc); };
+  addEventListener('DOMContentLoaded', next);
+})();
+</script>
+<script>
+window.__zoomStart = function () {
+  const qs = new URLSearchParams(location.search), EXPORT = qs.has('export'), cv = document.getElementById('c'), x = cv.getContext('2d');
+  let OW = +(qs.get('w') || 0);
+  if (!OW) { const dpr = Math.min(2, devicePixelRatio || 1), fit = Math.min(innerWidth, innerHeight * 1.6); OW = Math.round(Math.min(2400, fit * dpr)); cv.style.width = fit + 'px'; cv.style.height = fit / 1.6 + 'px'; }
+  const OH = Math.round(OW / 1.6); cv.width = OW; cv.height = OH;
+  const E = SketchZoom.engine({ q: OW / 1600, beta: +(qs.get('beta') || 1.5), speed: +(qs.get('speed') || 1.35) });
+  window.ZOOM = E;
+  if (EXPORT) { document.getElementById('load').remove(); E.renderAt = (t, type = 'image/jpeg', qual = 0.93) => { E.frame(x, t, OW, OH, { sync: true }); return cv.toDataURL(type, qual); }; E.show = (k, f) => { E.need(k); E.need(k + 1); E.finish(); E.draw(x, k, f, OW, OH, 0); return cv.toDataURL('image/png'); }; return; }
+  let t0 = null, paused = false, tp = 0;
+  addEventListener('keydown', e => { if (e.key === ' ') paused = !paused; });
+  function tick(now) {
+    E.pump(E.ready ? 6 : 30);
+    const ld = document.getElementById('load'); if (ld) { if (E.ready) ld.remove(); else ld.textContent = 'sharpening the pencil… ' + E.status; }
+    if (E.ready) { if (t0 === null) t0 = now; if (!paused) tp = (now - t0) / 1000; else t0 = now - tp * 1000; E.frame(x, tp, OW, OH); const w = E.worlds[E.last.k]; document.getElementById('hud').textContent = w.d.name + (w.d.scale ? '  ·  ' + w.d.scale : ''); }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+};
+</script>
+</body>
+</html>
