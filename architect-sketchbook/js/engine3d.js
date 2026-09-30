@@ -113,7 +113,7 @@
         faces.push({ v, hdir: [0, 0, 1], tone: nr < -0.3 && o.darkBore !== false ? 0.88 : undefined, n: norm([Math.cos(tm) * nr, Math.sin(tm) * nr, nz]), hard: [sharpPrev || j === 0, !full && i === seg - 1, j === prof.length - 2, !full && i === 0], c: o.color, ghost: o.ghost, double: o.double });
       }
     }
-    if (!full) [[a0, -1], [a1, 1]].forEach(([t, sg]) => { const v = prof.map(([r, z]) => [cx + Math.cos(t) * r, cy + Math.sin(t) * r, z]); v.push([cx, cy, prof[prof.length - 1][1]], [cx, cy, prof[0][1]]); faces.push({ v: sg > 0 ? v : v.slice().reverse(), n: [-Math.sin(t) * sg, Math.cos(t) * sg, 0], hard: v.map(() => true), tone: o.cutTone ?? 0.62, cut: true }); });
+    if (!full) [[a0, -1], [a1, 1]].forEach(([t, sg]) => { const v = prof.map(([r, z]) => [cx + Math.cos(t) * r, cy + Math.sin(t) * r, z]); if (!o.tube) v.push([cx, cy, prof[prof.length - 1][1]], [cx, cy, prof[0][1]]); faces.push({ v: sg > 0 ? v : v.slice().reverse(), n: [-Math.sin(t) * sg, Math.cos(t) * sg, 0], hard: v.map(() => true), tone: o.cutTone ?? 0.62, cut: true }); });
     return faces;
   }
   /* knurl / grip ridges on a cylinder, as short vertical strokes (drawn through the camera, only on the visible side) */

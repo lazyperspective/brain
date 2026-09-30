@@ -138,6 +138,16 @@
       tag('FILM SPROCKET', [26, -13, 48]);
     }
 
+
+    /* ================= film chamber packed: curtain shafts across, gear trains in the gaps, levers & springs ================= */
+    { const alongX = (fs, x0, y0, z0) => fs.map(f => Object.assign({}, f, { v: f.v.map(([x, y, z]) => [x0 + z, y0 + x, z0 + y]), n: [f.n[2], f.n[0], f.n[1]], hdir: f.hdir ? [f.hdir[2], f.hdir[0], f.hdir[1]] : undefined }));
+      [[-9, 40], [9, 40], [-9, 16], [9, 16]].forEach(([y, z], i) => { add(alongX(D.revolve(0, 0, [[1.3, 0], [1.3, 60], [0.01, 60]], { seg: 10 }), -30, y, z)); add(alongX(D.revolve(0, 0, [[4.2, 0], [4.2, 4], [0.01, 4]], { seg: 16 }), -30 + (i % 2 ? 52 : 4), y, z)); });
+      [[-36, 10, 30], [36, -10, 30], [-36, -10, 20], [36, 10, 44]].forEach(([x, y, z], i) => { add(D.gearMesh(x, y, 3.8, 12, z, z + 2, i * 0.2, { root: 0.78 })); add(D.cylinder(x, y, 0.9, z - 6, z + 5, 8)); });
+      [[-26, -10, 40], [26, 10, 30]].forEach(([x, y, z]) => { add(D.bodyOfBar([x, y], [x + 8, y + 3], 1.1, 0.9, z, z + 1.2, { crease: 0.3 })); spring(x + 8, y + 3, z - 8, z, 1, 5); });
+      screw(-30, 13, 54, 1.4, 4); screw(30, -13, 54, 1.4, 4);
+      tag('CURTAIN SHAFTS', [-30, -9, 40]);
+    }
+
     /* ================= Z-stack below the body ================= */
     const ZB = -76;
     { // film cassette dropping out of the bottom-loading chamber
@@ -190,13 +200,13 @@
       const part = (prof, dy, o = {}) => add(toFront(D.revolve(0, 0, prof, Object.assign({ seg: 36 }, o)), LX, Y0 - dy, LZ));
       part([[23, 0], [23, 3], [19, 3], [19, 7], [16.5, 7], [16.5, 0]], 22);                                  // bayonet mount
       [0, 1, 2].forEach(i => { const a = i * TAU / 3 + 0.4; add(toFront(D.revolve(0, 0, [[0.01, 0], [0.01, 0]], {}), 0, 0, 0)); });
-      part([[18, 0], [18, 14], [21.6, 14], [21.6, 26], [18, 26], [18, 32], [15.5, 32], [15.5, 0]], 22 + G);       // helicoid + focus ring
+      part([[18, 0], [18, 14], [21.6, 14], [21.6, 26], [18, 26], [18, 32], [15.5, 32], [15.5, 0], [18, 0]], 22 + G, { a0: Math.PI, a1: Math.PI * 2.5, tube: true, cutTone: 0.7 });       // helicoid + focus ring
       custom([0, Y0 - 22 - G - 20, LZ], (PP, cm) => { for (let i = 0; i < 70; i++) { const a = i * TAU / 70, x = Math.cos(a) * 21.7, z = Math.sin(a) * 21.7; const nx = Math.cos(a), nz = Math.sin(a); if ((cm.eye[0] - x) * nx + (cm.eye[2] - (LZ + z)) * nz < 0) continue; const p0 = cm.project([LX + x, Y0 - 22 - G - 14.5, LZ + z]), p1 = cm.project([LX + x, Y0 - 22 - G - 25.5, LZ + z]); if (p0 && p1) PP.line(p0[0], p0[1], p1[0], p1[1], { w: 0.55, c: INK, a: 0.85, passes: 1, over: 0, rough: 0.1 }); } }, -1);
       // aperture unit: ring + iris blades + rear glass
       part([[19, 0], [19, 8], [11, 8], [11, 0]], 22 + 2 * G + 20);
       custom([0, Y0 - 22 - 2 * G - 24, LZ], (PP, cm) => { for (let k = 0; k < 10; k++) { const a0 = k * TAU / 10, pts = []; for (let q = 0; q <= 8; q++) { const a = a0 + q * 0.09; pts.push([LX + Math.cos(a) * lerp(11, 5, q / 8), Y0 - 22 - 2 * G - 24, LZ + Math.sin(a) * lerp(11, 5, q / 8)]); } D.polyline3(PP, pts, cm, { w: 0.6, c: INK, a: 0.9 }); } }, -2);
       part([[14, 0], [15, 2], [15, 5], [13, 7], [0.01, 8]], 22 + 2 * G + 36, { seg: 28 });                           // rear element
-      part([[20.5, 0], [20.5, 18], [21.5, 20], [21.5, 26], [17, 26], [17, 0]], 22 + 3 * G + 40);                  // front barrel + name ring
+      part([[20.5, 0], [20.5, 18], [21.5, 20], [21.5, 26], [17, 26], [17, 0], [20.5, 0]], 22 + 3 * G + 40, { a0: Math.PI, a1: Math.PI * 2.5, tube: true, cutTone: 0.7 });                  // front barrel + name ring
       custom([0, Y0 - 22 - 3 * G - 60, LZ], (PP, cm) => { 'SUMMAR 1:2 F=5CM'.split('').forEach((ch, i) => { const a = Math.PI * 0.62 - i * 0.12, q = cm.project([LX + Math.cos(a) * 19.3, Y0 - 22 - 3 * G - 40 - 26.05, LZ + Math.sin(a) * 19.3]); if (q) PP.text(ch, q[0], q[1] + 1.5, { size: 3.8, c: INK, align: 'center' }); }); }, -3);
       part([[16, 0], [17, 3], [17, 6], [14, 9], [0.01, 11]], 22 + 4 * G + 44, { seg: 28 });                          // front element
       part([[21, 0], [22, 0], [28, 22], [27, 22]], 22 + 4 * G + 72);                                                // hood
@@ -204,6 +214,13 @@
       // retaining screws on the mount + spring clip
       [0.5, 2.6, 4.7].forEach(a => { const x = Math.cos(a) * 20.5, z = LZ + Math.sin(a) * 20.5; custom([x, Y0 - 16, z], (PP, cm) => { const c0 = [x, Y0 - 8, z]; const pts = []; for (let i = 0; i <= 10; i++) pts.push([x + Math.cos(i * 0.6) * 1.2, Y0 - 6 - i * 1, z + Math.sin(i * 0.6) * 1.2]); D.polyline3(PP, pts, cm, { w: 0.8, c: RED, a: 0.95 }); const q = cm.project(c0); if (q) { PP.circle(q[0], q[1], 2.2, { w: 1, c: RED, passes: 1 }); PP.line(q[0] - 1.6, q[1], q[0] + 1.6, q[1], { w: 0.8, c: RED, passes: 1, over: 0 }); } D.dashed3(PP, [x, Y0 - 16, z], [x, Y0, z], cm, [3, 3], { w: 0.4, c: INK, a: 0.7 }); }, -1); });
 
+
+      // glass inside the cut barrels: a cemented doublet in the front barrel, a meniscus + spacer in the helicoid
+      part([[16.4, 0], [16.4, 3], [13, 6.4], [0.01, 7.6]], 22 + 3 * G + 48, { seg: 28, color: '#eef2f2', ca: 0.2 });
+      part([[16.4, -4.6], [16.4, 0], [0.01, 0.8]], 22 + 3 * G + 48, { seg: 28 });
+      part([[14.6, 0], [14.6, 2.4], [11, 5], [0.01, 5.8]], 22 + G + 10, { seg: 28 });
+      part([[15.4, 0], [15.4, 1.4], [13.6, 1.4], [13.6, 0], [15.4, 0]], 22 + G + 20, { seg: 28, tube: true });
+      tag('CEMENTED DOUBLET', [0, -RR - 22 - 3 * G - 52, 30 + 12]); tag('SECTION CUT, BARREL WALL', [-19, -RR - 22 - G - 16, 30 + 2]);
       // engraved focus scale on the helicoid and aperture numbers on the aperture ring
       custom([0, Y0 - 22 - G - 10, LZ], (PP, cm) => { ['INF', '10', '5', '3', '2', '1.5', '1.2', '1'].forEach((txt, i) => { const a = Math.PI * 0.32 + i * 0.2, x = Math.cos(a) * 18.05, z = Math.sin(a) * 18.05; const q = cm.project([LX + x, Y0 - 22 - G - 6, LZ + z]); if (q) PP.text(txt, q[0], q[1] + 1.4, { size: 3.8, c: INK, align: 'center' }); const q0 = cm.project([LX + x, Y0 - 22 - G - 9.5, LZ + z]), q1 = cm.project([LX + x, Y0 - 22 - G - 11.5, LZ + z]); if (q0 && q1) PP.line(q0[0], q0[1], q1[0], q1[1], { w: 0.4, c: INK, passes: 1, over: 0 }); }); }, 6);
       custom([0, Y0 - 22 - 2 * G - 24, LZ], (PP, cm) => { ['2', '2.8', '4', '5.6', '8', '11', '16'].forEach((txt, i) => { const a = Math.PI * 0.3 + i * 0.25, q = cm.project([LX + Math.cos(a) * 19.05, Y0 - 22 - 2 * G - 24, LZ + Math.sin(a) * 19.05]); if (q) PP.text(txt, q[0], q[1] + 1.4, { size: 3.6, c: INK, align: 'center' }); }); }, 6);
@@ -247,6 +264,35 @@
 
     D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.6, -0.3, 0.62], ambient: 0.06, gap: 3.7, w: 1.35, rough: 0.22, zw: 0, hatchMin: 0.3, deep: true });
 
+
+    /* ================= DETAIL B: film advance knob in section; DETAIL C: curtain drum cut open ================= */
+    const detailCam = (cx0, cy0, f) => D.camera({ eye: [-130, -150, 110], target: [0, 0, 0], f, cx: cx0, cy: cy0 });
+    { const cx0 = 1180, cy0 = 776, cm = detailCam(cx0, cy0, 640), F = [], cut = { a0: Math.PI * 0.75, a1: Math.PI * 2.25, tube: true, cutTone: 0.72 };
+      F.push(...D.revolve(0, 0, [[20, 0], [20, 14], [18, 16], [6, 16], [6, 4], [4, 4], [4, -18], [2.4, -18], [2.4, 0.01], [18, 0.01], [20, 0]], Object.assign({ seg: 40 }, cut)));
+      F.push(...D.gearMesh(0, 0, 11, 18, -14, -11, 0.1, { root: 0.8 }));
+      F.push(...D.cylinder(0, 0, 1.6, -30, 18, 10));
+      const knX = [-20, 0]; void knX;
+      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.3, deep: true });
+      D.knurl(P, cm, 0, 0, 20.1, 1, 13, 90, { c: INK, w: 0.5 });
+      const hp = D.helix(0, 0, 9, -9, 3, 5, 18); D.polyline3(P, hp, cm, { w: 1.1, c: RED, a: 0.95 });
+      [[0, 0, 16.2]].forEach(p => { const q = cm.project(p); if (q) { P.circle(q[0], q[1], 3, { w: 1, c: RED, passes: 1 }); P.line(q[0] - 2.2, q[1], q[0] + 2.2, q[1], { w: 0.9, c: RED, passes: 1, over: 0 }); } });
+      P.text('DETAIL B', cx0 + 62, cy0 - 50, { size: 11, c: INK, font: S.HAND }); P.text('ADVANCE KNOB, SECTION', cx0 + 62, cy0 - 37, { size: 6.8, c: INK }); P.text('SCALE 5 : 1', cx0 + 62, cy0 - 26, { size: 6.6, c: INK, a: 0.8 });
+      const n1 = cm.project([9, 0, -3]); if (n1) P.note('CLICK SPRING', cx0 + 70, cy0 + 40, n1[0], n1[1], { size: 7.4, c: INK });
+      const n2 = cm.project([11, 0, -12]); if (n2) P.note('RATCHET', cx0 + 70, cy0 + 16, n2[0], n2[1], { size: 7.4, c: INK });
+    }
+    { const cx0 = 600, cy0 = 196, cm = detailCam(cx0, cy0, 470), F = [], cut = { a0: Math.PI * 0.8, a1: Math.PI * 2.3, tube: true, cutTone: 0.72 };
+      F.push(...D.revolve(0, 0, [[12, 0], [12, 46], [10.4, 46], [10.4, 0], [12, 0]], Object.assign({ seg: 36 }, cut)));
+      F.push(...D.revolve(0, 0, [[15, -2], [15, 0], [2.2, 0], [2.2, -2], [15, -2]], { seg: 36, tube: true }));
+      F.push(...D.cylinder(0, 0, 2, -10, 56, 10));
+      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.3, deep: true });
+      D.polyline3(P, D.helix(0, 0, 6.4, 2, 44, 12, 16), cm, { w: 1, c: RED, a: 0.95 });
+      P.text('DETAIL C', cx0 - 40, cy0 + 38, { size: 11, c: INK, font: S.HAND }); P.text('CURTAIN DRUM, CUT OPEN', cx0 - 40, cy0 + 51, { size: 6.8, c: INK }); P.text('TORSION SPRING INSIDE', cx0 - 40, cy0 + 62, { size: 6.6, c: INK, a: 0.8 });
+    }
+    /* ================= engineer's dimensions on the lens and body ================= */
+    { const pr = p => CAM.project(p), dimS = (a, b, lb, off) => { const A = pr(a), B = pr(b); if (A && B) P.dim(A[0], A[1], B[0], B[1], lb, off, { size: 7.4 }); };
+      dimS([0, -RR - 22, 30 - 26], [0, -RR - 22 - 5 * G - 90, 30 - 26], 'LENS STACK 262', 26);
+    }
+
     /* ================= the archive plate: border, fold, callouts, parts table, title band ================= */
     { const L0 = 58, T0 = 52, R0 = 1542, B0 = 900;
       P.rect(L0, T0, R0 - L0, B0 - T0, { w: 0.9, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 }); P.rect(L0 - 6, T0 - 6, R0 - L0 + 12, B0 - T0 + 12, { w: 0.4, c: INK, a: 0.6, rough: 0.2, over: 0, passes: 1 });
@@ -268,7 +314,7 @@
       const tx0 = 1330, tx1 = R0 - 10; let ty = T0 + 14; P.rect(tx0, T0 + 8, tx1 - tx0, 620, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 });
       P.text('SCHEDULE OF PARTS', (tx0 + tx1) / 2, ty + 14, { size: 11, c: INK, align: 'center', font: S.HAND }); ty += 24; P.line(tx0, ty, tx1, ty, { w: 0.6, c: INK, passes: 1, over: 0 });
       P.text('NO', tx0 + 8, ty + 12, { size: 6.6, c: INK }); P.text('DESCRIPTION', tx0 + 28, ty + 12, { size: 6.6, c: INK }); P.text('QTY', tx1 - 34, ty + 12, { size: 6.6, c: INK }); P.text('MAT', tx1 - 18, ty + 12, { size: 6.6, c: INK }); ty += 17; P.line(tx0, ty, tx1, ty, { w: 0.4, c: INK, passes: 1, over: 0 });
-      const mats = ['ZN', 'BR', 'ST', 'AL', 'GL', 'CU']; all.slice().sort((a, b) => a.n - b.n).forEach(q => { const d = q.lb.length > 24 ? q.lb.slice(0, 24) : q.lb; P.text(String(q.n), tx0 + 8, ty + 9.6, { size: 5.8, c: INK }); P.text(d, tx0 + 28, ty + 9.6, { size: 5.6, c: INK, a: 0.92 }); const red = /SCREW|SPRING/.test(q.lb); P.text(red ? String(2 + q.n % 3) : '1', tx1 - 30, ty + 9.6, { size: 5.8, c: red ? RED : INK }); P.text(red ? 'ST' : mats[q.n % 6], tx1 - 18, ty + 9.6, { size: 5.6, c: INK }); ty += 11.6; P.line(tx0 + 4, ty, tx1 - 4, ty, { w: 0.25, c: INK, a: 0.45, passes: 1, over: 0 }); });
+      const mats = ['ZN', 'BR', 'ST', 'AL', 'GL', 'CU']; all.slice().sort((a, b) => a.n - b.n).forEach(q => { const d = q.lb.length > 24 ? q.lb.slice(0, 24) : q.lb; P.text(String(q.n), tx0 + 8, ty + 9.6, { size: 5.4, c: INK }); P.text(d, tx0 + 28, ty + 9.2, { size: 5.2, c: INK, a: 0.92 }); const red = /SCREW|SPRING/.test(q.lb); P.text(red ? String(2 + q.n % 3) : '1', tx1 - 30, ty + 9.6, { size: 5.8, c: red ? RED : INK }); P.text(red ? 'ST' : mats[q.n % 6], tx1 - 18, ty + 9.6, { size: 5.6, c: INK }); ty += 10.8; P.line(tx0 + 4, ty, tx1 - 4, ty, { w: 0.25, c: INK, a: 0.45, passes: 1, over: 0 }); });
       P.line(tx0 + 22, T0 + 46, tx0 + 22, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 36, T0 + 46, tx1 - 36, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 20, T0 + 46, tx1 - 20, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 });
       // notes block
       const ny = T0 + 640; P.rect(tx0, ny, tx1 - tx0, 150, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 }); P.text('NOTES', tx0 + 10, ny + 16, { size: 9, c: INK, font: S.HAND });
