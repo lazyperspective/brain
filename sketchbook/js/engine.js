@@ -325,7 +325,7 @@
       const slant = o.slant ?? (hand ? 0.03 : 0.17), ls = (o.ls ?? 0) / capH;
       const s = String(str).toUpperCase(), rot = o.rot || 0, cr = Math.cos(rot), sr = Math.sin(rot);
       const tw = this.measure(s, size, o), ax = o.align === 'center' ? -tw / 2 : o.align === 'right' ? -tw : 0;
-      const lw = Math.max(0.85, size * (hand ? 0.058 : 0.052)), col = o.c || this.ink, al = o.a ?? 0.88;
+      const fine = !!o.fine, lw = o.lw ?? (fine ? size * 0.055 : Math.max(0.85, size * (hand ? 0.058 : 0.052))), col = o.c || this.ink, al = o.a ?? 0.88, ro = fine ? 0.02 : 0.3;
       let u = 0;
       for (const ch of s) {
         if (ch === ' ') { u += 0.5; continue; }
@@ -337,9 +337,9 @@
             if (o.mirror) lx = 2 * ax + tw - lx;
             return [x + lx * cr - ly * sr, y + lx * sr + ly * cr];
           });
-          const S = st.sm ? catmull(pts, false, Math.max(2.4, capH * 0.14)) : pts;
-          if (S.length === 2) { const L = Math.hypot(S[1][0] - S[0][0], S[1][1] - S[0][1]); const k = Math.max(1, Math.ceil(L / Math.max(3, capH * 0.3))); const D = []; for (let i = 0; i <= k; i++) D.push(lerpP(S[0], S[1], i / k)); this.path(D, { rough: 0.3, w: lw, c: col, a: al, passes: 1 }); }
-          else this.path(S, { rough: 0.3, w: lw, c: col, a: al, passes: 1 });
+          const S = st.sm ? catmull(pts, false, fine ? capH * 0.12 : Math.max(2.4, capH * 0.14)) : pts;
+          if (S.length === 2) { const L = Math.hypot(S[1][0] - S[0][0], S[1][1] - S[0][1]); const k = Math.max(1, Math.ceil(L / (fine ? capH * 0.3 : Math.max(3, capH * 0.3)))); const D = []; for (let i = 0; i <= k; i++) D.push(lerpP(S[0], S[1], i / k)); this.path(D, { rough: ro, w: lw, c: col, a: al, passes: 1 }); }
+          else this.path(S, { rough: ro, w: lw, c: col, a: al, passes: 1 });
         }
         u += g.w + 0.26 + ls;
       }

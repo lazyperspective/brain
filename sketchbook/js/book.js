@@ -282,6 +282,7 @@
     'Tea Engine': 'A Gothic tower crowned with machinery, all for one cup of tea.',
     'The Bystander': 'An original ink character reacting to a press conference, face by face, in time with the sound.',
     'The House That Draws Itself': 'A self-portrait: a house of rooms with one lit window, built on everything people wrote down, still being drawn by its own hand.',
+    'Everything Inside Everything': 'One drawing you fall into: a window in the city, a studio, a sketchbook, a leaf, a cell, a molecule, an atom, a galaxy, the Earth, and the same city again. Thirteen worlds, one zoom that never ends.',
     'Clock Island': 'Floating rocks, a clock-lighthouse and a time engine. It keeps moving once drawn.'
   };
   const PAGES = [{ kind: 'cover' }, { kind: 'contents' }].concat(SCENES.map((s, i) => ({ kind: 'scene', i })));

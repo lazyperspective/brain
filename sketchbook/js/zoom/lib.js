@@ -66,6 +66,12 @@
       const key = p => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10), ends = new Map(), used = new Array(segs.length).fill(false); segs.forEach((sg, i) => sg.forEach(p => { const kk = key(p); (ends.get(kk) || ends.set(kk, []).get(kk)).push(i); }));
       const lines = []; for (let i = 0; i < segs.length; i++) { if (used[i]) continue; used[i] = true; const line = [segs[i][0], segs[i][1]]; for (let dir = 0; dir < 2; dir++) { let grow = true; while (grow) { grow = false; const tip = dir ? line[0] : line[line.length - 1]; for (const j of ends.get(key(tip)) || []) { if (used[j]) continue; used[j] = true; const nxt = key(segs[j][0]) === key(tip) ? segs[j][1] : segs[j][0]; if (dir) line.unshift(nxt); else line.push(nxt); grow = true; break; } } } lines.push(line); }
       return lines; }); };
+  /* a smooth field painted into a bitmap: fn(x, y) gives [r, g, b, a] (0–255) at world point (x, y); res = pixels per world unit */
+  L.raster = (x0, y0, x1, y1, res, fn) => { const w = Math.max(1, Math.round((x1 - x0) * res)), h = Math.max(1, Math.round((y1 - y0) * res)), c = document.createElement('canvas'); c.width = w; c.height = h; const cx = c.getContext('2d'), im = cx.createImageData(w, h), d = im.data;
+    for (let j = 0; j < h; j++) { const y = y0 + (j + 0.5) / res; for (let i = 0; i < w; i++) { const v = fn(x0 + (i + 0.5) / res, y), o = (j * w + i) * 4; d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2]; d[o + 3] = v[3] ?? 255; } }
+    cx.putImageData(im, 0, 0); return c; };
+  /* iso-regions: the closed contour loops of f at level lv, to be filled even-odd (f must fall below lv at the box edges) */
+  L.regions = (f, x0, y0, x1, y1, st, lv) => { const out = L.contours((x, y) => (x <= x0 + st * 0.5 || y <= y0 + st * 0.5 || x >= x1 - st * 0.5 || y >= y1 - st * 0.5) ? -1e9 : f(x, y), x0, y0, x1, y1, st, Array.isArray(lv) ? lv : [lv]).map(ls => ls.filter(l => l.length > 3)); return Array.isArray(lv) ? out : out[0]; };
   L.blend = (P, mode, fn) => { const i0 = P.ops.length; fn(); for (let i = i0; i < P.ops.length; i++) P.ops[i].blend = mode; };
   /* ink kit bound to a page */
   L.convex = poly => { const n = poly.length; let sg = 0; for (let i = 0; i < n; i++) { const a = poly[i], b = poly[(i + 1) % n], c = poly[(i + 2) % n], cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]); if (Math.abs(cr) < 1e-9) continue; const s = Math.sign(cr); if (sg && s !== sg) return false; sg = s; } return true; };
@@ -87,6 +93,9 @@
       dots: (arr, c = K, a = 1) => P.dots(arr, c, a),
       circle: (x, y, r, w = 1, c = K, a = 0.95) => P.circle(x, y, r, { w, c, a, passes: 1 }),
       text: (s, x, y, sz, c = K, o = {}) => P.text(s, x, y, Object.assign({ size: sz, c }, o)),
+      /* several rings filled together even-odd, so holes stay holes */
+      rings: (rings, c, a = 1, grad) => { if (rings.length) P.ops.push({ k: 'f', poly: rings[0], rings, c, a, g: grad }); },
+      img: (cv, x, y, w, h, a = 1) => P.ops.push({ k: 'i', img: cv, x, y, w, h, a }),
       /* a filled leaf with a lit side, midrib and outline */
       leaf: (x, y, ang, len, wid, col, o = {}) => {
         const ca = Math.cos(ang), sa = Math.sin(ang), T = (u, v) => [x + ca * u - sa * v, y + sa * u + ca * v], n = o.n ?? 8, Lp = [], Rp = [];

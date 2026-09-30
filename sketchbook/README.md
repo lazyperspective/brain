@@ -1,6 +1,6 @@
 # The Sketchbook
 
-All the drawings from `architect-sketchbook/`, bound into a spiral landscape sketchpad. This folder is a full copy: the drawing code (`js/engine.js`, `js/engine3d.js`, `js/scenes/*.js`) is identical to the original, so the original folder stays a safe backup.
+All the drawings from `architect-sketchbook/`, bound into a spiral landscape sketchpad. This folder is a full copy: the drawing code (`js/engine.js`, `js/engine3d.js`, `js/scenes/*.js`) started identical to the original, so the original folder stays a safe backup. Since then `js/engine.js` has gained one opt-in option (`fine`, for tiny lettering), and the players in `js/main.js` and `js/book.js` learned blend modes and radial gradients for the zoom plate; drawings that don't use them render exactly as before.
 
 - `index.html` is the book: a cover, a contents page, and one plate per page. Pages turn over the top binding.
 - `classic.html` is the original one-sheet viewer, kept as it was.
@@ -14,6 +14,17 @@ Controls:
 - `Space`: finish the drawing.
 
 Tick "draw as I turn" to have every plate draw itself from blank when you arrive. Open `index.html` in a browser, or serve the folder with `python3 -m http.server`.
+
+## Plate 21: Everything Inside Everything
+
+`zoom.html` is an endless zoom through thirteen nested drawings, each in its own ink style: a city at dusk, a studio behind one of its windows, the drawing board, a sketchbook page with a forest, a leaf, the leaf's surface, a stoma, a chloroplast, a thylakoid membrane, a chlorophyll molecule, its magnesium atom, the galaxy inside that atom's nucleus, and the Earth at night, whose gap in the clouds opens back onto the city.
+
+- `js/zoom/engine.js` is the zoom. Every world is an ordinary `Page` on a 1600×1000 sheet with a *portal*: a rotated rectangle where the next world lives. Worlds are baked to bitmaps with the next ones already drawn inside their portals, sharper levels are rendered as the zoom closes in, and each frame follows a logarithmic spiral into the portal. A world's over-layer (window bars, cloud ring, nucleons) stays on top of the next world and is dissolved from the middle of the portal outwards, reaching its edges only as the next world takes over.
+- `js/zoom/lib.js` is the drawing kit the worlds share: noise, Voronoi and jigsaw cells, contour tracing, even-odd regions, colour, and smooth raster fields for glows that must stay smooth when magnified.
+- `js/zoom/w00-city.js` … `w12-earth.js` are the worlds. Neighbouring worlds share geometry through `SketchZoom.lib`, so what you dive into continues on the other side.
+- `js/scenes/zoom.js` puts it in the book: the pen draws the city, the engine inks the other worlds meanwhile, then the page falls into itself.
+
+`zoom.html?export&w=1920` exposes `ZOOM.renderAt(t)` for frame-by-frame video export; `?worlds=w03-forest,w04-leaf` loads a subset for testing.
 
 ---
 
