@@ -160,7 +160,7 @@
       }
     }
     /* ---- live animation ---- */
-    drawAll(ops, c, skip) { for (let n = 0; n < ops.length; n++) { if (skip && skip[n]) continue; const op = ops[n], N = this.units(op); if (N === 0) continue; this.draw(op, 0, N, c); } }
+    drawAll(ops, c, skip) { for (let n = 0; n < ops.length; n++) { if (skip && skip[n]) continue; const op = ops[n], N = op.k === 'f' ? op.steps : this.units(op); if (N === 0) continue; this.draw(op, 0, N, c); } }
     buildBase() {
       const c = document.createElement('canvas'); c.width = inkC.width; c.height = inkC.height; const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, 0, 0);
       this.drawAll(this.ops, x, this.skip); this.base = { c, k };
@@ -168,7 +168,7 @@
     bbox(ops) {
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const inc = (x, y, r = 2) => { if (x - r < x0) x0 = x - r; if (y - r < y0) y0 = y - r; if (x + r > x1) x1 = x + r; if (y + r > y1) y1 = y + r; };
       for (const op of ops) { if (op.p) op.p.forEach(q => inc(q[0], q[1], (q[2] || 1) + 2)); if (op.poly) op.poly.forEach(q => inc(q[0], q[1])); if (op.k === 'd') inc(op.x, op.y, op.r + 2); }
-      x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(W, Math.ceil(x1)); y1 = Math.min(H, Math.ceil(y1));
+      x0 = Math.max(-240, Math.floor(x0)); y0 = Math.max(-240, Math.floor(y0)); x1 = Math.min(W + 240, Math.ceil(x1)); y1 = Math.min(H + 240, Math.ceil(y1));
       return x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
     }
     genAnim(a, t) {
@@ -276,6 +276,7 @@
     'Ink Garden': 'A random abstract mass in the manner of Peter Draws.',
     'Tea Engine': 'A Gothic tower crowned with machinery, all for one cup of tea.',
     'The Bystander': 'An original ink character reacting to a press conference, face by face, in time with the sound.',
+    'The House That Draws Itself': 'A self-portrait: a house of rooms with one lit window, built on everything people wrote down, still being drawn by its own hand.',
     'Clock Island': 'Floating rocks, a clock-lighthouse and a time engine. It keeps moving once drawn.'
   };
   const PAGES = [{ kind: 'cover' }, { kind: 'contents' }].concat(SCENES.map((s, i) => ({ kind: 'scene', i })));
