@@ -83,8 +83,20 @@
           const az = Math.atan2(f.n[1], f.n[0]); let ang = f.n[2] > 0.9 ? -48 : f.n[2] < -0.9 ? 60 : 62 + Math.sin(az) * 26;
           if (f.hdir && Math.abs(dot(f.hdir, f.n)) < 0.7) { const q0 = cam.project(it.c), q1 = cam.project(add(it.c, mul(f.hdir, 10))); if (q0 && q1) ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]) * 180 / Math.PI; }
           let area2 = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; area2 += p[0] * q[1] - q[0] * p[1]; } area2 = Math.abs(area2) / 2;
+          if (o.rich) {
+            // layered engraving: tone is built from up to four hatch directions plus stipple in the deepest shadow
+            const d = Math.min(1, dark * (o.darken ?? 1.25)), g0 = o.gap ?? 4;
+            if (area2 > 2) P.hatch(poly, { ang, gap: Math.max(1.1, g0 - d * 2.6), a: Math.min(0.85, 0.35 + d * 0.55) * fa, w: 0.5, c: ink, inset: 0.3, ragged: 0.35, jit: 0.12 });
+            if (d > 0.42 && area2 > 6) P.hatch(poly, { ang: ang + 55, gap: Math.max(1.3, g0 - d * 2.4), a: Math.min(0.8, 0.25 + d * 0.5) * fa, w: 0.45, c: ink, inset: 0.4, ragged: 0.4, jit: 0.15 });
+            if (d > 0.66 && area2 > 10) P.hatch(poly, { ang: ang - 42, gap: Math.max(1.2, 3.2 - d * 1.8), a: 0.62 * fa, w: 0.45, c: ink, inset: 0.4, ragged: 0.3 });
+            if (d > 0.82 && area2 > 14) P.hatch(poly, { ang: ang + 90, gap: 1.5, a: 0.6 * fa, w: 0.45, c: ink, inset: 0.5, ragged: 0.3 });
+            if (d > 0.3 && area2 > 16 && o.stipple !== false) P.stipple(poly, Math.min(260, Math.round(area2 * d * d * 0.05)), { a: 0.7, r: 0.8, c: ink });
+            // a heavier line along the edge that faces away from the light
+            if (d > 0.5 && !f.ghost) { for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; if (f.hard && f.hard[i] && b[1] - a[1] > 0 === (o.shadowSide ?? true)) P.line(a[0], a[1], b[0], b[1], { w: 1.8 * fw, c: ink, a: 0.6, rough: 0.2, over: 0, passes: 1 }); } }
+          } else {
           if (area2 > 3) P.hatch(poly, { ang, gap: Math.max(1.3, (o.gap ?? 5.6) - dark * 4.4 + (f.n[2] > 0.9 ? 0.8 : 0)) * (1 + 0.5 * fk), a: Math.min(0.78, 0.3 + dark * 0.6) * fa, w: 0.5, c: ink, inset: 0.3, ragged: 0.4, jit: 0.15, cross: dark > 0.72 && area2 > 60 ? 42 : undefined });
           if (o.deep && dark > 0.84 && area2 > 30) P.hatch(poly, { ang: ang - 38, gap: Math.max(1.2, 2.2 - (dark - 0.84) * 4), a: 0.55, w: 0.45, c: ink, inset: 0.4, ragged: 0.3 });
+          }
         }
       }
       if (f.noEdge) { }
