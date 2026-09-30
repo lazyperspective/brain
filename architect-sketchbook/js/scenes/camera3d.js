@@ -327,6 +327,33 @@
       dimS([0, -RR - 22, 30 - 26], [0, -RR - 22 - 5 * G - 90, 30 - 26], 'LENS STACK 262', 26);
     }
 
+
+    /* ================= artistic layer: assembled thumbnail, pencil construction, foxing, stamp, margin notes ================= */
+    { const PEN = '#6f6a5e';
+      // --- paper foxing: small brown spots and a faint tide mark
+      for (let i = 0; i < 38; i++) { const x = P.r(70, 1530), y = P.r(60, 840), r = P.r(0.6, 2.6); P.wash(Array.from({ length: 10 }, (_, k) => [x + Math.cos(k * TAU / 10) * r * P.r(0.8, 1.2), y + Math.sin(k * TAU / 10) * r * P.r(0.8, 1.2)]), '#a07840', P.r(0.12, 0.3), { edge: 0, jit: 0.2, steps: 1 }); }
+      { const cx = 1470, cy = 190, rr = 64, pts = Array.from({ length: 40 }, (_, k) => [cx + Math.cos(k * TAU / 40) * rr * P.r(0.96, 1.04), cy + Math.sin(k * TAU / 40) * rr * 0.92 * P.r(0.96, 1.04)]); P.path(pts.concat([pts[0]]), { w: 2.2, c: '#b8955a', a: 0.28, rough: 1.2, passes: 1 }); P.path(pts.map(([x, y]) => [x + 3, y + 2]), { w: 0.8, c: '#b8955a', a: 0.2, rough: 1.2, passes: 1 }); }
+      // --- pencil construction: extended axes and guide ellipses behind parts
+      const pc = (a, b) => { const A = CAM.project(a), B = CAM.project(b); if (A && B) P.line(A[0], A[1], B[0], B[1], { w: 0.45, c: PEN, a: 0.35, rough: 0.4, over: 6, passes: 1 }); };
+      pc([0, -RR + 40, 30], [0, -RR - 330, 30]); pc([-HW - RR - 30, 0, 0], [HW + RR + 40, 0, 0]); pc([-HW - RR - 30, -RR, 60], [HW + RR + 40, -RR, 60]);
+      [22, 22 + 32, 22 + 3 * 32 + 40, 22 + 4 * 32 + 72].forEach(dy => { const pts = []; for (let k = 0; k <= 48; k++) { const a = k * TAU / 48; pts.push([Math.cos(a) * 30, -RR - dy, 30 + Math.sin(a) * 30]); } const q = pts.map(CAM.project).filter(Boolean).map(p => [p[0], p[1]]); P.path(q, { w: 0.4, c: PEN, a: 0.3, rough: 0.6, passes: 1 }); });
+      [[36, 0], [56, 0], [-42, 0]].forEach(([x, y]) => { const pts = []; for (let k = 0; k <= 36; k++) { const a = k * TAU / 36; pts.push([x + Math.cos(a) * 16, y + Math.sin(a) * 16, ZT + 1]); } const q = pts.map(CAM.project).filter(Boolean).map(p => [p[0], p[1]]); P.path(q, { w: 0.4, c: PEN, a: 0.3, rough: 0.6, passes: 1 }); });
+      // --- assembled thumbnail, loose pencil, top-middle
+      { const tc = D.camera({ eye: [-360, -520, 300], target: [0, -20, 34], f: 640, cx: 690, cy: 285 }), F = [];
+        F.push(...D.extrude(stadium(HW, RR), 0, 60, { crease: 0.5 })); F.push(...D.extrude(stadium(HW, RR), 60, 72, { crease: 0.5 }));
+        F.push(...box(-66, -15, 72, -18, 12, 86)); F.push(...D.revolve(36, 0, [[9, 72], [9, 80], [0.01, 80]], { seg: 24 })); F.push(...D.revolve(56, 0, [[10.5, 72], [10.5, 84], [0.01, 84]], { seg: 24 })); F.push(...D.revolve(-42, 0, [[8.6, 72], [8.6, 80], [0.01, 80]], { seg: 20 }));
+        F.push(...toFront(D.revolve(0, 0, [[23, 0], [23, 8], [21.6, 8], [21.6, 30], [20, 30], [20, 50], [21.5, 52], [21.5, 60], [0.01, 60]], { seg: 32 }), 0, -RR, 30));
+        [[-62, -52], [-40, -24]].forEach(([x0, x1]) => F.push({ v: [[x0, -15.05, 75], [x1, -15.05, 75], [x1, -15.05, 83], [x0, -15.05, 83]], n: [0, -1, 0], hard: [true, true, true, true], tone: 0.9, bias: 1 }));
+        D.render(P, F, tc, { ink: PEN, paper: '#ffffff', light: [-0.55, -0.25, 0.55], ambient: 0.1, gap: 3.4, w: 0.8, rough: 0.35, zw: 0, hatchMin: 0.25 });
+        D.knurl(P, tc, 0, 0, 21.7, 0, 0, 0); P.text('ASSEMBLED', 690, 356, { size: 9, c: PEN, align: 'center', font: S.HAND, a: 0.8 }); P.text('(SCALE 1 : 1)', 690, 368, { size: 6.4, c: PEN, align: 'center', a: 0.7 }); }
+      // --- archive stamp: double ring, text round the rim, date in the middle, faded violet
+      { const sx = 1180, sy = 590, V = '#5d4f86'; P.circle(sx, sy, 38, { w: 1.4, c: V, a: 0.55, passes: 1, rough: 0.6 }); P.circle(sx, sy, 31, { w: 0.8, c: V, a: 0.5, passes: 1, rough: 0.6 }); const txt = 'MUSEUM OF OPTICS * ARCHIVE * '; for (let i = 0; i < txt.length; i++) { const a = -Math.PI / 2 + i * TAU / txt.length; P.text(txt[i], sx + Math.cos(a) * 34.5, sy + Math.sin(a) * 34.5 + 2, { size: 5.4, c: V, a: 0.55, align: 'center', rot: a + Math.PI / 2 }); } P.text('12 III 1954', sx, sy + 3, { size: 8.4, c: V, a: 0.6, align: 'center', rot: -0.12 }); P.line(sx - 22, sy - 9, sx + 22, sy - 12, { w: 0.6, c: V, a: 0.45, passes: 1, over: 0 }); P.line(sx - 22, sy + 12, sx + 22, sy + 9, { w: 0.6, c: V, a: 0.45, passes: 1, over: 0 }); }
+      // --- pencilled margin notes and a check mark
+      P.text('check helicoid pitch - 0.75 mm?', 1010, 482, { size: 10, c: PEN, a: 0.6, font: S.NOTE, rot: -0.05 });
+      P.text('curtain silk: order from Lyon', 980, 830, { size: 10, c: PEN, a: 0.55, font: S.NOTE, rot: -0.03 });
+      P.path([[1250, 470], [1256, 478], [1270, 458]], { w: 1.4, c: PEN, a: 0.55, rough: 0.5, passes: 1 });
+    }
+
     /* ================= the archive plate: border, fold, callouts, parts table, title band ================= */
     { const L0 = 58, T0 = 52, R0 = 1542, B0 = 900;
       P.rect(L0, T0, R0 - L0, B0 - T0, { w: 0.9, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 }); P.rect(L0 - 6, T0 - 6, R0 - L0 + 12, B0 - T0 + 12, { w: 0.4, c: INK, a: 0.6, rough: 0.2, over: 0, passes: 1 });
