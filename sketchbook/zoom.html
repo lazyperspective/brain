@@ -23,7 +23,7 @@ html,body{margin:0;height:100%;background:#15120f;overflow:hidden;color:#efe6d2;
 <script>
 /* worlds load in order; ?worlds=w00-city,w01-studio picks a subset for testing */
 (function () {
-  const ALL = ['w00-city', 'w01-studio', 'w02-board', 'w03-forest', 'w04-leaf', 'w05-cells', 'w06-chloroplast', 'w07-membrane', 'w08-molecule', 'w09-atom', 'w10-galaxy', 'w11-earth'];
+  const ALL = ['w00-city', 'w01-studio', 'w02-board', 'w03-forest', 'w04-leaf', 'w05-surface', 'w06-stoma', 'w07-chloroplast', 'w08-membrane', 'w09-molecule', 'w10-atom', 'w11-galaxy', 'w12-earth'];
   const qs = new URLSearchParams(location.search), list = (qs.get('worlds') || ALL.join(',')).split(',');
   let i = 0; const next = () => { if (i >= list.length) { window.__zoomStart(); return; } const sc = document.createElement('script'); sc.src = 'js/zoom/' + list[i++] + '.js'; sc.onload = next; sc.onerror = next; document.body.appendChild(sc); };
   addEventListener('DOMContentLoaded', next);

@@ -144,6 +144,8 @@
       const Q = new S.Page(9 + Math.floor(t * 6) % 3, { ink: w.d.ink || '#1a1410' }), cx = ctxOf(w); w.live.forEach(fn => fn(Q, t, cx)); if (!Q.ops.length) return;
       const geo = compile(Q.ops); ctx.save(); ctx.globalAlpha = alpha; setX(ctx, A, B); drawGeo(ctx, geo, null); ctx.restore();
     }
+    /* how far the visible region ever strays outside a world's sheet, in world units (0 = never) */
+    E.coverage = () => worlds.map(w => { const { a, c } = w.P; let worst = 0; for (let i = 0; i <= 200; i++) { const f = i / 200, Af = C.pow(a, f); for (const u of [[0, 0], [W, 0], [W, H], [0, H]]) { const z = C.add(c, C.mul(Af, C.sub(u, c))); worst = Math.max(worst, -z[0], z[0] - W, -z[1], z[1] - H); } } return Math.round(worst * 10) / 10; });
     E.frame = (ctx, t, outW, outH, o = {}) => {
       if (!E.ready) return false; const { k, f } = E.at(t); E.need(k); if (f > 0.35) E.need(k + 1);
       if (o.sync) E.finish(); E.draw(ctx, k, f, outW, outH, t, o); E.last = { k, f }; return true;

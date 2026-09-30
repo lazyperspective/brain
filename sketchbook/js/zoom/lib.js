@@ -37,6 +37,35 @@
     for (let t = 0; t < 60 && !pts.length; t++) { const p = [lerp(box[0], box[2], R()), lerp(box[1], box[3], R())]; if (ok(p)) put(p); }
     while (act.length && pts.length < max) { const i = Math.floor(R() * act.length), b = act[i]; let found = false; for (let k = 0; k < 20; k++) { const a = R() * TAU, d = r * (1 + R()), p = [b[0] + Math.cos(a) * d, b[1] + Math.sin(a) * d]; if (ok(p)) { put(p); found = true; break; } } if (!found) act.splice(i, 1); }
     return pts; };
+  /* keep the part of a polygon on s's side of the bisector between s and q */
+  const halfClip = (cell, s, q) => { const mx = (s[0] + q[0]) / 2, my = (s[1] + q[1]) / 2, nx = q[0] - s[0], ny = q[1] - s[1], res = []; for (let k = 0; k < cell.length; k++) { const P1 = cell[k], P2 = cell[(k + 1) % cell.length], d1 = (P1[0] - mx) * nx + (P1[1] - my) * ny, d2 = (P2[0] - mx) * nx + (P2[1] - my) * ny; if (d1 <= 0) res.push(P1); if ((d1 <= 0) !== (d2 <= 0)) { const t = d1 / (d1 - d2); res.push([lerp(P1[0], P2[0], t), lerp(P1[1], P2[1], t)]); } } return res; };
+  /* Voronoi cells of a jittered grid: fast, because every cell only looks at its 24 grid neighbours */
+  L.gridVoronoi = (x0, y0, x1, y1, cs, jit = 0.9, seed = 1, keep = null, adjust = null) => { const R = L.rng(seed), nx = Math.ceil((x1 - x0) / cs) + 4, ny = Math.ceil((y1 - y0) / cs) + 4, seeds = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) seeds.push([x0 + (i - 1.5 + (R() - 0.5) * jit) * cs, y0 + (j - 1.5 + (R() - 0.5) * jit) * cs, R()]);
+    if (adjust) adjust(seeds);
+    const cells = []; for (let j = 2; j < ny - 2; j++) for (let i = 2; i < nx - 2; i++) { const s = seeds[j * nx + i]; if (keep && !keep(s)) continue; let cell = [[s[0] - 3 * cs, s[1] - 3 * cs], [s[0] + 3 * cs, s[1] - 3 * cs], [s[0] + 3 * cs, s[1] + 3 * cs], [s[0] - 3 * cs, s[1] + 3 * cs]];
+      for (let dj = -2; dj <= 2 && cell.length; dj++) for (let di = -2; di <= 2 && cell.length; di++) { if (!di && !dj) continue; cell = halfClip(cell, s, seeds[(j + dj) * nx + i + di]); }
+      if (cell.length > 2) cells.push({ seed: s, poly: cell, i, j, r: s[2] }); }
+    return cells; };
+  /* jigsaw walls: every shared edge becomes the same wavy line for both cells */
+  const hk = (x, y) => Math.round(x * 20) + ',' + Math.round(y * 20);
+  L.jigsaw = (cells, amp = 0.14, seed = 1, step = 0) => { const edges = new Map(), wav = (a, b) => { const key = hk(...a) < hk(...b) ? hk(...a) + '|' + hk(...b) : hk(...b) + '|' + hk(...a); let e = edges.get(key);
+      if (!e) { const [p, q] = hk(...a) < hk(...b) ? [a, b] : [b, a], len = Math.hypot(q[0] - p[0], q[1] - p[1]), h = L.rng(Math.abs(Math.round(p[0] * 7 + p[1] * 13 + q[0] * 17 + q[1] * 29)) + seed), n = len < 1e-6 ? 1 : 1 + Math.floor(h() * 3), A = len * amp * (0.6 + h() * 0.7) * (h() < 0.5 ? -1 : 1), nx = -(q[1] - p[1]) / (len || 1), ny = (q[0] - p[0]) / (len || 1), m = Math.max(2, Math.ceil(len / (step || Math.max(2, len / 16)))), pts = [];
+        for (let i = 0; i <= m; i++) { const t = i / m, o = A * Math.sin(Math.PI * n * t) * Math.sin(Math.PI * t); pts.push([lerp(p[0], q[0], t) + nx * o, lerp(p[1], q[1], t) + ny * o]); } e = { pts, fwd: p }; edges.set(key, e); }
+      return hk(...e.fwd) === hk(...a) ? e.pts : e.pts.slice().reverse(); };
+    const polys = cells.map(c => { const out = []; for (let i = 0; i < c.poly.length; i++) { const seg = wav(c.poly[i], c.poly[(i + 1) % c.poly.length]); for (let j = 0; j < seg.length - 1; j++) out.push(seg[j]); } return out; });
+    return { polys, edges: [...edges.values()].map(e => e.pts) }; };
+  /* a segment clipped to a circle */
+  L.clipSeg = (a, b, C, r) => { const dx = b[0] - a[0], dy = b[1] - a[1], fx = a[0] - C[0], fy = a[1] - C[1], A = dx * dx + dy * dy, B = 2 * (fx * dx + fy * dy), Cc = fx * fx + fy * fy - r * r, D = B * B - 4 * A * Cc; if (D < 0 || A < 1e-12) return null; const s = Math.sqrt(D), t0 = Math.max(0, (-B - s) / (2 * A)), t1 = Math.min(1, (-B + s) / (2 * A)); if (t0 >= t1) return null; return [[a[0] + dx * t0, a[1] + dy * t0], [a[0] + dx * t1, a[1] + dy * t1]]; };
+  /* marching squares: iso-lines of f over a grid, stitched into polylines */
+  L.contours = (f, x0, y0, x1, y1, st, levels) => { const nx = Math.ceil((x1 - x0) / st) + 1, ny = Math.ceil((y1 - y0) / st) + 1, v = new Float32Array(nx * ny);
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) v[j * nx + i] = f(x0 + i * st, y0 + j * st);
+    return levels.map(lv => { const segs = [], ip = (a, b, va, vb) => { const t = (lv - va) / (vb - va); return [lerp(a[0], b[0], t), lerp(a[1], b[1], t)]; };
+      for (let j = 0; j + 1 < ny; j++) for (let i = 0; i + 1 < nx; i++) { const p = [[x0 + i * st, y0 + j * st], [x0 + (i + 1) * st, y0 + j * st], [x0 + (i + 1) * st, y0 + (j + 1) * st], [x0 + i * st, y0 + (j + 1) * st]], q = [v[j * nx + i], v[j * nx + i + 1], v[(j + 1) * nx + i + 1], v[(j + 1) * nx + i]], e = [];
+        for (let s2 = 0; s2 < 4; s2++) { const a = q[s2], b = q[(s2 + 1) % 4]; if ((a < lv) !== (b < lv)) e.push(ip(p[s2], p[(s2 + 1) % 4], a, b)); } if (e.length === 2) segs.push(e); else if (e.length === 4) { segs.push([e[0], e[1]]); segs.push([e[2], e[3]]); } }
+      const key = p => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10), ends = new Map(), used = new Array(segs.length).fill(false); segs.forEach((sg, i) => sg.forEach(p => { const kk = key(p); (ends.get(kk) || ends.set(kk, []).get(kk)).push(i); }));
+      const lines = []; for (let i = 0; i < segs.length; i++) { if (used[i]) continue; used[i] = true; const line = [segs[i][0], segs[i][1]]; for (let dir = 0; dir < 2; dir++) { let grow = true; while (grow) { grow = false; const tip = dir ? line[0] : line[line.length - 1]; for (const j of ends.get(key(tip)) || []) { if (used[j]) continue; used[j] = true; const nxt = key(segs[j][0]) === key(tip) ? segs[j][1] : segs[j][0]; if (dir) line.unshift(nxt); else line.push(nxt); grow = true; break; } } } lines.push(line); }
+      return lines; }); };
   L.blend = (P, mode, fn) => { const i0 = P.ops.length; fn(); for (let i = i0; i < P.ops.length; i++) P.ops[i].blend = mode; };
   /* ink kit bound to a page */
   L.convex = poly => { const n = poly.length; let sg = 0; for (let i = 0; i < n; i++) { const a = poly[i], b = poly[(i + 1) % n], c = poly[(i + 2) % n], cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]); if (Math.abs(cr) < 1e-9) continue; const s = Math.sign(cr); if (sg && s !== sg) return false; sg = s; } return true; };
