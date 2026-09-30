@@ -101,10 +101,10 @@
       for (const op of this.ops) this.total += this.units(op) * this.ucost(op);
     }
     units(op) {
-      switch (op.k) { case 's': return Math.max(0, op.p.length - 1); case 'f': return op.steps; default: return 1; }
+      switch (op.k) { case 's': return Math.max(0, op.p.length - 1); case 'f': return this.reveal ? this.bands(op).n : op.steps; default: return 1; }
     }
     ucost(op) {
-      switch (op.k) { case 's': return 1; case 'f': return 9; case 'D': return 1 + op.p.length * 0.12; case 'e': return 2; default: return 1; }
+      switch (op.k) { case 's': return 1; case 'f': return this.reveal ? (this.bands(op).n > 1 ? 30 : 9) : 9; case 'D': return 1 + op.p.length * 0.12; case 'e': return 2; default: return 1; }
     }
     get done() { return this.i >= this.ops.length; }
     get fraction() { return this.done ? 1 : this.i / this.ops.length; }
@@ -134,6 +134,14 @@
       }
       if (this.anims.length && (!this.base || this.base.k !== k)) { this.buildBase(); this.anims.forEach(a => { a.st.at = undefined; }); }
     }
+    /* a fill is uncovered as a sweep of diagonal strips, so big black masses get inked in rather than popping in */
+    bands(op) {
+      if (op.rb) return op.rb;
+      const white = !op.g && op.a >= 1 && /^#f{3,6}$/i.test(op.c); let A = 0, v0 = 1e9, v1 = -1e9; const ca = Math.cos(-0.7), sa = Math.sin(-0.7);
+      for (let i = 0; i < op.poly.length; i++) { const p = op.poly[i], q = op.poly[(i + 1) % op.poly.length]; A += p[0] * q[1] - q[0] * p[1]; const v = -p[0] * sa + p[1] * ca; if (v < v0) v0 = v; if (v > v1) v1 = v; }
+      A = Math.abs(A) / 2; const n = white ? 1 : Math.max(1, Math.min(400, Math.round(A / 260)));
+      return (op.rb = { n, white, v0, v1, ca, sa });
+    }
     get pat() { return this.reveal && this.full ? this.full.pat : null; }
     drawReveal(op, from, to, c, rv) {
       c.fillStyle = rv;
@@ -150,8 +158,11 @@
           break;
         }
         case 'f': {
-          if (from > 0 || (!op.g && op.a >= 1 && /^#f{3,6}$/i.test(op.c))) break; // white occluders only hide things: nothing to uncover
-          c.beginPath(); c.moveTo(op.poly[0][0], op.poly[0][1]); for (let n = 1; n < op.poly.length; n++) c.lineTo(op.poly[n][0], op.poly[n][1]); c.closePath(); c.fill();
+          // fills lay down their own ink (white occluders hide what is behind, washes tint); big ones sweep in as strips
+          const B = this.bands(op); c.fillStyle = op.g ? rv : (op.fs || (op.fs = S.rgba(op.c, op.a))); c.save(); c.beginPath(); c.moveTo(op.poly[0][0], op.poly[0][1]); for (let n = 1; n < op.poly.length; n++) c.lineTo(op.poly[n][0], op.poly[n][1]); c.closePath();
+          if (B.n === 1) { c.fill(); c.restore(); break; }
+          c.clip(); const h = (B.v1 - B.v0) / B.n, a = B.v0 + from * h - 1, b = B.v0 + to * h + 1, L = 4000, px = -B.sa, py = B.ca, ux = B.ca, uy = B.sa;
+          c.beginPath(); c.moveTo(px * a - ux * L, py * a - uy * L); c.lineTo(px * a + ux * L, py * a + uy * L); c.lineTo(px * b + ux * L, py * b + uy * L); c.lineTo(px * b - ux * L, py * b - uy * L); c.closePath(); c.fill(); c.restore();
           break;
         }
         case 'd': c.beginPath(); c.arc(op.x, op.y, op.r + 0.8, 0, 6.3); c.fill(); break;
