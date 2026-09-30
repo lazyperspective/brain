@@ -70,22 +70,24 @@
       const d = Math.hypot(cam.eye[0] - c[0], cam.eye[1] - c[1], cam.eye[2] - c[2]) - (f.bias || 0) - (o.zw ?? 3.5) * c[2];
       items.push({ f, pr, d, c });
     }
-    items.sort((a, b) => b.d - a.d);
+    items.sort((a, b) => ((a.f ? a.f.layer ?? 2 : 2) - (b.f ? b.f.layer ?? 2 : 2)) || (b.d - a.d));
     for (const it of items) {
       if (it.custom) { it.custom(P, cam); continue; }
       const { f, pr } = it, poly = pr.map(q => [q[0], q[1]]);
+      const fk = o.fog ? Math.max(0, Math.min(1, (it.d - o.fog[0]) / (o.fog[1] - o.fog[0]))) : 0, fa = 1 - 0.68 * fk, fw = 1 - 0.45 * fk;
       if (!f.ghost) {
         P.occlude(poly, paper);
-        if (f.c) P.wash(poly, f.c, f.ca ?? 0.55, { edge: 0, jit: 0.2, steps: 1 });
-        const lam = Math.max(0, dot(f.n, L)), tone = Math.min(1, amb + (1 - amb) * lam), dark = 1 - tone;
+        if (f.c) P.wash(poly, f.c, (f.ca ?? 0.55) * (1 - 0.35 * fk), { edge: 0, jit: 0.2, steps: 1 });
+        const lam = Math.max(0, dot(f.n, L)), tone = Math.min(1, amb + (1 - amb) * lam), dark = f.tone !== undefined ? f.tone : 1 - tone;
         if (dark > 0.1 && !f.noHatch) {
           const az = Math.atan2(f.n[1], f.n[0]), ang = f.n[2] > 0.9 ? -48 : f.n[2] < -0.9 ? 60 : 62 + Math.sin(az) * 26;
           let area2 = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; area2 += p[0] * q[1] - q[0] * p[1]; } area2 = Math.abs(area2) / 2;
-          if (area2 > 3) P.hatch(poly, { ang, gap: Math.max(1.3, (o.gap ?? 5.6) - dark * 4.4 + (f.n[2] > 0.9 ? 0.8 : 0)), a: Math.min(0.75, 0.3 + dark * 0.6), w: 0.5, c: ink, inset: 0.3, ragged: 0.4, jit: 0.15, cross: dark > 0.72 && area2 > 60 ? 42 : undefined });
+          if (area2 > 3) P.hatch(poly, { ang, gap: Math.max(1.3, (o.gap ?? 5.6) - dark * 4.4 + (f.n[2] > 0.9 ? 0.8 : 0)) * (1 + 0.5 * fk), a: Math.min(0.78, 0.3 + dark * 0.6) * fa, w: 0.5, c: ink, inset: 0.3, ragged: 0.4, jit: 0.15, cross: dark > 0.72 && area2 > 60 ? 42 : undefined });
         }
       }
-      if (f.all) { const p2 = poly.concat([poly[0]]); P.path(p2, { rough: o.rough ?? 0.4, w: o.w ?? 1.25, c: ink, a: 0.97, passes: 1 }); }
-      else for (let i = 0; i < poly.length; i++) if (f.hard[i]) { const a = poly[i], b = poly[(i + 1) % poly.length]; P.line(a[0], a[1], b[0], b[1], { w: o.w ?? 1.25, c: ink, a: 0.97, rough: o.rough ?? 0.35, over: 0.4, passes: 1 }); }
+      if (f.noEdge) { }
+      else if (f.all) { const p2 = poly.concat([poly[0]]); P.path(p2, { rough: o.rough ?? 0.4, w: (o.w ?? 1.25) * fw, c: ink, a: 0.97 * fa, passes: 1 }); }
+      else for (let i = 0; i < poly.length; i++) if (f.hard[i]) { const a = poly[i], b = poly[(i + 1) % poly.length]; P.line(a[0], a[1], b[0], b[1], { w: (o.w ?? 1.25) * fw, c: ink, a: 0.97 * fa, rough: o.rough ?? 0.35, over: 0.4, passes: 1 }); }
     }
     return items.length;
   }
@@ -94,6 +96,14 @@
   function dashed3(P, a, b, cam, pat, o = {}) { const pa = cam.project(a), pb = cam.project(b); if (pa && pb) P.dashed(pa[0], pa[1], pb[0], pb[1], pat || [8, 4], o); }
   function label3(P, txt, at, cam, dx, dy, o = {}) { const p = cam.project(at); if (!p) return; P.note(txt, p[0] + dx, p[1] + dy, p[0], p[1], o); }
 
+  /* polygon with a normal oriented toward `inside` */
+  function poly3(v, inside, o = {}) {
+    let n = norm(cross(sub(v[1], v[0]), sub(v[2], v[0]))), c = [0, 0, 0]; v.forEach(q => { c[0] += q[0] / v.length; c[1] += q[1] / v.length; c[2] += q[2] / v.length; });
+    let vv = v; if (dot(n, sub(inside, c)) < 0) { n = mul(n, -1); vv = v.slice().reverse(); }
+    return Object.assign({ v: vv, n, hard: vv.map(() => true) }, o);
+  }
+  /* project a point along light direction onto the plane z = gz */
+  const onFloor = (p, Ld, gz = 0) => { const t = (p[2] - gz) / -Ld[2]; return [p[0] + Ld[0] * t, p[1] + Ld[1] * t, gz]; };
   g.Sketch.V3 = { add, sub, mul, dot, cross, norm };
-  g.Sketch.D3 = { camera, extrude, cylinder, ringSolid, gearMesh, bodyOfBar, circlePts, place, shift, render, polyline3, dashed3, label3 };
+  g.Sketch.D3 = { camera, extrude, cylinder, ringSolid, gearMesh, bodyOfBar, circlePts, place, shift, render, poly3, onFloor, polyline3, dashed3, label3 };
 })(window);
