@@ -43,10 +43,10 @@
       status.textContent = 'study ' + (n + 1) + ' / ' + list.length + ' — ' + L.pose;
       await nextFrame();
       const pose = HS.POSES[L.pose];
-      const hand = HS.buildHand(pose, L.seed);
-      const tile = HS.prepareStudy(hand, pose, L.rect);
+      const sk = HS.buildSkeleton(pose);
+      const sc = HS.buildForms(sk, pose, L.rect);
       await nextFrame();
-      const gen = HS.drawStudy(tile, hand, pose, ctx, L.seed * 13 + 5);
+      const gen = HS.drawStudy(sc, sk, pose, ctx, L.seed * 13 + 5);
       for (;;) {
         const t = performance.now();
         const r = gen.next();

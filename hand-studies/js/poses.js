@@ -46,7 +46,7 @@
       fingers: mk([[0.05, 0.08, 0.04, -0.12], [0.0, 0.05, 0.03, -0.02], [0.05, 0.09, 0.04, 0.07], [0.12, 0.14, 0.06, 0.20]]),
       thumb: { abd: 0.8, flex: 0.12, roll: 0.9, mcp: 0.1, ip: 0.1 },
       wrist: { flex: -0.3, dev: 0 },
-      view: { yaw: 0.7, pitch: 1.3, roll: 0.6, dist: 34, pivot: [0, 6, 0] },
+      view: { yaw: 0.9, pitch: 0.7, roll: 0.75, dist: 34, pivot: [0, 6, 0] },
     },
     /* 6 — radial side view, fingers together, thumb lifted */
     side: {
