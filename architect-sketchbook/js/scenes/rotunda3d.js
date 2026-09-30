@@ -12,9 +12,9 @@
     const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x)), T = x => clamp(x, 0, 0.96);
 
     /* ---------------- camera ---------------- */
-    const PHE = -104 * DG, PIT = 29 * DG, DIST = 84, TG = [0, 0, 6.0];
+    const PHE = -104 * DG, PIT = 27 * DG, DIST = 84, TG = [0, 0, 6.5];
     const EYE = [TG[0] + DIST * Math.cos(PHE) * Math.cos(PIT), TG[1] + DIST * Math.sin(PHE) * Math.cos(PIT), TG[2] + DIST * Math.sin(PIT)];
-    const cam = D.camera({ eye: EYE, target: TG, f: 1880, cx: 790, cy: 470 });
+    const cam = D.camera({ eye: EYE, target: TG, f: 2000, cx: 790, cy: 475 });
     const pr = p => cam.project(p);
 
     /* ---------------- geometry helpers ---------------- */
@@ -76,10 +76,10 @@
 
     /* ---------------- building constants ---------------- */
     const RI = 11.4, RO = 12.0, RS = 1.62, RL = 1.25, TH = 0.45, KR = 1.2;
-    const Z = [-3.6, 0.6, 4.4, 8.2, 12.0, 15.8], H = [45, 50, 55, 60, 65, 65].map(d => d * DG), PHC = -125 * DG;
+    const Z = [-3.8, 0.6, 5.0, 9.4, 13.8, 17.9], H = [50, 62, 80, 100, 105, 105].map(d => d * DG), PHC = -100 * DG;
     const ret = k => [PHC + H[k], PHC + TAU - H[k]];
-    const WIN = Array.from({ length: 16 }, (_, m) => (11.25 + 22.5 * m) * DG), DOOR = -56.25 * DG;
-    const AL = 85 * DG, AT = 158 * DG, NR = 22, DA = (AT - AL) / NR, SR0 = RI - 1.95, SR1 = RI - 0.02, WB = SR0 - 0.1, OPA = 120 * DG, OPB = AL + (NR - 1) * DA;
+    const WIN = Array.from({ length: 16 }, (_, m) => (11.25 + 22.5 * m) * DG), DOOR = -29 * DG;
+    const AL = 60 * DG, AT = 135 * DG, NR = 22, DA = (AT - AL) / NR, SR0 = RI - 1.95, SR1 = RI - 0.02, WB = SR0 - 0.1, OPA = 95 * DG, OPB = AL + (NR - 1) * DA;
 
     const GR = []; for (let k = 0; k < 6; k++) GR.push({ slab: [], inw: [], main: [] });
     const put = (k, pass, fs) => { (Array.isArray(fs) ? fs : [fs]).forEach(f => GR[k][pass].push(f)); };
@@ -91,9 +91,9 @@
     /* ---------------- walls ---------------- */
     function wallStorey(k) {
       const z0 = Z[k], z1 = Z[k + 1] - TH, [ta, tb] = ret(k), [na, nb] = k < 4 ? ret(k + 1) : [ta, tb];
-      const hw = 3.9 * DG, zs = z0 + (k === 1 ? 0.7 : 0.95), zh = z0 + (k === 1 ? 2.95 : 2.8), zm = z0 + (z1 - z0) * 0.6;
+      const hw = 3.9 * DG, zs = z0 + (k === 1 ? 0.75 : 1.0), zh = z0 + (k === 1 ? 3.3 : 3.1), zm = z0 + (z1 - z0) * 0.6;
       const norm = w => { while (w < ta) w += TAU; while (w >= ta + TAU) w -= TAU; return w; };
-      const wins = k === 0 ? [] : WIN.map(norm).filter(w => w - hw > ta + 2 * DG && w + hw < tb - 2 * DG).map(w => ({ w, hw, door: k === 1 && Math.abs(w - norm(DOOR)) < 1e-6 }));
+      const wins = k === 0 ? [] : WIN.map(norm).filter(w => w - hw > ta + 2 * DG && w + hw < tb - 2 * DG && !(k === 1 && Math.abs(w - norm(DOOR)) < 2 * hw)).map(w => ({ w, hw })); if (k === 1) wins.push({ w: norm(DOOR), hw: 4 * DG, door: true });
       const bps = new Set([ta, tb]); if (na > ta && na < tb) bps.add(na); if (nb > ta && nb < tb) bps.add(nb);
       wins.forEach(o => { bps.add(o.w - o.hw); bps.add(o.w + o.hw); });
       const arr = [...bps].sort((a, b) => a - b);
@@ -104,15 +104,15 @@
       else outer.push([RO, z0, 'out'], [RO, (z0 + z1) / 2, 'out']);
       for (let i = 0; i + 1 < arr.length; i++) {
         const a = arr[i], b = arr[i + 1]; if (b - a < 1e-6) continue;
-        const m = (a + b) / 2, exposed = m < na || m > nb, win = wins.find(o => Math.abs(m - o.w) < o.hw);
-        const top = exposed ? 'wtop' : 'skip', capA = Math.abs(a - ta) < 1e-9, capB = Math.abs(b - tb) < 1e-9;
+        const m = (a + b) / 2, exposed = k === 4 || m < na || m > nb, win = wins.find(o => Math.abs(m - o.w) < o.hw);
+        const top = k === 4 ? 'skip' : exposed ? 'wtop' : 'skip', capA = Math.abs(a - ta) < 1e-9, capB = Math.abs(b - tb) < 1e-9;
         const oo = { a0: a, a1: b, closed: true, step: 8, capA: capA ? undefined : false, capB: capB ? undefined : false, edgeA: capA, edgeB: capB };
         if (!win) {
           put(k, 'main', lathe(outer.concat([[RO, z1, top], [RI, z1, 'inU'], [RI, zm, 'inL'], [RI, z0, 'skip']]), oo).filter(f => f.kind !== 'inU' && f.kind !== 'inL'));
           put(k, 'inw', lathe(outer.concat([[RO, z1, top], [RI, z1, 'inU'], [RI, zm, 'inL'], [RI, z0, 'skip']]), oo).filter(f => f.kind === 'inU' || f.kind === 'inL'));
           continue;
         }
-        const s0 = win.door ? z0 : zs, h0 = win.door ? z0 + 2.75 : zh;
+        const s0 = win.door ? z0 : zs, h0 = win.door ? z0 + 3.0 : zh;
         if (!win.door) {
           const f = lathe(outer.filter(p => p[1] < s0 - 0.05).concat([[RO, s0, 'sill'], [RI, s0, 'inL'], [RI, z0, 'skip']]), Object.assign({}, oo, { edgeA: true, edgeB: true }));
           put(k, 'main', f.filter(q => q.kind !== 'inL')); put(k, 'inw', f.filter(q => q.kind === 'inL'));
@@ -136,6 +136,11 @@
         }, 0.08);
         // keystone / lintel line over each window on the exterior
         if (!win.door) cust(k, 'main', pol(RO + 0.02, wm, h0 + 0.2), PP => { const pts = []; for (let u = 0; u <= 6; u++) pts.push(pol(RO + 0.02, lerp(wa - 0.8 * DG, wb + 0.8 * DG, u / 6), h0 + 0.28)); pl3(PP, pts, { w: 0.6, a: 0.7 }); seg3(PP, pol(RO + 0.03, wm - 0.9 * DG, h0), pol(RO + 0.03, wm - 1.2 * DG, h0 + 0.5), { w: 0.6, a: 0.75 }); seg3(PP, pol(RO + 0.03, wm + 0.9 * DG, h0), pol(RO + 0.03, wm + 1.2 * DG, h0 + 0.5), { w: 0.6, a: 0.75 }); }, -0.1);
+      }
+      if (k === 4) {   // coping and railing round the open top of the drum
+        put(k, 'main', lathe([[RO + 0.14, z1 - 0.1, 'out'], [RO + 0.14, z1 + 0.28, 'ptop'], [RI - 0.1, z1 + 0.28, 'pin'], [RI - 0.1, z1, 'skip'], [RI, z1, 'skip']], { closed: true, a0: ta, a1: tb, step: 4 }));
+        const r = (RO + RI) / 2, zp = z1 + 0.28;
+        for (let a = ta; a < tb - 0.3 * DG; a += 2.6 * DG) { const b = Math.min(tb, a + 2.6 * DG); cust(k, 'main', pol(r, (a + b) / 2, zp + 0.5), PP => { seg3(PP, pol(r, a, zp), pol(r, a, zp + 1.0), { w: 0.9 }); seg3(PP, pol(r, a, zp + 1.02), pol(r, b, zp + 1.02), { w: 1.5 }); seg3(PP, pol(r, a, zp + 0.55), pol(r, b, zp + 0.55), { w: 0.5, a: 0.6 }); }, 0.2); }
       }
     }
 
@@ -233,16 +238,16 @@
     }
     /* basement: radial archive stacks, a boiler, crates */
     { const k = 0, z = Z[0];
-      [-40, -20, 0, 20, 40, 60].forEach(a => bookcase(k, a, 4.4, 8.4, 2.6));
+      [-30, -10, 10, 30, 50].forEach(a => bookcase(k, a, 4.4, 8.4, 2.6));
       put(k, 'main', lathe([[0.95, z, 'iron'], [0.95, z + 2.0], [0.8, z + 2.35], [0.35, z + 2.5], [0.2, z + 2.5], [0.2, z + 3.0], [0.001, z + 3.0]], { cx: at(4.9, 150)[0], cy: at(4.9, 150)[1], seg: 14 }));
       { const [bx, by] = at(4.9, 150); put(k, 'main', tube([bx, by, z + 2.9], [bx - 1.6, by + 2.6, z + 3.4], 0.12, 0.12, 8, { kind: 'iron' })); put(k, 'main', tube([bx + 0.9, by, z + 0.9], [bx + 2.6, by - 0.4, z + 0.9], 0.1, 0.1, 8, { kind: 'iron' }));
         cust(k, 'main', [bx, by - 0.96, z + 1.0], PP => { const c = pr([bx + Math.cos(-100 * DG) * 0.96, by + Math.sin(-100 * DG) * 0.96, z + 0.8]); if (c) { PP.circle(c[0], c[1], 5, { w: 0.8, passes: 1, c: INK }); PP.dot(c[0], c[1], 1.4, { c: INK }); } }, 0.2); }
       put(k, 'main', box(...at(5.6, 176), 0.9, 0.9, 0.2, z, z + 0.8, { kind: 'wood' })); put(k, 'main', box(...at(6.3, 184), 0.8, 0.7, 0.5, z, z + 0.7, { kind: 'wood' })); put(k, 'main', box(...at(5.6, 177), 0.7, 0.6, 0.4, z + 0.8, z + 1.4, { kind: 'wood' }));
-      figure(k, ...at(6.3, 10), z, { top: false }); figure(k, ...at(5.0, 164), z, { hat: true });
+      figure(k, ...at(6.3, 0), z, { top: false }); figure(k, ...at(5.0, 164), z, { hat: true });
     }
     /* ground storey: entrance hall with a ring of columns, curved desk, mosaic */
     { const k = 1, z = Z[1];
-      [15, 45, 75, 105, 135, 165, 195, -15, -45, -75].forEach(a => column(k, 4.5, a));
+      [15, 45, 75, 105, 135, 165, -15].forEach(a => column(k, 4.5, a));
       put(k, 'main', lathe([[7.6, z, 'wood'], [7.6, z + 1.0], [7.7, z + 1.0], [7.7, z + 1.08, 'wood'], [7.0, z + 1.08], [7.0, z + 1.0], [7.1, z + 1.0], [7.1, z]], { closed: true, a0: 18 * DG, a1: 58 * DG, step: 4, capKind: 'wood' }));
       figure(k, ...at(6.9, 38), z, { hat: false }); figure(k, ...at(5.4, -22), z, { top: true }); figure(k, ...at(5.9, -10), z, { lady: true });
       figure(k, ...at(3.2, 180), z, {}); figure(k, ...at(6.6, 88), z, { lady: true }); figure(k, ...at(7.1, 96), z, { top: true });
@@ -252,65 +257,61 @@
       // entrance: steps and a small portico outside the door
       const d0 = DOOR - 7 * DG, d1 = DOOR + 7 * DG;
       [[RO + 0.15, RO + 0.6, 0.45], [RO + 0.6, RO + 1.05, 0.3], [RO + 1.05, RO + 1.5, 0.15]].forEach(([r0, r1, h]) => put(k, 'main', lathe([[r1, 0, 'stone'], [r1, h, 'stepTop'], [r0, h, 'skip'], [r0, 0, 'skip']], { closed: true, a0: d0, a1: d1, step: 3.5, capKind: 'stone' })));
-      [-6.2, 6.2].forEach(da => { const x = Math.cos(DOOR + da * DG) * (RO + 0.42), y = Math.sin(DOOR + da * DG) * (RO + 0.42); put(k, 'main', lathe([[0.2, z, 'stone'], [0.2, z + 0.2], [0.14, z + 0.28], [0.13, z + 2.75], [0.2, z + 2.9], [0.001, z + 2.9]], { cx: x, cy: y, seg: 10 })); });
-      put(k, 'main', lathe([[RO + 0.72, z + 2.9, 'stone'], [RO + 0.72, z + 3.3, 'stepTop'], [RO, z + 3.3, 'skip'], [RO, z + 2.9, 'skip']], { closed: true, a0: d0 - 1 * DG, a1: d1 + 1 * DG, step: 3, capKind: 'stone' }));
-      figure(k, ...at(12.0, -47), 0, { top: true }); figure(k, ...at(12.2, -64), 0, { lady: true }); figure(k, ...at(11.8, -36), 0, {});
+      [-6.2, 6.2].forEach(da => { const x = Math.cos(DOOR + da * DG) * (RO + 0.42), y = Math.sin(DOOR + da * DG) * (RO + 0.42); put(k, 'main', lathe([[0.2, z, 'stone'], [0.2, z + 0.2], [0.14, z + 0.28], [0.13, z + 3.0], [0.2, z + 3.15], [0.001, z + 3.15]], { cx: x, cy: y, seg: 10 })); });
+      put(k, 'main', lathe([[RO + 0.72, z + 3.15, 'stone'], [RO + 0.72, z + 3.55, 'stepTop'], [RO, z + 3.55, 'skip'], [RO, z + 3.15, 'skip']], { closed: true, a0: d0 - 1 * DG, a1: d1 + 1 * DG, step: 3, capKind: 'stone' }));
+      figure(k, ...at(12.0, -44), 0, { top: true }); figure(k, ...at(12.3, -40), 0, { lady: true }); figure(k, ...at(11.7, -24), 0, {});
     }
     /* first floor: the reading room — radial alcove bookcases, reading tables with lamps */
     { const k = 2, z = Z[2];
-      [-45, -22.5, 0, 22.5, 45, 67.5].forEach(a => bookcase(k, a, 6.9, 9.35, 2.55));
-      [[4.9, -16], [4.9, 22], [4.9, 60], [4.6, 158]].forEach(([r, a], i) => { const tt = table(k, r, a, 2.2, 0.9); lamp(k, tt.x, tt.y, tt.z); books(k, tt.x + 0.5 * Math.cos(tt.rot), tt.y + 0.5 * Math.sin(tt.rot), tt.z, tt.rot); if (i === 1) books(k, tt.x - 0.6 * Math.cos(tt.rot), tt.y - 0.6 * Math.sin(tt.rot), tt.z, tt.rot + 0.4); });
-      figure(k, ...at(5.8, -12), z, { hat: false }); figure(k, ...at(5.9, 26), z, { lady: true, hat: false }); figure(k, ...at(3.9, 64), z, { top: true }); figure(k, ...at(3.5, 165), z, {});
+      [0, 22.5, 45].forEach(a => bookcase(k, a, 6.9, 9.35, 2.9));
+      [[4.9, -4], [4.9, 22], [4.9, 60], [4.6, 158]].forEach(([r, a], i) => { const tt = table(k, r, a, 2.2, 0.9); lamp(k, tt.x, tt.y, tt.z); books(k, tt.x + 0.5 * Math.cos(tt.rot), tt.y + 0.5 * Math.sin(tt.rot), tt.z, tt.rot); if (i === 1) books(k, tt.x - 0.6 * Math.cos(tt.rot), tt.y - 0.6 * Math.sin(tt.rot), tt.z, tt.rot + 0.4); });
+      figure(k, ...at(5.8, 5), z, { hat: false }); figure(k, ...at(5.9, 26), z, { lady: true, hat: false }); figure(k, ...at(3.9, 64), z, { top: true }); figure(k, ...at(3.5, 165), z, {});
       figure(k, ...at(8.0, 11), z, { hat: false });
     }
     /* second floor: gallery — vitrines, a great globe, a statue, framed pictures */
     { const k = 3, z = Z[3];
-      [-26, 4, 34, 64].forEach(a => { const [x, y] = at(6.3, a), rot = (a + 90) * DG; put(k, 'main', box(x, y, 1.7, 0.75, rot, z, z + 0.85, { kind: 'wood' })); put(k, 'main', box(x, y, 1.7, 0.75, rot, z + 0.85, z + 1.45, { kind: 'glass3', f: { ghost: true } }).map(f => Object.assign(f, { all: true })));
+      [14, 40, 66, 112].forEach(a => { const [x, y] = at(6.3, a), rot = (a + 90) * DG; put(k, 'main', box(x, y, 1.7, 0.75, rot, z, z + 0.85, { kind: 'wood' })); put(k, 'main', box(x, y, 1.7, 0.75, rot, z + 0.85, z + 1.45, { kind: 'glass3', f: { ghost: true } }).map(f => Object.assign(f, { all: true })));
         for (let i = -1; i <= 1; i++) { const px = x + Math.cos(rot) * i * 0.5, py = y + Math.sin(rot) * i * 0.5; put(k, 'main', lathe([[0.001, z + 0.85, 'brass'], [0.1, z + 0.9], [0.13, z + 1.02], [0.06, z + 1.14], [0.08, z + 1.2], [0.001, z + 1.2]], { cx: px, cy: py, seg: 7 })); } });
-      { const [x, y] = at(4.3, 150); put(k, 'main', lathe([[0.4, z, 'wood'], [0.1, z + 0.2], [0.08, z + 0.7], [0.001, z + 0.7]], { cx: x, cy: y, seg: 10 }));
+      { const [x, y] = at(4.3, 138); put(k, 'main', lathe([[0.4, z, 'wood'], [0.1, z + 0.2], [0.08, z + 0.7], [0.001, z + 0.7]], { cx: x, cy: y, seg: 10 }));
         const sp = []; for (let i = 0; i <= 8; i++) { const ph = -Math.PI / 2 + Math.PI * i / 8; sp.push([Math.max(0.001, Math.cos(ph) * 0.62), z + 1.35 + Math.sin(ph) * 0.62, i === 0 ? 'globe' : undefined]); } put(k, 'main', lathe(sp, { cx: x, cy: y, seg: 16 }));
         cust(k, 'main', [x, y, z + 1.35], PP => { const pts = []; for (let i = 0; i <= 32; i++) { const th = -Math.PI / 2 + Math.PI * 2 * i / 32 * 0.75; pts.push([x + Math.cos(0.4) * Math.cos(th) * 0.7, y + Math.sin(0.4) * Math.cos(th) * 0.7, z + 1.35 + Math.sin(th) * 0.7]); } pl3(PP, pts, { w: 1.2, c: INK }); [0.3, -0.25].forEach(lat => { const q = []; for (let i = 0; i <= 20; i++) { const th = -2.2 + 2.8 * i / 20; q.push([x + Math.cos(th) * Math.cos(lat) * 0.625, y + Math.sin(th) * Math.cos(lat) * 0.625, z + 1.35 + Math.sin(lat) * 0.625]); } pl3(PP, q, { w: 0.5, a: 0.6 }); }); }, 1); }
       { const [x, y] = at(4.0, 18); put(k, 'main', box(x, y, 0.8, 0.8, 0.3, z, z + 1.1, { kind: 'stone' })); put(k, 'main', lathe([[0.3, z + 1.1, 'stone'], [0.24, z + 1.6], [0.18, z + 2.1], [0.26, z + 2.35], [0.12, z + 2.5], [0.001, z + 2.52]], { cx: x, cy: y, seg: 9 })); put(k, 'main', lathe([[0.001, z + 2.48, 'stone'], [0.1, z + 2.55], [0.11, z + 2.66], [0.001, z + 2.76]], { cx: x, cy: y, seg: 7 })); }
-      [-45, -22.5, 0, 22.5, 45, 67.5].forEach(a => { const aa = a * DG, w = 2.8 * DG, r = RI - 0.04, z0 = z + 1.35, z1 = z + 2.35; put(k, 'main', quad([pol(r, aa + w, z0), pol(r, aa - w, z0), pol(r, aa - w, z1), pol(r, aa + w, z1)], [-Math.cos(aa), -Math.sin(aa), 0], { kind: 'frame', bias: 0.3 })); put(k, 'main', quad([pol(r - 0.02, aa + w * 0.8, z0 + 0.12), pol(r - 0.02, aa - w * 0.8, z0 + 0.12), pol(r - 0.02, aa - w * 0.8, z1 - 0.12), pol(r - 0.02, aa + w * 0.8, z1 - 0.12)], [-Math.cos(aa), -Math.sin(aa), 0], { kind: 'canvas', bias: 0.4 })); });
-      figure(k, ...at(5.3, -30), z, { top: true }); figure(k, ...at(5.4, 8), z, { lady: true }); figure(k, ...at(5.0, 44), z, {}); figure(k, ...at(3.4, 132), z, { hat: false });
-      figure(k, ...at(7.4, 36), z, { hat: false, s: 0.97 });
+      [22.5, 45].forEach(a => { const aa = a * DG, w = 2.8 * DG, r = RI - 0.04, z0 = z + 1.5, z1 = z + 2.6; put(k, 'main', quad([pol(r, aa + w, z0), pol(r, aa - w, z0), pol(r, aa - w, z1), pol(r, aa + w, z1)], [-Math.cos(aa), -Math.sin(aa), 0], { kind: 'frame', bias: 0.3 })); put(k, 'main', quad([pol(r - 0.02, aa + w * 0.8, z0 + 0.12), pol(r - 0.02, aa - w * 0.8, z0 + 0.12), pol(r - 0.02, aa - w * 0.8, z1 - 0.12), pol(r - 0.02, aa + w * 0.8, z1 - 0.12)], [-Math.cos(aa), -Math.sin(aa), 0], { kind: 'canvas', bias: 0.4 })); });
+      figure(k, ...at(5.6, 26), z, { top: true }); figure(k, ...at(4.6, 70), z, { lady: true }); figure(k, ...at(5.2, 92), z, {}); figure(k, ...at(3.4, 128), z, { hat: false });
+      figure(k, ...at(7.3, 30), z, { hat: false, s: 0.97 });
     }
     /* third floor: instrument room — armillary sphere, chart tables, a regulator clock, telescope at a window */
     { const k = 4, z = Z[4];
-      { const [x, y] = at(4.6, 36), zc = z + 1.9, R = 0.95; put(k, 'main', lathe([[0.55, z, 'stone'], [0.55, z + 0.18], [0.16, z + 0.3], [0.12, z + 0.8], [0.3, z + 0.9], [0.001, z + 0.92]], { cx: x, cy: y, seg: 12 }));
+      { const [x, y] = at(5.3, 62), zc = z + 1.9, R = 0.95; put(k, 'main', lathe([[0.55, z, 'stone'], [0.55, z + 0.18], [0.16, z + 0.3], [0.12, z + 0.8], [0.3, z + 0.9], [0.001, z + 0.92]], { cx: x, cy: y, seg: 12 }));
         put(k, 'main', lathe([[0.001, zc - 0.18, 'brass'], [0.18, zc], [0.001, zc + 0.18]], { cx: x, cy: y, seg: 8 }));
         cust(k, 'main', [x, y, zc], PP => {
           const ring = (tilt, az, r, w) => { const pts = []; for (let i = 0; i <= 40; i++) { const th = i * TAU / 40; const lx = Math.cos(th) * r, ly = Math.sin(th) * r * Math.cos(tilt), lz = Math.sin(th) * r * Math.sin(tilt); pts.push([x + lx * Math.cos(az) - ly * Math.sin(az), y + lx * Math.sin(az) + ly * Math.cos(az), zc + lz]); } pl3(PP, pts, { w, c: INK }); };
           ring(Math.PI / 2, 0.3, R, 1.5); ring(Math.PI / 2, 1.87, R, 1.1); ring(0, 0, R, 1.3); ring(0.41, 0.3, R * 0.97, 1.0); ring(0.85, 0.9, R * 0.9, 0.7); ring(0, 0, R * 0.55, 0.6);
           seg3(PP, [x - 0.4, y - 0.3, zc - 1.1], [x + 0.4, y + 0.3, zc + 1.1], { w: 1.3 }); seg3(PP, [x, y, z + 0.92], [x, y, zc - R], { w: 1.2 }); }, 0.5); }
-      { const tt = table(k, 5.2, -14, 2.0, 1.1); put(k, 'main', D.poly3([[tt.x - 0.9, tt.y - 0.45, tt.z + 0.02], [tt.x + 0.9, tt.y - 0.45, tt.z + 0.02], [tt.x + 0.9, tt.y + 0.3, tt.z + 0.3], [tt.x - 0.9, tt.y + 0.3, tt.z + 0.3]].map(p => { const dx = p[0] - tt.x, dy = p[1] - tt.y, c = Math.cos(tt.rot), s = Math.sin(tt.rot); return [tt.x + dx * c - dy * s, tt.y + dx * s + dy * c, p[2]]; }), [tt.x, tt.y, tt.z - 3], { kind: 'paper' })); }
-      { const [x, y] = at(8.7, 100); put(k, 'main', box(x, y, 0.7, 0.45, 10 * DG, z, z + 2.4, { kind: 'wood' })); put(k, 'main', box(x, y, 0.8, 0.5, 10 * DG, z + 2.4, z + 2.6, { kind: 'wood' })); cust(k, 'main', [x - 0.2, y - 0.25, z + 2.0], PP => { const c = pr([x + 0.05, y - 0.24, z + 2.15]); if (c) { PP.circle(c[0], c[1], 4.5, { w: 0.8, passes: 1, c: INK }); PP.line(c[0], c[1], c[0] + 2, c[1] - 3, Object.assign({}, LN, { w: 0.6 })); } const a = pr([x + 0.05, y - 0.24, z + 1.8]), b = pr([x + 0.05, y - 0.24, z + 0.6]); if (a && b) PP.line(a[0], a[1], b[0] + 3, b[1], Object.assign({}, LN, { w: 0.6 })); }, 0.3); }
-      { const [x, y] = at(7.2, 70), zp = z + 1.45, dir = [Math.cos(76 * DG) * 0.8, Math.sin(76 * DG) * 0.8, 0.45];
+      { const tt = table(k, 5.9, 24, 2.0, 1.1); put(k, 'main', D.poly3([[tt.x - 0.9, tt.y - 0.45, tt.z + 0.02], [tt.x + 0.9, tt.y - 0.45, tt.z + 0.02], [tt.x + 0.9, tt.y + 0.3, tt.z + 0.3], [tt.x - 0.9, tt.y + 0.3, tt.z + 0.3]].map(p => { const dx = p[0] - tt.x, dy = p[1] - tt.y, c = Math.cos(tt.rot), s = Math.sin(tt.rot); return [tt.x + dx * c - dy * s, tt.y + dx * s + dy * c, p[2]]; }), [tt.x, tt.y, tt.z - 3], { kind: 'paper' })); }
+      { const [x, y] = at(8.7, 40); put(k, 'main', box(x, y, 0.7, 0.45, 130 * DG, z, z + 2.4, { kind: 'wood' })); put(k, 'main', box(x, y, 0.8, 0.5, 130 * DG, z + 2.4, z + 2.6, { kind: 'wood' })); cust(k, 'main', [x - 0.2, y - 0.25, z + 2.0], PP => { const c = pr([x + 0.05, y - 0.24, z + 2.15]); if (c) { PP.circle(c[0], c[1], 4.5, { w: 0.8, passes: 1, c: INK }); PP.line(c[0], c[1], c[0] + 2, c[1] - 3, Object.assign({}, LN, { w: 0.6 })); } const a = pr([x + 0.05, y - 0.24, z + 1.8]), b = pr([x + 0.05, y - 0.24, z + 0.6]); if (a && b) PP.line(a[0], a[1], b[0] + 3, b[1], Object.assign({}, LN, { w: 0.6 })); }, 0.3); }
+      { const [x, y] = at(7.6, 95), zp = z + 1.45, dir = [Math.cos(100 * DG) * 0.8, Math.sin(100 * DG) * 0.8, 0.45];
         put(k, 'main', tube([x - dir[0] * 1.2, y - dir[1] * 1.2, zp - dir[2] * 1.2], [x + dir[0] * 1.5, y + dir[1] * 1.5, zp + dir[2] * 1.5], 0.16, 0.2, 10, { kind: 'brass' }));
         cust(k, 'main', [x, y, z + 0.7], PP => { [0, 2.1, 4.2].forEach(a => seg3(PP, [x, y, zp - 0.1], [x + Math.cos(a) * 0.7, y + Math.sin(a) * 0.7, z], { w: 1.1 })); }, 0.4); }
-      figure(k, ...at(5.8, 30), z, { top: true }); figure(k, ...at(6.2, -5), z, { hat: false }); figure(k, ...at(3.7, 160), z, { lady: true });
+      figure(k, ...at(4.4, 40), z, { top: true }); figure(k, ...at(4.3, 112), z, { hat: false }); figure(k, ...at(6.0, 130), z, { lady: true });
     }
     /* lift core, one length per storey, with lattice gates */
-    for (let k = 0; k < 5; k++) {
-      const z0 = Z[k], z1 = k < 4 ? Z[k + 1] : Z[5] - 0.5;
+    for (let k = 0; k < 4; k++) {
+      const z0 = Z[k], z1 = Z[k + 1];
       put(k, 'main', lathe([[RL, z0, 'lift'], [RL, z0 + 2.4, 'lift', true], [RL, z1]], { seg: 18 }));
       put(k, 'main', lathe([[RL + 0.03, z0, 'liftDoor'], [RL + 0.03, z0 + 2.2]], { a0: -40 * DG, a1: -16 * DG, seg: 3, capA: false, capB: false }));
       cust(k, 'main', pol(RL + 0.06, -28 * DG, z0 + 1.2), PP => { for (let i = 0; i <= 6; i++) { const a = lerp(-40, -16, i / 6) * DG; seg3(PP, pol(RL + 0.05, a, z0), pol(RL + 0.05, a, z0 + 2.2), { w: 0.5, a: 0.7 }); } for (let i = 0; i < 6; i++) { const a0 = lerp(-40, -16, i / 6) * DG, a1 = lerp(-40, -16, (i + 1) / 6) * DG; seg3(PP, pol(RL + 0.05, a0, z0 + 0.1), pol(RL + 0.05, a1, z0 + 2.1), { w: 0.4, a: 0.55 }); seg3(PP, pol(RL + 0.05, a1, z0 + 0.1), pol(RL + 0.05, a0, z0 + 2.1), { w: 0.4, a: 0.55 }); } }, 0.5);
       if (k === 4) put(k, 'main', lathe([[RL, z1, 'liftTop'], [0.001, z1]], { seg: 18 }));
     }
 
-    /* ======================= ROOF: terrace, parapet balustrade, observatory lantern ======================= */
-    { const k = 5, z = Z[5], zb = z - 0.5, [ta, tb] = ret(5);
-      put(k, 'slab', lathe([[3.4, zb, 'skip'], [RO + 0.25, zb, 'skip'], [RO + 0.25, zb + 0.16, 'out'], [RO + 0.62, zb + 0.3, 'out'], [RO + 0.62, z, 'ledge'], [RO + 0.12, z, 'out'], [RO + 0.12, z + 0.62, 'ptop'], [RO - 0.25, z + 0.62, 'pin'], [RO - 0.25, z, 'top'], [WB, z, 'top'], [6.2, z, 'top'], [3.4, z, 'skip']], { closed: true, a0: ta, a1: tb, step: 5 }));
-      put(k, 'slab', lathe([[3.4, zb, 'out'], [3.4, z, 'top'], [2.4, z, 'top'], [0.001, z]], { seg: 24 }));
-      // balustrade on the parapet
-      for (let a = ta; a < tb - 0.5 * DG; a += 3 * DG) { const b = Math.min(tb, a + 3 * DG), r = RO - 0.07, zp = z + 0.62; cust(k, 'main', pol(r, (a + b) / 2, zp + 0.5), PP => { seg3(PP, pol(r, a, zp), pol(r, a, zp + 0.95), { w: 0.9 }); seg3(PP, pol(r, a, zp + 0.97), pol(r, b, zp + 0.97), { w: 1.5 }); seg3(PP, pol(r, a, zp + 0.5), pol(r, b, zp + 0.5), { w: 0.5, a: 0.6 }); }, 0.2); }
+    /* ======================= TOP FLOOR (open to the sky): the glazed observatory lantern ======================= */
+    { const k = 4, z = Z[4];
       // lantern: plinth, glazed drum (see-through), cornice, ribbed dome, cupola, flag
       const zl = z + 0.35, zt = zl + 2.7;
       put(k, 'main', lathe([[3.1, z, 'stone'], [3.1, zl, 'ptop'], [2.7, zl]], { seg: 24 }));
       put(k, 'main', lathe([[2.8, zl, 'glassL'], [2.8, zl + 0.9, 'glassL', true], [2.8, zl + 1.8, 'glassL', true], [2.8, zt]], { seg: 20, vHard: true, f: { ghost: true } }));
       // the back half of the drum as ghost faces is drawn by the renderer only when front-facing; add the far mullions explicitly
-      cust(k, 'main', [0, 0, zl + 1.5], PP => { for (let i = 0; i < 20; i++) { const a = i * TAU / 20; seg3(PP, pol(2.8, a, zl), pol(2.8, a, zt), { w: 0.8, a: 0.8 }); } [zl + 0.9, zl + 1.8].forEach(zz => { const pts = []; for (let i = 0; i <= 40; i++) pts.push(pol(2.8, i * TAU / 40, zz)); pl3(PP, pts, { w: 0.7, a: 0.7 }); }); }, 2.5);
+      for (let i = 0; i < 20; i++) { const a = i * TAU / 20, b = a + TAU / 20; cust(k, 'main', pol(2.8, a + TAU / 40, zl + 1.4), PP => { seg3(PP, pol(2.8, a, zl), pol(2.8, a, zt), { w: 0.8, a: 0.8 }); [zl + 0.9, zl + 1.8].forEach(zz => seg3(PP, pol(2.8, a, zz), pol(2.8, b, zz), { w: 0.7, a: 0.7 })); }, 0.1); }
       put(k, 'main', lathe([[2.9, zt, 'stone'], [3.15, zt + 0.16], [3.15, zt + 0.36, 'ptop'], [2.95, zt + 0.36]], { seg: 24 }));
       const dome = []; for (let i = 0; i <= 7; i++) { const ph = i / 7 * 78 * DG; dome.push([Math.cos(ph) * 2.95 + (i === 7 ? 0 : 0), zt + 0.36 + Math.sin(ph) * 1.7, 'dome']); } dome.push([0.001, dome[7][1]]);
       put(k, 'main', lathe(dome, { seg: 24 }));
@@ -324,7 +325,7 @@
         put(k, 'main', tube(V.add(c0, V.mul(dr, -1.2)), V.add(c0, V.mul(dr, 1.9)), 0.3, 0.36, 12, { kind: 'brass' }));
         put(k, 'main', tube(V.add(c0, V.mul(dr, -1.5)), V.add(c0, V.mul(dr, -1.2)), 0.12, 0.12, 8, { kind: 'brass' }));
         put(k, 'main', box(0, 0, 0.18, 0.7, 62 * DG, z + 1.22, z + 1.8, { kind: 'iron' })); }
-      figure(k, ...at(6.8, 8), z, { top: true }); figure(k, ...at(7.1, 26), z, { lady: true }); figure(k, ...at(6.2, 140), z, {});
+      figure(k, ...at(6.9, 76), z, { lady: true }); figure(k, ...at(7.4, 82), z, {});
     }
 
     /* ======================= STYLE ======================= */
@@ -394,6 +395,6 @@
     P.text('cut-away perspective  -  library, galleries & observatory lantern', 72, 954, { size: 11, c: INK, a: 0.75 });
     { const x0 = 1300, y0 = 942; P.line(x0, y0, x0 + 200, y0, { w: 1, a: 0.8, c: INK, passes: 1 }); for (let i = 0; i <= 4; i++) P.line(x0 + i * 50, y0 - 4, x0 + i * 50, y0 + 4, { w: 0.8, a: 0.8, c: INK, passes: 1, over: 0 }); P.text('0      5      10     15     20 m', x0 - 4, y0 + 18, { size: 9, c: INK, a: 0.7 }); }
     // level tags on the right
-    [['lantern', [2.9, 20, Z[5] + 2.2]], ['instrument room', [RO - 0.1, -20, Z[4] + 1.5]], ['gallery', [RO - 0.1, -20, Z[3] + 1.5]], ['reading room', [RO - 0.1, -20, Z[2] + 1.5]], ['entrance hall', [RO - 0.1, -20, Z[1] + 1.5]], ['stacks', [RI - 0.2, -40, Z[0] + 1.6]]].forEach(([s, [r, a, z]], i) => { const q = pr(pol(r, a * DG, z)); if (q) P.note(s, 1330, 150 + i * 118, q[0] + 4, q[1], { size: 12, c: INK, a: 0.75 }); });
+    [['lantern', 4, 2.9, 20 * DG, Z[4] + 2.2], ['instrument room', 4], ['gallery', 3], ['reading room', 2], ['entrance hall', 1], ['stacks', 0]].forEach(([s, kk, r, a, z], i) => { const q = pr(r ? pol(r, a, z) : pol(RO - 0.3, ret(kk)[0] + 0.02, Z[kk] + 1.4)); if (q) P.note(s, 1330, 150 + i * 118, q[0] + 4, q[1], { size: 12, c: INK, a: 0.75 }); });
   }
 });
