@@ -1,0 +1,8 @@
+html, body { margin: 0; height: 100%; background: #2a2622; }
+#desk { min-height: 100%; display: flex; align-items: flex-start; justify-content: center; padding: 24px 0; box-sizing: border-box; }
+#sheet { box-shadow: 0 10px 50px rgba(0, 0, 0, .55); line-height: 0; cursor: zoom-in; }
+#sheet.full { cursor: zoom-out; }
+#paper { display: block; width: min(96vw, calc((100vh - 48px) * 0.75)); height: auto; }
+#sheet.full #paper { width: 2700px; max-width: none; }
+#desk.scroll { justify-content: flex-start; overflow: auto; }
+#status { position: fixed; left: 14px; bottom: 10px; font: 12px/1 ui-monospace, Menlo, monospace; color: #b9ad97; letter-spacing: .04em; pointer-events: none; }
