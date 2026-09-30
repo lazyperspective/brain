@@ -35,7 +35,24 @@
     /* ================= the body (z 0..60), open at the top so the film chamber reads ================= */
     const HW = 52, RR = 17;
     const bodyOut = stadium(HW, RR), bodyIn = stadium(HW - 0.4, RR - 2.6);
-    add(shell(bodyOut, bodyIn, 0, 60));
+    { // body shell with a section window cut through the front-left wall
+      const OX0 = -HW + 1, OX1 = -24, OZ0 = 7, OZ1 = 53, T = 2.6;
+      const sh = shell(bodyOut, bodyIn, 0, 60).filter(f => !(Math.abs(f.n[1] + 1) < 1e-3 && f.v.every(v => Math.abs(v[1] + RR) < 0.05)));
+      add(sh);
+      const pan = (x0, x1, z0, z1) => add({ v: [[x0, -RR, z0], [x1, -RR, z0], [x1, -RR, z1], [x0, -RR, z1]], n: [0, -1, 0], hard: [true, true, true, true], hdir: [0, 0, 1] });
+      pan(-HW, OX0, 0, 60); pan(OX1, HW, 0, 60); pan(OX0, OX1, 0, OZ0); pan(OX0, OX1, OZ1, 60);
+      // reveals: the cut wall thickness, drawn as a solid section
+      add({ v: [[OX1, -RR, OZ0], [OX1, -RR, OZ1], [OX1, -RR + T, OZ1], [OX1, -RR + T, OZ0]], n: [-1, 0, 0], hard: [true, true, true, true], tone: 0.9 });
+      add({ v: [[OX0, -RR, OZ0], [OX1, -RR, OZ0], [OX1, -RR + T, OZ0], [OX0, -RR + T, OZ0]], n: [0, 0, 1], hard: [true, true, true, true], tone: 0.78 });
+      // zig-zag break line along the cut, as an engraver would mark a section
+      custom([OX0, -RR, 30], (PP, cm) => { const pts = []; for (let i = 0; i <= 12; i++) pts.push([lerp(OX0, OX1, i / 12), -RR - 0.4, OZ1 + (i % 2 ? 1.2 : -0.4)]); D.polyline3(PP, pts, cm, { w: 0.8, c: INK, a: 0.9 }); }, 8);
+      // what the window reveals: film leader running from the cassette across the rails, rewind fork, felt light-trap, pressure spring
+      custom([-40, -10, 30], (PP, cm) => { const a0 = [-33, -11.5], L = []; for (let z = 18; z <= 42; z += 24) {} const poly = [[-32, -11.8, 16], [-8, -11.8, 16], [-8, -11.8, 44], [-32, -11.8, 44]].map(q => cm.project(q)); if (poly.every(Boolean)) { const pp = poly.map(q => [q[0], q[1]]); PP.occlude(pp, '#ffffff'); PP.hatch(pp, { ang: 90, gap: 2, a: 0.6, w: 0.45, c: INK }); PP.path(pp.concat([pp[0]]), { w: 0.9, c: INK, passes: 1, rough: 0.2 }); for (let x = -31; x < -9; x += 2.6) [18, 42].forEach(z => { const q = cm.project([x, -11.9, z]); if (q) PP.rect(q[0] - 0.8, q[1] - 1, 1.6, 2, { w: 0.4, c: INK, passes: 1, over: 0 }); }); } }, 3);
+      add(D.revolve(-44, 0, [[2.2, 55], [2.2, 64], [0.01, 64]], { seg: 10 })); add(box(-45.4, -3, 58, -42.6, 3, 60));
+      add(box(-34, -13.4, 8, -32, -11.2, 52)); screw(-33, -12.4, 52, 1.3, 3);
+      spring(-38, -9, 10, 22, 1.4, 6); spring(-38, -9, 36, 48, 1.4, 6);
+      add(D.gearMesh(-44, 0, 6, 12, 4, 6, 0.1, { root: 0.78 }));
+    }
     add({ v: stadium(HW - 0.4, RR - 2.6).map(([x, y]) => [x, y, 3]), n: [0, 0, 1], hard: Array(22).fill(true), all: true, tone: 0.55 });
     // film chamber partitions, pressure rails, frame aperture window
     add(box(-34, -14.4, 3, -31, 14.4, 58)); add(box(31, -14.4, 3, 34, 14.4, 58));
@@ -49,7 +66,7 @@
     // lens mount flange on the front face
     add(toFront(D.revolve(0, 0, [[24, 0], [24, 2.4], [18, 2.4], [18, 0]], { seg: 32 }), 0, -RR, 30));
     // leatherette on the front: tiny pebbled texture
-    custom([0, -RR - 0.2, 30], (PP, cm) => { const pts = []; for (let i = 0; i < 1100; i++) { const x = P.r(-HW, HW), z = P.r(7, 53); if (Math.hypot(x, z - 30) < 25) continue; const q = cm.project([x, -RR - 0.25, z]); if (q) pts.push([q[0], q[1], P.r(0.35, 0.8)]); } PP.dots(pts, INK, 0.55); [7, 53].forEach(z => { const a = cm.project([-HW, -RR - 0.3, z]), b = cm.project([HW, -RR - 0.3, z]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.7, c: INK, a: 0.9, passes: 1, over: 0, rough: 0.2 }); }); }, -3);
+    custom([0, -RR - 0.2, 30], (PP, cm) => { const pts = []; for (let i = 0; i < 1100; i++) { const x = P.r(-HW, HW), z = P.r(7, 53); if (Math.hypot(x, z - 30) < 25 || x < -24) continue; const q = cm.project([x, -RR - 0.25, z]); if (q) pts.push([q[0], q[1], P.r(0.35, 0.8)]); } PP.dots(pts, INK, 0.55); [7, 53].forEach(z => { const a = cm.project([-24, -RR - 0.3, z]), b = cm.project([HW, -RR - 0.3, z]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.7, c: INK, a: 0.9, passes: 1, over: 0, rough: 0.2 }); }); }, -3);
     // strap lugs
     [-1, 1].forEach(sg => add(box(sg * (HW + RR) - 1.5, -3, 44, sg * (HW + RR) + (sg > 0 ? 3 : -3) * 0 + 1.5, 3, 52)));
     tag('BODY SHELL, DIE-CAST', [-HW - RR, -6, 20]); tag('FILM CASSETTE CHAMBER', [-44, 8, 55]); tag('TAKE-UP SPOOL', [44, 8, 52]); tag('FRAME APERTURE 24 X 36', [0, -3, 44]); tag('BAYONET FLANGE', [22, -RR - 2, 38]);
