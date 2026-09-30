@@ -4,7 +4,7 @@
   name: 'Clock Island', seed: 4242, ink: '#0c0c0c', theme: 'pencil',
   build(P, n, t) {
     const S = Sketch, D = S.D3, V = S.V3, TAU = S.TAU, lerp = S.lerp, K = '#0c0c0c', Wh = '#ffffff', R = (a, b) => P.r(a, b);
-    const CAM = D.camera({ eye: [-1100, -1700, 420], target: [0, 0, 260], f: 2000, cx: 800, cy: 380 });
+    const CAM = D.camera({ eye: [-1100, -1700, 420], target: [0, 0, 260], f: 1550, cx: 800, cy: 330 });
     const faces = [], add = f => { (Array.isArray(f) ? f : [f]).forEach(x => faces.push(x)); return f; };
     const custom = (c, fn, bias = 4) => faces.push({ custom: fn, c, bias });
     const box = (x0, y0, z0, x1, y1, z1, o = {}) => D.extrude([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], z0, z1, Object.assign({ crease: 0.3, bottom: true }, o));
@@ -33,6 +33,10 @@
     const cloudCluster = (x, y, z, n, rMax, bias) => custom([x, y, z], (PP, cm) => { const c = cm.project([x, y, z]); if (!c) return; for (let q = 0; q < n; q++) lump(c[0] + R(-rMax * 1.6, rMax * 1.6), c[1] + R(-rMax * 1.1, rMax * 1.1) - q * 1.4, R(rMax * 0.45, rMax), { rows: 3 }); }, bias);
     const banded = (A, B, r, bands, o = {}) => { pipe(A, B, r, { seg: 18, flanges: bands }); custom([(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2], (PP, cm) => { bands.forEach(t2 => { const p = [lerp(A[0], B[0], t2), lerp(A[1], B[1], t2), lerp(A[2], B[2], t2)], d = V.norm(V.sub(B, A)), u = V.norm(V.cross(d, [0, 0, 1])), w = V.cross(u, d); for (let k = 0; k < 10; k++) { const a = Math.PI * 0.6 + k * 0.28, q = V.add(p, V.add(V.mul(u, Math.cos(a) * r * 1.36), V.mul(w, Math.sin(a) * r * 1.36))), s = cm.project(q); if (s) PP.dot(s[0], s[1], 1, { c: K }); } }); }, 6); };
 
+    /* ---------- Peter-style cloud banks (2D, drawn first so the structures sit over them) ---------- */
+    const cloudBank = (x0, y0, w, h) => { const n = Math.round(w / 16); for (let row = 0; row < 3; row++) for (let k = 0; k < n; k++) { const t2 = (k + R(-0.3, 0.3)) / (n - 1), bell = Math.sin(Math.PI * Math.min(1, Math.max(0, t2))), r = (8 + 22 * bell) * (1 - row * 0.22) * R(0.8, 1.15), x = x0 + t2 * w, y = y0 - bell * h * (1 - row * 0.4) + row * 18 + r * 0.3; if (bell < 0.15 && row === 0) continue; lump(x, Math.min(y, y0 - r * 0.5 + row * 18), r, { rows: 3, double: r > 20 }); } const base = [[x0 - 6, y0 + 40], [x0 + w + 6, y0 + 40]]; P.line(base[0][0], base[0][1], base[1][0], base[1][1], { w: 1.2, c: K, passes: 1, over: 0 }); for (let k = 1; k < 5; k++) { const a = R(0.05, 0.3), b2 = R(0.6, 0.95); P.line(x0 + w * a, y0 + 40 + k * 5, x0 + w * b2, y0 + 40 + k * 5, { w: 0.5, c: K, passes: 1, over: 0 }); } };
+    cloudBank(70, 860, 300, 70); cloudBank(1180, 820, 330, 80); cloudBank(1100, 150, 200, 40); cloudBank(400, 300, 150, 30);
+    for (let i = 0; i < 70; i++) { const x = R(40, 1560), y = R(40, 940); if (x > 480 && x < 1120) continue; if (P.R() < 0.7) lump(x, y, R(2.5, 7), { rows: 2, w: 1 }); else { P.circle(x, y, R(2, 5), { w: 0.8, c: K, passes: 1 }); } }
     /* ================= THE ISLAND: a thick rock slab ================= */
     const isl = []; for (let k = 0; k < 22; k++) { const a = k * TAU / 22; isl.push([Math.cos(a) * R(360, 440) + 20, Math.sin(a) * R(250, 310)]); }
     const ISL = D.extrude(isl, -70, 0, { crease: 0.4 }); add(ISL);
@@ -60,7 +64,7 @@
       add(D.revolve(0, 0, Array.from({ length: 10 }, (_, k) => { const a = Math.PI / 2 * k / 9; return [Math.cos(a) * 60 + 0.01, LZ + 90 + Math.sin(a) * 50]; }), { seg: 28 })); add(D.revolve(0, 0, [[8, LZ + 138], [2, LZ + 170], [0.01, LZ + 176]], { seg: 10 }));
       add(D.revolve(0, 0, Array.from({ length: 9 }, (_, k) => { const a = -Math.PI / 2 + Math.PI * k / 8; return [Math.cos(a) * 30 + 0.01, LZ + 50 + Math.sin(a) * 30]; }), { seg: 20 }));
       banded([30, -20, LZ + 60], [240, -180, LZ + 140], 14, [0.1, 0.3, 0.55, 0.8]); add(orient(D.cylinder(0, 0, 22, 0, 10, 24), [240, -180, LZ + 140], [210, -160, 80]));
-      custom([0, 0, LZ + 180], (PP, cm) => { const b = cm.project([0, 0, LZ + 176]); if (!b) return; for (let k = 0; k < 7; k++) { const a = -Math.PI / 2 - 0.55 + k * 0.18; PP.line(b[0] + Math.cos(a) * 20, b[1] + Math.sin(a) * 20, b[0] + Math.cos(a) * R(60, 110), b[1] + Math.sin(a) * R(60, 110), { w: 0.6, c: K, passes: 1, over: 0, rough: 0.2 }); } }, 300);
+      /* rays removed: they ran off the top edge */
     }
     /* ================= the village on the island: houses, a windmill, a stair tower ================= */
     { const house = (x, y, w, d, h, rot) => { const c = Math.cos(rot), s = Math.sin(rot), T = ([u, v]) => [x + u * c - v * s, y + u * s + v * c]; const base = [[-w, -d], [w, -d], [w, d], [-w, d]].map(T); const H = D.extrude(base, 0, h, { crease: 0.3 }); add(H); const r0 = T([-w, 0]), r1 = T([w, 0]); add(D.poly3([[...T([-w, -d]), h], [...T([w, -d]), h], [...r1, h + w * 0.9], [...r0, h + w * 0.9]], [x, y, -500], { hdir: [0, 0, 1] })); add(D.poly3([[...T([-w, d]), h], [...T([w, d]), h], [...r1, h + w * 0.9], [...r0, h + w * 0.9]], [x, y, -500], {})); add(D.poly3([[...T([-w, -d]), h], [...T([-w, d]), h], [...r0, h + w * 0.9]], [x + 1000, y, h], {})); add(D.poly3([[...T([w, -d]), h], [...T([w, d]), h], [...r1, h + w * 0.9]], [x - 1000, y, h], {}));
@@ -72,29 +76,80 @@
       // a stair tower of stacked drums with a spiral stair around it, left
       const sx = -120, sy = -200; for (let k = 0; k < 5; k++) add(D.cylinder(sx, sy, 26 - k * 3, k * 36, k * 36 + 32, 20)); for (let k = 0; k < 30; k++) { const a = k * 0.5, z = k * 6, x = sx + Math.cos(a) * 34, y = sy + Math.sin(a) * 34; add(box(x - 6, y - 6, z, x + 6, y + 6, z + 2.5)); }
     }
+    /* ================= satellite rocks, a rope bridge, an airship ================= */
+    const SAT = [{ c: [-640, 180], rx: 120, ry: 90, z: 140, d: 150, tip: 0.4 }, { c: [600, -330], rx: 100, ry: 80, z: 250, d: 120, tip: 0.6 }, { c: [-600, 190], rx: 60, ry: 46, z: -260, d: 90, tip: 0.5 }, { c: [470, -510], rx: 70, ry: 50, z: -240, d: 100, tip: 0.45 }];
+    SAT.forEach(s => { s.pts = Array.from({ length: 14 }, (_, k) => { const a = k * TAU / 14; return [s.c[0] + Math.cos(a) * s.rx * R(0.8, 1.1), s.c[1] + Math.sin(a) * s.ry * R(0.8, 1.1)]; }); const F = D.extrude(s.pts, s.z - 40, s.z, { crease: 0.4 }); add(F); F.filter(f => Math.abs(f.n[2]) < 0.5).forEach(f => { f.deco = (PP, cm, poly) => { for (let i = 0; i < 3; i++) { const t2 = R(0.2, 0.8); PP.line(lerp(poly[0][0], poly[1][0], t2), lerp(poly[0][1], poly[1][1], t2), lerp(poly[3][0], poly[2][0], t2), lerp(poly[3][1], poly[2][1], t2), { w: 0.5, c: K, rough: 0.6, passes: 1 }); } }; }); s.z1 = s.z; s.z = s.z - 40; });
+    { // left rock: a domed chapel with a bell cote
+      const [x, y] = SAT[0].c, z = SAT[0].z1; add(D.extrude([[x - 40, y - 30], [x + 40, y - 30], [x + 40, y + 30], [x - 40, y + 30]], z, z + 60, { crease: 0.3 }));
+      add(D.cylinder(x, y, 30, z + 60, z + 76, 24)); add(D.revolve(x, y, Array.from({ length: 9 }, (_, k) => { const a = Math.PI / 2 * k / 8; return [Math.cos(a) * 32 + 0.01, z + 76 + Math.sin(a) * 30]; }), { seg: 24 })); add(D.cylinder(x, y, 7, z + 106, z + 124, 10)); add(D.revolve(x, y, [[9, z + 124], [0.01, z + 146]], { seg: 10 }));
+      custom([x, y - 40, z + 30], (PP, cm) => { const pr = planeProj([x - 40, y - 30.5, z], [1, 0, 0], [0, 0, 1]); lancet(pr, 30, 50, 0, 40, { round: true }); lancet(pr, 8, 20, 18, 44); lancet(pr, 60, 72, 18, 44); dotsAlong(pr, 2, 52, 78, 52, 4, 0.9); }, 20);
+      // a tree of lumps
+      custom([x + 60, y + 20, z + 60], (PP, cm) => { const b = cm.project([x + 70, y + 30, z]); if (!b) return; PP.line(b[0], b[1], b[0] + 2, b[1] - 40, { w: 3, c: K, passes: 1, over: 0 }); for (let q = 0; q < 7; q++) lump(b[0] + R(-16, 18), b[1] - 44 - R(0, 28), R(7, 13), { rows: 3 }); }, 60);
+    }
+    { // right rock: a water tower on trestle legs
+      const [x, y] = SAT[1].c, z = SAT[1].z1; [[-24, -24], [24, -24], [24, 24], [-24, 24]].forEach(([u, v]) => pipe([x + u, y + v, z], [x + u * 0.6, y + v * 0.6, z + 110], 3.5, { seg: 8 }));
+      [40, 80].forEach(h => { const k = 1 - h / 110 * 0.4; [[-1, -1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1], [-1, 1, -1, -1]].forEach(([a, b, c, d]) => pipe([x + a * 24 * k, y + b * 24 * k, z + h], [x + c * 24 * k, y + d * 24 * k, z + h], 1.6, { seg: 6 })); });
+      add(D.revolve(x, y, [[34, z + 110], [36, z + 116], [36, z + 170], [30, z + 176], [0.01, z + 196]], { seg: 28 }));
+      banded([x, y, z + 20], [x, y - 60, z + 20], 5, [0.3, 0.6]);
+    }
+    { // little rocks: a lamp post and a ruined arch
+      const [x, y] = SAT[2].c, z = SAT[2].z1; pipe([x, y, z], [x, y, z + 70], 2.5, { seg: 8, flanges: [0.1, 0.5] }); pipe([x, y, z + 70], [x + 18, y, z + 74], 1.6, { seg: 6 }); add(D.revolve(x + 18, y, Array.from({ length: 7 }, (_, k) => { const a = -Math.PI / 2 + Math.PI * k / 6; return [Math.cos(a) * 7 + 0.01, z + 62 + Math.sin(a) * 7]; }), { seg: 12 }));
+      const [ax, ay] = SAT[3].c, az = SAT[3].z1; add(box(ax - 34, ay - 8, az, ax - 22, ay + 8, az + 64)); add(box(ax + 22, ay - 8, az, ax + 34, ay + 8, az + 44)); add(box(ax - 38, ay - 10, az + 64, ax + 8, ay + 10, az + 74)); add(box(ax - 10, ay + 12, az, ax + 8, ay + 26, az + 12));
+    }
+    { // rope-and-plank bridge from the main island to the left rock
+      const A = [-330, 120, 0], B = [SAT[0].c[0] + 60, SAT[0].c[1] - 20, SAT[0].z1];
+      custom([(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2 - 20], (PP, cm) => { const at = (t2, dz, off) => { const p = [lerp(A[0], B[0], t2), lerp(A[1], B[1], t2) + off, lerp(A[2], B[2], t2) - 50 * Math.sin(Math.PI * t2) + dz]; return cm.project(p); }; const n = 30; for (let k = 0; k <= n; k++) { const t2 = k / n, a = at(t2, 0, -10), b = at(t2, 0, 10), c = at(t2, 26, -10); if (!(a && b && c)) continue; PP.line(a[0], a[1], b[0], b[1], { w: 2.2, c: K, passes: 1, over: 0 }); PP.line(a[0], a[1], c[0], c[1], { w: 0.6, c: K, passes: 1, over: 0 }); } [[-10, 26], [10, 26], [-10, 0], [10, 0]].forEach(([off, dz]) => { const pts = []; for (let k = 0; k <= n; k++) { const q = at(k / n, dz, off); if (q) pts.push([q[0], q[1]]); } PP.path(pts, { w: dz ? 0.9 : 1.2, c: K, rough: 0.2, passes: 1 }); }); }, 400);
+    }
+    { // the airship: a banded riveted envelope with fins and a gondola
+      const C = [-520, -40, 520], dir = [0.84, -0.4, 0.06];
+      const prof = Array.from({ length: 13 }, (_, k) => { const a = -Math.PI / 2 + Math.PI * k / 12; return [Math.cos(a) * 46 + 0.01, (Math.sin(a) + 1) * 110 - 110]; });
+      const env = orient(D.revolve(0, 0, prof, { seg: 26 }), C, dir); add(env);
+      [-60, -20, 20, 60].forEach(t2 => add(orient(D.cylinder(0, 0, 47 * Math.sqrt(1 - (t2 / 110) ** 2) + 1.5, t2 - 2, t2 + 2, 26), C, dir)));
+      const P3 = t2 => V.add(C, V.mul(V.norm(dir), t2)); const tail = P3(-96);
+      add(D.poly3([V.add(tail, [0, 0, 8]), V.add(P3(-60), [0, 0, 36]), V.add(P3(-112), [0, 0, 56]), V.add(P3(-120), [0, 0, 14])], V.add(tail, [0, -300, 0]), {}));
+      add(D.poly3([V.add(tail, [0, 0, -8]), V.add(P3(-60), [0, 0, -36]), V.add(P3(-112), [0, 0, -52]), V.add(P3(-120), [0, 0, -14])], V.add(tail, [0, -300, 0]), {}));
+      const g = V.add(C, [0, 0, -62]); add(D.extrude([[g[0] - 34, g[1] - 10], [g[0] + 34, g[1] - 4], [g[0] + 34, g[1] + 10], [g[0] - 34, g[1] + 4]], g[2] - 14, g[2], { crease: 0.3 }));
+      custom(g, (PP, cm) => { [-28, 0, 28].forEach(u => { const a = cm.project([g[0] + u, g[1], g[2]]), b = cm.project(V.add(C, V.mul(V.norm(dir), u)).map((v, i) => i === 2 ? v - 44 : v)); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.7, c: K, passes: 1, over: 0 }); }); const pr = planeProj([g[0] - 34, g[1] - 10.5, g[2] - 14], [0.996, 0.09, 0], [0, 0, 1]); for (let k = 0; k < 7; k++) lancet(pr, 4 + k * 9.4, 10 + k * 9.4, 3, 11, { round: true }); const pp = cm.project(P3(112)); if (pp) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.5; PP.line(pp[0], pp[1], pp[0] + Math.cos(a) * 3, pp[1] + Math.sin(a) * 18, { w: 2, c: K, passes: 1, over: 0 }); } } }, 50);
+    }
     cloudCluster(-150, -110, 300, 9, 18, 200); cloudCluster(130, -110, 200, 7, 15, 200); cloudCluster(-380, -60, 60, 7, 16, 120); cloudCluster(120, -100, 520, 6, 14, 300);
 
     /* ================= render the structure ================= */
-    D.render(P, faces, CAM, { ink: K, paper: Wh, light: [-0.3, -0.75, 0.55], ambient: 0.04, w: 1.4, rough: 0.3, zw: 0, hatchMin: 0.06, rich: true, darken: 1.35, gap: 3.6, stipple: true, style: 'layered' });
+    D.render(P, faces, CAM, { ink: K, paper: Wh, light: [-0.3, -0.75, 0.55], ambient: 0.04, w: 1.4, rough: 0.3, zw: 0, hatchMin: 0.06, rich: true, darken: 1.6, gap: 3.2, stipple: true, style: 'layered' });
 
-    /* ================= THE UNDERWORLD hanging beneath the island (2D, Peter-style) ================= */
-    { // silhouette: projected island rim, dripping down into a ragged mass
-      const rim = isl.map(([x, y]) => CAM.project([x, y, -70])).filter(Boolean).map(q => [q[0], q[1]]);
-      let minX = 1e9, maxX = -1e9, rimY = -1e9; rim.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); rimY = Math.max(rimY, y); });
-      const cx = (minX + maxX) / 2, hw = (maxX - minX) / 2, top = rimY - 70;
-      const under = []; for (let k = 0; k <= 40; k++) { const t2 = k / 40, x = lerp(minX + 10, maxX - 10, t2), depth = 170 * Math.pow(Math.sin(Math.PI * t2), 0.8) + 40 * Math.sin(t2 * 17) + R(-10, 10); under.push([x, Math.min(975, top + 70 + depth)]); }
-      const mass = [[minX + 10, top + 60]].concat(under, [[maxX - 10, top + 60]]);
+    /* ================= THE UNDERWORLD hanging beneath each rock (2D, Peter-style) ================= */
+    const underworld = (pts, z, maxD, o = {}) => {
+      const rim = pts.map(([x, y]) => CAM.project([x, y, z])).filter(Boolean).map(q => [q[0], q[1]]);
+      let minX = 1e9, maxX = -1e9; rim.forEach(([x]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); });
+      const lowY = x => { let best = -1e9; for (let i = 0; i < rim.length; i++) { const a = rim[i], b = rim[(i + 1) % rim.length]; if ((a[0] - x) * (b[0] - x) > 0 || a[0] === b[0]) continue; const t2 = (x - a[0]) / (b[0] - a[0]); best = Math.max(best, a[1] + (b[1] - a[1]) * t2); } return best; };
+      const N = Math.max(12, Math.round((maxX - minX) / 7)), topC = [], botC = [];
+      const tipT = o.tip ?? 0.5, lob = R(0, 9);
+      for (let k = 0; k <= N; k++) { const t2 = k / N, x = lerp(minX + 1, maxX - 1, t2), y = lowY(x); if (y < -1e8) continue; topC.push([x, y - 3]);
+        const bell = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t2 - tipT) / Math.max(tipT, 1 - tipT), 1.3)), 1.1);
+        let d = maxD * bell * (0.82 + 0.18 * Math.sin(t2 * 21 + lob)) + (k % 5 === 2 ? R(8, 26) * bell : 0) + 6; botC.push([x, Math.min(o.floor ?? 975, y + d)]); }
+      const mass = topC.concat(botC.slice().reverse());
       black(mass);
-      // white organic veins with ball-and-stick branches
-      for (let k = 0; k < 16; k++) { let x = R(minX + 30, maxX - 30), y = top + 70, a = Math.PI / 2 + R(-0.3, 0.3); const pts = []; for (let i = 0; i < 40; i++) { a += R(-0.18, 0.18); x += Math.cos(a) * 6; y += Math.sin(a) * 6; if (!S.pip(mass, x, y)) break; pts.push([x, y]); } if (pts.length < 6) continue; const L = [], Rr = []; pts.forEach((p, i) => { const q = pts[Math.min(pts.length - 1, i + 1)], o = pts[Math.max(0, i - 1)], tx = q[0] - o[0], ty = q[1] - o[1], l = Math.hypot(tx, ty) || 1, w = 9 * (1 - i / pts.length) + 2; L.push([p[0] - ty / l * w, p[1] + tx / l * w]); Rr.push([p[0] + ty / l * w, p[1] - tx / l * w]); }); const poly = L.concat(Rr.slice().reverse()); white(poly); polyL(poly, 1); P.path(pts, { w: 0.7, c: K, rough: 0.1, passes: 1 }); pts.forEach(([px, py], i) => { if (i % 2 || i > pts.length - 2) return; const q = pts[i + 1], a2 = Math.atan2(q[1] - py, q[0] - px); ballStick(px, py, a2 + 1.4, 9 * (1 - i / pts.length) + 1, 0.6); ballStick(px, py, a2 - 1.4, 9 * (1 - i / pts.length) + 1, 0.6); }); }
-      // pods, lumps, rings and eyes packed into the dark
-      const placed = []; for (let i = 0; i < 4000; i++) { const r = R(4, 26), x = R(minX + 20, maxX - 20), y = R(top + 80, 960); if (!S.pip(mass, x, y) || !S.pip(mass, x, y + r) || placed.some(([a, b, c]) => Math.hypot(x - a, y - b) < c + r + 3)) continue; placed.push([x, y, r]); const k = P.R();
-        if (k < 0.35) lump(x, y, r, { rows: 3, double: r > 12 }); else if (k < 0.5) { white(Array.from({ length: 18 }, (_, q) => [x + Math.cos(q * TAU / 18) * r, y + Math.sin(q * TAU / 18) * r])); for (let m = 1; m <= 4; m++) P.circle(x, y, r * m / 4, { w: m === 4 ? 1.2 : 0.6, c: K, passes: 1 }); } else if (k < 0.62) { const pts = P.sample(Array.from({ length: 10 }, (_, q) => [x + Math.cos(q * TAU / 10) * r * 0.5, y + Math.sin(q * TAU / 10) * r]), true, 2); white(pts); polyL(pts, 1.1); for (let m = -3; m <= 3; m++) P.dot(x, y + m * r * 0.22, 1.1, { c: K }); } else if (k < 0.72) { white(Array.from({ length: 16 }, (_, q) => [x + Math.cos(q * TAU / 16) * r, y + Math.sin(q * TAU / 16) * r * 0.75])); P.ellipse(x, y, r, r * 0.75, { w: 1.2, c: K, passes: 1 }); P.circle(x, y, r * 0.4, { w: 0.9, c: K, passes: 1 }); P.wash(Array.from({ length: 10 }, (_, q) => [x + Math.cos(q * TAU / 10) * r * 0.18, y + Math.sin(q * TAU / 10) * r * 0.18]), '#050505', 1, { edge: 0, steps: 1, jit: 0 }); } else { P.dot(x, y, Math.min(3, r * 0.2), { c: Wh, a: 1 }); } }
-      // hanging roots and droplet threads from the underside edge
-      for (let k = 0; k < 40; k++) { const t2 = R(0.02, 0.98), i = Math.round(t2 * 40), [x, y] = under[i]; if (y > 950) continue; const L = R(20, 90), pts = [[x, y - 2]]; let a = Math.PI / 2 + R(-0.3, 0.3), px = x, py = y; for (let s = 0; s < L; s += 6) { a += R(-0.2, 0.2); px += Math.cos(a) * 6; py += Math.sin(a) * 6; pts.push([px, py]); } if (py > 975) continue; P.path(pts, { w: k % 3 ? 0.9 : 2.2, c: K, rough: 0.2, passes: 1 }); if (k % 3 === 0) { const d = P.sample([[px, py - 3], [px + 3.5, py + 2], [px, py + 7], [px - 3.5, py + 2]], true, 1.5); white(d); polyL(d, 1); } else P.dot(px, py, 1.6, { c: K }); }
-      // fringe of lumps along the rim where rock meets the underworld
-      rim.forEach(([x, y], i) => { if (i % 1) return; });
-    }
+      const bb = { x0: minX, x1: maxX, y0: Math.min(...topC.map(p => p[1])), y1: Math.max(...botC.map(p => p[1])) };
+      // a band of lumps crowding the seam under the rock (Peter's "cauliflower" rim)
+      const placed = [];
+      topC.forEach(([x, y], i) => { if (i % 2) return; const r = R(5, 11) * (o.s ?? 1); if (!S.pip(mass, x, y + r + 4)) return; placed.push([x, y + r + 2, r]); lump(x, y + r + 2, r, { rows: 2, w: 1.1 }); });
+      // white veins with ball-and-stick branches
+      for (let k = 0; k < (o.veins ?? 14); k++) { let x = R(minX + 20, maxX - 20), y = lowY(x) + 14, a = Math.PI / 2 + R(-0.35, 0.35); const vp = []; for (let i = 0; i < 60; i++) { a += R(-0.16, 0.16); x += Math.cos(a) * 5; y += Math.sin(a) * 5; if (!S.pip(mass, x, y + 8)) break; vp.push([x, y]); } if (vp.length < 6) continue; const L = [], Rr = [], W0 = R(4, 9) * (o.s ?? 1); vp.forEach((p, i) => { const q = vp[Math.min(vp.length - 1, i + 1)], oo = vp[Math.max(0, i - 1)], tx = q[0] - oo[0], ty = q[1] - oo[1], l = Math.hypot(tx, ty) || 1, w = W0 * (1 - i / vp.length) + 1.5; L.push([p[0] - ty / l * w, p[1] + tx / l * w]); Rr.push([p[0] + ty / l * w, p[1] - tx / l * w]); }); const poly = L.concat(Rr.slice().reverse()); white(poly); polyL(poly, 0.9); for (let i = 2; i < vp.length - 1; i += 2) { const [px, py] = vp[i], q = vp[i + 1], a2 = Math.atan2(q[1] - py, q[0] - px), w = W0 * (1 - i / vp.length) + 1.5; P.line(L[i][0], L[i][1], Rr[i][0], Rr[i][1], { w: 0.5, c: K, passes: 1, over: 0 }); ballStick(L[i][0], L[i][1], a2 + 1.5 + R(-0.3, 0.3), w * 1.2 + 3, 0.6, Wh); ballStick(Rr[i][0], Rr[i][1], a2 - 1.5 + R(-0.3, 0.3), w * 1.2 + 3, 0.6, Wh); } }
+      // pods, lumps, rings, eyes, seed-cases packed into the dark
+      for (let i = 0; i < (o.tries ?? 16000); i++) { const r = R(3, o.rMax ?? 24), x = R(bb.x0, bb.x1), y = R(bb.y0 + 10, bb.y1); if (!S.pip(mass, x, y) || !S.pip(mass, x, y + r) || !S.pip(mass, x - r, y) || !S.pip(mass, x + r, y) || placed.some(([a, b, c]) => Math.hypot(x - a, y - b) < c + r + 1.8)) continue; placed.push([x, y, r]); const k = P.R();
+        if (k < 0.34) lump(x, y, r, { rows: 3, double: r > 12 });
+        else if (k < 0.48) { white(Array.from({ length: 18 }, (_, q) => [x + Math.cos(q * TAU / 18) * r, y + Math.sin(q * TAU / 18) * r])); for (let m = 1; m <= 4; m++) P.circle(x, y, r * m / 4, { w: m === 4 ? 1.2 : 0.6, c: K, passes: 1 }); P.stipple(Array.from({ length: 12 }, (_, q) => [x + Math.cos(q * TAU / 12) * r, y + Math.sin(q * TAU / 12) * r]), Math.round(r * r * 0.3), { a: 0.9, r: 0.6, c: K, fade: (px, py) => Math.max(0, (px - x + py - y) / (r * 1.4)) }); }
+        else if (k < 0.6) { const pts2 = P.sample(Array.from({ length: 10 }, (_, q) => [x + Math.cos(q * TAU / 10) * r * 0.5, y + Math.sin(q * TAU / 10) * r]), true, 2); white(pts2); polyL(pts2, 1.1); for (let m = -3; m <= 3; m++) P.dot(x, y + m * r * 0.22, 1.1, { c: K }); fringe(pts2, x, y, r * 0.7, { rows: 2 }); }
+        else if (k < 0.7) { white(Array.from({ length: 16 }, (_, q) => [x + Math.cos(q * TAU / 16) * r, y + Math.sin(q * TAU / 16) * r * 0.75])); P.ellipse(x, y, r, r * 0.75, { w: 1.2, c: K, passes: 1 }); P.circle(x, y, r * 0.42, { w: 0.9, c: K, passes: 1 }); P.wash(Array.from({ length: 10 }, (_, q) => [x + Math.cos(q * TAU / 10) * r * 0.2, y + Math.sin(q * TAU / 10) * r * 0.2]), '#050505', 1, { edge: 0, steps: 1, jit: 0 }); P.dot(x - r * 0.1, y - r * 0.1, 1.2, { c: Wh }); for (let m = 0; m < 9; m++) { const a = Math.PI + m * Math.PI / 8; P.line(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.75, x + Math.cos(a) * r * 1.25, y + Math.sin(a) * r * 0.95, { w: 0.6, c: Wh, passes: 1, over: 0 }); } }
+        else if (k < 0.8 && r > 8) { const n = Math.floor(r / 3); for (let m = 0; m < n; m++) { const rr = r * (1 - m / n); white(Array.from({ length: 12 }, (_, q) => [x + Math.cos(q * TAU / 12) * rr, y - (r - rr) * 0.6 + Math.sin(q * TAU / 12) * rr * 0.6])); P.ellipse(x, y - (r - rr) * 0.6, rr, rr * 0.6, { w: 0.8, c: K, passes: 1 }); } }
+        else { P.dot(x, y, Math.min(2.6, r * 0.2), { c: Wh, a: 1 }); if (r > 6) P.circle(x, y, r * 0.5, { w: 0.5, c: Wh, passes: 1 }); } }
+      // white star-dust in the gaps
+      for (let i = 0; i < (o.dust ?? 600); i++) { const x = R(bb.x0, bb.x1), y = R(bb.y0, bb.y1); if (S.pip(mass, x, y) && !placed.some(([a, b, c]) => Math.hypot(x - a, y - b) < c + 1)) P.dot(x, y, R(0.4, 0.9), { c: Wh, a: 1 }); }
+      // hanging roots and droplet threads from the underside
+      for (let k = 0; k < (o.roots ?? 36); k++) { const [x, y] = botC[Math.floor(R(1, botC.length - 1))]; const L = R(18, 80) * (o.s ?? 1), pts2 = [[x, y - 3]]; let a = Math.PI / 2 + R(-0.25, 0.25), px = x, py = y; for (let s = 0; s < L; s += 5) { a += R(-0.2, 0.2); px += Math.cos(a) * 5; py += Math.sin(a) * 5; pts2.push([px, py]); } if (py > 978) continue; P.path(pts2, { w: k % 3 ? 0.9 : 2, c: K, rough: 0.2, passes: 1 }); if (k % 3 === 0) { const d = P.sample([[px, py - 3], [px + 3.5, py + 2], [px, py + 7], [px - 3.5, py + 2]], true, 1.5); white(d); polyL(d, 1); P.dot(px - 1, py + 2, 0.9, { c: K }); } else P.dot(px, py, 1.6, { c: K }); }
+      polyL(mass, 1.6);
+    };
+    underworld(isl, -70, 330, { veins: 16 });
+    SAT.forEach(s => underworld(s.pts, s.z, s.d, { veins: 4, s: 0.6, rMax: 12, tries: 5000, roots: 12, dust: 150, tip: s.tip }));
     // birds, bubbles
     for (let k = 0; k < 18; k++) { const x = R(80, 1520), y = R(60, 400), s2 = R(4, 9); if (x > 520 && x < 1150) continue; P.curve([[x - s2, y], [x - s2 * 0.4, y - s2 * 0.6], [x, y]], { w: 1, c: K, passes: 1, rough: 0.1 }); P.curve([[x, y], [x + s2 * 0.4, y - s2 * 0.6], [x + s2, y]], { w: 1, c: K, passes: 1, rough: 0.1 }); }
     P.text('CLOCK ISLAND', 1540, 966, { size: 10, align: 'right', a: 0.7 });
