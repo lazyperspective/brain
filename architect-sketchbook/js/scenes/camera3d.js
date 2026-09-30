@@ -214,7 +214,38 @@
     }
 
 
-    D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.6, -0.3, 0.62], ambient: 0.06, gap: 3.7, w: 1.35, rough: 0.22, zw: 0, hatchMin: 0.3 });
+
+    /* ================= small floating hardware on every axis: washers, circlips, bushings, pins ================= */
+    const G = 32;
+    { const washer = (x, y, z, r0, r1, t = 0.8) => add(D.ringSolid(x, y, r0, r1, z, z + t, 20));
+      const clip = (x, y, z, r) => { add(D.ringSolid(x, y, r * 0.62, r, z, z + 0.7, 18, { a0: 0.5, a1: 0.5 + TAU * 0.82 })); };
+      const bush = (x, y, z, r, h) => add(D.revolve(x, y, [[r * 1.5, z], [r * 1.5, z + 1], [r, z + 1], [r, z + h], [r * 0.55, z + h], [r * 0.55, z]], { seg: 16 }));
+      // along the dial axes between deck and knobs
+      [[36, 0, 7], [56, 0, 8], [-42, 0, 6]].forEach(([x, y, r], i) => { washer(x, y, ZT + 6, r * 0.45, r * 0.95); clip(x, y, ZT + 10, r * 0.6); bush(x, y, ZT + 14, r * 0.34, 5); washer(x, y, ZT + 42 + i * 3, r * 0.3, r * 0.75, 0.6); });
+      // along the module: pins and bushings for the wind train, rangefinder arm
+      [[40, 2], [20, 6], [56, -6], [-30, -2]].forEach(([x, y]) => { bush(x, y, ZM - 16, 1.6, 4); washer(x, y, ZM - 9, 1.3, 3.2, 0.6); });
+      // below the body: cassette lock pins and the take-up spool's clip
+      [[-44, 0, -8], [44, 0, -10]].forEach(([x, y, z]) => { washer(x, y, z, 3, 6, 0.8); clip(x, y, z - 3.4, 4); });
+      [[-60, -8], [60, -8], [-60, 8], [60, 8]].forEach(([x, y]) => { add(D.cylinder(x, y, 1.2, -30, -22, 8)); guide([x, y, ZB], [x, y, 0]); screw(x, y, ZB - 12, 1.8, 5); });
+      // lens: retaining ring and spacer between elements, loose ball bearing of the click stops
+      [[22 + 2 * G + 12, 16, 18.5], [22 + 3 * G + 24, 17, 20]].forEach(([dy, r0, r1]) => add(toFront(D.ringSolid(0, 0, r0, r1, 0, 1.4, 32), 0, -RR - dy, 30)));
+      add(toFront(D.revolve(0, 0, [[1.4, 0], [1.4, 0.01], [0.01, 2.8]], { seg: 10 }), 22, -RR - 22 - G - 14, 44));
+      tag('CIRCLIPS + WASHERS', [36 + 4, 0, ZT + 10]); tag('BRASS BUSHINGS', [40, 2, ZM - 14]); tag('BASEPLATE SCREWS', [60, -8, ZB - 10]); tag('RETAINING RING', [18.5, -RR - 22 - 3 * G - 24, 30]);
+    }
+    /* ================= DETAIL A: the iris diaphragm, drawn large in its own camera ================= */
+    { const cx0 = 690, cy0 = 752, rr = 84;
+      const cm = D.camera({ eye: [0, -150, 120], target: [0, 0, 0], f: 300, cx: cx0 + 20, cy: cy0 + 36 });
+      const F = [];
+      F.push(...D.ringSolid(0, 0, 44, 58, -6, 0, 48)); F.push(...D.ringSolid(0, 0, 50, 58, 0, 7, 48));
+      for (let k = 0; k < 10; k++) { const a0 = k * TAU / 10, pts = []; for (let q = 0; q <= 8; q++) { const a = a0 + q * 0.11; pts.push([Math.cos(a) * lerp(52, 17, q / 8), Math.sin(a) * lerp(52, 17, q / 8)]); } for (let q = 8; q >= 0; q--) { const a = a0 + q * 0.11 + 0.5; pts.push([Math.cos(a) * lerp(52, 21, q / 8), Math.sin(a) * lerp(52, 21, q / 8)]); } F.push(...D.extrude(pts, 0.3 + k * 0.12, 0.9 + k * 0.12, { crease: 0.4 }).map(f => Object.assign(f, { tone: f.n[2] > 0.9 ? 0.2 + (k % 3) * 0.14 : 0.6 }))); }
+      for (let k = 0; k < 10; k++) { const a = k * TAU / 10 + 0.05; F.push(...D.cylinder(Math.cos(a) * 53, Math.sin(a) * 53, 1.8, 1.4, 4, 10)); }
+      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.3, deep: true });
+      const q = cm.project([0, 0, 1]); if (q) { const hole = Array.from({ length: 10 }, (_, i) => { const p = cm.project([Math.cos(i * TAU / 10 + 0.3) * 17, Math.sin(i * TAU / 10 + 0.3) * 17, 1.4]); return [p[0], p[1]]; }); P.occlude(hole, '#1a1a1a'); P.poly(hole, { w: 0.9, c: INK, passes: 1, over: 0 }); }
+      P.text('DETAIL A', cx0 - rr - 4, cy0 - rr + 6, { size: 11, c: INK, align: 'right', font: S.HAND }); P.text('IRIS, 10 BLADES, F/8', cx0 - rr - 4, cy0 - rr + 20, { size: 7, c: INK, align: 'right' }); P.text('SCALE 8 : 1', cx0 - rr - 4, cy0 - rr + 32, { size: 7, c: INK, align: 'right', a: 0.8 });
+      const lp = CAM.project([0, -RR - 22 - 2 * G - 24, 30 - 19]); if (lp) { P.dashed(lp[0], lp[1], cx0 + rr * 0.3, cy0 - rr * 0.95, [3, 4], { w: 0.5, c: INK, a: 0.7 }); P.circle(lp[0], lp[1], 10, { w: 0.5, c: INK, a: 0.7, passes: 1 }); }
+    }
+
+    D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.6, -0.3, 0.62], ambient: 0.06, gap: 3.7, w: 1.35, rough: 0.22, zw: 0, hatchMin: 0.3, deep: true });
 
     /* ================= the archive plate: border, fold, callouts, parts table, title band ================= */
     { const L0 = 58, T0 = 52, R0 = 1542, B0 = 900;
@@ -237,7 +268,7 @@
       const tx0 = 1330, tx1 = R0 - 10; let ty = T0 + 14; P.rect(tx0, T0 + 8, tx1 - tx0, 620, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 });
       P.text('SCHEDULE OF PARTS', (tx0 + tx1) / 2, ty + 14, { size: 11, c: INK, align: 'center', font: S.HAND }); ty += 24; P.line(tx0, ty, tx1, ty, { w: 0.6, c: INK, passes: 1, over: 0 });
       P.text('NO', tx0 + 8, ty + 12, { size: 6.6, c: INK }); P.text('DESCRIPTION', tx0 + 28, ty + 12, { size: 6.6, c: INK }); P.text('QTY', tx1 - 34, ty + 12, { size: 6.6, c: INK }); P.text('MAT', tx1 - 18, ty + 12, { size: 6.6, c: INK }); ty += 17; P.line(tx0, ty, tx1, ty, { w: 0.4, c: INK, passes: 1, over: 0 });
-      const mats = ['ZN', 'BR', 'ST', 'AL', 'GL', 'CU']; all.slice().sort((a, b) => a.n - b.n).forEach(q => { const d = q.lb.length > 24 ? q.lb.slice(0, 24) : q.lb; P.text(String(q.n), tx0 + 8, ty + 11, { size: 6.4, c: INK }); P.text(d, tx0 + 28, ty + 11, { size: 6.2, c: INK, a: 0.92 }); const red = /SCREW|SPRING/.test(q.lb); P.text(red ? String(2 + q.n % 3) : '1', tx1 - 30, ty + 11, { size: 6.4, c: red ? RED : INK }); P.text(red ? 'ST' : mats[q.n % 6], tx1 - 18, ty + 11, { size: 6.2, c: INK }); ty += 13; P.line(tx0 + 4, ty, tx1 - 4, ty, { w: 0.25, c: INK, a: 0.45, passes: 1, over: 0 }); });
+      const mats = ['ZN', 'BR', 'ST', 'AL', 'GL', 'CU']; all.slice().sort((a, b) => a.n - b.n).forEach(q => { const d = q.lb.length > 24 ? q.lb.slice(0, 24) : q.lb; P.text(String(q.n), tx0 + 8, ty + 9.6, { size: 5.8, c: INK }); P.text(d, tx0 + 28, ty + 9.6, { size: 5.6, c: INK, a: 0.92 }); const red = /SCREW|SPRING/.test(q.lb); P.text(red ? String(2 + q.n % 3) : '1', tx1 - 30, ty + 9.6, { size: 5.8, c: red ? RED : INK }); P.text(red ? 'ST' : mats[q.n % 6], tx1 - 18, ty + 9.6, { size: 5.6, c: INK }); ty += 11.6; P.line(tx0 + 4, ty, tx1 - 4, ty, { w: 0.25, c: INK, a: 0.45, passes: 1, over: 0 }); });
       P.line(tx0 + 22, T0 + 46, tx0 + 22, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 36, T0 + 46, tx1 - 36, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 }); P.line(tx1 - 20, T0 + 46, tx1 - 20, ty, { w: 0.3, c: INK, a: 0.55, passes: 1, over: 0 });
       // notes block
       const ny = T0 + 640; P.rect(tx0, ny, tx1 - tx0, 150, { w: 0.8, c: INK, a: 0.85, rough: 0.2, over: 0, passes: 1 }); P.text('NOTES', tx0 + 10, ny + 16, { size: 9, c: INK, font: S.HAND });

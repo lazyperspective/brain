@@ -84,6 +84,7 @@
           if (f.hdir && Math.abs(dot(f.hdir, f.n)) < 0.7) { const q0 = cam.project(it.c), q1 = cam.project(add(it.c, mul(f.hdir, 10))); if (q0 && q1) ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]) * 180 / Math.PI; }
           let area2 = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; area2 += p[0] * q[1] - q[0] * p[1]; } area2 = Math.abs(area2) / 2;
           if (area2 > 3) P.hatch(poly, { ang, gap: Math.max(1.3, (o.gap ?? 5.6) - dark * 4.4 + (f.n[2] > 0.9 ? 0.8 : 0)) * (1 + 0.5 * fk), a: Math.min(0.78, 0.3 + dark * 0.6) * fa, w: 0.5, c: ink, inset: 0.3, ragged: 0.4, jit: 0.15, cross: dark > 0.72 && area2 > 60 ? 42 : undefined });
+          if (o.deep && dark > 0.84 && area2 > 30) P.hatch(poly, { ang: ang - 38, gap: Math.max(1.2, 2.2 - (dark - 0.84) * 4), a: 0.55, w: 0.45, c: ink, inset: 0.4, ragged: 0.3 });
         }
       }
       if (f.noEdge) { }
