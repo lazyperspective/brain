@@ -14,43 +14,50 @@
   const DURATION = 34; // seconds for a sheet at 1x
 
   /* ---------------------------------------------------------------- paper */
+  const THEMES = {
+    cream: { base: '#f2ead8', blot: ['rgba(206,176,120,0.10)', 'rgba(255,255,255,0.14)'], grid: { minor: 20, major: 100, mc: 'rgba(96,120,150,0.075)', Mc: 'rgba(96,120,150,0.11)' }, fib: ['rgba(120,96,60,0.07)', 'rgba(255,255,255,0.35)'], vig: 'rgba(120,90,40,0.28)', tape: true, blend: 'multiply', grain: [250, 244, 230, 62] },
+    kraft: { base: '#b68b56', blot: ['rgba(80,52,24,0.20)', 'rgba(232,192,132,0.20)'], grid: null, fib: ['rgba(60,38,18,0.20)', 'rgba(244,216,166,0.26)'], fibN: 6200, vig: 'rgba(40,24,8,0.42)', tape: false, blend: 'normal', grain: [246, 222, 176, 46] },
+    mint: { base: '#edf4f0', blot: ['rgba(120,160,150,0.10)', 'rgba(255,255,255,0.20)'], grid: { minor: 10, major: 50, mc: 'rgba(60,140,140,0.15)', Mc: 'rgba(60,140,140,0.30)' }, fib: ['rgba(80,120,110,0.06)', 'rgba(255,255,255,0.4)'], vig: 'rgba(70,110,100,0.16)', tape: false, blend: 'multiply', grain: [240, 250, 246, 55] },
+    pcb: { base: '#eeefe9', blot: ['rgba(160,150,110,0.08)', 'rgba(255,255,255,0.2)'], grid: { minor: 20, major: 100, mc: 'rgba(60,90,200,0.06)', Mc: 'rgba(60,90,200,0.14)' }, fib: ['rgba(100,100,80,0.06)', 'rgba(255,255,255,0.4)'], vig: 'rgba(120,110,70,0.18)', tape: false, blend: 'multiply', grain: [250, 250, 244, 50] },
+    pencil: { base: '#f3efe2', blot: ['rgba(200,180,130,0.10)', 'rgba(255,255,255,0.16)'], grid: null, fib: ['rgba(110,96,64,0.06)', 'rgba(255,255,255,0.35)'], vig: 'rgba(120,100,60,0.18)', tape: false, blend: 'multiply', grain: [250, 246, 234, 70] },
+    bluepen: { base: '#efe6d0', blot: ['rgba(200,170,110,0.12)', 'rgba(255,255,255,0.14)'], grid: null, fib: ['rgba(120,96,60,0.07)', 'rgba(255,255,255,0.3)'], vig: 'rgba(140,110,50,0.24)', tape: false, blend: 'multiply', grain: [250, 244, 226, 44] },
+  };
+  let theme = THEMES.cream;
+  function themeFor(scene) { const t = scene && scene.theme; return typeof t === 'string' ? (THEMES[t] || THEMES.cream) : Object.assign({}, THEMES.cream, t || {}); }
+
   function paintPaper() {
-    const w = paperC.width, h = paperC.height, R = S.rng(7);
+    const w = paperC.width, h = paperC.height, R = S.rng(7), th = theme;
     pctx.setTransform(1, 0, 0, 1, 0, 0);
-    pctx.fillStyle = '#f2ead8'; pctx.fillRect(0, 0, w, h);
+    pctx.fillStyle = th.base; pctx.fillRect(0, 0, w, h);
     pctx.setTransform(k, 0, 0, k, 0, 0);
-    // soft blotches of uneven tone
     for (let i = 0; i < 26; i++) {
       const x = R() * W, y = R() * H, r = 120 + R() * 380;
       const g = pctx.createRadialGradient(x, y, 0, x, y, r);
-      const warm = R() > 0.5;
-      g.addColorStop(0, warm ? 'rgba(206,176,120,0.10)' : 'rgba(255,255,255,0.14)');
+      g.addColorStop(0, R() > 0.5 ? th.blot[0] : th.blot[1]);
       g.addColorStop(1, 'rgba(255,255,255,0)');
       pctx.fillStyle = g; pctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
-    // faint drafting grid
-    pctx.strokeStyle = 'rgba(96,120,150,0.075)'; pctx.lineWidth = 1 / k * 0.8;
-    pctx.beginPath();
-    for (let x = 40; x < W; x += 20) { pctx.moveTo(x, 40); pctx.lineTo(x, H - 40); }
-    for (let y = 40; y < H; y += 20) { pctx.moveTo(40, y); pctx.lineTo(W - 40, y); }
-    pctx.stroke();
-    pctx.strokeStyle = 'rgba(96,120,150,0.11)'; pctx.beginPath();
-    for (let x = 40; x < W; x += 100) { pctx.moveTo(x, 40); pctx.lineTo(x, H - 40); }
-    for (let y = 40; y < H; y += 100) { pctx.moveTo(40, y); pctx.lineTo(W - 40, y); }
-    pctx.stroke();
-    // paper fibres
-    for (let i = 0; i < 2600; i++) {
+    if (th.grid) {
+      const G = th.grid;
+      pctx.strokeStyle = G.mc; pctx.lineWidth = 1 / k * 0.8; pctx.beginPath();
+      for (let x = 0; x <= W; x += G.minor) { pctx.moveTo(x, 0); pctx.lineTo(x, H); }
+      for (let y = 0; y <= H; y += G.minor) { pctx.moveTo(0, y); pctx.lineTo(W, y); }
+      pctx.stroke();
+      pctx.strokeStyle = G.Mc; pctx.beginPath();
+      for (let x = 0; x <= W; x += G.major) { pctx.moveTo(x, 0); pctx.lineTo(x, H); }
+      for (let y = 0; y <= H; y += G.major) { pctx.moveTo(0, y); pctx.lineTo(W, y); }
+      pctx.stroke();
+    }
+    for (let i = 0; i < (th.fibN || 2600); i++) {
       const x = R() * W, y = R() * H, a = R() * 6.28, l = 3 + R() * 9;
-      pctx.strokeStyle = R() > 0.5 ? 'rgba(120,96,60,0.07)' : 'rgba(255,255,255,0.35)';
+      pctx.strokeStyle = R() > 0.5 ? th.fib[0] : th.fib[1];
       pctx.lineWidth = 0.5; pctx.beginPath(); pctx.moveTo(x, y);
       pctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); pctx.stroke();
     }
-    // edge darkening
     const v = pctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.75);
-    v.addColorStop(0, 'rgba(120,90,40,0)'); v.addColorStop(1, 'rgba(120,90,40,0.28)');
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, th.vig);
     pctx.fillStyle = v; pctx.fillRect(0, 0, W, H);
-    // masking tape on the corners
-    for (const [x, y, r] of [[38, 30, -0.7], [W - 38, 30, 0.7], [38, H - 30, 0.7], [W - 38, H - 30, -0.7]]) {
+    if (th.tape) for (const [x, y, r] of [[38, 30, -0.7], [W - 38, 30, 0.7], [38, H - 30, 0.7], [W - 38, H - 30, -0.7]]) {
       pctx.save(); pctx.translate(x, y); pctx.rotate(r);
       pctx.fillStyle = 'rgba(232,214,160,0.72)'; pctx.fillRect(-42, -13, 84, 26);
       pctx.strokeStyle = 'rgba(160,130,70,0.35)'; pctx.lineWidth = 0.8; pctx.strokeRect(-42, -13, 84, 26);
@@ -60,15 +67,21 @@
   }
   function makeGrain() {
     const c = document.createElement('canvas'); c.width = c.height = 220;
-    const x = c.getContext('2d'), R = S.rng(99), id = x.createImageData(220, 220);
+    const x = c.getContext('2d'), R = S.rng(99), id = x.createImageData(220, 220), G = theme.grain;
     for (let i = 0; i < id.data.length; i += 4) {
       const v = R();
-      id.data[i] = 250; id.data[i + 1] = 244; id.data[i + 2] = 230;
-      id.data[i + 3] = v > 0.86 ? Math.floor((v - 0.86) * 7.1 * 62) : 0;
+      id.data[i] = G[0]; id.data[i + 1] = G[1]; id.data[i + 2] = G[2];
+      id.data[i + 3] = v > 0.86 ? Math.floor((v - 0.86) * 7.1 * G[3]) : 0;
     }
     x.putImageData(id, 0, 0);
     grain.style.backgroundImage = `url(${c.toDataURL()})`;
     grain.style.backgroundSize = '220px 220px';
+  }
+  function applyTheme(scene) {
+    theme = themeFor(scene);
+    inkC.style.mixBlendMode = theme.blend;
+    makeGrain();
+    if (paperC.width) paintPaper();
   }
 
   /* --------------------------------------------------------------- player */
@@ -198,7 +211,7 @@
       history.replaceState(null, '', '#' + (i + 1));
       document.querySelectorAll('#tabs button').forEach((b, n) => b.classList.toggle('on', n === i));
       const p = playerFor(i);
-      layout(); p.replay();
+      applyTheme(SCENES[i]); layout(); p.replay();
       stage.classList.remove('out');
       switching = false;
     };
@@ -236,7 +249,6 @@
       else if (e.key === 'r' || e.key === 'R') document.getElementById('redraw').click();
     });
     addEventListener('resize', layout);
-    makeGrain();
     const start = Math.max(0, Math.min(TOTAL - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
     layout();
     show(start, true);

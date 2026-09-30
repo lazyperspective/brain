@@ -359,8 +359,100 @@
       return this.text(label, tx, ty, { size: o.size ?? 15, rot: ang, align: 'center', font: HAND, a: 0.85 });
     }
 
+    /* ---------- pen-and-ink toolkit: scalloped clouds, tick scales, trace bundles ---------- */
+    /* Bumpy "cumulus" outline along a polyline/polygon. Returns the outline samples. */
+    scallop(pts, o = {}) {
+      const r = o.r ?? 8, bulge = o.bulge ?? 1, n = pts.length, closed = !!o.closed, out = [];
+      let side = o.side ?? 1;
+      if (closed) { let A = 0; for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; A += a[0] * b[1] - b[0] * a[1]; } side = A > 0 ? -1 : 1; if (o.side) side = o.side; }
+      const m = closed ? n : n - 1;
+      for (let i = 0; i < m; i++) {
+        const a = pts[i], b = pts[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 1) continue;
+        const nx = -dy / L * side, ny = dx / L * side, k = Math.max(1, Math.round(L / (2 * r * this.r(0.85, 1.15))));
+        for (let j = 0; j < k; j++) {
+          const t0 = j / k, t1 = (j + 1) / k, hh = (L / k) * 0.46 * bulge * this.r(0.8, 1.2);
+          for (let s2 = 0; s2 <= 5; s2++) { const u = s2 / 5, t = lerp(t0, t1, u), b2 = Math.sin(Math.PI * u) * hh; out.push([a[0] + dx * t + nx * b2, a[1] + dy * t + ny * b2]); }
+        }
+      }
+      if (out.length > 1) this.path(out, { rough: o.rough ?? 0.5, w: o.w ?? this.w, c: o.c, a: o.a, passes: 1, closed: false });
+      return out;
+    }
+    /* Billowing cloud / smoke puff: scalloped outline, inner lobes, hatch shading, optional highlight strokes. */
+    cloud(cx, cy, w, h, o = {}) {
+      const k = o.lobes ?? 12, pts = [];
+      for (let i = 0; i < k; i++) { const a = i * TAU / k + this.r(-0.15, 0.15), rr = this.r(0.8, 1.05); pts.push([cx + Math.cos(a) * w / 2 * rr, cy + Math.sin(a) * h / 2 * rr]); }
+      const r = o.r ?? Math.max(4, Math.min(w, h) / 6);
+      const out = this.scallop(pts, { closed: true, r, w: o.w, c: o.c, a: o.a });
+      for (let i = 0; i < (o.inner ?? 3); i++) {
+        const ix = cx + this.r(-0.25, 0.25) * w, iy = cy + this.r(-0.2, 0.2) * h, sc = this.r(0.35, 0.6), q = [];
+        for (let j = 0; j < 8; j++) { const a = j * TAU / 8 + this.r(-0.2, 0.2); q.push([ix + Math.cos(a) * w / 2 * sc, iy + Math.sin(a) * h / 2 * sc]); }
+        this.scallop(q, { closed: true, r: r * 0.7, w: (o.w ?? this.w) * 0.7, c: o.c, a: (o.a ?? this.a) * 0.75 });
+      }
+      if (o.shade !== false) this.hatch(out, { ang: o.ang ?? -50, gap: o.gap ?? 2.4, a: 0.55, w: 0.5, c: o.c, fade: (x, y) => Math.max(0, Math.min(1, ((x - cx) / w + (y - cy) / h) * 1.1 + 0.35)), piece: 8, inset: 2 });
+      if (o.fill) this.wash(out, o.fill, o.fillA ?? 0.5, { edge: 0, jit: 0.6 });
+      if (o.hi) for (let i = 0; i < 3; i++) { const a = this.r(3.4, 5.2), rr = this.r(0.3, 0.42); this.arc(cx + Math.cos(a) * w * 0.3, cy + Math.sin(a) * h * 0.25, w * rr * 0.4, h * rr * 0.3, a - 0.5, a + 0.6, { c: o.hi, w: 1.1, a: 0.9, passes: 1, rough: 0.3 }); }
+      return out;
+    }
+    /* Rope of overlapping cloud-lobes following a path (the "smoke tube" look). r0→r1 = radius at start→end. */
+    cloudTube(path, r0, r1, o = {}) {
+      const S0 = catmull(path, false, Math.max(3, Math.min(r0, r1) * 0.9)), n = S0.length; if (n < 3) return this;
+      const L = [], Rr = [], C = [];
+      for (let i = 0; i < n; i++) {
+        const a = S0[Math.max(0, i - 1)], b = S0[Math.min(n - 1, i + 1)]; let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+        const rr = lerp(r0, r1, i / (n - 1)) * this.r(0.92, 1.08);
+        L.push([S0[i][0] - ty * rr, S0[i][1] + tx * rr]); Rr.push([S0[i][0] + ty * rr, S0[i][1] - tx * rr]); C.push([tx, ty, rr]);
+      }
+      const bump = (A, B, side) => { const dx = B[0] - A[0], dy = B[1] - A[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * side, ny = dx / l * side, h = l * 0.55, pp = []; for (let u = 0; u <= 5; u++) { const t = u / 5, bb = Math.sin(Math.PI * t) * h; pp.push([A[0] + dx * t + nx * bb, A[1] + dy * t + ny * bb]); } return pp; };
+      let lo = [], ro = [];
+      for (let i = 0; i + 1 < n; i++) { lo = lo.concat(bump(L[i], L[i + 1], -1)); ro = ro.concat(bump(Rr[i], Rr[i + 1], 1)); }
+      const oo = { rough: 0.45, w: o.w ?? this.w, c: o.c, a: o.a, passes: 1 };
+      this.path(lo, oo); this.path(ro, oo);
+      for (let i = 1; i + 1 < n; i += (o.rib ?? 1)) { const c = S0[i], t = C[i], rr = C[i][2], m = [c[0] + t[0] * rr * 0.5, c[1] + t[1] * rr * 0.5]; this.curve([L[i], m, Rr[i]], { rough: 0.35, w: (o.w ?? this.w) * 0.7, c: o.c, a: (o.a ?? this.a) * 0.8 }); }
+      if (o.shade !== false) { const poly = L.concat(Rr.slice().reverse()); this.hatch(poly, { ang: o.ang ?? -55, gap: o.gap ?? 2.4, a: 0.5, w: 0.45, c: o.c, fade: (x, y) => 0.55, piece: 8, inset: 1 }); }
+      return this;
+    }
+    /* straight ruler scale: ticks every `step`, longer every `major` */
+    ruler(x1, y1, x2, y2, step, major = 5, o = {}) {
+      const L = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / L, uy = (y2 - y1) / L, nx = -uy * (o.side ?? 1), ny = ux * (o.side ?? 1), tl = o.len ?? 6;
+      this.line(x1, y1, x2, y2, { w: o.w ?? 0.7, a: o.a ?? 0.7, rough: 0.3, passes: 1, c: o.c });
+      for (let i = 0, d = 0; d <= L + 0.1; i++, d += step) { const l = i % major === 0 ? tl : tl * 0.5; this.line(x1 + ux * d, y1 + uy * d, x1 + ux * d + nx * l, y1 + uy * d + ny * l, { w: 0.6, a: o.a ?? 0.7, passes: 1, over: 0, rough: 0.15, c: o.c }); }
+      return this;
+    }
+    arcTicks(cx, cy, r, a0, a1, step, major = 5, o = {}) {
+      const tl = o.len ?? 6, dir = o.side ?? 1;
+      this.arc(cx, cy, r, r, a0, a1, { w: o.w ?? 0.7, a: o.a ?? 0.7, passes: 1, rough: 0.4, c: o.c });
+      for (let i = 0, a = a0; a <= a1 + 1e-6; i++, a += step) { const l = i % major === 0 ? tl : tl * 0.5; this.line(cx + Math.cos(a) * r, cy + Math.sin(a) * r, cx + Math.cos(a) * (r + dir * l), cy + Math.sin(a) * (r + dir * l), { w: 0.6, a: o.a ?? 0.7, passes: 1, over: 0, rough: 0.15, c: o.c }); }
+      return this;
+    }
+    /* bundle of n parallel traces that follow a polyline with chamfered 45-degree corners (PCB look) */
+    bus(pts, n, gap, o = {}) {
+      const ch = o.chamfer ?? gap * n * 0.9, P2 = [pts[0]];
+      for (let i = 1; i + 1 < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i], c = pts[i + 1], l1 = Math.hypot(b[0] - a[0], b[1] - a[1]), l2 = Math.hypot(c[0] - b[0], c[1] - b[1]);
+        const d1 = Math.min(ch, l1 / 2), d2 = Math.min(ch, l2 / 2);
+        P2.push([b[0] + (a[0] - b[0]) / l1 * d1, b[1] + (a[1] - b[1]) / l1 * d1], [b[0] + (c[0] - b[0]) / l2 * d2, b[1] + (c[1] - b[1]) / l2 * d2]);
+      }
+      P2.push(pts[pts.length - 1]);
+      const m = P2.length, N = [];
+      for (let i = 0; i < m; i++) {
+        const a = P2[Math.max(0, i - 1)], b = P2[i], c = P2[Math.min(m - 1, i + 1)];
+        let t1x = b[0] - a[0], t1y = b[1] - a[1], t2x = c[0] - b[0], t2y = c[1] - b[1]; const l1 = Math.hypot(t1x, t1y) || 1, l2 = Math.hypot(t2x, t2y) || 1; t1x /= l1; t1y /= l1; t2x /= l2; t2y /= l2;
+        if (i === 0) { t1x = t2x; t1y = t2y; } if (i === m - 1) { t2x = t1x; t2y = t1y; }
+        let nx = -(t1y + t2y), ny = t1x + t2x; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        const dot = nx * (-t1y) + ny * t1x; N.push([nx / Math.max(0.5, dot), ny / Math.max(0.5, dot)]);
+      }
+      for (let k = 0; k < n; k++) {
+        const off = (k - (n - 1) / 2) * gap, line = P2.map((p, i) => [p[0] + N[i][0] * off, p[1] + N[i][1] * off]);
+        const col = o.colors ? o.colors[k % o.colors.length] : o.c;
+        this.pl(line, { w: o.w ?? 1.5, c: col, a: o.a ?? 0.95, rough: o.rough ?? 0.35, over: 0, passes: 1 });
+        if (o.pads) { this.circle(line[0][0], line[0][1], o.pads, { w: 1, c: col, passes: 1, rough: 0.2 }); this.circle(line[line.length - 1][0], line[line.length - 1][1], o.pads, { w: 1, c: col, passes: 1, rough: 0.2 }); }
+      }
+      return this;
+    }
+
     /* ---------- sheet furniture ---------- */
     frame(title, sub, n, total, o = {}) {
+      if (o.style === 'none') return this;
       const R = { rough: 0.35, over: 2, passes: 1 };
       this.rect(26, 26, 1548, 948, Object.assign({ w: 1.7, a: 0.85 }, R));
       this.rect(38, 38, 1524, 924, Object.assign({ w: 0.8, a: 0.7 }, R));
@@ -382,5 +474,19 @@
     }
   }
 
-  g.Sketch = { Page, TAU, W, H, rng, rgb, rgba, pip, catmull, lerp, lerpP, HAND, NOTE };
+
+  /* Tiny pinhole camera: world x right, y up, z forward. Returns project(p) -> [sx, sy, depth] or null behind the lens. */
+  function cam(o) {
+    const pos = o.pos || [0, 0, 0], yaw = o.yaw || 0, pit = o.pitch || 0, f = o.f || 800, cx = o.cx ?? 800, cy = o.cy ?? 500;
+    const cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pit), sp = Math.sin(pit);
+    return p => {
+      let x = p[0] - pos[0], y = p[1] - pos[1], z = p[2] - pos[2];
+      const x1 = x * cyw - z * syw, z1 = x * syw + z * cyw;           // yaw about y
+      const y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;             // pitch about x (positive looks up)
+      if (z2 < 0.5) return null;
+      return [cx + f * x1 / z2, cy - f * y2 / z2, z2];
+    };
+  }
+
+  g.Sketch = { cam, Page, TAU, W, H, rng, rgb, rgba, pip, catmull, lerp, lerpP, HAND, NOTE };
 })(window);
