@@ -1,0 +1,1 @@
+(window.SCENES = window.SCENES || []).push({ name: 'Rotunda (cutaway)', seed: 171, ink: '#3b2616', theme: 'sepia', build(P, n, t) { P.text('IN PROGRESS', 800, 500, { size: 30, align: 'center' }); } });
