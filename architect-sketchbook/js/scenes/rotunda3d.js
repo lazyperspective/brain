@@ -14,7 +14,7 @@
     /* ---------------- camera ---------------- */
     const PHE = -104 * DG, PIT = 27 * DG, DIST = 84, TG = [0, 0, 6.5];
     const EYE = [TG[0] + DIST * Math.cos(PHE) * Math.cos(PIT), TG[1] + DIST * Math.sin(PHE) * Math.cos(PIT), TG[2] + DIST * Math.sin(PIT)];
-    const cam = D.camera({ eye: EYE, target: TG, f: 2000, cx: 790, cy: 475 });
+    const cam = D.camera({ eye: EYE, target: TG, f: 2240, cx: 770, cy: 488 });
     const pr = p => cam.project(p);
 
     /* ---------------- geometry helpers ---------------- */
@@ -48,8 +48,8 @@
       const hid = x => !x || !x.vis;
       for (let j = 0; j < ns; j++) for (let i = 0; i < seg; i++) {
         const F = G[j][i]; if (!F || !F.vis) continue;
-        const eA = (i === 0 && !full) ? o.edgeA !== false : false, eB = (i === seg - 1 && !full) ? o.edgeB !== false : false;
-        const hard = [crease(j) || hid(nb(j - 1, i)), eB || !!o.vHard || hid(nb(j, i + 1)), crease(j + 1) || hid(nb(j + 1, i)), eA || !!o.vHard || hid(nb(j, i - 1))];
+        const eA = o.edgeA !== false, eB = o.edgeB !== false;
+        const hard = [crease(j) || hid(nb(j - 1, i)), (i === seg - 1 && !full) ? eB : !!o.vHard || hid(nb(j, i + 1)), crease(j + 1) || hid(nb(j + 1, i)), (i === 0 && !full) ? eA : !!o.vHard || hid(nb(j, i - 1))];
         out.push(Object.assign({ v: F.v, n: F.n, hard, hdir: [0, 0, 1], kind: F.kind, rr: F.rr }, o.f));
       }
       if (!full) [[a0, -1, o.capA], [a1, 1, o.capB]].forEach(([tt, sg, on]) => {
@@ -76,10 +76,11 @@
 
     /* ---------------- building constants ---------------- */
     const RI = 11.4, RO = 12.0, RS = 1.62, RL = 1.25, TH = 0.45, KR = 1.2;
-    const Z = [-3.8, 0.6, 5.0, 9.4, 13.8, 17.9], H = [50, 62, 80, 100, 105, 105].map(d => d * DG), PHC = -100 * DG;
+    const Z = [-3.8, 0.6, 5.0, 9.4, 13.8, 17.9], H = [46, 53, 80, 100, 105, 105].map(d => d * DG), PHC = -100 * DG;
     const ret = k => [PHC + H[k], PHC + TAU - H[k]];
-    const WIN = Array.from({ length: 16 }, (_, m) => (11.25 + 22.5 * m) * DG), DOOR = -29 * DG;
-    const AL = 60 * DG, AT = 135 * DG, NR = 22, DA = (AT - AL) / NR, SR0 = RI - 1.95, SR1 = RI - 0.02, WB = SR0 - 0.1, OPA = 95 * DG, OPB = AL + (NR - 1) * DA;
+    const WIN = Array.from({ length: 16 }, (_, m) => (11.25 + 22.5 * m) * DG), DOOR = -40 * DG;
+    const NR = 22, DA = 75 * DG / NR, SR0 = RI - 1.95, SR1 = RI - 0.02, WB = SR0 - 0.1;
+    const FAL = k => ret(k + 1)[1] - 4 * DG - 75 * DG, WELL = k => { const b = FAL(k - 1) + (NR - 1) * DA; return [b - 38 * DG, b]; };
 
     const GR = []; for (let k = 0; k < 6; k++) GR.push({ slab: [], inw: [], main: [] });
     const put = (k, pass, fs) => { (Array.isArray(fs) ? fs : [fs]).forEach(f => GR[k][pass].push(f)); };
@@ -147,8 +148,10 @@
     /* ---------------- floor slabs ---------------- */
     function slab(k) {
       const z1 = Z[k], z0 = k === 0 ? Z[0] - 0.6 : Z[k] - TH, [ta, tb] = ret(k), ro = k === 0 ? RO : RO + 0.15;
-      const full = (k === 0 ? [[RO, z0, 'skip'], [RO, z1, 'skip']] : [[ro, z0, 'out'], [ro, z1, 'skip'], [RO, z1, 'skip']]).concat([[RI, z1, 'top'], [WB, z1, 'top'], [5.4, z1, 'top'], [RS, z1, 'slabIn'], [RS, z0, 'skip']]);
-      const inner = [[WB, z0, 'skip'], [WB, z1, 'top'], [5.4, z1, 'top'], [RS, z1, 'slabIn'], [RS, z0, 'skip']];
+      const [OPA, OPB] = k ? WELL(k) : [0, 0], R0 = k === 4 ? 3.4 : RL + 0.01;
+      const full = (k === 0 ? [[RO, z0, 'skip'], [RO, z1, 'skip']] : [[ro, z0, 'out'], [ro, z1, 'skip'], [RO, z1, 'skip']]).concat([[RI, z1, 'top'], [WB, z1, 'top'], [5.4, z1, 'top'], [R0, z1, 'slabIn'], [R0, z0, 'skip']]);
+      const inner = [[WB, z0, 'skip'], [WB, z1, 'top'], [5.4, z1, 'top'], [R0, z1, 'slabIn'], [R0, z0, 'skip']];
+      if (k === 4) put(k, 'slab', lathe([[3.4, z0, 'well'], [3.4, z1, 'top'], [1.8, z1, 'top'], [0.001, z1]], { seg: 24 }));
       const o = { closed: true, step: 9 };
       if (k === 0) { put(k, 'slab', lathe(full, Object.assign({ a0: ta, a1: tb }, o))); return; }
       put(k, 'slab', lathe(full, Object.assign({ a0: ta, a1: OPA, capB: false, edgeB: false }, o)));
@@ -165,7 +168,7 @@
 
     /* ---------------- cantilevered spiral flight from storey k to k+1 ---------------- */
     function flight(k) {
-      const z0 = Z[k], rise = (Z[k + 1] - z0) / NR;
+      const z0 = Z[k], rise = (Z[k + 1] - z0) / NR, AL = FAL(k);
       for (let i = 0; i < NR - 1; i++) {
         const top = z0 + (i + 1) * rise, a0 = AL + i * DA, a1 = a0 + DA;
         put(k, 'main', lathe([[SR1, top - 0.2, 'skip'], [SR1, top, 'tread'], [SR0, top, 'treadIn'], [SR0, top - 0.2, 'skip']], { closed: true, a0, a1, seg: 1, capKind: 'riser' }));
@@ -223,19 +226,52 @@
     function books(k, x, y, z, rot) { put(k, 'main', box(x, y, 0.32, 0.24, rot, z, z + 0.05, { kind: 'paper' })); put(k, 'main', box(x + 0.05, y - 0.03, 0.28, 0.22, rot + 0.3, z + 0.05, z + 0.1, { kind: 'wood' })); }
     function column(k, r, a) {
       const z = Z[k], zc = Z[k + 1] - TH, [x, y] = at(r, a);
-      put(k, 'main', lathe([[0.36, z, 'stone'], [0.36, z + 0.24], [0.3, z + 0.3], [0.2, z + 0.42], [0.18, z + 3.3], [0.24, z + 3.5], [0.34, z + 3.62], [0.4, z + 3.64], [0.4, zc], [0.001, zc]], { cx: x, cy: y, seg: 8, crease: 0.35 }));
+      put(k, 'main', lathe([[0.36, z, 'stone'], [0.36, z + 0.26], [0.2, z + 0.42], [0.18, z + 3.4], [0.34, z + 3.64], [0.4, z + 3.66], [0.4, zc], [0.001, zc]], { cx: x, cy: y, seg: 8, crease: 0.5 }));
     }
 
     /* ======================= BUILD ======================= */
     for (let k = 0; k < 5; k++) { wallStorey(k); slab(k); }
     for (let k = 0; k < 4; k++) flight(k);
 
+
+    /* ---------------- sun shadows thrown by the slab above onto each floor: world-space hatch clipped exactly ---------------- */
+    const inRet = (a, k) => { const [ta, tb] = ret(k); while (a < ta) a += TAU; while (a >= ta + TAU) a -= TAU; return a <= tb; };
+    const inWell = (x, y, k) => { if (!k || k > 4) return false; const r = Math.hypot(x, y); if (r < WB || r > RI) return false; const [a0, a1] = WELL(k); let a = Math.atan2(y, x); while (a < a0 - Math.PI) a += TAU; while (a > a0 + Math.PI) a -= TAU; return a >= a0 && a <= a1; };
+    function floorShadow(k) {
+      const z = Z[k] + 0.01, dz = Z[k + 1] - TH - Z[k], ox = L[0] / L[2] * dz, oy = L[1] / L[2] * dz;
+      const onFloor = (x, y) => { const r = Math.hypot(x, y); return r > RS + 0.05 && r < RI - 0.05 && inRet(Math.atan2(y, x), k) && !inWell(x, y, k); };
+      const shaded = (x, y) => { const qx = x + ox, qy = y + oy, r = Math.hypot(qx, qy); return r < RO + 0.15 && r > (k + 1 === 4 ? 0 : RS) && (inRet(Math.atan2(qy, qx), k + 1) || (k + 1 === 4 && r < 3.4)) && !inWell(qx, qy, k + 1); };
+      cust(k, 'slab', [0, 0, Z[k]], PP => {   // a darker wash under the hatching, built from angular runs in thin rings
+        const [ta, tb] = ret(k), ivals = r => { const out = []; let a0 = null; for (let a = ta; a <= tb + 0.5 * DG; a += 0.6 * DG) { const x = Math.cos(a) * r, y = Math.sin(a) * r, ins = a <= tb && onFloor(x, y) && shaded(x, y); if (ins && a0 === null) a0 = a; else if (!ins && a0 !== null) { out.push([a0, a]); a0 = null; } } return out; };
+        let prev = ivals(RS + 0.08);
+        for (let r0 = RS + 0.08; r0 < RI - 0.1; r0 += 0.4) {
+          const r1 = Math.min(RI - 0.08, r0 + 0.4), cur = ivals(r1), same = cur.length === prev.length && cur.length > 0, mid = same ? null : ivals((r0 + r1) / 2);
+          (same ? cur : mid).forEach((iv, i) => { const A = same ? prev[i] : iv, B = iv, pts = []; for (let u = 0; u <= 6; u++) pts.push(pr(pol(r0, lerp(A[0], A[1], u / 6), z))); for (let u = 6; u >= 0; u--) pts.push(pr(pol(r1, lerp(B[0], B[1], u / 6), z))); if (pts.every(q => q)) PP.wash(pts.map(q => [q[0], q[1]]), '#8a5a34', 0.3, { edge: 0, jit: 0.3, steps: 1 }); });
+          prev = cur;
+        }
+        [[24, 0.2, 0.5], [-58, 0.27, 0.38]].forEach(([beta, gap, al]) => {
+          const b = beta * DG, dx = Math.cos(b), dy = Math.sin(b), nx = -dy, ny = dx;
+          for (let s = -RI; s <= RI; s += gap) {
+            let run = null;
+            for (let tt = -RI; tt <= RI + 0.1; tt += 0.1) {
+              const x = nx * s + dx * tt, y = ny * s + dy * tt, ins = onFloor(x, y) && shaded(x, y);
+              if (ins && !run) run = [x, y]; else if (!ins && run) { const a = pr([run[0], run[1], z]), c = pr([x - dx * 0.1, y - dy * 0.1, z]); if (a && c && Math.hypot(c[0] - a[0], c[1] - a[1]) > 2) PP.line(a[0], a[1], c[0], c[1], { w: 0.5, c: INK, a: al * P.r(0.75, 1), passes: 1, over: 0.3, rough: 0.35 }); run = null; }
+            }
+          }
+        });
+      }, 1e4);
+    }
+    for (let k = 0; k < 4; k++) floorShadow(k);
+
     /* earth drum with the paved terrace (cut with the basement) */
     { const [ta, tb] = ret(0), zb = -4.8;
       put(0, 'main', lathe([[RO + 2.4, zb, 'earthOut'], [RO + 2.4, -0.3, 'earthOut'], [RO + 2.4, 0, 'terrace'], [RO + 1.2, 0, 'terrace'], [RO, 0, 'skip'], [RO, zb, 'skip']], { closed: true, a0: ta, a1: tb, step: 5, capKind: 'earth' }));
       // paving joints on the terrace
-      cust(0, 'main', pol(RO + 1.2, (ta + tb) / 2, 0.02), PP => { [RO + 1.2].forEach(r => { const pts = []; for (let a = ta; a <= tb + 1e-6; a += 2 * DG) pts.push(pol(r, a, 0.01)); pl3(PP, pts, { w: 0.5, a: 0.55 }); }); for (let a = ta + 4 * DG; a < tb; a += 8 * DG) seg3(PP, pol(RO + 0.2, a, 0.01), pol(RO + 2.3, a, 0.01), { w: 0.45, a: 0.5 }); }, -40);
+      cust(0, 'main', pol(RO + 1.2, (ta + tb) / 2, 0.02), PP => { [RO + 1.2].forEach(r => { const pts = []; for (let a = ta; a <= tb + 1e-6; a += 2 * DG) pts.push(pol(r, a, 0.01)); pl3(PP, pts, { w: 0.6, a: 0.7 }); }); for (let a = ta + 2 * DG; a < tb; a += 4 * DG) { seg3(PP, pol(RO + 0.2, a, 0.01), pol(RO + 1.2, a, 0.01), { w: 0.45, a: 0.55 }); seg3(PP, pol(RO + 1.2, a + 2 * DG, 0.01), pol(RO + 2.3, a + 2 * DG, 0.01), { w: 0.45, a: 0.55 }); } }, -40);
     }
+    { const [ta, tb] = ret(0); [[ta, 1], [tb, -1]].forEach(([a, sg]) => cust(0, 'main', pol(RO + 1.2, a, -2.4), PP => { for (let i = 0; i < 26; i++) { const r = P.r(RO + 0.25, RO + 2.25), zz = P.r(-4.6, -0.4), q = pr(pol(r, a, zz)); if (q) PP.ellipse(q[0], q[1], P.r(1.2, 3.2), P.r(0.9, 2), { w: 0.6, a: 0.75, passes: 1, rough: 0.3, rot: P.r(0, 3) }); } }, 0.6)); }
+    // lamp standards on the terrace
+    [158, 184, -44].forEach(a => { const x = Math.cos(a * DG) * (RO + 1.9), y = Math.sin(a * DG) * (RO + 1.9); put(1, 'main', lathe([[0.16, 0, 'iron'], [0.16, 0.3], [0.06, 0.4], [0.05, 3.1], [0.001, 3.1]], { cx: x, cy: y, seg: 7 })); put(1, 'main', lathe([[0.001, 3.05, 'brass'], [0.2, 3.2], [0.24, 3.55], [0.12, 3.7], [0.001, 3.8]], { cx: x, cy: y, seg: 8 })); });
     /* basement: radial archive stacks, a boiler, crates */
     { const k = 0, z = Z[0];
       [-30, -10, 10, 30, 50].forEach(a => bookcase(k, a, 4.4, 8.4, 2.6));
@@ -243,7 +279,8 @@
       { const [bx, by] = at(4.9, 150); put(k, 'main', tube([bx, by, z + 2.9], [bx - 1.6, by + 2.6, z + 3.4], 0.12, 0.12, 8, { kind: 'iron' })); put(k, 'main', tube([bx + 0.9, by, z + 0.9], [bx + 2.6, by - 0.4, z + 0.9], 0.1, 0.1, 8, { kind: 'iron' }));
         cust(k, 'main', [bx, by - 0.96, z + 1.0], PP => { const c = pr([bx + Math.cos(-100 * DG) * 0.96, by + Math.sin(-100 * DG) * 0.96, z + 0.8]); if (c) { PP.circle(c[0], c[1], 5, { w: 0.8, passes: 1, c: INK }); PP.dot(c[0], c[1], 1.4, { c: INK }); } }, 0.2); }
       put(k, 'main', box(...at(5.6, 176), 0.9, 0.9, 0.2, z, z + 0.8, { kind: 'wood' })); put(k, 'main', box(...at(6.3, 184), 0.8, 0.7, 0.5, z, z + 0.7, { kind: 'wood' })); put(k, 'main', box(...at(5.6, 177), 0.7, 0.6, 0.4, z + 0.8, z + 1.4, { kind: 'wood' }));
-      figure(k, ...at(6.3, 0), z, { top: false }); figure(k, ...at(5.0, 164), z, { hat: true });
+      figure(k, ...at(6.3, 0), z, { top: false }); figure(k, ...at(6.2, 199), z, { hat: false });
+      [[7.4, 196], [8.1, 192], [7.9, 201.5], [8.6, 198]].forEach(([r, a], i) => { const [x, y] = at(r, a); put(k, 'main', lathe([[0.36, z, 'wood'], [0.42, z + 0.45], [0.36, z + 0.9, 'wood'], [0.001, z + 0.9]], { cx: x, cy: y, seg: 10 })); cust(k, 'main', [x, y, z + 0.5], PP => [0.2, 0.7].forEach(h => { const pts = []; for (let j = 0; j <= 12; j++) { const aa = j * TAU / 12; pts.push([x + Math.cos(aa) * (0.4 + 0.02 * (h === 0.2 ? 0 : 0)), y + Math.sin(aa) * 0.4, z + h]); } pl3(PP, pts.filter(q => V.dot([q[0] - x, q[1] - y, 0], V.sub(EYE, q)) > 0), { w: 0.6, a: 0.7 }); }), 0.3); }); figure(k, ...at(5.0, 164), z, { hat: true });
     }
     /* ground storey: entrance hall with a ring of columns, curved desk, mosaic */
     { const k = 1, z = Z[1];
@@ -282,26 +319,34 @@
     }
     /* third floor: instrument room — armillary sphere, chart tables, a regulator clock, telescope at a window */
     { const k = 4, z = Z[4];
-      { const [x, y] = at(5.3, 62), zc = z + 1.9, R = 0.95; put(k, 'main', lathe([[0.55, z, 'stone'], [0.55, z + 0.18], [0.16, z + 0.3], [0.12, z + 0.8], [0.3, z + 0.9], [0.001, z + 0.92]], { cx: x, cy: y, seg: 12 }));
+      { const [x, y] = at(5.5, 42), zc = z + 1.9, R = 0.95; put(k, 'main', lathe([[0.55, z, 'stone'], [0.55, z + 0.18], [0.16, z + 0.3], [0.12, z + 0.8], [0.3, z + 0.9], [0.001, z + 0.92]], { cx: x, cy: y, seg: 12 }));
         put(k, 'main', lathe([[0.001, zc - 0.18, 'brass'], [0.18, zc], [0.001, zc + 0.18]], { cx: x, cy: y, seg: 8 }));
         cust(k, 'main', [x, y, zc], PP => {
           const ring = (tilt, az, r, w) => { const pts = []; for (let i = 0; i <= 40; i++) { const th = i * TAU / 40; const lx = Math.cos(th) * r, ly = Math.sin(th) * r * Math.cos(tilt), lz = Math.sin(th) * r * Math.sin(tilt); pts.push([x + lx * Math.cos(az) - ly * Math.sin(az), y + lx * Math.sin(az) + ly * Math.cos(az), zc + lz]); } pl3(PP, pts, { w, c: INK }); };
           ring(Math.PI / 2, 0.3, R, 1.5); ring(Math.PI / 2, 1.87, R, 1.1); ring(0, 0, R, 1.3); ring(0.41, 0.3, R * 0.97, 1.0); ring(0.85, 0.9, R * 0.9, 0.7); ring(0, 0, R * 0.55, 0.6);
           seg3(PP, [x - 0.4, y - 0.3, zc - 1.1], [x + 0.4, y + 0.3, zc + 1.1], { w: 1.3 }); seg3(PP, [x, y, z + 0.92], [x, y, zc - R], { w: 1.2 }); }, 0.5); }
       { const tt = table(k, 5.9, 24, 2.0, 1.1); put(k, 'main', D.poly3([[tt.x - 0.9, tt.y - 0.45, tt.z + 0.02], [tt.x + 0.9, tt.y - 0.45, tt.z + 0.02], [tt.x + 0.9, tt.y + 0.3, tt.z + 0.3], [tt.x - 0.9, tt.y + 0.3, tt.z + 0.3]].map(p => { const dx = p[0] - tt.x, dy = p[1] - tt.y, c = Math.cos(tt.rot), s = Math.sin(tt.rot); return [tt.x + dx * c - dy * s, tt.y + dx * s + dy * c, p[2]]; }), [tt.x, tt.y, tt.z - 3], { kind: 'paper' })); }
-      { const [x, y] = at(8.7, 40); put(k, 'main', box(x, y, 0.7, 0.45, 130 * DG, z, z + 2.4, { kind: 'wood' })); put(k, 'main', box(x, y, 0.8, 0.5, 130 * DG, z + 2.4, z + 2.6, { kind: 'wood' })); cust(k, 'main', [x - 0.2, y - 0.25, z + 2.0], PP => { const c = pr([x + 0.05, y - 0.24, z + 2.15]); if (c) { PP.circle(c[0], c[1], 4.5, { w: 0.8, passes: 1, c: INK }); PP.line(c[0], c[1], c[0] + 2, c[1] - 3, Object.assign({}, LN, { w: 0.6 })); } const a = pr([x + 0.05, y - 0.24, z + 1.8]), b = pr([x + 0.05, y - 0.24, z + 0.6]); if (a && b) PP.line(a[0], a[1], b[0] + 3, b[1], Object.assign({}, LN, { w: 0.6 })); }, 0.3); }
+      { const [x, y] = at(8.8, 62); put(k, 'main', box(x, y, 0.7, 0.45, 152 * DG, z, z + 2.4, { kind: 'wood' })); put(k, 'main', box(x, y, 0.8, 0.5, 152 * DG, z + 2.4, z + 2.6, { kind: 'wood' })); cust(k, 'main', [x - 0.2, y - 0.25, z + 2.0], PP => { const c = pr([x + 0.05, y - 0.24, z + 2.15]); if (c) { PP.circle(c[0], c[1], 4.5, { w: 0.8, passes: 1, c: INK }); PP.line(c[0], c[1], c[0] + 2, c[1] - 3, Object.assign({}, LN, { w: 0.6 })); } const a = pr([x + 0.05, y - 0.24, z + 1.8]), b = pr([x + 0.05, y - 0.24, z + 0.6]); if (a && b) PP.line(a[0], a[1], b[0] + 3, b[1], Object.assign({}, LN, { w: 0.6 })); }, 0.3); }
       { const [x, y] = at(7.6, 95), zp = z + 1.45, dir = [Math.cos(100 * DG) * 0.8, Math.sin(100 * DG) * 0.8, 0.45];
         put(k, 'main', tube([x - dir[0] * 1.2, y - dir[1] * 1.2, zp - dir[2] * 1.2], [x + dir[0] * 1.5, y + dir[1] * 1.5, zp + dir[2] * 1.5], 0.16, 0.2, 10, { kind: 'brass' }));
         cust(k, 'main', [x, y, z + 0.7], PP => { [0, 2.1, 4.2].forEach(a => seg3(PP, [x, y, zp - 0.1], [x + Math.cos(a) * 0.7, y + Math.sin(a) * 0.7, z], { w: 1.1 })); }, 0.4); }
-      figure(k, ...at(4.4, 40), z, { top: true }); figure(k, ...at(4.3, 112), z, { hat: false }); figure(k, ...at(6.0, 130), z, { lady: true });
+      cust(k, 'slab', [0, 0, z], PP => { const [ta, tb] = ret(k); [3.9, 4.15].forEach(r => { const pts = []; for (let a = ta; a <= tb + 1e-6; a += 2 * DG) pts.push(pol(r, a, z + 0.01)); pl3(PP, pts, { w: 0.8, a: 0.7 }); }); for (let a = ta + 1 * DG; a < tb; a += 5 * DG) seg3(PP, pol(3.9, a, z + 0.01), pol(Math.round((a / DG) / 5) % 6 === 0 ? 4.6 : 4.15, a, z + 0.01), { w: 0.6, a: 0.7 }); seg3(PP, pol(3.5, 90 * DG, z + 0.01), pol(RI - 0.2, 90 * DG, z + 0.01), { w: 1.6, c: '#9a6a2c', a: 0.9 }); seg3(PP, pol(3.5, 90 * DG + 0.004, z + 0.01), pol(RI - 0.2, 90 * DG + 0.003, z + 0.01), { w: 0.6, a: 0.8 }); }, 1e4 + 1);
+      figure(k, ...at(4.3, 30), z, { top: true }); figure(k, ...at(4.3, 112), z, { hat: false }); figure(k, ...at(6.0, 130), z, { lady: true });
     }
-    /* lift core, one length per storey, with lattice gates */
+    /* lift core: a glazed see-through shaft (mullions front and back), lattice gates, the car at the reading-room level */
+    const hull = pts => { pts = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = []; for (const p of pts) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); } for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); } return lo.slice(0, -1).concat(up.slice(0, -1)); };
+    put(0, 'slab', lathe([[RL, Z[0], 'pit'], [0.001, Z[0]]], { seg: 16 }));
+    const CAR = Z[2] + 0.05;
     for (let k = 0; k < 4; k++) {
-      const z0 = Z[k], z1 = Z[k + 1];
-      put(k, 'main', lathe([[RL, z0, 'lift'], [RL, z0 + 2.4, 'lift', true], [RL, z1]], { seg: 18 }));
-      put(k, 'main', lathe([[RL + 0.03, z0, 'liftDoor'], [RL + 0.03, z0 + 2.2]], { a0: -40 * DG, a1: -16 * DG, seg: 3, capA: false, capB: false }));
+      const z0 = Z[k], z1 = Z[k + 1], zm = z0 + 2.4, NS = 12;
+      for (let i = 0; i < NS; i++) { const a = i * TAU / NS, b = a + TAU / NS, m = (a + b) / 2; [[z0, zm], [zm, z1]].forEach(([zb, zt], j) => put(k, 'main', { v: [pol(RL, a, zb), pol(RL, b, zb), pol(RL, b, zt), pol(RL, a, zt)], n: [Math.cos(m), Math.sin(m), 0], hard: [j === 0, true, true, false], ghost: true, kind: 'glassL' })); }
+      cust(k, 'main', [0, 0, (z0 + z1) / 2], PP => { const q = []; for (let i = 0; i < 36; i++) { const a = i * TAU / 36; [z0, z1].forEach(z => { const r = pr(pol(RL, a, z)); if (r) q.push([r[0], r[1]]); }); } PP.wash(hull(q), '#c9a27a', 0.16, { edge: 0, jit: 0.2, steps: 1 }); }, 1.6);
+      if (k === 2) {   // lift car
+        put(k, 'main', box(0, 0, 1.5, 1.5, -14 * DG, CAR, CAR + 2.3, { kind: 'wood' })); put(k, 'main', box(0, 0, 1.62, 1.62, -14 * DG, CAR + 2.3, CAR + 2.42, { kind: 'wood' }));
+      }
+      if (k >= 2) cust(k, 'main', [0, 0, z1 - 0.2], PP => { [-0.18, 0.18].forEach(d => seg3(PP, [d, 0, k === 2 ? CAR + 2.42 : z0], [d, 0, z1], { w: 0.6, a: 0.8 })); }, 0.2);
+      put(k, 'main', lathe([[RL + 0.03, z0, 'liftDoor'], [RL + 0.03, z0 + 2.2]], { a0: -40 * DG, a1: -16 * DG, seg: 3, capA: false, capB: false, f: { ghost: true } }));
       cust(k, 'main', pol(RL + 0.06, -28 * DG, z0 + 1.2), PP => { for (let i = 0; i <= 6; i++) { const a = lerp(-40, -16, i / 6) * DG; seg3(PP, pol(RL + 0.05, a, z0), pol(RL + 0.05, a, z0 + 2.2), { w: 0.5, a: 0.7 }); } for (let i = 0; i < 6; i++) { const a0 = lerp(-40, -16, i / 6) * DG, a1 = lerp(-40, -16, (i + 1) / 6) * DG; seg3(PP, pol(RL + 0.05, a0, z0 + 0.1), pol(RL + 0.05, a1, z0 + 2.1), { w: 0.4, a: 0.55 }); seg3(PP, pol(RL + 0.05, a1, z0 + 0.1), pol(RL + 0.05, a0, z0 + 2.1), { w: 0.4, a: 0.55 }); } }, 0.5);
-      if (k === 4) put(k, 'main', lathe([[RL, z1, 'liftTop'], [0.001, z1]], { seg: 18 }));
     }
 
     /* ======================= TOP FLOOR (open to the sky): the glazed observatory lantern ======================= */
@@ -328,26 +373,37 @@
       figure(k, ...at(6.9, 76), z, { lady: true }); figure(k, ...at(7.4, 82), z, {});
     }
 
+    /* ======================= CULL what the slabs above hide completely (saves thousands of strokes) ======================= */
+    const underSlab = (p, k) => {
+      for (let m = k + 1; m <= 4; m++) {
+        const zt = Z[m]; if (p[2] >= zt - 1e-6) continue;
+        const u = (zt - p[2]) / (EYE[2] - p[2]), x = p[0] + (EYE[0] - p[0]) * u, y = p[1] + (EYE[1] - p[1]) * u, r = Math.hypot(x, y);
+        if (m === 4 && r < 3.35) return true;
+        if (r > RS + 0.05 && r < RO + 0.1 && inRet(Math.atan2(y, x), m) && !inWell(x, y, m)) return true;
+      }
+      return false;
+    };
+    GR.forEach((g, k) => ['slab', 'inw', 'main'].forEach(ps => { g[ps] = g[ps].filter(f => f.custom ? !(f.cull !== false && underSlab(f.c, k) && k < 4 && f.bias < 100) : !f.v.every(v => underSlab(v, k)) || !f.v.length); }));
+
     /* ======================= STYLE ======================= */
-    const floorTone = (rr, k) => T(0.06 + 0.42 * Math.pow(clamp((rr - 1.6) / 7.8), 1.5) + (k === 0 ? 0.12 : 0));
     const set = (f, key, v) => { if (f[key] === undefined) f[key] = v; };
     const STY = {
-      out: f => { set(f, 'c', WL); set(f, 'ca', 0.45); },
+      out: f => { set(f, 'c', WM); set(f, 'ca', 0.5); },
       ledge: f => { set(f, 'tone', 0.08); set(f, 'c', WL); set(f, 'ca', 0.4); },
       ptop: f => { set(f, 'tone', 0.1); set(f, 'c', WL); set(f, 'ca', 0.4); },
       pin: f => { set(f, 'tone', T(0.4 + 0.3 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.45); },
-      top: (f, k) => { set(f, 'tone', floorTone(f.rr || 5, k)); set(f, 'c', WL); set(f, 'ca', 0.36); },
-      inU: f => { set(f, 'tone', T(0.66 + 0.22 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.55); },
-      inL: f => { set(f, 'tone', T(0.5 + 0.22 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.5); },
-      cut: f => { set(f, 'tone', 0.22); set(f, 'c', CUT); set(f, 'ca', 0.62); },
+      top: (f, k) => { set(f, 'tone', 0.05 + 0.06 * (f.rr || 5) / RI); set(f, 'c', WL); set(f, 'ca', 0.5); },
+      inU: f => { set(f, 'tone', T(0.68 + 0.22 * darkOf(f.n))); set(f, 'c', WD); set(f, 'ca', 0.55); },
+      inL: f => { set(f, 'tone', T(0.52 + 0.22 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.6); },
+      cut: f => { set(f, 'tone', 0.22); set(f, 'c', CUT); set(f, 'ca', 0.72); },
       wtop: f => { set(f, 'tone', 0.22); set(f, 'c', CUT); set(f, 'ca', 0.62); },
       well: f => { set(f, 'tone', 0.3); set(f, 'c', CUT); set(f, 'ca', 0.6); },
       sill: f => { set(f, 'tone', 0.12); set(f, 'c', WL); set(f, 'ca', 0.4); },
       jamb: f => { set(f, 'tone', T(0.45 + 0.4 * darkOf(f.n))); set(f, 'c', WD); set(f, 'ca', 0.45); },
       glass: f => { set(f, 'tone', 0.84); set(f, 'c', WX); set(f, 'ca', 0.45); },
       door: f => { set(f, 'tone', 0.9); set(f, 'c', WX); set(f, 'ca', 0.55); },
-      slabIn: f => { set(f, 'tone', 0.72); set(f, 'c', WD); },
-      lift: f => { set(f, 'tone', T(0.42 + 0.5 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.5); },
+      slabIn: f => { set(f, 'tone', 0.3); set(f, 'c', CUT); set(f, 'ca', 0.55); },
+      lift: f => { set(f, 'tone', T(0.2 + 0.6 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.3 + 0.4 * darkOf(f.n)); },
       liftDoor: f => { set(f, 'tone', 0.88); set(f, 'c', WX); set(f, 'ca', 0.5); f.bias = 0.2; },
       liftTop: f => { set(f, 'tone', 0.3); set(f, 'c', CUT); },
       earthOut: f => { set(f, 'tone', T(0.2 + 0.45 * darkOf(f.n))); set(f, 'c', EARTH); set(f, 'ca', 0.4); },
@@ -357,10 +413,10 @@
       treadIn: f => { set(f, 'tone', 0.45); set(f, 'c', CUT); set(f, 'ca', 0.5); },
       riser: f => { set(f, 'tone', 0.62); set(f, 'c', WD); set(f, 'ca', 0.5); },
       string: f => { set(f, 'tone', T(0.4 + 0.35 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.5); },
-      fig: f => { set(f, 'tone', T(0.42 + 0.55 * darkOf(f.n))); set(f, 'c', WX); set(f, 'ca', 0.5); },
-      leg: f => { set(f, 'tone', 0.85); set(f, 'c', WX); },
-      head: f => { set(f, 'tone', T(0.05 + 0.4 * darkOf(f.n))); set(f, 'c', '#e9c49a'); set(f, 'ca', 0.55); },
-      hat: f => { set(f, 'tone', T(0.6 + 0.35 * darkOf(f.n))); set(f, 'c', WX); },
+      fig: f => { set(f, 'noHatch', true); set(f, 'c', WX); set(f, 'ca', 0.55 + 0.35 * darkOf(f.n)); },
+      leg: f => { set(f, 'noHatch', true); set(f, 'c', '#4a2a16'); set(f, 'ca', 0.85); },
+      head: f => { set(f, 'noHatch', true); set(f, 'c', '#dcae7e'); set(f, 'ca', 0.35 + 0.4 * darkOf(f.n)); },
+      hat: f => { set(f, 'noHatch', true); set(f, 'c', '#4a2a16'); set(f, 'ca', 0.6 + 0.3 * darkOf(f.n)); },
       wood: f => { set(f, 'tone', T(0.28 + 0.66 * darkOf(f.n))); set(f, 'c', WD); set(f, 'ca', 0.5); },
       stone: f => { set(f, 'tone', T(0.05 + 0.8 * darkOf(f.n))); set(f, 'c', WL); set(f, 'ca', 0.4); },
       stepTop: f => { set(f, 'tone', 0.06); set(f, 'c', WL); set(f, 'ca', 0.35); },
@@ -372,29 +428,31 @@
       frame: f => { set(f, 'tone', 0.35); set(f, 'c', '#c7913e'); set(f, 'ca', 0.5); },
       canvas: f => { set(f, 'tone', 0.8); set(f, 'c', WX); set(f, 'ca', 0.5); },
       dome: f => { set(f, 'tone', T(0.12 + 0.75 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.5); },
-      glassL: () => {}, glass3: () => {},
+      glassL: () => {}, glass3: () => {}, pit: f => { set(f, 'tone', 0.75); set(f, 'c', WX); set(f, 'ca', 0.5); },
       obj: f => { set(f, 'tone', T(0.12 + 0.8 * darkOf(f.n))); set(f, 'c', WM); set(f, 'ca', 0.42); },
     };
-    if (window.__rotdbg) { const kc = {}; GR.forEach(g => ['slab', 'inw', 'main'].forEach(ps => g[ps].forEach(f => { const kk = f.custom ? 'custom' : f.kind || 'none'; kc[kk] = (kc[kk] || 0) + 1; }))); console.log(JSON.stringify(kc)); }
     GR.forEach((g, k) => ['slab', 'inw', 'main'].forEach(ps => g[ps].forEach(f => { if (f.custom) return; (STY[f.kind] || STY.obj)(f, k); })));
 
     /* ======================= DRAW ======================= */
-    // ground plane, sketched loosely on the paper before the model
-    { const gl = (r, a0, a1, o) => { const pts = []; for (let a = a0; a <= a1; a += 1.5 * DG) pts.push(pol(r, a, 0)); pl3(P, pts, Object.assign({ w: 0.7, a: 0.5, rough: 0.8 }, o)); };
-            const g0 = pr(pol(RO + 2.4, 186 * DG, 0)), g1 = pr(pol(RO + 2.4, -18 * DG, 0));
-      if (g0) { P.curve([[g0[0], g0[1]], [g0[0] - 140, g0[1] + 16], [g0[0] - 300, g0[1] + 8], [g0[0] - 520, g0[1] + 26]], { w: 0.8, a: 0.55, rough: 1 }); P.curve([[g0[0] - 60, g0[1] + 60], [g0[0] - 220, g0[1] + 90], [g0[0] - 420, g0[1] + 96]], { w: 0.6, a: 0.35, rough: 1.2 }); }
-      if (g1) { P.curve([[g1[0], g1[1]], [g1[0] + 130, g1[1] - 10], [g1[0] + 300, g1[1] + 6], [g1[0] + 520, g1[1] - 14]], { w: 0.8, a: 0.55, rough: 1 }); P.curve([[g1[0] + 90, g1[1] + 50], [g1[0] + 260, g1[1] + 66], [g1[0] + 460, g1[1] + 58]], { w: 0.6, a: 0.35, rough: 1.2 }); }
+    // ground plane, sketched loosely on the paper before the model: a pale wash apron, terrain lines running off the plinth, tufts
+    { const ap = []; for (let i = 0; i <= 48; i++) { const q = pr(pol(RO + 6.5 + 1.2 * Math.sin(i * 1.7), i * TAU / 48, 0)); if (q) ap.push([q[0], q[1]]); } P.wash(ap, '#c69a62', 0.14, { edge: 1, jit: 3 }); const g0 = pr(pol(RO + 2.4, 196 * DG, 0)), g1 = pr(pol(RO + 2.4, -22 * DG, 0));
+      if (g0) { P.curve([[g0[0] + 4, g0[1]], [g0[0] - 90, g0[1] + 10], [g0[0] - 190, g0[1] + 4], [g0[0] - 300, g0[1] + 18]], { w: 0.8, a: 0.5, rough: 1 }); P.curve([[g0[0] - 40, g0[1] + 46], [g0[0] - 150, g0[1] + 62], [g0[0] - 250, g0[1] + 60]], { w: 0.6, a: 0.3, rough: 1.2 }); }
+      if (g1) { P.curve([[g1[0] - 4, g1[1]], [g1[0] + 90, g1[1] - 8], [g1[0] + 200, g1[1] + 4], [g1[0] + 310, g1[1] - 10]], { w: 0.8, a: 0.5, rough: 1 }); P.curve([[g1[0] + 60, g1[1] + 40], [g1[0] + 170, g1[1] + 52], [g1[0] + 280, g1[1] + 46]], { w: 0.6, a: 0.3, rough: 1.2 }); }
+      [g0, g1].forEach((g, side) => { if (!g) return; for (let i = 0; i < 14; i++) { const x = g[0] + (side ? 1 : -1) * P.r(20, 260), y = g[1] + P.r(4, 40); for (let j = 0; j < 3; j++) P.line(x + j * 2.5, y, x + j * 2.5 + P.r(-2, 2), y - P.r(3, 7), { w: 0.5, a: 0.45, passes: 1, over: 0, rough: 0.3 }); } });
     }
-    const RO_ = { ink: INK, paper: PAPER, light: L, ambient: AMB, gap: 5.6, w: 1.15, rough: 0.28, zw: 0, hatchMin: 0.13, rich: true, darken: 1.18 };
-    for (let k = 0; k < 6; k++) { const o0 = P.ops.length; D.render(P, GR[k].slab, cam, RO_); const o1 = P.ops.length; D.render(P, GR[k].inw, cam, RO_); const o2 = P.ops.length; D.render(P, GR[k].main, cam, RO_); if (window.__rotdbg) console.log('grp', k, o1 - o0, o2 - o1, P.ops.length - o2, GR[k].main.length); }
+    const RO_ = { ink: INK, paper: PAPER, light: L, ambient: AMB, gap: 6.0, w: 1.15, rough: 0.28, zw: 0, hatchMin: 0.13, rich: true, darken: 1.18 };
+
+    for (let k = 0; k < 5; k++) { D.render(P, GR[k].slab, cam, RO_); D.render(P, GR[k].inw, cam, RO_); D.render(P, GR[k].main, cam, RO_); }
 
     /* ---------------- sheet furniture: folds, stains, title ---------------- */
     [[540, 0, 540, 1000], [1070, 0, 1070, 1000], [0, 505, 1600, 505]].forEach(([x1, y1, x2, y2]) => { P.line(x1, y1, x2, y2, { w: 0.6, a: 0.13, c: INK, rough: 0.6, passes: 1 }); P.line(x1 + (x1 === x2 ? 2 : 0), y1 + (y1 === y2 ? 2 : 0), x2 + (x1 === x2 ? 2 : 0), y2 + (y1 === y2 ? 2 : 0), { w: 1.4, a: 0.05, c: '#ffffff', rough: 0.6, passes: 1 }); });
     for (let i = 0; i < 7; i++) { const cx = P.r(80, 1520), cy = P.r(80, 920), r = P.r(14, 60), pts = []; for (let j = 0; j < 14; j++) { const a = j * TAU / 14; pts.push([cx + Math.cos(a) * r * P.r(0.7, 1.2), cy + Math.sin(a) * r * P.r(0.6, 1.1)]); } P.wash(pts, '#b98a4c', P.r(0.05, 0.1), { edge: 1 }); }
     P.text('The Rotunda of Instruments', 70, 930, { size: 24, c: INK, font: S.HAND, a: 0.9 });
     P.text('cut-away perspective  -  library, galleries & observatory lantern', 72, 954, { size: 11, c: INK, a: 0.75 });
-    { const x0 = 1300, y0 = 942; P.line(x0, y0, x0 + 200, y0, { w: 1, a: 0.8, c: INK, passes: 1 }); for (let i = 0; i <= 4; i++) P.line(x0 + i * 50, y0 - 4, x0 + i * 50, y0 + 4, { w: 0.8, a: 0.8, c: INK, passes: 1, over: 0 }); P.text('0      5      10     15     20 m', x0 - 4, y0 + 18, { size: 9, c: INK, a: 0.7 }); }
-    // level tags on the right
-    [['lantern', 4, 2.9, 20 * DG, Z[4] + 2.2], ['instrument room', 4], ['gallery', 3], ['reading room', 2], ['entrance hall', 1], ['stacks', 0]].forEach(([s, kk, r, a, z], i) => { const q = pr(r ? pol(r, a, z) : pol(RO - 0.3, ret(kk)[0] + 0.02, Z[kk] + 1.4)); if (q) P.note(s, 1330, 150 + i * 118, q[0] + 4, q[1], { size: 12, c: INK, a: 0.75 }); });
+    { const a = pr([0, 0, 0]), b = pr([0, 0, 5]), u = Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.8, x0 = 1540 - 2 * u, y0 = 942; P.line(x0, y0, x0 + 2 * u, y0, { w: 1, a: 0.8, c: INK, passes: 1 }); P.hatch([[x0, y0 - 3], [x0 + u, y0 - 3], [x0 + u, y0], [x0, y0]], { ang: 0, gap: 1.2, a: 0.7, w: 0.6, c: INK, inset: 0 }); for (let i = 0; i <= 2; i++) { P.line(x0 + i * u, y0 - 4, x0 + i * u, y0 + 4, { w: 0.8, a: 0.8, c: INK, passes: 1, over: 0 }); P.text(String(i * 5), x0 + i * u, y0 + 18, { size: 9, c: INK, a: 0.7, align: 'center' }); } P.text('m', x0 + 2 * u + 10, y0 + 18, { size: 9, c: INK, a: 0.7 }); }
+    // level tags on the left, leaders to the section faces
+    { let yl = 0; [['observatory lantern', 4, pol(2.2, 200 * DG, Z[4] + 3.6)], ['instrument room', 4], ['gallery', 3], ['reading room', 2], ['entrance hall', 1], ['stacks', 0]].forEach(([s, kk, p3]) => {
+        const q = pr(p3 || pol(RI - 1.2, ret(kk)[1] - 0.01, Z[kk] + 1.3)); if (!q) return; const y = Math.max(yl + 30, q[1] + 4); yl = y;
+        P.note(s, 330, y, q[0] - 6, q[1], { size: 12, c: INK, a: 0.75, align: 'right' }); }); }
   }
 });

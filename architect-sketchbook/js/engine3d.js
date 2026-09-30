@@ -118,6 +118,7 @@
       if (f.noEdge) { }
       else if (f.all) { const p2 = poly.concat([poly[0]]); P.path(p2, { rough: o.rough ?? 0.4, w: (o.w ?? 1.25) * fw, c: ink, a: 0.97 * fa, passes: 1 }); }
       else for (let i = 0; i < poly.length; i++) if (f.hard[i]) { const a = poly[i], b = poly[(i + 1) % poly.length]; P.line(a[0], a[1], b[0], b[1], { w: (o.w ?? 1.25) * fw, c: ink, a: 0.97 * fa, rough: o.rough ?? 0.35, over: 0.4, passes: 1 }); }
+      if (f.deco) f.deco(P, cam, poly);
     }
     return items.length;
   }
