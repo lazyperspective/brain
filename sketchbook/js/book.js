@@ -275,11 +275,15 @@
     'Automatic Doodle': 'A doodle that grows itself, shape by shape.',
     'Ink Garden': 'A random abstract mass in the manner of Peter Draws.',
     'Tea Engine': 'A Gothic tower crowned with machinery, all for one cup of tea.',
+    'The Bystander': 'An original ink character reacting to a press conference, face by face, in time with the sound.',
     'Clock Island': 'Floating rocks, a clock-lighthouse and a time engine. It keeps moving once drawn.'
   };
   const PAGES = [{ kind: 'cover' }, { kind: 'contents' }].concat(SCENES.map((s, i) => ({ kind: 'scene', i })));
   const pageOfScene = i => i + 2;
-  let cur = 0, busy = false;
+  let cur = 0, busy = false, muted = false;
+  const audios = {};
+  const audioFor = pg => { if (!pg || pg.kind !== 'scene' || !SCENES[pg.i].audio) return null; const sc = SCENES[pg.i]; if (!audios[pg.i]) { const a = new Audio(sc.audio); a.loop = true; a.preload = 'auto'; audios[pg.i] = a; } return audios[pg.i]; };
+  function stopAudio() { Object.values(audios).forEach(a => { a.pause(); a.currentTime = 0; }); window.__sceneClock = null; }
   const players = [];
   const playerFor = i => players[i] || (players[i] = new Player(SCENES[i]));
 
@@ -326,7 +330,8 @@
     const th = themeFor(SCENES[i]); inkC.style.mixBlendMode = th.blend; inkC.style.filter = th.glow || 'none'; makeGrain(th); paintPaperTo(pctx, paperC, th, k);
   }
   function showPage(idx, fromBlank) {
-    cur = idx; const pg = PAGES[idx]; history.replaceState(null, '', '#' + (idx + 1));
+    stopAudio(); cur = idx; const pg = PAGES[idx]; history.replaceState(null, '', '#' + (idx + 1));
+    const au = audioFor(pg); if (au) window.__sceneClock = () => au.currentTime;
     if (pg.kind === 'scene') {
       sheet.classList.add('scene'); domPage.innerHTML = ''; setScene(pg.i); const p = playerFor(pg.i);
       if (fromBlank) { p.i = 0; p.j = 0; p.credit = 0; p.reset(); p.ensure(); } else { p.finish(); p.replay(); }
@@ -346,6 +351,7 @@
     $('#pause').textContent = paused ? '▶ resume' : '⏸ pause';
     document.querySelectorAll('#speeds button').forEach(b => b.classList.toggle('on', +b.dataset.v === speedMul));
     $('#pageno').textContent = `${cur + 1} / ${PAGES.length}`;
+    const hasAu = sc && !!SCENES[pg.i].audio; $('#sound').style.display = hasAu ? '' : 'none'; $('#sound').textContent = muted ? '\u266a sound off' : '\u266a sound on';
   }
   let warmT = null;
   function prewarm() { clearTimeout(warmT); warmT = setTimeout(() => { for (const d of [1, -1]) { const pg = PAGES[cur + d]; if (pg && pg.kind === 'scene' && !players[pg.i]) { playerFor(pg.i); return prewarm(); } } }, 1600); }
@@ -393,20 +399,21 @@
         if (!paused) { p.ensure(); p.advance(Math.max(140, p.total / DURATION) * speedMul * dt); p.t0 = null; }
         if (p.pen && !p.done) { const s = paperC.clientWidth / W; penEl.style.transform = `translate(${p.pen[0] * s}px, ${p.pen[1] * s}px)`; penEl.classList.add('on'); } else penEl.classList.remove('on');
         $('#progress').style.width = (p.fraction * 100).toFixed(1) + '%';
-      } else { penEl.classList.remove('on'); $('#progress').style.width = '100%'; if (p.anims.length && !paused) p.animate(now); }
+      } else { penEl.classList.remove('on'); $('#progress').style.width = '100%'; const au = audioFor(pg); if (au) { au.muted = muted; if (paused) { if (!au.paused) au.pause(); } else if (au.paused) au.play().catch(() => { }); } if (p.anims.length && !paused) p.animate(now); }
     } else penEl.classList.remove('on');
     requestAnimationFrame(frame);
   }
 
   /* ---------------------------------------------------------------- controls */
   function current() { const pg = PAGES[cur]; return pg.kind === 'scene' ? playerFor(pg.i) : null; }
-  function drawFromBlank() { const p = current(); if (!p) return; paused = false; p.i = 0; p.j = 0; p.credit = 0; p.pen = null; p.reset(); p.ensure(); p.t0 = null; updateChrome(); }
+  function drawFromBlank() { const p = current(); if (!p) return; const au = audioFor(PAGES[cur]); if (au) { au.pause(); au.currentTime = 0; } paused = false; p.i = 0; p.j = 0; p.credit = 0; p.pen = null; p.reset(); p.ensure(); p.t0 = null; updateChrome(); }
   function finish() { const p = current(); if (!p) return; p.finish(); p.replay(); updateChrome(); }
   function boot() {
     $('#prev').onclick = () => turnTo(cur - 1); $('#next').onclick = () => turnTo(cur + 1);
     $('#toc').onclick = () => turnTo(1);
     $('#draw').onclick = drawFromBlank; $('#finish').onclick = finish;
     $('#pause').onclick = () => { paused = !paused; updateChrome(); };
+    $('#sound').onclick = () => { muted = !muted; updateChrome(); };
     document.querySelectorAll('#speeds button').forEach(b => { b.onclick = () => { speedMul = +b.dataset.v; updateChrome(); }; });
     domPage.addEventListener('click', e => { const li = e.target.closest('li[data-p]'); if (li) return turnTo(+li.dataset.p, { fromBlank: $('#autoplay').checked }); if (PAGES[cur].kind === 'cover') turnTo(1); });
     addEventListener('keydown', e => {
