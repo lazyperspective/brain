@@ -6,7 +6,7 @@
     const S = Sketch, D = S.D3, V = S.V3, TAU = S.TAU, lerp = S.lerp;
     const INK = '#141414', RED = '#c3272b', PAPER = '#ffffff';
     const tg = [30, -80, 44], yaw = -0.98, pit = 0.46, dist = 1500;
-    const CAM = D.camera({ eye: [tg[0] + dist * Math.sin(yaw) * Math.cos(pit), tg[1] - dist * Math.cos(yaw) * Math.cos(pit), tg[2] + dist * Math.sin(pit)], target: tg, f: 3500, cx: 600, cy: 505 });
+    const CAM = D.camera({ eye: [tg[0] + dist * Math.sin(yaw) * Math.cos(pit), tg[1] - dist * Math.cos(yaw) * Math.cos(pit), tg[2] + dist * Math.sin(pit)], target: tg, f: 3800, cx: 600, cy: 500 });
     const faces = [], add = f => { (Array.isArray(f) ? f : [f]).forEach(x => faces.push(x)); return f; };
     const custom = (c, fn, bias = 0) => faces.push({ custom: fn, c, bias: bias < 0 ? -bias * 12 + 18 : bias });
     const anchors = [];                                     // [label, world point] for callouts
@@ -56,7 +56,7 @@
 
 
     /* ================= Z-stack above the body ================= */
-    const ZM = 84, ZD = 128, ZT = ZD + 12;                // rangefinder module, top deck base, deck top
+    const ZM = 80, ZD = 120, ZT = ZD + 12;                // rangefinder module, top deck base, deck top
     /* ---- rangefinder / gear module floating between body and deck ---- */
     { add(box(-62, -12, ZM, -22, 10, ZM + 16));                                            // optical block
       add(box(-60, -13, ZM + 16, -26, 9, ZM + 18));
@@ -86,7 +86,7 @@
     }
     /* ---- dials, knobs, buttons floating above the deck, each with its spring and screw ---- */
     const knurledKnob = (x, y, z, r, h, o = {}) => { add(D.revolve(x, y, [[r, z], [r, z + h], [r - 1.2, z + h + 1.2], [0.01, z + h + 1.2]], { seg: 32 })); custom([x, y, z + h / 2], (PP, cm) => D.knurl(PP, cm, x, y, r + 0.05, z + 0.6, z + h - 0.6, o.n || 64, { c: INK, w: 0.55 }), -0.5); };
-    { const ZS = ZT + 46;
+    { const ZS = ZT + 36;
       // shutter speed dial: skirt, knurled cap, engraved speeds, index
       add(D.revolve(36, 0, [[8.2, ZS - 3], [8.2, ZS], [0.01, ZS]], { seg: 28 })); knurledKnob(36, 0, ZS, 9.4, 6, { n: 72 });
       custom([36, 0, ZS + 7.3], (PP, cm) => { ['1', '2', '5', '10', '25', '50', '100', '250', '500', 'B'].forEach((txt, i) => { const a = -1.4 + i * 0.36, q = cm.project([36 + Math.cos(a) * 6.4, Math.sin(a) * 6.4, ZS + 7.25]); if (q) PP.text(txt, q[0], q[1] + 2, { size: 4.2, c: INK, align: 'center', a: 0.95 }); }); const a = cm.project([36, 0, ZS + 7.25]), b = cm.project([36, -9.4, ZS + 7.25]); if (a && b) PP.line(a[0], a[1], b[0], b[1], { w: 0.5, c: INK, passes: 1, over: 0 }); }, -3);
@@ -105,13 +105,38 @@
       // four deck screws, lifted out
       [[-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => screw(x, y, ZT + 22, 1.9, 6));
       tag('SHUTTER SPEED DIAL 1 - 1/500', [36, -9.4, ZS + 4]); tag('FILM ADVANCE KNOB', [56 + 10.6, 0, ZS + 24]); tag('FRAME COUNTER', [56, -6, ZS + 30]); tag('SHUTTER RELEASE', [22, -8, ZT + 76]); tag('REWIND KNOB + CRANK', [-58, 10, ZT + 82]); tag('DIAL SPRING', [36 + 3.4, 0, ZT + 26]); tag('DECK SCREW M1.6', [-HW - 6, -5, ZT + 24]);
-      [[36, 0], [56, 0], [22, -6], [-42, 0], [-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => guide([x, y, 0 + 60], [x, y, ZT + 90]));
+      [[36, 0], [56, 0], [22, -6], [-42, 0], [-HW - 6, -5], [-HW - 6, 5], [HW + 6, -5], [HW + 6, 5]].forEach(([x, y]) => guide([x, y, 0 + 60], [x, y, ZT + 76]));
     }
 
     // engraving on the deck: maker, model, serial, and the index dots
     custom([10, 0, ZT], (PP, cm) => { const line = (txt, x0, x1, y, sz) => { const a = cm.project([x0, y, ZT + 0.05]), b = cm.project([x1, y, ZT + 0.05]); if (a && b) PP.text(txt, a[0], a[1], { size: sz, c: INK, rot: Math.atan2(b[1] - a[1], b[0] - a[0]), a: 0.9 }); }; line('AURELIA  II', -10, 26, -8, 6.4); line('No. 371204  GERMANY', -10, 26, 4, 3.6); [[30, -12], [44, -12]].forEach(([x, y]) => { const q = cm.project([x, y, ZT + 0.05]); if (q) PP.dot(q[0], q[1], 1.1, { c: INK }); }); }, 6);
     // bayonet lugs on the mount, three of them
     [0.3, 2.4, 4.5].forEach(a => add(toFront(D.extrude([[Math.cos(a - 0.3) * 16.5, Math.sin(a - 0.3) * 16.5], [Math.cos(a - 0.3) * 20.5, Math.sin(a - 0.3) * 20.5], [Math.cos(a + 0.3) * 20.5, Math.sin(a + 0.3) * 20.5], [Math.cos(a + 0.3) * 16.5, Math.sin(a + 0.3) * 16.5]], 6.4, 8.8, { crease: 0.3 }), 0, -RR - 22, 30)));
+
+
+    /* ================= mechanism density: levers, cams, pins, small springs in the module and the chamber ================= */
+    { const lever = (a, b, w, z, pivot = true) => { add(D.bodyOfBar(a, b, w, w * 0.8, z, z + 1.6, { crease: 0.3 })); if (pivot) { add(D.cylinder(a[0], a[1], w * 1.4, z - 1, z + 3, 10)); add(D.cylinder(b[0], b[1], w * 0.9, z + 1.6, z + 3.4, 8)); } };
+      // module plate: shutter-speed cam, escapement for slow speeds, cocking lever, pawls
+      const Z = ZM + 3;
+      add(D.extrude(Array.from({ length: 24 }, (_, i) => { const a = i * TAU / 24, r = 7 + 3.2 * Math.max(0, Math.sin(a * 1)); return [22 + Math.cos(a) * r, -8 + Math.sin(a) * r]; }), Z, Z + 3, { crease: 0.6 })); add(D.cylinder(22, -8, 1.6, Z + 3, Z + 9, 8));
+      lever([30, -10], [58, 6], 1.5, Z + 5); lever([12, 10], [34, 12], 1.2, Z + 8); lever([60, -10], [48, -2], 1.1, Z + 6);
+      add(D.gearMesh(28, 10, 4.6, 12, Z + 9, Z + 11, 0.2, { root: 0.78 })); add(D.gearMesh(52, 10, 3.6, 10, Z + 9, Z + 11, 0.1, { root: 0.78 }));
+      spring(34, 12, Z + 9, Z + 18, 1.3, 6); spring(48, -2, Z + 7, Z + 16, 1.2, 5); screw(14, -10, Z + 12, 1.5, 4); screw(62, 12, Z + 12, 1.5, 4);
+      // slow-speed escapement: star wheel and anchor
+      add(D.extrude(Array.from({ length: 20 }, (_, i) => { const a = i * TAU / 20, r = i % 2 ? 3.2 : 5.4; return [44 + Math.cos(a) * r, -9 + Math.sin(a) * r]; }), Z + 5, Z + 6.6, { crease: 0.2 }));
+      add(D.bodyOfBar([40, -13], [48, -14], 0.9, 0.9, Z + 7, Z + 8.4, { crease: 0.3 }));
+      // rangefinder side: mirror on a pivoted arm, roller, adjusting screw, lenses
+      lever([-40, 4], [-24, 12], 1.4, ZM + 17); add(D.cylinder(-24, 12, 2.6, ZM + 12, ZM + 22, 14));
+      add(D.poly3([[-46, -6, ZM + 20], [-40, -10, ZM + 20], [-40, -10, ZM + 29], [-46, -6, ZM + 29]], [-40, 10, ZM + 25], { tone: 0.72 }));
+      screw(-28, -6, ZM + 26, 1.5, 5); spring(-20, 4, ZM + 17, ZM + 27, 1.3, 6);
+      [[-56, -2], [-36, -2]].forEach(([x, y]) => { add(D.poly3(Array.from({ length: 14 }, (_, i) => [x + Math.cos(i * TAU / 14) * 3.6, y, ZM + 22 + Math.sin(i * TAU / 14) * 3.6]), [x, y + 10, ZM + 22], { tone: 0.05, noHatch: true })); });
+      tag('SPEED CAM + ESCAPEMENT', [44, -9, Z + 6]); tag('RANGEFINDER MIRROR', [-43, -8, ZM + 29]);
+      // chamber: sprocket shaft, film rails and pressure guides, curtain drum ends visible inside
+      add(D.gearMesh(26, -8, 5.2, 8, 44, 48, 0.1, { root: 0.66 })); add(D.gearMesh(26, -8, 5.2, 8, 20, 24, 0.1, { root: 0.66 })); add(D.cylinder(26, -8, 1.6, 20, 50, 8));
+      [[-26, 12], [26, 12]].forEach(([x, y]) => add(D.cylinder(x, y, 3.6, 8, 48, 14)));
+      [-3.6, 3.6].forEach(y => add(box(-30, y - 0.5, 50, 30, y + 0.5, 51)));
+      tag('FILM SPROCKET', [26, -13, 48]);
+    }
 
     /* ================= Z-stack below the body ================= */
     const ZB = -76;
@@ -142,7 +167,6 @@
       // shutter crate: a frame plate floating below, with its gate and fixing screws
       add(box(SX - 16, SY - LEN - 4, SZ - 30, SX + 16, SY + 4, SZ - 27)); add(box(SX - 10, SY - LEN + 6, SZ - 27, SX + 10, SY - 6, SZ - 26.4));
       [[-12, 0], [12, 0], [-12, -LEN], [12, -LEN]].forEach(([u, v]) => screw(SX + u, SY + v, SZ - 12, 1.7, 5));
-      add(D.gearMesh(SX + 20, SY + 6, 6, 14, SZ + 132, SZ + 135, 0.2, { root: 0.8 }));
       [SZ + 116, SZ + 70, SZ + 24].forEach(z => custom([SX, SY - LEN / 2, z], (PP, cm) => D.dashed3(PP, [SX, SY + 16, z], [SX, SY - LEN - 16, z], cm, [7, 4], { w: 0.55, c: INK, a: 0.75 }), 1e6));
       custom([SX, SY, 100], (PP, cm) => { D.dashed3(PP, [SX, SY - LEN / 2, SZ - 30], [SX, SY - LEN / 2, SZ + 140], cm, [7, 4], { w: 0.55, c: INK, a: 0.75 }); D.dashed3(PP, [SX - 20, SY - LEN / 2, SZ + 70], [22, -2, 30], cm, [2, 5], { w: 0.5, c: INK, a: 0.55 }); }, 1e6);
       tag('CURTAIN, RUBBERISED SILK', [SX + 6, SY - LEN / 2, SZ + 93]); tag('CURTAIN TENSION SPRINGS', [SX, SY + 24, SZ + 116]); tag('SHUTTER CRATE', [SX + 16, SY - LEN, SZ - 28]);
@@ -161,7 +185,7 @@
     }
 
     /* ================= the lens, pulled forward along its optical axis ================= */
-    { const LX = 0, LZ = 30, Y0 = -RR, G = 38;
+    { const LX = 0, LZ = 30, Y0 = -RR, G = 32;
       const glass = (lf, cx, y, z) => lf;
       const part = (prof, dy, o = {}) => add(toFront(D.revolve(0, 0, prof, Object.assign({ seg: 36 }, o)), LX, Y0 - dy, LZ));
       part([[23, 0], [23, 3], [19, 3], [19, 7], [16.5, 7], [16.5, 0]], 22);                                  // bayonet mount
@@ -190,7 +214,7 @@
     }
 
 
-    D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.55, -0.35, 0.7], ambient: 0.1, gap: 4.0, w: 1.25, rough: 0.22, zw: 0, hatchMin: 0.3 });
+    D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.6, -0.3, 0.62], ambient: 0.06, gap: 3.7, w: 1.35, rough: 0.22, zw: 0, hatchMin: 0.3 });
 
     /* ================= the archive plate: border, fold, callouts, parts table, title band ================= */
     { const L0 = 58, T0 = 52, R0 = 1542, B0 = 900;
