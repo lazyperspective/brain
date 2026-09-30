@@ -290,13 +290,13 @@
       F.push(...D.ringSolid(0, 0, 44, 58, -6, 0, 48)); F.push(...D.ringSolid(0, 0, 50, 58, 0, 7, 48));
       for (let k = 0; k < 10; k++) { const a0 = k * TAU / 10, pts = []; for (let q = 0; q <= 8; q++) { const a = a0 + q * 0.11; pts.push([Math.cos(a) * lerp(52, 17, q / 8), Math.sin(a) * lerp(52, 17, q / 8)]); } for (let q = 8; q >= 0; q--) { const a = a0 + q * 0.11 + 0.5; pts.push([Math.cos(a) * lerp(52, 21, q / 8), Math.sin(a) * lerp(52, 21, q / 8)]); } F.push(...D.extrude(pts, 0.3 + k * 0.12, 0.9 + k * 0.12, { crease: 0.4 }).map(f => Object.assign(f, { tone: f.n[2] > 0.9 ? 0.2 + (k % 3) * 0.14 : 0.6 }))); }
       for (let k = 0; k < 10; k++) { const a = k * TAU / 10 + 0.05; F.push(...D.cylinder(Math.cos(a) * 53, Math.sin(a) * 53, 1.8, 1.4, 4, 10)); }
-      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3 });
+      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3, style: 'mixed' });
       const q = cm.project([0, 0, 1]); if (q) { const hole = Array.from({ length: 10 }, (_, i) => { const p = cm.project([Math.cos(i * TAU / 10 + 0.3) * 17, Math.sin(i * TAU / 10 + 0.3) * 17, 1.4]); return [p[0], p[1]]; }); P.occlude(hole, '#1a1a1a'); P.poly(hole, { w: 0.9, c: INK, passes: 1, over: 0 }); }
       P.text('DETAIL A', cx0 + rr + 36, cy0 + 10, { size: 11, c: INK, font: S.HAND }); P.text('IRIS, 10 BLADES, F/8', cx0 + rr + 36, cy0 + 24, { size: 7, c: INK }); P.text('SCALE 8 : 1', cx0 + rr + 36, cy0 + 36, { size: 7, c: INK, a: 0.8 });
       const lp = CAM.project([0, -RR - 22 - 2 * G - 24, 30 - 19]); if (lp) { P.dashed(lp[0], lp[1], cx0 + rr * 0.3, cy0 - rr * 0.95, [3, 4], { w: 0.5, c: INK, a: 0.7 }); P.circle(lp[0], lp[1], 10, { w: 0.5, c: INK, a: 0.7, passes: 1 }); }
     }
 
-    D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.55, -0.25, 0.55], ambient: 0.02, gap: 3.9, w: 1.35, rough: 0.22, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3 });
+    D.render(P, faces, CAM, { ink: INK, paper: PAPER, light: [-0.55, -0.25, 0.55], ambient: 0.02, gap: 3.9, w: 1.35, rough: 0.22, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3, style: 'mixed' });
 
 
     /* ================= DETAIL B: film advance knob in section; DETAIL C: curtain drum cut open ================= */
@@ -306,7 +306,7 @@
       F.push(...D.gearMesh(0, 0, 11, 18, -14, -11, 0.1, { root: 0.8 }));
       F.push(...D.cylinder(0, 0, 1.6, -30, 18, 10));
       const knX = [-20, 0]; void knX;
-      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3 });
+      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3, style: 'mixed' });
       D.knurl(P, cm, 0, 0, 20.1, 1, 13, 90, { c: INK, w: 0.5 });
       const hp = D.helix(0, 0, 9, -9, 3, 5, 18); D.polyline3(P, hp, cm, { w: 1.1, c: RED, a: 0.95 });
       [[0, 0, 16.2]].forEach(p => { const q = cm.project(p); if (q) { P.circle(q[0], q[1], 3, { w: 1, c: RED, passes: 1 }); P.line(q[0] - 2.2, q[1], q[0] + 2.2, q[1], { w: 0.9, c: RED, passes: 1, over: 0 }); } });
@@ -318,7 +318,7 @@
       F.push(...D.revolve(0, 0, [[12, 0], [12, 46], [10.4, 46], [10.4, 0], [12, 0]], Object.assign({ seg: 36 }, cut)));
       F.push(...D.revolve(0, 0, [[15, -2], [15, 0], [2.2, 0], [2.2, -2], [15, -2]], { seg: 36, tube: true }));
       F.push(...D.cylinder(0, 0, 2, -10, 56, 10));
-      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3 });
+      D.render(P, F, cm, { ink: INK, paper: PAPER, light: [-0.6, -0.4, 0.7], ambient: 0.1, gap: 3.4, w: 1.1, rough: 0.2, zw: 0, hatchMin: 0.14, rich: true, darken: 1.3, style: 'mixed' });
       D.polyline3(P, D.helix(0, 0, 6.4, 2, 44, 12, 16), cm, { w: 1, c: RED, a: 0.95 });
       P.text('DETAIL C', cx0 - 40, cy0 + 38, { size: 11, c: INK, font: S.HAND }); P.text('CURTAIN DRUM, CUT OPEN', cx0 - 40, cy0 + 51, { size: 6.8, c: INK }); P.text('TORSION SPRING INSIDE', cx0 - 40, cy0 + 62, { size: 6.6, c: INK, a: 0.8 });
     }

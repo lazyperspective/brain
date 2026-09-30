@@ -83,7 +83,23 @@
           const az = Math.atan2(f.n[1], f.n[0]); let ang = f.n[2] > 0.9 ? -48 : f.n[2] < -0.9 ? 60 : 62 + Math.sin(az) * 26;
           if (f.hdir && Math.abs(dot(f.hdir, f.n)) < 0.7) { const q0 = cam.project(it.c), q1 = cam.project(add(it.c, mul(f.hdir, 10))); if (q0 && q1) ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]) * 180 / Math.PI; }
           let area2 = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; area2 += p[0] * q[1] - q[0] * p[1]; } area2 = Math.abs(area2) / 2;
-          if (o.rich) {
+          const MODE = o.style || (typeof window !== 'undefined' && window.__SHADE) || 'layered';
+          if (o.rich && MODE !== 'layered') {
+            const d = Math.min(1, dark * (o.darken ?? 1.25)), g0 = o.gap ?? 4, A = fa;
+            const inPoly = (x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+            let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9; poly.forEach(([x, y]) => { bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); by0 = Math.min(by0, y); by1 = Math.max(by1, y); });
+            const rnd = (n, fn) => { let tries = 0, k = 0; while (k < n && tries++ < n * 20) { const x = bx0 + P.R() * (bx1 - bx0), y = by0 + P.R() * (by1 - by0); if (inPoly(x, y)) { fn(x, y); k++; } } };
+            if (MODE === 'contour') { if (area2 > 2) P.hatch(poly, { ang, gap: Math.max(1.1, 6.5 - d * 5.2), a: 0.85 * A, w: 0.55, c: ink, inset: 0.3, ragged: 0.3 }); }
+            else if (MODE === 'crosscontour') { if (area2 > 2) P.hatch(poly, { ang: ang + 90, gap: Math.max(1.1, 6.5 - d * 5.2), a: 0.85 * A, w: 0.55, c: ink, inset: 0.3, ragged: 0.3 }); }
+            else if (MODE === 'stipple') { if (area2 > 2) P.stipple(poly, Math.min(900, Math.round(area2 * Math.pow(d, 1.4) * 0.28)), { a: 0.9, r: 0.8, c: ink }); }
+            else if (MODE === 'engrave') { if (area2 > 2) P.hatch(poly, { ang: ang + 90, gap: 2.6, a: 0.95 * A, w: 0.12 + d * 1.75, c: ink, inset: 0.3, ragged: 0.1 }); }
+            else if (MODE === 'flick') { if (area2 > 2) { P.hatch(poly, { ang, gap: Math.max(1.6, 5.5 - d * 3.6), a: 0.85 * A, w: 0.55, c: ink, inset: 0.4, piece: 3 + d * 5, fade: () => 0.62 }); if (d > 0.4) P.stipple(poly, Math.min(300, Math.round(area2 * d * 0.03)), { a: 0.9, r: 0.7, c: ink }); } }
+            else if (MODE === 'spot') { if (d > 0.62) P.wash(poly, '#111111', 0.96 * A, { edge: 0, jit: 0.1, steps: 1 }); else if (area2 > 2 && d > 0.15) P.hatch(poly, { ang, gap: Math.max(1.6, 6 - d * 5), a: 0.8 * A, w: 0.5, c: ink, inset: 0.3 }); }
+            else if (MODE === 'wash') { const lv = d > 0.7 ? 0.62 : d > 0.4 ? 0.36 : d > 0.18 ? 0.16 : 0; if (lv) P.wash(poly, '#3a3a3a', lv * A, { edge: 0, jit: 0.1, steps: 1 }); }
+            else if (MODE === 'brushed') { if (area2 > 2) { P.hatch(poly, { ang, gap: Math.max(1.2, 3.4 - d * 1.8), a: 0.85 * A, w: 0.45, c: ink, inset: 0.4, piece: 8, fade: () => Math.min(1, d * 1.15 + 0.05) }); } }
+            else if (MODE === 'scribble') { if (area2 > 4) rnd(Math.min(260, Math.round(area2 * Math.pow(d, 1.3) * 0.045)), (x, y) => { const r = 1 + P.R() * 1.5, pts = []; for (let k = 0; k <= 9; k++) { const t = k * Math.PI * 2 / 8; pts.push([x + Math.cos(t) * r + k * 0.15, y + Math.sin(t) * r]); } P.path(pts, { w: 0.4, c: ink, a: 0.75, rough: 0.2, passes: 1 }); }); }
+            else if (MODE === 'mixed') { if (area2 > 2) { if (d > 0.78) P.wash(poly, '#111111', 0.92 * A, { edge: 0, jit: 0.1, steps: 1 }); else P.hatch(poly, { ang: ang + 90, gap: 2.4, a: 0.95 * A, w: 0.12 + d * 1.6, c: ink, inset: 0.3, ragged: 0.1 }); if (d > 0.3 && d <= 0.78) P.stipple(poly, Math.min(200, Math.round(area2 * d * 0.03)), { a: 0.85, r: 0.7, c: ink }); } }
+          } else if (o.rich) {
             // layered engraving: tone is built from up to four hatch directions plus stipple in the deepest shadow
             const d = Math.min(1, dark * (o.darken ?? 1.25)), g0 = o.gap ?? 4;
             if (area2 > 2) P.hatch(poly, { ang, gap: Math.max(1.1, g0 - d * 2.6), a: Math.min(0.85, 0.35 + d * 0.55) * fa, w: 0.5, c: ink, inset: 0.3, ragged: 0.35, jit: 0.12 });
