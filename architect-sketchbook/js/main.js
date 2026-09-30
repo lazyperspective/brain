@@ -10,7 +10,7 @@
 
   const SCENES = window.SCENES || []; SCENES.forEach((s, n) => { s.index = n; });
   const TOTAL = SCENES.length;
-  let speedMul = 1, cur = -1, k = 1, switching = false;
+  let speedMul = 1, cur = -1, k = 1, switching = false, paused = false;
   const DURATION = 34; // seconds for a sheet at 1x
 
   /* ---------------------------------------------------------------- paper */
@@ -94,7 +94,9 @@
     constructor(scene) {
       const P = new S.Page(scene.seed, { ink: scene.ink });
       scene.build(P, scene.index + 1, TOTAL);
-      this.page = P; this.ops = P.ops; this.i = 0; this.j = 0; this.credit = 0;
+      this.page = P; this.ops = P.ops; this.i = 0; this.j = 0; this.credit = 0; this.seed = scene.seed;
+      // animated groups: op ranges the scene marked as live; after the pen finishes they are redrawn every frame
+      this.anims = (P.anims || []).map(a => Object.assign({ st: {} }, a)); this.skip = new Uint8Array(this.ops.length); this.anims.forEach(a => this.skip.fill(1, a.i0, a.i1)); this.base = null; this.t0 = null;
       this.total = 0;
       for (const op of this.ops) this.total += this.units(op) * this.ucost(op);
     }
@@ -122,6 +124,35 @@
       if (this.done) this.credit = 0;
     }
     finish() { this.advance(Infinity); }
+    /* ---- live animation ---- */
+    drawAll(ops, c, skip) { for (let n = 0; n < ops.length; n++) { if (skip && skip[n]) continue; const op = ops[n], N = this.units(op); if (N === 0) continue; this.draw(op, 0, N, c); } }
+    buildBase() {
+      const c = document.createElement('canvas'); c.width = inkC.width; c.height = inkC.height; const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, 0, 0);
+      this.drawAll(this.ops, x, this.skip); this.base = { c, k };
+    }
+    bbox(ops) {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const inc = (x, y, r = 2) => { if (x - r < x0) x0 = x - r; if (y - r < y0) y0 = y - r; if (x + r > x1) x1 = x + r; if (y + r > y1) y1 = y + r; };
+      for (const op of ops) { if (op.p) op.p.forEach(q => inc(q[0], q[1], (q[2] || 1) + 2)); if (op.poly) op.poly.forEach(q => inc(q[0], q[1])); if (op.k === 'd') inc(op.x, op.y, op.r + 2); }
+      x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(W, Math.ceil(x1)); y1 = Math.min(H, Math.ceil(y1));
+      return x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+    }
+    genAnim(a, t) {
+      const Q = new S.Page(this.seed + 7 + Math.floor(t * 4) % 3, { ink: this.page.ink }); a.fn(Q, t); const st = a.st; st.ops = Q.ops; st.at = t; st.k = k;
+      if (a.cache) { const bb = this.bbox(Q.ops); st.bb = bb; if (!bb) return; const c = st.c || (st.c = document.createElement('canvas')); c.width = Math.ceil(bb.w * k); c.height = Math.ceil(bb.h * k); const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, -bb.x * k, -bb.y * k); this.drawAll(Q.ops, x); }
+    }
+    animate(now) {
+      if (this.t0 === null) this.t0 = now; const t = (now - this.t0) / 1000;
+      if (!this.base || this.base.k !== k) { this.buildBase(); this.anims.forEach(a => { a.st.at = undefined; }); }
+      const c = ictx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, inkC.width, inkC.height); c.drawImage(this.base.c, 0, 0);
+      for (const a of this.anims) {
+        const st = a.st, fps = a.fps ?? 24;
+        if (st.at === undefined || st.k !== k || (fps > 0 && (t - st.at >= 1 / fps || t < st.at))) this.genAnim(a, t);
+        c.setTransform(k, 0, 0, k, 0, 0);
+        if (a.xf) { const m = a.xf(t); c.translate((m.x || 0) + (m.px || 0), (m.y || 0) + (m.py || 0)); if (m.rot) c.rotate(m.rot); c.translate(-(m.px || 0), -(m.py || 0)); }
+        if (a.cache) { if (st.bb) c.drawImage(st.c, st.bb.x, st.bb.y, st.bb.w, st.bb.h); } else this.drawAll(st.ops, c);
+      }
+      c.setTransform(k, 0, 0, k, 0, 0);
+    }
     /* redraw everything already drawn (after a resize / sheet switch) */
     replay() {
       const ti = this.i, tj = this.j;
@@ -132,9 +163,8 @@
         this.draw(op, 0, n < ti ? N : tj);
       }
     }
-    draw(op, from, to) {
+    draw(op, from, to, c = ictx) {
       if (to <= from && op.k !== 'e') return;
-      const c = ictx;
       switch (op.k) {
         case 's': {
           const p = op.p, fs = op.fs || (op.fs = S.rgba(op.c, op.a));
@@ -228,7 +258,8 @@
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     if (cur >= 0 && !switching) {
       const p = playerFor(cur);
-      if (!p.done) p.advance(Math.max(140, p.total / DURATION) * speedMul * dt);
+      if (!p.done) { p.advance(Math.max(140, p.total / DURATION) * speedMul * dt); p.t0 = null; }
+      else if (p.anims.length && !paused) p.animate(now);
     }
     requestAnimationFrame(frame);
   }
@@ -252,6 +283,7 @@
       else if (e.key === 'ArrowLeft') show(cur - 1);
       else if (e.key === ' ') { e.preventDefault(); playerFor(cur).finish(); }
       else if (e.key === 'r' || e.key === 'R') document.getElementById('redraw').click();
+      else if (e.key === 'p' || e.key === 'P') { paused = !paused; }
     });
     addEventListener('resize', layout);
     const start = Math.max(0, Math.min(TOTAL - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
@@ -259,7 +291,7 @@
     show(start, true);
     // if the handwriting font arrives late, re-lay the lettering out
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
-      players.forEach(p => p && p.ops.forEach(o => { if (o.lay) o.lay = null; }));
+      players.forEach(p => { if (p) { p.ops.forEach(o => { if (o.lay) o.lay = null; }); p.base = null; } });
       if (cur >= 0) playerFor(cur).replay();
     });
     requestAnimationFrame(frame);
