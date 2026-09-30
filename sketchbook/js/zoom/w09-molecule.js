@@ -48,6 +48,8 @@
         const look = g => (x, y) => g[Math.round((y - y0) / st) * nx + Math.round((x - x0) / st)];
         L.contours(look(g2), x0, y0, 1612, 1012, st, [0.3, 0.55, 0.85, 1.2]).forEach((lines, li) => lines.forEach(l => { if (l.length > 4) k.ink(l, 1.4 - li * 0.2, '#3a8aa0', 0.32 + li * 0.05); }));
         L.contours(look(g1), x0, y0, 1612, 1012, st, [0.35, 0.7]).forEach((lines, li) => lines.forEach(l => { if (l.length > 4) k.ink(l, 1, li ? '#2a5ab0' : '#4a9ac0', 0.45); })); }
+      // the edges pale back into the membrane's green all round, so the page sinks into the protein it came from
+      k.img(L.raster(-40, -40, 1640, 1040, 0.1, (x, y) => { const e = Math.hypot((x - 800) / 800, (y - 500) / 500), u = Math.max(0, Math.min(1, (e - 0.72) / 0.28)); return [138, 200, 90, 255 * u * u * (3 - 2 * u)]; }), -40, -40, 1680, 1080);
       /* ================================ sticks, then balls ================================ */
       const stick = (a, b, w, col, al = 1) => { k.line(a, b, w + 3, '#1a2a2a', 0.5 * al); k.line(a, b, w, col, al); k.line([a[0] - w * 0.18, a[1] - w * 0.22], [b[0] - w * 0.18, b[1] - w * 0.22], w * 0.3, '#ffffff', 0.45 * al); };
       B.forEach(([i, j, o]) => { const a = W[i], b = W[j]; if (!onF(a, 200) && !onF(b, 200)) return; if (o === 0) { for (let q = 0; q < 8; q++) { const t0 = q / 8, t1 = t0 + 0.06; if (t0 > 0.12 && t1 < 0.72) k.line([lerp(a[0], b[0], t0), lerp(a[1], b[1], t0)], [lerp(a[0], b[0], t1), lerp(a[1], b[1], t1)], 3, '#2a8a3a', 0.8); } return; }

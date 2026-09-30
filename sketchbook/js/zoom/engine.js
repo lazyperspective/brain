@@ -159,7 +159,9 @@
       if (w.live.length && !o.noLive) drawLive(ctx, w, t, Aw, Bw, 1);
       const al = smooth(0.8, 1, f), nx = worlds[(k + 1) % N];
       const Ai = C.mul(Aw, pp.a), Bi = C.add(Bw, C.mul(Aw, pp.o));
-      if (al > 0) { ctx.globalAlpha = al; setX(ctx, C.sc(Ai, 1 / D0), Bi); ctx.drawImage(nx.full, 0, 0); ctx.globalAlpha = 1; if (nx.live.length && !o.noLive) drawLive(ctx, nx, t, Ai, Bi, al); }
+      if (al > 0) { // the next world arrives through its soft-edged image; its hard edge comes in only as that edge reaches the frame
+        const hf = smooth(0.93, 1, f); setX(ctx, C.sc(Ai, 1 / D0), Bi); ctx.globalAlpha = al; ctx.drawImage(fullF(nx), 0, 0); if (hf > 0) { ctx.globalAlpha = hf; ctx.drawImage(nx.full, 0, 0); } ctx.globalAlpha = 1;
+        if (nx.live.length && !o.noLive) drawLive(ctx, nx, t, Ai, Bi, al); }
       if (lv.o) { const Ao = C.sc(Af, qo / lv.D), Bo = C.sc(C.add(pp.c, C.mul(Af, C.sub([lv.o.R[0], lv.o.R[1]], pp.c))), qo);
         const hole = al > 0 ? holeMask(al) : null, lay = (img, mode) => { if (!img) return; if (al <= 0) { ctx.globalCompositeOperation = mode; setX(ctx, Ao, Bo); ctx.drawImage(img, 0, 0); ctx.globalCompositeOperation = 'source-over'; return; }
           if (!scratch || scratch.width !== outW || scratch.height !== outH) scratch = mk(outW, outH);
