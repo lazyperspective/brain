@@ -88,5 +88,25 @@
       { const b = toW(0, 0); k.text('A BLACK HOLE FOUR MILLION SUNS HEAVY SITS IN THE MIDDLE', b[0] - 62, b[1] + 64, 3.2, '#fff0d0', { a: 0.6, fine: true }); }
       k.line([1320, 930], [1500, 930], 1.2, '#9aa8e0', 0.6); P.label('20,000 LIGHT YEARS', 1330, 920, { size: 10, c: '#9aa8e0', a: 0.6 });
     }
+    ,
+    /* ================================ the galaxy, turning ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.05 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph), at = (d, a) => [HERE[0] + Math.cos(a) * d, HERE[1] + Math.sin(a) * d];
+      // stars on their orbits, the inner ones overtaking the outer
+      { const B = new Map(), put = (c, p) => (B.get(c) || B.set(c, []).get(c)).push(p), cols = ['#ffffff', '#dfe8ff', '#b8ccff', '#ffe6c0'];
+        for (let i = 0; i < 700; i++) { const t0 = 0.3 + H(i, 1) * 3.9, r = 120 * Math.exp(0.36 * t0) + (H(i, 2) - 0.5) * 40, th = t0 + (i % 2 ? Math.PI : 0) + (H(i, 3) - 0.5) * 0.25 + TAU * cyc(57 * Math.max(0.5, r / 260), H(i, 4)) * -1, p = toW(r, th); if (Math.hypot(p[0] - HERE[0], p[1] - HERE[1]) < 110) continue; put(cols[i % 4], [p[0], p[1], 0.3 + H(i, 5) * 0.6]); }
+        B.forEach((pts, c) => L.blend(Q, 'lighter', () => k.dots(pts, c, 0.9))); }
+      L.blend(Q, 'lighter', () => {
+        // the core breathes
+        k.glow(C0[0], C0[1], 120, '#fff0c8', 0.12 + 0.06 * osc(4.4));
+        // stars twinkling in front of it all
+        for (let i = 0; i < 26; i++) { const x = H(i, 6) * 1600, y = H(i, 7) * 1000, g = Math.max(0, osc(1.2 + H(i, 8) * 2, H(i, 9))); if (Math.hypot(x - HERE[0], y - HERE[1]) < 120 || g < 0.2) continue; const s = 2 + H(i, 10) * 3, c = ['#ffffff', '#c8d8ff', '#ffe0b0'][i % 3]; k.glow(x, y, s * 2 * g, c, 0.6 * g); k.line([x - s * 2.4 * g, y], [x + s * 2.4 * g, y], 0.3, c, 0.7 * g); k.line([x, y - s * 2.4 * g], [x, y + s * 2.4 * g], 0.3, c, 0.7 * g); }
+        // a supernova, once a loop
+        { const u = cyc(57, 0.35), p = toW(330, 2.9), f = u < 0.02 ? u / 0.02 : Math.exp(-(u - 0.02) * 30); if (f > 0.02) { k.glow(p[0], p[1], 50 * f + 6, '#ffffff', 0.9 * f); k.glow(p[0], p[1], 120 * f, '#aac8ff', 0.4 * f); k.line([p[0] - 60 * f, p[1]], [p[0] + 60 * f, p[1]], 0.6, '#ffffff', 0.8 * f); k.line([p[0], p[1] - 60 * f], [p[0], p[1] + 60 * f], 0.6, '#ffffff', 0.8 * f); } }
+        // the Crab's pulsar sweeping its beams; the black hole's disc turning
+        { const p = at(128, 0.45), a = TAU * cyc(0.4); [-1, 1].forEach(sd => k.line(p, [p[0] + Math.cos(a) * 7 * sd, p[1] + Math.sin(a) * 2.5 * sd], 0.35, '#c8e0ff', 0.9)); k.dot(p[0], p[1], 0.35, '#ffffff', 1); }
+        { const p = at(170, 1.25), a = TAU * cyc(0.8), r = 0.3; for (let q = 0; q < 3; q++) { const b = a - q * 0.4, x = Math.cos(b) * 1.6, y = Math.sin(b) * 0.5; k.dot(p[0] + x * Math.cos(-r) - y * Math.sin(-r), p[1] + x * Math.sin(-r) + y * Math.cos(-r), 0.35 - q * 0.08, '#ffe0a0', 0.9 - q * 0.25); } }
+      });
+    }]
   });
 })();

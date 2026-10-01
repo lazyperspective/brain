@@ -112,8 +112,7 @@
         k.fill(lensPoly, '#f6f2e6'); { const M = p => [mc[0] + (p[0] - mc[0]) * 2.4, mc[1] + (p[1] - mc[1]) * 2.4]; const T = (x, y) => M([x, y]); for (let x = 60; x < 1544; x += 20) { const cs = clipSeg(T(x, 146), T(x, 952), mc, mr); if (cs) seg(cs[0], cs[1], (x - 60) % 100 === 0 ? 1 : 0.5, BLUEGRID, 0.3); } for (let y = 150; y < 952; y += 20) { const cs = clipSeg(T(56, y), T(1544, y), mc, mr); if (cs) seg(cs[0], cs[1], (y - 150) % 100 === 0 ? 1 : 0.5, BLUEGRID, 0.3); } plan(M, 2.4, [mc, mr]); { const lb = M([236, 286]); k.text('BOARD', lb[0], lb[1], 14.4, GRAPH, { align: 'center', a: 0.7 }); } const fib = []; for (let i = 0; i < 160; i++) { const a = R(0, TAU), r = Math.sqrt(P.R()) * mr * 0.95; fib.push([mc[0] + Math.cos(a) * r, mc[1] + Math.sin(a) * r]); } fib.forEach(([x, y]) => k.line([x, y], [x + R(-5, 5), y + R(-2, 2)], 0.3, '#b8b0a0', 0.35)); for (let i = 0; i < 90; i++) { const a = R(0, TAU), r = Math.sqrt(P.R()) * mr * 0.9; k.dot(mc[0] + Math.cos(a) * r, mc[1] + Math.sin(a) * r, R(0.3, 0.9), GRAPH, 0.25); } }
         k.rad(lensPoly, mc[0] - 20, mc[1] - 20, mr * 1.2, '#ffffff', 0.25, '#a0b0c0', 0.25); k.outline(lensPoly, 5, '#2a2a2a'); k.outline(lensPoly, 1.6, '#8a8a8a', 0.8); L.blend(P, 'screen', () => k.fill(L.ell(mc[0] - 22, mc[1] - 26, 18, 7, 20, -0.7), '#ffffff', 0.5));
         const hd0 = [mc[0] + mr * 0.72, mc[1] + mr * 0.72], hd1 = [mc[0] + mr * 2.2, mc[1] + mr * 2.3]; k.line([hd0[0] + SH[0], hd0[1] + SH[1]], [hd1[0] + SH[0], hd1[1] + SH[1]], 14, '#5a4a3a', 0.15); k.line(hd0, hd1, 12, '#3a2a1a'); k.line([hd0[0] - 2, hd0[1] - 3], [hd1[0] - 2, hd1[1] - 3], 3, '#8a6a4a', 0.6); k.fill(L.rect(hd0[0] - 6, hd0[1] - 6, hd0[0] + 8, hd0[1] + 8), '#b8a060'); }
-      // an ant, going somewhere important
-      { const ax = 1016, ay = 838, th = -0.5, A = (x, y) => rotP([[ax + x, ay + y]], [ax, ay], th)[0]; [[0, 0, 2.6, 2], [5, 0, 2.2, 1.8], [-6, 0, 3.6, 2.6]].forEach(([dx, dy, rx, ry]) => k.fill(L.ell(...A(dx, dy), rx, ry, 12, th), '#2a1a1a')); for (let i = -1; i <= 1; i++) { k.line(A(0 + i * 2, 0), A(i * 4, -7), 0.4, '#2a1a1a'); k.line(A(0 + i * 2, 0), A(i * 4, 7), 0.4, '#2a1a1a'); } k.line(A(6.4, 0), A(11, -4), 0.35, '#2a1a1a'); k.line(A(6.4, 0), A(11, 4), 0.35, '#2a1a1a'); for (let i = 1; i < 6; i++) k.dot(...A(-12 - i * 9, Math.sin(i) * 2), 0.5, '#2a1a1a', 0.3); k.dot(1052, 816, 2, '#e8dcc0'); }
+      // (the ant walks: it is drawn by the live layer)
 
       /* ================================ the sketchbook ================================ */
       { const pc = [800, 545], th = -4 * Math.PI / 180, R0 = (pts) => rotP(pts, pc, th), cover = R0(L.rect(466, 332, 1134, 764)), pg = R0(L.rect(480, 345, 1120, 745));
@@ -132,5 +131,23 @@
       const pc = [800, 545], th = -4 * Math.PI / 180, R0 = pts => L.rot(pts, pc[0], pc[1], th);
       for (let x = 500; x <= 1100; x += 24) { const [top, hole] = R0([[x, 322], [x, 362]]); k.curve([[hole[0] - 2, hole[1] - 2], [hole[0] - 7, hole[1] - 20], [top[0] - 4, top[1] + 4], [top[0] + 4, top[1] + 2], [hole[0] + 5, hole[1] - 12]], 3.2, '#3a3a40'); k.curve([[hole[0] - 2, hole[1] - 2], [hole[0] - 7, hole[1] - 20], [top[0] - 4, top[1] + 4], [top[0] + 4, top[1] + 2], [hole[0] + 5, hole[1] - 12]], 1.2, '#c8c8d0', 0.9); }
     }
+    ,
+    /* ================================ the board, alive ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.1 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph);
+      // leaf-shadows from the window, sliding slowly across the paper
+      L.blend(Q, 'multiply', () => { for (let i = 0; i < 9; i++) { const u = cyc(57, H(i, 1)), x = lerp(-300, 1900, u) + Math.sin(u * 7 + i) * 30, y = 150 + H(i, 2) * 750 + osc(11, H(i, 3)) * 20, r = 50 + H(i, 4) * 90; k.rad(L.blob(x, y, r, 12, 0.3, () => H(i, 5), 0.6), x, y, r, '#6a5a4a', 0.12, '#6a5a4a', 0); } });
+      // dust in the lamp's light
+      L.blend(Q, 'lighter', () => { for (let i = 0; i < 60; i++) { const u = cyc(16 + H(i, 6) * 10, H(i, 7)), x = H(i, 8) * 700 + Math.sin(u * TAU + i) * 20, y = 620 - u * 600; if (x > 440 && y > 300) continue; k.dot(x, y, 0.6 + H(i, 9), '#fff4d0', 0.5 * Math.sin(u * Math.PI)); } });
+      // the pinned plates lift their corners in the draught
+      for (let i = 0; i < 11; i++) { const x1 = 135 + i * 131, y1 = 115, l = 3 + 3 * Math.max(0, osc(2.7 + H(i, 10), H(i, 11))); k.fill([[x1 - l * 2.2, y1], [x1, y1 - l * 2.2], [x1 - l * 1.4, y1 - l * 1.4]], '#efe8d8'); k.ink([[x1 - l * 2.2, y1], [x1 - l * 1.4, y1 - l * 1.4], [x1, y1 - l * 2.2]], 0.4, '#6a5a4a', 0.7); k.fill([[x1 - l * 2.2, y1], [x1, y1 - l * 2.2], [x1, y1]], '#3a2a1a', 0.12); }
+      // a spider let down on a thread from the lamp, turning slowly
+      { const sx = 1572, sy = 150 + osc(9.5) * 40, a = osc(3.1) * 0.5; k.line([sx, -10], [sx, sy - 4], 0.25, '#8a7a6a', 0.8); const T = (u, v) => [sx + Math.cos(a) * u - Math.sin(a) * v, sy + Math.sin(a) * u + Math.cos(a) * v];
+        for (let q = 0; q < 4; q++) [-1, 1].forEach(sd => k.ink([T(sd * 2, -2 + q * 1.6), T(sd * 7, -5 + q * 3), T(sd * 9, 1 + q * 3)], 0.4, '#20180f')); k.fill(L.ell(...T(0, 2), 3.4, 4.2, 12, a), '#2a1a14'); k.fill(L.ell(...T(0, -3), 2.2, 2.2, 10), '#2a1a14'); k.dot(...T(-0.8, -3.8), 0.4, '#e8dcc0'); }
+      // the ant, going somewhere important (round in circles)
+      { const u = cyc(57 / 3), th = u * TAU, x = 1060 + Math.cos(th) * 150, y = 880 + Math.sin(th * 2) * 26, dx = -Math.sin(th) * 150, dy = Math.cos(th * 2) * 52, a = Math.atan2(dy, dx), A = (px, py) => [x + Math.cos(a) * px - Math.sin(a) * py, y + Math.sin(a) * px + Math.cos(a) * py], g = osc(0.3);
+        [[0, 0, 2.6, 2], [5, 0, 2.2, 1.8], [-6, 0, 3.6, 2.6]].forEach(([ex, ey, rx, ry]) => k.fill(L.ell(...A(ex, ey), rx, ry, 12, a), '#2a1a1a'));
+        for (let i = -1; i <= 1; i++) { const w = (i === 0 ? g : -g) * 2.4; k.line(A(i * 2, 0), A(i * 4 + w, -7), 0.4, '#2a1a1a'); k.line(A(i * 2, 0), A(i * 4 - w, 7), 0.4, '#2a1a1a'); } k.line(A(6.4, 0), A(11, -4 + g), 0.35, '#2a1a1a'); k.line(A(6.4, 0), A(11, 4 - g), 0.35, '#2a1a1a'); }
+    }]
   });
 })();

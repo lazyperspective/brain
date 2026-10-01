@@ -35,6 +35,13 @@
   };
   const ALB = () => ['#f6f7fb', '#8e96ac'];
 
+  /* the space station, crossing in sunlight: truss, eight gold wings, white radiators */
+  const iss = (k, ix, iy) => { k.glow(ix, iy, 34, '#ffffff', 0.12);
+        [-30, -21, 21, 30].forEach(d => [-1, 1].forEach(sg => { const r = L.rect(ix + d - 3.3, iy + sg * 2.2, ix + d + 3.3, iy + sg * 18); k.fill(r, '#a8781e'); k.lin(r, '#ffe4a0', 0.7, '#a8781e', 0, ix + d + 3, iy, ix + d - 3, iy + sg * 18); for (let q = 1; q < 7; q++) k.line([ix + d - 3.3, iy + sg * (2.2 + q * 2.25)], [ix + d + 3.3, iy + sg * (2.2 + q * 2.25)], 0.2, '#4a2e08', 0.6); k.line([ix + d, iy + sg * 2.2], [ix + d, iy + sg * 18], 0.25, '#4a2e08', 0.5); }));
+        k.line([ix - 36, iy], [ix + 36, iy], 1.5, '#e0e0e0', 0.95); [-11, 11].forEach(d => { const r = L.rect(ix + d - 2.2, iy - 12, ix + d + 2.2, iy - 2); k.fill(r, '#f4f4f4', 0.95); for (let q = 1; q < 4; q++) k.line([ix + d - 2.2, iy - 2 - q * 2.5], [ix + d + 2.2, iy - 2 - q * 2.5], 0.2, '#9a9a9a', 0.7); });
+        k.fill(L.rect(ix - 4, iy - 2.6, ix + 4, iy + 2.6), '#ececec'); k.fill(L.rect(ix - 1.7, iy + 2.6, ix + 1.7, iy + 15), '#dadada'); k.fill(L.rect(ix - 1.7, iy - 14, ix + 1.7, iy - 2.6), '#cfcfcf'); k.fill(L.rect(ix - 7, iy + 8, ix - 1.7, iy + 10.6), '#d4d4d4'); k.dot(ix, iy + 16.5, 1.4, '#f0f0f0');
+        k.text('THE SPACE STATION, 400 KM UP', ix + 44, iy - 16, 7, '#9ab0e0', { a: 0.65, fine: true }); };
+  const LV = {};
   Z.world({
     name: 'Earth, at night', scale: '12,000 km', seed: 1212, ink: K,
     portal: { cx: PC[0], cy: PC[1], w: 1600 / 9, rot: 0, feather: 60 },
@@ -54,14 +61,7 @@
         [[12, -9, 5], [17, 5, 4.5], [9, 13, 3], [20, -3, 2.6], [14, 18, 2]].forEach(([dx, dy, r]) => k.fill(L.blob(mx + dx, my + dy, r, 10, 0.25, P.R), '#a8a088', 0.5));
         for (let i = 0; i < 16; i++) { const a = R(-1.35, 1.35), rr = R(0.3, 0.95) * mr, x = mx + Math.cos(a) * rr, y = my + Math.sin(a) * rr; if (x > mx + mr * 0.28) k.circle(x, y, R(0.5, 1.7), 0.35, '#7a7460', 0.6); }
         k.text('THE MOON, 384,000 KM', mx - 50, my + 52, 7, '#9ab0e0', { a: 0.6, fine: true }); }
-      // the space station, crossing in sunlight: truss, eight gold wings, white radiators
-      { const ix = 318, iy = 262; k.glow(ix, iy, 34, '#ffffff', 0.12);
-        [-30, -21, 21, 30].forEach(d => [-1, 1].forEach(sg => { const r = L.rect(ix + d - 3.3, iy + sg * 2.2, ix + d + 3.3, iy + sg * 18); k.fill(r, '#a8781e'); k.lin(r, '#ffe4a0', 0.7, '#a8781e', 0, ix + d + 3, iy, ix + d - 3, iy + sg * 18); for (let q = 1; q < 7; q++) k.line([ix + d - 3.3, iy + sg * (2.2 + q * 2.25)], [ix + d + 3.3, iy + sg * (2.2 + q * 2.25)], 0.2, '#4a2e08', 0.6); k.line([ix + d, iy + sg * 2.2], [ix + d, iy + sg * 18], 0.25, '#4a2e08', 0.5); }));
-        k.line([ix - 36, iy], [ix + 36, iy], 1.5, '#e0e0e0', 0.95); [-11, 11].forEach(d => { const r = L.rect(ix + d - 2.2, iy - 12, ix + d + 2.2, iy - 2); k.fill(r, '#f4f4f4', 0.95); for (let q = 1; q < 4; q++) k.line([ix + d - 2.2, iy - 2 - q * 2.5], [ix + d + 2.2, iy - 2 - q * 2.5], 0.2, '#9a9a9a', 0.7); });
-        k.fill(L.rect(ix - 4, iy - 2.6, ix + 4, iy + 2.6), '#ececec'); k.fill(L.rect(ix - 1.7, iy + 2.6, ix + 1.7, iy + 15), '#dadada'); k.fill(L.rect(ix - 1.7, iy - 14, ix + 1.7, iy - 2.6), '#cfcfcf'); k.fill(L.rect(ix - 7, iy + 8, ix - 1.7, iy + 10.6), '#d4d4d4'); k.dot(ix, iy + 16.5, 1.4, '#f0f0f0');
-        k.text('THE SPACE STATION, 400 KM UP', ix + 44, iy - 16, 7, '#9ab0e0', { a: 0.65, fine: true }); }
-      // a train of new satellites, still in a line
-      { for (let i = 0; i < 28; i++) { const t = i / 27; k.dot(lerp(1010, 1236, t) + R(-0.8, 0.8), lerp(262, 180, t) + Math.sin(t * 8) * 1.4, 0.7, '#ffffff', 0.85); } k.text('A TRAIN OF SATELLITES', 1090, 280, 7, '#9ab0e0', { a: 0.6, fine: true }); }
+      // (the space station and the train of satellites move: they are drawn by the live layer)
 
       /* ================================ the planet: ground, water, weather ================================ */
       k.fill(L.ell(EC[0], EC[1], ER, ER, 1440), '#173866');
@@ -109,7 +109,7 @@
       /* ================================ the lights of the night side ================================ */
       const buckets = new Map(), put = (col, a, p) => { const key = col + '|' + Math.max(1, Math.round(a * 8)); (buckets.get(key) || buckets.set(key, []).get(key)).push(p); };
       const vis = (x, y) => sm(0.015, -0.05, sunAt(x, y)) * (1 - 0.85 * sm(0.58, 0.72, cloudF(x, y)));
-      const towns = L.poisson([0, 440, 1600, 1000], 12, P.R, () => true, 30000).filter(p => landF(p[0], p[1]) > 0.02).map(p => ({ p, pop: Math.pow(L.noise(p[0] / 64, p[1] / 64, 99), 2.6) * 1.5 + 1.4 * bump(p[0], p[1], PC[0] - 10, PC[1], 70) + 0.8 * bump(p[0], p[1], 700, 640, 30) }));
+      const towns = LV.towns = L.poisson([0, 440, 1600, 1000], 12, P.R, () => true, 30000).filter(p => landF(p[0], p[1]) > 0.02).map(p => ({ p, pop: Math.pow(L.noise(p[0] / 64, p[1] / 64, 99), 2.6) * 1.5 + 1.4 * bump(p[0], p[1], PC[0] - 10, PC[1], 70) + 0.8 * bump(p[0], p[1], 700, 640, 30) }));
       const roads = []; towns.forEach((t, i) => { towns.map((u, j) => [j, Math.hypot(u.p[0] - t.p[0], u.p[1] - t.p[1])]).filter(([j, d]) => j > i && d < 30).sort((a, b) => a[1] - b[1]).slice(0, 2).forEach(([j]) => { if (t.pop + towns[j].pop > 0.12) roads.push([t.p, towns[j].p, t.pop + towns[j].pop]); }); });
       roads.forEach(([a, b, w]) => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(l / 2.1), bend = R(-3, 3); for (let i = 0; i <= n; i++) { const t = i / n, x = lerp(a[0], b[0], t) - (b[1] - a[1]) / l * bend * Math.sin(Math.PI * t), y = lerp(a[1], b[1], t) + (b[0] - a[0]) / l * bend * Math.sin(Math.PI * t), v = vis(x, y); if (v > 0.04 && P.R() < 0.85) put('#ffae48', v * Math.min(0.8, 0.35 + w * 0.4), [x + R(-0.4, 0.4), y + R(-0.4, 0.4), R(0.28, 0.46)]); } });
       towns.forEach(({ p, pop }) => { const v = vis(p[0], p[1]), s = sunAt(p[0], p[1]);
@@ -152,7 +152,23 @@
       // thin veils drifting across the edge of the clearing
       for (let i = 0; i < 12; i++) { const e = walk(8.5)[Math.floor(P.R() * 70)], x = e[0] - e[2] * R(4, 10), y = e[1] - e[3] * R(3, 7), v = L.ell(x, y, R(16, 30), R(3, 6), 20, Math.atan2(e[3], e[2]) + Math.PI / 2); k.fill(v, cloudCol(x, y, 0.98), 0.14); }
     },
-    live: [(Q, t) => { // the storm keeps flashing
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.05 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph);
+      // the space station crossing, the satellites following each other in a line
+      { const x = lerp(-180, 1780, cyc(57, 0.12)), y = 330 - Math.sin((x + 180) / 1960 * Math.PI) * 90; iss(k, x, y); }
+      { const d = [226, -82], l = Math.hypot(...d), u = [d[0] / l, d[1] / l], s0 = lerp(-500, 2300, cyc(57, 0.6)); for (let i = 0; i < 28; i++) { const s = s0 - i * 8.6, x = 700 + u[0] * s, y = 375 + u[1] * s; if (y < 0 || x > 1640) continue; k.dot(x, y, 0.7, '#ffffff', 0.85); } }
+      L.blend(Q, 'lighter', () => {
+        // meteors burning up above the limb
+        for (let i = 0; i < 4; i++) { const u = cyc(57 / 4, H(i, 1)); if (u > 0.04) continue; const f = u / 0.04, x0 = 200 + H(i, 2) * 1200, y0 = 120 + H(i, 3) * 200, x = x0 + f * 120, y = y0 + f * 50; for (let q = 0; q < 8; q++) k.line([x - q * 8, y - q * 3.3], [x - (q + 1) * 8, y - (q + 1) * 3.3], 1.4 - q * 0.15, '#fff4d0', (0.9 - q * 0.1) * Math.sin(f * Math.PI)); }
+        // the night side's lights: towns breathing, a plane blinking across
+        (LV.towns || []).forEach(({ p, pop }, i) => { if (pop < 0.35 || H(i, 4) > 0.5) return; const [x, y] = p; if (sunAt(x, y) > -0.02 || (Math.abs(x - PC[0]) < 100 && Math.abs(y - PC[1]) < 70)) return; const g = 0.5 + 0.5 * osc(1.5 + H(i, 5) * 3, H(i, 6)); k.glow(x, y, 3 + pop * 4, '#ffc860', 0.25 * g); });
+        { const u = cyc(57 / 2, 0.2), x = lerp(80, 860, u), y = lerp(760, 560, u); if (cyc(1) < 0.12) k.glow(x, y, 4, '#ff4040', 0.9); else if (cyc(1, 0.5) < 0.08) k.glow(x, y, 4, '#ffffff', 0.9); k.dot(x, y, 0.6, '#ffffff', 0.6); }
+        for (let i = 0; i < 6; i++) { const u = cyc(57, i / 6), x = lerp(160, 900, u), y = lerp(980, 870, u) + Math.sin(u * 5) * 14; k.dot(x, y, 0.5, '#fff4e0', 0.8); }
+        // the aurora's curtains folding and refolding
+        for (let c = 0; c < 2; c++) for (let i = 0; i < 160; i++) { const u2 = i / 160, wv = Math.sin(TAU * (u2 * 3 + cyc(9, c * 0.3))) * 0.5 + Math.sin(TAU * (u2 * 7 - cyc(5, c * 0.2))) * 0.3, tt = lerp(-2.3, -1.66, u2) + wv * 0.004, b0 = 18 + c * 8, h = (30 + 36 * (0.5 + 0.5 * wv)) * (0.5 + 0.5 * Math.sin(u2 * Math.PI)), base = [EC[0] + Math.cos(tt) * (ER + b0), EC[1] + Math.sin(tt) * (ER + b0)], top = [EC[0] + Math.cos(tt) * (ER + b0 + h), EC[1] + Math.sin(tt) * (ER + b0 + h)];
+          k.lin([[base[0] - 1.6, base[1]], [top[0] - 1.6, top[1]], [top[0] + 1.6, top[1]], [base[0] + 1.6, base[1]]], '#60ffa0', 0.05 + 0.08 * (0.5 + 0.5 * wv), '#ff6aa0', 0, base[0], base[1], top[0], top[1]); }
+      });
+    }, (Q, t) => { // the storm keeps flashing
       const k = L.kit(Q, K), ph = Math.floor(t * 9), h = L.noise(ph * 1.37, 3.1, 5);
       if (h > 0.62) { const cells = [[-14, -3], [12, 4], [26, -6], [-2, 8]], c = cells[ph % 4]; L.blend(Q, 'lighter', () => { k.glow(806 + c[0], 606 + c[1], 16 + 20 * (h - 0.62), '#d8e4ff', 0.55); k.glow(806 + c[0], 606 + c[1], 5, '#ffffff', 0.7); }); } }]
   });

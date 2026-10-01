@@ -15,6 +15,8 @@
       // the first world exactly as the zoom draws it, its over-layer (the iron window bars) on a page of its own seed
       const cx = engine().ctxOf(0); d0.build(P, cx);
       if (d0.over) { const Po = new Sketch.Page((d0.seed ?? 1) + 7, { ink: d0.ink }); d0.over(Po, cx); P.ops.push(...Po.ops); }
+      // and the things that move, where they stand when the pen starts
+      (d0.live || []).forEach(fn => fn(P, 0, cx));
     },
     // the other worlds are inked a little at a time while the pen works, and faster once it is done
     pump(done) { engine().pump(done ? 12 : 4); },

@@ -67,12 +67,25 @@
       [-1, 1].forEach(sd => { const edge = []; for (let i = 0; i <= 48; i++) { const t = Math.PI * i / 48; edge.push(T(-Math.cos(t) * RX * 0.8, sd * Math.sin(t) * RY * PORE)); } k.ink(edge, 2, '#f4ffe8', 0.7); k.ink(edge.map(([x, y]) => [x, y + sd * 3]), 1, '#0c1e12', 0.7); });
       // breath: water vapour leaving the pore, lit from the left
       for (let i = 0; i < 7; i++) { const x0 = C[0] + lerp(-300, 300, i / 6) + R(-20, 20), pts = []; for (let q = 0; q <= 16; q++) { const t = q / 16; pts.push([x0 + Math.sin(t * 5 + i) * 26 + t * 60, C[1] - t * 260 - 20]); } k.ink(pts, R(6, 14), '#ffffff', 0.08); k.ink(pts, 1.4, '#ffffff', 0.18); }
-      // a bacterium swimming in, flagella whipping behind it
-      { const bx = 1180, by = 360, a = Math.atan2(C[1] - by, C[0] - bx), rod = [[bx - Math.cos(a) * 34, by - Math.sin(a) * 34], [bx + Math.cos(a) * 34, by + Math.sin(a) * 34]]; k.line([rod[0][0] + 10, rod[0][1] + 14], [rod[1][0] + 10, rod[1][1] + 14], 24, '#061004', 0.25); k.line(rod[0], rod[1], 24, '#5a2a78'); k.line(rod[0], rod[1], 20, '#a458d0'); k.line([rod[0][0] - 3, rod[0][1] - 4], [rod[1][0] - 3, rod[1][1] - 4], 5, '#f0d0ff', 0.6); k.stip(L.ribbon([rod[0], rod[1]], 9, 9), 40, '#5a2a78', 0.4, 1.4);
-        for (let f = 0; f < 4; f++) { const pts = []; for (let q = 0; q <= 30; q++) { const t = q / 30, d = 34 + t * 150; pts.push([bx - Math.cos(a) * d + Math.sin(a) * Math.sin(t * 12 + f) * 12 * (0.4 + t) + (f - 1.5) * 5, by - Math.sin(a) * d - Math.cos(a) * Math.sin(t * 12 + f) * 12 * (0.4 + t)]); } k.ink(pts, 1.2, '#7a3aa0', 0.8); } }
+      // (the bacterium swims: it is drawn by the live layer)
       // wax on the cuticle: tiny platelets everywhere
       { const w = []; for (let i = 0; i < 2600; i++) w.push([R(-20, 1620), R(-20, 1020), R(0.6, 1.6)]); k.dots(w, '#f4ffe8', 0.25); }
       L.blend(P, 'screen', () => k.rad(L.rect(-40, -40, 1640, 1040), 200, 120, 900, '#fff8d8', 0.08, '#fff8d8', 0));
     }
+    ,
+    /* ================================ the stoma, alive ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.15 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph), { C, RX, RY, PORE } = ST, PCc = ST.pc.c;
+      // cytoplasm streaming round each guard cell: a slow river of granules
+      L.blend(Q, 'lighter', () => { for (let i = 0; i < 260; i++) { const sd = i % 2 ? 1 : -1, f = lerp(0.2, 0.95, H(i, 1)), u = cyc(16 + H(i, 2) * 8, H(i, 3)), th = Math.PI * (0.06 + 0.88 * u), p = ST.at(sd > 0 ? th : Math.PI - th, sd, f); if (Math.hypot(p[0] - PCc[0], p[1] - PCc[1]) < 120) continue; k.dot(p[0] + Math.sin(t * 3 + i) * 1.5, p[1] + Math.cos(t * 2.6 + i) * 1.5, 1 + H(i, 4) * 1.6, i % 5 ? '#e8ffd0' : '#ffe8b0', 0.35 + 0.3 * H(i, 5)); } });
+      // breath: water vapour rising out of the pore in slow curls
+      for (let i = 0; i < 14; i++) { const u = cyc(5 + H(i, 6) * 2, H(i, 7)), x0 = C[0] + lerp(-320, 320, H(i, 8)), x = x0 + Math.sin(u * 5 + i) * 26 + u * 60, y = C[1] - 20 - u * 300, r = 10 + u * 34, al = Math.min(1, u * 6) * (1 - u); L.blend(Q, 'lighter', () => k.rad(L.blob(x, y, r, 12, 0.25, () => H(i, 9), 0.8), x, y, r, '#ffffff', 0.12 * al, '#ffffff', 0)); }
+      // a bacterium swimming in circles over the guard cell, flagella whipping behind it
+      { const th = TAU * cyc(57 / 3), bx = 1160 + Math.cos(th) * 180, by = 300 + Math.sin(th) * 110, a = Math.atan2(Math.cos(th) * 110, -Math.sin(th) * 180), rod = [[bx - Math.cos(a) * 34, by - Math.sin(a) * 34], [bx + Math.cos(a) * 34, by + Math.sin(a) * 34]];
+        k.line([rod[0][0] + 10, rod[0][1] + 14], [rod[1][0] + 10, rod[1][1] + 14], 24, '#061004', 0.25); k.line(rod[0], rod[1], 24, '#5a2a78'); k.line(rod[0], rod[1], 20, '#a458d0'); k.line([rod[0][0] - 3, rod[0][1] - 4], [rod[1][0] - 3, rod[1][1] - 4], 5, '#f0d0ff', 0.6);
+        for (let f = 0; f < 4; f++) { const pts = []; for (let q = 0; q <= 30; q++) { const tt = q / 30, d = 34 + tt * 150, w = Math.sin(tt * 12 + f - t * 18) * 12 * (0.4 + tt); pts.push([bx - Math.cos(a) * d + Math.sin(a) * w + (f - 1.5) * 5 * Math.sin(a), by - Math.sin(a) * d - Math.cos(a) * w - (f - 1.5) * 5 * Math.cos(a)]); } k.ink(pts, 1.2, '#7a3aa0', 0.8); } }
+      // the pore's lips catch the light as the cells swell and ease
+      { const sw = osc(9); L.blend(Q, 'lighter', () => { const lip = []; for (let i = 0; i <= 40; i++) { const tt = Math.PI * (0.1 + 0.8 * i / 40); lip.push([C[0] - Math.cos(tt) * RX * 0.8, C[1] - Math.sin(tt) * RY * PORE - 6]); } k.ink(lip, 3, '#ffffff', 0.12 + 0.08 * sw); }); }
+    }]
   });
 })();

@@ -115,8 +115,6 @@
       { const dx = 598, dy = 604, c = MID; const body = P.sample([[dx - 18, dy - 2], [dx - 8, dy - 9], [dx + 10, dy - 9], [dx + 16, dy - 5], [dx + 14, dy + 4], [dx - 16, dy + 4]], true, 2); occl(body); k.ink(body.concat([body[0]]), 0.55, c); k.ink([[dx + 12, dy - 7], [dx + 17, dy - 20], [dx + 20, dy - 26]], 0.55, c); k.ink([[dx + 15, dy - 5], [dx + 20, dy - 18], [dx + 23, dy - 24]], 0.5, c); const hd = L.ell(dx + 24, dy - 27, 5, 3.2, 12, 0.35); occl(hd); k.ink(hd.concat([hd[0]]), 0.55, c); k.dot(dx + 25, dy - 28, 0.6, c); k.fill([[dx + 20, dy - 30], [dx + 17, dy - 35], [dx + 21, dy - 32]], c, 0.8); [[-13, 1], [-9, -1], [9, 1], [13, -1]].forEach(([lx, s]) => k.ink([[dx + lx, dy + 3], [dx + lx + s, dy + 12], [dx + lx, dy + 20]], 0.45, c)); [[-1], [1]].forEach(([s]) => k.ink([[dx + 23, dy - 30], [dx + 22 + s * 4, dy - 38], [dx + 20 + s * 8, dy - 42], [dx + 24 + s * 6, dy - 45]], 0.4, c)); k.line([dx - 18, dy - 1], [dx - 22, dy - 4], 0.5, c); k.hatch(body, 70, 1.6, c, 0.35, 0.25); }
       // a rabbit, a pair of butterflies, birds crossing towards the margin
       { const rx = 870, ry = 652; k.fill(L.ell(rx, ry, 6, 4.6, 12), PAPER); k.ink(L.ell(rx, ry, 6, 4.6, 12), 0.5, MID); k.fill(L.ell(rx + 5, ry - 5, 3, 2.6, 10), PAPER); k.ink(L.ell(rx + 5, ry - 5, 3, 2.6, 10), 0.5, MID); k.ink([[rx + 4, ry - 7], [rx + 3, ry - 15], [rx + 5, ry - 8]], 0.4, MID); k.ink([[rx + 6, ry - 7], [rx + 7, ry - 14], [rx + 7.5, ry - 7]], 0.4, MID); k.dot(rx - 6, ry - 1, 1.3, PAPER); k.circle(rx - 6, ry - 1, 1.3, 0.3, MID); }
-      [[440, 690], [456, 676]].forEach(([x, y]) => { k.ink([[x, y], [x - 5, y - 5], [x - 6, y + 1], [x, y]], 0.4); k.ink([[x, y], [x + 5, y - 5], [x + 6, y + 1], [x, y]], 0.4); });
-      [[520, 250], [540, 262], [556, 246], [700, 214], [1180, 280], [1196, 292]].forEach(([x, y]) => { k.curve([[x - 5, y], [x - 2, y - 3], [x, y]], 0.6); k.curve([[x, y], [x + 2, y - 3], [x + 5, y]], 0.6); });
       // the great oak on the left: an owl in its hollow, the artist under it
       { const T = trunk(210, 932, 150, 104, 48, { bark: 'oak', w: 1.6, lean: -22, wig: 4, wash: 0.22, gap: 2.4, moss: true, hg: 1.4, ha: 1.3 });
         [[-44, -100], [34, 78], [-10, -40], [48, 120], [-30, -64]].forEach(([dx, ex]) => { const p0 = [210 + dx, 910], p2 = [210 + ex, 948 + R(0, 10)]; branch([p0, [lerp(p0[0], p2[0], 0.5), 934], p2], 16, 3); });
@@ -182,5 +180,31 @@
       const k = L.kit(P, INK, { rough: 0.45 });
       (LEAF._arrows || []).forEach(([a, b, c]) => { k.curve([a, [(a[0] + b[0]) / 2 + (b[1] - a[1]) * 0.15, (a[1] + b[1]) / 2 - (b[0] - a[0]) * 0.15], b], 0.6, c, 0.75); const d = Math.atan2(b[1] - a[1], b[0] - a[0]); [0.5, -0.5].forEach(o => k.line(b, [b[0] - Math.cos(d + o) * 8, b[1] - Math.sin(d + o) * 8], 0.6, c, 0.75)); });
     }
+    ,
+    /* ================================ the page, alive: the pen keeps drawing what moves ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, INK, { rough: 0.35 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph);
+      const RN = [-0.83, 0.56], rays = [[-218, 54], [-118, 30], [-295, 38], [-41, 26], [-372, 24]];
+      // motes turning in the five shafts of light
+      for (let i = 0; i < 90; i++) { const [c, w] = rays[i % 5], u = cyc(18 + H(i, 1) * 14, H(i, 2)), y = lerp(140, 900, u), x = (y * RN[1] - (c + (H(i, 3) - 0.5) * w * 1.4)) / -RN[0] + Math.sin(u * 20 + i) * 4; if (x > 1140) continue; k.dot(x, y, 0.5 + H(i, 4) * 0.8, '#fffaf0', 0.8 * Math.sin(u * Math.PI)); k.dot(x + 0.6, y + 0.6, 0.4, MID, 0.25 * Math.sin(u * Math.PI)); }
+      // the shafts themselves breathe as the canopy moves
+      L.blend(Q, 'screen', () => rays.forEach(([c, w], i) => { const a = 0.05 + 0.05 * osc(5 + i, i * 0.3), y0 = 120, y1 = 900, x0a = (y0 * RN[1] - c + w * 0.5) / -RN[0], x0b = (y0 * RN[1] - c - w * 0.5) / -RN[0], x1a = (y1 * RN[1] - c + w * 0.5) / -RN[0], x1b = (y1 * RN[1] - c - w * 0.5) / -RN[0]; k.lin([[x0a, y0], [x0b, y0], [Math.min(x1b, 1140), y1], [Math.min(x1a, 1140), y1]], '#fffaf0', 0, '#fffaf0', a, 0, y0, 0, 500); }));
+      // leaves letting go, see-sawing down
+      for (let i = 0; i < 12; i++) { const u = cyc(7 + H(i, 5) * 5, H(i, 6)), x0 = 150 + H(i, 7) * 950, x = x0 + Math.sin(u * TAU * 2 + i) * 22 + u * 40, y = 150 + u * 700, a = Math.sin(u * TAU * 2 + i) * 1.1, e = L.ell(x, y, 4.6, 2, 10, a); if (x > 1130) continue; k.fill(e, PAPER, 0.95 * Math.min(1, (1 - u) * 5)); k.ink(e.concat([e[0]]), 0.5, INK, 0.8 * Math.min(1, (1 - u) * 5)); k.line([x - Math.cos(a) * 4, y - Math.sin(a) * 4], [x + Math.cos(a) * 4, y + Math.sin(a) * 4], 0.3, INK, 0.6); }
+      // birds crossing towards the margin
+      { const u = cyc(57 / 3, 0.3), fx = lerp(-60, 1250, u), fy = 260 - u * 80; [[0, 0], [-16, -10], [-22, 8], [-40, -4]].forEach(([dx, dy], i) => { const x = fx + dx, y = fy + dy + Math.sin(u * 30 + i) * 2, w = osc(0.6, i * 0.21) * 3; if (x > 1150) return; k.curve([[x - 5, y - w * 0.3], [x - 2, y - 3 - w], [x, y]], 0.6); k.curve([[x, y], [x + 2, y - 3 - w], [x + 5, y - w * 0.3]], 0.6); }); }
+      // two butterflies dancing round each other over the clearing
+      [0, 1].forEach(j => { const th = TAU * cyc(9, j * 0.37), x = 470 + Math.cos(th) * 60 + Math.sin(th * 3) * 18 + j * 14, y = 660 + Math.sin(th * 2) * 26 - j * 10, f = Math.abs(osc(0.22, j * 0.3)), s = 5 * (0.35 + 0.65 * f); k.ink([[x, y], [x - s, y - 5], [x - s * 1.2, y + 1], [x, y]], 0.45); k.ink([[x, y], [x + s, y - 5], [x + s * 1.2, y + 1], [x, y]], 0.45); k.line([x, y - 2], [x, y + 2], 0.6); });
+      // the rabbit: nose going, ears turning, now and then a hop
+      { const hop = Math.max(0, Math.sin(Math.min(1, cyc(5.7) * 5) * Math.PI)), rx = 870 + Math.floor(L.cyc(t, 57) * 12) % 2 * 0, ry = 652 - hop * 8, e = osc(1.9) * 1.5;
+        k.fill(L.ell(rx, ry, 6, 4.6, 12), PAPER); k.ink(L.ell(rx, ry, 6, 4.6, 12), 0.5, MID); k.fill(L.ell(rx + 5, ry - 5, 3, 2.6, 10), PAPER); k.ink(L.ell(rx + 5, ry - 5, 3, 2.6, 10), 0.5, MID);
+        k.ink([[rx + 4, ry - 7], [rx + 3 + e, ry - 15], [rx + 5, ry - 8]], 0.4, MID); k.ink([[rx + 6, ry - 7], [rx + 7 - e * 0.6, ry - 14], [rx + 7.5, ry - 7]], 0.4, MID); k.dot(rx + 7.6 + (cyc(0.3) < 0.5 ? 0.3 : 0), ry - 5, 0.5, INK); k.dot(rx - 6, ry - 1, 1.3, PAPER); k.circle(rx - 6, ry - 1, 1.3, 0.3, MID); if (hop > 0.1) k.ink([[rx - 4, ry + 4], [rx - 8, ry + 6 + hop * 2]], 0.4, MID); }
+      // the stream running under the footbridge
+      { const cl = [[90, 752], [220, 764], [360, 796], [500, 826], [620, 843], [760, 848], [900, 862], [1030, 873], [1165, 878]], seg = [], acc = [0]; for (let i = 0; i + 1 < cl.length; i++) { seg.push([cl[i], cl[i + 1]]); acc.push(acc[i] + Math.hypot(cl[i + 1][0] - cl[i][0], cl[i + 1][1] - cl[i][1])); } const tot = acc[acc.length - 1], at = d => { let i = 0; while (i < seg.length - 1 && acc[i + 1] < d) i++; const [a, b] = seg[i], f = (d - acc[i]) / (acc[i + 1] - acc[i]); return [lerp(a[0], b[0], f), lerp(a[1], b[1], f)]; };
+        for (let i = 0; i < 46; i++) { const d = cyc(57 / 4, H(i, 8)) * tot, p = at(d), w = (8 + (p[1] - 750) * 0.14) * (H(i, 9) - 0.5) * 1.4, l = 4 + H(i, 10) * 6; if (p[0] > 550 && p[0] < 720) continue; k.line([p[0] - l, p[1] + w], [p[0] + l, p[1] + w + 0.3], 0.4, MID, 0.55 * Math.sin(d / tot * Math.PI * 40 % Math.PI + 0.3)); } }
+      // the owl blinks; the woodpecker works
+      { const ow = [222, 472]; if (cyc(4.2) < 0.06 || (cyc(4.2) > 0.12 && cyc(4.2) < 0.16)) [[-3.6, -1], [3.6, -1]].forEach(([ex, ey]) => { k.fill(L.ell(ow[0] + ex, ow[1] + ey, 3.5, 3.5, 12), '#7a6a58'); k.line([ow[0] + ex - 3, ow[1] + ey], [ow[0] + ex + 3, ow[1] + ey], 0.4, INK); }); }
+      { const wp = [1052, 360], hit = cyc(0.5) < 0.25 && cyc(4) < 0.45; if (hit) { k.line([wp[0] - 10, wp[1] - 13], [wp[0] - 14, wp[1] - 16], 0.4, INK, 0.8); k.line([wp[0] - 10, wp[1] - 7], [wp[0] - 15, wp[1] - 6], 0.4, INK, 0.8); for (let q = 0; q < 3; q++) k.dot(wp[0] - 9 - H(Math.floor(t * 8), q) * 8, wp[1] - 8 + H(Math.floor(t * 8), q + 5) * 10, 0.6, INK, 0.7); } }
+    }]
   });
 })();

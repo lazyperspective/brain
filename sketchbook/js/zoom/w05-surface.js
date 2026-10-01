@@ -15,6 +15,28 @@
     return { PC, PROT, cells, walls: J.edges, stomata };
   })();
 
+  /* a spider mite, legs like a harvestman's, picking its way on the spot */
+  const mite = (P, k, ph) => { const R = (a, b) => (a + b) / 2, shadowOf = (poly, dx, dy, a) => k.fill(poly.map(([x, y]) => [x + dx, y + dy]), '#050d08', a), mx = 1470, my = 590, ang = -2.4 + Math.sin(TAU * ph) * 0.03, T = (u, v) => [mx + Math.cos(ang) * u - Math.sin(ang) * v, my + Math.sin(ang) * u + Math.cos(ang) * v];
+        shadowOf(L.ell(...T(0, 0), 46, 32, 30, ang), 22, 30, 0.3);
+        [[30, 1], [14, 1], [-6, 1], [-22, 1]].forEach(([u], i) => [-1, 1].forEach(sd => { const g = Math.sin(TAU * ph + i * 1.6 + (sd > 0 ? Math.PI : 0)) * 7, b = T(u, sd * 22), kn = T(u + (i < 2 ? 20 : -14) + g * 0.5, sd * (58 + Math.max(0, g) * 0.6)), ft = T(u + (i < 2 ? 44 : -38) + g, sd * 72); k.ink([b, kn, ft], 2.2, '#8a2a14'); k.ink([b, kn, ft].map(([x, y]) => [x - 0.8, y - 0.8]), 0.7, '#ffb08a', 0.7); for (let h = 0; h < 3; h++) { const p = [lerp(kn[0], ft[0], h / 3), lerp(kn[1], ft[1], h / 3)]; k.line(p, [p[0] + 4 * Math.cos(h * 2 + i), p[1] - 4], 0.4, '#5a1a0a'); } }));
+        const body = L.ell(...T(0, 0), 46, 32, 36, ang); k.fill(body, '#e0582a'); k.rad(body, ...T(12, -12), 60, '#ffb070', 0.8, '#8a2a10', 0.6); [[-6, -12], [-10, 12], [10, 0]].forEach(([u, v]) => k.fill(L.ell(...T(u, v), 10, 7, 14, ang), '#5a2008', 0.55)); for (let i = 0; i < 16; i++) { const p = T(lerp(-40, 40, L.hash(i, 1)), lerp(-26, 26, L.hash(i, 2))); k.line(p, [p[0] + lerp(-9, 9, L.hash(i, 3)), p[1] - lerp(4, 12, L.hash(i, 4))], 0.5, '#fff0e0', 0.8); } k.outline(body, 1, '#4a1406'); [-1, 1].forEach(sd => k.dot(...T(34, sd * 14), 3, '#c01010')); L.blend(P, 'screen', () => k.fill(L.ell(...T(16, -14), 12, 5, 12, ang), '#ffffff', 0.45)); };
+  /* the tardigrade, which does not know it is being watched: paddling its eight stubby legs, breathing, looking about */
+  const tardigrade = (P, k, ph) => { const R = (a, b) => (a + b) / 2, shadowOf = (poly, dx, dy, a) => k.fill(poly.map(([x, y]) => [x + dx, y + dy]), '#050d08', a), tx = 300, ty = 790, ang = -0.12 + Math.sin(TAU * ph / 2) * 0.02, T = (u, v) => [tx + Math.cos(ang) * u - Math.sin(ang) * v, ty + Math.sin(ang) * u + Math.cos(ang) * v];
+        const hw = t => 84 * Math.pow(Math.max(0, Math.sin(Math.PI * t)), 0.42) * (1 + 0.05 * Math.cos(t * TAU * 5 - TAU * ph * 2)), body = [];
+        for (let i = 0; i <= 64; i++) { const t = i / 64; body.push(T(lerp(-195, 195, t), -hw(t))); } for (let i = 64; i >= 0; i--) { const t = i / 64; body.push(T(lerp(-195, 195, t), hw(t))); }
+        shadowOf(body, 24, 34, 0.35);
+        const leg = (u, sd, du, dv, j) => { du += Math.sin(TAU * ph + j * 1.3 + (sd > 0 ? Math.PI : 0)) * 14; dv += Math.cos(TAU * ph + j * 1.3 + (sd > 0 ? Math.PI : 0)) * 5; const t = (u + 195) / 390, b = T(u, sd * (hw(t) - 16)), e = T(u + du, sd * (hw(t) + dv)), d = Math.atan2(e[1] - b[1], e[0] - b[0]), m = [(b[0] + e[0]) / 2, (b[1] + e[1]) / 2], len = Math.hypot(e[0] - b[0], e[1] - b[1]), lg = L.ell(m[0], m[1], len * 0.62, 19, 24, d);
+          k.fill(lg.map(([x, y]) => [x + 12, y + 18]), '#061004', 0.25); k.fill(lg, '#eab88c'); k.rad(lg, m[0] - 6, m[1] - 8, len * 0.8, '#fff2de', 0.6, '#a8683a', 0.35); k.outline(lg, 1.1, '#7a4a28');
+          for (let c = -1.5; c <= 1.5; c++) { const dd = d + c * 0.3, tip = [e[0] + Math.cos(d) * 4, e[1] + Math.sin(d) * 4]; k.curve([tip, [tip[0] + Math.cos(dd) * 10, tip[1] + Math.sin(dd) * 10], [tip[0] + Math.cos(dd + 1.1 * sd) * 15, tip[1] + Math.sin(dd + 1.1 * sd) * 15]], 1.7, '#3a1a08'); } };
+        [[118, 10, 38], [40, 0, 42], [-40, -8, 40]].forEach(([u, du, dv], j) => [-1, 1].forEach(sd => leg(u, sd, du, dv, j))); [-1, 1].forEach(sd => leg(-170, sd, -44, 8, 3));
+        k.fill(body, '#f0c49c', 0.96); k.rad(body, ...T(-40, -44), 260, '#fff6e8', 0.85, '#a86a3c', 0.55);
+        const gut = []; for (let i = 0; i <= 40; i++) { const t = i / 40; gut.push(T(lerp(-150, 110, t), Math.sin(t * 8) * 10)); } const g = L.ribbon(gut, 30, 20); k.fill(g, '#9a6a3a', 0.4); k.stip(g, 120, '#5a3010', 0.45, 1.1);
+        const bulb = L.ell(...T(138, 0), 20, 16, 20, ang); k.fill(bulb, '#b8805a', 0.6); k.outline(bulb, 0.8, '#7a4a28', 0.8); [-1, 1].forEach(sd => k.line(T(192, sd * 2), T(146, sd * 7), 1, '#6a3a1a', 0.8));
+        for (let i = 1; i < 7; i++) { const t = i / 7, u = lerp(-195, 195, t), w = hw(t); k.curve([T(u + 5, -w + 3), T(u - 8, 0), T(u + 5, w - 3)], 1.3, '#b8784a', 0.5); }
+        for (let i = 0; i < 260; i++) { const p = T(lerp(-185, 185, L.hash(i, 5)), lerp(-80, 80, L.hash(i, 6))); if (!L.pip(body, p[0], p[1])) continue; k.dot(p[0], p[1], 1 + L.hash(i, 7) * 1.2, '#fff6ea', 0.4); k.dot(p[0] + 1, p[1] + 1.2, 0.8 + L.hash(i, 8) * 0.8, '#9a5a2a', 0.18); }
+        const mouth = L.ell(...T(194, 0), 9, 8 + Math.max(0, Math.sin(TAU * ph * 2)) * 2, 16, ang); k.fill(mouth, '#e0a070'); k.outline(mouth, 1, '#7a4a28'); k.fill(L.ell(...T(197, 0), 3.6, 3, 10, ang), '#3a1a08');
+        [-1, 1].forEach(sd => { k.fill(L.ell(...T(160, sd * 30), 5, 5.5, 12, ang), '#1a0a04'); k.dot(...T(158, sd * 30 - 2), 1.7, '#ffffff', 0.85); });
+        k.outline(body, 1.8, '#7a4a28'); L.blend(P, 'screen', () => { k.fill(L.ell(...T(-50, -48), 100, 14, 28, ang), '#ffffff', 0.32); k.fill(L.ell(...T(70, -44), 46, 9, 18, ang), '#ffffff', 0.4); }); };
   Z.world({
     name: 'The surface of the leaf', scale: '1 mm', seed: 9203, ink: K,
     portal: { cx: 800, cy: 520, w: 200, rot: -20, feather: 90 },
@@ -68,36 +90,31 @@
       // a colony of bacteria asleep in a groove, a few of them arranged, by accident, into a number
       { const col = [640, 930]; for (let q = 0; q < 70; q++) { const a = R(0, Math.PI), r = Math.sqrt(P.R()) * 60, c = [col[0] + Math.cos(q * 2.4) * r, col[1] + Math.sin(q * 2.4) * r * 0.55], rod = [[c[0] - Math.cos(a) * 9, c[1] - Math.sin(a) * 9], [c[0] + Math.cos(a) * 9, c[1] + Math.sin(a) * 9]]; k.line([rod[0][0] + 3, rod[0][1] + 4], [rod[1][0] + 3, rod[1][1] + 4], 6.4, '#050d08', 0.25); k.line(rod[0], rod[1], 6.4, '#3a1450', 0.6); k.line(rod[0], rod[1], 5, '#9a4ac8', 0.95); k.line([rod[0][0] - 1, rod[0][1] - 1.4], [rod[1][0] - 1, rod[1][1] - 1.4], 1.2, '#e8c0ff', 0.7); }
         const two = [[0, 0], [8, -6], [16, 0], [12, 10], [4, 20], [0, 28], [16, 28]], one = [[28, 4], [34, -2], [34, 12], [34, 28]]; two.concat(one).forEach(([dx, dy]) => { const c = [700 + dx * 1.3, 890 + dy * 1.3]; k.fill(L.ell(c[0], c[1], 4.4, 4.4, 12), '#b84a9a'); k.dot(c[0] - 1.2, c[1] - 1.2, 1.2, '#ffd0f0', 0.8); }); }
-      // a spider mite, legs like a harvestman's, on its way somewhere
-      { const mx = 1470, my = 590, ang = -2.4, T = (u, v) => [mx + Math.cos(ang) * u - Math.sin(ang) * v, my + Math.sin(ang) * u + Math.cos(ang) * v];
-        shadowOf(L.ell(...T(0, 0), 46, 32, 30, ang), 22, 30, 0.3);
-        [[30, 1], [14, 1], [-6, 1], [-22, 1]].forEach(([u], i) => [-1, 1].forEach(sd => { const b = T(u, sd * 22), kn = T(u + (i < 2 ? 20 : -14), sd * 58), ft = T(u + (i < 2 ? 44 : -38), sd * 72); k.ink([b, kn, ft], 2.2, '#8a2a14'); k.ink([b, kn, ft].map(([x, y]) => [x - 0.8, y - 0.8]), 0.7, '#ffb08a', 0.7); for (let h = 0; h < 3; h++) { const p = [lerp(kn[0], ft[0], h / 3), lerp(kn[1], ft[1], h / 3)]; k.line(p, [p[0] + R(-5, 5), p[1] + R(-5, 5)], 0.4, '#5a1a0a'); } }));
-        const body = L.ell(...T(0, 0), 46, 32, 36, ang); k.fill(body, '#e0582a'); k.rad(body, ...T(12, -12), 60, '#ffb070', 0.8, '#8a2a10', 0.6); [[-6, -12], [-10, 12], [10, 0]].forEach(([u, v]) => k.fill(L.ell(...T(u, v), 10, 7, 14, ang), '#5a2008', 0.55)); for (let i = 0; i < 16; i++) { const p = T(R(-40, 40), R(-26, 26)); k.line(p, [p[0] + R(-9, 9), p[1] - R(4, 12)], 0.5, '#fff0e0', 0.8); } k.outline(body, 1, '#4a1406'); [-1, 1].forEach(sd => k.dot(...T(34, sd * 14), 3, '#c01010')); L.blend(P, 'screen', () => k.fill(L.ell(...T(16, -14), 12, 5, 12, ang), '#ffffff', 0.45)); }
       // a water droplet: a lens that magnifies the jigsaw under it
       { const dc = [540, 170], rx = 130, ry = 86, drop = L.ell(dc[0], dc[1], rx, ry, 64); k.fill(drop.map(([x, y]) => [x + 10, y + 14]), '#050d08', 0.2); k.fill(drop, '#b8e8c8', 0.55);
         const M = p => [dc[0] + (p[0] - dc[0]) * 1.45, dc[1] + (p[1] - dc[1]) * 1.45], inE = ([x, y]) => ((x - dc[0]) / (rx * 0.94)) ** 2 + ((y - dc[1]) / (ry * 0.94)) ** 2 < 1;
         S.walls.forEach(e => { if (!e.some(p => Math.hypot(p[0] - dc[0], p[1] - dc[1]) < 150)) return; const pts = e.map(M); for (let i = 0; i + 1 < pts.length; i++) if (inE(pts[i]) && inE(pts[i + 1])) k.line(pts[i], pts[i + 1], 3.6, '#10261a', 0.6); });
         k.rad(drop, dc[0], dc[1], rx, '#ffffff', 0, '#1f5a3a', 0.5); k.outline(drop, 2.6, '#0f3a24', 0.6); k.outline(L.ell(dc[0], dc[1], rx - 6, ry - 6, 60), 1.2, '#f0fff4', 0.5); L.blend(P, 'screen', () => { k.fill(L.ell(dc[0] - rx * 0.4, dc[1] - ry * 0.45, rx * 0.28, ry * 0.12, 20, -0.35), '#ffffff', 0.75); k.fill(L.ell(dc[0] + rx * 0.45, dc[1] + ry * 0.4, rx * 0.12, ry * 0.06, 12, -0.35), '#ffffff', 0.5); }); }
-      // the tardigrade, which does not know it is being watched
-      { const tx = 300, ty = 790, ang = -0.12, T = (u, v) => [tx + Math.cos(ang) * u - Math.sin(ang) * v, ty + Math.sin(ang) * u + Math.cos(ang) * v];
-        const hw = t => 84 * Math.pow(Math.max(0, Math.sin(Math.PI * t)), 0.42) * (1 + 0.05 * Math.cos(t * TAU * 5)), body = [];
-        for (let i = 0; i <= 64; i++) { const t = i / 64; body.push(T(lerp(-195, 195, t), -hw(t))); } for (let i = 64; i >= 0; i--) { const t = i / 64; body.push(T(lerp(-195, 195, t), hw(t))); }
-        shadowOf(body, 24, 34, 0.35);
-        const leg = (u, sd, du, dv) => { const t = (u + 195) / 390, b = T(u, sd * (hw(t) - 16)), e = T(u + du, sd * (hw(t) + dv)), d = Math.atan2(e[1] - b[1], e[0] - b[0]), m = [(b[0] + e[0]) / 2, (b[1] + e[1]) / 2], len = Math.hypot(e[0] - b[0], e[1] - b[1]), lg = L.ell(m[0], m[1], len * 0.62, 19, 24, d);
-          k.fill(lg.map(([x, y]) => [x + 12, y + 18]), '#061004', 0.25); k.fill(lg, '#eab88c'); k.rad(lg, m[0] - 6, m[1] - 8, len * 0.8, '#fff2de', 0.6, '#a8683a', 0.35); k.outline(lg, 1.1, '#7a4a28');
-          for (let c = -1.5; c <= 1.5; c++) { const dd = d + c * 0.3, tip = [e[0] + Math.cos(d) * 4, e[1] + Math.sin(d) * 4]; k.curve([tip, [tip[0] + Math.cos(dd) * 10, tip[1] + Math.sin(dd) * 10], [tip[0] + Math.cos(dd + 1.1 * sd) * 15, tip[1] + Math.sin(dd + 1.1 * sd) * 15]], 1.7, '#3a1a08'); } };
-        [[118, 10, 38], [40, 0, 42], [-40, -8, 40]].forEach(([u, du, dv]) => [-1, 1].forEach(sd => leg(u, sd, du, dv))); [-1, 1].forEach(sd => leg(-170, sd, -44, 8));
-        k.fill(body, '#f0c49c', 0.96); k.rad(body, ...T(-40, -44), 260, '#fff6e8', 0.85, '#a86a3c', 0.55);
-        const gut = []; for (let i = 0; i <= 40; i++) { const t = i / 40; gut.push(T(lerp(-150, 110, t), Math.sin(t * 8) * 10)); } const g = L.ribbon(gut, 30, 20); k.fill(g, '#9a6a3a', 0.4); k.stip(g, 120, '#5a3010', 0.45, 1.1);
-        const bulb = L.ell(...T(138, 0), 20, 16, 20, ang); k.fill(bulb, '#b8805a', 0.6); k.outline(bulb, 0.8, '#7a4a28', 0.8); [-1, 1].forEach(sd => k.line(T(192, sd * 2), T(146, sd * 7), 1, '#6a3a1a', 0.8));
-        for (let i = 1; i < 7; i++) { const t = i / 7, u = lerp(-195, 195, t), w = hw(t); k.curve([T(u + 5, -w + 3), T(u - 8, 0), T(u + 5, w - 3)], 1.3, '#b8784a', 0.5); }
-        for (let i = 0; i < 260; i++) { const p = T(R(-185, 185), R(-80, 80)); if (!L.pip(body, p[0], p[1])) continue; k.dot(p[0], p[1], R(1, 2.2), '#fff6ea', 0.4); k.dot(p[0] + 1, p[1] + 1.2, R(0.8, 1.6), '#9a5a2a', 0.18); }
-        const mouth = L.ell(...T(194, 0), 9, 8, 16, ang); k.fill(mouth, '#e0a070'); k.outline(mouth, 1, '#7a4a28'); k.fill(L.ell(...T(197, 0), 3.6, 3, 10, ang), '#3a1a08');
-        [-1, 1].forEach(sd => { k.fill(L.ell(...T(160, sd * 30), 5, 5.5, 12, ang), '#1a0a04'); k.dot(...T(158, sd * 30 - 2), 1.7, '#ffffff', 0.85); });
-        k.outline(body, 1.8, '#7a4a28'); L.blend(P, 'screen', () => { k.fill(L.ell(...T(-50, -48), 100, 14, 28, ang), '#ffffff', 0.32); k.fill(L.ell(...T(70, -44), 46, 9, 18, ang), '#ffffff', 0.4); }); }
-
       // the light: low, from the upper left, raking across the relief
       L.blend(P, 'screen', () => k.rad(L.rect(-40, -40, 1640, 1040), 200, 120, 900, '#fff8d8', 0.08, '#fff8d8', 0));
     }
+    ,
+    /* ================================ the surface, alive ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.15 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph);
+      // every open stoma breathes out a thread of vapour
+      SURF.stomata.forEach((st, j) => { if (st.portal) return; const [x0, y0] = st.c; if (x0 < -80 || x0 > 1680 || y0 < -80 || y0 > 1080) return; for (let i = 0; i < 5; i++) { const u = cyc(3.4 + H(j, 1), i / 5), x = x0 + u * 70 + Math.sin(u * 8 + i + j) * 10, y = y0 - u * 110, r = 6 + u * 26; L.blend(Q, 'lighter', () => k.rad(L.ell(x, y, r, r * 0.7, 18), x, y, r, '#e8fff0', 0.16 * (1 - u) * Math.min(1, u * 5), '#e8fff0', 0)); } });
+      // the tardigrade paddles; the mite picks its feet up
+      tardigrade(Q, k, cyc(1.9)); mite(Q, k, cyc(1.1));
+      // bacteria leaving the colony, wriggling across the grooves
+      for (let i = 0; i < 9; i++) { const u = cyc(57 / 2, H(i, 2)), a0 = H(i, 3) * TAU, d = u * 520, x = 640 + Math.cos(a0) * d * 1.3 + Math.sin(u * 20 + i) * 10, y = 930 + Math.sin(a0) * d * 0.5 - u * 120, a = a0 + Math.sin(t * 6 + i) * 0.4; if (Math.hypot(x - 800, y - 520) < 170) continue; const al = Math.min(1, u * 8) * Math.min(1, (1 - u) * 8), r0 = [x - Math.cos(a) * 9, y - Math.sin(a) * 9], r1 = [x + Math.cos(a) * 9, y + Math.sin(a) * 9];
+        k.line(r0, r1, 7, '#7a2aa0', al); k.line(r0, r1, 5, '#c070f0', al); const fl = []; for (let q = 0; q <= 10; q++) { const tt = q / 10; fl.push([r0[0] - Math.cos(a) * tt * 26 + Math.sin(a) * Math.sin(tt * 9 - t * 25) * 4, r0[1] - Math.sin(a) * tt * 26 - Math.cos(a) * Math.sin(tt * 9 - t * 25) * 4]); } k.ink(fl, 0.6, '#9a4ac0', 0.8 * al); }
+      // the water droplet: light sliding round its rim
+      { const x = 540, y = 170, a = TAU * cyc(6); L.blend(Q, 'lighter', () => { k.glow(x + Math.cos(a) * 100, y + Math.sin(a) * 60, 14, '#ffffff', 0.35); k.fill(L.ell(x - 40 + osc(5) * 10, y - 40, 34, 8, 16, -0.2), '#ffffff', 0.12); }); }
+      // the fungal thread's tip pushing on, a bead of sap growing at it
+      { const p = [1268, 494], g = cyc(5.2); k.fill(L.ell(p[0], p[1] + g * 8, 5 + g * 3, 7 + g * 4, 14), '#f4f4ec', 0.9); k.outline(L.ell(p[0], p[1] + g * 8, 5 + g * 3, 7 + g * 4, 14), 0.6, '#8a9a8a', 0.8); }
+      // light, low and moving, as a cloud passes the sun
+      L.blend(Q, 'lighter', () => { const x = lerp(-400, 2000, cyc(57 / 2)); k.lin([[x - 300, -40], [x + 300, -40], [x + 100, 1040], [x - 500, 1040]], '#f0ffd0', 0, '#f0ffd0', 0.06, x - 300, 0, x, 0); });
+    }]
   });
 })();

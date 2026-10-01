@@ -75,5 +75,21 @@
       L.blend(P, 'screen', () => { k.fill(L.ell(x - r * 0.38, y - r * 0.45, r * 0.34, r * 0.16, 24, -0.7), '#ffffff', 0.35); k.fill(L.ell(x + r * 0.5, y + r * 0.5, r * 0.16, r * 0.06, 16, -0.7), '#b8ffd0', 0.25); const arc = []; for (let i = 0; i <= 20; i++) { const a = Math.PI * 0.15 + i / 20 * Math.PI * 0.6; arc.push([x + Math.cos(a) * r * 0.86, y + Math.sin(a) * r * 0.86]); } k.ink(arc, 3, '#6affb0', 0.35); });
       k.dot(x - r * 0.5, y - r * 0.55, 2.4, '#ffffff', 0.9);
     }
+    ,
+    /* ================================ the molecule, catching light ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.05 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph), sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+      const { A, W } = MOL, ring = []; A.forEach((a, i) => { if (a.el !== 'C' && a.el !== 'N') return; const d = Math.hypot(W[i][0] - C0[0], W[i][1] - C0[1]); if (d > 100 && d < 300) ring.push([W[i][0], W[i][1], Math.atan2(W[i][1] - C0[1], W[i][0] - C0[0])]); });
+      // water drifting past, tumbling
+      for (let i = 0; i < 14; i++) { const u = cyc(57 / (1 + (i % 2)), H(i, 1)), x = lerp(-100, 1700, u), y = 40 + H(i, 2) * 920 + osc(9 + H(i, 3) * 6, H(i, 4)) * 30, a = TAU * cyc(5 + H(i, 5) * 6, H(i, 6)), dm = W.reduce((m, q) => Math.min(m, Math.hypot(q[0] - x, q[1] - y)), 1e9), al = sm(50, 110, dm) * sm(300, 380, Math.hypot(x - C0[0], (y - C0[1]) * 1.4)); if (al <= 0) continue;
+        [-1, 1].forEach(sd => { const hx = x + Math.cos(a + sd * 0.91) * 17, hy = y + Math.sin(a + sd * 0.91) * 17; k.line([x, y], [hx, hy], 4, '#d8d8d0', al); k.fill(L.ell(hx, hy, 7, 7, 14), '#f4f4f0', al); k.rad(L.ell(hx, hy, 7, 7, 14), hx - 2, hy - 2, 8, '#ffffff', al, '#a8a8a0', al * 0.6); });
+        k.fill(L.ell(x, y, 12, 12, 18), '#d84a3a', al); k.rad(L.ell(x, y, 12, 12, 18), x - 4, y - 4, 14, '#ff9a8a', al, '#8a1a10', al * 0.7); }
+      // a photon arrives, the ring rings with it, and the energy is handed on to the next chlorophyll
+      { const u = cyc(4.2); if (u < 0.3) { const f = u / 0.3, x1 = lerp(-80, C0[0] - 260, f), y1 = lerp(-60, C0[1] - 200, f), pts = []; for (let q = 0; q <= 40; q++) { const tt = q / 40, x = lerp(x1 - 260, x1, tt), y = lerp(y1 - 200, y1, tt), w = Math.sin(tt * 26 - t * 40) * 9; pts.push([x - w * 0.6, y + w * 0.8]); } L.blend(Q, 'lighter', () => { k.ink(pts, 3, '#ff6040', 0.6); k.ink(pts, 1, '#fff0a0', 0.9); }); }
+        const on = sm(0.27, 0.36, u) * (1 - sm(0.78, 0.88, u)), ph = TAU * cyc(0.9); if (on > 0) L.blend(Q, 'lighter', () => { ring.forEach(([x, y, a]) => { let d = Math.abs(((a - ph) % TAU + TAU) % TAU); d = Math.min(d, TAU - d); const g = Math.exp(-d * d / 0.25) * on; if (g > 0.03) k.glow(x, y, 34, '#c8ff80', 0.55 * g); }); k.glow(C0[0], C0[1], 330, '#d0ff90', 0.1 * on); });
+        if (u > 0.8) { const f = (u - 0.8) / 0.2, x = lerp(C0[0] + 240, 1750, f), y = lerp(C0[1] - 40, C0[1] - 180, f); L.blend(Q, 'lighter', () => { k.glow(x, y, 40, '#c8ff80', 0.6 * (1 - f * 0.5)); k.glow(x, y, 10, '#ffffff', 0.8); }); } }
+      // bonds trembling: a faint shimmer that runs along the chain
+      L.blend(Q, 'lighter', () => A.forEach((a, i) => { if (a.el !== 'H') return; const s2 = 0.5 + 0.5 * osc(0.7 + H(i, 7) * 0.4, H(i, 8)); k.dot(W[i][0] - 3, W[i][1] - 3, 2.4, '#ffffff', 0.25 * s2); }));
+    }]
   });
 })();

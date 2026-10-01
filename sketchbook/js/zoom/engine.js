@@ -81,9 +81,8 @@
     const N = defs.length, q = opts.q ?? 1, beta = opts.beta ?? 1.5, D0 = q * beta, spd = opts.speed ?? 1.35, ease = opts.ease ?? 0.55;
     const P = defs.map(portalOf);
     const worlds = defs.map((d, k) => ({ d, k, P: P[k], L: Math.max(1, Math.ceil(Math.log2(1 / P[k].s) - 1e-6)), levels: [], queued: [], live: d.live || [] }));
-    /* from the level where the crossfade begins, a world's over-layer is kept on bitmaps of its own, so it can stay on top of the next
-       world and be taken away through a soft hole that opens from the middle of the portal and reaches its edges only at the very end */
-    worlds.forEach(w => { w.mx = Math.max(1, Math.floor(0.8 * Math.log2(1 / w.P.s) + 1e-9)); });
+    /* every level keeps a world's over-layer on bitmaps of its own, so it stays on top of the next world (and of that world's live
+       layer) and is taken away through a soft hole that opens from the middle of the portal and reaches its edges only at the very end */
     const HM = mk(320, 200), hmx = HM.getContext('2d'), hmi = hmx.createImageData(320, 200), HN = new Float32Array(320 * 200);
     { const h = (x, y) => { let v = Math.imul(x, 374761393) + Math.imul(y, 668265263) | 0; v = Math.imul(v ^ (v >>> 13), 1274126177); return ((v ^ (v >>> 16)) >>> 0) / 4294967296; }, vn = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), u = x - xi, v = y - yi, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v); return lerp(lerp(h(xi, yi), h(xi + 1, yi), su), lerp(h(xi, yi + 1), h(xi + 1, yi + 1), su), sv); };
       for (let j = 0; j < 200; j++) for (let i = 0; i < 320; i++) HN[j * 320 + i] = (vn(i / 22, j / 22) * 0.65 + vn(i / 9 + 50, j / 9) * 0.35) - 0.5; }
@@ -125,7 +124,7 @@
       for (let i = 0; i < w.geoU.length; i += 2500) { drawGeo(x, w.geoU, R, i, Math.min(w.geoU.length, i + 2500)); yield; }
       bake(x, [R[0], R[1]], D, fullF(worlds[(w.k + 1) % N]), w.P);
       let o = null;
-      if (w.geoO.length && m >= w.mx) { const b = w.bbO, Ro = [Math.max(R[0], b[0]), Math.max(R[1], b[1]), Math.min(R[2], b[2]), Math.min(R[3], b[3])];
+      if (w.geoO.length) { const b = w.bbO, Ro = [Math.max(R[0], b[0]), Math.max(R[1], b[1]), Math.min(R[2], b[2]), Math.min(R[3], b[3])];
         if (Ro[2] > Ro[0] && Ro[3] > Ro[1]) { // additive light gets a bitmap of its own, so it is added back rather than laid over
           const paint = geo => { if (!geo.length) return null; const oc = mk((Ro[2] - Ro[0]) * D, (Ro[3] - Ro[1]) * D), ox = oc.getContext('2d'); ox.setTransform(D, 0, 0, D, -Ro[0] * D, -Ro[1] * D); drawGeo(ox, geo, Ro); return oc; };
           o = { R: Ro, c: paint(w.geoO.filter(g => g.blend !== 'lighter')), add: paint(w.geoO.filter(g => g.blend === 'lighter')) }; } }
@@ -140,20 +139,20 @@
       E.ready = true; E.status = '';
     }
     const prep = prepare(), jobs = [];
-    E.need = k => { const w = worlds[((k % N) + N) % N]; if (!E.ready) return; for (let m = 1; m < w.L; m++) if (!w.levels[m] && !w.queued[m]) { w.queued[m] = true; jobs.push({ k: w.k, g: levelJob(w, m) }); } };
+    E.need = k => { const w = worlds[((k % N) + N) % N]; if (!E.ready) return; for (let m = 0; m < w.L; m++) if (!w.levels[m] && !w.queued[m]) { w.queued[m] = true; jobs.push({ k: w.k, g: levelJob(w, m) }); } };
     /* keep the sharp levels only for the worlds in view; the rest are dropped, with any work still queued for them */
     E.release = keep => { worlds.forEach(w => { if (!keep.includes(w.k)) { w.levels = []; w.queued = []; if (!keep.includes((w.k - 1 + N) % N)) w.fullF = null; } }); for (let i = jobs.length - 1; i >= 0; i--) if (!keep.includes(jobs[i].k)) jobs.splice(i, 1); };
     E.pump = (budget = 8) => { const t0 = performance.now(); while (performance.now() - t0 < budget) { if (!E.ready) { if (prep.next().done) continue; continue; } if (!jobs.length) return true; const j = jobs[0]; if (j.g.next().done) jobs.shift(); } return E.ready && !jobs.length; };
     E.finish = () => { while (!E.pump(1e9)); };
     /* timeline: equal time per doubling of zoom; each world lingers a little when it fills the page */
-    const dur = worlds.map(w => spd * Math.log2(1 / w.P.s)); E.total = dur.reduce((a, b) => a + b, 0); E.dur = dur;
+    const dur = worlds.map(w => spd * Math.log2(1 / w.P.s)); E.total = dur.reduce((a, b) => a + b, 0); E.dur = dur; SZ.lib.T = E.total;
     E.at = t => { let u = ((t % E.total) + E.total) % E.total, k = 0; while (u >= dur[k]) { u -= dur[k]; k++; } const v = u / dur[k]; return { k, f: v - ease * Math.sin(TAU * v) / TAU }; };
     /* draw one frame: world k, depth f ∈ [0,1) */
     E.draw = (ctx, k, f, outW, outH, t = 0, o = {}) => {
       const w = worlds[k], pp = w.P, qo = outW / W, Af = C.pow(pp.a, -f), Zm = C.abs(Af);
       ctx.setTransform(1, 0, 0, 1, 0, 0); if (!o.keep) ctx.clearRect(0, 0, outW, outH); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       let m = Math.max(0, Math.min(w.L - 1, Math.floor(Math.log2(Zm) + 1e-9))); while (m > 0 && !w.levels[m]) m--;
-      const lv = m === 0 ? { c: w.full, R: [0, 0], D: D0 } : w.levels[m];
+      const lv = w.levels[m] || { c: w.full, R: [0, 0], D: D0 };
       setX(ctx, C.sc(Af, qo / lv.D), C.sc(C.add(pp.c, C.mul(Af, C.sub([lv.R[0], lv.R[1]], pp.c))), qo)); ctx.drawImage(lv.c, 0, 0);
       const Aw = C.sc(Af, qo), Bw = C.sc(C.sub(pp.c, C.mul(Af, pp.c)), qo);
       if (w.live.length && !o.noLive) drawLive(ctx, w, t, Aw, Bw, 1);
@@ -161,7 +160,8 @@
       const Ai = C.mul(Aw, pp.a), Bi = C.add(Bw, C.mul(Aw, pp.o));
       if (al > 0) { // the next world arrives through its soft-edged image; its hard edge comes in only as that edge reaches the frame
         const hf = smooth(0.93, 1, f); setX(ctx, C.sc(Ai, 1 / D0), Bi); ctx.globalAlpha = al; ctx.drawImage(fullF(nx), 0, 0); if (hf > 0) { ctx.globalAlpha = hf; ctx.drawImage(nx.full, 0, 0); } ctx.globalAlpha = 1;
-        if (nx.live.length && !o.noLive) drawLive(ctx, nx, t, Ai, Bi, al); }
+      }
+      if (nx.live.length && !o.noLive) liveInPortal(ctx, nx, t, Ai, Bi, al, outW, outH);
       if (lv.o) { const Ao = C.sc(Af, qo / lv.D), Bo = C.sc(C.add(pp.c, C.mul(Af, C.sub([lv.o.R[0], lv.o.R[1]], pp.c))), qo);
         const hole = al > 0 ? holeMask(al) : null, lay = (img, mode) => { if (!img) return; if (al <= 0) { ctx.globalCompositeOperation = mode; setX(ctx, Ao, Bo); ctx.drawImage(img, 0, 0); ctx.globalCompositeOperation = 'source-over'; return; }
           if (!scratch || scratch.width !== outW || scratch.height !== outH) scratch = mk(outW, outH);
@@ -172,9 +172,26 @@
         lay(lv.o.c, 'source-over'); lay(lv.o.add, 'lighter'); }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     };
+    /* the live layer: everything in a world that moves, redrawn every frame on top of its baked bitmap */
+    const liveGeo = (w, t) => { const Q = new S.Page(9 + Math.floor(t * 6) % 3, { ink: w.d.ink || '#1a1410' }), cx = ctxOf(w); w.live.forEach(fn => fn(Q, t, cx)); return Q.ops.length ? compile(Q.ops) : null; };
     function drawLive(ctx, w, t, A, B, alpha) {
-      const Q = new S.Page(9 + Math.floor(t * 6) % 3, { ink: w.d.ink || '#1a1410' }), cx = ctxOf(w); w.live.forEach(fn => fn(Q, t, cx)); if (!Q.ops.length) return;
-      const geo = compile(Q.ops); ctx.save(); ctx.globalAlpha = alpha; setX(ctx, A, B); drawGeo(ctx, geo, null); ctx.restore();
+      const geo = liveGeo(w, t); if (!geo) return; ctx.save(); ctx.globalAlpha = alpha; setX(ctx, A, B); drawGeo(ctx, geo, null); ctx.restore();
+    }
+    /* the next world keeps moving while it is still only a picture inside the portal: its live layer is drawn through a mask that
+       fades exactly where the portal's feathered edge fades, and opens to the whole frame as the crossfade completes */
+    const LS = {}, scr = (n, w, h) => { let c = LS[n]; if (!c || c.width !== w || c.height !== h) c = LS[n] = mk(w, h); const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, w, h); return [c, x]; };
+    const lmask = w => w.lmask || (w.lmask = (() => { const c = mk(320, 200), x = c.getContext('2d'), im = x.createImageData(320, 200), fu = Math.max(0.004, w.parentFeather / W), fv = Math.max(0.006, w.parentFeather / H);
+      for (let j = 0; j < 200; j++) for (let i = 0; i < 320; i++) { const u = (i + 0.5) / 320, v = (j + 0.5) / 200, o = (j * 320 + i) * 4; im.data[o + 3] = Math.round(255 * smooth(0, fu, Math.min(u, 1 - u)) * smooth(0, fv, Math.min(v, 1 - v))); }
+      x.putImageData(im, 0, 0); return c; })());
+    function liveInPortal(ctx, w, t, A, B, al, outW, outH) {
+      const an = smooth(0.08, 0.22, C.abs(A) * W / outW); if (an <= 0) return;
+      const geo = liveGeo(w, t); if (!geo) return;
+      const [mc, mx] = scr('mask', outW, outH); if (al > 0) { mx.fillStyle = 'rgba(0,0,0,' + al + ')'; mx.fillRect(0, 0, outW, outH); }
+      mx.globalCompositeOperation = 'lighter'; mx.globalAlpha = 1 - al; setX(mx, C.sc(A, W / 320), B); mx.drawImage(lmask(w), 0, 0);
+      [['source-over', geo.filter(g => g.blend !== 'lighter')], ['lighter', geo.filter(g => g.blend === 'lighter')]].forEach(([mode, list]) => { if (!list.length) return;
+        const [c, x] = scr('live-' + mode, outW, outH); x.imageSmoothingEnabled = true; setX(x, A, B); drawGeo(x, list, null);
+        x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in'; x.drawImage(mc, 0, 0);
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = an; ctx.globalCompositeOperation = mode; ctx.drawImage(c, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; });
     }
     /* how far the visible region ever strays outside a world's sheet, in world units (0 = never) */
     E.coverage = () => worlds.map(w => { const { a, c } = w.P; let worst = 0; for (let i = 0; i <= 200; i++) { const f = i / 200, Af = C.pow(a, f); for (const u of [[0, 0], [W, 0], [W, H], [0, H]]) { const z = C.add(c, C.mul(Af, C.sub(u, c))); worst = Math.max(worst, -z[0], z[0] - W, -z[1], z[1] - H); } } return Math.round(worst * 10) / 10; });

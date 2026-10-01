@@ -70,5 +70,31 @@
       k.text('H2O > O2', 190, 590, 8, '#a02020', { align: 'center', a: 0.6 });
       L.blend(P, 'multiply', () => k.rad(L.rect(-40, -40, 1640, 1040), 800, 500, 1100, '#ffffff', 0, '#9a8aa0', 0.35));
     }
+    ,
+    /* ================================ the membrane at work ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.1 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph), PC = MB.PC, far = (x, y, d = 70) => Math.hypot(x - PC[0], y - PC[1]) > d;
+      const proton = (x, y, a = 1) => { k.fill(L.ell(x, y, 5, 5, 12), '#e83a3a', a); k.line([x - 2.6, y], [x + 2.6, y], 0.8, '#ffffff', a); k.line([x, y - 2.6], [x, y + 2.6], 0.8, '#ffffff', a); };
+      // light arriving: photons as wavering lines, and the antenna they hit flashes
+      [[760, 0], [1500, 0], [760, 1], [1520, 1]].forEach(([x0, m], i) => { const u = cyc(2.6 + i * 0.4, H(i, 1)), y1 = m ? LM[1] - 40 : UM[0] + 40, ys = m ? 1060 : -60, yt = lerp(ys, y1, Math.min(1, u * 1.6)), pts = []; for (let q = 0; q <= 30; q++) { const tt = q / 30, y = lerp(yt + (m ? 1 : -1) * 160, yt, tt); pts.push([x0 - 140 + (y - ys) * 0.2 + Math.sin(tt * 18 - t * 30) * 5, y]); }
+        if (u < 0.62) L.blend(Q, 'lighter', () => k.ink(pts, 1.6, '#fff070', 0.7)); else { const f = 1 - (u - 0.62) / 0.38; L.blend(Q, 'lighter', () => k.glow(x0, m ? (LM[0] + LM[1]) / 2 : (UM[0] + UM[1]) / 2, 70, '#d0ff70', 0.5 * f)); } });
+      // an electron passed hand to hand along the chain: PSII, plastoquinone, cytochrome b6f, plastocyanin, PSI, ferredoxin
+      { const path = [[210, 385], [330, 432], [560, 432], [640, 400], [660, 500], [900, 500], [960, 400], [990, 250], [1060, 200]], seg = []; let tot = 0; for (let i = 0; i + 1 < path.length; i++) { const l = Math.hypot(path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1]); seg.push([path[i], path[i + 1], tot, l]); tot += l; }
+        for (let e = 0; e < 3; e++) { const d = cyc(4.5, e / 3) * tot, sg = seg.find(s2 => d >= s2[2] && d <= s2[2] + s2[3]) || seg[seg.length - 1], f = (d - sg[2]) / sg[3], x = lerp(sg[0][0], sg[1][0], f), y = lerp(sg[0][1], sg[1][1], f); L.blend(Q, 'lighter', () => { k.glow(x, y, 16, '#80d0ff', 0.7); k.dot(x, y, 2.4, '#ffffff', 1); }); } }
+      // plastoquinone shuttling through the oily middle of each membrane
+      for (let i = 0; i < 8; i++) { const m = i % 2, M0 = m ? LM : UM, u = cyc(6 + H(i, 2) * 4, H(i, 3)), x = m ? lerp(1020, 1330, 0.5 + 0.5 * Math.sin(u * TAU)) : lerp(260, 640, 0.5 + 0.5 * Math.sin(u * TAU)), y = (M0[0] + M0[1]) / 2 + Math.sin(u * TAU * 3 + i) * 22; if (!far(x, y)) continue; k.fill(L.rect(x - 4, y - 4, x + 4, y + 4), '#e8c030'); k.outline(L.rect(x - 4, y - 4, x + 4, y + 4), 0.5, '#6a5a10'); k.ink([[x + 4, y], [x + 9, y + Math.sin(t * 8 + i) * 3], [x + 16, y]], 0.6, '#8a7a30'); }
+      // water split at photosystem II: oxygen bubbling away, protons released into the lumen
+      for (let i = 0; i < 5; i++) { const u = cyc(3.2, i / 5), x = 200 + Math.sin(i * 2.3) * 60 + u * 90, y = 470 + u * 60 + Math.sin(u * 9 + i) * 8, al = Math.min(1, u * 5) * (1 - u); k.dot(x, y, 4.2, '#e04040', al); k.dot(x + 7, y - 1, 4.2, '#e04040', al); k.dot(x + 1.5, y - 1.5, 1.2, '#ffffff', 0.7 * al); }
+      // the proton gradient pouring through the two turbines
+      [[1300, 0], [560, 1]].forEach(([x0, m], j) => { const M0 = m ? LM : UM, dir = m ? 1 : -1, yL = 500, yS = m ? 760 : 240;
+        for (let i = 0; i < 14; i++) { const u = cyc(3.6, i / 14 + j * 0.05), y = u < 0.45 ? yL : lerp(yL, yS, (u - 0.45) / 0.55), x = u < 0.45 ? lerp(x0 + (j ? 260 : -300) * (H(i, 4) - 0.2), x0, u / 0.45) : x0 + Math.sin(u * 30 + i) * 5, al = Math.min(1, u * 8) * Math.min(1, (1 - u) * 6); proton(x, y, al); }
+        // the c-ring turning: light running round the barrel
+        for (let q = 0; q < 14; q++) { const ph = (cyc(1.2) + q / 14) % 1, xx = x0 - 56 + 112 * (0.5 - 0.5 * Math.cos(ph * TAU)), sh = Math.sin(ph * TAU); if (sh < 0) continue; L.blend(Q, 'lighter', () => k.line([xx, M0[0] + 12], [xx, M0[1] - 12], 2 + 3 * sh, '#f0d8ff', 0.25 * sh)); }
+        // and the head handing out ATP
+        const hy = m ? 800 : 200; for (let i = 0; i < 4; i++) { const u = cyc(2.4, i / 4), a = H(i, 5 + j) * TAU, x = x0 + Math.cos(a) * (60 + u * 140), y = hy + Math.sin(a) * (50 + u * 90) + dir * u * 20, al = Math.min(1, u * 6) * (1 - u); k.fill(L.ell(x, y, 7, 5, 12), '#f0a030', al); k.dot(x + 6, y, 2.6, '#e05030', al); k.dot(x + 10, y + 1, 2.2, '#e05030', al); k.dot(x + 13.5, y + 2, 2, '#e05030', al); } });
+      // plastocyanin ferrying across the lumen, ferredoxin and CO2 drifting in the stroma
+      for (let i = 0; i < 4; i++) { const u = cyc(5 + i, H(i, 9)), x = lerp(680, 920, 0.5 + 0.5 * Math.sin(u * TAU)), y = 500 + Math.sin(u * TAU * 2 + i) * 22; k.fill(L.blob(x, y, 14, 10, 0.2, () => H(i, 10)), '#5a8ad8'); k.dot(x - 3, y - 2, 2.6, '#40c0c0'); k.outline(L.blob(x, y, 14, 10, 0.2, () => H(i, 10)), 0.6, '#2a4a8a'); }
+      for (let i = 0; i < 22; i++) { const top = i % 2 === 0, x = lerp(-50, 1650, cyc(1700 / (10 + H(i, 12) * 14), H(i, 11))), y = (top ? 30 + H(i, 13) * 250 : 720 + H(i, 13) * 250) + osc(3 + H(i, 14) * 2, H(i, 15)) * 14, a = t * (1 + H(i, 16)); if (!far(x, y, 80)) continue; [-1, 1].forEach(sd => k.dot(x + Math.cos(a) * 6 * sd, y + Math.sin(a) * 6 * sd, 3.4, '#e04040')); k.dot(x, y, 3.8, '#3a3a3a'); }
+    }]
   });
 })();

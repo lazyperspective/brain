@@ -74,5 +74,21 @@
           M.proteins.forEach(pr => { const c = fc(pr.c), d = Math.hypot(c[0] - CH.P[0], c[1] - CH.P[1]); if (d > 160) return; const a = Math.max(0, Math.min(1, (160 - d) / 80)); k.fill(L.ell(c[0], c[1], pr.rx * s, pr.ry * s, 16), pr.col, 0.85 * a); k.outline(L.ell(c[0], c[1], pr.rx * s, pr.ry * s, 16), 0.5, '#1f3a1a', 0.7 * a); });
           M.stroma.forEach(m => { const c = fc(m.c), d = Math.hypot(c[0] - CH.P[0], c[1] - CH.P[1]); if (d > 130) return; const a = Math.max(0, Math.min(1, (130 - d) / 70)); k.dot(c[0], c[1], Math.max(0.6, m.r * s), m.col, 0.8 * a); }); } }
     }
+    ,
+    /* ================================ the chloroplast, alive ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.1 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph), PP = CH.P;
+      // the stroma jostles: molecules knocking about, fast and aimless
+      { const B = new Map(), put = (c, p) => (B.get(c) || B.set(c, []).get(c)).push(p), cols = ['#f4f0d8', '#e8e0a0', '#a8d8e8', '#f0c8a0', '#c8b8e8', '#ffffff'];
+        for (let i = 0; i < 900; i++) { const x0 = 180 + H(i, 1) * 1240, y0 = 140 + H(i, 2) * 720, x = x0 + osc(1.3 + H(i, 3) * 2, H(i, 4)) * 9 + osc(0.7 + H(i, 5), H(i, 6)) * 4, y = y0 + osc(1.1 + H(i, 7) * 2, H(i, 8)) * 9 + osc(0.6 + H(i, 9), H(i, 10)) * 4; if (!CH.inside(x, y, 20) || Math.hypot(x - PP[0], y - PP[1]) < 60) continue; put(cols[i % 6], [x, y, 0.6 + H(i, 11) * 0.8]); }
+        B.forEach((pts, c) => k.dots(pts, c, 0.85)); }
+      // ATP synthase turbines spinning along the lamella we are diving into
+      { const l = CH.lam[0]; for (let x = 190; x < 1420; x += 9) { const y0 = l.y(x); if (!CH.inside(x, y0, 40) || Math.hypot(x - PP[0], y0 - PP[1]) < 175 || Math.abs(x - PP[0]) > 520) continue; [-1, 1].forEach(sd => { const hd = [x, y0 + sd * (9 + 1.6 + 3.6)], a = TAU * cyc(0.6, H(x, sd + 3)); k.dot(hd[0] + Math.cos(a) * 1.1, hd[1] + Math.sin(a) * 0.9, 0.45, '#fff4c0', 1); }); } }
+      // oil droplets wobbling, the plastid DNA writhing
+      CH.globuli.forEach(([x, y, r], i) => { const w = osc(2 + H(i, 12), H(i, 13)) * 0.06; L.blend(Q, 'lighter', () => k.fill(L.ell(x - r * 0.3, y - r * 0.35, r * 0.3 * (1 + w), r * 0.18 * (1 - w), 10), '#ffffff', 0.25)); });
+      { let x = 858, y = 470, a = 0.4; const pts = []; for (let q = 0; q < 120; q++) { pts.push([x + osc(1.7, q / 40) * 1.5, y + osc(2.3, q / 30) * 1.5]); a += Math.sin(q * 0.7 + t * 2) * 0.5 + 0.05; x += Math.cos(a) * 1.3; y += Math.sin(a) * 1.3; if (Math.hypot(x - 858, y - 470) > 22) a += Math.PI * 0.6; } k.ink(pts, 0.35, '#3a5a2a', 0.7); }
+      // outside the envelope, the guard cell's cytoplasm streams past
+      L.blend(Q, 'lighter', () => { for (let i = 0; i < 160; i++) { const u = cyc(30 + H(i, 14) * 20, H(i, 15)), r = 1.06 + H(i, 16) * 0.5, th = TAU * u, x = CH.C[0] + Math.cos(th) * CH.RX * r, y = CH.C[1] + Math.sin(th) * CH.RY * r; if (x < -20 || x > 1620 || y < -20 || y > 1020) continue; k.dot(x, y, 1.2 + H(i, 17) * 1.8, '#f0ffd8', 0.3); } });
+    }]
   });
 })();

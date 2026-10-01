@@ -37,7 +37,7 @@ window.__zoomStart = function () {
   const OH = Math.round(OW / 1.6); cv.width = OW; cv.height = OH;
   const E = SketchZoom.engine({ q: OW / 1600, beta: +(qs.get('beta') || 1.5), speed: +(qs.get('speed') || 1.35) });
   window.ZOOM = E;
-  if (EXPORT) { document.getElementById('load').remove(); E.renderAt = (t, type = 'image/jpeg', qual = 0.93) => { E.frame(x, t, OW, OH, { sync: true }); return cv.toDataURL(type, qual); }; E.show = (k, f) => { E.need(k); E.need(k + 1); E.finish(); E.draw(x, k, f, OW, OH, 0); return cv.toDataURL('image/png'); }; return; }
+  if (EXPORT) { document.getElementById('load').remove(); E.renderAt = (t, type = 'image/jpeg', qual = 0.93) => { E.frame(x, t, OW, OH, { sync: true }); return cv.toDataURL(type, qual); }; E.show = (k, f, t = 0, type = 'image/png') => { E.need(k); E.need(k + 1); E.finish(); E.draw(x, k, f, OW, OH, t); return cv.toDataURL(type, 0.9); }; return; }
   let t0 = null, paused = false, tp = 0;
   addEventListener('keydown', e => { if (e.key === ' ') paused = !paused; });
   function tick(now) {

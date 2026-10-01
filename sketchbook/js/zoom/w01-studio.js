@@ -252,5 +252,33 @@
         [e1, e2].forEach(p => { k.dot(p[0], p[1], 3.4, '#2a2a2a'); k.dot(p[0], p[1], 1.2, '#c8c8c8'); }); k.line(e2, [hd[0] - 10, hd[1] - 20], 2.2, '#4a4a4a');
         const shade = L.rot([[hd[0] - 12, hd[1] - 24], [hd[0] + 8, hd[1] - 24], [hd[0] + 26, hd[1] + 10], [hd[0] - 30, hd[1] + 10]], hd[0], hd[1], -0.62); k.fill(shade, '#2f5a45'); k.lin(shade, '#8ad0a0', 0.5, '#2f5a45', 0, shade[0][0], shade[0][1], shade[2][0], shade[2][1]); k.outline(shade, 0.7); const mouth = L.ell((shade[2][0] + shade[3][0]) / 2, (shade[2][1] + shade[3][1]) / 2, 28, 6, 24, -0.62); k.fill(mouth, '#fff6d0'); k.outline(mouth, 0.5); k.glow(mouth[0][0] - 20, mouth[0][1] + 6, 60, '#fff0c0', 0.55); k.glow(mouth[0][0] - 20, mouth[0][1] + 10, 18, '#ffffff', 0.7); }
     }
+    ,
+    /* ================================ the studio, alive ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.1 }), H = L.hash, cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph), sc = z => FOC / z, glowA = (x, y, r, c, a) => L.blend(Q, 'lighter', () => k.glow(x, y, r, c, a));
+      // the night outside the window: stars, a plane blinking across, the city's lights coming and going
+      for (let i = 0; i < 16; i++) { const x = 1078 + H(i, 1) * 100, y = 274 + H(i, 2) * 120, tw = Math.max(0, osc(1.5 + H(i, 3) * 2.5, H(i, 4))); if (Math.hypot(x - 1103, y - 313) < 14) continue; L.blend(Q, 'lighter', () => k.dot(x, y, 0.4 + tw * 0.7, '#fff6dd', 0.3 + 0.6 * tw)); }
+      { const u = cyc(57 / 3), x = lerp(1060, 1200, u), y = 350 - u * 30; if (x > 1074 && x < 1182 && cyc(1.2) < 0.2) glowA(x, y, 3, '#ff5a5a', 0.9); }
+      for (let i = 0; i < 18; i++) { const x = 1080 + H(i, 5) * 98, y = 462 + H(i, 6) * 86, on = H(Math.floor(L.cyc(t, 57) * 40 + i * 3), 7) > 0.35; if (on) glowA(x, y, 1.6, '#ffd27a', 0.7); }
+      // the string of bulbs along the beam, breathing
+      { const X = -400 + 25.5; for (let i = 0; i <= 24; i += 2) { const Zz = 1000 + i * 36, p = pr(X + 4, YC + 40 + Math.sin(i * 0.9) * 6 + 10, Zz), b = 0.5 + 0.5 * osc(2.2 + H(i, 8) * 2, H(i, 9)), f = 1.2 - i / 30; glowA(p[0], p[1] + 2, (5 + 4 * b) * f, '#ffe29b', 0.2 + 0.35 * b); } }
+      // the pendant lamp hums; a moth has found it
+      { glowA(800, 236, 46, '#fff0c0', 0.08 + 0.04 * osc(0.37) + 0.03 * osc(0.11)); const th = TAU * cyc(2.9), r = 1 + 0.25 * Math.sin(th * 3), x = 800 + Math.cos(th) * 70 * r, y = 238 + Math.sin(th) * 22 * r + Math.sin(th * 5) * 6, f = Math.abs(osc(0.09)) * 5, sd = Math.cos(th) > 0 ? 1 : -1;
+        k.fill([[x, y], [x - 6, y - 2 - f], [x - 7, y + 3]], '#d8c8a8', 0.95); k.fill([[x, y], [x + 6, y - 2 - f], [x + 7, y + 3]], '#d8c8a8', 0.95); k.line([x - 2 * sd, y], [x + 3 * sd, y], 1.4, '#6a5a4a'); k.line([x + 3 * sd, y], [x + 6 * sd, y - 3], 0.3, '#6a5a4a'); k.fill(L.ell(x + 2, y + 12, 5, 1.4, 8), '#3a2a1a', 0.12); }
+      // dust turning in the lamplight
+      L.blend(Q, 'lighter', () => { for (let i = 0; i < 70; i++) { const u = cyc(14 + H(i, 10) * 10, H(i, 11)), x = 650 + H(i, 12) * 300 + Math.sin(u * TAU * 2 + i) * 18, y = 430 - u * 190 + Math.cos(u * TAU + i) * 10, a = Math.sin(u * Math.PI) * (0.5 + 0.5 * osc(1.3 + H(i, 13), H(i, 14))); k.dot(x, y, 0.5 + H(i, 15) * 0.9, '#fff6d8', 0.55 * a); } });
+      // the clock keeps the studio's time
+      { const cx0 = 552, cy0 = 522; const am = TAU * cyc(57 / 12) - Math.PI / 2, ah = TAU * cyc(57) - Math.PI / 2, as = TAU * cyc(57 / 60) - Math.PI / 2;
+        k.line([cx0 - Math.cos(ah) * 2, cy0 - Math.sin(ah) * 2], [cx0 + Math.cos(ah) * 9, cy0 + Math.sin(ah) * 9], 1.4, K); k.line([cx0 - Math.cos(am) * 3, cy0 - Math.sin(am) * 3], [cx0 + Math.cos(am) * 14, cy0 + Math.sin(am) * 14], 0.9, K); k.line([cx0 - Math.cos(as) * 4, cy0 - Math.sin(as) * 4], [cx0 + Math.cos(as) * 16, cy0 + Math.sin(as) * 16], 0.35, '#b8383f'); k.dot(cx0, cy0, 1.3, K); }
+      // the record turns; the music rises
+      { const c = pr(-615, 353, 1163), a = TAU * cyc(1.8); for (let r = 22; r < 48; r += 8) { const pts = []; for (let q = 0; q <= 8; q++) { const b = a + r * 0.05 + q * 0.09; pts.push(pr(-615 + r * Math.cos(b), 352.5, 1163 + r * Math.sin(b))); } L.blend(Q, 'lighter', () => k.ink(pts, 0.6, '#c8c8d8', 0.35)); }
+        const lb = pr(-615 + 9 * Math.cos(a * 1), 352, 1163 + 9 * Math.sin(a)); k.dot(lb[0], lb[1], 0.9, '#f3ead8');
+        for (let i = 0; i < 5; i++) { const u = cyc(4.5, i / 5), s2 = sc(1150), x = c[0] + 10 + u * 90 + Math.sin(u * 8 + i) * 8, y = c[1] - 22 - u * 120, al = Math.min(1, u * 6) * (1 - u); k.dot(x, y, 1.7 * s2, '#3a2a1a', al); k.line([x + 1.5 * s2, y], [x + 1.5 * s2, y - 11 * s2], 0.5, '#3a2a1a', al); if (i % 2) k.line([x + 1.5 * s2, y - 11 * s2], [x + 6 * s2, y - 8 * s2], 0.5, '#3a2a1a', al); } }
+      // the sleeper breathes out small z's
+      { const hp = pr(700, 262, 1726), s = sc(1726); for (let i = 0; i < 3; i++) { const u = cyc(3.6, i / 3), x = hp[0] - 4 * s - u * 36 * s + Math.sin(u * 6) * 3, y = hp[1] + 12 * s - u * 60 * s; k.text('Z', x, y, (4 + u * 5) * s, '#6a5a8a', { a: 0.8 * Math.min(1, u * 5) * (1 - u) }); }
+        const lift = (0.5 + 0.5 * osc(3.6)) * 2.4 * s; k.fill(L.ell(hp[0] - 2 * s, hp[1] + 14 * s, 3.4 * s, (2.2 + lift * 0.3) * s, 12), '#6a2a2a'); }
+      // the floor lamp by the sofa, a little uneven
+      glowA(1068, 592, 26, '#ffd890', 0.1 + 0.05 * osc(0.53) + 0.03 * osc(0.17));
+    }]
   });
 })();

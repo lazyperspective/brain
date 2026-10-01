@@ -15,13 +15,14 @@
   const DX = 0.52, DY = -0.36, GY = 640;
   /* the studio beyond the big window: its vanishing point and ceiling beams, shared with world 1 */
   Z.lib.studio = { vp: [800, 470], beams: [0, 400, 800, 1200, 1600] };
+  const LV = {};
 
   Z.world({
     name: 'The city at dusk', scale: '1 km', seed: 4101, ink: K,
     portal: { cx: 720, cy: 470, w: 200, rot: 0, feather: 4 },
     build(P, cx) {
       const k = L.kit(P, K, { rough: 0.35 }), R = (a, b) => P.r(a, b), pick = a => a[Math.floor(P.R() * a.length)], chance = p => P.R() < p;
-      const litWin = [], lamps = [];
+      const litWin = LV.lit = [], lamps = LV.lamps = [];
 
       /* ================================ sky ================================ */
       k.fill(L.rect(-20, -20, 1620, 1020), '#4a4468');
@@ -40,9 +41,6 @@
         const cres = L.rot(limb.concat(term.reverse()), mx, my, rm); k.fill(cres, '#fff4d8'); k.lin(cres, '#ffffff', 0.7, '#ffe6b0', 0, mx + 22, my + 12, mx, my);
         for (let i = 0; i < 22; i++) { const a = R(-1.3, 1.3) + rm, d = R(0.45, 0.93) * mr, px = mx + Math.cos(a) * d, py = my + Math.sin(a) * d; if (!L.pip(cres, px, py)) continue; const r = R(0.6, 3.4); k.fill(L.ell(px, py, r, r * 0.8, 10), '#d9cfb8', 0.65); if (r > 1.8) k.circle(px, py, r, 0.22, '#b8ab90', 0.6); }
         k.outline(L.ell(mx, my, mr, mr, 48), 0.5, '#fff6dd', 0.3); }
-      // an airliner drawing its own pink line across the sky
-      { const ax = 560, ay = 34; for (let i = 0; i < 28; i++) { const t = i / 28, t2 = (i + 1) / 28; k.line([lerp(360, ax - 6, t), lerp(54, ay + 1, t)], [lerp(360, ax - 6, t2), lerp(54, ay + 1, t2)], lerp(2.6, 0.7, t), '#f6c9c0', lerp(0.05, 0.55, t)); }
-        k.line([ax - 5, ay + 0.8], [ax + 5, ay - 0.8], 0.9, '#2a2440'); k.line([ax - 1.2, ay - 3.4], [ax + 1.2, ay + 3.4], 0.7, '#2a2440'); k.dot(ax - 1.2, ay - 3.6, 0.8, '#ff4a4a'); k.dot(ax + 1.2, ay + 3.6, 0.8, '#4aff7a'); k.glow(ax + 5, ay - 0.8, 5, '#ffffff', 0.8); }
       // clouds lit from below by a sun that has already gone
       const cloud = (x0, y0, len, th) => { const n = Math.max(3, Math.round(len / 36));
         for (let i = 0; i < n; i++) { const ccx = x0 + R(0.12, 0.88) * len, ccy = y0 + R(-0.5, 0.5) * th, rx = R(0.22, 0.55) * len, ry = R(0.2, 0.42) * th, ph = R(0, TAU);
@@ -50,15 +48,6 @@
           k.fill(e, L.mix('#6c5a8e', SKY1, R(0, 0.45)), R(0.55, 0.8)); k.lin(e, '#ffc9a0', 0.9, '#ffc9a0', 0, ccx, ccy + ry * 1.1, ccx, ccy - ry * 0.3);
           if (chance(0.7)) k.ink(e.slice(2, 19).map(([x, y]) => [x, y + 0.4]), 0.4, '#8a4a6a', 0.35); } };
       [[40, 150, 260, 16], [300, 178, 180, 10], [520, 128, 300, 18], [900, 160, 220, 12], [1180, 136, 260, 16], [1400, 178, 200, 10], [700, 198, 160, 8], [1050, 208, 150, 7], [150, 208, 140, 7]].forEach(c => cloud(...c));
-      // a hot-air balloon still catching the sun
-      { const bx = 1330, by = 110, env = P.sample([[bx, by - 34], [bx + 22, by - 24], [bx + 20, by], [bx + 8, by + 16], [bx - 8, by + 16], [bx - 20, by], [bx - 22, by - 24]], true, 2); k.fill(env, '#e0685a');
-        for (let s = -2; s <= 2; s++) { const pts = P.sample([[bx + s * 5, by - 34], [bx + s * 9.5, by - 14], [bx + s * 7, by + 4], [bx + s * 3, by + 16]], false, 2); if (s % 2 === 0) k.fill(L.ribbon(pts, 2.4), '#f2c14e', 0.9); k.ink(pts, 0.5, K, 0.7); }
-        k.lin(env, '#fff3c0', 0.6, '#e0685a', 0, bx + 20, by - 10, bx - 12, by); k.outline(env, 0.9);
-        [[-6, 16], [6, 16]].forEach(([dx, dy]) => k.line([bx + dx, by + dy], [bx + dx * 0.6, by + 26], 0.4)); const bk = L.rect(bx - 5, by + 26, bx + 5, by + 33); k.fill(bk, '#8a5a3a'); k.outline(bk, 0.6); k.glow(bx, by + 19, 8, '#ffcc66', 0.8); k.dot(bx - 2, by + 24.5, 1.3, '#2a2238'); k.dot(bx + 2.5, by + 24.8, 1.2, '#2a2238'); }
-      [[980, 70], [992, 76], [1004, 82], [968, 76], [956, 82], [944, 88], [932, 94]].forEach(([x, y]) => { k.curve([[x - 4, y], [x - 1.6, y - 2.2], [x, y]], 0.7, K); k.curve([[x, y], [x + 1.6, y - 2.2], [x + 4, y]], 0.7, K); });
-      // a very small rocket leaving (plate I)
-      { const sx = 1546, sy = 40, ro = 0.5, body = L.rot([[sx, sy - 7], [sx + 2.2, sy - 3], [sx + 2.2, sy + 4], [sx - 2.2, sy + 4], [sx - 2.2, sy - 3]], sx, sy, ro); k.fill(body, '#e8e4f0'); k.outline(body, 0.4); const fl = L.rot([[sx - 1.4, sy + 4], [sx + 1.4, sy + 4], [sx, sy + 11]], sx, sy, ro); k.fill(fl, '#ffb04a'); k.glow(sx - 3.5, sy + 8, 7, '#ffb04a', 0.8); for (let i = 1; i < 7; i++) k.dot(sx - 3.5 - i * 2.4, sy + 8 + i * 4.2, 1.6 - i * 0.18, '#e8e4f0', 0.4 - i * 0.05); }
-
       /* ================================ the far city ================================ */
       const HZ = '#6f6594';
       { let x = -20; while (x < 1620) { const w = R(18, 60), h = R(20, 80) * (chance(0.12) ? 1.7 : 1), y = 234, kind = P.R(), col = L.mix(HZ, SKY1, R(0, 0.35));
@@ -283,10 +272,6 @@
       const lampPost = (lx, ly, hgt = 52) => { k.line([lx, ly], [lx, ly - hgt], 1.3, '#2a2638'); k.fill(L.rect(lx - 1.8, ly - 3, lx + 1.8, ly), '#2a2638'); k.curve([[lx, ly - hgt], [lx + 3, ly - hgt - 6], [lx + 8, ly - hgt - 4]], 0.9, '#2a2638'); const lh = [[lx + 5, ly - hgt - 4], [lx + 11, ly - hgt - 4], [lx + 10, ly - hgt + 2], [lx + 6, ly - hgt + 2]]; k.fill(lh, '#ffe9a8'); k.outline(lh, 0.5); k.glow(lx + 8, ly - hgt, 18, '#ffd98a', 0.75); k.glow(lx + 8, ly - hgt, 5, '#ffffff', 0.6); lamps.push([lx + 8, ly - hgt]);
         L.blend(P, 'lighter', () => k.rad(L.ell(lx + 8, ly, 40, 10, 30), lx + 8, ly, 40, '#ffcf7a', 0.3, '#ffcf7a', 0)); };
       [60, 300, 520, 780, 1000, 1240, 1480].forEach(lx => lampPost(lx, Q0 + 34));
-      // the red tram, route 21
-      { const tx = 930, ty = Q0 + 32, body = L.rect(tx, ty - 26, tx + 124, ty - 2); k.fill(body, '#c0392b'); k.lin(body, '#ff8a6a', 0.35, '#c0392b', 0, tx, ty - 26, tx, ty - 12); k.fill(L.rect(tx, ty - 8, tx + 124, ty - 2), '#8e2a20'); for (let i = 0; i < 8; i++) { const wp = L.rect(tx + 5 + i * 14.5, ty - 22, tx + 15 + i * 14.5, ty - 12); k.fill(wp, '#ffd98f'); if (chance(0.7)) { P.dot(tx + 10 + i * 14.5, ty - 16, 2, { c: pick(COATS), a: 0.9 }); P.dot(tx + 10 + i * 14.5, ty - 18.6, 1.4, { c: '#e8b896', a: 1 }); } k.outline(wp, 0.4); } k.outline(body, 0.9); k.fill(L.rect(tx - 2, ty - 29, tx + 126, ty - 26), '#8e2a20'); k.line([tx + 30, ty - 29], [tx + 50, ty - 46], 0.8); k.line([tx + 50, ty - 46], [tx + 70, ty - 46], 0.6); k.dot(tx + 126, ty - 10, 2.2, '#fff6c0'); k.glow(tx + 128, ty - 10, 14, '#fff0b0', 0.7); k.text('21', tx + 110, ty - 3.5, 5, '#f2c14e'); [tx + 20, tx + 104].forEach(wx => k.circle(wx, ty - 1, 3, 0.8)); k.dot(tx + 60, ty - 48, 1.2, '#9ad7ff'); k.glow(tx + 60, ty - 48, 5, '#9ad7ff', 0.8); }
-      // cars with their beams on
-      [[180, Q0 + 52, '#3a6ea5', 1], [640, Q0 + 54, '#e5a73b', -1], [1330, Q0 + 52, '#2f6f6a', 1], [830, Q0 + 20, '#6b4a8a', -1], [1570, Q0 + 20, '#b8383f', -1]].forEach(([cx3, cy3, col, dir]) => { const bd = [[cx3 - 20, cy3], [cx3 + 20, cy3], [cx3 + 20, cy3 - 7], [cx3 + 10, cy3 - 8], [cx3 + 6, cy3 - 14], [cx3 - 10, cy3 - 14], [cx3 - 14, cy3 - 8], [cx3 - 20, cy3 - 7]].map(([x, y]) => [cx3 + (x - cx3) * dir, y]); k.fill(bd, col); k.lin(bd, '#ffffff', 0.3, col, 0, cx3, cy3 - 14, cx3, cy3 - 6); k.fill(L.rect(Math.min(cx3 - 9 * dir, cx3 + 5 * dir), cy3 - 13, Math.max(cx3 - 9 * dir, cx3 + 5 * dir), cy3 - 8.5), '#9ab0d0'); k.outline(bd, 0.7); [cx3 - 11, cx3 + 11].forEach(wx => k.fill(L.ell(wx, cy3, 3.4, 3.4, 12), '#1b1622')); const hx = cx3 + dir * 20; k.dot(hx, cy3 - 5, 1.4, '#fff6c0'); L.blend(P, 'lighter', () => k.rad([[hx, cy3 - 5], [hx + dir * 70, cy3 - 16], [hx + dir * 70, cy3 + 8]], hx, cy3 - 5, 70, '#fff0b0', 0.4, '#fff0b0', 0)); k.dot(cx3 - dir * 20, cy3 - 5, 1.2, '#ff3a3a'); k.glow(cx3 - dir * 20, cy3 - 5, 5, '#ff3a3a', 0.5); });
       // the café terrace under the clock
       { const cx4 = 918, y4 = Q0 + 8; k.curve([[cx4 - 4, y4 - 16], [cx4 + 76, y4 - 8], [cx4 + 156, y4 - 16]], 0.3, K, 0.6); for (let i = 0; i < 17; i++) { const t = i / 16, p = [cx4 - 4 + 160 * t, y4 - 16 + Math.sin(t * Math.PI) * 8]; k.dot(p[0], p[1], 1.2, pick(['#ffe29b', '#ff9a8a', '#9ad7ff']), 1); k.glow(p[0], p[1], 5, '#ffe29b', 0.45); }
         for (let i = 0; i < 5; i++) { const tx2 = cx4 + 12 + i * 28; k.line([tx2, y4 + 6], [tx2, y4 + 14], 0.8); k.fill(L.ell(tx2, y4 + 6, 6, 1.6, 12), '#e9e0c8'); k.outline(L.ell(tx2, y4 + 6, 6, 1.6, 12), 0.4); person(tx2 - 9, y4 + 14, 0.8, pick(COATS)); if (i % 2) person(tx2 + 9, y4 + 14, 0.8, pick(COATS)); k.dot(tx2 - 2, y4 + 4.8, 0.8, '#ffffff'); k.dot(tx2 + 2, y4 + 4.6, 0.7, '#b8383f'); } }
@@ -331,10 +316,6 @@
         const cab = L.rect(hx - 60, hy - 24, hx + 50, hy); k.wc(cab, '#d9c7a8', { gran: 0.03 }); for (let i = 0; i < 6; i++) win(hx - 54 + i * 17, hy - 20, 10, 11, { lit: i !== 3, vig: true }); k.outline(cab, 0.8); k.fill([[hx - 66, hy - 24], [hx + 56, hy - 24], [hx + 48, hy - 32], [hx - 58, hy - 32]], '#8a3a3a');
         for (let i = 0; i < 7; i++) { P.dot(hx - 54 + i * 17, hy - 34, 2.6, { c: pick(['#3e6b4a', '#4f7a55']), a: 1 }); k.dot(hx - 54 + i * 17 + R(-1, 1), hy - 36, 0.9, pick(FLOW)); } k.line([hx + 70, hy], [hx + 70, hy - 40], 0.8); k.fill([[hx + 70, hy - 40], [hx + 88, hy - 36], [hx + 70, hy - 32]], '#e5a73b'); k.line([hx - 80, hy - 2], [hx - 70, hy - 26], 0.4); k.line([hx - 70, hy - 26], [hx - 60, hy - 24], 0.3); [[hx - 78, hy - 8], [hx - 75, hy - 14], [hx - 72, hy - 20]].forEach(([px, py], i) => k.fill(L.rect(px, py, px + 3, py + 4), ['#f3ead8', '#b8383f', '#7bdff2'][i]));
         P.dot(hx + 60, hy - 3, 2.2, { c: '#f3ead8', a: 1 }); k.fill(L.ell(hx + 58, hy - 1, 3.4, 1.6, 10), '#f3ead8'); k.line([hx + 20, hy - 26], [hx + 24, hy - 34], 0.5); for (let s = 0; s < 4; s++) k.circle(hx + 24 + s * 2, hy - 38 - s * 4, 1.4 + s * 0.6, 0.4, '#c8b8d8', 0.5); }
-      // the tour boat, glass roof glowing
-      { const bx = 900, by = 792, hull = [[bx, by], [bx + 190, by], [bx + 204, by - 6], [bx + 196, by + 10], [bx + 6, by + 10]]; k.fill(hull, '#e8e4f0'); k.outline(hull, 0.8); k.line([bx + 2, by + 4], [bx + 196, by + 4], 0.6, '#35527a');
-        const gl = [[bx + 14, by], [bx + 178, by], [bx + 172, by - 16], [bx + 22, by - 16]]; k.fill(gl, '#ffe29b', 0.9); k.lin(gl, '#fff6d0', 0.6, '#ffb04a', 0.2, bx, by - 16, bx, by); for (let i = 0; i < 24; i++) { const px = bx + 24 + i * 6.3; P.dot(px, by - 6, 1.5, { c: pick(COATS), a: 0.85 }); P.dot(px, by - 8.4, 1.1, { c: '#e8b896', a: 0.9 }); } for (let i = 0; i < 12; i++) k.line([bx + 20 + i * 13.6, by - 16], [bx + 16 + i * 13.6, by], 0.35, K, 0.7); k.outline(gl, 0.6); k.fill(L.rect(bx + 170, by - 24, bx + 188, by - 16), '#e8e4f0'); k.outline(L.rect(bx + 170, by - 24, bx + 188, by - 16), 0.5); k.line([bx + 190, by - 24], [bx + 190, by - 38], 0.6); k.fill([[bx + 190, by - 38], [bx + 200, by - 36], [bx + 190, by - 34]], '#b8383f');
-        k.glow(bx + 95, by - 8, 110, '#ffcf7a', 0.2); wake(bx - 4, by + 6, 60, 1); for (let i = 0; i < 10; i++) L.blend(P, 'lighter', () => k.line([bx + 20 + i * 16, by + 14 + (i % 3) * 5], [bx + 30 + i * 16, by + 14 + (i % 3) * 5], 1.2, '#ffcf6b', 0.4)); }
       // clock island (plate XVIII), small enough to miss
       { const ix = 790, iy = 866, isl = L.blob(ix, iy, 46, 20, 0.12, P.R, 0.26); k.fill(isl, '#4a5a4a'); k.fill(L.blob(ix, iy - 2, 40, 18, 0.14, P.R, 0.22), '#6a7a5a'); k.outline(isl, 0.6); for (let i = 0; i < 12; i++) P.dot(ix + R(-34, 34), iy - R(2, 6), R(1.2, 3), { c: pick(['#3e6b4a', '#4f7a55', '#8a6a3a']), a: 1 });
         const ct = L.rect(ix - 4, iy - 34, ix + 4, iy - 4); k.fill(ct, '#c9b8a8'); k.hatch(L.rect(ix + 1, iy - 34, ix + 4, iy - 4), 90, 1, K, 0.35, 0.25); k.outline(ct, 0.5); k.fill([[ix - 5, iy - 34], [ix + 5, iy - 34], [ix, iy - 44]], '#8a3a3a'); k.outline([[ix - 5, iy - 34], [ix + 5, iy - 34], [ix, iy - 44]], 0.4); k.fill(L.ell(ix, iy - 28, 2.8, 2.8, 12), '#fff3d6'); k.circle(ix, iy - 28, 2.8, 0.35); k.line([ix, iy - 28], [ix + 1.4, iy - 29], 0.3); k.line([ix, iy - 28], [ix, iy - 30.2], 0.25); k.glow(ix, iy - 28, 6, '#ffe9b0', 0.5);
@@ -343,10 +324,6 @@
       { const rx = 610, ry = 836, hull = P.sample([[rx - 30, ry - 4], [rx + 30, ry - 4], [rx + 24, ry + 5], [rx - 24, ry + 5]], true, 2); k.fill(hull, '#b86a3a'); k.outline(hull, 0.8); person(rx - 8, ry - 2, 0.7, '#23304a'); person(rx + 8, ry - 2, 0.7, '#6a2a3a'); k.line([rx - 14, ry - 6], [rx - 32, ry + 6], 0.8); k.line([rx + 14, ry - 6], [rx + 34, ry + 6], 0.8); k.line([rx + 22, ry - 4], [rx + 22, ry - 14], 0.4); k.dot(rx + 22, ry - 15, 1.4, '#ffe29b'); k.glow(rx + 22, ry - 15, 9, '#ffe29b', 0.7); wake(rx - 26, ry + 3, 30, 1); }
       [[880, 850, 0], [896, 856, 0], [908, 848, 0], [920, 858, 2], [1090, 880, 1]].forEach(([dx, dy, t]) => { if (t === 1) { const b = P.sample([[dx - 8, dy], [dx + 6, dy], [dx + 8, dy - 4], [dx + 3, dy - 3], [dx + 4, dy - 12], [dx + 1, dy - 13], [dx + 1, dy - 3], [dx - 8, dy - 3]], true, 1.4); k.fill(b, '#f3ead8'); k.outline(b, 0.4); k.fill([[dx + 4, dy - 12], [dx + 6.6, dy - 11], [dx + 4, dy - 10.6]], '#e5a73b'); } else { const b = L.ell(dx, dy, 4, 2, 10); k.fill(b, t === 2 ? '#f2d33a' : '#7a5a3a'); k.outline(b, 0.4); P.dot(dx + 3.4, dy - 2.4, 1.5, { c: t === 2 ? '#f2d33a' : '#2f5a45', a: 1 }); k.fill([[dx + 4.6, dy - 2.6], [dx + 6.4, dy - 2.2], [dx + 4.6, dy - 1.8]], '#e5a73b'); } k.curve([[dx - 10, dy + 2], [dx, dy + 3], [dx + 10, dy + 2]], 0.4, '#b8c0f0', 0.5); });
       { const bx = 520, by = 870, bt = L.rot(L.rect(bx - 4, by - 1.2, bx + 4, by + 1.2), bx, by, -0.3); k.fill(bt, '#7bbf9a', 0.8); k.outline(bt, 0.3); k.fill(L.rot(L.rect(bx + 4, by - 0.6, bx + 6, by + 0.6), bx, by, -0.3), '#8a5a3a'); k.fill(L.rot(L.rect(bx - 2.5, by - 0.7, bx + 1.5, by + 0.7), bx, by, -0.3), '#f3ead8'); k.curve([[bx - 8, by + 2.4], [bx, by + 3.2], [bx + 8, by + 2.4]], 0.3, '#b8c0f0', 0.5); }
-      // a sand barge heading downstream with a tiny car riding on its stern
-      { const gx = 330, gy = 884, hull = [[gx - 110, gy - 8], [gx + 110, gy - 8], [gx + 120, gy - 3], [gx + 112, gy + 6], [gx - 108, gy + 6]]; k.fill(hull, '#2a2a3a'); k.outline(hull, 0.8); k.line([gx - 106, gy - 2], [gx + 110, gy - 2], 0.5, '#b8383f'); const sand = P.sample([[gx - 90, gy - 8], [gx - 70, gy - 18], [gx - 40, gy - 22], [gx - 10, gy - 17], [gx + 20, gy - 21], [gx + 50, gy - 15], [gx + 70, gy - 8]], false, 3); k.fill(sand, '#d9b27a'); k.stip(sand.concat([[gx + 70, gy - 8]]), 120, '#8a6a3a', 0.6, 0.5); k.ink(sand, 0.5);
-        const wh = L.rect(gx - 104, gy - 24, gx - 90, gy - 8); k.fill(wh, '#e8e4f0'); k.fill(L.rect(gx - 102, gy - 22, gx - 92, gy - 17), '#ffd98f'); k.outline(wh, 0.5); k.fill(L.rect(gx + 82, gy - 14, gx + 102, gy - 8), '#3a6ea5'); k.fill(L.rect(gx + 86, gy - 18, gx + 98, gy - 14), '#3a6ea5'); k.outline(L.rect(gx + 82, gy - 14, gx + 102, gy - 8), 0.4); k.dot(gx - 100, gy - 26, 1, '#4aff7a'); k.glow(gx - 100, gy - 26, 5, '#4aff7a', 0.6); wake(gx - 112, gy + 2, 40, 1); }
-
       /* ================================ the bridge ================================ */
       const Y0 = 943, BX = 1150, BW = 70, VD = 38, U1 = 558, S = (u, v, xo = 0) => [BX + xo + u * DX, Y0 + u * DY - v];
       { k.fill([S(0, 0, BW), S(U1, 0, BW), S(U1, -VD * 0.8, BW), S(0, -VD * 0.8, BW)], '#1e2248', 0.45);
@@ -413,6 +390,97 @@
       k.fill(L.rect(823.5, 462, 826.5, 474), '#8a7a4a'); k.outline(L.rect(823.5, 462, 826.5, 474), 0.3); for (let i = 0; i < 6; i++) k.circle(825, 476 + i * 2, 0.7, 0.25, '#8a7a4a');
       // the cool dusk sliding across the glass
       L.blend(P, 'screen', () => { k.fill([[640, 530], [668, 530], [760, 410], [732, 410]], '#9fb0e8', 0.1); k.fill([[690, 530], [700, 530], [792, 410], [782, 410]], '#9fb0e8', 0.08); });
-    }
+    }    ,
+    /* ================================ the evening, moving ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.12 }), cyc = (per, ph = 0) => (L.cyc(t, per) + ph) % 1, osc = (per, ph = 0) => L.osc(t, per, ph), H = L.hash, Q0 = GY, Q1 = 704;
+      const glowA = (x, y, r, c, a) => L.blend(Q, 'lighter', () => k.glow(x, y, r, c, a));
+      /* ---------- the sky ---------- */
+      for (let i = 0; i < 70; i++) { const x = H(i, 1) * 1600, y = Math.pow(H(i, 2), 1.5) * 140; if (Math.hypot(x - 330, y - 64) < 60 || Math.hypot(x - 1330, y - 115) < 50) continue; const tw = Math.max(0, osc(1.4 + H(i, 3) * 3, H(i, 4))); if (tw < 0.3) continue; L.blend(Q, 'lighter', () => k.dot(x, y, 0.5 + tw * 0.7, '#fff6dd', 0.25 + tw * 0.6)); if (tw > 0.93) { k.line([x - 4, y], [x + 4, y], 0.3, '#fff6dd', 0.6); k.line([x, y - 4], [x, y + 4], 0.3, '#fff6dd', 0.6); } }
+      { const u = cyc(57), sx = lerp(200, 900, u / 0.06), sy = lerp(20, 90, u / 0.06); if (u < 0.06) L.blend(Q, 'lighter', () => { for (let q = 0; q < 10; q++) k.line([sx - q * 9, sy - q * 0.9], [sx - (q + 1) * 9, sy - (q + 1) * 0.9], 1.2 - q * 0.1, '#fffbe8', 0.8 - q * 0.08); }); } // a shooting star, once a loop
+      // the airliner, laying its pink line across the sky
+      { const u = cyc(57), ax = lerp(-80, 1700, u), ay = 74 - (ax - 300) * 0.1, a0 = Math.max(-80, ax - 260);
+        for (let i = 0; i < 26; i++) { const p0 = lerp(a0, ax - 6, i / 26), p1 = lerp(a0, ax - 6, (i + 1) / 26), y0 = 74 - (p0 - 300) * 0.1, y1 = 74 - (p1 - 300) * 0.1; k.line([p0, y0 + Math.sin(p0 / 40) * 0.6], [p1, y1 + Math.sin(p1 / 40) * 0.6], lerp(2.8, 0.7, i / 26), '#f6c9c0', lerp(0.03, 0.55, i / 26)); }
+        k.line([ax - 5, ay + 0.5], [ax + 5, ay - 0.5], 0.9, '#2a2440'); k.line([ax - 1.2, ay - 3.4], [ax + 1.2, ay + 3.4], 0.7, '#2a2440'); const bl = cyc(1.1) < 0.15; k.dot(ax - 1.2, ay - 3.6, 0.8, '#ff4a4a'); k.dot(ax + 1.2, ay + 3.6, 0.8, '#4aff7a'); if (bl) glowA(ax, ay, 7, '#ffffff', 0.9); }
+      // birds in a loose V, rowing across
+      { const u = cyc(57, 0.4), fx = lerp(-80, 1700, u), fy = 80 + Math.sin(u * 9) * 6;
+        [[0, 0], [12, 6], [24, 12], [-12, 6], [-24, 12], [-36, 18], [36, 19]].forEach(([dx, dy], i) => { const x = fx - Math.abs(dx) * 0.9 + (dx < 0 ? -4 : 0), y = fy + dy, w = osc(0.55, i * 0.13) * 2.6; k.curve([[x - 4.5, y - w * 0.4], [x - 2, y - 1.5 - w], [x, y]], 0.75, K); k.curve([[x, y], [x + 2, y - 1.5 - w], [x + 4.5, y - w * 0.4]], 0.75, K); }); }
+      // the balloon, still catching the sun, rising and settling on the warm air
+      { const bx = 1330 + osc(57) * 18, by = 110 + osc(7.1) * 4, env = Q.sample([[bx, by - 34], [bx + 22, by - 24], [bx + 20, by], [bx + 8, by + 16], [bx - 8, by + 16], [bx - 20, by], [bx - 22, by - 24]], true, 2); k.fill(env, '#e0685a');
+        for (let s2 = -2; s2 <= 2; s2++) { const pts = Q.sample([[bx + s2 * 5, by - 34], [bx + s2 * 9.5, by - 14], [bx + s2 * 7, by + 4], [bx + s2 * 3, by + 16]], false, 2); if (s2 % 2 === 0) k.fill(L.ribbon(pts, 2.4), '#f2c14e', 0.9); k.ink(pts, 0.5, K, 0.7); }
+        k.lin(env, '#fff3c0', 0.6, '#e0685a', 0, bx + 20, by - 10, bx - 12, by); k.outline(env, 0.9);
+        [[-6, 16], [6, 16]].forEach(([dx, dy]) => k.line([bx + dx, by + dy], [bx + dx * 0.6, by + 26], 0.4)); const bk = L.rect(bx - 5, by + 26, bx + 5, by + 33); k.fill(bk, '#8a5a3a'); k.outline(bk, 0.6);
+        const burn = Math.max(0, osc(7.1, 0.25)); glowA(bx, by + 19, 6 + burn * 8, '#ffcc66', 0.5 + burn * 0.5); if (burn > 0.6) { k.fill([[bx - 1.6, by + 22], [bx + 1.6, by + 22], [bx, by + 14 - burn * 4]], '#ffb04a'); } k.dot(bx - 2, by + 24.5, 1.3, '#2a2238'); k.dot(bx + 2.5, by + 24.8, 1.2, '#2a2238'); }
+      // the very small rocket (plate I), leaving
+      { const u = cyc(57, 0.1), al = Math.min(1, u / 0.04) * (1 - Math.min(1, Math.max(0, (u - 0.55) / 0.1))), sx = 1546 + u * 50, sy = 52 - u * 140, ro = 0.5;
+        if (al > 0.01) { const body = L.rot([[sx, sy - 7], [sx + 2.2, sy - 3], [sx + 2.2, sy + 4], [sx - 2.2, sy + 4], [sx - 2.2, sy - 3]], sx, sy, ro); k.fill(body, '#e8e4f0', al); k.outline(body, 0.4, K, al); const fl = L.rot([[sx - 1.4, sy + 4], [sx + 1.4, sy + 4], [sx, sy + 9 + Math.abs(osc(0.2)) * 4]], sx, sy, ro); k.fill(fl, '#ffb04a', al); glowA(sx - 3.5, sy + 8, 8, '#ffb04a', 0.8 * al);
+          for (let i = 1; i < 12; i++) { const d = i * 2.6, px = sx - 3.5 - d * 0.5 + Math.sin(i + t * 3) * i * 0.2, py = sy + 8 + d * 1.6; k.dot(px, py, 1.2 + i * 0.25, '#e8e4f0', (0.35 - i * 0.028) * al); } } }
+      /* ---------- chimneys breathing ---------- */
+      [[588, 214], [652, 212], [718, 214], [782, 212], [846, 214], [262, 186], [1196, 176], [1418, 190]].forEach(([cx0, cy0], c) => { for (let i = 0; i < 7; i++) { const u = cyc(4.8, i / 7 + H(c, 9)), x = cx0 + u * 26 + Math.sin(u * 6 + c) * 3 * u, y = cy0 - u * 46, r = 2 + u * 7; k.fill(L.blob(x, y, r, 9, 0.2, () => H(i * 7 + c, Math.floor(u * 3)), 0.8), '#c8b8d8', 0.32 * (1 - u) * Math.min(1, u * 6)); } });
+      /* ---------- the neon and the marquee ---------- */
+      { const on = cyc(3.2) < 0.78 || (cyc(3.2) > 0.84 && cyc(3.2) < 0.9); if (on) glowA(1458, 460, 30, '#ff4a7a', 0.35); }
+      for (let i = 0; i < 26; i++) { const x = 1480 + i * 4.6, lit = Math.floor(t * 8 + i) % 3 === 0; if (lit) L.blend(Q, 'lighter', () => { k.dot(x, 580, 0.9, '#fff3c0', 0.9); k.glow(x, 580, 3.5, '#ffd98a', 0.5); }); }
+      // the café's string of bulbs, swaying a little
+      for (let i = 0; i < 17; i++) { const tt = i / 16, x = 914 + 160 * tt, y = 632 + Math.sin(tt * Math.PI) * 8 + osc(2.6, tt) * 0.8, b = 0.5 + 0.5 * osc(1.7 + H(i, 5), H(i, 6)); glowA(x, y, 4 + b * 3, '#ffe29b', 0.25 + 0.3 * b); }
+      // televisions flickering blue behind a few windows
+      (LV.lit || []).forEach(([x, y, sz], i) => { if (H(i, 11) > 0.12 || Math.abs(x - 720) < 130 && Math.abs(y - 470) < 90) return; const f = H(Math.floor(t * 7), i); glowA(x, y, sz * 0.5, f > 0.5 ? '#7ab0ff' : '#b0d0ff', 0.12 + f * 0.18); });
+      // the town clock keeps time (fast: a whole day every loop)
+      { const cx0 = 1045, cy0 = 327; k.fill(L.ell(cx0, cy0, 8.6, 8.6, 24), '#f8f0dc'); for (let q = 0; q < 12; q++) { const a = q * TAU / 12; k.line([cx0 + Math.cos(a) * 6.8, cy0 + Math.sin(a) * 6.8], [cx0 + Math.cos(a) * 8, cy0 + Math.sin(a) * 8], 0.4, K); } const am = TAU * cyc(4.75) - Math.PI / 2, ah = TAU * cyc(57) - Math.PI / 2; k.line([cx0, cy0], [cx0 + Math.cos(ah) * 4.4, cy0 + Math.sin(ah) * 4.4], 0.9, K); k.line([cx0, cy0], [cx0 + Math.cos(am) * 6.6, cy0 + Math.sin(am) * 6.6], 0.5, K); k.dot(cx0, cy0, 0.7, K); }
+      /* ---------- the quay ---------- */
+      const walker = (x, y, s, col, ph, dir, o = {}) => { const sw = Math.sin(ph * TAU) * 1.6 * s, hb = Math.abs(Math.cos(ph * TAU)) * 0.4 * s;
+        k.line([x - 0.8 * s, y - 4 * s], [x - 0.8 * s + sw, y], 0.9 * s, '#1b1622'); k.line([x + 0.8 * s, y - 4 * s], [x + 0.8 * s - sw, y], 0.9 * s, '#1b1622');
+        k.fill([[x - 2.5 * s, y - 10.6 * s - hb], [x + 2.5 * s, y - 10.6 * s - hb], [x + 2 * s, y - 4 * s], [x - 2 * s, y - 4 * s]], col); k.line([x + 2.2 * s * dir, y - 9.6 * s - hb], [x + (2.6 + sw * 0.4) * s * dir, y - 5.6 * s], 0.7 * s, col);
+        Q.dot(x, y - 13 * s - hb, 2 * s, { c: '#e8b896', a: 1 }); if (o.hat) k.fill([[x - 2.4 * s, y - 14 * s - hb], [x + 2.4 * s, y - 14 * s - hb], [x + 1.6 * s, y - 16.4 * s - hb], [x - 1.6 * s, y - 16.4 * s - hb]], o.hat); else Q.dot(x - 0.3 * dir, y - 13.9 * s - hb, 1.9 * s, { c: o.hair || '#2a1a14', a: 1 });
+        if (o.dog) { const dx = x + dir * 9 * s, dy = y; Q.dot(dx, dy - 2.2 * s, 2 * s, { c: '#c9a06a', a: 1 }); Q.dot(dx + dir * 2.4 * s, dy - 3.6 * s, 1.2 * s, { c: '#c9a06a', a: 1 }); k.line([dx - s, dy - 1], [dx - s + sw * 0.5, dy], 0.5 * s, '#8a6a3a'); k.line([dx + s, dy - 1], [dx + s - sw * 0.5, dy], 0.5 * s, '#8a6a3a'); k.line([x + 2.6 * s * dir, y - 6 * s], [dx, dy - 3 * s], 0.25, K, 0.8); }
+        if (o.umb) { const umb = L.ell(x, y - 18 * s - hb, 9 * s, 4 * s, 14, 0, Math.PI, TAU); k.fill(umb.concat([[x + 9 * s, y - 18 * s - hb]]), o.umb); k.line([x, y - 18 * s - hb], [x, y - 9 * s], 0.4); } };
+      const crowd = (n, y0, y1, seed, avoid) => { for (let i = 0; i < n; i++) { const dir = H(i, seed) < 0.5 ? 1 : -1, sp = 9 + H(i, seed + 1) * 10, u = cyc(1640 / sp / 2, H(i, seed + 2)) * 2 % 1, x = dir > 0 ? lerp(-30, 1630, u) : lerp(1630, -30, u), y = lerp(y0, y1, H(i, seed + 3)); if (avoid && avoid(x, y)) continue;
+        walker(x, y, 0.85 + H(i, seed + 4) * 0.25, COATS[Math.floor(H(i, seed + 5) * COATS.length)], t * sp / 9 + H(i, seed + 6), dir, { hat: H(i, seed + 7) < 0.2 ? '#2a2238' : null, hair: ['#2a1a14', '#5a3a1a', '#8a5a2a', '#c9c0b0'][Math.floor(H(i, seed + 8) * 4)], dog: H(i, seed + 9) < 0.08, umb: H(i, seed + 10) < 0.06 ? ['#e0445a', '#3a6ea5', '#f2c14e'][i % 3] : null }); } };
+      crowd(18, Q0 + 10, Q0 + 15, 100, (x, y) => x > 905 && x < 1085);
+      // traffic: the far lane runs left, the near lane runs right, the tram between them
+      const car = (x, y, col, dir) => { const bd = [[-20, 0], [20, 0], [20, -7], [10, -8], [6, -14], [-10, -14], [-14, -8], [-20, -7]].map(([a, b]) => [x + a * dir, y + b]); k.fill(bd, col); k.lin(bd, '#ffffff', 0.3, col, 0, x, y - 14, x, y - 6); k.fill(L.rect(Math.min(x - 9 * dir, x + 5 * dir), y - 13, Math.max(x - 9 * dir, x + 5 * dir), y - 8.5), '#9ab0d0'); k.outline(bd, 0.7);
+        [x - 11, x + 11].forEach(wx => { k.fill(L.ell(wx, y, 3.4, 3.4, 12), '#1b1622'); const a = -t * 9 * dir; k.line([wx + Math.cos(a) * 2.4, y + Math.sin(a) * 2.4], [wx - Math.cos(a) * 2.4, y - Math.sin(a) * 2.4], 0.4, '#8a86a8'); });
+        const hx = x + dir * 20; k.dot(hx, y - 5, 1.4, '#fff6c0'); k.dot(x - dir * 20, y - 5, 1.1, '#ff3a3a'); L.blend(Q, 'lighter', () => { k.rad([[hx, y - 5], [hx + dir * 70, y - 16], [hx + dir * 70, y + 8]], hx, y - 5, 70, '#fff0b0', 0.42, '#fff0b0', 0); k.glow(x - dir * 21, y - 5, 5, '#ff3a3a', 0.6); }); };
+      const CARS = ['#3a6ea5', '#e5a73b', '#2f6f6a', '#6b4a8a', '#b8383f', '#f3ead8', '#2a2238'];
+      for (let i = 0; i < 4; i++) { const u = cyc(57 / 3, i / 4 + H(i, 21) * 0.1), x = lerp(1720, -120, u); car(x, Q0 + 22, CARS[(i * 3 + 1) % 7], -1); }
+      { const tx = lerp(-180, 1720, cyc(57 / 2, 0.15)), ty = Q0 + 32, body = L.rect(tx, ty - 26, tx + 124, ty - 2); k.fill(body, '#c0392b'); k.lin(body, '#ff8a6a', 0.35, '#c0392b', 0, tx, ty - 26, tx, ty - 12); k.fill(L.rect(tx, ty - 8, tx + 124, ty - 2), '#8e2a20');
+        for (let i = 0; i < 8; i++) { const wp = L.rect(tx + 5 + i * 14.5, ty - 22, tx + 15 + i * 14.5, ty - 12); k.fill(wp, '#ffd98f'); if (H(i, 31) < 0.7) { const sway = Math.sin(t * 5 + i) * 0.3; Q.dot(tx + 10 + i * 14.5 + sway, ty - 16, 2, { c: COATS[i % 6], a: 0.9 }); Q.dot(tx + 10 + i * 14.5 + sway, ty - 18.6, 1.4, { c: '#e8b896', a: 1 }); } k.outline(wp, 0.4); }
+        k.outline(body, 0.9); k.fill(L.rect(tx - 2, ty - 29, tx + 126, ty - 26), '#8e2a20'); k.line([tx + 30, ty - 29], [tx + 50, ty - 46], 0.8); k.line([tx + 50, ty - 46], [tx + 70, ty - 46], 0.6);
+        if (H(Math.floor(t * 6), 33) > 0.82) L.blend(Q, 'lighter', () => { k.glow(tx + 60, ty - 47, 8, '#c8e0ff', 0.9); k.dot(tx + 60, ty - 47, 1.2, '#ffffff'); }); // a spark from the wire
+        k.dot(tx + 126, ty - 10, 2.2, '#fff6c0'); L.blend(Q, 'lighter', () => { k.glow(tx + 128, ty - 10, 14, '#fff0b0', 0.7); k.rad([[tx + 126, ty - 10], [tx + 220, ty - 22], [tx + 220, ty + 6]], tx + 126, ty - 10, 95, '#fff0b0', 0.35, '#fff0b0', 0); }); k.text('21', tx + 110, ty - 3.5, 5, '#f2c14e');
+        [tx + 20, tx + 104].forEach(wx => { k.fill(L.ell(wx, ty, 4, 4, 14), '#1b1622'); const a = t * 8; k.line([wx + Math.cos(a) * 3, ty + Math.sin(a) * 3], [wx - Math.cos(a) * 3, ty - Math.sin(a) * 3], 0.5, '#8a86a8'); }); }
+      for (let i = 0; i < 4; i++) { const u = cyc(57 / 4, i / 4 + H(i, 23) * 0.12), x = lerp(-120, 1720, u); car(x, Q0 + 45, CARS[(i * 2 + 3) % 7], 1); }
+      // the lamp posts stand in front of the traffic
+      [60, 300, 520, 780, 1000, 1240, 1480].forEach(lx => { const ly = Q0 + 34; k.line([lx, ly], [lx, ly - 52], 1.3, '#2a2638'); k.fill(L.rect(lx - 1.8, ly - 3, lx + 1.8, ly), '#2a2638'); });
+      /* ---------- the river ---------- */
+      const RV0 = 742, RV1 = 905;
+      L.blend(Q, 'lighter', () => { for (let i = 0; i < 150; i++) { const y = lerp(RV0 + 4, RV1 - 4, H(i, 41)), u = cyc(57, H(i, 42)), x = lerp(-60, 1660, u), a = Math.max(0, osc(2 + H(i, 43) * 3, H(i, 44))); if (a < 0.2 || (x > 1290 && y < 905 - (x - 1290) * 0.7)) continue; k.line([x, y], [x + 8 + H(i, 45) * 20, y], 0.6, H(i, 46) < 0.5 ? '#9aa4e8' : '#c8a8d8', 0.3 * a); }
+        (LV.lamps || []).forEach(([lx, ly], i) => { const Hh = RV0 - 38 - ly; if (Hh < 0) return; const y1 = Math.min(RV1 - 3, RV0 + 2 + Hh * 0.5); for (let j = 0; j < 7; j++) { const y = lerp(RV0 + 3, y1, j / 7), f = H(Math.floor(t * 9) + j * 17, i), wv = Math.sin(y * 0.9 + lx + t * 3) * 3; if (f < 0.45) continue; k.line([lx + wv - 4 * f, y], [lx + wv + 4 * f, y], 1.2, '#ffe9a8', 0.5 * f); } }); });
+      // boats, which disappear into the shadow under the bridge
+      const clipX = (poly, xm) => L.clip(poly, [[-400, -400], [xm, -400], [xm, 1400], [-400, 1400]]), fillC = (poly, c, a, xm) => { const p = clipX(poly, xm); if (p.length > 2) k.fill(p, c, a); };
+      const wake = (x0, y0, len, dir, xm) => { for (let i = 0; i < 5; i++) { const pts = [[x0 - dir * i * 9, y0 + 2 + i * 1.5], [x0 - dir * (i * 9 + len * 0.3), y0 + 4 + i * 2.4], [x0 - dir * (i * 9 + len), y0 + 2 + i * 3]]; if (pts[0][0] < xm) k.curve(pts.map(([x, y]) => [Math.min(x, xm), y + Math.sin(t * 4 + i) * 0.5]), 0.4, '#b8c0f0', 0.45 - i * 0.06); } };
+      { const bx = lerp(-260, 1300, cyc(57, 0.62)), by = 792 + osc(3.3) * 0.8, XM = 1295, hull = [[bx, by], [bx + 190, by], [bx + 204, by - 6], [bx + 196, by + 10], [bx + 6, by + 10]]; fillC(hull, '#e8e4f0', 1, XM); fillC(L.rect(bx + 2, by + 3.6, bx + 196, by + 4.4), '#35527a', 1, XM);
+        const gl = [[bx + 14, by], [bx + 178, by], [bx + 172, by - 16], [bx + 22, by - 16]]; fillC(gl, '#ffe29b', 0.9, XM); for (let i = 0; i < 24; i++) { const px = bx + 24 + i * 6.3; if (px < XM) { Q.dot(px, by - 6, 1.5, { c: COATS[i % 6], a: 0.85 }); Q.dot(px, by - 8.4, 1.1, { c: '#e8b896', a: 0.9 }); } }
+        for (let i = 0; i < 12; i++) if (bx + 20 + i * 13.6 < XM) k.line([bx + 20 + i * 13.6, by - 16], [bx + 16 + i * 13.6, by], 0.35, K, 0.7); fillC(L.rect(bx + 170, by - 24, bx + 188, by - 16), '#e8e4f0', 1, XM); if (bx + 190 < XM) { k.line([bx + 190, by - 24], [bx + 190, by - 38], 0.6); k.fill([[bx + 190, by - 38], [bx + 200 + osc(0.9) * 1.5, by - 36], [bx + 190, by - 34]], '#b8383f'); }
+        if (bx + 95 < XM + 60) glowA(Math.min(bx + 95, XM - 20), by - 8, 110, '#ffcf7a', 0.2); wake(bx - 4, by + 6, 60, 1, XM); L.blend(Q, 'lighter', () => { for (let i = 0; i < 10; i++) { const x = bx + 20 + i * 16; if (x < XM) k.line([x, by + 14 + (i % 3) * 5], [x + 10, by + 14 + (i % 3) * 5], 1.2, '#ffcf6b', 0.4 * (0.6 + 0.4 * osc(1.3, i * 0.17))); } }); }
+      { const gx = lerp(-160, 1180, cyc(57, 0.2)), gy = 884 + osc(4.1) * 0.6, XM = 1175, hull = [[gx - 110, gy - 8], [gx + 110, gy - 8], [gx + 120, gy - 3], [gx + 112, gy + 6], [gx - 108, gy + 6]]; fillC(hull, '#2a2a3a', 1, XM); fillC(L.rect(gx - 106, gy - 2.4, gx + 110, gy - 1.6), '#b8383f', 1, XM);
+        const sand = [[gx - 90, gy - 8], [gx - 70, gy - 18], [gx - 40, gy - 22], [gx - 10, gy - 17], [gx + 20, gy - 21], [gx + 50, gy - 15], [gx + 70, gy - 8]]; fillC(sand, '#d9b27a', 1, XM); fillC(L.rect(gx - 104, gy - 24, gx - 90, gy - 8), '#e8e4f0', 1, XM); fillC(L.rect(gx - 102, gy - 22, gx - 92, gy - 17), '#ffd98f', 1, XM); fillC(L.rect(gx + 82, gy - 14, gx + 102, gy - 8), '#3a6ea5', 1, XM); fillC(L.rect(gx + 86, gy - 18, gx + 98, gy - 14), '#3a6ea5', 1, XM);
+        if (gx - 100 < XM) { k.dot(gx - 100, gy - 26, 1, '#4aff7a'); glowA(gx - 100, gy - 26, 5, '#4aff7a', 0.6); } wake(gx - 112, gy + 2, 40, 1, XM); }
+      // the rowboat, rowing gently against the current
+      { const rx = 610 + osc(57) * 40, ry = 836 + osc(2.2) * 0.8, st = cyc(2.2), oa = Math.sin(st * TAU) * 0.5, hull = Q.sample([[rx - 30, ry - 4], [rx + 30, ry - 4], [rx + 24, ry + 5], [rx - 24, ry + 5]], true, 2); k.fill(hull, '#b86a3a'); k.outline(hull, 0.8);
+        [[-1, -14], [1, 14]].forEach(([d, ox]) => { const a = (d < 0 ? Math.PI * 0.82 : Math.PI * 0.18) + oa * d, l = 22; k.line([rx + ox, ry - 6], [rx + ox + Math.cos(a) * l, ry - 6 + Math.abs(Math.sin(a)) * 12], 0.8); });
+        [[-8, '#23304a'], [8, '#6a2a3a']].forEach(([dx, c]) => { Q.dot(rx + dx, ry - 11 + oa * 0.6, 1.5, { c: '#e8b896', a: 1 }); k.fill([[rx + dx - 2, ry - 9 + oa * 0.6], [rx + dx + 2, ry - 9 + oa * 0.6], [rx + dx + 1.6, ry - 3], [rx + dx - 1.6, ry - 3]], c); });
+        k.line([rx + 22, ry - 4], [rx + 22, ry - 14], 0.4); k.dot(rx + 22, ry - 15, 1.4, '#ffe29b'); glowA(rx + 22, ry - 15, 9 + osc(0.7) * 1.5, '#ffe29b', 0.7); if (Math.abs(oa) > 0.4) for (let q = 0; q < 4; q++) k.dot(rx + (oa > 0 ? 34 : -32) + q * 1.6, ry + 6 - q, 0.6, '#d8e0ff', 0.6); }
+      /* ---------- the near bank ---------- */
+      crowd(16, 930, 996, 200, (x, y) => (x > 420 && x < 520 && y < 975) || x > 1110);
+      { for (let i = 0; i < 10; i++) { const r = H(i, 51) < 0.5, t0 = [60, 250, 1320, 1540][i % 4], u = cyc(5 + H(i, 52) * 3, H(i, 53)), x = t0 + (H(i, 54) - 0.5) * 70 + Math.sin(u * 9 + i) * 8 + u * 14, y = 912 + u * 84, a = u * 12 + i; if (x > 1110 && x < 1260) continue; k.fill(L.rot(L.ell(x, y, 2.2, 1.1, 8), x, y, a), ['#c0603a', '#d98a3a', '#e0a83a', '#b8383f'][i % 4], Math.min(1, (1 - u) * 4)); } }
+      // the carousel's lights chase round its rim; the horses rise and fall
+      { const cx5 = 470, cy5 = 958; for (let i = 0; i < 20; i++) { const x = cx5 - 48 + i * 5; if ((Math.floor(t * 6) + i) % 4 === 0) L.blend(Q, 'lighter', () => { k.dot(x, cy5 - 39, 1.1, '#ffffff', 1); k.glow(x, cy5 - 39, 4, '#ffe29b', 0.7); }); }
+        for (let i = 0; i < 12; i++) { const a = i * TAU / 12 + t * 0.9, px = cx5 + Math.cos(a) * 36, py = cy5 - 4 + Math.sin(a) * 8; if (Math.sin(a) < 0.15) continue; const hy = py - 14 + Math.sin(t * 3 + i * 1.7) * 3; k.line([px, py - 34], [px, py], 0.6, '#f2c14e'); k.fill(L.ell(px, hy, 4, 2, 10), i % 3 ? '#f3ead8' : '#e0445a'); k.fill(L.ell(px + 3.4 * Math.sign(Math.cos(a) || 1) * -1, hy - 2.4, 1.2, 2, 8), i % 3 ? '#f3ead8' : '#e0445a'); k.outline(L.ell(px, hy, 4, 2, 10), 0.3); } }
+      // steam from the tea engine, music from the accordion
+      for (let i = 0; i < 6; i++) { const u = cyc(2.4, i / 6), x = 1166 + u * 10 + Math.sin(u * 7 + i) * 2, y = Q0 - 5 - u * 40; k.circle(x, y, 1.4 + u * 4, 0.4, '#e8e4f0', 0.6 * (1 - u)); }
+      for (let i = 0; i < 4; i++) { const u = cyc(3, i / 4), x = 617 + u * 12 + Math.sin(u * 8 + i) * 3, y = Q0 + 16 - u * 34, a = Math.min(1, u * 5) * (1 - u); k.dot(x, y, 0.8, '#f3ead8', 0.9 * a); k.line([x + 0.7, y], [x + 0.7, y - 3], 0.3, '#f3ead8', 0.9 * a); }
+      // the cat on the sill flicks its tail
+      { const tx0 = 678, ty0 = 545, a = osc(2.4) * 0.6; k.curve([[tx0, ty0], [tx0 - 4, ty0 + 1 + a * 2], [tx0 - 6 + a * 2, ty0 - 3 + a * 3]], 1, '#e08a3a'); }
+    }]
   });
 })();

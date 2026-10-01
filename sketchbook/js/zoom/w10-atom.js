@@ -60,5 +60,17 @@
       L.blend(P, 'lighter', () => k.rad(L.ell(C0[0], C0[1], NR + 20, NR + 20, 64), C0[0], C0[1], NR + 20, '#ff9a60', 0, '#ff9a60', 0.35, NR - 10));
       k.text('PROTON: UP, UP, DOWN', C0[0] + 86, C0[1] - 96, 3.2, '#ffc0b0', { a: 0.8, fine: true }); k.text('NEUTRON: UP, DOWN, DOWN', C0[0] + 90, C0[1] - 91, 3.2, '#c8d0e8', { a: 0.8, fine: true }); k.text('GLUONS HOLD THE QUARKS; PIONS HOLD THE NUCLEONS', C0[0] - 118, C0[1] + 116, 3, '#ffe08a', { a: 0.75, fine: true });
     }
+    ,
+    /* ================================ the atom, never still ================================ */
+    live: [(Q, t) => {
+      const k = L.kit(Q, K, { rough: 0.05 }), H = L.hash, osc = (per, ph = 0) => L.osc(t, per, ph), st = Math.floor(t * 14);
+      // where the electrons are caught being, a dozen times a second
+      L.blend(Q, 'lighter', () => { for (let i = 0; i < 60; i++) { const sh = i % 4, h = j => H(st * 61 + i, j); let r, a = h(1) * TAU, sq = 0.94;
+          if (sh === 0) r = 120 + h(2) * 90; else if (sh === 1) r = 130 + h(2) * 200; else if (sh === 2) { const ax = Math.floor(h(3) * 4) * Math.PI / 2; a = ax + (h(4) - 0.5) * 0.9; r = 150 + h(2) * 260; } else r = 380 + h(2) * 240;
+          const x = C0[0] + Math.cos(a) * r, y = C0[1] + Math.sin(a) * r * sq, c = ['#d0b8ff', '#9ac0ff', '#70f8e8', '#ffd070'][sh], s = 0.6 + h(5) * 1.2; k.glow(x, y, 7 * s, c, 0.5); k.dot(x, y, 1.1 * s, '#ffffff', 0.95); } });
+      // the p lobes swell in turn; the nucleus glows and fades
+      L.blend(Q, 'lighter', () => { [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ux, uy], i) => { const c = [C0[0] + ux * 250, C0[1] + uy * 235], g = 0.5 + 0.5 * osc(3.8, ux ? 0 : 0.5); k.rad(L.ell(c[0], c[1], ux ? 200 : 120, uy ? 190 : 110, 40), c[0], c[1], 200, '#40e0d0', 0.08 * g, '#40e0d0', 0); });
+        k.rad(L.ell(C0[0], C0[1], NR + 60, NR + 60, 48), C0[0], C0[1], NR + 60, '#ff9a60', 0, '#ff9a60', 0.12 + 0.1 * osc(1.9), NR + 6); });
+    }]
   });
 })();
