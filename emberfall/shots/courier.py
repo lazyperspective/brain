@@ -14,6 +14,8 @@ import math
 import os
 from mathutils import Vector, Matrix, Euler
 import common as C
+import face
+import hair
 
 BUNDLE = os.path.join(C.ROOT, "assets", "hbm", "human_base_meshes_bundle.blend")
 BODY = "GEO-body_female_stylized"
@@ -118,7 +120,7 @@ def _dup(ob, name, mat):
 
 # ------------------------------------------------------------------ build
 
-def build(detail="far", coll=None, name="courier"):
+def build(detail="far", coll=None, name="courier", hood="down", goggles="forehead", mask="neck", backpack=True):
     if not os.path.exists(BUNDLE):
         raise FileNotFoundError(f"{BUNDLE} missing: run ./fetch_assets.sh")
     M = materials()
@@ -136,6 +138,7 @@ def build(detail="far", coll=None, name="courier"):
     body.name = f"{name}_body"
     body.location = (0, 0, 0)
     bpy.context.view_layer.update()
+    face.sculpt(body)
     # press the ears flat to the skull so the hood can cover them
     bm = bmesh.new(); bm.from_mesh(body.data)
     for v in bm.verts:
@@ -145,6 +148,15 @@ def build(detail="far", coll=None, name="courier"):
 
     # body materials: skin face/neck, gloves, boots, suit elsewhere
     body.data.materials.clear()
+    me = body.data
+    xs = [v.co for v in me.vertices]
+    lo = Vector((min(v.x for v in xs), min(v.y for v in xs), min(v.z for v in xs)))
+    hi = Vector((max(v.x for v in xs), max(v.y for v in xs), max(v.z for v in xs)))
+    me.use_auto_texspace = False
+    me.texspace_location = (lo + hi) / 2
+    me.texspace_size = (hi - lo) / 2
+    M["skin"] = face.skin_material(tuple(me.texspace_location), tuple(me.texspace_size))
+    face.paint(body)
     for k in ("suit", "skin", "leather", "boot"):
         body.data.materials.append(M[k])
     for p in body.data.polygons:
@@ -159,9 +171,12 @@ def build(detail="far", coll=None, name="courier"):
             p.material_index = 0
     for p in body.data.polygons:
         p.use_smooth = True
-    eye_m = C.painted("c_eye", (0.85, 0.82, 0.78), rough=0.2, fog=0.3, bump=0)
+    eye_m, pupil, eye_glow = face.eye_material()
     for e in eyes:
         e.data.materials.clear(); e.data.materials.append(eye_m)
+        for p in e.data.polygons:
+            p.use_smooth = True
+    face.expression_keys(body)
 
     # armature
     arm = bpy.data.armatures.new(f"{name}_rig")
@@ -190,7 +205,7 @@ def build(detail="far", coll=None, name="courier"):
     for e in eyes:
         bone_parent(e, rig, "head")
 
-    parts = {"body": body, "rig": rig, "eyes": eyes}
+    parts = {"body": body, "rig": rig, "eyes": eyes, "pupil": pupil, "eye_glow": eye_glow}
 
     # coat: inflated copy of the torso and upper arms, deforms with the rig
     coat = _dup(body, f"{name}_coat", M["coat"])
@@ -200,19 +215,47 @@ def build(detail="far", coll=None, name="courier"):
     C.subsurf(coat, 1)
     parts["coat"] = coat
 
-    # hood: inflated copy of head and neck with the face cut away
-    hood = _dup(body, f"{name}_hood", M["coat"])
-    _keep_verts(hood, lambda co, n: co.z > 1.29 and not (n.y < -0.35 and 1.33 < co.z < 1.535 and abs(co.x) < 0.075))
-    bm = bmesh.new(); bm.from_mesh(hood.data)  # press the ears flat so the cloth doesn't follow them
-    for v in bm.verts:
-        if abs(v.co.x) > 0.064 and 1.35 < v.co.z < 1.55 and -0.07 < v.co.y < 0.08:
-            v.co.x = math.copysign(0.064 + (abs(v.co.x) - 0.064) * 0.1, v.co.x)
-    bm.to_mesh(hood.data); bm.free()
-    _inflate(hood, lambda co: 0.024 + 0.012 * max(0, co.z - 1.45) * 6)
-    sm = hood.modifiers.new("soften", "SMOOTH"); sm.factor = 1.0; sm.iterations = 12  # melts the ears into cloth
-    s = hood.modifiers.new("thick", "SOLIDIFY"); s.thickness = 0.01; s.offset = 1
-    C.subsurf(hood, 1)
-    parts["hood"] = hood
+    if hood == "up":
+        # hood: inflated copy of head and neck with the face cut away
+        hood = _dup(body, f"{name}_hood", M["coat"])
+        _keep_verts(hood, lambda co, n: co.z > 1.29 and not (n.y < -0.35 and 1.33 < co.z < 1.535 and abs(co.x) < 0.075))
+        bm = bmesh.new(); bm.from_mesh(hood.data)  # press the ears flat so the cloth doesn't follow them
+        for v in bm.verts:
+            if abs(v.co.x) > 0.064 and 1.35 < v.co.z < 1.55 and -0.07 < v.co.y < 0.08:
+                v.co.x = math.copysign(0.064 + (abs(v.co.x) - 0.064) * 0.1, v.co.x)
+        bm.to_mesh(hood.data); bm.free()
+        _inflate(hood, lambda co: 0.024 + 0.012 * max(0, co.z - 1.45) * 6)
+        sm = hood.modifiers.new("soften", "SMOOTH"); sm.factor = 1.0; sm.iterations = 12  # melts the ears into cloth
+        s = hood.modifiers.new("thick", "SOLIDIFY"); s.thickness = 0.01; s.offset = 1
+        C.subsurf(hood, 1)
+        parts["hood"] = hood
+    else:
+        # hood down: a heavy cowl of gathered cloth around the neck and shoulders
+        bm = bmesh.new()
+        segs, rings = 48, 10
+        grid = []
+        for i in range(segs):
+            a = 2 * math.pi * i / segs
+            back = 0.5 - 0.5 * math.cos(a)  # 0 at the front (-Y), 1 at the back
+            cz = 1.305 + 0.015 * back
+            rx, ry = 0.098 + 0.012 * back, 0.088 + 0.03 * back
+            r_tube = 0.03 + 0.022 * back
+            fold = 1 + 0.18 * math.sin(a * 7) * (0.4 + 0.6 * back)
+            ring = []
+            for j in range(rings):
+                b_ = 2 * math.pi * j / rings
+                d = Vector((math.sin(a), -math.cos(a), 0))
+                p = Vector((0, -0.01, cz)) + Vector((d.x * rx, d.y * ry, 0)) + d * math.cos(b_) * r_tube * fold
+                p.z += math.sin(b_) * r_tube * 0.8 - 0.012 * back * (1 + math.cos(b_))
+                ring.append(bm.verts.new(p))
+            grid.append(ring)
+        for i in range(segs):
+            for j in range(rings):
+                bm.faces.new((grid[i][j], grid[(i + 1) % segs][j], grid[(i + 1) % segs][(j + 1) % rings], grid[i][(j + 1) % rings]))
+        cowl = C.mesh_obj(f"{name}_cowl", bm, M["coat"], coll, smooth=True)
+        C.subsurf(cowl, 1)
+        bone_parent(cowl, rig, "chest")
+        parts["hood"] = cowl
 
     # coat skirt: open at the front, rigid to the hips, rippling
     bm = bmesh.new()
@@ -288,38 +331,49 @@ def build(detail="far", coll=None, name="courier"):
         st = C.box(f"{name}_strap{sx}", (0.035, 0.012, 0.32), loc=(sx * 0.085, -0.095, 1.18), rot=(0.1, 0, 0), mat=M["leather"], coll=coll)
         bone_parent(st, rig, "chest")
 
-    # hair: a heavy red braid down the back and locks spilling over the brow
-    def strand(nm, pts, th, parent_bone):
-        cu = bpy.data.curves.new(nm, "CURVE"); cu.dimensions = "3D"
-        cu.bevel_depth = th; cu.bevel_resolution = 2; cu.use_fill_caps = True
-        sp = cu.splines.new("NURBS"); sp.points.add(len(pts) - 1); sp.order_u = 4; sp.use_endpoint_u = True
-        for i, p in enumerate(pts):
-            sp.points[i].co = (*p, 1)
-            sp.points[i].radius = 1.0 - 0.85 * (i / (len(pts) - 1)) ** 1.5
-        cu.materials.append(M["hair"])
-        ob = C.link(bpy.data.objects.new(nm, cu), coll)
-        bone_parent(ob, rig, parent_bone)
-        return ob
-    braid = [(0, 0.105, 1.42), (0.012, 0.13, 1.34), (0.03, 0.15, 1.26), (0.06, 0.17, 1.17), (0.075, 0.19, 1.08)]
-    strand(f"{name}_braid", braid, 0.019, "head")
-    locks = [(-0.035, -0.06, 0.13), (-0.015, -0.075, 0.15), (0.005, -0.07, 0.16), (0.022, -0.05, 0.13), (0.045, 0.02, 0.1)]
-    for k, (x0, sweep, fall) in enumerate(locks):
-        base = Vector((x0, -0.112 + abs(x0) * 0.4, 1.565))
-        pts = [base + Vector((sweep * (i / 5) ** 1.4, -0.03 * math.sin(i / 5 * math.pi * 0.7) - 0.008 * i / 5, -fall * i / 5)) for i in range(6)]
-        strand(f"{name}_lock{k}", pts, 0.006 if detail == "close" else 0.008, "head")
+    # hair: sculpted locks, scalp cap and braid (hair.py)
+    hobs, hmat = hair.build(coll)
+    for ob in hobs:
+        bone_parent(ob, rig, "head")
+    braid_path = [(0.0, 0.085, 1.42), (0.004, 0.11, 1.36), (0.01, 0.16, 1.3), (0.02, 0.27, 1.22),
+                  (0.03, 0.29, 1.1), (0.035, 0.28, 0.98)] if backpack else \
+                 [(0.0, 0.085, 1.42), (0.004, 0.11, 1.36), (0.008, 0.12, 1.26), (0.012, 0.12, 1.12), (0.015, 0.115, 1.0)]
+    bobs = hair.braid(coll, hmat, braid_path)
+    bobs[1].data.materials.append(M["brass"])
+    for ob in bobs:
+        bone_parent(ob, rig, "neck")
+    parts["hair"] = hobs + bobs
 
-    # goggles + respirator
+    # face: lashes and teeth (the lower row rides the jaw pivot)
+    lash_m = C.painted("c_lash", (0.02, 0.008, 0.01), rough=0.6, fog=0.3, bump=0)
+    for ob in face.lashes(coll, lash_m):
+        bone_parent(ob, rig, "head")
+    tooth_m = C.painted("c_teeth", (0.78, 0.72, 0.66), dark=(0.55, 0.48, 0.44), rough=0.3, fog=0.3, bump=0, stroke=40)
+    up_t, jaw, lo_t = face.teeth(coll, tooth_m)
+    bone_parent(up_t, rig, "head")
+    bone_parent(jaw, rig, "head")
+    parts["jaw"] = jaw
+
+    # goggles: over the eyes, or pushed up onto the hair
     eye_c = {1: Vector((0.047, -0.08, 1.463)), -1: Vector((-0.047, -0.08, 1.463))}
-    strap = C.torus(f"{name}_gstrap", 1.0, 0.007, loc=(0, 0.0, 1.475), rot=(0.08, 0, 0), mat=M["leather"], coll=coll, major=64, minor=8)
-    strap.scale = (0.098, 0.115, 1.0)
+    if goggles == "forehead":
+        strap = C.torus(f"{name}_gstrap", 1.0, 0.008, loc=(0, -0.005, 1.565), rot=(-0.55, 0, 0), mat=M["leather"], coll=coll, major=64, minor=8)
+        strap.scale = (0.112, 0.13, 1.0)
+    else:
+        strap = C.torus(f"{name}_gstrap", 1.0, 0.007, loc=(0, 0.0, 1.475), rot=(0.08, 0, 0), mat=M["leather"], coll=coll, major=64, minor=8)
+        strap.scale = (0.098, 0.115, 1.0)
     bone_parent(strap, rig, "head")
-    parts["iris"] = []
     parts["shutters"] = []
     iris_m = C.emissive("c_iris", (0.15, 0.75, 1.0), 4.0)
     parts["iris_strength"] = iris_m.node_tree.nodes["Emission"].inputs["Strength"]
     for sx, c in eye_c.items():
-        g = C.empty(f"{name}_eye{sx}", tuple(c + Vector((0, -0.032, 0))), coll=coll)
-        g.rotation_euler = (math.pi / 2, 0, sx * 0.2)
+        if goggles == "forehead":
+            g = C.empty(f"{name}_eye{sx}", (sx * 0.043, -0.088, 1.612), coll=coll)
+            g.rotation_euler = (math.pi / 2 - 1.3, 0, sx * 0.3)
+            g.scale = (0.85, 0.85, 0.85)
+        else:
+            g = C.empty(f"{name}_eye{sx}", tuple(c + Vector((0, -0.032, 0))), coll=coll)
+            g.rotation_euler = (math.pi / 2, 0, sx * 0.2)
         bone_parent(g, rig, "head")
         def gp(ob):
             ob.parent = g
@@ -342,24 +396,32 @@ def build(detail="far", coll=None, name="courier"):
                 parts["shutters"].append(arm_)
         lens = gp(C.sphere(f"{name}_lens{sx}", 0.0215, loc=(0, 0, 0.016), mat=M["glass"], coll=coll, segs=32, rings=16, scale=(1, 1, 0.35)))
         lens.visible_shadow = False
-    # respirator over nose and mouth
-    mask = C.sphere(f"{name}_mask", 0.062, loc=(0, -0.085, 1.395), mat=M["leather"], coll=coll, segs=40, rings=20, scale=(1.05, 0.95, 0.85))
-    bone_parent(mask, rig, "head")
-    snout = C.cylinder(f"{name}_snout", 0.028, 0.045, loc=(0, -0.145, 1.385), rot=(math.pi / 2 + 0.25, 0, 0), r2=0.023, mat=M["iron"], coll=coll, verts=24, bevel=0.002)
-    bone_parent(snout, rig, "head")
-    grill = C.torus(f"{name}_grill", 0.024, 0.0035, loc=(0, -0.168, 1.38), rot=(math.pi / 2 + 0.25, 0, 0), mat=M["brass"], coll=coll)
-    bone_parent(grill, rig, "head")
+    # bridge between the cups
+    br = C.box(f"{name}_gbridge", (0.03, 0.006, 0.006), loc=(0, -0.098, 1.616) if goggles == "forehead" else (0, -0.118, 1.468),
+               mat=M["brass"], coll=coll)
+    bone_parent(br, rig, "head")
+
+    # respirator: worn over the mouth, or hanging at the throat
+    rp = C.empty(f"{name}_resp", (0, -0.15, 1.395) if mask == "face" else (0, -0.112, 1.262), coll=coll)
+    if mask == "neck":
+        rp.rotation_euler = (1.05, 0, 0.12)
+
+    def rpart(ob):
+        ob.parent = rp
+        return ob
+    rpart(C.sphere(f"{name}_mask", 0.045, loc=(0, 0.022, 0), mat=M["leather"], coll=coll, segs=40, rings=20, scale=(1.15, 0.75, 0.95)))
+    rpart(C.cylinder(f"{name}_snout", 0.026, 0.04, loc=(0, -0.02, -0.006), rot=(math.pi / 2 + 0.25, 0, 0), r2=0.021, mat=M["iron"], coll=coll, verts=24, bevel=0.002))
+    rpart(C.torus(f"{name}_grill", 0.022, 0.0032, loc=(0, -0.04, -0.011), rot=(math.pi / 2 + 0.25, 0, 0), mat=M["brass"], coll=coll))
     for k in range(6):
-        sl = C.box(f"{name}_slat{k}", (0.038, 0.003, 0.0035), loc=(0, -0.17, 1.367 + k * 0.005), rot=(0.25, 0, 0), mat=M["brass"], coll=coll)
-        bone_parent(sl, rig, "head")
+        rpart(C.box(f"{name}_slat{k}", (0.034, 0.003, 0.003), loc=(0, -0.042, -0.024 + k * 0.0048), rot=(0.25, 0, 0), mat=M["brass"], coll=coll))
     for sx in (-1, 1):
-        can = C.cylinder(f"{name}_can{sx}", 0.019, 0.045, loc=(sx * 0.066, -0.115, 1.37), rot=(math.pi / 2 + 0.5, 0, sx * 0.7),
-                         r2=0.017, mat=M["brass"], coll=coll, verts=24, bevel=0.002)
-        bone_parent(can, rig, "head")
+        can = rpart(C.cylinder(f"{name}_can{sx}", 0.017, 0.04, loc=(sx * 0.05, 0.0, -0.018), rot=(math.pi / 2 + 0.5, 0, sx * 0.7),
+                               r2=0.015, mat=M["brass"], coll=coll, verts=24, bevel=0.002))
         if detail == "close":
             for r in range(4):
-                tt = C.torus(f"{name}_canr{sx}{r}", 0.0195, 0.0022, mat=M["iron"], coll=coll, major=32, minor=6)
-                tt.parent = can; tt.location = (0, 0, -0.016 + r * 0.01)
+                tt = C.torus(f"{name}_canr{sx}{r}", 0.0175, 0.002, mat=M["iron"], coll=coll, major=32, minor=6)
+                tt.parent = can; tt.location = (0, 0, -0.014 + r * 0.009)
+    bone_parent(rp, rig, "head" if mask == "face" else "chest")
     parts["materials"] = M
     return rig, parts
 
