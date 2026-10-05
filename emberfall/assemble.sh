@@ -10,10 +10,11 @@ mkdir -p out
 W=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$R/shot01/0001.png")
 H=$(( W * 9 / 16 ))
 # per-shot fades in frames: name fade_in fade_out
-SHOTS="shot01:8:10 shot02:4:0 shot03:0:0 shot04:0:0 shot05:0:0 shot06:0:0 shot07:0:7 shot08:6:8"
+SHOTS="shot01:8:10 shot02:4:0 shot02b:0:0 shot02c:3:3 shot02d:3:0 shot03:0:0 shot04:0:0 shot05:0:0 shot06:0:0 shot07:0:7 shot08:6:8"
 inputs=(); filters=""; i=0
 for spec in $SHOTS; do
   IFS=: read -r name fin fout <<<"$spec"
+  [ -f "$R/$name/0001.png" ] || { echo "skip $name (not rendered)"; continue; }
   n=$(ls "$R/$name" | wc -l)
   inputs+=(-framerate 24 -i "$R/$name/%04d.png")
   f="[$i:v]format=rgb24"
