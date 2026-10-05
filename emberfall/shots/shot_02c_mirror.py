@@ -158,12 +158,19 @@ for k in range(60):
 C.smoke_puffs("clouds", puffs, cloud_m, (F0, F1), resolution=2.0, threshold=0.6).scale = (1, 1, 0.4)
 
 # ------------------------------------------------------------- courier
-cloth = C.painted("cloak", (0.12, 0.02, 0.05), dark=(0.03, 0.005, 0.015), rough=0.9, fog=0.3)
-dark = C.painted("dark", (0.03, 0.015, 0.02), rough=0.6, fog=0.3)
-glow = C.emissive("gl", (0.0, 0.9, 1.0), 12)
-fig = C.figure("courier", cloth, dark, glow, coll=None)
-fig.location = (0.6, 0, 0)
-fig.rotation_euler = (0, 0, math.radians(10))
+import courier
+rig, parts = courier.build("far")
+rig.location = (0.6, 0, 0)
+rig.rotation_euler = (0, 0, math.radians(190))  # back to camera, facing the moon
+for f in range(F0, F1 + 1):
+    t = (f - F0) / (F1 - F0)
+    b = 0.01 * math.sin(f * 0.2)  # breathing
+    courier.pose(rig, f, {
+        "upperarm.L": (0.05, 0, 0.28), "forearm.L": (-0.15, 0, 0),
+        "upperarm.R": (-0.25, 0, -0.18), "forearm.R": (-0.7 - 0.2 * C.ease(t), 0, 0),
+        "neck": (-0.12 - 0.05 * C.ease(t), 0, 0), "head": (-0.2 - 0.08 * C.ease(t), 0, 0.06),
+        "chest": (-0.03 + b, 0, 0), "thigh.L": (0, 0, -0.06), "thigh.R": (0.05, 0, 0.06),
+    })
 # ripples spreading from her feet
 ring_m = C.emissive("ripple", (0.0, 0.9, 1.0), 2)
 for k in range(3):

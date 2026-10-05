@@ -244,168 +244,18 @@ for j, (dx, dz, sx) in enumerate(((35, -14, 70), (55, 8, 60), (75, -30, 80))):
     C.key(cl, "location", F1, cl.location + Vector((6, 0, 0)))
 
 # ------------------------------------------------------------- character
+import courier
 CH = C.collection("courier")
-
-
-def part(name, bm_fn, mat, parent, loc=(0, 0, 0), rot=(0, 0, 0), sub=1):
-    ob = bm_fn(name)
-    ob.data.materials.clear(); ob.data.materials.append(mat)
-    ob.parent = parent
-    ob.location = loc
-    ob.rotation_euler = rot
-    if sub:
-        C.subsurf(ob, sub)
-    return ob
-
-
-root = C.empty("root", (0, 4.5, 0), coll=CH)
-hips = C.empty("hips", (0, 0, 0.95), parent=root, coll=CH)
-chest = C.empty("chest", (0, 0, 0.12), parent=hips, coll=CH)
-torso = C.cylinder("torso", 0.15, 0.55, loc=(0, 0, 0.27), r2=0.19, mat=cloth, coll=CH, verts=12)
-torso.parent = chest; torso.scale = (1.05, 0.72, 1); C.subsurf(torso)
-belt = C.cylinder("belt", 0.165, 0.07, loc=(0, 0, 0.02), mat=skin_dark, coll=CH, verts=12)
-belt.parent = chest; belt.scale = (1.05, 0.75, 1)
-neck = C.empty("neck", (0, 0, 0.58), parent=chest, coll=CH)
-head = C.sphere("head", 0.105, loc=(0, 0.01, 0.12), mat=skin_dark, coll=CH, scale=(0.9, 1, 1.12))
-head.parent = neck
-hood = C.sphere("hood", 0.135, loc=(0, -0.025, 0.15), mat=cloth, coll=CH, scale=(0.82, 1.12, 1.32))
-hood.parent = neck
-hood_tip = C.cylinder("hood_tip", 0.09, 0.2, loc=(0, -0.11, 0.12), rot=(math.radians(-70), 0, 0), r2=0.01, mat=cloth, coll=CH, verts=12)
-hood_tip.parent = neck; C.subsurf(hood_tip, 1)
-cape = C.cylinder("cape", 0.17, 0.46, loc=(0, -0.02, 0.32), r2=0.31, mat=cloth, coll=CH, verts=24)
-cape.rotation_euler = (math.pi, 0, 0)  # narrow at the neck, flaring over the shoulders
-cape.scale = (1.15, 0.9, 1)
-cape.parent = chest
-bmc = bmesh.new(); bmc.from_mesh(cape.data)
-bmesh.ops.subdivide_edges(bmc, edges=[e for e in bmc.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.1], cuts=5)
-bmc.to_mesh(cape.data); bmc.free()
-cw = cape.modifiers.new("ripple", "WAVE"); cw.height = 0.012; cw.width = 0.2; cw.speed = 0.08
-C.subsurf(cape, 1)
-# pauldron-like mantle over the shoulders
-mantle = C.cylinder("mantle", 0.2, 0.18, loc=(0, -0.01, 0.48), r2=0.12, mat=cloth, coll=CH, verts=14)
-mantle.parent = chest; mantle.scale = (1.3, 0.85, 1); C.subsurf(mantle)
-# long red braid swinging from under the hood
-braid_root = C.empty("braid_root", (0, -0.1, 0.06), parent=neck, coll=CH)
-braid = C.cylinder("braid", 0.035, 0.62, loc=(0, 0, -0.31), r2=0.012, mat=hair_m, coll=CH, verts=8)
-braid.parent = braid_root; braid.rotation_euler = (-0.15, 0, 0)
-
-# backpack capacitor: leather pack, brass cell with a teal window, coil on top
-pack = C.box("pack", (0.26, 0.13, 0.3), loc=(0, -0.17, 0.3), mat=skin_dark, coll=CH, bevel=0.025)
-pack.parent = chest
-cell = C.cylinder("pack_cell", 0.055, 0.34, loc=(0.075, -0.25, 0.32), mat=brass, coll=CH, verts=16, bevel=0.005)
-cell.parent = chest
-win = C.box("pack_win", (0.03, 0.01, 0.2), loc=(0.075, -0.305, 0.32), mat=teal, coll=CH)
-win.parent = chest
-for q in range(5):
-    t = C.torus(f"pack_coil{q}", 0.045, 0.008, loc=(-0.07, -0.25, 0.22 + q * 0.035), mat=brass, coll=CH, major=16, minor=6)
-    t.parent = chest
-pl = C.light("POINT", "pack_light", (0.075, -0.36, 0.32), 1.5, (0.2, 0.6, 1.0), size=0.03)
-pl.parent = chest
-# scarf tail streaming back over the shoulder in the wind
-bm = bmesh.new()
-bmesh.ops.create_grid(bm, x_segments=2, y_segments=16, size=1)
-for v in bm.verts:
-    v.co.x *= 0.06; v.co.y = (v.co.y + 1) * 0.36  # 0..0.72 along +y
-scarf = C.mesh_obj("scarf", bm, cloth, CH)
-scarf.parent = neck
-scarf.location = (-0.07, -0.08, -0.04)
-scarf.rotation_euler = (math.radians(-138), 0, math.radians(18))
-sw = scarf.modifiers.new("flutter", "WAVE")
-sw.use_normal = True; sw.height = 0.05; sw.width = 0.22; sw.speed = 0.18; sw.narrowness = 1.2
-sw.use_x = False; sw.use_y = True
-sol = scarf.modifiers.new("thick", "SOLIDIFY"); sol.thickness = 0.008
-C.subsurf(scarf, 1)
-
-# coat tails: two long flaps that swing with the stride, legs visible between
-tails = []
-for side, sx in (("L", -0.08), ("R", 0.08)):
-    piv = C.empty(f"tail_piv{side}", (sx, -0.06, 0.02), parent=hips, coll=CH)
-    bm = bmesh.new()
-    bmesh.ops.create_grid(bm, x_segments=2, y_segments=10, size=1)
-    for v in bm.verts:
-        v.co.x *= 0.1; v.co.z = (v.co.y - 1) * 0.33; v.co.y = 0  # hangs 0..-0.66
-        v.co.x *= 1 + 0.5 * (-v.co.z)  # widens toward the hem
-    tail = C.mesh_obj(f"tail{side}", bm, cloth, CH)
-    tail.parent = piv
-    sl = tail.modifiers.new("thick", "SOLIDIFY"); sl.thickness = 0.012
-    tw = tail.modifiers.new("flutter", "WAVE"); tw.use_normal = True; tw.height = 0.02; tw.width = 0.25; tw.speed = 0.12
-    tw.use_x = False; tw.use_y = False
-    C.subsurf(tail, 1)
-    tails.append((side, piv))
-
-legs = {}
-for side, sx in (("L", -0.09), ("R", 0.09)):
-    hip = C.empty(f"hip{side}", (sx, 0, -0.04), parent=hips, coll=CH)
-    thigh = C.cylinder(f"thigh{side}", 0.072, 0.45, loc=(0, 0, -0.22), r2=0.06, mat=skin_dark, coll=CH, verts=10)
-    thigh.parent = hip
-    knee = C.empty(f"knee{side}", (0, 0, -0.44), parent=hip, coll=CH)
-    shin = C.cylinder(f"shin{side}", 0.058, 0.44, loc=(0, 0, -0.22), r2=0.045, mat=skin_dark, coll=CH, verts=10)
-    shin.parent = knee
-    boot = C.box(f"boot{side}", (0.1, 0.24, 0.09), loc=(0, 0.05, -0.47), mat=skin_dark, coll=CH, bevel=0.02)
-    boot.parent = knee
-    legs[side] = (hip, knee)
-
-arms = {}
-for side, sx in (("L", -0.21), ("R", 0.21)):
-    sh = C.empty(f"shoulder{side}", (sx, 0, 0.47), parent=chest, coll=CH)
-    up = C.cylinder(f"upper{side}", 0.055, 0.3, loc=(0, 0, -0.15), r2=0.048, mat=cloth, coll=CH, verts=10)
-    up.parent = sh
-    el = C.empty(f"elbow{side}", (0, 0, -0.3), parent=sh, coll=CH)
-    fo = C.cylinder(f"fore{side}", 0.045, 0.27, loc=(0, 0, -0.14), r2=0.04, mat=skin_dark, coll=CH, verts=10)
-    fo.parent = el
-    arms[side] = (sh, el)
-
-# the gauntlet: brass sleeve, capacitor drum, glowing vents
-sh, el = arms["R"]
-g = C.empty("gauntlet", (0, 0, -0.2), parent=el, coll=CH)
-C.cylinder("g_sleeve", 0.095, 0.34, loc=(0, 0, 0), r2=0.08, mat=brass, coll=CH, verts=16, bevel=0.006).parent = g
-C.cylinder("g_drum", 0.07, 0.16, loc=(0.06, -0.02, -0.04), rot=(0, math.pi / 2, 0), mat=iron, coll=CH, verts=12).parent = g
-C.box("g_fist", (0.16, 0.14, 0.16), loc=(0, 0.01, -0.22), mat=iron, coll=CH, bevel=0.02).parent = g
-for v in range(3):
-    C.box(f"g_vent{v}", (0.025, 0.01, 0.1), loc=(-0.03 + v * 0.03, -0.098, 0.02), mat=teal, coll=CH).parent = g
-C.cylinder("g_core", 0.03, 0.02, loc=(0.135, -0.02, -0.04), rot=(0, math.pi / 2, 0), mat=teal, coll=CH).parent = g
-gl = C.light("POINT", "g_light", (0, -0.15, 0), 6, (0.2, 0.6, 1.0), size=0.05)
-gl.parent = g
-gl.data.use_soft_falloff = True
-
-# walk cycle, keyed per frame
+rig, parts = courier.build("far", coll=CH)
+rig.rotation_euler = (0, 0, math.pi)  # she faces -Y; turn her to walk away from camera
 SPEED = 1.05  # m/s
 for f in range(F0 - 2, F1 + 3):
     t = (f - F0) / C.FPS
     ph = 2 * math.pi * t * 0.95
-    root.location = (0.04 * math.sin(ph * 0.5), 4.5 + SPEED * t, 0)
-    root.keyframe_insert("location", frame=f)
-    hips.location = (0, 0, 0.95 + 0.022 * math.cos(2 * ph))
-    hips.rotation_euler = (0.05, 0.045 * math.sin(ph), 0.07 * math.sin(ph))
-    hips.keyframe_insert("location", frame=f); hips.keyframe_insert("rotation_euler", frame=f)
-    chest.rotation_euler = (0.08, -0.03 * math.sin(ph), -0.11 * math.sin(ph))
-    chest.keyframe_insert("rotation_euler", frame=f)
-    neck.rotation_euler = (-0.05, 0, 0.05 * math.sin(ph))
-    neck.keyframe_insert("rotation_euler", frame=f)
-    braid_root.rotation_euler = (-0.12 + 0.08 * math.sin(2 * ph + 1), 0, 0.18 * math.sin(ph + 0.8))
-    braid_root.keyframe_insert("rotation_euler", frame=f)
-    for side, s in (("L", 1), ("R", -1)):
-        hip, knee = legs[side]
-        p = ph if side == "L" else ph + math.pi
-        hip.rotation_euler = (0.42 * math.sin(p), 0, 0)
-        knee.rotation_euler = (-0.75 * max(0.0, math.sin(p - 1.2)) - 0.08, 0, 0)
-        hip.keyframe_insert("rotation_euler", frame=f); knee.keyframe_insert("rotation_euler", frame=f)
-    for side, piv in tails:
-        p = ph if side == "L" else ph + math.pi
-        piv.rotation_euler = (-0.12 + 0.18 * math.sin(p - 0.6), 0, 0)
-        piv.keyframe_insert("rotation_euler", frame=f)
-    shL, elL = arms["L"]
-    shL.rotation_euler = (-0.35 * math.sin(ph), 0.12, 0)
-    elL.rotation_euler = (0.35 + 0.15 * math.sin(ph), 0, 0)
-    shR, elR = arms["R"]  # the heavy arm barely swings
-    shR.rotation_euler = (0.12 * math.sin(ph), -0.1, 0)
-    elR.rotation_euler = (0.25, 0, 0)
-    for o in (shL, elL, shR, elR):
-        o.keyframe_insert("rotation_euler", frame=f)
-
-for o in CH.objects:
-    if o.type == "MESH":
-        o.visible_shadow = True
+    rig.location = (0.04 * math.sin(ph * 0.5), 4.5 + SPEED * t, 0)
+    rig.keyframe_insert("location", frame=f)
+    courier.pose(rig, f, courier.walk_pose(ph), loc=(0, 0, 0.018 * math.cos(2 * ph)))
+root = rig
 
 # --------------------------------------------------------------- lighting
 moon_sun = C.light("SUN", "moonlight", (0, 0, 0), 5.0, (1.0, 0.18, 0.12), size=math.radians(4))
