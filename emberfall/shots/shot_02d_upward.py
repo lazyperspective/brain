@@ -1,6 +1,6 @@
 """Shot 2d — Fall Upward (40 frames, 1.7s). Vision sequence, part 3.
 
-Looking straight up: gravity has let go. The courier drifts skyward with
+Looking straight up: gravity has let go. The robot drifts skyward with
 tumbling bridge planks, paper lanterns and petals, toward a city that hangs
 upside-down from a lemon-and-turquoise sky.
 """
@@ -71,23 +71,20 @@ for j in range(10):
           rot=(0, 0, a + math.pi / 2), mat=coral)
 
 # -------------------------------------------------------- rising world
-import courier
-rig, parts = courier.build("far")
-rig.scale = (1.3, 1.3, 1.3)
+import robot
+rig, parts = robot.build()
+rig.scale = (1.45, 1.45, 1.45)
 dark = C.toon("darkcloth", lit=(0.18, 0.06, 0.15), shade=(0.05, 0.015, 0.05), light_dir=(0.4, 0.3, -0.85), bands=(0.3, 0.6), rim=(1.0, 0.7, 0.4))
+W = lambda bn, d: robot.world_offset(rig, bn, d)
 for f in range(F0, F1 + 1):
     t = (f - F0) / (F1 - F0)
-    rig.location = (0.2 + 0.3 * t, -2.4 + 0.3 * t, 6.0 + 6.0 * t ** 1.3)
+    rig.location = (0.25 + 0.25 * t, -2.9 + 0.2 * t, 5.6 + 3.2 * t ** 1.3)
     rig.rotation_euler = (math.radians(78 - 8 * t), math.radians(-10 + 10 * t), math.radians(-25 + 45 * t))
     rig.keyframe_insert("location", frame=f); rig.keyframe_insert("rotation_euler", frame=f)
-    w = 0.08 * math.sin(f * 0.25)  # slow swimming drift of the limbs
-    courier.pose(rig, f, {
-        "upperarm.L": (0.1, 0, -1.25 - w), "forearm.L": (-0.25, 0, 0),
-        "upperarm.R": (0.1, 0, 1.25 + w), "forearm.R": (-0.35, 0, 0),
-        "thigh.L": (0.15, 0, -0.32 + w), "shin.L": (0.45, 0, 0),
-        "thigh.R": (-0.1, 0, 0.3 - w), "shin.R": (0.3, 0, 0),
-        "head": (-0.25, 0, 0), "neck": (-0.1, 0, 0), "chest": (-0.08, 0, 0),
-    })
+    w = 0.04 * math.sin(f * 0.25)  # slow drift of the limbs
+    robot.pose(rig, f, rots={"Head": (0.25, 0, 0), "Chest": (-0.1, 0, 0)},
+               locs={"IK-Wrist.L": W("IK-Wrist.L", (0.45 + w, 0.0, 0.42)), "IK-Wrist.R": W("IK-Wrist.R", (-0.45 - w, 0.0, 0.42)),
+                     "IK-Foot.L": W("IK-Foot.L", (0.22, 0.05, 0.1 + w)), "IK-Foot.R": W("IK-Foot.R", (-0.2, -0.08, 0.18 - w))})
 plank_m = C.toon("plank", lit=(0.95, 0.55, 0.3), shade=(0.45, 0.15, 0.12), light_dir=(0.4, 0.3, -0.85), bands=(0.3, 0.6), rim=(1.0, 0.9, 0.6))
 lantern_cols = [(1.0, 0.5, 0.1), (1.0, 0.15, 0.45), (1.0, 0.85, 0.2), (0.2, 1.0, 0.8)]
 petal_m = [C.emissive("petal_a", (1.0, 0.2, 0.6), 2.5), C.emissive("petal_b", (1.0, 1.0, 0.9), 2.0)]

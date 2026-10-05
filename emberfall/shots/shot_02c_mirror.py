@@ -1,6 +1,6 @@
 """Shot 2c — Mirror Sea (48 frames, 2.0s). Vision sequence, part 2.
 
-The courier stands alone on an endless mirror under a burning magenta sky.
+The robot stands alone on an endless mirror under a burning magenta sky.
 The moon has been cut into slabs that drift apart, their cut faces blazing
 cyan; colossal teal gear-rings hang in the air, one half-sunk in the sea;
 black monoliths hover over their own reflections.
@@ -157,20 +157,20 @@ for k in range(60):
                       t0=-200, life=10000, turb=0.0, drag=1.0))
 C.smoke_puffs("clouds", puffs, cloud_m, (F0, F1), resolution=2.0, threshold=0.6).scale = (1, 1, 0.4)
 
-# ------------------------------------------------------------- courier
-import courier
-rig, parts = courier.build("far")
+# --------------------------------------------------------------- robot
+import robot
+rig, parts = robot.build()
 rig.location = (0.6, 0, 0)
 rig.rotation_euler = (0, 0, math.radians(190))  # back to camera, facing the moon
+W = lambda bn, d: robot.world_offset(rig, bn, d)
 for f in range(F0, F1 + 1):
     t = (f - F0) / (F1 - F0)
-    b = 0.01 * math.sin(f * 0.2)  # breathing
-    courier.pose(rig, f, {
-        "upperarm.L": (0.05, 0, 0.28), "forearm.L": (-0.15, 0, 0),
-        "upperarm.R": (-0.25, 0, -0.18), "forearm.R": (-0.7 - 0.2 * C.ease(t), 0, 0),
-        "neck": (-0.12 - 0.05 * C.ease(t), 0, 0), "head": (-0.2 - 0.08 * C.ease(t), 0, 0.06),
-        "chest": (-0.03 + b, 0, 0), "thigh.L": (0, 0, -0.06), "thigh.R": (0.05, 0, 0.06),
-    })
+    b = 0.006 * math.sin(f * 0.2)  # idle servo hum
+    robot.pose(rig, f,
+               rots={"Head": (-0.3 - 0.12 * C.ease(t), 0, 0.05), "Chest": (-0.05 + b, 0, 0), "Torso": (0.0, 0, 0)},
+               locs={"Torso": W("Torso", (0, 0, -0.03)),
+                     "IK-Foot.L": W("IK-Foot.L", (0.08, 0, 0)), "IK-Foot.R": W("IK-Foot.R", (-0.08, 0.05, 0)),
+                     "IK-Wrist.L": W("IK-Wrist.L", (0.05, 0.02, 0)), "IK-Wrist.R": W("IK-Wrist.R", (-0.05, 0.02, 0))})
 # ripples spreading from her feet
 ring_m = C.emissive("ripple", (0.0, 0.9, 1.0), 2)
 for k in range(3):

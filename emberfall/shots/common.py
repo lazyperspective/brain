@@ -842,42 +842,6 @@ def smoke_puffs(name, puffs, mat, frames, resolution=0.06, threshold=0.6, coll=N
     return ob
 
 
-# ------------------------------------------------------------ the courier
-
-def figure(name, cloth, dark, glow, pose="stand", coll=None):
-    """Simplified courier for distant/silhouette shots: pointed hood, flared
-    cape, coat, legs and the glowing gauntlet. ~1.75 m tall, feet at origin.
-    pose: 'stand' or 'float' (limbs trailing, cape flared)."""
-    root = empty(name, (0, 0, 0), coll=coll)
-    fl = pose == "float"
-
-    def p(ob, sub=1):
-        ob.parent = root
-        if sub:
-            subsurf(ob, sub)
-        return ob
-    p(cylinder(f"{name}_torso", 0.15, 0.55, loc=(0, 0, 1.25), r2=0.19, mat=cloth, coll=coll, verts=12))
-    p(sphere(f"{name}_hood", 0.135, loc=(0, 0.01, 1.68), mat=cloth, coll=coll, scale=(0.82, 1.12, 1.32)))
-    p(cylinder(f"{name}_tip", 0.08, 0.2, loc=(0, 0.11, 1.72), rot=(math.radians(70), 0, 0), r2=0.01, mat=cloth, coll=coll, verts=10))
-    cape = p(cylinder(f"{name}_cape", 0.17, 0.75 if fl else 0.6, loc=(0, 0.02, 1.2 if fl else 1.25),
-                      r2=0.3 if fl else 0.36, mat=cloth, coll=coll, verts=24), 0)
-    cape.rotation_euler = (math.pi, 0, 0)
-    for sx in (-1, 1):
-        leg = p(cylinder(f"{name}_leg{sx}", 0.065, 0.9, loc=(sx * 0.09, 0, 0.47), r2=0.05, mat=dark, coll=coll, verts=10), 0)
-        if fl:
-            leg.rotation_euler = (0, sx * 0.32, 0)
-            leg.location = (sx * 0.2, 0, 0.5)
-        arm = p(cylinder(f"{name}_arm{sx}", 0.05, 0.6, loc=(sx * 0.25, 0, 1.2), r2=0.04, mat=dark, coll=coll, verts=10), 0)
-        arm.rotation_euler = (0, sx * (2.0 if fl else 0.12), 0)
-        if fl:
-            arm.location = (sx * 0.42, 0, 1.55)
-    g = p(cylinder(f"{name}_gaunt", 0.09, 0.3, loc=(0.31 if not fl else 0.68, 0, 0.98 if not fl else 1.72), r2=0.08,
-                   mat=dark, coll=coll, verts=12), 0)
-    g.rotation_euler = (0, 0.12 if not fl else 2.0, 0)
-    p(box(f"{name}_vent", (0.04, 0.2, 0.12), loc=(g.location.x, -0.08, g.location.z), mat=glow, coll=coll), 0)
-    return root
-
-
 def surreal_grade(scn, look="AgX - Punchy"):
     """Bold, saturated colour handling for the vision sequence."""
     scn.view_settings.view_transform = "AgX"

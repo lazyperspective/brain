@@ -1,6 +1,6 @@
 """Shot 1 — The Crossing (frames 1-62, 2.6s).
 
-A hooded courier with a heavy capacitor gauntlet walks a sagging plank bridge
+A battle-scarred security robot stalks across a sagging plank bridge
 toward a swollen crimson moon. Broken smokestacks and cranes stand in the haze
 on either side; slow push-in from behind.
 """
@@ -244,17 +244,15 @@ for j, (dx, dz, sx) in enumerate(((35, -14, 70), (55, 8, 60), (75, -30, 80))):
     C.key(cl, "location", F1, cl.location + Vector((6, 0, 0)))
 
 # ------------------------------------------------------------- character
-import courier
-CH = C.collection("courier")
-rig, parts = courier.build("far", coll=CH)
-rig.rotation_euler = (0, 0, math.pi)  # she faces -Y; turn her to walk away from camera
-SPEED = 1.05  # m/s
-for f in range(F0 - 2, F1 + 3):
-    t = (f - F0) / C.FPS
-    ph = 2 * math.pi * t * 0.95
-    rig.location = (0.04 * math.sin(ph * 0.5), 4.5 + SPEED * t, 0)
-    rig.keyframe_insert("location", frame=f)
-    courier.pose(rig, f, courier.walk_pose(ph), loc=(0, 0, 0.018 * math.cos(2 * ph)))
+import robot
+CH = C.collection("robot")
+rig, parts = robot.build(coll=CH)
+# walks away from camera (+Y): heading pi turns its -Y forward around
+robot.walk(rig, (F0, F1), speed=1.05, start=Vector((0.0, 4.3, 0)), heading=math.pi,
+           ground=lambda p: sag(p.y) + 0.03)  # plank top
+# cool rim from up-bridge so the armour edges read against the haze
+C.light("AREA", "robot_rim", (1.6, 9.5, 3.2), 900, (0.55, 0.75, 1.0), size=1.5, target=(0, 6, 1.4))
+C.light("AREA", "robot_rim2", (-1.8, 9.0, 2.4), 600, (1.0, 0.35, 0.25), size=1.5, target=(0, 6, 1.3))
 root = rig
 
 # --------------------------------------------------------------- lighting
@@ -262,7 +260,7 @@ moon_sun = C.light("SUN", "moonlight", (0, 0, 0), 5.0, (1.0, 0.18, 0.12), size=m
 moon_sun.rotation_euler = (Vector((0, 0, 0)) - MOON).to_track_quat("-Z", "Y").to_euler()
 fill = C.light("SUN", "skyfill", (0, 0, 0), 0.6, (0.3, 0.32, 0.8), size=math.radians(30))
 fill.rotation_euler = (math.radians(60), 0, math.radians(200))
-# glow pooled on the boards ahead of the courier
+# glow pooled on the boards ahead of the robot
 C.light("POINT", "lantern_glow", (1.2, 17.5, 1.0), 25, (1.0, 0.35, 0.15), size=0.2)
 
 # a few motes drifting through the haze
