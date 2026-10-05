@@ -268,8 +268,19 @@ belt.parent = chest; belt.scale = (1.05, 0.75, 1)
 neck = C.empty("neck", (0, 0, 0.58), parent=chest, coll=CH)
 head = C.sphere("head", 0.105, loc=(0, 0.01, 0.12), mat=skin_dark, coll=CH, scale=(0.9, 1, 1.12))
 head.parent = neck
-hood = C.sphere("hood", 0.135, loc=(0, -0.02, 0.13), mat=cloth, coll=CH, scale=(0.95, 1.1, 1.15))
+hood = C.sphere("hood", 0.135, loc=(0, -0.025, 0.15), mat=cloth, coll=CH, scale=(0.82, 1.12, 1.32))
 hood.parent = neck
+hood_tip = C.cylinder("hood_tip", 0.09, 0.2, loc=(0, -0.11, 0.12), rot=(math.radians(-70), 0, 0), r2=0.01, mat=cloth, coll=CH, verts=12)
+hood_tip.parent = neck; C.subsurf(hood_tip, 1)
+cape = C.cylinder("cape", 0.17, 0.46, loc=(0, -0.02, 0.32), r2=0.31, mat=cloth, coll=CH, verts=24)
+cape.rotation_euler = (math.pi, 0, 0)  # narrow at the neck, flaring over the shoulders
+cape.scale = (1.15, 0.9, 1)
+cape.parent = chest
+bmc = bmesh.new(); bmc.from_mesh(cape.data)
+bmesh.ops.subdivide_edges(bmc, edges=[e for e in bmc.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.1], cuts=5)
+bmc.to_mesh(cape.data); bmc.free()
+cw = cape.modifiers.new("ripple", "WAVE"); cw.height = 0.012; cw.width = 0.2; cw.speed = 0.08
+C.subsurf(cape, 1)
 # pauldron-like mantle over the shoulders
 mantle = C.cylinder("mantle", 0.2, 0.18, loc=(0, -0.01, 0.48), r2=0.12, mat=cloth, coll=CH, verts=14)
 mantle.parent = chest; mantle.scale = (1.3, 0.85, 1); C.subsurf(mantle)
@@ -278,18 +289,49 @@ braid_root = C.empty("braid_root", (0, -0.1, 0.06), parent=neck, coll=CH)
 braid = C.cylinder("braid", 0.035, 0.62, loc=(0, 0, -0.31), r2=0.012, mat=hair_m, coll=CH, verts=8)
 braid.parent = braid_root; braid.rotation_euler = (-0.15, 0, 0)
 
-# coat skirt: flared cone, wave-deformed so it ripples with the stride
-skirt = C.cylinder("coat", 0.2, 0.62, loc=(0, 0, -0.25), r2=0.17, mat=cloth, coll=CH, verts=20, smooth=True)
-skirt.parent = hips; skirt.scale = (1.15, 0.85, 1)
-bm = bmesh.new(); bm.from_mesh(skirt.data)
-bmesh.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.1], cuts=6)
-for v in bm.verts:  # flare the hem
-    t = (0.31 - v.co.z) / 0.62
-    v.co.x *= 1 + 0.6 * t; v.co.y *= 1 + 0.6 * t
-bm.to_mesh(skirt.data); bm.free()
-wv = skirt.modifiers.new("ripple", "WAVE")
-wv.use_normal = False; wv.height = 0.025; wv.width = 0.35; wv.speed = 0.06; wv.use_x = True; wv.use_y = False
-C.subsurf(skirt, 1)
+# backpack capacitor: leather pack, brass cell with a teal window, coil on top
+pack = C.box("pack", (0.26, 0.13, 0.3), loc=(0, -0.17, 0.3), mat=skin_dark, coll=CH, bevel=0.025)
+pack.parent = chest
+cell = C.cylinder("pack_cell", 0.055, 0.34, loc=(0.075, -0.25, 0.32), mat=brass, coll=CH, verts=16, bevel=0.005)
+cell.parent = chest
+win = C.box("pack_win", (0.03, 0.01, 0.2), loc=(0.075, -0.305, 0.32), mat=teal, coll=CH)
+win.parent = chest
+for q in range(5):
+    t = C.torus(f"pack_coil{q}", 0.045, 0.008, loc=(-0.07, -0.25, 0.22 + q * 0.035), mat=brass, coll=CH, major=16, minor=6)
+    t.parent = chest
+pl = C.light("POINT", "pack_light", (0.075, -0.36, 0.32), 1.5, (0.2, 0.6, 1.0), size=0.03)
+pl.parent = chest
+# scarf tail streaming back over the shoulder in the wind
+bm = bmesh.new()
+bmesh.ops.create_grid(bm, x_segments=2, y_segments=16, size=1)
+for v in bm.verts:
+    v.co.x *= 0.06; v.co.y = (v.co.y + 1) * 0.36  # 0..0.72 along +y
+scarf = C.mesh_obj("scarf", bm, cloth, CH)
+scarf.parent = neck
+scarf.location = (-0.07, -0.08, -0.04)
+scarf.rotation_euler = (math.radians(-138), 0, math.radians(18))
+sw = scarf.modifiers.new("flutter", "WAVE")
+sw.use_normal = True; sw.height = 0.05; sw.width = 0.22; sw.speed = 0.18; sw.narrowness = 1.2
+sw.use_x = False; sw.use_y = True
+sol = scarf.modifiers.new("thick", "SOLIDIFY"); sol.thickness = 0.008
+C.subsurf(scarf, 1)
+
+# coat tails: two long flaps that swing with the stride, legs visible between
+tails = []
+for side, sx in (("L", -0.08), ("R", 0.08)):
+    piv = C.empty(f"tail_piv{side}", (sx, -0.06, 0.02), parent=hips, coll=CH)
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=2, y_segments=10, size=1)
+    for v in bm.verts:
+        v.co.x *= 0.1; v.co.z = (v.co.y - 1) * 0.33; v.co.y = 0  # hangs 0..-0.66
+        v.co.x *= 1 + 0.5 * (-v.co.z)  # widens toward the hem
+    tail = C.mesh_obj(f"tail{side}", bm, cloth, CH)
+    tail.parent = piv
+    sl = tail.modifiers.new("thick", "SOLIDIFY"); sl.thickness = 0.012
+    tw = tail.modifiers.new("flutter", "WAVE"); tw.use_normal = True; tw.height = 0.02; tw.width = 0.25; tw.speed = 0.12
+    tw.use_x = False; tw.use_y = False
+    C.subsurf(tail, 1)
+    tails.append((side, piv))
 
 legs = {}
 for side, sx in (("L", -0.09), ("R", 0.09)):
@@ -348,6 +390,10 @@ for f in range(F0 - 2, F1 + 3):
         hip.rotation_euler = (0.42 * math.sin(p), 0, 0)
         knee.rotation_euler = (-0.75 * max(0.0, math.sin(p - 1.2)) - 0.08, 0, 0)
         hip.keyframe_insert("rotation_euler", frame=f); knee.keyframe_insert("rotation_euler", frame=f)
+    for side, piv in tails:
+        p = ph if side == "L" else ph + math.pi
+        piv.rotation_euler = (-0.12 + 0.18 * math.sin(p - 0.6), 0, 0)
+        piv.keyframe_insert("rotation_euler", frame=f)
     shL, elL = arms["L"]
     shL.rotation_euler = (-0.35 * math.sin(ph), 0.12, 0)
     elL.rotation_euler = (0.35 + 0.15 * math.sin(ph), 0, 0)

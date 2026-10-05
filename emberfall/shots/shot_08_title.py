@@ -44,7 +44,7 @@ for f, sx in ((F0, 0.0), (8, 0.0), (16, 1.0), (F1, 1.0)):
 
 rim = C.light("AREA", "rim", (0, 2.0, 2.4), 0, (1.0, 0.18, 0.12), size=6, target=(0, 0, 0))
 under = C.light("AREA", "under", (0, -1.4, -1.6), 0, (0.2, 0.65, 1.0), size=6, target=(0, 0, 0))
-for f, a, b in ((F0, 0, 0), (6, 0, 0), (14, 520, 200), (F1, 440, 160)):
+for f, a, b in ((F0, 0, 0), (6, 0, 0), (14, 900, 260), (F1, 760, 220)):
     rim.data.energy = a; under.data.energy = b
     rim.data.keyframe_insert("energy", frame=f); under.data.keyframe_insert("energy", frame=f)
 
