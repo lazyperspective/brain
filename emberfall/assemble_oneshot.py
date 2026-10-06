@@ -58,7 +58,11 @@ def main():
         out = f"x{i}"
         filters.append(f"[{prev}][s{i}]xfade=transition={trans}:duration={td:.4f}:offset={off:.4f}[{out}]")
         prev, t = out, t + durations[i] - td
-    filters.append(f"[{prev}]fade=t=in:st=0:d=0.15,noise=alls=6:allf=t,format=yuv420p[out]")
+    # transitions like fadewhite bleed into the letterbox: re-black the bars
+    bar = (H - 536) // 2
+    filters.append(f"[{prev}]drawbox=x=0:y=0:w={W}:h={bar}:color=black:t=fill,"
+                   f"drawbox=x=0:y={H - bar}:w={W}:h={bar}:color=black:t=fill,"
+                   f"fade=t=in:st=0:d=0.15,noise=alls=6:allf=t,format=yuv420p[out]")
     os.makedirs(os.path.join(ROOT, "out"), exist_ok=True)
     dst = os.path.join(ROOT, "out", f"emberfall_oneshot_{TAG}.mp4")
     cmd = ["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(filters), "-map", "[out]",
