@@ -143,3 +143,52 @@ def walk(rig, frames, speed=1.0, stride=0.62, heavy=1.0, start=Vector((0, 0, 0))
             pb = rig.pose.bones[bn]
             pb.location = world_offset(rig, bn, d)
             pb.keyframe_insert("location", frame=f)
+
+
+def bone_parent(ob, rig, bone):
+    """Parent ob to a pose bone, keeping its current world transform."""
+    from mathutils import Matrix
+    bpy.context.view_layer.update()
+    mw = ob.matrix_world.copy()
+    ob.parent = rig
+    ob.parent_type = "BONE"
+    ob.parent_bone = bone
+    b = rig.data.bones[bone]
+    ob.matrix_parent_inverse = (rig.matrix_world @ b.matrix_local @ Matrix.Translation((0, b.length, 0))).inverted()
+    ob.matrix_world = mw
+    return ob
+
+
+def gauntlet(rig, coll=None):
+    """A capacitor drum strapped to the right forearm: brass sleeve, six teal
+    cells, a glowing muzzle ring. Returns (objects, cell_strength_socket)."""
+    b = rig.data.bones["ROBO-Forearm.R"]
+    h, t = Vector(b.head_local), Vector(b.tail_local)
+    axis = (t - h).normalized()
+    q = axis.to_track_quat("Z", "Y").to_euler()
+    mid = h.lerp(t, 0.55)
+    brass = C.painted("g_brass", (0.42, 0.22, 0.08), dark=(0.15, 0.07, 0.03), light=(0.75, 0.5, 0.22),
+                      rough=0.3, metal=1.0, edge=(1.0, 0.8, 0.5), edge_w=0.006, stroke=12, fog=0.3)
+    enamel = C.painted("g_enamel", (0.32, 0.03, 0.035), dark=(0.11, 0.01, 0.015), light=(0.5, 0.08, 0.06),
+                       rough=0.4, metal=0.3, edge=(1.0, 0.55, 0.4), edge_w=0.008, stroke=8, fog=0.3)
+    cell = C.emissive("g_cell", (0.1, 0.75, 1.0), 2.0)
+    obs = []
+
+    def put(ob, off=0.0, radial=None):
+        ob.location = mid + axis * off + (radial if radial is not None else Vector())
+        ob.rotation_euler = q
+        bone_parent(ob, rig, "ROBO-Forearm.R")
+        obs.append(ob)
+        return ob
+    put(C.cylinder("g_sleeve", 0.075, 0.2, r2=0.068, mat=brass, coll=coll, verts=24, bevel=0.004))
+    put(C.cylinder("g_drum", 0.095, 0.09, mat=enamel, coll=coll, verts=32, bevel=0.006), -0.02)
+    side = axis.orthogonal().normalized()
+    up = axis.cross(side).normalized()
+    for k in range(6):
+        a = k * math.pi / 3
+        r = (side * math.cos(a) + up * math.sin(a)) * 0.096
+        put(C.sphere(f"g_cell{k}", 0.018, mat=cell, coll=coll, segs=12, rings=6), -0.02, r)
+    put(C.torus("g_muzzle", 0.05, 0.008, mat=cell, coll=coll, major=32, minor=6), 0.13)
+    for ob in obs:
+        ob.visible_shadow = False
+    return obs, cell.node_tree.nodes["Emission"].inputs["Strength"]
