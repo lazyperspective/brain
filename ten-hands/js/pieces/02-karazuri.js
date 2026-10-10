@@ -430,8 +430,8 @@ void main(){
     // A wing-strike imprint, not a spread emblem: the right wing fully extended, wrist swept forward, primaries
     // splayed as separate fingers curving back; the left wing half folded, shorter, pressed more lightly.
     const kx = portrait ? A / 0.64 : 1;
-    const S = portrait ? [0.352 + J(0.01), 0.335 + J(0.012)] : [0.895 + J(0.012), 0.395 + J(0.015)];
-    const L = portrait ? 0.19 : 0.45;
+    const S = portrait ? [0.35 + J(0.008), 0.335 + J(0.012)] : [0.905 + J(0.01), 0.395 + J(0.015)];
+    const L = portrait ? 0.2 : 0.48;
     const rot = r(-0.22, -0.11);
     const cr = Math.cos(rot), sr = Math.sin(rot);
     const toS = (X, Y) => [S[0] + L * (X * cr + Y * sr), S[1] + L * (X * sr - Y * cr)];
@@ -585,16 +585,16 @@ void main(){
     const talonFront = toS(-0.01, 0.2);
     {
       const pit = toS(0, 0.1);
-      blob(C.blobA, pit[0], pit[1], 0.075 * L, 0.06 * L, rot, 1.95, 0.55, 0.25, 1);
+      blob(C.blobA, pit[0], pit[1], 0.07 * L, 0.055 * L, rot, 1.7, 0.7, 0.25, 1);
       for (const fx of [-1, 1]) {
         const fc = [fx * 0.045, 0.12];
-        const toes = [[90 - 18 * fx, 0.075], [90 + 6 * fx, 0.07], [fx > 0 ? 18 : 162, 0.058], [-90 + 12 * fx, 0.045]];
+        const toes = [[90 - 18 * fx, 0.07], [90 + 6 * fx, 0.066], [fx > 0 ? 18 : 162, 0.05]];
         for (const [aD, ln] of toes) {
           const a = (aD + J(8)) * D2R;
-          const p0 = toS(fc[0] + Math.cos(a) * ln * 0.35, fc[1] + Math.sin(a) * ln * 0.35);
+          const p0 = toS(fc[0] + Math.cos(a) * ln * 0.4, fc[1] + Math.sin(a) * ln * 0.4);
           const p1 = toS(fc[0] + Math.cos(a) * ln, fc[1] + Math.sin(a) * ln);
-          seg(C.segA, p0[0], p0[1], p1[0], p1[1], 0.011 * L, 0.008 * L, r(1.45, 1.7), 0.8);
-          blob(C.blobA, p1[0], p1[1], 0.013 * L, 0.011 * L, a, r(2.2, 2.5), 0.5, 0.2, 1);
+          seg(C.segA, p0[0], p0[1], p1[0], p1[1], 0.013 * L, 0.009 * L, r(1.0, 1.15), 0.7);
+          blob(C.blobA, p1[0], p1[1], 0.012 * L, 0.01 * L, a, r(1.2, 1.35), 0.7, 0.2, 1);
         }
       }
     }
@@ -615,7 +615,7 @@ void main(){
         if (rnd() < 0.45) {
           const ln = sz * r(1.8, 4.0);
           const bx = x - Math.cos(a) * sz * 0.9, by = y - Math.sin(a) * sz * 0.9;
-          seg(C.segA, bx, by, bx - Math.cos(a) * ln, by - Math.sin(a) * ln, sz * 0.42, sz * 0.12, r(0.45, 0.65), 1.0);
+          seg(C.segA, bx, by, bx - Math.cos(a) * ln, by - Math.sin(a) * ln, sz * 0.55, sz * 0.25, r(0.22, 0.32), 1.6);
         }
       }
       for (let i = 0; i < 14; i++) {
