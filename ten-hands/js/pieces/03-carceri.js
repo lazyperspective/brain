@@ -164,8 +164,6 @@ float figure(vec3 p, vec4 f, vec4 pose){
   return d;
 }
 
-float gMat;
-
 float aabb(vec3 p, vec3 a, vec3 b){ return sdBox(p - 0.5*(a + b), 0.5*abs(b - a)); }
 float rope(vec3 p, vec3 A, vec3 B, vec3 C, float r, float best){
   float bb = aabb(p, min(min(A, B), C) - r, max(max(A, B), C) + r);
@@ -616,7 +614,7 @@ void main(){
   haze *= mix(0.6, 1.0, smoothstep(60.0, 150.0, t));
   haze += 0.32*smoothstep(40.0, 110.0, p.x)*smoothstep(70.0, 160.0, t)*(1.0 - smoothstep(38.0, 90.0, hy));
   haze += 0.26*smoothstep(95.0, 175.0, t)*(1.0 - smoothstep(26.0, 68.0, hy));
-  float sink = smoothstep(-3.5, 0.1, p.y);
+  float sink = smoothstep(-1.4, 0.05, p.y);
   L *= mix(0.06, 1.0, sink);
   haze *= mix(0.12, 1.0, sink);
   L = L*fogT + haze*(1.0 - fogT);
@@ -1136,7 +1134,7 @@ void main(){
         // plate number engraved with the burin in the upper margin: thick and hairline strokes, bracketed serifs
         {
           const h = Math.max(6.5, (L.img[1] - L.plate[1]) * 0.42) * dpr;
-          const thick = Math.max(1.1, h * 0.14), thin = Math.max(0.55, h * 0.045);
+          const thick = Math.max(1.0, h * 0.12), thin = Math.max(0.5, h * 0.04);
           const yT = Y(L.img[1]) - (L.img[1] - L.plate[1]) * dpr * 0.32 - h, yB = yT + h;
           g.strokeStyle = 'rgb(255,0,0)';
           g.lineCap = 'butt';

@@ -199,6 +199,17 @@
   };
   Painter.prototype.curve = function (ctrl, w0, w1, col, a, imp, ti, to) { this.line(spline(ctrl, 7), w0, w1, col, a, imp, ti, to); };
   Painter.prototype.leaf = function (x, y, ang, len, wid, bend, asym, col, a) { this.fill(leafPath(x, y, ang, len, wid, bend, asym), col, a); };
+  // a leaf as a brush leaves it: a translucent body and two loose bristle tracks that wander past its edge
+  Painter.prototype.leafB = function (x, y, ang, len, wid, bend, asym, col, a) {
+    const R = this.r;
+    this.fill(leafPath(x, y, ang, len, wid * (0.85 + R() * 0.25), bend, asym), col, a * 0.74);
+    const ca = Math.cos(ang + 1.5708), sa = Math.sin(ang + 1.5708);
+    for (let k = 0; k < 2; k++) {
+      const o = (R() - 0.5) * wid * 1.1, l = (R() - 0.5) * 34;
+      this.fill(leafPath(x + ca * o, y + sa * o, ang + (R() - 0.5) * 0.2, len * (0.55 + R() * 0.5), wid * (0.22 + R() * 0.25), bend, 0),
+        [col[0] + l, col[1] + l, col[2] + l * 0.9], a * (0.3 + R() * 0.3));
+    }
+  };
   Painter.prototype.dot = function (x, y, rx, ry, rot, col, a) { const p = new Path2D(); p.ellipse(x, y, rx, ry, rot, 0, TAU); this.fill(p, col, a); };
 
   /* ================================================================== scene
@@ -443,9 +454,13 @@
   }
   function paintUnder(P, pl, rng) {
     const pal = pl.sp.pal;
+    // first a soft, dark mass of green, so that every leaf sits on paint
+    if (hasFilter) P.c.filter = 'blur(' + Math.max(1, 0.006 * P.S).toFixed(1) + 'px)';
+    for (const l of pl.def.lobes) P.fill(blobPath(l[0], l[1] + l[3] * 0.05, l[2] * 0.9, l[3] * 0.9, 0, 0.14, rng), mixc(pal[0], pal[1], 0.35), 0.86);
+    if (hasFilter) P.c.filter = 'none';
     for (const u of pl.under) {
       const col = jit(mixc(pal[0], pal[1], u.t * 0.7), rng, 6);
-      P.leaf(u.x - Math.cos(u.a) * u.l * 0.5, u.y - Math.sin(u.a) * u.l * 0.5, u.a, u.l, u.w, rng.r(-0.3, 0.3), 0, col, 0.82);
+      P.leafB(u.x - Math.cos(u.a) * u.l * 0.5, u.y - Math.sin(u.a) * u.l * 0.5, u.a, u.l, u.w, rng.r(-0.3, 0.3), 0, col, 0.8);
     }
   }
   function paintSprays(P, pl, from, to) {
@@ -461,7 +476,7 @@
         la += (Math.cos(la) > 0 ? 1 : -1) * sp.droop * 0.4;
         const L = sp.len * (0.8 + R() * 0.4) * (1 - Math.abs(t - 0.5) * 0.35), W = sp.wid * (0.85 + R() * 0.3);
         const col = jit(sp.silver && R() < 0.15 ? mixc(base, sp.silver, 0.5) : base, R, 14);
-        P.leaf(s.x, s.y, la, L, W, sp.bend * (t < 0.5 ? -1 : 1) + (R() - 0.5) * 0.4, (R() - 0.5) * 0.5, col, 0.7 + R() * 0.25);
+        P.leafB(s.x, s.y, la, L, W, sp.bend * (t < 0.5 ? -1 : 1) + (R() - 0.5) * 0.4, (R() - 0.5) * 0.5, col, 0.72 + R() * 0.25);
         if (s.tone > 0.62 && R() < 0.45) {
           const c2 = jit(ramp(pal, Math.min(1, s.tone + 0.22)), R, 10);
           P.leaf(s.x + Math.cos(la) * L * 0.12, s.y + Math.sin(la) * L * 0.12, la, L * 0.62, W * 0.42, 0, 0, c2, 0.75);
@@ -720,55 +735,70 @@
   }
 
   function paintBasin(P, b) {
-    // a marble labrum in a handful of strokes: white body, grey turning edge, the dark under the lip, water in two touches
+    // a Roman labrum: wide shallow marble basin on a short fluted foot, in creamy greys, no outline
     const { x, y, rx, ry } = b;
-    const white = [234, 230, 218], grey = [150, 146, 148], dark = [96, 92, 96];
-    P.line([[x - 0.004, y + 0.05], [x - 0.003, y + 0.12], [x - 0.006, y + 0.2]], 0.03, 0.04, [206, 200, 190], 0.95, 0, 0, 0);
-    P.brush([[x - 0.006, y + 0.05], [x - 0.004, y + 0.12], [x - 0.01, y + 0.2]], 0.026, 0.034, [222, 216, 204], 0.95, 5);
-    P.brush([[x + 0.009, y + 0.055], [x + 0.012, y + 0.12], [x + 0.016, y + 0.2]], 0.012, 0.016, grey, 0.75, 3);
-    P.brush([[x - 0.04, y + 0.205], [x, y + 0.208], [x + 0.042, y + 0.204]], 0.022, 0.022, [206, 200, 190], 0.95, 4);
+    const cream = [204, 196, 180], light = [222, 214, 196], shadow = [148, 140, 150], deep = [122, 114, 124];
+    P.brush([[x, y + 0.036], [x, y + 0.07], [x, y + 0.11]], 0.03, 0.046, cream, 0.8, 5);
+    for (let k = -2; k <= 2; k++) P.brush([[x + k * 0.0065, y + 0.048], [x + k * 0.0085, y + 0.104]], 0.003, 0.0036, k > 0 ? shadow : light, 0.4, 1);
+    P.brush([[x + 0.006, y + 0.05], [x + 0.016, y + 0.108]], 0.013, 0.018, shadow, 0.4, 3);
+    P.brush([[x - 0.034, y + 0.112], [x, y + 0.117], [x + 0.034, y + 0.112]], 0.015, 0.015, cream, 0.75, 4);
     const bowl = new Path2D();
-    bowl.moveTo(x - rx, y); bowl.bezierCurveTo(x - rx * 0.95, y + 0.036, x - rx * 0.45, y + 0.054, x - 0.014, y + 0.056);
-    bowl.lineTo(x + 0.014, y + 0.056); bowl.bezierCurveTo(x + rx * 0.45, y + 0.054, x + rx * 0.95, y + 0.036, x + rx, y); bowl.closePath();
-    P.fill(bowl, [226, 220, 208], 0.92);
-    P.brush([[x - rx * 0.98, y + 0.006], [x - rx * 0.6, y + 0.036], [x, y + 0.05], [x + rx * 0.6, y + 0.036], [x + rx * 0.98, y + 0.006]], 0.036, 0.03, white, 0.96, 6);
-    P.brush([[x - rx * 0.7, y + 0.03], [x, y + 0.044], [x + rx * 0.7, y + 0.03]], 0.03, 0.02, white, 0.9, 5);
-    P.brush([[x + rx * 0.15, y + 0.022], [x + rx * 0.6, y + 0.03], [x + rx * 0.95, y + 0.012]], 0.024, 0.012, grey, 0.75, 4);
-    P.brush([[x - rx * 0.7, y + 0.04], [x, y + 0.054], [x + rx * 0.6, y + 0.044]], 0.006, 0.004, dark, 0.55, 2);
-    P.brush([[x - rx, y], [x - rx * 0.5, y - ry * 0.95], [x + rx * 0.5, y - ry * 0.95], [x + rx, y]], 0.011, 0.011, [212, 206, 196], 0.95, 3);
-    P.brush([[x - rx * 0.8, y - ry * 0.1], [x, y - ry * 0.25], [x + rx * 0.8, y - ry * 0.1]], 0.016, 0.014, [128, 160, 168], 0.9, 4);
-    P.brush([[x - rx * 0.45, y - ry * 0.3], [x + rx * 0.2, y - ry * 0.35]], 0.003, 0.002, [226, 236, 232], 0.85, 1);
-    P.brush([[x - rx, y + 0.002], [x - rx * 0.4, y + ry * 0.85], [x + rx * 0.4, y + ry * 0.85], [x + rx, y + 0.002]], 0.009, 0.007, [248, 246, 236], 0.95, 3);
+    bowl.moveTo(x - rx, y); bowl.bezierCurveTo(x - rx * 0.95, y + 0.028, x - rx * 0.45, y + 0.042, x - 0.016, y + 0.044);
+    bowl.lineTo(x + 0.016, y + 0.044); bowl.bezierCurveTo(x + rx * 0.45, y + 0.042, x + rx * 0.95, y + 0.028, x + rx, y); bowl.closePath();
+    if (hasFilter) P.c.filter = 'blur(' + Math.max(0.6, 0.0016 * P.S).toFixed(1) + 'px)';
+    P.fill(bowl, cream, 0.84);
+    if (hasFilter) P.c.filter = 'none';
+    P.brush([[x - rx * 0.9, y + 0.008], [x - rx * 0.5, y + 0.03], [x - rx * 0.05, y + 0.038]], 0.016, 0.01, light, 0.55, 4);
+    P.brush([[x + rx * 0.1, y + 0.02], [x + rx * 0.55, y + 0.028], [x + rx * 0.92, y + 0.01]], 0.024, 0.012, shadow, 0.5, 4);
+    P.brush([[x - rx * 0.6, y + 0.03], [x, y + 0.04], [x + rx * 0.6, y + 0.03]], 0.004, 0.003, deep, 0.25, 2);
+    P.brush([[x - rx, y], [x - rx * 0.5, y - ry * 0.95], [x + rx * 0.5, y - ry * 0.95], [x + rx, y]], 0.009, 0.009, cream, 0.8, 3);
+    P.brush([[x - rx * 0.8, y - ry * 0.1], [x, y - ry * 0.25], [x + rx * 0.8, y - ry * 0.1]], 0.015, 0.013, [134, 152, 158], 0.75, 4);
+    P.brush([[x - rx * 0.4, y - ry * 0.3], [x + rx * 0.15, y - ry * 0.35]], 0.0028, 0.002, [210, 218, 214], 0.6, 1);
+    P.brush([[x - rx, y + 0.002], [x - rx * 0.4, y + ry * 0.85], [x + rx * 0.4, y + ry * 0.85], [x + rx, y + 0.002]], 0.008, 0.006, light, 0.75, 3);
   }
 
   function paintFence(P, sc, rng) {
-    // a cane lattice: one ochre stroke per cane, a broken white stroke on the lit side, a little green shadow
-    const H = FBOT - FT, ochre = [196, 160, 94], white = [240, 232, 208], shade = [46, 58, 40];
+    // a cane lattice: ochre canes of uneven width with a darker and a lighter stroke, nodes, a thick cane on top
+    const H = FBOT - FT, ochre = [188, 154, 92], light = [230, 216, 174], dark = [110, 88, 54], shade = [46, 58, 40];
     const span = 0.08, slope = 0.62;
-    const cane = (pts, w) => {
-      P.brush(pts.map((p) => [p[0] + w * 0.5, p[1] + w * 0.45]), w * 1.1, w, shade, 0.28, 2, true);
-      P.brush(pts, w, w * 0.85, jit(ochre, rng, 22), 0.9, 4, true);
-      const n = pts.length, a0 = Math.floor(rng() * n * 0.4), a1 = Math.min(n, a0 + 2 + Math.floor(rng() * n * 0.6));
-      const sub = pts.slice(a0, a1).map((p) => [p[0] - w * 0.25, p[1] - w * 0.2]);
-      if (sub.length > 1) P.brush(sub, w * 0.42, w * 0.3, white, 0.8, 2, true);
+    const cane = (pts, w, nodeGap) => {
+      const n = pts.length, w0 = w * rng.r(0.8, 1.15), w1 = w * rng.r(0.75, 1.1);
+      const N = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], c = pts[Math.min(n - 1, i + 1)], dx = c[0] - a[0], dy = c[1] - a[1], d = Math.hypot(dx, dy) || 1; return [-dy / d, dx / d]; });
+      const off = (k, f) => pts.map((p, i) => [p[0] + N[i][0] * w * f + (k ? 0 : 0), p[1] + N[i][1] * w * f]);
+      P.brush(pts.map((p) => [p[0] + w * 0.6, p[1] + w * 0.5]), w0 * 1.1, w1, shade, 0.2, 2, true);
+      P.brush(pts, w0, w1, jit(ochre, rng, 20), 0.86, 4, true);
+      const a0 = Math.floor(rng() * n * 0.3), a1 = Math.min(n, a0 + 3 + Math.floor(rng() * n * 0.7));
+      const dk = off(0, 0.32).slice(a0, a1);
+      if (dk.length > 1) P.brush(dk, w * 0.32, w * 0.22, dark, 0.45, 2, true);
+      const b0 = Math.floor(rng() * n * 0.3), b1 = Math.min(n, b0 + 3 + Math.floor(rng() * n * 0.7));
+      const lt = off(0, -0.3).slice(b0, b1);
+      if (lt.length > 1) P.brush(lt, w * 0.34, w * 0.24, light, 0.7, 2, true);
+      if (nodeGap) {
+        let acc = rng() * nodeGap;
+        for (let i = 1; i < n; i++) {
+          acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+          if (acc > nodeGap) { acc = 0; const p = pts[i], q = N[i]; P.line([[p[0] - q[0] * w * 0.6, p[1] - q[1] * w * 0.6], [p[0] + q[0] * w * 0.6, p[1] + q[1] * w * 0.6]], w * 0.28, w * 0.28, dark, 0.45, 0, 0, 0); }
+        }
+      }
     };
     for (const dir of [-1, 1]) {
       for (let u = sc.uL - 0.3; u < sc.uR + 0.2; u += span * rng.r(0.85, 1.15)) {
-        const k = rng() * 10, sl = slope * rng.r(0.9, 1.1), amp = rng.r(0.0008, 0.0022), pts = [];
-        for (let t = 0; t <= 7; t++) { const v = FBOT - (t / 7) * H; pts.push([u + dir * (t / 7) * H * sl + Math.sin(v * 60 + k) * amp, v]); }
-        cane(pts, rng.r(0.0058, 0.0078));
+        const k = rng() * 10, sl = slope * rng.r(0.9, 1.1), amp = rng.r(0.001, 0.0026), pts = [];
+        for (let t = 0; t <= 10; t++) { const v = FBOT - (t / 10) * H; pts.push([u + dir * (t / 10) * H * sl + Math.sin(v * 55 + k) * amp, v]); }
+        cane(pts, rng.r(0.005, 0.0075), rng.r(0.04, 0.06));
       }
     }
-    for (const v of [FT, FBOT]) {
-      const pts = [];
-      for (let u = sc.uL - 0.1; u <= sc.uR + 0.1; u += 0.04) pts.push([u, v + Math.sin(u * 9.5 + v * 7) * 0.0016 + rng.r(-0.0008, 0.0008)]);
-      cane(pts, 0.0095);
-    }
+    // occasional thicker uprights, cut off just above the top cane
     for (const u of sc.posts) {
-      if (!sc.inWin(u, 0.05)) continue;
-      const lean = rng.r(-0.004, 0.004);
-      cane([[u + lean, FT - 0.022], [u + lean * 0.5, FT + 0.05], [u + lean * 0.2, (FT + FBOT) / 2 + 0.03], [u - 0.0005, FBOT + 0.01]], 0.012);
-      P.dot(u + lean, FT - 0.022, 0.0075, 0.0055, 0, [214, 186, 124], 0.95);
+      if (!sc.inWin(u, 0.05) || rng() < 0.35) continue;
+      const lean = rng.r(-0.005, 0.005), pts = [];
+      for (let t = 0; t <= 8; t++) { const v = FT - 0.014 + (t / 8) * (FBOT - FT + 0.024); pts.push([u + lean * (1 - t / 8) + Math.sin(v * 40) * 0.001, v]); }
+      cane(pts, rng.r(0.008, 0.011), 0.05);
+    }
+    for (const [v, w] of [[FT, 0.012], [FBOT, 0.0085]]) {
+      const pts = [];
+      for (let u = sc.uL - 0.1; u <= sc.uR + 0.1; u += 0.03) pts.push([u, v + Math.sin(u * 9.5 + v * 7) * 0.0018 + rng.r(-0.0009, 0.0009)]);
+      cane(pts, w, 0.07);
     }
   }
 
@@ -1073,9 +1103,9 @@
   /* ============================================================ tratteggio
    * Brandi's tratteggio: vertical strokes of pure watercolour, laid row by row, that mix in the eye
    * to the tone around the lacuna — and fall apart into honest hatching up close. */
-  const TPAL = [[44, 86, 168], [78, 146, 194], [34, 118, 96], [62, 100, 52], [206, 160, 64], [178, 118, 56], [162, 68, 44], [92, 70, 54]];
+  const TPAL = [[96, 124, 156], [134, 164, 180], [96, 122, 98], [120, 132, 96], [200, 170, 112], [172, 130, 90], [164, 100, 78], [104, 90, 76], [214, 206, 188]];
   const TGROUND = [233, 226, 211];
-  function tratteggio(T, sc, D, S, lowA, lowB, seed) {
+  function tratteggio(T, sc, D, S, lowA, lowB, seed, dpx) {
     const rng = RNG(seed, 'trat');
     const pal = TPAL, combos = [];
     for (let a = 0; a < pal.length; a++) for (let b = a; b < pal.length; b++) for (let c = b; c < pal.length; c++) combos.push([a, b, c]);
@@ -1090,7 +1120,7 @@
       }
       return o;
     };
-    const rowH = 0.012 * S, gap = 0.0012 * S, sp = Math.max(1.5, 0.0023 * S), lw = Math.max(0.9, sp * 0.7);
+    const rowH = 0.0075 * S, gap = 0.0008 * S, sp = Math.max(1.4, 1.75 * dpx), lw = Math.max(0.9, 1.15 * dpx);
     for (const t of D.trat) {
       const pts = t.poly.map(([u, v]) => [(u - sc.u0) * S, v * S]);
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
@@ -1109,13 +1139,13 @@
             const yc = ry + rowH / 2;
             let tg = mixc(sample(lowB, 8 * lowB.f, x + sp, yc), sample(lowA, 2 * lowA.f, x + sp, yc), wF);
             const lum = tg[0] * 0.3 + tg[1] * 0.55 + tg[2] * 0.15;
-            tg = mixc(tg, [lum + 6, lum + 8, lum + 2], 0.28).map((v) => v * 0.94 + 18);
+            tg = mixc(tg, [lum + 4, lum + 6, lum + 2], 0.62).map((v) => v * 0.8 + 38);
             let best = 0, be = 1e9;
             for (let q = 0; q < cm.length; q++) {
               const m = cm[q], cbq = combos[q];
               let spread = 0;
               for (let z = 0; z < 3; z++) { const pz = pal[cbq[z]]; spread += (pz[0] - tg[0]) ** 2 + (pz[1] - tg[1]) ** 2 + (pz[2] - tg[2]) ** 2; }
-              const e = (m[0] - tg[0]) ** 2 * 0.8 + (m[1] - tg[1]) ** 2 + (m[2] - tg[2]) ** 2 * 0.7 + spread * 0.05;
+              const e = (m[0] - tg[0]) ** 2 * 0.8 + (m[1] - tg[1]) ** 2 + (m[2] - tg[2]) ** 2 * 0.7 + spread * 0.22;
               if (e < be) { be = e; best = q; }
             }
             cb = combos[best].slice();
@@ -1557,6 +1587,7 @@ void main() {
     const pc = cnv(Pw, Ph), px = c2d(pc);
     px.setTransform(Sp, 0, 0, Sp, -u0 * Sp, 0);
     const P = new Painter(px, seed ^ 0x5bd1);
+    P.S = Sp;
     const flush = () => px.getImageData(0, 0, 1, 1);
     const prng = RNG(seed, 'paint');
     paintSky(P, sc, prng); flush(); await step();
@@ -1608,7 +1639,7 @@ void main() {
     const lowA = { d: lax.getImageData(0, 0, la.width, la.height).data, w: la.width, h: la.height, f: 1 / kp };
     const lowB = { d: lbx.getImageData(0, 0, lb.width, lb.height).data, w: lb.width, h: lb.height, f: 1 / kp };
     const tc = cnv(Wp, Hp), tx = c2d(tc);
-    tratteggio(tx, sc, D, S, lowA, lowB, seed);
+    tratteggio(tx, sc, D, S, lowA, lowB, seed, S / L.fh);
     await step();
     mark('trat');
 

@@ -774,8 +774,8 @@
     const r = S.r;
     const X0 = L.x0 + 30, X1 = L.x1 - 30, Yb = L.y1 - 30;
     // the far patchwork: hedgerows across, a few boundaries running back, fields of different tone
-    for (let i = 0; i < 3; i++) {
-      const y = 616 + i * (14 + i * 8) + r() * 8, xa = lerp(X0, X1, r() * 0.35), xb = lerp(X0, X1, 0.55 + r() * 0.45);
+    for (let i = 0; i < 2; i++) {
+      const y = 618 + i * (22 + r() * 16) + r() * 8, xa = lerp(X0, X1, r() * 0.35), xb = lerp(X0, X1, 0.55 + r() * 0.45);
       if (r() < 0.8) {
         const ya = y + 2, yb2 = y + 10 + i * 10;
         S.go('side', sweep(xa, (ya + yb2) / 2, (r() - 0.5) * 0.04, (xb - xa) * (0.4 + r() * 0.5), 0, 3), 5 + i * 3, { f: (0.25 + r() * 0.6) * amt, gap: 0.01 });
@@ -810,11 +810,11 @@
       S.go('comp', scumble(S, x + 9, y - h - 4, 3, 6, 16, 1.6), 1.1, { f: 1.2, speed: 900 });
     }
     // the open ground: a few slanting, broken passes, wiped across; the grass in clumps
-    for (let i = 0; i < 6; i++) {
-      const y = lerp(720, Yb - 20, r()), x = lerp(xe - 60, X1 - 200, r()), s = L.sc(y);
-      S.go('side', sweep(x, y, (r() - 0.5) * 0.25, 160 + r() * 360, (r() - 0.5) * 0.2, 3), 6 + s * 10, { f: (0.25 + s * 0.35) * amt, p0: 0.3 + r() * 0.8, p1: 0.2 + r() * 0.6, gap: 0.01 });
+    for (let i = 0; i < 4; i++) {
+      const y = lerp(740, Yb - 20, r()), x = lerp(xe - 60, X1 - 260, r()), s = L.sc(y);
+      S.go('side', sweep(x, y, (r() - 0.5) * 0.3, 200 + r() * 360, (r() - 0.5) * 0.3, 3), 12 + s * 14, { f: (0.15 + s * 0.25) * amt, p0: 0.3 + r() * 0.8, p1: 0.2 + r() * 0.6, gap: 0.01 });
     }
-    S.go('smudge', sweep(xe, Yb - 60, -0.12, X1 - xe, 0.1, 5), 40, { f: 0.6, speed: 3000 });
+    S.go('smudge', zig(clipLines([xe - 80, 730, X1 - 20, 720, X1 - 20, Yb, xe - 80, Yb], -0.15, 40, 0.3, r)), 38, { f: 0.7, smooth: true, speed: 4200 });
     const yb = st && st.year;
     for (let c = 0; c < 4; c++) {
       const cx = lerp(xe - 40, X1 - 80, r()), cy = lerp(730, Yb - 20, r());
@@ -2194,8 +2194,6 @@ void main(){
     const simW = Math.max(64, Math.round(sw * s)), simH = Math.max(64, Math.round(sh * s));
     return { vw, vh, m, sw, sh, W, H, wx0, wy0: cy - H / 2, simW, simH, k: simW / W };
   }
-
-  window.__palTest = { buildCycle, makeLand, layoutFor, Engine, Sim, compile };
 
   /* ================================================================ the piece */
   (window.PIECES = window.PIECES || []).push({

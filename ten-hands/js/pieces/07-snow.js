@@ -551,56 +551,149 @@
       }
     }
 
+    /* ---- great snowy cedars: a few drooping tiers each, heavy irregular lumps of snow ---- */
+    function bigCedar(r, cx, top, bot, w, lean, o) {
+      const parts = [];
+      const axis = (y) => cx + lean * (y - top);
+      const span = bot - top;
+      // a narrow dark spine through the crown
+      const core = shape([[axis(top), top - 40], [axis(bot) + w * 0.12, bot + 30], [axis(bot) - w * 0.12, bot + 30]], [0, 1, 2]);
+      parts.push({ fol: core, snows: [], y: -1e9 });
+      let y = top + span * 0.03;
+      while (y < bot) {
+        const t = (y - top) / span;
+        const reach = w * (0.3 + 0.7 * Math.pow(Math.min(1, t / 0.45), 0.7)) * (1 - 0.15 * t);
+        const load = 1.25 - 0.65 * t; // more snow up high
+        const sides = r() < 0.45 ? [-1, 1] : [r() < 0.5 ? -1 : 1];
+        for (const sd of sides) {
+          const yy = y + (sides.length > 1 && sd > 0 ? (r() - 0.3) * 30 : 0);
+          const L = reach * (0.65 + r() * 0.6);
+          const th = 22 + r() * 22 + t * 12;
+          const d = L * (0.15 + r() * 0.35);
+          const ax = axis(yy), X = (u) => ax + sd * u;
+          // branch: an arching top, two or three big rounded hanging lobes of needles, the tip drooping
+          const pts = [[X(-6), yy - th * 0.3], [X(L * 0.4), yy - th * 0.45 + d * 0.15], [X(L * 0.8), yy - th * 0.1 + d * 0.6], [X(L), yy + d + th * 0.25]];
+          const lobes = 2 + ((r() * 2) | 0);
+          for (let j = 1; j <= lobes * 2 - 1; j++) {
+            const u = 1 - j / (lobes * 2);
+            pts.push([X(L * u + (r() - 0.5) * 8), yy + d * u * u + th * (j % 2 ? 0.55 + r() * 0.45 : 0.2)]);
+          }
+          pts.push([X(-6), yy + th * 0.4]);
+          const fol = shape(pts, [3]);
+          const snows = [];
+          if (r() > 0.18 * (0.5 + t)) {
+            // the main lump: off-centre, lumpy, thick toward one end
+            const a = 0.02 + r() * 0.25, b = Math.min(1.02, a + 0.4 + r() * 0.5), st = th * (0.55 + r() * 0.7) * load;
+            const heavyAt = r();
+            const nb = 3 + ((r() * 3) | 0), tp = [], bt = [];
+            for (let j = 0; j <= nb; j++) {
+              const f = j / nb, u = a + (b - a) * f;
+              const env = Math.pow(Math.sin(Math.PI * f), 0.5) * (0.65 + 0.7 * Math.exp(-Math.pow((f - heavyAt) * 2.4, 2)));
+              tp.push([X(L * u), yy - th * 0.42 + d * u * u * 0.9 - st * env * (0.7 + r() * 0.5)]);
+            }
+            for (let j = nb; j >= 0; j--) {
+              const f = j / nb, u = a + (b - a) * f;
+              bt.push([X(L * u), yy - th * 0.12 + d * u * u * 0.85 + (r() - 0.3) * th * 0.25]);
+            }
+            snows.push({ path: smooth(tp.concat(bt)), top: crPts(tp, false), y0: yy - th * 0.4 - st, y1: yy });
+            // now and then a lump sliding off the drooping tip
+            if (r() < 0.16) {
+              const tx = X(L * 0.96), ty = yy + d + th * 0.2;
+              const sp = [[tx - 7, ty - 6], [tx + 7, ty - 6], [tx + 6, ty + 10], [tx + sd * 2, ty + 18 + r() * 10], [tx - 6, ty + 10]];
+              snows.push({ path: smooth(sp), top: crPts(sp.slice(0, 2), false), y0: ty - 6, y1: ty + 20 });
+            }
+          }
+          parts.push({ fol, snows, y: yy });
+        }
+        // branches reaching toward us: snow piled across the front of the crown
+        if (r() < 0.55 * load) {
+          const cw = reach * (0.5 + r() * 0.5), yy = y + 10 + r() * 20, cx0 = axis(yy) + (r() - 0.5) * reach * 0.4;
+          const th = 20 + r() * 16, st = th * (0.6 + r() * 0.6) * load;
+          const fol = smooth([[cx0 - cw, yy + 6], [cx0 - cw * 0.4, yy - th * 0.3], [cx0 + cw * 0.5, yy - th * 0.25], [cx0 + cw, yy + 8],
+            [cx0 + cw * 0.5, yy + th * (0.7 + r() * 0.4)], [cx0, yy + th * 0.45], [cx0 - cw * 0.5, yy + th * (0.7 + r() * 0.4)]]);
+          const tp = [], nb = 4;
+          for (let j = 0; j <= nb; j++) { const f = j / nb; tp.push([cx0 - cw * 0.85 + cw * 1.7 * f, yy - th * 0.25 - st * Math.pow(Math.sin(Math.PI * f), 0.6) * (0.7 + r() * 0.5)]); }
+          const sp = tp.concat([[cx0 + cw * 0.8, yy + 2], [cx0 + cw * 0.2, yy + th * 0.05 + (r() - 0.5) * 6], [cx0 - cw * 0.4, yy + 1 + (r() - 0.5) * 6], [cx0 - cw * 0.82, yy + 3]]);
+          parts.push({ fol, snows: [{ path: smooth(sp), top: crPts(tp, false), y0: yy - th * 0.3 - st, y1: yy }], y: yy + 1 });
+        }
+        y += span / (o.tiers || 9) * (0.6 + r() * 0.8);
+      }
+      parts.sort((p, q) => q.y - p.y);
+      // the spine first (it was sorted last)
+      const spine = parts.pop(); parts.unshift(spine);
+      return parts;
+    }
+    function drawBig(r, parts, folInks, snowInks, keyA) {
+      for (const t of parts) {
+        occ(t.fol);
+        inks(folInks, t.fol);
+        for (const sn of t.snows) {
+          occ(sn.path);
+          for (const s2 of snowInks) ink(s2[0], sn.path, 1, LG(0, sn.y0, 0, sn.y1, [[0, s2[1] * 0.3], [1, s2[1]]]));
+          ink('key', carve(r, sn.top, kw(1.1), { raw: true, ts: 4, te: 4, tmin: 0.25, chip: 0.05, brk: 0.008 }), keyA);
+        }
+      }
+    }
+    function trunk(r, x, yTop, yBot, wTop, wBot, lit) {
+      const p = shape([[x - wTop / 2, yTop], [x + wTop / 2, yTop], [x + wBot / 2, yBot], [x - wBot / 2, yBot]], [0, 1, 2, 3]);
+      occ(p); inks([['cedar', 0.6], ['brown', 0.42], ['indigo', 0.82]], p);
+      ink('key', key(r, [[x - wTop / 2, yTop], [x - wBot / 2, yBot]], 1.2, { brk: 0.015, ts: 0, te: 0 }), 0.8);
+      ink('key', key(r, [[x + wTop / 2, yTop], [x + wBot / 2, yBot]], 1.2, { brk: 0.015, ts: 0, te: 0 }), 0.8);
+      for (let i = 0; i < 3; i++) { const bx = x + (r() - 0.5) * wTop * 0.6; ink('key', key(r, [[bx, yTop + r() * 80], [bx + (r() - 0.5) * 3, yTop + 140 + r() * 220]], 0.8, { brk: 0.05 }), 0.4); }
+      const pl = carve(r, [[x - wTop * 0.32, yTop + 20], [x - wBot * 0.38, yBot - 10]], 4, { ts: 8, te: 2, chip: 0.1, brk: 0.05 });
+      occ(pl); ink('shadow', pl, 0.5);
+      if (lit) ink('yellow', p, 1, LG(0, yBot - 260, 0, yBot, [[0, 0], [1, lit]]));
+    }
+
     /* ---- 8. the near cedar at the left edge */
     {
       const r = R('leftcedar');
-      const u = um(960), tw = 0.6 * u;
-      const trunk = shape([[30 - tw * 0.4, 600], [30 + tw * 0.4, 600], [30 + tw * 0.55, 962], [30 - tw * 0.55, 962]], [0, 1, 2, 3]);
-      occ(trunk); inks([['cedar', 0.55], ['brown', 0.45], ['indigo', 0.8]], trunk);
-      ink('key', key(r, [[30 + tw * 0.42, 600], [30 + tw * 0.55, 962]], 1.2, { brk: 0.01 }), 0.85);
-      const pl = carve(r, [[30 - tw * 0.35, 620], [30 - tw * 0.48, 950]], 4, { ts: 6, te: 2, chip: 0.1, brk: 0.04 });
-      occ(pl); ink('shadow', pl, 0.5);
-      const dr = blob(r, 30, 962, 60, 8, 10, 0.2); occ(dr); inks([['shadow', 0.55], ['indigo', 0.3]], dr);
-      drawSugi(r, sugi(r, 18, -140, 640, 120, { clump: 42 }), [['cedar', 0.9], ['indigo', 0.62]], [['shadow', 0.56], ['indigo', 0.22]], 0.6);
+      const u = um(960);
+      trunk(r, 34, 380, 962, 0.42 * u, 0.6 * u, 0);
+      const dr = blob(r, 34, 962, 60, 8, 10, 0.2); occ(dr); inks([['shadow', 0.55], ['indigo', 0.3]], dr);
+      drawBig(r, bigCedar(r, 26, -160, 610, 116, 0.02, { tiers: 10 }), [['cedar', 0.9], ['indigo', 0.64]], [['shadow', 0.55], ['indigo', 0.2]], 0.6);
     }
 
-    /* ---- 9. the dark cedars behind the stop */
+    /* ---- 9. the dark forest behind the stop, and two or three great cedars in front of it */
     {
       const r = R('grove');
-      const body = poly(crPts([[446, -20], [440, 200], [446, 420], [436, 640], [432, 860], [428, 1046]], false).concat([[1020, 1046], [1020, -20]]));
+      // the forest's edge against the sky: ragged spires, not a smooth wall
+      const edge = [[650, -20], [624, 70], [606, 36], [588, 150], [566, 128], [556, 262], [532, 240], [518, 390], [494, 372], [484, 520], [462, 506], [454, 660], [440, 800], [432, 920], [428, 1046]];
+      const body = poly(edge.map((q, i) => (i && i < edge.length - 1 ? [q[0] + (r() - 0.5) * 8, q[1] + (r() - 0.5) * 10] : q)).concat([[1020, 1046], [1020, -20]]));
       occ(body);
-      inks([['cedar', 0.62], ['indigo', 0.84], ['grey', 0.2]], body);
+      ink('indigo', body, 1, LG(0, -20, 0, 360, [[0, 0.62], [1, 0.95]]));
+      ink('cedar', body, 1, LG(0, -20, 0, 360, [[0, 0.3], [1, 0.6]]));
+      ink('key', body, 1, LG(0, 200, 0, 900, [[0, 0], [0.5, 0.22], [1, 0.14]]));
       const floor = poly(crPts([[426, 1006], [520, 998], [620, 1004], [720, 996], [820, 1002], [920, 997], [1020, 1003]], false).concat([[1020, 1060], [426, 1060]]));
       occ(floor);
       inks([['shadow', 0.6], ['indigo', 0.5], ['grey', 0.22]], floor);
-      for (let i = 0; i < 9; i++) {
-        const x = 450 + r() * 560, w = 6 + r() * 10;
-        const p = carve(r, [[x, 700 + r() * 80], [x + (r() - 0.5) * 3, 1004 + r() * 6]], w, { ts: 0, te: 2, sw: 0.1, chip: 0.03 });
-        occ(p); inks([['cedar', 0.5], ['indigo', 0.85], ['key', 0.3]], p);
+      // deep in the forest: a few trunks, and snow glimpsed on unseen boughs
+      for (let i = 0; i < 7; i++) {
+        const x = 470 + r() * 540, w = 8 + r() * 12;
+        const p = carve(r, [[x, 420 + r() * 260], [x + (r() - 0.5) * 4, 1004 + r() * 6]], w, { ts: 0, te: 2, sw: 0.08, chip: 0.03 });
+        occ(p); inks([['cedar', 0.55], ['indigo', 0.9], ['key', 0.3]], p);
       }
-      const back = [['cedar', 0.72], ['indigo', 0.8], ['grey', 0.1]], backS = [['shadow', 0.72], ['indigo', 0.45]];
-      const front = [['cedar', 0.9], ['indigo', 0.6]], frontS = [['shadow', 0.55], ['indigo', 0.2]];
+      for (let i = 0; i < 16; i++) {
+        const x = 470 + r() * 540, y = 120 + r() * 640;
+        const lump = blob(r, x, y, 10 + r() * 22, 3 + r() * 5, 9, 0.3);
+        ink('shadow', lump, 0.32); ink('grey', lump, 0.12);
+      }
+      const front = [['cedar', 0.9], ['indigo', 0.62]], frontS = [['shadow', 0.5], ['indigo', 0.16]];
+      const u = um(1040);
+      // each its own height, width and lean
       const trees = [
-        [612, -160, 700, 96, back, backS, 1], [800, -150, 690, 100, back, backS, 1], [968, -150, 690, 100, back, backS, 1],
-        [522, -120, 660, 84, front, frontS, 0], [708, -170, 630, 104, front, frontS, 0], [892, -160, 650, 100, front, frontS, 0],
+        { cx: 532, top: 30, bot: 580, w: 100, lean: 0.035, tw: 0.42, tiers: 11 },
+        { cx: 744, top: -230, bot: 540, w: 156, lean: -0.012, tw: 0.62, tiers: 13 },
+        { cx: 950, top: 110, bot: 620, w: 120, lean: 0.05, tw: 0.5, tiers: 11 },
       ];
       for (const t of trees) {
-        const u = um(1040), tw = (t[6] ? 0.42 : 0.55) * u;
-        const trunk = shape([[t[0] - tw * 0.4, t[2] - 40], [t[0] + tw * 0.4, t[2] - 40], [t[0] + tw * 0.55, 1044], [t[0] - tw * 0.55, 1044]], [0, 1, 2, 3]);
-        occ(trunk); inks([['cedar', 0.6], ['brown', 0.4], ['indigo', 0.8]], trunk);
-        if (!t[6]) {
-          ink('key', key(r, [[t[0] - tw * 0.42, t[2] - 30], [t[0] - tw * 0.55, 1040]], 1.1, { brk: 0.02 }), 0.75);
-          ink('key', key(r, [[t[0] + tw * 0.42, t[2] - 30], [t[0] + tw * 0.55, 1040]], 1.1, { brk: 0.02 }), 0.75);
-          const pl = carve(r, [[t[0] - tw * 0.3, t[2] - 20], [t[0] - tw * 0.4, 1030]], 4, { ts: 6, te: 2, chip: 0.1, brk: 0.05 });
-          occ(pl); ink('shadow', pl, 0.5);
-          // bark: a few long carved strokes
-          for (let i = 0; i < 3; i++) { const bx = t[0] + (r() - 0.5) * tw * 0.6; ink('key', key(r, [[bx, t[2] + r() * 60], [bx + (r() - 0.5) * 3, t[2] + 120 + r() * 200]], 0.8, { brk: 0.05 }), 0.4); }
-        }
-        drawSugi(r, sugi(r, t[0], t[1], t[2], t[3], { clump: t[6] ? 36 : 46, snowP: t[6] ? 0.35 : 0.92, load: t[6] ? 0.7 : 1.15 }), t[4], t[5], t[6] ? 0.2 : 0.62);
+        const tb = t.cx + t.lean * (t.bot - t.top), tt = t.cx + t.lean * (t.bot - 160 - t.top);
+        trunk(r, (tb + tt) / 2 + t.lean * 120, t.bot - 160, 1044, t.tw * u * 0.8, t.tw * u, t.cx < 900 ? 0.2 : 0);
+        drawBig(r, bigCedar(r, t.cx, t.top, t.bot, t.w, t.lean, { tiers: t.tiers }), front, frontS, 0.62);
       }
       // the light-halo: the dark blocks wiped thin around the machines
       const hm = ellM(660, 930, 300, 200);
-      for (const p of ['indigo', 'cedar']) wipe(p, UNIT, 1, RG([[0, 0.5], [0.45, 0.32], [0.8, 0.08], [1, 0]]), { m: hm });
+      for (const p of ['indigo', 'cedar', 'key']) wipe(p, UNIT, 1, RG([[0, 0.5], [0.45, 0.32], [0.8, 0.08], [1, 0]]), { m: hm });
       ink('yellow', UNIT, 1, RG([[0, 0.32], [0.6, 0.12], [1, 0]]), { m: ellM(660, 1010, 280, 70) });
     }
 
