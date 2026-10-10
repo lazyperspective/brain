@@ -489,7 +489,8 @@
     n = Math.round(n * 1.4) + 1;
     for (let i = 0; i < n; i++) {
       const bx = x + (r() - 0.5) * h * 0.4;
-      const a = -Math.PI / 2 + lean0 + (i - (n - 1) / 2) * 0.12 + (r() - 0.5) * 0.35;
+      const spread = h < 12 ? 0.04 : 0.12;
+      const a = -Math.PI / 2 + lean0 * (h < 12 ? 0.3 : 1) + (i - (n - 1) / 2) * spread + (r() - 0.5) * (h < 12 ? 0.12 : 0.35);
       const hh = h * (0.35 + r() * 0.75);
       const bend = (r() - 0.5) * 0.6;
       const mx = bx + Math.cos(a) * hh * 0.5, my = y + Math.sin(a) * hh * 0.5;
@@ -750,17 +751,23 @@
   }
   function bankX(L) { return Math.min(L.x1 - 300, L.cx - 140); }
   function hedge(S, xa, ya, xb, yb, s) {
+    // a hedgerow in broken lengths: lumpy, scribbled, a tree standing out here and there
     const r = S.r;
-    const L = Math.hypot(xb - xa, yb - ya), n = Math.max(3, Math.round(L / (s * 4)));
-    const p = [];
-    for (let k = 0; k <= n; k++) { const u = k / n; p.push(lerp(xa, xb, u) + (r() - 0.5) * s, lerp(ya, yb, u) - s * (0.35 + r() * 0.5)); }
-    S.go('side', r() < 0.5 ? p : rev(p), s * 0.75, { f: 1.4 + r() * 0.5, p0: 0.4 + r() * 0.9, p1: 0.4 + r() * 0.9, tin: 0.3, tout: 0.3, speed: 2800, gap: 0.006 });
-    S.go('comp', [xa, ya, lerp(xa, xb, 0.5), lerp(ya, yb, 0.5) + (r() - 0.5) * 2, xb, yb], 0.7 + s * 0.12, { f: 0.7, speed: 3000, gap: 0.004 });
-    const nt = (r() * (L / 140)) | 0;
-    for (let i = 0; i < nt; i++) {
-      const u = r(), tx = lerp(xa, xb, u), ty = lerp(ya, yb, u), ts = s * (1.4 + r() * 2.0);
-      S.go('comp', [tx, ty, tx + (r() - 0.5) * 2, ty - ts * 0.9], 0.7 + s * 0.12, { gap: 0.004, speed: 1600 });
-      S.go('side', scumble(S, tx + (r() - 0.5) * ts * 0.2, ty - ts * 1.25, ts * (0.6 + r() * 0.35), ts * (0.5 + r() * 0.3), ts * (5 + r() * 4), ts * (0.3 + r() * 0.25)), ts * (0.22 + r() * 0.1), { f: 1.3 + r() * 0.5, speed: 2200, gap: 0.004 });
+    let t = r() * 0.05;
+    while (t < 1) {
+      const t1 = Math.min(1, t + 0.12 + r() * 0.35);
+      const ax = lerp(xa, xb, t), ay = lerp(ya, yb, t), bx = lerp(xa, xb, t1), by = lerp(ya, yb, t1);
+      const len = Math.hypot(bx - ax, by - ay), n = Math.max(3, Math.round(len / (s * 2.2)));
+      const p = [];
+      let hh = s * (0.5 + r() * 0.5);
+      for (let k = 0; k <= n; k++) { const u = k / n; hh = clamp(hh + (r() - 0.5) * s * 0.8, s * 0.3, s * 1.3); p.push(lerp(ax, bx, u) + (r() - 0.5) * s * 0.6, lerp(ay, by, u) - hh * 0.5); }
+      S.go('side', r() < 0.5 ? p : rev(p), s * (0.55 + r() * 0.35), { f: 1.3 + r() * 0.7, p0: 0.4 + r() * 0.9, p1: 0.4 + r() * 0.9, tin: 0.25, tout: 0.25, speed: 2600, gap: 0.006 });
+      if (r() < 0.5) {
+        const u = r(), tx = lerp(ax, bx, u), ty = lerp(ay, by, u), ts = s * (1.3 + r() * 2.0);
+        S.go('comp', [tx, ty, tx + (r() - 0.5) * 2, ty - ts * 0.9], 0.7 + s * 0.12, { gap: 0.004, speed: 1600 });
+        S.go('side', scumble(S, tx + (r() - 0.5) * ts * 0.2, ty - ts * 1.25, ts * (0.6 + r() * 0.35), ts * (0.5 + r() * 0.3), ts * (5 + r() * 4), ts * (0.3 + r() * 0.25)), ts * (0.22 + r() * 0.1), { f: 1.3 + r() * 0.5, speed: 2200, gap: 0.004 });
+      }
+      t = t1 + 0.03 + r() * 0.14;
     }
   }
   function field(S, L, amt, st) {
@@ -957,8 +964,7 @@
       o.push(bx + Math.cos(a) * rx * k, by + Math.sin(a) * ry * k);
     }
     S.go('vine', o, w * 1.15, { f: 1.1, p0: 0.7, p1: 0.9, speed: 1100 });
-    S.go('side', [bx - rx * 0.85, by + ry * 0.45, bx, by + ry * 0.75, bx + rx * 0.85, by + ry * 0.4], s * 0.06, { f: 1.1, speed: 900 });
-    S.go('vine', scumble(S, bx - face * rx * 0.2, by + ry * 0.2, rx * 0.5, ry * 0.4, s * 1.5, s * 0.06), w * 0.8, { f: 0.6, speed: 1200 });
+    S.go('side', [bx - rx * 0.7, by + ry * 0.6, bx, by + ry * 0.8, bx + rx * 0.7, by + ry * 0.55], s * 0.045, { f: 0.8, speed: 900 });
     // head: grazing or looking up
     const down = r() < 0.5;
     const hx = x + face * s * 0.44, hy = y - s * (down ? 0.22 : 0.42);
