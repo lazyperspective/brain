@@ -455,8 +455,8 @@
   function paintUnder(P, pl, rng) {
     const pal = pl.sp.pal;
     // first a soft, dark mass of green, so that every leaf sits on paint
-    if (hasFilter) P.c.filter = 'blur(' + Math.max(1, 0.006 * P.S).toFixed(1) + 'px)';
-    for (const l of pl.def.lobes) P.fill(blobPath(l[0], l[1] + l[3] * 0.05, l[2] * 0.9, l[3] * 0.9, 0, 0.14, rng), mixc(pal[0], pal[1], 0.35), 0.86);
+    if (hasFilter) P.c.filter = 'blur(' + Math.max(0.8, 0.0025 * P.S).toFixed(1) + 'px)';
+    for (const l of pl.def.lobes) P.fill(blobPath(l[0], l[1] + l[3] * 0.06, l[2] * 0.78, l[3] * 0.78, 0, 0.14, rng), mixc(pal[0], pal[1], 0.35), 0.86);
     if (hasFilter) P.c.filter = 'none';
     for (const u of pl.under) {
       const col = jit(mixc(pal[0], pal[1], u.t * 0.7), rng, 6);
@@ -746,7 +746,7 @@
     bowl.moveTo(x - rx, y); bowl.bezierCurveTo(x - rx * 0.95, y + 0.028, x - rx * 0.45, y + 0.042, x - 0.016, y + 0.044);
     bowl.lineTo(x + 0.016, y + 0.044); bowl.bezierCurveTo(x + rx * 0.45, y + 0.042, x + rx * 0.95, y + 0.028, x + rx, y); bowl.closePath();
     if (hasFilter) P.c.filter = 'blur(' + Math.max(0.6, 0.0016 * P.S).toFixed(1) + 'px)';
-    P.fill(bowl, cream, 0.84);
+    P.fill(bowl, cream, 0.96);
     if (hasFilter) P.c.filter = 'none';
     P.brush([[x - rx * 0.9, y + 0.008], [x - rx * 0.5, y + 0.03], [x - rx * 0.05, y + 0.038]], 0.016, 0.01, light, 0.55, 4);
     P.brush([[x + rx * 0.1, y + 0.02], [x + rx * 0.55, y + 0.028], [x + rx * 0.92, y + 0.01]], 0.024, 0.012, shadow, 0.5, 4);
@@ -1103,13 +1103,13 @@
   /* ============================================================ tratteggio
    * Brandi's tratteggio: vertical strokes of pure watercolour, laid row by row, that mix in the eye
    * to the tone around the lacuna — and fall apart into honest hatching up close. */
-  const TPAL = [[96, 124, 156], [134, 164, 180], [96, 122, 98], [120, 132, 96], [200, 170, 112], [172, 130, 90], [164, 100, 78], [104, 90, 76], [214, 206, 188]];
-  const TGROUND = [233, 226, 211];
+  const TPAL = [[96, 124, 156], [134, 164, 180], [96, 122, 98], [120, 132, 96], [200, 170, 112], [172, 130, 90], [164, 100, 78], [104, 90, 76], [214, 206, 188], [70, 78, 60]];
+  const TGROUND = [204, 196, 180];
   function tratteggio(T, sc, D, S, lowA, lowB, seed, dpx) {
     const rng = RNG(seed, 'trat');
     const pal = TPAL, combos = [];
     for (let a = 0; a < pal.length; a++) for (let b = a; b < pal.length; b++) for (let c = b; c < pal.length; c++) combos.push([a, b, c]);
-    const cover = 0.74;
+    const cover = 0.78;
     const cm = combos.map((cb) => [0, 1, 2].map((ch) => TGROUND[ch] * (1 - cover) + cover * (pal[cb[0]][ch] + pal[cb[1]][ch] + pal[cb[2]][ch]) / 3));
     const sample = (img, f, x, y) => {
       const w = img.w, h = img.h;
@@ -1120,7 +1120,7 @@
       }
       return o;
     };
-    const rowH = 0.0075 * S, gap = 0.0008 * S, sp = Math.max(1.4, 1.75 * dpx), lw = Math.max(0.9, 1.15 * dpx);
+    const rowH = 0.0075 * S, gap = 0.0003 * S, sp = Math.max(1.4, 1.7 * dpx), lw = Math.max(0.9, 1.3 * dpx);
     for (const t of D.trat) {
       const pts = t.poly.map(([u, v]) => [(u - sc.u0) * S, v * S]);
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
