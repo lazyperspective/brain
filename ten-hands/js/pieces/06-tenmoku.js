@@ -113,8 +113,8 @@
     const sLipIn = K[11], sRim = K[13], sLipOut = K[15], sWallEnd = K[26];
 
     // hand: the rim's rise and fall, ovality, a lean, a lip that wanders
-    const rimDy = fourier(rng, 1, 6, 0.010, 0.9);
-    const oval = fourier(rng, 2, 5, 0.011, 1.1);
+    const rimDy = fourier(rng, 1, 7, 0.012, 0.85);
+    const oval = fourier(rng, 2, 5, 0.0115, 1.1);
     const lipWob = fourier(rng, 3, 9, 0.0035, 0.6);
     const leanA = rng() * TAU, leanM = 0.006 + 0.006 * rng();
     const lean = [Math.cos(leanA) * leanM, Math.sin(leanA) * leanM];
@@ -123,7 +123,7 @@
     const dripBase = prof.sAtExtY(0.385 + 0.035 * rng());
     const dripWave = fourier(rng, 1, 7, 0.012, 0.7);
     const drips = [];
-    const nDrips = 5 + Math.floor(rng() * 5);
+    const nDrips = 7 + Math.floor(rng() * 6);
     for (let i = 0; i < nDrips; i++) drips.push({ th: rng() * TAU, w: 0.035 + 0.05 * rng(), d: 0.02 + 0.11 * Math.pow(rng(), 1.3) });
     const dripW = (th) => {
       let dd = 0, wt = 0;
@@ -133,11 +133,11 @@
       }
       return [dd, wt];
     };
-    const dripAt = (th) => { const [dd, wt] = dripW(th); return [dripBase + dripWave(th) + dd, 0.0048 + 0.0075 * wt]; };
+    const dripAt = (th) => { const [dd, wt] = dripW(th); return [dripBase + dripWave(th) + dd, 0.0062 + 0.009 * wt]; };
     const glazeThick = (e, A) => {
       if (e <= 0) return 0;
       const edge = Math.sqrt(smooth(0, 0.005, e));
-      return (0.0018 + A * Math.exp(-Math.pow((e - 0.009) / 0.0075, 2))) * edge;
+      return (0.0018 + A * Math.exp(-Math.pow((e - 0.010) / 0.008, 2))) * edge;
     };
 
     // the repairs. Crack A (the first break) crosses the rim; crack B leaves a rebuilt chip.
@@ -453,12 +453,12 @@ vec3 floorLight(vec3 p, float detail) { // diffuse radiance of the table at p
   vec3 kp = KEY_D * 5.0; vec3 l = kp - p; float dl = length(l); l /= dl;
   float Ek = (KEY_E + ACC_E) * l.y * (25.0 / (dl * dl));
   vec2 pc = (xz - vec2(-0.3, 0.2)) * vec2(0.8, 1.0);
-  Ek *= 0.15 + 0.85 * exp(-dot(pc, pc) / 2.8);          // a gridded light: a pool
+  Ek *= 0.08 + 1.05 * exp(-dot(pc, pc) / 2.6);          // a gridded light: a pool
   float shK = discShadow(xz, KEY_D, 0.30);
   float shR = discShadow(xz, RIM_D, 0.08);
   vec2 pr = xz - vec2(0.15, -0.9);
   float Er = RIM_E * RIM_D.y * exp(-dot(pr, pr) / 3.0);
-  vec3 E = KEY_C * Ek * shK + RIM_C * Er * shR + vec3(0.05, 0.04, 0.032);
+  vec3 E = KEY_C * Ek * shK + RIM_C * Er * shR + vec3(0.045, 0.034, 0.026);
   return slate(xz, detail) / PI * E * floorAO(xz);
 }
 // soft gloss of the slate: the strip light behind, blocked by the bowl
@@ -545,7 +545,8 @@ vec3 thinFilm(float dnm, float cosI) {
 float glazeThick(float e, float A) {
   if (e <= 0.0) return 0.0;
   float edge = sqrt(smoothstep(0.0, 0.005, e));
-  return (0.0018 + A * exp(-pow((e - 0.009) / 0.0075, 2.0))) * edge;
+  float z = (e - 0.010) / 0.008;
+  return (0.0018 + A * exp(-z * z)) * edge;
 }
 // hare's fur: one layer of fine filaments, in cells around the circumference
 float fur(float th, float dth, float sd, float N, float seed, float density, out float tint) {
@@ -653,6 +654,8 @@ void main() {
     float dh = q > 0.0 && q < qb ? 0.0008 * 6.0 * x * (1.0 - x) / qb : 0.0;
     gr += -dh * gradF;
   }
+  float tph = s / 0.0105 * TAU + vnoise(vec2(th * 6.0, s * 20.0)) * 3.0 + th * 2.0;
+  gr.y += clay * isExt * cos(tph) * (TAU / 0.0105) * 0.00016 * (0.5 + vnoise(vec2(th * 9.0, s * 4.0)));
   vec3 Nb = Ng - (gr.x * Tth + gr.y * Ts);
   // glaze flow and orange peel; clay grit; gold powder (object-space noise)
   vec4 n1 = vnoised(vObj * 9.0 + uSeed.xyz);
@@ -789,8 +792,7 @@ void main() {
   vec3 clayAlb = vec3(0.062, 0.032, 0.022) * (0.78 + 0.4 * grit2) * mix(vec3(1.1, 0.95, 0.9), vec3(0.9, 1.0, 1.1), vnoise(ep * 7.0));
   clayAlb = mix(clayAlb, vec3(0.19, 0.16, 0.125), step(0.972, grit) * 0.75);
   clayAlb = mix(clayAlb, vec3(0.018, 0.012, 0.010), step(grit, 0.06) * 0.7);
-  float trim = sin(s / 0.0105 * TAU + vnoise(vec2(th * 6.0, s * 20.0)) * 3.0 + th * 2.0);
-  clayAlb *= 1.0 + 0.10 * trim;
+  clayAlb *= 1.0 + 0.08 * sin(tph);
   clayAlb = mix(clayAlb, vec3(0.03, 0.017, 0.012), smoothstep(-0.012, 0.0, e) * 0.6);  // iron skin under the glaze edge
   float Fc = 0.03 + 0.97 * pow(1.0 - NoV, 5.0);
   vec3 clayCol = clayAlb / PI * E * (1.0 - Fc) + Fc * env(R, 0.62) * 0.5 * (R.y > 0.0 ? 1.0 : 0.3);
@@ -804,6 +806,13 @@ void main() {
   if (R.y < 0.0 && inside < 0.5) envG = floorLight(vPos + R * (vPos.y / max(-R.y, 1e-3)), 0.3);
   vec3 goldCol = Fau * envG * (0.85 + 0.3 * gpow) + goldF0 * vec3(0.95, 0.82, 0.6) / PI * (E + 0.06) * 0.5;
   goldCol += goldF0 * pow(gpow, 40.0) * env(R, 0.08) * 0.15; // now and then a coarser flake
+
+  // the older mend is worn where lips have touched the rim: the red lacquer under the gold shows
+  float wear = smoothstep(0.03, 0.006, abs(s - sRim)) * (1.0 - chipM) * smoothstep(0.42, 0.62, vnoise(ep * 330.0 + uSeed.zx) * 0.7 + vnoise(ep * 90.0) * 0.5);
+  float Fl = 0.04 + 0.96 * pow(1.0 - NoV, 5.0);
+  vec3 bengara = vec3(0.16, 0.035, 0.018) * (0.8 + 0.4 * n5.x);
+  vec3 lacqCol = bengara / PI * E * (1.0 - Fl) + Fl * envR * 0.9;
+  goldCol = mix(goldCol, lacqCol, wear * 0.85);
 
   // ===== compose
   vec3 col = mix(glazeCol, clayCol, clay * isExt);

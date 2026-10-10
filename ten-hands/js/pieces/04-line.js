@@ -68,13 +68,16 @@
     return pts.map(function (p) { const q = pt(ox + p.x * k * mx, oy + p.y * k, p.c, p.d); if (p.w) q.w = p.w; return q; });
   }
   function corner(p, d) { p.c = true; if (d != null) p.d = d; return p; }
+  // a hand-drawn wavy line: quarter-wave points, each crest a little different
   function sine(x0, x1, y0, amp0, amp1, lam) {
     const out = [];
     const n = Math.max(2, Math.round((x1 - x0) / (lam / 4)));
+    const ph = x0 * 0.37;
     for (let k = 1; k <= n; k++) {
       const u = k / n, x = x0 + (x1 - x0) * u;
-      const a = amp0 + (amp1 - amp0) * u;
-      out.push(pt(x, y0 - a * Math.sin((x - x0) / lam * Math.PI * 2), false));
+      const a = (amp0 + (amp1 - amp0) * u) * (1 + 0.28 * Math.sin(k * 0.9 + ph) + 0.12 * Math.sin(k * 2.3 + ph * 1.7));
+      const sx = k < n ? lam * 0.06 * Math.sin(k * 1.3 + ph) : 0;
+      out.push(pt(x + sx, y0 - a * Math.sin((x - x0) / lam * Math.PI * 2), false));
     }
     return out;
   }
@@ -312,7 +315,7 @@
   const VIGNETTES = [vHorizon, vTable, vWhale, vTown, vLaundry, vFinale];
 
   /* ------------------------------------------------------- spline → samples */
-  const DS = 0.25;            // world units between samples
+  const DS = 0.3;             // world units between samples
   function crBez(p0, p1, p2, p3) {
     const l1 = Math.hypot(p1.x - p0.x, p1.y - p0.y) + 1e-4;
     const l2 = Math.hypot(p2.x - p1.x, p2.y - p1.y) + 1e-4;
@@ -373,7 +376,7 @@
         const p3 = j + 2 <= m ? run[j + 2] : { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y };
         const b = crBez(p0, p1, p2, p3);
         const chord = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        const n = Math.max(2, Math.ceil(chord / 0.2));
+        const n = Math.max(2, Math.ceil(chord / 0.3));
         for (let k = 1; k <= n; k++) {
           const t = k / n, u = 1 - t;
           const x = u * u * u * p1.x + 3 * u * u * t * b[0].x + 3 * u * t * t * b[1].x + t * t * t * p2.x;
@@ -454,10 +457,9 @@
       const turn = Math.acos(Math.max(-1, Math.min(1, dot))) / Math.PI;
       DW[i] = (0.02 + 0.1 * turn) * (0.75 + 0.5 * R());
     }
-    for (let v = 1; v < vStart.length; v++) {
-      let best = -1, bd = 1e9;
-      for (let i = 0; i <= N; i++) { const d = Math.abs(BX[i] - vStart[v]) + Math.abs(BY[i]) * 4; if (d < bd) { bd = d; best = i; } }
-      if (best >= 0) { DW[best] += 0.18 + 0.2 * R(); V[best] = Math.min(V[best], 20); }
+    for (let v = 1, i = 0; v < vStart.length; v++) {
+      while (i < N && VIG[i] < v) i++;
+      if (i < N) { DW[i] += 0.18 + 0.2 * R(); V[i] = Math.min(V[i], 20); }
     }
     {
       let i = 400;
@@ -560,7 +562,9 @@
       try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* ignore */ }
       if (params.has('line_static')) reduce = true;
 
+      const tb0 = performance.now();
       const C = buildCycle(api.seed >>> 0);
+      const tb1 = performance.now();
       const N = C.N;
       const INK = '#16120f';
 
@@ -985,7 +989,7 @@
             if (fr < lo) { lo = fr; tlo = t; } if (fr > hi) { hi = fr; thi = t; }
             const c = camAt(t); vmax = Math.max(vmax, Math.abs(c - prev) / 0.05 * S); prev = c;
           }
-          console.warn('cycle', C.Tc.toFixed(1), 's', C.Wc, 'u; pen fraction', lo.toFixed(2), '@', tlo.toFixed(1), hi.toFixed(2), '@', thi.toFixed(1), 'max cam px/s', vmax.toFixed(0));
+          console.warn('build', (tb1 - tb0).toFixed(0), 'ms; cycle', C.Tc.toFixed(1), 's', C.Wc, 'u; pen fraction', lo.toFixed(2), '@', tlo.toFixed(1), hi.toFixed(2), '@', thi.toFixed(1), 'max cam px/s', vmax.toFixed(0));
         }
       }
 

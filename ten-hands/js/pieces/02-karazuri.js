@@ -52,40 +52,34 @@ float pad(vec2 p, vec2 c, vec2 r, float a, float soft){
 void main(){
   vec2 p = vL; p.y *= vB.z;
   float sd = vB.w;
-  float soft = 0.2 + 0.7*hs(sd);
-  float v = 0.0;
+  float soft = 0.35 + 0.6*hs(sd);
+  float v, toes = 0.0;
   if (vB.x > 0.5) {
-    v = max(v, 0.30*pad(p, vec2(-0.20, 0.0), vec2(0.42, 0.20), 0.0, 0.6));
-    v = max(v, 0.62*pad(p, vec2(-0.43, 0.0), vec2(0.10, 0.075), 0.0, soft));
-    v = max(v, 0.85*pad(p, vec2(0.02, 0.10), vec2(0.075, 0.06), 0.4, soft));
-    v = max(v, 0.85*pad(p, vec2(0.08, 0.03), vec2(0.07, 0.06), 0.0, soft));
-    v = max(v, 0.85*pad(p, vec2(0.07, -0.06), vec2(0.07, 0.06), 0.0, soft));
-    v = max(v, 0.75*pad(p, vec2(0.00, -0.12), vec2(0.07, 0.055), -0.4, soft));
-    float ta[5] = float[5](1.05, 0.32, 0.02, -0.28, -0.85);
-    float tl[5] = float[5](0.25, 0.37, 0.41, 0.37, 0.30);
+    // hind foot: a long soft cup (sole and heel), toe dimples splayed at its front
+    vec2 q = (p - vec2(-0.06, 0.0)) / vec2(0.52, 0.215);
+    v = pow(clamp(1.0 - dot(q, q), 0.0, 1.0), 0.7);
+    float ta[5] = float[5](1.0, 0.3, 0.02, -0.27, -0.8);
+    float tl[5] = float[5](0.25, 0.36, 0.4, 0.36, 0.29);
     for (int i = 0; i < 5; i++) {
       float a = ta[i] + (hs(sd + float(i)*3.1) - 0.5)*0.22;
       vec2 d = vec2(cos(a), sin(a));
       vec2 b = vec2(0.10, 0.0);
-      v = max(v, pad(p, b + d*tl[i]*0.86, vec2(0.088, 0.055), a, soft));
-      v = max(v, 0.7*pad(p, b + d*(tl[i] + 0.085), vec2(0.035, 0.028), a, soft));
-      v = max(v, 0.35*pad(p, b + d*tl[i]*0.45, vec2(0.13, 0.04), a, soft));
+      toes = max(toes, pad(p, b + d*tl[i]*0.88, vec2(0.1, 0.07), a, soft));
     }
+    toes = max(toes, 0.6*pad(p, vec2(0.04, 0.0), vec2(0.13, 0.13), 0.0, soft));
   } else {
-    v = max(v, 0.30*pad(p, vec2(-0.06, 0.0), vec2(0.25, 0.22), 0.0, 0.6));
-    v = max(v, 0.82*pad(p, vec2(0.0, 0.075), vec2(0.07, 0.058), 0.0, soft));
-    v = max(v, 0.82*pad(p, vec2(0.0, -0.075), vec2(0.07, 0.058), 0.0, soft));
-    v = max(v, 0.82*pad(p, vec2(-0.13, 0.0), vec2(0.075, 0.062), 0.0, soft));
+    // front foot: a rounder cup, four toes in a star
+    vec2 q = (p - vec2(-0.03, 0.0)) / vec2(0.3, 0.27);
+    v = pow(clamp(1.0 - dot(q, q), 0.0, 1.0), 0.7);
     float ta[4] = float[4](1.15, 0.36, -0.36, -1.1);
-    float tl[4] = float[4](0.25, 0.33, 0.33, 0.26);
+    float tl[4] = float[4](0.25, 0.32, 0.32, 0.26);
     for (int i = 0; i < 4; i++) {
       float a = ta[i] + (hs(sd + float(i)*5.7) - 0.5)*0.25;
       vec2 d = vec2(cos(a), sin(a));
-      vec2 b = vec2(0.05, 0.0);
-      v = max(v, pad(p, b + d*tl[i]*0.85, vec2(0.085, 0.058), a, soft));
-      v = max(v, 0.7*pad(p, b + d*(tl[i] + 0.08), vec2(0.035, 0.03), a, soft));
+      toes = max(toes, pad(p, vec2(0.04, 0.0) + d*tl[i]*0.88, vec2(0.095, 0.07), a, soft));
     }
   }
+  v = 0.72*v + 0.38*toes;
   o = vec4(v * vB.y);
 }`;
 
@@ -109,6 +103,7 @@ void main(){
 }`;
   const FEATHER_FS = HEAD + HS + `
 in vec2 vL; flat in vec4 vA; flat in vec4 vB; flat in vec4 vC; flat in vec4 vD; out vec4 o;
+uniform float uBroad; uniform float uShrink;
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
   float a = hs(dot(i, vec2(1.0, 57.0))), b = hs(dot(i + vec2(1.0, 0.0), vec2(1.0, 57.0)));
   float c = hs(dot(i + vec2(0.0, 1.0), vec2(1.0, 57.0))), e = hs(dot(i + vec2(1.0, 1.0), vec2(1.0, 57.0)));
@@ -133,11 +128,12 @@ void main(){
   float g = (halfw(s + 0.01, outer) - halfw(s - 0.01, outer)) / (0.02 * len);
   float d = (abs(yc) - hw) / sqrt(1.0 + g*g);
   if (s > 1.0) d = max(d, (s - 1.0) * len);
-  d += (vn(vL*620.0 + vC.w) - 0.5) * 0.0008 + (vn(vL*2300.0 + vC.w*3.0) - 0.5) * 0.00025;
+  d += (vn(vL*620.0 + vC.w) - 0.5) * 0.0008 + (vn(vL*2300.0 + vC.w*3.0) - 0.5) * 0.00025 + uShrink;
   float soft = vD.z;
   float m = 1.0 - smoothstep(-soft, soft, d);
   if (m <= 0.0) discard;
   float sc = clamp(s, 0.0, 1.0);
+  if (uBroad > 0.5) { o = vec4(mix(vC.y, vC.z, sc) * m); return; }
   float q = clamp(abs(yc) / max(hw, 1e-5), 0.0, 1.0);
   float dep = mix(vC.y, vC.z, sc) * (0.92 + 0.08*(1.0 - q*q)) * (1.0 + 0.26*clamp(yc / max(hw, 1e-5), -1.0, 1.0));
   float rw = mix(0.0010, 0.00045, sc);
@@ -149,9 +145,7 @@ void main(){
   float bb = b / 5.0 + sd * 7.0;
   float fb5 = (fract(bb) - 0.5)/0.07;
   float split = step(0.66, hs(floor(bb) + (outer ? 13.0 : 0.0) + sd)) * exp(-fb5*fb5) * smoothstep(0.35, 0.85, q);
-  float de = d / (1.6*soft);
-  float rim = exp(-de*de);
-  float det = (0.15*rach + vane*(0.02*stri + 0.11*split)) * vD.x - 0.14*rim;
+  float det = (0.15*rach + vane*(0.022*stri + 0.1*split)) * vD.x;
   o = vec4(dep*m, det*m, 0.0, m);
 }`;
 
@@ -223,14 +217,14 @@ void main(){ o = vec4(clamp(vX.y, 0.0, 2.0) * clamp(1.0 - vX.x*vX.x, 0.0, 1.0));
 void main(){ vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p*2.0 - 1.0, 0.0, 1.0); }`;
 
   const BLUR_FS = HEAD + `
-uniform sampler2D uT; uniform vec4 uSig; out vec4 o;
+uniform sampler2D uT; uniform vec4 uSig; uniform ivec2 uDir; out vec4 o;
 void main(){
   ivec2 sz = textureSize(uT, 0); ivec2 p = ivec2(gl_FragCoord.xy);
   vec4 acc = vec4(0.0), ws = vec4(0.0);
   for (int i = -8; i <= 8; i++) {
     float fi = float(i);
     vec4 w = exp(-fi*fi / (2.0*uSig*uSig));
-    acc += texelFetch(uT, ivec2(clamp(p.x + i, 0, sz.x - 1), p.y), 0) * w; ws += w;
+    acc += texelFetch(uT, clamp(p + uDir*i, ivec2(0), sz - 1), 0) * w; ws += w;
   }
   o = acc / ws;
 }`;
@@ -245,7 +239,7 @@ float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a*
 
   // ---- compose: vertical blur of the stamp layers + paper relief + deckle + seal + pencil
   const COMPOSE_FS = HEAD + NOISE + `
-uniform sampler2D uT; uniform sampler2D uF; uniform sampler2D uSeal; uniform sampler2D uPen;
+uniform sampler2D uT; uniform sampler2D uF; uniform sampler2D uSeal; uniform sampler2D uPen; uniform sampler2D uB; uniform vec2 uK2;
 uniform vec4 uSig; uniform float uAsp; uniform float uTH;
 uniform vec4 uSealR; uniform vec4 uPenR; uniform vec4 uK; uniform vec2 uOff; uniform float uLaid;
 layout(location=0) out vec4 oH;
@@ -265,8 +259,9 @@ void main(){
   float fr = fib(p, sz);
   float fb = fr*0.4 + (fib(p + ivec2(1,0), sz) + fib(p - ivec2(1,0), sz) + fib(p + ivec2(0,1), sz) + fib(p - ivec2(0,1), sz))*0.15;
 
-  float dep = max(st.r, st.a);
-  float himg = -uK.x * (dep + st.g) + uK.z * st.b;
+  float broad = texture(uB, (vec2(p) + 0.5) / vec2(sz)).r;
+  float dep = max(uK2.x*broad + uK2.y*st.r, st.a);
+  float himg = -uK.x * (dep + uK.y*st.g) + uK.z * st.b;
 
   float cock = fbm(xs*1.7)*0.0021 + fbm(xs*4.6 + 3.7)*0.00042;
   float form = fbm(xs*30.0)*0.00006 + gn(xs*95.0)*0.00002;
@@ -359,7 +354,7 @@ void main(){
   if (uv.x > -0.005 && uv.x < 1.005 && uv.y > -0.005 && uv.y < 1.005 && su.r > 0.002) {
     vec3 N = normalize(vec3(-nt.x*uEx, -nt.y*uEx, 1.0));
     vec3 L = normalize(uL);
-    const float wrap = 0.3;
+    const float wrap = 0.22;
     float rel = max(dot(N, L) + wrap, 0.0) / (L.z + wrap);
     float h0 = textureLod(uN, uvc, 0.0).z;
     vec2 duv = Ld / size;
@@ -371,7 +366,7 @@ void main(){
       t *= 1.45;
     }
     float sh = 1.0 - smoothstep(0.0, 1.0, occ);
-    float I = 0.5 + 0.5*rel*sh;
+    float I = 0.42 + 0.58*rel*sh;
     I *= 1.0 - clamp(nt.w*125.0, -0.05, 0.34);
     I *= 1.0 + 0.045*lampG;
     float tone = I < 1.0 ? 1.0 - (1.0 - I)*0.8 : 1.0 + 0.085*(1.0 - exp(-(I - 1.0)*1.8));
@@ -432,133 +427,125 @@ void main(){
     const seg = (arr, ax, ay, bx, by, w0, w1, val, pw) => arr.push(ax, ay, bx, by, w0, w1, val, pw);
 
     /* ---------------- owl ---------------- */
+    // A wing-strike imprint, not a spread emblem: the right wing fully extended, wrist swept forward, primaries
+    // splayed as separate fingers curving back; the left wing half folded, shorter, pressed more lightly.
     const kx = portrait ? A / 0.64 : 1;
-    const S = portrait ? [0.395 * kx + J(0.012), 0.345 + J(0.015)] : [0.985 + r(-0.025, 0.02), 0.385 + J(0.018)];
-    const L = portrait ? 0.166 : 0.345;
-    const rot = r(-0.17, -0.03);
+    const S = portrait ? [0.352 + J(0.01), 0.335 + J(0.012)] : [0.895 + J(0.012), 0.395 + J(0.015)];
+    const L = portrait ? 0.19 : 0.45;
+    const rot = r(-0.22, -0.11);
     const cr = Math.cos(rot), sr = Math.sin(rot);
     const toS = (X, Y) => [S[0] + L * (X * cr + Y * sr), S[1] + L * (X * sr - Y * cr)];
     const dirS = (dx, dy) => [dx * cr + dy * sr, dx * sr - dy * cr];
-    const hd = dirS(0, 1);                    // head direction on the sheet
-    const soft = 0.00085;
-    const barb = 0.0034;
-
-    const env = (X, Y) => 0.84 + 0.24 * Math.exp(-((X - 0.5) * (X - 0.5) + (Y - 0.1) * (Y - 0.1)) / 0.06) - 0.12 * clamp(-Y / 0.3, 0, 1);
+    const soft = 0.0011;
+    const barb = 0.0036;
+    // depth envelope in the wing's own frame: leading edge and wrist struck first and hardest, trailing edge and tips fade
+    const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+    const env = (X, Y) => (0.4 + 0.7 * sstep(-0.4, 0.14, Y)) * (1 - 0.42 * sstep(0.6, 1.08, X)) *
+      (1 + 0.2 * Math.exp(-((X - 0.47) * (X - 0.47) + (Y - 0.12) * (Y - 0.12)) / 0.015));
 
     let fbuf = [];
     const tips = [];
     function F(wing, bx, by, thDeg, len, wOut, wIn, o) {
-      let th = thDeg * D2R + wing.sw;
+      const thI = thDeg * D2R;
+      const eb = o.noEnv ? 1 : env(bx, by), et = o.noEnv ? 1 : env(bx + Math.cos(thI) * len, by + Math.sin(thI) * len);
+      const sc = wing.sc || 1;
+      const th = thI + wing.sw;
       const c = Math.cos(wing.sw), s = Math.sin(wing.sw);
       const dx = bx - wing.sx, dy = by - wing.sy;
-      let X = wing.sx + dx * c - dy * s + (wing.ox || 0), Y = wing.sy + dx * s + dy * c + (wing.oy || 0);
+      let X = wing.sx + (dx * c - dy * s) * sc, Y = wing.sy + (dx * s + dy * c) * sc;
       let ux = Math.cos(th), uy = Math.sin(th);
       let nx = -uy, ny = ux;
       if (o.flip) { nx = -nx; ny = -ny; }
-      const eb = o.noEnv ? 1 : env(X, Y), et = o.noEnv ? 1 : env(X + ux * len, Y + uy * len);
       if (wing.m < 0) { X = -X; ux = -ux; nx = -nx; }
       const p = toS(X, Y);
       const sd = dirS(ux, uy), on = dirS(nx, ny);
       const ang = Math.atan2(sd[1], sd[0]);
       const sOut = (on[0] * -sd[1] + on[1] * sd[0]) >= 0 ? 1 : -1;
-      const dj = (1 + J(0.1)) * (o.weak && rnd() < 0.07 ? 0.6 : 1);
-      fbuf.push(p[0], p[1], ang, len * L,
-        wOut * L, wIn * L, o.curv || 0, o.emarg || 0,
+      const dj = 1 + J(0.08);
+      const ws = 0.55 + 0.45 * sc;
+      fbuf.push(p[0], p[1], ang, len * L * sc,
+        wOut * L * ws, wIn * L * ws, o.curv || 0, o.emarg || 0,
         o.tipR, o.d0 * eb * wing.dm * dj, o.d1 * et * wing.dm * dj, rnd() * 50,
-        o.detail * (wing.det || 1) * (0.85 + 0.3 * rnd()), sOut, soft, barb * (0.9 + 0.2 * rnd()));
-      if (o.tip && !wing.ghost) tips.push({ x: p[0] + sd[0] * len * L, y: p[1] + sd[1] * len * L, a: ang, wing: wing.m });
+        o.detail * (0.85 + 0.3 * rnd()), sOut, soft, barb * (0.9 + 0.2 * rnd()));
+      if (o.tip) tips.push({ x: p[0] + sd[0] * len * L * sc, y: p[1] + sd[1] * len * L * sc, a: ang, wing });
     }
-    const flushF = () => { if (fbuf.length) C.owlOps.push({ k: 'f', d: new Float32Array(fbuf) }); fbuf = []; };
-    const flushB = (arr) => { if (arr.length) C.owlOps.push({ k: 'b', d: new Float32Array(arr) }); };
+    const flushF = (fine = true, broad = true) => { if (fbuf.length) C.owlOps.push({ k: 'f', d: new Float32Array(fbuf), fine, broad }); fbuf = []; };
+    const flushB = (arr, fine = true, broad = true) => { if (arr.length) C.owlOps.push({ k: 'b', d: new Float32Array(arr), fine, broad }); };
 
-    const wings = [];
-    const lighter = rnd() < 0.5 ? 1 : -1;
-    for (const m of [-1, 1]) {
-      wings.push({ m, sw: (m === lighter ? r(-5, 2) : r(4, 11)) * D2R, sx: 0.10, sy: 0.04,
-        dm: m === lighter ? r(0.76, 0.86) : 1.0, spread: m === lighter ? r(0.9, 0.98) : r(1.0, 1.08) });
+    // the sheet drawn down softly around the whole impression (broad layer only)
+    {
+      const hb = [];
+      const p = toS(0.12, -0.04);
+      blob(hb, p[0], p[1], 1.15 * L, 0.66 * L, rot, 0.2, 2.2, 0.12, 0);
+      flushB(hb, false, true);
     }
-    const jit = []; for (let i = 0; i < 200; i++) jit.push(J(1));     // shared per-feather jitter so the ghost echoes the wing
-    function remiges(wing) {
-      let q = 0;
+    // tail: short rounded fan, angled a little off the body line
+    {
+      const tw = { m: 1, sw: r(-8, 8) * D2R, sx: 0, sy: -0.12, dm: 0.8 };
+      const order = [0, 11, 1, 10, 2, 9, 3, 8, 4, 7, 5, 6];
+      const fan = r(20, 27);
+      for (const k of order) {
+        const a = lerp(-fan, fan, k / 11) + J(1.5);
+        const lenT = 0.26 * (1 - 0.07 * Math.abs(a) / 27) * (1 + J(0.03));
+        F(tw, Math.sin(a * D2R) * 0.025, -0.12, -90 + a, lenT, 0.033, 0.044,
+          { tipR: 0.3, d0: 0.78, d1: 0.5, detail: 0.75, curv: 0, noEnv: true, flip: a < 0 });
+      }
+      flushF();
+    }
+
+    const wings = [
+      { m: 1, sw: r(6, 11) * D2R, sx: 0.10, sy: 0.04, sc: 1.0, dm: 1.0, spread: r(1.02, 1.1), prot: r(-3, 2) },
+      { m: -1, sw: -r(13, 19) * D2R, sx: 0.10, sy: 0.04, sc: r(0.8, 0.86), dm: r(0.62, 0.7), spread: r(0.5, 0.6), prot: -r(18, 26) },
+    ];
+    for (const wing of [wings[1], wings[0]]) {
       const NS = 13;
       for (let i = 0; i < NS; i++) {
         const t = i / (NS - 1);
         const bx = lerp(0.455, 0.135, t), by = lerp(0.095, 0.035, t) + 0.012 * Math.sin(t * Math.PI);
-        const len = lerp(0.385, 0.34, t) * (1 + 0.035 * jit[q++]);
-        F(wing, bx, by, lerp(-72, -104, t) + 2.2 * jit[q++], len, 0.038, 0.052,
-          { tipR: 0.21, curv: 0.015, d0: 0.86, d1: 0.78, detail: 1, weak: true });
+        const len = lerp(0.385, 0.34, t) * (1 + J(0.035));
+        F(wing, bx, by, lerp(-72, -104, t) + J(2.2) + wing.prot * 0.25 * (1 - t), len, 0.038, 0.052,
+          { tipR: 0.21, curv: 0.015, d0: 0.86, d1: 0.8, detail: 1 });
       }
       for (let i = 0; i < 3; i++) {
-        F(wing, lerp(0.13, 0.08, i / 2), 0.03, -105 - i * 7 + 2 * jit[q++], 0.29 - i * 0.03, 0.038, 0.05,
-          { tipR: 0.22, curv: 0.0, d0: 0.82, d1: 0.7, detail: 0.9 });
+        F(wing, lerp(0.13, 0.08, i / 2), 0.03, -105 - i * 7 + J(2), 0.29 - i * 0.03, 0.038, 0.05,
+          { tipR: 0.22, curv: 0.0, d0: 0.82, d1: 0.74, detail: 0.9 });
       }
-      const PL = [0.365, 0.38, 0.395, 0.41, 0.425, 0.435, 0.44, 0.435, 0.415, 0.355];
-      const PW = [0.07, 0.069, 0.068, 0.066, 0.064, 0.062, 0.06, 0.058, 0.055, 0.048];
-      const PE = [0, 0, 0, 0, 0.05, 0.3, 0.55, 0.75, 0.9, 0.9];
+      // primaries P1..P10: fingers, emarginated, curving back toward the tips
+      const PL = [0.365, 0.38, 0.395, 0.41, 0.425, 0.44, 0.45, 0.45, 0.43, 0.37];
+      const PW = [0.068, 0.067, 0.066, 0.064, 0.061, 0.058, 0.055, 0.052, 0.049, 0.043];
+      const PE = [0, 0, 0, 0, 0.15, 0.45, 0.75, 0.95, 1.0, 1.0];
       for (let i = 0; i < 10; i++) {
         const t = i / 9;
-        const th = lerp(-60, 5, Math.pow(t, 0.9)) * wing.spread + 2 * jit[q++];
-        F(wing, lerp(0.465, 0.625, t), lerp(0.10, 0.13, t), th, PL[i] * (1 + 0.025 * jit[q++]), PW[i] * 0.36, PW[i] * 0.64,
-          { tipR: 0.22, curv: 0.04 + 0.03 * t, emarg: PE[i], d0: 0.95, d1: 0.82, detail: 1, tip: i >= 5, weak: true });
+        const th = lerp(-64, 6, Math.pow(t, 0.95)) * wing.spread + wing.prot + J(2);
+        F(wing, lerp(0.465, 0.625, t), lerp(0.10, 0.13, t), th, PL[i] * (1 + J(0.025)), PW[i] * 0.34, PW[i] * 0.6,
+          { tipR: 0.24, curv: 0.07 + 0.07 * t, emarg: PE[i], d0: 0.95, d1: 0.86, detail: 1, tip: i >= 5 });
       }
-    }
-    // the sheet is drawn down softly around the deep impression
-    {
-      const hb = [];
-      const p = toS(0, -0.02);
-      blob(hb, p[0], p[1], 1.05 * L, 0.62 * L, rot, 0.16, 2.2, 0.12, 0);
-      flushB(hb);
-    }
-    // tail: short rounded fan of rectrices, drawn first (underneath everything)
-    {
-      const tw = { m: 1, sw: 0, sx: 0, sy: 0, dm: 0.92 };
-      const order = [0, 11, 1, 10, 2, 9, 3, 8, 4, 7, 5, 6];
-      const fan = r(23, 29);
-      for (const k of order) {
-        const a = lerp(-fan, fan, k / 11) + J(1.5);
-        const lenT = 0.27 * (1 - 0.07 * Math.abs(a) / 28) * (1 + J(0.03));
-        F(tw, Math.sin(a * D2R) * 0.025, -0.13, -90 + a, lenT, 0.033, 0.044,
-          { tipR: 0.3, d0: 0.7, d1: 0.62, detail: 0.75, curv: 0, noEnv: true, flip: a < 0 });
-      }
-      flushF();
-    }
-    // the second, fainter beat: the wing lifting away again, offset back and out
-    {
-      const w = wings.find((x) => x.m !== lighter);
-      remiges(Object.assign({}, w, { sw: w.sw - r(2, 4) * D2R, ox: r(0.012, 0.022), oy: -r(0.018, 0.03), dm: w.dm * 0.3, det: 0.4, ghost: true }));
-      flushF();
-    }
-    for (const wing of wings) {
-      remiges(wing);
-      // primary coverts
       for (let i = 0; i < 8; i++) {
         const t = i / 7;
-        F(wing, lerp(0.47, 0.62, t), lerp(0.11, 0.135, t), lerp(-44, 4, t) + J(2), 0.15, 0.023, 0.034,
-          { tipR: 0.3, curv: 0.02, d0: 0.92, d1: 0.86, detail: 0.5 });
+        F(wing, lerp(0.47, 0.62, t), lerp(0.11, 0.135, t), lerp(-46, 4, t) * wing.spread + wing.prot * 0.7 + J(2), 0.15, 0.023, 0.034,
+          { tipR: 0.3, curv: 0.02, d0: 0.95, d1: 0.9, detail: 0.5 });
       }
-      // greater coverts
       for (let i = 0; i < 12; i++) {
         const t = i / 11;
         F(wing, lerp(0.45, 0.14, t), lerp(0.118, 0.062, t), lerp(-74, -100, t) + J(2.5), lerp(0.185, 0.155, t), 0.029, 0.039,
-          { tipR: 0.32, curv: 0.01, d0: 0.92, d1: 0.84, detail: 0.45 });
+          { tipR: 0.32, curv: 0.01, d0: 0.93, d1: 0.88, detail: 0.45 });
       }
-      // median coverts
       for (let i = 0; i < 11; i++) {
         const t = i / 10;
         F(wing, lerp(0.44, 0.15, t), lerp(0.138, 0.088, t), lerp(-66, -96, t) + J(3), 0.09, 0.022, 0.03,
-          { tipR: 0.4, curv: 0, d0: 0.93, d1: 0.88, detail: 0.3 });
+          { tipR: 0.4, curv: 0, d0: 0.95, d1: 0.92, detail: 0.3 });
       }
-      // lesser coverts, two rows
       for (let row = 0; row < 2; row++) {
         for (let i = 0; i < 12; i++) {
           const t = i / 11;
           F(wing, lerp(0.44, 0.13, t) + row * 0.012, lerp(0.158, 0.10, t) + row * 0.02, lerp(-70, -95, t) + J(4), 0.058, 0.018, 0.023,
-            { tipR: 0.45, curv: 0, d0: 0.95, d1: 0.9, detail: 0.2 });
+            { tipR: 0.45, curv: 0, d0: 0.97, d1: 0.95, detail: 0.2 });
         }
       }
       flushF();
-      // leading-edge band (marginal coverts / patagium): smooth, deep
+      // leading edge (marginal coverts over the patagium): the deepest, first-struck line of the wing
       const band = [];
+      const sc = wing.sc;
       for (let i = 0; i < 10; i++) {
         const t = i / 9;
         const qx = (1 - t) * (1 - t) * 0.09 + 2 * (1 - t) * t * 0.28 + t * t * 0.50;
@@ -569,101 +556,97 @@ void main(){
         let X = qx + Math.sin(a) * ry, Y = qy - Math.cos(a) * ry;
         const c = Math.cos(wing.sw), s = Math.sin(wing.sw);
         const dx = X - wing.sx, dy = Y - wing.sy;
-        X = wing.sx + dx * c - dy * s; Y = wing.sy + dx * s + dy * c;
+        X = wing.sx + (dx * c - dy * s) * sc; Y = wing.sy + (dx * s + dy * c) * sc;
         const ang = a + wing.sw;
         let vx = Math.cos(ang); const vy = Math.sin(ang);
         if (wing.m < 0) { X = -X; vx = -vx; }
         const p = toS(X, Y); const v = dirS(vx, vy);
-        blob(band, p[0], p[1], 0.056 * L, ry * L, Math.atan2(v[1], v[0]), 0.9 * wing.dm, 0.45, 0.06, 0);
+        blob(band, p[0], p[1], 0.056 * L * sc, ry * L * sc, Math.atan2(v[1], v[0]), 1.12 * wing.dm, 0.45, 0.06, 0);
       }
       flushB(band);
-      // alula
       for (let i = 0; i < 3; i++) {
         F(wing, 0.455 + i * 0.008, 0.135, 40 - i * 9 + J(3), 0.10 + i * 0.015, 0.012, 0.018,
-          { tipR: 0.35, curv: 0.03, d0: 0.9, d1: 0.82, detail: 0.4 });
+          { tipR: 0.35, curv: 0.03, d0: 1.0, d1: 0.95, detail: 0.4 });
       }
       flushF();
     }
-    // body: belly and breast pressed down between the wings
+    // body oval (deeper than the wings) and the faint round facial disc beyond it
     {
       const b = [];
-      let p = toS(0, -0.04);
-      blob(b, p[0], p[1], 0.145 * L, 0.175 * L, rot, 0.72, 0.5, 0.08, 0);
-      p = toS(0, 0.03);
-      blob(b, p[0], p[1], 0.12 * L, 0.13 * L, rot, 0.86, 0.5, 0.1, 0);
-      // the broad round face, pressed lightly into the snow just beyond the feet
-      p = toS(J(0.01), 0.205);
-      blob(b, p[0], p[1], 0.125 * L, 0.105 * L, rot + J(0.15), 0.42, 0.7, 0.07, 0);
+      let p = toS(0, -0.01);
+      blob(b, p[0], p[1], 0.15 * L, 0.205 * L, rot, 1.32, 0.5, 0.08, 0);
       flushB(b);
+      const f = [];
+      p = toS(0.06 + J(0.01), 0.335);
+      blob(f, p[0], p[1], 0.13 * L, 0.115 * L, rot + J(0.15), 0.5, 0.8, 0.06, 0);
+      flushB(f, false, true);
     }
-    // the crater: body and feet driven in; deepest at the front where the talons struck
-    const hole = toS(0, 0.075);
-    const holeR = 0.075 * L;
+    // where the feet went in: a deeper pit at the front of the body, talon holes punched beyond it
+    const talonFront = toS(-0.01, 0.2);
     {
-      const c0 = toS(0, 0.0);
-      blob(C.blobA, c0[0], c0[1], 0.105 * L, 0.15 * L, rot, 1.2, 0.45, 0.14, 1);
-      blob(C.blobA, hole[0], hole[1], holeR * 1.05, holeR, rot, 2.05, 0.42, 0.3, 1);
-      for (let i = 0; i < 4; i++) {
-        const a = rnd() * Math.PI * 2, d = rnd() * 0.45 * holeR;
-        blob(C.blobA, hole[0] + Math.cos(a) * d, hole[1] + Math.sin(a) * d, holeR * r(0.25, 0.4), holeR * r(0.22, 0.35), rnd() * 3, r(2.15, 2.4), 0.7, 0.35, 1);
-      }
-      for (let i = 0; i < 4; i++) {
-        const a = rnd() * Math.PI * 2, d = rnd() * 0.9 * holeR;
-        const pc = [lerp(hole[0], c0[0], rnd() * 0.7) + Math.cos(a) * d, lerp(hole[1], c0[1], rnd() * 0.7) + Math.sin(a) * d];
-        blob(C.blobB, pc[0], pc[1], holeR * r(0.12, 0.22), holeR * r(0.09, 0.16), rnd() * 3, r(0.35, 0.7), 1.0, 0.3, 1);
-      }
-    }
-    // talons: two feet, toes splayed (two forward, one out, one back), soft slots at the front of the crater
-    for (const fx of [-1, 1]) {
-      const fc = [fx * 0.032, 0.085];
-      const toes = [[90 - 16 * fx, 0.072], [90 + 8 * fx, 0.066], [fx > 0 ? 12 : 168, 0.056], [-90 + 10 * fx, 0.05]];
-      for (const [aD, ln] of toes) {
-        if (rnd() < 0.15) continue;
-        const a = (aD + J(7)) * D2R;
-        const r0 = ln * 0.4;
-        const p0 = toS(fc[0] + Math.cos(a) * r0, fc[1] + Math.sin(a) * r0), p1 = toS(fc[0] + Math.cos(a) * ln, fc[1] + Math.sin(a) * ln);
-        seg(C.segA, p0[0], p0[1], p1[0], p1[1], 0.013 * L, 0.006 * L, r(0.85, 1.1), 1.6);
+      const pit = toS(0, 0.1);
+      blob(C.blobA, pit[0], pit[1], 0.075 * L, 0.06 * L, rot, 1.95, 0.55, 0.25, 1);
+      for (const fx of [-1, 1]) {
+        const fc = [fx * 0.045, 0.12];
+        const toes = [[90 - 18 * fx, 0.075], [90 + 6 * fx, 0.07], [fx > 0 ? 18 : 162, 0.058], [-90 + 12 * fx, 0.045]];
+        for (const [aD, ln] of toes) {
+          const a = (aD + J(8)) * D2R;
+          const p0 = toS(fc[0] + Math.cos(a) * ln * 0.35, fc[1] + Math.sin(a) * ln * 0.35);
+          const p1 = toS(fc[0] + Math.cos(a) * ln, fc[1] + Math.sin(a) * ln);
+          seg(C.segA, p0[0], p0[1], p1[0], p1[1], 0.011 * L, 0.008 * L, r(1.45, 1.7), 0.8);
+          blob(C.blobA, p1[0], p1[1], 0.013 * L, 0.011 * L, a, r(2.2, 2.5), 0.5, 0.2, 1);
+        }
       }
     }
-    // rim and spray: clumps thrown forward and sideways, a few skid marks
-    for (let i = 0; i < 12; i++) {
-      const a = i / 12 * Math.PI * 2 + J(0.2);
-      const rr = holeR * r(1.05, 1.35);
-      blob(C.blobB, hole[0] + Math.cos(a) * rr, hole[1] + Math.sin(a) * rr, holeR * r(0.2, 0.35), holeR * r(0.12, 0.2), a, r(0.25, 0.45), 1.2, 0.3, 1);
-    }
-    const hAng = Math.atan2(hd[1], hd[0]);
-    const nSpray = 30 + Math.floor(rnd() * 14);
-    for (let i = 0; i < nSpray; i++) {
-      const a = hAng + J(2.5) * Math.pow(rnd(), 0.6);
-      const rr = holeR * (1.2 + 5.0 * Math.pow(rnd(), 2.2));
-      const x = hole[0] + Math.cos(a) * rr, y = hole[1] + Math.sin(a) * rr;
-      const sz = L * (0.006 + 0.016 * Math.pow(rnd(), 3));
-      blob(C.blobB, x, y, sz * r(0.8, 1.3), sz * r(0.6, 1.0), rnd() * 3, r(0.5, 1.0), 1.2, 0.35, 1);
-      if (rnd() < 0.35) {
-        const back = sz * r(1.5, 3);
-        blob(C.blobA, x - Math.cos(a) * back, y - Math.sin(a) * back, sz * 0.7, sz * 0.5, a, r(0.3, 0.55), 1.0, 0.3, 1);
+    // snow kicked out in the strike direction: soft clumps, some with short skids behind them
+    {
+      const sd = r(25, 45) * D2R;                     // forward, toward the extended wing
+      const base = dirS(Math.sin(sd), Math.cos(sd));
+      const bAng = Math.atan2(base[1], base[0]);
+      const o = toS(0.02, 0.12);
+      const n = 15 + Math.floor(rnd() * 7);
+      for (let i = 0; i < n; i++) {
+        const a = bAng + J(0.62) * Math.sqrt(rnd());
+        const d = L * (0.13 + 0.42 * Math.pow(rnd(), 1.4));
+        const sz = L * (0.01 + 0.022 * Math.pow(rnd(), 2)) * (1.15 - 0.5 * d / (0.55 * L));
+        const x = o[0] + Math.cos(a) * d, y = o[1] + Math.sin(a) * d;
+        blob(C.blobB, x, y, sz * r(0.9, 1.3), sz * r(0.65, 0.95), a + J(0.6), r(0.75, 1.05), 1.3, 0.38, 1);
+        if (rnd() < 0.5) blob(C.blobB, x + Math.cos(a) * sz * 1.4 + J(sz), y + Math.sin(a) * sz * 1.4 + J(sz), sz * 0.45, sz * 0.35, rnd() * 3, 0.7, 1.2, 0.3, 1);
+        if (rnd() < 0.45) {
+          const ln = sz * r(1.8, 4.0);
+          const bx = x - Math.cos(a) * sz * 0.9, by = y - Math.sin(a) * sz * 0.9;
+          seg(C.segA, bx, by, bx - Math.cos(a) * ln, by - Math.sin(a) * ln, sz * 0.42, sz * 0.12, r(0.45, 0.65), 1.0);
+        }
       }
-      if (rnd() < 0.05) {
-        const ln = L * r(0.02, 0.05);
-        seg(C.segA, x, y, x + Math.cos(a) * ln, y + Math.sin(a) * ln, 0.004 * L, 0.0015 * L, 0.45, 1.0);
+      for (let i = 0; i < 14; i++) {
+        const a = bAng + J(0.75);
+        const d = L * (0.1 + 0.3 * rnd());
+        const sz = L * r(0.004, 0.007);
+        blob(C.blobB, o[0] + Math.cos(a) * d, o[1] + Math.sin(a) * d, sz, sz * 0.8, rnd() * 3, r(0.55, 0.85), 1.2, 0.3, 1);
+      }
+      // the rim pushed up on the far side of the pit
+      for (let i = 0; i < 6; i++) {
+        const a = bAng + lerp(-0.9, 0.9, i / 5) + J(0.1);
+        const p = toS(0, 0.1);
+        const rr = 0.085 * L;
+        blob(C.blobB, p[0] + Math.cos(a) * rr, p[1] + Math.sin(a) * rr, 0.03 * L, 0.014 * L, a + Math.PI / 2, r(0.4, 0.6), 1.4, 0.25, 1);
       }
     }
-    // primary tips brushing the snow on lift-off
+    // two or three primary tips of the extended wing brushed the snow as it lifted
     for (const t of tips) {
-      if (t.wing === lighter || rnd() < 0.45) continue;
-      let x = t.x - Math.cos(t.a) * 0.012 * L, y = t.y - Math.sin(t.a) * 0.012 * L, a = t.a + J(0.12);
-      const ln = L * r(0.03, 0.06);
-      const steps = 4;
-      for (let s = 0; s < steps; s++) {
-        const nx = x + Math.cos(a) * ln / steps, ny = y + Math.sin(a) * ln / steps;
-        seg(C.segA, x, y, nx, ny, 0.005 * L * (1 - s / steps * 0.7), 0.005 * L * (1 - (s + 1) / steps * 0.7), 0.38 * (1 - s / steps * 0.75), 1.2);
-        x = nx; y = ny; a += J(0.06);
+      if (t.wing !== wings[0] || rnd() < 0.55) continue;
+      let x = t.x - Math.cos(t.a) * 0.01 * L, y = t.y - Math.sin(t.a) * 0.01 * L, a = t.a + 0.15 + J(0.1);
+      const ln = L * r(0.03, 0.055);
+      for (let s = 0; s < 4; s++) {
+        const nx = x + Math.cos(a) * ln / 4, ny = y + Math.sin(a) * ln / 4;
+        seg(C.segA, x, y, nx, ny, 0.006 * L * (1 - s / 4 * 0.7), 0.006 * L * (1 - (s + 1) / 4 * 0.7), 0.4 * (1 - s / 4 * 0.75), 1.4);
+        x = nx; y = ny; a += 0.05 + J(0.05);
       }
     }
 
     /* ---------------- grass clump ---------------- */
     const gs = portrait ? 0.62 : 1.0;
-    const G = portrait ? [0.19 * kx + J(0.01), 0.725 + J(0.012)] : [0.385 + J(0.015), 0.635 + J(0.015)];
+    const G = portrait ? [0.19 * kx + J(0.01), 0.725 + J(0.012)] : [0.335 + J(0.012), 0.655 + J(0.012)];
     const wind = -2.3 + J(0.18);
     const blades = [
       { len: 0.095, a: wind + 0.12, c0: 1.6, c1: 12, w: 0.0031, type: 'leaf' },
@@ -730,13 +713,14 @@ void main(){
     /* ---------------- vole trail ---------------- */
     const ps = portrait ? 0.0068 : 0.0122;      // hind print length
     const stride0 = ps * 5.0;
-    const holeEdge = 0.16 * L;
-    const along = (d, side) => [S[0] + hd[0] * d - hd[1] * side, S[1] + hd[1] * d + hd[0] * side];
+    // the last stretch comes in diagonally past the face, straight to the talon holes
+    const appS = dirS(-0.55, 0.835);
+    const apr = (d, side) => [talonFront[0] + appS[0] * d - appS[1] * side, talonFront[1] + appS[1] * d + appS[0] * side];
     const W = (x, y, s, j) => [x * kx + J(0.012), y + J(0.012), s === undefined ? 1 : s, j === undefined ? 0.12 : j];
     let wps;
     if (!portrait) {
-      wps = [W(-0.07, 0.80), W(0.05, 0.775), W(0.15, 0.805), W(0.235, 0.765, 0.9),
-        W(0.272, 0.728, 0.42, 0.55), W(0.292, 0.708, 0.38, 0.6), W(0.312, 0.695, 0.5, 0.4)];
+      wps = [W(-0.07, 0.81), W(0.04, 0.785), W(0.13, 0.815), W(0.205, 0.775, 0.9),
+        W(0.235, 0.742, 0.42, 0.55), W(0.252, 0.725, 0.38, 0.6), W(0.27, 0.712, 0.5, 0.4)];
     } else {
       wps = [W(0.30, 1.04), W(0.275, 0.955), W(0.325, 0.89), W(0.30, 0.84, 0.42, 0.55), W(0.287, 0.818, 0.38, 0.6), W(0.27, 0.80, 0.5, 0.4)];
     }
@@ -754,16 +738,15 @@ void main(){
       }
     }
     if (!portrait) {
-      wps.push(W(0.45, 0.535, 0.85, 0.2), W(0.535, 0.49, 0.8, 0.25), W(0.445, 0.435, 0.8, 0.25), W(0.54, 0.38, 0.8, 0.25),
-        W(0.455, 0.32, 0.85, 0.25), W(0.53, 0.25, 0.9), W(0.60, 0.165, 1.15), W(0.72, 0.125, 1.2), W(0.83, 0.115, 1.1));
-      wps.push(along(holeEdge + 0.25, 0.045), along(holeEdge + 0.13, 0.01));
+      wps.push(W(0.385, 0.55, 0.85, 0.2), W(0.46, 0.5, 0.8, 0.25), W(0.375, 0.445, 0.8, 0.25), W(0.465, 0.39, 0.8, 0.25),
+        W(0.385, 0.33, 0.85, 0.25), W(0.46, 0.265, 0.9), W(0.54, 0.2, 1.1), W(0.63, 0.15, 1.15));
+      wps.push(apr(0.23, 0.035), apr(0.11, 0.01));
     } else {
       wps.push(W(0.10, 0.625, 0.85, 0.2), W(0.165, 0.58, 0.8, 0.25), W(0.085, 0.53, 0.8, 0.25), W(0.16, 0.48, 0.8, 0.25),
         W(0.09, 0.43, 0.85, 0.25), W(0.14, 0.37, 0.9), W(0.12, 0.27, 1.1), W(0.17, 0.185, 1.15), W(0.26, 0.135, 1.1));
-      wps.push(along(holeEdge + 0.15, -0.03), along(holeEdge + 0.07, -0.005));
+      wps.push(apr(0.1, 0.012), apr(0.05, 0.004));
     }
-    const endD = holeEdge + ps * 0.9;
-    wps.push(along(endD, 0));
+    wps.push(apr(ps * 1.05, 0));
     for (const w of wps) { if (w.length < 4) { w[2] = 1; w[3] = 0.12; } }
     const dense = catmull(wps, 28);
     const cum = [0];
@@ -883,6 +866,7 @@ void main(){
       C.fibres = new Float32Array(v);
     }
     C.off = [rnd() * 50, rnd() * 50];
+    C.L = L;
     C.prints = new Float32Array(C.prints);
     for (const k of ['blobA', 'segA', 'blobB', 'segB']) C[k] = new Float32Array(C[k]);
     C.rnd = rnd;
@@ -1145,10 +1129,15 @@ void main(){
         const tS = tex(TW, TH, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, true);
         const tN = tex(TW, TH, gl.RGBA16F, gl.RGBA, gl.FLOAT, gl.LINEAR, true);
         const tSeal = canvasTex(sealCv), tPen = canvasTex(penCv);
+        // the broad layer (whole-form depression of wings and body) lives at quarter resolution
+        const BW = Math.ceil(TW / 4), BH = Math.ceil(TH / 4);
+        const tB = tex(BW, BH, gl.RGBA16F, gl.RGBA, gl.FLOAT, gl.LINEAR, false);
+        const tB2 = tex(BW, BH, gl.RGBA16F, gl.RGBA, gl.FLOAT, gl.LINEAR, false);
         const fStamp = fbo([tStamp]), fFib = fbo([tFib]), fTmp = fbo([tTmp]), fHS = fbo([tH, tS]), fN = fbo([tN]);
+        const fB = fbo([tB]), fB2 = fbo([tB2]);
         const cleanupTemps = () => {
-          [tStamp, tFib, tTmp, tH, tSeal, tPen].forEach(delTex);
-          [fStamp, fFib, fTmp, fHS, fN].forEach((f) => gl.deleteFramebuffer(f));
+          [tStamp, tFib, tTmp, tH, tSeal, tPen, tB, tB2].forEach(delTex);
+          [fStamp, fFib, fTmp, fHS, fN, fB, fB2].forEach((f) => gl.deleteFramebuffer(f));
         };
         const abort = () => { cleanupTemps(); delTex(tS); delTex(tN); };
 
@@ -1163,7 +1152,10 @@ void main(){
         gl.blendEquation(gl.FUNC_ADD);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.colorMask(true, true, false, false);
+        gl.useProgram(P.feather.p);
+        gl.uniform1f(P.feather.u('uBroad'), 0); gl.uniform1f(P.feather.u('uShrink'), 0);
         for (const op of C.owlOps) {
+          if (!op.fine) continue;
           if (op.k === 'f') drawInst(P.feather, op.d, 4, A);
           else drawInst(P.blob, op.d, 3, A);
         }
@@ -1190,10 +1182,34 @@ void main(){
         gl.bufferData(gl.ARRAY_BUFFER, C.fibres, gl.STATIC_DRAW);
         gl.drawArrays(gl.TRIANGLES, 0, C.fibres.length / 4);
         gl.bindVertexArray(null);
+        // broad layer: every feather slightly shrunk (so the fingers keep untouched snow between them), MAX
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fB);
+        gl.viewport(0, 0, BW, BH);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.blendEquation(gl.MAX);
+        gl.colorMask(true, false, false, false);
+        gl.useProgram(P.feather.p);
+        gl.uniform1f(P.feather.u('uBroad'), 1); gl.uniform1f(P.feather.u('uShrink'), 0.0065 * C.L);
+        for (const op of C.owlOps) {
+          if (!op.broad) continue;
+          if (op.k === 'f') drawInst(P.feather, op.d, 4, A);
+          else drawInst(P.blob, op.d, 3, A);
+        }
+        gl.colorMask(true, true, true, true);
         gl.disable(gl.BLEND);
+        const sigB = Math.max(0.5, 0.0045 * TH / 4);
+        for (const [src, dst, dir] of [[tB, fB2, [1, 0]], [tB2, fB, [0, 1]]]) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, dst);
+          gl.useProgram(P.blur.p);
+          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src);
+          gl.uniform1i(P.blur.u('uT'), 0);
+          gl.uniform4f(P.blur.u('uSig'), sigB, sigB, sigB, sigB);
+          gl.uniform2i(P.blur.u('uDir'), dir[0], dir[1]);
+          gl.bindVertexArray(vaoEmpty); gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
         await frame(); if (stale()) { abort(); return; }
 
-        const sig = [0.0013 * TH, 0.00042 * TH, 0.0007 * TH, 0.00048 * TH].map((v) => Math.max(0.35, v));
+        const sig = [0.0017 * TH, 0.0005 * TH, 0.001 * TH, 0.0007 * TH].map((v) => Math.max(0.35, v));
         const bands = async (n, fb, w, h, draw) => {
           for (let i = 0; i < n; i++) {
             gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
@@ -1216,6 +1232,7 @@ void main(){
           gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tStamp);
           gl.uniform1i(P.blur.u('uT'), 0);
           gl.uniform4fv(P.blur.u('uSig'), sig);
+          gl.uniform2i(P.blur.u('uDir'), 1, 0);
           gl.bindVertexArray(vaoEmpty); gl.drawArrays(gl.TRIANGLES, 0, 3);
         })) { abort(); return; }
         // ---- compose
@@ -1226,12 +1243,14 @@ void main(){
           gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tFib);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tSeal);
           gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, tPen);
+          gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, tB);
           gl.uniform1i(p.u('uT'), 0); gl.uniform1i(p.u('uF'), 1); gl.uniform1i(p.u('uSeal'), 2); gl.uniform1i(p.u('uPen'), 3);
+          gl.uniform1i(p.u('uB'), 4); gl.uniform2f(p.u('uK2'), 1.25, 0.45);
           gl.uniform4fv(p.u('uSig'), sig);
           gl.uniform1f(p.u('uAsp'), A); gl.uniform1f(p.u('uTH'), TH);
           gl.uniform4fv(p.u('uSealR'), C.seal);
           gl.uniform4fv(p.u('uPenR'), C.pen);
-          gl.uniform4f(p.u('uK'), 0.0016, 1.0, 0.0015, 0.000064);
+          gl.uniform4f(p.u('uK'), 0.0016, 0.8, 0.0015, 0.00005);
           gl.uniform2fv(p.u('uOff'), C.off);
           gl.uniform1f(p.u('uLaid'), 1 / 0.0058);
           gl.bindVertexArray(vaoEmpty); gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -1287,7 +1306,7 @@ void main(){
         gl.uniform3f(p.u('uSheet'), rect.left * dpr, rect.top * dpr, rect.sh * dpr);
         gl.uniform1f(p.u('uAsp'), cur.A);
         gl.uniform3f(p.u('uL'), Math.cos(L.az) * ce, Math.sin(L.az) * ce, Math.sin(L.el));
-        gl.uniform1f(p.u('uEx'), 0.72);
+        gl.uniform1f(p.u('uEx'), 0.85);
         gl.uniform1f(p.u('uTexH'), cur.TH);
         gl.bindVertexArray(vaoEmpty);
         gl.drawArrays(gl.TRIANGLES, 0, 3);

@@ -280,7 +280,7 @@
     const pts = new Float32Array(Q), cum = new Float32Array(m);
     for (let i = 1; i < m; i++) cum[i] = cum[i - 1] + Math.hypot(Q[2 * i] - Q[2 * i - 2], Q[2 * i + 1] - Q[2 * i - 1]);
     st.pts = pts; st.cum = cum; st.len = cum[m - 1]; st.nseg = m - 1;
-    const spacing = T.k === 1 ? 0.22 : T.k === 2 ? 0.3 : 0.26;
+    const spacing = T.k === 1 ? (r0 > 8 ? 0.3 : 0.22) : T.k === 2 ? (r0 > 20 ? 0.45 : r0 > 8 ? 0.36 : 0.3) : (r0 > 5 ? 0.36 : 0.26);
     st.sp = Math.max(0.33, r0 * spacing);
     st.nd = Math.max(1, Math.floor(st.len / st.sp) + 1);
     st.p0 = sp.p0 !== undefined ? sp.p0 : 0.45 + rng() * 0.5;
@@ -794,9 +794,14 @@
       S.go('comp', [x, y, x + 3, y - h * 0.6, x + 8 + r() * 6, y - h], 1.0, { p0: 1, p1: 0.4, speed: 1200 });
       S.go('comp', scumble(S, x + 9, y - h - 4, 3, 6, 16, 1.6), 1.1, { f: 1.2, speed: 900 });
     }
-    // the open field: sparse marks, a shadow along the bottom
+    // the open field: a few long, light passes in perspective, rubbed flat
+    for (let y = 712; y < Yb - 10; y += 14 + (y - 700) * 0.12 + r() * 10) {
+      const xa = xe - 80 + r() * 60, xb = X1 - 10 - r() * 60;
+      S.go('side', [xa, y, lerp(xa, xb, 0.5), y + (r() - 0.5) * 6, xb, y + (r() - 0.5) * 4], 6 + L.sc(y) * 10, { f: (0.18 + L.sc(y) * 0.25) * amt, p0: 0.3 + r() * 0.5, p1: 0.3 + r() * 0.5, tin: 0.3, tout: 0.3, speed: 4200, gap: 0.006 });
+    }
+    S.go('smudge', zig(clipLines(rectPoly(xe - 60, 706, X1 - 10, Yb), 0.0, 34, 0.3, r)), 30, { f: 0.5, smooth: true, speed: 4200 });
     const yb = st && st.year;
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 10; i++) {
       const x = lerp(xe - 60, X1 - 40, r()), yy = lerp(720, Yb - 10, Math.sqrt(r())), s = L.sc(yy);
       if (yb && x > yb[0] - 60 && x < yb[2] + 40 && yy > yb[1] - 50) continue;
       grassTuft(S, x, yy, 20 * s + 3, 2 + ((r() * 3) | 0), 0.8 + s * 0.6, s < 0.35 ? 'vine' : 'comp');
@@ -1692,7 +1697,9 @@
     writeYear(S, L, st, 2040);
     const X0 = L.x0 + 20, X1 = L.x1 - 20, Y0 = L.y0 + 24;
     // the smoke is lifted: long rubbings across, the dark stays in the paper
-    S.go('erase', zig(clipLines(rectPoly(X0, Y0, X1, 545), 0.03, 30, 0.3, r)), 28, { f: 0.9, smooth: false, speed: 9000 });
+    const skyP = [X0, Y0, X1, Y0];
+    for (let x = X1; x >= X0 - 1; x -= 30) skyP.push(x, Math.min(L.hor(x) - 3, L.hill(x) - 8));
+    S.go('erase', zig(clipLines(skyP, 0.03, 30, 0.3, r)), 28, { f: 0.9, smooth: false, speed: 9000 });
     S.go('erase', zig(clipLines(rectPoly(X0, Y0 + 40, X1, 520), -0.1, 42, 0.3, r)), 38, { f: 0.5, smooth: false, speed: 9000 });
     // the wires come down, the red is rubbed back
     for (const w of st.wires || []) S.go('erase', w, 3.2, { f: 1.2, speed: 3600, gap: 0.004 });
@@ -1718,6 +1725,26 @@
       // a charred beam, rubble at the foot
       if (r() < 0.5) S.go('comp', [x + w * 0.3, y - hh * 0.2, x + w * 0.75, y - hh * (0.9 + r() * 0.4)], 1.4, { p0: 1, p1: 0.6, speed: 900 });
       S.go('comp', scumble(S, x + w * 0.5, y - 2, w * 0.55, 3.5, w * 1.6, 2.4), 1.2, { f: 1.3, speed: 1800, gap: 0.004 });
+    }
+    // the flats stand as shells: jagged tops, the sky seen through their windows
+    for (const [bx, by, bw, bh] of st.blocks || []) {
+      const cut = bh * (0.3 + r() * 0.3);
+      const jag = [bx - 2, by - bh - 4];
+      for (let i = 0; i <= 6; i++) jag.push(bx + bw * i / 6 + (r() - 0.5) * 3, by - bh + cut * (0.4 + r() * 0.9) * (i % 2 ? 1 : 0.6));
+      jag.push(bx + bw + 2, by - bh - 4);
+      scrub(S, jag, 0.3, 4, 1.0, { speed: 2400 });
+      toneFill(S, [bx, by].concat(jag.slice(2, jag.length - 2), [bx + bw, by]), -1.4, 3, 1.4, { speed: 3000 });
+      S.go('comp', [bx, by].concat(jag.slice(2, jag.length - 2), [bx + bw, by]), 1.4, { smooth: false, speed: 1400 });
+      const rows = Math.floor((bh - cut - 6) / 10), cols = Math.max(2, Math.floor(bw / 11));
+      for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+        const wx = bx + 4 + j * (bw - 8) / cols, wy = by - (i + 1) * 10 + 2;
+        rub(S, [wx, wy, wx + (bw - 8) / cols * 0.5, wy], 2.4, 1.6, { speed: 400, gap: 0.003 });
+      }
+    }
+    if (st.stack && st.factory) {
+      const f = st.factory, cx = st.stack.x, brk = lerp(f.top, f.y - f.h, 0.45);
+      scrub(S, rectPoly(cx - 16, f.top - 14, cx + 16, brk), 1.45, 5, 1.0, { speed: 2400 });
+      S.go('comp', [cx - 10, brk + 6, cx - 6, brk - 4, cx - 1, brk + 3, cx + 4, brk - 8, cx + 9.5, brk + 4], 1.6, { smooth: false });
     }
     // one pylon has lost its head
     if (st.pylons && st.pylons[1]) {
@@ -1950,7 +1977,7 @@ vec3 marks(vec4 s, float h, float sh, vec3 paper){
   // loose pigment catches the peaks of the tooth first; pressure fills the valleys
   float th = 1.0 - 1.08 * pow(A, 0.6);
   float cov = smoothstep(th - 0.11, th + 0.11, h);
-  float dA = cov * (0.5 + 0.5 * (1.0 - exp(-2.2 * A)));
+  float dA = cov * (0.5 + 0.5 * (1.0 - exp(-2.2 * A))) * clamp(A * 14.0, 0.0, 1.0);
   dA = max(dA, (1.0 - exp(-A * 0.9)) * 0.32);
   // tone sits in the valleys, softly
   float dT = clamp((1.0 - exp(-T * 1.55)) * (0.84 + 0.3 * (1.0 - h)), 0.0, 1.0);

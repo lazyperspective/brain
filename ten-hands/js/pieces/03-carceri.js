@@ -367,20 +367,20 @@ vec2 map(vec3 p){
     rp = min(rp, sdCap(p, DRUM + vec3(-1.4, -0.2, 0.0), vec3(DRUM.x - 1.7, 11.4, DRUM.z), 0.07));
     rp = min(rp, sdCap(p, DRUM + vec3(1.4, -0.2, 0.0), vec3(DRUM.x + 1.6, 15.0, DRUM.z), 0.07));
     res = opU(res, vec2(rp, 3.0));
-    // a hanging cage at the end of the rope
-    {
-      vec3 g = p - vec3(DRUM.x - 1.7, 9.5, DRUM.z);
-      float gb = length(g) - 2.6;
-      if (gb < res.x + 0.3) {
-        float an = atan(g.z, g.x);
-        float sec = 6.2831853/10.0;
-        float la = an - sec*floor(an/sec + 0.5);
-        vec2 hp = length(g.xz)*vec2(cos(la), sin(la));
-        float cage = sdBox(vec3(hp.x - 0.8, g.y, hp.y), vec3(0.04, 1.0, 0.04));
-        cage = min(cage, length(vec2(length(g.xz) - 0.8, abs(g.y) - 1.0)) - 0.06);
-        cage = min(cage, sdCappedCone(g - vec3(0.0, 1.35, 0.0), 0.35, 0.82, 0.12));
-        cage = min(cage, sdCap(g, vec3(0.0, 1.7, 0.0), vec3(0.0, 1.95, 0.0), 0.1));
-        res = opU(res, vec2(cage, 2.0));
+    // great iron hooks at the ends of the ropes
+    for (int i=0;i<2;i++){
+      vec3 hp = i==0 ? vec3(DRUM.x - 1.7, 11.4, DRUM.z) : vec3(DRUM.x + 1.6, 15.0, DRUM.z);
+      float sc = i==0 ? 1.0 : 0.7;
+      vec3 g = (p - hp)/sc;
+      float gb = length(g - vec3(0.0, -1.3, 0.0)) - 2.0;
+      if (gb*sc < res.x + 0.3) {
+        float hk = sdBox(g - vec3(0.0, -0.35, 0.0), vec3(0.2, 0.4, 0.2));                 // swivel block
+        hk = min(hk, sdCap(g, vec3(0.0, -0.7, 0.0), vec3(0.0, -1.75, 0.0), 0.09));        // shank
+        vec2 hq = g.xy - vec2(0.42, -1.75);
+        float ring = max(abs(length(hq) - 0.42) - 0.09, abs(g.z) - 0.09);
+        hk = min(hk, max(ring, min(hq.y, hq.x)));                                         // the bowl, open above
+        hk = min(hk, length(g - vec3(0.84, -1.62, 0.0)) - 0.12);                          // barb
+        res = opU(res, vec2(hk*sc, 2.0));
       }
     }
     vec3 c = p - vec3(-8.2, 0.0, 34.3);
@@ -661,6 +661,7 @@ uniform vec4 uImp;     // plate tone, wipe angle, grain size (css px), seed offs
 uniform vec4 uImp2;    // ink density, burnish, chain-line phase, laid phase
 uniform float uHasImage;
 uniform int uSS;
+uniform float uMarkScale;
 uniform vec4 uFox[6];
 ${GROUND_GLSL}
 
@@ -786,8 +787,9 @@ void main(){
     float ang = T.g*3.14159265;
     float mid = 4.0*t*(1.0 - t);
     // scraper and burnisher marks, following the forms
-    float st1 = strokes(Pc, ang, 26.0, 2.2, 0.0);
-    float st2 = strokes(Pc, ang + 0.12, 60.0, 5.5, 7.0);
+    float ms = max(uMarkScale, 0.3);
+    float st1 = strokes(Pc/ms, ang, 26.0, 2.2, 0.0);
+    float st2 = strokes(Pc/ms, ang + 0.12, 60.0, 5.5, 7.0);
     t = clamp(t - (st1*0.16 + st2*0.12)*mid + 0.05*(fbm(Pc*0.05) - 0.5)*mid, 0.0, 1.0);
     // the rocked ground, ranked and scraped to the tone; several pits per pixel
     float w = mix(0.55, 0.75, uImp2.y) + (uSS == 1 ? 0.12 : 0.0);
@@ -1088,7 +1090,7 @@ void main(){
 
       /* ---- camera framing for each plate orientation */
       function camera(portrait) {
-        if (portrait) return { pos: [-12.0, 14.0, 4.0], yaw: -0.38, tanW: 0.6, hor: 0.27 };
+        if (portrait) return { pos: [-14.0, 14.0, 4.0], yaw: -0.30, tanW: 0.49, hor: 0.40 };
         return { pos: [-14.0, 14.0, 4.0], yaw: -0.42, tanW: 0.84, hor: 0.33 };
       }
 
@@ -1141,7 +1143,8 @@ void main(){
         const t0 = performance.now();
 
         const iwCss = L.img[2] - L.img[0], ihCss = L.img[3] - L.img[1];
-        let q = 1.0 * (DBG && DBG.scale ? DBG.scale : 1);
+        // small plates (phones) are ray-marched at device resolution; large ones at about 1x
+        let q = Math.min(dpr, Math.max(1, Math.sqrt(0.75e6 / (iwCss * ihCss)))) * (DBG && DBG.scale ? DBG.scale : 1);
         const budget = 1.1e6;
         if (iwCss * ihCss * q * q > budget) q = Math.sqrt(budget / (iwCss * ihCss));
         const tw = Math.max(16, Math.round(iwCss * q)), th = Math.max(16, Math.round(ihCss * q));
@@ -1160,6 +1163,7 @@ void main(){
         const figData = [], poseData = [];
         figs.forEach((f) => { figData.push(f[0], f[1], f[2], f[3]); poseData.push(f[4], f[5], f[6], f[7]); });
 
+        const grainPx = Math.max(0.75, Math.min(1.6, iwCss * imp.grain / 970));
         const printUniforms = (hasImage) => {
           const u = progs.print.u;
           gl.useProgram(progs.print.p);
@@ -1173,10 +1177,11 @@ void main(){
           gl.uniform4fv(u.uImg, L.img);
           gl.uniform3fv(u.uInk, imp.ink);
           gl.uniform3fv(u.uPaper, imp.paper);
-          gl.uniform4f(u.uImp, imp.plateTone, imp.wipeAng, imp.grain, imp.seedOff);
+          gl.uniform4f(u.uImp, imp.plateTone, imp.wipeAng, grainPx, imp.seedOff);
           gl.uniform4f(u.uImp2, imp.density, imp.burnish, imp.chainPhase, imp.laidPhase);
           gl.uniform1f(u.uHasImage, hasImage ? 1 : 0);
-          gl.uniform1i(u.uSS, dpr < 1.5 ? 2 : 1);
+          gl.uniform1i(u.uSS, grainPx * dpr < 2.6 ? 2 : 1);
+          gl.uniform1f(u.uMarkScale, iwCss / 970);
           gl.uniform4fv(u.uFox, imp.fox);
           gl.uniform4fv(u.uPass, passes);
         };

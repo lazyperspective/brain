@@ -488,8 +488,8 @@
     add('serpent', [SH(ell(96, -10, 7, 6))], fig([], 'K'), { host: serp, sketch: false });
     add('serpent', [SH(limb([[104, 14, 11], [134, 22, 10], [152, 12, 8]])), SH(limb([[134, 22, 9], [154, 34, 7]]))], fig([], 'D'));
     // breath rising in scrolls into the cloud
-    add('cloud', [limb([[1700, 1364, 13], [1682, 1326, 16], [1694, 1288, 17], [1732, 1278, 16], [1748, 1304, 13], [1730, 1322, 8]])], fig(['S'], 'W'));
-    add('cloud', [limb([[1712, 1262, 12], [1700, 1236, 14], [1708, 1208, 12]])], fig(['S'], 'W'));
+    add('cloud', [limb([[1676, 1392, 14], [1660, 1352, 19], [1670, 1310, 21], [1708, 1294, 20], [1732, 1314, 16], [1720, 1340, 11], [1700, 1338, 6]])], fig(['S'], 'W'));
+    add('cloud', [limb([[1680, 1290, 13], [1668, 1256, 17], [1680, 1220, 17], [1706, 1200, 12]])], fig(['S'], 'W'));
     const cloud = add('cloud', [blob([[1690, 1170], [1680, 1118], [1712, 1072], [1764, 1066], [1792, 1014], [1852, 998], [1902, 1028], [1944, 1050], [1958, 1108], [1936, 1158], [1880, 1180], [1780, 1186]])],
       (k, nb, me) => (k === 0 ? 'S' : k % 5 === 3 ? 'T' : 'W'));
     for (let i = 0; i < 4; i++) {
@@ -498,11 +498,19 @@
     }
 
     /* ---- hikuri, the peyote that springs where the deer has stepped */
-    const hikuri = (cx, cy, r, rot) => {
+    const hikuri = (cx, cy, r, rot, bloom) => {
       const lobes = 6 + ((rng() * 3) | 0);
       const outer = add('hikuri', [lobed(cx, cy, r, lobes, 0.24, rot)], fig(['L'], 'G'));
       const inner = add('hikuri', [lobed(cx, cy, r * 0.56, lobes, 0.2, rot)], fig(['Y'], 'L'), { host: outer });
-      add('hikuri', [ell(cx, cy, r * 0.22, r * 0.22)], fig(['W'], 'H'), { host: inner });
+      if (bloom) {
+        const pet = [];
+        for (let i = 0; i < 6; i++) {
+          const a = rot + (i / 6) * Math.PI * 2 + 0.3, ca = Math.cos(a), sa = Math.sin(a);
+          pet.push(limb([[cx + ca * r * 0.06, cy + sa * r * 0.06, 16], [cx + ca * r * 0.26, cy + sa * r * 0.26, 30], [cx + ca * r * 0.42, cy + sa * r * 0.42, 14]]));
+        }
+        const fl = add('hikuri', pet, fig(['M'], 'H'), { host: inner });
+        add('hikuri', [ell(cx, cy, 11, 11)], fig([], 'Y'), { host: fl, sketch: false });
+      } else add('hikuri', [ell(cx, cy, r * 0.22, r * 0.22)], fig(['W'], 'H'), { host: inner });
       for (let i = 0; i < lobes; i++) {
         const a = rot + (i / lobes) * Math.PI * 2;
         add('hikuri', [ell(cx + Math.cos(a) * r * 0.79, cy + Math.sin(a) * r * 0.79, 8, 8)], fig([], 'W'), { host: outer, sketch: false });
@@ -510,7 +518,7 @@
     };
     hikuri(900 + J(10), 1478 + J(10), 100, rng() * 6);
     hikuri(1160 + J(10), 1530 + J(10), 78, rng() * 6);
-    hikuri(806 + J(10), 712 + J(10), 76, rng() * 6);
+    hikuri(806 + J(10), 712 + J(10), 78, rng() * 6, true);
 
     /* ---- a flower, tutu, above the deer's back */
     {
@@ -899,7 +907,7 @@
       return 0;
     });
     // timeline (seconds): outlines, fills, border, then the ground rippling outward
-    const DUR = [1.5, 3.3, 0.8, 2.7];
+    const DUR = [1.4, 3.1, 0.7, 2.6];
     const tot = [0, 0, 0, 0];
     for (const p of pieces) tot[p.o[0]] += p.len + 30;
     const acc = [0, 0, 0, 0];
@@ -1119,6 +1127,7 @@
         const changed = nbs !== bs;
         bs = nbs; bx = Math.round((Wv - bs) / 2); by = Math.round((Hv - bs) / 2);
         view.style.width = bs + 'px'; view.style.height = bs + 'px';
+        if (changed) z = 1;
         applyView();
         if (changed) {
           const px = Math.round(bs * dpr);
@@ -1156,10 +1165,10 @@
       const hiCanvases = [];
       function hiresOnView() {
         // keep any finished hi-res layers aligned with the moving view
+        if (z <= 1.0001) { for (const h of hiCanvases.splice(0)) h.c.remove(); }
         for (const h of hiCanvases) {
           const f = z / h.z;
           h.c.style.transform = 'translate(' + (vx - h.vx * f) + 'px,' + (vy - h.vy * f) + 'px) scale(' + f + ')';
-          if (z <= 1.0001) h.c.style.display = 'none';
         }
         clearTimeout(hiTimer);
         if (hiJob) hiJob.cancel = true;
@@ -1197,7 +1206,6 @@
           h.done = true;
           for (const o of hiCanvases.splice(0)) o.c.remove();
           hiCanvases.push(h);
-          hiresOnView.skipTimer = true;
         };
         requestAnimationFrame(step);
       }

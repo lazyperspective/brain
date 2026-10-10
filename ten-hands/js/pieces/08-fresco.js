@@ -17,7 +17,9 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   function sstep(a, b, x) { let t = (x - a) / (b - a); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); }
 
+  function mix32(h) { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return h >>> 0; }
   function mulberry32(a) {
+    a = mix32(a >>> 0);
     return function () {
       a = (a + 0x6D2B79F5) | 0;
       let t = Math.imul(a ^ (a >>> 15), 1 | a);
@@ -970,10 +972,10 @@
     const L1 = [[-0.06, -0.06], [w1 + 0.02, -0.06], [w1 * 0.97, 0.02], [w1 * 0.84, 0.06], [w1 * 0.74, 0.11], [w1 * 0.62, 0.135], [w1 * 0.52, 0.2],
       [w1 * 0.40, 0.245], [w1 * 0.30, 0.30], [w1 * 0.20, 0.335], [w1 * 0.10, 0.39], [-0.06, 0.43]].map(([x, y]) => [u0 + x, y]);
     D.losses.push(fractalPoly(rng, L1, 6, 0.2, 0.0025));
-    for (let n = 0; n < 4; n++) {
-      const x = u0 + rng.r(0.1, 0.85) * w1, y = rng.r(0.05, 0.25);
+    for (let n = 0; n < 2; n++) {
+      const x = u0 + rng.r(0.15, 0.8) * w1, y = rng.r(0.04, 0.2);
       if (!inPoly(L1, x, y)) continue;
-      D.islands.push(fractalPoly(rng, blobPoly(rng, x, y, rng.r(0.006, 0.016), rng.r(0.005, 0.012), 7, 0.3, rng() * 3), 3, 0.2, 0.002));
+      D.islands.push(fractalPoly(rng, blobPoly(rng, x, y, rng.r(0.012, 0.024), rng.r(0.008, 0.016), 8, 0.35, rng() * 3), 4, 0.22, 0.002));
     }
     { const b = sc.lost, tx = b.x - 0.86 * b.s, ty = b.y + 0.66 * b.s;
       D.islands.push(fractalPoly(rng, blobPoly(rng, tx, ty, 0.015, 0.012, 8, 0.25, 0.4), 3, 0.2, 0.002)); }
@@ -1054,7 +1056,7 @@
     const nf = Math.round(200 * A);
     for (let n = 0; n < nf; n++) {
       let x = fc.r(u0, uR0), y = fc.r(0, 1);
-      if (fn.fbm(x * 3, y * 3, 3) < 0.48) continue;
+      if (fn.fbm(x * 3, y * 3, 3) < 0.48 || avoided(x, y, 0.0)) continue;
       let a = fc() * TAU;
       const pts = [[x, y]], segs = 2 + ((fc() * 5) | 0);
       for (let s = 0; s < segs; s++) {
@@ -1067,7 +1069,7 @@
       D.fine.push(pts);
     }
     D.incisions.push([[sc.uL, FT - 0.0002], [sc.uR, FT + 0.0002]], [[sc.uL, FBOT - 0.0003], [sc.uR, FBOT + 0.0002]], [[sc.uL, DADO + 0.0046], [sc.uR, DADO + 0.0043]]);
-    { const b = sc.basin, pts = []; for (let q = 0; q <= 48; q++) { const a = (q / 48) * TAU; pts.push([b.x + Math.cos(a) * b.rx * 1.002, b.y + Math.sin(a) * b.ry * 1.03]); } D.incisions.push(pts); }
+    { const b = sc.basin, pts = []; for (let q = 2; q <= 22; q++) { const a = (q / 24) * Math.PI; pts.push([b.x + Math.cos(a) * b.rx * 1.002, b.y + Math.sin(a) * b.ry * 1.03]); } D.incisions.push(pts); }
 
     const gr = RNG(seed, 'graffito');
     const name = gr.pick(['FELIX', 'SECVNDVS', 'CELADVS', 'PRIMA', 'CRESCENS', 'AMIANTHVS', 'HELPIS']);
@@ -1095,13 +1097,13 @@
   /* ============================================================ tratteggio
    * Brandi's tratteggio: vertical strokes of pure watercolour, laid row by row, that mix in the eye
    * to the tone around the lacuna — and fall apart into honest hatching up close. */
-  const TPAL = [[46, 92, 172], [84, 150, 196], [38, 122, 98], [204, 158, 66], [176, 116, 58], [160, 70, 44], [44, 40, 38]];
+  const TPAL = [[44, 86, 168], [78, 146, 194], [34, 118, 96], [62, 100, 52], [206, 160, 64], [178, 118, 56], [162, 68, 44], [92, 70, 54]];
   const TGROUND = [233, 226, 211];
   function tratteggio(T, sc, D, S, lowA, lowB, seed) {
     const rng = RNG(seed, 'trat');
-    const pal = TPAL.concat([TGROUND]), combos = [];
+    const pal = TPAL, combos = [];
     for (let a = 0; a < pal.length; a++) for (let b = a; b < pal.length; b++) for (let c = b; c < pal.length; c++) combos.push([a, b, c]);
-    const cover = 0.62;
+    const cover = 0.74;
     const cm = combos.map((cb) => [0, 1, 2].map((ch) => TGROUND[ch] * (1 - cover) + cover * (pal[cb[0]][ch] + pal[cb[1]][ch] + pal[cb[2]][ch]) / 3));
     const sample = (img, f, x, y) => {
       const w = img.w, h = img.h;
@@ -1112,7 +1114,7 @@
       }
       return o;
     };
-    const rowH = 0.0105 * S, gap = 0.0011 * S, sp = Math.max(1.5, 0.0024 * S), lw = Math.max(0.9, sp * 0.62);
+    const rowH = 0.012 * S, gap = 0.0012 * S, sp = Math.max(1.5, 0.0023 * S), lw = Math.max(0.9, sp * 0.7);
     for (const t of D.trat) {
       const pts = t.poly.map(([u, v]) => [(u - sc.u0) * S, v * S]);
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
@@ -1143,12 +1145,10 @@
             cb = combos[best].slice();
             for (let i = 2; i > 0; i--) { const j = (rng() * (i + 1)) | 0; const tmp = cb[i]; cb[i] = cb[j]; cb[j] = tmp; }
           }
-          const ci = cb[col % 3];
-          if (ci === pal.length - 1) continue;
-          const pc = pal[ci];
+          const pc = pal[cb[col % 3]];
           const ya = ry + rng.r(-0.08, 0.12) * rowH, yb = ry + rowH * rng.r(0.86, 1.02);
           const xa = x + rng.r(-0.1, 0.1) * sp, xb = xa + rng.r(-0.06, 0.06) * sp;
-          T.strokeStyle = css(jit(pc, rng, 8), rng.r(0.72, 0.92));
+          T.strokeStyle = css(jit(pc, rng, 8), rng.r(0.8, 0.95));
           T.lineWidth = lw * rng.r(0.85, 1.12);
           T.beginPath(); T.moveTo(xa, ya); T.lineTo(xb, yb); T.stroke();
           T.fillStyle = css(mixc(pc, [20, 20, 20], 0.15), 0.35);
@@ -1279,7 +1279,7 @@ void main() {
     c = mix(c, vec3(234.0, 228.0, 212.0), 0.08 + chalk * 0.12);
     if (abrM > 0.01) {
       float abS = fbm(U * vec2(22.0, 70.0) + uSd * 0.3, 2);
-      c = mix(c, vec3(214.0, 204.0, 184.0), abrM * smoothstep(0.6, 0.78, abS) * 0.35);
+      c = mix(c, vec3(214.0, 204.0, 184.0), abrM * smoothstep(0.62, 0.8, abS) * 0.26);
     }
     float pp = 1.0 - halo * (1.0 - smoothstep(0.42, 0.62, iB + (eH - 0.5) * 0.3));
     c = mix(vec3(208.0, 200.0, 182.0), c, pp);
@@ -1293,7 +1293,7 @@ void main() {
   vec4 ln = texture(tLines, uv);
   float crk = ln.r * (1.0 - nf);
   col = mix(col, col * vec3(0.7, 0.66, 0.62), crk); h -= crk * uThick * 1.5;
-  float fcr = ln.g * ip; col *= 1.0 - 0.26 * fcr; h -= fcr * uThick * 0.3;
+  float fcr = ln.g * ip; col *= 1.0 - 0.17 * fcr; h -= fcr * uThick * 0.26;
   float gf = ln.b * ip; col = mix(col, vec3(230.0, 214.0, 198.0), gf * 0.78); h -= gf * uThick * 0.3;
 
   // salt and grime
@@ -1662,8 +1662,8 @@ void main() {
     lx.lineCap = 'round'; lx.lineJoin = 'round';
     lx.fillStyle = 'rgb(255,0,0)';
     for (const C of D.cracks) lx.fill(strokePath(C.pts, Math.max(C.w, 1.5 / S), Math.max(C.w * 0.4, 0.9 / S), 0.08, 0.3));
-    strokeList(lx, D.fine, Math.max(0.9 / S, 0.0008), 'rgb(0,190,0)');
-    strokeList(lx, D.incisions, Math.max(0.8 / S, 0.0007), 'rgb(0,120,0)');
+    strokeList(lx, D.fine, Math.max(0.8 / S, 0.0007), 'rgb(0,170,0)');
+    strokeList(lx, D.incisions, Math.max(0.8 / S, 0.0007), 'rgb(0,95,0)');
     strokeList(lx, D.graffito, Math.max(1.0 / S, 0.0011), 'rgb(0,0,255)');
     lx.globalCompositeOperation = 'source-over';
     await step();
@@ -1678,8 +1678,8 @@ void main() {
       for (let i = 0; i < fw; i++) {
         const u = u0 + ((i + 0.5) * Wp) / fw / S, v = ((j + 0.5) * Hp) / fh / S, o = (j * fw + i) * 4;
         const jd = ((u - 0.95) / 0.26) ** 2 + ((v - 0.4) / 0.16) ** 2;
-        const f0 = nz[0].fbm(u * 2.2 + 3, v * 2.2, 4) - Math.max(0, 1 - jd) * 0.2;
-        FA[o] = 255 * (sstep(0.525, 0.575, f0) * 0.85 + 0.12 * sstep(0.4, 0.8, nz[0].fbm(u * 9, v * 9, 2)) * Math.min(1, jd));
+        const f0 = nz[0].fbm(u * 2.2 + 3, v * 2.2, 4);
+        FA[o] = 255 * (sstep(0.525, 0.575, f0) * 0.85 + 0.12 * sstep(0.4, 0.8, nz[0].fbm(u * 9, v * 9, 2))) * (0.25 + 0.75 * sstep(0.2, 2.2, jd));
         FA[o + 1] = 255 * sstep(0.56, 0.84, nz[1].fbm(u * 4, v * 4, 4) + (v - 0.6) * 0.4);
         FA[o + 2] = 255 * sstep(0.3, 0.95, nz[2].fbm(u * 2.2, v * 2.2, 4) * 0.75 + v * 0.32);
         FA[o + 3] = 255 * sstep(0.52, 0.72, nz[3].fbm(u * 3.5, v * 3.5, 3));
@@ -1719,6 +1719,10 @@ void main() {
 
   /* ================================================================== room */
   function drawRoom(ctx, W, H, dpr, L, fc, seed) {
+    drawWall(ctx, W, H, dpr, L, seed);
+    if (fc) drawShadows(ctx, dpr, L, fc);
+  }
+  function drawWall(ctx, W, H, dpr, L, seed) {
     const w = W * dpr, h = H * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = ROOM; ctx.fillRect(0, 0, w, h);
@@ -1730,6 +1734,8 @@ void main() {
     for (let i = 0; i < id.data.length; i += 4) { const v = 110 + r() * 40; id.data[i] = v; id.data[i + 1] = v * 0.98; id.data[i + 2] = v * 0.94; id.data[i + 3] = 255; }
     tx.putImageData(id, 0, 0);
     ctx.save(); ctx.globalAlpha = 0.05; ctx.globalCompositeOperation = 'overlay'; ctx.fillStyle = ctx.createPattern(tc, 'repeat'); ctx.fillRect(0, 0, w, h); ctx.restore();
+  }
+  function drawShadows(ctx, dpr, L, fc) {
     const S = L.fh * dpr, X = L.fx * dpr, Y = L.fy * dpr, FW = L.fw * dpr, FH = L.fh * dpr;
     const shadow = (blur, dx, dy, col) => {
       ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = blur; ctx.shadowOffsetX = dx + 30000; ctx.shadowOffsetY = dy;
@@ -1771,6 +1777,11 @@ void main() {
       };
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       try {
+        if (!frag) {
+          // the empty wall first, lit and waiting
+          wall.width = Math.round(W * dpr); wall.height = Math.round(H * dpr);
+          drawWall(wall.getContext('2d'), W, H, dpr, layout(W, H), api.seed >>> 0);
+        }
         const res = await render({ W, H, dpr, seed: api.seed >>> 0, step, log });
         if (!alive()) { if (res.gl) res.gl.lose(); return; }
         wall.width = Math.round(W * dpr); wall.height = Math.round(H * dpr);
@@ -1778,6 +1789,11 @@ void main() {
         dropFrag();
         const node = res.gl ? res.gl.canvas : res.still;
         place(node, res.L);
+        if (readyCalled) {
+          // arriving after the room has already faded in: let it settle onto the wall
+          node.style.opacity = '0'; node.style.transition = 'opacity .7s ease';
+          requestAnimationFrame(() => requestAnimationFrame(() => { node.style.opacity = '1'; }));
+        }
         el.appendChild(node);
         frag = { node, gl: res.gl, still: res.still, L: res.L, Wp: res.Wp, Hp: res.Hp, S: res.S, slabH: res.slabH };
         if (res.gl) {

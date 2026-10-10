@@ -1555,7 +1555,8 @@ void main(){
         const t = (now - t0) / 1000;
         // idle drift when the pointer has been still
         const idle = clamp((now - cam.last - 4000) / 3000, 0, 1) * (slow ? 0 : 1);
-        const ix = 0.32 * Math.sin(t * 0.19) + 0.08 * Math.sin(t * 0.53), iy = 0.16 * Math.sin(t * 0.23 + 1.3);
+        const amp = clamp((t - 1.5) / 8, 0, 1);
+        const ix = amp * (0.34 * Math.sin(t * 0.19) + 0.08 * Math.sin(t * 0.53)), iy = amp * 0.18 * Math.sin(t * 0.23 + 1.3);
         const gx = lerp(cam.tx, ix, idle), gy = lerp(cam.ty, iy, idle);
         const k = 1 - Math.exp(-dt * 3.2);
         cam.x += (gx - cam.x) * k; cam.y += (gy - cam.y) * k;
