@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ten Hands</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="room"><div id="stage"></div></main>
+
+<footer id="ui" data-tone="dark">
+  <div id="label">
+    <div id="num"></div>
+    <div id="title"></div>
+    <div id="medium"></div>
+    <div id="note"></div>
+  </div>
+  <nav id="nav" aria-label="Artworks">
+    <button id="prev" aria-label="Previous artwork">&larr;</button>
+    <div id="dots"></div>
+    <button id="next" aria-label="Next artwork">&rarr;</button>
+    <button id="about" aria-label="About these works">i</button>
+  </nav>
+</footer>
+
+<section id="index" hidden>
+  <div class="inner">
+    <h1>Ten Hands</h1>
+    <p class="lede">Ten artworks by ten imagined artists, each drawn entirely in JavaScript at the moment you open it. Nothing is a picture file: no images, no models, no textures.</p>
+    <ol id="list"></ol>
+    <p class="keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> move between works &nbsp;·&nbsp; <kbd>1</kbd>–<kbd>0</kbd> jump &nbsp;·&nbsp; <kbd>i</kbd> this index &nbsp;·&nbsp; <kbd>h</kbd> hide the label</p>
+  </div>
+</section>
+
+<script src="js/pieces/01-nierika.js"></script>
+<script src="js/pieces/02-karazuri.js"></script>
+<script src="js/pieces/03-carceri.js"></script>
+<script src="js/pieces/04-line.js"></script>
+<script src="js/pieces/05-hours.js"></script>
+<script src="js/pieces/06-tenmoku.js"></script>
+<script src="js/pieces/07-snow.js"></script>
+<script src="js/pieces/08-fresco.js"></script>
+<script src="js/pieces/09-palimpsest.js"></script>
+<script src="js/pieces/10-whale.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
