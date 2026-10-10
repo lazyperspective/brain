@@ -841,7 +841,11 @@ void main(){
 
   vec2 iu = (Pc - uImg.xy)/(uImg.zw - uImg.xy);
   float inImg = step(0.0, iu.x)*step(iu.x, 1.0)*step(0.0, iu.y)*step(iu.y, 1.0);
-  if (uHasImage > 0.5 && inImg > 0.5){
+  if (uHasImage > 1.5 && inImg > 0.5){
+    // a quick soft proof while the plate is still being worked
+    float lum = clamp((texture(uTone, vec2(iu.x, 1.0 - iu.y)).r - 0.09)/0.84, 0.0, 1.0);
+    ink = (1.0 - pow(lum, 0.8))*(0.93 + 0.07*vn(Pc*0.7));
+  } else if (uHasImage > 0.5 && inImg > 0.5){
     vec4 T = texture(uTone, vec2(iu.x, 1.0 - iu.y));
     float lum = clamp((T.r - 0.09)/0.84, 0.0, 1.0);
     float t = 1.0 - pow(lum, 0.8);
@@ -1212,7 +1216,7 @@ void main(){
         return true;
       }
 
-      let tone = null, toneFbo = null, outTex = null, outFbo = null, textTex = null;
+      let tone = null, toneFbo = null, outTex = null, outFbo = null, textTex = null, proof = null, proofFbo = null;
       let lastKey = '';
 
       async function render() {
@@ -1231,9 +1235,12 @@ void main(){
         if (iwCss * ihCss * q * q > budget) q = Math.sqrt(budget / (iwCss * ihCss));
         const tw = Math.max(16, Math.round(iwCss * q)), th = Math.max(16, Math.round(ihCss * q));
 
-        [tone, outTex, textTex].forEach((t) => t && gl.deleteTexture(t));
-        [toneFbo, outFbo].forEach((f) => f && gl.deleteFramebuffer(f));
+        [tone, outTex, textTex, proof].forEach((t) => t && gl.deleteTexture(t));
+        [toneFbo, outFbo, proofFbo].forEach((f) => f && gl.deleteFramebuffer(f));
         tone = floatOK ? makeTex(gl, tw, th, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR) : makeTex(gl, tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR);
+        const pw2 = Math.max(16, Math.round(tw / 4)), ph2 = Math.max(16, Math.round(th / 4));
+        proof = makeTex(gl, pw2, ph2, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR);
+        proofFbo = makeFbo(gl, proof);
         toneFbo = makeFbo(gl, tone);
         outTex = makeTex(gl, W, H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.NEAREST);
         outFbo = makeFbo(gl, outTex);
@@ -1249,7 +1256,7 @@ void main(){
         const printUniforms = (hasImage) => {
           const u = progs.print.u;
           gl.useProgram(progs.print.p);
-          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tone); gl.uniform1i(u.uTone, 0);
+          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hasImage === 2 ? proof : tone); gl.uniform1i(u.uTone, 0);
           gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, textTex); gl.uniform1i(u.uText, 1);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, cdfTex); gl.uniform1i(u.uCdf, 2);
           gl.uniform2f(u.uView, W, H);
@@ -1261,7 +1268,7 @@ void main(){
           gl.uniform3fv(u.uPaper, imp.paper);
           gl.uniform4f(u.uImp, imp.plateTone, imp.wipeAng, grainPx, imp.seedOff);
           gl.uniform4f(u.uImp2, imp.density, imp.burnish, imp.chainPhase, imp.laidPhase);
-          gl.uniform1f(u.uHasImage, hasImage ? 1 : 0);
+          gl.uniform1f(u.uHasImage, hasImage === 2 ? 2 : hasImage ? 1 : 0);
           gl.uniform1i(u.uSS, grainPx * dpr < 2.6 ? 2 : 1);
           gl.uniform1f(u.uMarkScale, iwCss / 970);
           gl.uniform4fv(u.uFox, imp.fox);
@@ -1287,13 +1294,12 @@ void main(){
           blit();
         }
 
-        // 2. the tonal drawing, ray-marched in tiles
-        gl.bindFramebuffer(gl.FRAMEBUFFER, toneFbo);
-        gl.viewport(0, 0, tw, th);
+        // 2. the tonal drawing, ray-marched in tiles: first a small proof, then the full plate
         const su = progs.scene.u;
+        let rw = tw, rh = th;
         const drawScene = () => {
           gl.useProgram(progs.scene.p);
-          gl.uniform2f(su.uRes, tw, th);
+          gl.uniform2f(su.uRes, rw, rh);
           gl.uniform3fv(su.uCam, cam.pos);
           gl.uniform1f(su.uYaw, cam.yaw);
           gl.uniform1f(su.uTanW, cam.tanW);
@@ -1304,6 +1310,19 @@ void main(){
           gl.uniform4fv(su.uPose, poseData);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
         };
+        if (!(DBG && DBG.toneOnly)) {
+          rw = pw2; rh = ph2;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, proofFbo);
+          gl.viewport(0, 0, pw2, ph2);
+          if (!(await runTiles(my, pw2, ph2, drawScene))) return;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, outFbo);
+          gl.viewport(0, 0, W, H);
+          if (!(await runTiles(my, W, H, () => { printUniforms(2); gl.drawArrays(gl.TRIANGLES, 0, 3); }))) return;
+          blit();
+        }
+        rw = tw; rh = th;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, toneFbo);
+        gl.viewport(0, 0, tw, th);
         if (!(await runTiles(my, tw, th, drawScene))) return;
         const t1 = performance.now();
 
