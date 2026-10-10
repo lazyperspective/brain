@@ -2356,9 +2356,12 @@
         const sig = [light.x, light.y, view.z * 1000, view.cx, view.cy, canvas.width, canvas.height];
         let changed = !lastSig;
         if (lastSig) for (let i = 0; i < sig.length; i++) if (Math.abs(sig[i] - lastSig[i]) > 0.04) { changed = true; break; }
-        if (changed && tex) { lastSig = sig; draw(now); }
+        // on a struggling machine (or a software rasteriser) redraw sparingly rather than starve the page
+        gapAvg = gapAvg * 0.9 + (dt * 1000) * 0.1;
+        const minGap = gapAvg > 70 ? 600 : 0;
+        if (changed && tex && now - lastDraw >= minGap) { lastSig = sig; lastDraw = now; draw(now); }
       }
-      let lastSig = null;
+      let lastSig = null, lastDraw = -1e9, gapAvg = 16;
       const ro = new ResizeObserver(() => { resize(); });
       ro.observe(el);
       resize();

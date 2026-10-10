@@ -587,7 +587,7 @@ void spotLayer(vec2 P, float cell, vec2 rr, float dens, float seed, float hk, ve
     float lob = 1.0 + 0.12 * sin(an * 2.0 + hr * 20.0) + 0.06 * sin(an * 3.0 + h.x * 30.0);
     float d = length(dv) / lob;
     core = max(core, 1.0 - smoothstep(r * 0.86, r, d));
-    float isRing = step(0.6, hr);
+    float isRing = step(0.78, hr);
     ring = max(ring, isRing * smoothstep(r * 0.42, r * 0.7, d) * (1.0 - smoothstep(r * 0.86, r, d)));
     dk = max(dk, isRing * (1.0 - smoothstep(r * 0.3, r * 0.55, d)));
     vec2 hv = hash32(g + o + seed + 5.7).xy;

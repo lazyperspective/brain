@@ -18,7 +18,6 @@
   const YW = SP * 1.08;          // drawn width of a strand
   const LX = -0.56, LY = -0.83;  // direction towards the light (upper left)
   const NBR = 12;                // strands in the border (even)
-  const DBG = (typeof window !== 'undefined' && window.__NIERIKA_DEBUG) || {};
 
   /* ------------------------------------------------------------------ randomness */
   function mulberry32(a) {
@@ -167,7 +166,6 @@
     }
     return out;
   }
-  const rev = (p) => p.slice().reverse();
   function lobed(cx, cy, r, lobes, depth, rot) {
     const n = Math.max(48, Math.ceil(r * 0.9)), out = [];
     for (let i = 0; i < n; i++) {
@@ -233,6 +231,7 @@
     /* ---- the Sun Father, upper left */
     const sx = 432, sy = 432;
     const rayRot = J(0.1);
+    const rayAlt = [['Y', 'M'], ['Y', 'T'], ['O', 'M']][(rng() * 3) | 0];
     for (let i = 0; i < 16; i++) {
       const a = rayRot + (i / 16) * Math.PI * 2, hs = Math.PI / 16;
       const tiers = [[222, 262, 0.84], [262, 300, 0.56], [300, 338, 0.27]];
@@ -244,7 +243,7 @@
           Q.push([sx + Math.cos(a + hs * f) * r, sy + Math.sin(a + hs * f) * r]);
         }
       }
-      add('sun', [P.concat(Q.reverse())], i % 2 ? fig(['Y'], 'M') : fig(['V'], 'Y'));
+      add('sun', [P.concat(Q.reverse())], i % 2 ? fig([rayAlt[0]], rayAlt[1]) : fig(['V'], 'Y'));
     }
     add('sun', [ell(sx, sy, 222, 222, 0, 160)], (k, nb, me, x, y) => {
       const r = Math.hypot(x - sx, y - sy);
@@ -490,7 +489,7 @@
     // breath rising in scrolls into the cloud
     add('cloud', [limb([[1676, 1392, 14], [1660, 1352, 19], [1670, 1310, 21], [1708, 1294, 20], [1732, 1314, 16], [1720, 1340, 11], [1700, 1338, 6]])], fig(['S'], 'W'));
     add('cloud', [limb([[1680, 1290, 13], [1668, 1256, 17], [1680, 1220, 17], [1706, 1200, 12]])], fig(['S'], 'W'));
-    const cloud = add('cloud', [blob([[1690, 1170], [1680, 1118], [1712, 1072], [1764, 1066], [1792, 1014], [1852, 998], [1902, 1028], [1944, 1050], [1958, 1108], [1936, 1158], [1880, 1180], [1780, 1186]])],
+    add('cloud', [blob([[1690, 1170], [1680, 1118], [1712, 1072], [1764, 1066], [1792, 1014], [1852, 998], [1902, 1028], [1944, 1050], [1958, 1108], [1936, 1158], [1880, 1180], [1780, 1186]])],
       (k, nb, me) => (k === 0 ? 'S' : k % 5 === 3 ? 'T' : 'W'));
     for (let i = 0; i < 4; i++) {
       const x = 1810 + i * 40 + J(5);
@@ -614,7 +613,6 @@
     }
     regs[2].col = (k, nb) => (bandOf[k] ? (nb && AURA[nb.group]) || 'p' : 'K');
 
-    const T0 = performance.now(); const tlog = (m) => { if (DBG.log) console.warn('[nierika] ' + m + ' ' + Math.round(performance.now() - T0) + 'ms'); };
     /* 1. region labels */
     const NN = N * N, lab = new Uint16Array(NN);
     const bw = NBR * SP * s;
@@ -628,7 +626,6 @@
     await pause();
     for (const r of R) { for (const poly of r.polys) fillPolys(lab, N, s, [poly], r.id); await pause(); }
 
-    tlog('labels');
     /* 2. edges and the distance transform (Felzenszwalb–Huttenlocher), keeping who is across each edge */
     const other = new Uint16Array(NN);
     for (let y = 0; y < N; y++) {
@@ -680,7 +677,6 @@
       }
     }
 
-    tlog('edt');
     /* 3. the hand: low-frequency wander in the spacing, so no two rounds are exactly parallel */
     {
       const nz = makeNoise(seed ^ 0x5EED), step = 8, G = Math.ceil(N / step) + 2;
@@ -703,7 +699,6 @@
       }
     }
 
-    tlog('noise');
     /* 4. marching squares: every level at once (the field is 1-Lipschitz, so an edge is crossed at most once) */
     const d0 = D0 * s, sp = SP * s;
     let cap = 1 << 20, np = 0;
@@ -767,7 +762,6 @@
       }
     }
 
-    tlog('march ' + np);
     /* 5. contours → strands of yarn */
     const pieces = [];
     const visited = new Uint8Array(np);
@@ -846,14 +840,10 @@
         keys[q] = KI[reg.col(k, nb, reg, X[q], Y[q])];
       }
       // suppress tiny colour flickers
-      {
-        let run = 0;
-        for (let q = 1; q < m; q++) {
-          if (keys[q] !== keys[q - 1]) {
-            let r = q; while (r < m && keys[r] === keys[q] && r - q < 4) r++;
-            if (r - q < 4 && r < m) { for (let t = q; t < r; t++) keys[t] = keys[q - 1]; }
-          }
-          run++;
+      for (let q = 1; q < m; q++) {
+        if (keys[q] !== keys[q - 1]) {
+          let r = q; while (r < m && keys[r] === keys[q] && r - q < 4) r++;
+          if (r - q < 4 && r < m) { for (let t = q; t < r; t++) keys[t] = keys[q - 1]; }
         }
       }
       // cut into pieces of yarn: at colour changes and where one length of yarn ran out
@@ -902,7 +892,6 @@
       loopId++;
       await pause();
     }
-    tlog('strands ' + pieces.length + ' loops ' + loopId);
     pieces.sort((a, b) => {
       const A = a.o, Bo = b.o;
       for (let i = 0; i < 5; i++) if (A[i] !== Bo[i]) return A[i] - Bo[i];
@@ -986,7 +975,7 @@
   }
   function drawPieces(ctx, P, i0, i1, S, ox, oy, cols) {
     const wpx = YW * S;
-    const twist = !DBG.fast && wpx >= 2.4, ply = wpx >= 5, fuzz = !DBG.fast && wpx >= 2.4;
+    const twist = wpx >= 2.4, ply = wpx >= 5, fuzz = wpx >= 2.4;
     const gA = Math.min(1, Math.max(0, (wpx - 2.4) / 7.5)), grooveA = 0.12 + 0.88 * gA * gA;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     let i = i0;
@@ -1116,9 +1105,9 @@
       const wctx = wax.getContext('2d'), yctx = yarn.getContext('2d', { willReadFrequently: true });
 
       let Wv = 0, Hv = 0, dpr = 1, bs = 0, bx = 0, by = 0, S = 1;
-      let data = null, cols = yarnColours(seed), drawn = 0, tStart = 0, tDraw0 = 0, finished = false;
+      let data = null, cols = yarnColours(seed), drawn = 0, tStart = 0, finished = false;
       let sketchT0 = performance.now(), sketchDone = 0, sketchTotal = 1, sketchList = null;
-      const SKETCH_DUR = DBG.instant ? 0 : 900;
+      const SKETCH_DUR = 900;
 
       function layout() {
         Wv = el.clientWidth; Hv = el.clientHeight;
@@ -1279,18 +1268,18 @@
           sketchDone = u;
         }
         if (data && sketchDone >= 1) {
-          if (!tStart) { tStart = now + (DBG.instant ? -1e9 : 120); tDraw0 = now; }
+          if (!tStart) tStart = now + 120;
           const t = (now - tStart) / 1000;
           const P = data.pieces;
           let target = drawn;
           while (target < P.length && P[target].t <= t) target++;
-          const budget = now + (DBG.instant ? 30 : 12);
+          const budget = now + 12;
           while (drawn < target && performance.now() < budget) {
             const e = Math.min(target, drawn + 3);
             drawPieces(yctx, P, drawn, e, S, 0, 0, cols);
             drawn = e;
           }
-          if (drawn >= P.length && !finished) { if (DBG.log) console.warn('[nierika] drawn in ' + Math.round(now - tDraw0) + 'ms'); finished = true; el.dataset.done = '1'; hiresOnView(); }
+          if (drawn >= P.length && !finished) { finished = true; el.dataset.done = '1'; hiresOnView(); }
         }
         if (!finished || drawn < (data ? data.pieces.length : 1)) raf = requestAnimationFrame(frame);
       }
@@ -1299,26 +1288,6 @@
       const ro2 = new ResizeObserver(() => kick());
       ro2.observe(el);
 
-      if (DBG.flat) {
-        const d = design(seed);
-        wctx.setTransform(S, 0, 0, S, 0, 0);
-        wctx.lineJoin = 'round';
-        for (const r of d.R) {
-          const f = RGB[r.col(9, null, r, 0, 0)] || [128, 128, 128], o = RGB[r.col(0, null, r, 0, 0)] || f;
-          for (const poly of r.polys) {
-            wctx.beginPath(); poly.forEach((p, i) => (i ? wctx.lineTo(p[0], p[1]) : wctx.moveTo(p[0], p[1]))); wctx.closePath();
-            wctx.fillStyle = 'rgb(' + f.join(',') + ')'; wctx.fill();
-            wctx.strokeStyle = 'rgb(' + o.join(',') + ')'; wctx.lineWidth = 6; wctx.stroke();
-          }
-        }
-        wctx.strokeStyle = 'rgba(255,255,255,0.25)'; wctx.lineWidth = 1.5; wctx.font = '22px sans-serif'; wctx.fillStyle = 'rgba(255,255,255,0.6)';
-        for (let g = 128; g < B; g += 128) {
-          wctx.beginPath(); wctx.moveTo(g, 0); wctx.lineTo(g, B); wctx.moveTo(0, g); wctx.lineTo(B, g); wctx.stroke();
-          if (g % 256 === 0) { wctx.fillText(String(g), g + 3, 22); wctx.fillText(String(g), 3, g - 4); }
-        }
-        el.dataset.done = '1';
-        return { destroy() { ro.disconnect(); } };
-      }
       sketchList = design(seed).sketch;
       sketchTotal = sketchLength(sketchList);
       sketchT0 = performance.now();

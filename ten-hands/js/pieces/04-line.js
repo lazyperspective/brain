@@ -563,15 +563,11 @@
       const params = new URLSearchParams(location.search);
       const startT = params.has('line_t') ? parseFloat(params.get('line_t')) || 0 : null;
       const speed = params.has('line_speed') ? parseFloat(params.get('line_speed')) || 1 : 1;
-      const sheet = params.has('line_sheet');
-      const perf = params.has('line_perf') ? { n: 0, ms: 0 } : null;
       let reduce = false;
       try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* ignore */ }
       if (params.has('line_static')) reduce = true;
 
-      const tb0 = performance.now();
       const C = buildCycle(api.seed >>> 0);
-      const tb1 = performance.now();
       const N = C.N;
       const INK = '#16120f';
 
@@ -602,7 +598,6 @@
         const f = tl <= t0 ? 0 : Math.min(1, (tl - t0) / Math.max(1e-6, t1 - t0));
         return { g: c * N + lo, f: f, dwellLeft: t0 - tl, dwellIn: tl - C.TT[lo] };
       }
-      function gx(g) { const c = Math.floor(g / N), i = g - c * N; return C.BX[i] + c * C.Wc; }
       function penXAt(t) {
         if (t < 0) { const c = Math.floor(t / C.Tc); return penXAt(t - c * C.Tc) + c * C.Wc; }
         const s = sampleAt(t);
@@ -649,10 +644,8 @@
         const r0 = new Float64Array(n0 + 2 * rad2 + 1);
         const hold = -camFs * visW;
         for (let k = -rad2; k <= n0 + rad2; k++) {
-          const kk = Math.max(0, Math.min(n, k));
           const v = k < 0 ? hold : camA[Math.min(n, k)] - camF * visW;
           r0[k + rad2] = Math.max(hold, k < 0 ? hold : v);
-          void kk;
         }
         camA0 = new Float64Array(n0 + 1);
         let ks2 = 0; const ker2 = [];
@@ -698,8 +691,7 @@
         paperTop = Math.round(H * (phone ? 0.48 : 0.465) - paperH / 2);
         bgc.width = Math.round(W * dpr); bgc.height = Math.round(H * dpr);
         canvas.width = Math.round(W * dpr);
-        if (sheet) { canvas.style.top = '0px'; canvas.style.height = H + 'px'; canvas.height = Math.round(H * dpr); }
-        else { canvas.style.top = paperTop + 'px'; canvas.style.height = paperH + 'px'; canvas.height = Math.round(paperH * dpr); }
+        canvas.style.top = paperTop + 'px'; canvas.style.height = paperH + 'px'; canvas.height = Math.round(paperH * dpr);
         // world y at the paper's top edge (content centred inside the paper)
         worldTop = top - (paperH - contentH) / 2 / S;
         tileHd = canvas.height;
@@ -924,58 +916,18 @@
         tiles.forEach(function (tl, kk) { if (kk < kmin) { tl.c.width = 1; tiles.delete(kk); } });
       }
 
-      function renderSheet() { // debug: the whole cycle laid out in rows
-        const rows = parseInt(params.get('line_sheet'), 10) || 4;
-        const X0 = params.has('line_x0') ? +params.get('line_x0') : 0;
-        const X1 = params.has('line_x1') ? +params.get('line_x1') : C.Wc;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = '#f1eadc'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const rowW = (X1 - X0) / rows;
-        const top = C.minY - 10, bot = C.maxY + 10;
-        const sc = Math.min(canvas.width / rowW, canvas.height / rows / (bot - top));
-        ctx.fillStyle = INK;
-        for (let r = 0; r < rows; r++) {
-          const x0 = X0 + r * rowW, oy = r * (bot - top) * sc;
-          ctx.beginPath();
-          for (let i = 0; i < N; i++) {
-            const x = C.X[i];
-            const vs = C.vStart;
-            void vs;
-            if (x < x0 - 80 || x > x0 + rowW + 80) continue;
-            const rr = Math.max(0.5, 0.5 * C.WD[i] * Math.pow(sc / 1.5, 0.62)) ;
-            const X = (x - x0) * sc, Y = oy + (C.Y[i] - top) * sc;
-            ctx.moveTo(X + rr, Y); ctx.arc(X, Y, rr, 0, Math.PI * 2);
-            if (C.BEAD[i] > 0) { const b = rr + C.BEAD[i] * 0.5 * Math.pow(sc / 1.5, 0.62); ctx.moveTo(X + b, Y); ctx.arc(X, Y, b, 0, Math.PI * 2); }
-          }
-          ctx.fill();
-          ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, oy + (bot - top) * sc - 1, canvas.width, 1); ctx.fillStyle = INK;
-        }
-        ctx.fillStyle = '#933';
-        ctx.font = (12 * dpr) + 'px sans-serif';
-        let info = 'cycle ' + C.Tc.toFixed(1) + ' s, ' + C.Wc + ' u, ' + N + ' samples | ';
-        for (let v = 0; v < C.vStart.length; v++) {
-          let best = 0; for (let i = 0; i < N; i++) if (C.VIG[i] === v) { best = i; break; }
-          info += 'v' + v + '@' + C.vStart[v] + ':' + C.TT[best].toFixed(1) + 's ';
-        }
-        ctx.fillText(info, 8 * dpr, 16 * dpr);
-      }
-
       function frame(now) {
         if (!alive) return;
         if (!api.isCurrent()) { alive = false; return; }
         const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0;
         lastNow = now;
         clock += dt * speed;
-        const p0 = performance.now();
         render();
-        if (perf) { perf.n++; perf.ms += performance.now() - p0; window.__linePerf = perf; }
         raf = requestAnimationFrame(frame);
       }
 
       layout();
-      if (sheet) {
-        renderSheet();
-      } else if (reduce) {
+      if (reduce) {
         // a long finished stretch, still
         const picks = [C.vTime[2] - 0.4, C.vTime[3] - 0.4, C.Tc - 0.4];
         clock = picks[api.seed % picks.length];
@@ -987,18 +939,6 @@
         raf = requestAnimationFrame(frame);
       }
       api.ready();
-      if (!sheet && !reduce) {
-        // also log cycle length in debug
-        if (params.has('line_info')) {
-          let lo = 9, hi = -9, tlo = 0, thi = 0, vmax = 0, prev = camAt(0);
-          for (let t = 0; t < 2 * C.Tc; t += 0.05) {
-            const fr = (penXAt(t) - camAt(t)) / visW;
-            if (fr < lo) { lo = fr; tlo = t; } if (fr > hi) { hi = fr; thi = t; }
-            const c = camAt(t); vmax = Math.max(vmax, Math.abs(c - prev) / 0.05 * S); prev = c;
-          }
-          console.warn('build', (tb1 - tb0).toFixed(0), 'ms; cycle', C.Tc.toFixed(1), 's', C.Wc, 'u; pen fraction', lo.toFixed(2), '@', tlo.toFixed(1), hi.toFixed(2), '@', thi.toFixed(1), 'max cam px/s', vmax.toFixed(0));
-        }
-      }
 
       let rt = 0;
       const ro = new ResizeObserver(function () {
@@ -1008,7 +948,6 @@
           const w = el.clientWidth, h = el.clientHeight;
           if (Math.abs(w - W) < 2 && Math.abs(h - H) < 2) return;
           layout();
-          if (sheet) { renderSheet(); return; }
           restamp(Math.max(0, clock));
           render();
         }, 120);
