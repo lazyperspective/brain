@@ -477,7 +477,8 @@ vec3 floorSheen(vec3 p, vec3 V, float k) {
   float ang = acos(clamp(dot(R, toB / db), -1.0, 1.0));
   float rad = atan(0.92 / db);
   float occ = smoothstep(rad * 0.75, rad * 1.25 + 0.12, ang);
-  return F * env(R, 0.55) * occ * floorAO(p.xz) * k;
+  vec2 q = p.xz - vec2(0.2, -0.9);
+  return F * env(R, 0.55) * occ * floorAO(p.xz) * k * exp(-dot(q, q) / 3.5) * vec3(1.0, 0.96, 0.9);
 }
 vec3 finish(vec3 hdr) {
   vec2 uv = gl_FragCoord.xy / uRes;

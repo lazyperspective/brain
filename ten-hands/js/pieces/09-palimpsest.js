@@ -2023,16 +2023,21 @@ vec3 sheetCol(vec2 q, float e, bool old){
 void main(){
   vec2 fc = gl_FragCoord.xy;
   vec2 css = fc / uDpr;
-  // the studio wall
-  vec2 wv = fc / uRes;
-  float lamp = 1.0 - 0.55 * length((wv - vec2(0.3, 1.05)) * vec2(0.9, 1.0));
-  vec3 col = vec3(0.13, 0.118, 0.105) * (0.62 + 0.5 * clamp(lamp, 0.0, 1.0));
-  col *= 0.93 + 0.1 * vn(css / 70.0) + 0.04 * vn(css / 6.0);
   vec2 hs = uSheet.zw * 0.5;
   float wob = (vn(css * 0.11) - 0.5) * 1.4 * uDpr + (vn(css * 0.9) - 0.5) * 0.5 * uDpr;
   // a fresh sheet is laid down over the old one: it slides in from above
   float k = 1.0 - uMix; k = k * k * (3.0 - 2.0 * k);
   vec2 off = vec2(-0.02 * uSheet.z * k, (uSheet.w + uSheet.y + 40.0 * uDpr) * k);
+  vec3 col = vec3(0.0);
+  float inner = sdBox(fc - uSheet.xy - hs, hs);
+  if (uMix >= 1.0 && inner < -4.0 * uDpr) {
+    col = sheetCol(fc - uSheet.xy, inner + wob, false);
+  } else {
+  // the studio wall
+  vec2 wv = fc / uRes;
+  float lamp = 1.0 - 0.55 * length((wv - vec2(0.3, 1.05)) * vec2(0.9, 1.0));
+  col = vec3(0.13, 0.118, 0.105) * (0.62 + 0.5 * clamp(lamp, 0.0, 1.0));
+  col *= 0.93 + 0.1 * vn(css / 70.0) + 0.04 * vn(css / 6.0);
   vec2 q = fc - uSheet.xy - off;
   if (uMix < 1.0) {
     vec2 qo = fc - uSheet.xy;
@@ -2046,11 +2051,13 @@ void main(){
   col *= 1.0 - (0.6 - 0.15 * k) * (1.0 - smoothstep(-8.0 * uDpr, (30.0 + 40.0 * k) * uDpr, sd));
   float e = sdBox(q - hs, hs) + wob;
   if (e < 0.0) col = sheetCol(q, e, false);
+  }
   // masking tape, holding the top sheet
   for (int i = 0; i < 4; i++) {
     vec4 t = uTape[i];
     if (t.w <= 0.0) continue;
     vec2 d = fc - t.xy - off;
+    if (dot(d, d) > (t.w * t.w * 0.36 + 400.0) * uDpr * uDpr) continue;
     float ca = cos(t.z), sa = sin(t.z);
     vec2 l = vec2(d.x * ca + d.y * sa, -d.x * sa + d.y * ca) / uDpr;
     float tear = (vn(vec2(l.y * 0.7, float(i) * 13.0)) - 0.5) * 5.0 + (rnd(vec2(floor(l.y * 1.3), float(i))) - 0.5) * 1.6;
@@ -2295,7 +2302,7 @@ void main(){
         D.draw(cw, ch, dpr, [lay.m * dpr, lay.m * dpr, lay.sw * dpr, lay.sh * dpr], mixNow(), tapes);
       }
 
-      let last = performance.now();
+      let last = performance.now(), lastShow = 0;
       function frame(now) {
         if (!alive) return;
         raf = requestAnimationFrame(frame);
@@ -2310,7 +2317,7 @@ void main(){
           if (D.upload(sim, false) > 0) changed = true;
           if (mixNow() < 1) changed = true;
         }
-        if (changed && !busy) { show(); dirty = false; }
+        if (changed && !busy && (now - lastShow > 30 || mixNow() < 1 || dirty)) { show(); dirty = false; lastShow = now; }
       }
 
       (async () => {

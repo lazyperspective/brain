@@ -885,7 +885,8 @@ void main(){
   float bl = sdBox2(Pc - 0.5*(uImg.xy + uImg.zw), 0.5*(uImg.zw - uImg.xy) + vec2(3.2*unit));
   float border = 1.0 - smoothstep(0.25*unit, 0.25*unit + 0.7/uDpr, abs(bl));
   float letters = tx.r*smoothstep(0.25, 0.6, tx.r + 0.25*(vn(Pc*1.7) - 0.5));
-  ink = 1.0 - (1.0 - ink)*(1.0 - border*0.92*inPlate)*(1.0 - letters*0.95*inPlate);
+  float inked = step(0.5, uHasImage);
+  ink = 1.0 - (1.0 - ink)*(1.0 - border*0.92*inPlate*inked)*(1.0 - letters*0.95*inPlate*inked);
   ink = 1.0 - (1.0 - ink)*(1.0 - plateTone);
   ink = clamp(ink*uImp2.x, 0.0, 1.0);
 
@@ -1285,8 +1286,8 @@ void main(){
           gl.drawArrays(gl.TRIANGLES, 0, 3);
         };
 
-        // 1. the blank sheet on the wall, so something sensible shows at once
-        if (!(DBG && DBG.toneOnly)) {
+        // 1. (only when debugging) the blank sheet
+        if (DBG && DBG.blank) {
           gl.bindFramebuffer(gl.FRAMEBUFFER, outFbo);
           gl.viewport(0, 0, W, H);
           printUniforms(false);
