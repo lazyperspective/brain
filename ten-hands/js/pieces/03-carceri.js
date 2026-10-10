@@ -46,7 +46,7 @@ const float WY1 = 58.5;   // springing of its round head
 const float WH = 4.4;     // half width
 const float WPZ = 93.2;   // plane of the grating
 const float BA = -0.9;   // plan angle of the bridge
-const vec3 DRUM = vec3(11.770, 31.0, 35.208);
+const vec3 DRUM = vec3(9.594, 29.6, 37.950);
 
 float dot2(vec3 v){ return dot(v,v); }
 mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,s,-s,c); }
@@ -139,18 +139,28 @@ float rampWall(vec3 q, float L, float slope, float h0, float h1, float zc, float
 // a small cloaked human figure; f.xyz feet, f.w facing; pose.x stride, pose.y arm, pose.z lean
 float figure(vec3 p, vec4 f, vec4 pose){
   vec3 q = p - f.xyz;
-  float bd = length(q - vec3(0.0,0.9,0.0)) - 1.3;
+  float bd = length(q - vec3(0.0,0.95,0.0)) - 1.35;
   if (bd > 0.4) return bd;
-  q.xz = rot(f.w)*q.xz;               // local: +z forward
-  q.yz = rot(-pose.z)*q.yz;           // lean
+  q.xz = rot(f.w)*q.xz;               // local: +z forward, +x the figure's left
+  q.y -= 0.0;
+  vec3 hip = vec3(0.0, 0.92, 0.0);
+  q.yz = rot(-pose.z)*(q.yz - hip.yz) + hip.yz;   // lean from the hips
   float st = pose.x;
-  float d = sdRoundCone(q, vec3(0.0,0.42,-0.04), vec3(0.0,1.40,0.0), 0.30, 0.15);   // cloak
-  d = min(d, length(q-vec3(0.0,1.60,0.03))-0.115);                                 // head
-  d = min(d, sdCap(q, vec3(0.09,0.5,0.0), vec3(0.11,0.04, 0.22*st), 0.075));        // legs
-  d = min(d, sdCap(q, vec3(-0.09,0.5,0.0), vec3(-0.11,0.04,-0.22*st), 0.075));
-  vec3 hand = mix(vec3(0.30,0.85,0.12), vec3(0.34,1.95,0.45), pose.y);
-  d = min(d, sdCap(q, vec3(0.17,1.36,0.0), hand, 0.055));                           // arm
-  d = min(d, sdCappedCone(q-vec3(0.0,1.72,0.02), 0.05, 0.12, 0.09));               // cap
+  // legs and feet
+  float d = sdCap(q, vec3(0.08,0.9,0.0), vec3(0.10,0.06, 0.24*st), 0.062);
+  d = min(d, sdCap(q, vec3(-0.08,0.9,0.0), vec3(-0.10,0.06,-0.24*st), 0.062));
+  // a cloak hung from the shoulders, open and flaring to the knee
+  float cl = sdRoundCone(q, vec3(0.0,0.58,-0.05), vec3(0.0,1.40,0.0), 0.29, 0.17);
+  cl = max(cl, -(q.z - 0.12 - 0.25*(1.4 - q.y)));          // falls open in front
+  d = min(d, cl);
+  d = min(d, sdCap(q, vec3(0.0,1.0,0.02), vec3(0.0,1.42,0.03), 0.13));              // body
+  d = min(d, length(q - vec3(0.0,1.6,0.05)) - 0.105);                              // head
+  d = min(d, max(length(vec2(length(q.xz - vec2(0.0,0.05)) - 0.0, q.y - 1.69)) - 0.2, abs(q.y - 1.69) - 0.018)); // hat brim
+  d = min(d, sdCappedCone(q - vec3(0.0,1.75,0.05), 0.06, 0.1, 0.07));               // crown
+  // one arm gestures: down at the side, out, or raised high
+  vec3 hand = mix(vec3(0.24,0.88,0.18), vec3(0.42,1.85,0.48), pose.y);
+  d = min(d, sdCap(q, vec3(0.17,1.38,0.0), hand, 0.048));
+  d = min(d, sdCap(q, vec3(-0.17,1.38,0.0), vec3(-0.22,0.95,0.12), 0.048));
   return d;
 }
 
@@ -324,10 +334,10 @@ vec2 map(vec3 p){
   }
   // ---------------- the great wheel, mounted on the bridge
   {
-    vec3 q = toLocal(p, vec3(4.0, 0.0, 45.0), BA) - vec3(12.5, 31.0, 0.0);
+    vec3 q = toLocal(p, vec3(4.0, 0.0, 45.0), BA) - vec3(9.0, 29.6, 0.0);
     float bd = length(q) - 10.0;
     if (bd < res.x + 1.0) {                // wheel plane = bridge plane (local x,y), axle along local z
-      float R = 7.6;
+      float R = 6.9;
       float r = length(q.xy);
       float an = atan(q.y, q.x);
       float d = sdBox2(vec2(r - R, abs(q.z) - 0.85), vec2(0.36, 0.2));
@@ -343,9 +353,9 @@ vec2 map(vec3 p){
       d = min(d, max(r - 0.5, abs(q.z) - 2.6));
       for (int s=0;s<2;s++){
         float zz = s==0 ? -2.1 : 2.1;
-        d = min(d, sdCap(q, vec3(0.0,0.0,zz), vec3(-3.9,-8.3,zz*0.75), 0.28));
-        d = min(d, sdCap(q, vec3(0.0,0.0,zz), vec3( 3.9,-8.3,zz*0.75), 0.28));
-        d = min(d, sdCap(q, vec3(-2.3,-4.9,zz*0.88), vec3(2.3,-4.9,zz*0.88), 0.2));
+        d = min(d, sdCap(q, vec3(0.0,0.0,zz), vec3(-3.4,-7.0,zz*0.75), 0.27));
+        d = min(d, sdCap(q, vec3(0.0,0.0,zz), vec3( 3.4,-7.0,zz*0.75), 0.27));
+        d = min(d, sdCap(q, vec3(-2.0,-4.1,zz*0.88), vec3(2.0,-4.1,zz*0.88), 0.2));
       }
       res = opU(res, vec2(d, 1.0));
     }
@@ -354,12 +364,12 @@ vec2 map(vec3 p){
   {
     float rp = rope(p, vec3(-12.2, 25.2, 17.0), vec3(8.0, 14.0, 30.0), DRUM + vec3(-0.6, 1.3, 0.0), 0.08, res.x);
     rp = min(rp, rope(p, vec3(-16.0, 34.0, 19.0), vec3(8.0, 30.0, 24.0), vec3(40.0, 52.0, 30.0), 0.1, res.x));
-    rp = min(rp, sdCap(p, DRUM + vec3(-1.4, -0.2, 0.0), vec3(DRUM.x - 1.7, 4.5, DRUM.z), 0.07));
-    rp = min(rp, sdCap(p, DRUM + vec3(1.4, -0.2, 0.0), vec3(DRUM.x + 1.6, 9.0, DRUM.z), 0.07));
+    rp = min(rp, sdCap(p, DRUM + vec3(-1.4, -0.2, 0.0), vec3(DRUM.x - 1.7, 11.4, DRUM.z), 0.07));
+    rp = min(rp, sdCap(p, DRUM + vec3(1.4, -0.2, 0.0), vec3(DRUM.x + 1.6, 15.0, DRUM.z), 0.07));
     res = opU(res, vec2(rp, 3.0));
     // a hanging cage at the end of the rope
     {
-      vec3 g = p - vec3(DRUM.x - 1.7, 2.6, DRUM.z);
+      vec3 g = p - vec3(DRUM.x - 1.7, 9.5, DRUM.z);
       float gb = length(g) - 2.6;
       if (gb < res.x + 0.3) {
         float an = atan(g.z, g.x);
@@ -419,6 +429,13 @@ vec3 calcNormal(vec3 p, float t){
   return normalize(k.xyy*map(p+k.xyy*e).x + k.yyx*map(p+k.yyx*e).x + k.yxy*map(p+k.yxy*e).x + k.xxx*map(p+k.xxx*e).x);
 }
 
+float halo(vec3 p){
+  float tw = (WPZ - p.z)/uSun.z;
+  if (tw < 0.0) return 0.0;
+  vec3 h = p + uSun*tw;
+  float d = archOpen(vec2(h.x - WINX, h.y), WH, WY1, WY0);
+  return exp(-max(d, 0.0)*0.28)*(1.0 - exp(-tw*0.05));
+}
 float aperture(vec3 p, out float tw){
   tw = (WPZ - p.z)/uSun.z;
   if (tw < 0.0) return 0.0;
@@ -538,26 +555,26 @@ void main(){
   float hy = mix(ro.y, p.y, 0.8);
   float haze = mix(0.62, 0.035, smoothstep(6.0, 50.0, hy));
   haze *= mix(0.6, 1.0, smoothstep(60.0, 150.0, t));
-  haze += 0.32*smoothstep(40.0, 110.0, p.x)*smoothstep(70.0, 160.0, t)*(1.0 - smoothstep(30.0, 75.0, hy));
+  haze += 0.32*smoothstep(40.0, 110.0, p.x)*smoothstep(70.0, 160.0, t)*(1.0 - smoothstep(38.0, 90.0, hy));
   L = L*fogT + haze*(1.0 - fogT);
   // the shaft: single scattering in dusty air, sampled only where the ray crosses the beam
   float vol = 0.0;
   {
     vec3 H0 = ro + uSun*(WPZ - ro.z)/uSun.z;
     vec3 H1 = rd - uSun*rd.z/uSun.z;
-    vec2 ix = slabT(H0.x - WINX, H1.x, -WH - 0.8, WH + 0.8);
-    vec2 iy = slabT(H0.y, H1.y, WY0 - 0.8, WY1 + WH + 0.8);
+    vec2 ix = slabT(H0.x - WINX, H1.x, -WH - 12.0, WH + 12.0);
+    vec2 iy = slabT(H0.y, H1.y, WY0 - 12.0, WY1 + WH + 12.0);
     float ta = max(max(ix.x, iy.x), 0.3);
     float tb = min(min(ix.y, iy.y), t);
     if (rd.z > 0.0) tb = min(tb, (WPZ - 0.5 - ro.z)/rd.z);
     if (tb > ta){
-      float dt = (tb - ta)/28.0;
+      float dt = (tb - ta)/40.0;
       float jit = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453);
       float tt = ta + dt*jit;
-      for (int i=0;i<28;i++){
+      for (int i=0;i<40;i++){
         vec3 s = ro + rd*tt;
         float tw2;
-        float a = aperture(s, tw2);
+        float a = aperture(s, tw2) + 0.075*halo(s);
         float dens = 0.55 + 0.9*vnoise(s*0.2 + vec3(0.0, uVar.x*10.0, 0.0));
         vol += a*dens*dt*exp(-tt*0.002);
         tt += dt;
@@ -951,7 +968,7 @@ void main(){
       // figures: feet xyz, facing; pose: stride, arm, lean
       const bridgeAt = (lx) => [4 + lx * Math.cos(-0.9), 22.0, 45 + lx * Math.sin(-0.9)];
       const fsTop = [-14.9 + 20.9 * Math.cos(-0.42), 14.1, 24.1 + 20.9 * Math.sin(-0.42)];
-      const b1 = bridgeAt(-17 + rnd() * 6), b2 = bridgeAt(8.4);
+      const b1 = bridgeAt(-17 + rnd() * 6), b2 = bridgeAt(4.9);
       const figs = [
         [13.3, 2.6, 62.2, -2.0, 0.25, 0.2 + rnd() * 0.8, 0.35, 0],
         [b1[0], b1[1], b1[2], 0.65, 0.8, 0.1, 0.05, 0],

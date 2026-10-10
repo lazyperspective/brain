@@ -667,11 +667,12 @@
       let cx = X0 + cw * 0.5 + r() * (X1 - X0 - cw);
       if (Math.abs(cx - L.treeX) < cw * 0.5 + 220 && cy > Y0 + Hs * 0.35) cx = L.treeX + (cx < L.treeX ? -1 : 1) * (cw * 0.5 + 240);
       const ch = 18 + r() * 16;
-      for (let k = 0; k < 4; k++) {
-        const yy = cy - ch * 0.4 + k * ch * 0.3, xa = cx - cw * 0.5 + cw * (0.08 * k + r() * 0.15), xb = xa + cw * (0.45 + r() * 0.45);
-        S.go('side', [xa, yy + (r() - 0.5) * 6, lerp(xa, xb, 0.4), yy - 3 + (r() - 0.5) * 6, xb, yy + (r() - 0.5) * 6], 8 + k * 2.2, { f: (0.5 + k * 0.28) * amt, p0: 1.0, p1: 0.1, tin: 0.08, tout: 0.75, speed: 3000, gap: 0.01 });
+      for (let k = 0; k < 6; k++) {
+        const yy = cy - ch * 0.45 + k * ch * 0.2, xa = cx - cw * 0.5 + cw * (0.06 * k + r() * 0.2), xb = xa + cw * (0.35 + r() * 0.5);
+        S.go('side', [xa, yy + (r() - 0.5) * 6, lerp(xa, xb, 0.4), yy - 3 + (r() - 0.5) * 6, xb, yy + (r() - 0.5) * 6], 9 + k * 2, { f: (0.3 + k * 0.16) * amt, p0: 0.5, p1: 0.4, tin: 0.3, tout: 0.5, speed: 3000, gap: 0.01 });
       }
-      smear(S, [cx - cw * 0.4, cy, cx, cy + ch * 0.05, cx + cw * 0.7, cy + ch * 0.15], ch * 0.75, 0.9, { speed: 2000, p0: 1.0, p1: 0.3 });
+      smear(S, [cx - cw * 0.5, cy - ch * 0.1, cx, cy + ch * 0.05, cx + cw * 0.7, cy + ch * 0.15], ch * 0.9, 1.0, { speed: 2000, p0: 1.0, p1: 0.5 });
+      smear(S, [cx + cw * 0.6, cy + ch * 0.25, cx, cy + ch * 0.3, cx - cw * 0.6, cy + ch * 0.2], ch * 0.7, 0.8, { speed: 2000, p0: 1.0, p1: 0.5 });
       rub(S, [cx - cw * 0.45, cy - ch * 0.45, cx - cw * 0.1, cy - ch * 0.6, cx + cw * 0.2, cy - ch * 0.5], ch * 0.2, 0.7, { speed: 2400 });
     }
     // keep a breath of light behind the crest; a few long lifted streaks
@@ -888,14 +889,22 @@
   }
   function sapling(S, L, st, k, t) {
     const go = (tool, pts, w, o) => (t === undefined ? S.go(tool, pts, w, o) : S.at(t + (o.dt || 0), tool, pts, w, o));
-    const x = L.treeX - 4, y = L.treeY - 20;
-    const h = 14 + k * 12;
-    go('comp', [x, y, x - 1.5, y - h * 0.5, x + 2, y - h], 1.1, { p0: 1, p1: 0.3, speed: 150 });
+    const r = S.r;
+    const x = L.treeX - 3, y = L.treeY - 19;
+    const h = 22 + k * 16;
+    go('comp', [x, y, x - 2, y - h * 0.5, x + 2.5, y - h], 1.5, { p0: 1.2, p1: 0.4, speed: 120 });
     for (let i = 0; i < 2 + k * 2; i++) {
-      const yy = y - h * (0.4 + 0.55 * S.r()), s = S.r() < 0.5 ? -1 : 1;
-      go('comp', [x, yy, x + s * 5, yy - 4, x + s * 9, yy - 4], 0.9, { p0: 0.9, p1: 0.4, speed: 150, dt: 0.3 + i * 0.2 });
-      go('comp', scumble(S, x + s * 10, yy - 5, 3.5, 2.5, 18, 1.4), 1.0, { f: 1.4, speed: 150, dt: 0.4 + i * 0.2 });
+      const yy = y - h * (0.35 + 0.6 * ((i + r() * 0.5) / (2 + k * 2))), s = i % 2 ? -1 : 1, len = 8 + r() * 8 + k * 3;
+      go('comp', [x + 0.5, yy, x + s * len * 0.5, yy - len * 0.35, x + s * len, yy - len * 0.4], 1.1, { p0: 1, p1: 0.4, speed: 120, dt: 0.25 + i * 0.25 });
+      go('comp', scumble(S, x + s * len, yy - len * 0.45, 4.5, 3.2, 26, 1.8), 1.3, { f: 1.5, speed: 140, dt: 0.4 + i * 0.25 });
     }
+  }
+  function stumpGhost(S, L) {
+    const x = L.treeX, y = L.treeY, w = 15;
+    S.go('comp', [x - w * 1.6, y + 3, x - w * 0.95, y - 6, x - w, y - 19], 1.6, { p0: 1, p1: 0.6, f: 0.9 });
+    S.go('comp', [x + w * 1.7, y + 3, x + w * 1.05, y - 7, x + w * 0.95, y - 20], 1.6, { p0: 1, p1: 0.6, f: 0.9 });
+    S.go('comp', ell(S, x, y - 20, w, 4.5, 0, TAU, 16, 0.08), 1.2, { f: 0.9 });
+    toneFill(S, [x + 3, y + 2, x + w * 1.6, y + 2, x + w * 0.95, y - 18, x + 3, y - 18], -1.5, 2.2, 1.2);
   }
   function shepherd(S, x, y, h) {
     const r = S.r;
@@ -1683,26 +1692,32 @@
     writeYear(S, L, st, 2040);
     const X0 = L.x0 + 20, X1 = L.x1 - 20, Y0 = L.y0 + 24;
     // the smoke is lifted: long rubbings across, the dark stays in the paper
-    S.go('erase', zig(clipLines(rectPoly(X0, Y0, X1, 545), 0.03, 30, 0.3, r)), 28, { f: 0.9, smooth: false, speed: 4800 });
-    S.go('erase', zig(clipLines(rectPoly(X0, Y0 + 40, X1, 520), -0.1, 42, 0.3, r)), 38, { f: 0.5, smooth: false, speed: 4800 });
+    S.go('erase', zig(clipLines(rectPoly(X0, Y0, X1, 545), 0.03, 30, 0.3, r)), 28, { f: 0.9, smooth: false, speed: 9000 });
+    S.go('erase', zig(clipLines(rectPoly(X0, Y0 + 40, X1, 520), -0.1, 42, 0.3, r)), 38, { f: 0.5, smooth: false, speed: 9000 });
     // the wires come down, the red is rubbed back
     for (const w of st.wires || []) S.go('erase', w, 3.2, { f: 1.2, speed: 3600, gap: 0.004 });
     for (const w of st.poleWires || []) S.go('erase', w, 2.6, { f: 1.2, speed: 3600, gap: 0.004 });
     // the hill comes back as a shape
     hillContour(S, L, false);
-    // ruins: broken walls, empty windows, rubble, where houses were
+    // ruins: burnt-out shells where the houses were, black walls, empty windows
     st.ruins = [];
     for (const h of st.houses) {
-      if (r() < 0.4) continue;
-      const x = h.x, y = h.y, w = h.w * (0.8 + r() * 0.3), hh = h.h * (0.8 + r() * 0.6);
+      if (r() < 0.45) continue;
+      const x = h.x, y = h.y, w = h.w, hh = h.h;
       st.ruins.push([x, y, w, hh]);
-      const a = 0.4 + r() * 0.5, b = 0.3 + r() * 0.6;
-      S.go('comp', [x, y, x, y - hh * a, x + w * 0.15, y - hh * (a - 0.15), x + w * 0.3, y - hh * (a + 0.2), x + w * 0.45, y - hh * 0.3], 1.4, { smooth: false, speed: 1300, gap: 0.01 });
-      S.go('comp', [x + w * 0.6, y - hh * 0.25, x + w * 0.75, y - hh * b, x + w * 0.85, y - hh * (b + 0.25), x + w, y - hh * (b + 0.1), x + w, y], 1.4, { smooth: false, speed: 1300, gap: 0.01 });
-      S.go('comp', [x - 4, y + 1, x + w + 6, y + 1], 1.2, { speed: 1300, gap: 0.006 });
-      toneFill(S, [x, y, x, y - hh * a * 0.9, x + w * 0.3, y - hh * a * 0.7, x + w * 0.45, y - hh * 0.25, x + w * 0.6, y - hh * 0.2, x + w, y - hh * b * 0.9, x + w, y], -1.3, 3, 0.8, { speed: 3000 });
-      S.go('comp', [x + w * 0.2, y - hh * 0.32, x + w * 0.3, y - hh * 0.32], hh * 0.12, { f: 1.8, smooth: false, gap: 0.004 });
-      S.go('comp', scumble(S, x + w * 0.5, y - 3, w * 0.3, 4, w * 1.2, 2), 1.1, { f: 1.2, speed: 1600, gap: 0.004 });
+      const gable = r() < 0.5;
+      const a = 0.55 + r() * 0.45, b = 0.25 + r() * 0.5;
+      const top = [x, y - hh * a, x + w * 0.18, y - hh * (a + (gable ? 0.45 : -0.1)), x + w * 0.3, y - hh * (a - 0.05), x + w * 0.42, y - hh * (b + 0.3), x + w * 0.55, y - hh * b, x + w * 0.7, y - hh * (b + 0.2), x + w * 0.82, y - hh * (b - 0.05), x + w, y - hh * (b + 0.35)];
+      const wall = [x, y].concat(top, [x + w, y]);
+      toneFill(S, wall, -1.35, Math.max(2.2, w * 0.08), 1.6, { speed: 3000 });
+      S.go('comp', [x, y].concat(top.slice(0, 8)), 1.3, { smooth: false, speed: 1300, gap: 0.006 });
+      S.go('comp', top.slice(6).concat([x + w, y]), 1.3, { smooth: false, speed: 1300, gap: 0.006 });
+      // the window holes, lifted clean
+      rub(S, [x + w * 0.16, y - hh * 0.42, x + w * 0.24, y - hh * 0.42], hh * 0.12, 1.4, { speed: 300, gap: 0.004 });
+      if (b > 0.45) rub(S, [x + w * 0.6, y - hh * 0.32, x + w * 0.68, y - hh * 0.32], hh * 0.1, 1.4, { speed: 300, gap: 0.004 });
+      // a charred beam, rubble at the foot
+      if (r() < 0.5) S.go('comp', [x + w * 0.3, y - hh * 0.2, x + w * 0.75, y - hh * (0.9 + r() * 0.4)], 1.4, { p0: 1, p1: 0.6, speed: 900 });
+      S.go('comp', scumble(S, x + w * 0.5, y - 2, w * 0.55, 3.5, w * 1.6, 2.4), 1.2, { f: 1.3, speed: 1800, gap: 0.004 });
     }
     // one pylon has lost its head
     if (st.pylons && st.pylons[1]) {
@@ -1751,14 +1766,15 @@
     // the hill, said again; the field, sown with grass
     hillContour(S, L, false);
     hillTone(S, L, 0.45);
+    stumpGhost(S, L);
     sapling(S, L, st, 0);
     st.birds = [];
     const bx = L.cxl(L.cx - 380 + r() * 120, 120), by = L.y0 + (600 - L.y0) * 0.42;
     for (let i = 0; i < 4; i++) st.birds.push({ x: bx + i * 36 + (r() - 0.5) * 30, y: by + (r() - 0.5) * 40, s: 9 + r() * 5, f: r() < 0.5 });
     drawBirds(S, st.birds);
     return (a, b) => {
-      sapling(S, L, st, 1, a + 0.4);
-      sapling(S, L, st, 2, (a + b) / 2);
+      sapling(S, L, st, 1, a + 0.3);
+      sapling(S, L, st, 2, a + (b - a) * 0.55);
       flyBirds(S, st, a, b, 64, -5);
     };
   }
@@ -1769,9 +1785,9 @@
     { year: 1930, fn: era1930, dur: [15, 14] },
     { year: 1950, fn: era1950, dur: [16, 15] },
     { year: 1970, fn: era1970, dur: [16, 15] },
-    { year: 1990, fn: era1990, dur: [17, 16] },
-    { year: 2010, fn: era2010, dur: [18, 17] },
-    { year: 2040, fn: era2040, dur: [15, 14] },
+    { year: 1990, fn: era1990, dur: [18, 16] },
+    { year: 2010, fn: era2010, dur: [20, 18] },
+    { year: 2040, fn: era2040, dur: [17, 15] },
     { year: 2090, fn: era2090, dur: [16, 15] },
   ];
   const HOLD = 3.4;
@@ -1882,6 +1898,10 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 *
 float wor(vec2 p){ vec2 i = floor(p), f = fract(p); float d = 9.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(x, y); vec2 r = g + rnd2(i + g) * 0.9 + 0.05 - f; d = min(d, dot(r, r)); }
   return sqrt(d); }
+vec2 wor2(vec2 p){ vec2 i = floor(p), f = fract(p); float d1 = 9.0, d2 = 9.0;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(x, y); vec2 r = g + rnd2(i + g) * 0.9 + 0.05 - f; float d = dot(r, r);
+    if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; }
+  return vec2(sqrt(d1), sqrt(d2)); }
 `;
   const FS_TOOTH = `#version 300 es
 precision highp float;
@@ -1891,13 +1911,15 @@ ${NOISE}
 void main(){
   vec2 q = gl_FragCoord.xy * uScale + uOff;
   vec2 wq = q + vec2(vn(q * 0.07), vn(q * 0.07 + 31.7)) * 5.0;
-  float a = 1.0 - wor(wq / 2.3);
-  float b = 1.0 - wor(wq / 1.1 + 11.0);
+  vec2 f12 = wor2(wq / 2.4);
+  float a = 1.0 - f12.x;
+  float ridge = smoothstep(0.0, 0.35, f12.y - f12.x);
+  float b = 1.0 - wor2(wq / 1.15 + 11.0).x;
   float c = vn(q / 0.7);
   float fib = vn(vec2(q.x * 0.25 + q.y * 0.55, q.y * 0.07 - q.x * 0.12) * 1.4);
-  float h = a * a * 0.46 + b * 0.24 + c * 0.12 + fib * 0.12 + vn(q / 6.0) * 0.12 + vn(q / 17.0) * 0.1;
+  float h = a * 0.3 + ridge * 0.22 + b * 0.18 + c * 0.1 + fib * 0.1 + vn(q / 6.0) * 0.14 + vn(q / 19.0) * 0.12;
   float mot = vn(q / 150.0) * 0.55 + vn(q / 41.0) * 0.3 + vn(q / 9.0) * 0.15;
-  o = vec4(clamp((h - 0.12) / 0.7, 0.0, 1.0), mot, 0.0, 1.0);
+  o = vec4(clamp((h - 0.2) / 0.62, 0.0, 1.0), mot, 0.0, 1.0);
 }`;
   const FS_SHADE = `#version 300 es
 precision highp float;
@@ -1941,44 +1963,51 @@ vec3 marks(vec4 s, float h, float sh, vec3 paper){
   c = mix(c, vec3(0.76, 0.2, 0.11) * (1.0 - 0.55 * d), rc * 0.88);
   return c;
 }
+vec3 sheetCol(vec2 q, float e, bool old){
+  vec2 uv = q / uSheet.zw;
+  vec4 P = texture(uPap, old ? fract(uv + vec2(0.37, 0.61)) : uv);
+  float h = P.r, sh = P.g, mot = P.b;
+  vec3 paper = vec3(0.962, 0.944, 0.9) * (0.975 + 0.045 * mot);
+  // light from the upper left, edges a little toasted
+  vec2 suv = vec2(uv.x, 1.0 - uv.y);
+  paper *= 1.03 - 0.075 * length((suv - vec2(0.15, 0.1)) * vec2(0.8, 1.0));
+  float ed = min(min(suv.x, 1.0 - suv.x) * uSheet.z, min(suv.y, 1.0 - suv.y) * uSheet.w) / uDpr;
+  paper *= mix(vec3(0.93, 0.9, 0.84), vec3(1.0), smoothstep(0.0, 14.0, ed));
+  vec3 c = old ? marks(texture(uOld, suv), h, sh, paper) : marks(texture(uSim, suv), h, sh, paper);
+  // the very edge catches a hair of shadow
+  return c * (1.0 - 0.18 * (1.0 - smoothstep(-2.5 * uDpr, 0.0, e)));
+}
 void main(){
   vec2 fc = gl_FragCoord.xy;
   vec2 css = fc / uDpr;
-  vec2 res = uRes / uDpr;
   // the studio wall
   vec2 wv = fc / uRes;
   float lamp = 1.0 - 0.55 * length((wv - vec2(0.3, 1.05)) * vec2(0.9, 1.0));
   vec3 col = vec3(0.13, 0.118, 0.105) * (0.62 + 0.5 * clamp(lamp, 0.0, 1.0));
   col *= 0.93 + 0.1 * vn(css / 70.0) + 0.04 * vn(css / 6.0);
   vec2 hs = uSheet.zw * 0.5;
-  vec2 q = fc - uSheet.xy;
-  // shadow of the sheet on the wall
-  float sd = sdBox(q - hs - vec2(6.0, -10.0) * uDpr, hs);
-  col *= 1.0 - 0.6 * (1.0 - smoothstep(-8.0 * uDpr, 30.0 * uDpr, sd));
   float wob = (vn(css * 0.11) - 0.5) * 1.4 * uDpr + (vn(css * 0.9) - 0.5) * 0.5 * uDpr;
-  float e = sdBox(q - hs, hs) + wob;
-  if (e < 0.0) {
-    vec2 uv = q / uSheet.zw;
-    vec4 P = texture(uPap, uv);
-    float h = P.r, sh = P.g, mot = P.b;
-    vec3 paper = vec3(0.962, 0.944, 0.9) * (0.975 + 0.045 * mot);
-    // light from the upper left, edges a little toasted
-    vec2 suv = vec2(uv.x, 1.0 - uv.y);
-    paper *= 1.03 - 0.075 * length((suv - vec2(0.15, 0.1)) * vec2(0.8, 1.0));
-    float ed = min(min(suv.x, 1.0 - suv.x) * uSheet.z, min(suv.y, 1.0 - suv.y) * uSheet.w) / uDpr;
-    paper *= mix(vec3(0.93, 0.9, 0.84), vec3(1.0), smoothstep(0.0, 14.0, ed));
-    vec2 tuv = vec2(uv.x, 1.0 - uv.y);
-    vec3 c = marks(texture(uSim, tuv), h, sh, paper);
-    if (uMix < 1.0) c = mix(marks(texture(uOld, tuv), h, sh, paper), c, uMix);
-    // the very edge catches a hair of shadow
-    c *= 1.0 - 0.18 * (1.0 - smoothstep(-2.5 * uDpr, 0.0, e));
-    col = c;
+  // a fresh sheet is laid down over the old one: it slides in from above
+  float k = 1.0 - uMix; k = k * k * (3.0 - 2.0 * k);
+  vec2 off = vec2(-0.02 * uSheet.z * k, (uSheet.w + uSheet.y + 40.0 * uDpr) * k);
+  vec2 q = fc - uSheet.xy - off;
+  if (uMix < 1.0) {
+    vec2 qo = fc - uSheet.xy;
+    float so = sdBox(qo - hs - vec2(6.0, -10.0) * uDpr, hs);
+    col *= 1.0 - 0.6 * (1.0 - smoothstep(-8.0 * uDpr, 30.0 * uDpr, so));
+    float eo = sdBox(qo - hs, hs) + wob;
+    if (eo < 0.0) col = sheetCol(qo, eo, true);
   }
-  // masking tape
+  // shadow of the (top) sheet
+  float sd = sdBox(q - hs - vec2(6.0, -10.0) * uDpr * (1.0 + 2.0 * k), hs);
+  col *= 1.0 - (0.6 - 0.15 * k) * (1.0 - smoothstep(-8.0 * uDpr, (30.0 + 40.0 * k) * uDpr, sd));
+  float e = sdBox(q - hs, hs) + wob;
+  if (e < 0.0) col = sheetCol(q, e, false);
+  // masking tape, holding the top sheet
   for (int i = 0; i < 4; i++) {
     vec4 t = uTape[i];
     if (t.w <= 0.0) continue;
-    vec2 d = fc - t.xy;
+    vec2 d = fc - t.xy - off;
     float ca = cos(t.z), sa = sin(t.z);
     vec2 l = vec2(d.x * ca + d.y * sa, -d.x * sa + d.y * ca) / uDpr;
     float tear = (vn(vec2(l.y * 0.7, float(i) * 13.0)) - 0.5) * 5.0 + (rnd(vec2(floor(l.y * 1.3), float(i))) - 0.5) * 1.6;
@@ -2113,7 +2142,7 @@ void main(){
     const a = sw / sh;
     let W, H;
     if (a >= 0.9) { H = 1000; W = 1000 * a; } else { W = a > 0.62 ? 900 : 840; H = W / a; }
-    const cy = H > 1000 ? 520 : 500;
+    const cy = H > 1000 ? 600 - 0.1 * H : 500;
     const wx0 = (a >= 1.2 ? 800 : 830) - W / 2;
     // simulation resolution: about one cell per css pixel, more on small screens, capped
     let s = Math.min(dpr, a < 0.9 ? 1.5 : 1.15);
@@ -2219,7 +2248,7 @@ void main(){
         return true;
       }
 
-      function mixNow() { return clamp((clock - resetAt - 0.3) / 2.6, 0, 1); }
+      function mixNow() { return clamp((clock - resetAt - 0.2) / 2.6, 0, 1); }
       function show() {
         if (lost) return;
         D.draw(cw, ch, dpr, [lay.m * dpr, lay.m * dpr, lay.sw * dpr, lay.sh * dpr], mixNow(), tapes);

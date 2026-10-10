@@ -219,6 +219,8 @@
       pal: [[20, 32, 30], [32, 48, 42], [46, 64, 54], [70, 88, 68], [98, 110, 82], [156, 162, 124]], hi: [210, 212, 170] },
   };
 
+  for (const k in SPECIES) { const pl = SPECIES[k].pal; pl[0] = pl[0].map((v) => v * 0.7); pl[1] = pl[1].map((v) => v * 0.84); pl[2] = pl[2].map((v) => v * 0.94); }
+
   const TREES = [
     { id: 'myrW', sp: 'laurel', trunks: [[[-0.24, 0.62], [-0.245, 0.45], [-0.24, 0.36]]],
       lobes: [[-0.36, 0.16, 0.1, 0.1], [-0.24, 0.07, 0.11, 0.1], [-0.12, 0.17, 0.09, 0.09], [-0.27, 0.26, 0.1, 0.08], [-0.15, 0.3, 0.07, 0.06]] },
@@ -275,7 +277,7 @@
       }
       u += w * shr.r(1.25, 1.6);
     }
-    sc.jay = { x: 0.85, y: 0.3232, s: 0.2 };
+    sc.jay = { x: 0.844, y: 0.315, s: 0.215 };
     sc.basin = { x: 0.60, y: 0.585, rx: 0.095, ry: 0.016 };
     sc.dove = { x: 0.6007, y: 0.5047, s: 0.15 };
     sc.finch = { x: 0.80, y: 0.624, s: 0.06 };
@@ -285,11 +287,11 @@
     sc.lost = { x: u0 + 0.42 * w1, y: 0.115, s: 0.1 };
     const sr = RNG(seed, 'swallow');
     sc.swallow = A >= 1 ? { x: 0.625 + sr.r(-0.015, 0.015), y: 0.1 + sr.r(0, 0.03), s: 0.1, tilt: sr.r(-0.2, 0.1) }
-      : { x: u0 + A * 0.4, y: 0.33, s: 0.085, tilt: sr.r(-0.15, 0.05) };
+      : { x: u0 + A * 0.1, y: 0.4 + sr.r(-0.02, 0.02), s: 0.08, tilt: sr.r(-0.15, 0.05) };
     sc.flowers = growFlowers(RNG(seed, 'flowers'), sc);
     sc.posts = [];
     const pr = RNG(seed, 'posts');
-    for (let u = -0.47; u < 2.3; u += 0.235 + pr.r(-0.012, 0.012)) sc.posts.push(u);
+    for (let u = -0.47; u < 2.3; u += 0.31 + pr.r(-0.02, 0.02)) sc.posts.push(u);
     return sc;
   }
 
@@ -331,7 +333,7 @@
       const lfL = dx * LP[0] + dy * LP[1] + nz * LP[2];
       const gx = (x - ccx) / crx, gy = (y - ccy) / cry, gz = Math.sqrt(Math.max(0, 1 - gx * gx - gy * gy));
       const lfC = gx * LP[0] + gy * LP[1] + gz * LP[2];
-      const tone = clamp(0.34 + 0.44 * lfL + 0.32 * lfC + rng.n() * 0.13 - (d > 0.5 ? 0.18 : 0), 0, 1);
+      const tone = clamp(0.3 + 0.46 * lfL + 0.32 * lfC + rng.n() * 0.13 - (d > 0.5 ? 0.18 : 0), 0, 1);
       let ang = Math.atan2(dy * l[3], dx * l[2]);
       if (d > 0.6) ang = rng() * TAU;
       ang += rng.n() * 0.45;
@@ -360,13 +362,21 @@
 
   function growFlowers(rng, sc) {
     const F = { poppies: [], cham: [], grass: [], blue: [] };
-    for (let u = sc.uL; u < sc.uR; u += rng.r(0.05, 0.12)) {
-      const n = 1 + ((rng() * 3) | 0);
-      for (let k = 0; k < n; k++) F.poppies.push({ x: u + rng.r(-0.022, 0.022), h: rng.r(0.075, 0.15), lean: rng.r(-0.2, 0.2), bud: rng() < 0.22, seed: (rng() * 1e9) | 0 });
+    // poppies come up in clumps, with bare stretches between them
+    for (let u = sc.uL + rng.r(0, 0.1); u < sc.uR; u += rng.r(0.13, 0.3)) {
+      const n = 2 + ((rng() * 4) | 0);
+      for (let k = 0; k < n; k++) F.poppies.push({ x: u + rng.n() * 0.02, h: rng.r(0.05, 0.17) * (k === 0 ? 1.15 : 1), lean: rng.r(-0.28, 0.28), bud: rng() < 0.22, size: rng.r(0.85, 1.35), seed: (rng() * 1e9) | 0 });
     }
-    for (let u = sc.uL; u < sc.uR; u += rng.r(0.008, 0.026)) F.cham.push({ x: u, y: rng.r(0.858, 0.9), r: rng.r(0.0048, 0.0066), seed: (rng() * 1e9) | 0 });
-    for (let u = sc.uL; u < sc.uR; u += rng.r(0.003, 0.007)) F.grass.push({ x: u, h: rng.r(0.018, 0.05), lean: rng.r(-0.5, 0.5), t: rng() });
-    for (let u = sc.uL; u < sc.uR; u += rng.r(0.1, 0.26)) F.blue.push({ x: u, y: rng.r(0.865, 0.895), seed: (rng() * 1e9) | 0 });
+    // chamomile in drifts
+    for (let u = sc.uL; u < sc.uR; u += rng.r(0.05, 0.15)) {
+      const n = 2 + ((rng() * 7) | 0);
+      for (let k = 0; k < n; k++) F.cham.push({ x: u + rng.n() * 0.02, y: rng.r(0.858, 0.902), r: rng.r(0.0042, 0.0068), seed: (rng() * 1e9) | 0 });
+    }
+    for (let u = sc.uL; u < sc.uR; u += rng.r(0.002, 0.009)) F.grass.push({ x: u, h: rng.r(0.014, 0.055), lean: rng.r(-0.55, 0.55), t: rng() });
+    for (let u = sc.uL; u < sc.uR; u += rng.r(0.1, 0.3)) {
+      F.blue.push({ x: u, y: rng.r(0.862, 0.892), seed: (rng() * 1e9) | 0 });
+      if (rng() < 0.5) F.blue.push({ x: u + rng.r(0.008, 0.016), y: rng.r(0.862, 0.892), seed: (rng() * 1e9) | 0 });
+    }
     return F;
   }
 
@@ -394,14 +404,14 @@
   function paintGround(P, sc, rng) {
     // the grass walk behind the fence, dark under the shrubs
     const c = P.c, g = c.createLinearGradient(0, 0.6, 0, FBOT);
-    g.addColorStop(0, css([56, 72, 52])); g.addColorStop(0.5, css([62, 80, 54])); g.addColorStop(1, css([44, 56, 40]));
+    g.addColorStop(0, css([44, 58, 42])); g.addColorStop(0.5, css([48, 62, 44])); g.addColorStop(1, css([32, 42, 30]));
     c.fillStyle = g;
     c.fillRect(sc.uL - 0.1, 0.62, sc.uR - sc.uL + 0.2, FBOT - 0.62 + 0.01);
     const N = Math.round((sc.uR - sc.uL) * 900);
     for (let k = 0; k < N; k++) {
       const u = rng.r(sc.uL, sc.uR), v = rng.r(0.6, FBOT);
       const t = (v - 0.6) / (FBOT - 0.6);
-      const col = jit(mixc([84, 104, 70], [40, 54, 38], t * 0.8 + rng() * 0.3), rng, 10);
+      const col = jit(mixc([72, 92, 62], [30, 42, 30], t * 0.8 + rng() * 0.3), rng, 10);
       P.leaf(u, v, -Math.PI / 2 + rng.n() * 0.35, rng.r(0.012, 0.028), rng.r(0.0018, 0.0034), rng.r(-0.3, 0.3), 0, col, rng.r(0.5, 0.85));
     }
   }
@@ -431,7 +441,7 @@
     const pal = pl.sp.pal;
     for (const u of pl.under) {
       const col = jit(mixc(pal[0], pal[1], u.t * 0.7), rng, 6);
-      P.leaf(u.x - Math.cos(u.a) * u.l * 0.5, u.y - Math.sin(u.a) * u.l * 0.5, u.a, u.l, u.w, rng.r(-0.3, 0.3), 0, col, 0.7);
+      P.leaf(u.x - Math.cos(u.a) * u.l * 0.5, u.y - Math.sin(u.a) * u.l * 0.5, u.a, u.l, u.w, rng.r(-0.3, 0.3), 0, col, 0.82);
     }
   }
   function paintSprays(P, pl, from, to) {
@@ -757,33 +767,38 @@
   }
 
   function paintFence(P, sc, rng) {
-    const H = FBOT - FT, reed = [198, 172, 114], dark = [70, 54, 36], light = [238, 224, 178];
+    // the reed lattice, painted freehand: no two canes quite parallel
+    const H = FBOT - FT, reed = [206, 190, 142], dark = [52, 52, 38], light = [242, 234, 204];
     const span = 0.078, slope = 0.62;
     const draw = (dir) => {
-      for (let u = sc.uL - 0.3; u < sc.uR + 0.2; u += span + rng.r(-0.0025, 0.0025)) {
-        const k = rng() * 10, pts = [];
-        for (let t = 0; t <= 6; t++) { const v = FBOT - (t / 6) * H; pts.push([u + dir * (t / 6) * H * slope + Math.sin(v * 70 + k) * 0.0014, v]); }
-        P.line(pts.map((p) => [p[0] + 0.0019, p[1] + 0.0014]), 0.0058, 0.0052, dark, 0.7, 0, 0.05, 0.05);
-        P.line(pts, 0.0046, 0.004, jit(reed, rng, 16), 0.95, 0, 0.04, 0.04);
-        P.line(pts.map((p) => [p[0] - 0.0009, p[1] - 0.0006]), 0.0014, 0.0011, light, 0.8, 0, 0.1, 0.1);
+      for (let u = sc.uL - 0.3; u < sc.uR + 0.2; u += span * rng.r(0.86, 1.14)) {
+        const k = rng() * 10, sl = slope * rng.r(0.92, 1.08), amp = rng.r(0.0006, 0.0018), w = rng.r(0.0052, 0.0068), pts = [];
+        for (let t = 0; t <= 7; t++) { const v = FBOT - (t / 7) * H; pts.push([u + dir * (t / 7) * H * sl + Math.sin(v * 60 + k) * amp, v]); }
+        P.line(pts.map((p) => [p[0] + 0.0021, p[1] + 0.0016]), w * 1.15, w, dark, 0.66, 0, 0.05, 0.05);
+        const rc = jit(reed, rng, 18);
+        P.line(pts, w * 0.9, w * 0.8, rc, 0.9, 0, 0.04, 0.04);
+        P.brush(pts, w, w * 0.88, rc, 0.8, 3, true);
+        P.line(pts.map((p) => [p[0] - w * 0.25, p[1] - w * 0.18]), w * 0.3, w * 0.24, light, 0.8, 0, 0.15, 0.2);
       }
     };
     draw(-1); draw(1);
     for (const v of [FT, FBOT]) {
       const pts = [];
-      for (let u = sc.uL - 0.1; u <= sc.uR + 0.1; u += 0.05) pts.push([u, v + Math.sin(u * 40) * 0.0009 + rng.r(-0.0006, 0.0006)]);
-      P.line(pts.map((p) => [p[0], p[1] + 0.0035]), 0.007, 0.007, dark, 0.7, 0, 0, 0);
-      P.line(pts, 0.0075, 0.0075, jit(reed, rng, 10), 0.97, 0, 0, 0);
-      P.line(pts.map((p) => [p[0], p[1] - 0.002]), 0.0018, 0.0018, light, 0.85, 0, 0, 0);
+      for (let u = sc.uL - 0.1; u <= sc.uR + 0.1; u += 0.04) pts.push([u, v + Math.sin(u * 9.5 + v * 7) * 0.0013 + rng.r(-0.0006, 0.0006)]);
+      P.line(pts.map((p) => [p[0], p[1] + 0.0038]), 0.0078, 0.0078, dark, 0.66, 0, 0, 0);
+      P.line(pts, 0.0076, 0.0076, jit(reed, rng, 10), 0.92, 0, 0, 0);
+      P.brush(pts, 0.008, 0.008, jit(reed, rng, 10), 0.8, 3, true);
+      P.line(pts.map((p) => [p[0], p[1] - 0.002]), 0.0016, 0.0016, light, 0.8, 0, 0, 0);
     }
     for (const u of sc.posts) {
       if (!sc.inWin(u, 0.05)) continue;
-      const pts = [[u, FT - 0.019], [u + 0.0007, (FT + FBOT) / 2], [u - 0.0005, FBOT + 0.009]];
-      P.line(pts.map((p) => [p[0] + 0.0032, p[1]]), 0.0105, 0.0105, dark, 0.75, 0, 0, 0);
-      P.line(pts, 0.01, 0.01, jit([182, 152, 98], rng, 8), 1, 0, 0, 0);
-      P.line(pts.map((p) => [p[0] - 0.0026, p[1]]), 0.0024, 0.0024, light, 0.85, 0, 0, 0);
-      P.dot(u, FT - 0.02, 0.0068, 0.005, 0, [206, 180, 120], 1);
-      P.dot(u - 0.0018, FT - 0.0218, 0.0029, 0.0019, 0, light, 0.9);
+      const lean = rng.r(-0.004, 0.004);
+      const pts = [[u + lean, FT - 0.019], [u + lean * 0.4, (FT + FBOT) / 2], [u - 0.0005, FBOT + 0.009]];
+      P.line(pts.map((p) => [p[0] + 0.0032, p[1]]), 0.0105, 0.0105, dark, 0.7, 0, 0, 0);
+      P.brush(pts, 0.0098, 0.0098, jit([190, 168, 116], rng, 8), 1, 3, false);
+      P.line(pts.map((p) => [p[0] - 0.0026, p[1]]), 0.0022, 0.0022, light, 0.8, 0, 0, 0);
+      P.dot(u + lean, FT - 0.02, 0.0068, 0.005, 0, [210, 190, 134], 1);
+      P.dot(u + lean - 0.0018, FT - 0.0218, 0.0029, 0.0019, 0, light, 0.9);
     }
   }
 
@@ -797,7 +812,8 @@
     }
     for (const p of F.poppies) {
       const r = mulberry32(p.seed);
-      for (let k = 0; k < 3; k++) P.leaf(p.x, DADO - 0.008, -Math.PI / 2 + (r() - 0.5) * 2.2, 0.026, 0.0048, 0.4, 0, jit([96, 120, 96], r, 10), 0.85);
+      for (let k = 0; k < 4; k++) P.leaf(p.x + (r() - 0.5) * 0.01, DADO - 0.008, -Math.PI / 2 + (r() - 0.5) * 2.4, r() * 0.014 + 0.024, 0.0055, 0.5, 0.3, jit([92, 116, 94], r, 12), 0.85);
+      for (let k = 0; k < 2; k++) { const t = 0.3 + r() * 0.4, lx = p.x + p.lean * p.h * t * 0.6, ly = DADO - 0.006 - p.h * t; P.leaf(lx, ly, (r() < 0.5 ? -0.6 : -2.5) + (r() - 0.5) * 0.4, 0.014, 0.0035, 0.5, 0.4, jit([100, 124, 98], r, 10), 0.85); }
     }
     for (const ch of F.cham) {
       const r = mulberry32(ch.seed);
@@ -821,7 +837,7 @@
         P.line([[bx - 0.001, by + 0.007], [bx + 0.001, by + 0.012]], 0.003, 0.0012, [200, 60, 40], 0.9, 0, 0, 0.5);
         continue;
       }
-      const s = 0.0125 + r() * 0.0045, tilt = (r() - 0.5) * 0.5;
+      const s = (0.0135 + r() * 0.005) * (p.size || 1), tilt = (r() - 0.5) * 0.6;
       P.leaf(tx - s * 0.1, ty, -Math.PI / 2 - 0.9 + tilt, s * 1.25, s * 0.75, 0.2, 0.2, [146, 32, 22], 0.95);
       P.leaf(tx + s * 0.1, ty, -Math.PI / 2 + 0.9 + tilt, s * 1.25, s * 0.75, -0.2, -0.2, [174, 42, 26], 0.95);
       P.dot(tx, ty - s * 0.38, s * 0.62, s * 0.5, tilt, [210, 56, 32], 0.95);
@@ -948,7 +964,7 @@
     ].map(([fx, ax, y]) => [u0 + fx * A + ax * k + rng.r(-0.004, 0.004), clamp(y + rng.r(-0.004, 0.004), 0.0, 1.0)]);
     D.outline = fractalPoly(rng, OUT, 6, 0.14, 0.003);
     const j = sc.jay;
-    D.avoid = [[j.x + 0.1 * j.s * 5, j.y + 0.075, 0.118, 0.08], [0.6, 0.585, 0.045, 0.025], [0.785, 0.64, 0.035, 0.035]];
+    D.avoid = [[j.x + 0.1 * j.s * 5, j.y + 0.075, 0.118, 0.08], [0.63, 0.575, 0.06, 0.035], [0.785, 0.64, 0.035, 0.035], [sc.swallow.x + 0.5 * sc.swallow.s, sc.swallow.y + 0.5 * sc.swallow.s, 0.05, 0.04]];
     const avoided = (x, y, m) => D.avoid.some((a) => ((x - a[0]) / (a[2] + m)) ** 2 + ((y - a[1]) / (a[3] + m)) ** 2 < 1);
 
     const L1 = [[-0.06, -0.06], [w1 + 0.02, -0.06], [w1 * 0.97, 0.02], [w1 * 0.84, 0.06], [w1 * 0.74, 0.11], [w1 * 0.62, 0.135], [w1 * 0.52, 0.2],
@@ -966,24 +982,32 @@
     D.losses.push(fractalPoly(rng, L2, 6, 0.22, 0.0025));
     { const b = sc.dove, cx = b.x + 0.84 * b.s, cy = b.y + 0.2 * b.s;
       D.losses.push(fractalPoly(rng, blobPoly(rng, cx, cy, 0.042, 0.034, 9, 0.22, -0.3), 4, 0.18, 0.002)); }
-    { const p = fractalPoly(rng, blobPoly(rng, uR0 - 0.30 * s2, 0.075, 0.058, 0.042, 9, 0.2, 0.2), 4, 0.16, 0.002);
+    // composed lacunae, nudged off the things that must survive
+    const nudge = (x, y, rx, ry, dx, dy) => {
+      for (let k = 0; k < 12 && avoided(x, y, Math.max(rx, ry) * 0.9); k++) { x += dx; y += dy; }
+      return [x, y];
+    };
+    { const [x, y] = nudge(uR0 - 0.30 * s2, 0.075, 0.058, 0.042, 0.02, 0);
+      const p = fractalPoly(rng, blobPoly(rng, x, y, 0.058, 0.042, 9, 0.2, 0.2), 4, 0.16, 0.002);
       D.losses.push(p); D.trat.push({ poly: p, mode: 'sky' }); }
-    { const p = fractalPoly(rng, blobPoly(rng, u0 + 0.26 * A, 0.775, 0.066, 0.048, 9, 0.18, -0.1), 4, 0.16, 0.002);
+    { const [x, y] = nudge(u0 + 0.26 * A, 0.775, 0.066, 0.048, -0.02, 0.01);
+      const p = fractalPoly(rng, blobPoly(rng, x, y, 0.066, 0.048, 9, 0.18, -0.1), 4, 0.16, 0.002);
       D.losses.push(p); D.trat.push({ poly: p, mode: 'form' }); }
-    { const p = fractalPoly(rng, blobPoly(rng, u0 + 0.62 * A, 0.962, 0.042, 0.03, 8, 0.2, 0), 4, 0.16, 0.002); D.losses.push(p); D.neutral.push(p); }
-    { const p = fractalPoly(rng, blobPoly(rng, u0 + 0.05 * A + 0.045, 0.565, 0.032, 0.04, 8, 0.25, 0.4), 4, 0.16, 0.002); D.losses.push(p); D.neutral.push(p); }
+    { const p = fractalPoly(rng, blobPoly(rng, u0 + 0.62 * A + 0.03, 0.962, 0.042, 0.03, 8, 0.2, 0), 4, 0.16, 0.002); D.losses.push(p); D.neutral.push(p); }
+    { const [x, y] = nudge(u0 + 0.05 * A + 0.045, 0.565, 0.032, 0.04, -0.015, 0.03);
+      const p = fractalPoly(rng, blobPoly(rng, x, y, 0.032, 0.04, 8, 0.25, 0.4), 4, 0.16, 0.002); D.losses.push(p); D.neutral.push(p); }
 
     const walk = (x, y, dir, len, w, rr) => {
       const pts = [[x, y]];
       let a = dir;
-      for (let d = 0; d < len; d += 0.005) {
-        a += rr.n() * 0.32;
+      for (let d = 0; d < len; d += 0.0035) {
+        a += rr.n() * 0.42;
         a = a * 0.8 + dir * 0.2;
         for (const z of D.avoid) {
           const dx = (x - z[0]) / (z[2] + 0.03), dy = (y - z[1]) / (z[3] + 0.03), q = dx * dx + dy * dy;
           if (q < 2.2) { const away = Math.atan2(dy, dx); let da = away - a; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU; a += da * 0.25 * (2.2 - q); }
         }
-        x += Math.cos(a) * 0.005; y += Math.sin(a) * 0.005;
+        x += Math.cos(a) * 0.0035; y += Math.sin(a) * 0.0035;
         pts.push([x, y]);
       }
       return { pts, w };
@@ -1247,8 +1271,8 @@ void main() {
     float relief = dot(c0 - textureLod(tPaint, uv, 3.2).rgb * 255.0, vec3(0.3, 0.55, 0.15)) / 255.0;
     float blu = clamp((c.b - c.r) / 70.0, 0.0, 1.0) * clamp((c.b - c.g + 40.0) / 50.0, 0.0, 1.0);
     float lum = dot(c, vec3(0.3, 0.55, 0.15));
-    c = mix(c, vec3(lum * 0.97 + 18.0, lum * 1.02 + 16.0, lum * 0.9 + 8.0), fade * blu * 0.9);
-    c *= 1.0 - tide * 0.16 * blu;
+    c = mix(c, vec3(lum * 0.97 + 18.0, lum * 1.02 + 16.0, lum * 0.9 + 8.0), fade * blu * 0.62);
+    c *= 1.0 - tide * 0.07 * blu;
     float gq = h12(floor(p * 0.7) + uSd * 3.0);
     if (gq < 0.04 * blu) c = c * vec3(0.72, 0.82, 0.96) + vec3(0.0, 0.0, 10.0);
     else if (gq > 1.0 - 0.02 * blu) c += vec3(22.0, 26.0, 24.0);
@@ -1268,13 +1292,13 @@ void main() {
   // cracks, incisions, the graffito
   vec4 ln = texture(tLines, uv);
   float crk = ln.r * (1.0 - nf);
-  col = mix(col, col * vec3(0.62, 0.58, 0.54), crk); h -= crk * uThick * 1.5;
+  col = mix(col, col * vec3(0.7, 0.66, 0.62), crk); h -= crk * uThick * 1.5;
   float fcr = ln.g * ip; col *= 1.0 - 0.26 * fcr; h -= fcr * uThick * 0.3;
   float gf = ln.b * ip; col = mix(col, vec3(230.0, 214.0, 198.0), gf * 0.78); h -= gf * uThick * 0.3;
 
   // salt and grime
-  float s2 = salt * (0.5 + 0.5 * g2) + (1.0 - iB) * ip * 0.1;
-  col = mix(col, vec3(240.0, 238.0, 230.0), s2 * 0.45);
+  float s2 = salt * (0.45 + 0.55 * g2) + (1.0 - iB) * ip * 0.1;
+  col = mix(col, vec3(240.0, 238.0, 230.0), s2 * 0.3);
   col = col * (1.0 - dirt * 0.2) + vec3(4.0, 2.0, 0.0);
   oAlb = vec4(clamp(col / 255.0, 0.0, 1.0), alpha);
   oH = packH(h);
@@ -1345,7 +1369,7 @@ void main() {
         if (dh > 0.0) occ2 = max(occ2, dh / (0.6 + 0.3 * fk));
       }
       float vis2 = 1.0 - min(1.0, occ2);
-      c += al.rgb * vec3(1.0, 0.9, 0.74) * (ndt * vis2 * 1.6 + 0.06) * spot * uTorch.w;
+      c += al.rgb * vec3(1.0, 0.9, 0.74) * (ndt * vis2 * 2.0 + 0.08) * spot * uTorch.w;
     }
   }
   c = clamp(c, 0.0, 1.0);
@@ -1656,7 +1680,7 @@ void main() {
         const jd = ((u - 0.95) / 0.26) ** 2 + ((v - 0.4) / 0.16) ** 2;
         const f0 = nz[0].fbm(u * 2.2 + 3, v * 2.2, 4) - Math.max(0, 1 - jd) * 0.2;
         FA[o] = 255 * (sstep(0.525, 0.575, f0) * 0.85 + 0.12 * sstep(0.4, 0.8, nz[0].fbm(u * 9, v * 9, 2)) * Math.min(1, jd));
-        FA[o + 1] = 255 * sstep(0.5, 0.82, nz[1].fbm(u * 4, v * 4, 4) + (v - 0.55) * 0.42);
+        FA[o + 1] = 255 * sstep(0.56, 0.84, nz[1].fbm(u * 4, v * 4, 4) + (v - 0.6) * 0.4);
         FA[o + 2] = 255 * sstep(0.3, 0.95, nz[2].fbm(u * 2.2, v * 2.2, 4) * 0.75 + v * 0.32);
         FA[o + 3] = 255 * sstep(0.52, 0.72, nz[3].fbm(u * 3.5, v * 3.5, 3));
         FB[o] = 255 * nz[4].fbm(u * 14, v * 14, 3);
@@ -1821,9 +1845,9 @@ void main() {
       const e = torch.t * torch.t * (3 - 2 * torch.t), S = frag.S;
       const changedT = e !== torch.shownT;
       if (!changedT && Math.abs(px - torch.x) + Math.abs(py - torch.y) < 0.25 && !moving) { torch.last = 0; return; }
-      const R = 0.36 * S;
+      const R = 0.44 * S;
       const rect = changedT ? null : [Math.min(torch.sx, torch.x) - R, Math.min(torch.sy, torch.y) - R, Math.max(torch.sx, torch.x) + R, Math.max(torch.sy, torch.y) + R];
-      g.relight({ torch: [torch.x - 0.17 * S, torch.y - 0.07 * S, frag.slabH + 0.05 * S, e], aim: [torch.x, torch.y, 0.2 * S], gal: 1 - 0.58 * e }, rect);
+      g.relight({ torch: [torch.x - 0.17 * S, torch.y - 0.07 * S, frag.slabH + 0.05 * S, e], aim: [torch.x, torch.y, 0.25 * S], gal: 1 - 0.58 * e }, rect);
       torch.shownT = e; torch.sx = torch.x; torch.sy = torch.y;
       wall.style.filter = e > 0.002 ? 'brightness(' + (1 - 0.52 * e).toFixed(3) + ')' : '';
       if (torch.t !== torch.want || moving) kick(); else torch.last = 0;

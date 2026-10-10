@@ -796,7 +796,7 @@ void main() {
   vec3 clayCol = clayAlb / PI * E * (1.0 - Fc) + Fc * env(R, 0.62) * 0.5 * (R.y > 0.0 ? 1.0 : 0.3);
 
   // ===== gold: powdered, satin, on lacquer
-  vec3 goldF0 = vec3(1.0, 0.77, 0.40);
+  vec3 goldF0 = vec3(1.0, 0.74, 0.34);
   float gpow = hash13(floor(vObj * 1400.0));
   float ga = 0.30 + 0.10 * (n5.x - 0.5) + 0.06 * chipM;
   vec3 Fau = goldF0 + (1.0 - goldF0) * pow(1.0 - NoV, 5.0);

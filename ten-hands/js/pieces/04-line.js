@@ -531,7 +531,13 @@
     let mx = -1e9;
     for (let i = 0; i <= N; i++) { mx = Math.max(mx, BX[i]); MAXX[i] = mx; }
 
-    return { N: N, Wc: Wc, Tc: Tc, X: X, Y: Y, BX: BX, BY: BY, TT: TT, WD: WD, DRY: DRY, BEAD: BEAD, DW: DW,
+    const vTime = [];
+    for (let v = 0; v < vStart.length; v++) {
+      let i = 0;
+      while (i < N && VIG[i] < v) i++;
+      vTime.push(TT[i]);
+    }
+    return { vTime: vTime, N: N, Wc: Wc, Tc: Tc, X: X, Y: Y, BX: BX, BY: BY, TT: TT, WD: WD, DRY: DRY, BEAD: BEAD, DW: DW,
       MAXX: MAXX, minY: minY, maxY: maxY, vStart: vStart, VIG: VIG };
   }
 
@@ -609,6 +615,23 @@
           camA[k] = s / ks;
         }
         camK = n;
+        // keep the nib on screen: where it runs too far ahead or doubles back too far, lean the
+        // camera after it, smoothly
+        const fmax = 0.84, fmin = 0.16, sg = 0.7 / camDt, rg = Math.ceil(sg * 3);
+        const kg = []; let kgs = 0;
+        for (let j = -rg; j <= rg; j++) { const w = Math.exp(-0.5 * (j / sg) * (j / sg)); kg.push(w); kgs += w; }
+        for (let it = 0; it < 4; it++) {
+          const corr = new Float64Array(n);
+          for (let k = 0; k < n; k++) {
+            const fr = (raw[k + rad] - (camA[k] - camF * visW)) / visW;
+            if (fr > fmax) corr[k] = (fr - fmax) * visW; else if (fr < fmin) corr[k] = (fr - fmin) * visW;
+          }
+          for (let k = 0; k <= n; k++) {
+            let a = 0;
+            for (let j = -rg; j <= rg; j++) a += corr[((k + j) % n + n) % n] * kg[j + rg];
+            camA[k] += 1.4 * a / kgs;
+          }
+        }
         // the opening: the pen starts left of centre; the paper waits until it arrives
         const n0 = Math.ceil(30 / camDt);
         const sig2 = 1.3 / camDt, rad2 = Math.ceil(sig2 * 3);
@@ -633,6 +656,9 @@
         const c = Math.floor(t / C.Tc), tl = t - c * C.Tc;
         const k = tl / camDt, i = Math.min(camK - 1, Math.floor(k)), f = k - i;
         return camA[i] + (camA[i + 1] - camA[i]) * f + c * C.Wc - camF * visW;
+      }
+      function viewCam(t) { // reduced motion: a still, with the pen near the right edge
+        return reduce ? penXAt(t) - 0.86 * visW : camAt(t);
       }
       function camAt(t) {
         if (t < 0) t = 0;
@@ -810,7 +836,7 @@
 
       function restamp(t) { // redraw everything visible, up to time t
         const s = sampleAt(Math.max(0, t));
-        const left = camAt(t) - 60 / S;
+        const left = viewCam(t) - 60 / S;
         // first sample whose running max x reaches the left edge
         const c0 = Math.floor(s.g / N);
         let gStart = 0;
@@ -851,7 +877,7 @@
           flush();
         }
 
-        const cam = camAt(t);
+        const cam = viewCam(t);
         const camXd = Math.round(cam * k);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         const pTop = 0;
@@ -940,8 +966,8 @@
         renderSheet();
       } else if (reduce) {
         // a long finished stretch, still
-        const picks = [0.36, 0.58, 0.97];
-        clock = C.Tc * picks[api.seed % picks.length];
+        const picks = [C.vTime[2] - 0.4, C.vTime[3] - 0.4, C.Tc - 0.4];
+        clock = picks[api.seed % picks.length];
         restamp(clock);
         render();
       } else {
@@ -952,7 +978,15 @@
       api.ready();
       if (!sheet && !reduce) {
         // also log cycle length in debug
-        if (params.has('line_info')) console.log('cycle', C.Tc.toFixed(1), 's', C.Wc, 'u');
+        if (params.has('line_info')) {
+          let lo = 9, hi = -9, tlo = 0, thi = 0, vmax = 0, prev = camAt(0);
+          for (let t = 0; t < 2 * C.Tc; t += 0.05) {
+            const fr = (penXAt(t) - camAt(t)) / visW;
+            if (fr < lo) { lo = fr; tlo = t; } if (fr > hi) { hi = fr; thi = t; }
+            const c = camAt(t); vmax = Math.max(vmax, Math.abs(c - prev) / 0.05 * S); prev = c;
+          }
+          console.warn('cycle', C.Tc.toFixed(1), 's', C.Wc, 'u; pen fraction', lo.toFixed(2), '@', tlo.toFixed(1), hi.toFixed(2), '@', thi.toFixed(1), 'max cam px/s', vmax.toFixed(0));
+        }
       }
 
       let rt = 0;

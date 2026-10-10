@@ -757,8 +757,8 @@
     // the wreck: sunk to her gunwales, only the bow and the broken mast above the water
     const k = clamp((o.hw - 0.5) / 0.36, 0.6, 1);
     const mx = o.hw - 0.15 * k, my = o.floor + 0.02;
-    const H = clamp(my + 0.08, 0.5, 0.66) * k;
-    const top = [mx + 0.05 * k, my - H];
+    const H = Math.min(my + 0.42, 1.05) * (0.85 + 0.15 * k);
+    const top = [mx + 0.07 * k, my - H];
     const mpt = (t) => [lerp(mx, top[0], t) + 0.006 * Math.sin(t * 3), lerp(my, top[1], t)];
     // bow and a short length of gunwale breaking the surface
     D.paper((p) => {
@@ -770,43 +770,43 @@
     D.cutLine((p) => { p.at(mx - 0.13 * k, my - 0.03, 0.0042 * k, 0.32); p.path('M-52 -31 C-30 -21 10 -17 46 -25'); p.path('M-48 -21 C-28 -12 8 -9 46 -16'); p.id(); }, 1.1 / g.U, 0.4);
     D.cut((p) => { p.at(mx - 0.13 * k, my - 0.03, 0.0042 * k, 0.32); p.circle(-34, -17, 2.4); p.circle(-23, -15, 2.4); p.path('M2 -22 L10 -25 L14 -18 L22 -23 L28 -14 L20 -8 L12 -11 L4 -9 Z'); p.id(); }, 0.4);
     // the mast, splintered at the top, with a crow's nest
-    D.paper((p) => p.ribbon([mpt(0), mpt(0.5), mpt(1)], (t) => (0.016 - 0.007 * t) * k), 0.5);
+    D.paper((p) => p.ribbon([mpt(0), mpt(0.5), mpt(1)], (t) => (0.019 - 0.008 * t) * k), 0.5);
     D.paper((p) => p.pts([[top[0] - 0.008 * k, top[1] + 0.004], [top[0] - 0.005 * k, top[1] - 0.03 * k], [top[0] - 0.001, top[1] - 0.012 * k], [top[0] + 0.003 * k, top[1] - 0.045 * k], [top[0] + 0.006 * k, top[1] - 0.01 * k], [top[0] + 0.007 * k, top[1] + 0.004]]), 0.3);
-    const nest = mpt(0.8);
+    const nest = mpt(0.86);
     D.paper((p) => { p.at(nest[0], nest[1], 0.001 * k, 0.08); p.path('M-30 -14 L30 -14 L26 4 C14 10 -14 10 -26 4 Z'); p.path('M-34 -18 L34 -18 L34 -13 L-34 -13 Z'); p.id(); }, 0.5);
     D.cutLine((p) => { p.at(nest[0], nest[1], 0.001 * k, 0.08); for (const x of [-18, -6, 6, 18]) p.M(x, -10).L(x * 0.92, 5); p.id(); }, 0.9 / g.U, 0);
     // shrouds with ratlines: two triangular nets from the masthead to the hidden chainplates
-    for (const [fx, fy, n] of [[-0.15, 0.0, 3], [0.12, 0.01, 3]]) {
+    for (const [fx, fy, n] of [[-0.19, 0.0, 3], [0.15, 0.01, 3]]) {
       const foot = [mx + fx * k, my + fy];
-      const head = mpt(0.74);
+      const head = mpt(0.8);
       const lines = [];
       for (let i = 0; i < n; i++) {
         const f0 = [foot[0] + (i - (n - 1) / 2) * 0.022 * k, foot[1]];
         lines.push([f0, head]);
         D.paperLine((p) => p.M(f0[0], f0[1]).L(head[0] + (i - 1) * 0.003, head[1]), 1.05 / g.U, 0);
       }
-      for (let t = 0.08; t < 0.86; t += 0.065) {
+      for (let t = 0.05; t < 0.9; t += 0.045) {
         const a = lines[0], b = lines[n - 1];
         const pa = [lerp(a[0][0], a[1][0], t), lerp(a[0][1], a[1][1], t)], pb = [lerp(b[0][0], b[1][0], t), lerp(b[0][1], b[1][1], t)];
         D.paperLine((p) => p.M(pa[0], pa[1]).Q((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2 + 0.004, pb[0], pb[1]), 0.9 / g.U, 0);
       }
     }
     // a yard hanging askew, a rag of sail, the lantern on the end toward the room
-    const yc = mpt(0.6);
-    const A = [yc[0] - 0.14 * k, yc[1] + 0.06 * k], B = [yc[0] + 0.12 * k, yc[1] - 0.025 * k];
+    const yc = mpt(0.72);
+    const A = [yc[0] - 0.19 * k, yc[1] + 0.075 * k], B = [yc[0] + 0.15 * k, yc[1] - 0.03 * k];
     D.paper((p) => p.ribbon([A, [lerp(A[0], B[0], 0.5), lerp(A[1], B[1], 0.5) + 0.004], B], (t) => (0.009 - 0.003 * t) * k), 0.4);
     D.paper((p) => {
       const a = [], n = 9;
       for (let i = 0; i <= n; i++) { const u = 0.35 + (i / n) * 0.55; a.push([lerp(A[0], B[0], u), lerp(A[1], B[1], u) + 0.004]); }
       for (let i = n; i >= 0; i--) {
         const u = 0.35 + (i / n) * 0.55;
-        const L = (0.05 + 0.05 * Math.sin(((u - 0.35) / 0.55) * Math.PI) + (i % 2 ? 0.025 : -0.008) + R() * 0.02) * k;
+        const L = (0.08 + 0.07 * Math.sin(((u - 0.35) / 0.55) * Math.PI) + (i % 2 ? 0.03 : -0.01) + R() * 0.025) * k;
         a.push([lerp(A[0], B[0], u) + (i % 2 ? 0.006 : -0.004), lerp(A[1], B[1], u) + L]);
       }
       p.pts(a);
     }, 1);
     D.cut((p) => { const c = [lerp(A[0], B[0], 0.62), lerp(A[1], B[1], 0.62) + 0.04 * k]; p.circle(c[0], c[1], 0.008 * k); p.ellipse(c[0] + 0.035 * k, c[1] - 0.012 * k, 0.006 * k, 0.012 * k, 0.3); }, 0.6);
-    const ls = 0.0021 * k, lx = A[0] + 0.004, ly = A[1] + 0.05 * k;
+    const ls = 0.0026 * k, lx = A[0] + 0.004, ly = A[1] + 0.06 * k;
     D.paperLine((p) => p.M(A[0], A[1]).L(lx, ly), 1.0 / g.U, 0);
     D.paper((p) => { p.at(lx, ly, ls); p.path('M-5 0 L5 0 L3.5 2.5 L4.2 13 L2.8 15 L-2.8 15 L-4.2 13 L-3.5 2.5 Z'); p.circle(0, -1.4, 1.8); p.pts([[-1.2, 15], [1.2, 15], [0.8, 17.5], [-0.8, 17.5]]); p.id(); }, 0.3);
     D.cut((p) => { p.at(lx, ly, ls); p.pts([[-2.3, 3.6], [2.3, 3.6], [2.6, 12], [-2.6, 12]]); p.id(); }, 0);

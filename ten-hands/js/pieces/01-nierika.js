@@ -101,9 +101,9 @@
           key,
           base: css(base), dark: css(dark), hi: css(hi),
           shadow: css(mix(base.map((x) => x * 0.16), [10, 6, 4], 0.35)),
-          groove: css(base.map((x) => x * 0.3), 0.55),
-          ply: css(mix(base, [255, 255, 255], groundy ? 0.3 : 0.55), groundy ? 0.3 : 0.4),
-          fuzz: css(mix(base, [255, 255, 255], groundy ? 0.16 : 0.28), 0.5),
+          groove: css(base.map((x) => x * 0.28), 0.42),
+          ply: css(mix(base, [255, 255, 255], groundy ? 0.3 : 0.5), groundy ? 0.3 : 0.5),
+          fuzz: css(mix(base, [255, 250, 240], groundy ? 0.2 : 0.34), 0.55),
           flat: css(base),
         });
       }
@@ -817,12 +817,13 @@
       const lr = mulberry32(hash2(seed, loopId * 31 + 7));
       if (len > 30) {
         const f1 = (Math.PI * 2) / (70 + lr() * 60), f2 = (Math.PI * 2) / (24 + lr() * 18), p1 = lr() * 7, p2 = lr() * 7;
-        const amp = 0.32 + lr() * 0.25;
+        const amp = 0.45 + lr() * 0.4;
+        const f3 = (Math.PI * 2) / (9 + lr() * 6), p3 = lr() * 7;
         const ox = new Float32Array(m), oy = new Float32Array(m);
         for (let q = 0; q < m; q++) {
           const a = X[(q - 1 + m) % m], b = Y[(q - 1 + m) % m], c = X[(q + 1) % m], d = Y[(q + 1) % m];
           let tx = c - a, ty = d - b; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
-          const sArc = q * 2.3, w = amp * (Math.sin(sArc * f1 + p1) * 0.65 + Math.sin(sArc * f2 + p2) * 0.35);
+          const sArc = q * 2.3, w = amp * (Math.sin(sArc * f1 + p1) * 0.6 + Math.sin(sArc * f2 + p2) * 0.32 + Math.sin(sArc * f3 + p3) * 0.12);
           ox[q] = X[q] - ty * w; oy[q] = Y[q] + tx * w;
         }
         X.set(ox); Y.set(oy);
@@ -922,10 +923,13 @@
     if (P.cl) path.closePath();
   }
   // twist grooves and ply highlights, then fuzz, for one strand
-  function addTwist(gp, hp, P, pitch) {
+  // the two plies of the yarn: a groove between them, the bump of each ply catching light on the lit side
+  function addTwist(gp, hp, sp, P, pitch) {
     const p = P.p, n = p.length >> 1, cl = P.cl;
-    const W = YW, slant = 0.3 * W, half = 0.5 * W;
-    let acc = (P.sd % 1000) / 1000 * pitch;
+    const W = YW, slant = 0.32 * W, half = 0.48 * W;
+    let seed = (P.sd | 1) >>> 0;
+    const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    let acc = rnd() * pitch, step = pitch;
     const segs = cl ? n : n - 1;
     for (let i = 0; i < segs; i++) {
       const j = (i + 1) % n;
@@ -933,36 +937,44 @@
       const L = Math.hypot(bx - ax, by - ay);
       if (L <= 0) continue;
       const tx = (bx - ax) / L, ty = (by - ay) / L, nx = -ty, ny = tx;
+      const lit = nx * LX + ny * LY > 0 ? 1 : -1;
       while (acc < L) {
         const x = ax + tx * acc, y = ay + ty * acc;
         gp.moveTo(x - nx * half - tx * slant, y - ny * half - ty * slant);
         gp.lineTo(x + nx * half + tx * slant, y + ny * half + ty * slant);
         if (hp) {
-          const hx = x + tx * pitch * 0.48, hy = y + ty * pitch * 0.48;
-          hp.moveTo(hx - nx * 0.3 * W - tx * 0.18 * W, hy - ny * 0.3 * W - ty * 0.18 * W);
-          hp.lineTo(hx + nx * 0.3 * W + tx * 0.18 * W, hy + ny * 0.3 * W + ty * 0.18 * W);
+          // centre of the ply bump half a pitch further on, along the same slant
+          const hx = x + tx * step * 0.5, hy = y + ty * step * 0.5;
+          const a0 = 0.04 * lit, a1 = 0.36 * lit, b0 = -0.12 * lit, b1 = -0.42 * lit;
+          hp.moveTo(hx + nx * a0 * W + tx * a0 * slant * 1.6, hy + ny * a0 * W + ty * a0 * slant * 1.6);
+          hp.lineTo(hx + nx * a1 * W + tx * a1 * slant * 1.6, hy + ny * a1 * W + ty * a1 * slant * 1.6);
+          sp.moveTo(hx + nx * b0 * W + tx * b0 * slant * 1.6, hy + ny * b0 * W + ty * b0 * slant * 1.6);
+          sp.lineTo(hx + nx * b1 * W + tx * b1 * slant * 1.6, hy + ny * b1 * W + ty * b1 * slant * 1.6);
         }
-        acc += pitch;
+        step = pitch * (0.86 + rnd() * 0.28);
+        acc += step;
       }
       acc -= L;
     }
   }
+  // loose fibres: most stray from the edges, a few lie across the strand
   function addFuzz(fp, P) {
     const p = P.p, n = p.length >> 1;
     const r = mulberry32(P.sd ^ 0xF022);
-    const count = Math.round(P.len / 8);
+    const count = Math.round(P.len / 5.5);
     for (let h = 0; h < count; h++) {
       const i = Math.min(n - 2, (r() * (n - 1)) | 0);
       const ax = p[i * 2], ay = p[i * 2 + 1], bx = p[i * 2 + 2], by = p[i * 2 + 3];
       const L = Math.hypot(bx - ax, by - ay) || 1, tx = (bx - ax) / L, ty = (by - ay) / L;
       const side = r() < 0.5 ? -1 : 1, nx = -ty * side, ny = tx * side;
-      const u = r();
-      const x = ax + (bx - ax) * u + nx * YW * 0.38, y = ay + (by - ay) * u + ny * YW * 0.38;
-      const a = (r() - 0.5) * 1.8, ca = Math.cos(a), sa = Math.sin(a);
+      const u = r(), across = r() < 0.18;
+      const off = across ? (r() - 0.5) * YW * 0.6 : YW * (0.3 + r() * 0.16);
+      const x = ax + (bx - ax) * u + nx * off, y = ay + (by - ay) * u + ny * off;
+      const a = across ? (r() - 0.5) * 1.2 + 1.2 : (r() - 0.5) * 1.9, ca = Math.cos(a), sa = Math.sin(a);
       const dx = nx * ca - ny * sa, dy = nx * sa + ny * ca;
-      const len = YW * (0.18 + r() * r() * 0.75), bend = (r() - 0.5) * len;
+      const len = YW * (0.2 + r() * r() * (across ? 0.6 : 0.95)), bend = (r() - 0.5) * len * 0.9;
       fp.moveTo(x, y);
-      fp.quadraticCurveTo(x + dx * len * 0.5 + tx * bend, y + dy * len * 0.5 + ty * bend, x + dx * len + tx * bend * 0.4, y + dy * len + ty * bend * 0.4);
+      fp.quadraticCurveTo(x + dx * len * 0.5 + tx * bend, y + dy * len * 0.5 + ty * bend, x + dx * len + tx * bend * 0.3, y + dy * len + ty * bend * 0.3);
     }
   }
   function drawPieces(ctx, P, i0, i1, S, ox, oy, cols) {
@@ -992,18 +1004,21 @@
       ctx.globalAlpha = 1;
       ctx.setTransform(S, 0, 0, S, ox, oy);
       if (twist) {
-        const gp = new Path2D(), hp = ply ? new Path2D() : null;
-        const pitch = YW * 0.92;
-        for (let q = i; q < j; q++) addTwist(gp, hp, P[q], pitch);
-        ctx.lineCap = 'butt';
-        ctx.strokeStyle = col.groove; ctx.lineWidth = Math.max(YW * 0.13, 0.7 / S); ctx.stroke(gp);
-        if (hp) { ctx.strokeStyle = col.ply; ctx.lineWidth = YW * 0.12; ctx.stroke(hp); }
+        const gp = new Path2D(), hp = ply ? new Path2D() : null, sp = ply ? new Path2D() : null;
+        const pitch = YW * 0.9;
+        for (let q = i; q < j; q++) addTwist(gp, hp, sp, P[q], pitch);
         ctx.lineCap = 'round';
+        ctx.strokeStyle = col.groove; ctx.lineWidth = Math.max(YW * 0.1, 0.6 / S); ctx.stroke(gp);
+        if (hp) {
+          ctx.strokeStyle = col.ply; ctx.lineWidth = YW * 0.17; ctx.stroke(hp);
+          ctx.strokeStyle = col.groove; ctx.globalAlpha = 0.55; ctx.lineWidth = YW * 0.15; ctx.stroke(sp);
+          ctx.globalAlpha = 1;
+        }
       }
       if (fuzz) {
         const fp = new Path2D();
         for (let q = i; q < j; q++) addFuzz(fp, P[q]);
-        ctx.strokeStyle = col.fuzz; ctx.lineWidth = Math.max(YW * 0.05, 0.55 / S); ctx.stroke(fp);
+        ctx.strokeStyle = col.fuzz; ctx.lineWidth = Math.max(YW * 0.045, 0.5 / S); ctx.stroke(fp);
       }
       i = j;
     }

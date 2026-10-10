@@ -240,6 +240,13 @@
     }
     function dot(x, y, r, col, h) { const p = new Path2D(); p.arc(TX(x, y), TY(x, y), r * mS(), 0, TAU); fillAll(p, col, h, col === C.ink ? MAT.ink : MAT.paint); return p; }
     function goldDot(x, y, r) { const p = new Path2D(); p.arc(TX(x, y), TY(x, y), r * mS(), 0, TAU); gild(p); return p; }
+    // a soft wash of rose on the cheek
+    function blush(x, y, r, a) {
+      const px = TX(x, y), py = TY(x, y), R = r * mS();
+      const g = cc.createRadialGradient(px, py, 0, px, py, R);
+      g.addColorStop(0, 'rgba(222,112,98,' + (a || 0.5) + ')'); g.addColorStop(1, 'rgba(222,112,98,0)');
+      cc.fillStyle = g; cc.fillRect(px - R, py - R, 2 * R, 2 * R);
+    }
     // a Gothic almond eye: heavy upper lid, dot pupil tucked under it (local units of the face)
     function gEye(x, y, w, open, look, lw) {
       lw = lw || 0.07; const h = w * (0.3 + 0.55 * open);
@@ -1400,24 +1407,42 @@
       }
       hiLite([[-124, -47], [-130, -64], [-139, -82]], 1.0, 0.8);
       line([[-142, -30], [-138, -27.5], [-133.5, -28.5]], 0.45, C.ink, 0.1, 0.2, 0.5); // a small satisfied mouth
-      // the shell: three whorls, aperture to the left
-      const cx = 14, cy = -62, R = 54;
-      const shell = [];
-      for (let k = 0; k < 28; k++) { const a = -PI * 0.92 + k / 28 * TAU; const rr = R * (1 - 0.06 * Math.cos(a - 0.6)); shell.push([cx + Math.cos(a) * rr * 1.04, cy + Math.sin(a) * rr * 0.96]); }
-      const shP = shapePath(shell, true);
-      paint(shP, '#c89c62', 142);
-      cc.save(); cc.clip(shP);
-      const spiral = (r0, k, turns, ph) => { const o = []; for (let t = 0; t <= turns * TAU; t += 0.1) { const r = r0 * Math.exp(-k * t); o.push([cx + 3 + Math.cos(t + ph) * r * 1.04, cy + 2 + Math.sin(t + ph) * r * 0.96]); } return o; };
-      const k = Math.log(2.4) / TAU;
-      stroke(spiral(R * 0.83, k, 3.0, 2.4), 13, '#946238', 0.55, 0.02, 0.5);
-      stroke(spiral(R * 0.93, k, 3.1, 2.4), 4.5, '#b4664c', 0.7, 0.02, 0.5);
-      for (let i = 0; i < 70; i++) { const t = i * 0.27; const r = R * 0.98 * Math.exp(-k * t); const aa = t + 2.4; const px = cx + 3 + Math.cos(aa) * r * 1.04, py = cy + 2 + Math.sin(aa) * r * 0.96; const ia = aa + PI + 0.25; stroke([[px, py], [px + Math.cos(ia) * r * 0.16, py + Math.sin(ia) * r * 0.16], [px + Math.cos(ia + 0.2) * r * 0.3, py + Math.sin(ia + 0.2) * r * 0.3]], 0.55, '#6a3818', 0.5, 0.15, 0.5); }
-      hiLite(spiral(R * 0.99, k, 2.6, 2.6), 1.9, 0.7);
-      cc.restore();
-      line(spiral(R * 0.71, k, 3.1, 2.4), 0.9, C.ink, 0, 0.6, 0.3);
-      outline(shell, 0.7);
-      hiLite([[cx - 30, cy - 38], [cx - 6, cy - 50], [cx + 22, cy - 47], [cx + 42, cy - 30]], 1.6, 0.8);
-      stroke([[cx - 50, cy + 18], [cx - 30, cy + 42], [cx + 10, cy + 52], [cx + 40, cy + 38]], 3, '#6e3a18', 0.45);
+      // the shell: a logarithmic spiral, body whorl largest, aperture opening down towards the foot
+      {
+        const G = 2.05, bK = Math.log(G) / TAU, Rmax = 70, cx = 8, cy = -64;
+        const th1 = PI * 0.75 + TAU * 3;
+        const r = (th) => Rmax * Math.exp(bK * (th - th1));
+        const P = (th, k) => [cx + Math.cos(th) * r(th) * (k || 1), cy + Math.sin(th) * r(th) * (k || 1)];
+        const outer = []; for (let th = th1 - TAU; th <= th1 + 1e-6; th += 0.12) outer.push(P(th));
+        outer.push(P(th1 - TAU, 0.86));
+        const shP = shapePath(outer, true);
+        paint(shP, '#c99d63', 142);
+        cc.save(); cc.clip(shP);
+        // each whorl: shadow along the suture, a rose band, light along the shoulder, growth lines
+        for (let w = 0; w < 3; w++) {
+          const t0 = th1 - TAU * (w + 1) + 0.3, t1 = th1 - TAU * w;
+          const band = (k, f) => { const o = []; for (let th = t0; th <= t1; th += 0.08) { const ri = r(th - TAU), ro = r(th); const rr = ri + (ro - ri) * k; o.push([cx + Math.cos(th) * rr, cy + Math.sin(th) * rr]); } return o; };
+          const wsc = r(t1) - r(t1 - TAU);
+          stroke(band(0.16), wsc * 0.3, '#8a5530', 0.55, 0.05, 0.3);
+          stroke(band(0.52), wsc * 0.16, '#b7684e', 0.6, 0.05, 0.3);
+          hiLite(band(0.86).filter((q, i, arr) => { const th = t0 + i * 0.08; const a = ((th % TAU) + TAU) % TAU; return a > PI * 0.95 && a < PI * 2.05; }), wsc * 0.06, 0.75);
+          for (let th = t0 + 0.1; th < t1; th += 0.21 + 0.05 * w) {
+            const ri = r(th - TAU), ro = r(th);
+            const q0 = [cx + Math.cos(th) * (ri + (ro - ri) * 0.08), cy + Math.sin(th) * (ri + (ro - ri) * 0.08)];
+            const q1 = [cx + Math.cos(th + 0.05) * (ri + (ro - ri) * 0.55), cy + Math.sin(th + 0.05) * (ri + (ro - ri) * 0.55)];
+            const q2 = [cx + Math.cos(th + 0.02) * (ro * 0.98), cy + Math.sin(th + 0.02) * (ro * 0.98)];
+            stroke([q0, q1, q2], 0.55, '#5e3214', 0.42, 0.2, 0.4);
+          }
+        }
+        cc.restore();
+        // the suture line, the outline, and the lip of the aperture
+        const sut = []; for (let th = th1 - TAU * 3.4; th <= th1 - TAU + 0.02; th += 0.08) sut.push(P(th));
+        line(sut, 0.9, C.ink, 0.2, 0.02, 0.4);
+        outline(outer, 0.7);
+        const lip = [P(th1 - TAU, 0.82), P(th1 - 0.05, 1.0)];
+        line([lip[0], [(lip[0][0] + lip[1][0]) / 2 - 3, (lip[0][1] + lip[1][1]) / 2 + 2], lip[1]], 2.4, '#efdcb4', 0.1, 0.1, 0.6);
+        hiLite([P(PI * 1.2 + TAU * 2, 0.9), P(PI * 1.45 + TAU * 2, 0.92), P(PI * 1.7 + TAU * 2, 0.92)], 1.6, 0.85);
+      }
       pop();
     }
 
@@ -1449,10 +1474,10 @@
       plate([[39, -51], [34.5, -56], [33.5, -47], [37, -41]], '#a2a7aa');
       hiLite([[43, -54], [49, -52], [51, -46]], 0.9);
       // surcoat (jupon), leaning back away from the beast
-      const sur = [[-35, -107], [-37, -92], [-33, -76], [-26, -62], [-30, -50], [-34, -38], [-18, -33], [-2, -36], [12, -40], [25, -44], [16, -55], [6, -65], [0, -80], [-6, -96], [-13, -111], [-24, -115]];
+      const sur = [[-35, -107], [-37, -92], [-33, -76], [-28, -63], [-33, -46], [-37, -26], [-30, -17], [-18, -19], [-6, -26], [8, -34], [22, -38], [36, -40], [38, -47], [26, -53], [12, -60], [3, -70], [0, -82], [-6, -97], [-13, -111], [-24, -115]];
       blob(sur, red, 0.6);
-      for (const f of [[[-29, -56], [-32, -40]], [[-19, -58], [-20, -34]], [[-7, -60], [-4, -37]], [[6, -60], [14, -42]]]) stroke(f, 2.6, redDk, 0.6);
-      for (const f of [[[-24, -55], [-26, -37]], [[0, -58], [5, -38]], [[11, -56], [19, -44]]]) hiLite(f, 0.9, 0.55);
+      for (const f of [[[-28, -56], [-32, -36], [-33, -22]], [[-18, -57], [-22, -38], [-22, -22]], [[-6, -59], [-6, -42], [-8, -28]], [[6, -60], [12, -48], [16, -38]], [[16, -56], [26, -46], [32, -42]]]) stroke(f, 2.4, redDk, 0.6);
+      for (const f of [[[-23, -55], [-27, -36], [-28, -22]], [[0, -58], [2, -44], [2, -32]], [[11, -56], [19, -46], [24, -41]]]) hiLite(f, 0.9, 0.55);
       stroke([[-33, -104], [-34, -88], [-30, -72]], 3.2, redDk, 0.45);
       hiLite([[-10, -104], [-4, -88], [1, -74]], 1.0, 0.6);
       // his arms: gules, a snail or (the irony is not lost on him)
@@ -1477,15 +1502,15 @@
       stroke([[-35, -131], [-25, -133.5], [-15, -134]], 1.2, '#53585b', 0.6);
       for (let k = 0; k < 8; k++) dot(-35.5 + k * 3, -130 - k * 0.4, 0.42, C.gold);
       // the face: wide eyes, brows up, mouth agape
-      push(); translate(-17.5, -124.5); scale(7.2, 7.8);
-      const fc = [[-0.9, -0.95], [0.1, -1.0], [0.78, -0.86], [1.0, -0.4], [0.94, 0.12], [0.76, 0.52], [0.32, 0.86], [-0.3, 0.88], [-0.8, 0.5], [-1.0, -0.2]];
+      push(); translate(-17.5, -123.5); scale(6.6, 8.4);
+      const fc = [[-0.86, -0.95], [0.1, -1.0], [0.78, -0.86], [0.98, -0.4], [0.94, 0.1], [0.72, 0.56], [0.3, 0.92], [-0.24, 0.9], [-0.76, 0.5], [-0.96, -0.2]];
       blob(fc, C.flesh, 0.05);
-      gEye(-0.14, -0.22, 0.2, 0.95, 0.5, 0.075); gEye(0.56, -0.24, 0.22, 0.95, 0.6, 0.075);
-      line([[-0.42, -0.62], [-0.18, -0.76], [0.04, -0.7]], 0.075, '#5a3b22', 0.2, 0.2, 0.4);
-      line([[0.34, -0.72], [0.56, -0.8], [0.78, -0.68]], 0.075, '#5a3b22', 0.2, 0.2, 0.4);
-      line([[0.25, -0.18], [0.38, 0.12], [0.28, 0.22]], 0.065, C.fleshDk, 0.2, 0.2, 0.5);
-      blob(ellPts(0.26, 0.52, 0.15, 0.21, 10), '#5b2420', 0.03);
-      dot(-0.5, 0.18, 0.13, C.cheek); dot(0.8, 0.2, 0.1, C.cheek);
+      blush(-0.42, 0.22, 0.42, 0.5); blush(0.72, 0.22, 0.32, 0.45);
+      gEye(-0.12, -0.24, 0.17, 0.85, 0.7, 0.08); gEye(0.56, -0.26, 0.18, 0.85, 0.8, 0.08);
+      line([[-0.4, -0.62], [-0.16, -0.78], [0.06, -0.72]], 0.07, '#5a3b22', 0.2, 0.2, 0.4);
+      line([[0.36, -0.74], [0.58, -0.82], [0.8, -0.7]], 0.07, '#5a3b22', 0.2, 0.2, 0.4);
+      line([[0.3, -0.36], [0.36, -0.02], [0.42, 0.14], [0.3, 0.2]], 0.06, C.fleshDk, 0.2, 0.2, 0.5);
+      blob(ellPts(0.28, 0.52, 0.11, 0.16, 10), '#5b2420', 0.035);
       pop();
       // the sword he has let fall
       push(); translate(70, -2.2); rotate(-0.025);
@@ -1601,11 +1626,12 @@
       // head: tonsured, cheeks like apples, eyes rolled sideways at the reader
       push(); translate(6, -119); rotate(-0.14); scale(8.6, 9.6);
       blob([[0, -1.0], [0.68, -0.8], [0.98, -0.2], [1.1, 0.3], [0.86, 0.8], [0.3, 1.0], [-0.36, 0.92], [-0.84, 0.48], [-0.98, -0.18], [-0.72, -0.76]], C.flesh, 0.05);
-      blob([[-1.0, -0.1], [-0.86, -0.62], [-0.42, -0.9], [0.18, -0.98], [0.66, -0.8], [0.94, -0.42], [0.64, -0.52], [0.12, -0.68], [-0.44, -0.58], [-0.72, -0.2], [-0.76, 0.3], [-0.9, 0.34]], '#5d5550', 0.04);
-      blob([[-0.38, -0.88], [0.12, -0.99], [0.56, -0.86], [0.5, -0.72], [0.08, -0.76], [-0.32, -0.7]], '#f8e6d2', 0);
-      blob(ellPts(0.6, 0.4, 0.4, 0.34, 12), '#f0bba4', 0.03); // the puffed cheek
-      dot(0.64, 0.36, 0.17, C.cheek);
-      gEye(0.0, -0.18, 0.16, 0.7, -0.9, 0.07); gEye(0.56, -0.2, 0.18, 0.7, -0.9, 0.07);
+      blob(ellPts(0.62, 0.42, 0.36, 0.3, 12), '#f2c2aa', 0.03); // the puffed cheek
+      blush(0.64, 0.4, 0.34, 0.6);
+      // the black cowl, up over the head
+      blob([[-1.12, 0.9], [-1.2, -0.2], [-0.9, -0.96], [-0.2, -1.32], [0.5, -1.22], [0.98, -0.8], [1.08, -0.36], [0.8, -0.52], [0.3, -0.72], [-0.3, -0.62], [-0.66, -0.2], [-0.72, 0.5], [-0.5, 1.0]], '#2f2a2c', 0.05);
+      stroke([[-0.9, 0.6], [-1.0, -0.2], [-0.7, -0.8]], 0.12, '#8a8284', 0.6);
+      gEye(0.02, -0.2, 0.14, 0.6, -0.9, 0.07); gEye(0.56, -0.22, 0.15, 0.6, -0.9, 0.07);
       line([[-0.16, -0.46], [0.02, -0.54], [0.18, -0.48]], 0.06, '#4a3f3a', 0.2, 0.2, 0.4);
       line([[0.38, -0.5], [0.58, -0.58], [0.76, -0.48]], 0.06, '#4a3f3a', 0.2, 0.2, 0.4);
       line([[0.38, -0.1], [0.46, 0.14], [0.34, 0.2]], 0.055, C.fleshDk, 0.2, 0.2, 0.5);
@@ -1833,7 +1859,7 @@
         for (let i = 0; i < 9; i++) { const t = (i / 8 - 0.5) * len; for (const sd of [-1, 1]) { const px = TX(t, sd * (wid + 2.5)), py = TY(t, sd * (wid + 2.5)); const g = hh.createRadialGradient(px, py, 0, px, py, 3.5); g.addColorStop(0, 'rgba(255,255,255,0.10)'); g.addColorStop(1, 'rgba(255,255,255,0)'); hh.fillStyle = g; hh.fillRect(px - 4, py - 4, 8, 8); } }
         const slit = [[-len / 2, 0, 1], [-len / 4, -wid * 0.8], [0, -wid], [len / 4, -wid * 0.7], [len / 2, 0, 1], [len / 4, wid * 0.8], [0, wid], [-len / 4, wid * 0.7]];
         const sp = shapePath(slit, true);
-        cc.globalAlpha = 0.5; cc.strokeStyle = '#8a6a48'; cc.lineWidth = 2.6; cc.stroke(sp); cc.globalAlpha = 1;
+        cc.globalAlpha = 0.28; cc.strokeStyle = '#8a6a48'; cc.lineWidth = 2.0; cc.stroke(sp); cc.globalAlpha = 1;
         mm.fillStyle = MAT.hole; mm.fill(sp);
         cc.fillStyle = '#3a2c20'; cc.fill(sp);
         // whip stitches in faded green silk
@@ -1841,7 +1867,7 @@
         for (let i = 0; i < 9; i++) {
           const t = (i / 8 - 0.5) * (len - 6);
           const st = [[t - 2.4, -wid - 2.6], [t, 0], [t + 2.4, wid + 2.6]];
-          line(st, 1.1, silk, 0.1, 0.1, 0.6); outline(st, 0.22, silkDk, false);
+          line(st, 0.85, silk, 0.1, 0.1, 0.6); outline(st, 0.16, silkDk, false);
           dot(t - 2.4, -wid - 2.6, 0.45, '#3a2a20'); dot(t + 2.4, wid + 2.6, 0.45, '#3a2a20');
         }
         line([[len / 2 - 2, wid + 2.6], [len / 2 + 4, wid + 6], [len / 2 + 9, wid + 6.5]], 0.9, silk, 0.05, 0.3, 0.4); // the loose end
