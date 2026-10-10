@@ -287,12 +287,11 @@
   // pleated lower jaw spreading below
   function headPoly(g) {
     const mw = g.mw, cn = g.corner, ap = g.apex, hh = g.hh;
-    const bx = mw + 0.17, by = cn - 0.1, ty = ap - 0.19;
-    const jx = mw + 0.5, jy = cn + 0.44, botY = hh + 1.2;
+    const ty = ap - 0.19, sx = mw + 0.36, sy = cn + 0.02, jx = mw + 0.47, jy = cn + 0.42, botY = hh + 1.2;
     const left = [].concat(
-      bez([-(jx - 0.08), botY], [-(jx - 0.04), botY - 0.6], [-jx, jy + 0.35], [-jx, jy], 10),
-      bez([-jx, jy], [-jx, jy - 0.3], [-(bx + 0.1), by - 0.07], [-bx, by], 16).slice(1),
-      bez([-bx, by], [-bx * 0.99, by - (by - ty) * 0.5], [-bx * 0.36, ty + 0.15], [0, ty], 40).slice(1)
+      bez([-(jx - 0.06), botY], [-(jx - 0.03), botY - 0.6], [-jx, jy + 0.35], [-jx, jy], 10),
+      bez([-jx, jy], [-jx, jy - 0.2], [-(sx + 0.06), sy + 0.12], [-sx, sy], 12).slice(1),
+      bez([-sx, sy], [-(sx - 0.08), sy - 0.3], [-(mw + 0.1) * 0.36, ty + 0.12], [0, ty], 44).slice(1)
     );
     const right = left.slice(0, -1).reverse().map((p) => [-p[0], p[1]]);
     return left.concat(right);
@@ -362,7 +361,7 @@
   // 0 · the night sea in front: big curling waves below, scalloped clouds in the top corners
   LAYERS[0] = function (D, g, R) {
     const hw = g.hw, hh = g.hh;
-    const wl = (x) => g.lip + 0.06 - 0.3 * Math.pow(Math.min(1.15, Math.abs(x) / Math.max(1.25, hw)), 2);
+    const wl = (x) => g.lip + 0.17 - 0.34 * Math.pow(Math.min(1.15, Math.abs(x) / Math.max(1.25, hw)), 2);
     D.paper((p) => {
       const a = [];
       for (let i = 0; i <= 80; i++) { const x = lerp(-hw - 0.6, hw + 0.6, i / 80); a.push([x, wl(x) + 0.035]); }
@@ -528,20 +527,20 @@
       D.cutLine((p) => p.pts(lo.slice(5).map((q) => [sd * q[0], q[1] + 0.032]), true), 1.8 / g.U, 0.5);
       for (let i = 7; i < lo.length; i += 3) D.cut((p) => p.circle(sd * lo[i][0], lo[i][1] + 0.016, 0.005), 0);
     }
-    // throat pleats: long grooves sweeping down from the lip into the sea
-    for (let i = 0; i < 14; i++) {
-      const off = 0.07 + i * 0.05 + i * i * 0.0015;
-      for (const sd of [-1, 1]) {
-        const a = lo.slice(2).map((q) => [sd * q[0] * (1 + off * 0.42), q[1] + off]);
-        const ext = [sd * -mw * (1 + off * 0.42) + sd * -0.02, cn + off * 0.55];
-        D.cutLine((p) => p.pts([ext].concat(a), true), (2.4 - i * 0.07) / g.U, 0.6);
-      }
+    // throat pleats: one lower jaw, its grooves sweeping in U-curves under the mouth
+    for (let i = 0; i < 12; i++) {
+      const off = 0.06 + i * 0.045 + i * i * 0.002;
+      const st = Math.min(lo.length - 8, 6 + Math.round(i * 0.8));
+      const a = lo.slice(st).map((q) => [q[0] * (1 + off * 0.5), q[1] + off]);
+      const u = a.concat(a.slice(0, -1).reverse().map((q) => [-q[0], q[1]]));
+      D.cutLine((p) => p.pts(u, true), (2.3 - i * 0.08) / g.U, 0.6);
+      if (i % 2 === 0) for (let j = 4; j < u.length - 4; j += 7) D.cut((p) => p.circle(u[j][0], u[j][1] + 0.022, 0.0035), 0);
     }
     // eyes, old and kind, in the notch between rostrum and jowl
     for (const sd of [-1, 1]) {
-      const ex = sd * (mw + 0.3), ey = cn + 0.07;
+      const ex = sd * (mw + 0.17), ey = cn - 0.05;
       if (Math.abs(ex) > g.hw + 0.12) continue;
-      const S = 0.0012;
+      const S = 0.00085;
       D.cut((p) => { p.at(ex, ey, S, 0.08 * sd, sd > 0); p.path('M-56 4 C-34 -24 22 -30 58 -2 C26 16 -26 18 -56 4 Z'); p.id(); }, 0.6);
       D.paper((p) => { p.at(ex, ey, S, 0.08 * sd, sd > 0); p.circle(6, -2, 16); p.pts([[-2, -14], [14, -14], [14, -30], [-2, -30]]); p.id(); }, 0.4);
       D.cut((p) => { p.at(ex, ey, S, 0.08 * sd, sd > 0); p.circle(11, -7, 4.6); p.id(); }, 0);
@@ -558,7 +557,8 @@
     // barnacles on the jowls and the chin
     for (let i = 0; i < 60; i++) {
       const sd = R() < 0.5 ? -1 : 1;
-      const x = sd * lerp(mw + 0.04, mw + 0.48, R()), y = cn + 0.16 + R() * 0.55;
+      const x = sd * lerp(0.15, mw + 0.4, R()), y = lerp(cn + 0.3, g.lip + 0.2, R());
+      if (inPoly(mouthPoly(g, 0.03), x, y)) continue;
       if (!inPoly(head, x, y) || Math.abs(x) > g.hw + 0.05) continue;
       const r = 0.004 + Math.pow(R(), 2) * 0.012;
       D.cut((p) => p.circle(x, y, r), 0.2);
@@ -648,6 +648,7 @@
       D.cutLine((p) => p.pts(pts.slice(6, -9).map((q, i, arr) => [q[0] - sd * rw * 0.1 * Math.sin((i / arr.length) * Math.PI), q[1]]), true), Math.max(1 / g.U, rw * 0.06), 0.4);
     }
     // vertebra keystone
+    if (opt.vert === false) return sides;
     const vy = o.apex - rw * 0.5, vs = rw * 0.95;
     D.paper((p) => {
       p.at(cx, vy, vs / 10, 0);
@@ -750,7 +751,7 @@
     const o = g.op[4];
     const rw = 0.058, gap = 0.024;
     ribArch(D, g, R, o, {
-      rw, gap, bulge: 0.1, cx: 0.015,
+      rw, gap, bulge: 0.1, cx: 0.015, vert: false,
       floorFn: (x) => -0.006 * Math.sin(x * 7) - 0.01 * Math.exp(-Math.pow((x - o.hw * 0.66) / 0.22, 2)),
       sea: 0.00105, seaStep: 0.17,
     });
@@ -864,7 +865,7 @@
     const o = g.op[6];
     const rw = 0.045, gap = 0.018;
     ribArch(D, g, R, o, {
-      rw, gap, bulge: 0.06, cx: 0.0,
+      rw, gap, bulge: 0.06, cx: 0.0, vert: false,
       floorFn: (x) => -0.002 * Math.sin(x * 40),
     });
     // planks of the floor edge
@@ -1203,9 +1204,9 @@ void main(){
     float gap = zk - uZ[j];
     vec2 q = X - uMoon * gap;
     vec2 b2 = (q + uM) / uLay * uBS;
-    float lod = log2(1.0 + gap * 0.9);
+    float lod = log2(1.0 + gap * 1.7);
     vec2 bb = textureLod(uBlur, vec3(b2, float(j)), lod).rg;
-    S *= 1.0 - 0.86 * mix(bb.r, bb.g, clamp(gap * 0.6, 0.0, 1.0));
+    S *= 1.0 - 0.72 * mix(bb.r, bb.g, clamp(gap * 0.9, 0.0, 1.0));
   }
   float Wl = lampField(X);
   for (int j = 1; j < 9; j++) {
@@ -1252,7 +1253,7 @@ void main(){
   const vec3 warm = vec3(1.0, 0.60, 0.26);
   const vec3 moonC = vec3(0.45, 0.58, 1.0);
   vec2 dv = length(uCam) > 0.03 ? normalize(uCam) : vec2(0.6, 0.8);
-  float coreAmt = 0.15 + 0.85*clamp(length(uCam)*1.4, 0.0, 1.0);
+  float coreAmt = 0.3 + 0.7*clamp(length(uCam)*1.4, 0.0, 1.0);
   for (int k = 0; k < 9; k++) {
     vec2 X = p - uShift[k];
     vec2 uv = (X + uM) / uLay;
@@ -1270,7 +1271,7 @@ void main(){
       float surf = 1.0 + 0.16*grain + 0.10*fib + 0.30*warp;
       vec3 moon = moonC * uMoonI * (0.07 + 0.93 * S);
       vec3 front = paper * (moon + warm * Wl * uBo[k]) * surf;
-      float thick = mix(1.0, 0.45 + 1.1 * cloud, uFv[k]) * (1.0 + uFv[k] * 1.4 * fib);
+      float thick = mix(1.0, 0.4 + 1.2 * cloud, uFv[k]) * (1.0 + uFv[k] * 2.6 * fib);
       vec3 trans = uTint[k] * warm * Wl * uTr[k] * max(thick, 0.0);
       float aV = texture(uMask, vec3(uv + dv * uTexel * 1.6 * uRes, fk)).r;
       float core = clamp(a - aV, 0.0, 1.0) * coreAmt;
@@ -1304,7 +1305,7 @@ void main(){
   const PAPER = ['#0b142e', '#162a52', '#0f1a3c', '#1b4466', '#1d5a68', '#2c6e66', '#6d6a3c', '#a6742e', '#ebb866'];
   const TRANS = [0.02, 0.025, 0.04, 0.07, 0.09, 0.12, 0.16, 0.18, 0.62];
   const BOUNCE = [0.0, 0.03, 0.02, 0.16, 0.22, 0.3, 0.38, 0.42, 0.3];
-  const FIBV = [0.25, 0.25, 0.25, 0.35, 0.4, 0.45, 0.55, 0.65, 1.0];
+  const FIBV = [0.3, 0.3, 0.3, 0.45, 0.5, 0.55, 0.7, 0.8, 1.0];
   const TISSUE = [null, null, null, null, '#ffb040', null, null, '#ff9a30', null];
 
   (window.PIECES = window.PIECES || []).push({
@@ -1456,7 +1457,7 @@ void main(){
         gl.uniform2f(UL.uBS, TW / (bw * BD), TH / (bh * BD));
         gl.uniform2f(UL.uBDim, bw, bh);
         gl.uniform2f(UL.uLamp, g.lamp[0] * g.U + w / 2, g.lamp[1] * g.U + h / 2);
-        gl.uniform2f(UL.uMoon, g.U * 0.016, g.U * 0.022);
+        gl.uniform2f(UL.uMoon, g.U * 0.022, g.U * 0.03);
         gl.uniform1f(UL.uM, M); gl.uniform1f(UL.uU, g.U); gl.uniform1f(UL.uZL, g.zL);
         gl.uniform1fv(UL.uZ, new Float32Array(g.z));
         gl.viewport(0, 0, bw, bh);

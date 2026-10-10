@@ -225,7 +225,7 @@
     blue: { col: [36, 80, 150], goma: 0.11, mott: 0.06, grain: 0.06, wipe: 0.07, pool: 0.32, fib: 0.12, reg: 1.2 },
     red: { col: [204, 46, 34], goma: 0.12, mott: 0.06, grain: 0.04, wipe: 0.06, pool: 0.4, fib: 0.12, reg: 3.0, big: true },
     cedar: { col: [42, 64, 54], goma: 0.09, mott: 0.06, grain: 0.05, wipe: 0.06, pool: 0.26, fib: 0.12, reg: 1.2 },
-    indigo: { col: [30, 40, 86], goma: 0.1, mott: 0.04, grain: 0.04, wipe: 0.05, pool: 0.22, fib: 0.12, reg: 1.2 },
+    indigo: { col: [30, 40, 86], goma: 0.1, mott: 0.04, grain: 0.022, wipe: 0.05, pool: 0.22, fib: 0.12, reg: 1.2 },
     key: { col: [24, 30, 56], goma: 0.06, mott: 0.03, grain: 0, wipe: 0, pool: 0.12, fib: 0.06, reg: 0 },
     gofun: { col: [244, 247, 250], opaque: true, goma: 0.12, mott: 0.05, grain: 0, wipe: 0, pool: 0, fib: 0, reg: 2.0 },
     gofunw: { col: [252, 236, 196], opaque: true, goma: 0.12, mott: 0.05, grain: 0, wipe: 0, pool: 0, fib: 0, reg: 2.0 },
@@ -361,7 +361,7 @@
       let y = top, side = r() < 0.5 ? -1 : 1;
       while (y < bot) {
         const ww = width(y);
-        const two = ww > ch * 2.4 && r() < 0.8;
+        const two = ww > ch * 2.6 && r() < 0.55;
         const list = two ? [side, -side] : [(r() - 0.5) * 0.6];
         for (const s of list) {
           const hw = two ? ww * (0.3 + r() * 0.12) : ww * (0.42 + r() * 0.12);
@@ -369,26 +369,26 @@
           const yy = y + (two && s !== side ? ch * (0.2 + r() * 0.3) : 0);
           const h = ch * (0.7 + r() * 0.45);
           const dir = two ? s : (cx0 >= axis(y) ? 1 : -1);
-          const dOut = h * (0.35 + r() * 0.35), dIn = h * (0.05 + r() * 0.15);
+          const dOut = h * (0.2 + r() * 0.28), dIn = h * (0.0 + r() * 0.08);
           const dL = dir < 0 ? dOut : dIn, dR = dir < 0 ? dIn : dOut;
-          const pts = [[cx0 - hw, yy + dL], [cx0 - hw * 0.55, yy - h * 0.42 + dL * 0.3], [cx0, yy - h * 0.5], [cx0 + hw * 0.55, yy - h * 0.42 + dR * 0.3], [cx0 + hw, yy + dR]];
-          const nsc = 3 + ((r() * 2) | 0);
+          const pts = [[cx0 - hw, yy + dL], [cx0 - hw * 0.7, yy - h * 0.38 + dL * 0.3], [cx0, yy - h * 0.42], [cx0 + hw * 0.7, yy - h * 0.38 + dR * 0.3], [cx0 + hw, yy + dR]];
+          const nsc = 2 + ((r() * 2) | 0);
           for (let j = 1; j <= nsc * 2 - 1; j++) {
             const u = 1 - j / (nsc * 2);
             const x = cx0 - hw + 2 * hw * u;
-            const base = yy + h * 0.28 + (u < 0.5 ? dL : dR) * Math.abs(u - 0.5) * 1.6;
-            pts.push([x + (r() - 0.5) * 2, base + (j % 2 ? h * (0.22 + r() * 0.22) : -h * 0.02)]);
+            const base = yy + h * 0.26 + (u < 0.5 ? dL : dR) * Math.abs(u - 0.5) * 1.6;
+            pts.push([x + (r() - 0.5) * 3, base + (j % 2 ? h * (0.12 + r() * 0.16) : -h * 0.03)]);
           }
           const fol = shape(pts, [0, 4]);
           let snow = null, capTop = null;
           if (r() < (o.snowP == null ? 0.9 : o.snowP)) {
-            const st = h * (0.28 + Math.pow(r(), 1.4) * 0.45) * (o.load || 1);
+            const st = h * (0.22 + Math.pow(r(), 1.6) * 0.6) * (o.load || 1);
             const a = -0.86 + r() * 0.12, b = 0.86 - r() * 0.12;
             const nb = 4 + ((r() * 3) | 0), tp = [], bt = [];
             for (let j = 0; j <= nb; j++) {
-              const u = a + ((b - a) * j) / nb, env = Math.pow(Math.max(0, 1 - Math.abs(u) / 0.95), 0.45);
-              const dd = (u < 0 ? dL : dR) * Math.pow(Math.abs(u), 2) * 0.9;
-              tp.push([cx0 + hw * u + (r() - 0.5) * 2, yy - h * 0.46 + dd - st * env * (0.6 + r() * 0.55)]);
+              const u = a + ((b - a) * j) / nb, env = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(u) / 0.95, 4)), 0.45);
+              const dd = (u < 0 ? dL : dR) * Math.pow(Math.abs(u), 3) * 0.8;
+              tp.push([cx0 + hw * u + (r() - 0.5) * 2, yy - h * 0.42 + dd - st * env * (0.75 + r() * 0.45)]);
             }
             for (let j = nb; j >= 0; j--) {
               const u = a + ((b - a) * j) / nb;
@@ -401,7 +401,7 @@
           parts.push({ fol, snow, capTop, y: yy, h: h + 10 });
         }
         side = -side;
-        y += ch * (0.5 + r() * 0.28);
+        y += ch * (0.55 + r() * 0.35);
       }
       parts.sort((p, q) => q.y - p.y);
       return parts;
@@ -507,14 +507,14 @@
 
       // the pool of light: the snow blocks wiped back in many soft passes, a warm block printed in their place
       const PR = R('pool');
-      const poolBase = [[452, 1080], [866, 1074], [960, 1120], [1012, 1220], [996, 1350], [890, 1460], [690, 1500], [470, 1480], [300, 1420], [150, 1330], [80, 1230], [150, 1150], [300, 1110], [400, 1090]];
-      const NP = 18, pwr = 0.9 + PR() * 0.2;
+      const poolBase = [[452, 1080], [866, 1074], [950, 1118], [990, 1210], [962, 1320], [862, 1410], [700, 1448], [540, 1432], [410, 1376], [300, 1300], [220, 1210], [250, 1140], [340, 1104], [410, 1088]];
+      const NP = 18, pwr = 0.88 + PR() * 0.2;
       for (let i = 0; i < NP; i++) {
         const f = 1 - i * (0.92 / NP);
         const pts = poolBase.map((q) => [LIGHT[0] + (q[0] - LIGHT[0]) * f + (PR() - 0.5) * 22 * f, LIGHT[1] + (q[1] - LIGHT[1]) * f + (PR() - 0.5) * 10 * f]);
         const pp = smooth(pts);
-        wipe('shadow', pp, 0.095 * pwr); wipe('indigo', pp, 0.12 * pwr); wipe('grey', pp, 0.12 * pwr);
-        ink('yellow', pp, 0.04 * pwr);
+        wipe('shadow', pp, 0.085 * pwr); wipe('indigo', pp, 0.11 * pwr); wipe('grey', pp, 0.11 * pwr);
+        ink('yellow', pp, 0.036 * pwr);
       }
       // long shadows thrown by the light
       const wedge = (pts, from, to, a) => {
@@ -561,7 +561,7 @@
       const pl = carve(r, [[30 - tw * 0.35, 620], [30 - tw * 0.48, 950]], 4, { ts: 6, te: 2, chip: 0.1, brk: 0.04 });
       occ(pl); ink('shadow', pl, 0.5);
       const dr = blob(r, 30, 962, 60, 8, 10, 0.2); occ(dr); inks([['shadow', 0.55], ['indigo', 0.3]], dr);
-      drawSugi(r, sugi(r, 18, -140, 640, 132, { clump: 30 }), [['cedar', 0.9], ['indigo', 0.62]], [['shadow', 0.56], ['indigo', 0.22]], 0.6);
+      drawSugi(r, sugi(r, 18, -140, 640, 120, { clump: 42 }), [['cedar', 0.9], ['indigo', 0.62]], [['shadow', 0.56], ['indigo', 0.22]], 0.6);
     }
 
     /* ---- 9. the dark cedars behind the stop */
@@ -578,11 +578,11 @@
         const p = carve(r, [[x, 700 + r() * 80], [x + (r() - 0.5) * 3, 1004 + r() * 6]], w, { ts: 0, te: 2, sw: 0.1, chip: 0.03 });
         occ(p); inks([['cedar', 0.5], ['indigo', 0.85], ['key', 0.3]], p);
       }
-      const back = [['cedar', 0.72], ['indigo', 0.74], ['grey', 0.12]], backS = [['shadow', 0.68], ['indigo', 0.38]];
+      const back = [['cedar', 0.72], ['indigo', 0.8], ['grey', 0.1]], backS = [['shadow', 0.72], ['indigo', 0.45]];
       const front = [['cedar', 0.9], ['indigo', 0.6]], frontS = [['shadow', 0.55], ['indigo', 0.2]];
       const trees = [
-        [604, -160, 690, 112, back, backS, 1], [790, -150, 670, 120, back, backS, 1], [960, -150, 680, 120, back, backS, 1],
-        [516, -120, 650, 92, front, frontS, 0], [700, -170, 620, 118, front, frontS, 0], [880, -160, 640, 116, front, frontS, 0],
+        [612, -160, 700, 96, back, backS, 1], [800, -150, 690, 100, back, backS, 1], [968, -150, 690, 100, back, backS, 1],
+        [522, -120, 660, 84, front, frontS, 0], [708, -170, 630, 104, front, frontS, 0], [892, -160, 650, 100, front, frontS, 0],
       ];
       for (const t of trees) {
         const u = um(1040), tw = (t[6] ? 0.42 : 0.55) * u;
@@ -596,7 +596,7 @@
           // bark: a few long carved strokes
           for (let i = 0; i < 3; i++) { const bx = t[0] + (r() - 0.5) * tw * 0.6; ink('key', key(r, [[bx, t[2] + r() * 60], [bx + (r() - 0.5) * 3, t[2] + 120 + r() * 200]], 0.8, { brk: 0.05 }), 0.4); }
         }
-        drawSugi(r, sugi(r, t[0], t[1], t[2], t[3], { clump: 34, snowP: t[6] ? 0.75 : 0.95, load: t[6] ? 0.85 : 1.1 }), t[4], t[5], t[6] ? 0.28 : 0.62);
+        drawSugi(r, sugi(r, t[0], t[1], t[2], t[3], { clump: t[6] ? 36 : 46, snowP: t[6] ? 0.35 : 0.92, load: t[6] ? 0.7 : 1.15 }), t[4], t[5], t[6] ? 0.2 : 0.62);
       }
       // the light-halo: the dark blocks wiped thin around the machines
       const hm = ellM(660, 930, 300, 200);
@@ -608,9 +608,9 @@
     {
       const r = R('nearpole');
       const x = 497, top = 138, base = 1050, u = um(base);
-      const w = 0.26 * u, w2 = w * 0.78;
+      const w = 0.2 * u, w2 = w * 0.75;
       const body = shape([[x - w2 / 2, top], [x + w2 / 2, top], [x + w / 2, base], [x - w / 2, base]], [0, 1, 2, 3]);
-      occ(body); inks([['grey', 0.6], ['indigo', 0.55], ['brown', 0.15]], body);
+      occ(body); inks([['grey', 0.6], ['indigo', 0.82], ['brown', 0.2]], body);
       ink('indigo', body, 1, LG(x - w / 2, 0, x + w / 2, 0, [[0, 0.1], [0.6, 0], [1, 0.3]]));
       ink('key', key(r, [[x - w2 / 2, top], [x - w / 2, base]], 1.3, { brk: 0.01, chip: 0.04, ts: 0, te: 0 }), 0.9);
       ink('key', key(r, [[x + w2 / 2, top], [x + w / 2, base]], 1.3, { brk: 0.01, chip: 0.04, ts: 0, te: 0 }), 0.9);
@@ -634,10 +634,10 @@
       const ty = top + 2.2 * u;
       ins.push([x - w / 2, ty]);
       // a transformer
-      const tf = shape([[x + w / 2, ty + 20], [x + w / 2 + 34, ty + 18], [x + w / 2 + 36, ty + 70], [x + w / 2 + 18, ty + 76], [x + w / 2, ty + 70]], [0, 1, 4]);
+      const tf = shape([[x + w / 2, ty + 20], [x + w / 2 + 24, ty + 19], [x + w / 2 + 25, ty + 56], [x + w / 2 + 12, ty + 60], [x + w / 2, ty + 56]], [0, 1, 4]);
       occ(tf); inks([['grey', 0.48], ['indigo', 0.3]], tf);
-      ink('key', key(r, [[x + w / 2 + 34, ty + 18], [x + w / 2 + 36, ty + 70], [x + w / 2 + 18, ty + 76]], 1), 0.8);
-      const tsn = blob(r, x + w / 2 + 17, ty + 17, 20, 4, 9, 0.2); occ(tsn); ink('shadow', tsn, 0.3);
+      ink('key', key(r, [[x + w / 2 + 24, ty + 19], [x + w / 2 + 25, ty + 56], [x + w / 2 + 12, ty + 60]], 1), 0.8);
+      const tsn = blob(r, x + w / 2 + 12, ty + 18, 14, 3, 9, 0.2); occ(tsn); ink('shadow', tsn, 0.3);
       // wires: near to far, each with a thread of snow along its top
       const arms = [ins].concat(poleArms.slice().reverse());
       for (let i = 0; i < arms.length - 1; i++) {
@@ -887,7 +887,7 @@
         ink('key', key(r, T([[lx[1] + 0.4, -20], [lx[1] + 0.8, 0]]), 1, { ts: 0, te: 0 }), 0.8, null, fclip);
       }
       // the umbrella's shaft (behind the head)
-      const Rm = [fx + 30, fy - 290];
+      const Rm = [fx + 30, fy - 276];
       ink('key', key(r, [[Rm[0] + 2, Rm[1] + 4], [fx + 16, fy - 150]], 2, { ts: 0, te: 0, chip: 0 }), 0.92);
       // coat
       const coatPts = [[-8, -127], [-14, -125.5], [-19.5, -122], [-22.5, -115], [-24, -104], [-25.2, -90], [-26, -76], [-26.4, -66], [-24.6, -62],
@@ -952,7 +952,7 @@
       // the umbrella: held up, the rim just above our eye, so we see its warm-lit underside
       const th = -0.09, cth = Math.cos(th), sth = Math.sin(th);
       const P = (u, v) => [Rm[0] + u * cth + v * sth, Rm[1] + u * sth - v * cth];
-      const rx = 76, ryr = 15, H = 52, lean = -10;
+      const rx = 76, ryr = 17, H = 66, lean = -12;
       const ribs = 8, a0 = 0.18 + r() * 0.3;
       const tipA = [];
       for (let i = 0; i < ribs; i++) tipA.push(a0 + (i * TAU) / ribs);
@@ -1012,7 +1012,7 @@
       const sl = [];
       for (let i = 0; i <= 14; i++) {
         const t = i / 14, u = -rx * 1.05 + 2.1 * rx * t;
-        sl.push(P(u, H * 0.42 + Math.sin(t * Math.PI) * H * 0.18 + (r() - 0.5) * 4 - Math.abs(u) / rx * 6));
+        sl.push(P(u, H * 0.66 + Math.sin(t * Math.PI) * H * 0.12 + (r() - 0.5) * 4 - Math.abs(u) / rx * 10));
       }
       const snowTop = poly(sl.concat([P(rx * 1.3, H * 2), P(-rx * 1.3, H * 2)]));
       const domeBig = poly(dome.slice(0, 25).map((q, i) => (i === 0 || i === 24 ? q : [q[0], q[1] - 3.5])).concat([P(rx, ryr * 0.3), P(-rx, ryr * 0.3)]));
@@ -1081,7 +1081,7 @@
       const r = R('flakes');
       const cool = [new Path2D(), new Path2D(), new Path2D()], warm = [new Path2D(), new Path2D(), new Path2D()];
       const drift = 0.32 + r() * 0.12; // radians off vertical
-      const n = 520 + ((r() * 240) | 0);
+      const n = 340 + ((r() * 160) | 0);
       const avoid = [[CAT[0] - 22, CAT[1] - 80, 22]];
       const place = (x, y, rad, alphaBucket, soft) => {
         if (x > cart.x - 6 && x < cart.x + cart.w + 6 && y > cart.y - 6 && y < cart.y + cart.h + 6) return;
@@ -1102,10 +1102,10 @@
         const y = IH * Math.sqrt(r());
         const x = r() * IW;
         const depth = y / IH;
-        const rad = (1.1 + 3.4 * depth) * (0.6 + 1.6 * Math.pow(r(), 3.2));
+        const rad = (1.2 + 2.6 * depth) * (0.6 + 1.7 * Math.pow(r(), 3.2));
         place(x, y, rad, r() < 0.6 ? 0 : r() < 0.7 ? 1 : 2, false);
       }
-      for (let i = 0; i < 9; i++) place(r() * IW, IH * (0.62 + r() * 0.36), 9 + r() * 9, 0, true);
+      for (let i = 0; i < 7; i++) place(r() * IW, IH * (0.6 + r() * 0.38), 9 + r() * 8, 0, true);
       ink('gofun', cool[0], 0.95); ink('gofun', cool[1], 0.62); ink('gofun', cool[2], 0.32);
       ink('gofunw', warm[0], 0.95); ink('gofunw', warm[1], 0.62); ink('gofunw', warm[2], 0.32);
     }

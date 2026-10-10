@@ -68,17 +68,18 @@
     return pts.map(function (p) { const q = pt(ox + p.x * k * mx, oy + p.y * k, p.c, p.d); if (p.w) q.w = p.w; return q; });
   }
   function corner(p, d) { p.c = true; if (d != null) p.d = d; return p; }
-  // a hand-drawn wavy line: quarter-wave points, each crest a little different
-  function sine(x0, x1, y0, amp0, amp1, lam) {
+  // a cartoonist's sea: calm water with the odd swell leaning forward
+  function sea(x0, x1, y0, a0, a1, gap) {
     const out = [];
-    const n = Math.max(2, Math.round((x1 - x0) / (lam / 4)));
-    const ph = x0 * 0.37;
-    for (let k = 1; k <= n; k++) {
-      const u = k / n, x = x0 + (x1 - x0) * u;
-      const a = (amp0 + (amp1 - amp0) * u) * (1 + 0.28 * Math.sin(k * 0.9 + ph) + 0.12 * Math.sin(k * 2.3 + ph * 1.7));
-      const sx = k < n ? lam * 0.06 * Math.sin(k * 1.3 + ph) : 0;
-      out.push(pt(x + sx, y0 - a * Math.sin((x - x0) / lam * Math.PI * 2), false));
+    let x = x0 + gap * (0.35 + 0.4 * hashI(Math.round(x0 * 7)));
+    while (true) {
+      const u = (x - x0) / Math.max(1, x1 - x0), a = (a0 + (a1 - a0) * u) * (0.8 + 0.4 * hashI(Math.round(x * 13)));
+      const w = 16 + a * 1.6;
+      if (x + w > x1 - 4) break;
+      out.push(pt(x, y0), pt(x + 0.36 * w, y0 - 0.5 * a), pt(x + 0.62 * w, y0 - a), pt(x + 0.8 * w, y0 - 0.86 * a), pt(x + 0.92 * w, y0 - 0.42 * a), pt(x + w, y0));
+      x += w + gap * (0.55 + 0.9 * hashI(Math.round(x * 3 + 1)));
     }
+    out.push(pt(x1, y0));
     return out;
   }
   function concat() {
@@ -121,7 +122,7 @@
   // 1 — the horizon is a table; a cup; its steam becomes a cloud that rains back into the cup
   function vTable(R) {
     const cx = 205, cy = -80, rx = 38, ry = 8;
-    let p = P('0,0 22,0.2 !38,0 37,40 !35.5,72 !32.5,76 !44,76 !43.5,72 45.5,40 !47,0 100,0.3 !174,0');
+    let p = P('0,0 22,0.2 !38,0 37,30 !35.8,52 !32.8,56 !44.2,56 !43.8,52 45.5,30 !47,0 100,0.3 !174,0');
     // saucer (rounded lip), cup foot, bowl
     p = p.concat(P('!174,-3 163,-4.2 152,-6.8 145,-10.5 142,-14 144.5,-16.3 152,-15.6 165,-13.6 !186,-11.6 !184.5,-15 175,-27 168.5,-44 166,-62'));
     p = p.concat(arc(cx, cy, rx, ry, 180, 0, 15));
@@ -136,7 +137,7 @@
     p = p.concat(P('!240.5,-86.5 !243,-82 !247.5,-87.5 !244.2,-79 244.2,-72 !244.5,-68'));
     // handle, right wall, foot, saucer, table, far leg
     p = p.concat(P('256,-73 266,-66 268.5,-54 261,-45 !242,-43 238.5,-32 232,-22 !225.5,-15 !224,-11.6 245,-13.6 258,-15.6 265.5,-16.3 268,-14 265,-10.5 258,-6.8 247,-4.2 !236,-3 !236,0'));
-    p = p.concat(P('300,0.3 380,-0.2 !431,0 432.5,40 !434.5,72 !431.5,76 !443,76 !442.5,72 441,40 !440,0 480,0.3 520,0'));
+    p = p.concat(P('300,0.3 380,-0.2 !431,0 432.5,30 !434.2,52 !431.2,56 !442.6,56 !442.2,52 441,30 !440,0 480,0.3 520,0'));
     return { w: 520, pts: p, tempo: 0.95 };
   }
   // scalloped cloud outline (clockwise on screen) through overlapping circles
@@ -176,9 +177,9 @@
   // 2 — the sea, a whale, a spout; the sea ends at the steps of a harbour
   function vWhale(R) {
     let p = P('0,0 30,0.2');
-    p = p.concat(sine(30, 126, 0, 0.5, 2.6, 16));
+    p = p.concat(sea(30, 126, 0, 3, 4, 26));
     p = p.concat(T('!-14,0 -10,-14 -7,-30 !-10,-40 -22,-47 -34,-55 !-44,-65 -30,-62 -14,-56 !-2,-58 10,-60 24,-66 !36,-72 26,-60 14,-50 !6,-42 4,-30 6,-14 !12,0', 150, 0));
-    p = p.concat(sine(162, 248, 0, 2.6, 1.5, 15));
+    p = p.concat(sea(162, 248, 0, 4, 3, 26));
     p = p.concat(P('!250,0 262,-14 282,-38 310,-62 344,-82 378,-94 !404,-98 403,-120 !402,-142'));
     // the spout: arcs of water, each ending in a drop (the ink pools there)
     p = p.concat(outBack('396,-151 386,-156 376,-153 370,-146 367,-137', [402, -143], 0.3));
@@ -189,7 +190,7 @@
     p = p.concat(P('405,-120 !406,-99'));
     // the head, an eye, a grin; the jaw goes under the water
     p = p.concat(P('430,-97 452,-93 470,-86 483,-74 490,-60 491.5,-52 488,-46.5 483.5,-49 485,-54 491,-54.5 494,-42 494,-28 489,-17 !480,-11.5 466,-10 452,-10.5 443,-12.5 !437.5,-17.5 !437,-12 434,-5 !432,0'));
-    p = p.concat(sine(432, 630, 0, 2, 1.2, 17));
+    p = p.concat(sea(432, 630, 0, 4, 3, 34));
     // stone steps up to the quay
     p = p.concat(P('!636,0 !636,-6 !647,-6 !647,-12 !658,-12 !658,-18 !669,-18 !669,-24 700,-24 720,-24'));
     return { w: 720, pts: p, tempo: 1 };
@@ -260,14 +261,20 @@
 
   // 5 — the sea grows into mountains; a train; its smoke; the hand that is drawing it all
   function vFinale(R) {
-    const hm = 0.86 + 0.26 * R();               // how high the mountains rise, this time
+    const hm = 0.92 + 0.14 * R();               // how high the mountain stands, this time
     const nCar = R() < 0.5 ? 1 : 2;             // and how long the train is
     let p = P('0,0');
-    p = p.concat(sine(0, 140, 0, 1.5, 7, 24));
-    const peaks = P('!150,-20 !166,-2 !218,-100 !234,-78 !246,-82 !272,-48 !305,-116 !316,-112 !340,-178 !340,-200 !354,-195 !341,-190 !340,-178 !370,-130 !380,-134 !408,-80 !450,-128 !478,-88 !486,-92');
-    for (let i = 0; i < peaks.length; i++) peaks[i].y *= hm;
-    p = p.concat(peaks);
-    p = p.concat(P('!528,0 570,0.2 !600,0'));
+    p = p.concat(sea(0, 150, 0, 3, 14, 18));
+    // the swells grow into the Great Wave: a long back, a crest of foam claws, the hollow curl
+    p = p.concat(P('170,-6 190,-22 206,-48 218,-82 228,-114 240,-140 254,-154 266,-157 !276,-152 279,-145 !284,-147 287,-139 !292,-139 293,-130 !297,-127 291,-121 283,-124 274,-131 266,-128 261,-117 260,-98 264,-72 273,-44 288,-18 304,-4 !318,0'));
+    // ...and the wave becomes Fuji: concave flanks, a crater lip, a ragged cap of snow inked twice
+    const fuji = P('340,-14 366,-40 388,-74 404,-112 !414,-142 420,-160 !425,-176 432,-178.5 438,-176.5 444,-179.5 450,-177 456,-179 !462,-176 467,-160 !472,-142');
+    const snow = P('467,-131 !463,-147 457.5,-130 !452,-153 446,-131.5 !440.5,-143 434,-127.5 !428,-150 422,-133 !417.5,-141.5 !414,-142');
+    const back = snow.slice(0, -1).reverse().map(function (q) { return pt(q.x, q.y, q.c); });
+    p = p.concat(fuji, snow, back, [pt(472, -142, true)]);
+    p = p.concat(P('482,-112 498,-74 520,-40 546,-16 572,-3 !596,0'));
+    for (let i = 0; i < p.length; i++) if (p[i].x > 160 && p[i].x < 590) p[i].y *= hm;
+    p = p.concat(P('!600,0'));
     // carriages: wheel, back wall, a roof with round windows, front wall, wheel, coupling
     let s = arc(608, -8, 7, 7, 180, -180, 30); corner(s[0]); p = p.concat(s);
     let xb = 602;
@@ -508,7 +515,7 @@
       const press = (0.55 + 0.45 * (0.5 + 0.5 * nz2(s / 110))) * (0.35 + 0.65 * ru * ru * (3 - 2 * ru));
       if (DW[i] > 0.06) flowBoost = Math.min(1.1, DW[i] * 3);
       flowBoost *= Math.exp(-ds / 5);
-      let w = 1.35 + 2.9 * Math.pow(down, 1.6) * press * LW[i] + 0.6 * Math.pow(Math.max(0, 1 - vn), 4) + flowBoost;
+      let w = 1.55 + 1.5 * Math.pow(Math.max(0, 1 - vn), 1.5) + 2.5 * Math.pow(down, 1.6) * press * LW[i] + flowBoost;
       let dry = 0;
       for (let k = 0; k < dryAt.length; k++) {
         const d = i - dryAt[k];
@@ -678,15 +685,15 @@
       function layout() {
         W = Math.max(1, el.clientWidth); H = Math.max(1, el.clientHeight);
         dpr = Math.min(2, window.devicePixelRatio || 1);
-        const top = C.minY - 26, bot = C.maxY + 22, bandH = bot - top;
+        const top = C.minY - 16, bot = C.maxY + 12, bandH = bot - top;
         const phone = W < H;
-        S = Math.min(H * (phone ? 0.52 : 0.66) / bandH, W / 560);
+        S = Math.min(H * (phone ? 0.5 : 0.7) / bandH, W / 520);
         SW = Math.pow(S / 1.5, 0.62);
         visW = W / S;
         camF = phone ? 0.64 : 0.6;
         camFs = phone ? 0.36 : 0.3;
         const contentH = bandH * S;
-        paperH = Math.max(contentH + 40, phone ? H * 0.5 : 0);
+        paperH = Math.max(contentH + 24, phone ? H * 0.5 : 0);
         paperH = Math.round(Math.min(paperH, H * 0.9));
         paperTop = Math.round(H * (phone ? 0.48 : 0.465) - paperH / 2);
         bgc.width = Math.round(W * dpr); bgc.height = Math.round(H * dpr);

@@ -1901,41 +1901,52 @@
       // --- the kitten walked through the ink and across the psalm
       {
         const rp = Rng(seed, 'paws');
-        const sx = 572 + rp.r(-6, 10), sy = 1012 + rp.r(-6, 6);
-        const ang = rp.r(-0.62, -0.48);
+        const sx = 584 + rp.r(-6, 8), sy = 1000 + rp.r(-4, 4);
+        const ang = rp.r(-0.66, -0.56);
         const ca = Math.cos(ang), sa = Math.sin(ang);
-        const N = 5, step = 92, size = 46;
-        const PAD = [[-0.3, 0.12], [-0.12, -0.02], [0.0, 0.04], [0.12, -0.02], [0.3, 0.12], [0.34, 0.34], [0.18, 0.5], [0.0, 0.46], [-0.18, 0.5], [-0.34, 0.34]];
-        const TOES = [[-0.44, -0.3, 0.13, 0.17], [-0.16, -0.5, 0.14, 0.18], [0.16, -0.5, 0.14, 0.18], [0.44, -0.3, 0.13, 0.17]];
+        const N = 6, step = 54, size = 26;
+        const slip = rp.i(2, 3);
+        // main pad: trilobed at the back, rounded in front; four separate oval toe beans
+        const PAD = [[-0.36, 0.06], [-0.18, -0.08], [0.0, -0.1], [0.18, -0.08], [0.36, 0.06], [0.42, 0.26], [0.3, 0.42], [0.15, 0.36], [0.0, 0.46], [-0.15, 0.36], [-0.3, 0.42], [-0.42, 0.26]];
+        const TOES = [[-0.47, -0.36, 0.12, 0.15], [-0.17, -0.58, 0.12, 0.16], [0.17, -0.58, 0.12, 0.16], [0.47, -0.36, 0.12, 0.15]];
+        const inkC = '#24150c';
         for (let i = 0; i < N; i++) {
-          const along = i * step + rp.r(-4, 4), side = (i % 2 ? 1 : -1) * 9;
+          const along = i * step + rp.r(-3, 3), side = (i % 2 ? 1 : -1) * 6;
           const x = sx + ca * along - sa * side, y = sy + sa * along + ca * side;
-          const fade = [1, 0.9, 0.72, 0.52, 0.32][i];
-          push(); translate(x, y); rotate(ang + PI / 2 + rp.r(-0.15, 0.15)); scale(size * rp.r(0.95, 1.05));
-          const shapes = [PAD.map((q) => [q[0] + rp.g() * 0.015, q[1] + rp.g() * 0.015])];
-          for (const t of TOES) shapes.push(ellPts(t[0] + rp.g() * 0.02, t[1] + rp.g() * 0.02, t[2], t[3], 10, rp.r(-0.3, 0.3)));
+          const fade = [1, 0.88, 0.74, 0.58, 0.42, 0.26][i];
+          const smudge = i === slip;
+          push(); translate(x, y); rotate(ang + PI / 2 + rp.r(-0.12, 0.12)); scale(size * rp.r(0.95, 1.05));
+          const shapes = [PAD.map((q) => [q[0] + rp.g() * 0.012, q[1] + rp.g() * 0.012])];
+          for (const t of TOES) shapes.push(ellPts(t[0] + rp.g() * 0.015, t[1] + rp.g() * 0.015, t[2], t[3], 10, rp.r(-0.3, 0.3)));
           for (const sh of shapes) {
             const P = shapePath(sh, true);
-            cc.save(); cc.clip(P);
-            cc.globalAlpha = 0.72 * fade; cc.fillStyle = '#120b07'; cc.fill(P);
-            // stipple: the skin of the pad leaves a broken, grainy impression
+            cc.globalAlpha = 0.86 * fade; cc.fillStyle = inkC; cc.fill(P);
+            mm.globalAlpha = fade; mm.fillStyle = MAT.ink; mm.fill(P); mm.globalAlpha = 1;
+            // where the pad lifted cleanly the ink is thin: a few pale flecks inside
             const T = tf(sh); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
             for (const q of T) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }
-            const st = new Path2D(); const cnt = Math.round((x1 - x0) * (y1 - y0) * 0.9);
-            for (let k = 0; k < cnt; k++) { const px = rp.r(x0, x1), py = rp.r(y0, y1), r = rp.r(0.3, 0.9); st.moveTo(px + r, py); st.arc(px, py, r, 0, TAU); }
-            cc.globalAlpha = 0.6 * fade; cc.fill(st);
+            cc.save(); cc.clip(P);
+            const st = new Path2D(); const cnt = Math.round((x1 - x0) * (y1 - y0) * 0.35 * (1.3 - fade));
+            for (let k = 0; k < cnt; k++) { const px = rp.r(x0, x1), py = rp.r(y0, y1), r = rp.r(0.25, 0.7); st.moveTo(px + r, py); st.arc(px, py, r, 0, TAU); }
+            cc.globalAlpha = 0.55; cc.fillStyle = C.vellum; cc.fill(st);
             cc.restore();
-            mm.save(); mm.clip(P); mm.globalAlpha = fade; mm.fillStyle = MAT.ink; mm.fill(st); mm.restore();
-            // a blurred halo where the ink spread into the skin
-            cc.globalAlpha = 0.1 * fade; cc.strokeStyle = '#2a1a10'; cc.lineWidth = 1.6; cc.stroke(P); cc.globalAlpha = 1;
+            cc.globalAlpha = 0.12 * fade; cc.strokeStyle = inkC; cc.lineWidth = 0.9; cc.stroke(P); cc.globalAlpha = 1;
+          }
+          if (smudge) {
+            // the cat skidded here: the print is dragged forward into a streak
+            for (let k = 1; k <= 5; k++) {
+              const P = shapePath(PAD.map((q) => [q[0] * (1 - k * 0.06), q[1] - k * 0.16]), true);
+              cc.globalAlpha = 0.22 * fade * (1 - k * 0.14); cc.fillStyle = inkC; cc.fill(P);
+            }
+            cc.globalAlpha = 1;
           }
           pop();
         }
-        // where it all began: a smear at the edge of the column
-        push(); translate(sx - 18, sy + 10); rotate(0.3);
-        const sm = [[-10, -3], [-2, -6], [10, -4], [16, 1], [8, 4], [-4, 5], [-12, 2]];
-        const smp = shapePath(sm, true); cc.globalAlpha = 0.55; cc.fillStyle = '#140d09'; cc.fill(smp); cc.globalAlpha = 1;
-        for (let k = 0; k < 4; k++) dot(rp.r(-14, 18), rp.r(-8, 9), rp.r(0.5, 1.4), C.ink);
+        // where it all began: a smear at the foot of the column
+        push(); translate(sx - 16, sy + 12); rotate(0.3);
+        const smp = shapePath([[-10, -3], [-2, -5.5], [9, -4], [14, 1], [7, 4], [-4, 4.5], [-11, 2]], true);
+        cc.globalAlpha = 0.7; cc.fillStyle = inkC; cc.fill(smp); cc.globalAlpha = 1;
+        for (let k = 0; k < 4; k++) dot(rp.r(-14, 16), rp.r(-8, 9), rp.r(0.5, 1.3), C.ink);
         pop();
       }
     }

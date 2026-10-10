@@ -32,14 +32,14 @@
    * centre of the well, up the inside, over the lip, down the outside, round
    * the foot ring and in under the base to the axis. */
   const CTRL = [
-    [0.000, 0.205], [0.070, 0.2062], [0.140, 0.2125], [0.210, 0.233], [0.300, 0.290], [0.420, 0.392],
-    [0.560, 0.540], [0.700, 0.700], [0.815, 0.832], [0.890, 0.905], [0.922, 0.940], [0.934, 0.975], // 11 lip, inside
-    [0.943, 1.001], [0.961, 1.014], [0.979, 1.007], [0.990, 0.985], //                                13 rim top, 15 lip outside
-    [0.987, 0.958], [0.975, 0.933], [0.968, 0.905], [0.944, 0.868], [0.860, 0.768], [0.720, 0.600],
-    [0.580, 0.430], [0.470, 0.300], [0.405, 0.215], [0.370, 0.165], [0.352, 0.136], //                26 end of wall
-    [0.336, 0.124], [0.329, 0.100], [0.325, 0.050], [0.321, 0.012], [0.311, 0.000], [0.285, 0.000],
-    [0.262, 0.000], [0.251, 0.010], [0.247, 0.040], [0.243, 0.062], [0.224, 0.071], [0.150, 0.075],
-    [0.070, 0.078], [0.000, 0.080],
+    [0.000, 0.200], [0.070, 0.2015], [0.140, 0.207], [0.215, 0.222], [0.300, 0.262], [0.400, 0.335],
+    [0.540, 0.485], [0.680, 0.655], [0.800, 0.800], [0.872, 0.888], [0.912, 0.935], [0.930, 0.975], // 11 lip, inside
+    [0.940, 1.001], [0.960, 1.014], [0.980, 1.007], [0.993, 0.985], //                                13 rim top, 15 lip outside
+    [0.986, 0.957], [0.966, 0.930], [0.962, 0.905], [0.942, 0.872], [0.862, 0.774], [0.732, 0.616], // 17 the pinch
+    [0.600, 0.456], [0.486, 0.318], [0.414, 0.230], [0.372, 0.172], [0.352, 0.140], //                26 end of wall
+    [0.334, 0.134], [0.316, 0.124], [0.320, 0.100], [0.330, 0.040], [0.330, 0.014], [0.317, 0.000], // trimmed shoulder, groove, bevel
+    [0.290, 0.000], [0.266, 0.000], [0.254, 0.012], [0.249, 0.050], [0.236, 0.064], [0.150, 0.070], // ring, recessed base
+    [0.070, 0.073], [0.000, 0.074],
   ];
 
   function crPoint(p0, p1, p2, p3, u) { // centripetal Catmull-Rom (Barry–Goldman)
@@ -133,7 +133,7 @@
       }
       return [dd, wt];
     };
-    const dripAt = (th) => { const [dd, wt] = dripW(th); return [dripBase + dripWave(th) + dd, 0.0062 + 0.009 * wt]; };
+    const dripAt = (th) => { const [dd, wt] = dripW(th); return [dripBase + dripWave(th) + dd, 0.0065 + 0.013 * wt * wt]; };
     const glazeThick = (e, A) => {
       if (e <= 0) return 0;
       const edge = Math.sqrt(smooth(0, 0.005, e));
@@ -329,11 +329,18 @@
 
     // oil-spot clusters, in the inside chart (s cosθ, s sinθ)
     const clus = new Float32Array(32);
-    for (let i = 0; i < 8; i++) {
-      const s = 0.25 + 0.75 * Math.sqrt(rng()), a = rng() * TAU;
-      clus[i * 4] = s * Math.cos(a); clus[i * 4 + 1] = s * Math.sin(a);
-      clus[i * 4 + 2] = 0.08 + 0.16 * rng(); clus[i * 4 + 3] = i < 3 ? 0.9 + 0.5 * rng() : 0.25 + 0.6 * rng();
-    }
+    { let k = 0; // three drifts, each a short chain of overlapping islands
+      for (let d = 0; d < 3 && k < 8; d++) {
+        let sd = 0.35 + 0.6 * Math.sqrt(rng()), a = rng() * TAU;
+        let px = sd * Math.cos(a), py = sd * Math.sin(a);
+        const dir = rng() * TAU, n = d === 0 ? 3 : 2 + Math.floor(rng() * 2);
+        for (let i = 0; i < n && k < 8; i++, k++) {
+          clus[k * 4] = px; clus[k * 4 + 1] = py;
+          clus[k * 4 + 2] = 0.06 + 0.09 * rng(); clus[k * 4 + 3] = (d === 0 ? 1.3 : 0.9) * (0.7 + 0.5 * rng());
+          const step = 0.07 + 0.06 * rng(), dd = dir + (rng() - 0.5) * 0.9;
+          px += Math.cos(dd) * step; py += Math.sin(dd) * step;
+        }
+      } }
     return {
       pos, nrm, tns, uv, idx, NR, NC,
       keys: { sLipIn, sRim, sLipOut, sWallEnd, foot: K[30] },
@@ -422,7 +429,7 @@ vec3 env(vec3 d, float a) {
 }
 
 /* the bowl as an occluder, for the table */
-float bowlRad(float y) { return y < 0.125 ? 0.322 : min(0.99, 0.33 + (y - 0.125) * 0.84); }
+float bowlRad(float y) { return y < 0.14 ? 0.33 : min(0.99, 0.352 + (y - 0.14) * 0.81); }
 float discShadow(vec2 xz, vec3 L, float soft) {
   float v = 1.0;
   for (int i = 0; i < 7; i++) {
@@ -436,8 +443,8 @@ float discShadow(vec2 xz, vec3 L, float soft) {
 }
 float floorAO(vec2 xz) {
   float rho = length(xz);
-  float contact = 1.0 - 0.8 * exp(-max(rho - 0.305, 0.0) / 0.022);
-  float under = mix(0.3, 1.0, smoothstep(0.28, 1.3, rho));
+  float contact = 1.0 - 0.85 * exp(-max(rho - 0.322, 0.0) / 0.03);
+  float under = mix(0.12, 1.0, smoothstep(0.3, 1.45, rho));
   return contact * under;
 }
 vec3 slate(vec2 xz, float detail) {
@@ -445,7 +452,7 @@ vec3 slate(vec2 xz, float detail) {
   float n1 = fbm2(q * 1.6);
   float n2 = vnoise(q * vec2(1.1, 19.0)) * 0.6 + vnoise(q * vec2(0.6, 47.0)) * 0.4; // cleavage
   float n3 = vnoise(q * 140.0) * 0.6 + vnoise(q * 330.0) * 0.4;
-  float a = 0.030 * (0.84 + 0.26 * n1 + detail * (0.14 * (n2 - 0.5) + 0.12 * (n3 - 0.5)));
+  float a = 0.042 * (0.84 + 0.24 * n1 + detail * (0.16 * (n2 - 0.5) + 0.16 * (n3 - 0.5)));
   return a * vec3(0.98, 0.95, 0.92);
 }
 vec3 floorLight(vec3 p, float detail) { // diffuse radiance of the table at p
@@ -454,7 +461,7 @@ vec3 floorLight(vec3 p, float detail) { // diffuse radiance of the table at p
   float Ek = (KEY_E + ACC_E) * l.y * (25.0 / (dl * dl));
   vec2 pc = (xz - vec2(-0.3, 0.2)) * vec2(0.8, 1.0);
   Ek *= 0.08 + 1.05 * exp(-dot(pc, pc) / 2.6);          // a gridded light: a pool
-  float shK = discShadow(xz, KEY_D, 0.30);
+  float shK = mix(0.25, 1.0, discShadow(xz, KEY_D, 0.26));
   float shR = discShadow(xz, RIM_D, 0.08);
   vec2 pr = xz - vec2(0.15, -0.9);
   float Er = RIM_E * RIM_D.y * exp(-dot(pr, pr) / 3.0);
@@ -565,7 +572,7 @@ float fur(float th, float dth, float sd, float N, float seed, float density, out
   return line * along * a;
 }
 // yōhen spots: a cell layer of irregular pale islands, each with a tight aura
-void spotLayer(vec2 P, float cell, vec2 rr, float dens, float seed, float hk, inout float core, inout float ring, inout float halo, inout float dk) {
+void spotLayer(vec2 P, float cell, vec2 rr, float dens, float seed, float hk, vec2 vdir, inout float core, inout float ring, inout float halo, inout float dk) {
   vec2 g = floor(P / cell), f = P / cell - g;
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
     vec2 o = vec2(float(i), float(j));
@@ -575,7 +582,7 @@ void spotLayer(vec2 P, float cell, vec2 rr, float dens, float seed, float hk, in
     vec2 c = o + 0.15 + 0.7 * h.xy;
     vec2 dv = (f - c) * cell;
     float hr = hash12(g + o + seed + 17.3);
-    float r = mix(rr.x, rr.y, hr * hr) * smoothstep(0.0, 0.25, present);
+    float r = mix(rr.x, rr.y, hr * hr * hr) * smoothstep(0.0, 0.25, present);
     float an = atan(dv.y, dv.x + 1e-7);
     float lob = 1.0 + 0.12 * sin(an * 2.0 + hr * 20.0) + 0.06 * sin(an * 3.0 + h.x * 30.0);
     float d = length(dv) / lob;
@@ -586,7 +593,9 @@ void spotLayer(vec2 P, float cell, vec2 rr, float dens, float seed, float hk, in
     vec2 hv = hash32(g + o + seed + 5.7).xy;
     float hw = r * (0.7 + 1.5 * hv.x) + 0.003;
     float x = max(length(dv - (hv - 0.5) * r * 0.5) / lob - r * 0.85, 0.0) / hw;
-    halo = max(halo, exp(-x * x * 1.6) * hk * smoothstep(0.1, 0.5, hv.y) * (0.5 + 0.5 * h.y));
+    float pa = hv.y * 18.85;                         // each halo shows only from some directions
+    float look = smoothstep(0.15, 0.9, dot(vec2(cos(pa), sin(pa)), vdir));
+    halo = max(halo, exp(-x * x * 1.6) * hk * step(0.45, hv.y) * look * (0.5 + 0.5 * h.y));
   }
 }
 
@@ -754,17 +763,20 @@ void main() {
   inAlb = mix(inAlb, lipCol, lipB * 0.85);
 
   vec2 Pc = Pc0 + (vec2(vnoise(Pc0 * 7.0 + uSeed.xy), vnoise(Pc0 * 7.0 + uSeed.zw)) - 0.5) * 0.04;
-  float dens = 0.34;
+  float dens = 0.05;
   for (int i = 0; i < 8; i++) { vec2 dq = Pc - uClus[i].xy; dens += uClus[i].w * exp(-dot(dq, dq) / (uClus[i].z * uClus[i].z)); }
-  dens *= (0.3 + 1.15 * vnoise(Pc * 4.0 + uSeed.wx)) * smoothstep(0.06, 0.3, s) * (1.0 - smoothstep(sLipIn - 0.3, sLipIn - 0.07, s));
+  dens *= 1.7 * smoothstep(0.3, 0.75, vnoise(Pc * 4.5 + uSeed.wx) * 0.75 + vnoise(Pc * 11.0) * 0.35) * smoothstep(0.06, 0.3, s) * (1.0 - smoothstep(sLipIn - 0.3, sLipIn - 0.07, s));
   float core = 0.0, ring = 0.0, halo = 0.0, dk = 0.0;
   if (isIn > 0.0 && dens > 0.02) {
-    spotLayer(Pc, 0.08, vec2(0.0085, 0.025), dens * 0.8, uSeed.x, 1.0, core, ring, halo, dk);
-    spotLayer(Pc + 0.31, 0.03, vec2(0.0025, 0.006), dens * 0.95, uSeed.y, 0.7, core, ring, halo, dk);
+    vec3 Vo = Rinv * V;
+    vec2 vdir = normalize(Vo.xz + 1e-5);
+    spotLayer(Pc, 0.075, vec2(0.004, 0.03), dens * 0.85, uSeed.x, 1.0, vdir, core, ring, halo, dk);
+    spotLayer(Pc + 0.31, 0.03, vec2(0.0022, 0.0055), dens * dens * 0.9, uSeed.y, 0.6, vdir, core, ring, halo, dk);
   }
   float pool = 1.0 - smoothstep(0.12, 0.19, s);
   core *= 1.0 - 0.6 * pool; ring *= 1.0 - 0.7 * pool; halo *= 1.0 - 0.4 * pool;
-  vec3 coreCol = mix(vec3(0.15, 0.135, 0.105), vec3(0.11, 0.10, 0.085), vnoise(Pc * 160.0));
+  vec3 coreCol = mix(vec3(0.13, 0.125, 0.11), vec3(0.15, 0.095, 0.05), smoothstep(0.3, 0.7, vnoise(Pc * 9.0 + uSeed.yx)));  // silver or bronze
+  coreCol *= 0.8 + 0.4 * vnoise(Pc * 160.0);
   coreCol = mix(coreCol, vec3(0.012, 0.012, 0.014), dk * 0.85);
   inAlb = mix(inAlb, coreCol, core);
   inAlb = mix(inAlb, vec3(0.19, 0.17, 0.13), ring * 0.6);
@@ -779,7 +791,7 @@ void main() {
   // thin-film halos around the spots: structural colour, seen in reflection
   float neb = smoothstep(0.4, 1.4, dens);   // the faint blue haze a cluster sits in
   if ((halo > 0.01 || neb > 0.0) && isIn > 0.0) {
-    float filmP = max(halo, 0.07 * neb) * (1.0 - 0.65 * core);
+    float filmP = max(halo, 0.025 * neb) * (1.0 - 0.65 * core);
     float dnm = 152.0 + 56.0 * clamp(halo, 0.0, 1.0) + 8.0 * (vnoise(Pc * 11.0 + uSeed.zw) - 0.5);
     vec3 film = thinFilm(dnm, NoV);
     vec3 hl = mix(vec3(0.003), env(R, 0.22), occR);
@@ -943,7 +955,7 @@ void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2
         const L = lookAt(eye, target, [0, 1, 0]);
         // frame the bowl: ~50% of the height in landscape, ~80% of the width in portrait
         const bowlH = 1.55, bowlW = 2.1;
-        const halfH = Math.max(bowlH / (2 * 0.56), (bowlW / (2 * 0.80)) / aspect);
+        const halfH = Math.max(bowlH / (2 * 0.66), (bowlW / (2 * 0.82)) / aspect);
         const tanY = halfH / D, tanX = tanY * aspect;
         const shiftY = -0.035;
         const n = 1, f = 40;
@@ -1063,8 +1075,7 @@ void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2
       }
 
       let tPrev = performance.now(), t0 = tPrev;
-      let fence = null, fenceT = 0, nFrames = 0, minGap = 0, lastDraw = 0;
-      const px1 = new Uint8Array(4);
+      let fence = null, fenceT = 0, minGap = 0, lastDraw = 0;
       function frame(now) {
         raf = 0;
         if (!alive()) return;
@@ -1073,6 +1084,8 @@ void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2
           const st = gl.clientWaitSync(fence, 0, 0);
           const done = st === gl.ALREADY_SIGNALED || st === gl.CONDITION_SATISFIED || st === gl.WAIT_FAILED;
           if (!done && now - fenceT < 400) { raf = requestAnimationFrame(frame); return; }
+          // a GPU that cannot keep up gets fewer frames, never a growing queue
+          minGap = done ? Math.max(0, minGap * 0.8 - 5) : Math.min(5000, minGap * 1.6 + 400);
           gl.deleteSync(fence); fence = null;
         }
         if (now - lastDraw < minGap) { raf = requestAnimationFrame(frame); return; }
@@ -1086,14 +1099,7 @@ void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2
           if (since > 6) state.elevTarget += (0.58 - state.elevTarget) * Math.min(1, dt * 0.25);
         }
         state.elev += (state.elevTarget - state.elev) * Math.min(1, dt * 6);
-        const tr = performance.now();
         render((now - t0) / 1000);
-        if (++nFrames === 3) {
-          // measure one frame end to end; a slow GPU gets fewer frames rather than a growing queue
-          gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px1);
-          const cost = performance.now() - tr;
-          minGap = cost > 40 ? cost * 1.4 : 0;
-        }
         lastDraw = performance.now();
         fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); fenceT = lastDraw; gl.flush();
         raf = requestAnimationFrame(frame);

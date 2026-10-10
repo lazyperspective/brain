@@ -402,7 +402,7 @@
 
     /* ---- the singer, mara'akame, who sings the deer and the maize into being */
     {
-      const gx = 194, gy = 1176, sc = 1.0;
+      const gx = 196, gy = 1166, sc = 1.07;
       const P = (pl) => place(pl, gx, gy, sc, 0);
       const skin = fig(['E'], 'A');
       add('singer', [P(limb([[-34, 146, 36], [-38, 226, 32]])), P(limb([[34, 146, 36], [38, 226, 32]]))], fig(['K'], 'W'));
@@ -465,9 +465,9 @@
     }
 
     /* ---- the rain serpent: along the bottom, rearing up the right edge, its breath becoming cloud and rain */
-    const spine = [[120, 1822, 8], [230, 1760, 50], [370, 1718, 88], [540, 1730, 116], [700, 1800, 132], [860, 1838, 140],
-      [1030, 1808, 144], [1190, 1738, 146], [1350, 1704, 146], [1500, 1730, 144], [1640, 1780, 140], [1772, 1750, 132],
-      [1846, 1660, 124], [1860, 1560, 116]];
+    const spine = [[116, 1840, 8], [214, 1774, 56], [356, 1724, 100], [530, 1736, 134], [694, 1806, 152], [860, 1840, 160],
+      [1030, 1806, 164], [1190, 1734, 164], [1350, 1700, 164], [1500, 1728, 160], [1640, 1780, 152], [1772, 1752, 140],
+      [1846, 1662, 130], [1862, 1560, 120]];
     const SH = (pl) => place(pl.map(([x, y, w]) => [-x, y, w]), 1822, 1470, 1.28, 0.42);
     const serp = add('serpent', [limb(spine), SH(blob([[-82, 0], [-70, -40], [-30, -56], [20, -54], [64, -40], [100, -20], [118, 0], [106, 18], [70, 30], [20, 46], [-30, 52], [-68, 36]]))],
       fig(['L'], 'G', []), { name: 'serpent' });
@@ -516,22 +516,24 @@
         add('hikuri', [ell(cx + Math.cos(a) * r * 0.79, cy + Math.sin(a) * r * 0.79, 8, 8)], fig([], 'W'), { host: outer, sketch: false });
       }
     };
-    hikuri(900 + J(10), 1478 + J(10), 100, rng() * 6);
-    hikuri(1160 + J(10), 1530 + J(10), 78, rng() * 6);
-    hikuri(806 + J(10), 712 + J(10), 78, rng() * 6, true);
+    hikuri(896 + J(10), 1474 + J(10), 114, rng() * 6);
+    hikuri(1166 + J(10), 1528 + J(10), 90, rng() * 6);
+    hikuri(176 + J(6), 1556 + J(6), 72, rng() * 6, true);
+    hikuri(808 + J(8), 716 + J(8), 90, rng() * 6, true);
 
-    /* ---- a flower, tutu, above the deer's back */
-    {
-      const fx = 958 + J(8), fy = 296 + J(8), fr = 96, np = 8, rot = rng() * 2;
+    /* ---- flowers, tutu */
+    const tutu = (fx, fy, fr, np, rot, pc, cc) => {
       const petals = [];
       for (let i = 0; i < np; i++) {
         const a = rot + (i / np) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
-        petals.push(limb([[fx + ca * fr * 0.25, fy + sa * fr * 0.25, 30], [fx + ca * fr * 0.62, fy + sa * fr * 0.62, 50], [fx + ca * fr * 0.92, fy + sa * fr * 0.92, 30]]));
+        petals.push(limb([[fx + ca * fr * 0.25, fy + sa * fr * 0.25, fr * 0.35], [fx + ca * fr * 0.62, fy + sa * fr * 0.62, fr * 0.58], [fx + ca * fr * 0.92, fy + sa * fr * 0.92, fr * 0.35]]));
       }
-      add('flower', petals, fig(['H'], 'M'));
-      const fc = add('flower', [ell(fx, fy, fr * 0.34, fr * 0.34)], fig(['O'], 'Y'));
+      add('flower', petals, pc);
+      const fc = add('flower', [ell(fx, fy, fr * 0.34, fr * 0.34)], cc);
       add('flower', [ell(fx, fy, 9, 9)], fig([], 'V'), { host: fc, sketch: false });
-    }
+    };
+    tutu(984 + J(8), 318 + J(8), 118, 8, rng() * 2, fig(['H'], 'M'), fig(['O'], 'Y'));
+    tutu(1146 + J(8), 664 + J(8), 82, 6, rng() * 2, fig(['Y'], 'O'), fig(['M'], 'H'));
 
     return { R, sketch };
   }
@@ -898,7 +900,7 @@
         seq++;
       }
       loopId++;
-      if ((loopId & 1023) === 1023) await pause();
+      await pause();
     }
     tlog('strands ' + pieces.length + ' loops ' + loopId);
     pieces.sort((a, b) => {
@@ -906,20 +908,17 @@
       for (let i = 0; i < 5; i++) if (A[i] !== Bo[i]) return A[i] - Bo[i];
       return 0;
     });
-    // timeline (seconds): outlines, fills, border, then the ground rippling outward
-    const DUR = [1.4, 3.1, 0.7, 2.6];
-    const tot = [0, 0, 0, 0];
+    // timeline (seconds): outlines, then fills, the border and the ground rippling outward, overlapping
+    const SPAN = [[0, 1.1], [0.5, 3.0], [1.0, 1.8], [1.4, 4.6]];
+    const tot = [0, 0, 0, 0], acc = [0, 0, 0, 0];
     for (const p of pieces) tot[p.o[0]] += p.len + 30;
-    const acc = [0, 0, 0, 0];
-    let t0 = 0;
-    const starts = [0, DUR[0], DUR[0] + DUR[1], DUR[0] + DUR[1] + DUR[2]];
-    for (const p of pieces) {
+    pieces.forEach((p, i) => {
       const ph = p.o[0];
-      p.t = starts[ph] + DUR[ph] * (acc[ph] / (tot[ph] || 1));
+      p.t = SPAN[ph][0] + (SPAN[ph][1] - SPAN[ph][0]) * (acc[ph] / (tot[ph] || 1));
+      p.n = i;
       acc[ph] += p.len + 30;
-      t0 = p.t;
-    }
-    void t0;
+    });
+    pieces.sort((a, b) => a.t - b.t || a.n - b.n);
     return { pieces, sketch, regs };
   }
 
@@ -987,13 +986,14 @@
   }
   function drawPieces(ctx, P, i0, i1, S, ox, oy, cols) {
     const wpx = YW * S;
-    const twist = !DBG.fast && wpx >= 1.4, ply = wpx >= 3.2, fuzz = !DBG.fast && wpx >= 2.2;
+    const twist = !DBG.fast && wpx >= 2.4, ply = wpx >= 5, fuzz = !DBG.fast && wpx >= 2.4;
+    const gA = Math.min(1, Math.max(0, (wpx - 2.4) / 7.5)), grooveA = 0.12 + 0.88 * gA * gA;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     let i = i0;
     while (i < i1) {
       const c = P[i].c;
       let j = i + 1;
-      while (j < i1 && P[j].c === c) j++;
+      while (j < i1 && j - i < 6 && P[j].c === c) j++;
       const col = cols[c];
       const path = new Path2D();
       for (let q = i; q < j; q++) addPath(path, P[q]);
@@ -1016,13 +1016,13 @@
         const pitch = YW * 0.9;
         for (let q = i; q < j; q++) addTwist(gp, hp, sp, P[q], pitch);
         ctx.lineCap = 'round';
-        ctx.strokeStyle = col.groove; ctx.lineWidth = Math.max(YW * 0.1, 0.6 / S); ctx.stroke(gp);
+        ctx.globalAlpha = grooveA; ctx.strokeStyle = col.groove; ctx.lineWidth = Math.max(YW * 0.1, 0.6 / S); ctx.stroke(gp);
         if (hp) {
-          ctx.strokeStyle = col.ply; ctx.lineWidth = YW * 0.17; ctx.stroke(hp);
-          ctx.strokeStyle = col.groove; ctx.globalAlpha = 0.55; ctx.lineWidth = YW * 0.15; ctx.stroke(sp);
-          ctx.globalAlpha = 1;
+          ctx.globalAlpha = Math.min(1, (wpx - 4) / 5); ctx.strokeStyle = col.ply; ctx.lineWidth = YW * 0.17; ctx.stroke(hp);
+          ctx.strokeStyle = col.groove; ctx.globalAlpha = 0.55 * grooveA; ctx.lineWidth = YW * 0.15; ctx.stroke(sp);
         }
       }
+      ctx.globalAlpha = 1;
       if (fuzz) {
         const fp = new Path2D();
         for (let q = i; q < j; q++) addFuzz(fp, P[q]);
@@ -1113,12 +1113,12 @@
       const wax = document.createElement('canvas'), yarn = document.createElement('canvas');
       for (const c of [wax, yarn]) { c.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%'; view.appendChild(c); }
       el.appendChild(view);
-      const wctx = wax.getContext('2d'), yctx = yarn.getContext('2d');
+      const wctx = wax.getContext('2d'), yctx = yarn.getContext('2d', { willReadFrequently: true });
 
       let Wv = 0, Hv = 0, dpr = 1, bs = 0, bx = 0, by = 0, S = 1;
-      let data = null, cols = yarnColours(seed), drawn = 0, tStart = 0, finished = false;
+      let data = null, cols = yarnColours(seed), drawn = 0, tStart = 0, tDraw0 = 0, finished = false;
       let sketchT0 = performance.now(), sketchDone = 0, sketchTotal = 1, sketchList = null;
-      const SKETCH_DUR = DBG.instant ? 0 : 1600;
+      const SKETCH_DUR = DBG.instant ? 0 : 900;
 
       function layout() {
         Wv = el.clientWidth; Hv = el.clientHeight;
@@ -1181,7 +1181,7 @@
         c.style.cssText = 'position:absolute;left:0;top:0;width:' + Wv + 'px;height:' + Hv + 'px;transform-origin:0 0;pointer-events:none';
         el.appendChild(c);
         const h = { c, z, vx, vy };
-        const ctx = c.getContext('2d');
+        const ctx = c.getContext('2d', { willReadFrequently: true });
         const Sh = (bs * z * dpr) / B, ox = vx * dpr, oy = vy * dpr;
         const bx0 = -ox / Sh - 20, by0 = -oy / Sh - 20, bx1 = (c.width - ox) / Sh + 20, by1 = (c.height - oy) / Sh + 20;
         const list = data.pieces.filter((p) => p.bb[2] > bx0 && p.bb[0] < bx1 && p.bb[3] > by0 && p.bb[1] < by1);
@@ -1192,7 +1192,7 @@
           if (!alive || job.cancel) { if (!h.done) { c.remove(); } return; }
           const t = performance.now();
           while (i < list.length && performance.now() - t < 14) {
-            const e = Math.min(list.length, i + 30);
+            const e = Math.min(list.length, i + 3);
             drawPieces(ctx, list, i, e, Sh, ox, oy, cols);
             i = e;
           }
@@ -1279,18 +1279,18 @@
           sketchDone = u;
         }
         if (data && sketchDone >= 1) {
-          if (!tStart) tStart = now + (DBG.instant ? -1e9 : 250);
+          if (!tStart) { tStart = now + (DBG.instant ? -1e9 : 120); tDraw0 = now; }
           const t = (now - tStart) / 1000;
           const P = data.pieces;
           let target = drawn;
           while (target < P.length && P[target].t <= t) target++;
-          const budget = now + (DBG.instant ? 40 : 12);
+          const budget = now + (DBG.instant ? 30 : 12);
           while (drawn < target && performance.now() < budget) {
-            const e = Math.min(target, drawn + 24);
+            const e = Math.min(target, drawn + 3);
             drawPieces(yctx, P, drawn, e, S, 0, 0, cols);
             drawn = e;
           }
-          if (drawn >= P.length && !finished) { if (DBG.log) console.warn('[nierika] drawn ' + Math.round(now - tStart) + 'ms'); finished = true; el.dataset.done = '1'; hiresOnView(); }
+          if (drawn >= P.length && !finished) { if (DBG.log) console.warn('[nierika] drawn in ' + Math.round(now - tDraw0) + 'ms'); finished = true; el.dataset.done = '1'; hiresOnView(); }
         }
         if (!finished || drawn < (data ? data.pieces.length : 1)) raf = requestAnimationFrame(frame);
       }
@@ -1330,7 +1330,7 @@
         if (performance.now() - sliceT < 22) return Promise.resolve();
         return new Promise((res) => setTimeout(() => { sliceT = performance.now(); res(); }, 0));
       };
-      buildStrands(seed, 2048, pause).then((d) => {
+      buildStrands(seed, 1536, pause).then((d) => {
         if (!alive) return;
         data = d;
         kick();

@@ -645,44 +645,60 @@
     // the far plain, a pale band
     for (const [a, b] of segs) if (b - a > 40) S.go('side', [a, L.hor(a) + 7, (a + b) / 2, L.hor((a + b) / 2) + 9, b, L.hor(b) + 7], 6, { f: 0.5, speed: 3000 });
   }
+  // a gestural stroke: from (x,y) heading `ang`, length `len`, bending as it goes
+  function sweep(x, y, ang, len, bend, n) {
+    const p = [];
+    n = n || 4;
+    let a = ang;
+    const step = len / n;
+    p.push(x, y);
+    for (let i = 0; i < n; i++) { a += bend / n; x += Math.cos(a) * step; y += Math.sin(a) * step; p.push(x, y); }
+    return p;
+  }
+  // a cloud mass laid in with the side of the stick in quick, crossing sweeps, then wiped
+  function skyMass(S, cx, cy, w, h, amt, lean) {
+    const r = S.r;
+    const n = 4 + ((r() * 4) | 0);
+    for (let i = 0; i < n; i++) {
+      const x = cx + (r() - 0.5) * w * 0.8, y = cy + (r() - 0.5) * h;
+      const ang = lean + (r() - 0.5) * 0.7 + (r() < 0.25 ? Math.PI : 0);
+      const len = w * (0.25 + r() * 0.55);
+      const p = sweep(x - Math.cos(ang) * len * 0.5, y - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 1.1, 4);
+      S.go('side', p, 10 + r() * 16, { f: (0.35 + r() * 0.9) * amt, p0: 0.3 + r() * 1.0, p1: 0.1 + r() * 0.8, tin: 0.1 + r() * 0.3, tout: 0.2 + r() * 0.5, gap: 0.01 + r() * 0.03 });
+    }
+    // a loop or two where the stick turned over
+    if (r() < 0.6) S.go('side', scumble(S, cx + (r() - 0.5) * w * 0.4, cy, w * 0.25, h * 0.5, w * 1.2, h * 0.4), 8 + r() * 6, { f: 0.5 * amt, speed: 3000 });
+    // wiped with the flat of the hand: two curving passes
+    for (let k = 0; k < 2; k++) {
+      const ang = lean + (r() - 0.5) * 0.5;
+      const len = w * (0.6 + r() * 0.4);
+      S.go('smudge', sweep(cx - Math.cos(ang) * len * 0.5, cy + (r() - 0.5) * h * 0.6 - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 0.9, 5), h * (0.45 + r() * 0.3), { f: 0.9, p0: 1.1, p1: 0.4, speed: 2400 });
+    }
+    // a lit edge pulled out of it with the eraser
+    if (r() < 0.75) {
+      const ang = lean + (r() - 0.5) * 0.4, len = w * (0.3 + r() * 0.4);
+      rub(S, sweep(cx - len * 0.5, cy - h * (0.3 + r() * 0.3), ang, len, (r() - 0.5) * 0.8, 4), 4 + r() * 6, 0.8, { speed: 2600 });
+    }
+  }
   function sky(S, L, amt) {
     const r = S.r;
-    const X0 = L.x0 + 28, X1 = L.x1 - 28, Y0 = L.y0 + 30;
+    const X0 = L.x0 + 40, X1 = L.x1 - 40, Y0 = L.y0 + 40;
     const Hs = 585 - Y0;
-    // broad strokes from the top, leaning with the wind, laid heaviest at the upper left
-    for (let i = 0; i < 9; i++) {
-      const y = Y0 + 4 + i * (Hs * 0.42 / 9) + r() * 14;
-      const xa = X0 + r() * 60, xb = X1 - r() * 160 - i * 50;
-      const tilt = -0.03 - r() * 0.04;
-      const p = [xa, y, (xa + xb) / 2, y + (xb - xa) * tilt * 0.5 + (r() - 0.5) * 18, xb, y + (xb - xa) * tilt];
-      S.go('side', p, 18 + r() * 9, { f: (1.25 - i * 0.11) * amt, p0: 1.0, p1: 0.15, tin: 0.08, tout: 0.75, gap: 0.01 });
+    const lean = -0.12 - r() * 0.12;
+    // weather comes in from the upper left: heavy there, breaking up toward the right
+    const nm = Math.max(3, Math.round((X1 - X0) / 380));
+    for (let i = 0; i < nm; i++) {
+      const u = (i + r() * 0.8) / nm;
+      const cx = lerp(X0 + 120, X1 - 120, u), cy = Y0 + Hs * (0.08 + 0.3 * r() * r() + u * 0.12);
+      if (Math.abs(cx - L.treeX) < 160 && cy > Y0 + Hs * 0.35) continue;
+      skyMass(S, cx, cy, 300 + r() * 260, 60 + r() * 60, amt * (1.25 - u * 0.6), lean);
     }
-    // the rag, in long sweeps: the strokes become weather
-    smear(S, zig(clipLines(rectPoly(X0, Y0, X1, Y0 + Hs * 0.55), -0.04, 46, 0.35, r)), 44, 1.0, { speed: 3600, smooth: true });
-    // two or three cloud masses, soft, with lit tops and heavy bellies
-    const nb = r() < 0.5 ? 1 : 2;
-    for (let b = 0; b < nb; b++) {
-      const cy = Y0 + Hs * (0.3 + 0.42 * (b + 0.15 + r() * 0.7) / nb);
-      const cw = (X1 - X0) * (0.3 + r() * 0.2);
-      let cx = X0 + cw * 0.5 + r() * (X1 - X0 - cw);
-      if (Math.abs(cx - L.treeX) < cw * 0.5 + 220 && cy > Y0 + Hs * 0.35) cx = L.treeX + (cx < L.treeX ? -1 : 1) * (cw * 0.5 + 240);
-      const ch = 18 + r() * 16;
-      for (let k = 0; k < 6; k++) {
-        const yy = cy - ch * 0.45 + k * ch * 0.2, xa = cx - cw * 0.5 + cw * (0.06 * k + r() * 0.2), xb = xa + cw * (0.35 + r() * 0.5);
-        S.go('side', [xa, yy + (r() - 0.5) * 6, lerp(xa, xb, 0.4), yy - 3 + (r() - 0.5) * 6, xb, yy + (r() - 0.5) * 6], 9 + k * 2, { f: (0.3 + k * 0.16) * amt, p0: 0.5, p1: 0.4, tin: 0.3, tout: 0.5, speed: 3000, gap: 0.01 });
-      }
-      smear(S, [cx - cw * 0.5, cy - ch * 0.1, cx, cy + ch * 0.05, cx + cw * 0.7, cy + ch * 0.15], ch * 0.9, 1.0, { speed: 2000, p0: 1.0, p1: 0.5 });
-      smear(S, [cx + cw * 0.6, cy + ch * 0.25, cx, cy + ch * 0.3, cx - cw * 0.6, cy + ch * 0.2], ch * 0.7, 0.8, { speed: 2000, p0: 1.0, p1: 0.5 });
-      rub(S, [cx - cw * 0.45, cy - ch * 0.45, cx - cw * 0.1, cy - ch * 0.6, cx + cw * 0.2, cy - ch * 0.5], ch * 0.2, 0.7, { speed: 2400 });
-    }
-    // keep a breath of light behind the crest; a few long lifted streaks
+    // one low, long cloud off to one side of the hill
+    const side = r() < 0.5 ? -1 : 1;
+    skyMass(S, L.treeX + side * (320 + r() * 120), Y0 + Hs * (0.55 + r() * 0.12), 360, 34, amt * 0.7, lean * 0.4);
+    // keep a breath of light behind the crest
     const tx = L.treeX, ty = L.treeY;
-    rub(S, ell(S, tx, ty, 260, 200, Math.PI * 1.08, Math.PI * 1.92, 16, 0.05), 34, 0.6 * amt, { speed: 3000 });
-    rub(S, ell(S, tx, ty, 170, 140, Math.PI * 1.1, Math.PI * 1.9, 12, 0.05), 28, 0.6 * amt, { speed: 3000 });
-    for (let k = 0; k < 4; k++) {
-      const yy = Y0 + Hs * (0.12 + r() * 0.4), xa = X0 + r() * (X1 - X0) * 0.7, xb = xa + 180 + r() * 420;
-      rub(S, [xa, yy, (xa + xb) / 2, yy - 6 + r() * 8, xb, yy - 10 + (r() - 0.5) * 8], 3 + r() * 5, 0.9, { speed: 2800 });
-    }
+    rub(S, ell(S, tx, ty, 230, 190, Math.PI * 1.1, Math.PI * 1.9, 12, 0.08), 32, 0.7 * amt, { speed: 3000 });
   }
   function hillTone(S, L, amt) {
     const r = S.r;
@@ -738,75 +754,84 @@
     };
   }
   function bankX(L) { return Math.min(L.x1 - 300, L.cx - 140); }
-  function hedge(S, xa, xb, y, s) {
+  function hedge(S, xa, ya, xb, yb, s) {
+    // a field boundary: a broken, scribbled line of bushes, a tree here and there
     const r = S.r;
-    let x = xa;
-    while (x < xb) {
-      const len = 80 + r() * 300;
-      const e = Math.min(xb, x + len);
-      // a lumpy bank of bushes, rubbed with the side of the stick
+    const L = Math.hypot(xb - xa, yb - ya), n = Math.max(2, Math.round(L / (s * 6)));
+    let t = 0;
+    while (t < 1) {
+      const t1 = Math.min(1, t + (0.15 + r() * 0.4));
+      const ax = lerp(xa, xb, t), ay = lerp(ya, yb, t), bx = lerp(xa, xb, t1), by = lerp(ya, yb, t1);
       const p = [];
-      let hgt = s * (0.6 + r() * 0.4);
-      for (let k = x; k <= e; k += s * 1.1) { hgt = clamp(hgt + (r() - 0.5) * s * 0.7, s * 0.35, s * 1.3); p.push(k, y - hgt * 0.45 + (r() - 0.5) * s * 0.2); }
-      if (p.length >= 4) S.go('side', p, s * 0.8, { f: 1.7, speed: 3200, gap: 0.004, p0: 0.5 + r() * 0.5, p1: 0.4 + r() * 0.6, tin: 0.2, tout: 0.3 });
-      // now and then a tree stands out of it
-      if (r() < 0.55) {
-        const tx = lerp(x, e, 0.2 + r() * 0.6), ts = s * (1.5 + r() * 1.8);
-        S.go('comp', [tx, y, tx + 0.5, y - ts * 0.9], 0.8 + s * 0.12, { gap: 0.004 });
-        S.go('side', scumble(S, tx, y - ts * 1.25, ts * 0.85, ts * 0.75, ts * 7, ts * 0.45), ts * 0.28, { f: 1.7, speed: 2400, gap: 0.004 });
+      const m = Math.max(2, Math.round(n * (t1 - t)));
+      for (let k = 0; k <= m; k++) { const u = k / m; p.push(lerp(ax, bx, u) + (r() - 0.5) * s, lerp(ay, by, u) - s * (0.2 + r() * 0.7)); }
+      if (r() < 0.85) S.go(r() < 0.5 ? 'side' : 'comp', p, r() < 0.5 ? s * 0.6 : 0.8 + s * 0.15, { f: 0.9 + r() * 0.8, speed: 2600, gap: 0.006 });
+      if (r() < 0.45) {
+        const tx = lerp(ax, bx, r()), ty = lerp(ay, by, 0.5), ts = s * (1.2 + r() * 2.2);
+        const kind = r();
+        S.go('comp', [tx, ty, tx + (r() - 0.5) * 2, ty - ts * (0.6 + r() * 0.5)], 0.7 + s * 0.12, { gap: 0.004, speed: 1600 });
+        if (kind < 0.25) S.go('side', sweep(tx, ty - ts * 0.4, -Math.PI / 2 + (r() - 0.5) * 0.2, ts * 2.2, (r() - 0.5) * 0.3, 3), ts * 0.28, { f: 1.4, speed: 1600, gap: 0.004 });
+        else S.go('side', scumble(S, tx, ty - ts * 1.1, ts * (0.6 + r() * 0.6), ts * (0.5 + r() * 0.4), ts * (4 + r() * 5), ts * (0.3 + r() * 0.3)), ts * (0.2 + r() * 0.15), { f: 1.2 + r() * 0.6, speed: 2200, gap: 0.004 });
       }
-      x = e + (r() < 0.3 ? 30 + r() * 80 : 4 + r() * 16);
+      t = t1 + r() * 0.12;
     }
   }
   function field(S, L, amt, st) {
     const r = S.r;
-    const X0 = L.x0 + 26, X1 = L.x1 - 26, Yb = L.y1 - 30;
-    // far fields: soft bands rubbed in, hedges broken into lengths, a few copses
-    const ys = [612, 626 + r() * 6, 648 + r() * 10, 688 + r() * 14];
-    for (let i = 0; i < ys.length - 1; i++) {
-      const y0 = ys[i] + r() * 4, y1 = ys[i + 1] + r() * 4;
-      if (r() < 0.7) {
-        const xa = X0 + r() * 300, xb = X1 - r() * 300;
-        toneFill(S, [xa, y0, xb, y0, xb + 20, y1, xa - 20, y1], (r() - 0.5) * 0.06, 5 + i * 2, (0.3 + r() * 0.5) * amt, { speed: 4200 });
-      }
-      hedge(S, X0 + r() * 300, X1 - r() * 300, y1, 3.5 + i * 3);
+    const X0 = L.x0 + 30, X1 = L.x1 - 30, Yb = L.y1 - 30;
+    // the far patchwork: boundaries running back toward the hill at different angles
+    const vx = L.cx + (r() - 0.5) * 200;
+    const nb = 3 + ((r() * 3) | 0);
+    for (let i = 0; i < nb; i++) {
+      const y0 = 612 + r() * 8, x0 = lerp(X0, X1, (i + r() * 0.8) / nb);
+      const y1 = 640 + r() * 70, x1 = x0 + (x0 - vx) * (0.15 + r() * 0.25);
+      hedge(S, x0, y0, x1, y1, 2.5 + (y1 - 600) * 0.05);
     }
-    S.go('smudge', zig(clipLines(rectPoly(X0, 612, X1, 712), 0.0, 22, 0.3, r)), 20, { f: 0.45, smooth: true, speed: 4200 });
+    for (let i = 0; i < 3; i++) {
+      const y = 618 + i * 22 + r() * 18, xa = lerp(X0, X1, r() * 0.5), xb = xa + 250 + r() * 500;
+      hedge(S, xa, y, xb, y + (r() - 0.5) * 14, 2.5 + i * 1.6);
+    }
+    // the plain: tone laid in quick, slanting passes with the side of the stick, then wiped
+    for (let i = 0; i < 7; i++) {
+      const y = 618 + r() * 80, x = lerp(X0, X1, r());
+      S.go('side', sweep(x, y, (r() - 0.5) * 0.12 + Math.PI * (r() < 0.5 ? 0 : 1), 120 + r() * 300, (r() - 0.5) * 0.15, 3), 6 + r() * 6, { f: (0.25 + r() * 0.5) * amt, gap: 0.01 });
+    }
     // the near bank on the left, dark with grass
     const be = bankEdge(L), xe = bankX(L);
-    const poly = [X0, Yb];
-    for (let x = X0; x <= xe; x += 24) poly.push(x, be(x));
-    poly.push(xe, Yb);
-    for (let k = 0; k < 7; k++) {
+    for (let k = 0; k < 6; k++) {
       const p = [];
-      for (let x = X0; x <= xe - k * 34; x += 30) p.push(x, be(x) + 10 + k * 15 + (r() - 0.5) * 6);
-      if (p.length >= 4) S.go('side', p, 14 + r() * 6, { f: (0.85 + k * 0.12) * amt, p0: 1.2, p1: 0.2, tin: 0.08, tout: 0.6, gap: 0.01 });
+      for (let x = X0 - 10 + r() * 30; x <= xe - k * 40 - r() * 60; x += 40) p.push(x, be(x) + 12 + k * 17 + (r() - 0.5) * 14);
+      if (p.length >= 4) S.go('side', r() < 0.5 ? p : rev(p), 14 + r() * 8, { f: (0.8 + r() * 0.5) * amt, p0: 0.5 + r() * 0.7, p1: 0.2 + r() * 0.8, tin: 0.2, tout: 0.4, gap: 0.01 });
     }
-    S.go('smudge', zig(clipLines(poly, 0.5, 26, 0.3, r)), 24, { f: 0.6, smooth: true, speed: 3600 });
-    for (let x = X0 + 4; x < xe - 30; x += 14 + r() * 30) {
+    for (let k = 0; k < 3; k++) {
+      const x = lerp(X0, xe - 100, r());
+      S.go('smudge', sweep(x, be(x) + 30, -0.35 + (r() - 0.5) * 0.4, 200 + r() * 160, (r() - 0.5) * 0.5, 4), 28, { f: 0.8, speed: 2600 });
+    }
+    for (let x = X0 + 4; x < xe - 30; x += 18 + r() * 40) {
       const f = 1 - sstep(X0, xe, x);
-      grassTuft(S, x, be(x) + 4 + r() * 10, 10 + 26 * f + r() * 14, 3 + ((r() * 5) | 0), 0.9 + f * 0.8);
-      if (r() < 0.5) grassTuft(S, x + 8, be(x) + 30 + r() * 60, 8 + 14 * f, 3, 0.9 + f * 0.5);
+      grassTuft(S, x, be(x) + 4 + r() * 12, 10 + 30 * f * (0.5 + r()), 2 + ((r() * 6) | 0), 0.9 + f * 0.8);
+      if (r() < 0.4) grassTuft(S, x + 8, be(x) + 30 + r() * 70, 8 + 16 * f, 2 + ((r() * 3) | 0), 0.8 + f * 0.5);
     }
-    // a few taller stalks with seed heads against the light
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 5; i++) {
       const x = lerp(X0 + 20, xe - 80, r()), y = be(x) + 6, h = 40 + r() * 40;
       S.go('comp', [x, y, x + 3, y - h * 0.6, x + 8 + r() * 6, y - h], 1.0, { p0: 1, p1: 0.4, speed: 1200 });
       S.go('comp', scumble(S, x + 9, y - h - 4, 3, 6, 16, 1.6), 1.1, { f: 1.2, speed: 900 });
     }
-    // the open field: a few long, light passes in perspective, rubbed flat
-    for (let y = 712; y < Yb - 10; y += 14 + (y - 700) * 0.12 + r() * 10) {
-      const xa = xe - 80 + r() * 60, xb = X1 - 10 - r() * 60;
-      S.go('side', [xa, y, lerp(xa, xb, 0.5), y + (r() - 0.5) * 6, xb, y + (r() - 0.5) * 4], 6 + L.sc(y) * 10, { f: (0.18 + L.sc(y) * 0.25) * amt, p0: 0.3 + r() * 0.5, p1: 0.3 + r() * 0.5, tin: 0.3, tout: 0.3, speed: 4200, gap: 0.006 });
+    // the open ground: a few slanting, broken passes, wiped across; the grass in clumps
+    for (let i = 0; i < 6; i++) {
+      const y = lerp(720, Yb - 20, r()), x = lerp(xe - 60, X1 - 200, r()), s = L.sc(y);
+      S.go('side', sweep(x, y, (r() - 0.5) * 0.25, 160 + r() * 360, (r() - 0.5) * 0.2, 3), 6 + s * 10, { f: (0.25 + s * 0.35) * amt, p0: 0.3 + r() * 0.8, p1: 0.2 + r() * 0.6, gap: 0.01 });
     }
-    S.go('smudge', zig(clipLines(rectPoly(xe - 60, 706, X1 - 10, Yb), 0.0, 34, 0.3, r)), 30, { f: 0.5, smooth: true, speed: 4200 });
+    S.go('smudge', sweep(xe, Yb - 60, -0.12, X1 - xe, 0.1, 5), 40, { f: 0.6, speed: 3000 });
     const yb = st && st.year;
-    for (let i = 0; i < 10; i++) {
-      const x = lerp(xe - 60, X1 - 40, r()), yy = lerp(720, Yb - 10, Math.sqrt(r())), s = L.sc(yy);
-      if (yb && x > yb[0] - 60 && x < yb[2] + 40 && yy > yb[1] - 50) continue;
-      grassTuft(S, x, yy, 20 * s + 3, 2 + ((r() * 3) | 0), 0.8 + s * 0.6, s < 0.35 ? 'vine' : 'comp');
+    for (let c = 0; c < 4; c++) {
+      const cx = lerp(xe - 40, X1 - 80, r()), cy = lerp(730, Yb - 20, r());
+      for (let i = 0; i < 2 + ((r() * 4) | 0); i++) {
+        const x = cx + (r() - 0.5) * 120, yy = cy + (r() - 0.5) * 40, s = L.sc(yy);
+        if (yb && x > yb[0] - 60 && x < yb[2] + 40 && yy > yb[1] - 50) continue;
+        grassTuft(S, x, yy, (14 + r() * 16) * s + 3, 2 + ((r() * 4) | 0), 0.8 + s * 0.6, s < 0.35 ? 'vine' : 'comp');
+      }
     }
-    S.go('side', [xe - 40, Yb - 4, lerp(xe, X1, 0.5), Yb - 10, X1 - 10, Yb - 6], 12, { f: 0.45 * amt, p0: 0.8, p1: 0.2, tout: 0.6 });
   }
 
   function oak(S, L, st, H, young) {
@@ -1633,19 +1658,19 @@
     const r = S.r;
     writeYear(S, L, st, 2010);
     const X0 = L.x0 + 22, X1 = L.x1 - 22, Y0 = L.y0 + 24;
-    // the sky is driven black with the side of the stick, hardest at the top;
-    // the smoke comes down over the hill as well
-    for (let y = Y0 + 4; y < 600; y += 15 + r() * 7) {
-      const f = 1 - 0.3 * sstep(Y0, 600, y);
-      const xa = X0 + r() * 30, xb = X1 - r() * 30, sag = r() * 6;
-      const p = [];
-      for (let i = 0; i <= 6; i++) {
-        const x = lerp(xa, xb, i / 6), yy = y + Math.sin(i * 1.3 + sag) * 10 + (r() - 0.5) * 8;
-        p.push(x, Math.min(yy, L.hor(x) - 4));
-      }
-      S.go('side', r() < 0.5 ? p : rev(p), 22 + r() * 8, { f: 2.3 * f, p0: 0.9, p1: 0.9, speed: 5200, gap: 0.004 });
+    // the sky is driven black: big, crossing, angry sweeps with the side of the stick, then wiped
+    const nsw = Math.round((X1 - X0) * (600 - Y0) / 26000);
+    for (let i = 0; i < nsw; i++) {
+      const y = lerp(Y0 + 10, 590, Math.pow(r(), 0.8)), x = lerp(X0, X1, r());
+      const ang = (r() - 0.5) * 0.9 + (r() < 0.5 ? Math.PI : 0), len = 300 + r() * 500;
+      const p = sweep(x - Math.cos(ang) * len * 0.5, y - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 1.0, 5);
+      for (let k = 0; k < p.length; k += 2) p[k + 1] = Math.min(p[k + 1], L.hor(p[k]) - 4);
+      S.go('side', p, 30 + r() * 16, { f: 2.6 * (1 - 0.3 * sstep(Y0, 600, y)), p0: 0.7 + r() * 0.6, p1: 0.4 + r() * 0.6, speed: 5200, gap: 0.004 });
     }
-    S.go('smudge', zig(clipLines(rectPoly(X0, Y0, X1, 590), 0.08, 40, 0.3, r)), 38, { f: 0.75, smooth: true, speed: 5200 });
+    for (let i = 0; i < 6; i++) {
+      const y = lerp(Y0 + 40, 520, r()), ang = (r() - 0.5) * 0.5;
+      S.go('smudge', sweep(X0, y, ang, X1 - X0, (r() - 0.5) * 0.6, 6), 46, { f: 0.8, speed: 6000 });
+    }
     // the smoke rolls: round rubbings, heavier billows high up
     for (let i = 0; i < 9; i++) {
       const bx = lerp(X0 + 60, X1 - 60, r()), by = lerp(Y0 + 40, 380, r()), br = 50 + r() * 70;
@@ -1759,7 +1784,7 @@
       S.go('comp', [b.x0 + b.w * 0.45, b.y0 + 2, b.x0 + b.w * 0.95, b.y0 + b.h * 0.9, b.x0 + b.w * 0.85, b.y0 + b.h + 50], 2.4, { smooth: false });
     }
     // grass, everywhere, taller as it comes near
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 34; i++) {
       const x = lerp(L.x0 + 40, L.x1 - 40, r());
       const gy = Math.max(L.hill(x), 612);
       const y = lerp(gy + 4, L.y1 - 36, Math.pow(r(), 0.8));
@@ -1807,17 +1832,17 @@
   }
 
   const ERAS = [
-    { year: 1890, fn: era1890, dur: [28, 17] },
-    { year: 1910, fn: era1910, dur: [16, 15] },
-    { year: 1930, fn: era1930, dur: [15, 14] },
-    { year: 1950, fn: era1950, dur: [16, 15] },
-    { year: 1970, fn: era1970, dur: [16, 15] },
-    { year: 1990, fn: era1990, dur: [18, 16] },
-    { year: 2010, fn: era2010, dur: [20, 18] },
-    { year: 2040, fn: era2040, dur: [17, 15] },
-    { year: 2090, fn: era2090, dur: [16, 15] },
+    { year: 1890, fn: era1890, dur: [15, 13] },
+    { year: 1910, fn: era1910, dur: [12, 12] },
+    { year: 1930, fn: era1930, dur: [11, 11] },
+    { year: 1950, fn: era1950, dur: [13, 12] },
+    { year: 1970, fn: era1970, dur: [12, 12] },
+    { year: 1990, fn: era1990, dur: [13, 12] },
+    { year: 2010, fn: era2010, dur: [14, 13] },
+    { year: 2040, fn: era2040, dur: [12, 12] },
+    { year: 2090, fn: era2090, dur: [12, 12] },
   ];
-  const HOLD = 3.4;
+  const HOLD = 2.6;
 
   // one cycle = a century drawn on the sheet. returns specs sorted by start time
   function buildCycle(seed, cycle, t0, L, st, info) {

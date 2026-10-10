@@ -17,7 +17,7 @@
     };
   }
 
-  const NP = 8; // rocker passes
+  const NP = 6; // rocker passes
 
   /* ------------------------------------------------------------------ shaders */
   const VS = `#version 300 es
@@ -174,7 +174,10 @@ float rope(vec3 p, vec3 A, vec3 B, vec3 C, float r, float best){
 }
 
 vec2 map(vec3 p){
-  vec2 res = vec2(p.y, 0.0);                          // floor of the well
+  // floor of the well, broken open by a pit that drops away below the plate
+  float pit = sdBox(p - vec3(3.0, -45.0, 34.0), vec3(27.0, 45.0, 20.0));
+  vec2 res = vec2(max(p.y, -pit), 0.0);
+  res = opU(res, vec2(p.y + 90.0, 0.0));
   res = opU(res, vec2(100.0 - p.y, 0.0));             // vault
   res = opU(res, vec2(160.0 - p.x, 0.0));             // far end walls
   res = opU(res, vec2(222.0 - p.z, 0.0));
@@ -205,14 +208,14 @@ vec2 map(vec3 p){
     if (slab < res.x + 2.0) {
       float k = clamp(floor((p.x + 16.0)/16.0 + 0.5), 0.0, 3.0);
       float lx = p.x + 16.0 - k*16.0;
-      float o = archOpen(vec2(lx, p.y), 5.4, 15.0, -1.0);
+      float o = archOpen(vec2(lx, p.y), 6.0, 19.0, -1.0);
       float win = archOpen(vec2(p.x - WINX, p.y), WH, WY1, WY0);
       float d = max(slab, -min(o, win));
       float k2 = clamp(floor((p.x - 8.0)/16.0 + 0.5), -2.0, 1.0);
       float lx2 = p.x - 8.0 - k2*16.0;
-      float blind = max(archOpen(vec2(lx2, p.y), 4.6, 34.0, 23.0), p.z - 92.7);
+      float blind = max(archOpen(vec2(lx2, p.y), 4.6, 38.0, 29.0), p.z - 92.7);
       d = max(d, -blind);
-      float sc = max(abs(p.z - 95.0) - 3.45, min(abs(p.y - 15.0), abs(p.y - 41.0)) - 0.45);
+      float sc = max(abs(p.z - 95.0) - 3.45, min(abs(p.y - 19.0), abs(p.y - 45.5)) - 0.45);
       sc = max(sc, abs(p.x + 0.5) - 31.5);
       sc = max(sc, -(o + 0.5));
       sc = max(sc, -(win + 0.3));
@@ -251,7 +254,7 @@ vec2 map(vec3 p){
   // ---------------- foreground pier (left), rusticated, with ring and timber beam
   {
     vec3 q = p - vec3(-19.5, 0.0, 17.0);
-    float d = sdBox(q - vec3(0.0, 50.0, 0.0), vec3(3.5, 50.0, 4.0));
+    float d = sdBox(q - vec3(0.0, 5.0, 0.0), vec3(3.5, 95.0, 4.0));
     if (d < res.x + 3.0) {
       // channelled joints between the blocks
       float jy = abs(mod(q.y + 0.8, 1.6) - 0.8);
@@ -276,10 +279,10 @@ vec2 map(vec3 p){
   // ---------------- bridge flung across the well
   {
     vec3 q = toLocal(p, vec3(4.0, 0.0, 45.0), BA);
-    float body = sdBox(q - vec3(0.0, 10.75, 0.0), vec3(60.0, 10.75, 1.7));
+    float body = sdBox(q - vec3(0.0, -34.25, 0.0), vec3(60.0, 55.75, 1.7));
     if (body < res.x + 3.0) {
       float ax = q.x - 30.0*floor(q.x/30.0 + 0.5);
-      body = max(body, -archOpen(vec2(ax, q.y), 12.6, 7.0, -1.0));
+      body = max(body, -archOpen(vec2(ax, q.y), 12.6, 7.0, -100.0));
       float imp = max(sdBox(q - vec3(0.0, 7.0, 0.0), vec3(60.0, 0.35, 2.0)), -archOpen(vec2(ax, q.y), 12.2, 7.0, -1.0));
       float arv = max(max(abs(q.z) - 1.85, length(vec2(ax, q.y - 7.0)) - 13.4), -archOpen(vec2(ax, q.y), 12.6, 7.0, -1.0));
       arv = max(arv, 7.0 - q.y);
@@ -413,6 +416,57 @@ vec2 map(vec3 p){
       lt = min(lt, sdCappedCone(l - vec3(0.0, -1.5, 0.0), 0.3, 0.15, 0.95));
       lt = min(lt, length(l - vec3(0.0, -1.95, 0.0)) - 0.16);
       res = opU(res, vec2(lt*1.15, 2.0));
+    }
+  }
+  // ---------------- stair descending into the pit from the landing
+  {
+    vec3 q = p - vec3(-8.0, -13.3, 52.5);
+    float bd = sdBox(q - vec3(10.0, 6.0, 0.0), vec3(11.0, 8.0, 2.5));
+    if (bd < res.x + 1.0) {
+      float d = flight(q, 20.0, 2.8, 0.3, 0.45, 60.0);
+      d = min(d, rampWall(q, 20.0, 0.3/0.45, -0.6, 1.0, -1.55, 0.16));
+      res = opU(res, vec2(d, 0.0));
+    }
+  }
+  // ---------------- a stair climbing along the colonnade and out of the top of the plate
+  {
+    vec3 q = toLocal(p, vec3(29.4, 22.6, 66.0), -1.5707963);
+    float bd = sdBox(q - vec3(20.0, 14.0, 0.0), vec3(21.0, 15.0, 2.6));
+    if (bd < res.x + 1.0) {
+      float d = flight(q, 40.0, 3.0, 0.3, 0.45, 1.2);
+      d = min(d, rampWall(q, 40.0, 0.3/0.45, -0.6, 1.0, -1.62, 0.16));
+      d = min(d, sdBox(q - vec3(-1.2, -0.3, 0.0), vec3(1.4, 0.3, 1.6)));
+      res = opU(res, vec2(d, 0.0));
+    }
+  }
+  // ---------------- a far bridge threaded through the upper arches of the hypostyle
+  {
+    float b3 = sdBox(p - vec3(56.0, 29.4, 119.0), vec3(104.0, 0.7, 1.7));
+    if (b3 < res.x + 4.0) {
+      b3 = min(b3, sdBox(vec3(p.x - 56.0, p.y - 30.6, abs(p.z - 119.0) - 1.5), vec3(104.0, 0.5, 0.15)));
+      float ax = mod(p.x - 34.0, 18.0) - 9.0;
+      b3 = min(b3, max(sdBox(p - vec3(56.0, 27.0, 119.0), vec3(104.0, 2.0, 1.5)), -(length(vec2(ax, p.y - 20.5)) - 8.4)));
+      res = opU(res, vec2(b3, 0.0));
+    }
+  }
+  // ---------------- a chain let down from far above, ending in a hook
+  {
+    vec3 c = p - vec3(-5.7, 0.0, 27.7);
+    float cb = sdBox(c - vec3(0.0, 62.0, 0.0), vec3(1.4, 39.0, 1.4));
+    if (cb < res.x + 1.0) {
+      float s = 0.2;
+      float per = 4.44*s;
+      float y1 = c.y - per*floor(c.y/per + 0.5);
+      float ch = sdLink(vec3(c.x, y1, c.z), 0.7*s, 0.55*s, 0.14*s);
+      float y2 = c.y + per*0.5; y2 -= per*floor(y2/per + 0.5);
+      ch = min(ch, sdLink(vec3(c.z, y2, c.x), 0.7*s, 0.55*s, 0.14*s));
+      ch = max(ch, 24.6 - c.y);
+      vec3 g = c - vec3(0.0, 24.4, 0.0);
+      ch = min(ch, sdCap(g, vec3(0.0, 0.2, 0.0), vec3(0.0, -0.9, 0.0), 0.08));
+      vec2 hq = g.xy - vec2(0.36, -0.9);
+      ch = min(ch, max(max(abs(length(hq) - 0.36) - 0.075, abs(g.z) - 0.075), min(hq.y, hq.x)));
+      ch = min(ch, length(g - vec3(0.72, -0.78, 0.0)) - 0.1);
+      res = opU(res, vec2(ch, 2.0));
     }
   }
   // ---------------- figures
@@ -556,6 +610,10 @@ void main(){
   float haze = mix(0.62, 0.035, smoothstep(6.0, 50.0, hy));
   haze *= mix(0.6, 1.0, smoothstep(60.0, 150.0, t));
   haze += 0.32*smoothstep(40.0, 110.0, p.x)*smoothstep(70.0, 160.0, t)*(1.0 - smoothstep(38.0, 90.0, hy));
+  haze += 0.26*smoothstep(95.0, 175.0, t)*(1.0 - smoothstep(26.0, 68.0, hy));
+  float sink = smoothstep(-12.0, 0.0, p.y);
+  L *= mix(0.15, 1.0, sink);
+  haze *= mix(0.25, 1.0, sink);
   L = L*fogT + haze*(1.0 - fogT);
   // the shaft: single scattering in dusty air, sampled only where the ray crosses the beam
   float vol = 0.0;
@@ -626,7 +684,7 @@ float ground(vec2 p){
       vec3 h = hash3i(ivec3(int(cc.x), int(cc.y), k));
       vec2 ctr = cc + 0.5 + (h.xy - 0.5)*0.55;
       vec2 d = (g - ctr)*vec2(1.0, 0.86);
-      s += exp(-(d.x*d.x*14.0 + d.y*d.y*2.0))*(0.45 + 0.8*h.z)*press;
+      s += exp(-(d.x*d.x*16.0 + d.y*d.y*1.5))*(0.45 + 0.8*h.z)*press;
     }
   }
   return s + 0.3*(vn(p*0.21) - 0.5) + 0.3*(vn(p*0.67 + 31.0) - 0.5);
@@ -782,15 +840,16 @@ void main(){
   float inImg = step(0.0, iu.x)*step(iu.x, 1.0)*step(0.0, iu.y)*step(iu.y, 1.0);
   if (uHasImage > 0.5 && inImg > 0.5){
     vec4 T = texture(uTone, vec2(iu.x, 1.0 - iu.y));
-    float lum = clamp((T.r - 0.075)/0.85, 0.0, 1.0);
-    float t = 1.0 - pow(lum, 0.85);
+    float lum = clamp((T.r - 0.09)/0.84, 0.0, 1.0);
+    float t = 1.0 - pow(lum, 0.8);
     float ang = T.g*3.14159265;
     float mid = 4.0*t*(1.0 - t);
     // scraper and burnisher marks, following the forms
     float ms = max(uMarkScale, 0.3);
     float st1 = strokes(Pc/ms, ang, 26.0, 2.2, 0.0);
     float st2 = strokes(Pc/ms, ang + 0.12, 60.0, 5.5, 7.0);
-    t = clamp(t - (st1*0.16 + st2*0.12)*mid + 0.05*(fbm(Pc*0.05) - 0.5)*mid, 0.0, 1.0);
+    float midS = sqrt(mid);
+    t = clamp(t - (st1*0.2 + st2*0.15)*midS + 0.05*(fbm(Pc*0.05) - 0.5)*mid, 0.0, 1.0);
     // the rocked ground, ranked and scraped to the tone; several pits per pixel
     float w = mix(0.55, 0.75, uImp2.y) + (uSS == 1 ? 0.12 : 0.0);
     float a = solveA(t, w);
@@ -807,7 +866,7 @@ void main(){
     g = mix(g, t, smooth_);
     // barely-scraped burr still holds ink: specks in the darks are grey, not paper;
     // burnished lights keep only a little ink in their deepest pits
-    g = mix(g*(1.0 - 0.4*smoothstep(0.35, 0.0, t)), 1.0, 0.6*smoothstep(0.68, 1.0, t));
+    g = mix(g*(1.0 - 0.6*smoothstep(0.42, 0.0, t)), 1.0, 0.82*smoothstep(0.6, 0.97, t));
     g *= 0.965 + 0.035*vn(mat2(0.8, 0.6, -0.6, 0.8)*Pc*0.31 + 5.0);
     ink = g;
     vec4 tx = texture(uText, (Pc - uPlate.xy)/(uPlate.zw - uPlate.xy));
@@ -975,10 +1034,9 @@ void main(){
         [13.3, 2.6, 62.2, -2.0, 0.25, 0.2 + rnd() * 0.8, 0.35, 0],
         [b1[0], b1[1], b1[2], 0.65, 0.8, 0.1, 0.05, 0],
         [fsTop[0], fsTop[1], fsTop[2], 0.25 + rnd() * 0.5, 0.0, rnd() * 0.5, 0.45, 0],
-        [12.0 - rnd() * 14.0, 0, 90.3, -1.57, 0.6, 0.0, 0.1, 0],
+        [29.6, 22.6 + 0.3 * (Math.floor(9.0 / 0.45) + 1), 57.0, Math.PI, 0.7, 0.15, 0.25, 0],
         [b2[0], b2[1], b2[2], -2.4, 0.3, 0.9, 0.2, 0],
       ];
-      figs[3][1] = (Math.floor((28.0 - figs[3][0]) / 0.45) + 1) * 0.3;
       const passes = [];
       {
         const pr = mulberry32(1749); // the plate itself is the same for every impression
@@ -1070,12 +1128,33 @@ void main(){
         try { g.letterSpacing = (0.28 * big / dpr) * dpr + 'px'; } catch (e) { /* older engines */ }
         g.fillText(L.portrait ? title : spaced, X((L.img[0] + L.img[2]) / 2), Y(L.img[3] + below * 0.62));
         try { g.letterSpacing = '0px'; } catch (e) { /* noop */ }
-        // scraped (light) plate number in the green channel, top right of the image
-        g.fillStyle = 'rgb(0,255,0)';
-        const num = Math.max(7, 12 * u) * dpr;
-        g.font = num + 'px serif';
-        g.textAlign = 'right';
-        g.fillText('XVII', X(L.img[2] - 9 * u), Y(L.img[1] + 9 * u) + num * 0.8);
+        // plate number engraved with the burin in the upper margin: thick and hairline strokes, bracketed serifs
+        {
+          const h = Math.max(6.5, (L.img[1] - L.plate[1]) * 0.42) * dpr;
+          const thick = Math.max(1.1, h * 0.14), thin = Math.max(0.55, h * 0.045);
+          const yT = Y(L.img[1]) - (L.img[1] - L.plate[1]) * dpr * 0.32 - h, yB = yT + h;
+          g.strokeStyle = 'rgb(255,0,0)';
+          g.lineCap = 'butt';
+          const line = (x0, y0, x1, y1, w) => { g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+          const serif = (x, y, w) => line(x - w, y, x + w, y, thin);
+          const glyphs = ['X', 'V', 'I', 'I'];
+          const adv = { X: h * 0.78, V: h * 0.74, I: h * 0.36 };
+          let x = X(L.img[2]) - glyphs.reduce((s, c) => s + adv[c], 0);
+          for (const c of glyphs) {
+            const w = adv[c];
+            if (c === 'X') {
+              line(x + w * 0.12, yT, x + w * 0.88, yB, thick); line(x + w * 0.86, yT, x + w * 0.14, yB, thin);
+              serif(x + w * 0.14, yT, h * 0.13); serif(x + w * 0.86, yT, h * 0.13); serif(x + w * 0.14, yB, h * 0.13); serif(x + w * 0.86, yB, h * 0.13);
+            } else if (c === 'V') {
+              line(x + w * 0.1, yT, x + w * 0.5, yB, thick); line(x + w * 0.9, yT, x + w * 0.5, yB, thin);
+              serif(x + w * 0.12, yT, h * 0.13); serif(x + w * 0.88, yT, h * 0.13);
+            } else {
+              line(x + w * 0.5, yT, x + w * 0.5, yB, thick);
+              serif(x + w * 0.5, yT, h * 0.15); serif(x + w * 0.5, yB, h * 0.15);
+            }
+            x += w;
+          }
+        }
         g.globalCompositeOperation = 'lighter';
         const tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tex);

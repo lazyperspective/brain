@@ -204,7 +204,7 @@
   /* ================================================================== scene
    * Garden coordinates: v runs 0 (top of the fragment) to 1 (bottom); u is horizontal, same unit.
    * The fragment is a window [u0, u0 + A] onto an endless painted garden. */
-  const SKY = [[56, 106, 152], [78, 130, 168], [110, 154, 176], [130, 168, 172]];
+  const SKY = [[74, 110, 140], [92, 128, 150], [120, 150, 158], [138, 160, 158]];
   const skyAt = (v) => ramp(SKY, clamp(v / 0.6, 0, 1));
   const FT = 0.668, FBOT = 0.886, DADO = 0.912;
 
@@ -221,7 +221,7 @@
       pal: [[20, 32, 30], [32, 48, 42], [46, 64, 54], [70, 88, 68], [98, 110, 82], [156, 162, 124]], hi: [210, 212, 170] },
   };
 
-  for (const k in SPECIES) { const pl = SPECIES[k].pal; pl[0] = pl[0].map((v) => v * 0.7); pl[1] = pl[1].map((v) => v * 0.84); pl[2] = pl[2].map((v) => v * 0.94); }
+  for (const k in SPECIES) { SPECIES[k].len *= 1.45; SPECIES[k].wid *= 1.35; const pl = SPECIES[k].pal; pl[0] = pl[0].map((v) => v * 0.7); pl[1] = pl[1].map((v) => v * 0.84); pl[2] = pl[2].map((v) => v * 0.94); }
 
   const TREES = [
     { id: 'myrW', sp: 'laurel', trunks: [[[-0.24, 0.62], [-0.245, 0.45], [-0.24, 0.36]]],
@@ -284,9 +284,11 @@
     sc.dove = { x: 0.6007, y: 0.5047, s: 0.15 };
     sc.finch = { x: 0.80, y: 0.624, s: 0.06 };
     sc.warbler = { x: 1.455, y: 0.322, s: 0.07 };
-    const w1 = clamp(0.33 * A, 0.18, 0.55);
+    const w1 = clamp(0.42 * A, 0.22, 0.72);
     sc.w1 = w1;
     sc.lost = { x: u0 + 0.42 * w1, y: 0.115, s: 0.1 };
+    const s2g = clamp(A / 1.68, 0.45, 1.15);
+    sc.ghost = { x: u0 + A - 0.4 * s2g, y: 0.075, s: 0.15 * Math.max(0.75, s2g) };
     const sr = RNG(seed, 'swallow');
     sc.swallow = A >= 1 ? { x: 0.625 + sr.r(-0.015, 0.015), y: 0.1 + sr.r(0, 0.03), s: 0.1, tilt: sr.r(-0.2, 0.1) }
       : { x: u0 + A * 0.1, y: 0.4 + sr.r(-0.02, 0.02), s: 0.08, tilt: sr.r(-0.15, 0.05) };
@@ -318,14 +320,14 @@
     }
     P.branches = br;
     for (const l of def.lobes) {
-      const n = Math.round((Math.PI * l[2] * l[3]) / 0.00045);
+      const n = Math.round((Math.PI * l[2] * l[3]) / 0.0008);
       for (let k = 0; k < n; k++) {
         const a = rng() * TAU, r = Math.sqrt(rng()) * 0.86;
         const x = l[0] + Math.cos(a) * l[2] * r, y = l[1] + Math.sin(a) * l[3] * r;
-        P.under.push({ x, y, a: rng() * TAU, l: rng.r(0.028, 0.05), w: rng.r(0.009, 0.017), t: rng() });
+        P.under.push({ x, y, a: rng() * TAU, l: rng.r(0.04, 0.07), w: rng.r(0.012, 0.022), t: rng() });
       }
     }
-    const area = (x1 - x0) * (y1 - y0), N = Math.round(area / 0.00032);
+    const area = (x1 - x0) * (y1 - y0), N = Math.round(area / 0.00066);
     for (let k = 0; k < N; k++) {
       const x = rng.r(x0, x1), y = rng.r(y0, y1);
       const [d, l] = depthAt(x, y);
@@ -447,36 +449,25 @@
     }
   }
   function paintSprays(P, pl, from, to) {
+    // the Roman shorthand: each spray a fan of leaf-dabs from one point, the same gesture repeated with variation
     const sp = pl.sp, pal = sp.pal;
     for (let k = from; k < to && k < pl.sprays.length; k++) {
       const s = pl.sprays[k], R = mulberry32(s.seed);
-      const base = ramp(pal.slice(0, 5), s.tone);
-      const tw = sp.len * sp.twig, ca = Math.cos(s.ang), sa = Math.sin(s.ang);
-      const tx = s.x + ca * tw, ty = s.y + sa * tw;
-      if (s.tone < 0.7 && R() < 0.5) P.line([[s.x, s.y], [lerp(s.x, tx, 0.5) + (R() - 0.5) * 0.003, lerp(s.y, ty, 0.5) + (R() - 0.5) * 0.003], [tx, ty]], 0.0018, 0.0007, mixc(base, [70, 56, 44], 0.6), 0.6, 0, 0, 0.5);
-      for (let j = 0; j < s.n; j++) {
-        if (R() < 0.08) continue;
-        const t = s.n === 1 ? 1 : j / (s.n - 1), side = j % 2 ? 1 : -1;
-        let la = s.ang + side * (sp.whorl ? 0.55 + R() * 0.5 : 0.45 + R() * 0.6) * (1 - t * 0.6);
-        if (j === s.n - 1) la = s.ang + (R() - 0.5) * 0.4;
-        la += (Math.cos(la) > 0 ? 1 : -1) * sp.droop * 0.5;
-        const px = lerp(s.x, tx, t * 0.95) + (R() - 0.5) * sp.wid * 0.6, py = lerp(s.y, ty, t * 0.95) + (R() - 0.5) * sp.wid * 0.6;
-        let L = sp.len * (0.7 + R() * 0.6) * (j === s.n - 1 ? 1.08 : 1), W = sp.wid * (0.75 + R() * 0.55);
-        let bend = (R() - 0.5) * 1.1 + sp.bend * side, asym = (R() - 0.5) * 1.2;
-        if (R() < 0.18) { L *= 1.15; W *= 0.55; bend *= 1.8; }
-        let col = jit(base, R, 18);
-        if (sp.silver && R() < 0.18) col = mixc(col, sp.silver, 0.55);
-        P.leaf(px, py, la, L, W, bend, asym, col, 0.62 + R() * 0.33);
-        if (R() < 0.25) {
-          const off = -side * W * 0.35;
-          P.leaf(px + Math.cos(la + 1.57) * off, py + Math.sin(la + 1.57) * off, la, L * 0.85, W * 0.45, bend, 0, mixc(col, [16, 22, 18], 0.25), 0.45);
+      const base = ramp(pal.slice(0, 5), s.tone), n = Math.max(3, Math.min(6, s.n - 1));
+      const spread = sp.whorl ? 1.3 : 1.0;
+      for (let j = 0; j < n; j++) {
+        const t = n === 1 ? 0.5 : j / (n - 1);
+        let la = s.ang + (t - 0.5) * 2 * spread + (R() - 0.5) * 0.25;
+        la += (Math.cos(la) > 0 ? 1 : -1) * sp.droop * 0.4;
+        const L = sp.len * (0.8 + R() * 0.4) * (1 - Math.abs(t - 0.5) * 0.35), W = sp.wid * (0.85 + R() * 0.3);
+        const col = jit(sp.silver && R() < 0.15 ? mixc(base, sp.silver, 0.5) : base, R, 14);
+        P.leaf(s.x, s.y, la, L, W, sp.bend * (t < 0.5 ? -1 : 1) + (R() - 0.5) * 0.4, (R() - 0.5) * 0.5, col, 0.7 + R() * 0.25);
+        if (s.tone > 0.62 && R() < 0.45) {
+          const c2 = jit(ramp(pal, Math.min(1, s.tone + 0.22)), R, 10);
+          P.leaf(s.x + Math.cos(la) * L * 0.12, s.y + Math.sin(la) * L * 0.12, la, L * 0.62, W * 0.42, 0, 0, c2, 0.75);
         }
-        if (s.tone > 0.5 && R() < 0.55) {
-          const c2 = jit(ramp(pal, Math.min(1, s.tone + 0.24)), R, 12);
-          P.leaf(px + Math.cos(la - 1.2) * W * 0.25, py + Math.sin(la - 1.2) * W * 0.25, la + (R() - 0.5) * 0.2, L * (0.55 + R() * 0.3), W * 0.45, bend, 0, c2, 0.72);
-        }
-        if (s.tone > 0.78 && R() < 0.32) P.leaf(px + Math.cos(la) * L * 0.2, py + Math.sin(la) * L * 0.2, la + (R() - 0.5) * 0.4, L * 0.45, W * 0.3, bend * 0.5, 0, jit(sp.hi, R, 10), 0.85);
       }
+      if (s.tone > 0.82 && R() < 0.4) P.leaf(s.x, s.y, s.ang + (R() - 0.5) * 0.6, sp.len * 0.5, sp.wid * 0.35, 0, 0, jit(sp.hi, R, 10), 0.8);
     }
   }
   function blobPath(x, y, rx, ry, rot, irr, R) {
@@ -729,78 +720,55 @@
   }
 
   function paintBasin(P, b) {
-    // a marble labrum on a short baluster: gadrooned bowl, a thick lip, water holding the sky
+    // a marble labrum in a handful of strokes: white body, grey turning edge, the dark under the lip, water in two touches
     const { x, y, rx, ry } = b;
-    const marble = [226, 220, 206], shade = [150, 144, 150], deep = [112, 106, 116], hi = [248, 246, 238];
-    // baluster
-    const st = new Path2D();
-    st.moveTo(x - 0.014, y + 0.052); st.bezierCurveTo(x - 0.03, y + 0.075, x - 0.03, y + 0.095, x - 0.012, y + 0.11);
-    st.bezierCurveTo(x - 0.016, y + 0.15, x - 0.02, y + 0.18, x - 0.03, y + 0.2); st.lineTo(x + 0.03, y + 0.2);
-    st.bezierCurveTo(x + 0.02, y + 0.18, x + 0.016, y + 0.15, x + 0.012, y + 0.11);
-    st.bezierCurveTo(x + 0.03, y + 0.095, x + 0.03, y + 0.075, x + 0.014, y + 0.052); st.closePath();
-    P.fill(st, [204, 198, 188], 1);
-    P.brush([[x + 0.006, y + 0.06], [x + 0.016, y + 0.085], [x + 0.008, y + 0.12], [x + 0.016, y + 0.195]], 0.016, 0.018, shade, 0.85, 3);
-    P.brush([[x - 0.01, y + 0.065], [x - 0.017, y + 0.085], [x - 0.008, y + 0.12], [x - 0.014, y + 0.19]], 0.006, 0.007, hi, 0.8, 2);
-    P.brush([[x - 0.024, y + 0.1], [x, y + 0.104], [x + 0.024, y + 0.1]], 0.004, 0.004, deep, 0.6, 1);
-    P.fill(polyPath([[x - 0.042, y + 0.196], [x + 0.042, y + 0.196], [x + 0.046, y + 0.222], [x - 0.046, y + 0.222]]), [212, 206, 196], 1);
-    P.brush([[x - 0.044, y + 0.205], [x + 0.044, y + 0.205]], 0.006, 0.006, shade, 0.7, 2);
-    // bowl
+    const white = [234, 230, 218], grey = [150, 146, 148], dark = [96, 92, 96];
+    P.line([[x - 0.004, y + 0.05], [x - 0.003, y + 0.12], [x - 0.006, y + 0.2]], 0.03, 0.04, [206, 200, 190], 0.95, 0, 0, 0);
+    P.brush([[x - 0.006, y + 0.05], [x - 0.004, y + 0.12], [x - 0.01, y + 0.2]], 0.026, 0.034, [222, 216, 204], 0.95, 5);
+    P.brush([[x + 0.009, y + 0.055], [x + 0.012, y + 0.12], [x + 0.016, y + 0.2]], 0.012, 0.016, grey, 0.75, 3);
+    P.brush([[x - 0.04, y + 0.205], [x, y + 0.208], [x + 0.042, y + 0.204]], 0.022, 0.022, [206, 200, 190], 0.95, 4);
     const bowl = new Path2D();
-    bowl.moveTo(x - rx, y + 0.004); bowl.bezierCurveTo(x - rx * 0.96, y + 0.034, x - rx * 0.5, y + 0.052, x - 0.016, y + 0.056);
-    bowl.lineTo(x + 0.016, y + 0.056); bowl.bezierCurveTo(x + rx * 0.5, y + 0.052, x + rx * 0.96, y + 0.034, x + rx, y + 0.004); bowl.closePath();
-    P.fill(bowl, marble, 1);
-    P.c.save(); P.c.clip(bowl);
-    // gadroons, converging on the foot, lit from the left
-    for (let k = -8; k <= 8; k++) {
-      const t = k / 8, x0 = x + t * rx * 0.98, x1 = x + t * 0.014;
-      const lit = clamp(0.55 - t * 0.6 + (k % 2 ? 0.12 : -0.08), 0, 1);
-      P.brush([[x0, y + 0.006], [lerp(x0, x1, 0.45) + t * 0.006, y + 0.034], [x1, y + 0.056]], 0.012 * (1 - Math.abs(t) * 0.4), 0.004, mixc(shade, hi, lit), 0.75, 2);
-    }
-    P.brush([[x + rx * 0.2, y + 0.012], [x + rx * 0.6, y + 0.026], [x + rx * 0.9, y + 0.016]], 0.04, 0.028, deep, 0.45, 4);
-    P.c.restore();
-    // lip and water
-    P.dot(x, y, rx, ry, 0, [214, 208, 198], 1);
-    P.dot(x, y - ry * 0.06, rx * 0.9, ry * 0.66, 0, [136, 174, 186], 1);
-    P.brush([[x - rx * 0.86, y - ry * 0.1], [x - rx * 0.3, y - ry * 0.55], [x + rx * 0.4, y - ry * 0.5], [x + rx * 0.85, y - ry * 0.12]], 0.006, 0.005, [104, 132, 146], 0.6, 2);
-    P.brush([[x - rx * 0.62, y - ry * 0.05], [x - rx * 0.05, y - ry * 0.3], [x + rx * 0.45, y - ry * 0.1]], 0.0026, 0.0022, [228, 240, 238], 0.85, 1);
-    P.brush([[x - rx * 0.86, y + ry * 0.28], [x - rx * 0.3, y + ry * 0.72], [x + rx * 0.3, y + ry * 0.72], [x + rx * 0.86, y + ry * 0.28]], 0.0055, 0.004, hi, 0.9, 2);
-    P.brush([[x + rx * 0.35, y + ry * 0.66], [x + rx * 0.8, y + ry * 0.34]], 0.004, 0.003, shade, 0.7, 1);
-    P.brush([[x - rx * 0.98, y + 0.004], [x - rx * 0.92, y + 0.012]], 0.004, 0.003, deep, 0.6, 1);
+    bowl.moveTo(x - rx, y); bowl.bezierCurveTo(x - rx * 0.95, y + 0.036, x - rx * 0.45, y + 0.054, x - 0.014, y + 0.056);
+    bowl.lineTo(x + 0.014, y + 0.056); bowl.bezierCurveTo(x + rx * 0.45, y + 0.054, x + rx * 0.95, y + 0.036, x + rx, y); bowl.closePath();
+    P.fill(bowl, [226, 220, 208], 0.92);
+    P.brush([[x - rx * 0.98, y + 0.006], [x - rx * 0.6, y + 0.036], [x, y + 0.05], [x + rx * 0.6, y + 0.036], [x + rx * 0.98, y + 0.006]], 0.036, 0.03, white, 0.96, 6);
+    P.brush([[x - rx * 0.7, y + 0.03], [x, y + 0.044], [x + rx * 0.7, y + 0.03]], 0.03, 0.02, white, 0.9, 5);
+    P.brush([[x + rx * 0.15, y + 0.022], [x + rx * 0.6, y + 0.03], [x + rx * 0.95, y + 0.012]], 0.024, 0.012, grey, 0.75, 4);
+    P.brush([[x - rx * 0.7, y + 0.04], [x, y + 0.054], [x + rx * 0.6, y + 0.044]], 0.006, 0.004, dark, 0.55, 2);
+    P.brush([[x - rx, y], [x - rx * 0.5, y - ry * 0.95], [x + rx * 0.5, y - ry * 0.95], [x + rx, y]], 0.011, 0.011, [212, 206, 196], 0.95, 3);
+    P.brush([[x - rx * 0.8, y - ry * 0.1], [x, y - ry * 0.25], [x + rx * 0.8, y - ry * 0.1]], 0.016, 0.014, [128, 160, 168], 0.9, 4);
+    P.brush([[x - rx * 0.45, y - ry * 0.3], [x + rx * 0.2, y - ry * 0.35]], 0.003, 0.002, [226, 236, 232], 0.85, 1);
+    P.brush([[x - rx, y + 0.002], [x - rx * 0.4, y + ry * 0.85], [x + rx * 0.4, y + ry * 0.85], [x + rx, y + 0.002]], 0.009, 0.007, [248, 246, 236], 0.95, 3);
   }
 
   function paintFence(P, sc, rng) {
-    // the reed lattice, painted freehand: no two canes quite parallel
-    const H = FBOT - FT, reed = [206, 190, 142], dark = [52, 52, 38], light = [242, 234, 204];
-    const span = 0.078, slope = 0.62;
-    const draw = (dir) => {
-      for (let u = sc.uL - 0.3; u < sc.uR + 0.2; u += span * rng.r(0.86, 1.14)) {
-        const k = rng() * 10, sl = slope * rng.r(0.92, 1.08), amp = rng.r(0.0006, 0.0018), w = rng.r(0.0052, 0.0068), pts = [];
-        for (let t = 0; t <= 7; t++) { const v = FBOT - (t / 7) * H; pts.push([u + dir * (t / 7) * H * sl + Math.sin(v * 60 + k) * amp, v]); }
-        P.line(pts.map((p) => [p[0] + 0.0021, p[1] + 0.0016]), w * 1.15, w, dark, 0.66, 0, 0.05, 0.05);
-        const rc = jit(reed, rng, 18);
-        P.line(pts, w * 0.9, w * 0.8, rc, 0.9, 0, 0.04, 0.04);
-        P.brush(pts, w, w * 0.88, rc, 0.8, 3, true);
-        P.line(pts.map((p) => [p[0] - w * 0.25, p[1] - w * 0.18]), w * 0.3, w * 0.24, light, 0.8, 0, 0.15, 0.2);
-      }
+    // a cane lattice: one ochre stroke per cane, a broken white stroke on the lit side, a little green shadow
+    const H = FBOT - FT, ochre = [196, 160, 94], white = [240, 232, 208], shade = [46, 58, 40];
+    const span = 0.08, slope = 0.62;
+    const cane = (pts, w) => {
+      P.brush(pts.map((p) => [p[0] + w * 0.5, p[1] + w * 0.45]), w * 1.1, w, shade, 0.28, 2, true);
+      P.brush(pts, w, w * 0.85, jit(ochre, rng, 22), 0.9, 4, true);
+      const n = pts.length, a0 = Math.floor(rng() * n * 0.4), a1 = Math.min(n, a0 + 2 + Math.floor(rng() * n * 0.6));
+      const sub = pts.slice(a0, a1).map((p) => [p[0] - w * 0.25, p[1] - w * 0.2]);
+      if (sub.length > 1) P.brush(sub, w * 0.42, w * 0.3, white, 0.8, 2, true);
     };
-    draw(-1); draw(1);
+    for (const dir of [-1, 1]) {
+      for (let u = sc.uL - 0.3; u < sc.uR + 0.2; u += span * rng.r(0.85, 1.15)) {
+        const k = rng() * 10, sl = slope * rng.r(0.9, 1.1), amp = rng.r(0.0008, 0.0022), pts = [];
+        for (let t = 0; t <= 7; t++) { const v = FBOT - (t / 7) * H; pts.push([u + dir * (t / 7) * H * sl + Math.sin(v * 60 + k) * amp, v]); }
+        cane(pts, rng.r(0.0058, 0.0078));
+      }
+    }
     for (const v of [FT, FBOT]) {
       const pts = [];
-      for (let u = sc.uL - 0.1; u <= sc.uR + 0.1; u += 0.04) pts.push([u, v + Math.sin(u * 9.5 + v * 7) * 0.0013 + rng.r(-0.0006, 0.0006)]);
-      P.line(pts.map((p) => [p[0], p[1] + 0.0038]), 0.0078, 0.0078, dark, 0.66, 0, 0, 0);
-      P.line(pts, 0.0076, 0.0076, jit(reed, rng, 10), 0.92, 0, 0, 0);
-      P.brush(pts, 0.008, 0.008, jit(reed, rng, 10), 0.8, 3, true);
-      P.line(pts.map((p) => [p[0], p[1] - 0.002]), 0.0016, 0.0016, light, 0.8, 0, 0, 0);
+      for (let u = sc.uL - 0.1; u <= sc.uR + 0.1; u += 0.04) pts.push([u, v + Math.sin(u * 9.5 + v * 7) * 0.0016 + rng.r(-0.0008, 0.0008)]);
+      cane(pts, 0.0095);
     }
     for (const u of sc.posts) {
       if (!sc.inWin(u, 0.05)) continue;
       const lean = rng.r(-0.004, 0.004);
-      const pts = [[u + lean, FT - 0.019], [u + lean * 0.4, (FT + FBOT) / 2], [u - 0.0005, FBOT + 0.009]];
-      P.line(pts.map((p) => [p[0] + 0.0032, p[1]]), 0.0105, 0.0105, dark, 0.7, 0, 0, 0);
-      P.brush(pts, 0.0098, 0.0098, jit([190, 168, 116], rng, 8), 1, 3, false);
-      P.line(pts.map((p) => [p[0] - 0.0026, p[1]]), 0.0022, 0.0022, light, 0.8, 0, 0, 0);
-      P.dot(u + lean, FT - 0.02, 0.0068, 0.005, 0, [210, 190, 134], 1);
-      P.dot(u + lean - 0.0018, FT - 0.0218, 0.0029, 0.0019, 0, light, 0.9);
+      cane([[u + lean, FT - 0.022], [u + lean * 0.5, FT + 0.05], [u + lean * 0.2, (FT + FBOT) / 2 + 0.03], [u - 0.0005, FBOT + 0.01]], 0.012);
+      P.dot(u + lean, FT - 0.022, 0.0075, 0.0055, 0, [214, 186, 124], 0.95);
     }
   }
 
@@ -913,6 +881,7 @@
     birdSin(sc.finch, sm, true);
     birdSin(sc.warbler, sm, false);
     birdSin(sc.lost, sm, true, 0.15, (cc) => { cc.beginPath(); cc.arc(0.15, 0.27, 0.03, 0, TAU); cc.stroke(); cc.beginPath(); cc.moveTo(0.38, 0.6); cc.lineTo(0.39, 0.75); cc.moveTo(0.45, 0.6); cc.lineTo(0.47, 0.75); cc.stroke(); });
+    birdSin(sc.ghost, [bz(new Path2D(), DOVE.body), bz(new Path2D(), DOVE.tail), bz(new Path2D(), DOVE.wing)], false, 0.25, (cc) => { cc.beginPath(); cc.arc(0.15, 0.43, 0.02, 0, TAU); cc.stroke(); cc.beginPath(); cc.moveTo(0.42, 0.2); cc.quadraticCurveTo(0.55, -0.15, 0.85, -0.25); cc.moveTo(0.5, 0.22); cc.quadraticCurveTo(0.7, 0.0, 0.95, -0.12); cc.stroke(); });
     const dl = new Path2D(); dl.moveTo(0.53, 0.46); dl.lineTo(0.53, 0.54); dl.moveTo(0.61, 0.45); dl.lineTo(0.61, 0.54);
     birdSin(sc.dove, [bz(new Path2D(), DOVE.body), bz(new Path2D(), DOVE.tail), bz(new Path2D(), DOVE.wing), dl]);
     const b = sc.basin;
@@ -969,8 +938,8 @@
     D.avoid = [[j.x + 0.1 * j.s * 5, j.y + 0.075, 0.118, 0.08], [0.63, 0.575, 0.06, 0.035], [0.785, 0.64, 0.035, 0.035], [sc.swallow.x + 0.5 * sc.swallow.s, sc.swallow.y + 0.5 * sc.swallow.s, 0.05, 0.04]];
     const avoided = (x, y, m) => D.avoid.some((a) => ((x - a[0]) / (a[2] + m)) ** 2 + ((y - a[1]) / (a[3] + m)) ** 2 < 1);
 
-    const L1 = [[-0.06, -0.06], [w1 + 0.02, -0.06], [w1 * 0.97, 0.02], [w1 * 0.84, 0.06], [w1 * 0.74, 0.11], [w1 * 0.62, 0.135], [w1 * 0.52, 0.2],
-      [w1 * 0.40, 0.245], [w1 * 0.30, 0.30], [w1 * 0.20, 0.335], [w1 * 0.10, 0.39], [-0.06, 0.43]].map(([x, y]) => [u0 + x, y]);
+    const L1 = [[-0.06, -0.06], [w1 + 0.02, -0.06], [w1 * 0.97, 0.03], [w1 * 0.84, 0.08], [w1 * 0.74, 0.15], [w1 * 0.62, 0.18], [w1 * 0.52, 0.26],
+      [w1 * 0.40, 0.31], [w1 * 0.30, 0.38], [w1 * 0.20, 0.43], [w1 * 0.10, 0.5], [-0.06, 0.56]].map(([x, y]) => [u0 + x, y]);
     D.losses.push(fractalPoly(rng, L1, 6, 0.2, 0.0025));
     for (let n = 0; n < 2; n++) {
       const x = u0 + rng.r(0.15, 0.8) * w1, y = rng.r(0.04, 0.2);
@@ -979,17 +948,24 @@
     }
     { const b = sc.lost, tx = b.x - 0.86 * b.s, ty = b.y + 0.66 * b.s;
       D.islands.push(fractalPoly(rng, blobPoly(rng, tx, ty, 0.015, 0.012, 8, 0.25, 0.4), 3, 0.2, 0.002)); }
-    const L2 = [[-0.30 * s2, 1.06], [-0.27 * s2, 0.95], [-0.215 * s2, 0.885], [-0.18 * s2, 0.80], [-0.11 * s2, 0.765], [-0.05 * s2, 0.69], [0.06, 0.665], [0.06, 1.06]]
+    const L2 = [[-0.46 * s2, 1.06], [-0.42 * s2, 0.94], [-0.33 * s2, 0.87], [-0.29 * s2, 0.76], [-0.2 * s2, 0.7], [-0.15 * s2, 0.6], [-0.07 * s2, 0.55], [0.06, 0.5], [0.06, 1.06]]
       .map(([x, y]) => [uR0 + x, y]);
     D.losses.push(fractalPoly(rng, L2, 6, 0.22, 0.0025));
     { const b = sc.dove, cx = b.x + 0.84 * b.s, cy = b.y + 0.2 * b.s;
       D.losses.push(fractalPoly(rng, blobPoly(rng, cx, cy, 0.042, 0.034, 9, 0.22, -0.3), 4, 0.18, 0.002)); }
+    // L6: the top of the wall at the right is gone, and with it a bird that now exists only as its sinopia
+    { const g = sc.ghost, L6 = [[-0.55 * s2, -0.06], [-0.52 * s2, 0.06], [-0.45 * s2, 0.16], [-0.34 * s2, 0.24], [-0.24 * s2, 0.26], [-0.14 * s2, 0.2], [-0.08 * s2, 0.1], [-0.02 * s2, 0.03], [0.06, -0.06]]
+      .map(([x, y]) => [uR0 + x, Math.min(y, 0.26)]);
+      D.losses.push(fractalPoly(rng, L6, 6, 0.2, 0.0025)); void g; }
+    // L7: the foot of the wall, flowers and dado, partly filled with mortar
+    { const L7 = [[0.4, 1.06], [0.41, 0.95], [0.45, 0.9], [0.5, 0.875], [0.56, 0.88], [0.62, 0.905], [0.66, 0.95], [0.68, 1.06]].map(([x, y]) => [u0 + x * A, y]);
+      D.losses.push(fractalPoly(rng, L7, 6, 0.22, 0.0025)); }
     // composed lacunae, nudged off the things that must survive
     const nudge = (x, y, rx, ry, dx, dy) => {
       for (let k = 0; k < 12 && avoided(x, y, Math.max(rx, ry) * 0.9); k++) { x += dx; y += dy; }
       return [x, y];
     };
-    { const [x, y] = nudge(uR0 - 0.30 * s2, 0.075, 0.058, 0.042, 0.02, 0);
+    { const [x, y] = nudge(u0 + 0.4 * A, 0.3, 0.058, 0.042, -0.02, 0.004);
       const p = fractalPoly(rng, blobPoly(rng, x, y, 0.058, 0.042, 9, 0.2, 0.2), 4, 0.16, 0.002);
       D.losses.push(p); D.trat.push({ poly: p, mode: 'sky' }); }
     { const [x, y] = nudge(u0 + 0.26 * A, 0.775, 0.066, 0.048, -0.02, 0.01);
@@ -1015,7 +991,7 @@
       return { pts, w };
     };
     const cr = RNG(seed, 'cracks');
-    const C1 = walk(u0 + 0.66 * A, -0.02, Math.PI / 2 + 0.1, 1.1, 0.002, cr);
+    const C1 = walk(u0 + 0.8 * A, -0.02, Math.PI / 2 + 0.5, 1.5, 0.0032, cr);
     const C2 = walk(u0 - 0.02, 0.555, 0.22, 0.42 * Math.max(A, 0.8), 0.0017, cr);
     const C3 = walk(uR0 - 0.2 * s2, 0.79, -2.6, 0.3, 0.0015, cr);
     const C4 = walk(u0 + 0.3 * w1, 0.31, 1.35, 0.32, 0.0014, cr);
@@ -1029,7 +1005,7 @@
     }
     for (const C of D.cracks) {
       for (let i = 2; i < C.pts.length - 2; i++) {
-        if (cr() < 0.06) {
+        if (cr() < (C === C1 ? 0.13 : 0.06)) {
           const [x, y] = C.pts[i];
           if (avoided(x, y, 0.01)) continue;
           D.losses.push(fractalPoly(cr, blobPoly(cr, x, y, cr.r(0.003, 0.009), cr.r(0.002, 0.006), 6, 0.3, cr() * 3), 3, 0.25, 0.0015));
@@ -1040,14 +1016,14 @@
 
     const fr = RNG(seed, 'flakes');
     let made = 0, guard = 0;
-    while (made < 26 && guard++ < 600) {
+    while (made < 60 && guard++ < 1200) {
       let x, y;
       const t = fr();
       if (t < 0.45) { x = fr.r(u0, uR0); y = fr.r(0.74, 0.99); }
       else if (t < 0.7) { x = u0 + fr.r(0, w1 * 1.3); y = fr.r(0.0, 0.5); }
       else { x = fr.r(u0, uR0); y = fr.r(0.03, 0.97); }
       if (avoided(x, y, 0.015)) continue;
-      const r = fr.r(0.003, 0.016) * (t < 0.45 ? 0.8 : 1);
+      const r = (made < 30 ? fr.r(0.002, 0.007) : fr.r(0.004, 0.016)) * (t < 0.45 ? 0.8 : 1);
       D.losses.push(fractalPoly(fr, blobPoly(fr, x, y, r, r * fr.r(0.6, 1), 7, 0.3, fr() * 3), 3, 0.22, 0.0015));
       made++;
     }
@@ -1285,6 +1261,10 @@ void main() {
     c = mix(vec3(208.0, 200.0, 182.0), c, pp);
     c *= 1.0 + (gs - 0.5) * 0.06 + (g - 0.5) * 0.025;
     c = c * vec3(1.0, 0.985, 0.94) + vec3(5.0, 3.0, 0.0);
+    // lime-bound earth pigment: chalky, matte, never fully saturated
+    float lmc = dot(c, vec3(0.3, 0.55, 0.15));
+    c = mix(vec3(lmc), c, 0.68);
+    c = c * 0.84 + vec3(32.0, 30.0, 24.0);
     col = mix(col, c, ip);
     h = mix(h, uSlabH + uThick * (0.74 + 0.26 * pp) + relief * uImp + (mot - 0.5) * uThick * 0.3 + (gs - 0.5) * uGAmp * 0.18, ip);
   }
@@ -1447,7 +1427,7 @@ void main() {
         tFA: tex(null, inp.fw, inp.fh, false, inp.fa), tFB: tex(null, inp.fw, inp.fh, false, inp.fb),
       };
       const pS = mkProg(FS_SURFACE), pB = mkProg(FS_BLUR), pL = mkProg(FS_LIGHT);
-      const px1 = new Uint8Array(4), tick = prm.log ? (n) => { gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px1); prm.log('  gl ' + n, Math.round(performance.now())); } : () => {};
+      const tick = () => {};
       tick('upload+compile');
       const t1 = target(Wp, Hp, 2);
       run(pS, t1, Wp, Hp, T, { uRes: [Wp, Hp], uSd: prm.sd, uS: prm.S, uU0: prm.u0, uSlabH: prm.slabH, uThick: prm.thick, uGAmp: prm.gAmp, uImp: prm.imp, uCell: prm.cell, uHMax: prm.hmax });
@@ -1596,6 +1576,7 @@ void main() {
       await paintPlant(pl, r);
       if (pl.def.id === 'pom') paintSmallBird(P, sc.lost, PAL_ORIOLE, true);
       if (pl.def.id === 'oleT') paintSmallBird(P, sc.warbler, PAL_WARBLER, false);
+      if (pl.def.id === 'quince') paintDove(P, sc.ghost);
       if (pl.def.perch) paintBranches(P, pl, pl.def.perch);
       flush(); await step();
     }
@@ -1679,7 +1660,7 @@ void main() {
         const u = u0 + ((i + 0.5) * Wp) / fw / S, v = ((j + 0.5) * Hp) / fh / S, o = (j * fw + i) * 4;
         const jd = ((u - 0.95) / 0.26) ** 2 + ((v - 0.4) / 0.16) ** 2;
         const f0 = nz[0].fbm(u * 2.2 + 3, v * 2.2, 4);
-        FA[o] = 255 * (sstep(0.525, 0.575, f0) * 0.85 + 0.12 * sstep(0.4, 0.8, nz[0].fbm(u * 9, v * 9, 2))) * (0.25 + 0.75 * sstep(0.2, 2.2, jd));
+        FA[o] = 255 * (sstep(0.5, 0.6, f0) * 0.85 + 0.12 * sstep(0.4, 0.8, nz[0].fbm(u * 9, v * 9, 2))); void jd;
         FA[o + 1] = 255 * sstep(0.56, 0.84, nz[1].fbm(u * 4, v * 4, 4) + (v - 0.6) * 0.4);
         FA[o + 2] = 255 * sstep(0.3, 0.95, nz[2].fbm(u * 2.2, v * 2.2, 4) * 0.75 + v * 0.32);
         FA[o + 3] = 255 * sstep(0.52, 0.72, nz[3].fbm(u * 3.5, v * 3.5, 3));
@@ -1893,8 +1874,6 @@ void main() {
       },
     };
   }
-
-  if (typeof window.__frescoTest === 'function') window.__frescoTest({ Painter, paintJay, paintDove, paintSmallBird, paintSwallow, paintBasin, PAL_FINCH, PAL_WARBLER, PAL_ORIOLE, css });
 
   (window.PIECES = window.PIECES || []).push({
     id: 'fresco',
