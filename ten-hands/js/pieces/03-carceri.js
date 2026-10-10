@@ -178,6 +178,12 @@ vec2 map(vec3 p){
   float pit = sdBox(p - vec3(3.0, -45.0, 34.0), vec3(27.0, 45.0, 20.0));
   vec2 res = vec2(max(p.y, -pit), 0.0);
   res = opU(res, vec2(p.y + 90.0, 0.0));
+  {   // a stone kerb along the brink of the pit
+    vec2 k = p.xz - vec2(3.0, 34.0);
+    float kerb = max(abs(sdBox2(k, vec2(27.35, 20.35))) - 0.35, abs(p.y - 0.35) - 0.35);
+    kerb = max(kerb, -(p.z - 30.0));
+    res = opU(res, vec2(kerb, 0.0));
+  }
   res = opU(res, vec2(100.0 - p.y, 0.0));             // vault
   res = opU(res, vec2(160.0 - p.x, 0.0));             // far end walls
   res = opU(res, vec2(222.0 - p.z, 0.0));
@@ -434,7 +440,6 @@ vec2 map(vec3 p){
     float bd = sdBox(q - vec3(20.0, 14.0, 0.0), vec3(21.0, 15.0, 2.6));
     if (bd < res.x + 1.0) {
       float d = flight(q, 40.0, 3.0, 0.3, 0.45, 1.2);
-      d = min(d, rampWall(q, 40.0, 0.3/0.45, -0.6, 1.0, -1.62, 0.16));
       d = min(d, sdBox(q - vec3(-1.2, -0.3, 0.0), vec3(1.4, 0.3, 1.6)));
       res = opU(res, vec2(d, 0.0));
     }
@@ -488,7 +493,7 @@ float halo(vec3 p){
   if (tw < 0.0) return 0.0;
   vec3 h = p + uSun*tw;
   float d = archOpen(vec2(h.x - WINX, h.y), WH, WY1, WY0);
-  return exp(-max(d, 0.0)*0.28)*(1.0 - exp(-tw*0.05));
+  return exp(-max(d, 0.0)*0.2)*(1.0 - exp(-tw*0.05));
 }
 float aperture(vec3 p, out float tw){
   tw = (WPZ - p.z)/uSun.z;
@@ -611,9 +616,9 @@ void main(){
   haze *= mix(0.6, 1.0, smoothstep(60.0, 150.0, t));
   haze += 0.32*smoothstep(40.0, 110.0, p.x)*smoothstep(70.0, 160.0, t)*(1.0 - smoothstep(38.0, 90.0, hy));
   haze += 0.26*smoothstep(95.0, 175.0, t)*(1.0 - smoothstep(26.0, 68.0, hy));
-  float sink = smoothstep(-12.0, 0.0, p.y);
-  L *= mix(0.15, 1.0, sink);
-  haze *= mix(0.25, 1.0, sink);
+  float sink = smoothstep(-3.5, 0.1, p.y);
+  L *= mix(0.06, 1.0, sink);
+  haze *= mix(0.12, 1.0, sink);
   L = L*fogT + haze*(1.0 - fogT);
   // the shaft: single scattering in dusty air, sampled only where the ray crosses the beam
   float vol = 0.0;
@@ -632,7 +637,7 @@ void main(){
       for (int i=0;i<40;i++){
         vec3 s = ro + rd*tt;
         float tw2;
-        float a = aperture(s, tw2) + 0.075*halo(s);
+        float a = aperture(s, tw2) + 0.11*halo(s);
         float dens = 0.55 + 0.9*vnoise(s*0.2 + vec3(0.0, uVar.x*10.0, 0.0));
         vol += a*dens*dt*exp(-tt*0.002);
         tt += dt;
@@ -1034,7 +1039,7 @@ void main(){
         [13.3, 2.6, 62.2, -2.0, 0.25, 0.2 + rnd() * 0.8, 0.35, 0],
         [b1[0], b1[1], b1[2], 0.65, 0.8, 0.1, 0.05, 0],
         [fsTop[0], fsTop[1], fsTop[2], 0.25 + rnd() * 0.5, 0.0, rnd() * 0.5, 0.45, 0],
-        [29.6, 22.6 + 0.3 * (Math.floor(9.0 / 0.45) + 1), 57.0, Math.PI, 0.7, 0.15, 0.25, 0],
+        [7.6, -13.3 + 0.3 * (Math.floor(15.6 / 0.45) + 1), 52.6, -1.57, 0.7, 0.1, 0.2, 0],
         [b2[0], b2[1], b2[2], -2.4, 0.3, 0.9, 0.2, 0],
       ];
       const passes = [];

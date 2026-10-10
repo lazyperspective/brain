@@ -655,30 +655,25 @@
     for (let i = 0; i < n; i++) { a += bend / n; x += Math.cos(a) * step; y += Math.sin(a) * step; p.push(x, y); }
     return p;
   }
-  // a cloud mass laid in with the side of the stick in quick, crossing sweeps, then wiped
+  // a cloud mass: the side of the stick in quick strokes riding the wind, rubbed into tone,
+  // a couple of marks restated on its belly, light lifted off its top
   function skyMass(S, cx, cy, w, h, amt, lean) {
     const r = S.r;
-    const n = 4 + ((r() * 4) | 0);
+    const n = 5 + ((r() * 4) | 0);
     for (let i = 0; i < n; i++) {
-      const x = cx + (r() - 0.5) * w * 0.8, y = cy + (r() - 0.5) * h;
-      const ang = lean + (r() - 0.5) * 0.7 + (r() < 0.25 ? Math.PI : 0);
-      const len = w * (0.25 + r() * 0.55);
-      const p = sweep(x - Math.cos(ang) * len * 0.5, y - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 1.1, 4);
-      S.go('side', p, 10 + r() * 16, { f: (0.35 + r() * 0.9) * amt, p0: 0.3 + r() * 1.0, p1: 0.1 + r() * 0.8, tin: 0.1 + r() * 0.3, tout: 0.2 + r() * 0.5, gap: 0.01 + r() * 0.03 });
+      const ang = lean + (r() - 0.5) * 0.35, len = w * (0.35 + r() * 0.55);
+      const x = cx + (r() - 0.5) * w * 0.5, y = cy + (r() - 0.5) * h * 0.9;
+      let p = sweep(x - Math.cos(ang) * len * 0.5, y - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 0.35, 4);
+      if (r() < 0.5) p = rev(p);
+      S.go('side', p, 12 + r() * 12, { f: (0.45 + r() * 0.8) * amt, p0: 0.3 + r() * 1.0, p1: 0.15 + r() * 0.8, tin: 0.1 + r() * 0.3, tout: 0.2 + r() * 0.5, gap: 0.01 + r() * 0.03 });
     }
-    // a loop or two where the stick turned over
-    if (r() < 0.6) S.go('side', scumble(S, cx + (r() - 0.5) * w * 0.4, cy, w * 0.25, h * 0.5, w * 1.2, h * 0.4), 8 + r() * 6, { f: 0.5 * amt, speed: 3000 });
-    // wiped with the flat of the hand: two curving passes
-    for (let k = 0; k < 2; k++) {
-      const ang = lean + (r() - 0.5) * 0.5;
-      const len = w * (0.6 + r() * 0.4);
-      S.go('smudge', sweep(cx - Math.cos(ang) * len * 0.5, cy + (r() - 0.5) * h * 0.6 - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 0.9, 5), h * (0.45 + r() * 0.3), { f: 0.9, p0: 1.1, p1: 0.4, speed: 2400 });
-    }
-    // a lit edge pulled out of it with the eraser
-    if (r() < 0.75) {
-      const ang = lean + (r() - 0.5) * 0.4, len = w * (0.3 + r() * 0.4);
-      rub(S, sweep(cx - len * 0.5, cy - h * (0.3 + r() * 0.3), ang, len, (r() - 0.5) * 0.8, 4), 4 + r() * 6, 0.8, { speed: 2600 });
-    }
+    // rubbed back and forth along the wind
+    const segs = clipLines(ellPoly(cx, cy, w * 0.55, h * 0.75, 14), lean, h * 0.4, 0.3, r);
+    if (segs.length) S.go('smudge', zig(segs), h * 0.42, { f: 1.0, p0: 1.0, p1: 0.7, smooth: true, speed: 2600 });
+    // the belly restated, a lit edge
+    const ang = lean + (r() - 0.5) * 0.2, len = w * (0.4 + r() * 0.4);
+    S.go('side', sweep(cx - len * 0.5, cy + h * 0.3, ang, len, (r() - 0.5) * 0.3, 4), 8 + r() * 6, { f: 0.7 * amt, p0: 0.6, p1: 0.2, tout: 0.6 });
+    if (r() < 0.8) rub(S, sweep(cx - len * 0.45, cy - h * (0.35 + r() * 0.2), ang, len * 0.9, (r() - 0.5) * 0.4, 4), 5 + r() * 6, 0.8, { speed: 2600 });
   }
   function sky(S, L, amt) {
     const r = S.r;
@@ -755,47 +750,37 @@
   }
   function bankX(L) { return Math.min(L.x1 - 300, L.cx - 140); }
   function hedge(S, xa, ya, xb, yb, s) {
-    // a field boundary: a broken, scribbled line of bushes, a tree here and there
     const r = S.r;
-    const L = Math.hypot(xb - xa, yb - ya), n = Math.max(2, Math.round(L / (s * 6)));
-    let t = 0;
-    while (t < 1) {
-      const t1 = Math.min(1, t + (0.15 + r() * 0.4));
-      const ax = lerp(xa, xb, t), ay = lerp(ya, yb, t), bx = lerp(xa, xb, t1), by = lerp(ya, yb, t1);
-      const p = [];
-      const m = Math.max(2, Math.round(n * (t1 - t)));
-      for (let k = 0; k <= m; k++) { const u = k / m; p.push(lerp(ax, bx, u) + (r() - 0.5) * s, lerp(ay, by, u) - s * (0.2 + r() * 0.7)); }
-      if (r() < 0.85) S.go(r() < 0.5 ? 'side' : 'comp', p, r() < 0.5 ? s * 0.6 : 0.8 + s * 0.15, { f: 0.9 + r() * 0.8, speed: 2600, gap: 0.006 });
-      if (r() < 0.45) {
-        const tx = lerp(ax, bx, r()), ty = lerp(ay, by, 0.5), ts = s * (1.2 + r() * 2.2);
-        const kind = r();
-        S.go('comp', [tx, ty, tx + (r() - 0.5) * 2, ty - ts * (0.6 + r() * 0.5)], 0.7 + s * 0.12, { gap: 0.004, speed: 1600 });
-        if (kind < 0.25) S.go('side', sweep(tx, ty - ts * 0.4, -Math.PI / 2 + (r() - 0.5) * 0.2, ts * 2.2, (r() - 0.5) * 0.3, 3), ts * 0.28, { f: 1.4, speed: 1600, gap: 0.004 });
-        else S.go('side', scumble(S, tx, ty - ts * 1.1, ts * (0.6 + r() * 0.6), ts * (0.5 + r() * 0.4), ts * (4 + r() * 5), ts * (0.3 + r() * 0.3)), ts * (0.2 + r() * 0.15), { f: 1.2 + r() * 0.6, speed: 2200, gap: 0.004 });
-      }
-      t = t1 + r() * 0.12;
+    const L = Math.hypot(xb - xa, yb - ya), n = Math.max(3, Math.round(L / (s * 4)));
+    const p = [];
+    for (let k = 0; k <= n; k++) { const u = k / n; p.push(lerp(xa, xb, u) + (r() - 0.5) * s, lerp(ya, yb, u) - s * (0.35 + r() * 0.5)); }
+    S.go('side', r() < 0.5 ? p : rev(p), s * 0.75, { f: 1.4 + r() * 0.5, p0: 0.4 + r() * 0.9, p1: 0.4 + r() * 0.9, tin: 0.3, tout: 0.3, speed: 2800, gap: 0.006 });
+    S.go('comp', [xa, ya, lerp(xa, xb, 0.5), lerp(ya, yb, 0.5) + (r() - 0.5) * 2, xb, yb], 0.7 + s * 0.12, { f: 0.7, speed: 3000, gap: 0.004 });
+    const nt = (r() * (L / 140)) | 0;
+    for (let i = 0; i < nt; i++) {
+      const u = r(), tx = lerp(xa, xb, u), ty = lerp(ya, yb, u), ts = s * (1.4 + r() * 2.0);
+      S.go('comp', [tx, ty, tx + (r() - 0.5) * 2, ty - ts * 0.9], 0.7 + s * 0.12, { gap: 0.004, speed: 1600 });
+      S.go('side', scumble(S, tx + (r() - 0.5) * ts * 0.2, ty - ts * 1.25, ts * (0.6 + r() * 0.35), ts * (0.5 + r() * 0.3), ts * (5 + r() * 4), ts * (0.3 + r() * 0.25)), ts * (0.22 + r() * 0.1), { f: 1.3 + r() * 0.5, speed: 2200, gap: 0.004 });
     }
   }
   function field(S, L, amt, st) {
     const r = S.r;
     const X0 = L.x0 + 30, X1 = L.x1 - 30, Yb = L.y1 - 30;
-    // the far patchwork: boundaries running back toward the hill at different angles
-    const vx = L.cx + (r() - 0.5) * 200;
-    const nb = 3 + ((r() * 3) | 0);
-    for (let i = 0; i < nb; i++) {
-      const y0 = 612 + r() * 8, x0 = lerp(X0, X1, (i + r() * 0.8) / nb);
-      const y1 = 640 + r() * 70, x1 = x0 + (x0 - vx) * (0.15 + r() * 0.25);
-      hedge(S, x0, y0, x1, y1, 2.5 + (y1 - 600) * 0.05);
-    }
+    // the far patchwork: hedgerows across, a few boundaries running back, fields of different tone
     for (let i = 0; i < 3; i++) {
-      const y = 618 + i * 22 + r() * 18, xa = lerp(X0, X1, r() * 0.5), xb = xa + 250 + r() * 500;
-      hedge(S, xa, y, xb, y + (r() - 0.5) * 14, 2.5 + i * 1.6);
+      const y = 616 + i * (14 + i * 8) + r() * 8, xa = lerp(X0, X1, r() * 0.35), xb = lerp(X0, X1, 0.55 + r() * 0.45);
+      if (r() < 0.8) {
+        const ya = y + 2, yb2 = y + 10 + i * 10;
+        S.go('side', sweep(xa, (ya + yb2) / 2, (r() - 0.5) * 0.04, (xb - xa) * (0.4 + r() * 0.5), 0, 3), 5 + i * 3, { f: (0.25 + r() * 0.6) * amt, gap: 0.01 });
+      }
+      hedge(S, xa, y, xb, y + (r() - 0.5) * 10, 3 + i * 2);
     }
-    // the plain: tone laid in quick, slanting passes with the side of the stick, then wiped
-    for (let i = 0; i < 7; i++) {
-      const y = 618 + r() * 80, x = lerp(X0, X1, r());
-      S.go('side', sweep(x, y, (r() - 0.5) * 0.12 + Math.PI * (r() < 0.5 ? 0 : 1), 120 + r() * 300, (r() - 0.5) * 0.15, 3), 6 + r() * 6, { f: (0.25 + r() * 0.5) * amt, gap: 0.01 });
+    const vx = L.cx + (r() - 0.5) * 300;
+    for (let i = 0; i < 2 + ((r() * 2) | 0); i++) {
+      const x0 = lerp(X0, X1, r()), y1 = 660 + r() * 50;
+      hedge(S, x0, 616, x0 + (x0 - vx) * (0.3 + r() * 0.3), y1, 3 + (y1 - 600) * 0.05);
     }
+    S.go('smudge', sweep(X0, 640, 0.0, X1 - X0, 0.02, 6), 24, { f: 0.5, speed: 4800 });
     // the near bank on the left, dark with grass
     const be = bankEdge(L), xe = bankX(L);
     for (let k = 0; k < 6; k++) {
@@ -1658,19 +1643,19 @@
     const r = S.r;
     writeYear(S, L, st, 2010);
     const X0 = L.x0 + 22, X1 = L.x1 - 22, Y0 = L.y0 + 24;
-    // the sky is driven black: big, crossing, angry sweeps with the side of the stick, then wiped
-    const nsw = Math.round((X1 - X0) * (600 - Y0) / 26000);
+    // the sky is driven black: dense, slanting strokes with the side of the stick, rubbed into one dark
+    const nsw = Math.round((X1 - X0) * (600 - Y0) / 9000);
     for (let i = 0; i < nsw; i++) {
-      const y = lerp(Y0 + 10, 590, Math.pow(r(), 0.8)), x = lerp(X0, X1, r());
-      const ang = (r() - 0.5) * 0.9 + (r() < 0.5 ? Math.PI : 0), len = 300 + r() * 500;
-      const p = sweep(x - Math.cos(ang) * len * 0.5, y - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 1.0, 5);
-      for (let k = 0; k < p.length; k += 2) p[k + 1] = Math.min(p[k + 1], L.hor(p[k]) - 4);
-      S.go('side', p, 30 + r() * 16, { f: 2.6 * (1 - 0.3 * sstep(Y0, 600, y)), p0: 0.7 + r() * 0.6, p1: 0.4 + r() * 0.6, speed: 5200, gap: 0.004 });
+      const y = lerp(Y0 + 10, 595, Math.pow(r(), 0.85)), x = lerp(X0 - 100, X1 + 100, r());
+      const ang = -0.12 + (r() - 0.5) * 0.45, len = 260 + r() * 460;
+      let p = sweep(x - Math.cos(ang) * len * 0.5, y - Math.sin(ang) * len * 0.5, ang, len, (r() - 0.5) * 0.4, 5);
+      for (let k = 0; k < p.length; k += 2) { p[k] = clamp(p[k], X0, X1); p[k + 1] = clamp(p[k + 1], Y0, L.hor(p[k]) - 4); }
+      if (r() < 0.5) p = rev(p);
+      S.go('side', p, 24 + r() * 12, { f: 2.4 * (1 - 0.3 * sstep(Y0, 600, y)), p0: 0.6 + r() * 0.7, p1: 0.4 + r() * 0.7, speed: 6400, gap: 0.003 });
     }
-    for (let i = 0; i < 6; i++) {
-      const y = lerp(Y0 + 40, 520, r()), ang = (r() - 0.5) * 0.5;
-      S.go('smudge', sweep(X0, y, ang, X1 - X0, (r() - 0.5) * 0.6, 6), 46, { f: 0.8, speed: 6000 });
-    }
+    const skyP = [X0, Y0, X1, Y0];
+    for (let x = X1; x >= X0 - 1; x -= 40) skyP.push(x, L.hor(x) - 4);
+    S.go('smudge', zig(clipLines(skyP, -0.12, 44, 0.3, r)), 42, { f: 0.85, smooth: true, speed: 7000 });
     // the smoke rolls: round rubbings, heavier billows high up
     for (let i = 0; i < 9; i++) {
       const bx = lerp(X0 + 60, X1 - 60, r()), by = lerp(Y0 + 40, 380, r()), br = 50 + r() * 70;

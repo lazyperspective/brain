@@ -330,13 +330,13 @@
     // oil-spot clusters, in the inside chart (s cosθ, s sinθ)
     const clus = new Float32Array(32);
     { let k = 0; // three drifts, each a short chain of overlapping islands
-      for (let d = 0; d < 3 && k < 8; d++) {
-        let sd = 0.35 + 0.6 * Math.sqrt(rng()), a = rng() * TAU;
+      for (let d = 0; d < 4 && k < 8; d++) {
+        let sd = 0.35 + 0.6 * Math.sqrt(rng()), a = d * TAU / 4 + rng() * 1.2;
         let px = sd * Math.cos(a), py = sd * Math.sin(a);
-        const dir = rng() * TAU, n = d === 0 ? 3 : 2 + Math.floor(rng() * 2);
+        const dir = rng() * TAU, n = 2;
         for (let i = 0; i < n && k < 8; i++, k++) {
           clus[k * 4] = px; clus[k * 4 + 1] = py;
-          clus[k * 4 + 2] = 0.06 + 0.09 * rng(); clus[k * 4 + 3] = (d === 0 ? 1.3 : 0.9) * (0.7 + 0.5 * rng());
+          clus[k * 4 + 2] = 0.08 + 0.1 * rng(); clus[k * 4 + 3] = (d === 0 ? 1.4 : 1.0) * (0.7 + 0.5 * rng());
           const step = 0.07 + 0.06 * rng(), dd = dir + (rng() - 0.5) * 0.9;
           px += Math.cos(dd) * step; py += Math.sin(dd) * step;
         }
@@ -763,9 +763,9 @@ void main() {
   inAlb = mix(inAlb, lipCol, lipB * 0.85);
 
   vec2 Pc = Pc0 + (vec2(vnoise(Pc0 * 7.0 + uSeed.xy), vnoise(Pc0 * 7.0 + uSeed.zw)) - 0.5) * 0.04;
-  float dens = 0.05;
+  float dens = 0.07;
   for (int i = 0; i < 8; i++) { vec2 dq = Pc - uClus[i].xy; dens += uClus[i].w * exp(-dot(dq, dq) / (uClus[i].z * uClus[i].z)); }
-  dens *= 1.7 * smoothstep(0.3, 0.75, vnoise(Pc * 4.5 + uSeed.wx) * 0.75 + vnoise(Pc * 11.0) * 0.35) * smoothstep(0.06, 0.3, s) * (1.0 - smoothstep(sLipIn - 0.3, sLipIn - 0.07, s));
+  dens *= 1.6 * smoothstep(0.18, 0.62, vnoise(Pc * 4.5 + uSeed.wx) * 0.75 + vnoise(Pc * 11.0) * 0.35) * smoothstep(0.06, 0.3, s) * (1.0 - smoothstep(sLipIn - 0.3, sLipIn - 0.07, s));
   float core = 0.0, ring = 0.0, halo = 0.0, dk = 0.0;
   if (isIn > 0.0 && dens > 0.02) {
     vec3 Vo = Rinv * V;

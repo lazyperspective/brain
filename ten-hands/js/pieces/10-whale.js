@@ -1194,8 +1194,7 @@ float lampField(vec2 X){
   return 2.0*exp(-r2*10.0) + 0.6*exp(-r2*3.0) + 0.3*exp(-r2*0.4) + 0.05;
 }
 void main(){
-  vec2 bu = gl_FragCoord.xy / uBDim;
-  bu.y = 1.0 - bu.y;
+  vec2 bu = gl_FragCoord.xy / uBDim;   // row 0 of the light map = top row, like the uploaded masks
   vec2 X = bu / uBS * uLay - uM;
   float zk = uZ[uK];
   float S = 1.0;
