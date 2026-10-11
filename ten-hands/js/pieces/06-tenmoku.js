@@ -129,7 +129,7 @@
       let dd = 0, wt = 0;
       for (const d of drips) {
         let x = th - d.th; x -= Math.round(x / TAU) * TAU; x /= d.w;
-        if (Math.abs(x) < 3) { const b = Math.exp(-x * x * 1.6); dd = Math.max(dd, d.d * b); wt = Math.max(wt, b * Math.min(1, d.d / 0.05)); }
+        if (Math.abs(x) < 1.6) { const b = Math.pow(Math.max(0, 1 - x * x / 2.2), 0.55); dd = Math.max(dd, d.d * b); wt = Math.max(wt, b * b * Math.min(1, d.d / 0.05)); }
       }
       return [dd, wt];
     };
@@ -588,7 +588,7 @@ void spotLayer(vec2 P, float cell, vec2 rr, float dens, float seed, float hk, ve
     float lob = 1.0 + 0.12 * sin(an * 2.0 + hr * 20.0) + 0.06 * sin(an * 3.0 + h.x * 30.0);
     float d = length(dv) / lob;
     core = max(core, 1.0 - smoothstep(r * 0.86, r, d));
-    float isRing = step(0.78, hr);
+    float isRing = step(0.86, fract(h.x * 7.31 + h.y * 3.7));
     ring = max(ring, isRing * smoothstep(r * 0.42, r * 0.7, d) * (1.0 - smoothstep(r * 0.86, r, d)));
     dk = max(dk, isRing * (1.0 - smoothstep(r * 0.3, r * 0.55, d)));
     vec2 hv = hash32(g + o + seed + 5.7).xy;
