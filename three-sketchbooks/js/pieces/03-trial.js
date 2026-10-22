@@ -671,11 +671,11 @@
    * for the portrait sheet by the layout. */
 
   const GOOSE_POSES = {
-    hiss: { spine: [[758, 364], [738, 352], [716, 342], [694, 336], [672, 333], [656, 332]], head: [662, 330], ang: 174, gape: 24, L: 62, note: ['hissed at counsel', 'hisses at own counsel', 'hissed. counsel steps back'] },
-    tall: { spine: [[758, 364], [746, 340], [736, 312], [732, 286], [736, 264], [743, 250]], head: [748, 245], ang: 170, gape: 0, L: 62, note: ['rises to full height', 'stares down the bench', 'glares at jury'] },
-    honk: { spine: [[758, 364], [757, 340], [753, 314], [754, 290], [760, 270], [768, 256]], head: [758, 250], ang: -26, gape: 30, L: 62, note: ['honks at the bench', 'objects. overruled', 'addresses the court, loudly'] },
-    low: { spine: [[758, 366], [738, 360], [718, 358], [702, 360], [688, 364]], head: [694, 361], ang: 156, gape: 10, L: 62, note: ['lowers head. counsel steps back', 'coils. bailiff tenses', 'low, forward, silent'] },
-    rear: { spine: [[758, 364], [767, 340], [768, 316], [760, 294], [747, 281], [738, 276]], head: [745, 273], ang: 204, gape: 16, L: 62, note: ['rears back. bailiff tenses', 'draws itself up', 'rears at the jury'] },
+    hiss: { spine: [[758, 364], [738, 352], [716, 342], [694, 336], [672, 333], [656, 332]], head: [662, 330], ang: 174, gape: 24, L: 70, note: ['hissed at counsel', 'hisses at own counsel', 'hissed. counsel steps back'] },
+    tall: { spine: [[758, 364], [746, 340], [736, 312], [732, 286], [736, 264], [743, 250]], head: [748, 245], ang: 170, gape: 0, L: 70, note: ['rises to full height', 'stares down the bench', 'glares at jury'] },
+    honk: { spine: [[758, 364], [757, 340], [753, 314], [754, 290], [760, 270], [768, 256]], head: [758, 250], ang: -26, gape: 30, L: 70, note: ['honks at the bench', 'objects. overruled', 'addresses the court, loudly'] },
+    low: { spine: [[758, 366], [738, 360], [718, 358], [702, 360], [688, 364]], head: [694, 361], ang: 156, gape: 10, L: 70, note: ['lowers head. counsel steps back', 'coils. bailiff tenses', 'low, forward, silent'] },
+    rear: { spine: [[758, 364], [767, 340], [768, 316], [760, 294], [747, 281], [738, 276]], head: [745, 273], ang: 204, gape: 16, L: 70, note: ['rears back. bailiff tenses', 'draws itself up', 'rears at the jury'] },
   };
 
   function gooseGeom(pose) {
@@ -694,7 +694,7 @@
     const sp = smoothPath(P.spine.map((p) => [p[0], p[1], 1]), 2);
     const n = sp.length;
     const left = [], right = [];
-    const w0 = 62, w1 = 0.4 * L;
+    const w0 = 66, w1 = 0.42 * L;
     for (let i = 0; i < n; i++) {
       const a0 = sp[Math.max(0, i - 1)], a1 = sp[Math.min(n - 1, i + 1)];
       let tx = a1[0] - a0[0], ty = a1[1] - a0[1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
@@ -709,17 +709,20 @@
     const dr = Math.hypot(right[n - 1][0] - probe[0], right[n - 1][1] - probe[1]);
     const throatSide = dl < dr ? left : right, napeSide = dl < dr ? right : left;
     const head = {
-      top: [[0.06, 0.1], [0.02, 0.22], [0.1, 0.33], [0.26, 0.385], [0.42, 0.35], [0.53, 0.28], [0.6, 0.215]].map(H),
-      culmen: [[0.6, 0.215], [0.7, 0.16], [0.82, 0.1], [0.93, 0.045], [0.995, 0.0], [1.0, -0.045]].map(H),
+      top: [[0.06, 0.1], [0.02, 0.22], [0.1, 0.33], [0.26, 0.385], [0.42, 0.35], [0.52, 0.285], [0.56, 0.255]].map(H),
+      knob: [[0.56, 0.255], [0.6, 0.28], [0.645, 0.245], [0.665, 0.195]].map(H),
+      culmen: [[0.665, 0.195], [0.74, 0.145], [0.84, 0.09], [0.93, 0.045], [0.995, 0.0], [1.0, -0.045]].map(H),
       tomium: [[0.985, -0.06], [0.88, -0.07], [0.74, -0.08], [0.6, -0.065]].map(H),
       lower: [[0.6, -0.085], [0.72, -0.1], [0.86, -0.105], [0.955, -0.09], [0.93, -0.125], [0.8, -0.145], [0.66, -0.14]].map((q) => H(rot(q))),
       throat: [[0.58, -0.135], [0.46, -0.185], [0.32, -0.215], [0.18, -0.215], [0.08, -0.18]].map(H),
-      feather: [[0.6, 0.215], [0.565, 0.1], [0.575, -0.02], [0.6, -0.07]].map(H),
-      eye: H([0.405, 0.165]), eyeR: 0.05 * L,
-      brow: [[0.31, 0.255], [0.4, 0.245], [0.5, 0.2]].map(H),
+      feather: [[0.57, 0.245], [0.56, 0.1], [0.575, -0.02], [0.6, -0.07]].map(H),
+      eye: H([0.405, 0.165]), eyeR: 0.062 * L,
+      brow: [[0.3, 0.25], [0.4, 0.245], [0.47, 0.215], [0.52, 0.18]].map(H),
       nostril: [[0.74, 0.08], [0.785, 0.065]].map(H),
       nail: [[0.94, 0.04], [0.985, -0.02]].map(H),
       tongue: P.gape > 4 ? [[0.6, -0.08], [0.72, -0.1], [0.83, -0.105]].map((q) => H(rot([q[0], q[1] + 0.025 * (q[0] - 0.6) / 0.25]))) : null,
+      teeth: P.gape > 4 ? [0.66, 0.71, 0.76, 0.81, 0.86, 0.91, 0.95].map((t) => [H([t, -0.068]), H([t - 0.012, -0.095])]) : null,
+      lteeth: P.gape > 4 ? [0.68, 0.74, 0.8, 0.86, 0.92].map((t) => [H(rot([t, -0.098])), H(rot([t - 0.012, -0.075]))]) : null,
       mouthDark: P.gape > 4 ? [[0.62, -0.075], [0.8, -0.075], [0.92, -0.08], [0.8, -0.12], [0.64, -0.1]].map((q, i) => i < 3 ? H(q) : H(rot(q))) : null,
       L, H, dx, dy, ux, uy, ang: P.ang,
       poly: [[0.02, 0.24], [0.26, 0.4], [0.6, 0.22], [1.02, -0.02], [0.97, -0.09], [0.6, -0.15], [0.16, -0.23], [0.0, -0.1]].map(H),
@@ -730,21 +733,25 @@
   }
 
   const GOOSE_BODY = {
-    breast: '733,360 722,378 712,402 708,426 712,446 724,460 743,468',
-    belly: '743,468 762,472 | 790,474 812,473 | 828,471 846,468',
-    // wings held a little off the body: the carpal joints rise above the line of the back
-    shoulder: '776,352 790,338 810,332 834,336 850,342',
-    back: '852,342 870,345 886,350',
-    tail: '880,350 897,342 912,334 919,338 913,349 | 913,349 902,360 892,368 | 900,344 914,340',
-    rear: '897,364 888,388 876,418 862,446 846,467',
-    wing: '768,396 796,410 829,415 859,408 885,392 906,372 928,346',
-    prim: '872,394 897,378 921,355 | 881,402 904,385 926,361',
-    scal: '800,372 822,378 846,376 | 836,360 856,366 874,362 | 806,386 834,392 862,388 884,376',
-    secs: '782,364 800,357 | 846,398 872,396 896,384',
-    flank: '770,432 800,444 826,446 | 790,456 818,462',
-    poly: '742,366 708,400 704,428 714,456 742,472 846,470 876,420 897,366 924,322 884,346 836,332 790,334 776,344',
-    inner: '742,384 718,404 714,430 724,452 746,464 844,462 866,420 886,366 870,354 834,346 790,350 770,364',
+    // a heavy Embden: deep keel, the belly sagging over the front of the cushion
+    breast: '733,360 718,380 706,404 701,430 704,454 714,472',
+    belly: '714,472 734,487 768,495 806,497 840,491 860,481',
+    shoulder: '776,352 790,338 810,332 834,336 852,342',
+    back: '852,342 870,346 886,352',
+    tail: '880,352 897,344 912,336 919,340 913,350 | 913,350 902,361 892,368 | 900,346 914,342',
+    rear: '897,366 890,392 882,420 874,448 862,476',
+    wing: '768,396 796,410 829,416 859,410 885,394 906,374 928,348',
+    cov1: '790,350 798,360 808,356 | 808,348 816,358 826,354 | 826,346 834,356 844,352 | 844,348 852,357 862,354',
+    cov2: '796,368 806,379 818,374 | 818,365 828,377 840,372 | 840,363 850,375 862,369 | 862,363 871,373 880,367',
+    cov3: '800,386 814,397 830,393 | 830,383 844,395 860,389 | 860,379 872,389 886,383',
+    secs: '804,401 830,409 856,405 | 818,411 846,415 872,405',
+    prim: '862,392 890,378 920,356 | 870,400 898,384 926,362 | 878,404 904,388 930,367',
+    flank: '762,428 774,439 788,435 | 792,444 806,454 820,450 | 824,452 838,460 850,454',
+    fluff: '744,487 750,494 | 790,497 795,503 | 832,492 838,498',
+    poly: '742,366 708,400 700,430 704,456 716,476 740,491 806,501 862,484 878,430 897,366 924,330 884,346 836,332 790,334 776,344',
+    inner: '742,384 718,404 712,430 718,456 732,474 806,487 850,475 868,430 886,366 870,354 834,346 790,350 770,364',
   };
+
 
 
   /* --------------------------------------------------------------- layouts */
@@ -762,7 +769,7 @@
         },
         wall: { top: 120, bot: 720, x0: 0, x1: 1600 },
         focus: [900, 300],
-        notes: { head: [40, 64], A1: [470, 50], A2: [470, 88], B1: [830, 50], B2: [1452, 60], jury: [190, 148], steno: [1186, 882, 190], feather: [626, 978], sig: [40, 986] },
+        notes: { head: [40, 64], A1: [470, 50], A2: [470, 88], B1: [830, 50], B2: [1452, 60], jury: [196, 154], steno: [1186, 882, 190], feather: [626, 978], sig: [40, 986] },
         targets: { juror: [58, 252], feather: [566, 948] },
       };
     }
@@ -812,57 +819,75 @@
       o = o || {}; const a = o.a || 0.93, w = o.w || 2.4;
       B.at('goose');
       const h = g.head;
-      // head first: crown and forehead in one pull, then the bill
+      const hc = h.H([0.4, 0.1]); B.lightAt(hc[0], hc[1], 60);
+      // head first: crown and forehead in one pull, the ridge at the base of the bill, then the bill
       B.pen([h.top], { w, a, sp: 650, pr: 'even', z: 3 });
+      B.pen([h.knob], { w: w * 1.1, a, sp: 300, pr: 'press', z: 3 });
       B.pen([h.culmen], { w: w * 1.1, a, sp: 520, pr: 'press', z: 3 });
-      B.pen([h.tomium], { w: w * 0.85, a, sp: 520, pr: 'flick', z: 3 });
-      B.pen([h.lower], { w: w * 0.95, a, sp: 520, pr: 'even', z: 3 });
-      B.pen([h.throat], { w: w * 0.9, a, sp: 650, z: 3 });
+      B.pen([h.tomium], { w: w * 0.9, a, sp: 520, pr: 'flick', z: 3, nolight: true });
+      B.pen([h.lower], { w: w * 1.0, a, sp: 520, pr: 'even', z: 3, nolight: true });
+      B.pen([h.throat], { w: w * 1.0, a, sp: 650, z: 3 });
       B.pen([h.feather], { w: w * 0.55, a: a * 0.8, sp: 420, pr: 'flick', z: 3 });
+      if (h.teeth && o.teeth !== false) {
+        // the serrated edge of a hissing bill
+        h.teeth.concat(h.lteeth || []).forEach(([p0, p1]) => B.pen([[p0, p1]], { w: w * 0.45, a, sp: 160, pr: 'flick', z: 3, pause: 12, nolight: true, nobreak: true }));
+      }
       const e = h.eye, r = h.eyeR;
-      B.pen([[e[0] - r, e[1]], [e[0], e[1] - r * 0.8], [e[0] + r, e[1] - 0.1], [e[0], e[1] + r * 0.8], [e[0] - r * 0.9, e[1] + 0.2]], { w: w * 0.7, a, sp: 160, pr: 'even', z: 3, trem: 0.1 });
-      B.pen([[e[0] - r * 0.3, e[1]], [e[0] + r * 0.35, e[1] + 0.2]], { w: w * 1.5, a, sp: 80, pr: 'even', z: 3, trem: 0 });
-      B.pen([h.brow], { w: w * 1.5, a, sp: 420, pr: 'flick', z: 3 });
-      B.pen([h.nostril], { w: w * 0.8, a, sp: 260, z: 3 });
+      const ring = []; for (let i = 0; i <= 12; i++) { const t = (i / 12) * TAU; ring.push([e[0] + Math.cos(t) * r, e[1] + Math.sin(t) * r * 0.85, 1]); }
+      B.pen([ring], { w: w * 0.6, a, sp: 200, pr: 'even', z: 3, nolight: true, nobreak: true });
+      B.pen([[e[0] - r * 0.25, e[1]], [e[0] + r * 0.3, e[1] + 0.2]], { w: w * 1.5, a, sp: 80, pr: 'even', z: 3, trem: 0, nolight: true });
+      // the scowl: feathers drawn down over the eye
+      B.pen([h.brow], { w: w * 1.8, a, sp: 380, pr: 'press', z: 3, nolight: true });
+      B.pen([h.nostril], { w: w * 0.8, a, sp: 260, z: 3, nolight: true });
       if (h.tongue) B.pen([h.tongue], { w: w * 0.7, a, sp: 380, pr: 'flick', z: 3 });
-      // the neck: two fast pulls from the head down, stopping where they meet the body
+      // the neck: the nape ruffled into short pulls, the throat one fast line, both stopping at the body
+      const mid = g.sp[Math.floor(g.sp.length / 2)]; B.light = null; B.lightAt(mid[0], mid[1], 120);
       const inner = parse(GOOSE_BODY.inner)[0];
       const untilBody = (arr) => { const out = []; for (const p of arr) { if (pip(inner, p[0], p[1])) break; out.push(p); } return out; };
       const n = g.sp.length;
       const T = untilBody(g.throatSide.slice().reverse()), Np = untilBody(g.napeSide.slice().reverse());
-      if (Np.length > 2) B.pen([every(Np, 3)], { w: w * 1.0, a, sp: 950, pr: 'taper', z: 3 });
-      if (T.length > 2) B.pen([every(T, 3)], { w: w * 1.15, a, sp: 950, pr: 'taper', z: 3 });
-      // furrows: a few ridged feathers down the back of an angry goose's neck
-      const k0 = o.furrows || 5;
-      for (let k = 0; k < k0; k++) {
-        const i = clamp(Math.floor(n * (0.35 + 0.5 * (k / k0)) + B.rnd(-2, 2)), 0, n - 1);
-        const A = g.napeSide[i], C = g.throatSide[clamp(i - 3, 0, n - 1)];
-        if (pip(inner, A[0], A[1])) continue;
-        const t0 = 0.06 + B.rnd(0, 0.06), t1 = 0.2 + B.rnd(0, 0.12);
-        B.pen([[lerp(A[0], C[0], t0), lerp(A[1], C[1], t0)], [lerp(A[0], C[0], t1), lerp(A[1], C[1], t1)]], { w: w * 0.55, a: a * 0.7, sp: 380, pr: 'flick', z: 3, pause: 22, trem: 0.15 });
+      if (Np.length > 6) {
+        const seg = Math.max(4, Math.floor(Np.length / 7));
+        for (let i = 0; i + 2 < Np.length; i += seg) {
+          const part = Np.slice(i, Math.min(Np.length, i + seg + 2));
+          B.pen([every(part, 2)], { w: w * (0.9 + B.rnd(0, 0.4)), a, sp: 700, pr: 'swell', z: 3, pause: 14, nobreak: true, search: 0 });
+        }
+      }
+      if (T.length > 2) B.pen([every(T, 3)], { w: w * 1.2, a, sp: 950, pr: 'taper', z: 3 });
+      // furrows: the grooved neck of an angry goose, short lines running down its length
+      if (o.furrows !== 0) {
+        [0.2, 0.36, 0.52].forEach((t, row) => {
+          for (let i = Math.floor(n * 0.25) + row * 2; i < n - 6; i += 7 + Math.floor(B.rnd(0, 4))) {
+            const A = g.napeSide[i], C = g.throatSide[i], A2 = g.napeSide[i + 5], C2 = g.throatSide[i + 5];
+            const p0 = [lerp(A[0], C[0], t), lerp(A[1], C[1], t)], p1 = [lerp(A2[0], C2[0], t + 0.04), lerp(A2[1], C2[1], t + 0.04)];
+            if (pip(inner, p0[0], p0[1])) continue;
+            B.pen([[p0, p1]], { w: w * (0.45 + B.rnd(0, 0.3)), a: a * 0.8, sp: 420, pr: 'swell', z: 3, pause: 10, trem: 0.1, nobreak: true, search: 0 });
+          }
+        });
       }
     }
     function gooseBody() {
-      B.at('goose');
+      B.at('goose'); B.lightAt(810, 410, 200);
       B.pen(GOOSE_BODY.breast, { w: 2.8, sp: 800, z: 3, pr: 'press' });
+      B.pen(GOOSE_BODY.belly, { w: 3.0, sp: 800, z: 3, pr: 'swell' });
       B.pen(GOOSE_BODY.shoulder, { w: 1.9, a: 0.85, sp: 800, z: 3 });
       B.pen(GOOSE_BODY.back, { w: 1.5, a: 0.75, sp: 900, z: 3, pr: 'flick' });
       B.pen(GOOSE_BODY.tail, { w: 1.9, sp: 600, pr: 'flick', z: 3 });
-      B.pen(GOOSE_BODY.rear, { w: 2.5, sp: 800, z: 3 });
+      B.pen(GOOSE_BODY.rear, { w: 2.6, sp: 800, z: 3 });
       B.pen(GOOSE_BODY.wing, { w: 2.6, sp: 900, z: 3, pr: 'press' });
-      B.pen(GOOSE_BODY.prim, { w: 1.8, sp: 900, pr: 'flick', z: 3 });
-      B.pen(GOOSE_BODY.scal, { w: 1.3, sp: 420, pr: 'flick', z: 3, a: 0.7, pause: 16 });
-      B.pen(GOOSE_BODY.secs, { w: 1.3, sp: 700, pr: 'flick', z: 3, a: 0.65, pause: 16 });
-      B.pen(GOOSE_BODY.flank, { w: 1.1, sp: 700, pr: 'flick', z: 3, a: 0.45, pause: 18 });
-      B.pen(GOOSE_BODY.belly, { w: 1.8, sp: 900, z: 3, a: 0.75 });
+      ['cov1', 'cov2', 'cov3'].forEach((k, i) => B.pen(GOOSE_BODY[k], { w: 1.2 + i * 0.2, sp: 420, pr: 'swell', z: 3, a: 0.75, pause: 14, nobreak: true, search: 0 }));
+      B.pen(GOOSE_BODY.secs, { w: 1.5, sp: 700, pr: 'flick', z: 3, a: 0.75, pause: 16 });
+      B.pen(GOOSE_BODY.prim, { w: 1.9, sp: 900, pr: 'flick', z: 3, pause: 20 });
+      B.pen(GOOSE_BODY.flank, { w: 1.2, sp: 600, pr: 'swell', z: 3, a: 0.55, pause: 16, nobreak: true });
+      B.pen(GOOSE_BODY.fluff, { w: 1.3, sp: 300, pr: 'flick', z: 3, a: 0.7, pause: 14 });
     }
     function gooseColour(g) {
       B.at('goose');
       // shadow first: cool grey under the wing and round the belly, smudged soft
-      B.side('716,450 742,464 790,470 842,463', { col: COL.bluegrey, w: 14, lvl: 1, a: 0.75, z: 3, sp: 1600 });
+      B.side('712,462 738,480 790,490 846,480', { col: COL.bluegrey, w: 16, lvl: 1, a: 0.75, z: 3, sp: 1600 });
       B.side('764,440 800,449 846,443 866,430', { col: COL.bluegrey, w: 12, lvl: 2, a: 0.6, z: 3, sp: 1600 });
       B.side('776,406 810,416 852,411 882,395 902,375', { col: COL.slate, w: 8, lvl: 2, a: 0.55, z: 3, sp: 1600 });
-      B.smudge('728,454 762,464 810,466 848,455', { col: COL.bluegrey, w: 20, a: 0.35, z: 3 });
+      B.smudge('724,470 762,484 810,488 850,476', { col: COL.bluegrey, w: 22, a: 0.38, z: 3 });
       // white with the side of the stick, wrapping the form; then a finger to pull it together
       [['782,350 808,340 836,336 864,342 890,348', 14, 0], ['776,361 806,354 840,351 872,354 896,357', 13, 0], ['770,373 806,367 842,365 876,365', 12, 1],
         ['738,380 724,398 716,420 717,445', 16, 0], ['744,374 731,389', 10, 0], ['751,390 739,412 735,437', 12, 1], ['764,400 756,422 757,447', 9, 2]]
@@ -871,7 +896,13 @@
       B.side('764,384 800,380 840,377 868,374', { col: COL.cream, w: 11, lvl: 1, a: 0.85, z: 3, sp: 1500 });
       B.side('794,394 826,399 856,393 880,381 902,364', { col: COL.cream, w: 9, lvl: 2, a: 0.75, z: 3, sp: 1500 });
       B.side('886,350 904,340 920,330', { col: COL.white, w: 8, lvl: 1, a: 0.85, z: 3, sp: 1000 });
-      B.smudge('766,362 820,356 876,360', { col: COL.white, w: 26, a: 0.3, z: 3 });
+      [['786,354 830,348 870,350 892,354', 18, 0], ['748,386 762,370 796,362 830,360', 16, 0], ['726,412 734,394 752,382', 14, 0], ['722,440 728,422', 12, 1], ['800,372 844,368 884,366', 12, 1]]
+        .forEach(([p, w, lvl]) => B.side(p, { col: COL.white, w, lvl, a: 0.95, z: 3, sp: 1500, fade: [1, 0.8] }));
+      B.smudge('766,362 820,356 876,360', { col: COL.white, w: 32, a: 0.35, z: 3 });
+      B.smudge('734,396 726,424 734,452', { col: COL.white, w: 26, a: 0.3, z: 3 });
+      // a cool shadow tucked under each row of wing coverts: the feathers lie in layers
+      ['800,362 830,360 862,358', '806,381 840,377 876,371', '812,399 846,397 884,387'].forEach((pth) => B.side(pth, { col: COL.bluegrey, w: 5, lvl: 2, a: 0.6, z: 3, sp: 1400, pause: 20 }));
+      ['882,380 906,366 924,352', '890,390 912,374'].forEach((pth) => B.side(pth, { col: COL.slate, w: 4, lvl: 2, a: 0.55, z: 3, sp: 1400 }));
       B.smudge('728,400 731,424 738,446', { col: COL.white, w: 22, a: 0.3, z: 3 });
       // a little warm light thrown up from the red cushion
       B.side('732,463 762,470 800,472', { col: '#c98a8a', w: 6, lvl: 3, a: 0.5, z: 3, sp: 1200 });
@@ -895,7 +926,9 @@
       // the eye: Embden blue, the pupil re-stated
       const e = h.eye;
       B.pp([[e[0] - 1.6, e[1]], [e[0] + 1.6, e[1]]], { col: '#4f86c0', w: 3.6, lvl: 0, a: 0.95, z: 3, sp: 200 });
-      B.pen([[e[0] - 0.7, e[1]], [e[0] + 0.7, e[1] + 0.2]], { w: 2.6, sp: 100, pr: 'even', z: 3, trem: 0 });
+      B.pen([[e[0] - 0.7, e[1]], [e[0] + 0.7, e[1] + 0.2]], { w: 2.8, sp: 100, pr: 'even', z: 3, trem: 0, nolight: true });
+      B.pp([[e[0] - 1.6, e[1] - 1.4], [e[0] - 1.1, e[1] - 1.6]], { col: COL.white, w: 1.6, lvl: 0, a: 0.95, z: 3 });
+      B.side([[h.H([0.3, 0.27]), h.H([0.42, 0.25]), h.H([0.52, 0.2])]], { col: COL.slate, w: 0.06 * h.L, lvl: 2, a: 0.5, z: 3, sp: 600 });
       // last, the hardest white: the crest of the back, the front of the breast, the crown
       B.pp('784,344 812,334 842,334 | 728,384 716,404 712,424', { col: COL.white, w: 3.2, lvl: 0, a: 0.95, z: 3 });
       B.pp([[h.H([0.12, 0.3]), h.H([0.3, 0.36]), h.H([0.46, 0.3])]], { col: COL.white, w: 3, lvl: 0, a: 0.95, z: 3 });
@@ -1068,19 +1101,19 @@
         ['700,492 702,460 698,432 696,414', { w: 2.6 }],
         ['676,494 678,470 676,446 674,418', { w: 2.0 }],
         ['678,470 688,476 | 680,452 690,456', { w: 1.2, a: 0.75, pr: 'flick' }],
-        ['512,614 512,680 516,740 520,800', { w: 2.6, sp: 1100, pr: 'flick' }],
-        ['558,648 554,700 550,760 548,806', { w: 2.0, sp: 1100, pr: 'flick' }],
-        ['618,612 630,670 644,730 650,790', { w: 2.8, sp: 1100, pr: 'flick' }],
-        ['574,656 586,706 598,756 604,806', { w: 1.9, sp: 1100, pr: 'flick' }],
+        ['512,614 512,670 516,720 518,756', { w: 2.6, sp: 1100, pr: 'flick' }],
+        ['558,648 554,690 551,730', { w: 2.0, sp: 1100, pr: 'flick' }],
+        ['618,612 630,664 642,712 648,750', { w: 2.8, sp: 1100, pr: 'flick' }],
+        ['574,656 584,696 594,736', { w: 1.9, sp: 1100, pr: 'flick' }],
         ['552,632 566,648 576,660', { w: 1.5 }],
-        ['630,722 644,730 | 604,740 616,748 | 540,680 538,740', { w: 1.1, a: 0.6, pr: 'flick' }],
+        ['630,700 642,708 | 540,670 538,716', { w: 1.1, a: 0.6, pr: 'flick' }],
       ],
       blocks: [
         ['488,386 500,366 524,352 548,340 574,358 596,348 632,370 637,402 619,482 618,566 616,612 548,621 512,612 507,566 511,520 503,470 490,422', { col: cast.suit, ang: -76, w: 30, lvl: 0, a: 0.92, gap: 0.62, angj: 12 }],
         ['492,380 424,436 352,442 360,462 446,468 508,432', { col: cast.suit, ang: -15, w: 18, lvl: 0, a: 0.92, gap: 0.6, angj: 10 }],
         ['632,372 676,494 700,492 696,414 672,414 652,410', { col: cast.suit, ang: -75, w: 16, lvl: 0, a: 0.92, gap: 0.6 }],
-        ['512,614 558,648 548,806 520,800', { col: cast.suit, ang: -88, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [650, 820, 0.1] }],
-        ['618,612 650,790 604,806 574,656 560,622', { col: cast.suit, ang: -80, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [650, 820, 0.1] }],
+        ['512,614 558,648 550,770 518,770', { col: cast.suit, ang: -88, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [640, 770, 0.05] }],
+        ['618,612 648,770 600,770 574,656 560,622', { col: cast.suit, ang: -80, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [640, 770, 0.05] }],
       ],
       sides: [
         ['626,382 622,470 616,560 | 694,430 698,488', { col: COL.black, w: 12, lvl: 1, a: 0.6 }],
@@ -1092,12 +1125,12 @@
       lights: [
         ['500,372 524,356 546,346 | 492,394 498,446 | 472,402 432,434', { col: COL.coolgrey, w: 4.5, lvl: 1, a: 0.85 }],
         ['356,442 360,460 | 672,406 694,408', { col: COL.white, w: 4, lvl: 0 }],
-        ['516,640 518,740', { col: COL.coolgrey, w: 3.5, lvl: 2, a: 0.7 }],
+        ['516,640 518,720', { col: COL.coolgrey, w: 3.5, lvl: 2, a: 0.7 }],
       ],
       post: {
         skin: [
           ['352,442 332,442 300,448 296,462 304,471 320,463 356,462', { col: COL.skin, ang: -5, w: 8 }],
-          ['670,404 666,392 670,382 676,380 674,352 678,346 684,350 686,380 690,382 694,394 692,404', { col: COL.skin, ang: -85, w: 7 }],
+          ['670,406 667,396 671,388 677,386 676,350 679,340 683,342 684,386 690,388 693,398 691,406', { col: COL.skin, ang: -85, w: 6 }],
         ],
         shade: [['322,462 342,464 354,460', { col: COL.skinmid, w: 6 }], ['688,384 692,400', { col: COL.skinmid, w: 5 }]],
         pen: [
@@ -1108,13 +1141,13 @@
           ['326,452 312,455 300,458 296,462 302,464 314,462 324,461', { w: 1.7 }],
           ['322,462 310,467 304,471 308,473 318,469', { w: 1.7 }],
           ['352,440 358,462 | 346,441 352,462', { w: 1.5 }],
-          ['670,404 666,392 670,382 680,378 690,382 694,394 692,404', { w: 2.2, pr: 'press' }],
-          ['676,380 674,366 674,352 678,346 683,350 684,364 686,380', { w: 1.9 }],
-          ['670,392 688,390', { w: 1.1, a: 0.7 }],
-          ['668,394 680,392 686,398', { w: 1.4 }],
+          ['671,406 667,397 671,388 678,386 | 684,386 691,389 694,398 691,406', { w: 2.0, pr: 'press' }],
+          ['677,387 676,370 676,352 678,342 681,340 683,343 684,356 684,372 684,386', { w: 1.6 }],
+          ['668,398 676,395 684,396 690,400', { w: 1.6 }],
+          ['671,402 688,403', { w: 1.0, a: 0.7 }],
           ['670,410 694,412 | 672,404 694,406', { w: 1.5 }],
         ],
-        light: [['310,446 330,444 | 680,350 680,372', { col: COL.skinlt, w: 2.6 }]],
+        light: [['310,446 330,444 | 679,348 679,374', { col: COL.skinlt, w: 2.2 }]],
       },
     };
     const dash = (x0, y0, x1, y1, k) => { const out = []; for (let i = 0; i < k; i++) { const a = i / k, b = (i + 0.55) / k; out.push(lerp(x0, x1, a).toFixed(1) + ',' + lerp(y0, y1, a).toFixed(1) + ' ' + lerp(x0, x1, b).toFixed(1) + ',' + lerp(y0, y1, b).toFixed(1)); } return out.join(' | '); };
@@ -1286,9 +1319,8 @@
       g: 'goose', z: 4,
       sil: ['640,478 994,476 994,712 640,712'],
       blocks: [
-        ['648,498 966,496 964,600 649,604', { col: W[1], ang: 70, w: 30, lvl: 1, a: 0.85, gap: 0.8, angj: 10 }],
-        ['648,600 966,596 964,712 649,712', { col: W[1], ang: 70, w: 30, lvl: 2, a: 0.7, gap: 1.1, skip: 0.35, angj: 10 }],
-        ['966,496 992,486 990,694 964,712', { col: W[0], ang: 88, w: 14, lvl: 1, a: 0.85 }],
+        ['648,498 966,496 964,600 649,604', { col: W[1], ang: 70, w: 34, lvl: 1, a: 0.85, gap: 0.85, angj: 14, fadeY: [500, 600, 0.25] }],
+        ['966,496 992,486 990,620 964,630', { col: W[0], ang: 88, w: 14, lvl: 1, a: 0.85, fadeY: [500, 620, 0.2] }],
       ],
       sides: [
         ['644,489 800,488 968,486', { col: W[3], w: 9, lvl: 1, a: 0.85 }],
@@ -1353,7 +1385,7 @@
       const WL = layout.wall, top = WL.top, bot = WL.bot, LW = layout.W;
       const focus = layout.focus;
       // fewer, bigger sweeps with the side of the stick, each with its own angle and pressure
-      const n = layout.portrait ? 13 : 17;
+      const n = layout.portrait ? 16 : 22;
       for (let i = 0; i < n; i++) {
         const t = (i + B.rnd(-0.3, 0.3)) / n;
         const cx = lerp(WL.x0 + 40, WL.x1 - 40, t), cy = lerp(top + 60, bot - 120, B.rnd(0.15, 0.85));
@@ -1363,7 +1395,7 @@
         const dx = Math.cos(ang * Math.PI / 180) * len / 2, dy = Math.sin(ang * Math.PI / 180) * len / 2;
         const bow = B.rnd(-30, 30);
         B.side([[cx - dx, cy - dy, B.rnd(0.6, 1)], [cx + bow, cy, 1], [cx + dx, cy + dy, B.rnd(0.4, 0.9)]],
-          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(70, 110), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
+          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(80, 130), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
       }
       // a cornice, two stiles, a rail: just enough to say panelling
       B.side([[WL.x0 + 30, top + 6, 1], [LW * 0.5, top, 1], [WL.x1 - 40, top - 6, 1]], { col: W[0], w: 24, lvl: 1, a: 0.8, z: 10, sp: 3600, fade: [0.9, 0.3] });
@@ -1522,10 +1554,8 @@
     feather();
     // the margins
     B.at('');
-    B.write('juror 9', slots.jury[0], slots.jury[1], 12, { w: 1.5 });
-    B.write('asleep since', slots.jury[0], slots.jury[1] + 22, 12, { w: 1.5, pause: 60 });
-    B.write('10:15', slots.jury[0], slots.jury[1] + 44, 12, { w: 1.5, pause: 60 });
-    arrow([slots.jury[0] + 40, slots.jury[1] - 22], (layout.targets || {}).juror || [58, 548]);
+    note('jury', 'juror 9 asleep since 10:15', 12);
+    arrow([slots.jury[0] + 4, slots.jury[1] + 8], (layout.targets || {}).juror || [58, 548]);
     note('steno', words.steno, 11.5);
     note('feather', words.feather, 11.5);
     arrow([slots.feather[0] - 8, slots.feather[1] - 12], (layout.targets || {}).feather || [800, 874]);
@@ -1551,7 +1581,7 @@
     const nx = Math.max(4, Math.round(T / cell)), ny = Math.max(4, Math.round(T / (cell * 0.866) / 2) * 2);
     const cw = T / nx, rh = T / ny;
     const jx = new Float32Array(nx * ny), jy = new Float32Array(nx * ny);
-    for (let i = 0; i < nx * ny; i++) { jx[i] = (rnd() - 0.5) * 0.22; jy[i] = (rnd() - 0.5) * 0.22; }
+    for (let i = 0; i < nx * ny; i++) { jx[i] = (rnd() - 0.5) * 0.42; jy[i] = (rnd() - 0.5) * 0.42; }
     for (let y = 0; y < T; y++) {
       const ry = Math.floor(y / rh);
       for (let x = 0; x < T; x++) {
@@ -1570,7 +1600,7 @@
         H[y * T + x] = 1 - Math.exp(-dn * dn * 9) + 0.06 * Math.sin((x + y * 0.3) / cw * Math.PI * 2) * Math.sin((y - x * 0.3) / rh * Math.PI);
       }
     }
-    const oct = [[feat * 1.1, 0.07], [feat * 6, 0.05], [feat * 30, 0.06]];
+    const oct = [[feat * 1.1, 0.1], [feat * 2.6, 0.08], [feat * 6, 0.06], [feat * 30, 0.06]];
     for (const [per, amp] of oct) {
       const n = Math.max(2, Math.round(T / per));
       const g = new Float32Array(n * n); for (let i = 0; i < g.length; i++) g[i] = rnd();

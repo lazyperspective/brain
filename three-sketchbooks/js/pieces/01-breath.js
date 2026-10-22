@@ -794,9 +794,9 @@
         const n = first ? 2 : (r() < 0.7 ? 1 : 0) + (r() < 0.2 ? 1 : 0);
         for (let k = 0; k < n && cand.length; k++) {
           const q = cand.splice(Math.floor(r() * Math.min(cand.length, 4)), 1)[0];
-          const delay = 0;
+          const delay = first ? (k === 0 ? 2.5 + r() * 2 : 16 + r() * 20) : 5 + r() * 28;
           drips.push({ x: q.x, y: q.y, r: Math.max(2.4, (2.0 + r() * 0.8) * S * fsc), start: Math.max(tNow, q.t) + delay, state: 'wait',
-            vy0: 40 * S * fsc, travel: 0, maxTravel: fh * (0.1 + r() * 0.22), pause: 0, ph: r() * 9, id: strokeId++, a: 0, endT: 0 });
+            vy0: (5 + r() * 7) * S * fsc, travel: 0, maxTravel: fh * (0.1 + r() * 0.22), pause: 0, ph: r() * 9, id: strokeId++, a: 0, endT: 0 });
         }
       }
       function updateDrips(tNow, dt) {

@@ -838,7 +838,7 @@
   }
   function whiteHatch(F, tone, o) {
     o = o || {};
-    hatch(F, tone, { ch: 2, ang: o.ang === undefined ? -38 : o.ang, sp: o.sp || 1.5, a: o.a || 0.5, len: o.len || [3, 8], w: o.w || 0.5, t0: 0.05, bend: 0.02, trem: 0.05 });
+    hatch(F, tone, { ch: 2, ang: o.ang === undefined ? -38 : o.ang, sp: (o.sp || 1.5) * 0.85, a: Math.min(1, (o.a || 0.5) * 1.35), len: o.len || [3, 9], w: o.w || 0.75, t0: 0.05, bend: 0.02, trem: 0.05 });
   }
 
   /* ------------------------------------------------------------ bone helpers */
@@ -1041,7 +1041,7 @@
       const lam = F.lam(x, y, 1.3);
       let t = 0.02 + 0.5 * clamp(0.9 - lam, 0, 1);
       t += 0.32 * sstep(9, 2, hyp((x - eyeC[0]) * 0.9, (y - eyeC[1]) * 1.3));
-      t += 0.4 * underJaw.height(x, y);
+      t += 0.65 * underJaw.height(x, y);
       t += 0.22 * sstep(380, 470, x) * sstep(40, 140, y);
       return t * (1 - 0.8 * hairM.height(x, y));
     };
@@ -1560,7 +1560,7 @@
 
   /* ------------------------------------------------------------ the renderer */
   async function renderAll(Y) {
-    HIER = 1.18;
+    HIER = 1.32;
     const G = thoraxGeometry();
     const SP = spineData();
     const TL = LUT(SP.path), sEnd = TL.L, sCut = SP.total * 0.44;
@@ -1651,13 +1651,20 @@
     for (const V of SP.V) if (V.t === 'T') { const f = VF(V.c, V.dir, S), pr = vParts(V); spineBodies.push(f(pr.body), f(pr.arch)); }
     const farMask = Form(farRib.concat(farCart), [], { blur: 2.4, res: 1.3 });
     const inner = Form(gaps, nearRib.concat(nearCart, [stern], spineBodies, [scap, clav, hum.poly, hum.head]), { blur: 8, res: 1.0 });
-    const toneIn = (x, y) => 0.58 + 0.34 * sstep(BY + 85, BY - 8, y) + 0.08 * sstep(330, 450, x) - 0.34 * farMask.height(x, y);
-    shade(inner, toneIn, { a: 0.6, sp: 1.55, layers: 3, len: [12, 28], len2: [10, 20] });
+    const gapF = gaps.map((g) => Form([g], [], { res: 0.8, blur: 3 }));
+    const GV = [1.0, 0.8, 1.12, 0.72, 1.18, 0.86, 1.06, 0.7, 1.0, 0.78, 0.9];
+    const toneIn = (x, y) => {
+      let gv = 0.85, h = 0;
+      for (let i = 0; i < gapF.length; i++) if (gapF[i].in(x, y)) { gv = GV[i]; h = gapF[i].height(x, y); break; }
+      const depth = sstep(BY + 85, BY - 8, y);
+      return clamp((0.42 + 0.5 * depth + 0.08 * sstep(330, 450, x)) * gv + 0.18 * (1 - h) * depth - 0.42 * farMask.height(x, y) * (1.1 - depth * 0.5), 0, 1);
+    };
+    shade(inner, toneIn, { a: 0.7, sp: 1.4, layers: 4, len: [12, 28], len2: [10, 20] });
     flush(); await Y();
     for (const r of G.ribs) {
       const f = r.far, vis = (p) => (inner.in(p[0], p[1]) ? 1 : 0);
-      contour(sub(xy(f.lo), 0.22, 1), { a: 0.34, side: -1, w: 0.45, fade: vis, lit: 0.6 });
-      contour(sub(xy(f.up), 0.22, 1), { a: 0.2, side: 1, w: 0.42, fade: vis, lit: 0.6 });
+      contour(sub(xy(f.lo), 0.22, 1), { a: 0.26, side: -1, w: 0.42, fade: (p) => vis(p) * (0.35 + 0.65 * sstep(BY - 5, BY + 70, p[1])), lit: 0.6 });
+      contour(sub(xy(f.up), 0.22, 1), { a: 0.14, side: 1, w: 0.4, fade: (p) => vis(p) * (0.3 + 0.7 * sstep(BY - 5, BY + 70, p[1])), lit: 0.6 });
       if (f.cart) { contour(xy(f.cart.lo), { a: 0.26, side: -1, w: 0.42, fade: vis }); contour(xy(f.cart.up), { a: 0.16, side: 1, w: 0.42, fade: vis }); }
     }
     flush(); await Y();
@@ -1726,29 +1733,32 @@
     /* ---- the flayed muscles, each hatched along its own fibres */
     const humOcc = Form([hum.poly, hum.head], [MUS[0].poly], { res: 1.3, blur: 1 }), scapOcc = Form([scap, scapSpine, corac], [], { res: 1.3, blur: 1 });
     const drawMuscle = (M, o) => {
-      const F = Form([M.poly], [], { res: 1.3, blur: o.blur || 5 });
+      const per = plen(closeP(M.poly)), ar = Math.abs(area(M.poly)), wid = (2 * ar) / Math.max(1, per);
+      const F = Form([M.poly], [], { res: 1.3, blur: clamp(wid * 0.45, 2.5, 11) });
       const bb = bbox([M.poly]), cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2, rad = Math.max(6, hyp(bb[2] - bb[0], bb[3] - bb[1]) / 2);
-      const tone = (x, y) => clamp((o.base || 0.12) + (o.amp || 0.6) * clamp(0.9 - F.lam(x, y, 1.2), 0, 1) + (o.g || 0.3) * clamp(((x - cx) * 0.62 + (y - cy) * 0.78) / rad * 0.8 + 0.4, 0, 1), 0, 1);
-      const n = Math.max(5, Math.round(M.Ol.L / ((o.sp || 0.95) * 0.8)));
-      for (let pass = 0; pass < 3; pass++) {
-        const th = pass * 0.24;
+      const tone = (x, y) => { const e = F.height(x, y); return clamp((0.02 + 1.0 * Math.pow(clamp(0.97 - F.lam(x, y, 1.5), 0, 1), 1.15) + (o.g || 0.3) * clamp(((x - cx) * 0.62 + (y - cy) * 0.78) / rad * 0.8 + 0.3, 0, 1)) * sstep(0.08, 0.5, e), 0, 1); };
+      const n = Math.max(5, Math.round(M.Ol.L / ((o.sp || 0.95) * 0.75)));
+      for (let pass = 0; pass < 4; pass++) {
+        const th = pass * 0.2;
         for (let k = 0; k <= n; k++) {
-          if (R() < 0.05) continue;
-          const f = clamp((k + rr(-0.35, 0.35) + pass * 0.33) / n, 0, 1), fib = M.fib(f);
+          const f = clamp((k + rr(-0.35, 0.35) + pass * 0.27) / n, 0, 1), fib = M.fib(f);
+          const mid = at(fib, 0.45), tm = tone(mid[0], mid[1]);
+          if (R() < 0.05 || (tm < 0.2 && R() < 0.6)) continue;
           const tEnd = 1 - (o.tendon || 0.12) * rr(0.7, 1.3);
-          let t = rr(0, 0.06);
+          let t = rr(0, 0.08);
           while (t < tEnd) {
-            const te = Math.min(tEnd, t + rr(0.18, 0.42));
+            const te = Math.min(tEnd, t + rr(0.16, 0.4));
             const piece = sub(fib, t, te);
-            if (piece.length > 1) stroke(piece, { a: (o.a || 0.42) * 1.45 * (pass ? 0.85 : 1), w: 0.3, pt: 'h', trem: 0.08, step: 2, tone: (x, y) => Math.max(0, (tone(x, y) - th) / (1 - th)) * (F.in(x, y) ? 1 : 0) });
+            const taper = (u) => sstep(0, 0.12, u) * (1 - 0.7 * sstep(tEnd - 0.18, tEnd, u));
+            if (piece.length > 1) stroke(piece, { a: (o.a || 0.42) * 1.5 * taper((t + te) / 2), w: 0.3, pt: 'h', trem: 0.08, step: 2, tone: (x, y) => Math.max(0, (tone(x, y) - th) / (1 - th)) });
             t = te + rr(-0.03, 0.05);
           }
-          // the glistening tendon or aponeurosis: a fine pale line
-          if (k % 2 === 0 && pass === 0) stroke(sub(fib, tEnd, 1), { a: 0.16, w: 0.28, pt: 'f' });
+          if (k % 2 === 0 && pass === 0) stroke(sub(fib, tEnd, 1), { a: 0.18, w: 0.28, pt: 'f' });
         }
       }
       const side = area(M.poly) > 0 ? 1 : -1;
-      contour(M.poly.concat([M.poly[0]]), { a: o.la || 0.48, side, w: 0.48, re: 0.35, seg: 22, lit: 0.3 });
+      contour(M.poly.concat([M.poly[0]]), { a: o.la || 0.4, side, w: 0.44, re: 0.3, seg: 14, jit: 0.35, lit: 0.04 });
+      M.F = F; M.crest = sub(M.fib(o.crest || 0.4), 0.22, 0.62);
       return F;
     };
     SEGOCC = (x, y) => humOcc.in(x, y) || DeltF.in(x, y);
@@ -1758,6 +1768,14 @@
     for (const M of MUS) if (M.name.startsWith('serr')) { drawMuscle(M, { a: 0.38, sp: 0.8, g: 0.3, tendon: 0.18, blur: 2.5 }); }
     flush(); await Y();
     SEGOCC = null;
+    { // the arm throws its shadow down and to the right across the chest
+      const sh = (P, dx, dy) => P.map((q) => [q[0] + dx, q[1] + dy]);
+      const cast = [sh(hum.poly, 7.5, 6), sh(hum.poly, 4, 3)];
+      const body = Form(gaps.concat(nearRib, nearCart, MUS.map((M) => M.poly), [stern]), [], { res: 1, blur: 1 });
+      const Fc = Form(cast, [hum.poly, hum.head, MUS[0].poly], { res: 1.3, blur: 3 });
+      shade(Fc, (x, y) => (body.in(x, y) ? 0.55 * Fc.height(x, y) + 0.25 : 0), { a: 0.6, sp: 1.3, layers: 4, len: [6, 14], ang: 48 });
+      flush(); await Y();
+    }
     const oblF = drawMuscle(MUS[MUS.length - 1], { a: 0.4, sp: 0.85, g: 0.22, tendon: 0.08, blur: 7 });
     // aponeurosis of the oblique: pale sheet running on to the belly line
     for (let k = 0; k < 26; k++) { const f = k / 25, p0 = MUS[MUS.length - 1].Il.pt(f * 0.42 * MUS[MUS.length - 1].Il.L); stroke([p0, [p0[0] + 7 + rs(1), p0[1] + 11 + rs(1)]], { a: 0.14, w: 0.28, pt: 'f' }); }
@@ -1796,10 +1814,10 @@
     contour(sk(C(SKD.brow, 0.1)), { a: 0.42, side: 0, w: 0.5 });
     flush(); await Y();
     const orbC = sk([[-8.0, -2.2]])[0];
-    bone(orbit, { tone: (x, y) => 0.7 + 0.3 * sstep(-14, 10, (x - orbC[0]) * 0.3 - (y - orbC[1]) * 0.95), noLine: true, a: 0.55, layers: 3, sp: 1.3, sub: [zyg, nas, maxi] });
+    bone(orbit, { layers: 4, tone: (x, y) => 0.85 + 0.15 * sstep(-14, 10, (x - orbC[0]) * 0.3 - (y - orbC[1]) * 0.95), noLine: true, a: 0.55, layers: 3, sp: 1.3, sub: [zyg, nas, maxi] });
     contour(sk(C(SKD.orbit.slice(0, 5), 0.1)), { a: 0.5, side: 0, w: 0.5, fade: hider([pip([zyg])]) });
-    bone(gap, { tone: () => 0.9, noLine: true, a: 0.55, layers: 3, sp: 1.3, sub: [arch, mand] });
-    bone(ncav, { tone: () => 0.82, noLine: true, a: 0.55, layers: 3, sp: 1.3, sub: [maxi, nas] });
+    bone(gap, { tone: () => 1, noLine: true, a: 0.65, layers: 4, sp: 1.3, sub: [arch, mand] });
+    bone(ncav, { tone: () => 0.95, noLine: true, a: 0.65, layers: 4, sp: 1.3, sub: [maxi, nas] });
     bone(zyg, { blur: 3.0, base: 0.0, amp: 0.4, g: 0.25, a: 0.38, la: 0.45 });
     bone(arch, { sub: [zyg], fade: hider([pip([zyg])]), blur: 1.6, base: 0.02, amp: 0.45, g: 0.15, a: 0.38, la: 0.5 });
     bone(nas, { blur: 1.2, base: 0.04, amp: 0.4, a: 0.38, la: 0.45 });
@@ -1936,13 +1954,13 @@
           let ph = 1;
           for (let k = k0; k < septS.length; k++) { const d = sp0 - septS[k]; if (d < 0) break; if (d < segSp(s0) * 1.1) { ph = d / segSp(s0); break; } }
           const sw = 0.12 * Math.exp(-ph * 5) - 0.05 * Math.exp(-(1 - ph) * 7);
-          g[iy * w + ix] = clamp(0.1 + 0.72 * tailShade(s0, t) + sw, 0, 1);
+          g[iy * w + ix] = clamp(0.02 + 1.05 * Math.pow(tailShade(s0, t), 1.25) + 0.22 * sstep(-0.35, -0.95, t) + sw, 0, 1);
         }
       }
       return (x, y) => { const ix = Math.round(x - x0), iy = Math.round(y - y0); if (ix < 0 || iy < 0 || ix >= w || iy >= h) return 0; const v = g[iy * w + ix]; return v < 0 ? 0 : v; };
     })();
-    shade(ZF, tf, { a: 0.5, sp: 1.5, layers: 4, len: [10, 24] });
-    shade(BandF, tf, { a: 0.5, sp: 1.5, layers: 4, len: [10, 24] });
+    shade(ZF, tf, { a: 0.56, sp: 1.45, layers: 6, len: [10, 24] });
+    shade(BandF, tf, { a: 0.56, sp: 1.45, layers: 6, len: [10, 24] });
     flush(); await Y();
     // hatching that curves round the tail on its shadowed underside, as if drawn across the cylinder
     for (let s0 = 6; s0 < sEnd - 4; s0 += rr(0.9, 1.4)) {
@@ -1979,14 +1997,15 @@
       const row = Math.round(s0 / 5);
       for (let t = -0.94 + (row % 2) * 0.08; t < 0.96; t += lerp(0.17, 0.2, s0 / sEnd)) {
         if (s0 < sCut && t > tbS(s0) - 0.03) continue;
-        let pr = s0 < sCut ? sstep(30, sCut, s0) * sstep(tbS(s0), -0.95, t) * 0.9 : 0.55 + 0.4 * sstep(sCut, sEnd - 60, s0);
+        const wb = Math.exp(-Math.pow((t - 0.5) / 0.3, 2));
+        let pr = s0 < sCut ? sstep(30, sCut, s0) * sstep(tbS(s0), -0.95, t) * 0.5 : (0.1 + 0.9 * wb) * (0.7 + 0.3 * sstep(sCut, sEnd - 60, s0));
         if (s0 > sCut && s0 < sCut + 40) pr *= sstep(sCut, sCut + 40, s0);
         if (R() > pr) continue;
         const c = tM(s0, t), d = TL.tan(s0), r = lerp(3.6, 2.7, s0 / sEnd);
         const pts = [];
         for (let k = 0; k <= 10; k++) { const a = -1.15 + (2.3 * k) / 10; const dx = Math.cos(a) * r, dy = Math.sin(a) * r * 0.9; pts.push([c[0] + d[0] * dx + d[1] * dy, c[1] + d[1] * dx - d[0] * dy]); }
-        stroke(pts, { a: 0.14 + 0.28 * pr, w: 0.34, pt: 'c', trem: 0.06 });
-        if (pr > 0.5 && t > 0.2 && R() < 0.18) scaleGlints.push(pts);
+        stroke(pts, { a: 0.1 + 0.42 * pr, w: 0.34, pt: 'c', trem: 0.06 });
+        if (pr > 0.6 && R() < 0.38) scaleGlints.push(pts);
       }
       s0 += step;
     }
@@ -2014,7 +2033,7 @@
     for (const k in tear) { const A = rays[+k], Bq = rays[+k + 1], te = tear[k]; tearPolys.push([at(A, te + 0.02), at(A, 1.0), at(Bq, 1.0), at(Bq, te + 0.02), [lerp(at(A, te)[0], at(Bq, te)[0], 0.5), lerp(at(A, te)[1], at(Bq, te)[1], 0.5)]]); }
     const FF = Form([finPoly], tearPolys, { res: 1.2, blur: 7 });
     // membrane tone: dark at the root, the lower lobe turned a little away from the light
-    shade(FF, (x, y) => { const d = hyp(x - fe[0], y - fe[1]); const q = (x - fe[0]) * fdn[0] + (y - fe[1]) * fdn[1]; return clamp(0.26 + 0.36 * sstep(90, 0, d) + 0.28 * sstep(0, -60, q) - 0.08 * sstep(20, 70, q), 0, 1); }, { a: 0.48, sp: 1.4, layers: 4, len: [8, 18], ang: 64 });
+    shade(FF, (x, y) => { const d = hyp(x - fe[0], y - fe[1]); const q = (x - fe[0]) * fdn[0] + (y - fe[1]) * fdn[1]; return clamp(0.26 + 0.36 * sstep(90, 0, d) + 0.28 * sstep(0, -60, q) - 0.08 * sstep(20, 70, q) + 0.35 * sstep(45, 0, d) * sstep(5, -30, q), 0, 1); }, { a: 0.48, sp: 1.4, layers: 4, len: [8, 18], ang: 64 });
     for (let k = 0; k < NR - 1; k++) {
       const A = rays[k], Bq = rays[k + 1], te = tear[k] || 0.97;
       for (const u of [0.33, 0.66]) { const pts = []; for (let i = 0; i <= 22; i++) { const t = lerp(0.12, te * rr(0.85, 0.98), i / 22); const pa = at(A, t), pb = at(Bq, t); pts.push([lerp(pa[0], pb[0], u), lerp(pa[1], pb[1], u)]); } stroke(pts, { a: 0.16, w: 0.28, pt: 'f', trem: 0.1 }); }
@@ -2097,22 +2116,21 @@
       const a0 = o.t0 === undefined ? rr(0.08, 0.25) : o.t0, a1 = o.t1 === undefined ? rr(0.7, 0.92) : o.t1;
       white(sub(run, a0, a1), { w: o.w || 1.1, a: o.a || 0.62 });
     };
-    hi(cran, { w: 1.3, a: 0.5, min: 20, inset: 5, t0: 0.3, t1: 0.55 });
+    hi(cran, { w: 1.6, a: 0.7, min: 20, inset: 4, t0: 0.22, t1: 0.6 }); hi(cran, { w: 1.1, a: 0.5, min: 20, inset: 7.5, t0: 0.28, t1: 0.5 });
     hi(zyg, { w: 0.9, a: 0.6, inset: 1.5, t0: 0.2, t1: 0.6 }); hi(mand, { w: 0.9, a: 0.45, inset: 2.2, t0: 0.3, t1: 0.6 });
     for (const t of tUp.slice(0, 4)) { const c = bbox([t]); dab((c[0] + c[2]) / 2 - 0.4, (c[1] + c[3]) / 2 - 0.6, 0.6, 0.45); }
-    hi(clav, { w: 0.9, a: 0.5, inset: 1.6, t0: 0.25, t1: 0.65 }); hi(hum.poly, { w: 1.2, a: 0.5, inset: 3, t0: 0.15, t1: 0.5 }); hi(hum.head, { w: 1.1, a: 0.55, inset: 3, t0: 0.25, t1: 0.7 }); hi(scapSpine, { w: 0.8, a: 0.55, inset: 1.0 }); hi(radius, { w: 0.8, a: 0.42, inset: 1.6, t0: 0.4, t1: 0.75 });
+    hi(clav, { w: 0.9, a: 0.5, inset: 1.6, t0: 0.25, t1: 0.65 }); hi(hum.poly, { w: 1.5, a: 0.72, inset: 2.6, t0: 0.12, t1: 0.62 }); hi(hum.head, { w: 1.4, a: 0.7, inset: 3, t0: 0.2, t1: 0.75 }); hi(scapSpine, { w: 0.8, a: 0.55, inset: 1.0 }); hi(radius, { w: 0.8, a: 0.42, inset: 1.6, t0: 0.4, t1: 0.75 });
     for (const r of G.ribs) { if (r.i < 2 || r.i > 8 || r.i === 5) continue; const up = xy(r.near.up); white(sub(up, rr(0.34, 0.44), rr(0.55, 0.68)).map((p) => [p[0] + 1.4, p[1] + 0.6]), { w: rr(0.7, 1.0), a: rr(0.5, 0.65) }); }
     for (const V of SP.V) { if (!(V.t === 'L' && V.i % 2 === 0)) continue; const f = VF(V.c, V.dir, S), pr = vParts(V); hi(f(pr.body), { w: 0.8, a: 0.45, min: 4, inset: 1.5, t0: 0.3, t1: 0.7 }); }
     // the back of the tail catches the light along its length; the lateral line glints
     { const ridge = []; for (let s0 = sCut + 6; s0 < sEnd - 20; s0 += 2) ridge.push(tM(s0, 0.72)); let i = 0; while (i < ridge.length - 4) { const k = Math.round(rr(8, 22)); white(ridge.slice(i, Math.min(ridge.length, i + k)), { w: rr(0.9, 1.5), a: rr(0.35, 0.55) }); i += k + Math.round(rr(4, 14)); } }
     for (let s0 = sCut + 20; s0 < sEnd - 10; s0 += rr(16, 30)) { const p = tM(s0, 0.08); dab(p[0], p[1], 0.7, 0.4); }
-    for (const k of [2, 5, 8, 11, 13]) { const r = rays[k]; white(sub(r, 0.12, 0.42).map((p) => [p[0] - 0.6, p[1] - 0.6]), { w: 0.7, a: 0.4 }); }
+    for (const k of [1, 2, 3, 5, 6, 8]) { const r = rays[k]; white(sub(r, 0.14, 0.5).map((p) => [p[0] - 0.7, p[1] - 0.7]), { w: 0.9, a: 0.62 }); }
     // brush hatching in lead white on the brightest planes
-    whiteHatch(ZF, (x, y) => { const v = tf(x, y); return v > 0 ? sstep(0.24, 0.1, v) : 0; }, { a: 0.5, sp: 1.5, len: [3, 9] });
+    whiteHatch(ZF, (x, y) => { const v = tf(x, y); return v > 0 ? sstep(0.2, 0.06, v) : 0; }, { a: 0.42, sp: 2.3, len: [6, 15], ang: -48 });
     whiteHatch(BandF, (x, y) => { const v = tf(x, y); return v > 0 ? sstep(0.24, 0.12, v) * 0.7 : 0; }, { a: 0.45, sp: 1.8 });
-    { const Fd = Form([MUS[0].poly], [], { res: 1.3, blur: 6 }); whiteHatch(Fd, (x, y) => sstep(0.8, 0.95, Fd.lam(x, y, 1.2)), { a: 0.5, sp: 1.3, ang: -30 }); }
-    { const Fo = Form([MUS[MUS.length - 1].poly], [], { res: 1, blur: 8 }); whiteHatch(Fo, (x, y) => sstep(0.84, 0.97, Fo.lam(x, y, 1.2)) * 0.8, { a: 0.42, sp: 1.6, ang: -35 }); }
-    for (const g of scaleGlints) white(sub(g, 0.15, 0.55), { w: 0.55, a: 0.5, core: false });
+    for (const M of MUS) { if (!M.F) continue; const Fm = M.F; whiteHatch(Fm, (x, y) => sstep(0.9, 0.99, Fm.lam(x, y, 1.5)) * sstep(0.3, 0.7, Fm.height(x, y)), { a: 0.55, sp: 1.3, ang: -32 }); if (!M.name.startsWith('serr')) white(M.crest.map((q) => [q[0] - 1.2, q[1] - 1.2]), { w: 1.0, a: 0.6 }); }
+    for (const g of scaleGlints) white(sub(g, 0.12, 0.6), { w: 0.75, a: 0.66, core: false });
     { const Fh = Form([HS.sil], [], { res: 1.2, blur: 10 }); whiteHatch(Fh, (x, y) => sstep(0.86, 0.97, Fh.lam(x, y, 1.3)) * (x < 410 ? 1 : 0.2), { a: 0.5, sp: 1.3, ang: -40 }); }
     // head study
     white(HS.forehead.map((p) => [p[0] + 1.3, p[1] + 0.4]), { w: 1.4, a: 0.66 }); white(HS.nose.map((p) => [p[0] + 0.9, p[1] + 0.2]), { w: 1.0, a: 0.66 });
@@ -2247,7 +2265,7 @@
                 r += (96 - r) * d; g += (62 - g) * d; b += (36 - b) * d;
               }
               if (wh) {
-                let d = Math.min(1, (wh / 255 / 0.6) * 1.05);
+                let d = Math.min(1, (wh / 255 / 0.6) * 1.6);
                 let c = (tooth - (0.62 - 0.7 * d)) / 0.25 + 0.5; c = c < 0 ? 0 : c > 1 ? 1 : c;
                 d *= 0.35 + 0.65 * c;
                 r += (246 - r) * d; g += (243 - g) * d; b += (232 - b) * d;
