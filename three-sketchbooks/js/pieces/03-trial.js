@@ -35,9 +35,9 @@
   }
 
   // Catmull-Rom through points (with pressure), then resample at even arc length.
-  function smoothPath(pts, step) {
+  function smoothPath(pts, step, round) {
     // a sharp turn in the authored polyline is a corner, not a curve
-    if (pts.length > 2) {
+    if (pts.length > 2 && !round) {
       const q = [pts[0]];
       for (let i = 1; i < pts.length - 1; i++) {
         const a = pts[i - 1], b = pts[i], c = pts[i + 1];
@@ -296,7 +296,7 @@
           pts.push([e[0] + (e[0] - c[0]) / l1 * ov1, e[1] + (e[1] - c[1]) / l1 * ov1, e[2]]);
         }
         const step = tool === 'side' ? 2.4 : tool === 'write' ? 0.9 : 1.4;
-        let d = o.raw ? resample(pts, step) : smoothPath(pts, step);
+        let d = o.raw ? resample(pts, step) : smoothPath(pts, step, o.round);
         const L = pathLen(d);
         if (L < 0.5) continue;
         // pressure profile
@@ -540,7 +540,12 @@
       if (H.hair !== 'bob') B.side([M([[-0.1, -0.02], [-0.08, 0.12]])], { col: H.blush || COL.blush, w: hh * 0.06, lvl: 2, a: 0.6, z, sp: 400 });
       // hair as a mass, the side of the stick following the way it grows
       const hairAng = ang + (H.hair === 'bob' ? 8 : 78) * H.f;
-      B.block(M(hair), { col: hairCol, ang: hairAng, w: hh * 0.12, gap: 0.45, lvl: H.hair === 'bald' ? 1 : 0, a: 0.95, z, over: 0.0, skip: 0, sp: 1400, pause: 10, angj: 14, streak: false });
+      if (H.hair === 'quiff' || H.hair === 'short') {
+        // hair as a few sweeps following the way it is combed, front to crown to nape, not a cap
+        [[[0.28, -0.36], [0.1, -0.48], [-0.14, -0.48], [-0.34, -0.36]], [[0.14, -0.27], [-0.1, -0.33], [-0.36, -0.2], [-0.4, 0.0]], [[0.3, -0.44], [0.12, -0.55], [-0.12, -0.55]]]
+          .forEach((arc, i) => B.side([M(arc)], { col: hairCol, w: hh * (i === 2 ? 0.1 : 0.19), lvl: i === 1 ? 1 : 0, a: 0.95, z, sp: 1100, pr: 'swell', fade: [1, 0.75], streak: false }));
+        B.side([M([[-0.28, -0.08], [-0.36, 0.06]]), M([[0.02, -0.08], [0.02, 0.05]])], { col: hairCol, w: hh * 0.06, lvl: 1, a: 0.85, z, sp: 800 });
+      } else B.block(M(hair), { col: hairCol, ang: hairAng, w: hh * 0.12, gap: 0.45, lvl: H.hair === 'bald' ? 1 : 0, a: 0.95, z, over: 0.0, skip: 0, sp: 1400, pause: 10, angj: 14, streak: false });
       if (H.hair === 'bun') B.block(M([[-0.36, -0.4], [-0.5, -0.46], [-0.6, -0.36], [-0.56, -0.22], [-0.42, -0.2]]), { col: hairCol, ang: hairAng, w: hh * 0.07, gap: 0.7, lvl: 0, a: 0.9, z, over: 0, skip: 0, sp: 1000, pause: 10 });
       if (H.hairDark) B.side([M(hair.slice(Math.floor(hair.length * 0.45), Math.floor(hair.length * 0.75)))], { col: H.hairDark, w: hh * 0.06, lvl: 1, a: 0.75, z, sp: 900 });
       return;
@@ -550,7 +555,7 @@
       B.pp([M([[0.26, -0.26], [0.31, -0.12]])], { col: L, w: H.h * 0.045, lvl: 1, a: 0.85, z });
       B.pp([M([[0.36 + 0.02 * n, 0.0], [0.41 + 0.04 * n, 0.1]])], { col: L, w: H.h * 0.035, lvl: 1, a: 0.9, z });
       B.pp([M([[0.14, 0.03], [0.24, 0.07]]), M([[0.29, 0.4], [0.27, 0.45]])], { col: L, w: H.h * 0.03, lvl: 2, a: 0.75, z });
-      if (H.hairLight) B.pp([M([[0.14, -0.44], [-0.08, -0.5], [-0.28, -0.42]])], { col: H.hairLight, w: H.h * 0.04, lvl: 1, a: 0.85, z });
+      if (H.hairLight) B.pp([M([[0.18, -0.46], [-0.04, -0.52], [-0.24, -0.46]]), M([[0.12, -0.36], [-0.1, -0.4]])], { col: H.hairLight, w: H.h * 0.03, lvl: 1, a: 0.8, z, round: true });
       // the eye re-stated last, darkest dark in the face
       const eyx = 0.245 - tn * 0.08;
       if ((H.eyes || 'open') !== 'closed') B.pen([M([[eyx - 0.045, -0.04], [eyx + 0.01, -0.048], [eyx + 0.04, -0.03]])], { w: (H.w || 2.1) * 1.3, sp: 200, pr: 'flick', z });
@@ -721,8 +726,8 @@
       nostril: [[0.74, 0.08], [0.785, 0.065]].map(H),
       nail: [[0.94, 0.04], [0.985, -0.02]].map(H),
       tongue: P.gape > 4 ? [[0.6, -0.08], [0.72, -0.1], [0.83, -0.105]].map((q) => H(rot([q[0], q[1] + 0.025 * (q[0] - 0.6) / 0.25]))) : null,
-      teeth: P.gape > 4 ? [0.66, 0.71, 0.76, 0.81, 0.86, 0.91, 0.95].map((t) => [H([t, -0.068]), H([t - 0.012, -0.095])]) : null,
-      lteeth: P.gape > 4 ? [0.68, 0.74, 0.8, 0.86, 0.92].map((t) => [H(rot([t, -0.098])), H(rot([t - 0.012, -0.075]))]) : null,
+      teeth: P.gape > 4 ? [0.7, 0.77, 0.84, 0.91].map((t) => [H([t, -0.07]), H([t - 0.01, -0.09])]) : null,
+      lteeth: P.gape > 4 ? [0.74, 0.82, 0.9].map((t) => [H(rot([t, -0.1])), H(rot([t - 0.01, -0.082]))]) : null,
       mouthDark: P.gape > 4 ? [[0.62, -0.075], [0.8, -0.075], [0.92, -0.08], [0.8, -0.12], [0.64, -0.1]].map((q, i) => i < 3 ? H(q) : H(rot(q))) : null,
       L, H, dx, dy, ux, uy, ang: P.ang,
       poly: [[0.02, 0.24], [0.26, 0.4], [0.6, 0.22], [1.02, -0.02], [0.97, -0.09], [0.6, -0.15], [0.16, -0.23], [0.0, -0.1]].map(H),
@@ -777,14 +782,14 @@
     return {
       W: 1000, H: 1900, portrait: true,
       g: {
-        wall: G(1, 0, 0), judge: G(1, -386, 118), clock: G(1, -50, 54), goose: G(2.0, -1150, 60), floor: G(2.0, -1150, 60),
+        wall: G(1, 0, 0), judge: G(1, -386, 118), clock: G(1, -50, 54), goose: G(2.0, -1150, -20), floor: G(2.0, -1150, -20),
         lawyer: G(1.35, -344, 864), easel: G(0.95, -220, 1045), jury: G(0.8, 0, 56), steno: G(0.95, -158, 232),
         bailiff: G(1, -550, 288), pros: G(1, -412, 902), feather: G(1.2, -218, 748),
       },
       wall: { top: 300, bot: 1150, x0: 0, x1: 1000 },
       focus: [420, 620],
-      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [700, 110], jury: [24, 598, 220], steno: [770, 1046, 200], feather: [720, 1866], sig: [40, 1884] },
-      targets: { juror: [54, 450], feather: [690, 1792] },
+      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [700, 110], jury: [24, 1000, 220], steno: [790, 760, 190], feather: [720, 1866], sig: [40, 1884] },
+      targets: { juror: [60, 470], feather: [690, 1792] },
     };
   }
 
@@ -830,7 +835,7 @@
       B.pen([h.feather], { w: w * 0.55, a: a * 0.8, sp: 420, pr: 'flick', z: 3 });
       if (h.teeth && o.teeth !== false) {
         // the serrated edge of a hissing bill
-        h.teeth.concat(h.lteeth || []).forEach(([p0, p1]) => B.pen([[p0, p1]], { w: w * 0.45, a, sp: 160, pr: 'flick', z: 3, pause: 12, nolight: true, nobreak: true }));
+        h.teeth.concat(h.lteeth || []).forEach(([p0, p1]) => B.pen([[p0, p1]], { w: w * 0.35, a: a * 0.8, sp: 160, pr: 'flick', z: 3, pause: 12, nolight: true, nobreak: true }));
       }
       const e = h.eye, r = h.eyeR;
       const ring = []; for (let i = 0; i <= 12; i++) { const t = (i / 12) * TAU; ring.push([e[0] + Math.cos(t) * r, e[1] + Math.sin(t) * r * 0.85, 1]); }
@@ -875,10 +880,10 @@
       B.pen(GOOSE_BODY.tail, { w: 1.9, sp: 600, pr: 'flick', z: 3 });
       B.pen(GOOSE_BODY.rear, { w: 2.6, sp: 800, z: 3 });
       B.pen(GOOSE_BODY.wing, { w: 2.6, sp: 900, z: 3, pr: 'press' });
-      ['cov1', 'cov2', 'cov3'].forEach((k, i) => B.pen(GOOSE_BODY[k], { w: 1.2 + i * 0.2, sp: 420, pr: 'swell', z: 3, a: 0.75, pause: 14, nobreak: true, search: 0 }));
+      ['cov1', 'cov2', 'cov3'].forEach((k, i) => B.pen(GOOSE_BODY[k], { w: 1.2 + i * 0.2, sp: 420, pr: 'swell', z: 3, a: 0.75, pause: 14, nobreak: true, search: 0, round: true }));
       B.pen(GOOSE_BODY.secs, { w: 1.5, sp: 700, pr: 'flick', z: 3, a: 0.75, pause: 16 });
       B.pen(GOOSE_BODY.prim, { w: 1.9, sp: 900, pr: 'flick', z: 3, pause: 20 });
-      B.pen(GOOSE_BODY.flank, { w: 1.2, sp: 600, pr: 'swell', z: 3, a: 0.55, pause: 16, nobreak: true });
+      B.pen(GOOSE_BODY.flank, { w: 1.2, sp: 600, pr: 'swell', z: 3, a: 0.55, pause: 16, nobreak: true, round: true });
       B.pen(GOOSE_BODY.fluff, { w: 1.3, sp: 300, pr: 'flick', z: 3, a: 0.7, pause: 14 });
     }
     function gooseColour(g) {
@@ -1391,18 +1396,18 @@
         const cx = lerp(WL.x0 + 40, WL.x1 - 40, t), cy = lerp(top + 60, bot - 120, B.rnd(0.15, 0.85));
         const d = clamp(Math.hypot((cx - focus[0]) / (LW * 0.55), (cy - focus[1]) / 900), 0, 1);
         if (B.chance(d * 0.45)) continue;
-        const ang = (B.chance(0.7) ? -78 : -102) + B.rnd(-10, 10), len = B.rnd(260, 480) * (1 - d * 0.35);
+        const ang = (B.chance(0.6) ? -72 : -108) + B.rnd(-16, 16), len = B.rnd(240, 460) * (1 - d * 0.35);
         const dx = Math.cos(ang * Math.PI / 180) * len / 2, dy = Math.sin(ang * Math.PI / 180) * len / 2;
-        const bow = B.rnd(-30, 30);
+        const bow = B.rnd(-70, 70);
         B.side([[cx - dx, cy - dy, B.rnd(0.6, 1)], [cx + bow, cy, 1], [cx + dx, cy + dy, B.rnd(0.4, 0.9)]],
-          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(80, 130), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
+          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(80, 130), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, pr: 'swell', fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
       }
       // a cornice, two stiles, a rail: just enough to say panelling
       B.side([[WL.x0 + 30, top + 6, 1], [LW * 0.5, top, 1], [WL.x1 - 40, top - 6, 1]], { col: W[0], w: 24, lvl: 1, a: 0.8, z: 10, sp: 3600, fade: [0.9, 0.3] });
       // the darkest wood right behind the bird's head: lightest light against darkest dark
       for (let i = 0; i < 4; i++) {
         const cx = focus[0] + B.rnd(-160, 160), cy = focus[1] + B.rnd(-80, 120);
-        B.side([[cx + B.rnd(-20, 20), cy - 170, 1], [cx, cy, 1], [cx + B.rnd(-30, 30), cy + 170, 0.7]], { col: W[0], w: B.rnd(60, 90), lvl: 0, a: 0.85, z: 10, sp: 2400, pause: 40 });
+        B.side([[cx + B.rnd(-20, 20), cy - 170, 1], [cx, cy, 1], [cx + B.rnd(-30, 30), cy + 170, 0.7]], { col: W[0], w: B.rnd(60, 90), lvl: 0, a: 0.85, z: 10, sp: 2400, pause: 40, pr: 'swell' });
       }
       // a few deliberate accents
       for (let i = 0; i < 5; i++) {
@@ -1813,7 +1818,7 @@
       dirty = bb;
       c.globalCompositeOperation = 'source-over';
       if (st.tool === 'pen' || st.tool === 'write') {
-        const hw = P.map((p) => 0.5 * st.w * s * (0.38 + 0.62 * p[2]));
+        const hw = P.map((p) => 0.5 * st.w * s * (0.14 + 0.86 * p[2]));
         const k = st.tool === 'write' ? 2 : 3;
         if (st.tool === 'pen' && st.w * s > 1.2) {
           // bleed: the porous point feathers slightly into the fibres
