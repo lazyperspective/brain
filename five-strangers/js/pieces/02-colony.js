@@ -634,7 +634,7 @@
     const place = (name, f0, f1, rad, opts) => {
       opts = opts || {};
       let best = null, bs = -1e9;
-      for (let i = 0; i < 160; i++) {
+      for (let i = 0; i < (opts.tries || 160); i++) {
         const x = R.r(opts.x0 !== undefined ? opts.x0 : rad + L, opts.x1 !== undefined ? opts.x1 : W - rad - L);
         const y = Math.max(sc.yf(R.r(f0, f1)), sc.cutY(x) + rad + 1.4 * L);
         let md = 1e9;
@@ -651,9 +651,9 @@
       return it;
     };
     const b1 = fr.b1, b2 = fr.b2, b3 = fr.b3;
+    place('toad', b1 + 0.05, b2 - 0.07, 4.2 * L, { tries: 700 });
     place('worm', 0.04, b1 - 0.04, 5 * L, { bands: [1] });
     place('grub', b1 - 0.05, b1 + 0.07, 2.4 * L, {});
-    place('toad', b1 + 0.07, b2 - 0.1, 4.6 * L, { bands: [2] });
     place('woodlice', 0.0, 0.03, 1.8 * L, { x0: 2 * L, x1: Math.max(4 * L, sc.xb - 2 * L) });
     place('key', 0.03, 0.09, 2.2 * L, {});
     place('cap', 0.07, b1 - 0.03, 1.2 * L, { bands: [1] });
