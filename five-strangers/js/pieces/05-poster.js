@@ -105,12 +105,23 @@
   function lerp(a, b, t) { return a + (b - a) * t; }
 
   /* ---------------------------------------------------------------- painting */
+  let SCL = 1; // extra scale applied by nested transforms (faces), so blurs stay in proportion
+  function soft(x, y, rx, ry, col, a, blur, rot) {
+    g.save(); g.globalAlpha = a; g.fillStyle = css(col);
+    const b = (blur || 0) * K * SCL; if (b > 0.5) g.filter = 'blur(' + b.toFixed(2) + 'px)';
+    g.beginPath(); g.ellipse(x, y, rx, ry, rot || 0, 0, TAU); g.fill(); g.restore();
+  }
+  function softLine(pts, col, lw, a, blur) {
+    g.save(); g.globalAlpha = a; g.strokeStyle = css(col); g.lineWidth = lw; g.lineCap = 'round';
+    const b = (blur || 0) * K * SCL; if (b > 0.5) g.filter = 'blur(' + b.toFixed(2) + 'px)';
+    g.stroke(splinePath(pts, false)); g.restore();
+  }
   function crescent(sh, dx, dy, col, a, blur) {
     const [x0, y0, x1, y1] = sh.bb, m = Math.abs(dx) + Math.abs(dy) + (blur || 0) * 3 + 6;
     const p = new Path2D(); p.rect(x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m);
     p.addPath(sh.path, new DOMMatrix([1, 0, 0, 1, dx, dy]));
     g.globalAlpha = a; g.fillStyle = css(col);
-    if (blur && blur * K > 0.6) g.filter = 'blur(' + (blur * K).toFixed(2) + 'px)';
+    if (blur && blur * K * SCL > 0.6) g.filter = 'blur(' + (blur * K * SCL).toFixed(2) + 'px)';
     g.fill(p, 'evenodd');
     g.filter = 'none'; g.globalAlpha = 1;
   }
@@ -185,18 +196,23 @@
       }
     }
     g.restore();
-    if (o.line !== null && o.line !== false) outline(sh, o.line || '#160c0a', o.lw || 2.4);
+    if (o.line !== null && o.line !== false) outline(sh, o.line || '#160c0a', o.lw || 2.4, c);
   }
   // Outline heavier on the shadow side, thin on the lit side, like a brush pulled by hand.
-  function outline(sh, col, lw) {
+  function outline(sh, col, lw, fillc) {
+    // the painter's line: dark, tinted by the local colour, swelling and thinning as the brush is pressed
+    const c = fillc ? mix(col, lit(fillc, -0.72), 0.4) : rgb(col);
     g.save();
     g.lineJoin = 'round'; g.lineCap = 'round';
-    g.strokeStyle = css(col); g.lineWidth = lw * 0.6; g.stroke(sh.path);
+    g.strokeStyle = css(c); g.globalAlpha = 0.85; g.lineWidth = lw * 0.45; g.stroke(sh.path);
+    const d = []; for (let i = 0; i < 8; i++) d.push(rr(4, 30) * (i % 2 ? 0.5 : 1));
+    g.setLineDash(d); g.lineDashOffset = rr(0, 60); g.globalAlpha = 0.9; g.lineWidth = lw * 1.0; g.stroke(sh.path);
+    g.setLineDash([]);
     const [x0, y0, x1, y1] = sh.bb, m = lw * 4;
     const p = new Path2D(); p.rect(x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m); p.addPath(sh.path);
     g.clip(p, 'evenodd');
     g.translate(-LIGHT[0] * lw * 0.5, -LIGHT[1] * lw * 0.5);
-    g.lineWidth = lw * 1.25; g.globalAlpha = 0.92; g.stroke(sh.path);
+    g.lineWidth = lw * 1.2; g.globalAlpha = 0.85; g.stroke(sh.path);
     g.restore();
   }
   function flat(sh, col, a) { g.save(); if (a !== undefined) g.globalAlpha = a; g.fillStyle = css(col); g.fill(sh.path); g.restore(); }
@@ -350,7 +366,7 @@
         }
         for (const dx of cands) {
           if (R() > o.drip) continue;
-          const dw = gd.lw * rr(0.18, 0.4), L = h * rr(0.12, 0.75) * (R() < 0.25 ? 1.5 : 1);
+          const dw = gd.lw * rr(0.18, 0.4), L = h * rr(0.32, 0.8) * (R() < 0.25 ? 1.5 : 1);
           const ddx = dx + rr(-gd.lw * 0.25, gd.lw * 0.25);
           const p = new Path2D();
           p.moveTo(ddx - dw * 1.6, base - 2);
@@ -414,13 +430,16 @@
 
   // side of the wagon in perspective: t 0 (front corner) → 1 (rear), v 0 (roof) → 1 (chassis)
   const SHIFT = 34;
-  const SIDE = { nx: 410, fx: 18, nt: 452, nb: 1004, ft: 392, fb: 760 };
+  const SIDE = { nx: 410, fx: 18, nt: 452, nb: 916, ft: 392, fb: 716 };
   function sideP(t, v) {
     const e = (1 - 1 / (1 + t * 1.15)) / (1 - 1 / 2.15); // foreshortening
     const x = lerp(SIDE.nx, SIDE.fx, e);
     const top = lerp(SIDE.nt, SIDE.ft, e), bot = lerp(SIDE.nb, SIDE.fb, e);
     return [x, lerp(top, bot, v)];
   }
+  function sideE(t) { return (1 - 1 / (1 + t * 1.15)) / (1 - 1 / 2.15); }
+  // the roof plane, seen a little from above: d 0 at the near (side) edge, 1 at the far edge
+  function roofP(t, d) { const p = sideP(t, 0), k = 1 - 0.5 * sideE(t); return [p[0] + 26 * d * k, p[1] - 30 * d * k]; }
   function sideQuad(t0, t1, v0, v1) { return Pg([sideP(t0, v0), sideP(t1, v0), sideP(t1, v1), sideP(t0, v1)]); }
 
   function buildSteps(st) {
@@ -478,10 +497,11 @@
     for (let i = 0; i < 4; i++) add(() => passenger(st, i));
     add(() => luggage(st));
     add(() => goat(st));
+    add(() => roofRack(st));
     add(() => wheels(st));
     add(() => wagonFront(st));
     add(() => wagonFace(st));
-    add(() => wagonMouth(st));
+    add(() => { frontTyres(st); wagonMouth(st); });
     add(() => { snake(st); g.restore(); });
     add(() => fireLine(st, 1));
     add(() => tinyFolk(st));
@@ -672,62 +692,83 @@
 
   /* -------------------------------------------------------------- the wagon */
   function wagonSide(st) {
-    // whole side, then bands
-    const all = sideQuad(0, 1, 0, 1);
-    paint(all, st.wood, { dir: Math.atan2(SIDE.ft - SIDE.nt, SIDE.fx - SIDE.nx), sd: 0, hi: 0, line: '#140a06', lw: 3 });
-    const bands = st.bands;
-    for (let i = 0; i < bands.length; i++) {
-      const v0 = 0.5 + i * 0.075, v1 = v0 + 0.075;
-      paint(sideQuad(0, 1, v0, v1), bands[i], { dir: Math.atan2(SIDE.fb - SIDE.nb, SIDE.fx - SIDE.nx), sd: 0, hi: 0, line: '#140a06', lw: 1.5, bw: 4, len: 40, var: 0.18 });
+    const along = Math.atan2(SIDE.ft - SIDE.nt, SIDE.fx - SIDE.nx);
+    // chassis rail and the shadowed underside
+    const ch = Pg([sideP(0, 1), sideP(1, 1), [sideP(1, 1)[0], sideP(1, 1)[1] + 14], [sideP(0, 1)[0], sideP(0, 1)[1] + 26]]);
+    paint(ch, '#141010', { dir: along, sd: 0, hi: 0.1, hic: '#4a3a30', line: '#000', lw: 2 });
+    // roof plane: boards under a tarpaulin
+    const roof = Pg([roofP(0, 0), roofP(1, 0), roofP(1, 1), roofP(0, 1)]);
+    paint(roof, '#6a5236', { dir: along, sd: 0, hi: 0.1, line: '#140a06', lw: 2, var: 0.3 });
+    // the box: wooden side, painted plank by plank
+    paint(sideQuad(0, 1, 0, 1), st.wood, { dir: along, sd: 0, hi: 0, line: '#140a06', lw: 3 });
+    const planks = st.bands, n = planks.length, v0 = 0.52, v1 = 0.92;
+    for (let i = 0; i < n; i++) {
+      const a = lerp(v0, v1, i / n), b = lerp(v0, v1, (i + 1) / n);
+      paint(sideQuad(0, 1, a, b), planks[i], { dir: along, sd: 0, hi: 0, line: null, bw: 4, len: 50, var: 0.2 });
+      // grain and plank seams
+      for (let k = 0; k < 3; k++) { const vv = lerp(a, b, rr(0.2, 0.8)); const pts = []; for (let t = 0; t <= 1.001; t += 0.1) { const q = sideP(t, vv + Math.sin(t * 20 + k) * 0.004); pts.push(q); } curve(pts, lit(planks[i], -0.3), 0.9, 0.35); }
+      strokeLine([sideP(0, b), sideP(1, b)], '#1a0c06', 2.2, 0.9);
+      strokeLine([sideP(0, b + 0.008), sideP(1, b + 0.008)], lit(planks[i], 0.4), 1, 0.6);
     }
-    // roof rail and mid rail
-    paint(sideQuad(0, 1, 0, 0.06), '#1d3fa0', { dir: 3.0, sd: 0, hi: 0.2, line: '#0a0a14', lw: 2 });
-    paint(sideQuad(0, 1, 0.43, 0.5), '#e8c21a', { dir: 3.0, sd: 0, hi: 0.15, line: '#140a06', lw: 2 });
-    paint(sideQuad(0, 1, 0.88, 1), '#1a1210', { dir: 3.0, sd: 0, hi: 0.1, line: null });
-    // diamonds along the mid rail
+    // rails: roof edge, window sill, bottom
+    paint(sideQuad(0, 1, 0, 0.06), '#1d3fa0', { dir: along, sd: 0, hi: 0.2, line: '#0a0a14', lw: 2 });
+    paint(sideQuad(0, 1, 0.46, 0.52), '#e8c21a', { dir: along, sd: 0, hi: 0.15, line: '#140a06', lw: 2 });
+    paint(sideQuad(0, 1, 0.92, 1), '#2a1a10', { dir: along, sd: 0, hi: 0.1, line: '#000', lw: 1.5 });
     for (let i = 0; i < 9; i++) {
-      const t = (i + 0.5) / 9, a = sideP(t - 0.03, 0.465), b = sideP(t, 0.435), c = sideP(t + 0.03, 0.465), d = sideP(t, 0.495);
+      const t = (i + 0.5) / 9, a = sideP(t - 0.03, 0.49), b = sideP(t, 0.465), c = sideP(t + 0.03, 0.49), d = sideP(t, 0.515);
       paint(Pg([a, b, c, d]), i % 2 ? '#d01c1c' : '#1a7a34', { flat: true, line: null });
     }
-    // slogan on the side panel, in naive perspective
-    const o = sideP(0.97, 0.54), p1 = sideP(0.3, 0.54), q = sideP(0.97, 0.84), q1 = sideP(0.3, 0.84);
+    // vertical battens over the planks, bolted
+    for (const t of st.posts) {
+      const w = 0.014 + (1 - t) * 0.01;
+      paint(sideQuad(t - w, t + w, 0.52, 0.92), '#5a3418', { dir: Math.PI / 2, sd: 0.25, hi: 0.2, line: '#140a06', lw: 1.4, n: 0.6 });
+      for (const v of [0.58, 0.72, 0.86]) { const q = sideP(t, v); flat(El(q[0], q[1], 2.2, 2.2), '#d8c8a0'); flat(El(q[0] + 0.6, q[1] + 0.8, 1.2, 1.2), '#2a1a10'); }
+    }
+    // slogan across the planks, in naive perspective
+    const o = sideP(0.97, 0.56), p1 = sideP(0.3, 0.56), q = sideP(0.97, 0.88), q1 = sideP(0.3, 0.88);
     const ux = (p1[0] - o[0]), uy = (p1[1] - o[1]), vx = ((q[0] - o[0]) + (q1[0] - p1[0])) / 2, vy = ((q[1] - o[1]) + (q1[1] - p1[1])) / 2;
     g.save();
     g.transform(ux / 600, uy / 600, vx / 100, vy / 100, o[0], o[1]);
-    letters('SEA NEVER DRY', 0, 16, 64, { maxW: 610, k0: 0.85, fill: '#fff4d8', ol: 0.06, olc: '#141010', w: 0.2, jit: 0.8 });
+    letters('SEA NEVER DRY', 0, 14, 70, { maxW: 610, k0: 0.85, fill: '#fff4d8', ol: 0.07, olc: '#141010', w: 0.2, jit: 0.8 });
     g.restore();
+    // the bonnet's side, pushing forward from the cab, with louvres
+    const bs = S([[406, 756, 1], [406, 902, 1], [370, 884, 1], [366, 790, 1]], 0.5);
+    paint(bs, lit(st.faceCol, -0.3), { dir: Math.PI / 2, sd: 0.15, hi: 0.06, line: '#0a140a', lw: 2.4 });
+    for (let k = 0; k < 4; k++) strokeLine([[376, 806 + k * 18], [398, 812 + k * 18]], '#0a1a0a', 3, 0.85);
   }
   function wagonWindows(st) {
-    const ts = st.posts;
-    // window band: dark interior
-    paint(sideQuad(0, 1, 0.06, 0.43), '#1a0e10', { flat: true, line: null });
-    // people heads are drawn later; posts now
-    for (const t of ts) {
+    // open window band: dark interior with the bench backs showing
+    paint(sideQuad(0, 1, 0.06, 0.46), '#1e1210', { flat: true, line: null });
+    for (const v of [0.3, 0.38]) paint(sideQuad(0, 1, v, v + 0.035), '#6a4426', { dir: Math.atan2(SIDE.ft - SIDE.nt, SIDE.fx - SIDE.nx), sd: 0, hi: 0.2, line: '#140a06', lw: 1, n: 0.5 });
+    g.save(); g.clip(sideQuad(0, 1, 0.06, 0.46).path); crescent(sideQuad(0, 1, 0.06, 0.46), 0, 18, [0, 0, 0], 0.5, 6); g.restore();
+    for (const t of st.posts) {
       const w = 0.018 + (1 - t) * 0.012;
-      paint(sideQuad(t - w, t + w, 0.06, 0.43), '#7a4a26', { dir: Math.PI / 2, sd: 0.2, hi: 0.2, line: '#140a06', lw: 1.6 });
+      paint(sideQuad(t - w, t + w, 0.06, 0.46), '#7a4a26', { dir: Math.PI / 2, sd: 0.2, hi: 0.2, line: '#140a06', lw: 1.6 });
     }
   }
   function passenger(st, i) {
     const t = [0.12, 0.36, 0.6, 0.82][i];
-    const top = sideP(t, 0.06), bot = sideP(t, 0.43);
+    const top = sideP(t, 0.06), bot = sideP(t, 0.46);
     const s = (bot[1] - top[1]) / 200;
-    const x = top[0], y = lerp(top[1], bot[1], 0.48);
-    const skins = ['#5a3220', '#3e2216', '#6e3e24', '#4a2a1a'];
+    const x = top[0], y = lerp(top[1], bot[1], 0.5);
     const shirts = ['#e0b21c', '#c8201c', '#2a62c0', '#f2f0e8', '#1a8a40', '#d0508a'];
-    const skin = rgb(pick(skins)), shirt = pick(shirts);
+    const skin = rgb(st.pskins[i]), shirt = pick(shirts), ex = st.pexpr[i];
+    const fem = st.pfem[i];
     g.save();
-    g.clip(sideQuad(Math.max(0, t - 0.14), Math.min(1, t + 0.14), -0.4, 0.43).path);
-    // shoulders
+    g.clip(sideQuad(Math.max(0, t - 0.14), Math.min(1, t + 0.14), -0.6, 0.46).path);
     paint(S(T([[-60, 60], [-40, 30], [0, 22], [40, 30], [60, 60], [62, 110], [-62, 110]], x, y, s)), shirt, { dir: 'round', line: '#140a06', lw: 2 });
-    // arms raised
-    const arm = (sx) => {
-      const cs = T([[sx * 40, 50, 13], [sx * 66, 10, 11], [sx * 62, -40, 10], [sx * 54, -70, 9]], x, y, s).map((p, k) => [p[0], p[1], [13, 11, 10, 9][k] * s]);
-      paint(Limb(cs), skin, { dir: Math.PI / 2, line: '#140a06', lw: 1.8 });
-      hand(x + sx * 52 * s, y - 86 * s, s * 1.1, -Math.PI / 2 + sx * 0.35, skin, sx);
-    };
-    arm(-1); arm(1);
-    // head
-    scaredHead(x, y - 8 * s, s, skin, i);
+    if (fem) paint(S(T([[-20, 26], [0, 46], [20, 26], [12, 22], [0, 34], [-12, 22]], x, y, s)), mix(skin, [20, 8, 6], 0.2), { flat: true, line: null });
+    const arm = (sx, pts, wd) => paint(Limb(T(pts.map((q) => [sx * q[0], q[1]]), x, y, s).map((p, k) => [p[0], p[1], wd[k] * s])), skin, { dir: Math.PI / 2, line: '#2a120a', lw: 1.8, hic: '#c08050', hia: 0.6 });
+    if (ex === 'scream' || ex === 'fear') {
+      for (const sx of [-1, 1]) { arm(sx, [[40, 50], [66, 10], [62, -40], [54, -70]], [13, 11, 10, 9]); hand(x + sx * 52 * s, y - 86 * s, s * 1.1, -Math.PI / 2 + sx * 0.35, skin, sx); }
+    }
+    const tilt = ex === 'faint' ? 0.5 * (i % 2 ? -1 : 1) : rr(-0.12, 0.12);
+    const hy = ex === 'faint' ? y + 4 * s : y - 10 * s;
+    face(x + (ex === 'faint' ? tilt * 30 * s : 0), hy, s * 0.72, { skin, expr: ex, turn: ex === 'faint' ? tilt * 0.6 : rr(-0.35, 0.35), tilt, hair: fem ? 'none' : 'short', wrap: fem ? st.pwrap[i] : null, cap: !fem && i === 3 ? '#e8e0c8' : null, look: [rr(-0.6, 0.6), -0.6], sweat: ex !== 'faint', earring: fem, neck: true });
+    if (ex === 'pray') {
+      for (const sx of [-1, 1]) arm(sx, [[40, 52], [46, 46], [16, 40]], [13, 11, 9]);
+      prayingHands(x, y + 40 * s, s * 1.15, skin);
+    }
     g.restore();
   }
   function hand(x, y, s, ang, skin, side) {
@@ -735,56 +776,194 @@
     const c = Math.cos(ang), sn = Math.sin(ang);
     const P = (u, v) => [x + (u * c - v * sn) * s, y + (u * sn + v * c) * s]; // u along fingers, v across
     const palm = S([P(-12, -10), P(2, -12), P(8, -6), P(8, 9), P(0, 12), P(-12, 9), P(-16, 0)]);
-    paint(palm, skin, { dir: ang, line: '#140a06', lw: 1.4, sd: 0.1 });
+    paint(palm, skin, { dir: ang, line: '#2a120a', lw: 1.4, sd: 0.12, hic: '#c08050', hia: 0.6 });
     const fing = [[-9, -0.55, 13], [-3, -0.18, 16], [3, 0.12, 17], [8, 0.42, 14]];
     for (const [v, a, l] of fing) {
       const b = P(6, v * 0.95), aa = ang + a * 0.9;
       const e = [b[0] + Math.cos(aa) * l * s, b[1] + Math.sin(aa) * l * s];
       const m = [lerp(b[0], e[0], 0.5), lerp(b[1], e[1], 0.5)];
-      paint(Limb([[b[0], b[1], 3 * s], [m[0], m[1], 2.8 * s], [e[0], e[1], 2.4 * s]]), skin, { flat: true, line: '#140a06', lw: 1.2 });
+      paint(Limb([[b[0], b[1], 3 * s], [m[0], m[1], 2.8 * s], [e[0], e[1], 2.4 * s]]), skin, { sd: 0.2, hi: 0.1, hic: '#c08050', n: 0, line: '#2a120a', lw: 1.1 });
     }
     const tb = P(-6, 10 * side > 0 ? 11 : 11);
     const ta = ang + 1.3;
-    paint(Limb([[tb[0], tb[1], 3.2 * s], [tb[0] + Math.cos(ta) * 12 * s, tb[1] + Math.sin(ta) * 12 * s, 2.6 * s]]), skin, { flat: true, line: '#140a06', lw: 1.2 });
+    paint(Limb([[tb[0], tb[1], 3.2 * s], [tb[0] + Math.cos(ta) * 12 * s, tb[1] + Math.sin(ta) * 12 * s, 2.6 * s]]), skin, { sd: 0.2, hi: 0.1, hic: '#c08050', n: 0, line: '#2a120a', lw: 1.1 });
   }
-  function scaredHead(x, y, s, skin, v) {
-    const head = S(T([[0, -38], [22, -32], [30, -10], [27, 14], [18, 36], [0, 46], [-18, 36], [-27, 14], [-30, -10], [-22, -32]], x, y, s));
-    paint(head, skin, { dir: 'round', line: '#140a06', lw: 2, flick: 3 });
-    // hair / headwrap
-    if (v % 2 === 0) paint(S(T([[-30, -14], [-28, -36], [0, -48], [28, -36], [30, -14], [16, -28], [0, -32], [-16, -28]], x, y, s)), '#140c0a', { flat: true, line: null });
-    else paint(S(T([[-34, -12], [-36, -40], [-10, -62], [22, -60], [38, -38], [33, -12], [0, -24]], x, y, s)), pick(['#e83a1a', '#f0c010', '#1a7ad0']), { dir: 'round', line: '#140a06', lw: 1.6 });
-    // eyes: whites with tiny pupils
-    for (const sx of [-1, 1]) {
-      const ex = x + sx * 12 * s, ey = y - 6 * s;
-      paint(El(ex, ey, 8.5 * s, 10 * s), '#fbf6ea', { flat: true, line: '#140a06', lw: 1.2 });
-      flat(El(ex + sx * 0.5 * s, ey - 3 * s, 2.6 * s, 2.6 * s), '#100808');
-      strokeLine([[ex - 8 * s, ey - 16 * s - sx * 2 * s], [ex + 8 * s, ey - 18 * s + sx * 2 * s]], '#100808', 3 * s);
+  // A painted face. Local units: head ~110 tall, centred on the eyes' line.
+  // o: skin, turn (-1 left .. 1 right), expr ('scream' | 'shout' | 'pray' | 'faint' | 'fear'), tilt,
+  //    hair ('short' | 'flattop' | 'none'), wrap (headwrap colour), cap, band, look [x,y], sweat, rim, earring, neck
+  const SKINS = ['#4e2c1c', '#6b3424', '#82492c', '#a8693c', '#5e3320', '#74402a', '#93582f'];
+  function face(x, y, s, o) {
+    const sk = rgb(o.skin), tn = o.turn || 0, ex = o.expr || 'scream';
+    const lt = mix(sk, [238, 170, 112], 0.45), lt2 = mix(sk, [255, 220, 178], 0.62);
+    const dk = mix(sk, [28, 8, 6], 0.5), dk2 = mix(sk, [14, 4, 4], 0.75);
+    const lipC = mix(sk, [118, 42, 44], 0.5), lipL = mix(lipC, [200, 130, 112], 0.35);
+    const jaw = ex === 'scream' ? 10 : ex === 'shout' ? 5 : ex === 'faint' ? 3 : ex === 'fear' ? 2 : 0;
+    const F = (px) => px * (1 - 0.3 * Math.abs(tn)) + tn * 19;
+    const S0 = SCL; SCL *= s;
+    g.save(); g.translate(x, y); g.rotate(o.tilt || 0); g.scale(s, s);
+    if (o.neck !== false) paint(Limb([[tn * 8, 30, 17], [tn * 5, 78, 19]]), mix(sk, dk, 0.3), { dir: Math.PI / 2, sd: 0.22, hi: 0.04, hic: lt, line: dk2, lw: 2 });
+    const ears = Math.abs(tn) < 0.35 ? [-1, 1] : [-Math.sign(tn)];
+    for (const e of ears) {
+      const exx = e * (40 - 13 * Math.abs(tn)) + tn * 4;
+      paint(El(exx, -2, 7, 12), mix(sk, dk, 0.15), { flat: true, line: dk2, lw: 1.6 });
+      softLine([[exx + e * 1, -9], [exx + e * 3, -2], [exx + e * 1, 6]], dk, 2, 0.6, 0.6);
     }
-    // screaming mouth
-    const m = El(x, y + 22 * s, 9 * s, 14 * s);
-    paint(m, '#4a0a0e', { flat: true, line: '#140a06', lw: 1.5 });
-    g.save(); g.clip(m.path); flat(Pg(T([[-12, 8], [12, 8], [12, 15], [-12, 15]], x, y, s)), '#f6f0e0'); flat(El(x, y + 34 * s, 7 * s, 5 * s), '#d03a3a'); g.restore();
-    // sweat
-    for (let k = 0; k < 3; k++) { const a = rr(-2.6, -0.5); const d = rr(40, 58); paint(S(T([[0, -6, 1], [3, 0], [0, 3], [-3, 0]], x + Math.cos(a) * d * s, y + Math.sin(a) * d * s, s * 1.3, a + Math.PI / 2)), '#cfe8ff', { flat: true, line: '#0a2a5a', lw: 0.8 }); }
+    const hp = [[0, -58], [24, -55], [37, -40], [42, -14], [40, 10], [33, 30], [19, 46], [0, 52], [-19, 46], [-33, 30], [-40, 10], [-42, -14], [-37, -40], [-24, -55]].map(([px, py]) => {
+      let X = px, Y = py;
+      if (Y > 0) { Y += jaw * Y / 52; X += tn * 12 * (Y / 52); }
+      if (tn * px > 0 && py > -20) X -= tn * 5;
+      return [X, Y];
+    });
+    const head = S(hp);
+    paint(head, sk, { dir: 'round', sd: 0.17, shc: dk, hi: 0.05, hic: lt, hia: 0.5, line: dk2, lw: 2.2, mixc: [lt, dk, mix(sk, [170, 64, 40], 0.3)], var: 0.2, bw: 3.5, len: 9, rim: o.rim, rima: 0.4 });
+    g.save(); g.clip(head.path);
+    for (const e of [-1, 1]) soft(F(e * 16), -6, 14, 9, dk, 0.4, 3);          // eye sockets
+    soft(F(0) - 4, -36, 22, 11, lt, 0.55, 6);                                    // forehead
+    soft(F(0) - 6, -40, 9, 5, lt2, 0.5, 2);
+    for (const e of [-1, 1]) soft(F(e * 21), 9, 9, 6, lt, e < 0 ? 0.55 : 0.32, 3); // cheekbones
+    softLine([[F(0) + tn * 4, -14], [F(0) + tn * 6, 10]], lt2, 3.6, 0.55, 1.2);   // nose bridge
+    for (const e of [-1, 1]) soft(F(e * 20), 18, 9, 6, [168, 58, 40], 0.16, 4);  // warmth
+    soft(F(0) + tn * 4, 46 + jaw, 9, 5, lt, 0.4, 3);                              // chin
+    crescent(head, 0, -9, dk, 0.32, 4);                                          // under the jaw
+    if (o.sweat) for (let i = 0; i < 5; i++) { const sx = F(rr(-26, 26)), sy = rr(-46, -26); soft(sx, sy, 1.6, 2.2, lt2, 0.9, 0.3); soft(sx + 0.6, sy + 1.8, 1.4, 0.8, dk, 0.5, 0.3); }
+    g.restore();
+    // eyes
+    const eyeH = ex === 'scream' || ex === 'fear' ? 7.2 : 5.4;
+    const look = o.look || [0, ex === 'scream' ? -0.5 : 0];
+    for (const e of [-1, 1]) {
+      const far = (tn > 0.25 && e < 0) || (tn < -0.25 && e > 0);
+      const w = 17 * (far ? 1 - 0.42 * Math.abs(tn) : 1), cx = F(e * 16), cy = -6;
+      const P = (u, v) => [cx + e * u, cy + v];
+      const closed = ex === 'pray' || ex === 'faint';
+      if (closed) {
+        softLine([P(-w / 2, 0), P(0, eyeH * 0.7), P(w / 2, -0.5)], dk2, 1.8, 0.95, 0.3);
+        softLine([P(-w / 2 + 1, -1.5), P(0, -eyeH * 0.9), P(w / 2, -1.8)], dk, 1.1, 0.6, 0.4);
+        for (let k = 0; k < 3; k++) softLine([P(w * (0.05 + k * 0.14), eyeH * 0.6), P(w * (0.08 + k * 0.15), eyeH * 0.6 + 2.2)], dk2, 0.8, 0.8, 0);
+        if (ex === 'pray') softLine([P(w * 0.1, eyeH), P(w * 0.15, 10), P(w * 0.05, 20)], lt2, 1.4, 0.6, 0.5); // a tear
+        continue;
+      }
+      const al = new Path2D();
+      const a0 = P(-w / 2, 0.8), a1 = P(-w * 0.04, -eyeH * 1.3), a2 = P(w / 2, -eyeH * 0.12), a3 = P(w * 0.06, eyeH * 1.0);
+      al.moveTo(a0[0], a0[1]); al.quadraticCurveTo(a1[0], a1[1], a2[0], a2[1]); al.quadraticCurveTo(a3[0], a3[1], a0[0], a0[1]);
+      g.save(); g.fillStyle = css([232, 222, 204]); g.fill(al); g.clip(al);
+      const ir = ex === 'scream' || ex === 'fear' ? eyeH * 0.62 : Math.min(eyeH * 0.95, w * 0.3);
+      const ix = cx + look[0] * w * 0.2, iy = cy + look[1] * eyeH * 0.45;
+      soft(cx, cy - eyeH * 0.6, w * 0.6, eyeH * 0.5, dk, 0.35, 1);
+      const ig = g.createRadialGradient(ix, iy, 0, ix, iy, ir);
+      ig.addColorStop(0, '#5a3420'); ig.addColorStop(0.7, '#3a1e12'); ig.addColorStop(1, '#170a06');
+      g.fillStyle = ig; g.beginPath(); g.arc(ix, iy, ir, 0, TAU); g.fill();
+      g.fillStyle = '#080404'; g.beginPath(); g.arc(ix, iy, ir * 0.45, 0, TAU); g.fill();
+      g.fillStyle = '#fffaf0'; g.beginPath(); g.arc(ix - ir * 0.35, iy - ir * 0.38, Math.max(0.6, ir * 0.24), 0, TAU); g.fill();
+      g.restore();
+      const up = new Path2D(); up.moveTo(a0[0], a0[1]); up.quadraticCurveTo(a1[0], a1[1], a2[0], a2[1]);
+      g.save(); g.lineCap = 'round'; g.strokeStyle = css(dk2); g.lineWidth = 2.1; g.stroke(up);
+      const lw = new Path2D(); lw.moveTo(a2[0], a2[1]); lw.quadraticCurveTo(a3[0], a3[1], a0[0], a0[1]); g.strokeStyle = css(dk, 0.8); g.lineWidth = 0.9; g.stroke(lw);
+      g.restore();
+      softLine([P(w / 2 - 0.5, -eyeH * 0.12), P(w / 2 + 2.5, -eyeH * 0.4)], dk2, 1.2, 0.9, 0);
+      softLine([P(-w * 0.4, -eyeH * 1.15), P(0, -eyeH * 1.7), P(w * 0.45, -eyeH * 0.9)], dk, 1, 0.55, 0.4);
+    }
+    // brows, painted as tapered strokes
+    const bro = { scream: [-27, -24, -17], fear: [-26, -24, -18], pray: [-25, -23, -19], faint: [-21, -22, -20], shout: [-15, -21, -24] }[ex];
+    for (const e of [-1, 1]) {
+      const far = (tn > 0.25 && e < 0) || (tn < -0.25 && e > 0), k = far ? 1 - 0.4 * Math.abs(tn) : 1;
+      const xi = F(e * 6), xm = F(e * 6) + e * 10 * k, xo = F(e * 6) + e * 21 * k;
+      paint(Limb([[xi, bro[0], 1.5], [xm, bro[1], 2.1], [xo, bro[2], 0.8]]), '#1a0e0a', { flat: true, line: null });
+    }
+    // nose
+    const nx = F(0) + tn * 7;
+    softLine([[nx + 3, -6], [nx + 6, 12]], dk, 3, 0.35, 1.5);
+    const wl = 1 - 0.4 * Math.max(0, tn), wr = 1 - 0.4 * Math.max(0, -tn);
+    curve([[nx - 5 * wl, 11], [nx - 10.5 * wl, 17.5], [nx - 6 * wl, 22.5]], dk2, 1.5, 0.85);
+    curve([[nx + 5 * wr, 11], [nx + 10.5 * wr, 17.5], [nx + 6 * wr, 22.5]], dk2, 1.5, 0.85);
+    flat(El(nx - 4.2 * wl, 20.5, 2.6 * wl, 1.5), dk2); flat(El(nx + 4.2 * wr, 20.5, 2.6 * wr, 1.5), dk2);
+    soft(nx - 1, 15, 3.4, 2.4, lt2, 0.75, 1);
+    soft(nx, 24.5, 7, 1.8, dk, 0.4, 1);
+    // mouth
+    const mx = F(0) + tn * 4, my = 34 + jaw * 0.55;
+    if (ex === 'scream' || ex === 'shout' || ex === 'fear' || ex === 'faint') {
+      const wd = ex === 'shout' ? 13 : ex === 'faint' ? 6 : ex === 'fear' ? 8 : 10, ht = ex === 'shout' ? 9 : ex === 'faint' ? 4 : ex === 'fear' ? 6 : 13 + jaw * 0.4;
+      const outer = S([[mx - wd - 2, my - 3], [mx - wd * 0.5, my - 7], [mx, my - 6], [mx + wd * 0.5, my - 7], [mx + wd + 2, my - 3], [mx + wd, my + ht * 0.6], [mx, my + ht + 3], [mx - wd, my + ht * 0.6]]);
+      paint(outer, lipC, { flat: true, line: dk2, lw: 1 });
+      const inner = S([[mx - wd + 1, my - 2.5], [mx, my - 4], [mx + wd - 1, my - 2.5], [mx + wd - 2, my + ht * 0.5], [mx, my + ht], [mx - wd + 2, my + ht * 0.5]]);
+      flat(inner, '#2a0c0a');
+      g.save(); g.clip(inner.path);
+      if (ex !== 'faint') { flat(Pg([[mx - wd, my - 6], [mx + wd, my - 6], [mx + wd, my - 0.2], [mx - wd, my - 0.2]]), '#e6dac4'); for (let k = -2; k <= 2; k++) softLine([[mx + k * wd * 0.33, my - 4], [mx + k * wd * 0.33, my - 0.5]], [150, 130, 110], 0.5, 0.6, 0); }
+      if (ex === 'shout') flat(Pg([[mx - wd, my + ht - 2.5], [mx + wd, my + ht - 2.5], [mx + wd, my + ht + 2], [mx - wd, my + ht + 2]]), '#d8ccb6');
+      soft(mx, my + ht, wd * 0.6, ht * 0.3, [140, 60, 58], 0.9, 0.8);
+      g.restore();
+      softLine([[mx - wd * 0.5, my + ht + 1.2], [mx, my + ht + 2], [mx + wd * 0.5, my + ht + 1.2]], lipL, 1.6, 0.75, 0.4);
+    } else {
+      const up = S([[mx - 11, my], [mx - 5, my - 3.6], [mx, my - 2], [mx + 5, my - 3.6], [mx + 11, my], [mx, my + 1]]);
+      const lo = S([[mx - 10, my + 0.6], [mx + 10, my + 0.6], [mx + 6, my + 5.2], [mx, my + 6.6], [mx - 6, my + 5.2]]);
+      paint(lo, lipL, { flat: true, line: null }); paint(up, lipC, { flat: true, line: null });
+      curve([[mx - 11, my + 0.2], [mx, my + 1], [mx + 11, my + 0.2]], dk2, 1.2, 0.9);
+      soft(mx - 1, my + 3.4, 3.5, 1.2, lt2, 0.6, 0.5);
+    }
+    // hair and headwear
+    const hx = tn * 6;
+    if (o.hair === 'short' || o.hair === 'flattop') {
+      const top = o.hair === 'flattop' ? -78 : -64;
+      const hair = S([[hx - 43, -10], [hx - 42, -36], [hx - 34, top + 14, o.hair === 'flattop' ? 1 : 0], [hx - 12, top], [hx + 12, top], [hx + 34, top + 14, o.hair === 'flattop' ? 1 : 0], [hx + 42, -36], [hx + 43, -10], [hx + 37, -26], [hx + 30, -40], [hx + 14 + tn * 8, -45], [hx + tn * 8, -46], [hx - 14 + tn * 8, -45], [hx - 30, -40], [hx - 37, -26]], 0.9);
+      paint(hair, '#17110e', { dir: 'round', sd: 0.08, hi: 0.12, hic: '#4a4242', line: null, bw: 2, len: 4, n: 1.4, var: 0.4 });
+      g.save(); g.clip(hair.path); for (let i = 0; i < 70; i++) soft(rr(-44, 44) + hx, rr(top, -10), 1.3, 1.1, R() < 0.5 ? '#2e2622' : '#0a0606', 0.8, 0); g.restore();
+      softLine([[hx - 30, -42], [hx + 10 + tn * 8, -47]], [20, 14, 12], 2, 0.5, 1);
+    }
+    if (o.wrap) {
+      const wc = rgb(o.wrap);
+      const wr = S([[hx - 46, -14], [hx - 50, -42], [hx - 36, -70], [hx - 8, -84], [hx + 24, -82], [hx + 48, -62], [hx + 50, -34], [hx + 46, -12], [hx + 32, -30], [hx + 6, -38], [hx - 24, -36]], 0.9);
+      paint(wr, wc, { dir: 'round', sd: 0.16, hi: 0.1, line: dk2, lw: 2, flick: 3 });
+      g.save(); g.clip(wr.path); for (let i = 0; i < 5; i++) { curve([[hx - 46, -24 - i * 12], [hx - 4, -46 - i * 9], [hx + 48, -30 - i * 12]], lit(wc, -0.4), 2.2, 0.55); curve([[hx - 44, -27 - i * 12], [hx - 4, -49 - i * 9], [hx + 46, -33 - i * 12]], lit(wc, 0.4), 1.2, 0.5); } g.restore();
+      paint(S([[hx + 30, -74], [hx + 52, -92], [hx + 58, -70], [hx + 44, -58]]), lit(wc, 0.1), { dir: 'round', sd: 0.2, line: dk2, lw: 1.6 });
+    }
+    if (o.cap) {
+      const cp = S([[hx - 43, -24], [hx - 40, -52], [hx - 14, -68], [hx + 18, -66], [hx + 40, -48], [hx + 43, -24], [hx + 60 * Math.sign(tn || 1), -20, 1], [hx + 30, -28], [hx - 30, -30]], 0.9);
+      paint(cp, o.cap, { dir: 0, sd: 0.15, hi: 0.15, line: dk2, lw: 2 });
+    }
+    if (o.band) {
+      const bd = S([[hx - 44, -27], [hx - 18, -36], [hx + 14, -37], [hx + 44, -28], [hx + 44, -16], [hx + 14, -24], [hx - 18, -23], [hx - 44, -15]], 0.8);
+      paint(bd, o.band, { dir: 0, sd: 0.14, hi: 0.2, line: '#2a0404', lw: 1.6 });
+    }
+    if (o.earring) { const exx = -Math.sign(tn) * (40 - 13 * Math.abs(tn)) + tn * 4; g.save(); g.strokeStyle = '#e8b820'; g.lineWidth = 2.6; g.beginPath(); g.arc(exx, 16, 7, 0, TAU); g.stroke(); g.strokeStyle = '#fff2b0'; g.lineWidth = 1; g.beginPath(); g.arc(exx, 16, 7, 3.6, 4.6); g.stroke(); g.restore(); }
+    g.restore();
+    SCL = S0;
+  }
+  function prayingHands(x, y, s, skin) {
+    const sk = rgb(skin);
+    const P = (u, v) => [x + u * s, y + v * s];
+    paint(S([P(-14, 24), P(-12, 0), P(-6, -26), P(0, -34, 1), P(2, -10), P(2, 24)]), sk, { dir: -Math.PI / 2, line: '#2a120a', lw: 1.4, sd: 0.15, hic: '#c08050' });
+    paint(S([P(14, 24), P(12, 0), P(6, -26), P(0, -34, 1), P(-1, -10), P(-1, 24)]), lit(sk, 0.06), { dir: -Math.PI / 2, line: '#2a120a', lw: 1.4, sd: 0.15, hic: '#c08050' });
+    for (let k = 0; k < 3; k++) curve([P(4 + k * 3, -18 + k * 7), P(11, -14 + k * 7)], '#2a120a', 0.9, 0.6);
   }
   function luggage(st) {
-    const items = [
-      [0.04, '#2a62c0', 46, 28], [0.38, '#e0b21c', 40, 34], [0.5, '#c8201c', 54, 26], [0.64, '#8a6a3a', 50, 30], [0.77, '#1a8a40', 40, 30], [0.9, '#f0e8d0', 36, 22],
-    ];
-    for (const [t, col, w, h] of items) {
-      const p = sideP(t, 0); const sc = 1 - t * 0.45;
-      const x = p[0], y = p[1] - 4;
+    const items = [[0.05, '#2a62c0', 46, 28, 0.5], [0.4, '#e0b21c', 40, 34, 0.3], [0.52, '#c8201c', 54, 26, 0.6], [0.66, '#8a6a3a', 50, 30, 0.4], [0.78, '#1a8a40', 40, 30, 0.6], [0.9, '#f0e8d0', 36, 22, 0.4]];
+    for (const [t, col, w, h, d] of items) {
+      const p = roofP(t, d), sc = 1 - t * 0.45;
+      const x = p[0], y = p[1];
       const sh = S([[x - w * sc / 2, y], [x - w * sc * 0.55, y - h * sc * 0.6], [x - w * sc * 0.2, y - h * sc], [x + w * sc * 0.3, y - h * sc * 0.95], [x + w * sc * 0.55, y - h * sc * 0.4], [x + w * sc / 2, y]]);
       paint(sh, col, { dir: 'round', line: '#140a06', lw: 2 });
       strokeLine([[x - w * sc * 0.1, y - h * sc], [x, y]], '#3a2410', 2.5, 0.8);
+      strokeLine([[x - w * sc * 0.5, y - h * sc * 0.5], [x + w * sc * 0.5, y - h * sc * 0.45]], '#3a2410', 2, 0.7);
     }
-    // a tin basin, a bicycle wheel
-    const b = sideP(0.56, 0);
-    paint(El(b[0] + 40, b[1] - 12, 30, 9), '#b8c0c8', { line: '#202428', lw: 2, dir: 0 });
-    g.save(); g.strokeStyle = '#151515'; g.lineWidth = 3; g.beginPath(); g.ellipse(sideP(0.7, 0)[0], sideP(0.7, 0)[1] - 34, 18, 26, -0.3, 0, TAU); g.stroke(); g.restore();
+    const b = roofP(0.6, 0.5);
+    paint(El(b[0] + 10, b[1] - 12, 26, 8), '#b8c0c8', { line: '#202428', lw: 2, dir: 0 });
+    const bw = roofP(0.72, 0.3);
+    g.save(); g.strokeStyle = '#151515'; g.lineWidth = 3; g.beginPath(); g.ellipse(bw[0], bw[1] - 24, 16, 22, -0.3, 0, TAU); g.stroke(); g.restore();
+  }
+  function roofRack(st) {
+    // the iron rack: posts on both edges of the roof, a top rail
+    for (const d of [1, 0]) {
+      const top = [];
+      for (let t = 0; t <= 1.001; t += 0.1) {
+        const p = roofP(t, d), hgt = 16 * (1 - 0.45 * sideE(t));
+        strokeLine([p, [p[0], p[1] - hgt]], d ? '#2a2420' : '#141210', d ? 2 : 2.6, d ? 0.7 : 1);
+        top.push([p[0], p[1] - hgt]);
+      }
+      strokeLine(top, d ? '#3a322c' : '#1a1614', d ? 2 : 3, d ? 0.7 : 1);
+      if (!d) strokeLine(top.map((q) => [q[0] - 0.8, q[1] - 1]), '#8a8078', 1, 0.6);
+    }
   }
   function goat(st) {
-    const p = sideP(0.22, 0);
+    const p = roofP(0.22, 0.55);
     g.save(); g.translate(p[0], p[1] - 4); g.scale(0.82, 0.82); g.translate(-p[0], -p[1]);
     const x = p[0], y = p[1]; // hooves
     const W = '#f4efe4';
@@ -816,25 +995,40 @@
     letters('MEEH!', 0, 0, 24, { fill: '#fff', ol: 0.1, olc: '#111', w: 0.22, track: 0.08 });
     g.restore(); g.restore();
   }
+  function wheel(x, y, rx, ry, rot) {
+    paint(El(x, y, rx, ry, rot), '#141010', { dir: 'round', hi: 0.1, hic: '#6a5a58', line: '#000', lw: 2 });
+    g.save(); g.clip(El(x, y, rx, ry, rot).path);
+    for (let i = 0; i < 18; i++) { const a = i / 18 * TAU; strokeLine([[x + Math.cos(a) * rx * 0.86, y + Math.sin(a) * ry * 0.86], [x + Math.cos(a) * rx, y + Math.sin(a) * ry]], '#3a3230', 2, 0.8); }
+    g.restore();
+    paint(El(x + rx * 0.06, y, rx * 0.58, ry * 0.6, rot), '#c8201c', { dir: 'round', line: '#140a06', lw: 1.6, hi: 0.18 });
+    paint(El(x + rx * 0.08, y, rx * 0.22, ry * 0.24, rot), '#e8e8e0', { flat: true, line: '#140a06', lw: 1.2 });
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; flat(El(x + rx * 0.08 + Math.cos(a) * rx * 0.4, y + Math.sin(a) * ry * 0.42, 1.8, 1.8), '#f0e0b0'); }
+  }
   function wheels(st) {
-    const wheel = (x, y, rx, ry) => {
-      paint(El(x, y, rx, ry), '#141010', { dir: 'round', hi: 0.08, hic: '#5a4a48', line: '#000', lw: 2 });
-      paint(El(x + rx * 0.08, y, rx * 0.55, ry * 0.58), '#c8201c', { dir: 'round', line: '#140a06', lw: 1.6, hi: 0.15 });
-      paint(El(x + rx * 0.1, y, rx * 0.2, ry * 0.22), '#e8e8e0', { flat: true, line: '#140a06', lw: 1.2 });
-      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; flat(El(x + rx * 0.1 + Math.cos(a) * rx * 0.38, y + Math.sin(a) * ry * 0.4, 2.2, 2.2), '#f0e0b0'); }
-    };
-    const a = sideP(0.82, 0.93), b = sideP(0.12, 0.92);
-    wheel(a[0], a[1], 36, 56);
-    // flames trailing from wheels
-    flame(b[0] - 70, b[1] + 50, 120, 100, -0.9);
-    wheel(b[0], b[1], 58, 86);
-    flame(a[0] - 30, a[1] + 40, 80, 70, -0.9);
+    // rear wheels under the back of the body, with a mudguard
+    const a = sideP(0.88, 1);
+    flame(a[0] - 26, a[1] + 64, 90, 80, -0.9);
+    wheel(a[0] + 6, a[1] + 16, 22, 44);
+    wheel(a[0] - 2, a[1] + 14, 24, 46);
+    curve([[a[0] - 30, a[1] + 2], [a[0], a[1] - 8], [a[0] + 30, a[1] + 4]], '#0a0606', 7);
+    // front wheel under the bonnet, seen from the side, under its arch
+    flame(330, 1060, 110, 90, -0.9);
+    wheel(380, 990, 30, 54);
+    paint(S([[344, 974], [350, 930], [380, 908], [410, 922], [418, 966], [406, 950], [380, 938], [358, 952]], 0.9), lit(st.faceCol, -0.25), { dir: 'round', sd: 0.2, hi: 0.1, line: '#0a140a', lw: 2.2 });
     flushDry();
+  }
+  function frontTyres(st) {
+    // the two front tyres, squat under the bumper
+    for (const [x, w] of [[454, 52], [786, 50]]) {
+      const tr = S([[x - w / 2, 1016, 1], [x + w / 2, 1014, 1], [x + w / 2, 1060], [x, 1070], [x - w / 2, 1062]], 0.6);
+      paint(tr, '#141010', { dir: 0, sd: 0.2, hi: 0.15, hic: '#5a504c', line: '#000', lw: 2 });
+      for (let k = 0; k < 5; k++) strokeLine([[x - w / 2 + 4, 1024 + k * 9], [x + w / 2 - 4, 1023 + k * 9]], '#3a3230', 2, 0.8);
+    }
   }
   function wagonFront(st) {
     // cab front panel
-    const face = Pg([[410, 452], [828, 470], [834, 1000], [408, 1008]]);
-    paint(face, '#1d3fa0', { dir: Math.PI / 2, sd: 0.04, hi: 0.03, line: '#0a0a14', lw: 3 });
+    const cab = Pg([[410, 452], [828, 470], [834, 1000], [408, 1008]]);
+    paint(cab, '#1d3fa0', { dir: Math.PI / 2, sd: 0.04, hi: 0.03, line: '#0a0a14', lw: 3 });
     // crest board with slogan
     const crest = S([[408, 548, 1], [408, 470], [440, 440], [520, 418], [620, 410], [720, 416], [800, 440], [832, 474], [832, 556, 1]], 0.8);
     paint(crest, '#f4e8c4', { dir: 0, sd: 0.06, hi: 0, line: '#140a06', lw: 3, var: 0.15 });
@@ -852,7 +1046,8 @@
     g.save(); g.clip(Rr.path);
     glow(720, 640, 90, [255, 60, 30], 0.5);
     // a second dreadful passenger: the mate, screaming
-    scaredHead(730, 650, 0.9, rgb('#4a2a1a'), 1);
+    face(724, 650, 0.62, { skin: st.pskins[4], expr: 'scream', turn: -0.25, hair: 'short', cap: '#2a62c0', look: [-0.4, -0.5], sweat: true });
+    hand(668, 618, 0.8, -1.9, rgb(st.pskins[4]), 1); hand(782, 616, 0.8, -1.2, rgb(st.pskins[4]), -1);
     g.restore();
     // reflections
     for (const [x, y] of [[470, 580], [660, 584]]) { g.save(); g.globalAlpha = 0.5; strokeLine([[x, y + 70], [x + 50, y]], '#cfe0ff', 6); strokeLine([[x + 22, y + 80], [x + 66, y + 18]], '#cfe0ff', 2.5); g.restore(); }
@@ -998,7 +1193,7 @@
   }
   // a small running figure; dir = 1 runs right, -1 runs left; arms flung up in panic
   function runner(x, y, s, dir, shirt, v) {
-    const sk = pick(['#3a2216', '#4a2a1a', '#5a3220']), pants = pick(['#1a1a2a', '#3a2a1a', '#2a3a6a', '#f2f0e8']);
+    const sk = pick(SKINS), pants = pick(['#1a1a2a', '#3a2a1a', '#2a3a6a', '#f2f0e8']);
     const P = (u, w) => [x + u * s * dir, y + w * s];
     const L = (pts, wd) => Limb(pts.map((q, i) => [q[0], q[1], wd[i] * s]));
     // far leg (kicked back), near leg (striding forward)
@@ -1013,17 +1208,12 @@
     paint(L([P(-6, -24), P(-14, -36), P(-12, -50)], [2.6, 2.3, 2]), sk, { hic: '#b8743c', hia: 0.62, flat: true, line: '#000', lw: 1 });
     paint(L([P(6, -24), P(16, -34), P(22, -48)], [2.6, 2.3, 2]), sk, { hic: '#b8743c', hia: 0.62, flat: true, line: '#000', lw: 1 });
     for (const q of [P(-12, -52), P(22, -50)]) flat(El(q[0], q[1], 2.8 * s, 3 * s), sk);
-    const hc = P(1, -34);
-    paint(El(hc[0], hc[1], 6.4 * s, 7.2 * s), sk, { hic: '#b8743c', hia: 0.62, flat: true, line: '#000', lw: 1 });
+    const hc = P(1, -36);
     if (v === 1) { // basin on her head, tomatoes leaping out
-      paint(S([P(-12, -42), P(12, -42), P(9, -36), P(-9, -36)]), '#b8c0c8', { flat: true, line: '#111', lw: 1 });
-      for (let i = 0; i < 4; i++) { const q = P(rr(-10, 14), rr(-58, -44)); paint(El(q[0], q[1], 2.6 * s, 2.4 * s), '#e0261a', { flat: true, line: '#300', lw: 0.6 }); }
-    } else if (v === 2) flat(El(hc[0], hc[1] - 5 * s, 6.6 * s, 3.4 * s), '#111');
-    // looking back over the shoulder in terror
-    const e = P(-2.5, -35);
-    flat(El(e[0] - 1.6 * s, e[1], 1.6 * s, 2 * s), '#fff'); flat(El(e[0] + 1.6 * s, e[1], 1.6 * s, 2 * s), '#fff');
-    flat(El(e[0] - 1.6 * s - dir * 0.6 * s, e[1], 0.6 * s, 0.8 * s), '#000'); flat(El(e[0] + 1.6 * s - dir * 0.6 * s, e[1], 0.6 * s, 0.8 * s), '#000');
-    flat(El(P(-1, -29)[0], P(-1, -29)[1], 1.6 * s, 2.2 * s), '#400');
+      face(hc[0], hc[1], 0.075 * s, { skin: sk, expr: 'scream', turn: -dir * 0.55, wrap: pick(['#d01c1c', '#1a7a34', '#2a62c0']), look: [-dir, 0], neck: false });
+      paint(S([P(-12, -46), P(12, -46), P(9, -40), P(-9, -40)]), '#b8c0c8', { flat: true, line: '#111', lw: 1 });
+      for (let i = 0; i < 4; i++) { const q = P(rr(-10, 14), rr(-62, -48)); paint(El(q[0], q[1], 2.6 * s, 2.4 * s), '#e0261a', { flat: true, line: '#300', lw: 0.6 }); }
+    } else face(hc[0], hc[1], 0.075 * s, { skin: sk, expr: 'scream', turn: -dir * 0.55, hair: 'short', cap: v === 2 ? '#e8e0c8' : null, look: [-dir, 0], neck: false });
   }
   function tinyFolk(st) {
     // tomatoes and a dropped basin
@@ -1057,7 +1247,7 @@
     letters('DEVIL!!', cx, cy + 18, 28, { align: 'center', fill: '#140808', w: 0.26, flick: false, jit: 1.3, maxW: 140 });
   }
   /* --------------------------------------------------------------- the hero */
-  const SKIN_H = '#4a2a1a';
+  const SKIN_H = '#64361f';
   const RIM = [255, 140, 50];
   function hero(st) {
     const sk = rgb(SKIN_H), jeans = '#2a4fa8', JL = '#0a0a1a';
@@ -1102,38 +1292,10 @@
     curve([[198, 952], [206, 978]], '#2a140a', 1.6, 0.8);
   }
   function heroHead(st) {
-    const sk = rgb(SKIN_H);
-    g.save(); g.translate(200, 960); g.scale(1.16, 1.16); g.translate(-200, -960);
     // headband tails flying back
-    paint(Limb([[166, 878, 8], [136, 870, 7], [108, 878, 6], [82, 866, 4]]), '#d8141a', { dir: 0, line: '#200', lw: 1.6, hi: 0.2 });
-    paint(Limb([[166, 886, 7], [134, 898, 6], [104, 916, 5], [88, 912, 3]]), '#b0101a', { dir: 0, line: '#200', lw: 1.6 });
-    const head = S([[162, 902], [162, 874], [178, 856], [204, 852], [224, 864], [230, 884], [234, 896], [236, 904], [246, 918, 1], [238, 924], [240, 932], [236, 944], [230, 954], [214, 962], [196, 960], [180, 950], [170, 932]], 0.9);
-    paint(head, sk, { hic: '#b8743c', hia: 0.62, dir: 'round', sd: 0.14, line: '#0a0604', lw: 2.6, rim: RIM, rima: 0.55, flick: 5, mixc: ['#7a3a20', '#2a1008'] });
-    // cheekbone + forehead lights
-    curve([[212, 922], [222, 916]], lit(sk, 0.45), 3, 0.7);
-    curve([[200, 872], [214, 870]], lit(sk, 0.45), 2.5, 0.6);
-    // ear
-    paint(S([[176, 904], [186, 900], [190, 918], [182, 924], [176, 918]]), lit(sk, -0.12), { flat: true, line: '#0a0604', lw: 1.6 });
-    curve([[181, 906], [184, 916]], '#1a0a04', 1.4, 0.8);
-    // flat-top hair
-    paint(S([[160, 884, 1], [160, 858], [170, 844], [196, 838], [220, 842], [230, 856, 1], [230, 872, 1], [196, 870], [164, 884, 1]], 0.8), '#0e0a0a', { dir: 0, sd: 0, hi: 0.12, hic: '#4a4a5a', line: null });
-    // headband
-    paint(S([[160, 878], [230, 868, 1], [232, 884, 1], [162, 894]], 0.6), '#e8141a', { dir: 0, line: '#200', lw: 1.6, hi: 0.25 });
-    // furious brow + eye
-    paint(S([[204, 896], [222, 896], [238, 902, 1], [236, 908], [218, 904], [204, 904]], 0.7), '#0a0606', { flat: true, line: null });
-    paint(S([[212, 910], [222, 905], [232, 908], [228, 914], [218, 916]], 0.8), '#fff8ea', { flat: true, line: '#0a0604', lw: 1.3 });
-    flat(El(226, 910, 3.4, 3.8), '#120a08'); flat(El(227, 908.6, 1.1, 1.1), '#fff');
-    // nose
-    curve([[234, 906], [244, 918], [236, 924]], '#1a0c08', 2.2);
-    flat(El(236, 922, 3, 2), '#1a0804');
-    // shouting mouth with teeth
-    const m = S([[216, 934], [238, 930], [242, 940], [232, 952], [218, 948]]);
-    paint(m, '#4a0a0c', { flat: true, line: '#0a0604', lw: 1.8 });
-    g.save(); g.clip(m.path); flat(Pg([[212, 929], [246, 926], [246, 936], [212, 938]]), '#fbf6ea'); flat(Pg([[214, 948], [244, 944], [244, 956], [214, 956]]), '#e8e2d0'); flat(El(228, 946, 6, 3), '#c02a2a'); g.restore();
-    curve([[214, 958], [230, 960]], lit(sk, 0.35), 2, 0.6);
-    // sweat
-    for (const [x, y, a] of [[170, 940, 2.6], [242, 880, -0.6], [158, 868, -2.4]]) paint(S(T([[0, -7, 1], [3.5, 0], [0, 4], [-3.5, 0]], x, y, 1.3, a + Math.PI / 2)), '#d8f0ff', { flat: true, line: '#0a2a5a', lw: 0.9 });
-    g.restore();
+    paint(Limb([[170, 872, 8], [138, 862, 7], [108, 870, 6], [80, 856, 4]]), '#d8141a', { dir: 0, line: '#300', lw: 1.6, hi: 0.2 });
+    paint(Limb([[170, 880, 7], [136, 892, 6], [104, 910, 5], [86, 906, 3]]), '#b0101a', { dir: 0, line: '#300', lw: 1.6 });
+    face(204, 902, 1.06, { skin: SKIN_H, expr: 'shout', turn: 0.62, hair: 'flattop', band: '#e01a18', look: [0.9, 0.1], sweat: true, rim: RIM, neck: false });
   }
   function heroArms(st) {
     const sk = rgb(SKIN_H);
@@ -1174,7 +1336,7 @@
     for (let i = 0; i < 3; i++) { const d0 = 60 + i * 30, d1 = d0 + 50; strokeLine([[mx + Math.cos(ga) * d0, my + Math.sin(ga) * d0 + (i - 1) * 8], [mx + Math.cos(ga) * d1, my + Math.sin(ga) * d1 + (i - 1) * 8]], '#fff6c0', 2.6, 0.85); }
   }
   /* ------------------------------------------------------------- the woman */
-  const SKIN_W = '#5a321e';
+  const SKIN_W = '#7e4528';
   let KENTE = null;
   function kenteTile() { // one woven repeat, painted on a little canvas
     const B = 26, nx = 8, ny = 10, c = mkCanvas(B * nx * K, B * 0.9 * ny * K), x = c.getContext('2d', SW);
@@ -1252,23 +1414,12 @@
     const sleeve = S([[824, 962], [856, 966], [866, 998], [842, 1014], [818, 998]]);
     flat(sleeve, '#f2c414'); kente(sleeve, 810, 950, 0.6, 0.6, 0.2); outline(sleeve, '#0a0604', 2.2);
     // head, three-quarter to the left, furious
+    face(858, 914, 0.9, { skin: SKIN_W, expr: 'shout', turn: -0.6, hair: 'none', look: [-0.9, 0], earring: true, rim, neck: false });
+    // headwrap: tall knotted gele, with a fan of cloth
     g.save(); g.translate(856, 912); g.scale(1.14, 1.14); g.translate(-856, -912);
-    const head = S([[862, 874], [884, 880], [893, 902], [890, 928], [876, 950], [858, 956], [846, 948], [840, 936], [832, 930, 1], [837, 920], [834, 906], [842, 888]], 0.9);
-    paint(head, sk, { hic: '#b8743c', hia: 0.62, dir: 'round', line: '#0a0604', lw: 2.2, rim, rima: 0.55, flick: 4, mixc: ['#8a4a28'] });
-    curve([[848, 918], [856, 914]], lit(sk, 0.5), 2.2, 0.7);
-    // headwrap: tall knotted, with a fan of cloth
-    const wrap = S([[834, 900, 1], [836, 876], [850, 852], [878, 838], [902, 842], [908, 816], [930, 806], [940, 826], [924, 850], [908, 876], [894, 902, 1], [866, 888]], 0.9);
-    paint(wrap, '#d8141a', { dir: 'round', line: '#0a0604', lw: 2.2, flick: 4 });
-    g.save(); g.clip(wrap.path); for (let i = 0; i < 7; i++) curve([[836 + i * 6, 900], [852 + i * 9, 864], [884 + i * 7, 838], [906 + i * 4, 812]], '#f2c414', 3.2, 0.9); g.restore();
-    // eye, brow, nose, open mouth, earring
-    paint(S([[838, 906], [846, 902], [854, 905], [850, 910], [842, 911]], 0.8), '#fff8ea', { flat: true, line: '#0a0604', lw: 1.1 });
-    flat(El(842.5, 906.5, 2.6, 3), '#120a08'); flat(El(842, 905.5, 0.8, 0.8), '#fff');
-    strokeLine([[834, 898], [846, 897], [858, 902]], '#0a0606', 3);
-    curve([[836, 912], [829, 922], [835, 925]], '#1a0c08', 1.8);
-    const m = S([[834, 932], [848, 930], [850, 942], [838, 946]]);
-    paint(m, '#4a0a0c', { flat: true, line: '#5a1a14', lw: 2 });
-    g.save(); g.clip(m.path); flat(Pg([[832, 929], [852, 928], [852, 934], [832, 935]]), '#fbf6ea'); g.restore();
-    g.save(); g.strokeStyle = '#f0c020'; g.lineWidth = 2.6; g.beginPath(); g.arc(872, 932, 7, 0, TAU); g.stroke(); g.restore();
+    const wrap = S([[832, 892, 1], [836, 870], [850, 850], [878, 836], [902, 840], [908, 816], [930, 806], [940, 826], [924, 850], [910, 876], [900, 898, 1], [866, 880]], 0.9);
+    paint(wrap, '#d8141a', { dir: 'round', line: '#2a0606', lw: 2.2, flick: 4 });
+    g.save(); g.clip(wrap.path); for (let i = 0; i < 7; i++) curve([[836 + i * 6, 896], [852 + i * 9, 862], [884 + i * 7, 838], [906 + i * 4, 812]], '#f2c414', 3.2, 0.9); g.restore();
     g.restore();
   }
   function pot(st) {
@@ -1491,6 +1642,10 @@
       bands: (() => { const sets = [['#d01c1c', '#f2c414', '#1a7a34', '#f2c414', '#d01c1c'], ['#1a7a34', '#f2c414', '#d01c1c', '#2a62c0', '#f2c414'], ['#2a62c0', '#f4f0e0', '#d01c1c', '#f4f0e0', '#2a62c0']]; return pick(sets); })(),
       posts: [0, 0.24, 0.48, 0.72, 0.96],
       faceCol: pick(['#2a9a3a', '#2f9c46', '#31a03a']),
+      pskins: (() => { const a = SKINS.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; })(),
+      pexpr: (() => { const a = ['scream', 'pray', 'faint', 'fear']; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } if (a[0] === 'faint') { a[0] = a[3]; a[3] = 'faint'; } return a; })(),
+      pfem: (() => { const r0 = Math.floor(R() * 2); return [0, 1, 2, 3].map((i) => ((i + r0) % 2) === 0); })(),
+      pwrap: [0, 1, 2, 3].map(() => pick(['#e83a1a', '#f0c010', '#1a7ad0', '#8a2a8a', '#f4f0e0'])),
     };
     st.sackPat = null;
     // irregular painted area (the painter stopped short of the sack edge)
@@ -1559,11 +1714,17 @@
     const g0 = g, K0 = K, R0 = R;
     g = ctx; K = dpr; R = mulberry32(seed ^ 0x51);
     const sh = Math.min(L.ph * 0.075, H * 0.07), sy = L.py + L.ph * 0.2;
+    const gapL = L.px - sh * 0.7, gapR = W - (L.px + L.pw) - sh * 0.7 - Math.max(16, W * 0.025);
     ctx.globalAlpha = 0.78;
-    letters('GOD FIRST', L.px - sh * 0.6, sy, sh, { align: 'right', fill: '#efe6cf', shadow: [0.07, 0.08], shadowc: '#9a2a1a', shadowa: 1, w: 0.22, flick: false, jit: 0.6 });
-    letters('VIDEO CENTRE', L.px + L.pw + sh * 0.6, sy, sh, { fill: '#efe6cf', shadow: [0.07, 0.08], shadowc: '#9a2a1a', shadowa: 1, w: 0.22, flick: false, jit: 0.6 });
-    letters('GATE FEE 200', L.px + L.pw + sh * 0.65, sy + sh * 1.5, sh * 0.5, { fill: '#e8c440', w: 0.22, flick: false, paint: false });
-    letters('NO FIGHTING', L.px - sh * 0.6, sy + sh * 1.5, sh * 0.5, { align: 'right', fill: '#e8c440', w: 0.22, flick: false, paint: false });
+    // the sign painter measured this wall about as well as he measured the poster: the ends get squeezed
+    if (gapL > sh * 2.2) {
+      letters('GOD FIRST', L.px - sh * 0.6, sy, sh, { align: 'right', maxW: gapL - Math.max(16, W * 0.025), k0: 0.5, fill: '#efe6cf', shadow: [0.07, 0.08], shadowc: '#9a2a1a', shadowa: 1, w: 0.22, flick: false, jit: 0.6 });
+      letters('NO FIGHTING', L.px - sh * 0.6, sy + sh * 1.5, sh * 0.5, { align: 'right', maxW: gapL - Math.max(16, W * 0.025), fill: '#e8c440', w: 0.22, flick: false, paint: false });
+    }
+    if (gapR > sh * 2.2) {
+      letters('VIDEO CENTRE', L.px + L.pw + sh * 0.6, sy, sh, { maxW: gapR, k0: 0.5, fill: '#efe6cf', shadow: [0.07, 0.08], shadowc: '#9a2a1a', shadowa: 1, w: 0.22, flick: false, jit: 0.6 });
+      letters('GATE FEE 200', L.px + L.pw + sh * 0.65, sy + sh * 1.5, sh * 0.5, { maxW: gapR, fill: '#e8c440', w: 0.22, flick: false, paint: false });
+    }
     ctx.globalAlpha = 1;
     g = g0; K = K0; R = R0;
     // flaking: patches where the paint is gone to grey cement

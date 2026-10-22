@@ -128,7 +128,7 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
       vec3 ec = vec3(s*0.45, 0.28, 0.98);
       skin = smax(skin, -(length(h-vec3(s*0.45,0.31,1.08))-0.3), 0.12);
       skin = smin(skin, sdEll(h-vec3(s*0.48,0.0,1.02), vec3(0.28,0.1,0.14)), 0.08);
-      eye = min(eye, length(h-ec)-0.16);
+      eye = min(eye, length(h-ec)-0.17);
       vec3 nl = normalize(vec3(s*0.4,1.,0.3));
       lid = min(lid, max(length(h-ec)-0.174, -(dot(h-ec,nl)-uLid)));
       skin = smin(skin, sdEll(h-vec3(s*1.18,-0.05,0.0), vec3(0.18,0.45,0.32)), 0.08);
@@ -201,28 +201,41 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
     trou = smin(trou, sdEll(q-vec3(0.05,0.1,0.15), vec3(2.0+0.5*m,0.55,1.55)), 0.5);
   } else bnd = min(bnd, b);
   // drips follow gravity, not him: world space
-  b = min(sdBox(p-vec3(-1.2,2.7,-0.35), vec3(0.9,2.8,0.45)), sdBox(p-vec3(-0.7,0.1,0.25), vec3(1.6,0.35,1.15)));
-  b = min(b, sdBox(p-vec3(1.2,4.5,-0.4), vec3(1.9,0.9,0.4)));
+  b = min(sdBox(p-vec3(1.6,2.6,-0.4), vec3(0.5,2.8,0.4)), sdBox(p-vec3(1.9,0.1,0.35), vec3(1.6,0.35,1.25)));
+  b = min(b, sdBox(p-vec3(1.0,4.15,-0.45), vec3(2.3,1.35,0.4)));
+  b = min(b, min(sdBox(p-vec3(-1.8,2.75,-0.65), vec3(1.65,2.95,0.65)), sdBox(p-vec3(-3.0,0.1,0.15), vec3(1.0,0.3,0.8))));
   if (full || b < dc) {
-    // the long drip: a sheet sliding off the seat, necking, beading, and pooling on the boards
-    float dr = sdEll(p-vec3(-0.9,5.0,-0.36), vec3(0.42,0.5,0.2));
-    dr = smin(dr, sdRC(p, vec3(-0.88,4.75,-0.4), vec3(-0.76,3.7,-0.42), 0.26, 0.13), 0.35);
-    dr = smin(dr, sdRC(p, vec3(-0.76,3.7,-0.42), vec3(-0.86,2.55,-0.41), 0.13, 0.17), 0.25);
-    dr = smin(dr, sdEll(p-vec3(-0.86,2.45,-0.39), vec3(0.22,0.3,0.16)), 0.15);
-    dr = smin(dr, sdRC(p, vec3(-0.86,2.3,-0.41), vec3(-0.78,1.2,-0.42), 0.15, 0.11), 0.2);
-    dr = smin(dr, sdRC(p, vec3(-0.78,1.2,-0.42), vec3(-0.82,0.25,-0.38), 0.11, 0.19), 0.25);
-    float pool = sdEll(p-vec3(-0.78,0.0,0.0), vec3(0.95*m,0.15,0.72*m));
-    pool = smin(pool, sdEll(p-vec3(-0.2,0.0,0.42), vec3(0.62*m,0.11,0.48*m)), 0.35);
-    pool = smin(pool, sdEll(p-vec3(-1.45,0.0,0.3), vec3(0.4*m,0.09,0.35*m)), 0.3);
+    // the long drip: off the front of the seat, between his knees, necking, beading, pooling
+    float X = 1.62;
+    float dr = sdEll(p-vec3(X-0.05,4.95,-0.49), vec3(0.4,0.5,0.18));
+    dr = smin(dr, sdRC(p, vec3(X-0.04,4.7,-0.47), vec3(X+0.06,3.65,-0.49), 0.25, 0.13), 0.35);
+    dr = smin(dr, sdRC(p, vec3(X+0.06,3.65,-0.49), vec3(X-0.04,2.5,-0.48), 0.13, 0.17), 0.25);
+    dr = smin(dr, sdEll(p-vec3(X-0.04,2.4,-0.45), vec3(0.24,0.3,0.15)), 0.15);
+    dr = smin(dr, sdRC(p, vec3(X-0.04,2.25,-0.48), vec3(X+0.04,1.15,-0.49), 0.15, 0.11), 0.2);
+    dr = smin(dr, sdRC(p, vec3(X+0.04,1.15,-0.49), vec3(X,0.25,-0.42), 0.11, 0.2), 0.25);
+    float pool = sdEll(p-vec3(X-0.05,0.0,0.0), vec3(0.9*m,0.15,0.62*m));
+    pool = smin(pool, sdEll(p-vec3(X+0.55,0.0,0.55), vec3(0.75*m,0.12,0.6*m)), 0.4);
+    pool = smin(pool, sdEll(p-vec3(X-0.75,0.0,0.32), vec3(0.42*m,0.09,0.32*m)), 0.3);
     dr = smin(dr, pool, 0.45);
-    // a second, thinner run that gave up halfway, with a bead at the end
-    dr = min(dr, smin(sdRC(p, vec3(-1.62,5.05,-0.43), vec3(-1.6,3.95-0.6*m,-0.43), 0.13, 0.065), length(p-vec3(-1.6,3.9-0.6*m,-0.41))-0.12, 0.1));
+    // a tongue of him has crept along the radiator to the left, over the edge and down to the floor
+    float tg = sdRC(p, vec3(-0.2,5.38,-1.05), vec3(-1.6,5.3,-0.88), 0.36, 0.26);
+    tg = smin(tg, sdRC(p, vec3(-1.6,5.3,-0.88), vec3(-2.7,5.27,-0.74), 0.26, 0.21), 0.2);
+    tg = smin(tg, sdRC(p, vec3(-2.7,5.27,-0.74), vec3(-3.2,5.0,-0.5), 0.21, 0.2), 0.2);
+    tg = smin(tg, sdRC(p, vec3(-3.2,5.0,-0.5), vec3(-3.16,3.55,-0.5), 0.2, 0.12), 0.25);
+    tg = smin(tg, sdEll(p-vec3(-3.2,2.5,-0.47), vec3(0.2,0.32,0.14)), 0.25);
+    tg = smin(tg, sdRC(p, vec3(-3.16,3.55,-0.5), vec3(-3.22,1.1,-0.5), 0.12, 0.11), 0.2);
+    tg = smin(tg, sdRC(p, vec3(-3.22,1.1,-0.5), vec3(-3.2,0.22,-0.42), 0.11, 0.2), 0.25);
+    float pl2 = sdEll(p-vec3(-3.15,0.0,0.02), vec3(0.85*m,0.14,0.62*m));
+    pl2 = smin(pl2, sdEll(p-vec3(-2.6,0.0,0.38), vec3(0.5*m,0.1,0.4*m)), 0.3);
+    tg = smin(tg, pl2, 0.45);
+    // and one that gave up halfway, with a bead at the end
+    tg = min(tg, smin(sdRC(p, vec3(-2.42,5.1,-0.52), vec3(-2.4,4.05-0.6*m,-0.5), 0.15, 0.07), length(p-vec3(-2.4,4.0-0.6*m,-0.47))-0.13, 0.1));
+    dr = min(dr, tg);
     // lips of clay hanging from the gaps
     dr = min(dr, sdRC(p, vec3(-0.4,5.1,-0.47), vec3(-0.4,4.45-0.4*m,-0.44), 0.17, 0.11));
-    dr = min(dr, sdRC(p, vec3(1.2,5.05,-0.47), vec3(1.2,3.9-0.9*m,-0.44), 0.18, 0.1));
-    dr = min(dr, length(p-vec3(1.2,3.85-0.9*m,-0.42))-0.15);
     dr = min(dr, sdRC(p, vec3(2.8,5.1,-0.47), vec3(2.8,4.55-0.5*m,-0.44), 0.16, 0.1));
     dr = min(dr, length(p-vec3(2.8,4.5-0.5*m,-0.43))-0.13);
+    dr = min(dr, sdRC(p, vec3(0.4,5.1,-0.47), vec3(0.4,4.7-0.3*m,-0.45), 0.15, 0.1));
     trou = smin(trou, dr, 0.15);
   } else bnd = min(bnd, b);
   if (trou < BIG*0.5) trou = smax(trou, -(rad-0.004), 0.06);
@@ -284,7 +297,8 @@ float map(vec3 p){
   // the man (bounded)
   vec3 q = toMan(p);
   float bb = sdBox(q-vec3(-0.2,1.3,0.9), vec3(3.5,6.6,2.9));
-  bb = min(bb, sdBox(p-vec3(-0.7,2.6,0.0), vec3(1.8,2.7,1.3)));
+  bb = min(bb, sdBox(p-vec3(1.6,2.6,0.2), vec3(2.0,2.7,1.4)));
+  bb = min(bb, sdBox(p-vec3(-1.9,2.7,-0.4), vec3(1.8,2.9,1.1)));
   if (bb < 0.3){
     float dm = man(q, p, rad, d, false);
     if (dm < d){ d = dm; gM = 10; }
@@ -303,10 +317,11 @@ float onePrint(vec3 q, vec3 n, vec3 c, float R, vec3 r, float sw, float fade){
   float dist = length(v);
   if (dist > R) return 0.;
   vec3 t1 = normalize(r-n*dot(r,n)+1e-4); vec3 t2 = cross(n,t1);
-  vec2 uv = vec2(dot(v,t1), dot(v,t2)*1.35);
+  vec2 uv = vec2(dot(v,t1), dot(v,t2)*1.75);
+  uv.x += 0.25*uv.y*uv.y/max(R,0.01);
   float rr = length(uv); float an = atan(uv.y, uv.x);
   // a loop/whorl: rings, wound into a slight spiral, pinched on one side like a real print
-  float ph = rr/0.048 + sw*an/6.2831 + 0.5*sin(an+sw*7.)*(rr/R) + 0.8*smoothstep(0.,R,rr)*uv.x/max(R,0.01);
+  float ph = rr/0.068 + sw*an/6.2831 + 0.5*sin(an+sw*7.)*(rr/R) + 0.8*smoothstep(0.,R,rr)*uv.x/max(R,0.01);
   float ridge = cos(6.2831*ph);
   ridge *= smoothstep(0.15,0.45,vn(q*26.+c*3.)+0.25); // broken ridges, minutiae
   float msk = smoothstep(R, R*0.4, dist);
@@ -316,7 +331,7 @@ float onePrint(vec3 q, vec3 n, vec3 c, float R, vec3 r, float sw, float fade){
 }
 float prints(vec3 q, vec3 n, float fade){
   float acc = 0.;
-  vec3 g = q/1.5+uFP;
+  vec3 g = q/1.5+uFP+uBoil*vec3(0.031,0.017,0.023);
   vec3 b = floor(g-0.5);
   for (int k=0;k<8;k++){
     vec3 cell = b+vec3(float(k&1), float((k>>1)&1), float((k>>2)&1));
@@ -335,7 +350,7 @@ float detail(vec3 q, vec3 p, vec3 n, int part, float fade, float melt){
   float d = 0.;
   float sm = 1.-melt;
   // hand-made unevenness and the long drag of a thumb smoothing it
-  d += (fbm(q*2.1+uFP)-0.5)*0.035*sm;
+  d += (fbm(q*2.1+uFP+uBoil*0.05)-0.5)*0.035*sm;
   float sdir = dot(q, normalize(vec3(0.7,0.4,0.2)));
   d += (vn(vec3(sdir*2.5, dot(q,vec3(-0.3,0.9,0.1))*14., q.z*3.))-0.5)*0.01*sm;
   if (part==0 || part==1 || part==2 || part==6 || part==3) d += prints(q, n, fade)*sm;
@@ -365,7 +380,7 @@ float detail(vec3 q, vec3 p, vec3 n, int part, float fade, float melt){
 const vec3 LK = normalize(vec3(-0.6,0.58,0.55));
 const vec3 CK = vec3(1.0,0.79,0.58)*2.7;
 const vec3 LF = normalize(vec3(0.9,0.2,0.45));
-const vec3 CF = vec3(0.45,0.55,0.7)*0.5;
+const vec3 CF = vec3(0.45,0.55,0.7)*0.38;
 const vec3 LR = normalize(vec3(0.55,0.75,-0.4));
 const vec3 CR = vec3(1.0,0.9,0.78)*1.4;
 
@@ -406,8 +421,14 @@ vec3 clayCol(vec3 q, int part, float melt){
   float st = vn(vec3(q.x*2.5,q.y*10.,q.z*2.5)+fbm(q*1.5)*3.);
   if (part==2){
     // where he has melted, the cardigan has run into the trousers
-    c = mix(c, uCCard, smoothstep(0.5,0.72,st)*melt*0.6);
-    c = mix(c, c*0.75, smoothstep(0.3,0.1,st)*melt*0.5);
+    // where he has run, the cardigan has run with him: streaks drawn out along the flow
+    vec3 pw = q*vec3(7.,0.7,7.);
+    float fl = vn(pw+fbm(q*2.)*2.);
+    float fl2 = vn(pw*1.6+4.+fl);
+    c = mix(c, uCCard, smoothstep(0.45,0.62,fl)*melt*0.85);
+    c = mix(c, vec3(0.8,0.37,0.22), smoothstep(0.62,0.75,fl2)*melt*0.7);
+    c = mix(c, vec3(0.72,0.7,0.62), smoothstep(0.82,0.9,vn(pw*2.3+9.))*melt*0.6);
+    c *= 1.-0.1*melt;
   }
   if (part==0){
     vec3 h = headSpace(q);
@@ -420,8 +441,8 @@ vec3 clayCol(vec3 q, int part, float melt){
   if (part==1) c = mix(c, c*vec3(1.15,1.05,0.9), smoothstep(0.6,0.85,st)*0.4);
   c *= 0.9+0.2*fbm(q*4.+3.);
   // lint, dust, a crumb of another colour
-  c = mix(c, c*0.3, step(0.9975, h13(floor(q*55.))));
-  c = mix(c, vec3(0.75,0.72,0.66), step(0.9992, h13(floor(q*41.)+5.)));
+  c = mix(c, c*0.3, step(0.9985, h13(floor(q*55.))));
+  c = mix(c, vec3(0.75,0.72,0.66), step(0.99975, h13(floor(q*41.)+5.)));
   if (part!=0) c = mix(c, vec3(0.8,0.37,0.22), step(0.9994, h13(floor(q*30.)+9.)));
   return c;
 }
@@ -440,7 +461,7 @@ vec3 wallpaper(vec3 p){
   // regency stripe with sprigs
   float sx = fract(u.x/0.62);
   float band = step(0.5, fract(u.x/1.24));
-  vec3 c = mix(uCWallA, uCWallA*0.93+uCWallC*0.05, band);
+  vec3 c = mix(uCWallA, mix(uCWallA, uCWallB, 0.35), band);
   c = mix(c, uCWallB, smoothstep(0.035,0.0,abs(sx-0.5)-0.012)*0.5);
   vec2 g = vec2(u.x/1.24, u.y/0.9);
   vec2 cell = floor(g); vec2 f = fract(g)-vec2(0.25,0.5);
@@ -469,15 +490,21 @@ vec3 shade(vec3 ro, vec3 rd, float t){
   vec3 n = calcN(p, e);
   map(p); int mat = gM;
   vec3 alb = vec3(0.5); float rough = 0.6; float f0 = 0.04; float wrap = 0.15; float spec = 1.;
-  vec3 sss = vec3(0.);
+  vec3 sss = vec3(0.); float catchl = 0.;
   vec3 q = toMan(p);
   if (mat==10){
     man(q, p, radiator(p), 1e5, true);
     int part = 0; float best = 1e5;
     for (int i=0;i<11;i++){ if (P[i] < best){ best = P[i]; part = i; } }
     float melt = 0.;
-    if (part==2) melt = smoothstep(0.5,-0.5,q.y);
-    if (part==5){ alb = vec3(0.008); rough = 0.1; f0 = 0.05; wrap = 0.; }
+    if (part==2){
+      melt = smoothstep(-0.05,-0.25,p.z)*smoothstep(5.6,5.2,p.y);
+      melt = max(melt, smoothstep(0.3,-0.5,p.x)*smoothstep(5.8,5.45,p.y));
+      melt = max(melt, smoothstep(0.35,0.15,p.y));
+      melt = max(melt, smoothstep(0.4,0.7,q.x)*smoothstep(-2.,-4.5,q.y)*0.6);
+      melt = max(melt, smoothstep(0.3,-0.2,q.y)*smoothstep(1.4,1.1,q.z)*0.8);
+    }
+    if (part==5){ alb = vec3(0.008); rough = 0.1; f0 = 0.05; wrap = 0.; catchl = 1.; }
     else if (part==8){
       alb = vec3(0.82,0.8,0.74); rough = 0.12; f0 = 0.05; wrap = 0.25; sss = vec3(0.3,0.3,0.28);
       vec3 cq = q-vec3(0.05,2.68,2.28);
@@ -497,11 +524,11 @@ vec3 shade(vec3 ro, vec3 rd, float t){
     else if (part==10){ alb = vec3(0.16,0.09,0.05); rough = 0.35; f0 = 0.04; }
     else {
       alb = clayCol(q, part, melt);
-      rough = mix(0.62, 0.3, melt); f0 = 0.03; wrap = 0.5; spec = 0.7;
+      rough = mix(0.52, 0.26, melt); f0 = 0.03; wrap = 0.5; spec = mix(0.75, 1.0, melt);
       if (part==3){ rough = 0.32; wrap = 0.2; spec = 1.; }
       if (part==4) { rough = 0.7; }
       sss = part==0 ? vec3(0.95,0.25,0.12) : alb*0.7;
-      float fade = smoothstep(1.5, 3.5, 0.048/pixw);
+      float fade = smoothstep(1.6, 3.4, 0.068/pixw);
       float de = max(0.003, pixw*0.5);
       float d0 = detail(q,p,n,part,fade,melt);
       vec3 gq = vec3(detail(q+vec3(de,0,0),p,n,part,fade,melt)-d0,
@@ -582,7 +609,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
   // key: a warm spot, pooled on him
   vec3 C = vec3(1.3,8.6,-0.6);
   float dperp = length(cross(p-C, LK));
-  float pool = mix(0.42, 1.0, exp(-dperp*dperp/(2.*5.5*5.5)));
+  float pool = mix(0.22, 1.12, exp(-dperp*dperp/(2.*4.6*4.6)));
   float sh = shadow(p+n*0.01, LK, 9.);
   float ndl = dot(n, LK);
   float dif = clamp((ndl+wrap)/(1.+wrap), 0., 1.);
@@ -603,6 +630,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
   float fr = f0+(1.-f0)*pow(1.-max(dot(n,v),0.),5.);
   col += env(rf)*fr*spec*ao*(1.-rough)*(1.-rough)*1.1;
   col *= mix(0.5,1.,ao);
+  col += catchl*vec3(3.2,2.9,2.5)*smoothstep(0.93,0.97,dot(rf, normalize(vec3(-0.45,0.55,0.7))));
   return col;
 }
 
@@ -637,13 +665,20 @@ void main(){
 precision highp float;
 uniform sampler2D uAcc; uniform sampler2D uPrevD; uniform vec2 uRes;
 uniform float uFocus, uCocK, uMaxC, uN, uRot;
+uniform vec3 uCam, uFw, uRt, uUp; uniform float uTanH;
 out vec4 oC;
-float coc(float z){ return clamp(uCocK*abs(1./uFocus-1./max(z,0.01)), 0., uMaxC); }
+// a tilted lens: the plane of focus stands upright through his face, parallel to the wall
+float focusAt(vec2 fc){
+  vec2 uv = (fc-0.5*uRes)/uRes.y*2.*uTanH;
+  vec3 rd = normalize(uFw+uv.x*uRt+uv.y*uUp);
+  return (uFocus-uCam.z)/rd.z*dot(rd,uFw);
+}
+float coc(float z, vec2 fc){ return clamp(uCocK*abs(1./focusAt(fc)-1./max(z,0.01)), 0., uMaxC); }
 float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 void main(){
   ivec2 ip = ivec2(gl_FragCoord.xy);
   vec4 c0 = texelFetch(uAcc, ip, 0);
-  float z0 = c0.a*100.; float k0 = coc(z0);
+  float z0 = c0.a*100.; float k0 = coc(z0, gl_FragCoord.xy);
   vec3 sum = c0.rgb/max(k0*k0,1.); float ws = 1./max(k0*k0,1.);
   float rot = h12(gl_FragCoord.xy)*6.2831+uRot;
   const int NT = 72;
@@ -655,7 +690,7 @@ void main(){
     vec2 o = vec2(cos(a),sin(a))*r;
     vec4 s = texture(uAcc, (gl_FragCoord.xy+o)*isz);
     float z = s.a*100.;
-    float k = coc(z);
+    float k = coc(z, gl_FragCoord.xy+o);
     if (z > z0+0.15) k = min(k, k0);
     float w = clamp(k-r+1., 0., 1.)/max(k*k,1.);
     sum += s.rgb*w; ws += w;
@@ -785,7 +820,7 @@ void main(){
       let cam = null;
       let alive = true, raf = 0, readyCalled = false;
       let job = null;
-      const MAXPASS = 12;
+      const MAXPASS = +(location.search.match(/passes=(\d+)/) || [0, 12])[1];
       const DBG = /pdbg/.test(location.search);
       const cost = { scene: 0.06, dof: 0.004 }; // ms of GPU time per pixel, learned as we go
       const inflight = [];
@@ -813,16 +848,19 @@ void main(){
         const up = cross(rt, fw);
         const fd = [face[0] - pos[0], face[1] - pos[1], face[2] - pos[2]];
         const focus = fd[0] * fw[0] + fd[1] * fw[1] + fd[2] * fw[2];
-        cam = { pos, fw, rt, up, tanH: tanH * visH / 13.6, focus, cocK: 3.0 * (dist / 30) * 13.6 / visH, maxC: 0.02 };
+        cam = { pos, fw, rt, up, tanH: tanH * visH / 13.6, focus, zf: -0.15, cocK: 3.0 * (dist / 30) * 13.6 / visH, maxC: 0.02 };
       }
 
       function mkLevel(scale, maxPass) {
         const w = Math.max(32, Math.round(CW * scale)), h = Math.max(32, Math.round(CH * scale));
         return { w, h, acc: [makeTarget(w, h), makeTarget(w, h)], dof: [makeTarget(w, h), makeTarget(w, h)], passN: 0, dofN: 0, maxPass };
       }
+      let takes = null, blinkT = 0, playing = 0;
       function freeLevels() {
         for (const l of levels) { l.acc.forEach(freeTarget); l.dof.forEach(freeTarget); }
         levels = [];
+        if (takes) { takes.scratch.forEach(freeTarget); takes.frames.forEach((t) => freeTarget(t.img)); takes = null; }
+        clearTimeout(blinkT); clearTimeout(playing);
       }
       function resize() {
         const r = el.getBoundingClientRect();
@@ -834,10 +872,13 @@ void main(){
         CW = w; CH = h;
         canvas.width = CW; canvas.height = CH;
         freeLevels();
+        setupCamera();
         // a quick half-resolution proof first, then the real thing, refined pass by pass
         levels = [mkLevel(0.5, 1), mkLevel(1, MAXPASS)];
-        setupCamera();
-        job = { li: 0, kind: 'scene', y: 0 };
+        queue = [];
+        for (let li = 0; li < levels.length; li++) for (let n = 0; n < levels[li].maxPass; n++) queue.push(levelPass(li));
+        queue.push(() => buildTakes());
+        job = null;
         return true;
       }
 
@@ -846,72 +887,163 @@ void main(){
         const r = mulberry32(n * 7919 + 13);
         return [r(), r()];
       }
-      function runScene(lv, y0, rows) {
-        const src = lv.acc[lv.passN % 2], dst = lv.acc[(lv.passN + 1) % 2];
-        gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
-        gl.viewport(0, 0, lv.w, lv.h);
+      const LID = 0.13;
+      function drawScene(o, x0, y0, w, rows) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, o.dst.fb);
+        gl.viewport(0, 0, o.w, o.h);
         gl.enable(gl.SCISSOR_TEST);
-        gl.scissor(0, y0, lv.w, rows);
+        gl.scissor(x0, y0, w, rows);
         gl.useProgram(progS.p);
         const u = progS.u;
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.src.tex);
         gl.uniform1i(u.uPrev, 0);
-        gl.uniform1f(u.uN, lv.passN);
-        gl.uniform2f(u.uRes, lv.w, lv.h);
-        const j = jitter(lv.passN);
+        gl.uniform1f(u.uN, o.n);
+        gl.uniform2f(u.uRes, o.w, o.h);
+        const j = jitter(o.n);
         gl.uniform2f(u.uJit, j[0] - 0.5, j[1] - 0.5);
         gl.uniform3fv(u.uCam, cam.pos); gl.uniform3fv(u.uFw, cam.fw); gl.uniform3fv(u.uRt, cam.rt); gl.uniform3fv(u.uUp, cam.up);
-        gl.uniform1f(u.uTanH, cam.tanH); gl.uniform1f(u.uPix, 2 * cam.tanH / lv.h);
+        gl.uniform1f(u.uTanH, cam.tanH); gl.uniform1f(u.uPix, 2 * cam.tanH / o.h);
         gl.uniform3f(u.uO, 1.3, 5.2, -1.65);
         gl.uniform1f(u.uYaw, S.yaw); gl.uniform1f(u.uTilt, S.tilt); gl.uniform1f(u.uMelt, S.melt);
-        gl.uniform1f(u.uLid, 0.055); gl.uniform1f(u.uBoil, 0); gl.uniform1f(u.uProf, +(location.search.match(/prof=(\d+)/) || [0, 0])[1]); gl.uniform1f(u.uDbg, /stepviz/.test(location.search) ? 1 : 0);
+        gl.uniform1f(u.uLid, o.lid); gl.uniform1f(u.uBoil, o.boil);
+        gl.uniform1f(u.uProf, +(location.search.match(/prof=(\d+)/) || [0, 0])[1]); gl.uniform1f(u.uDbg, /stepviz/.test(location.search) ? 1 : 0);
         gl.uniform3fv(u.uFP, S.fp); gl.uniform4fv(u.uHP1, S.hp1); gl.uniform4fv(u.uHP2, S.hp2);
         gl.uniform3fv(u.uCCard, S.card); gl.uniform3fv(u.uCTrou, S.trou); gl.uniform3fv(u.uCTie, S.tie);
         gl.uniform3fv(u.uCWallA, S.wall[0]); gl.uniform3fv(u.uCWallB, S.wall[1]); gl.uniform3fv(u.uCWallC, S.wall[2]);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.disable(gl.SCISSOR_TEST);
       }
-      function runDof(lv, y0, rows) {
-        const a = lv.acc[(lv.passN + 1) % 2];
-        const src = lv.dof[lv.dofN % 2], dst = lv.dof[(lv.dofN + 1) % 2];
-        gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
-        gl.viewport(0, 0, lv.w, lv.h);
+      function drawDof(o, x0, y0, w, rows) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, o.dst.fb);
+        gl.viewport(0, 0, o.w, o.h);
         gl.enable(gl.SCISSOR_TEST);
-        gl.scissor(0, y0, lv.w, rows);
+        gl.scissor(x0, y0, w, rows);
         gl.useProgram(progD.p);
         const u = progD.u;
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, a.tex); gl.uniform1i(u.uAcc, 0);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(u.uPrevD, 1);
-        gl.uniform2f(u.uRes, lv.w, lv.h);
-        gl.uniform1f(u.uFocus, cam.focus); gl.uniform1f(u.uCocK, cam.cocK * lv.h); gl.uniform1f(u.uMaxC, Math.max(2, cam.maxC * lv.h));
-        gl.uniform1f(u.uN, lv.dofN); gl.uniform1f(u.uRot, lv.dofN * 2.3999);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.acc.tex); gl.uniform1i(u.uAcc, 0);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, o.prev.tex); gl.uniform1i(u.uPrevD, 1);
+        gl.uniform2f(u.uRes, o.w, o.h);
+        gl.uniform1f(u.uFocus, cam.zf); gl.uniform3fv(u.uCam, cam.pos); gl.uniform3fv(u.uFw, cam.fw); gl.uniform3fv(u.uRt, cam.rt); gl.uniform3fv(u.uUp, cam.up); gl.uniform1f(u.uTanH, cam.tanH); gl.uniform1f(u.uCocK, cam.cocK * o.h); gl.uniform1f(u.uMaxC, Math.max(2, cam.maxC * o.h));
+        gl.uniform1f(u.uN, o.n); gl.uniform1f(u.uRot, o.n * 2.3999);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.disable(gl.SCISSOR_TEST);
         gl.activeTexture(gl.TEXTURE0);
       }
-      function present(lv) {
-        const img = lv.dof[lv.dofN % 2];
+      function blit(from, to, w, h) {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, from.fb);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, to.fb);
+        gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      }
+      function present(tex) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, CW, CH);
         gl.useProgram(progP.p);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, img.tex);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.uniform1i(progP.u.uImg, 0);
         gl.uniform2f(progP.u.uRes, CW, CH);
-        gl.uniform1f(progP.u.uGrain, lv.dofN + 0.5);
+        gl.uniform1f(progP.u.uGrain, 3.5);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
+      const fullRect = (lv) => [0, 0, lv.w, lv.h];
 
-      function finishStage() {
-        const lv = levels[job.li];
-        if (job.kind === 'scene') { job = { li: job.li, kind: 'dof', y: 0 }; return; }
-        lv.dofN++;
-        lv.passN++;
-        present(lv);
-        if (!readyCalled) { readyCalled = true; api.ready(); }
-        if (DBG) console.log('level', job.li, 'pass', lv.passN, 'shown at', Math.round(performance.now()), JSON.stringify(cost));
-        if (lv.passN < lv.maxPass) job = { li: job.li, kind: 'scene', y: 0 };
-        else if (job.li + 1 < levels.length) job = { li: job.li + 1, kind: 'scene', y: 0 };
-        else job = null;
+      // one refinement pass of a level: scene (tiled), then lens (tiled), then show it
+      function levelPass(li) {
+        return () => {
+          const lv = levels[li];
+          const sc = { src: lv.acc[lv.passN % 2], dst: lv.acc[(lv.passN + 1) % 2], w: lv.w, h: lv.h, n: lv.passN, lid: LID, boil: 0 };
+          const df = { acc: sc.dst, prev: lv.dof[lv.dofN % 2], dst: lv.dof[(lv.dofN + 1) % 2], w: lv.w, h: lv.h, n: lv.dofN };
+          return [
+            { kind: 'scene', rect: fullRect(lv), run: (x, y, w, r) => drawScene(sc, x, y, w, r) },
+            { kind: 'dof', rect: fullRect(lv), run: (x, y, w, r) => drawDof(df, x, y, w, r),
+              done: () => {
+                lv.passN++; lv.dofN++;
+                present(df.dst.tex);
+                shownTex = df.dst.tex;
+                if (!readyCalled) { readyCalled = true; api.ready(); }
+                if (DBG) console.log('level', li, 'pass', lv.passN, 'shown at', Math.round(performance.now()), JSON.stringify(cost));
+              } },
+          ];
+        };
+      }
+
+      // the blink: a few extra frames of the eyes only, re-handled like real stop-motion frames
+      function eyeRect(lv) {
+        const yaw = S.yaw, c = Math.cos(yaw), sn = Math.sin(yaw);
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (let i = 0; i < 8; i++) {
+          const qx = i & 1 ? 1.15 : -1.15, qy = i & 2 ? 6.75 : 5.45, qz = i & 4 ? 1.5 : 0.55;
+          const px = 1.3 + c * qx + sn * qz, py = 5.2 + qy, pz = -1.65 - sn * qx + c * qz;
+          const d = [px - cam.pos[0], py - cam.pos[1], pz - cam.pos[2]];
+          const z = d[0] * cam.fw[0] + d[1] * cam.fw[1] + d[2] * cam.fw[2];
+          const ux = (d[0] * cam.rt[0] + d[1] * cam.rt[1] + d[2] * cam.rt[2]) / z;
+          const uy = (d[0] * cam.up[0] + d[1] * cam.up[1] + d[2] * cam.up[2]) / z;
+          const fx = ux * lv.h / (2 * cam.tanH) + lv.w / 2, fy = uy * lv.h / (2 * cam.tanH) + lv.h / 2;
+          x0 = Math.min(x0, fx); x1 = Math.max(x1, fx); y0 = Math.min(y0, fy); y1 = Math.max(y1, fy);
+        }
+        const m = 6;
+        x0 = Math.max(0, Math.floor(x0 - m)); y0 = Math.max(0, Math.floor(y0 - m));
+        x1 = Math.min(lv.w, Math.ceil(x1 + m)); y1 = Math.min(lv.h, Math.ceil(y1 + m));
+        if (x1 - x0 < 4 || y1 - y0 < 4) return null;
+        return [x0, y0, x1 - x0, y1 - y0];
+      }
+      function buildTakes() {
+        const lv = levels[levels.length - 1];
+        const rect = eyeRect(lv);
+        if (!rect) return [];
+        const A = { acc: lv.acc[lv.passN % 2], img: lv.dof[lv.dofN % 2] };
+        takes = { scratch: [makeTarget(lv.w, lv.h), makeTarget(lv.w, lv.h)], frames: [], ready: false, A };
+        const K = 4;
+        const out = [];
+        [[0.0, 1], [-0.2, 2]].forEach(([lid, boil]) => {
+          const fr = { img: makeTarget(lv.w, lv.h) };
+          takes.frames.push(fr);
+          out.push({ kind: 'copy', rect: [0, 0, 1, 1], run: () => { blit(A.acc, takes.scratch[0], lv.w, lv.h); blit(A.acc, takes.scratch[1], lv.w, lv.h); blit(A.img, fr.img, lv.w, lv.h); } });
+          for (let n = 0; n < K; n++) {
+            const sc = { src: takes.scratch[n % 2], dst: takes.scratch[(n + 1) % 2], w: lv.w, h: lv.h, n, lid, boil };
+            out.push({ kind: 'scene', rect, run: (x, y, w, r) => drawScene(sc, x, y, w, r) });
+          }
+          const df = { acc: takes.scratch[K % 2], prev: A.img, dst: fr.img, w: lv.w, h: lv.h, n: 0 };
+          out.push({ kind: 'dof', rect, run: (x, y, w, r) => drawDof(df, x, y, w, r) });
+        });
+        out.push({ kind: 'copy', rect: [0, 0, 1, 1], run: () => {}, done: () => {
+          takes.ready = true;
+          if (DBG) console.log('takes ready', Math.round(performance.now()));
+          const st = (location.search.match(/showtake=(\d)/) || [])[1];
+          if (st) { present(takes.frames[+st].img.tex); return; }
+          scheduleBlink();
+        } });
+        return out;
+      }
+      const brnd = mulberry32(api.seed ^ 0x51ed);
+      function scheduleBlink() {
+        clearTimeout(blinkT);
+        blinkT = setTimeout(() => {
+          if (!alive || !takes || !takes.ready) return;
+          const [B1, B2] = takes.frames.map((f) => f.img.tex);
+          const A = takes.A.img.tex;
+          // slow, resigned blinks at twelve frames a second; now and then a second one
+          let seq = [B1, B2, B2, B2, B1, A];
+          if (brnd() < 0.25) seq = seq.concat([A, A, A, B1, B2, B2, B1, A]);
+          let i = 0;
+          const tick = () => {
+            if (!alive || !takes) return;
+            present(seq[i++]);
+            if (i < seq.length) playing = setTimeout(tick, 1000 / 12); else scheduleBlink();
+          };
+          tick();
+        }, 3500 + brnd() * 6500);
+      }
+
+      let queue = [], shownTex = null;
+      function nextJob() {
+        while (!job || job.stages.length === 0) {
+          if (!queue.length) { job = null; return; }
+          job = { stages: queue.shift()() };
+        }
+        const st = job.stages[0];
+        st.y = st.y || 0;
       }
 
       function step() {
@@ -925,20 +1057,28 @@ void main(){
           const now = performance.now();
           const dt = now - Math.max(f.t0, lastSignal);
           lastSignal = now;
-          cost[f.kind] = cost[f.kind] * 0.5 + (dt / f.px) * 0.5;
+          if (f.kind !== 'copy') cost[f.kind] = cost[f.kind] * 0.5 + (dt / f.px) * 0.5;
         }
-        if (DBG && job && performance.now() - (step.lt || 0) > 3000) { step.lt = performance.now(); console.log('job', job.li, job.kind, job.y, Math.round(step.lt), JSON.stringify(cost), inflight.length); }
+        nextJob();
+        if (DBG && job && performance.now() - (step.lt || 0) > 3000) { step.lt = performance.now(); console.log('job', job.stages[0].kind, job.stages[0].y, Math.round(step.lt), JSON.stringify(cost), inflight.length); }
         while (job && inflight.length < 2) {
-          const lv = levels[job.li];
-          const budget = 40;
-          const rows = Math.max(1, Math.min(lv.h - job.y, Math.floor(budget / (cost[job.kind] * lv.w))));
-          if (job.kind === 'scene') runScene(lv, job.y, rows); else runDof(lv, job.y, rows);
-          job.y += rows;
-          inflight.push({ sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0), t0: performance.now(), px: rows * lv.w, kind: job.kind });
+          const st = job.stages[0];
+          const [rx, ry, rw, rh] = st.rect;
+          const rows = st.kind === 'copy' ? rh : Math.max(1, Math.min(rh - st.y, Math.floor(40 / (cost[st.kind] * rw))));
+          st.run(rx, ry + st.y, rw, rows);
+          st.y += rows;
+          inflight.push({ sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0), t0: performance.now(), px: rows * rw, kind: st.kind });
           gl.flush();
-          if (job.y >= lv.h) finishStage();
+          if (st.y >= rh) {
+            job.stages.shift();
+            if (st.done) st.done();
+            const more = job.stages.length === 0 && queue.length && typeof queue[0] === 'function';
+            if (job.stages.length === 0) { job = null; nextJob(); }
+            if (job && job.stages.length) job.stages[0].y = job.stages[0].y || 0;
+            void more;
+          }
         }
-        if (job || inflight.length) raf = requestAnimationFrame(step);
+        if (job || inflight.length || queue.length) raf = requestAnimationFrame(step);
       }
 
       const ro = new ResizeObserver(() => {

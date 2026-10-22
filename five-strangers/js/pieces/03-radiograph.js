@@ -109,7 +109,7 @@
 
     // head frame
     const hc = [rr(-0.15, 0.15), 10.85 + rr(-0.15, 0.1), 0.3];
-    const th = rr(0.09, 0.15);              // head leans toward the raised arm
+    const th = rr(0.13, 0.19);              // head leans toward the raised arm
     const ch = Math.cos(th), sh = Math.sin(th);
     const hf = (x, y, z) => [hc[0] + ch * x - sh * y, hc[1] + sh * x + ch * y, hc[2] + (z || 0)];
     const hx = [ch, sh, 0], hy = [-sh, ch, 0], hz = [0, 0, 1];
@@ -118,11 +118,11 @@
     addEll(hf(0, -1.85, 3.9), hx, my, [2.6, 2.25, 4.3]);                  // 1 muzzle
     addEll([0, -0.3, 0], [1, 0, 0], [0, 1, 0], [5.6, 6.2, 4.5]);           // 2 chest
     addEll([0, -5.3, 0.4], [1, 0, 0], [0, 1, 0], [6.7, 6.3, 5.4]);         // 3 belly
-    const feet = [[-7.15 + rr(-0.2, 0.2), -17.5, 2.0], [8.1 + rr(-0.2, 0.2), -17.3, 1.9]];
+    const feet = [[-8.25 + rr(-0.2, 0.2), -17.25, 2.0], [7.6 + rr(-0.2, 0.2), -17.45, 1.9]];
     feet.forEach((f, i) => {
-      const toe = nrm([i ? 0.22 : -0.18, -0.12, 1]);
+      const toe = nrm([i ? 0.6 : -0.5, -0.15, 1]);
       const fu = nrm(cross([0, 1, 0], toe)), fv = cross(toe, fu);
-      addEll(f, fu, fv, [2.4, 2.25, 4.0]);                                  // 4,5 feet (toes toward the tube)
+      addEll(f, fu, fv, [2.35, 2.2, 4.3]);                                  // 4,5 feet (toes toward the tube)
     });
     S.E = E;
 
@@ -132,8 +132,8 @@
       [-9.8, 13.4, 1.8], [-10.0, 15.0, 1.85], [-9.7, 16.6, 1.95], [-9.0, 17.6, 1.55]];
     const armDn = [[5.7, 3.6, 2.45], [6.8, 1.5, 2.4], [7.8 + jit(), -1.1, 2.2], [8.5, -3.9, 2.0],
       [8.8, -6.2 + jit(), 1.8], [8.8, -8.0, 1.85], [8.35, -9.6, 1.95], [7.65, -10.5, 1.55]];
-    const legR = [[-5.2, -8.9, 3.0], [-5.75, -11.2, 3.0], [-6.35, -13.5, 2.7], [-6.8, -15.5, 2.45], [-7.0, -16.9, 2.35]];
-    const legL = [[5.2, -8.9, 3.0], [5.95, -11.2, 3.0], [6.85, -13.4, 2.7], [7.6, -15.3, 2.45], [7.95, -16.7, 2.35]];
+    const legR = [[-5.2, -8.9, 3.0], [-5.9, -11.1, 3.0], [-6.9, -13.3, 2.7], [-7.7, -15.2, 2.45], [-8.1, -16.6, 2.35]];
+    const legL = [[5.2, -8.9, 3.0], [5.8, -11.2, 3.0], [6.55, -13.5, 2.7], [7.2, -15.5, 2.45], [7.5, -16.85, 2.35]];
     const limbZ = [1.0, 0.7, 1.4, 1.4];
     S.limbs = [armUp, armDn, legR, legL].map((pts, li) => catmull(pts, 8).map((p) => {
       const q = tp([p[0], p[1], 0]); return [q[0], q[1], sc(p[2]), sc(limbZ[li])];
@@ -150,7 +150,7 @@
     lump([0, 5.3, 0], 2.2, -0.5);                         // the neck has sagged
     lump([-1.6, 3.4, 0], 2.5, -0.3); lump([2.2, 4.0, 0], 1.7, -0.22);   // stuffing settled out of the chest
     lump([0.3, -7.8, 0], 4.2, 0.28);                      // and packed into the seat
-    lump(hf(0, -1.95), 2.0, 1.15);                         // hard-packed muzzle
+    lump(hf(0, -1.95), 2.3, 1.6);                         // hard-packed muzzle
     lump(feet[0], 2.4, 0.35); lump(feet[1], 2.4, 0.35);
     lump([8.3, -9.6, 0], 1.6, 0.25);
     for (let i = 0; i < 4; i++) lump([rr(-4.5, 4.5), rr(-9, 2), 0], rr(1.0, 2.0), rr(-0.3, 0.25));
@@ -199,8 +199,22 @@
         const a = (i / 16) * Math.PI * 2, x = 2.5 * Math.cos(a), y = -1.85 + 2.15 * Math.sin(a);
         pts.push(hf(x, y, headZ(x, y) - 0.15));
       }
-      chain(pts, rSeam, muSeam * 1.3);
+      chain(pts, rSeam, muSeam * 3.0);
     }
+
+    // felt paw pads, their seams outlining the palm of each paw
+    [[armUp, 1], [armDn, -1]].forEach(([pts, side]) => {
+      group('seam');
+      const n = pts.length, e = pts[n - 1], b = pts[n - 3];
+      const ax = nrm([e[0] - b[0], e[1] - b[1], 0]), px = [-ax[1] * side, ax[0] * side, 0];
+      const c = add(add([e[0], e[1], 0.9], mul(ax, -1.25)), mul(px, 0.45));
+      const lp = [];
+      for (let i = 0; i <= 14; i++) {
+        const a = (i / 14) * Math.PI * 2;
+        lp.push(add(c, add(mul(ax, 1.25 * Math.cos(a)), add(mul(px, 0.85 * Math.sin(a)), [0, 0, 0.5 * Math.sin(a)]))));
+      }
+      chain(lp, rSeam, muSeam * 1.5);
+    });
 
     /* -------- joints: hardboard discs, steel washers, split cotter pins with crown curls */
     function joint(J, n, Rd, name) {
@@ -239,9 +253,23 @@
     joint([-4.75, -8.75, 0.7], [-0.92, -0.22, 0.38], 2.6, 'hipR');
     joint([4.8, -8.8, 0.7], [0.93, -0.18, 0.36], 2.6, 'hipL');
 
-    /* -------- glass eyes on wire shanks */
+    /* -------- one glass eye on its wire shank; the other lost, and replaced with a boot button */
     for (const sx of [-1, 1]) {
       group('eye');
+      if (sx > 0) {
+        const x = 2.3, y = 0.72, z = headZ(x, y) - 0.02;
+        const c = hf(x, y, z);
+        disc(c, hz, 0.46, 0.09, MU.steel * 0.22);                 // pressed steel dome
+        disc(c, hz, 0.46, 0.13, MU.steel * 0.8, 0.37);            // its rolled rim
+        const lp = [];
+        for (let i = 0; i <= 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          lp.push(add(hf(x, y, z - 0.35), add(mul(hx, 0.12 * Math.sin(a)), [0, 0, 0.12 * Math.cos(a)])));
+        }
+        chain(lp, 0.035, MU.steel);
+        wire(hf(x, y, z - 0.1), hf(x, y, z - 0.25), 0.04, MU.steel);
+        continue;
+      }
       const x = sx * 2.15, y = 0.95, z = headZ(x, y) - 0.05;
       const c = hf(x, y, z);
       ell(c, hx, 0.6, hy, 0.6, 0.36, MU.glass);
@@ -257,7 +285,7 @@
     }
 
     /* -------- card insoles in the feet */
-    feet.forEach((f, i) => group('sole') || disc(add(f, [0, -2.0, -0.4]), [i ? 0.08 : -0.06, -1, 0.2 + rr(0, 0.08)], 2.2, 0.06, MU.cardboard));
+    feet.forEach((f, i) => group('sole') || disc(add(f, [0, -1.45, -0.1]), [i ? 0.1 : -0.08, -1, 0.16 + rr(0, 0.08)], 1.8, 0.06, MU.cardboard));
 
     /* -------- growler in the belly */
     group('growler');
@@ -266,17 +294,17 @@
       const a = nrm([0.14 + rr(-0.05, 0.05), 0.82, 0.55]);
       const [u, v] = basis(a);
       const at = (t, x, y) => add(gc, add(mul(a, t), add(mul(u, x || 0), mul(v, y || 0))));
-      disc(gc, a, 2.25, 2.7, MU.card * 0.7, 2.13);                  // card tube
-      disc(at(2.7), a, 2.25, 0.05, MU.card * 0.7);                 // perforated cap
-      disc(at(-2.7), a, 2.25, 0.05, MU.card * 0.7);                 // base
+      disc(gc, a, 2.25, 2.7, MU.card * 2.2, 2.13);                  // card tube
+      disc(at(2.7), a, 2.25, 0.05, MU.card * 2.2);                 // perforated cap
+      disc(at(-2.7), a, 2.25, 0.05, MU.card * 2.2);                 // base
       group('holes');
       for (let i = 0; i < 7; i++) {
         const ang = (i / 7) * Math.PI * 2 + 0.3, rad = i === 6 ? 0 : 1.15;
-        disc(at(2.7, rad * Math.cos(ang) * (i === 6 ? 0 : 1), rad * Math.sin(ang)), a, 0.26, 0.06, -MU.card * 0.7);
+        disc(at(2.7, rad * Math.cos(ang) * (i === 6 ? 0 : 1), rad * Math.sin(ang)), a, 0.26, 0.06, -MU.card * 2.2);
       }
       group('bellows');
       // bellows: pleated paper
-      for (let i = 0; i < 9; i++) disc(at(-2.55 + i * 0.22), a, i % 2 ? 1.75 : 2.05, 0.025, MU.paper * 1.6, i % 2 ? 1.6 : 1.9);
+      for (let i = 0; i < 9; i++) disc(at(-2.55 + i * 0.22), a, i % 2 ? 1.75 : 2.05, 0.025, MU.paper * 3.0, i % 2 ? 1.6 : 1.9);
       // lead weight on the bellows
       disc(at(-0.45), a, 1.35, 0.24, MU.lead);
       // steel spring between weight and reed
@@ -488,7 +516,7 @@
     writeText(c, '2019.112.4', gx, gy, 0.95, ga, R, 'grease');
     writeText(c, 'bear — mohair,', gx - 0.05, gy - 1.35, 0.72, ga + rr(-0.02, 0.02), R, 'grease');
     writeText(c, 'excelsior. c.1955', gx + 0.2, gy - 2.45, 0.72, ga + rr(-0.03, 0.01), R, 'grease');
-    writeText(c, 'AP  55kV  14.x.26', gx + 0.1, gy - 3.6, 0.55, ga + rr(-0.02, 0.02), R, 'grease');
+    writeText(c, 'AP  55kV  14.x.26', gx + 0.1, gy - 3.65, 0.62, ga + rr(-0.02, 0.02), R, 'grease');
 
     const nx = 11.2 + rr(-0.2, 0.2), ny = -0.2 + rr(-0.4, 0.4), na = rr(-0.06, 0.0);
     writeText(c, 'inclusion,', nx, ny, 0.7, na, R, 'grease');
@@ -558,21 +586,21 @@ float wear(vec2 P){
 }
 
 // wood wool: many layers of long crimped ribbons, each layer a different lie
-float exc(vec2 p){
-  p += u_off.xy;
+float exc(vec2 p, float aligned){
+  p += u_off.xy*(1.0 - aligned) + vec2(3.3, 7.1)*aligned;
   vec2 w = vec2(noise(p*0.3), noise(p*0.3 + vec2(5.2, 1.3)));
   vec2 w2 = vec2(noise(p*0.85 + 3.1), noise(p*0.85 + 7.7));
   vec2 pw = p + w*0.9 + w2*0.5;
   float acc = 0.0;
   for (int k = 0; k < 6; k++){
     float fk = float(k);
-    float a = fk*2.39996 + u_off.z;
+    float a = mix(fk*2.39996 + u_off.z, (fk - 2.5)*0.16, aligned);
     vec2 cs = vec2(cos(a), sin(a));
     vec2 q = vec2(dot(pw, cs), dot(pw, vec2(-cs.y, cs.x)));
     q.y += 0.6*noise(vec2(q.x*0.45, q.y*0.2) + fk*3.7) + 0.07*sin(q.x*5.5 + fk*1.3 + w2.x*4.0);
     float n = noise(vec2(q.x*0.32, q.y*1.25) + fk*11.3);
     float m = noise(vec2(q.x*0.6, q.y*0.35) + fk*5.0);
-    float wd = 0.05 + 0.06*abs(m);
+    float wd = 0.04 + 0.055*abs(m);
     acc += exp(-n*n/(wd*wd))*(0.5 + 1.1*abs(m));
   }
   float clump = noise(p*0.5 + 9.0)*0.55 + noise(p*1.5)*0.22;
@@ -610,8 +638,8 @@ float partA(vec3 L, float F, float r, float hr, float wr){
   return MU_EX*r*F*st + MU_FAB*sk + MU_FUR*hr*wr*fu;
 }
 
-void tubeQ(int li, vec2 P, out float dd, out float rr, out float sArc){
-  float best = 1e9; dd = 1e9; rr = 0.0; sArc = 0.0;
+void tubeQ(int li, vec2 P, out float dd, out float rr, out float sArc, out float sgn){
+  float best = 1e9; dd = 1e9; rr = 0.0; sArc = 0.0; sgn = 1.0;
   float acc = 0.0;
   for (int k = 0; k < 7; k++){
     vec4 a = u_limb[li*8 + k], b = u_limb[li*8 + k + 1];
@@ -620,7 +648,7 @@ void tubeQ(int li, vec2 P, out float dd, out float rr, out float sArc){
     float t = clamp(dot(ap, ab)/L2, 0.0, 1.0);
     float d = length(ap - ab*t);
     float r = mix(a.z, b.z, t);
-    if (d - r < best){ best = d - r; dd = d; rr = r; sArc = acc + t*sqrt(L2); }
+    if (d - r < best){ best = d - r; dd = d; rr = r; sArc = acc + t*sqrt(L2); sgn = sign(ab.x*ap.y - ab.y*ap.x); }
     acc += sqrt(L2);
   }
 }
@@ -707,7 +735,8 @@ void main(){
   vec2 P = (uv - 0.5)*vec2(${FW.toFixed(1)}, ${FH.toFixed(1)});
   float A = 0.0;
   float rh = rho(P), wr = wear(P);
-  float sEx = 0.0, sRag = 0.0, fab = 0.0, fur = 0.0;
+  float sEx = 0.0, sExL = 0.0, sRag = 0.0, fab = 0.0, fur = 0.0, bestL = 0.0;
+  vec2 limbQ = vec2(0.0);
 
   // head: cranium U muzzle
   if (length(P - u_eC[0].xy) < 9.5){
@@ -728,18 +757,21 @@ void main(){
                   uni(ellI(2, P, -SKIN), ellI(3, P, -SKIN)));
     if (L.x > 0.0){
       vec2 rd = P - u_ring.xy;
-      float cav = exp(-dot(rd, rd)/(u_ring.z*u_ring.z));
-      sEx += rh*(1.0 - 0.85*cav)*L.z; fab += max(L.y - L.z, 0.0);
+      vec2 rw = rd + 0.25*u_ring.z*vec2(noise(P*0.9 + 3.0), noise(P*0.9 + 8.0));
+      float rq = length(rw)/u_ring.z;
+      float cav = exp(-rq*rq*1.4);
+      float rim = exp(-pow((rq - 1.05)/0.32, 2.0));
+      sEx += rh*(1.0 - 0.92*cav)*(1.0 + 0.55*rim)*L.z; fab += max(L.y - L.z, 0.0);
       float fu = max(L.x - L.y, 0.0);
       vec2 dv = P - u_eC[3].xy;
       fur += fu*(L.z < 2.0 ? hair(vec2(length(dv), atan(dv.y, dv.x)*7.0)) : 1.0);
-      A += 0.13*cav*(0.75 + 0.5*noise(P*2.2))*smoothstep(0.0, 2.0, L.z);   // a nest of cotton wool
+      A += 0.07*cav*(0.75 + 0.5*noise(P*2.2))*smoothstep(0.0, 2.0, L.z);   // a nest of cotton wool
     }
   }
   // limbs
   for (int li = 0; li < 4; li++){
-    float d, r, sa;
-    tubeQ(li, P, d, r, sa);
+    float d, r, sa, sg;
+    tubeQ(li, P, d, r, sa, sg);
     if (d > r + PILE + 2.6) continue;
     float zc = u_limb[li*8].w;
     float hO = tubeH(d, r, PILE), hS = tubeH(d, r, 0.0), hI = tubeH(d, r, -SKIN);
@@ -751,12 +783,24 @@ void main(){
                uni(vec2(zc - hI, zc + hI), ellI(fe, P, -SKIN)));
     }
     if (L.x <= 0.0) continue;
-    if (li == 0) sRag += L.z; else sEx += rh*L.z;
+    if (li == 0) sRag += L.z;
+    else {
+      // wood wool is pushed in lengthwise: in the limbs the strands follow the limb
+      float m = rh*L.z;
+      sExL += m;
+      if (m > bestL){
+        bestL = m;
+        vec2 a0 = u_limb[li*8].xy, ax = normalize(u_limb[li*8 + 7].xy - a0);
+        vec2 dp = P - a0;
+        limbQ = vec2(dot(dp, ax), ax.x*dp.y - ax.y*dp.x) + float(li)*vec2(13.0, 0.0);
+      }
+    }
     fab += max(L.y - L.z, 0.0);
     float fu = max(L.x - L.y, 0.0);
     fur += fu*(L.z < 1.5 ? hair(vec2(d, sa)) : 1.0)*(li == 0 ? 0.5 : 1.0);
   }
-  if (sEx > 0.0) A += MU_EX*exc(P)*sEx;
+  if (sEx > 0.0) A += MU_EX*exc(P, 0.0)*sEx;
+  if (sExL > 0.0) A += MU_EX*exc(limbQ, 1.0)*sExL;
   if (sRag > 0.0) A += MU_EX*1.9*rags(P)*sRag;
   A += MU_FAB*fab + MU_FUR*wr*fur;
   // ears: two layers of mohair, the rim seam, the pile
@@ -851,13 +895,13 @@ void main(){
   float dHouse = sdBox(s - vec2(0.0, -0.35), vec2(83.0, 27.4), 0.9);
   if (dHouse < 0.0){
     float bev = smoothstep(0.0, 0.6, -dHouse);
-    vec3 hcol = vec3(0.013, 0.014, 0.016)*(0.2 + 0.8*spill*P);
+    vec3 hcol = vec3(0.0065, 0.007, 0.008)*(0.2 + 0.8*spill*P);
     hcol *= 0.85 + 0.15*smoothstep(-27.0, 27.0, s.y);
     hcol += vec3(0.05)*P*exp(-max(dPanel, 0.0)/0.35)*0.5;   // bevel lit by the panel
     col = mix(col, hcol, bev);
     // the clip rail along the top
     float rail = smoothstep(23.0, 23.15, s.y)*(1.0 - smoothstep(25.6, 25.75, s.y));
-    col = mix(col, vec3(0.018, 0.019, 0.021)*(0.5 + 0.5*P) + vec3(0.03)*P*exp(-max(s.y - 23.1, 0.0)/0.25), rail*0.9);
+    col = mix(col, vec3(0.008, 0.0085, 0.009)*(0.5 + 0.5*P) + vec3(0.025)*P*exp(-max(s.y - 23.1, 0.0)/0.2), rail*0.9);
     // dark neighbouring bays
     for (int b = -1; b <= 1; b += 2){
       vec2 c2 = vec2(float(b)*41.0, -0.4);
@@ -923,25 +967,32 @@ void main(){
     col = mix(col, fcol, cov);
   }
 
-  // film clips
+  // film clips: blackened spring clips, backlit, a cold line of light along their edges
+  float clipM = 0.0;
   for (int i = 0; i < 2; i++){
     float cx = i == 0 ? u_clips.x : u_clips.y;
-    vec2 q = s - vec2(cx, 22.35);
-    float d = sdBox(q, vec2(1.45, 1.5), 0.3);
-    d = min(d, sdBox(q - vec2(0.0, 1.55), vec2(0.6, 0.6), 0.15));
-    if (d < 0.0){
-      vec3 m = vec3(0.012, 0.012, 0.013)*(0.6 + 0.4*P);
-      m += vec3(0.05, 0.052, 0.055)*P*exp(d/0.05)*0.6;                         // rim
-      m += vec3(0.02)*P*smoothstep(0.6, 1.4, q.y)*(1.0 - smoothstep(1.4, 1.5, q.y));
-      m += vec3(0.012)*P*(0.5 + 0.5*sin(q.x*14.0))*smoothstep(-1.2, -0.4, q.y)*(1.0 - smoothstep(-0.4, 0.0, q.y));
-      col = mix(col, m, 1.0 - smoothstep(-px, 0.0, d));
+    vec2 q = s - vec2(cx, 22.2);
+    float dJaw = sdBox(q - vec2(0.0, -0.25), vec2(1.25, 1.15), 0.18);
+    float dDrum = sdBox(q - vec2(0.0, 1.1), vec2(1.45, 0.42), 0.4);
+    float dTab = sdBox(q - vec2(0.0, 2.0), vec2(0.45, 0.7), 0.12);
+    float d = min(min(dJaw, dDrum), dTab);
+    if (d < 0.5){
+      float m0 = 1.0 - smoothstep(-px, 0.0, d);
+      vec3 m = vec3(0.006, 0.0065, 0.007)*(0.5 + 0.5*P);
+      float cyl = clamp((q.y - 0.68)/0.84, 0.0, 1.0);
+      m += vec3(0.05, 0.055, 0.06)*P*pow(sin(cyl*3.1416), 6.0)*step(dDrum, 0.0)*0.5;   // highlight on the hinge drum
+      m += vec3(0.012)*P*smoothstep(-0.25, 0.0, dJaw)*step(dJaw, 0.0);
+      m += vec3(0.03)*P*step(abs(q.x) - 0.08, 0.0)*step(abs(q.y - 1.1), 0.08)*0.6;        // rivet
+      m += vec3(0.12, 0.13, 0.14)*P*exp(d/0.035)*pan;                                     // light wrapping the edge
+      col = mix(col, m, m0);
+      clipM = max(clipM, m0);
     }
   }
 
   // bloom: the bright margin and the brightest metal
   float bp = bbox(s, pc, ph, 1.2) - 0.97*bbox(s, u_film.xy, vec2(17.5, 21.5), 1.2);
   float bw = bbox(s, pc, ph, 6.0) - 0.97*bbox(s, u_film.xy, vec2(17.5, 21.5), 6.0);
-  col += cold*P*(max(bp, 0.0)*0.10 + max(bw, 0.0)*0.06);
+  col += cold*P*(max(bp, 0.0)*0.10*(1.0 - 0.7*clipM) + max(bw, 0.0)*0.05);
   vec2 fuv = clamp(fl/vec2(${FW.toFixed(1)}, ${FH.toFixed(1)}) + 0.5, 0.0, 1.0);
   float ab = getA(textureLod(u_tex, fuv, 4.5).r);
   col += cold*P*pow(tone(ab), 2.0)*0.05*(1.0 - smoothstep(-1.0, 2.0, dFilm));
@@ -980,7 +1031,7 @@ void main(){
     return { p, U };
   }
 
-  const DEF_WL = [3.6, 2.2];
+  const DEF_WL = [3.5, 2.1];
 
   (window.PIECES = window.PIECES || []).push({
     id: 'radiograph',
@@ -1149,7 +1200,6 @@ void main(){
           gl.deleteSync(fence);
           const dt = performance.now() - t0;
           y += h;
-          (window.__rgLog = window.__rgLog || []).push(h + ':' + Math.round(dt));
           rows = Math.max(4, Math.min(1024, Math.round(rows * Math.min(2.5, Math.max(0.5, 120 / Math.max(dt, 1))))));
         }
         gl.bindTexture(gl.TEXTURE_2D, t.tex);
@@ -1235,10 +1285,10 @@ void main(){
         if (!(await develop(proof))) return;
         power = 0; display();
         api.ready();
-        window.__rgTimes = { proof: Math.round(performance.now() - tp0) };
+        el.dataset.proofMs = Math.round(performance.now() - tp0);
         raf3 = requestAnimationFrame(strike);
         if (!(await develop(wantRes()))) return;
-        window.__rgTimes.full = Math.round(performance.now() - tp0);
+        el.dataset.fullMs = Math.round(performance.now() - tp0);
         request();
       })();
 

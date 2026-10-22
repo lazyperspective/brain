@@ -51,8 +51,8 @@
 
   const P = {
     paper: hex('#efe4c9'), graphite: hex('#4d443c'), chalk: hex('#f1e6c8'),
-    humus: hex('#30231a'), clay: hex('#74462a'), gravel: hex('#5a4733'), sand: hex('#7a5f40'),
-    sandDeep: hex('#5b4630'), water: hex('#3d4643'), rock: hex('#4b5056'),
+    humus: hex('#30231a'), clay: hex('#74462a'), gravel: hex('#5a4733'), sand: hex('#8a6a44'),
+    sandDeep: hex('#5a4630'), water: hex('#3d4643'), rock: hex('#4b5056'),
     inHumus: hex('#c39d74'), inClay: hex('#d6a26a'), inSand: hex('#d9b27c'), inQueen: hex('#eeb25e'),
     grass: [hex('#6f8a3a'), hex('#879948'), hex('#a7a25a'), hex('#5b7330'), hex('#bfae66'), hex('#7d8f3e'), hex('#94a050')],
     red: hex('#b5302a'), cream: hex('#efe5cf'),
@@ -201,7 +201,7 @@
   function buildScene(W, H, seed) {
     const R = RNG(seed ^ 0x51ed270b);
     const portrait = H > W * 1.05;
-    const L = clamp(Math.min(W / 80, H / 50), 9, 20);
+    const L = clamp(Math.min(W / 88, H / 56), 9, 18);
     const top = Math.round(portrait ? H * 0.18 : H * 0.25);
     const gh = clamp(top * 0.3, 2.4 * L, 5.5 * L);
     const D = H - top;
@@ -217,7 +217,7 @@
     // strata (fractions of depth)
     const fr = {};
     fr.b1 = R.r(0.19, 0.22); fr.b2 = R.r(0.43, 0.45); fr.b3 = fr.b2 + R.r(0.07, 0.085);
-    fr.b4 = R.r(0.83, 0.85); fr.b5 = fr.b4 + R.r(0.045, 0.055); fr.q = R.r(0.67, 0.7);
+    fr.b4 = R.r(0.785, 0.8); fr.b5 = fr.b4 + R.r(0.045, 0.055); fr.q = R.r(0.67, 0.7);
     if (portrait) { fr.b1 = R.r(0.16, 0.19); fr.b2 = R.r(0.4, 0.42); fr.b3 = fr.b2 + 0.06; fr.q = R.r(0.65, 0.68); fr.b4 = 0.84; fr.b5 = 0.885; }
     sc.fr = fr;
     const bn = [null, fbm1(R, 14 * L, 3), fbm1(R, 18 * L, 3), fbm1(R, 12 * L, 2), fbm1(R, 30 * L, 2), fbm1(R, 22 * L, 2)];
@@ -253,6 +253,14 @@
     sc.oakW = (t) => lerp(3.2 * L, 0.5 * L, Math.pow(t, 0.9));
     sc.obst = [];
     sc.oak.forEach((p, i) => { if (i % 2 === 0) sc.obst.push([p[0], p[1], sc.oakW(i / (sc.oak.length - 1)) / 2 + 0.6 * L]); });
+    // a sinker root that goes all the way down to drink at the water table
+    const si = Math.floor(sc.oak.length * R.r(0.35, 0.5)), sp = sc.oak[si];
+    const yEnd = sc.yf(sc.fr.b4) + 0.6 * L;
+    const sk = [[sp[0], sp[1]]]; const nS = 9;
+    for (let i = 1; i <= nS; i++) sk.push([sp[0] + R.r(-1, 1) * L * 1.2 + i * R.r(-0.2, 0.5) * L, lerp(sp[1], yEnd, i / nS)]);
+    sc.sinker = resample(catmull(sk, 4), L * 0.3);
+    sc.sinkerW = (t) => lerp(0.9 * L, 0.18 * L, t);
+    sc.sinker.forEach((p, i) => { if (i % 3 === 0) sc.obst.push([p[0], p[1], 0.5 * L + 0.8 * L]); });
   }
 
   function buildMole(sc, R) {
@@ -296,12 +304,12 @@
     const mkCh = (job, cx, cy, rw, rh) => {
       const ch = { id: chambers.length, job, cx, cy, rw, rh, conn: [false, false] };
       ch.pts = [];
-      const p1 = R.r(0, TAU), p2 = R.r(0, TAU), a1 = R.r(0.03, 0.07);
-      for (let i = 0; i < 44; i++) {
-        const a = (i / 44) * TAU, s = Math.sin(a), co = Math.cos(a);
-        const wob = 1 + (s < 0 ? 1 : 0.25) * (a1 * Math.sin(3 * a + p1) + 0.03 * Math.sin(5 * a + p2));
+      const p1 = R.r(0, TAU), p2 = R.r(0, TAU), a1 = R.r(0.05, 0.1), skew = R.r(-0.25, 0.25);
+      for (let i = 0; i < 48; i++) {
+        const a = (i / 48) * TAU, s = Math.sin(a), co = Math.cos(a);
+        const wob = 1 + (s < 0 ? 1 : 0.2) * (a1 * Math.sin(3 * a + p1) + 0.04 * Math.sin(5 * a + p2) + 0.02 * Math.sin(9 * a + p1));
         const x = cx + rw * co * wob;
-        const y = s < 0 ? cy + rh * s * wob : cy + rh * 0.82 * Math.pow(s, 0.56);
+        const y = s < 0 ? cy + rh * s * wob * (1 + skew * co) : cy + rh * 0.82 * Math.pow(s, 0.56);
         ch.pts.push([x, y]);
       }
       chambers.push(ch); return ch;
@@ -356,50 +364,7 @@
       }
     };
     gadd(shaft);
-    const shaftObst = shaft.pts.filter((p, i) => i % 2 === 0).map((p) => [p[0], p[1], tw * 0.5 + 1.0 * L]);
-
-    // chambers by job
-    const nRest = portrait ? 3 : Math.round(clamp(hwMax / L / 4, 3, 7));
-    const specs = [
-      ['alates', 0.05, 0.11, [3.8, 4.6], [1.75, 2.0], 1, {}],
-      ['crumbs', 0.045, 0.12, [4.8, 6], [1.75, 2.05], 1, { side: 1 }],
-      ['midden', 0.05, 0.15, [3.2, 4.0], [1.3, 1.5], 1, { side: -1, edge: true }],
-      ['pasture', 0.14, Math.min(0.3, fr.b2 - 0.1), [4.6, 5.4], [2.05, 2.3], 1, { root: true }],
-      ['seeds', 0.1, 0.26, [3.4, 4.5], [1.4, 1.65], 2, {}],
-      ['pupae', 0.17, 0.35, [3.9, 4.9], [1.55, 1.8], 2, {}],
-      ['larvae', 0.27, fr.b2 - 0.035, [3.6, 4.6], [1.5, 1.7], 2, {}],
-      ['eggs', fr.b3 + 0.03, fq + 0.03, [3.0, 3.8], [1.3, 1.5], 2, { low: true }],
-      ['rest', 0.07, fr.b2 - 0.04, [2.6, 3.8], [1.15, 1.4], nRest, {}],
-      ['larvae', fr.b3 + 0.03, fq + 0.06, [3.0, 3.8], [1.3, 1.5], 1, { low: true }],
-      ['rest', fr.b3 + 0.03, fq + 0.07, [2.5, 3.1], [1.1, 1.25], 2, { low: true }],
-    ];
-    const allObst = sc.obst.concat(shaftObst);
-    for (const sp of specs) {
-      for (let k = 0; k < sp[5]; k++) {
-        let best = null, bestScore = -1;
-        for (let tr = 0; tr < 260 && (!best || tr < 140); tr++) {
-          const f = R.r(sp[1], sp[2]), y = yf(f), e = env(y);
-          const rw = R.r(sp[3][0], sp[3][1]) * L, rh = R.r(sp[4][0], sp[4][1]) * L;
-          let x;
-          const o = sp[6];
-          if (o.root) x = sc.taprootX(y) + R.r(-0.25, 0.25) * rw;
-          else if (o.side) x = e.c + o.side * R.r(o.edge ? 0.55 : 0.15, 1) * (o.side < 0 ? e.l : e.r);
-          else x = e.c + R.r(-e.l, e.r);
-          if (x - rw < e.c - e.l - rw * 0.35 || x + rw > e.c + e.r + rw * 0.35) continue;
-          if (x - rw < 2.5 * L || x + rw > W - 2.5 * L) continue;
-          if (y - rh < sc.cutY(x) + 2.8 * L) continue;
-          if (y + rh > g0 && y - rh < g1) continue;
-          if (overlaps(x, y, rw, rh, 2.0 * L, 1.7 * L)) continue;
-          if (hitsObst(x, y, rw, rh, allObst)) continue;
-          if (!o.root) { let hit = false; for (const p of sc.taproot) { const dx = (x - p[0]) / (rw + 1.5 * L), dy = (y - p[1]) / (rh + 1.2 * L); if (dx * dx + dy * dy < 1) { hit = true; break; } } if (hit) continue; }
-          // spread: prefer the candidate furthest from others
-          let md = 1e9;
-          for (const c of chambers) md = Math.min(md, Math.hypot((x - c.cx) / 1.6, y - c.cy) - c.rw * 0.5);
-          if (md > bestScore) { bestScore = md; best = [x, y, rw, rh]; }
-        }
-        if (best) mkCh(sp[0], best[0], best[1], best[2], best[3]);
-      }
-    }
+    const shaftObst = shaft.pts.filter((p, i) => i % 2 === 0).map((p) => [p[0], p[1], tw * 0.5 + 0.7 * L]);
 
     // connect chambers with galleries
     const inGravel = (y) => y > yf(fr.b2) - tw && y < yf(fr.b3) + tw;
@@ -425,7 +390,7 @@
         for (const o of sc.obst) if (Math.hypot(p[0] - o[0], p[1] - o[1]) < o[2]) return false;
         if (dT > 2.6 * L && i > 1) {
           let bad = false;
-          gnear(p[0], p[1], tw * 1.9, () => { bad = true; return false; });
+          gnear(p[0], p[1], tw * 1.55, () => { bad = true; return false; });
           if (bad) return false;
         }
       }
@@ -455,18 +420,21 @@
         if (ch.conn[side < 0 ? 0 : 1]) continue;
         const A = attach(ch, side);
         // candidate targets
-        const cands = [];
+        let cands = [];
         for (const t of tunnels) {
           if (opts.excludeTunnels && opts.excludeTunnels.has(t.id)) continue;
-          for (let i = 2; i < t.pts.length - 2; i += 2) {
+          const own = [];
+          for (let i = 3; i < t.pts.length - 3; i += 2) {
             const p = t.pts[i]; const d = Math.hypot(p[0] - A[0], p[1] - A[1]);
             if (d < 2.4 * L || d > (opts.maxD || 30 * L)) continue;
             if (Math.sign(p[0] - A[0]) !== side && Math.abs(p[0] - A[0]) > 1.5 * L) continue;
-            cands.push({ p, d, tunnel: t.id, idx: i, ch: -1 });
+            own.push({ p, d, tunnel: t.id, idx: i, ch: -1 });
           }
+          own.sort((a, b) => a.d - b.d);
+          cands = cands.concat(own.filter((o, j) => j < 3 || j % 4 === 0).slice(0, 8));
         }
         cands.sort((a, b) => a.d - b.d);
-        for (let k = 0; k < Math.min(cands.length, 36); k += (k < 12 ? 1 : 3)) {
+        for (let k = 0; k < Math.min(cands.length, 40); k++) {
           const cd = cands[k];
           const pts = makeCurve(A, side, cd.p);
           if (!validTunnel(pts, ch, cd)) continue;
@@ -483,15 +451,57 @@
       ch.tun = ch.tun || []; ch.tun.push(t.id);
       return true;
     };
-    const order = chambers.filter((c) => c !== Q).map((c) => {
-      let md = 1e9; for (const p of shaft.pts) md = Math.min(md, Math.hypot(p[0] - c.cx, p[1] - c.cy)); return { c, md };
-    }).sort((a, b) => a.md - b.md).map((o) => o.c);
-    let pending = order.slice();
-    for (let pass = 0; pass < 3 && pending.length; pass++) {
-      const left = [];
-      for (const ch of pending) if (!connect(ch, { maxD: 26 * L + pass * 12 * L })) left.push(ch);
-      pending = left;
+    // chambers by job
+    const nRest = portrait ? 3 : Math.round(clamp(hwMax / L / 3.2, 3, 9));
+    const specs = [
+      ['crumbs', 0.04, 0.1, [4.3, 5.2], [1.6, 1.85], 1, { side: 1 }],
+      ['alates', 0.04, 0.11, [3.6, 4.3], [1.7, 1.9], 1, {}],
+      ['pasture', 0.14, Math.min(0.3, fr.b2 - 0.1), [4.2, 5.0], [1.9, 2.15], 1, { root: true }],
+      ['midden', 0.05, 0.15, [3.0, 3.7], [1.25, 1.4], 1, { side: -1, edge: true }],
+      ['pupae', 0.16, 0.34, [3.5, 4.4], [1.45, 1.65], 2, {}],
+      ['larvae', 0.26, fr.b2 - 0.035, [3.3, 4.2], [1.4, 1.6], 2, {}],
+      ['seeds', 0.1, 0.26, [3.1, 4.0], [1.3, 1.5], 2, {}],
+      ['eggs', fr.b3 + 0.03, fq + 0.03, [3.0, 3.8], [1.3, 1.5], 2, { low: true }],
+      ['rest', 0.07, fr.b2 - 0.04, [2.6, 3.8], [1.15, 1.4], nRest, {}],
+      ['larvae', fr.b3 + 0.03, fq + 0.06, [3.0, 3.8], [1.3, 1.5], 1, { low: true }],
+      ['rest', fr.b3 + 0.03, fq + 0.07, [2.5, 3.1], [1.1, 1.25], 2, { low: true }],
+    ];
+    const allObst = sc.obst.concat(shaftObst);
+    for (const sp of specs) {
+      for (let k = 0; k < sp[5]; k++) {
+        const cands = [];
+        for (let tr = 0; tr < 320 && cands.length < 14; tr++) {
+          const rw = R.r(sp[3][0], sp[3][1]) * L, rh = R.r(sp[4][0], sp[4][1]) * L;
+          const f = R.r(sp[1], sp[2]), y = Math.max(yf(f), top + 0.4 * L + 3.0 * L + rh + R.r(0, 1.5) * L * (sp[1] < 0.13 ? 1 : 0)), e = env(y);
+          let x;
+          const o = sp[6];
+          if (o.root) x = sc.taprootX(y) + R.r(-0.25, 0.25) * rw;
+          else if (o.side || o.edge) { const sd = o.side && tr < 160 ? o.side : R.s(); x = e.c + sd * R.r(o.edge ? 0.5 : 0.15, 1) * (sd < 0 ? e.l : e.r); }
+          else x = e.c + R.r(-e.l, e.r);
+          if (x - rw < e.c - e.l - rw * 0.35 || x + rw > e.c + e.r + rw * 0.35) continue;
+          if (x - rw < 2.5 * L || x + rw > W - 2.5 * L) continue;
+          if (y - rh < sc.cutY(x) + 2.8 * L) continue;
+          if (y + rh > g0 && y - rh < g1) continue;
+          if (overlaps(x, y, rw, rh, 1.25 * L, 1.0 * L)) continue;
+          if (hitsObst(x, y, rw, rh, allObst)) continue;
+          if (!o.root) { let hit = false; for (const p of sc.taproot) { const dx = (x - p[0]) / (rw + 1.5 * L), dy = (y - p[1]) / (rh + 1.2 * L); if (dx * dx + dy * dy < 1) { hit = true; break; } } if (hit) continue; }
+          let near = false;
+          gnear(x, y, rw + tw * 1.4, (it, p) => { const dx = (p[0] - x) / (rw + tw * 1.15), dy = (p[1] - y) / (rh + tw * 1.15); if (dx * dx + dy * dy < 1) { near = true; return false; } });
+          if (near) continue;
+          let md = 1e9;
+          for (const c of chambers) md = Math.min(md, Math.hypot((x - c.cx) / 1.6, y - c.cy) - c.rw * 0.5);
+          cands.push({ x, y, rw, rh, score: md + R.r(0, 2 * L) });
+        }
+        cands.sort((a, b) => b.score - a.score);
+        if (window.__nestLog) window.__nestLog.push(sp[0] + ':' + cands.length);
+        for (const cd of cands) {
+          const ch = mkCh(sp[0], cd.x, cd.y, cd.rw, cd.rh);
+          if (connect(ch, { maxD: 30 * L })) break;
+          chambers.pop();
+        }
+      }
     }
+    const pending = [];
     // chambers that could not be reached are abandoned (filled in again)
     const dead = new Set(pending.map((c) => c.id));
     // a few loops: second doors joined back into the network
@@ -635,6 +645,7 @@
     place('worm', 0.04, b1 - 0.04, 5 * L, { bands: [1] });
     place('grub', b1 - 0.05, b1 + 0.07, 2.4 * L, {});
     place('toad', b1 + 0.07, b2 - 0.1, 4.6 * L, { bands: [2] });
+    place('woodlice', 0.0, 0.03, 1.8 * L, { x0: 2 * L, x1: Math.max(4 * L, sc.xb - 2 * L) });
     place('key', 0.03, 0.09, 2.2 * L, {});
     place('cap', 0.07, b1 - 0.03, 1.2 * L, { bands: [1] });
     place('marble', 0.06, b1 - 0.02, 0.9 * L, {});
@@ -643,8 +654,8 @@
     place('coin', b2 - 0.08, b2 - 0.025, 1.2 * L, { bands: [2] });
     place('arrow', b2 + 0.015, b3 - 0.015, 1.4 * L, {});
     place('ammonite', fr.b5 + 0.035, Math.min(0.965, fr.b5 + 0.09), 3.0 * L, { x0: W * 0.4, x1: W - 6 * L });
-    place('mammoth', b2 + 0.02, b3 - 0.02, 3.0 * L, {});
-    place('bottle', b3 + 0.04, fr.b4 - 0.05, 4.2 * L, {});
+    place('mammoth', b2 - 0.07, b2 - 0.035, 2.3 * L, { bands: [2] });
+    place('bottle', b3 + 0.04, fr.b4 - 0.05, 4.2 * L, { x0: W * 0.36, x1: W - 7 * L });
     place('wormball', b1 + 0.08, b2 - 0.06, 2.0 * L, {});
     place('centipede', b1 + 0.02, b2 - 0.05, 3 * L, {});
     sc.items = items;
@@ -930,9 +941,9 @@
     if (opt.bands) { c.strokeStyle = rgba(shade(col, -0.2), 0.5); c.lineWidth = r * 0.08; for (let k = -2; k <= 2; k++) { c.beginPath(); c.moveTo(x - r * 1.5, y + k * r * 0.35 - r * 0.3); c.lineTo(x + r * 1.5, y + k * r * 0.35 + r * 0.3); c.stroke(); } }
     if (opt.spots) { for (let k = 0; k < 5; k++) { c.fillStyle = rgba(shade(col, R.r(-0.4, 0.3)), 0.7); c.beginPath(); c.arc(x + R.r(-r, r), y + R.r(-r, r) * 0.7, r * R.r(0.06, 0.15), 0, TAU); c.fill(); } }
     c.restore();
-    c.fillStyle = rgba(shade(col, 0.55), opt.glass ? 0.95 : 0.6);
-    c.beginPath(); c.ellipse(x - r * 0.35, y - r * 0.38, r * 0.32, r * 0.14, -0.5, 0, TAU); c.fill();
-    if (R.chance(0.5)) { c.fillStyle = rgba(LT, 0.75); c.beginPath(); c.arc(x - r * 0.5, y - r * 0.42, r * 0.07, 0, TAU); c.fill(); }
+    c.fillStyle = rgba(shade(col, 0.45), opt.glass ? 0.95 : 0.32);
+    c.beginPath(); c.ellipse(x - r * 0.35, y - r * 0.38, r * 0.34, r * 0.13, -0.5, 0, TAU); c.fill();
+    if (R.chance(0.2)) { c.fillStyle = rgba(LT, 0.75); c.beginPath(); c.arc(x - r * 0.5, y - r * 0.42, r * 0.07, 0, TAU); c.fill(); }
   }
 
   function paintGravel(c, sc, R, bandPath, clipPoly) {
@@ -946,11 +957,11 @@
       [hex('#5f6b78'), { cortex: true }], [hex('#3a4048'), { cortex: true }], [hex('#d8d2c4'), { vein: true }], [hex('#c79a86'), { bands: true }],
       [hex('#a2582c'), { spots: true }], [hex('#d9cfb0'), {}], [hex('#2b2a2c'), {}], [hex('#8f8a7c'), { spots: true }], [hex('#b88a4e'), { bands: true }], [hex('#6c7d6a'), {}],
     ];
-    for (let i = 0; i < W * (yB - yT) / (L * L) * 1.4; i++) {
-      const r = (R.chance(0.15) ? R.r(1.1, 1.9) : R.r(0.25, 0.9)) * L;
+    for (let i = 0; i < W * (yB - yT) / (L * L) * 5; i++) {
+      const r = (R.chance(0.1) ? R.r(1.0, 1.7) : R.r(0.2, 0.75)) * L;
       const x = R.r(-r, W + r), y = R.r(yT, yB);
       let ok = true;
-      for (let k = peb.length - 1; k >= 0 && ok; k--) { const p = peb[k]; if (Math.abs(p[0] - x) < (p[2] + r) * 1.4 && Math.hypot(p[0] - x, p[1] - y) < (p[2] + r) * 0.92) ok = false; }
+      for (let k = peb.length - 1; k >= 0 && ok; k--) { const p = peb[k]; if (Math.abs(p[0] - x) < (p[2] + r) * 1.4 && Math.hypot(p[0] - x, p[1] - y) < (p[2] + r) * 0.8) ok = false; }
       if (!ok) continue;
       peb.push([x, y, r]);
     }
@@ -968,7 +979,7 @@
       const y0 = R.r(yT, yB), n = fbm1(R, 22 * L, 2);
       const col = R.pick([hex('#a0703a'), hex('#b8925a'), hex('#4f3b28'), hex('#c4a470'), hex('#8a5a2c')]);
       for (let j = 0; j < 5; j++) {
-        c.strokeStyle = rgba(col, R.r(0.05, 0.1)); c.lineWidth = R.r(0.6, 2.2) * L;
+        c.strokeStyle = rgba(col, R.r(0.08, 0.16)); c.lineWidth = R.r(0.6, 2.2) * L;
         c.beginPath(); for (let x = -10; x <= W + 10; x += 12) { const y = y0 + n(x) * 1.6 * L + j * 0.3 * L; if (x < 0) c.moveTo(x, y); else c.lineTo(x, y); } c.stroke();
       }
     }
@@ -981,8 +992,8 @@
       for (let x = -10; x <= W + 10; x += 10) c.lineTo(x, y + nb(x) * 0.6 * L);
       c.lineTo(W + 10, y + h + L); c.lineTo(-10, y + h + L); c.closePath(); c.clip();
       for (let x0 = -run - 10; x0 < W + run; x0 += sp * R.r(0.7, 1.3)) {
-        const col = R.chance(0.5) ? hex('#c8aa78') : hex('#4a3624');
-        c.strokeStyle = rgba(col, R.r(0.12, 0.34)); c.lineWidth = R.r(0.4, 1.1);
+        const col = R.chance(0.5) ? hex('#d6ba88') : hex('#3c2a1a');
+        c.strokeStyle = rgba(col, R.r(0.2, 0.45)); c.lineWidth = R.r(0.5, 1.3);
         c.beginPath(); c.moveTo(x0, y - 0.2 * L); c.quadraticCurveTo(x0 + dir * run * 0.45, y + h * 0.95, x0 + dir * run, y + h + 0.3 * L); c.stroke();
       }
       c.restore();
@@ -1055,11 +1066,11 @@
         c.fillStyle = rgba(shade(col, 0.35), 0.5); c.beginPath(); c.arc(x + r * 0.3, yy + r * 0.5, r * 0.6, 0, Math.PI); c.fill();
       }
       // shell litter
-      for (let k = 0; k < W / L * 0.35; k++) {
+      for (let k = 0; k < W / L * 0.18; k++) {
         const x = R.r(0, W), yy = R.r(beds[i] + 0.4 * L, beds[i + 1] - 0.3 * L);
         c.fillStyle = rgba(hex('#cbc3ae'), R.r(0.45, 0.75));
-        if (R.chance(0.4)) { for (let j = 0; j < R.i(2, 6); j++) { c.beginPath(); c.ellipse(x + j * 0.2 * L, yy, 0.08 * L, 0.16 * L, 0, 0, TAU); c.fill(); } }
-        else { c.beginPath(); c.arc(x, yy, R.r(0.15, 0.4) * L, Math.PI + 0.2, TAU - 0.2); c.fill(); }
+        c.beginPath(); c.arc(x, yy, R.r(0.15, 0.45) * L, Math.PI + 0.15, TAU - 0.15); c.fill();
+        c.strokeStyle = rgba(hex('#8a8270'), 0.5); c.lineWidth = 0.4; c.stroke();
       }
       c.fillStyle = rgba(LT, 0.12); c.beginPath(); for (let x = -10; x <= W + 10; x += 8) { const yy = bedY(i, x) + 0.25 * L; if (x < 0) c.moveTo(x, yy); else c.lineTo(x, yy); } for (let x = W + 10; x >= -10; x -= 8) c.lineTo(x, bedY(i, x) + 0.05 * L); c.fill();
       c.restore();
@@ -1119,15 +1130,15 @@
     const yb = sc.yf(fr.b1);
     // grass roots: a fibrous mat thinning with depth
     c.lineCap = 'round';
-    for (let x = -4; x < W + 4; x += R.r(1.5, 5)) {
+    for (let x = -4; x < W + 4; x += R.r(2.5, 8)) {
       if (x < sc.xb && R.chance(0.5)) continue;
       const len = R.r(0.25, 1.0) * (yb - sc.top) * (R.chance(0.15) ? 1.6 : 1);
       let px = x, py = sc.cutY(x) + R.r(-0.2, 0.6) * L; let a = Math.PI / 2 + R.r(-0.5, 0.5);
       const pts = [[px, py]];
       for (let s = 0; s < len; s += 0.5 * L) { a += R.r(-0.3, 0.3); a = lerp(a, Math.PI / 2, 0.1); px += Math.cos(a) * 0.5 * L; py += Math.sin(a) * 0.5 * L; pts.push([px, py]); }
-      const col = jit(R.pick([hex('#bfa77e'), hex('#d4c19a'), hex('#9d8460'), hex('#e2d4b0')]), R, 10);
-      const w = R.r(0.05, 0.13) * L;
-      c.strokeStyle = rgba(col, R.r(0.45, 0.85)); c.lineWidth = w;
+      const col = jit(R.pick([hex('#a8906a'), hex('#c4ae84'), hex('#8a7252'), hex('#d0c098')]), R, 10);
+      const w = R.r(0.04, 0.11) * L;
+      c.strokeStyle = rgba(col, R.r(0.35, 0.7)); c.lineWidth = w;
       c.beginPath(); openSmooth(c, pts); c.stroke();
       // root hairs
       c.lineWidth = 0.35; c.strokeStyle = rgba(col, 0.35);
@@ -1148,6 +1159,16 @@
   function paintOak(c, sc, R) {
     const { L } = sc;
     const col = hex('#5b3c26');
+    rootPath(c, R, sc.sinker, sc.sinkerW, hex('#6a4630'));
+    // root hairs drinking at the bottom
+    const se = sc.sinker[sc.sinker.length - 1];
+    c.strokeStyle = rgba(hex('#c8b08a'), 0.55); c.lineWidth = 0.45;
+    for (let k = 0; k < 40; k++) { let px = se[0] + R.r(-0.8, 0.8) * L, py = se[1] - R.r(0, 3) * L; c.beginPath(); c.moveTo(px, py); for (let j = 0; j < 4; j++) { px += R.r(-0.5, 0.5) * L; py += R.r(0, 0.4) * L; c.lineTo(px, py); } c.stroke(); }
+    for (let i = 5; i < sc.sinker.length - 3; i += R.i(3, 6)) {
+      const p = sc.sinker[i]; let a = Math.PI / 2 + R.s() * R.r(0.6, 1.2), px = p[0], py = p[1];
+      const pts = [[px, py]]; for (let k = 0; k < R.i(3, 7); k++) { a += R.r(-0.3, 0.3); px += Math.cos(a) * 0.5 * L; py += Math.sin(a) * 0.5 * L; pts.push([px, py]); }
+      c.strokeStyle = rgba(hex('#7a5a3a'), 0.85); c.lineWidth = 0.12 * L; c.beginPath(); openSmooth(c, pts); c.stroke();
+    }
     rootPath(c, R, sc.oak, sc.oakW, col);
     // bark: furrows along the root
     c.save(); c.beginPath(); taper(c, sc.oak, sc.oakW); c.clip();
@@ -1225,38 +1246,52 @@
     // the mole: velvet body heading left, snout and spade hands
     const hd = pts[pts.length - 1], h2 = pts[pts.length - 4];
     const ang = Math.atan2(hd[1] - h2[1], hd[0] - h2[0]);
-    c.save(); c.translate(hd[0] + 3.2 * L, hd[1] + 0.1 * L); c.rotate(ang + Math.PI);
-    // body (extends back off the slab)
-    const bodyCol = hex('#2a2a2e');
-    c.fillStyle = rgba(bodyCol);
-    c.beginPath(); c.ellipse(3.0 * L, 0, 4.0 * L, 1.35 * L, 0, 0, TAU); c.fill();
-    // velvet sheen
-    for (let i = 0; i < 160; i++) {
-      const x = R.r(-0.6, 7) * L, y = R.r(-1.2, 1.1) * L;
-      if (((x - 3 * L) / (4 * L)) ** 2 + (y / (1.35 * L)) ** 2 > 1) continue;
-      c.strokeStyle = rgba(y < -0.3 * L ? hex('#6c6c78') : hex('#3c3c44'), R.r(0.25, 0.6)); c.lineWidth = 0.5;
-      c.beginPath(); c.moveTo(x, y); c.lineTo(x + 0.35 * L, y + R.r(-0.05, 0.05) * L); c.stroke();
+    c.save(); c.translate(hd[0] + 2.4 * L, hd[1] + 0.15 * L); c.rotate(ang + Math.PI);
+    c.scale(L, L);
+    const body = new Path2D();
+    body.moveTo(-1.5, -0.7);
+    body.bezierCurveTo(-0.8, -1.3, 1.2, -1.55, 3.0, -1.4);
+    body.bezierCurveTo(5.0, -1.3, 7.0, -1.25, 9.0, -1.2);
+    body.lineTo(9.0, 1.2);
+    body.bezierCurveTo(6.0, 1.3, 2.0, 1.4, 0.2, 1.1);
+    body.bezierCurveTo(-1.0, 0.95, -1.9, 0.5, -2.0, 0.0);
+    body.bezierCurveTo(-2.0, -0.35, -1.8, -0.55, -1.5, -0.7);
+    body.closePath();
+    c.fillStyle = rgba(hex('#26262b')); c.fill(body);
+    c.save(); c.clip(body);
+    // velvet: short strokes laid back along the body, catching light on the shoulders
+    for (let i = 0; i < 520; i++) {
+      const x = R.r(-2, 9), y = R.r(-1.5, 1.4);
+      const top = y < -0.4;
+      c.strokeStyle = rgba(top ? hex('#6e6e7a') : y > 0.6 ? hex('#141417') : hex('#3a3a42'), R.r(0.25, 0.6)); c.lineWidth = 0.035;
+      c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 0.15, y - 0.03, x + 0.3, y + R.r(-0.04, 0.04)); c.stroke();
     }
-    c.fillStyle = rgba(hex('#8a8a96'), 0.35); c.beginPath(); c.ellipse(2.6 * L, -0.8 * L, 3 * L, 0.3 * L, 0, 0, TAU); c.fill();
-    // head & snout
-    c.fillStyle = rgba(bodyCol); c.beginPath(); c.ellipse(-0.6 * L, 0.05 * L, 1.3 * L, 0.95 * L, 0.08, 0, TAU); c.fill();
-    c.fillStyle = rgba(hex('#d99a90'));
-    c.beginPath(); c.moveTo(-1.5 * L, -0.35 * L); c.quadraticCurveTo(-2.7 * L, -0.25 * L, -2.85 * L, 0.05 * L); c.quadraticCurveTo(-2.6 * L, 0.3 * L, -1.6 * L, 0.35 * L); c.closePath(); c.fill();
-    c.fillStyle = rgba(hex('#f2c2b4'), 0.7); c.beginPath(); c.ellipse(-2.3 * L, -0.12 * L, 0.35 * L, 0.08 * L, 0, 0, TAU); c.fill();
-    c.fillStyle = rgba(hex('#5a2a28')); c.beginPath(); c.arc(-2.78 * L, 0.02 * L, 0.06 * L, 0, TAU); c.fill();
-    // whiskers
-    c.strokeStyle = rgba(hex('#e8e0d0'), 0.6); c.lineWidth = 0.4;
-    for (let k = 0; k < 7; k++) { c.beginPath(); c.moveTo(-2.5 * L, 0); c.lineTo(-2.5 * L - R.r(0.4, 1.0) * L, R.r(-0.7, 0.7) * L); c.stroke(); }
-    // tiny eye (hidden in fur)
-    c.fillStyle = rgba(hex('#0a0a0c')); c.beginPath(); c.arc(-1.2 * L, -0.3 * L, 0.06 * L, 0, TAU); c.fill();
-    // spade hand
-    c.fillStyle = rgba(hex('#e0a898'));
-    c.beginPath(); c.ellipse(-1.1 * L, 0.85 * L, 0.75 * L, 0.42 * L, -0.4, 0, TAU); c.fill();
-    c.strokeStyle = rgba(hex('#f4ece0'), 0.9); c.lineWidth = 0.08 * L;
-    for (let k = 0; k < 5; k++) { const a = -2.6 + k * 0.28; c.beginPath(); c.moveTo(-1.1 * L + Math.cos(a) * 0.6 * L, 0.85 * L + Math.sin(a + 1.6) * 0.3 * L); c.lineTo(-1.1 * L + Math.cos(a) * 1.0 * L, 0.85 * L + Math.sin(a + 1.6) * 0.45 * L); c.stroke(); }
-    c.strokeStyle = rgba(hex('#9a6a60'), 0.6); c.lineWidth = 0.5; c.beginPath(); c.ellipse(-1.1 * L, 0.85 * L, 0.75 * L, 0.42 * L, -0.4, 0, TAU); c.stroke();
+    c.fillStyle = 'rgba(160,160,176,0.22)'; c.beginPath(); c.ellipse(1.8, -1.05, 2.6, 0.25, -0.03, 0, TAU); c.fill();
     c.restore();
-    // tunnel turns away from us at the slab edge: dark oval
+    // snout
+    c.fillStyle = rgba(hex('#d99a90'));
+    c.beginPath(); c.moveTo(-1.75, -0.38); c.quadraticCurveTo(-2.7, -0.3, -3.05, 0.0); c.quadraticCurveTo(-2.75, 0.28, -1.85, 0.3); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(150,90,84,0.6)'; c.lineWidth = 0.03;
+    for (let k = 0; k < 6; k++) { const x = -2.0 - k * 0.15; c.beginPath(); c.moveTo(x, -0.3 + k * 0.03); c.lineTo(x - 0.02, -0.18 + k * 0.025); c.stroke(); }
+    c.fillStyle = rgba(hex('#f4c8bc'), 0.75); c.beginPath(); c.ellipse(-2.4, -0.16, 0.38, 0.06, 0.05, 0, TAU); c.fill();
+    c.fillStyle = rgba(hex('#5a2a28')); c.beginPath(); c.ellipse(-3.0, -0.02, 0.05, 0.08, 0, 0, TAU); c.fill();
+    c.strokeStyle = 'rgba(240,232,220,0.65)'; c.lineWidth = 0.025;
+    for (let k = 0; k < 9; k++) { c.beginPath(); c.moveTo(-2.7, R.r(-0.1, 0.12)); c.quadraticCurveTo(-3.1, R.r(-0.5, 0.5), -3.1 - R.r(0.2, 0.8), R.r(-0.8, 0.8)); c.stroke(); }
+    // a bead of an eye, lost in the fur
+    c.fillStyle = '#060608'; c.beginPath(); c.arc(-1.25, -0.42, 0.06, 0, TAU); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.7)'; c.beginPath(); c.arc(-1.27, -0.44, 0.02, 0, TAU); c.fill();
+    // the great spade of a hand, palm outward
+    c.save(); c.translate(-1.55, 0.75); c.rotate(-0.5);
+    c.fillStyle = rgba(hex('#e2aa9a')); c.beginPath(); c.ellipse(0, 0, 0.72, 0.5, 0, 0, TAU); c.fill();
+    c.strokeStyle = rgba(hex('#a8706a'), 0.7); c.lineWidth = 0.03; c.stroke();
+    c.strokeStyle = rgba(hex('#f6eee2')); c.lineWidth = 0.09; c.lineCap = 'round';
+    for (let k = 0; k < 5; k++) { const a = -2.0 + k * 0.32; c.beginPath(); c.moveTo(Math.cos(a) * 0.62, Math.sin(a) * 0.42); c.lineTo(Math.cos(a) * 1.0, Math.sin(a) * 0.7); c.stroke(); }
+    c.strokeStyle = 'rgba(160,100,90,0.5)'; c.lineWidth = 0.025;
+    for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(-0.3 + k * 0.15, -0.25); c.lineTo(-0.2 + k * 0.12, 0.25); c.stroke(); }
+    c.restore();
+    // a crumb of soil caught on a claw
+    c.fillStyle = rgba(hex('#5a3a24')); c.beginPath(); c.arc(-2.45, 0.2, 0.12, 0, TAU); c.fill();
+    c.restore();
   }
 
   /* --- buried things and neighbours */
@@ -1379,26 +1414,32 @@
       it.anchor = [0, 0];
     },
     mammoth(c, R, it, L) {
-      // a mammoth's molar in the river gravel: enamel plates like a stack of books
-      c.rotate(it.rot * 0.3);
-      c.fillStyle = rgba(hex('#14100c'), 0.6); c.beginPath(); c.ellipse(0.15 * L, 0.25 * L, 3.0 * L, 1.9 * L, 0, 0, TAU); c.fill();
-      // roots
-      c.fillStyle = rgba(hex('#8a6a44'));
-      for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(-2.2 * L + k * 1.3 * L, 0.6 * L); c.lineTo(-1.6 * L + k * 1.3 * L, 0.6 * L); c.lineTo(-1.85 * L + k * 1.3 * L + R.r(-0.2, 0.2) * L, 1.5 * L); c.closePath(); c.fill(); }
-      const crown = new Path2D();
-      crown.moveTo(-2.7 * L, 0.7 * L); crown.quadraticCurveTo(-2.9 * L, -0.6 * L, -2.3 * L, -1.3 * L); crown.quadraticCurveTo(0, -1.6 * L, 2.4 * L, -1.1 * L);
-      crown.quadraticCurveTo(2.9 * L, -0.2 * L, 2.6 * L, 0.7 * L); crown.closePath();
-      c.fillStyle = rgba(hex('#6a4e32')); c.fill(crown);
-      c.save(); c.clip(crown);
-      for (let k = 0; k < 12; k++) {
-        const x = -2.6 * L + k * 0.45 * L;
-        c.fillStyle = rgba(hex('#e4d6b4'), 0.95); c.beginPath(); c.moveTo(x, -1.7 * L); c.quadraticCurveTo(x + 0.25 * L, -0.4 * L, x - 0.05 * L, 0.9 * L); c.lineTo(x + 0.14 * L, 0.9 * L); c.quadraticCurveTo(x + 0.38 * L, -0.4 * L, x + 0.14 * L, -1.7 * L); c.closePath(); c.fill();
-        c.fillStyle = rgba(hex('#3a2a1a'), 0.5); c.fillRect(x + 0.16 * L, -1.7 * L, 0.05 * L, 2.6 * L);
-      }
-      c.fillStyle = rgba(hex('#2a1a10'), 0.25); c.fillRect(-3 * L, 0.1 * L, 6 * L, 1 * L);
+      // a horseshoe, cast by a carthorse ploughing this field, rusted to the colour of the clay
+      c.rotate(it.rot * 0.6 + 0.4);
+      c.fillStyle = rgba(hex('#1a0f08'), 0.55); c.beginPath(); c.ellipse(0.15 * L, 0.2 * L, 2.4 * L, 2.2 * L, 0, 0, TAU); c.fill();
+      const shoe = new Path2D();
+      shoe.moveTo(-1.6 * L, 1.7 * L);
+      shoe.bezierCurveTo(-2.3 * L, 0.2 * L, -1.9 * L, -1.95 * L, 0, -1.95 * L);
+      shoe.bezierCurveTo(1.9 * L, -1.95 * L, 2.3 * L, 0.2 * L, 1.6 * L, 1.7 * L);
+      shoe.lineTo(0.85 * L, 1.75 * L);
+      shoe.bezierCurveTo(1.35 * L, 0.3 * L, 1.1 * L, -1.15 * L, 0, -1.15 * L);
+      shoe.bezierCurveTo(-1.1 * L, -1.15 * L, -1.35 * L, 0.3 * L, -0.85 * L, 1.75 * L);
+      shoe.closePath();
+      c.fillStyle = rgba(hex('#7a3e1c')); c.fill(shoe);
+      c.save(); c.clip(shoe);
+      for (let k = 0; k < 40; k++) { c.fillStyle = rgba(R.pick([hex('#a85a26'), hex('#4a2410'), hex('#c07a3a'), hex('#5a3a2a')]), R.r(0.4, 0.8)); c.beginPath(); c.arc(R.r(-2, 2) * L, R.r(-2, 1.8) * L, R.r(0.05, 0.22) * L, 0, TAU); c.fill(); }
+      c.strokeStyle = rgba(hex('#3a1c0c'), 0.7); c.lineWidth = 0.12 * L;
+      c.beginPath(); c.moveTo(-1.25 * L, 1.6 * L); c.bezierCurveTo(-1.85 * L, 0.2 * L, -1.5 * L, -1.55 * L, 0, -1.55 * L); c.bezierCurveTo(1.5 * L, -1.55 * L, 1.85 * L, 0.2 * L, 1.25 * L, 1.6 * L); c.stroke();
       c.restore();
-      c.fillStyle = rgba(LT, 0.4); c.beginPath(); c.ellipse(-0.5 * L, -1.3 * L, 1.6 * L, 0.12 * L, -0.03, 0, TAU); c.fill();
-      it.anchor = [0, -0.5 * L];
+      // nail holes, one nail still in
+      for (let k = 0; k < 6; k++) {
+        const a = Math.PI * (0.95 + k * 0.22) + (k > 2 ? 0.25 : 0), x = Math.cos(a) * 1.55 * L, y = Math.sin(a) * 1.55 * L * 1.05;
+        c.fillStyle = rgba(hex('#1a0c06')); c.fillRect(x - 0.08 * L, y - 0.12 * L, 0.16 * L, 0.24 * L);
+        if (k === 4) { c.fillStyle = rgba(hex('#6a6a6a')); c.fillRect(x - 0.1 * L, y - 0.1 * L, 0.2 * L, 0.2 * L); c.strokeStyle = rgba(hex('#555')); c.lineWidth = 0.08 * L; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 0.5 * L, y + 0.4 * L); c.stroke(); }
+      }
+      c.strokeStyle = rgba(hex('#e0a060'), 0.45); c.lineWidth = 0.1 * L;
+      c.beginPath(); c.arc(0, 0.1 * L, 1.85 * L, Math.PI * 1.15, Math.PI * 1.55); c.stroke();
+      it.anchor = [0, -1.5 * L];
     },
     bottle(c, R, it, L) {
       // a time capsule: green glass, a cork, a rolled letter tied with ribbon
@@ -1447,6 +1488,28 @@
       c.strokeStyle = rgba(hex('#a8585e')); c.lineWidth = 0.38 * L; c.beginPath(); openSmooth(c, coil); c.stroke();
       c.strokeStyle = rgba(hex('#f0c8c0'), 0.5); c.lineWidth = 0.08 * L; c.beginPath(); openSmooth(c, coil.map((p) => [p[0] - 0.05 * L, p[1] - 0.12 * L])); c.stroke();
       c.strokeStyle = rgba(hex('#d07a62'), 0.85); c.lineWidth = 0.42 * L; c.beginPath(); openSmooth(c, coil.slice(8, 14)); c.stroke();
+      it.anchor = [0, 0];
+    },
+    woodlice(c, R, it, L) {
+      // two woodlice in the damp under the blanket: one going about its business, one declining to
+      c.fillStyle = rgba(hex('#140d08'), 0.75); c.beginPath(); c.ellipse(0, 0.1 * L, 1.9 * L, 0.8 * L, 0, 0, TAU); c.fill();
+      c.save(); c.translate(-0.55 * L, 0.05 * L); c.scale(it.flip, 1);
+      const g = hex('#7a7c80');
+      c.strokeStyle = rgba(hex('#4a4a4e')); c.lineWidth = 0.05 * L; c.lineCap = 'round';
+      for (let k = 0; k < 7; k++) { const x = -0.55 * L + k * 0.17 * L; c.beginPath(); c.moveTo(x, 0.1 * L); c.lineTo(x - 0.05 * L, 0.38 * L); c.stroke(); }
+      c.fillStyle = rgba(g); c.beginPath(); c.ellipse(0, 0, 0.75 * L, 0.36 * L, 0, Math.PI, TAU); c.lineTo(0.75 * L, 0.12 * L); c.lineTo(-0.75 * L, 0.12 * L); c.fill();
+      c.strokeStyle = rgba(hex('#3e3f44'), 0.8); c.lineWidth = 0.035 * L;
+      for (let k = 1; k < 8; k++) { const x = -0.75 * L + k * 0.19 * L; c.beginPath(); c.moveTo(x, 0.1 * L); c.quadraticCurveTo(x + 0.03 * L, -0.25 * L, x, -Math.sqrt(Math.max(0, 1 - (x / (0.75 * L)) ** 2)) * 0.36 * L); c.stroke(); }
+      c.fillStyle = rgba(LT, 0.35); c.beginPath(); c.ellipse(-0.1 * L, -0.25 * L, 0.45 * L, 0.06 * L, 0, 0, TAU); c.fill();
+      c.strokeStyle = rgba(hex('#5a5a60')); c.lineWidth = 0.04 * L;
+      c.beginPath(); c.moveTo(0.7 * L, -0.05 * L); c.quadraticCurveTo(1.0 * L, -0.4 * L, 1.15 * L, -0.15 * L); c.moveTo(0.72 * L, 0); c.quadraticCurveTo(1.05 * L, -0.15 * L, 1.2 * L, 0.05 * L); c.stroke();
+      c.restore();
+      // the rolled-up one
+      const bx = 1.05 * L, by = 0.15 * L, r = 0.42 * L;
+      c.fillStyle = rgba(hex('#5e6064')); c.beginPath(); c.arc(bx, by, r, 0, TAU); c.fill();
+      c.strokeStyle = rgba(hex('#34353a'), 0.85); c.lineWidth = 0.03 * L;
+      for (let k = -2; k <= 2; k++) { c.beginPath(); c.ellipse(bx + k * 0.14 * L, by, Math.max(0.02, r * (1 - Math.abs(k) * 0.3)) * 0.35, r * Math.sqrt(1 - (k * 0.3) ** 2), 0, 0, TAU); c.stroke(); }
+      c.fillStyle = rgba(LT, 0.4); c.beginPath(); c.arc(bx - r * 0.35, by - r * 0.4, r * 0.18, 0, TAU); c.fill();
       it.anchor = [0, 0];
     },
     key(c, R, it, L) {
@@ -2271,7 +2334,7 @@
     // a seed clock behind, half its parachutes gone
     if (!sc.portrait || sc.W > 360) {
       const cb = sc.plane(sc.xd + 4.2 * L, 0.8);
-      const ch = Math.min(top * 0.66, hH * 1.12);
+      const ch = Math.min(top * 0.5, hH * 1.05);
       const cpts = []; const lean2 = -R.r(0.5, 1.5) * L;
       for (let i = 0; i <= 10; i++) { const t = i / 10; cpts.push([cb[0] + lean2 * t * t, cb[1] - ch * t]); }
       c.fillStyle = rgba(hex('#8a9a5a')); c.beginPath(); taper(c, cpts, () => 0.3 * L); c.fill();
@@ -2362,7 +2425,7 @@
       if (sc.portrait && pri > 2) return;
       const w = textWidth(c, txt, fs) + 4, h = fs * 1.25;
       const dirs = prefer || [[1, -1], [-1, -1], [1, 1], [-1, 1], [0, -1], [0, 1], [1, 0], [-1, 0]];
-      for (const dist of [1.0, 1.8, 2.8, 4.0, 5.4]) {
+      for (const dist of [0.8, 1.4, 2.1, 3.0]) {
         for (const d of dirs) {
           const ox = ax + d[0] * dist * L * 1.3, oy = ay + d[1] * dist * L;
           const bx = d[0] > 0 ? ox : d[0] < 0 ? ox - w : ox - w / 2;
@@ -2401,6 +2464,7 @@
     il('worm', 'earthworm', 2);
     il('wormball', 'earthworm, knotted up until it rains', 2);
     il('grub', 'chafer grub', 3);
+    il('woodlice', 'woodlice, keeping out of the sun', 2);
     il('toad', 'toad, retired for the season', 1);
     il('key', 'front door key, lost Thursday', 1);
     il('cap', 'bottle cap, 1987', 3);
@@ -2409,7 +2473,7 @@
     il('pipe', 'clay pipe, c. 1860', 3);
     il('coin', 'penny, 1797', 3);
     il('arrow', 'flint arrowhead, c. 2500 BC', 2);
-    il('mammoth', 'mammoth tooth, 40,000 years', 2);
+    il('mammoth', 'horseshoe, c. 1890', 2);
     il('bottle', 'time capsule, buried on Coronation Day, 1911', 2);
     il('ammonite', 'ammonite, 180 million years', 2);
     il('centipede', 'centipede (not invited)', 3);
@@ -2547,7 +2611,7 @@
     c.fillStyle = 'rgba(30,16,8,0.22)'; c.beginPath(); c.ellipse(-0.05, -0.005, 0.38, 0.035, 0, 0, TAU); c.fill();
     // legs
     const legPath = (far) => {
-      const p = new Path2D();
+      const p = c; c.beginPath();
       for (let i = 0; i < 3; i++) {
         const L = m.legs[i];
         const tri = (i === 1 ? 1 : 0) ^ (far ? 1 : 0);
@@ -2564,23 +2628,21 @@
         p.moveTo(hx, hy); p.lineTo(kk[0], kk[1]); p.lineTo(kk[2], kk[3]);
         p.lineTo(kk[2] + L[5] * 0.065, kk[3] + 0.004);
       }
-      return p;
     };
-    c.strokeStyle = ANT_COL.far; c.lineWidth = lw * 0.9; c.stroke(legPath(true));
+    c.strokeStyle = ANT_COL.far; c.lineWidth = lw * 0.9; legPath(true); c.stroke();
     // far antenna
     const an = m.ant;
     const touch = a.state === 'touch' ? 1 : 0;
     const wave = (ph, sp) => Math.sin(t * sp + a.seedPh + ph);
     const antPath = (far) => {
-      const p = new Path2D();
+      const p = c; c.beginPath();
       const s1 = -1.1 + 0.14 * wave(far ? 1.3 : 0, 2.3) + touch * 0.45 - (a.state === 'dwell' ? 0.15 : 0);
       const ex = an[0] + Math.cos(s1) * an[2] - (far ? 0.015 : 0), ey = an[1] + Math.sin(s1) * an[2];
       const f1 = s1 + 1.35 + 0.3 * wave(far ? 2.1 : 0.4, 3.1) - touch * 0.45 + touch * 0.25 * wave(far ? 1 : 0, 19);
       const tx = ex + Math.cos(f1) * an[3], ty = ey + Math.sin(f1) * an[3];
       p.moveTo(an[0], an[1]); p.lineTo(ex, ey); p.quadraticCurveTo(ex + Math.cos(f1 - 0.25) * an[3] * 0.55, ey + Math.sin(f1 - 0.25) * an[3] * 0.55, tx, ty);
-      return p;
     };
-    c.strokeStyle = ANT_COL.far; c.lineWidth = lw * 0.75; c.stroke(antPath(true));
+    c.strokeStyle = ANT_COL.far; c.lineWidth = lw * 0.75; antPath(true); c.stroke();
     // wings sit behind for alates
     if (m.wings && !a.dealate) {
       c.fillStyle = 'rgba(228,232,236,0.28)'; c.fill(m.w2);
@@ -2591,7 +2653,7 @@
     if (a.full) { c.fillStyle = 'rgba(214,150,60,0.45)'; c.fill(m.g); }
     c.fillStyle = a.col || ANT_COL.body; c.fill(m.pet); c.fill(m.meso); c.fill(m.head); c.fill(m.mand);
     // near legs
-    c.strokeStyle = a.legCol || ANT_COL.leg; c.lineWidth = lw; c.stroke(legPath(false));
+    c.strokeStyle = a.legCol || ANT_COL.leg; c.lineWidth = lw; legPath(false); c.stroke();
     // highlights
     c.strokeStyle = ANT_COL.hi; c.lineWidth = 0.028; c.stroke(m.hg);
     c.fillStyle = 'rgba(222,176,124,0.45)'; c.fill(m.hh); c.fill(m.hm);
@@ -2610,7 +2672,7 @@
       c.fillStyle = 'rgba(255,255,255,0.4)'; c.beginPath(); c.ellipse(-0.25, -0.33, 0.12, 0.008, -0.05, 0, TAU); c.fill();
     }
     // near antenna
-    c.strokeStyle = a.legCol || ANT_COL.leg; c.lineWidth = lw * 0.85; c.stroke(antPath(false));
+    c.strokeStyle = a.legCol || ANT_COL.leg; c.lineWidth = lw * 0.85; antPath(false); c.stroke();
     // the thing she carries
     if (a.carry) drawCarry(c, a.carry, m.carry[0], m.carry[1], a.carrySeed);
     c.restore();
@@ -2887,6 +2949,7 @@
     return [x + fx * off, y + fy * off - (a.zoff || 0), ang, flip];
   }
 
+  window.__colonyDebug = { buildScene, buildGraph };
   /* ================================================================ MOUNT */
   (window.PIECES = window.PIECES || []).push({
     id: 'colony',
@@ -2937,8 +3000,8 @@
         live.width = base.width; live.height = base.height;
         sc = scn; board = cv;
         life = makeColony(sc, api.seed);
-        lens.r = clamp(Math.min(W, H) * 0.15, 70, 150);
-        const q = sc.Q; lens.rest = [q.cx, q.cy - q.rh * 0.1];
+        lens.r = clamp(Math.min(W, H) * 0.12, 62, 132);
+        const q = sc.Q; const qa = life.queen; const qp = posOf(sc, qa); lens.rest = [qp[0] - (qa.dir > 0 ? 0.1 : -0.1) * sc.L * 2.25, qp[1] - 0.2 * sc.L * 2.25];
         if (!lens.user) { lens.x = lens.tx = lens.rest[0]; lens.y = lens.ty = lens.rest[1]; }
         // let the colony settle into motion before the first frame
         for (let i = 0; i < 30; i++) life.update(0.05, i * 0.05);
@@ -2968,7 +3031,7 @@
         // lens drift
         if (!lens.user || now - lens.lastMove > 9000) { lens.tx = lens.rest[0]; lens.ty = lens.rest[1]; }
         lens.x += (lens.tx - lens.x) * (lens.user ? 0.35 : 0.06); lens.y += (lens.ty - lens.y) * (lens.user ? 0.35 : 0.06);
-        draw(t);
+        const t0 = performance.now(); draw(t); window.__colonyFrame = performance.now() - t0;
       }
 
       const order = [];
