@@ -823,7 +823,7 @@ void main(){
   for (int li = 0; li < 4; li++){
     float d, r, sa, sg;
     tubeQ(li, P, d, r, sa, sg);
-    r += (li == 0 ? 0.26 : 0.1)*noise(vec2(sa*0.75, float(li)*5.0 + sg*0.6)) + (li == 0 ? 0.12*noise(P*1.4) : 0.0);
+    r += (li == 0 ? 0.16 : 0.1)*noise(vec2(sa*0.6, float(li)*5.0 + sg*0.6)) + (li == 0 ? 0.07*noise(P*1.2) : 0.0);
     if (d > r + PILE + 2.6) continue;
     float zc = u_limb[li*8].w;
     float hO = tubeH(d, r, dO), hS = tubeH(d, r, dS), hI = tubeH(d, r, dI);
@@ -861,7 +861,7 @@ void main(){
     vec2 q = P - e.xy;
     vec2 ou = vec2(cos(e.w), sin(e.w));
     q = vec2(dot(q, vec2(ou.y, -ou.x)), dot(q, ou));
-    float sd = max(length(q) - e.z, -(q.y + 0.25*e.z));
+    float sd = max(length(q) - e.z, -(q.y + 0.25*e.z)) - jo*0.35;
     if (sd > PILE + 0.2) continue;
     float inside = 1.0 - smoothstep(-0.03, 0.03, sd);
     float cup = 1.0 - clamp(dot(q, q)/(e.z*e.z), 0.0, 1.0);
@@ -1083,7 +1083,7 @@ void main(){
     return { p, U };
   }
 
-  const DEF_WL = [3.5, 2.1];
+  const DEF_WL = [3.5, 2.3];
 
   (window.PIECES = window.PIECES || []).push({
     id: 'radiograph',
