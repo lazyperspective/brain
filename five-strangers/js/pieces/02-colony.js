@@ -493,7 +493,6 @@
           cands.push({ x, y, rw, rh, score: md + R.r(0, 2 * L) });
         }
         cands.sort((a, b) => b.score - a.score);
-        if (window.__nestLog) window.__nestLog.push(sp[0] + ':' + cands.length);
         for (const cd of cands) {
           const ch = mkCh(sp[0], cd.x, cd.y, cd.rw, cd.rh);
           if (connect(ch, { maxD: 30 * L })) break;
@@ -653,7 +652,7 @@
     place('pipe', b1 + 0.08, b2 - 0.08, 3.0 * L, {});
     place('coin', b2 - 0.08, b2 - 0.025, 1.2 * L, { bands: [2] });
     place('arrow', b2 + 0.015, b3 - 0.015, 1.4 * L, {});
-    place('ammonite', fr.b5 + 0.035, Math.min(0.965, fr.b5 + 0.09), 3.0 * L, { x0: W * 0.4, x1: W - 6 * L });
+    place('ammonite', fr.b5 + 0.035, Math.min(0.965, fr.b5 + 0.09), 3.0 * L, { x0: W * 0.4, x1: W - 13 * L });
     place('mammoth', b2 - 0.07, b2 - 0.035, 2.3 * L, { bands: [2] });
     place('bottle', b3 + 0.04, fr.b4 - 0.05, 4.2 * L, { x0: W * 0.36, x1: W - 7 * L });
     place('wormball', b1 + 0.08, b2 - 0.06, 2.0 * L, { x1: W - 24 * L });
@@ -952,7 +951,7 @@
     c.save(); c.beginPath(); closedSmooth(c, pts); c.clip();
     c.fillStyle = rgba(shade(col, -0.35), 0.75);
     c.beginPath(); c.ellipse(x + r * 0.55, y + r * 0.6, r * 1.3, r * 0.9, -0.5, 0, TAU); c.fill();
-    if (opt.cortex) { c.strokeStyle = rgba(hex('#e9e4d6'), 0.85); c.lineWidth = r * 0.28; c.beginPath(); closedSmooth(c, pts); c.stroke(); }
+    if (opt.cortex) { c.fillStyle = rgba(hex('#e2dccb'), 0.9); c.beginPath(); const a0 = R.r(0, TAU); c.ellipse(x + Math.cos(a0) * r * 1.1, y + Math.sin(a0) * r * 0.9, r * 0.9, r * 0.6, a0, 0, TAU); c.fill(); }
     if (opt.vein) { c.strokeStyle = rgba(LT, 0.5); c.lineWidth = r * 0.1; c.beginPath(); c.moveTo(x - r * 1.4, y + R.r(-r, r)); c.lineTo(x + r * 1.4, y + R.r(-r, r)); c.stroke(); }
     if (opt.bands) { c.strokeStyle = rgba(shade(col, -0.2), 0.5); c.lineWidth = r * 0.08; for (let k = -2; k <= 2; k++) { c.beginPath(); c.moveTo(x - r * 1.5, y + k * r * 0.35 - r * 0.3); c.lineTo(x + r * 1.5, y + k * r * 0.35 + r * 0.3); c.stroke(); } }
     if (opt.spots) { for (let k = 0; k < 5; k++) { c.fillStyle = rgba(shade(col, R.r(-0.4, 0.3)), 0.7); c.beginPath(); c.arc(x + R.r(-r, r), y + R.r(-r, r) * 0.7, r * R.r(0.06, 0.15), 0, TAU); c.fill(); } }
@@ -1264,8 +1263,8 @@
     const ang = Math.atan2(hd[1] - h2[1], hd[0] - h2[0]);
     c.save();
     c.beginPath(); taper(c, pts.concat([[hd[0] - 4 * L, hd[1]]]), () => m.r * 2.05); c.clip();
-    c.translate(hd[0] + 2.4 * L, hd[1] + 0.15 * L); c.rotate(ang + Math.PI);
-    c.scale(L, L);
+    c.translate(hd[0] + 2.0 * L, hd[1] + 0.3 * L); c.rotate(ang + Math.PI);
+    c.scale(L * 0.85, L * 0.8);
     const body = new Path2D();
     body.moveTo(-1.5, -0.7);
     body.bezierCurveTo(-0.8, -1.3, 1.2, -1.55, 3.0, -1.4);
@@ -1275,13 +1274,13 @@
     body.bezierCurveTo(-1.0, 0.95, -1.9, 0.5, -2.0, 0.0);
     body.bezierCurveTo(-2.0, -0.35, -1.8, -0.55, -1.5, -0.7);
     body.closePath();
-    c.fillStyle = rgba(hex('#2c2b30')); c.fill(body);
+    c.fillStyle = rgba(hex('#353034')); c.fill(body);
     c.save(); c.clip(body);
     // velvet: short strokes laid back along the body, catching light on the shoulders
     for (let i = 0; i < 900; i++) {
       const x = R.r(-2, 16), y = R.r(-1.5, 1.4);
       const top = y < -0.4;
-      c.strokeStyle = rgba(top ? hex('#6e6e7a') : y > 0.6 ? hex('#141417') : hex('#3a3a42'), R.r(0.25, 0.6)); c.lineWidth = 0.035;
+      c.strokeStyle = rgba(top ? hex('#86808a') : y > 0.6 ? hex('#18151a') : hex('#4a444c'), R.r(0.25, 0.6)); c.lineWidth = 0.035;
       c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 0.15, y - 0.03, x + 0.3, y + R.r(-0.04, 0.04)); c.stroke();
     }
     c.fillStyle = 'rgba(170,168,184,0.2)'; c.beginPath(); c.ellipse(4, -0.95, 6, 0.3, -0.01, 0, TAU); c.fill();
@@ -1330,7 +1329,7 @@
       const pts = []; const n = 22; const ph = R.r(0, TAU), amp = R.r(1.2, 2) * L, len = 9 * L;
       for (let i = 0; i <= n; i++) { const t = i / n; pts.push([(t - 0.5) * len * it.flip, Math.sin(t * 5 + ph) * amp * (0.6 + t * 0.4) + (t - 0.5) * 2 * L]); }
       c.lineCap = 'round'; c.lineJoin = 'round';
-      c.strokeStyle = rgba(hex('#140d09'), 0.75); c.lineWidth = 1.05 * L; c.beginPath(); openSmooth(c, pts.concat([[pts[n][0] + it.flip * 1.5 * L, pts[n][1] + 1.2 * L]])); c.stroke();
+      c.strokeStyle = rgba(hex('#140d09'), 0.75); c.lineWidth = 1.05 * L; c.beginPath(); openSmooth(c, pts); c.stroke();
       c.strokeStyle = rgba(hex('#4b3526')); c.lineWidth = 0.8 * L; c.beginPath(); openSmooth(c, pts); c.stroke();
       const wf = (t) => L * 0.62 * (t < 0.1 ? 0.55 + t * 4.5 : t > 0.85 ? 1 - (t - 0.85) * 3 : 1);
       const body = pts.slice(1, n);
@@ -1866,6 +1865,15 @@
     for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(0.05 - k * 0.06, -0.05); c.quadraticCurveTo(0.1 - k * 0.1, -0.25, 0.0 - k * 0.08, -0.22); c.stroke(); }
     c.restore();
   }
+  function pile(sc, R, ch, fc, hw, hMax, n, base, fn) {
+    const items = [];
+    for (let i = 0; i < n; i++) {
+      const u = R.r(-1, 1), hm = hMax * Math.pow(Math.max(0, 1 - u * u), 0.8);
+      items.push([clamp(fc + u * hw, 0.02, 0.98), base + R.f() * hm]);
+    }
+    items.sort((a, b) => b[1] - a[1]);
+    for (const it of items) { const q = onFloor(sc, ch, it[0], it[1]); fn(q[0], q[1]); }
+  }
   function onFloor(sc, ch, f, lift) { const x = lerp(ch.cx - ch.rw * 0.85, ch.cx + ch.rw * 0.85, f); return [x, sc.floorY(ch, x) - lift]; }
 
   function paintNestContents(c, sc, R) {
@@ -1877,24 +1885,19 @@
       if (job === 'eggs' || job === 'queen') {
         const piles = job === 'queen' ? 1 : 2;
         for (let p = 0; p < piles; p++) {
-          const fc = job === 'queen' ? (sc.Q.cx > sc.E[0] ? 0.12 : 0.88) : R.r(0.25, 0.75);
-          const n = job === 'queen' ? 26 : 40;
-          for (let i = 0; i < n; i++) {
-            const h = Math.pow(R.f(), 1.6);
-            const q = onFloor(sc, ch, clamp(fc + R.g() * 0.08 * (1 - h), 0.02, 0.98), 0.14 * L + h * 0.75 * L);
-            egg(c, R, q[0], q[1], 1.8 * L);
-          }
+          const fc = job === 'queen' ? (sc.Q.cx > sc.E[0] ? 0.3 : 0.7) : R.r(0.25, 0.75);
+          pile(sc, R, ch, fc, job === 'queen' ? 0.12 : 0.17, 0.75 * L, job === 'queen' ? 34 : 60, 0.12 * L, (x, y) => egg(c, R, x, y, 1.8 * L));
         }
       } else if (job === 'larvae') {
         // sorted by size, as nurses do
-        const n = Math.floor(ch.rw / L * 2.0);
+        const n = Math.floor(ch.rw / L * 2.6);
         for (let i = 0; i < n; i++) {
           const f = (i + R.r(0, 0.5)) / n, s = L * lerp(1.0, 2.3, f);
           const q = onFloor(sc, ch, 0.04 + f * 0.92, s * 0.17 + (R.chance(0.25) ? s * 0.22 : 0));
           larva(c, R, q[0], q[1], s, R.s());
         }
       } else if (job === 'pupae') {
-        const n = Math.floor(ch.rw / L * 1.7);
+        const n = Math.floor(ch.rw / L * 3.0);
         for (let i = 0; i < n; i++) {
           const f = R.r(0.03, 0.97), row = R.chance(0.3) ? 1 : 0;
           const q = onFloor(sc, ch, f, L * (0.18 + row * 0.3));
@@ -1905,21 +1908,9 @@
         pupa(c, R, q[0] - 0.12 * L, q[1] - 0.08 * L, 1.75 * L, 0.1);
         ch.callow = q;
       } else if (job === 'seeds') {
-        const n = Math.floor(ch.rw / L * 10);
-        for (let i = 0; i < n; i++) {
-          const h = Math.pow(R.f(), 1.4);
-          const f = clamp(0.5 + R.g() * 0.22 * (1 - h * 0.5), 0.02, 0.98);
-          const q = onFloor(sc, ch, f, 0.1 * L + h * 1.1 * L * Math.pow(1 - Math.abs(f - 0.5) * 2, 0.6));
-          seed(c, R, q[0], q[1], 1.7 * L, R.i(0, 3));
-        }
+        pile(sc, R, ch, R.r(0.45, 0.55), 0.42, 1.15 * L, Math.floor(ch.rw / L * 26), 0.1 * L, (x, y) => seed(c, R, x, y, 1.7 * L, R.i(0, 3)));
       } else if (job === 'crumbs') {
-        const n = Math.floor(ch.rw / L * 8);
-        for (let i = 0; i < n; i++) {
-          const h = Math.pow(R.f(), 1.5);
-          const f = clamp(0.55 + R.g() * 0.2, 0.02, 0.98);
-          const q = onFloor(sc, ch, f, 0.12 * L + h * 1.3 * L * Math.pow(1 - Math.abs(f - 0.55) * 2, 0.6));
-          crumb(c, R, q[0], q[1], 1.9 * L);
-        }
+        pile(sc, R, ch, R.r(0.5, 0.62), 0.36, 1.25 * L, Math.floor(ch.rw / L * 14), 0.15 * L, (x, y) => crumb(c, R, x, y, 1.9 * L));
       } else if (job === 'midden') {
         const n = Math.floor(ch.rw / L * 9);
         for (let i = 0; i < n; i++) {
@@ -2006,7 +1997,9 @@
       c.lineCap = 'butt';
       c.strokeStyle = rgba(hex('#160d08')); c.lineWidth = sc.tw + 0.18 * L; c.beginPath(); openSmooth(c, mouth); c.stroke();
       c.strokeStyle = rgba(shade(P.inHumus, -0.38)); c.lineWidth = sc.tw; c.beginPath(); openSmooth(c, mouth); c.stroke();
-      c.strokeStyle = rgba(shade(P.inHumus, -0.1)); c.lineWidth = sc.tw * 0.6; c.beginPath(); openSmooth(c, mouth.map((p) => [p[0], p[1] + 0.12 * L])); c.stroke();
+      const mg = c.createLinearGradient(0, mouth[0][1], 0, sc.cutY(Ex) + 1.2 * L);
+      mg.addColorStop(0, rgba(shade(P.inHumus, -0.62))); mg.addColorStop(1, rgba(shade(P.inHumus, -0.1)));
+      c.strokeStyle = mg; c.lineWidth = sc.tw * 0.6; c.beginPath(); openSmooth(c, mouth.map((p) => [p[0], p[1] + 0.12 * L])); c.stroke();
       c.restore();
       // pellets tumbling into the rim of the hole
       for (let i = 0; i < 10; i++) { const x = Ex + R.s() * R.r(0.45, 0.9) * sc.tw, y = mtop(x) + R.r(-0.1, 0.2) * L; c.fillStyle = rgba(jit(hex('#b07040'), R, 15)); c.beginPath(); poly(c, R, x, y, R.r(0.1, 0.17) * L, 6, 0.3); c.fill(); }
@@ -2232,7 +2225,7 @@
     const { L } = sc;
     const a = sc.blanketTop(sc.apple.x, sc.apple.z);
     const x = a[0], y = a[1];
-    const s = L * 1.05;
+    const s = L * (sc.portrait ? 0.85 : 1.05);
     c.save(); c.translate(x, y);
     c.fillStyle = rgba(hex('#3a1010'), 0.3); c.beginPath(); c.ellipse(0.6 * s, 0, 2.6 * s, 0.45 * s, 0, 0, TAU); c.fill();
     const skin = hex('#b8302a'), skin2 = hex('#d8a83a'), flesh = hex('#f0dfae'), brown = hex('#c49a58');
@@ -2432,6 +2425,7 @@
     const m0 = sc.mole.pts[sc.mole.pts.length - 1];
     boxes.push([m0[0] - 3.5 * L, m0[1] - sc.mole.r - 0.3 * L, W - m0[0] + 4 * L, sc.mole.r * 2 + 0.6 * L]);
     boxes.push([-10, 0, sc.xb + 3 * L, sc.cutY(sc.xb) + 3.8 * L]); // blanket & its flap
+    sc.oak.forEach((p, i) => { if (i % 3 === 0) { const w = sc.oakW(i / (sc.oak.length - 1)) * 0.5; boxes.push([p[0] - w, p[1] - w, 2 * w, 2 * w]); } });
     boxes.push([0, 0, W, sc.cutY(W / 2) + 1.2 * L]); // keep labels below the turf
     boxes.push([0, H - 7.5 * L, Math.min(W * 0.45, 30 * L), 7.5 * L]); // the gallery's own label lives here
     const hit = (b) => { for (const o of boxes) if (b[0] < o[0] + o[2] && b[0] + b[2] > o[0] && b[1] < o[1] + o[3] && b[1] + b[3] > o[1]) return true; return false; };
@@ -2443,7 +2437,7 @@
       if (sc.portrait && pri > 2) return;
       const w = textWidth(c, txt, fs) + 4, h = fs * 1.25;
       const dirs = prefer || [[1, -1], [-1, -1], [1, 1], [-1, 1], [0, -1], [0, 1], [1, 0], [-1, 0]];
-      for (const dist of [0.8, 1.4, 2.1, 3.0]) {
+      for (const dist of (pri <= 1 ? [0.8, 1.4, 2.1, 3.0, 4.2, 5.6] : [0.8, 1.4, 2.1, 3.0])) {
         for (const d of dirs) {
           const ox = ax + d[0] * dist * L * 1.3, oy = ay + d[1] * dist * L;
           const bx = d[0] > 0 ? ox : d[0] < 0 ? ox - w : ox - w / 2;
@@ -2468,14 +2462,14 @@
     const top = (ch) => [ch.cx + ch.rw * R.r(-0.3, 0.3), ch.cy - ch.rh * 0.8];
     label('Her Majesty', Q.cx + Q.rw * 0.25, Q.cy - Q.rh * 0.75, 0, [[1, -1], [-1, -1], [1, 1], [-1, 1]]);
     const once = (job, txt, pri) => { const c2 = chs(job)[0]; if (c2) { const t2 = top(c2); label(txt, t2[0], t2[1], pri); } };
+    once('alates', 'winged queens and males, waiting for the weather', 0);
+    once('crumbs', 'crumbs (arrived 1.06 pm)', 0);
     once('eggs', 'eggs', 1);
     once('larvae', 'larvae, sorted by size', 1);
     once('pupae', 'pupae in their cocoons', 1);
     once('seeds', 'seed store', 1);
-    once('crumbs', 'crumbs (arrived 1.06 pm)', 0);
     once('pasture', 'root aphids, kept for honeydew', 1);
     once('midden', 'midden', 2);
-    once('alates', 'winged queens and males, waiting for the weather', 1);
     const items = {};
     for (const it of sc.items) items[it.name] = it;
     const il = (n, txt, pri) => { const it = items[n]; if (it) label(txt, it.x + (it.anchor ? it.anchor[0] : 0), it.y + (it.anchor ? it.anchor[1] : 0), pri); };
@@ -2496,10 +2490,7 @@
     il('ammonite', 'ammonite, 180 million years', 2);
     il('centipede', 'centipede (not invited)', 3);
     label('mole (approaching)', m0[0] - 1.5 * L, m0[1] - 1.0 * L, 1, [[-1, -1], [-1, 1], [0, -1], [0, 1]]);
-    const tp = sc.taproot[Math.floor(sc.taproot.length * 0.75)];
-    label('dandelion taproot', tp[0], tp[1], 3);
-    const ok = sc.oak[Math.floor(sc.oak.length * 0.35)];
-    label('oak root', ok[0], ok[1], 3);
+
     // strata names down the right edge, small caps
     const lx = W - 8;
     const lay = [['TOPSOIL', 0.03 + fr.b1 * 0.5], ['CLAY', (fr.b1 + fr.b2) / 2], ['GRAVEL', (fr.b2 + fr.b3) / 2], ['SAND', (fr.b3 + fr.b4) / 2], ['WATER TABLE', (fr.b4 + fr.b5) / 2 + 0.008], ['LIMESTONE', Math.min(0.965, fr.b5 + 0.06)]];
@@ -2542,7 +2533,7 @@
     if (kind === 'queen') {
       G = [-0.36, -0.215, 0.27, 0.17, -0.18]; H = [0.215, -0.26, 0.085, 0.075, 0.3];
       mesoPts = [[-0.08, -0.15], [-0.09, -0.24], [-0.03, -0.29], [0.04, -0.31], [0.11, -0.29], [0.15, -0.25], [0.13, -0.18], [0.05, -0.15]];
-      legs = [[0.1, -0.165, 0.13, 0.14, 0.2, 1], [0.03, -0.155, 0.14, 0.15, 0.05, -1], [-0.04, -0.158, 0.17, 0.18, -0.17, -1]];
+      legs = [[0.1, -0.165, 0.14, 0.15, 0.21, 1], [0.03, -0.155, 0.15, 0.16, 0.05, -1], [-0.04, -0.158, 0.18, 0.19, -0.18, -1]];
       ant = [0.26, -0.3, 0.13, 0.16]; carry = [0.34, -0.2];
     } else if (kind === 'male') {
       G = [-0.29, -0.21, 0.16, 0.1, -0.25]; H = [0.21, -0.27, 0.07, 0.065, 0.25];
@@ -2557,7 +2548,7 @@
     } else {
       G = [-0.31, -0.2, 0.2, 0.15, -0.3]; H = [0.225, -0.255, 0.095, 0.08, 0.3];
       mesoPts = [[-0.075, -0.16], [-0.08, -0.225], [-0.035, -0.24], [0.0, -0.25], [0.05, -0.285], [0.11, -0.28], [0.15, -0.25], [0.13, -0.19], [0.07, -0.165], [0.0, -0.152]];
-      legs = [[0.105, -0.175, 0.15, 0.16, 0.24, 1], [0.035, -0.165, 0.16, 0.18, 0.07, -1], [-0.04, -0.168, 0.2, 0.22, -0.2, -1]];
+      legs = [[0.105, -0.175, 0.17, 0.19, 0.26, 1], [0.035, -0.165, 0.18, 0.2, 0.07, -1], [-0.04, -0.168, 0.22, 0.25, -0.24, -1]];
       ant = [0.28, -0.3, 0.16, 0.2]; carry = [0.38, -0.2];
     }
     el(g, G[0], G[1], G[2], G[3], G[4]);
@@ -2577,7 +2568,7 @@
     for (let k = 1; k <= 3; k++) { const x = G[0] + G[2] * (0.5 - k * 0.33); bands.ellipse(x, G[1] + (x - G[0]) * Math.tan(G[4]) * -0.0, G[2] * 0.12, G[3] * 0.95, G[4], -Math.PI / 2.4, Math.PI / 2.4); }
     m.bands = bands;
     const hairs = new Path2D();
-    for (let k = 0; k < 7; k++) { const a = Math.PI * (0.95 + k * 0.12); const x = G[0] + Math.cos(a + G[4]) * G[2], y = G[1] + Math.sin(a + G[4]) * G[3]; hairs.moveTo(x, y); hairs.lineTo(x + Math.cos(a + G[4]) * 0.035, y + Math.sin(a + G[4]) * 0.035 - 0.01); }
+    for (let k = 0; k < 7; k++) { const a = Math.PI * (0.95 + k * 0.12); const x = G[0] + Math.cos(a + G[4]) * G[2], y = G[1] + Math.sin(a + G[4]) * G[3]; hairs.moveTo(x, y); hairs.lineTo(x + Math.cos(a + G[4]) * 0.02, y + Math.sin(a + G[4]) * 0.02 - 0.006); }
     m.hairs = hairs;
     m.eye = [H[0] + H[2] * 0.15, H[1] - H[3] * 0.2, kind === 'male' ? 0.04 : 0.026];
     m.legs = legs; m.ant = ant; m.carry = carry;
@@ -2613,7 +2604,7 @@
     return k1y < k2y ? [k1x, k1y, fx, fy] : [k2x, k2y, fx, fy];
   }
 
-  const ANT_COL = { body: '#2b1a12', gaster: '#23150e', leg: '#2a1810', far: 'rgba(78,54,38,0.85)', hi: 'rgba(222,176,124,0.6)' };
+  const ANT_COL = { body: '#2b1a12', gaster: '#23150e', leg: '#2a1810', far: 'rgba(78,54,38,0.85)', hi: 'rgba(226,182,130,0.72)' };
 
   function drawAnt(c, a, t, k, pxs) {
     const m = a.m;
@@ -2627,6 +2618,8 @@
     c.lineCap = 'round'; c.lineJoin = 'round';
     // contact shadow
     c.fillStyle = 'rgba(30,16,8,0.22)'; c.beginPath(); c.ellipse(-0.05, -0.005, 0.38, 0.035, 0, 0, TAU); c.fill();
+    const lift = m.kind === 'worker' ? 0.05 : 0.03;
+    c.translate(0, -lift);
     // legs
     const legPath = (far) => {
       const p = c; c.beginPath();
@@ -2639,6 +2632,7 @@
           if (ph < 0.5) { fx = L[4] + A - 4 * A * ph; fy = 0; }
           else { fx = L[4] - A + 4 * A * (ph - 0.5); fy = -0.06 * Math.sin((ph - 0.5) * 2 * Math.PI); }
         } else { fx = L[4] + (far ? -0.02 : 0.015) * (i - 1); fy = 0; }
+        fy += lift;
         let hx = L[0], hy = L[1];
         if (far) { hx -= 0.012; hy -= 0.01; fx -= 0.03; fy -= 0.02; }
         if (a.groom && i === 0 && !far) { fx = 0.3; fy = -0.32 + 0.03 * Math.sin(t * 12); }
@@ -2673,11 +2667,12 @@
     // near legs
     c.strokeStyle = a.legCol || ANT_COL.leg; c.lineWidth = lw; legPath(false); c.stroke();
     // highlights
+    c.save(); c.globalAlpha = 0.16; c.fillStyle = '#e8c49a'; c.translate(m.G[0], m.G[1] - m.G[3] * 0.3); c.scale(0.7, 0.45); c.translate(-m.G[0], -m.G[1]); c.fill(m.g); c.restore();
     c.strokeStyle = ANT_COL.hi; c.lineWidth = 0.028; c.stroke(m.hg);
     c.fillStyle = 'rgba(222,176,124,0.45)'; c.fill(m.hh); c.fill(m.hm);
     if (zoomPx > 22) {
       c.strokeStyle = 'rgba(160,120,90,0.35)'; c.lineWidth = Math.max(0.01, 0.6 / zoomPx); c.stroke(m.bands);
-      c.strokeStyle = 'rgba(40,24,14,0.8)'; c.stroke(m.hairs);
+      c.strokeStyle = 'rgba(60,40,26,0.55)'; c.stroke(m.hairs);
     }
     c.fillStyle = 'rgba(255,244,226,0.9)'; c.beginPath(); c.arc(m.G[0] + 0.03, m.G[1] - m.G[3] * 0.55, 0.018, 0, TAU); c.fill();
     // eye
@@ -2806,7 +2801,7 @@
     }
     // the queen herself
     const Q = sc.Q, qf = floorOf(Q);
-    const queen = mk('queen', 'queen', qf.id, qf.len * 0.5, { size: 2.25, dir: Q.cx > sc.E[0] ? 1 : -1, timer: 1e9, zoff: 0, dealate: true, speed: L * 0.4 });
+    const queen = mk('queen', 'queen', qf.id, qf.len * 0.5, { size: 2.25, dir: Q.cx > sc.E[0] ? 1 : -1, timer: 1e9, zoff: 0, dealate: true, speed: L * 0.4, col: '#3b2317' });
     queen.isQueen = true;
     // travellers
     const nT = Math.round((sc.portrait ? 75 : 165) * clamp(sc.W * sc.H / 1.6e6, 0.6, 1.4));
@@ -2967,7 +2962,6 @@
     return [x + fx * off, y + fy * off - (a.zoff || 0), ang, flip];
   }
 
-  window.__colonyDebug = { buildScene, buildGraph };
   /* ================================================================ MOUNT */
   (window.PIECES = window.PIECES || []).push({
     id: 'colony',
@@ -2989,6 +2983,7 @@
       const lc = live.getContext('2d');
       let sc = null, board = null, S = 1, life = null, W = 0, H = 0, dpr = dprCap, readyCalled = false;
       const M = 3;
+      let lensSrc = null, lensCtx = null, lensKey = '';
       // loupe state
       const lens = { x: 0, y: 0, tx: 0, ty: 0, r: 100, user: false, lastMove: -1e9 };
 
@@ -3001,7 +2996,7 @@
         buildGraph(scn);
         const cv = document.createElement('canvas');
         cv.width = Math.round(W * S); cv.height = Math.round(H * S);
-        const c = cv.getContext('2d');
+        const c = cv.getContext('2d', { willReadFrequently: true }); // CPU-backed: painted once, sampled by the loupe
         c.setTransform(S, 0, 0, S, 0, 0);
         const tasks = paintTasks(scn, c, S);
         let t0 = performance.now();
@@ -3017,9 +3012,9 @@
         bc.drawImage(cv, 0, 0, base.width, base.height);
         live.width = base.width; live.height = base.height;
         sc = scn; board = cv;
-        life = makeColony(sc, api.seed); window.__colonyAnts = life.ants.length;
+        life = makeColony(sc, api.seed);
         lens.r = clamp(Math.min(W, H) * 0.12, 62, 132);
-        const q = sc.Q; const qa = life.queen; const qp = posOf(sc, qa); lens.rest = [qp[0] - (qa.dir > 0 ? 0.1 : -0.1) * sc.L * 2.25, qp[1] - 0.2 * sc.L * 2.25];
+        const q = sc.Q; const qa = life.queen; const qp = posOf(sc, qa); lens.rest = [qp[0] - (qa.dir > 0 ? 0.3 : -0.3) * sc.L * 2.25, qp[1] - 1.4 * sc.L];
         if (!lens.user) { lens.x = lens.tx = lens.rest[0]; lens.y = lens.ty = lens.rest[1]; }
         // let the colony settle into motion before the first frame
         for (let i = 0; i < 30; i++) life.update(0.05, i * 0.05);
@@ -3047,9 +3042,9 @@
           }
         }
         // lens drift
-        if (!lens.user || now - lens.lastMove > 9000) { lens.tx = lens.rest[0]; lens.ty = lens.rest[1]; }
+        if (!lens.user || (lens.touch && now - lens.lastMove > 7000)) { lens.user = false; lens.tx = lens.rest[0]; lens.ty = lens.rest[1]; }
         lens.x += (lens.tx - lens.x) * (lens.user ? 0.35 : 0.06); lens.y += (lens.ty - lens.y) * (lens.user ? 0.35 : 0.06);
-        const t0 = performance.now(); draw(t); window.__colonyFrame = performance.now() - t0;
+        draw(t);
       }
 
       const order = [];
@@ -3071,9 +3066,13 @@
         // shadow of the lens on the board
         c.fillStyle = 'rgba(10,6,3,0.35)'; c.beginPath(); c.arc(x + r * 0.08, y + r * 0.12, r * 1.06, 0, TAU); c.fill();
         c.beginPath(); c.arc(x, y, r, 0, TAU); c.clip();
-        const sw = (2 * r / M);
+        const sw = (2 * r / M), px = Math.ceil(sw * S) + 2;
+        // copy just the patch under the glass into a small canvas (cheap to upload), only when it moves
+        if (!lensSrc || lensSrc.width !== px) { lensSrc = document.createElement('canvas'); lensSrc.width = lensSrc.height = px; lensCtx = lensSrc.getContext('2d', { willReadFrequently: true }); lensKey = ''; }
+        const sx = Math.round((x - sw / 2) * S), sy = Math.round((y - sw / 2) * S), key = sx + ',' + sy;
+        if (key !== lensKey) { lensKey = key; lensCtx.fillStyle = '#1b1510'; lensCtx.fillRect(0, 0, px, px); lensCtx.drawImage(board, sx, sy, px, px, 0, 0, px, px); }
         c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
-        c.drawImage(board, (x - sw / 2) * S, (y - sw / 2) * S, sw * S, sw * S, x - r, y - r, 2 * r, 2 * r);
+        c.drawImage(lensSrc, 0, 0, px, px, x - r - (((x - sw / 2) * S - sx) * M / S), y - r - (((y - sw / 2) * S - sy) * M / S), px * M / S, px * M / S);
         // ants under the glass, drawn again at 3x
         c.translate(x, y); c.scale(M, M); c.translate(-x, -y);
         const rr = r / M + sc.L * 2;
@@ -3097,9 +3096,9 @@
         const rect = el.getBoundingClientRect();
         let x = e.clientX - rect.left, y = e.clientY - rect.top;
         if (e.pointerType === 'touch') y -= lens.r * 1.1;
-        lens.tx = x; lens.ty = y; lens.user = true; lens.lastMove = performance.now();
+        lens.tx = x; lens.ty = y; lens.user = true; lens.touch = e.pointerType === 'touch'; lens.lastMove = performance.now();
       };
-      const onLeave = () => { lens.user = false; };
+      const onLeave = (e) => { if (e.pointerType !== 'touch') lens.user = false; };
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerdown', onMove);
       el.addEventListener('pointerleave', onLeave);

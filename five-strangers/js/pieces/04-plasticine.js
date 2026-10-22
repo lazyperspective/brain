@@ -33,7 +33,7 @@ uniform sampler2D uPrev; uniform float uN;
 uniform vec3 uO; uniform float uYaw, uTilt, uMelt, uLid;
 uniform vec3 uFP; uniform vec4 uHP1, uHP2;
 uniform vec3 uCCard, uCTrou, uCTie, uCWallA, uCWallB, uCWallC;
-uniform float uBoil, uDbg, uProf;
+uniform float uBoil;
 out vec4 oC;
 
 #define WZ (-3.3)
@@ -42,7 +42,7 @@ out vec4 oC;
 #define RN 15.
 #define RZ (-1.65)
 
-float P[12];
+float P[13];
 int gM;
 
 float h13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
@@ -109,7 +109,7 @@ vec3 headSpace(vec3 q){
 float man(vec3 q, vec3 p, float rad, float dc, bool full){
   float m = uMelt;
   const float BIG = 1e5;
-  float skin=BIG, card=BIG, trou=BIG, shoe=BIG, hair=BIG, eye=BIG, shirt=BIG, tie=BIG, porc=BIG, tea=BIG, btn=BIG;
+  float skin=BIG, card=BIG, trou=BIG, shoe=BIG, hair=BIG, eye=BIG, shirt=BIG, tie=BIG, porc=BIG, tea=BIG, btn=BIG, spoon=BIG;
   float bnd = BIG, b;
   // ---------- head ----------
   b = sdBox(q-vec3(0.,5.8,0.35), vec3(1.65,1.75,1.7));
@@ -261,13 +261,16 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
     float sau = max(abs(sq.y-0.11*rho*rho)-0.035, rho-0.7)-0.012;
     sau = min(sau, length(vec2(rho-0.33, sq.y+0.02))-0.035);
     porc = min(cup, sau);
+    // a teaspoon, resting on the saucer
+    spoon = sdCap(sq, vec3(-0.42,0.075,-0.18), vec3(0.12,0.05,0.12), 0.022);
+    spoon = min(spoon, sdEll(sq-vec3(0.22,0.05,0.18), vec3(0.11,0.025,0.075)));
   } else bnd = min(bnd, b);
-  P[0]=skin; P[1]=card; P[2]=trou; P[3]=shoe; P[4]=hair; P[5]=eye; P[6]=shirt; P[7]=tie; P[8]=porc; P[9]=tea; P[10]=btn;
+  P[0]=skin; P[1]=card; P[2]=trou; P[3]=shoe; P[4]=hair; P[5]=eye; P[6]=shirt; P[7]=tie; P[8]=porc; P[9]=tea; P[10]=btn; P[11]=spoon;
   float d = min(skin, card);
   d = smin(d, trou, 0.06);
   d = min(min(d, shoe), min(hair, eye));
   d = min(d, min(min(shirt, tie), btn));
-  d = min(d, min(porc, tea));
+  d = min(d, min(min(porc, tea), spoon));
   return min(d, bnd);
 }
 
@@ -332,7 +335,7 @@ float onePrint(vec3 q, vec3 n, vec3 c, float R, vec3 r, float sw, float fade){
   float msk = smoothstep(R, R*0.4, dist);
   // a print is partial: the pad rolled off one side
   msk *= smoothstep(-0.05, 0.15, dot(uv, normalize(r.yz+0.01)) + R*0.6);
-  return msk*(ridge*0.0065*fade - 0.016*(1.-rr/R)*(1.-rr/R));
+  return msk*(ridge*0.0052*fade - 0.016*(1.-rr/R)*(1.-rr/R));
 }
 float prints(vec3 q, vec3 n, float fade){
   float acc = 0.;
@@ -355,7 +358,8 @@ float detail(vec3 q, vec3 p, vec3 n, int part, float fade, float melt){
   float d = 0.;
   float sm = 1.-melt;
   // hand-made unevenness and the long drag of a thumb smoothing it
-  d += (fbm(q*2.1+uFP+uBoil*0.05)-0.5)*0.035*sm;
+  d += (fbm(q*2.1+uFP+uBoil*0.05)-0.5)*0.05*sm;
+  d += (vn(q*5.3+uFP.yzx)-0.5)*0.012*sm;
   float sdir = dot(q, normalize(vec3(0.7,0.4,0.2)));
   d += (vn(vec3(sdir*2.5, dot(q,vec3(-0.3,0.9,0.1))*14., q.z*3.))-0.5)*0.01*sm;
   if (part==0 || part==1 || part==2 || part==6 || part==3) d += prints(q, n, fade)*sm;
@@ -432,7 +436,7 @@ vec3 clayCol(vec3 q, int part, float melt){
     float fl2 = vn(pw*1.6+4.+fl);
     c = mix(c, uCCard, smoothstep(0.45,0.62,fl)*melt*0.85);
     c = mix(c, vec3(0.8,0.37,0.22), smoothstep(0.62,0.75,fl2)*melt*0.7);
-    c = mix(c, vec3(0.72,0.7,0.62), smoothstep(0.82,0.9,vn(pw*2.3+9.))*melt*0.6);
+    c = mix(c, uCTrou*1.25, smoothstep(0.75,0.9,vn(pw*2.3+9.))*melt*0.6);
     c *= 1.-0.1*melt;
   }
   if (part==0){
@@ -500,7 +504,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
   if (mat==10){
     man(q, p, radiator(p), 1e5, true);
     int part = 0; float best = 1e5;
-    for (int i=0;i<11;i++){ if (P[i] < best){ best = P[i]; part = i; } }
+    for (int i=0;i<12;i++){ if (P[i] < best){ best = P[i]; part = i; } }
     float melt = 0.;
     if (part==2){
       melt = smoothstep(-0.05,-0.25,p.z)*smoothstep(5.6,5.2,p.y);
@@ -527,6 +531,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
     }
     else if (part==9){ alb = vec3(0.2,0.085,0.03); rough = 0.05; f0 = 0.03; wrap = 0.; }
     else if (part==10){ alb = vec3(0.16,0.09,0.05); rough = 0.35; f0 = 0.04; }
+    else if (part==11){ alb = vec3(0.02); rough = 0.18; f0 = 0.85; wrap = 0.; }
     else {
       alb = clayCol(q, part, melt);
       rough = mix(0.52, 0.26, melt); f0 = 0.03; wrap = 0.5; spec = mix(0.75, 1.0, melt);
@@ -561,7 +566,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
     alb = vec3(0.6,0.55,0.45)*(0.9+0.1*fbm(p*3.)); rough = 0.28; spec = 0.9;
     alb *= 1.-0.3*smoothstep(0.35,0.0,p.y)*fbm(p*5.);
   } else if (mat==3 && (n.y < 0.5)){
-    alb = vec3(0.3,0.21,0.12)*(0.8+0.3*fbm(p*vec3(6.,1.,6.))); rough = 0.8; spec = 0.2;
+    alb = vec3(0.05,0.035,0.025)*(0.8+0.3*fbm(p*vec3(6.,1.,6.))); rough = 0.8; spec = 0.2;
   } else if (mat==3){
     // floorboards running along the wall, varnished dark, scuffed
     float bw = 1.05; float bz0 = (p.z+30.)/bw; float bi = floor(bz0); float fz = fract(bz0);
@@ -578,14 +583,14 @@ vec3 shade(vec3 ro, vec3 rd, float t){
     // cream gloss over cast iron: many coats, chipped, scorched on top
     float ch = fbm(p*vec3(2.6,1.3,2.6)+5.);
     float cn = ch+0.07*vn(p*30.);
-    float chip = smoothstep(0.66,0.68, cn);
+    float chip = smoothstep(0.69,0.71, cn+0.05*smoothstep(4.6,5.2,p.y));
     vec3 cream = vec3(0.5,0.4,0.24)*(0.85+0.2*fbm(p*7.));
     cream = mix(cream, vec3(0.3,0.24,0.15), smoothstep(0.55,0.75,fbm(p*vec3(1.,4.,1.)+1.))*0.5);
     cream = mix(cream, vec3(0.42,0.3,0.15), smoothstep(4.4,5.3,p.y)*0.45*fbm(p*3.+2.));
     vec3 under = vec3(0.17,0.22,0.15);
     vec3 iron = vec3(0.05,0.035,0.03)+vec3(0.1,0.04,0.015)*vn(p*20.);
     alb = mix(cream, under, chip);
-    alb = mix(alb, iron, smoothstep(0.7,0.72, cn));
+    alb = mix(alb, iron, smoothstep(0.73,0.75, cn+0.05*smoothstep(4.6,5.2,p.y)));
     rough = mix(0.28, 0.7, chip); spec = 0.9;
     n = normalize(n + (vec3(vn(p*vec3(5.,35.,5.)), vn(p*vec3(5.,35.,5.)+3.), vn(p*6.+9.))-0.5)*0.14);
     if (p.x < RX0-0.4) { alb = vec3(0.5,0.34,0.12); rough = 0.3; f0 = 0.5; }
@@ -659,17 +664,15 @@ void main(){
   float t = 0.;
   if (ro.z > 7.) t = (ro.z-7.)/max(-rd.z,1e-3);
   float tmax = 120.;
-  bool hit = false; int ni = 0;
+  bool hit = false;
   for (int i=0;i<220;i++){
-    ni = i;
     float d = map(ro+rd*t);
     if (d < 0.00035*t){ hit = true; break; }
     t += d*0.85;
     if (t > tmax) break;
   }
   vec3 col = vec3(0.02);
-  if (uDbg > 0.5) col = vec3(float(ni)/100., float(ni)/220., hit ? 0.2 : 0.);
-  else if (hit) col = shade(ro, rd, t);
+  if (hit) col = shade(ro, rd, t);
   float depth = t*dot(rd,uFw);
   vec4 cur = vec4(col, depth*0.01);
   vec4 prev = texelFetch(uPrev, ivec2(gl_FragCoord.xy), 0);
@@ -756,9 +759,9 @@ void main(){
   (window.PIECES = window.PIECES || []).push({
     id: 'plasticine',
     title: 'Mr. Pruett Was Left on the Radiator',
-    medium: 'Plasticine, cast iron, wallpaper, tea; ray-marched',
+    medium: 'Plasticine, cast iron, wallpaper, tea; ray-marched in WebGL2',
     note: 'He is perfectly fine, thank you.',
-    about: 'A twelve-centimetre plasticine gentleman, photographed on a miniature set after a long afternoon on the radiator. Every fingerprint, drip and tea cup is a signed distance field, lit and focused like a macro lens would, because only clay can be this polite about melting.',
+    about: 'A twelve-centimetre plasticine gentleman, photographed on a miniature set after a long afternoon on the radiator. Every thumbprint, drip and teacup is a signed distance field, lit and focused like a tilted macro lens, because only clay can be this polite about melting.',
     tone: 'dark',
     room: '#17120e',
     mount(el, api) {
@@ -876,7 +879,7 @@ void main(){
         const up = cross(rt, fw);
         const fd = [face[0] - pos[0], face[1] - pos[1], face[2] - pos[2]];
         const focus = fd[0] * fw[0] + fd[1] * fw[1] + fd[2] * fw[2];
-        cam = { pos, fw, rt, up, tanH: tanH * visH / 13.6, focus, zf: -0.15, cocK: 3.0 * (dist / 30) * 13.6 / visH, maxC: 0.02 };
+        cam = { pos, fw, rt, up, tanH: tanH * visH / 13.6, focus, zf: -0.42, cocK: 2.7 * (dist / 30) * 13.6 / visH, maxC: 0.02 };
       }
 
       function mkLevel(scale, maxPass) {
@@ -934,7 +937,6 @@ void main(){
         gl.uniform3f(u.uO, 1.3, 5.2, -1.65);
         gl.uniform1f(u.uYaw, S.yaw); gl.uniform1f(u.uTilt, S.tilt); gl.uniform1f(u.uMelt, S.melt);
         gl.uniform1f(u.uLid, o.lid); gl.uniform1f(u.uBoil, o.boil);
-        gl.uniform1f(u.uProf, +(location.search.match(/prof=(\d+)/) || [0, 0])[1]); gl.uniform1f(u.uDbg, /stepviz/.test(location.search) ? 1 : 0);
         gl.uniform3fv(u.uFP, S.fp); gl.uniform4fv(u.uHP1, S.hp1); gl.uniform4fv(u.uHP2, S.hp2);
         gl.uniform3fv(u.uCCard, S.card); gl.uniform3fv(u.uCTrou, S.trou); gl.uniform3fv(u.uCTie, S.tie);
         gl.uniform3fv(u.uCWallA, S.wall[0]); gl.uniform3fv(u.uCWallB, S.wall[1]); gl.uniform3fv(u.uCWallC, S.wall[2]);
@@ -1048,7 +1050,7 @@ void main(){
       function scheduleBlink() {
         clearTimeout(blinkT);
         blinkT = setTimeout(() => {
-          if (!alive || !takes || !takes.ready) return;
+          if (!alive || !api.isCurrent() || !takes || !takes.ready) return;
           const [B1, B2] = takes.frames.map((f) => f.img.tex);
           const A = takes.A.img.tex;
           // slow, resigned blinks at twelve frames a second; now and then a second one
@@ -1056,7 +1058,7 @@ void main(){
           if (brnd() < 0.25) seq = seq.concat([A, A, A, B1, B2, B2, B1, A]);
           let i = 0;
           const tick = () => {
-            if (!alive || !takes) return;
+            if (!alive || !api.isCurrent() || !takes) return;
             present(seq[i++]);
             if (i < seq.length) playing = setTimeout(tick, 1000 / 12); else scheduleBlink();
           };
@@ -1120,7 +1122,7 @@ void main(){
         destroy() {
           alive = false;
           cancelAnimationFrame(raf);
-          clearTimeout(resizeT);
+          clearTimeout(resizeT); clearTimeout(blinkT); clearTimeout(playing);
           ro.disconnect();
           const ext = gl.getExtension('WEBGL_lose_context');
           if (ext) ext.loseContext();
