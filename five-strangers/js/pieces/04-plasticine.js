@@ -133,7 +133,7 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
       lid = min(lid, max(length(h-ec)-0.174, -(dot(h-ec,nl)-uLid)));
       // slightly heavy jowls, and the fold from nose to moustache pressed in with a tool
       skin = smin(skin, sdEll(h-vec3(s*0.7,-0.98,0.6), vec3(0.4,0.32,0.38)), 0.22);
-      skin = smax(skin, -sdCap(h, vec3(s*0.36,-0.28,1.2), vec3(s*0.66,-0.88,0.98), 0.03), 0.06);
+      skin = smax(skin, -sdCap(h, vec3(s*0.42,-0.3,1.16), vec3(s*0.8,-1.02,0.92), 0.04), 0.07);
     }
     skin = smin(skin, lid, 0.025);
     skin = smin(skin, nose, 0.06);
@@ -333,7 +333,7 @@ vec3 calcN(vec3 p, float e){
 }
 
 /* ---------------- clay surface: fingerprints, smears, tool marks ---------------- */
-float onePrint(vec3 q, vec3 n, vec3 c, float R, vec3 r, float sw, float fade){
+float onePrint(vec3 q, vec3 n, vec3 c, float R, vec3 r, float sw, float fade, float amp){
   vec3 v = q-c;
   float dist = length(v);
   if (dist > R) return 0.;
@@ -349,7 +349,7 @@ float onePrint(vec3 q, vec3 n, vec3 c, float R, vec3 r, float sw, float fade){
   float msk = smoothstep(R, R*0.4, dist);
   // a print is partial: the pad rolled off one side
   msk *= smoothstep(-0.05, 0.15, dot(uv, normalize(r.yz+0.01)) + R*0.6);
-  return msk*(ridge*0.0034*fade - 0.016*(1.-rr/R)*(1.-rr/R));
+  return msk*(ridge*amp*fade - 0.016*(1.-rr/R)*(1.-rr/R));
 }
 float prints(vec3 q, vec3 n, float fade, int part){
   float acc = 0.;
@@ -361,12 +361,12 @@ float prints(vec3 q, vec3 n, float fade, int part){
     vec3 hh = h33(cell);
     if (hh.x > 0.55) continue;
     vec3 c = (cell+0.15+0.7*h33(cell+11.3)-uFP)*1.5;
-    acc += onePrint(q, n, c, 0.4+0.2*hh.y, h33(cell+3.7)-0.5, (hh.z-0.5)*2., fade);
+    acc += onePrint(q, n, c, 0.4+0.2*hh.y, h33(cell+3.7)-0.5, (hh.z-0.5)*2., fade, 0.0032);
   }
   }
   // the sculptor's own, left where the eye goes
-  acc += onePrint(q, n, uHP1.xyz, uHP1.w, vec3(0.3,0.5,-0.2), 0.6, fade);
-  acc += onePrint(q, n, uHP2.xyz, uHP2.w, vec3(-0.4,0.2,0.3), -0.4, fade);
+  acc += onePrint(q, n, uHP1.xyz, uHP1.w, vec3(0.3,0.5,-0.2), 0.6, fade, 0.0058);
+  acc += onePrint(q, n, uHP2.xyz, uHP2.w, vec3(-0.4,0.2,0.3), -0.4, fade, 0.0045);
   return acc;
 }
 

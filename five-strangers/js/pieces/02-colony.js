@@ -299,18 +299,27 @@
     };
     sc.env = env;
     const chambers = [];
-    const floorY = (ch, x) => { const u = clamp((x - ch.cx) / ch.rw, -1, 1); return ch.cy + ch.rh * 0.82 * Math.pow(1 - u * u, 0.28); };
+    const floorY = (ch, x) => { const u = clamp((x - ch.cx) / ch.rw, -1, 1); return ch.cy + ch.rh * 0.82 * Math.pow(1 - u * u, 0.11); };
     sc.floorY = floorY;
     const mkCh = (job, cx, cy, rw, rh) => {
       const ch = { id: chambers.length, job, cx, cy, rw, rh, conn: [false, false] };
       ch.pts = [];
       const p1 = R.r(0, TAU), p2 = R.r(0, TAU), a1 = R.r(0.05, 0.1), skew = R.r(-0.25, 0.25);
-      for (let i = 0; i < 48; i++) {
-        const a = (i / 48) * TAU, s = Math.sin(a), co = Math.cos(a);
-        const wob = 1 + (s < 0 ? 1 : 0.2) * (a1 * Math.sin(3 * a + p1) + 0.04 * Math.sin(5 * a + p2) + 0.02 * Math.sin(9 * a + p1));
-        const x = cx + rw * co * wob;
-        const y = s < 0 ? cy + rh * s * wob * (1 + skew * co) : cy + rh * 0.82 * Math.pow(s, 0.56);
-        ch.pts.push([x, y]);
+      // lobes in the domed ceiling, and an alcove dug into one upper corner
+      const bumps = [];
+      for (let k = 0; k < R.i(1, 2); k++) bumps.push([R.r(Math.PI * 1.3, Math.PI * 1.7), R.r(0.12, 0.2), R.r(0.14, 0.26)]);
+      bumps.push([R.chance(0.5) ? Math.PI * R.r(1.08, 1.18) : Math.PI * R.r(1.82, 1.92), R.r(0.1, 0.16), R.r(0.18, 0.3)]);
+      for (let i = 0; i < 64; i++) {
+        const a = (i / 64) * TAU, s = Math.sin(a), co = Math.cos(a);
+        if (s < 0) {
+          let k = 1 + a1 * Math.sin(3 * a + p1) + 0.04 * Math.sin(5 * a + p2) + 0.02 * Math.sin(9 * a + p1);
+          for (const b of bumps) { let d = a - b[0]; k += b[2] * Math.exp(-(d * d) / (b[1] * b[1])); }
+          const x = cx + rw * co * k;
+          const y = cy - rh * Math.pow(-s, 0.75) * k * (1 + skew * co);
+          ch.pts.push([x, y]);
+        } else {
+          ch.pts.push([cx + rw * co, cy + rh * 0.82 * Math.pow(s, 0.22)]);
+        }
       }
       chambers.push(ch); return ch;
     };
@@ -482,7 +491,7 @@
           if (x - rw < 2.5 * L || x + rw > W - 2.5 * L) continue;
           if (y - rh < sc.cutY(x) + 2.8 * L) continue;
           if (y + rh > g0 && y - rh < g1) continue;
-          if (overlaps(x, y, rw, rh, 1.25 * L, 1.0 * L)) continue;
+          if (overlaps(x, y, rw, rh, 1.25 * L, 1.35 * L)) continue;
           if (hitsObst(x, y, rw, rh, allObst)) continue;
           if (!o.root) { let hit = false; for (const p of sc.taproot) { const dx = (x - p[0]) / (rw + 1.5 * L), dy = (y - p[1]) / (rh + 1.2 * L); if (dx * dx + dy * dy < 1) { hit = true; break; } } if (hit) continue; }
           let near = false;
@@ -636,7 +645,8 @@
         if (md > bs) { bs = md; best = { x, y }; }
       }
       if (!best) best = { x: W / 2, y: sc.yf((f0 + f1) / 2) };
-      const it = { name, x: best.x, y: best.y, rad, ok: bs > 0, rot: R.r(-0.6, 0.6), flip: R.s() };
+      const it = { name, x: best.x, y: best.y, rad, ok: bs > 0, skip: bs < -0.4 * L, rot: R.r(-0.6, 0.6), flip: R.s() };
+      if (it.skip) return it; // no room for it in this slice of meadow
       items.push(it); cav.push([it.x, it.y, rad]);
       return it;
     };
@@ -657,6 +667,9 @@
     place('bottle', b3 + 0.04, fr.b4 - 0.05, 4.2 * L, { x0: W * 0.36, x1: W - 7 * L });
     place('wormball', b1 + 0.08, b2 - 0.06, 2.0 * L, { x1: W - 24 * L });
     place('centipede', b1 + 0.02, b2 - 0.05, 3 * L, {});
+    place('oldgallery', b3 + 0.05, fr.b4 - 0.06, 7.5 * L, { x0: W * 0.3, x1: W - 10 * L });
+    place('rootchannel', b3 + 0.1, fr.b4 - 0.1, 3.4 * L, { x0: 6 * L, x1: W - 10 * L });
+    place('acorn', 0.06, b1 - 0.04, 2.0 * L, { x0: 3 * L, x1: W * 0.5 });
     sc.items = items;
   }
 
@@ -731,6 +744,25 @@
     add(() => paintOak(c, sc, R));
     add(() => paintMole(c, sc, R));
     add(() => paintItems(c, sc, R));
+    add(() => {
+      // the warm heart: a faint glow in the dark sand around the queen's chamber
+      const q = sc.Q;
+      const g = c.createRadialGradient(q.cx, q.cy, q.rw * 0.4, q.cx, q.cy, q.rw * 2.6);
+      g.addColorStop(0, 'rgba(255,176,86,0.30)'); g.addColorStop(0.45, 'rgba(240,150,70,0.12)'); g.addColorStop(1, 'rgba(240,150,70,0)');
+      c.save(); c.globalCompositeOperation = 'screen'; c.fillStyle = g; c.fillRect(q.cx - q.rw * 2.7, q.cy - q.rw * 2.7, q.rw * 5.4, q.rw * 5.4); c.restore();
+      // the oak's sinker root, drinking at the water table: root hairs beaded with water
+      const se = sc.sinker[sc.sinker.length - 1];
+      for (let k = 0; k < 26; k++) {
+        const p = sc.sinker[Math.max(0, sc.sinker.length - 1 - Math.floor(R.f() * 10))];
+        let px = p[0], py = p[1]; const a0 = Math.PI / 2 + R.r(-1.4, 1.4);
+        c.strokeStyle = rgba(hex('#efe2c4'), 0.75); c.lineWidth = 0.6;
+        c.beginPath(); c.moveTo(px, py);
+        for (let j = 0; j < 4; j++) { px += Math.cos(a0 + R.r(-0.4, 0.4)) * 0.35 * L; py += Math.sin(a0 + R.r(-0.4, 0.4)) * 0.35 * L; c.lineTo(px, py); }
+        c.stroke();
+        if (R.chance(0.5)) { c.fillStyle = 'rgba(200,232,236,0.9)'; c.beginPath(); c.arc(px, py, 0.09 * L, 0, TAU); c.fill(); c.fillStyle = rgba(LT); c.beginPath(); c.arc(px - 0.03 * L, py - 0.03 * L, 0.03 * L, 0, TAU); c.fill(); }
+      }
+      c.fillStyle = rgba(hex('#f4ead0')); c.beginPath(); c.ellipse(se[0], se[1], 0.16 * L, 0.3 * L, 0, 0, TAU); c.fill();
+    });
     add(() => paintNestShell(c, sc, R));
     add(() => paintNestContents(c, sc, R));
     add(() => paintTaproot(c, sc, R));
@@ -788,7 +820,7 @@
     }
     // pencil: the meadow continuing, never painted
     c.strokeStyle = rgba(P.graphite, 0.32); c.lineCap = 'round';
-    for (let x = -10; x < W + 10; x += R.r(2, 7)) {
+    for (let x = sc.xb + 2 * L; x < W + 10; x += R.r(2, 7)) {
       const y = farY(x) + R.r(0, 3);
       const h = R.r(0.8, 3.2) * L * (0.5 + 0.5 * Math.abs(far(x * 1.7)));
       c.lineWidth = R.r(0.35, 0.8);
@@ -1286,21 +1318,22 @@
     c.fillStyle = 'rgba(170,168,184,0.2)'; c.beginPath(); c.ellipse(4, -0.95, 6, 0.3, -0.01, 0, TAU); c.fill();
     c.restore();
     // snout
-    c.fillStyle = rgba(hex('#d99a90'));
-    c.beginPath(); c.moveTo(-1.75, -0.38); c.quadraticCurveTo(-2.7, -0.3, -3.05, 0.0); c.quadraticCurveTo(-2.75, 0.28, -1.85, 0.3); c.closePath(); c.fill();
+    c.fillStyle = rgba(hex('#eaa89a'));
+    c.beginPath(); c.moveTo(-1.7, -0.45); c.quadraticCurveTo(-2.9, -0.35, -3.45, -0.02); c.quadraticCurveTo(-3.0, 0.32, -1.8, 0.35); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(120,60,54,0.8)'; c.lineWidth = 0.05; c.stroke();
     c.strokeStyle = 'rgba(150,90,84,0.6)'; c.lineWidth = 0.03;
     for (let k = 0; k < 6; k++) { const x = -2.0 - k * 0.15; c.beginPath(); c.moveTo(x, -0.3 + k * 0.03); c.lineTo(x - 0.02, -0.18 + k * 0.025); c.stroke(); }
     c.fillStyle = rgba(hex('#f4c8bc'), 0.75); c.beginPath(); c.ellipse(-2.4, -0.16, 0.38, 0.06, 0.05, 0, TAU); c.fill();
-    c.fillStyle = rgba(hex('#5a2a28')); c.beginPath(); c.ellipse(-3.0, -0.02, 0.05, 0.08, 0, 0, TAU); c.fill();
+    c.fillStyle = rgba(hex('#5a2a28')); c.beginPath(); c.ellipse(-3.38, -0.02, 0.06, 0.09, 0, 0, TAU); c.fill();
     c.strokeStyle = 'rgba(240,232,220,0.65)'; c.lineWidth = 0.025;
     for (let k = 0; k < 9; k++) { c.beginPath(); c.moveTo(-2.7, R.r(-0.1, 0.12)); c.quadraticCurveTo(-3.1, R.r(-0.5, 0.5), -3.1 - R.r(0.2, 0.8), R.r(-0.8, 0.8)); c.stroke(); }
     // a bead of an eye, lost in the fur
     c.fillStyle = '#060608'; c.beginPath(); c.arc(-1.25, -0.42, 0.06, 0, TAU); c.fill();
     c.fillStyle = 'rgba(255,255,255,0.7)'; c.beginPath(); c.arc(-1.27, -0.44, 0.02, 0, TAU); c.fill();
     // the great spade of a hand, palm outward
-    c.save(); c.translate(-1.55, 0.75); c.rotate(-0.5);
-    c.fillStyle = rgba(hex('#e2aa9a')); c.beginPath(); c.ellipse(0, 0, 0.72, 0.5, 0, 0, TAU); c.fill();
-    c.strokeStyle = rgba(hex('#a8706a'), 0.7); c.lineWidth = 0.03; c.stroke();
+    c.save(); c.translate(-1.9, 0.62); c.rotate(-0.55); c.scale(1.5, 1.5);
+    c.fillStyle = rgba(hex('#f2b4a4')); c.beginPath(); c.ellipse(0, 0, 0.72, 0.5, 0, 0, TAU); c.fill();
+    c.strokeStyle = rgba(hex('#8a4e46'), 0.9); c.lineWidth = 0.04; c.stroke();
     c.strokeStyle = rgba(hex('#f6eee2')); c.lineWidth = 0.09; c.lineCap = 'round';
     for (let k = 0; k < 5; k++) { const a = -2.0 + k * 0.32; c.beginPath(); c.moveTo(Math.cos(a) * 0.62, Math.sin(a) * 0.42); c.lineTo(Math.cos(a) * 1.0, Math.sin(a) * 0.7); c.stroke(); }
     c.strokeStyle = 'rgba(160,100,90,0.5)'; c.lineWidth = 0.025;
@@ -1372,63 +1405,85 @@
       it.anchor = [0, 0];
     },
     toad(c, R, it, L) {
-      // a snug pocket in the clay, smoothed by a turning body
-      c.fillStyle = rgba(hex('#1c120c'), 0.85); c.beginPath(); blob(c, R, 0, 0.1 * L, 4.4 * L, 2.85 * L, 0, 0.05, 12); c.fill();
-      c.fillStyle = rgba(hex('#4a2f1f')); c.beginPath(); blob(c, R, 0, 0.25 * L, 4.15 * L, 2.6 * L, 0, 0.04, 12); c.fill();
-      c.fillStyle = rgba(hex('#6a4630'), 0.6); c.beginPath(); c.ellipse(0, 2.1 * L, 3.6 * L, 0.5 * L, 0, 0, TAU); c.fill();
+      // a snug pocket in the clay, smoothed by a turning body; lit a little so the toad stands clear
+      c.fillStyle = rgba(hex('#1a100a'), 0.9); c.beginPath(); blob(c, R, 0, 0.1 * L, 4.5 * L, 2.95 * L, 0, 0.04, 12); c.fill();
+      c.fillStyle = rgba(hex('#6e4a32')); c.beginPath(); blob(c, R, 0, 0.25 * L, 4.25 * L, 2.7 * L, 0, 0.03, 12); c.fill();
+      c.fillStyle = rgba(hex('#8a6244'), 0.6); c.beginPath(); c.ellipse(-0.4 * L, -0.6 * L, 3.2 * L, 1.6 * L, 0, 0, TAU); c.fill();
+      c.fillStyle = rgba(hex('#4a2e1e'), 0.8); c.beginPath(); c.ellipse(0, 2.25 * L, 3.8 * L, 0.45 * L, 0, 0, TAU); c.fill();
       c.scale(it.flip, 1);
       c.scale(L, L);
-      const sk = hex('#7d6b3e'), skD = hex('#4e4022'), belly = hex('#c2ad74');
+      const sk = hex('#a07c4a'), skD = hex('#5e4424'), belly = hex('#e2cf9a'), ink = hex('#2a1a0c');
+      // squat body, side-on, facing right: low rump, high shoulders, blunt head
       const body = new Path2D();
-      body.moveTo(-3.0, 1.95);
-      body.bezierCurveTo(-3.7, 1.2, -3.6, 0.1, -3.1, -0.4);
-      body.bezierCurveTo(-2.6, -1.3, -1.3, -1.85, 0.3, -1.8);
-      body.bezierCurveTo(1.3, -1.75, 2.0, -1.55, 2.55, -1.05);
-      body.bezierCurveTo(3.1, -0.6, 3.45, -0.1, 3.4, 0.35);
-      body.bezierCurveTo(3.0, 0.75, 2.4, 0.85, 1.9, 0.8);
+      body.moveTo(-3.1, 1.95);
+      body.bezierCurveTo(-3.75, 1.3, -3.7, 0.2, -3.0, -0.35);
+      body.bezierCurveTo(-2.3, -1.0, -1.0, -1.45, 0.4, -1.5);
+      body.bezierCurveTo(1.2, -1.55, 1.8, -1.7, 2.3, -1.45);
+      body.bezierCurveTo(2.9, -1.15, 3.3, -0.6, 3.45, 0.05);
+      body.bezierCurveTo(3.5, 0.45, 3.2, 0.7, 2.7, 0.75);
+      body.bezierCurveTo(2.2, 0.85, 1.8, 0.9, 1.6, 1.2);
       body.lineTo(1.5, 1.95);
       body.closePath();
+      // hind leg behind the body first (far side)
+      c.fillStyle = rgba(shade(sk, -0.3)); c.beginPath(); c.ellipse(-1.6, 1.55, 1.1, 0.45, -0.1, 0, TAU); c.fill();
       c.fillStyle = rgba(sk); c.fill(body);
       c.save(); c.clip(body);
-      // dark mottling and a pale belly
-      for (let i = 0; i < 16; i++) { c.fillStyle = rgba(skD, R.r(0.35, 0.7)); c.beginPath(); blob(c, R, R.r(-3, 2.6), R.r(-1.6, 0.6), R.r(0.2, 0.55), R.r(0.12, 0.3), R.r(-1, 1), 0.3, 7); c.fill(); }
-      c.fillStyle = rgba(belly, 0.85); c.beginPath(); c.ellipse(0.4, 1.75, 3.2, 0.7, 0, 0, TAU); c.fill();
-      // warts with tiny highlights
-      for (let i = 0; i < 90; i++) {
-        const x = R.r(-3.2, 3), y = R.r(-1.8, 1.0), r = R.r(0.05, 0.17);
-        c.fillStyle = rgba(R.chance(0.45) ? hex('#3e3218') : hex('#a08a54'), 0.85); c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-        c.fillStyle = rgba(LT, 0.35); c.beginPath(); c.arc(x - r * 0.3, y - r * 0.35, r * 0.35, 0, TAU); c.fill();
+      // blotched back: big dark patches with paler rims
+      for (let i = 0; i < 9; i++) {
+        const x = R.r(-2.8, 2.0), y = R.r(-1.4, 0.0), rx = R.r(0.3, 0.6), ry = R.r(0.18, 0.32);
+        c.fillStyle = rgba(skD, 0.75); c.beginPath(); blob(c, R, x, y, rx, ry, R.r(-0.5, 0.5), 0.25, 8); c.fill();
       }
-      // back highlight
-      c.fillStyle = rgba(LT, 0.22); c.beginPath(); c.ellipse(-0.6, -1.45, 2.0, 0.22, -0.12, 0, TAU); c.fill();
+      // pale belly
+      c.fillStyle = rgba(belly); c.beginPath(); c.ellipse(0.3, 1.95, 3.4, 0.85, 0, 0, TAU); c.fill();
+      c.strokeStyle = rgba(hex('#c0a46a'), 0.7); c.lineWidth = 0.05;
+      for (let k = 0; k < 9; k++) { c.beginPath(); c.arc(-2 + k * 0.45, 1.6, 0.06, 0, TAU); c.stroke(); }
+      // warts: raised, each with a dark side and a lit side
+      for (let i = 0; i < 70; i++) {
+        const x = R.r(-3.2, 2.6), y = R.r(-1.6, 0.9), r = R.r(0.07, 0.17);
+        c.fillStyle = rgba(hex('#6a4c26'), 0.85); c.beginPath(); c.arc(x + r * 0.25, y + r * 0.3, r, 0, TAU); c.fill();
+        c.fillStyle = rgba(hex('#c09a60'), 0.95); c.beginPath(); c.arc(x, y, r * 0.8, 0, TAU); c.fill();
+        c.fillStyle = rgba(LT, 0.5); c.beginPath(); c.arc(x - r * 0.25, y - r * 0.3, r * 0.3, 0, TAU); c.fill();
+      }
+      c.fillStyle = rgba(LT, 0.25); c.beginPath(); c.ellipse(-0.4, -1.25, 2.0, 0.18, -0.08, 0, TAU); c.fill();
       c.restore();
-      c.strokeStyle = rgba(hex('#2a2010'), 0.7); c.lineWidth = 0.05; c.stroke(body);
-      // folded hind leg: a big thigh tucked against the flank, long toes forward
-      c.fillStyle = rgba(shade(sk, -0.12)); c.beginPath(); c.ellipse(-1.8, 0.95, 1.35, 0.78, -0.35, 0, TAU); c.fill();
-      c.strokeStyle = rgba(hex('#2a2010'), 0.6); c.stroke();
-      c.fillStyle = rgba(skD, 0.5); c.beginPath(); c.ellipse(-1.6, 1.25, 1.0, 0.3, -0.2, 0, TAU); c.fill();
-      c.fillStyle = rgba(shade(sk, -0.05)); c.beginPath(); c.ellipse(-0.3, 1.78, 1.1, 0.24, 0, 0, TAU); c.fill();
-      c.strokeStyle = rgba(hex('#b89a64')); c.lineWidth = 0.12; c.lineCap = 'round';
-      for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(0.4, 1.8); c.lineTo(0.85 + k * 0.08, 1.62 + k * 0.1); c.stroke(); }
-      // front leg, elbow out, fingers spread
-      c.strokeStyle = rgba(shade(sk, -0.1)); c.lineWidth = 0.42;
-      c.beginPath(); c.moveTo(1.6, 0.5); c.quadraticCurveTo(2.15, 1.1, 1.95, 1.7); c.stroke();
-      c.strokeStyle = rgba(hex('#b89a64')); c.lineWidth = 0.1;
-      for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(1.95, 1.75); c.lineTo(1.6 + k * 0.25, 1.93); c.stroke(); }
-      // parotoid gland behind the eye
-      c.fillStyle = rgba(hex('#8f7444')); c.beginPath(); c.ellipse(1.05, -1.42, 0.78, 0.27, -0.1, 0, TAU); c.fill();
-      c.fillStyle = rgba(skD, 0.6); for (let k = 0; k < 6; k++) { c.beginPath(); c.arc(0.6 + k * 0.16, -1.42 + R.r(-0.08, 0.08), 0.05, 0, TAU); c.fill(); }
-      // closed eye: a raised lid, a line, the faintest gold
-      c.fillStyle = rgba(hex('#8c7646')); c.beginPath(); c.ellipse(2.2, -1.12, 0.5, 0.34, -0.25, 0, TAU); c.fill();
-      c.strokeStyle = rgba(hex('#1f160b')); c.lineWidth = 0.09;
-      c.beginPath(); c.moveTo(1.8, -1.05); c.quadraticCurveTo(2.2, -0.86, 2.62, -1.12); c.stroke();
-      c.strokeStyle = rgba(hex('#e2b640'), 0.9); c.lineWidth = 0.035;
-      c.beginPath(); c.moveTo(1.93, -1.0); c.quadraticCurveTo(2.2, -0.88, 2.48, -1.02); c.stroke();
-      // nostril and a contented mouth
-      c.fillStyle = rgba(hex('#1f160b')); c.beginPath(); c.arc(3.05, -0.38, 0.05, 0, TAU); c.fill();
-      c.strokeStyle = rgba(hex('#2a1e10'), 0.85); c.lineWidth = 0.06;
-      c.beginPath(); c.moveTo(3.38, 0.28); c.quadraticCurveTo(2.7, 0.55, 2.0, 0.05); c.stroke();
-      it.anchor = [0, 0];
+      c.strokeStyle = rgba(ink, 0.85); c.lineWidth = 0.07; c.stroke(body);
+      // near hind leg folded against the flank: thigh, shin, long toes
+      c.fillStyle = rgba(shade(sk, -0.05));
+      c.beginPath(); c.ellipse(-1.75, 0.85, 1.25, 0.75, -0.3, 0, TAU); c.fill();
+      c.strokeStyle = rgba(ink, 0.7); c.lineWidth = 0.06; c.stroke();
+      c.fillStyle = rgba(skD, 0.55); c.beginPath(); c.ellipse(-1.9, 0.75, 0.55, 0.25, -0.3, 0, TAU); c.fill();
+      c.fillStyle = rgba(shade(sk, -0.12)); c.beginPath(); c.ellipse(-0.75, 1.72, 1.15, 0.27, 0.02, 0, TAU); c.fill(); c.stroke();
+      c.strokeStyle = rgba(hex('#7a5a30')); c.lineWidth = 0.12; c.lineCap = 'round';
+      for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(0.2, 1.85); c.lineTo(0.55 + k * 0.12, 1.95 - k * 0.02); c.stroke(); }
+      // front leg: upper arm down, the foot tucked under the chin
+      c.fillStyle = rgba(shade(sk, -0.08));
+      c.beginPath(); c.moveTo(1.35, 0.55); c.quadraticCurveTo(1.95, 0.9, 1.9, 1.6); c.lineTo(1.5, 1.7); c.quadraticCurveTo(1.45, 1.1, 1.05, 0.85); c.closePath(); c.fill();
+      c.strokeStyle = rgba(ink, 0.7); c.lineWidth = 0.06; c.stroke();
+      c.fillStyle = rgba(hex('#c8a46a'));
+      c.beginPath(); c.ellipse(1.75, 1.82, 0.5, 0.16, 0, 0, TAU); c.fill(); c.stroke();
+      c.strokeStyle = rgba(ink, 0.6); c.lineWidth = 0.04;
+      for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(1.45 + k * 0.25, 1.72); c.lineTo(1.5 + k * 0.28, 1.95); c.stroke(); }
+      // parotoid gland
+      c.fillStyle = rgba(hex('#b48a52')); c.beginPath(); c.ellipse(1.05, -1.3, 0.75, 0.26, -0.12, 0, TAU); c.fill();
+      c.strokeStyle = rgba(ink, 0.45); c.lineWidth = 0.04; c.stroke();
+      for (let k = 0; k < 6; k++) { c.fillStyle = rgba(skD, 0.7); c.beginPath(); c.arc(0.6 + k * 0.17, -1.3 + R.r(-0.06, 0.06), 0.045, 0, TAU); c.fill(); }
+      // the eye: a raised dome, lid shut, a thread of gold round the lid
+      c.fillStyle = rgba(hex('#b08a54')); c.beginPath(); c.ellipse(2.25, -1.2, 0.55, 0.42, -0.15, Math.PI, TAU); c.lineTo(2.8, -1.15); c.fill();
+      c.strokeStyle = rgba(hex('#e8b830')); c.lineWidth = 0.07;
+      c.beginPath(); c.ellipse(2.25, -1.17, 0.47, 0.34, -0.15, Math.PI * 1.02, Math.PI * 1.98); c.stroke();
+      c.strokeStyle = rgba(ink); c.lineWidth = 0.1;
+      c.beginPath(); c.moveTo(1.78, -1.12); c.quadraticCurveTo(2.25, -0.98, 2.72, -1.17); c.stroke();
+      c.strokeStyle = rgba(ink, 0.5); c.lineWidth = 0.04;
+      for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(1.95 + k * 0.17, -1.07 + Math.abs(k - 1.5) * 0.02); c.lineTo(1.93 + k * 0.17, -0.97); c.stroke(); }
+      // nostril, and a long contented mouth
+      c.fillStyle = rgba(ink); c.beginPath(); c.arc(3.15, -0.45, 0.06, 0, TAU); c.fill();
+      c.strokeStyle = rgba(ink, 0.9); c.lineWidth = 0.07;
+      c.beginPath(); c.moveTo(3.42, 0.2); c.quadraticCurveTo(2.8, 0.5, 1.95, 0.0); c.stroke();
+      // a Zzz in pencil, very faint
+      c.strokeStyle = rgba(hex('#e8dcc0'), 0.55); c.lineWidth = 0.05;
+      const zz = (x, y, s) => { c.beginPath(); c.moveTo(x, y); c.lineTo(x + s, y); c.lineTo(x, y + s); c.lineTo(x + s, y + s); c.stroke(); };
+      zz(3.0, -2.0, 0.3); zz(3.45, -2.45, 0.22);
+      it.anchor = [0, -1.0 * L];
     },
     mammoth(c, R, it, L) {
       // a horseshoe, cast by a carthorse ploughing this field, rusted to the colour of the clay
@@ -1527,6 +1582,64 @@
       c.strokeStyle = rgba(hex('#34353a'), 0.85); c.lineWidth = 0.03 * L;
       for (let k = -2; k <= 2; k++) { c.beginPath(); c.ellipse(bx + k * 0.14 * L, by, Math.max(0.02, r * (1 - Math.abs(k) * 0.3)) * 0.35, r * Math.sqrt(1 - (k * 0.3) ** 2), 0, 0, TAU); c.stroke(); }
       c.fillStyle = rgba(LT, 0.4); c.beginPath(); c.arc(bx - r * 0.35, by - r * 0.4, r * 0.18, 0, TAU); c.fill();
+      it.anchor = [0, 0];
+    },
+    oldgallery(c, R, it, L) {
+      // a gallery the colony gave up on: the roof slumped and the sand poured back in
+      c.scale(it.flip, 1);
+      const pts = []; for (let i = 0; i <= 14; i++) { const t = i / 14; pts.push([(t - 0.55) * 11 * L, Math.sin(t * 4 + 0.6) * 0.5 * L + (t - 0.5) * 1.2 * L]); }
+      c.lineCap = 'round'; c.lineJoin = 'round';
+      c.strokeStyle = rgba(hex('#3a2a1a'), 0.35); c.lineWidth = 0.95 * L; c.beginPath(); openSmooth(c, pts); c.stroke();
+      c.strokeStyle = rgba(hex('#b8976a'), 0.75); c.lineWidth = 0.62 * L; c.beginPath(); openSmooth(c, pts); c.stroke();
+      // the old walls, now only broken dashes
+      c.strokeStyle = rgba(hex('#2a1c10'), 0.6); c.lineWidth = 0.6; c.setLineDash([4, 5, 2, 7]);
+      c.beginPath(); openSmooth(c, pts.map((p) => [p[0], p[1] - 0.36 * L])); c.stroke();
+      c.beginPath(); openSmooth(c, pts.map((p) => [p[0], p[1] + 0.36 * L])); c.stroke();
+      c.setLineDash([]);
+      // the collapsed chamber at its end, backfilled and crushed flat
+      const e = pts[pts.length - 1];
+      c.fillStyle = rgba(hex('#7a5c3c'), 0.85); c.beginPath(); blob(c, R, e[0] + 1.6 * L, e[1] + 0.2 * L, 2.3 * L, 0.65 * L, 0.05, 0.15, 12); c.fill();
+      c.strokeStyle = rgba(hex('#2a1c10'), 0.55); c.setLineDash([3, 4]); c.stroke(); c.setLineDash([]);
+      for (let i = 0; i < 40; i++) { c.fillStyle = rgba(R.pick([hex('#c4a87a'), hex('#4a3624'), hex('#8a6a44')]), 0.85); c.beginPath(); poly(c, R, e[0] + 1.6 * L + R.r(-2, 2) * L, e[1] + 0.2 * L + R.r(-0.45, 0.45) * L, R.r(0.05, 0.12) * L, 5, 0.4); c.fill(); }
+      // what was left behind: two old husks and the ghost of an ant
+      for (let k = 0; k < 2; k++) { c.fillStyle = rgba(hex('#a08458'), 0.8); c.beginPath(); c.ellipse(e[0] + (0.6 + k * 1.4) * L, e[1] + 0.35 * L, 0.2 * L, 0.08 * L, R.r(-0.5, 0.5), 0, TAU); c.fill(); }
+      c.globalAlpha = 0.45; deadAnt(c, R, e[0] + 2.6 * L, e[1] + 0.3 * L, L * 0.9, 0.2); c.globalAlpha = 1;
+      it.anchor = [it.flip * pts[5][0], pts[5][1]];
+    },
+    rootchannel(c, R, it, L) {
+      // an old root rotted away, leaving a channel stained with iron
+      const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([Math.sin(t * 3 + it.rot * 4) * 0.5 * L + t * 0.4 * L, (t - 0.5) * 7 * L]); }
+      c.fillStyle = rgba(hex('#b0622c'), 0.35); c.beginPath(); taper(c, pts, (t) => L * lerp(1.2, 0.35, t)); c.fill();
+      c.fillStyle = rgba(hex('#c47a3a'), 0.4); c.beginPath(); taper(c, pts, (t) => L * lerp(0.75, 0.22, t)); c.fill();
+      c.fillStyle = rgba(hex('#2e2014'), 0.9); c.beginPath(); taper(c, pts, (t) => L * lerp(0.36, 0.08, t)); c.fill();
+      for (let k = 0; k < 2; k++) {
+        const b = pts[4 + k * 3], s2 = k ? 1 : -1;
+        const br = []; for (let i = 0; i <= 5; i++) br.push([b[0] + s2 * i * 0.45 * L, b[1] + i * 0.35 * L + Math.sin(i) * 0.1 * L]);
+        c.fillStyle = rgba(hex('#b0622c'), 0.3); c.beginPath(); taper(c, br, (t) => L * lerp(0.6, 0.15, t)); c.fill();
+        c.fillStyle = rgba(hex('#2e2014'), 0.85); c.beginPath(); taper(c, br, (t) => L * lerp(0.16, 0.04, t)); c.fill();
+      }
+      it.anchor = [pts[3][0], pts[3][1]];
+    },
+    acorn(c, R, it, L) {
+      // an acorn a jay buried and forgot, now quietly becoming an oak
+      c.rotate(it.rot * 0.4 - 0.3);
+      c.fillStyle = rgba(hex('#140d08'), 0.6); c.beginPath(); c.ellipse(0.1 * L, 0.1 * L, 1.0 * L, 0.7 * L, 0, 0, TAU); c.fill();
+      // root curling down
+      const rt = []; for (let i = 0; i <= 10; i++) { const t = i / 10; rt.push([0.5 * L + Math.sin(t * 2.5) * 0.6 * L, 0.3 * L + t * 3.2 * L]); }
+      c.fillStyle = rgba(hex('#f0e6cc')); c.beginPath(); taper(c, rt, (t) => L * lerp(0.22, 0.05, t)); c.fill();
+      c.strokeStyle = rgba(hex('#f0e6cc'), 0.5); c.lineWidth = 0.4;
+      for (let i = 4; i < 10; i++) { const p = rt[i]; c.beginPath(); c.moveTo(p[0], p[1]); c.lineTo(p[0] + R.r(-0.3, 0.3) * L, p[1] + R.r(0, 0.2) * L); c.stroke(); }
+      // shoot, pale and hooked, heading for the light
+      c.strokeStyle = rgba(hex('#d8d0a0')); c.lineWidth = 0.14 * L; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(0.3 * L, -0.4 * L); c.quadraticCurveTo(0.6 * L, -1.4 * L, 0.2 * L, -1.8 * L); c.stroke();
+      // the nut, split
+      c.fillStyle = rgba(hex('#8a5a2a')); c.beginPath(); c.ellipse(0, 0, 0.85 * L, 0.55 * L, 0, 0, TAU); c.fill();
+      c.fillStyle = rgba(hex('#b07a3a'), 0.8); c.beginPath(); c.ellipse(-0.1 * L, -0.15 * L, 0.6 * L, 0.2 * L, 0, 0, TAU); c.fill();
+      c.strokeStyle = rgba(hex('#3a2010')); c.lineWidth = 0.6; c.beginPath(); c.moveTo(0.2 * L, -0.5 * L); c.lineTo(0.45 * L, 0.45 * L); c.stroke();
+      c.fillStyle = rgba(LT, 0.6); c.beginPath(); c.ellipse(-0.3 * L, -0.25 * L, 0.3 * L, 0.07 * L, -0.2, 0, TAU); c.fill();
+      // cup, scaly
+      c.fillStyle = rgba(hex('#7a6a44')); c.beginPath(); c.ellipse(-0.75 * L, 0, 0.35 * L, 0.6 * L, 0, 0, TAU); c.fill();
+      c.fillStyle = rgba(hex('#4a3a20'), 0.8); for (let k = 0; k < 10; k++) { c.beginPath(); c.arc(-0.75 * L + R.r(-0.22, 0.22) * L, R.r(-0.45, 0.45) * L, 0.06 * L, 0, TAU); c.fill(); }
       it.anchor = [0, 0];
     },
     key(c, R, it, L) {
@@ -1747,9 +1860,10 @@
       }
       // mandible scrapes
       c.strokeStyle = rgba(shade(col, -0.35), 0.4); c.lineWidth = 0.55;
-      for (let k = 0; k < ch.rw / L * 5; k++) {
-        const x = ch.cx + R.r(-0.9, 0.9) * ch.rw, y = ch.cy + R.r(-0.9, 0.2) * ch.rh, a = R.r(0, TAU);
-        c.beginPath(); c.arc(x, y, R.r(0.12, 0.25) * L, a, a + 1.1); c.stroke();
+      for (let k = 0; k < ch.rw / L * 7; k++) {
+        const x = ch.cx + R.r(-0.9, 0.9) * ch.rw, y = ch.cy + R.r(-1.1, 0.2) * ch.rh, a = R.r(0, TAU), r0 = R.r(0.12, 0.25) * L;
+        c.beginPath(); c.arc(x, y, r0, a, a + 1.1); c.stroke();
+        if (R.chance(0.4)) { c.beginPath(); c.arc(x + 0.08 * L, y + 0.05 * L, r0, a, a + 1.0); c.stroke(); } // paired: two mandibles
       }
       if (q) {
         const rg = c.createRadialGradient(ch.cx, ch.cy + ch.rh * 0.4, 0, ch.cx, ch.cy + ch.rh * 0.2, ch.rw);
@@ -1757,11 +1871,17 @@
         c.fillStyle = rg; c.fillRect(ch.cx - ch.rw, ch.cy - ch.rh, ch.rw * 2, ch.rh * 2);
       }
       // packed floor: a lighter band where feet have polished it
-      c.fillStyle = rgba(shade(col, 0.22), 0.55);
+      // the floor, worn darker and smoother where thousands of feet have passed
+      c.fillStyle = rgba(shade(col, -0.2), 0.7);
       c.beginPath();
-      for (let i = 0; i <= 24; i++) { const x = lerp(ch.cx - ch.rw * 0.97, ch.cx + ch.rw * 0.97, i / 24); const y = sc.floorY(ch, x) - 0.3 * L * Math.pow(Math.sin(Math.PI * i / 24), 0.5); if (i) c.lineTo(x, y); else c.moveTo(x, y); }
+      for (let i = 0; i <= 24; i++) { const x = lerp(ch.cx - ch.rw * 0.97, ch.cx + ch.rw * 0.97, i / 24); const y = sc.floorY(ch, x) - 0.38 * L * Math.pow(Math.sin(Math.PI * i / 24), 0.4); if (i) c.lineTo(x, y); else c.moveTo(x, y); }
       for (let i = 24; i >= 0; i--) { const x = lerp(ch.cx - ch.rw * 0.97, ch.cx + ch.rw * 0.97, i / 24); c.lineTo(x, sc.floorY(ch, x) + 0.1 * L); }
       c.fill();
+      c.strokeStyle = rgba(shade(col, 0.25), 0.55); c.lineWidth = 0.8;
+      c.beginPath(); for (let i = 1; i < 24; i++) { const x = lerp(ch.cx - ch.rw * 0.97, ch.cx + ch.rw * 0.97, i / 24); const y = sc.floorY(ch, x) - 0.38 * L * Math.pow(Math.sin(Math.PI * i / 24), 0.4); if (i > 1) c.lineTo(x, y); else c.moveTo(x, y); } c.stroke();
+      // a path of footfall: tiny scuffs along the middle of the floor
+      c.fillStyle = rgba(shade(col, -0.35), 0.5);
+      for (let k = 0; k < ch.rw / L * 5; k++) { const x = ch.cx + R.r(-0.85, 0.85) * ch.rw; c.fillRect(x, sc.floorY(ch, x) - R.r(0.05, 0.3) * L, R.r(0.15, 0.4) * L, 0.6); }
       // ceiling shadow
       const g2 = c.createLinearGradient(0, ch.cy - ch.rh, 0, ch.cy - ch.rh * 0.1);
       g2.addColorStop(0, rgba(DK, 0.5)); g2.addColorStop(1, rgba(DK, 0));
@@ -1885,7 +2005,7 @@
       if (job === 'eggs' || job === 'queen') {
         const piles = job === 'queen' ? 1 : 2;
         for (let p = 0; p < piles; p++) {
-          const fc = job === 'queen' ? (sc.Q.cx > sc.E[0] ? 0.3 : 0.7) : R.r(0.25, 0.75);
+          const fc = job === 'queen' ? (sc.Q.cx > sc.E[0] ? 0.36 : 0.64) : R.r(0.25, 0.75);
           pile(sc, R, ch, fc, job === 'queen' ? 0.12 : 0.17, 0.75 * L, job === 'queen' ? 34 : 60, 0.12 * L, (x, y) => egg(c, R, x, y, 1.8 * L));
         }
       } else if (job === 'larvae') {
@@ -2418,51 +2538,115 @@
   /* --- labels: written in white gouache on the earth, pencil on the paper */
   function paintLabels(c, sc, R) {
     const { W, H, L, fr } = sc;
-    const fs = clamp(L * 0.66, 10, 13);
+    const fs = clamp(L * 0.7, 11, 13);
     const boxes = [];
-    for (const ch of sc.chambers) boxes.push([ch.cx - ch.rw - 0.3 * L, ch.cy - ch.rh - 0.4 * L, ch.rw * 2 + 0.6 * L, ch.rh * 2 + 0.7 * L]);
-    for (const it of sc.items) boxes.push([it.x - it.rad, it.y - it.rad * 0.75, it.rad * 2, it.rad * 1.5]);
+    const pad = 3;
+    for (const ch of sc.chambers) boxes.push([ch.cx - ch.rw - 0.2 * L, ch.cy - ch.rh * 1.2 - 0.2 * L, ch.rw * 2 + 0.4 * L, ch.rh * 2.2 + 0.5 * L]);
+    const ibox = (it) => it.name === 'oldgallery' ? [it.x - 6.5 * L, it.y - 1.6 * L, 13 * L, 3.2 * L] : it.name === 'rootchannel' ? [it.x - 1.3 * L, it.y - 3.7 * L, 2.6 * L, 7.4 * L] : it.name === 'worm' ? [it.x - 4.8 * L, it.y - 2.2 * L, 9.6 * L, 4.4 * L] : [it.x - it.rad, it.y - it.rad * 0.8, it.rad * 2, it.rad * 1.6];
+    for (const it of sc.items) boxes.push(ibox(it));
     const m0 = sc.mole.pts[sc.mole.pts.length - 1];
     boxes.push([m0[0] - 3.5 * L, m0[1] - sc.mole.r - 0.3 * L, W - m0[0] + 4 * L, sc.mole.r * 2 + 0.6 * L]);
     boxes.push([-10, 0, sc.xb + 3 * L, sc.cutY(sc.xb) + 3.8 * L]); // blanket & its flap
-    sc.oak.forEach((p, i) => { if (i % 3 === 0) { const w = sc.oakW(i / (sc.oak.length - 1)) * 0.5; boxes.push([p[0] - w, p[1] - w, 2 * w, 2 * w]); } });
-    boxes.push([0, 0, W, sc.cutY(W / 2) + 1.2 * L]); // keep labels below the turf
+    const roots = [];
+    sc.oak.forEach((p, i) => { if (i % 3 === 0) { const w = sc.oakW(i / (sc.oak.length - 1)) * 0.5; roots.push([p[0] - w, p[1] - w, 2 * w, 2 * w]); } });
+    sc.taproot.forEach((p, i) => { if (i % 3 === 0) { const w = sc.taprootW(i / (sc.taproot.length - 1)) * 0.5 + 0.3 * L; roots.push([p[0] - w, p[1] - w, 2 * w, 2 * w]); } });
+    for (const r of roots) boxes.push(r);
+    // the gravel is too busy to letter on
+    let g0 = 1e9, g1 = -1e9; for (let x = 0; x <= W; x += 20) { g0 = Math.min(g0, sc.by(2, x)); g1 = Math.max(g1, sc.by(3, x)); }
+    boxes.push([0, g0 - 0.3 * L, W, g1 - g0 + 0.6 * L]);
+    boxes.push([0, 0, W, sc.cutY(W / 2) + 1.4 * L]); // keep labels below the turf
     boxes.push([0, H - 7.5 * L, Math.min(W * 0.45, 30 * L), 7.5 * L]); // the gallery's own label lives here
-    const hit = (b) => { for (const o of boxes) if (b[0] < o[0] + o[2] && b[0] + b[2] > o[0] && b[1] < o[1] + o[3] && b[1] + b[3] > o[1]) return true; return false; };
+    // strata key down the right edge: reserve its patches first
+    const lxK = W - 8;
+    const lay = [['TOPSOIL', 0.03 + fr.b1 * 0.5], ['CLAY', (fr.b1 + fr.b2) / 2], ['GRAVEL', (fr.b2 + fr.b3) / 2], ['SAND', (fr.b3 + fr.b4) / 2], ['WATER TABLE', (fr.b4 + fr.b5) / 2 + 0.008], ['LIMESTONE', Math.min(0.965, fr.b5 + 0.06)]];
+    for (const l of lay) { l.w = textWidth(c, l[0], fs * 0.78, { upright: true, spacing: 0.16 }); l.y = sc.yf(l[1]); boxes.push([lxK - l.w - 6, l.y - fs * 0.95, l.w + 12, fs * 1.4]); }
+    if (sc.extras) for (const e of sc.extras) boxes.push(e.box);
+    { // the loupe rests over the queen: keep lettering out from under it
+      const lr = clamp(Math.min(W, H) * 0.12, 62, 132) + 6, q = sc.Q, qx = q.cx - (q.cx > sc.E[0] ? 0.75 : -0.75) * L, qy = sc.floorY(q, q.cx) - 1.05 * L;
+      boxes.push([qx - lr, qy - lr, 2 * lr, 2 * lr]);
+    }
+    const leaders = [], lboxes = [];
+    const subj = sc.items.map(ibox);
+    const ov = (b, o) => b[0] < o[0] + o[2] && b[0] + b[2] > o[0] && b[1] < o[1] + o[3] && b[1] + b[3] > o[1];
+    const hit = (b) => { for (const o of boxes) if (ov(b, o)) return true; return false; };
+    const segHitsBox = (x0, y0, x1, y1, b, skip) => { for (let k = 1; k < 12; k++) { const t = k / 12, x = lerp(x0, x1, t), y = lerp(y0, y1, t); if (x > b[0] && x < b[0] + b[2] && y > b[1] && y < b[1] + b[3]) return true; } return false; };
     const nearTunnel = (b) => {
-      for (const t of sc.tunnels) for (let i = 0; i < t.pts.length; i += 2) { const p = t.pts[i]; if (p[0] > b[0] - sc.tw && p[0] < b[0] + b[2] + sc.tw && p[1] > b[1] - sc.tw && p[1] < b[1] + b[3] + sc.tw) return true; }
+      for (const t of sc.tunnels) for (let i = 0; i < t.pts.length; i += 2) { const p = t.pts[i]; const m = sc.tw * 0.75; if (p[0] > b[0] - m && p[0] < b[0] + b[2] + m && p[1] > b[1] - m && p[1] < b[1] + b[3] + m) return true; }
       return false;
     };
+    const patch = (b) => {
+      // a clean patch of board left for the lettering: soft-edged, a little irregular
+      c.save();
+      c.shadowColor = rgba(P.paper, 0.85); c.shadowBlur = fs * 0.9;
+      c.fillStyle = rgba(P.paper, 0.86);
+      c.beginPath();
+      const x0 = b[0] - 2, y0 = b[1] - 1, x1 = b[0] + b[2] + 2, y1 = b[1] + b[3] + 1, rr = b[3] * 0.45;
+      c.moveTo(x0 + rr, y0 + R.r(-0.6, 0.6)); c.lineTo(x1 - rr, y0 + R.r(-0.6, 0.6)); c.quadraticCurveTo(x1, y0, x1, y0 + rr); c.lineTo(x1 + R.r(-0.6, 0.6), y1 - rr);
+      c.quadraticCurveTo(x1, y1, x1 - rr, y1); c.lineTo(x0 + rr, y1 + R.r(-0.6, 0.6)); c.quadraticCurveTo(x0, y1, x0, y1 - rr); c.lineTo(x0 + R.r(-0.6, 0.6), y0 + rr); c.quadraticCurveTo(x0, y0, x0 + rr, y0);
+      c.fill(); c.shadowBlur = 0; c.fill();
+      c.restore();
+    };
+    const pending = [];
     const label = (txt, ax, ay, pri, prefer) => {
       if (sc.portrait && pri > 2) return;
-      const w = textWidth(c, txt, fs) + 4, h = fs * 1.25;
-      const dirs = prefer || [[1, -1], [-1, -1], [1, 1], [-1, 1], [0, -1], [0, 1], [1, 0], [-1, 0]];
-      for (const dist of (pri <= 1 ? [0.8, 1.4, 2.1, 3.0, 4.2, 5.6] : [0.8, 1.4, 2.1, 3.0])) {
+      const w = textWidth(c, txt, fs) + 6, h = fs * 1.35;
+      const dirs = prefer || [[1, -1], [-1, -1], [1, 1], [-1, 1], [0, -1], [0, 1], [1, 0], [-1, 0], [1, -0.5], [-1, -0.5], [1, 0.5], [-1, 0.5], [0.5, -1], [-0.5, 1]];
+      let best = null;
+      for (const dist of [0.6, 1.0, 1.5, 2.1, 2.8, 3.6, 4.6, 5.8, 7.2]) {
         for (const d of dirs) {
           const ox = ax + d[0] * dist * L * 1.3, oy = ay + d[1] * dist * L;
           const bx = d[0] > 0 ? ox : d[0] < 0 ? ox - w : ox - w / 2;
           const by = oy - h / 2;
-          const b = [bx, by, w, h];
-          if (bx < 6 || bx + w > W - 6 * L || by < 4 || by + h > H - 4) continue;
+          const b = [bx - pad, by - pad, w + 2 * pad, h + 2 * pad];
+          if (bx < 6 || bx + w > W - 6 || by < 4 || by + h > H - 4) continue;
           if (hit(b) || nearTunnel(b)) continue;
-          boxes.push(b);
-          const col = P.chalk;
           const lx = d[0] > 0 ? bx : d[0] < 0 ? bx + w : bx + w / 2;
           const ly = d[1] === 0 ? by + h * 0.55 : d[1] < 0 ? by + h : by;
-          c.strokeStyle = rgba(col, 0.7); c.lineWidth = 0.6;
-          c.beginPath(); c.moveTo(lx, ly); c.quadraticCurveTo((lx + ax) / 2 + R.r(-2, 2), (ly + ay) / 2 + R.r(-2, 2), ax, ay); c.stroke();
-          c.fillStyle = rgba(col, 0.9); c.beginPath(); c.arc(ax, ay, 1.3, 0, TAU); c.fill();
-          handText(c, R, txt, bx + 2, by + h * 0.78, fs, col, { shadow: 'rgba(12,7,4,0.9)', alpha: 0.95 });
-          return;
+          let bad = false;
+          for (const sg of leaders) if (segHitsBox(sg[0], sg[1], sg[2], sg[3], b)) { bad = true; break; }
+          if (!bad) for (const o of lboxes) if (segHitsBox(lx, ly, ax, ay, o)) { bad = true; break; }
+          if (!bad) for (const o of subj) if (segHitsBox(lx, ly, ax, ay, o)) { const own = ax >= o[0] && ax <= o[0] + o[2] && ay >= o[1] && ay <= o[1] + o[3]; if (!own) { bad = true; break; } }
+          if (bad) continue;
+          const len = Math.hypot(lx - ax, ly - ay);
+          if (!best || len < best.len - 0.5) best = { b, bx, by, lx, ly, len };
         }
+        if (best) break;
       }
+      if (!best) return;
+      boxes.push(best.b); lboxes.push(best.b); leaders.push([best.lx, best.ly, ax, ay]);
+      pending.push(() => {
+        // leader: a fine cream line with a dark edge so it reads on any ground
+        c.lineCap = 'round';
+        c.strokeStyle = 'rgba(16,10,6,0.45)'; c.lineWidth = 1.8;
+        c.beginPath(); c.moveTo(best.lx, best.ly); c.lineTo(ax, ay); c.stroke();
+        c.strokeStyle = rgba(P.paper, 0.9); c.lineWidth = 0.8;
+        c.beginPath(); c.moveTo(best.lx, best.ly); c.lineTo(ax, ay); c.stroke();
+        c.fillStyle = 'rgba(16,10,6,0.6)'; c.beginPath(); c.arc(ax, ay, 2.2, 0, TAU); c.fill();
+        c.fillStyle = rgba(P.paper); c.beginPath(); c.arc(ax, ay, 1.4, 0, TAU); c.fill();
+        patch([best.bx, best.by, w, h]);
+        handText(c, R, txt, best.bx + 3, best.by + h * 0.76, fs, P.graphite, { alpha: 0.95 });
+      });
     };
     const chs = (job) => sc.chambers.filter((c2) => c2.job === job);
     const Q = sc.Q;
     const top = (ch) => [ch.cx + ch.rw * R.r(-0.3, 0.3), ch.cy - ch.rh * 0.8];
     label('Her Majesty', Q.cx + Q.rw * 0.25, Q.cy - Q.rh * 0.75, 0, [[1, -1], [-1, -1], [1, 1], [-1, 1]]);
-    const once = (job, txt, pri) => { const c2 = chs(job)[0]; if (c2) { const t2 = top(c2); label(txt, t2[0], t2[1], pri); } };
-    once('alates', 'winged queens and males, waiting for the weather', 0);
+    const inside = (ch, txt) => {
+      // lettered on the chamber's own back wall, above the traffic, when it fits
+      let lines = [txt];
+      let w = textWidth(c, txt, fs) + 6;
+      if (w > ch.rw * 1.85 && txt.indexOf(', ') > 0) { lines = [txt.slice(0, txt.indexOf(', ') + 1), txt.slice(txt.indexOf(', ') + 2)]; w = Math.max(textWidth(c, lines[0], fs), textWidth(c, lines[1], fs)) + 6; }
+      if (w > ch.rw * 1.9) return false;
+      const h = fs * 1.35 * lines.length - (lines.length - 1) * fs * 0.15;
+      const bx = ch.cx - w / 2, by = ch.cy - ch.rh * (lines.length > 1 ? 0.55 : 0.5) - h / 2;
+      const b = [bx - 2, by - 2, w + 4, h + 4];
+      for (const o of lboxes) if (ov(b, o)) return false;
+      lboxes.push(b);
+      pending.push(() => { patch([bx, by, w, h]); lines.forEach((ln, k) => handText(c, R, ln, bx + 3, by + fs * 1.03 + k * fs * 1.2, fs, P.graphite, { alpha: 0.95 })); });
+      return true;
+    };
+    const once = (job, txt, pri, short) => { const c2 = chs(job)[0]; if (c2) { if (inside(c2, txt) || (short && inside(c2, short))) return; const t2 = top(c2); label(txt, t2[0], t2[1], pri); } };
+    once('alates', 'winged queens and males, waiting for weather', 0, 'flying ants, waiting for weather');
     once('crumbs', 'crumbs (arrived 1.06 pm)', 0);
     once('eggs', 'eggs', 1);
     once('larvae', 'larvae, sorted by size', 1);
@@ -2473,28 +2657,36 @@
     const items = {};
     for (const it of sc.items) items[it.name] = it;
     const il = (n, txt, pri) => { const it = items[n]; if (it) label(txt, it.x + (it.anchor ? it.anchor[0] : 0), it.y + (it.anchor ? it.anchor[1] : 0), pri); };
-    il('worm', 'earthworm', 2);
-    il('wormball', 'earthworm, knotted up until it rains', 2);
-    il('grub', 'chafer grub', 3);
-    il('woodlice', 'woodlice, keeping out of the sun', 2);
     il('toad', 'toad, retired for the season', 1);
+    label('mole (approaching)', m0[0] - 1.5 * L, m0[1] - 1.0 * L, 1, [[-1, -1], [-1, 1], [0, -1], [0, 1], [-1, 0]]);
     il('key', 'front door key, lost Thursday', 1);
-    il('cap', 'bottle cap, 1987', 3);
-    il('marble', 'marble (a good one)', 3);
-    il('soldier', 'tin soldier, missing since 1953', 2);
-    il('pipe', 'clay pipe, c. 1860', 3);
-    il('coin', 'penny, 1797', 3);
-    il('arrow', 'flint arrowhead, c. 2500 BC', 2);
+    il('soldier', 'tin soldier, missing since 1953', 1);
+    il('coin', 'penny, 1797', 1);
+    il('pipe', 'clay pipe, c. 1860', 2);
     il('mammoth', 'horseshoe, c. 1890', 2);
+    il('arrow', 'flint arrowhead, c. 2500 BC', 2);
     il('bottle', 'time capsule, buried on Coronation Day, 1911', 2);
     il('ammonite', 'ammonite, 180 million years', 2);
+    il('wormball', 'earthworm, knotted up until it rains', 2);
+    il('oldgallery', 'old gallery, given up after a wet winter', 1);
+    { const se = sc.sinker[sc.sinker.length - 1]; label('oak root, drinking at the water table', se[0], se[1] - 0.6 * L, 1); }
+    il('rootchannel', 'old root channel, stained with iron', 2);
+    il('acorn', 'acorn, buried by a jay and forgotten', 2);
+    il('woodlice', 'woodlice, keeping out of the sun', 2);
+    il('worm', 'earthworm', 2);
+    il('cap', 'bottle cap, 1987', 3);
+    il('marble', 'marble (a good one)', 3);
+    il('grub', 'chafer grub', 3);
     il('centipede', 'centipede (not invited)', 3);
-    label('mole (approaching)', m0[0] - 1.5 * L, m0[1] - 1.0 * L, 1, [[-1, -1], [-1, 1], [0, -1], [0, 1]]);
 
+    for (const f of pending) f();
     // strata names down the right edge, small caps
-    const lx = W - 8;
-    const lay = [['TOPSOIL', 0.03 + fr.b1 * 0.5], ['CLAY', (fr.b1 + fr.b2) / 2], ['GRAVEL', (fr.b2 + fr.b3) / 2], ['SAND', (fr.b3 + fr.b4) / 2], ['WATER TABLE', (fr.b4 + fr.b5) / 2 + 0.008], ['LIMESTONE', Math.min(0.965, fr.b5 + 0.06)]];
-    for (const l of lay) handText(c, R, l[0], lx, sc.yf(l[1]), fs * 0.8, P.chalk, { upright: true, spacing: 0.16, align: 'right', alpha: 0.6, shadow: 'rgba(12,7,4,0.8)' });
+    const lx = lxK;
+    for (const l of lay) {
+      const tw2 = textWidth(c, l[0], fs * 0.78, { upright: true, spacing: 0.16 }), yy = sc.yf(l[1]);
+      patch([lx - tw2 - 3, yy - fs * 0.82, tw2 + 6, fs * 1.1]);
+      handText(c, R, l[0], lx, yy, fs * 0.78, P.graphite, { upright: true, spacing: 0.16, align: 'right', alpha: 0.85 });
+    }
     // title & scale on the paper sky
     const tfs = clamp(L * 1.5, 19, 30);
     const tx = sc.portrait ? 14 : 1.8 * L, al = 'left';
@@ -2876,13 +3068,14 @@
           if (a.job !== 'alate' && a.job !== 'attendant' && R.chance(0.05)) return goto(a, pickFloorSpot(randomChamber()));
           if (here !== home) return goto(a, pickFloorSpot(home));
           const fe = floorOf(home);
-          plan(a, fe.id, clamp(a.s + R.r(-2.5, 2.5) * L, 0.05 * fe.len, 0.95 * fe.len)); a.state = 'walk';
+          const tgt = a.job === 'attendant' ? queen.s + R.r(-2.6, 2.0) * L * queen.dir : a.s + R.r(-2.5, 2.5) * L;
+          plan(a, fe.id, clamp(tgt, 0.05 * fe.len, 0.95 * fe.len)); a.state = 'walk';
         }
       }
     };
 
     // queen attendants gather near her
-    for (const a of ants) if (a.job === 'attendant') { a.s = clamp(queen.s + R.r(-1, 1) * Q.rw * 0.85, 0.05 * qf.len, 0.95 * qf.len); }
+    for (const a of ants) if (a.job === 'attendant') { a.s = clamp(queen.s + R.r(-2.6, 2.0) * L * queen.dir, 0.05 * qf.len, 0.95 * qf.len); a.dir = a.s > queen.s ? -1 : 1; a.timer = R.r(4, 14); }
 
     const life = {
       ants, queen,
@@ -3014,7 +3207,7 @@
         sc = scn; board = cv;
         life = makeColony(sc, api.seed);
         lens.r = clamp(Math.min(W, H) * 0.12, 62, 132);
-        const q = sc.Q; const qa = life.queen; const qp = posOf(sc, qa); lens.rest = [qp[0] - (qa.dir > 0 ? 0.3 : -0.3) * sc.L * 2.25, qp[1] - 1.4 * sc.L];
+        const q = sc.Q; const qa = life.queen; const qp = posOf(sc, qa); lens.rest = [qp[0] - (qa.dir > 0 ? 0.75 : -0.75) * sc.L, qp[1] - 1.05 * sc.L];
         if (!lens.user) { lens.x = lens.tx = lens.rest[0]; lens.y = lens.ty = lens.rest[1]; }
         // let the colony settle into motion before the first frame
         for (let i = 0; i < 30; i++) life.update(0.05, i * 0.05);
