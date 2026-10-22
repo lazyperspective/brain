@@ -541,9 +541,10 @@
       // hair as a mass, the side of the stick following the way it grows
       const hairAng = ang + (H.hair === 'bob' ? 8 : 78) * H.f;
       if (H.hair === 'quiff' || H.hair === 'short') {
+        B.block(M(hair), { col: hairCol, ang: hairAng - 40 * H.f, w: hh * 0.13, gap: 0.5, lvl: 1, a: 0.85, z, over: 0, skip: 0, sp: 1400, pause: 10, angj: 20, streak: false });
         // hair as a few sweeps following the way it is combed, front to crown to nape, not a cap
         [[[0.28, -0.36], [0.1, -0.48], [-0.14, -0.48], [-0.34, -0.36]], [[0.14, -0.27], [-0.1, -0.33], [-0.36, -0.2], [-0.4, 0.0]], [[0.3, -0.44], [0.12, -0.55], [-0.12, -0.55]]]
-          .forEach((arc, i) => B.side([M(arc)], { col: hairCol, w: hh * (i === 2 ? 0.1 : 0.19), lvl: i === 1 ? 1 : 0, a: 0.95, z, sp: 1100, pr: 'swell', fade: [1, 0.75], streak: false }));
+          .forEach((arc, i) => { if (i !== 1) B.side([M(arc)], { col: hairCol, w: hh * (i === 2 ? 0.1 : 0.16), lvl: 0, a: 0.9, z, sp: 1100, pr: 'swell', fade: [1, 0.75], streak: false }); });
         B.side([M([[-0.28, -0.08], [-0.36, 0.06]]), M([[0.02, -0.08], [0.02, 0.05]])], { col: hairCol, w: hh * 0.06, lvl: 1, a: 0.85, z, sp: 800 });
       } else B.block(M(hair), { col: hairCol, ang: hairAng, w: hh * 0.12, gap: 0.45, lvl: H.hair === 'bald' ? 1 : 0, a: 0.95, z, over: 0.0, skip: 0, sp: 1400, pause: 10, angj: 14, streak: false });
       if (H.hair === 'bun') B.block(M([[-0.36, -0.4], [-0.5, -0.46], [-0.6, -0.36], [-0.56, -0.22], [-0.42, -0.2]]), { col: hairCol, ang: hairAng, w: hh * 0.07, gap: 0.7, lvl: 0, a: 0.9, z, over: 0, skip: 0, sp: 1000, pause: 10 });
@@ -788,8 +789,8 @@
       },
       wall: { top: 300, bot: 1150, x0: 0, x1: 1000 },
       focus: [420, 620],
-      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [700, 110], jury: [24, 1000, 220], steno: [790, 760, 190], feather: [720, 1866], sig: [40, 1884] },
-      targets: { juror: [60, 470], feather: [690, 1792] },
+      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [700, 110], jury: [150, 384, 240], steno: [800, 1110, 180], feather: [720, 1866], sig: [40, 1884] },
+      targets: { juror: [70, 476], feather: [690, 1792] },
     };
   }
 
@@ -1586,7 +1587,7 @@
     const nx = Math.max(4, Math.round(T / cell)), ny = Math.max(4, Math.round(T / (cell * 0.866) / 2) * 2);
     const cw = T / nx, rh = T / ny;
     const jx = new Float32Array(nx * ny), jy = new Float32Array(nx * ny);
-    for (let i = 0; i < nx * ny; i++) { jx[i] = (rnd() - 0.5) * 0.42; jy[i] = (rnd() - 0.5) * 0.42; }
+    for (let i = 0; i < nx * ny; i++) { jx[i] = (rnd() - 0.5) * 0.75; jy[i] = (rnd() - 0.5) * 0.75; }
     for (let y = 0; y < T; y++) {
       const ry = Math.floor(y / rh);
       for (let x = 0; x < T; x++) {
@@ -1605,7 +1606,7 @@
         H[y * T + x] = 1 - Math.exp(-dn * dn * 9) + 0.06 * Math.sin((x + y * 0.3) / cw * Math.PI * 2) * Math.sin((y - x * 0.3) / rh * Math.PI);
       }
     }
-    const oct = [[feat * 1.1, 0.1], [feat * 2.6, 0.08], [feat * 6, 0.06], [feat * 30, 0.06]];
+    const oct = [[feat * 1.1, 0.16], [feat * 2.6, 0.14], [feat * 6, 0.08], [feat * 30, 0.06]];
     for (const [per, amp] of oct) {
       const n = Math.max(2, Math.round(T / per));
       const g = new Float32Array(n * n); for (let i = 0; i < g.length; i++) g[i] = rnd();

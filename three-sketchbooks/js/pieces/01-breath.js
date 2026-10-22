@@ -19,31 +19,36 @@
 
   // <strokes>
   function STROKES() {
-    // the head, drawn upright (face to the left) in millimetres, then tipped back against the seat
+    // the head, drawn upright (face to the left) in millimetres on the glass, then tipped back 26 degrees
+    // against the seat. Seven strokes; none of them closes a shape.
     const head = [
-      { name: 'profile', dur: 2.5, pause: 0.0, end: 'stop', press: 0.95, pk: [[0, 0.85], [0.3, 0.95], [0.42, 1.08], [0.7, 0.86], [1, 1.0]],
-        pts: [[24,50],[7,76],[2,104],[11,120],[-4,142],[-22,165],[-8,177],[1,183],[-1,197],[4,210],[-4,230],[15,253]] },
-      { name: 'eye', dur: 0.5, pause: 0.6, end: 'flick', press: 0.9, jit: 0.6,
-        pts: [[30,127],[43,136],[57,136],[67,129]] },
-      { name: 'hair', dur: 1.45, pause: 0.7, end: 'flick', press: 0.8, pk: [[0, 1.05], [0.35, 0.92], [0.8, 0.8], [1, 0.75]],
-        pts: [[26,46],[56,14],[112,0],[170,16],[206,58],[222,114],[228,168],[242,198],[266,210],[294,212]] },
-      { name: 'temple', dur: 0.6, pause: 0.45, end: 'flick', press: 0.75, jit: 1.0,
-        pts: [[30,54],[48,82],[70,104],[96,116],[104,132]] },
-      { name: 'ear', dur: 0.6, pause: 0.5, end: 'stop', press: 0.85, jit: 0.8,
-        pts: [[118,118],[138,114],[148,134],[142,160],[126,178]] },
-      { name: 'jaw', dur: 0.8, pause: 0.55, end: 'flick', press: 0.85,
-        pts: [[14,252],[50,258],[90,248],[122,214]] },
+      // one long line: forehead, brow, the dip, down the nose and back under it
+      { name: 'brow-nose', dur: 1.7, pause: 0.0, end: 'stop', press: 0.95, pk: [[0, 0.68], [0.3, 0.9], [0.6, 1.15], [0.85, 1.22], [1, 1.0]],
+        pts: [[14,62],[5,86],[3,106],[11,121],[-3,142],[-21,163],[-12,175],[0,181]] },
+      // the closed eye: one soft arc
+      { name: 'eye', dur: 0.55, pause: 0.7, end: 'stop', press: 0.82, jit: 0.6, pk: [[0, 0.8], [0.5, 1.0], [1, 0.75]],
+        pts: [[36,127],[49,137],[64,138],[76,131]] },
+      // the mouth: a single press, dragged a little
+      { name: 'mouth', dur: 0.28, pause: 0.55, end: 'stop', press: 0.78, jit: 0.5,
+        pts: [[-3,197],[3,200],[8,201]] },
+      // the hair: one wide fast swipe over the crown that falls away against the seat
+      { name: 'hair', dur: 1.25, pause: 0.8, end: 'flick', press: 0.92, w: 1.28, pk: [[0, 0.72], [0.25, 1.15], [0.6, 1.0], [0.85, 0.78], [1, 0.7]],
+        pts: [[38,30],[76,6],[136,-4],[194,16],[234,62],[248,122],[244,172],[254,208],[282,230],[318,240]] },
+      // the ear, small, where the jaw meets the skull
+      { name: 'ear', dur: 0.55, pause: 0.6, end: 'stop', press: 0.86, jit: 0.7,
+        pts: [[120,124],[138,121],[147,140],[140,163],[126,175]] },
     ];
     const th = 26 * Math.PI / 180, c = Math.cos(th), s = Math.sin(th), px = 100, py = 240;
     const rot = (p) => [px + (p[0] - px) * c - (p[1] - py) * s, py + (p[0] - px) * s + (p[1] - py) * c];
     const H = head.map((r) => Object.assign({}, r, { pts: r.pts.map(rot) }));
+    const chin = [[-1,224],[2,240],[16,253]].map(rot);
     const body = [
-      { name: 'throat', dur: 1.2, pause: 0.5, end: 'flick', press: 0.9, pk: [[0, 0.8], [0.35, 1.02], [0.75, 0.92], [1, 1.0]],
-        pts: [[56,236],[72,262],[84,296],[94,330],[108,362],[130,388]] },
-      { name: 'shoulder', dur: 1.3, pause: 0.6, end: 'flick', press: 0.85, pk: [[0, 0.95], [0.4, 1.05], [1, 0.8]],
-        pts: [[196,262],[200,290],[214,320],[246,346],[300,364],[372,376]] },
-      { name: 'collar', dur: 0.55, pause: 0.5, end: 'flick', press: 0.72, jit: 1.2,
-        pts: [[116,402],[154,394],[200,398]] },
+      // chin, under the jaw and down the long throat in one sweep
+      { name: 'chin-throat', dur: 1.6, pause: 0.6, end: 'stop', press: 0.92, pk: [[0, 1.15], [0.15, 1.0], [0.45, 0.7], [0.75, 0.95], [1, 1.18]],
+        pts: chin.concat([[40,226],[60,250],[76,284],[88,322],[102,356],[124,384]]) },
+      // nape to shoulder
+      { name: 'shoulder', dur: 1.25, pause: 0.6, end: 'flick', press: 0.88, pk: [[0, 1.12], [0.4, 1.0], [1, 0.68]],
+        pts: [[198,268],[202,296],[216,324],[248,348],[302,366],[374,378]] },
     ];
     return H.concat(body);
   }
@@ -224,7 +229,7 @@
     float spec = exp(-dot(n - L * 0.5, n - L * 0.5) * 30.0);
     float caus = exp(-dot(n + L * 0.55, n + L * 0.55) * 14.0);
     c += vec3(0.95, 0.97, 1.0) * spec * (0.45 + 0.55 * big) + under * caus * 0.35;
-    c = mix(under * (0.9 + 0.1 * (1.0 - r)), c, 0.2 + 0.8 * big);
+    c = mix(under * (0.95 + 0.05 * (1.0 - r)), c, 0.06 + 0.94 * big * big);
     float aa = 1.0 - smoothstep(1.0 - 1.4 / max(b.w * uDpr, 1.0), 1.0, r);
     return mix(under, c, aa);
   }
@@ -263,13 +268,14 @@
 
     // the big droplets suspended in the fog: sparse up high, larger and crowded near the bottom
     float bott = smoothstep(0.45, 1.0, y01);
-    vec4 fb = drops(p, max(2.2, 1.3 * mm), mix(0.04, 0.3, bott), max(0.5, 0.18 * mm), max(1.0, mix(0.45, 0.85, bott) * mm), 1.3);
+    vec4 fb = drops(p, max(2.2, 1.3 * mm), mix(0.03, 0.22, bott), max(0.5, 0.18 * mm), max(1.0, mix(0.45, 0.85, bott) * mm), 1.3);
     if (fb.z > 0.0) fog = mix(fog, shadeBead(fb, p, fog, fogLum), 0.85 * (0.35 + 0.65 * bott));
     vec4 fb2 = drops(p, max(4.0, 3.6 * mm), mix(0.03, 0.3, bott * bott), 0.6 * mm, max(1.5, mix(0.8, 1.6, bott) * mm), 7.9);
     if (fb2.z > 0.0) fog = shadeBead(fb2, p, fog, fogLum);
 
     /* ---- clear glass: the night, rain on the outside ---- */
-    vec3 night = sceneSharp(p);
+    vec3 night = sceneSharp(p) * 1.5;
+    night = max(mix(vec3(dot(night, vec3(0.3, 0.55, 0.15))), night, 1.25), 0.0);
     // raindrops on the outside, coming and going
     vec4 rd = drops(p, 3.4 * mm, 0.5, 0.5 * mm, 1.7 * mm, 21.0);
     if (rd.z > 0.0){
@@ -352,7 +358,7 @@
   }`;
 
   /* ------------------------------------------------------------------ the night outside */
-  function paintNight(rng, per, H, s, sc) {
+  function paintNight(rng, per, H, s, sc, anchors) {
     const cw = Math.ceil(per * sc), ch = Math.ceil(H * sc);
     const mk = () => { const c = document.createElement('canvas'); c.width = cw; c.height = ch; return c; };
     const far = mk(), near = mk();
@@ -370,8 +376,8 @@
     // sky: full resolution gradient so nothing bands
     {
       const gr = fx.createLinearGradient(0, 0, 0, ch);
-      gr.addColorStop(0, '#030408'); gr.addColorStop(0.28, '#07070c'); gr.addColorStop(0.46, '#150d0b');
-      gr.addColorStop(yH - 0.02, '#26160d'); gr.addColorStop(yH + 0.015, '#09080a'); gr.addColorStop(0.8, '#0b0a0c'); gr.addColorStop(1, '#0d0c0e');
+      gr.addColorStop(0, '#05070d'); gr.addColorStop(0.28, '#0b0b13'); gr.addColorStop(0.46, '#211410');
+      gr.addColorStop(yH - 0.02, '#341e11'); gr.addColorStop(yH + 0.015, '#09080a'); gr.addColorStop(0.8, '#0b0a0c'); gr.addColorStop(1, '#0d0c0e');
       fx.fillStyle = gr; fx.fillRect(0, 0, cw, ch);
       // roofs against the skyglow, defocused: painted at the size of a blur disc and enlarged
       const k = Math.max(2, R * 0.8);
@@ -431,14 +437,14 @@
     fx.globalCompositeOperation = 'lighter';
 
     // far: windows of flats and offices
-    for (let b = 0; b < 18; b++) {
+    for (let b = 0; b < 30; b++) {
       const bx = rng() * cw, by = ch * (0.08 + rng() * 0.34);
       const cols = 2 + Math.floor(rng() * 6), rows = 1 + Math.floor(rng() * 5);
       const dx = R * (0.7 + rng() * 0.6), dy = R * (0.8 + rng() * 0.6);
       const tint = [WARM, COOL, FLUO, WARM, SODIUM2, WARM, WHITE][Math.floor(rng() * 7)];
       for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
         if (rng() < 0.5) continue;
-        disc(fx, bx + i * dx, by + j * dy, R * (0.6 + rng() * 0.15), rng() < 0.2 ? WARM : tint, 0.06 + rng() * 0.2, 0.12);
+        disc(fx, bx + i * dx, by + j * dy, R * (0.6 + rng() * 0.15), rng() < 0.2 ? WARM : tint, 0.1 + rng() * 0.28, 0.12);
       }
     }
     // a red lamp high on a crane
@@ -479,9 +485,9 @@
         reflect(nx, sx, sy, R * 0.8, nc, 0.6);
       }
     }
-    for (let k = 0; k < 110; k++) {
+    for (let k = 0; k < 230; k++) {
       const c = [WARM, WHITE, SODIUM2, COOL, RED, WARM, PINK, FLUO, AMBER][Math.floor(rng() * 9)];
-      disc(nx, rng() * cw, ch * (0.36 + rng() * 0.25), R * (0.55 + rng() * 0.45), c, 0.03 + rng() * 0.17, 0.14);
+      disc(nx, rng() * cw, ch * (0.18 + rng() * 0.45), R * (0.45 + rng() * 0.5), c, 0.05 + rng() * 0.25, 0.12);
     }
     // signals at a junction
     const nSig = 2 + Math.floor(rng() * 2);
@@ -510,6 +516,14 @@
       reflect(nx, x + gap, y, R * 0.95, c, tail ? 0.7 : 0.8);
       if (!tail && rng() < 0.5) disc(nx, x + gap / 2, y - R * 1.4, R * 0.6, AMBER, 0.6, 0.08);
     }
+    // a few lights placed behind the drawing as the viewer arrives, so the lines glow with them
+    for (const a of anchors || []) {
+      const x = a.x * sc, y = a.y * sc;
+      const c = { SODIUM, RED, WHITE, GREEN, AMBER, COOL }[a.c];
+      if (a.c === 'SODIUM') halo(nx, x, y, R * 4, c, 0.025);
+      disc(nx, x, y, R * (a.r || 1), c, a.i, 0.06);
+      if (a.pair) disc(nx, x + R * 2.1, y + R * 0.1, R * (a.r || 1), c, a.i * 0.9, 0.06);
+    }
     return { far, near };
   }
 
@@ -519,7 +533,7 @@
     title: 'Breath',
     medium: 'Fingertip on condensation, night bus window',
     note: 'Draw on the glass. It will fog over again.',
-    about: 'Someone on the last bus home drew the stranger asleep across the aisle on the fogged window, in nine strokes of one finger. The drawing is made of absence: where the finger wiped, the city shows through, and the breath of the passengers slowly takes it back.',
+    about: 'Someone on the last bus home drew the stranger asleep across the aisle on the fogged window, in seven strokes of one finger. The drawing is made of absence: where the finger wiped, the city shows through, and the breath of the passengers slowly takes it back.',
     tone: 'light',
     room: '#3a3f42',
 
@@ -607,8 +621,8 @@
         if (x0 > x1 || y0 > y1) return;
         const nx = -ty, ny = tx;
         const core = clamp(0.99 - 0.2 * vn - 0.45 * Math.max(0, 0.7 - P), 0.42, 0.99);
-        const ridgeAmp = clamp(0.16 + 0.34 * vn + 0.5 * Math.max(0, 0.85 - P), 0, 0.62);
-        const lam = Math.max(2.1, 0.75 * S * fsc);
+        const ridgeAmp = clamp(0.03 + 0.14 * vn + 0.6 * Math.max(0, 0.82 - P), 0, 0.45);
+        const lam0 = Math.max(1.8, 0.55 * S * fsc);
         const ph1 = ridgeSeed * 6.283, ph2 = ridgeSeed * 17.0;
         const rimAmt = (0.5 + 0.5 * P) * (1 - 0.45 * vn);
         for (let yy = y0; yy <= y1; yy++) {
@@ -630,10 +644,13 @@
             let pN = 0, dep = 0;
             if (m > 0) {
               const aa = Math.abs(across);
-              const rp = across / lam + 0.35 * Math.sin(across * 0.13 + ph1) + 0.12 * Math.sin(across * 0.41 + ph2);
-              let rv = 0.5 + 0.5 * Math.cos(TAU * rp); rv *= rv;
-              const alongMod = 0.5 + 0.5 * Math.sin(arc * 0.045 + across * 0.05 + ph2) * Math.sin(arc * 0.017 + ph1);
-              const ridge = ridgeAmp * rv * (0.35 + 0.65 * alongMod) * (0.4 + 0.6 * smooth(0, hw, aa));
+              // the ridges of a fingerprint dragged along: faint, uneven, drifting arcs, broken up
+              const lam = lam0 * (1 + 0.28 * Math.sin(across * 0.06 + ph1));
+              const rp = across / lam + 0.9 * Math.sin(arc * 0.011 + ph2) + 0.45 * Math.sin(across * 0.11 + ph1) + 0.2 * Math.sin(arc * 0.037 + across * 0.05);
+              const rv = 0.5 + 0.5 * Math.cos(TAU * rp);
+              const broken = smooth(0.3, 0.8, 0.5 + 0.5 * Math.sin(arc * 0.085 + across * 0.19 + ph2 * 1.3) * Math.sin(arc * 0.029 + ph1));
+              const contrast = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(across * 0.33 + ph2 * 2.1));
+              const ridge = ridgeAmp * rv * broken * contrast * (0.5 + 0.5 * smooth(0, hw, aa));
               pN = m * core * (1 - ridge);
               const u = dist / hw;
               dep = m * clamp(1 - u * u * 0.8, 0, 1) * (1 - 0.3 * ridge) * (0.75 + 0.25 * Math.min(1, P));
@@ -697,14 +714,16 @@
         const L = arc[n - 1];
         const mmPx = S * fsc;
         // curvature -> speed (the two-thirds power law of the hand)
-        const v = new Float32Array(n);
+        const v = new Float32Array(n), K = new Float32Array(n);
         for (let i = 0; i < n; i++) {
           const i0 = Math.max(0, i - 6), i1 = Math.min(n - 1, i + 6);
           let da = Math.atan2(ty[i1], tx[i1]) - Math.atan2(ty[i0], tx[i0]);
           while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
           const k = Math.abs(da) / Math.max(1e-3, (arc[i1] - arc[i0]) / mmPx); // 1/mm
           v[i] = Math.pow(k + 0.006, -1 / 3);
+          K[i] = k;
         }
+        { const Ks = new Float32Array(n); for (let i = 0; i < n; i++) { let a = 0, c = 0; for (let k = -24; k <= 24; k++) { const q = i + k; if (q >= 0 && q < n) { a += K[q]; c++; } } Ks[i] = a / c; } K.set(Ks); }
         const vs = new Float32Array(n);
         for (let i = 0; i < n; i++) { let acc = 0, c = 0; for (let k = -8; k <= 8; k++) { const q = i + k; if (q >= 0 && q < n) { acc += v[q]; c++; } } vs[i] = acc / c; }
         const flick = def.end === 'flick';
@@ -721,7 +740,7 @@
         for (let i = 0; i < n; i++) time[i] *= k;
         // pressure and width
         const press = def.press * (0.94 + 0.12 * r());
-        const tail = clamp(0.14 * L / mmPx, 12, 40);
+        const tail = clamp(0.07 * L / mmPx, 7, 16);
         const wob = r() * 9;
         const P = new Float32Array(n), HW = new Float32Array(n), VN = new Float32Array(n);
         const hw0 = 8.0 * mmPx * (def.w || 1) * (0.96 + 0.08 * r());
@@ -734,13 +753,18 @@
             const A = def.pk[k], B = def.pk[k + 1];
             p *= A[1] + (B[1] - A[1]) * smooth(A[0], B[0], u);
           }
-          p += 0.16 * Math.exp(-sMm / 5);                                  // the landing press
-          if (flick) p *= 0.06 + 0.94 * smooth(0, tail, eMm);              // lift-off while moving
-          else p *= 0.35 + 0.65 * smooth(0, 3, eMm);
+          p += 0.1 * Math.exp(-sMm / 5);                                  // the landing press
+          // lift-off while moving: the pad peels away, pressure falls, but the swathe stays blunt
+          const lift = flick ? smooth(tail, 0, eMm) : 0;
+          if (flick) p *= 1 - 0.72 * lift;
           P[i] = p;
           const vmm = (i > 0 ? (arc[i] - arc[i - 1]) / Math.max(1e-4, time[i] - time[i - 1]) : 0) / mmPx;
           VN[i] = clamp((vmm - 70) / 520, 0, 1);
-          HW[i] = hw0 * (0.22 + 0.78 * Math.pow(clamp(p, 0, 1.3), 0.7)) * (1 - 0.36 * VN[i]) + hw0 * 0.1 * Math.exp(-sMm / 4);
+          // a slow curve lets the pad roll flatter and wider; the finger's angle drifts as the wrist turns
+          const roll = 1 + 0.2 * (1 - VN[i]) * clamp(K[i] * 18, 0, 1);
+          const angle = 1 + 0.1 * Math.sin(sMm * 0.035 + wob * 1.7) + 0.05 * Math.sin(sMm * 0.11 + wob);
+          const smear = flick ? 1 + 0.12 * Math.sin(Math.PI * lift) + 0.14 * lift * Math.sin(sMm * 1.3 + wob) : 1 + 0.03 * smooth(4, 0, eMm);
+          HW[i] = hw0 * (0.42 + 0.58 * Math.pow(clamp(p, 0, 1.35), 0.8)) * (1 - 0.3 * VN[i]) * roll * angle * smear + hw0 * 0.06 * Math.exp(-sMm / 4);
         }
         // where water gathers: the low points of the stroke and a finger that stops
         const pool = new Float32Array(n);
@@ -928,7 +952,21 @@
         per = Math.ceil(Math.max(W * 1.6, H * 1.2, 900));
         const sc = Math.min(1, 4096 / per, Math.sqrt(3.2e6 / (per * H)));
         const rs = mulberry32(seed ^ 0xC17E);
-        const night = paintNight(rs, per, H, S, sc);
+        // where the strokes will be at this moment, in the near layer's own coordinates
+        const offN = (((now() + rebased) * 7.5 * (W / 1600)) % per + per) % per;
+        const at = (name, f) => {
+          const d = DEFS.find((q) => q.name === name); if (!d) return null;
+          const u = f * (d.pts.length - 1), i = Math.min(d.pts.length - 2, Math.floor(u)), t = u - i;
+          const q = mapPt([d.pts[i][0] + (d.pts[i + 1][0] - d.pts[i][0]) * t, d.pts[i][1] + (d.pts[i + 1][1] - d.pts[i][1]) * t]);
+          return [((q[0] / fsc + offN) % per + per) % per, q[1] / fsc];
+        };
+        const anchors = [];
+        const A1 = at('hair', 0.36), A2 = at('chin-throat', 0.7), A3 = at('brow-nose', 0.3), A4 = at('shoulder', 0.6);
+        if (A1) anchors.push({ x: A1[0], y: A1[1], c: 'SODIUM', i: 0.95, r: 1.05 });
+        if (A2) anchors.push({ x: A2[0] - 15 * S, y: A2[1], c: 'RED', i: 0.85, r: 0.85, pair: true });
+        if (A3) anchors.push({ x: A3[0], y: A3[1], c: 'WHITE', i: 0.5, r: 0.9 });
+        if (A4) anchors.push({ x: A4[0], y: A4[1], c: 'GREEN', i: 0.8, r: 0.85 });
+        const night = paintNight(rs, per, H, S, sc, anchors);
         if (scene) { for (const t of scene.tex) gl.deleteTexture(t); for (const f of scene.fb) gl.deleteFramebuffer(f); }
         const mkScene = (cv) => {
           const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
