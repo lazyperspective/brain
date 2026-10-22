@@ -112,7 +112,7 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
   float skin=BIG, card=BIG, trou=BIG, shoe=BIG, hair=BIG, eye=BIG, shirt=BIG, tie=BIG, porc=BIG, tea=BIG, btn=BIG, spoon=BIG;
   float bnd = BIG, b;
   // ---------- head ----------
-  b = sdBox(q-vec3(0.,5.8,0.35), vec3(1.65,1.75,1.7));
+  b = sdBox(q-vec3(0.,5.8,0.35), vec3(1.75,1.75,1.7));
   if (full || b < dc) {
     vec3 h = headSpace(q);
     skin = smin(sdEll(h-vec3(0.,0.25,-0.05), vec3(1.22,1.35,1.22)), sdEll(h-vec3(0.,-0.55,0.3), vec3(1.15,0.92,1.05)), 0.5);
@@ -131,8 +131,9 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
       eye = min(eye, length(h-ec)-0.17);
       vec3 nl = normalize(vec3(s*0.4,1.,0.3));
       lid = min(lid, max(length(h-ec)-0.174, -(dot(h-ec,nl)-uLid)));
-      skin = smin(skin, sdEll(h-vec3(s*1.18,-0.05,0.0), vec3(0.18,0.45,0.32)), 0.08);
-      skin = smax(skin, -(length(h-vec3(s*1.33,-0.07,0.08))-0.17), 0.05);
+      // slightly heavy jowls, and the fold from nose to moustache pressed in with a tool
+      skin = smin(skin, sdEll(h-vec3(s*0.7,-0.98,0.6), vec3(0.4,0.32,0.38)), 0.22);
+      skin = smax(skin, -sdCap(h, vec3(s*0.36,-0.28,1.2), vec3(s*0.66,-0.88,0.98), 0.03), 0.06);
     }
     skin = smin(skin, lid, 0.025);
     skin = smin(skin, nose, 0.06);
@@ -153,6 +154,18 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
     }
     hair = min(hair, min(sdCap(h, vec3(-1.02,1.0,0.15), vec3(-0.35,1.54,0.15), 0.045), sdCap(h, vec3(-0.35,1.54,0.15), vec3(0.45,1.5,0.15), 0.045)));
     hair = min(hair, min(sdCap(h, vec3(-0.97,0.91,0.45), vec3(-0.3,1.46,0.45), 0.04), sdCap(h, vec3(-0.3,1.46,0.45), vec3(0.36,1.43,0.45), 0.04)));
+    // ears: two pads of clay pressed on, the seam thumbed smooth, a hollow pushed in
+    float ear = BIG;
+    for (int k=0;k<2;k++){
+      float s = k==0 ? -1. : 1.;
+      vec3 e = h-vec3(s*1.27,-0.12,0.02);
+      e.xz = rot(s*0.35)*e.xz;
+      float ed = sdEll(e, vec3(0.16,0.44,0.3));
+      ed = smax(ed, -(length(e-vec3(s*0.16,0.02,0.05))-0.15), 0.05);
+      ear = min(ear, ed);
+    }
+    skin = smin(skin, ear, 0.1);
+    hair = smax(hair, -(ear-0.03), 0.04);
     skin = smin(skin, sdCap(q, vec3(0.,3.9,-0.05), vec3(0.,4.7,0.05), 0.55), 0.2);
   } else bnd = min(bnd, b);
   // ---------- torso: cardigan over shirt and tie ----------
@@ -332,13 +345,15 @@ float onePrint(vec3 q, vec3 n, vec3 c, float R, vec3 r, float sw, float fade){
   float ph = rr/0.068 + sw*an/6.2831 + 0.5*sin(an+sw*7.)*(rr/R) + 0.8*smoothstep(0.,R,rr)*uv.x/max(R,0.01);
   float ridge = cos(6.2831*ph);
   ridge *= smoothstep(0.15,0.45,vn(q*26.+c*3.)+0.25); // broken ridges, minutiae
+  ridge *= smoothstep(0.2,0.55,vn(q*11.+c*5.));
   float msk = smoothstep(R, R*0.4, dist);
   // a print is partial: the pad rolled off one side
   msk *= smoothstep(-0.05, 0.15, dot(uv, normalize(r.yz+0.01)) + R*0.6);
-  return msk*(ridge*0.0052*fade - 0.016*(1.-rr/R)*(1.-rr/R));
+  return msk*(ridge*0.0034*fade - 0.016*(1.-rr/R)*(1.-rr/R));
 }
-float prints(vec3 q, vec3 n, float fade){
+float prints(vec3 q, vec3 n, float fade, int part){
   float acc = 0.;
+  if (part != 0) {
   vec3 g = q/1.5+uFP+uBoil*vec3(0.031,0.017,0.023);
   vec3 b = floor(g-0.5);
   for (int k=0;k<8;k++){
@@ -347,6 +362,7 @@ float prints(vec3 q, vec3 n, float fade){
     if (hh.x > 0.55) continue;
     vec3 c = (cell+0.15+0.7*h33(cell+11.3)-uFP)*1.5;
     acc += onePrint(q, n, c, 0.4+0.2*hh.y, h33(cell+3.7)-0.5, (hh.z-0.5)*2., fade);
+  }
   }
   // the sculptor's own, left where the eye goes
   acc += onePrint(q, n, uHP1.xyz, uHP1.w, vec3(0.3,0.5,-0.2), 0.6, fade);
@@ -362,7 +378,7 @@ float detail(vec3 q, vec3 p, vec3 n, int part, float fade, float melt){
   d += (vn(q*5.3+uFP.yzx)-0.5)*0.012*sm;
   float sdir = dot(q, normalize(vec3(0.7,0.4,0.2)));
   d += (vn(vec3(sdir*2.5, dot(q,vec3(-0.3,0.9,0.1))*14., q.z*3.))-0.5)*0.01*sm;
-  if (part==0 || part==1 || part==2 || part==6 || part==3) d += prints(q, n, fade)*sm;
+  if (part==0 || part==1 || part==2 || part==6 || part==3) d += prints(q, n, fade, part)*sm;
   if (part==1){
     // ribbed waistband and cuffs, pressed in with the edge of a tool
     float an = atan(q.z, q.x);
@@ -394,13 +410,14 @@ const vec3 LR = normalize(vec3(0.55,0.75,-0.4));
 const vec3 CR = vec3(1.0,0.9,0.78)*1.4;
 
 float shadow(vec3 ro, vec3 rd, float k){
-  float res = 1., t = 0.015, ph = 1e10;
-  for (int i=0;i<56;i++){
+  // a big studio softbox: wide penumbra, dithered start so passes average out banding
+  float res = 1.;
+  float t = 0.02+0.04*h13(ro*91.7+uN*7.31);
+  for (int i=0;i<84;i++){
     float h = map(ro+rd*t);
-    float y = h*h/(2.*ph); float dd = sqrt(max(h*h-y*y,0.));
-    res = min(res, k*dd/max(0.0001,t-y));
-    ph = h; t += clamp(h, 0.012, 0.7);
-    if (res < 0.003 || t > 22.) break;
+    res = min(res, k*h/t);
+    t += clamp(h*0.8, 0.02, 0.55);
+    if (res < 0.002 || t > 24.) break;
   }
   res = clamp(res,0.,1.);
   return res*res*(3.-2.*res);
@@ -538,7 +555,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
       if (part==3){ rough = 0.32; wrap = 0.2; spec = 1.; }
       if (part==4) { rough = 0.7; }
       sss = part==0 ? vec3(0.95,0.25,0.12) : alb*0.7;
-      float fade = smoothstep(1.6, 3.4, 0.068/pixw);
+      float fade = smoothstep(3.6, 7.5, 0.068/pixw);
       float de = max(0.003, pixw*0.5);
       float d0 = detail(q,p,n,part,fade,melt);
       vec3 gq = vec3(detail(q+vec3(de,0,0),p,n,part,fade,melt)-d0,
@@ -631,7 +648,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
   vec3 C = vec3(1.3,8.6,-0.6);
   float dperp = length(cross(p-C, LK));
   float pool = mix(0.22, 1.12, exp(-dperp*dperp/(2.*4.6*4.6)));
-  float sh = shadow(p+n*0.01, LK, 9.);
+  float sh = shadow(p+n*0.012, LK, 3.6);
   float ndl = dot(n, LK);
   float dif = clamp((ndl+wrap)/(1.+wrap), 0., 1.);
   vec3 h = normalize(LK+v);
@@ -786,7 +803,7 @@ void main(){
       };
       {
         // one print where the eye lands (brow, cheek or dome), one on the body
-        const face = [[-0.42, 6.62, 0.98, 0.5], [0.78, 5.3, 1.05, 0.48], [0.5, 7.15, 0.6, 0.5], [-0.75, 5.25, 0.95, 0.46]];
+        const face = [[0.74, 5.4, 0.93, 0.42], [-0.72, 5.36, 0.92, 0.42]];
         const body = [[0.75, 1.75, 1.5, 0.55], [-0.95, 1.25, 1.62, 0.5], [-1.4, 2.6, 1.0, 0.5], [0.9, 0.6, 2.0, 0.5]];
         const jig = (v, i) => v + (i < 3 ? (rnd() - 0.5) * 0.15 : 0);
         S.hp1 = face[Math.floor(rnd() * face.length)].map(jig);
