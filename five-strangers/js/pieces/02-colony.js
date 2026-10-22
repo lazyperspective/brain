@@ -747,9 +747,9 @@
     add(() => {
       // the warm heart: a faint glow in the dark sand around the queen's chamber
       const q = sc.Q;
-      const g = c.createRadialGradient(q.cx, q.cy, q.rw * 0.4, q.cx, q.cy, q.rw * 2.6);
-      g.addColorStop(0, 'rgba(255,176,86,0.30)'); g.addColorStop(0.45, 'rgba(240,150,70,0.12)'); g.addColorStop(1, 'rgba(240,150,70,0)');
-      c.save(); c.globalCompositeOperation = 'screen'; c.fillStyle = g; c.fillRect(q.cx - q.rw * 2.7, q.cy - q.rw * 2.7, q.rw * 5.4, q.rw * 5.4); c.restore();
+      const g = c.createRadialGradient(q.cx, q.cy, q.rw * 0.5, q.cx, q.cy, q.rw * 3.4);
+      g.addColorStop(0, 'rgba(255,170,80,0.42)'); g.addColorStop(0.4, 'rgba(240,145,64,0.18)'); g.addColorStop(1, 'rgba(240,145,64,0)');
+      c.save(); c.globalCompositeOperation = 'screen'; c.fillStyle = g; c.fillRect(q.cx - q.rw * 3.5, q.cy - q.rw * 3.5, q.rw * 7, q.rw * 7); c.restore();
       // the oak's sinker root, drinking at the water table: root hairs beaded with water
       const se = sc.sinker[sc.sinker.length - 1];
       for (let k = 0; k < 26; k++) {
