@@ -370,7 +370,7 @@
           }
           const rq = R();
           if (rq > 0.04) {
-            stroke(pts, { a: a * rr(0.75, 1.2), w: (o.w || 0.3) * rr(0.85, 1.15), tone: tf, pt: 'h', trem: o.trem === undefined ? 0.1 : o.trem, step: 2.2 });
+            stroke(pts, { ch: o.ch || 0, a: a * rr(0.75, 1.2), w: (o.w || 0.3) * rr(0.85, 1.15), tone: tf, pt: 'h', trem: o.trem === undefined ? 0.1 : o.trem, step: 2.2 });
             if (rq > 0.955) { const dd = rr(0.25, 0.5); stroke(pts.map((q) => [q[0] + vx * dd, q[1] + vy * dd]), { a: a * 0.6, w: (o.w || 0.3), tone: tf, pt: 'h', trem: 0.1, step: 2.2 }); }
           }
           cur = end + rr(-1.2, 1.8);
@@ -815,6 +815,27 @@
     if (s <= tab[0][0]) return tab[0][k];
     for (let i = 1; i < tab.length; i++) if (s <= tab[i][0]) { const a = tab[i - 1], b = tab[i]; return lerp(a[k], b[k], sstep(0, 1, (s - a[0]) / (b[0] - a[0])) * 0.5 + 0.5 * ((s - a[0]) / (b[0] - a[0]))); }
     return tab[tab.length - 1][k];
+  }
+
+  // hatching that wraps round a cylinder: strokes across the axis, bowed, on the side turned from the light
+  function cylHatch(axis, wfn, o) {
+    o = o || {};
+    const A = resample(axis, 1), T = tangents(A), n = A.length;
+    let sideSum = 0; for (let i = 0; i < n; i++) sideSum += T[i][1] * LX - T[i][0] * LY;
+    const sg = sideSum > 0 ? -1 : 1; // +u points away from the light
+    for (let i = 1; i < n - 1; i += 1) {
+      if (R() < 0.08) continue;
+      const t = i / (n - 1), w = wfn(t); if (w < 1) continue;
+      const nx = T[i][1] * sg, ny = -T[i][0] * sg, tx = T[i][0], ty = T[i][1];
+      const u0 = rr(-0.35, 0.05), bow = (o.bow || 0.35) * w, pts = [];
+      for (let k = 0; k <= 8; k++) { const u = lerp(1, u0, k / 8), q = A[i]; pts.push([q[0] + nx * u * w * 0.96 + tx * bow * (1 - u * u), q[1] + ny * u * w * 0.96 + ty * bow * (1 - u * u)]); }
+      const tone = (x, y) => 1;
+      stroke(pts, { a: (o.a || 0.34) * rr(0.75, 1.15), w: 0.3, pt: 'h', step: 1.6, trem: 0.05, prof: (q) => { const u = lerp(1, u0, q); return (sstep(-0.3, 0.55, u) * (1 - 0.45 * sstep(0.82, 1, u))) * (q < 0.06 ? q / 0.06 : 1); } });
+    }
+  }
+  function whiteHatch(F, tone, o) {
+    o = o || {};
+    hatch(F, tone, { ch: 2, ang: o.ang === undefined ? -38 : o.ang, sp: o.sp || 1.5, a: o.a || 0.5, len: o.len || [3, 8], w: o.w || 0.5, t0: 0.05, bend: 0.02, trem: 0.05 });
   }
 
   /* ------------------------------------------------------------ bone helpers */
@@ -1685,6 +1706,8 @@
     bone(hum.poly, { sub: [hum.head], fade: hider([pip([hum.head])]), blur: 4, base: 0.02, amp: 0.5, g: 0.25, a: 0.42 });
     bone(hum.fossa, { tone: () => 0.62, a: 0.45, layers: 2, sp: 1.3, la: 0.35, lw: 0.42 });
     contour(hum.ridge, { a: 0.22, side: 0, w: 0.42 });
+    { const ax = []; for (let u = 1.5; u <= 28.5; u += 0.5) ax.push(hum.m(u, 0)); const hwt = [[0, 2.0], [0.1, 1.6], [0.2, 1.25], [0.45, 1.25], [0.7, 1.05], [0.85, 1.4], [1, 2.1]]; cylHatch(ax, (t) => pwl(hwt, t, 1) * S, { a: 0.36 }); cylHatch(ax, (t) => pwl(hwt, t, 1) * S * 0.92, { a: 0.24 }); }
+    cylHatch(clavAx, (t) => 2.6, { a: 0.3, bow: 0.25 });
     flush(); await Y();
 
     /* ---- the flayed muscles, each hatched along its own fibres */
@@ -1744,6 +1767,18 @@
       const lam = Fcr.lam(x, y, 1.6);
       return clamp(0.0 + 0.5 * clamp(0.92 - lam, 0, 1) + 0.45 * sstep(-0.1, 0.9, dx * 0.62 + dy * 0.78) + 0.1 * inFossa.height(x, y), 0, 1);
     }, { a: 0.42, sp: 1.8, layers: 3, len: [9, 20] });
+    { // hatching laid round the vault, following its curve on the shadowed side
+      for (let r = 18; r < 66; r += rr(0.9, 1.3)) {
+        let a0 = rr(-0.9, -0.5);
+        while (a0 < 2.4) {
+          const a1 = a0 + rr(8, 20) / r, pts = [];
+          for (let k = 0; k <= 8; k++) { const a = lerp(a0, a1, k / 8); pts.push([skC[0] + Math.cos(a) * r, skC[1] + Math.sin(a) * r]); }
+          stroke(pts, { a: 0.36, w: 0.3, pt: 'h', step: 2, tone: (x, y) => { if (!Fcl.in(x, y)) return 0; const dx = (x - skC[0]) / 70, dy = (y - skC[1]) / 70; return Math.pow(clamp(0.5 * clamp(0.92 - Fcr.lam(x, y, 1.6), 0, 1) + 0.6 * sstep(0.0, 0.9, dx * 0.62 + dy * 0.78) - 0.15, 0, 1), 0.8); } });
+          a0 = a1 + rr(0.02, 0.12);
+        }
+      }
+      whiteHatch(Fcl, (x, y) => sstep(0.84, 0.97, Fcr.lam(x, y, 1.6)) * sstep(0.1, -0.5, ((x - skC[0]) * 0.62 + (y - skC[1]) * 0.78) / 60), { a: 0.55, sp: 1.3 });
+    }
     contour(vault, { a: 0.6, side: area(cran) > 0 ? 1 : -1, re: 0.5, w: 0.55, fade: hider([pip([mand, mast])]) });
     contour(sk(C(SKD.brow, 0.1)), { a: 0.42, side: 0, w: 0.5 });
     flush(); await Y();
@@ -1797,6 +1832,9 @@
     const radius = limb(0.02, 1.0, (t) => -5.4 + 8.4 * t, tabW([[0.02, 11.5], [0.05, 12], [0.1, 8.2], [0.35, 9.2], [0.7, 10.8], [0.9, 15.5], [0.97, 18.5], [1.0, 15]]), 50);
     bone(ulna, { sub: [radius], fade: hider([pip([radius])]), blur: 2.4, base: 0.05, amp: 0.5, a: 0.4 });
     bone(radius, { blur: 2.4, base: 0.04, amp: 0.5, a: 0.4 });
+    { const ax = [], ax2 = []; for (let t = 0.04; t <= 0.98; t += 0.01) { ax.push(fax(t, -5.4 + 8.4 * t)); ax2.push(fax(t, 5.6 - 1.6 * t)); }
+      cylHatch(ax, (t) => pwl([[0, 5.5], [0.1, 4.2], [0.4, 4.6], [0.75, 5.6], [0.95, 8.5], [1, 7]], t, 1), { a: 0.34 });
+      SEGOCC = pip([radius]); cylHatch(ax2, (t) => pwl([[0, 7], [0.12, 5.2], [0.4, 4.1], [0.85, 3.2], [1, 4]], t, 1), { a: 0.3 }); SEGOCC = null; }
     flush(); await Y();
 
     /* ---- the hand of the main study: bones, and the web between the fingers */
