@@ -19,35 +19,33 @@
 
   // <strokes>
   function STROKES() {
-    // the head, drawn upright (face to the left) in millimetres on the glass, then tipped back 26 degrees
-    // against the seat. Six strokes; none of them closes a shape.
-    const head = [
-      // one long line: forehead, brow, the dip, down the nose, under it and onto the lip, where it stops
-      { name: 'brow-nose', dur: 2.0, pause: 0.0, end: 'stop', press: 0.95, pk: [[0, 0.68], [0.3, 0.9], [0.55, 1.15], [0.75, 1.1], [0.9, 0.8], [1, 1.1]],
-        pts: [[14,62],[4,86],[0,104],[14,121],[-6,140],[-28,158],[-14,171],[1,177],[-3,191],[4,199]] },
+    // A sleeping woman's head, drawn upright in millimetres on the glass (face to the left), then tipped
+    // back 12 degrees, resting on her hair against the seat. Six strokes.
+    const strokes = [
+      // the profile, one slow line: forehead, brow, bridge, nose, under it, the notch of the upper lip,
+      // the lips as one small bump, the chin, and on under the jaw. Heavy at the nose and chin, light on the lips.
+      { name: 'profile', dur: 3.1, pause: 0.0, end: 'stop', press: 0.95,
+        pk: [[0, 0.78], [0.12, 0.88], [0.25, 0.95], [0.36, 1.18], [0.44, 1.0], [0.52, 0.72], [0.6, 0.66], [0.7, 1.12], [0.82, 1.05], [1, 0.82]],
+        pts: [[18,56],[7,80],[2,103],[10,118],[0,137],[-19,159],[-13,170],[-5,177],[-8,190],[-4,203],[-8,220],[3,243],[36,255],[80,257]] },
       // the closed eye: one soft arc
-      { name: 'eye', dur: 0.55, pause: 0.7, end: 'stop', press: 0.82, jit: 0.6, pk: [[0, 0.8], [0.5, 1.0], [1, 0.75]],
-        pts: [[36,127],[49,137],[64,138],[76,131]] },
-      // the hair: one wide fast swipe over the crown that falls away against the seat
-      { name: 'hair', dur: 1.25, pause: 0.8, end: 'flick', press: 0.92, w: 1.28, pk: [[0, 0.72], [0.25, 1.15], [0.6, 1.0], [0.85, 0.78], [1, 0.7]],
-        pts: [[38,30],[76,6],[136,-4],[194,16],[234,62],[248,122],[244,172],[254,208],[282,230],[318,240]] },
-      // the ear, small, where the jaw meets the skull
+      { name: 'eye', dur: 0.6, pause: 0.8, end: 'stop', press: 0.82, jit: 0.6, pk: [[0, 0.75], [0.5, 1.0], [1, 0.72]],
+        pts: [[34,126],[47,136],[62,137],[75,130]] },
+      // the hair: one wide fast swipe over the crown, falling away against the seat
+      { name: 'hair', dur: 1.3, pause: 0.8, end: 'flick', press: 0.92, w: 1.28, pk: [[0, 0.72], [0.25, 1.15], [0.6, 1.0], [0.85, 0.8], [1, 0.72]],
+        pts: [[36,32],[72,7],[130,-4],[186,12],[218,54],[230,110],[226,164],[236,204],[262,230],[302,244]] },
+      // the ear, where the jaw meets the skull
       { name: 'ear', dur: 0.55, pause: 0.6, end: 'stop', press: 0.86, jit: 0.7,
         pts: [[120,124],[138,121],[147,140],[140,163],[126,175]] },
-    ];
-    const th = 26 * Math.PI / 180, c = Math.cos(th), s = Math.sin(th), px = 100, py = 240;
-    const rot = (p) => [px + (p[0] - px) * c - (p[1] - py) * s, py + (p[0] - px) * s + (p[1] - py) * c];
-    const H = head.map((r) => Object.assign({}, r, { pts: r.pts.map(rot) }));
-    const chin = [[-3,222],[0,238],[15,252]].map(rot);
-    const body = [
-      // chin, under the jaw and down the long throat in one sweep
-      { name: 'chin-throat', dur: 1.6, pause: 0.6, end: 'stop', press: 0.92, pk: [[0, 1.15], [0.15, 1.0], [0.45, 0.7], [0.75, 0.95], [1, 1.18]],
-        pts: chin.concat([[40,226],[60,250],[76,284],[88,322],[102,356],[124,384]]) },
+      // the throat, picking up from under the jaw
+      { name: 'throat', dur: 1.2, pause: 0.6, end: 'stop', press: 0.9, pk: [[0, 0.85], [0.4, 0.75], [0.8, 0.95], [1, 1.1]],
+        pts: [[68,259],[71,290],[76,326],[84,362],[98,392]] },
       // nape to shoulder
-      { name: 'shoulder', dur: 1.25, pause: 0.6, end: 'flick', press: 0.88, pk: [[0, 1.12], [0.4, 1.0], [1, 0.68]],
-        pts: [[198,268],[202,296],[216,324],[248,348],[302,366],[374,378]] },
+      { name: 'shoulder', dur: 1.25, pause: 0.6, end: 'flick', press: 0.88, pk: [[0, 1.1], [0.4, 1.0], [1, 0.7]],
+        pts: [[194,236],[198,270],[212,302],[246,328],[302,346],[374,358]] },
     ];
-    return H.concat(body);
+    const th = 12 * Math.PI / 180, c = Math.cos(th), s = Math.sin(th), px = 100, py = 240;
+    const rot = (p) => [px + (p[0] - px) * c - (p[1] - py) * s, py + (p[0] - px) * s + (p[1] - py) * c];
+    return strokes.map((r) => Object.assign({}, r, { pts: r.pts.map(rot) }));
   }
   // </strokes>
 
@@ -271,8 +269,8 @@
     if (fb2.z > 0.0) fog = shadeBead(fb2, p, fog, fogLum);
 
     /* ---- clear glass: the night, rain on the outside ---- */
-    vec3 night = sceneSharp(p) * 1.5;
-    night = max(mix(vec3(dot(night, vec3(0.3, 0.55, 0.15))), night, 1.25), 0.0);
+    vec3 night = sceneSharp(p) * 1.3;
+    night = mix(vec3(dot(night, vec3(0.3, 0.55, 0.15))), night, 0.82);
     // raindrops on the outside, coming and going
     vec4 rd = drops(p, 3.4 * mm, 0.5, 0.5 * mm, 1.7 * mm, 21.0);
     if (rd.z > 0.0){
@@ -363,7 +361,7 @@
     nx.fillStyle = '#000'; nx.fillRect(0, 0, cw, ch);   // opaque, so the upload never un-premultiplies
     const rgba = (c, a) => 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ',' + clamp(a, 0, 1).toFixed(4) + ')';
     const yH = 0.6;                    // where the far kerb meets the road
-    const R = 15 * s * sc;             // the defocus disc of a distant light
+    const R = 19 * s * sc;             // the defocus disc of a distant light
 
     const SODIUM = [1.0, 0.50, 0.15], SODIUM2 = [1.0, 0.64, 0.28], WARM = [1.0, 0.76, 0.48], COOL = [0.78, 0.9, 1.0];
     const FLUO = [0.74, 1.0, 0.84], RED = [1.0, 0.1, 0.05], GREEN = [0.1, 1.0, 0.6], AMBER = [1.0, 0.56, 0.04];
@@ -373,8 +371,8 @@
     // sky: full resolution gradient so nothing bands
     {
       const gr = fx.createLinearGradient(0, 0, 0, ch);
-      gr.addColorStop(0, '#05070d'); gr.addColorStop(0.28, '#0b0b13'); gr.addColorStop(0.46, '#211410');
-      gr.addColorStop(yH - 0.02, '#341e11'); gr.addColorStop(yH + 0.015, '#09080a'); gr.addColorStop(0.8, '#0b0a0c'); gr.addColorStop(1, '#0d0c0e');
+      gr.addColorStop(0, '#030408'); gr.addColorStop(0.28, '#07070c'); gr.addColorStop(0.46, '#170e0b');
+      gr.addColorStop(yH - 0.02, '#28170d'); gr.addColorStop(yH + 0.015, '#09080a'); gr.addColorStop(0.8, '#0b0a0c'); gr.addColorStop(1, '#0d0c0e');
       fx.fillStyle = gr; fx.fillRect(0, 0, cw, ch);
       // roofs against the skyglow, defocused: painted at the size of a blur disc and enlarged
       const k = Math.max(2, R * 0.8);
@@ -399,9 +397,12 @@
         const X = x + ox;
         if (X + r < 0 || X - r > cw) continue;
         const g = ctx.createRadialGradient(X, y, 0, X, y, r);
-        g.addColorStop(0, rgba(col, I * 0.8));
-        g.addColorStop(Math.max(0.01, 1 - e * 3.5), rgba(col, I * 0.9));
-        g.addColorStop(1 - e, rgba(col, I));
+        // soft-edged, with the faint brighter rim of a real defocused light
+        g.addColorStop(0, rgba(col, I * 0.72));
+        g.addColorStop(0.62, rgba(col, I * 0.8));
+        g.addColorStop(0.84, rgba(col, I * 0.95));
+        g.addColorStop(0.9, rgba(col, I * 0.7));
+        g.addColorStop(Math.min(0.99, 0.9 + e * 0.5), rgba(col, I * 0.25));
         g.addColorStop(1, rgba(col, 0));
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(X, y, r, 0, TAU); ctx.fill();
       }
@@ -434,14 +435,14 @@
     fx.globalCompositeOperation = 'lighter';
 
     // far: windows of flats and offices
-    for (let b = 0; b < 30; b++) {
+    for (let b = 0; b < 12; b++) {
       const bx = rng() * cw, by = ch * (0.08 + rng() * 0.34);
       const cols = 2 + Math.floor(rng() * 6), rows = 1 + Math.floor(rng() * 5);
       const dx = R * (0.7 + rng() * 0.6), dy = R * (0.8 + rng() * 0.6);
-      const tint = [WARM, COOL, FLUO, WARM, SODIUM2, WARM, WHITE][Math.floor(rng() * 7)];
+      const tint = [WARM, COOL, WARM, SODIUM2, WARM, WHITE][Math.floor(rng() * 6)];
       for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
         if (rng() < 0.5) continue;
-        disc(fx, bx + i * dx, by + j * dy, R * (0.6 + rng() * 0.15), rng() < 0.2 ? WARM : tint, 0.1 + rng() * 0.28, 0.12);
+        disc(fx, bx + i * dx, by + j * dy, R * (0.6 + rng() * 0.15), rng() < 0.3 ? WARM : tint, 0.06 + rng() * 0.18, 0.2);
       }
     }
     // a red lamp high on a crane
@@ -464,27 +465,27 @@
       lx += lampGap * (0.75 + rng() * 0.5);
     }
     // the street at eye level: shop windows, signs, a bus stop, a dense overlapping field of light
-    const nShop = 7 + Math.floor(rng() * 3);
+    const nShop = 5 + Math.floor(rng() * 2);
     for (let k = 0; k < nShop; k++) {
       const x0 = rng() * cw, y0 = ch * (0.45 + rng() * 0.11);
-      const n = 3 + Math.floor(rng() * 6);
-      const tint = [WHITE, WHITE, COOL, FLUO, WARM, WARM][Math.floor(rng() * 6)];
+      const n = 2 + Math.floor(rng() * 4);
+      const tint = [WHITE, WHITE, WARM, WARM, COOL][Math.floor(rng() * 5)];
       for (let i = 0; i < n; i++) {
         const xx = x0 + i * R * (0.55 + rng() * 0.5), yy = y0 + (rng() - 0.5) * R * 1.1;
         disc(nx, xx, yy, R * (0.85 + rng() * 0.3), tint, 0.12 + rng() * 0.32, 0.09);
       }
       reflect(nx, x0 + n * R * 0.4, y0, R * 1.3, tint, 0.55);
-      if (rng() < 0.65) {
-        const nc = [PINK, CYAN, GREEN, RED, AMBER, BLUE][Math.floor(rng() * 6)];
+      if (rng() < 0.22) {
+        const nc = [GREEN, RED, AMBER, CYAN][Math.floor(rng() * 4)];
         const sx = x0 - R * (0.5 + rng() * 1.5), sy = y0 - R * (1.0 + rng() * 1.5);
         disc(nx, sx, sy, R * 0.85, nc, 0.6, 0.08);
         if (rng() < 0.5) disc(nx, sx + R * 0.8, sy, R * 0.85, nc, 0.5, 0.08);
         reflect(nx, sx, sy, R * 0.8, nc, 0.6);
       }
     }
-    for (let k = 0; k < 230; k++) {
-      const c = [WARM, WHITE, SODIUM2, COOL, RED, WARM, PINK, FLUO, AMBER][Math.floor(rng() * 9)];
-      disc(nx, rng() * cw, ch * (0.18 + rng() * 0.45), R * (0.45 + rng() * 0.5), c, 0.05 + rng() * 0.25, 0.12);
+    for (let k = 0; k < 45; k++) {
+      const c = [WARM, WHITE, SODIUM2, WARM, SODIUM, WHITE, WARM, RED][Math.floor(rng() * 8)];
+      disc(nx, rng() * cw, ch * (0.3 + rng() * 0.3), R * (0.6 + rng() * 0.4), c, 0.04 + rng() * 0.16, 0.2);
     }
     // signals at a junction
     const nSig = 2 + Math.floor(rng() * 2);
@@ -959,11 +960,11 @@
           return [((q[0] / fsc + offN) % per + per) % per, q[1] / fsc];
         };
         const anchors = [];
-        const A1 = at('hair', 0.36), A2 = at('chin-throat', 0.7), A3 = at('brow-nose', 0.3), A4 = at('shoulder', 0.6);
+        const A1 = at('hair', 0.36), A2 = at('throat', 0.7), A3 = at('profile', 0.3), A4 = at('shoulder', 0.6);
         if (A1) anchors.push({ x: A1[0], y: A1[1], c: 'SODIUM', i: 0.95, r: 1.05 });
         if (A2) anchors.push({ x: A2[0] - 15 * S, y: A2[1], c: 'RED', i: 0.85, r: 0.85, pair: true });
         if (A3) anchors.push({ x: A3[0], y: A3[1], c: 'WHITE', i: 0.5, r: 0.9 });
-        if (A4) anchors.push({ x: A4[0], y: A4[1], c: 'GREEN', i: 0.8, r: 0.85 });
+        if (A4) anchors.push({ x: A4[0], y: A4[1], c: 'SODIUM', i: 0.7, r: 1.0 });
         const night = paintNight(rs, per, H, S, sc, anchors);
         if (scene) { for (const t of scene.tex) gl.deleteTexture(t); for (const f of scene.fb) gl.deleteFramebuffer(f); }
         const mkScene = (cv) => {
