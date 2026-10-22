@@ -52,7 +52,7 @@
   }
 
   /* ------------------------------------------------------------ materials (1/cm) */
-  const MU = { card: 0.28, cardboard: 0.5, steel: 26, brass: 30, lead: 45, gold: 70, glass: 2.4, paper: 0.55, wood: 0.32 };
+  const MU = { card: 0.28, cardboard: 0.5, steel: 26, brass: 30, lead: 45, gold: 70, glass: 3.4, paper: 0.55, wood: 0.32 };
 
   /* ------------------------------------------------------------ the bear */
   function buildScene(seed) {
@@ -641,7 +641,7 @@ float exc(vec2 p, float aligned){
     float wgt = mix(0.12 + 0.88*pow(0.5 + 0.5*cos(2.0*(a - reg)), 4.0), 1.0, aligned);
     vec2 cs = vec2(cos(a), sin(a));
     vec2 q = vec2(dot(pw, cs), dot(pw, vec2(-cs.y, cs.x)));
-    q.y += 0.4*noise(vec2(q.x*0.45, q.y*0.22) + fk*3.7) + 0.05*sin(q.x*6.5 + fk*1.3);
+    q.y += 0.4*noise(vec2(q.x*0.45, q.y*0.22) + fk*3.7) + 0.035*sin(q.x*(5.0 + 2.5*w.x) + fk*1.3) + 0.04*noise(vec2(q.x*3.0, fk));
     float n = noise(vec2(q.x*0.26, q.y*2.1) + fk*11.3);
     float tw = abs(noise(vec2(q.x*1.1, q.y*0.5) + fk*5.0));           // the ribbon twisting along its length
     float wd = 0.035 + 0.16*smoothstep(0.05, 0.6, tw);                  // edge-on: thin; face-on: a few mm wide
@@ -670,12 +670,12 @@ float rags(vec2 p){
   vec2 q = p*0.62 + 0.9*vec2(noise(p*0.4), noise(p*0.4 + 3.0));
   vec2 c = cell(q);
   float lobe = 1.0 - 0.95*c.x*c.x;                                       // each wad a soft stacked lobe
-  float fold = exp(-pow((c.y - c.x)/0.045, 2.0))*smoothstep(-0.25, 0.25, noise(p*0.7 + 5.0));
+  float fold = exp(-pow((c.y - c.x)/0.06, 2.0))*smoothstep(0.0, 0.35, noise(p*0.7 + 5.0));
   vec2 c2 = cell(q*1.9 + 4.0);
   float lay = exp(-pow((c2.y - c2.x)/0.035, 2.0))*smoothstep(0.0, 0.35, noise(p*0.9 + 1.0));
   vec2 hq = vec2(p.x*0.8 + p.y*0.6, p.y*0.8 - p.x*0.6);
   float hem = exp(-pow(noise(hq*vec2(0.35, 1.6) + 2.0)/0.03, 2.0))*smoothstep(0.1, 0.4, noise(p*0.45 + 8.0));
-  return 0.55 + 0.55*lobe + 0.45*fold + 0.3*lay + 0.5*hem + 0.05*noise(p*3.5);
+  return 0.45 + 0.8*lobe*lobe + 0.22*fold + 0.12*lay + 0.45*hem + 0.05*noise(p*3.5);
 }
 float hair(vec2 q){
   float n = noise(vec2(q.x*1.6, q.y*3.2));

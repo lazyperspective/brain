@@ -185,11 +185,21 @@ void main(){
     // binder slightly yellowed where light never reached
     c *= mix(vec3(1.), vec3(1.0,.975,.93), mG*.8);
     // limewash clouds and brushing: chalkier where bleached
-    float chalk = .02*cloud + mix(.085,.016,sqrt(f))*sk.z + mix(.05,.012,f)*cloud2;
+    float chalk = mix(.06,.017,f)*cloud + mix(.09,.024,sqrt(f))*sk.z + mix(.06,.013,f)*cloud2;
     c *= 1.+chalk + mix(.035,.012,f)*sk.y - .006*sk.x;
     // deep madder goes slightly bluer and chalkier as it starts to fade
     c = mix(c, c*vec3(.97,1.0,1.05), 4.*f*(1.-f)*.5);
     c = mix(c, vec3(dot(c,vec3(.3,.55,.15))), .1*f*(.6+cloud));
+    // distemper is matte: a chalky bloom lies over the surviving colour too
+    float bloom = smoothstep(-.2,.6,cloud+.5*sk.z)*mG;
+    c = mix(c, uPale, .07*bloom);
+    // grime frame a few mm inside the edge, where air circulated behind the frame
+    float dmin = min(min(dd.x,dd.y),min(dd.z,dd.w));
+    float gband = smoothstep(1.,5.,dmin)*(1.-smoothstep(9.,22.,dmin));
+    gband *= .75+.5*gnoise(p/35.+uOff*1.1);
+    c *= 1.-.075*gband*mix(1.,.7,step(dd.w,min(min(dd.x,dd.y),dd.z)));
+    float dminS = min(min(ds.x,ds.y),min(ds.z,ds.w));
+    c *= 1.-.05*smoothstep(.5,2.,dminS)*(1.-smoothstep(4.,9.,dminS));
     // powdery speckle
     vec2 gc = floor(p/.8);
     float sp = (hash12(gc+uOff)-.5) * clamp(.8/k,0.,1.);
@@ -204,6 +214,8 @@ void main(){
     // a fainter grey where the frame sides breathed
     float sideD = exp(-max(-dd.x,0.)/9.)*step(dd.x,0.)+exp(-max(-dd.y,0.)/9.)*step(dd.y,0.);
     sideD *= smoothstep(0.,uG.w*1.6, (p.y-uG.y)+uG.w*.9)*.045*(1.-step(0.,-dd.z));
+    float aboveS = -ds.z;
+    dust += .06*exp(-max(aboveS,0.)/7.)*smoothstep(-1.,2.,aboveS)*smoothstep(-15.,20.,min(ds.x,ds.y))*streak;
     c *= 1.-dust-sideD*streak;
     c = mix(c, c*vec3(.96,.95,.97), dust*3.);
 
@@ -297,11 +309,11 @@ float nailShadow(vec2 p, vec3 L, float spread, float minPen){
   float t1, t2;
   float d1 = segD(p,a,b,t1), d2 = segD(p,b,c,t2);
   float h1 = mix(0.,uN1.z,t1), h2 = mix(uN1.z,uN2.z,t2);
-  float r = 1.45;
+  float r = 2.1;
   float pen1 = minPen + h1*spread, pen2 = minPen + h2*spread;
   float s1 = (r/(r+pen1*.5))*(1.-smoothstep(r-pen1, r+pen1, d1));
   float s2 = (r/(r+pen2*.5))*(1.-smoothstep(r-pen2, r+pen2, d2));
-  float rh = 3.3, penh = minPen + uN2.z*spread;
+  float rh = 5.2, penh = minPen + uN2.z*spread;
   float sh = (rh/(rh+penh*.5))*(1.-smoothstep(rh-penh, rh+penh, length(p-c)));
   return clamp(max(max(s1,s2),sh),0.,1.);
 }
@@ -336,11 +348,17 @@ void main(){
   float sky = pow(max((ffLow*.55 + ffHigh)*uSkyNorm, 0.), .6);
   vec3 Lw = normalize(vec3(uXw, mix(uWin.x,uWin.y,.6), mix(uWin.z,uWin.w,.5)) - vec3(uN0.xy,0.));
   float occW = nailShadow(p, Lw, .42, 1.2);
-  vec3 E = uSkyC*sky*(1.-.55*occW);
+  vec3 E = uSkyC*sky*(1.-.6*occW);
+  // soft contact shadow: the nail blocks the diffuse room light just below and right of it
+  float tq1, tq2;
+  vec2 pc = p - vec2(2.5,-4.);
+  float dc = min(segD(pc, uN0.xy, uN1.xy, tq1), segD(pc, uN1.xy, uN2.xy, tq2));
+  dc = min(dc, length(pc-uN2.xy)-2.5);
+  float occC = .42*exp(-max(dc-1.,0.)/6.5);
   // room bounce: warmer and stronger low down (a wooden floor), a little less near the ceiling
   float amb = (.9 + .12*smoothstep(400.,-1600.,p.y) - .06*smoothstep(300.,1300.,p.y)) * (.75+.25*n.z);
-  E += uAmbC*amb;
-  E *= ao;
+  E += uAmbC*amb*(1.-occC);
+  E *= ao*(1.-.25*occC);
 
   float sv = sunVis(p);
   if(sv > 0.){
@@ -355,25 +373,25 @@ void main(){
   float t1, t2;
   float d1 = segD(p, uN0.xy, uN1.xy, t1), d2 = segD(p, uN1.xy, uN2.xy, t2);
   float aa = .7*k;
-  float shaft = max(1.-smoothstep(1.25-aa,1.25+aa,d1), 1.-smoothstep(1.25-aa,1.25+aa,d2));
+  float shaft = max(1.-smoothstep(2.1-aa,2.1+aa,d1), 1.-smoothstep(2.1-aa,2.1+aa,d2));
   vec2 hq = p-uN2.xy;
   float hd = length(hq*vec2(1., 1.25));
-  float head = 1.-smoothstep(3.1-aa, 3.1+aa, hd);
+  float head = 1.-smoothstep(5.1-aa, 5.1+aa, hd);
   if(shaft+head > 0.){
     vec3 axis = normalize(uN2-uN1);
-    vec3 steel = vec3(.075,.068,.062);
+    vec3 steel = vec3(.05,.046,.042);
     // shaft: a cylinder, lit across its width
     vec2 sd = normalize(vec2(-(uN2.y-uN0.y), uN2.x-uN0.x));
-    float across = clamp(dot(p-uN1.xy, sd)/1.1, -1., 1.);
+    float across = clamp(dot(p-uN1.xy, sd)/2.1, -1., 1.);
     vec3 ns = normalize(vec3(sd*across, sqrt(1.-across*across)));
-    vec3 hn = normalize(axis + vec3(hq/3.1*.55, 0.));       // slightly domed head
+    vec3 hn = normalize(axis + vec3(hq/5.1*.55, 0.));       // slightly domed head
     vec3 Lsun = uSunL;
     vec3 sunAt = uSunC*sunVis(uN2.xy);
-    vec3 cs = steel*(uSkyC*sky*1.1*max(dot(ns,Lw),.15) + uAmbC*.6 + sunAt*max(dot(ns,Lsun),0.)*.8);
-    vec3 ch = steel*1.15*(uSkyC*sky*1.1*max(dot(hn,Lw),.2) + uAmbC*.7 + sunAt*max(dot(hn,Lsun),0.));
+    vec3 cs = steel*.85*(uSkyC*sky*1.1*max(dot(ns,Lw),.15) + uAmbC*.6 + sunAt*max(dot(ns,Lsun),0.)*.8);
+    vec3 ch = steel*.8*(uSkyC*sky*1.1*max(dot(hn,Lw),.2) + uAmbC*.7 + sunAt*max(dot(hn,Lsun),0.));
     vec3 hv = normalize(Lsun+vec3(0.,0.,1.));
     ch += sunAt*.35*pow(max(dot(hn,hv),0.),40.) + uSkyC*sky*.6*pow(max(dot(hn,normalize(Lw+vec3(0,0,1))),0.),18.);
-    float rim = smoothstep(2.1,3.1,hd);
+    float rim = smoothstep(3.4,5.1,hd);
     ch *= 1.-.35*rim;
     col = mix(col, cs, shaft*(1.-head));
     col = mix(col, ch, head);
@@ -394,7 +412,7 @@ void main(){
     note: 'An afternoon passes in about six minutes',
     about: 'A wall painted a deep colour long ago and bleached by forty years of window light, except where a portrait hung. Nothing is drawn but what is missing; the sun crosses the wall so slowly you may not notice, until it reaches the colour that survived.',
     tone: 'light',
-    room: '#cdc3bf',
+    room: '#c9b3ad',
 
     mount(el, api) {
       const rnd = mulberry32(api.seed ^ 0x51ED5EED);
@@ -404,8 +422,8 @@ void main(){
       // Original colour: a deep madder-and-earth rose, the kind of 'Pompeian' red people
       // chose for a dining room in 1958. Bleached, it is a chalky shell pink.
       const hueJ = R(-1, 1);
-      const C0 = [0.5 - 0.03 * hueJ, 0.12 + 0.01 * hueJ, 0.18 + 0.05 * hueJ];
-      const PALE = [0.935, 0.9, 0.858 + 0.008 * hueJ];
+      const C0 = [0.43 - 0.02 * hueJ, 0.165 + 0.005 * hueJ, 0.195 + 0.03 * hueJ];
+      const PALE = [0.9, 0.795, 0.775 + 0.01 * hueJ];
 
       const gh = R(880, 980);                  // the portrait: frame height, mm
       const gw = gh * R(0.68, 0.76);
@@ -488,7 +506,7 @@ void main(){
       const canvas = document.createElement('canvas');
       canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
       el.appendChild(canvas);
-      el.style.background = '#cdc3bf';
+      el.style.background = '#c9b3ad';
       const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, premultipliedAlpha: false })
         || canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false, premultipliedAlpha: false });
       if (!gl) {
@@ -651,10 +669,10 @@ void main(){
       }
 
       // nail geometry in mm (x, y, height off the wall): driven in pointing slightly up, bent down by the weight
-      const nb = R(-1, 1);
+      const nb = (rnd() < 0.5 ? -1 : 1) * R(0.55, 1);
       const N0 = [nail.x, nail.y, 0];
-      const N1 = [nail.x + 1.2 * nb, nail.y + 7.0, 16];
-      const N2 = [nail.x + 6.5 * nb, nail.y + 3.5, 31];
+      const N1 = [nail.x + 1.0 * nb, nail.y + 9.0, 21];
+      const N2 = [nail.x + 4.5 * nb, nail.y + 15.5, 40];
 
       // form factor normalisation so the wall at the ghost reads at a constant brightness
       function ffAt(px, py, xw) {

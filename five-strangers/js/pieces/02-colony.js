@@ -656,7 +656,7 @@
     place('ammonite', fr.b5 + 0.035, Math.min(0.965, fr.b5 + 0.09), 3.0 * L, { x0: W * 0.4, x1: W - 6 * L });
     place('mammoth', b2 - 0.07, b2 - 0.035, 2.3 * L, { bands: [2] });
     place('bottle', b3 + 0.04, fr.b4 - 0.05, 4.2 * L, { x0: W * 0.36, x1: W - 7 * L });
-    place('wormball', b1 + 0.08, b2 - 0.06, 2.0 * L, {});
+    place('wormball', b1 + 0.08, b2 - 0.06, 2.0 * L, { x1: W - 24 * L });
     place('centipede', b1 + 0.02, b2 - 0.05, 3 * L, {});
     sc.items = items;
   }
@@ -711,6 +711,22 @@
     add(() => paintGravel(c, sc, R, bandPath, clipPoly));
     add(() => paintSand(c, sc, R, bandPath, clipPoly));
     add(() => paintDeep(c, sc, R, bandPath, clipPoly));
+    add(() => {
+      // visible brushwork: broad, dry, semi-opaque strokes laid along the strata
+      const cols = [[P.humus, hex('#4a3626'), hex('#1f1510')], [P.clay, hex('#8e5634'), hex('#5a321c')], null, [P.sand, hex('#a07e52'), hex('#5e4630')], null, [P.rock, hex('#646a70'), hex('#3a3e44')]];
+      for (let k = 0; k < 6; k++) {
+        if (!cols[k]) continue;
+        clipPoly(() => bandPath(k, k + 1));
+        const y0 = k === 0 ? sc.top : sc.yf(fr['b' + k]) - L, y1 = k === 5 ? H : sc.yf(fr['b' + (k + 1)]) + L;
+        const n = Math.floor(W * (y1 - y0) / (L * L) * 0.9);
+        for (let i = 0; i < n; i++) {
+          const x = R.r(-2 * L, W), y = R.r(y0, y1), l = R.r(1.2, 4) * L, w = R.r(0.25, 0.9) * L;
+          c.strokeStyle = rgba(R.chance(0.5) ? cols[k][1] : cols[k][2], R.r(0.05, 0.14)); c.lineWidth = w; c.lineCap = 'round';
+          c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + l * 0.5, y + R.r(-0.3, 0.3) * L, x + l, y + R.r(-0.4, 0.4) * L); c.stroke();
+        }
+        c.restore();
+      }
+    });
     add(() => paintBoundaries(c, sc, R));
     add(() => paintFineRoots(c, sc, R));
     add(() => paintOak(c, sc, R));
@@ -1246,27 +1262,29 @@
     // the mole: velvet body heading left, snout and spade hands
     const hd = pts[pts.length - 1], h2 = pts[pts.length - 4];
     const ang = Math.atan2(hd[1] - h2[1], hd[0] - h2[0]);
-    c.save(); c.translate(hd[0] + 2.4 * L, hd[1] + 0.15 * L); c.rotate(ang + Math.PI);
+    c.save();
+    c.beginPath(); taper(c, pts.concat([[hd[0] - 4 * L, hd[1]]]), () => m.r * 2.05); c.clip();
+    c.translate(hd[0] + 2.4 * L, hd[1] + 0.15 * L); c.rotate(ang + Math.PI);
     c.scale(L, L);
     const body = new Path2D();
     body.moveTo(-1.5, -0.7);
     body.bezierCurveTo(-0.8, -1.3, 1.2, -1.55, 3.0, -1.4);
-    body.bezierCurveTo(5.0, -1.3, 7.0, -1.25, 9.0, -1.2);
-    body.lineTo(9.0, 1.2);
-    body.bezierCurveTo(6.0, 1.3, 2.0, 1.4, 0.2, 1.1);
+    body.bezierCurveTo(5.0, -1.3, 7.0, -1.25, 30.0, -1.2);
+    body.lineTo(30.0, 1.25);
+    body.bezierCurveTo(6.0, 1.35, 2.0, 1.4, 0.2, 1.1);
     body.bezierCurveTo(-1.0, 0.95, -1.9, 0.5, -2.0, 0.0);
     body.bezierCurveTo(-2.0, -0.35, -1.8, -0.55, -1.5, -0.7);
     body.closePath();
-    c.fillStyle = rgba(hex('#26262b')); c.fill(body);
+    c.fillStyle = rgba(hex('#2c2b30')); c.fill(body);
     c.save(); c.clip(body);
     // velvet: short strokes laid back along the body, catching light on the shoulders
-    for (let i = 0; i < 520; i++) {
-      const x = R.r(-2, 9), y = R.r(-1.5, 1.4);
+    for (let i = 0; i < 900; i++) {
+      const x = R.r(-2, 16), y = R.r(-1.5, 1.4);
       const top = y < -0.4;
       c.strokeStyle = rgba(top ? hex('#6e6e7a') : y > 0.6 ? hex('#141417') : hex('#3a3a42'), R.r(0.25, 0.6)); c.lineWidth = 0.035;
       c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 0.15, y - 0.03, x + 0.3, y + R.r(-0.04, 0.04)); c.stroke();
     }
-    c.fillStyle = 'rgba(160,160,176,0.22)'; c.beginPath(); c.ellipse(1.8, -1.05, 2.6, 0.25, -0.03, 0, TAU); c.fill();
+    c.fillStyle = 'rgba(170,168,184,0.2)'; c.beginPath(); c.ellipse(4, -0.95, 6, 0.3, -0.01, 0, TAU); c.fill();
     c.restore();
     // snout
     c.fillStyle = rgba(hex('#d99a90'));
@@ -2488,18 +2506,18 @@
     for (const l of lay) handText(c, R, l[0], lx, sc.yf(l[1]), fs * 0.8, P.chalk, { upright: true, spacing: 0.16, align: 'right', alpha: 0.6, shadow: 'rgba(12,7,4,0.8)' });
     // title & scale on the paper sky
     const tfs = clamp(L * 1.5, 19, 30);
-    const tx = sc.portrait ? W - 16 : 1.8 * L, al = sc.portrait ? 'right' : 'left';
+    const tx = sc.portrait ? 14 : 1.8 * L, al = 'left';
     const ty = clamp(sc.top * 0.2, tfs * 1.1, tfs * 1.8);
     handText(c, R, 'Under the Picnic.', tx, ty, tfs, P.graphite, { align: al, alpha: 0.92 });
     handText(c, R, 'A meadow in section,', tx, ty + tfs * 0.8, fs, P.graphite, { align: al, alpha: 0.85 });
     handText(c, R, 'late August, a quarter past one.', tx, ty + tfs * 0.8 + fs * 1.2, fs, P.graphite, { align: al, alpha: 0.85 });
     // scale bar: ten ant-lengths
     const bw = 10 * L, sy = ty + tfs * 0.8 + fs * 2.3;
-    const sx = sc.portrait ? tx - bw : tx;
+    const sx = tx;
     c.strokeStyle = rgba(P.graphite, 0.85); c.lineWidth = 0.8;
     c.strokeRect(sx, sy, bw, 0.28 * L);
     for (let k = 0; k < 10; k += 2) { c.fillStyle = rgba(P.graphite, 0.8); c.fillRect(sx + k * L, sy, L, 0.28 * L); }
-    handText(c, R, 'ten ant-lengths', sc.portrait ? sx + bw : sx, sy + 0.28 * L + fs * 1.05, fs * 0.85, P.graphite, { alpha: 0.75, align: sc.portrait ? 'right' : 'left' });
+    handText(c, R, 'ten ant-lengths', sx, sy + 0.28 * L + fs * 1.05, fs * 0.85, P.graphite, { alpha: 0.75 });
   }
 
   function finishBoard(c, sc, R, S) {
@@ -2791,7 +2809,7 @@
     const queen = mk('queen', 'queen', qf.id, qf.len * 0.5, { size: 2.25, dir: Q.cx > sc.E[0] ? 1 : -1, timer: 1e9, zoff: 0, dealate: true, speed: L * 0.4 });
     queen.isQueen = true;
     // travellers
-    const nT = Math.round((sc.portrait ? 60 : 110) * clamp(sc.W * sc.H / 1.6e6, 0.6, 1.4));
+    const nT = Math.round((sc.portrait ? 75 : 165) * clamp(sc.W * sc.H / 1.6e6, 0.6, 1.4));
     const jobs = [['forager', 0.3], ['seeder', 0.12], ['builder', 0.14], ['nurse', 0.2], ['undertaker', 0.05], ['idler', 0.19]];
     const tunnelEdges = Ed.filter((e) => e.kind === 'tunnel');
     const totalLen = tunnelEdges.reduce((s, e) => s + e.len, 0);
@@ -2809,7 +2827,7 @@
     for (const nm of ['crust', 'apple', 'seeds']) {
       const s = surf[nm]; if (!s || s.spotEdge === undefined) continue;
       const e = Ed[s.spotEdge];
-      for (let i = 0; i < (nm === 'crust' ? 7 : 4); i++) mk('worker', nm === 'seeds' ? 'seeder' : 'forager', e.id, R.r(0, e.len), { timer: R.r(0.5, 4), state: 'dwell' });
+      for (let i = 0; i < (nm === 'crust' ? 11 : nm === 'apple' ? 6 : 4); i++) mk('worker', nm === 'seeds' ? 'seeder' : 'forager', e.id, R.r(0, e.len), { timer: R.r(0.5, 4), state: 'dwell' });
     }
 
     const pickFloorSpot = (ch) => { const fe = floorOf(ch); return [fe.id, R.r(0.08, 0.92) * fe.len]; };
@@ -2999,7 +3017,7 @@
         bc.drawImage(cv, 0, 0, base.width, base.height);
         live.width = base.width; live.height = base.height;
         sc = scn; board = cv;
-        life = makeColony(sc, api.seed);
+        life = makeColony(sc, api.seed); window.__colonyAnts = life.ants.length;
         lens.r = clamp(Math.min(W, H) * 0.12, 62, 132);
         const q = sc.Q; const qa = life.queen; const qp = posOf(sc, qa); lens.rest = [qp[0] - (qa.dir > 0 ? 0.1 : -0.1) * sc.L * 2.25, qp[1] - 0.2 * sc.L * 2.25];
         if (!lens.user) { lens.x = lens.tx = lens.rest[0]; lens.y = lens.ty = lens.rest[1]; }

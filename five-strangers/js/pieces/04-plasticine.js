@@ -378,7 +378,7 @@ float detail(vec3 q, vec3 p, vec3 n, int part, float fade, float melt){
 
 /* ---------------- lighting ---------------- */
 const vec3 LK = normalize(vec3(-0.6,0.58,0.55));
-const vec3 CK = vec3(1.0,0.79,0.58)*2.7;
+const vec3 CK = vec3(1.0,0.79,0.58)*2.35;
 const vec3 LF = normalize(vec3(0.9,0.2,0.45));
 const vec3 CF = vec3(0.45,0.55,0.7)*0.38;
 const vec3 LR = normalize(vec3(0.55,0.75,-0.4));
@@ -631,7 +631,7 @@ vec3 shade(vec3 ro, vec3 rd, float t){
   float fr = f0+(1.-f0)*pow(1.-max(dot(n,v),0.),5.);
   col += env(rf)*fr*spec*ao*(1.-rough)*(1.-rough)*1.1;
   col *= mix(0.5,1.,ao);
-  col += catchl*vec3(3.2,2.9,2.5)*smoothstep(0.93,0.97,dot(rf, normalize(vec3(-0.45,0.55,0.7))));
+  col += catchl*vec3(3.2,2.9,2.5)*smoothstep(0.955,0.985,dot(rf, normalize(vec3(-0.35,0.12,0.93))));
   return col;
 }
 
@@ -720,9 +720,9 @@ void main(){
   for (int i=0;i<12;i++){
     float a = float(i)*2.39996; float r = (0.004+0.012*sqrt(float(i)/12.));
     vec3 s = texture(uImg, uv+vec2(cos(a),sin(a))*r*vec2(uRes.y/uRes.x,1.)).rgb;
-    bl += max(s-0.9, 0.);
+    bl += max(s-1.8, 0.);
   }
-  c += bl/12.*vec3(0.5,0.32,0.18);
+  c += bl/12.*vec3(0.35,0.22,0.12);
   float vig = 1.-0.55*pow(length(dc*vec2(uRes.x/uRes.y,1.)*0.85), 2.2);
   c *= vig;
   c = aces(c*1.05);
