@@ -697,7 +697,8 @@ void main(){
       function draw(now) {
         if (!F || !A0) return;
         const t = freeze ? 0 : (now - startT) / 1000;
-        const u = ((u0 + t / period) % 1 + 1) % 1;
+        const uu = freeze && el.dataset.u ? +el.dataset.u : u0;   // ?ghostfreeze: a capture tool may set the hour on the element
+        const u = ((uu + t / period) % 1 + 1) % 1;
         const d = day(u);
         const ff0 = ffAt(0, 0, F.xw);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
