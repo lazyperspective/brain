@@ -548,16 +548,17 @@ vec3 shade(vec3 ro, vec3 rd, float t){
     alb = vec3(0.6,0.55,0.45)*(0.9+0.1*fbm(p*3.)); rough = 0.28; spec = 0.9;
     alb *= 1.-0.3*smoothstep(0.35,0.0,p.y)*fbm(p*5.);
   } else if (mat==3){
-    float bw = 1.05; float bx = (p.x+30.)/bw; float bi = floor(bx); float fx = fract(bx);
-    float off = h13(vec3(bi,3.,1.))*20.; float bz = (p.z+off)/9.; float bj = floor(bz);
-    vec3 wd = vec3(0.16,0.075,0.035)*(0.7+0.5*h13(vec3(bi,bj,2.)));
-    float grain = fbm(vec3(p.x*14.+sin(p.z*0.7+bi)*2., p.z*0.6, bi));
+    // floorboards running along the wall, varnished dark, scuffed
+    float bw = 1.05; float bz0 = (p.z+30.)/bw; float bi = floor(bz0); float fz = fract(bz0);
+    float off = h13(vec3(bi,3.,1.))*20.; float bx = (p.x+off)/11.; float bj = floor(bx);
+    vec3 wd = vec3(0.15,0.07,0.032)*(0.75+0.45*h13(vec3(bi,bj,2.)));
+    float grain = fbm(vec3(p.x*0.6, p.z*16.+sin(p.x*0.5+bi)*2., bi));
     wd *= 0.7+0.6*grain;
-    float gap = smoothstep(0.035,0.0,min(fx,1.-fx));
-    float butt = smoothstep(0.02,0.0,abs(fract(bz)-0.5)-0.485);
+    float gap = smoothstep(0.03,0.0,min(fz,1.-fz));
+    float butt = smoothstep(0.03,0.0,abs(fract(bx)-0.5)-0.485);
     alb = mix(wd, vec3(0.006), max(gap,butt)*0.9);
-    rough = 0.28+0.3*fbm(p*2.); spec = 0.8;
-    n = normalize(n+vec3((grain-0.5)*0.05,0.,0.));
+    rough = 0.25+0.35*fbm(p*1.5); spec = 0.8;
+    n = normalize(n+vec3(0.,0.,(grain-0.5)*0.05));
   } else if (mat==4){
     // cream gloss over cast iron: many coats, chipped, scorched on top
     float ch = fbm(p*vec3(2.6,1.3,2.6)+5.);
@@ -714,12 +715,22 @@ void main(){
   c.r = texture(uImg, uv-dc*0.0016).r;
   c.g = texture(uImg, uv).g;
   c.b = texture(uImg, uv+dc*0.0016).b;
+  // halation: highlights bleed a little warm light into their surroundings, as film does
+  vec3 bl = vec3(0.);
+  for (int i=0;i<12;i++){
+    float a = float(i)*2.39996; float r = (0.004+0.012*sqrt(float(i)/12.));
+    vec3 s = texture(uImg, uv+vec2(cos(a),sin(a))*r*vec2(uRes.y/uRes.x,1.)).rgb;
+    bl += max(s-0.9, 0.);
+  }
+  c += bl/12.*vec3(0.5,0.32,0.18);
   float vig = 1.-0.55*pow(length(dc*vec2(uRes.x/uRes.y,1.)*0.85), 2.2);
   c *= vig;
   c = aces(c*1.05);
   c = pow(c, vec3(1./2.2));
   // warm print, lifted blacks
-  c = mix(c, c*vec3(1.03,1.0,0.94), 0.6);
+  float L = dot(c, vec3(0.3,0.59,0.11));
+  c = mix(c, c*vec3(1.04,1.0,0.92), smoothstep(0.3,0.9,L));
+  c = mix(c, c*vec3(0.94,1.0,1.05), smoothstep(0.35,0.0,L)*0.7);
   c = c*0.96+0.018;
   float g = h12(gl_FragCoord.xy+uGrain*17.)+h12(gl_FragCoord.yx*1.3+uGrain*31.)-1.;
   c += g*0.022*(1.-c*0.6);
@@ -887,7 +898,7 @@ void main(){
         const r = mulberry32(n * 7919 + 13);
         return [r(), r()];
       }
-      const LID = 0.13;
+      const LID = 0.085;
       function drawScene(o, x0, y0, w, rows) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, o.dst.fb);
         gl.viewport(0, 0, o.w, o.h);

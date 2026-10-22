@@ -113,28 +113,29 @@
     const ch = Math.cos(th), sh = Math.sin(th);
     const hf = (x, y, z) => [hc[0] + ch * x - sh * y, hc[1] + sh * x + ch * y, hc[2] + (z || 0)];
     const hx = [ch, sh, 0], hy = [-sh, ch, 0], hz = [0, 0, 1];
-    addEll(hf(0, 0, 0), hx, hy, [5.9, 5.3, 4.7]);                          // 0 cranium
+    addEll(hf(0, 0.35, 0), hx, hy, [5.45, 5.35, 4.6]);                      // 0 cranium, a little forehead
     const mz = nrm(add(mul(hy, -0.28), hz)), my = nrm(cross(mz, hx));
     addEll(hf(0, -1.85, 3.9), hx, my, [2.6, 2.25, 4.3]);                  // 1 muzzle
-    addEll([0, -0.3, 0], [1, 0, 0], [0, 1, 0], [5.6, 6.2, 4.5]);           // 2 chest
-    addEll([0, -5.3, 0.4], [1, 0, 0], [0, 1, 0], [6.7, 6.3, 5.4]);         // 3 belly
+    addEll([0, -0.2, 0.3], [1, 0, 0], [0, 1, 0], [5.2, 6.3, 4.4]);           // 2 chest
+    addEll([0, -5.7, 0.4], [1, 0, 0], [0, 1, 0], [7.0, 6.4, 5.6]);         // 3 belly: a pear
     const feet = [[-8.25 + rr(-0.2, 0.2), -17.25, 2.0], [7.6 + rr(-0.2, 0.2), -17.45, 1.9]];
     feet.forEach((f, i) => {
       const toe = nrm([i ? 0.6 : -0.5, -0.15, 1]);
       const fu = nrm(cross([0, 1, 0], toe)), fv = cross(toe, fu);
-      addEll(f, fu, fv, [2.35, 2.2, 4.3]);                                  // 4,5 feet (toes toward the tube)
+      addEll(f, fu, fv, [2.75, 2.45, 4.9]);                                  // 4,5 feet (toes toward the tube)
     });
+    for (const sx of [-1, 1]) addEll(hf(sx * 3.15, -2.05, 1.0), hx, hy, [3.05, 2.75, 3.7]);   // 6,7 cheeks
     S.E = E;
 
     /* -------- limbs: spine polylines (x, y, radius) */
     const jit = () => rr(-0.25, 0.25);
-    const armUp = [[-5.6, 3.9, 2.45], [-6.9, 6.0 + jit(), 2.4], [-8.2, 8.6, 2.2], [-9.2 + jit(), 11.2, 2.0],
-      [-9.8, 13.4, 1.8], [-10.0, 15.0, 1.85], [-9.7, 16.6, 1.95], [-9.0, 17.6, 1.55]];
-    const armDn = [[5.7, 3.6, 2.45], [6.8, 1.5, 2.4], [7.8 + jit(), -1.1, 2.2], [8.5, -3.9, 2.0],
-      [8.8, -6.2 + jit(), 1.8], [8.8, -8.0, 1.85], [8.35, -9.6, 1.95], [7.65, -10.5, 1.55]];
+    const armUp = [[-5.6, 3.9, 2.5], [-7.0, 6.2 + jit(), 2.45], [-8.4, 8.9, 2.2], [-9.5 + jit(), 11.6, 1.95],
+      [-10.15, 14.0, 1.8], [-10.1, 16.0, 2.0], [-9.3, 17.5, 2.05], [-8.2, 18.1, 1.55]];
+    const armDn = [[5.7, 3.6, 2.6], [6.9, 1.3, 2.55], [7.95 + jit(), -1.5, 2.35], [8.7, -4.6, 2.15],
+      [9.0, -7.4 + jit(), 1.95], [8.7, -9.8, 2.1], [7.7, -11.4, 2.1], [6.6, -12.0, 1.6]];
     const legR = [[-5.2, -8.9, 3.0], [-5.9, -11.1, 3.0], [-6.9, -13.3, 2.7], [-7.7, -15.2, 2.45], [-8.1, -16.6, 2.35]];
     const legL = [[5.2, -8.9, 3.0], [5.8, -11.2, 3.0], [6.55, -13.5, 2.7], [7.2, -15.5, 2.45], [7.5, -16.85, 2.35]];
-    const limbZ = [1.0, 0.7, 1.4, 1.4];
+    const limbZ = [1.0, 1.4, 1.4, 1.4];
     S.limbs = [armUp, armDn, legR, legL].map((pts, li) => catmull(pts, 8).map((p) => {
       const q = tp([p[0], p[1], 0]); return [q[0], q[1], sc(p[2]), sc(limbZ[li])];
     }));
@@ -152,7 +153,7 @@
     lump([0.3, -7.8, 0], 4.2, 0.28);                      // and packed into the seat
     lump(hf(0, -1.95), 2.3, 1.6);                         // hard-packed muzzle
     lump(feet[0], 2.4, 0.35); lump(feet[1], 2.4, 0.35);
-    lump([8.3, -9.6, 0], 1.6, 0.25);
+    lump([8.3, -10.2, 0], 1.8, 0.35); lump([8.2, -3.5, 0], 3.0, 0.25);
     for (let i = 0; i < 4; i++) lump([rr(-4.5, 4.5), rr(-9, 2), 0], rr(1.0, 2.0), rr(-0.3, 0.25));
     lump(hf(rr(-3, 3), rr(1.5, 3.5)), rr(1.2, 1.8), rr(-0.3, -0.12));
     S.lumps = L;
@@ -173,7 +174,7 @@
     /* -------- seams (doubled fabric edge-on) */
     group('seams');
     const muSeam = 1.1, rSeam = 0.035;
-    const headZ = (x, y) => 4.7 * Math.sqrt(Math.max(0.02, 1 - (x / 5.9) ** 2 - (y / 5.3) ** 2));
+    const headZ = (x, y) => 4.6 * Math.sqrt(Math.max(0.02, 1 - (x / 5.45) ** 2 - ((y - 0.35) / 5.35) ** 2));
     for (const sx of [-1, 1]) {
       group('seam');
       const pts = [];
@@ -330,6 +331,19 @@
     const ringC = [2.55 + rr(-0.15, 0.15), 1.95 + rr(-0.2, 0.2), 1.3];
     const ringN = nrm([rr(-0.5, 0.5), rr(0.6, 0.9), rr(0.45, 0.7)]);
     torus(ringC, ringN, 0.92, 0.12, MU.gold);
+    {
+      // a small claw setting with its stone, at the top of the band
+      const [ru, rv] = basis(ringN);
+      const ang = rr(0, Math.PI * 2), dir = add(mul(ru, Math.cos(ang)), mul(rv, Math.sin(ang)));
+      const top = add(ringC, mul(dir, 0.98));
+      const t2 = nrm(cross(ringN, dir));
+      ell(add(top, mul(dir, 0.1)), dir, 0.2, t2, 0.24, 0.17, MU.gold);
+      ell(add(top, mul(dir, 0.34)), dir, 0.16, t2, 0.2, 0.2, MU.glass * 2.2);
+      for (const a of [0.8, 2.4, 3.9, 5.5]) {
+        const o = add(mul(t2, 0.21 * Math.cos(a)), mul(ringN, 0.21 * Math.sin(a)));
+        wire(add(top, add(mul(dir, 0.15), o)), add(top, add(mul(dir, 0.48), mul(o, 0.7))), 0.035, MU.gold);
+      }
+    }
     const rc = tp(ringC);
     S.ring = [rc[0], rc[1], sc(2.1), 0];
 
@@ -355,6 +369,22 @@
       chain([at(-len / 2 + 0.05, -0.2, -0.08), at(0, -0.21, -0.06), at(len / 2 - 0.3, -0.13, -0.02)], 0.045, MU.steel);
       box(at(len / 2 - 0.3, -0.02, 0), ax, 0.32, by, 0.2, 0.09, MU.steel);
       box(at(len / 2 - 0.3, -0.02, 0), ax, 0.24, by, 0.14, 0.06, -MU.steel * 0.7);
+    }
+
+    group('ragfinds');
+    {
+      const hc2 = [-9.55 + rr(-0.3, 0.3), 12.4 + rr(-0.5, 0.5), 0.6], ha = rr(0, Math.PI * 2);
+      const hd = [Math.cos(ha), Math.sin(ha), 0.15], hn = [-Math.sin(ha), Math.cos(ha), 0];
+      const P2 = (a, b) => add(hc2, add(mul(hd, a), mul(hn, b)));
+      chain([P2(-0.45, 0.12), P2(0.25, 0.12), P2(0.45, 0.0), P2(0.3, -0.12), P2(0.12, -0.08)], 0.03, MU.brass);   // the hook
+      chain([P2(-0.45, -0.12), P2(-0.12, -0.12)], 0.03, MU.brass);
+      const ey = [];
+      for (let i = 0; i <= 10; i++) { const a = Math.PI * (0.3 + 1.4 * i / 10); ey.push(P2(0.95 + 0.22 * Math.cos(a), 0.22 * Math.sin(a) + 0.35)); }
+      chain(ey, 0.03, MU.brass);                                            // its eye, unhooked
+      const bc = [-8.6 + rr(-0.3, 0.3), 6.6 + rr(-0.4, 0.4), 1.2], bn = nrm([rr(-0.3, 0.3), rr(-0.3, 0.3), 1]);
+      disc(bc, bn, 0.48, 0.07, 1.6);                                        // a bone shirt button
+      const [bu, bv] = basis(bn);
+      for (const [x, y] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) disc(add(bc, add(mul(bu, 0.12 * x), mul(bv, 0.12 * y))), bn, 0.06, 0.08, -1.6);
     }
 
     /* -------- sometimes, a dressmaker's pin forgotten after a repair */
@@ -542,7 +572,7 @@ out vec4 o;
 uniform vec2 u_fres;
 uniform sampler2D u_prim, u_ov;
 uniform vec4 u_gbox[56]; uniform ivec2 u_grng[56]; uniform int u_ng;
-uniform vec3 u_eC[6]; uniform mat3 u_eR[6]; uniform vec3 u_eS[6];
+uniform vec3 u_eC[8]; uniform mat3 u_eR[8]; uniform vec3 u_eS[8];
 uniform vec4 u_limb[32];
 uniform vec4 u_ear[2];
 uniform vec4 u_lump[16]; uniform int u_nlump;
@@ -565,6 +595,18 @@ vec2 ellI(int i, vec2 P, float dl){
   return vec2((-b - h)/a, (-b + h)/a);
 }
 float ilen(vec2 v){ return max(v.y - v.x, 0.0); }
+// union length of several z-intervals that mostly overlap (one solid), disjoint leftovers added
+void acc(inout vec2 cur, inout float extra, vec2 b){
+  if (ilen(b) <= 0.0) return;
+  if (ilen(cur) <= 0.0){ cur = b; return; }
+  if (b.y < cur.x || cur.y < b.x){ extra += ilen(b); return; }
+  cur = vec2(min(cur.x, b.x), max(cur.y, b.y));
+}
+float headL(vec2 P, float dl, float dm){
+  vec2 c = ellI(0, P, dl); float ex = 0.0;
+  acc(c, ex, ellI(1, P, dm)); acc(c, ex, ellI(6, P, dl)); acc(c, ex, ellI(7, P, dl));
+  return ilen(c) + ex;
+}
 float uni(vec2 a, vec2 b){
   float la = ilen(a), lb = ilen(b);
   if (la <= 0.0) return lb;
@@ -588,23 +630,29 @@ float wear(vec2 P){
 // wood wool: many layers of long crimped ribbons, each layer a different lie
 float exc(vec2 p, float aligned){
   p += u_off.xy*(1.0 - aligned) + vec2(3.3, 7.1)*aligned;
-  vec2 w = vec2(noise(p*0.3), noise(p*0.3 + vec2(5.2, 1.3)));
-  vec2 w2 = vec2(noise(p*0.85 + 3.1), noise(p*0.85 + 7.7));
-  vec2 pw = p + w*0.9 + w2*0.5;
+  vec2 w = vec2(noise(p*0.28), noise(p*0.28 + vec2(5.2, 1.3)));
+  vec2 pw = p + w*0.8;
+  // each handful was pushed in with its own lie: one dominant direction per region
+  float reg = noise(p*0.2 + 4.0)*3.4 + u_off.z;
   float acc = 0.0;
-  for (int k = 0; k < 6; k++){
+  for (int k = 0; k < 7; k++){
     float fk = float(k);
-    float a = mix(fk*2.39996 + u_off.z, (fk - 2.5)*0.16, aligned);
+    float a = mix(fk*0.4488 + u_off.z, (fk - 3.0)*0.11, aligned);
+    float wgt = mix(0.12 + 0.88*pow(0.5 + 0.5*cos(2.0*(a - reg)), 4.0), 1.0, aligned);
     vec2 cs = vec2(cos(a), sin(a));
     vec2 q = vec2(dot(pw, cs), dot(pw, vec2(-cs.y, cs.x)));
-    q.y += 0.6*noise(vec2(q.x*0.45, q.y*0.2) + fk*3.7) + 0.07*sin(q.x*5.5 + fk*1.3 + w2.x*4.0);
-    float n = noise(vec2(q.x*0.32, q.y*1.25) + fk*11.3);
-    float m = noise(vec2(q.x*0.6, q.y*0.35) + fk*5.0);
-    float wd = 0.04 + 0.055*abs(m);
-    acc += exp(-n*n/(wd*wd))*(0.5 + 1.1*abs(m));
+    q.y += 0.4*noise(vec2(q.x*0.45, q.y*0.22) + fk*3.7) + 0.05*sin(q.x*6.5 + fk*1.3);
+    float n = noise(vec2(q.x*0.26, q.y*2.1) + fk*11.3);
+    float tw = abs(noise(vec2(q.x*1.1, q.y*0.5) + fk*5.0));           // the ribbon twisting along its length
+    float wd = 0.035 + 0.16*smoothstep(0.05, 0.6, tw);                  // edge-on: thin; face-on: a few mm wide
+    float t = abs(n)/wd;
+    float body = 1.0 - smoothstep(0.78, 1.0, t);
+    float edge = exp(-pow((t - 0.86)/0.12, 2.0));
+    float bright = mix(1.6, 0.42, smoothstep(0.05, 0.6, tw));           // a ribbon seen edge-on is a bright line
+    acc += wgt*(body*bright + edge*0.55);
   }
   float clump = noise(p*0.5 + 9.0)*0.55 + noise(p*1.5)*0.22;
-  return 0.45 + acc*0.42*(0.75 + clump) + clump;
+  return 0.18 + acc*0.62*(0.8 + clump) + clump*0.5;
 }
 // rags: wads of torn cloth, smooth inside, a brighter fold where two wads meet edge-on
 vec2 cell(vec2 p){
@@ -619,13 +667,15 @@ vec2 cell(vec2 p){
   return sqrt(vec2(d1, d2));
 }
 float rags(vec2 p){
-  vec2 q = p*0.55 + 0.8*vec2(noise(p*0.45), noise(p*0.45 + 3.0));
+  vec2 q = p*0.62 + 0.9*vec2(noise(p*0.4), noise(p*0.4 + 3.0));
   vec2 c = cell(q);
-  float edge = exp(-pow((c.y - c.x)/0.16, 2.0));
-  float cloud = noise(p*0.8 + 1.3) + 0.5*noise(p*1.9 + 4.1);
-  vec2 cq = vec2(p.x*0.9 + p.y*0.4, p.y*0.9 - p.x*0.4);
-  float crease = exp(-pow(noise(cq*vec2(0.5, 2.2) + 7.0)/0.025, 2.0))*smoothstep(0.05, 0.35, noise(p*0.5 + 2.2));
-  return 0.9 + 0.22*(1.0 - c.x) + 0.12*edge + 0.2*cloud + 0.22*crease;
+  float lobe = 1.0 - 0.95*c.x*c.x;                                       // each wad a soft stacked lobe
+  float fold = exp(-pow((c.y - c.x)/0.045, 2.0))*smoothstep(-0.25, 0.25, noise(p*0.7 + 5.0));
+  vec2 c2 = cell(q*1.9 + 4.0);
+  float lay = exp(-pow((c2.y - c2.x)/0.035, 2.0))*smoothstep(0.0, 0.35, noise(p*0.9 + 1.0));
+  vec2 hq = vec2(p.x*0.8 + p.y*0.6, p.y*0.8 - p.x*0.6);
+  float hem = exp(-pow(noise(hq*vec2(0.35, 1.6) + 2.0)/0.03, 2.0))*smoothstep(0.1, 0.4, noise(p*0.45 + 8.0));
+  return 0.55 + 0.55*lobe + 0.45*fold + 0.3*lay + 0.5*hem + 0.05*noise(p*3.5);
 }
 float hair(vec2 q){
   float n = noise(vec2(q.x*1.6, q.y*3.2));
@@ -735,14 +785,15 @@ void main(){
   vec2 P = (uv - 0.5)*vec2(${FW.toFixed(1)}, ${FH.toFixed(1)});
   float A = 0.0;
   float rh = rho(P), wr = wear(P);
+  // mohair edges are never conic: the outline breathes with the pile and the lumps under it
+  float jo = noise(P*0.7 + 21.0)*0.32 + noise(P*2.3 + 5.0)*0.12;
+  float dO = PILE*(0.75 + 0.5*wr) + jo*1.3, dS = jo*0.45, dI = -SKIN + jo*0.45;
   float sEx = 0.0, sExL = 0.0, sRag = 0.0, fab = 0.0, fur = 0.0, bestL = 0.0;
   vec2 limbQ = vec2(0.0);
 
   // head: cranium U muzzle
   if (length(P - u_eC[0].xy) < 9.5){
-    vec3 L = vec3(uni(ellI(0, P, PILE), ellI(1, P, PILE*0.3)),
-                  uni(ellI(0, P, 0.0), ellI(1, P, 0.0)),
-                  uni(ellI(0, P, -SKIN), ellI(1, P, -SKIN)));
+    vec3 L = vec3(headL(P, dO, PILE*0.3 + dS), headL(P, dS, dS), headL(P, dI, dI));
     if (L.x > 0.0){
       sEx += rh*L.z; fab += max(L.y - L.z, 0.0);
       float fu = max(L.x - L.y, 0.0);
@@ -752,9 +803,9 @@ void main(){
   }
   // torso: chest U belly
   if (abs(P.x - u_eC[3].x) < 9.0 && P.y < u_eC[2].y + 8.0 && P.y > u_eC[3].y - 8.5){
-    vec3 L = vec3(uni(ellI(2, P, PILE), ellI(3, P, PILE)),
-                  uni(ellI(2, P, 0.0), ellI(3, P, 0.0)),
-                  uni(ellI(2, P, -SKIN), ellI(3, P, -SKIN)));
+    vec3 L = vec3(uni(ellI(2, P, dO), ellI(3, P, dO)),
+                  uni(ellI(2, P, dS), ellI(3, P, dS)),
+                  uni(ellI(2, P, dI), ellI(3, P, dI)));
     if (L.x > 0.0){
       vec2 rd = P - u_ring.xy;
       vec2 rw = rd + 0.25*u_ring.z*vec2(noise(P*0.9 + 3.0), noise(P*0.9 + 8.0));
@@ -772,15 +823,16 @@ void main(){
   for (int li = 0; li < 4; li++){
     float d, r, sa, sg;
     tubeQ(li, P, d, r, sa, sg);
+    r += (li == 0 ? 0.26 : 0.1)*noise(vec2(sa*0.75, float(li)*5.0 + sg*0.6)) + (li == 0 ? 0.12*noise(P*1.4) : 0.0);
     if (d > r + PILE + 2.6) continue;
     float zc = u_limb[li*8].w;
-    float hO = tubeH(d, r, PILE), hS = tubeH(d, r, 0.0), hI = tubeH(d, r, -SKIN);
+    float hO = tubeH(d, r, dO), hS = tubeH(d, r, dS), hI = tubeH(d, r, dI);
     vec3 L = vec3(2.0*hO, 2.0*hS, 2.0*hI);
     if (li >= 2){
       int fe = li + 2;
-      L = vec3(uni(vec2(zc - hO, zc + hO), ellI(fe, P, PILE)),
-               uni(vec2(zc - hS, zc + hS), ellI(fe, P, 0.0)),
-               uni(vec2(zc - hI, zc + hI), ellI(fe, P, -SKIN)));
+      L = vec3(uni(vec2(zc - hO, zc + hO), ellI(fe, P, dO)),
+               uni(vec2(zc - hS, zc + hS), ellI(fe, P, dS)),
+               uni(vec2(zc - hI, zc + hI), ellI(fe, P, dI)));
     }
     if (L.x <= 0.0) continue;
     if (li == 0) sRag += L.z;
@@ -801,7 +853,7 @@ void main(){
   }
   if (sEx > 0.0) A += MU_EX*exc(P, 0.0)*sEx;
   if (sExL > 0.0) A += MU_EX*exc(limbQ, 1.0)*sExL;
-  if (sRag > 0.0) A += MU_EX*1.9*rags(P)*sRag;
+  if (sRag > 0.0) A += MU_EX*1.6*rags(P)*sRag;
   A += MU_FAB*fab + MU_FUR*wr*fur;
   // ears: two layers of mohair, the rim seam, the pile
   for (int i = 0; i < 2; i++){
