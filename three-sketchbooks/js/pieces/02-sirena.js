@@ -451,7 +451,7 @@
       else { x = inset; y = lerp(SH, 0, (t - 0.75) / 0.25); }
       gp.push([x, y]);
     }
-    g.beginPath(); tracePath(g, gp); g.fillStyle = 'rgb(164,172,165)'; g.fill();
+    g.beginPath(); tracePath(g, gp); g.fillStyle = 'rgb(167,173,163)'; g.fill();
     g.save(); g.beginPath(); tracePath(g, gp); g.clip();
     // broad soft unevenness of the coat
     for (let i = 0; i < 22; i++) {
@@ -473,7 +473,7 @@
         for (let s = 0; s <= len; s += 16) pts.push([x0 + s * Math.cos(ang), y + s * Math.sin(ang) + Math.sin(s / 160 + wph) * wav]);
         const trace = () => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const q of pts) g.lineTo(q[0], q[1]); };
         g.strokeStyle = light ? 'rgba(208,212,200,0.022)' : 'rgba(116,122,112,0.02)'; g.lineWidth = wid; trace(); g.stroke();
-        const nb = 9;
+        const nb = 0;
         for (let k = 0; k < nb; k++) {
           const off = (k / nb - 0.5) * wid * 0.95 + rf(-2, 2);
           g.strokeStyle = (RF() < 0.5) ? 'rgba(214,218,206,' + rf(0.018, 0.04).toFixed(3) + ')' : 'rgba(108,114,104,' + rf(0.016, 0.034).toFixed(3) + ')';
@@ -559,7 +559,10 @@
     }
     let mn = 1, mx = 0; for (const v of vn) { mn = Math.min(mn, v); mx = Math.max(mx, v); }
     for (let i = 0; i < vn.length; i++) vn[i] = (vn[i] - mn) / (mx - mn);
-    return { wn, vn, P1, P2 };
+    // brush striations of the ground: a slowly wandering 1D grain
+    const SN = 1009; let st = new Float32Array(SN); for (let i = 0; i < SN; i++) st[i] = r() - 0.5;
+    for (let pass = 0; pass < 2; pass++) { const o = new Float32Array(SN); for (let i = 0; i < SN; i++) o[i] = (st[(i + SN - 1) % SN] + st[i] * 2 + st[(i + 1) % SN]) / 4; st = o; }
+    return { wn, vn, P1, P2, st, SN };
   }
   const TILES = makeTiles();
 
@@ -600,7 +603,7 @@
     // o: x0, x1 (right edge where lines start), y0, lines, xh (x-height), lh (line height), a (ink), mask fn(x,y)->bool allowed
     const xh = o.xh || 3.4, lh = o.lh || xh * 2.7;
     let y = o.y0;
-    const sl = 0.28; // slant (becomes leftward after mirroring)
+    const sl = o.sl === undefined ? 0.28 : o.sl; // slant (becomes leftward after mirroring)
     for (let li = 0; li < o.lines; li++) {
       const right = o.x1 - rr(0, xh * 1.2) - (li === 0 && o.indent ? xh * 3 : 0);
       const leftLim = (o.lx ? o.lx(li) : o.x0) + rr(0, xh * 4);
@@ -627,7 +630,7 @@
         const bl = base + (right - x) * drift;
         const mp = (p) => [x - p[0] - p[1] * -sl * -1 * 1 + p[1] * sl * 0, bl + p[1]];
         const tp = pts.map((p) => [x - p[0] + p[1] * sl, bl + p[1]]);
-        if (o.mask && !tp.every((p) => o.mask(p[0], p[1]))) { x -= wwid + xh * 0.9; continue; }
+        if (o.mask) { let bad = 0; for (const p of tp) if (!o.mask(p[0], p[1])) bad++; if (bad > tp.length * (o.tol || 0)) { x -= wwid + xh * 0.9; continue; } }
         pen(C(tp, 0.5), { a: (o.a || 0.6) * flow, w: o.w || 0.62 });
         for (const d of dots) { const dx = x - d[0] + d[1] * sl, dy = bl + d[1]; pen([[dx, dy], [dx - 0.4, dy + 0.35]], { a: (o.a || 0.6) * flow, w: (o.w || 0.62) * 1.1 }); }
         for (const b of bars) { const ax = x - b[0] + b[1] * sl, bx = x - b[2] + b[1] * sl, yy = bl + b[1]; pen([[ax, yy], [bx, yy + 0.3]], { a: (o.a || 0.6) * flow * 0.9, w: o.w || 0.62 }); }
@@ -1173,6 +1176,13 @@
         const rr0 = [lerp(r[0], e[0], 0.08), lerp(r[1], e[1], 0.08)];
         stroke(C([rr0, [lerp(rr0[0], e[0], 0.5) + rs(0.6), lerp(rr0[1], e[1], 0.5) + rs(0.6)], [lerp(rr0[0], e[0], 0.94), lerp(rr0[1], e[1], 0.94)]], 1), { a: 0.2, w: 0.4, pt: 'f', trem: 0.12, tone: (x, y) => (pipF([x, y]) ? 0 : 1) });
       }
+      for (let v = 0; v < 3; v++) { // fine veins branching through the membrane
+        const r0 = at(w.sideA.concat(rev(w.sideB)), lerp(0.44, 0.56, (v + 0.5) / 3)), e0 = at(w.edge, lerp(0.2, 0.8, (v + 0.5) / 3));
+        const mid = [lerp(r0[0], e0[0], 0.5) + rs(2), lerp(r0[1], e0[1], 0.5) + rs(2)];
+        const V = C([r0, mid, [lerp(r0[0], e0[0], 0.9), lerp(r0[1], e0[1], 0.9)]], 0.6);
+        stroke(V, { a: 0.3, w: 0.32, pt: 'c', trem: 0.35 });
+        for (const bt of [0.45, 0.7]) { const b = at(V, bt), d = norm2(e0[0] - r0[0], e0[1] - r0[1]), sg = R() < 0.5 ? 1 : -1; stroke(C([b, [b[0] + d[0] * 4 + d[1] * sg * 3, b[1] + d[1] * 4 - d[0] * sg * 3], [b[0] + d[0] * 7 + d[1] * sg * 6, b[1] + d[1] * 7 - d[0] * sg * 6]], 0.5), { a: 0.22, w: 0.3, pt: 'h', trem: 0.3 }); }
+      }
       contour(w.edge, { a: 0.5, side: 0, w: 0.48, re: 0.5 });
       const Te = tangents(w.edge);
       contour(w.edge.map((p, i) => [p[0] - Te[i][1] * 1.0, p[1] + Te[i][0] * 1.0]).slice(4, -4), { a: 0.18, side: 0, w: 0.4 });
@@ -1180,7 +1190,8 @@
     flush(); await Y();
     // dorsum: the knuckles stand up, tendons run to them
     const knF = Form(kn.map((k, i) => ellipse(k[0], k[1], i === 4 ? 9 : 8.5, 7, ang, 20)), [], { blur: 4, res: 1 });
-    shade(DorF, (x, y) => 0.08 + 0.5 * clamp(0.92 - DorF.lam(x, y, 1.1), 0, 1) + 0.2 * clamp(0.6 - knF.lam(x, y, 1.6), 0, 1) * knF.height(x, y) * 2 + 0.18 * sstep(-30, 40, (x - ox) * 0.62 + (y - oy) * 0.78), { a: 0.36, sp: 1.5, layers: 3, len: [8, 18] });
+    const locX = (x, y) => ((x - ox) * dx + (y - oy) * dy) / sc;
+    shade(DorF, (x, y) => sstep(-1.8, 1.8, locX(x, y)) * (0.08 + 0.5 * clamp(0.92 - DorF.lam(x, y, 1.1), 0, 1)) + 0.2 * clamp(0.6 - knF.lam(x, y, 1.6), 0, 1) * knF.height(x, y) * 2 + 0.18 * sstep(-30, 40, (x - ox) * 0.62 + (y - oy) * 0.78), { a: 0.36, sp: 1.5, layers: 3, len: [8, 18] });
     const tend = [];
     for (let fi = 0; fi < 5; fi++) {
       const ch = chains[fi];
@@ -1190,11 +1201,13 @@
       tend.push(T);
       const Tt = tangents(T), side = (off) => T.map((p, i) => [p[0] + Tt[i][1] * off, p[1] - Tt[i][0] * off]);
       const inD = (p) => (DorF.in(p[0], p[1]) ? sstep(0, 0.25, 1) : 0);
-      contour(side(1.7), { a: 0.16, side: 0, w: 0.4, fade: inD, seg: 14 });
-      contour(side(-1.7), { a: 0.36, side: 0, w: 0.44, fade: inD, seg: 14 });
-      for (let t = 0.2; t < 0.92; t += 0.05) { const i = Math.round(t * (T.length - 1)), p = T[i], d = Tt[i]; stroke([[p[0] - d[1] * 1.9, p[1] + d[0] * 1.9], [p[0] - d[1] * 4.2 + d[0] * 1.4, p[1] + d[0] * 4.2 + d[1] * 1.4]], { a: 0.26, w: 0.42, pt: 'h', tone: (x, y) => (DorF.in(x, y) ? 1 : 0) }); }
+      contour(side(-1.6), { a: 0.2, side: 0, w: 0.36, fade: inD, seg: 10, jit: 0.3 });
+      { const band = side(-1.5).concat(rev(side(-4.2))); const Fb = Form([band], [], { res: 1.6, blur: 1.2 }); shade(Fb, (x, y) => (DorF.in(x, y) ? 0.42 : 0), { a: 0.4, sp: 1.2, layers: 2, len: [4, 9], ang: 45 }); }
     }
     for (const [a, b, t1, t2] of [[2, 1, 0.78, 0.66], [2, 3, 0.74, 0.84]]) { const pa = at(tend[a], t1), pb = at(tend[b], t2); stroke(C([pa, [lerp(pa[0], pb[0], 0.5) + dx * 3, lerp(pa[1], pb[1], 0.5) + dy * 3], pb], 0.5), { a: 0.3, w: 0.44, pt: 'c' }); }
+    // the knuckles, and the mass of the first interosseous between thumb and index
+    for (let fi = 0; fi < 4; fi++) { const k = kn[fi], e = ellipse(k[0], k[1], 7.2, 6.0, ang, 24); const Fk = Form([e], [], { res: 2, blur: 3 }); shade(Fk, (x, y) => clamp(0.8 - Fk.lam(x, y, 1.2), 0, 1) * 0.45, { a: 0.36, sp: 1.2, layers: 2, len: [3, 7] }); contour(sub(closeP(e), 0.05, 0.45), { a: 0.26, side: 0, w: 0.4 }); }
+    { const th = HP(CC([[1.6, -2.3], [3.2, -2.9], [4.6, -4.4], [6.2, -3.4], [7.8, -2.8], [6.8, -2.2], [4.2, -1.9], [2.4, -1.7]], 0.12)); const Ft = Form([th], [], { res: 1.6, blur: 5 }); shade(Ft, (x, y) => 0.05 + 0.6 * clamp(0.85 - Ft.lam(x, y, 1.3), 0, 1), { a: 0.4, sp: 1.3, layers: 3, len: [5, 11] }); contour(sub(closeP(th), 0.45, 0.85), { a: 0.22, side: 0, w: 0.4 }); }
     // veins, faint
     stroke(HP(C([[-1.0, 1.5], [1.5, 0.9], [3.5, 1.3], [5.0, 0.4], [6.4, 0.6]], 0.2)), { a: 0.13, w: 0.42, pt: 'f', trem: 0.4 });
     stroke(HP(C([[-1.2, -1.2], [1.8, -0.6], [3.2, -1.6], [4.8, -1.2]], 0.2)), { a: 0.12, w: 0.42, pt: 'f', trem: 0.4 });
@@ -1206,7 +1219,7 @@
     for (let fi = 0; fi < 5; fi++) {
       const P = fingerPoly[fi], Fs = fingerSides[fi], ch = chains[fi];
       const Fm = Form([P], fingerPoly.filter((q, j) => j !== fi && (j === 4 ? fi === 0 : false)), { blur: 4.2, res: 1.5 });
-      shade(Fm, (x, y) => 0.02 + 0.55 * clamp(0.86 - Fm.lam(x, y, 1.15), 0, 1), { a: 0.4, sp: 1.35, layers: 3, len: [6, 13], ang: 52 });
+      shade(Fm, (x, y) => 0.06 + 0.72 * clamp(0.9 - Fm.lam(x, y, 1.15), 0, 1), { a: 0.44, sp: 1.3, layers: 3, len: [6, 13], ang: 52 });
       const fadeW = (p) => (WebF.in(p[0], p[1]) ? 0.3 : 1);
       contour(Fs.left, { a: 0.55, side: 1, w: 0.5, re: 0.4, fade: fadeW, lit: 0.3 });
       contour(Fs.right, { a: 0.55, side: -1, w: 0.5, re: 0.4, fade: fadeW, lit: 0.3 });
@@ -1993,25 +2006,26 @@
     const trailL = C([[130, 78], [114, 61], [98, 41], [84, 19], [73, 2], [81, -16], [95, -38], [109, -58], [122, -75]], 1.0);
     const leadD = C([[-6, 19], [26, 31], [62, 49], [98, 65], [130, 78]], 1.0), leadV = C([[-6, -19], [24, -29], [58, -45], [92, -61], [122, -75]], 1.0);
     const finPoly = leadD.concat(trailL.slice(1), rev(leadV)).map(fl);
-    const NR = 19;
+    const NR = 15;
     const rays = finRays({ m: (u, v) => fl([u, v]), n: NR, b0: [-2, 16], b1: [-2, -16], trail: trailL, bend: (f) => (0.5 - f) * 0.07 });
     rays[0] = leadD.map(fl); rays[NR - 1] = leadV.map(fl);
-    const tear = { 5: 0.58, 12: 0.66 };
+    const tear = { 4: 0.58, 10: 0.66 };
     const tearPolys = [];
     for (const k in tear) { const A = rays[+k], Bq = rays[+k + 1], te = tear[k]; tearPolys.push([at(A, te + 0.02), at(A, 1.0), at(Bq, 1.0), at(Bq, te + 0.02), [lerp(at(A, te)[0], at(Bq, te)[0], 0.5), lerp(at(A, te)[1], at(Bq, te)[1], 0.5)]]); }
     const FF = Form([finPoly], tearPolys, { res: 1.2, blur: 7 });
     // membrane tone: dark at the root, the lower lobe turned a little away from the light
-    shade(FF, (x, y) => { const d = hyp(x - fe[0], y - fe[1]); const q = (x - fe[0]) * fdn[0] + (y - fe[1]) * fdn[1]; return clamp((0.12 + 0.4 * sstep(80, 0, d) + 0.18 * sstep(10, -60, q)) * clamp(1.05 - FF.lam(x, y, 0.6), 0.3, 1), 0, 1); }, { a: 0.42, sp: 1.4, layers: 4, len: [8, 18], ang: 64 });
+    shade(FF, (x, y) => { const d = hyp(x - fe[0], y - fe[1]); const q = (x - fe[0]) * fdn[0] + (y - fe[1]) * fdn[1]; return clamp(0.26 + 0.36 * sstep(90, 0, d) + 0.28 * sstep(0, -60, q) - 0.08 * sstep(20, 70, q), 0, 1); }, { a: 0.48, sp: 1.4, layers: 4, len: [8, 18], ang: 64 });
     for (let k = 0; k < NR - 1; k++) {
       const A = rays[k], Bq = rays[k + 1], te = tear[k] || 0.97;
       for (const u of [0.33, 0.66]) { const pts = []; for (let i = 0; i <= 22; i++) { const t = lerp(0.12, te * rr(0.85, 0.98), i / 22); const pa = at(A, t), pb = at(Bq, t); pts.push([lerp(pa[0], pb[0], u), lerp(pa[1], pb[1], u)]); } stroke(pts, { a: 0.16, w: 0.28, pt: 'f', trem: 0.1 }); }
-      const pa = at(A, te), pb = at(Bq, te), pm = [lerp(pa[0], pb[0], 0.5) - fd[0] * (tear[k] ? 14 : 2.5), lerp(pa[1], pb[1], 0.5) - fd[1] * (tear[k] ? 14 : 2.5)];
-      contour(C([pa, pm, pb], 0.6), { a: tear[k] ? 0.5 : 0.42, side: 0, w: 0.46 });
+      const pa = at(A, te), pb = at(Bq, te), pm = [lerp(pa[0], pb[0], 0.5) - fd[0] * (tear[k] ? 16 : 5), lerp(pa[1], pb[1], 0.5) - fd[1] * (tear[k] ? 16 : 5)];
+      contour(C([pa, pm, pb], 0.6), { a: tear[k] ? 0.6 : 0.55, side: 0, w: 0.5 });
     }
     flush(); await Y();
     contour(leadD.map(fl), { a: 0.66, side: 1, w: 0.56, re: 0.5 });
     contour(leadV.map(fl), { a: 0.68, side: -1, w: 0.56, re: 0.5 });
-    for (let k = 1; k < NR - 1; k++) drawRay(rays[k], { fin: k > 6 && k < 12 && R() < 0.3 ? 0.7 : 1, w0: 2.6, w1: 0.7, seg: 8.5, joints: true, shadeIt: false, gap: 0.55, spread: 0.05, s1: 0.5 + rs(0.04), s2: 0.78 + rs(0.03) });
+    for (let k = 1; k < NR - 1; k++) drawRay(sub(rays[k], 0.1, 1), { fin: k > 5 && k < 10 && R() < 0.3 ? 0.7 : 1, w0: 1.9, w1: 0.6, seg: 8.5, joints: true, shadeIt: false, gap: 0.55, spread: 0.05, s1: 0.5 + rs(0.04), s2: 0.78 + rs(0.03) });
+    { const trailS = trailL.map(fl); contour(sub(trailS, 0, 0.36), { a: 0.5, side: -1, w: 0.5, re: 0.4, jit: 0.3 }); contour(sub(trailS, 0.64, 1), { a: 0.5, side: -1, w: 0.5, re: 0.4, jit: 0.3 }); }
     // procurrent rays: small spines along the edges of the root
     for (const sg of [1, -1]) for (let k = 0; k < 6; k++) { const b = fl([-30 + k * 5, sg * (17.5 + k * 0.2)]), e = fl([-23 + k * 5.4, sg * (19.5 + k * 0.5)]); stroke([b, e], { a: 0.4, w: 0.32, pt: 'h' }); }
     flush(); await Y();
@@ -2050,19 +2064,17 @@
     /* ---- the notes, in a cramped mirror hand, written around what is already there */
     const occ = occupancy(2);
     const blocks = [
-      { x0: 170, x1: 340, y0: 36, lines: 10, L: 'a' },
-      { x0: 497, x1: 584, y0: 34, lines: 17 },
-      { x0: 684, x1: 894, y0: 168, lines: 5, L: 'c' },
-      { x0: 908, x1: 990, y0: 352, lines: 15, L: 'f' },
-      { x0: 340, x1: 476, y0: 452, lines: 23, L: 'g' },
-      { x0: 594, x1: 792, y0: 352, lines: 9, L: 'd' },
-      { x0: 26, x1: 144, y0: 134, lines: 9 },
-      { x0: 24, x1: 120, y0: 448, lines: 10 },
-      { x0: 700, x1: 868, y0: 612, lines: 7, L: 'e' },
+      { x0: 170, x1: 340, y0: 36, lines: 10, L: 'a', xh: 3.2, sl: 0.3, a: 0.66, w: 0.6 },
+      { x0: 497, x1: 584, y0: 34, lines: 17, xh: 2.8, sl: 0.4, a: 0.48, w: 0.52, tol: 0.25 },
+      { x0: 684, x1: 894, y0: 168, lines: 5, L: 'c', xh: 3.6, sl: 0.18, a: 0.74, w: 0.68 },
+      { x0: 908, x1: 990, y0: 352, lines: 15, L: 'f', xh: 3.0, sl: 0.34, a: 0.55, w: 0.56 },
+      { x0: 340, x1: 476, y0: 452, lines: 23, L: 'g', xh: 3.3, sl: 0.26, a: 0.62, w: 0.6, tol: 0.2 },
+      { x0: 594, x1: 792, y0: 352, lines: 9, L: 'd', xh: 3.8, sl: 0.22, a: 0.5, w: 0.66 },
+      { x0: 700, x1: 868, y0: 612, lines: 7, L: 'e', xh: 2.9, sl: 0.36, a: 0.7, w: 0.55 },
     ];
     for (const b of blocks) {
       if (b.L) letter(b.L, b.x1 - 1, b.y0 + 1, 5.2, 0.75);
-      writeBlock({ x0: b.x0, x1: b.x1 - (b.L ? 8 : 0), y0: b.y0, lines: b.lines, xh: 3.2, lh: 8.7, a: 0.62, mask: occ, lx: b.L ? null : null });
+      writeBlock({ x0: b.x0, x1: b.x1 - (b.L ? 8 : 0), y0: b.y0, lines: Math.round(b.lines * 3.2 / b.xh), xh: b.xh, lh: b.xh * rr(2.55, 2.85), a: b.a, w: b.w, sl: b.sl, tol: b.tol || 0, mask: occ });
       flush(); await Y();
     }
     // reference letters on the drawings
@@ -2094,7 +2106,14 @@
     // the back of the tail catches the light along its length; the lateral line glints
     { const ridge = []; for (let s0 = sCut + 6; s0 < sEnd - 20; s0 += 2) ridge.push(tM(s0, 0.72)); let i = 0; while (i < ridge.length - 4) { const k = Math.round(rr(8, 22)); white(ridge.slice(i, Math.min(ridge.length, i + k)), { w: rr(0.9, 1.5), a: rr(0.35, 0.55) }); i += k + Math.round(rr(4, 14)); } }
     for (let s0 = sCut + 20; s0 < sEnd - 10; s0 += rr(16, 30)) { const p = tM(s0, 0.08); dab(p[0], p[1], 0.7, 0.4); }
-    for (const k of [2, 6, 10, 14, 17]) { const r = rays[k]; white(sub(r, 0.12, 0.42).map((p) => [p[0] - 0.6, p[1] - 0.6]), { w: 0.7, a: 0.4 }); }
+    for (const k of [2, 5, 8, 11, 13]) { const r = rays[k]; white(sub(r, 0.12, 0.42).map((p) => [p[0] - 0.6, p[1] - 0.6]), { w: 0.7, a: 0.4 }); }
+    // brush hatching in lead white on the brightest planes
+    whiteHatch(ZF, (x, y) => { const v = tf(x, y); return v > 0 ? sstep(0.24, 0.1, v) : 0; }, { a: 0.5, sp: 1.5, len: [3, 9] });
+    whiteHatch(BandF, (x, y) => { const v = tf(x, y); return v > 0 ? sstep(0.24, 0.12, v) * 0.7 : 0; }, { a: 0.45, sp: 1.8 });
+    { const Fd = Form([MUS[0].poly], [], { res: 1.3, blur: 6 }); whiteHatch(Fd, (x, y) => sstep(0.8, 0.95, Fd.lam(x, y, 1.2)), { a: 0.5, sp: 1.3, ang: -30 }); }
+    { const Fo = Form([MUS[MUS.length - 1].poly], [], { res: 1, blur: 8 }); whiteHatch(Fo, (x, y) => sstep(0.84, 0.97, Fo.lam(x, y, 1.2)) * 0.8, { a: 0.42, sp: 1.6, ang: -35 }); }
+    for (const g of scaleGlints) white(sub(g, 0.15, 0.55), { w: 0.55, a: 0.5, core: false });
+    { const Fh = Form([HS.sil], [], { res: 1.2, blur: 10 }); whiteHatch(Fh, (x, y) => sstep(0.86, 0.97, Fh.lam(x, y, 1.3)) * (x < 410 ? 1 : 0.2), { a: 0.5, sp: 1.3, ang: -40 }); }
     // head study
     white(HS.forehead.map((p) => [p[0] + 1.3, p[1] + 0.4]), { w: 1.4, a: 0.66 }); white(HS.nose.map((p) => [p[0] + 0.9, p[1] + 0.2]), { w: 1.0, a: 0.66 });
     white(HS.lip.map((p) => [p[0] + 0.6, p[1]]), { w: 0.9, a: 0.6 }); dab(HS.cheek[0], HS.cheek[1], 1.4, 0.45); dab(HS.ear[0], HS.ear[1], 0.8, 0.4);
@@ -2187,7 +2206,7 @@
         // composite the three channels through the tooth of the ground
         const res = document.createElement('canvas'); res.width = PW; res.height = PH;
         const rc = res.getContext('2d');
-        const { wn, vn, P1, P2 } = TILES;
+        const { wn, vn, P1, P2, st, SN } = TILES; const stK = 1 / K;
         const strip = 64;
         const fx = Math.round(FOLD_X * K);
         for (let y0 = 0; y0 < PH; y0 += strip) {
@@ -2207,7 +2226,7 @@
               const li = (rowL + x) * 4;
               const sv = Ld[li], ik = Ld[li + 1], wh = Ld[li + 2];
               const tooth = wn[t1 + (x % P1)] * 0.45 + vn[t2 + (x % P2)] * 0.55;
-              const gm = 1 + (tooth - 0.5) * 0.085;
+              const gm = 1 + (tooth - 0.5) * 0.085 + st[(((gy + Math.sin(x * stK * 0.013) * 9 * K + ((x * stK * 0.004) | 0) * 37) | 0) % SN + SN) % SN] * 0.05;
               let r = Gd[gi] * gm, g = Gd[gi + 1] * gm, b = Gd[gi + 2] * gm;
               if (sv) {
                 const sx = (sv / 255) * 2;

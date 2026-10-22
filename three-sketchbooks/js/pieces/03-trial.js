@@ -214,7 +214,9 @@
     };
     const N = noise1(R);
     let noiseOff = 0;
-    B.at = function (g) { B.tf = layout.g[g] || { k: 1, dx: 0, dy: 0 }; B.group = g; return B; };
+    B.at = function (g) { B.tf = layout.g[g] || { k: 1, dx: 0, dy: 0 }; B.group = g; B.light = null; B.loose = false; return B; };
+    // the form's centre (local coords) and size: contours lift on the lit side and press on the shadow side
+    B.lightAt = function (x, y, r) { const c = B.X([x, y]); B.light = { x: c[0], y: c[1], r: r * B.tf.k }; };
     B.X = function (p) { const t = B.tf; return [p[0] * t.k + t.dx, p[1] * t.k + t.dy, p[2] === undefined ? 1 : p[2]]; };
     B.toPts = function (path) {
       if (typeof path === 'string') return parse(path).map((l) => l.map(B.X));
@@ -276,6 +278,11 @@
       const k = B.tf.k;
       const lines = B.toPts(path);
       const z = o.z === undefined ? B.z : o.z;
+      if (B.loose && tool === 'pen' && !o.keep) {
+        // the far figures get the quick version: fewer, lighter marks
+        if (o.w < 1.9 && R() < 0.35) return;
+        o.a *= 0.85; o.w *= 0.85; o.sp *= 1.4; o.search = 0;
+      }
       for (let li = 0; li < lines.length; li++) {
         let pts = lines[li].map((p) => p.slice());
         // a hand never lands exactly where it meant to
@@ -314,7 +321,13 @@
           if (i) acc += Math.hypot(d[i][0] - d[i - 1][0], d[i][1] - d[i - 1][1]);
           const u = acc / L;
           const ck = tool === 'write' ? 1 + clamp(curv[i] * 1.2, 0, 0.5) : 1 + clamp(curv[i] * 4, 0, 0.6);
-          d[i][2] = clamp(d[i][2] * prof(u, amp) * ck * (0.8 + 0.2 * N(noiseOff + acc * 0.045)), 0.05, 1.5);
+          let lm = 1;
+          if (B.light && tool === 'pen' && !o.nolight) {
+            const vx = d[i][0] - B.light.x, vy = d[i][1] - B.light.y, dl = Math.hypot(vx, vy) || 1;
+            const sh = (vx * 0.55 + vy * 0.83) / dl;
+            lm = lerp(1, lerp(0.2, 1.45, sstep(-0.7, 0.7, sh)), clamp(dl / (B.light.r * 0.45), 0, 1));
+          }
+          d[i][2] = clamp(d[i][2] * prof(u, amp) * ck * lm * (0.72 + 0.28 * N(noiseOff + acc * 0.045)), 0.04, 1.6);
         }
         if (trem) {
           for (let i = 1; i < d.length - 1; i++) {
@@ -323,12 +336,18 @@
             d[i][0] += (-ty / tl) * off; d[i][1] += (tx / tl) * off;
           }
         }
-        const pieces = o.nocut ? [d] : cut(d, z);
+        let parts = [d];
+        // the pen lifts for a moment in the middle of a long line
+        if (tool === 'pen' && !o.nobreak && L > 70 * k && R() < 0.3) {
+          const g0 = Math.floor(d.length * (0.3 + R() * 0.45)), gl = Math.max(2, Math.floor(d.length * (0.03 + R() * 0.05)));
+          parts = [d.slice(0, g0), d.slice(g0 + gl)].filter((q) => q.length > 3);
+        }
+        const pieces = o.nocut ? parts : [].concat(...parts.map((q) => cut(q, z)));
         pieces.forEach((pc, pi) => {
           const st = {
             tool, d: pc, len: pathLen(pc), col: o.col || (tool === 'pen' || tool === 'write' ? INK : COL.sienna),
-            w: o.w * k * (tool === 'pen' ? 0.85 + R() * 0.32 : 1), a: o.a, lvl: o.lvl === undefined ? (DEF[tool] || {}).lvl : o.lvl, dry: !!o.dry,
-            sp: o.sp * Math.sqrt(k), pause: (li === 0 && pi === 0) ? (o.pause !== undefined ? o.pause : DEF[tool].pause) : 8,
+            w: o.w * (tool === 'side' || tool === 'smudge' ? k : Math.pow(k, 0.62)) * (tool === 'pen' ? 0.8 + R() * 0.4 : 1), a: o.a, lvl: o.lvl === undefined ? (DEF[tool] || {}).lvl : o.lvl, dry: !!o.dry,
+            sp: o.sp * Math.sqrt(k) * (tool === 'pen' ? 0.7 + R() * 0.7 : 1), pause: (li === 0 && pi === 0) ? (o.pause !== undefined ? o.pause : DEF[tool].pause) : 8,
             fade: o.fade || (tool === 'side' ? [0.75 + R() * 0.25, 0.3 + R() * 0.45] : null), streak: o.streak, gran: o.gran, poly: o.poly, edge: o.edge, tag: o.tag,
             mode: o.mode, seedv: R(),
           };
@@ -478,6 +497,7 @@
    * turn > 0 swings it toward three-quarter: the far eye appears by the bridge. */
   const HAIR = {
     short: [[0.29, -0.28], [0.2, -0.45], [0.0, -0.545], [-0.26, -0.5], [-0.43, -0.32], [-0.46, -0.1], [-0.38, 0.1], [-0.22, 0.1], [-0.15, -0.05], [-0.07, -0.1], [-0.0, -0.03], [0.02, 0.06], [0.05, -0.12], [0.14, -0.23], [0.24, -0.26]],
+    quiff: [[0.3, -0.29], [0.33, -0.42], [0.2, -0.56], [-0.04, -0.6], [-0.28, -0.53], [-0.44, -0.35], [-0.47, -0.1], [-0.4, 0.1], [-0.22, 0.1], [-0.15, -0.05], [-0.07, -0.1], [0.0, -0.03], [0.02, 0.06], [0.05, -0.12], [0.14, -0.24], [0.24, -0.27]],
     swept: [[0.06, -0.47], [-0.2, -0.53], [-0.41, -0.37], [-0.46, -0.12], [-0.4, 0.08], [-0.2, 0.03], [-0.12, -0.12], [-0.04, -0.32]],
     bald: [[-0.27, -0.24], [-0.43, -0.1], [-0.39, 0.1], [-0.16, 0.06], [-0.13, -0.08]],
     bob: [[0.31, -0.2], [0.24, -0.43], [0.02, -0.56], [-0.28, -0.52], [-0.47, -0.3], [-0.5, 0.05], [-0.44, 0.38], [-0.22, 0.43], [-0.07, 0.38], [-0.08, 0.1], [0.02, -0.1], [0.17, -0.16], [0.29, -0.12]],
@@ -499,81 +519,9 @@
       return;
     }
     if (phase === 'contour') {
-      const fore = H.hair === 'bob' || H.hair === 'curly' ? [] : [[0.3, -0.27], [0.335, -0.16]];
-      const prof1 = fore.concat([[0.36, -0.075], [0.335 - tn * 0.01, -0.02], [0.36 + 0.03 * n, 0.04], [0.40 + 0.05 * n, 0.12], [0.39 + 0.03 * n, 0.15], [0.355, 0.17], [0.34, 0.18]]);
-      B.pen([M(prof1)], { w: w * 1.15, sp: 520, pr: 'even', z });
-      const mouthOpen = H.mouth === 'open';
-      const prof2 = mouthOpen
-        ? [[0.345, 0.185], [0.36, 0.225], [0.33, 0.25], [0.3, 0.27], [0.29, 0.3], [0.31, 0.33], [0.305, 0.36], [0.32 * ch, 0.42], [0.29 * ch, 0.47], [0.22, 0.5], [0.1, 0.5]]
-        : [[0.345, 0.185], [0.36, 0.225], [0.335, 0.258], [0.345, 0.29], [0.305, 0.335], [0.32 * ch, 0.40], [0.30 * ch, 0.46], [0.23, 0.495], [0.1, 0.5]];
-      B.pen([M(prof2)], { w: w * 0.95, sp: 520, pr: 'taper', z });
-      if (!H.noJaw) B.pen([M([[0.11, 0.5], [0.0, 0.46], [-0.1 - tn * 0.05, 0.36]])], { w: w * 0.6, a: 0.75, sp: 600, pr: 'flick', z });
-      if (H.hair !== 'bob' && !H.noEar) {
-        const ex = -tn * 0.12;
-        B.pen([M([[-0.02 + ex, -0.06], [-0.09 + ex, -0.085], [-0.135 + ex, 0.0], [-0.11 + ex, 0.12], [-0.05 + ex, 0.165], [-0.03 + ex, 0.11]])], { w: w * 0.7, sp: 300, pr: 'even', z });
-        B.pen([M([[-0.06 + ex, -0.02], [-0.09 + ex, 0.04], [-0.07 + ex, 0.09]])], { w: w * 0.5, a: 0.7, sp: 260, pr: 'flick', z });
-      }
-      // eyes
-      const eyx = 0.245 - tn * 0.08;
-      const eye = H.eyes || 'open';
-      if (eye === 'closed') {
-        B.pen([M([[eyx - 0.05, -0.02], [eyx, -0.008], [eyx + 0.045, -0.02]])], { w: w * 0.9, sp: 200, pr: 'flick', z });
-      } else if (eye === 'heavy' || eye === 'down') {
-        B.pen([M([[eyx - 0.055, -0.03], [eyx, -0.018], [eyx + 0.05, -0.02]])], { w: w * 1.1, sp: 200, pr: 'even', z });
-        B.pen([M([[eyx + 0.005, -0.012], [eyx + 0.025, -0.0]])], { w: w * 1.4, sp: 80, pr: 'even', z, trem: 0 });
-      } else {
-        // profile eye: a '<' opening toward the nose, the iris tucked under the upper lid
-        B.pen([M([[eyx - 0.055, -0.03], [eyx - 0.01, -0.052], [eyx + 0.035, -0.048], [eyx + 0.06, -0.03]])], { w: w * 1.15, sp: 220, pr: 'even', z });
-        B.pen([M([[eyx - 0.05, -0.024], [eyx + 0.0, -0.008], [eyx + 0.05, -0.014]])], { w: w * 0.55, a: 0.7, sp: 200, pr: 'flick', z });
-        B.pen([M([[eyx + 0.026, -0.042], [eyx + 0.034, -0.022]])], { w: w * 1.9, sp: 80, pr: 'even', z, trem: 0 });
-      }
-      if (tn > 0) {
-        // the far eye, tucked behind the bridge of the nose
-        B.pen([M([[0.3, -0.035], [0.325, -0.045], [0.338, -0.03]])], { w: w * 0.9, sp: 160, pr: 'even', z });
-        B.pen([M([[0.318, -0.03], [0.326, -0.018]])], { w: w * 1.3, sp: 80, pr: 'even', z, trem: 0 });
-      }
-      const browLift = H.brow || 0;
-      B.pen([M([[eyx - 0.1, -0.085 - browLift * 0.02], [eyx - 0.01, -0.11 - browLift * 0.03], [eyx + 0.075, -0.088 + browLift * 0.02]])], { w: w * (H.browW || 1.3), sp: 280, pr: 'flick', z });
-      B.pen([M([[0.33 + 0.02 * n, 0.14], [0.35 + 0.02 * n, 0.16], [0.37 + 0.02 * n, 0.15]])], { w: w * 0.8, sp: 200, pr: 'flick', z });
-      if (mouthOpen) B.pen([M([[0.33, 0.25], [0.28, 0.27], [0.3, 0.3]])], { w: w * 1.3, sp: 200, pr: 'even', z });
-      else if (H.mouth === 'down') B.pen([M([[0.335, 0.262], [0.29, 0.268], [0.25, 0.285]])], { w: w * 0.95, sp: 240, pr: 'flick', z });
-      else if (H.mouth === 'smirk') B.pen([M([[0.335, 0.262], [0.29, 0.264], [0.255, 0.248]])], { w: w * 0.95, sp: 240, pr: 'flick', z });
-      else B.pen([M([[0.335, 0.262], [0.29, 0.27], [0.255, 0.268]])], { w: w * 0.9, sp: 240, pr: 'flick', z });
-      if (H.age) {
-        B.pen([M([[0.31, 0.12], [0.28, 0.2], [0.275, 0.27]])], { w: w * 0.55, a: 0.7, sp: 300, pr: 'flick', z });
-        B.pen([M([[0.2, 0.03], [0.17, 0.06]])], { w: w * 0.5, a: 0.6, sp: 200, pr: 'flick', z });
-      }
-      if (H.moustache) B.pen([M([[0.36, 0.205], [0.33, 0.235], [0.27, 0.24], [0.24, 0.22]])], { w: w * 2.2, sp: 260, pr: 'swell', z });
-      if (H.glasses) {
-        const gx = eyx;
-        B.pen([M([[gx - 0.07, -0.07], [gx + 0.07, -0.075], [gx + 0.075, 0.02], [gx - 0.06, 0.03], [gx - 0.07, -0.07]])], { w: w * 0.7, sp: 400, pr: 'even', z });
-        B.pen([M([[gx - 0.07, -0.05], [-0.06 - tn * 0.1, -0.06]])], { w: w * 0.6, sp: 500, pr: 'flick', z });
-        if (H.glasses === 'half') B.pen([M([[gx - 0.07, 0.005], [gx + 0.07, 0.0]])], { w: w * 0.8, sp: 300, z });
-      }
-      // neck
-      B.pen([M([[0.14, 0.49], [0.15, 0.62], [0.17, 0.76]])], { w: w * 0.9, sp: 600, z });
-      B.pen([M([[-0.26, 0.3], [-0.25, 0.5], [-0.22, 0.74]])], { w: w * 0.9, sp: 600, z });
-      // hair: never a closed outline. The back silhouette in two broken pulls, the edge by the ear
-      // barely touched, and a few strands that say which way it grows.
-      const ho = hair, L = ho.length;
-      if (H.hair === 'bald') {
-        B.pen([M([[0.3, -0.27], [0.18, -0.44], [-0.02, -0.505], [-0.24, -0.46]])], { w: w * 0.75, sp: 700, pr: 'taper', z });
-        B.pen([M([[-0.26, -0.44], [-0.38, -0.3], [-0.43, -0.12]])], { w: w * 0.8, sp: 700, pr: 'taper', z });
-        B.pen([M(ho.slice(1, 4))], { w: w * 0.6, a: 0.8, sp: 600, pr: 'flick', z });
-      } else {
-        const back = ho.slice(1, Math.ceil(L * 0.6));
-        const mid = Math.floor(back.length / 2);
-        B.pen([M(back.slice(0, mid + 1))], { w: w * 0.8, sp: 700, pr: 'taper', z });
-        B.pen([M(back.slice(mid))], { w: w * 0.9, sp: 700, pr: 'taper', z });
-        B.pen([M(ho.slice(Math.ceil(L * 0.6) - 1, L - 1))], { w: w * 0.55, a: 0.7, sp: 700, pr: 'flick', z });
-        if (H.hair !== 'bob' && H.hair !== 'curly') B.pen([M([ho[L - 1], ho[0], ho[1]])], { w: w * 0.7, sp: 400, pr: 'flick', z });
-        if (H.hair === 'bob') B.pen([M([[0.31, -0.2], [0.2, -0.24], [0.06, -0.2]])], { w: w * 0.9, sp: 400, pr: 'flick', z });
-        const fl = H.hair === 'short' || H.hair === 'buzz' ? [[[0.24, -0.27], [0.18, -0.3]], [[0.12, -0.24], [0.06, -0.28]]] : H.hair === 'curly'
-          ? [[[0.12, -0.5], [0.04, -0.44], [-0.04, -0.52]], [[-0.12, -0.5], [-0.22, -0.44], [-0.3, -0.52]], [[-0.38, -0.34], [-0.46, -0.24], [-0.42, -0.14]], [[0.2, -0.36], [0.12, -0.3]]]
-          : [[[0.22, -0.4], [0.05, -0.43], [-0.15, -0.36]], [[0.1, -0.3], [-0.08, -0.32], [-0.26, -0.22]], [[-0.18, -0.45], [-0.32, -0.34], [-0.38, -0.16]]];
-        fl.forEach((f) => B.pen([M(f)], { w: w * 0.55, a: 0.7, sp: 600, pr: 'flick', z, pause: 25 }));
-      }
-      if (H.hair === 'bun') B.pen([M([[-0.36, -0.4], [-0.5, -0.46], [-0.6, -0.36], [-0.56, -0.22], [-0.42, -0.2]])], { w: w * 1.05, sp: 500, z });
+      const c0 = X([0.05, -0.05]); const keepL = B.light; B.light = { x: B.X(c0)[0], y: B.X(c0)[1], r: H.h * B.tf.k };
+      contourHead(B, H, M, X, n, ch, tn, z, w, hair);
+      B.light = keepL;
       return;
     }
     if (phase === 'colour') {
@@ -608,6 +556,106 @@
       if ((H.eyes || 'open') !== 'closed') B.pen([M([[eyx - 0.045, -0.04], [eyx + 0.01, -0.048], [eyx + 0.04, -0.03]])], { w: (H.w || 2.1) * 1.3, sp: 200, pr: 'flick', z });
       return;
     }
+  }
+  function contourHead(B, H, M, X, n, ch, tn, z, w, hair) {
+    const fore = H.hair === 'bob' || H.hair === 'curly' ? [] : [[0.3, -0.27], [0.335, -0.16]];
+    const prof1 = fore.concat([[0.36, -0.075], [0.335 - tn * 0.01, -0.02], [0.36 + 0.03 * n, 0.04], [0.40 + 0.05 * n, 0.12], [0.39 + 0.03 * n, 0.15], [0.355, 0.17], [0.34, 0.18]]);
+    B.pen([M(prof1)], { w: w * 1.15, sp: 520, pr: 'even', z });
+    const mouthOpen = H.mouth === 'open';
+    const prof2 = mouthOpen
+      ? [[0.345, 0.185], [0.36, 0.225], [0.33, 0.25], [0.3, 0.27], [0.29, 0.3], [0.31, 0.33], [0.305, 0.36], [0.32 * ch, 0.42], [0.29 * ch, 0.47], [0.22, 0.5], [0.1, 0.5]]
+      : [[0.345, 0.185], [0.36, 0.225], [0.335, 0.258], [0.345, 0.29], [0.305, 0.335], [0.32 * ch, 0.40], [0.30 * ch, 0.46], [0.23, 0.495], [0.1, 0.5]];
+    B.pen([M(prof2)], { w: w * 0.95, sp: 520, pr: 'taper', z });
+    if (!H.noJaw) B.pen([M([[0.11, 0.5], [0.0, 0.46], [-0.1 - tn * 0.05, 0.36]])], { w: w * 0.6, a: 0.75, sp: 600, pr: 'flick', z });
+    if (H.hair !== 'bob' && !H.noEar) {
+      const ex = -tn * 0.12;
+      B.pen([M([[-0.02 + ex, -0.06], [-0.09 + ex, -0.085], [-0.135 + ex, 0.0], [-0.11 + ex, 0.12], [-0.05 + ex, 0.165], [-0.03 + ex, 0.11]])], { w: w * 0.7, sp: 300, pr: 'even', z });
+      B.pen([M([[-0.06 + ex, -0.02], [-0.09 + ex, 0.04], [-0.07 + ex, 0.09]])], { w: w * 0.5, a: 0.7, sp: 260, pr: 'flick', z });
+    }
+    // eyes
+    const eyx = 0.245 - tn * 0.08;
+    const eye = H.eyes || 'open';
+    if (eye === 'closed') {
+      B.pen([M([[eyx - 0.05, -0.02], [eyx, -0.008], [eyx + 0.045, -0.02]])], { w: w * 0.9, sp: 200, pr: 'flick', z });
+    } else if (eye === 'heavy' || eye === 'down') {
+      B.pen([M([[eyx - 0.055, -0.03], [eyx, -0.018], [eyx + 0.05, -0.02]])], { w: w * 1.1, sp: 200, pr: 'even', z });
+      B.pen([M([[eyx + 0.005, -0.012], [eyx + 0.025, -0.0]])], { w: w * 1.4, sp: 80, pr: 'even', z, trem: 0 });
+    } else if (eye === 'wide') {
+      // wide with outrage: the lid lifted clear of the iris
+      B.pen([M([[eyx - 0.055, -0.028], [eyx - 0.01, -0.06], [eyx + 0.035, -0.058], [eyx + 0.062, -0.03]])], { w: w * 1.2, sp: 220, pr: 'even', z, nolight: true });
+      B.pen([M([[eyx - 0.05, -0.022], [eyx + 0.0, -0.004], [eyx + 0.055, -0.012]])], { w: w * 0.6, a: 0.75, sp: 200, pr: 'flick', z });
+      B.pen([M([[eyx + 0.022, -0.04], [eyx + 0.028, -0.022]])], { w: w * 2.1, sp: 80, pr: 'even', z, trem: 0, nolight: true });
+    } else {
+      // profile eye: a '<' opening toward the nose, the iris tucked under the upper lid
+      B.pen([M([[eyx - 0.055, -0.03], [eyx - 0.01, -0.052], [eyx + 0.035, -0.048], [eyx + 0.06, -0.03]])], { w: w * 1.15, sp: 220, pr: 'even', z });
+      B.pen([M([[eyx - 0.05, -0.024], [eyx + 0.0, -0.008], [eyx + 0.05, -0.014]])], { w: w * 0.55, a: 0.7, sp: 200, pr: 'flick', z });
+      B.pen([M([[eyx + 0.026, -0.042], [eyx + 0.034, -0.022]])], { w: w * 1.9, sp: 80, pr: 'even', z, trem: 0 });
+    }
+    if (tn > 0) {
+      // the far eye, tucked behind the bridge of the nose
+      B.pen([M([[0.3, -0.035], [0.325, -0.045], [0.338, -0.03]])], { w: w * 0.9, sp: 160, pr: 'even', z });
+      B.pen([M([[0.318, -0.03], [0.326, -0.018]])], { w: w * 1.3, sp: 80, pr: 'even', z, trem: 0 });
+    }
+    const browLift = H.brow || 0, knit = H.knit || 0;
+    if (H.bushy) {
+      // a heavy old brow: a few short hairs, combed down over the lid
+      for (let k = 0; k < 5; k++) { const t = k / 4, bx = eyx - 0.1 + t * 0.17, by = -0.1 - Math.sin(t * Math.PI) * 0.02; B.pen([M([[bx - 0.01, by - 0.012], [bx + 0.025, by + 0.012]])], { w: w * 1.2, sp: 160, pr: 'flick', z, pause: 15, nolight: true }); }
+    } else {
+      B.pen([M([[eyx - 0.1, -0.085 - browLift * 0.02], [eyx - 0.01, -0.11 - browLift * 0.03], [eyx + 0.075, -0.088 + browLift * 0.02 - knit * 0.035]])], { w: w * (H.browW || 1.3), sp: 280, pr: 'press', z, nolight: true });
+    }
+    if (knit) {
+      // the outraged forehead
+      B.pen([M([[0.2, -0.17], [0.27, -0.185]]), M([[0.17, -0.215], [0.25, -0.23]])], { w: w * 0.55, a: 0.7, sp: 300, pr: 'flick', z });
+      B.pen([M([[0.31, -0.11], [0.305, -0.075]])], { w: w * 0.6, a: 0.7, sp: 200, pr: 'flick', z });
+    }
+    if (H.jowl) {
+      B.pen([M([[0.24, 0.36], [0.2, 0.46], [0.12, 0.55], [0.0, 0.56], [-0.08, 0.48]])], { w: w * 0.9, sp: 500, pr: 'swell', z });
+      B.pen([M([[0.3, 0.14], [0.25, 0.22], [0.23, 0.33]])], { w: w * 0.8, sp: 300, pr: 'swell', z });
+      B.pen([M([[eyx - 0.04, 0.02], [eyx + 0.01, 0.04], [eyx + 0.05, 0.025]])], { w: w * 0.6, a: 0.75, sp: 200, pr: 'flick', z });
+    }
+    B.pen([M([[0.33 + 0.02 * n, 0.14], [0.35 + 0.02 * n, 0.16], [0.37 + 0.02 * n, 0.15]])], { w: w * 0.8, sp: 200, pr: 'flick', z });
+    if (mouthOpen) {
+      B.pen([M([[0.335, 0.248], [0.285, 0.262], [0.3, 0.3], [0.33, 0.29]])], { w: w * 1.5, sp: 200, pr: 'even', z, nolight: true });
+      B.pen([M([[0.31, 0.15], [0.27, 0.22], [0.27, 0.28]])], { w: w * 0.6, a: 0.75, sp: 300, pr: 'flick', z });
+    }
+    else if (H.mouth === 'down') B.pen([M([[0.335, 0.262], [0.29, 0.268], [0.25, 0.285]])], { w: w * 0.95, sp: 240, pr: 'flick', z });
+    else if (H.mouth === 'smirk') B.pen([M([[0.335, 0.262], [0.29, 0.264], [0.255, 0.248]])], { w: w * 0.95, sp: 240, pr: 'flick', z });
+    else B.pen([M([[0.335, 0.262], [0.29, 0.27], [0.255, 0.268]])], { w: w * 0.9, sp: 240, pr: 'flick', z });
+    if (H.age) {
+      B.pen([M([[0.31, 0.12], [0.28, 0.2], [0.275, 0.27]])], { w: w * 0.55, a: 0.7, sp: 300, pr: 'flick', z });
+      B.pen([M([[0.2, 0.03], [0.17, 0.06]])], { w: w * 0.5, a: 0.6, sp: 200, pr: 'flick', z });
+    }
+    if (H.moustache) B.pen([M([[0.36, 0.205], [0.33, 0.235], [0.27, 0.24], [0.24, 0.22]])], { w: w * 2.2, sp: 260, pr: 'swell', z });
+    if (H.glasses) {
+      const gx = eyx;
+      B.pen([M([[gx - 0.07, -0.07], [gx + 0.07, -0.075], [gx + 0.075, 0.02], [gx - 0.06, 0.03], [gx - 0.07, -0.07]])], { w: w * 0.7, sp: 400, pr: 'even', z });
+      B.pen([M([[gx - 0.07, -0.05], [-0.06 - tn * 0.1, -0.06]])], { w: w * 0.6, sp: 500, pr: 'flick', z });
+      if (H.glasses === 'half') B.pen([M([[gx - 0.07, 0.005], [gx + 0.07, 0.0]])], { w: w * 0.8, sp: 300, z });
+    }
+    // neck
+    B.pen([M([[0.14, 0.49], [0.15, 0.62], [0.17, 0.76]])], { w: w * 0.9, sp: 600, z });
+    B.pen([M([[-0.26, 0.3], [-0.25, 0.5], [-0.22, 0.74]])], { w: w * 0.9, sp: 600, z });
+    // hair: never a closed outline. The back silhouette in two broken pulls, the edge by the ear
+    // barely touched, and a few strands that say which way it grows.
+    const ho = hair, L = ho.length;
+    if (H.hair === 'bald') {
+      B.pen([M([[0.3, -0.27], [0.18, -0.44], [-0.02, -0.505], [-0.24, -0.46]])], { w: w * 0.75, sp: 700, pr: 'taper', z });
+      B.pen([M([[-0.26, -0.44], [-0.38, -0.3], [-0.43, -0.12]])], { w: w * 0.8, sp: 700, pr: 'taper', z });
+      B.pen([M(ho.slice(1, 4))], { w: w * 0.6, a: 0.8, sp: 600, pr: 'flick', z });
+    } else {
+      const back = ho.slice(1, Math.ceil(L * 0.6));
+      const mid = Math.floor(back.length / 2);
+      B.pen([M(back.slice(0, mid + 1))], { w: w * 0.8, sp: 700, pr: 'taper', z });
+      B.pen([M(back.slice(mid))], { w: w * 0.9, sp: 700, pr: 'taper', z });
+      B.pen([M(ho.slice(Math.ceil(L * 0.6) - 1, L - 1))], { w: w * 0.55, a: 0.7, sp: 700, pr: 'flick', z });
+      if (H.hair !== 'bob' && H.hair !== 'curly' && H.hair !== 'quiff') B.pen([M([ho[L - 1], ho[0], ho[1]])], { w: w * 0.7, sp: 400, pr: 'flick', z });
+      if (H.hair === 'bob') B.pen([M([[0.31, -0.2], [0.2, -0.24], [0.06, -0.2]])], { w: w * 0.9, sp: 400, pr: 'flick', z });
+      const fl = H.hair === 'quiff' ? [[[0.3, -0.36], [0.18, -0.48], [0.0, -0.53]], [[0.2, -0.32], [0.06, -0.42], [-0.14, -0.46]], [[0.08, -0.26], [-0.08, -0.34], [-0.26, -0.36]]] : H.hair === 'short' || H.hair === 'buzz' ? [[[0.24, -0.27], [0.18, -0.3]], [[0.12, -0.24], [0.06, -0.28]]] : H.hair === 'curly'
+        ? [[[0.12, -0.5], [0.04, -0.44], [-0.04, -0.52]], [[-0.12, -0.5], [-0.22, -0.44], [-0.3, -0.52]], [[-0.38, -0.34], [-0.46, -0.24], [-0.42, -0.14]], [[0.2, -0.36], [0.12, -0.3]]]
+        : [[[0.22, -0.4], [0.05, -0.43], [-0.15, -0.36]], [[0.1, -0.3], [-0.08, -0.32], [-0.26, -0.22]], [[-0.18, -0.45], [-0.32, -0.34], [-0.38, -0.16]]];
+      fl.forEach((f) => B.pen([M(f)], { w: w * 0.55, a: 0.7, sp: 600, pr: 'flick', z, pause: 25 }));
+    }
+    if (H.hair === 'bun') B.pen([M([[-0.36, -0.4], [-0.5, -0.46], [-0.6, -0.36], [-0.56, -0.22], [-0.42, -0.2]])], { w: w * 1.05, sp: 500, z });
   }
   function hairOrHead(H) {
     return [[0.34, -0.32], [0.44, 0.12], [0.36, 0.3], [0.32, 0.5], [0.0, 0.55], [-0.3, 0.45], [-0.5, 0.1], [-0.5, -0.3], [-0.3, -0.55], [0.05, -0.6], [0.25, -0.48]];
@@ -701,31 +749,35 @@
 
   /* --------------------------------------------------------------- layouts */
   function makeLayout(portrait) {
+    const G = (k, dx, dy) => ({ k, dx, dy });
     if (!portrait) {
-      // the scene is authored at 1:1; the sheet crops in a little closer, like an artist who got a good seat
-      const k = 1.1, Z = (dx, dy) => ({ k, dx: 790 * (1 - k) + (dx || 0), dy: 560 * (1 - k) + (dy || 0) });
+      // cropped in on the moment: the bird and counsel big and near, the judge looming behind,
+      // everyone else at the edges, quicker, and partly off the sheet
       return {
         W: 1600, H: 1000, portrait: false,
-        g: { wall: Z(), goose: Z(), judge: Z(), clock: Z(), lawyer: Z(), easel: Z(), jury: Z(40, 0), steno: Z(), bailiff: Z(-64, 0), pros: Z(-10, 0), feather: Z(), floor: Z() },
-        notes: { head: [40, 64], A1: [430, 50], A2: [430, 88], B1: [800, 50], B2: [1336, 58], jury: [28, 808], steno: [850, 836], feather: [846, 972], sig: [30, 978] },
-        targets: { juror: [70, 560], feather: [806, 918] },
+        g: {
+          wall: G(1, 0, 0), goose: G(1.9, -609, -238), floor: G(1.9, -609, -238), lawyer: G(1.32, -347, -128),
+          easel: G(0.95, -203, 70), judge: G(1.12, 6, -62), clock: G(1, 120, -46), jury: G(0.8, 0, -134),
+          steno: G(0.95, 382, 72), bailiff: G(1.1, -101, -57), pros: G(1, 158, 122), feather: G(1.2, -359, -100),
+        },
+        wall: { top: 120, bot: 720, x0: 0, x1: 1600 },
+        focus: [900, 300],
+        notes: { head: [40, 64], A1: [470, 50], A2: [470, 88], B1: [830, 50], B2: [1452, 60], jury: [190, 148], steno: [1186, 882, 190], feather: [626, 978], sig: [40, 986] },
+        targets: { juror: [58, 252], feather: [566, 948] },
       };
     }
-    // the portrait sheet re-composes the same groups as a tall page: bench above, the bird in the middle,
-    // counsel and the exhibit below, the jury dissolving off the bottom corner
-    const G = (k, dx, dy) => ({ k, dx, dy });
+    // the tall sheet: the bench looming at the top, the bird big in the middle, counsel cropped at the foot
     return {
       W: 1000, H: 1900, portrait: true,
       g: {
-        wall: G(1, 0, 0), judge: G(0.95, -520, 84), clock: G(0.95, -81, 64), goose: G(1.25, -690, 102),
-        lawyer: G(1, -10, 751), easel: G(0.9, -36, 795), jury: G(1, 0, 1262), steno: G(1, -366, 134),
-        bailiff: G(1, -585, 310), pros: G(1, -480, 600), feather: G(1, -65, 862), floor: G(1.25, -690, 102),
+        wall: G(1, 0, 0), judge: G(1, -386, 118), clock: G(1, -50, 54), goose: G(2.0, -1150, 60), floor: G(2.0, -1150, 60),
+        lawyer: G(1.35, -344, 864), easel: G(0.95, -220, 1045), jury: G(0.8, 0, 56), steno: G(0.95, -158, 232),
+        bailiff: G(1, -550, 288), pros: G(1, -412, 902), feather: G(1.2, -218, 748),
       },
-      wall: { top: 330, bot: 960, cols: [[24, 150], [172, 300], [322, 450], [472, 600], [622, 750], [772, 900], [922, 990]], dado: [20, 330, 620] },
-      dark: '60,330 520,330 560,520 520,700 60,700',
-      focus: [300, 480],
-      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [740, 120], jury: [236, 1786], steno: [610, 948, 230], feather: [600, 1836], sig: [830, 1882] },
-      targets: { juror: [74, 1752], feather: [706, 1750] },
+      wall: { top: 300, bot: 1150, x0: 0, x1: 1000 },
+      focus: [420, 620],
+      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [700, 110], jury: [24, 598, 220], steno: [770, 1046, 200], feather: [720, 1866], sig: [40, 1884] },
+      targets: { juror: [54, 450], feather: [690, 1792] },
     };
   }
 
@@ -893,7 +945,7 @@
     /* ---- figure data (landscape sheet units) */
     const F = {};
     F.judge = {
-      g: 'judge', z: 7,
+      g: 'judge', z: 7, lc: [1160, 270, 200],
       sil: ['1086,338 1088,290 1110,266 1124,256 1112,246 1112,190 1150,168 1196,186 1194,240 1182,262 1210,272 1232,296 1240,338'],
       post: {
         skin: [['1150,262 1140,253 1128,250 1116,252 1110,258 1110,266 1114,274 1124,279 1138,280 1150,276', { col: COL.skin, ang: -10, w: 8 }]],
@@ -907,7 +959,7 @@
         ],
         light: [['1118,254 1134,251', { col: COL.skinlt, w: 2.6 }]],
       },
-      head: { cx: 1146, cy: 212, h: 74, f: -1, tilt: -0.08, noJaw: true, hair: cast.judgeHair, hairCol: COL.white, hairLight: COL.white, turn: 0.55, glasses: 'half', eyes: 'heavy', mouth: 'down', age: 1, nose: 1.15, browW: 1.6, z: 7 },
+      head: { cx: 1146, cy: 212, h: 74, f: -1, tilt: -0.08, noJaw: true, hair: cast.judgeHair, hairCol: COL.white, hairLight: COL.white, turn: 0.55, glasses: 'half', eyes: 'heavy', mouth: 'down', age: 1, nose: 1.2, bushy: 1, jowl: 1, z: 7, w: 2.2 },
       gesture: ['1146,176 1150,250 1160,300 1166,336 | 1092,282 1228,292 | 1126,256 1196,334'],
       pen: [
         ['1152,262 1170,286 1190,314 1204,332', { w: 2.4 }],
@@ -988,67 +1040,82 @@
       ],
     };
     F.lawyer = {
-      g: 'lawyer', z: 2,
-      sil: ['500,372 538,342 546,250 604,250 616,300 600,342 616,394 662,462 616,522 610,612 645,846 676,914 498,916 508,850 520,612 508,424 470,444 404,478 338,464 346,450 400,446 450,428 486,390'],
-      head: { cx: 566, cy: 292, h: 86, f: 1, tilt: -0.04, hair: 'short', hairCol: cast.lawyerHair, hairLight: '#86807a', eyes: 'open', mouth: 'open', nose: 1.1, chin: 1.05, brow: 1, z: 2 },
-      gesture: ['566,250 560,340 548,450 540,560 532,700 524,920 | 512,374 450,436 350,458 | 512,374 604,372 | 560,610 610,690 624,920'],
+      g: 'lawyer', z: 2, lc: [575, 480, 420],
+      sil: ['296,446 330,424 352,440 424,432 488,376 540,334 536,236 616,232 632,300 616,344 632,368 664,420 676,490 690,410 668,402 672,342 690,346 700,410 704,500 676,512 640,480 620,612 652,820 508,820 512,612 506,470 448,472 360,466 300,476'],
+      head: { cx: 566, cy: 286, h: 96, f: 1, tilt: -0.08, hair: 'quiff', hairCol: cast.lawyerHair, hairLight: '#86807a', eyes: 'wide', mouth: 'open', nose: 1.15, chin: 1.05, brow: 1, knit: 1, z: 2, w: 2.3 },
+      gesture: ['566,240 560,336 556,450 548,560 540,700 532,820 | 492,380 424,436 300,452 | 492,380 632,370 | 632,372 676,494 696,412 | 560,612 640,730 650,800'],
       pen: [
-        ['548,347 528,352 509,361 500,377', { w: 2.6 }],
-        ['551,337 562,346 580,347 588,340', { w: 1.8 }],
-        ['548,345 552,354 | 572,352 580,349', { w: 1.6, a: 0.85 }],
-        ['500,377 497,410 500,450 508,495 510,530 506,570 508,606', { w: 2.6, pr: 'press' }],
-        ['508,364 516,392 | 520,358 528,374', { w: 1.2, a: 0.6, pr: 'flick' }],
-        ['582,340 584,352 600,368 612,394 616,430 612,474 604,520 608,572 606,608', { w: 2.6, pr: 'press' }],
-        ['508,606 560,616 608,610', { w: 2.0 }],
-        ['584,352 573,392 577,432 587,470 | 597,362 590,402 592,440 587,470', { w: 1.8 }],
-        ['578,346 590,360 | 584,344 597,356', { w: 1.6 }],
-        ['589,364 593,380 597,410 598,440', { w: 1.3, a: 0.7 }],
-        ['588,486 591,489', { w: 2.6 }],
-        ['500,378 482,396 466,420 452,446', { w: 2.6 }],
-        ['528,412 506,432 486,450 466,466', { w: 2.3 }],
-        ['458,440 466,452 462,462', { w: 1.3, a: 0.7, pr: 'flick' }],
-        ['452,446 424,450 400,452', { w: 2.4 }],
-        ['466,466 434,470 404,472', { w: 2.2 }],
-        ['400,450 404,474 | 394,451 398,473', { w: 1.6 }],
-        ['395,452 380,451 364,452 350,456 343,460', { w: 2.0 }],
-        ['398,472 384,474 368,472 354,468 344,461', { w: 2.0 }],
-        ['388,452 382,444 373,441 368,446', { w: 1.8 }],
-        ['372,459 356,461 | 376,465 357,465', { w: 1.2, a: 0.8 }],
-        ['612,392 632,418 646,446 652,466 636,494 618,512', { w: 2.4 }],
-        ['626,420 638,448 624,482 610,502', { w: 1.8 }],
-        ['514,612 518,680 520,740 517,790', { w: 2.6, sp: 1100, pr: 'flick' }],
-        ['560,640 556,700 552,760', { w: 2.0, sp: 1100, pr: 'flick' }],
-        ['606,612 618,680 628,740 632,790', { w: 2.6, sp: 1100, pr: 'flick' }],
-        ['572,652 582,710 592,760', { w: 1.9, sp: 1100, pr: 'flick' }],
-        ['514,810 510,860 507,896 | 638,812 646,856 652,890', { w: 1.3, a: 0.55, sp: 1200, pr: 'swell' }],
-        ['552,626 566,640 572,652', { w: 1.6 }],
-        ['538,680 536,750 | 600,680 610,750', { w: 1.1, a: 0.6, pr: 'flick' }],
-        ['500,904 504,914 536,918 548,911', { w: 2.0, a: 0.8 }],
-        ['618,902 621,912 656,918 670,910', { w: 2.0, a: 0.8 }],
+        ['548,336 556,350 572,356 590,352', { w: 1.8 }],
+        ['574,356 586,372 | 597,352 591,372', { w: 1.6 }],
+        ['548,340 524,352 500,366 488,386', { w: 2.8 }],
+        ['596,348 616,354 632,370', { w: 2.4 }],
+        ['488,386 490,422 503,470 511,520 507,566 512,612', { w: 2.8, pr: 'press' }],
+        ['632,370 637,402 629,442 619,482 613,522 618,566 616,612', { w: 3.0, pr: 'press' }],
+        ['574,358 580,400 590,440 596,472 | 606,362 600,404 598,440 596,472', { w: 1.9 }],
+        ['580,384 572,393 582,399', { w: 1.4 }],
+        ['597,487 599,490', { w: 3 }],
+        ['596,476 588,540 580,614 | 599,478 606,540 612,612', { w: 1.8 }],
+        ['512,612 548,621 580,618', { w: 2.0 }],
+        ['520,470 548,489 574,487 | 612,452 600,472', { w: 1.1, a: 0.6, pr: 'flick' }],
+        ['610,420 627,418', { w: 1.2, a: 0.8 }],
+        ['492,380 466,398 444,418 424,436', { w: 2.6 }],
+        ['508,432 486,444 464,458 446,468', { w: 2.6 }],
+        ['442,420 452,430 446,440 | 458,446 468,454 | 470,440 478,448', { w: 1.3, a: 0.75, pr: 'flick' }],
+        ['424,436 398,440 372,442 352,442', { w: 2.4 }],
+        ['446,468 418,468 390,466 360,462', { w: 2.4 }],
+        ['632,372 652,410 666,452 676,494', { w: 2.8 }],
+        ['676,494 682,506 694,504 700,492', { w: 2.6, pr: 'press' }],
+        ['700,492 702,460 698,432 696,414', { w: 2.6 }],
+        ['676,494 678,470 676,446 674,418', { w: 2.0 }],
+        ['678,470 688,476 | 680,452 690,456', { w: 1.2, a: 0.75, pr: 'flick' }],
+        ['512,614 512,680 516,740 520,800', { w: 2.6, sp: 1100, pr: 'flick' }],
+        ['558,648 554,700 550,760 548,806', { w: 2.0, sp: 1100, pr: 'flick' }],
+        ['618,612 630,670 644,730 650,790', { w: 2.8, sp: 1100, pr: 'flick' }],
+        ['574,656 586,706 598,756 604,806', { w: 1.9, sp: 1100, pr: 'flick' }],
+        ['552,632 566,648 576,660', { w: 1.5 }],
+        ['630,722 644,730 | 604,740 616,748 | 540,680 538,740', { w: 1.1, a: 0.6, pr: 'flick' }],
       ],
       blocks: [
-        ['500,377 509,361 548,347 584,352 612,394 616,430 604,520 608,606 560,614 508,606 510,530 500,450', { col: cast.suit, ang: -76, w: 24, lvl: 0, a: 0.92, gap: 0.6 }],
-        ['500,378 452,446 400,452 404,472 466,466 528,412', { col: cast.suit, ang: -28, w: 15, lvl: 0, a: 0.92, gap: 0.6 }],
-        ['612,392 646,446 652,466 618,512 610,502 624,482 626,420', { col: cast.suit, ang: -62, w: 13, lvl: 0, a: 0.9 }],
-        ['512,608 560,640 548,820 512,812 518,700', { col: cast.suit, ang: -90, w: 17, lvl: 1, a: 0.9, gap: 0.6, fadeY: [660, 830, 0.1] }],
-        ['606,612 636,800 600,806 572,652 560,622', { col: cast.suit, ang: -82, w: 17, lvl: 1, a: 0.9, gap: 0.6, fadeY: [660, 830, 0.1] }],
-        ['506,420 516,392 548,352 584,356 606,420 596,500 530,520', { col: cast.suit, ang: -50, w: 16, lvl: 1, a: 0.6, gap: 0.9, streak: false }],
+        ['488,386 500,366 524,352 548,340 574,358 596,348 632,370 637,402 619,482 618,566 616,612 548,621 512,612 507,566 511,520 503,470 490,422', { col: cast.suit, ang: -76, w: 30, lvl: 0, a: 0.92, gap: 0.62, angj: 12 }],
+        ['492,380 424,436 352,442 360,462 446,468 508,432', { col: cast.suit, ang: -15, w: 18, lvl: 0, a: 0.92, gap: 0.6, angj: 10 }],
+        ['632,372 676,494 700,492 696,414 672,414 652,410', { col: cast.suit, ang: -75, w: 16, lvl: 0, a: 0.92, gap: 0.6 }],
+        ['512,614 558,648 548,806 520,800', { col: cast.suit, ang: -88, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [650, 820, 0.1] }],
+        ['618,612 650,790 604,806 574,656 560,622', { col: cast.suit, ang: -80, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [650, 820, 0.1] }],
       ],
       sides: [
-        ['586,354 594,366 590,400 588,450 586,468', { col: COL.white, w: 7, lvl: 0, a: 0.9 }],
-        ['552,346 566,350 584,345', { col: COL.white, w: 6, lvl: 0, a: 0.9 }],
-        ['591,366 595,400 598,440', { col: cast.tie, w: 5, lvl: 0, a: 0.95 }],
-        ['394,456 370,456 350,460', { col: COL.skin, w: 9, lvl: 1, a: 0.85 }],
-        ['508,430 512,500 520,580', { col: COL.slate, w: 8, lvl: 3, a: 0.6 }],
-        ['504,910 540,914 | 622,908 662,913', { col: COL.black, w: 8, lvl: 1, a: 0.85 }],
-        ['486,924 560,930 690,922', { col: COL.black, w: 12, lvl: 3, a: 0.45 }],
+        ['626,382 622,470 616,560 | 694,430 698,488', { col: COL.black, w: 12, lvl: 1, a: 0.6 }],
+        ['590,362 596,400 597,440', { col: COL.white, w: 9, lvl: 0, a: 0.9 }],
+        ['550,342 566,352 588,350', { col: COL.white, w: 6, lvl: 0, a: 0.9 }],
+        ['590,366 596,402 597,442', { col: cast.tie, w: 6, lvl: 0, a: 0.95 }],
+        ['487,920 560,930', { col: COL.black, w: 1, lvl: 3, a: 0.01 }],
       ],
       lights: [
-        ['506,372 526,356 546,350 | 504,384 508,440 | 476,412 456,440', { col: COL.coolgrey, w: 4, lvl: 2, a: 0.8 }],
-        ['398,454 400,470', { col: COL.white, w: 4, lvl: 0 }],
-        ['372,452 352,456', { col: COL.skinlt, w: 2.6, lvl: 1 }],
-        ['524,620 518,760', { col: COL.coolgrey, w: 3, lvl: 2, a: 0.7 }],
+        ['500,372 524,356 546,346 | 492,394 498,446 | 472,402 432,434', { col: COL.coolgrey, w: 4.5, lvl: 1, a: 0.85 }],
+        ['356,442 360,460 | 672,406 694,408', { col: COL.white, w: 4, lvl: 0 }],
+        ['516,640 518,740', { col: COL.coolgrey, w: 3.5, lvl: 2, a: 0.7 }],
       ],
+      post: {
+        skin: [
+          ['352,442 332,442 300,448 296,462 304,471 320,463 356,462', { col: COL.skin, ang: -5, w: 8 }],
+          ['670,404 666,392 670,382 676,380 674,352 678,346 684,350 686,380 690,382 694,394 692,404', { col: COL.skin, ang: -85, w: 7 }],
+        ],
+        shade: [['322,462 342,464 354,460', { col: COL.skinmid, w: 6 }], ['688,384 692,400', { col: COL.skinmid, w: 5 }]],
+        pen: [
+          ['356,462 342,466 328,466 320,463', { w: 2.2, pr: 'press' }],
+          ['350,442 340,440 332,442', { w: 1.6 }],
+          ['344,442 340,432 334,426 329,428 331,434 336,440', { w: 1.7 }],
+          ['332,442 320,442 306,444 300,448 306,451 318,450 328,451', { w: 1.6 }],
+          ['326,452 312,455 300,458 296,462 302,464 314,462 324,461', { w: 1.7 }],
+          ['322,462 310,467 304,471 308,473 318,469', { w: 1.7 }],
+          ['352,440 358,462 | 346,441 352,462', { w: 1.5 }],
+          ['670,404 666,392 670,382 680,378 690,382 694,394 692,404', { w: 2.2, pr: 'press' }],
+          ['676,380 674,366 674,352 678,346 683,350 684,364 686,380', { w: 1.9 }],
+          ['670,392 688,390', { w: 1.1, a: 0.7 }],
+          ['668,394 680,392 686,398', { w: 1.4 }],
+          ['670,410 694,412 | 672,404 694,406', { w: 1.5 }],
+        ],
+        light: [['310,446 330,444 | 680,350 680,372', { col: COL.skinlt, w: 2.6 }]],
+      },
     };
     const dash = (x0, y0, x1, y1, k) => { const out = []; for (let i = 0; i < k; i++) { const a = i / k, b = (i + 0.55) / k; out.push(lerp(x0, x1, a).toFixed(1) + ',' + lerp(y0, y1, a).toFixed(1) + ' ' + lerp(x0, x1, b).toFixed(1) + ',' + lerp(y0, y1, b).toFixed(1)); } return out.join(' | '); };
     F.easel = {
@@ -1083,7 +1150,7 @@
       lettuce: '248,414 260,420 266,434 280,440 288,456 302,462 308,478 | 336,500 344,506 352,522 366,528 374,544 386,552',
     };
     F.jury = {
-      g: 'jury', z: 4,
+      g: 'jury', z: 4, loose: true,
       sil: ['0,580 206,574 210,760 0,780', '0,456 40,440 110,436 120,520 0,540'],
       heads: [
         { cx: 150, cy: 478, h: 68, f: 1, tilt: 0.02, hair: 'curly', hairCol: COL.silver, hairLight: COL.white, glasses: true, eyes: 'open', mouth: 'closed', age: 1, nose: 0.95, z: 4 },
@@ -1116,7 +1183,7 @@
       ],
     };
     F.steno = {
-      g: 'steno', z: 3,
+      g: 'steno', z: 3, loose: true,
       sil: ['1030,560 1070,550 1090,580 1098,640 1106,706 1104,790 1040,790 1000,780 966,684 964,656 1004,650 1030,612'],
       head: { cx: 1056, cy: 588, h: 54, f: -1, tilt: -0.35, hair: 'bun', hairCol: cast.stenoHair, glasses: true, eyes: 'down', mouth: 'closed', nose: 1, z: 3, w: 1.8 },
       pen: [
@@ -1140,7 +1207,7 @@
       ],
     };
     F.bailiff = {
-      g: 'bailiff', z: 3,
+      g: 'bailiff', z: 3, loose: true,
       sil: ['1460,320 1482,300 1530,300 1550,340 1540,382 1560,404 1572,450 1566,560 1550,800 1460,800 1450,560 1446,470 1460,420 1480,392'],
       head: { cx: 1510, cy: 350, h: 74, f: -1, tilt: 0.03, hair: 'buzz', hairCol: COL.grey, eyes: 'open', mouth: 'closed', moustache: true, nose: 1.15, chin: 1.15, age: 1, browW: 1.9, z: 3 },
       pen: [
@@ -1174,7 +1241,7 @@
       ],
     };
     F.pros = {
-      g: 'pros', z: 1.5,
+      g: 'pros', z: 1.5, loose: true,
       sil: ['1230,850 1240,806 1256,784 1252,740 1258,700 1300,690 1336,720 1334,780 1360,792 1382,852'],
       head: { cx: 1292, cy: 738, h: 80, f: -1, tilt: -0.2, hair: 'bob', hairCol: cast.prosHair, eyes: 'down', mouth: 'smirk', nose: 0.95, chin: 1, z: 1.5 },
       pen: [
@@ -1202,7 +1269,7 @@
       ],
     };
     F.table = {
-      g: 'pros', z: 1,
+      g: 'pros', z: 1, loose: true,
       sil: ['1070,860 1480,852 1480,1000 1070,1000'],
       pen: [
         ['1072,872 1280,866 1476,860', { w: 2.6, over: 6, sp: 1300 }],
@@ -1242,37 +1309,39 @@
     [[geo[2], 3], [geo[1], 9.3]].forEach(([g, zz]) => { B.sil(g.left.concat(g.right.slice().reverse()), zz, 5); B.sil(g.head.poly, zz, 6); });
 
     /* ---- runners */
+    function at(f) { B.at(f.g); B.loose = !!f.loose; if (f.lc) B.lightAt(f.lc[0], f.lc[1], f.lc[2]); }
     function figGesture(f) {
-      B.at(f.g);
+      at(f);
       (f.gesture || []).forEach((p) => B.pp(p, { w: 2.3, sp: 1700, p: 0.75, z: f.z }));
       if (f.head) drawHead(B, f.head, 'gesture');
     }
     function figPen(f, which) {
-      B.at(f.g);
-      if (f.head && which !== 'body') drawHead(B, f.head, 'contour');
-      (f.heads || []).forEach((h) => drawHead(B, h, 'contour'));
+      at(f);
+      if (f.head && which !== 'body') { drawHead(B, f.head, 'contour'); at(f); }
+      (f.heads || []).forEach((h) => { drawHead(B, Object.assign({ loose: f.loose }, h), 'contour'); at(f); });
       (f.pen || []).forEach(([p, o]) => B.pen(p, Object.assign({ z: f.z }, o)));
     }
     function figColour(f) {
-      B.at(f.g);
-      (f.blocks || []).forEach(([p, o]) => B.block(p, Object.assign({ z: f.z }, o)));
+      at(f);
+      const lz = (o) => f.loose ? Object.assign({}, o, { gap: (o.gap || 0.78) * 1.35, a: (o.a || 0.85) * 0.8, skip: (o.skip || 0.06) + 0.2 }) : o;
+      (f.blocks || []).forEach(([p, o]) => B.block(p, lz(Object.assign({ z: f.z }, o))));
       (f.sides || []).forEach(([p, o]) => B.side(p, Object.assign({ z: f.z, sp: 1500 }, o)));
     }
     function figSkin(f) {
-      B.at(f.g);
+      at(f);
       if (f.head) drawHead(B, f.head, 'colour');
       (f.heads || []).forEach((h) => drawHead(B, h, 'colour'));
     }
     function figHands(f) {
       if (!f.post) return;
-      B.at(f.g);
+      at(f);
       (f.post.skin || []).forEach(([p, o]) => B.block(p, Object.assign({ z: f.z, lvl: 1, a: 0.9, gap: 0.6, over: 0, skip: 0, sp: 1200, pause: 10 }, o)));
       (f.post.shade || []).forEach(([p, o]) => B.side(p, Object.assign({ z: f.z, lvl: 2, a: 0.75, sp: 900 }, o)));
       (f.post.pen || []).forEach(([p, o]) => B.pen(p, Object.assign({ z: f.z, sp: 500 }, o)));
       (f.post.light || []).forEach(([p, o]) => B.pp(p, Object.assign({ z: f.z, lvl: 1, a: 0.85 }, o)));
     }
     function figLight(f) {
-      B.at(f.g);
+      at(f);
       if (f.head) drawHead(B, f.head, 'light');
       (f.heads || []).forEach((h) => drawHead(B, h, 'light'));
       (f.lights || []).forEach(([p, o]) => B.pp(p, Object.assign({ z: f.z, a: 0.9 }, o)));
@@ -1281,47 +1350,41 @@
     /* ---- the wall behind it all: panelling blocked with the side of the stick */
     function wall() {
       B.at('wall');
-      const WL = layout.wall || {};
-      const top = WL.top || 150, bot = WL.bot || 640;
-      const focus = layout.focus || [800, 380];
-      // panelling: columns between stiles, blocked with the side of the stick; dense near the defendant, thinning out
-      const cols = WL.cols || [[24, 160], [184, 330], [354, 500], [524, 670], [694, 860], [884, 1040], [1290, 1440], [1462, 1590]];
-      cols.forEach(([x0, x1]) => {
-        const cx = (x0 + x1) / 2;
-        const d = Math.min(1, Math.hypot((cx - focus[0]) / 760, 0.15));
-        const t0 = top + 22 + B.rnd(-6, 10) + d * 30, b0 = bot - B.rnd(0, 60) - d * 70;
-        B.block([[x0 + B.rnd(0, 8), t0], [x1 - B.rnd(0, 8), t0 + B.rnd(-8, 8)], [x1 - B.rnd(0, 20), b0], [x0 + B.rnd(0, 20), b0 + B.rnd(-30, 30)]],
-          { col: W[1], ang: -78 + B.rnd(-6, 6), angj: 8, w: 46, gap: 0.72 + d * 0.8, lvl: d > 0.55 ? 2 : d > 0.3 ? 1 : 0, a: 0.95 - d * 0.6, z: 10, over: 0.15, skip: d * 0.5, sp: 3400 });
-        // the raised field of the panel: light on the left bevel, dark on the right
-        const py0 = t0 + 40, py1 = Math.min(b0 - 30, 420);
-        if (py1 - py0 > 80 && d < 0.85) {
-          B.side([[x0 + 16, py0, 1], [x0 + 15, py1, 1]], { col: W[3], w: 6, lvl: 1, a: 0.85, z: 10, sp: 2400 });
-          B.side([[x1 - 16, py0, 1], [x1 - 15, py1, 1]], { col: W[0], w: 8, lvl: 1, a: 0.8, z: 10, sp: 2400 });
-          B.side([[x0 + 16, py0, 1], [x1 - 16, py0 + 2, 1]], { col: W[0], w: 6, lvl: 2, a: 0.65, z: 10, sp: 2400 });
-        }
-      });
-      // stiles
-      cols.forEach(([x0], i) => { if (i) B.side([[x0 - 12 + B.rnd(-3, 3), top + 30, 1], [x0 - 12 + B.rnd(-3, 3), bot - 40, 1]], { col: W[0], w: 13, lvl: 1, a: 0.7, z: 10, sp: 3000 }); });
-      // cornice shadow and the dado rail
-      const LW = layout.W;
-      B.side([[LW * 0.03, top + 14, 1], [LW * 0.5, top + 10, 1], [LW * 0.97, top + 6, 1]], { col: W[0], w: 20, lvl: 1, a: 0.75, z: 10, sp: 3400 });
-      B.side([[LW * 0.05, top + 2, 1], [LW * 0.5, top - 2, 1], [LW * 0.95, top - 6, 1]], { col: W[3], w: 6, lvl: 2, a: 0.7, z: 10, sp: 3400 });
-      const dado = WL.dado || [30, 640, 432];
-      B.side([[dado[0], dado[2], 1], [dado[1], dado[2] - 4, 1]], { col: W[3], w: 8, lvl: 1, a: 0.8, z: 10, sp: 3000 });
-      B.side([[dado[0], dado[2] + 14, 1], [dado[1], dado[2] + 10, 1]], { col: W[0], w: 9, lvl: 1, a: 0.7, z: 10, sp: 3000 });
-      // a finger drags the panels into a soft tone here and there
-      cols.forEach(([x0, x1], i) => { if (i % 2 === 0) B.smudge([[x0 + 30, top + 80, 1], [(x0 + x1) / 2, top + 200, 1], [x1 - 30, top + 320, 1]], { col: W[1], w: 60, a: 0.22, z: 10, sp: 1400, pause: 30 }); });
-      // darkest wood right behind the white bird: the lightest light against the darkest dark
-      B.block(layout.dark || '650,190 880,182 990,200 1000,330 960,470 650,470 630,330', { col: W[0], ang: -86, w: 30, gap: 0.8, lvl: 1, a: 0.7, z: 10, over: 0.2, skip: 0.1, sp: 3400 });
+      const WL = layout.wall, top = WL.top, bot = WL.bot, LW = layout.W;
+      const focus = layout.focus;
+      // fewer, bigger sweeps with the side of the stick, each with its own angle and pressure
+      const n = layout.portrait ? 13 : 17;
+      for (let i = 0; i < n; i++) {
+        const t = (i + B.rnd(-0.3, 0.3)) / n;
+        const cx = lerp(WL.x0 + 40, WL.x1 - 40, t), cy = lerp(top + 60, bot - 120, B.rnd(0.15, 0.85));
+        const d = clamp(Math.hypot((cx - focus[0]) / (LW * 0.55), (cy - focus[1]) / 900), 0, 1);
+        if (B.chance(d * 0.45)) continue;
+        const ang = (B.chance(0.7) ? -78 : -102) + B.rnd(-10, 10), len = B.rnd(260, 480) * (1 - d * 0.35);
+        const dx = Math.cos(ang * Math.PI / 180) * len / 2, dy = Math.sin(ang * Math.PI / 180) * len / 2;
+        const bow = B.rnd(-30, 30);
+        B.side([[cx - dx, cy - dy, B.rnd(0.6, 1)], [cx + bow, cy, 1], [cx + dx, cy + dy, B.rnd(0.4, 0.9)]],
+          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(70, 110), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
+      }
+      // a cornice, two stiles, a rail: just enough to say panelling
+      B.side([[WL.x0 + 30, top + 6, 1], [LW * 0.5, top, 1], [WL.x1 - 40, top - 6, 1]], { col: W[0], w: 24, lvl: 1, a: 0.8, z: 10, sp: 3600, fade: [0.9, 0.3] });
+      // the darkest wood right behind the bird's head: lightest light against darkest dark
+      for (let i = 0; i < 4; i++) {
+        const cx = focus[0] + B.rnd(-160, 160), cy = focus[1] + B.rnd(-80, 120);
+        B.side([[cx + B.rnd(-20, 20), cy - 170, 1], [cx, cy, 1], [cx + B.rnd(-30, 30), cy + 170, 0.7]], { col: W[0], w: B.rnd(60, 90), lvl: 0, a: 0.85, z: 10, sp: 2400, pause: 40 });
+      }
+      // a few deliberate accents
+      for (let i = 0; i < 5; i++) {
+        const x = lerp(WL.x0 + 80, WL.x1 - 80, B.rnd(0, 1));
+        B.side([[x, top + 30, 1], [x + B.rnd(-6, 6), top + B.rnd(220, 380), 0.6]], { col: B.chance(0.5) ? W[0] : W[3], w: B.rnd(10, 18), lvl: 1, a: 0.85, z: 10, sp: 3000 });
+      }
+      B.smudge([[focus[0] - 200, focus[1] - 60, 1], [focus[0] + 220, focus[1] + 20, 1]], { col: W[1], w: 80, a: 0.25, z: 10, sp: 1200 });
+      B.smudge([[WL.x0 + 120, top + 160, 1], [WL.x0 + 300, top + 300, 1]], { col: W[1], w: 70, a: 0.2, z: 10, sp: 1200 });
     }
     function wallPen() {
       B.at('wall');
-      const WL = layout.wall || {};
-      const top = WL.top || 150, LW = layout.W;
-      B.pen([[[LW * 0.025, top - 8], [LW * 0.25, top - 10], [LW * 0.44, top - 13]], [[LW * 0.8, top - 16], [LW * 0.975, top - 19]]], { w: 1.6, a: 0.8, z: 10, sp: 1500 });
-      (WL.cols || [[24, 160], [184, 330], [354, 500], [524, 670], [694, 860]]).slice(1, 5).forEach(([x0]) => B.pen([[[x0 - 12, top + 10], [x0 - 11, top + 150 + B.rnd(0, 80)]]], { w: 1.4, a: 0.7, z: 10, sp: 1500 }));
-      const dado = WL.dado || [30, 640, 432];
-      B.pen([[[dado[0], dado[2] - 4], [(dado[0] + dado[1]) / 2, dado[2] - 6], [dado[1], dado[2] - 8]]], { w: 1.5, a: 0.75, z: 10, sp: 1500 });
+      const WL = layout.wall, top = WL.top, LW = layout.W;
+      B.pen([[[WL.x0 + 30, top - 8], [LW * 0.3, top - 10], [LW * 0.46, top - 13]], [[LW * 0.78, top - 16], [WL.x1 - 30, top - 19]]], { w: 1.6, a: 0.75, z: 10, sp: 1500 });
+      [0.12, 0.52].forEach((t) => { const x = lerp(WL.x0, WL.x1, t); B.pen([[[x, top + 14], [x + 1, top + 170 + B.rnd(0, 120)]]], { w: 1.4, a: 0.6, z: 10, sp: 1500 }); });
     }
     function floor() {
       B.at('floor');
@@ -1454,7 +1517,7 @@
     figPen(F.pros); figPen(F.table); figColour(F.pros); figColour(F.table);
     floor(); washes();
     [F.judge, F.lawyer, F.jury, F.steno, F.bailiff, F.pros].forEach(figSkin);
-    [F.judge].forEach(figHands);
+    [F.judge, F.lawyer].forEach(figHands);
     [F.judge, F.chair, F.bench, F.lawyer, F.jury, F.bailiff, F.pros].forEach(figLight);
     feather();
     // the margins
@@ -1482,28 +1545,32 @@
   function makeTooth(T, feat, seed) {
     const rnd = mulberry32(seed);
     const H = new Float32Array(T * T);
-    // the felt pattern of pastel paper: a loose honeycomb of tiny pits (jittered-grid cellular noise)...
-    const cell = Math.max(2.4, feat * 1.55);
-    const nc = Math.max(4, Math.round(T / cell)), cs = T / nc;
-    const fx = new Float32Array(nc * nc), fy = new Float32Array(nc * nc);
-    for (let i = 0; i < nc * nc; i++) { fx[i] = 0.15 + rnd() * 0.7; fy[i] = 0.15 + rnd() * 0.7; }
+    // Mi-Teintes felt side: a regular honeycomb of shallow pits (a hex lattice, barely jittered),
+    // a faint weave across it, and only a whisper of random fibre. The same grain for every stroke.
+    const cell = Math.max(3.2, feat * 2.0);
+    const nx = Math.max(4, Math.round(T / cell)), ny = Math.max(4, Math.round(T / (cell * 0.866) / 2) * 2);
+    const cw = T / nx, rh = T / ny;
+    const jx = new Float32Array(nx * ny), jy = new Float32Array(nx * ny);
+    for (let i = 0; i < nx * ny; i++) { jx[i] = (rnd() - 0.5) * 0.22; jy[i] = (rnd() - 0.5) * 0.22; }
     for (let y = 0; y < T; y++) {
-      const cy = Math.floor(y / cs);
+      const ry = Math.floor(y / rh);
       for (let x = 0; x < T; x++) {
-        const cx = Math.floor(x / cs);
         let d1 = 1e9;
-        for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
-          const gx = cx + ox, gy = cy + oy;
-          const k = (((gy % nc) + nc) % nc) * nc + (((gx % nc) + nc) % nc);
-          const px = (gx + fx[k]) * cs, py = (gy + fy[k]) * cs;
-          const d = (px - x) * (px - x) + (py - y) * (py - y);
-          if (d < d1) d1 = d;
+        for (let oy = -1; oy <= 1; oy++) {
+          const r = ry + oy, rr = ((r % ny) + ny) % ny, off = (rr % 2) * 0.5;
+          const cx0 = Math.floor(x / cw - off);
+          for (let ox = -1; ox <= 1; ox++) {
+            const c = cx0 + ox, cc = ((c % nx) + nx) % nx, k = rr * nx + cc;
+            const px = (c + off + 0.5 + jx[k]) * cw, py = (r + 0.5 + jy[k]) * rh;
+            const d = (px - x) * (px - x) + (py - y) * (py - y);
+            if (d < d1) d1 = d;
+          }
         }
-        H[y * T + x] = Math.sqrt(d1) / cs * 0.62;
+        const dn = Math.sqrt(d1) / cw;
+        H[y * T + x] = 1 - Math.exp(-dn * dn * 9) + 0.06 * Math.sin((x + y * 0.3) / cw * Math.PI * 2) * Math.sin((y - x * 0.3) / rh * Math.PI);
       }
     }
-    // ...plus the irregular fibre of the sheet
-    const oct = [[feat * 1.2, 0.18], [feat * 3, 0.14], [feat * 8, 0.08], [feat * 30, 0.05]];
+    const oct = [[feat * 1.1, 0.07], [feat * 6, 0.05], [feat * 30, 0.06]];
     for (const [per, amp] of oct) {
       const n = Math.max(2, Math.round(T / per));
       const g = new Float32Array(n * n); for (let i = 0; i < g.length; i++) g[i] = rnd();
@@ -1628,7 +1695,7 @@
       // tooth
       const T = 384;
       const E = makeTooth(T, Math.max(1.4, 1.25 * dpr), seed);
-      V.masks = [maskCanvas(E, T, 0.92, 0.06), maskCanvas(E, T, 0.8, 0.09), maskCanvas(E, T, 0.6, 0.1), maskCanvas(E, T, 0.38, 0.1), maskCanvas(E, T, 0.975, 0.03)].map((c) => lx.createPattern(c, 'repeat'));
+      V.masks = [maskCanvas(E, T, 0.9, 0.12), maskCanvas(E, T, 0.78, 0.14), maskCanvas(E, T, 0.6, 0.15), maskCanvas(E, T, 0.4, 0.14), maskCanvas(E, T, 0.975, 0.03)].map((c) => lx.createPattern(c, 'repeat'));
       V.grain = bx.createPattern(grainCanvas(E, T), 'repeat');
       paintPaper(room, seed);
       lx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1756,10 +1823,10 @@
         t.fillStyle = st.col; outlinePath(t, P, n, iL, iR); t.fill();
         // streaks from the uneven edge of the stick
         t.globalCompositeOperation = 'destination-out';
-        const ns = st.streak === false ? 0 : 1 + Math.floor(r() * 3);
+        const ns = st.streak === false ? 0 : 2 + Math.floor(r() * 3);
         for (let k = 0; k < ns; k++) {
           const off = (r() * 1.6 - 0.8) * st.w * s * 0.4, wd = (0.03 + r() * 0.06) * st.w * s;
-          t.fillStyle = 'rgba(0,0,0,' + (0.15 + r() * 0.3) + ')';
+          t.fillStyle = 'rgba(0,0,0,' + (0.2 + r() * 0.35) + ')';
           const Q = P.map((p, i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)]; const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1; return [p[0] - dy / L * off, p[1] + dx / L * off]; });
           const ww = Q.map(() => wd);
           outlinePath(t, Q, n, ww, ww); t.fill();

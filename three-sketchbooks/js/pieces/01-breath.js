@@ -119,7 +119,7 @@
   // separable blur of a periodic scene layer (for the light the fog scatters)
   const FS_BLUR = COMMON + `
   out vec4 o;
-  uniform sampler2D uSrc; uniform vec2 uDir; uniform vec2 uOut; uniform float uSig; uniform float uLod;
+  uniform sampler2D uSrc; uniform vec2 uDir; uniform vec2 uOut; uniform float uSig; uniform float uLod; uniform float uGain;
   void main(){
     vec2 uv = gl_FragCoord.xy / uOut;
     vec4 acc = vec4(0.); float wsum = 0.;
@@ -129,7 +129,7 @@
       acc += w * textureLod(uSrc, uv + uDir * x * uSig, uLod);
       wsum += w;
     }
-    o = acc / wsum;
+    o = acc / wsum * uGain;
   }`;
 
   // static fog structure: R = density mottle, G = fine mottle, B = breath patch
@@ -153,6 +153,7 @@
   uniform float uGlassB;
   uniform vec4 uFrame;   // x of the right seal, y of the bottom seal, corner radius, seal width (css px)
   uniform vec2 uFade;
+  uniform float uBG;      // 1 / gain the blurred layers were stored with
 
   vec3 sceneSharp(vec2 p){
     vec2 a = vec2((p.x + uOffF) / uPer, p.y / uRes.y);
@@ -162,12 +163,12 @@
   vec3 sceneBlur(vec2 p){
     vec2 a = vec2((p.x + uOffF) / uPer, p.y / uRes.y);
     vec2 b = vec2((p.x + uOffN) / uPer, p.y / uRes.y);
-    return (texture(uFarB, a).rgb + texture(uNearB, b).rgb) * 2.0;
+    return (texture(uFarB, a).rgb + texture(uNearB, b).rgb) * 2.0 * uBG;
   }
   vec3 sceneCore(vec2 p){
     vec2 a = vec2((p.x + uOffF) / uPer, p.y / uRes.y);
     vec2 b = vec2((p.x + uOffN) / uPer, p.y / uRes.y);
-    return (texture(uFarC, a).rgb + texture(uNearC, b).rgb) * 2.0;
+    return (texture(uFarC, a).rgb + texture(uNearC, b).rgb) * 2.0 * uBG;
   }
   float rec(float age, float kind){
     float a0 = uFade.x * mix(1.0, 1.5, kind), a1 = uFade.y * mix(1.0, 1.7, kind);
@@ -575,6 +576,7 @@
       const DEFS = STROKES();
       const bb = (() => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const s of DEFS) for (const q of s.pts) { a = Math.min(a, q[0]); b = Math.min(b, q[1]); c = Math.max(c, q[0]); d = Math.max(d, q[1]); } return { x0: a, y0: b, x1: c, y1: d, w: c - a, h: d - b, cx: (a + c) / 2, cy: (b + d) / 2 }; })();
 
+      let blurGain = 1;
       let W = 0, H = 0, dpr = 1, S = 1, glassB = 0, per = 0, frameR = [0, 0, 1, 1];
       let fw = 0, fh = 0, fsc = 1;
       let Fd = null, sid = null, dmin = null, baseR = null, baseG = null, baseW = null, baseA = null;
@@ -789,12 +791,12 @@
         pools = [];
         if (!cand.length) return;
         const r = cy.r;
-        const n = first ? 2 : 1 + (r() < 0.45 ? 1 : 0);
+        const n = first ? 2 : (r() < 0.7 ? 1 : 0) + (r() < 0.2 ? 1 : 0);
         for (let k = 0; k < n && cand.length; k++) {
           const q = cand.splice(Math.floor(r() * Math.min(cand.length, 4)), 1)[0];
-          const delay = first ? (k === 0 ? 2.5 + r() * 2 : 16 + r() * 20) : 5 + r() * 28;
-          drips.push({ x: q.x, y: q.y, r: Math.max(2.2, (1.35 + r() * 0.5) * S * fsc), start: Math.max(tNow, q.t) + delay, state: 'wait',
-            vy0: (5 + r() * 7) * S * fsc, travel: 0, maxTravel: fh * (0.16 + r() * 0.34), pause: 0, ph: r() * 9, id: strokeId++, a: 0, endT: 0 });
+          const delay = 0;
+          drips.push({ x: q.x, y: q.y, r: Math.max(2.4, (2.0 + r() * 0.8) * S * fsc), start: Math.max(tNow, q.t) + delay, state: 'wait',
+            vy0: 40 * S * fsc, travel: 0, maxTravel: fh * (0.1 + r() * 0.22), pause: 0, ph: r() * 9, id: strokeId++, a: 0, endT: 0 });
         }
       }
       function updateDrips(tNow, dt) {
@@ -807,11 +809,11 @@
             const steps = Math.max(1, Math.ceil(dy / 0.7));
             for (let k = 0; k < steps; k++) {
               d.y += dy / steps;
-              d.x += Math.sin(d.y * 0.045 + d.ph) * 0.05 + Math.sin(d.y * 0.013 + d.ph * 3) * 0.05;
+              d.x += Math.sin(d.y * 0.045 + d.ph) * 0.07 + Math.sin(d.y * 0.013 + d.ph * 3) * 0.08;
               stampDrip(d.id, d.x, d.y - d.r * 0.25, d.r, tNow);
             }
             d.travel += dy;
-            d.r = Math.min(d.r * (1 + dt * 0.01), 3.4 * S * fsc);
+            d.r = Math.min(d.r * (1 + dt * 0.012), 3.6 * S * fsc);
             if (fingerRng() < dt * 0.22) {
               // it stalls on a clean patch, gathers, and sets off again a little to one side
               d.pause = 0.3 + fingerRng() * 2.2;
@@ -942,6 +944,8 @@
         // blurred copies: the light the fog scatters
         const bw = Math.max(16, Math.ceil(night.far.width / 4)), bh = Math.max(16, Math.ceil(night.far.height / 4));
         const hf = !!gl.getExtension('EXT_color_buffer_float');
+        const bGain = hf ? 1 : 2.2;   // 8-bit targets: use the range, or the faint glows band
+        blurGain = bGain * bGain;
         const mkB = () => hf ? tex(bw, bh, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, null, gl.REPEAT) : tex(bw, bh, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, null, gl.REPEAT);
         const tmp = mkB(), tFarB = mkB(), tNearB = mkB(), tFarC = mkB(), tNearC = mkB();
         const fTmp = fbo(tmp), fFarB = fbo(tFarB), fNearB = fbo(tNearB), fFarC = fbo(tFarC), fNearC = fbo(tNearC);
@@ -954,7 +958,7 @@
         const sigPx = 0.075 * H;  // css px
         const blur = (src, dst, sig) => {
           gl.bindFramebuffer(gl.FRAMEBUFFER, fTmp); gl.bindTexture(gl.TEXTURE_2D, src);
-          gl.uniform2f(P_BLUR.U.uDir, 1 / per, 0); gl.uniform1f(P_BLUR.U.uSig, sig); gl.uniform1f(P_BLUR.U.uLod, Math.max(0, Math.log2(sig * sc / 4)));
+          gl.uniform2f(P_BLUR.U.uDir, 1 / per, 0); gl.uniform1f(P_BLUR.U.uSig, sig); gl.uniform1f(P_BLUR.U.uLod, Math.max(0, Math.log2(sig * sc / 4))); gl.uniform1f(P_BLUR.U.uGain, bGain);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
           gl.bindFramebuffer(gl.FRAMEBUFFER, dst); gl.bindTexture(gl.TEXTURE_2D, tmp);
           gl.uniform2f(P_BLUR.U.uDir, 0, 1 / H); gl.uniform1f(P_BLUR.U.uLod, 0.0);
@@ -1038,7 +1042,7 @@
         gl.uniform1f(U.uOffF, ((tt * 2.2 * sp) % per + per) % per);
         gl.uniform1f(U.uOffN, ((tt * 7.5 * sp) % per + per) % per);
         gl.uniform1f(U.uGlassB, glassB); gl.uniform4f(U.uFrame, frameR[0], frameR[1], frameR[2], frameR[3]);
-        gl.uniform2f(U.uFade, FADE0, FADE1);
+        gl.uniform2f(U.uFade, FADE0, FADE1); gl.uniform1f(U.uBG, 1 / blurGain);
         gl.uniform1f(U.uSeed, (seed % 997) / 997);
         const D = new Float32Array(32);
         drips.forEach((d, i) => { if (i < 8 && d.state !== 'wait') { D[i * 4] = d.x / fsc; D[i * 4 + 1] = d.y / fsc; D[i * 4 + 2] = d.r / fsc; D[i * 4 + 3] = d.a; } });
