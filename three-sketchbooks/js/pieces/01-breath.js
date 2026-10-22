@@ -760,7 +760,7 @@
           // a slow curve lets the pad roll flatter and wider; the finger's angle drifts as the wrist turns
           const roll = 1 + 0.2 * (1 - VN[i]) * clamp(K[i] * 18, 0, 1);
           const angle = 1 + 0.1 * Math.sin(sMm * 0.035 + wob * 1.7) + 0.05 * Math.sin(sMm * 0.11 + wob);
-          const smear = flick ? 1 + 0.12 * Math.sin(Math.PI * lift) + 0.14 * lift * Math.sin(sMm * 1.3 + wob) : 1 + 0.03 * smooth(4, 0, eMm);
+          const smear = flick ? 1 + 0.12 * Math.sin(Math.PI * lift) + lift * (0.05 * Math.sin(sMm * 0.7 + wob) + 0.04 * Math.sin(sMm * 1.9 + wob * 3)) : 1 + 0.03 * smooth(4, 0, eMm);
           HW[i] = hw0 * (0.42 + 0.58 * Math.pow(clamp(p, 0, 1.35), 0.8)) * (1 - 0.3 * VN[i]) * roll * angle * smear + hw0 * 0.06 * Math.exp(-sMm / 4);
         }
         // where water gathers: the low points of the stroke and a finger that stops
