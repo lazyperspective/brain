@@ -273,12 +273,17 @@ float man(vec3 q, vec3 p, float rad, float dc, bool full){
 
 vec3 toMan(vec3 p){ vec3 q = p-uO; q.xz = rot(uYaw)*q.xz; return q; }
 
+#define XE 10.6
 float map(vec3 p){
-  float d = p.z-WZ; gM = 1;
-  if (p.y < d){ d = p.y; gM = 3; }
+  // the set: a wallpapered board and a floor of boards, which end where the set ends
+  float d = sdBox(p-vec3(XE-40.,40.,WZ-0.3), vec3(40.,40.,0.3)); gM = 1;
+  float fl = sdBox(p-vec3(XE-40.,-0.35,10.), vec3(40.,0.35,20.));
+  if (fl < d){ d = fl; gM = 3; }
+  float tb = p.y+3.;
+  if (tb < d){ d = tb; gM = 9; }
   // skirting with a moulded top
-  float sk = sdRBox(p-vec3(0.,0.55,WZ+0.05), vec3(80.,0.55,0.2), 0.04);
-  sk = min(sk, length(vec2(p.y-1.08, p.z-(WZ+0.2)))-0.09);
+  float sk = sdRBox(p-vec3(XE-40.,0.55,WZ+0.05), vec3(40.,0.55,0.2), 0.04);
+  sk = min(sk, max(length(vec2(p.y-1.08, p.z-(WZ+0.2)))-0.09, p.x-XE));
   if (sk < d){ d = sk; gM = 2; }
   // picture on the wall
   float fr = sdRBox(p-vec3(-6.4,11.4,WZ), vec3(2.3,1.75,0.22), 0.06);
@@ -542,11 +547,21 @@ vec3 shade(vec3 ro, vec3 rd, float t){
       float fb2 = fiber(q, vec3(-1.0,0.95,1.7), vec3(-0.8,1.08,1.85), vec3(-0.92,1.2,2.0));
       alb = mix(alb, vec3(0.05,0.12,0.4), smoothstep(0.014,0.005,fb2)*(part==2 ? 1. : 0.));
     }
+  } else if (mat==9){
+    alb = vec3(0.012,0.011,0.01); rough = 0.9;
+  } else if (mat==1 && (n.x > 0.5 || p.z < WZ-0.05)){
+    // the raw edge of the board: the set is a set
+    alb = vec3(0.32,0.22,0.13)*(0.8+0.3*fbm(p*vec3(1.,6.,6.))); rough = 0.8; spec = 0.2;
+    alb = mix(alb, wallpaper(p), smoothstep(-0.03,-0.0,p.z-WZ));
   } else if (mat==1){
     alb = wallpaper(p); rough = 0.85; wrap = 0.1; spec = 0.25;
+    // the paper is wrapped round the board's edge and has lifted a little at the corner
+    alb *= 1.-0.35*smoothstep(XE-0.25,XE,p.x);
   } else if (mat==2){
     alb = vec3(0.6,0.55,0.45)*(0.9+0.1*fbm(p*3.)); rough = 0.28; spec = 0.9;
     alb *= 1.-0.3*smoothstep(0.35,0.0,p.y)*fbm(p*5.);
+  } else if (mat==3 && (n.y < 0.5)){
+    alb = vec3(0.3,0.21,0.12)*(0.8+0.3*fbm(p*vec3(6.,1.,6.))); rough = 0.8; spec = 0.2;
   } else if (mat==3){
     // floorboards running along the wall, varnished dark, scuffed
     float bw = 1.05; float bz0 = (p.z+30.)/bw; float bi = floor(bz0); float fz = fract(bz0);
@@ -767,10 +782,12 @@ void main(){
         fp: [rnd() * 50, rnd() * 50, rnd() * 50],
       };
       {
-        const spots = [[-0.42, 6.62, 0.98, 0.5], [0.78, 5.3, 1.05, 0.48], [0.75, 1.75, 1.5, 0.55], [-0.95, 1.25, 1.62, 0.5], [0.5, 7.15, 0.6, 0.5], [-1.4, 2.6, 1.0, 0.5]];
-        const a = Math.floor(rnd() * spots.length); let b = Math.floor(rnd() * (spots.length - 1)); if (b >= a) b++;
-        S.hp1 = spots[a].map((v, i) => v + (i < 3 ? (rnd() - 0.5) * 0.15 : 0));
-        S.hp2 = spots[b].map((v, i) => v + (i < 3 ? (rnd() - 0.5) * 0.15 : 0));
+        // one print where the eye lands (brow, cheek or dome), one on the body
+        const face = [[-0.42, 6.62, 0.98, 0.5], [0.78, 5.3, 1.05, 0.48], [0.5, 7.15, 0.6, 0.5], [-0.75, 5.25, 0.95, 0.46]];
+        const body = [[0.75, 1.75, 1.5, 0.55], [-0.95, 1.25, 1.62, 0.5], [-1.4, 2.6, 1.0, 0.5], [0.9, 0.6, 2.0, 0.5]];
+        const jig = (v, i) => v + (i < 3 ? (rnd() - 0.5) * 0.15 : 0);
+        S.hp1 = face[Math.floor(rnd() * face.length)].map(jig);
+        S.hp2 = body[Math.floor(rnd() * body.length)].map(jig);
       };
 
       const canvas = document.createElement('canvas');
