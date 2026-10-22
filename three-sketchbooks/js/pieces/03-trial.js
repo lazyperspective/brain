@@ -262,7 +262,8 @@
       taper: (u, r) => Math.sqrt(clamp(u / 0.02, 0, 1)) * (1 + 0.35 * Math.exp(-u / 0.04)) * (1 - 0.62 * sstep(0.6, 1, u)) * r,
       even: (u, r) => Math.sqrt(clamp(u / 0.04, 0, 1)) * (1 - 0.3 * sstep(0.85, 1, u)) * r,
       flick: (u, r) => Math.sqrt(clamp(u / 0.03, 0, 1)) * (1 - 0.8 * sstep(0.45, 1, u)) * r,
-      swell: (u, r) => (0.35 + 0.65 * Math.sin(Math.PI * clamp(u, 0, 1))) * r,
+      swell: (u, r) => (0.12 + 0.88 * Math.sin(Math.PI * clamp(u, 0, 1))) * r,
+      sweep: (u, r) => (0.4 + 0.6 * Math.pow(Math.sin(Math.PI * clamp(u, 0, 1)), 0.6)) * r,
       press: (u, r) => clamp(u / 0.12, 0.3, 1) * (1 - 0.25 * sstep(0.8, 1, u)) * r,
     };
     const DEF = {
@@ -688,7 +689,7 @@
     const P = GOOSE_POSES[pose];
     const a = (P.ang * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a);
     const ux = dx >= 0 ? dy : -dy, uy = dx >= 0 ? -dx : dx;
-    const L = P.L, ox = P.head[0], oy = P.head[1];
+    const L = P.L;
     const H = (q) => [ox + dx * q[0] * L + ux * q[1] * L, oy + dy * q[0] * L + uy * q[1] * L, q[2] === undefined ? 1 : q[2]];
     const g = P.gape * (Math.PI / 180);
     // the lower mandible hinges at the gape
@@ -697,15 +698,21 @@
       const c = Math.cos(-g), s = Math.sin(-g);
       return [0.6 + px * c - py * s, -0.07 + px * s + py * c, q[2]];
     };
-    const sp = smoothPath(P.spine.map((p) => [p[0], p[1], 1]), 2);
+    // a goose's neck: thick, shorter, nearly straight; not a swan's S
+    const b0 = P.spine[0], e0 = P.spine[P.spine.length - 1];
+    const sh = (p, i) => { const t = i / (P.spine.length - 1); const lx = lerp(b0[0], e0[0], t), ly = lerp(b0[1], e0[1], t); const qx = lerp(p[0], lx, 0.45), qy = lerp(p[1], ly, 0.45); return [b0[0] + (qx - b0[0]) * 0.84, b0[1] + (qy - b0[1]) * 0.84, 1]; };
+    const spine2 = P.spine.map(sh);
+    const ne = spine2[spine2.length - 1];
+    const ox = P.head[0] - e0[0] + ne[0], oy = P.head[1] - e0[1] + ne[1];
+    const sp = smoothPath(spine2, 2);
     const n = sp.length;
     const left = [], right = [];
-    const w0 = 66, w1 = 0.42 * L;
+    const w0 = 84, w1 = 0.56 * L;
     for (let i = 0; i < n; i++) {
       const a0 = sp[Math.max(0, i - 1)], a1 = sp[Math.min(n - 1, i + 1)];
       let tx = a1[0] - a0[0], ty = a1[1] - a0[1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
       const u = i / (n - 1);
-      const w = (w1 + (w0 - w1) * Math.pow(1 - u, 3.2)) / 2;
+      const w = (w1 + (w0 - w1) * Math.pow(1 - u, 2.4)) / 2;
       left.push([sp[i][0] - ty * w, sp[i][1] + tx * w, 1]);
       right.push([sp[i][0] + ty * w, sp[i][1] - tx * w, 1]);
     }
@@ -914,11 +921,14 @@
       B.side('732,463 762,470 800,472', { col: '#c98a8a', w: 6, lvl: 3, a: 0.5, z: 3, sp: 1200 });
       // neck: along its length, whitest down the nape
       const n = g.sp.length;
-      [[0.14, COL.white, 0, 12], [0.36, COL.white, 0, 11], [0.56, COL.white, 1, 10], [0.74, COL.cream, 2, 9], [0.9, COL.coolgrey, 2, 6]].forEach(([t, col, lvl, w]) => {
+      // the neck: one solid mass of white first, then chalk sweeps down its length
+      const nw = Math.hypot(g.napeSide[Math.floor(n / 2)][0] - g.throatSide[Math.floor(n / 2)][0], g.napeSide[Math.floor(n / 2)][1] - g.throatSide[Math.floor(n / 2)][1]);
+      [[0.2, COL.white, 0, 0.4], [0.45, COL.white, 0, 0.38], [0.66, COL.cream, 1, 0.32], [0.86, COL.coolgrey, 2, 0.18]].forEach(([t, col, lvl, wf]) => {
+        const w = nw * wf;
         const line = [];
         const i0 = Math.floor(n * B.rnd(0.02, 0.1)), i1 = n - Math.floor(n * B.rnd(0, 0.06));
         for (let i = i0; i < i1; i += 4) line.push([lerp(g.napeSide[i][0], g.throatSide[i][0], t), lerp(g.napeSide[i][1], g.throatSide[i][1], t), 1]);
-        if (line.length > 1) B.side([line], { col, w, lvl, a: 0.95, z: 3, sp: 1700, fade: [0.95, 0.8] });
+        if (line.length > 1) B.side([line], { col, w, lvl, a: 0.95, z: 3, sp: 1700, fade: [0.95, 0.85], pr: 'sweep' });
       });
       const h = g.head;
       B.side([[h.H([0.08, 0.16]), h.H([0.28, 0.26]), h.H([0.52, 0.16])]], { col: COL.white, w: 0.2 * h.L, lvl: 0, a: 0.95, z: 3, sp: 1200 });
@@ -1109,17 +1119,19 @@
         ['678,470 688,476 | 680,452 690,456', { w: 1.2, a: 0.75, pr: 'flick' }],
         ['512,614 512,670 516,720 518,756', { w: 2.6, sp: 1100, pr: 'flick' }],
         ['558,648 554,690 551,730', { w: 2.0, sp: 1100, pr: 'flick' }],
-        ['618,612 630,664 642,712 648,750', { w: 2.8, sp: 1100, pr: 'flick' }],
-        ['574,656 584,696 594,736', { w: 1.9, sp: 1100, pr: 'flick' }],
+        ['618,612 634,660 648,694 646,726 640,756', { w: 2.8, sp: 1100, pr: 'flick' }],
+        ['574,656 590,690 604,706 606,736', { w: 1.9, sp: 1100, pr: 'flick' }],
+        ['622,676 636,686 | 616,694 634,700 | 606,708 620,712', { w: 1.2, a: 0.7, pr: 'swell', nobreak: true }],
+        ['524,690 540,694 | 520,720 536,722', { w: 1.1, a: 0.6, pr: 'swell', nobreak: true }],
         ['552,632 566,648 576,660', { w: 1.5 }],
-        ['630,700 642,708 | 540,670 538,716', { w: 1.1, a: 0.6, pr: 'flick' }],
+
       ],
       blocks: [
         ['488,386 500,366 524,352 548,340 574,358 596,348 632,370 637,402 619,482 618,566 616,612 548,621 512,612 507,566 511,520 503,470 490,422', { col: cast.suit, ang: -76, w: 30, lvl: 0, a: 0.92, gap: 0.62, angj: 12 }],
         ['492,380 424,436 352,442 360,462 446,468 508,432', { col: cast.suit, ang: -15, w: 18, lvl: 0, a: 0.92, gap: 0.6, angj: 10 }],
         ['632,372 676,494 700,492 696,414 672,414 652,410', { col: cast.suit, ang: -75, w: 16, lvl: 0, a: 0.92, gap: 0.6 }],
         ['512,614 558,648 550,770 518,770', { col: cast.suit, ang: -88, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [640, 770, 0.05] }],
-        ['618,612 648,770 600,770 574,656 560,622', { col: cast.suit, ang: -80, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [640, 770, 0.05] }],
+        ['618,612 648,694 640,770 600,770 606,706 574,656 560,622', { col: cast.suit, ang: -70, w: 20, lvl: 1, a: 0.9, gap: 0.6, fadeY: [640, 770, 0.05] }],
       ],
       sides: [
         ['626,382 622,470 616,560 | 694,430 698,488', { col: COL.black, w: 12, lvl: 1, a: 0.6 }],
@@ -1136,9 +1148,10 @@
       post: {
         skin: [
           ['352,442 332,442 300,448 296,462 304,471 320,463 356,462', { col: COL.skin, ang: -5, w: 8 }],
-          ['670,406 667,396 671,388 677,386 676,350 679,340 683,342 684,386 690,388 693,398 691,406', { col: COL.skin, ang: -85, w: 6 }],
+          ['675,410 671,392 670,372 672,356 678,349 686,347 693,350 698,358 699,374 697,394 696,410', { col: COL.skin, ang: -80, w: 7 }],
+          ['698,392 706,384 710,376 707,372 700,382', { col: COL.skin, ang: -40, w: 4 }],
         ],
-        shade: [['322,462 342,464 354,460', { col: COL.skinmid, w: 6 }], ['688,384 692,400', { col: COL.skinmid, w: 5 }]],
+        shade: [['322,462 342,464 354,460', { col: COL.skinmid, w: 6 }], ['694,360 696,398', { col: COL.skinmid, w: 5 }], ['676,396 690,400', { col: COL.skindk, w: 3 }]],
         pen: [
           ['356,462 342,466 328,466 320,463', { w: 2.2, pr: 'press' }],
           ['350,442 340,440 332,442', { w: 1.6 }],
@@ -1147,13 +1160,15 @@
           ['326,452 312,455 300,458 296,462 302,464 314,462 324,461', { w: 1.7 }],
           ['322,462 310,467 304,471 308,473 318,469', { w: 1.7 }],
           ['352,440 358,462 | 346,441 352,462', { w: 1.5 }],
-          ['671,406 667,397 671,388 678,386 | 684,386 691,389 694,398 691,406', { w: 2.0, pr: 'press' }],
-          ['677,387 676,370 676,352 678,342 681,340 683,343 684,356 684,372 684,386', { w: 1.6 }],
-          ['668,398 676,395 684,396 690,400', { w: 1.6 }],
-          ['671,402 688,403', { w: 1.0, a: 0.7 }],
+          ['675,410 671,394 670,374 671,358 674,351 679,349', { w: 1.9 }],
+          ['679,349 686,346 693,349 698,357 699,372 698,392 696,410', { w: 2.4, pr: 'press', nolight: true }],
+          ['698,392 704,386 709,378 709,372 705,373 699,382', { w: 1.8, nolight: true }],
+          ['679,350 680,368 | 686,347 686,366 | 692,350 692,368', { w: 1.1, a: 0.8, pr: 'flick', nobreak: true, nolight: true }],
+          ['672,374 684,376 697,373', { w: 1.0, a: 0.65, pr: 'flick', nolight: true }],
+          ['678,398 688,400', { w: 1.0, a: 0.6, pr: 'flick', nolight: true }],
           ['670,410 694,412 | 672,404 694,406', { w: 1.5 }],
         ],
-        light: [['310,446 330,444 | 679,348 679,374', { col: COL.skinlt, w: 2.2 }]],
+        light: [['310,446 330,444 | 674,360 674,388 | 682,352 683,362', { col: COL.skinlt, w: 2.2 }]],
       },
     };
     const dash = (x0, y0, x1, y1, k) => { const out = []; for (let i = 0; i < k; i++) { const a = i / k, b = (i + 0.55) / k; out.push(lerp(x0, x1, a).toFixed(1) + ',' + lerp(y0, y1, a).toFixed(1) + ' ' + lerp(x0, x1, b).toFixed(1) + ',' + lerp(y0, y1, b).toFixed(1)); } return out.join(' | '); };
@@ -1401,14 +1416,14 @@
         const dx = Math.cos(ang * Math.PI / 180) * len / 2, dy = Math.sin(ang * Math.PI / 180) * len / 2;
         const bow = B.rnd(-70, 70);
         B.side([[cx - dx, cy - dy, B.rnd(0.6, 1)], [cx + bow, cy, 1], [cx + dx, cy + dy, B.rnd(0.4, 0.9)]],
-          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(80, 130), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, pr: 'swell', fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
+          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(80, 130), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, pr: 'sweep', fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
       }
       // a cornice, two stiles, a rail: just enough to say panelling
       B.side([[WL.x0 + 30, top + 6, 1], [LW * 0.5, top, 1], [WL.x1 - 40, top - 6, 1]], { col: W[0], w: 24, lvl: 1, a: 0.8, z: 10, sp: 3600, fade: [0.9, 0.3] });
       // the darkest wood right behind the bird's head: lightest light against darkest dark
       for (let i = 0; i < 4; i++) {
         const cx = focus[0] + B.rnd(-160, 160), cy = focus[1] + B.rnd(-80, 120);
-        B.side([[cx + B.rnd(-20, 20), cy - 170, 1], [cx, cy, 1], [cx + B.rnd(-30, 30), cy + 170, 0.7]], { col: W[0], w: B.rnd(60, 90), lvl: 0, a: 0.85, z: 10, sp: 2400, pause: 40, pr: 'swell' });
+        B.side([[cx + B.rnd(-20, 20), cy - 170, 1], [cx, cy, 1], [cx + B.rnd(-30, 30), cy + 170, 0.7]], { col: W[0], w: B.rnd(60, 90), lvl: 0, a: 0.85, z: 10, sp: 2400, pause: 40, pr: 'sweep' });
       }
       // a few deliberate accents
       for (let i = 0; i < 5; i++) {
@@ -1581,42 +1596,21 @@
   function makeTooth(T, feat, seed) {
     const rnd = mulberry32(seed);
     const H = new Float32Array(T * T);
-    // Mi-Teintes felt side: a regular honeycomb of shallow pits (a hex lattice, barely jittered),
-    // a faint weave across it, and only a whisper of random fibre. The same grain for every stroke.
-    const cell = Math.max(3.2, feat * 2.0);
-    const nx = Math.max(4, Math.round(T / cell)), ny = Math.max(4, Math.round(T / (cell * 0.866) / 2) * 2);
-    const cw = T / nx, rh = T / ny;
-    const jx = new Float32Array(nx * ny), jy = new Float32Array(nx * ny);
-    for (let i = 0; i < nx * ny; i++) { jx[i] = (rnd() - 0.5) * 0.75; jy[i] = (rnd() - 0.5) * 0.75; }
-    for (let y = 0; y < T; y++) {
-      const ry = Math.floor(y / rh);
-      for (let x = 0; x < T; x++) {
-        let d1 = 1e9;
-        for (let oy = -1; oy <= 1; oy++) {
-          const r = ry + oy, rr = ((r % ny) + ny) % ny, off = (rr % 2) * 0.5;
-          const cx0 = Math.floor(x / cw - off);
-          for (let ox = -1; ox <= 1; ox++) {
-            const c = cx0 + ox, cc = ((c % nx) + nx) % nx, k = rr * nx + cc;
-            const px = (c + off + 0.5 + jx[k]) * cw, py = (r + 0.5 + jy[k]) * rh;
-            const d = (px - x) * (px - x) + (py - y) * (py - y);
-            if (d < d1) d1 = d;
-          }
-        }
-        const dn = Math.sqrt(d1) / cw;
-        H[y * T + x] = 1 - Math.exp(-dn * dn * 9) + 0.06 * Math.sin((x + y * 0.3) / cw * Math.PI * 2) * Math.sin((y - x * 0.3) / rh * Math.PI);
-      }
-    }
-    const oct = [[feat * 1.1, 0.16], [feat * 2.6, 0.14], [feat * 6, 0.08], [feat * 30, 0.06]];
-    for (const [per, amp] of oct) {
-      const n = Math.max(2, Math.round(T / per));
-      const g = new Float32Array(n * n); for (let i = 0; i < g.length; i++) g[i] = rnd();
-      const sc = n / T;
+    // Mi-Teintes grain: small, slightly elongated ridges (about 2-4 px), no isolated dots.
+    // Value noise stretched along a shallow diagonal, two octaves, plus a whisper of fibre.
+    const oct = [[feat * 1.3, 0.5, 1.7], [feat * 2.8, 0.32, 1.4], [feat * 8, 0.1, 1.1], [feat * 40, 0.05, 1]];
+    for (const [per, amp, stretch] of oct) {
+      // separate lattice counts across and down keep the tile seamless; a small integer shear tilts the grain
+      const nx = Math.max(2, Math.round(T / (per * stretch))), ny = Math.max(2, Math.round(T / per));
+      const g = new Float32Array(nx * ny); for (let i = 0; i < g.length; i++) g[i] = rnd();
       for (let y = 0; y < T; y++) {
-        const fy2 = y * sc, iy = Math.floor(fy2), ty = fy2 - iy, sy = ty * ty * (3 - 2 * ty);
-        const r0 = (iy % n) * n, r1 = ((iy + 1) % n) * n;
+        const fy = (y / T) * ny, iy = Math.floor(fy), ty = fy - iy, sy = ty * ty * (3 - 2 * ty);
+        const r0 = (iy % ny) * nx, r1 = ((iy + 1) % ny) * nx;
+        const shear = (y / T) * Math.max(1, Math.round(nx * 0.22));
         for (let x = 0; x < T; x++) {
-          const fx2 = x * sc, ix = Math.floor(fx2), tx = fx2 - ix, sx = tx * tx * (3 - 2 * tx);
-          const i0 = ix % n, i1 = (ix + 1) % n;
+          let fx = (x / T) * nx + shear; fx = fx % nx;
+          const ix = Math.floor(fx), tx = fx - ix, sx = tx * tx * (3 - 2 * tx);
+          const i0 = ix % nx, i1 = (ix + 1) % nx;
           H[y * T + x] += lerp(lerp(g[r0 + i0], g[r0 + i1], sx), lerp(g[r1 + i0], g[r1 + i1], sx), sy) * amp;
         }
       }
@@ -1644,8 +1638,8 @@
     const x = c.getContext('2d'); const im = x.createImageData(T, T);
     for (let i = 0; i < T * T; i++) {
       const v = E[i];
-      if (v < 0.5) { im.data[i * 4] = 40; im.data[i * 4 + 1] = 30; im.data[i * 4 + 2] = 20; im.data[i * 4 + 3] = Math.pow((0.5 - v) * 2, 1.6) * 30; }
-      else { im.data[i * 4] = 255; im.data[i * 4 + 1] = 250; im.data[i * 4 + 2] = 240; im.data[i * 4 + 3] = Math.pow((v - 0.5) * 2, 2) * 22; }
+      if (v < 0.5) { im.data[i * 4] = 40; im.data[i * 4 + 1] = 30; im.data[i * 4 + 2] = 20; im.data[i * 4 + 3] = Math.pow((0.5 - v) * 2, 1.6) * 16; }
+      else { im.data[i * 4] = 255; im.data[i * 4 + 1] = 250; im.data[i * 4 + 2] = 240; im.data[i * 4 + 3] = Math.pow((v - 0.5) * 2, 2) * 12; }
     }
     x.putImageData(im, 0, 0);
     return c;
@@ -1731,7 +1725,7 @@
       // tooth
       const T = 384;
       const E = makeTooth(T, Math.max(1.4, 1.25 * dpr), seed);
-      V.masks = [maskCanvas(E, T, 0.9, 0.12), maskCanvas(E, T, 0.78, 0.14), maskCanvas(E, T, 0.6, 0.15), maskCanvas(E, T, 0.4, 0.14), maskCanvas(E, T, 0.975, 0.03)].map((c) => lx.createPattern(c, 'repeat'));
+      V.masks = [maskCanvas(E, T, 0.97, 0.06), maskCanvas(E, T, 0.88, 0.1), maskCanvas(E, T, 0.68, 0.14), maskCanvas(E, T, 0.46, 0.14), maskCanvas(E, T, 0.985, 0.02)].map((c) => lx.createPattern(c, 'repeat'));
       V.grain = bx.createPattern(grainCanvas(E, T), 'repeat');
       paintPaper(room, seed);
       lx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1841,7 +1835,7 @@
         const nz = noise1(r);
         const hwL = [], hwR = [], iL = [], iR = [];
         for (let i = 0; i < n; i++) {
-          const base = 0.5 * st.w * s * (0.3 + 0.7 * Math.min(1, P[i][2]));
+          const base = 0.5 * st.w * s * (0.12 + 0.88 * Math.min(1, P[i][2]));
           const l = base * (0.88 + 0.22 * nz(i * 0.17)), rr = base * (0.88 + 0.22 * nz(i * 0.17 + 30));
           hwL.push(l); hwR.push(rr);
           iL.push(l * (0.5 + 0.25 * nz(i * 0.3 + 60))); iR.push(rr * (0.5 + 0.25 * nz(i * 0.3 + 90)));
@@ -1859,10 +1853,10 @@
         t.fillStyle = st.col; outlinePath(t, P, n, iL, iR); t.fill();
         // streaks from the uneven edge of the stick
         t.globalCompositeOperation = 'destination-out';
-        const ns = st.streak === false ? 0 : 2 + Math.floor(r() * 3);
+        const ns = st.streak === false ? 1 : st.lvl === 0 ? 2 + Math.floor(r() * 2) : 4 + Math.floor(r() * 5);
         for (let k = 0; k < ns; k++) {
-          const off = (r() * 1.6 - 0.8) * st.w * s * 0.4, wd = (0.03 + r() * 0.06) * st.w * s;
-          t.fillStyle = 'rgba(0,0,0,' + (0.2 + r() * 0.35) + ')';
+          const off = (r() * 1.8 - 0.9) * st.w * s * 0.42, wd = Math.max(0.5, (0.015 + r() * 0.04) * st.w * s);
+          t.fillStyle = 'rgba(0,0,0,' + (0.3 + r() * 0.5) * (st.lvl === 0 ? 0.6 : 1) + ')';
           const Q = P.map((p, i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)]; const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1; return [p[0] - dy / L * off, p[1] + dx / L * off]; });
           const ww = Q.map(() => wd);
           outlinePath(t, Q, n, ww, ww); t.fill();

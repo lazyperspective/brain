@@ -20,17 +20,14 @@
   // <strokes>
   function STROKES() {
     // the head, drawn upright (face to the left) in millimetres on the glass, then tipped back 26 degrees
-    // against the seat. Seven strokes; none of them closes a shape.
+    // against the seat. Six strokes; none of them closes a shape.
     const head = [
-      // one long line: forehead, brow, the dip, down the nose and back under it
-      { name: 'brow-nose', dur: 1.7, pause: 0.0, end: 'stop', press: 0.95, pk: [[0, 0.68], [0.3, 0.9], [0.6, 1.15], [0.85, 1.22], [1, 1.0]],
-        pts: [[14,62],[5,86],[3,106],[11,121],[-3,142],[-21,163],[-12,175],[0,181]] },
+      // one long line: forehead, brow, the dip, down the nose, under it and onto the lip, where it stops
+      { name: 'brow-nose', dur: 2.0, pause: 0.0, end: 'stop', press: 0.95, pk: [[0, 0.68], [0.3, 0.9], [0.55, 1.15], [0.75, 1.1], [0.9, 0.8], [1, 1.1]],
+        pts: [[14,62],[4,86],[0,104],[14,121],[-6,140],[-28,158],[-14,171],[1,177],[-3,191],[4,199]] },
       // the closed eye: one soft arc
       { name: 'eye', dur: 0.55, pause: 0.7, end: 'stop', press: 0.82, jit: 0.6, pk: [[0, 0.8], [0.5, 1.0], [1, 0.75]],
         pts: [[36,127],[49,137],[64,138],[76,131]] },
-      // the mouth: a single press, dragged a little
-      { name: 'mouth', dur: 0.28, pause: 0.55, end: 'stop', press: 0.78, jit: 0.5,
-        pts: [[-3,197],[3,200],[8,201]] },
       // the hair: one wide fast swipe over the crown that falls away against the seat
       { name: 'hair', dur: 1.25, pause: 0.8, end: 'flick', press: 0.92, w: 1.28, pk: [[0, 0.72], [0.25, 1.15], [0.6, 1.0], [0.85, 0.78], [1, 0.7]],
         pts: [[38,30],[76,6],[136,-4],[194,16],[234,62],[248,122],[244,172],[254,208],[282,230],[318,240]] },
@@ -41,7 +38,7 @@
     const th = 26 * Math.PI / 180, c = Math.cos(th), s = Math.sin(th), px = 100, py = 240;
     const rot = (p) => [px + (p[0] - px) * c - (p[1] - py) * s, py + (p[0] - px) * s + (p[1] - py) * c];
     const H = head.map((r) => Object.assign({}, r, { pts: r.pts.map(rot) }));
-    const chin = [[-1,224],[2,240],[16,253]].map(rot);
+    const chin = [[-3,222],[0,238],[15,252]].map(rot);
     const body = [
       // chin, under the jaw and down the long throat in one sweep
       { name: 'chin-throat', dur: 1.6, pause: 0.6, end: 'stop', press: 0.92, pk: [[0, 1.15], [0.15, 1.0], [0.45, 0.7], [0.75, 0.95], [1, 1.18]],
@@ -533,7 +530,7 @@
     title: 'Breath',
     medium: 'Fingertip on condensation, night bus window',
     note: 'Draw on the glass. It will fog over again.',
-    about: 'Someone on the last bus home drew the stranger asleep across the aisle on the fogged window, in seven strokes of one finger. The drawing is made of absence: where the finger wiped, the city shows through, and the breath of the passengers slowly takes it back.',
+    about: 'Someone on the last bus home drew the stranger asleep across the aisle on the fogged window, in six strokes of one finger. The drawing is made of absence: where the finger wiped, the city shows through, and the breath of the passengers slowly takes it back.',
     tone: 'light',
     room: '#3a3f42',
 
@@ -621,7 +618,7 @@
         if (x0 > x1 || y0 > y1) return;
         const nx = -ty, ny = tx;
         const core = clamp(0.99 - 0.2 * vn - 0.45 * Math.max(0, 0.7 - P), 0.42, 0.99);
-        const ridgeAmp = clamp(0.03 + 0.14 * vn + 0.6 * Math.max(0, 0.82 - P), 0, 0.45);
+        const ridgeAmp = clamp(0.05 + 0.18 * vn + 0.7 * Math.max(0, 0.85 - P), 0, 0.5);
         const lam0 = Math.max(1.8, 0.55 * S * fsc);
         const ph1 = ridgeSeed * 6.283, ph2 = ridgeSeed * 17.0;
         const rimAmt = (0.5 + 0.5 * P) * (1 - 0.45 * vn);
@@ -773,8 +770,9 @@
             for (let k = -14; k <= 14; k++) { const q = i + k; if (q > 0 && q < n) pool[q] = Math.max(pool[q], 0.45 * Math.exp(-k * k / 60)); }
           }
         }
-        if (!flick) for (let k = 0; k < 10; k++) pool[n - 1 - k] = Math.max(pool[n - 1 - k], 0.7 * (1 - k / 10));
-        for (let k = 0; k < 8; k++) pool[k] = Math.max(pool[k], 0.35 * (1 - k / 8));
+        const long = L / mmPx > 70;
+        if (!flick && long) for (let k = 0; k < 10; k++) pool[n - 1 - k] = Math.max(pool[n - 1 - k], 0.7 * (1 - k / 10));
+        if (long) for (let k = 0; k < 8; k++) pool[k] = Math.max(pool[k], 0.35 * (1 - k / 8));
         return { def, pts, arc, tx, ty, time, P, HW, VN, pool, n, L, dur, k: 0, lastArc: -1e9, id: 0, t0: 0, done: false, ridge: r(), poolsOut: [] };
       }
 
