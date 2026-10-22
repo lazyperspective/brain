@@ -132,10 +132,11 @@
   const WLEV = [0.26, 0.32, 0.38, 0.45, 0.53, 0.62, 0.72, 0.84, 1.0, 1.2, 1.45, 1.75, 2.1, 2.6, 3.2, 4.0];
   const CH_COL = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)'];
   const CH_SC = [0.5, 0.55, 0.6];
-  let LC = null, B = new Map(), SEGS = 0, HIER = 1;
+  let LC = null, B = new Map(), SEGS = 0, HIER = 1, SEGOCC = null;
   function wIdx(w) { let i = 0; while (i < WLEV.length - 1 && w > (WLEV[i] + WLEV[i + 1]) * 0.5) i++; return i; }
   function seg(ch, x0, y0, x1, y1, a, w) {
     if (a < A0 * 0.75) return;
+    if (SEGOCC && SEGOCC((x0 + x1) * 0.5, (y0 + y1) * 0.5)) return;
     let ai = Math.round(Math.log(a / A0) / LNA); if (ai >= NA) ai = NA - 1; if (ai < 0) ai = 0;
     const key = ((ch * 16 + wIdx(w)) << 5) + ai;
     let b = B.get(key);
@@ -240,7 +241,7 @@
       const ws = wt.subarray(s0, j + 1), m = piece.length - 1;
       const tf = (x, y, t) => 1;
       const pr = profile('c');
-      stroke(piece, { a, w: o.w || 0.5, prof: (t) => pr(t) * ws[Math.round(t * m)] * (o.fade ? o.fade(piece[Math.round(t * m)]) : 1), trem: o.trem === undefined ? 0.12 : o.trem });
+      stroke(piece, { a, w: (o.w || 0.5) * 0.82, prof: (t) => pr(t) * ws[Math.round(t * m)] * (o.fade ? o.fade(piece[Math.round(t * m)]) : 1), trem: o.trem === undefined ? 0.12 : o.trem });
       if (o.re && R() < o.re) {
         const ox2 = rs(0.5), oy2 = rs(0.5), pc2 = piece.map((p) => [p[0] + ox2, p[1] + oy2]);
         const pr2 = profile('c');
@@ -340,7 +341,7 @@
     let vmin = 1e9, vmax = -1e9, umin = 1e9, umax = -1e9;
     for (const c of cs) { const v = c[0] * vx + c[1] * vy, u = c[0] * ux + c[1] * uy; vmin = Math.min(vmin, v); vmax = Math.max(vmax, v); umin = Math.min(umin, u); umax = Math.max(umax, u); }
     const bendS = rs(1) > 0 ? 1 : 1; // the hand's arc is consistent
-    const tf = (x, y) => { const t = tone(x, y); return t <= 0 ? 0 : Math.pow(Math.min(1, t), o.g || 0.9); };
+    const tf = (x, y) => { const t = tone(x, y); return t <= 0 ? 0 : Math.pow(Math.min(1, t), o.g || 0.7); };
     const du = 1.0;
     for (let v = vmin + R() * sp; v < vmax; v += sp * rr(0.8, 1.2)) {
       const vj = v + rs(sp * 0.12);
@@ -367,8 +368,12 @@
             const t = k / nb, u = cur + Ls * t, off = bb * (t * (1 - t) * 4);
             pts.push([ux * u + vx * (vj + off), uy * u + vy * (vj + off)]);
           }
-          stroke(pts, { a: a * rr(0.8, 1.15), w: o.w || 0.46, tone: tf, pt: 'h', trem: o.trem === undefined ? 0.12 : o.trem });
-          cur = end + rr(-0.8, 2.2);
+          const rq = R();
+          if (rq > 0.04) {
+            stroke(pts, { a: a * rr(0.75, 1.2), w: (o.w || 0.3) * rr(0.85, 1.15), tone: tf, pt: 'h', trem: o.trem === undefined ? 0.1 : o.trem, step: 2.2 });
+            if (rq > 0.955) { const dd = rr(0.25, 0.5); stroke(pts.map((q) => [q[0] + vx * dd, q[1] + vy * dd]), { a: a * 0.6, w: (o.w || 0.3), tone: tf, pt: 'h', trem: 0.1, step: 2.2 }); }
+          }
+          cur = end + rr(-1.2, 1.8);
         }
       }
     }
@@ -376,13 +381,18 @@
   // standard layered silverpoint shading: tone built only by superimposed hatching
   function shade(F, tone, o) {
     o = o || {};
-    const base = (o.ang === undefined ? 54 : o.ang) + rs(5);
-    const sp = o.sp || 1.7, a = (o.a || 0.45) * 1.25, w = o.w || 0.55;
-    const ly = Math.min(o.layers || 2, F.area < 30 ? 1 : F.area < 140 ? 2 : 4);
-    hatch(F, tone, { ang: base, sp, a, len: o.len, w, bend: o.bend });
-    if (ly >= 2) hatch(F, (x, y) => (tone(x, y) - 0.3) / 0.7, { ang: base - 11 + rs(4), sp: sp * 1.02, a: a * 0.95, len: o.len, w, t0: 0.02, bend: o.bend });
-    if (ly >= 3) hatch(F, (x, y) => (tone(x, y) - 0.55) / 0.45, { ang: base - 80 + rs(6), sp: sp * 1.08, a: a * 0.85, len: o.len2 || [6, 14], w, t0: 0.02, bend: 0.03 });
-    if (ly >= 3) hatch(F, (x, y) => (tone(x, y) - 0.78) / 0.22, { ang: base + 22 + rs(6), sp: sp * 1.15, a: a * 0.8, len: o.len2 || [5, 12], w, t0: 0.02, bend: 0.03 });
+    // silverpoint: hairlines, closely laid, tone built by many light passes at slowly turning angles
+    const base = (o.ang === undefined ? 54 : o.ang) + rs(7);
+    const spf = rr(0.85, 1.2), lf = rr(0.8, 1.25);
+    const sp = (o.sp || 1.7) * 0.47 * spf, a = (o.a || 0.45) * 1.0, w = (o.w || 0.3) * (o.w ? 0.62 : 1);
+    const len = (o.len || [9, 22]).map((v) => v * lf), len2 = (o.len2 || [6, 14]).map((v) => v * lf);
+    const maxL = Math.min((o.layers || 2) + 2, F.area < 30 ? 2 : F.area < 140 ? 3 : 6);
+    const passes = [[0, 0, 1], [-7, 0.16, 0.95], [8, 0.32, 0.9], [-15, 0.48, 0.85], [-72, 0.66, 0.75], [20, 0.8, 0.7]];
+    for (let k = 0; k < maxL; k++) {
+      const [da, th, af] = passes[k];
+      const tf = th ? (x, y) => (tone(x, y) - th) / (1 - th) : tone;
+      hatch(F, tf, { ang: base + da + rs(3), sp: sp * rr(0.95, 1.1), a: a * af, len: k >= 4 ? len2 : len, w, t0: 0.02, bend: k >= 4 ? 0.03 : o.bend });
+    }
   }
 
   /* curved cross-contour hatching through a parametric map M(s,t) -> [x,y] */
@@ -441,14 +451,14 @@
       else { x = inset; y = lerp(SH, 0, (t - 0.75) / 0.25); }
       gp.push([x, y]);
     }
-    g.beginPath(); tracePath(g, gp); g.fillStyle = 'rgb(160,177,183)'; g.fill();
+    g.beginPath(); tracePath(g, gp); g.fillStyle = 'rgb(164,172,165)'; g.fill();
     g.save(); g.beginPath(); tracePath(g, gp); g.clip();
     // broad soft unevenness of the coat
-    for (let i = 0; i < 46; i++) {
-      const x = rf(-50, SW + 50), y = rf(-50, SH + 50), r = rf(60, 220);
+    for (let i = 0; i < 22; i++) {
+      const x = rf(-50, SW + 50), y = rf(-50, SH + 50), r = rf(120, 320);
       const gr = g.createRadialGradient(x, y, 0, x, y, r);
       const lt = RF() < 0.5;
-      gr.addColorStop(0, lt ? 'rgba(200,214,216,0.09)' : 'rgba(110,126,136,0.09)');
+      gr.addColorStop(0, lt ? 'rgba(206,210,198,0.035)' : 'rgba(118,122,112,0.035)');
       gr.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r);
     }
@@ -457,20 +467,19 @@
     for (let coat = 0; coat < 2; coat++) {
       for (let b = 0; b < 34; b++) {
         const y = rf(-30, SH + 30), x0 = rf(-150, SW - 150), len = rf(240, 760), wid = rf(26, 70);
-        const ang = coat === 0 ? rf(-0.06, 0.06) : rf(0.18, 0.32) * (RF() < 0.5 ? 1 : -1);
+        const ang = coat === 0 ? rf(-0.035, 0.035) : rf(0.012, 0.05);
         const wav = rf(2, 9), wph = rf(0, 6), light = RF() < 0.5;
         const pts = [];
         for (let s = 0; s <= len; s += 16) pts.push([x0 + s * Math.cos(ang), y + s * Math.sin(ang) + Math.sin(s / 160 + wph) * wav]);
         const trace = () => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const q of pts) g.lineTo(q[0], q[1]); };
-        g.strokeStyle = light ? 'rgba(206,218,220,0.045)' : 'rgba(110,126,134,0.04)'; g.lineWidth = wid; trace(); g.stroke();
-        g.lineWidth = wid * 0.55; trace(); g.stroke();
+        g.strokeStyle = light ? 'rgba(208,212,200,0.022)' : 'rgba(116,122,112,0.02)'; g.lineWidth = wid; trace(); g.stroke();
         const nb = 9;
         for (let k = 0; k < nb; k++) {
           const off = (k / nb - 0.5) * wid * 0.95 + rf(-2, 2);
-          g.strokeStyle = (RF() < 0.5) ? 'rgba(220,230,230,' + rf(0.02, 0.05).toFixed(3) + ')' : 'rgba(100,114,122,' + rf(0.02, 0.045).toFixed(3) + ')';
-          g.lineWidth = rf(0.5, 2.2);
+          g.strokeStyle = (RF() < 0.5) ? 'rgba(214,218,206,' + rf(0.018, 0.04).toFixed(3) + ')' : 'rgba(108,114,104,' + rf(0.016, 0.034).toFixed(3) + ')';
+          g.lineWidth = rf(0.3, 1.1);
           g.beginPath();
-          const s0 = (rf(0, 0.25) * pts.length) | 0, s1 = pts.length - 1 - ((rf(0, 0.3) * pts.length) | 0);
+          const s0 = (rf(0, 0.5) * pts.length) | 0, s1 = Math.min(pts.length - 1, s0 + 3 + ((rf(0, 0.4) * pts.length) | 0));
           for (let i = s0; i <= s1; i++) { const q = pts[i]; const x = q[0] - off * Math.sin(ang), yy = q[1] + off * Math.cos(ang); if (i === s0) g.moveTo(x, yy); else g.lineTo(x, yy); }
           g.stroke();
         }
@@ -840,7 +849,8 @@
     const F = Form([P], o.sub || [], { blur: o.blur || 2.5, res: o.res || 1.8 });
     const base = o.base === undefined ? 0.08 : o.base, amp = o.amp === undefined ? 0.5 : o.amp, k = o.k === undefined ? 0.85 : o.k;
     const bb = bbox([P]), cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2, rad = Math.max(4, hyp(bb[2] - bb[0], bb[3] - bb[1]) / 2), gr = o.g || 0;
-    const tone = o.tone ? (x, y) => o.tone(x, y, F) : (x, y) => base + amp * clamp(k - F.lam(x, y, o.lk || 1), 0, 1) + gr * clamp(((x - cx) * 0.62 + (y - cy) * 0.78) / rad * 0.8 + 0.4, 0, 1);
+    const gr2 = o.g === undefined ? 0.3 : gr;
+    const tone = o.tone ? (x, y) => o.tone(x, y, F) : (x, y) => 0.05 + 1.3 * (base + amp * clamp(k - F.lam(x, y, o.lk || 1), 0, 1) + gr2 * clamp(((x - cx) * 0.62 + (y - cy) * 0.78) / rad * 0.8 + 0.4, 0, 1));
     if (!o.noShade && F.area > 1) shade(F, tone, { a: o.a || 0.42, sp: o.sp || 1.9, layers: o.layers || 2, len: o.len || [5, 12], ang: o.ang });
     if (!o.noLine) outline(P, { a: o.la || 0.55, w: o.lw || 0.5, re: o.re === undefined ? 0.25 : o.re, fade: o.fade, seg: o.seg || 26, lit: o.lit });
     return F;
@@ -1519,6 +1529,20 @@
     HIER = 1.18;
     const G = thoraxGeometry();
     const SP = spineData();
+    const TL = LUT(SP.path), sEnd = TL.L, sCut = SP.total * 0.44;
+    const TAILO = [[0, 36, 70], [40, 48, 68], [90, 49, 60], [140, 46, 52], [200, 40, 44], [280, 33, 35], [350, 26, 26], [410, 20, 20], [440, 18.5, 18], [470, 18, 17]];
+    const tM = (s, t) => { const p = TL.pt(s), d = TL.tan(s), nx = d[1], ny = -d[0]; const o = t > 0 ? t * pwl(TAILO, s, 1) : t * pwl(TAILO, s, 2); return [p[0] + nx * o, p[1] + ny * o]; };
+    const dorsal = [], ventral = [];
+    for (let s0 = 0; s0 <= sEnd; s0 += 2) { dorsal.push(tM(s0, 1)); ventral.push(tM(s0, -1)); }
+    const segSp = (s0) => lerp(13.5, 7.2, clamp(s0 / sEnd, 0, 1));
+    const myoA = (s0) => segSp(s0) * 1.7;
+    const sept = (t) => { const x = Math.abs(t); const tri = 1 - Math.abs(2 * x - 1); return -(tri * tri * (3 - 2 * tri)) * 0.9 - 0.3 * (1 - x) * (1 - x); };
+    const tailShade = (s0, t) => {
+      const d = TL.tan(s0), nx = d[1], ny = -d[0];
+      const tt = clamp(t, -0.999, 0.999), nz = Math.sqrt(1 - tt * tt);
+      const lam = nx * tt * L3[0] + ny * tt * L3[1] + nz * L3[2];
+      return clamp(0.82 - lam, 0, 1);
+    };
     const nearRib = G.ribs.map((r) => xy(r.near.poly));
     const nearCart = G.ribs.filter((r) => r.near.cart).map((r) => xy(r.near.cart.poly));
     const farRib = G.ribs.map((r) => xy(r.far.poly));
@@ -1546,7 +1570,41 @@
     const occNear = Form(nearRib.concat(nearCart, [scap, clav, hum.poly, hum.head]), [], { res: 1.4, blur: 1 });
     const occRibs = Form(nearRib.concat(nearCart), [], { res: 1.4, blur: 1 });
     const occGirdle = pip([scap, clav, hum.poly, hum.head]);
+    /* ---- the flayed layer: geometry of the muscles laid over the near half of the chest and flank */
+    const ribAt = (i, t) => at(xy(G.ribs[i].near.mid), t);
+    const fan = (O, I, bul) => { // fibre field between an origin curve and an insertion curve
+      const Ol = LUT(O), Il = LUT(I);
+      return { O, I, Ol, Il, bul: bul || 0, fib: (f, n) => { const o = Ol.pt(f * Ol.L), e = Il.pt(f * Il.L), m = [lerp(o[0], e[0], 0.5), lerp(o[1], e[1], 0.5)], d = norm2(e[0] - o[0], e[1] - o[1]), L = hyp(e[0] - o[0], e[1] - o[1]); const bu = typeof bul === 'function' ? bul(f) : bul || 0; return C([o, [m[0] + d[1] * bu * L, m[1] - d[0] * bu * L], e], 0.8); }, poly: null };
+    };
+    const MUS = [];
+    { // deltoid: from clavicle, acromion and spine of the scapula, converging on the humerus
+      const M = fan(C([[336, 230], [332.5, 214], [332, 200], [338.5, 188.5], [351, 187], [363, 193], [369, 205]], 0.8), C([[327.5, 269], [331, 276], [334, 272]], 0.6), (f) => (f - 0.45) * -0.22);
+      M.name = 'deltoid'; MUS.push(M);
+    }
+    { // pectoralis major, clavicular and sternocostal heads, twisting into one tendon under the deltoid
+      MUS.push(Object.assign(fan(C([[333.5, 243], [331, 258], [331.2, 274], [334.5, 288]], 0.8), C([[345, 230], [342, 238], [340, 244]], 0.6), 0.05), { name: 'pectC' }));
+      MUS.push(Object.assign(fan(C([[338, 293], [362, 301], [390, 309.5], [418, 317]], 0.8), C([[341, 241], [338, 249], [335.5, 256]], 0.6), (f) => 0.04 + 0.06 * f), { name: 'pectS' }));
+    }
+    for (let i = 2; i <= 7; i++) { // serratus anterior: a slip from each rib to the border of the scapula
+      const a0 = ribAt(i, 0.6), a1 = ribAt(i, 0.7), tx = lerp(346, 404, (i - 2) / 5), ty = lerp(197, 199, (i - 2) / 5);
+      MUS.push(Object.assign(fan(C([a0, [lerp(a0[0], a1[0], 0.5) + 1, lerp(a0[1], a1[1], 0.5) + 1.5], a1], 0.6), C([[tx - 3.2, ty], [tx + 3.2, ty + 0.4]], 0.6), -0.06), { name: 'serr' + i }));
+    }
+    { // external oblique: digitations on the lower ribs, fibres running down and forward into the flank and on into the tail
+      const O = C([ribAt(5, 0.93), ribAt(6, 0.92), ribAt(7, 0.9), ribAt(8, 0.88), ribAt(9, 0.84), [500, 270], [506, 272], [532, 285], [560, 298], [590, 305]], 0.8);
+      const I = C([[446, 300], [452, 312], [462, 326], [478, 337], [502, 331], [530, 325], [562, 321], [594, 318.5]], 0.8);
+      MUS.push(Object.assign(fan(O, I, 0.03), { name: 'obl' }));
+    }
+    for (const M of MUS) M.poly = M.O.concat(rev(M.I));
+    // the hypaxial band of the tail, continuing the oblique below the spine to where the tail is opened
+    const tbS = (s0) => lerp(-0.74, -0.46, sstep(60, 150, s0));
+    const bandTop = [], bandBot = [];
+    for (let s0 = 0; s0 <= sCut + 2; s0 += 2) { bandTop.push(tM(s0, tbS(s0) + 0.04 * Math.sin(s0 * 0.21))); bandBot.push(tM(s0, -1)); }
+    const bandPoly = bandTop.concat(rev(bandBot));
+    const MusF = Form(MUS.map((M) => M.poly).concat([bandPoly]), [], { res: 1.3, blur: 1 });
+    const DeltF = Form([MUS[0].poly], [], { res: 1.3, blur: 1 });
+    const musOcc = (x, y) => MusF.in(x, y);
 
+    SEGOCC = musOcc;
     /* ---- far ribs and the hollow of the cage */
     const gaps = [];
     for (let i = 0; i < 11; i++) {
@@ -1622,11 +1680,54 @@
     bone(scapSpine, { sub: [clav, hum.poly, hum.head], fade: hider([pip([clav, hum.poly, hum.head])]), blur: 1.4, base: 0.02, amp: 0.5, a: 0.42, res: 2.4 });
     bone(corac, { sub: [clav, hum.poly, hum.head], fade: hider([pip([clav, hum.poly, hum.head])]), blur: 1.0, base: 0.05, amp: 0.45, a: 0.4, res: 2.4 });
     bone(clav, { sub: [hum.poly, hum.head], fade: hider([pip([hum.poly, hum.head])]), blur: 2.0, base: 0.05, amp: 0.5, a: 0.4 });
+    SEGOCC = (x, y) => DeltF.in(x, y);
     bone(hum.head, { blur: 5, base: 0.04, amp: 0.55, a: 0.42 });
     bone(hum.poly, { sub: [hum.head], fade: hider([pip([hum.head])]), blur: 4, base: 0.02, amp: 0.5, g: 0.25, a: 0.42 });
     bone(hum.fossa, { tone: () => 0.62, a: 0.45, layers: 2, sp: 1.3, la: 0.35, lw: 0.42 });
     contour(hum.ridge, { a: 0.22, side: 0, w: 0.42 });
     flush(); await Y();
+
+    /* ---- the flayed muscles, each hatched along its own fibres */
+    const humOcc = Form([hum.poly, hum.head], [MUS[0].poly], { res: 1.3, blur: 1 }), scapOcc = Form([scap, scapSpine, corac], [], { res: 1.3, blur: 1 });
+    const drawMuscle = (M, o) => {
+      const F = Form([M.poly], [], { res: 1.3, blur: o.blur || 5 });
+      const bb = bbox([M.poly]), cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2, rad = Math.max(6, hyp(bb[2] - bb[0], bb[3] - bb[1]) / 2);
+      const tone = (x, y) => clamp((o.base || 0.12) + (o.amp || 0.6) * clamp(0.9 - F.lam(x, y, 1.2), 0, 1) + (o.g || 0.3) * clamp(((x - cx) * 0.62 + (y - cy) * 0.78) / rad * 0.8 + 0.4, 0, 1), 0, 1);
+      const n = Math.max(5, Math.round(M.Ol.L / ((o.sp || 0.95) * 0.8)));
+      for (let pass = 0; pass < 3; pass++) {
+        const th = pass * 0.24;
+        for (let k = 0; k <= n; k++) {
+          if (R() < 0.05) continue;
+          const f = clamp((k + rr(-0.35, 0.35) + pass * 0.33) / n, 0, 1), fib = M.fib(f);
+          const tEnd = 1 - (o.tendon || 0.12) * rr(0.7, 1.3);
+          let t = rr(0, 0.06);
+          while (t < tEnd) {
+            const te = Math.min(tEnd, t + rr(0.18, 0.42));
+            const piece = sub(fib, t, te);
+            if (piece.length > 1) stroke(piece, { a: (o.a || 0.42) * 1.45 * (pass ? 0.85 : 1), w: 0.3, pt: 'h', trem: 0.08, step: 2, tone: (x, y) => Math.max(0, (tone(x, y) - th) / (1 - th)) * (F.in(x, y) ? 1 : 0) });
+            t = te + rr(-0.03, 0.05);
+          }
+          // the glistening tendon or aponeurosis: a fine pale line
+          if (k % 2 === 0 && pass === 0) stroke(sub(fib, tEnd, 1), { a: 0.16, w: 0.28, pt: 'f' });
+        }
+      }
+      const side = area(M.poly) > 0 ? 1 : -1;
+      contour(M.poly.concat([M.poly[0]]), { a: o.la || 0.48, side, w: 0.48, re: 0.35, seg: 22, lit: 0.3 });
+      return F;
+    };
+    SEGOCC = (x, y) => humOcc.in(x, y) || DeltF.in(x, y);
+    drawMuscle(MUS[2], { a: 0.4, sp: 0.85, g: 0.32 }); flush(); await Y();
+    drawMuscle(MUS[1], { a: 0.4, sp: 0.85, g: 0.25 }); flush(); await Y();
+    SEGOCC = (x, y) => humOcc.in(x, y) || DeltF.in(x, y) || scapOcc.in(x, y);
+    for (const M of MUS) if (M.name.startsWith('serr')) { drawMuscle(M, { a: 0.38, sp: 0.8, g: 0.3, tendon: 0.18, blur: 2.5 }); }
+    flush(); await Y();
+    SEGOCC = null;
+    const oblF = drawMuscle(MUS[MUS.length - 1], { a: 0.4, sp: 0.85, g: 0.22, tendon: 0.08, blur: 7 });
+    // aponeurosis of the oblique: pale sheet running on to the belly line
+    for (let k = 0; k < 26; k++) { const f = k / 25, p0 = MUS[MUS.length - 1].Il.pt(f * 0.42 * MUS[MUS.length - 1].Il.L); stroke([p0, [p0[0] + 7 + rs(1), p0[1] + 11 + rs(1)]], { a: 0.14, w: 0.28, pt: 'f' }); }
+    drawMuscle(MUS[0], { a: 0.44, sp: 0.8, g: 0.3, tendon: 0.1, blur: 6, amp: 0.6 });
+    flush(); await Y();
+    SEGOCC = musOcc;
 
     /* ---- skull */
     const vault = sk(C(SKD.vault, 0.1)), cran = sk(CC(SKD.vault.concat(SKD.craniumClose), 0.1));
@@ -1682,6 +1783,7 @@
       }
     }
     flush(); await Y();
+    if (/sirenaGeo/.test(location.search)) window.__geo = { ribs: G.ribs.map((r) => [0.3, 0.45, 0.55, 0.65, 0.75, 0.85, 1].map((t) => at(xy(r.near.mid), t).map((v) => +v.toFixed(1)))), cart: G.ribs.map((r) => r.near.cart ? xy(r.near.cart.mid).filter((q, i, a) => i % 5 === 0 || i === a.length - 1).map((q) => q.map((v) => +v.toFixed(1))) : null), V: SP.V.map((v) => [v.t + v.i, +v.c[0].toFixed(1), +v.c[1].toFixed(1)]), shoulder, elbow, wrist, ster: [at(xy(G.sternum.a), 0), at(xy(G.sternum.a), 1)] };
     /* ---- forearm */
     const fa = norm2(wrist[0] - elbow[0], wrist[1] - elbow[1]), fpn = [fa[1], -fa[0]];
     const FL = hyp(wrist[0] - elbow[0], wrist[1] - elbow[1]);
@@ -1756,120 +1858,124 @@
     flush(); await Y();
 
     /* ---- the tail: flesh, myomeres, scales */
-    const TL = LUT(SP.path), sEnd = TL.L, sCut = SP.total * 0.44;
-    const TAILO = [[0, 36, 70], [40, 48, 68], [90, 49, 60], [140, 46, 52], [200, 40, 44], [280, 33, 35], [350, 26, 26], [410, 20, 20], [440, 18.5, 18], [470, 18, 17]];
-    const tM = (s, t) => { const p = TL.pt(s), d = TL.tan(s), nx = d[1], ny = -d[0]; const o = t > 0 ? t * pwl(TAILO, s, 1) : t * pwl(TAILO, s, 2); return [p[0] + nx * o, p[1] + ny * o]; };
-    const dorsal = [], ventral = [];
-    for (let s0 = 0; s0 <= sEnd; s0 += 2) { dorsal.push(tM(s0, 1)); ventral.push(tM(s0, -1)); }
-    const segSp = (s0) => lerp(13.5, 7.2, clamp(s0 / sEnd, 0, 1));
-    const myoA = (s0) => segSp(s0) * 1.7;
-    const sept = (t) => { const x = Math.abs(t); const tri = 1 - Math.abs(2 * x - 1); return -(tri * tri * (3 - 2 * tri)) * 0.9 - 0.3 * (1 - x) * (1 - x); };
-    const tailShade = (s0, t) => {
-      const d = TL.tan(s0), nx = d[1], ny = -d[0];
-      const tt = clamp(t, -0.999, 0.999), nz = Math.sqrt(1 - tt * tt);
-      const lam = nx * tt * L3[0] + ny * tt * L3[1] + nz * L3[2];
-      return clamp(0.82 - lam, 0, 1);
-    };
+    SEGOCC = null;
     // flesh zone polygon (from the cut to the root of the fin)
     const zone = [];
     const cutEdge = [];
     for (let k = 0; k <= 40; k++) { const t = -1 + (2 * k) / 40; cutEdge.push(tM(sCut + 4 * sept(t) + 2.5 * Math.sin(t * 9) + rs(0.6), t)); }
     for (let s0 = sCut; s0 <= sEnd; s0 += 2) zone.push(tM(s0, 1));
     for (let s0 = sEnd; s0 >= sCut; s0 -= 2) zone.push(tM(s0, -1));
-    const ZF = Form([cutEdge.concat(rev(zone.slice(zone.length / 2 | 0))).length ? zone : zone], [], { res: 1.0, blur: 4 });
+    const ZF = Form([zone], [], { res: 1.0, blur: 4 });
+    const BandF = Form([bandPoly], [], { res: 1.0, blur: 4 });
+    const inMus = (x, y) => ZF.in(x, y) || BandF.in(x, y);
     // the muscle is modelled as a turning cylinder; each myomere swells a little behind its septum
     const septS = [];
-    for (let s0 = sCut + segSp(sCut) * 0.6; s0 < sEnd - 5; s0 += segSp(s0) * rr(0.9, 1.1)) septS.push(s0);
+    for (let s0 = 8; s0 < sEnd - 5; s0 += segSp(s0) * rr(0.9, 1.1)) septS.push(s0);
     const tf = (() => {
-      const bb = bbox([zone]), x0 = bb[0] - 2, y0 = bb[1] - 2, w = Math.ceil(bb[2] - bb[0] + 4), h = Math.ceil(bb[3] - bb[1] + 4);
+      const bb = bbox([zone, bandPoly]), x0 = bb[0] - 2, y0 = bb[1] - 2, w = Math.ceil(bb[2] - bb[0] + 4), h = Math.ceil(bb[3] - bb[1] + 4);
       const g = new Float32Array(w * h).fill(-1);
-      let si = 0;
-      for (let s0 = sCut - 2; s0 <= sEnd; s0 += 0.5) {
-        for (let t = -1; t <= 1.0001; t += 0.02) {
+      let k0 = 0;
+      for (let s0 = 0; s0 <= sEnd; s0 += 0.5) {
+        while (k0 < septS.length - 1 && septS[k0 + 1] < s0 - 30) k0++;
+        const tTop = s0 < sCut ? tbS(s0) + 0.08 : 1.0001;
+        for (let t = -1; t <= tTop; t += 0.02) {
           const p = tM(s0, t), ix = Math.round(p[0] - x0), iy = Math.round(p[1] - y0);
           if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
-          // phase within the myomere, measured along the septum's offset
           const A = myoA(s0), sp0 = s0 - A * sept(t);
           let ph = 1;
-          for (let k = 0; k < septS.length; k++) { const d = sp0 - septS[k]; if (d >= 0 && d < segSp(s0) * 1.1) { ph = d / segSp(s0); break; } }
-          const sw = 0.08 * Math.exp(-ph * 5) - 0.03 * Math.exp(-(1 - ph) * 7);
-          g[iy * w + ix] = clamp(0.08 + 0.7 * tailShade(s0, t) + sw, 0, 1);
+          for (let k = k0; k < septS.length; k++) { const d = sp0 - septS[k]; if (d < 0) break; if (d < segSp(s0) * 1.1) { ph = d / segSp(s0); break; } }
+          const sw = 0.12 * Math.exp(-ph * 5) - 0.05 * Math.exp(-(1 - ph) * 7);
+          g[iy * w + ix] = clamp(0.1 + 0.72 * tailShade(s0, t) + sw, 0, 1);
         }
       }
       return (x, y) => { const ix = Math.round(x - x0), iy = Math.round(y - y0); if (ix < 0 || iy < 0 || ix >= w || iy >= h) return 0; const v = g[iy * w + ix]; return v < 0 ? 0 : v; };
     })();
-    shade(ZF, tf, { a: 0.48, sp: 1.6, layers: 3, len: [10, 22] });
+    shade(ZF, tf, { a: 0.5, sp: 1.5, layers: 4, len: [10, 24] });
+    shade(BandF, tf, { a: 0.5, sp: 1.5, layers: 4, len: [10, 24] });
+    flush(); await Y();
+    // hatching that curves round the tail on its shadowed underside, as if drawn across the cylinder
+    for (let s0 = 6; s0 < sEnd - 4; s0 += rr(0.9, 1.4)) {
+      const tTop = s0 < sCut ? tbS(s0) : 0.15, t0 = -1 + rr(0, 0.06), t1 = Math.min(tTop, rr(-0.35, 0.1));
+      if (t1 <= t0 + 0.1) continue;
+      const pts = []; for (let k = 0; k <= 10; k++) { const t = lerp(t0, t1, k / 10); pts.push(tM(s0 - 2.5 * (1 - t * t), t)); }
+      stroke(pts, { a: 0.3, w: 0.3, pt: 'h', step: 2, tone: (x, y) => (inMus(x, y) ? Math.pow(tf(x, y), 1.4) : 0) });
+    }
     flush(); await Y();
     // septa
     for (const s0 of septS) {
       const A = myoA(s0) * rr(0.9, 1.1), pts = [];
-      const ta = R() < 0.25 ? rr(-1, -0.2) : -1, tb = R() < 0.25 ? rr(0.3, 1) : 1;
+      const tTop = s0 < sCut ? tbS(s0) : 1;
+      const ta = R() < 0.2 ? rr(-1, -0.6) : -1, tb = s0 < sCut ? tTop : R() < 0.25 ? rr(0.3, 1) : 1;
       for (let k = 0; k <= 60; k++) { const t = lerp(ta, tb, k / 60); pts.push(tM(s0 + A * sept(t) + Math.sin(t * 5 + s0) * 0.6, t)); }
-      contour(pts, { a: 0.2, side: 0, w: 0.42, seg: 12, jit: 0.35, fade: (p) => (ZF.in(p[0], p[1]) ? 0.5 + 0.8 * tf(p[0], p[1]) : 0) });
+      contour(pts, { a: 0.24, side: 0, w: 0.4, seg: 12, jit: 0.35, fade: (p) => (inMus(p[0], p[1]) ? 0.5 + 0.8 * tf(p[0], p[1]) : 0) });
     }
+    // the upper border of the band, where it was lifted off the bones with the knife
+    contour(bandTop, { a: 0.42, side: 1, w: 0.46, re: 0.4, jit: 0.4 });
     // lateral line with its pores
     const ll = []; for (let s0 = sCut; s0 < sEnd; s0 += 2) ll.push(tM(s0, 0.04 * Math.sin(s0 * 0.05)));
     contour(ll, { a: 0.3, side: 0, w: 0.4, seg: 30 });
-    for (let s0 = sCut + 6; s0 < sEnd - 4; s0 += rr(4.5, 6)) { const p = tM(s0, 0.05); const e = ellipse(p[0], p[1], 0.7, 0.55, 0, 8); stroke(e, { a: 0.4, w: 0.45, pt: 'c', trem: 0.02 }); }
+    for (let s0 = sCut + 6; s0 < sEnd - 4; s0 += rr(4.5, 6)) { const p = tM(s0, 0.05); const e = ellipse(p[0], p[1], 0.7, 0.55, 0, 8); stroke(e, { a: 0.4, w: 0.4, pt: 'c', trem: 0.02 }); }
     // the cut: the knife's edge and a little of the cut face
-    contour(cutEdge, { a: 0.62, side: 0, w: 0.55, re: 0.6 });
+    contour(cutEdge.filter((p, i) => i >= 6), { a: 0.6, side: 0, w: 0.5, re: 0.6 });
     const face = [];
     for (let k = 0; k <= 40; k++) { const t = -1 + (2 * k) / 40; face.push(tM(sCut - 7 * Math.sqrt(1 - t * t) + 4 * sept(t), t)); }
-    contour(face, { a: 0.32, side: 0, w: 0.42 });
-    for (const r of [0.75, 0.5, 0.25]) { const arc = []; for (let k = 0; k <= 30; k++) { const t = (-1 + (2 * k) / 30) * r; arc.push(tM(sCut - 7 * Math.sqrt(1 - t * t) * r + 4 * sept(t) - 1, t)); } contour(arc, { a: 0.2, side: 0, w: 0.4 }); }
-    // scales on the root of the tail, begun and abandoned
-    for (let s0 = sEnd - 78; s0 < sEnd - 6; s0 += 5.2) {
-      const row = Math.round((s0 - sEnd) / 5.2);
-      for (let t = -0.92 + (row % 2) * 0.09; t < 0.95; t += 0.18) {
-        const cx = sEnd - 42, cy = 0.35;
-        const dd = hyp((s0 - cx) / 40, (t - cy) / 0.7);
-        if (dd > 1 + rs(0.15)) continue;
-        const c = tM(s0, t), d = TL.tan(s0), r = 3.4 * (1 - 0.25 * (s0 - sEnd + 78) / 78);
+    contour(face.filter((p, i) => i >= 6), { a: 0.3, side: 0, w: 0.42 });
+    for (const r of [0.75, 0.5, 0.25]) { const arc = []; for (let k = 0; k <= 30; k++) { const t = (-1 + (2 * k) / 30) * r; arc.push(tM(sCut - 7 * Math.sqrt(1 - t * t) * r + 4 * sept(t) - 1, t)); } contour(arc, { a: 0.18, side: 0, w: 0.4 }); }
+    // scales: they begin, sparse and faint, over the lower belly and thicken toward the fin; the muscle shows through
+    const scaleGlints = [];
+    for (let s0 = 30; s0 < sEnd - 5; ) {
+      const step = lerp(5.6, 4.2, s0 / sEnd);
+      const row = Math.round(s0 / 5);
+      for (let t = -0.94 + (row % 2) * 0.08; t < 0.96; t += lerp(0.17, 0.2, s0 / sEnd)) {
+        if (s0 < sCut && t > tbS(s0) - 0.03) continue;
+        let pr = s0 < sCut ? sstep(30, sCut, s0) * sstep(tbS(s0), -0.95, t) * 0.9 : 0.55 + 0.4 * sstep(sCut, sEnd - 60, s0);
+        if (s0 > sCut && s0 < sCut + 40) pr *= sstep(sCut, sCut + 40, s0);
+        if (R() > pr) continue;
+        const c = tM(s0, t), d = TL.tan(s0), r = lerp(3.6, 2.7, s0 / sEnd);
         const pts = [];
-        for (let k = 0; k <= 10; k++) { const a = -1.15 + (2.3 * k) / 10; const dx = Math.cos(a) * r, dy = Math.sin(a) * r * 0.9; pts.push([c[0] + d[0] * dx - d[1] * dy * -1, c[1] + d[1] * dx + d[0] * dy * -1]); }
-        stroke(pts, { a: 0.5 * (1 - dd * 0.6), w: 0.45, pt: 'c', trem: 0.06 });
+        for (let k = 0; k <= 10; k++) { const a = -1.15 + (2.3 * k) / 10; const dx = Math.cos(a) * r, dy = Math.sin(a) * r * 0.9; pts.push([c[0] + d[0] * dx + d[1] * dy, c[1] + d[1] * dx - d[0] * dy]); }
+        stroke(pts, { a: 0.14 + 0.28 * pr, w: 0.34, pt: 'c', trem: 0.06 });
+        if (pr > 0.5 && t > 0.2 && R() < 0.18) scaleGlints.push(pts);
       }
+      s0 += step;
     }
     flush(); await Y();
-    // contours of the body: definite on the tail, a ghost over the bones
-    const vis2 = (p) => 1;
-    contour(dorsal.filter((p, i) => i * 2 >= sCut - 2), { a: 0.6, side: 1, w: 0.55, re: 0.4 });
-    contour(ventral.filter((p, i) => i * 2 >= sCut - 2), { a: 0.62, side: -1, w: 0.55, re: 0.4 });
-    const ghost = (P, a) => { let i = 0; while (i < P.length - 3) { const n = Math.round(rr(6, 18)); stroke(P.slice(i, Math.min(P.length, i + n)), { a: a * rr(0.6, 1.2), w: 0.42, pt: 'c', trem: 0.25 }); i += n + Math.round(rr(1, 6)); } };
-    ghost(dorsal.filter((p, i) => i * 2 < sCut), 0.3);
-    ghost(ventral.filter((p, i) => i * 2 < sCut), 0.3);
-    // the torso's outline: nape, back, throat, breast and belly
-    const L5c = SP.V.find((v) => v.t === 'L' && v.i === 4).c;
+    // the skin's outline runs unbroken from the nape and the throat to the fin
+    contour(dorsal.filter((p, i) => i * 2 < sCut), { a: 0.32, side: 1, w: 0.46, seg: 20 });
+    contour(dorsal.filter((p, i) => i * 2 >= sCut - 4), { a: 0.6, side: 1, w: 0.52, re: 0.4 });
+    contour(ventral, { a: 0.6, side: -1, w: 0.52, re: 0.4 });
     const backLine = C([[256, 172], [276, 190], [306, 196], [345, 190], [392, 193], [440, 203], [505, 214], tM(0, 1)], 1.0);
-    const frontLine = C([[214, 286], [236, 293], [262, 300], [296, 318], [322, 346], [352, 362], [390, 366], [430, 352], [480, 330], [530, 320], tM(0, -1)], 1.0);
-    ghost(backLine, 0.34); ghost(frontLine, 0.34);
+    const frontLine = C([[214, 286], [236, 293], [262, 300], [296, 318], [322, 346], [352, 362], [390, 366], [430, 352], [480, 335], [530, 324], tM(0, -1)], 1.0);
+    contour(backLine, { a: 0.3, side: 1, w: 0.44, seg: 20, jit: 0.3 }); contour(frontLine, { a: 0.36, side: -1, w: 0.44, seg: 20, jit: 0.3 });
     flush(); await Y();
 
-    /* ---- the fin, its rays segmented and forked, left unfinished toward the edge */
+    /* ---- the fin: jointed, forking rays, the membrane between them, torn in two places */
     const fe = TL.pt(sEnd - 3), fd = TL.tan(sEnd), fdn = [fd[1], -fd[0]];
     const fl = (q) => [fe[0] + fd[0] * q[0] + fdn[0] * q[1], fe[1] + fd[1] * q[0] + fdn[1] * q[1]];
-    const trailL = C([[128, 76], [112, 60], [96, 40], [82, 18], [72, 2], [80, -16], [94, -38], [108, -58], [121, -74]], 1.0); // local coords
-    const leadD = C([[-2, 17], [26, 30], [62, 48], [98, 64], [128, 76]], 1.0), leadV = C([[-2, -17], [24, -28], [58, -44], [92, -60], [121, -74]], 1.0);
+    const trailL = C([[130, 78], [114, 61], [98, 41], [84, 19], [73, 2], [81, -16], [95, -38], [109, -58], [122, -75]], 1.0);
+    const leadD = C([[-6, 19], [26, 31], [62, 49], [98, 65], [130, 78]], 1.0), leadV = C([[-6, -19], [24, -29], [58, -45], [92, -61], [122, -75]], 1.0);
     const finPoly = leadD.concat(trailL.slice(1), rev(leadV)).map(fl);
-    const NR = 21;
+    const NR = 19;
     const rays = finRays({ m: (u, v) => fl([u, v]), n: NR, b0: [-2, 16], b1: [-2, -16], trail: trailL, bend: (f) => (0.5 - f) * 0.07 });
-    const FF = Form([finPoly], [], { res: 1, blur: 8 });
-    contour(leadD.map(fl), { a: 0.6, side: 1, w: 0.55, re: 0.5 });
-    contour(leadV.map(fl), { a: 0.62, side: -1, w: 0.55, re: 0.5 });
-    for (let k = 1; k < NR - 1; k++) {
-      const ray = rays[k], fin = k > 4 && k < 17 && R() < 0.4 ? rr(0.4, 0.7) : rr(0.85, 1.0);
-      const P = sub(ray, 0.02, fin);
-      stroke(P, { a: 0.44, w: 0.46, pt: 'c', trem: 0.06, prof: (t) => 1 - 0.6 * sstep(0.5, 1, t) });
-      if (fin > 0.8) { const sp = at(ray, 0.66), e = ray[ray.length - 1], d = norm2(e[0] - sp[0], e[1] - sp[1]); for (const sg of [-1, 1]) stroke([sp, [e[0] + d[1] * sg * 2.2, e[1] - d[0] * sg * 2.2]], { a: 0.26, w: 0.42, pt: 'h' }); }
-      for (let t = 0.3; t < fin * 0.9; t += rr(0.06, 0.09)) { const i = Math.round(t * (ray.length - 1)), p = ray[i], q = ray[Math.min(ray.length - 1, i + 1)], d = norm2(q[0] - p[0], q[1] - p[1]); stroke([[p[0] - d[1] * 1.1, p[1] + d[0] * 1.1], [p[0] + d[1] * 1.1, p[1] - d[0] * 1.1]], { a: 0.2, w: 0.4, pt: 'c', trem: 0.02 }); }
+    rays[0] = leadD.map(fl); rays[NR - 1] = leadV.map(fl);
+    const tear = { 5: 0.58, 12: 0.66 };
+    const tearPolys = [];
+    for (const k in tear) { const A = rays[+k], Bq = rays[+k + 1], te = tear[k]; tearPolys.push([at(A, te + 0.02), at(A, 1.0), at(Bq, 1.0), at(Bq, te + 0.02), [lerp(at(A, te)[0], at(Bq, te)[0], 0.5), lerp(at(A, te)[1], at(Bq, te)[1], 0.5)]]); }
+    const FF = Form([finPoly], tearPolys, { res: 1.2, blur: 7 });
+    // membrane tone: dark at the root, the lower lobe turned a little away from the light
+    shade(FF, (x, y) => { const d = hyp(x - fe[0], y - fe[1]); const q = (x - fe[0]) * fdn[0] + (y - fe[1]) * fdn[1]; return clamp((0.12 + 0.4 * sstep(80, 0, d) + 0.18 * sstep(10, -60, q)) * clamp(1.05 - FF.lam(x, y, 0.6), 0.3, 1), 0, 1); }, { a: 0.42, sp: 1.4, layers: 4, len: [8, 18], ang: 64 });
+    for (let k = 0; k < NR - 1; k++) {
+      const A = rays[k], Bq = rays[k + 1], te = tear[k] || 0.97;
+      for (const u of [0.33, 0.66]) { const pts = []; for (let i = 0; i <= 22; i++) { const t = lerp(0.12, te * rr(0.85, 0.98), i / 22); const pa = at(A, t), pb = at(Bq, t); pts.push([lerp(pa[0], pb[0], u), lerp(pa[1], pb[1], u)]); } stroke(pts, { a: 0.16, w: 0.28, pt: 'f', trem: 0.1 }); }
+      const pa = at(A, te), pb = at(Bq, te), pm = [lerp(pa[0], pb[0], 0.5) - fd[0] * (tear[k] ? 14 : 2.5), lerp(pa[1], pb[1], 0.5) - fd[1] * (tear[k] ? 14 : 2.5)];
+      contour(C([pa, pm, pb], 0.6), { a: tear[k] ? 0.5 : 0.42, side: 0, w: 0.46 });
     }
-    for (let k = 0; k < NR - 1; k++) { if (k % 2) continue; const A = rays[k], Bq = rays[k + 1], pts = []; for (let i = 0; i <= 20; i++) { const t = (i / 20) * 0.5; const pa = at(A, t), pb = at(Bq, t); pts.push([lerp(pa[0], pb[0], 0.5), lerp(pa[1], pb[1], 0.5)]); } stroke(pts, { a: 0.18, w: 0.4, pt: 'h' }); }
-    // trailing edge: drawn only in part, frayed where the membrane has split
-    const trailS = trailL.map(fl);
-    contour(sub(trailS, 0, 0.38), { a: 0.5, side: -1, w: 0.48, re: 0.3 });
-    contour(sub(trailS, 0.36, 0.64), { a: 0.26, side: -1, w: 0.44, jit: 0.4 });
-    contour(sub(trailS, 0.62, 1), { a: 0.46, side: -1, w: 0.46, re: 0.3 });
-    shade(FF, (x, y) => { const d = hyp(x - fe[0], y - fe[1]); return (0.14 + 0.42 * sstep(70, 0, d)) * clamp(1.05 - FF.lam(x, y, 0.6), 0, 1); }, { a: 0.4, sp: 1.8, layers: 2, len: [8, 18], ang: 62 });
+    flush(); await Y();
+    contour(leadD.map(fl), { a: 0.66, side: 1, w: 0.56, re: 0.5 });
+    contour(leadV.map(fl), { a: 0.68, side: -1, w: 0.56, re: 0.5 });
+    for (let k = 1; k < NR - 1; k++) drawRay(rays[k], { fin: k > 6 && k < 12 && R() < 0.3 ? 0.7 : 1, w0: 2.6, w1: 0.7, seg: 8.5, joints: true, shadeIt: false, gap: 0.55, spread: 0.05, s1: 0.5 + rs(0.04), s2: 0.78 + rs(0.03) });
+    // procurrent rays: small spines along the edges of the root
+    for (const sg of [1, -1]) for (let k = 0; k < 6; k++) { const b = fl([-30 + k * 5, sg * (17.5 + k * 0.2)]), e = fl([-23 + k * 5.4, sg * (19.5 + k * 0.5)]); stroke([b, e], { a: 0.4, w: 0.32, pt: 'h' }); }
     flush(); await Y();
     /* ---- satellites */
     HIER = 0.92;
@@ -1950,7 +2056,7 @@
     // the back of the tail catches the light along its length; the lateral line glints
     { const ridge = []; for (let s0 = sCut + 6; s0 < sEnd - 20; s0 += 2) ridge.push(tM(s0, 0.72)); let i = 0; while (i < ridge.length - 4) { const k = Math.round(rr(8, 22)); white(ridge.slice(i, Math.min(ridge.length, i + k)), { w: rr(0.9, 1.5), a: rr(0.35, 0.55) }); i += k + Math.round(rr(4, 14)); } }
     for (let s0 = sCut + 20; s0 < sEnd - 10; s0 += rr(16, 30)) { const p = tM(s0, 0.08); dab(p[0], p[1], 0.7, 0.4); }
-    for (const k of [2, 6, 11, 15, 19]) { const r = rays[k]; white(sub(r, 0.12, 0.42).map((p) => [p[0] - 0.6, p[1] - 0.6]), { w: 0.7, a: 0.4 }); }
+    for (const k of [2, 6, 10, 14, 17]) { const r = rays[k]; white(sub(r, 0.12, 0.42).map((p) => [p[0] - 0.6, p[1] - 0.6]), { w: 0.7, a: 0.4 }); }
     // head study
     white(HS.forehead.map((p) => [p[0] + 1.3, p[1] + 0.4]), { w: 1.4, a: 0.66 }); white(HS.nose.map((p) => [p[0] + 0.9, p[1] + 0.2]), { w: 1.0, a: 0.66 });
     white(HS.lip.map((p) => [p[0] + 0.6, p[1]]), { w: 0.9, a: 0.6 }); dab(HS.cheek[0], HS.cheek[1], 1.4, 0.45); dab(HS.ear[0], HS.ear[1], 0.8, 0.4);
@@ -2063,16 +2169,16 @@
               const li = (rowL + x) * 4;
               const sv = Ld[li], ik = Ld[li + 1], wh = Ld[li + 2];
               const tooth = wn[t1 + (x % P1)] * 0.45 + vn[t2 + (x % P2)] * 0.55;
-              const gm = 1 + (tooth - 0.5) * 0.07;
+              const gm = 1 + (tooth - 0.5) * 0.085;
               let r = Gd[gi] * gm, g = Gd[gi + 1] * gm, b = Gd[gi + 2] * gm;
               if (sv) {
                 const sx = (sv / 255) * 2;
-                let d = 1 - Math.exp(-2.6 * sx);
-                const thr = 0.62 - 0.75 * d;
+                let d = 1 - Math.exp(-3.3 * sx);
+                const thr = 0.6 - 0.72 * d;
                 let c = (tooth - thr) / 0.2 + 0.5; c = c < 0 ? 0 : c > 1 ? 1 : c;
-                let dd = d * (0.3 + 0.7 * c) * 0.9;
+                let dd = d * (0.32 + 0.68 * c) * 0.84;
                 if (x - fx < 2 && fx - x < 2) dd *= 0.6;
-                r += (70 - r) * dd; g += (60 - g) * dd; b += (52 - b) * dd;
+                r += (102 - r) * dd; g += (90 - g) * dd; b += (78 - b) * dd;
               }
               const su = Ld[(rowU + (x > 0 ? x - 1 : 0)) * 4], sd = Ld[(rowD + (x < PW - 1 ? x + 1 : x)) * 4];
               if (su !== sd) { const e = (sd - su) * 0.045; r += e; g += e; b += e; }

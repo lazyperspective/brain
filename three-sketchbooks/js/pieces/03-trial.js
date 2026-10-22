@@ -724,7 +724,7 @@
       wall: { top: 330, bot: 960, cols: [[24, 150], [172, 300], [322, 450], [472, 600], [622, 750], [772, 900], [922, 990]], dado: [20, 330, 620] },
       dark: '60,330 520,330 560,520 520,700 60,700',
       focus: [300, 480],
-      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [740, 120], jury: [236, 1786], steno: [636, 1000], feather: [600, 1836], sig: [830, 1882] },
+      notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [740, 120], jury: [236, 1786], steno: [610, 948, 230], feather: [600, 1836], sig: [830, 1882] },
       targets: { juror: [74, 1752], feather: [706, 1750] },
     };
   }
@@ -880,6 +880,15 @@
       filling: B.pick(['egg', 'ham', 'cress']),
     };
     const W = room.wood;
+    // everything the minutes will say is decided now, so a resized sheet tells the same story
+    const words = {
+      n1: B.pick(['def. sworn in (on cushion)', 'def. declines oath', 'def. takes the stand. sits']),
+      n2: B.pick(GOOSE_POSES[poses[1]].note), n3: B.pick(GOOSE_POSES[poses[2]].note),
+      d2: 3 + Math.floor(B.rnd(0, 6)), d3: 6 + Math.floor(B.rnd(0, 8)), m0: Math.floor(B.rnd(0, 5)),
+      steno: B.pick(['steno asks how many Ks in honk', 'steno: spelling of honk?', 'steno requests honk be repeated']),
+      feather: B.pick(['feather - not yet in evidence', 'feather (Exh. D?)', 'one feather. origin disputed']),
+      judge: B.pick(['R. Albright', 'M. Okafor', 'J. Whitcombe', 'P. Delacroix']),
+    };
 
     /* ---- figure data (landscape sheet units) */
     const F = {};
@@ -1384,7 +1393,7 @@
     }
 
     /* ---- notes in the artist's hand */
-    let mins = 52 + Math.floor(B.rnd(0, 5)), hrs = 10;
+    let mins = 52 + words.m0, hrs = 10;
     const stamp = (adv) => { mins += adv; while (mins >= 60) { mins -= 60; hrs++; } return hrs + ':' + String(mins).padStart(2, '0'); };
     const slots = layout.notes || {
       head: [40, 66], A1: [470, 52], A2: [470, 92], B1: [920, 52], B2: [1290, 52],
@@ -1393,7 +1402,11 @@
     function note(slot, text, size, o) {
       const p = slots[slot]; if (!p) return;
       B.at('');
-      B.write(text, p[0], p[1], size || 12.5, Object.assign({ w: 1.6, sp: 900 }, o || {}));
+      size = size || 12.5;
+      // wrap to the slot's width if it has one, the way a note squeezes into the space left
+      const lines = [];
+      if (p[2]) { let cur = ''; text.split(' ').forEach((wd) => { const t = cur ? cur + ' ' + wd : wd; if (cur && B.textWidth(t, size) > p[2]) { lines.push(cur); cur = wd; } else cur = t; }); lines.push(cur); } else lines.push(text);
+      lines.forEach((ln, i) => B.write(ln, p[0] + (i ? size * 0.8 : 0), p[1] + i * size * 2, size, Object.assign({ w: 1.6, sp: 900 }, o || {}, i ? { pause: 60 } : {})));
     }
     function arrow(from, to) {
       B.at('');
@@ -1409,14 +1422,14 @@
     gooseGesture(geo[0]);
     gooseNeck(geo[0], { a: 0.8, w: 1.9 });
     gooseBody();
-    note('A1', stamp(0) + '  ' + B.pick(['def. sworn in (on cushion)', 'def. declines oath', 'def. takes the stand. sits']));
+    note('A1', stamp(0) + '  ' + words.n1);
     figGesture(F.lawyer);
     figPen(F.lawyer);
     // it moves
     B.pause(300);
     gooseGesture(geo[1]);
     gooseNeck(geo[1], { a: 0.86, w: 2.1 });
-    note('A2', stamp(3 + Math.floor(B.rnd(0, 6))) + '  def. ' + B.pick(GOOSE_POSES[poses[1]].note));
+    note('A2', stamp(words.d2) + '  def. ' + words.n2);
     figColour(F.lawyer);
     figGesture(F.judge);
     figPen(F.judge); figPen(F.chair);
@@ -1431,7 +1444,7 @@
     B.pause(500);
     gooseGesture(geo[2]);
     gooseNeck(geo[2], { a: 0.95, w: 2.6 });
-    note('B1', stamp(6 + Math.floor(B.rnd(0, 8))) + '  def. ' + B.pick(GOOSE_POSES[poses[2]].note));
+    note('B1', stamp(words.d3) + '  def. ' + words.n3);
     coverUp(geo[1]);
     gooseColour(geo[2]);
     cushionColour();
@@ -1450,12 +1463,12 @@
     B.write('asleep since', slots.jury[0], slots.jury[1] + 22, 12, { w: 1.5, pause: 60 });
     B.write('10:15', slots.jury[0], slots.jury[1] + 44, 12, { w: 1.5, pause: 60 });
     arrow([slots.jury[0] + 40, slots.jury[1] - 22], (layout.targets || {}).juror || [58, 548]);
-    note('steno', B.pick(['steno asks how many Ks in honk', 'steno: spelling of honk?', 'steno requests honk be repeated']), 11.5);
-    note('feather', B.pick(['feather - not yet in evidence', 'feather (Exh. D?)', 'one feather. origin disputed']), 11.5);
+    note('steno', words.steno, 11.5);
+    note('feather', words.feather, 11.5);
     arrow([slots.feather[0] - 8, slots.feather[1] - 12], (layout.targets || {}).feather || [800, 874]);
     note('head', 'PEOPLE v. GOOSE', 19, { w: 2.2, slant: 0.08, sp: 800 });
     B.at(''); B.pen([[[slots.head[0] - 4, slots.head[1] + 9], [slots.head[0] + 300, slots.head[1] + 6]]], { w: 1.8, z: null, nocut: true, sp: 1400 });
-    B.write('Dept. 9   Hon. ' + B.pick(['R. Albright', 'M. Okafor', 'J. Whitcombe', 'P. Delacroix']), slots.head[0], slots.head[1] + 36, 11, { w: 1.4 });
+    B.write('Dept. 9   Hon. ' + words.judge, slots.head[0], slots.head[1] + 36, 11, { w: 1.4 });
     const rec = stamp(Math.max(1, 42 - mins + (hrs === 11 ? 0 : 60)));
     clockHands(ck, hrs, mins);
     note('B2', rec + '  recess', 13, { w: 1.8 });
@@ -1470,7 +1483,7 @@
     const rnd = mulberry32(seed);
     const H = new Float32Array(T * T);
     // the felt pattern of pastel paper: a loose honeycomb of tiny pits (jittered-grid cellular noise)...
-    const cell = Math.max(2.4, feat * 2.3);
+    const cell = Math.max(2.4, feat * 1.55);
     const nc = Math.max(4, Math.round(T / cell)), cs = T / nc;
     const fx = new Float32Array(nc * nc), fy = new Float32Array(nc * nc);
     for (let i = 0; i < nc * nc; i++) { fx[i] = 0.15 + rnd() * 0.7; fy[i] = 0.15 + rnd() * 0.7; }
@@ -1594,10 +1607,9 @@
     const base = document.createElement('canvas');
     const live = document.createElement('canvas');
     const tmp = document.createElement('canvas');
-    const CPU = /trialcpu=1/.test(location.search) ? { willReadFrequently: true } : undefined;
-    const tx = tmp.getContext('2d', CPU);
+    const tx = tmp.getContext('2d');
     [base, live].forEach((c) => { c.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;display:block'; el.appendChild(c); });
-    const bx = base.getContext('2d', CPU), lx = live.getContext('2d', CPU);
+    const bx = base.getContext('2d'), lx = live.getContext('2d');
     const V = { s: 1, ox: 0, oy: 0, W: 0, H: 0, dpr: 1, masks: [], grain: null, sheet: null };
     let dirty = null;
 
@@ -1804,9 +1816,7 @@
     function clearLive() {
       if (dirty) { lx.clearRect(dirty[0] - 2, dirty[1] - 2, dirty[2] + 4, dirty[3] + 4); dirty = null; }
     }
-    const PROF = (window.__trialProf = {});
     function commit(st) {
-      const t0 = performance.now();
       drawLive(st, 1);
       if (dirty) {
         const [x, y, w, h] = dirty;
@@ -1818,7 +1828,6 @@
         }
       }
       clearLive();
-      const pr = PROF[st.tool] || (PROF[st.tool] = [0, 0]); pr[0]++; pr[1] += performance.now() - t0;
     }
     return { setup, drawLive, commit, clearLive, V, base, live };
   }
@@ -1828,7 +1837,7 @@
     let t = 0;
     for (const st of strokes) {
       st.dur = st.len ? Math.max(30, (st.len / st.sp) * 1000) : 0;
-      if (!isFinite(st.dur) || !isFinite(st.pause || 0)) { console.warn('bad stroke', st.tool, st.len, st.sp, st.pause); st.dur = 30; st.pause = 0; }
+      if (!isFinite(st.dur)) st.dur = 30;
     }
     const raw = strokes.reduce((a, st) => a + st.dur + (st.pause || 0), 0);
     const k = clamp(target / raw, 0.35, 1.8);
@@ -1839,7 +1848,6 @@
     return t;
   }
 
-  window.__trialDebug = { buildScore, makeLayout, timeline };
   (window.PIECES = window.PIECES || []).push({
     id: 'trial',
     title: 'The People v. a Goose',
@@ -1891,7 +1899,7 @@
             if (S[idx].len || S[idx].tool === 'wash') R.commit(S[idx]); idx++;
           }
           if (idx >= S.length || S[idx].t0 + S[idx].dur > clock) {
-            catchup = false; window.__trialDone = performance.now();
+            catchup = false; if (jump) window.__trialDone = performance.now();
             if (!readied) { readied = true; api.ready(); }
           }
           raf = requestAnimationFrame(frame); return;
@@ -1933,14 +1941,14 @@
       el.appendChild(hint);
       let idleT = 0;
       function onFinished() {
-        hint.style.opacity = '1';
+        hint.style.opacity = '1'; el.style.cursor = 'pointer';
         clearTimeout(idleT);
         idleT = setTimeout(() => { if (alive && finished) newSession(); }, 50000);
       }
       function newSession() {
         if (!alive) return;
         clearTimeout(idleT);
-        hint.style.opacity = '0';
+        hint.style.opacity = '0'; el.style.cursor = 'default';
         // the finished sheet is lifted off the board...
         const old = document.createElement('canvas');
         old.width = R.base.width; old.height = R.base.height;

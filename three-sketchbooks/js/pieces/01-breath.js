@@ -285,6 +285,9 @@
     night += vec3(0.11, 0.12, 0.12) * exp(-pow((y01 - 0.06 - 0.04 * uv.x) * 22.0, 2.0)) * 0.5;
 
     vec3 col = mix(fog, mix(night, fog, veil), clr);
+    // the film of water the fingertip leaves for an instant, catching the ceiling lamps
+    float wet = exp(-max(age, 0.0) * 3.5) * fresh * (1.0 - kind);
+    col += vec3(0.16, 0.17, 0.18) * wet * (0.5 + 0.5 * vnoise(p / (0.6 * mm) + uT * 0.0));
 
     /* ---- pushed water: rims of beads along the strokes ---- */
     float wv = waterAt(p);
@@ -298,12 +301,14 @@
     for (int i = 0; i < 8; i++){
       vec4 D = uDrip[i];
       if (D.w <= 0.0) continue;
-      vec2 d = (p - D.xy) / vec2(D.z, D.z * 1.22);
-      d.y -= 0.12;
+      // a teardrop: round and heavy below, drawn up into its own trail above
+      vec2 d = (p - D.xy) / D.z;
+      d.y = d.y < 0.0 ? d.y / (1.0 + 1.2 * clamp(-d.y, 0.0, 1.5)) * 0.62 : d.y;
+      d.x *= 1.0 + 0.35 * clamp(-d.y, 0.0, 1.0);
       float dd = dot(d, d);
       if (dd < 1.0){
         vec4 b = vec4(d, sqrt(1. - dd), D.z);
-        col = mix(col, shadeBead(b, p, col, fogLum), D.w);
+        col = mix(col, shadeBead(b, p, col, fogLum), D.w * (0.75 + 0.25 * smoothstep(-0.6, 0.2, d.y)));
       }
     }
 
