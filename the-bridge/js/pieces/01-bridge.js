@@ -284,7 +284,7 @@
     const nz = noise.v2, fbm = noise.fbm;
 
     const portrait = want.portrait;
-    const SW = portrait ? 1000 : 1500, SH = portrait ? 1500 : 1000; // sheet image units
+    const SW = portrait ? 1000 : 1500, SH = portrait ? 1680 : 1000; // sheet image units
     const long = want.long;
     const IW = portrait ? Math.round(long * SW / SH) : long;
     const k = IW / SW;
@@ -356,7 +356,7 @@
 
     /* ---------- camera (metres; the bridge runs along +z, its deck at y=0) */
     const cam = portrait
-      ? { x: 1.8, y: 2.2, z: 0, yaw: -0.24, f: 980, px: 470, py: 600 }
+      ? { x: 1.6, y: 2.1, z: 0, yaw: -0.22, f: 940, px: 470, py: 720 }
       : { x: 2.6, y: 1.75, z: 0, yaw: -0.36, f: 1100, px: 630, py: 560 };
     const cy0 = Math.cos(cam.yaw), sy0 = Math.sin(cam.yaw);
     const C3 = (x, y, z) => [(x - cam.x) * cy0 - (z - cam.z) * sy0, y - cam.y, (x - cam.x) * sy0 + (z - cam.z) * cy0];
@@ -387,7 +387,7 @@
     const toVPpx = (vx, vy) => { const X = IX + vx * k, Y = IY + vy * k; return (x, y) => Math.atan2(Y - y, X - x); };
 
     const L = {};
-    const ZWIZ = portrait ? 5.0 : 5.2, ZBAL = portrait ? 19 : 20;
+    const ZWIZ = portrait ? 4.0 : 5.2, ZBAL = portrait ? 19 : 20;
     L.wiz = P(0, 0, ZWIZ);
     L.wizS = (L.wiz[1] - P(0, 1.85, ZWIZ)[1]) / 100;     // units per wizard-unit (100 wu = 1.85 m)
     L.bal = P(0, 0, ZBAL);
@@ -581,8 +581,8 @@
 
     /* ================================================================ SCENE LAYOUT */
     const lay = portrait ? {
-      rift: [[40, -30], [92, 80], [70, 190], [104, 300], [86, 420], [150, 520], [128, 600], [190, 700], [262, 690], [318, 640], [330, 560], [296, 470], [236, 400], [196, 300], [180, 190], [140, 90], [120, -30]],
-      eyeF: 0.5, glow: [660, 1240], glowR: 560, wallZ: 95,
+      rift: [[60, -30], [104, 100], [80, 230], [112, 360], [70, 470], [46, 580], [60, 690], [40, 790], [120, 830], [196, 790], [210, 700], [186, 610], [204, 500], [176, 400], [196, 300], [174, 190], [196, 100], [150, -30]],
+      eyeF: 0.42, glow: [700, 1380], glowR: 560, wallZ: 95,
       pillars: [
         { x: -6.4, z: 8.5, w: 2.2, near: true, rune: 1 },
         { x: 5.4, z: 16.5, w: 2.4, near: true, rune: 1 },
@@ -605,7 +605,7 @@
     const HT = (p) => [-20 + (p[0] + 20) * 0.9, -95 + (p[1] + 95) * 0.9];
     const BXH = (pts) => BX(pts.map(HT));
     const W0 = L.wiz, ws = L.wizS, WX = xf(W0, ws);
-    L.blaze = WX([[-43.4, -188]])[0];
+    L.blaze = WX([[-39.2, -188]])[0];
 
     // base: cave darkness everywhere
     tctx.fillStyle = gray(0.95); tctx.fillRect(0, 0, SW, SH);
@@ -1213,7 +1213,6 @@
       return { W, bones, path, lead: BX(ws_.lead) };
     }
     L.wingL = wing(-1);
-    if (debug) { const W = L.wingL.W; const bb = W.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [1e9, 1e9, -1e9, -1e9]); console.warn('[bridge] wingL bbox', bb.map(Math.round).join(','), 'n', W.length, 'B0', B0.map(Math.round).join(','), 'bs', bs.toFixed(2)); }
     L.wingR = wing(1);
 
     /* ---------------------------------------------------------- fire: the mane (behind the body) */
@@ -1421,7 +1420,7 @@
         const j1 = RR(-5, 5), j2 = RR(-6, 6), j3 = RR(-8, 8);
         const ctrl = [[0, 0], [8 + s0 * 3, -6 - s0 * 4], [18 + s0 * 6 + j1, -4 - s0 * 5], [27 + s0 * 8 + j1, 6 + s0 * 2], [24 + s0 * 12 + j2, 20 + s0 * 5 + j1], [14 + s0 * 14 + j2, 32 + s0 * 8], [6 + s0 * 18 + j3, 44 + s0 * 10 + j2], [12 + s0 * 22 + j3, 56 + s0 * 12 + j3]];
         if (i % 2 === 0) { const e = ctrl[ctrl.length - 1]; ctrl.push([e[0] + 6, e[1] + 2], [e[0] + 8, e[1] - 4], [e[0] + 3, e[1] - 7]); }
-        const pts = ctrl.map(([x, y]) => [fist[0] + (x + RR(-2, 2)) * bs, fist[1] + (y + RR(-2, 2)) * bs]);
+        const pts = ctrl.map(([x, y]) => [fist[0] + (x * (portrait ? 0.45 : 1) + RR(-2, 2)) * bs, fist[1] + (y * (portrait ? 1.15 : 1) + RR(-2, 2)) * bs]);
         L.whip.push(spline(pts, false, 10));
       }
       OBJ = O.FIRE;
@@ -1450,32 +1449,35 @@
         [27, -1], [22, -2.5], [17, -0.5], [12, -2.2], [6, -0.6], [0, -2], [-6, -0.8], [-12, -2.6], [-18, -1.4], [-24, -4], [-30, -6.5],
         [-37, -9], [-45, -12.5], [-53, -17], [-60, -20], [-64, -24], [-58, -25.5], [-62, -30], [-54, -31], [-48, -36],
         [-42, -44], [-36, -53], [-30, -61], [-25, -68], [-20, -74], [-16, -79], [-11, -83.5], [-5, -86]]);
-      wizShapes.sleeveL = S([[-12, -83], [-13, -90], [-16, -97], [-19.5, -103], [-23, -108.5], [-27.5, -107], [-32.5, -109], [-33.2, -104], [-33.6, -98], [-37.5, -91.5], [-34.2, -88.4], [-30, -81], [-22, -77]]);
-      wizShapes.forearmL = S([[-23, -108], [-25.5, -114], [-28.5, -120.5], [-33.5, -120.5], [-32.5, -114], [-32.5, -108.5]], 5);
-      wizShapes.sleeveMouth = S([[-22.8, -108.2], [-27.5, -106.2], [-32.8, -108.6], [-27.5, -110.6]], 5);
+      // the raised arm in its wide sleeve: the cloth runs up the arm to the wrist and hangs below it like a sail
+      wizShapes.sleeveL = S([[-9.6, -86], [-12, -95], [-15.4, -104], [-19.6, -112], [-23.6, -118.6], [-26.4, -119.8], [-28.6, -116.6], [-30.4, -110], [-32.6, -103], [-35.6, -96.4], [-38.6, -90.4], [-35.4, -89.2], [-37.4, -86], [-31.6, -84.4], [-25.6, -81.4], [-18.6, -79.4]]);
+      wizShapes.forearmL = S([[-23, -117.6], [-24.4, -120.4], [-27.2, -121.2], [-28.4, -118.4], [-26, -116.6]], 5);
+      wizShapes.sleeveMouth = S([[-23.4, -118.4], [-25.6, -116.6], [-28.6, -116.4], [-26.6, -119.6]], 5);
       wizShapes.sleeveR = S([[14, -82], [20, -80], [26, -75], [31, -70], [36, -67.5], [40, -67], [41.5, -63], [38.5, -60], [34, -57], [33, -50], [29, -46], [26, -51], [26, -57], [22, -63], [18, -69]]);
-      wizShapes.handL = S([[-28, -120], [-28.6, -126], [-32.2, -128.6], [-36, -126.4], [-35.6, -121], [-32, -119.6]], 5);
+      wizShapes.handL = S([[-25.6, -120], [-26, -125.2], [-28.8, -127.2], [-31.8, -125.4], [-31.6, -120.8], [-28.6, -119.2]], 5);
       wizShapes.handR = S([[40.5, -68.5], [44.5, -70], [47.5, -67.5], [46.5, -63], [42, -62.5]], 5);
       wizShapes.hood = S([[-12, -84], [-4, -86.5], [6, -86.5], [13, -84], [13, -79], [6, -77.5], [-3, -78], [-11, -80]]);
-      wizShapes.hair = S([[-10, -96], [-4, -97], [4, -97], [9, -95], [11, -91], [11, -86], [9, -82], [4, -80], [-3, -80.5], [-9, -81.5], [-15, -81], [-21, -80.2], [-27, -79.6], [-23, -82], [-28, -82.6], [-20, -85], [-14, -88], [-11, -92]], 6);
-      wizShapes.beard = S([[-11, -88], [-17, -88.2], [-24, -87.4], [-31, -87.2], [-37, -88.2], [-32, -86.2], [-25, -85.6], [-18, -85.8], [-12, -86.2]], 6);
+      wizShapes.hair = S([[-8, -95], [-3, -95.6], [4, -95.4], [9, -94], [10, -90], [9, -86], [6, -83], [1, -81.6], [-4, -82.4], [-8.6, -83.6], [-13, -84.4], [-10.6, -86], [-14.6, -87], [-10, -89], [-9, -92]], 6);
+      wizShapes.beard = S([[9, -90], [13, -88], [15.5, -84], [14, -80.5], [11, -79], [9, -82], [8.6, -86]], 6);
       wizShapes.brim = S([[-19, -96], [-12, -98.3], [0, -99.2], [12, -98.4], [18, -96.6], [14, -95], [3, -94.4], [-8, -94.6], [-15, -95.2]], 6);
-      wizShapes.crown = S([[-9, -98.6], [-9.6, -106], [-11, -114], [-13.2, -121], [-16, -128], [-19, -133.5], [-22.5, -136], [-24.5, -135], [-21, -131], [-16, -124], [-10, -116], [-4, -108], [2, -102], [8, -99]], 6);
+      { const cl = WX(spline([[0, -98], [-2, -108], [-5.5, -117], [-10, -125], [-16, -131.5], [-23, -135.5]], false, 8)).map((q) => [(q[0] - W0[0]) / ws, (q[1] - W0[1]) / ws]);
+        const wdt = (f) => 8.4 * Math.pow(1 - f, 0.85) + 0.3;
+        wizShapes.crown = WX(offsetLine(cl, wdt).concat(offsetLine(cl, (f) => -wdt(f)).reverse())); }
       wizShapes.bootR = S([[4, -3], [10, -4], [15, -2.5], [16, 1], [10, 2], [3, 1.4], [1, -0.5]], 5);
       wizShapes.bootL = S([[17, -8], [23, -9.5], [29, -8.5], [30, -6], [24, -5], [18, -5.5]], 5);
-      wizShapes.staff = WX(spline([[-26, -92], [-28.5, -108], [-32, -124], [-35.5, -142], [-39.5, -163], [-43, -184]], false, 10));
+      wizShapes.staff = WX(spline([[-23.4, -98], [-25.6, -111], [-28.6, -123.4], [-31.8, -142], [-35.4, -163], [-38.8, -184]], false, 10));
       wizShapes.sword = { a: WX([[47, -66]])[0], b: WX([[88, -104]])[0] };
       const apex = WX([[0, -96]])[0];
       L.wizApex = apex;
       REG[R_CLOAK].fn = (x, y) => Math.atan2(y - (IY + apex[1] * k), x - (IX + apex[0] * k));
-      const crownTip = WX([[-22, -135]])[0], crownBase = WX([[0, -99]])[0];
+      const crownTip = WX([[-16, -131]])[0], crownBase = WX([[0, -99]])[0];
       REG[R_HAT].fn = null;
 
       // the cloak: backlit, darkest low down, the light grazing the shoulders and the side under the raised arm
       const cloakP = polyPath(wizShapes.cloak);
       {
         const g = tctx.createLinearGradient(W0[0] - 40 * ws, W0[1] - 92 * ws, W0[0] + 20 * ws, W0[1] - 5 * ws);
-        g.addColorStop(0, gray(0.55)); g.addColorStop(0.25, gray(0.7)); g.addColorStop(0.6, gray(0.8)); g.addColorStop(1, gray(0.88));
+        g.addColorStop(0, gray(0.62)); g.addColorStop(0.25, gray(0.76)); g.addColorStop(0.6, gray(0.84)); g.addColorStop(1, gray(0.9));
         tctx.fillStyle = g; tctx.fill(cloakP);
         F(cloakP, Math.PI / 2, R_CLOAK);
       }
@@ -1502,27 +1504,27 @@
       // the raised sleeve: falls from the wrist in heavy folds; the lit edge faces the staff
       const sL = polyPath(wizShapes.sleeveL);
       {
-        const g = tctx.createLinearGradient(W0[0] - 20 * ws, W0[1] - 110 * ws, W0[0] - 42 * ws, W0[1] - 90 * ws);
-        g.addColorStop(0, gray(0.4)); g.addColorStop(0.4, gray(0.66)); g.addColorStop(1, gray(0.82));
+        const g = tctx.createLinearGradient(W0[0] - 18 * ws, W0[1] - 114 * ws, W0[0] - 34 * ws, W0[1] - 88 * ws);
+        g.addColorStop(0, gray(0.55)); g.addColorStop(0.5, gray(0.7)); g.addColorStop(1, gray(0.82));
         tctx.fillStyle = g; tctx.fill(sL);
         F(sL, -1.25, R_SLEEVE);
         fctx.save(); fctx.clip(sL);
-        for (const fl of [[[-14, -82], [-16, -92], [-20, -100], [-24, -107]], [[-24, -78], [-30, -88], [-33, -98], [-31, -106]], [[-33, -80], [-38, -88], [-38, -97], [-35, -104]]]) flowAlong(WX(spline(fl, false, 6)), R_SLEEVE, 9 * ws);
+        for (const fl of [[[-12, -86], [-16, -100], [-22, -114]], [[-18, -82], [-24, -94], [-28, -108], [-27, -117]], [[-26, -84], [-32, -92], [-31, -104], [-29, -114]], [[-33, -86], [-36, -90]]]) flowAlong(WX(spline(fl, false, 6)), R_SLEEVE, 9 * ws);
         fctx.restore();
-        L.sleeveFolds = [[[-15, -85], [-17, -94], [-21, -103]], [[-24, -80], [-30, -90], [-32, -100], [-30, -107]], [[-32, -82], [-37.5, -90], [-37.5, -98]], [[26, -60], [29, -54], [30, -48]], [[18, -74], [24, -70], [30, -66]]].map((f) => WX(spline(f, false, 6)));
+        L.sleeveFolds = [[[-26.6, -117], [-27, -108], [-29.6, -98], [-34, -90]], [[-24.6, -115], [-23.6, -105], [-25, -95], [-28.6, -86]], [[-21, -110], [-19, -100], [-19.6, -90], [-22, -82]], [[26, -60], [29, -54], [30, -48]], [[18, -74], [24, -70], [30, -66]]].map((f) => WX(spline(f, false, 6)));
       }
       const sR = polyPath(wizShapes.sleeveR);
       { const g = tctx.createLinearGradient(W0[0] + 14 * ws, W0[1] - 82 * ws, W0[0] + 34 * ws, W0[1] - 50 * ws); g.addColorStop(0, gray(0.7)); g.addColorStop(1, gray(0.9)); tctx.fillStyle = g; tctx.fill(sR); F(sR, 0.6, R_SLEEVE); }
       const fl = (nm, v, rid, th) => { const p = polyPath(wizShapes[nm]); tctx.fillStyle = typeof v === 'number' ? gray(v) : v; tctx.fill(p); F(p, th, rid); };
-      fl('forearmL', 0.55, R_SKIN, -1.1);
-      fl('sleeveMouth', 0.95, R_SLEEVE, 0);
+      fl('forearmL', 0.7, R_SKIN, -1.1);
+      fl('sleeveMouth', 0.97, R_SLEEVE, 0);
       fl('hood', 0.8, R_CLOAK, 0.2);
       {
         const g = tctx.createLinearGradient(W0[0] - 30 * ws, W0[1] - 84 * ws, W0[0] + 12 * ws, W0[1] - 84 * ws);
-        g.addColorStop(0, gray(0.5)); g.addColorStop(0.5, gray(0.62)); g.addColorStop(1, gray(0.8));
-        fl('hair', g, R_HAIR, -0.12);
+        g.addColorStop(0, gray(0.5)); g.addColorStop(0.5, gray(0.62)); g.addColorStop(1, gray(0.78));
+        fl('hair', g, R_HAIR, 1.2);
       }
-      fl('beard', 0.5, R_HAIR, 3.1);
+      fl('beard', 0.4, R_HAIR, 1.9);
       fl('handL', 0.45, R_SKIN, 0.8);
       fl('handR', 0.7, R_SKIN, 0.8);
       fl('bootR', 0.92, R_SKIN, 0.2);
@@ -2227,26 +2229,32 @@
       C('sleeveL', 0.9); C('sleeveR', 0.8); C('hood', 0.7); C('crown', 0.9); C('brim', 0.9);
       C('handL', 0.7); C('handR', 0.7); C('bootR', 0.7); C('bootL', 0.7); C('sleeveMouth', 0.6); C('forearmL', 0.6); C('hair', 0.5, { a: 0.8 }); C('beard', 0.5, { a: 0.8 });
       pen(WX(spline([[42, -69], [43.5, -66], [43, -63]], false, 4)), { w: 0.45, a: 0.9, obj: ow });
-      pen(WX(spline([[-29, -123], [-32, -124], [-35.5, -123]], false, 4)), { w: 0.4, a: 0.9, obj: ow });
+      pen(WX(spline([[-26.4, -122.6], [-29, -123.6], [-31.6, -122.6]], false, 4)), { w: 0.4, a: 0.9, obj: ow });
       // folds: long falls with a hooked start, some forked
       for (const fp of L.folds) {
+        // the ridge of each fold catches the blaze from above: a cut line beside the dark crease
+        spen(offsetLine(fp, (f) => 1.6 * ws * (1 - f * 0.5)).slice(1, Math.floor(fp.length * 0.85)), { w: 0.7 * ws / 3.5, w1: 0.2, a: 0.95, taper: [0.15, 0.6], obj: ow });
+        spen(offsetLine(fp, (f) => 2.5 * ws * (1 - f * 0.5)).slice(2, Math.floor(fp.length * 0.5)), { w: 0.4, a: 0.7, taper: [0.3, 0.6], obj: ow });
         pen(fp, { w: 0.95, w1: 0.4, a: 0.95, wob: 0.12, taper: [0.25, 0.3], obj: ow });
         if (R() < 0.6) { const st = Math.floor(fp.length * RR(0.3, 0.6)); const br = fp.slice(st).map((p, i) => [p[0] + i * RR(-0.18, 0.18) * ws, p[1]]); pen(br, { w: 0.6, a: 0.85, taper: [0.4, 0.4], obj: ow }); }
       }
       for (const fp of L.sleeveFolds) pen(fp, { w: 0.8, w1: 0.3, a: 0.9, taper: [0.3, 0.3], obj: ow });
       // crease in the crown, band at its base
-      pen(WX(spline([[-5, -101], [-7.5, -110], [-11, -119], [-15.5, -127]], false, 6)), { w: 0.5, a: 0.8, taper: [0.3, 0.5], obj: ow });
+      pen(WX(spline([[-3, -101], [-5, -110], [-8.6, -119], [-13.6, -127]], false, 6)), { w: 0.5, a: 0.8, taper: [0.3, 0.5], obj: ow });
       pen(WX(spline([[-9, -99.4], [0, -100.8], [8, -99.6]], false, 6)), { w: 0.7, a: 0.9, obj: ow });
       // hair and beard: long strands streaming to the left in the hot wind
-      for (let i = 0; i < 34; i++) {
-        const y0 = RR(-95, -84), x0 = RR(-10, 10);
-        const s = WX(spline([[x0, y0], [x0 - RR(6, 10), y0 + RR(1, 3)], [x0 - RR(14, 22), y0 + RR(3, 6)], [x0 - RR(22, 34), y0 + RR(4, 9)]], false, 6));
-        pen(s, { w: RR(0.25, 0.5), a: 0.8, wob: 0.08, taper: [0.1, 0.7], obj: ow });
+      for (let i = 0; i < 30; i++) {
+        const x0 = RR(-7, 8), y0 = RR(-95, -92);
+        const s = WX(spline([[x0, y0], [x0 - RR(1, 3), y0 + RR(4, 6)], [x0 - RR(3, 7), y0 + RR(8, 10)], [x0 - RR(6, 12), y0 + RR(10, 12.5)]], false, 6));
+        if (R() < 0.5) pen(s, { w: RR(0.25, 0.45), a: 0.8, wob: 0.06, taper: [0.1, 0.7], obj: ow });
+        else spen(s, { w: RR(0.25, 0.45), a: 0.85, taper: [0.1, 0.7], obj: ow });
       }
+      // the beard flies out past the cheek and over the shoulder, white in the light
       for (let i = 0; i < 16; i++) {
-        const y0 = RR(-88, -85);
-        const s = WX(spline([[-14, y0], [-22, y0 + RR(-0.8, 1.2)], [-30, y0 + RR(-1.5, 2)], [-RR(36, 44), y0 + RR(-2.5, 2.5)]], false, 6));
-        pen(s, { w: RR(0.25, 0.45), a: 0.8, wob: 0.08, taper: [0.1, 0.7] });
+        const y0 = RR(-88, -81), x0 = RR(10, 14);
+        const s = WX(spline([[x0, y0], [x0 + RR(1, 3), y0 + RR(2, 4)], [x0 - RR(0, 3), y0 + RR(5, 7)], [x0 - RR(6, 12), y0 + RR(6, 9)]], false, 6));
+        gpen(s, { w: RR(0.25, 0.5), a: 0.85, taper: [0.1, 0.7] });
+        if (R() < 0.4) pen(offsetLine(s, 0.25), { w: 0.25, a: 0.7, taper: [0.2, 0.7] });
       }
       // the staff: gnarled, with knots
       pen(wizShapes.staff, { w: 2.0, a: 1, wob: 0.18, taper: [0, 0], obj: [O.STAFF, O.WIZ, O.WING, O.BAL, O.SMOKE, O.ROCK, O.WALL, O.FIRE, O.RIFT, O.DEEP] });
@@ -2267,15 +2275,15 @@
       gpen([[lerp(sa[0], sb[0], 0.06), lerp(sa[1], sb[1], 0.06)], sb], { w: 0.75, a: 0.95, taper: [0.1, 0.1] });
       // rims of white: the blaze grazes hat, brim, hair, the raised sleeve and the shoulders
       const rim = (pts, w, a) => gpen(WX(spline(pts, false, 6)), { w, a, taper: [0.25, 0.35], obj: [O.WIZ, O.STAFF] });
-      rim([[-23.5, -135.6], [-19.5, -133], [-16.4, -127.6], [-13.6, -121], [-11.4, -113], [-9.8, -105], [-9.4, -100]], 1.1, 0.9);
+      rim([[-23, -136], [-17.6, -134.6], [-12.8, -129.6], [-9.4, -123], [-7, -115], [-6, -106], [-7.4, -99.6]], 1.1, 0.9);
       rim([[-18.5, -96.2], [-12, -98.4], [0, -99.2], [8, -98.8]], 0.8, 0.85);
       rim([[-30, -79], [-22, -84], [-14, -88], [-11, -93], [-8, -96.4]], 0.8, 0.8);
-      rim([[-28.2, -120], [-25.8, -114], [-23.4, -108.4], [-19.6, -103], [-16.2, -97], [-13.2, -90]], 0.9, 0.8);
-      rim([[-33.2, -118], [-32.8, -112], [-33, -108.6]], 0.6, 0.6);
+      rim([[-23.4, -118.4], [-19.6, -112.4], [-15.6, -104.6], [-12.4, -96], [-10.4, -88]], 1.0, 0.85);
+      rim([[-28.6, -116], [-30.6, -109], [-33, -102], [-36.6, -94.6]], 0.6, 0.6);
       rim([[-14.6, -82], [-19.6, -75.6], [-25.4, -68], [-31.4, -59.6], [-38, -50]], 0.8, 0.7);
-      rim([[-36.8, -91], [-33.8, -97], [-33.2, -104]], 0.6, 0.55);
+
       rim([[-34, -87.2], [-41, -88.4]], 0.5, 0.7);
-      rim([[-28.6, -125], [-32.2, -128.4], [-35.6, -126.6]], 0.6, 0.8);
+      rim([[-26, -124.6], [-28.8, -127.4], [-31.6, -125.6]], 0.6, 0.8);
     }
     await tick('L2240');
 
@@ -2364,6 +2372,7 @@
       // flames: gamboge at the root, vermilion along, madder at the tips
       wctx.globalCompositeOperation = 'lighten';
       for (const fl of flames) {
+        await tick('wf');
         const pts = fl.pts, nS = 5;
         for (let s = 0; s < nS; s++) {
           const a = s / nS, b = (s + 1.2) / nS;
@@ -2414,24 +2423,38 @@
       wctx.fillStyle = washc(1, 0.45, 0, 1); wctx.beginPath(); wctx.ellipse(ex, ey, er, er * 0.52, 0, 0, TAU); wctx.fill();
       wctx.lineWidth = er * 0.25; wctx.strokeStyle = washc(0.1, 0.8, 0.5, 1); wctx.beginPath(); wctx.ellipse(ex, ey, er * 1.02, er * 0.54, 0, 0, TAU); wctx.stroke();
       wctx.restore();
+      await tick('ws');
       for (const s of L.sparks) wRadial(s[0], s[1], s[2] * 3, 0.9, 0.55, 0.05, 0.85);
     }
     stamp('wash paint');
     const WY = new Float32Array(hw * hh), WO = new Float32Array(hw * hh), WC = new Float32Array(hw * hh);
     {
       const wd = wctx.getImageData(0, 0, hw, hh).data;
-      const bc = mkCanvas(hw, hh), bx = cpu(bc);
-      bx.filter = 'blur(' + (3 * hk).toFixed(1) + 'px)'; bx.drawImage(wcan, 0, 0);
-      const bd = bx.getImageData(0, 0, hw, hh).data;
+      // blurred copy for the pooled edges, made small (a full-size canvas blur is a long, blocking call)
+      const q4 = 4, bw4 = Math.ceil(hw / q4), bh4 = Math.ceil(hh / q4);
+      const sc4 = mkCanvas(bw4, bh4), sx4 = cpu(sc4);
+      sx4.drawImage(wcan, 0, 0, bw4, bh4);
+      await tick('wb1');
+      const bc = mkCanvas(bw4, bh4), bx = cpu(bc);
+      bx.filter = 'blur(' + (3 * hk / q4).toFixed(2) + 'px)'; bx.drawImage(sc4, 0, 0);
+      const bd4 = bx.getImageData(0, 0, bw4, bh4).data;
+      await tick('wb2');
+      const bd = new Uint8ClampedArray(4);
+      const bl = (gx, gy, ch) => {
+        let fx = gx / q4 - 0.5, fy = gy / q4 - 0.5; if (fx < 0) fx = 0; if (fy < 0) fy = 0; if (fx > bw4 - 1.001) fx = bw4 - 1.001; if (fy > bh4 - 1.001) fy = bh4 - 1.001;
+        const xi = fx | 0, yi = fy | 0, u = fx - xi, v = fy - yi, i0 = (yi * bw4 + xi) * 4 + ch;
+        return bd4[i0] * (1 - u) * (1 - v) + bd4[i0 + 4] * u * (1 - v) + bd4[i0 + bw4 * 4] * (1 - u) * v + bd4[i0 + bw4 * 4 + 4] * u * v;
+      };
       for (let i = 0, j = 0; i < hw * hh; i++, j += 4) {
         if ((i & 0xffff) === 0) await tick('wash');
-        if (wd[j] + wd[j + 1] + wd[j + 2] + bd[j] + bd[j + 1] + bd[j + 2] === 0) continue;
+        if (wd[j] + wd[j + 1] + wd[j + 2] === 0) continue;
         const gx = i % hw, gy = (i / hw) | 0;
+        bd[0] = bl(gx, gy, 0); bd[1] = bl(gx, gy, 1); bd[2] = bl(gx, gy, 2);
         const gran = 0.9 + 0.2 * nz(gx / 2.2, gy / 2.2);
         const e0 = wd[j] / 255, e1 = wd[j + 1] / 255, e2 = wd[j + 2] / 255;
-        WY[i] = clamp((e0 + Math.max(0, e0 - bd[j] / 255) * 0.6) * gran, 0, 1);
-        WO[i] = clamp((e1 + Math.max(0, e1 - bd[j + 1] / 255) * 0.6) * gran, 0, 0.95);
-        WC[i] = clamp((e2 + Math.max(0, e2 - bd[j + 2] / 255) * 0.6) * gran, 0, 0.8);
+        WY[i] = clamp((e0 + Math.max(0, e0 - bd[0] / 255) * 0.6) * gran, 0, 1);
+        WO[i] = clamp((e1 + Math.max(0, e1 - bd[1] / 255) * 0.6) * gran, 0, 0.95);
+        WC[i] = clamp((e2 + Math.max(0, e2 - bd[2] / 255) * 0.6) * gran, 0, 0.8);
       }
     }
     stamp('washes');
