@@ -349,7 +349,7 @@
     const toVPpx = (vx, vy) => { const X = IX + vx * k, Y = IY + vy * k; return (x, y) => Math.atan2(Y - y, X - x); };
 
     const L = {};
-    const ZWIZ = portrait ? 5.6 : 6.2, ZBAL = portrait ? 19 : 20;
+    const ZWIZ = portrait ? 5.2 : 5.7, ZBAL = portrait ? 19 : 20;
     L.wiz = P(0, 0, ZWIZ);
     L.wizS = (L.wiz[1] - P(0, 1.85, ZWIZ)[1]) / 100;     // units per wizard-unit (100 wu = 1.85 m)
     L.bal = P(0, 0, ZBAL);
@@ -673,13 +673,13 @@
       const td = timg.data, fd = fimg.data;
       const Fz = (portrait ? 1250 : 1400) * hk;
       const hzp = HZ * hk - y0;
-      const eyeH = 1.0;
+      const eyeH = 0.35;
       const towerX = L.tower[0] * hk - x0;
       const cxp = (rb[0] + rw * 0.45) * hk - x0;
       // peaks: [fraction across the rift, distance km, height km, half-width as a fraction of the rift]
       const peakF = portrait
-        ? [[0.1, 24, 2.6, 0.14], [0.32, 38, 3.6, 0.16], [0.8, 28, 2.9, 0.14], [0.98, 50, 3.6, 0.14], [0.6, 70, 4.2, 0.1]]
-        : [[0.08, 26, 2.8, 0.13], [0.3, 40, 3.8, 0.15], [0.82, 30, 3.1, 0.13], [1.0, 52, 3.8, 0.13], [0.62, 72, 4.4, 0.1]];
+        ? [[0.1, 24, 3.4, 0.14], [0.32, 38, 4.6, 0.16], [0.8, 28, 3.8, 0.14], [0.98, 50, 4.6, 0.14], [0.6, 76, 5.4, 0.1]]
+        : [[0.08, 26, 3.6, 0.13], [0.3, 40, 4.8, 0.15], [0.82, 30, 4.0, 0.13], [1.0, 52, 4.8, 0.13], [0.62, 78, 5.6, 0.1]];
       const peaks = peakF.map(([f, z, h, w]) => [((rb[0] + rw * f) * hk - x0 - cxp) / Fz, z, h, w * rw * hk / Fz]);
       const towerAng = (towerX - cxp) / Fz;
       const H = (x, z) => {
@@ -977,22 +977,30 @@
       const root = [side * 6, -88];
       const tip = portrait ? [side * 78, -150] : [side * 92, -124];
       const lead = spline([root, [side * 20, -106], [side * 44, (portrait ? -128 : -118)], [side * 66, (portrait ? -144 : -126)], tip], false, 10);
-      const attach = [side * 34, -66];
-      const trail = [];
-      const nF = 6;
-      for (let i = 0; i <= nF * 4; i++) {
-        const t = i / (nF * 4);
-        // bow outward and downward between tip and attach point
-        const bx = lerp(tip[0], attach[0], t), by = lerp(tip[1], attach[1], t);
-        const bowA = Math.sin(Math.PI * t) * (portrait ? 14 : 18);
-        const ph = (i % 4) / 4;
-        const finger = ph === 0 ? 1 : ph === 2 ? -0.5 : 0.2;
-        const ox = side * (bowA * 0.5 + finger * 7 * (1 - t * 0.5)) + (R() - 0.5) * 3;
-        const oy = bowA + finger * 9 * (1 - t * 0.4) + (R() - 0.5) * 3;
-        trail.push([bx + ox, by + oy]);
+      const attach = [side * 30, -70];
+      // finger tips fan out between the tip and the attachment; the membrane scallops in between
+      const nF = 5;
+      const tipsF = [tip];
+      for (let i = 1; i <= nF; i++) {
+        const t = i / (nF + 1);
+        const ang = lerp(Math.atan2(tip[1] - root[1], tip[0] - root[0]), Math.atan2(attach[1] + 8 - root[1], attach[0] - root[0]) + side * -0.15, t);
+        const len = lerp(Math.hypot(tip[0] - root[0], tip[1] - root[1]), Math.hypot(attach[0] - root[0], attach[1] - root[1]) * 1.25, Math.pow(t, 0.8)) * RR(0.92, 1.06);
+        tipsF.push([root[0] + Math.cos(ang) * len, root[1] + Math.sin(ang) * len]);
       }
+      tipsF.push(attach);
+      const trail = [];
+      for (let i = 0; i < tipsF.length - 1; i++) {
+        const A = tipsF[i], B = tipsF[i + 1];
+        const d = Math.hypot(B[0] - A[0], B[1] - A[1]);
+        const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+        const tr = Math.hypot(root[0] - mx, root[1] - my) || 1;
+        const depth = d * RR(0.28, 0.42);
+        const C = [mx + (root[0] - mx) / tr * depth, my + (root[1] - my) / tr * depth];
+        const seg = spline([A, [lerp(A[0], C[0], 0.6) + (R() - 0.5) * 2, lerp(A[1], C[1], 0.6) + (R() - 0.5) * 2], C, [lerp(B[0], C[0], 0.6), lerp(B[1], C[1], 0.6)], B], false, 4);
+        for (let j = i === 0 ? 0 : 1; j < seg.length; j++) trail.push(seg[j]);
+      }
+      const fingers = tipsF.slice(1, -1);
       const outline = lead.concat(trail.slice(1));
-      const fingers = trail.filter((p, i) => i % 4 === 0 && i > 0 && i < nF * 4);
       return { root, tip, outline, fingers, lead };
     }
     function wing(side) {
@@ -1027,6 +1035,46 @@
     }
     L.wingL = wing(-1);
     L.wingR = wing(1);
+
+    /* ---------------------------------------------------------- fire: the mane (behind the body) */
+    const flames = [];
+    function tongue(x, y, ang, len, wid, opt) {
+      opt = opt || {};
+      OBJ = O.FIRE;
+      const n = 26, ph = R() * TAU, fr = RR(1.0, 2.0), bend = opt.bend == null ? RR(-0.5, 0.5) : opt.bend, amp = opt.amp == null ? 0.12 : opt.amp;
+      const base = [];
+      let px = x, py = y;
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        const a = ang + bend * t * t;
+        if (i) { px += Math.cos(a) * len / n; py += Math.sin(a) * len / n; }
+        base.push([px, py, a, t]);
+      }
+      const pts = base.map(([bx, by, a, t]) => { const o = Math.sin(t * fr * TAU + ph) * amp * len * t; return [bx - Math.sin(a) * o, by + Math.cos(a) * o]; });
+      const wf = (f) => wid * (f < 0.12 ? 0.55 + 0.45 * smooth(0, 0.12, f) : 1) * Math.pow(1 - f, 0.9);
+      const outline = offsetLine(pts, (f) => wf(f)).concat(offsetLine(pts, (f) => -wf(f)).reverse());
+      const fl = { pts, outline, wid, len, opt };
+      flames.push(fl);
+      const path = polyPath(outline);
+      tctx.fillStyle = gray(opt.v != null ? opt.v : 0.05); tctx.fill(path);
+      F(path, ang, R_FIRE);
+      return fl;
+    }
+    function fireMass(pts, w, v) { OBJ = O.FIRE; tStroke(pts, v, w, w * 0.45, 0.85); }
+    {
+      // the mane: fire streaming up and back from skull, nape and hump, like hair in a gale
+      const roots = [[-24, -98], [-20, -99], [-16, -98.8], [-12, -97], [-8, -94], [-3, -93], [2, -93], [7, -92.5], [12, -91], [17, -89.5], [21, -87]];
+      const massLine = BX(spline([[-16, -104], [0, -112], [20, -124], [40, -136]], false, 8));
+      fireMass(massLine, 16 * bs, 0.12);
+      for (let pass = 0; pass < 3; pass++) {
+        for (const r of roots) {
+          const [x, y] = BX([[r[0] + RR(-1.5, 1.5), r[1] + RR(-1.5, 1.5)]])[0];
+          const ang = -1.15 + RR(-0.3, 0.3) + (r[0] + 20) / 90;
+          const len = RR(30, 72) * bs * (pass === 0 ? 1 : pass === 1 ? 0.72 : 0.45);
+          tongue(x, y, ang, len, RR(1.8, 3.8) * bs, { bend: RR(0.1, 0.7), amp: RR(0.06, 0.16), mane: true });
+        }
+      }
+    }
 
     /* ---------------------------------------------------------- the Balrog: body */
     const balShapes = {};
@@ -1080,44 +1128,14 @@
       }
     }
 
-    /* ---------------------------------------------------------- fire: the mane, the feet, the sword, the whip */
-    const flames = [];
-    function tongue(x, y, ang, len, wid, opt) {
-      opt = opt || {};
-      OBJ = O.FIRE;
-      const n = 26, ph = R() * TAU, fr = RR(1.0, 2.0), bend = opt.bend == null ? RR(-0.5, 0.5) : opt.bend, amp = opt.amp == null ? 0.12 : opt.amp;
-      const base = [];
-      let px = x, py = y;
-      for (let i = 0; i <= n; i++) {
-        const t = i / n;
-        const a = ang + bend * t * t;
-        if (i) { px += Math.cos(a) * len / n; py += Math.sin(a) * len / n; }
-        base.push([px, py, a, t]);
-      }
-      const pts = base.map(([bx, by, a, t]) => { const o = Math.sin(t * fr * TAU + ph) * amp * len * t; return [bx - Math.sin(a) * o, by + Math.cos(a) * o]; });
-      const wf = (f) => wid * (f < 0.12 ? 0.55 + 0.45 * smooth(0, 0.12, f) : 1) * Math.pow(1 - f, 0.9);
-      const outline = offsetLine(pts, (f) => wf(f)).concat(offsetLine(pts, (f) => -wf(f)).reverse());
-      const fl = { pts, outline, wid, len, opt };
-      flames.push(fl);
-      const path = polyPath(outline);
-      tctx.fillStyle = gray(opt.v != null ? opt.v : 0.05); tctx.fill(path);
-      F(path, ang, R_FIRE);
-      return fl;
-    }
-    function fireMass(pts, w, v) { OBJ = O.FIRE; tStroke(pts, v, w, w * 0.45, 0.85); }
+    /* ---------------------------------------------------------- fire about the feet, the sword, the whip */
     {
-      // the mane: fire streaming up and back from skull, nape and hump, like hair in a gale
-      const roots = [[-24, -98], [-20, -99], [-16, -98.8], [-12, -97], [-8, -94], [-3, -93], [2, -93], [7, -92.5], [12, -91], [17, -89.5], [21, -87]];
-      const massLine = BX(spline([[-16, -104], [0, -112], [20, -124], [40, -136]], false, 8));
-      fireMass(massLine, 16 * bs, 0.12);
-      for (let pass = 0; pass < 3; pass++) {
-        for (const r of roots) {
-          const [x, y] = BX([[r[0] + RR(-1.5, 1.5), r[1] + RR(-1.5, 1.5)]])[0];
-          const ang = -1.15 + RR(-0.3, 0.3) + (r[0] + 20) / 90;
-          const len = RR(30, 72) * bs * (pass === 0 ? 1 : pass === 1 ? 0.72 : 0.45);
-          tongue(x, y, ang, len, RR(1.8, 3.8) * bs, { bend: RR(0.1, 0.7), amp: RR(0.06, 0.16), mane: true });
-        }
+      // smoke boiling up in front of its legs, lit from below
+      for (let i = 0; i < 16; i++) {
+        const [x, y] = BX([[RR(-40, 34), RR(-26, 6)]])[0];
+        billow(x, y, RR(7, 14) * bs, 0.62, 0.22, 0.75);
       }
+      OBJ = O.FIRE;
       // fire licking up out of the smoke about its feet
       fireMass(BX(spline([[-40, -4], [-20, -8], [0, -6], [24, -4]], false, 8)), 14 * bs, 0.16);
       for (let i = 0; i < 16; i++) {
