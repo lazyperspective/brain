@@ -426,15 +426,16 @@
     const pks = [];
     for (const pk of o.peaks) {
       const wl = pk.w * (0.7 + RNG() * 0.6), wr = pk.w * (0.7 + RNG() * 0.6);
-      pks.push({ x: pk.x, h: pk.h, wl, wr, sl: (pk.s || 1.4) * (0.8 + RNG() * 0.5), sr: (pk.s || 1.4) * (0.8 + RNG() * 0.5) });
+      const shp = pk.shape || (o.shapes ? (RNG() < 0.45 ? 'massif' : RNG() < 0.4 ? 'dome' : 'crag') : 'crag');
+      pks.push({ x: pk.x, h: pk.h, wl, wr, sl: (pk.s || 1.4) * (0.8 + RNG() * 0.5), sr: (pk.s || 1.4) * (0.8 + RNG() * 0.5), shp });
       if (o.shoulders !== false) for (let k = 0; k < 2; k++) {
         const side = k ? 1 : -1, d = (0.25 + RNG() * 0.4) * (side > 0 ? wr : wl);
-        pks.push({ x: pk.x + side * d, h: pk.h * (0.55 + RNG() * 0.3), wl: pk.w * (0.25 + RNG() * 0.25), wr: pk.w * (0.25 + RNG() * 0.25), sl: 1.1, sr: 1.1 });
+        pks.push({ x: pk.x + side * d, h: pk.h * (0.55 + RNG() * 0.3), wl: pk.w * (0.25 + RNG() * 0.25), wr: pk.w * (0.25 + RNG() * 0.25), sl: 1.1, sr: 1.1, shp: 'crag' });
       }
     }
     const Hf = (x) => {
       let h = (o.floor || 0) + (o.und || 0) * (n1(sd + x * 0.005) * 0.5 + 0.5);
-      for (const pk of pks) { const dx = x - pk.x; const u = dx < 0 ? -dx / pk.wl : dx / pk.wr; if (u < 1) h = Math.max(h, pk.h * Math.pow(1 - u, dx < 0 ? pk.sl : pk.sr)); }
+      for (const pk of pks) { const dx = x - pk.x; const u = dx < 0 ? -dx / pk.wl : dx / pk.wr; if (u < 1) { const e = dx < 0 ? pk.sl : pk.sr; const f = pk.shp === 'massif' ? Math.pow(1 - u * u, 0.8 + e * 0.6) * (1 - 0.06 * Math.abs(Math.sin(u * 9 + pk.x))) : pk.shp === 'dome' ? Math.pow(1 - Math.pow(u, 1.5), 1.6 + e * 0.4) : Math.pow(1 - u, e); h = Math.max(h, pk.h * f); } }
       const r = 1 - Math.abs(n1(sd * 0.7 + x * freq)), r2 = 1 - Math.abs(n1(sd * 0.3 + x * freq * 3.3)), r3 = n1(sd * 0.11 + x * freq * 9);
       h += (r * r * 0.6 + r2 * r2 * 0.4 - 0.45) * (o.amp || 20) * (0.35 + (0.65 * h) / hmax) + r3 * (o.amp || 20) * 0.12;
       return Math.max(h, 0);
@@ -493,6 +494,16 @@
       const pts = [[x, y], [x - l * 0.3 + (RNG() - 0.5) * 4, y + l * 0.55], [x - l * 0.55, y + l]];
       g.globalAlpha = (0.25 + RNG() * 0.5) * (o.rockA || 1);
       inkStroke(g, catmull(pts, 4), 1.2 + RNG() * 3.2 * (o.rockW || 1), { col: o.rock, ti: 0.1, to: 0.6, vr: 0.5 });
+    }
+    // rock buttresses where the slopes are too steep to hold snow
+    for (let i = 0; i < Math.floor(((o.x1 - o.x0) / 9) * det); i++) {
+      const x = lerp(o.x0, o.x1, RNG()), y0 = ry(x), sl = Math.abs(ry(x + 4) - ry(x - 4)) / 8;
+      if (sl < 0.9 || o.base - y0 < hmax * 0.15) continue;
+      const l = 20 + RNG() * 90 * (o.rockLen || 1), pts = [];
+      let px = x, py = y0 + 3; const s3 = RNG() * 40;
+      for (let j = 0; j < 7; j++) { pts.push([px, py]); py += l / 7; px += -(l / 7) * (0.15 + n1(s3 + j * 0.5) * 0.25); }
+      g.globalAlpha = 0.35 + RNG() * 0.35;
+      inkStroke(g, pts, 3 + RNG() * 6 * (o.rockW || 1), { col: o.rock, ti: 0.1, to: 0.7, vr: 0.6 });
     }
     // couloirs on lit faces
     for (const L of litPolys) {
@@ -570,7 +581,7 @@
   }
   function genPeaks(x0, x1, s0, s1, h0, h1, w0, w1, sh) {
     const out = []; let x = x0 + RNG() * s0;
-    while (x < x1) { const big = RNG() < 0.3; out.push({ x, h: lerp(h0, h1, Math.pow(RNG(), big ? 0.4 : 1.6)), w: lerp(w0, w1, RNG()), s: (sh || 1.3) * (0.8 + RNG() * 0.5) }); x += lerp(s0, s1, RNG()); }
+    while (x < x1) { const big = RNG() < 0.3, q = RNG(); const shape = q < 0.4 ? 'massif' : q < 0.6 ? 'dome' : 'crag'; out.push({ x, h: lerp(h0, h1, Math.pow(RNG(), big ? 0.4 : 1.6)), w: lerp(w0, w1, RNG()) * (shape === 'massif' ? 1.5 : 1), s: (sh || 1.3) * (0.8 + RNG() * 0.5), shape }); x += lerp(s0, s1, RNG()); }
     return out;
   }
   function star(g, x, y, r, a) {
@@ -1454,6 +1465,7 @@
     const capeP = catmull(cape, 2, true);
     const capeOpen = clamp((Math.abs(wx) - 18) / 40, 0, 1);
     fillShape(capeP, 'cloak', 'rgba(14,12,28,0.25)', 5, inkW * 1.1);
+    g.save(); polyPath(g, capeP); g.clip(); const cg = g.createLinearGradient(0, capeTop[1], 0, hemC); cg.addColorStop(0, 'rgba(170,170,225,0.28)'); cg.addColorStop(1, 'rgba(8,6,18,0.35)'); g.fillStyle = cg; g.fillRect(F.H[0] - 200, capeTop[1] - 20, 400, hemC - capeTop[1] + 60); g.restore();
     if (capeOpen > 0) {
       // the madder lining shows where the cape lifts
       const lin = [capeD(cF[1], 0.3), capeD(cF[3], 0.3), cape[cfp.length + 1], cape[cfp.length + 2]].concat([capeD(lerp2(cF[1], cB[2], 0.5), 1)]);
@@ -1498,6 +1510,8 @@
     const coatP = catmull(coat, 2, true);
     fillShape(coatP, 'coat', null, 41, inkW * 1.05);
     g.save(); polyPath(g, coatP); g.clip();
+    const lg = g.createLinearGradient(F.H[0] + 20, F.N[1], F.H[0] - 10, F.H[1] + 30); lg.addColorStop(0, 'rgba(190,190,235,0.32)'); lg.addColorStop(0.5, 'rgba(190,190,235,0)'); lg.addColorStop(1, 'rgba(10,8,22,0.4)');
+    g.fillStyle = lg; g.fillRect(F.H[0] - 120, F.N[1] - 40, 240, 220);
     const sg = g.createLinearGradient(F.H[0] - 22, 0, F.H[0] + 16, 0); sg.addColorStop(0, 'rgba(14,14,26,0.5)'); sg.addColorStop(1, 'rgba(14,14,26,0)');
     g.fillStyle = sg; g.fillRect(F.H[0] - 120, F.N[1] - 40, 240, 200);
     // belt and buckle
@@ -1512,7 +1526,7 @@
     const mD = deformer(F.N[1], F.N[1] + 30, 0.25);
     const mP = catmull(mantle.map((p, i) => (i > 0 && i < 5 ? mD(p, i) : p)), 4, true);
     fillShape(mP, 'cloak', null, 61, inkW);
-    g.save(); g.translate(F.Hc[0], F.Hc[1]); g.rotate(F.ha);
+    g.save(); g.translate(F.Hc[0], F.Hc[1]); g.rotate(F.ha); g.scale(1.14, 1.14);
     const hm = g.getTransform();
     const hw = wx * 0.12, hwy = wy * 0.05;
     const face = [[4, -9.5], [9, -8.6], [11.4, -5.8], [10.6, -3.6], [11.7, -1.4], [17.4, 3.6], [16.8, 5.2], [13.4, 5.8], [12.8, 7.4], [5, 10], [2, 0]];
@@ -1551,7 +1565,8 @@
     g.restore();
     // ---- 5. near arm, hand, brand
     const sl = limb3(F.Sh, F.EN, F.HN, 17, 13.5, 11);
-    fillShape(sl, 'coat', 'rgba(150,150,190,0.08)', 91, inkW);
+    fillShape(sl, 'coat', null, 91, inkW);
+    g.save(); polyPath(g, sl); g.clip(); const ag = g.createLinearGradient(F.Sh[0], F.Sh[1] - 10, F.HN[0], F.HN[1] + 10); ag.addColorStop(0, 'rgba(190,190,235,0.3)'); ag.addColorStop(1, 'rgba(10,8,22,0.25)'); g.fillStyle = ag; g.fillRect(-200, -260, 400, 300); g.restore();
     const cu = dn(F.faN), cp = add(F.HN, cu, -3);
     g.strokeStyle = INK; g.lineWidth = 1.4; g.beginPath(); g.moveTo(cp[0] - cu[1] * 5.5, cp[1] + cu[0] * 5.5); g.lineTo(cp[0] + cu[1] * 5.5, cp[1] - cu[0] * 5.5); g.stroke();
     let brandTip = null;
@@ -1676,117 +1691,133 @@
   function bez(b, n) { const out = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; out.push([u * u * u * b[0][0] + 3 * u * u * t * b[1][0] + 3 * u * t * t * b[2][0] + t * t * t * b[3][0], u * u * u * b[0][1] + 3 * u * u * t * b[1][1] + 3 * u * t * t * b[2][1] + t * t * t * b[3][1]]); } return out; }
   function buildEye() {
     RNG = mulberry32(SEED * 29 + 3);
-    const r = R * 1.45;
-    const P = painter(-60, -60, 1200, 1470, r), g = P.g;
-    // night beyond the nose
-    g.fillStyle = '#1a1226'; g.fillRect(-60, -60, 1200, 1470);
-    wash(P, [[-60, 300], [330, 300], [200, 1410], [-60, 1410]], '#3a2638', { alpha: 0.7, layers: 4, spread: 12, bloom: 0.4, bscale: 2.5, edge: 0 });
-    // skin mass
-    const nose = catmull([[262, 330], [240, 470], [214, 600], [198, 760], [176, 930], [140, 1110], [96, 1280], [50, 1430]], 4, false);
-    const skin = nose.concat([[1160, 1430], [1160, 330]]);
-    wash(P, skin, (tg) => { const gr = tg.createLinearGradient(0, 330, 0, 1430); gr.addColorStop(0, '#3e2c40'); gr.addColorStop(0.17, '#6a4c5a'); gr.addColorStop(0.33, '#9c7068'); gr.addColorStop(0.56, '#b98470'); gr.addColorStop(0.8, '#9a6a62'); gr.addColorStop(1, '#5a3e4c'); return gr; },
-      { mode: 'source-over', layers: 5, spread: 3, gran: 0.22, bloom: 0.08, bscale: 3, edge: 0.4 });
-    const blobW = (cx, cy, rx, ry, col, a, mode, bl) => wash(P, ellipsePts(cx, cy, rx, ry, 26, RNG, 0.12), col, { alpha: a, layers: 7, spread: Math.max(rx, ry) * 0.07, edge: 0.08, bloom: bl === undefined ? 0.12 : bl, bscale: 3, mode: mode || 'multiply', gran: 0.12 });
-    blobW(640, 1010, 360, 170, '#dc9c80', 0.45, 'source-over'); // cheek in the last light
-    blobW(780, 990, 140, 80, '#d3786a', 0.3, 'source-over'); // ruddy
-    blobW(560, 700, 360, 175, '#5a4064', 0.5); // the socket
-    blobW(270, 800, 170, 420, '#3e2e4c', 0.35); // nose side in shade
-    blobW(1080, 760, 170, 420, '#3a2c48', 0.6); // temple turning away
-    blobW(560, 900, 300, 50, '#5a4060', 0.35); // under the bag
-    blobW(600, 936, 300, 30, '#e8b6a0', 0.35, 'source-over'); // bag catching light
-    blobW(560, 655, 250, 60, '#a47c80', 0.45, 'source-over'); // lid skin
-    blobW(470, 545, 300, 55, '#b8949c', 0.35, 'source-over'); // brow ridge, cool sky light
-    // capillaries & age spots
-    g.strokeStyle = 'rgba(176,60,64,0.3)'; g.lineWidth = 0.9;
-    for (let i = 0; i < 34; i++) { let x = 660 + RNG() * 260, y = 960 + RNG() * 150; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (RNG() - 0.3) * 14; y += (RNG() - 0.5) * 10; g.lineTo(x, y); } g.stroke(); }
-    for (let i = 0; i < 20; i++) { g.fillStyle = 'rgba(110,64,48,' + (0.12 + RNG() * 0.18) + ')'; blob(g, 320 + RNG() * 760, 880 + RNG() * 300, 3 + RNG() * 10, 8, 0.4); }
-    for (let i = 0; i < 2400; i++) { const x = 220 + RNG() * 900, y = 380 + RNG() * 1000; if (Math.hypot((x - 560) / 260, (y - 720) / 110) < 1) continue; g.fillStyle = RNG() < 0.5 ? 'rgba(60,34,48,0.2)' : 'rgba(255,226,212,0.14)'; g.fillRect(x, y, 1.3, 1.3); }
-    // wrinkles: soft shadow under a drawn crease, lost at the ends
+    const r = R * 1.3, X0 = -280, Y0 = -180, WW = 1640, HH = 1760;
+    const P = painter(X0, Y0, WW, HH, r), g = P.g;
+    const full = [[X0, Y0], [X0 + WW, Y0], [X0 + WW, Y0 + HH], [X0, Y0 + HH]];
+    const blobW = (cx, cy, rx, ry, col, a, mode, bl, rot) => {
+      let pts = ellipsePts(cx, cy, rx, ry, 28, RNG, 0.14);
+      if (rot) pts = pts.map(([x, y]) => [cx + (x - cx) * Math.cos(rot) - (y - cy) * Math.sin(rot), cy + (x - cx) * Math.sin(rot) + (y - cy) * Math.cos(rot)]);
+      wash(P, pts, col, { alpha: a, layers: 7, spread: Math.max(rx, ry) * 0.08, edge: 0.06, bloom: bl === undefined ? 0.15 : bl, bscale: 2.6, mode: mode || 'multiply', gran: 0.18 });
+    };
+    // cold night beyond the face, with out-of-focus snow
+    g.fillStyle = '#121830'; g.fillRect(X0, Y0, WW, HH);
+    wash(P, full, (tg) => { const gr = tg.createRadialGradient(0, 700, 50, 0, 700, 700); gr.addColorStop(0, '#2c3460'); gr.addColorStop(1, '#121830'); return gr; }, { mode: 'source-over', alpha: 0.8, layers: 3, spread: 20, edge: 0, bloom: 0.4, bscale: 3 });
+    for (let i = 0; i < 26; i++) { const x = X0 + RNG() * 520, y = 300 + RNG() * 1200, rr = 8 + RNG() * 26; const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, 'rgba(200,210,240,0.35)'); gr.addColorStop(0.7, 'rgba(200,210,240,0.18)'); gr.addColorStop(1, 'rgba(200,210,240,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+    // the face: its edge along the nose is a soft turning form, not a cut
+    const nose = catmull([[250, 250], [236, 420], [214, 580], [196, 740], [176, 900], [146, 1060], [104, 1240], [50, 1420], [-10, 1600]], 5, false);
+    const skin = nose.concat([[X0 + WW, Y0 + HH], [X0 + WW, 250]]);
+    wash(P, skin, (tg) => { const gr = tg.createLinearGradient(0, 280, 0, 1400); gr.addColorStop(0, '#3a2a46'); gr.addColorStop(0.18, '#6e4c62'); gr.addColorStop(0.36, '#a27070'); gr.addColorStop(0.56, '#b87c6c'); gr.addColorStop(0.8, '#94606a'); gr.addColorStop(1, '#5a3a52'); return gr; },
+      { mode: 'source-over', layers: 6, spread: 4, gran: 0.28, bloom: 0.1, bscale: 3, edge: 0.2 });
+    // the far side of the nose falls away into blue shadow
+    wash(P, nose.concat(nose.slice().reverse().map(([x, y]) => [x + 150, y])), (tg) => { const gr = tg.createLinearGradient(170, 0, 330, 0); gr.addColorStop(0, 'rgba(36,30,64,0.85)'); gr.addColorStop(1, 'rgba(36,30,64,0)'); return gr; }, { layers: 5, spread: 10, edge: 0, bloom: 0.04 });
+    // warm life in the skin: lid rims, cheek, nose
+    blobW(560, 735, 270, 105, '#c25a68', 0.38); // rims around the eye
+    blobW(760, 1000, 220, 120, '#d06a62', 0.42, 'multiply', 0.2, 0.2); // weathered cheek
+    blobW(250, 900, 70, 240, '#c06070', 0.3); // nose
+    // the deep socket under the brow
+    blobW(430, 620, 260, 80, '#241a3c', 0.6, 'multiply', 0.1, -0.08);
+    blobW(760, 640, 200, 70, '#2c2040', 0.45, 'multiply', 0.1, 0.12);
+    blobW(340, 760, 110, 120, '#3a2848', 0.3, 'multiply', 0.05); // inner corner toward the nose
+    blobW(1080, 760, 220, 440, '#2a2246', 0.55); // temple turning away
+    blobW(560, 880, 300, 46, '#3e2a4c', 0.4, 'multiply', 0.1, -0.05); // under the bag
+    blobW(620, 1110, 520, 150, '#3a2848', 0.4); // hollow above the scarf
+    // the cold key light from the sky: brow ridge, lid, cheekbone, bridge of the nose
+    blobW(560, 500, 420, 50, '#8c9ad8', 0.5, 'screen', 0.2, -0.06);
+    blobW(600, 600, 240, 34, '#7a86c8', 0.35, 'screen', 0.2, 0.05);
+    blobW(760, 930, 230, 60, '#8e98d4', 0.45, 'screen', 0.2, -0.25);
+    blobW(560, 935, 260, 22, '#8a90c8', 0.3, 'screen', 0.2, -0.05);
+    wash(P, nose.slice(2, 34).map((p) => [p[0] + 6, p[1]]).concat(nose.slice(2, 34).reverse().map((p) => [p[0] + 60, p[1]])), '#8e98d4', { mode: 'screen', alpha: 0.25, layers: 7, spread: 24, edge: 0, bloom: 0.2 });
+    // pores, spots, capillaries
+    g.strokeStyle = 'rgba(170,50,66,0.32)'; g.lineWidth = 0.9;
+    for (let i = 0; i < 40; i++) { let x = 660 + RNG() * 300, y = 940 + RNG() * 140; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (RNG() - 0.3) * 14; y += (RNG() - 0.5) * 10; g.lineTo(x, y); } g.stroke(); }
+    for (let i = 0; i < 22; i++) { g.fillStyle = 'rgba(100,60,46,' + (0.12 + RNG() * 0.16) + ')'; blob(g, 320 + RNG() * 800, 860 + RNG() * 220, 3 + RNG() * 9, 8, 0.4); }
+    for (let i = 0; i < 3400; i++) { const x = 220 + RNG() * 1100, y = 380 + RNG() * 760; if (Math.hypot((x - 560) / 250, (y - 720) / 100) < 1) continue; g.fillStyle = RNG() < 0.55 ? 'rgba(50,30,50,0.22)' : 'rgba(200,210,250,0.16)'; g.fillRect(x, y, 1.3, 1.3); }
+    // stubble on the lower cheek and near the nose
+    for (let i = 0; i < 2600; i++) { const x = 150 + RNG() * 1100, y = 960 + RNG() * 200 - (x - 150) * 0.06; const d = RNG(); g.strokeStyle = d < 0.6 ? 'rgba(40,26,40,0.5)' : 'rgba(230,228,236,0.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 1.5, y + 3); g.stroke(); }
+    // creases: drawn line, soft shadow below, a cold light ridge beyond
     const crease = (pts, w, a, lift) => {
       const cp = catmull(pts, 8, false);
-      g.globalAlpha = a * 0.5; g.fillStyle = '#3a2438'; inkStroke(g, offsetPts(cp, 0, w * 1.6), w * 3.2, { ti: 0.45, to: 0.45, vr: 0.3 });
-      if (lift) { g.globalAlpha = a * 0.35; g.fillStyle = '#f0c4b0'; inkStroke(g, offsetPts(cp, 0, w * 4.5), w * 2.4, { ti: 0.5, to: 0.5 }); }
-      g.globalAlpha = a; g.fillStyle = INK; inkLine(g, cp, w, { ti: 0.35, to: 0.45, vr: 0.5, gaps: 0.12 }); g.globalAlpha = 1;
+      g.globalAlpha = a * 0.5; g.fillStyle = '#2a1a36'; inkStroke(g, offsetPts(cp, 0, w * 1.6), w * 3.4, { ti: 0.45, to: 0.45, vr: 0.3 });
+      if (lift) { g.globalAlpha = a * 0.4; g.fillStyle = '#b8bcec'; inkStroke(g, offsetPts(cp, 0, w * 4.6), w * 2.2, { ti: 0.5, to: 0.5 }); }
+      g.globalAlpha = a; g.fillStyle = INK; inkLine(g, cp, w, { ti: 0.35, to: 0.45, vr: 0.5, gaps: 0.14 }); g.globalAlpha = 1;
     };
     crease([[360, 826], [470, 858], [620, 866], [760, 840], [850, 792]], 3, 0.8, true);
     crease([[430, 904], [580, 928], [740, 912], [870, 862]], 2, 0.45, true);
-    blobW(720, 905, 220, 70, '#e6ac90', 0.4, 'source-over'); // cheekbone
-    blobW(620, 1180, 420, 140, '#4a3048', 0.45); // hollow below
-    for (let i = 0; i < 6; i++) {
-      const a = -0.5 + i * 0.2 + (RNG() - 0.5) * 0.1, l = 110 + RNG() * 110, sx = 818 + i * 3, sy = 690 + (i - 3) * 12;
-      const bend = (i - 2.5) * 0.12;
+    for (let i = 0; i < 7; i++) {
+      const a = -0.55 + i * 0.18 + (RNG() - 0.5) * 0.1, l = 110 + RNG() * 130, sx = 818 + i * 3, sy = 690 + (i - 3) * 12;
+      const bend = (i - 3) * 0.1;
       const pts = [[sx, sy], [sx + Math.cos(a) * l * 0.5, sy + Math.sin(a) * l * 0.5], [sx + Math.cos(a + bend) * l, sy + Math.sin(a + bend) * l]];
-      crease(pts, 1.6 + RNG() * 1.2, 0.5 + RNG() * 0.25);
+      crease(pts, 1.6 + RNG() * 1.3, 0.5 + RNG() * 0.3, true);
       if (RNG() < 0.6) { const m = pts[1]; crease([m, [m[0] + 30, m[1] + (RNG() - 0.5) * 40]], 1, 0.35); }
     }
-    crease([[320, 1080], [420, 1160], [500, 1270], [540, 1420]], 2.4, 0.4);
-    crease([[900, 1060], [960, 1160], [990, 1300]], 1.8, 0.3);
-    // hatching in the shadows
-    hatch(P, [[200, 380], [420, 380], [380, 600], [300, 900], [180, 1000], [150, 700]], { ang: 0.95, gap: 5, len: 30, w: 1.1, col: INK, alpha: 0.32 });
-    hatch(P, [[920, 520], [1160, 470], [1160, 1100], [990, 960]], { ang: 1.2, gap: 6, len: 36, w: 1, col: INK, alpha: 0.3 });
-    hatch(P, [[230, 1150], [1160, 1150], [1160, 1430], [120, 1430]], { ang: 2.0, gap: 6, len: 30, w: 1, col: INK, alpha: 0.25 });
-    // the nose bridge contour
-    g.fillStyle = INK; g.globalAlpha = 0.75; inkLine(g, nose, 3, { ti: 0.1, to: 0.4, vr: 0.5, gaps: 0.25 }); g.globalAlpha = 1;
-    dryBrush(g, nose.slice(4, 26).map((p) => [p[0] + 10, p[1]]), 6, '#c8a4b0', { n: 6, alpha: 0.45 });
-    // beard rising at the bottom of the frame
+    crease([[300, 1010], [380, 1080], [440, 1150]], 2.2, 0.4);
+    // hatching in the deep shadows
+    hatch(P, [[230, 420], [440, 400], [400, 600], [330, 860], [240, 900]], { ang: 0.95, gap: 5, len: 30, w: 1.1, col: INK, alpha: 0.26, density: (x, y) => sstep(200, 300, x) });
+    hatch(P, [[260, 520], [900, 500], [900, 600], [300, 640]], { ang: 0.5, gap: 6, len: 22, w: 0.9, col: INK, alpha: 0.22 });
+    hatch(P, [[940, 520], [1360, 470], [1360, 1100], [1000, 960]], { ang: 1.2, gap: 6, len: 36, w: 1, col: INK, alpha: 0.3 });
+    // lost-and-found nose contour
+    g.fillStyle = INK; g.globalAlpha = 0.7; inkLine(g, nose, 2.6, { ti: 0.1, to: 0.4, vr: 0.6, gaps: 0.35, gapFreq: 0.05 }); g.globalAlpha = 1;
+    // white hair escaping at the temple
     g.lineCap = 'round';
-    for (let i = 0; i < 260; i++) {
-      const x = 60 + Math.pow(RNG(), 1.6) * 700;
-      const y0 = 1250 + x * 0.12 + RNG() * 80 - Math.max(0, 320 - x) * 0.3;
-      const l = 80 + RNG() * 200, a = PI / 2 - 0.25 + (RNG() - 0.5) * 0.5;
-      const w2 = RNG();
-      g.strokeStyle = w2 < 0.7 ? 'rgba(232,228,222,' + (0.5 + RNG() * 0.45) + ')' : w2 < 0.85 ? 'rgba(150,140,160,0.6)' : 'rgba(30,24,40,0.55)';
-      g.lineWidth = 0.9 + RNG() * 2.2;
-      g.beginPath(); g.moveTo(x, y0); g.quadraticCurveTo(x + Math.cos(a) * l * 0.5 - 14, y0 + Math.sin(a) * l * 0.5, x + Math.cos(a) * l - 10, y0 + Math.sin(a) * l); g.stroke();
+    for (let i = 0; i < 110; i++) {
+      const x = 940 + RNG() * 300, y = 300 + RNG() * 60;
+      g.strokeStyle = RNG() < 0.8 ? 'rgba(226,226,236,' + (0.45 + RNG() * 0.4) + ')' : 'rgba(30,26,44,0.5)'; g.lineWidth = 0.8 + RNG() * 1.8;
+      g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + 10, y + 120, x + 40 + RNG() * 40, y + 220, x + 40 + RNG() * 120, y + 330 + RNG() * 300); g.stroke();
     }
-    // a knitted scarf wound up to the cheek, beard spilling over it
-    const scarfTop = catmull([[-60, 1130], [180, 1080], [460, 1046], [760, 1030], [1000, 1000], [1160, 975]], 6, false);
-    const scarf = scarfTop.concat([[1160, 1440], [-60, 1440]]);
-    wash(P, scarf, (tg) => { const gr = tg.createLinearGradient(0, 1080, 0, 1440); gr.addColorStop(0, '#8c3a34'); gr.addColorStop(1, '#4a1c22'); return gr; }, { mode: 'source-over', layers: 5, spread: 2.5, gran: 0.5, bloom: 0.2, edge: 0.5 });
-    g.save(); polyPath(g, scarf); g.clip(); g.lineCap = 'round';
-    for (let row = 0; row < 14; row++) for (let x = -60; x < 1160; x += 18) {
-      const y = 1000 + row * 26 + (x * -0.12) + Math.sin(x * 0.01 + row) * 6;
-      g.strokeStyle = 'rgba(30,10,16,0.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 8, y + 10); g.lineTo(x + 16, y); g.stroke();
-      g.strokeStyle = 'rgba(200,110,90,0.22)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(x + 2, y - 3); g.lineTo(x + 8, y + 5); g.stroke();
+    // a knitted scarf wound up to the cheek
+    const scarfTop = catmull([[-280, 1210], [100, 1110], [460, 1050], [760, 1020], [1060, 975], [1360, 930]], 6, false);
+    const scarf = scarfTop.concat([[1360, 1580], [-280, 1580]]);
+    wash(P, scarf, (tg) => { const gr = tg.createLinearGradient(0, 960, 0, 1500); gr.addColorStop(0, '#94403a'); gr.addColorStop(1, '#3e1820'); return gr; }, { mode: 'source-over', layers: 5, spread: 2.5, gran: 0.55, bloom: 0.25, edge: 0.5 });
+    g.save(); polyPath(g, scarf); g.clip();
+    for (let row = 0; row < 22; row++) for (let x = -280; x < 1360; x += 18) {
+      const y = 1010 + row * 24 - (x * 0.13) + Math.sin(x * 0.012 + row) * 5;
+      g.strokeStyle = 'rgba(30,8,16,0.42)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 8, y + 10); g.lineTo(x + 16, y); g.stroke();
+      g.strokeStyle = 'rgba(214,120,96,0.22)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(x + 2, y - 3); g.lineTo(x + 8, y + 5); g.stroke();
     }
+    const fold = g.createLinearGradient(0, 1000, 0, 1200); fold.addColorStop(0, 'rgba(150,160,220,0.25)'); fold.addColorStop(1, 'rgba(150,160,220,0)'); g.fillStyle = fold; g.fillRect(X0, 900, WW, 300);
     g.restore();
     g.fillStyle = INK; inkLine(g, scarfTop, 4, { gaps: 0.15, ti: 0.05, to: 0.05 });
-    blobW(560, 1012, 600, 36, '#2a1428', 0.45); // its shadow on the cheek
-    // the beard, a soft white mass spilling over the scarf
-    const beardP = catmull([[60, 1010], [250, 1040], [430, 1090], [560, 1250], [600, 1440], [40, 1440]], 6, true);
-    wash(P, beardP, (tg) => { const gr = tg.createLinearGradient(0, 1000, 0, 1440); gr.addColorStop(0, '#d8d2d4'); gr.addColorStop(1, '#8a8296'); return gr; }, { mode: 'source-over', layers: 6, spread: 8, edge: 0.1, bloom: 0.2, gran: 0.2 });
-    g.save(); polyPath(g, beardP); g.clip(); g.lineCap = 'round';
-    for (let i = 0; i < 260; i++) {
-      const x = 40 + RNG() * 560, y0 = 990 + RNG() * 300, l = 80 + RNG() * 200;
-      g.strokeStyle = RNG() < 0.65 ? 'rgba(246,243,238,' + (0.4 + RNG() * 0.5) + ')' : 'rgba(90,80,104,' + (0.3 + RNG() * 0.3) + ')';
+    blobW(560, 1000, 640, 36, '#22122a', 0.45, 'multiply', 0.1, -0.1);
+    // the beard spilling over the scarf
+    const beardP = catmull([[-120, 1080], [150, 1060], [380, 1110], [520, 1260], [560, 1580], [-120, 1580]], 6, true);
+    wash(P, beardP, (tg) => { const gr = tg.createLinearGradient(0, 1050, 0, 1580); gr.addColorStop(0, '#dcd8e0'); gr.addColorStop(1, '#7a7490'); return gr; }, { mode: 'source-over', layers: 6, spread: 8, edge: 0.1, bloom: 0.2, gran: 0.2 });
+    g.save(); polyPath(g, beardP); g.clip();
+    for (let i = 0; i < 380; i++) {
+      const x = -120 + RNG() * 680, y0 = 1030 + RNG() * 400, l = 80 + RNG() * 220;
+      g.strokeStyle = RNG() < 0.6 ? 'rgba(248,246,242,' + (0.4 + RNG() * 0.5) + ')' : 'rgba(80,72,100,' + (0.3 + RNG() * 0.3) + ')';
       g.lineWidth = 0.8 + RNG() * 2;
       g.beginPath(); g.moveTo(x, y0); g.bezierCurveTo(x + 20, y0 + l * 0.35, x + 4, y0 + l * 0.7, x + 26 + RNG() * 20, y0 + l); g.stroke();
     }
     g.restore();
-    // white hair escaping the hood at the temple
-    for (let i = 0; i < 90; i++) {
-      const x = 940 + RNG() * 200, y = 300 + RNG() * 40;
-      g.strokeStyle = RNG() < 0.8 ? 'rgba(228,224,220,' + (0.45 + RNG() * 0.4) + ')' : 'rgba(30,26,40,0.5)'; g.lineWidth = 0.8 + RNG() * 1.8;
-      g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + 10, y + 120, x + 40 + RNG() * 40, y + 220, x + 30 + RNG() * 90, y + 330 + RNG() * 260); g.stroke();
-    }
-    // the hood
-    const edge = [[-60, 520], [110, 446], [320, 382], [560, 352], [780, 334], [980, 296], [1160, 236]];
-    const hood = catmull([[-60, -60], [1160, -60]].concat(edge.slice().reverse()), 5, true);
-    // its shadow across the brow
-    const sh = catmull(edge, 6, false); const shp = sh.concat(sh.slice().reverse().map((p) => [p[0], p[1] + 120]));
-    wash(P, shp, (tg) => { const gr = tg.createLinearGradient(0, 300, 0, 480); gr.addColorStop(0, 'rgba(20,14,34,0.9)'); gr.addColorStop(1, 'rgba(20,14,34,0)'); return gr; }, { layers: 4, spread: 6, edge: 0 });
-    wash(P, hood, (tg) => { const gr = tg.createLinearGradient(0, -60, 0, 500); gr.addColorStop(0, '#1d1e30'); gr.addColorStop(1, '#3b4260'); return gr; }, { mode: 'source-over', layers: 5, spread: 3, gran: 0.6, bloom: 0.2, edge: 0.4 });
+    // the hood: dark wool, then a fur trim rimed with frost
+    const edge = [[X0, 470], [0, 430], [200, 392], [420, 360], [640, 336], [860, 312], [1080, 262], [1360, 196]];
+    const sh = catmull(edge, 6, false);
+    wash(P, sh.concat(sh.slice().reverse().map((p) => [p[0], p[1] + 150])), (tg) => { const gr = tg.createLinearGradient(0, 300, 0, 520); gr.addColorStop(0, 'rgba(16,12,32,0.92)'); gr.addColorStop(1, 'rgba(16,12,32,0)'); return gr; }, { layers: 4, spread: 7, edge: 0 });
+    const hood = [[X0, Y0], [X0 + WW, Y0]].concat(sh.slice().reverse().map((p) => [p[0], p[1] - 40]));
+    wash(P, hood, (tg) => { const gr = tg.createLinearGradient(0, Y0, 0, 420); gr.addColorStop(0, '#171a2c'); gr.addColorStop(1, '#30364e'); return gr; }, { mode: 'source-over', layers: 5, spread: 3, gran: 0.6, bloom: 0.2, edge: 0.3 });
     g.save(); polyPath(g, hood); g.clip();
-    g.globalAlpha = 0.6; g.drawImage(A.cloth.cloak.c, -60, -60, 1220, 600); g.globalAlpha = 0.45; g.fillStyle = '#181a2c'; g.fillRect(-60, -60, 1220, 600); g.globalAlpha = 1;
-    for (let f = 0; f < 6; f++) { const off = 30 + f * 34 + RNG() * 10; g.globalAlpha = 0.5; g.fillStyle = '#0c0c18'; inkStroke(g, sh.map((p, i) => [p[0], p[1] - off - Math.sin(i * 0.2 + f) * 8]).slice(3 + f * 2, sh.length - f * 3), 2 + RNG() * 2, { ti: 0.3, to: 0.4 }); }
-    g.globalAlpha = 1;
-    hatch(P, hood, { ang: 1.3, gap: 6, len: 40, w: 1.2, col: '#0b0b16', alpha: 0.4 });
-    for (let f = 0; f < 5; f++) { const off = 60 + f * 50 + RNG() * 20; dryBrush(g, sh.map((p, i) => [p[0], p[1] - off + Math.sin(i * 0.15 + f * 2) * 10]).slice(2 + f * 3, sh.length - 2 - f * 2), 8, '#5c6288', { n: 6, alpha: 0.4, broken: 0.1 }); }
-    g.globalAlpha = 1;
-    g.restore();
-    dryBrush(g, sh.map((p) => [p[0], p[1] - 7]), 11, '#8d92b8', { n: 9, alpha: 0.55 });
-    g.fillStyle = INK; inkLine(g, sh, 4.5, { gaps: 0.12, ti: 0.03, to: 0.03 });
-    A.eyeFace = { c: gpu(P.c), x: -60, y: -60, w: 1200, h: 1470 };
+    g.globalAlpha = 0.5; g.drawImage(A.cloth.cloak.c, X0, Y0, WW, 700); g.globalAlpha = 1;
+    for (let f = 0; f < 7; f++) { const off = 80 + f * 46 + RNG() * 20; const pts = sh.map((p, i) => [p[0], p[1] - off + Math.sin(i * 0.12 + f * 2) * 14]).slice(2 + f * 3, sh.length - 2 - f * 2); g.fillStyle = '#0a0a16'; g.globalAlpha = 0.55; inkStroke(g, pts, 3 + RNG() * 3, { ti: 0.3, to: 0.4 }); dryBrush(g, pts.map((p) => [p[0], p[1] - 8]), 7, '#4e5680', { n: 5, alpha: 0.35 }); }
+    g.restore(); g.globalAlpha = 1;
+    // fur trim: a soft mass, then clumps of hair in every direction
+    const band = sh.map((p) => [p[0], p[1] - 46]).concat(sh.slice().reverse().map((p) => [p[0], p[1] + 18]));
+    wash(P, band, (tg) => { const gr = tg.createLinearGradient(0, 200, 0, 480); gr.addColorStop(0, '#4a4256'); gr.addColorStop(1, '#7a6e7e'); return gr; }, { mode: 'source-over', layers: 6, spread: 6, edge: 0, bloom: 0.3, gran: 0.4 });
+    for (let c = 0; c < 420; c++) {
+      const k = Math.floor(RNG() * (sh.length - 1)), p = sh[k];
+      const rx = p[0] + (RNG() - 0.5) * 14, ry2 = p[1] - 40 + RNG() * 52;
+      const base = PI / 2 + (RNG() - 0.5) * 1.6 + (ry2 < p[1] - 20 ? PI : 0) * (RNG() < 0.3 ? 1 : 0);
+      const tone = RNG();
+      const col = tone < 0.3 ? [226, 226, 238] : tone < 0.55 ? [160, 140, 132] : tone < 0.85 ? [96, 84, 100] : [26, 20, 34];
+      for (let j = 0; j < 9; j++) {
+        const a2 = base + (RNG() - 0.5) * 0.9, l = 8 + RNG() * 26;
+        g.strokeStyle = rgba(col, 0.35 + RNG() * 0.45); g.lineWidth = 0.7 + RNG() * 1.2;
+        g.beginPath(); g.moveTo(rx, ry2); g.quadraticCurveTo(rx + Math.cos(a2 + 0.3) * l * 0.5, ry2 + Math.sin(a2 + 0.3) * l * 0.5, rx + Math.cos(a2) * l, ry2 + Math.sin(a2) * l); g.stroke();
+      }
+    }
+    // frost on the fur
+    for (let i = 0; i < 260; i++) { const k = Math.floor(RNG() * sh.length), p = sh[k]; const x = p[0] + (RNG() - 0.5) * 30, y = p[1] - 30 + RNG() * 60; g.fillStyle = 'rgba(246,248,255,' + (0.5 + RNG() * 0.5) + ')'; blob(g, x, y, 0.8 + RNG() * 2.4, 6, 0.5); }
+    dryBrush(g, sh.map((p) => [p[0], p[1] + 14]), 6, '#a8b2e6', { n: 6, alpha: 0.4, broken: 0.1 });
+    A.eyeFace = { c: gpu(P.c), x: X0, y: Y0, w: WW, h: HH };
     buildEyeBall(); buildBrow();
   }
   function buildEyeBall() {
@@ -1861,7 +1892,7 @@
     const hd = hand(t + 3, 3), jolt = shake(t, 0.95, 0.5, 5);
     const sp = EYE.spark, tgt = SPARK_SCREEN;
     const sx = lerp(sp[0], tgt[0], u) + hd[0] + jolt[0], sy = lerp(sp[1], tgt[1], u) + hd[1] + jolt[1];
-    const T = (gg) => { gg.setTransform(S, 0, 0, S, 0, 0); gg.translate(sx, sy); gg.rotate(hd[2] + jolt[2]); gg.scale(Z, Z); gg.translate(-sp[0], -sp[1]); };
+    const T = (gg) => { gg.setTransform(S, 0, 0, S, 0, 0); gg.translate(sx, sy); gg.rotate(hd[2] + jolt[2] - 0.09 + 0.02 * u); gg.scale(Z, Z); gg.translate(-sp[0], -sp[1]); };
     T(g);
     drawSprite(g, A.eyeFace, 0, 0);
     const o = eyeOpen(t);
@@ -1873,15 +1904,22 @@
     // the spark of the far beacon, mirrored in the eye
     const si = sparkI(t);
     if (si > 0) {
-      const px = sp[0] - 6 * gz, py = sp[1] - 3 * gz;
-      glow(g, px, py, 40 + 50 * si, [255, 140, 50], 0.75 * si);
-      g.fillStyle = rgba([255, 190, 110], si); g.beginPath(); g.ellipse(px, py, 4 + si * 3, 5.5 + si * 4.5, 0, 0, TAU); g.fill();
-      g.fillStyle = rgba([255, 250, 228], si); g.beginPath(); g.arc(px, py + 0.5, 2.2 + si * 1.5, 0, TAU); g.fill();
-      g.globalAlpha = 0.55 * si; g.fillStyle = '#ffa050'; inkStroke(g, [[px, py - 3], [px + 0.5, py - 12 - si * 8], [px - 0.5, py - 20 - si * 14]], 2.6, { ti: 0.1, to: 0.9 }); g.globalAlpha = 1;
+      const px = sp[0] - 6 * gz, py = sp[1] - 3 * gz, gs = 0.6 + 0.9 * sstep(0.5, 3.0, t);
+      // the iris warms around the reflected fire
+      const ig = g.createRadialGradient(px, py, 0, px, py, 70 + 70 * gs); ig.addColorStop(0, rgba([255, 150, 70], 0.5 * si)); ig.addColorStop(0.5, rgba([230, 120, 60], 0.18 * si)); ig.addColorStop(1, 'rgba(230,120,60,0)');
+      g.save(); g.globalCompositeOperation = 'screen'; g.fillStyle = ig; g.fillRect(px - 160, py - 160, 320, 320); g.restore();
+      glow(g, px, py, (36 + 40 * si) * gs, [255, 140, 50], 0.85 * si);
+      g.fillStyle = rgba([255, 170, 90], si); g.beginPath(); g.ellipse(px, py, (5 + si * 3) * gs, (7 + si * 5) * gs, 0, 0, TAU); g.fill();
+      g.fillStyle = rgba([255, 236, 190], si); g.beginPath(); g.ellipse(px, py + 0.5, (2.8 + si * 1.6) * gs, (3.6 + si * 2.2) * gs, 0, 0, TAU); g.fill();
+      g.fillStyle = rgba([255, 255, 245], si); g.beginPath(); g.arc(px, py + 1, 1.6 * gs, 0, TAU); g.fill();
+      g.globalAlpha = 0.6 * si; g.fillStyle = '#ffa050'; inkStroke(g, [[px, py - 4 * gs], [px + 1, py - (14 + si * 8) * gs], [px - 1, py - (24 + si * 16) * gs]], 3.2 * gs, { ti: 0.1, to: 0.9 }); g.globalAlpha = 1;
     }
     // sky window catchlight
-    g.fillStyle = 'rgba(236,236,248,0.85)';
+    g.fillStyle = 'rgba(226,232,255,0.9)';
     g.beginPath(); g.ellipse(548 - 6 * gz, 676 - 3 * gz, 15, 11, -0.3, 0, TAU); g.fill();
+    // wet glints on the cornea
+    g.strokeStyle = 'rgba(236,240,255,0.55)'; g.lineWidth = 2.2; g.beginPath(); g.arc(EYE.iris[0] - 6 * gz, EYE.iris[1] - 3 * gz, EYE.ir - 12, -1.1, -0.35); g.stroke();
+    g.fillStyle = 'rgba(240,244,255,0.7)'; g.beginPath(); g.arc(610 - 6 * gz, 745 - 3 * gz, 2.5, 0, TAU); g.fill();
     g.fillStyle = 'rgba(236,236,248,0.5)'; g.beginPath(); g.arc(568 - 6 * gz, 700 - 3 * gz, 4, 0, TAU); g.fill();
     // shadow cast by the upper lid
     const sh = upP.concat(upP.slice().reverse().map((p) => [p[0], p[1] + 44]));
@@ -1920,7 +1958,7 @@
     // snow drifting past the face, near and soft
     snowfall(g, t + 5, { X: 0, Y: 0, Z: 1 }, { wind: -40, layers: [{ n: 26, p: 0, size: 3.2, speed: 60, sway: 18, windK: 1, alpha: 0.9 }, { n: 7, p: 0, size: 9, speed: 120, sway: 30, windK: 1.6, alpha: 0.5, soft: true }] });
     // cold grade
-    g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(196,200,236,0.25)'; g.fillRect(0, 0, W, H); g.restore();
+    g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(176,190,240,0.22)'; g.fillRect(0, 0, W, H); g.restore();
     // the light of the spark spills into the frame as we push into it
     const sp2 = sparkI(t) * sstep(2.2, 3.1, t);
     if (sp2 > 0) glow(g, sx, sy, 80 + 260 * sp2, [255, 160, 80], 0.5 * sp2);
@@ -1930,20 +1968,20 @@
   /* ================================================================== SHOTS 2–4 — THE SUMMIT */
   function camSummit(t) {
     let X, Y, Z;
-    const trX = (tt) => runX(tt - 0.12) + 150 * clamp(runSpeed(tt) / 205, 0.3, 1) + 20;
+    const trX = (tt) => runX(tt - 0.12) + 120 * clamp(runSpeed(tt) / 205, 0.3, 1) + 10;
     if (t < 8.25) {
       X = track([[2.6, CAM_S2_START.X], [4.9, -150, 'io'], [8.25, -112, 's']], t);
       Y = track([[2.6, CAM_S2_START.Y], [4.9, -300, 'io'], [8.25, -318, 's']], t);
       Z = track([[2.6, CAM_S2_START.Z], [4.9, 1.05, 'io'], [8.25, 1.13, 's']], t);
     } else if (t < 8.62) {
       const u = EZ.io((t - 8.25) / 0.37);
-      X = lerp(-112, trX(8.62), u); Y = lerp(-318, -330, u); Z = lerp(1.13, 1.25, u);
+      X = lerp(-112, trX(8.62), u); Y = lerp(-318, gY(runX(8.62)) - 262, u); Z = lerp(1.13, 1.62, u);
     } else {
       const w = sstep(14.0, 16.0, t);
       const Xs = track([[14.0, trX(14.0)], [16.0, 1165, 'o2'], [18.0, 1180], [19.6, 1190], [22, 1215], [25.6, 1290]], t);
       X = lerp(trX(t), Xs, w);
-      Y = lerp(-330 + 3 * Math.sin(t * 5.5), track([[14.0, -332], [17.6, -345], [19.6, -420, 'io'], [22, -470], [23.3, -560, 's'], [25.8, -1750, 'i2']], t), w);
-      Z = lerp(1.25, track([[14.0, 1.25], [15.8, 1.24], [17.7, 1.34, 'io'], [19.6, 1.08, 'io'], [22, 1.0], [25.8, 0.92]], t), w);
+      Y = lerp(gY(runX(t - 0.2)) - 262 + 3 * Math.sin(t * 5.5), track([[14.0, -332], [17.6, -345], [19.6, -420, 'io'], [22, -470], [23.3, -560, 's'], [25.8, -1750, 'i2']], t), w);
+      Z = lerp(1.62, track([[14.0, 1.4], [15.8, 1.24], [17.7, 1.34, 'io'], [19.6, 1.08, 'io'], [22, 1.0], [25.8, 0.92]], t), w);
     }
     const hd = hand(t, 4), sk = shake(t, 18.15, 1.6, 9), sk2 = shake(t, 12.0, 0.4, 3);
     if (DBG && DBG.zoom) { const r = keeperRoot(t); return { X: r.x, Y: gY(r.x) - 95, Z: DBG.zoom, rot: 0 }; }
@@ -2194,24 +2232,24 @@
   }
   function buildFarB() {
     const P = painter(-660, -260, 2200, 420, R * 0.75);
-    const pk = []; for (let x = -600; x < 1540; x += 70 + RNG() * 80) pk.push({ x, h: 60 + RNG() * 90, w: 90 + RNG() * 80 });
-    paintRange(P, { x0: -660, x1: 1540, base: -10, peaks: pk, floor: 20, amp: 12, freq: 0.03, shade: '#7a6a98', shadeTop: '#6c5e8e', lit: '#f0c8c2', litLow: '#c49eb0', haze: '#d0a0a0', hmax: 150, inkA: 0.25, inkW: 0.9, detail: 0.3, hazeFrom: 0.5, hazeA: 0.95, below: 140, hiA: 0.7, hiW: 2 });
+    const pk = genPeaks(-600, 1540, 90, 220, 50, 150, 110, 200, 1.2);
+    paintRange(P, { shapes: true, x0: -660, x1: 1540, base: -10, peaks: pk, floor: 20, amp: 12, freq: 0.03, shade: '#7a6a98', shadeTop: '#6c5e8e', lit: '#f0c8c2', litLow: '#c49eb0', haze: '#d0a0a0', hmax: 150, inkA: 0.25, inkW: 0.9, detail: 0.3, hazeFrom: 0.5, hazeA: 0.95, below: 140, hiA: 0.7, hiW: 2 });
     mist(P, -660, 1540, 0, '#dcae9e', 12, { L: 300, T: 9, a: 0.5, dy: 20 });
     A.farB = toLayer(P, 0.15);
   }
   function buildMidB() {
     const P = painter(-680, -200, 2900, 520, R * 0.85);
-    const pk = []; for (let x = -640; x < 2200; x += 110 + RNG() * 120) pk.push({ x, h: 120 + RNG() * 110, w: 140 + RNG() * 90 });
+    const pk = genPeaks(-640, 2200, 140, 320, 90, 240, 150, 260, 1.2);
     paintRange(P, { x0: -680, x1: 2220, base: 150, peaks: pk, floor: 40, und: 20, amp: 18, freq: 0.025, shade: '#5c5288', shadeTop: '#4e4680', lit: '#eebfbc', litLow: '#ab90b0', haze: '#b48ea6', rock: '#3a3260', hmax: 240, inkA: 0.45, inkW: 1.1, hatchA: 0.16, hatchGap: 4.4, hatchLen: 10, detail: 0.6, hazeFrom: 0.5, below: 170, hiA: 0.8, hiW: 2.6 });
     mist(P, -680, 2220, 140, '#c49aa6', 18, { L: 340, T: 12, a: 0.55, dy: 30 });
     A.midB = toLayer(P, 0.3);
   }
   function buildMainB() {
     const P = painter(-720, -220, 4300, 920, R);
-    const pk = BEACONS.map((b) => ({ x: b.x, h: b.h, w: b.w, s: b.s }));
-    for (const [x, h, w] of [[175, 380, 250], [730, 400, 230], [1145, 390, 230], [1555, 370, 220], [1970, 400, 230], [2450, 370, 260], [2660, 300, 220], [-520, 400, 260], [3200, 160, 260], [3420, 90, 260]]) pk.push({ x, h, w, s: 1.3 });
+    const pk = BEACONS.map((b) => ({ x: b.x, h: b.h, w: b.w, s: b.s, shape: b.shape }));
+    for (const [x, h, w, sh] of [[-480, 360, 420, 'massif'], [60, 300, 380, 'massif'], [520, 340, 300, 'dome'], [930, 300, 380, 'massif'], [1350, 360, 300, 'crag'], [1760, 290, 360, 'massif'], [2200, 330, 420, 'massif'], [2400, 260, 300, 'dome'], [2950, 170, 380, 'massif'], [3300, 90, 300, 'dome']]) pk.push({ x, h, w, s: 1.2, shape: sh });
     const rg = paintRange(P, { x0: -720, x1: 3580, base: 440, peaks: pk, floor: 60, und: 30, amp: 26, freq: 0.018, shade: '#4a4478', shadeTop: '#3c3668', lit: '#f2c8be', litLow: '#a891b4', haze: '#8e7aa2', rock: '#2c2648', rockLit: '#6c5a80',
-      hmax: 600, inkA: 0.8, inkW: 1.9, hatchA: 0.28, hatchGap: 3.8, hatchLen: 14, detail: 1.0, hazeFrom: 0.5, hazeA: 0.95, below: 260, hiA: 0.95, hiW: 4.2, lean: 0.5 });
+      hmax: 650, inkA: 0.8, inkW: 1.9, hatchA: 0.28, hatchGap: 3.8, hatchLen: 14, detail: 1.0, hazeFrom: 0.5, hazeA: 0.95, below: 260, hiA: 0.95, hiW: 4.2, lean: 0.5, amp: 34, prom: 0.05, rockLen: 1.3 });
     const g = P.g;
     // west warms, east cools
     g.save(); g.globalCompositeOperation = 'source-atop';
@@ -2220,7 +2258,7 @@
     g.fillStyle = hgx; g.fillRect(-720, -220, 4300, 920); g.restore();
     // the Firien Wood clothes the last hill
     const hal = BEACONS[6];
-    paintForest(P, rg.ry, hal.x - 360, hal.x + 420, { dens: 0.9, size: 13, depth: 320, pow: 1.3, col: '#2a2a40', col2: '#3a3348', snow: '#d9c6cc', ink: '#161424', from: 10, grow: 0.002 });
+    paintForest(P, rg.ry, hal.x - 300, hal.x + 360, { dens: 0.9, size: 13, depth: 320, pow: 1.3, col: '#2a2a40', col2: '#3a3348', snow: '#d9c6cc', ink: '#161424', from: 10, grow: 0.002 });
     paintForest(P, rg.ry, -720, 3580, { dens: 0.25, size: 10, depth: 140, from: 230, pow: 1, col: '#3a3456', col2: '#2e2a48', snow: '#bfaac0' });
     // tiny pyres on the summits
     A.beaconPts = [];
@@ -2240,8 +2278,8 @@
     const pk = []; for (let x = -700; x < 5200; x += 180 + RNG() * 200) pk.push({ x, h: 460 + RNG() * 160, w: 220 + RNG() * 160, s: 1.6 });
     const rg = paintRange(P, { x0: -740, x1: 5220, base: 780, peaks: pk, floor: 380, und: 60, amp: 30, freq: 0.012, shade: '#2c2846', shadeTop: '#37305a', lit: '#8f7fa8', litLow: '#4c4268', haze: '#3a3352', rock: '#18142a', rockLit: '#2a2440',
       hmax: 640, inkA: 0.85, inkW: 2.2, hatchA: 0.32, hatchGap: 4, hatchLen: 16, detail: 0.9, hazeFrom: 0.3, hazeA: 0.6, below: 120, hiA: 0.55, hiW: 3.5, lean: 0.8, litA: 0.8 });
-    paintForest(P, rg.ry, -740, 5220, { dens: 1.1, size: 22, depth: 380, from: 14, pow: 1.1, col: '#1c1a30', col2: '#262238', snow: '#8e82a6', ink: '#0e0c1a', grow: 0.0015 });
-    mist(P, -740, 5220, 520, '#5a5078', 30, { L: 460, T: 20, a: 0.45, dy: 80 });
+    paintForest(P, rg.ry, -740, 5220, { dens: 0.5, size: 22, depth: 300, from: 30, pow: 1.4, col: '#1c1a30', col2: '#262238', snow: '#8e82a6', ink: '#0e0c1a', grow: 0.0015 });
+    mist(P, -740, 5220, 300, '#8a7ca0', 40, { L: 420, T: 26, a: 0.55, dy: 120 });
     A.nearB = toLayer(P, 0.8);
   }
   function buildForeB() {
@@ -2266,15 +2304,18 @@
     const b = BEACONS[i], p = A.beaconPts[i];
     const age = b.tau < 0 ? 99 : t - b.tau;
     if (age < 0) return 0;
-    const grow = b.tau < 0 ? 1 : EZ.o(clamp(age / 0.7, 0, 1));
-    const flash = b.tau < 0 ? 0 : Math.exp(-age * 1.6);
+    const grow = b.tau < 0 ? 1 : EZ.o(clamp(age / 0.8, 0, 1));
+    const flash = b.tau < 0 ? 0 : Math.exp(-age * 1.2);
     const fl = 0.85 + 0.15 * Math.sin(t * 11 + i) * Math.sin(t * 4.3 + i * 2);
     const sc = k || 1;
-    glow(g, p[0], p[1] - 10 * sc, (150 + 320 * flash) * sc, [255, 140, 60], (0.65 + 0.5 * flash) * fl);
-    glow(g, p[0], p[1] - 14 * sc, 40 * sc, [255, 200, 120], 0.6 * fl * grow);
-    smoke(g, { x: p[0], y: p[1] - 40 * sc, w: 8 * sc }, t, { rate: 3, life: 7, up: 34 * sc, wind: -10 * sc, windA: -2.2 * sc, r0: 7 * sc, grow: 11 * sc, alpha: 0.45 * grow, t0: Math.max(0, b.tau), sd: 40 + i, warm: 0.8, warmFade: 0.4 });
-    fire(g, p[0], p[1] - 6 * sc, 24 * sc * grow, (66 + 50 * flash) * sc * grow * fl, t, 100 + i, { n: 3, lean: -0.12, inkW: 0.8 });
-    sparks(g, { x: p[0], y: p[1] - 30 * sc, w: 14 * sc, h: 20 * sc }, t, { rate: 14, life: 1.8, t0: Math.max(0, b.tau), up: 70 * sc, spreadV: 40 * sc, wind: -14 * sc, size: 1.4 * sc, sd: 60 + i });
+    // the fire lights the snow of its summit, and the air around it
+    glow(g, p[0], p[1] + 40 * sc, 260 * sc * (0.6 + 0.4 * grow), [255, 150, 80], 0.45 * grow, 'screen');
+    glow(g, p[0], p[1] - 40 * sc, (200 + 380 * flash) * sc, [255, 130, 50], (0.55 + 0.6 * flash) * fl * grow);
+    smoke(g, { x: p[0], y: p[1] - 120 * sc, w: 16 * sc }, t, { rate: 4, life: 8, up: 48 * sc, wind: -12 * sc, windA: -2.6 * sc, r0: 12 * sc, grow: 18 * sc, alpha: 0.5 * grow, t0: Math.max(0, b.tau), sd: 40 + i, warm: 0.9, warmFade: 0.35 });
+    glow(g, p[0], p[1] - 30 * sc, 60 * sc, [255, 210, 130], 0.7 * fl * grow);
+    fire(g, p[0], p[1] - 4 * sc, 52 * sc * grow, (150 + 130 * flash) * sc * grow * fl, t, 100 + i, { n: 5, lean: -0.1, inkW: 1 });
+    sparks(g, { x: p[0], y: p[1] - 60 * sc, w: 30 * sc, h: 60 * sc }, t, { rate: 30, life: 2.4, t0: Math.max(0, b.tau), up: 120 * sc, spreadV: 70 * sc, wind: -18 * sc, size: 1.8 * sc, sd: 60 + i });
+    if (flash > 0.05) sparks(g, { x: p[0], y: p[1] - 40 * sc, w: 40 * sc, h: 40 * sc }, t, { rate: 220, life: 1.6, t0: b.tau, t1: b.tau + 0.35, up: 260 * sc, spreadV: 260 * sc, size: 2 * sc, sd: 80 + i, grav: 1 });
     return grow;
   }
   function renderSweep(g, t) {
@@ -2289,15 +2330,9 @@
       if (sx < -300 || sx > W + 300) continue;
       const on = beaconFire(g, i, t);
       if (on > 0 && BEACONS[i].tau > 0) {
-        const pr = clamp((t - BEACONS[i].tau - 0.5) / 1.3, 0, 1);
-        if (pr > 0) letter(g, BEACONS[i].name, A.beaconPts[i][0], A.beaconPts[i][1] - 95, 10.5, pr, { col: '#f6ead6', alpha: 0.92, center: true });
+        const pr = clamp((t - BEACONS[i].tau - 0.35) / 1.2, 0, 1);
+        if (pr > 0) { const lx = A.beaconPts[i][0], ly = A.beaconPts[i][1] - 215; letter(g, BEACONS[i].name, lx + 1.6, ly + 1.8, 17, pr, { col: '#1a1428', alpha: 0.45, center: true }); letter(g, BEACONS[i].name, lx, ly, 17, pr, { col: '#fbefd9', alpha: 0.97, center: true }); }
       }
-    }
-    // the warm reach of each fire over the snow
-    for (let i = 0; i < BEACONS.length; i++) {
-      const b = BEACONS[i], age = b.tau < 0 ? 99 : t - b.tau; if (age < 0) continue;
-      const p = A.beaconPts[i];
-      glow(g, p[0], p[1] + 40, 240, [255, 150, 90], 0.22 * clamp(age, 0, 1), 'soft-light');
     }
     flushLow(g, FXB); flushLow(g, GLB, 'screen');
     drawLayer(g, A.nearB, cam);
@@ -2485,7 +2520,7 @@
     n: [7.6, [[[1, -10], [0.8, -5], [0.6, 0]], [[0.9, -5.8], [2.6, -9.2], [4.8, -10], [6.2, -8.4], [6, -3], [6.3, -0.2], [7.8, -1]]]],
     s: [6, [[[5.4, -9], [4, -10.2], [1.8, -9.8], [1.2, -7.6], [2.6, -5.6], [4.6, -4.4], [5.2, -2], [3.8, -0.1], [1.4, -0.1], [0, -1.4]]]],
     m: [11.2, [[[1, -10], [0.8, -5], [0.7, 0]], [[0.9, -5.8], [2.4, -9.4], [4, -10], [5.3, -8.6], [5.2, 0]], [[5.3, -6], [6.8, -9.4], [8.6, -10], [9.9, -8.4], [9.7, -3], [10, -0.2], [11.4, -1]]]],
-    i: [4, [[[1.2, -10], [0.9, -3], [1.2, -0.1], [2.8, -1]], [[1.4, -13.4], [1.9, -13.9]]]],
+    i: [4, [[[1.2, -10], [0.9, -3], [1.2, -0.1], [2.8, -1]], [[1.9, -14.6], [1.6, -13.6], [1.3, -12.7]]]],
     'î': [4.2, [[[1.2, -10], [0.9, -3], [1.2, -0.1], [2.8, -1]], [[-0.4, -11.8], [1.4, -14.2], [3.2, -11.8]]]],
     l: [4, [[[2, -16.5], [1.2, -8], [1, -1.5], [1.8, 0.1], [3.4, -1]]]],
     r: [6, [[[1, -10], [0.8, -5], [0.6, 0]], [[0.9, -6.4], [2.6, -9.4], [4.6, -10], [6, -9.2]]]],
