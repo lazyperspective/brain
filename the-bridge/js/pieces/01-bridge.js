@@ -392,7 +392,6 @@
     L.wizS = 1.2 * (L.wiz[1] - P(0, 1.85, ZWIZ)[1]) / 100; // units per wizard-unit; drawn a little larger than life so his gesture reads
     L.bal = P(0, 0, ZBAL);
     L.balS = (L.bal[1] - P(0, 14.5, ZBAL)[1]) / 100;     // 100 bu = 14.5 m
-    if (location.search.includes('bdbg')) console.warn('DBG bal', L.bal.map(Math.round), L.balS.toFixed(3), 'wiz', L.wiz.map(Math.round), L.wizS.toFixed(3), SW, SH);
 
     /* ---------- the pen: rasterise capsules into a buffer, optionally masked by object */
     let OIDA = null;           // object ids at half resolution (filled after painting)
@@ -1195,7 +1194,7 @@
           const bdd = Math.hypot(u - sw_.hilt[0] - bsx * bt, v - sw_.hilt[1] - bsy * bt) / bs;
           const bl = Math.exp(-(bdd * bdd) / 90);
           const n2 = fbm(u / (6 * bs), v / (6 * bs), 3);
-          let tone = (0.83 + 0.04 * n2) * (1 - 0.3 * bl) - 0.55 * rim;
+          let tone = (0.9 + 0.035 * n2) * (1 - 0.3 * bl) - 0.55 * rim;
           let nt = core > 0 ? lerp(old, tone, core) : lerp(old, Math.max(old, 0.9), halo * 0.85);
           td[i * 4] = td[i * 4 + 1] = td[i * 4 + 2] = Math.round(255 * (1 - clamp(nt, 0, 1)));
           if (core > 0.5) {
@@ -2262,6 +2261,7 @@
       for (let o = 0; o < 64; o++) if (o !== O.WIZ && o !== O.SWORD && o !== O.BAL && o !== O.WING && o !== O.FIRE && o !== O.RIFT && o !== O.MOON && o !== O.TOWER) notWiz.push(o);
       for (let i = 0; i < 46; i++) {
         // a bundle of near-parallel rays
+        await tick('rays');
         const a0 = R() < 0.6 ? RR(-1.0, 1.2) : R() * TAU;
         const n = 2 + ((R() * 5) | 0);
         const len0 = RR(260, 900);
@@ -2272,6 +2272,7 @@
         }
       }
       for (let i = 0; i < 110; i++) {
+        if ((i & 15) === 0) await tick('rays2');
         const a = R() * TAU;
         const len = Math.pow(R(), 1.6) * 360 + 30;
         spen([[bx + Math.cos(a) * 12, by + Math.sin(a) * 12], [bx + Math.cos(a) * len, by + Math.sin(a) * len]], { w: RR(0.25, 0.6), a: RR(0.5, 0.9), taper: [0.0, 0.9], obj: notWiz });
@@ -2293,8 +2294,10 @@
         gpen([[bx, by], [bx + Math.cos(a) * len, by + Math.sin(a) * len]], { w: i % 3 === 0 ? 2.2 : 1.2, a: 0.9, taper: [0, 0.95] });
       }
     }
-    for (const s of L.sparks) {
-      const [x, y, r, a] = s;
+    await tick('heart');
+    for (let si = 0; si < L.sparks.length; si++) {
+      if ((si & 63) === 0) await tick('sparks');
+      const [x, y, r, a] = L.sparks[si];
       spen([[x, y], [x - Math.cos(a) * r * 3, y - Math.sin(a) * r * 3]], { w: r * 0.7, a: 0.9, taper: [0, 0.8] });
       gpen([[x, y], [x + 0.2, y + 0.2]], { w: r * 0.6, a: 0.8, taper: [0, 0] });
     }
