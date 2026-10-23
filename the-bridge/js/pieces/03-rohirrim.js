@@ -645,7 +645,7 @@
     };
     const sp = clamp(s * 0.95, 3, 5.5) * k, len = clamp(s * 5.5, 8, 34) * k, w = clamp(s * 0.55, 1.5, 3.2) * k;
     const bb = bbox(L.poly, 2);
-    stumpShade(R, L.poly, (x, y, out) => { if (!fn(x, y, out)) return false; const m = smooth(0.3, 1, darkOf(sh(x, y), ao)); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 0.9), coat === 'grey' ? 0.25 : 0.4);
+    stumpShade(R, L.poly, (x, y, out) => { if (!fn(x, y, out)) return false; const m = 0.35 + 0.65 * smooth(0.0, 0.8, darkOf(sh(x, y), ao)); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 0.9), coat === 'grey' ? 0.4 : 0.7);
     const fnS = (x, y, out) => { if (!fn(x, y, out)) return false; const v = sh(x, y); const m = smooth(0.15, 0.7, darkOf(v, ao)); out[RED] *= m; out[BLK] *= m; out[WHT] *= 0.8; return true; };
     // strokes run along the leg, as a draughtsman follows bone and tendon
     const along = Math.atan2(c[2][1] - c[0][1], c[2][0] - c[0][0]);
@@ -736,7 +736,7 @@
     const ao = hs.ao || 0;
     const Q = hs.Q, Hp = hs.Hp, cw = clamp(s * 0.55, 1.3, 3.2) * k;
     // a breath of rubbed tone in the shadow only; the rest is the bare toned paper
-    stumpShade(R, hs.body, (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const m = smooth(0.35, 1, darkOf(v, ao)) * (coat === 'black' ? 1 : 0.6); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 1.4), coat === 'grey' ? 0.22 : coat === 'black' ? 0.5 : 0.32);
+    stumpShade(R, hs.body, (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const m = 0.45 + 0.55 * smooth(0.0, 0.8, darkOf(v, ao)); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 1.4), coat === 'grey' ? 0.45 : 0.85);
     const sp = clamp(s * 0.95, 3, 5.6) * k, len = clamp(s * 7, 9, 46) * k, w = clamp(s * 0.55, 1.5, 3.4) * k;
     // parallel hatching laid only across the shadow side
     const fn = (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const D = darkOf(v, ao); const m = smooth(0.3, 0.75, D); out[RED] *= m; out[BLK] *= m * m; out[WHT] = 0; return true; };
@@ -918,7 +918,7 @@
     const path = pathOf(pts);
     reserve(R, path, 0.92);
     const shadowOnly = (x, y, out) => { fn(x, y, out); const v = sh(x, y); const m = smooth(0.25, 0.8, darkOf(v === null ? 0 : v, 0.1)); out[RED] *= m; out[BLK] *= m; return true; };
-    stumpShade(R, pts, (x, y, out) => { shadowOnly(x, y, out); out[WHT] = 0; return true; }, Math.max(2, s * 0.8), o.stump === undefined ? 0.3 : o.stump);
+    stumpShade(R, pts, (x, y, out) => { shadowOnly(x, y, out); out[WHT] = 0; return true; }, Math.max(2, s * 0.8), (o.stump === undefined ? 0.3 : o.stump) * 1.6);
     hatch(R, { ...bbox(pts, 2), ang: (o.ang || 58) * D2R, sp: clamp(s * 0.85, 2.8, 4.6) * k, len: clamp(s * 4.5, 7, 26) * k, w: clamp(s * 0.55, 1.5, 3) * k, fn: shadowOnly, chs: [RED, BLK, WHT], dth: 0.6, jit: 0.3 });
     clipFlush(R, path);
     contour(R, pts, { ch: o.cch === undefined ? BLK : o.cch, w: clamp(s * 0.6, 1.3, 3.2) * k, a: 0.85, wob: s * 0.45, passes: 2, rim: o.rim === undefined ? 0.8 : o.rim, dark: 0.6, final: 1 });
@@ -1796,8 +1796,8 @@
         const d = (y - hy) / (H - hy);
         const right = smooth(L.xT, W, x);
         const nn = N.fbm(x / (H * 0.12), y / (H * 0.04), 3);
-        blob(lr.x, RED, x, y, H * 0.06, H * 0.02, 0, 0.07 + 0.09 * d);
-        blob(lr.x, BLK, x, y, H * 0.06, H * 0.02, 0, (0.03 + 0.12 * right * (1 - d * 0.4) + 0.08 * d) * (0.5 + nn));
+        blob(lr.x, RED, x, y, H * 0.06, H * 0.02, 0, 0.12 + 0.14 * d);
+        blob(lr.x, BLK, x, y, H * 0.06, H * 0.02, 0, (0.05 + 0.12 * right * (1 - d * 0.4) + 0.12 * d) * (0.5 + nn));
       }
     }
     for (let i = 0; i < 70; i++) {
@@ -1805,7 +1805,7 @@
       const xf = riderFront(L, y);
       const x = xf - rand() * W * 0.5;
       const r = (y - hy) * (0.4 + rand() * 0.6) + H * 0.008;
-      blob(lr.x, WHT, x, y - r * 0.25, r * 1.6, r * 0.42, 0, 0.06 + rand() * 0.06);
+      blob(lr.x, WHT, x, y - r * 0.25, r * 1.6, r * 0.42, 0, 0.03 + rand() * 0.04);
       blob(lr.x, RED, x, y, r * 1.3, r * 0.35, 0, 0.06);
     }
     lr.done();
@@ -2168,7 +2168,7 @@
     const x1 = riderFront(L, y) + hh * 0.6;
     for (let x = -hh * 2; x < x1; x += hh * (1.2 + rand())) {
       const yy = y - hh * (0.15 + rand() * 0.5);
-      blob(c, WHT, x, yy, hh * (2.2 + rand() * 2), hh * (0.6 + rand() * 0.6), 0, (0.09 + 0.09 * rand()) * (1 - f * 0.7));
+      blob(c, WHT, x, yy, hh * (2.2 + rand() * 2), hh * (0.6 + rand() * 0.6), 0, (0.05 + 0.05 * rand()) * (1 - f * 0.7));
       if (rand() < 0.5) blob(c, RED, x, y - hh * 0.2, hh * 2.5, hh * 0.5, 0, 0.06);
     }
   }
