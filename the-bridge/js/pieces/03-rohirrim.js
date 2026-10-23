@@ -530,6 +530,19 @@
     return p;
   }
 
+  /* wipe the paper under the near legs, but only where they leave the body */
+  function reserveLegs(R, hs) {
+    flushAll(R);
+    const out = new Path2D();
+    out.rect(-10, -10, R.W + 20, R.H + 20); addPoly(out, hs.body);
+    const lp2 = new Path2D(); addPoly(lp2, hs.legs.RH.poly); addPoly(lp2, hs.legs.RF.poly);
+    for (const c of [R.cS, R.cT]) {
+      c.save(); c.clip(out, 'evenodd');
+      c.globalCompositeOperation = 'source-over'; c.fillStyle = 'rgba(0,0,0,0.85)'; c.fill(lp2);
+      c.restore();
+    }
+  }
+
   function drawLeg(R, hs, L, coat, far, detail) {
     const s = hs.s, k = R.k;
     const sh = makeShader(hs.legParts[L.id]);
@@ -784,9 +797,21 @@
       blob(R.cT, WHT, sd.c[0] + sd.rx * 0.2, sd.c[1], sd.rx * 0.35, sd.rx * 0.35, 0, 0.55);
     }
     flushAll(R);
+    {
+      // long hair streaming from under the helm, behind the shoulders
+      const hc = g.headS, hr = g.hr;
+      const nh = detail ? 22 : 6;
+      for (let i = 0; i < nh; i++) {
+        const y0 = hc[1] + (rand() - 0.1) * hr * 0.9, x0 = hc[0] - hr * 0.5;
+        const Lh = (10 + rand() * 14) * s;
+        B.quad(ro.hairCh, 0.4 + rand() * 0.4, cw * 0.75, x0, y0, x0 - Lh * 0.5, y0 + (rand() - 0.6) * 4 * s, x0 - Lh, y0 + (rand() - 0.1) * 9 * s);
+      }
+      flushAll(R);
+    }
     const lsh = makeShader([cap(g.Q(...g.hip), g.Q(...g.knee), 6.5 * s, 5 * s), cap(g.Q(...g.knee), g.Q(...g.ank), 5 * s, 3.6 * s)]);
     const legFn = (x, y, o) => { const v = lsh(x, y); const D = darkOf(v === null ? 0.2 : v, 0.05); o[RED] = 0.3 + 0.55 * D; o[BLK] = 0.7 * smooth(0.5, 1, D); o[WHT] = 0.7 * smooth(0.6, 0.85, v === null ? 0 : v); return true; };
     const legP = pathOf(g.leg);
+    reserve(R, legP, 0.9);
     hatch(R, { ...bbox(g.leg, 2), ang: 58 * D2R, sp, len, w, fn: legFn, chs: [RED, BLK, WHT], st: 0.25 });
     clipFlush(R, legP);
     fillCh(R.cT, BLK, pathOf(g.boot), 0.5);
@@ -794,11 +819,11 @@
     const st = g.boot[4];
     B.poly(BLK, 0.85, cw * 1.1, [[st[0] - 5 * s, st[1] - 7 * s], [st[0] - 7 * s, st[1] + 1 * s], [st[0] + 1 * s, st[1] + 1 * s], [st[0] - 1 * s, st[1] - 7 * s]]);
     const tp = pathOf(g.torso);
+    reserve(R, tp, 0.92);
     const tb = bbox(g.torso, 2);
     const tsh = makeShader([cap(g.Q(...g.hip), g.Q(...g.sho), 10 * s, 10.5 * s)]);
-    const tfn = (x, y, o) => { const v = tsh(x, y); const vv = v === null ? -0.3 : v; const D = darkOf(vv, 0); o[BLK] = 0.28 + 0.62 * D; o[WHT] = 0.9 * smooth(0.55, 0.85, vv); o[RED] = 0.2; return true; };
+    const tfn = (x, y, o) => { const v = tsh(x, y); const vv = v === null ? -0.3 : v; const D = darkOf(vv, 0.1); o[BLK] = 0.45 + 0.5 * D; o[WHT] = 0.75 * smooth(0.68, 0.9, vv); o[RED] = 0.22; return true; };
     hatch(R, { ...tb, ang: 58 * D2R, sp, len: len * 0.8, w, fn: tfn, chs: [BLK, RED, WHT], st: 0.25 });
-    if (R.dbg) console.warn('torso strokes', R.B.n, R.BT.n, JSON.stringify(tb), sp, len, w);
     clipFlush(R, tp);
     if (detail && s > 1.6) {
       R.cS.save(); R.cS.clip(tp);
@@ -817,14 +842,9 @@
     B.poly(BLK, 0.6, cw, [sk[1], sk[2]]); B.poly(BLK, 0.5, cw, [sk[0], sk[3], sk[2]]);
     const hc = g.headS, hr = g.hr, fwd = g.f;
     const face = new Path2D(); face.ellipse(hc[0] + fwd[0] * hr * 0.3, hc[1] + hr * 0.2, hr * 0.8, hr * 0.95, 0, 0, TAU);
+    const hd = new Path2D(); hd.arc(hc[0], hc[1], hr * 1.05, 0, TAU); reserve(R, hd, 0.9);
     fillCh(R.cT, RED, face, 0.45);
     fillCh(R.cT, BLK, face, 0.12);
-    const nh = detail ? 30 : 8;
-    for (let i = 0; i < nh; i++) {
-      const y0 = hc[1] + (rand() - 0.1) * hr, x0 = hc[0] - hr * 0.6;
-      const Lh = (16 + rand() * 22) * s;
-      B.quad(ro.hairCh, 0.4 + rand() * 0.4, cw * 0.8, x0, y0, x0 - Lh * 0.5, y0 + (rand() - 0.6) * 6 * s, x0 - Lh, y0 + (rand() - 0.2) * 12 * s);
-    }
     const chin = [hc[0] + fwd[0] * hr * 0.6, hc[1] + hr * 0.85];
     for (let i = 0; i < (detail ? 14 : 3); i++) B.quad(ro.hairCh, 0.55, cw * 0.8, chin[0] - rand() * hr * 0.6, chin[1] - rand() * hr * 0.3, chin[0] - hr * 0.6, chin[1] + hr * 0.6, chin[0] - hr * (1 + rand() * 1.6), chin[1] + hr * (0.4 + rand() * 0.7));
     const helm = new Path2D(); helm.ellipse(hc[0], hc[1] - hr * 0.15, hr * 1.06, hr * 1.02, 0, Math.PI * 0.95, Math.PI * 2.05); helm.closePath();
@@ -846,8 +866,9 @@
     }
     flushAll(R);
     const ap = pathOf(g.arm);
+    reserve(R, ap, 0.9);
     const ash = makeShader([cap(g.Q(...g.sho), g.Q(...g.elbow), 5 * s, 4 * s), cap(g.Q(...g.elbow), g.Q(...g.hand), 4 * s, 3.2 * s)]);
-    hatch(R, { ...bbox(g.arm, 2), ang: 58 * D2R, sp, len: len * 0.7, w, fn: (x, y, o) => { const v = ash(x, y); const vv = v === null ? 0 : v; o[BLK] = 0.28 + 0.62 * darkOf(vv, 0); o[WHT] = 0.85 * smooth(0.55, 0.85, vv); return true; }, chs: [BLK, WHT], st: 0.25 });
+    hatch(R, { ...bbox(g.arm, 2), ang: 58 * D2R, sp, len: len * 0.7, w, fn: (x, y, o) => { const v = ash(x, y); const vv = v === null ? 0 : v; o[BLK] = 0.42 + 0.5 * darkOf(vv, 0.1); o[WHT] = 0.75 * smooth(0.68, 0.9, vv); return true; }, chs: [BLK, WHT], st: 0.25 });
     clipFlush(R, ap);
     contour(R, g.arm, { ch: BLK, w: cw, a: 0.75, wob: s * 0.25, passes: 2, rim: 0.5 });
     blob(R.cT, RED, g.handS[0], g.handS[1], 3 * s, 3 * s, 0, 0.7);
@@ -883,7 +904,6 @@
       fillCh(R.cS, WHT, pathOf(limb(g.hornPts, [1.2 * s, 1.8 * s, 2.6 * s, 4 * s])), 0.7);
       B.poly(BLK, 0.8, cw, g.hornPts);
     }
-    if (R.dbg) { for (const P of [g.torso, g.leg, g.arm]) { R.cS.globalCompositeOperation = 'source-over'; R.cS.strokeStyle = '#0f0'; R.cS.lineWidth = 3; R.cS.stroke(pathOf(P)); R.cS.globalCompositeOperation = 'lighter'; } console.warn('torso', JSON.stringify(g.torso.slice(0, 3)), 'hip', JSON.stringify(g.Q(...g.hip))); }
     const bit = hs.Hp(35, 7);
     const rm = [(bit[0] + g.rein[0]) / 2, Math.max(bit[1], g.rein[1]) + 7 * s];
     B.quad(BLK, 0.65, cw * 0.8, g.rein[0], g.rein[1], rm[0], rm[1], bit[0], bit[1]);
@@ -1694,6 +1714,7 @@
         for (const id of ['RF', 'RH']) contour(R, alt.legs[id].poly, { ch: RED, w: clamp(s * 0.45, 1.2, 2.4) * k, a: 0.34, wob: s * 0.5, passes: 1 });
         flushAll(R);
       }
+      reserveLegs(R, hs);
       drawLeg(R, hs, hs.legs.RH, ro.coat, false, detail);
       drawLeg(R, hs, hs.legs.RF, ro.coat, false, detail);
       drawMane(R, hs, ro.coat, detail);
