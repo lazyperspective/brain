@@ -553,6 +553,9 @@ void main(){ vec4 w = uM*vec4(aP, 1.); vP = w.xyz; vN = mat3(uM)*aN; vUV = aUV; 
   float fz = ax >= 0. ? exp(-pow((ax - .26)/.09, 2.)) + .9*exp(-pow((ax - .1)/.11, 2.))*smoothstep(.55, .9, uDrag.x) : (ax < -1.5 ? .6*smoothstep(.6, .95, uDrag.x) : 0.);
   float seam = max(max(outline, shade*.8), belly*max(bOut, bShade))*det + (1. - det)*.35;
   float fire = uDrag.x*fz;
+  // as the eye ignites, its furnace glow bleeds into the scales around it
+  float eyeG = ax < -1.5 ? uEye.y*smoothstep(uEyeP.w*3.6, uEyeP.w*1.05, length(P - uEyeP.xyz)) : 0.;
+  fire = max(fire, eyeG*.8);
   emis = fire*seam*2.2 + fire*fire*.25;
   hot = clamp(fire*seam*1.6, 0., 1.);
   ink2 *= 1. - clamp(fire*seam*2., 0., 1.);
@@ -588,7 +591,9 @@ void main(){ vec4 w = uM*vec4(aP, 1.); vP = w.xyz; vN = mat3(uM)*aN; vUV = aUV; 
   float rr = length(e), ang = atan(e.y, e.x);
   float iris = smoothstep(.64, .6, rr);
   float pw = uEye.x*.72;
-  float slit = smoothstep(pw*(1. - pow(e.y/.62, 2.)) + .012, pw*(1. - pow(e.y/.62, 2.)) - .012, abs(e.x))*step(abs(e.y), .62);
+  float sw = pw*(1. - pow(e.y/.64, 2.)) + .004;
+  float slit = smoothstep(sw + .006, sw - .006, abs(e.x))*step(abs(e.y), .64);
+  float slitRim = smoothstep(.02, .0, abs(abs(e.x) - sw - .012))*step(abs(e.y), .64);
   float glow = uEye.y;
   vec2 cq = (e - uEye.zw)/.09;
   float dB = max(length(vec2(cq.x/.78, (cq.y - .45)/.75)) - 1., cq.y - .45);
@@ -603,7 +608,7 @@ void main(){ vec4 w = uM*vec4(aP, 1.); vP = w.xyz; vN = mat3(uM)*aN; vUV = aUV; 
   float ring = smoothstep(.04, .0, abs(fract(rr*5.5) - .5) - .42);
   phi = ang*.12; psi = rr*.12; wm = 0.;
   alb = .5; shin = 80.; specK = 2.5;
-  ink2 = max(slit*.98*(1. - cup), cupLine*.9) + smoothstep(.035, .0, abs(rr - .62))*.9 + (stri*.3 + ring*.25)*iris*(1. - slit)*(1. - cup);
+  ink2 = max(max(slit, slitRim*.6)*(1. - cup), cupLine*.9) + smoothstep(.035, .0, abs(rr - .62))*.9 + (stri*.3 + ring*.25)*iris*(1. - slit)*(1. - cup);
   emis = glow*iris*(1. - slit)*(1.05 - rr)*(.5 + .5*stri)*.6*(1. - cup*.5);
   hot = clamp(glow*iris*(1. - slit)*(1.15 - rr*1.2), 0., 1.);
   // the wet window of light on the cornea
@@ -616,11 +621,11 @@ void main(){ vec4 w = uM*vec4(aP, 1.); vP = w.xyz; vN = mat3(uM)*aN; vUV = aUV; 
   // the lids: thick, rimmed, covered in small plates in rows that follow the lid's curve
   float du = e.y - upE, dl = loE - e.y;
   float dd = lidU > .5 ? du : dl;
-  float rows = fract(dd*9.), cols = fract(e.x*(7. + 2.*dd) + floor(dd*9.)*.5);
+  float rows = fract(dd*6.), cols = fract(e.x*(5. + 2.*dd) + floor(dd*6.)*.5);
   float plate = smoothstep(.12, .0, rows)*.7 + smoothstep(.1, .0, abs(cols - .5) - .4)*.45;
-  float rim = smoothstep(.05, .0, abs(dd - .04))*.95;
-  float rimLit = smoothstep(.035, .0, abs(dd - .1))*.7;
-  vec3 Nl = normalize(N + (normalize(vec3(0., lidU > .5 ? 1. : -1., 0.))*.6)*(1. - smoothstep(.0, .25, dd)));
+  float rim = smoothstep(.08, .0, abs(dd - .05))*.98;
+  float rimLit = smoothstep(.05, .0, abs(dd - .15))*.8;
+  vec3 Nl = normalize(N + (normalize(vec3(0., lidU > .5 ? 1. : -1., 0.))*1.1)*(1. - smoothstep(.0, .3, dd)) - vec3(0., (rows - .5)*.5, 0.));
   N = mix(N, Nl, lid);
   ink2 = mix(ink2, max(plate*smoothstep(.12, .2, dd), rim), lid);
   emis *= 1. - lid; hot *= 1. - lid;
@@ -669,7 +674,7 @@ void main(){ vec4 w = uM*vec4(aP, 1.); vP = w.xyz; vN = mat3(uM)*aN; vUV = aUV; 
   paper *= mix(vec3(1), mix(GAMB, VERM, .5 - .5*warmF*warmF), warmF*bright*.4);
   float heat = clamp(clamp(dot(Dw, vec3(.33))*uExpo*.3 - .25, 0., 1.)*uHeat + hot, 0., 1.);
   vec3 ink = mix(INK, mix(VERM*.75, HOTL, heat*heat), clamp(heat*1.5, 0., 1.));
-  paper = mix(paper, mix(GAMB, vec3(1., .93, .74), heat*heat), heat*.75);
+  paper = mix(paper, mix(GAMB, vec3(1., .82, .55), heat*heat), heat*.45);
   // in the white heat the burin lines stay, but they burn
 #if LSF
   cover = max(cover, engrave(.42*heat*uHeat, phi, psi, max(wphi, 1e-6), max(wpsi, 1e-6), jit + 5., 1.)*heat*uHeat);
@@ -882,7 +887,7 @@ void main(){
   paper *= mix(vec3(1), VERM, warmF*bright*.35);
   float hh = clamp(dot(Dw, vec3(.33))*uExpo*.25 - .35, 0., 1.)*uHeat + heat;
   vec3 ink = mix(INK, mix(VERM*.9, HOTL, hh), clamp(hh*1.4, 0., 1.));
-  paper = mix(paper, vec3(1., .95, .78), clamp(hh, 0., 1.)*.8);
+  paper = mix(paper, vec3(1., .82, .55), clamp(hh, 0., 1.)*.45);
   oC = vec4(mix(paper, ink, cover), 1.);
   oG = vec4(N*.5 + .5, dist);
 }`;
@@ -990,7 +995,7 @@ void main(){
   float s = abs(vS.x), a = vS.y;
   float core = 1. - s;
   float temp = vTemp*(.45 + .55*core)*(.94 + .06*sin(a*7. + uT*6. + vD*.3));
-  vec3 hotc = mix(VERM*.9, mix(GAMB, vec3(1., .98, .9), smoothstep(.74, .95, temp)), smoothstep(.22, .62, temp));
+  vec3 hotc = temp < .4 ? mix(vec3(.6, .07, .02), vec3(1., .43, .04), temp/.4) : temp < .75 ? mix(vec3(1., .43, .04), vec3(1., .84, .28), (temp - .4)/.35) : mix(vec3(1., .84, .28), vec3(1., .98, .9), (temp - .75)/.25);
 #if FILL == 0
   {
     // a tongue of flame, cut as one tapering stroke; only the cooler tongues carry an inked edge
@@ -1057,8 +1062,13 @@ void main(){
   float olw = (1.2 + 1.4*smoothstep(-.4, .7, qn.y))*uPx/max(vRpx, 1.);
   float ol = smoothstep(olw, olw*.3, 1. - rr);
   t = mix(t, t*(1. - tone*.6), .7);
-  vec3 hotc = mix(VERM*.9, mix(GAMB, vec3(1., .97, .86), smoothstep(.55, .85, t)), smoothstep(.1, .45, t));
-  vec3 col = mix(hotc, mix(INK, SIEN*.45, .3), max(max(ln, ln2)*.88, ol*.92));
+  vec3 DEEP = vec3(.58, .06, .02), ORNG = vec3(1., .43, .04), YEL = vec3(1., .84, .28), WHT = vec3(1., .98, .9);
+  vec3 hotc = t < .3 ? mix(DEEP, ORNG, t/.3) : t < .62 ? mix(ORNG, YEL, (t - .3)/.32) : mix(YEL, WHT, (t - .62)/.38);
+  // the lines: ox-blood in the flame, soot-black where the lobe cools into smoke at its tips
+  float sootK = smoothstep(.5, .15, temp*(1. - .5*smoothstep(.2, .9, qn.y)));
+  vec3 lineC = mix(vec3(.36, .05, .02), mix(INK, vec3(.16, .1, .08), .4), sootK);
+  hotc = mix(hotc, vec3(.22, .14, .1), sootK*.75*smoothstep(.3, 1., qn.y*rr + .3));
+  vec3 col = mix(hotc, lineC, max(max(ln, ln2)*.88, ol*.92));
   oC = vec4(col, al);
 }`;
   /* ================================================================== GLSL: the dark of the vault */
@@ -1624,18 +1634,18 @@ void main(){
   // later shots are keyed as [t, px,py,pz, qx,qy,qz, fov, headWeight]; the target leans toward his head by headWeight
   const SHOTK = {
     rise: [
-      [31.9, -12.5, 13.5, -68, -4, 11, -85, 40, 0.9],
-      [35.0, -12, 14.5, -66, -4, 14, -85, 42, 0.9],
-      [37.8, -11, 10.5, -54, -3, 17, -92, 58, 0.3],
-      [40.4, -7, 11, -42, -2, 19, -92, 62, 0.2],
-      [43.95, 3, 6.5, -27, -2, 13, -90, 58, 0.3]],
+      [31.9, -5.5, 9.0, -69.5, -2, 11, -84, 50, 0.75],
+      [35.0, -4.5, 9.0, -65.5, -2, 13, -84, 54, 0.8],
+      [37.8, -2.4, 8.6, -64.5, -2, 15.0, -86, 70, 0.55],
+      [40.4, -1.2, 8.2, -64.0, -1.5, 16.0, -86, 74, 0.45],
+      [43.95, -0.8, 8.8, -63.0, -1, 12, -80, 66, 0.8]],
     fire: [
-      [43.95, 3, 6.5, -27, -2, 13, -90, 58, 0.3],
-      [45.0, 10, 7.0, -27, -1, 11, -85, 56, 0.6],
-      [49.0, 11, 6.6, -24.5, -2, 9, -70, 60, 0.4],
-      [52.0, 10.5, 6.4, -26, 0, 9, -76, 58, 0.4]],
+      [43.95, -0.8, 8.8, -63.0, -1, 12, -80, 66, 0.8],
+      [45.5, -0.7, 9.0, -62.0, -1, 11, -78, 68, 0.85],
+      [49.0, -0.5, 9.1, -60.5, -1, 11, -78, 70, 0.8],
+      [52.0, -0.2, 9.3, -59.0, -1, 10, -78, 62, 0.6]],
     end: [
-      [52.0, 10.5, 6.4, -26, 0, 9, -76, 58, 0.4],
+      [52.0, -0.2, 9.3, -59.0, -1, 10, -78, 62, 0.6],
       [53.6, 10, 11, -44.5, 24, 8, -44, 54, 0],
       [55.2, 18.5, 18.5, -44.5, 22.2, 6.5, -36, 50, 0],
       [57.6, 18.7, 21.0, -45.0, 22.4, 10.0, -28, 46, 0],
@@ -1684,8 +1694,8 @@ void main(){
   function eyeShot(t) {
     if (!DRAG) return [0, 10, -80, 0, 10, -85, 30, 1];
     let e = DRAG.eyes[1];
-    const u = EZ.s(clamp((t - 28) / 4, 0, 1)), d = lerp(1.55, 1.1, u);
-    const p = add(e.c, add(mul(e.F, d), add(mul(e.U, 0.1), mul(e.R, -0.12))));
+    const u = EZ.s(clamp((t - 28) / 4, 0, 1)), d = lerp(1.3, 1.02, u);
+    const p = add(e.c, add(mul(e.F, d), add(mul(e.U, 0.06), mul(e.R, -0.06))));
     const q = add(e.c, mul(e.U, 0.05));
     return [p[0], p[1], p[2], q[0], q[1], q[2], 30, d];
   }
@@ -2291,7 +2301,7 @@ void main(){
     const T0 = o.T[0], D0 = o.D[0], S0 = o.Sd[0];
     let X = rotAxis(mul(T0, -1), S0, -S.headPitch);
     const aimW = sstep(43.5, 45.2, S.t) * (1 - sstep(51.5, 54, S.t));
-    if (aimW > 0) { const aim = norm(sub([-4.0, 7.0, -38], o.C[0])); X = norm(lerp3(X, aim, aimW * 0.85)); }
+    if (aimW > 0) { const aim = norm(sub(FIRECAM, o.C[0])); X = norm(lerp3(X, aim, aimW * 0.85)); }
     const Y = norm(sub(D0, mul(X, dot(D0, X)))), Z = cross(X, Y);
     const org = madd(o.C[0], X, -0.45);
     const HS = 1.4, W2 = (l) => add(org, add(mul(X, l[0] * HS), add(mul(Y, l[1] * HS), mul(Z, l[2] * HS))));
@@ -2393,7 +2403,7 @@ void main(){
     o.nostril = W2([4.05, 0.34, 0]); o.mouth = W2([4.3, -0.1, 0]); o.mouthDir = norm(add(X, mul(Y, -0.25 * 0)));
     // tilt the mouth direction with the open jaw
     o.mouthDir = norm(rotAxis(X, Z, -jaw * 0.3));
-    if (S.t > 44 && S.t < 54) o.mouthDir = norm(lerp3(o.mouthDir, norm(sub([-4.5, 4.2, -36], o.mouth)), 0.85));
+    if (S.t > 44 && S.t < 54) o.mouthDir = norm(lerp3(o.mouthDir, norm(sub(add(FIRECAM, [0.4, -0.6, 0]), o.mouth)), 0.92));
   }
   function ik2(root, tgt, a, b, pole) {
     let d = sub(tgt, root), L = len(d); const dir = mul(d, 1 / (L || 1));
@@ -2652,7 +2662,8 @@ void main(){
 
 
   /* ---------------------------------------------------------------- the fire, per frame */
-  const FIRE_T0 = 45.35, FIRE_T1 = 50.4, FIRE_V = 21, FIRE_MAX = 40;
+  const FIRECAM = [-0.6, 9.0, -61.5];
+  const FIRE_T0 = 45.35, FIRE_T1 = 50.4, FIRE_V = 15, FIRE_MAX = 26;
   let VFIRE = null, NRIB = 420, NFILL = 0, MELT = null;
   function fireState(t) {
     const df = clamp((t - FIRE_T0) * FIRE_V, 0, FIRE_MAX + (t > FIRE_T1 ? (t - FIRE_T1) * FIRE_V : 0));
@@ -2717,16 +2728,21 @@ void main(){
     const list = [];
     for (const L of LOBES) {
       const tau = t - L.tb; if (tau <= 0) continue;
-      const d = Math.min(28 * tau / (1 + 0.3 * tau) * L.spd, FIRE_MAX + 4);
+      const d = Math.min(19 * tau / (1 + 0.25 * tau) * L.spd, FIRE_MAX + 4);
       const R = Math.min(0.5 + 0.17 * d + 0.45 * tau, 7.5);
       let p = madd(DRAG.mouth, d0, d);
       p = add(p, add(mul(U0, Math.cos(L.phi) * R * 0.7 * L.rho + Math.sin(tau * 1.7 + L.sw) * 0.4 * tau), mul(V0, Math.sin(L.phi) * R * 0.55 * L.rho)));
       p[1] += 0.55 * tau * tau + 0.5 * tau;
       p[1] = Math.max(p[1], heapH(p[0], p[2]) + R * 0.5);
+      // the torrent parts round the camera
+      { const rel = sub(p, cp), al0 = dot(rel, d0), perp = sub(rel, mul(d0, al0)); let pl = len(perp);
+        const dir = pl > 0.05 ? mul(perp, 1 / pl) : add(mul(U0, Math.cos(L.phi)), mul(V0, Math.sin(L.phi)));
+        const near = sstep(R * 1.6 + 5, 0, Math.abs(al0)), want = R * 1.05 + 1.4;
+        if (pl < want) p = madd(p, dir, (want - pl) * near); }
       const cool = t > FIRE_T1 ? Math.exp(-(t - FIRE_T1) * 1.1) : 1;
       const temp = clamp((1.12 - 0.09 * tau - d / 260) * (1.12 - 0.3 * L.rho), 0, 1) * cool;
       const dist = len(sub(p, cp));
-      let al = sstep(0, 0.07, tau) * sstep(0.3, 0.62, temp) * sstep(R * 1.0, R * 2.2, dist);
+      let al = sstep(0, 0.07, tau) * sstep(0.3, 0.62, temp) * sstep(R * 0.55, R * 1.05, dist);
       if (al < 0.01) continue;
       list.push({ p, R, temp, al, dist, rot: L.seed * 6.3 + tau * 1.5 * L.curl, seed: L.seed, tau });
     }
@@ -2745,7 +2761,7 @@ void main(){
     gl.bindVertexArray(VFIRE.vao); gl.bindBuffer(gl.ARRAY_BUFFER, VFIRE.ib);
     for (let k = 1; k >= 0; k--) {
       const pf = PR.fire[k]; gl.useProgram(pf); setCommon(pf);
-      u4(pf, 'uFS', [DRAG.mouth[0], DRAG.mouth[1], DRAG.mouth[2], Math.min(fs.df, 15)]); u4(pf, 'uFD', [d[0], d[1], d[2], fs.dt]); u3(pf, 'uFU', u); u3(pf, 'uFV', v);
+      u4(pf, 'uFS', [DRAG.mouth[0], DRAG.mouth[1], DRAG.mouth[2], fs.df]); u4(pf, 'uFD', [d[0], d[1], d[2], fs.dt]); u3(pf, 'uFU', u); u3(pf, 'uFV', v);
       gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, (k ? 0 : NFILL) * 32); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, (k ? 0 : NFILL) * 32 + 16);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, VFIRE.n, k ? NFILL : NRIB - NFILL);
     }
@@ -2756,7 +2772,7 @@ void main(){
     const fs = fireState(t); if (!fs.on || !DRAG) return;
     const L = F.L, d = DRAG.mouthDir;
     L.fire = [0.1, 0.35, 0.62, 0.9].map((f) => { const dd = lerp(fs.dt, fs.df, f); const p = madd(DRAG.mouth, d, dd); return [p[0], p[1] + 0.5, p[2], 9 + dd * 0.3]; });
-    L.fireC = mul([7, 2.9, 0.7], fs.k);
+    L.fireC = mul([4.2, 1.7, 0.42], fs.k);
   }
 
   /* ---------------------------------------------------------------- smoke and embers after the fire */
@@ -2769,10 +2785,11 @@ void main(){
       const sp = norm([rng() - 0.5, rng() * 0.6, rng() - 0.5]);
       SMOKE.push({ p: madd(c, sp, (0.5 + d * 0.12) * rng()), t0: FIRE_T0 + d / FIRE_V + rng() * 0.6, sz: 0.9 + rng() * 1.6 + d * 0.03, rise: 0.4 + rng() * 0.9, seed: rng(), drift: [(rng() - 0.5) * 0.6, 0, (rng() - 0.5) * 0.6] });
     }
-    for (let i = 0; i < 700; i++) {
+    for (let i = 0; i < 1500; i++) {
       const d = lerp(2, FIRE_MAX, rng()), c = madd(o.mouth, o.mouthDir, d);
       const sp = norm([rng() - 0.5, rng() - 0.3, rng() - 0.5]);
-      EMBERS.push({ p: madd(c, sp, (0.4 + d * 0.15) * rng()), t0: FIRE_T0 + d / FIRE_V + rng() * 4, life: 2.5 + rng() * 4.5, v: [(rng() - 0.5) * 1.5, 0.6 + rng() * 2.2, (rng() - 0.5) * 1.5], sz: 0.03 + rng() * 0.05, ph: rng() * TAU });
+      const fast = rng() < 0.55, vf = fast ? 5 + rng() * 10 : 0;
+      EMBERS.push({ p: madd(c, sp, (0.4 + d * 0.15) * rng()), t0: FIRE_T0 + d / FIRE_V + rng() * (fast ? 5 : 6.5), life: fast ? 0.8 + rng() * 1.2 : 2.5 + rng() * 4.5, v: add(mul(o.mouthDir, vf), [(rng() - 0.5) * (1.5 + vf * 0.5), 0.6 + rng() * 2.2, (rng() - 0.5) * (1.5 + vf * 0.5)]), sz: 0.025 + rng() * 0.045, ph: rng() * TAU });
     }
   }
   function airSprites(t, o, k) {
@@ -2816,7 +2833,7 @@ void main(){
     o: { w: 0.7, s: [[1, [[0.26, 1.0], [0.0, 0.86], [0.0, 0.14], [0.26, 0.0], [0.52, 0.14], [0.52, 0.86], [0.26, 1.0]]]] },
     a: { w: 0.76, s: [[1, [[0.04, 0.88], [0.27, 1.0], [0.52, 0.86], [0.52, 0.1], [0.64, -0.03]]], [1, [[0.52, 0.58], [0.1, 0.46], [0.0, 0.14], [0.22, 0.0], [0.52, 0.16]]]] },
     r: { w: 0.58, s: [[1, [[-0.08, 0.92], [0.02, 1.0], [0.02, 0.0], [-0.08, -0.03]]], [1, [[0.02, 0.8], [0.22, 1.0], [0.44, 0.9]]]] },
-    d: { w: 0.76, s: [[1, [[0.52, 0.86], [0.26, 1.0], [0.0, 0.86], [0.0, 0.14], [0.26, 0.0], [0.52, 0.12], [0.62, 0.02]]], [1, [[0.52, 0.12], [0.52, 0.92], [0.32, 1.24], [0.02, 1.46]]]] },
+    d: { w: 0.8, s: [[1, [[0.52, 0.86], [0.26, 1.0], [0.0, 0.86], [0.0, 0.14], [0.26, 0.0], [0.52, 0.12]]], [1, [[0.4, 1.38], [0.54, 1.5], [0.54, 0.1], [0.68, -0.02]]], [0, [[0.54, 1.5], [0.7, 1.42]]]] },
     ' ': { w: 0.42, s: [] },
   };
   function drawTitle(g, t, cw, ch) {
@@ -2888,10 +2905,13 @@ void main(){
     F.mu.uEye = [E.pupil, E.glow, E.cup[0], E.cup[1]];
     F.mu.uEyeP = [eye.c[0], eye.c[1], eye.c[2], eye.rad]; F.mu.uEyeF = eye.F;
     F.mu.uBreath = [o.nostril[0], o.nostril[1], o.nostril[2], Math.max(0, S.breath)];
-    if (t >= 32 && t < 45.3) {
-      // the fire's light thrown up from the gold onto his head, so the skull reads as carved
+    if (t >= 32 && t < 53) {
+      // light thrown onto his head: from above-front as he rises, then up from the fire beneath his jaw
       const hp = o.head.W2([2.6, 0.4, 0]), toC = norm(sub(F.cam.p, hp));
-      F.L.lamp = [...add(hp, add(mul(toC, 5), [0, 4.5, 0])), 9]; F.L.lampC = mul([2.4, 1.5, 0.8], sstep(32, 34, t));
+      const k = sstep(44.6, 45.6, t) * (1 - sstep(50.6, 52.5, t));
+      const a = add(hp, add(mul(toC, 5), [0, 4.5, 0])), b = add(o.mouth, add(mul(toC, 2.5), [0, -2.6, 0]));
+      F.L.lamp = [...lerp3(a, b, k), lerp(9, 8, k)];
+      F.L.lampC = add(mul([2.4, 1.5, 0.8], sstep(32, 34, t) * (1 - k)), mul([7, 2.8, 0.6], k));
     }
     if (t >= 28 && t < 32) {
       const e = o.eyes[1];
