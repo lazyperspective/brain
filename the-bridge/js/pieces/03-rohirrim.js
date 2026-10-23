@@ -268,6 +268,7 @@
     c.fill(path);
   }
   function reserve(R, path, a) {
+    if (XQ.includes('res')) return;
     R.B.flush(); R.BT.flush();
     for (const c of [R.cS, R.cT]) {
       c.globalCompositeOperation = 'source-over';
@@ -283,7 +284,9 @@
   function flushAll(R) { R.B.flush(); R.BT.flush(); }
   /* modelling rubbed in with the stump: the tone field is evaluated at low resolution and smoothed up */
   let STMP = null;
+  const XQ = new URLSearchParams(location.search).get('rohx') || '';
   function stumpShade(R, pts, fn, f, scale) {
+    if (XQ.includes('stump')) return;
     const bb = bbox(pts, 2);
     f = f || 3; scale = scale || 1;
     const w = Math.max(2, Math.ceil((bb.x1 - bb.x0) / f) + 1), h = Math.max(2, Math.ceil((bb.y1 - bb.y0) / f) + 1);
@@ -307,6 +310,7 @@
   /* a long stroke with the side of the chalk: swelling and thinning along its length */
   function sweep(B, ch, pts, w, a, ph) {
     const n = pts.length; if (n < 2) return;
+    if (XQ.includes('sweep')) { B.poly(ch, a, w, pts); return; }
     ph = ph || 0;
     for (let i = 0; i < n - 1; i++) {
       const t = (i + 0.5) / (n - 1);
@@ -495,13 +499,13 @@
     const arch = 7 + (o.arch || 0);
     const crC = [(W0[0] + P[0]) / 2 + cu[0] * arch * 1.7, (W0[1] + P[1]) / 2 + cu[1] * arch * 1.7];
     const crest = (u) => { const v = 1 - u; return [v * v * P[0] + 2 * v * u * crC[0] + u * u * W0[0], v * v * P[1] + 2 * v * u * crC[1] + u * u * W0[1]]; };
-    const thr = Hp(2, 14.5), SH = [45, 21];
-    const nu1 = lp(thr, SH, 0.33), nu2 = lp(thr, SH, 0.68);
+    const thr = Hp(0, 10.5), SH = [45, 21];
+    const nu1 = lp(thr, SH, 0.3), nu2 = lp(thr, SH, 0.66);
     const ctl = [
       [-58, 7], [-50, 1], [-41, -1], [-32, 2], [-20, 5], [-7, 4.5], W0,
       crest(0.72), crest(0.45), crest(0.2),
-      Hp(-1, -2), Hp(7, -3.2), Hp(20, -3), Hp(31, -1.8), Hp(37, -0.4), Hp(40.6, 3.2), Hp(39.8, 7.8), Hp(36, 10), Hp(27, 10.4), Hp(18, 17), Hp(8, 18), thr,
-      [nu1[0] + cu[0] * 1.5, nu1[1] + cu[1] * 1.5], [nu2[0] - cu[0] * 1.5, nu2[1] - cu[1] * 1.5],
+      Hp(-1, -2), Hp(8, -4), Hp(18, -3.4), Hp(28, -2.2), Hp(35, -1), Hp(39.4, 2.2), Hp(39.8, 5.4), Hp(37.6, 7.6), Hp(34.4, 8.6), Hp(30.5, 7.8), Hp(24, 9.6), Hp(18, 13.6), Hp(12.5, 17.8), Hp(7, 18), Hp(3.5, 14.5), thr,
+      [nu1[0] + cu[0] * 3, nu1[1] + cu[1] * 3], [nu2[0] - cu[0] * 0.5, nu2[1] - cu[1] * 0.5],
       SH, [44, 32], [38, 41], [28, 47], [14, 51], [0, 50], [-14, 47.5], [-26, 43.5], [-34, 42], [-40, 45], [-52, 45], [-61, 37], [-65, 25], [-63, 14],
     ];
     const body = spline(ctl, true, 5).map((p) => Q(p[0], p[1]));
@@ -519,8 +523,8 @@
       cap(Q(14, 6), Q(34, 34), 12 * s, 13 * s, 1.2),
       cap(Q(38, 30), Q(38, 31), 10 * s, 10 * s),
       cap(Q(26, 8), S(Hp(3, 7)), 19 * s, 10 * s),
-      cap(S(Hp(9, 5)), S(Hp(36, 4)), 7.6 * s, 5.2 * s, 1.3),
-      cap(S(Hp(12, 9)), S(Hp(13, 9)), 7.6 * s, 7.6 * s, 1.3),
+      cap(S(Hp(9, 4)), S(Hp(36, 3.6)), 7.6 * s, 4.6 * s, 1.3),
+      cap(S(Hp(11, 10.5)), S(Hp(12, 10.5)), 8.4 * s, 8.4 * s, 1.4),
     ];
     const legParts = {};
     for (const id in legOut) {
@@ -601,7 +605,7 @@
     };
     const sp = clamp(s * 0.95, 3, 5.5) * k, len = clamp(s * 5.5, 8, 34) * k, w = clamp(s * 0.55, 1.5, 3.2) * k;
     const bb = bbox(L.poly, 2);
-    stumpShade(R, L.poly, fn, Math.max(2, s * 0.9), 0.45);
+    stumpShade(R, L.poly, fn, Math.max(2, s * 0.9), coat === 'grey' ? 0.45 : 0.6);
     const fnS = (x, y, out) => { if (!fn(x, y, out)) return false; const v = sh(x, y); const m = smooth(0.15, 0.7, darkOf(v, ao)); out[RED] *= m; out[BLK] *= m; out[WHT] *= 0.8; return true; };
     // strokes run along the leg, as a draughtsman follows bone and tendon
     const along = Math.atan2(c[2][1] - c[0][1], c[2][0] - c[0][0]);
@@ -689,7 +693,7 @@
     const path = pathOf(hs.body);
     const bb = bbox(hs.body, 2);
     const ao = hs.ao || 0;
-    stumpShade(R, hs.body, (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); return true; }, Math.max(2, s * 1.2), 0.42);
+    stumpShade(R, hs.body, (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); return true; }, Math.max(2, s * 1.2), coat === 'grey' ? 0.45 : 0.62);
     const sp = clamp(s * 1.0, 3, 6) * k, len = clamp(s * 7, 9, 44) * k, w = clamp(s * 0.6, 1.6, 3.6) * k;
     // hatching only in the shadows, as the master would put it
     const fn = (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const D = darkOf(v, ao); const m = smooth(0.15, 0.7, D); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; };
@@ -715,9 +719,12 @@
       an(ac, [[-26, 6], [-28, 20], [-27, 36]], 0.18);                 // flank
       const jg = [hs.Hp(8, 12), lp(hs.Hp(8, 12), Q(34, 24), 0.5), Q(34, 24)];
       B.poly(ac, 0.28, cw, spline(jg, false, 4));
-      const ck = [hs.Hp(8, 3), hs.Hp(14, 4.5), hs.Hp(19, 9), hs.Hp(16, 13.5), hs.Hp(10, 13.5)];
-      B.poly(ac, 0.5, cw, spline(ck, false, 4));
-      B.poly(RED, 0.4, cw * 0.8, spline([hs.Hp(22, 2), hs.Hp(30, 1.5), hs.Hp(35, 3.5)], false, 3));
+    }
+    { const ck = [hs.Hp(5, 4), hs.Hp(12, 4), hs.Hp(19, 8.5), hs.Hp(17, 14.5), hs.Hp(9, 16.5), hs.Hp(4, 12)];
+      sweep(B, ac, spline(ck, false, 4), cw * 1.6, 0.75, 1);
+      sweep(B, RED, spline([hs.Hp(17, 1.5), hs.Hp(27, 1.2), hs.Hp(35, 3.2)], false, 3), cw * 1.3, 0.55, 2);
+      sweep(B, ac, spline([hs.Hp(30, 7.2), hs.Hp(33.5, 5.5), hs.Hp(36.5, 3)], false, 3), cw * 1.2, 0.6, 3);
+      const sh2 = makeShader(hs.parts); const jw = hs.Hp(13, 13); if ((sh2(jw[0], jw[1]) || 0) > 0.3) sweep(B, WHT, spline([hs.Hp(8, 17), hs.Hp(13, 16.8), hs.Hp(17, 13.5)], false, 3), cw * 1.4, 0.6, 4);
     }
     const eye = hs.Hp(11.5, 4.5), nos = hs.Hp(36, 3.6), mo = hs.Hp(37, 7.6);
     const er = 1.8 * s;
@@ -757,8 +764,9 @@
     const sho = at(hip, 30, -1);
     // the head is held more upright than the back, looking ahead along the charge
     const hth = th * 0.35 - (ro.sword ? 0.12 : 0), hax = [Math.sin(hth), -Math.cos(hth)], hf = [Math.cos(hth), Math.sin(hth)];
-    const head = [sho[0] + ax[0] * 5 + hax[0] * 7 + hf[0] * 3, sho[1] + ax[1] * 5 + hax[1] * 7 + hf[1] * 3];
-    const H = (a, b) => [head[0] + hf[0] * a + hax[0] * b, head[1] + hf[1] * a + hax[1] * b];
+    const head = [sho[0] + ax[0] * 5 + hax[0] * 8.5 + hf[0] * 3, sho[1] + ax[1] * 5 + hax[1] * 8.5 + hf[1] * 3];
+    const HSc = 1.22;
+    const H = (a, b) => [head[0] + (hf[0] * a + hax[0] * b) * HSc, head[1] + (hf[1] * a + hax[1] * b) * HSc];
     const knee = [hip[0] + 26 * Math.sin(52 * D2R), hip[1] + 26 * Math.cos(52 * D2R)];
     const ank = [knee[0] - 6, knee[1] + 24];
     const g = { s, th, ax, f, Q, hip, sho, head, knee, ank, at, H, hf, hax };
@@ -770,7 +778,7 @@
     g.skirt = spline(QQ([at(hip, 7.5, -10.4), at(hip, 7.5, 10), [kn[0] + 3, kn[1] - 2], [kn[0] - 2, kn[1] + 4], lp(hip, [hip[0] - 18, hip[1] + 14], 0.6), [hip[0] - 18, hip[1] + 11], [hip[0] - 14, hip[1] + 2]]), true, 3);
     g.leg = QQ(limb([hip, lp(hip, knee, 0.5), knee, lp(knee, ank, 0.5), ank], [7.8, 7, 5.2, 4.4, 3.6]));
     g.boot = QQ([[knee[0] - 4.5, knee[1] + 7], [knee[0] + 4.6, knee[1] + 7.5], [ank[0] + 3.6, ank[1] - 1], [ank[0] + 10, ank[1] + 1.2], [ank[0] + 9.5, ank[1] + 4.2], [ank[0] - 4.2, ank[1] + 4.2], [ank[0] - 4.8, ank[1] - 4]]);
-    if (ro.sword) { g.elbow = at(sho, 11, 9); g.hand = at(g.elbow, 13, 6); }
+    if (ro.sword) { g.elbow = at(sho, 14, -4); g.hand = at(g.elbow, 9, 12); }
     else if (ro.banner) { g.elbow = at(sho, -10, 7); g.hand = at(g.elbow, 2, 12); }
     else if (ro.horn) { g.elbow = at(sho, -2, 10); g.hand = at(g.elbow, 12, 3); }
     else { g.elbow = at(sho, -14, -4); g.hand = at(g.elbow, 2, 15); }
@@ -788,17 +796,17 @@
         g.spear = { a: [hS[0] - ux * 50 * s, hS[1] - uy * 50 * s], b: [hS[0] + ux * ro.spearLen * s, hS[1] + uy * ro.spearLen * s] };
       } else g.spear = { a: Q(g.hand[0] - sd[0] * 50, g.hand[1] - sd[1] * 50), b: Q(g.hand[0] + sd[0] * ro.spearLen, g.hand[1] + sd[1] * ro.spearLen) };
     }
-    if (ro.sword) { const sw = [Math.cos(-66 * D2R), Math.sin(-66 * D2R)]; g.sword = { a: Q(g.hand[0] - sw[0] * 5, g.hand[1] - sw[1] * 5), b: Q(g.hand[0] + sw[0] * 62, g.hand[1] + sw[1] * 62), d: sw }; }
+    if (ro.sword) { const sw = [Math.cos(-52 * D2R), Math.sin(-52 * D2R)]; g.sword = { a: Q(g.hand[0] - sw[0] * 5, g.hand[1] - sw[1] * 5), b: Q(g.hand[0] + sw[0] * 62, g.hand[1] + sw[1] * 62), d: sw }; }
     if (ro.horn) { g.hornPts = QQ([at(g.hand, 0, -1), at(g.hand, 5, 6), at(g.hand, 3, 12), at(g.hand, -2, 16)]); }
     if (ro.banner) {
       const top = [g.hand[0] - 24, g.hand[1] - 125], bot = [g.hand[0] + 3, g.hand[1] + 12];
       g.pole = { a: Q(bot[0], bot[1]), b: Q(top[0], top[1]) };
     }
-    const sc = ro.shieldBig ? at(sho, -9, 21) : ro.backShield ? at(sho, -11, -9.5) : at(sho, -13, 11);
-    g.shield = { c: Q(sc[0], sc[1]), rx: (ro.shieldBig ? 12.5 : ro.backShield ? 7.5 : 6) * s, ry: (ro.shieldBig ? 16.5 : ro.backShield ? 9.5 : 14.5) * s, rot: ro.shieldBig ? -0.15 : ro.backShield ? th : 0.1, back: !!ro.backShield };
+    const sc = ro.shieldBig ? at(sho, -18, 17) : ro.backShield ? at(sho, -11, -9.5) : at(sho, -13, 11);
+    g.shield = { c: Q(sc[0], sc[1]), rx: (ro.shieldBig ? 12.5 : ro.backShield ? 6.5 : 6) * s, ry: (ro.shieldBig ? 16.5 : ro.backShield ? 8 : 14.5) * s, rot: ro.shieldBig ? -0.15 : ro.backShield ? th : 0.1, back: !!ro.backShield };
     g.rein = Q(...at(sho, -15, 16));
-    g.headS = Q(head[0], head[1]); g.hr = 6.2 * s;
-    g.crown = Q(...H(-1, 6.8));
+    g.headS = Q(head[0], head[1]); g.hr = 7.4 * s;
+    g.crown = Q(...H(-2.5, 7));
     // profile of the face under the helm: brow, nose, mouth (open, crying out, for the king), beard
     const open = ro.sword ? 1.6 : 0;
     g.face = QQ([H(4.6, 1.6), H(5.6, 0.4), H(8.2, -1.6), H(6.4, -2.6), H(6.6, -3.4), H(5.9, -3.9 - open * 0.4), H(6.3, -4.7 - open), H(5.8, -6.2 - open), H(3, -8.8 - open), H(-1, -6), H(-2.5, -1), H(0, 1.8)]);
@@ -946,10 +954,10 @@
     const st = g.boot[4];
     B.poly(BLK, 0.9, cw * 1.1, [[st[0] - 5 * s, st[1] - 8 * s], [st[0] - 7 * s, st[1] + 1 * s], [st[0] + 1 * s, st[1] + 1 * s], [st[0] - 1 * s, st[1] - 8 * s]]);
     // torso in mail
-    const mailTone = (v, o) => { const D = darkOf(v, 0.12); o[BLK] = 0.42 + 0.5 * D; o[WHT] = 0.85 * smooth(0.62, 0.9, v); o[RED] = 0.2; };
+    const mailTone = (v, o) => { const D = darkOf(v, 0.12); o[BLK] = 0.2 + 0.7 * D; o[WHT] = 0.9 * smooth(0.5, 0.85, v); o[RED] = 0.22 + 0.15 * D; };
     const tcap = [cap(Q(...g.at(g.hip, 4, 0)), Q(...g.at(g.hip, 26, 0)), 9.5 * s, 10.5 * s)];
     const tsh = riderPart(R, g.torso, tcap, mailTone, { s, rim: ro.gold ? 1 : 0.85 });
-    if (detail && s > 1.5) {
+    if (s > 1.2) {
       const tb = bbox(g.torso, 1);
       R.cS.save(); R.cS.clip(pathOf(g.torso));
       const step = Math.max(2.4 * k, 1.8 * s);
@@ -967,16 +975,22 @@
     B.line(BLK, 0.8, cw * 0.9, bA[0], bA[1] + cw, bB[0], bB[1] + cw);
     blob(R.cT, WHT, lp(bA, bB, 0.75)[0], lp(bA, bB, 0.75)[1], 1.6 * s, 1.6 * s, 0, 0.8);
     if (sd.back) shieldFace();
+    const armTone = (v, o) => { const D = darkOf(v, 0.12); o[BLK] = 0.4 + 0.5 * D; o[WHT] = 0.8 * smooth(0.6, 0.88, v); o[RED] = 0.15; };
+    const drawArm = () => {
+      riderPart(R, g.arm, [cap(Q(...g.sho), Q(...g.elbow), 5.4 * s, 4.4 * s), cap(Q(...g.elbow), Q(...g.hand), 4.2 * s, 3.2 * s)], armTone, { s, rim: 0.9 });
+      const hp = new Path2D(); hp.arc(g.handS[0], g.handS[1], 3.3 * s, 0, TAU); reserve(R, hp, 0.9); fillCh(R.cT, RED, hp, 0.55); fillCh(R.cT, BLK, hp, 0.25); B.poly(BLK, 0.8, cw, ellipsePts(g.handS[0], g.handS[1], 3.3 * s, 3.3 * s, 0, 10, 0, TAU + 0.5));
+    };
+    if (ro.sword) drawArm();
     // head: face in profile, helm with cheek-guard and nasal, horsehair crest
-    const faceTone = (v, o) => { const D = darkOf(v, 0.1); o[RED] = 0.4 + 0.45 * D; o[BLK] = 0.5 * smooth(0.55, 1, D); o[WHT] = 0.5 * smooth(0.65, 0.9, v); };
+    const faceTone = (v, o) => { const D = darkOf(v, 0.05); o[RED] = 0.45 + 0.45 * D; o[BLK] = 0.45 * smooth(0.6, 1, D); o[WHT] = 0.55 * smooth(0.55, 0.85, v); };
     const hc = g.headS;
-    riderPart(R, g.face, [cap(hc, hc, 7 * s, 7 * s)], faceTone, { s, cch: RED, rim: 0.4 });
+    riderPart(R, g.face, [cap(hc, hc, 8.5 * s, 8.5 * s)], faceTone, { s, cch: RED, rim: 0.5 });
     // beard
     for (let i = 0; i < (detail ? 14 : 4); i++) { const a = g.face[6 + ((rand() * 4) | 0)]; const t = g.beardTip; B.quad(ro.hairCh, 0.55, cw * 0.7, a[0], a[1], (a[0] + t[0]) / 2 - 2 * s, (a[1] + t[1]) / 2, t[0] - rand() * 5 * s, t[1] + rand() * 3 * s); }
     if (g.mouth) fillCh(R.cS, BLK, pathOf(g.mouth), 0.9);
     const eye = Q(...g.H(3.6, -0.4)); B.line(BLK, 0.9, cw * 1.1, eye[0] - 0.8 * s, eye[1], eye[0] + 0.8 * s, eye[1] + 0.2 * s);
-    const helmTone = (v, o) => { const D = darkOf(v, 0); o[BLK] = 0.3 + 0.6 * D; o[WHT] = 0.95 * smooth(0.45, 0.85, v); o[RED] = ro.gold ? 0.3 : 0.1; };
-    riderPart(R, g.helm, [cap(Q(...g.H(-0.5, 2.5)), Q(...g.H(-0.5, 2.6)), 7.5 * s, 7.5 * s)], helmTone, { s, rim: 1 });
+    const helmTone = (v, o) => { const D = darkOf(v, 0); o[BLK] = 0.45 + 0.5 * D; o[WHT] = 0.95 * smooth(0.55, 0.85, v); o[RED] = ro.gold ? 0.3 : 0.1; };
+    riderPart(R, g.helm, [cap(Q(...g.H(-0.5, 2.5)), Q(...g.H(-0.5, 2.6)), 9 * s, 9 * s)], helmTone, { s, rim: 1 });
     B.line(BLK, 0.95, cw * 1.6, g.nasal[0][0], g.nasal[0][1], g.nasal[1][0], g.nasal[1][1]);
     B.poly(BLK, 0.7, cw, [Q(...g.H(-1, 0.6)), Q(...g.H(0.5, -3.6)), Q(...g.H(3, -3.4))]);
     if (ro.gold) {
@@ -993,9 +1007,7 @@
     }
     flushAll(R);
     // near arm in a mail sleeve, the hand gloved
-    const armTone = (v, o) => { const D = darkOf(v, 0.12); o[BLK] = 0.4 + 0.5 * D; o[WHT] = 0.8 * smooth(0.6, 0.88, v); o[RED] = 0.15; };
-    riderPart(R, g.arm, [cap(Q(...g.sho), Q(...g.elbow), 5.4 * s, 4.4 * s), cap(Q(...g.elbow), Q(...g.hand), 4.2 * s, 3.2 * s)], armTone, { s, rim: 0.9 });
-    { const hp = new Path2D(); hp.arc(g.handS[0], g.handS[1], 3.3 * s, 0, TAU); reserve(R, hp, 0.9); fillCh(R.cT, RED, hp, 0.55); fillCh(R.cT, BLK, hp, 0.25); B.poly(BLK, 0.8, cw, ellipsePts(g.handS[0], g.handS[1], 3.3 * s, 3.3 * s, 0, 10, 0, TAU + 0.5)); }
+    if (!ro.sword) drawArm();
     const sw = clamp(s * 1.05, 1.4, 4.6) * k;
     if (g.spear) {
       const a = g.spear.a, b = g.spear.b;
@@ -1068,6 +1080,7 @@
   /* mid-distance horse and rider: reserve, a soft shadow, contour, a few lights */
   function drawRiderMid(R, rd) {
     const hs = rd.hs, s = hs.s, k = R.k, B = R.B, rand = R.rand, ro = rd.ro;
+    if (rd.std) { ro.spearAng = -60; ro.spearLen = 15; }
     const g = riderGeom(hs, ro);
     const up = horseUnion(hs);
     const ru = riderUnion(g);
@@ -1106,9 +1119,10 @@
     }
     B.poly(RED, 0.5, cw, g.leg);
     const hc = g.headS;
-    { const hp = new Path2D(); hp.arc(hc[0], hc[1], g.hr * 0.95, 0, TAU); fillCh(R.cT, BLK, hp, 0.62); }
-    blob(R.cT, RED, hc[0] + g.hr * 0.8, hc[1] + g.hr * 0.4, g.hr * 0.22, g.hr * 0.36, 0, 0.6);
-    B.quad(WHT, 0.55 + rand() * 0.3, cw, hc[0] - g.hr * 0.95, hc[1] + g.hr * 0.2, hc[0] - g.hr * 0.95, hc[1] - g.hr * 0.95, hc[0] + g.hr * 0.1, hc[1] - g.hr * 0.95);
+    fillCh(R.cT, RED, pathOf(g.face), 0.55);
+    fillCh(R.cT, BLK, pathOf(g.helm), 0.55 + rand() * 0.25);
+    B.poly(WHT, 0.5 + rand() * 0.35, cw, g.helm.slice(0, (g.helm.length * 0.4) | 0));
+    for (let i = 0; i < 4; i++) { const r0 = g.hairRoot[i % 3]; B.quad(ro.hairCh, 0.55, cw, r0[0], r0[1], r0[0] - 8 * s, r0[1] - s, r0[0] - (14 + rand() * 10) * s, r0[1] + rand() * 6 * s); }
     const cr0 = g.crown;
     if (ro.plume) for (let i = 0; i < 4; i++) B.quad(ro.plumeCh, 0.55, cw, cr0[0], cr0[1], cr0[0] - ro.plume * 0.4 * s, cr0[1] - 3 * s, cr0[0] - ro.plume * (0.8 + rand() * 0.4) * s, cr0[1] + rand() * 6 * s);
     if (g.spear) {
@@ -1118,6 +1132,17 @@
       if (ro.pennon) fillCh(R.cT, ro.pennonCh, pathOf([[b[0] - 12 * s, b[1] - 1 * s], [b[0] - 26 * s, b[1] - 4 * s], [b[0] - 23 * s, b[1] + 1 * s]]), 0.6);
     }
     if (g.pole) { B.line(BLK, 0.85, clamp(s * 1.3, 1.2, 3.4) * k, g.pole.a[0], g.pole.a[1], g.pole.b[0], g.pole.b[1]); }
+    if (rd.std) {
+      // a standard among the ranks: a tall lance with a long swallow-tailed streamer
+      const hb = g.handS, top = [hb[0] - 12 * s, hb[1] - 120 * s];
+      B.line(BLK, 0.9, clamp(s * 1.2, 1.1, 3) * k, hb[0] + 2 * s, hb[1] + 10 * s, top[0], top[1]);
+      const wv = ro.cloakWave, Lf = 55 * s;
+      const fl = [top, [top[0] - Lf * 0.5, top[1] + 4 * s + Math.sin(wv) * 4 * s], [top[0] - Lf, top[1] + 2 * s], [top[0] - Lf * 0.8, top[1] + 8 * s], [top[0] - Lf, top[1] + 15 * s], [top[0] - Lf * 0.45, top[1] + 14 * s + Math.cos(wv) * 3 * s], [top[0], top[1] + 16 * s]];
+      const fp = pathOf(spline(fl, true, 3));
+      reserve(R, fp, 0.85); fillCh(R.cT, rand() < 0.5 ? BLK : RED, fp, 0.5); fillCh(R.cT, BLK, fp, 0.15);
+      blob(R.cT, WHT, top[0] - Lf * 0.3, top[1] + 9 * s, 7 * s, 4 * s, 0, 0.7);
+      B.poly(BLK, 0.7, cw, spline(fl, true, 3));
+    }
     flushAll(R);
   }
 
@@ -1143,6 +1168,7 @@
 
   /* an orc of the host, drawn in black chalk; the dawn catches the side turned toward the charge */
   function drawOrc(R, x, y, h, o) {
+    PROF.orcs = (PROF.orcs || 0) + 1;
     const B = R.B, k = R.k, rand = R.rand;
     const s = h / 100, f = o.face;
     const P = (ux, uy) => [x + ux * s * f, y + uy * s];
@@ -1212,8 +1238,9 @@
       B.line(WHT, 0.85, Math.max(1.2 * k, 1.4 * s), b[0], b[1], b[0] - d[0] * 12 * s, b[1] - d[1] * 12 * s);
     } else if (o.pose === 'stand') {
       const ta = (rand() - 0.5) * 0.7 - 0.25 * f;
-      const tx = handF[0] + Math.sin(ta) * 110 * s, ty = handF[1] - Math.cos(ta) * 110 * s;
-      B.line(BLK, 0.9, Math.max(1.1 * k, 1.6 * s), handF[0] - Math.sin(ta) * 40 * s, handF[1] + Math.cos(ta) * 40 * s, tx, ty);
+      const pl = o.flag ? 110 : 75;
+      const tx = handF[0] + Math.sin(ta) * pl * s, ty = handF[1] - Math.cos(ta) * pl * s;
+      B.line(BLK, 0.9, Math.max(1.1 * k, 1.6 * s), handF[0] - Math.sin(ta) * 30 * s, handF[1] + Math.cos(ta) * 30 * s, tx, ty);
       B.line(WHT, 0.75, Math.max(1.1 * k, 1.8 * s), tx, ty, tx + Math.sin(ta) * 10 * s, ty - Math.cos(ta) * 10 * s);
       if (o.flag) {
         const fl = [[tx, ty + 6 * s], [tx - f * 38 * s, ty + 10 * s], [tx - f * 30 * s, ty + 20 * s], [tx - f * 40 * s, ty + 32 * s], [tx, ty + 30 * s]];
@@ -1266,18 +1293,31 @@
     blob(lr.x, WHT, sunX, sunY, W * 0.16, H * 0.035, 0, 0.6);
     blob(lr.x, RED, sunX + W * 0.1, hy - H * 0.03, W * 0.55, H * 0.07, 0, 0.32);
     blob(lr.x, RED, C.cx, C.cb - C.cs * 30, C.w * 0.9, C.cs * 70, 0, 0.28);
-    for (let i = 0; i < 9; i++) {
-      const a0 = (-168 + i * 15 + rand() * 7) * D2R, wdt = (1.4 + rand() * 2.6) * D2R;
-      const Lr = W * 1.1;
-      const gr = lr.x.createLinearGradient(sunX, sunY, sunX + Math.cos(a0) * Lr, sunY + Math.sin(a0) * Lr);
-      gr.addColorStop(0, 'rgba(0,0,255,0)'); gr.addColorStop(0.08, 'rgba(0,0,255,0.16)'); gr.addColorStop(0.5, 'rgba(0,0,255,0.07)'); gr.addColorStop(1, 'rgba(0,0,255,0)');
-      lr.x.fillStyle = gr;
-      lr.x.beginPath(); lr.x.moveTo(sunX, sunY);
-      lr.x.lineTo(sunX + Math.cos(a0 - wdt) * Lr, sunY + Math.sin(a0 - wdt) * Lr);
-      lr.x.lineTo(sunX + Math.cos(a0 + wdt) * Lr, sunY + Math.sin(a0 + wdt) * Lr);
-      lr.x.closePath(); lr.x.fill();
-    }
     lr.done();
+    {
+      const rc = document.createElement('canvas'); const f = 10;
+      rc.width = Math.ceil(W / f); rc.height = Math.ceil(H / f);
+      const rx = rc.getContext('2d');
+      rx.globalCompositeOperation = 'lighter'; rx.scale(1 / f, 1 / f);
+      let a = -176;
+      while (a < -12) {
+        a += 3 + rand() * 16;
+        const a0 = a * D2R, wdt = (0.6 + rand() * rand() * 5) * D2R, Lr = W * (0.45 + rand() * 0.8);
+        const al = 0.04 + rand() * 0.1;
+        const gr = rx.createLinearGradient(sunX, sunY, sunX + Math.cos(a0) * Lr, sunY + Math.sin(a0) * Lr);
+        gr.addColorStop(0, 'rgba(0,0,255,0)'); gr.addColorStop(0.06, 'rgba(0,0,255,' + al.toFixed(3) + ')'); gr.addColorStop(0.3 + rand() * 0.3, 'rgba(0,0,255,' + (al * 0.5).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(0,0,255,0)');
+        rx.fillStyle = gr;
+        rx.beginPath(); rx.moveTo(sunX, sunY);
+        rx.lineTo(sunX + Math.cos(a0 - wdt) * Lr, sunY + Math.sin(a0 - wdt) * Lr);
+        rx.lineTo(sunX + Math.cos(a0 + wdt * (0.6 + rand())) * Lr, sunY + Math.sin(a0 + wdt) * Lr);
+        rx.closePath(); rx.fill();
+      }
+      // the rays are broken where the cloud is thick
+      const img = rx.getImageData(0, 0, rc.width, rc.height), D = img.data;
+      for (let j = 0; j < rc.height; j++) for (let i = 0; i < rc.width; i++) { const q = (j * rc.width + i) * 4; D[q + 2] *= 1 - 0.85 * dark(i * f, j * f); }
+      rx.putImageData(img, 0, 0);
+      R.cT.save(); R.cT.filter = 'blur(' + Math.round(3 * L.k) + 'px)'; R.cT.drawImage(rc, 0, 0, W, H); R.cT.restore();
+    }
     await R.tick();
     const fn = (x, y, o) => {
       if (y > hy) return false;
@@ -1407,14 +1447,15 @@
     const rand = R.rand, k = R.k, B = R.B, N = R.noise;
     const C = L.city, cs = C.cs;
     // seven circles, each set back into the mountain and higher than the last; seen from the east, a little above
-    const al = 13 * D2R, ca = Math.cos(al), sa = Math.sin(al);
-    const P3 = (x, y, z) => [C.cx + x * cs, C.cb + (-y * ca + (z - 100) * sa) * cs];
+    const al = 11 * D2R, ca = Math.cos(al), sa = Math.sin(al);
+    const SH = 0.42; // each circle stands a little further north, up the slope of the mountain
+    const P3 = (x, y, z) => [C.cx + (x + y * SH) * cs, C.cb + (-y * ca + (z - 100) * sa) * cs];
     const T = [];
-    for (let i = 0; i < 7; i++) T.push({ r: 100 - i * 11.6, c: -i * 8, y: i * 13.2, h: i === 0 ? 15 : 12, tm: (112 - i * 7) * D2R });
+    for (let i = 0; i < 7; i++) T.push({ r: 100 - i * 9.2, c: -i * 12, ox: i * 6, y: i * 13.6, h: i === 0 ? 15 : 12.5, tm: (98 - i * 3) * D2R, tr: (84 - i * 7) * D2R });
     const LT = [-0.8, 0.25, 0.55];
     const litAt = (th) => clamp(Math.sin(th) * LT[0] + Math.cos(th) * LT[2], -1, 1);
     const lw = clamp(cs * 0.4, 1.3, 2.6) * k;
-    const thOf = (i, x) => Math.asin(clamp((x - C.cx) / cs / T[i].r, -1, 1));
+    const thOf = (i, x) => Math.asin(clamp(((x - C.cx) / cs - (T[i].y + T[i].h / 2) * SH) / T[i].r, -1, 1));
     const wallPts = (i, y0, y1, th0, th1) => {
       const t = T[i], n = 40, top = [], bot = [];
       for (let j = 0; j <= n; j++) { const th = lerp(th0, th1, j / n); const x = t.r * Math.sin(th), z = t.c + t.r * Math.cos(th); top.push(P3(x, y1, z)); bot.push(P3(x, y0, z)); }
@@ -1425,8 +1466,8 @@
       const o = [];
       for (let i = 0; i < 7; i++) { const t = T[i]; o.push(P3(-t.r * Math.sin(t.tm), t.y, t.c + t.r * Math.cos(t.tm))); }
       o.push(P3(0, T[6].y + 70, T[6].c));
-      for (let i = 6; i >= 0; i--) { const t = T[i]; o.push(P3(t.r * Math.sin(t.tm), t.y, t.c + t.r * Math.cos(t.tm))); }
-      const fr = wallPts(0, 0, 0, T[0].tm, -T[0].tm).top;
+      for (let i = 6; i >= 0; i--) { const t = T[i]; o.push(P3(t.r * Math.sin(t.tr), t.y, t.c + t.r * Math.cos(t.tr))); }
+      const fr = wallPts(0, 0, 0, T[0].tr, -T[0].tm).top;
       reserve(R, pathOf(o.concat(fr)), 0.55);
     }
     const houses = (i) => {
@@ -1435,13 +1476,13 @@
       const list = [];
       const n = Math.round(t.r * (i === 6 ? 1.0 : 1.9));
       for (let j = 0; j < n; j++) {
-        const th = (rand() * 2 - 1) * t.tm * 0.92;
+        const th = lerp(-t.tm, t.tr, rand()) * 0.94;
         const rin = tn ? Math.max(tn.r + 3, 0) : 0;
         const rr = lerp(rin, t.r - 3, Math.sqrt(rand()));
         const x = rr * Math.sin(th), z = t.c + rr * Math.cos(th);
         if (tn && Math.hypot(x, z - tn.c) < tn.r + 2) continue;
         const tower = rand() < 0.05;
-        list.push({ x, z, th, w: tower ? 2 + rand() : 2 + rand() * 3.2, h: tower ? 10 + rand() * 6 : 3 + rand() * 5, roof: rand() });
+        list.push({ x, z, th, w: tower ? 2 + rand() : 2 + rand() * 3.2, h: tower ? 9 + rand() * 5 : 2.5 + rand() * 3.5, roof: rand() });
       }
       list.sort((a, b) => a.z - b.z);
       for (const q of list) {
@@ -1453,7 +1494,7 @@
         reserve(R, r, 0.6);
         const split = lerp(x0, x1, clamp(0.55 + 0.35 * lt, 0.15, 0.9));
         const lr = new Path2D(); lr.rect(x0, yt, split - x0, yb - yt);
-        fillCh(R.cT, WHT, lr, clamp(0.2 + 0.6 * lt, 0.05, 0.85)); fillCh(R.cT, RED, lr, 0.12 + 0.12 * Math.max(0, lt));
+        fillCh(R.cT, WHT, lr, clamp(0.1 + 0.42 * lt, 0.04, 0.6)); fillCh(R.cT, RED, lr, 0.15 + 0.12 * Math.max(0, lt));
         const dr = new Path2D(); dr.rect(split, yt, x1 - split, yb - yt);
         fillCh(R.cT, BLK, dr, 0.3 + 0.35 * (1 - Math.max(0, lt)));
         if (q.roof < 0.35) B.poly(BLK, 0.75, lw, [[x0 - cs * 0.3, yt], [(x0 + x1) / 2, yt - cs * 1.6], [x1 + cs * 0.3, yt]]);
@@ -1472,33 +1513,34 @@
     };
     const wall = (i) => {
       const t = T[i];
-      const W0 = wallPts(i, t.y, t.y + t.h, -t.tm, t.tm);
+      const W0 = wallPts(i, t.y, t.y + t.h, -t.tm, t.tr);
       const path = pathOf(W0.poly);
       reserve(R, path, 0.88);
       const fn = (x, y, o) => {
         const lt = litAt(thOf(i, x));
         if (i === 0) { o[BLK] = 0.55 + 0.3 * smooth(0.4, -0.4, lt); o[WHT] = 0.45 * smooth(0.3, 0.9, lt); o[RED] = 0.25 + 0.15 * smooth(0, 0.6, lt); }
-        else { o[WHT] = 0.85 * smooth(0.0, 0.8, lt); o[RED] = 0.12 + 0.3 * smooth(0.0, 0.5, lt) * (1 - 0.6 * smooth(0.5, 1, lt)); o[BLK] = 0.8 * smooth(0.25, -0.45, lt); }
+        else { o[WHT] = 1.0 * smooth(-0.1, 0.65, lt); o[RED] = 0.14 + 0.3 * smooth(0.0, 0.5, lt) * (1 - 0.6 * smooth(0.5, 1, lt)); o[BLK] = 0.85 * smooth(0.2, -0.45, lt); }
         return true;
       };
-      stumpShade(R, W0.poly, fn, Math.max(2, cs * 1.2), 0.85);
+      stumpShade(R, W0.poly, fn, Math.max(2, cs * 1.2), 1);
+      sweep(B, BLK, W0.bot, cs * 1.6, 0.7); sweep(B, BLK, wallPts(i, 0, t.y + t.h - 1.2, -t.tm, t.tr).top, cs * 0.9, 0.45);
       // courses of masonry: long strokes along the curve of the wall
       for (let q = 1; q < 4; q++) {
-        const ln = wallPts(i, 0, t.y + t.h * q / 4, -t.tm, t.tm).top;
+        const ln = wallPts(i, 0, t.y + t.h * q / 4, -t.tm, t.tr).top;
         const pts = ln.filter((_, j) => j % 2 === 0);
         for (let j = 0; j < pts.length - 1; j++) {
-          const lt = litAt(lerp(-t.tm, t.tm, j / (pts.length - 1)));
+          const lt = litAt(lerp(-t.tm, t.tr, j / (pts.length - 1)));
           if (rand() < 0.3) continue;
           B.line(lt > 0.2 ? (rand() < 0.5 ? WHT : RED) : BLK, 0.45, lw * 0.8, pts[j][0], pts[j][1], pts[j + 1][0], pts[j + 1][1]);
         }
       }
       for (let j = 0; j < t.r * 1.2; j++) {
-        const th = (rand() * 2 - 1) * t.tm, yy = t.y + rand() * t.h;
+        const th = lerp(-t.tm, t.tr, rand()), yy = t.y + rand() * t.h;
         const p0 = P3(t.r * Math.sin(th), yy, t.c + t.r * Math.cos(th)), p1 = P3(t.r * Math.sin(th), yy - 1.6, t.c + t.r * Math.cos(th));
         B.line(litAt(th) > 0.3 ? RED : BLK, 0.4, lw * 0.7, p0[0], p0[1], p1[0], p1[1]);
       }
       // bastions
-      for (let th = -t.tm + 0.25 + rand() * 0.15; th < t.tm - 0.2; th += 0.3 + rand() * 0.12) {
+      for (let th = -t.tm + 0.25 + rand() * 0.15; th < t.tr - 0.2; th += 0.3 + rand() * 0.12) {
         if (Math.abs(th) < 0.12) continue;
         const lt = litAt(th);
         const x = (t.r + 1.5) * Math.sin(th), z = t.c + (t.r + 1.5) * Math.cos(th);
@@ -1516,8 +1558,8 @@
       // battlements along the top, lit gold-white on the east
       const top = W0.top;
       for (let j = 0; j < top.length - 1; j++) {
-        const lt = litAt(lerp(-t.tm, t.tm, j / (top.length - 1)));
-        for (let m = 0; m < 3; m++) { const q = lp(top[j], top[j + 1], m / 3); B.line(lt > 0.25 ? WHT : BLK, 0.9, cs * 0.8, q[0], q[1], q[0], q[1] - cs * 1.4); }
+        const lt = litAt(lerp(-t.tm, t.tr, j / (top.length - 1)));
+        for (let m = 0; m < 3; m++) { const q = lp(top[j], top[j + 1], m / 3); B.line(lt > 0.15 ? WHT : BLK, 0.95, cs * 1.05, q[0], q[1], q[0], q[1] - cs * 1.8); }
       }
       contour(R, W0.top, { closed: false, ch: BLK, w: lw, a: 0.6, wob: cs * 0.2, passes: 1, flat: true });
       contour(R, W0.bot, { closed: false, ch: BLK, w: lw * 1.3, a: 0.85, wob: cs * 0.2, passes: 1, flat: true });
@@ -1590,7 +1632,7 @@
     // the rock flanks of the mountain into which the circles are cut: their ends vanish into it
     for (const side of [-1, 1]) {
       const pts = [];
-      for (let i = 0; i < 7; i++) { const t = T[i]; const th = side * t.tm * 0.97; pts.push(P3(t.r * Math.sin(th), t.y + (i === 0 ? 0 : -2), t.c + t.r * Math.cos(th))); }
+      for (let i = 0; i < 7; i++) { const t = T[i]; const th = (side < 0 ? -t.tm : t.tr) * 0.97; pts.push(P3(t.r * Math.sin(th), t.y + (i === 0 ? 0 : -2), t.c + t.r * Math.cos(th))); }
       pts.push(P3(side * T[6].r * 0.55, T[6].y + 30, T[6].c - 10));
       pts.push(P3(side * (T[6].r + 16), T[6].y + 14, T[6].c - 20), P3(side * (T[2].r + 14), T[2].y + 4, T[2].c - 10), P3(side * (T[0].r + 10), 0, T[0].c + 30));
       const jag = [];
@@ -1619,7 +1661,7 @@
       const yA = foot.y + 2, yB = ytop + 3;
       const ridge = [], lf = [], rf = [];
       for (let j = 0; j <= 10; j++) {
-        const y = lerp(yA, yB, j / 10), z = zr(y), wv = 3 + 9 * (j / 10);
+        const y = lerp(yA, yB, j / 10), z = zr(y), wv = 1.5 + 5 * (j / 10);
         ridge.push(P3(0.5, y, z)); lf.push(P3(-wv, y + 1, z - wv * 1.6)); rf.push(P3(wv, y + 1, z - wv * 1.6));
       }
       const L0 = ridge.concat(lf.slice().reverse()), R0 = ridge.concat(rf.slice().reverse());
@@ -1634,7 +1676,7 @@
     }
     // fires in the lower circles
     for (let j = 0; j < 18; j++) {
-      const i = (rand() * 2) | 0, th = (rand() * 2 - 1) * T[i].tm * 0.8, rr = T[i].r - 3 - rand() * 5;
+      const i = (rand() * 2) | 0, th = lerp(-T[i].tm, T[i].tr, rand()) * 0.8, rr = T[i].r - 3 - rand() * 5;
       const q = P3(rr * Math.sin(th), T[i].y + T[i].h, T[i].c + rr * Math.cos(th));
       blob(R.cT, RED, q[0], q[1], cs * (4 + rand() * 8), cs * (3 + rand() * 5), 0, 0.4 + rand() * 0.3);
       for (let f = 0; f < 7; f++) { const fx = q[0] + (rand() - 0.5) * 4 * cs; stroke(B, f < 5 ? RED : WHT, fx, q[1], fx + (rand() - 0.3) * cs * 2, q[1] - cs * (3 + rand() * 7), 0.2, lw, 0.85); }
@@ -1694,18 +1736,30 @@
     }
     lr.done();
     await R.tick();
-    for (let y = hy + 1; y < H; ) {
-      const d = (y - hy) / (H - hy);
-      const len = (10 + 90 * d) * k;
-      for (let x = rand() * len; x < W; x += len * (1 + rand() * 1.2)) {
-        const n = N.fbm(x / (H * 0.08), y / (H * 0.03), 3);
-        if (rand() < 0.35) continue;
-        const ch = n > 0.56 ? BLK : RED;
-        const a = (0.2 + 0.5 * n) * (0.6 + 0.6 * d);
-        stroke(B, ch, x, y, x + len, y + (rand() - 0.5) * len * 0.05, (rand() - 0.5) * 0.04, (1.6 + 1.8 * d) * k, a);
-      }
-      y += Math.max(2 * k, (y - hy) * 0.032) * (0.7 + rand() * 0.6);
+    const vpx = L.city.cx, vpy = hy;
+    for (let i = 0; i < 1500; i++) {
+      const d = Math.pow(rand(), 0.7), y = hy + 2 + d * (H - hy);
+      const x = rand() * W * 1.1 - W * 0.05;
+      const n = N.fbm(x / (H * 0.1), y / (H * 0.035), 3);
+      // the strokes lie along the plain, converging a little toward the city
+      const dir = Math.atan2(vpy - y, vpx - x) * 0.18 + (x > vpx ? Math.PI * 0.82 : 0) * 0;
+      const len = (20 + 160 * d) * k * (0.5 + rand());
+      const ang = (x < vpx ? -1 : 1) * Math.abs(Math.atan2(y - vpy, Math.abs(vpx - x) + H)) * 0.6 + dir * 0;
+      const ux = Math.cos(ang), uy = Math.sin(ang);
+      const pts = []; for (let j = 0; j <= 4; j++) pts.push([x + ux * len * j / 4, y + uy * len * j / 4 + Math.sin(j * 1.3 + i) * d * 3 * k]);
+      const ch = n > 0.55 ? BLK : (n < 0.4 && rand() < 0.4 ? WHT : RED);
+      const a = (ch === WHT ? 0.35 : 0.2 + 0.45 * n) * (0.5 + 0.7 * d);
+      sweep(B, ch, pts, (1.6 + 7 * d * rand()) * k, a, rand() * 6);
       if (B.n > 4000) { flushAll(R); await R.tick(); }
+    }
+    flushAll(R);
+    // hoof-churned ground: clusters of short curved marks where the charge has passed
+    for (let i = 0; i < 900; i++) {
+      const y = lerp(hy + (L.yT - hy) * 0.3, H, Math.pow(rand(), 0.6)), d = (y - hy) / (H - hy);
+      const x = riderFront(L, y) - rand() * W * 0.7;
+      const r = (2 + rand() * 5) * d * 2.4 * k;
+      const a0 = Math.PI * (0.9 + rand() * 0.4);
+      B.poly(rand() < 0.6 ? BLK : RED, 0.35 + rand() * 0.3, (1.2 + d * 1.5) * k, ellipsePts(x, y, r * 1.6, r * 0.6, 0, 5, a0, a0 + Math.PI * 0.9));
     }
     for (let i = 0; i < 700; i++) {
       const y = lerp(L.yT - (L.yT - hy) * 0.3, H, Math.sqrt(rand())), d = (y - hy) / (H - hy);
@@ -1717,31 +1771,68 @@
     flushAll(R);
   }
 
-  /* the litter of the night's battle on the plain ahead of the charge */
+  /* the litter of the night's battle on the plain ahead of the charge: broken spears, shields, helms, arrows */
   function drawDebris(R, L) {
     const { W, H, hy } = L, rand = R.rand, k = R.k, B = R.B;
-    for (let i = 0; i < 34; i++) {
-      const y = lerp(hy + (L.yT - hy) * 0.5, L.yT + (H - L.yT) * 0.8, Math.pow(rand(), 0.9));
-      const x0 = riderFront(L, y) + (y - hy) * 0.9;
+    const items = [];
+    for (let i = 0; i < 85; i++) {
+      const y = lerp(hy + (L.yT - hy) * 0.45, H * 1.01, Math.pow(rand(), 0.85));
+      const x0 = riderFront(L, y) + (y - hy) * 0.7;
       if (x0 > W) continue;
-      const x = lerp(x0, W, rand()), h = (y - hy) / L.camK * 0.7;
-      const s = h / 100, cw = clamp(s * 0.9, 1.2, 3) * k;
-      const kind = rand();
-      if (kind < 0.12) {
-        blob(R.cT, BLK, x, y, 40 * s, 4 * s, 0, 0.3);
-      } else if (kind < 0.66) {
-        const a = (rand() - 0.5) * 0.5, l = (60 + rand() * 100) * s;
-        B.line(BLK, 0.8, Math.max(1.1 * k, 1.5 * s), x, y, x + Math.cos(a) * l, y + Math.sin(a) * l * 0.3);
-        if (rand() < 0.5) B.line(WHT, 0.7, Math.max(1.1 * k, 1.5 * s), x + Math.cos(a) * l, y + Math.sin(a) * l * 0.3, x + Math.cos(a) * (l + 10 * s), y + Math.sin(a) * (l + 10 * s) * 0.3);
-      } else if (kind < 0.88) {
-        const se = new Path2D(); se.ellipse(x, y - 2 * s, 9 * s, 3.5 * s, (rand() - 0.5) * 0.3, 0, TAU);
-        reserve(R, se, 0.8); fillCh(R.cT, BLK, se, 0.5); fillCh(R.cS, BLK, se, 0.5);
-        B.poly(WHT, 0.6, cw, ellipsePts(x, y - 2 * s, 9 * s, 3.5 * s, 0, 8, Math.PI * 0.9, Math.PI * 1.6));
-        blob(R.cT, RED, x + 1.5 * s, y - 2 * s, 2 * s, 1 * s, 0, 0.7);
-      } else {
+      items.push({ x: lerp(x0, W * 1.02, rand()), y, kind: rand() });
+    }
+    items.sort((a, b) => a.y - b.y);
+    for (const it of items) {
+      const { x, y, kind } = it;
+      const h = (y - hy) / L.camK * 0.75, s = h / 100, cw = clamp(s * 0.9, 1.2, 3) * k;
+      if (kind < 0.32) {
+        // a spear, broken, lying along the ground, with its shadow
+        const a = (rand() - 0.5) * 0.6, l = (70 + rand() * 90) * s, brk = 0.35 + rand() * 0.3;
+        const p0 = [x, y], p1 = [x + Math.cos(a) * l * brk, y + Math.sin(a) * l * brk * 0.25];
+        const a2 = a + (rand() - 0.5) * 0.8, p2 = [p1[0] + Math.cos(a2) * 4 * s, p1[1] + 2 * s], p3 = [p2[0] + Math.cos(a2) * l * (1 - brk), p2[1] + Math.sin(a2) * l * (1 - brk) * 0.25];
+        sweep(B, BLK, [[p0[0] + 3 * s, p0[1] + 2 * s], [p3[0] + 3 * s, p3[1] + 2 * s]], cw * 2, 0.25);
+        sweep(B, BLK, [p0, lp(p0, p1, 0.5), p1], Math.max(1.4 * k, 1.6 * s), 0.85);
+        sweep(B, BLK, [p2, lp(p2, p3, 0.5), p3], Math.max(1.4 * k, 1.6 * s), 0.85);
+        B.line(RED, 0.5, cw * 0.6, p0[0], p0[1] + 0.8 * s, p1[0], p1[1] + 0.8 * s);
+        if (rand() < 0.6) B.poly(WHT, 0.85, cw, [[p3[0], p3[1]], [p3[0] + Math.cos(a2) * 9 * s, p3[1] - 0.5 * s]]);
+      } else if (kind < 0.42) {
+        // a round shield face-up or tilted, its boss catching light
+        const rx = (10 + rand() * 4) * s, ry = rx * (0.35 + rand() * 0.25);
+        const se = new Path2D(); se.ellipse(x, y - ry * 0.5, rx, ry, (rand() - 0.5) * 0.2, 0, TAU);
+        blob(R.cT, BLK, x + rx * 0.4, y + ry * 0.2, rx * 1.4, ry * 0.6, 0, 0.3);
+        reserve(R, se, 0.7); fillCh(R.cT, BLK, se, 0.4); fillCh(R.cT, RED, se, 0.15); fillCh(R.cS, BLK, se, 0.4);
+        B.poly(WHT, 0.75, cw, ellipsePts(x, y - ry * 0.5, rx, ry, 0, 10, Math.PI * 0.95, Math.PI * 1.7));
+        B.poly(BLK, 0.8, cw, ellipsePts(x, y - ry * 0.5, rx, ry, 0, 10, Math.PI * 1.75, Math.PI * 2.9));
+        blob(R.cT, WHT, x - rx * 0.1, y - ry * 0.6, rx * 0.14, rx * 0.12, 0, 0.9);
+      } else if (kind < 0.47) {
+        // a helm lying on its side
+        const r = 5 * s;
+        const hp = new Path2D(); hp.ellipse(x, y - r * 0.6, r, r * 0.75, -0.3, Math.PI, TAU); hp.closePath();
+        reserve(R, hp, 0.8); fillCh(R.cT, BLK, hp, 0.6);
+        B.poly(WHT, 0.8, cw, ellipsePts(x, y - r * 0.6, r, r * 0.75, -0.3, 6, Math.PI * 1.05, Math.PI * 1.5));
+        blob(R.cT, BLK, x + r, y, r * 1.6, r * 0.3, 0, 0.3);
+      } else if (kind < 0.86) {
+        // arrows standing in the ground, at the angle they fell
+        const n = 2 + ((rand() * 5) | 0);
+        for (let j = 0; j < n; j++) {
+          const ax = x + (rand() - 0.5) * 30 * s, ay = y + (rand() - 0.5) * 3 * s;
+          const a = -Math.PI / 2 - 0.5 - rand() * 0.6, l = (16 + rand() * 6) * s;
+          const tip = [ax + Math.cos(a) * l, ay + Math.sin(a) * l];
+          B.line(BLK, 0.8, Math.max(1.1 * k, 0.8 * s), ax, ay, tip[0], tip[1]);
+          B.line(rand() < 0.5 ? WHT : RED, 0.75, Math.max(1.1 * k, 1.4 * s), tip[0], tip[1], tip[0] - Math.cos(a) * 4 * s, tip[1] - Math.sin(a) * 4 * s);
+          B.line(BLK, 0.25, cw * 0.8, ax, ay, ax + l * 0.9, ay + l * 0.1);
+        }
+      } else if (kind < 0.94) {
         // a fire still smouldering in the grass
         blob(R.cT, RED, x, y - 4 * s, 30 * s, 8 * s, 0, 0.5);
         for (let j = 0; j < 8; j++) stroke(B, j < 6 ? RED : WHT, x + (rand() - 0.5) * 30 * s, y, x + (rand() - 0.5) * 30 * s, y - (10 + rand() * 20) * s, 0.2, cw, 0.8);
+      } else {
+        // a fallen pole with a torn black standard
+        const l = (80 + rand() * 40) * s, a = (rand() - 0.5) * 0.3;
+        sweep(B, BLK, [[x, y], [x + Math.cos(a) * l, y + Math.sin(a) * l * 0.2]], Math.max(1.4 * k, 1.8 * s), 0.9);
+        const fx = x + Math.cos(a) * l * 0.75, fy = y + Math.sin(a) * l * 0.15;
+        const fl = [[fx, fy], [fx + 22 * s, fy + 1 * s], [fx + 16 * s, fy + 5 * s], [fx + 25 * s, fy + 8 * s], [fx - 2 * s, fy + 7 * s]];
+        const fp = pathOf(fl); reserve(R, fp, 0.8); fillCh(R.cT, BLK, fp, 0.55); B.poly(RED, 0.6, cw, fl);
       }
     }
     flushAll(R);
@@ -1837,7 +1928,7 @@
           else if (rand() < 0.15) B.line(WHT, 0.6, 1.1 * k, x, yy - h * 1.6, x, yy - h * 2.2);
           continue;
         }
-        if (h > 16 * k) {
+        if (h > 30 * k && (x - hordeFront(L, yy) < h * 10 || rand() < 0.35)) {
           const dist = x - hordeFront(L, yy);
           const pose = dist < h * 3 && rand() < 0.6 ? 'brace' : (dist < h * 6 && rand() < 0.15 ? 'flee' : 'stand');
           flushAll(R);
@@ -1894,7 +1985,7 @@
   function makeArmy(R, L) {
     const rand = R.rand, out = [];
     let z = 0.0028;
-    const yMax = L.H * 1.35;
+    const yMax = Math.min(L.H * 1.02, L.hy + L.hhT * L.camK * 1.25);
     while (true) {
       const y = L.hy + z * L.H;
       if (y > yMax) break;
@@ -1906,15 +1997,21 @@
       while (x > -hh * 2) {
         const yy = y + (rand() - 0.5) * (y - L.hy) * 0.1;
         const h = (yy - L.hy) / L.camK;
-        const nearKing = Math.abs(yy - L.yT) < L.hhT * 0.3 && x > L.xT - L.hhT * 1.7;
+        const nearKing = (Math.abs(yy - L.yT) < L.hhT * 0.3 && x > L.xT - L.hhT * 1.7) || (yy > L.yT - L.hhT * 0.12 && L.t > 0.3);
         const tooBig = h > L.hhT * 0.7 && x > L.xT - L.hhT * 1.3;
         const offscreen = x - h * 1.5 > L.W || x + h * 2.5 < 0 || yy - h * 1.9 > L.H;
-        if (!nearKing && !tooBig && !offscreen) out.push({ x, y: yy, hh: h, sp: (rand() - 0.5) });
+        const gap = R.noise.fbm(x / (h * 4 + 1), yy / (h * 1.2 + 1), 2) < 0.42 && h < L.hhT * 0.4;
+        if (!nearKing && !tooBig && !offscreen && !gap) out.push({ x, y: yy, hh: h, sp: (rand() - 0.5), std: rand() < 0.04 });
         x -= sp * (0.7 + rand() * 0.65);
       }
       z *= (big ? 1.2 : 1.1) + rand() * 0.03;
     }
     out.push({ x: L.xT, y: L.yT, hh: L.hhT, king: true });
+    // two knights of the household close behind, near us, framing the lower left
+    if (L.t > 0.3) for (const [fx, fy] of [[1.85, 0.06], [3.25, 0.1]]) {
+      const yy = Math.min(L.H * 0.985, L.yT + L.hhT * fy);
+      out.push({ x: L.xT - L.hhT * fx, y: yy, hh: L.hhT * (0.98 + fy), sp: 0, guard: true });
+    }
     const by = L.yT - L.hhT * 0.2;
     out.push({ x: L.xT - L.hhT * 1.3, y: by, hh: (by - L.hy) / L.camK, banner: true });
     out.sort((a, b) => a.y - b.y);
@@ -1928,13 +2025,14 @@
       neck: 14 + rand() * 18, head: 32 + rand() * 14, neckLen: 46 + rand() * 6, arch: rand() * 4,
       tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14,
       coat: coats[(rand() * coats.length) | 0],
-      lean: 26 + rand() * 24, seat: (rand() - 0.5) * 4,
-      spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.25, pennonCh: rand() < 0.75 ? RED : BLK,
+      lean: 18 + rand() * 34, seat: (rand() - 0.5) * 5,
+      spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.35, pennonCh: rand() < 0.75 ? RED : BLK,
       shieldCh: rand() < 0.5 ? RED : BLK, cloak: rand() < 0.7 ? 0 : 22 + rand() * 22, backShield: rand() < 0.25, cloakCh: rand() < 0.65 ? RED : BLK, cloakWave: rand() * 6,
       plume: rand() < 0.4 ? 0 : 12 + rand() * 12, plumeCh: rand() < 0.25 ? WHT : rand() < 0.5 ? RED : BLK, hairCh: rand() < 0.6 ? RED : WHT,
       clothCh: rand() < 0.55 ? RED : BLK,
     };
-    if (rand() < 0.12) { ro.spearAng = -50 + rand() * 25; ro.spearLen = 90; }
+    if (rand() < 0.2 && !(rd.hh > 0)) { ro.spearAng = -55 + rand() * 35; ro.spearLen = 70; }
+    if (rd.hh > 0 && rand() < 0.2 && rd.hh < rd.hhRaise) { ro.spearAng = -50 + rand() * 30; ro.spearLen = 70; }
     if (rand() < 0.04) ro.horn = true;
     if (rd.king) {
       Object.assign(ro, { phase: 0.15, pitch: -4, stride: 1.06, neck: 22, head: 34, neckLen: 50, arch: 4, tailLift: 0.45, mane: 34, coat: 'grey', lean: 18, seat: 0,
@@ -2010,22 +2108,23 @@
     for (const rd of army) {
       if (rd.y > nextVeil && rd.y < L.yT + L.hhT * 0.3) {
         flushAll(R);
-        dustVeil(R, L, nextVeil);
+        prof('veil', () => dustVeil(R, L, nextVeil));
         nextVeil = L.hy + (nextVeil - L.hy) * 1.32;
         await R.tick();
       }
       if (only && !(only === 'king' ? rd.king : rd.hh > L.hhT * 0.5)) continue;
       rd.fog = smooth(L.hhT * 0.8, 4 * k, rd.hh) * 0.85;
-      if (rd.hh < MID && !rd.king) { if (rd.hh > 4 * k) longShadow(R, rd.x, rd.y, rd.hh, 0.25 * (1 - rd.fog)); drawRiderFar(R, rd); nF++; if (R.B.n > 6000) { flushAll(R); await R.tick(); } continue; }
+      if (rd.hh < MID && !rd.king) { if (rd.hh > 4 * k) longShadow(R, rd.x, rd.y, rd.hh, 0.25 * (1 - rd.fog)); prof('far', () => drawRiderFar(R, rd)); nF++; if (R.B.n > 6000) { flushAll(R); await R.tick(); } continue; }
       flushAll(R);
+      rd.hhRaise = L.hhT * 0.45;
       const ro = riderParams(R.rand, rd);
       ro.vp = L.vp;
       const s = rd.hh / 100;
       const hs = buildHorse(ro, rd.x, rd.y, s);
       rd.hs = hs; rd.ro = ro;
       hs.ao = smooth(L.yT + L.hhT * 0.1, L.H * 1.1, rd.y) * 0.35;
-      longShadow(R, rd.x, rd.y, rd.hh, 0.34 * (1 - rd.fog));
-      if (rd.hh < DET && !rd.king && !rd.banner) { drawRiderMid(R, rd); nM++; await R.checkpoint(); continue; }
+      prof('shadow', () => longShadow(R, rd.x, rd.y, rd.hh, 0.34 * (1 - rd.fog)));
+      if (rd.hh < DET && !rd.king && !rd.banner) { prof('mid', () => drawRiderMid(R, rd)); nM++; await R.checkpoint(); continue; }
       nD++;
       await drawRiderFull(R, rd, hs, ro, rd.hh > FULL || rd.king);
       await R.checkpoint();
@@ -2033,17 +2132,23 @@
     return { nD, nM, nF };
   }
 
+  const PROF = {};
+  const prof = (name, f) => { const t = performance.now(); const r = f(); if (PROF.sync) { PROF.sync.cS.getImageData(0, 0, 1, 1); PROF.sync.cT.getImageData(0, 0, 1, 1); } PROF[name] = (PROF[name] || 0) + performance.now() - t; return r; };
   async function drawRiderFull(R, rd, hs, ro, detail) {
     const k = R.k, s = hs.s;
     const g = riderGeom(hs, ro);
     reserve(R, horseUnion(hs), 0.92);
     reserve(R, riderUnion(g), 0.92);
     if (ro.banner) drawBanner(R, hs, g);
+    prof('legsFar', () => {
     drawLeg(R, hs, hs.legs.LH, ro.coat, true, detail);
     drawLeg(R, hs, hs.legs.LF, ro.coat, true, detail);
+    });
     drawTail(R, hs, ro.coat, detail);
     reserve(R, pathOf(hs.body), 0.9);
+    prof('body', () => {
     drawHorseBody(R, hs, ro.coat, detail);
+    });
     await R.tick();
     if (detail) {
       const alt = buildHorse({ ...ro, phase: ro.phase + 0.04 + R.rand() * 0.04 }, rd.x, rd.y, s);
@@ -2051,11 +2156,15 @@
       flushAll(R);
     }
     reserveLegs(R, hs);
+    prof('legsNear', () => {
     drawLeg(R, hs, hs.legs.RH, ro.coat, false, detail);
     drawLeg(R, hs, hs.legs.RF, ro.coat, false, detail);
+    });
     drawMane(R, hs, ro.coat, detail);
     drawTack(R, hs, ro, detail);
+    prof('rider', () => {
     drawRider(R, hs, g, ro, detail);
+    });
     hoofDust(R, hs, detail);
   }
 
@@ -2155,8 +2264,11 @@
     const out = document.createElement('canvas'); out.width = pw; out.height = ph;
     const co = out.getContext('2d');
     return function () {
+      const t0 = performance.now();
       ca.drawImage(R.S, 0, 0, pw, ph); cb.drawImage(R.T, 0, 0, pw, ph);
+      const t1 = performance.now();
       const S = ca.getImageData(0, 0, pw, ph).data, T = cb.getImageData(0, 0, pw, ph).data;
+      if (new URLSearchParams(location.search).has('rohlog')) console.warn('preview draw ' + Math.round(t1 - t0) + ' read ' + Math.round(performance.now() - t1));
       const img = co.createImageData(pw, ph);
       comp(S, T, img.data, pw, 0, ph, sc);
       co.putImageData(img, 0, 0);
@@ -2176,22 +2288,22 @@
     let tSlice = performance.now(), tPrev = performance.now();
     const R = {
       W, H, k: L.k, S, T, cS, cT, rand, noise,
-      B: new Batch(cS), BT: new Batch(cT), only: new URLSearchParams(location.search).get('rohonly'),
+      B: new Batch(cS), BT: new Batch(cT), nPrev: 0, only: new URLSearchParams(location.search).get('rohonly'),
       async tick() {
         if (performance.now() - tSlice > 40) { await yieldNow(); tSlice = performance.now(); }
         if (!ok()) throw new Error('cancelled');
       },
       async checkpoint() {
         await R.tick();
-        if (onPreview && performance.now() - tPrev > 1600) { flushAll(R); onPreview(R.preview()); tPrev = performance.now(); await yieldNow(); tSlice = performance.now(); }
+        if (onPreview && (R.nPrev === 0 || performance.now() - tPrev > 6000)) { R.nPrev++; flushAll(R); prof('preview', () => onPreview(R.preview())); tPrev = performance.now(); await yieldNow(); tSlice = performance.now(); }
       },
     };
     const times = [];
     let t0 = performance.now();
-    const mark = (n) => { const t = performance.now(); times.push(n + ' ' + Math.round(t - t0)); if (log) console.warn('mark ' + n + ' ' + Math.round(t - t0)); t0 = t; };
+    const mark = (n) => { if (log && XQ.includes('sync')) { cS.getImageData(0, 0, 1, 1); cT.getImageData(0, 0, 1, 1); } const t = performance.now(); times.push(n + ' ' + Math.round(t - t0)); if (log) console.warn('mark ' + n + ' ' + Math.round(t - t0)); t0 = t; };
     const tooth = makeTooth(mulberry32(seed ^ 0x70074));
     const comp = makeComposer(R, tooth);
-    R.preview = previewer(R, comp, previewW);
+    R.preview = previewer(R, comp, Math.min(previewW, 1100));
     mark('tooth');
     if (new URLSearchParams(location.search).has('rohsheet')) {
       // a study sheet of horses through the stride
@@ -2236,7 +2348,7 @@
     flushAll(R);
     const out = await composite(R, comp); mark('composite');
     S.width = S.height = 1; T.width = T.height = 1;
-    if (log) console.warn('rohirrim ' + W + 'x' + H + ' ' + times.join(' | '));
+    if (log) console.warn('rohirrim ' + W + 'x' + H + ' ' + times.join(' | ') + ' PROF ' + JSON.stringify(PROF, (k2, v) => k2 === 'sync' ? undefined : typeof v === 'number' ? Math.round(v) : v));
     return out;
   }
 
