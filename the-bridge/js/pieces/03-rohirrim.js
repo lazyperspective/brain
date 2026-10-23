@@ -225,6 +225,18 @@
         i += run - (rand() < 0.3 ? 2 : 0) + (rand() < 0.18 ? 2 : 0);
       }
     }
+    if (o.final) {
+      // the last, decided line: pressed hard where the form turns from the light, lifted where it meets it
+      let i = o.from || 0; const end = o.to === undefined ? (closed ? n : n - 1) : o.to;
+      while (i < end) {
+        const run = 8 + ((rand() * 26) | 0);
+        const seg = []; let pm = 0;
+        for (let j = i; j <= Math.min(end, i + run); j++) { seg.push(pts[j % n]); pm += prs[j % n] * (o.pf ? o.pf(j % n) : 1); }
+        pm /= seg.length;
+        if (pm > 0.36) sweep(B, o.fch === undefined ? ch : o.fch, seg, w * 1.7 * o.final, Math.min(1, a0 * (pm + 0.3) * 1.15), rand() * 6);
+        i += run + (rand() < 0.35 ? 1 + ((rand() * 3) | 0) : 0);
+      }
+    }
   }
 
   /* shading field from capsules: returns light dot product or null */
@@ -372,8 +384,8 @@
     const yT = H * (lerp(0.79, 0.9, t) - 0.02 * u);
     const xT = W * (lerp(0.46, 0.49, t) - 0.03 * u);
     const hhT = Math.min((yT - hy) / camK * 1.2, W * 0.42);
-    const cityW = Math.min(H * lerp(0.38, 0.41, t) * (1 - 0.08 * u), W * 0.62);
-    const cityX = W * (lerp(0.63, 0.8, t) - 0.01 * u);
+    const cityW = Math.min(H * lerp(0.46, 0.54, t) * (1 - 0.08 * u), W * 0.8);
+    const cityX = W * (lerp(0.6, 0.78, t) - 0.01 * u);
     const farX = W * (lerp(0.06, 0.2, t) + 0.06 * u);
     return {
       W, H, A, t, u, hy, camK, yT, xT, hhT, farX, back: 2.1,
@@ -504,7 +516,9 @@
     const ctl = [
       [-58, 7], [-50, 1], [-41, -1], [-32, 2], [-20, 5], [-7, 4.5], W0,
       crest(0.72), crest(0.45), crest(0.2),
-      Hp(-1, -2), Hp(8, -4), Hp(18, -3.4), Hp(28, -2.2), Hp(35, -1), Hp(39.4, 2.2), Hp(39.8, 5.4), Hp(37.6, 7.6), Hp(34.4, 8.6), Hp(30.5, 7.8), Hp(24, 9.6), Hp(18, 13.6), Hp(12.5, 17.8), Hp(7, 18), Hp(3.5, 14.5), thr,
+      Hp(-1, -2), Hp(8, -4.2), Hp(12, -3.6), Hp(18, -3.2), Hp(28, -2.3), Hp(35, -1.1), Hp(39.4, 2.2),
+      ...(o.mouth ? [Hp(40.2, 5.4), Hp(38.6, 6.4), Hp(32.5, 7.2), Hp(36.5, 10.2), Hp(36.2, 11.6), Hp(32.5, 12.2), Hp(28, 10.4)] : [Hp(39.8, 5.4), Hp(37.6, 7.6), Hp(34.4, 8.6), Hp(30.5, 7.8)]),
+      Hp(24, 9.8), Hp(18, 13.6), Hp(12.5, 17.8), Hp(7, 18), Hp(3.5, 14.5), thr,
       [nu1[0] + cu[0] * 3, nu1[1] + cu[1] * 3], [nu2[0] - cu[0] * 0.5, nu2[1] - cu[1] * 0.5],
       SH, [44, 32], [38, 41], [28, 47], [14, 51], [0, 50], [-14, 47.5], [-26, 43.5], [-34, 42], [-40, 45], [-52, 45], [-61, 37], [-65, 25], [-63, 14],
     ];
@@ -605,7 +619,7 @@
     };
     const sp = clamp(s * 0.95, 3, 5.5) * k, len = clamp(s * 5.5, 8, 34) * k, w = clamp(s * 0.55, 1.5, 3.2) * k;
     const bb = bbox(L.poly, 2);
-    stumpShade(R, L.poly, fn, Math.max(2, s * 0.9), coat === 'grey' ? 0.45 : 0.6);
+    stumpShade(R, L.poly, (x, y, out) => { if (!fn(x, y, out)) return false; const m = smooth(0.3, 1, darkOf(sh(x, y), ao)); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 0.9), coat === 'grey' ? 0.25 : 0.4);
     const fnS = (x, y, out) => { if (!fn(x, y, out)) return false; const v = sh(x, y); const m = smooth(0.15, 0.7, darkOf(v, ao)); out[RED] *= m; out[BLK] *= m; out[WHT] *= 0.8; return true; };
     // strokes run along the leg, as a draughtsman follows bone and tendon
     const along = Math.atan2(c[2][1] - c[0][1], c[2][0] - c[0][0]);
@@ -619,8 +633,8 @@
     if (!far) R.B.poly(WHT, 0.5, Math.max(1, s * 0.5) * k, [b[nF - 3], b[nF - 1]]);
     const cw = clamp(s * 0.62, 1.4, 3.4) * k;
     const pf = (i) => smooth(1, 4, i);
-    contour(R, f, { closed: false, ch: far ? BLK : RED, w: cw, a: far ? 0.6 : 0.85, wob: s * 0.35, passes: detail ? 3 : 2, pf, dark: 0.9, flip: true, rim: far ? 0 : 0.5 });
-    contour(R, b, { closed: false, ch: far ? BLK : RED, w: cw, a: far ? 0.6 : 0.9, wob: s * 0.35, passes: detail ? 3 : 2, pf, dark: 0.9, rim: far ? 0 : 0.6 });
+    contour(R, f, { closed: false, ch: far ? BLK : RED, w: cw * 0.85, a: far ? 0.6 : 0.85, wob: s * 0.5, passes: detail ? 3 : 2, pf, dark: 0.9, flip: true, rim: far ? 0 : 0.6, final: 0.9 });
+    contour(R, b, { closed: false, ch: far ? BLK : RED, w: cw * 0.85, a: far ? 0.6 : 0.9, wob: s * 0.5, passes: detail ? 3 : 2, pf, dark: 0.9, rim: far ? 0 : 0.7, final: 1 });
     if (detail) {
       const B = R.B;
       const kn = c[1], fe = c[2];
@@ -688,68 +702,89 @@
   }
 
   function drawHorseBody(R, hs, coat, detail) {
-    const s = hs.s, k = R.k, B = R.B;
+    const s = hs.s, k = R.k, B = R.B, rand = R.rand, o = hs.o;
     const sh = makeShader(hs.parts);
     const path = pathOf(hs.body);
     const bb = bbox(hs.body, 2);
     const ao = hs.ao || 0;
-    stumpShade(R, hs.body, (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); return true; }, Math.max(2, s * 1.2), coat === 'grey' ? 0.45 : 0.62);
-    const sp = clamp(s * 1.0, 3, 6) * k, len = clamp(s * 7, 9, 44) * k, w = clamp(s * 0.6, 1.6, 3.6) * k;
-    // hatching only in the shadows, as the master would put it
-    const fn = (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const D = darkOf(v, ao); const m = smooth(0.15, 0.7, D); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; };
-    hatch(R, { ...bb, ang: 58 * D2R, sp, len, w, fn, chs: coat === 'grey' ? [RED, BLK] : [RED, BLK], dth: 0.55 });
+    const Q = hs.Q, Hp = hs.Hp, cw = clamp(s * 0.55, 1.3, 3.2) * k;
+    // a breath of rubbed tone in the shadow only; the rest is the bare toned paper
+    stumpShade(R, hs.body, (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const m = smooth(0.35, 1, darkOf(v, ao)) * (coat === 'black' ? 1 : 0.6); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 1.4), coat === 'grey' ? 0.22 : coat === 'black' ? 0.5 : 0.32);
+    const sp = clamp(s * 0.95, 3, 5.6) * k, len = clamp(s * 7, 9, 46) * k, w = clamp(s * 0.55, 1.5, 3.4) * k;
+    // parallel hatching laid only across the shadow side
+    const fn = (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const D = darkOf(v, ao); const m = smooth(0.3, 0.75, D); out[RED] *= m; out[BLK] *= m * m; out[WHT] = 0; return true; };
+    hatch(R, { ...bb, ang: 58 * D2R, sp, len, w, fn, chs: [RED, BLK], dth: 0.5, jit: 0.3, bend: 0.03 });
     clipFlush(R, path);
-    // white heightening laid along the lit planes, following the form
-    const fnW = (x, y, out) => { const v = sh(x, y); if (v === null) return false; out[WHT] = (coat === 'grey' ? 0.95 : 0.7) * smooth(coat === 'grey' ? 0.4 : 0.6, 0.9, v - ao); return true; };
-    hatch(R, { ...bb, ang: -16 * D2R, sp: sp * 0.9, len: len * 1.3, w: w * 1.1, fn: fnW, chs: [WHT], bend: 0.1, dth: 0.6 });
+    // a second, crossing layer only in the deepest darks
+    const fnD = (x, y, out) => { const v = sh(x, y); if (v === null) return false; const D = darkOf(v, ao); out[coat === 'grey' ? RED : BLK] = 0.85 * smooth(0.7, 1, D); return true; };
+    hatch(R, { ...bb, ang: 102 * D2R, sp: sp * 1.1, len: len * 0.8, w, fn: fnD, chs: [RED, BLK], dth: 0.7, jit: 0.3 });
     clipFlush(R, path);
-    const Q = hs.Q, cw = clamp(s * 0.55, 1.3, 3) * k;
-    const an = (ch, pts, a, ww) => { const q = pts.map((p) => Q(p[0], p[1])); sweep(B, ch, spline(q, false, 5), (ww || cw) * 1.5, Math.min(1, a * 1.7), R.rand() * 6); };
+    // white heightening on the lit planes
+    const fnW = (x, y, out) => { const v = sh(x, y); if (v === null) return false; out[WHT] = (coat === 'grey' ? 0.95 : 0.75) * smooth(coat === 'grey' ? 0.45 : 0.62, 0.9, v - ao); return true; };
+    hatch(R, { ...bb, ang: -20 * D2R, sp: sp * 1.05, len: len * 1.2, w: w * 1.1, fn: fnW, chs: [WHT], bend: 0.12, dth: 0.65 });
+    clipFlush(R, path);
+    // anatomy in line: the masses of the neck, shoulder, ribs and quarters
     const ac = coat === 'grey' ? RED : (coat === 'black' ? WHT : BLK);
-    if (detail) {
-      an(ac, [[8, 2], [18, 17], [30, 33], [36, 40]], 0.34);          // the long sloping shoulder
-      an(ac, [[38, 24], [31, 30], [24, 38], [24, 45]], 0.3);          // the mass of the triceps behind it
-      an(ac, [[16, 36], [24, 42], [22, 48]], 0.4);                    // elbow
-      an(RED, [[-2, 18], [0, 32], [-4, 44]], 0.28);                   // ribs
-      an(RED, [[-10, 18], [-9, 30], [-12, 42]], 0.22);
-      an(RED, [[-17, 20], [-17, 31], [-20, 41]], 0.16);
-      an(ac, [[-31, 4], [-35, 11], [-33, 18]], 0.36);                 // point of hip
-      an(ac, [[-33, 16], [-38, 28], [-37, 38], [-33, 44]], 0.34);     // stifle and the front of the thigh
-      an(ac, [[-62, 14], [-58, 26], [-55, 36], [-50, 44]], 0.32);     // the hamstring groove
-      an(ac, [[-26, 6], [-28, 20], [-27, 36]], 0.18);                 // flank
-      const jg = [hs.Hp(8, 12), lp(hs.Hp(8, 12), Q(34, 24), 0.5), Q(34, 24)];
-      B.poly(ac, 0.28, cw, spline(jg, false, 4));
+    const an = (ch, pts, a, ww) => { const q = pts.map((p) => Q(p[0], p[1])); sweep(B, ch, spline(q, false, 5), (ww || cw) * 1.5, Math.min(1, a * 1.8), rand() * 6); };
+    const ah = (ch, pts, a, ww) => sweep(B, ch, spline(pts.map((p) => Hp(p[0], p[1])), false, 5), (ww || cw) * 1.5, Math.min(1, a * 1.8), rand() * 6);
+    const big = s > 1.0;
+    if (big) {
+      an(ac, [[8, 2], [18, 16], [30, 32], [36, 40]], 0.36);          // the long sloping shoulder blade
+      an(ac, [[40, 22], [33, 29], [26, 37], [25, 45]], 0.42);         // the triceps, parting chest from shoulder
+      an(RED, [[44, 28], [41, 35], [36, 41]], 0.3);                   // the breast muscle
+      an(ac, [[17, 36], [24, 42], [22, 48]], 0.42);                   // elbow
+      an(RED, [[-2, 18], [0, 32], [-4, 44]], 0.3);                    // ribs
+      an(RED, [[-10, 18], [-9, 30], [-12, 42]], 0.24);
+      an(RED, [[-17, 20], [-17, 31], [-20, 41]], 0.18);
+      an(ac, [[-31, 4], [-35, 11], [-33, 18]], 0.4);                  // point of hip
+      an(ac, [[-33, 16], [-38, 28], [-37, 38], [-33, 44]], 0.36);     // stifle and the front of the thigh
+      an(ac, [[-62, 14], [-58, 26], [-55, 36], [-50, 44]], 0.36);     // the hamstring groove
+      an(ac, [[-44, 6], [-49, 18], [-50, 30]], 0.2);                  // the round of the quarters
+      an(ac, [[-26, 6], [-28, 20], [-27, 36]], 0.2);                  // flank
+      // neck: the crest's thickness, the long muscle from jaw to shoulder, the jugular groove
+      const c1 = [hs.crest(0.15), hs.crest(0.45), hs.crest(0.8)].map((q, i) => [q[0] - hs.th[0] * (6 + i * 3) * s, q[1] - hs.th[1] * (6 + i * 3) * s]);
+      sweep(B, ac, spline(c1, false, 5), cw * 1.4, 0.5, 1);
+      sweep(B, ac, spline([Hp(10, 15), lp(Hp(10, 15), Q(38, 22), 0.45), Q(38, 22)], false, 5), cw * 1.4, 0.5, 2);
+      sweep(B, RED, spline([Hp(6, 13), lp(Hp(6, 13), Q(36, 28), 0.55), Q(36, 28)], false, 5), cw * 1.2, 0.4, 3);
     }
-    { const ck = [hs.Hp(5, 4), hs.Hp(12, 4), hs.Hp(19, 8.5), hs.Hp(17, 14.5), hs.Hp(9, 16.5), hs.Hp(4, 12)];
-      sweep(B, ac, spline(ck, false, 4), cw * 1.6, 0.75, 1);
-      sweep(B, RED, spline([hs.Hp(17, 1.5), hs.Hp(27, 1.2), hs.Hp(35, 3.2)], false, 3), cw * 1.3, 0.55, 2);
-      sweep(B, ac, spline([hs.Hp(30, 7.2), hs.Hp(33.5, 5.5), hs.Hp(36.5, 3)], false, 3), cw * 1.2, 0.6, 3);
-      const sh2 = makeShader(hs.parts); const jw = hs.Hp(13, 13); if ((sh2(jw[0], jw[1]) || 0) > 0.3) sweep(B, WHT, spline([hs.Hp(8, 17), hs.Hp(13, 16.8), hs.Hp(17, 13.5)], false, 3), cw * 1.4, 0.6, 4);
-    }
-    const eye = hs.Hp(11.5, 4.5), nos = hs.Hp(36, 3.6), mo = hs.Hp(37, 7.6);
-    const er = 1.8 * s;
+    // the head: forehead, eye socket, bony cheek, the bridge of the nose, the nostril and the mouth with its bit
+    ah(ac, [[4, 4], [11, 3.5], [18, 8], [17, 14.5], [10, 16.8], [4, 12.5]], 0.5);   // the round of the cheek
+    ah(RED, [[3, -2.5], [8, -3.4], [13, -2.8]], 0.4);                                   // forehead
+    ah(ac, [[9, 1.2], [11.5, 0.6], [14.2, 1.8]], 0.6, cw * 0.9);                       // the socket above the eye
+    ah(RED, [[16, 2], [24, 1], [31, 1.2], [36, 2.8]], 0.38);                            // the bony face
+    const eye = Hp(11.8, 3.6), er = 1.7 * s;
     flushAll(R);
     const c = R.cS;
-    c.fillStyle = 'rgba(0,255,0,0.9)';
-    c.beginPath(); c.ellipse(eye[0], eye[1], er, er * 0.72, Math.atan2(hs.hd[1], hs.hd[0]), 0, TAU); c.fill();
-    if (detail) {
-      stroke(B, BLK, eye[0] - er * 2, eye[1] - er * 1.3, eye[0] + er * 1.6, eye[1] - er * 1.2, -0.15, cw * 0.8, 0.6);
-      B.line(WHT, 0.8, cw * 0.6, eye[0] - er * 0.4, eye[1] - er * 0.3, eye[0] - er * 0.1, eye[1] - er * 0.3);
-    }
-    stroke(B, BLK, nos[0] - s * 2.4, nos[1] - s * 1.2, nos[0] + s * 1.2, nos[1] + s * 1.6, 0.45, cw * 1.2, 0.9);
-    stroke(B, BLK, mo[0] - s * 4.5, mo[1] + s * 0.4, mo[0] + s * 1.5, mo[1] + s * 1.2, -0.1, cw, 0.75);
+    c.fillStyle = 'rgba(0,255,0,0.95)';
+    c.beginPath(); c.ellipse(eye[0], eye[1], er, er * 0.75, Math.atan2(hs.hd[1], hs.hd[0]), 0, TAU); c.fill();
+    B.line(WHT, 0.9, cw * 0.6, eye[0] - er * 0.4, eye[1] - er * 0.35, eye[0] - er * 0.05, eye[1] - er * 0.35);
+    // the nostril flared wide
+    ah(BLK, [[34.5, 1.2], [36.6, 0.6], [38, 2.4], [36.6, 4.4], [34.8, 3.8]], 0.85, cw * 1.1);
+    ah(RED, [[33, 0.3], [34.6, -0.3]], 0.6);
+    if (o.mouth) {
+      const m = [Hp(39.6, 6), Hp(32.8, 7.3), Hp(36.2, 10.3)];
+      fillCh(R.cS, BLK, pathOf(m), 0.95);
+      B.poly(RED, 0.7, cw * 0.8, [Hp(37.5, 6.6), Hp(34, 7.2)]); // the tongue
+    } else ah(BLK, [[31, 7.6], [35, 7.8], [38, 7]], 0.75);
+    // the bit ring at the corner of the mouth
+    const bit = Hp(32.6, 7.6);
+    B.poly(BLK, 0.95, cw, ellipsePts(bit[0], bit[1], 1.8 * s, 1.8 * s, 0, 10, 0, TAU + 0.4));
+    B.poly(WHT, 0.8, cw * 0.6, ellipsePts(bit[0], bit[1], 1.8 * s, 1.8 * s, 0, 5, Math.PI, Math.PI * 1.6));
+    // ears: pricked forward, or flat back in the fury of the charge
     const p = hs.poll, ha = Math.atan2(hs.hd[1], hs.hd[0]);
     for (let e = 0; e < 2; e++) {
-      const a = ha + Math.PI + 0.6 + e * 0.25, Le = (10 - e * 1.4) * s;
-      const b0 = [p[0] + Math.cos(ha) * 2.4 * s * (e ? 0.4 : 1), p[1] + Math.sin(ha) * 2.4 * s];
+      const a = o.earsBack ? ha + Math.PI + 0.6 + e * 0.25 : ha - Math.PI / 2 - 0.55 + e * 0.35, Le = (o.earsBack ? 10 : 11.5) * s * (e ? 0.88 : 1);
+      const b0 = [p[0] + Math.cos(ha) * 2.6 * s * (e ? 0.3 : 1), p[1] + Math.sin(ha) * 2.6 * s];
       const tip = [b0[0] + Math.cos(a) * Le, b0[1] + Math.sin(a) * Le];
-      const n = [-Math.sin(a) * 2.5 * s, Math.cos(a) * 2.5 * s];
-      const ear = [[b0[0] + n[0], b0[1] + n[1]], [b0[0] + n[0] * 0.5 + Math.cos(a) * Le * 0.6, b0[1] + n[1] * 0.5 + Math.sin(a) * Le * 0.6], tip, [b0[0] - n[0], b0[1] - n[1]]];
-      fillCh(R.cT, e ? BLK : (coat === 'grey' ? WHT : RED), pathOf(ear), e ? 0.55 : 0.5);
-      B.poly(e ? BLK : RED, 0.8, cw * 0.8, ear);
+      const n = [-Math.sin(a) * 2.7 * s, Math.cos(a) * 2.7 * s];
+      const ear = [[b0[0] + n[0], b0[1] + n[1]], [b0[0] + n[0] * 0.75 + Math.cos(a) * Le * 0.55, b0[1] + n[1] * 0.75 + Math.sin(a) * Le * 0.55], tip, [b0[0] - n[0] * 0.6 + Math.cos(a) * Le * 0.5, b0[1] - n[1] * 0.6 + Math.sin(a) * Le * 0.5], [b0[0] - n[0], b0[1] - n[1]]];
+      reserve(R, pathOf(ear), 0.85);
+      fillCh(R.cT, e ? BLK : (coat === 'black' ? BLK : RED), pathOf(ear), e ? 0.45 : 0.25);
+      contour(R, spline(ear, false, 2), { closed: false, ch: e ? BLK : RED, w: cw, a: 0.95, wob: s * 0.15, passes: 2, final: 0.7 });
+      if (!e) B.poly(BLK, 0.6, cw * 0.7, [lp(b0, tip, 0.25), lp(b0, tip, 0.8)]);
     }
     flushAll(R);
-    contour(R, hs.body, { ch: coat === 'black' ? BLK : RED, w: clamp(s * 0.95, 1.6, 4.6) * k, a: 1, wob: s * 0.45, passes: detail ? 3 : 2, dark: 1.1, rim: 0.8 });
+    contour(R, hs.body, { ch: coat === 'black' ? BLK : RED, w: clamp(s * 0.7, 1.4, 3.8) * k, a: 0.95, wob: s * 0.6, passes: detail ? 3 : 2, dark: 1, rim: 0.9, final: coat === 'grey' ? 1.25 : 1 });
     flushAll(R);
   }
 
@@ -771,8 +806,8 @@
     const ank = [knee[0] - 6, knee[1] + 24];
     const g = { s, th, ax, f, Q, hip, sho, head, knee, ank, at, H, hf, hax };
     // torso: a curved back, the chest swelling forward, a narrower waist
-    g.torso = spline(QQ([at(hip, -1, -8.5), at(hip, 8, -9.8), at(hip, 17, -10.8), at(hip, 25, -10.2), at(hip, 30, -7.8), at(hip, 33.5, -3.5),
-      at(hip, 34, 2), at(hip, 29.5, 7.5), at(hip, 23, 10), at(hip, 15, 8.2), at(hip, 8, 8.6), at(hip, 1, 9.6)]), true, 3);
+    g.torso = spline(QQ([at(hip, -1, -7.5), at(hip, 8, -8), at(hip, 17, -8.8), at(hip, 25, -8.6), at(hip, 30, -6.6), at(hip, 33, -3),
+      at(hip, 33.5, 2), at(hip, 30, 6.5), at(hip, 24, 8.2), at(hip, 16, 6.4), at(hip, 8, 6.6), at(hip, 1, 8)]), true, 3);
     // the skirt of the hauberk over the thigh, flaring back in the wind
     const kn = lp(hip, knee, 0.78);
     g.skirt = spline(QQ([at(hip, 7.5, -10.4), at(hip, 7.5, 10), [kn[0] + 3, kn[1] - 2], [kn[0] - 2, kn[1] + 4], lp(hip, [hip[0] - 18, hip[1] + 14], 0.6), [hip[0] - 18, hip[1] + 11], [hip[0] - 14, hip[1] + 2]]), true, 3);
@@ -811,8 +846,10 @@
     const open = ro.sword ? 1.6 : 0;
     g.face = QQ([H(4.6, 1.6), H(5.6, 0.4), H(8.2, -1.6), H(6.4, -2.6), H(6.6, -3.4), H(5.9, -3.9 - open * 0.4), H(6.3, -4.7 - open), H(5.8, -6.2 - open), H(3, -8.8 - open), H(-1, -6), H(-2.5, -1), H(0, 1.8)]);
     g.mouth = open ? QQ([H(6.1, -3.9), H(4.4, -4.6), H(6.0, -4.6 - open)]) : null;
-    g.helm = spline(QQ([H(-6.6, -0.4), H(-6.4, 3.6), H(-3.6, 6.6), H(0.6, 7.4), H(4.4, 5.4), H(6.2, 1.8), H(5.6, 0.6), H(1.5, 0.9), H(-1, -3.2), H(-3.2, -3.6), H(-5.6, -2.4)]), true, 3);
-    g.nasal = QQ([H(5.4, 1.2), H(6.9, -1.4)]);
+    g.helm = spline(QQ([H(-6.4, 0.6), H(-6, 4), H(-3.4, 6.8), H(0.8, 7.5), H(4.4, 5.6), H(6.1, 2), H(5.8, 0.9), H(-6, 0.4)]), true, 3);
+    g.cheek = QQ([H(-1.2, 0.8), H(2.4, 0.7), H(2.3, -3.4), H(1.2, -5.2), H(-0.8, -4.9), H(-1.8, -2)]);
+    g.neckG = QQ([H(-6.2, 0.8), H(-1.5, 0.9), H(-2.4, -3.6), H(-5.2, -4.4), H(-7.2, -3)]);
+    g.nasal = QQ([H(5.6, 1.4), H(7.1, -1.5)]);
     g.hairRoot = QQ([H(-5.6, -1), H(-5.2, -3), H(-4.2, -4.6)]);
     g.beardTip = Q(...H(0.5, -10 - open));
     const wv = ro.cloakWave, len = ro.cloak;
@@ -838,7 +875,7 @@
 
   function riderUnion(g) {
     const p = new Path2D();
-    addPoly(p, g.torso); addPoly(p, g.leg); addPoly(p, g.arm); addPoly(p, g.boot); addPoly(p, g.skirt); addPoly(p, g.helm); addPoly(p, g.face);
+    addPoly(p, g.torso); addPoly(p, g.leg); addPoly(p, g.arm); addPoly(p, g.boot); addPoly(p, g.skirt); addPoly(p, g.helm); addPoly(p, g.face); addPoly(p, g.neckG);
     if (g.cloak) addPoly(p, g.cloak);
     p.moveTo(g.shield.c[0] + g.shield.rx, g.shield.c[1]); p.ellipse(g.shield.c[0], g.shield.c[1], g.shield.rx, g.shield.ry, g.shield.rot, 0, TAU);
     return p;
@@ -851,10 +888,11 @@
     const fn = (x, y, out) => { const v = sh(x, y); tone(v === null ? 0 : v, out); return true; };
     const path = pathOf(pts);
     reserve(R, path, 0.92);
-    stumpShade(R, pts, fn, Math.max(2, s * 0.8), 0.5);
-    hatch(R, { ...bbox(pts, 2), ang: (o.ang || 58) * D2R, sp: clamp(s * 0.85, 2.8, 4.6) * k, len: clamp(s * 4.5, 7, 26) * k, w: clamp(s * 0.55, 1.5, 3) * k, fn: (x, y, out) => { fn(x, y, out); const v = sh(x, y); const m = smooth(0.2, 0.75, darkOf(v === null ? 0 : v, 0.1)); out[RED] *= m; out[BLK] *= m; return true; }, chs: [RED, BLK, WHT], dth: 0.6 });
+    const shadowOnly = (x, y, out) => { fn(x, y, out); const v = sh(x, y); const m = smooth(0.25, 0.8, darkOf(v === null ? 0 : v, 0.1)); out[RED] *= m; out[BLK] *= m; return true; };
+    stumpShade(R, pts, (x, y, out) => { shadowOnly(x, y, out); out[WHT] = 0; return true; }, Math.max(2, s * 0.8), o.stump === undefined ? 0.3 : o.stump);
+    hatch(R, { ...bbox(pts, 2), ang: (o.ang || 58) * D2R, sp: clamp(s * 0.85, 2.8, 4.6) * k, len: clamp(s * 4.5, 7, 26) * k, w: clamp(s * 0.55, 1.5, 3) * k, fn: shadowOnly, chs: [RED, BLK, WHT], dth: 0.6, jit: 0.3 });
     clipFlush(R, path);
-    contour(R, pts, { ch: o.cch === undefined ? BLK : o.cch, w: clamp(s * 0.75, 1.4, 3.6) * k, a: 0.9, wob: s * 0.3, passes: 2, rim: o.rim === undefined ? 0.8 : o.rim, dark: 0.6 });
+    contour(R, pts, { ch: o.cch === undefined ? BLK : o.cch, w: clamp(s * 0.6, 1.3, 3.2) * k, a: 0.85, wob: s * 0.45, passes: 2, rim: o.rim === undefined ? 0.8 : o.rim, dark: 0.6, final: 1 });
     flushAll(R);
     return sh;
   }
@@ -962,8 +1000,8 @@
       R.cS.save(); R.cS.clip(pathOf(g.torso));
       const step = Math.max(2.4 * k, 1.8 * s);
       for (let y = tb.y0; y < tb.y1; y += step) for (let x = tb.x0 + ((y / step) & 1) * step * 0.5; x < tb.x1; x += step) {
-        const v = tsh(x, y); if (v === null) continue;
-        B.quad(v > 0.45 ? WHT : BLK, 0.3 + rand() * 0.35, w * 0.55, x - step * 0.38, y, x, y + step * 0.42, x + step * 0.38, y);
+        const v = tsh(x, y); if (v === null || v < 0.05 || v > 0.7 || rand() < 0.55) continue;
+        B.quad(v > 0.45 ? WHT : BLK, 0.45 + rand() * 0.35, w * 0.6, x - step * 0.38, y, x, y + step * 0.42, x + step * 0.38, y);
       }
       B.flush(); R.cS.restore();
     }
@@ -975,24 +1013,34 @@
     B.line(BLK, 0.8, cw * 0.9, bA[0], bA[1] + cw, bB[0], bB[1] + cw);
     blob(R.cT, WHT, lp(bA, bB, 0.75)[0], lp(bA, bB, 0.75)[1], 1.6 * s, 1.6 * s, 0, 0.8);
     if (sd.back) shieldFace();
-    const armTone = (v, o) => { const D = darkOf(v, 0.12); o[BLK] = 0.4 + 0.5 * D; o[WHT] = 0.8 * smooth(0.6, 0.88, v); o[RED] = 0.15; };
+    const armTone = (v, o) => { const D = darkOf(v, 0.2); o[BLK] = 0.55 + 0.4 * D; o[WHT] = 0.8 * smooth(0.62, 0.9, v); o[RED] = 0.2; };
     const drawArm = () => {
-      riderPart(R, g.arm, [cap(Q(...g.sho), Q(...g.elbow), 5.4 * s, 4.4 * s), cap(Q(...g.elbow), Q(...g.hand), 4.2 * s, 3.2 * s)], armTone, { s, rim: 0.9 });
+      riderPart(R, g.arm, [cap(Q(...g.sho), Q(...g.elbow), 5.4 * s, 4.4 * s), cap(Q(...g.elbow), Q(...g.hand), 4.2 * s, 3.2 * s)], armTone, { s, rim: 1, stump: 0.55 });
+      sweep(B, BLK, [Q(...g.sho), Q(...g.elbow), Q(...g.hand)].map((q, i, a) => q), cw * 0.9, 0.4);
+      for (let i = 0; i < 6; i++) { const q = lp(Q(...g.sho), Q(...g.elbow), 0.15 + i * 0.14); B.quad(WHT, 0.5, cw * 0.6, q[0] - 1.2 * s, q[1] - 1.2 * s, q[0], q[1] - 0.3 * s, q[0] + 1.2 * s, q[1] - 1 * s); }
       const hp = new Path2D(); hp.arc(g.handS[0], g.handS[1], 3.3 * s, 0, TAU); reserve(R, hp, 0.9); fillCh(R.cT, RED, hp, 0.55); fillCh(R.cT, BLK, hp, 0.25); B.poly(BLK, 0.8, cw, ellipsePts(g.handS[0], g.handS[1], 3.3 * s, 3.3 * s, 0, 10, 0, TAU + 0.5));
     };
     if (ro.sword) drawArm();
     // head: face in profile, helm with cheek-guard and nasal, horsehair crest
-    const faceTone = (v, o) => { const D = darkOf(v, 0.05); o[RED] = 0.45 + 0.45 * D; o[BLK] = 0.45 * smooth(0.6, 1, D); o[WHT] = 0.55 * smooth(0.55, 0.85, v); };
+    const faceTone = (v, o) => { const D = darkOf(v, 0.05); o[RED] = 0.4 + 0.45 * D; o[BLK] = 0.4 * smooth(0.65, 1, D); o[WHT] = 0.55 * smooth(0.55, 0.85, v); };
     const hc = g.headS;
-    riderPart(R, g.face, [cap(hc, hc, 8.5 * s, 8.5 * s)], faceTone, { s, cch: RED, rim: 0.5 });
-    // beard
-    for (let i = 0; i < (detail ? 14 : 4); i++) { const a = g.face[6 + ((rand() * 4) | 0)]; const t = g.beardTip; B.quad(ro.hairCh, 0.55, cw * 0.7, a[0], a[1], (a[0] + t[0]) / 2 - 2 * s, (a[1] + t[1]) / 2, t[0] - rand() * 5 * s, t[1] + rand() * 3 * s); }
-    if (g.mouth) fillCh(R.cS, BLK, pathOf(g.mouth), 0.9);
-    const eye = Q(...g.H(3.6, -0.4)); B.line(BLK, 0.9, cw * 1.1, eye[0] - 0.8 * s, eye[1], eye[0] + 0.8 * s, eye[1] + 0.2 * s);
-    const helmTone = (v, o) => { const D = darkOf(v, 0); o[BLK] = 0.45 + 0.5 * D; o[WHT] = 0.95 * smooth(0.55, 0.85, v); o[RED] = ro.gold ? 0.3 : 0.1; };
-    riderPart(R, g.helm, [cap(Q(...g.H(-0.5, 2.5)), Q(...g.H(-0.5, 2.6)), 9 * s, 9 * s)], helmTone, { s, rim: 1 });
-    B.line(BLK, 0.95, cw * 1.6, g.nasal[0][0], g.nasal[0][1], g.nasal[1][0], g.nasal[1][1]);
-    B.poly(BLK, 0.7, cw, [Q(...g.H(-1, 0.6)), Q(...g.H(0.5, -3.6)), Q(...g.H(3, -3.4))]);
+    const fc = [cap(hc, hc, 8.5 * s, 8.5 * s)];
+    riderPart(R, g.face, fc, faceTone, { s, cch: RED, rim: 0.5, stump: 0.4 });
+    // the profile drawn as one searching line: brow, nose, lips, chin
+    contour(R, g.face.slice(0, 9), { closed: false, ch: RED, w: cw * 0.9, a: 0.95, wob: s * 0.2, passes: 2, flat: true, final: 0.8, fch: BLK });
+    for (let i = 0; i < (detail ? 18 : 5); i++) { const a = g.face[6 + ((rand() * 4) | 0)]; const t = g.beardTip; B.quad(ro.hairCh, 0.6, cw * 0.75, a[0], a[1], (a[0] + t[0]) / 2 - 3 * s, (a[1] + t[1]) / 2 + s, t[0] - rand() * 9 * s, t[1] + (rand() - 0.3) * 4 * s); }
+    if (g.mouth) fillCh(R.cS, BLK, pathOf(g.mouth), 0.95);
+    const eye = Q(...g.H(3.8, -0.3)); B.line(BLK, 0.95, cw * 1.2, eye[0] - 0.9 * s, eye[1] - 0.2 * s, eye[0] + 0.9 * s, eye[1] + 0.2 * s);
+    B.line(BLK, 0.7, cw * 0.8, ...Q(...g.H(2.6, 0.7)), ...Q(...g.H(5, 0.9)));
+    const helmTone = (v, o) => { const D = darkOf(v, 0); o[BLK] = 0.35 + 0.55 * D; o[WHT] = 0.95 * smooth(0.5, 0.85, v); o[RED] = ro.gold ? 0.3 : 0.12; };
+    const hcap = [cap(Q(...g.H(-0.5, 2.5)), Q(...g.H(-0.5, 2.6)), 9 * s, 9 * s)];
+    riderPart(R, g.neckG, hcap, helmTone, { s, rim: 0.7, stump: 0.45 });
+    riderPart(R, g.helm, hcap, helmTone, { s, rim: 1, stump: 0.45 });
+    riderPart(R, g.cheek, hcap, (v, o) => { helmTone(v, o); o[BLK] *= 0.7; }, { s, rim: 0.8, stump: 0.25 });
+    for (let i = 0; i < 3; i++) { const q = Q(...g.H(0.6 + i * 1.3, -1 - i * 1.2)); B.line(WHT, 0.8, cw, q[0], q[1], q[0] + 0.3 * s, q[1] + 0.3 * s); }
+    sweep(B, BLK, [Q(...g.H(-6.2, 0.6)), Q(...g.H(0, 0.9)), Q(...g.H(5.9, 1))], cw * 2.2, 0.95);
+    sweep(B, BLK, g.nasal, cw * 2, 1);
+    B.line(WHT, 0.7, cw * 0.6, g.nasal[0][0] - s * 0.4, g.nasal[0][1], g.nasal[1][0] - s * 0.4, g.nasal[1][1]);
     if (ro.gold) {
       const band = [Q(...g.H(-6.2, 1.4)), Q(...g.H(-3, 2.6)), Q(...g.H(1.5, 2.8)), Q(...g.H(5.4, 1.8))];
       sweep(B, RED, spline(band, false, 4), cw * 2.2, 1); B.poly(WHT, 0.9, cw * 0.7, spline(band, false, 4).map((p) => [p[0], p[1] - cw]));
@@ -1043,7 +1091,7 @@
       fillCh(R.cS, WHT, pathOf(limb(g.hornPts, [1.2 * s, 1.8 * s, 2.6 * s, 4 * s])), 0.7);
       B.poly(BLK, 0.8, cw, g.hornPts);
     }
-    const bit = hs.Hp(35, 7);
+    const bit = hs.Hp(32.6, 7.6);
     const rm = [(bit[0] + g.rein[0]) / 2, Math.max(bit[1], g.rein[1]) + 7 * s];
     B.quad(BLK, 0.7, cw * 0.8, g.rein[0], g.rein[1], rm[0], rm[1], bit[0], bit[1]);
     flushAll(R);
@@ -1072,7 +1120,7 @@
     B.poly(BLK, 0.8, cw * 1.1, spline([Hp(1, 0), Hp(14, 6), Hp(32, 5)], false, 5));
     B.poly(BLK, 0.75, cw * 1.1, spline([Hp(29, -1.6), Hp(30, 4), Hp(31.5, 9.6)], false, 4));
     B.poly(BLK, 0.65, cw, spline([Hp(5, -3), Hp(7, 3), Hp(10, 11)], false, 4));
-    const bit = Hp(35, 7);
+    const bit = Hp(32.6, 7.6);
     blob(R.cT, WHT, bit[0], bit[1], 1.8 * s, 1.8 * s, 0, 0.7);
     flushAll(R);
   }
@@ -1397,8 +1445,8 @@
     const ridgeY = (x) => { let lo = 0, hi = ridge.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ridge[m][0] < x) lo = m; else hi = m; } return ridge[lo][1]; };
     // the slope of the ground and which way it faces: valleys and spurs from a noise relief
     const relief = (x, y) => N.fbm(x / (C.cs * 50), y / (C.cs * 90), 4) + 0.3 * N.fbm(x / (C.cs * 12), y / (C.cs * 40), 3);
-    const tone = (x, y, o) => {
-      const ry = ridgeY(x); if (y < ry - 2) return false;
+    const tone = (x, y0, o) => {
+      const ry = ridgeY(x), y = Math.max(y0, ry + 1);
       const e = C.cs * 4, gx = relief(x + e, y) - relief(x - e, y);
       const facing = clamp(-gx * 9, -1, 1); // >0: turned to the dawn
       const dd = (y - ry) / (C.cs * 80);
@@ -1447,11 +1495,11 @@
     const rand = R.rand, k = R.k, B = R.B, N = R.noise;
     const C = L.city, cs = C.cs;
     // seven circles, each set back into the mountain and higher than the last; seen from the east, a little above
-    const al = 11 * D2R, ca = Math.cos(al), sa = Math.sin(al);
-    const SH = 0.42; // each circle stands a little further north, up the slope of the mountain
+    const al = 7 * D2R, ca = Math.cos(al), sa = Math.sin(al);
+    const SH = 0.15; // each circle stands a little further north, up the slope of the mountain
     const P3 = (x, y, z) => [C.cx + (x + y * SH) * cs, C.cb + (-y * ca + (z - 100) * sa) * cs];
     const T = [];
-    for (let i = 0; i < 7; i++) T.push({ r: 100 - i * 9.2, c: -i * 12, ox: i * 6, y: i * 13.6, h: i === 0 ? 15 : 12.5, tm: (98 - i * 3) * D2R, tr: (84 - i * 7) * D2R });
+    for (let i = 0; i < 7; i++) T.push({ r: 100 - i * 5.5, c: -i * 20, y: i * 8.6, h: i === 0 ? 12 : 9, tm: (86 - i * 3) * D2R, tr: (72 - i * 6) * D2R });
     const LT = [-0.8, 0.25, 0.55];
     const litAt = (th) => clamp(Math.sin(th) * LT[0] + Math.cos(th) * LT[2], -1, 1);
     const lw = clamp(cs * 0.4, 1.3, 2.6) * k;
@@ -1474,15 +1522,15 @@
       const t = T[i], tn = T[i + 1];
       const y0 = t.y + t.h - 2;
       const list = [];
-      const n = Math.round(t.r * (i === 6 ? 1.0 : 1.9));
+      const n = Math.round(t.r * (i === 6 ? 1.0 : 2.4));
       for (let j = 0; j < n; j++) {
         const th = lerp(-t.tm, t.tr, rand()) * 0.94;
         const rin = tn ? Math.max(tn.r + 3, 0) : 0;
         const rr = lerp(rin, t.r - 3, Math.sqrt(rand()));
         const x = rr * Math.sin(th), z = t.c + rr * Math.cos(th);
         if (tn && Math.hypot(x, z - tn.c) < tn.r + 2) continue;
-        const tower = rand() < 0.05;
-        list.push({ x, z, th, w: tower ? 2 + rand() : 2 + rand() * 3.2, h: tower ? 9 + rand() * 5 : 2.5 + rand() * 3.5, roof: rand() });
+        const tower = rand() < 0.09;
+        list.push({ x, z, th, w: tower ? 2.2 + rand() * 1.2 : 2 + rand() * 3.6, h: tower ? 10 + rand() * 6 : 3.5 + rand() * 4.5, roof: rand() });
       }
       list.sort((a, b) => a.z - b.z);
       for (const q of list) {
@@ -1496,8 +1544,8 @@
         const lr = new Path2D(); lr.rect(x0, yt, split - x0, yb - yt);
         fillCh(R.cT, WHT, lr, clamp(0.1 + 0.42 * lt, 0.04, 0.6)); fillCh(R.cT, RED, lr, 0.15 + 0.12 * Math.max(0, lt));
         const dr = new Path2D(); dr.rect(split, yt, x1 - split, yb - yt);
-        fillCh(R.cT, BLK, dr, 0.3 + 0.35 * (1 - Math.max(0, lt)));
-        if (q.roof < 0.35) B.poly(BLK, 0.75, lw, [[x0 - cs * 0.3, yt], [(x0 + x1) / 2, yt - cs * 1.6], [x1 + cs * 0.3, yt]]);
+        fillCh(R.cT, BLK, dr, 0.4 + 0.4 * (1 - Math.max(0, lt)));
+        if (q.roof < 0.35) { const rp = pathOf([[x0 - cs * 0.3, yt], [(x0 + x1) / 2, yt - cs * 1.6], [x1 + cs * 0.3, yt]]); fillCh(R.cS, BLK, rp, 0.6); B.poly(BLK, 0.85, lw, [[x0 - cs * 0.3, yt], [(x0 + x1) / 2, yt - cs * 1.6], [x1 + cs * 0.3, yt]]); }
         else if (q.roof < 0.45) B.poly(BLK, 0.65, lw, ellipsePts((x0 + x1) / 2, yt, (x1 - x0) / 2, cs * 1.3, 0, 6, Math.PI, TAU));
         else B.line(BLK, 0.6, lw, x0, yt, x1, yt);
         const nw = Math.max(1, (q.w * q.h / 4) | 0);
@@ -1635,11 +1683,7 @@
       for (let i = 0; i < 7; i++) { const t = T[i]; const th = (side < 0 ? -t.tm : t.tr) * 0.97; pts.push(P3(t.r * Math.sin(th), t.y + (i === 0 ? 0 : -2), t.c + t.r * Math.cos(th))); }
       pts.push(P3(side * T[6].r * 0.55, T[6].y + 30, T[6].c - 10));
       pts.push(P3(side * (T[6].r + 16), T[6].y + 14, T[6].c - 20), P3(side * (T[2].r + 14), T[2].y + 4, T[2].c - 10), P3(side * (T[0].r + 10), 0, T[0].c + 30));
-      const jag = [];
-      for (let i = 0; i < pts.length; i++) {
-        jag.push(pts[i]);
-        if (i < 7) for (let j = 1; j < 3; j++) { const q = lp(pts[i], pts[i + 1], j / 3); jag.push([q[0] + side * (rand() * 3) * cs, q[1] + (rand() - 0.5) * 2 * cs]); }
-      }
+      const jag = spline(pts, true, 4).map((q, j) => [q[0] + side * (N.v2(j * 0.7, side * 3) - 0.3) * 3 * cs, q[1] + (N.v2(j * 0.9, 5) - 0.5) * 2 * cs]);
       const fp = pathOf(jag);
       reserve(R, fp, 0.88);
       const lit = side < 0;
@@ -1651,25 +1695,26 @@
         sweep(B, lit ? (rand() < 0.5 ? WHT : RED) : BLK, [q, [q[0] + Math.cos(a) * l * 0.5, q[1] + Math.sin(a) * l * 0.5], [q[0] + Math.cos(a) * l, q[1] + Math.sin(a) * l]], 2.4 * k, 0.55, rand() * 6);
       }
       clipFlush(R, fp);
-      contour(R, jag.slice(0, 22), { closed: false, ch: BLK, w: lw * 1.4, a: 0.85, wob: cs * 0.5, passes: 2, flat: true });
+      contour(R, jag.slice(0, 30), { closed: false, ch: BLK, w: lw * 1.4, a: 0.85, wob: cs * 0.5, passes: 2, flat: true });
       flushAll(R);
     }
     // the prow: a spur of the mountain like the keel of a ship, its edge to the east, up through the circles
     {
       const foot = T[1], topT = T[6];
-      const zr = (y) => lerp(foot.c + foot.r + 6, topT.c + topT.r + 4, (y - foot.y) / (ytop - foot.y));
+      const zr = (y) => lerp(foot.c + foot.r + 10, topT.c + topT.r + 8, (y - foot.y) / (ytop - foot.y));
       const yA = foot.y + 2, yB = ytop + 3;
       const ridge = [], lf = [], rf = [];
       for (let j = 0; j <= 10; j++) {
-        const y = lerp(yA, yB, j / 10), z = zr(y), wv = 1.5 + 5 * (j / 10);
-        ridge.push(P3(0.5, y, z)); lf.push(P3(-wv, y + 1, z - wv * 1.6)); rf.push(P3(wv, y + 1, z - wv * 1.6));
+        const y = lerp(yA, yB, j / 10), z = zr(y), wv = 13 - 7 * (j / 10);
+        ridge.push(P3(0.5, y, z)); lf.push(P3(-wv, y + 2, z - wv * 2.2)); rf.push(P3(wv * 0.8, y + 2, z - wv * 2.2));
       }
       const L0 = ridge.concat(lf.slice().reverse()), R0 = ridge.concat(rf.slice().reverse());
       reserve(R, pathOf(L0), 0.9); reserve(R, pathOf(R0), 0.9);
-      fillCh(R.cT, WHT, pathOf(L0), 0.75); fillCh(R.cT, RED, pathOf(L0), 0.2);
-      fillCh(R.cT, BLK, pathOf(R0), 0.68);
-      for (let j = 0; j < 40; j++) { const t = rand(), a = lp(ridge[(t * 10) | 0], lf[(t * 10) | 0], rand()); B.line(rand() < 0.6 ? WHT : RED, 0.6, lw, a[0], a[1], a[0] - cs * 1.5, a[1] + cs * 3); }
-      for (let j = 0; j < 30; j++) { const t = rand(), a = lp(ridge[(t * 10) | 0], rf[(t * 10) | 0], rand()); B.line(BLK, 0.7, lw, a[0], a[1], a[0] + cs * 1.5, a[1] + cs * 3); }
+      stumpShade(R, L0, (x, y, o) => { o[WHT] = 0.55 + 0.3 * N.fbm(x / (cs * 6), y / (cs * 10), 2); o[RED] = 0.25; o[BLK] = 0.1; return true; }, Math.max(2, cs), 1);
+      stumpShade(R, R0, (x, y, o) => { o[BLK] = 0.55 + 0.3 * N.fbm(x / (cs * 6), y / (cs * 10), 2); o[RED] = 0.2; return true; }, Math.max(2, cs), 1);
+      for (let j = 0; j < 90; j++) { const t = rand(), a = lp(ridge[(t * 10) | 0], lf[(t * 10) | 0], rand()); B.line(rand() < 0.6 ? WHT : RED, 0.65, lw, a[0], a[1], a[0] - cs * 2, a[1] + cs * 4); }
+      for (let j = 0; j < 70; j++) { const t = rand(), a = lp(ridge[(t * 10) | 0], rf[(t * 10) | 0], rand()); B.line(BLK, 0.7, lw, a[0], a[1], a[0] + cs * 2, a[1] + cs * 4); }
+      contour(R, lf, { closed: false, ch: BLK, w: lw, a: 0.7, wob: cs * 0.4, passes: 1, flat: true });
       sweep(B, BLK, ridge, lw * 2.2, 0.95);
       sweep(B, WHT, ridge.map((q) => [q[0] - lw * 1.5, q[1]]), lw * 1.4, 0.8);
       flushAll(R);
@@ -2023,7 +2068,7 @@
     const ro = {
       phase: [0.1, 0.14, 0.18, 0.22, 0.26, 0.62, 0.66, 0.7, 0.74, 0.92][(rand() * 10) | 0] + rand() * 0.03, pitch: (rand() - 0.5) * 6, stride: 0.95 + rand() * 0.12,
       neck: 14 + rand() * 18, head: 32 + rand() * 14, neckLen: 46 + rand() * 6, arch: rand() * 4,
-      tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14,
+      tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14, mouth: rand() < 0.45, earsBack: rand() < 0.3,
       coat: coats[(rand() * coats.length) | 0],
       lean: 18 + rand() * 34, seat: (rand() - 0.5) * 5,
       spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.35, pennonCh: rand() < 0.75 ? RED : BLK,
@@ -2035,7 +2080,7 @@
     if (rd.hh > 0 && rand() < 0.2 && rd.hh < rd.hhRaise) { ro.spearAng = -50 + rand() * 30; ro.spearLen = 70; }
     if (rand() < 0.04) ro.horn = true;
     if (rd.king) {
-      Object.assign(ro, { phase: 0.15, pitch: -4, stride: 1.06, neck: 22, head: 34, neckLen: 50, arch: 4, tailLift: 0.45, mane: 34, coat: 'grey', lean: 18, seat: 0,
+      Object.assign(ro, { phase: 0.15, pitch: -4, stride: 1.06, neck: 24, head: 36, neckLen: 50, arch: 5, tailLift: 0.45, mane: 34, coat: 'grey', lean: 34, seat: 2, mouth: true, earsBack: true,
         sword: true, gold: true, shieldBig: true, backShield: false, cloak: 50, cloakCh: BLK, cloakWave: 1.2, plume: 36, plumeCh: WHT, hairCh: WHT, clothCh: RED, pennon: false, horn: false });
     }
     if (rd.banner) Object.assign(ro, { backShield: false, banner: true, coat: 'bay', phase: 0.62, cloak: 0, lean: 12, spearLen: 0, horn: false });
