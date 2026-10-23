@@ -187,7 +187,7 @@
   for (const k in GLYPH) GLYPHS[k] = { w: GLYPH[k][0], s: parse(GLYPH[k][1]) };
 
   /* ------------------------------------------------------------- palette */
-  const INK = '#1e1915';
+  const INK = '#120e0b';
   const COL = {
     sienna: '#9b5b37', white: '#f7f2e7', cream: '#ecdfc2', bluegrey: '#6c7c8e', coolgrey: '#8f949c', slate: '#4a5260',
     black: '#1c1b21', navy: '#26303f', charcoal: '#34363b', brownsuit: '#5a4636', greysuit: '#6b6e72',
@@ -198,9 +198,10 @@
     grey: '#9b9ca0', silver: '#cfcdc8', carpet: '#4f6377', denim: '#3d5878',
   };
   const ROOMS = [
-    { name: 'mahogany', paper: '#c3a57e', paper2: '#b49671', wood: ['#4f2219', '#7a3a24', '#9c5636', '#c08058'], carpet: '#3f5a52', chair: '#33150f' },
-    { name: 'oak', paper: '#a6a399', paper2: '#97948a', wood: ['#5e4122', '#8c6536', '#b08650', '#d1ab72'], carpet: '#5a3c3c', chair: '#46201a' },
-    { name: 'walnut', paper: '#8f9ba4', paper2: '#828e98', wood: ['#33261c', '#55402d', '#735a40', '#9a7d5c'], carpet: '#3e5266', chair: '#2e1a16' },
+    // dark Mi-Teintes so the whites blaze: deep grey-blue, warm umber, slate
+    { name: 'mahogany', paper: '#5d6873', paper2: '#4c5661', wood: ['#2a120d', '#5a2618', '#86402a', '#b0704a'], carpet: '#2f3f3a', chair: '#240c09' },
+    { name: 'oak', paper: '#55606b', paper2: '#47515c', wood: ['#2b1c10', '#5e4224', '#8c6738', '#c29a62'], carpet: '#3a2828', chair: '#2e120f' },
+    { name: 'walnut', paper: '#6b5848', paper2: '#5a4a3b', wood: ['#1c140e', '#3e2c1e', '#644a32', '#957554'], carpet: '#2c3a48', chair: '#1e1210' },
   ];
 
   /* ------------------------------------------------------------ builder */
@@ -532,9 +533,11 @@
       const eyx = 0.245 - tn * 0.08;
       // the face in planes: a mid tone over it all, the shadowed side of the jaw and neck, the eye socket
       B.block(M([[0.3, -0.27], [0.36, -0.075], [0.45, 0.12], [0.36, 0.2], [0.34, 0.29], [0.32, 0.4], [0.24, 0.49], [0.1, 0.5], [-0.09, 0.36], [-0.13, 0.08], [-0.06, -0.14], [0.08, -0.26]]),
-        { col: sk, ang: ang + B.rnd(-8, 8), w: hh * 0.11, gap: 0.75, lvl: 1, a: 0.85, z, over: 0.05, skip: 0, sp: 1400, pause: 10 });
+        { col: sk, ang: ang + B.rnd(-8, 8), w: hh * 0.11, gap: 0.6, lvl: 0, a: 0.92, z, over: 0.05, skip: 0, sp: 1400, pause: 10 });
       B.block(M([[-0.12, 0.1], [0.06, 0.12], [0.2, 0.3], [0.18, 0.46], [0.04, 0.48], [-0.1, 0.36]]), { col: COL.skinmid, ang: ang - 20, w: hh * 0.07, gap: 0.8, lvl: 2, a: 0.75, z, over: 0, skip: 0, sp: 1200, pause: 10 });
       B.block(M([[-0.25, 0.32], [0.1, 0.5], [0.15, 0.62], [0.16, 0.74], [-0.22, 0.74]]), { col: COL.skinmid, ang, w: hh * 0.09, gap: 0.8, lvl: 2, a: 0.75, z, over: 0, skip: 0, sp: 1200, pause: 10 });
+      B.side([M([[0.22, -0.3], [0.28, -0.1], [0.3, 0.1], [0.26, 0.3]])], { col: COL.skinlt, w: hh * 0.1, lvl: 0, a: 0.85, z, sp: 900 });
+      B.side([M([[0.3, 0.24], [0.33, 0.27]])], { col: '#b4585a', w: hh * 0.04, lvl: 0, a: 0.8, z, sp: 400 });
       B.side([M([[eyx - 0.06, -0.06], [eyx + 0.06, -0.05]])], { col: COL.skindk, w: hh * 0.05, lvl: 2, a: 0.7, z, sp: 500 });
       B.side([M([[0.3, 0.19], [0.36, 0.2]]), M([[0.22, 0.45], [0.28, 0.42]])], { col: COL.skindk, w: hh * 0.035, lvl: 2, a: 0.6, z, sp: 500 });
       B.side([M([[0.12, 0.08], [0.22, 0.14]])], { col: H.blush || COL.blush, w: hh * 0.07, lvl: 2, a: 0.55, z, sp: 500 });
@@ -782,6 +785,7 @@
         },
         wall: { top: 120, bot: 720, x0: 0, x1: 1600 },
         focus: [900, 300],
+        darks: [[880, 380, 220, 170], [1240, 220, 150, 130]],
         notes: { head: [40, 64], A1: [470, 50], A2: [470, 88], B1: [830, 50], B2: [1452, 60], jury: [196, 154], steno: [1186, 882, 190], feather: [626, 978], sig: [40, 986] },
         targets: { juror: [58, 252], feather: [566, 948] },
       };
@@ -796,6 +800,7 @@
       },
       wall: { top: 300, bot: 1150, x0: 0, x1: 1000 },
       focus: [420, 620],
+      darks: [[420, 640, 230, 260], [620, 360, 150, 140]],
       notes: { head: [40, 78], A1: [40, 170], A2: [40, 210], B1: [40, 250], B2: [700, 110], jury: [150, 384, 240], steno: [800, 1110, 180], feather: [720, 1866], sig: [40, 1884] },
       targets: { juror: [70, 476], feather: [690, 1792] },
     };
@@ -814,6 +819,8 @@
     const fin = geo[2];
 
     /* ---- silhouettes (nearer things hide farther ones) */
+    B.at('judge'); B.sil('1296,84 1360,100 1356,180 1340,312 1300,320', 8.5, 4);
+    B.at('clock'); B.sil('944,160 1016,160 1016,232 944,232', 8, 2);
     B.at('goose');
     B.sil(GOOSE_BODY.poly, 3, 6);
     B.sil(fin.left.concat(fin.right.slice().reverse()), 3, 5);
@@ -896,6 +903,10 @@
     }
     function gooseColour(g) {
       B.at('goose');
+      // a pale cool ground over the whole bird first, so even its shadow side reads as a white bird in shade
+      B.block(GOOSE_BODY.inner, { col: '#aeb6bf', ang: -20, w: 18, gap: 0.6, lvl: 0, a: 0.85, z: 3, over: 0, skip: 0, sp: 1600 });
+      B.block(g.napeSide.filter((_, i) => i % 3 === 0).concat(g.throatSide.slice().reverse().filter((_, i) => i % 3 === 0)), { col: '#c6ccd2', ang: g.P.ang + 90, w: 12, gap: 0.6, lvl: 0, a: 0.9, z: 3, over: 0, skip: 0, sp: 1400 });
+      B.block(g.head.poly, { col: '#d4d8dc', ang: -30, w: 8, gap: 0.6, lvl: 0, a: 0.9, z: 3, over: 0, skip: 0, sp: 1200 });
       // shadow first: cool grey under the wing and round the belly, smudged soft
       B.side('712,462 738,480 790,490 846,480', { col: COL.bluegrey, w: 16, lvl: 1, a: 0.75, z: 3, sp: 1600 });
       B.side('764,440 800,449 846,443 866,430', { col: COL.bluegrey, w: 12, lvl: 2, a: 0.6, z: 3, sp: 1600 });
@@ -1356,10 +1367,12 @@
       if (f.head) drawHead(B, f.head, 'sil');
       (f.heads || []).forEach((h) => drawHead(B, h, 'sil'));
     }
+    B.at('judge'); B.sil('1296,84 1360,100 1356,180 1340,312 1300,320', 8.5, 4);
+    B.at('clock'); B.sil('944,160 1016,160 1016,232 944,232', 8, 2);
     B.at('goose');
     B.sil(GOOSE_BODY.poly, 3, 6);
     // the final pose hides everything behind it; the abandoned one only keeps the wall off it
-    [[geo[2], 3], [geo[1], 9.3]].forEach(([g, zz]) => { B.sil(g.left.concat(g.right.slice().reverse()), zz, 5); B.sil(g.head.poly, zz, 6); });
+    [[geo[2], 3], [geo[1], 9.3], [geo[0], 9.3]].forEach(([g, zz]) => { B.sil(g.left.concat(g.right.slice().reverse()), zz, 5); B.sil(g.head.poly, zz, 6); });
 
     /* ---- runners */
     function at(f) { B.at(f.g); B.loose = !!f.loose; if (f.lc) B.lightAt(f.lc[0], f.lc[1], f.lc[2]); }
@@ -1405,39 +1418,73 @@
       B.at('wall');
       const WL = layout.wall, top = WL.top, bot = WL.bot, LW = layout.W;
       const focus = layout.focus;
-      // fewer, bigger sweeps with the side of the stick, each with its own angle and pressure
-      const n = layout.portrait ? 16 : 22;
-      for (let i = 0; i < n; i++) {
-        const t = (i + B.rnd(-0.3, 0.3)) / n;
-        const cx = lerp(WL.x0 + 40, WL.x1 - 40, t), cy = lerp(top + 60, bot - 120, B.rnd(0.15, 0.85));
-        const d = clamp(Math.hypot((cx - focus[0]) / (LW * 0.55), (cy - focus[1]) / 900), 0, 1);
-        if (B.chance(d * 0.45)) continue;
-        const ang = (B.chance(0.6) ? -72 : -108) + B.rnd(-16, 16), len = B.rnd(240, 460) * (1 - d * 0.35);
-        const dx = Math.cos(ang * Math.PI / 180) * len / 2, dy = Math.sin(ang * Math.PI / 180) * len / 2;
-        const bow = B.rnd(-70, 70);
-        B.side([[cx - dx, cy - dy, B.rnd(0.6, 1)], [cx + bow, cy, 1], [cx + dx, cy + dy, B.rnd(0.4, 0.9)]],
-          { col: B.chance(0.25) ? W[2] : W[1], w: B.rnd(80, 130), lvl: d < 0.35 ? 0 : d < 0.65 ? 1 : 2, a: 0.95 - d * 0.5, z: 10, sp: 2600, pause: 40, pr: 'sweep', fade: [B.rnd(0.7, 1), B.rnd(0.2, 0.7)] });
-      }
-      // a cornice, two stiles, a rail: just enough to say panelling
-      B.side([[WL.x0 + 30, top + 6, 1], [LW * 0.5, top, 1], [WL.x1 - 40, top - 6, 1]], { col: W[0], w: 24, lvl: 1, a: 0.8, z: 10, sp: 3600, fade: [0.9, 0.3] });
-      // the darkest wood right behind the bird's head: lightest light against darkest dark
-      for (let i = 0; i < 4; i++) {
-        const cx = focus[0] + B.rnd(-160, 160), cy = focus[1] + B.rnd(-80, 120);
-        B.side([[cx + B.rnd(-20, 20), cy - 170, 1], [cx, cy, 1], [cx + B.rnd(-30, 30), cy + 170, 0.7]], { col: W[0], w: B.rnd(60, 90), lvl: 0, a: 0.85, z: 10, sp: 2400, pause: 40, pr: 'sweep' });
-      }
-      // a few deliberate accents
-      for (let i = 0; i < 5; i++) {
-        const x = lerp(WL.x0 + 80, WL.x1 - 80, B.rnd(0, 1));
-        B.side([[x, top + 30, 1], [x + B.rnd(-6, 6), top + B.rnd(220, 380), 0.6]], { col: B.chance(0.5) ? W[0] : W[3], w: B.rnd(10, 18), lvl: 1, a: 0.85, z: 10, sp: 3000 });
-      }
-      B.smudge([[focus[0] - 200, focus[1] - 60, 1], [focus[0] + 220, focus[1] + 20, 1]], { col: W[1], w: 80, a: 0.25, z: 10, sp: 1200 });
+      const pw = layout.portrait ? 150 : 170;
+      const cols = [];
+      for (let x = WL.x0 + 10; x < WL.x1 - 20; x += pw) cols.push([x, Math.min(WL.x1 - 10, x + pw)]);
+      const dist = (x, y) => clamp(Math.hypot((x - focus[0]) / (LW * 0.62), (y - focus[1]) / 1000), 0, 1);
+      // 1. the body colour of the wood, laid with the side of the stick, column by column
+      cols.forEach(([x0, x1]) => {
+        const d = dist((x0 + x1) / 2, (top + bot) / 2);
+        const t0 = top + 10 + d * 40 + B.rnd(0, 20), b0 = bot - d * 160 - B.rnd(0, 40);
+        B.block([[x0 - 4, t0], [x1 + 4, t0 + B.rnd(-6, 6)], [x1 + 4 - B.rnd(0, 30) * d, b0], [x0 - 4 + B.rnd(0, 30) * d, b0 + B.rnd(-30, 30)]],
+          { col: W[1], ang: -82 + B.rnd(-8, 8), angj: 10, w: 60, gap: 0.62 + d * 0.5, lvl: d < 0.5 ? 0 : 1, a: 0.95 - d * 0.35, z: 10, over: 0.1, skip: d * 0.3, sp: 3400, pause: 12 });
+      });
+      // a second, crossing pass and a finger dragged down each column: the wood becomes a deep, even tone
+      cols.forEach(([x0, x1]) => {
+        const d = dist((x0 + x1) / 2, (top + bot) / 2);
+        if (d > 0.75) return;
+        const t0 = top + 20, b0 = bot - d * 200;
+        B.block([[x0, t0], [x1, t0], [x1, b0], [x0, b0]], { col: B.chance(0.5) ? W[1] : W[0], ang: -55 + B.rnd(-10, 10), angj: 10, w: 50, gap: 0.8, lvl: 1, a: 0.7 - d * 0.4, z: 10, over: 0, skip: 0.15, sp: 3400, pause: 12 });
+        B.smudge([[(x0 + x1) / 2, t0 + 30, 1], [(x0 + x1) / 2 + 6, b0 - 30, 1]], { col: W[1], w: (x1 - x0) * 0.8, a: 0.3, z: 10, sp: 1600 });
+      });
+      // 2. raised panels: shadowed under the top rail and down the right, a lit bevel top-left
+      cols.forEach(([x0, x1]) => {
+        const d = dist((x0 + x1) / 2, (top + bot) / 2);
+        if (d > 0.85) return;
+        const px0 = x0 + 22, px1 = x1 - 22;
+        [[top + 46, top + 300], [top + 350, bot - 40]].forEach(([py0, py1]) => {
+          if (py1 - py0 < 60) return;
+          B.side([[px1, py0, 1], [px1 + 1, py1, 1]], { col: W[0], w: 14, lvl: 0, a: 0.9 - d * 0.4, z: 10, sp: 2600, pause: 10 });
+          B.side([[px0, py1, 1], [px1, py1 + 1, 1]], { col: W[0], w: 12, lvl: 0, a: 0.85 - d * 0.4, z: 10, sp: 2600, pause: 10 });
+          B.side([[px0, py0, 1], [px0 + 1, py1, 1]], { col: W[3], w: 7, lvl: 1, a: 0.85 - d * 0.4, z: 10, sp: 2600, pause: 10 });
+          B.side([[px0, py0, 1], [px1, py0 + 1, 1]], { col: W[3], w: 6, lvl: 1, a: 0.8 - d * 0.4, z: 10, sp: 2600, pause: 10 });
+          B.side([[(px0 + px1) / 2 - 10, py0 + 20, 1], [(px0 + px1) / 2 + 6, py1 - 20, 1]], { col: W[2], w: (px1 - px0) * 0.5, lvl: 2, a: 0.5 - d * 0.3, z: 10, sp: 2600, pause: 10, pr: 'sweep' });
+        });
+        // the stile between panels: the darkest groove
+        B.side([[x0 + 2, top + 20, 1], [x0 + 3, bot - 30, 1]], { col: W[0], w: 9, lvl: 0, a: 0.9 - d * 0.4, z: 10, sp: 3000, pause: 10 });
+      });
+      // 3. cornice and dado rail
+      B.side([[WL.x0 + 20, top + 6, 1], [LW * 0.5, top, 1], [WL.x1 - 30, top - 6, 1]], { col: W[0], w: 26, lvl: 0, a: 0.9, z: 10, sp: 3600, fade: [0.95, 0.5] });
+      B.side([[WL.x0 + 30, top - 12, 1], [LW * 0.5, top - 16, 1], [WL.x1 - 40, top - 20, 1]], { col: W[3], w: 8, lvl: 1, a: 0.8, z: 10, sp: 3600 });
+      B.side([[WL.x0 + 20, top + 326, 1], [WL.x1 - 20, top + 322, 1]], { col: W[3], w: 9, lvl: 1, a: 0.8, z: 10, sp: 3600 });
+      B.side([[WL.x0 + 20, top + 338, 1], [WL.x1 - 20, top + 334, 1]], { col: W[0], w: 11, lvl: 0, a: 0.85, z: 10, sp: 3600 });
+      // 4. the deep darks behind the bird and behind the bench, layered and dragged together
+      const darks = layout.darks || [[focus[0], focus[1], 260, 220]];
+      darks.forEach(([cx, cy, rx, ry]) => {
+        for (let i = 0; i < 9; i++) {
+          const x = cx + B.rnd(-rx, rx), y = cy + B.rnd(-ry * 0.4, ry * 0.4);
+          B.side([[x + B.rnd(-20, 20), y - ry, 1], [x, y, 1], [x + B.rnd(-30, 30), y + ry, 0.8]], { col: i % 3 ? W[0] : '#120c09', w: B.rnd(60, 100), lvl: 0, a: 0.85, z: 10, sp: 2400, pause: 20, pr: 'sweep' });
+        }
+        B.smudge([[cx - rx, cy, 1], [cx + rx, cy + 10, 1]], { col: '#140d09', w: ry * 1.2, a: 0.35, z: 10, sp: 1200 });
+      });
       B.smudge([[WL.x0 + 120, top + 160, 1], [WL.x0 + 300, top + 300, 1]], { col: W[1], w: 70, a: 0.2, z: 10, sp: 1200 });
     }
     function wallPen() {
       B.at('wall');
-      const WL = layout.wall, top = WL.top, LW = layout.W;
-      B.pen([[[WL.x0 + 30, top - 8], [LW * 0.3, top - 10], [LW * 0.46, top - 13]], [[LW * 0.78, top - 16], [WL.x1 - 30, top - 19]]], { w: 1.6, a: 0.75, z: 10, sp: 1500 });
-      [0.12, 0.52].forEach((t) => { const x = lerp(WL.x0, WL.x1, t); B.pen([[[x, top + 14], [x + 1, top + 170 + B.rnd(0, 120)]]], { w: 1.4, a: 0.6, z: 10, sp: 1500 }); });
+      const WL = layout.wall, top = WL.top, bot = WL.bot, LW = layout.W;
+      const focus = layout.focus, pw = layout.portrait ? 150 : 170;
+      B.pen([[[WL.x0 + 30, top - 8], [LW * 0.3, top - 10], [LW * 0.46, top - 13]], [[LW * 0.6, top - 14], [WL.x1 - 30, top - 19]]], { w: 2, a: 0.85, z: 10, sp: 1500 });
+      B.pen([[[WL.x0 + 30, top + 330], [WL.x1 - 30, top + 326]]], { w: 1.6, a: 0.75, z: 10, sp: 1500 });
+      // panel mouldings in quick pen, fewer toward the edges of the sheet
+      for (let x = WL.x0 + 10; x < WL.x1 - 20; x += pw) {
+        const d = clamp(Math.hypot((x + pw / 2 - focus[0]) / (LW * 0.62), 0.2), 0, 1);
+        if (d > 0.8 || B.chance(d * 0.5)) continue;
+        const px0 = x + 22, px1 = Math.min(WL.x1 - 10, x + pw) - 22;
+        [[top + 46, top + 300], [top + 350, bot - 40]].forEach(([py0, py1]) => {
+          B.pen([[[px0, py1], [px0, py0], [px1, py0]]], { w: 1.3, a: 0.7, z: 10, sp: 1600, pause: 12 });
+          B.pen([[[px1, py0], [px1, py1], [px0, py1]]], { w: 2.0, a: 0.85, z: 10, sp: 1600, pause: 12 });
+        });
+      }
     }
     function floor() {
       B.at('floor');
@@ -1504,8 +1551,8 @@
       const line = [];
       for (let i = Math.floor(n * 0.35); i < n; i += 5) line.push(g.sp[i]);
       line.push(g.head.H([0.5, 0.05]));
-      B.side([line], { col: W[1], w: 34, lvl: 1, a: 0.62, z: 9, sp: 1800 });
-      B.side([[g.head.H([0.1, 0.1]), g.head.H([0.9, 0.0])]], { col: W[2], w: 22, lvl: 2, a: 0.5, z: 9, sp: 1500 });
+      B.side([line], { col: W[1], w: 40, lvl: 2, a: 0.45, z: 9, sp: 1800 });
+      B.side([[g.head.H([0.1, 0.1]), g.head.H([0.9, 0.0])]], { col: W[2], w: 26, lvl: 3, a: 0.4, z: 9, sp: 1500 });
     }
 
     /* ---- notes in the artist's hand */
@@ -1532,46 +1579,130 @@
       B.pen([[[to[0] - Math.cos(a - 0.45) * 12, to[1] - Math.sin(a - 0.45) * 12], to, [to[0] - Math.cos(a + 0.45) * 12, to[1] - Math.sin(a + 0.45) * 12]]], { w: 1.4, sp: 600, z: null, nocut: true, pr: 'even', raw: true });
     }
 
-    // ===================================================== the performance
-    B.pause(700);
-    // the goose first: it is the subject, and it will not hold still
+    function seal() {
+      B.at('judge');
+      const cx = 1272, cy = 486, r = 50;
+      const ring = (rr, k) => { const o = []; for (let i = 0; i <= k; i++) { const t = -0.3 + (i / k) * TAU; o.push([cx + Math.cos(t) * rr, cy + Math.sin(t) * rr, 1]); } return o; };
+      B.block(ring(r, 24), { col: W[0], ang: -60, w: 16, gap: 0.6, lvl: 0, a: 0.9, z: 6, over: 0, skip: 0, sp: 1600 });
+      B.side([ring(r - 4, 26)], { col: COL.gold, w: 8, lvl: 0, a: 0.9, z: 6, sp: 1400 });
+      B.pen([ring(r, 26)], { w: 2.2, z: 6, sp: 900, nobreak: true });
+      B.pen([ring(r - 12, 24)], { w: 1.3, a: 0.8, z: 6, sp: 900 });
+      // the eagle, in six marks
+      B.pen('1272,470 1268,482 1272,500 1276,482 1272,470 | 1268,478 1250,468 1238,474 1252,480 1266,486 | 1276,478 1294,468 1306,474 1292,480 1278,486 | 1266,500 1262,510 | 1278,500 1282,510', { w: 1.6, z: 6, sp: 500, pause: 20 });
+      B.pp('1244,472 1262,480 | 1300,472 1282,480 | 1272,474 1272,494', { col: COL.gold, w: 3, lvl: 0, a: 0.9, z: 6 });
+    }
+    function flag() {
+      B.at('judge');
+      B.pen('1300,334 1300,200 1301,100', { w: 2.2, z: 8.5, sp: 900 });
+      B.pen('1296,100 1300,88 1305,100 1296,100 | 1290,92 1300,84 1312,90', { w: 1.6, z: 8.5, sp: 400 });
+      B.pp('1300,96 1300,330', { col: COL.gold, w: 3, lvl: 0, a: 0.9, z: 8.5 });
+      const cloth = '1302,104 1336,106 1356,118 1350,170 1344,230 1336,290 1318,312 1304,300 1306,220 1302,160';
+      // stripes as folds of red and cream following the drape, the canton up at the pole
+      B.block(cloth, { col: '#e8dfcc', ang: -84, w: 10, gap: 0.6, lvl: 0, a: 0.9, z: 8.5, over: 0, skip: 0, sp: 1400 });
+      for (let i = 0; i < 6; i++) { const x = 1306 + i * 8; B.side([[x, 112 + i * 2, 1], [x + 4, 200, 1], [x - 2 + i, 300 - i * 6, 0.8]], { col: COL.crimson, w: 4.5, lvl: 0, a: 0.9, z: 8.5, sp: 1200, pause: 15 }); }
+      B.block('1302,104 1330,106 1328,170 1304,168', { col: '#22335a', ang: -80, w: 8, gap: 0.6, lvl: 0, a: 0.95, z: 8.5, over: 0, skip: 0, sp: 1200 });
+      B.pp('1310,118 1311,120 | 1320,126 1321,128 | 1312,140 1313,142 | 1322,152 1323,154', { col: COL.white, w: 2.2, lvl: 0, a: 0.9, z: 8.5 });
+      B.side('1338,120 1346,190 1336,280', { col: '#1a1010', w: 8, lvl: 1, a: 0.6, z: 8.5, sp: 1200 });
+      B.pen('1302,104 1336,106 1356,118 1350,170 1344,230 1336,290 1318,312 | 1316,150 1320,240 1318,300 | 1332,140 1334,220', { w: 1.5, a: 0.85, z: 8.5, sp: 900 });
+    }
+    function papers() {
+      B.at('judge');
+      B.block('1320,318 1396,316 1404,328 1326,331', { col: COL.white, ang: 0, w: 6, gap: 0.7, lvl: 0, a: 0.95, z: 6.4, over: 0, skip: 0 });
+      B.pen('1320,318 1396,316 1404,328 1326,331 1320,318 | 1324,334 1404,331', { w: 1.2, z: 6.4, sp: 900 });
+      B.at('pros');
+      B.block('1330,852 1390,848 1400,856 1340,860', { col: COL.white, ang: 0, w: 5, gap: 0.7, lvl: 0, a: 0.95, z: 1.3, over: 0, skip: 0 });
+    }
+    function shadows() {
+      // cast shadows: under the bird on its cushion, under the cushion on the rail, under the box on the floor
+      B.at('goose');
+      B.side('712,474 760,490 820,494 862,482', { col: '#1c1210', w: 10, lvl: 0, a: 0.7, z: 3.5, sp: 1400 });
+      B.side('694,494 780,500 900,496', { col: '#140d0a', w: 9, lvl: 0, a: 0.85, z: 4, sp: 1400 });
+      B.side('650,716 800,722 970,716 1010,704', { col: '#140d0a', w: 22, lvl: 0, a: 0.85, z: 9, sp: 1800 });
+      B.smudge('640,724 800,732 990,724', { col: '#140d0a', w: 40, a: 0.4, z: 9 });
+      B.at('judge');
+      B.side('920,624 1260,620 1600,614', { col: '#140d0a', w: 18, lvl: 0, a: 0.8, z: 9, sp: 1800 });
+      B.side('1090,340 1240,338', { col: '#100b08', w: 8, lvl: 0, a: 0.8, z: 6.6, sp: 1400 });
+      B.at('lawyer');
+      B.side('470,826 560,834 680,828', { col: '#140d0a', w: 16, lvl: 1, a: 0.7, z: 1.9, sp: 1400 });
+    }
+    function deepen() {
+      // the suits and the robe worked up a second time: blacks pressed into the shadow sides
+      B.at('lawyer'); B.lightAt(575, 480, 420);
+      [['630,376 636,420 624,480 618,540 616,600', 22], ['508,400 512,470 512,540 510,600', 12], ['694,420 700,490', 10], ['612,620 640,700 646,760', 14], ['548,640 548,740', 10], ['496,388 470,410 440,436', 9]]
+        .forEach(([p, w]) => B.side(p, { col: '#0e0e14', w, lvl: 0, a: 0.75, z: 2, sp: 1400 }));
+      B.smudge('560,400 590,500 600,580', { col: cast.suit, w: 40, a: 0.3, z: 2 });
+      ['520,440 540,470 | 560,520 580,560 | 610,450 600,480', '452,436 470,452 | 432,446 444,462'].forEach((p) => B.pen(p, { w: 1.2, a: 0.7, sp: 700, pr: 'swell', z: 2, nobreak: true }));
+      B.pp('598,400 598,440 | 520,370 548,352', { col: '#8fa0b8', w: 3, lvl: 1, a: 0.8, z: 2 });
+      B.at('judge'); B.lightAt(1160, 270, 200);
+      [['1200,290 1230,310 1238,336', 14], ['1094,290 1090,334', 10], ['1160,280 1196,330', 10]].forEach(([p, w]) => B.side(p, { col: '#09090c', w, lvl: 0, a: 0.85, z: 7, sp: 1400 }));
+      B.pp('1104,282 1114,320 | 1172,290 1186,318', { col: '#6a7080', w: 3, lvl: 1, a: 0.8, z: 7 });
+      B.at('pros');
+      B.side('1350,800 1376,846', { col: '#0e0e14', w: 12, lvl: 0, a: 0.7, z: 1.5, sp: 1400 });
+    }
+    function gooseDetail(g) {
+      B.at('goose');
+      // a lit edge on every row of coverts, a cool shadow beneath: the wing in layers
+      ['cov1', 'cov2', 'cov3'].forEach((k) => parse(GOOSE_BODY[k]).forEach((sc) => {
+        const up = sc.map((p) => [p[0], p[1] - 3, 1]);
+        B.pp([up], { col: COL.white, w: 2.6, lvl: 0, a: 0.95, z: 3, round: true, pause: 10 });
+      }));
+      parse(GOOSE_BODY.prim).forEach((l) => B.side([l], { col: '#55606e', w: 5, lvl: 0, a: 0.8, z: 3, sp: 1200, pause: 10 }));
+      parse(GOOSE_BODY.prim).forEach((l) => B.pp([l.map((p) => [p[0] - 1, p[1] - 3, 1])], { col: COL.cream, w: 1.8, lvl: 0, a: 0.9, z: 3, pause: 10 }));
+      B.pen(GOOSE_BODY.prim, { w: 1.6, sp: 900, pr: 'flick', z: 3, pause: 12, nolight: true });
+      // neck furrows restated in shadow grey and catch-lit in white
+      const n = g.sp.length;
+      for (let i = Math.floor(n * 0.2); i < n - 6; i += 5) {
+        const t = 0.3 + ((i * 7) % 5) * 0.08;
+        const A = g.napeSide[i], C = g.throatSide[i], A2 = g.napeSide[i + 4], C2 = g.throatSide[i + 4];
+        const p0 = [lerp(A[0], C[0], t), lerp(A[1], C[1], t)], p1 = [lerp(A2[0], C2[0], t + 0.05), lerp(A2[1], C2[1], t + 0.05)];
+        B.pp([[p0, p1]], { col: COL.bluegrey, w: 2.4, lvl: 0, a: 0.8, z: 3, pause: 8 });
+        B.pp([[[p0[0] - 2, p0[1]], [p1[0] - 2, p1[1]]]], { col: COL.white, w: 1.6, lvl: 0, a: 0.9, z: 3, pause: 8 });
+      }
+      // bill: the darker nail, the gape line, a highlight on the culmen
+      const h = g.head;
+      B.pp([[h.H([0.7, 0.14]), h.H([0.86, 0.075])]], { col: '#fff1c8', w: 2, lvl: 0, a: 0.95, z: 3 });
+      B.pp([h.nail], { col: '#3a2a20', w: 2.4, lvl: 0, a: 0.8, z: 3 });
+      B.pen([h.tomium], { w: 1.8, sp: 500, pr: 'even', z: 3, nolight: true });
+      B.side([[h.H([0.08, -0.12]), h.H([0.3, -0.18]), h.H([0.5, -0.14])]], { col: COL.bluegrey, w: 0.1 * h.L, lvl: 1, a: 0.7, z: 3, sp: 800 });
+    }
+
+    // ===================================================== the sheet, in working order
+    // the room's wood first, deep and dark, leaving bare paper where the people and the bird will be
+    wall();
+    seal(); flag();
+    // the goose where it first sat, then where it moved: these stay as ghosts
     gooseGesture(geo[0]);
     gooseNeck(geo[0], { a: 0.8, w: 1.9 });
-    gooseBody();
-    note('A1', stamp(0) + '  ' + words.n1);
-    figGesture(F.lawyer);
-    figPen(F.lawyer);
-    // it moves
-    B.pause(300);
     gooseGesture(geo[1]);
     gooseNeck(geo[1], { a: 0.86, w: 2.1 });
+    coverUp(geo[0]); coverUp(geo[1]);
+    wallPen();
+    gooseBody();
+    note('A1', stamp(0) + '  ' + words.n1);
     note('A2', stamp(words.d2) + '  def. ' + words.n2);
-    figColour(F.lawyer);
-    figGesture(F.judge);
-    figPen(F.judge); figPen(F.chair);
+    figGesture(F.lawyer); figPen(F.lawyer); figColour(F.lawyer);
+    figGesture(F.judge); figPen(F.judge); figPen(F.chair);
     figPen(F.easel); exhibit();
     boxContour(); figPen(F.bench);
     const ck = clock();
-    wallPen();
-    // blocking in: the room's wood behind, then the robe and the chair
-    wall();
     figColour(F.chair); figColour(F.judge); figColour(F.bench); figColour(F.box);
-    // and it moves again
-    B.pause(500);
     gooseGesture(geo[2]);
-    gooseNeck(geo[2], { a: 0.95, w: 2.6 });
+    gooseNeck(geo[2], { a: 0.97, w: 2.6 });
     note('B1', stamp(words.d3) + '  def. ' + words.n3);
-    coverUp(geo[1]);
     gooseColour(geo[2]);
     cushionColour();
+    shadows();
+    gooseDetail(geo[2]);
     figColour(F.easel); exhibitColour();
-    // the rest of the room, each figure in a breath: line, then colour
     [F.jury, F.steno, F.bailiff].forEach((f) => { figPen(f); figColour(f); });
     figPen(F.pros); figPen(F.table); figColour(F.pros); figColour(F.table);
-    floor(); washes();
+    floor(); washes(); papers();
     [F.judge, F.lawyer, F.jury, F.steno, F.bailiff, F.pros].forEach(figSkin);
+    deepen();
     [F.judge, F.lawyer].forEach(figHands);
     [F.judge, F.chair, F.bench, F.lawyer, F.jury, F.bailiff, F.pros].forEach(figLight);
+    // the pen goes back over the near figures once more, hard where they turn from the light
+    [F.lawyer, F.judge].forEach((f) => { at(f); (f.pen || []).filter((_, i) => i % 3 === 0).forEach(([p, o]) => B.pen(p, Object.assign({ z: f.z, a: 0.9, search: 0 }, o, { w: (o.w || 2.5) * 0.7 }))); });
     feather();
     // the margins
     B.at('');
@@ -1949,74 +2080,41 @@
     id: 'trial',
     title: 'The People v. a Goose',
     medium: 'Pastel, porous-point pen and watercolour on toned paper, drawn live',
-    note: 'The sketch is drawn as you watch. Tap the finished sheet for the next session.',
+    note: 'Each visit is a different session of the same trial.',
     about: 'A courtroom artist, cameras banned, draws a goose on trial at the speed of the hearing. The defendant will not sit still, so the sheet keeps the necks it has already drawn, and the margin keeps the minutes.',
     tone: 'dark',
     room: '#151412',
     mount(el, api) {
       el.style.background = '#151412';
-      el.style.cursor = 'default';
-      const params = new URLSearchParams(location.search);
-      const jump = params.get('trialt');
       const R = Renderer(el);
-      let raf = 0, alive = true, session = 0, score = null, total = 0;
-      let clock = 0, lastNow = 0, idx = 0, finished = false, catchup = false, readied = false;
-      let seed = api.seed >>> 0;
+      R.live.style.display = 'none';
+      let raf = 0, alive = true, score = null, idx = 0, busy = false, readied = false, cover = null;
+      const seed = api.seed >>> 0;
       let cssW = 0, cssH = 0, portrait = false;
 
-      function build() {
-        const layout = makeLayout(portrait);
-        score = buildScore(seed, layout);
-        total = timeline(score.strokes, 52000);
-        const dpr = Math.min(2, window.devicePixelRatio || 1);
-        R.setup(cssW, cssH, dpr, layout, score.room, seed);
-        idx = 0;
-      }
       function measure() {
         const r = el.getBoundingClientRect();
         cssW = Math.max(1, r.width); cssH = Math.max(1, r.height);
         portrait = cssW / cssH < 0.9;
       }
-      function start() {
-        measure(); build();
-        clock = jump === 'end' ? total + 1 : (jump ? +jump : 0);
-        catchup = clock > 0;
-        lastNow = performance.now();
-        if (!catchup && !readied) { readied = true; api.ready(); }
-        cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
+      // the finished sheet, drawn stroke by stroke in its working order, in slices so the page never stalls
+      function render() {
+        measure();
+        const layout = makeLayout(portrait);
+        score = buildScore(seed, layout);
+        R.setup(cssW, cssH, Math.min(2, window.devicePixelRatio || 1), layout, score.room, seed);
+        idx = 0; busy = true;
+        cancelAnimationFrame(raf); raf = requestAnimationFrame(step);
       }
-      function frame(now) {
+      function step() {
         if (!alive || !api.isCurrent()) return;
-        const dt = Math.min(100, now - lastNow); lastNow = now;
-        const S = score.strokes;
-        if (catchup) {
-          // re-draw everything up to `clock`, in small slices so the page stays responsive
-          const t0 = performance.now();
-          while (idx < S.length && S[idx].t0 + S[idx].dur <= clock && performance.now() - t0 < 14) {
-            if (S[idx].len || S[idx].tool === 'wash') R.commit(S[idx]); idx++;
-          }
-          if (idx >= S.length || S[idx].t0 + S[idx].dur > clock) {
-            catchup = false; if (jump) window.__trialDone = performance.now();
-            if (!readied) { readied = true; api.ready(); }
-          }
-          raf = requestAnimationFrame(frame); return;
-        }
-        if (!finished) clock += dt;
-        while (idx < S.length && S[idx].t0 + S[idx].dur <= clock) {
-          if (S[idx].len || S[idx].tool === 'wash') R.commit(S[idx]);
-          idx++;
-        }
-        if (idx < S.length) {
-          const st = S[idx];
-          if (clock >= st.t0 && (st.len || st.tool === 'wash')) {
-            const u = clamp((clock - st.t0) / st.dur, 0, 1);
-            const f = 0.55 * u + 0.45 * u * u * (3 - 2 * u);
-            R.drawLive(st, f);
-          } else R.clearLive();
-        } else if (!finished) {
-          finished = true; R.clearLive(); onFinished();
-        }
-        raf = requestAnimationFrame(frame);
+        const S = score.strokes, t0 = performance.now();
+        while (idx < S.length && performance.now() - t0 < 12) { if (S[idx].len || S[idx].tool === 'wash') R.commit(S[idx]); idx++; }
+        if (idx < S.length) { raf = requestAnimationFrame(step); return; }
+        busy = false;
+        if (cover) { cover.remove(); cover = null; }
+        window.__trialDone = performance.now();
+        if (!readied) { readied = true; api.ready(); }
       }
 
       let rsT = 0;
@@ -2025,46 +2123,22 @@
         rsT = setTimeout(() => {
           const r = el.getBoundingClientRect();
           if (Math.abs(r.width - cssW) < 2 && Math.abs(r.height - cssH) < 2) return;
-          measure(); build();
-          catchup = true; // replay what has been drawn so far into the new size
-        }, 180);
+          // keep the old sheet on screen (stretched) while the new one is drawn underneath
+          if (!cover && readied) {
+            cover = document.createElement('canvas');
+            cover.width = R.base.width; cover.height = R.base.height;
+            cover.getContext('2d').drawImage(R.base, 0, 0);
+            cover.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%';
+            el.appendChild(cover);
+          }
+          render();
+        }, 200);
       });
       ro.observe(el);
-
-      // a finished sheet stays up; a tap (or a long pause) turns to a fresh one for the next session
-      const hint = document.createElement('div');
-      hint.textContent = 'tap the sheet for the next session';
-      hint.style.cssText = 'position:absolute;left:0;right:0;bottom:max(14px,2.2vh);text-align:center;font:italic 15px/1 Georgia,serif;letter-spacing:.04em;color:rgba(240,234,222,.5);opacity:0;transition:opacity 1.2s ease;pointer-events:none';
-      el.appendChild(hint);
-      let idleT = 0;
-      function onFinished() {
-        hint.style.opacity = '1'; el.style.cursor = 'pointer';
-        clearTimeout(idleT);
-        idleT = setTimeout(() => { if (alive && finished) newSession(); }, 50000);
-      }
-      function newSession() {
-        if (!alive) return;
-        clearTimeout(idleT);
-        hint.style.opacity = '0'; el.style.cursor = 'default';
-        // the finished sheet is lifted off the board...
-        const old = document.createElement('canvas');
-        old.width = R.base.width; old.height = R.base.height;
-        old.getContext('2d').drawImage(R.base, 0, 0);
-        old.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;transition:transform 1.1s cubic-bezier(.5,0,.75,0),opacity 1.1s ease;transform-origin:50% 0';
-        el.insertBefore(old, hint);
-        requestAnimationFrame(() => requestAnimationFrame(() => { old.style.transform = 'translate(-2%,-6%) rotate(-2.5deg)'; old.style.opacity = '0'; }));
-        setTimeout(() => old.remove(), 1300);
-        // ...and a fresh one is underneath
-        session++;
-        seed = hash2(api.seed >>> 0, session);
-        build();
-        clock = -600; finished = false; catchup = false; lastNow = performance.now();
-      }
-      el.addEventListener('pointerdown', () => { if (finished) newSession(); });
-      start();
+      render();
 
       return {
-        destroy() { alive = false; cancelAnimationFrame(raf); ro.disconnect(); clearTimeout(rsT); clearTimeout(idleT); el.innerHTML = ''; },
+        destroy() { alive = false; cancelAnimationFrame(raf); ro.disconnect(); clearTimeout(rsT); el.innerHTML = ''; },
       };
     },
   });

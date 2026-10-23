@@ -132,7 +132,7 @@
   const WLEV = [0.26, 0.32, 0.38, 0.45, 0.53, 0.62, 0.72, 0.84, 1.0, 1.2, 1.45, 1.75, 2.1, 2.6, 3.2, 4.0];
   const CH_COL = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)'];
   const CH_SC = [0.5, 0.55, 0.6];
-  let LC = null, B = new Map(), SEGS = 0, HIER = 1, SEGOCC = null;
+  let LC = null, B = new Map(), SEGS = 0, HIER = 1, SEGOCC = null, INK = 0;
   function wIdx(w) { let i = 0; while (i < WLEV.length - 1 && w > (WLEV[i] + WLEV[i + 1]) * 0.5) i++; return i; }
   function seg(ch, x0, y0, x1, y1, a, w) {
     if (a < A0 * 0.75) return;
@@ -242,6 +242,10 @@
       const tf = (x, y, t) => 1;
       const pr = profile('c');
       stroke(piece, { a, w: (o.w || 0.5) * 0.82, prof: (t) => pr(t) * ws[Math.round(t * m)] * (o.fade ? o.fade(piece[Math.round(t * m)]) : 1), trem: o.trem === undefined ? 0.12 : o.trem });
+      if (INK > 0 && side && R() < INK) { // brown-ink reinforcement, swelling on the shadow side
+        const ins = 0.25 * side;
+        stroke(piece, { ch: 1, a: 0.55, w: 0.62, prof: (t) => { const wv = ws[Math.round(t * m)]; return sstep(0.5, 1, wv) * (0.4 + 0.6 * Math.sin(t * PI)); }, wf: (t) => 0.5 + 0.9 * sstep(0.45, 1, ws[Math.round(t * m)]), trem: 0.1 });
+      }
       if (o.re && R() < o.re) {
         const ox2 = rs(0.5), oy2 = rs(0.5), pc2 = piece.map((p) => [p[0] + ox2, p[1] + oy2]);
         const pr2 = profile('c');
@@ -384,10 +388,10 @@
     // silverpoint: hairlines, closely laid, tone built by many light passes at slowly turning angles
     const base = (o.ang === undefined ? 54 : o.ang) + rs(7);
     const spf = rr(0.85, 1.2), lf = rr(0.8, 1.25);
-    const sp = (o.sp || 1.7) * 0.47 * spf, a = (o.a || 0.45) * 1.0, w = (o.w || 0.3) * (o.w ? 0.62 : 1);
+    const sp = (o.sp || 1.7) * 0.41 * spf, a = (o.a || 0.45) * 1.0, w = (o.w || 0.3) * (o.w ? 0.62 : 1);
     const len = (o.len || [9, 22]).map((v) => v * lf), len2 = (o.len2 || [6, 14]).map((v) => v * lf);
-    const maxL = Math.min((o.layers || 2) + 2, F.area < 30 ? 2 : F.area < 140 ? 3 : 6);
-    const passes = [[0, 0, 1], [-7, 0.16, 0.95], [8, 0.32, 0.9], [-15, 0.48, 0.85], [-72, 0.66, 0.75], [20, 0.8, 0.7]];
+    const maxL = Math.min((o.layers || 2) + 3, F.area < 30 ? 3 : F.area < 140 ? 4 : 6);
+    const passes = [[0, 0, 1], [-7, 0.14, 0.95], [8, 0.28, 0.9], [-15, 0.42, 0.88], [-72, 0.55, 0.82], [20, 0.7, 0.8]];
     for (let k = 0; k < maxL; k++) {
       const [da, th, af] = passes[k];
       const tf = th ? (x, y) => (tone(x, y) - th) / (1 - th) : tone;
@@ -451,14 +455,14 @@
       else { x = inset; y = lerp(SH, 0, (t - 0.75) / 0.25); }
       gp.push([x, y]);
     }
-    g.beginPath(); tracePath(g, gp); g.fillStyle = 'rgb(167,173,163)'; g.fill();
+    g.beginPath(); tracePath(g, gp); g.fillStyle = 'rgb(136,140,124)'; g.fill();
     g.save(); g.beginPath(); tracePath(g, gp); g.clip();
     // broad soft unevenness of the coat
     for (let i = 0; i < 22; i++) {
       const x = rf(-50, SW + 50), y = rf(-50, SH + 50), r = rf(120, 320);
       const gr = g.createRadialGradient(x, y, 0, x, y, r);
       const lt = RF() < 0.5;
-      gr.addColorStop(0, lt ? 'rgba(206,210,198,0.035)' : 'rgba(118,122,112,0.035)');
+      gr.addColorStop(0, lt ? 'rgba(176,180,160,0.04)' : 'rgba(96,100,86,0.04)');
       gr.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r);
     }
@@ -841,6 +845,14 @@
     hatch(F, tone, { ch: 2, ang: o.ang === undefined ? -38 : o.ang, sp: (o.sp || 1.5) * 0.85, a: Math.min(1, (o.a || 0.5) * 1.35), len: o.len || [3, 9], w: o.w || 0.75, t0: 0.05, bend: 0.02, trem: 0.05 });
   }
 
+  // a wash laid with a loaded brush, clipped to a form: broad, watery, granular
+  function washF(F, tone, a) { hatch(F, tone, { ch: 1, ang: 35 + rs(10), sp: 1.9, a: a || 0.14, len: [14, 30], w: 2.6, t0: 0.05, bend: 0.04, trem: 0.3 }); }
+  // sepia wash: diluted ink laid in a few soft, shrinking floods
+  function wash(P, a) {
+    const bb = bbox([P]), cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
+    for (let k = 0; k < 4; k++) { const f = 1 - k * 0.12; fillPoly(1, P.map((q) => [cx + (q[0] - cx) * f + rs(0.6), cy + (q[1] - cy) * f + rs(0.6)]), (a || 0.2) * 0.4); }
+  }
+
   /* ------------------------------------------------------------ bone helpers */
   const norm2 = (x, y) => { const l = hyp(x, y) || 1; return [x / l, y / l]; };
   function area(P) { let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; }
@@ -1046,6 +1058,7 @@
       return t * (1 - 0.8 * hairM.height(x, y));
     };
     shade(F, tone, { a: 0.4, sp: 1.5, layers: 3, len: [7, 16], ang: 56 });
+    washF(F, (x, y) => sstep(0.4, 0.9, tone(x, y)), 0.14);
     flush(); await Y();
     contour(profL, { a: 0.62, side: 1, w: 0.52, re: 0.5, seg: 22 });
     contour(nape, { a: 0.5, side: -1, w: 0.5, seg: 20 });
@@ -1192,6 +1205,7 @@
     const knF = Form(kn.map((k, i) => ellipse(k[0], k[1], i === 4 ? 9 : 8.5, 7, ang, 20)), [], { blur: 4, res: 1 });
     const locX = (x, y) => ((x - ox) * dx + (y - oy) * dy) / sc;
     shade(DorF, (x, y) => sstep(-1.8, 1.8, locX(x, y)) * (0.08 + 0.5 * clamp(0.92 - DorF.lam(x, y, 1.1), 0, 1)) + 0.2 * clamp(0.6 - knF.lam(x, y, 1.6), 0, 1) * knF.height(x, y) * 2 + 0.18 * sstep(-30, 40, (x - ox) * 0.62 + (y - oy) * 0.78), { a: 0.36, sp: 1.5, layers: 3, len: [8, 18] });
+    washF(DorF, (x, y) => sstep(0.45, 0.85, 0.08 + 0.5 * clamp(0.92 - DorF.lam(x, y, 1.1), 0, 1)) * sstep(-1.8, 1.8, locX(x, y)), 0.16);
     const tend = [];
     for (let fi = 0; fi < 5; fi++) {
       const ch = chains[fi];
@@ -1219,7 +1233,8 @@
     for (let fi = 0; fi < 5; fi++) {
       const P = fingerPoly[fi], Fs = fingerSides[fi], ch = chains[fi];
       const Fm = Form([P], fingerPoly.filter((q, j) => j !== fi && (j === 4 ? fi === 0 : false)), { blur: 4.2, res: 1.5 });
-      shade(Fm, (x, y) => 0.06 + 0.72 * clamp(0.9 - Fm.lam(x, y, 1.15), 0, 1), { a: 0.44, sp: 1.3, layers: 3, len: [6, 13], ang: 52 });
+      shade(Fm, (x, y) => 0.08 + 0.8 * clamp(0.9 - Fm.lam(x, y, 1.15), 0, 1), { a: 0.46, sp: 1.25, layers: 4, len: [6, 13], ang: 52 });
+      washF(Fm, (x, y) => sstep(0.5, 0.85, 0.06 + 0.8 * clamp(0.9 - Fm.lam(x, y, 1.15), 0, 1)), 0.14);
       const fadeW = (p) => (WebF.in(p[0], p[1]) ? 0.3 : 1);
       contour(Fs.left, { a: 0.55, side: 1, w: 0.5, re: 0.4, fade: fadeW, lit: 0.3 });
       contour(Fs.right, { a: 0.55, side: -1, w: 0.5, re: 0.4, fade: fadeW, lit: 0.3 });
@@ -1529,6 +1544,169 @@
     flush(); await Y();
   }
 
+  /* ---- more studies: the skull from before, the scapula, the vertebral transition, the forearm and palm, a gill arch */
+  const mir = (P) => P.concat(rev(P).map((q) => [-q[0], q[1]]));
+  async function frontSkull(Y) {
+    const f = frameF(84, 232, 4.6, 0.04);
+    const half = [[0, -9.9], [-2.1, -9.7], [-4.5, -8.7], [-6.2, -6.4], [-6.9, -3.2], [-6.7, 0.4], [-6.9, 1.6], [-6.4, 2.5], [-5.4, 3.0], [-5.1, 4.6], [-4.9, 7.8], [-4.2, 9.2], [-2.6, 10.6], [-1.0, 11.2]];
+    const sil = f(CC(mir(half.slice(0, -1).reverse()).length ? half.concat(rev(half).map((q) => [-q[0], q[1]]).slice(1)) : half, 0.1));
+    const orbs = [-1, 1].map((sg) => f(CC([[sg * 0.9, -1.8], [sg * 2.4, -2.3], [sg * 4.2, -1.9], [sg * 4.9, -0.2], [sg * 4.6, 1.5], [sg * 3.1, 1.9], [sg * 1.4, 1.5], [sg * 0.8, 0.0]], 0.1)));
+    const nose = f(CC([[0, 1.8], [-0.9, 2.4], [-1.35, 3.8], [-1.1, 4.8], [0, 5.0], [1.1, 4.8], [1.35, 3.8], [0.9, 2.4]], 0.08));
+    const mand = f(CC([[-5.0, 4.4], [-4.9, 7.8], [-4.2, 9.2], [-2.6, 10.6], [-1.0, 11.2], [1.0, 11.2], [2.6, 10.6], [4.2, 9.2], [4.9, 7.8], [5.0, 4.4], [4.0, 7.4], [2.8, 7.9], [-2.8, 7.9], [-4.0, 7.4]], 0.1));
+    const teeth = [];
+    for (let row = 0; row < 2; row++) for (let k = -5; k < 5; k++) {
+      const x0 = k * 0.62 + 0.03, wq = 0.58 * (1 - Math.abs(k + 0.5) * 0.06), y0 = row ? 7.0 : 5.9, h = row ? 0.95 : 1.05 - Math.abs(k + 0.5) * 0.05;
+      const arc = 0.04 * (k + 0.5) * (k + 0.5);
+      teeth.push(f(CC([[x0, y0 - arc], [x0 + wq, y0 - arc], [x0 + wq - 0.04, y0 + h - arc], [x0 + wq * 0.5, y0 + h + 0.06 - arc], [x0 + 0.04, y0 + h - arc]], 0.05)));
+    }
+    const Fs = Form([sil], [], { res: 1.4, blur: 9 });
+    shade(Form([sil], orbs.concat([nose], teeth), { res: 1.4, blur: 1 }), (x, y) => clamp(0.05 + 0.7 * clamp(0.92 - Fs.lam(x, y, 1.4), 0, 1) + 0.25 * sstep(0.3, 1, Math.abs(x - 84) / 30), 0, 1), { a: 0.42, sp: 1.6, layers: 3, len: [6, 14] });
+    outline(sil, { a: 0.6, w: 0.52, re: 0.4 });
+    for (const O of orbs) { bone(O, { tone: () => 0.95, a: 0.6, layers: 4, sp: 1.2, la: 0.6 }); washF(Form([O], [], { res: 1.6, blur: 1 }), () => 0.9, 0.22); }
+    bone(nose, { tone: () => 0.92, a: 0.6, layers: 4, sp: 1.2, la: 0.55 });
+    bone(mand, { sub: teeth, blur: 3, base: 0.05, amp: 0.5, a: 0.4 });
+    for (const t of teeth) bone(t, { blur: 0.6, res: 3, base: 0.0, amp: 0.25, a: 0.3, la: 0.42, lw: 0.4, layers: 1, re: 0 });
+    contour(f(C([[-6.6, 0.6], [-5.5, 1.3], [-4.6, 2.3]], 0.1)), { a: 0.35, side: 0 }); contour(f(C([[6.6, 0.6], [5.5, 1.3], [4.6, 2.3]], 0.1)), { a: 0.35, side: 0 });
+    suture(f(C([[0, -9.9], [0.1, -7], [-0.05, -4.5]], 0.1)), 0.35, null);
+    for (const t of teeth.slice(2, 8)) { const c = bbox([t]); dab((c[0] + c[2]) / 2, c[1] + 1.4, 0.5, 0.5); }
+    whiteHatch(Fs, (x, y) => sstep(0.9, 0.99, Fs.lam(x, y, 1.4)) * (y < 220 ? 1 : 0.4), { a: 0.55, sp: 1.3 });
+    flush(); await Y();
+  }
+  async function scapulaStudy(Y) {
+    const f = frameF(40, 446, 5.5, 0.06);
+    const blade = f(CC([[0, 0], [3, 0.4], [6, 0.9], [7.2, 1.4], [7.8, 0.8], [8.8, 0.6], [10.2, 2.0], [10.6, 3.2], [10.1, 4.6], [8.4, 7.5], [5.8, 11.5], [3.2, 14.6], [1.6, 15.8], [0.8, 15.0], [0.6, 11], [0.2, 6.5], [-0.2, 3.5]], 0.1));
+    const spineR = f(CC([[0.2, 3.3], [3.5, 3.0], [7.0, 2.3], [9.8, 1.2], [11.2, -0.4], [13.4, -0.8], [14.2, 0.4], [13.6, 1.8], [11.6, 2.2], [9.6, 3.0], [6.5, 4.0], [3.0, 4.4], [0.3, 4.4]], 0.1));
+    const corac = f(CC([[8.6, 0.8], [9.2, -0.9], [10.6, -1.8], [11.4, -1.4], [10.0, -0.6], [9.4, 1.2]], 0.08));
+    const glen = f(ellipse(10.5, 3.3, 0.6, 1.3, 0.35, 20));
+    const infra = Form([blade], [spineR], { res: 1.4, blur: 6 });
+    shade(infra, (x, y) => clamp(0.18 + 0.65 * clamp(0.92 - infra.lam(x, y, 1.4), 0, 1) + 0.25 * sstep(60, 100, x) * sstep(470, 520, y), 0, 1), { a: 0.44, sp: 1.4, layers: 4, len: [6, 14] });
+    washF(infra, (x, y) => sstep(0.5, 0.95, 0.18 + 0.65 * clamp(0.92 - infra.lam(x, y, 1.4), 0, 1)), 0.14);
+    outline(blade, { a: 0.6, w: 0.52, re: 0.4 });
+    bone(spineR, { blur: 1.8, base: 0.04, amp: 0.6, g: 0.3, a: 0.44, la: 0.6 });
+    bone(corac, { blur: 1.2, base: 0.06, amp: 0.5, a: 0.42 });
+    bone(glen, { tone: () => 0.6, a: 0.45, la: 0.5 });
+    white(f(C([[1.0, 3.25], [5, 2.75], [9.6, 1.4], [12.8, -0.3]], 0.1)), { w: 1.0, a: 0.68 });
+    const clv = ribbon(C([[30, 548], [58, 542], [88, 549], [118, 541]], 0.8), (t) => 2.6 + 1.6 * Math.abs(t - 0.5), (t) => 2.6 + 1.6 * Math.abs(t - 0.5));
+    bone(clv, { blur: 2, base: 0.05, amp: 0.55, a: 0.42, la: 0.58 });
+    white(sub(offset(C([[30, 548], [58, 542], [88, 549], [118, 541]], 0.8), 1.4), 0.15, 0.55), { w: 0.8, a: 0.55 });
+    flush(); await Y();
+  }
+  async function transitionStudy(Y) {
+    const items = [{ t: 'L', i: 2, c: [620, 412], h: 2.8, d: 3.45, L: 'h' }, { t: 'S', i: 0, c: [684, 412], h: 2.6, d: 2.9, L: 'i' }, { t: 'Ca', i: 4, c: [740, 412], h: 2.1, d: 1.95, L: 'p' }, { t: 'Ca', i: 14, c: [786, 416], h: 1.6, d: 1.45, L: 'l' }];
+    for (const it of items) {
+      const V = { t: it.t, i: it.i, c: it.c, dir: [1, 0], h: it.h, d: it.d };
+      const f = VF(V.c, V.dir, S * 1.4), pr = vParts(V);
+      const tp = pr.tp ? f(pr.tp) : null, arch = f(pr.arch), body = f(pr.body), haem = pr.haem ? f(pr.haem) : null;
+      if (tp) bone(tp, { blur: 1.4, base: 0.08, amp: 0.5, a: 0.42 });
+      bone(arch, { sub: tp ? [tp] : [], fade: tp ? hider([pip([tp])]) : null, blur: 1.6, base: 0.08, amp: 0.5, a: 0.42 });
+      bone(body, { sub: (tp ? [tp] : []).concat([arch]), fade: hider([pip((tp ? [tp] : []).concat([arch]))]), blur: 2, base: 0.06, amp: 0.55, a: 0.44 });
+      if (haem) bone(haem, { blur: 1.4, base: 0.08, amp: 0.5, a: 0.42 });
+      hiBody(body);
+      letter(it.L, it.c[0] + 3, it.c[1] + 34, 4.4, 0.75);
+      flush(); await Y();
+    }
+    // leader: the haemal arch appearing
+    pen(C([[736, 428], [726, 440], [706, 444]], 0.6), { a: 0.45, w: 0.5 });
+  }
+  function hiBody(P) { const bb = bbox([P]); white([[bb[0] + 2, bb[1] + 2.2], [(bb[0] + bb[2]) / 2, bb[1] + 1.3], [bb[2] - 3, bb[1] + 2.0]], { w: 0.8, a: 0.55 }); }
+  function fusiform(axis, wmax, o) {
+    o = o || {};
+    const A = resample(axis, 1), L = plen(A);
+    const wf = (t) => (t < (o.belly || 0.72) ? wmax * Math.pow(Math.sin(Math.min(1, t / (o.belly || 0.72)) * PI * 0.92 + 0.12), 0.8) : wmax * 0.18 * (1 - 0.3 * (t - 0.72)));
+    const P = ribbon(A, (t) => wf(t), (t) => wf(t));
+    const F = Form([P], o.sub || [], { res: 1.6, blur: Math.max(2, wmax * 0.6) });
+    const tone = (x, y) => clamp(0.05 + 0.95 * Math.pow(clamp(0.95 - F.lam(x, y, 1.4), 0, 1), 1.1) + 0.12, 0, 1);
+    const Tt = tangents(A);
+    for (let u = -0.95; u <= 0.95; u += 0.09) {
+      const pts = A.map((q, i) => { const w = wf(i / (A.length - 1)) * u; return [q[0] + Tt[i][1] * w, q[1] - Tt[i][0] * w]; });
+      let t = rr(0, 0.1);
+      while (t < 0.96) { const te = Math.min(1, t + rr(0.15, 0.35)); stroke(sub(pts, t, te), { a: 0.5, w: 0.3, pt: 'h', step: 2, tone: (x, y) => (F.in(x, y) ? tone(x, y) : 0) }); t = te + rr(0, 0.05); }
+    }
+    shade(F, (x, y) => clamp(tone(x, y) - 0.35, 0, 1), { a: 0.4, sp: 1.4, layers: 2, len: [5, 10] });
+    outline(P, { a: 0.48, w: 0.46, re: 0.3, lit: 0.1, seg: 16, fade: o.fade });
+    white(sub(A, 0.2, 0.55).map((q, i, arr) => { const T2 = tangents(arr)[i]; return [q[0] + T2[1] * wmax * 0.35 * -1, q[1] - T2[0] * wmax * 0.35 * -1]; }), { w: 0.8, a: 0.5 });
+    return P;
+  }
+  async function forearmStudy(Y) {
+    const E = [436, 452], W = [404, 572], d = norm2(W[0] - E[0], W[1] - E[1]), nn = [d[1], -d[0]], Lf = hyp(W[0] - E[0], W[1] - E[1]);
+    const hw = (u) => lerp(19, 9.5, sstep(0.15, 1, u)) + 3 * Math.exp(-Math.pow((u - 0.2) / 0.15, 2));
+    const P = (u, v) => [E[0] + d[0] * u * Lf + nn[0] * v * hw(u), E[1] + d[1] * u * Lf + nn[1] * v * hw(u)];
+    const sideA = [], sideB = []; for (let u = -0.04; u <= 1.0; u += 0.02) { sideA.push(P(u, -1)); sideB.push(P(u, 1)); }
+    contour(sideA, { a: 0.42, side: 0, w: 0.46 }); contour(sideB, { a: 0.5, side: 0, w: 0.48 });
+    const M = (u0, v0, u1, v1) => C([P(u0, v0), P((u0 + u1) / 2, (v0 + v1) / 2), P(u1, v1)], 0.8);
+    fusiform(M(0.08, 0.15, 0.98, 0.05), 10, { belly: 0.6 });   // flexor digitorum superficialis
+    fusiform(M(0.02, 0.85, 0.98, 0.72), 9.5, { belly: 0.66 });  // flexor carpi ulnaris
+    fusiform(M(0.02, 0.38, 1.0, 0.18), 5.4, { belly: 0.5 });   // palmaris longus
+    fusiform(M(0.02, 0.6, 0.98, -0.32), 8.4, { belly: 0.6 });  // flexor carpi radialis
+    fusiform(M(0.0, 0.9, 0.55, -0.55), 8.6, { belly: 0.78 });  // pronator teres
+    fusiform(M(-0.05, -0.9, 0.98, -0.78), 10.5, { belly: 0.62 }); // brachioradialis
+    flush(); await Y();
+    // the palm, from below: thenar and hypothenar, the creases, the webs and the pads of the fingers
+    const hd = norm2(d[0] + nn[0] * 0.1, d[1] + nn[1] * 0.1), hn = [hd[1], -hd[0]], sc = 4.9;
+    const hp = (x, y) => [W[0] + (hd[0] * x + hn[0] * y) * sc, W[1] + (hd[1] * x + hn[1] * y) * sc];
+    const H = (Q) => Q.map((q) => hp(q[0], q[1]));
+    const palm = H(CC([[0, -2.2], [2.5, -2.9], [5.5, -3.4], [8.4, -3.0], [9.4, -1.0], [9.2, 1.2], [8.2, 2.9], [5.0, 3.2], [2.2, 2.6], [0, 2.1]], 0.12));
+    const thenar = H(CC([[0.6, -2.0], [2.5, -3.6], [4.6, -4.2], [5.2, -3.2], [4.4, -1.0], [2.0, -0.6]], 0.1));
+    const hypo = H(CC([[0.8, 1.0], [3.0, 1.0], [6.4, 1.6], [7.4, 2.8], [4.0, 3.2], [1.0, 2.2]], 0.1));
+    const Fp = Form([palm], [thenar, hypo], { res: 1.4, blur: 5 });
+    shade(Fp, (x, y) => clamp(0.25 + 0.5 * clamp(0.92 - Fp.lam(x, y, 1.2), 0, 1), 0, 1), { a: 0.42, sp: 1.4, layers: 3, len: [5, 11] });
+    for (const T of [thenar, hypo]) bone(T, { blur: 3, base: 0.04, amp: 0.6, g: 0.25, a: 0.42, la: 0.45 });
+    outline(palm, { a: 0.5, w: 0.48, re: 0.3, fade: hider([pip([thenar, hypo])]) });
+    for (const cr of [[[1.2, -0.6], [3.5, -0.9], [5.6, -2.6]], [[6.0, -3.0], [6.4, -0.6], [6.6, 1.8]], [[7.4, -2.2], [7.6, 0.4], [7.2, 2.6]]]) contour(H(C(cr, 0.1)), { a: 0.5, side: 0, w: 0.45, jit: 0.2 });
+    const fingers = [[[8.6, -2.4], -0.18, [4.4, 2.6, 1.9]], [[9.3, -0.8], -0.03, [4.9, 3.0, 2.1]], [[9.1, 0.9], 0.12, [4.6, 2.8, 2.0]], [[8.3, 2.5], 0.3, [3.7, 2.2, 1.7]], [[4.6, -4.0], -0.75, [3.2, 2.5]]];
+    const fps = [];
+    for (const [b, a0, ph] of fingers) {
+      const pts = [b]; let p = b, a = a0;
+      for (const L of ph) { p = [p[0] + Math.cos(a) * L, p[1] + Math.sin(a) * L]; pts.push(p); a += 0.07; }
+      const ax = C(pts, 0.12), Lw = (t) => pwl([[0, 0.95], [0.4, 0.82], [0.9, 0.66], [0.97, 0.35], [1, 0.02]], t, 1);
+      const FP = H(offset(ax, (t) => Lw(t)).concat(rev(offset(ax, (t) => -Lw(t)))));
+      fps.push({ FP, ax: H(ax), pts });
+    }
+    for (let j = 0; j < 4; j++) { // webs, palm side, with a vein in each
+      const A = fps[j === 3 ? 4 : j], Bq = fps[j === 3 ? 0 : j + 1];
+      const ea = at(A.ax, 0.42), eb = at(Bq.ax, 0.42), ra = A.ax[0], rb = Bq.ax[0], mid = [lerp(ea[0], eb[0], 0.5), lerp(ea[1], eb[1], 0.5)], root = [lerp(ra[0], rb[0], 0.5), lerp(ra[1], rb[1], 0.5)];
+      const edge = C([ea, [lerp(mid[0], root[0], 0.32), lerp(mid[1], root[1], 0.32)], eb], 0.6);
+      const WP = [ra].concat(edge, [rb]);
+      const Fw = Form([WP], fps.map((q) => q.FP), { res: 1.4, blur: 2 });
+      shade(Fw, () => 0.22, { a: 0.32, sp: 1.6, layers: 1, len: [5, 10] });
+      contour(edge, { a: 0.5, side: 0, w: 0.46 });
+      stroke(C([root, [lerp(root[0], mid[0], 0.5) + rs(1.5), lerp(root[1], mid[1], 0.5) + rs(1.5)], [lerp(root[0], mid[0], 0.85), lerp(root[1], mid[1], 0.85)]], 0.5), { a: 0.3, w: 0.3, pt: 'c', trem: 0.3 });
+    }
+    for (const q of fps) {
+      const Ff = Form([q.FP], [], { res: 1.6, blur: 2.5 });
+      shade(Ff, (x, y) => 0.08 + 0.7 * clamp(0.9 - Ff.lam(x, y, 1.2), 0, 1), { a: 0.42, sp: 1.3, layers: 3, len: [4, 9] });
+      outline(q.FP, { a: 0.52, w: 0.46, re: 0.3 });
+      for (let k = 1; k < q.pts.length - 1; k++) { // flexion creases, doubled
+        const c = hp(q.pts[k][0], q.pts[k][1]), dd = norm2(hp(q.pts[k + 1][0], q.pts[k + 1][1])[0] - c[0], hp(q.pts[k + 1][0], q.pts[k + 1][1])[1] - c[1]);
+        for (const o of [-0.6, 0.6]) stroke([[c[0] - dd[1] * 3.6 + dd[0] * o, c[1] + dd[0] * 3.6 + dd[1] * o], [c[0] + dd[0] * (o + 0.5), c[1] + dd[1] * (o + 0.5)], [c[0] + dd[1] * 3.6 + dd[0] * o, c[1] - dd[0] * 3.6 + dd[1] * o]], { a: 0.45, w: 0.32, pt: 'c' });
+      }
+      const pad = at(q.ax, 0.88); dab(pad[0] - 0.8, pad[1] - 0.6, 0.8, 0.5);
+    }
+    flush(); await Y();
+  }
+  async function gillStudy(Y) {
+    const f = frameF(938, 92, 1, 0);
+    const arch = f(C([[-40, -18], [-26, 4], [-4, 16], [22, 14], [40, -2]], 1));
+    const band = ribbon(arch, 2.6, 2.6);
+    bone(band, { blur: 1.4, base: 0.08, amp: 0.5, a: 0.44, la: 0.55 });
+    const T = tangents(arch);
+    for (let i = 3; i < arch.length - 3; i += 2) { // filaments on the outer, convex side: long, fine, paired
+      const q = arch[i], nx = T[i][1], ny = -T[i][0], L = 16 + 6 * Math.sin(i * 0.11);
+      for (const o of [-0.5, 0.5]) stroke([[q[0] - nx * 2.6 + T[i][0] * o, q[1] - ny * 2.6 + T[i][1] * o], [q[0] - nx * (2.6 + L) + T[i][0] * (o + 1.2), q[1] - ny * (2.6 + L) + T[i][1] * (o + 1.2)]], { a: 0.42, w: 0.3, pt: 'h' });
+    }
+    for (let i = 4; i < arch.length - 4; i += 4) { const q = arch[i], nx = T[i][1], ny = -T[i][0]; stroke([[q[0] + nx * 2.8, q[1] + ny * 2.8], [q[0] + nx * 7.5 - T[i][0] * 1.5, q[1] + ny * 7.5 - T[i][1] * 1.5]], { a: 0.55, w: 0.42, pt: 'c' }); }
+    const Ff = Form([offset(arch, -2.6).concat(rev(offset(arch, -24)))], [], { res: 1.2, blur: 3 });
+    shade(Ff, (x, y) => 0.28 + 0.25 * sstep(60, 110, y), { a: 0.32, sp: 1.6, layers: 2, len: [5, 10], ang: 30 });
+    // the arch cut across: bone, artery, two rows of filaments
+    const cx = 968, cy = 140;
+    contour(ellipse(cx, cy, 9, 7, 0.2, 30), { a: 0.5, side: 0 }); bone(ellipse(cx - 1, cy - 1, 3.2, 2.6, 0.2, 20), { tone: () => 0.4, a: 0.45 }); bone(ellipse(cx + 3.6, cy + 1, 1.3, 1.3, 0, 12), { tone: () => 0.9, a: 0.5 });
+    for (const sg of [-1, 1]) stroke([[cx + 2, cy + sg * 2], [cx + 18, cy + sg * 9]], { a: 0.4, w: 0.3, pt: 'h' });
+    pen(C([[952, 128], [958, 134], [961, 136]], 0.5), { a: 0.4, w: 0.5 });
+    flush(); await Y();
+  }
+  // leader lines in ink from the notes to what they discuss, ending in a small dot
+  function leader(P) { const Q = C(P, 0.8); pen(Q, { a: 0.42, w: 0.45 }); const e = Q[Q.length - 1]; pen(ellipse(e[0], e[1], 0.7, 0.7, 0, 8), { a: 0.5, w: 0.6 }); }
+
   /* ---- a thumbnail: as she was found, in the net, a few lines only */
   function thumb() {
     const T = frameF(36, 36, 1, 0);
@@ -1560,7 +1738,7 @@
 
   /* ------------------------------------------------------------ the renderer */
   async function renderAll(Y) {
-    HIER = 1.32;
+    HIER = 1.32; INK = 0.55;
     const G = thoraxGeometry();
     const SP = spineData();
     const TL = LUT(SP.path), sEnd = TL.L, sCut = SP.total * 0.44;
@@ -1660,6 +1838,7 @@
       return clamp((0.42 + 0.5 * depth + 0.08 * sstep(330, 450, x)) * gv + 0.18 * (1 - h) * depth - 0.42 * farMask.height(x, y) * (1.1 - depth * 0.5), 0, 1);
     };
     shade(inner, toneIn, { a: 0.7, sp: 1.4, layers: 4, len: [12, 28], len2: [10, 20] });
+    washF(inner, (x, y) => sstep(0.55, 0.95, toneIn(x, y)), 0.2);
     flush(); await Y();
     for (const r of G.ribs) {
       const f = r.far, vis = (p) => (inner.in(p[0], p[1]) ? 1 : 0);
@@ -1774,6 +1953,7 @@
       const body = Form(gaps.concat(nearRib, nearCart, MUS.map((M) => M.poly), [stern]), [], { res: 1, blur: 1 });
       const Fc = Form(cast, [hum.poly, hum.head, MUS[0].poly], { res: 1.3, blur: 3 });
       shade(Fc, (x, y) => (body.in(x, y) ? 0.55 * Fc.height(x, y) + 0.25 : 0), { a: 0.6, sp: 1.3, layers: 4, len: [6, 14], ang: 48 });
+      washF(Fc, (x, y) => (body.in(x, y) ? 0.8 * Fc.height(x, y) : 0), 0.16);
       flush(); await Y();
     }
     const oblF = drawMuscle(MUS[MUS.length - 1], { a: 0.4, sp: 0.85, g: 0.22, tendon: 0.08, blur: 7 });
@@ -1814,6 +1994,7 @@
     contour(sk(C(SKD.brow, 0.1)), { a: 0.42, side: 0, w: 0.5 });
     flush(); await Y();
     const orbC = sk([[-8.0, -2.2]])[0];
+    for (const Pw of [orbit, ncav, gap]) washF(Form([Pw], [zyg, nas], { res: 1.6, blur: 1 }), () => 0.9, 0.24);
     bone(orbit, { layers: 4, tone: (x, y) => 0.85 + 0.15 * sstep(-14, 10, (x - orbC[0]) * 0.3 - (y - orbC[1]) * 0.95), noLine: true, a: 0.55, layers: 3, sp: 1.3, sub: [zyg, nas, maxi] });
     contour(sk(C(SKD.orbit.slice(0, 5), 0.1)), { a: 0.5, side: 0, w: 0.5, fade: hider([pip([zyg])]) });
     bone(gap, { tone: () => 1, noLine: true, a: 0.65, layers: 4, sp: 1.3, sub: [arch, mand] });
@@ -1960,6 +2141,7 @@
       return (x, y) => { const ix = Math.round(x - x0), iy = Math.round(y - y0); if (ix < 0 || iy < 0 || ix >= w || iy >= h) return 0; const v = g[iy * w + ix]; return v < 0 ? 0 : v; };
     })();
     shade(ZF, tf, { a: 0.56, sp: 1.45, layers: 6, len: [10, 24] });
+    washF(ZF, (x, y) => sstep(0.5, 0.9, tf(x, y)), 0.16); washF(BandF, (x, y) => sstep(0.45, 0.9, tf(x, y)), 0.16);
     shade(BandF, tf, { a: 0.56, sp: 1.45, layers: 6, len: [10, 24] });
     flush(); await Y();
     // hatching that curves round the tail on its shadowed underside, as if drawn across the cylinder
@@ -2043,13 +2225,14 @@
     flush(); await Y();
     contour(leadD.map(fl), { a: 0.66, side: 1, w: 0.56, re: 0.5 });
     contour(leadV.map(fl), { a: 0.68, side: -1, w: 0.56, re: 0.5 });
+    washF(FF, (x, y) => { const d = hyp(x - fe[0], y - fe[1]); return sstep(60, 5, d); }, 0.18);
     for (let k = 1; k < NR - 1; k++) drawRay(sub(rays[k], 0.1, 1), { fin: k > 5 && k < 10 && R() < 0.3 ? 0.7 : 1, w0: 1.9, w1: 0.6, seg: 8.5, joints: true, shadeIt: false, gap: 0.55, spread: 0.05, s1: 0.5 + rs(0.04), s2: 0.78 + rs(0.03) });
     { const trailS = trailL.map(fl); contour(sub(trailS, 0, 0.36), { a: 0.5, side: -1, w: 0.5, re: 0.4, jit: 0.3 }); contour(sub(trailS, 0.64, 1), { a: 0.5, side: -1, w: 0.5, re: 0.4, jit: 0.3 }); }
     // procurrent rays: small spines along the edges of the root
     for (const sg of [1, -1]) for (let k = 0; k < 6; k++) { const b = fl([-30 + k * 5, sg * (17.5 + k * 0.2)]), e = fl([-23 + k * 5.4, sg * (19.5 + k * 0.5)]); stroke([b, e], { a: 0.4, w: 0.32, pt: 'h' }); }
     flush(); await Y();
     /* ---- satellites */
-    HIER = 0.92;
+    HIER = 1.05; INK = 0.35;
     const HS = await headStudy(Y);
     const HD = await handStudy(Y);
     const TS = await sectionStudy(Y);
@@ -2057,7 +2240,8 @@
     const SS = await scaleStudy(Y);
     await vertStudy(Y);
     thumb(); flush(); await Y();
-    HIER = 1;
+    await frontSkull(Y); await scapulaStudy(Y); await transitionStudy(Y); await forearmStudy(Y); await gillStudy(Y);
+    HIER = 1; INK = 0;
     /* ---- construction lines, proportion marks, pentimenti */
     const faint = (P, a) => { const n = P.length; let i = 0; while (i < n - 2) { const k = Math.round(rr(14, 60)); stroke(P.slice(i, Math.min(n, i + k)), { a: a * rr(0.6, 1.2), w: 0.42, pt: 'f', trem: 0.1 }); i += k + Math.round(rr(2, 10)); } };
     faint(resample([[226, 233], [618, 251.5]], 1.5), 0.16);
@@ -2087,9 +2271,11 @@
       { x0: 497, x1: 584, y0: 34, lines: 17, xh: 2.8, sl: 0.4, a: 0.48, w: 0.52, tol: 0.25 },
       { x0: 684, x1: 894, y0: 168, lines: 5, L: 'c', xh: 3.6, sl: 0.18, a: 0.74, w: 0.68 },
       { x0: 908, x1: 990, y0: 352, lines: 15, L: 'f', xh: 3.0, sl: 0.34, a: 0.55, w: 0.56 },
-      { x0: 340, x1: 476, y0: 452, lines: 23, L: 'g', xh: 3.3, sl: 0.26, a: 0.62, w: 0.6, tol: 0.2 },
-      { x0: 594, x1: 792, y0: 352, lines: 9, L: 'd', xh: 3.8, sl: 0.22, a: 0.5, w: 0.66 },
+      { x0: 600, x1: 800, y0: 452, lines: 1, L: 'h', xh: 2.9, sl: 0.3, a: 0.6, w: 0.55 },
       { x0: 700, x1: 868, y0: 612, lines: 7, L: 'e', xh: 2.9, sl: 0.36, a: 0.7, w: 0.55 },
+      { x0: 22, x1: 150, y0: 296, lines: 7, xh: 2.7, sl: 0.3, a: 0.58, w: 0.5 },
+      { x0: 20, x1: 140, y0: 572, lines: 12, xh: 2.8, sl: 0.24, a: 0.62, w: 0.52 },
+      { x0: 340, x1: 400, y0: 452, lines: 24, xh: 2.6, sl: 0.4, a: 0.5, w: 0.5, tol: 0.15 },
     ];
     for (const b of blocks) {
       if (b.L) letter(b.L, b.x1 - 1, b.y0 + 1, 5.2, 0.75);
@@ -2097,7 +2283,8 @@
       flush(); await Y();
     }
     // reference letters on the drawings
-    const RL = [['a', 284, 300], ['a', 452, 156], ['b', 618, 300], ['c', 666, 300], ['d', 760, 352], ['d', 690, 40], ['e', 840, 560], ['e', 486, 470], ['f', 893, 455], ['f', 960, 160], ['g', 120, 440], ['g', 180, 598]];
+    leader([[150, 302], [190, 296], [222, 288], [246, 270]]); leader([[886, 172], [850, 156], [800, 140], [776, 118]]); leader([[982, 356], [976, 330], [960, 312]]); leader([[862, 615], [880, 600], [905, 585]]); 
+    const RL = [['a', 284, 300], ['a', 452, 156], ['b', 618, 300], ['c', 666, 300], ['d', 760, 352], ['m', 70, 292], ['n', 104, 540], ['o', 460, 470], ['d', 690, 40], ['e', 840, 560], ['e', 486, 470], ['f', 893, 455], ['f', 960, 160], ['g', 120, 440], ['g', 180, 598]];
     for (const [ch, x, y] of RL) letter(ch, x, y, 4.6, 0.72);
     flush(); await Y();
 
@@ -2190,7 +2377,7 @@
       }
       const wantK = (l) => {
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        let k = clamp((l.cw * Math.max(dpr, 2)) / SW, 1.6, 3.0);
+        let k = clamp((l.cw * Math.max(dpr, 1.8)) / SW, 1.6, 2.9);
         const qk = /[?&]sirenaK=([0-9.]+)/.exec(location.search); if (qk) k = +qk[1];
         return k;
       };
@@ -2248,12 +2435,13 @@
               let r = Gd[gi] * gm, g = Gd[gi + 1] * gm, b = Gd[gi + 2] * gm;
               if (sv) {
                 const sx = (sv / 255) * 2;
-                let d = 1 - Math.exp(-3.3 * sx);
+                let d = 1 - Math.exp(-2.9 * sx);
                 const thr = 0.6 - 0.72 * d;
                 let c = (tooth - thr) / 0.2 + 0.5; c = c < 0 ? 0 : c > 1 ? 1 : c;
-                let dd = d * (0.32 + 0.68 * c) * 0.84;
-                if (x - fx < 2 && fx - x < 2) dd *= 0.6;
-                r += (102 - r) * dd; g += (90 - g) * dd; b += (78 - b) * dd;
+                let dd = d * (0.4 + 0.6 * c) * 0.93;
+                if (x - fx < 2 && fx - x < 2) dd *= 0.7;
+                const deep = d * d;
+                r += (lerp(92, 40, deep) - r) * dd; g += (lerp(80, 30, deep) - g) * dd; b += (lerp(68, 22, deep) - b) * dd;
               }
               const su = Ld[(rowU + (x > 0 ? x - 1 : 0)) * 4], sd = Ld[(rowD + (x < PW - 1 ? x + 1 : x)) * 4];
               if (su !== sd) { const e = (sd - su) * 0.045; r += e; g += e; b += e; }
@@ -2261,8 +2449,8 @@
                 const sx = ik / 255 / 0.55;
                 let d = 1 - Math.exp(-1.5 * sx);
                 let c = (tooth - (0.5 - 0.6 * d)) / 0.3 + 0.5; c = c < 0 ? 0 : c > 1 ? 1 : c;
-                d *= (0.55 + 0.45 * c) * 0.9;
-                r += (96 - r) * d; g += (62 - g) * d; b += (36 - b) * d;
+                d *= (0.6 + 0.4 * c) * 0.95;
+                r += (lerp(110, 52, d) - r) * d; g += (lerp(74, 32, d) - g) * d; b += (lerp(42, 18, d) - b) * d;
               }
               if (wh) {
                 let d = Math.min(1, (wh / 255 / 0.6) * 1.6);
