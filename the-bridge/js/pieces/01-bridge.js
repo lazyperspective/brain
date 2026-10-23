@@ -2355,6 +2355,7 @@
         const cx = x / cs4, cxi = cx | 0, cxf = cx - cxi, ci = cyi * cw4 + cxi;
         const age = (coarse[ci] * (1 - cxf) + coarse[ci + 1] * cxf) * (1 - cyf) + (coarse[ci + cw4] * (1 - cxf) + coarse[ci + cw4 + 1] * cxf) * cyf;
         let r = paper[0] - 10 * fib - 9 * age, g = paper[1] - 10 * fib - 12 * age, b = paper[2] - 11 * fib - 18 * age;
+        let solid = 0;
         if (inY && x >= IX && x < IX + IW) {
           let fx = (x - IX) / 2 - 0.5, fy = (y - IY) / 2 - 0.5;
           if (fx < 0) fx = 0; if (fy < 0) fy = 0; if (fx > hw - 1.001) fx = hw - 1.001; if (fy > hh - 1.001) fy = hh - 1.001;
@@ -2363,6 +2364,9 @@
           const wy = WY[wi] * w00 + WY[wi + 1] * w10 + WY[wi + hw] * w01 + WY[wi + hw + 1] * w11;
           const wo = WO[wi] * w00 + WO[wi + 1] * w10 + WO[wi + hw] * w01 + WO[wi + hw + 1] * w11;
           const wc = WC[wi] * w00 + WC[wi + 1] * w10 + WC[wi + hw] * w01 + WC[wi + hw + 1] * w11;
+          // the deepest darks are laid in with the brush: a solid black that lets a little paper through
+          const tt = T[wi] * w00 + T[wi + 1] * w10 + T[wi + hw] * w01 + T[wi + hw + 1] * w11;
+          if (tt > 0.86) solid = smooth(0.86, 0.97, tt) * (0.82 + 0.16 * fib);
           if (wy + wo + wc > 0.003) {
             r *= (1 - wy * (1 - PYc[0])) * (1 - wo * (1 - POc[0])) * (1 - wc * (1 - PCc[0]));
             g *= (1 - wy * (1 - PYc[1])) * (1 - wo * (1 - POc[1])) * (1 - wc * (1 - PCc[1]));
@@ -2370,6 +2374,7 @@
           }
         }
         let a = ink[i];
+        if (solid > 0) a = 1 - (1 - a) * (1 - solid);
         if (a > 0) {
           a *= (1 - scr[i]) * (0.9 + 0.1 * fib);
           r = r * (1 - a) + inkc[0] * a; g = g * (1 - a) + inkc[1] * a; b = b * (1 - a) + inkc[2] * a;
