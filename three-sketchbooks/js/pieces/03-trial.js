@@ -1,5 +1,5 @@
 /* 03 — The Goose Trial.
- * A courtroom sketch drawn live, at reportage speed, on toned pastel paper.
+ * A courtroom sketch, made at reportage speed in the room, on toned pastel paper.
  * Every mark is an authored stroke (path, pressure, speed, tool) replayed in order.
  * The defendant will not sit still, so the sheet keeps its earlier necks.
  */
@@ -2092,7 +2092,7 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'trial',
     title: 'The People v. a Goose',
-    medium: 'Pastel, porous-point pen and watercolour on toned paper, drawn live',
+    medium: 'Pastel, porous-point pen and watercolour on toned paper',
     note: 'Each visit is a different session of the same trial.',
     about: 'A courtroom artist, cameras banned, draws a goose on trial at the speed of the hearing. The defendant will not sit still, so the sheet keeps the necks it has already drawn, and the margin keeps the minutes.',
     tone: 'dark',
