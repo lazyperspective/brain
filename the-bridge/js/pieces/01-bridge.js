@@ -2329,13 +2329,16 @@
     FREE = false;
     stamp('pen');
 
+    await tick('wpre0');
     if (inkAfterHatch) ink.set(inkAfterHatch);
+    await tick('wpre1');
     /* ================================================================ WASHES */
     {
       const [gx, gy] = L.glow;
       // the glow of the deep, madder below and vermilion higher, on the chasm wall and the soffit
       wctx.save(); wctx.clip(L.chasmWallP);
       wRadial(gx, gy, lay.glowR * 1.2, 0.12, 0.55, 0.5, 0.95, 0.8);
+      await tick('wgA');
       wRadial(gx, gy, lay.glowR * 0.55, 0.5, 0.5, 0.15, 0.85, 0.8);
       wctx.restore();
       await tick('wg0');
