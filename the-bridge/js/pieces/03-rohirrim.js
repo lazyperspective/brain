@@ -442,39 +442,56 @@
   /* transverse gallop, right lead: left hind, right hind, left fore, right fore */
   const LEGDEF = [['LH', 1, 0, 0], ['RH', 1, 1, 0.085], ['LF', 0, 0, 0.24], ['RF', 0, 1, 0.33]];
 
-  function legOutline(chain, hind, stance) {
-    const segN = [9, 7, 6], front = [], back = [];
-    const dirs = [];
-    for (let i = 0; i < 3; i++) { const a = chain[i], b = chain[i + 1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; dirs.push([(b[0] - a[0]) / l, (b[1] - a[1]) / l]); }
-    for (let sg = 0; sg < 3; sg++) {
-      for (let j = 0; j <= segN[sg]; j++) {
-        if (j === segN[sg] && sg < 2) continue;
-        const t = j / segN[sg];
-        const c = lp(chain[sg], chain[sg + 1], t);
-        let d = dirs[sg];
-        if (t < 0.2 && sg > 0) { const m = lerp(0.5, 1, t / 0.2); d = [lerp(dirs[sg - 1][0], d[0], m), lerp(dirs[sg - 1][1], d[1], m)]; }
-        else if (t > 0.8 && sg < 2) { const m = lerp(1, 0.5, (t - 0.8) / 0.2); d = [lerp(dirs[sg + 1][0], d[0], m), lerp(dirs[sg + 1][1], d[1], m)]; }
-        const dl = Math.hypot(d[0], d[1]) || 1; d = [d[0] / dl, d[1] / dl];
-        const n = [-d[1], d[0]];
-        let w, bb = 0, fb = 0;
-        if (hind) {
-          if (sg === 0) { w = lerp(24, 9.5, Math.pow(t, 0.5)) + Math.sin(t * Math.PI) * 2.5; if (t > 0.74) bb = (t - 0.74) * 17; if (t > 0.85) fb = (t - 0.85) * 6; }
-          else if (sg === 1) { w = 6 + smooth(0.78, 1, t) * 2.6 - Math.sin(t * Math.PI) * 0.6; if (t < 0.25) bb = (0.25 - t) * 18; }
-          else { w = t < 0.35 ? lerp(8.4, 5.2, t / 0.35) : t < 0.5 ? lerp(5.2, 6.8, (t - 0.35) / 0.15) : lerp(6.8, 8.6, (t - 0.5) / 0.5); if (t < 0.22) bb = (0.22 - t) * 9; }
-        } else {
-          if (sg === 0) { w = lerp(16, 7.6, Math.pow(t, 0.6)) + Math.sin(t * Math.PI * 0.8) * 1.5; if (t > 0.8) { fb = (t - 0.8) * 9; bb = (t - 0.8) * 7; } }
-          else if (sg === 1) { w = 5.4 + smooth(0.78, 1, t) * 2.6 - Math.sin(t * Math.PI) * 0.4; if (t < 0.2) { fb = (0.2 - t) * 9; bb = (0.2 - t) * 6; } }
-          else { w = t < 0.35 ? lerp(8, 5, t / 0.35) : t < 0.5 ? lerp(5, 6.6, (t - 0.35) / 0.15) : lerp(6.6, 8.4, (t - 0.5) / 0.5); if (t < 0.22) bb = (0.22 - t) * 10; }
-        }
-        back.push([c[0] + n[0] * (w / 2 + bb), c[1] + n[1] * (w / 2 + bb)]);
-        front.push([c[0] - n[0] * (w / 2 + fb), c[1] - n[1] * (w / 2 + fb)]);
+  /* Catmull-Rom through runs of points, but kept sharp at the points marked as corners ([x, y, 1]) */
+  function shape(pts, closed, per) {
+    const n = pts.length;
+    let start = 0;
+    for (let i = 0; i < n; i++) if (pts[i][2]) { start = i; break; }
+    const seq = closed ? pts.slice(start).concat(pts.slice(0, start + 1)) : pts;
+    const out = [];
+    let run = [seq[0]];
+    for (let i = 1; i < seq.length; i++) {
+      run.push(seq[i]);
+      if (seq[i][2] || i === seq.length - 1) {
+        const sp = run.length > 2 ? spline(run.map((q) => [q[0], q[1]]), false, per) : run.map((q) => [q[0], q[1]]);
+        sp.pop();
+        for (const q of sp) out.push(q);
+        run = [seq[i]];
       }
     }
-    if (stance) {
-      const yb = Math.max(front[front.length - 1][1], back[back.length - 1][1]);
-      front[front.length - 1][1] = yb; back[back.length - 1][1] = yb;
+    if (!closed) out.push([seq[seq.length - 1][0], seq[seq.length - 1][1]]);
+    return out;
+  }
+
+  /* Leg outlines traced by hand in each bone's own frame: [segment, distance along it, offset across it
+     (negative = front, positive = back), corner]. Posing rotates each bone about its joint, so the hard
+     angles of knee, hock, fetlock and hoof survive. */
+  const FORE_OUT = {
+    front: [[0, 0, -8.6], [0, 7, -7.6, 1], [0, 15, -5.8], [0, 23, -4.3], [0, 27.4, -4.5, 1], [1, 0.4, -4.6], [1, 3.8, -4.3, 1], [1, 6, -3.2], [1, 15.6, -3.1, 1], [1, 17.6, -3.9], [2, 1.2, -3.6, 1], [2, 4.2, -2.4], [2, 6.4, -3.0, 1], [2, 12, -5.3, 1]],
+    back: [[0, 0, 8.4], [0, 7, 6.8, 1], [0, 17, 3.9], [0, 25.4, 3.2, 1], [0, 28.6, 4.8, 1], [1, 1.6, 3.8, 1], [1, 4.6, 2.5], [1, 12, 2.3], [1, 16.6, 3.3, 1], [2, 0.2, 4.4], [2, 2.6, 4.8, 1], [2, 5.6, 3.0], [2, 9.2, 3.4, 1], [2, 12, 3.6, 1]],
+  };
+  const HIND_OUT = {
+    front: [[0, 0, -12], [0, 8, -10.6], [0, 18, -7.6], [0, 27, -5.0], [0, 33, -4.2, 1], [1, 1.4, -3.7, 1], [1, 6, -3.1], [1, 22.6, -3.0, 1], [1, 24.8, -3.9], [2, 1.2, -3.7, 1], [2, 4.2, -2.6], [2, 6.4, -3.1, 1], [2, 12, -5.4, 1]],
+    back: [[0, 0, 12], [0, 6, 11], [0, 14, 8.6], [0, 22, 6.0], [0, 30, 3.8, 1], [0, 33.6, 5.6, 1], [1, 0.6, 6.6, 1], [1, 3.6, 4.0, 1], [1, 9, 2.8], [1, 21, 2.8, 1], [1, 24.4, 4.4], [2, 2.6, 4.9, 1], [2, 5.8, 3.1], [2, 9.4, 3.4, 1], [2, 12, 3.6, 1]],
+  };
+  function legOutline(chain, hind, stance) {
+    const A = hind ? HIND_OUT : FORE_OUT;
+    const fr = [];
+    for (let i = 0; i < 3; i++) {
+      const a = chain[i], b = chain[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const d = [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
+      fr.push({ a, d, n: [-d[1], d[0]], l });
     }
-    return { front, back, poly: front.concat(back.slice().reverse()) };
+    const P = (q) => { const F = fr[q[0]]; return [F.a[0] + F.d[0] * q[1] + F.n[0] * q[2], F.a[1] + F.d[1] * q[1] + F.n[1] * q[2], q[3] || 0]; };
+    const fP = A.front.map(P), bP = A.back.map(P);
+    if (stance) {
+      // the hoof stands flat on the ground
+      const toe = fP[fP.length - 1], heel = bP[bP.length - 1], yb = Math.max(toe[1], heel[1]);
+      toe[1] = yb; heel[1] = yb;
+    }
+    const hoof = [fP[fP.length - 2], fP[fP.length - 1], bP[bP.length - 1], bP[bP.length - 2]].map((q) => [q[0], q[1]]);
+    const front = shape(fP, false, 3), back = shape(bP, false, 3);
+    return { front, back, poly: front.concat(back.slice().reverse()), hoof };
   }
 
   /* Local units: withers height 100, x forward, y down, ground at y = 100. Head ~40, legs ~50. */
@@ -513,21 +530,30 @@
     const crest = (u) => { const v = 1 - u; return [v * v * P[0] + 2 * v * u * crC[0] + u * u * W0[0], v * v * P[1] + 2 * v * u * crC[1] + u * u * W0[1]]; };
     const thr = Hp(0, 10.5), SH = [45, 21];
     const nu1 = lp(thr, SH, 0.3), nu2 = lp(thr, SH, 0.66);
+    const C = (p) => [p[0], p[1], 1];
     const ctl = [
-      [-58, 7], [-50, 1], [-41, -1], [-32, 2], [-20, 5], [-7, 4.5], W0,
-      crest(0.72), crest(0.45), crest(0.2),
-      Hp(-1, -2), Hp(8, -4.2), Hp(12, -3.6), Hp(18, -3.2), Hp(28, -2.3), Hp(35, -1.1), Hp(39.4, 2.2),
-      ...(o.mouth ? [Hp(40.2, 5.4), Hp(38.6, 6.4), Hp(32.5, 7.2), Hp(36.5, 10.2), Hp(36.2, 11.6), Hp(32.5, 12.2), Hp(28, 10.4)] : [Hp(39.8, 5.4), Hp(37.6, 7.6), Hp(34.4, 8.6), Hp(30.5, 7.8)]),
-      Hp(24, 9.8), Hp(18, 13.6), Hp(12.5, 17.8), Hp(7, 18), Hp(3.5, 14.5), thr,
-      [nu1[0] + cu[0] * 3, nu1[1] + cu[1] * 3], [nu2[0] - cu[0] * 0.5, nu2[1] - cu[1] * 0.5],
-      SH, [44, 32], [38, 41], [28, 47], [14, 51], [0, 50], [-14, 47.5], [-26, 43.5], [-34, 42], [-40, 45], [-52, 45], [-61, 37], [-65, 25], [-63, 14],
+      // the top line: tail root, the round of the croup, the loin, the dip behind the withers, the withers
+      C([-60, 8.5]), [-56.5, 3], [-50, -0.4], [-43, -0.8], [-37, 1], [-29, 3.6], [-18, 5.6], [-8, 5.4], [-1, 2.6], C([5, -1.6]),
+      // the crest of the neck, curving up to the poll
+      crest(0.82), crest(0.62), crest(0.42), crest(0.22), crest(0.08),
+      // the head: poll, flat forehead, a straight face, the muzzle and nostril
+      C(Hp(-1, -2)), Hp(4, -3.6), C(Hp(9, -4.4)), Hp(19, -3.6), Hp(28, -2.6), C(Hp(35.4, -1.4)), Hp(38.6, 0.4), C(Hp(40, 2.6)),
+      ...(o.mouth ? [Hp(40.4, 5.4), C(Hp(39.2, 6.6)), C(Hp(32.6, 7.4)), C(Hp(36.8, 10.4)), Hp(36.2, 11.8), C(Hp(32.4, 12.2))] : [Hp(39.8, 5.6), C(Hp(37.8, 7.6)), Hp(35, 8.6), C(Hp(31.2, 8.6))]),
+      // the jaw: a straight run under the face, then the large round of the jaw, the throatlatch
+      Hp(26, 10.4), C(Hp(21, 11.4)), Hp(17.5, 14.6), Hp(13.5, 18), Hp(8, 19), Hp(3.4, 16.4), C(thr),
+      // the lower line of the neck runs nearly straight to the point of the shoulder
+      lp(thr, SH, 0.33), lp(thr, SH, 0.66), C(SH),
+      // the deep chest, the brisket, the girth, the belly rising to the sheath and stifle
+      [46.5, 28], [44, 35.5], C([38.5, 41]), [33, 45], [24, 49.5], [12, 51.6], [0, 51], [-12, 48.6], [-22, 45], C([-29, 42]), [-34, 41.5], C([-38, 43]),
+      // under the quarters; the back of the thigh; the point of the buttock
+      [-46, 45.6], C([-53, 45]), [-58.5, 40], [-62.5, 33], C([-65, 24.5]), [-64.5, 18], [-62.5, 12.5],
     ];
-    const body = spline(ctl, true, 5).map((p) => Q(p[0], p[1]));
+    const body = shape(ctl, true, 4).map((p) => Q(p[0], p[1]));
     const legOut = {};
     for (const id in legs) {
       const L = legs[id];
       const lo = legOutline(L.chain, L.hind, L.stance);
-      legOut[id] = { ...L, chainS: L.chain.map(QL), front: lo.front.map(QL), back: lo.back.map(QL), poly: lo.poly.map(QL) };
+      legOut[id] = { ...L, chainS: L.chain.map(QL), front: lo.front.map(QL), back: lo.back.map(QL), poly: lo.poly.map(QL), hoof: lo.hoof.map(QL) };
     }
     const S = (p) => QL(rot(p[0], p[1]));
     const parts = [
@@ -625,12 +651,13 @@
     const along = Math.atan2(c[2][1] - c[0][1], c[2][0] - c[0][0]);
     hatch(R, { ...bb, ang: along + 0.25, sp, len, w, fn: fnS, chs: [RED, BLK, WHT], dth: 0.6, bend: 0.02 });
     clipFlush(R, path);
-    const f = L.front, b = L.back, nF = f.length;
-    const hoof = [f[nF - 3], f[nF - 2], f[nF - 1], b[nF - 1], b[nF - 2], b[nF - 3]];
-    fillCh(R.cT, BLK, pathOf(hoof), far ? 0.55 : 0.42);
-    R.B.poly(BLK, 0.8, Math.max(1.2, s * 0.9) * k, [f[nF - 3], f[nF - 1]]);
-    R.B.poly(BLK, 0.6, Math.max(1.2, s * 0.6) * k, [f[nF - 3], b[nF - 3]]);
-    if (!far) R.B.poly(WHT, 0.5, Math.max(1, s * 0.5) * k, [b[nF - 3], b[nF - 1]]);
+    const f = L.front, b = L.back, hoof = L.hoof;
+    // the hoof: a wedge of dark horn below the coronet
+    fillCh(R.cT, BLK, pathOf(hoof), far ? 0.6 : 0.5);
+    fillCh(R.cS, BLK, pathOf(hoof), far ? 0.4 : 0.3);
+    sweep(R.B, BLK, [hoof[0], hoof[1]], Math.max(1.4, s * 1.1) * k, 0.95);
+    R.B.poly(BLK, 0.8, Math.max(1.2, s * 0.6) * k, [hoof[0], hoof[3]]);
+    if (!far) R.B.poly(WHT, 0.6, Math.max(1, s * 0.5) * k, [lp(hoof[0], hoof[3], 0.2), lp(hoof[1], hoof[2], 0.25)]);
     const cw = clamp(s * 0.62, 1.4, 3.4) * k;
     const pf = (i) => smooth(1, 4, i);
     contour(R, f, { closed: false, ch: far ? BLK : RED, w: cw * 0.85, a: far ? 0.6 : 0.85, wob: s * 0.5, passes: detail ? 3 : 2, pf, dark: 0.9, flip: true, rim: far ? 0 : 0.6, final: 0.9 });
@@ -795,24 +822,26 @@
     const ax = [Math.sin(th), -Math.cos(th)], f = [Math.cos(th), Math.sin(th)];
     const hip = [-7 + ro.seat, -5];
     const at = (p, a, b) => [p[0] + ax[0] * a + f[0] * b, p[1] + ax[1] * a + f[1] * b];
-    const QQ = (pts) => pts.map((p) => Q(p[0], p[1]));
-    const sho = at(hip, 30, -1);
+    const QQ = (pts) => pts.map((p) => { const q = Q(p[0], p[1]); if (p[2]) q.push(1); return q; });
+    const C1 = (p) => [p[0], p[1], 1];
+    const sho = at(hip, 34, 1.5);
     // the head is held more upright than the back, looking ahead along the charge
     const hth = th * 0.35 - (ro.sword ? 0.12 : 0), hax = [Math.sin(hth), -Math.cos(hth)], hf = [Math.cos(hth), Math.sin(hth)];
     const head = [sho[0] + ax[0] * 5 + hax[0] * 8.5 + hf[0] * 3, sho[1] + ax[1] * 5 + hax[1] * 8.5 + hf[1] * 3];
     const HSc = 1.22;
     const H = (a, b) => [head[0] + (hf[0] * a + hax[0] * b) * HSc, head[1] + (hf[1] * a + hax[1] * b) * HSc];
-    const knee = [hip[0] + 26 * Math.sin(52 * D2R), hip[1] + 26 * Math.cos(52 * D2R)];
-    const ank = [knee[0] - 6, knee[1] + 24];
+    const knee = [hip[0] + 27 * Math.sin(58 * D2R), hip[1] + 27 * Math.cos(58 * D2R)];
+    const ank = [knee[0] - 7, knee[1] + 23];
     const g = { s, th, ax, f, Q, hip, sho, head, knee, ank, at, H, hf, hax };
     // torso: a curved back, the chest swelling forward, a narrower waist
-    g.torso = spline(QQ([at(hip, -1, -7.5), at(hip, 8, -8), at(hip, 17, -8.8), at(hip, 25, -8.6), at(hip, 30, -6.6), at(hip, 33, -3),
-      at(hip, 33.5, 2), at(hip, 30, 6.5), at(hip, 24, 8.2), at(hip, 16, 6.4), at(hip, 8, 6.6), at(hip, 1, 8)]), true, 3);
+    // a long back hunched forward over the horse's neck
+    g.torso = spline(QQ([at(hip, -1, -7.5), at(hip, 9, -8.6), at(hip, 19, -9.8), at(hip, 28, -9.6), at(hip, 34, -6.4), at(hip, 37, -1.5),
+      at(hip, 37, 4.5), at(hip, 33, 8.5), at(hip, 26, 9), at(hip, 17, 6.6), at(hip, 8, 6.6), at(hip, 1, 8)]), true, 3);
     // the skirt of the hauberk over the thigh, flaring back in the wind
     const kn = lp(hip, knee, 0.78);
     g.skirt = spline(QQ([at(hip, 7.5, -10.4), at(hip, 7.5, 10), [kn[0] + 3, kn[1] - 2], [kn[0] - 2, kn[1] + 4], lp(hip, [hip[0] - 18, hip[1] + 14], 0.6), [hip[0] - 18, hip[1] + 11], [hip[0] - 14, hip[1] + 2]]), true, 3);
     g.leg = QQ(limb([hip, lp(hip, knee, 0.5), knee, lp(knee, ank, 0.5), ank], [7.8, 7, 5.2, 4.4, 3.6]));
-    g.boot = QQ([[knee[0] - 4.5, knee[1] + 7], [knee[0] + 4.6, knee[1] + 7.5], [ank[0] + 3.6, ank[1] - 1], [ank[0] + 10, ank[1] + 1.2], [ank[0] + 9.5, ank[1] + 4.2], [ank[0] - 4.2, ank[1] + 4.2], [ank[0] - 4.8, ank[1] - 4]]);
+    g.boot = QQ([[knee[0] - 4.5, knee[1] + 7], [knee[0] + 4.6, knee[1] + 7.5], [ank[0] + 3.6, ank[1] - 1.5], [ank[0] + 10, ank[1] - 2], [ank[0] + 10, ank[1] + 1.4], [ank[0] - 4.8, ank[1] + 4.8], [ank[0] - 4.8, ank[1] - 4]]);
     if (ro.sword) { g.elbow = at(sho, 14, -4); g.hand = at(g.elbow, 9, 12); }
     else if (ro.banner) { g.elbow = at(sho, -10, 7); g.hand = at(g.elbow, 2, 12); }
     else if (ro.horn) { g.elbow = at(sho, -2, 10); g.hand = at(g.elbow, 12, 3); }
@@ -841,12 +870,12 @@
     g.shield = { c: Q(sc[0], sc[1]), rx: (ro.shieldBig ? 12.5 : ro.backShield ? 6.5 : 6) * s, ry: (ro.shieldBig ? 16.5 : ro.backShield ? 8 : 14.5) * s, rot: ro.shieldBig ? -0.15 : ro.backShield ? th : 0.1, back: !!ro.backShield };
     g.rein = Q(...at(sho, -15, 16));
     g.headS = Q(head[0], head[1]); g.hr = 7.4 * s;
-    g.crown = Q(...H(-2.5, 7));
+    g.crown = Q(...H(-1, 12.2));
     // profile of the face under the helm: brow, nose, mouth (open, crying out, for the king), beard
     const open = ro.sword ? 1.6 : 0;
     g.face = QQ([H(4.6, 1.6), H(5.6, 0.4), H(8.2, -1.6), H(6.4, -2.6), H(6.6, -3.4), H(5.9, -3.9 - open * 0.4), H(6.3, -4.7 - open), H(5.8, -6.2 - open), H(3, -8.8 - open), H(-1, -6), H(-2.5, -1), H(0, 1.8)]);
     g.mouth = open ? QQ([H(6.1, -3.9), H(4.4, -4.6), H(6.0, -4.6 - open)]) : null;
-    g.helm = spline(QQ([H(-6.4, 0.6), H(-6, 4), H(-3.4, 6.8), H(0.8, 7.5), H(4.4, 5.6), H(6.1, 2), H(5.8, 0.9), H(-6, 0.4)]), true, 3);
+    g.helm = shape(QQ([H(-6.6, 0.4), H(-6.2, 4.2), H(-3.8, 8), C1(H(-0.8, 12.6)), H(2.6, 8.6), H(5.3, 4.6), H(6.2, 2), C1(H(6, 0.8)), C1(H(-6.2, 0.2))]), true, 3);
     g.cheek = QQ([H(-1.2, 0.8), H(2.4, 0.7), H(2.3, -3.4), H(1.2, -5.2), H(-0.8, -4.9), H(-1.8, -2)]);
     g.neckG = QQ([H(-6.2, 0.8), H(-1.5, 0.9), H(-2.4, -3.6), H(-5.2, -4.4), H(-7.2, -3)]);
     g.nasal = QQ([H(5.6, 1.4), H(7.1, -1.5)]);
@@ -2070,7 +2099,7 @@
       neck: 14 + rand() * 18, head: 32 + rand() * 14, neckLen: 46 + rand() * 6, arch: rand() * 4,
       tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14, mouth: rand() < 0.45, earsBack: rand() < 0.3,
       coat: coats[(rand() * coats.length) | 0],
-      lean: 18 + rand() * 34, seat: (rand() - 0.5) * 5,
+      lean: 26 + rand() * 24, seat: (rand() - 0.5) * 5,
       spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.35, pennonCh: rand() < 0.75 ? RED : BLK,
       shieldCh: rand() < 0.5 ? RED : BLK, cloak: rand() < 0.7 ? 0 : 22 + rand() * 22, backShield: rand() < 0.25, cloakCh: rand() < 0.65 ? RED : BLK, cloakWave: rand() * 6,
       plume: rand() < 0.4 ? 0 : 12 + rand() * 12, plumeCh: rand() < 0.25 ? WHT : rand() < 0.5 ? RED : BLK, hairCh: rand() < 0.6 ? RED : WHT,

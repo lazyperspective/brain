@@ -1093,27 +1093,29 @@
     // everything below the waist is lost in smoke and fire
     const BP = {
       shN: [-27, -80], elN: [-41, -63], fiN: [-45, -47],
-      shF: [25, -83], elF: [42, -99], fiF: [22, -112],
-      head: [-5, -94],
+      shF: [25, -83], elF: [38, -66], fiF: [20, -58],
+      head: [-6, -97],
     };
     const BPARTS = [
       // the torso: a great wedge, broad at the shoulders, narrowing to the waist
       [[-35, -79], [-31, -86], [-19, -87], [-8, -86], [6, -88], [19, -89], [31, -87], [35, -80], [27, -66], [16, -50], [0, -46], [-15, -50], [-27, -65]],
       ell([-2, -74], 24, 11, 0),                      // the chest and its plates
-      [[-30, -84], [-20, -91], [-11, -96], [0, -97.5], [10, -95], [20, -90], [30, -85], [0, -80]], // the hunched trapezius, the head sunk between the shoulders
+      [[-30, -84], [-20, -89], [-12, -92], [0, -93], [10, -91], [20, -88], [30, -85], [0, -80]], // the trapezius sloping up to a bull's neck
+      limb([-3, -85], [-5, -95], 9, 7.5),
       ell(BP.shN, 10, 10, 0), limb(BP.shN, BP.elN, 9, 7.6), limb(BP.elN, BP.fiN, 7.2, 5.6), ell(BP.fiN, 5.8, 5.6, 0),
       ell(BP.shF, 10, 10, 0), limb(BP.shF, BP.elF, 9, 7.4), limb(BP.elF, BP.fiF, 7, 5.6), ell(BP.fiF, 5.6, 5.6, 0),
-      ell(BP.head, 7.6, 8.4, 0.15), limb([-13.5, -96.5], [1, -99], 3, 2.6), ell([-9, -88.5], 5.6, 4.2, 0.35), // the skull, its heavy brow, the jaw
+      ell(BP.head, 7.4, 8.6, 0.15), limb([-14.5, -99.5], [0, -102], 3, 2.6), ell([-10, -91.5], 5.4, 4.2, 0.35), // the skull, its heavy brow, the jaw
       ell([-3, -40], 15, 10, 0), ell([-12, -24], 8, 14, 0.15), ell([8, -24], 7, 14, -0.15), // hips and legs (lost in smoke)
     ];
     const BHORNS = [
-      [[-9.5, -99], [-15, -102], [-20, -105.5], [-23.5, -109.5], [-24, -113], [-21.5, -115.5]],
-      [[-0.5, -100.5], [4.5, -103], [8.5, -106.5], [10.5, -110.5], [9.5, -113.5]],
+      [[-11, -102], [-17, -104.5], [-23, -108], [-27, -113], [-27.5, -117], [-25.5, -119.5]],
+      [[-1, -103.5], [4, -106], [8, -110], [10, -114.5], [9, -118.5]],
     ];
-    // the sword's line is known before the body is painted, so its light can rake the body
+    // the sword's line is known before the body is painted, so its light can rake the body:
+    // held in the far hand at the hip and raised across the breast, its point levelled up at the wizard
     {
-      const hilt = BX([[BP.fiF[0] - 3, BP.fiF[1] - 1]])[0];
-      const tip = BX([portrait ? [-66, -128] : [-80, -118.5]])[0];
+      const hilt = BX([[BP.fiF[0] - 2, BP.fiF[1] - 2]])[0];
+      const tip = BX([portrait ? [-62, -126] : [-74, -117]])[0];
       const ang = Math.atan2(tip[1] - hilt[1], tip[0] - hilt[0]);
       L.sword = { hilt, tip, ang, len: Math.hypot(tip[0] - hilt[0], tip[1] - hilt[1]) };
     }
@@ -1149,6 +1151,11 @@
       const bc = mkCanvas(W2, H2), bx2 = cpu(bc);
       bx2.filter = 'blur(' + (2.2 * bs * hk).toFixed(2) + 'px)'; bx2.drawImage(mc, 0, 0);
       const md = bx2.getImageData(0, 0, W2, H2).data;
+      // a much softer copy gives the hatching its direction: lines that wrap the masses rather than follow every fray
+      const fc2 = mkCanvas(W2, H2), fx2 = cpu(fc2);
+      fx2.filter = 'blur(' + (9 * bs * hk).toFixed(2) + 'px)'; fx2.drawImage(mc, 0, 0);
+      const fmd = fx2.getImageData(0, 0, W2, H2).data;
+      const FM = (j) => fmd[j * 4 + 3];
       const M = new Float32Array(W2 * H2);
       await tick('gs0');
       const waist = B0[1] - 44 * bs, ground = B0[1] - 10 * bs;
@@ -1161,7 +1168,8 @@
           const u = (px0 + x + 0.5) / hk;
           const n = fbm(u / (7 * bs), v / (7 * bs), 4);
           // the lower body breaks up into smoke; the upper edges stay firm
-          M[y * W2 + x] = a * (0.7 + 0.6 * n) * lerp(0.35 + 0.65 * n, 1, fade) * (0.25 + 0.75 * fade);
+          const n3 = fade < 0.98 ? fbm(u / (2.6 * bs), v / (2.6 * bs), 3) : 0.5;
+          M[y * W2 + x] = a * (0.7 + 0.6 * n) * lerp(0.2 + 0.8 * n3, 1, fade) * (0.3 + 0.7 * fade);
         }
         if ((y & 31) === 0) await tick('gs1');
       }
@@ -1181,13 +1189,18 @@
           const edge = smooth(0.42, 0.5, m) * (1 - smooth(0.5, 0.7, m));
           let fi = 0;
           if (edge > 0.01) { const gx = M[i + 2] - M[i - 2], gy = M[i + 2 * W2] - M[i - 2 * W2], gl = Math.hypot(gx, gy); if (gl > 1e-4) fi = fireAt(u, v, -gx / gl, -gy / gl); }
-          const rim = edge * fi;
-          let tone = 0.99 - 0.55 * rim;
+          const rim = edge * fi * (1 - smooth(waist - 8 * bs, waist + 2 * bs, v));
+          const sw_ = L.sword, bsx = sw_.tip[0] - sw_.hilt[0], bsy = sw_.tip[1] - sw_.hilt[1];
+          const bt = clamp(((u - sw_.hilt[0]) * bsx + (v - sw_.hilt[1]) * bsy) / (bsx * bsx + bsy * bsy), 0, 1);
+          const bdd = Math.hypot(u - sw_.hilt[0] - bsx * bt, v - sw_.hilt[1] - bsy * bt) / bs;
+          const bl = Math.exp(-(bdd * bdd) / 90);
+          const n2 = fbm(u / (6 * bs), v / (6 * bs), 3);
+          let tone = (0.83 + 0.04 * n2) * (1 - 0.3 * bl) - 0.55 * rim;
           let nt = core > 0 ? lerp(old, tone, core) : lerp(old, Math.max(old, 0.9), halo * 0.85);
           td[i * 4] = td[i * 4 + 1] = td[i * 4 + 2] = Math.round(255 * (1 - clamp(nt, 0, 1)));
           if (core > 0.5) {
-            const gx = M[i + 2] - M[i - 2], gy = M[i + 2 * W2] - M[i - 2 * W2];
-            const th = Math.hypot(gx, gy) > 0.002 ? Math.atan2(gy, gx) + Math.PI / 2 : -1.2;
+            const gx = FM(i + 3) - FM(i - 3), gy = FM(i + 3 * W2) - FM(i - 3 * W2);
+            const th = Math.hypot(gx, gy) > 0.5 ? Math.atan2(gy, gx) + Math.PI / 2 + 0.25 * (n2 - 0.5) : -1.35;
             fd[i * 4] = Math.round(128 + 127 * Math.cos(2 * th)); fd[i * 4 + 1] = Math.round(128 + 127 * Math.sin(2 * th)); fd[i * 4 + 2] = R_BAL;
             bd[i * 4] = O.BAL; bd[i * 4 + 1] = 0; bd[i * 4 + 2] = 0;
             if (rim > 0.1) RIMW.push(px0 + x, py0 + y, Math.min(1, rim * 1.6));
@@ -1249,7 +1262,7 @@
     }
     // the mane: long licking tongues streaming up from the back of the skull and the shoulders, behind the body
     {
-      L.maneMass = BX(spline([[-30, -90], [-16, -100], [-4, -106], [10, -105], [24, -98], [34, -90]], false, 8));
+      L.maneMass = BX(spline([[-30, -88], [-18, -96], [-6, -108], [8, -106], [22, -97], [34, -88]], false, 8));
       fireMass(L.maneMass, 15 * bs, 0.62);
       const roots = [[-26, -88], [-18, -93], [-10, -98], [-4, -100], [2, -100], [8, -98], [14, -94], [20, -91], [26, -88], [32, -86], [-32, -85], [-14, -95], [5, -99]];
       for (let pass = 0; pass < 2; pass++) {
@@ -1287,6 +1300,22 @@
     OBJ = O.BAL;
     await greatShadow(BPARTS);
     const balShapes = { horns: [] };
+    // talons: hooked claws closed about the whip's haft and the sword's hilt, hard dark shapes against the fire
+    L.talons = [];
+    function talon(c, r, a, len, w, hook) {
+      const sp = [];
+      let x = c[0] + Math.cos(a) * r * 0.75, y = c[1] + Math.sin(a) * r * 0.75;
+      for (let i = 0; i <= 10; i++) { const t = i / 10, aa = a + hook * t * t; if (i) { x += Math.cos(aa) * len / 10; y += Math.sin(aa) * len / 10; } sp.push([x, y]); }
+      const pts = BX(sp);
+      const wdt = (f) => w * bs * Math.pow(1 - f, 0.85) + 0.05 * bs;
+      const outline = offsetLine(pts, wdt).concat(offsetLine(pts, (f) => -wdt(f)).reverse());
+      const tp = polyPath(outline);
+      tctx.fillStyle = gray(0.97); tctx.fill(tp);
+      OBJ = O.BAL; F(tp, a, R_HORN);
+      L.talons.push(pts);
+    }
+    for (let i = 0; i < 4; i++) talon(BP.fiN, 5.6, Math.PI * (0.5 + i * 0.17), 7.5 - i * 0.6, 1.35, 1.25);
+    for (let i = 0; i < 4; i++) talon(BP.fiF, 5.4, Math.PI * (0.95 + i * 0.14), 6.2 - i * 0.4, 1.2, -1.3);
     for (const hc of BHORNS) {
       const h = BX(spline(hc, false, 8));
       const wdt = (f) => (1 - Math.pow(f, 0.75) * 0.93) * 3.4 * bs;
@@ -1300,15 +1329,15 @@
     // the sword: a long blade of flame held high over the head, levelled at the wizard; clear and sharp
     {
       const { hilt, tip, ang } = L.sword;
-      const nx = -Math.sin(ang), ny = Math.cos(ang), bw = 1.45 * bs;
+      const nx = -Math.sin(ang), ny = Math.cos(ang), bw = 0.95 * bs;
       const at = (t, o) => [lerp(hilt[0], tip[0], t) + nx * o, lerp(hilt[1], tip[1], t) + ny * o];
-      const blade = [at(0, bw), at(0.85, bw * 0.8), tip, at(0.85, -bw * 0.8), at(0, -bw)];
-      fireMass([at(0.02, 0), at(0.9, 0)], 5 * bs, 0.45);
+      const blade = [at(0, bw), at(0.72, bw * 0.78), tip, at(0.72, -bw * 0.78), at(0, -bw)];
       // flames streaming up off the blade (fire rises), longer toward the hilt
-      for (let i = 0; i < 22; i++) {
-        const t = RR(0.04, 0.96);
+      for (let i = 0; i < 13; i++) {
+        const t = Math.pow((i + RR(0.1, 0.9)) / 13, 0.8);
         const p0 = at(t, -bw * 0.6);
-        tongue(p0[0], p0[1], -Math.PI / 2 + 0.35 + RR(-0.35, 0.3), RR(5, 16) * bs * (1.15 - t * 0.6), RR(0.9, 1.7) * bs, { bend: RR(-0.2, 0.6), amp: 0.1, sword: true, grad: 0.45 });
+        const big = R() < 0.3 ? RR(1.2, 1.6) : RR(0.4, 0.9);
+        tongue(p0[0], p0[1], -Math.PI / 2 + 0.75 + RR(-0.3, 0.3), RR(6, 14) * bs * big * (1.2 - t * 0.6), RR(0.8, 1.6) * bs * Math.sqrt(big), { bend: RR(0.1, 0.7), amp: 0.12, sword: true, grad: 0.5 });
       }
       OBJ = O.FIRE;
       const bp = polyPath(blade); tctx.fillStyle = gray(0.0); tctx.fill(bp); F(bp, ang, R_FLAME);
@@ -1321,20 +1350,24 @@
     // fanning out to crack about the wizard, from his knees to above his head
     {
       const fist = BX([[BP.fiN[0] - 2, BP.fiN[1] + 3]])[0];
-      const targets = portrait ? [[30, -150], [46, -118], [54, -84], [46, -50], [30, -22]] : [[32, -156], [50, -122], [58, -88], [50, -52], [32, -22]];
-      const g = WX([[portrait ? 88 : 98, portrait ? -80 : -82]])[0];
+      // where each thong cracks (wizard units): behind him on the staff side, over his head, before him, about his knees
+      const targets = portrait
+        ? [[-26, -150], [12, -176], [56, -142], [84, -86], [62, -30], [22, -10]]
+        : [[-30, -152], [10, -180], [62, -146], [96, -84], [70, -28], [26, -8]];
+      const AMP = [0.2, 0.12, 0.17, 0.1, 0.22, 0.16], PH = [0.7, -0.35, 0.25, -0.6, 0.45, -0.1];
+      const g = WX([[portrait ? 70 : 80, portrait ? -96 : -98]])[0];
       L.whip = []; L.whipTips = [];
       for (let i = 0; i < targets.length; i++) {
         const s0 = (i - (targets.length - 1) / 2) / ((targets.length - 1) / 2);
         const tg = WX([[targets[i][0] + RR(-6, 6), targets[i][1] + RR(-6, 6)]])[0];
         const dx = tg[0] - fist[0], dy = tg[1] - fist[1];
         const len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len, nxv = -uy, nyv = ux;
-        const A = RR(0.17, 0.23) * (1 + 0.15 * s0), ph = 0.3 * s0 + RR(-0.12, 0.12), fq = RR(1.6, 1.9);
+        const A = AMP[i] * RR(0.85, 1.15), ph = PH[i] + RR(-0.1, 0.1), fq = RR(1.5, 2.0);
         const pts = [];
-        for (let j = 0; j <= 48; j++) {
-          const t = j / 48;
+        for (let j = 0; j <= 56; j++) {
+          const t = j / 56;
           // stiff at the hand, swinging wider as the wave runs down the lash
-          const o = A * len * Math.sin(Math.PI * fq * t + ph) * Math.pow(Math.sin(Math.PI * Math.min(1, t * 0.95 + 0.05)), 0.7) * (0.5 + 0.5 * t);
+          const o = A * len * (Math.sin(Math.PI * fq * t + ph) - Math.sin(ph) * (1 - t)) * (0.35 + 0.65 * t);
           pts.push([fist[0] + ux * t * len + nxv * o, fist[1] + uy * t * len + nyv * o]);
         }
         // the tip flicks over
@@ -2082,20 +2115,9 @@
       { const ax = offsetLine(BX(spline([BP.elN, BP.fiN], false, 8)), -5 * bs); spen(ax.slice(1, -2), { w: 0.75, a: 0.9, taper: [0.2, 0.4], obj: ob }); spen(offsetLine(ax, 1.4 * bs).slice(2, -3), { w: 0.4, a: 0.7, taper: [0.3, 0.5], obj: ob }); }
       // the sword arm: forearm up to the clawed hand on the hilt
       { const ax = offsetLine(BX(spline([BP.elF, BP.fiF], false, 8)), 5 * bs); spen(ax.slice(1, -2), { w: 0.7, a: 0.9, taper: [0.2, 0.4], obj: ob }); }
-      cut([[25, -90], [33, -95], [39, -100]], 0.55, 0.8);
-      // claws: four hooked talons closed on the hilt, and those of the lash hand
-      for (let i = 0; i < 4; i++) {
-        const c = BX([[BP.fiF[0] - 5.5 + i * 0.6, BP.fiF[1] - 3 + i * 2.2]])[0];
-        const a = Math.PI + 0.2;
-        const p1 = [c[0] + Math.cos(a) * 2.2 * bs, c[1] + Math.sin(a) * 2.2 * bs], p2 = [p1[0] + Math.cos(a + 1.2) * 1.8 * bs, p1[1] + Math.sin(a + 1.2) * 1.8 * bs];
-        pen([c, p1, p2], { w: 0.9, w1: 0.2, a: 1, taper: [0, 0.9] }); spen([c, p1], { w: 0.35, a: 0.8, obj: ob });
-      }
-      for (let i = 0; i < 4; i++) {
-        const c = BX([[BP.fiN[0] - 5.5, BP.fiN[1] - 3 + i * 2]])[0];
-        const a = Math.PI - 0.3 + i * 0.15;
-        const p1 = [c[0] + Math.cos(a) * 2.4 * bs, c[1] + Math.sin(a) * 2.4 * bs], p2 = [p1[0] + Math.cos(a - 1.2) * 1.8 * bs, p1[1] + Math.sin(a - 1.2) * 1.8 * bs];
-        pen([c, p1, p2], { w: 0.9, w1: 0.2, a: 1, taper: [0, 0.9] }); spen([c, p1], { w: 0.35, a: 0.8, obj: ob });
-      }
+      cut([[30, -82], [36, -75], [39, -68]], 0.55, 0.8);
+      // the talons: a scratched gleam along each
+      for (const tp of L.talons) spen(tp.slice(1, -2), { w: 0.4, a: 0.85, taper: [0.2, 0.6] });
       for (const hn of balShapes.horns) {
         const h = hn.h;
         pen(hn.outline.concat([hn.outline[0]]), { w: 1.0, a: 1, wob: 0.1, taper: [0, 0] });
@@ -2108,9 +2130,9 @@
         }
       }
       // two burning eyes under the brow, and the slit of the mouth glowing like a furnace door
-      L.balEyes = [BX([[-12.4, -94.4], [-9.6, -95]]), BX([[-6.2, -95.4], [-3.8, -95.9]])];
-      for (const e of L.balEyes) { spen(e, { w: 1.4, a: 1, obj: ob }); gpen(e, { w: 0.7, a: 0.95 }); }
-      L.balMaw = BX(spline([[-13.4, -88.6], [-10.2, -88], [-6.2, -88.4]], false, 6));
+      L.balEyes = [BX([[-13.4, -97.4], [-10.6, -98]]), BX([[-7.2, -98.4], [-4.8, -98.9]])];
+      for (const e of L.balEyes) { spen(e, { w: 2.4, a: 1, obj: ob }); gpen(e, { w: 1.2, a: 1 }); }
+      L.balMaw = BX(spline([[-14.8, -91.1], [-11, -91.35], [-7.2, -90.8]], false, 6));
       spen(L.balMaw, { w: 0.9, a: 1, obj: ob }); gpen(L.balMaw, { w: 0.35, a: 0.8 });
       L.veins = [];
     }
@@ -2136,7 +2158,9 @@
     }
     // ---- the whip: each lash a tapering line of fire with a glowing core; motion arcs; a crack of sparks at each tip
     for (const th of L.whip) {
-      pen(offsetLine(th, 0.4 * bs), { w: 0.55, w1: 0.12, a: 0.95, wob: 0.04, taper: [0, 0.2] });
+      const th9 = th.slice(0, Math.floor(th.length * 0.92));
+      pen(offsetLine(th9, 0.45 * bs), { w: 0.6, w1: 0.15, a: 0.95, wob: 0.04, taper: [0, 0.3] });
+      pen(offsetLine(th9, -0.45 * bs), { w: 0.4, w1: 0.1, a: 0.8, wob: 0.04, taper: [0, 0.3] });
       spen(th, { w: 0.42 * bs, w1: 0.06 * bs, a: 1, taper: [0.02, 0.2] });
       gpen(th.slice(0, Math.floor(th.length * 0.8)), { w: 0.18 * bs, w1: 0.04 * bs, a: 0.85, taper: [0.05, 0.4] });
       // motion: two or three ghosts of the lash's last sweep, broken, fading behind it
@@ -2154,8 +2178,11 @@
     // ---- the flaming sword: edges and guard
     {
       const bl = L.blade, { hilt, ang } = L.sword;
-      pen([bl[0], bl[1], bl[2]], { w: 0.6, a: 0.9, taper: [0, 0.2] });
-      pen([bl[4], bl[3], bl[2]], { w: 0.8, a: 0.95, taper: [0, 0.2] });
+      pen([bl[0], bl[1], bl[2]], { w: 0.35, a: 0.8, taper: [0, 0.1] });
+      pen([bl[4], bl[3], bl[2]], { w: 0.55, a: 0.9, taper: [0, 0.1] });
+      const core = [];
+      for (let i = 0; i <= 30; i++) { const t = i / 30; core.push([lerp(hilt[0], L.sword.tip[0], t * 0.97), lerp(hilt[1], L.sword.tip[1], t * 0.97)]); }
+      gpen(core, { w: 0.75 * bs, w1: 0.08 * bs, a: 1, taper: [0.02, 0.15] });
       const nx = -Math.sin(ang) * 2.2 * bs, ny = Math.cos(ang) * 2.2 * bs;
       pen([[hilt[0] + nx * 2, hilt[1] + ny * 2], [hilt[0] - nx * 2, hilt[1] - ny * 2]], { w: 2.2, a: 1, taper: [0, 0] });
     }
@@ -2311,12 +2338,16 @@
       wRadial(gx, gy, lay.glowR * 1.2, 0.12, 0.55, 0.5, 0.95, 0.8);
       wRadial(gx, gy, lay.glowR * 0.55, 0.5, 0.5, 0.15, 0.85, 0.8);
       wctx.restore();
+      await tick('wg0');
       wctx.save(); wctx.clip(L.sideP);
       { const g = wctx.createLinearGradient(0, B0[1] - 60, 0, B0[1] + 260); g.addColorStop(0, washc(0.1, 0.35, 0.3, 0.1)); g.addColorStop(1, washc(0.15, 0.55, 0.4, 0.7)); wctx.fillStyle = g; wctx.fillRect(0, 0, SW, SH); }
       wctx.restore();
+      await tick('wg1');
       // the demon's fire on the smoke and the floor of the hall
       wRadial(L.fireA[0], L.fireA[1], 150 * bs / 6.2 * 1.6, 0.18, 0.45, 0.3, 0.7, 1.0);
+      await tick('wg2');
       wRadial(L.fireB[0], L.fireB[1], 120 * bs / 6.2 * 1.6, 0.25, 0.5, 0.3, 0.75, 0.6);
+      await tick('wg3');
       wctx.save(); wctx.clip(L.floorP); wRadial(B0[0], B0[1], 360, 0.3, 0.6, 0.3, 0.9, 0.5); wctx.restore();
       await tick('we0');
       // the environment's washes first: then clear them off the demon and its wings, which stand dark against them
@@ -2368,9 +2399,9 @@
       for (const m of [L.maneMass, L.footMass]) if (m) wStroke(m, 0.3, 0.65, 0.32, 1, (m === L.maneMass ? 18 : 12) * bs, 5 * bs);
       wctx.globalCompositeOperation = 'lighter';
       const { hilt, tip } = L.sword;
-      wStroke([hilt, tip], 0.95, 0.35, 0.0, 1, 3.4 * bs, 1);
-      wStroke([hilt, tip], 0.2, 0.6, 0.3, 0.6, 9 * bs, 4 * bs);
-      for (const th of L.whip) { wStroke(th, 0.3, 0.55, 0.25, 0.3, 1.2 * bs, 0.7 * bs); wStroke(th, 0.95, 0.45, 0, 0.95, 0.3 * bs, 0.12); }
+      wStroke([hilt, tip], 0.95, 0.35, 0.0, 1, 1.9 * bs, 0.5);
+      wStroke([hilt, tip], 0.2, 0.6, 0.3, 0.42, 6 * bs, 3 * bs);
+      for (const th of L.whip) { wStroke(th, 0.3, 0.6, 0.25, 0.5, 2.2 * bs, 1.0 * bs); wStroke(th, 0.95, 0.5, 0, 1, 0.5 * bs, 0.12); }
       for (const tp of L.whipTips) wRadial(tp[0], tp[1], 7 * bs, 0.8, 0.5, 0.05, 0.9);
       for (const e of L.balEyes) { wStroke(e, 1, 0.5, 0, 1, 0.9 * bs, 0.2); wStroke(e, 0.4, 0.5, 0.2, 0.6, 2.6 * bs, 1.2 * bs); }
       wStroke(L.balMaw, 0.9, 0.7, 0.1, 1, 1.2 * bs, 0.4);
