@@ -349,7 +349,7 @@
     const toVPpx = (vx, vy) => { const X = IX + vx * k, Y = IY + vy * k; return (x, y) => Math.atan2(Y - y, X - x); };
 
     const L = {};
-    const ZWIZ = portrait ? 5.2 : 5.7, ZBAL = portrait ? 19 : 20;
+    const ZWIZ = portrait ? 4.9 : 5.2, ZBAL = portrait ? 19 : 20;
     L.wiz = P(0, 0, ZWIZ);
     L.wizS = (L.wiz[1] - P(0, 1.85, ZWIZ)[1]) / 100;     // units per wizard-unit (100 wu = 1.85 m)
     L.bal = P(0, 0, ZBAL);
@@ -516,28 +516,29 @@
     const R_TOWER = reg(4, { sp: 0.4, wt: 0.85, fn: () => Math.PI / 2, maxL: 70, wob: 0.03, bow: 0, off: [0, 0.35, -0.35, 1.5708], lit: 0 });
     const R_ROCK = reg(10, { sp: 1.1, wt: 1.0, fn: (x, y) => 2.0 + 1.6 * (nz(x / 380, y / 380) - 0.5) + 0.6 * (nz(x / 70, y / 70) - 0.5), maxL: 30, minL: 6, wob: 0.28, bow: 0.5 });
     const R_RIFTLIP = reg(11, { sp: 0.95, wt: 1.0, maxL: 26, minL: 5, wob: 0.25, bow: 0.4, off: [0, 0.8, -0.9, 1.5708] });
-    const R_WALLF = reg(13, { sp: 0.85, wt: 0.85, fn: toVPpx(VP2[0], VP2[1]), maxL: 50, wob: 0.14, bow: 0.1, off: [0, 'V', 0.6, -0.6], lit: 0.5 });
-    const R_ARCH = reg(14, { sp: 0.75, wt: 0.75, fn: () => 0.05, maxL: 40, wob: 0.1, off: [0, 0.3, -0.3, 1.5708], lit: 0.3 });
-    const R_FACE_A = reg(20, { sp: 1.0, wt: 1.05, fn: toVPpx(VP1[0], VP1[1]), maxL: 60, wob: 0.13, bow: 0.15, off: [0, 'V', 0.5, -0.5] });
-    const R_FACE_B = reg(21, { sp: 1.0, wt: 1.05, fn: toVPpx(VP2[0], VP2[1]), maxL: 60, wob: 0.13, bow: 0.15, off: [0, 'V', -0.5, 0.5] });
-    const R_FACE_A2 = reg(22, { sp: 0.8, wt: 0.85, fn: toVPpx(VP1[0], VP1[1]), maxL: 50, wob: 0.1, off: [0, 'V', 0.5, -0.5], lit: 0.7 });
-    const R_FACE_B2 = reg(23, { sp: 0.8, wt: 0.85, fn: toVPpx(VP2[0], VP2[1]), maxL: 50, wob: 0.1, off: [0, 'V', -0.5, 0.5], lit: 0.7 });
+    const R_WALLF = reg(13, { sp: 0.85, wt: 0.85, fn: toVPpx(VP2[0], VP2[1]), maxL: 50, wob: 0.14, bow: 0.1, off: [0, 'V', 0.6, -0.6], lit: 0.75 });
+    const R_ARCH = reg(14, { sp: 0.75, wt: 0.75, fn: () => 0.05, maxL: 40, wob: 0.1, off: [0, 0.3, -0.3, 1.5708], lit: 0.5 });
+    const R_FACE_A = reg(20, { sp: 1.0, wt: 1.05, fn: toVPpx(VP1[0], VP1[1]), maxL: 60, wob: 0.16, bow: 0.2, off: [0, 0.85, -0.7, 'V'] });
+    const R_FACE_B = reg(21, { sp: 1.0, wt: 1.05, fn: toVPpx(VP2[0], VP2[1]), maxL: 60, wob: 0.16, bow: 0.2, off: [0, -0.85, 0.7, 'V'] });
+    const R_FACE_A2 = reg(22, { sp: 0.8, wt: 0.85, fn: toVPpx(VP1[0], VP1[1]), maxL: 50, wob: 0.14, off: [0, 0.85, -0.7, 'V'], lit: 0.7 });
+    const R_FACE_B2 = reg(23, { sp: 0.8, wt: 0.85, fn: toVPpx(VP2[0], VP2[1]), maxL: 50, wob: 0.14, off: [0, -0.85, 0.7, 'V'], lit: 0.7 });
     const R_DEEP = reg(30, { sp: 0.85, wt: 0.85, fn: (x, y) => Math.PI / 2 + 0.25 * (nz(x / 300, y / 300) - 0.5), maxL: 60, wob: 0.22, bow: 0.15, lit: 0.4, off: [0, 0.45, -0.45, 1.5708] });
     const R_DECK = reg(40, { sp: 0.85, wt: 1.0, fn: toVPpx(VP1[0], VP1[1]), maxL: 40, wob: 0.1, bow: 0.1, off: [0, 1.3, -0.95, 'V'] });
     const R_BSIDE = reg(41, { sp: 0.8, wt: 1.0, fn: toVPpx(VP1[0], VP1[1]), maxL: 40, wob: 0.1, bow: 0.1, off: [0, 'V', 0.6, -0.6] });
-    const R_PIER = reg(42, { sp: 0.85, wt: 1.0, fn: () => Math.PI / 2, maxL: 50, wob: 0.15, off: [0, 0.5, -0.5, 1.5708] });
-    const R_SMOKE = reg(50, { sp: 0.95, wt: 0.95, maxL: 30, minL: 6, wob: 0.18, bow: 0.3, lit: 0.6, off: [0, 0.8, -0.75, 1.5708] });
-    const R_WING = reg(60, { sp: 0.95, wt: 1.1, maxL: 40, minL: 8, wob: 0.25, bow: 0.35, lit: 0.25, off: [0, 0.6, -0.55, 1.5708] });
-    const R_BAL = reg(70, { sp: 0.72, wt: 1.1, maxL: 20, minL: 5, wob: 0.12, bow: 0.45, lit: 0.3, off: [0, 0.85, -0.75, 1.5708] });
+    const R_PIER = reg(42, { sp: 0.85, wt: 1.0, fn: (x, y) => Math.PI / 2 + 0.5 * (nz(x / 90, y / 140) - 0.5), maxL: 26, minL: 6, wob: 0.3, bow: 0.5, off: [0, 0.9, -0.8, 1.5708] });
+    const R_SMOKE = reg(50, { t0: 0.2, sp: 0.95, wt: 0.95, maxL: 30, minL: 6, wob: 0.18, bow: 0.3, lit: 0.85, off: [0, 0.8, -0.75, 1.5708] });
+    const R_WING = reg(60, { sp: 0.9, wt: 1.15, maxL: 40, minL: 8, wob: 0.25, bow: 0.35, lit: 0.1, off: [0, 0.6, -0.55, 1.5708] });
+    const R_WING2 = reg(61, Object.assign({}, REG[60]));
+    const R_BAL = reg(70, { sp: 0.62, wt: 1.15, maxL: 30, minL: 6, wob: 0.1, bow: 0.3, lit: 0.08, off: [0, 0.85, -0.75, 1.5708] });
     const R_HORN = reg(72, { sp: 0.55, wt: 1.0, maxL: 12, minL: 3, wob: 0.06, bow: 0.3, lit: 0.3 });
-    const R_FIRE = reg(80, { sp: 0.8, wt: 0.7, maxL: 24, minL: 5, wob: 0.15, bow: 0.5, lit: 0, layers: 1 });
-    const R_CLOAK = reg(90, { lit: 0.4, sp: 0.68, wt: 1.0, maxL: 34, minL: 6, wob: 0.08, bow: 0.12, off: [0, 0.8, -0.75, 1.5708] });
-    const R_HAT = reg(91, { lit: 0.3, sp: 0.6, wt: 1.0, maxL: 26, minL: 5, wob: 0.06, bow: 0.15, off: [0, 0.75, -0.75, 1.5708] });
-    const R_HAIR = reg(92, { lit: 0.3, sp: 0.5, wt: 0.65, maxL: 40, minL: 6, wob: 0.06, bow: 0.1, layers: 3 });
+    const R_FIRE = reg(80, { fn: (x, y) => -Math.PI / 2 + 0.5 * (nz(x / 120, y / 160) - 0.5), sp: 0.9, wt: 0.55, maxL: 40, minL: 8, wob: 0.2, bow: 0.5, lit: 0, layers: 0 });
+    const R_CLOAK = reg(90, { lit: 0.12, sp: 0.68, wt: 1.0, maxL: 34, minL: 6, wob: 0.08, bow: 0.12, off: [0, 0.8, -0.75, 1.5708] });
+    const R_HAT = reg(91, { lit: 0.12, sp: 0.6, wt: 1.0, maxL: 26, minL: 5, wob: 0.06, bow: 0.15, off: [0, 0.75, -0.75, 1.5708] });
+    const R_HAIR = reg(92, { lit: 0.2, sp: 0.5, wt: 0.65, maxL: 40, minL: 6, wob: 0.06, bow: 0.1, layers: 3 });
     const R_SKIN = reg(93, { lit: 0.4, sp: 0.48, wt: 0.75, maxL: 10, minL: 3, wob: 0.04 });
     const R_STEEL = reg(94, { sp: 0.45, wt: 0.7, maxL: 20, minL: 3, wob: 0.02, layers: 1 });
     const R_STAFF = reg(95, { sp: 0.42, wt: 0.9, maxL: 14, minL: 3, wob: 0.05 });
-    const R_SLEEVE = reg(97, { lit: 0.45, sp: 0.64, wt: 1.0, maxL: 30, minL: 5, wob: 0.08, bow: 0.15, off: [0, 0.8, -0.75, 1.5708] });
+    const R_SLEEVE = reg(97, { lit: 0.25, sp: 0.64, wt: 1.0, maxL: 30, minL: 5, wob: 0.08, bow: 0.15, off: [0, 0.8, -0.75, 1.5708] });
 
     /* ================================================================ SCENE LAYOUT */
     const lay = portrait ? {
@@ -549,21 +550,26 @@
         { x: 12, z: 40, w: 3.0, rune: 0.6 },
       ],
     } : {
-      rift: [[118, -30], [182, 90], [152, 214], [200, 330], [170, 440], [212, 540], [196, 612], [262, 660], [352, 642], [372, 560], [404, 470], [386, 350], [432, 240], [412, 110], [462, -30]],
+      rift: [[86, -30], [150, 90], [122, 214], [168, 330], [140, 440], [182, 540], [166, 612], [232, 660], [322, 642], [342, 560], [366, 470], [350, 350], [388, 240], [372, 110], [416, -30]],
       eyeF: 0.56, glow: [880, 1080], glowR: 760, wallZ: 90,
       pillars: [
         { x: -11.8, z: 10.5, w: 3.2, near: true, rune: 1 },
         { x: 7.8, z: 17.5, w: 3.0, near: true, rune: 1 },
         { x: 13, z: 36, w: 3.0, rune: 0.6 },
-        { x: -30, z: 70, w: 3.0, rune: 0.5 },
       ],
     };
-    const B0 = L.bal, bs = L.balS, BX = xf(B0, bs);
+    const B0 = L.bal, bs = L.balS;
+    // the Balrog's own proportions: long legs, a short heavy trunk (all its drawing passes through BX)
+    const BY = (y) => (y >= -36 ? y * 46 / 36 : y >= -92 ? -46 + (y + 36) * (46 / 56) : y);
+    const BX = (pts) => pts.map((p) => [B0[0] + p[0] * bs, B0[1] + BY(p[1]) * bs]);
+    // a small head on a giant's body: head features shrink toward the neck
+    const HT = (p) => [-20 + (p[0] + 20) * 0.9, -95 + (p[1] + 95) * 0.9];
+    const BXH = (pts) => BX(pts.map(HT));
     const W0 = L.wiz, ws = L.wizS, WX = xf(W0, ws);
-    L.blaze = WX([[-31, -178]])[0];
+    L.blaze = WX([[-43.4, -188]])[0];
 
     // base: cave darkness everywhere
-    tctx.fillStyle = gray(0.9); tctx.fillRect(0, 0, SW, SH);
+    tctx.fillStyle = gray(0.95); tctx.fillRect(0, 0, SW, SH);
     OBJ = O.ROCK; { const p = new Path2D(); p.rect(-10, -10, SW + 20, SH + 20); F(p, 0, R_ROCK); }
 
     /* ---------------------------------------------------------- the far wall, and the abyss below the bridge */
@@ -581,23 +587,26 @@
     L.arcades = [];
     {
       OBJ = O.DEEP;
-      const levels = portrait ? [-11, -21, -33, -47, -63] : [-10, -19, -30, -43, -58];
+      const levels = portrait ? [-13, -27, -44, -64] : [-12, -25, -42, -62];
       levels.forEach((top, j) => {
         const hgt = 4.2 - j * 0.2, bot = top - hgt;
         let x = -200 + R() * 8;
         const arches = [];
         while (x < 120) {
-          const runLen = RR(14, 60);
-          const gap = RR(4, 26);
-          const pitch = RR(2.9, 3.6);
+          const runLen = RR(8, 34);
+          const gap = RR(12, 48);
+          const pitch = RR(3.0, 3.8);
+          const hv = RR(0.75, 1.15);
           for (let xx = x; xx < x + runLen; xx += pitch) {
-            const w = pitch * 0.62, r = w / 2;
+            if (R() < 0.15) continue;
+            const w = pitch * 0.6, r = w / 2;
             const pts = [[xx, bot, ZW], [xx + w, bot, ZW]];
-            for (let a = 0; a <= 8; a++) { const t = a / 8 * Math.PI; pts.push([xx + r + r * Math.cos(t), top - r + r * Math.sin(t) * 1.1, ZW]); }
+            const tp = bot + (top - bot) * hv;
+            for (let a = 0; a <= 8; a++) { const t = a / 8 * Math.PI; pts.push([xx + r + r * Math.cos(t), tp - r + r * Math.sin(t) * 1.1, ZW]); }
             const pp = clipPoly(pts);
             if (pp.length < 3 || pp[0][0] < -30 || pp[0][0] > SW + 30) continue;
             const path = polyPath(pp);
-            const v = clamp(0.55 - j * 0.07 + RR(-0.06, 0.06), 0.2, 0.8);
+            const v = clamp(0.72 - j * 0.08 + RR(-0.06, 0.06), 0.3, 0.85);
             tctx.fillStyle = gray(v); tctx.fill(path);
             F(path, 0, R_ARCH);
             arches.push(pp);
@@ -678,34 +687,44 @@
       const cxp = (rb[0] + rw * 0.45) * hk - x0;
       // peaks: [fraction across the rift, distance km, height km, half-width as a fraction of the rift]
       const peakF = portrait
-        ? [[0.1, 24, 3.4, 0.14], [0.32, 38, 4.6, 0.16], [0.8, 28, 3.8, 0.14], [0.98, 50, 4.6, 0.14], [0.6, 76, 5.4, 0.1]]
-        : [[0.08, 26, 3.6, 0.13], [0.3, 40, 4.8, 0.15], [0.82, 30, 4.0, 0.13], [1.0, 52, 4.8, 0.13], [0.62, 78, 5.6, 0.1]];
+        ? [[0.12, 28, 3.0, 0.2], [0.34, 44, 4.0, 0.22], [0.8, 32, 3.1, 0.18], [0.96, 56, 3.9, 0.2], [0.58, 84, 4.3, 0.14], [0.45, 62, 3.1, 0.16]]
+        : [[0.1, 30, 3.0, 0.2], [0.3, 46, 4.2, 0.22], [0.8, 34, 3.2, 0.18], [0.98, 58, 4.0, 0.2], [0.6, 86, 4.4, 0.14], [0.45, 64, 3.2, 0.16]];
       const peaks = peakF.map(([f, z, h, w]) => [((rb[0] + rw * f) * hk - x0 - cxp) / Fz, z, h, w * rw * hk / Fz]);
       const towerAng = (towerX - cxp) / Fz;
-      const H = (x, z) => {
-        let h = 0, a = 1, f = 0.22, w = 1;
-        for (let i = 0; i < 6; i++) {
-          const n = nz(x * f + i * 31.7 + 100, z * f * 0.6 + i * 17.1);
+      const ridged = (x, z, f0, oct) => {
+        let h = 0, a = 1, f = f0, w = 1;
+        for (let i = 0; i < oct; i++) {
+          const n = nz(x * f + i * 31.7 + 100, z * f * 0.7 + i * 17.1);
           let r = 1 - Math.abs(2 * n - 1); r = r * r;
-          h += r * a * w; w = clamp(r * 1.6, 0, 1); a *= 0.48; f *= 2.15;
+          h += r * a * w; w = clamp(r * 1.7, 0, 1); a *= 0.5; f *= 2.1;
         }
-        h = h * 0.9;
-        const ang = x / z;
-        for (const pk of peaks) {
-          const d = Math.hypot((ang - pk[0]) / pk[3], (z - pk[1]) / (pk[1] * 0.12));
-          if (d < 1.6) h += pk[2] * Math.pow(Math.max(0, 1 - d / 1.6), 1.5);
-        }
-        const dv = (ang - towerAng) / 0.045;
-        h *= 1 - 0.85 * Math.exp(-dv * dv) * smooth(12, 26, z);
-        h *= 1 - smooth(70, 100, z) * 0.9;
         return h;
       };
-      const Lx = -0.7, Ly = 0.55, Lz = 0.45; const Ll = Math.hypot(Lx, Ly, Lz);
+      const H = (x, z) => {
+        const ang = x / z;
+        let h = 0;
+        // the main range: a broad band of ridged mountains
+        const env = smooth(18, 32, z) * (1 - smooth(90, 125, z));
+        if (env > 0) h += env * (0.8 + 2.2 * ridged(x, z, 0.1, 6) * (0.5 + 0.9 * nz(x * 0.05 + 3, z * 0.04)));
+        // great summits
+        for (const pk of peaks) {
+          const d = Math.hypot((ang - pk[0]) / pk[3], (z - pk[1]) / (pk[1] * 0.14));
+          if (d < 1.8) h += pk[2] * Math.pow(1 - d / 1.8, 1.4) * (0.8 + 0.35 * ridged(x * 1.7, z * 1.7, 0.3, 3));
+        }
+        // dark foothills close in front
+        const fh = smooth(9.5, 12.5, z) * (1 - smooth(16, 21, z));
+        if (fh > 0) h += fh * (0.12 + 0.38 * ridged(x * 1.3 + 50, z, 0.3, 4));
+        const dv = (ang - towerAng) / 0.022;
+        h *= 1 - 0.9 * Math.exp(-dv * dv);
+        h *= 1 - smooth(110, 150, z) * 0.9;
+        return h;
+      };
+      const Lx = -0.82, Ly = 0.32, Lz = 0.3; const Ll = Math.hypot(Lx, Ly, Lz);
       const sky = new Float32Array(W2).fill(H2);
       for (let c = 0; c < W2; c++) {
         let ymin = H2;
         const dirx = (c - cxp) / Fz;
-        for (let z = 6; z < 240; z *= 1.01) {
+        for (let z = 9; z < 240; z *= 1.008) {
           const x = dirx * z;
           const h = H(x, z);
           const v = hzp - Fz * (h - eyeH) / z + Fz * (z * z / 12742) / z;
@@ -715,12 +734,12 @@
             const nl = Math.hypot(hx, 1, hzz);
             const lam = (-hx * Lx + Ly - hzz * Lz) / (nl * Ll);
             const slope = Math.hypot(hx, hzz);
-            const snowline = 0.95 + 0.5 * (nz(x * 3, z * 0.5) - 0.5);
-            const snow = smooth(snowline - 0.2, snowline + 0.15, h) * (1 - smooth(1.2, 2.2, slope));
+            const snowline = 1.45 + 0.6 * (nz(x * 3, z * 0.5) - 0.5);
+            const snow = smooth(snowline - 0.2, snowline + 0.15, h) * (1 - smooth(1.9, 3.4, slope));
             const lit = clamp(lam, 0, 1);
-            let tone = snow > 0.5 ? lerp(0.55, 0.0, Math.pow(lit, 0.7)) : lerp(0.92, 0.5, lit);
-            const fog = clamp(smooth(25, 140, z) * 0.7 + (1 - smooth(0.15, 0.9, h)) * 0.5, 0, 0.85);
-            tone = lerp(tone, 0.2, fog);
+            let tone = snow > 0.5 ? lerp(0.62, 0.0, smooth(0.05, 0.55, lit)) : lerp(0.94, 0.55, lit);
+            const fog = clamp(smooth(30, 160, z) * 0.55 + (1 - smooth(0.15, 0.8, h)) * 0.4, 0, 0.75);
+            tone = lerp(tone, 0.32, fog);
             const th = Math.atan2(1, -hx * 0.9);
             const top = Math.max(0, Math.floor(v));
             const tv = Math.round(255 * (1 - tone));
@@ -767,7 +786,7 @@
         const a0 = i * 0.7 + R(), rr = er * (2.2 + i * 0.55);
         const arc = [];
         for (let t = 0; t < 1; t += 0.05) { const a = a0 + t * 2.2; arc.push([ex + Math.cos(a) * rr * (1 + t * 0.3), ey + Math.sin(a) * rr * 0.45 * (1 + t * 0.3)]); }
-        tStroke(arc, 0.66 + 0.1 * R(), er * (0.6 + 0.4 * R()), 2, 0.55);
+        tStroke(arc, 0.6 + 0.1 * R(), er * (0.5 + 0.5 * R()), er * 0.8, 0.3);
       }
       tctx.fillStyle = gray(0.0); tctx.beginPath(); tctx.ellipse(ex, ey, er * 1.35, er * 0.75, 0, 0, TAU); tctx.fill();
       const ep = new Path2D(); ep.ellipse(ex, ey, er * 1.3, er * 0.7, 0, 0, TAU); F(ep, 0, 0);
@@ -808,8 +827,8 @@
         tctx.fillStyle = g; tctx.beginPath(); tctx.arc(x, y, r, 0, TAU); tctx.fill(); tctx.restore();
       }
       const [gx, gy] = lay.glow; L.glow = lay.glow;
-      const rg = tctx.createRadialGradient(gx, gy, 10, gx, gy, lay.glowR);
-      rg.addColorStop(0, 'rgba(255,255,255,0.85)'); rg.addColorStop(0.3, 'rgba(255,255,255,0.5)'); rg.addColorStop(0.7, 'rgba(255,255,255,0.12)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+      const rg = tctx.createRadialGradient(gx, gy, 10, gx, gy, lay.glowR * 0.75);
+      rg.addColorStop(0, 'rgba(255,255,255,0.8)'); rg.addColorStop(0.3, 'rgba(255,255,255,0.45)'); rg.addColorStop(0.7, 'rgba(255,255,255,0.1)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
       tctx.fillStyle = rg; tctx.fillRect(0, HZ + 20, SW, SH);
     }
 
@@ -852,17 +871,32 @@
     const underY = (z) => deckY(z) - 0.6 - 7 * Math.pow(clamp((z - (zB - 12)) / 12, 0, 1), 2.6) - 5 * Math.pow(clamp((3 - z) / 8, 0, 1), 2);
     {
       OBJ = O.PIER;
-      const x0 = -3.4, x1 = 3.4, za = zB, zb = zB + 6, yb = -95, yt = -0.05;
-      const faces = [{ k: 'B', w: [[x0, yb, za], [x1, yb, za], [x1, yt, za], [x0, yt, za]] }, { k: 'A', w: [[x1, yb, za], [x1, yb, zb], [x1, yt, zb], [x1, yt, za]] }];
-      L.pierFaces = [];
-      for (const f of faces) {
-        const pp = clipPoly(f.w); const path = polyPath(pp);
-        const g = tctx.createLinearGradient(0, B0[1], 0, SH);
-        g.addColorStop(0, gray(0.9)); g.addColorStop(0.5, gray(0.82)); g.addColorStop(1, gray(0.6));
-        tctx.fillStyle = g; tctx.fill(path);
-        F(path, 0, f.k === 'A' ? R_FACE_A : R_PIER);
-        L.pierFaces.push(pp);
+      // the far landing stands on a crag of living rock that falls away into the glow
+      const zc = zB + 0.6;
+      const left = [], right = [];
+      for (let y = -0.05; y > -70; y -= 0.9) {
+        const d = -y;
+        const wl = 2.4 + d * 0.025 + 0.9 * (nz(d / 6, 1.7) - 0.5) + (d % 11 < 1 ? 0.7 : 0);
+        const wr = 2.4 + d * 0.04 + 1.2 * (nz(d / 5, 8.1) - 0.5) + (d % 13 < 1.2 ? 0.9 : 0);
+        left.push([-wl, y, zc]); right.push([wr, y, zc]);
       }
+      const crag = clipPoly(left.concat(right.reverse()));
+      const cp = polyPath(crag);
+      const g = tctx.createLinearGradient(0, B0[1], 0, SH);
+      g.addColorStop(0, gray(0.95)); g.addColorStop(0.35, gray(0.8)); g.addColorStop(1, gray(0.5));
+      tctx.fillStyle = g; tctx.fill(cp);
+      F(cp, Math.PI / 2, R_PIER);
+      // ledges and fissures on the crag
+      tctx.save(); tctx.clip(cp);
+      for (let i = 0; i < 16; i++) {
+        const y = -RR(2, 60), x0 = -4, x1 = 4;
+        const a = P(x0, y, zc), b = P(x1, y + RR(-1.5, 1.5), zc);
+        tStroke([a, [lerp(a[0], b[0], 0.5), lerp(a[1], b[1], 0.5) + RR(-4, 4)], b], RR(0.35, 0.6), RR(1.5, 4), 1.2, 0.6);
+      }
+      tctx.restore();
+      // its right-hand edges catch the fire from below
+      tStroke(right.map((q) => P(...q)).slice(4), 0.45, 5, 4, 0.6);
+      L.pierFaces = [crag];
       const land = polyPath(clipPoly([[-3.6, 0, zB - 0.2], [3.6, 0, zB - 0.2], [3.6, 0, zB + 7], [-3.6, 0, zB + 7]]));
       tctx.fillStyle = gray(0.6); tctx.fill(land); F(land, 0, R_DECK);
     }
@@ -887,34 +921,108 @@
       tctx.fillStyle = g2; tctx.fill(deckP);
       F(deckP, 0, R_DECK);
       L.sideP = sideP; L.deckP = deckP;
+      // the stones of the deck, laid in staggered courses two abreast; each a slightly different grey
+      L.stones = [];
+      let z = zA + 0.1, row = 0;
+      tctx.save(); tctx.clip(deckP);
+      while (z < zB - 0.15) {
+        const len = RR(0.42, 0.6) * (1 + Math.max(0, z - 8) * 0.012);
+        const zz = Math.min(zB, z + len);
+        const xm = (row++ & 1 ? 0.12 : -0.1) + RR(-0.08, 0.08);
+        const pieces = R() < 0.18 ? [[-BW, BW]] : [[-BW, xm], [xm, BW]];
+        for (const [x0, x1] of pieces) {
+          const st = { z0: z, z1: zz, x0, x1, dv: RR(-0.09, 0.09) };
+          L.stones.push(st);
+          const poly = clipPoly([[x0, deckY(z), z], [x1, deckY(z), z], [x1, deckY(zz), zz], [x0, deckY(zz), zz]]);
+          if (poly.length > 2) { tctx.fillStyle = st.dv > 0 ? grayA(1, st.dv) : grayA(0, -st.dv); tctx.fill(polyPath(poly)); }
+        }
+        z = zz;
+      }
+      tctx.restore();
     }
 
     /* ---------------------------------------------------------- smoke: a column boiling up behind the demon */
     const billows = [];
-    function billow(cx, cy, r, vTop, vBot, sq) {
+    function billow(cx, cy, r, vTop, vBot, sq, lp) {
       OBJ = O.SMOKE;
       const idx = billows.length + 1;
       sq = sq || 1;
       billows.push({ cx, cy, r, sq });
-      const g = tctx.createLinearGradient(0, cy - r * sq, 0, cy + r * sq);
+      let gx0 = 0, gy0 = cy - r * sq, gx1 = 0, gy1 = cy + r * sq;
+      if (lp) { const a = Math.atan2(lp[1] - cy, lp[0] - cx); gx1 = cx + Math.cos(a) * r; gy1 = cy + Math.sin(a) * r * sq; gx0 = cx - Math.cos(a) * r; gy0 = cy - Math.sin(a) * r * sq; }
+      const g = tctx.createLinearGradient(gx0, gy0, gx1, gy1);
       g.addColorStop(0, gray(vTop)); g.addColorStop(0.6, gray(lerp(vTop, vBot, 0.55))); g.addColorStop(1, gray(vBot));
       const p = new Path2D(); p.ellipse(cx, cy, r, r * sq, 0, 0, TAU);
       tctx.fillStyle = g; tctx.fill(p);
       F(p, 0, R_SMOKE);
       octx2.fillStyle = 'rgb(' + (idx & 255) + ',' + (idx >> 8) + ',255)'; octx2.fill(p);
     }
-    {
-      const cx = B0[0] + 12 * bs, base = B0[1] + 20 * bs;
-      const top = -60;
-      for (let i = 0; i < 80; i++) {
-        const t = i / 80;
-        const y = lerp(base, top, t);
-        const spread = (34 + 90 * t) * bs;
-        const x = cx + (R() - 0.5) * 2 * spread + 20 * bs * t;
-        const r = (11 + 20 * R()) * bs * (0.75 + 0.6 * t);
-        const nearFire = 1 - smooth(0.05, 0.7, t);
-        billow(x, y, r, clamp(0.8 - 0.12 * R(), 0, 1), clamp(0.55 - 0.32 * nearFire + 0.1 * R(), 0.15, 1), 0.85 + 0.25 * R());
+    // smoke as a continuous, domain-warped density field: rolls and vortices rather than bubbles
+    L.smokeFields = [];
+    async function smokeField(o) {
+      const ux0 = Math.max(0, o.x0), ux1 = Math.min(SW, o.x1), uy0 = Math.max(0, o.y0), uy1 = Math.min(SH, o.y1);
+      const px0 = Math.floor(ux0 * hk), py0 = Math.floor(uy0 * hk), px1 = Math.ceil(ux1 * hk), py1 = Math.ceil(uy1 * hk);
+      const W2 = px1 - px0, H2 = py1 - py0;
+      if (W2 <= 2 || H2 <= 2) return;
+      const Dn = new Float32Array(W2 * H2);
+      const sc = o.scale || 60;
+      for (let y = 0; y < H2; y++) {
+        const v = (py0 + y + 0.5) / hk;
+        for (let x = 0; x < W2; x++) {
+          const u = (px0 + x + 0.5) / hk;
+          const t = clamp((o.baseY - v) / (o.baseY - o.topY), -0.2, 1.2);
+          const cxv = o.cx + o.drift * t + (nz(v / 140 + o.sd, 2.2) - 0.5) * o.w1 * 0.5;
+          const hwid = lerp(o.w0, o.w1, clamp(t, 0, 1));
+          // domain warp: the smoke curls on itself as it rises
+          const wx = u / sc + 1.6 * (fbm(u / (sc * 2.2) + o.sd, v / (sc * 2.2) - t * 1.5, 3) - 0.5);
+          const wy = v / sc + 1.6 * (fbm(u / (sc * 2.2) - 7 + o.sd, v / (sc * 2.2) + 3, 3) - 0.5) + t * 2.0;
+          const n = fbm(wx, wy, 3);
+          const roll = 1 - Math.abs(2 * nz(wx * 1.7 + 9, wy * 1.7) - 1);
+          const ex = Math.abs(u - cxv) / hwid;
+          const env = (1 - smooth(0.55, 1.05, ex + (n - 0.5) * 0.6)) * smooth(-0.15, 0.08, t) * (1 - smooth(0.92, 1.15, t + (n - 0.5) * 0.3));
+          Dn[y * W2 + x] = env * (0.5 + 0.75 * n + 0.1 * roll);
+        }
+        if ((y & 7) === 0) await tick();
       }
+      const timg = tctx.getImageData(px0, py0, W2, H2), fimg = fctx.getImageData(px0, py0, W2, H2), bimg = bctx.getImageData(px0, py0, W2, H2);
+      const td = timg.data, fd = fimg.data, bd = bimg.data;
+      for (let y = 1; y < H2 - 1; y++) {
+        const v = (py0 + y + 0.5) / hk;
+        for (let x = 1; x < W2 - 1; x++) {
+          const i = y * W2 + x, d = Dn[i];
+          const a = smooth(o.lo || 0.42, (o.lo || 0.42) + 0.12, d);
+          if (a <= 0.01) continue;
+          if (o.skip && o.skip(bd[i * 4])) continue;
+          const u = (px0 + x + 0.5) / hk;
+          const xa = Math.max(0, x - 4), xb = Math.min(W2 - 1, x + 4), ya = Math.max(0, y - 4), yb = Math.min(H2 - 1, y + 4);
+          const gx = (Dn[y * W2 + xb] - Dn[y * W2 + xa]) / 4, gy = (Dn[yb * W2 + x] - Dn[ya * W2 + x]) / 4;
+          const lit = o.lit(u, v);
+          const fp = o.firePt(u, v);
+          const fdx = fp[0] - u, fdy = fp[1] - v, fl = Math.hypot(fdx, fdy) || 1;
+          // the side of each roll that faces the fire is lit; crowns away from it fall into shadow
+          const facing = clamp(0.5 - (gx * fdx + gy * fdy) / fl * 18, 0, 1);
+          const tone = clamp(o.dark - lit * (0.25 + 0.55 * facing) - 0.08 * (d - 0.6), 0.12, 0.98);
+          const old = td[i * 4] / 255;
+          const nv = 1 - tone;
+          const tv = Math.round(255 * (old * (1 - a) + nv * a));
+          td[i * 4] = td[i * 4 + 1] = td[i * 4 + 2] = tv;
+          if (a > 0.5) { fd[i * 4] = 128; fd[i * 4 + 1] = 128; fd[i * 4 + 2] = R_SMOKE; bd[i * 4] = O.SMOKE; bd[i * 4 + 1] = 0; bd[i * 4 + 2] = 0; }
+        }
+        if ((y & 15) === 0) await tick();
+      }
+      tctx.putImageData(timg, px0, py0); fctx.putImageData(fimg, px0, py0); bctx.putImageData(bimg, px0, py0);
+      L.smokeFields.push({ px0, py0, W2, H2, Dn, lo: o.lo || 0.42 });
+    }
+    {
+      // "a great shadow": a dark column of smoke, lit only where it rolls over the fire
+      const fireA = [B0[0] + 6 * bs, B0[1] - 124 * bs], fireB = [B0[0] - 4 * bs, B0[1] - 10 * bs];
+      L.fireA = fireA; L.fireB = fireB;
+      const litAt = (x, y) => Math.max(Math.exp(-((x - fireA[0]) ** 2 + (y - fireA[1]) ** 2) / (62 * bs) ** 2), Math.exp(-((x - fireB[0]) ** 2 + (y - fireB[1]) ** 2) / (52 * bs) ** 2));
+      const nearest = (x, y) => (((x - fireA[0]) ** 2 + (y - fireA[1]) ** 2) < ((x - fireB[0]) ** 2 + (y - fireB[1]) ** 2) ? fireA : fireB);
+      const notRift = (b) => b === O.RIFT || b === O.MOON || b === O.TOWER || b === O.BRIDGE;
+      // the column behind the demon
+      await smokeField({ cx: B0[0] + 14 * bs, baseY: B0[1] + 10 * bs, topY: -40, w0: 46 * bs, w1: 150 * bs, drift: 26 * bs, sd: 3.1, x0: B0[0] - 200 * bs, x1: SW, y0: 0, y1: B0[1] + 30 * bs,
+        dark: 0.9, lit: litAt, firePt: nearest, skip: notRift, scale: 40 * bs });
     }
 
     /* ---------------------------------------------------------- the Balrog: geometry (bu: origin at its feet, 100 bu = 9.4 m) */
@@ -926,82 +1034,97 @@
       return out;
     };
     const axis = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
-    // the pose: hunched toward the wizard, near arm raised with the sword, far arm low with the whip
+    // the pose: drawn up to a great height, head low and thrust forward on a bull neck;
+    // the sword arm drives the flaming blade at the light, the far arm is raised with the whip
     const BP = {
-      shN: [-22, -80], elbowN: [-38, -90], fistN: [-50, -103],
-      shF: [15, -82], elbowF: [25, -63], fistF: [41, -48],
-      head: [-20, -92],
+      shN: [-26, -86], elbowN: [-42, -82], fistN: [-58, -87],
+      shF: [22, -88], elbowF: [38, -95], fistF: [55, -106],
     };
     const mid = (a, b, t) => [lerp(a[0], b[0], t == null ? 0.5 : t), lerp(a[1], b[1], t == null ? 0.5 : t)];
-    const BAL_PARTS = [
-      // far leg (mostly lost in smoke)
-      { nm: 'thighF', p: ell([10, -29], 10.5, 7.2, axis([8, -38], [12, -20])), th: axis([8, -38], [12, -20]) + 1.57, v: 0.96 },
-      { nm: 'calfF', p: ell([13.5, -12], 8.2, 5, axis([12, -20], [15, -4])), th: 0.1, v: 0.96 },
-      { nm: 'footF', p: ell([17, -2], 6, 2.4, 0), th: 0, v: 0.96 },
-      // far arm, hanging with the whip
-      { nm: 'bicepsF', p: ell(mid(BP.shF, BP.elbowF), 11, 6.6, axis(BP.shF, BP.elbowF)), th: axis(BP.shF, BP.elbowF) + 1.57, v: 0.95 },
-      { nm: 'forearmF', p: limb(BP.elbowF, BP.fistF, 6.2, 4.4), th: axis(BP.elbowF, BP.fistF) + 1.57, v: 0.95 },
-      { nm: 'flexorF', p: ell(mid(BP.elbowF, BP.fistF, 0.35), 7.5, 5.4, axis(BP.elbowF, BP.fistF)), th: axis(BP.elbowF, BP.fistF) + 1.57, v: 0.95 },
-      { nm: 'fistF', p: ell(BP.fistF, 5, 4.6, 0.3), th: 0.5, v: 0.93 },
-      // near leg striding forward
-      { nm: 'thighN', p: ell([-14, -29], 11.5, 8, axis([-10, -38], [-19, -20])), th: axis([-10, -38], [-19, -20]) + 1.57, v: 0.95 },
-      { nm: 'calfN', p: ell([-18.5, -12], 9, 5.6, axis([-19, -20], [-17, -4])), th: 0.05, v: 0.95 },
-      { nm: 'footN', p: ell([-21, -2], 7.5, 2.6, 0), th: 0, v: 0.95 },
-      // trunk
-      { nm: 'trunk', p: [[-30, -82], [-8, -88], [16, -88], [25, -80], [20, -66], [14, -50], [12, -38], [-14, -36], [-19, -48], [-25, -62]], th: 0.05, v: 0.95 },
-      { nm: 'pelvis', p: ell([-1, -39], 15, 7.5, 0), th: 0.05, v: 0.95 },
-      { nm: 'belly', p: ell([-3, -53], 13, 11, 0.05), th: 0.02, v: 0.94 },
-      { nm: 'ribs', p: ell([-3, -70], 21, 14, -0.1), th: -0.2, v: 0.94 },
-      { nm: 'pecF', p: ell([8, -76], 12, 8.5, -0.2), th: -0.6, v: 0.95 },
-      { nm: 'pecN', p: ell([-14, -74], 13, 9, 0.28), th: -0.5, v: 0.92 },
-      { nm: 'hump', p: ell([1, -87], 14, 7.5, 0.1), th: 0.4, v: 0.96 },
-      { nm: 'shF', p: ell(BP.shF, 8.5, 8.5, 0.4), th: 1.0, v: 0.95 },
-      { nm: 'neck', p: limb([-6, -84], [-15, -89], 7.5, 6), th: 0.5, v: 0.95 },
-      // head: heavy brow, long muzzle, the jaw dropped open
-      { nm: 'head', p: [[-9, -90], [-13, -96.5], [-19, -98.6], [-25, -97.4], [-28.5, -95.4], [-31, -93.6], [-30.4, -92.2], [-32.6, -91], [-35.6, -89.6], [-36, -88], [-33.6, -87], [-28, -86.2], [-33.4, -84.6], [-33, -83.2], [-29.8, -81.6], [-25.5, -80.6], [-20.5, -81.2], [-15.5, -83.2], [-11, -86]], th: 1.2, v: 0.92 },
-      // near shoulder and the raised sword arm
-      { nm: 'shN', p: ell(BP.shN, 8.6, 8.2, 0.6), th: -0.9, v: 0.9 },
-      { nm: 'bicepsN', p: ell(mid(BP.shN, BP.elbowN, 0.48), 10.5, 6.6, axis(BP.shN, BP.elbowN)), th: axis(BP.shN, BP.elbowN) + 1.57, v: 0.9 },
-      { nm: 'forearmN', p: limb(BP.elbowN, BP.fistN, 5.8, 4.2), th: axis(BP.elbowN, BP.fistN) + 1.57, v: 0.9 },
-      { nm: 'flexorN', p: ell(mid(BP.elbowN, BP.fistN, 0.33), 7.6, 5.2, axis(BP.elbowN, BP.fistN)), th: axis(BP.elbowN, BP.fistN) + 1.57, v: 0.9 },
-      { nm: 'fistN', p: ell(BP.fistN, 5.2, 4.9, 0), th: 0.4, v: 0.88 },
+    const BAL_SIL = [
+      // skull and nape
+      [-15, -106.5], [-9, -105.5], [-5, -102.5], [-3, -98.5], [1, -95.2],
+      // the hump of the shoulders to the far shoulder
+      [8, -93.6], [15, -93], [21, -92.4],
+      // the far arm raised: top edge to the fist
+      [28, -94.4], [34, -97.6], [40, -100.6], [46, -104.4], [50, -108.8], [54, -111.2], [58, -109.6], [58.4, -105], [55.6, -101.6],
+      // underside of the far arm back to the armpit
+      [50.6, -98.6], [44, -94.6], [37, -89.6], [30.6, -84.6], [25.6, -80.6],
+      // far flank, narrowing to the waist
+      [24.4, -73], [20.8, -64.4], [15.6, -56], [12.2, -49.4],
+      // far hip and leg
+      [18.4, -44], [23.4, -37], [25.4, -28.6], [24.6, -20.4], [25.6, -13], [24.4, -6.2], [29.6, -2.4], [29, 0.4], [20.6, 0.6], [16.6, -1.6],
+      [15.6, -9], [14.4, -17.6], [11, -27], [4.6, -34.4], [0, -36],
+      // near leg, striding forward
+      [-4.4, -33.6], [-9.6, -25.4], [-13.4, -16.4], [-15.4, -8.4], [-16.6, -2.6], [-20, -0.2], [-29.4, 0.6], [-34, -0.6], [-31, -2.6],
+      [-27.6, -4.4], [-26.6, -12], [-25, -21.6], [-23.6, -31.2], [-20.6, -40.6],
+      // near flank to the armpit
+      [-15.6, -48.4], [-19, -57.6], [-24.6, -66], [-30, -72.6],
+      // the sword arm, underside out to the fist
+      [-35.6, -75.6], [-41, -77.4], [-46.6, -80], [-52.4, -82.2], [-57.4, -82.4], [-62.2, -84.4], [-63.4, -88.6],
+      // top of the sword arm back to the shoulder
+      [-60, -91.6], [-54.4, -91.4], [-48.4, -89.2], [-42, -88.4], [-36, -90.2], [-30.2, -92],
+      // throat and the open jaw
+      [-25.6, -92], [-28.6, -92.2], [-32.4, -92.8], [-34.6, -94.2], [-33.4, -95.4], [-28.6, -96.4],
+      // upper fangs, a short heavy muzzle, the overhanging brow
+      [-33.8, -97.2], [-35.8, -98.4], [-34.8, -100.2], [-31.2, -101.2], [-28.8, -103.4], [-25.6, -104.4], [-21.4, -106.6], [-17.4, -107.6],
     ];
     const BAL_HORNS = [
-      [[-16, -97], [-22, -102], [-29, -104], [-35, -108], [-37.5, -115.5], [-34, -122]],
-      [[-11, -96.5], [-7, -103], [-1, -107.5], [5, -110], [8, -117], [5, -123.5]],
+      [[-17, -105.6], [-18.2, -114], [-23.6, -121.6], [-31.6, -125.4], [-39.4, -123.4], [-43.4, -117.6]],
+      [[-10.6, -105], [-8.8, -113.6], [-11.2, -121.6], [-17.8, -127], [-25.4, -128.4], [-30.8, -125.4]],
     ];
-
+    // anatomy as relief: [cx, cy, rx, ry, rotation, height] in bu; the silhouette is "inflated" and these
+    // masses are raised on it, then lit by the staff (front left) and the fire (behind)
+    const BAL_BUMPS = [
+      [-15, -76, 12, 7.5, 0.3, 3.2], [7, -78, 11, 7, -0.25, 2.6],                     // pectorals
+      [-28, -84, 7.5, 7, 0.5, 3.0], [21, -86, 7, 6.6, 0.3, 2.6],                      // deltoids
+      [-36, -84, 8, 4.6, axis(BP.shN, BP.elbowN), 2.6], [-50, -85.5, 7, 3.6, axis(BP.elbowN, BP.fistN), 2.2],
+      [30, -91.5, 8, 4.6, axis(BP.shF, BP.elbowF), 2.4], [46, -100.5, 7, 3.6, axis(BP.elbowF, BP.fistF), 2.0],
+      [-58, -87, 4.4, 4.2, 0, 2.2], [55, -106, 4.2, 4, 0, 2.0],                         // fists
+      [-8, -64, 5.6, 4.2, 0, 1.8], [3, -64, 5.6, 4.2, 0, 1.6], [-8, -57.4, 5.2, 3.6, 0, 1.6], [3, -57.4, 5.2, 3.6, 0, 1.4],
+      [-7.6, -51, 5, 3.4, 0, 1.4], [2.6, -51, 5, 3.4, 0, 1.2],                          // abdomen
+      [-21, -64, 4.4, 9, 0.35, 1.6], [16, -64, 4, 9, -0.3, 1.3],                       // obliques/serratus
+      [4, -91, 13, 4.4, 0.1, 2.0],                                                      // trapezius hump
+      [-15, -36, 7.6, 11, -0.35, 3.0], [13, -34, 7, 11, 0.3, 2.6],                      // thighs
+      [-21, -22.6, 4.6, 3.6, 0, 1.6], [20, -21, 4.2, 3.4, 0, 1.4],                      // knees
+      [-23, -13, 4.4, 6.4, 0.05, 2.0], [22, -12, 3.8, 6, -0.05, 1.6],                   // calves
+      [-17, -96, 6, 6, 0, 2.4], [-25, -98.6, 6.6, 2.4, -0.25, 1.6], [-30, -97, 5.4, 3.2, -0.1, 1.4], [-28, -93.4, 6, 2.4, 0.15, 1.2], // skull, brow, muzzle, jaw
+      [-10, -90, 6.4, 5.6, 0.6, 2.0],                                                   // neck
+    ];
+    const BAL_MUSCLE = [
+      // [points, tone, width]: soft modelling strokes laid inside the black, clipped to it
+      [[[-6, -72], [-15, -77], [-24, -80], [-30, -80]], 0.82, 7],
+      [[[-4, -72], [5, -77], [14, -81], [21, -82]], 0.9, 6],
+      [[BP.shN, BP.elbowN, BP.fistN], 0.78, 5],
+      [[[-12, -60], [-4, -61], [6, -60]], 0.9, 4],
+      [[[-11, -52], [-4, -53], [5, -52]], 0.9, 4],
+      [[[-21, -38], [-22, -26], [-21, -14]], 0.86, 6],
+    ];
     /* ---------------------------------------------------------- the Balrog: wings of shadow */
     function wingShape(side) {
-      // leading edge: a smooth sweep from the shoulder to the tip; trailing edge: scalloped, fraying into smoke
-      const root = [side * 6, -88];
-      const tip = portrait ? [side * 78, -150] : [side * 92, -124];
-      const lead = spline([root, [side * 20, -106], [side * 44, (portrait ? -128 : -118)], [side * 66, (portrait ? -144 : -126)], tip], false, 10);
-      const attach = [side * 30, -70];
-      // finger tips fan out between the tip and the attachment; the membrane scallops in between
-      const nF = 5;
-      const tipsF = [tip];
-      for (let i = 1; i <= nF; i++) {
-        const t = i / (nF + 1);
-        const ang = lerp(Math.atan2(tip[1] - root[1], tip[0] - root[0]), Math.atan2(attach[1] + 8 - root[1], attach[0] - root[0]) + side * -0.15, t);
-        const len = lerp(Math.hypot(tip[0] - root[0], tip[1] - root[1]), Math.hypot(attach[0] - root[0], attach[1] - root[1]) * 1.25, Math.pow(t, 0.8)) * RR(0.92, 1.06);
-        tipsF.push([root[0] + Math.cos(ang) * len, root[1] + Math.sin(ang) * len]);
-      }
-      tipsF.push(attach);
+      // a bat's plan: the arm runs from the shoulder to a wrist on the leading edge; fingers fan from the wrist
+      // to the trailing edge, and the membrane is scalloped between them, fraying into smoke
+      const L_ = side < 0;
+      const root = L_ ? [0, -96] : [8, -94];
+      const wrist = L_ ? (portrait ? [-36, -150] : [-42, -136]) : (portrait ? [56, -136] : [62, -122]);
+      const tips = L_
+        ? (portrait ? [[-92, -138], [-84, -122], [-70, -112], [-54, -106], [-38, -104], [-20, -104]] : [[-124, -120], [-108, -106], [-90, -99], [-70, -97], [-48, -99], [-22, -104]])
+        : (portrait ? [[104, -124], [98, -108], [84, -96], [66, -88], [32, -80]] : [[128, -112], [120, -97], [102, -86], [80, -80], [34, -80]]);
+      const lead = spline([root, [lerp(root[0], wrist[0], 0.5), lerp(root[1], wrist[1], 0.5) - 6], wrist, [lerp(wrist[0], tips[0][0], 0.5), lerp(wrist[1], tips[0][1], 0.5) - 4], tips[0]], false, 10);
       const trail = [];
-      for (let i = 0; i < tipsF.length - 1; i++) {
-        const A = tipsF[i], B = tipsF[i + 1];
+      for (let i = 0; i < tips.length - 1; i++) {
+        const A = tips[i], B = tips[i + 1];
         const d = Math.hypot(B[0] - A[0], B[1] - A[1]);
         const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
-        const tr = Math.hypot(root[0] - mx, root[1] - my) || 1;
-        const depth = d * RR(0.28, 0.42);
-        const C = [mx + (root[0] - mx) / tr * depth, my + (root[1] - my) / tr * depth];
-        const seg = spline([A, [lerp(A[0], C[0], 0.6) + (R() - 0.5) * 2, lerp(A[1], C[1], 0.6) + (R() - 0.5) * 2], C, [lerp(B[0], C[0], 0.6), lerp(B[1], C[1], 0.6)], B], false, 4);
+        const tr = Math.hypot(wrist[0] - mx, wrist[1] - my) || 1;
+        const depth = d * RR(0.25, 0.38);
+        const C = [mx + (wrist[0] - mx) / tr * depth, my + (wrist[1] - my) / tr * depth];
+        const seg = spline([A, [lerp(A[0], C[0], 0.6) + (R() - 0.5) * 2, lerp(A[1], C[1], 0.6) + (R() - 0.5) * 2], C, [lerp(B[0], C[0], 0.6), lerp(B[1], C[1], 0.6)], B], false, 5);
         for (let j = i === 0 ? 0 : 1; j < seg.length; j++) trail.push(seg[j]);
       }
-      const fingers = tipsF.slice(1, -1);
+      trail.push(root);
       const outline = lead.concat(trail.slice(1));
-      return { root, tip, outline, fingers, lead };
+      return { root, wrist, tip: tips[0], outline, fingers: tips.slice(0, -1), lead };
     }
     function wing(side) {
       OBJ = O.WING;
@@ -1010,16 +1133,20 @@
       const path = polyPath(W);
       const root = BX([ws_.root])[0];
       const g = tctx.createRadialGradient(root[0], root[1], 10, root[0], root[1], 110 * bs);
-      g.addColorStop(0, gray(0.97)); g.addColorStop(0.55, gray(0.9)); g.addColorStop(1, gray(0.74));
+      g.addColorStop(0, gray(0.99)); g.addColorStop(0.6, gray(0.95)); g.addColorStop(1, gray(0.84));
       tctx.fillStyle = g; tctx.fill(path);
-      F(path, Math.atan2(ws_.tip[1] - ws_.root[1], ws_.tip[0] - ws_.root[0]), R_WING);
+      const rid = side < 0 ? R_WING : R_WING2;
+      F(path, Math.atan2(ws_.tip[1] - ws_.root[1], ws_.tip[0] - ws_.root[0]), rid);
+      const wr = BX([ws_.wrist])[0], rpx = [IX + wr[0] * k, IY + wr[1] * k];
+      REG[rid].fn = (x, y) => Math.atan2(y - rpx[1], x - rpx[0]) + 0.12 * (nz(x / 90, y / 90) - 0.5);
       fctx.save(); fctx.clip(path);
       const bones = [];
-      for (const fp of [ws_.tip].concat(ws_.fingers)) {
-        const bone = [ws_.root, [lerp(ws_.root[0], fp[0], 0.35), lerp(ws_.root[1], fp[1], 0.35) - 5], [lerp(ws_.root[0], fp[0], 0.72), lerp(ws_.root[1], fp[1], 0.72) - 3], fp];
+      bones.push(BX(spline([ws_.root, [lerp(ws_.root[0], ws_.wrist[0], 0.5), lerp(ws_.root[1], ws_.wrist[1], 0.5) - 5], ws_.wrist], false, 8)));
+      for (const fp of ws_.fingers.slice(1)) {
+        const bone = [ws_.wrist, [lerp(ws_.wrist[0], fp[0], 0.4) + side * 2, lerp(ws_.wrist[1], fp[1], 0.4)], [lerp(ws_.wrist[0], fp[0], 0.75), lerp(ws_.wrist[1], fp[1], 0.75)], fp];
         const bp = BX(spline(bone, false, 8));
         bones.push(bp);
-        flowAlong(bp, R_WING, 26 * bs);
+        void bp;
       }
       fctx.restore();
       // the membrane thins toward the trailing edge: fire-lit smoke glimmers through
@@ -1027,13 +1154,14 @@
       for (let i = 1; i < bones.length; i++) {
         const a = bones[i - 1], b = bones[i];
         const mid = a.slice(Math.floor(a.length * 0.55)).map((p, j) => { const q = b[Math.min(b.length - 1, Math.floor(b.length * 0.55) + j)]; return [lerp(p[0], q[0], 0.5), lerp(p[1], q[1], 0.5)]; });
-        tStroke(mid, 0.62, 7 * bs, 4 * bs, 0.5);
+        void mid;
       }
       for (const bp of bones) tStroke(bp, 0.99, 3 * bs, 1.5 * bs, 0.9);
       tctx.restore();
       return { W, bones, path, lead: BX(ws_.lead) };
     }
     L.wingL = wing(-1);
+    if (debug) { const W = L.wingL.W; const bb = W.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [1e9, 1e9, -1e9, -1e9]); console.warn('[bridge] wingL bbox', bb.map(Math.round).join(','), 'n', W.length, 'B0', B0.map(Math.round).join(','), 'bs', bs.toFixed(2)); }
     L.wingR = wing(1);
 
     /* ---------------------------------------------------------- fire: the mane (behind the body) */
@@ -1056,71 +1184,137 @@
       const fl = { pts, outline, wid, len, opt };
       flames.push(fl);
       const path = polyPath(outline);
-      tctx.fillStyle = gray(opt.v != null ? opt.v : 0.05); tctx.fill(path);
+      tctx.fillStyle = gray(opt.v != null ? opt.v : 0.03); tctx.fill(path);
       F(path, ang, R_FIRE);
+      if (opt.fork && len > 18 * bs && R() < 0.45) {
+        const at = pts[Math.floor(pts.length * RR(0.35, 0.6))];
+        tongue(at[0], at[1], ang + (R() < 0.5 ? -1 : 1) * RR(0.3, 0.6), len * RR(0.3, 0.5), wid * 0.55, Object.assign({}, opt, { fork: false }));
+      }
       return fl;
     }
-    function fireMass(pts, w, v) { OBJ = O.FIRE; tStroke(pts, v, w, w * 0.45, 0.85); }
+    function fireMass(pts, w, v) {
+      OBJ = O.FIRE; tStroke(pts, Math.max(v, 0.22), w, w * 0.45, 0.85);
+      bctx.save(); bctx.lineWidth = w * 1.15; bctx.lineCap = 'round'; bctx.lineJoin = 'round'; bctx.strokeStyle = 'rgb(' + O.FIRE + ',0,0)'; bctx.stroke(polyPath(pts, true)); bctx.restore();
+      fctx.save(); fctx.lineWidth = w * 1.15; fctx.lineCap = 'round'; fctx.lineJoin = 'round';
+      fctx.strokeStyle = flowc(Math.atan2(pts[pts.length - 1][1] - pts[0][1], pts[pts.length - 1][0] - pts[0][0]), R_FIRE); fctx.stroke(polyPath(pts, true)); fctx.restore();
+    }
     {
       // the mane: fire streaming up and back from skull, nape and hump, like hair in a gale
-      const roots = [[-24, -98], [-20, -99], [-16, -98.8], [-12, -97], [-8, -94], [-3, -93], [2, -93], [7, -92.5], [12, -91], [17, -89.5], [21, -87]];
-      const massLine = BX(spline([[-16, -104], [0, -112], [20, -124], [40, -136]], false, 8));
-      fireMass(massLine, 16 * bs, 0.12);
+      // a burst of flame behind the head, so the horned skull stands black against it
+      const roots = [[-20, -105.6], [-15.6, -106.2], [-11, -105], [-6.6, -102.8], [-3.6, -99], [0.6, -95.6], [6, -94], [12, -93.2], [18, -92.6], [24, -92.4]];
+      L.maneMass = BX(spline([[-16, -104], [-6, -114], [8, -124], [24, -132], [42, -138]], false, 8));
+      fireMass(L.maneMass, 22 * bs, 0.08);
       for (let pass = 0; pass < 3; pass++) {
         for (const r of roots) {
-          const [x, y] = BX([[r[0] + RR(-1.5, 1.5), r[1] + RR(-1.5, 1.5)]])[0];
-          const ang = -1.15 + RR(-0.3, 0.3) + (r[0] + 20) / 90;
-          const len = RR(30, 72) * bs * (pass === 0 ? 1 : pass === 1 ? 0.72 : 0.45);
-          tongue(x, y, ang, len, RR(1.8, 3.8) * bs, { bend: RR(0.1, 0.7), amp: RR(0.06, 0.16), mane: true });
+          const [x, y] = BX([(r[0] < -2 ? HT(r) : r).map((q) => q + RR(-1.5, 1.5))])[0];
+          const ang = -1.2 + RR(-0.3, 0.3) + (r[0] + 5) / 80;
+          const len = RR(26, 66) * bs * (pass === 0 ? 1 : pass === 1 ? 0.7 : 0.42);
+          tongue(x, y, ang, len, RR(1.5, 3.4) * bs, { bend: RR(0.15, 0.8), amp: RR(0.06, 0.16), mane: true, fork: true });
         }
       }
+      // the bridge burns where it stands: a sheet of flame behind its legs
+      L.footMass = BX(spline([[-48, -6], [-30, -14], [-6, -18], [18, -14], [36, -6]], false, 8));
+      fireMass(L.footMass, 9 * bs, 0.3);
+      for (let i = 0; i < 40; i++) {
+        const t = R();
+        const [x, y] = BX([[lerp(-50, 40, t), RR(-4, 3)]])[0];
+        const tall = 0.45 + Math.sin(t * Math.PI) * RR(0.5, 1.1);
+        tongue(x, y, -Math.PI / 2 + RR(-0.35, 0.35) + (t - 0.5) * 0.5, RR(16, 40) * bs * tall, RR(1.4, 3.0) * bs, { bend: RR(-0.8, 0.8), amp: RR(0.1, 0.2), foot: true, fork: true });
+      }
+    }
+
+    // inflate a silhouette into relief, raise muscle masses on it, light it and lay cross-contour flow
+    async function shadeRelief(path, poly, bumps) {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const p of poly) { if (p[0] < x0) x0 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[0] > x1) x1 = p[0]; if (p[1] > y1) y1 = p[1]; }
+      const px0 = Math.max(0, Math.floor(x0 * hk) - 2), py0 = Math.max(0, Math.floor(y0 * hk) - 2);
+      const px1 = Math.min(hw - 1, Math.ceil(x1 * hk) + 2), py1 = Math.min(hh - 1, Math.ceil(y1 * hk) + 2);
+      const W2 = px1 - px0 + 1, H2 = py1 - py0 + 1;
+      const mc = mkCanvas(W2, H2), mx = cpu(mc);
+      mx.setTransform(hk, 0, 0, hk, -px0, -py0); mx.fillStyle = '#fff'; mx.fill(path);
+      const md = mx.getImageData(0, 0, W2, H2).data;
+      const INF = 1e6, D = new Float32Array(W2 * H2);
+      for (let i = 0; i < W2 * H2; i++) D[i] = md[i * 4 + 3] > 127 ? INF : 0;
+      // chamfer distance (3-4), two passes
+      for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+        const i = y * W2 + x; if (!D[i]) continue;
+        let v = D[i];
+        if (x > 0) v = Math.min(v, D[i - 1] + 3);
+        if (y > 0) { v = Math.min(v, D[i - W2] + 3); if (x > 0) v = Math.min(v, D[i - W2 - 1] + 4); if (x < W2 - 1) v = Math.min(v, D[i - W2 + 1] + 4); }
+        if (x === 0 || y === 0 || x === W2 - 1 || y === H2 - 1) v = Math.min(v, 3);
+        D[i] = v;
+      }
+      for (let y = H2 - 1; y >= 0; y--) for (let x = W2 - 1; x >= 0; x--) {
+        const i = y * W2 + x; if (!D[i]) continue;
+        let v = D[i];
+        if (x < W2 - 1) v = Math.min(v, D[i + 1] + 3);
+        if (y < H2 - 1) { v = Math.min(v, D[i + W2] + 3); if (x < W2 - 1) v = Math.min(v, D[i + W2 + 1] + 4); if (x > 0) v = Math.min(v, D[i + W2 - 1] + 4); }
+        D[i] = v;
+      }
+      await tick();
+      const pxPerBu = bs * hk;
+      const Hh = new Float32Array(W2 * H2);
+      for (let i = 0; i < W2 * H2; i++) { if (!D[i]) continue; const d = D[i] / 3 / pxPerBu; Hh[i] = Math.sqrt(Math.min(d, 9) * 9) * 0.9; }
+      for (const [cx, cy, rx, ry, rot, ht] of bumps) {
+        const c = BX([[cx, cy]])[0];
+        const ccx = c[0] * hk - px0, ccy = c[1] * hk - py0;
+        const RX = rx * pxPerBu, RY = ry * pxPerBu * (46 / 56), cr = Math.cos(rot), sr = Math.sin(rot), rm = Math.max(RX, RY);
+        for (let y = Math.max(0, Math.floor(ccy - rm)); y < Math.min(H2, Math.ceil(ccy + rm)); y++) for (let x = Math.max(0, Math.floor(ccx - rm)); x < Math.min(W2, Math.ceil(ccx + rm)); x++) {
+          const i = y * W2 + x; if (!D[i]) continue;
+          const dx = x - ccx, dy = y - ccy;
+          const u = (dx * cr + dy * sr) / RX, v = (-dx * sr + dy * cr) / RY;
+          const r2 = u * u + v * v;
+          if (r2 < 1) Hh[i] += ht * (1 - r2) * (1 - r2);
+        }
+      }
+      await tick();
+      const timg = tctx.getImageData(px0, py0, W2, H2), fimg = fctx.getImageData(px0, py0, W2, H2), bimg = bctx.getImageData(px0, py0, W2, H2), wimg = wctx.getImageData(px0, py0, W2, H2);
+      const td = timg.data, fd = fimg.data, bd = bimg.data, wd = wimg.data;
+      const [bx, by] = L.blaze;
+      for (let y = 1; y < H2 - 1; y++) {
+        for (let x = 1; x < W2 - 1; x++) {
+          const i = y * W2 + x; if (!D[i]) continue;
+          const u = (px0 + x + 0.5) / hk, v = (py0 + y + 0.5) / hk;
+          const gx = (Hh[i + 1] - Hh[i - 1]) * pxPerBu * 0.5, gy = (Hh[i + W2] - Hh[i - W2]) * pxPerBu * 0.5;
+          let nx = -gx, ny = -gy, nzz = 1; const nl = Math.hypot(nx, ny, nzz); nx /= nl; ny /= nl; nzz /= nl;
+          // the staff: cold light from in front and to the left
+          let lx = bx - u, ly = by - v, lz = 260; const ll = Math.hypot(lx, ly, lz); lx /= ll; ly /= ll; lz /= ll;
+          const dif = Math.max(0, nx * lx + ny * ly + nzz * lz);
+          // the fire: from behind, catching the turning edges
+          const fp = (v < B0[1] - 60 * bs) ? L.fireA : L.fireB;
+          let fx = fp[0] - u, fy = fp[1] - v; const fl = Math.hypot(fx, fy) || 1; fx /= fl; fy /= fl;
+          const rim = Math.max(0, nx * fx + ny * fy) * (1 - nzz) * 2.2;
+          const tone = clamp(0.99 - 0.42 * Math.pow(dif, 2.4) - 0.42 * rim, 0.35, 0.99);
+          const tv = Math.round(255 * (1 - tone));
+          td[i * 4] = td[i * 4 + 1] = td[i * 4 + 2] = tv;
+          const gm = Math.hypot(gx, gy);
+          const th = gm > 0.02 ? Math.atan2(gy, gx) + Math.PI / 2 : -0.85;
+          fd[i * 4] = Math.round(128 + 127 * Math.cos(2 * th)); fd[i * 4 + 1] = Math.round(128 + 127 * Math.sin(2 * th)); fd[i * 4 + 2] = R_BAL;
+          bd[i * 4] = O.BAL; bd[i * 4 + 1] = 0; bd[i * 4 + 2] = 0;
+          if (rim > 0.08) { const r = Math.min(1, rim); wd[i * 4] = Math.min(255, wd[i * 4] + 120 * r); wd[i * 4 + 1] = Math.min(255, wd[i * 4 + 1] + 200 * r); wd[i * 4 + 2] = Math.min(255, wd[i * 4 + 2] + 90 * r); }
+        }
+        if ((y & 15) === 0) await tick();
+      }
+      tctx.putImageData(timg, px0, py0); fctx.putImageData(fimg, px0, py0); bctx.putImageData(bimg, px0, py0); wctx.putImageData(wimg, px0, py0);
     }
 
     /* ---------------------------------------------------------- the Balrog: body */
     const balShapes = {};
     {
       OBJ = O.BAL;
-      const clipAll = new Path2D();
-      for (const part of BAL_PARTS) {
-        const poly = BX(part.p);
-        part.u = poly;
-        const path = polyPath(poly);
-        clipAll.addPath(path);
-        tctx.fillStyle = gray(part.v); tctx.fill(path);
-        F(path, part.th, R_BAL);
-      }
-      L.balClip = clipAll;
-      // modelling: the staff's cool light on planes turned toward the wizard, fire rims behind and below
-      tctx.save(); tctx.clip(clipAll);
-      const lightN = [
-        offsetLine(BX(spline([BP.shN, BP.elbowN, BP.fistN], false, 8)), 4.2 * bs),
-        BX(spline([[-26, -70], [-20, -67], [-12, -66.5], [-4, -68]], false, 8)),
-        BX(spline([[-29, -80], [-28, -74], [-25, -66], [-21, -58]], false, 8)),
-        BX(spline([[-30, -92], [-33, -89.5], [-30, -86.5]], false, 6)),
-        BX(spline([[-17, -50], [-16, -44], [-13, -38]], false, 6)),
-      ];
-      for (const l of lightN) tStroke(l, 0.45, 3.2 * bs, 1.8 * bs, 0.8);
-      const rims = [
-        BX(spline([[8, -92], [16, -90], [22, -85], [23, -78]], false, 8)),
-        BX(spline([[22, -76], [30, -64], [38, -54], [45, -48]], false, 8)),
-        BX(spline([[19, -62], [15, -50], [13, -42], [14, -34]], false, 8)),
-        BX(spline([[-13, -97.5], [-8, -95], [-6, -91]], false, 6)),
-      ];
-      for (const l of rims) tStroke(l, 0.5, 2.6 * bs, 1.4 * bs, 0.75);
-      tctx.restore();
-      fctx.save(); fctx.clip(clipAll);
-      // pectoral fibres fan from the sternum to the shoulders; abdominal bands
-      for (let i = 0; i < 6; i++) flowAlong(BX(spline([[-3, -69 + i * 1.6], [-11, -73 + i * 0.7], [-19, -77 + i * 0.4], [-24, -79]], false, 6)), R_BAL, 4 * bs);
-      for (let i = 0; i < 6; i++) flowAlong(BX(spline([[-1, -71 + i * 1.5], [7, -75 + i * 0.6], [15, -80 + i * 0.4]], false, 6)), R_BAL, 4 * bs);
-      fctx.restore();
+      const sil = BX(spline(BAL_SIL.map((q) => (q[1] < -92.1 && q[0] > -40 && q[0] < -2 ? HT(q) : q)), true, 5));
+      balShapes.sil = sil;
+      const silP = polyPath(sil);
+      L.balClip = silP;
+      await shadeRelief(silP, sil, BAL_BUMPS.map((q) => (q[1] < -92 && q[0] < -12 ? HT([q[0], q[1]]).concat([q[2] * 0.78, q[3] * 0.78, q[4], q[5] * 0.8]) : q)));
       // horns: ridged, curling forward
       balShapes.horns = [];
       for (const hc of BAL_HORNS) {
-        const h = BX(spline(hc, false, 8));
-        const outline = offsetLine(h, (f) => (1 - f * 0.9) * 3.3 * bs).concat(offsetLine(h, (f) => -(1 - f * 0.9) * 3.3 * bs).reverse());
+        const h = BXH(spline(hc, false, 8));
+        const outline = offsetLine(h, (f) => (1 - Math.pow(f, 0.8) * 0.92) * 3.4 * bs).concat(offsetLine(h, (f) => -(1 - Math.pow(f, 0.8) * 0.92) * 3.4 * bs).reverse());
         const hp = polyPath(outline);
         const g = tctx.createLinearGradient(h[0][0], h[0][1], h[h.length - 1][0], h[h.length - 1][1]);
-        g.addColorStop(0, gray(0.85)); g.addColorStop(1, gray(0.45));
+        g.addColorStop(0, gray(0.95)); g.addColorStop(1, gray(0.75));
         tctx.fillStyle = g; tctx.fill(hp);
         F(hp, 0, R_HORN);
         fctx.save(); fctx.clip(hp); flowAlong(h, R_HORN, 12 * bs, Math.PI / 2); fctx.restore();
@@ -1130,17 +1324,12 @@
 
     /* ---------------------------------------------------------- fire about the feet, the sword, the whip */
     {
-      // smoke boiling up in front of its legs, lit from below
-      for (let i = 0; i < 16; i++) {
-        const [x, y] = BX([[RR(-40, 34), RR(-26, 6)]])[0];
-        billow(x, y, RR(7, 14) * bs, 0.62, 0.22, 0.75);
-      }
+      // low smoke rolling over the deck in front of its feet, and small flames before it
       OBJ = O.FIRE;
-      // fire licking up out of the smoke about its feet
-      fireMass(BX(spline([[-40, -4], [-20, -8], [0, -6], [24, -4]], false, 8)), 14 * bs, 0.16);
       for (let i = 0; i < 16; i++) {
-        const [x, y] = BX([[RR(-42, 30), RR(-14, 2)]])[0];
-        tongue(x, y, -Math.PI / 2 + RR(-0.5, 0.5), RR(10, 30) * bs * (R() < 0.3 ? 1.6 : 1), RR(2.2, 4.4) * bs, { bend: RR(-0.6, 0.6), amp: RR(0.06, 0.14), foot: true });
+        const t = R();
+        const [x, y] = BX([[lerp(-46, 38, t), RR(0, 5)]])[0];
+        tongue(x, y, -Math.PI / 2 + RR(-0.45, 0.45), RR(6, 16) * bs, RR(1.0, 2.0) * bs, { bend: RR(-0.8, 0.8), amp: RR(0.1, 0.22), foot: true });
       }
     }
     // the sword: a blade of flame brought down against the light
@@ -1168,23 +1357,19 @@
     }
     // the whip: thongs lashing out, coiling low along the bridge toward the wizard
     {
-      const fist = BX([[BP.fistF[0] + 3, BP.fistF[1] + 2]])[0];
-      const goal = WX([[60, -30]])[0];
+      const fist = BX([[BP.fistF[0] + 2, BP.fistF[1] - 3]])[0];
       L.whip = [];
-      const nT = 7;
+      const nT = 4;
       for (let i = 0; i < nT; i++) {
-        const s = (i - (nT - 1) / 2) / ((nT - 1) / 2);
-        const c1 = [fist[0] + (16 + s * 4) * bs, fist[1] + (12 + s * 3) * bs];
-        const c2 = [fist[0] + (6 + s * 8) * bs, fist[1] + (34 + s * 4) * bs];
-        const c3 = [lerp(fist[0], goal[0], 0.42) + s * 6 * bs, lerp(fist[1], goal[1], 0.55) + (10 + s * 7) * bs];
-        const c4 = [lerp(fist[0], goal[0], 0.78) + s * 9 * bs, lerp(fist[1], goal[1], 0.82) + (2 + s * 9) * bs];
-        const end = [goal[0] + s * 12 * bs + RR(-3, 3) * bs, goal[1] + s * 9 * bs + RR(-3, 3) * bs];
-        const curl = [end[0] + RR(2, 10) * bs, end[1] - RR(6, 14) * bs];
-        const curl2 = [curl[0] + RR(4, 8) * bs, curl[1] + RR(-2, 4) * bs];
-        L.whip.push(spline([fist, c1, c2, c3, c4, end, curl, curl2], false, 14));
+        const s0 = (i - (nT - 1) / 2) / ((nT - 1) / 2);
+        // swung back, the thongs fall in long loops across the dark of the far wing
+        const ctrl = [[0, 0], [8 + s0 * 2, -6 - s0 * 3], [18 + s0 * 4, -4 - s0 * 3], [26 + s0 * 5, 6 + s0 * 1], [24 + s0 * 7, 20 + s0 * 3], [14 + s0 * 8, 30 + s0 * 5], [8 + s0 * 10, 42 + s0 * 7], [14 + s0 * 12 + RR(-3, 3), 54 + s0 * 8 + RR(-3, 3)]];
+        if (i % 2 === 0) { const e = ctrl[ctrl.length - 1]; ctrl.push([e[0] + 6, e[1] + 2], [e[0] + 8, e[1] - 4], [e[0] + 3, e[1] - 7]); }
+        const pts = ctrl.map(([x, y]) => [fist[0] + (x + RR(-2, 2)) * bs, fist[1] + (y + RR(-2, 2)) * bs]);
+        L.whip.push(spline(pts, false, 10));
       }
       OBJ = O.FIRE;
-      for (const th of L.whip) tStroke(th, 0.1, 1.8 * bs, 1.2 * bs, 0.55);
+      for (const th of L.whip) tStroke(th, 0.12, 1.1 * bs, 0.8 * bs, 0.5);
       // sparks of flame along the thongs
       L.whipFlecks = [];
       for (const th of L.whip) {
@@ -1200,97 +1385,112 @@
     /* ---------------------------------------------------------- near pillars (framing) */
     for (const pl of pillars) if (pl.near) drawPillar(pl, pl.idx);
 
-    /* ---------------------------------------------------------- the wizard */
+    /* ---------------------------------------------------------- the wizard (wu: origin between his feet, 100 wu = 1.85 m) */
     const wizShapes = {};
     {
       OBJ = O.WIZ;
       const S = (pts, per) => WX(spline(pts, true, per || 6));
-      wizShapes.cloak = S([[2, -86], [9, -85], [14, -82], [18, -78], [22, -72], [26, -67], [30, -63], [33, -60], [30, -55], [26, -52], [25, -42], [26, -30], [28, -18], [30, -8], [31, -3], [25, -1], [19, -3], [13, -0.5], [7, -3], [1, -1], [-5, -3], [-11, -1], [-17, -4], [-23, -3], [-29, -7], [-37, -9], [-46, -13], [-55, -19], [-61, -23], [-56, -27], [-60, -32], [-50, -34], [-44, -41], [-38, -50], [-31, -60], [-25, -68], [-19, -74], [-14, -80], [-8, -85]]);
-      wizShapes.hood = S([[-11, -86], [-3, -88], [6, -88], [13, -85], [14, -80], [7, -78], [-2, -78], [-10, -80]]);
-      wizShapes.sleeveL = S([[-13, -81], [-15, -90], [-17, -100], [-18, -110], [-19, -117], [-23, -119], [-28, -118], [-32, -112], [-36, -104], [-38, -95], [-37, -87], [-32, -80], [-25, -75], [-19, -75]]);
-      wizShapes.sleeveR = S([[26, -66], [31, -68], [36, -68], [40, -67], [42, -64], [41, -60], [37, -57], [33, -55], [29, -57], [26, -60]]);
-      wizShapes.handL = S([[-18, -117], [-19, -124], [-24, -127], [-28, -123], [-27, -118], [-22, -116]], 5);
-      wizShapes.handR = S([[40, -67], [44, -69], [47, -66], [45, -62], [41, -62]], 5);
-      wizShapes.brim = S([[-17, -91], [-9, -93.5], [2, -94.5], [13, -93], [18, -91], [11, -89], [0, -88.5], [-10, -89]], 6);
-      wizShapes.crown = S([[-7, -93], [-8, -101], [-10, -109], [-14, -117], [-19, -123], [-25, -127], [-30, -128], [-26, -124], [-19, -118], [-12, -111], [-5, -104], [2, -98], [7, -93.5], [0, -92.5]], 6);
-      wizShapes.hair = S([[-10, -89], [-3, -88.5], [5, -88.5], [11, -88], [14, -84], [12, -80], [6, -81], [0, -83], [-6, -83], [-13, -84], [-20, -83], [-16, -87]], 6);
-      wizShapes.beard = S([[11, -88], [15, -86], [18, -82], [19, -77], [17, -72], [13, -70], [9, -72], [10, -78], [10, -84]], 6);
-      wizShapes.bootR = S([[3, -4], [9, -5], [14, -3], [15, 1], [9, 2], [2, 1], [0, -1]], 5);
-      wizShapes.bootL = S([[16, -9], [22, -11], [28, -10], [29, -7], [23, -6], [17, -6]], 5);
-      wizShapes.staff = WX(spline([[-15, -90], [-19, -112], [-23, -133], [-27, -155], [-31, -174]], false, 10));
-      const gl0 = [46, -67], gl1 = [86, -104];
-      wizShapes.sword = { a: WX([gl0])[0], b: WX([gl1])[0] };
+      wizShapes.cloak = S([[3, -86], [10, -85], [15, -82.5], [19, -78.5], [22, -73], [26, -68], [30, -64.5], [33, -62], [31, -58], [27, -55], [26, -46], [27, -34], [28.5, -22], [30.5, -10], [32, -2.5],
+        [27, -1], [22, -2.5], [17, -0.5], [12, -2.2], [6, -0.6], [0, -2], [-6, -0.8], [-12, -2.6], [-18, -1.4], [-24, -4], [-30, -6.5],
+        [-37, -9], [-45, -12.5], [-53, -17], [-60, -20], [-64, -24], [-58, -25.5], [-62, -30], [-54, -31], [-48, -36],
+        [-42, -44], [-36, -53], [-30, -61], [-25, -68], [-20, -74], [-16, -79], [-11, -83.5], [-5, -86]]);
+      wizShapes.sleeveL = S([[-12, -83], [-13, -90], [-16, -97], [-19.5, -103], [-23, -108.5], [-27.5, -107], [-32.5, -109], [-33.2, -104], [-33.6, -98], [-37.5, -91.5], [-34.2, -88.4], [-30, -81], [-22, -77]]);
+      wizShapes.forearmL = S([[-23, -108], [-25.5, -114], [-28.5, -120.5], [-33.5, -120.5], [-32.5, -114], [-32.5, -108.5]], 5);
+      wizShapes.sleeveMouth = S([[-22.8, -108.2], [-27.5, -106.2], [-32.8, -108.6], [-27.5, -110.6]], 5);
+      wizShapes.sleeveR = S([[14, -82], [20, -80], [26, -75], [31, -70], [36, -67.5], [40, -67], [41.5, -63], [38.5, -60], [34, -57], [33, -50], [29, -46], [26, -51], [26, -57], [22, -63], [18, -69]]);
+      wizShapes.handL = S([[-28, -120], [-28.6, -126], [-32.2, -128.6], [-36, -126.4], [-35.6, -121], [-32, -119.6]], 5);
+      wizShapes.handR = S([[40.5, -68.5], [44.5, -70], [47.5, -67.5], [46.5, -63], [42, -62.5]], 5);
+      wizShapes.hood = S([[-12, -84], [-4, -86.5], [6, -86.5], [13, -84], [13, -79], [6, -77.5], [-3, -78], [-11, -80]]);
+      wizShapes.hair = S([[-10, -96], [-4, -97], [4, -97], [9, -95], [11, -91], [11, -86], [9, -82], [4, -80], [-3, -80.5], [-9, -81.5], [-15, -81], [-21, -80.2], [-27, -79.6], [-23, -82], [-28, -82.6], [-20, -85], [-14, -88], [-11, -92]], 6);
+      wizShapes.beard = S([[-11, -88], [-17, -88.2], [-24, -87.4], [-31, -87.2], [-37, -88.2], [-32, -86.2], [-25, -85.6], [-18, -85.8], [-12, -86.2]], 6);
+      wizShapes.brim = S([[-19, -96], [-12, -98.3], [0, -99.2], [12, -98.4], [18, -96.6], [14, -95], [3, -94.4], [-8, -94.6], [-15, -95.2]], 6);
+      wizShapes.crown = S([[-9, -98.6], [-9.6, -106], [-11, -114], [-13.2, -121], [-16, -128], [-19, -133.5], [-22.5, -136], [-24.5, -135], [-21, -131], [-16, -124], [-10, -116], [-4, -108], [2, -102], [8, -99]], 6);
+      wizShapes.bootR = S([[4, -3], [10, -4], [15, -2.5], [16, 1], [10, 2], [3, 1.4], [1, -0.5]], 5);
+      wizShapes.bootL = S([[17, -8], [23, -9.5], [29, -8.5], [30, -6], [24, -5], [18, -5.5]], 5);
+      wizShapes.staff = WX(spline([[-26, -92], [-28.5, -108], [-32, -124], [-35.5, -142], [-39.5, -163], [-43, -184]], false, 10));
+      wizShapes.sword = { a: WX([[47, -66]])[0], b: WX([[88, -104]])[0] };
+      const apex = WX([[0, -96]])[0];
+      L.wizApex = apex;
+      REG[R_CLOAK].fn = (x, y) => Math.atan2(y - (IY + apex[1] * k), x - (IX + apex[0] * k));
+      const crownTip = WX([[-22, -135]])[0], crownBase = WX([[0, -99]])[0];
+      REG[R_HAT].fn = null;
 
+      // the cloak: backlit, darkest low down, the light grazing the shoulders and the side under the raised arm
       const cloakP = polyPath(wizShapes.cloak);
       {
-        const g = tctx.createLinearGradient(W0[0] - 50 * ws, W0[1] - 95 * ws, W0[0] + 30 * ws, W0[1]);
-        g.addColorStop(0, gray(0.22)); g.addColorStop(0.35, gray(0.45)); g.addColorStop(0.8, gray(0.66)); g.addColorStop(1, gray(0.74));
+        const g = tctx.createLinearGradient(W0[0] - 40 * ws, W0[1] - 92 * ws, W0[0] + 20 * ws, W0[1] - 5 * ws);
+        g.addColorStop(0, gray(0.5)); g.addColorStop(0.25, gray(0.68)); g.addColorStop(0.6, gray(0.8)); g.addColorStop(1, gray(0.88));
         tctx.fillStyle = g; tctx.fill(cloakP);
         F(cloakP, Math.PI / 2, R_CLOAK);
       }
       const folds = [
-        [[-20, -72], [-12, -60], [-4, -46], [2, -30], [4, -14], [5, -2]],
-        [[-24, -68], [-20, -54], [-16, -38], [-14, -20], [-14, -3]],
-        [[-26, -64], [-32, -50], [-40, -36], [-50, -24], [-58, -21]],
-        [[-30, -56], [-38, -44], [-46, -32], [-54, -28]],
-        [[10, -80], [12, -62], [13, -44], [14, -26], [15, -4]],
-        [[18, -74], [19, -58], [20, -40], [22, -22], [23, -3]],
-        [[26, -54], [24, -40], [24, -26], [25, -12], [26, -3]],
-        [[2, -82], [1, -66], [-2, -50], [-6, -32], [-8, -14], [-9, -2]],
+        [[-18, -74], [-13, -62], [-8, -48], [-5, -32], [-4, -16], [-5, -2]],
+        [[-22, -69], [-20, -55], [-18, -40], [-17, -24], [-17, -4]],
+        [[-26, -63], [-31, -51], [-38, -38], [-47, -27], [-57, -21]],
+        [[-31, -56], [-37, -46], [-45, -36], [-54, -30]],
+        [[3, -80], [3, -64], [2, -48], [1, -30], [1, -12], [1, -2]],
+        [[11, -80], [12, -64], [13, -46], [14, -28], [15, -3]],
+        [[18, -75], [19, -60], [20, -44], [22, -26], [23, -3]],
+        [[26, -54], [25, -42], [25, -28], [26, -14], [27, -3]],
+        [[-9, -82], [-9, -70], [-11, -56]],
       ];
       L.folds = folds.map((f) => WX(spline(f, false, 8)));
-      tctx.save(); tctx.clip(cloakP); fctx.save(); fctx.clip(cloakP);
+      tctx.save(); tctx.clip(cloakP);
       for (const fp of L.folds) {
-        tStroke(offsetLine(fp, 2.4 * ws), 0.86, 3.2 * ws, 2 * ws, 0.7);
-        tStroke(offsetLine(fp, -2.2 * ws), 0.2, 2.6 * ws, 2 * ws, 0.5);
-        flowAlong(fp, R_CLOAK, 9 * ws);
+        tStroke(offsetLine(fp, 1.8 * ws), 0.95, 2.2 * ws, 1.4 * ws, 0.75);
+        tStroke(offsetLine(fp, -1.8 * ws), 0.45, 1.6 * ws, 1.4 * ws, 0.45);
       }
-      tStroke(WX(spline([[-30, -8], [-10, -4], [10, -4], [30, -4]], false, 6)), 0.88, 6 * ws, 3 * ws, 0.6);
-      tStroke(WX(spline([[-12, -77], [0, -75], [12, -77]], false, 6)), 0.9, 4 * ws, 2 * ws, 0.7);
-      tctx.restore(); fctx.restore();
-      const sL = polyPath(wizShapes.sleeveL), sR = polyPath(wizShapes.sleeveR);
+      tStroke(WX(spline([[-34, -8], [-12, -4], [10, -3], [32, -4]], false, 6)), 0.96, 5 * ws, 3 * ws, 0.7);
+      tStroke(WX(spline([[-30, -60], [-36, -52], [-42, -44], [-50, -35]], false, 6)), 0.3, 2.5 * ws, 2 * ws, 0.5);
+      tctx.restore();
+      // the raised sleeve: falls from the wrist in heavy folds; the lit edge faces the staff
+      const sL = polyPath(wizShapes.sleeveL);
       {
-        const g = tctx.createLinearGradient(W0[0] - 38 * ws, W0[1] - 118 * ws, W0[0] - 14 * ws, W0[1] - 78 * ws);
-        g.addColorStop(0, gray(0.1)); g.addColorStop(0.5, gray(0.35)); g.addColorStop(1, gray(0.7));
+        const g = tctx.createLinearGradient(W0[0] - 20 * ws, W0[1] - 110 * ws, W0[0] - 42 * ws, W0[1] - 90 * ws);
+        g.addColorStop(0, gray(0.62)); g.addColorStop(0.4, gray(0.8)); g.addColorStop(1, gray(0.9));
         tctx.fillStyle = g; tctx.fill(sL);
-        F(sL, -1.2, R_SLEEVE);
+        F(sL, -1.25, R_SLEEVE);
         fctx.save(); fctx.clip(sL);
-        flowAlong(WX(spline([[-16, -78], [-21, -92], [-24, -106], [-24, -118]], false, 6)), R_SLEEVE, 8 * ws);
-        flowAlong(WX(spline([[-26, -78], [-33, -90], [-35, -102], [-29, -114]], false, 6)), R_SLEEVE, 8 * ws);
+        for (const fl of [[[-14, -82], [-16, -92], [-20, -100], [-24, -107]], [[-24, -78], [-30, -88], [-33, -98], [-31, -106]], [[-33, -80], [-38, -88], [-38, -97], [-35, -104]]]) flowAlong(WX(spline(fl, false, 6)), R_SLEEVE, 9 * ws);
         fctx.restore();
-        const g2 = tctx.createLinearGradient(W0[0] + 26 * ws, W0[1] - 68 * ws, W0[0] + 40 * ws, W0[1] - 56 * ws);
-        g2.addColorStop(0, gray(0.5)); g2.addColorStop(1, gray(0.75));
-        tctx.fillStyle = g2; tctx.fill(sR);
-        F(sR, 0.6, R_SLEEVE);
+        L.sleeveFolds = [[[-15, -85], [-17, -94], [-21, -103]], [[-24, -80], [-30, -90], [-32, -100], [-30, -107]], [[-32, -82], [-37.5, -90], [-37.5, -98]], [[26, -60], [29, -54], [30, -48]], [[18, -74], [24, -70], [30, -66]]].map((f) => WX(spline(f, false, 6)));
       }
-      const fl = (nm, v, rid, th) => { const p = polyPath(wizShapes[nm]); tctx.fillStyle = gray(v); tctx.fill(p); F(p, th, rid); };
-      fl('hood', 0.62, R_CLOAK, 0.2);
-      fl('hair', 0.14, R_HAIR, -0.2);
-      fl('beard', 0.12, R_HAIR, 1.9);
-      fl('handL', 0.3, R_SKIN, 0.8);
-      fl('handR', 0.5, R_SKIN, 0.8);
-      fl('bootR', 0.88, R_SKIN, 0.2);
-      fl('bootL', 0.82, R_SKIN, 0.2);
+      const sR = polyPath(wizShapes.sleeveR);
+      { const g = tctx.createLinearGradient(W0[0] + 14 * ws, W0[1] - 82 * ws, W0[0] + 34 * ws, W0[1] - 50 * ws); g.addColorStop(0, gray(0.7)); g.addColorStop(1, gray(0.9)); tctx.fillStyle = g; tctx.fill(sR); F(sR, 0.6, R_SLEEVE); }
+      const fl = (nm, v, rid, th) => { const p = polyPath(wizShapes[nm]); tctx.fillStyle = typeof v === 'number' ? gray(v) : v; tctx.fill(p); F(p, th, rid); };
+      fl('forearmL', 0.55, R_SKIN, -1.1);
+      fl('sleeveMouth', 0.95, R_SLEEVE, 0);
+      fl('hood', 0.86, R_CLOAK, 0.2);
+      {
+        const g = tctx.createLinearGradient(W0[0] - 30 * ws, W0[1] - 84 * ws, W0[0] + 12 * ws, W0[1] - 84 * ws);
+        g.addColorStop(0, gray(0.5)); g.addColorStop(0.5, gray(0.62)); g.addColorStop(1, gray(0.8));
+        fl('hair', g, R_HAIR, -0.12);
+      }
+      fl('beard', 0.5, R_HAIR, 3.1);
+      fl('handL', 0.45, R_SKIN, 0.8);
+      fl('handR', 0.7, R_SKIN, 0.8);
+      fl('bootR', 0.92, R_SKIN, 0.2);
+      fl('bootL', 0.9, R_SKIN, 0.2);
+      // the hat: crown dark, its left flank catching the blaze; the brim's underside in shadow
       const crP = polyPath(wizShapes.crown), brP = polyPath(wizShapes.brim);
       {
-        const g = tctx.createLinearGradient(W0[0] - 28 * ws, 0, W0[0] + 8 * ws, 0);
-        g.addColorStop(0, gray(0.1)); g.addColorStop(0.55, gray(0.38)); g.addColorStop(1, gray(0.72));
-        tctx.fillStyle = g; tctx.fill(crP); F(crP, -1.0, R_HAT);
-        const g2 = tctx.createLinearGradient(W0[0] - 17 * ws, 0, W0[0] + 19 * ws, 0);
-        g2.addColorStop(0, gray(0.3)); g2.addColorStop(0.6, gray(0.55)); g2.addColorStop(1, gray(0.75));
-        tctx.fillStyle = g2; tctx.fill(brP); F(brP, -0.05, R_HAT);
+        const g = tctx.createLinearGradient(W0[0] - 26 * ws, W0[1] - 112 * ws, W0[0] + 4 * ws, W0[1] - 106 * ws);
+        g.addColorStop(0, gray(0.55)); g.addColorStop(0.18, gray(0.8)); g.addColorStop(1, gray(0.9));
+        tctx.fillStyle = g; tctx.fill(crP);
+        F(crP, Math.atan2(crownTip[1] - crownBase[1], crownTip[0] - crownBase[0]), R_HAT);
+        tctx.fillStyle = gray(0.92); tctx.fill(brP); F(brP, -0.04, R_HAT);
       }
       OBJ = O.STAFF;
-      tStroke(wizShapes.staff, 0.7, 2.2 * ws, 0);
-      fctx.save(); fctx.lineWidth = 2.2 * ws; fctx.strokeStyle = flowc(0.2, R_STAFF); fctx.stroke(polyPath(wizShapes.staff, true)); fctx.restore();
-      bctx.save(); bctx.lineWidth = 2.2 * ws; bctx.strokeStyle = 'rgb(' + O.STAFF + ',0,0)'; bctx.stroke(polyPath(wizShapes.staff, true)); bctx.restore();
+      tStroke(wizShapes.staff, 0.82, 2.0 * ws, 0);
+      fctx.save(); fctx.lineWidth = 2.0 * ws; fctx.strokeStyle = flowc(0.2, R_STAFF); fctx.stroke(polyPath(wizShapes.staff, true)); fctx.restore();
+      bctx.save(); bctx.lineWidth = 2.0 * ws; bctx.strokeStyle = 'rgb(' + O.STAFF + ',0,0)'; bctx.stroke(polyPath(wizShapes.staff, true)); bctx.restore();
       OBJ = O.SWORD;
       {
         const { a, b } = wizShapes.sword;
-        const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), nx = -Math.sin(ang), ny = Math.cos(ang), w = 1.25 * ws;
-        const bl = [[a[0] + nx * w, a[1] + ny * w], [lerp(a[0], b[0], 0.88) + nx * w * 0.85, lerp(a[1], b[1], 0.88) + ny * w * 0.85], [b[0], b[1]], [lerp(a[0], b[0], 0.88) - nx * w * 0.85, lerp(a[1], b[1], 0.88) - ny * w * 0.85], [a[0] - nx * w, a[1] - ny * w]];
+        const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), nx = -Math.sin(ang), ny = Math.cos(ang), w = 1.2 * ws;
+        const bl = [[a[0] + nx * w, a[1] + ny * w], [lerp(a[0], b[0], 0.9) + nx * w * 0.8, lerp(a[1], b[1], 0.9) + ny * w * 0.8], [b[0], b[1]], [lerp(a[0], b[0], 0.9) - nx * w * 0.8, lerp(a[1], b[1], 0.9) - ny * w * 0.8], [a[0] - nx * w, a[1] - ny * w]];
         wizShapes.blade = bl;
-        const bp = polyPath(bl); tctx.fillStyle = gray(0.04); tctx.fill(bp); F(bp, ang, R_STEEL);
+        const bp = polyPath(bl); tctx.fillStyle = gray(0.02); tctx.fill(bp); F(bp, ang, R_STEEL);
       }
     }
 
@@ -1298,9 +1498,11 @@
     L.sparks = [];
     {
       const c0 = L.clash;
-      for (let i = 0; i < 170; i++) {
-        const a = R() * TAU, d = Math.pow(R(), 1.8) * 200;
-        L.sparks.push([c0[0] + Math.cos(a) * d * 1.3, c0[1] + Math.sin(a) * d * 0.9, RR(0.6, 2.0), a]);
+      for (let i = 0; i < 90; i++) {
+        const a = R() * TAU, d = Math.pow(R(), 2.2) * 120;
+        const x = c0[0] + Math.cos(a) * d * 1.2, y = c0[1] + Math.sin(a) * d * 0.9;
+        if (pointInPoly(x, y, rift)) continue;
+        L.sparks.push([x, y, RR(0.5, 1.7), a]);
       }
       for (let i = 0; i < 90; i++) {
         const x = B0[0] + RR(-110, 150) * bs, y = B0[1] + RR(-170, 10) * bs;
@@ -1337,12 +1539,28 @@
         C2[i] = c; S2[i] = s;
         if ((i & 0x3ffff) === 0) await tick();
       }
+      // smoke is hatched along its iso-tones, so the lines wrap each billow's light and shade
+      const Bt = new Float32Array(hw * hh), tmp = new Float32Array(hw * hh);
+      const rad = Math.max(3, Math.round(11 * hk));
+      for (let y = 0; y < hh; y++) { let acc = 0; const row = y * hw; for (let x = -rad; x < hw; x++) { if (x + rad < hw) acc += T[row + x + rad]; if (x - rad - 1 >= 0) acc -= T[row + x - rad - 1]; if (x >= 0) tmp[row + x] = acc / (2 * rad + 1); } }
+      await tick();
+      for (let x = 0; x < hw; x++) { let acc = 0; for (let y = -rad; y < hh; y++) { if (y + rad < hh) acc += tmp[(y + rad) * hw + x]; if (y - rad - 1 >= 0) acc -= tmp[(y - rad - 1) * hw + x]; if (y >= 0) Bt[y * hw + x] = acc / (2 * rad + 1); } }
+      await tick();
+      for (let y = 1; y < hh - 1; y++) for (let x = 1; x < hw - 1; x++) {
+        const i = y * hw + x;
+        if (RID[i] !== R_SMOKE) continue;
+        const gx = Bt[i + 1] - Bt[i - 1], gy = Bt[i + hw] - Bt[i - hw];
+        const m = Math.hypot(gx, gy);
+        const wgt = clamp(m * 60, 0, 1);
+        const th = Math.atan2(gy, gx) + Math.PI / 2;
+        C2[i] = lerp(C2[i], Math.cos(2 * th), wgt); S2[i] = lerp(S2[i], Math.sin(2 * th), wgt);
+      }
     }
     // lights: the staff's white blaze, and the demon's fire
     {
       const [bx, by] = L.blaze;
-      const fx = B0[0] + 4 * bs, fy = B0[1] - 70 * bs;
-      const r1 = 1 / (150 * 150), r2 = 1 / (440 * 440), r3 = 1 / (240 * 240);
+      const fx = B0[0] - 14 * bs, fy = B0[1] - 104 * bs;
+      const r1 = 1 / (120 * 120), r2 = 1 / (420 * 420), r3 = 1 / (170 * 170);
       for (let y = 0; y < hh; y++) {
         const uy = (y + 0.5) / hk;
         for (let x = 0; x < hw; x++) {
@@ -1353,7 +1571,7 @@
           const ux = (x + 0.5) / hk;
           const d2 = (ux - bx) * (ux - bx) + (uy - by) * (uy - by);
           const f2 = (ux - fx) * (ux - fx) + (uy - fy) * (uy - fy);
-          const l = (0.78 * Math.exp(-d2 * r1) + 0.32 * Math.exp(-d2 * r2) + 0.22 * Math.exp(-f2 * r3)) * lit;
+          const l = (0.85 * Math.exp(-d2 * r1) + 0.18 * Math.exp(-d2 * r2) + 0.32 * Math.exp(-f2 * r3)) * lit;
           T[i] = T[i] * (1 - (l > 0.95 ? 0.95 : l));
         }
         if ((y & 31) === 0) await tick();
@@ -1388,10 +1606,10 @@
       return RID[fy * hw + fx];
     }
     const LAYERS = [
-      { thr: 0.03, rng: 0.5, cmax: 0.47 },
-      { thr: 0.33, rng: 0.4, cmax: 0.42 },
-      { thr: 0.57, rng: 0.3, cmax: 0.44 },
-      { thr: 0.79, rng: 0.17, cmax: 0.5 },
+      { thr: 0.03, rng: 0.5, cmax: 0.52 },
+      { thr: 0.32, rng: 0.38, cmax: 0.48 },
+      { thr: 0.55, rng: 0.3, cmax: 0.5 },
+      { thr: 0.76, rng: 0.18, cmax: 0.62 },
     ];
     const SEP = Math.max(4.0, 0.00185 * IW);
     const hatchStats = { lines: 0, pts: 0 };
@@ -1428,7 +1646,8 @@
         }
         return false;
       }
-      const cov = (t) => { const c = (t - Ly.thr) / Ly.rng; return c <= 0 ? 0 : (c >= 1 ? Ly.cmax : c * Ly.cmax); };
+      let T0 = 0;
+      const cov = (t) => { t = (t - T0) / (1 - T0); const c = (t - Ly.thr) / Ly.rng; return c <= 0 ? 0 : (c >= 1 ? Ly.cmax : c * Ly.cmax); };
       function dirAt(x, y, r) {
         const rg = REG[r];
         const off = rg.off[li];
@@ -1465,6 +1684,7 @@
         const r = ridAt(x, y);
         const rg = REG[r];
         if (!rg || !(rg.layers & (1 << li))) return;
+        T0 = rg.t0 || 0;
         if (cov(samp(T, x, y)) <= 0.01) return;
         const sep = SEP * rg.sp;
         if (near(x, y, sep * 0.92, r, -1)) return;
@@ -1473,7 +1693,7 @@
         const nb = trace(x, y, r, sep, -1, line, maxL * 0.5, tmpX, tmpY);
         const nf = trace(x, y, r, sep, 1, line, maxL * 0.5, bufX, bufY);
         const n = nb + nf + 1;
-        if (n < 3 || (n - 1) * Math.max(1.1, sep * 0.3) < sep * 1.2) return;
+        if (n < 3 || (n - 1) * Math.max(1.1, sep * 0.3) < sep * (rg.minC || 2.6)) return;
         const xs = new Float32Array(n), ys = new Float32Array(n), rs = new Float32Array(n);
         for (let i = 0; i < nb; i++) { xs[i] = tmpX[nb - 1 - i]; ys[i] = tmpY[nb - 1 - i]; }
         xs[nb] = x; ys[nb] = y;
@@ -1526,11 +1746,15 @@
     /* ---------- silhouettes: marching squares over the object map */
     function traceObj(ids) {
       const m = maskOf(ids);
+      return traceMask((x, y) => m[OIDA[y * hw + x]]);
+    }
+    function traceMask(test, box) {
       let x0 = hw, y0 = hh, x1 = -1, y1 = -1;
-      for (let y = 0; y < hh; y++) { const row = y * hw; for (let x = 0; x < hw; x++) if (m[OIDA[row + x]]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+      if (box) { [x0, y0, x1, y1] = box; }
+      else for (let y = 0; y < hh; y++) for (let x = 0; x < hw; x++) if (test(x, y)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       if (x1 < 0) return [];
       x0 -= 1; y0 -= 1; x1 += 1; y1 += 1;
-      const ins = (x, y) => (x >= 0 && y >= 0 && x < hw && y < hh && m[OIDA[y * hw + x]]) ? 1 : 0;
+      const ins = (x, y) => (x >= 0 && y >= 0 && x < hw && y < hh && test(x, y)) ? 1 : 0;
       const W = x1 - x0 + 2;
       const adj = new Map();
       const link = (a, b) => { let l = adj.get(a); if (!l) adj.set(a, l = []); l.push(b); let r = adj.get(b); if (!r) adj.set(b, r = []); r.push(a); };
@@ -1661,8 +1885,9 @@
         const s = seg3(fp(0, y), fp(1, y));
         if (!s || Math.max(s[0][1], s[1][1]) < -20 || Math.min(s[0][1], s[1][1]) > SH + 20) continue;
         const gapAt = R() * 0.9;
-        ln(fp(0, y), fp(gapAt, y), { w: 0.5 * wv, a: 0.85, wob: 0.2, taper: [0.05, 0.05] });
-        ln(fp(gapAt + 0.04, y), fp(1, y), { w: 0.5 * wv, a: 0.85, wob: 0.2, taper: [0.05, 0.05] });
+        ln(fp(0, y), fp(gapAt, y), { w: 0.6 * wv, a: 0.9, wob: 0.2, taper: [0.05, 0.05] });
+        ln(fp(gapAt + 0.04, y), fp(1, y), { w: 0.6 * wv, a: 0.9, wob: 0.2, taper: [0.05, 0.05] });
+        { const q = seg3(fp(0.02, y + 0.07), fp(0.98, y + 0.07)); if (q) spen(q, { w: 0.35 * wv, a: 0.55, taper: [0.2, 0.2], obj }); }
         const ju = (Math.round(y / 1.25) & 1) ? 0.5 : (R() < 0.5 ? 0.25 : 0.75);
         ln(fp(ju, y), fp(ju, y + 1.25), { w: 0.45 * wv, a: 0.8, wob: 0.1, taper: [0, 0] });
         if (R() < 0.2) {
@@ -1675,7 +1900,7 @@
         }
       }
       if (pl.rune) {
-        const yA = 2.0, yB = 3.5;
+        const yA = 1.6, yB = 3.9;
         ln(fp(0, yA), fp(1, yA), { w: 0.9 * wv, a: 0.95, wob: 0.1, taper: [0, 0] });
         ln(fp(0, yB), fp(1, yB), { w: 0.9 * wv, a: 0.95, wob: 0.1, taper: [0, 0] });
         const nG = 7;
@@ -1685,8 +1910,9 @@
             const w3 = s.map(([gu, gv]) => fp(lerp(u0, u1, gu), lerp(yB - 0.22, yA + 0.22, gv)));
             if (w3.some((p) => C3(...p)[2] < ZN)) continue;
             const pts = w3.map((p) => P(...p));
-            pen(pts, { w: 0.9 * wv, a: 0.95, wob: 0.03, taper: [0, 0], obj });
-            gpen(pts.map((p) => [p[0] - 0.9 * wv, p[1] - 0.7 * wv]), { w: 0.35 * wv, a: 0.5, taper: [0.2, 0.2], obj });
+            pen(pts, { w: 1.3 * wv, a: 0.98, wob: 0.03, taper: [0, 0], obj });
+            spen(pts.map((p) => [p[0] - 0.8 * wv, p[1] - 0.6 * wv]), { w: 0.55 * wv, a: 0.85, taper: [0.1, 0.1], obj });
+            if (pl.x > 0) (L.runeWash = L.runeWash || []).push(pts);
           }
         }
       }
@@ -1699,27 +1925,26 @@
       pen(L.deckL, { w: 1.0, a: 0.95, wob: 0.12, taper: [0, 0.1], obj: ob });
       pen(L.deckR, { w: 1.5, a: 1, wob: 0.12, taper: [0, 0.1], obj: ob });
       pen(L.sideBot, { w: 1.7, a: 1, wob: 0.2, taper: [0, 0.1], obj: [ob, O.DEEP, O.WALL, O.LBRIDGE, O.SMOKE] });
-      let z = zA + 0.15, row = 0;
-      while (z < zB - 0.2) {
-        const len = RR(0.42, 0.6) * (1 + (z - 8) * 0.012);
-        const zz = z + len;
-        const zm = (row++ & 1) ? z + len * 0.5 : z;
-        const s = seg3([-BW, deckY(z), z], [BW, deckY(z), z]);
-        if (s) {
-          const dist = C3(0, 0, z)[2];
-          const wv = clamp(8 / dist, 0.35, 1.3);
-          pen(s, { w: 0.55 * wv, a: 0.85, wob: 0.15, taper: [0, 0], obj: ob });
-          const m = seg3([RR(-0.08, 0.08), deckY(zm), zm], [RR(-0.08, 0.08), deckY(zz), zz]);
-          if (m && R() < 0.7) pen(m, { w: 0.45 * wv, a: 0.75, wob: 0.1, taper: [0, 0], obj: ob });
-          if (dist < 15) {
-            if (R() < 0.6) { const c = P(RR(-BW * 0.8, BW * 0.8), deckY(z + len / 2), z + len / 2); ticks(c[0], c[1], Math.atan2(VP1[1] - c[1], VP1[0] - c[0]) + 1.4 + RR(-0.3, 0.3), 3 + ((R() * 4) | 0), 5 * wv, 1.8 * wv, 0.28 * wv, 0.75, ob); }
-            if (R() < 0.25) { let c = P(RR(-BW, BW), deckY(z + 0.1), z + 0.1); const cr = [c]; for (let i = 0; i < 4; i++) { c = [c[0] + RR(-6, 6) * wv, c[1] + RR(1, 4) * wv]; cr.push(c); } pen(cr, { w: 0.5 * wv, a: 0.9, taper: [0.1, 0.7], obj: ob }); }
-            if (R() < 0.3) { const c = P(BW, deckY(z + len * 0.5), z + len * 0.5); pen([[c[0] - 4 * wv, c[1]], [c[0] - 1 * wv, c[1] + 3 * wv], [c[0] + 3 * wv, c[1] + 1 * wv]], { w: 0.7 * wv, a: 0.95, obj: ob }); }
-          }
-        }
-        z = zz;
+      for (const st of L.stones) {
+        const dist = C3(0, 0, (st.z0 + st.z1) / 2)[2];
+        const wv = clamp(8 / dist, 0.3, 1.3);
+        const Pd = (x, z) => P(x, deckY(z), z);
+        // the joint at the far end and the longitudinal joint; corners knocked off
+        const cut = 0.05 + R() * 0.05;
+        const e0 = seg3([st.x0 + cut, deckY(st.z1), st.z1], [st.x1 - cut, deckY(st.z1), st.z1]);
+        if (e0) pen(e0, { w: 0.6 * wv, a: 0.85, wob: 0.25, taper: [0.1, 0.1], obj: ob });
+        if (st.x1 < BW - 0.01) { const e1 = seg3([st.x1, deckY(st.z0 + cut), st.z0 + cut], [st.x1, deckY(st.z1 - cut), st.z1 - cut]); if (e1) pen(e1, { w: 0.5 * wv, a: 0.8, wob: 0.2, taper: [0.1, 0.1], obj: ob }); }
+        if (dist > 17) continue;
+        // a lit lip along the near edge of each joint
+        const l0 = seg3([st.x0 + cut, deckY(st.z1) + 0.01, st.z1 - 0.03], [st.x1 - cut, deckY(st.z1) + 0.01, st.z1 - 0.03]);
+        if (l0 && R() < 0.7) gpen(l0, { w: 0.35 * wv, a: 0.45, taper: [0.3, 0.3], obj: ob });
+        // chisel marks, pits, a crack now and then
+        if (R() < 0.75) { const c = Pd(lerp(st.x0, st.x1, RR(0.25, 0.75)), lerp(st.z0, st.z1, RR(0.3, 0.7))); ticks(c[0], c[1], Math.atan2(VP1[1] - c[1], VP1[0] - c[0]) + 1.4 + RR(-0.3, 0.3), 3 + ((R() * 5) | 0), 6 * wv, 1.7 * wv, 0.3 * wv, 0.75, ob); }
+        for (let q = 0; q < 4; q++) { if (R() < 0.5) continue; const c = Pd(lerp(st.x0, st.x1, R()), lerp(st.z0, st.z1, R())); pen([c, [c[0] + 0.4 * wv, c[1] + 0.2 * wv]], { w: RR(0.4, 0.9) * wv, a: 0.8, wob: 0, obj: ob }); }
+        if (R() < 0.22) { let c = Pd(lerp(st.x0, st.x1, R()), st.z0 + 0.05); const cr = [c]; for (let i = 0; i < 5; i++) { c = [c[0] + RR(-5, 5) * wv, c[1] + RR(0.5, 3) * wv]; cr.push(c); } pen(cr, { w: 0.5 * wv, a: 0.9, taper: [0.1, 0.7], obj: ob }); }
+        if (st.x1 >= BW - 0.01 && R() < 0.35) { const c = Pd(BW, lerp(st.z0, st.z1, R())); pen([[c[0] - 4 * wv, c[1]], [c[0] - 1 * wv, c[1] + 3 * wv], [c[0] + 3 * wv, c[1] + 1 * wv]], { w: 0.7 * wv, a: 0.95, obj: ob }); }
       }
-      z = zA + 0.3;
+      let z = zA + 0.3;
       while (z < zB - 0.3) {
         const s = seg3([BW, deckY(z), z], [BW, underY(z), z]);
         if (s) {
@@ -1733,27 +1958,27 @@
         z += RR(0.4, 0.5);
       }
     }
-    for (const pp of L.pierFaces) {
-      pen([pp[3], pp[0]], { w: 1.0, a: 0.9, wob: 0.2, obj: O.PIER });
-      pen([pp[2], pp[1]], { w: 1.0, a: 0.9, wob: 0.2, obj: O.PIER });
-    }
+    for (const ln of traceObj([O.PIER])) pen(ln, { w: 1.1, a: 0.9, wob: 0.35, taper: [0, 0] });
     await tick();
 
-    // ---- smoke: scalloped crowns of the billows
-    {
-      const od = octx2.getImageData(0, 0, hw, hh).data;
-      const owner = (u, v) => { const x = (u * hk) | 0, y = (v * hk) | 0; if (x < 0 || y < 0 || x >= hw || y >= hh) return -1; const j = (y * hw + x) * 4; return od[j + 2] > 200 ? od[j] + (od[j + 1] << 8) - 1 : -1; };
-      billows.forEach((b, bi) => {
-        let run = [];
-        const flushRun = () => { if (run.length > 4) pen(run, { w: RT(run[0][0], run[0][1]) > 0.55 ? 0.9 : 0.55, a: 0.85, wob: 0.15, taper: [0.3, 0.3], obj: O.SMOKE }); run = []; };
-        for (let a = Math.PI * 0.92; a < Math.PI * 2.08; a += 0.06) {
-          const x = b.cx + Math.cos(a) * b.r * 0.98, y = b.cy + Math.sin(a) * b.r * b.sq * 0.98;
-          if (owner(x, y) === bi) run.push([x, y]); else flushRun();
+    // ---- smoke: a few contour lines where the rolls turn
+    for (const sf of L.smokeFields) {
+      for (const lev of [sf.lo + 0.05, sf.lo + 0.22, sf.lo + 0.4]) {
+        const lines = traceMask((x, y) => { const lx = x - sf.px0, ly = y - sf.py0; return lx >= 0 && ly >= 0 && lx < sf.W2 && ly < sf.H2 && sf.Dn[ly * sf.W2 + lx] > lev && OIDA[y * hw + x] === O.SMOKE; }, [sf.px0, sf.py0, sf.px0 + sf.W2 - 1, sf.py0 + sf.H2 - 1])
+          .map((ln) => ln.filter((q) => RT(q[0], q[1]) > 0.55)).filter((ln) => ln.length > 1);
+        for (const ln of lines) {
+          if (ln.length < 14) continue;
+          // only broken pieces of each contour, like an engraver's line on a turning edge
+          let i = 0;
+          while (i < ln.length - 6) {
+            const L0 = 6 + ((R() * 26) | 0);
+            if (R() < 0.45) pen(ln.slice(i, i + L0), { w: RR(0.4, 0.8), a: 0.8, wob: 0.15, taper: [0.4, 0.4], obj: O.SMOKE });
+            i += L0 + ((R() * 14) | 0);
+          }
         }
-        flushRun();
-      });
+        await tick();
+      }
     }
-    await tick();
 
     // ---- the wings: silhouette, bones, fraying trailing edge
     for (const wgd of [L.wingL, L.wingR]) {
@@ -1776,60 +2001,95 @@
     // ---- the Balrog: silhouette, inner forms, horns, face, veins of fire
     {
       const ob = [O.BAL];
-      for (const ln of traceObj([O.BAL])) pen(ln, { w: 1.7, a: 1, wob: 0.25, taper: [0, 0] });
-      const part = (nm) => BAL_PARTS.find((p) => p.nm === nm).u;
-      const arc = (poly, a, b) => { const n = poly.length, out = []; for (let i = Math.floor(a * n); i <= Math.floor(b * n); i++) out.push(poly[i % n]); return out; };
-      // the raised arm stands out in front of the chest; a few anatomical edges
-      for (const nm of ['bicepsN', 'forearmN', 'flexorN', 'fistN']) pen(part(nm).concat([part(nm)[0]]), { w: 0.8, a: 0.95, wob: 0.15, taper: [0, 0], obj: ob });
-      pen(arc(part('shN'), 0.05, 0.6), { w: 0.8, a: 0.9, obj: ob });
-      pen(arc(part('pecN'), 0.0, 0.5), { w: 0.9, a: 0.9, obj: ob });
-      pen(arc(part('pecF'), 0.05, 0.45), { w: 0.7, a: 0.85, obj: ob });
-      pen(arc(part('belly'), 0.0, 0.5), { w: 0.55, a: 0.8, obj: ob });
-      pen(arc(part('bicepsF'), 0.0, 0.5), { w: 0.6, a: 0.85, obj: ob });
-      pen(arc(part('thighN'), 0.0, 0.5), { w: 0.6, a: 0.85, obj: ob });
-      for (let i = 0; i < 3; i++) pen(BX(spline([[-13, -61 + i * 5.5], [-6, -62 + i * 5.5], [2, -61.5 + i * 5.5]], false, 6)), { w: 0.5, a: 0.75, obj: ob, taper: [0.3, 0.3] });
-      pen(BX(spline([[-5, -66], [-5, -56], [-4, -45]], false, 6)), { w: 0.5, a: 0.75, obj: ob, taper: [0.3, 0.3] });
-      for (let i = 0; i < 4; i++) pen(BX([[-24 + i * 1.2, -66 + i * 3.4], [-19 + i * 1.2, -64.8 + i * 3.4]]), { w: 0.6, a: 0.8, obj: ob, taper: [0.2, 0.6] });
-      // bony spurs along the forearms and spine
-      for (const [a0, b0] of [[BP.elbowN, BP.fistN], [BP.elbowF, BP.fistF]]) {
-        for (let i = 0; i < 4; i++) {
-          const t = 0.1 + i * 0.2, c = mid(a0, b0, t), an = axis(a0, b0);
-          const base = BX([[c[0] + Math.cos(an - 1.57) * 4.5, c[1] + Math.sin(an - 1.57) * 4.5]])[0];
-          const tipp = BX([[c[0] + Math.cos(an - 1.57) * 4.5 + Math.cos(an - 2.4) * 4, c[1] + Math.sin(an - 1.57) * 4.5 + Math.sin(an - 2.4) * 4]])[0];
-          pen([base, tipp], { w: 1.4, w1: 0.2, a: 1, taper: [0, 0] });
+      const sil = traceObj([O.BAL]);
+      for (const ln of sil) pen(ln, { w: 1.7, a: 1, wob: 0.25, taper: [0, 0] });
+      // backlight: a thread of fire runs round the silhouette wherever flame is near behind it
+      const objAt = (u, v) => { const x = (u * hk) | 0, y = (v * hk) | 0; return (x < 0 || y < 0 || x >= hw || y >= hh) ? 0 : OIDA[y * hw + x]; };
+      const inten = (x, y) => Math.max(Math.exp(-((x - L.fireA[0]) ** 2 + (y - L.fireA[1]) ** 2) / (55 * bs) ** 2), Math.exp(-((x - L.fireB[0]) ** 2 + (y - L.fireB[1]) ** 2) / (34 * bs) ** 2), 0.35 * Math.exp(-((x - L.sword.hilt[0]) ** 2 + (y - L.sword.hilt[1]) ** 2) / (30 * bs) ** 2));
+      L.rimRuns = [];
+      for (const ln of sil) {
+        let run = [];
+        const flushR = () => { if (run.length > 5) { const m = run.reduce((a, p) => a + p[2], 0) / run.length; const pts = run.map((p) => [p[0], p[1]]); spen(pts, { w: 0.5 + 1.1 * m, a: 0.95, taper: [0.3, 0.3], obj: ob }); L.rimRuns.push([pts, m]); } run = []; };
+        for (let i = 0; i < ln.length; i++) {
+          const a = ln[Math.max(0, i - 2)], b = ln[Math.min(ln.length - 1, i + 2)];
+          const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+          const nx = -dy / l, ny = dx / l, d = 1.1 * bs;
+          const inside = objAt(ln[i][0] + nx * d, ln[i][1] + ny * d) === O.BAL ? 1 : -1;
+          const q = [ln[i][0] + nx * d * inside, ln[i][1] + ny * d * inside];
+          const it = inten(q[0], q[1]) * (0.75 + 0.5 * nz(i / 6, ln.length));
+          if (it > 0.22) run.push([q[0], q[1], clamp(it, 0, 1)]); else flushR();
         }
+        flushR();
       }
-      // brow, eye-socket, cheek and the line of the open jaw
-      pen(BX(spline([[-31, -93.4], [-27, -94.4], [-22, -94.2], [-18, -95.4]], false, 6)), { w: 1.1, a: 1, obj: ob });
-      pen(BX(spline([[-28, -86.2], [-24, -85.6], [-19, -85.4], [-15, -86.8]], false, 6)), { w: 0.8, a: 1, obj: ob });
+      // the form is modelled the scratchboard way: white lines cut into the black along the muscles
+      const sc = (pts, w, al) => spen(BX(spline(pts, false, 8)), { w: w || 0.55, a: al || 0.9, taper: [0.3, 0.5], obj: ob });
+      const HTs = (pts) => pts.map(HT);
+      // pectorals and the sternum
+      sc([[-29, -76], [-22, -71.6], [-13, -70.6], [-5, -72.4]], 0.75);
+      sc([[-26, -78.6], [-19, -75.4], [-12, -75]], 0.4, 0.7);
+      sc([[-3, -72.6], [5, -73.4], [13, -76.6], [19, -80.6]], 0.55, 0.75);
+      sc([[-4.6, -86], [-4.8, -78], [-4.4, -70]], 0.45, 0.7);
+      // ribs and serratus on the near flank
+      for (let i = 0; i < 4; i++) sc([[-26.4 + i * 1.2, -68.6 + i * 3.4], [-21.6 + i * 1.2, -67.2 + i * 3.4]], 0.5, 0.85);
+      // the abdomen in bands
+      for (let i = 0; i < 3; i++) sc([[-14, -64 + i * 5.4], [-9, -65 + i * 5.4], [-3, -64.6 + i * 5.4]], 0.45, 0.75);
+      sc([[-5.6, -67], [-5.2, -58], [-4.4, -49]], 0.4, 0.6);
+      sc([[-17, -46], [-12, -42.4], [-6, -41.4]], 0.5, 0.7);
+      // the sword arm: deltoid, biceps, forearm
+      sc([[-24, -90.6], [-31, -90.2], [-36, -87]], 0.6, 0.85);
+      { const ax = offsetLine(BX(spline([BP.shN, BP.elbowN, BP.fistN], false, 10)), 3.2 * bs); spen(ax.slice(2, -3), { w: 0.75, a: 0.9, taper: [0.2, 0.4], obj: ob }); spen(offsetLine(ax, -1.6 * bs).slice(4, -6), { w: 0.4, a: 0.7, taper: [0.3, 0.5], obj: ob }); }
+      sc([[-44, -84.6], [-50, -86.6], [-56, -88]], 0.45, 0.75);
+      // far arm and shoulder
+      sc([[14, -92.4], [21, -91], [26.4, -87.6]], 0.6, 0.85);
+      sc([[30, -91.4], [37, -94.6], [44, -98.4], [50, -102.6]], 0.55, 0.8);
+      sc([[20, -72], [17.6, -62], [15, -53]], 0.45, 0.7);
+      // legs: the knee and shin of the striding leg, the far thigh
+      sc([[-21.6, -40], [-24.2, -30], [-24.4, -20], [-23.4, -10]], 0.55, 0.75);
+      sc([[17, -38], [21.6, -28], [22, -18]], 0.45, 0.6);
+      sc([[-14, -28], [-17, -18], [-18.6, -8]], 0.35, 0.55);
+      // the head: cheekbone, the line of the jaw, the brow
+      sc(HTs([[-31, -99.4], [-26, -99.8], [-20.6, -101.4]]), 0.5, 0.85);
+      sc(HTs([[-27, -93], [-21.4, -93.6], [-15.6, -95.6]]), 0.45, 0.8);
+      sc(HTs([[-13, -103], [-9, -101], [-6.6, -97]]), 0.4, 0.7);
+      pen(BXH(spline([[-30.6, -102.6], [-27.6, -103.2], [-24.4, -103.4], [-21, -105]], false, 6)), { w: 1.0, a: 1, obj: ob });
+      // fine engraver's flicks in the lit planes
+      for (let i = 0; i < 80; i++) {
+        const t = R();
+        const pick = R() < 0.45 ? [mid(BP.shN, BP.elbowN, t), axis(BP.shN, BP.elbowN)] : R() < 0.5 ? [mid(BP.elbowF, BP.fistF, t), axis(BP.elbowF, BP.fistF)] : [[lerp(-28, -20, t), lerp(-80, -58, t)], 1.4];
+        const c = BX([pick[0]])[0], an = pick[1] + 1.4;
+        spen([[c[0], c[1]], [c[0] + Math.cos(an) * RR(1.2, 3), c[1] + Math.sin(an) * RR(1.2, 3)]], { w: 0.3, a: 0.75, taper: [0, 0.7], obj: ob });
+      }
       for (const hn of balShapes.horns) {
         const h = hn.h;
         pen(hn.outline.concat([hn.outline[0]]), { w: 1.0, a: 1, wob: 0.1, taper: [0, 0] });
+        gpen(offsetLine(h, (f) => (1 - Math.pow(f, 0.8) * 0.92) * 2.6 * bs).slice(2), { w: 0.6, a: 0.5, taper: [0.2, 0.5] });
         for (let i = 2; i < h.length - 3; i += 2) {
           const a = h[i - 1], b = h[i + 1];
           const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2;
-          const wd = 3.3 * bs * (1 - (i / h.length) * 0.9);
+          const wd = 3.4 * bs * (1 - Math.pow(i / h.length, 0.8) * 0.92);
           pen([[h[i][0] - Math.cos(ang) * wd, h[i][1] - Math.sin(ang) * wd], [h[i][0] + Math.cos(ang) * wd * 0.9, h[i][1] + Math.sin(ang) * wd * 0.9]], { w: 0.5, a: 0.9, wob: 0.15 });
         }
       }
-      L.balEyes = [BX([[-29.2, -92.4], [-26.2, -92.0]]), BX([[-22.5, -92.8], [-20.4, -93.0]])];
-      L.balMaw = BX(spline([[-33.4, -86.6], [-30, -86.0], [-27.6, -85.4], [-30.5, -84.6], [-33, -83.8]], false, 6));
-      pen(L.balMaw, { w: 0.8, a: 1, obj: ob });
-      for (let i = 0; i < 5; i++) { const t = (i + 0.5) / 5; const p = BX([[lerp(-35, -29, t), lerp(-86.8, -86.2, t)]])[0]; pen([p, [p[0] - 0.3, p[1] + RR(0.9, 1.8)]], { w: 0.55, a: 1, taper: [0, 0.85], obj: ob }); }
-      for (let i = 0; i < 4; i++) { const t = (i + 0.5) / 4; const p = BX([[lerp(-33, -29, t), lerp(-83.8, -84.4, t)]])[0]; pen([p, [p[0] + 0.3, p[1] - RR(0.8, 1.5)]], { w: 0.5, a: 1, taper: [0, 0.85], obj: ob }); }
-      pen(BX([[-34.6, -89.4], [-33.4, -89.8]]), { w: 0.6, a: 1, obj: ob });
+      // the eye, a slit of fire under the brow; the maw with its teeth
+      L.balEyes = [BXH([[-28.6, -101.6], [-25.4, -102.2]])];
+      spen(L.balEyes[0], { w: 0.6, a: 1, obj: ob });
+      L.balMaw = BXH(spline([[-34, -95.6], [-31, -96.1], [-28.8, -96.4]], false, 6));
+      spen(L.balMaw, { w: 0.5, a: 0.9, obj: ob });
+      for (let i = 0; i < 5; i++) { const t = (i + 0.5) / 5; const p = BXH([[lerp(-35, -29.6, t), lerp(-97.6, -96.8, t)]])[0]; spen([p, [p[0] - 0.2, p[1] + RR(0.8, 1.5)]], { w: 0.45, a: 1, taper: [0, 0.85], obj: ob }); }
+      for (let i = 0; i < 4; i++) { const t = (i + 0.5) / 4; const p = BXH([[lerp(-34, -29.6, t), lerp(-94.8, -95.8, t)]])[0]; spen([p, [p[0] + 0.2, p[1] - RR(0.7, 1.3)]], { w: 0.4, a: 1, taper: [0, 0.85], obj: ob }); }
+      spen(BXH([[-35.2, -99.6], [-34.2, -100]]), { w: 0.45, a: 0.9, obj: ob });
       L.veins = [];
-      for (let i = 0; i < 40; i++) {
-        let p = BX([[RR(-36, 30), RR(-88, -30)]])[0];
+      for (let i = 0; i < 14; i++) {
+        let p = BX([[RR(-24, 18), RR(-82, -44)]])[0];
         const hx = (p[0] * hk) | 0, hy = (p[1] * hk) | 0;
         if (hx < 0 || hy < 0 || hx >= hw || hy >= hh || OIDA[hy * hw + hx] !== O.BAL) continue;
         const v = [p];
         let a = RR(0, TAU);
-        for (let j = 0; j < 7; j++) { a += RR(-0.9, 0.9); p = [p[0] + Math.cos(a) * RR(1.5, 4) * bs * 0.6, p[1] + Math.sin(a) * RR(1.5, 4) * bs * 0.6]; v.push(p); }
+        for (let j = 0; j < 4; j++) { a += RR(-0.9, 0.9); p = [p[0] + Math.cos(a) * RR(1, 2.5) * bs * 0.6, p[1] + Math.sin(a) * RR(1, 2.5) * bs * 0.6]; v.push(p); }
         L.veins.push(v);
-        spen(v, { w: 0.5, a: 0.85, taper: [0.2, 0.6], obj: ob });
+        spen(v, { w: 0.35, a: 0.7, taper: [0.3, 0.6], obj: ob });
       }
-      for (const c of [[-54, -105, -2.3], [-54.5, -102, -2.6], [-53.5, -99.5, -2.9], [45, -47, 1.2], [45.5, -44.5, 1.5], [44, -42.5, 1.9]]) {
+      for (const c of [[-63, -89.6, -2.5], [-63.6, -87, -2.8], [-62.6, -84.6, 3.0], [56, -111.6, -0.6], [58.6, -109.4, -0.2], [59, -105.6, 0.3]]) {
         const p = BX([[c[0], c[1]]])[0];
         const a = c[2];
         pen([p, [p[0] + Math.cos(a) * 1.4 * bs, p[1] + Math.sin(a) * 1.4 * bs], [p[0] + Math.cos(a + 0.6) * 2.4 * bs, p[1] + Math.sin(a + 0.6) * 2.4 * bs]], { w: 0.8, a: 1, taper: [0, 0.9] });
@@ -1839,12 +2099,11 @@
     for (const fl of flames) {
       const o = fl.outline, half = (o.length / 2) | 0;
       const fine = fl.opt.fleck ? 0.35 : fl.opt.mane ? 0.6 : 0.5;
-      if (R() < 0.8) pen(sub(o.slice(0, half + 1), RR(0, 0.2), RR(0.65, 1)), { w: fine, a: 0.9, wob: 0.1, taper: [0.25, 0.7] });
-      if (R() < 0.5) pen(sub(o.slice(half), RR(0, 0.35), RR(0.75, 1)), { w: fine * 0.7, a: 0.8, wob: 0.1, taper: [0.6, 0.2] });
-      if (fl.len > 14 * bs && R() < 0.6) pen(sub(offsetLine(fl.pts, (f) => fl.wid * 0.35 * (1 - f)), 0.2, 0.85), { w: 0.3, a: 0.55, taper: [0.3, 0.6] });
+      const big = fl.len > 30 * bs;
+      if (big && R() < 0.5) pen(sub(o.slice(0, half + 1), RR(0.2, 0.4), RR(0.8, 0.98)), { w: fine * 0.7, a: 0.75, wob: 0.06, taper: [0.6, 0.8], obj: [O.FIRE, O.SMOKE, O.WING] });
     }
     // ---- the whip thongs
-    for (const th of L.whip) pen(th, { w: 1.1, w1: 0.35, a: 1, wob: 0.08, taper: [0, 0.15] });
+    for (const th of L.whip) { pen(offsetLine(th, 1.3 * bs), { w: 0.8, w1: 0.25, a: 0.95, wob: 0.06, taper: [0, 0.2] }); spen(th.slice(2), { w: 1.4 * bs, w1: 0.3 * bs, a: 1, taper: [0.05, 0.3] }); gpen(th.slice(3, Math.floor(th.length * 0.6)), { w: 0.9, a: 0.6, taper: [0.2, 0.5] }); }
     // ---- the flaming sword: edges and guard
     {
       const bl = L.blade, { hilt, ang } = L.sword;
@@ -1858,43 +2117,84 @@
     // ---- the wizard
     {
       const ow = [O.WIZ];
-      const C = (nm, w, opt) => pen(wizShapes[nm].concat([wizShapes[nm][0]]), Object.assign({ w, a: 1, wob: 0.1, taper: [0, 0] }, opt || {}));
-      C('cloak', 1.3); C('sleeveL', 1.1); C('sleeveR', 1.0); C('hood', 0.8, { obj: ow }); C('crown', 1.1); C('brim', 1.0);
-      C('handL', 0.8); C('handR', 0.8); C('bootR', 0.8, { obj: ow }); C('bootL', 0.8, { obj: ow });
-      for (const fp of L.folds) pen(fp, { w: 0.85, a: 0.95, wob: 0.1, taper: [0.15, 0.4], obj: ow });
-      for (let i = 0; i < 28; i++) {
-        const s = WX(spline([[RR(-9, 12), -88 + RR(-1, 2)], [RR(-14, 6), -84 + RR(-2, 2)], [RR(-22, -4), -80 + RR(-3, 3)], [RR(-32, -14), -77 + RR(-4, 4)]], false, 6));
-        pen(s, { w: RR(0.28, 0.55), a: 0.85, wob: 0.1, taper: [0.1, 0.6] });
+      // the silhouette, heavy; inner edges lighter
+      for (const ln of traceObj([O.WIZ])) pen(ln, { w: 1.25, a: 1, wob: 0.12, taper: [0, 0] });
+      const C = (nm, w, opt) => pen(wizShapes[nm].concat([wizShapes[nm][0]]), Object.assign({ w, a: 1, wob: 0.1, taper: [0, 0], obj: ow }, opt || {}));
+      C('sleeveL', 0.9); C('sleeveR', 0.8); C('hood', 0.7); C('crown', 0.9); C('brim', 0.9);
+      C('handL', 0.7); C('handR', 0.7); C('bootR', 0.7); C('bootL', 0.7); C('sleeveMouth', 0.6); C('forearmL', 0.6); C('hair', 0.5, { a: 0.8 }); C('beard', 0.5, { a: 0.8 });
+      pen(WX(spline([[42, -69], [43.5, -66], [43, -63]], false, 4)), { w: 0.45, a: 0.9, obj: ow });
+      pen(WX(spline([[-29, -123], [-32, -124], [-35.5, -123]], false, 4)), { w: 0.4, a: 0.9, obj: ow });
+      // folds: long falls with a hooked start, some forked
+      for (const fp of L.folds) {
+        pen(fp, { w: 0.95, w1: 0.4, a: 0.95, wob: 0.12, taper: [0.25, 0.3], obj: ow });
+        if (R() < 0.6) { const st = Math.floor(fp.length * RR(0.3, 0.6)); const br = fp.slice(st).map((p, i) => [p[0] + i * RR(-0.18, 0.18) * ws, p[1]]); pen(br, { w: 0.6, a: 0.85, taper: [0.4, 0.4], obj: ow }); }
       }
-      for (let i = 0; i < 18; i++) {
-        const s = WX(spline([[RR(11, 15), -87], [RR(16, 19), -81], [RR(15, 18), -74], [RR(6, 13), -68 + RR(-2, 2)]], false, 6));
-        pen(s, { w: RR(0.28, 0.5), a: 0.85, wob: 0.1, taper: [0.1, 0.6] });
+      for (const fp of L.sleeveFolds) pen(fp, { w: 0.8, w1: 0.3, a: 0.9, taper: [0.3, 0.3], obj: ow });
+      // crease in the crown, band at its base
+      pen(WX(spline([[-5, -101], [-7.5, -110], [-11, -119], [-15.5, -127]], false, 6)), { w: 0.5, a: 0.8, taper: [0.3, 0.5], obj: ow });
+      pen(WX(spline([[-9, -99.4], [0, -100.8], [8, -99.6]], false, 6)), { w: 0.7, a: 0.9, obj: ow });
+      // hair and beard: long strands streaming to the left in the hot wind
+      for (let i = 0; i < 34; i++) {
+        const y0 = RR(-95, -84), x0 = RR(-10, 10);
+        const s = WX(spline([[x0, y0], [x0 - RR(6, 10), y0 + RR(1, 3)], [x0 - RR(14, 22), y0 + RR(3, 6)], [x0 - RR(22, 34), y0 + RR(4, 9)]], false, 6));
+        pen(s, { w: RR(0.25, 0.5), a: 0.8, wob: 0.08, taper: [0.1, 0.7], obj: ow });
       }
-      pen(wizShapes.staff, { w: 2.3, a: 1, wob: 0.15, taper: [0, 0], obj: [O.STAFF, O.WIZ, O.WING, O.BAL, O.SMOKE, O.ROCK, O.WALL, O.FIRE, O.RIFT] });
-      for (let i = 0; i < 5; i++) { const p = wizShapes.staff[(4 + i * 7) % wizShapes.staff.length]; pen([[p[0] - 1.6, p[1]], [p[0] + 1.4, p[1] + 0.6]], { w: 0.7, a: 0.9 }); }
+      for (let i = 0; i < 16; i++) {
+        const y0 = RR(-88, -85);
+        const s = WX(spline([[-14, y0], [-22, y0 + RR(-0.8, 1.2)], [-30, y0 + RR(-1.5, 2)], [-RR(36, 44), y0 + RR(-2.5, 2.5)]], false, 6));
+        pen(s, { w: RR(0.25, 0.45), a: 0.8, wob: 0.08, taper: [0.1, 0.7] });
+      }
+      // the staff: gnarled, with knots
+      pen(wizShapes.staff, { w: 2.0, a: 1, wob: 0.18, taper: [0, 0], obj: [O.STAFF, O.WIZ, O.WING, O.BAL, O.SMOKE, O.ROCK, O.WALL, O.FIRE, O.RIFT, O.DEEP] });
+      for (let i = 0; i < 7; i++) {
+        const p = wizShapes.staff[(5 + i * 7) % wizShapes.staff.length];
+        pen([[p[0] - 1.4, p[1] - 0.2], [p[0] + 1.3, p[1] + 0.7]], { w: 0.6, a: 0.9 });
+      }
+      gpen(offsetLine(wizShapes.staff.slice(Math.floor(wizShapes.staff.length * 0.3)), -0.7), { w: 0.5, a: 0.7, taper: [0.3, 0] });
+      // Glamdring: cold and white
       const bl = wizShapes.blade;
-      pen([bl[0], bl[1], bl[2]], { w: 0.5, a: 1, wob: 0.02, taper: [0, 0.3] });
-      pen([bl[4], bl[3], bl[2]], { w: 0.7, a: 1, wob: 0.02, taper: [0, 0.3] });
+      pen([bl[0], bl[1], bl[2]], { w: 0.45, a: 1, wob: 0.02, taper: [0, 0.3] });
+      pen([bl[4], bl[3], bl[2]], { w: 0.65, a: 1, wob: 0.02, taper: [0, 0.3] });
       const { a: sa, b: sb } = wizShapes.sword;
       const ang = Math.atan2(sb[1] - sa[1], sb[0] - sa[0]);
       const qx = -Math.sin(ang) * 4.5 * ws, qy = Math.cos(ang) * 4.5 * ws;
-      pen([[sa[0] + qx, sa[1] + qy], [sa[0] - qx, sa[1] - qy]], { w: 1.5, a: 1, taper: [0, 0] });
-      gpen([[lerp(sa[0], sb[0], 0.05), lerp(sa[1], sb[1], 0.05)], sb], { w: 0.75, a: 0.95, taper: [0.1, 0.1] });
-      // rims: the staff's white on hat, sleeve and shoulder
-      gpen(offsetLine(WX(spline([[-30, -127], [-22, -122], [-14, -115], [-9, -105], [-7, -95]], false, 6)), 0.6), { w: 1.0, a: 0.85, taper: [0.2, 0.2] });
-      gpen(WX(spline([[-17, -91.4], [-8, -93.8], [4, -94.6]], false, 6)), { w: 0.9, a: 0.8, taper: [0.2, 0.3] });
-      gpen(WX(spline([[-21, -119], [-30, -114], [-36, -104], [-38, -94]], false, 6)), { w: 0.9, a: 0.75, taper: [0.2, 0.3] });
-      gpen(WX(spline([[-14, -81], [-20, -74], [-27, -66], [-36, -54]], false, 6)), { w: 0.8, a: 0.6, taper: [0.2, 0.4] });
+      pen([[sa[0] + qx, sa[1] + qy], [sa[0] - qx, sa[1] - qy]], { w: 1.4, a: 1, taper: [0, 0] });
+      pen([[sa[0] - Math.cos(ang) * 1.5 * ws, sa[1] - Math.sin(ang) * 1.5 * ws], [sa[0] - Math.cos(ang) * 5 * ws, sa[1] - Math.sin(ang) * 5 * ws]], { w: 1.6, a: 1, taper: [0, 0] });
+      gpen([[lerp(sa[0], sb[0], 0.06), lerp(sa[1], sb[1], 0.06)], sb], { w: 0.75, a: 0.95, taper: [0.1, 0.1] });
+      // rims of white: the blaze grazes hat, brim, hair, the raised sleeve and the shoulders
+      const rim = (pts, w, a) => gpen(WX(spline(pts, false, 6)), { w, a, taper: [0.25, 0.35], obj: [O.WIZ, O.STAFF] });
+      rim([[-23.5, -135.6], [-19.5, -133], [-16.4, -127.6], [-13.6, -121], [-11.4, -113], [-9.8, -105], [-9.4, -100]], 1.1, 0.9);
+      rim([[-18.5, -96.2], [-12, -98.4], [0, -99.2], [8, -98.8]], 0.8, 0.85);
+      rim([[-30, -79], [-22, -84], [-14, -88], [-11, -93], [-8, -96.4]], 0.8, 0.8);
+      rim([[-28.2, -120], [-25.8, -114], [-23.4, -108.4], [-19.6, -103], [-16.2, -97], [-13.2, -90]], 0.9, 0.8);
+      rim([[-33.2, -118], [-32.8, -112], [-33, -108.6]], 0.6, 0.6);
+      rim([[-14.6, -82], [-19.6, -75.6], [-25.4, -68], [-31.4, -59.6], [-38, -50]], 0.8, 0.7);
+      rim([[-36.8, -91], [-33.8, -97], [-33.2, -104]], 0.6, 0.55);
+      rim([[-34, -87.2], [-41, -88.4]], 0.5, 0.7);
+      rim([[-28.6, -125], [-32.2, -128.4], [-35.6, -126.6]], 0.6, 0.8);
     }
     await tick();
 
     // ---- the white blaze: scratched rays and a gouache heart
     {
       const [bx, by] = L.blaze;
-      for (let i = 0; i < 150; i++) {
+      const notWiz = [];
+      for (let o = 0; o < 64; o++) if (o !== O.WIZ && o !== O.SWORD) notWiz.push(o);
+      for (let i = 0; i < 46; i++) {
+        // a bundle of near-parallel rays
+        const a0 = R() < 0.6 ? RR(-1.0, 1.2) : R() * TAU;
+        const n = 2 + ((R() * 5) | 0);
+        const len0 = RR(260, 900);
+        for (let j = 0; j < n; j++) {
+          const a = a0 + (j - n / 2) * RR(0.004, 0.012);
+          const len = len0 * RR(0.7, 1.05);
+          spen([[bx + Math.cos(a) * 16, by + Math.sin(a) * 16], [bx + Math.cos(a) * len, by + Math.sin(a) * len]], { w: RR(0.35, 1.0), a: RR(0.6, 0.95), taper: [0.0, 0.85], obj: notWiz });
+        }
+      }
+      for (let i = 0; i < 110; i++) {
         const a = R() * TAU;
-        const len = Math.pow(R(), 1.7) * 620 + 40;
-        spen([[bx + Math.cos(a) * 14, by + Math.sin(a) * 14], [bx + Math.cos(a) * len, by + Math.sin(a) * len]], { w: RR(0.25, 0.65), a: RR(0.5, 0.9), taper: [0.0, 0.9] });
+        const len = Math.pow(R(), 1.6) * 360 + 30;
+        spen([[bx + Math.cos(a) * 12, by + Math.sin(a) * 12], [bx + Math.cos(a) * len, by + Math.sin(a) * len]], { w: RR(0.25, 0.6), a: RR(0.5, 0.9), taper: [0.0, 0.9], obj: notWiz });
       }
       const pb = [IX + bx * k, IY + by * k], r0 = 22 * k;
       for (let y = Math.floor(pb[1] - r0 * 4); y < pb[1] + r0 * 4; y++) {
@@ -1957,6 +2257,7 @@
       // fire-lit smoke and the demon's halo
       wRadial(B0[0] + 10 * bs, B0[1] - 60 * bs, 120 * bs, 0.18, 0.32, 0.2, 0.55, 1.2);
       // flames: gamboge at the root, vermilion along, madder at the tips
+      wctx.globalCompositeOperation = 'lighten';
       for (const fl of flames) {
         const pts = fl.pts, nS = 5;
         for (let s = 0; s < nS; s++) {
@@ -1965,19 +2266,22 @@
           const r = sub(offsetLine(pts, (f) => -fl.wid * Math.sin(Math.PI * Math.pow(f, 0.45)) * 0.95), a, Math.min(1, b));
           const poly = l.concat(r.reverse());
           const t = a;
-          wFill(poly, lerp(0.85, 0.1, t), lerp(0.25, 0.7, t), lerp(0.0, 0.45, t * t), 0.75, 0.6);
+          wFill(poly, lerp(0.75, 0.35, t), lerp(0.08, 0.5, t), lerp(0.0, 0.25, t * t), 1, 0.9);
         }
       }
+      wctx.globalCompositeOperation = 'lighter';
       const { hilt, tip } = L.sword;
       wStroke([hilt, tip], 0.95, 0.35, 0.0, 1, 3.4 * bs, 1);
       wStroke([hilt, tip], 0.2, 0.6, 0.3, 0.6, 7 * bs, 4);
-      for (const th of L.whip) { wStroke(th, 0.3, 0.5, 0.15, 0.5, 2.2 * bs, 1.5); wStroke(th, 0.6, 0.25, 0, 0.7, 0.7 * bs, 0.3); }
-      for (const e of L.balEyes) wStroke(e, 1, 0.6, 0, 1, 1.6 * bs, 0.3);
-      wStroke(L.balMaw, 0.8, 0.8, 0.2, 1, 1.8 * bs, 0.5);
-      for (const v of L.veins) wStroke(v, 0.6, 0.8, 0.2, 0.9, 1.0 * bs, 0.5);
-      for (const nm of ['shF', 'bicepsF', 'forearmF', 'hump', 'head']) { const u = BAL_PARTS.find((q) => q.nm === nm).u; wStroke(u.slice(Math.floor(u.length * 0.7)).concat(u.slice(0, Math.floor(u.length * 0.2))), 0.25, 0.55, 0.3, 0.55, 3 * bs, 3); }
+      for (const th of L.whip) { wStroke(th, 0.3, 0.5, 0.25, 0.45, 3.4 * bs, 2 * bs); wStroke(th, 0.95, 0.3, 0, 0.95, 1.6 * bs, 0.3); }
+      for (const e of L.balEyes) { wStroke(e, 1, 0.5, 0, 1, 0.8 * bs, 0.2); wStroke(e, 0.4, 0.5, 0.2, 0.6, 2.2 * bs, 1.2 * bs); }
+      wStroke(L.balMaw, 0.9, 0.7, 0.1, 1, 1.0 * bs, 0.4);
+      for (const v of L.veins) wStroke(v, 0.5, 0.7, 0.2, 0.8, 0.5 * bs, 0.3);
+      for (const [pts, m] of (L.rimRuns || [])) wStroke(pts, 0.85, 0.45, 0.05, 0.6 + 0.4 * m, 1.8 * bs, 0.6 * bs);
+
       // the mane's glow
-      wStroke(BX(spline([[-16, -104], [0, -112], [20, -124], [40, -136]], false, 8)), 0.55, 0.35, 0.05, 0.6, 18 * bs, 8 * bs);
+      wStroke(L.maneMass, 0.55, 0.35, 0.05, 0.55, 22 * bs, 9 * bs);
+      wStroke(L.footMass, 0.5, 0.4, 0.1, 0.5, 18 * bs, 8 * bs);
       // the far end of the bridge, its side, and the right-hand pillars take the fire
       wctx.save(); wctx.clip(L.deckP);
       const dg = wctx.createLinearGradient(W0[0], 0, B0[0], 0);
@@ -1987,12 +2291,14 @@
       const sg = wctx.createLinearGradient(0, B0[1] - 40, 0, W0[1] + 160);
       sg.addColorStop(0, washc(0.2, 0.5, 0.35, 0.5)); sg.addColorStop(1, washc(0.1, 0.3, 0.3, 0.3));
       wctx.fillStyle = sg; wctx.fillRect(0, 0, SW, SH); wctx.restore();
+      for (const r of (L.runeWash || [])) wStroke(r, 0.4, 0.7, 0.3, 0.8, 1.2, 0.3);
       for (const pf of L.pillarFaces) {
         if (pf.pl.x > 0) { wctx.save(); wctx.clip(pf.path); const yb = P(pf.pl.x, 0, pf.pl.z)[1]; const g = wctx.createLinearGradient(0, yb - 300, 0, yb + 400); g.addColorStop(0, washc(0, 0, 0, 0)); g.addColorStop(0.5, washc(0.12, 0.35, 0.28, 0.4)); g.addColorStop(1, washc(0.1, 0.35, 0.4, 0.5)); wctx.fillStyle = g; wctx.fillRect(0, 0, SW, SH); wctx.restore(); }
       }
       // red rim on the wizard's right
-      wStroke(WX(spline([[18, -78], [24, -68], [30, -62], [27, -50], [26, -34], [28, -18], [31, -4]], false, 6)), 0.2, 0.6, 0.25, 0.7, 2.2 * ws, 0.8);
-      wStroke(WX(spline([[3, -98], [7, -94], [17, -91.5]], false, 6)), 0.2, 0.55, 0.2, 0.6, 1.4 * ws, 0.6);
+      wStroke(WX(spline([[19, -78.5], [24, -70], [31, -63.5], [28, -54], [26.5, -40], [28, -24], [31, -6]], false, 6)), 0.15, 0.55, 0.3, 0.65, 1.6 * ws, 0.6);
+      wStroke(WX(spline([[4, -99], [7, -95.5], [18, -92.8]], false, 6)), 0.15, 0.5, 0.25, 0.6, 1.2 * ws, 0.5);
+      wStroke(WX(spline([[34, -67.5], [41, -66.5], [46, -68.5]], false, 6)), 0.2, 0.5, 0.25, 0.6, 1.2 * ws, 0.5);
       // the eye and a sullen glow over the far land
       const [ex, ey, er] = L.eye;
       wRadial(ex, ey + er * 2, er * 10, 0.1, 0.4, 0.4, 0.45, 0.6);
@@ -2012,7 +2318,7 @@
       for (let i = 0, j = 0; i < hw * hh; i++, j += 4) {
         if (wd[j] + wd[j + 1] + wd[j + 2] + bd[j] + bd[j + 1] + bd[j + 2] === 0) continue;
         const gx = i % hw, gy = (i / hw) | 0;
-        const gran = 0.8 + 0.4 * nz(gx / 3.5, gy / 3.5);
+        const gran = 0.9 + 0.2 * nz(gx / 2.2, gy / 2.2);
         const e0 = wd[j] / 255, e1 = wd[j + 1] / 255, e2 = wd[j + 2] / 255;
         WY[i] = clamp((e0 + Math.max(0, e0 - bd[j] / 255) * 1.4) * gran, 0, 1.2);
         WO[i] = clamp((e1 + Math.max(0, e1 - bd[j + 1] / 255) * 1.4) * gran, 0, 1.2);
