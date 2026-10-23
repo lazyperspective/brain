@@ -62,8 +62,8 @@
   const RW = 2400, RH = 3200;              // the drawing, in render pixels (3:4, upright)
   const F = 2, FW = RW / F, FH = RH / F, N = FW * FH;   // analysis fields at half resolution
   const HY = 2440;                         // eye level, just above the water
-  const VPX = 1300;                        // where the gorge vanishes
-  const GX = 1318, GY = 2240;              // the low sun, behind the mist at the far end
+  const VPX = 1440;                        // where the gorge vanishes
+  const GX = 1456, GY = 2250;              // the low sun, behind the mist at the far end
 
   const SKY = 0, WATER = 1, CLIFF = 10, PEDL = 40, PEDR = 41, KINGL = 50, KINGR = 51;
   const isKing = (o) => o === KINGL || o === KINGR;
@@ -133,7 +133,7 @@
    * The king's own left hand (raised) is on the viewer's right (+x); the right hand holds the
    * axe (-x). Heights z are in the same units (towards the viewer).
    */
-  function kingDesign(side, rnd) {
+  function kingDesign(side, rnd, turn) {
     const P = [];
     const M = (o) => { P.push(Object.assign({ op: 'max' }, o)); };
     const A = (o, on) => { P.push(Object.assign({ op: 'add', on }, o)); };
@@ -141,32 +141,21 @@
     const lines = [];        // incised lines also drawn in pencil: {p, w, on}
     const mirror = (pts) => pts.map((p) => [-p[0], p[1]]);
     const cutLine = (p, r, d, on, w) => { C({ k: 'cap', p, r: [r, r], b: d }, on); lines.push({ p, w: w || 1, on }); };
-    const HELM = 1, CROWN = 2, FACE = 3, BEARD = 4, TORSO = 5, PAUL = 6, CLOAK = 7, ARM = 8, HAND = 9, HAFT = 10, AXE = 11, LEG = 12;
+    const HELM = 1, CROWN = 2, FACE = 3, BEARD = 4, TORSO = 5, PAUL = 6, CLOAK = 7, ARM = 8, HAND = 9, HAFT = 10, AXE = 11, LEG = 12, PLINTH = 13;
     const bit = (...a) => a.reduce((m, b) => m | (1 << b), 0);
     const R = side < 0; // left king
 
-    /* cloak, hanging behind */
-    M({ k: 'poly', p: [[-250, 418], [-326, 520], [-356, 760], [-388, 1080], [-420, 1350], [-470, 1660], [-236, 1660], [-226, 1000]], z: 6, b: 22, rb: 50, part: CLOAK });
-    M({ k: 'poly', p: [[250, 418], [326, 520], [346, 800], [370, 1100], [396, 1350], [440, 1660], [236, 1660], [226, 1000]], z: 6, b: 22, rb: 50, part: CLOAK });
-    // the cloak falls in deep folds
-    for (const sx of [-1, 1]) for (let q = 0; q < 5; q++) {
-      const x0 = sx * (262 + q * 20), x1 = sx * (262 + q * 40 + 10);
-      A({ k: 'cap', p: [[x0, 620 + q * 40], [x1, 1660]], r: [10, 16], b: 9 }, bit(CLOAK));
+    /* the mantle, hanging behind from the shoulders to the feet */
+    M({ k: 'poly', p: [[-250, 418], [-330, 520], [-366, 760], [-396, 1080], [-418, 1380], [-404, 1720], [-236, 1720], [-226, 1000]], z: 6, b: 24, rb: 60, part: CLOAK });
+    M({ k: 'poly', p: [[250, 418], [330, 520], [352, 800], [376, 1100], [392, 1380], [384, 1720], [236, 1720], [226, 1000]], z: 6, b: 24, rb: 60, part: CLOAK });
+    for (const sx of [-1, 1]) for (let q = 0; q < 6; q++) {
+      const x0 = sx * (258 + q * 18), x1 = sx * (254 + q * 38);
+      A({ k: 'cap', p: [[x0, 600 + q * 40], [x1, 1720]], r: [10, 20], b: 12 }, bit(CLOAK));
     }
-    /* body: mailed torso and long hauberk */
-    // the recess of the stone behind and between the legs
-    M({ k: 'poly', p: [[-226, 1150], [226, 1150], [236, 1700], [-236, 1700]], z: 0, b: 6, rb: 30, part: CLOAK });
-    // legs in greaves, standing on the plinth (their feet are hidden by its edge)
-    M({ k: 'cap', p: [[-112, 1200], [-126, 1700]], r: [80, 66], z: 70, b: 50, part: LEG });
-    M({ k: 'cap', p: [[112, 1200], [126, 1700]], r: [80, 66], z: 70, b: 50, part: LEG });
-    for (const sx of [-1, 1]) {
-      A({ k: 'ell', c: [sx * 118, 1418], rx: 46, ry: 34, b: 12 }, bit(LEG));
-      for (const yy of [1380, 1456, 1540, 1610]) cutLine([[sx * 118 - 62, yy], [sx * 118 + 62, yy + 6]], 2.4, 6, bit(LEG), 0.9);
-      cutLine([[sx * 118 + sx * 6, 1470], [sx * 120 + sx * 4, 1690]], 2, 5, bit(LEG), 0.8);
-    }
-    M({ k: 'poly', p: [[-246, 404], [246, 404], [272, 520], [258, 700], [228, 880], [240, 1060], [262, 1220], [278, 1300], [180, 1312], [60, 1298], [0, 1290], [-60, 1298], [-180, 1312], [-278, 1300], [-262, 1220], [-240, 1060], [-228, 880], [-258, 700], [-272, 520]], z: 40, b: 96, rb: 220, part: TORSO });
-    // folds of the hauberk below the belt
-    for (let q = -4; q <= 4; q++) A({ k: 'cap', p: [[q * 52 + 14, 960], [q * 58 + 10, 1300]], r: [9, 15], b: 8 }, bit(TORSO));
+    /* the body: a mail coat under a long robe that falls to the feet in deep folds */
+    M({ k: 'poly', p: [[-262, 404], [262, 404], [300, 520], [282, 700], [240, 880], [240, 1060], [256, 1260], [270, 1480], [284, 1720], [-284, 1720], [-270, 1480], [-256, 1260], [-240, 1060], [-240, 880], [-282, 700], [-300, 520]], z: 40, b: 100, rb: 230, part: TORSO });
+    for (let q = -5; q <= 5; q++) A({ k: 'cap', p: [[q * 40 + 8, 960 + Math.abs(q) * 6], [q * 54 + 6, 1720]], r: [8, 22], b: 10 }, bit(TORSO));
+    for (let q = -4; q <= 4; q++) C({ k: 'cap', p: [[q * 40 + 28, 1000], [q * 54 + 33, 1720]], r: [3, 8], b: 7 }, bit(TORSO));
     // breastplate, belt, buckle, gorget
     A({ k: 'poly', p: [[-196, 560], [196, 560], [205, 700], [170, 860], [-170, 860], [-205, 700]], b: 9, rb: 14 }, bit(TORSO));
     A({ k: 'cap', p: [[0, 590], [0, 850]], r: [26, 30], b: 7 }, bit(TORSO));
@@ -174,46 +163,46 @@
     A({ k: 'ell', c: [0, 906], rx: 34, ry: 30, b: 9 }, bit(TORSO));
     A({ k: 'poly', p: [[-120, 405], [120, 405], [140, 470], [-140, 470]], b: 10, rb: 10 }, bit(TORSO));
     /* pauldrons */
-    M({ k: 'ell', c: [-236, 452], rx: 122, ry: 74, z: 112, b: 40, part: PAUL });
-    M({ k: 'ell', c: [236, 452], rx: 122, ry: 74, z: 112, b: 40, part: PAUL });
+    M({ k: 'ell', c: [-252, 452], rx: 140, ry: 78, z: 112, b: 42, part: PAUL });
+    M({ k: 'ell', c: [252, 452], rx: 140, ry: 78, z: 112, b: 42, part: PAUL });
     for (const sx of [-1, 1]) {
       for (let k = 1; k <= 4; k++) {
         const pts = [];
         for (let a = 0.1; a <= 0.9; a += 0.04) {
           const t = Math.PI * a;
-          pts.push([sx * 236 + Math.cos(t) * 122 * (1 - k * 0.03), 452 - 46 + k * 22 + Math.sin(t) * 34]);
+          pts.push([sx * 252 + Math.cos(t) * 140 * (1 - k * 0.03), 452 - 48 + k * 23 + Math.sin(t) * 36]);
         }
         cutLine(pts, 3.2, 7, bit(PAUL), 1.1);
       }
     }
-    /* the raised left hand (+x) */
-    M({ k: 'cap', p: [[262, 482], [420, 612]], r: [74, 60], z: 96, b: 52, part: ARM });
-    M({ k: 'ell', c: [428, 612], rx: 60, ry: 55, z: 104, b: 40, part: ARM });
-    M({ k: 'cap', p: [[430, 600], [452, 350]], r: [58, 46], z: 124, b: 46, part: ARM });
-    for (const yy of [565, 520, 420, 372]) cutLine([[384 + (565 - yy) * 0.07, yy + 5], [478 + (565 - yy) * 0.08, yy - 3]], 2.6, 6, bit(ARM), 1);
-    M({ k: 'poly', p: [[404, 344], [500, 338], [519, 272], [516, 210], [406, 212], [398, 272]], z: 150, b: 15, rb: 24, part: HAND });
-    C({ k: 'ell', c: [460, 268], rx: 30, ry: 28, b: 7 }, bit(HAND));
-    A({ k: 'ell', c: [422, 302], rx: 26, ry: 34, b: 7 }, bit(HAND));
+    /* the raised left hand (+x): the arm lifted high, the palm turned outward above the crown */
+    M({ k: 'cap', p: [[270, 482], [476, 372]], r: [84, 70], z: 96, b: 56, part: ARM });
+    M({ k: 'ell', c: [482, 368], rx: 70, ry: 64, z: 104, b: 44, part: ARM });
+    M({ k: 'cap', p: [[484, 360], [502, 56]], r: [68, 54], z: 124, b: 50, part: ARM });
+    for (const f of [0.18, 0.34, 0.72, 0.86]) { const yy = lerp(360, 56, f), xx = lerp(480, 500, f); cutLine([[xx - 50, yy + 5], [xx + 46, yy - 4]], 2.6, 6, bit(ARM), 1); }
+    M({ k: 'poly', p: [[452, 44], [548, 38], [567, -28], [564, -90], [454, -88], [446, -28]], z: 150, b: 15, rb: 24, part: HAND });
+    C({ k: 'ell', c: [508, -32], rx: 30, ry: 28, b: 7 }, bit(HAND));
+    A({ k: 'ell', c: [470, 2], rx: 26, ry: 34, b: 7 }, bit(HAND));
     const fingers = [
-      [[420, 216], [416, 114], 15, 13],
-      [[448, 212], [449, 94], 16, 14],
-      [[476, 214], [480, 106], 15, 13],
-      [[503, 220], [512, R ? 142 : 160], 13, 11.5],   // the right king has lost the tip of his little finger
+      [[468, -84], [464, -186], 15, 13],
+      [[496, -88], [497, -206], 16, 14],
+      [[524, -86], [528, -194], 15, 13],
+      [[551, -80], [560, R ? -158 : -140], 13, 11.5],   // the right king has lost the tip of his little finger
     ];
     for (const f of fingers) {
       M({ k: 'cap', p: [f[0], f[1]], r: [f[2], f[3]], z: 156, b: 13, part: HAND });
-      for (const u of [0.36, 0.68]) {
+      for (const u of [48.36, -299.32]) {
         const cx = lerp(f[0][0], f[1][0], u), cy = lerp(f[0][1], f[1][1], u);
         cutLine([[cx - f[2] * 0.7, cy + 1.5], [cx + f[2] * 0.7, cy - 1]], 1.6, 4, bit(HAND), 0.7);
       }
     }
-    M({ k: 'cap', p: [[410, 314], [380, 270], [366, 228]], r: [19, 14], z: 162, b: 13, part: HAND });
-    cutLine([[372, 252], [388, 246]], 1.6, 4, bit(HAND), 0.7);
-    cutLine([[424, 336], [432, 296], [446, 262], [470, 240]], 1.8, 5, bit(HAND), 0.8);   // life line
-    cutLine([[420, 246], [458, 236], [500, 238]], 1.6, 4, bit(HAND), 0.7);
-    cutLine([[404, 232], [450, 226]], 1.5, 3, bit(HAND), 0.6);
+    M({ k: 'cap', p: [[458, 14], [428, -30], [414, -72]], r: [67, -286], z: 162, b: 13, part: HAND });
+    cutLine([[420, -48], [436, -54]], 1.6, 4, bit(HAND), 0.7);
+    cutLine([[472, 36], [480, -4], [494, -38], [518, -60]], 1.8, 5, bit(HAND), 0.8);   // life line
+    cutLine([[468, -54], [506, -64], [548, -62]], 1.6, 4, bit(HAND), 0.7);
+    cutLine([[452, -68], [498, -74]], 1.5, 3, bit(HAND), 0.6);
     /* the right arm (-x), holding the axe */
-    M({ k: 'cap', p: [[-262, 482], [-344, 742]], r: [76, 63], z: 96, b: 52, part: ARM });
+    M({ k: 'cap', p: [[-272, 482], [-350, 742]], r: [84, 68], z: 96, b: 54, part: ARM });
     M({ k: 'cap', p: [[-344, 742], [-328, 868]], r: [63, 56], z: 126, b: 40, part: ARM });
     for (const yy of [790, 832]) cutLine([[-392, yy - 4], [-282, yy + 4]], 2.6, 6, bit(ARM), 1);
     // haft
@@ -235,7 +224,7 @@
 
     /* the head: helm, crown, face, beard */
     M({ k: 'ell', c: [0, 156], rx: 112, ry: 134, z: 50, b: 80, part: HELM });
-    const cheek = [[-110, 176], [-70, 182], [-64, 262], [-72, 318], [-90, 334], [-108, 300], [-116, 236]];
+    const cheek = [[-100, 180], [-70, 184], [-64, 262], [-72, 316], [-86, 328], [-98, 298], [-104, 238]];
     M({ k: 'poly', p: cheek, z: 104, b: 14, rb: 16, part: HELM });
     M({ k: 'poly', p: mirror(cheek), z: 104, b: 14, rb: 16, part: HELM });
     M({ k: 'poly', p: [[-68, 172], [68, 172], [70, 236], [62, 300], [-62, 300], [-70, 236]], z: 108, b: 24, rb: 40, part: FACE });
@@ -262,9 +251,11 @@
     M({ k: 'cap', p: [[-62, 182], [-30, 186], [-8, 197]], r: [11, 13], z: 130, b: 11, part: FACE });
     M({ k: 'cap', p: [[8, 197], [30, 186], [62, 182]], r: [13, 11], z: 130, b: 11, part: FACE });
     for (const sx of [-1, 1]) {
-      C({ k: 'ell', c: [sx * 31, 210], rx: 21, ry: 12.5, b: 26 }, bit(FACE));
-      A({ k: 'ell', c: [sx * 31, 212], rx: 12.5, ry: 6.5, b: 11 }, bit(FACE));
-      C({ k: 'ell', c: [sx * 30 + 2, 212], rx: 3.6, ry: 3.6, b: 6 }, bit(FACE));
+      C({ k: 'ell', c: [sx * 31, 211], rx: 20, ry: 11, b: 15 }, bit(FACE));
+      A({ k: 'ell', c: [sx * 31, 212], rx: 13, ry: 6.5, b: 9 }, bit(FACE));
+      A({ k: 'cap', p: [[sx * 45, 207], [sx * 31, 204], [sx * 18, 208]], r: [3, 3], b: 4 }, bit(FACE));
+      cutLine([[sx * 8, 176], [sx * 6, 194]], 1.4, 3, bit(FACE), 0.7);
+      cutLine([[sx * 48, 228], [sx * 56, 236]], 1.2, 2.5, bit(FACE), 0.5);
       cutLine([[sx * 46, 205], [sx * 31, 202], [sx * 17, 206]], 1.5, 3, bit(FACE), 0.8);
       cutLine([[sx * 44, 219], [sx * 31, 222], [sx * 18, 218]], 1.4, 2.5, bit(FACE), 0.6);
       A({ k: 'ell', c: [sx * 41, 238], rx: 21, ry: 16, b: 8 }, bit(FACE));
@@ -274,7 +265,7 @@
     M({ k: 'ell', c: [0, 256], rx: 15, ry: 11, z: 134, b: 16, part: FACE });
     C({ k: 'ell', c: [-8, 265], rx: 4.5, ry: 3, b: 7 }, bit(FACE));
     C({ k: 'ell', c: [8, 265], rx: 4.5, ry: 3, b: 7 }, bit(FACE));
-    if (R) C({ k: 'ell', c: [5, 252], rx: 11, ry: 9, b: 10 }, bit(FACE));   // a chipped nose
+    C({ k: 'ell', c: [R ? 5 : -4, 254], rx: R ? 11 : 8, ry: R ? 9 : 6, b: R ? 10 : 6 }, bit(FACE));   // the noses are worn away
     // moustache, mouth, beard
     M({ k: 'cap', p: [[-3, 270], [-28, 280], [-50, 304]], r: [9, 6], z: 140, b: 8, part: BEARD });
     M({ k: 'cap', p: [[3, 270], [28, 280], [50, 304]], r: [9, 6], z: 140, b: 8, part: BEARD });
@@ -296,9 +287,54 @@
 
     /* hem and folds of the hauberk */
     const hem = [];
-    for (let x = -272; x <= 272; x += 12) hem.push([x, 1280 + Math.abs(x) * 0.08 + Math.sin(x * 0.12) * 5]);
+    for (let x = -264; x <= 264; x += 12) hem.push([x, 1250 + Math.abs(x) * 0.06 + Math.sin(x * 0.12) * 5]);
     cutLine(hem, 3, 7, bit(TORSO), 1.1);
-    return { P, lines, parts: { HELM, CROWN, FACE, BEARD, TORSO, PAUL, CLOAK, ARM, HAND, HAFT, AXE, LEG } };
+
+    /* proportion: the body below the shoulders is drawn out, so the kings stand eight heads high */
+    const SK = 1.5, st = (y) => (y <= 400 ? y : 400 + (y - 400) * SK);
+    for (const pr of P) {
+      if (pr.k === 'ell') { const big = pr.c[1] > 600; pr.c = [pr.c[0], st(pr.c[1])]; if (big) pr.ry *= SK; }
+      else pr.p = pr.p.map((p) => [p[0], st(p[1])]);
+    }
+    for (const L of lines) L.p = L.p.map((p) => [p[0], st(p[1])]);
+    // the haft rests on the plinth; the feet show beneath the robe; the plinth is carved from the pillar's head
+    const foot = st(1720);
+    M({ k: 'cap', p: [[-326, foot - 40], [-326, foot + 70]], r: [17, 18], z: 140, b: 14, part: HAFT });
+    for (const sx of [-1, 1]) {
+      M({ k: 'ell', c: [sx * 128, foot + 26], rx: 80, ry: 40, z: 70, b: 30, part: LEG });
+      cutLine([[sx * 128 - 70, foot + 22], [sx * 128 + 70, foot + 26]], 2, 5, bit(LEG), 0.8);
+    }
+    M({ k: 'poly', p: [[-520, foot + 54], [520, foot + 54], [540, foot + 110], [530, foot + 190], [-530, foot + 190], [-540, foot + 110]], z: 0, b: 30, rb: 30, part: PLINTH });
+    for (const yy of [foot + 78, foot + 110, foot + 150]) cutLine([[-530, yy], [530, yy]], 2.6, 7, bit(PLINTH), 1);
+
+    /* three-quarter turn: the nearer a part stands out, the further it slides; the far side narrows */
+    const sn = Math.sin(turn), cf = Math.cos(turn * 1.6), cn = 1 + Math.abs(sn) * 0.1;
+    const tx = (x, z) => (x * Math.sign(turn) > 0 ? x * cf : x * cn) + z * sn;
+    const ZP = [0, 120, 125, 135, 145, 110, 140, 20, 140, 160, 150, 155, 90, 20];
+    const zOn = (on) => { let z = 0; for (let b = 1; b < ZP.length; b++) if (on & (1 << b)) z = Math.max(z, ZP[b]); return z || 120; };
+    // the head turns as one piece, its features sliding only a little within it
+    const HEADP = (1 << HELM) | (1 << CROWN) | (1 << FACE) | (1 << BEARD);
+    const hx = (x, z) => x * 0.9 + 125 * sn + (z - 120) * sn * 0.35;
+    const isHead = (pr) => (pr.op === 'max' ? (HEADP & (1 << pr.part)) : ((pr.on & HEADP) && !(pr.on & ~HEADP))) && (pr.k === 'ell' ? pr.c[1] : Math.min(...pr.p.map((p) => p[1]))) < 330;
+    for (const pr of P) {
+      const z = pr.op === 'max' ? (pr.z || 0) + pr.b * 0.6 : zOn(pr.on);
+      if (isHead(pr)) {
+        if (pr.k === 'ell') { pr.c = [hx(pr.c[0], z), pr.c[1]]; pr.rx *= 0.9; }
+        else { pr.p = pr.p.map((p) => [hx(p[0], z), p[1]]); if (pr.k === 'cap') pr.r = [pr.r[0] * 0.9, pr.r[1] * 0.9]; if (pr.cyl) pr.cyl *= 0.9; }
+        continue;
+      }
+      if (pr.k === 'ell') { const c = pr.c[0] * Math.sign(turn) > 0 ? cf : cn; pr.c = [tx(pr.c[0], z), pr.c[1]]; pr.rx *= c; }
+      else {
+        pr.p = pr.p.map((p) => [tx(p[0], z), p[1]]);
+        if (pr.k === 'cap') { const c = pr.p[0][0] * Math.sign(turn) > 0 ? cf : cn; pr.r = [pr.r[0] * c, pr.r[1] * c]; }
+        if (pr.cyl) pr.cyl *= cf;
+      }
+    }
+    for (const L of lines) {
+      const z = zOn(L.on), head = (L.on & HEADP) && !(L.on & ~HEADP) && Math.min(...L.p.map((p) => p[1])) < 330;
+      L.p = L.p.map((p) => [head ? hx(p[0], z) : tx(p[0], z), p[1]]);
+    }
+    return { P, lines, foot, parts: { HELM, CROWN, FACE, BEARD, TORSO, PAUL, CLOAK, ARM, HAND, HAFT, AXE, LEG, PLINTH } };
   }
 
   /* Voronoi facets: the nearest of a jittered grid of points, for fractured rock */
@@ -572,7 +608,7 @@
         /* the gorge: two sheer walls running away to the light, with buttresses and a crest of trees */
         const walls = [];
         for (const side of [-1, 1]) {
-          const xne = side < 0 ? 900 : 1600, yne = side < 0 ? 860 : 1060, base = HY + 40;
+          const xne = side < 0 ? 1130 : 1730, yne = side < 0 ? 1250 : 420, base = HY + 40;
           const r = -side;                                   // towards the river
           const zx = (z) => VPX + (xne - VPX) / z;
           const topAt = (z) => HY - (HY - yne) / z;
@@ -615,9 +651,9 @@
             });
           }
           // the shoulder of crag behind the king, falling away to the edge of the sheet
-          const far = side < 0 ? [[-80, 1330], [180, 1240], [420, 1150], [650, 1080], [820, 1030], [xne, yne]] : [[RW + 80, 1440], [2240, 1370], [2000, 1290], [1800, 1220], [1640, 1180], [xne, yne]];
+          const far = side < 0 ? [[-80, 1520], [260, 1450], [560, 1380], [860, 1310], [1000, 1280], [xne, yne]] : [[RW + 80, 40], [2280, 110], [2120, 190], [1960, 280], [1830, 360], [xne, yne]];
           const hill = [];
-          for (let q = 0; q + 1 < far.length; q++) hill.push(...jag(far[q], far[q + 1], 3, 0.14, rnd).slice(q ? 1 : 0));
+          for (let q = 0; q + 1 < far.length; q++) hill.push(...jag(far[q], far[q + 1], 4, side > 0 ? 0.32 : 0.14, rnd).slice(q ? 1 : 0));
           W.hill = hill;
           const hid = W.id + 9;
           fillPoly([...hill, ...nearEdge.slice(1), [far[0][0], base + 30]], (j, i0, i1) => {
@@ -630,24 +666,41 @@
         /* the kings */
         mark('kings');
         const kings = [];
-        for (const side of [-1, 1]) {
-          const d = kingDesign(side, rnd);
-          const T = side < 0
-            ? { Y0: 118, ky: 1.0, ax0: 682, ax1: 590, sx0: 0.98, sx1: 1.14, cut: 1648 }
-            : { Y0: 302, ky: 0.8, ax0: 1788, ax1: 1858, sx0: 0.76, sx1: 0.86, cut: 1530 };
-          T.Y1 = T.Y0 + 1660 * T.ky;
-          T.fx = (dx, dy) => { const Y = T.Y0 + dy * T.ky, t = (Y - T.Y0) / (T.Y1 - T.Y0); return [lerp(T.ax0, T.ax1, t) + dx * lerp(T.sx0, T.sx1, t), Y]; };
-          T.sc = side < 0 ? 1 : 0.78;
-          kings.push({ side, d, T, id: side < 0 ? KINGL : KINGR, cracks: [] });
+        // the near king fills the left of the sheet and is cut by its edge; the far one stands across the water.
+        // Both are seen from far below: verticals converge upward, horizontals sag, the heads are foreshortened.
+        const KT = [
+          { side: -1, turn: 0.4, Ya: 190, Yb: 2060, ax0: 700, ax1: 540, sx0: 0.7, sx1: 0.98, sag0: 70, sag1: 26, sc: 1 },
+          { side: 1, turn: -0.4, Ya: 760, Yb: 1700, ax0: 1968, ax1: 2006, sx0: 0.32, sx1: 0.42, sag0: 22, sag1: 9, sc: 0.42 },
+        ];
+        for (const T of KT) {
+          const d = kingDesign(T.side, rnd, T.turn);
+          T.H = d.foot + 190;
+          const GA = 0.78, GB = 0.22;
+          T.g = (t) => GA * t + GB * t * t;
+          T.sag = (t, dx) => { const u = Math.min(2, (dx / 380) * (dx / 380)); return lerp(T.sag0, T.sag1, clamp(t, 0, 1)) * (1 - u); };
+          T.fx = (dx, dy) => { const t = dy / T.H; return [lerp(T.ax0, T.ax1, t) + dx * lerp(T.sx0, T.sx1, t), T.Ya + (T.Yb - T.Ya) * T.g(t) + T.sag(t, dx)]; };
+          T.inv = (X, Y) => {
+            let t = (Y - T.Ya) / (T.Yb - T.Ya), dx = 0;
+            for (let it = 0; it < 4; it++) {
+              dx = (X - lerp(T.ax0, T.ax1, t)) / lerp(T.sx0, T.sx1, t);
+              const v = (Y - T.sag(t, dx) - T.Ya) / (T.Yb - T.Ya), disc = GA * GA + 4 * GB * v;
+              t = disc > 0 ? (-GA + Math.sqrt(disc)) / (2 * GB) : -GA / (2 * GB);
+            }
+            return [(X - lerp(T.ax0, T.ax1, t)) / lerp(T.sx0, T.sx1, t), t * T.H];
+          };
+          T.scaleAt = (dy) => lerp(T.sx0, T.sx1, dy / T.H);
+          kings.push({ side: T.side, d, T, id: T.side < 0 ? KINGL : KINGR, cracks: [] });
         }
         for (const K of kings) {
-          const { T } = K;
-          const rowDy = new Float32Array(FH), rowAx = new Float32Array(FH), rowSx = new Float32Array(FH);
-          for (let j = 0; j < FH; j++) {
-            const Y = (j + 0.5) * F, t = (Y - T.Y0) / (T.Y1 - T.Y0);
-            rowDy[j] = (Y - T.Y0) / T.ky; rowAx[j] = lerp(T.ax0, T.ax1, t); rowSx[j] = lerp(T.sx0, T.sx1, t);
+          const T = K.T;
+          K.J0 = Math.max(0, Math.floor((T.fx(0, -300)[1] - 80) / F)); K.J1 = Math.min(FH - 1, Math.ceil((T.Yb + 80) / F));
+          const n = (K.J1 - K.J0 + 1) * FW;
+          K.DX = new Float32Array(n); K.DY = new Float32Array(n);
+          for (let j = K.J0; j <= K.J1; j++) {
+            const r = (j - K.J0) * FW, Y = (j + 0.5) * F;
+            for (let i = 0; i < FW; i++) { const q = T.inv((i + 0.5) * F, Y); K.DX[r + i] = q[0]; K.DY[r + i] = q[1]; }
+            if ((j & 63) === 63) await breathe();
           }
-          K.rowDy = rowDy; K.rowAx = rowAx; K.rowSx = rowSx;
           const P = K.d.P;
           for (let pi = 0; pi < P.length; pi++) { applyPrim(K, P[pi], pi); if ((pi & 7) === 7) await breathe(); }
         }
@@ -701,14 +754,18 @@
             pr._len = L || 1;
           }
           const [x0, y0, x1, y1] = primBox(pr);
-          const a = K.T.fx(x0, y0), b = K.T.fx(x1, y0), c = K.T.fx(x0, y1), e = K.T.fx(x1, y1);
-          const X0 = Math.max(0, Math.floor(Math.min(a[0], c[0]) / F) - 2), X1 = Math.min(FW - 1, Math.ceil(Math.max(b[0], e[0]) / F) + 2);
-          const J0 = Math.max(0, Math.floor(a[1] / F) - 2), J1 = Math.min(FH - 1, Math.ceil(c[1] / F) + 2);
+          let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+          for (let u = 0; u <= 2; u++) for (let v = 0; v <= 2; v++) {
+            const q = K.T.fx(lerp(x0, x1, u / 2), lerp(y0, y1, v / 2));
+            bx0 = Math.min(bx0, q[0]); bx1 = Math.max(bx1, q[0]); by0 = Math.min(by0, q[1]); by1 = Math.max(by1, q[1]);
+          }
+          const X0 = Math.max(0, Math.floor(bx0 / F) - 3), X1 = Math.min(FW - 1, Math.ceil(bx1 / F) + 3);
+          const J0 = Math.max(K.J0, Math.floor(by0 / F) - 3), J1 = Math.min(K.J1, Math.ceil(by1 / F) + 3);
           const id = K.id, scl = pr.scaled ? 1 : 0;
           for (let j = J0; j <= J1; j++) {
-            const dy = K.rowDy[j], ax = K.rowAx[j], sx = K.rowSx[j];
+            const r = (j - K.J0) * FW;
             for (let i = X0; i <= X1; i++) {
-              const dx = ((i + 0.5) * F - ax) / sx;
+              const dx = K.DX[r + i], dy = K.DY[r + i], sx = K.T.scaleAt(dy);
               const v = primEval(pr, dx, dy);
               if (v !== v) continue;
               const k = j * FW + i;
@@ -724,51 +781,39 @@
 
         /* the pedestals: a carved plinth, then the raw pinnacle of rock going down into the river */
         mark('peds');
-        const peds = [
-          { id: PEDL, side: -1, top: kings[0].T.cut, inTop: 968, inBase: 1010, outTop: 96, outBase: 36, wl: 2502, sc: 1 },
-          { id: PEDR, side: 1, top: kings[1].T.cut, inTop: 1500, inBase: 1476, outTop: 2318, outBase: 2366, wl: 2466, sc: 0.8 },
-        ];
-        for (const pd of peds) {
-          const r = -pd.side, sc = pd.sc, top = pd.top, pH = 96 * sc;
-          const X = (edge, u) => edge + r * u;
-          // the river face of the pillar turns away from us: its horizontals run down towards the gorge
-          pd.cw = (pd.side < 0 ? 86 : 62) * sc; pd.xc = X(pd.inTop, -pd.cw);
-          pd.slope = 0.6 * (HY - top) / Math.abs(VPX - pd.xc);
-          const drop = pd.cw * pd.slope;
-          const pts = [[pd.outTop, top], [pd.xc, top], [X(pd.inTop, -4), top + drop]];
-          pts.push([X(pd.inTop, 10 * sc), top + drop + pH * 0.2], [X(pd.inTop, 16 * sc), top + drop + pH * 0.42], [X(pd.inTop, 14 * sc), top + drop + pH * 0.66], [X(pd.inTop, 5 * sc), top + drop + pH * 0.86], [X(pd.inTop, -2 * sc), top + drop + pH]);
-          const y0 = top + pH + drop, y1 = pd.wl;
-          const ctrl = [];
-          const nq = 12;
-          for (let q = 0; q <= nq; q++) {
-            const f = q / nq, y = lerp(y0, y1, f);
-            const u = -8 * sc + (rnd() - 0.5) * 34 * sc * smooth(0, 0.3, f) + smooth(0.7, 1, f) * 50 * sc + Math.sin(f * 9 + rnd() * 2) * 10 * sc;
-            ctrl.push([X(lerp(pd.inTop, pd.inBase, f), u), y]);
+        const peds = [];
+        for (const K of kings) {
+          const T = K.T, sc = K.side < 0 ? 1.25 : 0.5;
+          const wl = K.side < 0 ? 2700 : 2486;
+          const topDy = K.d.foot + 168, top = [];
+          for (let dx = -560; dx <= 560; dx += 16) top.push(T.fx(dx, topDy + (rnd() - 0.5) * 10));
+          const inner = K.side < 0 ? top[top.length - 1] : top[0];
+          const innerBase = [inner[0] + (K.side < 0 ? 26 : -70), wl];
+          // the sheer river face of the pinnacle, split and stepped
+          const ctrl = [inner];
+          for (let q = 1; q <= 9; q++) { const f = q / 9; ctrl.push([lerp(inner[0], innerBase[0], f) + (rnd() - 0.5) * 50 * sc * (f < 0.9 ? 1 : 0.3), lerp(inner[1], wl, f)]); }
+          const edge = [inner];
+          for (let q = 0; q + 1 < ctrl.length; q++) edge.push(...jag(ctrl[q], ctrl[q + 1], 3, 0.1, rnd).slice(1));
+          const foot = [[innerBase[0] - K.side * 110 * sc, wl + 4], [innerBase[0] - K.side * 160 * sc, wl + 12]];
+          let pts;
+          if (K.side < 0) pts = [[-80, top[0][1] + 10], ...top, ...edge.slice(1), ...foot, [-80, wl + 24]];
+          else {
+            const e = top[top.length - 1];
+            pts = [...top, ...jag(e, [RW + 80, e[1] - 150], 3, 0.15, rnd).slice(1), [RW + 80, wl + 24], ...foot.slice().reverse(), ...edge.slice(1).reverse()];
           }
-          for (let q = 0; q + 1 < ctrl.length; q++) pts.push(...jag(ctrl[q], ctrl[q + 1], 3, 0.14, rnd).slice(1));
-          // fallen blocks and the foot of the rock in the water
-          pts.push([X(pd.inBase, 90 * sc), y1 - 10], [X(pd.inBase, 120 * sc), y1 + 2], [X(pd.inBase, 60 * sc), y1 + 10]);
-          // the outer flank, going back up, and its moulding
-          pts.push([X(pd.outBase, -70 * sc), y1 + 14], [X(pd.outBase, -40 * sc), y1 - 2]);
-          const oc = [];
-          for (let q = nq; q >= 0; q--) {
-            const f = q / nq, y = lerp(y0, y1, f);
-            oc.push([X(lerp(pd.outTop, pd.outBase, f), 8 * sc + (rnd() - 0.5) * 30 * sc * smooth(0, 0.3, f) - smooth(0.7, 1, f) * 30 * sc), y]);
-          }
-          for (let q = 0; q + 1 < oc.length; q++) pts.push(...jag(oc[q], oc[q + 1], 3, 0.12, rnd).slice(1));
-          pts.push([X(pd.outTop, -10 * sc), top + pH * 0.86], [X(pd.outTop, -20 * sc), top + pH * 0.6], [X(pd.outTop, -20 * sc), top + pH * 0.36], [X(pd.outTop, -8 * sc), top + pH * 0.15]);
-          pd.pts = pts; pd.edge = ctrl; pd.oedge = oc;
-          pd.plinth = top + pH; pd.rowEdge = new Float32Array(FH).fill(NaN);
+          const pd = { id: K.side < 0 ? PEDL : PEDR, side: K.side, sc, wl, cw: 0, slope: 0, pts, edge, inTop: inner[0], inBase: innerBase[0], rowEdge: new Float32Array(FH).fill(NaN) };
+          pd.top = Math.min(...top.map((p) => p[1])); pd.plinth = pd.top + 10;
           pd.ledges = [];
-          for (let y = y0 + (90 + rnd() * 80) * sc; y < y1 - 140 * sc; y += (150 + rnd() * 170) * sc) pd.ledges.push({ y, tilt: (rnd() - 0.5) * 0.12, d: (10 + rnd() * 10) * sc, u: (26 + rnd() * 30) * sc });
-          fillPoly(pd.pts, (j, i0, i1, xa, xb) => {
+          for (let y = pd.top + (110 + rnd() * 60) * sc; y < wl - 120 * sc; y += (130 + rnd() * 160) * sc) pd.ledges.push({ y, tilt: (rnd() - 0.5) * 0.28, d: (9 + rnd() * 10) * sc, u: (22 + rnd() * 30) * sc });
+          fillPoly(pts, (j, i0, i1, xa, xb) => {
             for (let i = i0; i <= i1; i++) {
-              const k = j * FW + i; oid[k] = pd.id; dep[k] = 0.04; part[k] = 0;
-              aux[k] = pd.side < 0 ? (xb - i) * F : (i - xa) * F;   // distance in from the river edge
-              auxX[k] = (xb - xa) * F;                                  // the width of the pillar here
+              const k = j * FW + i; oid[k] = pd.id; dep[k] = K.side < 0 ? 0.03 : 0.12; part[k] = 0;
+              aux[k] = pd.side < 0 ? (xb - i) * F : (i - xa) * F;
+              auxX[k] = (xb - xa) * F;
             }
             pd.rowEdge[j] = (pd.side < 0 ? xb : xa) * F;
           });
+          peds.push(pd);
         }
         await breathe();
         const pOff = (pd, k) => aux[k] < pd.cw ? (pd.cw - aux[k]) * pd.slope : 0;
@@ -791,14 +836,14 @@
             const k = j * FW + i, o = oid[k], x = (i + 0.5) * F;
             if (isKing(o)) {
               const K = o === KINGL ? kings[0] : kings[1];
-              const s = K.rowSx[j] / F;
+              const s = K.T.scaleAt(aux[k]) / F;
               const dx = auxX[k], dy = aux[k];
               // weathering: eroded skin, pits, flaking, rain-runnels
-              let h = Hf[k] + (fbm(dx / 26, dy / 26, NS + 3 + o, 3) - 0.5) * 10 + (vn(dx / 5, dy / 5, NS + 9) - 0.5) * 2.4;
+              let h = Hf[k] + (fbm(dx / 30, dy / 30, NS + 3 + o, 3) - 0.5) * 6 + (vn(dx / 5, dy / 5, NS + 9) - 0.5) * 1.6;
               const pit = vn(dx / 3, dy / 3, NS + 21 + o);
-              if (pit > 0.82) h -= (pit - 0.82) * 24;
+              if (pit > 0.86) h -= (pit - 0.86) * 24;
               const flake = fbm(dx / 40, dy / 40, NS + 25 + o, 3);
-              if (flake > 0.64) h -= 3.5;
+              if (flake > 0.7) h -= 3;
               h -= Math.pow(vn(dx / 7, dy / 90, NS + 33 + o), 4) * 5;
               Hf[k] = h * s;
             } else if (isPed(o)) {
@@ -814,10 +859,9 @@
                 const f1 = facet(x / (130 * sc), y / (520 * sc), NS + 43), f2 = facet(x / (34 * sc), y / (90 * sc), NS + 45);
                 const h1 = hash(f1.id, 1, NS), h2 = hash(f1.id, 2, NS), h3 = hash(f2.id, 3, NS), h4 = hash(f2.id, 4, NS);
                 nx = (h1 - 0.5) * 0.55 + (h3 - 0.5) * 0.16; ny = (h2 - 0.6) * 0.22 + (h4 - 0.5) * 0.12; nz = 1;
-                if (onSide) { nx = nx * 0.35 - pd.side * 1.4; nz = 0.5; }
-                else nx -= -pd.side * 0.25 * smooth(300, 800, aux[k] / sc);
-                const uo = (auxX[k] - aux[k]) / sc;      // distance from the outer flank
-                if (uo < 170) nx -= -pd.side * 0.9 * (1 - uo / 170);
+                // the pinnacle turns like a rough column: lit on the sun side, falling into shadow on the other
+                const W = Math.min(auxX[k], 1400 * sc), q = pd.side < 0 ? 1 - 2 * Math.min(1, aux[k] / W) : -1 + 2 * Math.min(1, aux[k] / W);
+                nx += q * 0.9 + (aux[k] < 40 * sc ? -pd.side * 0.8 : 0);
                 // ledges of bedding cutting across the columns: lit tops, dark undersides
                 for (const L of pd.ledges) {
                   const yl = y - off - (L.y + L.tilt * (x - pd.inTop) + (vn(x / 40, L.y, NS + 47) - 0.5) * 14 * sc);
@@ -833,16 +877,16 @@
               // sheer faces, split into tall slabs; one wall in the light, the other in shadow
               const sideL = o < CLIFF + 15, z = aux[k];
               const wy = (HY - y) * z;   // height above the water, as if near
-              const f1 = facet(z * 5.5, wy / 260, NS + 51 + o), f2 = facet(z * 16, wy / 70, NS + 53);
+              const f1 = facet(z * 4, wy / 420, NS + 51 + o), f2 = facet(z * 11, wy / 140, NS + 53);
               const h1 = hash(f1.id, 1, NS), h2 = hash(f1.id, 2, NS), h3 = hash(f2.id, 3, NS);
-              let nx = (sideL ? 0.9 : -0.9) + (h1 - 0.5) * 0.9 + (h3 - 0.5) * 0.4, ny = (h2 - 0.6) * 0.5, nz = 0.7;
+              let nx = (sideL ? 0.9 : -0.9) + (h1 - 0.5) * 0.6 + (h3 - 0.5) * 0.18, ny = (h2 - 0.6) * 0.3, nz = 0.7;
               const ob = o - (sideL ? CLIFF : CLIFF + 15);
               if (ob >= 1 && ob <= 8) {   // buttress: its front faces us, its river side turns away
                 const dd = Hf[k];
                 if (dd < 60) nx = (sideL ? 1.1 : -1.1) + (h1 - 0.5) * 0.5;
                 else { nx = (h1 - 0.5) * 0.7; nz = 1; }
               }
-              if (ob === 9) { nx = (h1 - 0.5) * 1.2; ny = (h2 - 0.6) * 0.8; nz = 1; }
+              if (ob === 9) { nx = (sideL ? 0 : -0.55) + (h1 - 0.5) * (sideL ? 1.0 : 0.45) + (h3 - 0.5) * 0.15; ny = (h2 - 0.6) * 0.3; nz = 1; }
               const l = Math.hypot(nx, ny, nz);
               lam[k] = Math.max(0, (nx * Lx + ny * Ly + nz * Lz) / l);
               cav[k] = f1.edge < 0.04 ? 1 : f2.edge < 0.05 ? 0.5 : 0;
@@ -921,6 +965,9 @@
           }
           const b1 = boxBlur(Hf, 4), b2 = boxBlur(b1, 4);
           for (let k = 0; k < N; k++) if (isKing(oid[k])) cav[k] = clamp((b2[k] - Hf[k]) * 0.2, -1, 1.5);
+          // the big planes of light and shade, before the detail
+          const ls = boxBlur(lam, 5);
+          for (let k = 0; k < N; k++) if (isKing(oid[k])) lam[k] = ls[k] * 0.6 + lam[k] * 0.4;
         }
         await breathe();
         function boxBlur(src, r) {
@@ -976,7 +1023,7 @@
                 }
               }
               // spray thrown up at the feet of the pillars
-              for (const sp of [[1010, 2502, 1.15, -1], [1476, 2466, 0.85, 1]]) {
+              for (const sp of [[peds[0].inBase, peds[0].wl, 1.5, -1], [peds[1].inBase, peds[1].wl, 0.7, 1]]) {
                 const ux = (x - sp[0]) * -sp[3];   // + towards the river
                 const ddx = (ux - 40 * sp[2]) / (190 * sp[2]), ddy = (y - sp[1] + 30) / ((y < sp[1] ? 300 : 70) * sp[2]);
                 const rr = ddx * ddx + ddy * ddy;
@@ -1015,7 +1062,7 @@
                 const lit = lam[k] * (1 - 0.9 * shd[k]);
                 const dx = auxX[k], dy = aux[k];
                 t = 0.08 + 0.78 * (1 - lit) + clamp(cav[k] * 0.3, -0.1, 0.35);
-                t += 0.16 * smooth(0, -380, dx) + 0.12 * smooth(900, 1660, dy);      // the broad turning of the form
+                t += 0.22 * smooth(-40, -380, dx) - 0.12 * smooth(60, 330, dx) + 0.06 * smooth(1500, 2500, dy);      // the broad turning of the form: sun on the right, shadow round the left
                 const g2 = sgx[k] * sgx[k] + sgy[k] * sgy[k];
                 const contour = Math.atan2(sgy[k], sgx[k]) + Math.PI / 2;
                 a = smooth(0.02, 0.2, g2) > 0.5 ? contour : -0.95;
@@ -1079,7 +1126,7 @@
             } else if (isCliff(o)) {
               const dd = dep[k], near = 1 - smooth(0.22, 1, dd);
               const sideL = o < CLIFF + 15, lit = lam[k];
-              add(k, PAY, (0.06 + 0.22 * near) * (0.8 + 0.4 * mott));
+              add(k, PAY, (0.06 + 0.22 * near) * (0.92 + 0.16 * mott));
               add(k, ULT, 0.05 + 0.1 * near + (sideL ? 0 : 0.08));
               add(k, GRN, 0.05 * near);
               add(k, SEP, 0.06 * near);
@@ -1088,7 +1135,7 @@
               const sh = (1 - lit) + (vn(x / 40, y / 90, NS + 99) - 0.5) * 0.3;
               if (sh > 0.5) { const w = smooth(0.5, 0.515, sh), e = Math.exp(-(sh - 0.5) / 0.04); add(k, PAY, w * (0.08 + 0.06 * e) * (0.3 + near)); add(k, ULT, w * 0.07); }
               if (sh > 0.78) { const w = smooth(0.78, 0.79, sh); add(k, SEP, w * 0.12 * near); }
-              dry[k] = 0.45 * near * smooth(0.55, 0.66, vn(x / 14, y / 110, NS + 113));
+              dry[k] = 0.25 * near * smooth(0.62, 0.7, vn(x / 14, y / 110, NS + 113));
             } else if (isPed(o)) {
               const pd = o === PEDL ? peds[0] : peds[1];
               const low = smooth(pd.plinth + 120, pd.wl, y), yv = y - pOff(pd, k);
@@ -1118,18 +1165,18 @@
               add(k, PAY, 0.07 + 0.08 * smooth(700, 1660, dyk));
               add(k, OCH, 0.13 + 0.05 * mott);
               add(k, SIE, 0.03);
-              const sh = 1 - lit + 0.14 * smooth(0, -380, dxk) + 0.1 * smooth(900, 1650, dyk) + (vn(x / 60, y / 60, NS + 103) - 0.5) * 0.1;
+              const sh = 1 - lit + 0.22 * smooth(-40, -380, dxk) - 0.14 * smooth(60, 330, dxk) + (vn(x / 60, y / 60, NS + 103) - 0.5) * 0.06;
               if (sh > 0.5) { const w = smooth(0.5, 0.512, sh), e = Math.exp(-(sh - 0.5) / 0.035); add(k, ULT, w * (0.2 + 0.1 * e)); add(k, SEP, w * (0.1 + 0.06 * e)); add(k, PAY, w * 0.1); }
               if (sh > 0.76) { const w = smooth(0.76, 0.772, sh); add(k, SEP, w * 0.2); add(k, PAY, w * 0.12); add(k, ULT, w * 0.06); }
               if (lit > 0.58) { const w = smooth(0.58, 0.62, lit); add(k, OCH, w * 0.14); add(k, ROS, w * 0.07); add(k, SIE, w * 0.03); }
               if (part[k] === 7 && Math.abs(dxk) < 215 && dyk > 1150) { add(k, SEP, 0.16); add(k, PAY, 0.12); add(k, ULT, 0.1); }
               // stains: rain runnels, orange lichen, moss on what faces the sky
               const run = vn(x / 7, y / 150, NS + 105 + o);
-              if (run > 0.72) add(k, SEP, (run - 0.72) * 0.5);
+              if (run > 0.8) add(k, SEP, (run - 0.8) * 0.5);
               const li = vn(x / 14, y / 14, NS + 107 + o) * 0.6 + vn(x / 5, y / 5, NS + 108) * 0.4;
-              if (li > 0.7 && lam[k] > 0.35) { add(k, SIE, (li - 0.7) * 1.0); add(k, OCH, (li - 0.7) * 1.2); }
+              if (li > 0.76 && lam[k] > 0.4) { add(k, SIE, (li - 0.7) * 1.0); add(k, OCH, (li - 0.7) * 1.2); }
               const moss = vn(x / 22, y / 22, NS + 109 + o);
-              if (moss > 0.62 && -gy[k] > 0.12) add(k, GRN, (moss - 0.62) * 1.2);
+              if (moss > 0.7 && -gy[k] > 0.12) add(k, GRN, (moss - 0.7) * 1.2);
               dry[k] = 0.55 * smooth(0.6, 0.7, vn(x / 12, y / 70, NS + 112));
             }
             const m = mist[k], keep = 1 - m;
@@ -1198,9 +1245,9 @@
         /* ------------------------------------------------------- the boats, their figures and reflections */
         mark('boats');
         const boats = [
-          { x: 1222, y: 2490, L: 150, a: -0.13, crew: ['aragorn', 'frodo', 'sam'] },
-          { x: 1004, y: 2534, L: 172, a: -0.11, crew: ['boromir', 'merry', 'pippin'] },
-          { x: 752, y: 2598, L: 198, a: -0.09, crew: ['gimli', 'legolas'] },
+          { x: 1300, y: 2500, L: 250, a: -0.1, crew: ['aragorn', 'frodo', 'sam'] },
+          { x: 1180, y: 2610, L: 310, a: -0.08, crew: ['boromir', 'merry', 'pippin'] },
+          { x: 1430, y: 2770, L: 380, a: -0.07, crew: ['gimli', 'legolas'] },
         ];
         for (const b of boats) { b.x += (rnd() - 0.5) * 10; b.y += (rnd() - 0.5) * 5; b.a += (rnd() - 0.5) * 0.03; }
         const stampPoly = (pts, fn) => fillPoly(pts, (j, i0, i1) => { for (let i = i0; i <= i1; i++) fn(j * FW + i, (i + 0.5) * F, (j + 0.5) * F); });
@@ -1235,24 +1282,28 @@
         /* nests on the kings, and what the birds leave below them */
         const nests = [];
         const nestAt = [
-          [[-70, 100, 1], [238, 372, 1.25], [-470, 188, 0.85], [-300, 1180, 0.7]],
-          [[26, 100, 1.1], [-236, 370, 1.1], [470, 640, 0.8]],
+          [[2, -70, 100, 1], [6, 238, 380, 1.3], [11, -470, 190, 0.9], [6, -236, 380, 1]],
+          [[2, 26, 100, 1.1], [6, -236, 380, 1.1], [6, 236, 380, 0.9]],
         ];
         kings.forEach((K, q) => {
+          const tn = KT[q].turn, sn = Math.sin(tn), cf = Math.cos(tn * 1.6);
           for (const n of nestAt[q]) {
-            const [x, y] = K.T.fx(n[0], n[1]);
-            const s = n[2] * K.T.sc;
+            const dxt = (n[1] * Math.sign(tn) > 0 ? n[1] * cf : n[1] * 1.04) + 130 * sn;
+            const p0 = K.T.fx(dxt, n[2]);
+            let x = p0[0], y = -1;
+            for (let yy = p0[1] - 80; yy < p0[1] + 160; yy += 2) { const k = idx(x, yy); if (k >= 0 && oid[k] === K.id && part[k] === n[0]) { y = yy + 3; break; } }
+            if (y < 0) continue;
+            const s = n[3] * K.T.sc;
             nests.push({ K, x, y, s });
             for (let st = 0; st < 5 + ((rnd() * 4) | 0); st++) {
-              let dx = n[0] + (rnd() - 0.5) * 40 * n[2], dy = n[1] + 6;
-              const L = (40 + rnd() * 170) * n[2], w = 0.6 + rnd() * 0.8;
+              let sx = x + (rnd() - 0.5) * 34 * s, sy = y + 4;
+              const L = (50 + rnd() * 200) * s, w = 0.6 + rnd() * 0.8;
               for (let t = 0; t < L; t += 3) {
-                dx += (rnd() - 0.5) * 2.2; dy += 3;
-                const p = K.T.fx(dx, dy), k = idx(p[0], p[1]);
+                sx += (rnd() - 0.5) * 2; sy += 3;
+                const k = idx(sx, sy);
                 if (k < 0 || oid[k] !== K.id) break;
                 const fall = 1 - t / L;
                 lift[k] = Math.max(lift[k], (0.55 + 0.3 * fall) * w);
-                if (fall > 0.5 && rnd() < 0.5) { const k2 = idx(p[0] + F, p[1]); if (k2 >= 0 && oid[k2] === K.id) lift[k2] = Math.max(lift[k2], 0.5 * w); }
               }
             }
           }

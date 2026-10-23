@@ -187,6 +187,7 @@
     }
     const pickCol = (wy, wg, wb) => { const t = R() * (wy + wg + wb); return t < wy ? 'y' : t < wy + wg ? 'g' : (chance(0.5) ? 'b' : 's'); };
 
+    const stairU = (S, u) => u + (S.wob || 0) * Math.sin(TAU * u * (S.wf || 1) + (S.wp || 0)) * Math.sin(Math.PI * u);
     /* ---- trees */
     const trees = [];
     function makeTree(o) {
@@ -204,8 +205,10 @@
       trees.push(T); return T;
     }
     const J = (a) => rr(-a, a);
-    const GAPS = [[415 + J(15), 110 + J(20), 62, 92], [668 + J(15), 150 + J(20), 52, 96], [205 + J(15), 60, 80, 40], [858 + J(15), 82, 70, 52], [300 + J(15), 330 + J(30), 34, 40], [770 + J(15), 330 + J(30), 30, 44]];
-    const inGap = (x, y) => { for (const [gx, gy, rx, ry] of GAPS) { const d = Math.pow((x - gx) / rx, 2) + Math.pow((y - gy) / ry, 2); if (d < 1 + 0.35 * nz2(x / 18, y / 18)) return true; } return false; };
+    const GAPS = [[412 + J(15), 112 + J(20), 66, 98], [672 + J(15), 150 + J(20), 56, 104], [215 + J(15), 58, 86, 44], [860 + J(15), 84, 74, 58],
+      [300 + J(15), 330 + J(30), 40, 48], [772 + J(15), 330 + J(30), 36, 52], [165 + J(10), 250 + J(30), 30, 46], [905 + J(10), 260 + J(30), 30, 50], [560 + J(20), 52, 34, 22]];
+    const gapVal = (x, y) => { let m = 9; for (const [gx, gy, rx, ry] of GAPS) { const d = Math.pow((x - gx) / rx, 2) + Math.pow((y - gy) / ry, 2) - 1 - 0.35 * nz2(x / 18, y / 18); if (d < m) m = d; } return m; };
+    const inGap = (x, y) => gapVal(x, y) < 0;
     const crest = (x) => 936 + 0.00042 * (x - 545) * (x - 545);
     const far = [[92, 34], [368, 30], [655, 32], [912, 36]].map(([x, w]) => { x += J(14);
       return makeTree({ xb: x, yb: crest(x) + 30, wb: w * rr(0.9, 1.1), tier: 0, thL: x < 500 ? 0.7 : -0.7 }); });
@@ -216,26 +219,29 @@
     const KT = makeTree({ xb: 548 + J(5), yb: 952, wb: 180, tier: 3, thL: -0.5 });
 
     // flets: y of the underside, R in multiples of the trunk radius
-    function flet(T, y, Rm, houses, opt) { const F = Object.assign({ y, Rm, houses: houses || [] }, opt || {}); T.flets.push(F); return F; }
-    flet(KT, 806 + J(8), 1.72, [{ phi: -0.75 + J(0.15) }], { off: -0.28 });
-    flet(KT, 654 + J(8), 1.5, [{ phi: 0.55 + J(0.1) }], { off: 0.36 });
-    flet(KT, 446 + J(4), 1.95, [], { hall: true });
-    flet(KT, 268 + J(10), 1.55, [{ phi: -0.35 + J(0.2) }], { off: -0.3 });
-    flet(KT, 118 + J(10), 1.45, [], { off: 0.25 });
-    flet(L1, 770 + J(12), 1.85, [{ phi: 0.6 + J(0.2) }], { off: 0.3 });
-    flet(L1, 530 + J(12), 2.0, [{ phi: -0.45 + J(0.2) }, { phi: 0.85 }], { off: -0.15 });
-    flet(L1, 312 + J(12), 1.7, [{ phi: 0.3 + J(0.3) }], { off: 0.2 });
-    flet(L1, 135 + J(12), 1.5, []);
-    flet(R1, 830 + J(12), 1.8, [{ phi: -0.55 + J(0.2) }], { off: -0.32 });
-    flet(R1, 610 + J(12), 1.95, [{ phi: 0.25 + J(0.3) }]);
-    flet(R1, 396 + J(12), 1.8, [{ phi: -0.7 + J(0.2) }], { off: 0.28 });
-    flet(R1, 205 + J(12), 1.55, [], { off: -0.2 });
+    // flets: y of the underside, R in multiples of the trunk radius, [pa, pb] the arc of the trunk it
+    // rests against (0 faces us); most lie on one side, in the fork of a great limb
+    function flet(T, y, Rm, pa, pb, houses, opt) { const F = Object.assign({ y, Rm, pa, pb, houses: houses || [] }, opt || {}); T.flets.push(F); return F; }
+    const sw = (c, w) => [c - w / 2, c + w / 2];
+    flet(KT, 812 + J(8), 2.15, ...sw(-0.95 + J(0.15), 2.1), [{ phi: -0.7 }]);
+    flet(KT, 664 + J(10), 1.85, ...sw(1.0 + J(0.15), 1.9), [{ phi: 0.75 }]);
+    flet(KT, 448 + J(4), 1.95, -2.1, 2.1, [], { hall: true });
+    flet(KT, 270 + J(10), 1.75, ...sw(-0.9 + J(0.2), 1.9), [{ phi: -0.55 }]);
+    flet(KT, 120 + J(10), 1.6, ...sw(0.8, 2.2), []);
+    flet(L1, 776 + J(12), 2.1, ...sw(0.9 + J(0.2), 2.2), [{ phi: 0.7 }]);
+    flet(L1, 536 + J(12), 2.2, ...sw(-0.3 + J(0.2), 2.5), [{ phi: -0.6 }, { phi: 0.55 }]);
+    flet(L1, 314 + J(12), 1.9, ...sw(0.8 + J(0.2), 2.4), [{ phi: 0.6 }]);
+    flet(L1, 140 + J(12), 1.6, ...sw(-0.5, 2.6), []);
+    flet(R1, 836 + J(12), 2.0, ...sw(-0.9 + J(0.2), 2.0), [{ phi: -0.6 }]);
+    flet(R1, 614 + J(12), 2.15, ...sw(0.2 + J(0.3), 2.4), [{ phi: 0.35 }]);
+    flet(R1, 398 + J(12), 1.95, ...sw(-0.8 + J(0.2), 2.0), [{ phi: -0.6 }]);
+    flet(R1, 208 + J(12), 1.7, ...sw(0.6, 2.4), []);
     back.forEach((T, i) => {
-      flet(T, 700 - i * 22 + J(30), 2.0, chance(0.6) ? [{ phi: J(0.8) }] : [], { off: J(0.3) });
-      flet(T, 460 + J(40), 1.9, chance(0.4) ? [{ phi: J(0.8) }] : [], { off: J(0.3) });
-      if (chance(0.7)) flet(T, 240 + J(40), 1.8, []);
+      flet(T, 700 - i * 22 + J(30), 2.1, ...sw(J(1.2), rr(1.7, 2.6)), chance(0.6) ? [{ phi: 0 }] : []);
+      flet(T, 460 + J(40), 2.0, ...sw(J(1.2), rr(1.7, 2.6)), chance(0.4) ? [{ phi: 0 }] : []);
+      if (chance(0.7)) flet(T, 240 + J(40), 1.9, ...sw(J(1.2), rr(1.7, 2.6)), []);
     });
-    far.forEach((T) => { flet(T, 640 + J(60), 2.1, []); if (chance(0.7)) flet(T, 380 + J(50), 2.0, []); });
+    far.forEach((T) => { flet(T, 640 + J(60), 2.2, ...sw(J(1.2), rr(2.4, 3.6)), []); if (chance(0.7)) flet(T, 380 + J(50), 2.1, ...sw(J(1.2), rr(2.4, 3.6)), []); });
     trees.forEach((T) => T.flets.sort((a, b) => b.y - a.y));
 
     // stairs and ladders
@@ -264,14 +270,15 @@
       R1.ladders.push({ y0: R1.flets[1].y - 4, y1: R1.flets[2].y, side: -0.45 });
       R1.ladders.push({ y0: R1.flets[2].y - 4, y1: R1.flets[3].y, side: 0.55 });
     }
+    for (const T of trees) for (const S of T.stairs) { S.wob = rr(0.03, 0.06); S.wf = rr(1, 2.2); S.wp = rr(0, TAU); }
     back.forEach((T) => { T.ladders.push({ y0: T.flets[0].y + 120, y1: T.flets[0].y, side: T.thL > 0 ? 0.7 : -0.7 }); if (T.flets[1]) T.ladders.push({ y0: T.flets[0].y - 3, y1: T.flets[1].y, side: T.thL > 0 ? -0.4 : 0.4 }); });
 
     /* ---- branches (structure only; leaves are generated as they are drawn) */
-    function growLimb(T, y0, side, sc) {
+    function growLimb(T, y0, side, sc, great) {
       const r0 = T.r(y0);
       let x = T.cx(y0) + side * r0 * 0.78, y = y0;
-      const e0 = rr(-0.12, 0.38), e1 = rr(0.75, 1.3), L = rr(110, 250) * sc;
-      const hw0 = r0 * rr(0.26, 0.38);
+      const e0 = great ? rr(-0.05, 0.15) : rr(-0.12, 0.38), e1 = rr(0.75, 1.3), L = rr(110, 250) * sc;
+      const hw0 = r0 * (great ? rr(0.36, 0.44) : rr(0.26, 0.38));
       const pts = [x, y], hw = [hw0];
       const n = Math.ceil(L / 5), sd = rr(0, 50);
       for (let i = 1; i <= n; i++) {
@@ -333,8 +340,10 @@
       let side = T === L1 ? 1 : T === R1 ? -1 : (chance(0.5) ? 1 : -1);
       for (const F of T.flets) {
         if (F.y < 150) continue;
-        T.limbs.unshift(growLimb(T, F.y + rr(14, 30), side, rr(1.15, 1.4) * (T === KT ? 1 : 0.85)));
-        if (F.hall || chance(0.45)) T.limbs.unshift(growLimb(T, F.y + rr(16, 34), -side, rr(1.0, 1.3) * (T === KT ? 1 : 0.85)));
+        const m = Math.sin((F.pa + F.pb) / 2);
+        if (Math.abs(m) > 0.25) side = m > 0 ? 1 : -1;
+        T.limbs.unshift(growLimb(T, F.y + rr(8, 18), side, rr(1.2, 1.45) * (T === KT ? 1 : 0.85), true));
+        if (F.hall || chance(0.55)) T.limbs.unshift(growLimb(T, F.y + rr(14, 30), -side, rr(1.0, 1.3) * (T === KT ? 1 : 0.85), true));
         side = -side;
       }
     }
@@ -359,26 +368,38 @@
     const pathW = (y) => lerp(13, 40, smooth(945, 1192, y));
     const FOUNT = { x: 392 + J(6), y: 972 };
 
+    // plan of a flet: its outline radius at angle ph, a leaf- or kidney-shaped deck in the fork
+    function fletRo(F, ph) {
+      const lobe = 1 + 0.14 * Math.sin(2 * ph + F.s1) + 0.1 * Math.sin(3 * ph + F.s2);
+      const u = (ph - F.pa) / (F.pb - F.pa);
+      if (u <= 0 || u >= 1) return F.r;
+      return F.r + (F.R * lobe - F.r) * Math.pow(Math.sin(Math.PI * Math.pow(u, F.sk || 1)), 0.62);
+    }
+    function fletP(F, ph, rho, lift) { return [F.tcx + rho * Math.sin(ph), F.y - F.e * rho * Math.cos(ph) - (lift || 0)]; }
+
     /* ---- lamps */
     // on the flets: on the rail posts and hanging beneath the rim
     for (const T of trees) {
       const tierS = [0.55, 0.75, 1, 1.1][T.tier];
       for (const F of T.flets) {
         const y = F.y, cx = T.cx(y), r = T.r(y), Rr = F.Rm * r, e = ell(y), t = 3 + Rr * 0.03;
-        F.R = Rr; F.e = e; F.t = t; F.tcx = cx; F.cx = cx + (F.off || 0) * r; F.r = r;
+        F.R = Rr; F.e = e; F.t = t; F.tcx = cx; F.cx = cx; F.r = r; F.s1 = rr(0, TAU); F.s2 = rr(0, TAU); F.sk = F.hall ? 1 : rr(0.75, 1.35);
+        for (const H of F.houses) H.phi = clamp(H.phi, Math.max(F.pa + 0.5, -1.2), Math.min(F.pb - 0.5, 1.2));
         if (F.hall) continue;
+        const qa = Math.max(F.pa + 0.25, -1.4), qb = Math.min(F.pb - 0.25, 1.4);
+        if (qb - qa < 0.3) continue;
         const nu = T.tier >= 2 ? Math.round(rr(2, 4)) : Math.round(rr(1, 2.4));
         for (let i = 0; i < nu; i++) {
-          const th = (i + 0.5) / nu * 2.6 - 1.3 + J(0.18);
-          const ax = F.cx + Rr * 0.96 * Math.sin(th), ay = y - e * Rr * 0.96 * Math.cos(th);
+          const th = lerp(qa, qb, (i + 0.5) / nu) + J(0.1);
+          const [ax, ay] = fletP(F, th, fletRo(F, th) * 0.96);
           const s = rr(3.2, 4.4) * tierS;
           lamp(ax, ay + rr(5, 13) * tierS + s, s, pickCol(4, 3, 2), 'hang', ax, ay, 1);
         }
         if (T.tier >= 1) {
           const np = T.tier >= 2 ? Math.round(rr(2, 3)) : 1;
           for (let i = 0; i < np; i++) {
-            const th = J(1.25);
-            const px = F.cx + Rr * Math.sin(th), py = y - e * Rr * Math.cos(th) - t - 9 * tierS;
+            const th = lerp(qa, qb, R());
+            const [px, py0] = fletP(F, th, fletRo(F, th)), py = py0 - t - 9 * tierS;
             lamp(px, py - 3 * tierS, 2.6 * tierS, pickCol(3, 2, 2), 'post', px, py + 4, 0.8);
           }
         }
@@ -388,16 +409,17 @@
     {
       const F = KT.flets.find((f) => f.hall);
       F.isHall = true;
-      const Rd = F.R * 0.86, H = 46;
-      for (let i = 0; i < 9; i++) {
-        const th = (i + 0.5) / 9 * 2.9 - 1.45;
-        const ax = F.cx + Rd * 1.08 * Math.sin(th), ay = F.y - F.t - H - ell(F.y) * Rd * 1.08 * Math.cos(th);
-        const s = 3.8 + 0.6 * Math.cos(th);
-        lamp(ax, ay + 7 + s, s, i % 3 === 1 ? 'g' : (i % 3 === 2 ? 's' : 'y'), 'hang', ax, ay, 1.2);
+      const Rd = F.r * 1.5, H = 54;
+      for (let i = 0; i < 8; i++) {
+        const th = (i + 0.5) / 8 * 2.8 - 1.4;
+        const yy = F.y - F.t - H;
+        const ax = KT.cx(yy) + Rd * 1.14 * Math.sin(th), ay = yy - ell(yy) * Rd * 1.14 * Math.cos(th) + 3;
+        const s = 3.4 + 0.6 * Math.cos(th);
+        lamp(ax, ay + 7 + s, s, i % 3 === 1 ? 'g' : (i % 3 === 2 ? 's' : 'y'), 'hang', ax, ay, 1.1);
       }
-      for (let i = 0; i < 4; i++) {
-        const th = (i + 0.5) / 4 * 2.4 - 1.2;
-        const ax = F.cx + F.R * Math.sin(th), ay = F.y - ell(F.y) * F.R * Math.cos(th);
+      for (let i = 0; i < 5; i++) {
+        const th = (i + 0.5) / 5 * 2.8 - 1.4;
+        const [ax, ay] = fletP(F, th, fletRo(F, th) * 0.97);
         lamp(ax, ay + 16, 4.2, i % 2 ? 'b' : 'y', 'hang', ax, ay, 1.1);
       }
     }
@@ -405,13 +427,28 @@
     for (const T of trees) for (const S of T.stairs) {
       const n = Math.round(S.turns * 3.4);
       for (let i = 1; i <= n; i++) {
-        const u = (i - 0.5) / n, y = lerp(S.y0, S.y1, u), ph = S.ph0 + S.dir * S.turns * TAU * u;
+        const u = (i - 0.5) / n, y = lerp(S.y0, S.y1, stairU(S, u)), ph = S.ph0 + S.dir * S.turns * TAU * u;
         if (Math.cos(ph) < 0.15) continue;
-        const ro = T.r(y) + S.sw * T.f(y), e = ell(y);
+        const ro = T.r(y) + S.sw * T.f(y) * (1 + 0.22 * Math.sin(TAU * u * 1.3 + S.wp)), e = ell(y);
         const px = T.cx(y) + ro * Math.sin(ph), py = y - e * ro * Math.cos(ph) - 9;
         lamp(px, py - 4, 2.9, pickCol(3, 3, 2), 'post', px, py + 3, 0.9);
       }
     }
+    // slender bridges from flet to flet, between the trees
+    const bridges = [];
+    const bridgeAt = (B, u) => [lerp(B.a[0], B.b[0], u), lerp(B.a[1], B.b[1], u) + B.sag * Math.sin(Math.PI * u)];
+    function span(Ta, ia, qa, Tb, ib, qb) {
+      const Fa = Ta.flets[ia], Fb = Tb.flets[ib];
+      if (!Fa || !Fb || Fa.R === undefined || Fb.R === undefined) return;
+      qa = clamp(qa, Fa.pa + 0.25, Fa.pb - 0.25); qb = clamp(qb, Fb.pa + 0.25, Fb.pb - 0.25);
+      const B = { a: fletP(Fa, qa, fletRo(Fa, qa) * 0.94, Fa.t), b: fletP(Fb, qb, fletRo(Fb, qb) * 0.94, Fb.t), sag: rr(5, 11), tier: Math.min(Ta.tier, Tb.tier) };
+      bridges.push(B);
+      for (const u of [0.33, 0.67]) { const [x, y] = bridgeAt(B, u); lamp(x, y + 10, 2.9, pickCol(3, 3, 2), 'hang', x, y + 1.6, 0.9); }
+    }
+    span(L1, 0, 1.6, KT, 0, -1.6);
+    span(KT, 1, 1.6, R1, 1, -1.3);
+    span(L1, 1, 1.2, KT, 2, -1.75);
+    span(KT, 3, 1.4, R1, 2, -1.0);
     // the constellation in the canopy: lamps hung from the boughs at every level
     for (const T of trees) {
       const n = [7, 14, 30, 46][T.tier];
@@ -548,7 +585,7 @@
       };
       const lines = (n, off, wm, gamma, thr, B) => {
         for (let i = 0; i < n; i++) {
-          const th0 = -Math.PI / 2 + Math.PI * (i + 0.5 + off) / n + J(0.18 * Math.PI / n);
+          const th0 = -Math.PI / 2 - 0.5 + (Math.PI + 1.0) * (i + 0.5 + off) / n + J(0.18 * Math.PI / n);
           const sd = rr(0, 99);
           let y = yT + rr(-120, 0);
           while (y < yB) {
@@ -558,8 +595,9 @@
             let any = false;
             for (let k = 0; k <= n2; k++) {
               const yy = lerp(y, y2, k / n2), u = k / n2;
-              const th = rootPull(th0 + 0.02 * nz(sd + yy / 70), yy);
-              const tn = trunkLight(T, th, yy) - thr;
+              const th = rootPull(th0 + 0.02 * nz(sd + yy / 70) + T.twA * (T.yb - yy), yy);
+              const flute = T.tier >= 2 ? 0.6 + 0.4 * (0.5 + 0.5 * Math.cos(T.nF * th + T.twF * (T.yb - yy))) : 1;
+              const tn = Math.abs(th) > 1.56 ? -1 : trunkLight(T, th, yy) * flute - thr;
               let w = tn > 0 ? wm * Math.pow(tn / (1 - thr), gamma) * (0.8 + 0.3 * nz(sd * 3 + yy / 23)) * (0.62 + 0.38 * nz(sd * 7 + yy / 3.2)) : 0;
               w *= Math.pow(Math.min(1, u / 0.07, (1 - u) / 0.07), 0.6);
               if (w > 0.1) any = true;
@@ -570,10 +608,11 @@
           }
         }
       };
-      lines(N, 0, wmax, 1.15, 0, sil);
+      T.nF = 7; T.twF = (chance(0.5) ? 1 : -1) * 0.006; T.twA = (T.twF > 0 ? 1 : -1) * (T.tier >= 2 ? 0.00042 : 0.0002);
+      lines(Math.round(N * (Math.PI + 1.0) / Math.PI), 0, wmax, 1.15, 0, sil);
       yield;
       // interleaved finer lines in the light only, for the satin of the bark
-      lines(N, 0.5, wmax * 0.6, 1.6, 0.58, silHi);
+      lines(Math.round(N * (Math.PI + 1.0) / Math.PI), 0.5, wmax * 0.6, 1.6, 0.58, silHi);
       yield;
       // satin cross-hatching: contour arcs across the brightest band
       for (let y = yT + rr(0, 3); y < yB - 6; y += rr(3.2, 6.5) * (T.tier < 2 ? 1.7 : 1)) {
@@ -687,14 +726,18 @@
     }
     // a group of leaves, drawn with occlusion: cut the paper clean, then ink
     function Foliage() {
-      return { er: new Path2D(), ring: [new Path2D(), new Path2D(), new Path2D(), new Path2D()], body: [new Path2D(), new Path2D()], rib: new Path2D(), glint: new Path2D(), n: 0 };
+      return { er: new Path2D(), ring: [new Path2D(), new Path2D(), new Path2D(), new Path2D()], body: [new Path2D(), new Path2D()], rib: new Path2D(), glint: new Path2D(),
+        sb: new Path2D(), sr: new Path2D(), edge: new Path2D(), n: 0, depth: 1 };
     }
     function addLeaf(G, x, y, a, l, w, Lv, mode) {
       if (y < PY0 - 6 || y > PY1 || x < PX0 - 6 || x > PX1 + 6) return;
-      if (mode === 'lit' && G.gaps !== false && inGap(x, y)) return;
+      let gv = 9;
+      if (mode === 'lit' && G.gaps !== false) { gv = gapVal(x, y); if (gv < 0) return; }
       leafShape(G.er, x, y, a, l, w);
       if (mode === 'dark') { if (Lv > 0.25) { leafShape(G.ring[0], x, y, a, l, w); leafHole(G.ring[0], x, y, a, l, w); } G.n++; return; }
-      const v = Lv * 1.5 + 0.02 + rr(-0.1, 0.1);
+      const v = Lv * 1.75 * G.depth + 0.01 + rr(-0.1, 0.1);
+      if (gv < 0.5) { leafShape(G.er, x, y, a, l, w); leafShape(G.edge, x, y, a, l, w); leafHole(G.edge, x, y, a, l, w); leafRib(G.edge, x, y, a, l); G.n++; return; }
+      if (v > 0.2 && R() < 0.1 + 0.18 * Math.min(1, v)) { leafShape(G.sb, x, y, a, l, w); leafShape(G.sr, x, y, a, l, w); leafHole(G.sr, x, y, a, l, w); leafRib(G.rib, x, y, a, l); G.n++; return; }
       if (v < 0.15) { leafShape(G.ring[0], x, y, a, l, w); }
       else if (v < 0.34) { leafShape(G.ring[1], x, y, a, l, w); leafHole(G.ring[1], x, y, a, l, w); if (chance(0.5)) leafRib(G.ring[1], x, y, a, l); }
       else if (v < 0.62) { leafShape(G.body[0], x, y, a, l, w); leafShape(G.ring[2], x, y, a, l, w); leafHole(G.ring[2], x, y, a, l, w); leafRib(G.rib, x, y, a, l); }
@@ -711,6 +754,9 @@
       fill(G.ring[2], INK.gold, 0.95 * A, 'g', 0.8);
       fill(G.body[1], INK.goldHi, 0.82 * A, 'g', 0.85);
       fill(G.ring[3], INK.goldHi, 1 * A, 'g', 1);
+      fill(G.sb, INK.silver, 0.42 * A, 's', 0.5);
+      fill(G.sr, INK.silverHi, 0.95 * A, 's', 0.9);
+      fill(G.edge, INK.goldHi, 0.95 * A, 'g', 0.9);
       erase(G.rib, 0.85);
       fill(G.glint, INK.white, 0.85 * A, 'p', 0.6);
     }
@@ -786,7 +832,7 @@
         }
       };
       body(limb.pts, limb.hw, 0.7, true);
-      let G = Foliage();
+      let G = Foliage(); G.depth = rr(0.3, 1.25);
       for (const S of limb.subs) {
         body(S.pts, S.hw, 0.42, S.hw[0] > 2);
         for (const tw of S.twigs) {
@@ -801,7 +847,7 @@
             spray(G, sx, sy, sa, rr(18, 30) * sc, sc, mode, A);
           }
         }
-        flushFoliage(G, A, mode); G = Foliage();
+        flushFoliage(G, A, mode); G = Foliage(); G.depth = Math.pow(R(), 0.8) * 1.0 + 0.25;
         sil.flush(); silHi.flush();
         yield;
       }
@@ -812,8 +858,8 @@
       const A = tierA[T.tier];
       const steps = Math.max(8, Math.round(S.turns * 30));
       const pos = (u, rad, lift) => {
-        const y = lerp(S.y0, S.y1, u), ph = S.ph0 + S.dir * S.turns * TAU * u;
-        const rr0 = T.r(y) + rad * T.f(y), e = ell(y);
+        const y = lerp(S.y0, S.y1, stairU(S, u)), ph = S.ph0 + S.dir * S.turns * TAU * u;
+        const rr0 = T.r(y) + rad * T.f(y) * (1 + 0.22 * Math.sin(TAU * u * 1.3 + S.wp)), e = ell(y);
         return [T.cx(y) + rr0 * Math.sin(ph), y - e * rr0 * Math.cos(ph) - lift, ph, y];
       };
       const sw = S.sw, railH = 8.5, st = 2.4;
@@ -897,91 +943,95 @@
       white.flush();
     }
 
-    /* ---- the flets: platforms round the trunk, seen from beneath */
+    /* ---- the flets: wooden decks resting in the forks, seen from beneath */
+    function clipErase(clipP, P, rule) {
+      C.save(); M.save(); C.clip(clipP); M.clip(clipP); erase(P, 1, rule); C.restore(); M.restore();
+    }
     function* drawFlet(T, F) {
       const A = tierA[T.tier];
-      const { y, cx, r, R: Rr, e, t, tcx } = F;
-      const ry = e * Rr;
+      const { y, r, e, t, tcx } = F;
       const railH = (F.isHall ? 9 : 8) * clamp(T.f(y), 0.7, 1) * (T.tier < 2 ? 0.8 : 1);
-      // knock out the underside (but not the trunk beneath it) and the rim band
-      {
-        const U = new Path2D();
-        ellipse(U, cx, y, Rr, ry);
-        const xs = [], ys = [];
-        for (let k = 0; k <= 16; k++) { const q = -Math.PI / 2 + Math.PI * k / 16; xs.push(tcx + r * Math.sin(q)); ys.push(y - e * r * Math.cos(q)); }
-        const yLow = (x) => y + ry * Math.sqrt(Math.max(0, 1 - Math.pow((x - cx) / Rr, 2)));
-        for (let k = 0; k <= 12; k++) { const x = tcx + r - 2 * r * k / 12; xs.push(x); ys.push(yLow(x) + 0.2); }
-        const Tp = new Path2D(); poly(Tp, xs, ys, xs.length);
-        U.addPath(Tp);
-        erase(U, 1, 'evenodd');
-        const band = new Path2D();
-        const bx = [], by = [];
-        for (let k = 0; k <= 40; k++) { const q = -Math.PI / 2 + Math.PI * k / 40; bx.push(cx + Rr * Math.sin(q)); by.push(y - ry * Math.cos(q) - t - railH * 0.15); }
-        for (let k = 40; k >= 0; k--) { const q = -Math.PI / 2 + Math.PI * k / 40; bx.push(cx + Rr * Math.sin(q)); by.push(y - ry * Math.cos(q) + 0.3); }
-        poly(band, bx, by, bx.length); erase(band);
-      }
+      const nO = 84;
+      const outer = [];
+      for (let k = 0; k <= nO; k++) { const ph = lerp(F.pa, F.pb, k / nO), ro = fletRo(F, ph), p = fletP(F, ph, ro); outer.push({ ph, ro, x: p[0], y: p[1] }); }
       const hidden = (x, yy) => Math.abs(x - tcx) < r && yy > y - e * r * Math.cos(Math.asin(clamp((x - tcx) / r, -1, 1)));
-      const Lu = light(cx, y + ry * 0.5);
-      // radial joists and ring beams on the underside
-      const nj = Math.round(clamp(Rr / 4.5, 8, 22));
-      for (let j = 0; j < nj; j++) {
-        const q = j / nj * TAU + 0.13;
-        let pts = [];
-        const flushJ = () => { if (pts.length >= 4) stroke(sil.get(clamp((0.25 + 0.6 * Lu) * A, 0, 1)), pts, 0.32, 0.1, 0.05); pts = []; };
-        for (let k = 0; k <= 8; k++) {
-          const u = k / 8, x = lerp(tcx + r * Math.sin(q), cx + Rr * 0.97 * Math.sin(q), u), yy = lerp(y - e * r * Math.cos(q), y - e * Rr * 0.97 * Math.cos(q), u);
-          if (hidden(x, yy)) flushJ(); else pts.push(x, yy);
-        }
-        flushJ();
+      // the underside, cut clean except where the trunk stands in front of it
+      {
+        const xs = [], ys = [];
+        for (const o of outer) { xs.push(o.x); ys.push(o.y); }
+        for (let k = 24; k >= 0; k--) { const p = fletP(F, lerp(F.pa, F.pb, k / 24), r * 0.97); xs.push(p[0]); ys.push(p[1]); }
+        const U = new Path2D(); poly(U, xs, ys, xs.length);
+        const Ex = new Path2D(); Ex.rect(-50, -50, (DW + 100) * K, (DH + 100) * K);
+        const cx_ = [], cy_ = [];
+        for (let k = 0; k <= 16; k++) { const q = -Math.PI / 2 + Math.PI * k / 16; cx_.push(tcx + r * Math.sin(q)); cy_.push(y - e * r * Math.cos(q)); }
+        cx_.push(tcx + r, tcx - r); cy_.push(y + 900, y + 900);
+        poly(Ex, cx_, cy_, cx_.length);
+        clipErase(U, Ex, 'evenodd');
       }
-      for (const f of [0.52, 0.78]) {
-        let pts = [];
-        const flushR = () => { if (pts.length >= 4) stroke(sil.get(clamp((0.2 + 0.5 * Lu) * A, 0, 1)), pts, 0.26, 0.1, 0.1); pts = []; };
-        for (let k = 0; k <= 64; k++) {
-          const q = k / 64 * TAU, rho = Rr * f, x = cx + rho * Math.sin(q), yy = y - e * rho * Math.cos(q);
-          if (hidden(x, yy) || Math.hypot(x - tcx, (yy - y) / Math.max(e, 0.05)) < r + 1) flushR(); else pts.push(x, yy);
-        }
-        flushR();
+      // the visible front edge, in runs
+      const runs = []; let cur = null;
+      for (const o of outer) {
+        const v = Math.cos(o.ph) > -0.35 && !hidden(o.x, o.y);
+        if (v) (cur || (cur = [])).push(o); else if (cur) { runs.push(cur); cur = null; }
       }
-      // carved brackets from the trunk below up to the underside
+      if (cur) runs.push(cur);
+      const Lu = light(tcx, y + 10);
+      // joists radiating from the trunk, and beams that follow the outline
+      const nj = Math.max(4, Math.round((F.pb - F.pa) * F.R / 10));
+      for (let j = 0; j <= nj; j++) {
+        const q = lerp(F.pa, F.pb, (j + 0.5) / (nj + 1)), ro = fletRo(F, q);
+        let pts = [];
+        const fl = () => { if (pts.length >= 4) stroke(sil.get(clamp((0.25 + 0.6 * Lu) * A, 0, 1)), pts, 0.3, 0.1, 0.05); pts = []; };
+        for (let k = 0; k <= 8; k++) { const p = fletP(F, q, lerp(r, ro * 0.97, k / 8)); if (hidden(p[0], p[1])) fl(); else pts.push(p[0], p[1]); }
+        fl();
+      }
+      for (const f of [0.48, 0.76]) {
+        let pts = [];
+        const fl = () => { if (pts.length >= 4) stroke(sil.get(clamp((0.2 + 0.5 * Lu) * A, 0, 1)), pts, 0.24, 0.1, 0.1); pts = []; };
+        for (let k = 1; k < 48; k++) { const q = lerp(F.pa, F.pb, k / 48), p = fletP(F, q, lerp(r, fletRo(F, q), f)); if (hidden(p[0], p[1])) fl(); else pts.push(p[0], p[1]); }
+        fl();
+      }
+      {
+        let pts = [];
+        const fl = () => { if (pts.length >= 4) stroke(sil.get(clamp((0.25 + 0.4 * Lu) * A, 0, 1)), pts, 0.3, 0.05, 0.05); pts = []; };
+        for (const o of outer) { if (hidden(o.x, o.y)) fl(); else pts.push(o.x, o.y); }
+        fl();
+      }
+      // carved brackets from the trunk below, curling at the foot
       if (T.tier >= 1) {
-        const nb = T.tier >= 2 ? 4 : 2;
-        for (let b = 0; b < nb; b++) {
-          const q = lerp(-1.05, 1.05, (b + 0.5) / nb) + J(0.12);
-          const yb = y + 10 + Rr * 0.32;
+        const qa = Math.max(F.pa + 0.35, -1.2), qb = Math.min(F.pb - 0.35, 1.2);
+        const nb = T.tier >= 2 ? 3 : 2;
+        if (qb > qa) for (let b = 0; b < nb; b++) {
+          const q = lerp(qa, qb, (b + 0.5) / nb) + J(0.1);
+          const yb = y + 12 + F.R * 0.3;
           const x0 = T.cx(yb) + T.r(yb) * Math.sin(q), y0 = yb - ell(yb) * T.r(yb) * Math.cos(q);
-          const x1 = lerp(tcx + r * Math.sin(q), cx + Rr * Math.sin(q), 0.62), y1 = lerp(y - e * r * Math.cos(q), y - e * Rr * Math.cos(q), 0.62);
+          const [x1, y1] = fletP(F, q, lerp(r, fletRo(F, q), 0.62));
           const pts = quad(x0, y0, x0 + (x1 - x0) * 0.1, y1 + (y0 - y1) * 0.25, x1, y1, 10);
-          const Pk = new Path2D(); stroke(Pk, pts, 1.6, 0.05, 0.05); erase(Pk);
-          stroke(silHi.get(clamp((0.5 + 0.5 * Lu) * A, 0, 1)), pts, 0.42, 0.05, 0.05);
-          // the volute at its foot
+          const Pk = new Path2D(); stroke(Pk, pts, 1.5, 0.05, 0.05); erase(Pk);
+          stroke(silHi.get(clamp((0.5 + 0.5 * Lu) * A, 0, 1)), pts, 0.4, 0.05, 0.05);
           const vr = 2.2 * T.f(y), vs = [];
           for (let k = 0; k <= 18; k++) { const a = k / 18 * 5.2, rad = vr * (1 - k / 22); vs.push(x0 + Math.sin(q) * vr + rad * Math.cos(a + 1.6), y0 + rad * Math.sin(a + 1.6) - vr * 0.2); }
           stroke(silHi.get(clamp((0.45 + 0.5 * Lu) * A, 0, 1)), vs, 0.3, 0.1, 0.4);
         }
       }
-      // the rim band: lit face with a carved running scroll
-      {
-        const top = [], bot = [];
-        for (let k = 0; k <= 48; k++) { const q = -Math.PI / 2 + Math.PI * k / 48; top.push(cx + Rr * Math.sin(q), y - ry * Math.cos(q) - t); bot.push(cx + Rr * Math.sin(q), y - ry * Math.cos(q)); }
-        const Lr = light(cx, y - ry);
-        const xs = [], ys = [];
-        for (let k = 0; k <= 48; k++) { xs.push(top[2 * k]); ys.push(top[2 * k + 1]); }
-        for (let k = 48; k >= 0; k--) { xs.push(bot[2 * k]); ys.push(bot[2 * k + 1]); }
-        const Bd = new Path2D(); poly(Bd, xs, ys, xs.length); fill(Bd, INK.silver, (0.12 + 0.2 * Lr) * A, 's', 0.2);
-        stroke(silHi.get(clamp((0.6 + 0.4 * Lr) * A, 0, 1)), bot, 0.55, 0.03, 0.03);
-        stroke(sil.get(clamp((0.55 + 0.4 * Lr) * A, 0, 1)), top, 0.42, 0.03, 0.03);
-        // underside edge seen as a thin ellipse to the back
-        let pts = [];
-        const flushE = () => { if (pts.length >= 4) stroke(sil.get(clamp((0.22 + 0.4 * Lu) * A, 0, 1)), pts, 0.3, 0.05, 0.05); pts = []; };
-        for (let k = 0; k <= 40; k++) { const q = Math.PI / 2 + Math.PI * k / 40, x = cx + Rr * Math.sin(q), yy = y - ry * Math.cos(q); if (hidden(x, yy)) flushE(); else pts.push(x, yy); }
-        flushE();
+      // the rim: a lit face carved with a running scroll
+      for (const run of runs) {
+        if (run.length < 3) continue;
+        const top = [], bot = [], xs = [], ys = [];
+        for (const o of run) { bot.push(o.x, o.y); top.push(o.x, o.y - t); xs.push(o.x); ys.push(o.y - t - railH * 0.12); }
+        for (let k = run.length - 1; k >= 0; k--) { xs.push(run[k].x); ys.push(run[k].y + 0.3); }
+        const Bd = new Path2D(); poly(Bd, xs, ys, xs.length); erase(Bd);
+        const Lr = light(run[run.length >> 1].x, run[run.length >> 1].y);
+        fill(Bd, INK.silver, (0.12 + 0.2 * Lr) * A, 's', 0.2);
+        stroke(silHi.get(clamp((0.6 + 0.4 * Lr) * A, 0, 1)), bot, 0.5, 0.04, 0.04);
+        stroke(sil.get(clamp((0.55 + 0.4 * Lr) * A, 0, 1)), top, 0.38, 0.04, 0.04);
         if (T.tier >= 2 && t > 2.6) {
-          const step = 5.5 / Rr;
-          for (let q = -1.45; q < 1.45; q += step) {
-            const c = Math.cos(q); if (c < 0.12) continue;
-            const mx = cx + Rr * Math.sin(q), my = y - ry * Math.cos(q) - t * 0.5;
-            const hx = 1.7 * c, hy = t * 0.28;
+          let acc = 0;
+          for (let k = 1; k < run.length; k++) {
+            const a = run[k - 1], b = run[k]; acc += Math.hypot(b.x - a.x, b.y - a.y);
+            if (acc < 5.5) continue; acc = 0;
+            const c = clamp(Math.abs(b.x - a.x) / (Math.hypot(b.x - a.x, b.y - a.y) || 1), 0.2, 1);
+            const mx = b.x, my = b.y - t * 0.5, hx = 1.7 * c, hy = t * 0.28;
             const Bm = silHi.get(clamp((0.5 + 0.5 * light(mx, my)) * A, 0, 1));
             stroke(Bm, [mx - hx, my + hy, mx - hx * 0.4, my - hy, mx + hx * 0.3, my + hy * 0.6, mx + hx, my - hy], 0.17, 0.2, 0.2);
             dot(Bm, mx + hx * 1.35, my, 0.22);
@@ -990,22 +1040,32 @@
       }
       sil.flush(); silHi.flush();
       yield;
-      // houses on the platform
       for (const H of F.houses) drawHouse(T, F, H);
-      // the rail
-      {
-        const step = 3.4;
-        const n = Math.round(Math.PI * Rr / step);
-        for (let k = 0; k <= n; k++) {
-          const q = -Math.PI / 2 - 0.05 + (Math.PI + 0.1) * k / n;
-          const c = Math.cos(q);
-          const x = cx + Rr * 0.985 * Math.sin(q), yb = y - ry * 0.985 * c - t;
-          const newel = k % 6 === 0;
-          line(white.get(clamp((0.55 + 0.3 * light(x, yb)) * A * (0.6 + 0.4 * Math.max(0, c)), 0, 1)), x, yb, x, yb - railH * (newel ? 1.12 : 1), newel ? 0.42 : 0.2, 0, 0.05, 0.05);
+      // the rail: a handrail over a row of leaf-shaped panels, with carved posts
+      for (const run of runs) {
+        if (run.length < 3) continue;
+        const hr = [], lr = [];
+        for (const o of run) { hr.push(o.x, o.y - t - railH); lr.push(o.x, o.y - t - 0.9); }
+        const fA = (o) => clamp(A * (0.55 + 0.45 * Math.max(0, Math.cos(o.ph))), 0, 1);
+        stroke(white.get(0.92 * A), hr, 0.46, 0.04, 0.04);
+        stroke(white.get(0.7 * A), lr, 0.26, 0.04, 0.04);
+        let acc = 3, post = 0;
+        const Lf = new Path2D();
+        for (let k = 1; k < run.length; k++) {
+          const a = run[k - 1], b = run[k]; acc += Math.hypot(b.x - a.x, b.y - a.y);
+          if (acc < 4.4) continue; acc = 0; post++;
+          const yb = b.y - t - 0.9;
+          if (post % 5 === 0) {
+            line(white.get(fA(b)), b.x, yb + 0.6, b.x, yb - railH * 1.35, 0.42, 0, 0.03, 0.03);
+            dot(goldHi.get(fA(b)), b.x, yb - railH * 1.4, 0.55);
+            stroke(goldHi.get(fA(b)), quad(b.x - 1.1, yb - railH * 1.05, b.x, yb - railH * 1.25, b.x + 1.1, yb - railH * 1.05, 4), 0.16, 0.2, 0.2);
+          } else {
+            const l = railH * 0.82;
+            leafShape(Lf, b.x, yb - railH * 0.06, -Math.PI / 2 + J(0.06), l, 0.3);
+            leafHole(Lf, b.x, yb - railH * 0.06, -Math.PI / 2 + J(0.06), l, 0.3);
+          }
         }
-        const hr = [];
-        for (let k = 0; k <= 48; k++) { const q = -Math.PI / 2 - 0.05 + (Math.PI + 0.1) * k / 48; hr.push(cx + Rr * 0.985 * Math.sin(q), y - ry * 0.985 * Math.cos(q) - t - railH); }
-        stroke(white.get(0.9 * A), hr, 0.5, 0.03, 0.03);
+        fill(Lf, INK.white, 0.82 * A, 'p', 0.7);
       }
       white.flush(); silHi.flush(); sil.flush(); gold.flush(); goldHi.flush();
       if (F.isHall) yield* drawHall(T, F);
@@ -1013,8 +1073,8 @@
 
     function drawHouse(T, F, H) {
       const A = tierA[T.tier];
-      const { y, r, R: Rr, e, t, tcx } = F;
-      const phi = H.phi, dOut = Rr + (F.off || 0) * r * Math.sin(phi);
+      const { y, r, e, t, tcx } = F;
+      const phi = H.phi, dOut = fletRo(F, phi);
       const rho = (r + dOut) / 2 + 1;
       const hx = tcx + rho * Math.sin(phi), hb = y - e * rho * Math.cos(phi) - t;
       const hw = Math.max(5, (dOut - r) * 0.42 * (0.75 + 0.25 * Math.cos(phi)));
@@ -1079,106 +1139,146 @@
       sil.flush(); silHi.flush(); gold.flush(); goldHi.flush();
     }
 
-    /* ---- the hall of Celeborn and Galadriel: walls green and silver, a roof of gold */
+    /* ---- the hall of Celeborn and Galadriel: a pavilion of slender pillars and pointed leaf arches
+       round the living trunk, under a roof of folded golden leaves, warm light spilling out */
     function* drawHall(T, F) {
-      const { y, R: Rr, t } = F;
-      const Rd = Rr * 0.86, H = 46, HR = 34;
+      const { y, r, t } = F;
+      const Rd = r * 1.5, H = 54, HR = 46;
       const base = y - t;
-      const cxh = (yy) => T.cx(yy);
-      const at = (q, h, rad) => { const yy = base - h; return [cxh(yy) + rad * Math.sin(q), yy - ell(yy) * rad * Math.cos(q)]; };
+      const at = (q, h, rad) => { const yy = base - h; return [T.cx(yy) + rad * Math.sin(q), yy - ell(yy) * rad * Math.cos(q)]; };
+      const rTop = T.r(base - H - HR) * 1.06;
+      const roofPt = (q, u) => at(q * (1 - u * 0.06), H + HR * Math.pow(u, 1.7), lerp(Rd * 1.18, rTop, u));
+      // warm light spilling into the crown
       {
-        const gx = cxh(base - 25), gy = base - 30 - ell(base) * Rd;
-        const RG = C.createRadialGradient(gx * K, gy * K, 0, gx * K, gy * K, Rd * 2.4 * K);
-        RG.addColorStop(0, 'rgba(190,240,205,0.22)'); RG.addColorStop(0.4, 'rgba(230,215,150,0.08)'); RG.addColorStop(1, 'rgba(230,215,150,0)');
-        C.globalAlpha = 1; C.fillStyle = RG; C.beginPath(); C.arc(gx * K, gy * K, Rd * 2.4 * K, 0, TAU); C.fill();
+        const [gx, gy] = at(0, 26, Rd);
+        const RG = C.createRadialGradient(gx * K, gy * K, 0, gx * K, gy * K, Rd * 2.8 * K);
+        RG.addColorStop(0, 'rgba(255,222,160,0.30)'); RG.addColorStop(0.35, 'rgba(255,200,120,0.10)'); RG.addColorStop(1, 'rgba(255,200,120,0)');
+        C.globalAlpha = 1; C.fillStyle = RG; C.beginPath(); C.arc(gx * K, gy * K, Rd * 2.8 * K, 0, TAU); C.fill();
       }
-      // silhouette of the drum and roof
+      // silhouette of the colonnade and its roof
       {
         const xs = [], ys = [];
-        for (let k = 0; k <= 40; k++) { const q = -Math.PI / 2 + Math.PI * k / 40; const p = at(q, 0, Rd); xs.push(p[0]); ys.push(p[1] + 1); }
-        const pr = at(Math.PI / 2, H, Rd * 1.1); xs.push(pr[0]); ys.push(pr[1]);
-        // roof right flank to the trunk and back
-        for (let k = 0; k <= 10; k++) { const u = k / 10; const rad = lerp(Rd * 1.1, T.r(base - H - HR) * 1.15, u); const p = at(Math.PI / 2 * (1 - u * 0.12), H + HR * (u * u * (3 - 2 * u)), rad); xs.push(p[0]); ys.push(p[1]); }
-        for (let k = 0; k <= 20; k++) { const q = Math.PI / 2 * 0.88 - Math.PI * 0.88 * k / 20; const p = at(q, H + HR, T.r(base - H - HR) * 1.15); xs.push(p[0]); ys.push(p[1]); }
-        for (let k = 10; k >= 0; k--) { const u = k / 10; const rad = lerp(Rd * 1.1, T.r(base - H - HR) * 1.15, u); const p = at(-Math.PI / 2 * (1 - u * 0.12), H + HR * (u * u * (3 - 2 * u)), rad); xs.push(p[0]); ys.push(p[1]); }
-        const pl = at(-Math.PI / 2, H, Rd * 1.1); xs.push(pl[0]); ys.push(pl[1]);
+        for (let k = 0; k <= 40; k++) { const p = at(-Math.PI / 2 + Math.PI * k / 40, 0, Rd); xs.push(p[0]); ys.push(p[1] + 1); }
+        for (let k = 0; k <= 12; k++) { const p = roofPt(Math.PI / 2, k / 12); xs.push(p[0]); ys.push(p[1]); }
+        for (let k = 0; k <= 20; k++) { const p = roofPt(Math.PI / 2 - Math.PI * k / 20, 1); xs.push(p[0]); ys.push(p[1]); }
+        for (let k = 12; k >= 0; k--) { const p = roofPt(-Math.PI / 2, k / 12); xs.push(p[0]); ys.push(p[1]); }
         const P = new Path2D(); poly(P, xs, ys, xs.length); erase(P);
       }
       yield;
-      // windows between silver pilasters, filled with green-white light
-      const nWin = 11;
-      for (let i = 0; i < nWin; i++) {
-        const q0 = -Math.PI / 2 + Math.PI * i / nWin, q1 = -Math.PI / 2 + Math.PI * (i + 1) / nWin;
-        const qm = (q0 + q1) / 2, c = Math.cos(qm);
-        // pilaster at q0
-        if (i > 0) {
-          const pts = []; for (let h = 2; h <= H - 2; h += 4) { const p = at(q0, h, Rd + 0.5); pts.push(p[0], p[1]); }
-          stroke(silHi.get(0.95), pts, 0.55 * (0.4 + 0.6 * Math.cos(q0)), 0.02, 0.02);
-          const pts2 = []; for (let h = 2; h <= H - 2; h += 4) { const p = at(q0 + 0.03, h, Rd + 0.5); pts2.push(p[0], p[1]); }
-          stroke(sil.get(0.7), pts2, 0.22, 0.02, 0.02);
-        }
-        if (c < 0.1) continue;
-        const wq0 = lerp(q0, q1, 0.2), wq1 = lerp(q0, q1, 0.8);
-        const hb0 = 7, hb1 = H - 9;
-        const wx = [], wy = [];
-        for (let k = 0; k <= 6; k++) { const p = at(lerp(wq0, wq1, k / 6), hb0, Rd); wx.push(p[0]); wy.push(p[1]); }
-        const pTop = at(qm, hb1 + 7, Rd);
-        const pR = at(wq1, hb1, Rd), pL = at(wq0, hb1, Rd);
+      // the openings: pointed leaf-shaped arches full of warm light
+      const nA = 7, hs = H * 0.6, ha = H * 0.93;
+      const qs = []; for (let i = 0; i <= nA; i++) qs.push(lerp(-1.5, 1.5, i / nA));
+      const openings = [];
+      for (let i = 0; i < nA; i++) {
+        const qa = qs[i] + 0.04, qb = qs[i + 1] - 0.04, qm = (qa + qb) / 2, c = Math.cos(qm);
+        if (c < 0.12) continue;
         const W = new Path2D();
-        W.moveTo(wx[0] * K, wy[0] * K); for (let k = 1; k <= 6; k++) W.lineTo(wx[k] * K, wy[k] * K);
+        const b0 = at(qa, 1.5, Rd);
+        W.moveTo(b0[0] * K, b0[1] * K);
+        for (let k = 1; k <= 6; k++) { const p = at(lerp(qa, qb, k / 6), 1.5, Rd); W.lineTo(p[0] * K, p[1] * K); }
+        const pR = at(qb, hs, Rd), pL = at(qa, hs, Rd), ap = at(qm, ha, Rd);
         W.lineTo(pR[0] * K, pR[1] * K);
-        W.quadraticCurveTo(pR[0] * K, (pTop[1] + 2) * K, pTop[0] * K, pTop[1] * K);
-        W.quadraticCurveTo(pL[0] * K, (pTop[1] + 2) * K, pL[0] * K, pL[1] * K);
+        W.bezierCurveTo(pR[0] * K, (pR[1] - (pR[1] - ap[1]) * 0.55) * K, ap[0] * K + (pR[0] - ap[0]) * 0.1 * K, (ap[1] + (pR[1] - ap[1]) * 0.25) * K, ap[0] * K, ap[1] * K);
+        W.bezierCurveTo(ap[0] * K + (pL[0] - ap[0]) * 0.1 * K, (ap[1] + (pL[1] - ap[1]) * 0.25) * K, pL[0] * K, (pL[1] - (pL[1] - ap[1]) * 0.55) * K, pL[0] * K, pL[1] * K);
         W.closePath();
-        const col = i % 3 === 1 ? INK.lamp.s : INK.lamp.g;
-        fill(W, col, 0.55 + 0.35 * c, 'p', 0.9);
-        const pc = at(qm, (hb0 + hb1) / 2, Rd);
-        const Gw = new Path2D(); ellipse(Gw, pc[0], pc[1], 2.2 * c, 6); fill(Gw, INK.white, 0.6 * c, 'p', 0.6);
-        // tracery: a mullion and a trefoil
-        const m0 = at(qm, hb0, Rd), m1 = at(qm, hb1 - 3, Rd);
-        line(gold.get(0.85), m0[0], m0[1], m1[0], m1[1], 0.22 * c + 0.08, 0, 0.02, 0.02);
-        const tf = at(qm, hb1 + 1, Rd);
-        for (let k = 0; k < 3; k++) { const a = k / 3 * TAU - Math.PI / 2; const Tr = gold.get(0.8); dot(Tr, tf[0] + Math.cos(a) * 1.3 * c, tf[1] + Math.sin(a) * 1.3, 0.55); }
-        stroke(gold.get(0.9), [pL[0], pL[1], pTop[0], pTop[1], pR[0], pR[1]], 0.3, 0.05, 0.05);
+        const bm = at(qm, 2, Rd);
+        const g = C.createRadialGradient(bm[0] * K, bm[1] * K, 0, bm[0] * K, bm[1] * K, (bm[1] - ap[1]) * 1.15 * K);
+        g.addColorStop(0, 'rgba(255,244,214,1)'); g.addColorStop(0.45, 'rgba(255,218,150,0.9)'); g.addColorStop(1, 'rgba(226,160,84,0.7)');
+        C.globalAlpha = 0.55 + 0.45 * c; C.fillStyle = g; C.fill(W);
+        M.globalAlpha = 1; M.fillStyle = '#000'; M.fill(W);
+        openings.push({ W, qm, c, ap, bm });
       }
-      // the wall's silver hatching between the windows, low and high bands
-      for (let k = 0; k <= 160; k++) {
-        const q = -Math.PI / 2 + Math.PI * k / 160; const c = Math.cos(q); if (R() > 0.4 + 0.6 * c) continue;
-        const a0 = at(q, 0.5, Rd), a1 = at(q, 6, Rd), b0 = at(q, H - 8, Rd), b1 = at(q, H - 1, Rd);
-        line(sil.get(0.6), a0[0], a0[1], a1[0], a1[1], 0.18, 0, 0.1, 0.1);
-        line(sil.get(0.55), b0[0], b0[1], b1[0], b1[1], 0.18, 0, 0.1, 0.1);
+      // within: the living trunk, a lamp, and in the midmost arch the Lord and Lady
+      for (const o of openings) {
+        C.save(); M.save(); C.clip(o.W); M.clip(o.W);
+        const yy = base - H * 0.4, tx = T.cx(yy), tr = T.r(yy);
+        for (let k = 0; k < 14; k++) { const q = -1.4 + 2.8 * k / 13; const x = tx + tr * Math.sin(q); line(sil.get(0.55), x, base, x, base - H, 0.22 + 0.2 * Math.cos(q), 0, 0.05, 0.05); }
+        sil.flush();
+        const lp = at(o.qm, H * 0.62, Rd * 0.9);
+        const Lg = new Path2D(); dot(Lg, lp[0], lp[1], 1.1); fill(Lg, INK.white, 0.95, 'p', 1);
+        line(gold.get(0.8), lp[0], lp[1] - 1, lp[0], lp[1] - 7, 0.12, 0, 0.05, 0.05); gold.flush();
+        C.restore(); M.restore();
       }
-      const ringL = (h, rad, B, w) => { const pts = []; for (let k = 0; k <= 48; k++) { const p = at(-Math.PI / 2 + Math.PI * k / 48, h, rad); pts.push(p[0], p[1]); } stroke(B, pts, w, 0.02, 0.02); return pts; };
-      ringL(0.5, Rd, silHi.get(0.95), 0.6);
-      ringL(6, Rd, sil.get(0.8), 0.3);
-      ringL(H - 8, Rd, sil.get(0.8), 0.3);
-      // eave: a gold band with beads
-      const eaveB = ringL(H, Rd * 1.1, goldHi.get(1), 0.7);
-      ringL(H - 2.4, Rd * 1.08, gold.get(0.9), 0.35);
-      for (let k = 2; k < eaveB.length - 2; k += 2) if (k % 4 === 0) dot(goldHi.get(0.95), eaveB[k], eaveB[k + 1] + 1.2, 0.42);
-      // the roof: golden ribs to the trunk and rows of scales
-      const rTop = T.r(base - H - HR) * 1.15;
-      const roofPt = (q, u) => at(q * (1 - u * 0.12), H + HR * (u * u * (3 - 2 * u)), lerp(Rd * 1.1, rTop, u));
       {
-        const Rx = [], Ry = [];
-        for (let k = 0; k <= 30; k++) { const p = roofPt(-Math.PI / 2 + Math.PI * k / 30, 0); Rx.push(p[0]); Ry.push(p[1]); }
-        for (let k = 30; k >= 0; k--) { const p = roofPt(-Math.PI / 2 + Math.PI * k / 30, 1); Rx.push(p[0]); Ry.push(p[1]); }
-        const Rf = new Path2D(); poly(Rf, Rx, Ry, Rx.length); fill(Rf, INK.gold, 0.3, 'g', 0.5);
-      }
-      for (let k = 0; k <= 22; k++) {
-        const q = -Math.PI / 2 + Math.PI * k / 22; const pts = [];
-        for (let u = 0; u <= 1.001; u += 0.1) { const p = roofPt(q, u); pts.push(p[0], p[1]); }
-        stroke(goldHi.get(0.6 + 0.4 * Math.cos(q)), pts, 0.32, 0.02, 0.3);
-      }
-      for (let row = 1; row < 7; row++) {
-        const u = row / 7; const n = Math.round(lerp(60, 26, u));
-        for (let k = 0; k < n; k++) {
-          const q = -Math.PI / 2 + Math.PI * (k + 0.5) / n; const c = Math.cos(q); if (c < 0.05) continue;
-          const p = roofPt(q, u), p2 = roofPt(q + Math.PI / n * 0.9, u), p3 = roofPt(q - Math.PI / n * 0.9, u);
-          stroke(gold.get(0.5 + 0.4 * c), quad(p3[0], p3[1], p[0], p[1] + 2.4, p2[0], p2[1], 4), 0.17, 0.2, 0.2);
+        const o = openings.reduce((a, b) => (b.c > a.c ? b : a), openings[0]);
+        if (o) {
+          for (const [dx, hh] of [[-3.2, 15], [3.4, 15.8]]) {
+            const x = o.bm[0] + dx, yf = o.bm[1];
+            const P = new Path2D(); const s = hh;
+            P.moveTo((x - 0.05 * s) * K, (yf - s) * K);
+            P.quadraticCurveTo((x + 0.15 * s) * K, (yf - 0.9 * s) * K, (x + 0.13 * s) * K, (yf - 0.62 * s) * K);
+            P.quadraticCurveTo((x + 0.26 * s) * K, (yf - 0.2 * s) * K, (x + 0.24 * s) * K, yf * K);
+            P.lineTo((x - 0.24 * s) * K, yf * K);
+            P.quadraticCurveTo((x - 0.24 * s) * K, (yf - 0.2 * s) * K, (x - 0.12 * s) * K, (yf - 0.62 * s) * K);
+            P.quadraticCurveTo((x - 0.16 * s) * K, (yf - 0.9 * s) * K, (x - 0.05 * s) * K, (yf - s) * K);
+            P.closePath(); erase(P, 0.92);
+            stroke(goldHi.get(0.9), [x + 0.13 * s, yf - 0.9 * s, x + 0.15 * s, yf - 0.6 * s, x + 0.25 * s, yf - 0.02 * s], 0.16, 0.1, 0.1);
+            const Cr = new Path2D(); dot(Cr, x, yf - s * 1.02, 0.55); fill(Cr, INK.white, 0.9, 'p', 1);
+          }
+          goldHi.flush();
         }
       }
-      ringL(H + HR, rTop, goldHi.get(0.9), 0.5);
+      // light falling out of the arches onto the boughs below
+      for (const o of openings) {
+        const gx = o.bm[0], gy = o.bm[1];
+        const LG = C.createLinearGradient(0, gy * K, 0, (gy + 60) * K);
+        LG.addColorStop(0, 'rgba(255,215,150,0.16)'); LG.addColorStop(1, 'rgba(255,215,150,0)');
+        const w0 = 9 * o.c, w1 = 22 * o.c;
+        const Tz = new Path2D(); poly(Tz, [gx - w0, gx + w0, gx + w1, gx - w1], [gy + 2, gy + 2, gy + 60, gy + 60], 4);
+        C.globalAlpha = 1; C.fillStyle = LG; C.fill(Tz);
+      }
+      // slender pillars with leaf capitals
+      for (let i = 0; i <= nA; i++) {
+        const q = qs[i], c = Math.cos(q); if (c < 0.04) continue;
+        const w = 0.5 + 0.9 * c;
+        for (const d of [-1, 1]) { const qq = q + d * w / Rd * 0.5; const a = at(qq, 0.5, Rd), b = at(qq, hs, Rd); stroke(silHi.get(0.95), [a[0], a[1], b[0], b[1]], 0.26, 0.02, 0.02); }
+        const cp = at(q, hs, Rd);
+        for (const d of [-1, 1]) stroke(goldHi.get(0.95), quad(cp[0], cp[1] + 1.5, cp[0] + d * 1.6, cp[1], cp[0] + d * 2.6 * (0.4 + 0.6 * c), cp[1] - 2.4, 5), 0.24, 0.1, 0.5);
+        const bp = at(q, 0.8, Rd); dot(gold.get(0.9), bp[0], bp[1], 0.6 * (0.5 + c));
+      }
+      // the spandrels: a carved line echoing each arch, a gold leaf rising over each crown
+      for (const o of openings) {
+        const i = qs.findIndex((q) => q > o.qm) - 1, qa = qs[i] + 0.04, qb = qs[i + 1] - 0.04;
+        const pR = at(qb, hs + 1.5, Rd * 1.005), pL = at(qa, hs + 1.5, Rd * 1.005), ap = at(o.qm, ha + 1.8, Rd * 1.005);
+        stroke(silHi.get(0.8), [pL[0], pL[1], lerp(pL[0], ap[0], 0.5) - (ap[0] - pL[0]) * 0.1, lerp(pL[1], ap[1], 0.75), ap[0], ap[1], lerp(pR[0], ap[0], 0.5) + (pR[0] - ap[0]) * 0.1, lerp(pR[1], ap[1], 0.75), pR[0], pR[1]], 0.2, 0.05, 0.05);
+        const Lf = new Path2D(); leafShape(Lf, ap[0], ap[1] - 0.5, -Math.PI / 2, 4.6, 0.32); fill(Lf, INK.goldHi, 0.95, 'g', 1);
+      }
+      // the floor and the eave
+      const ringL = (h, rad, B, w) => { const pts = []; for (let k = 0; k <= 48; k++) { const p = at(-Math.PI / 2 + Math.PI * k / 48, h, rad); pts.push(p[0], p[1]); } stroke(B, pts, w, 0.02, 0.02); return pts; };
+      ringL(0.5, Rd, silHi.get(0.95), 0.55);
+      ringL(H, Rd * 1.04, goldHi.get(1), 0.6);
+      const eav = ringL(H + 0.8, Rd * 1.18, gold.get(0.95), 0.4);
+      sil.flush(); silHi.flush(); gold.flush(); goldHi.flush();
+      // the roof: two courses of folded golden leaves, overlapping, sides first
+      const Lh = 0.9;
+      for (const [u0, u1, n, wf] of [[0.0, 0.62, 19, 0.6], [0.42, 1.0, 14, 0.52]]) {
+        const order = []; for (let k = 0; k < n; k++) order.push(k);
+        order.sort((a, b) => Math.abs(b - (n - 1) / 2) - Math.abs(a - (n - 1) / 2));
+        for (const k of order) {
+          const q = -Math.PI / 2 + Math.PI * (k + (u0 > 0 ? 1 : 0.5)) / (n + (u0 > 0 ? 1 : 0)); const c = Math.cos(q); if (c < 0.06) continue;
+          const b = roofPt(q, u0), tp = roofPt(q, u1);
+          const l = Math.hypot(tp[0] - b[0], tp[1] - b[1]), a = Math.atan2(tp[1] - b[1], tp[0] - b[0]);
+          const span = Math.PI / n * Rd * 1.18 * c;
+          const w = clamp(span * wf / l * 1.6, 0.18, 0.55);
+          const E = new Path2D(); leafShape(E, b[0] - Math.cos(a) * l * 0.12, b[1] - Math.sin(a) * l * 0.12, a, l * 1.12, w); erase(E);
+          fill(E, INK.gold, (0.34 + 0.3 * c) * Lh, 'g', 0.7);
+          const Rg = new Path2D(); leafShape(Rg, b[0] - Math.cos(a) * l * 0.12, b[1] - Math.sin(a) * l * 0.12, a, l * 1.12, w); leafHole(Rg, b[0] - Math.cos(a) * l * 0.12, b[1] - Math.sin(a) * l * 0.12, a, l * 1.12, w);
+          fill(Rg, INK.goldHi, 0.95, 'g', 1);
+          const Rb = new Path2D(); leafRib(Rb, b[0] - Math.cos(a) * l * 0.12, b[1] - Math.sin(a) * l * 0.12, a, l * 1.05); erase(Rb, 0.6);
+          // veins
+          for (let v = 1; v <= 3; v++) {
+            const f = v / 4, mx = lerp(b[0], tp[0], f), my = lerp(b[1], tp[1], f);
+            for (const sd of [-1, 1]) line(goldHi.get(0.55), mx, my, mx + Math.cos(a + sd * 0.9) * span * 0.22, my + Math.sin(a + sd * 0.9) * span * 0.22, 0.1, 0, 0.1, 0.5);
+          }
+        }
+        goldHi.flush();
+      }
+      // the scalloped eave: leaf-tips hanging out over the arches
+      for (let k = 2; k < eav.length - 2; k += 4) {
+        const Lf = new Path2D(); leafShape(Lf, eav[k], eav[k + 1] - 0.4, Math.PI / 2 + (eav[k] - T.cx(base - H)) / (Rd * 6), 4.2, 0.3);
+        erase(Lf); fill(Lf, INK.goldHi, 0.9, 'g', 1);
+      }
+      ringL(H + HR, rTop, goldHi.get(0.95), 0.5);
       sil.flush(); silHi.flush(); gold.flush(); goldHi.flush();
     }
 
@@ -1950,6 +2050,29 @@
     tasks.push(treePass(L1));
     tasks.push(treePass(R1));
     tasks.push(treePass(KT));
+    tasks.push(function* drawBridges() {
+      for (const B of bridges) {
+        const A = tierA[B.tier], n = 48;
+        const deck = []; for (let k = 0; k <= n; k++) { const p = bridgeAt(B, k / n); deck.push(p[0], p[1]); }
+        const railH = 7;
+        const P = new Path2D(); ribbon(P, deck, new Array(n + 1).fill(1.7)); erase(P);
+        const Rl = new Path2D(); ribbon(Rl, deck.map((v, k) => (k % 2 ? v - railH * 0.5 : v)), new Array(n + 1).fill(railH * 0.5)); erase(Rl, 0.55);
+        stroke(white.get(0.95 * A), deck, 0.9, 0.01, 0.01);
+        stroke(sil.get(0.7 * A), deck.map((v, k) => (k % 2 ? v + 1.4 : v)), 0.3, 0.02, 0.02);
+        stroke(white.get(0.9 * A), deck.map((v, k) => (k % 2 ? v - railH : v)), 0.4, 0.01, 0.01);
+        const Lf = new Path2D();
+        for (let k = 1; k < n; k++) {
+          const x = deck[2 * k], y = deck[2 * k + 1] - 0.9;
+          if (k % 6 === 0) { line(white.get(0.95 * A), x, y + 0.9, x, y - railH * 1.3, 0.36, 0, 0.03, 0.03); dot(goldHi.get(0.95 * A), x, y - railH * 1.35, 0.5); }
+          else { leafShape(Lf, x, y, -Math.PI / 2, railH * 0.82, 0.3); leafHole(Lf, x, y, -Math.PI / 2, railH * 0.82, 0.3); }
+        }
+        fill(Lf, INK.white, 0.78 * A, 'p', 0.6);
+        // a cord of silver hung beneath, carrying the lamps
+        stroke(silHi.get(0.6 * A), deck.map((v, k) => (k % 2 ? v + 2 + 3 * Math.sin(Math.PI * (k >> 1) / n) : v)), 0.18, 0.05, 0.05);
+        white.flush(); sil.flush(); silHi.flush(); goldHi.flush();
+        yield;
+      }
+    });
     tasks.push(function* () {
       drawFountain();
       for (const L of groundLamps) if (L.y < 1176) drawLamp(L);
@@ -2303,6 +2426,7 @@ void main(){
       }
       if (dead) return;
       art = A;
+      window.__lorienArt = A; // DEBUG
       if (viewer) viewer.upload(A.ink, A.met);
       layout();
       need = true;

@@ -331,16 +331,17 @@
     const A = W / H;
     const t = smooth(0.55, 1.45, A), u = smooth(1.75, 2.45, A);
     const hy = H * lerp(0.42, 0.44, t);
-    const camK = 1.7;
-    const yT = H * (lerp(0.66, 0.795, t) - 0.03 * u);
+    const camK = 1.75;
+    const yT = H * (lerp(0.665, 0.8, t) - 0.03 * u);
     const xT = W * (lerp(0.5, 0.52, t) - 0.04 * u);
     const hhT = (yT - hy) / camK;
-    const cityW = Math.min(H * lerp(0.42, 0.47, t) * (1 - 0.1 * u), W * 0.82);
+    const cityW = Math.min(H * lerp(0.38, 0.41, t) * (1 - 0.08 * u), W * 0.8);
     const cityX = W * (lerp(0.63, 0.8, t) - 0.01 * u);
     const farX = W * (lerp(-0.05, 0.2, t) + 0.06 * u);
     return {
       W, H, A, t, u, hy, camK, yT, xT, hhT, farX,
       sun: [W * lerp(0.06, 0.13, t), hy + H * 0.012],
+      vp: [W * lerp(1.25, 1.12, t), hy + H * 0.012],
       city: { cx: cityX, cb: hy + H * 0.003, w: cityW, cs: cityW / 200 },
       k: Math.sqrt(W * H) / 2900,
     };
@@ -707,7 +708,7 @@
     const ank = [knee[0] - 5, knee[1] + 23];
     const g = { s, th, ax, f, Q, hip, sho, head, knee, ank, at };
     const QQ = (pts) => pts.map((p) => Q(p[0], p[1]));
-    g.torso = QQ([at(hip, -2, -8.5), at(hip, 12, -9.5), at(hip, 24, -9), at(sho, 2, -7.5), at(sho, 6.5, -3), at(sho, 6.5, 3), at(sho, 1, 7.5), at(hip, 22, 10.5), at(hip, 12, 9.5), at(hip, 1, 9)]);
+    g.torso = QQ([at(hip, -2, -8.5), at(hip, 10, -8), at(hip, 22, -9.5), at(sho, 1, -8.5), at(sho, 5.5, -4), at(sho, 6, 2.5), at(sho, 1.5, 7.5), at(hip, 20, 9.5), at(hip, 11, 8), at(hip, 1, 9)]);
     g.skirt = QQ([at(hip, 5, -9.5), at(hip, 4, 9.5), [knee[0] - 2, knee[1] - 3], [hip[0] - 8, hip[1] + 13]]);
     g.leg = QQ(limb([hip, knee, ank], [6.6, 5, 3.6]));
     g.boot = QQ([[knee[0] - 4, knee[1] + 9], [knee[0] + 4.5, knee[1] + 9], [ank[0] + 3.5, ank[1] - 1], [ank[0] + 10, ank[1] + 1.2], [ank[0] + 9.5, ank[1] + 4.2], [ank[0] - 4, ank[1] + 4], [ank[0] - 4.6, ank[1] - 4]]);
@@ -719,24 +720,45 @@
     g.handS = Q(g.hand[0], g.hand[1]);
     const sa = ro.spearAng * D2R;
     const sd = [Math.cos(sa), Math.sin(sa)];
-    g.spear = ro.sword || ro.banner || ro.horn ? null : { a: Q(g.hand[0] - sd[0] * 50, g.hand[1] - sd[1] * 50), b: Q(g.hand[0] + sd[0] * ro.spearLen, g.hand[1] + sd[1] * ro.spearLen) };
+    g.spear = null;
+    if (!(ro.sword || ro.banner || ro.horn)) {
+      const hS = Q(g.hand[0], g.hand[1]);
+      if (ro.vp && ro.spearAng < 20) {
+        let dx = ro.vp[0] - hS[0], dy = ro.vp[1] - hS[1]; const l = Math.hypot(dx, dy); dx /= l; dy /= l;
+        const tw = (ro.spearAng - 5) * D2R * 0.5, c = Math.cos(tw), sn = Math.sin(tw);
+        const ux = dx * c - dy * sn, uy = dx * sn + dy * c;
+        g.spear = { a: [hS[0] - ux * 50 * s, hS[1] - uy * 50 * s], b: [hS[0] + ux * ro.spearLen * s, hS[1] + uy * ro.spearLen * s] };
+      } else g.spear = { a: Q(g.hand[0] - sd[0] * 50, g.hand[1] - sd[1] * 50), b: Q(g.hand[0] + sd[0] * ro.spearLen, g.hand[1] + sd[1] * ro.spearLen) };
+    }
     if (ro.sword) { const sw = [Math.cos(-60 * D2R), Math.sin(-60 * D2R)]; g.sword = { a: Q(g.hand[0] - sw[0] * 4, g.hand[1] - sw[1] * 4), b: Q(g.hand[0] + sw[0] * 50, g.hand[1] + sw[1] * 50) }; }
     if (ro.horn) { g.hornPts = QQ([at(g.hand, 0, -1), at(g.hand, 5, 6), at(g.hand, 3, 12), at(g.hand, -2, 16)]); }
     if (ro.banner) {
       const top = [g.hand[0] - 24, g.hand[1] - 125], bot = [g.hand[0] + 3, g.hand[1] + 12];
       g.pole = { a: Q(bot[0], bot[1]), b: Q(top[0], top[1]) };
     }
-    const sc = ro.shieldBig ? at(sho, -9, 20) : at(sho, -13, 10);
-    g.shield = { c: Q(sc[0], sc[1]), rx: (ro.shieldBig ? 11.5 : 5.5) * s, ry: (ro.shieldBig ? 15.5 : 14) * s, rot: ro.shieldBig ? -0.15 : 0.1 };
+    const sc = ro.shieldBig ? at(sho, -9, 20) : ro.backShield ? at(sho, -11, -9) : at(sho, -13, 10);
+    g.shield = { c: Q(sc[0], sc[1]), rx: (ro.shieldBig ? 11.5 : ro.backShield ? 9 : 5.5) * s, ry: (ro.shieldBig ? 15.5 : ro.backShield ? 11 : 14) * s, rot: ro.shieldBig ? -0.15 : ro.backShield ? th : 0.1, back: !!ro.backShield };
     g.rein = Q(...at(sho, -15, 15));
-    g.headS = Q(head[0], head[1]); g.hr = 6.4 * s;
+    g.headS = Q(head[0], head[1]); g.hr = 5.2 * s;
     g.crown = Q(...at(head, 6.4, -1.5));
-    const cl = [];
     const wv = ro.cloakWave, len = ro.cloak;
-    const nb = at(sho, 4, -5), hb = at(hip, 8, -9.5);
-    for (let i = 0; i <= 8; i++) { const u = i / 8; cl.push([nb[0] - len * u, nb[1] - 6 * u + Math.sin(u * 5 + wv) * 5 * u + 6 * u * u]); }
-    for (let i = 8; i >= 0; i--) { const u = i / 8; cl.push([hb[0] - len * 0.92 * u, hb[1] + 8 * u + Math.sin(u * 5 + wv + 1) * 6 * u]); }
-    g.cloak = len > 0 ? spline(QQ(cl), true, 3) : null;
+    g.cloak = null;
+    if (len > 0) {
+      const top = [], bot = [];
+      const root = at(sho, 1, -6);
+      for (let i = 0; i <= 12; i++) {
+        const u = i / 12;
+        const c = [root[0] - len * u, root[1] - len * 0.1 * u + Math.sin(u * 4.2 + wv) * 5 * u + len * 0.05 * u * u];
+        const wd = 5 + 26 * Math.pow(u, 0.8);
+        const tilt = 0.25 + 0.2 * Math.sin(u * 3 + wv);
+        const n = [Math.sin(tilt), Math.cos(tilt)];
+        top.push([c[0] - n[0] * wd * 0.35 + Math.sin(u * 9 + wv) * 1.5 * u, c[1] - n[1] * wd * 0.35]);
+        bot.push([c[0] + n[0] * wd * 0.65, c[1] + n[1] * wd * 0.65 + Math.sin(u * 7 + wv * 1.3) * 4 * u]);
+      }
+      g.cloakTop = QQ(top); g.cloakBot = QQ(bot);
+      g.cloakRoot = Q(root[0], root[1]); g.cloakLen = len * s;
+      g.cloak = spline(QQ(top.concat(bot.slice().reverse())), true, 2);
+    }
     return g;
   }
 
@@ -756,27 +778,46 @@
       const path = pathOf(g.cloak);
       const cch = ro.cloakCh;
       const bb = bbox(g.cloak, 2);
-      const sh = makeShader([cap(lp(g.cloak[0], g.cloak[g.cloak.length - 1], 0.5), g.cloak[(g.cloak.length / 2) | 0], 14 * s, 9 * s)]);
-      hatch(R, { ...bb, ang: 60 * D2R, sp, len, w, chs: [cch, BLK, WHT], st: 0.3, fn: (x, y, o) => { const t = (y - bb.y0) / (bb.y1 - bb.y0); const v = sh(x, y); const vv = v === null ? 0 : v; o[cch] = 0.4 + 0.4 * t; o[BLK] = 0.65 * smooth(0.3, 0.9, t - vv * 0.4); o[WHT] = 0.6 * smooth(0.45, 0.8, vv); return true; } });
+      const T0 = g.cloakTop, B0 = g.cloakBot, nn = T0.length - 1;
+      const ph = ro.cloakWave * 1.7;
+      // where across (v: 0 top edge .. 1 bottom) and along (u) the cloth a point lies
+      const uv = (x, y) => {
+        const u = clamp((g.cloakRoot[0] - x) / g.cloakLen, 0, 1), i = Math.min(nn - 1, (u * nn) | 0), f = u * nn - i;
+        const ty = lerp(T0[i][1], T0[i + 1][1], f), by = lerp(B0[i][1], B0[i + 1][1], f);
+        return [u, clamp((y - ty) / Math.max(1, by - ty), 0, 1)];
+      };
+      const fold = (u, v) => Math.sin(v * 7.5 + u * 2.5 + ph) * 0.7 + Math.sin(v * 3.1 - u * 4 + ph * 0.6) * 0.3;
+      hatch(R, { ...bb, ang: 60 * D2R, sp, len, w, chs: [cch, BLK, WHT], st: 0.3, fn: (x, y, o) => {
+        const q = uv(x, y), f = fold(q[0], q[1]);
+        o[cch] = 0.38 + 0.3 * q[1] + 0.2 * smooth(0.2, -0.8, f);
+        o[BLK] = 0.7 * smooth(-0.15, -0.85, f) * (0.5 + 0.5 * q[1]) + 0.25 * smooth(0.5, 1, q[1]);
+        o[WHT] = 0.7 * smooth(0.45, 0.9, f) * (1 - 0.6 * q[1]);
+        return true;
+      } });
       clipFlush(R, path);
-      const nfold = detail ? 10 : 3;
+      // fold lines along the flow
+      const nfold = detail ? 9 : 3;
       for (let i = 0; i < nfold; i++) {
-        const a = g.cloak[(rand() * 5) | 0], b = g.cloak[(g.cloak.length * (0.3 + rand() * 0.3)) | 0];
-        stroke(B, BLK, a[0], a[1] + (rand() - 0.3) * 10 * s, b[0], b[1] - rand() * 6 * s, (rand() - 0.5) * 0.3, cw, 0.45 + rand() * 0.3);
-        if (rand() < 0.5) { const m = lp(a, b, 0.5); stroke(B, WHT, a[0], a[1] - 2 * s, m[0], m[1] - 3 * s, 0.1, cw * 0.8, 0.5); }
+        const v0 = (i + 0.5 + (rand() - 0.5) * 0.4) / nfold;
+        const pts = [];
+        for (let j = 1; j <= nn; j++) { const t = lp(T0[j], B0[j], clamp(v0 + Math.sin(j * 0.7 + i) * 0.06, 0.05, 0.95)); pts.push(t); }
+        const a = 0.3 + 0.4 * rand();
+        B.poly(fold(0.5, v0) < 0 ? BLK : (rand() < 0.5 ? WHT : cch), a, cw * 0.9, spline(pts, false, 3).slice((rand() * 6) | 0));
       }
       contour(R, g.cloak, { ch: BLK, w: cw, a: 0.75, wob: s * 0.4, passes: 2, rim: 0.4 });
       flushAll(R);
     }
     const sd = g.shield;
     const sp2 = new Path2D(); sp2.ellipse(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 0, TAU);
-    if (ro.gold) {
+    if (sd.back) { /* drawn after the torso */ } else if (ro.gold) {
       const c = R.cT;
       blob(c, WHT, sd.c[0], sd.c[1], sd.ry * 4.2, sd.ry * 3.6, 0, 0.22);
       blob(c, RED, sd.c[0], sd.c[1], sd.ry * 2.6, sd.ry * 2.3, 0, 0.16);
       reserve(R, sp2, 0.95);
-      fillCh(c, WHT, sp2, 0.55);
-      fillCh(c, RED, sp2, 0.12);
+      fillCh(c, WHT, sp2, 0.62);
+      fillCh(c, RED, sp2, 0.1);
+      const rimP = new Path2D(); rimP.ellipse(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 0, TAU); rimP.ellipse(sd.c[0], sd.c[1], sd.rx * 0.84, sd.ry * 0.84, sd.rot, 0, TAU);
+      c.fillStyle = 'rgba(255,0,0,0.45)'; c.fill(rimP, 'evenodd');
       for (let i = 0; i < 90; i++) {
         const a = (i / 90) * TAU + rand() * 0.04, r0 = 0.22 + rand() * 0.12, r1 = 0.68 + rand() * 0.12;
         const ca = Math.cos(a), sa = Math.sin(a);
@@ -836,19 +877,30 @@
       B.flush(); R.cS.restore();
     }
     contour(R, g.torso, { ch: BLK, w: cw, a: 0.8, wob: s * 0.3, passes: 2, rim: 0.6 });
+    if (sd.back) {
+      reserve(R, sp2, 0.9);
+      fillCh(R.cT, ro.shieldCh, sp2, 0.4); fillCh(R.cT, BLK, sp2, 0.18);
+      hatch(R, { ...bbox(ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 12), 1), ang: 58 * D2R, sp, len: len * 0.6, w, chs: [ro.shieldCh, BLK], fn: (x, y, o) => { const t = (x - sd.c[0]) / sd.rx; o[ro.shieldCh] = 0.4; o[BLK] = 0.5 * smooth(-0.3, 1, t); return true; } });
+      clipFlush(R, sp2);
+      contour(R, ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 30), { ch: BLK, w: cw, a: 0.8, wob: s * 0.2, passes: 2, rim: 0.7 });
+      B.poly(RED, 0.6, cw, ellipsePts(sd.c[0], sd.c[1], sd.rx * 0.82, sd.ry * 0.82, sd.rot, 24, 0, TAU + 0.2));
+      blob(R.cT, WHT, sd.c[0] - sd.rx * 0.1, sd.c[1] - sd.ry * 0.1, sd.rx * 0.22, sd.rx * 0.22, 0, 0.8);
+      flushAll(R);
+    }
     const bA = g.Q(...g.at(g.hip, 7, -9.5)), bB = g.Q(...g.at(g.hip, 7, 10));
     B.line(BLK, 0.85, cw * 1.6, bA[0], bA[1], bB[0], bB[1]);
     const sk = g.skirt;
     B.poly(BLK, 0.6, cw, [sk[1], sk[2]]); B.poly(BLK, 0.5, cw, [sk[0], sk[3], sk[2]]);
     const hc = g.headS, hr = g.hr, fwd = g.f;
-    const face = new Path2D(); face.ellipse(hc[0] + fwd[0] * hr * 0.3, hc[1] + hr * 0.2, hr * 0.8, hr * 0.95, 0, 0, TAU);
+    const face = new Path2D(); face.ellipse(hc[0] + fwd[0] * hr * 0.45, hc[1] + hr * 0.3, hr * 0.55, hr * 0.7, 0, 0, TAU);
     const hd = new Path2D(); hd.arc(hc[0], hc[1], hr * 1.05, 0, TAU); reserve(R, hd, 0.9);
-    fillCh(R.cT, RED, face, 0.45);
-    fillCh(R.cT, BLK, face, 0.12);
+    fillCh(R.cT, RED, face, 0.5);
+    fillCh(R.cT, BLK, face, 0.18);
+    B.poly(RED, 0.8, cw * 0.8, [[hc[0] + hr * 0.85, hc[1] + hr * 0.05], [hc[0] + hr * 1.05, hc[1] + hr * 0.35], [hc[0] + hr * 0.85, hc[1] + hr * 0.5]]);
     const chin = [hc[0] + fwd[0] * hr * 0.6, hc[1] + hr * 0.85];
     for (let i = 0; i < (detail ? 14 : 3); i++) B.quad(ro.hairCh, 0.55, cw * 0.8, chin[0] - rand() * hr * 0.6, chin[1] - rand() * hr * 0.3, chin[0] - hr * 0.6, chin[1] + hr * 0.6, chin[0] - hr * (1 + rand() * 1.6), chin[1] + hr * (0.4 + rand() * 0.7));
-    const helm = new Path2D(); helm.ellipse(hc[0], hc[1] - hr * 0.15, hr * 1.06, hr * 1.02, 0, Math.PI * 0.95, Math.PI * 2.05); helm.closePath();
-    fillCh(R.cT, BLK, helm, 0.38);
+    const helm = new Path2D(); helm.moveTo(hc[0] + hr * 0.95, hc[1] - hr * 0.05); helm.ellipse(hc[0], hc[1] - hr * 0.1, hr * 1.02, hr * 1.0, 0, -0.05, -Math.PI * 1.1, true); helm.lineTo(hc[0] - hr * 1.0, hc[1] + hr * 0.8); helm.lineTo(hc[0] - hr * 0.2, hc[1] + hr * 0.55); helm.lineTo(hc[0] + hr * 0.1, hc[1]); helm.closePath();
+    fillCh(R.cT, BLK, helm, 0.45);
     flushAll(R);
     R.cS.save(); R.cS.clip(helm);
     for (let i = 0; i < 14; i++) { const a = Math.PI * (1.0 + i * 0.07); stroke(B, WHT, hc[0] + Math.cos(a) * hr, hc[1] + Math.sin(a) * hr - hr * 0.15, hc[0] + Math.cos(a) * hr * 0.25, hc[1] - hr * 0.5, 0.1, cw, i < 6 ? 0.85 : 0.15); }
@@ -857,8 +909,13 @@
     B.line(BLK, 0.9, cw * 1.3, hc[0] - hr * 1.1, hc[1] - hr * 0.05, hc[0] + hr * 1.1, hc[1] - hr * 0.1);
     B.line(BLK, 0.85, cw * 1.5, hc[0] + fwd[0] * hr * 0.78, hc[1] - hr * 0.15, hc[0] + fwd[0] * hr * 0.82, hc[1] + hr * 0.6);
     B.poly(BLK, 0.7, cw, [[hc[0] - hr * 0.2, hc[1]], [hc[0] - hr * 0.05, hc[1] + hr * 0.95], [hc[0] + hr * 0.45, hc[1] + hr * 0.75]]);
+    if (ro.gold) {
+      const band = ellipsePts(hc[0], hc[1] - hr * 0.2, hr * 1.08, hr * 0.5, 0, 10, Math.PI * 0.95, Math.PI * 2.05);
+      B.poly(RED, 0.9, cw * 1.6, band); B.poly(WHT, 0.8, cw * 0.7, band.map((p) => [p[0], p[1] - cw]));
+      for (let i = 1; i < band.length - 1; i += 2) blob(R.cT, WHT, band[i][0], band[i][1] - cw, cw * 1.2, cw * 1.2, 0, 0.8);
+    }
     const cr0 = g.crown;
-    for (let i = 0; i < (detail ? 40 : 9); i++) {
+    for (let i = 0; i < (ro.plume ? (detail ? 40 : 9) : 0); i++) {
       const Lp = ro.plume * (0.6 + rand() * 0.6) * s;
       const ang = Math.PI - 0.3 + rand() * 0.42;
       const ex = cr0[0] + Math.cos(ang) * Lp, ey = cr0[1] + Math.sin(ang) * Lp + Lp * 0.22;
@@ -967,17 +1024,24 @@
     for (let i = 0; i < 9; i++) { const r = hs.crest(0.08 + rand() * 0.86); const Lm = ro.mane * (0.5 + rand() * 0.5) * s; B.quad(tc, 0.55, cw, r[0], r[1], r[0] - Lm * 0.5, r[1] - Lm * 0.3, r[0] - Lm, r[1] - Lm * (rand() * 0.3)); }
     const eye = hs.Hp(11.5, 4.5); B.line(BLK, 0.8, cw, eye[0], eye[1], eye[0] + s, eye[1]);
     if (g.cloak) { fillCh(R.cT, ro.cloakCh, pathOf(g.cloak), 0.4); B.poly(BLK, 0.5, cw, g.cloak.slice(0, (g.cloak.length / 2) | 0)); }
-    const sd = g.shield; blob(R.cT, ro.shieldCh, sd.c[0], sd.c[1], sd.rx, sd.ry, 0, 0.6);
+    const sd = g.shield;
+    if (!sd.back) blob(R.cT, ro.shieldCh, sd.c[0], sd.c[1], sd.rx, sd.ry, 0, 0.6);
     fillCh(R.cT, BLK, pathOf(g.torso), 0.42); fillCh(R.cT, RED, pathOf(g.leg), 0.35); fillCh(R.cT, BLK, pathOf(g.boot), 0.5); fillCh(R.cT, BLK, pathOf(g.arm), 0.35);
     contour(R, g.torso, { ch: BLK, w: cw, a: 0.7, wob: s * 0.3, passes: 1, rim: 0.8 });
+    if (sd.back) {
+      const se = new Path2D(); se.ellipse(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 0, TAU);
+      reserve(R, se, 0.8); fillCh(R.cT, ro.shieldCh, se, 0.5); fillCh(R.cT, BLK, se, 0.2);
+      B.poly(WHT, 0.6, cw, ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 8, Math.PI * 0.8, Math.PI * 1.5));
+      blob(R.cT, WHT, sd.c[0], sd.c[1], sd.rx * 0.25, sd.rx * 0.25, 0, 0.6);
+    }
     B.poly(RED, 0.5, cw, g.leg);
     const hc = g.headS;
-    blob(R.cT, RED, hc[0] + g.hr * 0.2, hc[1] + g.hr * 0.3, g.hr * 0.8, g.hr * 0.9, 0, 0.6);
-    blob(R.cT, BLK, hc[0], hc[1] - g.hr * 0.25, g.hr * 0.95, g.hr * 0.8, 0, 0.6);
+    blob(R.cT, BLK, hc[0] - g.hr * 0.1, hc[1] - g.hr * 0.05, g.hr * 1.0, g.hr * 0.95, 0, 0.75);
+    blob(R.cT, RED, hc[0] + g.hr * 0.7, hc[1] + g.hr * 0.35, g.hr * 0.3, g.hr * 0.45, 0, 0.6);
     if (rand() < 0.6) B.quad(WHT, 0.7, cw, hc[0] - g.hr, hc[1] - g.hr * 0.3, hc[0] - g.hr * 0.7, hc[1] - g.hr * 1.2, hc[0] - g.hr * 0.05, hc[1] - g.hr * 1.15);
     B.line(BLK, 0.6, cw, hc[0] - g.hr, hc[1] - g.hr * 0.15, hc[0] + g.hr, hc[1] - g.hr * 0.2);
     const cr0 = g.crown;
-    for (let i = 0; i < 5; i++) B.quad(ro.plumeCh, 0.6, cw, cr0[0], cr0[1], cr0[0] - ro.plume * 0.4 * s, cr0[1] - 4 * s, cr0[0] - ro.plume * (0.8 + rand() * 0.4) * s, cr0[1] + rand() * 7 * s);
+    if (ro.plume) for (let i = 0; i < 4; i++) B.quad(ro.plumeCh, 0.55, cw, cr0[0], cr0[1], cr0[0] - ro.plume * 0.4 * s, cr0[1] - 3 * s, cr0[0] - ro.plume * (0.8 + rand() * 0.4) * s, cr0[1] + rand() * 6 * s);
     if (g.spear) {
       const a = g.spear.a, b = g.spear.b;
       B.line(BLK, 0.8, clamp(s * 1.1, 1.1, 3) * k, a[0], a[1], b[0], b[1]);
@@ -1001,7 +1065,7 @@
     const ph = rand();
     for (let i = 0; i < 4; i++) { const lx = x + (i < 2 ? -h * 0.38 : h * 0.2) + (i & 1) * h * 0.1; const sw = Math.sin(ph * TAU + i * 1.7) * h * 0.28; B.line(i & 1 ? ch : BLK, a * 0.85, Math.max(0.8 * k, w * 0.35), lx, y - h * 0.5, lx + sw, y - h * 0.02); }
     B.line(BLK, a, w * 0.8, x - h * 0.05, y - h * 0.72, x + h * 0.08, y - h * 1.22);
-    if (rand() < 0.5) B.line(rand() < 0.75 ? RED : WHT, 0.6, w * 0.6, x - h * 0.1, y - h * 1.2, x - h * 0.6, y - h * 1.15);
+    if (rand() < 0.3) B.line(rand() < 0.6 ? RED : BLK, 0.6, w * 0.6, x - h * 0.1, y - h * 1.2, x - h * 0.5, y - h * 1.15);
     const sy0 = y - h * (0.9 + rd.sp * 0.6), sy1 = y - h * (0.85 - rd.sp * 0.5);
     B.line(BLK, a * 0.9, Math.max(0.8 * k, w * 0.3), x - h * 0.6, sy0, x + h * 1.3, sy1);
     if (rand() < 0.75) B.line(WHT, 0.9, Math.max(1.1 * k, w * 0.45), x + h * 1.25, sy1 - (sy1 - sy0) * 0.03, x + h * 1.45, sy1 + (sy1 - sy0) * 0.08);
@@ -1038,7 +1102,7 @@
     for (const p of parts) addPoly(u, p);
     u.moveTo(head[0] + 8 * s, head[1]); u.arc(head[0], head[1], 8 * s, 0, TAU);
     reserve(R, u, 0.85);
-    fillCh(R.cT, BLK, u, 0.36 + 0.18 * o.dark);
+    fillCh(R.cT, BLK, u, 0.62 + 0.2 * o.dark);
     const cw = clamp(s * 1.1, 1.2, 2.8) * k;
     for (let i = 0; i < parts.length; i++) contour(R, parts[i], { ch: BLK, w: cw, a: 0.85, wob: s * 0.6, passes: 1, rim: 0.6 });
     B.poly(BLK, 0.9, cw * 1.2, ellipsePts(head[0], head[1] - 2 * s, 8.5 * s, 7.5 * s, 0, 10, Math.PI, TAU));
@@ -1130,18 +1194,6 @@
       flushAll(R);
       await R.tick();
     }
-    for (let x = -W * 0.02; x < W * 1.02; x += H * (0.03 + rand() * 0.03)) {
-      const e = edgeY(x);
-      if (e > hy - H * 0.04) continue;
-      const r = H * (0.018 + rand() * 0.035);
-      const cx = x, cy = e - r * 0.4 + (rand() - 0.5) * r * 0.6;
-      const lit = 1 - smooth(W * 0.3, W * 0.95, x) * 0.7;
-      const arc = ellipsePts(cx, cy, r * 1.5, r, 0, 14, Math.PI * 0.15, Math.PI * 1.05);
-      B.poly(WHT, 0.75 * lit, 2.6 * k, arc);
-      B.poly(RED, 0.5 * lit, 2.2 * k, arc.map((p) => [p[0] + 2.5 * k, p[1] - 3 * k]));
-      B.poly(BLK, 0.45, 2 * k, ellipsePts(cx, cy, r * 1.5, r, 0, 10, Math.PI * 1.1, Math.PI * 1.9));
-      for (let j = 0; j < 7; j++) { const a = Math.PI * (1.15 + j * 0.1), q = [cx + Math.cos(a) * r * 1.4, cy + Math.sin(a) * r * 0.9]; stroke(B, BLK, q[0], q[1], q[0] + r * 0.5, q[1] + r * 0.7, 0.05, 2 * k, 0.4); }
-    }
     flushAll(R);
   }
 
@@ -1218,7 +1270,7 @@
     for (let i = 0; i < 7; i++) { acc += i === 0 ? 13 : (15.2 - i * 0.35); T.push({ hw: HW[i], top: -acc, h: HT[i], bend: HW[i] * 0.06, c: -i * 3.4 }); }
     const wt = (i, u) => { const q = (u - T[i].c) / T[i].hw; return T[i].top + T[i].bend * (1 - q * q); };
     const lw = clamp(cs * 0.4, 1.3, 2.6) * k;
-    const light = (u, hw, c) => clamp(0.62 - 0.8 * ((u - (c || 0)) / hw), 0, 1);
+    const light = (u, hw, c) => clamp(0.58 - 1.15 * ((u - (c || 0)) / hw), 0, 1);
     const outline = [];
     for (let i = 0; i < 7; i++) outline.push([X(T[i].c - T[i].hw), Y(wt(i, T[i].c - T[i].hw) + T[i].h)], [X(T[i].c - T[i].hw), Y(wt(i, T[i].c - T[i].hw) - 3)]);
     outline.push([X(T[6].c - T[6].hw * 0.6), Y(T[6].top - 14)], [X(8), Y(T[6].top - 64)], [X(T[6].c + T[6].hw * 0.6), Y(T[6].top - 14)]);
@@ -1240,10 +1292,10 @@
         const lt = light(hz.u, T[i].hw, T[i].c);
         const r = new Path2D(); r.rect(x0, y0, x1 - x0, y1 - y0);
         reserve(R, r, 0.5);
-        fillCh(R.cT, WHT, r, 0.12 + 0.5 * lt * (0.6 + rand() * 0.4));
+        fillCh(R.cT, WHT, r, 0.08 + 0.48 * lt * (0.6 + rand() * 0.4));
         const sx = lerp(x0, x1, 0.5 + 0.35 * lt);
         const sr = new Path2D(); sr.rect(sx, y0, x1 - sx, y1 - y0);
-        fillCh(R.cT, BLK, sr, 0.18 + 0.3 * (1 - lt));
+        fillCh(R.cT, BLK, sr, 0.2 + 0.4 * (1 - lt));
         if (hz.roof < 0.35) B.poly(BLK, 0.7, lw, [[x0 - cs * 0.3, y0], [(x0 + x1) / 2, y0 - cs * 1.5], [x1 + cs * 0.3, y0]]);
         else if (hz.roof < 0.45) B.poly(BLK, 0.6, lw, ellipsePts((x0 + x1) / 2, y0, (x1 - x0) / 2, cs * 1.2, 0, 6, Math.PI, TAU));
         else B.line(BLK, 0.55, lw, x0, y0, x1, y0);
@@ -1273,10 +1325,10 @@
         R.cT.fillStyle = g; R.cT.fillRect(X(t.c - t.hw), Y(t.top - 2), 2 * t.hw * cs, (t.h + t.bend + 4) * cs);
       } else {
         const g = R.cT.createLinearGradient(X(t.c - t.hw), 0, X(t.c + t.hw), 0);
-        g.addColorStop(0, 'rgba(0,0,255,0.8)'); g.addColorStop(0.45, 'rgba(0,0,255,0.5)'); g.addColorStop(0.8, 'rgba(0,0,255,0.12)'); g.addColorStop(1, 'rgba(0,0,255,0.04)');
+        g.addColorStop(0, 'rgba(0,0,255,0.7)'); g.addColorStop(0.35, 'rgba(0,0,255,0.42)'); g.addColorStop(0.65, 'rgba(0,0,255,0.08)'); g.addColorStop(1, 'rgba(0,0,255,0)');
         R.cT.fillStyle = g; R.cT.fillRect(X(t.c - t.hw), Y(t.top - 2), 2 * t.hw * cs, (t.h + t.bend + 4) * cs);
         const g2 = R.cT.createLinearGradient(X(t.c - t.hw), 0, X(t.c + t.hw), 0);
-        g2.addColorStop(0, 'rgba(0,255,0,0)'); g2.addColorStop(0.5, 'rgba(0,255,0,0.08)'); g2.addColorStop(1, 'rgba(0,255,0,0.5)');
+        g2.addColorStop(0, 'rgba(0,255,0,0)'); g2.addColorStop(0.45, 'rgba(0,255,0,0.12)'); g2.addColorStop(1, 'rgba(0,255,0,0.62)');
         R.cT.fillStyle = g2; R.cT.fillRect(X(t.c - t.hw), Y(t.top - 2), 2 * t.hw * cs, (t.h + t.bend + 4) * cs);
       }
       R.cT.restore();
@@ -1377,6 +1429,36 @@
       wall(i);
       await R.tick();
     }
+    // the shoulder of the mountain the city is built against: it hides the northern ends of the upper circles
+    {
+      const fl = [
+        [T[6].c + T[6].hw * 0.42, T[6].top - 10], [T[5].c + T[5].hw * 0.52, T[5].top - 4], [T[4].c + T[4].hw * 0.62, T[4].top + 1],
+        [T[3].c + T[3].hw * 0.72, T[3].top + 4], [T[2].c + T[2].hw * 0.82, T[2].top + 6], [T[1].c + T[1].hw * 0.92, T[1].top + 8],
+        [T[0].c + T[0].hw * 1.02, T[0].top + 11], [T[0].c + T[0].hw * 1.4, 2], [175, 2], [175, -150], [120, -128], [70, -98], [32, T[6].top - 20],
+      ];
+            const jag = [];
+      for (let i = 0; i < fl.length; i++) {
+        jag.push([X(fl[i][0]), Y(fl[i][1])]);
+        if (i < 7) for (let j = 1; j < 4; j++) { const q = lp(fl[i], fl[i + 1], j / 4); jag.push([X(q[0] + (rand() - 0.3) * 5), Y(q[1] + (rand() - 0.5) * 2)]); }
+      }
+      const poly = jag;
+      const fp = pathOf(poly);
+      reserve(R, fp, 0.9);
+      fillCh(R.cT, BLK, fp, 0.58);
+      const bb = bbox(poly);
+      const N = R.noise;
+      hatch(R, { ...bb, ang: 64 * D2R, sp: 3.6 * k, len: cs * 7, w: 2.2 * k, chs: [BLK, RED, WHT], fn: (x, y, o) => {
+        const n = N.fbm(x / (cs * 10), y / (cs * 6), 3);
+        o[BLK] = 0.5 + 0.4 * n; o[RED] = 0.15 + 0.3 * smooth(Y(-30), Y(0), y); o[WHT] = 0.35 * smooth(0.66, 0.82, n); return true; } });
+      clipFlush(R, fp);
+      contour(R, jag.slice(0, 29), { closed: false, ch: WHT, w: lw, a: 0.45, wob: cs * 0.4, passes: 1, flat: true });
+      contour(R, jag.slice(0, 29), { closed: false, ch: BLK, w: lw * 1.2, a: 0.8, wob: cs * 0.5, passes: 2, flat: true });
+      for (let i = 0; i < 40; i++) {
+        const q = lp(jag[(rand() * 7) | 0], [X(150), Y(-100)], rand() * 0.8);
+        stroke(B, rand() < 0.5 ? BLK : WHT, q[0], q[1], q[0] + cs * (2 + rand() * 6), q[1] + cs * (4 + rand() * 10), 0.1, 2 * k, 0.45);
+      }
+      flushAll(R);
+    }
     for (let j = 0; j < 16; j++) {
       const i = (rand() * 3) | 0, u = T[i].c + (rand() * 2 - 1) * T[i].hw * 0.9, v = wt(i, u) - rand() * 6;
       blob(R.cT, RED, X(u), Y(v), cs * (4 + rand() * 8), cs * (3 + rand() * 5), 0, 0.35 + rand() * 0.3);
@@ -1461,14 +1543,13 @@
   }
 
   /* a burning engine of war on the right, a dark frame for the charge to run into */
-  function drawEngine(R, L) {
-    const { W, hy } = L, rand = R.rand, k = R.k, B = R.B;
-    const gx = W * lerp(0.88, 0.85, L.t), gy = L.hy + (L.yT - L.hy) * 0.62;
-    const hh = (gy - hy) / L.camK, s = hh / 100;
+  function drawEngine(R, L, gx, gy) {
+    const { hy } = L, rand = R.rand, k = R.k, B = R.B;
+    const hh = (gy - hy) / L.camK, s = hh / 100 * 0.8;
     const P = (x, y) => [gx + x * s, gy + y * s];
     const beams = [
       [P(-90, 0), P(70, 0), 9], [P(-80, -12), P(60, -12), 7], [P(-60, -12), P(-20, -150), 8], [P(20, -12), P(-16, -150), 8],
-      [P(-24, -146), P(-14, -146), 10], [P(-150, -230), P(40, -60), 7], [P(-50, -12), P(-40, -70), 5], [P(30, -60), P(60, -12), 5],
+      [P(-24, -146), P(-14, -146), 10], [P(-125, -205), P(40, -60), 7], [P(-50, -12), P(-40, -70), 5], [P(30, -60), P(60, -12), 5],
     ];
     const u = new Path2D();
     const polys = beams.map(([a, b, w]) => limb([a, b], [w * s / 2, w * s / 2]));
@@ -1495,8 +1576,8 @@
       for (let j = 0; j < 4; j++) { const a = j * Math.PI / 4; B.line(BLK, 0.8, 2 * k, c[0] - Math.cos(a) * r * 0.45, c[1] - Math.sin(a) * r, c[0] + Math.cos(a) * r * 0.45, c[1] + Math.sin(a) * r); }
       B.poly(RED, 0.6, 2.2 * k, ellipsePts(c[0], c[1], r * 0.45, r, 0, 8, -1.2, 1.2));
     }
-    B.quad(BLK, 0.6, 1.6 * k, ...P(-150, -230), ...P(-170, -150), ...P(-150, -100));
-    B.line(BLK, 0.5, 1.4 * k, ...P(-20, -150), ...P(-150, -230));
+    B.quad(BLK, 0.6, 1.6 * k, ...P(-125, -205), ...P(-145, -140), ...P(-130, -95));
+    B.line(BLK, 0.5, 1.4 * k, ...P(-20, -150), ...P(-125, -205));
     for (const [a, b] of beams) B.line(RED, 0.55, 2 * k, a[0] - 3 * k, a[1] + 2 * k, b[0] - 3 * k, b[1] + 2 * k);
     flushAll(R);
     return { x: gx - 10 * s, y: gy - 80 * s, r: 30 * s };
@@ -1554,7 +1635,7 @@
           const dist = x - hordeFront(L, yy);
           const pose = dist < h * 3 && rand() < 0.6 ? 'brace' : (dist < h * 6 && rand() < 0.15 ? 'flee' : 'stand');
           flushAll(R);
-          drawOrc(R, x, yy, h, { pose, face: pose === 'flee' ? 1 : -1, dark: near });
+          drawOrc(R, x, yy, h * (rand() < 0.05 ? 1.6 : 0.85 + rand() * 0.3), { pose, face: pose === 'flee' ? 1 : -1, dark: near });
           nOrc++;
           if (nOrc % 8 === 0) await R.tick();
           continue;
@@ -1597,10 +1678,10 @@
       if (y > yMax) break;
       const hh = (y - L.hy) / L.camK;
       const xf = riderFront(L, y);
-      const sp = hh * (y > L.yT ? 1.2 : 0.9);
+      const sp = hh * (y > L.yT ? 1.25 : 1.0);
       let x = xf - rand() * hh * 0.5;
       while (x > -hh * 2) {
-        const yy = y + (rand() - 0.5) * hh * 0.1;
+        const yy = y + (rand() - 0.5) * (y - L.hy) * 0.1;
         const h = (yy - L.hy) / L.camK;
         const nearKing = Math.abs(yy - L.yT) < L.hhT * 0.25 && x > L.xT - L.hhT * 1.6;
         const tooBig = h > L.hhT * 0.98 && x > L.xT - L.hhT * 1.2;
@@ -1624,10 +1705,10 @@
       neck: 22 + rand() * 18, head: 38 + rand() * 18, neckLen: 46 + rand() * 6, arch: rand() * 4,
       tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14,
       coat: coats[(rand() * coats.length) | 0],
-      lean: 14 + rand() * 22, seat: (rand() - 0.5) * 4,
+      lean: 26 + rand() * 24, seat: (rand() - 0.5) * 4,
       spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.3, pennonCh: rand() < 0.5 ? RED : WHT,
-      shieldCh: rand() < 0.5 ? RED : BLK, cloak: rand() < 0.45 ? 0 : 30 + rand() * 30, cloakCh: rand() < 0.65 ? RED : BLK, cloakWave: rand() * 6,
-      plume: 18 + rand() * 14, plumeCh: rand() < 0.45 ? WHT : rand() < 0.5 ? RED : BLK, hairCh: rand() < 0.6 ? RED : WHT,
+      shieldCh: rand() < 0.5 ? RED : BLK, cloak: rand() < 0.7 ? 0 : 22 + rand() * 22, backShield: rand() < 0.45, cloakCh: rand() < 0.65 ? RED : BLK, cloakWave: rand() * 6,
+      plume: rand() < 0.4 ? 0 : 12 + rand() * 12, plumeCh: rand() < 0.25 ? WHT : rand() < 0.5 ? RED : BLK, hairCh: rand() < 0.6 ? RED : WHT,
       clothCh: rand() < 0.55 ? RED : BLK,
     };
     if (rand() < 0.12) { ro.spearAng = -50 + rand() * 25; ro.spearLen = 90; }
@@ -1681,17 +1762,37 @@
     c.fillStyle = g; c.fill(pathOf(spline(pts, true, 3)));
   }
 
+  function dustVeil(R, L, y) {
+    const rand = R.rand, c = R.cT;
+    const d = y - L.hy, hh = d / L.camK;
+    const f = clamp(d / (L.yT - L.hy), 0, 1);
+    const x1 = riderFront(L, y) + hh * 0.6;
+    for (let x = -hh * 2; x < x1; x += hh * (1.2 + rand())) {
+      const yy = y - hh * (0.15 + rand() * 0.5);
+      blob(c, WHT, x, yy, hh * (2 + rand() * 2), hh * (0.5 + rand() * 0.5), 0, (0.05 + 0.05 * rand()) * (1 - f * 0.6));
+      if (rand() < 0.4) blob(c, RED, x, y, hh * 2.5, hh * 0.4, 0, 0.04);
+    }
+  }
+
   async function drawArmy(R, L, army) {
     const k = R.k;
     const FULL = 150 * k, DET = 34 * k, MID = 11 * k;
     let nD = 0, nM = 0, nF = 0;
     const only = R.only;
+    let nextVeil = L.hy + (L.yT - L.hy) * 0.04;
     for (const rd of army) {
+      if (rd.y > nextVeil && rd.y < L.yT + L.hhT * 0.3) {
+        flushAll(R);
+        dustVeil(R, L, nextVeil);
+        nextVeil = L.hy + (nextVeil - L.hy) * 1.32;
+        await R.tick();
+      }
       if (only && !(only === 'king' ? rd.king : rd.hh > L.hhT * 0.5)) continue;
       rd.fog = smooth(L.hhT * 0.8, 4 * k, rd.hh) * 0.85;
       if (rd.hh < MID && !rd.king) { if (rd.hh > 4 * k) longShadow(R, rd.x, rd.y, rd.hh, 0.25 * (1 - rd.fog)); drawRiderFar(R, rd); nF++; if (R.B.n > 6000) { flushAll(R); await R.tick(); } continue; }
       flushAll(R);
       const ro = riderParams(R.rand, rd);
+      ro.vp = L.vp;
       const s = rd.hh / 100;
       const hs = buildHorse(ro, rd.x, rd.y, s);
       rd.hs = hs; rd.ro = ro;
@@ -1850,13 +1951,15 @@
       const y = L.hy + (L.yT - L.hy) * (0.02 + rand() * 0.3);
       sources.push({ x: lerp(hordeFront(L, y) + L.W * 0.04, L.W, rand()), y, r: L.H * (0.01 + rand() * 0.012), lean: -0.3 - rand() * 0.4, a: 0.2 + rand() * 0.15, seed: rand() * 50 });
     }
-    sources.push({ x: L.city.cx - L.city.cs * 40, y: L.city.cb - L.city.cs * 20, r: L.city.cs * 8, lean: -0.5, a: 0.2, seed: 3 });
-    sources.push({ x: L.city.cx + L.city.cs * 30, y: L.city.cb - L.city.cs * 10, r: L.city.cs * 7, lean: -0.6, a: 0.18, seed: 9 });
+    sources.push({ x: L.city.cx - L.city.cs * 40, y: L.city.cb - L.city.cs * 16, r: L.city.cs * 9, lean: -0.45, a: 0.26, seed: 3 });
+    sources.push({ x: L.city.cx + L.city.cs * 52, y: L.city.cb - L.city.cs * 8, r: L.city.cs * 11, lean: -0.7, a: 0.3, seed: 9 });
+    sources.push({ x: L.city.cx + L.city.cs * 8, y: L.city.cb - L.city.cs * 4, r: L.city.cs * 7, lean: -0.55, a: 0.22, seed: 14 });
     await drawGround(R, L); mark('ground');
-    const eng = drawEngine(R, L);
-    sources.push({ x: eng.x, y: eng.y, r: eng.r, lean: -0.5, a: 0.3, seed: 21 });
+    const egx = L.W * lerp(0.95, 0.93, L.t), egy = L.hy + (L.yT - L.hy) * 0.5;
+    sources.push({ x: egx - (egy - L.hy) * 0.05, y: egy - (egy - L.hy) * 0.35, r: (egy - L.hy) * 0.18, lean: -0.5, a: 0.3, seed: 21 });
     await drawSmoke(R, L, sources); mark('smoke');
     await drawHorde(R, L); mark('horde');
+    drawEngine(R, L, egx, egy);
     await R.checkpoint();
     const army = makeArmy(R, L);
     const st = await drawArmy(R, L, army); mark('army D' + st.nD + ' M' + st.nM + ' F' + st.nF);
