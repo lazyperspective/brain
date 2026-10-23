@@ -409,13 +409,13 @@
         const n = [-d[1], d[0]];
         let w, bb = 0, fb = 0;
         if (hind) {
-          if (sg === 0) { w = lerp(24, 10.5, Math.pow(t, 0.55)); if (t > 0.72) bb = (t - 0.72) * 15; }
-          else if (sg === 1) { w = 6.8 + smooth(0.75, 1, t) * 1.8; if (t < 0.28) bb = (0.28 - t) * 15; }
-          else { w = t < 0.35 ? lerp(8.4, 5.8, t / 0.35) : t < 0.5 ? lerp(5.8, 7.2, (t - 0.35) / 0.15) : lerp(7.2, 8.8, (t - 0.5) / 0.5); if (t < 0.2) bb = (0.2 - t) * 6; }
+          if (sg === 0) { w = lerp(24, 9.5, Math.pow(t, 0.5)) + Math.sin(t * Math.PI) * 2.5; if (t > 0.74) bb = (t - 0.74) * 17; if (t > 0.85) fb = (t - 0.85) * 6; }
+          else if (sg === 1) { w = 6 + smooth(0.78, 1, t) * 2.6 - Math.sin(t * Math.PI) * 0.6; if (t < 0.25) bb = (0.25 - t) * 18; }
+          else { w = t < 0.35 ? lerp(8.4, 5.2, t / 0.35) : t < 0.5 ? lerp(5.2, 6.8, (t - 0.35) / 0.15) : lerp(6.8, 8.6, (t - 0.5) / 0.5); if (t < 0.22) bb = (0.22 - t) * 9; }
         } else {
-          if (sg === 0) { w = lerp(16, 8.6, Math.pow(t, 0.7)); if (t > 0.82) fb = (t - 0.82) * 6; }
-          else if (sg === 1) { w = 6.2 + smooth(0.75, 1, t) * 1.9; if (t < 0.15) fb = (0.15 - t) * 6; }
-          else { w = t < 0.35 ? lerp(8.1, 5.6, t / 0.35) : t < 0.5 ? lerp(5.6, 7, (t - 0.35) / 0.15) : lerp(7, 8.8, (t - 0.5) / 0.5); if (t < 0.2) bb = (0.2 - t) * 7; }
+          if (sg === 0) { w = lerp(16, 7.6, Math.pow(t, 0.6)) + Math.sin(t * Math.PI * 0.8) * 1.5; if (t > 0.8) { fb = (t - 0.8) * 9; bb = (t - 0.8) * 7; } }
+          else if (sg === 1) { w = 5.4 + smooth(0.78, 1, t) * 2.6 - Math.sin(t * Math.PI) * 0.4; if (t < 0.2) { fb = (0.2 - t) * 9; bb = (0.2 - t) * 6; } }
+          else { w = t < 0.35 ? lerp(8, 5, t / 0.35) : t < 0.5 ? lerp(5, 6.6, (t - 0.35) / 0.15) : lerp(6.6, 8.4, (t - 0.5) / 0.5); if (t < 0.22) bb = (0.22 - t) * 10; }
         }
         back.push([c[0] + n[0] * (w / 2 + bb), c[1] + n[1] * (w / 2 + bb)]);
         front.push([c[0] - n[0] * (w / 2 + fb), c[1] - n[1] * (w / 2 + fb)]);
@@ -438,8 +438,8 @@
       const p = ((((o.phase - off) % 1) + 1) % 1);
       const a = keyInterp(hind ? HIND_K : FORE_K, p).map((v) => v * o.stride);
       const sh = near ? 0 : 1;
-      const top = hind ? rot(-47 + (a[0] + 30) * 0.13 + sh * 3, 39 - sh * 2.5) : rot(19 + a[0] * 0.1 + sh * 3, 49 - Math.abs(a[0]) * 0.03 - sh * 2.5);
-      const lens = hind ? [30, 21, 11] : [26, 15, 11];
+      const top = hind ? rot(-45 + (a[0] + 30) * 0.13 + sh * 3, 36 - sh * 2.5) : rot(22 + a[0] * 0.1 + sh * 3, 44 - Math.abs(a[0]) * 0.03 - sh * 2.5);
+      const lens = hind ? [34, 25, 12] : [29, 18, 12];
       const ch = [top];
       for (let i = 0; i < 3; i++) { const d = dir(a[i]); const q = ch[i]; ch.push([q[0] + d[0] * lens[i], q[1] + d[1] * lens[i]]); }
       legs[id] = { id, hind: !!hind, near: !!near, p, a, chain: ch, stance: p < 0.3 };
@@ -452,23 +452,24 @@
 
     const na = (o.neck + 6 * Math.cos(TAU * (o.phase - 0.3))) * D2R;
     const ha = (o.head + 5 * Math.cos(TAU * (o.phase - 0.3))) * D2R;
-    const P = [22 + o.neckLen * Math.cos(na), 6 - o.neckLen * Math.sin(na)];
+    const P = [24 + o.neckLen * 1.18 * Math.cos(na), 4 - o.neckLen * 1.18 * Math.sin(na)];
     const hd = [Math.cos(ha), Math.sin(ha)], th = [-hd[1], hd[0]];
-    const Hp = (a, b) => [P[0] + hd[0] * a + th[0] * b, P[1] + hd[1] * a + th[1] * b];
-    const W0 = [4, 0];
+    const HS = 1.12;
+    const Hp = (a, b) => [P[0] + hd[0] * a * HS + th[0] * b * HS, P[1] + hd[1] * a * HS + th[1] * b * HS];
+    const W0 = [6, -1];
     const cdx = P[0] - W0[0], cdy = P[1] - W0[1], cl = Math.hypot(cdx, cdy);
     const cu = [cdy / cl, -cdx / cl];
-    const arch = 5 + (o.arch || 0);
+    const arch = 7 + (o.arch || 0);
     const crC = [(W0[0] + P[0]) / 2 + cu[0] * arch * 1.7, (W0[1] + P[1]) / 2 + cu[1] * arch * 1.7];
     const crest = (u) => { const v = 1 - u; return [v * v * P[0] + 2 * v * u * crC[0] + u * u * W0[0], v * v * P[1] + 2 * v * u * crC[1] + u * u * W0[1]]; };
-    const thr = Hp(3, 12.5), SH = [40, 24];
+    const thr = Hp(2, 14.5), SH = [45, 21];
     const nu1 = lp(thr, SH, 0.33), nu2 = lp(thr, SH, 0.68);
     const ctl = [
-      [-60, 9], [-53, 3], [-44, 0.5], [-34, 2.5], [-22, 5.5], [-10, 5], W0,
+      [-58, 7], [-50, 1], [-41, -1], [-32, 2], [-20, 5], [-7, 4.5], W0,
       crest(0.72), crest(0.45), crest(0.2),
-      Hp(-1, -2), Hp(7, -3), Hp(20, -3), Hp(31, -1.8), Hp(37, -0.4), Hp(40.4, 3), Hp(39.6, 7.4), Hp(36, 9.6), Hp(28, 9.8), Hp(17, 15.5), Hp(8.5, 16), thr,
-      [nu1[0] + cu[0] * 2.2, nu1[1] + cu[1] * 2.2], [nu2[0] + cu[0] * 0.6, nu2[1] + cu[1] * 0.6],
-      SH, [38.5, 35], [30, 45], [14, 49.5], [-4, 50], [-20, 48.5], [-31, 45.5], [-39, 46], [-54, 47], [-61.5, 37], [-64, 24], [-63, 15],
+      Hp(-1, -2), Hp(7, -3.2), Hp(20, -3), Hp(31, -1.8), Hp(37, -0.4), Hp(40.6, 3.2), Hp(39.8, 7.8), Hp(36, 10), Hp(27, 10.4), Hp(18, 17), Hp(8, 18), thr,
+      [nu1[0] + cu[0] * 1.5, nu1[1] + cu[1] * 1.5], [nu2[0] - cu[0] * 1.5, nu2[1] - cu[1] * 1.5],
+      SH, [44, 32], [38, 41], [28, 47], [14, 51], [0, 50], [-14, 47.5], [-26, 43.5], [-34, 42], [-40, 45], [-52, 45], [-61, 37], [-65, 25], [-63, 14],
     ];
     const body = spline(ctl, true, 5).map((p) => Q(p[0], p[1]));
     const legOut = {};
@@ -479,26 +480,26 @@
     }
     const S = (p) => QL(rot(p[0], p[1]));
     const parts = [
-      cap(Q(-26, 26), Q(14, 26), 24 * s, 24 * s, 1),
-      cap(Q(-48, 22), Q(-48, 23), 21 * s, 21 * s, 1.3),
-      cap(Q(-48, 28), Q(-51, 42), 15 * s, 12 * s),
-      cap(Q(14, 10), Q(29, 38), 13 * s, 12 * s),
-      cap(Q(33, 31), Q(33, 32), 10.5 * s, 10.5 * s),
-      cap(Q(24, 10), S(Hp(3, 6)), 17 * s, 9 * s),
+      cap(Q(-22, 24), Q(12, 25), 23 * s, 26 * s, 1),
+      cap(Q(-46, 20), Q(-46, 21), 21 * s, 21 * s, 1.3),
+      cap(Q(-47, 26), Q(-52, 40), 14 * s, 11 * s, 1.2),
+      cap(Q(14, 6), Q(34, 34), 12 * s, 13 * s, 1.2),
+      cap(Q(38, 30), Q(38, 31), 10 * s, 10 * s),
+      cap(Q(26, 8), S(Hp(3, 7)), 19 * s, 10 * s),
       cap(S(Hp(9, 5)), S(Hp(36, 4)), 7.6 * s, 5.2 * s, 1.3),
       cap(S(Hp(12, 9)), S(Hp(13, 9)), 7.6 * s, 7.6 * s, 1.3),
     ];
     const legParts = {};
     for (const id in legOut) {
       const L = legOut[id], c = L.chainS;
-      const w = L.hind ? [11, 5, 3.8] : [7.5, 3.8, 3.8];
+      const w = L.hind ? [11, 4.6, 3.6] : [7.5, 3.4, 3.6];
       legParts[id] = [cap(c[0], c[1], w[0] * s, 5 * s), cap(c[1], c[2], 3.6 * s, w[1] * s), cap(c[2], c[3], w[2] * s, 4 * s)];
     }
     const rp = (a) => [a[0] * cp - a[1] * sp, a[0] * sp + a[1] * cp];
     return {
       o, s, gx, gy, Q, S, body, legs: legOut, parts, legParts,
       crest: (u) => S(crest(u)), poll: S(P), hd: rp(hd), th: rp(th), Hp: (a, b) => S(Hp(a, b)),
-      dock: Q(-61, 9),
+      dock: Q(-59, 7),
     };
   }
 
@@ -593,12 +594,12 @@
     const D = hs.dock;
     const lift = o.tailLift;
     const ch = coat === 'grey' ? WHT : (POINTS[coat] ? BLK : RED);
-    const n = detail ? 80 : 26;
+    const n = detail ? 60 : 20;
     const pr = o.pitch * D2R, ca = Math.cos(pr), sa = Math.sin(pr);
     const R2 = (x, y) => [x * ca - y * sa, x * sa + y * ca];
     for (let i = 0; i < n; i++) {
       const u = rand();
-      const len = (50 + rand() * 38) * s;
+      const len = (38 + rand() * 30) * s;
       const sx = D[0] + (rand() - 0.5) * 4 * s, sy = D[1] + (rand() - 0.2) * 5 * s;
       const fan = (rand() - 0.5) * 0.55;
       const v1 = R2(-0.5, -lift - 0.08 + fan * 0.5), v2 = R2(-1, -lift * 0.35 + 0.3 + fan);
@@ -700,7 +701,7 @@
     const Q = hs.Q, s = hs.s;
     const th = ro.lean * D2R;
     const ax = [Math.sin(th), -Math.cos(th)], f = [Math.cos(th), Math.sin(th)];
-    const hip = [-8 + ro.seat, -3];
+    const hip = [-6 + ro.seat, -4];
     const at = (p, a, b) => [p[0] + ax[0] * a + f[0] * b, p[1] + ax[1] * a + f[1] * b];
     const sho = at(hip, 31, 0);
     const head = at(sho, 10, 2.5);
@@ -1918,30 +1919,53 @@
       longShadow(R, rd.x, rd.y, rd.hh, 0.34 * (1 - rd.fog));
       if (rd.hh < DET && !rd.king && !rd.banner) { drawRiderMid(R, rd); nM++; await R.checkpoint(); continue; }
       nD++;
-      const detail = rd.hh > FULL || rd.king;
-      const g = riderGeom(hs, ro);
-      reserve(R, horseUnion(hs), 0.92);
-      reserve(R, riderUnion(g), 0.92);
-      if (ro.banner) drawBanner(R, hs, g);
-      drawLeg(R, hs, hs.legs.LH, ro.coat, true, detail);
-      drawLeg(R, hs, hs.legs.LF, ro.coat, true, detail);
-      drawTail(R, hs, ro.coat, detail);
-      drawHorseBody(R, hs, ro.coat, detail);
-      await R.tick();
-      if (detail) {
-        const alt = buildHorse({ ...ro, phase: ro.phase + 0.05 + R.rand() * 0.05 }, rd.x, rd.y, s);
-        for (const id of ['RF', 'RH']) contour(R, alt.legs[id].poly, { ch: RED, w: clamp(s * 0.45, 1.2, 2.4) * k, a: 0.34, wob: s * 0.5, passes: 1 });
-        flushAll(R);
-      }
-      reserveLegs(R, hs);
-      drawLeg(R, hs, hs.legs.RH, ro.coat, false, detail);
-      drawLeg(R, hs, hs.legs.RF, ro.coat, false, detail);
-      drawMane(R, hs, ro.coat, detail);
-      drawTack(R, hs, ro, detail);
-      drawRider(R, hs, g, ro, detail);
+      await drawRiderFull(R, rd, hs, ro, rd.hh > FULL || rd.king);
       await R.checkpoint();
     }
     return { nD, nM, nF };
+  }
+
+  async function drawRiderFull(R, rd, hs, ro, detail) {
+    const k = R.k, s = hs.s;
+    const g = riderGeom(hs, ro);
+    reserve(R, horseUnion(hs), 0.92);
+    reserve(R, riderUnion(g), 0.92);
+    if (ro.banner) drawBanner(R, hs, g);
+    drawLeg(R, hs, hs.legs.LH, ro.coat, true, detail);
+    drawLeg(R, hs, hs.legs.LF, ro.coat, true, detail);
+    drawTail(R, hs, ro.coat, detail);
+    drawHorseBody(R, hs, ro.coat, detail);
+    await R.tick();
+    if (detail) {
+      const alt = buildHorse({ ...ro, phase: ro.phase + 0.04 + R.rand() * 0.04 }, rd.x, rd.y, s);
+      for (const id of ['RF', 'RH']) contour(R, alt.legs[id].poly, { ch: RED, w: clamp(s * 0.45, 1.2, 2.4) * k, a: 0.3, wob: s * 0.5, passes: 1 });
+      flushAll(R);
+    }
+    reserveLegs(R, hs);
+    drawLeg(R, hs, hs.legs.RH, ro.coat, false, detail);
+    drawLeg(R, hs, hs.legs.RF, ro.coat, false, detail);
+    drawMane(R, hs, ro.coat, detail);
+    drawTack(R, hs, ro, detail);
+    drawRider(R, hs, g, ro, detail);
+    hoofDust(R, hs, detail);
+  }
+
+  /* dust and clods kicked up by the hooves that are on the ground or just leaving it */
+  function hoofDust(R, hs, detail) {
+    const rand = R.rand, s = hs.s, k = R.k, B = R.B;
+    for (const id in hs.legs) {
+      const L = hs.legs[id];
+      if (L.p > 0.42) continue;
+      const h = L.chainS[3];
+      const a = L.p < 0.3 ? 0.18 : 0.1;
+      blob(R.cT, WHT, h[0] - 10 * s, h[1] - 4 * s, 26 * s, 9 * s, 0, a);
+      blob(R.cT, RED, h[0] - 14 * s, h[1] - 2 * s, 20 * s, 6 * s, 0, a * 0.8);
+      if (detail) for (let i = 0; i < 8; i++) {
+        const x = h[0] - rand() * 30 * s, y = h[1] - rand() * 14 * s;
+        B.line(rand() < 0.5 ? RED : BLK, 0.6, (1 + rand() * 1.5) * k, x, y, x - 2 * s, y + s);
+      }
+    }
+    flushAll(R);
   }
 
   /* =========================================================== compositing */
@@ -2060,6 +2084,24 @@
     const comp = makeComposer(R, tooth);
     R.preview = previewer(R, comp, previewW);
     mark('tooth');
+    if (new URLSearchParams(location.search).has('rohsheet')) {
+      // a study sheet of horses through the stride
+      const cols = 5, rows = 4, cw = W / cols, chh = H / rows;
+      const coat = new URLSearchParams(location.search).get('rohsheet') || 'bay';
+      for (let i = 0; i < cols * rows; i++) {
+        const ph = i / (cols * rows);
+        const gx = (i % cols + 0.55) * cw, gy = (((i / cols) | 0) + 0.92) * chh;
+        const hh = chh * 0.5;
+        const ro = riderParams(R.rand, {});
+        Object.assign(ro, { phase: ph, coat, pitch: 0, stride: 1, neck: 20, head: 36, cloak: 0, backShield: false, vp: [gx + cw, gy - hh * 0.6] });
+        const hs = buildHorse(ro, gx, gy, hh / 100);
+        await drawRiderFull(R, { x: gx, y: gy, hh }, hs, ro, true);
+        R.cS.fillStyle = 'rgba(0,255,0,1)'; R.cS.font = (30 * L.k) + 'px sans-serif'; R.cS.fillText(ph.toFixed(2), gx - cw * 0.5, gy - chh * 0.75);
+        await R.tick();
+      }
+      flushAll(R);
+      return await composite(R, comp);
+    }
     await drawSky(R, L); mark('sky');
     await drawMountains(R, L); mark('mountain');
     await drawCity(R, L); mark('city');
