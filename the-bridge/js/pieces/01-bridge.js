@@ -129,18 +129,18 @@
     lens.style.cssText = 'position:absolute;pointer-events:none;border-radius:50%;display:none;box-shadow:0 0 0 1px rgba(40,32,24,.7),0 0 0 5px rgba(12,10,8,.55),0 14px 44px rgba(0,0,0,.65);z-index:3';
     el.appendChild(lens);
 
-    let sheet = null;
+    let sheet = null, dims = null;
     let fitScale = 1;
 
     function layoutFrame() {
-      if (!sheet) return;
+      if (!dims) return;
       const W = el.clientWidth, H = el.clientHeight;
-      const portrait = sheet.portrait;
+      const portrait = dims.portrait;
       const padX = portrait ? Math.max(10, W * 0.03) : Math.max(24, W * 0.035);
       const padY = portrait ? Math.max(30, H * 0.05) : Math.max(22, H * 0.045);
-      const s = Math.min((W - 2 * padX) / sheet.CW, (H - 2 * padY) / sheet.CH);
+      const s = Math.min((W - 2 * padX) / dims.CW, (H - 2 * padY) / dims.CH);
       fitScale = s;
-      const w = sheet.CW * s, h = sheet.CH * s;
+      const w = dims.CW * s, h = dims.CH * s;
       frame.style.left = ((W - w) / 2) + 'px';
       frame.style.top = ((H - h) / 2 - (portrait ? H * 0.02 : 0)) + 'px';
       frame.style.width = w + 'px';
@@ -162,9 +162,18 @@
       lastKey = want.key;
       const my = ++job;
       const t0 = performance.now();
-      const res = await render(want, api.seed >>> 0, () => alive && my === job, qs.has('btime'));
+      // while the drawing is made, the sheet shows it being drawn (a reduced view of the ink so far)
+      const onProgress = (pv) => {
+        if (!alive || my !== job) return;
+        dims = pv;
+        if (view.width !== pv.canvas.width || view.height !== pv.canvas.height) { view.width = pv.canvas.width; view.height = pv.canvas.height; }
+        view.getContext('2d').drawImage(pv.canvas, 0, 0);
+        layoutFrame();
+        frame.style.opacity = '1';
+      };
+      const res = await render(want, api.seed >>> 0, () => alive && my === job, qs.has('btime'), onProgress);
       if (!res || !alive || my !== job) return;
-      sheet = res;
+      sheet = res; dims = res;
       view.width = res.CW; view.height = res.CH;
       view.getContext('2d').drawImage(res.canvas, 0, 0);
       layoutFrame();
@@ -247,21 +256,25 @@
     ch.port2.postMessage(0);
   });
 
-  async function render(want, seed, ok, debug) {
+  async function render(want, seed, ok, debug, onProgress) {
     let tSlice = performance.now();
-    async function tick() {
-      if (performance.now() - tSlice > 26) { await yieldNow(); tSlice = performance.now(); }
+    async function tick(label) {
+      const dt = performance.now() - tSlice;
+      if (dt > 26) {
+        if (debug && dt > 200) console.warn('[bridge] long slice', Math.round(dt), label || '');
+        await yieldNow(); tSlice = performance.now();
+      }
       if (!ok()) throw new Error('cancelled');
     }
     try {
-      return await renderInner(want, seed, tick, debug);
+      return await renderInner(want, seed, tick, debug, onProgress);
     } catch (e) {
       if (e && e.message === 'cancelled') return null;
       throw e;
     }
   }
 
-  async function renderInner(want, seed, tick, debug) {
+  async function renderInner(want, seed, tick, debug, onProgress) {
     const tStart = performance.now();
     const stamp = (s) => { if (debug) console.warn('[bridge]', s, Math.round(performance.now() - tStart)); };
     const rand = mulberry32(seed ^ 0x9e3779b9);
@@ -287,6 +300,31 @@
     const gou = new Float32Array(N);
     const scr = new Float32Array(N);
     let strokeId = 1;
+    // a reduced view of the sheet as it is being drawn
+    const PS = 3, pvW = Math.ceil(CW / PS), pvH = Math.ceil(CH / PS);
+    let pvCanvas = null, pvLast = 0;
+    function progress(force) {
+      if (!onProgress) return;
+      const now = performance.now();
+      if (!force && now - pvLast < 1400) return;
+      pvLast = now;
+      if (!pvCanvas) pvCanvas = mkCanvas(pvW, pvH);
+      const c = pvCanvas.getContext('2d');
+      const im = c.createImageData(pvW, pvH), d = im.data;
+      for (let y = 0; y < pvH; y++) {
+        const sy = Math.min(CH - 2, y * PS + 1);
+        for (let x = 0; x < pvW; x++) {
+          const sx = Math.min(CW - 2, x * PS + 1), i = sy * CW + sx;
+          const a = (ink[i] + ink[i + 1] + ink[i + CW] + ink[i - 1 >= 0 ? i - 1 : i]) * 0.25 * (1 - scr[i]);
+          const g = gou[i];
+          const j = (y * pvW + x) * 4;
+          const r = 236 - 212 * a, gg = 227 - 209 * a, b = 207 - 192 * a;
+          d[j] = r + (251 - r) * g; d[j + 1] = gg + (250 - gg) * g; d[j + 2] = b + (246 - b) * g; d[j + 3] = 255;
+        }
+      }
+      c.putImageData(im, 0, 0);
+      onProgress({ canvas: pvCanvas, CW, CH, portrait: want.portrait });
+    }
 
     // half-resolution maps (image area): tone, flow(+region), wash, object id, smoke owner
     const hw = Math.ceil(IW / 2), hh = Math.ceil(IH / 2), hk = k / 2;
@@ -318,7 +356,7 @@
 
     /* ---------- camera (metres; the bridge runs along +z, its deck at y=0) */
     const cam = portrait
-      ? { x: 2.0, y: 1.75, z: 0, yaw: -0.27, f: 1150, px: 460, py: 790 }
+      ? { x: 1.8, y: 2.2, z: 0, yaw: -0.24, f: 980, px: 470, py: 600 }
       : { x: 2.6, y: 1.75, z: 0, yaw: -0.36, f: 1100, px: 630, py: 560 };
     const cy0 = Math.cos(cam.yaw), sy0 = Math.sin(cam.yaw);
     const C3 = (x, y, z) => [(x - cam.x) * cy0 - (z - cam.z) * sy0, y - cam.y, (x - cam.x) * sy0 + (z - cam.z) * cy0];
@@ -349,7 +387,7 @@
     const toVPpx = (vx, vy) => { const X = IX + vx * k, Y = IY + vy * k; return (x, y) => Math.atan2(Y - y, X - x); };
 
     const L = {};
-    const ZWIZ = portrait ? 4.9 : 5.2, ZBAL = portrait ? 19 : 20;
+    const ZWIZ = portrait ? 5.0 : 5.2, ZBAL = portrait ? 19 : 20;
     L.wiz = P(0, 0, ZWIZ);
     L.wizS = (L.wiz[1] - P(0, 1.85, ZWIZ)[1]) / 100;     // units per wizard-unit (100 wu = 1.85 m)
     L.bal = P(0, 0, ZBAL);
@@ -533,26 +571,26 @@
     const R_HORN = reg(72, { sp: 0.55, wt: 1.0, maxL: 12, minL: 3, wob: 0.06, bow: 0.3, lit: 0.3 });
     const R_FIRE = reg(80, { fn: (x, y) => -Math.PI / 2 + 0.7 * (nz(x / 70, y / 110) - 0.5), sp: 0.8, wt: 0.85, maxL: 50, minL: 8, wob: 0.3, bow: 0.7, lit: 0, layers: 3 });
     const R_FLAME = reg(81, { sp: 0.8, wt: 0.6, maxL: 30, minL: 6, wob: 0.2, bow: 0.5, lit: 0, layers: 0 });
-    const R_CLOAK = reg(90, { lit: 0.12, sp: 0.68, wt: 1.0, maxL: 34, minL: 6, wob: 0.08, bow: 0.12, off: [0, 0.8, -0.75, 1.5708] });
-    const R_HAT = reg(91, { lit: 0.12, sp: 0.6, wt: 1.0, maxL: 26, minL: 5, wob: 0.06, bow: 0.15, off: [0, 0.75, -0.75, 1.5708] });
+    const R_CLOAK = reg(90, { lit: 0.15, sp: 0.68, wt: 1.0, maxL: 34, minL: 6, wob: 0.08, bow: 0.12, off: [0, 0.8, -0.75, 1.5708] });
+    const R_HAT = reg(91, { lit: 0.15, sp: 0.6, wt: 1.0, maxL: 26, minL: 5, wob: 0.06, bow: 0.15, off: [0, 0.75, -0.75, 1.5708] });
     const R_HAIR = reg(92, { lit: 0.2, sp: 0.5, wt: 0.65, maxL: 40, minL: 6, wob: 0.06, bow: 0.1, layers: 3 });
     const R_SKIN = reg(93, { lit: 0.4, sp: 0.48, wt: 0.75, maxL: 10, minL: 3, wob: 0.04 });
     const R_STEEL = reg(94, { sp: 0.45, wt: 0.7, maxL: 20, minL: 3, wob: 0.02, layers: 1 });
     const R_STAFF = reg(95, { sp: 0.42, wt: 0.9, maxL: 14, minL: 3, wob: 0.05 });
-    const R_SLEEVE = reg(97, { lit: 0.25, sp: 0.64, wt: 1.0, maxL: 30, minL: 5, wob: 0.08, bow: 0.15, off: [0, 0.8, -0.75, 1.5708] });
+    const R_SLEEVE = reg(97, { lit: 0.3, sp: 0.64, wt: 1.0, maxL: 30, minL: 5, wob: 0.08, bow: 0.15, off: [0, 0.8, -0.75, 1.5708] });
 
     /* ================================================================ SCENE LAYOUT */
     const lay = portrait ? {
-      rift: [[110, -30], [204, 110], [168, 250], [222, 390], [186, 520], [236, 650], [214, 760], [270, 830], [372, 812], [392, 720], [430, 610], [410, 480], [462, 360], [440, 220], [500, 90], [470, -30]],
-      eyeF: 0.55, glow: [600, 1420], glowR: 700, wallZ: 95,
+      rift: [[40, -30], [92, 80], [70, 190], [104, 300], [86, 420], [150, 520], [128, 600], [190, 700], [262, 690], [318, 640], [330, 560], [296, 470], [236, 400], [196, 300], [180, 190], [140, 90], [120, -30]],
+      eyeF: 0.5, glow: [660, 1240], glowR: 560, wallZ: 95,
       pillars: [
-        { x: -8.0, z: 9.0, w: 2.8, near: true, rune: 1 },
-        { x: 7.0, z: 17.0, w: 2.8, near: true, rune: 1 },
-        { x: 12, z: 40, w: 3.0, rune: 0.6 },
+        { x: -6.4, z: 8.5, w: 2.2, near: true, rune: 1 },
+        { x: 5.4, z: 16.5, w: 2.4, near: true, rune: 1 },
+        { x: 11, z: 36, w: 3.0, rune: 0.6 },
       ],
     } : {
       rift: [[86, -30], [150, 90], [122, 214], [168, 330], [140, 440], [182, 540], [166, 612], [232, 660], [322, 642], [342, 560], [366, 470], [350, 350], [388, 240], [372, 110], [416, -30]],
-      eyeF: 0.56, glow: [880, 1080], glowR: 760, wallZ: 90,
+      eyeF: 0.56, glow: [1010, 930], glowR: 560, wallZ: 90,
       pillars: [
         { x: -11.8, z: 10.5, w: 3.2, near: true, rune: 1 },
         { x: 7.8, z: 17.5, w: 3.0, near: true, rune: 1 },
@@ -757,7 +795,7 @@
           if (ymin <= 0) break;
         }
         sky[c] = ymin;
-        if ((c & 15) === 0) await tick();
+        if ((c & 15) === 0) await tick('L764');
       }
       tctx.putImageData(timg, x0, y0); fctx.putImageData(fimg, x0, y0);
       L.skyline = [];
@@ -828,8 +866,10 @@
         tctx.fillStyle = g; tctx.beginPath(); tctx.arc(x, y, r, 0, TAU); tctx.fill(); tctx.restore();
       }
       const [gx, gy] = lay.glow; L.glow = lay.glow;
+      // the near depths fall into darkness before the glow far below
+      { const dg = tctx.createLinearGradient(0, HZ + 40, 0, SH); dg.addColorStop(0, grayA(0.95, 0)); dg.addColorStop(0.35, grayA(0.95, 0.55)); dg.addColorStop(1, grayA(0.95, 0.2)); tctx.fillStyle = dg; tctx.fillRect(0, HZ + 40, SW, SH); }
       const rg = tctx.createRadialGradient(gx, gy, 10, gx, gy, lay.glowR * 0.75);
-      rg.addColorStop(0, 'rgba(255,255,255,0.8)'); rg.addColorStop(0.3, 'rgba(255,255,255,0.45)'); rg.addColorStop(0.7, 'rgba(255,255,255,0.1)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+      rg.addColorStop(0, 'rgba(255,255,255,0.95)'); rg.addColorStop(0.25, 'rgba(255,255,255,0.7)'); rg.addColorStop(0.6, 'rgba(255,255,255,0.2)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
       tctx.fillStyle = rg; tctx.fillRect(0, HZ + 20, SW, SH);
     }
 
@@ -866,10 +906,10 @@
     for (const pl of pillars) if (!pl.near) drawPillar(pl, pl.idx);
 
     /* ---------------------------------------------------------- the pier under the far end, and the bridge */
-    const BW = 0.55;
+    const BW = 0.5;
     const zA = 1.2, zB = ZBAL + 4.2;
     const deckY = (z) => 0.2 * Math.sin(Math.PI * clamp((z + 3) / 30, 0, 1));
-    const underY = (z) => deckY(z) - 0.6 - 7 * Math.pow(clamp((z - (zB - 12)) / 12, 0, 1), 2.6) - 5 * Math.pow(clamp((3 - z) / 8, 0, 1), 2);
+    const underY = (z) => deckY(z) - 0.42 - 6 * Math.pow(clamp((z - (zB - 10)) / 10, 0, 1), 2.8) - 3 * Math.pow(clamp((2 - z) / 8, 0, 1), 2);
     {
       OBJ = O.PIER;
       // the far landing stands on a crag of living rock that falls away into the glow
@@ -877,14 +917,16 @@
       const left = [], right = [];
       for (let y = -0.05; y > -70; y -= 0.9) {
         const d = -y;
-        const wl = 2.4 + d * 0.025 + 0.9 * (nz(d / 6, 1.7) - 0.5) + (d % 11 < 1 ? 0.7 : 0);
-        const wr = 2.4 + d * 0.04 + 1.2 * (nz(d / 5, 8.1) - 0.5) + (d % 13 < 1.2 ? 0.9 : 0);
+        // a shelf of rock at the top, undercut, falling away as a ragged buttress
+        const shelf = Math.exp(-d / 1.1);
+        const wl = 1.6 + 4 * shelf + d * 0.02 + 0.8 * (nz(d / 6, 1.7) - 0.5) + (d % 11 < 1 ? 0.5 : 0);
+        const wr = 1.8 + 6 * shelf + d * 0.03 + 1.0 * (nz(d / 5, 8.1) - 0.5) + (d % 13 < 1.2 ? 0.7 : 0);
         left.push([-wl, y, zc]); right.push([wr, y, zc]);
       }
       const crag = clipPoly(left.concat(right.reverse()));
       const cp = polyPath(crag);
       const g = tctx.createLinearGradient(0, B0[1], 0, SH);
-      g.addColorStop(0, gray(0.95)); g.addColorStop(0.35, gray(0.8)); g.addColorStop(1, gray(0.5));
+      g.addColorStop(0, gray(0.9)); g.addColorStop(0.3, gray(0.7)); g.addColorStop(1, gray(0.42));
       tctx.fillStyle = g; tctx.fill(cp);
       F(cp, Math.PI / 2, R_PIER);
       // ledges and fissures on the crag
@@ -898,8 +940,17 @@
       // its right-hand edges catch the fire from below
       tStroke(right.map((q) => P(...q)).slice(4), 0.45, 5, 4, 0.6);
       L.pierFaces = [crag];
-      const land = polyPath(clipPoly([[-3.6, 0, zB - 0.2], [3.6, 0, zB - 0.2], [3.6, 0, zB + 7], [-3.6, 0, zB + 7]]));
-      tctx.fillStyle = gray(0.6); tctx.fill(land); F(land, 0, R_DECK);
+      // the far brink: a broken shelf of rock where the bridge lands, its lip catching the fire
+      const brink = [];
+      for (let x = -7; x <= 9.01; x += 0.5) brink.push([x, 0, zB - 0.25 + 0.5 * (nz(x * 0.7, 4.4) - 0.5) + (Math.abs(x) < 0.7 ? 0 : 0.15)]);
+      const far = [[9, 0, zB + 9], [-7, 0, zB + 9]];
+      const landPts = clipPoly(brink.concat(far));
+      const land = polyPath(landPts);
+      tctx.fillStyle = gray(0.42); tctx.fill(land); F(land, 0, R_DECK);
+      const front = brink.map((q) => P(...q)).concat(brink.slice().reverse().map((q) => P(q[0], -1.1 - 0.8 * nz(q[0], 2.2), q[2])));
+      const fp = polyPath(front);
+      tctx.fillStyle = gray(0.72); tctx.fill(fp); F(fp, Math.PI / 2, R_PIER);
+      L.brink = brink.map((q) => P(...q));
     }
     OBJ = O.BRIDGE;
     const deckL = [], deckR = [], sideBot = [];
@@ -914,7 +965,7 @@
       const side = deckR.concat(sideBot.slice().reverse());
       const sideP = polyPath(side), deckP = polyPath(deck);
       const g = tctx.createLinearGradient(W0[0] - 200, 0, B0[0], 0);
-      g.addColorStop(0, gray(0.7)); g.addColorStop(0.55, gray(0.84)); g.addColorStop(1, gray(0.7));
+      g.addColorStop(0, gray(0.58)); g.addColorStop(0.55, gray(0.72)); g.addColorStop(1, gray(0.62));
       tctx.fillStyle = g; tctx.fill(sideP);
       F(sideP, 0, R_BSIDE);
       const g2 = tctx.createLinearGradient(W0[0] - 300, 0, B0[0], 0);
@@ -983,7 +1034,7 @@
           const env = (1 - smooth(0.55, 1.05, ex + (n - 0.5) * 0.6)) * smooth(-0.15, 0.08, t) * (1 - smooth(0.92, 1.15, t + (n - 0.5) * 0.3));
           Dn[y * W2 + x] = env * (0.5 + 0.75 * n + 0.1 * roll);
         }
-        if ((y & 7) === 0) await tick();
+        if ((y & 7) === 0) await tick('L1003');
       }
       const timg = tctx.getImageData(px0, py0, W2, H2), fimg = fctx.getImageData(px0, py0, W2, H2), bimg = bctx.getImageData(px0, py0, W2, H2);
       const td = timg.data, fd = fimg.data, bd = bimg.data;
@@ -1009,7 +1060,7 @@
           td[i * 4] = td[i * 4 + 1] = td[i * 4 + 2] = tv;
           if (a > 0.5) { fd[i * 4] = 128; fd[i * 4 + 1] = 128; fd[i * 4 + 2] = R_SMOKE; bd[i * 4] = O.SMOKE; bd[i * 4 + 1] = 0; bd[i * 4 + 2] = 0; }
         }
-        if ((y & 15) === 0) await tick();
+        if ((y & 15) === 0) await tick('L1029');
       }
       tctx.putImageData(timg, px0, py0); fctx.putImageData(fimg, px0, py0); bctx.putImageData(bimg, px0, py0);
       L.smokeFields.push({ px0, py0, W2, H2, Dn, lo: o.lo || 0.42 });
@@ -1018,7 +1069,7 @@
       // "a great shadow": a dark column of smoke, lit only where it rolls over the fire
       const fireA = [B0[0] + 6 * bs, B0[1] - 124 * bs], fireB = [B0[0] - 4 * bs, B0[1] - 10 * bs];
       L.fireA = fireA; L.fireB = fireB;
-      const litAt = (x, y) => Math.max(Math.exp(-((x - fireA[0]) ** 2 + (y - fireA[1]) ** 2) / (62 * bs) ** 2), Math.exp(-((x - fireB[0]) ** 2 + (y - fireB[1]) ** 2) / (52 * bs) ** 2));
+      const litAt = (x, y) => Math.max(Math.exp(-((x - fireA[0]) ** 2 + (y - fireA[1]) ** 2) / (95 * bs) ** 2), Math.exp(-((x - fireB[0]) ** 2 + (y - fireB[1]) ** 2) / (60 * bs) ** 2));
       const nearest = (x, y) => (((x - fireA[0]) ** 2 + (y - fireA[1]) ** 2) < ((x - fireB[0]) ** 2 + (y - fireB[1]) ** 2) ? fireA : fireB);
       const notRift = (b) => b === O.RIFT || b === O.MOON || b === O.TOWER || b === O.BRIDGE;
       // the column behind the demon
@@ -1107,9 +1158,9 @@
       // to the trailing edge, and the membrane is scalloped between them, fraying into smoke
       const L_ = side < 0;
       const root = L_ ? [0, -96] : [8, -94];
-      const wrist = L_ ? (portrait ? [-36, -150] : [-42, -136]) : (portrait ? [56, -136] : [62, -122]);
+      const wrist = L_ ? (portrait ? [-36, -150] : [-46, -126]) : (portrait ? [56, -136] : [62, -122]);
       const tips = L_
-        ? (portrait ? [[-92, -138], [-84, -122], [-70, -112], [-54, -106], [-38, -104], [-20, -104]] : [[-124, -120], [-108, -106], [-90, -99], [-70, -97], [-48, -99], [-22, -104]])
+        ? (portrait ? [[-92, -138], [-84, -122], [-70, -112], [-54, -106], [-38, -104], [-20, -104]] : [[-118, -106], [-112, -86], [-96, -72], [-76, -64], [-52, -64], [-26, -80]])
         : (portrait ? [[104, -124], [98, -108], [84, -96], [66, -88], [32, -80]] : [[128, -112], [120, -97], [102, -86], [80, -80], [34, -80]]);
       const lead = spline([root, [lerp(root[0], wrist[0], 0.5), lerp(root[1], wrist[1], 0.5) - 6], wrist, [lerp(wrist[0], tips[0][0], 0.5), lerp(wrist[1], tips[0][1], 0.5) - 4], tips[0]], false, 10);
       const trail = [];
@@ -1205,22 +1256,23 @@
       const roots = [[-20, -105.6], [-15.6, -106.2], [-11, -105], [-6.6, -102.8], [-3.6, -99], [0.6, -95.6], [6, -94], [12, -93.2], [18, -92.6], [24, -92.4]];
       L.maneMass = BX(spline([[-16, -104], [-6, -114], [8, -124], [24, -132], [42, -138]], false, 8));
       fireMass(L.maneMass, 24 * bs, 0.55);
-      for (let pass = 0; pass < 3; pass++) {
+      for (let pass = 0; pass < 2; pass++) {
         for (const r of roots) {
+          if (pass && R() < 0.4) continue;
           const [x, y] = BX([(r[0] < -2 ? HT(r) : r).map((q) => q + RR(-1.5, 1.5))])[0];
           const ang = -1.2 + RR(-0.3, 0.3) + (r[0] + 5) / 80;
-          const len = RR(26, 66) * bs * (pass === 0 ? 1 : pass === 1 ? 0.7 : 0.42);
-          tongue(x, y, ang, len, RR(2.2, 4.4) * bs, { bend: RR(0.15, 0.8), amp: RR(0.06, 0.16), mane: true, fork: true });
+          const len = RR(30, 70) * bs * (pass === 0 ? 1 : 0.55);
+          tongue(x, y, ang, len, RR(1.6, 3.0) * bs, { bend: RR(0.15, 0.8), amp: RR(0.06, 0.14), mane: true, fork: true });
         }
       }
       // the bridge burns where it stands: a sheet of flame behind its legs
       L.footMass = BX(spline([[-48, -6], [-30, -14], [-6, -18], [18, -14], [36, -6]], false, 8));
       fireMass(L.footMass, 14 * bs, 0.5);
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 24; i++) {
         const t = R();
         const [x, y] = BX([[lerp(-50, 40, t), RR(-4, 3)]])[0];
         const tall = 0.45 + Math.sin(t * Math.PI) * RR(0.5, 1.1);
-        tongue(x, y, -Math.PI / 2 + RR(-0.35, 0.35) + (t - 0.5) * 0.5, RR(16, 40) * bs * tall, RR(1.4, 3.0) * bs, { bend: RR(-0.8, 0.8), amp: RR(0.1, 0.2), foot: true, fork: true });
+        tongue(x, y, -Math.PI / 2 + RR(-0.35, 0.35) + (t - 0.5) * 0.5, RR(16, 40) * bs * tall, RR(1.2, 2.4) * bs, { bend: RR(-0.8, 0.8), amp: RR(0.1, 0.2), foot: true, fork: true });
       }
     }
 
@@ -1238,6 +1290,7 @@
       for (let i = 0; i < W2 * H2; i++) D[i] = md[i * 4 + 3] > 127 ? INF : 0;
       // chamfer distance (3-4), two passes
       for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+        if (x === 0 && (y & 63) === 0) await tick('ch1');
         const i = y * W2 + x; if (!D[i]) continue;
         let v = D[i];
         if (x > 0) v = Math.min(v, D[i - 1] + 3);
@@ -1246,13 +1299,14 @@
         D[i] = v;
       }
       for (let y = H2 - 1; y >= 0; y--) for (let x = W2 - 1; x >= 0; x--) {
+        if (x === W2 - 1 && (y & 63) === 0) await tick('ch2');
         const i = y * W2 + x; if (!D[i]) continue;
         let v = D[i];
         if (x < W2 - 1) v = Math.min(v, D[i + 1] + 3);
         if (y < H2 - 1) { v = Math.min(v, D[i + W2] + 3); if (x < W2 - 1) v = Math.min(v, D[i + W2 + 1] + 4); if (x > 0) v = Math.min(v, D[i + W2 - 1] + 4); }
         D[i] = v;
       }
-      await tick();
+      await tick('L1273');
       const pxPerBu = bs * hk;
       const Hh = new Float32Array(W2 * H2);
       for (let i = 0; i < W2 * H2; i++) { if (!D[i]) continue; const d = D[i] / 3 / pxPerBu; Hh[i] = Math.sqrt(Math.min(d, 9) * 9) * 0.9; }
@@ -1268,7 +1322,7 @@
           if (r2 < 1) Hh[i] += ht * (1 - r2) * (1 - r2);
         }
       }
-      await tick();
+      await tick('L1289');
       const timg = tctx.getImageData(px0, py0, W2, H2), fimg = fctx.getImageData(px0, py0, W2, H2), bimg = bctx.getImageData(px0, py0, W2, H2), wimg = wctx.getImageData(px0, py0, W2, H2);
       const td = timg.data, fd = fimg.data, bd = bimg.data, wd = wimg.data;
       const [bx, by] = L.blaze;
@@ -1294,7 +1348,7 @@
           bd[i * 4] = O.BAL; bd[i * 4 + 1] = 0; bd[i * 4 + 2] = 0;
           if (rim > 0.08) { const r = Math.min(1, rim); wd[i * 4] = Math.min(255, wd[i * 4] + 120 * r); wd[i * 4 + 1] = Math.min(255, wd[i * 4 + 1] + 200 * r); wd[i * 4 + 2] = Math.min(255, wd[i * 4 + 2] + 90 * r); }
         }
-        if ((y & 15) === 0) await tick();
+        if ((y & 15) === 0) await tick('L1315');
       }
       tctx.putImageData(timg, px0, py0); fctx.putImageData(fimg, px0, py0); bctx.putImageData(bimg, px0, py0); wctx.putImageData(wimg, px0, py0);
     }
@@ -1364,7 +1418,8 @@
       for (let i = 0; i < nT; i++) {
         const s0 = (i - (nT - 1) / 2) / ((nT - 1) / 2);
         // swung back, the thongs fall in long loops across the dark of the far wing
-        const ctrl = [[0, 0], [8 + s0 * 2, -6 - s0 * 3], [18 + s0 * 4, -4 - s0 * 3], [26 + s0 * 5, 6 + s0 * 1], [24 + s0 * 7, 20 + s0 * 3], [14 + s0 * 8, 30 + s0 * 5], [8 + s0 * 10, 42 + s0 * 7], [14 + s0 * 12 + RR(-3, 3), 54 + s0 * 8 + RR(-3, 3)]];
+        const j1 = RR(-5, 5), j2 = RR(-6, 6), j3 = RR(-8, 8);
+        const ctrl = [[0, 0], [8 + s0 * 3, -6 - s0 * 4], [18 + s0 * 6 + j1, -4 - s0 * 5], [27 + s0 * 8 + j1, 6 + s0 * 2], [24 + s0 * 12 + j2, 20 + s0 * 5 + j1], [14 + s0 * 14 + j2, 32 + s0 * 8], [6 + s0 * 18 + j3, 44 + s0 * 10 + j2], [12 + s0 * 22 + j3, 56 + s0 * 12 + j3]];
         if (i % 2 === 0) { const e = ctrl[ctrl.length - 1]; ctrl.push([e[0] + 6, e[1] + 2], [e[0] + 8, e[1] - 4], [e[0] + 3, e[1] - 7]); }
         const pts = ctrl.map(([x, y]) => [fist[0] + (x + RR(-2, 2)) * bs, fist[1] + (y + RR(-2, 2)) * bs]);
         L.whip.push(spline(pts, false, 10));
@@ -1420,7 +1475,7 @@
       const cloakP = polyPath(wizShapes.cloak);
       {
         const g = tctx.createLinearGradient(W0[0] - 40 * ws, W0[1] - 92 * ws, W0[0] + 20 * ws, W0[1] - 5 * ws);
-        g.addColorStop(0, gray(0.5)); g.addColorStop(0.25, gray(0.68)); g.addColorStop(0.6, gray(0.8)); g.addColorStop(1, gray(0.88));
+        g.addColorStop(0, gray(0.55)); g.addColorStop(0.25, gray(0.7)); g.addColorStop(0.6, gray(0.8)); g.addColorStop(1, gray(0.88));
         tctx.fillStyle = g; tctx.fill(cloakP);
         F(cloakP, Math.PI / 2, R_CLOAK);
       }
@@ -1448,7 +1503,7 @@
       const sL = polyPath(wizShapes.sleeveL);
       {
         const g = tctx.createLinearGradient(W0[0] - 20 * ws, W0[1] - 110 * ws, W0[0] - 42 * ws, W0[1] - 90 * ws);
-        g.addColorStop(0, gray(0.62)); g.addColorStop(0.4, gray(0.8)); g.addColorStop(1, gray(0.9));
+        g.addColorStop(0, gray(0.4)); g.addColorStop(0.4, gray(0.66)); g.addColorStop(1, gray(0.82));
         tctx.fillStyle = g; tctx.fill(sL);
         F(sL, -1.25, R_SLEEVE);
         fctx.save(); fctx.clip(sL);
@@ -1461,7 +1516,7 @@
       const fl = (nm, v, rid, th) => { const p = polyPath(wizShapes[nm]); tctx.fillStyle = typeof v === 'number' ? gray(v) : v; tctx.fill(p); F(p, th, rid); };
       fl('forearmL', 0.55, R_SKIN, -1.1);
       fl('sleeveMouth', 0.95, R_SLEEVE, 0);
-      fl('hood', 0.86, R_CLOAK, 0.2);
+      fl('hood', 0.8, R_CLOAK, 0.2);
       {
         const g = tctx.createLinearGradient(W0[0] - 30 * ws, W0[1] - 84 * ws, W0[0] + 12 * ws, W0[1] - 84 * ws);
         g.addColorStop(0, gray(0.5)); g.addColorStop(0.5, gray(0.62)); g.addColorStop(1, gray(0.8));
@@ -1476,10 +1531,10 @@
       const crP = polyPath(wizShapes.crown), brP = polyPath(wizShapes.brim);
       {
         const g = tctx.createLinearGradient(W0[0] - 26 * ws, W0[1] - 112 * ws, W0[0] + 4 * ws, W0[1] - 106 * ws);
-        g.addColorStop(0, gray(0.55)); g.addColorStop(0.18, gray(0.8)); g.addColorStop(1, gray(0.9));
+        g.addColorStop(0, gray(0.45)); g.addColorStop(0.2, gray(0.72)); g.addColorStop(1, gray(0.86));
         tctx.fillStyle = g; tctx.fill(crP);
         F(crP, Math.atan2(crownTip[1] - crownBase[1], crownTip[0] - crownBase[0]), R_HAT);
-        tctx.fillStyle = gray(0.92); tctx.fill(brP); F(brP, -0.04, R_HAT);
+        tctx.fillStyle = gray(0.82); tctx.fill(brP); F(brP, -0.04, R_HAT);
       }
       OBJ = O.STAFF;
       tStroke(wizShapes.staff, 0.82, 2.0 * ws, 0);
@@ -1538,7 +1593,7 @@
           }
         }
         C2[i] = c; S2[i] = s;
-        if ((i & 0x3ffff) === 0) await tick();
+        if ((i & 0x3ffff) === 0) await tick('L1560');
       }
       // antialiased edges blend region ids into false ids: re-assign edge pixels by a 5x5 majority vote
       const modeFix = async (A) => {
@@ -1555,7 +1610,7 @@
             out[i] = cnt[v] >= 6 ? v : best;
             for (const q of touched) cnt[q] = 0; touched.length = 0;
           }
-          if ((y & 63) === 0) await tick();
+          if ((y & 63) === 0) await tick('L1577');
         }
         A.set(out);
       };
@@ -1563,10 +1618,10 @@
       // smoke is hatched along its iso-tones, so the lines wrap each billow's light and shade
       const Bt = new Float32Array(hw * hh), tmp = new Float32Array(hw * hh);
       const rad = Math.max(3, Math.round(11 * hk));
-      for (let y = 0; y < hh; y++) { let acc = 0; const row = y * hw; for (let x = -rad; x < hw; x++) { if (x + rad < hw) acc += T[row + x + rad]; if (x - rad - 1 >= 0) acc -= T[row + x - rad - 1]; if (x >= 0) tmp[row + x] = acc / (2 * rad + 1); } }
-      await tick();
-      for (let x = 0; x < hw; x++) { let acc = 0; for (let y = -rad; y < hh; y++) { if (y + rad < hh) acc += tmp[(y + rad) * hw + x]; if (y - rad - 1 >= 0) acc -= tmp[(y - rad - 1) * hw + x]; if (y >= 0) Bt[y * hw + x] = acc / (2 * rad + 1); } }
-      await tick();
+      for (let y = 0; y < hh; y++) { if ((y & 127) === 0) await tick('bb1'); let acc = 0; const row = y * hw; for (let x = -rad; x < hw; x++) { if (x + rad < hw) acc += T[row + x + rad]; if (x - rad - 1 >= 0) acc -= T[row + x - rad - 1]; if (x >= 0) tmp[row + x] = acc / (2 * rad + 1); } }
+      await tick('L1586');
+      for (let x = 0; x < hw; x++) { if ((x & 127) === 0) await tick('bb2'); let acc = 0; for (let y = -rad; y < hh; y++) { if (y + rad < hh) acc += tmp[(y + rad) * hw + x]; if (y - rad - 1 >= 0) acc -= tmp[(y - rad - 1) * hw + x]; if (y >= 0) Bt[y * hw + x] = acc / (2 * rad + 1); } }
+      await tick('L1588');
       for (let y = 1; y < hh - 1; y++) for (let x = 1; x < hw - 1; x++) {
         const i = y * hw + x;
         if (RID[i] !== R_SMOKE) continue;
@@ -1582,6 +1637,7 @@
       const [bx, by] = L.blaze;
       const fx = B0[0] - 14 * bs, fy = B0[1] - 104 * bs;
       const r1 = 1 / (120 * 120), r2 = 1 / (420 * 420), r3 = 1 / (170 * 170);
+      const hx0 = W0[0] - 8 * ws, hy0 = W0[1] - 95 * ws, rh = 1 / ((70 * ws) * (70 * ws));
       for (let y = 0; y < hh; y++) {
         const uy = (y + 0.5) / hk;
         for (let x = 0; x < hw; x++) {
@@ -1592,10 +1648,13 @@
           const ux = (x + 0.5) / hk;
           const d2 = (ux - bx) * (ux - bx) + (uy - by) * (uy - by);
           const f2 = (ux - fx) * (ux - fx) + (uy - fy) * (uy - fy);
-          const l = (0.85 * Math.exp(-d2 * r1) + 0.18 * Math.exp(-d2 * r2) + 0.32 * Math.exp(-f2 * r3)) * lit;
-          T[i] = T[i] * (1 - (l > 0.95 ? 0.95 : l));
+          const l = (0.85 * Math.exp(-d2 * r1) + 0.3 * Math.exp(-d2 * r2) + 0.32 * Math.exp(-f2 * r3)) * lit;
+          const ob_ = OIDA[i];
+          const halo = (ob_ === O.WIZ || ob_ === O.STAFF || ob_ === O.SWORD || ob_ === O.BAL || ob_ === O.FIRE) ? 0 : 0.42 * Math.exp(-((ux - hx0) * (ux - hx0) + (uy - hy0) * (uy - hy0) * 0.6) * rh);
+          const lt = l + halo;
+          T[i] = T[i] * (1 - (lt > 0.95 ? 0.95 : lt));
         }
-        if ((y & 31) === 0) await tick();
+        if ((y & 31) === 0) await tick('L1621');
       }
     }
     stamp('maps');
@@ -1757,19 +1816,21 @@
         while (queue.length) {
           const qy = queue.pop(), qx = queue.pop();
           tryLine(qx, qy);
-          if ((lineNo & 31) === 0) await tick();
+          if ((lineNo & 31) === 0) { await tick('hl'); progress(); }
         }
-        await tick();
+        await tick('L1785');
       }
     }
+    progress(true);
     if (!want.nohatch) for (let li = 0; li < 4; li++) { await hatchLayer(li); stamp('layer ' + li); }
+    progress(true);
     const inkAfterHatch = want.nopen ? ink.slice() : null;
 
     /* ---------- silhouettes: marching squares over the object map */
     // trace an object's visible outline, leaving out edges that border fire (flame overlaps are not contours)
-    function traceObj(ids, minLen) {
+    async function traceObj(ids, minLen) {
       const m = maskOf(ids);
-      const lines = traceMask((x, y) => m[OIDA[y * hw + x]]);
+      const lines = await traceMask((x, y) => m[OIDA[y * hw + x]]);
       const out = [];
       const nearFire = (p) => {
         const cx = (p[0] * hk) | 0, cy = (p[1] * hk) | 0;
@@ -1786,10 +1847,10 @@
       }
       return out.filter((r) => r.length >= (minLen || 10));
     }
-    function traceMask(test, box) {
+    async function traceMask(test, box) {
       let x0 = hw, y0 = hh, x1 = -1, y1 = -1;
       if (box) { [x0, y0, x1, y1] = box; }
-      else for (let y = 0; y < hh; y++) for (let x = 0; x < hw; x++) if (test(x, y)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      else for (let y = 0; y < hh; y++) { for (let x = 0; x < hw; x++) if (test(x, y)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } if ((y & 63) === 0) await tick('tm0'); }
       if (x1 < 0) return [];
       x0 -= 1; y0 -= 1; x1 += 1; y1 += 1;
       const ins = (x, y) => (x >= 0 && y >= 0 && x < hw && y < hh && test(x, y)) ? 1 : 0;
@@ -1798,6 +1859,7 @@
       const link = (a, b) => { let l = adj.get(a); if (!l) adj.set(a, l = []); l.push(b); let r = adj.get(b); if (!r) adj.set(b, r = []); r.push(a); };
       const Hh = (x, y) => ((y - y0) * W + (x - x0)) * 2, Vv = (x, y) => ((y - y0) * W + (x - x0)) * 2 + 1;
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        if (x === x0 && (y & 31) === 0) await tick('tm1');
         const c = ins(x, y) * 8 + ins(x + 1, y) * 4 + ins(x + 1, y + 1) * 2 + ins(x, y + 1);
         if (c === 0 || c === 15) continue;
         const Tt = Hh(x, y), Bb = Hh(x, y + 1), Ll = Vv(x, y), Rr = Vv(x + 1, y);
@@ -1894,7 +1956,7 @@
       pen(b.top, { w: 0.6, a: 0.9, wob: 0.1, taper: [0, 0], obj: O.LBRIDGE });
       pen(b.bot, { w: 0.45, a: 0.85, wob: 0.1, taper: [0, 0], obj: O.LBRIDGE });
     }
-    await tick();
+    await tick('L1920');
 
     // ---- pillars: arrises, courses, chisel marks, rune bands
     function runeGlyph() {
@@ -1955,7 +2017,7 @@
         }
       }
     }
-    await tick();
+    await tick('L1981');
 
     // ---- the bridge: edges, stones, chisel marks, cracks
     {
@@ -1996,13 +2058,13 @@
         z += RR(0.4, 0.5);
       }
     }
-    for (const ln of traceObj([O.PIER])) pen(ln, { w: 1.1, a: 0.9, wob: 0.35, taper: [0, 0] });
-    await tick();
+    for (const ln of (await traceObj([O.PIER]))) pen(ln, { w: 1.1, a: 0.9, wob: 0.35, taper: [0, 0] });
+    await tick('L2023');
 
     // ---- smoke: a few contour lines where the rolls turn
     for (const sf of (want.nosc ? [] : L.smokeFields)) {
       for (const lev of [sf.lo + 0.05, sf.lo + 0.22, sf.lo + 0.4]) {
-        const lines = traceMask((x, y) => { const lx = x - sf.px0, ly = y - sf.py0; return lx >= 0 && ly >= 0 && lx < sf.W2 && ly < sf.H2 && sf.Dn[ly * sf.W2 + lx] > lev && OIDA[y * hw + x] === O.SMOKE; }, [sf.px0, sf.py0, sf.px0 + sf.W2 - 1, sf.py0 + sf.H2 - 1])
+        const lines = (await traceMask((x, y) => { const lx = x - sf.px0, ly = y - sf.py0; return lx >= 0 && ly >= 0 && lx < sf.W2 && ly < sf.H2 && sf.Dn[ly * sf.W2 + lx] > lev && OIDA[y * hw + x] === O.SMOKE; }, [sf.px0, sf.py0, sf.px0 + sf.W2 - 1, sf.py0 + sf.H2 - 1]))
           .map((ln) => ln.filter((q) => RT(q[0], q[1]) > 0.55)).filter((ln) => ln.length > 1);
         for (const ln of lines) {
           if (ln.length < 14) continue;
@@ -2014,7 +2076,7 @@
             i += L0 + ((R() * 14) | 0);
           }
         }
-        await tick();
+        await tick('L2040');
       }
     }
 
@@ -2034,12 +2096,12 @@
         pen(tend, { w: RR(0.5, 1.4), a: 0.9, wob: 0.3, taper: [0.05, 0.85] });
       }
     }
-    for (const ln of traceObj([O.WING])) pen(ln, { w: 0.8, a: 0.85, wob: 0.4, taper: [0, 0] });
+    for (const ln of (await traceObj([O.WING]))) pen(ln, { w: 0.8, a: 0.85, wob: 0.4, taper: [0, 0] });
 
     // ---- the Balrog: silhouette, inner forms, horns, face, veins of fire
     {
       const ob = [O.BAL];
-      const sil = traceObj([O.BAL]);
+      const sil = await traceObj([O.BAL]);
       for (const ln of sil) pen(ln, { w: 1.7, a: 1, wob: 0.25, taper: [0, 0] });
       // backlight: a thread of fire runs round the silhouette wherever flame is near behind it
       const objAt = (u, v) => { const x = (u * hk) | 0, y = (v * hk) | 0; return (x < 0 || y < 0 || x >= hw || y >= hh) ? 0 : OIDA[y * hw + x]; };
@@ -2135,6 +2197,7 @@
     }
     // ---- flames: a few fine licks inside each tongue, and a broken contour on the tall ones
     for (const fl of flames) {
+      await tick('flames');
       if (fl.len < 10 * bs) continue;
       const lick = sub(offsetLine(fl.pts, (f) => fl.wid * (R() < 0.5 ? 0.3 : -0.3) * (1 - f)), RR(0.12, 0.3), RR(0.7, 0.92));
       if (lick.length > 3) pen(lick, { w: 0.32, a: 0.6, wob: 0.05, taper: [0.5, 0.8] });
@@ -2153,13 +2216,13 @@
       const nx = -Math.sin(ang) * 2.2 * bs, ny = Math.cos(ang) * 2.2 * bs;
       pen([[hilt[0] + nx * 2, hilt[1] + ny * 2], [hilt[0] - nx * 2, hilt[1] - ny * 2]], { w: 2.2, a: 1, taper: [0, 0] });
     }
-    await tick();
+    await tick('L2179');
 
     // ---- the wizard
     {
       const ow = [O.WIZ];
       // the silhouette, heavy; inner edges lighter
-      for (const ln of traceObj([O.WIZ])) pen(ln, { w: 1.25, a: 1, wob: 0.12, taper: [0, 0] });
+      for (const ln of (await traceObj([O.WIZ]))) pen(ln, { w: 1.25, a: 1, wob: 0.12, taper: [0, 0] });
       const C = (nm, w, opt) => pen(wizShapes[nm].concat([wizShapes[nm][0]]), Object.assign({ w, a: 1, wob: 0.1, taper: [0, 0], obj: ow }, opt || {}));
       C('sleeveL', 0.9); C('sleeveR', 0.8); C('hood', 0.7); C('crown', 0.9); C('brim', 0.9);
       C('handL', 0.7); C('handR', 0.7); C('bootR', 0.7); C('bootL', 0.7); C('sleeveMouth', 0.6); C('forearmL', 0.6); C('hair', 0.5, { a: 0.8 }); C('beard', 0.5, { a: 0.8 });
@@ -2214,7 +2277,7 @@
       rim([[-34, -87.2], [-41, -88.4]], 0.5, 0.7);
       rim([[-28.6, -125], [-32.2, -128.4], [-35.6, -126.6]], 0.6, 0.8);
     }
-    await tick();
+    await tick('L2240');
 
     // ---- the white blaze: scratched rays and a gouache heart
     {
@@ -2294,8 +2357,8 @@
     /* ================================================================ WASHES */
     {
       const [gx, gy] = L.glow;
-      wRadial(gx, gy, lay.glowR, 0.12, 0.42, 0.36, 0.85, 0.8);
-      wRadial(gx, gy + 80, lay.glowR * 0.55, 0.4, 0.42, 0.18, 0.6, 0.8);
+      wRadial(gx, gy, lay.glowR * 1.1, 0.15, 0.5, 0.42, 0.95, 0.75);
+      wRadial(gx, gy + 40, lay.glowR * 0.5, 0.55, 0.5, 0.15, 0.8, 0.7);
       // fire-lit smoke and the demon's halo
       wRadial(B0[0] + 10 * bs, B0[1] - 60 * bs, 120 * bs, 0.18, 0.32, 0.2, 0.55, 1.2);
       // flames: gamboge at the root, vermilion along, madder at the tips
@@ -2313,7 +2376,7 @@
         }
       }
       // the fire's body between the tongues: deeper vermilion
-      for (const m of [L.maneMass, L.footMass]) if (m) wStroke(m, 0.55, 0.3, 0.06, 1, (m === L.maneMass ? 22 : 13) * bs, 4 * bs);
+      for (const m of [L.maneMass, L.footMass]) if (m) wStroke(m, 0.3, 0.62, 0.3, 1, (m === L.maneMass ? 24 : 14) * bs, 5 * bs);
       wctx.globalCompositeOperation = 'lighter';
       const { hilt, tip } = L.sword;
       wStroke([hilt, tip], 0.95, 0.35, 0.0, 1, 3.4 * bs, 1);
@@ -2361,6 +2424,7 @@
       bx.filter = 'blur(' + (3 * hk).toFixed(1) + 'px)'; bx.drawImage(wcan, 0, 0);
       const bd = bx.getImageData(0, 0, hw, hh).data;
       for (let i = 0, j = 0; i < hw * hh; i++, j += 4) {
+        if ((i & 0xffff) === 0) await tick('wash');
         if (wd[j] + wd[j + 1] + wd[j + 2] + bd[j] + bd[j + 1] + bd[j + 2] === 0) continue;
         const gx = i % hw, gy = (i / hw) | 0;
         const gran = 0.9 + 0.2 * nz(gx / 2.2, gy / 2.2);
@@ -2368,7 +2432,6 @@
         WY[i] = clamp((e0 + Math.max(0, e0 - bd[j] / 255) * 0.6) * gran, 0, 1);
         WO[i] = clamp((e1 + Math.max(0, e1 - bd[j + 1] / 255) * 0.6) * gran, 0, 0.95);
         WC[i] = clamp((e2 + Math.max(0, e2 - bd[j + 2] / 255) * 0.6) * gran, 0, 0.8);
-        if ((i & 0x3ffff) === 0) await tick();
       }
     }
     stamp('washes');
@@ -2390,7 +2453,7 @@
       const ed = Math.min(px, CW - 1 - px, py, CH - 1 - py);
       coarse[y * cw4 + x] = (1 - smooth(0, CW * 0.05, ed)) * 0.6 + 0.4 * smooth(0.55, 0.8, nz(px / 300 + 9, py / 300)) + 0.15 * (nz(px / 90, py / 90) - 0.5);
     }
-    await tick();
+    await tick('L2416');
     for (let y = 0; y < CH; y++) {
       const cy = y / cs4, cyi = cy | 0, cyf = cy - cyi;
       const inY = y >= IY && y < IY + IH;
@@ -2428,7 +2491,7 @@
         if (go > 0) { r = lerp(r, 251, go); g = lerp(g, 250, go); b = lerp(b, 246, go); }
         D[j] = r; D[j + 1] = g; D[j + 2] = b; D[j + 3] = 255;
       }
-      if ((y & 31) === 0) await tick();
+      if ((y & 7) === 0) await tick('comp');
     }
     octx.putImageData(img, 0, 0);
     stamp('composite');

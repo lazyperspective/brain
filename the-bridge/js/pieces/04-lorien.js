@@ -12,7 +12,7 @@
   /* ================================================================ constants & utilities */
   const TAU = Math.PI * 2;
   const DW = 1000, DH = 1430;                       // design units of the sheet
-  const PX0 = 40, PY0 = 40, PX1 = 960, PY1 = 1316;  // picture area inside the border
+  const PX0 = 40, PY0 = 40, PX1 = 960, PY1 = 1332;  // picture area inside the border
   const YE = 1222;                                  // eye level
   const VPX = 500, VPY = -1700;                     // vanishing point of the verticals (looking up)
 
@@ -225,7 +225,7 @@
     const sw = (c, w) => [c - w / 2, c + w / 2];
     flet(KT, 812 + J(8), 2.15, ...sw(-0.95 + J(0.15), 2.1), [{ phi: -0.7 }]);
     flet(KT, 664 + J(10), 1.85, ...sw(1.0 + J(0.15), 1.9), [{ phi: 0.75 }]);
-    flet(KT, 448 + J(4), 1.95, -2.1, 2.1, [], { hall: true });
+    flet(KT, 448 + J(4), 1.72, -2.0, 2.0, [], { hall: true });
     flet(KT, 270 + J(10), 1.75, ...sw(-0.9 + J(0.2), 1.9), [{ phi: -0.55 }]);
     flet(KT, 120 + J(10), 1.6, ...sw(0.8, 2.2), []);
     flet(L1, 776 + J(12), 2.1, ...sw(0.9 + J(0.2), 2.2), [{ phi: 0.7 }]);
@@ -366,7 +366,16 @@
     const KX = KT.cx(950);
     const PATH = [[GX, 1190], [GX + 6, 1150], [GX + 18, 1104], [GX + 34, 1058], [GX + 44, 1012], [KX - 22, 972], [KX - 30, 952]];
     const pathW = (y) => lerp(13, 40, smooth(945, 1192, y));
-    const FOUNT = { x: 392 + J(6), y: 972 };
+    const FOUNT = { x: 388 + J(6), y: 1000 };
+    // winding side paths across the lawn, each with its little lamps
+    const SIDE = [
+      [[494, 1112], [446, 1102], [392, 1088], [346, 1064], [352, 1036], [384, 1014]],
+      [[386, 1008], [338, 998], [292, 994], [262, 990]],
+      [[512, 1062], [578, 1052], [644, 1048], [700, 1030], [742, 1006], [784, 988]],
+      [[506, 1150], [580, 1146], [660, 1138], [730, 1120], [800, 1112], [860, 1098]],
+    ];
+    // elves gathered on the lawn in twos and threes, some carrying small lights
+    const GROUPS = [[318, 1086, 3], [612, 1084, 3], [710, 1152, 2], [210, 1148, 3], [452, 992, 2], [826, 1064, 2]].map(([x, y, n]) => ({ x: x + J(6), y: y + J(3), n }));
 
     // plan of a flet: its outline radius at angle ph, a leaf- or kidney-shaped deck in the fork
     function fletRo(F, ph) {
@@ -384,6 +393,7 @@
       for (const F of T.flets) {
         const y = F.y, cx = T.cx(y), r = T.r(y), Rr = F.Rm * r, e = ell(y), t = 3 + Rr * 0.03;
         F.R = Rr; F.e = e; F.t = t; F.tcx = cx; F.cx = cx; F.r = r; F.s1 = rr(0, TAU); F.s2 = rr(0, TAU); F.sk = F.hall ? 1 : rr(0.75, 1.35);
+        for (const H of F.houses) H.col = chance(0.25) ? 'g' : 'y';
         for (const H of F.houses) H.phi = clamp(H.phi, Math.max(F.pa + 0.5, -1.2), Math.min(F.pb - 0.5, 1.2));
         if (F.hall) continue;
         const qa = Math.max(F.pa + 0.25, -1.4), qb = Math.min(F.pb - 0.25, 1.4);
@@ -470,12 +480,13 @@
       lamp(x, y, rr(0.9, 1.6), pickCol(3, 3, 2), 'speck', x, y, 0.4);
     }
     // the gate, the wall, the bridge
-    const gateL = GX - 32, gateR = GX + 32, gTop = 1114;
+    const gateL = GX - 42, gateR = GX + 42, gTop = 1094;
     lamp(gateL - 8, gTop - 12, 5.4, 'y', 'post', gateL - 8, gTop - 4, 1.3);
     lamp(gateR + 8, gTop - 12, 5.4, 'y', 'post', gateR + 8, gTop - 4, 1.3);
-    lamp(GX, gTop + 4, 5.0, 'g', 'hang', GX, gTop - 22, 1.3);
-    lamp(GX - 15, gTop + 14, 3.6, 'y', 'hang', GX - 15, gTop - 15, 1);
-    lamp(GX + 15, gTop + 14, 3.6, 's', 'hang', GX + 15, gTop - 15, 1);
+    lamp(GX, gTop + 2, 5.4, 'g', 'hang', GX, gTop - 30, 1.4);
+    lamp(GX - 18, gTop + 12, 3.6, 'y', 'hang', GX - 18, gTop - 18, 1);
+    lamp(GX + 18, gTop + 12, 3.6, 's', 'hang', GX + 18, gTop - 18, 1);
+    for (const dx of [-60, -52, 52, 60]) lamp(GX + dx, WALLTOP(GX + dx) - 10, 3.0, pickCol(3, 2, 2), 'post', GX + dx, WALLTOP(GX + dx) - 1, 0.9);
     for (const dx of [-400, -310, -220, -140, -76, 76, 140, 220, 310, 400]) {
       const x = GX + dx + J(6); if (x > 930 || x < 70) continue;
       lamp(x, WALLTOP(x) - 13, 3.4, pickCol(3, 2, 2), 'post', x, WALLTOP(x) - 2, 0.9);
@@ -506,7 +517,28 @@
       }
     }
     // silver lamps that swing over the fountain
-    const fountLamps = [[-26, -36], [24, -40], [-2, -58]].map(([dx, dy]) => lamp(FOUNT.x + dx, FOUNT.y + dy, 3.4, 's', 'hang', FOUNT.x + dx * 0.8, FOUNT.y + dy - 14, 1.1));
+    const fountLamps = [[-40, -48], [37, -52], [-4, -80], [62, -26], [-64, -24]].map(([dx, dy]) => lamp(FOUNT.x + dx, FOUNT.y + dy, 3.6, 's', 'hang', FOUNT.x + dx * 0.8, FOUNT.y + dy - 15, 1.2));
+    for (const P of SIDE) {
+      let acc = 6;
+      for (let k = 0; k < P.length - 1; k++) {
+        const [xa, ya] = P[k], [xb, yb] = P[k + 1], l = Math.hypot(xb - xa, yb - ya);
+        for (; acc < l; acc += rr(15, 20)) {
+          const t = acc / l, x = lerp(xa, xb, t), y = lerp(ya, yb, t), sc = lerp(0.55, 0.9, smooth(980, 1180, y));
+          const side = (Math.floor(acc + k * 7) % 2) ? 1 : -1;
+          lamp(x, y - 8 * sc + side * 4, 1.9 * sc, pickCol(3, 3, 2), 'post', x, y + side * 4 + 1, 0.6);
+        }
+        acc -= l;
+      }
+    }
+    for (const G of GROUPS) {
+      G.figs = [];
+      const sc = lerp(15, 23, smooth(980, 1190, G.y));
+      for (let i = 0; i < G.n; i++) {
+        const f = { x: G.x + (i - (G.n - 1) / 2) * sc * 0.42 + J(1.5), y: G.y + J(2.5), h: sc * rr(0.92, 1.06) };
+        G.figs.push(f);
+        if (i % 2 === 0) { const L = lamp(f.x + f.h * 0.22, f.y - f.h * 0.5, 1.5, pickCol(3, 3, 2), 'speck', f.x, f.y, 0.5); L.late = true; }
+      }
+    }
     // the guide's lamp
     const guideLamp = { x: 0, y: 0 };
 
@@ -518,7 +550,9 @@
     }
     { const F = KT.flets.find((f) => f.hall); addLight(F.cx, F.y - 60, 0.9, 95); addLight(F.cx, F.y - 30, 0.5, 190); }
     addLight(GX, 1170, 0.5, 70);
-    addLight(FOUNT.x, FOUNT.y - 20, 0.45, 40);
+    addLight(FOUNT.x, FOUNT.y - 24, 0.6, 52);
+    for (const G of GROUPS) addLight(G.x, G.y - 8, 0.35, 22);
+    for (const L of lamps) if (L.late) addLight(L.x, L.y, 0.25, 12);
 
     /* ================================================================ DRAWING */
     const sil = Buckets(INK.silver, 's', 7);
@@ -730,7 +764,7 @@
         sb: new Path2D(), sr: new Path2D(), edge: new Path2D(), n: 0, depth: 1 };
     }
     function addLeaf(G, x, y, a, l, w, Lv, mode) {
-      if (y < PY0 - 6 || y > PY1 || x < PX0 - 6 || x > PX1 + 6) return;
+      if (!G.free && (y < PY0 - 6 || y > PY1 || x < PX0 - 6 || x > PX1 + 6)) return;
       let gv = 9;
       if (mode === 'lit' && G.gaps !== false) { gv = gapVal(x, y); if (gv < 0) return; }
       leafShape(G.er, x, y, a, l, w);
@@ -977,7 +1011,7 @@
       if (cur) runs.push(cur);
       const Lu = light(tcx, y + 10);
       // joists radiating from the trunk, and beams that follow the outline
-      const nj = Math.max(4, Math.round((F.pb - F.pa) * F.R / 10));
+      const nj = F.isHall ? -1 : Math.max(4, Math.round((F.pb - F.pa) * F.R / 10));
       for (let j = 0; j <= nj; j++) {
         const q = lerp(F.pa, F.pb, (j + 0.5) / (nj + 1)), ro = fletRo(F, q);
         let pts = [];
@@ -985,7 +1019,7 @@
         for (let k = 0; k <= 8; k++) { const p = fletP(F, q, lerp(r, ro * 0.97, k / 8)); if (hidden(p[0], p[1])) fl(); else pts.push(p[0], p[1]); }
         fl();
       }
-      for (const f of [0.48, 0.76]) {
+      for (const f of (F.isHall ? [0.7] : [0.48, 0.76])) {
         let pts = [];
         const fl = () => { if (pts.length >= 4) stroke(sil.get(clamp((0.2 + 0.5 * Lu) * A, 0, 1)), pts, 0.24, 0.1, 0.1); pts = []; };
         for (let k = 1; k < 48; k++) { const q = lerp(F.pa, F.pb, k / 48), p = fletP(F, q, lerp(r, fletRo(F, q), f)); if (hidden(p[0], p[1])) fl(); else pts.push(p[0], p[1]); }
@@ -998,7 +1032,7 @@
         fl();
       }
       // carved brackets from the trunk below, curling at the foot
-      if (T.tier >= 1) {
+      if (T.tier >= 1 && !F.isHall) {
         const qa = Math.max(F.pa + 0.35, -1.2), qb = Math.min(F.pb - 0.35, 1.2);
         const nb = T.tier >= 2 ? 3 : 2;
         if (qb > qa) for (let b = 0; b < nb; b++) {
@@ -1022,7 +1056,8 @@
         for (let k = run.length - 1; k >= 0; k--) { xs.push(run[k].x); ys.push(run[k].y + 0.3); }
         const Bd = new Path2D(); poly(Bd, xs, ys, xs.length); erase(Bd);
         const Lr = light(run[run.length >> 1].x, run[run.length >> 1].y);
-        fill(Bd, INK.silver, (0.12 + 0.2 * Lr) * A, 's', 0.2);
+        fill(Bd, INK.silver, (0.05 + 0.08 * Lr) * A, 's', 0.15);
+        stroke(sil.get(clamp((0.35 + 0.4 * Lr) * A, 0, 1)), bot.map((v, k) => (k % 2 ? v - t * 0.5 : v)), 0.16, 0.05, 0.05);
         stroke(silHi.get(clamp((0.6 + 0.4 * Lr) * A, 0, 1)), bot, 0.5, 0.04, 0.04);
         stroke(sil.get(clamp((0.55 + 0.4 * Lr) * A, 0, 1)), top, 0.38, 0.04, 0.04);
         if (T.tier >= 2 && t > 2.6) {
@@ -1068,7 +1103,50 @@
         fill(Lf, INK.white, 0.82 * A, 'p', 0.7);
       }
       white.flush(); silHi.flush(); sil.flush(); gold.flush(); goldHi.flush();
-      if (F.isHall) yield* drawHall(T, F);
+      if (F.isHall) { yield* drawHall(T, F); cradle(T, F); }
+    }
+    // the crown of boughs that holds the hall: limbs from the trunk below sweeping out under the
+    // floor and up past its edge, like fingers round a cup
+    function cradle(T, F) {
+      const qs = [-1.45, -1.05, -0.35, 0.3, 1.0, 1.42];
+      for (const q0 of qs) {
+        const q = q0 + J(0.06), side = Math.abs(q0) > 0.8;
+        const yb = F.y + rr(44, 62), rb = T.r(yb);
+        const x0 = T.cx(yb) + rb * Math.sin(q) * 0.95, y0 = yb - ell(yb) * rb * Math.cos(q);
+        const ro = fletRo(F, q);
+        const sg = Math.sign(Math.sin(q));
+        const [xm0, ym0] = fletP(F, q, ro * (side ? 1.25 : 0.8), side ? -10 : -4);
+        const xm = xm0 + sg * (side ? 14 : 0), ym = ym0;
+        const [x10, y10] = side ? fletP(F, q, ro * 1.5, rr(30, 46)) : fletP(F, q, ro * 0.98, -1);
+        const x1 = x10 + sg * (side ? 16 : 0), y1 = y10;
+        const pts = [];
+        for (let k = 0; k <= 24; k++) {
+          const t = k / 24, u = 1 - t;
+          pts.push(u * u * x0 + 2 * u * t * xm + t * t * x1, u * u * y0 + 2 * u * t * (ym + 6) + t * t * y1);
+        }
+        const hws = []; for (let k = 0; k <= 24; k++) hws.push(lerp(4.2, side ? 1.1 : 1.6, Math.pow(k / 24, 0.7)) * (0.65 + 0.35 * Math.abs(Math.cos(q))));
+        const P = new Path2D(); ribbon(P, pts, hws); erase(P);
+        const L = light(xm, ym);
+        const n = pts.length >> 1, lo = [], up = [], mid = [];
+        for (let k = 0; k < n; k++) {
+          const i0 = Math.max(0, k - 1), i1 = Math.min(n - 1, k + 1);
+          let tx = pts[2 * i1] - pts[2 * i0], ty = pts[2 * i1 + 1] - pts[2 * i0 + 1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+          let nx = -ty, ny = tx; if (ny < 0) { nx = -nx; ny = -ny; }
+          lo.push(pts[2 * k] + nx * hws[k] * 0.9, pts[2 * k + 1] + ny * hws[k] * 0.9);
+          up.push(pts[2 * k] - nx * hws[k] * 0.9, pts[2 * k + 1] - ny * hws[k] * 0.9);
+          mid.push(pts[2 * k] + nx * hws[k] * 0.35, pts[2 * k + 1] + ny * hws[k] * 0.35);
+        }
+        stroke(silHi.get(clamp(0.6 + 0.4 * L, 0, 1)), lo, 0.5, 0.03, 0.3);
+        stroke(sil.get(clamp(0.4 + 0.4 * L, 0, 1)), up, 0.32, 0.03, 0.3);
+        stroke(sil.get(clamp(0.35 + 0.5 * L, 0, 1)), mid, 0.22, 0.2, 0.4);
+        // a spray at the tip, lit by the hall
+        if (side) {
+          const G = Foliage(); G.gaps = false;
+          for (let k = 0; k < 4; k++) spray(G, x1 + rr(-4, 4), y1 + rr(-4, 4), -Math.PI / 2 + sg * rr(0.2, 1.3), rr(20, 30), 1, 'lit', 1);
+          flushFoliage(G, 1, 'lit');
+        }
+      }
+      sil.flush(); silHi.flush(); gold.flush();
     }
 
     function drawHouse(T, F, H) {
@@ -1077,65 +1155,49 @@
       const phi = H.phi, dOut = fletRo(F, phi);
       const rho = (r + dOut) / 2 + 1;
       const hx = tcx + rho * Math.sin(phi), hb = y - e * rho * Math.cos(phi) - t;
-      const hw = Math.max(5, (dOut - r) * 0.42 * (0.75 + 0.25 * Math.cos(phi)));
-      const wallH = hw * rr(1.15, 1.6), roofH = hw * rr(1.1, 1.7);
-      const eT = ell(hb - wallH) * 0.6;
-      const topY = (x) => hb - wallH - eT * hw * Math.sqrt(Math.max(0, 1 - Math.pow((x - hx) / hw, 2)));
-      // silhouette: walls + ogee roof
-      const xs = [], ys = [];
-      xs.push(hx - hw, hx - hw); ys.push(hb + 2, hb - wallH);
-      const eave = hw * 1.18;
-      xs.push(hx - eave); ys.push(hb - wallH + 1);
-      const roof = (s) => { const o = []; for (let k = 0; k <= 12; k++) { const tt = k / 12; const xx = hx + s * eave * (1 - tt) * (1 - 0.25 * Math.sin(tt * Math.PI)); const yy = hb - wallH + 1 - roofH * (tt * tt * (3 - 2 * tt)) * (1 + 0.08 * Math.sin(tt * Math.PI * 2)); o.push(xx, yy); } return o; };
-      const rl = roof(-1), rrf = roof(1);
-      for (let k = 0; k < rl.length; k += 2) { xs.push(rl[k]); ys.push(rl[k + 1]); }
-      for (let k = rrf.length - 2; k >= 0; k -= 2) { xs.push(rrf[k]); ys.push(rrf[k + 1]); }
-      xs.push(hx + eave, hx + hw, hx + hw); ys.push(hb - wallH + 1, hb - wallH, hb + 2);
-      const P = new Path2D(); poly(P, xs, ys, xs.length); erase(P);
-      const Lh = light(hx, hb - wallH * 0.5);
-      // walls: vertical hatching, lit toward the trunk's key light
-      for (let k = 0; k <= 14; k++) {
-        const u = k / 14, x = hx - hw + 2 * hw * u, c = Math.cos((u - 0.5) * Math.PI);
+      const hw = Math.max(5, (dOut - r) * 0.4 * (0.75 + 0.25 * Math.cos(phi)));
+      const wallH = hw * rr(1.1, 1.45), roofH = hw * rr(1.2, 1.5);
+      const top = hb - wallH;
+      // the roof: folded golden leaves, a tall one in the middle and two leaning in to it
+      const petals = [];
+      for (const [da, lf, dx] of [[-1.15, 0.62, -0.75], [1.15, 0.62, 0.75], [-0.62, 0.8, -0.4], [0.62, 0.8, 0.4], [0, 0.9, 0]]) petals.push([hx + dx * hw, top + 1.2, -Math.PI / 2 + da + J(0.05), roofH * lf * 0.85, 0.4]);
+      const P = new Path2D(); poly(P, [hx - hw, hx + hw, hx + hw * 0.92, hx - hw * 0.92], [hb + 2, hb + 2, top, top], 4);
+      for (const [x, yy, a, l, w] of petals) leafShape(P, x - Math.cos(a) * l * 0.12, yy - Math.sin(a) * l * 0.12, a, l, w);
+      erase(P);
+      const Lh = light(hx, top + wallH * 0.5);
+      // walls of pale wood: fine vertical lines, two slender corner posts
+      for (let k = 0; k <= 12; k++) {
+        const u = k / 12, x = lerp(hx - hw * 0.96, hx + hw * 0.96, u), c = Math.cos((u - 0.5) * Math.PI);
         if (R() > 0.35 + 0.6 * c) continue;
-        line(sil.get(clamp((0.3 + 0.5 * Lh * c) * A, 0, 1)), x, hb + 1, x, topY(x) + 0.5, 0.2, 0, 0.1, 0.1);
+        line(sil.get(clamp((0.3 + 0.5 * Lh * c) * A, 0, 1)), x, hb + 1, lerp(x, hx, 0.08), top + 1, 0.18, 0, 0.1, 0.1);
       }
-      stroke(silHi.get(0.8 * A), [hx - hw, hb + 1, hx - hw, hb - wallH], 0.35, 0.02, 0.02);
-      stroke(silHi.get(0.8 * A), [hx + hw, hb + 1, hx + hw, hb - wallH], 0.35, 0.02, 0.02);
-      // lancet windows glowing
-      const nw = hw > 9 ? 2 : 1;
-      for (let w = 0; w < nw; w++) {
-        const wx = hx + (nw === 1 ? 0 : (w ? 1 : -1) * hw * 0.42), ww = hw * (nw === 1 ? 0.28 : 0.2), wy0 = hb - wallH * 0.22, wy1 = hb - wallH * 0.8;
+      stroke(silHi.get(0.85 * A), [hx - hw, hb + 1, hx - hw * 0.92, top], 0.34, 0.02, 0.02);
+      stroke(silHi.get(0.85 * A), [hx + hw, hb + 1, hx + hw * 0.92, top], 0.34, 0.02, 0.02);
+      // a doorway of warm light under a pointed leaf arch
+      {
+        const ww = hw * 0.36, wy0 = hb + 0.5, wy1 = hb - wallH * 0.62, ap = hb - wallH * 0.95;
         const Wp = new Path2D();
-        Wp.moveTo((wx - ww) * K, wy0 * K); Wp.lineTo((wx - ww) * K, (wy1 + ww) * K);
-        Wp.quadraticCurveTo((wx - ww) * K, (wy1 - ww * 0.4) * K, wx * K, (wy1 - ww * 1.2) * K);
-        Wp.quadraticCurveTo((wx + ww) * K, (wy1 - ww * 0.4) * K, (wx + ww) * K, (wy1 + ww) * K);
-        Wp.lineTo((wx + ww) * K, wy0 * K); Wp.closePath();
-        const col = INK.lamp[H.col || (H.col = pickCol(3, 3, 2))];
-        fill(Wp, col, 0.85 * A, 'p', 0.9);
-        const Gw = new Path2D(); dot(Gw, wx, (wy0 + wy1) / 2, ww * 0.5); fill(Gw, INK.white, 0.8 * A, 'p', 0.8);
-        stroke(gold.get(0.9 * A), [wx - ww - 0.5, wy0, wx - ww - 0.5, wy1 + ww, wx, wy1 - ww * 1.35, wx + ww + 0.5, wy1 + ww, wx + ww + 0.5, wy0], 0.24, 0.02, 0.02);
-        line(gold.get(0.7 * A), wx, wy0, wx, wy1 - ww, 0.14, 0, 0.05, 0.05);
+        Wp.moveTo((hx - ww) * K, wy0 * K); Wp.lineTo((hx - ww) * K, wy1 * K);
+        Wp.bezierCurveTo((hx - ww) * K, (wy1 - (wy1 - ap) * 0.6) * K, (hx - ww * 0.15) * K, (ap + (wy1 - ap) * 0.2) * K, hx * K, ap * K);
+        Wp.bezierCurveTo((hx + ww * 0.15) * K, (ap + (wy1 - ap) * 0.2) * K, (hx + ww) * K, (wy1 - (wy1 - ap) * 0.6) * K, (hx + ww) * K, wy1 * K);
+        Wp.lineTo((hx + ww) * K, wy0 * K); Wp.closePath();
+        const g = C.createRadialGradient(hx * K, wy0 * K, 0, hx * K, wy0 * K, (wy0 - ap) * 1.1 * K);
+        const c0 = H.col === 'g' ? '210,250,220' : '255,240,205', c1 = H.col === 'g' ? '150,226,180' : '255,206,130';
+        g.addColorStop(0, `rgba(${c0},1)`); g.addColorStop(1, `rgba(${c1},0.75)`);
+        C.globalAlpha = 0.95 * A; C.fillStyle = g; C.fill(Wp); M.globalAlpha = 1; M.fillStyle = '#000'; M.fill(Wp);
+        stroke(gold.get(0.9 * A), [hx - ww - 0.5, wy0, hx - ww - 0.5, wy1, hx - ww * 0.5, ap + (wy1 - ap) * 0.45, hx, ap - 0.6, hx + ww * 0.5, ap + (wy1 - ap) * 0.45, hx + ww + 0.5, wy1, hx + ww + 0.5, wy0], 0.22, 0.02, 0.02);
       }
-      // roof: gold ribs, scales and a finial
-      const apX = rl[rl.length - 2], apY = rl[rl.length - 1];
-      const Rf = new Path2D(); const fx = [], fy = [];
-      for (let k = 0; k < rl.length; k += 2) { fx.push(rl[k]); fy.push(rl[k + 1]); }
-      for (let k = rrf.length - 2; k >= 0; k -= 2) { fx.push(rrf[k]); fy.push(rrf[k + 1]); }
-      poly(Rf, fx, fy, fx.length); fill(Rf, INK.gold, (0.16 + 0.3 * Lh) * A, 'g', 0.45);
-      stroke(goldHi.get(0.95 * A), rl, 0.38, 0.02, 0.1); stroke(goldHi.get(0.95 * A), rrf, 0.38, 0.02, 0.1);
-      for (let k = 1; k <= 4; k++) {
-        const u = k / 5, bx = lerp(hx - eave, hx + eave, u);
-        stroke(gold.get(0.75 * A), quad(bx, hb - wallH + 1, lerp(bx, apX, 0.5) + (bx - hx) * 0.2, lerp(hb - wallH, apY, 0.45), apX, apY, 8), 0.2, 0.05, 0.3);
+      for (const [x, yy, a, l, w] of petals) {
+        const bx = x - Math.cos(a) * l * 0.12, by = yy - Math.sin(a) * l * 0.12;
+        const B = new Path2D(); leafShape(B, bx, by, a, l, w); fill(B, INK.gold, (0.3 + 0.35 * Lh) * A, 'g', 0.6);
+        const Rg = new Path2D(); leafShape(Rg, bx, by, a, l, w); leafHole(Rg, bx, by, a, l, w); fill(Rg, INK.goldHi, 0.95 * A, 'g', 1);
+        const Rb = new Path2D(); leafRib(Rb, bx, by, a, l); erase(Rb, 0.6);
+        for (let v = 1; v <= 4; v++) {
+          const f = v / 5.4, mx = bx + Math.cos(a) * l * f, my = by + Math.sin(a) * l * f, sp = l * w * 0.55 * Math.sin(Math.PI * Math.min(1, f + 0.1));
+          for (const sd of [-1, 1]) line(goldHi.get(0.6 * A), mx, my, mx + Math.cos(a + sd * 0.8) * sp, my + Math.sin(a + sd * 0.8) * sp, 0.1, 0, 0.1, 0.5);
+        }
       }
-      for (let row = 1; row <= 4; row++) {
-        const v = row / 5;
-        const yy = hb - wallH + 1 - roofH * (v * v * (3 - 2 * v)) * 0.95;
-        const half = eave * (1 - v) * (1 - 0.25 * Math.sin(v * Math.PI)) * 0.92;
-        for (let xx = hx - half + 1.2; xx < hx + half - 0.5; xx += 2.2) stroke(gold.get(0.65 * A), quad(xx - 1.0, yy, xx, yy + 1.2, xx + 1.0, yy, 3), 0.15, 0.2, 0.2);
-      }
-      stroke(goldHi.get(0.95 * A), [hx - eave, hb - wallH + 1, hx + eave, hb - wallH + 1], 0.45, 0.02, 0.02);
-      line(goldHi.get(0.95 * A), apX, apY, apX, apY - roofH * 0.35, 0.3, 0, 0.05, 0.6);
-      dot(goldHi.get(1), apX, apY - roofH * 0.15, 0.6);
+      stroke(goldHi.get(0.95 * A), [hx - hw * 1.08, top + 1, hx + hw * 1.08, top + 1], 0.4, 0.02, 0.02);
       sil.flush(); silHi.flush(); gold.flush(); goldHi.flush();
     }
 
@@ -1421,6 +1483,20 @@
       }
       sil.flush(); silHi.flush(); goldHi.flush(); white.flush();
       yield;
+      // the little side paths, white and winding
+      for (const P of SIDE) {
+        const pts = [], hws = [];
+        for (let k = 0; k < P.length - 1; k++) {
+          const [xa, ya] = P[k], [xb, yb] = P[k + 1], n = Math.ceil(Math.hypot(xb - xa, yb - ya) / 3);
+          for (let i = 0; i < n; i++) { const t = i / n; pts.push(lerp(xa, xb, t), lerp(ya, yb, t)); hws.push(lerp(1.6, 3.4, smooth(980, 1180, lerp(ya, yb, t)))); }
+        }
+        for (let it = 0; it < 4; it++) for (let i = 2; i < pts.length - 2; i += 2) { pts[i] = (pts[i - 2] + 2 * pts[i] + pts[i + 2]) / 4; pts[i + 1] = (pts[i - 1] + 2 * pts[i + 1] + pts[i + 3]) / 4; }
+        const Sp = new Path2D(); ribbon(Sp, pts, hws); erase(Sp); fill(Sp, INK.white, 0.5, 'p', 0.5);
+        const Db = new Path2D(); for (let i = 0; i < pts.length; i += 2) dot(Db, pts[i] + rr(-1.5, 1.5), pts[i + 1] + rr(-0.6, 0.6), rr(0.15, 0.4)); erase(Db, 0.5);
+        for (let i = 0; i < pts.length; i += 6) if (chance(0.6)) dot(silHi.get(0.75), pts[i] + rr(-1, 1), pts[i + 1] + hws[i >> 1] * (chance(0.5) ? 1.1 : -1.1), rr(0.25, 0.45));
+        silHi.flush();
+      }
+      yield;
       // the white path, climbing in turns to the foot of the great tree
       const pts = [], hws = [];
       for (let k = 0; k < PATH.length - 1; k++) {
@@ -1478,6 +1554,14 @@
 
     function drawFountain() {
       const { x, y } = FOUNT;
+      {
+        const RG = C.createRadialGradient(x * K, (y - 16) * K, 0, x * K, (y - 16) * K, 70 * K);
+        RG.addColorStop(0, 'rgba(215,228,255,0.2)'); RG.addColorStop(0.4, 'rgba(215,228,255,0.06)'); RG.addColorStop(1, 'rgba(215,228,255,0)');
+        C.globalAlpha = 1; C.fillStyle = RG; C.beginPath(); C.arc(x * K, (y - 16) * K, 70 * K, 0, TAU); C.fill();
+      }
+      const FS = 1.55;
+      C.save(); M.save();
+      for (const X of [C, M]) { X.translate(x * K, (y + 14) * K); X.scale(FS, FS); X.translate(-x * K, -(y + 14) * K); }
       const e = ell(y), bw = 24, bh = bw * e * 1.4;
       // pedestal: a stem carved like a branching tree
       const ped = new Path2D();
@@ -1507,12 +1591,17 @@
       for (let k = 0; k < 30; k++) { const a = rr(-Math.PI, 0), d = rr(3, 14); dot(white.get(0.8), x + Math.cos(a) * d, y - 12 + Math.sin(a) * d * 0.7, rr(0.15, 0.35)); }
       // the spill
       stroke(white.get(0.8), quad(x - bw + 2, y + 1, x - bw - 3, y + 5, x - bw + 4, y + 12, 6), 0.7, 0.1, 0.3);
+      // reflections of the lamps trembling in the basin
+      for (const Lp of fountLamps) { const rxx = x + (Lp.x - x) * 0.3 / FS; for (let k = 0; k < 4; k++) line(white.get(0.8 - k * 0.15), rxx - 1.6 + k * 0.2, y - 0.8 + k * 0.9, rxx + 1.6 - k * 0.2, y - 0.8 + k * 0.9, 0.14, 0, 0.3, 0.3); }
+      white.flush(); sil.flush(); silHi.flush();
+      C.restore(); M.restore();
       // the boughs from which the silver lamps swing
       for (const Lp of fountLamps) {
         const bx = Lp.ax, by = Lp.ay;
-        const foot = x + (bx - x) * 2.2;
-        stroke(silHi.get(0.85), quad(foot, y + 4, foot + (bx - foot) * 0.1, by - 6, bx, by, 12), 0.45, 0.05, 0.3);
-        stroke(sil.get(0.6), quad(foot + 1, y + 4, foot + (bx - foot) * 0.15 + 1, by - 5, bx, by + 0.5, 12), 0.2, 0.05, 0.3);
+        const foot = x + (bx - x) * 1.5;
+        stroke(silHi.get(0.85), quad(foot, y + 10, foot + (bx - foot) * 0.1, by - 8, bx, by, 14), 0.5, 0.05, 0.3);
+        stroke(sil.get(0.6), quad(foot + 1, y + 10, foot + (bx - foot) * 0.15 + 1, by - 7, bx, by + 0.5, 14), 0.22, 0.05, 0.3);
+        const Lf = new Path2D(); leafShape(Lf, bx, by, -Math.PI / 2 + (bx > x ? 0.6 : -0.6), 4.2, 0.32); fill(Lf, INK.silverHi, 0.85, 's', 0.9);
       }
       white.flush(); sil.flush(); silHi.flush();
     }
@@ -1521,7 +1610,7 @@
     function figure(x, yf, h, kind, step) {
       // seen from behind, walking up the path; the lamp ahead lights their right-hand side
       const s = h;
-      const sh = { elf: 0.12, elfbow: 0.12, man: 0.145, boro: 0.17, dwarf: 0.24, hob: 0.17 }[kind] || 0.14;
+      const sh = { elf: 0.1, elfbow: 0.1, man: 0.145, boro: 0.17, dwarf: 0.24, hob: 0.17 }[kind] || 0.14;
       const hem = kind === 'hob' ? -0.2 : (kind === 'dwarf' ? -0.08 : -0.03);
       const hr = kind === 'hob' ? 0.1 : (kind === 'dwarf' ? 0.1 : 0.068);
       const X = (u) => x + u * s, Y = (v) => yf + v * s;
@@ -1579,13 +1668,14 @@
       const n = pts.length >> 1;
       const cum = [0]; for (let i = n - 2; i >= 0; i--) cum.push(cum[cum.length - 1] + Math.hypot(pts[2 * i] - pts[2 * i + 2], pts[2 * i + 1] - pts[2 * i + 3]));
       const at = (d) => { let k = 0; while (k < cum.length - 1 && cum[k + 1] < d) k++; const i = n - 1 - k; const f = (d - cum[k]) / ((cum[k + 1] - cum[k]) || 1); return [lerp(pts[2 * i], pts[2 * i - 2], f), lerp(pts[2 * i + 1], pts[2 * i - 1], f)]; };
-      const company = [['elf', 19, 'lamp'], ['man', 18.5], ['hob', 10.5], ['hob', 10.2], ['elfbow', 18.4], ['dwarf', 12.2], ['hob', 10], ['hob', 10.1], ['boro', 19], ['elf', 18.6, 'lamp']];
-      let d = 30 + J(4);
+      const company = [['elf', 28, 'lamp'], ['man', 27.5], ['hob', 15.5], ['hob', 15.2], ['elfbow', 27.4], ['dwarf', 18], ['hob', 15], ['hob', 15.1], ['boro', 28.2], ['elf', 27.6, 'lamp']];
+      let d = 36 + J(4);
       const placed = [];
       for (const [kind, h, extra] of company) {
-        const [x, y] = at(d);
+        const [x0, y] = at(d);
+        const x = x0 + (placed.length % 2 ? 1 : -1) * pathW(y) * 0.16;
         placed.push([x, y, kind, h, extra]);
-        d += h * 0.5 + rr(1.5, 3.5);
+        d += h * 0.78 + rr(1, 3);
       }
       // draw from the back of the line to the front
       for (let i = placed.length - 1; i >= 0; i--) {
@@ -1594,7 +1684,7 @@
         if (extra === 'lamp') {
           const lx = x + 0.38 * h, ly = y - 1.18 * h;
           line(silHi.get(0.95), x + 0.08 * h, y, lx, ly + 2, 0.22, 0, 0.02, 0.02);
-          drawLamp({ x: lx, y: ly + 4, s: 2.6, c: i === 0 ? 'g' : 'y', kind: 'hang', ax: lx, ay: ly });
+          drawLamp({ x: lx, y: ly + 4, s: 3.0, c: i === 0 ? 'g' : 'y', kind: 'hang', ax: lx, ay: ly });
         }
         sil.flush(); silHi.flush(); white.flush();
       }
@@ -1610,7 +1700,7 @@
       for (let y0 = 0; y0 < 1; y0 += rr(0.022, 0.034)) {
         const ly = (x) => lerp(WALLTOP(x) + 1, WALLBASE(x), y0) + 0.8 * nz(x / 17 + y0 * 40);
         for (let x = PX0 - 4; x < PX1 + 4;) {
-          if (x > GX - 38 && x < GX + 38) { x = GX + 38; continue; }
+          if (x > GX - 50 && x < GX + 50) { x = GX + 50; continue; }
           const y = ly(x), Lm = light(x, y - 16);
           const v = (0.06 + Lm * 0.95) * (1 - 0.7 * y0);
           if (R() < 0.12 + v * 1.4) {
@@ -1629,7 +1719,7 @@
         stroke((chance(0.3) ? silHi : sil).get(clamp(0.35 + Lm * 0.6, 0, 1)), [x, y + 1, x + rr(-1, 1), y - h * 0.5, x + rr(-1.5, 1.5), y - h], 0.24, 0.05, 0.7);
       }
       for (let x = PX0; x < PX1;) {
-        const x2 = Math.min(PX1, x + rr(40, 140)); if (x2 > GX - 34 && x < GX + 34) { x = GX + 34; continue; }
+        const x2 = Math.min(PX1, x + rr(40, 140)); if (x2 > GX - 50 && x < GX + 50) { x = GX + 50; continue; }
         const pts = []; for (let xx = x; xx <= x2; xx += 4) pts.push(xx, WALLTOP(xx) + 0.6 * nz(xx / 5));
         stroke(silHi.get(clamp(0.45 + light((x + x2) / 2, WALLTOP(x)) * 0.5, 0, 1)), pts, 0.42, 0.05, 0.1);
         x = x2 + rr(2, 12);
@@ -1637,20 +1727,20 @@
       sil.flush(); silHi.flush();
       yield;
       // the gate: slender engraved pillars, an ogee arch with a beaded soffit, doors folded back
-      const gl = GX - 32, gr = GX + 32, top = 1114, base = WALLBASE(GX);
-      const pw = 11;
+      const gl = GX - 42, gr = GX + 42, top = 1094, base = WALLBASE(GX);
+      const pw = 15;
       {
         const O = new Path2D(); poly(O, [gl - pw / 2 - 1, gr + pw / 2 + 1, gr + pw / 2 + 1, gl - pw / 2 - 1], [base + 1, base + 1, WALLTOP(GX) - 2, WALLTOP(GX) - 2], 4); erase(O);
       }
       // through the gateway: the path running in and up, between dark turf
       {
         const yt = WALLTOP(GX) - 4;
-        const pts = [GX, base, GX + 3, yt], hws = [24, 15];
+        const pts = [GX, base, GX + 3, yt], hws = [30, 19];
         for (let y = base - 0.8; y > yt + 1; y -= lerp(1.8, 3.6, (y - yt) / (base - yt))) {
-          const u = (y - yt) / (base - yt), hw = lerp(15, 24, u), Lm = light(GX, y);
+          const u = (y - yt) / (base - yt), hw = lerp(19, 30, u), Lm = light(GX, y);
           for (let x = GX - hw; x < GX + hw;) { const x2 = Math.min(GX + hw, x + rr(3, 7) * (0.6 + u)); ribbon(white.get(clamp(0.35 + Lm * 0.45 + u * 0.2, 0, 1)), [x, y, x2, y], [lerp(0.5, 1.0, u), lerp(0.5, 1.0, u)]); x = x2 + rr(0.3, 0.9); }
         }
-        for (let k = 0; k < 300; k++) { const y = rr(yt, base), hw = lerp(15, 24, (y - yt) / (base - yt)), x = GX + rr(-1.1, 1.1) * hw; if (Math.abs(x - GX) > hw) flick(sil.get(0.6), x, y, rr(1.5, 3), rr(-0.5, 0.5), 0.12); }
+        for (let k = 0; k < 300; k++) { const y = rr(yt, base), hw = lerp(19, 30, (y - yt) / (base - yt)), x = GX + rr(-1.1, 1.1) * hw; if (Math.abs(x - GX) > hw) flick(sil.get(0.6), x, y, rr(1.5, 3), rr(-0.5, 0.5), 0.12); }
       }
       for (const px of [gl, gr]) {
         const x0 = px - pw / 2, x1 = px + pw / 2;
@@ -1678,7 +1768,7 @@
         for (let yy = base - 8; yy > top + 14; yy -= 6.8) { const vx = px + Math.sin(ph + yy * 0.22) * pw * 0.28, sg = Math.cos(ph + yy * 0.22) > 0 ? 1 : -1; const Lf = new Path2D(); leafShape(Lf, vx, yy, sg > 0 ? -0.5 : Math.PI + 0.5, 3.2, 0.34); fill(Lf, INK.silverHi, 0.8, 's', 0.8); }
       }
       // ogee arch: two curves with beading between, a star at the crown
-      const archPts = (o) => { const a = []; for (let k = 0; k <= 30; k++) { const t = k / 30; const xx = lerp(gl - pw / 2 + 2, gr + pw / 2 - 2, t); const sv = Math.sin(t * Math.PI); const yy = top - o - 30 * Math.pow(sv, 0.7) * (1 - 0.18 * Math.sin(t * TAU) * Math.sign(t - 0.5) * 0) - 6 * Math.pow(sv, 6); a.push(xx, yy); } return a; };
+      const archPts = (o) => { const a = []; for (let k = 0; k <= 30; k++) { const t = k / 30; const xx = lerp(gl - pw / 2 + 2, gr + pw / 2 - 2, t); const sv = Math.sin(t * Math.PI); const yy = top - o - 38 * Math.pow(sv, 0.7) * (1 - 0.18 * Math.sin(t * TAU) * Math.sign(t - 0.5) * 0) - 6 * Math.pow(sv, 6); a.push(xx, yy); } return a; };
       const A0 = archPts(0), A1 = archPts(5);
       stroke(silHi.get(0.95), A0, 0.5, 0.02, 0.02); stroke(gold.get(0.9), A1, 0.4, 0.02, 0.02);
       for (let k = 2; k < A0.length - 2; k += 2) dot(goldHi.get(0.9), (A0[k] + A1[k]) / 2, (A0[k + 1] + A1[k + 1]) / 2, 0.55);
@@ -1690,7 +1780,7 @@
       // the doors, folded back, each carved with a mallorn
       for (const sg of [-1, 1]) {
         const hx = sg < 0 ? gl + pw / 2 : gr - pw / 2;
-        const ox = hx - sg * 11;
+        const ox = hx - sg * 15;
         const Dp = new Path2D(); poly(Dp, [hx, ox, ox, hx], [base - 1, base - 7, top + 16, top + 10], 4); erase(Dp);
         stroke(silHi.get(0.95), [hx, base - 1, ox, base - 7, ox, top + 16, hx, top + 10, hx, base - 1], 0.3, 0.01, 0.01);
         const mx = (hx + ox) / 2, Ld = light(mx, 1160);
@@ -1705,6 +1795,9 @@
       sil.flush(); silHi.flush(); gold.flush(); goldHi.flush(); white.flush();
     }
     function* drawFosse() {
+      // still water at the bottom of the fosse, holding the lamps of the wall and gate
+      const rb = {};
+      for (const c of ['y', 'g', 'b', 's']) rb[c] = Buckets(INK.lamp[c], null, 6);
       // the fosse, lost in soft shadow
       const xs = [], ys = [];
       for (let x = PX0 - 10; x <= PX1 + 10; x += 10) { xs.push(x); ys.push(WALLBASE(x) - 0.5); }
@@ -1717,6 +1810,20 @@
         line(sil.get(clamp(0.12 + Lm * 0.4, 0, 0.6)), x, y, x + l, y + rr(-0.3, 0.3), 0.18, rr(-0.3, 0.3), 0.3, 0.3);
       }
       sil.flush();
+      {
+        const g = C.createLinearGradient(0, 1256 * K, 0, BANK * K);
+        g.addColorStop(0, 'rgba(10,14,34,0)'); g.addColorStop(1, 'rgba(10,14,34,0)');
+        for (const L of lamps) {
+          if (L.y < 1060 || L.y > 1262 || L.kind === 'speck' || L.x < PX0 || L.x > PX1) continue;
+          const top = 1262, n = Math.round(lerp(8, 14, L.s / 5));
+          for (let k = 0; k < n; k++) {
+            const yy = top + k * 1.7 + rr(-0.3, 0.3); if (yy > BANK - 1) break;
+            const w = (1.2 + 2.6 * R()) * (L.s / 4) * (1 + k * 0.06), xx = L.x + 1.4 * Math.sin(k * 1.7 + L.x);
+            line(rb[L.c].get(clamp(0.85 * (1 - k / n), 0, 1)), xx - w, yy, xx + w, yy, rr(0.18, 0.4), 0, 0.3, 0.3);
+          }
+        }
+        for (const c in rb) rb[c].flush();
+      }
       yield;
       // mist lying in the ditch: dry-brush white gouache
       {
@@ -1920,7 +2027,35 @@
       }
       // mallorn sprays at the top corners of the picture
       // the roundel: the Mirror, a silver basin in a hollow, holding one star
-      const rx = 500, ry = 1372, rad = 40;
+      // a frieze in the lower margin: a gold vine with mallorn leaves and elanor in its curls
+      for (const [x0, x1] of [[46, 440], [560, 954]]) {
+        const vy = (x) => 1371 + 10 * Math.sin((x - x0) / 30 * Math.PI) * smooth(x0, x0 + 20, x) * smooth(x1, x1 - 20, x);
+        const vine = []; for (let x = x0; x <= x1; x += 2) vine.push(x, vy(x));
+        stroke(gold.get(0.95), vine, 0.5, 0.05, 0.05);
+        stroke(sil.get(0.5), [x0, 1345, x1, 1345], 0.25, 0.01, 0.01); stroke(sil.get(0.5), [x0, 1397, x1, 1397], 0.25, 0.01, 0.01);
+        const G = Foliage(); G.gaps = false; G.free = true;
+        for (let x = x0 + 14, k = 0; x < x1 - 10; x += 10.5, k++) {
+          const y = vy(x), sg = k % 2 ? 1 : -1, a = Math.atan2(vy(x + 1) - y, 1) + sg * 0.9;
+          stroke(gold.get(0.8), [x, y, x + Math.cos(a) * 2.5, y + Math.sin(a) * 2.5], 0.2, 0.05, 0.3);
+          addLeaf(G, x + Math.cos(a) * 2, y + Math.sin(a) * 2, a, 8.5, 0.34, 1, 'lit');
+        }
+        flushFoliage(G, 1, 'lit');
+        for (let x = x0 + 15; x < x1 - 15; x += 30) {
+          const up = Math.sin((x - x0) / 30 * Math.PI + Math.PI / 2) > 0 ? 1 : -1;
+          const fx = x + 15, fy = 1371 + (Math.sin((x + 15 - x0) / 30 * Math.PI) > 0 ? -1 : 1) * 2;
+          const cy = 1371 - 10 * (Math.sin((fx - x0) / 30 * Math.PI) > 0 ? -0.55 : 0.55);
+          if (fx > x1 - 18) break;
+          const St = new Path2D(); const sx2 = [], sy2 = [];
+          for (let q = 0; q < 10; q++) { const a = q / 10 * TAU - Math.PI / 2, rad2 = q % 2 ? 1.1 : 2.6; sx2.push(fx + Math.cos(a) * rad2); sy2.push(cy + Math.sin(a) * rad2); }
+          poly(St, sx2, sy2, 10); erase(St); fill(St, INK.goldHi, 0.95, 'g', 1);
+          const Ct = new Path2D(); dot(Ct, fx, cy, 0.55); fill(Ct, INK.white, 0.95, 'p', 1);
+          for (let q = 0; q < 3; q++) dot(silHi.get(0.7), x + rr(4, 26), 1371 + (up > 0 ? 1 : -1) * rr(9, 16), rr(0.25, 0.5));
+        }
+        gold.flush(); sil.flush(); silHi.flush();
+      }
+      const rx = 500, ry = 1371, rad = 40, RS = 1.18;
+      C.save(); M.save();
+      for (const X of [C, M]) { X.translate(rx * K, ry * K); X.scale(RS, RS); X.translate(-rx * K, -ry * K); }
       const Rd = new Path2D(); dot(Rd, rx, ry, rad + 4); erase(Rd);
       const ring = (r0, w, B) => { const pts = []; for (let k = 0; k <= 120; k++) { const a = k / 120 * TAU; pts.push(rx + Math.cos(a) * r0, ry + Math.sin(a) * r0); } stroke(B, pts, w, 0.001, 0.001); };
       ring(rad + 3, 0.8, goldHi.get(0.95)); ring(rad - 0.5, 0.35, gold.get(0.9));
@@ -1941,7 +2076,7 @@
         // a few trees at the rim of the hollow, in silhouette
         for (const [tx, th] of [[rx - 30, 22], [rx - 21, 28], [rx + 33, 18]]) {
           stroke(silHi.get(0.75), [tx, ry - 4, tx + 0.5, ry - 4 - th], 0.35, 0.05, 0.3);
-          const G = Foliage(); G.gaps = false;
+          const G = Foliage(); G.gaps = false; G.free = true;
           for (let k = 0; k < 7; k++) addLeaf(G, tx + rr(-4, 4), ry - 4 - th + rr(-2, 10), rr(0, TAU), 2.6, 0.36, 0.7, 'lit');
           flushFoliage(G, 1, 'lit');
         }
@@ -1962,13 +2097,39 @@
         const Sr = new Path2D(); dot(Sr, rx + 3, ry + 8.6, 0.55); fill(Sr, INK.white, 1, 'p', 1);
         line(white.get(0.95), rx + 3 - 3.2, ry + 8.6, rx + 3 + 3.2, ry + 8.6, 0.12, 0, 0.5, 0.5);
         line(white.get(0.95), rx + 3, ry + 7.5, rx + 3, ry + 9.7, 0.1, 0, 0.5, 0.5);
-        // the silver ewer beside it
-        const ex = rx - 22, ey = ry + 15;
-        const Ew = []; for (let k = 0; k <= 14; k++) { const t = k / 14, a = -Math.PI / 2 + t * Math.PI; Ew.push(ex + Math.cos(a) * 2.6 * Math.sin(t * Math.PI * 0.95 + 0.1), ey - 7 + t * 8); }
-        stroke(silHi.get(0.95), Ew, 0.26, 0.05, 0.05);
-        stroke(silHi.get(0.95), [ex - 2.4, ey + 1, ex + 2.4, ey + 1], 0.3, 0.05, 0.05);
-        stroke(silHi.get(0.9), quad(ex - 0.8, ey - 7, ex - 4.5, ey - 7.5, ex - 5.5, ey - 9.5, 5), 0.2, 0.1, 0.3);
-        stroke(silHi.get(0.9), quad(ex + 1.5, ey - 6, ex + 5, ey - 4.5, ex + 2.2, ey - 1, 6), 0.2, 0.1, 0.1);
+        // the Lady, pouring water from the silver ewer; the Ring-bearer on the step, looking in
+        {
+          const gx = rx - 21, gy = ry + 27, h = 38;
+          const Rb = new Path2D();
+          const Q = (a, b, c, d) => Rb.quadraticCurveTo(a * K, b * K, c * K, d * K);
+          Rb.moveTo((gx - 1.2) * K, (gy - h * 0.84) * K);
+          Q(gx + 2.2, gy - h * 0.86, gx + 2.6, gy - h * 0.76);
+          Q(gx + 1.8, gy - h * 0.55, gx + 2.4, gy - h * 0.3);
+          Q(gx + 3.6, gy - h * 0.08, gx + 4.6, gy);
+          Q(gx - 2, gy + 0.8, gx - 7, gy + 0.6);
+          Q(gx - 11, gy + 0.6, gx - 14, gy + 1.2);
+          Q(gx - 6, gy - 1.5, gx - 3.4, gy - h * 0.35);
+          Q(gx - 2.4, gy - h * 0.65, gx - 2.6, gy - h * 0.76);
+          Q(gx - 2.6, gy - h * 0.82, gx - 1.2, gy - h * 0.84);
+          Rb.closePath();
+          erase(Rb); fill(Rb, INK.white, 0.5, 'p', 0.7);
+          for (let k = 0; k < 6; k++) { const u = k / 5; stroke((k % 2 ? sil : silHi).get(0.85), quad(lerp(gx - 2, gx + 2.2, u), gy - h * 0.74, lerp(gx - 3.2, gx + 2.0, u), gy - h * 0.35, lerp(gx - 8, gx + 4.2, u), gy - 0.2, 8), 0.12, 0.2, 0.2); }
+          stroke(white.get(0.95), [gx + 2.4, gy - h * 0.76, gx + 2.0, gy - h * 0.5, gx + 2.6, gy - h * 0.3, gx + 4.4, gy], 0.18, 0.05, 0.05);
+          stroke(silHi.get(0.8), quad(gx - 3, gy - 0.5, gx - 9, gy - 0.4, gx - 13.5, gy + 0.9, 6), 0.12, 0.1, 0.3);
+          // a long sleeve falling from the outstretched arm
+          stroke(white.get(0.7), quad(gx + 4, gy - h * 0.63, gx + 5.5, gy - h * 0.45, gx + 4.2, gy - h * 0.36, 6), 0.4, 0.2, 0.5);
+          const Hd = new Path2D(); ellipse(Hd, gx + 0.4, gy - h * 0.9, 1.9, 2.3); erase(Hd); fill(Hd, INK.white, 0.9, 'p', 1);
+          for (let k = 0; k < 7; k++) stroke((k % 2 ? goldHi : silHi).get(0.9), quad(gx - 0.8 + k * 0.25, gy - h * 0.95, gx - 3.6 - k * 0.3, gy - h * 0.7, gx - 3.2 - k * 0.45, gy - h * 0.42 + k * 0.5, 8), 0.13, 0.1, 0.5);
+          stroke(goldHi.get(0.95), quad(gx - 1.8, gy - h * 0.96, gx + 0.4, gy - h * 1.0, gx + 2.4, gy - h * 0.95, 5), 0.16, 0.1, 0.1);
+          stroke(white.get(0.95), quad(gx + 2.8, gy - h * 0.74, gx + 6, gy - h * 0.62, gx + 9.2, gy - h * 0.58, 6), 0.32, 0.1, 0.1);
+          // the ewer, tipped, and its thread of water
+          const ex = gx + 10.5, ey = gy - h * 0.58;
+          const Ew = new Path2D(); ellipse(Ew, ex, ey, 1.8, 2.4); erase(Ew); fill(Ew, INK.silverHi, 0.7, 's', 1);
+          stroke(silHi.get(0.95), [ex + 1.2, ey + 1.6, ex + 3.4, ey + 3.3], 0.22, 0.05, 0.2);
+          stroke(white.get(0.9), quad(ex + 3.4, ey + 3.4, ex + 5, ey + 7, ex + 4.8, ry + 8.4, 8), 0.14, 0.05, 0.1);
+          figure(rx + 19, ry + 25.5, 17, 'hob', 0);
+          sil.flush(); silHi.flush(); white.flush(); goldHi.flush();
+        }
         // the evening star above, alone
         const sx = rx - 6, sy = ry - 25;
         line(silHi.get(1), sx - 6, sy, sx + 6, sy, 0.22, 0, 0.5, 0.5); line(silHi.get(1), sx, sy - 7, sx, sy + 7, 0.22, 0, 0.5, 0.5);
@@ -1977,12 +2138,7 @@
         for (let k = 0; k < 40; k++) { const a = R() * TAU, d = rr(10, 38); const x = rx + Math.cos(a) * d, y = ry - 4 + Math.sin(a) * d * 0.6; if (y < ry - 12 && clipIn(x, y)) dot(sil.get(0.6), x, y, rr(0.15, 0.32)); }
         sil.flush(); silHi.flush(); white.flush(); goldHi.flush();
       }
-      // a mallorn leaf to either side of the roundel, on the rule
-      for (const s of [-1, 1]) {
-        const G = Foliage();
-        for (let k = 0; k < 5; k++) addLeaf(G, rx + s * (rad + 6 + k * 7), DH - 27.2 + (k % 2 ? 2.5 : -2.5), s > 0 ? (k % 2 ? 0.5 : -0.5) : Math.PI + (k % 2 ? -0.5 : 0.5), 6.5, 0.36, 1, 'lit');
-        flushFoliage(G, 1, 'lit');
-      }
+      C.restore(); M.restore();
       // the top: a small star of Eärendil in a lozenge
       { const Lz = new Path2D(); poly(Lz, [500, 509, 500, 491], [16, 27.2, 38.4, 27.2], 4); erase(Lz); stroke(goldHi.get(0.95), [500, 16, 509, 27.2, 500, 38.4, 491, 27.2, 500, 16], 0.5, 0.001, 0.001); goldHi.flush(); star(500, 27.2, 6); }
       yield;
@@ -2007,7 +2163,7 @@
       }
       return out;
     }
-    const specks = lampsOf((L) => L.kind === 'speck');
+    const specks = lampsOf((L) => L.kind === 'speck' && !L.late);
     tasks.push(function* () { for (const L of specks) drawLamp(L, 0.8); yield; });
     const treePass = (T) => function* () {
       yield* drawTrunk(T);
@@ -2046,6 +2202,7 @@
     for (const T of far) tasks.push(treePass(T));
     for (const T of back) tasks.push(treePass(T));
     const groundLamps = lamps.filter((L) => !assigned.has(L) && L.kind !== 'speck');
+    const handLamps = lamps.filter((L) => L.late);
     tasks.push(drawHill);
     tasks.push(treePass(L1));
     tasks.push(treePass(R1));
@@ -2076,6 +2233,9 @@
     tasks.push(function* () {
       drawFountain();
       for (const L of groundLamps) if (L.y < 1176) drawLamp(L);
+      for (const G of GROUPS) for (const f of G.figs.slice().sort((a, b) => a.y - b.y)) figure(f.x, f.y, f.h, chance(0.3) ? 'elfbow' : 'elf', 0);
+      sil.flush(); silHi.flush(); white.flush(); goldHi.flush();
+      for (const L of handLamps) drawLamp(L, 1);
       drawFellowship();
       yield;
     });
@@ -2426,7 +2586,6 @@ void main(){
       }
       if (dead) return;
       art = A;
-      window.__lorienArt = A; // DEBUG
       if (viewer) viewer.upload(A.ink, A.met);
       layout();
       need = true;

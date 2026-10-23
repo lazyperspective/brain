@@ -133,7 +133,7 @@
    * The king's own left hand (raised) is on the viewer's right (+x); the right hand holds the
    * axe (-x). Heights z are in the same units (towards the viewer).
    */
-  function kingDesign(side, rnd, turn) {
+  function kingDesign(side, rnd, turn, headScale) {
     const P = [];
     const M = (o) => { P.push(Object.assign({ op: 'max' }, o)); };
     const A = (o, on) => { P.push(Object.assign({ op: 'add', on }, o)); };
@@ -154,8 +154,26 @@
     }
     /* the body: a mail coat under a long robe that falls to the feet in deep folds */
     M({ k: 'poly', p: [[-262, 404], [262, 404], [300, 520], [282, 700], [240, 880], [240, 1060], [256, 1260], [270, 1480], [284, 1720], [-284, 1720], [-270, 1480], [-256, 1260], [-240, 1060], [-240, 880], [-282, 700], [-300, 520]], z: 40, b: 100, rb: 230, part: TORSO });
-    for (let q = -5; q <= 5; q++) A({ k: 'cap', p: [[q * 40 + 8, 960 + Math.abs(q) * 6], [q * 54 + 6, 1720]], r: [8, 22], b: 10 }, bit(TORSO));
-    for (let q = -4; q <= 4; q++) C({ k: 'cap', p: [[q * 40 + 28, 1000], [q * 54 + 33, 1720]], r: [3, 8], b: 7 }, bit(TORSO));
+    // drapery: folds of every width hang from the belt, fan out over the advanced left knee, are swept
+    // aside by the axe arm, and break and pool where the hem meets the plinth
+    A({ k: 'ell', c: [122, 1390], rx: 86, ry: 150, b: 22 }, bit(TORSO));
+    const folds = [];
+    for (let x = -262; x < 262;) {
+      const w = 12 + rnd() * rnd() * 46, xc = x + w / 2;
+      folds.push({ xc, w });
+      x += w + 2 + rnd() * 10;
+    }
+    for (const f of folds) {
+      const top = 948 + rnd() * 50 + (Math.abs(f.xc) > 200 ? 30 : 0);
+      const knee = f.xc > 20 && f.xc < 240 ? (f.xc - 122) * 0.55 : 0;            // radiating from the knee
+      const sweep = f.xc < -150 ? -26 - rnd() * 20 : 0;                            // pushed by the axe arm
+      const bx = f.xc * 1.08 + knee + sweep + (rnd() - 0.5) * 10;
+      const mid = [lerp(f.xc, bx, 0.45) + knee * 0.4 + (rnd() - 0.5) * 12, lerp(top, 1720, 0.5)];
+      const deep = rnd() < 0.3 ? 4 + rnd() * 4 : 9 + rnd() * 12;                   // some broad and flat, some tight
+      A({ k: 'cap', p: [[f.xc, top], mid, [bx, 1712]], r: [f.w * 0.32, f.w * 0.62], b: deep }, bit(TORSO));
+      if (rnd() < 0.75) C({ k: 'cap', p: [[f.xc + f.w * 0.55, top + 40], [mid[0] + f.w * 0.6, mid[1]], [bx + f.w * 0.66, 1716]], r: [2.4, 5 + rnd() * 3], b: 6 + rnd() * 8 }, bit(TORSO));
+    }
+    for (let q = 0; q < 7; q++) A({ k: 'ell', c: [-250 + q * 82 + (rnd() - 0.5) * 30, 1706 + rnd() * 10], rx: 26 + rnd() * 26, ry: 16 + rnd() * 8, b: 8 + rnd() * 6 }, bit(TORSO));
     // breastplate, belt, buckle, gorget
     A({ k: 'poly', p: [[-196, 560], [196, 560], [205, 700], [170, 860], [-170, 860], [-205, 700]], b: 9, rb: 14 }, bit(TORSO));
     A({ k: 'cap', p: [[0, 590], [0, 850]], r: [26, 30], b: 7 }, bit(TORSO));
@@ -251,9 +269,9 @@
     M({ k: 'cap', p: [[-62, 182], [-30, 186], [-8, 197]], r: [11, 13], z: 130, b: 11, part: FACE });
     M({ k: 'cap', p: [[8, 197], [30, 186], [62, 182]], r: [13, 11], z: 130, b: 11, part: FACE });
     for (const sx of [-1, 1]) {
-      C({ k: 'ell', c: [sx * 31, 211], rx: 20, ry: 11, b: 15 }, bit(FACE));
+      C({ k: 'ell', c: [sx * 31, 212], rx: 19, ry: 10, b: 9 }, bit(FACE));
       A({ k: 'ell', c: [sx * 31, 212], rx: 13, ry: 6.5, b: 9 }, bit(FACE));
-      A({ k: 'cap', p: [[sx * 45, 207], [sx * 31, 204], [sx * 18, 208]], r: [3, 3], b: 4 }, bit(FACE));
+      A({ k: 'cap', p: [[sx * 46, 207], [sx * 31, 205], [sx * 17, 209]], r: [5, 5], b: 8 }, bit(FACE));   // heavy, hooding lid
       cutLine([[sx * 8, 176], [sx * 6, 194]], 1.4, 3, bit(FACE), 0.7);
       cutLine([[sx * 48, 228], [sx * 56, 236]], 1.2, 2.5, bit(FACE), 0.5);
       cutLine([[sx * 46, 205], [sx * 31, 202], [sx * 17, 206]], 1.5, 3, bit(FACE), 0.8);
@@ -261,27 +279,29 @@
       A({ k: 'ell', c: [sx * 41, 238], rx: 21, ry: 16, b: 8 }, bit(FACE));
       cutLine([[sx * 14, 254], [sx * 26, 272], [sx * 30, 292]], 1.6, 4, bit(FACE), 0.8);  // nasolabial fold
     }
-    M({ k: 'cap', p: [[0, 192], [0, 254]], r: [8, 12.5], z: 134, b: 15, part: FACE });
-    M({ k: 'ell', c: [0, 256], rx: 15, ry: 11, z: 134, b: 16, part: FACE });
+    M({ k: 'cap', p: [[0, 192], [0, 254]], r: [9, 15], z: 134, b: 15, part: FACE });
+    M({ k: 'ell', c: [0, 256], rx: 18, ry: 12, z: 134, b: 16, part: FACE });
     C({ k: 'ell', c: [-8, 265], rx: 4.5, ry: 3, b: 7 }, bit(FACE));
     C({ k: 'ell', c: [8, 265], rx: 4.5, ry: 3, b: 7 }, bit(FACE));
     C({ k: 'ell', c: [R ? 5 : -4, 254], rx: R ? 11 : 8, ry: R ? 9 : 6, b: R ? 10 : 6 }, bit(FACE));   // the noses are worn away
     // moustache, mouth, beard
-    M({ k: 'cap', p: [[-3, 270], [-28, 280], [-50, 304]], r: [9, 6], z: 140, b: 8, part: BEARD });
-    M({ k: 'cap', p: [[3, 270], [28, 280], [50, 304]], r: [9, 6], z: 140, b: 8, part: BEARD });
+    M({ k: 'cap', p: [[-3, 270], [-30, 282], [-50, 310], [-58, 356]], r: [10, 6], z: 150, b: 9, part: BEARD });
+    M({ k: 'cap', p: [[3, 270], [30, 282], [50, 310], [58, 356]], r: [10, 6], z: 150, b: 9, part: BEARD });
     const beard = [[-62, 274], [-40, 282], [0, 288], [40, 282], [62, 274], [84, 352], [91, 432], [78, 516], [44, 582], [0, 600], [-44, 582], [-78, 516], [-91, 432], [-84, 352]];
-    M({ k: 'poly', p: beard, z: 116, b: 34, rb: 60, part: BEARD });
+    M({ k: 'poly', p: beard, z: 132, b: 34, rb: 60, part: BEARD });
     A({ k: 'ell', c: [0, 296], rx: 15, ry: 6, b: 4 }, bit(BEARD, FACE));
     cutLine([[-17, 290], [0, 292], [17, 290]], 2, 6, bit(BEARD, FACE), 1);
-    // beard locks: carved wavy strands, the two forks of the beard
-    for (let s = -6; s <= 6; s++) {
-      const pts = [];
-      const x0 = s * 12.5, ph = rnd() * TAU;
-      for (let y = 306; y <= 596 - Math.abs(s) * 9; y += 8) {
-        const spread = 1 + (y - 300) / 420;
-        pts.push([x0 * spread + Math.sin(y * 0.05 + ph + s * 0.7) * 3.5, y]);
+    // beard: rows of carved ringlets, each a small coiled lock, in layers down to the two forks
+    for (let y = 318, row = 0; y < 590; y += 23, row++) {
+      const half = y < 360 ? 70 : y < 500 ? 86 : 86 - (y - 500) * 0.55;
+      for (let x = -half + (row % 2) * 11; x <= half; x += 22) {
+        if (Math.abs(x) < 6 && y > 540) continue;
+        A({ k: 'ell', c: [x, y], rx: 10.5, ry: 11, b: 5 }, bit(BEARD));
+        const pts = [];
+        for (let a = 0; a < TAU * 1.25; a += 0.45) { const r = 9 * (1 - a / (TAU * 1.6)); pts.push([x + Math.cos(a + row) * r, y + Math.sin(a + row) * r * 1.05]); }
+        lines.push({ p: pts, w: 0.75, on: bit(BEARD) });
+        C({ k: 'cap', p: [[x - 9, y + 10], [x, y + 12], [x + 9, y + 10]], r: [2, 2], b: 4 }, bit(BEARD));
       }
-      if (pts.length > 2) cutLine(pts, 2.6, 5.5, bit(BEARD), 0.85);
     }
     C({ k: 'cap', p: [[0, 520], [0, 604]], r: [4, 12], b: 14 }, bit(BEARD));
 
@@ -290,6 +310,18 @@
     for (let x = -264; x <= 264; x += 12) hem.push([x, 1250 + Math.abs(x) * 0.06 + Math.sin(x * 0.12) * 5]);
     cutLine(hem, 3, 7, bit(TORSO), 1.1);
 
+    /* the head may be carved a little larger, so that the face carries from far below */
+    if (headScale && headScale !== 1) {
+      const HP = (1 << HELM) | (1 << CROWN) | (1 << FACE) | (1 << BEARD);
+      const hs = (p) => [p[0] * headScale, 330 + (p[1] - 330) * headScale];
+      for (const pr of P) {
+        const head = pr.op === 'max' ? (HP & (1 << pr.part)) : ((pr.on & HP) && !(pr.on & ~HP));
+        if (!head) continue;
+        if (pr.k === 'ell') { pr.c = hs(pr.c); pr.rx *= headScale; pr.ry *= headScale; }
+        else { pr.p = pr.p.map(hs); if (pr.k === 'cap') pr.r = pr.r.map((r) => r * headScale); if (pr.rb) pr.rb *= headScale; if (pr.cyl) pr.cyl *= headScale; }
+      }
+      for (const L of lines) if ((L.on & HP) && !(L.on & ~HP)) L.p = L.p.map(hs);
+    }
     /* proportion: the body below the shoulders is drawn out, so the kings stand eight heads high */
     const SK = 1.5, st = (y) => (y <= 400 ? y : 400 + (y - 400) * SK);
     for (const pr of P) {
@@ -306,6 +338,22 @@
     }
     M({ k: 'poly', p: [[-520, foot + 54], [520, foot + 54], [540, foot + 110], [530, foot + 190], [-530, foot + 190], [-540, foot + 110]], z: 0, b: 30, rb: 30, part: PLINTH });
     for (const yy of [foot + 78, foot + 110, foot + 150]) cutLine([[-530, yy], [530, yy]], 2.6, 7, bit(PLINTH), 1);
+    // a worn inscription in an old script runs along the band, and a running scroll below it
+    for (let x = -500; x < 500; x += 24 + rnd() * 10) {
+      if (rnd() < 0.16) { x += 30; continue; }                       // lost to the weather
+      const y0 = foot + 86, y1 = foot + 104, kind = (rnd() * 4) | 0;
+      cutLine([[x, y0 - (kind === 1 ? 4 : 0)], [x + 1, y1 + (kind === 2 ? 5 : 0)]], 2, 6, bit(PLINTH), 1.4);
+      const bow = [];
+      for (let a = -1.4; a <= 1.4; a += 0.35) bow.push([x + 2 + Math.cos(a) * 8, (kind % 2 ? y0 + 6 : y1 - 6) + Math.sin(a) * 6]);
+      cutLine(bow, 1.8, 5, bit(PLINTH), 1.2);
+      if (kind === 3) { const b2 = bow.map((p) => [p[0] + 9, p[1]]); cutLine(b2, 1.8, 5, bit(PLINTH), 1.2); }
+      if (rnd() < 0.4) cutLine([[x - 2, y0 - 5], [x + 5, y0 - 8], [x + 10, y0 - 5]], 1, 2, bit(PLINTH), 0.5);
+    }
+    {
+      const pts = [];
+      for (let x = -520; x <= 520; x += 3) { const ph = (x + 520) / 44 * TAU; pts.push([x + Math.sin(ph) * 6, foot + 168 + Math.cos(ph) * 10]); }
+      cutLine(pts, 1.8, 4, bit(PLINTH), 0.8);
+    }
 
     /* three-quarter turn: the nearer a part stands out, the further it slides; the far side narrows */
     const sn = Math.sin(turn), cf = Math.cos(turn * 1.6), cn = 1 + Math.abs(sn) * 0.1;
@@ -673,7 +721,7 @@
           { side: 1, turn: -0.4, Ya: 760, Yb: 1700, ax0: 1968, ax1: 2006, sx0: 0.32, sx1: 0.42, sag0: 22, sag1: 9, sc: 0.42 },
         ];
         for (const T of KT) {
-          const d = kingDesign(T.side, rnd, T.turn);
+          const d = kingDesign(T.side, rnd, T.turn, T.side < 0 ? 1.1 : 1);
           T.H = d.foot + 190;
           const GA = 0.78, GB = 0.22;
           T.g = (t) => GA * t + GB * t * t;
@@ -803,8 +851,19 @@
           }
           const pd = { id: K.side < 0 ? PEDL : PEDR, side: K.side, sc, wl, cw: 0, slope: 0, pts, edge, inTop: inner[0], inBase: innerBase[0], rowEdge: new Float32Array(FH).fill(NaN) };
           pd.top = Math.min(...top.map((p) => p[1])); pd.plinth = pd.top + 10;
+          // the beds of the rock all dip one way; joints cross them at right angles
+          pd.dip = K.side < 0 ? 0.11 : 0.09;
           pd.ledges = [];
-          for (let y = pd.top + (110 + rnd() * 60) * sc; y < wl - 120 * sc; y += (130 + rnd() * 160) * sc) pd.ledges.push({ y, tilt: (rnd() - 0.5) * 0.28, d: (9 + rnd() * 10) * sc, u: (22 + rnd() * 30) * sc });
+          for (let y = pd.top + (100 + rnd() * 50) * sc; y < wl - 100 * sc; y += (110 + rnd() * 150) * sc) pd.ledges.push({ y, tilt: pd.dip + (rnd() - 0.5) * 0.03, d: (8 + rnd() * 12) * sc, u: (18 + rnd() * 34) * sc, js: (50 + rnd() * 90) * sc, jo: rnd() });
+          // blocks fallen from the pinnacle into the river at its foot
+          pd.blocks = [];
+          for (let q = 0; q < (K.side < 0 ? 7 : 4); q++) {
+            const w = (50 + rnd() * 110) * sc, h = (30 + rnd() * 70) * sc;
+            const bx = innerBase[0] - K.side * (rnd() * 280 - 60) * sc, by = wl + (rnd() * 26 - 4) * sc;
+            const a = (rnd() - 0.5) * 0.5;
+            const pts2 = [[-w / 2, 0], [-w * 0.45, -h * 0.8], [-w * 0.1, -h], [w * 0.4, -h * 0.9], [w / 2, -h * 0.3], [w * 0.48, 0]].map((p) => [bx + p[0] * Math.cos(a) - p[1] * Math.sin(a), by + p[0] * Math.sin(a) + p[1] * Math.cos(a)]);
+            pd.blocks.push(pts2);
+          }
           fillPoly(pts, (j, i0, i1, xa, xb) => {
             for (let i = i0; i <= i1; i++) {
               const k = j * FW + i; oid[k] = pd.id; dep[k] = K.side < 0 ? 0.03 : 0.12; part[k] = 0;
@@ -813,6 +872,7 @@
             }
             pd.rowEdge[j] = (pd.side < 0 ? xb : xa) * F;
           });
+          for (const bp of pd.blocks) fillPoly(bp, (j, i0, i1, xa, xb) => { for (let i = i0; i <= i1; i++) { const k = j * FW + i; oid[k] = pd.id; dep[k] = 0.03; aux[k] = (i - xa) * F + 300; auxX[k] = (xb - xa) * F; } });
           peds.push(pd);
         }
         await breathe();
@@ -845,6 +905,7 @@
               const flake = fbm(dx / 40, dy / 40, NS + 25 + o, 3);
               if (flake > 0.7) h -= 3;
               h -= Math.pow(vn(dx / 7, dy / 90, NS + 33 + o), 4) * 5;
+              if (part[k] === 13) h = Hf[k] + (h - Hf[k]) * 0.3;   // the plinth's carving is better kept
               Hf[k] = h * s;
             } else if (isPed(o)) {
               // fractured rock: planar facets at two scales; the plinth is a worn moulding
@@ -856,9 +917,17 @@
                 const band = ry < 19 ? -0.5 : ry < 40 ? 0.15 : ry < 64 ? 0.55 : ry < 82 ? -0.1 : 0.5;
                 nx = (fbm(x / 30, y / 10, NS + 41, 2) - 0.5) * 0.6 + (onSide ? -pd.side * 1.4 : 0); ny = band; nz = onSide ? 0.5 : 1;
               } else {
-                const f1 = facet(x / (130 * sc), y / (520 * sc), NS + 43), f2 = facet(x / (34 * sc), y / (90 * sc), NS + 45);
-                const h1 = hash(f1.id, 1, NS), h2 = hash(f1.id, 2, NS), h3 = hash(f2.id, 3, NS), h4 = hash(f2.id, 4, NS);
-                nx = (h1 - 0.5) * 0.55 + (h3 - 0.5) * 0.16; ny = (h2 - 0.6) * 0.22 + (h4 - 0.5) * 0.12; nz = 1;
+                // which bed, and which jointed block of it, this point lies in
+                let li = 0, Lb = null;
+                for (const L of pd.ledges) { if (L.y + L.tilt * (x - pd.inTop) < y) { li++; Lb = L; } }
+                const js = Lb ? Lb.js : 90 * sc, jo = Lb ? Lb.jo : 0.3;
+                const jx = (x + (y - pd.top) * pd.dip * -1) / js + jo + (vn(y / 60, li, NS + 44) - 0.5) * 0.25;
+                const bid = li * 977 + Math.floor(jx);
+                const h1 = hash(bid, 1, NS), h2 = hash(bid, 2, NS);
+                nx = (h1 - 0.5) * 0.45; ny = (h2 - 0.55) * 0.25 - pd.dip; nz = 1;
+                const fj = jx - Math.floor(jx);
+                const joint = fj < 0.035 || fj > 0.985;
+                if (fj < 0.12) nx += -0.35 * (1 - fj / 0.12);   // the block's edge is rounded by the weather
                 // the pinnacle turns like a rough column: lit on the sun side, falling into shadow on the other
                 const W = Math.min(auxX[k], 1400 * sc), q = pd.side < 0 ? 1 - 2 * Math.min(1, aux[k] / W) : -1 + 2 * Math.min(1, aux[k] / W);
                 nx += q * 0.9 + (aux[k] < 40 * sc ? -pd.side * 0.8 : 0);
@@ -868,7 +937,7 @@
                   if (yl > -L.d && yl < 0) { ny = -1.2; nx *= 0.4; break; }
                   if (yl >= 0 && yl < L.u) { ny = 0.9 + yl / L.u * -0.6; nz = 0.6; break; }
                 }
-                cav[k] = (f1.edge < 0.03 ? 1 : 0) + (f2.edge < 0.025 ? 0.4 : 0);
+                cav[k] = joint ? 1 : 0;
               }
               const l = Math.hypot(nx, ny, nz);
               lam[k] = Math.max(0, (nx * Lx + ny * Ly + nz * Lz) / l);
@@ -879,12 +948,11 @@
               const wy = (HY - y) * z;   // height above the water, as if near
               const f1 = facet(z * 4, wy / 420, NS + 51 + o), f2 = facet(z * 11, wy / 140, NS + 53);
               const h1 = hash(f1.id, 1, NS), h2 = hash(f1.id, 2, NS), h3 = hash(f2.id, 3, NS);
-              let nx = (sideL ? 0.9 : -0.9) + (h1 - 0.5) * 0.6 + (h3 - 0.5) * 0.18, ny = (h2 - 0.6) * 0.3, nz = 0.7;
+              let nx = (sideL ? 0.9 : -0.9) + (h1 - 0.5) * 0.22 + (vn(z * 9, wy / 900, NS + 57) - 0.5) * 0.5 + (h3 - 0.5) * 0.1, ny = (h2 - 0.6) * 0.15, nz = 0.7;
               const ob = o - (sideL ? CLIFF : CLIFF + 15);
               if (ob >= 1 && ob <= 8) {   // buttress: its front faces us, its river side turns away
                 const dd = Hf[k];
-                if (dd < 60) nx = (sideL ? 1.1 : -1.1) + (h1 - 0.5) * 0.5;
-                else { nx = (h1 - 0.5) * 0.7; nz = 1; }
+                if (dd < 40) nx = (sideL ? 1.2 : -1.2) + (h1 - 0.5) * 0.4;   // only its river edge turns; the rest is of a piece with the wall
               }
               if (ob === 9) { nx = (sideL ? 0 : -0.55) + (h1 - 0.5) * (sideL ? 1.0 : 0.45) + (h3 - 0.5) * 0.15; ny = (h2 - 0.6) * 0.3; nz = 1; }
               const l = Math.hypot(nx, ny, nz);
@@ -967,7 +1035,7 @@
           for (let k = 0; k < N; k++) if (isKing(oid[k])) cav[k] = clamp((b2[k] - Hf[k]) * 0.2, -1, 1.5);
           // the big planes of light and shade, before the detail
           const ls = boxBlur(lam, 5);
-          for (let k = 0; k < N; k++) if (isKing(oid[k])) lam[k] = ls[k] * 0.6 + lam[k] * 0.4;
+          for (let k = 0; k < N; k++) if (isKing(oid[k])) { const pt = part[k], w = pt >= 1 && pt <= 4 ? 0.15 : pt === 9 ? 0.25 : 0.6; lam[k] = ls[k] * w + lam[k] * (1 - w); }
         }
         await breathe();
         function boxBlur(src, r) {
@@ -1067,8 +1135,9 @@
                 const contour = Math.atan2(sgy[k], sgx[k]) + Math.PI / 2;
                 a = smooth(0.02, 0.2, g2) > 0.5 ? contour : -0.95;
                 if (part[k] === 7) a = -1.48;          // cloak: along the folds
+                if (part[k] === 13) t = t * 0.65 + 0.04;   // the plinth face, in the low sun
                 if (part[k] === 10) a = -1.57;         // haft
-                if ((part[k] === 5 && dy > 950) || part[k] === 12) a = -1.5;
+                if (part[k] === 12) a = -1.5;
                 if (part[k] === 7 && Math.abs(dx) < 215 && dy > 1150) t += 0.4;
               } else if (isPed(o)) {
                 const pd = o === PEDL ? peds[0] : peds[1];
@@ -1157,7 +1226,7 @@
               if (yv > pd.plinth && yv < pd.plinth + 60 * pd.sc) { const u = smooth(pd.plinth + 60 * pd.sc, pd.plinth + 3, yv); add(k, SEP, 0.22 * u); add(k, ULT, 0.14 * u); }
               if (Math.abs(aux[k] - pd.cw) < 5 && pd.side < 0) lift[k] = Math.max(lift[k], 0.35);   // the lit arris
               if (lit > 0.72) { add(k, OCH, 0.12); add(k, ROS, 0.04); }
-              dry[k] = (lit > 0.55 ? 0.55 : 0.15) * smooth(0.58, 0.7, vn(x / 15, y / 120, NS + 111));
+              dry[k] = (lit > 0.6 ? 0.35 : 0) * smooth(0.64, 0.72, vn(x / 15, y / 120, NS + 111));
             } else if (isKing(o)) {
               const lit = lam[k] * (1 - 0.9 * shd[k]);
               const dyk = aux[k], dxk = auxX[k];
@@ -1169,7 +1238,9 @@
               if (sh > 0.5) { const w = smooth(0.5, 0.512, sh), e = Math.exp(-(sh - 0.5) / 0.035); add(k, ULT, w * (0.2 + 0.1 * e)); add(k, SEP, w * (0.1 + 0.06 * e)); add(k, PAY, w * 0.1); }
               if (sh > 0.76) { const w = smooth(0.76, 0.772, sh); add(k, SEP, w * 0.2); add(k, PAY, w * 0.12); add(k, ULT, w * 0.06); }
               if (lit > 0.58) { const w = smooth(0.58, 0.62, lit); add(k, OCH, w * 0.14); add(k, ROS, w * 0.07); add(k, SIE, w * 0.03); }
-              if (part[k] === 7 && Math.abs(dxk) < 215 && dyk > 1150) { add(k, SEP, 0.16); add(k, PAY, 0.12); add(k, ULT, 0.1); }
+              // rain has run down the troughs of the folds, and moss has taken the upturned palm
+              if (part[k] === 5 && dyk > 1300 && cav[k] > 0.25) { const s2 = vn(x / 4, y / 200, NS + 118); if (s2 > 0.45) { add(k, SEP, (s2 - 0.45) * 0.5 * Math.min(1, cav[k])); add(k, GRN, 0.04); } }
+              if (part[k] === 9 && dyk < 90) { const ms = vn(x / 7, y / 7, NS + 119) * 0.6 + vn(x / 2.5, y / 2.5, NS + 120) * 0.4; if (ms > 0.52) { add(k, GRN, (ms - 0.52) * 1.2); add(k, OCH, (ms - 0.52) * 0.5); } }
               // stains: rain runnels, orange lichen, moss on what faces the sky
               const run = vn(x / 7, y / 150, NS + 105 + o);
               if (run > 0.8) add(k, SEP, (run - 0.8) * 0.5);
@@ -1282,7 +1353,7 @@
         /* nests on the kings, and what the birds leave below them */
         const nests = [];
         const nestAt = [
-          [[2, -70, 100, 1], [6, 238, 380, 1.3], [11, -470, 190, 0.9], [6, -236, 380, 1]],
+          [[2, -70, 100, 1], [2, 48, 0, 0.75], [6, 238, 380, 1.3], [11, -470, 190, 0.9], [6, -236, 380, 1]],
           [[2, 26, 100, 1.1], [6, -236, 380, 1.1], [6, 236, 380, 0.9]],
         ];
         kings.forEach((K, q) => {
@@ -1308,6 +1379,36 @@
             }
           }
         });
+
+        /* a thread of falling water down the far cliff, lost in the mist below */
+        const fall = [];
+        {
+          let x = 2160 + (rnd() - 0.5) * 60, y = 0;
+          for (let yy = 40; yy < 1200; yy += 4) { const k = idx(x, yy); if (k >= 0 && isCliff(oid[k])) { y = yy + 6; break; } }
+          if (y > 0) {
+            for (; y < 2300; y += 1) {
+              x += ((vn(y / 90, 3, NS + 161) - 0.5) * 1.6 + (y > 1500 ? 0.15 : 0)) / 3;
+              const k = idx(x, y); if (k < 0) break;
+              if (isKing(oid[k]) || isPed(oid[k])) break;
+              const w = 1.2 + (y - 300) / 800, flick = 0.75 + 0.25 * vn(y / 7, 1, NS + 162);
+              for (let o = -w - 1; o <= w + 1; o += 0.5) { const k2 = idx(x + o * F, y); if (k2 >= 0) lift[k2] = Math.max(lift[k2], 0.9 * flick * clamp(1 - Math.abs(o) / (w + 1), 0, 1)); }
+              if ((y & 3) === 0) fall.push([x, y]);
+            }
+          }
+        }
+
+        /* standing waves where the river is squeezed between the pinnacles, and the currents drawn into the gorge */
+        const waves = [];
+        for (let q = 0; q < 26; q++) {
+          const t = rnd(), y = lerp(2470, 3050, t * t), dyw = y - HY;
+          const cx = VPX + (y - HY) * 0.05 + (rnd() - 0.5) * dyw * 0.9;
+          const w = dyw * (0.12 + rnd() * 0.16), hgt = dyw * 0.03;
+          waves.push({ cx, y, w, hgt });
+          for (let s2 = -1; s2 <= 1; s2 += 2) for (let u = 0; u < 1; u += 0.02) {
+            const x = cx + s2 * u * w, yy = y + u * hgt * 2 - Math.sin(u * Math.PI) * hgt * 0.4;
+            const k = idx(x, yy); if (k >= 0 && oid[k] === WATER) lift[k] = Math.max(lift[k], 0.55 * (1 - u));
+          }
+        }
 
         /* trees clinging to the crests and ledges of the gorge */
         const trees = [];
@@ -1342,16 +1443,28 @@
             if (k >= 0 && isCliff(oid[k]) && mist[k] < 0.5) trees.push({ x, y, h: (10 + rnd() * 18) / z, kind: 1, z, ledge: true });
           }
         }
-        // tufts and bushes on the ledges of the pillars
+        // ferns, tufts and small birches rooted in the ledges and joints of the pinnacles
         for (const pd of peds) for (const L of pd.ledges) {
-          for (let q = 0; q < 7; q++) {
+          for (let q = 0; q < 9; q++) {
             const x = rnd() * RW, y = L.y + L.tilt * (x - pd.inTop) - 2;
             const k = idx(x, y);
-            if (k >= 0 && oid[k] === pd.id && mist[k] < 0.5) trees.push({ x, y, h: (8 + rnd() * 16) * pd.sc, kind: 1, z: 1 });
+            if (k < 0 || oid[k] !== pd.id || mist[k] > 0.55) continue;
+            const r = rnd();
+            trees.push({ x, y, h: (r < 0.2 ? 60 + rnd() * 70 : 12 + rnd() * 22) * pd.sc, kind: r < 0.2 ? 3 : r < 0.6 ? 2 : 1, z: 1, lean: pd.side < 0 ? 0.35 : -0.35 });
           }
         }
         for (const t of trees) {
-          const w = t.h * (t.kind ? 0.9 : 0.42);
+          if (t.kind >= 2) {
+            // ferns and birch crowns: a few small soft dabs rather than a shape
+            const cx = t.x + (t.kind === 3 ? (t.lean || 0) * t.h : 0), cy = t.y - (t.kind === 3 ? t.h : t.h * 0.4);
+            for (let q = 0; q < 6; q++) {
+              const dx = (rnd() - 0.5) * t.h * 0.5, dy = (rnd() - 0.5) * t.h * 0.3, r = t.h * (0.08 + rnd() * 0.08);
+              const pts = []; for (let a = 0; a < 7; a++) { const ang = a / 7 * TAU; pts.push([cx + dx + Math.cos(ang) * r * (0.7 + rnd() * 0.6), cy + dy + Math.sin(ang) * r * 0.7]); }
+              stampPoly(pts, (k) => { const f = 1 - mist[k] * 0.9; Cn[GRN][k] += 0.16 * f; Cn[OCH][k] += (t.kind === 3 ? 0.08 : 0.03) * f; Cn[SEP][k] += 0.04 * f; });
+            }
+            continue;
+          }
+          const w = t.h * (t.kind === 0 ? 0.42 : 0.9);
           stampPoly([[t.x - w / 2, t.y], [t.x + w / 2, t.y], [t.x + w * 0.1, t.y - t.h], [t.x - w * 0.1, t.y - t.h]], (k) => {
             const f = 1 - mist[k] * 0.9;
             Cn[GRN][k] += 0.22 * f; Cn[SEP][k] += 0.1 * f; Cn[PAY][k] += 0.08 * f; Cn[OCH][k] += 0.03;
@@ -1631,12 +1744,36 @@
             for (let t = 0; t < L;) { const st = 5 + rnd() * 9; a += (rnd() - 0.5) * 0.9; a = lerp(a, -Math.PI / 2, 0.2); x += Math.cos(a) * st; y += Math.sin(a) * st; t += st; k = idx(x, y); if (k < 0 || oid[k] !== pd.id) break; run2.push([x, y, 0.35 + rnd() * 0.4, fade(k)]); }
             drawRun(run2, 0.85);
           }
-          // the facet edges of the rock, felt for with short dark touches
-          for (let q = 0; q < 9000 * pd.sc; q++) {
-            const x = rnd() * RW, y = lerp(pd.plinth, pd.wl, rnd()), k = idx(x, y);
-            if (k < 0 || oid[k] !== pd.id || cav[k] < 0.9) continue;
-            const a = -1.57 + (rnd() - 0.5) * 2.6, L = 3 + rnd() * 7;
-            ln([x, y, x + Math.cos(a) * L, y + Math.sin(a) * L], 0.28 * fade(k), 1.1);
+          // joints crossing each bed at right angles to its dip
+          const beds = [{ y: pd.top, tilt: pd.dip, js: 90 * pd.sc, jo: 0.3 }, ...pd.ledges];
+          for (let b = 0; b < beds.length; b++) {
+            const L0 = beds[b], L1 = beds[b + 1] || { y: pd.wl, tilt: pd.dip };
+            const js = L0.js, jo = L0.jo;
+            for (let n = -40; n < 80; n++) {
+              if (rnd() < 0.3) continue;
+              const run = [];
+              for (let y = L0.y; y < L1.y + 40; y += 4) {
+                const x = (n - jo) * js + (y - pd.top) * pd.dip - (vn(y / 60, b, NS + 44) - 0.5) * 0.25 * js;
+                const yt = L0.y + L0.tilt * (x - pd.inTop), yb = L1.y + L1.tilt * (x - pd.inTop);
+                if (y < yt || y > yb) continue;
+                const k = idx(x, y);
+                if (k >= 0 && oid[k] === pd.id) run.push([x + (rnd() - 0.5), y, 0.55, fade(k)]); else if (run.length) break;
+              }
+              drawRun(run, 0.9);
+            }
+          }
+          for (const bp of pd.blocks) {
+            const run = [];
+            for (let q = 0; q < bp.length; q++) { const a = bp[q], c = bp[(q + 1) % bp.length]; for (let u = 0; u < 1; u += 0.1) { const x = lerp(a[0], c[0], u), y = lerp(a[1], c[1], u), k = idx(x, y); run.push([x, y, 0.85, k >= 0 ? fade(k) : 1]); } }
+            drawRun(run, 1);
+          }
+          // roots and hanging growth under the overhangs
+          for (const L of pd.ledges) for (let q = 0; q < 6; q++) {
+            let x = rnd() * RW, y = L.y + L.tilt * (x - pd.inTop) + 2;
+            const k0 = idx(x, y); if (k0 < 0 || oid[k0] !== pd.id) continue;
+            const pts = []; const n = 6 + ((rnd() * 12) | 0);
+            for (let s2 = 0; s2 < n; s2++) { pts.push(x, y); x += (rnd() - 0.5) * 3; y += 3 + rnd() * 2; }
+            ln(pts, 0.5 * fade(k0), 0.9);
           }
         }
         function hline(pd, y, w) {
@@ -1704,6 +1841,29 @@
             const pts = [];
             for (let q = 0; q <= 9; q++) { const u = q / 9, wd = (1 - u) * h * 0.24 + 0.6; pts.push(t.x + (q % 2 ? wd : -wd), t.y - h * (0.12 + u * 0.88)); }
             ln(pts, 0.55 * f, 1.1);
+          } else if (t.kind === 2) {
+            // a fern: arching fronds, each with its row of little leaflets
+            for (let q = 0; q < 7; q++) {
+              const a0 = -Math.PI / 2 + (q - 3) * 0.38 + (rnd() - 0.5) * 0.2, L = h * (0.6 + rnd() * 0.5), pts = [];
+              let px = t.x, py = t.y, a = a0;
+              for (let s2 = 0; s2 <= 8; s2++) {
+                pts.push(px, py);
+                if (s2 > 1 && s2 < 8) { const ll = L * 0.11 * (1 - s2 / 9); ln([px, py, px + Math.cos(a - 1.2) * ll, py + Math.sin(a - 1.2) * ll], 0.4 * f, 0.8); ln([px, py, px + Math.cos(a + 1.2) * ll, py + Math.sin(a + 1.2) * ll], 0.4 * f, 0.8); }
+                px += Math.cos(a) * L / 8; py += Math.sin(a) * L / 8; a += (a0 < -Math.PI / 2 ? -0.12 : 0.12);
+              }
+              ln(pts, 0.5 * f, 0.9);
+            }
+          } else if (t.kind === 3) {
+            // a small birch leaning out from a crack: pale trunk with dark marks, a light crown
+            const lean = t.lean || 0.3, tx2 = t.x + lean * h, ty2 = t.y - h;
+            const tr = [t.x, t.y, lerp(t.x, tx2, 0.5) + 2, lerp(t.y, ty2, 0.5), tx2, ty2];
+            ln(tr, 0.55 * f, 1.4); ln([t.x + 2.2, t.y, tx2 + 1.5, ty2], 0.35 * f, 0.9);
+            for (let q = 0; q < 6; q++) { const u = 0.1 + rnd() * 0.8, bx = lerp(t.x, tx2, u), by = lerp(t.y, ty2, u); ln([bx - 1.5, by, bx + 1.5, by + 0.5], 0.7 * f, 1); }
+            for (let q = 0; q < 26; q++) {
+              const cx = tx2 + (rnd() - 0.5) * h * 0.55, cy = ty2 + (rnd() - 0.3) * h * 0.4, r = 2 + rnd() * 3;
+              ln([cx - r, cy, cx, cy - r * 0.6, cx + r, cy], 0.38 * f, 0.9);
+            }
+            for (let q = 0; q < 3; q++) { const pts = []; let rx = t.x, ry = t.y; for (let s2 = 0; s2 < 9; s2++) { pts.push(rx, ry); rx += (rnd() - 0.5) * 6 - lean * 2; ry += 4 + rnd() * 3; } ln(pts, 0.45 * f, 1); }
           } else {
             for (let q = 0; q < 6; q++) {
               const cx = t.x + (rnd() - 0.5) * h * 0.8, cy = t.y - rnd() * h * 0.7, r = h * (0.15 + rnd() * 0.2);
@@ -1792,6 +1952,38 @@
           }
         }
         await pen.flush(gctx);
+        // the waterfall thread: two faint edges
+        for (let q = 0; q + 6 < fall.length; q += 6) {
+          const a = fall[q], b = fall[q + 6], k = idx(a[0], a[1]), w = 2 + (a[1] - 300) / 450;
+          if (k < 0) continue;
+          ln([a[0] - w, a[1], b[0] - w, b[1]], 0.18 * fade(k), 0.8);
+          if (rnd() < 0.5) ln([a[0] + w, a[1], b[0] + w, b[1]], 0.14 * fade(k), 0.8);
+        }
+        // standing waves: chevrons pointing up the gorge, and the currents drawn in long lines
+        for (const wv of waves) {
+          for (const s2 of [-1, 1]) {
+            const pts = [];
+            for (let u = 0; u <= 1.001; u += 0.1) pts.push(wv.cx + s2 * u * wv.w, wv.y + u * wv.hgt * 2 - Math.sin(u * Math.PI) * wv.hgt * 0.4);
+            ln(pts, 0.5, 1 + (wv.y - HY) * 0.002);
+            ln(pts.map((v, i) => v + (i % 2 ? wv.hgt * 0.5 : 0)), 0.25, 1);
+          }
+        }
+        for (let q = 0; q < 40; q++) {
+          const x0 = VPX + (rnd() - 0.5) * 1800, pts = [];
+          for (let t = 0; t <= 1; t += 0.04) {
+            const y = lerp(RH - 40, HY + 20, t), x = lerp(x0, VPX + (x0 - VPX) * 0.08, Math.pow(t, 0.6)) + Math.sin(t * 9 + q) * 6 * (1 - t);
+            const k = idx(x, y); if (k < 0 || oid[k] !== WATER) { if (pts.length > 6) break; pts.length = 0; continue; }
+            pts.push(x, y);
+          }
+          if (pts.length > 6) ln(pts, 0.12 + rnd() * 0.1, 0.9);
+        }
+        // moss on the raised palm
+        for (const K of kings) for (let q = 0; q < 2500; q++) {
+          const x = rnd() * RW, y = rnd() * 900, k = idx(x, y);
+          if (k < 0 || oid[k] !== K.id || part[k] !== 9 || aux[k] > 90) continue;
+          if (vn(x / 7, y / 7, NS + 119) * 0.6 + vn(x / 2.5, y / 2.5, NS + 120) * 0.4 < 0.54) continue;
+          ln([x, y, x + 1.2, y - 1.2], 0.45, 1.1);
+        }
         mark('waterlines');
 
         /* the boats and the Fellowship */
@@ -1852,6 +2044,11 @@
             fillShape(abs(hp), 0.45); ln(P(hp), 0.8, 1.1);
             for (let q = 0; q < 4; q++) ln(P([[0.0, -0.97 + q * 0.02], [-0.08, -0.96 + q * 0.03], [-0.15 - q * 0.02, -0.92 + q * 0.04]]), 0.55, 0.9);
             ln(P([[0.06, -0.96], [0.1, -1.0]]), 0.6, 0.9);    // the lifted face
+            ln(P([[-0.1, -0.86], [-0.13, -0.8], [-0.05, -0.79], [0.04, -0.83]]), 0.7, 1);   // the hood, cast back
+            ln(P([[-0.08, -0.44], [-0.3, -0.06]]), 0.85, 1.4);                              // the sword at his side
+            ln(P([[-0.13, -0.45], [-0.03, -0.41]]), 0.8, 1.1);
+            ln(P([[-0.09, -0.46], [-0.06, -0.52]]), 0.8, 1.2);
+            for (const fx2 of [-0.12, -0.04, 0.05]) ln(P([[fx2, -0.7], [fx2 - 0.06, -0.3], [fx2 - 0.1, -0.03]]), 0.35, 0.8);   // folds of the grey cloak
             // the paddle held upright as a staff
             ln(P([[0.17, -1.12], [0.14, 0.15]]), 0.8, 1.3);
             ln(P([[0.1, -0.74], [0.17, -0.62], [0.16, -0.56]]), 0.7, 1.1);
@@ -1862,7 +2059,9 @@
             ln(P(hump), 0.85, 1.2);
             // the hood's opening, and a lit edge of grey cloak towards the sun
             ln(P([[0.02, -0.84], [0.14, -0.74], [0.16, -0.6]]), 0.35, 0.8);
-            if (who === 'boromir' || who === 'legolas' || who === 'gimli') {
+            ln(P([[-0.2, -0.55], [-0.28, -0.25], [-0.32, -0.02]]), 0.3, 0.8);
+            if (who === 'gimli') ln(P([[-0.1, -0.5], [0.0, -0.2], [0.1, -0.5]]), 0.5, 0.9);   // the beard over the cloak
+            if (who === 'boromir' || who === 'legolas' || who === 'gimli' || who === 'sam' || who === 'merry') {
               const s = who === 'legolas' ? 1 : -1;
               ln(P([[0.2 * s, -0.6], [0.7 * s, -0.25], [1.25 * s, 0.75]]), 0.75, 1.2);
               ln(P([[1.2 * s, 0.7], [1.32 * s, 1.05], [1.38 * s, 0.98], [1.27 * s, 0.66]]), 0.6, 1);
@@ -1880,6 +2079,13 @@
             ln([cx - Math.cos(ta) * tl / 2, cy - Math.sin(ta) * tl / 2, cx + Math.cos(ta) * tl / 2, cy + Math.sin(ta) * tl / 2], 0.5, 0.9);
           }
           ln([n.x - w * 0.3, n.y - h * 0.1, n.x, n.y + h * 0.15, n.x + w * 0.3, n.y - h * 0.1], 0.8, 1.8 * n.s);
+          // the young, beaks open, over the rim
+          for (let q = 0; q < 3; q++) {
+            const cx = n.x + (q - 1) * w * 0.22, cy = n.y - h * 0.45 - rnd() * h * 0.2, r = 2.2 * n.s + 0.6;
+            const hd = []; for (let m2 = 0; m2 <= 8; m2++) { const a = m2 / 8 * TAU; hd.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+            ln(hd, 0.7, 1.1);
+            ln([cx - r * 0.5, cy - r * 0.7, cx + (q - 1) * r * 0.4, cy - r * 2.4, cx + r * 0.5, cy - r * 0.7], 0.75, 0.9);
+          }
         }
         const birds = [];
         for (let q = 0; q < 22; q++) {
