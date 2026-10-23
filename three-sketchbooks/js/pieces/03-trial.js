@@ -533,7 +533,8 @@
       const eyx = 0.245 - tn * 0.08;
       // the face in planes: a mid tone over it all, the shadowed side of the jaw and neck, the eye socket
       B.block(M([[0.3, -0.27], [0.36, -0.075], [0.45, 0.12], [0.36, 0.2], [0.34, 0.29], [0.32, 0.4], [0.24, 0.49], [0.1, 0.5], [-0.09, 0.36], [-0.13, 0.08], [-0.06, -0.14], [0.08, -0.26]]),
-        { col: sk, ang: ang + B.rnd(-8, 8), w: hh * 0.11, gap: 0.6, lvl: 0, a: 0.92, z, over: 0.05, skip: 0, sp: 1400, pause: 10 });
+        { col: sk, ang: ang + B.rnd(-8, 8), w: hh * 0.11, gap: 0.55, lvl: 0, a: 0.92, z, over: 0.05, skip: 0, sp: 1400, pause: 10, streak: false });
+      B.smudge([M([[0.2, -0.25], [0.2, 0.0], [0.15, 0.3]])], { col: sk, w: hh * 0.3, a: 0.35, z, sp: 900 });
       B.block(M([[-0.12, 0.1], [0.06, 0.12], [0.2, 0.3], [0.18, 0.46], [0.04, 0.48], [-0.1, 0.36]]), { col: COL.skinmid, ang: ang - 20, w: hh * 0.07, gap: 0.8, lvl: 2, a: 0.75, z, over: 0, skip: 0, sp: 1200, pause: 10 });
       B.block(M([[-0.25, 0.32], [0.1, 0.5], [0.15, 0.62], [0.16, 0.74], [-0.22, 0.74]]), { col: COL.skinmid, ang, w: hh * 0.09, gap: 0.8, lvl: 2, a: 0.75, z, over: 0, skip: 0, sp: 1200, pause: 10 });
       B.side([M([[0.22, -0.3], [0.28, -0.1], [0.3, 0.1], [0.26, 0.3]])], { col: COL.skinlt, w: hh * 0.1, lvl: 0, a: 0.85, z, sp: 900 });
@@ -786,7 +787,7 @@
         wall: { top: 120, bot: 720, x0: 0, x1: 1600 },
         focus: [900, 300],
         darks: [[880, 380, 220, 170], [1240, 220, 150, 130]],
-        notes: { head: [40, 64], A1: [470, 50], A2: [470, 88], B1: [830, 50], B2: [1452, 60], jury: [196, 154], steno: [1186, 882, 190], feather: [626, 978], sig: [40, 986] },
+        notes: { head: [40, 64], A1: [470, 50], A2: [470, 88], B1: [830, 50], B2: [40, 950], jury: [196, 154], steno: [1186, 882, 190], feather: [626, 978], sig: [40, 986] },
         targets: { juror: [58, 252], feather: [566, 948] },
       };
     }
@@ -1639,6 +1640,13 @@
       B.at('pros');
       B.side('1350,800 1376,846', { col: '#0e0e14', w: 12, lvl: 0, a: 0.7, z: 1.5, sp: 1400 });
     }
+    function gooseEyeColour(g) {
+      const e = g.head.eye;
+      B.at('goose');
+      B.pp([[e[0] - 1.6, e[1]], [e[0] + 1.6, e[1]]], { col: '#4f86c0', w: 3.6, lvl: 0, a: 0.95, z: 3, sp: 200 });
+      B.pen([[e[0] - 0.7, e[1]], [e[0] + 0.7, e[1] + 0.2]], { w: 2.8, sp: 100, pr: 'even', z: 3, trem: 0, nolight: true });
+      B.pp([[e[0] - 1.6, e[1] - 1.4], [e[0] - 1.1, e[1] - 1.6]], { col: COL.white, w: 1.6, lvl: 0, a: 0.95, z: 3 });
+    }
     function gooseDetail(g) {
       B.at('goose');
       // a lit edge on every row of coverts, a cool shadow beneath: the wing in layers
@@ -1700,6 +1708,11 @@
     [F.judge, F.lawyer, F.jury, F.steno, F.bailiff, F.pros].forEach(figSkin);
     deepen();
     [F.judge, F.lawyer].forEach(figHands);
+    // faces and the bird's head restated in pen over the colour
+    [F.lawyer, F.judge, F.bailiff, F.pros, F.steno].forEach((f) => { at(f); drawHead(B, Object.assign({}, f.head, { w: (f.head.w || 2.1) * 0.85 }), 'contour'); });
+    F.jury.heads.forEach((h) => { at(F.jury); drawHead(B, Object.assign({}, h, { w: (h.w || 2.1) * 0.8 }), 'contour'); });
+    gooseNeck(geo[2], { a: 0.95, w: 2.2, furrows: 0 });
+    gooseEyeColour(geo[2]);
     [F.judge, F.chair, F.bench, F.lawyer, F.jury, F.bailiff, F.pros].forEach(figLight);
     // the pen goes back over the near figures once more, hard where they turn from the light
     [F.lawyer, F.judge].forEach((f) => { at(f); (f.pen || []).filter((_, i) => i % 3 === 0).forEach(([p, o]) => B.pen(p, Object.assign({ z: f.z, a: 0.9, search: 0 }, o, { w: (o.w || 2.5) * 0.7 }))); });
