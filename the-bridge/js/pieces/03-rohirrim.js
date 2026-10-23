@@ -225,18 +225,6 @@
         i += run - (rand() < 0.3 ? 2 : 0) + (rand() < 0.18 ? 2 : 0);
       }
     }
-    if (o.final) {
-      // the last, decided line: pressed hard where the form turns from the light, lifted where it meets it
-      let i = o.from || 0; const end = o.to === undefined ? (closed ? n : n - 1) : o.to;
-      while (i < end) {
-        const run = 8 + ((rand() * 26) | 0);
-        const seg = []; let pm = 0;
-        for (let j = i; j <= Math.min(end, i + run); j++) { seg.push(pts[j % n]); pm += prs[j % n] * (o.pf ? o.pf(j % n) : 1); }
-        pm /= seg.length;
-        if (pm > 0.36) sweep(B, o.fch === undefined ? ch : o.fch, seg, w * 1.7 * o.final, Math.min(1, a0 * (pm + 0.3) * 1.15), rand() * 6);
-        i += run + (rand() < 0.35 ? 1 + ((rand() * 3) | 0) : 0);
-      }
-    }
   }
 
   /* shading field from capsules: returns light dot product or null */
@@ -280,7 +268,6 @@
     c.fill(path);
   }
   function reserve(R, path, a) {
-    if (XQ.includes('res')) return;
     R.B.flush(); R.BT.flush();
     for (const c of [R.cS, R.cT]) {
       c.globalCompositeOperation = 'source-over';
@@ -294,42 +281,6 @@
     R.cT.save(); R.cT.clip(path); R.BT.flush(); R.cT.restore();
   }
   function flushAll(R) { R.B.flush(); R.BT.flush(); }
-  /* modelling rubbed in with the stump: the tone field is evaluated at low resolution and smoothed up */
-  let STMP = null;
-  const XQ = new URLSearchParams(location.search).get('rohx') || '';
-  function stumpShade(R, pts, fn, f, scale) {
-    if (XQ.includes('stump')) return;
-    const bb = bbox(pts, 2);
-    f = f || 3; scale = scale || 1;
-    const w = Math.max(2, Math.ceil((bb.x1 - bb.x0) / f) + 1), h = Math.max(2, Math.ceil((bb.y1 - bb.y0) / f) + 1);
-    if (!STMP) STMP = document.createElement('canvas');
-    if (STMP.width < w || STMP.height < h) { STMP.width = Math.max(w, STMP.width); STMP.height = Math.max(h, STMP.height); }
-    const c = STMP.getContext('2d', { willReadFrequently: true });
-    const img = c.createImageData(w, h), D = img.data;
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-      HO[0] = HO[1] = HO[2] = 0;
-      const q = (j * w + i) * 4;
-      if (fn(bb.x0 + i * f, bb.y0 + j * f, HO)) { D[q] = clamp(HO[0] * scale, 0, 1) * 255; D[q + 1] = clamp(HO[1] * scale, 0, 1) * 255; D[q + 2] = clamp(HO[2] * scale, 0, 1) * 255; }
-      D[q + 3] = 255;
-    }
-    c.putImageData(img, 0, 0);
-    flushAll(R);
-    R.cT.save(); R.cT.clip(pathOf(pts));
-    R.cT.imageSmoothingEnabled = true;
-    R.cT.drawImage(STMP, 0, 0, w, h, bb.x0, bb.y0, w * f, h * f);
-    R.cT.restore();
-  }
-  /* a long stroke with the side of the chalk: swelling and thinning along its length */
-  function sweep(B, ch, pts, w, a, ph) {
-    const n = pts.length; if (n < 2) return;
-    if (XQ.includes('sweep')) { B.poly(ch, a, w, pts); return; }
-    ph = ph || 0;
-    for (let i = 0; i < n - 1; i++) {
-      const t = (i + 0.5) / (n - 1);
-      const sw = Math.sin(Math.PI * t) * (0.75 + 0.25 * Math.sin(t * 9 + ph));
-      B.line(ch, a * (0.35 + 0.65 * sw), w * (0.3 + 0.9 * sw), pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
-    }
-  }
   function lowres(R, f) {
     const c = document.createElement('canvas');
     c.width = Math.ceil(R.W / f); c.height = Math.ceil(R.H / f);
@@ -381,11 +332,11 @@
     const t = smooth(0.55, 1.45, A), u = smooth(1.75, 2.45, A);
     const hy = H * lerp(0.42, 0.44, t);
     const camK = 1.75;
-    const yT = H * (lerp(0.79, 0.9, t) - 0.02 * u);
-    const xT = W * (lerp(0.46, 0.49, t) - 0.03 * u);
-    const hhT = Math.min((yT - hy) / camK * 1.2, W * 0.42);
-    const cityW = Math.min(H * lerp(0.46, 0.54, t) * (1 - 0.08 * u), W * 0.8);
-    const cityX = W * (lerp(0.6, 0.78, t) - 0.01 * u);
+    const yT = H * (lerp(0.7, 0.8, t) - 0.03 * u);
+    const xT = W * (lerp(0.56, 0.52, t) - 0.04 * u);
+    const hhT = (yT - hy) / camK;
+    const cityW = Math.min(H * lerp(0.38, 0.41, t) * (1 - 0.08 * u), W * 0.62);
+    const cityX = W * (lerp(0.63, 0.8, t) - 0.01 * u);
     const farX = W * (lerp(0.06, 0.2, t) + 0.06 * u);
     return {
       W, H, A, t, u, hy, camK, yT, xT, hhT, farX, back: 2.1,
@@ -442,56 +393,39 @@
   /* transverse gallop, right lead: left hind, right hind, left fore, right fore */
   const LEGDEF = [['LH', 1, 0, 0], ['RH', 1, 1, 0.085], ['LF', 0, 0, 0.24], ['RF', 0, 1, 0.33]];
 
-  /* Catmull-Rom through runs of points, but kept sharp at the points marked as corners ([x, y, 1]) */
-  function shape(pts, closed, per) {
-    const n = pts.length;
-    let start = 0;
-    for (let i = 0; i < n; i++) if (pts[i][2]) { start = i; break; }
-    const seq = closed ? pts.slice(start).concat(pts.slice(0, start + 1)) : pts;
-    const out = [];
-    let run = [seq[0]];
-    for (let i = 1; i < seq.length; i++) {
-      run.push(seq[i]);
-      if (seq[i][2] || i === seq.length - 1) {
-        const sp = run.length > 2 ? spline(run.map((q) => [q[0], q[1]]), false, per) : run.map((q) => [q[0], q[1]]);
-        sp.pop();
-        for (const q of sp) out.push(q);
-        run = [seq[i]];
+  function legOutline(chain, hind, stance) {
+    const segN = [9, 7, 6], front = [], back = [];
+    const dirs = [];
+    for (let i = 0; i < 3; i++) { const a = chain[i], b = chain[i + 1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; dirs.push([(b[0] - a[0]) / l, (b[1] - a[1]) / l]); }
+    for (let sg = 0; sg < 3; sg++) {
+      for (let j = 0; j <= segN[sg]; j++) {
+        if (j === segN[sg] && sg < 2) continue;
+        const t = j / segN[sg];
+        const c = lp(chain[sg], chain[sg + 1], t);
+        let d = dirs[sg];
+        if (t < 0.2 && sg > 0) { const m = lerp(0.5, 1, t / 0.2); d = [lerp(dirs[sg - 1][0], d[0], m), lerp(dirs[sg - 1][1], d[1], m)]; }
+        else if (t > 0.8 && sg < 2) { const m = lerp(1, 0.5, (t - 0.8) / 0.2); d = [lerp(dirs[sg + 1][0], d[0], m), lerp(dirs[sg + 1][1], d[1], m)]; }
+        const dl = Math.hypot(d[0], d[1]) || 1; d = [d[0] / dl, d[1] / dl];
+        const n = [-d[1], d[0]];
+        let w, bb = 0, fb = 0;
+        if (hind) {
+          if (sg === 0) { w = lerp(24, 10.5, Math.pow(t, 0.55)); if (t > 0.72) bb = (t - 0.72) * 15; }
+          else if (sg === 1) { w = 6.8 + smooth(0.75, 1, t) * 1.8; if (t < 0.28) bb = (0.28 - t) * 15; }
+          else { w = t < 0.35 ? lerp(8.4, 5.8, t / 0.35) : t < 0.5 ? lerp(5.8, 7.2, (t - 0.35) / 0.15) : lerp(7.2, 8.8, (t - 0.5) / 0.5); if (t < 0.2) bb = (0.2 - t) * 6; }
+        } else {
+          if (sg === 0) { w = lerp(16, 8.6, Math.pow(t, 0.7)); if (t > 0.82) fb = (t - 0.82) * 6; }
+          else if (sg === 1) { w = 6.2 + smooth(0.75, 1, t) * 1.9; if (t < 0.15) fb = (0.15 - t) * 6; }
+          else { w = t < 0.35 ? lerp(8.1, 5.6, t / 0.35) : t < 0.5 ? lerp(5.6, 7, (t - 0.35) / 0.15) : lerp(7, 8.8, (t - 0.5) / 0.5); if (t < 0.2) bb = (0.2 - t) * 7; }
+        }
+        back.push([c[0] + n[0] * (w / 2 + bb), c[1] + n[1] * (w / 2 + bb)]);
+        front.push([c[0] - n[0] * (w / 2 + fb), c[1] - n[1] * (w / 2 + fb)]);
       }
     }
-    if (!closed) out.push([seq[seq.length - 1][0], seq[seq.length - 1][1]]);
-    return out;
-  }
-
-  /* Leg outlines traced by hand in each bone's own frame: [segment, distance along it, offset across it
-     (negative = front, positive = back), corner]. Posing rotates each bone about its joint, so the hard
-     angles of knee, hock, fetlock and hoof survive. */
-  const FORE_OUT = {
-    front: [[0, 0, -8.6], [0, 7, -7.6, 1], [0, 15, -5.8], [0, 23, -4.3], [0, 27.4, -4.5, 1], [1, 0.4, -4.6], [1, 3.8, -4.3, 1], [1, 6, -3.2], [1, 15.6, -3.1, 1], [1, 17.6, -3.9], [2, 1.2, -3.6, 1], [2, 4.2, -2.4], [2, 6.4, -3.0, 1], [2, 12, -5.3, 1]],
-    back: [[0, 0, 8.4], [0, 7, 6.8, 1], [0, 17, 3.9], [0, 25.4, 3.2, 1], [0, 28.6, 4.8, 1], [1, 1.6, 3.8, 1], [1, 4.6, 2.5], [1, 12, 2.3], [1, 16.6, 3.3, 1], [2, 0.2, 4.4], [2, 2.6, 4.8, 1], [2, 5.6, 3.0], [2, 9.2, 3.4, 1], [2, 12, 3.6, 1]],
-  };
-  const HIND_OUT = {
-    front: [[0, 0, -12], [0, 8, -10.6], [0, 18, -7.6], [0, 27, -5.0], [0, 33, -4.2, 1], [1, 1.4, -3.7, 1], [1, 6, -3.1], [1, 22.6, -3.0, 1], [1, 24.8, -3.9], [2, 1.2, -3.7, 1], [2, 4.2, -2.6], [2, 6.4, -3.1, 1], [2, 12, -5.4, 1]],
-    back: [[0, 0, 12], [0, 6, 11], [0, 14, 8.6], [0, 22, 6.0], [0, 30, 3.8, 1], [0, 33.6, 5.6, 1], [1, 0.6, 6.6, 1], [1, 3.6, 4.0, 1], [1, 9, 2.8], [1, 21, 2.8, 1], [1, 24.4, 4.4], [2, 2.6, 4.9, 1], [2, 5.8, 3.1], [2, 9.4, 3.4, 1], [2, 12, 3.6, 1]],
-  };
-  function legOutline(chain, hind, stance) {
-    const A = hind ? HIND_OUT : FORE_OUT;
-    const fr = [];
-    for (let i = 0; i < 3; i++) {
-      const a = chain[i], b = chain[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-      const d = [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
-      fr.push({ a, d, n: [-d[1], d[0]], l });
-    }
-    const P = (q) => { const F = fr[q[0]]; return [F.a[0] + F.d[0] * q[1] + F.n[0] * q[2], F.a[1] + F.d[1] * q[1] + F.n[1] * q[2], q[3] || 0]; };
-    const fP = A.front.map(P), bP = A.back.map(P);
     if (stance) {
-      // the hoof stands flat on the ground
-      const toe = fP[fP.length - 1], heel = bP[bP.length - 1], yb = Math.max(toe[1], heel[1]);
-      toe[1] = yb; heel[1] = yb;
+      const yb = Math.max(front[front.length - 1][1], back[back.length - 1][1]);
+      front[front.length - 1][1] = yb; back[back.length - 1][1] = yb;
     }
-    const hoof = [fP[fP.length - 2], fP[fP.length - 1], bP[bP.length - 1], bP[bP.length - 2]].map((q) => [q[0], q[1]]);
-    const front = shape(fP, false, 3), back = shape(bP, false, 3);
-    return { front, back, poly: front.concat(back.slice().reverse()), hoof };
+    return { front, back, poly: front.concat(back.slice().reverse()) };
   }
 
   /* Local units: withers height 100, x forward, y down, ground at y = 100. Head ~40, legs ~50. */
@@ -504,8 +438,8 @@
       const p = ((((o.phase - off) % 1) + 1) % 1);
       const a = keyInterp(hind ? HIND_K : FORE_K, p).map((v) => v * o.stride);
       const sh = near ? 0 : 1;
-      const top = hind ? rot(-45 + (a[0] + 30) * 0.13 + sh * 3, 36 - sh * 2.5) : rot(22 + a[0] * 0.1 + sh * 3, 44 - Math.abs(a[0]) * 0.03 - sh * 2.5);
-      const lens = hind ? [34, 25, 12] : [29, 18, 12];
+      const top = hind ? rot(-47 + (a[0] + 30) * 0.13 + sh * 3, 39 - sh * 2.5) : rot(19 + a[0] * 0.1 + sh * 3, 49 - Math.abs(a[0]) * 0.03 - sh * 2.5);
+      const lens = hind ? [30, 21, 11] : [26, 15, 11];
       const ch = [top];
       for (let i = 0; i < 3; i++) { const d = dir(a[i]); const q = ch[i]; ch.push([q[0] + d[0] * lens[i], q[1] + d[1] * lens[i]]); }
       legs[id] = { id, hind: !!hind, near: !!near, p, a, chain: ch, stance: p < 0.3 };
@@ -518,65 +452,53 @@
 
     const na = (o.neck + 6 * Math.cos(TAU * (o.phase - 0.3))) * D2R;
     const ha = (o.head + 5 * Math.cos(TAU * (o.phase - 0.3))) * D2R;
-    const P = [24 + o.neckLen * 1.18 * Math.cos(na), 4 - o.neckLen * 1.18 * Math.sin(na)];
+    const P = [22 + o.neckLen * Math.cos(na), 6 - o.neckLen * Math.sin(na)];
     const hd = [Math.cos(ha), Math.sin(ha)], th = [-hd[1], hd[0]];
-    const HS = 1.12;
-    const Hp = (a, b) => [P[0] + hd[0] * a * HS + th[0] * b * HS, P[1] + hd[1] * a * HS + th[1] * b * HS];
-    const W0 = [6, -1];
+    const Hp = (a, b) => [P[0] + hd[0] * a + th[0] * b, P[1] + hd[1] * a + th[1] * b];
+    const W0 = [4, 0];
     const cdx = P[0] - W0[0], cdy = P[1] - W0[1], cl = Math.hypot(cdx, cdy);
     const cu = [cdy / cl, -cdx / cl];
-    const arch = 7 + (o.arch || 0);
+    const arch = 5 + (o.arch || 0);
     const crC = [(W0[0] + P[0]) / 2 + cu[0] * arch * 1.7, (W0[1] + P[1]) / 2 + cu[1] * arch * 1.7];
     const crest = (u) => { const v = 1 - u; return [v * v * P[0] + 2 * v * u * crC[0] + u * u * W0[0], v * v * P[1] + 2 * v * u * crC[1] + u * u * W0[1]]; };
-    const thr = Hp(0, 10.5), SH = [45, 21];
-    const nu1 = lp(thr, SH, 0.3), nu2 = lp(thr, SH, 0.66);
-    const C = (p) => [p[0], p[1], 1];
+    const thr = Hp(3, 12.5), SH = [40, 24];
+    const nu1 = lp(thr, SH, 0.33), nu2 = lp(thr, SH, 0.68);
     const ctl = [
-      // the top line: tail root, the round of the croup, the loin, the dip behind the withers, the withers
-      C([-60, 8.5]), [-56.5, 3], [-50, -0.4], [-43, -0.8], [-37, 1], [-29, 3.6], [-18, 5.6], [-8, 5.4], [-1, 2.6], C([5, -1.6]),
-      // the crest of the neck, curving up to the poll
-      crest(0.82), crest(0.62), crest(0.42), crest(0.22), crest(0.08),
-      // the head: poll, flat forehead, a straight face, the muzzle and nostril
-      C(Hp(-1, -2)), Hp(4, -3.6), C(Hp(9, -4.4)), Hp(19, -3.6), Hp(28, -2.6), C(Hp(35.4, -1.4)), Hp(38.6, 0.4), C(Hp(40, 2.6)),
-      ...(o.mouth ? [Hp(40.4, 5.4), C(Hp(39.2, 6.6)), C(Hp(32.6, 7.4)), C(Hp(36.8, 10.4)), Hp(36.2, 11.8), C(Hp(32.4, 12.2))] : [Hp(39.8, 5.6), C(Hp(37.8, 7.6)), Hp(35, 8.6), C(Hp(31.2, 8.6))]),
-      // the jaw: a straight run under the face, then the large round of the jaw, the throatlatch
-      Hp(26, 10.4), C(Hp(21, 11.4)), Hp(17.5, 14.6), Hp(13.5, 18), Hp(8, 19), Hp(3.4, 16.4), C(thr),
-      // the lower line of the neck runs nearly straight to the point of the shoulder
-      lp(thr, SH, 0.33), lp(thr, SH, 0.66), C(SH),
-      // the deep chest, the brisket, the girth, the belly rising to the sheath and stifle
-      [46.5, 28], [44, 35.5], C([38.5, 41]), [33, 45], [24, 49.5], [12, 51.6], [0, 51], [-12, 48.6], [-22, 45], C([-29, 42]), [-34, 41.5], C([-38, 43]),
-      // under the quarters; the back of the thigh; the point of the buttock
-      [-46, 45.6], C([-53, 45]), [-58.5, 40], [-62.5, 33], C([-65, 24.5]), [-64.5, 18], [-62.5, 12.5],
+      [-60, 9], [-53, 3], [-44, 0.5], [-34, 2.5], [-22, 5.5], [-10, 5], W0,
+      crest(0.72), crest(0.45), crest(0.2),
+      Hp(-1, -2), Hp(7, -3), Hp(20, -3), Hp(31, -1.8), Hp(37, -0.4), Hp(40.4, 3), Hp(39.6, 7.4), Hp(36, 9.6), Hp(28, 9.8), Hp(17, 15.5), Hp(8.5, 16), thr,
+      [nu1[0] + cu[0] * 2.2, nu1[1] + cu[1] * 2.2], [nu2[0] + cu[0] * 0.6, nu2[1] + cu[1] * 0.6],
+      SH, [38.5, 35], [30, 45], [14, 49.5], [-4, 50], [-20, 48.5], [-31, 45.5], [-39, 46], [-54, 47], [-61.5, 37], [-64, 24], [-63, 15],
     ];
-    const body = shape(ctl, true, 4).map((p) => Q(p[0], p[1]));
+    const body = spline(ctl, true, 5).map((p) => Q(p[0], p[1]));
     const legOut = {};
     for (const id in legs) {
       const L = legs[id];
       const lo = legOutline(L.chain, L.hind, L.stance);
-      legOut[id] = { ...L, chainS: L.chain.map(QL), front: lo.front.map(QL), back: lo.back.map(QL), poly: lo.poly.map(QL), hoof: lo.hoof.map(QL) };
+      legOut[id] = { ...L, chainS: L.chain.map(QL), front: lo.front.map(QL), back: lo.back.map(QL), poly: lo.poly.map(QL) };
     }
     const S = (p) => QL(rot(p[0], p[1]));
     const parts = [
-      cap(Q(-22, 24), Q(12, 25), 23 * s, 26 * s, 1),
-      cap(Q(-46, 20), Q(-46, 21), 21 * s, 21 * s, 1.3),
-      cap(Q(-47, 26), Q(-52, 40), 14 * s, 11 * s, 1.2),
-      cap(Q(14, 6), Q(34, 34), 12 * s, 13 * s, 1.2),
-      cap(Q(38, 30), Q(38, 31), 10 * s, 10 * s),
-      cap(Q(26, 8), S(Hp(3, 7)), 19 * s, 10 * s),
-      cap(S(Hp(9, 4)), S(Hp(36, 3.6)), 7.6 * s, 4.6 * s, 1.3),
-      cap(S(Hp(11, 10.5)), S(Hp(12, 10.5)), 8.4 * s, 8.4 * s, 1.4),
+      cap(Q(-26, 26), Q(14, 26), 24 * s, 24 * s, 1),
+      cap(Q(-48, 22), Q(-48, 23), 21 * s, 21 * s, 1.3),
+      cap(Q(-48, 28), Q(-51, 42), 15 * s, 12 * s),
+      cap(Q(14, 10), Q(29, 38), 13 * s, 12 * s),
+      cap(Q(33, 31), Q(33, 32), 10.5 * s, 10.5 * s),
+      cap(Q(24, 10), S(Hp(3, 6)), 17 * s, 9 * s),
+      cap(S(Hp(9, 5)), S(Hp(36, 4)), 7.6 * s, 5.2 * s, 1.3),
+      cap(S(Hp(12, 9)), S(Hp(13, 9)), 7.6 * s, 7.6 * s, 1.3),
     ];
     const legParts = {};
     for (const id in legOut) {
       const L = legOut[id], c = L.chainS;
-      const w = L.hind ? [11, 4.6, 3.6] : [7.5, 3.4, 3.6];
+      const w = L.hind ? [11, 5, 3.8] : [7.5, 3.8, 3.8];
       legParts[id] = [cap(c[0], c[1], w[0] * s, 5 * s), cap(c[1], c[2], 3.6 * s, w[1] * s), cap(c[2], c[3], w[2] * s, 4 * s)];
     }
     const rp = (a) => [a[0] * cp - a[1] * sp, a[0] * sp + a[1] * cp];
     return {
       o, s, gx, gy, Q, S, body, legs: legOut, parts, legParts,
       crest: (u) => S(crest(u)), poll: S(P), hd: rp(hd), th: rp(th), Hp: (a, b) => S(Hp(a, b)),
-      dock: Q(-59, 7),
+      dock: Q(-61, 9),
     };
   }
 
@@ -586,9 +508,9 @@
     const D = darkOf(v, ao);
     const rim = smooth(0.6, 0.85, v - ao);
     if (coat === 'grey') {
-      out[RED] = 0.62 * smooth(0.2, 0.65, D);
-      out[BLK] = 0.8 * smooth(0.6, 0.98, D);
-      out[WHT] = 0.95 * smooth(0.4, 0.75, v - ao);
+      out[RED] = 0.5 * smooth(0.25, 0.7, D);
+      out[BLK] = 0.75 * smooth(0.66, 1.0, D);
+      out[WHT] = 0.95 * smooth(0.36, 0.72, v - ao);
     } else if (coat === 'black') {
       out[RED] = 0.3 * smooth(0.1, 0.5, D) * (1 - D);
       out[BLK] = 0.3 + 0.65 * D;
@@ -631,49 +553,37 @@
     const ao = (far ? 0.32 : 0.04) + (hs.ao || 0);
     const path = pathOf(L.poly);
     if (far) fillCh(R.cT, coat === 'grey' ? RED : BLK, path, coat === 'grey' ? 0.1 : 0.16);
-    const c0 = c[0], c1 = c[1], cl = Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) || 1;
     const fn = (x, y, out) => {
       const v = sh(x, y); if (v === null) return false;
-      const tt = ((x - c0[0]) * (c1[0] - c0[0]) + (y - c0[1]) * (c1[1] - c0[1])) / (cl * cl);
-      if (!far && tt < 0.3) { const f0 = smooth(-0.05, 0.3, tt); if (f0 < 0.02) return false; HO.f = f0; } else HO.f = 1;
       const below = (y - knee[1]) > -s * 3;
       if (points && below) { out[BLK] = clamp(0.3 + 0.65 * darkOf(v, ao), 0.15, 0.95); out[WHT] = 0.55 * smooth(0.62, 0.88, v); out[RED] = 0.12; }
       else coatPress(coat, v, ao, out);
       if (far) { out[WHT] *= 0.35; out[BLK] = Math.max(out[BLK], coat === 'grey' ? 0.1 : 0.3); }
-      if (HO.f < 1) { out[0] *= HO.f; out[1] *= HO.f; out[2] *= HO.f; }
       return true;
     };
-    const sp = clamp(s * 0.95, 3, 5.5) * k, len = clamp(s * 5.5, 8, 34) * k, w = clamp(s * 0.55, 1.5, 3.2) * k;
+    const sp = clamp(s * 0.8, 2.6, 4.6) * k, len = clamp(s * 4.5, 7, 28) * k, w = clamp(s * 0.55, 1.5, 3.2) * k;
     const bb = bbox(L.poly, 2);
-    stumpShade(R, L.poly, (x, y, out) => { if (!fn(x, y, out)) return false; const m = 0.35 + 0.65 * smooth(0.0, 0.8, darkOf(sh(x, y), ao)); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 0.9), coat === 'grey' ? 0.4 : 0.7);
-    const fnS = (x, y, out) => { if (!fn(x, y, out)) return false; const v = sh(x, y); const m = smooth(0.15, 0.7, darkOf(v, ao)); out[RED] *= m; out[BLK] *= m; out[WHT] *= 0.8; return true; };
-    // strokes run along the leg, as a draughtsman follows bone and tendon
-    const along = Math.atan2(c[2][1] - c[0][1], c[2][0] - c[0][0]);
-    hatch(R, { ...bb, ang: along + 0.25, sp, len, w, fn: fnS, chs: [RED, BLK, WHT], dth: 0.6, bend: 0.02 });
+    hatch(R, { ...bb, ang: 58 * D2R, sp, len, w, fn, chs: [RED, BLK, WHT], st: 0.22 });
+    if (detail) hatch(R, { ...bb, ang: (L.hind ? 100 : 95) * D2R, sp: sp * 1.25, len: len * 0.8, w, fn, chs: [WHT, BLK], dth: 0.6 });
     clipFlush(R, path);
-    const f = L.front, b = L.back, hoof = L.hoof;
-    // the hoof: a wedge of dark horn below the coronet
-    fillCh(R.cT, BLK, pathOf(hoof), far ? 0.6 : 0.5);
-    fillCh(R.cS, BLK, pathOf(hoof), far ? 0.4 : 0.3);
-    sweep(R.B, BLK, [hoof[0], hoof[1]], Math.max(1.4, s * 1.1) * k, 0.95);
-    R.B.poly(BLK, 0.8, Math.max(1.2, s * 0.6) * k, [hoof[0], hoof[3]]);
-    if (!far) R.B.poly(WHT, 0.6, Math.max(1, s * 0.5) * k, [lp(hoof[0], hoof[3], 0.2), lp(hoof[1], hoof[2], 0.25)]);
+    const f = L.front, b = L.back, nF = f.length;
+    const hoof = [f[nF - 3], f[nF - 2], f[nF - 1], b[nF - 1], b[nF - 2], b[nF - 3]];
+    fillCh(R.cT, BLK, pathOf(hoof), far ? 0.55 : 0.42);
+    R.B.poly(BLK, 0.8, Math.max(1.2, s * 0.9) * k, [f[nF - 3], f[nF - 1]]);
+    R.B.poly(BLK, 0.6, Math.max(1.2, s * 0.6) * k, [f[nF - 3], b[nF - 3]]);
+    if (!far) R.B.poly(WHT, 0.5, Math.max(1, s * 0.5) * k, [b[nF - 3], b[nF - 1]]);
     const cw = clamp(s * 0.62, 1.4, 3.4) * k;
     const pf = (i) => smooth(1, 4, i);
-    contour(R, f, { closed: false, ch: far ? BLK : RED, w: cw * 0.85, a: far ? 0.6 : 0.85, wob: s * 0.5, passes: detail ? 3 : 2, pf, dark: 0.9, flip: true, rim: far ? 0 : 0.6, final: 0.9 });
-    contour(R, b, { closed: false, ch: far ? BLK : RED, w: cw * 0.85, a: far ? 0.6 : 0.9, wob: s * 0.5, passes: detail ? 3 : 2, pf, dark: 0.9, rim: far ? 0 : 0.7, final: 1 });
+    contour(R, f, { closed: false, ch: far ? BLK : RED, w: cw, a: far ? 0.6 : 0.85, wob: s * 0.35, passes: detail ? 3 : 2, pf, dark: 0.9, flip: true, rim: far ? 0 : 0.5 });
+    contour(R, b, { closed: false, ch: far ? BLK : RED, w: cw, a: far ? 0.6 : 0.9, wob: s * 0.35, passes: detail ? 3 : 2, pf, dark: 0.9, rim: far ? 0 : 0.6 });
     if (detail) {
       const B = R.B;
       const kn = c[1], fe = c[2];
       stroke(B, BLK, kn[0] - s * 3, kn[1], kn[0] + s * 3, kn[1] + s * 1.5, 0.2, cw * 0.7, 0.45);
       stroke(B, RED, fe[0] - s * 3, fe[1] - s, fe[0] + s * 2, fe[1] + s * 2, -0.3, cw * 0.7, 0.5);
       if (L.hind) { const h = c[1]; stroke(B, BLK, h[0] - s * 1, h[1] - s * 8, h[0] - s * 3, h[1] + s * 1, 0.15, cw * 0.8, 0.55); }
-      // the flexor tendon down the back of the cannon, and its light along the front
-      const sw = (pa, pb, off, ch, a) => { const d = [pb[0] - pa[0], pb[1] - pa[1]], l = Math.hypot(d[0], d[1]) || 1, n = [-d[1] / l, d[0] / l]; const pts = []; for (let i = 0; i <= 6; i++) { const q = lp(pa, pb, 0.08 + i * 0.14); pts.push([q[0] + n[0] * off * s, q[1] + n[1] * off * s]); } sweep(B, ch, pts, cw * 1.1, a, i0); };
-      const i0 = R.rand() * 6;
-      sw(c[1], c[2], 1.6, BLK, 0.55);
-      if (!far) sw(c[1], c[2], -1.8, WHT, 0.45);
-      sw(c[0], c[1], L.hind ? 3.5 : 2.6, far ? BLK : RED, 0.4);
+      const t0 = lp(c[1], c[2], 0.15), t1 = lp(c[1], c[2], 0.85);
+      stroke(B, BLK, t0[0] - s * 1.6, t0[1], t1[0] - s * 1.8, t1[1], 0.02, cw * 0.6, 0.35);
     }
     flushAll(R);
   }
@@ -683,12 +593,12 @@
     const D = hs.dock;
     const lift = o.tailLift;
     const ch = coat === 'grey' ? WHT : (POINTS[coat] ? BLK : RED);
-    const n = detail ? 60 : 20;
+    const n = detail ? 80 : 26;
     const pr = o.pitch * D2R, ca = Math.cos(pr), sa = Math.sin(pr);
     const R2 = (x, y) => [x * ca - y * sa, x * sa + y * ca];
     for (let i = 0; i < n; i++) {
       const u = rand();
-      const len = (38 + rand() * 30) * s;
+      const len = (50 + rand() * 38) * s;
       const sx = D[0] + (rand() - 0.5) * 4 * s, sy = D[1] + (rand() - 0.2) * 5 * s;
       const fan = (rand() - 0.5) * 0.55;
       const v1 = R2(-0.5, -lift - 0.08 + fan * 0.5), v2 = R2(-1, -lift * 0.35 + 0.3 + fan);
@@ -729,89 +639,59 @@
   }
 
   function drawHorseBody(R, hs, coat, detail) {
-    const s = hs.s, k = R.k, B = R.B, rand = R.rand, o = hs.o;
+    const s = hs.s, k = R.k, B = R.B;
     const sh = makeShader(hs.parts);
     const path = pathOf(hs.body);
     const bb = bbox(hs.body, 2);
-    const ao = hs.ao || 0;
-    const Q = hs.Q, Hp = hs.Hp, cw = clamp(s * 0.55, 1.3, 3.2) * k;
-    // a breath of rubbed tone in the shadow only; the rest is the bare toned paper
-    stumpShade(R, hs.body, (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const m = 0.45 + 0.55 * smooth(0.0, 0.8, darkOf(v, ao)); out[RED] *= m; out[BLK] *= m; out[WHT] = 0; return true; }, Math.max(2, s * 1.4), coat === 'grey' ? 0.45 : 0.85);
-    const sp = clamp(s * 0.95, 3, 5.6) * k, len = clamp(s * 7, 9, 46) * k, w = clamp(s * 0.55, 1.5, 3.4) * k;
-    // parallel hatching laid only across the shadow side
-    const fn = (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, ao, out); const D = darkOf(v, ao); const m = smooth(0.3, 0.75, D); out[RED] *= m; out[BLK] *= m * m; out[WHT] = 0; return true; };
-    hatch(R, { ...bb, ang: 58 * D2R, sp, len, w, fn, chs: [RED, BLK], dth: 0.5, jit: 0.3, bend: 0.03 });
+    const fn = (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, hs.ao || 0, out); return true; };
+    const sp = clamp(s * 0.78, 2.6, 4.6) * k, len = clamp(s * 5, 7, 32) * k, w = clamp(s * 0.55, 1.5, 3.2) * k;
+    hatch(R, { ...bb, ang: 58 * D2R, sp, len, w, fn, chs: coat === 'grey' ? [WHT, RED, BLK] : [RED, BLK, WHT], st: 0.22 });
     clipFlush(R, path);
-    // a second, crossing layer only in the deepest darks
-    const fnD = (x, y, out) => { const v = sh(x, y); if (v === null) return false; const D = darkOf(v, ao); out[coat === 'grey' ? RED : BLK] = 0.85 * smooth(0.7, 1, D); return true; };
-    hatch(R, { ...bb, ang: 102 * D2R, sp: sp * 1.1, len: len * 0.8, w, fn: fnD, chs: [RED, BLK], dth: 0.7, jit: 0.3 });
+    const fn2 = (x, y, out) => { const v = sh(x, y); if (v === null) return false; coatPress(coat, v, 0.06 + (hs.ao || 0), out); out[RED] *= 0.8; return true; };
+    hatch(R, { ...bb, ang: (detail ? -24 : -30) * D2R, sp: sp * (detail ? 1.15 : 1.4), len: len * 1.1, w, fn: fn2, chs: coat === 'grey' ? [RED, BLK] : [BLK, WHT, RED], dth: 0.5, bend: 0.08 });
     clipFlush(R, path);
-    // white heightening on the lit planes
-    const fnW = (x, y, out) => { const v = sh(x, y); if (v === null) return false; out[WHT] = (coat === 'grey' ? 0.95 : 0.75) * smooth(coat === 'grey' ? 0.45 : 0.62, 0.9, v - ao); return true; };
-    hatch(R, { ...bb, ang: -20 * D2R, sp: sp * 1.05, len: len * 1.2, w: w * 1.1, fn: fnW, chs: [WHT], bend: 0.12, dth: 0.65 });
-    clipFlush(R, path);
-    // anatomy in line: the masses of the neck, shoulder, ribs and quarters
+    const Q = hs.Q, cw = clamp(s * 0.55, 1.3, 3) * k;
+    const an = (ch, pts, a, ww) => { const q = pts.map((p) => Q(p[0], p[1])); B.poly(ch, a, ww || cw, spline(q, false, 4)); };
     const ac = coat === 'grey' ? RED : (coat === 'black' ? WHT : BLK);
-    const an = (ch, pts, a, ww) => { const q = pts.map((p) => Q(p[0], p[1])); sweep(B, ch, spline(q, false, 5), (ww || cw) * 1.5, Math.min(1, a * 1.8), rand() * 6); };
-    const ah = (ch, pts, a, ww) => sweep(B, ch, spline(pts.map((p) => Hp(p[0], p[1])), false, 5), (ww || cw) * 1.5, Math.min(1, a * 1.8), rand() * 6);
-    const big = s > 1.0;
-    if (big) {
-      an(ac, [[8, 2], [18, 16], [30, 32], [36, 40]], 0.36);          // the long sloping shoulder blade
-      an(ac, [[40, 22], [33, 29], [26, 37], [25, 45]], 0.42);         // the triceps, parting chest from shoulder
-      an(RED, [[44, 28], [41, 35], [36, 41]], 0.3);                   // the breast muscle
-      an(ac, [[17, 36], [24, 42], [22, 48]], 0.42);                   // elbow
-      an(RED, [[-2, 18], [0, 32], [-4, 44]], 0.3);                    // ribs
-      an(RED, [[-10, 18], [-9, 30], [-12, 42]], 0.24);
-      an(RED, [[-17, 20], [-17, 31], [-20, 41]], 0.18);
-      an(ac, [[-31, 4], [-35, 11], [-33, 18]], 0.4);                  // point of hip
-      an(ac, [[-33, 16], [-38, 28], [-37, 38], [-33, 44]], 0.36);     // stifle and the front of the thigh
-      an(ac, [[-62, 14], [-58, 26], [-55, 36], [-50, 44]], 0.36);     // the hamstring groove
-      an(ac, [[-44, 6], [-49, 18], [-50, 30]], 0.2);                  // the round of the quarters
-      an(ac, [[-26, 6], [-28, 20], [-27, 36]], 0.2);                  // flank
-      // neck: the crest's thickness, the long muscle from jaw to shoulder, the jugular groove
-      const c1 = [hs.crest(0.15), hs.crest(0.45), hs.crest(0.8)].map((q, i) => [q[0] - hs.th[0] * (6 + i * 3) * s, q[1] - hs.th[1] * (6 + i * 3) * s]);
-      sweep(B, ac, spline(c1, false, 5), cw * 1.4, 0.5, 1);
-      sweep(B, ac, spline([Hp(10, 15), lp(Hp(10, 15), Q(38, 22), 0.45), Q(38, 22)], false, 5), cw * 1.4, 0.5, 2);
-      sweep(B, RED, spline([Hp(6, 13), lp(Hp(6, 13), Q(36, 28), 0.55), Q(36, 28)], false, 5), cw * 1.2, 0.4, 3);
+    if (detail) {
+      an(ac, [[9, 4], [17, 19], [26, 33], [30, 41]], 0.32);
+      an(ac, [[22, 40], [22, 46], [17, 49]], 0.4);
+      an(RED, [[-4, 24], [-2, 36], [-6, 45]], 0.26);
+      an(RED, [[-12, 24], [-11, 35], [-14, 44]], 0.2);
+      an(ac, [[-35, 6], [-38, 13], [-36, 20]], 0.34);
+      an(ac, [[-37, 28], [-40, 38], [-37, 45]], 0.32);
+      an(ac, [[-56, 14], [-58, 28], [-54, 44]], 0.3);
+      an(ac, [[-24, 8], [-30, 22], [-29, 40]], 0.18);
+      const jg = [hs.Hp(8, 12), lp(hs.Hp(8, 12), Q(34, 24), 0.5), Q(34, 24)];
+      B.poly(ac, 0.28, cw, spline(jg, false, 4));
+      const ck = [hs.Hp(8, 3), hs.Hp(14, 4.5), hs.Hp(19, 9), hs.Hp(16, 13.5), hs.Hp(10, 13.5)];
+      B.poly(ac, 0.5, cw, spline(ck, false, 4));
+      B.poly(RED, 0.4, cw * 0.8, spline([hs.Hp(22, 2), hs.Hp(30, 1.5), hs.Hp(35, 3.5)], false, 3));
     }
-    // the head: forehead, eye socket, bony cheek, the bridge of the nose, the nostril and the mouth with its bit
-    ah(ac, [[4, 4], [11, 3.5], [18, 8], [17, 14.5], [10, 16.8], [4, 12.5]], 0.5);   // the round of the cheek
-    ah(RED, [[3, -2.5], [8, -3.4], [13, -2.8]], 0.4);                                   // forehead
-    ah(ac, [[9, 1.2], [11.5, 0.6], [14.2, 1.8]], 0.6, cw * 0.9);                       // the socket above the eye
-    ah(RED, [[16, 2], [24, 1], [31, 1.2], [36, 2.8]], 0.38);                            // the bony face
-    const eye = Hp(11.8, 3.6), er = 1.7 * s;
+    const eye = hs.Hp(11.5, 4.5), nos = hs.Hp(36, 3.6), mo = hs.Hp(37, 7.6);
+    const er = 1.8 * s;
     flushAll(R);
     const c = R.cS;
-    c.fillStyle = 'rgba(0,255,0,0.95)';
-    c.beginPath(); c.ellipse(eye[0], eye[1], er, er * 0.75, Math.atan2(hs.hd[1], hs.hd[0]), 0, TAU); c.fill();
-    B.line(WHT, 0.9, cw * 0.6, eye[0] - er * 0.4, eye[1] - er * 0.35, eye[0] - er * 0.05, eye[1] - er * 0.35);
-    // the nostril flared wide
-    ah(BLK, [[34.5, 1.2], [36.6, 0.6], [38, 2.4], [36.6, 4.4], [34.8, 3.8]], 0.85, cw * 1.1);
-    ah(RED, [[33, 0.3], [34.6, -0.3]], 0.6);
-    if (o.mouth) {
-      const m = [Hp(39.6, 6), Hp(32.8, 7.3), Hp(36.2, 10.3)];
-      fillCh(R.cS, BLK, pathOf(m), 0.95);
-      B.poly(RED, 0.7, cw * 0.8, [Hp(37.5, 6.6), Hp(34, 7.2)]); // the tongue
-    } else ah(BLK, [[31, 7.6], [35, 7.8], [38, 7]], 0.75);
-    // the bit ring at the corner of the mouth
-    const bit = Hp(32.6, 7.6);
-    B.poly(BLK, 0.95, cw, ellipsePts(bit[0], bit[1], 1.8 * s, 1.8 * s, 0, 10, 0, TAU + 0.4));
-    B.poly(WHT, 0.8, cw * 0.6, ellipsePts(bit[0], bit[1], 1.8 * s, 1.8 * s, 0, 5, Math.PI, Math.PI * 1.6));
-    // ears: pricked forward, or flat back in the fury of the charge
+    c.fillStyle = 'rgba(0,255,0,0.9)';
+    c.beginPath(); c.ellipse(eye[0], eye[1], er, er * 0.72, Math.atan2(hs.hd[1], hs.hd[0]), 0, TAU); c.fill();
+    if (detail) {
+      stroke(B, BLK, eye[0] - er * 2, eye[1] - er * 1.3, eye[0] + er * 1.6, eye[1] - er * 1.2, -0.15, cw * 0.8, 0.6);
+      B.line(WHT, 0.8, cw * 0.6, eye[0] - er * 0.4, eye[1] - er * 0.3, eye[0] - er * 0.1, eye[1] - er * 0.3);
+    }
+    stroke(B, BLK, nos[0] - s * 2.4, nos[1] - s * 1.2, nos[0] + s * 1.2, nos[1] + s * 1.6, 0.45, cw * 1.2, 0.9);
+    stroke(B, BLK, mo[0] - s * 4.5, mo[1] + s * 0.4, mo[0] + s * 1.5, mo[1] + s * 1.2, -0.1, cw, 0.75);
     const p = hs.poll, ha = Math.atan2(hs.hd[1], hs.hd[0]);
     for (let e = 0; e < 2; e++) {
-      const a = o.earsBack ? ha + Math.PI + 0.6 + e * 0.25 : ha - Math.PI / 2 - 0.55 + e * 0.35, Le = (o.earsBack ? 10 : 11.5) * s * (e ? 0.88 : 1);
-      const b0 = [p[0] + Math.cos(ha) * 2.6 * s * (e ? 0.3 : 1), p[1] + Math.sin(ha) * 2.6 * s];
+      const a = ha + Math.PI + 0.6 + e * 0.25, Le = (10 - e * 1.4) * s;
+      const b0 = [p[0] + Math.cos(ha) * 2.4 * s * (e ? 0.4 : 1), p[1] + Math.sin(ha) * 2.4 * s];
       const tip = [b0[0] + Math.cos(a) * Le, b0[1] + Math.sin(a) * Le];
-      const n = [-Math.sin(a) * 2.7 * s, Math.cos(a) * 2.7 * s];
-      const ear = [[b0[0] + n[0], b0[1] + n[1]], [b0[0] + n[0] * 0.75 + Math.cos(a) * Le * 0.55, b0[1] + n[1] * 0.75 + Math.sin(a) * Le * 0.55], tip, [b0[0] - n[0] * 0.6 + Math.cos(a) * Le * 0.5, b0[1] - n[1] * 0.6 + Math.sin(a) * Le * 0.5], [b0[0] - n[0], b0[1] - n[1]]];
-      reserve(R, pathOf(ear), 0.85);
-      fillCh(R.cT, e ? BLK : (coat === 'black' ? BLK : RED), pathOf(ear), e ? 0.45 : 0.25);
-      contour(R, spline(ear, false, 2), { closed: false, ch: e ? BLK : RED, w: cw, a: 0.95, wob: s * 0.15, passes: 2, final: 0.7 });
-      if (!e) B.poly(BLK, 0.6, cw * 0.7, [lp(b0, tip, 0.25), lp(b0, tip, 0.8)]);
+      const n = [-Math.sin(a) * 2.5 * s, Math.cos(a) * 2.5 * s];
+      const ear = [[b0[0] + n[0], b0[1] + n[1]], [b0[0] + n[0] * 0.5 + Math.cos(a) * Le * 0.6, b0[1] + n[1] * 0.5 + Math.sin(a) * Le * 0.6], tip, [b0[0] - n[0], b0[1] - n[1]]];
+      fillCh(R.cT, e ? BLK : (coat === 'grey' ? WHT : RED), pathOf(ear), e ? 0.55 : 0.5);
+      B.poly(e ? BLK : RED, 0.8, cw * 0.8, ear);
     }
     flushAll(R);
-    contour(R, hs.body, { ch: coat === 'black' ? BLK : RED, w: clamp(s * 0.7, 1.4, 3.8) * k, a: 0.95, wob: s * 0.6, passes: detail ? 3 : 2, dark: 1, rim: 0.9, final: coat === 'grey' ? 1.25 : 1 });
+    contour(R, hs.body, { ch: coat === 'black' ? BLK : RED, w: clamp(s * 0.7, 1.5, 3.6) * k, a: 0.9, wob: s * 0.35, passes: detail ? 3 : 2, dark: 1, rim: 0.7 });
     flushAll(R);
   }
 
@@ -820,33 +700,23 @@
     const Q = hs.Q, s = hs.s;
     const th = ro.lean * D2R;
     const ax = [Math.sin(th), -Math.cos(th)], f = [Math.cos(th), Math.sin(th)];
-    const hip = [-7 + ro.seat, -5];
+    const hip = [-8 + ro.seat, -3];
     const at = (p, a, b) => [p[0] + ax[0] * a + f[0] * b, p[1] + ax[1] * a + f[1] * b];
-    const QQ = (pts) => pts.map((p) => { const q = Q(p[0], p[1]); if (p[2]) q.push(1); return q; });
-    const C1 = (p) => [p[0], p[1], 1];
-    const sho = at(hip, 34, 1.5);
-    // the head is held more upright than the back, looking ahead along the charge
-    const hth = th * 0.35 - (ro.sword ? 0.12 : 0), hax = [Math.sin(hth), -Math.cos(hth)], hf = [Math.cos(hth), Math.sin(hth)];
-    const head = [sho[0] + ax[0] * 5 + hax[0] * 8.5 + hf[0] * 3, sho[1] + ax[1] * 5 + hax[1] * 8.5 + hf[1] * 3];
-    const HSc = 1.22;
-    const H = (a, b) => [head[0] + (hf[0] * a + hax[0] * b) * HSc, head[1] + (hf[1] * a + hax[1] * b) * HSc];
-    const knee = [hip[0] + 27 * Math.sin(58 * D2R), hip[1] + 27 * Math.cos(58 * D2R)];
-    const ank = [knee[0] - 7, knee[1] + 23];
-    const g = { s, th, ax, f, Q, hip, sho, head, knee, ank, at, H, hf, hax };
-    // torso: a curved back, the chest swelling forward, a narrower waist
-    // a long back hunched forward over the horse's neck
-    g.torso = spline(QQ([at(hip, -1, -7.5), at(hip, 9, -8.6), at(hip, 19, -9.8), at(hip, 28, -9.6), at(hip, 34, -6.4), at(hip, 37, -1.5),
-      at(hip, 37, 4.5), at(hip, 33, 8.5), at(hip, 26, 9), at(hip, 17, 6.6), at(hip, 8, 6.6), at(hip, 1, 8)]), true, 3);
-    // the skirt of the hauberk over the thigh, flaring back in the wind
-    const kn = lp(hip, knee, 0.78);
-    g.skirt = spline(QQ([at(hip, 7.5, -10.4), at(hip, 7.5, 10), [kn[0] + 3, kn[1] - 2], [kn[0] - 2, kn[1] + 4], lp(hip, [hip[0] - 18, hip[1] + 14], 0.6), [hip[0] - 18, hip[1] + 11], [hip[0] - 14, hip[1] + 2]]), true, 3);
-    g.leg = QQ(limb([hip, lp(hip, knee, 0.5), knee, lp(knee, ank, 0.5), ank], [7.8, 7, 5.2, 4.4, 3.6]));
-    g.boot = QQ([[knee[0] - 4.5, knee[1] + 7], [knee[0] + 4.6, knee[1] + 7.5], [ank[0] + 3.6, ank[1] - 1.5], [ank[0] + 10, ank[1] - 2], [ank[0] + 10, ank[1] + 1.4], [ank[0] - 4.8, ank[1] + 4.8], [ank[0] - 4.8, ank[1] - 4]]);
-    if (ro.sword) { g.elbow = at(sho, 14, -4); g.hand = at(g.elbow, 9, 12); }
-    else if (ro.banner) { g.elbow = at(sho, -10, 7); g.hand = at(g.elbow, 2, 12); }
-    else if (ro.horn) { g.elbow = at(sho, -2, 10); g.hand = at(g.elbow, 12, 3); }
-    else { g.elbow = at(sho, -14, -4); g.hand = at(g.elbow, 2, 15); }
-    g.arm = QQ(limb([sho, lp(sho, g.elbow, 0.5), g.elbow, g.hand], [5.6, 5, 4.2, 3.2]));
+    const sho = at(hip, 31, 0);
+    const head = at(sho, 10, 2.5);
+    const knee = [hip[0] + 25 * Math.sin(50 * D2R), hip[1] + 25 * Math.cos(50 * D2R)];
+    const ank = [knee[0] - 5, knee[1] + 23];
+    const g = { s, th, ax, f, Q, hip, sho, head, knee, ank, at };
+    const QQ = (pts) => pts.map((p) => Q(p[0], p[1]));
+    g.torso = QQ([at(hip, -2, -8.5), at(hip, 10, -9.5), at(hip, 21, -10.5), at(sho, 2, -9), at(sho, 6, -4.5), at(sho, 6.5, 1.5), at(sho, 2, 7), at(hip, 20, 9), at(hip, 11, 7.5), at(hip, 1, 9)]);
+    g.skirt = QQ([at(hip, 5, -9.5), at(hip, 4, 9.5), [knee[0] - 2, knee[1] - 3], [hip[0] - 8, hip[1] + 13]]);
+    g.leg = QQ(limb([hip, knee, ank], [6.6, 5, 3.6]));
+    g.boot = QQ([[knee[0] - 4, knee[1] + 9], [knee[0] + 4.5, knee[1] + 9], [ank[0] + 3.5, ank[1] - 1], [ank[0] + 10, ank[1] + 1.2], [ank[0] + 9.5, ank[1] + 4.2], [ank[0] - 4, ank[1] + 4], [ank[0] - 4.6, ank[1] - 4]]);
+    if (ro.sword) { g.elbow = at(sho, 7, 10); g.hand = at(g.elbow, 9, 10); }
+    else if (ro.banner) { g.elbow = at(sho, -10, 6); g.hand = at(g.elbow, 2, 12); }
+    else if (ro.horn) { g.elbow = at(sho, -3, 9); g.hand = at(g.elbow, 12, 2); }
+    else { g.elbow = at(sho, -15, -2); g.hand = at(g.elbow, 2, 15); }
+    g.arm = QQ(limb([sho, g.elbow, g.hand], [5, 4, 3.2]));
     g.handS = Q(g.hand[0], g.hand[1]);
     const sa = ro.spearAng * D2R;
     const sd = [Math.cos(sa), Math.sin(sa)];
@@ -860,27 +730,17 @@
         g.spear = { a: [hS[0] - ux * 50 * s, hS[1] - uy * 50 * s], b: [hS[0] + ux * ro.spearLen * s, hS[1] + uy * ro.spearLen * s] };
       } else g.spear = { a: Q(g.hand[0] - sd[0] * 50, g.hand[1] - sd[1] * 50), b: Q(g.hand[0] + sd[0] * ro.spearLen, g.hand[1] + sd[1] * ro.spearLen) };
     }
-    if (ro.sword) { const swa = (ro.swordAng || -52) * D2R, sw = [Math.cos(swa), Math.sin(swa)]; g.sword = { a: Q(g.hand[0] - sw[0] * 5, g.hand[1] - sw[1] * 5), b: Q(g.hand[0] + sw[0] * 62, g.hand[1] + sw[1] * 62), d: sw }; }
+    if (ro.sword) { const sw = [Math.cos(-60 * D2R), Math.sin(-60 * D2R)]; g.sword = { a: Q(g.hand[0] - sw[0] * 4, g.hand[1] - sw[1] * 4), b: Q(g.hand[0] + sw[0] * 50, g.hand[1] + sw[1] * 50) }; }
     if (ro.horn) { g.hornPts = QQ([at(g.hand, 0, -1), at(g.hand, 5, 6), at(g.hand, 3, 12), at(g.hand, -2, 16)]); }
     if (ro.banner) {
       const top = [g.hand[0] - 24, g.hand[1] - 125], bot = [g.hand[0] + 3, g.hand[1] + 12];
       g.pole = { a: Q(bot[0], bot[1]), b: Q(top[0], top[1]) };
     }
-    const sc = ro.shieldBig ? at(sho, -18, 17) : ro.backShield ? at(sho, -11, -9.5) : at(sho, -13, 11);
-    g.shield = { c: Q(sc[0], sc[1]), rx: (ro.shieldBig ? 12.5 : ro.backShield ? 6.5 : 6) * s, ry: (ro.shieldBig ? 16.5 : ro.backShield ? 8 : 14.5) * s, rot: ro.shieldBig ? -0.15 : ro.backShield ? th : 0.1, back: !!ro.backShield };
-    g.rein = Q(...at(sho, -15, 16));
-    g.headS = Q(head[0], head[1]); g.hr = 7.4 * s;
-    g.crown = Q(...H(-1, 12.2));
-    // profile of the face under the helm: brow, nose, mouth (open, crying out, for the king), beard
-    const open = ro.sword ? 1.6 : 0;
-    g.face = QQ([H(4.6, 1.6), H(5.6, 0.4), H(8.2, -1.6), H(6.4, -2.6), H(6.6, -3.4), H(5.9, -3.9 - open * 0.4), H(6.3, -4.7 - open), H(5.8, -6.2 - open), H(3, -8.8 - open), H(-1, -6), H(-2.5, -1), H(0, 1.8)]);
-    g.mouth = open ? QQ([H(6.1, -3.9), H(4.4, -4.6), H(6.0, -4.6 - open)]) : null;
-    g.helm = shape(QQ([H(-6.6, 0.4), H(-6.2, 4.2), H(-3.8, 8), C1(H(-0.8, 12.6)), H(2.6, 8.6), H(5.3, 4.6), H(6.2, 2), C1(H(6, 0.8)), C1(H(-6.2, 0.2))]), true, 3);
-    g.cheek = QQ([H(-1.2, 0.8), H(2.4, 0.7), H(2.3, -3.4), H(1.2, -5.2), H(-0.8, -4.9), H(-1.8, -2)]);
-    g.neckG = QQ([H(-6.2, 0.8), H(-1.5, 0.9), H(-2.4, -3.6), H(-5.2, -4.4), H(-7.2, -3)]);
-    g.nasal = QQ([H(5.6, 1.4), H(7.1, -1.5)]);
-    g.hairRoot = QQ([H(-5.6, -1), H(-5.2, -3), H(-4.2, -4.6)]);
-    g.beardTip = Q(...H(0.5, -10 - open));
+    const sc = ro.shieldBig ? at(sho, -9, 20) : ro.backShield ? at(sho, -11, -9) : at(sho, -13, 10);
+    g.shield = { c: Q(sc[0], sc[1]), rx: (ro.shieldBig ? 11.5 : ro.backShield ? 7 : 5.5) * s, ry: (ro.shieldBig ? 15.5 : ro.backShield ? 9 : 14) * s, rot: ro.shieldBig ? -0.15 : ro.backShield ? th : 0.1, back: !!ro.backShield };
+    g.rein = Q(...at(sho, -15, 15));
+    g.headS = Q(head[0], head[1]); g.hr = 5.2 * s;
+    g.crown = Q(...at(head, 6.4, -1.5));
     const wv = ro.cloakWave, len = ro.cloak;
     g.cloak = null;
     if (len > 0) {
@@ -888,12 +748,12 @@
       const root = at(sho, 1, -6);
       for (let i = 0; i <= 12; i++) {
         const u = i / 12;
-        const c = [root[0] - len * u, root[1] - len * 0.22 * Math.sin(u * 2.2) + Math.sin(u * 5 + wv) * 4 * u + len * 0.3 * u * u];
-        const wd = 6 + 30 * Math.pow(u, 0.7);
-        const tilt = 0.5 + 0.35 * u + 0.2 * Math.sin(u * 3 + wv);
+        const c = [root[0] - len * u, root[1] - len * 0.1 * u + Math.sin(u * 4.2 + wv) * 5 * u + len * 0.05 * u * u];
+        const wd = 5 + 26 * Math.pow(u, 0.8);
+        const tilt = 0.25 + 0.2 * Math.sin(u * 3 + wv);
         const n = [Math.sin(tilt), Math.cos(tilt)];
-        top.push([c[0] - n[0] * wd * 0.3 + Math.sin(u * 9 + wv) * 2 * u, c[1] - n[1] * wd * 0.3 + Math.sin(u * 11 + wv) * 2 * u]);
-        bot.push([c[0] + n[0] * wd * 0.7 + Math.sin(u * 13 + wv) * 3 * u * u, c[1] + n[1] * wd * 0.7 + Math.sin(u * 8 + wv * 1.3) * 5 * u]);
+        top.push([c[0] - n[0] * wd * 0.35 + Math.sin(u * 9 + wv) * 1.5 * u, c[1] - n[1] * wd * 0.35]);
+        bot.push([c[0] + n[0] * wd * 0.65, c[1] + n[1] * wd * 0.65 + Math.sin(u * 7 + wv * 1.3) * 4 * u]);
       }
       g.cloakTop = QQ(top); g.cloakBot = QQ(bot);
       g.cloakRoot = Q(root[0], root[1]); g.cloakLen = len * s;
@@ -904,187 +764,172 @@
 
   function riderUnion(g) {
     const p = new Path2D();
-    addPoly(p, g.torso); addPoly(p, g.leg); addPoly(p, g.arm); addPoly(p, g.boot); addPoly(p, g.skirt); addPoly(p, g.helm); addPoly(p, g.face); addPoly(p, g.neckG);
-    if (g.cloak) addPoly(p, g.cloak);
+    addPoly(p, g.torso); addPoly(p, g.leg); addPoly(p, g.arm); addPoly(p, g.boot); if (g.cloak) addPoly(p, g.cloak);
+    p.moveTo(g.headS[0] + g.hr * 1.2, g.headS[1]); p.arc(g.headS[0], g.headS[1], g.hr * 1.2, 0, TAU);
     p.moveTo(g.shield.c[0] + g.shield.rx, g.shield.c[1]); p.ellipse(g.shield.c[0], g.shield.c[1], g.shield.rx, g.shield.ry, g.shield.rot, 0, TAU);
     return p;
   }
 
-  /* a part of the rider: stumped modelling, shadow hatching, contour */
-  function riderPart(R, pts, caps, tone, o) {
-    const s = o.s, k = R.k;
-    const sh = makeShader(caps);
-    const fn = (x, y, out) => { const v = sh(x, y); tone(v === null ? 0 : v, out); return true; };
-    const path = pathOf(pts);
-    reserve(R, path, 0.92);
-    const shadowOnly = (x, y, out) => { fn(x, y, out); const v = sh(x, y); const m = smooth(0.25, 0.8, darkOf(v === null ? 0 : v, 0.1)); out[RED] *= m; out[BLK] *= m; return true; };
-    stumpShade(R, pts, (x, y, out) => { shadowOnly(x, y, out); out[WHT] = 0; return true; }, Math.max(2, s * 0.8), (o.stump === undefined ? 0.3 : o.stump) * 1.6);
-    hatch(R, { ...bbox(pts, 2), ang: (o.ang || 58) * D2R, sp: clamp(s * 0.85, 2.8, 4.6) * k, len: clamp(s * 4.5, 7, 26) * k, w: clamp(s * 0.55, 1.5, 3) * k, fn: shadowOnly, chs: [RED, BLK, WHT], dth: 0.6, jit: 0.3 });
-    clipFlush(R, path);
-    contour(R, pts, { ch: o.cch === undefined ? BLK : o.cch, w: clamp(s * 0.6, 1.3, 3.2) * k, a: 0.85, wob: s * 0.45, passes: 2, rim: o.rim === undefined ? 0.8 : o.rim, dark: 0.6, final: 1 });
-    flushAll(R);
-    return sh;
-  }
-
   function drawRider(R, hs, g, ro, detail) {
     const B = R.B, s = hs.s, k = R.k, rand = R.rand;
-    const cw = clamp(s * 0.6, 1.3, 3.2) * k;
-    const sp = clamp(s * 0.85, 2.6, 4.6) * k, len = clamp(s * 5, 7, 28) * k, w = clamp(s * 0.55, 1.5, 3.2) * k;
-    const Q = g.Q;
-    // cloak streaming behind
+    const cw = clamp(s * 0.55, 1.3, 3) * k;
+    const sp = clamp(s * 0.75, 2.4, 4.2) * k, len = clamp(s * 4, 6, 24) * k, w = clamp(s * 0.5, 1.4, 3) * k;
     if (g.cloak) {
       const path = pathOf(g.cloak);
       const cch = ro.cloakCh;
       const bb = bbox(g.cloak, 2);
       const T0 = g.cloakTop, B0 = g.cloakBot, nn = T0.length - 1;
       const ph = ro.cloakWave * 1.7;
+      // where across (v: 0 top edge .. 1 bottom) and along (u) the cloth a point lies
       const uv = (x, y) => {
         const u = clamp((g.cloakRoot[0] - x) / g.cloakLen, 0, 1), i = Math.min(nn - 1, (u * nn) | 0), f = u * nn - i;
         const ty = lerp(T0[i][1], T0[i + 1][1], f), by = lerp(B0[i][1], B0[i + 1][1], f);
         return [u, clamp((y - ty) / Math.max(1, by - ty), 0, 1)];
       };
       const fold = (u, v) => Math.sin(v * 7.5 + u * 2.5 + ph) * 0.7 + Math.sin(v * 3.1 - u * 4 + ph * 0.6) * 0.3;
-      const cfn = (x, y, o) => {
+      hatch(R, { ...bb, ang: 60 * D2R, sp, len, w, chs: [cch, BLK, WHT], st: 0.3, fn: (x, y, o) => {
         const q = uv(x, y), f = fold(q[0], q[1]);
         o[cch] = 0.38 + 0.3 * q[1] + 0.2 * smooth(0.2, -0.8, f);
-        o[BLK] = 0.75 * smooth(-0.1, -0.85, f) * (0.5 + 0.5 * q[1]) + 0.3 * smooth(0.5, 1, q[1]) + (ro.gold ? 0.25 : 0);
-        o[WHT] = 0.75 * smooth(0.45, 0.9, f) * (1 - 0.6 * q[1]);
+        o[BLK] = 0.7 * smooth(-0.15, -0.85, f) * (0.5 + 0.5 * q[1]) + 0.25 * smooth(0.5, 1, q[1]);
+        o[WHT] = 0.7 * smooth(0.45, 0.9, f) * (1 - 0.6 * q[1]);
         return true;
-      };
-      reserve(R, path, 0.9);
-      stumpShade(R, g.cloak, cfn, Math.max(2, s), 0.5);
-      hatch(R, { ...bb, ang: 60 * D2R, sp: sp * 1.1, len: len * 1.2, w, chs: [cch, BLK], dth: 0.6, fn: (x, y, o) => { cfn(x, y, o); const q = uv(x, y), f = fold(q[0], q[1]); const m = smooth(0.3, -0.6, f); o[cch] *= m; o[BLK] *= m; return true; } });
+      } });
       clipFlush(R, path);
+      // fold lines along the flow
       const nfold = detail ? 9 : 3;
       for (let i = 0; i < nfold; i++) {
         const v0 = (i + 0.5 + (rand() - 0.5) * 0.4) / nfold;
         const pts = [];
-        for (let j = 1; j <= nn; j++) pts.push(lp(T0[j], B0[j], clamp(v0 + Math.sin(j * 0.7 + i) * 0.06, 0.05, 0.95)));
-        sweep(B, fold(0.5, v0) < 0 ? BLK : WHT, spline(pts, false, 3).slice((rand() * 6) | 0), cw * 1.4, 0.5 + 0.3 * rand(), rand() * 6);
+        for (let j = 1; j <= nn; j++) { const t = lp(T0[j], B0[j], clamp(v0 + Math.sin(j * 0.7 + i) * 0.06, 0.05, 0.95)); pts.push(t); }
+        const a = 0.3 + 0.4 * rand();
+        B.poly(fold(0.5, v0) < 0 ? BLK : (rand() < 0.5 ? WHT : cch), a, cw * 0.9, spline(pts, false, 3).slice((rand() * 6) | 0));
       }
-      contour(R, g.cloak, { ch: BLK, w: cw * 1.2, a: 0.85, wob: s * 0.4, passes: 2, rim: 0.5 });
+      contour(R, g.cloak, { ch: BLK, w: cw, a: 0.75, wob: s * 0.4, passes: 2, rim: 0.4 });
       flushAll(R);
     }
-    // long hair streaming from under the helm
-    {
-      const nh = detail ? 26 : 7;
-      for (let i = 0; i < nh; i++) {
-        const r0 = g.hairRoot[(rand() * 3) | 0];
-        const Lh = (14 + rand() * 20) * s, dy = (rand() - 0.3) * 9 * s;
-        B.quad(ro.hairCh, 0.45 + rand() * 0.4, cw * (0.6 + rand() * 0.5), r0[0], r0[1], r0[0] - Lh * 0.5, r0[1] + dy * 0.2 - 2 * s, r0[0] - Lh, r0[1] + dy);
-      }
-      flushAll(R);
-    }
-    // shield on the far arm
     const sd = g.shield;
     const sp2 = new Path2D(); sp2.ellipse(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 0, TAU);
-    const shieldFace = () => {
-      // a round shield: painted rim, a boss catching the dawn
-      reserve(R, sp2, 0.92);
-      fillCh(R.cT, ro.shieldCh, sp2, 0.4); fillCh(R.cT, BLK, sp2, 0.15);
-      hatch(R, { ...bbox(ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 12), 1), ang: 58 * D2R, sp, len: len * 0.6, w, chs: [ro.shieldCh, BLK], fn: (x, y, o) => { const t = (x - sd.c[0]) / sd.rx; o[ro.shieldCh] = 0.4; o[BLK] = 0.55 * smooth(-0.3, 1, t); return true; } });
-      clipFlush(R, sp2);
-      const rimP = new Path2D(); rimP.ellipse(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 0, TAU); rimP.ellipse(sd.c[0], sd.c[1], sd.rx * 0.8, sd.ry * 0.8, sd.rot, 0, TAU);
-      R.cT.fillStyle = 'rgba(' + CHS[ro.shieldCh === RED ? BLK : RED] + ',0.4)'; R.cT.fill(rimP, 'evenodd');
-      if (detail) for (let i = 0; i < 8; i++) { const a = i * TAU / 8 + 0.3; B.line(WHT, 0.45, cw * 0.7, sd.c[0] + Math.cos(a) * sd.rx * 0.25, sd.c[1] + Math.sin(a) * sd.ry * 0.25, sd.c[0] + Math.cos(a) * sd.rx * 0.78, sd.c[1] + Math.sin(a) * sd.ry * 0.78); }
-      contour(R, ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 30), { ch: BLK, w: cw, a: 0.85, wob: s * 0.2, passes: 2, rim: 0.7 });
-      const bp = new Path2D(); bp.ellipse(sd.c[0] - sd.rx * 0.05, sd.c[1], sd.rx * 0.24, sd.ry * 0.2, sd.rot, 0, TAU);
-      fillCh(R.cT, BLK, bp, 0.6); blob(R.cT, WHT, sd.c[0] - sd.rx * 0.12, sd.c[1] - sd.ry * 0.07, sd.rx * 0.14, sd.rx * 0.14, 0, 0.9);
-      flushAll(R);
-    };
     if (sd.back) { /* drawn after the torso */ } else if (ro.gold) {
       const c = R.cT;
-      blob(c, WHT, sd.c[0], sd.c[1], sd.ry * 4.4, sd.ry * 3.8, 0, 0.24);
+      blob(c, WHT, sd.c[0], sd.c[1], sd.ry * 4.2, sd.ry * 3.6, 0, 0.22);
       blob(c, RED, sd.c[0], sd.c[1], sd.ry * 2.6, sd.ry * 2.3, 0, 0.16);
       reserve(R, sp2, 0.95);
-      fillCh(c, WHT, sp2, 0.66); fillCh(c, RED, sp2, 0.1);
+      fillCh(c, WHT, sp2, 0.62);
+      fillCh(c, RED, sp2, 0.1);
       const rimP = new Path2D(); rimP.ellipse(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 0, TAU); rimP.ellipse(sd.c[0], sd.c[1], sd.rx * 0.84, sd.ry * 0.84, sd.rot, 0, TAU);
       c.fillStyle = 'rgba(255,0,0,0.45)'; c.fill(rimP, 'evenodd');
       for (let i = 0; i < 90; i++) {
         const a = (i / 90) * TAU + rand() * 0.04, r0 = 0.22 + rand() * 0.12, r1 = 0.68 + rand() * 0.12;
-        stroke(B, i % 2 ? RED : WHT, sd.c[0] + Math.cos(a) * sd.rx * r0, sd.c[1] + Math.sin(a) * sd.ry * r0, sd.c[0] + Math.cos(a) * sd.rx * r1, sd.c[1] + Math.sin(a) * sd.ry * r1, 0.04, cw * 0.75, i % 2 ? 0.45 : 0.85);
+        const ca = Math.cos(a), sa = Math.sin(a);
+        stroke(B, i % 2 ? RED : WHT, sd.c[0] + ca * sd.rx * r0, sd.c[1] + sa * sd.ry * r0, sd.c[0] + ca * sd.rx * r1, sd.c[1] + sa * sd.ry * r1, 0.04, cw * 0.75, i % 2 ? 0.45 : 0.85);
       }
       contour(R, ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 60), { ch: RED, w: cw * 1.4, a: 0.9, wob: s * 0.2, passes: 3, dark: 0.6 });
+      B.poly(RED, 0.6, cw, ellipsePts(sd.c[0], sd.c[1], sd.rx * 0.86, sd.ry * 0.86, sd.rot, 40, 0, TAU + 0.2));
       B.poly(RED, 0.55, cw, ellipsePts(sd.c[0], sd.c[1], sd.rx * 0.2, sd.ry * 0.2, sd.rot, 16, 0, TAU + 0.3));
       blob(c, WHT, sd.c[0] - sd.rx * 0.15, sd.c[1] - sd.ry * 0.12, sd.rx * 0.55, sd.ry * 0.5, 0, 0.75);
-      for (let i = 0; i < 60; i++) {
-        const a = rand() * TAU, r0 = 1.1 + rand() * 0.12, r1 = r0 + 0.35 + rand() * 1.4;
+      for (let i = 0; i < 56; i++) {
+        const a = rand() * TAU, r0 = 1.1 + rand() * 0.12, r1 = r0 + 0.35 + rand() * 1.3;
         stroke(B, WHT, sd.c[0] + Math.cos(a) * sd.rx * r0, sd.c[1] + Math.sin(a) * sd.ry * r0, sd.c[0] + Math.cos(a) * sd.rx * r1, sd.c[1] + Math.sin(a) * sd.ry * r1, 0, cw * 0.7, 0.25 + rand() * 0.35);
       }
+    } else {
+      fillCh(R.cT, ro.shieldCh, sp2, 0.3);
+      fillCh(R.cT, BLK, sp2, 0.22);
+      contour(R, ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 30), { ch: BLK, w: cw, a: 0.7, wob: s * 0.2, passes: 2, rim: 0.5 });
+      blob(R.cT, WHT, sd.c[0] + sd.rx * 0.2, sd.c[1], sd.rx * 0.35, sd.rx * 0.35, 0, 0.55);
+    }
+    flushAll(R);
+    {
+      // long hair streaming from under the helm, behind the shoulders
+      const hc = g.headS, hr = g.hr;
+      const nh = detail ? 22 : 6;
+      for (let i = 0; i < nh; i++) {
+        const y0 = hc[1] + (rand() - 0.1) * hr * 0.9, x0 = hc[0] - hr * 0.5;
+        const Lh = (10 + rand() * 14) * s;
+        B.quad(ro.hairCh, 0.4 + rand() * 0.4, cw * 0.75, x0, y0, x0 - Lh * 0.5, y0 + (rand() - 0.6) * 4 * s, x0 - Lh, y0 + (rand() - 0.1) * 9 * s);
+      }
       flushAll(R);
-    } else shieldFace();
-    // the near leg: hose, a boot of dark leather, the stirrup
-    const legTone = (v, o) => { const D = darkOf(v, 0.05); o[RED] = 0.3 + 0.5 * D; o[BLK] = 0.7 * smooth(0.5, 1, D); o[WHT] = 0.75 * smooth(0.6, 0.85, v); };
-    riderPart(R, g.leg, [cap(Q(...g.hip), Q(...g.knee), 7.5 * s, 5.2 * s), cap(Q(...g.knee), Q(...g.ank), 5 * s, 3.6 * s)], legTone, { s, cch: RED });
-    fillCh(R.cT, BLK, pathOf(g.boot), 0.55);
-    B.poly(WHT, 0.5, cw, [g.boot[0], g.boot[6]]);
+    }
+    const lsh = makeShader([cap(g.Q(...g.hip), g.Q(...g.knee), 6.5 * s, 5 * s), cap(g.Q(...g.knee), g.Q(...g.ank), 5 * s, 3.6 * s)]);
+    const legFn = (x, y, o) => { const v = lsh(x, y); const D = darkOf(v === null ? 0.2 : v, 0.05); o[RED] = 0.3 + 0.55 * D; o[BLK] = 0.7 * smooth(0.5, 1, D); o[WHT] = 0.7 * smooth(0.6, 0.85, v === null ? 0 : v); return true; };
+    const legP = pathOf(g.leg);
+    reserve(R, legP, 0.9);
+    hatch(R, { ...bbox(g.leg, 2), ang: 58 * D2R, sp, len, w, fn: legFn, chs: [RED, BLK, WHT], st: 0.25 });
+    clipFlush(R, legP);
+    fillCh(R.cT, BLK, pathOf(g.boot), 0.5);
+    contour(R, g.leg, { ch: RED, w: cw, a: 0.8, wob: s * 0.3, passes: 2, dark: 0.8, rim: 0.5 });
     const st = g.boot[4];
-    B.poly(BLK, 0.9, cw * 1.1, [[st[0] - 5 * s, st[1] - 8 * s], [st[0] - 7 * s, st[1] + 1 * s], [st[0] + 1 * s, st[1] + 1 * s], [st[0] - 1 * s, st[1] - 8 * s]]);
-    // torso in mail
-    const mailTone = (v, o) => { const D = darkOf(v, 0.12); o[BLK] = 0.2 + 0.7 * D; o[WHT] = 0.9 * smooth(0.5, 0.85, v); o[RED] = 0.22 + 0.15 * D; };
-    const tcap = [cap(Q(...g.at(g.hip, 4, 0)), Q(...g.at(g.hip, 26, 0)), 9.5 * s, 10.5 * s)];
-    const tsh = riderPart(R, g.torso, tcap, mailTone, { s, rim: ro.gold ? 1 : 0.85 });
-    if (s > 1.2) {
-      const tb = bbox(g.torso, 1);
-      R.cS.save(); R.cS.clip(pathOf(g.torso));
-      const step = Math.max(2.4 * k, 1.8 * s);
+    B.poly(BLK, 0.85, cw * 1.1, [[st[0] - 5 * s, st[1] - 7 * s], [st[0] - 7 * s, st[1] + 1 * s], [st[0] + 1 * s, st[1] + 1 * s], [st[0] - 1 * s, st[1] - 7 * s]]);
+    const tp = pathOf(g.torso);
+    reserve(R, tp, 0.92);
+    const tb = bbox(g.torso, 2);
+    const tsh = makeShader([cap(g.Q(...g.hip), g.Q(...g.sho), 10 * s, 10.5 * s)]);
+    const tfn = (x, y, o) => { const v = tsh(x, y); const vv = v === null ? -0.3 : v; const D = darkOf(vv, 0.1); o[BLK] = 0.45 + 0.5 * D; o[WHT] = 0.75 * smooth(0.68, 0.9, vv); o[RED] = 0.22; return true; };
+    hatch(R, { ...tb, ang: 58 * D2R, sp, len: len * 0.8, w, fn: tfn, chs: [BLK, RED, WHT], st: 0.25 });
+    clipFlush(R, tp);
+    if (detail && s > 1.6) {
+      R.cS.save(); R.cS.clip(tp);
+      const step = Math.max(2.2 * k, 1.9 * s);
       for (let y = tb.y0; y < tb.y1; y += step) for (let x = tb.x0 + ((y / step) & 1) * step * 0.5; x < tb.x1; x += step) {
-        const v = tsh(x, y); if (v === null || v < 0.05 || v > 0.7 || rand() < 0.55) continue;
-        B.quad(v > 0.45 ? WHT : BLK, 0.45 + rand() * 0.35, w * 0.6, x - step * 0.38, y, x, y + step * 0.42, x + step * 0.38, y);
+        const v = tsh(x, y); if (v === null) continue;
+        const ch = v > 0.35 ? WHT : BLK;
+        B.quad(ch, 0.35 + rand() * 0.35, w * 0.6, x - step * 0.38, y, x, y + step * 0.42, x + step * 0.38, y);
       }
       B.flush(); R.cS.restore();
     }
-    // the skirt of mail over the thigh, belted at the waist
-    riderPart(R, g.skirt, [cap(Q(...g.at(g.hip, 4, 0)), Q(...lp(g.hip, g.knee, 0.7)), 9 * s, 6 * s)], mailTone, { s, rim: 0.6 });
-    { const w0 = Q(...g.at(g.hip, 7.5, 10)), w1 = Q(...g.at(g.hip, 7.5, -10.4)); for (let i = 0; i < (detail ? 7 : 2); i++) { const a = lp(w0, w1, (i + 0.5) / 7); B.line(BLK, 0.45, cw * 0.8, a[0], a[1], a[0] - 7 * s, a[1] + 11 * s); } }
-    const bA = Q(...g.at(g.hip, 8, -10.4)), bB = Q(...g.at(g.hip, 8, 9.6));
-    B.line(RED, 0.9, cw * 2.4, bA[0], bA[1], bB[0], bB[1]);
-    B.line(BLK, 0.8, cw * 0.9, bA[0], bA[1] + cw, bB[0], bB[1] + cw);
-    blob(R.cT, WHT, lp(bA, bB, 0.75)[0], lp(bA, bB, 0.75)[1], 1.6 * s, 1.6 * s, 0, 0.8);
-    if (sd.back) shieldFace();
-    const armTone = (v, o) => { const D = darkOf(v, 0.2); o[BLK] = 0.55 + 0.4 * D; o[WHT] = 0.8 * smooth(0.62, 0.9, v); o[RED] = 0.2; };
-    const drawArm = () => {
-      riderPart(R, g.arm, [cap(Q(...g.sho), Q(...g.elbow), 5.4 * s, 4.4 * s), cap(Q(...g.elbow), Q(...g.hand), 4.2 * s, 3.2 * s)], armTone, { s, rim: 1, stump: 0.55 });
-      sweep(B, BLK, [Q(...g.sho), Q(...g.elbow), Q(...g.hand)].map((q, i, a) => q), cw * 0.9, 0.4);
-      for (let i = 0; i < 6; i++) { const q = lp(Q(...g.sho), Q(...g.elbow), 0.15 + i * 0.14); B.quad(WHT, 0.5, cw * 0.6, q[0] - 1.2 * s, q[1] - 1.2 * s, q[0], q[1] - 0.3 * s, q[0] + 1.2 * s, q[1] - 1 * s); }
-      const hp = new Path2D(); hp.arc(g.handS[0], g.handS[1], 3.3 * s, 0, TAU); reserve(R, hp, 0.9); fillCh(R.cT, RED, hp, 0.55); fillCh(R.cT, BLK, hp, 0.25); B.poly(BLK, 0.8, cw, ellipsePts(g.handS[0], g.handS[1], 3.3 * s, 3.3 * s, 0, 10, 0, TAU + 0.5));
-    };
-    if (ro.sword) drawArm();
-    // head: face in profile, helm with cheek-guard and nasal, horsehair crest
-    const faceTone = (v, o) => { const D = darkOf(v, 0.05); o[RED] = 0.4 + 0.45 * D; o[BLK] = 0.4 * smooth(0.65, 1, D); o[WHT] = 0.55 * smooth(0.55, 0.85, v); };
-    const hc = g.headS;
-    const fc = [cap(hc, hc, 8.5 * s, 8.5 * s)];
-    riderPart(R, g.face, fc, faceTone, { s, cch: RED, rim: 0.5, stump: 0.4 });
-    // the profile drawn as one searching line: brow, nose, lips, chin
-    contour(R, g.face.slice(0, 9), { closed: false, ch: RED, w: cw * 0.9, a: 0.95, wob: s * 0.2, passes: 2, flat: true, final: 0.8, fch: BLK });
-    for (let i = 0; i < (detail ? 18 : 5); i++) { const a = g.face[6 + ((rand() * 4) | 0)]; const t = g.beardTip; B.quad(ro.hairCh, 0.6, cw * 0.75, a[0], a[1], (a[0] + t[0]) / 2 - 3 * s, (a[1] + t[1]) / 2 + s, t[0] - rand() * 9 * s, t[1] + (rand() - 0.3) * 4 * s); }
-    if (g.mouth) fillCh(R.cS, BLK, pathOf(g.mouth), 0.95);
-    const eye = Q(...g.H(3.8, -0.3)); B.line(BLK, 0.95, cw * 1.2, eye[0] - 0.9 * s, eye[1] - 0.2 * s, eye[0] + 0.9 * s, eye[1] + 0.2 * s);
-    B.line(BLK, 0.7, cw * 0.8, ...Q(...g.H(2.6, 0.7)), ...Q(...g.H(5, 0.9)));
-    const helmTone = (v, o) => { const D = darkOf(v, 0); o[BLK] = 0.35 + 0.55 * D; o[WHT] = 0.95 * smooth(0.5, 0.85, v); o[RED] = ro.gold ? 0.3 : 0.12; };
-    const hcap = [cap(Q(...g.H(-0.5, 2.5)), Q(...g.H(-0.5, 2.6)), 9 * s, 9 * s)];
-    riderPart(R, g.neckG, hcap, helmTone, { s, rim: 0.7, stump: 0.45 });
-    riderPart(R, g.helm, hcap, helmTone, { s, rim: 1, stump: 0.45 });
-    riderPart(R, g.cheek, hcap, (v, o) => { helmTone(v, o); o[BLK] *= 0.7; }, { s, rim: 0.8, stump: 0.25 });
-    for (let i = 0; i < 3; i++) { const q = Q(...g.H(0.6 + i * 1.3, -1 - i * 1.2)); B.line(WHT, 0.8, cw, q[0], q[1], q[0] + 0.3 * s, q[1] + 0.3 * s); }
-    sweep(B, BLK, [Q(...g.H(-6.2, 0.6)), Q(...g.H(0, 0.9)), Q(...g.H(5.9, 1))], cw * 2.2, 0.95);
-    sweep(B, BLK, g.nasal, cw * 2, 1);
-    B.line(WHT, 0.7, cw * 0.6, g.nasal[0][0] - s * 0.4, g.nasal[0][1], g.nasal[1][0] - s * 0.4, g.nasal[1][1]);
+    contour(R, g.torso, { ch: BLK, w: cw, a: 0.8, wob: s * 0.3, passes: 2, rim: ro.gold ? 1 : 0.6 });
+    { const sc = g.Q(...g.sho); B.poly(WHT, 0.75, cw * 1.2, ellipsePts(sc[0], sc[1] + 2 * s, 6 * s, 4.5 * s, g.th, 8, Math.PI * 0.95, Math.PI * 1.75)); B.poly(BLK, 0.7, cw, ellipsePts(sc[0], sc[1] + 2 * s, 6 * s, 4.5 * s, g.th, 8, Math.PI * 1.8, Math.PI * 2.7)); }
+    if (sd.back) {
+      reserve(R, sp2, 0.9);
+      fillCh(R.cT, ro.shieldCh, sp2, 0.4); fillCh(R.cT, BLK, sp2, 0.18);
+      hatch(R, { ...bbox(ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 12), 1), ang: 58 * D2R, sp, len: len * 0.6, w, chs: [ro.shieldCh, BLK], fn: (x, y, o) => { const t = (x - sd.c[0]) / sd.rx; o[ro.shieldCh] = 0.4; o[BLK] = 0.5 * smooth(-0.3, 1, t); return true; } });
+      clipFlush(R, sp2);
+      contour(R, ellipsePts(sd.c[0], sd.c[1], sd.rx, sd.ry, sd.rot, 30), { ch: BLK, w: cw, a: 0.8, wob: s * 0.2, passes: 2, rim: 0.7 });
+      B.poly(RED, 0.6, cw, ellipsePts(sd.c[0], sd.c[1], sd.rx * 0.82, sd.ry * 0.82, sd.rot, 24, 0, TAU + 0.2));
+      blob(R.cT, WHT, sd.c[0] - sd.rx * 0.1, sd.c[1] - sd.ry * 0.1, sd.rx * 0.22, sd.rx * 0.22, 0, 0.8);
+      flushAll(R);
+    }
+    const bA = g.Q(...g.at(g.hip, 7, -9.5)), bB = g.Q(...g.at(g.hip, 7, 10));
+    B.line(BLK, 0.85, cw * 1.6, bA[0], bA[1], bB[0], bB[1]);
+    const sk = g.skirt;
+    B.poly(BLK, 0.6, cw, [sk[1], sk[2]]); B.poly(BLK, 0.5, cw, [sk[0], sk[3], sk[2]]);
+    const hc = g.headS, hr = g.hr, fwd = g.f;
+    const face = new Path2D(); face.ellipse(hc[0] + fwd[0] * hr * 0.66, hc[1] + hr * 0.35, hr * 0.36, hr * 0.5, 0, 0, TAU);
+    const hd = new Path2D(); hd.arc(hc[0], hc[1], hr * 1.05, 0, TAU); reserve(R, hd, 0.9);
+    fillCh(R.cT, BLK, hd, 0.42); fillCh(R.cT, RED, hd, 0.15);
+    fillCh(R.cT, RED, face, 0.5);
+    fillCh(R.cT, BLK, face, 0.18);
+    B.poly(RED, 0.8, cw * 0.8, [[hc[0] + hr * 0.85, hc[1] + hr * 0.05], [hc[0] + hr * 1.05, hc[1] + hr * 0.35], [hc[0] + hr * 0.85, hc[1] + hr * 0.5]]);
+    const chin = [hc[0] + fwd[0] * hr * 0.6, hc[1] + hr * 0.85];
+    for (let i = 0; i < (detail ? 14 : 3); i++) B.quad(ro.hairCh, 0.55, cw * 0.8, chin[0] - rand() * hr * 0.6, chin[1] - rand() * hr * 0.3, chin[0] - hr * 0.6, chin[1] + hr * 0.6, chin[0] - hr * (1 + rand() * 1.6), chin[1] + hr * (0.4 + rand() * 0.7));
+    const helm = new Path2D(); helm.moveTo(hc[0] + hr * 0.95, hc[1] - hr * 0.05); helm.ellipse(hc[0], hc[1] - hr * 0.1, hr * 1.02, hr * 1.0, 0, -0.05, -Math.PI * 1.1, true); helm.lineTo(hc[0] - hr * 1.0, hc[1] + hr * 0.8); helm.lineTo(hc[0] - hr * 0.2, hc[1] + hr * 0.55); helm.lineTo(hc[0] + hr * 0.1, hc[1]); helm.closePath();
+    fillCh(R.cT, BLK, helm, 0.45);
+    flushAll(R);
+    R.cS.save(); R.cS.clip(helm);
+    for (let i = 0; i < 9; i++) { const a = Math.PI * (1.0 + i * 0.06); stroke(B, WHT, hc[0] + Math.cos(a) * hr * 0.95, hc[1] + Math.sin(a) * hr - hr * 0.15, hc[0] + Math.cos(a + 0.25) * hr * 0.6, hc[1] + Math.sin(a + 0.25) * hr * 0.6 - hr * 0.2, 0.1, cw, 0.8 - i * 0.08); }
+    B.flush(); R.cS.restore();
+    B.poly(BLK, 0.85, cw, ellipsePts(hc[0], hc[1] - hr * 0.15, hr * 1.06, hr * 1.02, 0, 12, Math.PI * 1.5, Math.PI * 2.05));
+    B.line(BLK, 0.85, cw * 1.5, hc[0] + fwd[0] * hr * 0.78, hc[1] - hr * 0.15, hc[0] + fwd[0] * hr * 0.82, hc[1] + hr * 0.6);
+    B.poly(BLK, 0.7, cw, [[hc[0] - hr * 0.2, hc[1]], [hc[0] - hr * 0.05, hc[1] + hr * 0.95], [hc[0] + hr * 0.45, hc[1] + hr * 0.75]]);
     if (ro.gold) {
-      const band = [Q(...g.H(-6.2, 1.4)), Q(...g.H(-3, 2.6)), Q(...g.H(1.5, 2.8)), Q(...g.H(5.4, 1.8))];
-      sweep(B, RED, spline(band, false, 4), cw * 2.2, 1); B.poly(WHT, 0.9, cw * 0.7, spline(band, false, 4).map((p) => [p[0], p[1] - cw]));
-      for (let i = 0; i < 4; i++) blob(R.cT, WHT, band[i][0], band[i][1] - cw, cw * 1.3, cw * 1.3, 0, 0.85);
+      const band = ellipsePts(hc[0], hc[1] - hr * 0.2, hr * 1.08, hr * 0.5, 0, 10, Math.PI * 0.95, Math.PI * 2.05);
+      B.poly(RED, 0.9, cw * 1.6, band); B.poly(WHT, 0.8, cw * 0.7, band.map((p) => [p[0], p[1] - cw]));
+      for (let i = 1; i < band.length - 1; i += 2) blob(R.cT, WHT, band[i][0], band[i][1] - cw, cw * 1.2, cw * 1.2, 0, 0.8);
     }
     const cr0 = g.crown;
-    for (let i = 0; i < (ro.plume ? (detail ? 44 : 10) : 0); i++) {
+    for (let i = 0; i < (ro.plume ? (detail ? 40 : 9) : 0); i++) {
       const Lp = ro.plume * (0.6 + rand() * 0.6) * s;
       const ang = Math.PI - 0.3 + rand() * 0.42;
       const ex = cr0[0] + Math.cos(ang) * Lp, ey = cr0[1] + Math.sin(ang) * Lp + Lp * 0.22;
       B.quad(ro.plumeCh, 0.45 + rand() * 0.45, cw * (0.7 + rand() * 0.5), cr0[0], cr0[1], cr0[0] - Lp * 0.4, cr0[1] - Lp * (0.12 + rand() * 0.25), ex, ey);
     }
     flushAll(R);
-    // near arm in a mail sleeve, the hand gloved
-    if (!ro.sword) drawArm();
+    const ap = pathOf(g.arm);
+    reserve(R, ap, 0.9);
+    const ash = makeShader([cap(g.Q(...g.sho), g.Q(...g.elbow), 5 * s, 4 * s), cap(g.Q(...g.elbow), g.Q(...g.hand), 4 * s, 3.2 * s)]);
+    hatch(R, { ...bbox(g.arm, 2), ang: 58 * D2R, sp, len: len * 0.7, w, fn: (x, y, o) => { const v = ash(x, y); const vv = v === null ? 0 : v; o[BLK] = 0.42 + 0.5 * darkOf(vv, 0.1); o[WHT] = 0.75 * smooth(0.68, 0.9, vv); return true; }, chs: [BLK, WHT], st: 0.25 });
+    clipFlush(R, ap);
+    contour(R, g.arm, { ch: BLK, w: cw, a: 0.75, wob: s * 0.25, passes: 2, rim: 0.5 });
+    blob(R.cT, RED, g.handS[0], g.handS[1], 3 * s, 3 * s, 0, 0.7);
     const sw = clamp(s * 1.05, 1.4, 4.6) * k;
     if (g.spear) {
       const a = g.spear.a, b = g.spear.b;
@@ -1092,9 +937,9 @@
       B.line(RED, 0.5, sw * 0.7, a[0], a[1] + sw * 0.4, b[0], b[1] + sw * 0.4);
       B.line(WHT, 0.6, sw * 0.5, a[0] + (b[0] - a[0]) * 0.25, a[1] + (b[1] - a[1]) * 0.25 - sw * 0.45, b[0], b[1] - sw * 0.45);
       const d = [b[0] - a[0], b[1] - a[1]]; const l = Math.hypot(d[0], d[1]); const u = [d[0] / l, d[1] / l], n = [-u[1], u[0]];
-      const hl = 10 * s, hw = 1.5 * s;
+      const hl = 9 * s, hw = 1.3 * s;
       const head = [[b[0] - u[0] * hl * 0.15, b[1] - u[1] * hl * 0.15], [b[0] + u[0] * hl * 0.32 + n[0] * hw, b[1] + u[1] * hl * 0.32 + n[1] * hw], [b[0] + u[0] * hl, b[1] + u[1] * hl], [b[0] + u[0] * hl * 0.32 - n[0] * hw, b[1] + u[1] * hl * 0.32 - n[1] * hw]];
-      fillCh(R.cS, WHT, pathOf(head), 0.6);
+      fillCh(R.cS, WHT, pathOf(head), 0.55);
       B.poly(BLK, 0.75, cw * 0.6, head.concat([head[0]]));
       B.line(WHT, 0.9, cw * 0.6, head[0][0], head[0][1] - hw * 0.4, head[2][0], head[2][1]);
       if (ro.pennon) {
@@ -1106,23 +951,20 @@
       }
     }
     if (g.sword) {
-      // the king's sword held high, catching the first light
-      const a = g.sword.a, b = g.sword.b, d = g.sword.d;
-      blob(R.cT, WHT, lp(a, b, 0.75)[0], lp(a, b, 0.75)[1], 34 * s, 34 * s, 0, 0.22);
-      const n = [-d[1], d[0]];
-      const blade = [[a[0] + n[0] * 1.6 * s, a[1] + n[1] * 1.6 * s], [b[0] + n[0] * 0.5 * s, b[1] + n[1] * 0.5 * s], [b[0] + d[0] * 4 * s, b[1] + d[1] * 4 * s], [b[0] - n[0] * 0.5 * s, b[1] - n[1] * 0.5 * s], [a[0] - n[0] * 1.6 * s, a[1] - n[1] * 1.6 * s]];
-      fillCh(R.cS, WHT, pathOf(blade), 1);
-      B.line(BLK, 0.6, cw * 0.6, a[0] - n[0] * 1.6 * s, a[1] - n[1] * 1.6 * s, b[0] - n[0] * 0.5 * s, b[1] - n[1] * 0.5 * s);
-      B.line(BLK, 0.95, sw * 1.2, a[0] - n[0] * 6 * s, a[1] - n[1] * 6 * s, a[0] + n[0] * 6 * s, a[1] + n[1] * 6 * s);
-      for (let i = 0; i < 18; i++) { const t = 0.55 + rand() * 0.45, q = lp(a, b, t), an = rand() * TAU, l = (6 + rand() * 16) * s; stroke(B, WHT, q[0] + Math.cos(an) * 3 * s, q[1] + Math.sin(an) * 3 * s, q[0] + Math.cos(an) * l, q[1] + Math.sin(an) * l, 0, cw * 0.6, 0.45); }
+      const a = g.sword.a, b = g.sword.b;
+      blob(R.cT, WHT, lp(a, b, 0.7)[0], lp(a, b, 0.7)[1], 26 * s, 26 * s, 0, 0.18);
+      B.line(WHT, 1, sw * 1.3, a[0], a[1], b[0], b[1]);
+      B.line(BLK, 0.7, sw * 0.4, a[0] + 1.4 * s, a[1] + 0.9 * s, b[0] + 0.9 * s, b[1] + 0.5 * s);
+      const d = [b[0] - a[0], b[1] - a[1]]; const l = Math.hypot(d[0], d[1]); const n = [-d[1] / l, d[0] / l];
+      B.line(BLK, 0.9, sw, a[0] - n[0] * 5 * s, a[1] - n[1] * 5 * s, a[0] + n[0] * 5 * s, a[1] + n[1] * 5 * s);
     }
     if (g.hornPts) {
       fillCh(R.cS, WHT, pathOf(limb(g.hornPts, [1.2 * s, 1.8 * s, 2.6 * s, 4 * s])), 0.7);
       B.poly(BLK, 0.8, cw, g.hornPts);
     }
-    const bit = hs.Hp(32.6, 7.6);
+    const bit = hs.Hp(35, 7);
     const rm = [(bit[0] + g.rein[0]) / 2, Math.max(bit[1], g.rein[1]) + 7 * s];
-    B.quad(BLK, 0.7, cw * 0.8, g.rein[0], g.rein[1], rm[0], rm[1], bit[0], bit[1]);
+    B.quad(BLK, 0.65, cw * 0.8, g.rein[0], g.rein[1], rm[0], rm[1], bit[0], bit[1]);
     flushAll(R);
   }
 
@@ -1149,7 +991,7 @@
     B.poly(BLK, 0.8, cw * 1.1, spline([Hp(1, 0), Hp(14, 6), Hp(32, 5)], false, 5));
     B.poly(BLK, 0.75, cw * 1.1, spline([Hp(29, -1.6), Hp(30, 4), Hp(31.5, 9.6)], false, 4));
     B.poly(BLK, 0.65, cw, spline([Hp(5, -3), Hp(7, 3), Hp(10, 11)], false, 4));
-    const bit = Hp(32.6, 7.6);
+    const bit = Hp(35, 7);
     blob(R.cT, WHT, bit[0], bit[1], 1.8 * s, 1.8 * s, 0, 0.7);
     flushAll(R);
   }
@@ -1157,7 +999,6 @@
   /* mid-distance horse and rider: reserve, a soft shadow, contour, a few lights */
   function drawRiderMid(R, rd) {
     const hs = rd.hs, s = hs.s, k = R.k, B = R.B, rand = R.rand, ro = rd.ro;
-    if (rd.std) { ro.spearAng = -60; ro.spearLen = 15; }
     const g = riderGeom(hs, ro);
     const up = horseUnion(hs);
     const ru = riderUnion(g);
@@ -1196,10 +1037,9 @@
     }
     B.poly(RED, 0.5, cw, g.leg);
     const hc = g.headS;
-    fillCh(R.cT, RED, pathOf(g.face), 0.55);
-    fillCh(R.cT, BLK, pathOf(g.helm), 0.55 + rand() * 0.25);
-    B.poly(WHT, 0.5 + rand() * 0.35, cw, g.helm.slice(0, (g.helm.length * 0.4) | 0));
-    for (let i = 0; i < 4; i++) { const r0 = g.hairRoot[i % 3]; B.quad(ro.hairCh, 0.55, cw, r0[0], r0[1], r0[0] - 8 * s, r0[1] - s, r0[0] - (14 + rand() * 10) * s, r0[1] + rand() * 6 * s); }
+    { const hp = new Path2D(); hp.arc(hc[0], hc[1], g.hr * 0.95, 0, TAU); fillCh(R.cT, BLK, hp, 0.62); }
+    blob(R.cT, RED, hc[0] + g.hr * 0.8, hc[1] + g.hr * 0.4, g.hr * 0.22, g.hr * 0.36, 0, 0.6);
+    B.quad(WHT, 0.55 + rand() * 0.3, cw, hc[0] - g.hr * 0.95, hc[1] + g.hr * 0.2, hc[0] - g.hr * 0.95, hc[1] - g.hr * 0.95, hc[0] + g.hr * 0.1, hc[1] - g.hr * 0.95);
     const cr0 = g.crown;
     if (ro.plume) for (let i = 0; i < 4; i++) B.quad(ro.plumeCh, 0.55, cw, cr0[0], cr0[1], cr0[0] - ro.plume * 0.4 * s, cr0[1] - 3 * s, cr0[0] - ro.plume * (0.8 + rand() * 0.4) * s, cr0[1] + rand() * 6 * s);
     if (g.spear) {
@@ -1209,17 +1049,6 @@
       if (ro.pennon) fillCh(R.cT, ro.pennonCh, pathOf([[b[0] - 12 * s, b[1] - 1 * s], [b[0] - 26 * s, b[1] - 4 * s], [b[0] - 23 * s, b[1] + 1 * s]]), 0.6);
     }
     if (g.pole) { B.line(BLK, 0.85, clamp(s * 1.3, 1.2, 3.4) * k, g.pole.a[0], g.pole.a[1], g.pole.b[0], g.pole.b[1]); }
-    if (rd.std) {
-      // a standard among the ranks: a tall lance with a long swallow-tailed streamer
-      const hb = g.handS, top = [hb[0] - 12 * s, hb[1] - 120 * s];
-      B.line(BLK, 0.9, clamp(s * 1.2, 1.1, 3) * k, hb[0] + 2 * s, hb[1] + 10 * s, top[0], top[1]);
-      const wv = ro.cloakWave, Lf = 55 * s;
-      const fl = [top, [top[0] - Lf * 0.5, top[1] + 4 * s + Math.sin(wv) * 4 * s], [top[0] - Lf, top[1] + 2 * s], [top[0] - Lf * 0.8, top[1] + 8 * s], [top[0] - Lf, top[1] + 15 * s], [top[0] - Lf * 0.45, top[1] + 14 * s + Math.cos(wv) * 3 * s], [top[0], top[1] + 16 * s]];
-      const fp = pathOf(spline(fl, true, 3));
-      reserve(R, fp, 0.85); fillCh(R.cT, rand() < 0.5 ? BLK : RED, fp, 0.5); fillCh(R.cT, BLK, fp, 0.15);
-      blob(R.cT, WHT, top[0] - Lf * 0.3, top[1] + 9 * s, 7 * s, 4 * s, 0, 0.7);
-      B.poly(BLK, 0.7, cw, spline(fl, true, 3));
-    }
     flushAll(R);
   }
 
@@ -1245,7 +1074,6 @@
 
   /* an orc of the host, drawn in black chalk; the dawn catches the side turned toward the charge */
   function drawOrc(R, x, y, h, o) {
-    PROF.orcs = (PROF.orcs || 0) + 1;
     const B = R.B, k = R.k, rand = R.rand;
     const s = h / 100, f = o.face;
     const P = (ux, uy) => [x + ux * s * f, y + uy * s];
@@ -1315,9 +1143,8 @@
       B.line(WHT, 0.85, Math.max(1.2 * k, 1.4 * s), b[0], b[1], b[0] - d[0] * 12 * s, b[1] - d[1] * 12 * s);
     } else if (o.pose === 'stand') {
       const ta = (rand() - 0.5) * 0.7 - 0.25 * f;
-      const pl = o.flag ? 110 : 75;
-      const tx = handF[0] + Math.sin(ta) * pl * s, ty = handF[1] - Math.cos(ta) * pl * s;
-      B.line(BLK, 0.9, Math.max(1.1 * k, 1.6 * s), handF[0] - Math.sin(ta) * 30 * s, handF[1] + Math.cos(ta) * 30 * s, tx, ty);
+      const tx = handF[0] + Math.sin(ta) * 110 * s, ty = handF[1] - Math.cos(ta) * 110 * s;
+      B.line(BLK, 0.9, Math.max(1.1 * k, 1.6 * s), handF[0] - Math.sin(ta) * 40 * s, handF[1] + Math.cos(ta) * 40 * s, tx, ty);
       B.line(WHT, 0.75, Math.max(1.1 * k, 1.8 * s), tx, ty, tx + Math.sin(ta) * 10 * s, ty - Math.cos(ta) * 10 * s);
       if (o.flag) {
         const fl = [[tx, ty + 6 * s], [tx - f * 38 * s, ty + 10 * s], [tx - f * 30 * s, ty + 20 * s], [tx - f * 40 * s, ty + 32 * s], [tx, ty + 30 * s]];
@@ -1370,31 +1197,18 @@
     blob(lr.x, WHT, sunX, sunY, W * 0.16, H * 0.035, 0, 0.6);
     blob(lr.x, RED, sunX + W * 0.1, hy - H * 0.03, W * 0.55, H * 0.07, 0, 0.32);
     blob(lr.x, RED, C.cx, C.cb - C.cs * 30, C.w * 0.9, C.cs * 70, 0, 0.28);
-    lr.done();
-    {
-      const rc = document.createElement('canvas'); const f = 10;
-      rc.width = Math.ceil(W / f); rc.height = Math.ceil(H / f);
-      const rx = rc.getContext('2d');
-      rx.globalCompositeOperation = 'lighter'; rx.scale(1 / f, 1 / f);
-      let a = -176;
-      while (a < -12) {
-        a += 3 + rand() * 16;
-        const a0 = a * D2R, wdt = (0.6 + rand() * rand() * 5) * D2R, Lr = W * (0.45 + rand() * 0.8);
-        const al = 0.04 + rand() * 0.1;
-        const gr = rx.createLinearGradient(sunX, sunY, sunX + Math.cos(a0) * Lr, sunY + Math.sin(a0) * Lr);
-        gr.addColorStop(0, 'rgba(0,0,255,0)'); gr.addColorStop(0.06, 'rgba(0,0,255,' + al.toFixed(3) + ')'); gr.addColorStop(0.3 + rand() * 0.3, 'rgba(0,0,255,' + (al * 0.5).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(0,0,255,0)');
-        rx.fillStyle = gr;
-        rx.beginPath(); rx.moveTo(sunX, sunY);
-        rx.lineTo(sunX + Math.cos(a0 - wdt) * Lr, sunY + Math.sin(a0 - wdt) * Lr);
-        rx.lineTo(sunX + Math.cos(a0 + wdt * (0.6 + rand())) * Lr, sunY + Math.sin(a0 + wdt) * Lr);
-        rx.closePath(); rx.fill();
-      }
-      // the rays are broken where the cloud is thick
-      const img = rx.getImageData(0, 0, rc.width, rc.height), D = img.data;
-      for (let j = 0; j < rc.height; j++) for (let i = 0; i < rc.width; i++) { const q = (j * rc.width + i) * 4; D[q + 2] *= 1 - 0.85 * dark(i * f, j * f); }
-      rx.putImageData(img, 0, 0);
-      R.cT.save(); R.cT.filter = 'blur(' + Math.round(3 * L.k) + 'px)'; R.cT.drawImage(rc, 0, 0, W, H); R.cT.restore();
+    for (let i = 0; i < 9; i++) {
+      const a0 = (-168 + i * 15 + rand() * 7) * D2R, wdt = (1.4 + rand() * 2.6) * D2R;
+      const Lr = W * 1.1;
+      const gr = lr.x.createLinearGradient(sunX, sunY, sunX + Math.cos(a0) * Lr, sunY + Math.sin(a0) * Lr);
+      gr.addColorStop(0, 'rgba(0,0,255,0)'); gr.addColorStop(0.08, 'rgba(0,0,255,0.16)'); gr.addColorStop(0.5, 'rgba(0,0,255,0.07)'); gr.addColorStop(1, 'rgba(0,0,255,0)');
+      lr.x.fillStyle = gr;
+      lr.x.beginPath(); lr.x.moveTo(sunX, sunY);
+      lr.x.lineTo(sunX + Math.cos(a0 - wdt) * Lr, sunY + Math.sin(a0 - wdt) * Lr);
+      lr.x.lineTo(sunX + Math.cos(a0 + wdt) * Lr, sunY + Math.sin(a0 + wdt) * Lr);
+      lr.x.closePath(); lr.x.fill();
     }
+    lr.done();
     await R.tick();
     const fn = (x, y, o) => {
       if (y > hy) return false;
@@ -1459,301 +1273,263 @@
     const farPoly = far.concat([[C.cx, hy + 2], [-20, hy + 2]]);
     fillCh(R.cT, RED, pathOf(farPoly), 0.1);
     contour(R, far, { closed: false, ch: RED, w: 1.8 * k, a: 0.4, wob: 1.5 * k, passes: 1, flat: true });
-    // Mindolluin: a great dark mass with shoulders, its snows catching the dawn
     const base = [
-      [C.cx - C.w * 1.55, hy - H * 0.01], [C.cx - C.w * 1.05, hy - C.cs * 42], [C.cx - C.w * 0.72, C.cb - C.cs * 96], [C.cx - C.w * 0.5, C.cb - C.cs * 118],
-      [C.cx - C.w * 0.22, C.cb - C.cs * 150], [C.cx + C.w * 0.05, C.cb - C.cs * 205], [C.cx + C.w * 0.28, C.cb - C.cs * 262], [C.cx + C.w * 0.46, C.cb - C.cs * 300],
-      [C.cx + C.w * 0.62, C.cb - C.cs * 282], [C.cx + C.w * 0.85, C.cb - C.cs * 240], [C.cx + C.w * 1.1, C.cb - C.cs * 262], [W + C.w * 0.5, C.cb - C.cs * 228],
+      [C.cx - C.w * 1.45, hy - H * 0.012], [C.cx - C.w * 0.95, hy - C.cs * 38], [C.cx - C.w * 0.64, C.cb - C.cs * 82], [C.cx - C.w * 0.36, C.cb - C.cs * 116],
+      [C.cx - C.w * 0.08, C.cb - C.cs * 140], [C.cx + C.w * 0.22, C.cb - C.cs * 192], [C.cx + C.w * 0.5, C.cb - C.cs * 268], [C.cx + C.w * 0.7, C.cb - C.cs * 250],
+      [C.cx + C.w * 0.93, C.cb - C.cs * 212], [C.cx + C.w * 1.25, C.cb - C.cs * 236], [W + C.w * 0.4, C.cb - C.cs * 205],
     ];
-    let ridge = spline(base, false, 14);
-    ridge = ridge.map((p, i) => [p[0], p[1] + (N.fbm(i * 0.08, 7.7, 4) - 0.5) * C.cs * 30 + (N.v2(i * 0.5, 3) - 0.5) * C.cs * 6]);
-    const poly = ridge.concat([[W + C.w * 0.5, hy + 3], [C.cx - C.w * 1.55, hy + 3]]);
+    let ridge = spline(base, false, 12);
+    ridge = ridge.map((p, i) => [p[0], p[1] + (N.fbm(i * 0.09, 7.7, 4) - 0.5) * C.cs * 26 + (N.v2(i * 0.5, 3) - 0.5) * C.cs * 5]);
+    const poly = ridge.concat([[W + C.w * 0.4, hy + 3], [C.cx - C.w * 1.45, hy + 3]]);
     const path = pathOf(poly);
     const bb = bbox(poly);
-    reserve(R, path, 0.5);
+    reserve(R, path, 0.45);
+    R.cT.save(); R.cT.clip(path);
+    const g = R.cT.createLinearGradient(0, bb.y0, 0, hy);
+    g.addColorStop(0, 'rgba(0,255,0,0.55)'); g.addColorStop(0.65, 'rgba(0,255,0,0.4)'); g.addColorStop(1, 'rgba(0,255,0,0.12)');
+    R.cT.fillStyle = g; R.cT.fillRect(bb.x0, bb.y0, bb.x1 - bb.x0, hy - bb.y0);
+    R.cT.restore();
     const ridgeY = (x) => { let lo = 0, hi = ridge.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ridge[m][0] < x) lo = m; else hi = m; } return ridge[lo][1]; };
-    // the slope of the ground and which way it faces: valleys and spurs from a noise relief
-    const relief = (x, y) => N.fbm(x / (C.cs * 50), y / (C.cs * 90), 4) + 0.3 * N.fbm(x / (C.cs * 12), y / (C.cs * 40), 3);
-    const tone = (x, y0, o) => {
-      const ry = ridgeY(x), y = Math.max(y0, ry + 1);
-      const e = C.cs * 4, gx = relief(x + e, y) - relief(x - e, y);
-      const facing = clamp(-gx * 9, -1, 1); // >0: turned to the dawn
-      const dd = (y - ry) / (C.cs * 80);
-      const snow = smooth(C.cb - C.cs * 200, C.cb - C.cs * 260, y) * smooth(-0.3, 0.5, facing) * smooth(1.2, 0.2, dd);
-      o[BLK] = clamp(0.66 - 0.3 * facing - 0.35 * snow, 0.1, 0.92) * smooth(hy + 2, hy - C.cs * 40, y);
-      o[WHT] = clamp(0.4 * snow + 0.12 * smooth(0.4, 0.9, facing) * smooth(1.2, 0, dd), 0, 0.7);
-      o[RED] = 0.12 + 0.2 * smooth(hy - C.cs * 50, hy, y) + 0.15 * smooth(0, 0.8, facing) * (1 - snow);
+    const fn = (x, y, o) => {
+      const ry = ridgeY(x); if (y < ry) return false;
+      const dd = (y - ry) / (C.cs * 60);
+      const slope = (ridgeY(x + C.cs * 6) - ridgeY(x - C.cs * 6));
+      const n = N.fbm(x / (C.cs * 28), y / (C.cs * 16), 3);
+      const lit = clamp(slope / (C.cs * 8), -1, 1);
+      o[BLK] = clamp(0.4 + 0.45 * n - 0.4 * lit - dd * 0.12, 0, 0.95) * smooth(hy + 1, hy - C.cs * 30, y);
+      o[WHT] = clamp(0.55 * lit + (n - 0.55) * 0.8, 0, 0.75) * smooth(0.7, 0, dd);
+      o[RED] = 0.22 * n + 0.2 * smooth(hy - C.cs * 40, hy, y);
       return true;
     };
-    stumpShade(R, poly, tone, Math.max(3, C.cs * 2), 0.85);
-    // long strokes with the side of the chalk down the gullies and along the spurs
-    for (let i = 0; i < 900; i++) {
-      let x = lerp(bb.x0, Math.min(W, bb.x1), rand()), y = lerp(bb.y0, hy, Math.pow(rand(), 0.8));
-      if (y < ridgeY(x) + 2) continue;
-      HO[0] = HO[1] = HO[2] = 0; tone(x, y, HO);
-      const pts = [[x, y]];
-      const nS = 6 + ((rand() * 10) | 0), st = C.cs * (2.5 + rand() * 2.5);
-      for (let j = 0; j < nS; j++) {
-        const e = C.cs * 3, g0 = relief(x + e, y) - relief(x - e, y), g1 = relief(x, y + e) - relief(x, y - e);
-        // run down the fall line, bending along the relief
-        const a = Math.atan2(1, -g0 * 6 + (x > C.cx ? 0.35 : -0.35)) + g1 * 2;
-        x += Math.cos(a) * st * 0.6 * Math.sign(Math.sin(a) + 1e-3); y += Math.abs(Math.sin(a)) * st;
-        if (y > hy) break;
-        pts.push([x, y]);
-      }
-      if (pts.length < 3) continue;
-      const ch = HO[WHT] > 0.35 && rand() < 0.75 ? WHT : (HO[BLK] > 0.45 ? BLK : RED);
-      sweep(B, ch, spline(pts, false, 2), (2.2 + rand() * 3) * k, clamp((ch === WHT ? HO[WHT] : ch === BLK ? HO[BLK] : 0.5) * 0.9, 0.25, 0.9), rand() * 6);
-      if (i % 80 === 0) { clipFlush(R, path); await R.tick(); }
-    }
+    hatch(R, { x0: bb.x0, y0: bb.y0, x1: Math.min(W, bb.x1), y1: hy, ang: 64 * D2R, sp: 4.2 * k, len: 28 * k, w: 2.5 * k, fn, chs: [BLK, RED, WHT] });
     clipFlush(R, path);
-    // snow along the crest, lit
+    await R.tick();
+    hatch(R, { x0: bb.x0, y0: bb.y0, x1: Math.min(W, bb.x1), y1: hy, ang: 112 * D2R, sp: 5 * k, len: 24 * k, w: 2.2 * k, fn, chs: [BLK], dth: 0.55 });
+    clipFlush(R, path);
+    for (let i = 0; i < ridge.length; i += 3) {
+      const p = ridge[i];
+      if (p[0] < 0 || p[0] > W || rand() < 0.45) continue;
+      let x = p[0], y = p[1] + C.cs * 2;
+      const pts = [[x, y]];
+      const Lg = C.cs * (20 + rand() * 60);
+      const dir = rand() < 0.5 ? -0.35 : 0.25;
+      for (let j = 0; j < 8; j++) { x += dir * Lg / 8 + (rand() - 0.5) * C.cs * 3; y += Lg / 8; pts.push([x, y]); }
+      if (y > hy) continue;
+      B.poly(BLK, 0.5, 2 * k, pts);
+      B.poly(WHT, 0.4, 1.8 * k, pts.map((q) => [q[0] - 3 * k, q[1]]));
+    }
     for (let i = 0; i < ridge.length; i++) {
       const p = ridge[i];
-      if (p[1] > C.cb - C.cs * 200 || rand() < 0.35) continue;
-      const l = (8 + rand() * 26) * C.cs;
-      sweep(B, WHT, [[p[0], p[1] + C.cs * 2], [p[0] - l * 0.2, p[1] + l * 0.5], [p[0] - l * 0.45, p[1] + l]], 3 * k, 0.75, rand() * 6);
+      if (p[1] > C.cb - C.cs * 195 || rand() < 0.4) continue;
+      const l = (6 + rand() * 18) * C.cs;
+      stroke(B, WHT, p[0], p[1] + C.cs * 2, p[0] - l * 0.4, p[1] + l, 0.1, 2.4 * k, 0.65);
     }
-    contour(R, ridge, { closed: false, ch: BLK, w: 2.6 * k, a: 0.8, wob: 2.5 * k, passes: 2, flat: true });
-    contour(R, ridge.filter((q) => q[1] < C.cb - C.cs * 190), { closed: false, ch: WHT, w: 2.2 * k, a: 0.6, wob: 2 * k, passes: 1, flat: true });
+    contour(R, ridge, { closed: false, ch: BLK, w: 2.4 * k, a: 0.75, wob: 2 * k, passes: 2, flat: true });
     flushAll(R);
     await R.tick();
   }
 
   async function drawCity(R, L) {
-    const rand = R.rand, k = R.k, B = R.B, N = R.noise;
+    const rand = R.rand, k = R.k, B = R.B;
     const C = L.city, cs = C.cs;
-    // seven circles, each set back into the mountain and higher than the last; seen from the east, a little above
-    const al = 7 * D2R, ca = Math.cos(al), sa = Math.sin(al);
-    const SH = 0.15; // each circle stands a little further north, up the slope of the mountain
-    const P3 = (x, y, z) => [C.cx + (x + y * SH) * cs, C.cb + (-y * ca + (z - 100) * sa) * cs];
-    const T = [];
-    for (let i = 0; i < 7; i++) T.push({ r: 100 - i * 5.5, c: -i * 20, y: i * 8.6, h: i === 0 ? 12 : 9, tm: (86 - i * 3) * D2R, tr: (72 - i * 6) * D2R });
-    const LT = [-0.8, 0.25, 0.55];
-    const litAt = (th) => clamp(Math.sin(th) * LT[0] + Math.cos(th) * LT[2], -1, 1);
+    const X = (u) => C.cx + u * cs, Y = (v) => C.cb + v * cs;
+    const HW = [100, 93, 85, 76, 66, 55, 44], HT = [13, 9.5, 9, 9, 8.5, 8.5, 8];
+    const T = []; let acc = 0;
+    for (let i = 0; i < 7; i++) { acc += i === 0 ? 13 : (15.2 - i * 0.35); T.push({ hw: HW[i], top: -acc, h: HT[i], bend: HW[i] * 0.06, c: -i * 3.4 }); }
+    const wt = (i, u) => { const q = (u - T[i].c) / T[i].hw; return T[i].top + T[i].bend * (1 - q * q); };
     const lw = clamp(cs * 0.4, 1.3, 2.6) * k;
-    const thOf = (i, x) => Math.asin(clamp(((x - C.cx) / cs - (T[i].y + T[i].h / 2) * SH) / T[i].r, -1, 1));
-    const wallPts = (i, y0, y1, th0, th1) => {
-      const t = T[i], n = 40, top = [], bot = [];
-      for (let j = 0; j <= n; j++) { const th = lerp(th0, th1, j / n); const x = t.r * Math.sin(th), z = t.c + t.r * Math.cos(th); top.push(P3(x, y1, z)); bot.push(P3(x, y0, z)); }
-      return { top, bot, poly: top.concat(bot.slice().reverse()) };
-    };
-    // the whole city is wiped clean of the mountain's chalk first
-    {
-      const o = [];
-      for (let i = 0; i < 7; i++) { const t = T[i]; o.push(P3(-t.r * Math.sin(t.tm), t.y, t.c + t.r * Math.cos(t.tm))); }
-      o.push(P3(0, T[6].y + 70, T[6].c));
-      for (let i = 6; i >= 0; i--) { const t = T[i]; o.push(P3(t.r * Math.sin(t.tr), t.y, t.c + t.r * Math.cos(t.tr))); }
-      const fr = wallPts(0, 0, 0, T[0].tr, -T[0].tm).top;
-      reserve(R, pathOf(o.concat(fr)), 0.55);
-    }
+    const light = (u, hw, c) => clamp(0.58 - 1.15 * ((u - (c || 0)) / hw), 0, 1);
+    const outline = [];
+    for (let i = 0; i < 7; i++) outline.push([X(T[i].c - T[i].hw), Y(wt(i, T[i].c - T[i].hw) + T[i].h)], [X(T[i].c - T[i].hw), Y(wt(i, T[i].c - T[i].hw) - 3)]);
+    outline.push([X(T[6].c - T[6].hw * 0.6), Y(T[6].top - 14)], [X(8), Y(T[6].top - 64)], [X(T[6].c + T[6].hw * 0.6), Y(T[6].top - 14)]);
+    for (let i = 6; i >= 0; i--) outline.push([X(T[i].c + T[i].hw), Y(wt(i, T[i].c + T[i].hw) - 3)], [X(T[i].c + T[i].hw), Y(wt(i, T[i].c + T[i].hw) + T[i].h)]);
+    reserve(R, pathOf(outline), 0.5);
     const houses = (i) => {
-      const t = T[i], tn = T[i + 1];
-      const y0 = t.y + t.h - 2;
+      const hw = T[i].hw * 0.97;
+      const n = Math.round(hw * (i === 6 ? 1.2 : 2.6));
       const list = [];
-      const n = Math.round(t.r * (i === 6 ? 1.0 : 2.4));
       for (let j = 0; j < n; j++) {
-        const th = lerp(-t.tm, t.tr, rand()) * 0.94;
-        const rin = tn ? Math.max(tn.r + 3, 0) : 0;
-        const rr = lerp(rin, t.r - 3, Math.sqrt(rand()));
-        const x = rr * Math.sin(th), z = t.c + rr * Math.cos(th);
-        if (tn && Math.hypot(x, z - tn.c) < tn.r + 2) continue;
-        const tower = rand() < 0.09;
-        list.push({ x, z, th, w: tower ? 2.2 + rand() * 1.2 : 2 + rand() * 3.6, h: tower ? 10 + rand() * 6 : 3.5 + rand() * 4.5, roof: rand() });
+        const u = T[i].c + (rand() * 2 - 1) * hw;
+        const tower = rand() < 0.05;
+        list.push({ u, w: tower ? 1.6 + rand() : 1.1 + rand() * 2.2, h: tower ? 7 + rand() * 5 : 1.8 + rand() * (i === 6 ? 5 : 3.6), roof: rand(), tower });
       }
-      list.sort((a, b) => a.z - b.z);
-      for (const q of list) {
-        const pb = P3(q.x, y0, q.z), pt = P3(q.x, y0 + q.h, q.z);
-        const hw = q.w * cs / 2;
-        const x0 = pb[0] - hw, x1 = pb[0] + hw, yb = pb[1], yt = pt[1];
-        const lt = litAt(q.th - 0.3);
-        const r = new Path2D(); r.rect(x0, yt, x1 - x0, yb - yt);
-        reserve(R, r, 0.6);
-        const split = lerp(x0, x1, clamp(0.55 + 0.35 * lt, 0.15, 0.9));
-        const lr = new Path2D(); lr.rect(x0, yt, split - x0, yb - yt);
-        fillCh(R.cT, WHT, lr, clamp(0.1 + 0.42 * lt, 0.04, 0.6)); fillCh(R.cT, RED, lr, 0.15 + 0.12 * Math.max(0, lt));
-        const dr = new Path2D(); dr.rect(split, yt, x1 - split, yb - yt);
-        fillCh(R.cT, BLK, dr, 0.4 + 0.4 * (1 - Math.max(0, lt)));
-        if (q.roof < 0.35) { const rp = pathOf([[x0 - cs * 0.3, yt], [(x0 + x1) / 2, yt - cs * 1.6], [x1 + cs * 0.3, yt]]); fillCh(R.cS, BLK, rp, 0.6); B.poly(BLK, 0.85, lw, [[x0 - cs * 0.3, yt], [(x0 + x1) / 2, yt - cs * 1.6], [x1 + cs * 0.3, yt]]); }
-        else if (q.roof < 0.45) B.poly(BLK, 0.65, lw, ellipsePts((x0 + x1) / 2, yt, (x1 - x0) / 2, cs * 1.3, 0, 6, Math.PI, TAU));
-        else B.line(BLK, 0.6, lw, x0, yt, x1, yt);
-        const nw = Math.max(1, (q.w * q.h / 4) | 0);
-        for (let m = 0; m < nw; m++) {
-          const wx = lerp(x0, x1, 0.2 + rand() * 0.6), wy = lerp(yt, yb, 0.2 + rand() * 0.5);
-          const fire = i < 2 && rand() < 0.35;
-          B.line(fire ? RED : BLK, 0.9, Math.max(1.2 * k, cs * 0.55), wx, wy, wx, wy + cs * 0.8);
+      list.sort((a, b) => b.h - a.h);
+      for (const hz of list) {
+        const base = wt(i, hz.u) + 0.5, top = base - hz.h;
+        const x0 = X(hz.u - hz.w / 2), x1 = X(hz.u + hz.w / 2), y0 = Y(top), y1 = Y(base);
+        const lt = light(hz.u, T[i].hw, T[i].c);
+        const r = new Path2D(); r.rect(x0, y0, x1 - x0, y1 - y0);
+        reserve(R, r, 0.5);
+        fillCh(R.cT, WHT, r, 0.08 + 0.48 * lt * (0.6 + rand() * 0.4));
+        const sx = lerp(x0, x1, 0.5 + 0.35 * lt);
+        const sr = new Path2D(); sr.rect(sx, y0, x1 - sx, y1 - y0);
+        fillCh(R.cT, BLK, sr, 0.2 + 0.4 * (1 - lt));
+        if (hz.roof < 0.35) B.poly(BLK, 0.7, lw, [[x0 - cs * 0.3, y0], [(x0 + x1) / 2, y0 - cs * 1.5], [x1 + cs * 0.3, y0]]);
+        else if (hz.roof < 0.45) B.poly(BLK, 0.6, lw, ellipsePts((x0 + x1) / 2, y0, (x1 - x0) / 2, cs * 1.2, 0, 6, Math.PI, TAU));
+        else B.line(BLK, 0.55, lw, x0, y0, x1, y0);
+        const nw = (hz.w * hz.h / 3) | 0;
+        for (let q = 0; q < nw; q++) {
+          const wx = lerp(x0, x1, 0.2 + rand() * 0.6), wy = lerp(y0, y1, 0.2 + rand() * 0.5);
+          const fire = i < 3 && rand() < 0.3;
+          B.line(fire ? RED : BLK, fire ? 0.95 : 0.85, Math.max(1.2 * k, cs * 0.55), wx, wy, wx, wy + cs * 0.7);
         }
-        if (lt > 0.2) B.line(WHT, 0.8, lw * 0.8, x0, yt, x0, yb);
-        B.line(BLK, 0.6, lw * 0.8, x1, yt, x1, yb);
+        B.line(BLK, 0.55, lw * 0.8, x1, y0, x1, y1);
+        if (lt > 0.4) B.line(WHT, 0.7, lw * 0.8, x0, y0, x0, y1);
       }
       flushAll(R);
     };
     const wall = (i) => {
-      const t = T[i];
-      const W0 = wallPts(i, t.y, t.y + t.h, -t.tm, t.tr);
-      const path = pathOf(W0.poly);
-      reserve(R, path, 0.88);
+      const t = T[i], n = 60;
+      const topP = [], botP = [];
+      for (let j = 0; j <= n; j++) { const u = t.c - t.hw + (2 * t.hw * j) / n; topP.push([X(u), Y(wt(i, u))]); botP.push([X(u), Y(wt(i, u) + t.h)]); }
+      const poly = topP.concat(botP.slice().reverse());
+      const path = pathOf(poly);
+      reserve(R, path, 0.85);
+      R.cT.save(); R.cT.clip(path);
+      if (i === 0) {
+        fillCh(R.cT, BLK, path, 0.5);
+        const g = R.cT.createLinearGradient(X(t.c - t.hw), 0, X(t.c + t.hw), 0);
+        g.addColorStop(0, 'rgba(0,0,255,0.3)'); g.addColorStop(0.45, 'rgba(0,0,255,0.08)'); g.addColorStop(1, 'rgba(0,0,255,0)');
+        R.cT.fillStyle = g; R.cT.fillRect(X(t.c - t.hw), Y(t.top - 2), 2 * t.hw * cs, (t.h + t.bend + 4) * cs);
+      } else {
+        const g = R.cT.createLinearGradient(X(t.c - t.hw), 0, X(t.c + t.hw), 0);
+        g.addColorStop(0, 'rgba(0,0,255,0.7)'); g.addColorStop(0.35, 'rgba(0,0,255,0.42)'); g.addColorStop(0.65, 'rgba(0,0,255,0.08)'); g.addColorStop(1, 'rgba(0,0,255,0)');
+        R.cT.fillStyle = g; R.cT.fillRect(X(t.c - t.hw), Y(t.top - 2), 2 * t.hw * cs, (t.h + t.bend + 4) * cs);
+        const g2 = R.cT.createLinearGradient(X(t.c - t.hw), 0, X(t.c + t.hw), 0);
+        g2.addColorStop(0, 'rgba(0,255,0,0)'); g2.addColorStop(0.45, 'rgba(0,255,0,0.12)'); g2.addColorStop(1, 'rgba(0,255,0,0.62)');
+        R.cT.fillStyle = g2; R.cT.fillRect(X(t.c - t.hw), Y(t.top - 2), 2 * t.hw * cs, (t.h + t.bend + 4) * cs);
+      }
+      R.cT.restore();
       const fn = (x, y, o) => {
-        const lt = litAt(thOf(i, x));
-        if (i === 0) { o[BLK] = 0.55 + 0.3 * smooth(0.4, -0.4, lt); o[WHT] = 0.45 * smooth(0.3, 0.9, lt); o[RED] = 0.25 + 0.15 * smooth(0, 0.6, lt); }
-        else { o[WHT] = 1.0 * smooth(-0.1, 0.65, lt); o[RED] = 0.14 + 0.3 * smooth(0.0, 0.5, lt) * (1 - 0.6 * smooth(0.5, 1, lt)); o[BLK] = 0.85 * smooth(0.2, -0.45, lt); }
+        const u = (x - C.cx) / cs; const lt = light(u, t.hw, t.c);
+        if (i === 0) { o[BLK] = 0.55 + 0.3 * (1 - lt); o[WHT] = 0.4 * lt; o[RED] = 0.25; }
+        else { o[WHT] = 0.6 * lt + 0.1; o[BLK] = 0.6 * (1 - lt) * (1 - lt); o[RED] = 0.15; }
         return true;
       };
-      stumpShade(R, W0.poly, fn, Math.max(2, cs * 1.2), 1);
-      sweep(B, BLK, W0.bot, cs * 1.6, 0.7); sweep(B, BLK, wallPts(i, 0, t.y + t.h - 1.2, -t.tm, t.tr).top, cs * 0.9, 0.45);
-      // courses of masonry: long strokes along the curve of the wall
-      for (let q = 1; q < 4; q++) {
-        const ln = wallPts(i, 0, t.y + t.h * q / 4, -t.tm, t.tr).top;
-        const pts = ln.filter((_, j) => j % 2 === 0);
-        for (let j = 0; j < pts.length - 1; j++) {
-          const lt = litAt(lerp(-t.tm, t.tr, j / (pts.length - 1)));
-          if (rand() < 0.3) continue;
-          B.line(lt > 0.2 ? (rand() < 0.5 ? WHT : RED) : BLK, 0.45, lw * 0.8, pts[j][0], pts[j][1], pts[j + 1][0], pts[j + 1][1]);
-        }
+      const bb = bbox(poly, 1);
+      hatch(R, { ...bb, ang: 2 * D2R, sp: Math.max(2.6 * k, cs * 1.2), len: cs * 4, w: lw, fn, chs: [WHT, BLK, RED], jit: 0.2, bend: 0.01 });
+      clipFlush(R, path);
+      for (let j = 0; j < t.hw * 1.4; j++) {
+        const u = t.c + (rand() * 2 - 1) * t.hw, v = wt(i, u) + rand() * t.h;
+        B.line(BLK, 0.4, lw * 0.7, X(u), Y(v), X(u), Y(v + 1.5));
       }
-      for (let j = 0; j < t.r * 1.2; j++) {
-        const th = lerp(-t.tm, t.tr, rand()), yy = t.y + rand() * t.h;
-        const p0 = P3(t.r * Math.sin(th), yy, t.c + t.r * Math.cos(th)), p1 = P3(t.r * Math.sin(th), yy - 1.6, t.c + t.r * Math.cos(th));
-        B.line(litAt(th) > 0.3 ? RED : BLK, 0.4, lw * 0.7, p0[0], p0[1], p1[0], p1[1]);
+      for (let u = t.c - t.hw + 8 + rand() * 6; u < t.c + t.hw - 6; u += 15 + rand() * 8) {
+        if (Math.abs(u) < 6) continue;
+        const lt = light(u, t.hw, t.c);
+        const bt = new Path2D(); bt.rect(X(u - 2.4), Y(wt(i, u) - 3), 4.8 * cs, (t.h + 3) * cs);
+        reserve(R, bt, 0.8);
+        fillCh(R.cT, i === 0 ? BLK : WHT, bt, i === 0 ? 0.55 : 0.3 + 0.5 * lt);
+        const sr = new Path2D(); sr.rect(X(u + 2.4 * (lt * 2 - 1) * 0.5), Y(wt(i, u) - 3), (2.4 - 2.4 * (lt * 2 - 1) * 0.5) * cs, (t.h + 3) * cs);
+        fillCh(R.cT, BLK, sr, 0.35);
+        for (let q = -2; q <= 2; q += 1.3) B.line(lt > 0.4 ? WHT : BLK, 0.85, cs * 0.8, X(u + q), Y(wt(i, u) - 3), X(u + q), Y(wt(i, u) - 4.3));
+        B.line(BLK, 0.7, lw, X(u + 2.4), Y(wt(i, u) - 3), X(u + 2.4), Y(wt(i, u) + t.h));
       }
-      // bastions
-      for (let th = -t.tm + 0.25 + rand() * 0.15; th < t.tr - 0.2; th += 0.3 + rand() * 0.12) {
-        if (Math.abs(th) < 0.12) continue;
-        const lt = litAt(th);
-        const x = (t.r + 1.5) * Math.sin(th), z = t.c + (t.r + 1.5) * Math.cos(th);
-        const pb = P3(x, t.y, z), pt = P3(x, t.y + t.h + 3, z);
-        const hw = 2.6 * cs * Math.max(0.3, Math.cos(th));
-        const bt = new Path2D(); bt.rect(pb[0] - hw, pt[1], hw * 2, pb[1] - pt[1]);
-        reserve(R, bt, 0.85);
-        fillCh(R.cT, i === 0 ? BLK : WHT, bt, i === 0 ? 0.55 : clamp(0.15 + 0.75 * lt, 0.05, 0.9));
-        const sx = pb[0] + hw * clamp(lt, -0.8, 0.8);
-        const sr = new Path2D(); sr.rect(sx, pt[1], pb[0] + hw - sx, pb[1] - pt[1]);
-        fillCh(R.cT, BLK, sr, 0.45);
-        for (let m = -2; m <= 2; m++) B.line(lt > 0.25 ? WHT : BLK, 0.9, cs * 0.8, pb[0] + m * hw * 0.4, pt[1], pb[0] + m * hw * 0.4, pt[1] - cs * 1.3);
-        B.line(BLK, 0.75, lw, pb[0] + hw, pt[1], pb[0] + hw, pb[1]);
+      for (let u = t.c - t.hw + 1; u < t.c + t.hw; u += 1.7) {
+        const lt = light(u, t.hw, t.c);
+        B.line(lt > 0.4 ? WHT : BLK, 0.85, cs * 0.85, X(u), Y(wt(i, u) - 0.1), X(u), Y(wt(i, u) - 1.3));
       }
-      // battlements along the top, lit gold-white on the east
-      const top = W0.top;
-      for (let j = 0; j < top.length - 1; j++) {
-        const lt = litAt(lerp(-t.tm, t.tr, j / (top.length - 1)));
-        for (let m = 0; m < 3; m++) { const q = lp(top[j], top[j + 1], m / 3); B.line(lt > 0.15 ? WHT : BLK, 0.95, cs * 1.05, q[0], q[1], q[0], q[1] - cs * 1.8); }
-      }
-      contour(R, W0.top, { closed: false, ch: BLK, w: lw, a: 0.6, wob: cs * 0.2, passes: 1, flat: true });
-      contour(R, W0.bot, { closed: false, ch: BLK, w: lw * 1.3, a: 0.85, wob: cs * 0.2, passes: 1, flat: true });
-      // gates, on alternate sides as the road winds up; the Great Gate broken
-      const gth = i === 0 ? 0 : (i % 2 ? -0.42 : 0.42);
-      const gp0 = P3(t.r * Math.sin(gth), t.y, t.c + t.r * Math.cos(gth));
-      const gw = (i === 0 ? 5 : 2.4) * cs * Math.max(0.4, Math.cos(gth)), gh = (i === 0 ? 10 : 6) * cs;
+      contour(R, topP, { closed: false, ch: BLK, w: lw, a: 0.55, wob: cs * 0.2, passes: 1, flat: true });
+      contour(R, botP, { closed: false, ch: BLK, w: lw * 1.2, a: 0.75, wob: cs * 0.2, passes: 1, flat: true });
+      const gu = i === 0 ? 0 : t.c + (i % 2 ? -1 : 1) * t.hw * 0.42;
+      const gw = i === 0 ? 4.5 : 2.2, gh = i === 0 ? 8.5 : 5;
+      const gb = wt(i, gu) + t.h;
       const gp = new Path2D();
-      gp.moveTo(gp0[0] - gw, gp0[1]); gp.lineTo(gp0[0] - gw, gp0[1] - gh + gw); gp.arc(gp0[0], gp0[1] - gh + gw, gw, Math.PI, 0); gp.lineTo(gp0[0] + gw, gp0[1]); gp.closePath();
-      fillCh(R.cS, BLK, gp, 0.95);
+      gp.moveTo(X(gu - gw), Y(gb)); gp.lineTo(X(gu - gw), Y(gb - gh + gw)); gp.arc(X(gu), Y(gb - gh + gw), gw * cs, Math.PI, 0); gp.lineTo(X(gu + gw), Y(gb)); gp.closePath();
+      fillCh(R.cS, BLK, gp, 0.92);
       if (i === 0) {
-        blob(R.cT, RED, gp0[0], gp0[1] - gh * 0.4, gw * 2.4, gh * 0.9, 0, 0.75);
-        for (let m = 0; m < 14; m++) stroke(B, m < 10 ? RED : WHT, gp0[0] + (rand() - 0.5) * gw * 1.6, gp0[1], gp0[0] + (rand() - 0.5) * gw * 2, gp0[1] - gh * (0.3 + rand() * 0.8), 0.25, lw, 0.85);
-        // the broken leaves of the gate, and the towers that flank it
-        B.line(BLK, 0.9, lw * 2, gp0[0] - gw * 0.9, gp0[1], gp0[0] - gw * 1.8, gp0[1] + cs * 1.5);
-        B.line(BLK, 0.9, lw * 2, gp0[0] + gw * 0.7, gp0[1] - cs, gp0[0] + gw * 1.9, gp0[1] + cs * 1.2);
+        blob(R.cT, RED, X(0), Y(gb - 3), gw * cs * 1.8, gh * cs * 0.8, 0, 0.7);
         for (const sx of [-1, 1]) {
-          const tb = P3(sx * 10, 0, 100 - 0.5), tt = P3(sx * 10, t.h + 8, 100 - 0.5);
-          const tw = new Path2D(); tw.rect(tb[0] - 4 * cs, tt[1], 8 * cs, tb[1] - tt[1]);
-          reserve(R, tw, 0.85);
+          const tw = new Path2D(); tw.rect(X(sx * 9 - 3.5), Y(T[0].top - 7), 7 * cs, (T[0].h + 7 + T[0].bend) * cs);
+          reserve(R, tw, 0.8);
           fillCh(R.cT, BLK, tw, 0.6);
-          if (sx < 0) fillCh(R.cT, WHT, tw, 0.22);
-          B.line(WHT, 0.7, lw, tb[0] - 4 * cs, tt[1], tb[0] - 4 * cs, tb[1]);
-          for (let u = -3; u <= 3; u += 1.75) B.line(BLK, 0.9, cs * 0.9, tb[0] + u * cs, tt[1], tb[0] + u * cs, tt[1] - cs * 1.5);
+          B.line(WHT, 0.6, lw, X(sx * 9 - 3.5), Y(T[0].top - 7), X(sx * 9 - 3.5), Y(T[0].top + 5));
+          for (let u = -3; u <= 3; u += 1.75) B.line(BLK, 0.9, cs * 0.9, X(sx * 9 + u), Y(T[0].top - 7), X(sx * 9 + u), Y(T[0].top - 8.4));
         }
       }
       flushAll(R);
     };
-    // the citadel on the topmost circle, and the White Tower of Ecthelion
-    const t6 = T[6], ytop = t6.y + t6.h - 2;
     {
-      const bl = [];
-      for (let j = 0; j < 12; j++) { const x = (rand() * 2 - 1) * t6.r * 0.75, z = t6.c + (rand() * 0.8 - 0.3) * t6.r * 0.6; bl.push({ x, z, w: 3 + rand() * 6, h: 4 + rand() * 7 }); }
-      bl.push({ x: -10, z: t6.c + 6, w: 20, h: 9, hall: true });
-      bl.sort((a, b) => a.z - b.z);
-      for (const q of bl) {
-        const pb = P3(q.x, ytop, q.z), pt = P3(q.x, ytop + q.h, q.z);
-        const hw = q.w * cs / 2;
-        const r = new Path2D(); r.rect(pb[0] - hw, pt[1], hw * 2, pb[1] - pt[1]);
-        reserve(R, r, 0.8);
-        const lt = litAt(Math.atan2(q.x, q.z - t6.c + 20) - 0.3);
-        fillCh(R.cT, WHT, r, 0.3 + 0.5 * Math.max(0, lt));
-        const sr = new Path2D(); sr.rect(pb[0] + hw * 0.3, pt[1], hw * 0.7, pb[1] - pt[1]); fillCh(R.cT, BLK, sr, 0.35);
-        if (q.hall) { B.poly(BLK, 0.8, lw, [[pb[0] - hw - cs, pt[1]], [pb[0] - hw * 0.2, pt[1] - 4 * cs], [pb[0] + hw + cs, pt[1]]]); for (let u = -hw * 0.85; u < hw * 0.8; u += 2.2 * cs) B.line(BLK, 0.8, Math.max(1.2 * k, cs * 0.6), pb[0] + u, pt[1] + 3 * cs, pb[0] + u, pt[1] + 6 * cs); }
-        else B.poly(BLK, 0.65, lw, [[pb[0] - hw, pt[1]], [pb[0] + hw, pt[1]], [pb[0] + hw, pb[1]]]);
+      const t6 = T[6];
+      for (let j = 0; j < 10; j++) {
+        const u = t6.c - t6.hw * 0.8 + rand() * t6.hw * 1.6, hh = 3 + rand() * 6, ww = 2 + rand() * 5;
+        const r = new Path2D(); r.rect(X(u - ww / 2), Y(t6.top - hh), ww * cs, hh * cs);
+        reserve(R, r, 0.7);
+        fillCh(R.cT, WHT, r, 0.3 + 0.45 * light(u, t6.hw, t6.c));
+        B.poly(BLK, 0.6, lw, [[X(u - ww / 2), Y(t6.top - hh)], [X(u + ww / 2), Y(t6.top - hh)], [X(u + ww / 2), Y(t6.top)]]);
       }
-      const tx = 7, tz = t6.c + 12;
-      const tb = P3(tx, ytop - 1, tz), th = 50;
-      const Tw = (dx, dy) => [tb[0] + dx * cs, tb[1] - dy * cs];
-      const tw = [Tw(-3.3, 0), Tw(-2.5, th), Tw(-3.8, th + 1), Tw(-3.8, th + 3.6), Tw(-2.3, th + 3.6), Tw(-1.5, th + 9), Tw(0, th + 18), Tw(1.5, th + 9), Tw(2.3, th + 3.6), Tw(3.8, th + 3.6), Tw(3.8, th + 1), Tw(2.5, th), Tw(3.3, 0)];
+      const hl = new Path2D(); hl.rect(X(-16), Y(t6.top - 9), 20 * cs, 9 * cs);
+      reserve(R, hl, 0.8); fillCh(R.cT, WHT, hl, 0.6);
+      B.poly(BLK, 0.75, lw, [[X(-17), Y(t6.top - 9)], [X(-6), Y(t6.top - 13)], [X(5), Y(t6.top - 9)]]);
+      for (let u = -14; u < 3; u += 2.2) B.line(BLK, 0.75, Math.max(1.2 * k, cs * 0.6), X(u), Y(t6.top - 6.5), X(u), Y(t6.top - 4));
+      const tx = 8, tb = t6.top - 1, tt = t6.top - 46;
+      const tw = [[X(tx - 3.1), Y(tb)], [X(tx - 2.4), Y(tt)], [X(tx - 3.6), Y(tt - 1)], [X(tx - 3.6), Y(tt - 3.4)], [X(tx - 2.2), Y(tt - 3.4)], [X(tx - 1.5), Y(tt - 9)], [X(tx), Y(tt - 17)], [X(tx + 1.5), Y(tt - 9)], [X(tx + 2.2), Y(tt - 3.4)], [X(tx + 3.6), Y(tt - 3.4)], [X(tx + 3.6), Y(tt - 1)], [X(tx + 2.4), Y(tt)], [X(tx + 3.1), Y(tb)]];
       const tp = pathOf(tw);
-      blob(R.cT, WHT, tb[0], tb[1] - (th + 8) * cs, cs * 16, cs * 26, 0, 0.32);
       reserve(R, tp, 0.95);
       fillCh(R.cT, WHT, tp, 0.95);
-      const half = pathOf([Tw(0.8, 0), Tw(0.6, th), Tw(2.5, th), Tw(3.3, 0)]);
-      fillCh(R.cT, BLK, half, 0.3); fillCh(R.cT, RED, pathOf([Tw(-3.3, 0), Tw(-2.5, th), Tw(-1.2, th), Tw(-1.6, 0)]), 0.12);
-      contour(R, tw, { ch: BLK, w: lw, a: 0.6, wob: cs * 0.1, passes: 1 });
-      for (let v = 4; v < th - 2; v += 3.4) { const q = Tw(-0.6, v); B.line(BLK, 0.85, Math.max(1.2 * k, cs * 0.5), q[0], q[1], q[0], q[1] - cs * 1.2); }
-      B.line(WHT, 1, cs * 0.9, ...Tw(-2, 1), ...Tw(-1.7, th - 1));
-      B.line(BLK, 0.85, lw * 0.8, ...Tw(0, th + 18), ...Tw(0, th + 23));
-      fillCh(R.cS, WHT, pathOf([Tw(0, th + 23), Tw(-5.5, th + 22.2), Tw(-5, th + 21), Tw(0, th + 21.2)]), 0.9);
+      const half = new Path2D(); half.moveTo(X(tx + 0.9), Y(tb)); half.lineTo(X(tx + 0.7), Y(tt)); half.lineTo(X(tx + 2.4), Y(tt)); half.lineTo(X(tx + 3.1), Y(tb)); half.closePath();
+      fillCh(R.cT, BLK, half, 0.28);
+      blob(R.cT, WHT, X(tx), Y(tt - 8), cs * 12, cs * 20, 0, 0.3);
+      contour(R, tw, { ch: BLK, w: lw, a: 0.55, wob: cs * 0.1, passes: 1 });
+      for (let v = tb - 4; v > tt + 2; v -= 3.2) B.line(BLK, 0.85, Math.max(1.2 * k, cs * 0.5), X(tx - 0.6), Y(v), X(tx - 0.6), Y(v + 1.1));
+      B.line(WHT, 1, cs * 0.8, X(tx - 1.8), Y(tb - 1), X(tx - 1.5), Y(tt + 1));
+      B.line(BLK, 0.85, lw * 0.8, X(tx), Y(tt - 17), X(tx), Y(tt - 22));
+      fillCh(R.cS, WHT, pathOf([[X(tx), Y(tt - 22)], [X(tx - 5), Y(tt - 21.2)], [X(tx - 4.5), Y(tt - 20)], [X(tx), Y(tt - 20.2)]]), 0.85);
       flushAll(R);
     }
     await R.tick();
-    for (let i = 6; i >= 0; i--) {
-      if (i < 6) houses(i);
+    wall(6);
+    for (let i = 5; i >= 0; i--) {
+      houses(i);
+      if (i === 1) {
+        const pr = [[X(-1), Y(T[1].top + 2)], [X(-10), Y(T[6].top + 1)], [X(-7), Y(T[6].top - 2.5)], [X(3), Y(T[6].top - 1.5)], [X(10), Y(T[6].top + 2)], [X(1.3), Y(T[1].top + 2)]];
+        const pp = pathOf(pr);
+        reserve(R, pp, 0.85);
+        const lf = pathOf([pr[0], pr[1], pr[2], [X(-1.6), Y(T[6].top - 2)]]);
+        fillCh(R.cT, WHT, lf, 0.7);
+        const rf = pathOf([pr[5], [X(-1.6), Y(T[6].top - 2)], pr[3], pr[4]]);
+        fillCh(R.cT, BLK, rf, 0.55);
+        hatch(R, { ...bbox(pr), ang: 80 * D2R, sp: 2.6 * k, len: cs * 6, w: lw, fn: (x, y, o) => { o[x < X(0) ? WHT : BLK] = 0.6; o[RED] = 0.15; return true; } });
+        clipFlush(R, pp);
+        contour(R, pr, { ch: BLK, w: lw, a: 0.6, wob: cs * 0.2, passes: 1 });
+        B.line(BLK, 0.9, lw * 1.3, X(-1), Y(T[1].top + 2), X(-1.6), Y(T[6].top - 2));
+        flushAll(R);
+      }
       wall(i);
       await R.tick();
     }
-    // the rock flanks of the mountain into which the circles are cut: their ends vanish into it
-    for (const side of [-1, 1]) {
-      const pts = [];
-      for (let i = 0; i < 7; i++) { const t = T[i]; const th = (side < 0 ? -t.tm : t.tr) * 0.97; pts.push(P3(t.r * Math.sin(th), t.y + (i === 0 ? 0 : -2), t.c + t.r * Math.cos(th))); }
-      pts.push(P3(side * T[6].r * 0.55, T[6].y + 30, T[6].c - 10));
-      pts.push(P3(side * (T[6].r + 16), T[6].y + 14, T[6].c - 20), P3(side * (T[2].r + 14), T[2].y + 4, T[2].c - 10), P3(side * (T[0].r + 10), 0, T[0].c + 30));
-      const jag = spline(pts, true, 4).map((q, j) => [q[0] + side * (N.v2(j * 0.7, side * 3) - 0.3) * 3 * cs, q[1] + (N.v2(j * 0.9, 5) - 0.5) * 2 * cs]);
-      const fp = pathOf(jag);
-      reserve(R, fp, 0.88);
-      const lit = side < 0;
-      const bb = bbox(jag);
-      stumpShade(R, jag, (x, y, o) => { const n = N.fbm(x / (cs * 5), y / (cs * 14), 3); o[BLK] = lit ? 0.35 + 0.3 * n : 0.62 + 0.3 * n; o[WHT] = lit ? 0.3 * smooth(0.5, 0.75, n) : 0.04; o[RED] = lit ? 0.3 : 0.15; return true; }, Math.max(2, cs), 0.9);
-      for (let i = 0; i < 40; i++) {
-        const q = [lerp(bb.x0, bb.x1, rand()), lerp(bb.y0, bb.y1, rand())];
-        const l = cs * (6 + rand() * 16), a = (side < 0 ? 62 : 118) * D2R + (rand() - 0.5) * 0.4;
-        sweep(B, lit ? (rand() < 0.5 ? WHT : RED) : BLK, [q, [q[0] + Math.cos(a) * l * 0.5, q[1] + Math.sin(a) * l * 0.5], [q[0] + Math.cos(a) * l, q[1] + Math.sin(a) * l]], 2.4 * k, 0.55, rand() * 6);
-      }
-      clipFlush(R, fp);
-      contour(R, jag.slice(0, 30), { closed: false, ch: BLK, w: lw * 1.4, a: 0.85, wob: cs * 0.5, passes: 2, flat: true });
-      flushAll(R);
-    }
-    // the prow: a spur of the mountain like the keel of a ship, its edge to the east, up through the circles
+    // the shoulder of the mountain the city is built against: it hides the northern ends of the upper circles
     {
-      const foot = T[1], topT = T[6];
-      const zr = (y) => lerp(foot.c + foot.r + 10, topT.c + topT.r + 8, (y - foot.y) / (ytop - foot.y));
-      const yA = foot.y + 2, yB = ytop + 3;
-      const ridge = [], lf = [], rf = [];
-      for (let j = 0; j <= 10; j++) {
-        const y = lerp(yA, yB, j / 10), z = zr(y), wv = 13 - 7 * (j / 10);
-        ridge.push(P3(0.5, y, z)); lf.push(P3(-wv, y + 2, z - wv * 2.2)); rf.push(P3(wv * 0.8, y + 2, z - wv * 2.2));
+      const fl = [
+        [T[6].c + T[6].hw * 0.42, T[6].top - 10], [T[5].c + T[5].hw * 0.52, T[5].top - 4], [T[4].c + T[4].hw * 0.62, T[4].top + 1],
+        [T[3].c + T[3].hw * 0.72, T[3].top + 4], [T[2].c + T[2].hw * 0.82, T[2].top + 6], [T[1].c + T[1].hw * 0.92, T[1].top + 8],
+        [T[0].c + T[0].hw * 1.02, T[0].top + 11], [T[0].c + T[0].hw * 1.4, 2], [175, 2], [175, -150], [120, -128], [70, -98], [32, T[6].top - 20],
+      ];
+            const jag = [];
+      for (let i = 0; i < fl.length; i++) {
+        jag.push([X(fl[i][0]), Y(fl[i][1])]);
+        if (i < 7) for (let j = 1; j < 4; j++) { const q = lp(fl[i], fl[i + 1], j / 4); jag.push([X(q[0] + (rand() - 0.3) * 5), Y(q[1] + (rand() - 0.5) * 2)]); }
       }
-      const L0 = ridge.concat(lf.slice().reverse()), R0 = ridge.concat(rf.slice().reverse());
-      reserve(R, pathOf(L0), 0.9); reserve(R, pathOf(R0), 0.9);
-      stumpShade(R, L0, (x, y, o) => { o[WHT] = 0.55 + 0.3 * N.fbm(x / (cs * 6), y / (cs * 10), 2); o[RED] = 0.25; o[BLK] = 0.1; return true; }, Math.max(2, cs), 1);
-      stumpShade(R, R0, (x, y, o) => { o[BLK] = 0.55 + 0.3 * N.fbm(x / (cs * 6), y / (cs * 10), 2); o[RED] = 0.2; return true; }, Math.max(2, cs), 1);
-      for (let j = 0; j < 90; j++) { const t = rand(), a = lp(ridge[(t * 10) | 0], lf[(t * 10) | 0], rand()); B.line(rand() < 0.6 ? WHT : RED, 0.65, lw, a[0], a[1], a[0] - cs * 2, a[1] + cs * 4); }
-      for (let j = 0; j < 70; j++) { const t = rand(), a = lp(ridge[(t * 10) | 0], rf[(t * 10) | 0], rand()); B.line(BLK, 0.7, lw, a[0], a[1], a[0] + cs * 2, a[1] + cs * 4); }
-      contour(R, lf, { closed: false, ch: BLK, w: lw, a: 0.7, wob: cs * 0.4, passes: 1, flat: true });
-      sweep(B, BLK, ridge, lw * 2.2, 0.95);
-      sweep(B, WHT, ridge.map((q) => [q[0] - lw * 1.5, q[1]]), lw * 1.4, 0.8);
+      const poly = jag;
+      const fp = pathOf(poly);
+      reserve(R, fp, 0.9);
+      fillCh(R.cT, BLK, fp, 0.58);
+      const bb = bbox(poly);
+      const N = R.noise;
+      hatch(R, { ...bb, ang: 64 * D2R, sp: 3.6 * k, len: cs * 7, w: 2.2 * k, chs: [BLK, RED, WHT], fn: (x, y, o) => {
+        const n = N.fbm(x / (cs * 10), y / (cs * 6), 3);
+        o[BLK] = 0.5 + 0.4 * n; o[RED] = 0.15 + 0.3 * smooth(Y(-30), Y(0), y); o[WHT] = 0.35 * smooth(0.66, 0.82, n); return true; } });
+      clipFlush(R, fp);
+            contour(R, jag.slice(0, 29), { closed: false, ch: BLK, w: lw * 1.2, a: 0.8, wob: cs * 0.5, passes: 2, flat: true });
+      for (let i = 0; i < 40; i++) {
+        const q = lp(jag[(rand() * 7) | 0], [X(150), Y(-100)], rand() * 0.8);
+        stroke(B, rand() < 0.5 ? BLK : WHT, q[0], q[1], q[0] + cs * (2 + rand() * 6), q[1] + cs * (4 + rand() * 10), 0.1, 2 * k, 0.45);
+      }
       flushAll(R);
     }
-    // fires in the lower circles
-    for (let j = 0; j < 18; j++) {
-      const i = (rand() * 2) | 0, th = lerp(-T[i].tm, T[i].tr, rand()) * 0.8, rr = T[i].r - 3 - rand() * 5;
-      const q = P3(rr * Math.sin(th), T[i].y + T[i].h, T[i].c + rr * Math.cos(th));
-      blob(R.cT, RED, q[0], q[1], cs * (4 + rand() * 8), cs * (3 + rand() * 5), 0, 0.4 + rand() * 0.3);
-      for (let f = 0; f < 7; f++) { const fx = q[0] + (rand() - 0.5) * 4 * cs; stroke(B, f < 5 ? RED : WHT, fx, q[1], fx + (rand() - 0.3) * cs * 2, q[1] - cs * (3 + rand() * 7), 0.2, lw, 0.85); }
+    for (let j = 0; j < 16; j++) {
+      const i = (rand() * 3) | 0, u = T[i].c + (rand() * 2 - 1) * T[i].hw * 0.9, v = wt(i, u) - rand() * 6;
+      blob(R.cT, RED, X(u), Y(v), cs * (4 + rand() * 8), cs * (3 + rand() * 5), 0, 0.35 + rand() * 0.3);
+      for (let f = 0; f < 7; f++) { const fx = X(u + (rand() - 0.5) * 4); stroke(B, f < 5 ? RED : WHT, fx, Y(v), fx + (rand() - 0.3) * cs * 2, Y(v - 3 - rand() * 6), 0.2, lw, 0.85); }
     }
     flushAll(R);
   }
@@ -1796,8 +1572,8 @@
         const d = (y - hy) / (H - hy);
         const right = smooth(L.xT, W, x);
         const nn = N.fbm(x / (H * 0.12), y / (H * 0.04), 3);
-        blob(lr.x, RED, x, y, H * 0.06, H * 0.02, 0, 0.12 + 0.14 * d);
-        blob(lr.x, BLK, x, y, H * 0.06, H * 0.02, 0, (0.05 + 0.12 * right * (1 - d * 0.4) + 0.12 * d) * (0.5 + nn));
+        blob(lr.x, RED, x, y, H * 0.06, H * 0.02, 0, 0.07 + 0.09 * d);
+        blob(lr.x, BLK, x, y, H * 0.06, H * 0.02, 0, (0.03 + 0.12 * right * (1 - d * 0.4) + 0.08 * d) * (0.5 + nn));
       }
     }
     for (let i = 0; i < 70; i++) {
@@ -1805,35 +1581,23 @@
       const xf = riderFront(L, y);
       const x = xf - rand() * W * 0.5;
       const r = (y - hy) * (0.4 + rand() * 0.6) + H * 0.008;
-      blob(lr.x, WHT, x, y - r * 0.25, r * 1.6, r * 0.42, 0, 0.03 + rand() * 0.04);
+      blob(lr.x, WHT, x, y - r * 0.25, r * 1.6, r * 0.42, 0, 0.06 + rand() * 0.06);
       blob(lr.x, RED, x, y, r * 1.3, r * 0.35, 0, 0.06);
     }
     lr.done();
     await R.tick();
-    const vpx = L.city.cx, vpy = hy;
-    for (let i = 0; i < 1500; i++) {
-      const d = Math.pow(rand(), 0.7), y = hy + 2 + d * (H - hy);
-      const x = rand() * W * 1.1 - W * 0.05;
-      const n = N.fbm(x / (H * 0.1), y / (H * 0.035), 3);
-      // the strokes lie along the plain, converging a little toward the city
-      const dir = Math.atan2(vpy - y, vpx - x) * 0.18 + (x > vpx ? Math.PI * 0.82 : 0) * 0;
-      const len = (20 + 160 * d) * k * (0.5 + rand());
-      const ang = (x < vpx ? -1 : 1) * Math.abs(Math.atan2(y - vpy, Math.abs(vpx - x) + H)) * 0.6 + dir * 0;
-      const ux = Math.cos(ang), uy = Math.sin(ang);
-      const pts = []; for (let j = 0; j <= 4; j++) pts.push([x + ux * len * j / 4, y + uy * len * j / 4 + Math.sin(j * 1.3 + i) * d * 3 * k]);
-      const ch = n > 0.55 ? BLK : (n < 0.4 && rand() < 0.4 ? WHT : RED);
-      const a = (ch === WHT ? 0.35 : 0.2 + 0.45 * n) * (0.5 + 0.7 * d);
-      sweep(B, ch, pts, (1.6 + 7 * d * rand()) * k, a, rand() * 6);
+    for (let y = hy + 1; y < H; ) {
+      const d = (y - hy) / (H - hy);
+      const len = (10 + 90 * d) * k;
+      for (let x = rand() * len; x < W; x += len * (1 + rand() * 1.2)) {
+        const n = N.fbm(x / (H * 0.08), y / (H * 0.03), 3);
+        if (rand() < 0.35) continue;
+        const ch = n > 0.56 ? BLK : RED;
+        const a = (0.2 + 0.5 * n) * (0.6 + 0.6 * d);
+        stroke(B, ch, x, y, x + len, y + (rand() - 0.5) * len * 0.05, (rand() - 0.5) * 0.04, (1.6 + 1.8 * d) * k, a);
+      }
+      y += Math.max(2 * k, (y - hy) * 0.032) * (0.7 + rand() * 0.6);
       if (B.n > 4000) { flushAll(R); await R.tick(); }
-    }
-    flushAll(R);
-    // hoof-churned ground: clusters of short curved marks where the charge has passed
-    for (let i = 0; i < 900; i++) {
-      const y = lerp(hy + (L.yT - hy) * 0.3, H, Math.pow(rand(), 0.6)), d = (y - hy) / (H - hy);
-      const x = riderFront(L, y) - rand() * W * 0.7;
-      const r = (2 + rand() * 5) * d * 2.4 * k;
-      const a0 = Math.PI * (0.9 + rand() * 0.4);
-      B.poly(rand() < 0.6 ? BLK : RED, 0.35 + rand() * 0.3, (1.2 + d * 1.5) * k, ellipsePts(x, y, r * 1.6, r * 0.6, 0, 5, a0, a0 + Math.PI * 0.9));
     }
     for (let i = 0; i < 700; i++) {
       const y = lerp(L.yT - (L.yT - hy) * 0.3, H, Math.sqrt(rand())), d = (y - hy) / (H - hy);
@@ -1845,68 +1609,31 @@
     flushAll(R);
   }
 
-  /* the litter of the night's battle on the plain ahead of the charge: broken spears, shields, helms, arrows */
+  /* the litter of the night's battle on the plain ahead of the charge */
   function drawDebris(R, L) {
     const { W, H, hy } = L, rand = R.rand, k = R.k, B = R.B;
-    const items = [];
-    for (let i = 0; i < 85; i++) {
-      const y = lerp(hy + (L.yT - hy) * 0.45, H * 1.01, Math.pow(rand(), 0.85));
-      const x0 = riderFront(L, y) + (y - hy) * 0.7;
+    for (let i = 0; i < 34; i++) {
+      const y = lerp(hy + (L.yT - hy) * 0.5, L.yT + (H - L.yT) * 0.8, Math.pow(rand(), 0.9));
+      const x0 = riderFront(L, y) + (y - hy) * 0.9;
       if (x0 > W) continue;
-      items.push({ x: lerp(x0, W * 1.02, rand()), y, kind: rand() });
-    }
-    items.sort((a, b) => a.y - b.y);
-    for (const it of items) {
-      const { x, y, kind } = it;
-      const h = (y - hy) / L.camK * 0.75, s = h / 100, cw = clamp(s * 0.9, 1.2, 3) * k;
-      if (kind < 0.32) {
-        // a spear, broken, lying along the ground, with its shadow
-        const a = (rand() - 0.5) * 0.6, l = (70 + rand() * 90) * s, brk = 0.35 + rand() * 0.3;
-        const p0 = [x, y], p1 = [x + Math.cos(a) * l * brk, y + Math.sin(a) * l * brk * 0.25];
-        const a2 = a + (rand() - 0.5) * 0.8, p2 = [p1[0] + Math.cos(a2) * 4 * s, p1[1] + 2 * s], p3 = [p2[0] + Math.cos(a2) * l * (1 - brk), p2[1] + Math.sin(a2) * l * (1 - brk) * 0.25];
-        sweep(B, BLK, [[p0[0] + 3 * s, p0[1] + 2 * s], [p3[0] + 3 * s, p3[1] + 2 * s]], cw * 2, 0.25);
-        sweep(B, BLK, [p0, lp(p0, p1, 0.5), p1], Math.max(1.4 * k, 1.6 * s), 0.85);
-        sweep(B, BLK, [p2, lp(p2, p3, 0.5), p3], Math.max(1.4 * k, 1.6 * s), 0.85);
-        B.line(RED, 0.5, cw * 0.6, p0[0], p0[1] + 0.8 * s, p1[0], p1[1] + 0.8 * s);
-        if (rand() < 0.6) B.poly(WHT, 0.85, cw, [[p3[0], p3[1]], [p3[0] + Math.cos(a2) * 9 * s, p3[1] - 0.5 * s]]);
-      } else if (kind < 0.42) {
-        // a round shield face-up or tilted, its boss catching light
-        const rx = (10 + rand() * 4) * s, ry = rx * (0.35 + rand() * 0.25);
-        const se = new Path2D(); se.ellipse(x, y - ry * 0.5, rx, ry, (rand() - 0.5) * 0.2, 0, TAU);
-        blob(R.cT, BLK, x + rx * 0.4, y + ry * 0.2, rx * 1.4, ry * 0.6, 0, 0.3);
-        reserve(R, se, 0.7); fillCh(R.cT, BLK, se, 0.4); fillCh(R.cT, RED, se, 0.15); fillCh(R.cS, BLK, se, 0.4);
-        B.poly(WHT, 0.75, cw, ellipsePts(x, y - ry * 0.5, rx, ry, 0, 10, Math.PI * 0.95, Math.PI * 1.7));
-        B.poly(BLK, 0.8, cw, ellipsePts(x, y - ry * 0.5, rx, ry, 0, 10, Math.PI * 1.75, Math.PI * 2.9));
-        blob(R.cT, WHT, x - rx * 0.1, y - ry * 0.6, rx * 0.14, rx * 0.12, 0, 0.9);
-      } else if (kind < 0.47) {
-        // a helm lying on its side
-        const r = 5 * s;
-        const hp = new Path2D(); hp.ellipse(x, y - r * 0.6, r, r * 0.75, -0.3, Math.PI, TAU); hp.closePath();
-        reserve(R, hp, 0.8); fillCh(R.cT, BLK, hp, 0.6);
-        B.poly(WHT, 0.8, cw, ellipsePts(x, y - r * 0.6, r, r * 0.75, -0.3, 6, Math.PI * 1.05, Math.PI * 1.5));
-        blob(R.cT, BLK, x + r, y, r * 1.6, r * 0.3, 0, 0.3);
-      } else if (kind < 0.86) {
-        // arrows standing in the ground, at the angle they fell
-        const n = 2 + ((rand() * 5) | 0);
-        for (let j = 0; j < n; j++) {
-          const ax = x + (rand() - 0.5) * 30 * s, ay = y + (rand() - 0.5) * 3 * s;
-          const a = -Math.PI / 2 - 0.5 - rand() * 0.6, l = (16 + rand() * 6) * s;
-          const tip = [ax + Math.cos(a) * l, ay + Math.sin(a) * l];
-          B.line(BLK, 0.8, Math.max(1.1 * k, 0.8 * s), ax, ay, tip[0], tip[1]);
-          B.line(rand() < 0.5 ? WHT : RED, 0.75, Math.max(1.1 * k, 1.4 * s), tip[0], tip[1], tip[0] - Math.cos(a) * 4 * s, tip[1] - Math.sin(a) * 4 * s);
-          B.line(BLK, 0.25, cw * 0.8, ax, ay, ax + l * 0.9, ay + l * 0.1);
-        }
-      } else if (kind < 0.94) {
+      const x = lerp(x0, W, rand()), h = (y - hy) / L.camK * 0.7;
+      const s = h / 100, cw = clamp(s * 0.9, 1.2, 3) * k;
+      const kind = rand();
+      if (kind < 0.12) {
+        blob(R.cT, BLK, x, y, 40 * s, 4 * s, 0, 0.3);
+      } else if (kind < 0.66) {
+        const a = (rand() - 0.5) * 0.5, l = (60 + rand() * 100) * s;
+        B.line(BLK, 0.8, Math.max(1.1 * k, 1.5 * s), x, y, x + Math.cos(a) * l, y + Math.sin(a) * l * 0.3);
+        if (rand() < 0.5) B.line(WHT, 0.7, Math.max(1.1 * k, 1.5 * s), x + Math.cos(a) * l, y + Math.sin(a) * l * 0.3, x + Math.cos(a) * (l + 10 * s), y + Math.sin(a) * (l + 10 * s) * 0.3);
+      } else if (kind < 0.88) {
+        const se = new Path2D(); se.ellipse(x, y - 2 * s, 9 * s, 3.5 * s, (rand() - 0.5) * 0.3, 0, TAU);
+        reserve(R, se, 0.8); fillCh(R.cT, BLK, se, 0.5); fillCh(R.cS, BLK, se, 0.5);
+        B.poly(WHT, 0.6, cw, ellipsePts(x, y - 2 * s, 9 * s, 3.5 * s, 0, 8, Math.PI * 0.9, Math.PI * 1.6));
+        blob(R.cT, RED, x + 1.5 * s, y - 2 * s, 2 * s, 1 * s, 0, 0.7);
+      } else {
         // a fire still smouldering in the grass
         blob(R.cT, RED, x, y - 4 * s, 30 * s, 8 * s, 0, 0.5);
         for (let j = 0; j < 8; j++) stroke(B, j < 6 ? RED : WHT, x + (rand() - 0.5) * 30 * s, y, x + (rand() - 0.5) * 30 * s, y - (10 + rand() * 20) * s, 0.2, cw, 0.8);
-      } else {
-        // a fallen pole with a torn black standard
-        const l = (80 + rand() * 40) * s, a = (rand() - 0.5) * 0.3;
-        sweep(B, BLK, [[x, y], [x + Math.cos(a) * l, y + Math.sin(a) * l * 0.2]], Math.max(1.4 * k, 1.8 * s), 0.9);
-        const fx = x + Math.cos(a) * l * 0.75, fy = y + Math.sin(a) * l * 0.15;
-        const fl = [[fx, fy], [fx + 22 * s, fy + 1 * s], [fx + 16 * s, fy + 5 * s], [fx + 25 * s, fy + 8 * s], [fx - 2 * s, fy + 7 * s]];
-        const fp = pathOf(fl); reserve(R, fp, 0.8); fillCh(R.cT, BLK, fp, 0.55); B.poly(RED, 0.6, cw, fl);
       }
     }
     flushAll(R);
@@ -2002,7 +1729,7 @@
           else if (rand() < 0.15) B.line(WHT, 0.6, 1.1 * k, x, yy - h * 1.6, x, yy - h * 2.2);
           continue;
         }
-        if (h > 30 * k && (x - hordeFront(L, yy) < h * 10 || rand() < 0.35)) {
+        if (h > 16 * k) {
           const dist = x - hordeFront(L, yy);
           const pose = dist < h * 3 && rand() < 0.6 ? 'brace' : (dist < h * 6 && rand() < 0.15 ? 'flee' : 'stand');
           flushAll(R);
@@ -2059,33 +1786,26 @@
   function makeArmy(R, L) {
     const rand = R.rand, out = [];
     let z = 0.0028;
-    const yMax = Math.min(L.H * 1.02, L.hy + L.hhT * L.camK * 1.25);
+    const yMax = L.H * 1.35;
     while (true) {
       const y = L.hy + z * L.H;
       if (y > yMax) break;
       const hh = (y - L.hy) / L.camK;
       const xf = riderFront(L, y);
-      const big = hh > L.hhT * 0.42;
-      const sp = hh * (big ? 1.6 : 1.12);
+      const sp = hh * (y > L.yT ? 1.25 : 1.12);
       let x = xf - rand() * hh * 0.5;
       while (x > -hh * 2) {
         const yy = y + (rand() - 0.5) * (y - L.hy) * 0.1;
         const h = (yy - L.hy) / L.camK;
-        const nearKing = (Math.abs(yy - L.yT) < L.hhT * 0.3 && x > L.xT - L.hhT * 1.7) || (yy > L.yT - L.hhT * 0.12 && L.t > 0.3);
-        const tooBig = h > L.hhT * 0.7 && x > L.xT - L.hhT * 1.3;
+        const nearKing = Math.abs(yy - L.yT) < L.hhT * 0.25 && x > L.xT - L.hhT * 1.6;
+        const tooBig = h > L.hhT * 0.98 && x > L.xT - L.hhT * 1.5;
         const offscreen = x - h * 1.5 > L.W || x + h * 2.5 < 0 || yy - h * 1.9 > L.H;
-        const gap = R.noise.fbm(x / (h * 4 + 1), yy / (h * 1.2 + 1), 2) < 0.42 && h < L.hhT * 0.4;
-        if (!nearKing && !tooBig && !offscreen && !gap) out.push({ x, y: yy, hh: h, sp: (rand() - 0.5), std: rand() < 0.04 });
+        if (!nearKing && !tooBig && !offscreen) out.push({ x, y: yy, hh: h, sp: (rand() - 0.5) });
         x -= sp * (0.7 + rand() * 0.65);
       }
-      z *= (big ? 1.2 : 1.1) + rand() * 0.03;
+      z *= 1.1 + rand() * 0.03;
     }
     out.push({ x: L.xT, y: L.yT, hh: L.hhT, king: true });
-    // two knights of the household close behind, near us, framing the lower left
-    if (L.t > 0.3) for (const [fx, fy] of [[1.85, 0.06], [3.25, 0.1]]) {
-      const yy = Math.min(L.H * 0.985, L.yT + L.hhT * fy);
-      out.push({ x: L.xT - L.hhT * fx, y: yy, hh: L.hhT * (0.98 + fy), sp: 0, guard: true });
-    }
     const by = L.yT - L.hhT * 0.2;
     out.push({ x: L.xT - L.hhT * 1.3, y: by, hh: (by - L.hy) / L.camK, banner: true });
     out.sort((a, b) => a.y - b.y);
@@ -2095,22 +1815,21 @@
   function riderParams(rand, rd) {
     const coats = ['bay', 'bay', 'bay', 'chestnut', 'chestnut', 'grey', 'black', 'dun', 'bay'];
     const ro = {
-      phase: [0.1, 0.14, 0.18, 0.22, 0.26, 0.62, 0.66, 0.7, 0.74, 0.92][(rand() * 10) | 0] + rand() * 0.03, pitch: (rand() - 0.5) * 6, stride: 0.95 + rand() * 0.12,
-      neck: 14 + rand() * 18, head: 32 + rand() * 14, neckLen: 46 + rand() * 6, arch: rand() * 4,
-      tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14, mouth: rand() < 0.45, earsBack: rand() < 0.3,
+      phase: rand(), pitch: (rand() - 0.5) * 8, stride: 0.92 + rand() * 0.16,
+      neck: 22 + rand() * 18, head: 38 + rand() * 18, neckLen: 46 + rand() * 6, arch: rand() * 4,
+      tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14,
       coat: coats[(rand() * coats.length) | 0],
-      lean: 26 + rand() * 24, seat: (rand() - 0.5) * 5,
-      spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.35, pennonCh: rand() < 0.75 ? RED : BLK,
+      lean: 26 + rand() * 24, seat: (rand() - 0.5) * 4,
+      spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.25, pennonCh: rand() < 0.75 ? RED : BLK,
       shieldCh: rand() < 0.5 ? RED : BLK, cloak: rand() < 0.7 ? 0 : 22 + rand() * 22, backShield: rand() < 0.25, cloakCh: rand() < 0.65 ? RED : BLK, cloakWave: rand() * 6,
       plume: rand() < 0.4 ? 0 : 12 + rand() * 12, plumeCh: rand() < 0.25 ? WHT : rand() < 0.5 ? RED : BLK, hairCh: rand() < 0.6 ? RED : WHT,
       clothCh: rand() < 0.55 ? RED : BLK,
     };
-    if (rand() < 0.2 && !(rd.hh > 0)) { ro.spearAng = -55 + rand() * 35; ro.spearLen = 70; }
-    if (rd.hh > 0 && rand() < 0.2 && rd.hh < rd.hhRaise) { ro.spearAng = -50 + rand() * 30; ro.spearLen = 70; }
+    if (rand() < 0.12) { ro.spearAng = -50 + rand() * 25; ro.spearLen = 90; }
     if (rand() < 0.04) ro.horn = true;
     if (rd.king) {
-      Object.assign(ro, { phase: 0.15, pitch: -4, stride: 1.06, neck: 24, head: 36, neckLen: 50, arch: 5, tailLift: 0.45, mane: 34, coat: 'grey', lean: 34, seat: 2, mouth: true, earsBack: true,
-        sword: true, gold: true, shieldBig: true, backShield: false, cloak: 50, cloakCh: BLK, cloakWave: 1.2, plume: 36, plumeCh: WHT, hairCh: WHT, clothCh: RED, pennon: false, horn: false });
+      Object.assign(ro, { phase: 0.16, pitch: -5, stride: 1.06, neck: 30, head: 40, neckLen: 50, arch: 3, tailLift: 0.45, mane: 30, coat: 'grey', lean: 22, seat: 0,
+        sword: true, gold: true, shieldBig: true, backShield: false, cloak: 64, cloakCh: RED, cloakWave: 1.2, plume: 36, plumeCh: WHT, hairCh: WHT, clothCh: RED, pennon: false, horn: false });
     }
     if (rd.banner) Object.assign(ro, { backShield: false, banner: true, coat: 'bay', phase: 0.62, cloak: 0, lean: 12, spearLen: 0, horn: false });
     return ro;
@@ -2168,7 +1887,7 @@
     const x1 = riderFront(L, y) + hh * 0.6;
     for (let x = -hh * 2; x < x1; x += hh * (1.2 + rand())) {
       const yy = y - hh * (0.15 + rand() * 0.5);
-      blob(c, WHT, x, yy, hh * (2.2 + rand() * 2), hh * (0.6 + rand() * 0.6), 0, (0.05 + 0.05 * rand()) * (1 - f * 0.7));
+      blob(c, WHT, x, yy, hh * (2.2 + rand() * 2), hh * (0.6 + rand() * 0.6), 0, (0.09 + 0.09 * rand()) * (1 - f * 0.7));
       if (rand() < 0.5) blob(c, RED, x, y - hh * 0.2, hh * 2.5, hh * 0.5, 0, 0.06);
     }
   }
@@ -2182,83 +1901,47 @@
     for (const rd of army) {
       if (rd.y > nextVeil && rd.y < L.yT + L.hhT * 0.3) {
         flushAll(R);
-        prof('veil', () => dustVeil(R, L, nextVeil));
+        dustVeil(R, L, nextVeil);
         nextVeil = L.hy + (nextVeil - L.hy) * 1.32;
         await R.tick();
       }
       if (only && !(only === 'king' ? rd.king : rd.hh > L.hhT * 0.5)) continue;
       rd.fog = smooth(L.hhT * 0.8, 4 * k, rd.hh) * 0.85;
-      if (rd.hh < MID && !rd.king) { if (rd.hh > 4 * k) longShadow(R, rd.x, rd.y, rd.hh, 0.25 * (1 - rd.fog)); prof('far', () => drawRiderFar(R, rd)); nF++; if (R.B.n > 6000) { flushAll(R); await R.tick(); } continue; }
+      if (rd.hh < MID && !rd.king) { if (rd.hh > 4 * k) longShadow(R, rd.x, rd.y, rd.hh, 0.25 * (1 - rd.fog)); drawRiderFar(R, rd); nF++; if (R.B.n > 6000) { flushAll(R); await R.tick(); } continue; }
       flushAll(R);
-      rd.hhRaise = L.hhT * 0.45;
       const ro = riderParams(R.rand, rd);
-      if (rd.king) ro.swordAng = L.t < 0.5 ? -36 : -52;
       ro.vp = L.vp;
       const s = rd.hh / 100;
       const hs = buildHorse(ro, rd.x, rd.y, s);
       rd.hs = hs; rd.ro = ro;
       hs.ao = smooth(L.yT + L.hhT * 0.1, L.H * 1.1, rd.y) * 0.35;
-      prof('shadow', () => longShadow(R, rd.x, rd.y, rd.hh, 0.34 * (1 - rd.fog)));
-      if (rd.hh < DET && !rd.king && !rd.banner) { prof('mid', () => drawRiderMid(R, rd)); nM++; await R.checkpoint(); continue; }
+      longShadow(R, rd.x, rd.y, rd.hh, 0.34 * (1 - rd.fog));
+      if (rd.hh < DET && !rd.king && !rd.banner) { drawRiderMid(R, rd); nM++; await R.checkpoint(); continue; }
       nD++;
-      await drawRiderFull(R, rd, hs, ro, rd.hh > FULL || rd.king);
+      const detail = rd.hh > FULL || rd.king;
+      const g = riderGeom(hs, ro);
+      reserve(R, horseUnion(hs), 0.92);
+      reserve(R, riderUnion(g), 0.92);
+      if (ro.banner) drawBanner(R, hs, g);
+      drawLeg(R, hs, hs.legs.LH, ro.coat, true, detail);
+      drawLeg(R, hs, hs.legs.LF, ro.coat, true, detail);
+      drawTail(R, hs, ro.coat, detail);
+      drawHorseBody(R, hs, ro.coat, detail);
+      await R.tick();
+      if (detail) {
+        const alt = buildHorse({ ...ro, phase: ro.phase + 0.05 + R.rand() * 0.05 }, rd.x, rd.y, s);
+        for (const id of ['RF', 'RH']) contour(R, alt.legs[id].poly, { ch: RED, w: clamp(s * 0.45, 1.2, 2.4) * k, a: 0.34, wob: s * 0.5, passes: 1 });
+        flushAll(R);
+      }
+      reserveLegs(R, hs);
+      drawLeg(R, hs, hs.legs.RH, ro.coat, false, detail);
+      drawLeg(R, hs, hs.legs.RF, ro.coat, false, detail);
+      drawMane(R, hs, ro.coat, detail);
+      drawTack(R, hs, ro, detail);
+      drawRider(R, hs, g, ro, detail);
       await R.checkpoint();
     }
     return { nD, nM, nF };
-  }
-
-  const PROF = {};
-  const prof = (name, f) => { const t = performance.now(); const r = f(); if (PROF.sync) { PROF.sync.cS.getImageData(0, 0, 1, 1); PROF.sync.cT.getImageData(0, 0, 1, 1); } PROF[name] = (PROF[name] || 0) + performance.now() - t; return r; };
-  async function drawRiderFull(R, rd, hs, ro, detail) {
-    const k = R.k, s = hs.s;
-    const g = riderGeom(hs, ro);
-    reserve(R, horseUnion(hs), 0.92);
-    reserve(R, riderUnion(g), 0.92);
-    if (ro.banner) drawBanner(R, hs, g);
-    prof('legsFar', () => {
-    drawLeg(R, hs, hs.legs.LH, ro.coat, true, detail);
-    drawLeg(R, hs, hs.legs.LF, ro.coat, true, detail);
-    });
-    drawTail(R, hs, ro.coat, detail);
-    reserve(R, pathOf(hs.body), 0.9);
-    prof('body', () => {
-    drawHorseBody(R, hs, ro.coat, detail);
-    });
-    await R.tick();
-    if (detail) {
-      const alt = buildHorse({ ...ro, phase: ro.phase + 0.04 + R.rand() * 0.04 }, rd.x, rd.y, s);
-      for (const id of ['RF', 'RH']) contour(R, alt.legs[id].poly, { ch: RED, w: clamp(s * 0.45, 1.2, 2.4) * k, a: 0.3, wob: s * 0.5, passes: 1 });
-      flushAll(R);
-    }
-    reserveLegs(R, hs);
-    prof('legsNear', () => {
-    drawLeg(R, hs, hs.legs.RH, ro.coat, false, detail);
-    drawLeg(R, hs, hs.legs.RF, ro.coat, false, detail);
-    });
-    drawMane(R, hs, ro.coat, detail);
-    drawTack(R, hs, ro, detail);
-    prof('rider', () => {
-    drawRider(R, hs, g, ro, detail);
-    });
-    hoofDust(R, hs, detail);
-  }
-
-  /* dust and clods kicked up by the hooves that are on the ground or just leaving it */
-  function hoofDust(R, hs, detail) {
-    const rand = R.rand, s = hs.s, k = R.k, B = R.B;
-    for (const id in hs.legs) {
-      const L = hs.legs[id];
-      if (L.p > 0.42) continue;
-      const h = L.chainS[3];
-      const a = L.p < 0.3 ? 0.18 : 0.1;
-      blob(R.cT, WHT, h[0] - 10 * s, h[1] - 4 * s, 26 * s, 9 * s, 0, a);
-      blob(R.cT, RED, h[0] - 14 * s, h[1] - 2 * s, 20 * s, 6 * s, 0, a * 0.8);
-      if (detail) for (let i = 0; i < 8; i++) {
-        const x = h[0] - rand() * 30 * s, y = h[1] - rand() * 14 * s;
-        B.line(rand() < 0.5 ? RED : BLK, 0.6, (1 + rand() * 1.5) * k, x, y, x - 2 * s, y + s);
-      }
-    }
-    flushAll(R);
   }
 
   /* =========================================================== compositing */
@@ -2339,11 +2022,8 @@
     const out = document.createElement('canvas'); out.width = pw; out.height = ph;
     const co = out.getContext('2d');
     return function () {
-      const t0 = performance.now();
       ca.drawImage(R.S, 0, 0, pw, ph); cb.drawImage(R.T, 0, 0, pw, ph);
-      const t1 = performance.now();
       const S = ca.getImageData(0, 0, pw, ph).data, T = cb.getImageData(0, 0, pw, ph).data;
-      if (new URLSearchParams(location.search).has('rohlog')) console.warn('preview draw ' + Math.round(t1 - t0) + ' read ' + Math.round(performance.now() - t1));
       const img = co.createImageData(pw, ph);
       comp(S, T, img.data, pw, 0, ph, sc);
       co.putImageData(img, 0, 0);
@@ -2363,41 +2043,23 @@
     let tSlice = performance.now(), tPrev = performance.now();
     const R = {
       W, H, k: L.k, S, T, cS, cT, rand, noise,
-      B: new Batch(cS), BT: new Batch(cT), nPrev: 0, only: new URLSearchParams(location.search).get('rohonly'),
+      B: new Batch(cS), BT: new Batch(cT), only: new URLSearchParams(location.search).get('rohonly'),
       async tick() {
         if (performance.now() - tSlice > 40) { await yieldNow(); tSlice = performance.now(); }
         if (!ok()) throw new Error('cancelled');
       },
       async checkpoint() {
         await R.tick();
-        if (onPreview && (R.nPrev === 0 || performance.now() - tPrev > 6000)) { R.nPrev++; flushAll(R); prof('preview', () => onPreview(R.preview())); tPrev = performance.now(); await yieldNow(); tSlice = performance.now(); }
+        if (onPreview && performance.now() - tPrev > 1600) { flushAll(R); onPreview(R.preview()); tPrev = performance.now(); await yieldNow(); tSlice = performance.now(); }
       },
     };
     const times = [];
     let t0 = performance.now();
-    const mark = (n) => { if (log && XQ.includes('sync')) { cS.getImageData(0, 0, 1, 1); cT.getImageData(0, 0, 1, 1); } const t = performance.now(); times.push(n + ' ' + Math.round(t - t0)); if (log) console.warn('mark ' + n + ' ' + Math.round(t - t0)); t0 = t; };
+    const mark = (n) => { const t = performance.now(); times.push(n + ' ' + Math.round(t - t0)); if (log) console.warn('mark ' + n + ' ' + Math.round(t - t0)); t0 = t; };
     const tooth = makeTooth(mulberry32(seed ^ 0x70074));
     const comp = makeComposer(R, tooth);
-    R.preview = previewer(R, comp, Math.min(previewW, 1100));
+    R.preview = previewer(R, comp, previewW);
     mark('tooth');
-    if (new URLSearchParams(location.search).has('rohsheet')) {
-      // a study sheet of horses through the stride
-      const cols = 5, rows = 4, cw = W / cols, chh = H / rows;
-      const coat = new URLSearchParams(location.search).get('rohsheet') || 'bay';
-      for (let i = 0; i < cols * rows; i++) {
-        const ph = i / (cols * rows);
-        const gx = (i % cols + 0.55) * cw, gy = (((i / cols) | 0) + 0.92) * chh;
-        const hh = chh * 0.5;
-        const ro = riderParams(R.rand, {});
-        Object.assign(ro, { phase: ph, coat, pitch: 0, stride: 1, neck: 20, head: 36, cloak: 0, backShield: false, vp: [gx + cw, gy - hh * 0.6] });
-        const hs = buildHorse(ro, gx, gy, hh / 100);
-        await drawRiderFull(R, { x: gx, y: gy, hh }, hs, ro, true);
-        R.cS.fillStyle = 'rgba(0,255,0,1)'; R.cS.font = (30 * L.k) + 'px sans-serif'; R.cS.fillText(ph.toFixed(2), gx - cw * 0.5, gy - chh * 0.75);
-        await R.tick();
-      }
-      flushAll(R);
-      return await composite(R, comp);
-    }
     await drawSky(R, L); mark('sky');
     await drawMountains(R, L); mark('mountain');
     await drawCity(R, L); mark('city');
@@ -2423,7 +2085,7 @@
     flushAll(R);
     const out = await composite(R, comp); mark('composite');
     S.width = S.height = 1; T.width = T.height = 1;
-    if (log) console.warn('rohirrim ' + W + 'x' + H + ' ' + times.join(' | ') + ' PROF ' + JSON.stringify(PROF, (k2, v) => k2 === 'sync' ? undefined : typeof v === 'number' ? Math.round(v) : v));
+    if (log) console.warn('rohirrim ' + W + 'x' + H + ' ' + times.join(' | '));
     return out;
   }
 
