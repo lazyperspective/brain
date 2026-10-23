@@ -1,4 +1,4 @@
-/* The Bridge — the room around the artworks.
+/* Drawings from Middle-earth — the room around the artworks.
  *
  * Each artwork registers itself on window.PIECES with
  *   { id, title, medium, note, about, tone: 'dark'|'light', mount(el, api) }
@@ -67,7 +67,7 @@
     $('title').textContent = p.title;
     $('medium').textContent = p.medium;
     $('note').textContent = p.note || '';
-    document.title = p.title + ' — The Bridge';
+    document.title = p.title + ' — Drawings from Middle-earth';
     delete document.documentElement.dataset.ready;
 
     stage.classList.remove('in');
