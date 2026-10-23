@@ -796,7 +796,7 @@
         g.spear = { a: [hS[0] - ux * 50 * s, hS[1] - uy * 50 * s], b: [hS[0] + ux * ro.spearLen * s, hS[1] + uy * ro.spearLen * s] };
       } else g.spear = { a: Q(g.hand[0] - sd[0] * 50, g.hand[1] - sd[1] * 50), b: Q(g.hand[0] + sd[0] * ro.spearLen, g.hand[1] + sd[1] * ro.spearLen) };
     }
-    if (ro.sword) { const sw = [Math.cos(-52 * D2R), Math.sin(-52 * D2R)]; g.sword = { a: Q(g.hand[0] - sw[0] * 5, g.hand[1] - sw[1] * 5), b: Q(g.hand[0] + sw[0] * 62, g.hand[1] + sw[1] * 62), d: sw }; }
+    if (ro.sword) { const swa = (ro.swordAng || -52) * D2R, sw = [Math.cos(swa), Math.sin(swa)]; g.sword = { a: Q(g.hand[0] - sw[0] * 5, g.hand[1] - sw[1] * 5), b: Q(g.hand[0] + sw[0] * 62, g.hand[1] + sw[1] * 62), d: sw }; }
     if (ro.horn) { g.hornPts = QQ([at(g.hand, 0, -1), at(g.hand, 5, 6), at(g.hand, 3, 12), at(g.hand, -2, 16)]); }
     if (ro.banner) {
       const top = [g.hand[0] - 24, g.hand[1] - 125], bot = [g.hand[0] + 3, g.hand[1] + 12];
@@ -2118,6 +2118,7 @@
       flushAll(R);
       rd.hhRaise = L.hhT * 0.45;
       const ro = riderParams(R.rand, rd);
+      if (rd.king) ro.swordAng = L.t < 0.5 ? -36 : -52;
       ro.vp = L.vp;
       const s = rd.hh / 100;
       const hs = buildHorse(ro, rd.x, rd.y, s);
