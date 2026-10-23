@@ -1539,6 +1539,26 @@
         C2[i] = c; S2[i] = s;
         if ((i & 0x3ffff) === 0) await tick();
       }
+      // antialiased edges blend region ids into false ids: re-assign edge pixels by a 5x5 majority vote
+      const modeFix = async (A) => {
+        const out = A.slice(), cnt = new Uint16Array(256), touched = [];
+        for (let y = 2; y < hh - 2; y++) {
+          for (let x = 2; x < hw - 2; x++) {
+            const i = y * hw + x, v = A[i];
+            if (v === A[i - 1] && v === A[i + 1] && v === A[i - hw] && v === A[i + hw]) continue;
+            let best = v, bc = 0;
+            for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+              const q = A[i + dy * hw + dx]; if (!cnt[q]) touched.push(q); const c = ++cnt[q];
+              if (c > bc) { bc = c; best = q; }
+            }
+            out[i] = cnt[v] >= 6 ? v : best;
+            for (const q of touched) cnt[q] = 0; touched.length = 0;
+          }
+          if ((y & 63) === 0) await tick();
+        }
+        A.set(out);
+      };
+      await modeFix(RID); await modeFix(OIDA);
       // smoke is hatched along its iso-tones, so the lines wrap each billow's light and shade
       const Bt = new Float32Array(hw * hh), tmp = new Float32Array(hw * hh);
       const rad = Math.max(3, Math.round(11 * hk));
@@ -2266,7 +2286,7 @@
           const r = sub(offsetLine(pts, (f) => -fl.wid * Math.sin(Math.PI * Math.pow(f, 0.45)) * 0.95), a, Math.min(1, b));
           const poly = l.concat(r.reverse());
           const t = a;
-          wFill(poly, lerp(0.75, 0.35, t), lerp(0.08, 0.5, t), lerp(0.0, 0.25, t * t), 1, 0.9);
+          wFill(poly, lerp(0.7, 0.4, t), lerp(0.06, 0.42, t), lerp(0.0, 0.14, t * t), 1, 1.4);
         }
       }
       wctx.globalCompositeOperation = 'lighter';
@@ -2320,9 +2340,9 @@
         const gx = i % hw, gy = (i / hw) | 0;
         const gran = 0.9 + 0.2 * nz(gx / 2.2, gy / 2.2);
         const e0 = wd[j] / 255, e1 = wd[j + 1] / 255, e2 = wd[j + 2] / 255;
-        WY[i] = clamp((e0 + Math.max(0, e0 - bd[j] / 255) * 1.4) * gran, 0, 1.2);
-        WO[i] = clamp((e1 + Math.max(0, e1 - bd[j + 1] / 255) * 1.4) * gran, 0, 1.2);
-        WC[i] = clamp((e2 + Math.max(0, e2 - bd[j + 2] / 255) * 1.4) * gran, 0, 1.2);
+        WY[i] = clamp((e0 + Math.max(0, e0 - bd[j] / 255) * 0.6) * gran, 0, 1);
+        WO[i] = clamp((e1 + Math.max(0, e1 - bd[j + 1] / 255) * 0.6) * gran, 0, 0.95);
+        WC[i] = clamp((e2 + Math.max(0, e2 - bd[j + 2] / 255) * 0.6) * gran, 0, 0.8);
         if ((i & 0x3ffff) === 0) await tick();
       }
     }

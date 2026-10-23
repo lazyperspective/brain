@@ -2009,7 +2009,7 @@ vec3 wall(vec2 fc){
   c *= 1. - 0.75*exp(-max(sd,0.)/(uSheet.w*0.018));
   return c;
 }
-vec3 sheet(vec2 uv, vec2 gx, vec2 gy){
+vec3 sheet(vec2 uv, vec2 gx, vec2 gy, float sk){
   vec4 ink = textureGrad(uInk, uv, gx, gy) * uReady;
   vec4 m = textureGrad(uMet, uv, gx, gy) * uReady;
   vec3 col = ink.rgb + paper(uv)*(1.-ink.a);
@@ -2025,7 +2025,7 @@ vec3 sheet(vec2 uv, vec2 gx, vec2 gy){
   float band = exp(-d*d*7.);
   float s = m.r*uReady, g = m.g*uReady;
   float flake = step(0.8, h21(floor(uv*uTex*0.5)+3.1));
-  float sh = band*0.5 + spec*0.55*(0.4+band) + flake*band*0.4;
+  float sh = (band*0.5 + spec*0.55*(0.4+band) + flake*band*0.4) * sk;
   col *= 1. - min(s+g,1.)*0.09*(1.-band);
   col += (s*vec3(0.78,0.85,1.0) + g*vec3(1.0,0.74,0.36))*sh*0.25;
   col *= 1. + m.b*uBreath*0.10*sin(uTime*0.85 + fbm(uv*vec2(14.,20.))*14.);
@@ -2045,7 +2045,7 @@ void main(){
   vec2 e2 = min(suv, 1.-suv);
   float pw = length(sgx)*1.2 + 1e-5;
   float inside = smoothstep(-pw, pw, min(e2.x, e2.y*1.43) + edge);
-  vec3 col = mix(wall(lm > 0.5 ? uLens.xy + (fc-uLens.xy)/uZoom : fc), sheet(clamp(suv,0.,1.), sgx, sgy), inside);
+  vec3 col = mix(wall(lm > 0.5 ? uLens.xy + (fc-uLens.xy)/uZoom : fc), sheet(clamp(suv,0.,1.), sgx, sgy, 1. - 0.6*lm), inside);
   if (uLens.z > 0.) {
     float ring = smoothstep(2.2, 0.6, abs(dl - uLens.z));
     float sh = (1.-lm) * exp(-max(dl-uLens.z,0.)/14.) * 0.55;

@@ -798,6 +798,7 @@
     const tsh = makeShader([cap(g.Q(...g.hip), g.Q(...g.sho), 10 * s, 10.5 * s)]);
     const tfn = (x, y, o) => { const v = tsh(x, y); const vv = v === null ? -0.3 : v; const D = darkOf(vv, 0); o[BLK] = 0.28 + 0.62 * D; o[WHT] = 0.9 * smooth(0.55, 0.85, vv); o[RED] = 0.2; return true; };
     hatch(R, { ...tb, ang: 58 * D2R, sp, len: len * 0.8, w, fn: tfn, chs: [BLK, RED, WHT], st: 0.25 });
+    if (R.dbg) console.warn('torso strokes', R.B.n, R.BT.n, JSON.stringify(tb), sp, len, w);
     clipFlush(R, tp);
     if (detail && s > 1.6) {
       R.cS.save(); R.cS.clip(tp);
@@ -882,6 +883,7 @@
       fillCh(R.cS, WHT, pathOf(limb(g.hornPts, [1.2 * s, 1.8 * s, 2.6 * s, 4 * s])), 0.7);
       B.poly(BLK, 0.8, cw, g.hornPts);
     }
+    if (R.dbg) { for (const P of [g.torso, g.leg, g.arm]) { R.cS.globalCompositeOperation = 'source-over'; R.cS.strokeStyle = '#0f0'; R.cS.lineWidth = 3; R.cS.stroke(pathOf(P)); R.cS.globalCompositeOperation = 'lighter'; } console.warn('torso', JSON.stringify(g.torso.slice(0, 3)), 'hip', JSON.stringify(g.Q(...g.hip))); }
     const bit = hs.Hp(35, 7);
     const rm = [(bit[0] + g.rein[0]) / 2, Math.max(bit[1], g.rein[1]) + 7 * s];
     B.quad(BLK, 0.65, cw * 0.8, g.rein[0], g.rein[1], rm[0], rm[1], bit[0], bit[1]);
@@ -1801,7 +1803,7 @@
     let tSlice = performance.now(), tPrev = performance.now();
     const R = {
       W, H, k: L.k, S, T, cS, cT, rand, noise,
-      B: new Batch(cS), BT: new Batch(cT), only: new URLSearchParams(location.search).get('rohonly'),
+      B: new Batch(cS), BT: new Batch(cT), only: new URLSearchParams(location.search).get('rohonly'), dbg: new URLSearchParams(location.search).has('rohdbg'),
       async tick() {
         if (performance.now() - tSlice > 40) { await yieldNow(); tSlice = performance.now(); }
         if (!ok()) throw new Error('cancelled');
