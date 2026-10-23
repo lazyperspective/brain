@@ -332,14 +332,14 @@
     const t = smooth(0.55, 1.45, A), u = smooth(1.75, 2.45, A);
     const hy = H * lerp(0.42, 0.44, t);
     const camK = 1.75;
-    const yT = H * (lerp(0.665, 0.8, t) - 0.03 * u);
+    const yT = H * (lerp(0.6, 0.8, t) - 0.03 * u);
     const xT = W * (lerp(0.5, 0.52, t) - 0.04 * u);
     const hhT = (yT - hy) / camK;
-    const cityW = Math.min(H * lerp(0.38, 0.41, t) * (1 - 0.08 * u), W * 0.8);
+    const cityW = Math.min(H * lerp(0.38, 0.41, t) * (1 - 0.08 * u), W * 0.62);
     const cityX = W * (lerp(0.63, 0.8, t) - 0.01 * u);
-    const farX = W * (lerp(-0.05, 0.2, t) + 0.06 * u);
+    const farX = W * (lerp(0.06, 0.2, t) + 0.06 * u);
     return {
-      W, H, A, t, u, hy, camK, yT, xT, hhT, farX,
+      W, H, A, t, u, hy, camK, yT, xT, hhT, farX, back: lerp(0.45, 2.1, t),
       sun: [W * lerp(0.06, 0.13, t), hy + H * 0.012],
       vp: [W * lerp(1.25, 1.12, t), hy + H * 0.012],
       city: { cx: cityX, cb: hy + H * 0.003, w: cityW, cs: cityW / 200 },
@@ -352,12 +352,12 @@
       const f = clamp((y - L.hy) / (L.yT - L.hy), 0, 1);
       return lerp(L.farX, L.xT, Math.pow(f, 0.8)) + Math.sin(f * 8.0 + 0.6) * L.hhT * 0.22 * f;
     }
-    return L.xT - L.hhT * 1.0 - (y - L.yT) * 2.1;
+    return L.xT - L.hhT * lerp(0.6, 1.0, L.t) - (y - L.yT) * L.back;
   }
   function hordeFront(L, y) {
     const f = clamp((y - L.hy) / (L.yT - L.hy), 0, 1.5);
     if (y <= L.yT) return riderFront(L, y) + lerp(L.W * 0.03, L.hhT * 1.7, f);
-    return L.xT + L.hhT * 1.7 + (y - L.yT) * 2.2;
+    return L.xT + L.hhT * 1.7 + (y - L.yT) * lerp(0.6, 2.2, L.t);
   }
 
   /* ============================================================ the horse */
@@ -944,7 +944,7 @@
       if (ro.pennon) {
         const p0 = [b[0] - u[0] * 16 * s, b[1] - u[1] * 16 * s];
         const wv = ro.cloakWave;
-        const pts = [p0, [p0[0] - u[0] * 3 * s, p0[1] - 7 * s], [p0[0] - 24 * s, p0[1] - 5 * s + Math.sin(wv) * 3 * s], [p0[0] - 17 * s, p0[1] - 2 * s], [p0[0] - 25 * s, p0[1] + 1 * s + Math.cos(wv) * 2 * s], [p0[0] - 6 * s, p0[1] + 1 * s]];
+        const pts = [p0, [p0[0] - u[0] * 2 * s, p0[1] - 5 * s], [p0[0] - 15 * s, p0[1] - 4 * s + Math.sin(wv) * 2 * s], [p0[0] - 10 * s, p0[1] - 1.5 * s], [p0[0] - 16 * s, p0[1] + 1 * s + Math.cos(wv) * 1.5 * s], [p0[0] - 4 * s, p0[1] + 0.5 * s]];
         fillCh(R.cT, ro.pennonCh, pathOf(pts), 0.55);
         B.poly(BLK, 0.6, cw * 0.7, pts.concat([pts[0]]));
       }
@@ -1046,7 +1046,7 @@
       const a = g.spear.a, b = g.spear.b;
       B.line(BLK, 0.8, clamp(s * 1.1, 1.1, 3) * k, a[0], a[1], b[0], b[1]);
       B.line(WHT, 0.95, clamp(s * 1.6, 1.3, 3.6) * k, b[0], b[1], b[0] + (b[0] - a[0]) * 0.07, b[1] + (b[1] - a[1]) * 0.07);
-      if (ro.pennon) fillCh(R.cT, ro.pennonCh, pathOf([[b[0] - 14 * s, b[1] - 1 * s], [b[0] - 34 * s, b[1] - 6 * s], [b[0] - 30 * s, b[1] + 1 * s]]), 0.6);
+      if (ro.pennon) fillCh(R.cT, ro.pennonCh, pathOf([[b[0] - 12 * s, b[1] - 1 * s], [b[0] - 26 * s, b[1] - 4 * s], [b[0] - 23 * s, b[1] + 1 * s]]), 0.6);
     }
     if (g.pole) { B.line(BLK, 0.85, clamp(s * 1.3, 1.2, 3.4) * k, g.pole.a[0], g.pole.a[1], g.pole.b[0], g.pole.b[1]); }
     flushAll(R);
@@ -1610,6 +1610,52 @@
     flushAll(R);
   }
 
+  /* the litter of the night's battle on the plain ahead of the charge */
+  function drawDebris(R, L) {
+    const { W, H, hy } = L, rand = R.rand, k = R.k, B = R.B;
+    for (let i = 0; i < 46; i++) {
+      const y = lerp(hy + (L.yT - hy) * 0.5, H * 1.02, Math.pow(rand(), 0.7));
+      const x0 = riderFront(L, y) + (y - hy) * 0.9;
+      if (x0 > W) continue;
+      const x = lerp(x0, W, rand()), h = (y - hy) / L.camK;
+      const s = h / 100, cw = clamp(s * 0.9, 1.2, 3) * k;
+      const kind = rand();
+      if (kind < 0.35) {
+        // a fallen orc
+        const f = rand() < 0.5 ? 1 : -1;
+        const P = (ux, uy) => [x + ux * s * f, y + uy * s];
+        const parts = [limb([P(-40, -6), P(0, -10), P(18, -8)], [7 * s, 10 * s, 8 * s]), limb([P(-40, -6), P(-62, -2), P(-78, -4)], [5 * s, 4 * s, 3 * s]),
+          limb([P(-38, -8), P(-58, -14), P(-70, -6)], [5 * s, 4 * s, 3 * s]), limb([P(10, -12), P(22, -24), P(36, -20)], [4 * s, 3.5 * s, 3 * s])];
+        const u = new Path2D(); for (const p of parts) addPoly(u, p);
+        const hd = P(28, -6); u.moveTo(hd[0] + 7 * s, hd[1]); u.arc(hd[0], hd[1], 7 * s, 0, TAU);
+        reserve(R, u, 0.8); fillCh(R.cT, BLK, u, 0.55); fillCh(R.cS, BLK, u, 0.3);
+        for (const p of parts) contour(R, p, { ch: BLK, w: cw, a: 0.8, wob: s * 0.5, passes: 1, rim: 0.5 });
+        B.poly(RED, 0.5, cw, [P(-30, -16), P(10, -19)]);
+        blob(R.cT, BLK, x, y + 2 * s, 60 * s, 5 * s, 0, 0.35);
+      } else if (kind < 0.6) {
+        const a = (rand() - 0.5) * 0.5, l = (60 + rand() * 100) * s;
+        B.line(BLK, 0.8, Math.max(1.1 * k, 1.5 * s), x, y, x + Math.cos(a) * l, y + Math.sin(a) * l * 0.3);
+        if (rand() < 0.5) B.line(WHT, 0.7, Math.max(1.1 * k, 1.5 * s), x + Math.cos(a) * l, y + Math.sin(a) * l * 0.3, x + Math.cos(a) * (l + 10 * s), y + Math.sin(a) * (l + 10 * s) * 0.3);
+      } else if (kind < 0.8) {
+        const se = new Path2D(); se.ellipse(x, y - 3 * s, 13 * s, 5 * s, (rand() - 0.5) * 0.3, 0, TAU);
+        reserve(R, se, 0.8); fillCh(R.cT, BLK, se, 0.6);
+        B.poly(WHT, 0.6, cw, ellipsePts(x, y - 3 * s, 13 * s, 5 * s, 0, 8, Math.PI * 0.9, Math.PI * 1.6));
+        blob(R.cT, RED, x + 2 * s, y - 3 * s, 3 * s, 1.5 * s, 0, 0.7);
+      } else if (kind < 0.9) {
+        // a trodden black banner
+        const pts = [[x, y], [x + 40 * s, y - 4 * s], [x + 46 * s, y + 3 * s], [x + 8 * s, y + 6 * s]];
+        const fp = pathOf(pts); reserve(R, fp, 0.8); fillCh(R.cT, BLK, fp, 0.65);
+        blob(R.cT, RED, x + 24 * s, y + 1 * s, 5 * s, 2 * s, 0, 0.9);
+        B.line(BLK, 0.85, Math.max(1.2 * k, 1.6 * s), x - 30 * s, y + 2 * s, x + 4 * s, y);
+      } else {
+        // a fire still smouldering in the grass
+        blob(R.cT, RED, x, y - 4 * s, 30 * s, 8 * s, 0, 0.5);
+        for (let j = 0; j < 8; j++) stroke(B, j < 6 ? RED : WHT, x + (rand() - 0.5) * 30 * s, y, x + (rand() - 0.5) * 30 * s, y - (10 + rand() * 20) * s, 0.2, cw, 0.8);
+      }
+    }
+    flushAll(R);
+  }
+
   /* a burning engine of war on the right, a dark frame for the charge to run into */
   function drawEngine(R, L, gx, gy) {
     const { hy } = L, rand = R.rand, k = R.k, B = R.B;
@@ -1769,7 +1815,7 @@
         const yy = y + (rand() - 0.5) * (y - L.hy) * 0.1;
         const h = (yy - L.hy) / L.camK;
         const nearKing = Math.abs(yy - L.yT) < L.hhT * 0.25 && x > L.xT - L.hhT * 1.6;
-        const tooBig = h > L.hhT * 0.98 && x > L.xT - L.hhT * 1.2;
+        const tooBig = h > L.hhT * 0.98 && x > L.xT - L.hhT * lerp(0.7, 1.2, L.t) && yy < L.yT + L.hhT * 0.6;
         const offscreen = x - h * 1.5 > L.W || x + h * 2.5 < 0 || yy - h * 1.9 > L.H;
         if (!nearKing && !tooBig && !offscreen) out.push({ x, y: yy, hh: h, sp: (rand() - 0.5) });
         x -= sp * (0.7 + rand() * 0.65);
@@ -1791,7 +1837,7 @@
       tailLift: 0.15 + rand() * 0.35, mane: 16 + rand() * 14,
       coat: coats[(rand() * coats.length) | 0],
       lean: 26 + rand() * 24, seat: (rand() - 0.5) * 4,
-      spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.3, pennonCh: rand() < 0.5 ? RED : WHT,
+      spearAng: 1 + rand() * 9, spearLen: 105 + rand() * 30, pennon: rand() < 0.25, pennonCh: rand() < 0.75 ? RED : BLK,
       shieldCh: rand() < 0.5 ? RED : BLK, cloak: rand() < 0.7 ? 0 : 22 + rand() * 22, backShield: rand() < 0.25, cloakCh: rand() < 0.65 ? RED : BLK, cloakWave: rand() * 6,
       plume: rand() < 0.4 ? 0 : 12 + rand() * 12, plumeCh: rand() < 0.25 ? WHT : rand() < 0.5 ? RED : BLK, hairCh: rand() < 0.6 ? RED : WHT,
       clothCh: rand() < 0.55 ? RED : BLK,
@@ -1823,7 +1869,9 @@
     fillCh(R.cT, BLK, cp, 0.42);
     fillCh(R.cT, RED, cp, 0.1);
     const bb = bbox(cloth, 1);
-    hatch(R, { ...bb, ang: 60 * D2R, sp: 3.4 * k, len: 18 * k, w: 2.2 * k, chs: [BLK, WHT], fn: (x, y, o) => { const t = (top[0] - x) / len; const f = Math.sin(t * 5 + 0.5 + (y - top[1]) / hgt * 0.4); o[BLK] = 0.5 + 0.3 * f; o[WHT] = 0.4 * smooth(0.4, 1, -f); return true; } });
+    const bfold = (x, y) => { const t = (top[0] - x) / len; return Math.sin(t * 9 + 0.5 + (y - top[1]) / hgt * 0.8) * 0.65 + Math.sin(t * 4 - 1) * 0.35; };
+    hatch(R, { ...bb, ang: 60 * D2R, sp: 3.2 * k, len: 16 * k, w: 2.2 * k, chs: [BLK, WHT, RED], st: 0.3, fn: (x, y, o) => { const f = bfold(x, y); o[BLK] = 0.3 + 0.5 * smooth(0.6, -0.6, f); o[WHT] = 0.55 * smooth(0.35, 0.9, f); o[RED] = 0.2; return true; } });
+    for (let i = 0; i < 9; i++) { const t = (i + 0.5) / 9, x0 = top[0] - len * t; B.poly(BLK, 0.45, 1.8 * k, [[x0, top[1] + 12 * s * t + 4 * s], [x0 - 6 * s, top[1] + hgt * 0.5 + 12 * s * t], [x0 - 3 * s, top[1] + hgt * 0.95 + 10 * s * t]]); }
     clipFlush(R, cp);
     contour(R, cloth, { ch: BLK, w: 2.4 * k, a: 0.85, wob: 1.5 * k, passes: 2 });
     const hx = top[0] - len * 0.52, hy2 = top[1] + hgt * 0.8 + 6 * s;
@@ -2040,6 +2088,7 @@
     sources.push({ x: L.city.cx + L.city.cs * 52, y: L.city.cb - L.city.cs * 8, r: L.city.cs * 11, lean: -0.7, a: 0.3, seed: 9 });
     sources.push({ x: L.city.cx + L.city.cs * 8, y: L.city.cb - L.city.cs * 4, r: L.city.cs * 7, lean: -0.55, a: 0.22, seed: 14 });
     await drawGround(R, L); mark('ground');
+    drawDebris(R, L);
     const egx = L.W * lerp(0.95, 0.93, L.t), egy = L.hy + (L.yT - L.hy) * 0.5;
     sources.push({ x: egx - (egy - L.hy) * 0.05, y: egy - (egy - L.hy) * 0.35, r: (egy - L.hy) * 0.18, lean: -0.5, a: 0.3, seed: 21 });
     await drawSmoke(R, L, sources); mark('smoke');
