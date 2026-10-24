@@ -1036,41 +1036,43 @@
     return [c, k];
   }
   function drawSteam(ctx, env) {
-    // one billowing silhouette, coloured warm where it faces the stand and cold where it faces the sky, then softened once
+    // gouache vapour: a cool body, a warm side catching the shop light, a few crisp lit edges, wisps at the top
     const s = env.s, puffs = [];
-    for (let i = 0; i < 16; i++) {
-      const t = i / 15, h = 0.04 + t * 2.1, lean = t * t * 1.1 + Math.sin(t * 4.4 + 0.5) * 0.12;
-      const X = MH.X + lean, Z = MH.Z + t * 1.6, q = P(X, h, Z), kk = K(X, Z);
-      puffs.push([q[0], q[1], (0.2 + t * 0.5) * kk * rnd(0.85, 1.12), t]);
+    for (let i = 0; i < 34; i++) {
+      const t = i / 33, h = 0.03 + t * 2.6, lean = t * t * 1.3 + Math.sin(t * 5.2 + 0.4) * 0.16;
+      const X = MH.X + lean, Z = MH.Z + t * 1.4, q = P(X, h, Z), kk = K(X, Z);
+      puffs.push([q[0] + rnd(-0.05, 0.05) * kk, q[1], (0.2 + t * 0.42 + Math.sin(i * 1.7) * 0.05) * kk, t]);
     }
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-    for (const p of puffs) { x0 = Math.min(x0, p[0] - p[2] * 2); x1 = Math.max(x1, p[0] + p[2] * 2); y0 = Math.min(y0, p[1] - p[2] * 2); y1 = Math.max(y1, p[1] + p[2] * 1.5); }
+    for (const p of puffs) { x0 = Math.min(x0, p[0] - p[2] * 1.6); x1 = Math.max(x1, p[0] + p[2] * 1.6); y0 = Math.min(y0, p[1] - p[2] * 1.6); y1 = Math.max(y1, p[1] + p[2] * 1.2); }
     x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W, x1); y1 = Math.min(H, y1);
     const cw = Math.ceil((x1 - x0) * s), chh = Math.ceil((y1 - y0) * s);
     if (cw < 4 || chh < 4) return;
-    const A = document.createElement('canvas'); A.width = cw; A.height = chh;
-    const a = A.getContext('2d'); a.setTransform(s, 0, 0, s, -x0 * s, -y0 * s);
-    const body = (shrink, al) => {
-      for (const p of puffs) {
-        a.fillStyle = 'rgba(255,255,255,' + (al * (1 - p[3] * 0.82)).toFixed(3) + ')';
-        a.beginPath(); a.ellipse(p[0], p[1], p[2] * shrink, p[2] * 0.8 * shrink, 0, 0, Math.PI * 2); a.fill();
-        for (let j = 0; j < 3; j++) { const an = rnd(0, Math.PI * 2), rr = p[2] * shrink * rnd(0.35, 0.6); a.beginPath(); a.arc(p[0] + Math.cos(an) * p[2] * shrink * 0.7, p[1] + Math.sin(an) * p[2] * shrink * 0.55, rr, 0, Math.PI * 2); a.fill(); }
-      }
-    };
-    body(1, 0.75);
-    a.globalCompositeOperation = 'source-in';
-    const g = a.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0, '#f0d2b0'); g.addColorStop(0.45, '#b8b6bc'); g.addColorStop(1, '#7e90aa');
-    a.fillStyle = g; a.fillRect(x0, y0, x1 - x0, y1 - y0);
+    const mk = () => { const c = document.createElement('canvas'); c.width = cw; c.height = chh; const x = c.getContext('2d'); x.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); return [c, x]; };
+    const [A, a] = mk(), [Bc, b] = mk();
+    // the body: one opaque union, its density falling off as it rises
+    for (const p of puffs) {
+      a.fillStyle = rgba('#8492a8', 0.85 * (1 - p[3] * 0.75));
+      a.beginPath(); a.ellipse(p[0], p[1], p[2], p[2] * 0.82, 0, 0, Math.PI * 2); a.fill();
+    }
+    // the warm side, inside the body only
+    for (const p of puffs) { b.fillStyle = rgba('#efcfa6', 0.9 * (1 - p[3] * 0.7)); b.beginPath(); b.ellipse(p[0] - p[2] * 0.42, p[1] - p[2] * 0.18, p[2] * 0.62, p[2] * 0.58, -0.4, 0, Math.PI * 2); b.fill(); }
+    b.globalCompositeOperation = 'destination-in'; b.setTransform(1, 0, 0, 1, 0, 0); b.drawImage(A, 0, 0);
+    a.setTransform(1, 0, 0, 1, 0, 0); a.globalCompositeOperation = 'source-atop'; a.globalAlpha = 0.85; a.drawImage(Bc, 0, 0);
+    // crisp lit edges along the left of a few billows
+    a.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); a.globalAlpha = 1; a.globalCompositeOperation = 'source-atop';
+    a.lineCap = 'round';
+    for (let i = 2; i < puffs.length - 6; i += 3) { const p = puffs[i]; a.strokeStyle = rgba('#fff0d8', 0.7 * (1 - p[3])); a.lineWidth = Math.max(0.8, p[2] * 0.09); a.beginPath(); a.arc(p[0] + p[2] * 0.05, p[1], p[2] * 0.95, Math.PI * 0.95, Math.PI * 1.45); a.stroke(); }
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.filter = 'blur(' + (1.7 * s).toFixed(1) + 'px)';
-    ctx.globalAlpha = 0.72; ctx.drawImage(A, Math.round(x0 * s), Math.round(y0 * s));
+    ctx.filter = 'blur(' + (1.1 * s).toFixed(1) + 'px)'; ctx.globalAlpha = 0.8;
+    ctx.drawImage(A, Math.round(x0 * s), Math.round(y0 * s));
     ctx.restore();
-    // lit crests, a little crisper
-    a.globalCompositeOperation = 'source-over'; a.setTransform(1, 0, 0, 1, 0, 0); a.clearRect(0, 0, cw, chh); a.setTransform(s, 0, 0, s, -x0 * s, -y0 * s);
-    for (let i = 1; i < puffs.length - 3; i += 2) { const p = puffs[i]; a.fillStyle = 'rgba(250,228,200,' + (0.35 * (1 - p[3])).toFixed(3) + ')'; a.beginPath(); a.ellipse(p[0] - p[2] * 0.45, p[1] - p[2] * 0.3, p[2] * 0.42, p[2] * 0.3, -0.5, 0, Math.PI * 2); a.fill(); }
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'blur(' + (1.1 * s).toFixed(1) + 'px)'; ctx.drawImage(A, Math.round(x0 * s), Math.round(y0 * s)); ctx.restore();
+    // wisps tearing off at the top, a few dry strokes
+    ctx.save(); ctx.lineCap = 'round';
+    for (let i = 0; i < 7; i++) { const p = puffs[puffs.length - 1 - i * 2]; ctx.strokeStyle = rgba(i % 2 ? '#c8d0dc' : '#e6d4bc', 0.18); ctx.lineWidth = p[2] * 0.25; ctx.beginPath(); ctx.moveTo(p[0] - p[2] * 0.6, p[1] - p[2] * 0.4); ctx.quadraticCurveTo(p[0] + p[2] * 0.2, p[1] - p[2] * 1.4, p[0] + p[2] * 1.3, p[1] - p[2] * 1.2); ctx.stroke(); }
+    ctx.restore();
   }
+
 
 
 
