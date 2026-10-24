@@ -21,7 +21,7 @@
   const OPEN = { x0: 60, x1: 440, y0: 166, y1: 690 }; // window opening in the back wall
   const GL = { x0: 95, x1: 440, y0: 192, y1: 679 };   // the glass (far face of the reveal)
   const DESK = { fx0: 238, fx1: 985, bx0: 262, bx1: 958, ty0: 712, ty1: 742, my: 766, by: 1055 };
-  const BAR = { ang: 35, per: 26, duty: 0.5 };    // the slatted light on upright planes: angle, period, lit fraction
+  const BAR = { ang: 35, per: 36, duty: 0.52 };    // the slatted light on upright planes: angle, period, lit fraction
   const TAU = Math.PI * 2, D2R = Math.PI / 180;
   // the Don and his chair are drawn a little larger than the room's strict perspective (he is the subject)
   const DONM = new DOMMatrix().translate(645, 712).scale(1.25).translate(-625, -712);
@@ -356,6 +356,7 @@
         const u = ((x * bnx + y * bny - bar.phase) % bar.per + bar.per) % bar.per, w = bar.per * bar.duty, e = 0.55;
         b = u < w ? Math.min(1, u / e, (w - u) / e) : 0;
         b = Math.max(0, Math.min(1, b));
+        b = (bar.min || 0) + (1 - (bar.min || 0)) * b;
       }
       const direct = shade * lit * b * (o.gain || 1) * (o.int ? o.int(x, y) : 1);
       const amb = Math.max(0, nx * A[0] + ny * A[1] + nz * A[2]);
@@ -369,14 +370,15 @@
     // replace what was there inside the mask
     for (const c of [D.C, D.K]) { c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000'; c.fill(o.mask); c.restore(); }
     for (const [c, src] of [[D.C, ic], [D.K, ik]]) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src.canvas, sx, sy); c.restore(); }
+    if (o.outline) line(D, o.mask, o.outline, 0.6, null, 0.4); // the drawn contour closes the form
   }
 
   /* ================================================================== THE ROOM */
 
   function groundTone(D) {
     const C = D.C;
-    C.fillStyle = grad(C, 0, 0, 0, FLOOR, [[0, 0.95], [0.45, 0.9], [1, 0.87]]); C.fillRect(0, 0, W, FLOOR);
-    C.fillStyle = grad(C, 0, FLOOR, 0, H, [[0, 0.9], [0.5, 0.88], [1, 0.94]]); C.fillRect(0, FLOOR, W, H - FLOOR);
+    C.fillStyle = grad(C, 0, 0, 0, FLOOR, [[0, 0.8], [0.45, 0.72], [1, 0.7]]); C.fillRect(0, 0, W, FLOOR);
+    C.fillStyle = grad(C, 0, FLOOR, 0, H, [[0, 0.74], [0.5, 0.72], [1, 0.8]]); C.fillRect(0, FLOOR, W, H - FLOOR);
     // the room is a little less dark around the bright window (bounce light), stumped
     lift(D, rect(0, 0, W, FLOOR), rgrad(C, 250, 470, 60, 430, [[0, 0.4], [0.5, 0.16], [1, 0]]));
     lift(D, rect(0, FLOOR, W, H - FLOOR), rgrad(C, 280, 900, 40, 460, [[0, 0.16], [1, 0]]));
@@ -387,8 +389,10 @@
   function wallSurface(D) {
     const wall = rect(0, 0, W, FLOOR);
     // the draughtsman's ground: even, quiet diagonal hatching in two directions
-    hatch(D, wall, [0, 0, W, FLOOR], { ang: 58, sp: 3.2, w: 0.7, a: 0.15, step: 6, jit: 0.4, maxLen: 130 });
-    hatch(D, rect(458, 0, 622, 700), [458, 0, W, 700], { ang: -32, sp: 4.4, w: 0.6, a: 0.1, step: 6, jit: 0.4, maxLen: 110 });
+    // the dark of the room is built of strokes: one even diagonal layer, a crossing layer where it is darkest
+    const far = (x, y) => clamp(0.45 + Math.hypot(x - 250, y - 470) / 700, 0, 1);
+    hatch(D, wall, [0, 0, W, FLOOR], { ang: 58, sp: 2.6, w: 0.8, a: 0.34, step: 5, jit: 0.4, maxLen: 120, af: far });
+    hatch(D, wall, [0, 0, W, FLOOR], { ang: -32, sp: 3.2, w: 0.7, a: 0.26, step: 5, jit: 0.4, maxLen: 100, af: (x, y) => clamp(far(x, y) * 1.4 - 0.55, 0, 1) });
     // crown moulding at the top
     tone(D, rect(0, 0, W, 22), 0.5);
     lift(D, rect(0, 22, W, 3), 0.18, 0.6);
@@ -864,7 +868,8 @@
       for (let y = FLOOR + 20 + r() * 80; y < H; y += 90 + r() * 140) { ej.moveTo(VPX + u * (y - HZ), y); ej.lineTo(VPX + (u + 0.085) * (y - HZ), y); }
     }
     line(D, ej, 0.8, 0.35);
-    hatch(D, fl, [0, FLOOR, W, H], { ang: 90, sp: 3, w: 0.6, a: 0.12, jit: 0.5, maxLen: 70 });
+    hatch(D, fl, [0, FLOOR, W, H], { ang: 90, sp: 2.6, w: 0.8, a: 0.3, jit: 0.5, maxLen: 70 });
+    hatch(D, fl, [0, FLOOR, W, H], { ang: 12, sp: 3.4, w: 0.7, a: 0.22, jit: 0.5, maxLen: 80, af: (x, y) => clamp((y - 900) / 400 + Math.abs(x - 500) / 900, 0, 1) });
     // the rug: a dark Persian carpet before the desk, its edges converging
     const ry0 = 1000, ry1 = H + 40, ul = -0.93, ur = 0.69;
     const X = (u, y) => VPX + u * (y - HZ);
@@ -909,7 +914,7 @@
 
   async function lightFloor(D) {
     // the bars on the floor run into the depth and gather towards the orange at the right edge
-    const p = flatBars(FLOOR, H, 0.55, 1.7, 0.072, 0.48, 0.008);
+    const p = flatBars(FLOOR, H, 0.55, 1.7, 0.09, 0.5, 0.02);
     const int = (X) => rgrad(X, 1075, 1080, 20, 290, [[0, 1], [0.35, 0.72], [0.75, 0.2], [1, 0]], W3);
     const bb = [600, FLOOR, W, H];
     const fm = rect(0, FLOOR, W, H - FLOOR);
@@ -929,8 +934,9 @@
       [hx - 24, 458], [hx - 22, 451], [hx - 25, 443], [hx - 20, 436], [hx - 19, 424], [hx - 15, 412]]);
     const body = cr([[hx - 12, 478], [hx + 14, 480], [hx + 18, 500], [hx + 40, 510], [hx + 58, 530], [hx + 66, 600], [hx + 70, 712, 1], [hx - 62, 712, 1], [hx - 58, 620], [hx - 52, 548], [hx - 36, 516], [hx - 14, 504]]);
     const fig = join(head, body);
-    tone(D, fig, 0.93);
-    hatch(D, fig, [940, 396, 1090, 712], { ang: 65, sp: 3, w: 0.6, a: 0.16, jit: 0.4 });
+    tone(D, fig, 0.8);
+    hatch(D, fig, [940, 396, 1090, 712], { ang: 65, sp: 2.4, w: 0.8, a: 0.4, jit: 0.4 });
+    hatch(D, fig, [940, 396, 1090, 712], { ang: -25, sp: 3, w: 0.7, a: 0.3, jit: 0.4 });
     // only the line of a lean profile, turned toward the Don, catches the light reflected from the desk
     eraseLine(D, cr([[hx - 18, 420], [hx - 20, 432], [hx - 26, 443], [hx - 23, 451], [hx - 25, 458], [hx - 18, 464], [hx - 14, 476], [hx - 6, 484]], false), 1.1, 0.26, 0.4);
     lift(D, cr([[hx - 16, 434], [hx - 8, 432], [hx - 4, 452], [hx - 10, 470], [hx - 16, 462]]), 0.1, 2);
@@ -950,7 +956,9 @@
   function chair(D) {
     setGroup(D, DONM);
     tone(D, moved(CHAIR, 14, 9), 0.35, 4); // its shadow on the wall
-    tone(D, CHAIR, 0.92);
+    tone(D, CHAIR, 0.78);
+    hatch(D, CHAIR, [470, 320, 780, 712], { ang: 70, sp: 2.4, w: 0.8, a: 0.36, jit: 0.5 });
+    hatch(D, CHAIR, [470, 320, 780, 712], { ang: -15, sp: 3.2, w: 0.7, a: 0.24, jit: 0.5, af: (x) => clamp((x - 560) / 160, 0.2, 1) });
     const back = cr([[512, 712, 1], [508, 560], [506, 430], [520, 384], [560, 360], [625, 354], [690, 360], [730, 384], [744, 430], [742, 560], [738, 712, 1]]);
     lift(D, back, 0.1, 2);
     line(D, back, 1.6, 0.6);
@@ -975,32 +983,32 @@
     for (let a = 0.05; a < 0.95; a += 0.022) { const x = lerp(500, 752, a), y = 345 - Math.sin(a * Math.PI) * 10 + Math.abs(a - 0.5) * 50; nails.addPath(ell(x, y + 6, 1.5, 1.5)); }
     D.nails = nails; D.chairBtn = btn;
     tone(D, nails, 0.6); lift(D, moved(nails, -0.5, -0.5), 0.2);
-    hatch(D, CHAIR, [470, 320, 780, 712], { ang: 70, sp: 3, w: 0.7, a: 0.2, jit: 0.5 });
     setGroup(D, null);
   }
 
   /* ------------------------------------------------------------------ Don Vito Corleone (group coordinates) */
   const DON_HEAD = cr([
-    [622, 442], [650, 445], [667, 458], [673, 476], [671, 496], [666, 512], [662, 526], [654, 536], [638, 545], [620, 549], [604, 547], [593, 539], [588, 529],
-    [586, 521], [585, 515, 1], [586, 509], [584, 504], [578, 502, 1], [573, 497], [575, 489], [578, 481], [581, 473], [579, 467], [580, 458], [586, 450], [600, 444]]);
+    [612, 443], [634, 441], [655, 446], [668, 458], [674, 476], [673, 496], [668, 513], [664, 527], [656, 538], [640, 547], [622, 551], [605, 548], [594, 540], [588, 529],
+    [586, 521], [585, 515, 1], [586, 509], [584, 504], [578, 502, 1], [573, 497], [575, 489], [578, 481], [581, 473], [579, 467], [580, 458], [584, 450], [596, 445]]);
   const DON_FRONT = cr([ // the front plane of the face, turned to the light
     [588, 447], [604, 442], [620, 446], [628, 458], [631, 474], [627, 494], [629, 514], [624, 534], [610, 545], [604, 545], [593, 538], [588, 529],
     [586, 521], [585, 515, 1], [586, 509], [584, 504], [578, 502, 1], [573, 497], [575, 489], [578, 481], [581, 473], [579, 467], [580, 457]]);
-  const DON_HAIR = cr([[588, 449], [600, 444], [622, 442], [650, 445], [667, 458], [673, 476], [671, 496], [662, 497], [654, 484], [643, 470], [629, 460], [614, 455], [600, 455], [590, 456]]);
+  const DON_HAIR = cr([[585, 450], [596, 445], [612, 443], [634, 441], [655, 446], [668, 458], [674, 476], [673, 496], [663, 497], [655, 484], [644, 470], [630, 461], [615, 456], [601, 455], [590, 456]]);
   // the sculpture of the head: a dome turned three-quarters to our left, and the forms of an old, heavy face
   const HEAD_BUMPS = [
-    [602, 456, 20, 10, 3], [612, 466, 13, 3.5, 4, 0.08], [587, 466, 7, 3, 3.5], [596, 469, 4, 4, 2.5],          // forehead, brows
-    [612, 477, 10, 5.5, -6], [587, 477, 5, 4, -4.5], [612, 477.5, 6, 3, 2.4], [612, 473.5, 8, 2, 1.6],           // sockets, eyeballs, lids
-    [613, 485, 9, 3, 2], [613, 488.5, 9, 1, -1.4],                                                               // the bag under the eye
-    [580, 476, 3.5, 5, 6], [577, 484, 4, 5, 8.5], [575.5, 491, 4.5, 5, 10], [576, 496.5, 5, 4, 9.5],            // the nose
-    [585, 500, 5, 3.5, 4.5], [582, 502.5, 2.5, 1.2, -4],                                                         // its wing and nostril
-    [613, 494, 12, 8, 5], [608, 514, 13, 12, 5], [598, 510, 1.6, 11, -3, -0.3],                                 // cheekbone, cheek, nasolabial fold
-    [624, 532, 13, 8, 4.5], [612, 530, 1.4, 9, -1.6, -0.4],                                                     // the jowl and its fold
-    [592, 510, 8, 3, 2.5], [594, 515.5, 10, 1.1, -3.5, 0.12], [593, 520, 7, 2.6, 2.8], [592, 525, 6, 1.5, -1.8], // lips
-    [593, 532, 9, 7, 5], [628, 462, 8, 8, -2.5], [649, 490, 7, 14, 3], [650, 491, 3, 8, -2.5],                  // chin, temple, ear
-    [600, 452.5, 14, 0.8, -1], [601, 457, 14, 0.8, -0.9], [627, 474, 4, 0.6, -0.8, -0.4], [628, 478, 4, 0.6, -0.8, 0.2]];
-  const headDome = (x, y) => { const dx = (x - 618) / 60, dy = (y - 494) / 62, r2 = dx * dx + dy * dy; return r2 < 1 ? 42 * Math.sqrt(1 - r2) : 0; };
-  const hairTex = (x, y) => 1.4 + 0.55 * Math.sin(((-0.3 * x + 0.95 * y) / 2.4) * TAU + Math.sin(x * 0.11) * 1.5);
+    [602, 456, 20, 10, 3], [612, 466, 14, 3.8, 5.5, 0.08], [587, 466, 7, 3.2, 4.5], [596, 470, 4, 4, 3],          // forehead, the heavy brow
+    [612, 477, 11, 6, -8.5], [587, 477, 5.5, 4.5, -6], [612, 478, 6, 3, 3], [612, 474, 8.5, 2.2, 2.2],            // deep sockets, eyeballs, hooded lids
+    [613, 486, 10, 3.4, 3], [613, 490, 10, 1.1, -2.6], [612, 492.5, 9, 0.9, -1.2],                               // the bags under the eye
+    [580, 476, 3.6, 5, 7], [577, 484, 4.2, 5, 10], [575.5, 491, 4.8, 5, 12], [576, 496.5, 5.4, 4.2, 11],          // a big nose
+    [585, 500, 5.5, 3.8, 5.5], [582, 502.5, 2.6, 1.3, -5],                                                        // its wing and nostril
+    [614, 495, 12, 8, 5.5], [609, 515, 14, 12, 6.5], [598, 510, 1.8, 12, -4.8, -0.3],                            // cheekbone, cheek, deep nasolabial fold
+    [626, 534, 14, 9, 6.5], [613, 531, 1.6, 10, -2.6, -0.4], [640, 540, 10, 6, 3],                               // the heavy jowls and their fold
+    [592, 510, 8, 3, 2.5], [594, 515.6, 10.5, 1.2, -4.5, 0.12], [593, 520.5, 7, 2.6, 3], [592, 525.5, 6, 1.6, -2.4], // lips
+    [593, 533, 9.5, 7, 5.5], [629, 462, 8, 8, -3], [650, 492, 7, 15, 3.5], [651, 493, 3, 9, -3],                  // chin, temple, ear
+    [600, 451, 15, 0.8, -1.3], [601, 455.5, 15, 0.8, -1.2], [602, 460, 13, 0.7, -0.9],                           // creases of the forehead
+    [627, 474, 5, 0.6, -1.2, -0.4], [628, 478, 5, 0.6, -1.2, 0.15], [627, 482, 4, 0.6, -1, 0.5]];                 // crow's feet
+  const headDome = (x, y) => { const dx = (x - 626) / 62, dy = (y - 496) / 64, r2 = dx * dx + dy * dy; return r2 < 1 ? 46 * Math.sqrt(1 - r2) : 0; };
+  const hairTex = (x, y) => 1.6 + 0.3 * Math.sin(((-0.3 * x + 0.95 * y) / 1.7) * TAU + Math.sin(x * 0.13) * 1.2);
   const DON_EAR = cr([[640, 478], [647, 472], [655, 476], [657, 490], [653, 503], [646, 509], [641, 503], [643, 490]]);
   const DON_BODY = cr([
     [600, 540], [604, 551], [588, 557], [560, 566], [540, 578], [528, 598], [520, 630], [514, 670], [510, 712, 1], [742, 712, 1],
@@ -1011,7 +1019,9 @@
     setGroup(D, DONM);
     const C = D.C;
     tone(D, moved(DON, 14, 9), 0.5, 3); // his shadow thrown on the chair
-    tone(D, DON_BODY, 0.97);
+    tone(D, DON_BODY, 0.84);
+    hatch(D, DON_BODY, [505, 540, 745, 712], { ang: 72, sp: 2.2, w: 0.8, a: 0.42, bow: 0.04, jit: 0.4 });
+    hatch(D, DON_BODY, [505, 540, 745, 712], { ang: -20, sp: 2.8, w: 0.7, a: 0.32, jit: 0.4, af: (x) => clamp((x - 560) / 150, 0.25, 1) });
     const shirt = cr([[603, 548], [626, 562], [650, 545], [646, 580], [634, 620], [626, 650], [617, 620], [606, 580]]);
     lift(D, shirt, 0.5);
     tone(D, shirt, grad(C, 600, 0, 652, 0, [[0, 0], [0.6, 0.15], [1, 0.4]]));
@@ -1027,8 +1037,6 @@
     eraseLine(D, cr([[596, 552], [579, 568], [571, 586]], false), 1.3, 0.22, 0.4);
     const fl = new Path2D(); for (let k = 0; k < 9; k++) { const a = k * 0.7; fl.addPath(ell(584 + Math.cos(a) * 4.2, 596 + Math.sin(a) * 3.8, 3.2, 2.6, a)); }
     tone(D, fl, 0.85); D.flower = fl;
-    hatch(D, DON_BODY, [505, 540, 745, 712], { ang: 72, sp: 2.6, w: 0.7, a: 0.22, bow: 0.04, jit: 0.4 });
-    hatch(D, DON_BODY, [505, 540, 745, 712], { ang: -20, sp: 3.4, w: 0.6, a: 0.15, jit: 0.4, af: (x) => clamp((x - 600) / 140, 0, 1) });
     D.lapL = lapL; D.shirt = shirt; D.collar = join(collarL, collarR);
     tone(D, DON_HEAD, 0.94);
     lift(D, DON_HAIR, 0.14, 1.5);
@@ -1053,10 +1061,10 @@
     setGroup(D, DONM);
     const bb = [540, 300, 800, 720];
     // the face: lit plane first, then the hard bars across it, modelled from cheekbone and brow
-    const fb = bars(bb, 6, 22, 0.56);
+    const fb = bars(bb, 1, 30, 0.58);
     // the head is modelled by the light itself
     relief(D, { mask: DON_HEAD, bb: [566, 436, 678, 554], base: headDome, bumps: HEAD_BUMPS, texMask: DON_HAIR, tex: hairTex,
-      bars: { ang: BAR.ang, per: 22, duty: 0.56, phase: 6 }, shadowLen: 16, amb: 0.12, chalkFrom: 0.58 });
+      bars: { ang: BAR.ang, per: 30, duty: 0.58, phase: 1, min: 0.2 }, light: [-0.82, -0.45, 0.42], shadowLen: 18, amb: 0.1, chalkFrom: 0.55, outline: 0.9 });
     await D.tick();
     hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: 60, sp: 2.2, w: 0.5, a: 0.18, jit: 0.3, af: (x) => clamp((x - 618) / 34, 0, 1) });
     light(D, { bb, mask: D.lapL, bars: fb, int: (X) => grad(X, 570, 0, 620, 0, [[0, 0.8], [1, 0.25]], W3), lift: 0.32, soft: 0.5 });
@@ -1099,7 +1107,9 @@
     const top = poly([[bx0, ty0], [bx1, ty0], [fx1, ty1], [fx0, ty1]]);
     const front = rect(fx0, ty1, fx1 - fx0, by - ty1);
     D.deskTop = top; D.deskFront = front;
-    tone(D, front, 0.9);
+    tone(D, front, 0.68);
+    hatch(D, front, [fx0, ty1, fx1, by], { ang: 90, sp: 2.2, w: 0.85, a: 0.4, jit: 0.4, maxLen: 90 });
+    hatch(D, front, [fx0, ty1, fx1, by], { ang: 28, sp: 3, w: 0.7, a: 0.28, jit: 0.4, maxLen: 90, af: (x, y) => clamp(0.4 + (y - 760) / 500 + (x - 700) / 1200, 0, 1) });
     // top surface: dark polished walnut, the far edge reflecting the window a little
     tone(D, top, 0.86);
     lift(D, top, grad(C, 0, ty0, 0, ty1, [[0, 0.24], [1, 0.04]]));
@@ -1131,7 +1141,8 @@
     for (const [a, b] of [[fx0 + 8, 452], [770, fx1 - 8]]) { const cx = (a + b) / 2, cy = my + 28; pulls.addPath(ell(cx, cy, 4, 4)); }
     // the kneehole, recessed and darkest, with a carved panel at its back
     const knee = rect(460, my + 54, 302, by - my - 76);
-    tone(D, knee, 0.97);
+    tone(D, knee, 0.6);
+    hatch(D, knee, [460, 766, 762, 1060], { ang: -40, sp: 2.4, w: 0.8, a: 0.4, jit: 0.4 });
     panel(482, my + 80, 740, my + 240, 0.08);
     const carv = cr([[611, my + 100], [650, my + 130], [700, my + 160], [650, my + 190], [611, my + 220], [572, my + 190], [522, my + 160], [572, my + 130]]);
     line(D, carv, 1, 0.45); eraseLine(D, moved(carv, -0.8, -0.8), 0.7, 0.08);
@@ -1144,8 +1155,6 @@
     lift(D, rect(fx0 - 4, by - 22, fx1 - fx0 + 8, 1.6), 0.25);
     // the desk's shadow pooled on the floor and rug
     tone(D, poly([[fx0 - 10, by], [fx1 + 12, by], [fx1 + 30, by + 26], [fx0 - 30, by + 30]]), 0.55, 6);
-    hatch(D, front, [fx0, ty1, fx1, by], { ang: 90, sp: 2.4, w: 0.6, a: 0.15, jit: 0.4, maxLen: 90 });
-    hatch(D, front, [fx0, ty1, fx1, by], { ang: 30, sp: 3.6, w: 0.6, a: 0.1, jit: 0.4, maxLen: 90 });
   }
 
   async function lightDesk(D) {
@@ -1274,15 +1283,16 @@
     const cuffR = cr([[659, 700], [668, 701], [667, 725], [658, 724]]);
     tone(D, join(cuffL, cuffR), 0.62);
     // the two hands rest on the papers, palms down, fingers loosely curled toward us, the thumbs almost touching
-    const handA = cr([[578, 707], [588, 699], [602, 696], [614, 697], [624, 701], [630, 708], [631, 718], [627, 728], [619, 734], [606, 737], [594, 736], [584, 731], [579, 722]]);
-    const handB = cr([[668, 705], [658, 698], [646, 696], [636, 698], [629, 703], [627, 710], [629, 720], [635, 729], [645, 735], [656, 735], [664, 730], [668, 720]]);
+    const HA = [[580, 704], [590, 699], [603, 697], [610, 697], [618, 694], [627, 697, 1], [626, 702], [617, 704], [620, 709], [624, 716], [623, 726], [619, 729], [614, 733],
+      [609, 733], [604, 734], [599, 733], [593, 731], [588, 728], [582, 722], [579, 714]];
+    const handA = cr(HA), handB = cr(HA.map(([x, y, c]) => [1251 - x, y, c]).reverse());
     tone(D, join(handA, handB), 0.8);
     D.hands = join(handA, handB); D.cuffs = join(cuffL, cuffR);
     D.handLines = () => {
       tone(D, cr([[584, 734], [612, 738], [640, 738], [666, 734], [668, 739], [640, 742], [600, 742]]), 0.5, 1.4); // their shadow on the paper
       line(D, handA, 0.6, 0.45); line(D, handB, 0.6, 0.45);
       const fl = new Path2D(); // the divisions between the curled fingers
-      for (const [x, d] of [[603, -0.5], [610, -0.5], [617, -0.55], [643, 0.5], [636, 0.5], [629, 0.55]]) { fl.moveTo(x + d * 8, 716); fl.quadraticCurveTo(x, 726, x + d * -2, 736); }
+      for (const [x, d] of [[596.5, -0.3], [606.5, -0.3], [616.5, -0.35], [654.5, 0.3], [644.5, 0.3], [634.5, 0.35]]) { fl.moveTo(x + d * 8, 714); fl.quadraticCurveTo(x, 724, x + d * -2, 733); }
       line(D, fl, 0.55, 0.4, null, 0.2);
       tone(D, ell(641, 714, 3.2, 1.8, 0.4), 0.92); D.ring = ell(640.3, 713.4, 1.4, 0.8, 0.4); // a heavy gold ring
     };
@@ -1291,15 +1301,16 @@
   const HAND_BUMPS = [
     [600, 707, 17, 8, 7], [646, 707, 17, 8, 7],                                                   // the backs of the hands
     [592, 706, 8, 0.9, 1, 0.1], [598, 709, 9, 0.9, 1, 0.15], [652, 706, 8, 0.9, 1, -0.1], [648, 709, 9, 0.9, 1, -0.15], // tendons
-    [607, 713, 2.6, 2.6, 2.2], [613, 713, 2.6, 2.6, 2.2], [619, 712, 2.6, 2.6, 2], [639, 713, 2.6, 2.6, 2.2], [633, 713, 2.6, 2.6, 2.2], [627, 712, 2.6, 2.6, 2], // knuckles
-    [604, 726, 3.2, 8, 4.2, -0.5], [611, 727, 3.2, 8, 4.2, -0.5], [618, 726, 3, 7, 4, -0.55], [623, 722, 2.8, 5.5, 3.4, -0.6], // fingers, A
-    [642, 726, 3.2, 8, 4.2, 0.5], [635, 727, 3.2, 8, 4.2, 0.5], [628, 726, 3, 7, 4, 0.55], [624, 722, 2.8, 5.5, 3.4, 0.6],     // fingers, B
-    [616, 701, 9, 3, 4, -0.3], [630, 701, 9, 3, 4, 0.3]];                                         // thumbs
+    [592, 709, 2.8, 2.6, 2.4], [601, 709, 2.8, 2.6, 2.4], [610, 709, 2.8, 2.6, 2.4], [618, 709, 2.6, 2.4, 2.2], // knuckles, A
+    [659, 709, 2.8, 2.6, 2.4], [650, 709, 2.8, 2.6, 2.4], [641, 709, 2.8, 2.6, 2.4], [633, 709, 2.6, 2.4, 2.2], // knuckles, B
+    [591, 724, 4.4, 7, 4.2], [601, 725, 4.4, 7.5, 4.4], [611, 725, 4.4, 7.5, 4.4], [620, 721, 4, 6.5, 4],     // curled fingers, A
+    [660, 724, 4.4, 7, 4.2], [650, 725, 4.4, 7.5, 4.4], [640, 725, 4.4, 7.5, 4.4], [631, 721, 4, 6.5, 4],     // curled fingers, B
+    [618, 698, 8, 3, 4, -0.25], [633, 698, 8, 3, 4, 0.25]];                                       // thumbs
   function lightHands(D) {
     setGroup(D, DONM);
     const bb = [540, 680, 700, 744];
     const hb = bars(bb, 9, 22, 0.56);
-    relief(D, { mask: D.hands, bb: [574, 692, 672, 742], bumps: HAND_BUMPS, bars: { ang: BAR.ang, per: 22, duty: 0.56, phase: 9 }, shadowLen: 10, amb: 0.14, gain: 0.95, chalkFrom: 0.62 });
+    relief(D, { mask: D.hands, bb: [574, 690, 676, 742], bumps: HAND_BUMPS, bars: { ang: BAR.ang, per: 30, duty: 0.58, phase: 9, min: 0.22 }, light: [-0.8, -0.5, 0.45], shadowLen: 10, amb: 0.14, gain: 0.95, chalkFrom: 0.62, outline: 0.7 });
     light(D, { bb, mask: D.cuffs, bars: hb, lift: 0.7, chalk: 0.4, soft: 0.4 });
     light(D, { bb, mask: D.cuffs, lift: 0.2, streak: false });
     D.handLines();
@@ -1328,8 +1339,9 @@
     line(D, cr([[241, 728], [268, 725], [297, 728]], false), 2.4, 0.85);
     eraseLine(D, cr([[244, 716], [258, 709], [268, 713]], false), 1, 0.18, 0.6);
     tone(D, ell(310, 1270, 120, 13), 0.55, 6); // where he stands
-    tone(D, BON, 0.985);
-    hatch(D, BON, [240, 556, 520, 1275], { ang: 68, sp: 2.8, w: 0.6, a: 0.1, jit: 0.4 });
+    tone(D, BON, 0.88);
+    hatch(D, BON, [240, 556, 520, 1275], { ang: 68, sp: 2.2, w: 0.85, a: 0.45, jit: 0.4 });
+    hatch(D, BON, [240, 556, 520, 1275], { ang: -22, sp: 2.6, w: 0.75, a: 0.38, jit: 0.4 });
     // seams and folds of the black suit: long, very low lifts, so the black is a body and not a hole
     const folds = [
       [[[356, 664], [372, 690], [396, 712], [430, 732]], 1.5, 0.1],     // the shoulder into the arm
