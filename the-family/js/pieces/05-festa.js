@@ -908,6 +908,16 @@
       if (L === 'flat') { fillP(c, [x0 - 5, y - 9, x0 + w + 5, y - 9, x0 + w + 5, y, x0 - 5, y], css(st)); fillP(c, [x - 4, y - 11, x + 4, y - 11, x + 3, y, x - 3, y], css(mix(st, [255, 240, 210], 0.2))); strokeL(c, [x0 - 5, y, x0 - 5, y - 9, x0 + w + 5, y - 9, x0 + w + 5, y], ink(0.8), 0.6); strokeL(c, [x - 3, y, x - 4, y - 11, x + 4, y - 11, x + 3, y], ink(0.8), 0.6); }
       else if (L === 'seg') { c.beginPath(); c.arc(x, y + w * 0.9, w * 0.5 / Math.sin(0.6) * 1.0, -Math.PI / 2 - 0.62, -Math.PI / 2 + 0.62); c.lineWidth = 7; c.strokeStyle = css(mix(wallColor(b), [255, 220, 180], 0.12)); c.stroke(); const R0 = w * 0.5 / Math.sin(0.6); c.beginPath(); for (let a = -0.6; a <= 0.6; a += 0.12) { const ca = -Math.PI / 2 + a; c.moveTo(x + Math.cos(ca) * (R0 - 3.5), y + w * 0.9 + Math.sin(ca) * (R0 - 3.5)); c.lineTo(x + Math.cos(ca) * (R0 + 3.5), y + w * 0.9 + Math.sin(ca) * (R0 + 3.5)); } c.lineWidth = 0.5; c.strokeStyle = ink(0.5); c.stroke(); c.beginPath(); c.arc(x, y + w * 0.9, R0 + 3.5, -Math.PI / 2 - 0.62, -Math.PI / 2 + 0.62); c.lineWidth = 0.6; c.strokeStyle = ink(0.7); c.stroke(); }
       else if (L === 'ped') { fillP(c, [x0 - 7, y - 5, x0 + w + 7, y - 5, x0 + w + 7, y, x0 - 7, y], css(st)); const tri = [x0 - 6, y - 5, x, y - 17, x0 + w + 6, y - 5]; fillP(c, tri, css(st)); strokeL(c, [x0 - 7, y, x0 - 7, y - 5, x0 + w + 7, y - 5, x0 + w + 7, y], ink(0.8), 0.6); strokeL(c, tri, ink(0.8), 0.7); strokeL(c, [x0 - 2, y - 6.5, x, y - 14, x0 + w + 2, y - 6.5], ink(0.4), 0.4); c.fillStyle = 'rgba(30,18,12,0.35)'; c.fillRect(x0 - 6, y, w + 12, 2); }
+      else if (L === 'iron') {
+        c.beginPath(); c.moveTo(x0, y + 1); c.arc(x, y + 1, w / 2, Math.PI, 0); c.closePath();
+        c.fillStyle = o.lit ? '#f3cc7a' : css([104, 86, 74]); c.fill();
+        if (!o.lit) { c.save(); c.clip(); hatch(c, RR(x0, y - w / 2, w, w / 2 + 2), { ang: 0.8, sp: 1.5, lw: 0.5, col: ink(0.6), noclip: 1 }); hatch(c, RR(x0, y - w / 2, w, w / 2 + 2), { ang: -0.8, sp: 1.7, lw: 0.45, col: ink(0.5), noclip: 1 }); c.restore(); }
+        c.beginPath(); c.arc(x, y + 1, w / 2, Math.PI, 0); c.strokeStyle = ink(0.85); c.lineWidth = 0.9; c.stroke();
+        c.beginPath(); c.arc(x, y + 1, w / 2 + 4, Math.PI, 0); c.lineWidth = 3.2; c.strokeStyle = css(st); c.stroke();
+        c.lineWidth = 0.6; c.strokeStyle = ink(0.7); c.beginPath(); c.arc(x, y + 1, w / 2 + 5.8, Math.PI, 0); c.stroke();
+        c.beginPath(); for (let a = 0.2; a < Math.PI; a += 0.5) { c.moveTo(x - Math.cos(a) * w / 2, y + 1 - Math.sin(a) * w / 2); c.lineTo(x, y + 1); } c.lineWidth = 0.5; c.stroke();
+        fillP(c, [x - 3, y - w / 2 - 6, x + 3, y - w / 2 - 6, x + 2, y - w / 2 + 2, x - 2, y - w / 2 + 2], css(mix(st, [255, 246, 226], 0.2)));
+      }
       else if (L === 'hood') { fillP(c, [x0 - 8, y - 4, x0 + w + 8, y - 4, x0 + w + 6, y - 12, x0 - 6, y - 12], css(st)); strokeL(c, [x0 - 8, y - 4, x0 + w + 8, y - 4, x0 + w + 6, y - 12, x0 - 6, y - 12, x0 - 8, y - 4], ink(0.8), 0.6); for (const bx of [x0 - 6, x0 + w + 2]) { fillP(c, [bx, y - 4, bx + 4, y - 4, bx + 3, y + 6, bx + 1, y + 6], css(st)); strokeL(c, [bx, y - 4, bx + 1, y + 6, bx + 3, y + 6, bx + 4, y - 4], ink(0.7), 0.5); } c.fillStyle = 'rgba(30,18,12,0.32)'; c.fillRect(x0 - 2, y - 4, w + 4, 3); }
       if (o.plant) { const px = x0 + w * o.plant; rect(c, px - 3, y + h - 6, 6, 6, css([150, 90, 58]), ink(0.7), 0.5); c.fillStyle = css([88, 96, 60]); c.beginPath(); c.arc(px, y + h - 9, 4.5, 0, TAU); c.arc(px - 3, y + h - 7, 3, 0, TAU); c.arc(px + 3, y + h - 8, 3, 0, TAU); c.fill(); }
       if (o.flag) {
@@ -926,7 +936,7 @@
         for (let x = x0 + 20; x < x1 - 20; x += 46) { rect(c, x, py + 3, 26, b.parapet - 5, null, ink(0.5), 0.6); }
         rect(c, x0 - 2, py - 3, x1 - x0 + 4, 3.5, css(STO(b)), ink(0.85), 0.8);
       }
-      const cc = mix([224, 210, 182], [90, 70, 52], tone * 0.3);
+      const cc = mix([186, 168, 142], [70, 54, 40], 0.25 + tone * 0.3);
       // frieze
       rect(c, x0, yW - 15, x1 - x0, 15, css(mix(cc, [40, 28, 20], 0.12)));
       // soffit band (seen from below) and crown
@@ -1231,6 +1241,43 @@
       // festa garlands across the facade
       for (let k = 0; k < 2; k++) { const p = sag(x0 + 10, 640 + k * 40, x1 - 10, 640 + k * 40, 30, 40); strokeL(c, p, ink(0.6), 0.6); along(p, 9).forEach((v, i, arr) => { if (i % 2 === 0) LIGHTS.push({ x: arr[i], y: arr[i + 1], r: 6, a: 0.7, bulb: 1 }); }); }
     }
+    function alley(c, b) {
+      const x0 = b.x0, x1 = b.x1, vx = (x0 + x1) / 2, sb = DV / (DV + 620);
+      const PP = (x, y) => [vx + (x - vx) * sb, HZ + (y - HZ) * sb];
+      const iB = BLD.indexOf(b), yTopL = bTop(BLD[iB - 1]), yTopR = bTop(BLD[iB + 1]);
+      const bl = PP(x0, yTopL), br = PP(x1, yTopR), fl = PP(x0, BASE), fr2 = PP(x1, BASE);
+      // back court: a rear tenement with lamplit windows
+      const ry0 = Math.max(bl[1], br[1]) - 10;
+      rect(c, bl[0], ry0, br[0] - bl[0], fl[1] - ry0, css([150, 122, 100]));
+      hatch(c, RR(bl[0], ry0, br[0] - bl[0], fl[1] - ry0), { ang: 0, sp: 1.9, lw: 0.4, col: ink(0.45) });
+      for (let k = 0; k < 7; k++) { const wy = ry0 + 14 + k * 108 * sb; if (wy > fl[1] - 16) break; for (const wx of [bl[0] + 5, br[0] - 11]) { const lit = hf(k * 7 + Math.round(wx)) < 0.55; rect(c, wx, wy, 6, 10, lit ? '#f2c470' : css([70, 56, 48]), ink(0.8), 0.5); if (lit) LIGHTS.push({ x: wx + 3, y: wy + 5, r: 9, a: 0.35 }); } }
+      // side walls in steep perspective, deep in shadow
+      const lw0 = [x0, yTopL + CORN, bl[0], bl[1] + CORN * sb, fl[0], fl[1], x0, BASE], rw0 = [x1, yTopR + CORN, br[0], br[1] + CORN * sb, fr2[0], fr2[1], x1, BASE];
+      for (const q of [lw0, rw0]) {
+        fillP(c, q, css([118, 92, 74]));
+        c.save(); c.beginPath(); addP(c, q); c.clip(); const bb = RP(q).bb;
+        hatch(c, RR(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]), { ang: 0.12 * (q === lw0 ? 1 : -1), sp: 1.5, lw: 0.45, col: ink(0.6), noclip: 1 });
+        hatch(c, RR(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]), { ang: Math.PI / 2, sp: 1.8, lw: 0.4, col: ink(0.5), noclip: 1 });
+        c.restore(); strokeL(c, q.concat([q[0], q[1]]), ink(0.8), 0.7);
+      }
+      // the alley floor and a lamp at its end
+      fillP(c, [x0, BASE, fl[0], fl[1], fr2[0], fr2[1], x1, BASE], css([214, 190, 150]));
+      c.save(); c.globalCompositeOperation = 'screen'; glowDot(c, vx, fl[1] - 30, 46, GLOW, 0.5); c.restore();
+      line(c, vx + 6, fl[1], vx + 6, fl[1] - 36, ink(0.85), 1); c.fillStyle = '#ffe6a8'; c.beginPath(); c.arc(vx + 6, fl[1] - 38, 2.2, 0, TAU); c.fill();
+      // laundry strung across the gap at every depth
+      const rr = SV(7600);
+      for (let j = 0; j < 8; j++) {
+        const t = j / 8, s2 = lerp(sb, 0.97, t), yw = lerp(360, 700, rr.r());
+        const xa = vx + (x0 - vx) * s2, xb = vx + (x1 - vx) * s2, ya = HZ + (yw - HZ) * s2;
+        const pts = sag(xa, ya, xb, ya + rr.u(-4, 4), 5 * s2, 10); strokeL(c, pts, ink(0.7), 0.45);
+        for (let q = 0; q < 4; q++) { const xx = lerp(xa, xb, 0.1 + q * 0.22), yy = ya + 3 * s2 * Math.sin(q + 1); const w2 = rr.u(4, 8) * s2, h2 = rr.u(6, 13) * s2; fillP(c, [xx, yy, xx + w2, yy, xx + w2 + 0.5, yy + h2, xx + 0.5, yy + h2], css(rr.p([[246, 240, 226], [236, 226, 204], [214, 200, 176]]))); strokeL(c, [xx, yy, xx + 0.5, yy + h2, xx + w2 + 0.5, yy + h2, xx + w2, yy], ink(0.55), 0.35); }
+      }
+      // an iron gate at the street, one leaf open
+      c.beginPath(); for (let x = x0 + 2; x < x0 + 28; x += 3.5) { c.moveTo(x, BASE); c.lineTo(x, BASE - 46); } c.moveTo(x0, BASE - 44); c.lineTo(x0 + 28, BASE - 44); c.moveTo(x0, BASE - 20); c.lineTo(x0 + 28, BASE - 20);
+      for (let k = 0; k < 6; k++) { const x = x1 - 2 - k * 2.2; c.moveTo(x, BASE + k * 1.4); c.lineTo(x, BASE - 46 + k * 1.2); } c.moveTo(x1, BASE - 44); c.lineTo(x1 - 13, BASE - 37);
+      c.strokeStyle = ink(0.9); c.lineWidth = 0.9; c.stroke();
+      c.fillStyle = ink(0.9); for (let x = x0 + 2; x < x0 + 28; x += 3.5) { c.beginPath(); c.moveTo(x - 1.2, BASE - 46); c.lineTo(x, BASE - 50); c.lineTo(x + 1.2, BASE - 46); c.fill(); }
+    }
     function tower(c, b) {
       const x0 = b.x0, x1 = b.x1, cx = (x0 + x1) / 2, top = 128;
       const stone = [150, 130, 104], sc = css(stone);
@@ -1268,11 +1315,28 @@
         c.fillStyle = css(wc); c.fillRect(b.x0, yT + 8, b.x1 - b.x0, BASE - yT - 8);
         // the warm festa light as a faint tint on the lower floors
         c.save(); c.globalCompositeOperation = 'multiply';
-        const g = c.createLinearGradient(0, yT, 0, yB); g.addColorStop(0, 'rgba(150,136,146,0.75)'); g.addColorStop(0.55, 'rgba(206,190,178,0.55)'); g.addColorStop(1, 'rgba(255,236,200,0)');
+        const g = c.createLinearGradient(0, yT, 0, yB); g.addColorStop(0, 'rgba(118,100,96,0.9)'); g.addColorStop(0.5, 'rgba(176,156,140,0.7)'); g.addColorStop(1, 'rgba(255,236,200,0)');
         c.fillStyle = g; c.fillRect(b.x0, yT, b.x1 - b.x0, yB - yT);
         c.restore();
         const r2 = FX(2000 + bi), T = wallTone(b, yT);
-        if (b.mat === 'brick' || !b.mat) {
+        if (b.mat === 'iron') {
+          // cast iron: a painted front of engaged columns, an entablature at every floor, big arched windows between
+          const cl2 = cols(b);
+          for (let k = 1; k <= b.fl; k++) {
+            const yb = yB - (k - 1) * b.fh, ytop = yb - b.fh;
+            rect(c, b.x0, ytop, b.x1 - b.x0, 9, css(mix(wc, [255, 246, 226], 0.15)), ink(0.8), 0.6);
+            c.beginPath(); for (let x = b.x0 + 2; x < b.x1 - 2; x += 4) c.rect(x, ytop + 9, 2.2, 2.4); c.fillStyle = css(mix(wc, [90, 70, 52], 0.3)); c.fill();
+            for (let i = 0; i <= b.nw; i++) {
+              const px = i === 0 ? b.x0 + 9 : i === b.nw ? b.x1 - 9 : (cl2.xs[i - 1] + cl2.xs[i]) / 2;
+              rect(c, px - 6, ytop + 12, 12, b.fh - 16, css(mix(wc, [255, 246, 226], 0.1)), ink(0.8), 0.6);
+              c.beginPath(); for (let f = -3; f <= 3; f += 2) { c.moveTo(px + f, ytop + 18); c.lineTo(px + f, yb - 8); } c.strokeStyle = ink(0.45); c.lineWidth = 0.45; c.stroke();
+              hatch(c, RR(px + 2, ytop + 12, 4, b.fh - 16), { ang: Math.PI / 2, sp: 1.2, lw: 0.4, col: ink(0.5) });
+              rect(c, px - 8, ytop + 11, 16, 5, css(mix(wc, [255, 246, 226], 0.2)), ink(0.8), 0.6); rect(c, px - 7.5, yb - 7, 15, 4, css(wc), ink(0.8), 0.6);
+              c.beginPath(); c.arc(px - 4, ytop + 16, 2, 0, Math.PI); c.arc(px + 4, ytop + 16, 2, 0, Math.PI); c.strokeStyle = ink(0.6); c.lineWidth = 0.5; c.stroke();
+            }
+          }
+          hatch(c, RR(b.x0, top, b.x1 - b.x0, yB - top), { ang: 0, sp: 2.6, lw: 0.35, col: ink(0.25), f: () => 0.5, ko: bi });
+        } else if (b.mat === 'brick' || !b.mat) {
           // brick: every course a row of short strokes broken by mortar joints, half a brick offset each course
           c.beginPath();
           let row = 0;
@@ -1304,7 +1368,7 @@
           c.beginPath(); for (let i = 0; i < 6; i++) { let x = r2.u(b.x0 + 10, b.x1 - 10), y = r2.u(top, yB - 40); c.moveTo(x, y); for (let j = 0; j < 6; j++) { x += r2.u(-4, 4); y += r2.u(3, 8); c.lineTo(x, y); } } c.strokeStyle = ink(0.35); c.lineWidth = 0.45; c.stroke();
         }
         // dusk: value laid down in hatching, densest under the cornice, lifted where the festa light reaches
-        toneHatch(c, RR(b.x0, top, b.x1 - b.x0, yB - top), (x, y) => T(x, y) * (b.mat === 'stucco' || b.mat === 'iron' ? 0.85 : 1), { sp: 2.0, lw: 0.52, col: ink(0.62), ko: bi * 17 });
+        toneHatch(c, RR(b.x0, top, b.x1 - b.x0, yB - top), (x, y) => T(x, y) * (b.mat === 'stucco' || b.mat === 'iron' ? 0.85 : 1), { sp: 1.9, lw: 0.55, col: ink(0.7), ko: bi * 17 });
         // quoins / party-wall edges
         for (const ex of [b.x0, b.x1]) line(c, ex, yT + CORN, ex, BASE - b.gf, ink(0.7), 0.9);
         if (b.mat === 'brown' || b.mat === 'stucco') {
@@ -1405,6 +1469,15 @@
       tank(c, 1956, roofY(1956) + 4, 56, 58);
       tank(c, 3300, roofY(3300) + 4, 60, 62);
       tank(c, 2790, roofY(2790) + 4, 46, 48);
+      { const bb = BLD.find((q) => q.billboard), y0 = bTop(bb) + 4, bx0 = bb.x0 + 14, bx1 = bb.x1 - 14, top = y0 - 96;
+        c.beginPath(); for (let x = bx0 + 10; x < bx1; x += 44) { c.moveTo(x, y0 + 10); c.lineTo(x, top + 8); c.moveTo(x, y0); c.lineTo(x + 22, top + 40); } c.strokeStyle = ink(0.85); c.lineWidth = 1.4; c.stroke();
+        rect(c, bx0, top, bx1 - bx0, 62, css([226, 210, 176]), ink(0.9), 1.1);
+        hatch(c, RR(bx0, top, bx1 - bx0, 62), { ang: 0, sp: 2.2, lw: 0.4, col: ink(0.25), f: (x, y) => 0.45 + 0.25 * Math.sin(x * 0.05) });
+        text(c, "OLIO D'OLIVA", (bx0 + bx1) / 2, top + 20, 18, { col: css([146, 52, 34]), lw: 2.6, track: 1.8 });
+        text(c, 'IMPORTATO DA LUCCA', (bx0 + bx1) / 2, top + 44, 9.5, { col: ink(0.85), lw: 1.3, track: 1.6 });
+        line(c, bx0 - 2, top + 64, bx1 + 2, top + 64, ink(0.9), 1.6);
+        for (const lx of [bx0 + 30, (bx0 + bx1) / 2, bx1 - 30]) { line(c, lx, top + 64, lx, top + 72, ink(0.9), 1); line(c, lx, top + 72, lx + 6, top + 60, ink(0.9), 1); LIGHTS.push({ x: lx + 6, y: top + 58, r: 22, a: 0.4 }); }
+      }
       for (const [x, w, h, p] of [[60, 16, 30, 2], [210, 12, 22, 1], [470, 14, 26, 2], [600, 12, 20, 1], [880, 16, 28, 2], [1060, 12, 34, 2], [1600, 14, 26, 2], [1760, 12, 22, 1], [2140, 14, 24, 2], [2330, 12, 22, 1], [2460, 16, 28, 2], [2660, 12, 26, 1], [3000, 14, 24, 2], [3120, 12, 20, 1], [3470, 14, 26, 2], [3700, 16, 30, 2], [3840, 12, 24, 1], [3920, 12, 22, 2], [4200, 14, 30, 2], [4300, 12, 22, 1]]) chimney(c, x, roofY(x) + 6, w, h, p);
       bulkhead(c, 548, roofY(560) + 8, 34, 30);
       bulkhead(c, 2232, roofY(2232) + 8, 34, 30);
@@ -1435,7 +1508,7 @@
       // Vito, slide one: stepping up from one roof to the next, a slim silhouette against the afterglow
       const yC = bTop(BLD[2]), yD = bTop(BLD[3]) - BLD[3].parapet;
       const uV = 108 / totH(BODY.man);
-      drawFig(c, { x: 744, y: yC + 1, h: 108, solid: 1, dir: 1, fr: 0.12, sex: 'm', age: 'a', slim: 0.82, pose: { nl: { to: [2.1, -(yC - yD + 1) / uV - 0.24], bend: 1 }, fl: [-0.18, -0.42], na: [-0.5, -0.3], fa: [0.55, 1.0], lean: 0.2, tilt: 0.05 }, w: { top: 'jacket', tc: [52, 40, 32], bc: [48, 38, 30], hat: 'cap', hc: [40, 32, 26], tie: false, shirt: C.cream }, noShadow: 1, lx: -1 });
+      drawFig(c, { x: 744, y: yC + 1, h: 108, solid: 1, dir: 1, fr: 0.12, sex: 'm', age: 'a', slim: 0.82, pose: { nl: { to: [2.1, -(yC - yD + 4) / uV - 0.2], bend: 1 }, fl: [-0.18, -0.42], na: [-0.5, -0.3], fa: [0.55, 1.0], lean: 0.2, tilt: 0.05 }, w: { top: 'jacket', tc: [52, 40, 32], bc: [48, 38, 30], hat: 'cap', hc: [40, 32, 26], tie: false, shirt: C.cream }, noShadow: 1, lx: -1 });
       // Vito, slide four: crouched at the roof edge above Fanucci's door
       const yP = bTop(BLD.find((b) => b.fanucci));
       drawFig(c, { x: 3992, y: yP + 2, h: 120, solid: 1, dir: -1, fr: 0.15, sex: 'm', age: 'a', slim: 0.82, pose: { drop: 2.3, nl: { to: [0.9, -0.2], bend: 1 }, fl: { to: [-0.5, -0.2], bend: 1 }, na: { to: [0.95, 2.05], bend: -1 }, fa: [0.4, 0.2], lean: 0.62, tilt: 0.55 }, w: { top: 'jacket', tc: [52, 40, 32], bc: [48, 38, 30], hat: 'cap', hc: [40, 32, 26], tie: false, shirt: C.cream }, noShadow: 1, lx: 1 });
