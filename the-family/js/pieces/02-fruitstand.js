@@ -235,12 +235,18 @@
         ctx.fillStyle = gw; ctx.fill(wp);
       }
     }
-    // a few courses of brick, suggested with a dry brush, only where the eye is close
-    if (zm < 34) {
-      const n = Math.round((b.z1 - b.z0) * b.h * 0.42);
+    // the wall laid in with opaque strokes of varied brick colour, then a few dry-brush courses
+    if (zm < 42) {
+      const tints = [mix(brick, '#ffe0c0', 0.16), mix(brick, '#000000', 0.2), mix(brick, '#6a3a5a', 0.22), mix(brick, '#c09048', 0.2), mix(brick, '#3a4a6a', 0.18)];
+      const n = Math.round((b.z1 - b.z0) * b.h * 0.85);
       for (let i = 0; i < n; i++) {
+        const u = rnd(b.z0, b.z1 - 0.3), v = rnd(3.4, b.h - 0.5), du = rnd(0.35, 1.4), dv = rnd(0.1, 0.32);
+        frect(ctx, side, u, Math.min(b.z1, u + du), v, v + dv, rgba(tints[(R() * tints.length) | 0], rnd(0.22, 0.48)), 0.002);
+      }
+      const m = Math.round((b.z1 - b.z0) * b.h * 0.3);
+      for (let i = 0; i < m; i++) {
         const u = rnd(b.z0 + 0.2, b.z1 - 0.6), v = rnd(3.8, b.h - 1.2), len = rnd(0.25, 0.8);
-        frect(ctx, side, u, u + len, v, v + 0.055, rgba(R() < 0.55 ? mix(brick, '#ffe8d0', 0.22) : mix(brick, '#000000', 0.3), rnd(0.18, 0.34)), 0.002);
+        frect(ctx, side, u, u + len, v, v + 0.05, rgba(R() < 0.55 ? mix(brick, '#ffe8d0', 0.24) : mix(brick, '#000000', 0.32), rnd(0.2, 0.36)), 0.003);
       }
     }
     // windows
@@ -274,7 +280,12 @@
     // lintel and sill
     frect(ctx, side, u - w - 0.1, u + w + 0.1, vb + h, vb + h + 0.28, trim, 0.03);
     frect(ctx, side, u - w - 0.06, u + w + 0.06, vb - 0.12, vb, trim, 0.05);
-    poly3(ctx, [F3(side, u - w - 0.06, vb, 0.05), F3(side, u + w + 0.06, vb, 0.05), F3(side, u + w + 0.06, vb + 0.06, 0.0), F3(side, u - w - 0.06, vb + 0.06, 0.0)], hz(C.snow));
+    // snow banked on the sill and the lintel, laid on thick
+    { const pts = [], n = 7, hs = (u * 17.31) % 1;
+      for (let i = 0; i <= n; i++) { const t = i / n; pts.push(F3(side, u - w - 0.08 + t * (2 * w + 0.16), vb + 0.03 + 0.07 * Math.sin(Math.PI * t) * (0.7 + 0.3 * Math.sin(t * 9 + hs * 6)), 0.04)); }
+      pts.push(F3(side, u + w + 0.08, vb - 0.01, 0.07), F3(side, u - w - 0.08, vb - 0.01, 0.07));
+      poly3(ctx, pts, hz(C.snow));
+      poly3(ctx, [F3(side, u - w - 0.1, vb + h + 0.28, 0.03), F3(side, u + w + 0.1, vb + h + 0.28, 0.03), F3(side, u + w + 0.05, vb + h + 0.35, 0.02), F3(side, u - w - 0.05, vb + h + 0.36, 0.02)], hz(mix(C.snow, C.snowShade, 0.3))); }
     // the opening
     let glass;
     if (lit) {
@@ -288,6 +299,21 @@
       frect(ctx, side, u - w, u + w, vb + h * (0.55 + 0.35 * ((u * 3.1) % 1)), vb + h, shade);
       frect(ctx, side, u - w, u - w + 0.16, vb, vb + h, mix(glass, '#a04a28', 0.35));
       frect(ctx, side, u + w - 0.16, u + w, vb, vb + h, mix(glass, '#a04a28', 0.35));
+      // life inside: a figure, a wreath, a plant, a lamp
+      const hsh = Math.abs(Math.sin(u * 12.9898 + v0 * 78.233) * 43758.5453) % 1, kk = K(side < 0 ? XL : XR, u);
+      const dk = mix(glass, '#3a1a0a', 0.72);
+      if (zm < 50 && hsh < 0.3) {
+        const q = P(...F3(side, u + (hsh - 0.15) * 2, vb + 0.95, -0.25));
+        ctx.fillStyle = dk; ctx.beginPath(); ctx.ellipse(q[0], q[1] - 0.2 * kk, 0.1 * kk, 0.13 * kk, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(q[0], q[1] + 0.12 * kk, 0.24 * kk, 0.2 * kk, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(q[0] - 0.24 * kk, q[1] + 0.12 * kk, 0.48 * kk, 0.5 * kk);
+      } else if (zm < 50 && hsh < 0.45) {
+        const q = P(...F3(side, u, vb + h * 0.72, 0.02));
+        ctx.strokeStyle = '#1f4a2a'; ctx.lineWidth = Math.max(0.6, 0.07 * kk); ctx.beginPath(); ctx.ellipse(q[0], q[1], 0.16 * kk * 0.7, 0.16 * kk, 0, 0, Math.PI * 2); ctx.stroke();
+        disc(ctx, q[0], q[1] + 0.15 * kk, Math.max(0.6, 0.045 * kk), '#b8201a');
+      } else if (zm < 50 && hsh < 0.6) {
+        const q = P(...F3(side, u, vb + 0.1, 0.02));
+        ctx.fillStyle = '#2a3a1e'; ctx.beginPath(); ctx.ellipse(q[0], q[1] - 0.16 * kk, 0.2 * kk * 0.7, 0.18 * kk, 0, 0, Math.PI * 2); ctx.fill();
+      }
     } else {
       // a cold sky reflection in the upper pane
       frect(ctx, side, u - w, u + w, vb + h * 0.62, vb + h, hz(mix(glass, '#4a6890', 0.35)));
@@ -330,7 +356,8 @@
       line3(ctx, F3(side, u1, v + 0.95, o), F3(side, u1, v + 0.95, 0), col, lw);
       for (let uu = u0; uu <= u1 + 0.01; uu += 0.32) line3(ctx, F3(side, uu, v, o), F3(side, uu, v + 0.95, o), col, lw * 0.55);
       // snow on the rail and on the platform lip
-      line3(ctx, F3(side, u0, v + 0.97, o), F3(side, u1, v + 0.97, o), haze(C.snowShade, zm, 60), lw * 0.9);
+      line3(ctx, F3(side, u0, v + 0.98, o), F3(side, u1, v + 0.98, o), haze(C.snow, zm, 60), lw * 2.2);
+      line3(ctx, F3(side, u0, v + 0.03, o), F3(side, u1, v + 0.03, o), haze(mix(C.snow, C.snowShade, 0.4), zm, 60), lw * 2.4);
       // stairs down to the next platform
       if (f > 0) {
         const vl = v - 3.0;
@@ -362,7 +389,7 @@
     // bulkhead
     frect(ctx, side, b.z0 + 0.25, b.z1 - 0.25, base, base + 0.55, hz('#2a2420'));
     // window
-    const wz0 = b.z0 + 0.35, wz1 = b.z1 - (b.shop === 'genco' ? 2.3 : 1.5);
+    const wz0 = b.z0 + (b.shop === 'barber' ? 2.1 : 0.35), wz1 = b.z1 - (b.shop === 'genco' ? 2.3 : 1.5);
     frect(ctx, side, wz0, wz1, base + 0.55, 2.95, glassC);
     // deeper interior shapes: shelves / goods
     shopGoods(ctx, side, b, wz0, wz1, glassC, zm);
@@ -373,6 +400,16 @@
     const dz0 = wz1 + 0.25, dz1 = b.z1 - 0.3;
     frect(ctx, side, dz0, dz1, base, 2.95, hz('#2c2018'));
     frect(ctx, side, dz0 + 0.12, dz1 - 0.12, base + 0.9, 2.6, hz(mix(interior, '#7a4a20', 0.35)));
+    if (b.shop === 'barber') {
+      // a patch of wall with posters pasted over posters, and the barber's pole
+      frect(ctx, side, b.z0 + 0.3, wz0 - 0.1, base + 0.55, 2.95, mix(brick, '#000000', 0.15));
+      posters(ctx, side, b.z0 + 0.45, wz0 - 0.25);
+      const pz = wz0 - 0.12, pb = P(...F3(side, pz, 2.0, 0.25)), pt = P(...F3(side, pz, 2.8, 0.25)), pk = K(side < 0 ? XL : XR, pz);
+      ctx.save(); ctx.fillStyle = '#f2ece0'; ctx.fillRect(pb[0] - 0.06 * pk, pt[1], 0.12 * pk, pb[1] - pt[1]);
+      ctx.beginPath(); ctx.rect(pb[0] - 0.06 * pk, pt[1], 0.12 * pk, pb[1] - pt[1]); ctx.clip();
+      for (let yy = pt[1] - 0.2 * pk; yy < pb[1]; yy += 0.12 * pk) { ctx.fillStyle = ((yy / pk * 8) | 0) % 2 ? '#b01e1a' : '#1e3a8a'; ctx.beginPath(); ctx.moveTo(pb[0] - 0.06 * pk, yy); ctx.lineTo(pb[0] + 0.06 * pk, yy - 0.08 * pk); ctx.lineTo(pb[0] + 0.06 * pk, yy - 0.04 * pk); ctx.lineTo(pb[0] - 0.06 * pk, yy + 0.04 * pk); ctx.fill(); }
+      ctx.restore();
+    }
     // pilasters
     frect(ctx, side, b.z0, b.z0 + 0.3, 0, 3.6, pil, 0.06);
     frect(ctx, side, b.z1 - 0.3, b.z1, 0, 3.6, pil, 0.06);
@@ -382,6 +419,20 @@
     frect(ctx, side, b.z0 + 0.3, b.z1 - 0.3, 3.55, 3.65, hz(trim), 0.08);
   }
 
+  function posters(ctx, side, z0, z1) {
+    const zm = (z0 + z1) / 2, k = K(side < 0 ? XL : XR, zm), mid = lerp(z0, z1, 0.52);
+    const map = (ua, ub, va, vb) => (u, v) => P(...F3(side, lerp(ua, ub, u), lerp(va, vb, v), 0.012));
+    frect(ctx, side, z0, mid + 0.05, 0.75, 2.35, '#e8dcbc', 0.01);
+    frect(ctx, side, z0 + 0.05, mid, 1.85, 2.25, '#a8241c', 0.011);
+    let L = layout('OPERA', 0.2); letter(ctx, 'OPERA', (u, v) => map(z0 + 0.08, mid - 0.05, 2.2, 1.9)(u / L.w, v), { color: '#f2e6c8', width: Math.max(0.5, 0.035 * k), track: 0.2, jitter: 0.01 });
+    for (let i = 0; i < 6; i++) frect(ctx, side, z0 + 0.08, mid - 0.08 - (i % 3) * 0.08, 1.7 - i * 0.14, 1.66 - i * 0.14, 'rgba(60,40,30,0.55)', 0.012);
+    frect(ctx, side, mid - 0.05, z1, 0.95, 2.6, '#2c4a76', 0.014);
+    L = layout('PRIZE', 0.2); letter(ctx, 'PRIZE', (u, v) => map(mid + 0.02, z1 - 0.06, 2.5, 2.22)(u / L.w, v), { color: '#f0d870', width: Math.max(0.5, 0.035 * k), track: 0.2, jitter: 0.01 });
+    L = layout('FIGHT', 0.2); letter(ctx, 'FIGHT', (u, v) => map(mid + 0.02, z1 - 0.06, 2.15, 1.87)(u / L.w, v), { color: '#f0d870', width: Math.max(0.5, 0.035 * k), track: 0.2, jitter: 0.01 });
+    frect(ctx, side, mid + 0.08, z1 - 0.08, 1.15, 1.7, '#e6d8b6', 0.015);
+    // a torn corner, and snow-wet streaks
+    poly3(ctx, [F3(side, z1 - 0.32, 0.95, 0.016), F3(side, z1, 0.95, 0.016), F3(side, z1, 1.3, 0.016)], '#3a2c28');
+  }
   function shopGoods(ctx, side, b, wz0, wz1, glassC, zm) {
     const dark = mix(glassC, '#5a3010', 0.55), mid = mix(glassC, '#9a5a20', 0.35);
     if (b.shop === 'salumeria') {
@@ -1101,6 +1152,14 @@
       const g = ctx.createLinearGradient(0, 0, 0, CAM.hy);
       g.addColorStop(0, C.skyTop); g.addColorStop(0.35, C.skyHi); g.addColorStop(0.72, C.skyMid); g.addColorStop(0.93, C.skyLow); g.addColorStop(1, C.skyGlow);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, CAM.hy + 2);
+      // the sky laid in with broad, opaque horizontal strokes
+      const stops = [[0, C.skyTop], [0.35, C.skyHi], [0.72, C.skyMid], [0.93, C.skyLow], [1, C.skyGlow]];
+      const skyAt = (y) => { const t = clamp(y / CAM.hy, 0, 1); for (let i = 1; i < stops.length; i++) if (t <= stops[i][0]) return mix(stops[i - 1][1], stops[i][1], (t - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0])); return C.skyGlow; };
+      for (let i = 0; i < 220; i++) {
+        const y = rnd(0, CAM.hy), x = rnd(250, 1000), w = rnd(40, 200), h = rnd(3, 12);
+        const c = mix(skyAt(y + rnd(-60, 60)), R() < 0.5 ? '#ffffff' : '#0a1020', rnd(0, 0.1));
+        ctx.fillStyle = rgba(c, rnd(0.3, 0.6)); ctx.beginPath(); ctx.ellipse(x, y, w / 2, h / 2, rnd(-0.03, 0.03), 0, Math.PI * 2); ctx.fill();
+      }
       for (let i = 0; i < 9; i++) {
         const y = rnd(160, CAM.hy - 70), x = rnd(380, 880), w = rnd(140, 380), h = rnd(4, 11);
         const t = y / CAM.hy;

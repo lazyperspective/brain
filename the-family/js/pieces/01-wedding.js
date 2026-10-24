@@ -401,6 +401,11 @@
 
   /* ================================================================== THE ROOM */
 
+  async function warmUp(D) { // allocate the scratch layers and the eraser texture before the real work
+    for (const c of [D.X, D.M]) { c.fillStyle = '#fff'; c.fillRect(0, 0, 1, 1); c.clearRect(0, 0, 2, 2); }
+    streakPattern(D); await D.tick();
+    light(D, { bb: [0, 0, 4, 4], mask: rect(0, 0, 4, 4), lift: 0 });
+  }
   function groundTone(D) {
     const C = D.C;
     C.fillStyle = grad(C, 0, 0, 0, FLOOR, [[0, 0.84], [0.45, 0.76], [1, 0.74]]); C.fillRect(0, 0, W, FLOOR);
@@ -967,7 +972,7 @@
       [hx - 24, 458], [hx - 22, 451], [hx - 25, 443], [hx - 20, 436], [hx - 19, 424], [hx - 15, 412]]);
     const body = cr([[hx - 12, 478], [hx + 14, 480], [hx + 18, 500], [hx + 40, 510], [hx + 58, 530], [hx + 66, 600], [hx + 70, 712, 1], [hx - 62, 712, 1], [hx - 58, 620], [hx - 52, 548], [hx - 36, 516], [hx - 14, 504]]);
     const fig = join(head, body);
-    tone(D, fig, 0.8);
+    solid(D, fig, 0.9);
     hatch(D, fig, [940, 396, 1090, 712], { ang: 65, sp: 2.4, w: 0.8, a: 0.4, jit: 0.4 });
     hatch(D, fig, [940, 396, 1090, 712], { ang: -25, sp: 3, w: 0.7, a: 0.3, jit: 0.4 });
     // only the line of a lean profile, turned toward the Don, catches the light reflected from the desk
@@ -989,7 +994,7 @@
   function chair(D) {
     setGroup(D, DONM);
     tone(D, moved(CHAIR, 14, 9), 0.35, 4); // its shadow on the wall
-    tone(D, CHAIR, 0.78);
+    solid(D, CHAIR, 0.86);
     hatch(D, CHAIR, [470, 320, 780, 712], { ang: 70, sp: 2.4, w: 0.8, a: 0.36, jit: 0.5 });
     hatch(D, CHAIR, [470, 320, 780, 712], { ang: -15, sp: 3.2, w: 0.7, a: 0.24, jit: 0.5, af: (x) => clamp((x - 560) / 160, 0.2, 1) });
     const back = cr([[512, 712, 1], [508, 560], [506, 430], [520, 384], [560, 360], [625, 354], [690, 360], [730, 384], [744, 430], [742, 560], [738, 712, 1]]);
@@ -1052,7 +1057,7 @@
     setGroup(D, DONM);
     const C = D.C;
     tone(D, moved(DON, 14, 9), 0.5, 3); // his shadow thrown on the chair
-    tone(D, DON_BODY, 0.88);
+    solid(D, DON_BODY, 0.94);
     hatch(D, DON_BODY, [505, 540, 745, 712], { ang: 72, sp: 2.2, w: 0.8, a: 0.42, bow: 0.04, jit: 0.4 });
     hatch(D, DON_BODY, [505, 540, 745, 712], { ang: -20, sp: 2.8, w: 0.7, a: 0.32, jit: 0.4, af: (x) => clamp((x - 560) / 150, 0.25, 1) });
     const shirt = cr([[603, 548], [626, 562], [650, 545], [646, 580], [634, 620], [626, 650], [617, 620], [606, 580]]);
@@ -1071,7 +1076,7 @@
     const fl = new Path2D(); for (let k = 0; k < 9; k++) { const a = k * 0.7; fl.addPath(ell(584 + Math.cos(a) * 4.2, 596 + Math.sin(a) * 3.8, 3.2, 2.6, a)); }
     tone(D, fl, 0.85); D.flower = fl;
     D.lapL = lapL; D.shirt = shirt; D.collar = join(collarL, collarR);
-    tone(D, DON_HEAD, 0.94);
+    solid(D, DON_HEAD, 0.94);
     line(D, DON_BODY, 1.3, 0.75, null, 0.4);
     lift(D, DON_HAIR, 0.14, 1.5);
     lift(D, DON_FRONT, 0.12, 3);
@@ -1157,11 +1162,11 @@
     const top = poly([[bx0, ty0], [bx1, ty0], [fx1, ty1], [fx0, ty1]]);
     const front = rect(fx0, ty1, fx1 - fx0, by - ty1);
     D.deskTop = top; D.deskFront = front;
-    tone(D, front, 0.76);
+    solid(D, front, 0.86);
     hatch(D, front, [fx0, ty1, fx1, by], { ang: 90, sp: 2.2, w: 0.85, a: 0.4, jit: 0.4, maxLen: 90 });
     hatch(D, front, [fx0, ty1, fx1, by], { ang: 28, sp: 3, w: 0.7, a: 0.28, jit: 0.4, maxLen: 90, af: (x, y) => clamp(0.4 + (y - 760) / 500 + (x - 700) / 1200, 0, 1) });
     // top surface: dark polished walnut, the far edge reflecting the window a little
-    tone(D, top, 0.86);
+    solid(D, top, 0.9);
     lift(D, top, grad(C, 0, ty0, 0, ty1, [[0, 0.24], [1, 0.04]]));
     lift(D, top, grad(C, fx0, 0, 600, 0, [[0, 0.25], [1, 0]]));
     hatch(D, top, [fx0, ty0, fx1, ty1], { ang: 0, sp: 1.8, w: 0.5, a: 0.18, jit: 0.4, maxLen: 120 });
@@ -1362,7 +1367,7 @@
     setGroup(D, DONM);
     const sleeveL = cr([[512, 690], [548, 690], [572, 700], [572, 730], [520, 734], [510, 712]]);
     const sleeveR = cr([[744, 690], [710, 688], [672, 698], [672, 728], [740, 730], [746, 712]]);
-    tone(D, join(sleeveL, sleeveR), 0.96);
+    solid(D, join(sleeveL, sleeveR), 0.96);
     hatch(D, join(sleeveL, sleeveR), [505, 685, 750, 736], { ang: 15, sp: 2.6, w: 0.6, a: 0.2 });
     const cuffL = cr([[576, 703], [582, 702], [583, 725], [577, 727]]);
     const cuffR = cr([[664, 701], [670, 702], [669, 724], [663, 723]]);
@@ -1419,12 +1424,12 @@
   function bonasera(D) {
     const C = D.C;
     // his hat, left on the corner of the desk
-    tone(D, ell(268, 739, 40, 4), 0.85); tone(D, BON_HAT, 0.92);
+    tone(D, ell(268, 739, 40, 4), 0.85); solid(D, BON_HAT, 0.92);
     eraseLine(D, cr([[230, 739], [268, 735], [308, 739]], false), 1.2, 0.3, 0.4);
     line(D, cr([[241, 728], [268, 725], [297, 728]], false), 2.4, 0.85);
     eraseLine(D, cr([[244, 716], [258, 709], [268, 713]], false), 1, 0.18, 0.6);
     tone(D, ell(310, 1270, 120, 13), 0.55, 6); // where he stands
-    tone(D, BON, 0.93);
+    solid(D, BON, 0.96);
     D.C.save(); D.K.save(); D.C.clip(BON); D.K.clip(BON);
     tone(D, ell(381, 612, 40, 42), 0.7, 4); // the head, almost black against the light
     D.C.restore(); D.K.restore();
@@ -1561,7 +1566,7 @@
 
   /* ================================================================== the sequence */
   const STEPS = [
-    groundTone, wallSurface, windowFrame, garden, blindAndSash, windowSill, shutters, wallObjects, bookshelf, lightWall,
+    warmUp, groundTone, wallSurface, windowFrame, garden, blindAndSash, windowSill, shutters, wallObjects, bookshelf, lightWall,
     floor, lightFloor, hagen, chair, lightChair, don, lightDon, donFeatures, desk, lightDesk, deskPapers, donHands, lightHands, deskThings, lightObjects, bonasera, velvet,
   ];
 
@@ -1576,7 +1581,9 @@
     };
     const times = [];
     try {
+      const skip = DEBUG ? (new URLSearchParams(location.search).get('skip') || '').split(',') : [];
       for (const step of STEPS) {
+        if (skip.includes(step.name)) continue;
         const t0 = performance.now();
         D.at = step.name;
         await step(D);

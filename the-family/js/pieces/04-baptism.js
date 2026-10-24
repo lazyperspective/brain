@@ -702,11 +702,11 @@
         P.shade(sh, 402, 0, 678, 0, 0.0, 0.3);
       },
     });
-    const qf = foilOpening(540, 420, 27, 4, -Math.PI / 4, 0.47);
+    const qf = foilOpening(540, 418, 31, 4, -Math.PI / 4, 0.47);
     glass(qf, pick(BLUES), { lw: 2.6, paint: (c, sh) => diaper('dots', c, sh) });
-    const DV = (d) => shape(d, (x, y) => [540 + (x - 540) * 0.52, 422 + (y - 282) * 0.52]);
+    const DV = (d) => shape(d, (x, y) => [540 + (x - 540) * 0.64, 420 + (y - 282) * 0.64]);
     ['M 536 284 C 524 276, 510 262, 500 244 C 498 240, 503 240, 506 242 C 516 252, 526 262, 538 268 Z', 'M 544 284 C 556 276, 570 262, 580 244 C 582 240, 577 240, 574 242 C 564 252, 554 262, 542 268 Z'].forEach((d) => glass(DV(d), G.white, { lw: 1.8, noStreak: true, paint: (c, sh) => P.shade(sh, 0, 404, 0, 430, 0.0, 0.35) }));
-    glass(DV('M 540 262 C 547 266, 549 280, 547 296 C 546 304, 544 310, 540 316 C 536 310, 534 304, 533 296 C 531 280, 533 266, 540 262 Z'), G.white, { lw: 1.8, noStreak: true, paint: () => { P.dot(538.8, 434, 0.8); P.tr('M 539 437 L 540 440 L 541 437', 0.6); } });
+    glass(DV('M 540 262 C 547 266, 549 280, 547 296 C 546 304, 544 310, 540 316 C 536 310, 534 304, 533 296 C 531 280, 533 266, 540 262 Z'), G.white, { lw: 1.8, noStreak: true, paint: (c, sh) => { P.shade(sh, 534, 0, 548, 0, 0, 0.4); P.dot(538.8, 438.6, 0.9); P.tr('M 538.8 442 L 540 445 L 541.2 442', 0.7); } });
     glass(shape('M 540 354 L 534 342 C 530 336, 534 328, 540 324 C 546 328, 550 336, 546 342 Z'), G.goldP, { paint: () => P.tr('M 540 330 L 540 350', 0.7) });
     // the cusped arch over the heads
     glass(poly(archO.pts.map((q) => q.p).concat(archI.pts.map((q) => q.p).reverse())), G.whiteW, {
@@ -1412,6 +1412,25 @@
     }
     ctx.fillStyle = '#191614'; ctx.fillRect(0, 990, W, 10);
     ctx.fillStyle = 'rgba(80,70,60,0.35)'; ctx.fillRect(0, 990, W, 1);
+    // memorial tablets: a marble one under a pediment, a small brass one, an oval cartouche
+    const lines = (x0, x1, y0, n, gap, col) => { ctx.strokeStyle = col; ctx.lineWidth = 0.7; for (let i = 0; i < n; i++) { const w = (x1 - x0) * (i === 0 ? 0.7 : 0.55 + hash2(i, x0) * 0.4); const xm = (x0 + x1) / 2; ctx.beginPath(); ctx.setLineDash([1.6, 0.9]); ctx.moveTo(xm - w / 2, y0 + i * gap); ctx.lineTo(xm + w / 2, y0 + i * gap); ctx.stroke(); } ctx.setLineDash([]); };
+    ctx.fillStyle = '#0a0908'; ctx.beginPath(); ctx.moveTo(376, 942); ctx.lineTo(400, 928); ctx.lineTo(424, 942); ctx.lineTo(424, 990); ctx.lineTo(376, 990); ctx.closePath(); ctx.fill();
+    let g2 = ctx.createLinearGradient(380, 0, 420, 0); g2.addColorStop(0, '#4a4540'); g2.addColorStop(1, '#6c665e');
+    ctx.fillStyle = g2; ctx.fillRect(381, 946, 38, 38);
+    ctx.fillStyle = '#3a3530'; ctx.beginPath(); ctx.moveTo(379, 942); ctx.lineTo(400, 931); ctx.lineTo(421, 942); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(150,140,128,0.45)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(379, 942); ctx.lineTo(400, 931); ctx.lineTo(421, 942); ctx.stroke();
+    ctx.strokeStyle = '#2a2622'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(400, 922); ctx.lineTo(400, 931); ctx.moveTo(396.5, 925); ctx.lineTo(403.5, 925); ctx.stroke();
+    lines(384, 416, 952, 7, 4.4, 'rgba(20,16,12,0.7)');
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.8; ctx.strokeRect(381, 946, 38, 38);
+    g2 = ctx.createLinearGradient(0, 950, 0, 978); g2.addColorStop(0, '#4c3c24'); g2.addColorStop(1, '#2e2414');
+    ctx.fillStyle = '#090807'; ctx.fillRect(491, 949, 42, 30);
+    ctx.fillStyle = g2; ctx.fillRect(493, 951, 38, 26);
+    ctx.strokeStyle = 'rgba(170,140,90,0.45)'; ctx.lineWidth = 0.7; ctx.strokeRect(494.5, 952.5, 35, 23);
+    lines(497, 527, 957, 5, 4, 'rgba(14,10,6,0.75)');
+    ctx.fillStyle = '#0a0908'; ctx.beginPath(); ctx.ellipse(91, 962, 15, 20, 0, 0, Math.PI * 2); ctx.fill();
+    g2 = ctx.createLinearGradient(78, 0, 104, 0); g2.addColorStop(0, '#3e3a35'); g2.addColorStop(1, '#5c5750');
+    ctx.fillStyle = g2; ctx.beginPath(); ctx.ellipse(91, 962, 12, 17, 0, 0, Math.PI * 2); ctx.fill();
+    lines(84, 98, 953, 5, 4.2, 'rgba(20,16,12,0.65)');
   }
 
   async function floorPass(ctx, scale, sun, beam, occ, breathe) {
@@ -1442,6 +1461,33 @@
           const tone = 0.86 + hash2(cxi * 7 + 3, r * 13 + 1) * 0.22;
           let jt = Math.max(clamp(1 - (jzp - jhw), 0, 1) * jfadeZ, clamp(1 - (jxp - jhx), 0, 1) * jfadeX);
           let alb = 0.30 * tone * (1 - 0.55 * jt);
+          let tr = 1, tg = 1, tb = 1;
+          // an encaustic pavement down the middle: red and buff tiles with inlaid quatrefoils and lozenges, framed in black
+          if (X > -0.2 && X < 1.55 && Z > 5.4 && Z < 18.6) {
+            const TS = 0.19, ti = Math.floor((X + 0.2) / TS), tj = Math.floor((Z - 5.4) / TS);
+            const u = (X + 0.2) / TS - ti, v = (Z - 5.4) / TS - tj;
+            const tpx = TS / Math.max(pxw, pzw), detail = clamp((tpx - 3) / 6, 0, 1);
+            const edge = ti === 0 || ti === 8 || X > 1.52;
+            let cr, cg, cb;
+            if (edge) { cr = 0.06; cg = 0.055; cb = 0.05; }
+            else if ((ti + tj) & 1) {
+              // buff tile, black lozenge, red centre
+              const dd = Math.abs(u - 0.5) + Math.abs(v - 0.5);
+              const loz = clamp(1 - Math.abs(dd - 0.32) / 0.06, 0, 1) * detail, ctr = clamp(1 - (dd - 0.1) / 0.04, 0, 1) * detail;
+              cr = lerp(lerp(0.5, 0.07, loz), 0.42, ctr); cg = lerp(lerp(0.38, 0.06, loz), 0.12, ctr); cb = lerp(lerp(0.22, 0.05, loz), 0.07, ctr);
+              const mr = 0.42, mg = 0.31, mb = 0.18; cr = lerp(mr, cr, detail); cg = lerp(mg, cg, detail); cb = lerp(mb, cb, detail);
+            } else {
+              // red tile, buff quatrefoil
+              let q = 0;
+              for (const [ox, oy] of [[0.18, 0], [-0.18, 0], [0, 0.18], [0, -0.18]]) { const d0 = Math.hypot(u - 0.5 - ox, v - 0.5 - oy); q = Math.max(q, clamp(1 - Math.abs(d0 - 0.16) / 0.05, 0, 1)); }
+              q *= detail;
+              cr = lerp(0.4, 0.46, q); cg = lerp(0.14, 0.33, q); cb = lerp(0.08, 0.2, q);
+            }
+            const gu = Math.min(u, 1 - u) * TS / pxw, gv = Math.min(v, 1 - v) * TS / pzw;
+            const grout = clamp(1.2 - Math.min(gu, gv), 0, 1) * clamp(tpx / 4, 0, 1) * 0.6;
+            const tt = 0.92 + hash2(ti + 51, tj + 17) * 0.14;
+            alb = 0.62 * tt * (1 - grout); tr = cr; tg = cg; tb = cb;
+          }
           // an old ledger stone let into the floor: a cross and a worn inscription
           if (X > -1.2 && X < -0.3 && Z > 7.15 && Z < 8.85) {
             const dx = Math.min(X + 1.2, -0.3 - X), dz = Math.min(Z - 7.15, 8.85 - Z), xc = X + 0.75;
@@ -1464,9 +1510,10 @@
           const cw2 = 0.05 / (0.35 + d2 * 1.4);
           const amb = 0.012 * depthDark;
           const K = 1.25;
-          let R1 = alb * (amb * 0.9 + K * lr + cw2 * 1.0);
-          let G1 = alb * (amb * 0.95 + K * lg + cw2 * 0.62);
-          let B1 = alb * (amb * 1.15 + K * lb + cw2 * 0.3);
+          let R1 = alb * tr * (amb * 0.9 + K * lr + cw2 * 1.0);
+          let G1 = alb * tg * (amb * 0.95 + K * lg + cw2 * 0.62);
+          let B1 = alb * tb * (amb * 1.15 + K * lb + cw2 * 0.3);
+          if (tr !== 1) { R1 *= 1.25; G1 *= 1.25; B1 *= 1.25; }
           const o = (j * cw + i) * 4;
           const dn = (hash2(i, yb + j) - 0.5) * 1.2;
           D[o] = clamp(255 * Math.pow(R1, invG) + dn, 0, 255);
@@ -1575,6 +1622,35 @@
     if (!blocked(occ, x0 - 0.06, 1.04, z + 0.1, sun.a, sun.b)) { beam(x0, 1.04, z + 0.1, tmp); col = tmp.slice(); }
     strokeP(ttop, L([col[0] * 1.8 + 0.03, col[1] * 1.8 + 0.03, col[2] * 1.8 + 0.03], [0.1, 0.09, 0.09]), 1.8);
     strokeP(outline.slice(1, 6), 'rgba(160,120,90,0.18)', 0.7);
+    // a poppyhead finial on the front post, carved in the round
+    const fb = P(xa + 0.03, 0.995, zf + 0.06), fk = F / (zf + 0.06);
+    const pp = [[-0.03, 0], [-0.034, 0.04], [-0.068, 0.068], [-0.062, 0.1], [-0.032, 0.086], [-0.016, 0.13], [0, 0.17], [0.016, 0.13], [0.032, 0.086], [0.062, 0.1], [0.068, 0.068], [0.034, 0.04], [0.03, 0]].map(([u, v]) => [fb[0] + u * fk, fb[1] - v * fk]);
+    const fgr = ctx.createLinearGradient(fb[0] - 0.07 * fk, 0, fb[0] + 0.07 * fk, 0);
+    fgr.addColorStop(0, L([col[0] * 1.2 + 0.02, col[1] * 1.2 + 0.02, col[2] * 1.2 + 0.02], [ambF[0] * 2.6, ambF[1] * 2.6, ambF[2] * 2.6])); fgr.addColorStop(1, L([0, 0, 0], [0.03, 0.028, 0.03]));
+    fill(pp, fgr);
+    strokeP([[fb[0], fb[1] - 0.02 * fk], [fb[0], fb[1] - 0.15 * fk]], 'rgba(0,0,0,0.45)', 0.7);
+    strokeP([[fb[0] - 0.05 * fk, fb[1] - 0.075 * fk], [fb[0] - 0.02 * fk, fb[1] - 0.06 * fk]], 'rgba(0,0,0,0.45)', 0.6);
+    strokeP([[fb[0] + 0.05 * fk, fb[1] - 0.075 * fk], [fb[0] + 0.02 * fk, fb[1] - 0.06 * fk]], 'rgba(0,0,0,0.45)', 0.6);
+    // the near rows: a hassock pushed out into the aisle, and now and then a prayer book left on it
+    if (z < 11) {
+      const hs = hash2(Math.round(z * 10), 5);
+      const kc = hs < 0.5 ? [116, 26, 32] : [38, 66, 48];
+      const hx0 = x0 - 0.32 - hs * 0.06, hx1 = hx0 + 0.26, hz0 = z + 0.06, hz1 = z + 0.32, hy = 0.11;
+      fill([P(hx0, 0.01, hz0), P(hx0, hy, hz0), P(hx0, hy, hz1), P(hx0, 0.01, hz1)], rgb(litColour(kc, bounce, [0.05, 0.045, 0.045])));
+      fill([P(hx0, 0.01, hz0), P(hx1, 0.01, hz0), P(hx1, hy, hz0), P(hx0, hy, hz0)], rgb(litColour(kc, bounce, [0.07, 0.06, 0.06])));
+      const top = [P(hx0, hy, hz0), P(hx1, hy, hz0), P(hx1, hy, hz1), P(hx0, hy, hz1)];
+      fill(top, rgb(litColour(kc, [bounce[0] * 1.5, bounce[1] * 1.5, bounce[2] * 1.5], [0.12, 0.1, 0.1])));
+      const m0 = P((hx0 + hx1) / 2, hy, hz0 + 0.04), m1 = P((hx0 + hx1) / 2, hy, hz1 - 0.04), n0 = P(hx0 + 0.05, hy, (hz0 + hz1) / 2), n1 = P(hx1 - 0.05, hy, (hz0 + hz1) / 2);
+      strokeP([m0, m1], 'rgba(214,180,110,0.4)', 0.9); strokeP([n0, n1], 'rgba(214,180,110,0.4)', 0.9);
+      strokeP(top.concat([top[0]]), 'rgba(0,0,0,0.5)', 0.6);
+      if (hs > 0.35) {
+        const bx0 = hx0 + 0.04, bx1 = bx0 + 0.14, bz0 = hz0 + 0.03, bz1 = bz0 + 0.2, by = hy + 0.03;
+        fill([P(bx0, hy, bz0), P(bx1, hy, bz0), P(bx1, by, bz0), P(bx0, by, bz0)], 'rgba(214,200,172,0.45)');
+        fill([P(bx0, by, bz0), P(bx1, by, bz0), P(bx1, by, bz1), P(bx0, by, bz1)], rgb(litColour([36, 26, 24], [0.02, 0.02, 0.02], [0.1, 0.09, 0.09])));
+        strokeP([P(bx0 + 0.07, by, bz0), P(bx0 + 0.075, 0.02, bz0 - 0.02)], 'rgba(170,30,30,0.75)', 0.8);
+        strokeP([P(bx0 + 0.02, by + 0.001, bz0 + 0.03), P(bx1 - 0.02, by + 0.001, bz0 + 0.03)], 'rgba(200,170,100,0.35)', 0.6);
+      }
+    }
   }
 
   function drawFont3D(ctx, beam, occ, sun) {
@@ -1641,11 +1717,33 @@
     prism(0.32, 0.26, 0.2, 0.28, amb);
     topCap(0.26, 0.28, rgb(litColour(marble, [0.03, 0.03, 0.03], amb)));
     prism(0.17, 0.17, 0.28, 0.58, amb);
+    // four slender shafts round the stem, the near ones
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2 + Math.PI / 4, sx = fx + Math.cos(a) * 0.205, sz = fz + Math.sin(a) * 0.205;
+      if (sz > fz + 0.02) continue;
+      const p0 = proj(sx, 0.3, sz), p1 = proj(sx, 0.56, sz), wpx = 0.034 * F / sz;
+      const g = ctx.createLinearGradient(p0[0] - wpx / 2, 0, p0[0] + wpx / 2, 0);
+      g.addColorStop(0, rgb(litColour(marble, [0.02, 0.02, 0.02], amb))); g.addColorStop(0.4, rgb(litColour(marble, [0.06, 0.055, 0.05], amb))); g.addColorStop(1, rgb(litColour(marble, [0, 0, 0], [0.03, 0.03, 0.035])));
+      ctx.fillStyle = g; ctx.fillRect(p0[0] - wpx / 2, p1[1], wpx, p0[1] - p1[1]);
+      ctx.fillStyle = rgb(litColour(marble, [0.04, 0.04, 0.04], amb));
+      ctx.fillRect(p0[0] - wpx * 0.8, p1[1] - 1.2, wpx * 1.6, 2.4); ctx.fillRect(p0[0] - wpx * 0.8, p0[1] - 1.2, wpx * 1.6, 2.4);
+    }
     prism(0.23, 0.23, 0.56, 0.62, amb);
     // bowl underside then the bowl and its lip
     prism(0.23, 0.5, 0.62, 0.74, [0.03, 0.03, 0.036]);
     const faces = prism(0.5, 0.5, 0.74, 0.95, amb);
     prism(0.535, 0.535, 0.95, 1.0, amb);
+    // dogtooth carved along the top of the bowl
+    faces.forEach((f) => {
+      const a0 = f.k * Math.PI / 4 + Math.PI / 8;
+      for (let t = 0.1; t < 0.95; t += 0.16) {
+        const a = a0 + Math.PI / 4 * t, r = 0.5 / Math.cos(Math.PI / 8 - Math.abs(Math.PI / 4 * t - Math.PI / 8));
+        const cxw = fx + Math.cos(a) * r, czw = fz + Math.sin(a) * r, tx = -Math.sin(a) * 0.02, tz = Math.cos(a) * 0.02;
+        const c = proj(cxw, 0.915, czw), l = proj(cxw - tx, 0.915, czw - tz), rr = proj(cxw + tx, 0.915, czw + tz), up = proj(cxw, 0.935, czw), dn = proj(cxw, 0.895, czw);
+        ctx.beginPath(); ctx.moveTo(up[0], up[1]); ctx.lineTo(rr[0], rr[1]); ctx.lineTo(dn[0], dn[1]); ctx.lineTo(l[0], l[1]); ctx.closePath(); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(up[0], up[1]); ctx.lineTo(l[0], l[1]); ctx.lineTo(c[0], c[1]); ctx.closePath(); ctx.fillStyle = 'rgba(255,244,228,0.12)'; ctx.fill();
+      }
+    });
     // carved quatrefoils on the visible bowl faces
     faces.forEach((f) => {
       const a0 = f.k * Math.PI / 4 + Math.PI / 8, a1 = a0 + Math.PI / 4, am = (a0 + a1) / 2;
