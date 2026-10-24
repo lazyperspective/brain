@@ -1,0 +1,3 @@
+# 2160x3840 masters are reproducible: node render.mjs <names> --w=2160
+/output/0[1-4]-*[a-z].png
+/preview/

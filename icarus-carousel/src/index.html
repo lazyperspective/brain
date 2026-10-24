@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>render</title></head>
+<body style="margin:0;background:#111">
+<canvas id="out"></canvas>
+<script src="lib.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  const W = +(q.get('w') || 1080), H = Math.round(W * 16 / 9);
+  const s = document.createElement('script');
+  s.src = q.get('p') + '.js';
+  s.onload = async () => {
+    try { await window.paint(document.getElementById('out'), W, H); window.__done = 'ok'; }
+    catch (e) { window.__done = 'error: ' + (e.stack || e); }
+  };
+  s.onerror = () => { window.__done = 'error: could not load ' + s.src; };
+  document.body.appendChild(s);
+</script>
+</body></html>
