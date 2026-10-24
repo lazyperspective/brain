@@ -886,7 +886,7 @@
     const jamb = (X) => grad(X, 452, 0, 560, 0, [[0, 0], [1, 1]], W3); // the light thins out toward the window wall
     for (const [y0, y1] of [[30, 330], [330, 600], [600, 880]]) { // in bands, so the page never stalls
       const b2 = [456, y0, 900, y1], m2 = rect(456, y0, 362, y1 - y0);
-      light(D, { bb: b2, mask: m2, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.44 }); await D.tick();
+      light(D, { bb: b2, mask: m2, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.37 }); await D.tick();
       if (y0 < 500) { light(D, { bb: b2, mask: m2, bars: bars(bb, 0), int: (X) => rgrad(X, 620, 160, 10, 230, [[0, 0.6], [1, 0]], W3), int2: jamb, chalk: 0.28 }); await D.tick(); }
     }
     light(D, { bb, mask: D.damask, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.14 }); await D.tick();
