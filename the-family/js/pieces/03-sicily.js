@@ -341,39 +341,63 @@
     const crest = spline([[250, 600], [330, 548], [400, 498], [440, 468], [490, 436], [540, 412], [600, 394], [660, 381], [740, 371], [820, 365], [900, 363], [980, 365], [1060, 369], [1140, 372]], false, 6);
     const valTop = spline([[-60, 430], [60, 420], [180, 414], [300, 420], [400, 430], [470, 444]], false, 6);
 
-    /* ---- the town: Corleone on its rock, church tower above the roofs */
-    const BLD = [
-      [1022, 30, 296, 364, 10, 0, 'keep'],
-      [560, 38, 372, 408, 10, 0, 'f'], [600, 46, 356, 396, 12, 0, 'g'], [648, 50, 328, 396, 14, 0, 'church'], [700, 30, 204, 396, 12, 0, 'tower'],
-      [744, 56, 344, 390, 12, 0, 'f'], [802, 40, 334, 388, 10, 0, 'g'], [846, 62, 348, 388, 14, 0, 'f'], [912, 44, 340, 390, 10, 0, 'f'],
-      [960, 52, 352, 392, 12, 0, 'g'],
-      [520, 44, 406, 442, 10, 1, 'f'], [568, 60, 398, 436, 12, 1, 'g'], [632, 40, 394, 432, 10, 1, 'f'], [676, 66, 388, 430, 14, 1, 'f'],
-      [748, 46, 382, 426, 10, 1, 'g'], [798, 58, 386, 424, 12, 1, 'f'], [860, 48, 380, 422, 10, 1, 'f'], [912, 66, 384, 424, 14, 1, 'g'],
-      [984, 54, 388, 428, 12, 1, 'f'], [1042, 60, 390, 430, 12, 1, 'f'],
-      [478, 36, 432, 462, 8, 2, 'f'], [598, 40, 430, 462, 10, 2, 'f'], [700, 52, 426, 456, 12, 2, 'g'], [800, 36, 424, 452, 9, 2, 'f'], [858, 44, 420, 452, 10, 2, 'f'], [958, 40, 424, 454, 10, 2, 'f'],
-    ];
-    const TOWN = BLD.map((b, i) => {
-      const [x, w, top, base, side, row, kind] = b;
-      const sk = side * 0.22;
-      const front = [[x, top], [x + w, top], [x + w, base], [x, base]];
-      const sideP = [[x + w, top], [x + w + side, top + sk], [x + w + side, base - side * 0.1], [x + w, base]];
-      let roof = null, gable = null, roofSide = null, cap = null, capSh = null;
-      if (kind === 'g' || kind === 'church') {
-        const gh = w * (kind === 'church' ? 0.3 : 0.24);
-        gable = [[x - 1, top + 0.5], [x + w / 2, top - gh], [x + w + 1, top + 0.5]];
-        roofSide = [[x + w / 2, top - gh], [x + w + 1.5, top + 0.5], [x + w + side + 1, top + sk + 0.5], [x + w / 2 + side, top - gh + sk]];
-      } else if (kind === 'tower') {
-        cap = [[x - 2, top + 1], [x + w * 0.55 + side * 0.4, top - 30], [x + w * 0.55, top + 1]];
-        capSh = [[x + w * 0.55, top + 1], [x + w * 0.55 + side * 0.4, top - 30], [x + w + side + 1, top + sk + 1]];
-      } else if (kind !== 'keep') {
-        const rh = 5 + (w / 60) * 3;
-        roof = [[x - 2.5, top + 1.5], [x + w + side + 1, top + sk + 1.5], [x + w + side - 2, top + sk - rh * 0.7], [x + 2, top - rh]];
+    /* ---- the town: Corleone climbing its hill, a Baroque church with a dome, the castle ruin on the rock */
+    const gTown = (x) => 472 - 140 * Math.exp(-(((x - 800) / 230) ** 2)) - 70 * Math.exp(-(((x - 1040) / 70) ** 2));
+    const tBot = (x) => 488 - 0.03 * (x - 480);
+    const ALLEY = [[585, 478], [690, 372]];
+    const alleyD = (x, y) => {
+      const [[ax, ay], [bx, by]] = ALLEY, t = clamp(((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2), 0, 1);
+      return Math.hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay)));
+    };
+    const WALLC = ['#f3e4c4', '#e9c98c', '#eec4a8', '#d8d2c6', '#f7efdf', '#efd69a', '#e2b88a'];
+    const CH = { x: 640, w: 58, base: 404, top: 332 }, TW = { x: 704, w: 28, base: 404, top: 216 };
+    const ROWS = [];
+    for (let r = 0; r < 8; r++) {
+      const row = [];
+      let x = 462 + R(0, 16) + r * R(2, 8);
+      while (x < 1100) {
+        const w = R(15, 34), cx = x + w / 2, base = gTown(cx) + r * 20 + R(-2.5, 2.5), h = R(19, 34);
+        const ok = base <= tBot(cx) && alleyD(cx, base - h / 2) > 12 && !(r <= 1 && cx > CH.x - 8 && cx < TW.x + TW.w + 8) && !(cx > 968 && base < 384);
+        if (ok) row.push({ x, w, base, top: base - h, r, col: (rnd() * WALLC.length) | 0, a: rnd() < 0.28 ? R(0.08, 0.16) : R(0.26, 0.52), flat: rnd() < 0.18, roofC: rnd() < 0.3 ? 1 : 0 });
+        x += w + R(-1, 2.5);
       }
-      const sil = [front, sideP].concat(roof ? [roof] : [], gable ? [gable] : [], roofSide ? [roofSide] : [], cap ? [cap, capSh] : []);
-      const depth = 5 + row * 0.1 + i * 0.001;
-      reserve(depth, sil, 'town');
-      return { x, w, top, base, side, row, kind, sk, front, sideP, roof, gable, roofSide, cap, capSh, sil, depth };
-    });
+      ROWS.push(row);
+    }
+    ROWS.forEach((row, r) => row.forEach((b, i) => {
+      const nb = row[i + 1], rh = R(3.5, 6);
+      b.depth = 5 + r * 0.1;
+      b.front = [[b.x, b.top], [b.x + b.w, b.top], [b.x + b.w, b.base], [b.x, b.base]];
+      b.roof = b.flat ? [[b.x - 0.5, b.top + 0.5], [b.x + b.w + 0.5, b.top + 0.5], [b.x + b.w + 0.5, b.top - 2], [b.x - 0.5, b.top - 2]] : [[b.x - 1.5, b.top + 1], [b.x + b.w + 1.5, b.top + 1], [b.x + b.w - 1, b.top - rh], [b.x + 1, b.top - rh]];
+      const sw = R(5, 9), touching = nb && nb.x - (b.x + b.w) < 4;
+      b.side = !touching ? [[b.x + b.w, b.top], [b.x + b.w + sw, b.top + sw * 0.22], [b.x + b.w + sw, b.base - 1], [b.x + b.w, b.base]] : nb.top > b.top + 5 ? [[b.x + b.w, b.top], [b.x + b.w + sw, b.top + sw * 0.22], [b.x + b.w + sw, nb.top - 3], [b.x + b.w, nb.top - 3]] : null;
+      reserve(b.depth, [b.front, b.roof].concat(b.side ? [b.side] : []), 'town');
+    }));
+    // landmarks
+    const church = {
+      lower: [[CH.x, CH.base], [CH.x, CH.top + 36], [CH.x + CH.w, CH.top + 36], [CH.x + CH.w, CH.base]],
+      upper: spline([[CH.x + 2, CH.top + 37], [CH.x + 8, CH.top + 34], [CH.x + 13, CH.top + 28], [CH.x + 13, CH.top + 8], [CH.x + CH.w / 2, CH.top - 4], [CH.x + CH.w - 13, CH.top + 8], [CH.x + CH.w - 13, CH.top + 28], [CH.x + CH.w - 8, CH.top + 34], [CH.x + CH.w - 2, CH.top + 37]], true, 4),
+      drum: [[CH.x + 14, CH.top - 2], [CH.x + 14, CH.top - 16], [CH.x + 44, CH.top - 16], [CH.x + 44, CH.top - 2]],
+      dome: polyline((x) => CH.top - 16 - 19 * Math.sqrt(Math.max(0, 1 - ((x - CH.x - 29) / 16.5) ** 2)), CH.x + 12.5, CH.x + 45.5, 1.5),
+      lantern: [[CH.x + 26.5, CH.top - 34], [CH.x + 26.5, CH.top - 44], [CH.x + 31.5, CH.top - 44], [CH.x + 31.5, CH.top - 34]],
+    };
+    const tower = {
+      front: [[TW.x, TW.top], [TW.x + TW.w, TW.top], [TW.x + TW.w, TW.base], [TW.x, TW.base]],
+      side: [[TW.x + TW.w, TW.top], [TW.x + TW.w + 10, TW.top + 2.2], [TW.x + TW.w + 10, TW.base], [TW.x + TW.w, TW.base]],
+      cap: [[TW.x - 2, TW.top + 1], [TW.x + TW.w * 0.55 + 4, TW.top - 30], [TW.x + TW.w * 0.55, TW.top + 1]],
+      capSh: [[TW.x + TW.w * 0.55, TW.top + 1], [TW.x + TW.w * 0.55 + 4, TW.top - 30], [TW.x + TW.w + 11, TW.top + 3.2]],
+    };
+    reserve(5.15, [church.lower, church.upper, church.drum, church.dome, church.lantern], 'town');
+    reserve(5.16, [tower.front, tower.side, tower.cap, tower.capSh], 'town');
+    const CASTLE = {
+      rock: spline([[946, 432], [960, 392], [972, 362], [990, 336], [1012, 312], [1046, 304], [1084, 306], [1130, 312], [1130, 440]], true, 4),
+      wall: polyline((x) => 318 - 0.08 * (x - 980) + 3 * Math.sin(x / 9), 978, 1130, 3).concat([[1130, 336], [978, 352]]),
+      keep: [[1012, 306], [1012, 262], [1018, 258], [1020, 263], [1027, 262], [1029, 256], [1037, 257], [1039, 264], [1046, 266], [1046, 306]],
+      round: spline([[1084, 312], [1084, 284], [1090, 279], [1096, 283], [1101, 278], [1106, 282], [1106, 314]], true, 3),
+    };
+    reserve(4.97, [CASTLE.wall, CASTLE.keep, CASTLE.round], 'town');
+    const FORT = band((x) => tBot(x) - 3, (x) => tBot(x) + 15, 466, 1130, 6);
+    reserve(5.9, [FORT], 'town');
+    const CYP = [[620, 412, 36, 4.6], [609, 424, 26, 3.8], [962, 384, 32, 4.2], [494, 452, 26, 3.6], [884, 452, 22, 3.4], [760, 470, 18, 3]];
 
     /* ---- distant land */
     const midPoly = midR.concat([[640, 520], [-60, 520]]);
@@ -686,7 +710,7 @@
 
     /* ================================================================== PENCIL UNDERDRAWING */
     pen(() => { pencil(farR.filter((p, i) => i % 2 === 0), { a: 0.2, gap: 0.3 }); pencil(midR, { a: 0.16, gap: 0.4 }); pencil(crest, { a: 0.2, gap: 0.2 }); });
-    pen(() => { for (const b of TOWN) { outline(b.front, { a: 0.22, wob: 0.4, gap: 0.25 }); outline(b.sideP, { a: 0.16, wob: 0.4, gap: 0.4 }); if (b.gable) outline(b.gable, { a: 0.2, wob: 0.4 }); if (b.cap) outline(b.cap.concat([b.capSh[2]]), { a: 0.24, wob: 0.3 }); } });
+    pen(() => { for (const row of ROWS) for (const b of row) outline(b.front, { a: 0.18, wob: 0.4, gap: 0.35 }); outline(church.lower, { a: 0.26 }); outline(church.upper, { a: 0.26 }); pencil(church.dome, { a: 0.26 }); outline(tower.front, { a: 0.24 }); outline(CASTLE.keep, { a: 0.24 }); });
     pen(() => {
       for (const f of [W2, W3, W4, W5]) pencil(polyline(f, -20, 1100, 16), { a: 0.22, gap: 0.25 });
       pencil(polyline(FR, -20, 1100, 14), { a: 0.3 });
@@ -762,65 +786,104 @@
       c: { lin: [600, 380, 760, 640], stops: [[0, '#e6bd72'], [0.5, '#d2c474'], [1, '#a8bf5e']] }, a: 0.58, e: 0.25, depth: 4, wob: 1.4, gran: 0.2, flow: 0.35, holes: [zig],
       charges: [{ x: 780, y: 450, r: 160, c: '#c98a4a', a: 0.35 }, { x: 560, y: 530, r: 110, c: '#9fb860', a: 0.45 }, { x: 960, y: 530, r: 140, c: '#9fb860', a: 0.35 }],
     }));
+    // ---- the castle rock, the curtain wall and keep, the ruined round tower
     task(() => {
-      const rocks = [spline([[470, 462], [520, 452], [560, 434], [620, 450], [660, 464], [600, 474], [530, 470]], true, 4), spline([[700, 454], [760, 444], [830, 450], [860, 462], [790, 474], [720, 472]], true, 4), spline([[890, 446], [960, 450], [1010, 444], [1090, 450], [1120, 464], [1000, 474], [920, 470]], true, 4), spline([[980, 348], [1020, 338], [1070, 344], [1120, 354], [1120, 404], [1060, 400], [1000, 384]], true, 4)];
-      wash(rocks, { c: '#e2cfa6', a: 0.4, e: 0.35, depth: 4.4, gran: 0.3, flow: 0.3 });
-      wash([[[530, 470], [600, 474], [660, 464], [610, 478], [560, 478]], [[720, 472], [790, 474], [860, 462], [820, 480], [740, 482]], [[920, 470], [1000, 474], [1120, 464], [1120, 482], [960, 484]], [[1000, 384], [1060, 400], [1120, 404], [1120, 414], [1040, 412]], [[996, 360], [1010, 372], [1004, 384]]], { c: '#7e78a8', a: 0.5, e: 0.4, depth: 4.5, flow: 0.2 });
+      wash([CASTLE.rock], { c: { lin: [960, 300, 1100, 440], stops: [[0, '#e8d4a8'], [1, '#c8b08a']] }, a: 0.5, e: 0.4, depth: 4.95, gran: 0.4, flow: 0.4 });
+      const fis = []; for (let i = 0; i < 14; i++) { const x = R(968, 1120), y = R(330, 400); fis.push(limb([[x, y, 0.5], [x + R(-3, 3), y + R(10, 26), R(2, 4)], [x + R(-4, 4), y + R(24, 44), 0.5]])); }
+      wash(fis.concat([spline([[1060, 320], [1100, 318], [1130, 322], [1130, 430], [1090, 420], [1070, 380]], true, 3)]), { c: '#6a5c8c', a: 0.5, e: 0.4, depth: 4.96, flow: 0.3 });
+      wash([CASTLE.wall, CASTLE.keep, CASTLE.round], { c: '#e6d2a8', a: 0.38, e: 0.4, depth: 4.97, gran: 0.4, flow: 0.4, wob: 0.6 });
+      wash([[[1038, 266], [1046, 266], [1046, 306], [1038, 304]], spline([[1096, 283], [1101, 278], [1106, 282], [1106, 314], [1097, 312]], true, 2), [[1100, 320], [1130, 318], [1130, 336], [1100, 338]]], { c: '#6e6a9c', a: 0.6, e: 0.4, depth: 4.98, flow: 0.25 });
+      wash([[[1024, 272], [1026.5, 272], [1026.5, 284], [1024, 284]], [[1024, 290], [1026.5, 290], [1026.5, 298], [1024, 298]], [[1092, 292], [1094.5, 292], [1094.5, 300], [1092, 300]], spline([[1000, 340], [1000, 332], [1004, 328], [1008, 332], [1008, 340]], true, 2)], { c: '#2a2438', a: 0.85, e: 0.2, wob: 0.2, depth: 4.98, flow: 0 });
     });
-    // ---- the town itself
-    const LIT = ['#f2e0bb', '#efd3b0', '#f6ead4', '#ecd2a6', '#f1dccb', '#f5e6c6'];
-    task(() => {
-      // one warm glow over the whole sunlit town, then a few walls washed warmer or rosier
-      wash([].concat(...TOWN.map((b) => [b.front].concat(b.gable ? [b.gable] : []))), { c: '#f0dcb4', a: 0.26, e: 0.25, ew: 1.4, wob: 0.6, rough: 0.3, flow: 0.45, grad: 0.5, gradAngle: -0.4, gran: 0.1 });
-      for (const b of TOWN) {
-        if (rnd() < 0.55 && b.kind !== 'tower') continue;
-        const lc = LIT[(rnd() * LIT.length) | 0], ins = R(0, 0.4) * b.w;
-        const f = rnd() < 0.5 ? [[b.x + ins, b.top], [b.x + b.w, b.top], [b.x + b.w, b.base], [b.x + ins, b.base]] : [[b.x, b.top], [b.x + b.w - ins, b.top], [b.x + b.w - ins, b.base], [b.x, b.base]];
-        wash([f], { c: lc, a: R(0.25, 0.45), e: 0.3, ew: 1.2, wob: 0.9, rough: 0.4, depth: b.depth, gran: 0.15, flow: 0.45, grad: 0.5 });
-      }
+    // ---- the town: rows of houses climbing the hill, back to front
+    task(() => wash([].concat(...ROWS.map((row) => row.map((b) => b.front))).concat([church.lower, church.upper, tower.front]), { c: '#f0dcb0', a: 0.2, e: 0.2, ew: 1.4, wob: 0.6, rough: 0.3, flow: 0.45, grad: 0.5, gradAngle: -0.4, gran: 0.1 }));
+    task(() => { // the stepped street
+      const [[ax, ay], [bx, by]] = ALLEY, st = [];
+      for (let k = 0; k < 18; k++) { const t = k / 17, x = lerp(ax, bx, t), y = lerp(ay, by, t); st.push([[x - 7, y], [x + 7, y - 0.5], [x + 7, y + 1.6], [x - 7, y + 2]]); }
+      wash(st, { c: '#7a74a6', a: 0.6, e: 0.2, wob: 0.3, depth: 4.99, flow: 0.2 });
+      wash([limb([[ax + 9, ay, 4], [bx + 9, by, 3]])], { c: '#7a74a6', a: 0.45, e: 0.3, depth: 4.99, flow: 0.3 });
     });
-    task(() => {
-      for (const b of TOWN) {
-        wash([b.sideP], { c: '#7f82b8', a: R(0.45, 0.6), e: 0.45, ew: 1.2, wob: 0.6, rough: 0.3, depth: b.depth + 0.0001, flow: 0.3, grad: 0.45, gradAngle: Math.PI / 2 });
-        if (b.roof) wash([b.roof], { c: rnd() < 0.3 ? '#b8664a' : '#cc7a50', a: R(0.55, 0.72), e: 0.35, ew: 1.2, wob: 0.3, rough: 0.12, depth: b.depth + 0.0002, gran: 0.3, flow: 0.25 });
-        if (b.roofSide) {
-          wash([b.roofSide], { c: '#b65d3a', a: 0.78, e: 0.35, ew: 1.2, wob: 0.25, rough: 0.12, depth: b.depth + 0.0002, gran: 0.3, flow: 0.25 });
-          const g = b.gable; wash([limb([[g[0][0], g[0][1], 2.6], [g[1][0], g[1][1] - 0.5, 2.6]]), limb([[g[1][0], g[1][1] - 0.5, 2.6], [g[2][0] + 0.5, g[2][1], 2.6]])], { c: '#c0623a', a: 0.85, e: 0.2, wob: 0.15, rough: 0.05, flow: 0.1 });
+    ROWS.forEach((row, r) => task(() => {
+      const d = 5 + r * 0.1;
+      if (row.length) {
+        for (let ci = 0; ci < WALLC.length; ci++) { const hs = row.filter((b) => b.col === ci); if (hs.length) wash(hs.map((b) => b.front), { c: WALLC[ci], a: hs.reduce((s2, b) => s2 + b.a, 0) / hs.length, e: 0.35, ew: 1.1, wob: 0.6, rough: 0.3, depth: d, gran: 0.25, flow: 0.4, grad: 0.4 }); }
+        wash(row.filter((b) => b.side).map((b) => b.side), { c: '#7476b2', a: 0.62, e: 0.45, ew: 1, wob: 0.4, rough: 0.2, depth: d, flow: 0.3, grad: 0.4, gradAngle: Math.PI / 2 });
+        for (let rc = 0; rc < 2; rc++) wash(row.filter((b) => b.roofC === rc && !b.flat).map((b) => b.roof), { c: rc ? '#a85236' : '#c8704a', a: 0.82, e: 0.4, ew: 1, wob: 0.3, rough: 0.15, depth: d, gran: 0.3, flow: 0.25 });
+        wash(row.filter((b) => b.flat).map((b) => b.roof), { c: '#9a8a7a', a: 0.5, e: 0.3, wob: 0.2, depth: d, flow: 0.2 });
+        // eave shadows and shadows cast by taller neighbours
+        const sh = [];
+        for (const b of row) {
+          if (!b.flat) sh.push([[b.x, b.top + 0.8], [b.x + b.w, b.top + 0.8], [b.x + b.w, b.top + 3], [b.x, b.top + 3.4]]);
+          if (rnd() < 0.35) { const dx = R(5, 12), dy = R(8, 18); sh.push([[b.x, b.top + 1], [b.x + dx, b.top + 1], [b.x, b.top + dy]]); }
         }
-        if (b.cap) { wash([b.cap], { c: '#d0743e', a: 0.8, e: 0.35, wob: 0.2, rough: 0.1, depth: b.depth + 0.0002, flow: 0.2 }); wash([b.capSh], { c: '#8e4232', a: 0.85, e: 0.35, wob: 0.2, rough: 0.1, depth: b.depth + 0.0002, flow: 0.1 }); }
-      }
-    });
-    task(() => {
-      for (const b of TOWN) {
-        const { x, w, top, base } = b, ops = [];
-        if (b.kind !== 'tower' && b.kind !== 'keep') ops.push([[x, top + 0.8], [x + w, top + 0.8], [x + w, top + 3.2], [x, top + 3.6]]);
-        if (b.kind === 'tower') {
-          for (const yy of [top + 12, top + 52]) for (const xx of [x + 6, x + 17]) ops.push(spline([[xx, yy + 18], [xx, yy + 4], [xx + 3.5, yy], [xx + 7, yy + 4], [xx + 7, yy + 18]], true, 3));
-          ops.push([[x - 1, top + 36], [x + w + 1, top + 36], [x + w + 1, top + 38.5], [x - 1, top + 38.5]]);
-          ops.push([[x + 12, top + 110], [x + 16, top + 110], [x + 16, top + 117], [x + 12, top + 117]]);
-        } else if (b.kind === 'church') {
-          ops.push(ell(x + w / 2, top + 8, 5, 5, 0, 16));
-          ops.push(spline([[x + w / 2 - 7, base], [x + w / 2 - 7, base - 20], [x + w / 2, base - 27], [x + w / 2 + 7, base - 20], [x + w / 2 + 7, base]], true, 3));
-        } else if (b.kind === 'keep') {
-          ops.push([[x + 11, top + 14], [x + 16, top + 14], [x + 16, top + 22], [x + 11, top + 22]]);
-          for (let k = 0; k < 4; k++) ops.push([[x + k * 8, top - 6], [x + k * 8 + 4.5, top - 6], [x + k * 8 + 4.5, top], [x + k * 8, top]]);
-        } else {
-          const nwin = Math.max(1, Math.floor(w / 18));
-          for (let k = 0; k < nwin; k++) {
-            if (rnd() < 0.5) continue;
-            const wx = x + (w / (nwin + 1)) * (k + 1) - 2 + R(-2, 2), wy = top + R(8, 12);
-            ops.push([[wx, wy], [wx + 3.6, wy], [wx + 3.6, wy + 5.5], [wx, wy + 5.5]]);
-            if (base - top > 34 && rnd() < 0.5) ops.push([[wx, wy + 16], [wx + 3.6, wy + 16], [wx + 3.6, wy + 21.5], [wx, wy + 21.5]]);
+        wash(sh, { c: '#6e6ca8', a: 0.5, e: 0.3, wob: 0.25, depth: d, flow: 0.2 });
+        // windows, shutters, arched doors, balconies, laundry strung across the lanes
+        const win = [], shut = [], bal = [], lau = [];
+        row.forEach((b, i) => {
+          const floors = Math.max(1, Math.floor((b.base - b.top) / 11));
+          for (let f = 0; f < floors; f++) {
+            const n = Math.max(1, Math.floor(b.w / 11)), fy = b.top + 5 + f * 11;
+            for (let k = 0; k < n; k++) {
+              if (rnd() < 0.3) continue;
+              const wx = b.x + (b.w / (n + 1)) * (k + 1) - 1.4 + R(-1, 1);
+              if (f === floors - 1 && rnd() < 0.4) { win.push(spline([[wx - 0.6, b.base], [wx - 0.6, b.base - 6], [wx + 1.5, b.base - 8], [wx + 3.6, b.base - 6], [wx + 3.6, b.base]], true, 2)); continue; }
+              win.push([[wx, fy], [wx + 2.8, fy], [wx + 2.8, fy + 4.2], [wx, fy + 4.2]]);
+              if (rnd() < 0.3) shut.push([[wx - 1.6, fy], [wx - 0.4, fy], [wx - 0.4, fy + 4.2], [wx - 1.6, fy + 4.2]], [[wx + 3.2, fy], [wx + 4.4, fy], [wx + 4.4, fy + 4.2], [wx + 3.2, fy + 4.2]]);
+              if (f < floors - 1 && rnd() < 0.18) { bal.push([[wx - 2.5, fy + 4.6], [wx + 5.3, fy + 4.6], [wx + 5.3, fy + 5.6], [wx - 2.5, fy + 5.6]]); for (let q = 0; q < 4; q++) bal.push([[wx - 2 + q * 2.2, fy + 2.4], [wx - 1.5 + q * 2.2, fy + 2.4], [wx - 1.5 + q * 2.2, fy + 4.6], [wx - 2 + q * 2.2, fy + 4.6]]); }
+            }
           }
-          if (rnd() < 0.5) { const dx = x + R(4, w - 10); ops.push([[dx, base - 11], [dx + 5, base - 11], [dx + 5, base], [dx, base]]); }
-        }
-        wash(ops, { c: '#4a4466', a: 0.58, e: 0.25, ew: 0.8, wob: 0.5, rough: 0.35, flow: 0.25, grad: 0.4 });
+          const nb = row[i + 1];
+          if (r >= 2 && nb && rnd() < 0.22) {
+            const x0 = b.x + b.w - 4, y0 = b.top + 8, x1 = nb.x + 4, y1 = nb.top + 9;
+            if (x1 - x0 > 6 && x1 - x0 < 40) {
+              bal.push(limb([[x0, y0, 0.4], [(x0 + x1) / 2, (y0 + y1) / 2 + 2.5, 0.4], [x1, y1, 0.4]]));
+              for (let q = 1; q < 4; q++) { const t = q / 4, lx = lerp(x0, x1, t), ly = lerp(y0, y1, t) + 2.5 * Math.sin(t * Math.PI); lau.push({ p: [[lx - 1.2, ly], [lx + 1.2, ly], [lx + 1.2, ly + R(2.5, 4)], [lx - 1.2, ly + R(2.5, 4)]], c: ['#f4f0e6', '#86aed4', '#cc4a3a', '#e8c25a'][(rnd() * 4) | 0] }); }
+            }
+          }
+        });
+        wash(win, { c: '#2a2438', a: 0.82, e: 0.25, ew: 0.6, wob: 0.3, rough: 0.2, depth: d, flow: 0.15 });
+        wash(shut, { c: '#4f7a62', a: 0.7, e: 0.2, wob: 0.2, depth: d, flow: 0.1 });
+        wash(bal, { c: '#3a3040', a: 0.75, e: 0, wob: 0.1, rough: 0, depth: d, flow: 0 });
+        for (const L of lau) wash([L.p], { c: L.c, a: L.c === '#f4f0e6' ? 0.2 : 0.8, e: 0.4, wob: 0.1, rough: 0, depth: d, flow: 0 });
       }
-      wash([[[676, 388], [690, 388], [676, 404]], [[744, 344], [760, 344], [744, 366]], [[912, 384], [925, 384], [912, 397]], [[598, 430], [614, 430], [598, 444]]], { c: '#7377b4', a: 0.4, e: 0.3, wob: 0.2, flow: 0.1 });
-      const tw = TOWN.find((b) => b.kind === 'tower'), cx = tw.cap[1][0], cy = tw.cap[1][1];
-      wash([limb([[cx, cy + 1, 1.2], [cx, cy - 12, 1.2]]), limb([[cx - 3.5, cy - 8, 1.1], [cx + 3.5, cy - 8, 1.1]])], { c: '#3a3452', a: 0.8, e: 0, wob: 0, flow: 0 });
-      // two dark cypresses by the church
-      wash([spline([[640, 400], [636, 380], [639, 358], [642, 350], [645, 360], [647, 382], [645, 400]], true, 4), spline([[656, 402], [653, 386], [656, 368], [658, 362], [661, 372], [662, 388], [660, 402]], true, 4)], { c: '#2c4636', a: 0.85, e: 0.35, wob: 0.4, depth: 5.35, flow: 0.15 });
+      if (r === 1) { // the church and its campanile stand among the second row
+        wash([church.lower, church.upper], { c: '#efd8a8', a: 0.4, e: 0.4, ew: 1, wob: 0.4, depth: 5.15, gran: 0.3, flow: 0.35 });
+        wash([church.drum, church.dome], { c: { lin: [CH.x + 12, 0, CH.x + 46, 0], stops: [[0, '#8fb4a2'], [0.55, '#5e8e84'], [1, '#2f5856']] }, a: 0.85, e: 0.4, wob: 0.3, depth: 5.15, flow: 0.25 });
+        const ribs = []; for (let k = 0; k < 5; k++) { const x = CH.x + 18 + k * 5.5; ribs.push(limb([[x, CH.top - 16, 0.7], [lerp(x, CH.x + 29, 0.6), CH.top - 31, 0.6], [CH.x + 29, CH.top - 35, 0.4]])); }
+        wash(ribs, { c: '#d8b04a', a: 0.7, e: 0, wob: 0, depth: 5.15, flow: 0 });
+        wash([church.lantern], { c: '#e6d0a0', a: 0.5, e: 0.4, depth: 5.15, flow: 0 });
+        const X = CH.x, T = CH.top, Bs = CH.base, det = [];
+        det.push([[X - 1, T + 35], [X + CH.w + 1, T + 35], [X + CH.w + 1, T + 38], [X - 1, T + 38]]);
+        for (const px of [X + 2, X + 14, X + CH.w - 17, X + CH.w - 5]) det.push([[px, T + 39], [px + 3, T + 39], [px + 3, Bs], [px, Bs]]);
+        for (const px of [X + 15, X + CH.w - 18]) det.push([[px, T + 9], [px + 2.4, T + 9], [px + 2.4, T + 34], [px, T + 34]]);
+        det.push(limb([[X + 13, T + 8, 1.6], [X + CH.w / 2, T - 3, 1.6], [X + CH.w - 13, T + 8, 1.6]]));
+        wash(det, { c: '#9a90b0', a: 0.55, e: 0.3, wob: 0.25, depth: 5.15, flow: 0.2 });
+        wash([spline([[X + 23, Bs], [X + 23, Bs - 18], [X + 29, Bs - 25], [X + 35, Bs - 18], [X + 35, Bs]], true, 3), ell(X + 29, T + 20, 4.4, 4.4, 0, 16), spline([[X + 6, T + 62], [X + 6, T + 50], [X + 8, T + 47], [X + 10, T + 50], [X + 10, T + 62]], true, 2), spline([[X + CH.w - 10, T + 62], [X + CH.w - 10, T + 50], [X + CH.w - 8, T + 47], [X + CH.w - 6, T + 50], [X + CH.w - 6, T + 62]], true, 2)], { c: '#2a2438', a: 0.84, e: 0.25, wob: 0.25, depth: 5.15, flow: 0.1 });
+        wash([[[X + CH.w - 2, T + 37], [X + CH.w + 7, T + 39], [X + CH.w + 7, Bs], [X + CH.w - 2, Bs]], [[X + CH.w - 13, T + 8], [X + CH.w - 8, T + 34], [X + CH.w - 2, T + 37], [X + CH.w - 13, T + 34]]], { c: '#7476b2', a: 0.55, e: 0.4, depth: 5.15, flow: 0.3 });
+        wash([tower.front], { c: '#f2e2bc', a: 0.32, e: 0.35, wob: 0.4, depth: 5.16, gran: 0.25, flow: 0.4 });
+        wash([tower.side], { c: '#7476b2', a: 0.6, e: 0.45, wob: 0.3, depth: 5.16, flow: 0.3, grad: 0.4, gradAngle: Math.PI / 2 });
+        wash([tower.cap], { c: '#d0743e', a: 0.82, e: 0.35, wob: 0.2, depth: 5.16, flow: 0.2 }); wash([tower.capSh], { c: '#8e4232', a: 0.86, e: 0.35, wob: 0.2, depth: 5.16, flow: 0.1 });
+        const to = [], x = TW.x, top = TW.top;
+        for (const yy of [top + 12, top + 52]) for (const xx of [x + 6, x + 16]) to.push(spline([[xx, yy + 18], [xx, yy + 4], [xx + 3.2, yy], [xx + 6.4, yy + 4], [xx + 6.4, yy + 18]], true, 3));
+        to.push([[x - 1.5, top + 36], [x + TW.w + 1.5, top + 36], [x + TW.w + 1.5, top + 39], [x - 1.5, top + 39]], [[x - 1.5, top + 76], [x + TW.w + 1.5, top + 76], [x + TW.w + 1.5, top + 79], [x - 1.5, top + 79]]);
+        to.push([[x + 12, top + 110], [x + 15.5, top + 110], [x + 15.5, top + 118], [x + 12, top + 118]], [[x + 12, top + 140], [x + 15.5, top + 140], [x + 15.5, top + 148], [x + 12, top + 148]]);
+        wash(to, { c: '#2a2438', a: 0.82, e: 0.25, wob: 0.25, depth: 5.16, flow: 0.1 });
+        wash([ell(x + 9.2, top + 24, 2, 3, 0, 10), ell(x + 19.2, top + 24, 2, 3, 0, 10)], { c: '#b8862e', a: 0.85, e: 0, wob: 0, flow: 0 });
+        const cx = tower.cap[1][0], cy = tower.cap[1][1];
+        wash([limb([[cx, cy + 1, 1.2], [cx, cy - 12, 1.2]]), limb([[cx - 3.5, cy - 8, 1.1], [cx + 3.5, cy - 8, 1.1]])], { c: '#3a3452', a: 0.8, e: 0, wob: 0, flow: 0 });
+      }
+    }));
+    // ---- the town wall built into the rock, the rock below it, cypresses
+    task(() => {
+      const rocks = []; for (let x = 470; x < 1120; x += R(30, 70)) { const y = tBot(x) + 14; rocks.push(spline([[x, y], [x + R(20, 40), y - 2], [x + R(30, 60), y + R(10, 24)], [x + R(10, 30), y + R(16, 30)], [x - R(4, 12), y + R(8, 16)]], true, 3)); }
+      wash(rocks, { c: '#e0caa0', a: 0.45, e: 0.4, depth: 4.4, gran: 0.4, flow: 0.4 });
+      wash(rocks.map((p) => p.map((q) => [q[0] + 4, q[1] + 3])), { c: '#6e6496', a: 0.45, e: 0.35, depth: 4.45, flow: 0.3, holes: rocks });
+      wash([FORT], { c: { lin: [0, 460, 0, 500], stops: [[0, '#ead6aa'], [1, '#d4bc8e']] }, a: 0.42, e: 0.4, depth: 5.9, gran: 0.45, flow: 0.4, wob: 0.8 });
+      const j = []; for (let x = 470; x < 1120; x += R(8, 20)) { const y = tBot(x) + R(1, 12); j.push([[x, y], [x + R(4, 9), y - 0.4], [x + R(3, 7), y + 1.4]]); }
+      const butt = []; for (const x of [540, 700, 860, 1010]) butt.push([[x, tBot(x) - 3], [x + 7, tBot(x) - 3], [x + 12, tBot(x) + 15], [x + 7, tBot(x) + 15]]);
+      wash(j.concat(butt), { c: '#6a5c80', a: 0.55, e: 0.2, wob: 0.3, depth: 5.91, flow: 0.3 });
+      wash([band((x) => tBot(x) - 3, (x) => tBot(x) - 0.5, 466, 1130, 6)], { c: '#6e6496', a: 0.55, e: 0.3, depth: 5.92, flow: 0.3 });
+      wash(CYP.map(([x, y, h, w]) => spline([[x - w * 0.6, y], [x - w, y - h * 0.35], [x - w * 0.5, y - h * 0.8], [x, y - h], [x + w * 0.5, y - h * 0.75], [x + w, y - h * 0.3], [x + w * 0.5, y]], true, 4)), { c: { lin: [0, 360, 40, 470], stops: [[0, '#2a4a36'], [1, '#1a3226']] }, a: 0.88, e: 0.4, wob: 0.4, rough: 0.3, depth: 5.95, flow: 0.2 });
     });
     // ---- terraces on the upper hillside with rows of olives; the mule track zig-zags up to the town
     task(() => {
