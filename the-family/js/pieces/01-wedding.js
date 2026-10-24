@@ -25,6 +25,7 @@
   const TAU = Math.PI * 2, D2R = Math.PI / 180;
   // the Don and his chair are drawn a little larger than the room's strict perspective (he is the subject)
   const DONM = new DOMMatrix().translate(645, 712).scale(1.25).translate(-625, -712);
+  const HEADM = DONM.multiply(new DOMMatrix().translate(624, 547).scale(1.1).translate(-624, -547)); // the head, a touch larger again
 
   /* ------------------------------------------------------------------ small utilities */
   function mulberry32(a) {
@@ -247,7 +248,7 @@
     const t0 = performance.now();
     lightImpl(D, o);
     const dt = performance.now() - t0;
-    if (DEBUG && dt > 120) console.warn('slow light', Math.round(dt), D.at, JSON.stringify(o.bb));
+    if (DEBUG && dt > 120) console.warn('slow light', Math.round(dt), D.at, JSON.stringify(o.bb), JSON.stringify(o.mask.bb), !!o.soft, !!o.bars);
   }
   const DEBUG = /[?&]debug/.test(location.search);
   function lightImpl(D, o) {
@@ -358,7 +359,7 @@
     for (let j = 1; j < sh - 1; j++) for (let i = 1; i < sw - 1; i++) {
       if (i === 1 && j % 60 === 59) await D.tick();
       const k = j * sw + i, m = ma[k * 4 + 3] / 255;
-      if (m <= 0) continue;
+      if (m <= 0 && !o.blur) continue;
       const zx = (Z[k + 1] - Z[k - 1]) / (2 * lu), zy = (Z[k + sw] - Z[k - sw]) / (2 * lu);
       const nl = Math.hypot(zx, zy, 1), nx = -zx / nl, ny = -zy / nl, nz = 1 / nl;
       let shade = Math.max(0, nx * Lx + ny * Ly + nz * Lz);
@@ -376,7 +377,7 @@
       const x = ((sx + i + 0.5) / S - G.e) / G.a, y = ((sy + j + 0.5) / S - G.f) / G.d;
       let b = 1;
       if (bar) {
-        const u = ((x * bnx + y * bny - bar.phase) % bar.per + bar.per) % bar.per, w = bar.per * bar.duty, e = 0.55;
+        const u = ((x * bnx + y * bny - bar.phase) % bar.per + bar.per) % bar.per, w = bar.per * bar.duty, e = bar.soft || 0.55;
         b = u < w ? Math.min(1, u / e, (w - u) / e) : 0;
         b = Math.max(0, Math.min(1, b));
         b = (bar.min || 0) + (1 - (bar.min || 0)) * b;
@@ -386,14 +387,32 @@
       const amb = Math.max(0, nx * A[0] + ny * A[1] + nz * A[2]);
       const v = (o.floor || 0.03) + 0.95 * direct + (o.amb === undefined ? 0.1 : o.amb) * amb * (0.6 + 0.4 * shade);
       const dens = Math.min(o.dark || 0.95, Math.max(0.03, 1 - v));
-      dc.data[k * 4 + 3] = dens * 255 * m; DEN[k] = dens;
+      dc.data[k * 4 + 3] = dens * 255; DEN[k] = dens;
       const ch = Math.max(0, Math.min(0.85, (direct - (o.chalkFrom || 0.6)) * 2.2));
-      dk.data[k * 4 + 0] = dk.data[k * 4 + 1] = dk.data[k * 4 + 2] = 255; dk.data[k * 4 + 3] = ch * 255 * m;
+      dk.data[k * 4 + 0] = dk.data[k * 4 + 1] = dk.data[k * 4 + 2] = 255; dk.data[k * 4 + 3] = ch * 255;
     }
     ic.putImageData(dc, 0, 0); ik.putImageData(dk, 0, 0);
-    // replace what was there inside the mask
-    for (const c of [D.C, D.K]) { c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000'; c.fill(o.mask); c.restore(); }
-    for (const [c, src] of [[D.C, ic], [D.K, ik]]) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src.canvas, sx, sy); c.restore(); }
+    // mix the modelled form into what was drawn before, through a (softened) mask: a stumped edge with no seam
+    const soften = (src) => {
+      if (!o.blur) return src.getImageData(0, 0, sw, sh).data;
+      const t = mk(); t.filter = `blur(${(o.blur * S).toFixed(2)}px)`; t.drawImage(src.canvas, 0, 0);
+      return t.getImageData(0, 0, sw, sh).data;
+    };
+    const mm = mk(); mm.setTransform(S * G.a, 0, 0, S * G.d, S * G.e - sx, S * G.f - sy); mm.fillStyle = '#fff';
+    if (o.blur) mm.filter = `blur(${(o.blur * S * 0.8).toFixed(2)}px)`;
+    mm.fill(o.mask);
+    const mb = mm.getImageData(0, 0, sw, sh).data, rc = soften(ic), rk = soften(ik);
+    for (const [c, rd, rgb] of [[D.C, rc, 0], [D.K, rk, 255]]) {
+      const old = c.getImageData(sx, sy, sw, sh), od = old.data;
+      for (let q = 3; q < od.length; q += 4) {
+        const m = mb[q] / 255;
+        if (m <= 0) continue;
+        od[q] = od[q] * (1 - m) + rd[q] * m; od[q - 1] = od[q - 2] = od[q - 3] = rgb;
+      }
+      const t = mk(); t.putImageData(old, 0, 0);
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0); const cl = new Path2D(); cl.rect(sx, sy, sw, sh); c.clip(cl);
+      c.globalCompositeOperation = 'copy'; c.drawImage(t.canvas, sx, sy); c.restore();
+    }
     if (o.outline) line(D, o.mask, o.outline, 0.6, null, 0.4); // the drawn contour closes the form
     // a sampler of the modelled density in local coordinates, so that hatching can follow the shading
     return (x, y) => {
@@ -716,10 +735,11 @@
     tone(D, pfFace, 0.26); for (let x = 102; x < 344; x += 7) line(D, seg(x, 584, x, 594), 0.35, 0.3);
     tone(D, ell(221, 596, 128, 4), 0.14, 1.5);
     // dancers: the back row smaller, the front row larger
-    const back = [[140, 557, 50], [190, 556, 51], [244, 557, 50], [296, 556, 49]];
+    // the dancers in clusters, overlapping, not in rows
+    const back = [[128, 556, 49], [160, 559, 52], [236, 555, 48], [262, 558, 51], [312, 556, 47]];
     back.forEach(([x, y, h], i) => gCouple(D, x + (r() - 0.5) * 6, y, h, { dir: i % 2 ? -1 : 1, suit: 0.22 + r() * 0.32, dress: 0.03 + r() * 0.2, dots: r() < 0.35, swing: 0.1 + r() * 0.08, tilt: (i % 2 ? 1 : -1) * (2 + r() * 4), womanFront: r() < 0.5 }));
-    const front = [[126, 580, 70], [212, 581, 72], [292, 580, 69]];
-    front.forEach(([x, y, h], i) => gCouple(D, x + (r() - 0.5) * 5, y, h, { dir: i % 2 ? -1 : 1, suit: [0.55, 0.12, 0.46][i], dress: [0.04, 0.24, 0.1][i], dots: i === 1 || r() < 0.3, swing: 0.14 + r() * 0.06, tilt: [-5, 4, -3][i] + (r() - 0.5) * 2, womanFront: i % 2 === 0, hairT: 0.55 }));
+    const front = [[118, 579, 68], [204, 583, 74], [234, 577, 64]];
+    front.forEach(([x, y, h], i) => gCouple(D, x + (r() - 0.5) * 5, y, h, { suit: [0.55, 0.12, 0.46][i], dress: [0.04, 0.24, 0.1][i], dir: [1, -1, 1][i], dots: i === 1 || r() < 0.3, swing: 0.14 + r() * 0.06, tilt: [-5, 4, -3][i] + (r() - 0.5) * 2, womanFront: i % 2 === 0, hairT: 0.55 }));
     // a long table with a white cloth, guests seated at it, wine and bread
     for (let i = 0; i < 5; i++) gMan(D, 108 + i * 30 + (r() - 0.5) * 6, 640, 56, { suit: 0.38 + r() * 0.14, seated: true, dir: r() < 0.5 ? 1 : -1, arms: [[[-0.16, 0.18], [-0.08, 0.3]], [[0.16, 0.18], [0.08, 0.3]]] });
     const tbl = poly([[96, 612], [252, 612], [258, 622], [96, 622]]);
@@ -735,7 +755,9 @@
       else tone(D, rect(x - 1, 599, 2.2, 13), 0.55);
     }
     // guests standing about: women in summer dresses
+    gMan(D, 128, 603, 64, { suit: 0.5, dir: -1 });
     gWoman(D, 106, 604, 66, { dress: 0.14, dots: true, dir: 1 });
+    gWoman(D, 296, 600, 60, { dress: 0.2, dir: 1, hat: true });
     gMan(D, 318, 608, 68, { suit: 0.5, dir: -1, arms: [[[-0.15, 0.2], [-0.14, 0.37]], [[0.17, 0.12], [0.1, 0.02]]] });
     gWoman(D, 340, 610, 66, { dress: 0.03, dir: -1, hat: true });
     // children running across the grass
@@ -886,15 +908,16 @@
     const jamb = (X) => grad(X, 452, 0, 560, 0, [[0, 0], [1, 1]], W3); // the light thins out toward the window wall
     for (const [y0, y1] of [[30, 330], [330, 600], [600, 880]]) { // in bands, so the page never stalls
       const b2 = [456, y0, 900, y1], m2 = rect(456, y0, 362, y1 - y0);
-      light(D, { bb: b2, mask: m2, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.37 }); await D.tick();
-      if (y0 < 500) { light(D, { bb: b2, mask: m2, bars: bars(bb, 0), int: (X) => rgrad(X, 620, 160, 10, 230, [[0, 0.6], [1, 0]], W3), int2: jamb, chalk: 0.28 }); await D.tick(); }
+      light(D, { bb: b2, mask: m2, bars: bars(bb, 0, 50, 0.56), int: fall, int2: jamb, lift: 0.24, soft: 3 }); await D.tick();
+      if (y0 < 500) { light(D, { bb: b2, mask: m2, bars: bars(bb, 0, 50, 0.56), int: (X) => rgrad(X, 620, 160, 10, 230, [[0, 0.6], [1, 0]], W3), int2: jamb, chalk: 0.12, soft: 3 }); await D.tick(); }
     }
-    light(D, { bb, mask: D.damask, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.14 }); await D.tick();
-    light(D, { bb, mask: D.corpus, bars: bars(bb, 0), chalk: 0.75, lift: 0.5 });
-    light(D, { bb, mask: D.cross, bars: bars(bb, 0), lift: 0.35 });
-    light(D, { bb, mask: D.saint, bars: bars(bb, 0), int: fall, lift: 0.4 }); await D.tick();
-    light(D, { bb, mask: D.shutterR, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.4, chalk: 0.1 });
-    light(D, { bb, mask: D.books, bars: bars(bb, 0), lift: 0.45, int: (X) => rgrad(X, 818, 200, 10, 230, [[0, 1], [1, 0]], W3) });
+    light(D, { bb, mask: D.damask, bars: bars(bb, 0, 50, 0.56), int: fall, int2: jamb, lift: 0.1, soft: 2 }); await D.tick();
+    const wb = bars(bb, 0, 50, 0.56);
+    light(D, { bb, mask: D.corpus, bars: wb, chalk: 0.6, lift: 0.45, soft: 1.5 });
+    light(D, { bb, mask: D.cross, bars: wb, lift: 0.25, soft: 1.5 });
+    light(D, { bb, mask: D.saint, bars: wb, int: fall, lift: 0.28, soft: 1.5 }); await D.tick();
+    light(D, { bb, mask: D.shutterR, bars: wb, int: fall, int2: jamb, lift: 0.26, soft: 2 });
+    light(D, { bb, mask: D.books, bars: wb, lift: 0.3, soft: 2, int: (X) => rgrad(X, 818, 200, 10, 230, [[0, 1], [1, 0]], W3) });
   }
 
   /* ------------------------------------------------------------------ floor and rug */
@@ -1049,7 +1072,7 @@
     [600, 451, 15, 0.8, -1.3], [601, 455.5, 15, 0.8, -1.2], [602, 460, 13, 0.7, -0.9],                           // creases of the forehead
     [627, 474, 5, 0.6, -1.2, -0.4], [628, 478, 5, 0.6, -1.2, 0.15], [627, 482, 4, 0.6, -1, 0.5]];                 // crow's feet
   const headDome = (x, y) => { const dx = (x - 626) / 62, dy = (y - 496) / 64, r2 = dx * dx + dy * dy; return r2 < 1 ? 46 * Math.sqrt(1 - r2) : 0; };
-  const hairTex = (x, y) => 1.6 + 0.16 * Math.sin(((-0.3 * x + 0.95 * y) / 1.5) * TAU + Math.sin(x * 0.13) * 1.2);
+  const hairTex = (x, y) => 1.2 + 0.05 * Math.sin(((-0.3 * x + 0.95 * y) / 1.5) * TAU);
   const DON_EAR = cr([[640, 478], [647, 472], [655, 476], [657, 490], [653, 503], [646, 509], [641, 503], [643, 490]]);
   const DON_BODY = cr([
     [600, 540], [604, 551], [588, 557], [560, 566], [540, 578], [528, 598], [520, 630], [514, 670], [510, 712, 1], [742, 712, 1],
@@ -1081,6 +1104,8 @@
     D.lapL = lapL; D.shirt = shirt; D.collar = join(collarL, collarR);
     solid(D, DON_HEAD, 0.94);
     line(D, DON_BODY, 1.3, 0.75, null, 0.4);
+    solid(D, cr([[626, 534], [652, 522], [664, 518], [670, 552], [652, 560], [630, 556]]), 0.9, 1.5); // a thick neck, lost in shadow
+    setGroup(D, HEADM);
     lift(D, DON_HAIR, 0.14, 1.5);
     lift(D, DON_FRONT, 0.12, 3);
     tone(D, DON_EAR, 0.6); line(D, cr([[645, 482], [651, 480], [652, 492], [647, 501]], false), 0.9, 0.6);
@@ -1094,8 +1119,8 @@
     const shadowOnChair = holeOf(DON, 14, 9);
     const cb = [470, 320, 780, 712];
     const chairInt = (X) => grad(X, 480, 0, 640, 0, [[0, 1], [0.3, 0.5], [1, 0]], W3);
-    light(D, { bb: cb, mask: CHAIR, shadow: shadowOnChair, bars: bars(cb, 4), int: chairInt, lift: 0.3 }); await D.tick();
-    light(D, { bb: cb, mask: join(D.nails, D.chairBtn), shadow: shadowOnChair, bars: bars(cb, 4), int: chairInt, chalk: 0.8, lift: 0.5 });
+    light(D, { bb: cb, mask: CHAIR, shadow: shadowOnChair, bars: bars(cb, 4, 42, 0.56), int: chairInt, lift: 0.17, soft: 2.4 }); await D.tick();
+    light(D, { bb: cb, mask: join(D.nails, D.chairBtn), shadow: shadowOnChair, bars: bars(cb, 4, 42, 0.56), int: chairInt, chalk: 0.5, lift: 0.35, soft: 1 });
     setGroup(D, null);
   }
 
@@ -1105,12 +1130,15 @@
     // the face: lit plane first, then the hard bars across it, modelled from cheekbone and brow
     const fb = bars(bb, 1, 30, 0.58);
     // the head is modelled by the light itself
-    const hd = await relief(D, { mask: DON_HEAD, bb: [566, 436, 678, 554], base: headDome, bumps: HEAD_BUMPS, texMask: DON_HAIR, tex: hairTex, texAlbedo: 0.62,
-      bars: { ang: BAR.ang, per: 30, duty: 0.58, phase: 1, min: 0.2 }, light: [-0.86, -0.44, 0.34], shadowLen: 18, amb: 0.08, chalkFrom: 0.55, outline: 0.9 });
+    setGroup(D, HEADM);
+    // soft-edged bars that model rather than stripe: a bright band across brow and cheekbone, the rest in half-light
+    const hd = await relief(D, { mask: DON_HEAD, bb: [566, 436, 678, 554], base: headDome, bumps: HEAD_BUMPS, texMask: DON_HAIR, tex: hairTex, texAlbedo: 0.68,
+      bars: { ang: BAR.ang, per: 34, duty: 0.6, phase: 4, min: 0.34, soft: 2.6 }, light: [-0.82, -0.45, 0.42], shadowLen: 18, amb: 0.12, gain: 1.45, chalkFrom: 0.62, blur: 0.7 });
     await D.tick();
     // hatching follows the modelled shadow, as a draughtsman would put it in: one direction in the half-tone, a crossing in the dark
-    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: 62, sp: 1.9, w: 0.5, a: 0.3, jit: 0.3, step: 1.2, af: (x, y) => clamp((hd(x, y) - 0.35) * 1.8, 0, 1) });
-    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: -28, sp: 2.3, w: 0.45, a: 0.24, jit: 0.3, step: 1.2, af: (x, y) => clamp((hd(x, y) - 0.62) * 2.5, 0, 1) });
+    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: 62, sp: 2, w: 0.5, a: 0.2, jit: 0.3, step: 1.2, blur: 0.25, clip: rect(560, 430, 124, 130), af: (x, y) => clamp((hd(x, y) - 0.45) * 1.8, 0, 1) });
+    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: -28, sp: 2.4, w: 0.45, a: 0.16, jit: 0.3, step: 1.2, blur: 0.25, clip: rect(560, 430, 124, 130), af: (x, y) => clamp((hd(x, y) - 0.7) * 2.5, 0, 1) });
+    setGroup(D, DONM);
     const sb = bars(bb, 16, 30, 0.5);
     light(D, { bb, mask: D.lapL, bars: sb, int: (X) => grad(X, 570, 0, 620, 0, [[0, 0.8], [1, 0.25]], W3), lift: 0.24, soft: 0.5 });
     light(D, { bb, mask: cr([[540, 578], [566, 564], [590, 556], [575, 586], [548, 610], [528, 640], [522, 610], [530, 590]]), bars: sb, lift: 0.2, soft: 0.6 }); await D.tick();
@@ -1124,37 +1152,41 @@
   }
 
   function donFeatures(D) {
-    setGroup(D, DONM);
-    // a few accents drawn back into the modelled head: the slit of the hooded eyes, nostril, the long closed mouth
-    tone(D, cr([[604, 476.5], [612, 475], [620, 476.5], [612, 479]]), 0.75, 0.35);
-    tone(D, cr([[583, 476], [588, 475], [592, 477], [587, 479]]), 0.6, 0.4);
-    lift(D, ell(609.5, 476.6, 0.8, 0.6), 0.3);
-    line(D, cr([[602, 475], [611, 472.6], [623, 475]], false), 1.2, 0.5, null, 0.35);
-    line(D, cr([[582, 467], [591, 463.5], [600, 464.5]], false), 1.6, 0.4, null, 0.5);  // brows, thick and grey
-    line(D, cr([[604, 464], [615, 460.5], [628, 465]], false), 1.8, 0.45, null, 0.5);
-    line(D, cr([[578.5, 502], [583, 505], [589, 504.5]], false), 1, 0.6);
-    tone(D, ell(583.6, 503.4, 2.2, 1.1, 0.2), 0.8);
-    line(D, cr([[587, 515], [593, 516], [600, 517.6], [607, 522]], false), 1.2, 0.7);
-    line(D, cr([[604, 520], [608, 524.5]], false), 0.9, 0.4);
-    line(D, cr([[595, 502], [600, 509], [603, 519], [605, 529]], false), 0.9, 0.22, null, 0.5);
-    eraseLine(D, cr([[580, 458], [579, 467], [581, 473], [578, 481], [575.5, 489], [573.5, 497]], false), 0.8, 0.22, 0.3);
-    // grey hair combed straight back: a few long strokes on the relief
-    const hl = new Path2D(), r = D.r;
-    for (let i = 0; i < 18; i++) {
-      const t = i / 17, y = 450 + t * 38 + (r() - 0.5) * 2, x0 = 594 + t * 42 + r() * 4;
-      hl.moveTo(x0, y + 3 - t * 2); hl.quadraticCurveTo(x0 + 22 - t * 10, y - 3, 668 - t * 6, y + 6 + t * 6);
+    setGroup(D, HEADM);
+    // decisive darks pressed back into the stumped form
+    tone(D, cr([[584, 467], [597, 463], [613, 464], [627, 470], [625, 482], [612, 479], [598, 481], [586, 479]]), 0.42, 1.6); // deep sockets under the brow
+    tone(D, cr([[603, 476], [612, 474.5], [621, 476.5], [612, 479.5]]), 0.85, 0.5);      // the near eye, a heavy-lidded slit
+    tone(D, cr([[583, 476], [588, 475], [592, 477], [587, 479]]), 0.7, 0.5);             // the far eye behind the nose
+    lift(D, ell(609.5, 476.8, 0.8, 0.6), 0.3);
+    line(D, cr([[601, 475.5], [611, 472.4], [624, 475]], false), 1.6, 0.62, null, 0.5);  // the heavy upper lid
+    line(D, cr([[603, 486], [613, 489.5], [624, 486]], false), 0.9, 0.3, null, 0.7);     // the bag beneath it
+    line(D, cr([[581, 466.5], [590, 462.5], [600, 463.5]], false), 2.6, 0.5, null, 0.9); // heavy brows
+    line(D, cr([[603, 463.5], [615, 459.5], [629, 464.5]], false), 2.8, 0.55, null, 0.9);
+    line(D, cr([[578.5, 502], [583, 505.2], [589.5, 504.6]], false), 1.2, 0.7);          // the nostril wing of a strong nose
+    tone(D, ell(583.6, 503.4, 2.2, 1.1, 0.2), 0.85);
+    line(D, cr([[593, 501], [599, 508], [602, 517]], false), 1.8, 0.2, null, 1); // the nasolabial fold
+    line(D, cr([[612, 520], [616, 531], [621, 543]], false), 1.6, 0.24, null, 0.9);      // jowl
+    line(D, cr([[587, 515], [593, 516], [600, 517.8], [607, 522.5]], false), 1.4, 0.8);  // the long closed mouth
+    line(D, cr([[604, 520.5], [609, 525]], false), 1, 0.45);
+    // the ear, deep in the shadow side: only its rim is found
+    eraseLine(D, cr([[641, 480], [648, 474], [655, 479], [657, 491], [653, 503], [646, 508]], false), 0.9, 0.16, 0.5);
+    // the contour is found on the lit side only: brow, nose, lips, chin
+    eraseLine(D, cr([[580, 458], [579, 467], [581, 473], [578, 481], [575.5, 489], [573.5, 497]], false), 0.8, 0.25, 0.3);
+    line(D, cr([[579, 467], [581, 473], [578, 481], [575, 489], [573, 497], [578, 502]], false), 0.6, 0.35, null, 0.3);
+    // thinning grey hair swept straight back: soft strokes with the scalp between them, not a cap
+    const r = D.r, soft = new Path2D(), silver = new Path2D();
+    for (let i = 0; i < 34; i++) {
+      const t = r(), y = 447 + t * 42 + (r() - 0.5) * 3, x0 = 588 + t * 46 + r() * 6, len = 0.55 + r() * 0.45;
+      const p = r() < 0.5 ? soft : silver;
+      p.moveTo(x0, y + 2 - t * 2); p.quadraticCurveTo(x0 + 18 * len, y - 3.4, x0 + (66 - t * 34) * len, y + 4 + t * 6);
     }
-    D.C.save(); D.C.clip(DON_HAIR); line(D, hl, 0.45, 0.22); D.C.restore();
-    // silver where the bars cross the hair, and the roots darker along the hairline
-    const sil = new Path2D();
-    for (let i = 0; i < 26; i++) {
-      const t = i / 25, y = 449 + t * 40 + (r() - 0.5) * 2.5, x0 = 592 + t * 44 + r() * 5;
-      sil.moveTo(x0, y + 2 - t * 2); sil.quadraticCurveTo(x0 + 20 - t * 9, y - 3.6, 667 - t * 7, y + 5 + t * 6);
-    }
-    D.K.save(); D.K.clip(DON_HAIR); D.K.clip(bars([560, 430, 690, 560], 1, 30, 0.58));
-    D.K.lineWidth = 0.35; D.K.strokeStyle = wht(0.12); D.K.stroke(sil); D.K.restore();
-    D.C.save(); D.C.clip(DON_HAIR); eraseLine(D, sil, 0.55, 0.16); D.C.restore();
-    line(D, cr([[588, 452], [600, 454.5], [614, 455.5], [628, 460], [642, 469], [652, 482]], false), 1.6, 0.22, null, 1.2);
+    D.C.save(); D.C.clip(DON_HAIR);
+    line(D, soft, 0.8, 0.2, null, 0.5);
+    eraseLine(D, silver, 0.7, 0.22, 0.45);
+    D.C.restore();
+    D.K.save(); D.K.clip(DON_HAIR); D.K.filter = `blur(${(0.5 * D.S).toFixed(2)}px)`;
+    D.K.lineWidth = 0.6; D.K.strokeStyle = grad(D.K, 588, 0, 650, 0, [[0, 0.22], [1, 0]], W3); D.K.stroke(silver); D.K.restore();
+    tone(D, cr([[588, 452], [600, 455], [614, 456], [628, 460], [642, 469], [652, 482], [646, 484], [626, 464], [600, 458]]), 0.18, 1.6); // roots along the hairline
     setGroup(D, null);
   }
 
@@ -1307,17 +1339,15 @@
     if (r() < 0.5) ors.push([bx + 1, 652, 14.5]);
     const orP = new Path2D();
     ors.forEach(([x, y, rr]) => orP.addPath(ell(x, y, rr, rr * 0.97)));
-    for (const [x, y, rr] of ors) {
-      const o = ell(x, y, rr, rr * 0.97);
-      solid(D, o, 0.7);
-      lift(D, o, rgrad(C, x - rr * 0.4, y - rr * 0.45, rr * 0.05, rr * 1.1, [[0, 0.42], [0.6, 0.16], [1, 0]]));
-      line(D, o, 0.8, 0.7);
-      tone(D, ell(x + rr * 0.25, y - rr * 0.8, 1.6, 1.1), 0.9); // the stem end
-    }
-    solid(D, bowl, 0.55);
-    line(D, cr([[bx - 38, 716], [bx, 722], [bx + 38, 716]], false), 1, 0.45); // a painted band on the majolica
-    lift(D, cr([[bx - 42, 707], [bx + 42, 707], [bx + 40, 710], [bx - 40, 710]]), 0.6);
-    line(D, bowl, 0.9, 0.8);
+    solid(D, orP, 0.7); // modelled later as spheres, by the light
+    D.drawBowl = () => { // a dark glazed bowl
+      solid(D, bowl, 0.86);
+      line(D, cr([[bx - 38, 716], [bx, 722], [bx + 38, 716]], false), 1, 0.5);
+      eraseLine(D, cr([[bx - 37, 715], [bx, 721], [bx + 37, 715]], false), 0.6, 0.15);
+      lift(D, cr([[bx - 42, 707], [bx + 42, 707], [bx + 40, 710], [bx - 40, 710]]), 0.4);
+      line(D, bowl, 0.9, 0.85);
+    };
+    D.drawBowl();
     D.bowl = bowl; D.oranges = ors; D.orP = orP;
     const leaf = cr([[bx + 40, 704], [bx + 50, 697], [bx + 62, 699], [bx + 52, 707]]);
     tone(D, leaf, 0.7); line(D, seg(bx + 41, 704, bx + 60, 699), 0.5, 0.6);
@@ -1331,10 +1361,21 @@
     const bb = [500, 560, 1010, 760];
     const db = bars(bb, 12);
     const int = (X) => rgrad(X, 820, 680, 30, 320, [[0, 1], [0.7, 0.75], [1, 0.4]], W3);
-    for (const m of [D.orP, D.bowl, D.box]) light(D, { bb, mask: m, int, lift: 0.22, streak: false, soft: 1 });
+    light(D, { bb, mask: D.box, int, lift: 0.22, streak: false, soft: 1 });
     await D.tick();
-    light(D, { bb, mask: D.orP, bars: db, int, lift: 0.85, chalk: 0.55, soft: 0.4 }); await D.tick();
-    light(D, { bb, mask: D.bowl, bars: db, int, lift: 0.5, chalk: 0.3, soft: 0.4 });
+    // the oranges: spheres in charcoal, a dark side, a dimpled peel, the bars curving over them
+    const ors = D.oranges;
+    const domes = (x, y) => { let z = 0; for (const [ox, oy, rr] of ors) { const q = ((x - ox) ** 2 + ((y - oy) / 0.97) ** 2) / (rr * rr); if (q < 1) z = Math.max(z, rr * Math.sqrt(1 - q) + (oy < 680 ? 4 : 0)); } return z; };
+    const peel = (x, y) => 0.22 * Math.sin(x * 2.3 + Math.sin(y * 1.7) * 2) * Math.sin(y * 2.1 + Math.sin(x * 1.3) * 2);
+    await relief(D, { mask: D.orP, bb: [880, 634, 980, 714], base: domes, bumps: [], texMask: D.orP, tex: peel, texAlbedo: 1,
+      bars: { ang: BAR.ang, per: 36, duty: 0.55, phase: 12, min: 0.3, soft: 1.4 }, light: [-0.7, -0.6, 0.4], shadowLen: 14, amb: 0.14, gain: 0.66, chalkFrom: 0.5, blur: 0.35 });
+    for (const [x, y, rr] of ors) {
+      line(D, ell(x, y, rr, rr * 0.97), 0.6, 0.45, null, 0.3);
+      tone(D, ell(x + rr * 0.22, y - rr * 0.82, 1.5, 1.1), 0.9); // the stem end
+      chalk(D, ell(x - rr * 0.38, y - rr * 0.42, rr * 0.13, rr * 0.09, -0.6), 0.45, 0.6); // a small wet highlight
+    }
+    D.drawBowl();
+    light(D, { bb, mask: D.bowl, bars: db, int, lift: 0.3, chalk: 0.1, soft: 0.6 });
     light(D, { bb, mask: D.shade, bars: db, int, lift: 0.45, chalk: 0.12, soft: 0.4 });
     await D.tick();
     light(D, { bb, mask: D.box, bars: db, int, lift: 0.55, chalk: 0.15, soft: 0.4 });
@@ -1349,7 +1390,6 @@
     chalk(D, ell(542, 659, 1.3, 3), 0.7, 0.3);
     light(D, { bb, mask: D.spirit, bars: db, int, lift: 0.5, chalk: 0.3 });
     lift(D, cr([[532, 716], [556, 716], [554, 719], [534, 719]]), 0.55, 0.4); chalk(D, cr([[532, 716], [556, 716], [554, 718], [534, 718]]), 0.5); // the meniscus of the anisette
-    for (const [x, y, rr] of D.oranges) line(D, ell(x - rr * 0.35, y - rr * 0.45, rr * 0.2, rr * 0.12), 0.5, 0.15, D.K);
     // the cigar smoke: a thin unwinding ribbon, white where the sun catches it, lost in the dark between the bars
     const sm = new Path2D(), r = D.r;
     let x = 759, y = 728, a = -1.45;
@@ -1416,8 +1456,8 @@
     [420, 624], [418, 630], [415, 633, 1], [418, 638], [416, 648], [408, 655], [394, 660], [394, 672],                       // the head in profile
     [408, 680], [424, 698], [436, 720], [447, 739, 1], [466, 737], [488, 738], [502, 740], [516, 745], [520, 752], [500, 755], [474, 753], [450, 757], [436, 754], // the near arm, bent at the elbow, on the desk
     [424, 784], [410, 826], [392, 874], [372, 916], [352, 942],                                                            // the belly under the arm
-    [348, 990], [348, 1040], [350, 1088], [338, 1160], [330, 1224], [344, 1238], [366, 1250], [368, 1264, 1], [302, 1266, 1], [300, 1246], [303, 1232], [306, 1160], // front leg, the knee a little bent
-    [302, 1112, 1], [290, 1160], [286, 1236], [300, 1250], [314, 1260], [314, 1270, 1], [246, 1272, 1], [244, 1252], [246, 1234], [248, 1160], [252, 1095], [256, 1020], // back leg
+    [348, 990], [350, 1040], [355, 1084], [348, 1104], [338, 1160], [330, 1224], [344, 1238], [366, 1250], [368, 1264, 1], [302, 1266, 1], [300, 1246], [303, 1232], [306, 1160], // front leg, the knee a little bent
+    [302, 1112, 1], [290, 1160], [286, 1236], [300, 1250], [314, 1260], [314, 1270, 1], [246, 1272, 1], [244, 1252], [246, 1234], [250, 1160], [250, 1110], [256, 1090], [258, 1020], // back leg
     [256, 952], [262, 905], [272, 868], [276, 830], [280, 785], [291, 738], [311, 702], [335, 676]];
   // the head drawn a little smaller than first laid in, pivoting on the throat
   for (let i = 0; i < 21; i++) { const q = BON_PTS[i]; q[0] = 392 + (q[0] - 392) * 0.88; q[1] = 664 + (q[1] - 664) * 0.88; }
@@ -1426,11 +1466,14 @@
 
   function bonasera(D) {
     const C = D.C;
-    // his hat, left on the corner of the desk
-    tone(D, ell(268, 739, 40, 4), 0.85); solid(D, BON_HAT, 0.92);
+    // his hat on the desk edge, his hand resting on its brim
+    setGroup(D, new DOMMatrix().translate(226, 0));
+    tone(D, ell(268, 739, 40, 4), 0.85); solid(D, BON_HAT, 0.9);
     eraseLine(D, cr([[230, 739], [268, 735], [308, 739]], false), 1.2, 0.3, 0.4);
     line(D, cr([[241, 728], [268, 725], [297, 728]], false), 2.4, 0.85);
-    eraseLine(D, cr([[244, 716], [258, 709], [268, 713]], false), 1, 0.18, 0.6);
+    eraseLine(D, cr([[244, 716], [258, 709], [268, 713]], false), 1, 0.22, 0.6);
+    eraseLine(D, cr([[282, 708], [292, 713], [297, 724]], false), 0.9, 0.12, 0.6);
+    setGroup(D, null);
     tone(D, ell(310, 1270, 120, 13), 0.55, 6); // where he stands
     solid(D, BON, 0.96);
     D.C.save(); D.K.save(); D.C.clip(BON); D.K.clip(BON);
@@ -1448,6 +1491,25 @@
       [[[296, 1130], [294, 1180], [296, 1228]], 1.4, 0.06],
     ];
     for (const [pts, w, a] of folds) eraseLine(D, cr(pts, false), w, a, 1.2);
+    // charcoal modelling of the black suit: the window behind-left grazes the shoulder and the long back
+    D.C.save(); D.K.save(); D.C.clip(BON); D.K.clip(BON);
+    const backRim = cr([[350, 664], [328, 678], [306, 704], [290, 742], [280, 790], [276, 832], [272, 868]], false);
+    eraseLine(D, moved(backRim, 2.6, 0.6), 5, 0.16, 2.2);
+    eraseLine(D, moved(backRim, 1.2, 0.2), 1.6, 0.22, 0.6);
+    line(D, moved(backRim, 1, 0), 1.4, 0.12, D.K, 0.6);
+    const sleeve = cr([[408, 682], [424, 699], [436, 720], [446, 738], [470, 738], [496, 739]], false); // the top of the sleeve
+    eraseLine(D, moved(sleeve, -0.5, 2.2), 3, 0.13, 1.6);
+    eraseLine(D, moved(sleeve, 0, 1), 1.1, 0.18, 0.5);
+    // the fold where the jacket breaks at the bent waist, and the pull of cloth from the hip
+    line(D, cr([[352, 918], [374, 900], [396, 872]], false), 2.4, 0.6, null, 0.8);
+    eraseLine(D, cr([[350, 912], [370, 895], [390, 870]], false), 1.4, 0.14, 0.8);
+    eraseLine(D, cr([[300, 880], [330, 900], [352, 916]], false), 2.2, 0.08, 1.4);
+    // knees: the trousers bend and break over them
+    eraseLine(D, cr([[332, 1072], [346, 1088], [340, 1104]], false), 2.4, 0.12, 1.2);
+    line(D, cr([[322, 1098], [336, 1102], [344, 1108]], false), 1.4, 0.5, null, 0.6);
+    eraseLine(D, cr([[256, 1080], [262, 1096], [258, 1112]], false), 2, 0.09, 1.2);
+    eraseLine(D, cr([[316, 1208], [330, 1220], [340, 1226]], false), 1.4, 0.1, 0.8); // the break over the shoe
+    D.C.restore(); D.K.restore();
     eraseLine(D, cr([[322, 1236], [344, 1244], [362, 1254]], false), 1.4, 0.22, 0.4); // polished shoes
     eraseLine(D, cr([[262, 1250], [286, 1254], [310, 1262]], false), 1.4, 0.18, 0.4);
     // the white collar and cuff

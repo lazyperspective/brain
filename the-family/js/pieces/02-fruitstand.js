@@ -302,7 +302,7 @@
       // life inside: a figure, a wreath, a plant, a lamp
       const hsh = Math.abs(Math.sin(u * 12.9898 + v0 * 78.233) * 43758.5453) % 1, kk = K(side < 0 ? XL : XR, u);
       const dk = mix(glass, '#3a1a0a', 0.72);
-      if (zm < 50 && hsh < 0.3) {
+      if (kk <= 0 || u < 3) { /* behind us */ } else if (zm < 50 && hsh < 0.3) {
         const q = P(...F3(side, u + (hsh - 0.15) * 2, vb + 0.95, -0.25));
         ctx.fillStyle = dk; ctx.beginPath(); ctx.ellipse(q[0], q[1] - 0.2 * kk, 0.1 * kk, 0.13 * kk, 0, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.ellipse(q[0], q[1] + 0.12 * kk, 0.24 * kk, 0.2 * kk, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(q[0] - 0.24 * kk, q[1] + 0.12 * kk, 0.48 * kk, 0.5 * kk);
@@ -1039,9 +1039,9 @@
     // gouache vapour: a cool body, a warm side catching the shop light, a few crisp lit edges, wisps at the top
     const s = env.s, puffs = [];
     for (let i = 0; i < 34; i++) {
-      const t = i / 33, h = 0.03 + t * 2.6, lean = t * t * 1.3 + Math.sin(t * 5.2 + 0.4) * 0.16;
+      const t = i / 33, h = 0.03 + t * 2.2, lean = t * t * 1.0 + Math.sin(t * 3.1 + 0.4) * 0.08;
       const X = MH.X + lean, Z = MH.Z + t * 1.4, q = P(X, h, Z), kk = K(X, Z);
-      puffs.push([q[0] + rnd(-0.05, 0.05) * kk, q[1], (0.2 + t * 0.42 + Math.sin(i * 1.7) * 0.05) * kk, t]);
+      puffs.push([q[0] + rnd(-0.08, 0.08) * kk, q[1], (0.3 + t * 0.55 + Math.sin(i * 2.3) * 0.07) * kk, t]);
     }
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     for (const p of puffs) { x0 = Math.min(x0, p[0] - p[2] * 1.6); x1 = Math.max(x1, p[0] + p[2] * 1.6); y0 = Math.min(y0, p[1] - p[2] * 1.6); y1 = Math.max(y1, p[1] + p[2] * 1.2); }
@@ -1052,7 +1052,7 @@
     const [A, a] = mk(), [Bc, b] = mk();
     // the body: one opaque union, its density falling off as it rises
     for (const p of puffs) {
-      a.fillStyle = rgba('#8492a8', 0.85 * (1 - p[3] * 0.75));
+      a.fillStyle = rgba('#8c9ab0', 0.55 * (1 - p[3] * 0.85));
       a.beginPath(); a.ellipse(p[0], p[1], p[2], p[2] * 0.82, 0, 0, Math.PI * 2); a.fill();
     }
     // the warm side, inside the body only
@@ -1064,12 +1064,12 @@
     a.lineCap = 'round';
     for (let i = 2; i < puffs.length - 6; i += 3) { const p = puffs[i]; a.strokeStyle = rgba('#fff0d8', 0.7 * (1 - p[3])); a.lineWidth = Math.max(0.8, p[2] * 0.09); a.beginPath(); a.arc(p[0] + p[2] * 0.05, p[1], p[2] * 0.95, Math.PI * 0.95, Math.PI * 1.45); a.stroke(); }
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.filter = 'blur(' + (1.1 * s).toFixed(1) + 'px)'; ctx.globalAlpha = 0.8;
+    ctx.filter = 'blur(' + (1.6 * s).toFixed(1) + 'px)'; ctx.globalAlpha = 0.72;
     ctx.drawImage(A, Math.round(x0 * s), Math.round(y0 * s));
     ctx.restore();
     // wisps tearing off at the top, a few dry strokes
     ctx.save(); ctx.lineCap = 'round';
-    for (let i = 0; i < 7; i++) { const p = puffs[puffs.length - 1 - i * 2]; ctx.strokeStyle = rgba(i % 2 ? '#c8d0dc' : '#e6d4bc', 0.18); ctx.lineWidth = p[2] * 0.25; ctx.beginPath(); ctx.moveTo(p[0] - p[2] * 0.6, p[1] - p[2] * 0.4); ctx.quadraticCurveTo(p[0] + p[2] * 0.2, p[1] - p[2] * 1.4, p[0] + p[2] * 1.3, p[1] - p[2] * 1.2); ctx.stroke(); }
+    for (let i = 0; i < 7; i++) { const p = puffs[puffs.length - 1 - i * 2]; ctx.strokeStyle = rgba(i % 2 ? '#c8d0dc' : '#e6d4bc', 0.08); ctx.lineWidth = p[2] * 0.12; ctx.beginPath(); ctx.moveTo(p[0] - p[2] * 0.6, p[1] - p[2] * 0.4); ctx.quadraticCurveTo(p[0] + p[2] * 0.2, p[1] - p[2] * 1.4, p[0] + p[2] * 1.3, p[1] - p[2] * 1.2); ctx.stroke(); }
     ctx.restore();
   }
 
@@ -1258,9 +1258,9 @@
       }
       // slush trodden flat between the tyre tracks, each track a dark glossy groove with a raised lip
       for (const [a0, b0, ph] of [[-1.0, -0.22, 0.7], [0.32, 0.98, 1.9], [1.62, 2.3, 3.1], [2.9, 3.35, 4.2]]) {
-        wavyStrip(ctx, a0, b0, 0.6, 40, rgba('#56627a', 0.55), 0.035, ph);
-        wavyStrip(ctx, a0, a0 + 0.07, 0.6, 40, rgba('#a4b0c2', 0.5), 0.03, ph);
-        wavyStrip(ctx, b0 - 0.06, b0, 0.6, 40, rgba('#8894a8', 0.45), 0.03, ph + 0.5);
+        wavyStrip(ctx, a0, b0, 0.6, 40, rgba('#4e5a70', 0.45), 0.035, ph);
+        wavyStrip(ctx, a0, a0 + 0.06, 0.6, 40, rgba('#8e9ab0', 0.28), 0.025, ph);
+        wavyStrip(ctx, b0 - 0.05, b0, 0.6, 40, rgba('#7e8aa0', 0.22), 0.025, ph + 0.5);
       }
     });
 
@@ -1435,7 +1435,7 @@
       const mb = P(3.75, CURB, 9.9), kb = K(3.75, 9.9);
       const ma = P(2.5, 0, 8.6), ka = K(2.5, 8.6);
       ctx.save(); groundClip(ctx);
-      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'manA', ma[0], ma[1], ka, PAL.man, { mono: 'rgba(5,6,10,0.4)', mirror: true }); drawFig(ctx, 'manB', mb[0], mb[1], kb, PAL.man, { mono: 'rgba(5,6,10,0.34)', mirror: true }); ctx.filter = 'none';
+      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'manA', ma[0], ma[1], ka, PAL.man, { mono: 'rgba(5,6,10,0.26)', mirror: true }); drawFig(ctx, 'manB', mb[0], mb[1], kb, PAL.man, { mono: 'rgba(5,6,10,0.22)', mirror: true }); ctx.filter = 'none';
       ctx.restore();
       drawFig(ctx, 'manB', mb[0], mb[1], kb, PAL.man);
       drawFig(ctx, 'manA', ma[0], ma[1], ka, PAL.man);
@@ -1455,7 +1455,7 @@
       const dh = [d[0] - 0.5 * kd, d[1] - 1.06 * kd], vh = [v[0] + 0.37 * kv, v[1] - 1.21 * kv];
       // his reflection on the wet pavement
       ctx.save(); groundClip(ctx);
-      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'don', d[0], d[1], kd, PAL.don, { mono: 'rgba(8,6,6,0.34)', mirror: true, wide: 1.12 }); drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor, { mono: 'rgba(8,6,6,0.25)', mirror: true }); ctx.filter = 'none';
+      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'don', d[0], d[1], kd, PAL.don, { mono: 'rgba(8,6,6,0.2)', mirror: true, wide: 1.12 }); drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor, { mono: 'rgba(8,6,6,0.14)', mirror: true }); ctx.filter = 'none';
       ctx.restore();
       drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor);
       drawSpill(ctx, 1, 3);
