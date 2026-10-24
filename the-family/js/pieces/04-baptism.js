@@ -1576,17 +1576,16 @@
     const R = mulberry32(seed ^ 0x5bd1e995);
     const sun = { a: 0.035 + R() * 0.035, b: 1.12 + R() * 0.06 };
     const plan = buildPlan();
-    const T0 = performance.now(); const tick = (n) => console.warn('T', n, Math.round(performance.now() - T0));
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     drawWall(ctx, R);
     drawWindowStone(ctx, plan);
     drawChamfers(ctx, plan);
     await breathe();
     const K = makeGlass(ctx, R, scale, breathe);
-    tick('stone'); await drawCentral(K, ctx, plan.ops.C, R); await breathe(); tick('central');
+    await drawCentral(K, ctx, plan.ops.C, R); await breathe(); 
     await drawSide(K, ctx, plan.ops.L, R, { scene: 'stair', ring: G.ruby }, { scene: 'door', ring: G.green }); await breathe();
     await drawSide(K, ctx, plan.ops.R, R, { scene: 'toll', ring: G.green }, { scene: 'barber', ring: G.ruby }); await breathe();
-    await drawTracery(K, ctx, plan, R); await breathe(); tick('tracery');
+    await drawTracery(K, ctx, plan, R); await breathe(); 
     saddleBars(ctx, plan);
 
     // light map: what the window lets through, sampled from the finished glass
@@ -1631,8 +1630,8 @@
     // the church below
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     drawDado(ctx);
-    tick('bloom'); const occ = makeOccluders();
-    await floorPass(ctx, scale, sun, beam, occ, breathe); tick('floor');
+    const occ = makeOccluders();
+    await floorPass(ctx, scale, sun, beam, occ, breathe); 
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     drawLamp(ctx);
     const items = PEW_ROWS.map((z) => ({ z: z, f: () => drawPew(ctx, z, beam, occ, sun) }));
@@ -1642,7 +1641,7 @@
     items.sort((p, q) => q.z - p.z);
     for (const it of items) { it.f(); await breathe(); }
     await hazePass(ctx, beam, scale, breathe);
-    tick('objects'); drawFlames(ctx, flames);
+    drawFlames(ctx, flames);
 
     // the orange, the last thing in
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
@@ -1718,7 +1717,6 @@
         const ctx = off.getContext('2d', { willReadFrequently: true });
         let last = performance.now();
         const breathe = async () => {
-          const gap = performance.now() - last; if (gap > (window.__maxgap || 0)) { window.__maxgap = gap; window.__maxat = new Error().stack.split('\n')[2]; }
           if (performance.now() - last > 22) {
             await new Promise((res) => requestAnimationFrame(() => res()));
             last = performance.now();
@@ -1735,7 +1733,6 @@
         lastPx = pxW;
         flames = (res && res.flames) || [];
         if (ov && !raf) raf = requestAnimationFrame(flicker);
-        console.warn('maxgap', Math.round(window.__maxgap), window.__maxat);
         api.ready();
         if (EXPORT) requestAnimationFrame(() => { document.documentElement.dataset.exportReady = '1'; });
       }
