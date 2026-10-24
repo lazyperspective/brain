@@ -122,7 +122,10 @@
     fillOn(D.K, p, st, blur, D.S, 'destination-out');
   }
   // an opaque object: rub out what is behind it, then lay in its own tone
-  function solid(D, p, a, blur) { fillOn(D.C, p, '#000', blur, D.S, 'destination-out'); fillOn(D.K, p, '#000', blur, D.S, 'destination-out'); tone(D, p, a, blur); }
+  function solid(D, p, a, blur) {
+    fillOn(D.C, p, '#000', blur, D.S, 'destination-out'); fillOn(D.K, p, '#000', blur, D.S, 'destination-out'); tone(D, p, a, blur);
+    if (!blur) line(D, p, 1.4 / D.S, a); // close the antialiased seam, or every solid shape gets a pale halo
+  }
   const lift = (D, p, a, blur) => fillOn(D.C, p, typeof a === 'number' ? blk(a) : a, blur, D.S, 'destination-out');
   const chalk = (D, p, a, blur) => fillOn(D.K, p, typeof a === 'number' ? wht(a) : a, blur, D.S);
   function line(D, p, w, a, ctx, blur) {
@@ -972,7 +975,7 @@
       [hx - 24, 458], [hx - 22, 451], [hx - 25, 443], [hx - 20, 436], [hx - 19, 424], [hx - 15, 412]]);
     const body = cr([[hx - 12, 478], [hx + 14, 480], [hx + 18, 500], [hx + 40, 510], [hx + 58, 530], [hx + 66, 600], [hx + 70, 712, 1], [hx - 62, 712, 1], [hx - 58, 620], [hx - 52, 548], [hx - 36, 516], [hx - 14, 504]]);
     const fig = join(head, body);
-    solid(D, fig, 0.9);
+    solid(D, fig, 0.95);
     hatch(D, fig, [940, 396, 1090, 712], { ang: 65, sp: 2.4, w: 0.8, a: 0.4, jit: 0.4 });
     hatch(D, fig, [940, 396, 1090, 712], { ang: -25, sp: 3, w: 0.7, a: 0.3, jit: 0.4 });
     // only the line of a lean profile, turned toward the Don, catches the light reflected from the desk

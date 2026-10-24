@@ -421,7 +421,7 @@
       c.lineWidth = 0.42 / U; c.strokeStyle = css(mix(INK, HAZE, hz), Math.min(0.7, 0.5 * amt)); c.stroke();
       c.restore();
     }
-    const legPoly = (L, wmul) => limb([L.hx, L.hy, L.kx, L.ky, L.ax, L.ay], [B.lw * 1.18 * wmul, B.lw * 0.86 * wmul, B.lw * 0.6 * wmul]);
+    const legPoly = (L, wmul) => { const mx = lerp(L.hx, L.kx, 0.5), my = lerp(L.hy, L.ky, 0.5), cxx = lerp(L.kx, L.ax, 0.35) - 0.06, cyy = lerp(L.ky, L.ay, 0.35); return limb([L.hx, L.hy, mx, my, L.kx, L.ky, cxx, cyy, L.ax, L.ay], [B.lw * 1.2 * wmul, B.lw * 1.04 * wmul, B.lw * 0.84 * wmul, B.lw * 0.86 * wmul, B.lw * 0.58 * wmul]); };
     function shoe(L, k) {
       const fl = 0.95 * (B.foot / 0.24) * (1 - 0.55 * fr) + 0.12;
       const back = L.ay < -B.foot - 0.12 ? clamp((-B.foot - L.ay) * 0.9, 0, 1.2) : 0;
@@ -640,7 +640,7 @@
       drawFigLocal(c, ch);
     },
     shoulders(c, F, J, pr, col) {
-      const s = J.sh; const ch = { x: s[0] - 0.1, y: s[1] + 0.5, h: 3.3, pxs: J.u, dir: 1, fr: 0.6, sex: pr.sex || 'm', age: 't', pose: { drop: 1.0, nl: { to: [0.8, 0.4], bend: 1 }, fl: { to: [0.5, 0.6], bend: 1 }, na: [2.6, 3.0], fa: [0.6, 1.0] }, w: { top: 'shirt', tc: pr.col || C.white, bc: C.mid, hair: C.dark }, haze: F.haze, noShadow: 1, lx: F.lx * F.dir };
+      const s = J.sh; const ch = { x: s[0] - 0.1, y: s[1] + 0.5, h: 3.3, pxs: J.u, dir: 1, fr: 0.6, sex: pr.sex || 'm', age: 't', pose: { drop: 1.0, nl: { to: [0.8, 0.4], bend: 1 }, fl: { to: [0.5, 0.6], bend: 1 }, na: [2.6, 3.0], fa: [0.6, 1.0] }, back: F.back, w: { top: 'shirt', tc: pr.col || C.white, bc: C.mid, hair: C.dark, hat: F.back ? 'cap' : null, hc: C.mid }, haze: F.haze, noShadow: 1, lx: F.lx * F.dir };
       drawFigLocal(c, ch);
     },
   };
@@ -1560,35 +1560,88 @@
       for (const g of GLOWS) { const dx = (x - g[0]) / g[2], dy = (y - g[1]) / g[3]; const e = dx * dx + dy * dy; if (e < 6) v -= g[4] * 1.15 * Math.exp(-e); }
       return v;
     };
-    // the cobbled roadway: every stone drawn, its lower edge in shadow; stones in the light keep only a hairline
-    for (let band = 0; band < 8; band++) {
+    // the roadway in Belgian blocks: irregular stones in courses that bend gently with the street, each block's
+    // lower edge in shadow; lit blocks keep a hairline, shadowed ones take hatching. Puddles and litter follow.
+    const PUDDLES = [[2706, 1090, 92, 9], [1470, 1178, 66, 7], [3480, 1196, 84, 9], [610, 1062, 58, 6], [4010, 1250, 70, 8], [2020, 1262, 60, 7], [920, 1300, 76, 9]];
+    const inPuddle = (x, y) => PUDDLES.some((q) => ((x - q[0]) / q[2]) ** 2 + ((y - q[1]) / q[3]) ** 2 < 1);
+    const worn = (x, y) => 0.22 * Math.max(0, Math.sin(x * 0.0061 + y * 0.013) * Math.sin(x * 0.0023 - y * 0.009 + 2));
+    for (let band = 0; band < 10; band++) {
       L.street.push((c) => {
-        const ya = lerp(CURB_F + 5, H, band / 8), yb2 = lerp(CURB_F + 5, H, (band + 1) / 8);
-        const P1 = new Path2D(), P2 = new Path2D(), P3 = new Path2D();
+        const ya = lerp(CURB_F + 5, H, band / 10), yb2 = lerp(CURB_F + 5, H, (band + 1) / 10);
+        const P1 = new Path2D(), P2 = new Path2D(), P3 = new Path2D(), P4 = new Path2D();
         let y = CURB_F + 5, row = 0;
-        while (true) { if (y > CURB_N - 3 && y < CURB_N + 10) { y = CURB_N + 10; row++; continue; } const bh = 3.9 * sAt(depthOf(y)); if (y + bh > ya) break; y += bh; row++; }
+        const rowH = (yy, r) => 3.9 * sAt(depthOf(yy)) * (0.86 + hf(r * 13 + 1) * 0.28);
+        while (true) { if (y > CURB_N - 3 && y < CURB_N + 10) { y = CURB_N + 10; row++; continue; } const bh = rowH(y, row); if (y + bh > ya) break; y += bh; row++; }
         for (; y < yb2 && y < H; row++) {
           if (y > CURB_N - 3 && y < CURB_N + 10) { y = CURB_N + 10; continue; }
-          const sc = sAt(depthOf(y)), bh = 3.9 * sc, gap = 0.5 * sc;
-          let x = -hf(row * 31) * 8 * sc;
+          const sc = sAt(depthOf(y)), bh = rowH(y, row);
+          let x = -hf(row * 31) * 9 * sc;
           while (x < W) {
-            const k = row * 7919 + Math.round(x * 3), bw = 8.2 * sc * (0.8 + hf(k) * 0.4);
-            const x0 = x + gap, x1 = x + bw - gap, y0 = y + gap * 0.7, y1 = y + bh - gap * 0.7, r = Math.min(bw, bh) * 0.32;
-            const t = groundTone((x0 + x1) / 2, (y0 + y1) / 2);
-            if (t > 0.08 + hf(k + 5) * 0.25) { P1.moveTo(x0, y1 - r); P1.quadraticCurveTo(x0, y0, x0 + r, y0); P1.lineTo(x1 - r, y0); P1.quadraticCurveTo(x1, y0, x1, y0 + r); }
-            if (t > 0.02) { P2.moveTo(x1, y0 + r); P2.lineTo(x1, y1 - r); P2.quadraticCurveTo(x1, y1, x1 - r, y1); P2.lineTo(x0 + r, y1); P2.quadraticCurveTo(x0, y1, x0, y1 - r); }
-            const nh = Math.floor(clamp(t, 0, 1) * 4.2);
-            for (let j = 0; j < nh; j++) { const yy = lerp(y1 - 0.8 * sc, y0 + 1 * sc, j / 4); P3.moveTo(x0 + r * 0.6 + j * 0.6, yy); P3.lineTo(x1 - r * 0.4, yy); }
+            const k = row * 7919 + Math.round(x * 3), bw = 8.8 * sc * (0.62 + hf(k) * 0.76), gap = sc * (0.3 + hf(k + 1) * 0.55);
+            const wv = (xx) => sc * 1.4 * Math.sin(xx * 0.0019 + row * 0.41);
+            const j = (n, amt) => (hf(k + n) - 0.5) * amt;
+            const q = [x + gap + j(2, bw * 0.16), y + gap * 0.6 + wv(x) + j(3, bh * 0.2), x + bw - gap + j(4, bw * 0.16), y + gap * 0.6 + wv(x + bw) + j(5, bh * 0.2),
+              x + bw - gap + j(6, bw * 0.14), y + bh - gap * 0.6 + wv(x + bw) + j(7, bh * 0.16), x + gap + j(8, bw * 0.14), y + bh - gap * 0.6 + wv(x) + j(9, bh * 0.16)];
+            const cx = (q[0] + q[4]) / 2, cy = (q[1] + q[5]) / 2;
             x += bw;
+            if (inPuddle(cx, cy)) continue;
+            const t = groundTone(cx, cy) - worn(cx, cy);
+            const s2 = chaikin(q, true, 1);
+            const n = s2.length / 2;
+            // top and left edges (lit side): hairline, only where the ground is not in full light
+            if (t > 0.12 + hf(k + 10) * 0.3) { P1.moveTo(s2[2 * (n - 2)], s2[2 * (n - 2) + 1]); for (const ii of [n - 1, 0, 1, 2, 3]) P1.lineTo(s2[2 * ii], s2[2 * ii + 1]); }
+            // right and bottom edges (shadow side)
+            if (t > 0.04) { P2.moveTo(s2[6], s2[7]); for (let ii = 4; ii <= n - 2; ii++) P2.lineTo(s2[2 * ii], s2[2 * ii + 1]); }
+            // hatching across the block in shadow, along the course
+            const nh = Math.floor(clamp(t - 0.1, 0, 1) * 4.5);
+            for (let jj = 0; jj < nh; jj++) { const f = 0.78 - jj * 0.17; P3.moveTo(lerp(q[6], q[0], 1 - f) + bw * 0.12, lerp(q[7], q[1], 1 - f)); P3.lineTo(lerp(q[4], q[2], 1 - f) - bw * 0.1, lerp(q[5], q[3], 1 - f)); }
+            // a cracked block now and then
+            if (hf(k + 20) < 0.045 && t > 0.15) { P4.moveTo(q[0] + bw * 0.3, q[1]); P4.lineTo(cx - bw * 0.05, cy); P4.lineTo(cx + bw * 0.15, cy + bh * 0.15); P4.lineTo(q[6] + bw * 0.6, q[7]); }
           }
           y += bh;
         }
-        c.lineCap = 'round';
-        c.strokeStyle = ink(0.32); c.lineWidth = 0.42; c.stroke(P1);
-        c.strokeStyle = ink(0.68); c.lineWidth = 0.62; c.stroke(P2);
-        c.strokeStyle = ink(0.42); c.lineWidth = 0.42; c.stroke(P3);
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        c.strokeStyle = ink(0.3); c.lineWidth = 0.4; c.stroke(P1);
+        c.strokeStyle = ink(0.66); c.lineWidth = 0.6; c.stroke(P2);
+        c.strokeStyle = ink(0.4); c.lineWidth = 0.4; c.stroke(P3);
+        c.strokeStyle = ink(0.6); c.lineWidth = 0.45; c.stroke(P4);
       });
     }
+    // puddles holding the festa lights, horse droppings and straw, paper litter, confetti, orange peel
+    L.street.push((c) => {
+      for (const [px, py, rx, ry] of PUDDLES) {
+        c.save(); c.beginPath(); c.ellipse(px, py, rx, ry, 0, 0, TAU); c.clip();
+        c.fillStyle = 'rgba(236,210,160,0.85)'; c.fillRect(px - rx, py - ry, rx * 2, ry * 2);
+        const glowA = clamp(1 - groundTone(px, py), 0.2, 1);
+        c.globalCompositeOperation = 'screen';
+        c.fillStyle = 'rgba(255,224,150,' + (0.7 * glowA).toFixed(2) + ')'; for (let i = 0; i < 9; i++) { const xx = px - rx + (hf(px + i) * 2) * rx; c.fillRect(xx, py - ry, 1.4 + hf(px + i * 3) * 3, ry * 2); }
+        c.globalCompositeOperation = 'source-over';
+        c.beginPath(); for (let yy = py - ry + 1.5; yy < py + ry; yy += 2.2) { const o2 = hf(Math.round(yy * 7 + px)) * rx; c.moveTo(px - rx + o2 * 0.5, yy); c.lineTo(px + rx - o2 * 0.4, yy); } c.strokeStyle = 'rgba(60,40,24,0.35)'; c.lineWidth = 0.4; c.stroke();
+        c.restore();
+        c.beginPath(); c.ellipse(px, py, rx, ry, 0, Math.PI * 0.05, Math.PI * 0.95); c.strokeStyle = ink(0.6); c.lineWidth = 0.7; c.stroke();
+        c.beginPath(); c.ellipse(px, py, rx, ry, 0, Math.PI * 1.1, Math.PI * 1.9); c.strokeStyle = 'rgba(250,236,200,0.6)'; c.lineWidth = 0.6; c.stroke();
+      }
+      const rr = FX(8800);
+      for (let i = 0; i < 14; i++) {
+        const x = rr.u(40, W - 40), d = rr.u(150, 420), y = gY(d), s = sAt(d);
+        if (nearSeam(x, 20)) continue;
+        c.fillStyle = css([90, 66, 44]); for (let k = 0; k < 4; k++) { c.beginPath(); c.ellipse(x + rr.u(-4, 4) * s, y + rr.u(-1, 1) * s, 2.2 * s, 1.3 * s, 0, 0, TAU); c.fill(); }
+        c.beginPath(); for (let k = 0; k < 12; k++) { const a = rr.u(0, Math.PI), l = rr.u(3, 8) * s, x0 = x + rr.u(-12, 12) * s, y0 = y + rr.u(-3, 3) * s; c.moveTo(x0, y0); c.lineTo(x0 + Math.cos(a) * l, y0 - Math.sin(a) * l * 0.35); } c.strokeStyle = css([200, 166, 90]); c.lineWidth = 0.6 * s; c.stroke();
+      }
+      for (let i = 0; i < 70; i++) {
+        const x = rr.u(20, W - 20), d = rr.u(130, 640), y = gY(d), s = sAt(d), a = rr.u(-0.6, 0.6), w = rr.u(4, 8) * s, h = rr.u(1.6, 3) * s;
+        c.save(); c.translate(x, y); c.rotate(a);
+        fillP(c, [-w / 2, -h / 2, w / 2, -h / 2 + rr.u(-0.5, 0.5), w / 2, h / 2, -w / 2, h / 2], css(rr.p([[244, 238, 222], [236, 226, 200], [226, 214, 184]])));
+        strokeL(c, [-w / 2, -h / 2, w / 2, -h / 2, w / 2, h / 2, -w / 2, h / 2, -w / 2, -h / 2], ink(0.5), 0.35);
+        if (w > 10) { c.beginPath(); for (let k = 1; k < 3; k++) { c.moveTo(-w * 0.35, -h / 2 + k * h / 3); c.lineTo(w * 0.35, -h / 2 + k * h / 3); } c.strokeStyle = ink(0.35); c.lineWidth = 0.3; c.stroke(); }
+        c.restore();
+      }
+      for (let i = 0; i < 260; i++) {
+        const near = i < 160, x = near ? rr.u(1300, 3300) : rr.u(0, W), d = rr.u(130, 600), y = gY(d), s = sAt(d);
+        c.fillStyle = css(rr.p([WARMRED, GOLD, [240, 232, 210], [120, 150, 110]]), 0.9); c.fillRect(x, y, 1.2 * s, 0.8 * s);
+      }
+      for (let i = 0; i < 9; i++) { const x = rr.u(2230, 2560), y = rr.u(1290, 1345), a = rr.u(0, TAU); c.beginPath(); c.arc(x, y, 3.2, a, a + 2.2); c.strokeStyle = css(ORANGE); c.lineWidth = 2; c.stroke(); c.strokeStyle = ink(0.5); c.lineWidth = 0.4; c.stroke(); }
+    });
     // the near sidewalk: big flags, ruled and graded darker toward the bottom edge
     L.street.push((c) => {
       let k = 0;
@@ -1897,10 +1950,6 @@
     }
     // spectators on the far sidewalk of slide 2 face the road
     // foreground spectators, backs to us
-    P(1264, 1318, 'm', 'a', 'stand', 1, { back: 1, fr: 0.9, props: [{ t: 'shoulders', col: C.white }], w: { top: 'shirt', tc: C.cream, vest: C.dark, bc: C.dark, hat: null, hair: C.black } });
-    P(1188, 1350, 'f', 'a', 'stand', 1, { back: 1, fr: 0.9, w: { top: 'blouse', tc: C.white, bc: C.black, sk: 'ankle', hair: C.black } });
-    P(2010, 1336, 'm', 'a', 'stand', -1, { back: 1, fr: 0.85, w: { top: 'jacket', tc: C.dark, bc: C.dark, hat: 'cap', hc: C.mid } });
-    P(2070, 1300, 'f', 'c', 'wave', -1, { fr: 0.6, props: [{ t: 'hanky' }], w: { top: 'dress', tc: C.cream, sk: 'knee', hair: C.dark } });
 
     // slide 3 — the market
     rsv.push([2196, 2480, 1180, 1400]);
@@ -2057,7 +2106,7 @@
         if (inProc) { dir = y < 1040 ? (rf.c(0.8) ? (x < 1640 ? 1 : -1) : -dir) : -1; if (pose === 'wave') props.push({ t: 'hanky' }); }
         else if (x > 3440 && x < 3800) dir = x < 3606 ? (rf.c(0.6) ? -1 : 1) : -1;
         if (pose === 'eat') props.push({ t: rf.c(0.5) ? 'zeppola' : 'food', red: rf.c(0.5) });
-        const extra = { fr: rf.u(0.2, 0.85), props };
+        const extra = { fr: rf.u(0.2, 0.85), props, turn: rf.c(0.15) };
         if (age === 'a' && sex === 'f' && rf.c(0.1)) { pose = 'carry'; props.push({ t: 'child', col: rf.p([C.white, C.cream, C.light]) }); }
         else if (age === 'a' && sex === 'f' && rf.c(0.08)) props.push({ t: 'basket', hand: 'f', fruit: rf.c(0.4) });
         if (age === 'a' && sex === 'm' && rf.c(0.05) && y < 1100) { props.push({ t: 'shoulders', col: rf.p([C.white, C.cream]) }); pose = 'stand'; }
@@ -2078,6 +2127,20 @@
     console.log('[festa] people: ' + FIG.length);
     for (const b of BLD) if (!b.church && !b.tower && !b.alley) { const cl = cols(b); for (const x of cl.xs) for (const sx of SEAMS) if (Math.abs(x - sx) < cl.ww / 2 + 3) console.log('[festa] window on seam', b.store.sign, x); }
     for (const f of FIG) for (const sx of SEAMS) if (Math.abs(f.x - sx) < f.h * 0.25) console.log('[festa] seam risk', Math.round(f.x), Math.round(f.y), Math.round(f.h));
+    // large figures cut by the bottom edge, close to us: they frame the scene and give it depth
+    P(420, 1530, 'm', 'a', 'stand', 1, { hs: 1.5, back: 1, fr: 0.92, haze: 0, props: [{ t: 'shoulders', col: C.white, sex: 'm' }], w: { top: 'shirt', tc: C.cream, vest: C.black, bc: C.dark, hat: 'cap', hc: [70, 56, 44], hair: C.black }, noShadow: 1 });
+    P(1205, 1540, 'f', 'a', 'walk2', 1, { hs: 1.45, fr: 0.3, haze: 0, props: [{ t: 'headBasket', fruit: ORANGE }], na: [2.75, 3.25], w: { top: 'blouse', tc: C.white, bc: C.black, sk: 'ankle', hat: 'kerchief', hc: C.red, hair: C.black }, noShadow: 1 });
+    P(3138, 1540, 'm', 'a', 'eat', -1, { hs: 1.45, fr: 0.3, haze: 0, props: [{ t: 'food', red: 1 }], w: { top: 'jacket', tc: C.mid, bc: C.dark, hat: 'boater', must: 1, shirt: C.white }, noShadow: 1 });
+    P(4206, 1530, 'f', 'a', 'carry', -1, { hs: 1.45, fr: 0.35, haze: 0, old: 1, props: [{ t: 'child', col: C.white }], w: { top: 'blouse', tc: C.black, bc: C.black, sk: 'ankle', shawl: C.black }, noShadow: 1 });
+    // people sitting out on the stoops, and a man leaning on a cart
+    for (const b of BLD) {
+      if (!b.store || !b.store.ent || b.fanucci) continue;
+      const ex = b.store.ent === 'L' ? b.x0 + 30 : b.store.ent === 'R' ? b.x1 - 30 : (b.x0 + b.x1) / 2;
+      if (hf(Math.round(ex)) < 0.35 || nearSeam(ex, 30)) continue;
+      const sd = hf(Math.round(ex) + 3) < 0.5 ? -1 : 1, sex = hf(Math.round(ex) + 5) < 0.55 ? 'f' : 'm';
+      P(ex + sd * 12, 918, sex, hf(Math.round(ex) + 7) < 0.3 ? 'c' : 'a', 'sitTalk', -sd, { fr: 0.5, noShadow: 1, turn: hf(Math.round(ex) + 9) < 0.4 });
+    }
+    P(966, 1168, 'm', 'a', 'lean', -1, { fr: 0.3, pose: Object.assign({}, POSE.lean, { lean: 0.32 }), w: { top: 'shirt', tc: C.cream, vest: C.dark, bc: C.dark, hat: 'cap', must: 1 } });
     // draw them, back to front
     for (const f of FIG) {
       if (f.lights === undefined) f.lights = LIGHTS;
