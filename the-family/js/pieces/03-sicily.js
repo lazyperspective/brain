@@ -1509,6 +1509,50 @@
       wash(borage, { c: '#4a62c8', a: 0.85, e: 0.3, wob: 0.1, depth: 18.3, flow: 0.05 });
     });
 
+    /* ---- the festa garland: paper lanterns and ribbons strung across the grove (shared geometry with the other drawings) */
+    const FL = window.FamilyLights;
+    const GARL = (() => {
+      if (!FL) return null;
+      const cord = [];
+      for (let x = -2; x <= 1082; x += 3) cord.push([x, FL.wireY(clamp(x, 0, 1080)), FL.WIRE_W * 0.8]);
+      const lan = FL.bulbs().map((b, i) => {
+        const rx = FL.BULB_R * 0.9, ry = FL.BULB_R * 1.2, cx = b.x, cy = b.y + ry * 0.55;
+        const body = spline([[cx, cy - ry], [cx + rx * 0.8, cy - ry * 0.75], [cx + rx, cy], [cx + rx * 0.8, cy + ry * 0.75], [cx, cy + ry], [cx - rx * 0.8, cy + ry * 0.75], [cx - rx, cy], [cx - rx * 0.8, cy - ry * 0.75]], true, 4);
+        return { cx, cy, rx, ry, body, kind: i % 3, cap: [[cx - rx * 0.45, cy - ry - 1.6], [cx + rx * 0.45, cy - ry - 1.6], [cx + rx * 0.45, cy - ry + 1.2], [cx - rx * 0.45, cy - ry + 1.2]], foot: [[cx - rx * 0.4, cy + ry - 1], [cx + rx * 0.4, cy + ry - 1], [cx + rx * 0.3, cy + ry + 1.6], [cx - rx * 0.3, cy + ry + 1.6]] };
+      });
+      const bs = FL.bulbs(), rib = [];
+      for (let i = 0; i < bs.length - 1; i++) {
+        const mx = (bs[i].x + bs[i + 1].x) / 2, my = FL.wireY(mx);
+        for (let k = 0; k < 2; k++) {
+          const x0 = mx + (k ? 3 : -3), y0 = my + 1, L = R(13, 20), sw = R(-5, 5);
+          rib.push({ p: limb([[x0, y0, 2.6], [x0 + sw * 0.5 + 2, y0 + L * 0.35, 2.4], [x0 - sw * 0.4, y0 + L * 0.7, 2.2], [x0 + sw, y0 + L, 1.2]], 4), c: ['#3a78c4', '#e494a6', '#4e9858', '#e8b830'][(i * 2 + k) % 4] });
+        }
+      }
+      reserve(25, lan.map((l) => l.body), 'near');
+      return { cord, lan, rib };
+    })();
+    function paintGarland() {
+      if (!GARL) return;
+      task(() => {
+        const G2 = GARL;
+        // ribbons first, fluttering under the cord
+        for (const c of ['#3a78c4', '#e494a6', '#4e9858', '#e8b830']) wash(G2.rib.filter((r) => r.c === c).map((r) => r.p), { c, a: 0.62, e: 0.4, ew: 0.8, wob: 0.3, rough: 0.2, flow: 0.25 });
+        // lanterns: red, white and yellow paper, the sun on their left shoulders
+        const COL = ['#d83c2c', '#f2e6cc', '#f0bc2c'];
+        for (let k = 0; k < 3; k++) {
+          const L = G2.lan.filter((l) => l.kind === k);
+          wash(L.map((l) => l.body), { c: COL[k], a: k === 1 ? 0.22 : 0.88, e: 0.45, ew: 0.9, wob: 0.3, rough: 0.15, flow: 0.2, holes: L.map((l) => ell(l.cx - l.rx * 0.38, l.cy - l.ry * 0.3, l.rx * 0.26, l.ry * 0.34, 0.3, 12)) });
+        }
+        wash(null, { bbox: [-20, 250, 1100, 460], mask: (g) => { for (const l of G2.lan) { g.globalCompositeOperation = 'source-over'; fillPolys(g, [l.body]); g.globalCompositeOperation = 'destination-out'; fillPolys(g, [l.body.map((q) => [q[0] - l.rx * 0.45, q[1] - l.ry * 0.12])]); } g.globalCompositeOperation = 'source-over'; }, c: '#5a3a6a', a: 0.45, e: 0.3, flow: 0.15 });
+        const ribs = []; for (const l of G2.lan) for (const t2 of [-0.45, 0, 0.45]) { const yy = l.cy + t2 * l.ry, ww = l.rx * Math.sqrt(1 - t2 * t2) * 0.92; ribs.push(limb([[l.cx - ww, yy, 0.5], [l.cx, yy + 1.2, 0.6], [l.cx + ww, yy, 0.5]])); }
+        wash(ribs, { c: '#6a4a4a', a: 0.35, e: 0, wob: 0, rough: 0, flow: 0 });
+        wash([].concat(...G2.lan.map((l) => [l.cap, l.foot])), { c: '#2e2830', a: 0.85, e: 0.2, wob: 0.1, rough: 0, flow: 0 });
+        // the cord itself, exactly on the shared curve
+        wash([limb(G2.cord, 1)], { raw: true, c: '#3a3442', a: 0.7, e: 0.25, ew: 0.6, flow: 0.1, grad: 0 });
+      });
+    }
+    paintGarland();
+
     /* ---- the overhanging branch, last of all: the nearest and darkest things in the picture */
     task(() => {
       const B = BR;
@@ -1548,10 +1592,6 @@
       if (performance.now() - t0 > 24) { await frame(); t0 = performance.now(); }
     }
     if (!alive()) return false;
-    // the orange, rolling through
-    m.save(); m.setTransform(S, 0, 0, S, 0, 0); m.globalCompositeOperation = 'source-over'; m.globalAlpha = 1;
-    if (window.FamilyOrange) window.FamilyOrange.drawSeamOranges(m, true, true);
-    m.restore();
     return true;
   }
 

@@ -5,8 +5,8 @@
  * window, his daughter's wedding blazes in overexposed white. The only light in the room is the sun coming through
  * slatted blinds from a window off the left of the picture: it falls in hard diagonal bars on the back wall, across
  * half of the Don's face and his calm hands, on the desk and on the floor, where one orange has rolled out of the
- * bowl towards the edge of the sheet. That orange is the only colour; it is the thread of the carousel
- * (js/shared/orange.js, drawn last, untouched).
+ * bowl onto the floor; it is the only colour. The wedding's festoon of lights, brought in through the window and draped
+ * along the wall to the right edge, is the carousel's thread (js/shared/lights.js: the shared wire and bulbs).
  *
  * Method: everything is drawn into two density layers, charcoal (C) and chalk (K), at the full output resolution.
  * Light is "lifted" out of the charcoal like an eraser through a stripe mask (scratch layer X). A final pass prints
@@ -921,6 +921,46 @@
     light(D, { bb, mask: D.books, bars: wb, lift: 0.3, soft: 2, int: (X) => rgrad(X, 818, 200, 10, 230, [[0, 1], [1, 0]], W3) });
   }
 
+  /* ------------------------------------------------------------------ the festoon: the wedding's lights, brought indoors */
+  // The garden string comes in over the top of the window and is draped along the back wall, behind the Don's chair
+  // and across the bookcase to the right edge, where it is tied up: the shared wire of the carousel (js/shared/lights.js).
+  function festoon(D) {
+    const FL = window.FamilyLights; if (!FL) return;
+    const wire = new Path2D(); FL.wirePath(wire); wire.bb = [0, 280, W, 430];
+    const strand = new Path2D(); FL.wirePath(strand); strand.bb = wire.bb;
+    tone(D, moved(wire, 4, 7), 0.16, 1.6);                // its faint shadow on the wall
+    line(D, wire, FL.WIRE_W * 0.8, 0.86);                 // a dark charcoal line
+    line(D, moved(strand, 0, 0.7), 0.6, 0.4);             // the twist of two strands
+    // where it crosses a bar of sunlight the wire catches it
+    const bb = [456, 30, 900, 880];
+    D.K.save(); D.K.clip(rect(456, 30, 362, 850)); D.K.clip(bars(bb, 0, 50, 0.56));
+    D.K.lineWidth = 0.9; D.K.strokeStyle = rgrad(D.K, 600, 210, 20, 330, [[0, 0.7], [1, 0.15]], W3); D.K.stroke(moved(wire, 0, -0.7)); D.K.restore();
+    const shades = [0.12, 0.4, 0.26, 0.55, 0.2]; // white, red, yellow, green, blue: coloured bulbs, in charcoal
+    for (const b of FL.bulbs()) {
+      const r = FL.BULB_R * 0.72, x = b.x, y = b.y + 1;
+      const inWindow = x > GL.x0 - 4 && x < GL.x1 + 4 && y > GL.y0 && y < GL.y1;
+      const bulb = cr([[x, y - r * 0.6], [x + r * 0.62, y], [x + r * 0.7, y + r * 0.7], [x, y + r * 1.45], [x - r * 0.7, y + r * 0.7], [x - r * 0.62, y]]);
+      const sh = shades[b.i % shades.length];
+      if (!inWindow) chalk(D, ell(x, y + r * 0.5, r * 2.6, r * 2.6), rgrad(D.K, x, y + r * 0.5, r * 0.4, r * 2.6, [[0, 0.16], [1, 0]], W3)); // a faint glow
+      solid(D, bulb, inWindow ? 0.5 + sh * 0.4 : 0.22 + sh * 0.5);
+      if (!inWindow) chalk(D, bulb, 0.35 - sh * 0.3);
+      line(D, bulb, 0.6, 0.65);
+      solid(D, rect(x - 2.4, y - r * 0.6 - 3.4, 4.8, 4), 0.9);  // the brass socket
+      chalk(D, ell(x - r * 0.28, y + r * 0.15, r * 0.2, r * 0.32, 0.3), inWindow ? 0.6 : 0.9, 0.3); // the glint
+    }
+  }
+
+  // after the velvet: a thin catch-light along the top of the wire so it still reads in the dark at the seam
+  function festoonGlint(D) {
+    const FL = window.FamilyLights; if (!FL) return;
+    const wire = new Path2D(); FL.wirePath(wire, 456, W); wire.bb = [456, 280, W, 430];
+    D.K.save(); D.K.clip(rect(456, 0, W, 600));
+    D.K.lineWidth = 0.9; D.K.strokeStyle = grad(D.K, 456, 0, W, 0, [[0, 0.1], [0.7, 0.22], [1, 0.3]], W3);
+    D.K.stroke(wire); D.K.restore();
+    D.C.save(); D.C.globalCompositeOperation = 'destination-out'; D.C.lineWidth = 0.9; D.C.strokeStyle = grad(D.C, 456, 0, W, 0, [[0, 0.1], [1, 0.35]]);
+    D.C.stroke(wire); D.C.restore();
+  }
+
   /* ------------------------------------------------------------------ floor and rug */
   function floor(D) {
     const r = D.r;
@@ -1639,7 +1679,7 @@
   /* ================================================================== the sequence */
   const STEPS = [
     warmUp, groundTone, wallSurface, windowFrame, garden, blindAndSash, windowSill, shutters, wallObjects, bookshelf, lightWall,
-    floor, lightFloor, hagen, chair, lightChair, don, lightDon, donFeatures, desk, lightDesk, deskPapers, donHands, lightHands, deskThings, lightObjects, bonasera, velvet,
+    festoon, floor, lightFloor, hagen, chair, lightChair, don, lightDon, donFeatures, desk, lightDesk, deskPapers, donHands, lightHands, deskThings, lightObjects, bonasera, velvet, festoonGlint,
   ];
 
   async function render(S, seed, out, tick) {
@@ -1667,7 +1707,8 @@
     const ok = await printSheet(D, out, tick);
     if (!ok) return null;
     out.setTransform(S, 0, 0, S, 0, 0);
-    if (window.FamilyOrange) window.FamilyOrange.drawSeamOranges(out, false, true);
+    // the orange that rolled off the bowl lies on the floor, the one touch of colour
+    if (window.FamilyOrange) window.FamilyOrange.drawOrange(out, 996, 1100, 15);
     out.setTransform(1, 0, 0, 1, 0, 0);
     D.C.canvas.width = D.K.canvas.width = D.X.canvas.width = D.M.canvas.width = 1; // free memory
     if (/[?&]debug/.test(location.search)) console.warn('wedding steps', times.join(' '), '| longest block', Math.round(worst), worstAt);
@@ -1680,7 +1721,7 @@
     title: 'A Favour on the Wedding Day',
     medium: 'Charcoal and white chalk on grey laid paper',
     note: 'One orange has rolled off the desk.',
-    about: 'August 1945: while Connie Corleone’s wedding blazes white beyond the window, the Don hears the undertaker Bonasera in the shuttered study, the sun through the slats laid across his face in bars. An original interpretation of Puzo’s novel, not the film, drawn as a tenebrist charcoal: velvet blacks, light lifted out with the eraser, and one orange, the only colour, rolling toward the next picture.',
+    about: 'August 1945: while Connie Corleone’s wedding blazes white beyond the window, the Don hears the undertaker Bonasera in the shuttered study, the sun through the slats laid across his face in bars. An original interpretation of Puzo’s novel, not the film, drawn as a tenebrist charcoal: velvet blacks, light lifted out with the eraser, one fallen orange the only colour, and the wedding’s string of lights, brought indoors, running on into the next picture.',
     tone: 'dark',
     room: '#14110e',
     mount(el, api) {

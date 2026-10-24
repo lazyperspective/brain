@@ -3,7 +3,8 @@
  * The baptism of Connie's son as a great Gothic window. Michael stands godfather at the font in the central
  * light; in the side lights and the tracery, the hour's other business is told in small dark silhouettes.
  * Below, the church lies in shadow and the window's coloured light falls across the stone floor, where the
- * orange that has rolled through the other drawings comes to rest.
+ * string of lights that has run through the other drawings ends: a chain of votive glass beads hung along the stone,
+ * whose last light is set as a ruby jewel in the window.
  *
  * Everything is drawn on a fixed 1080 x 1350 design frame. Glass is built piece by piece (pot-metal colour,
  * streaks, seeds, grisaille trace and matting, lead came), then the floor is lit per pixel by tracing each
@@ -1148,6 +1149,11 @@
       });
       glass(shape('M -12 20 L 12 20 L 16 30 L -16 30 Z', tf), G.gold, { paint: () => { const q = tf(0, 25); P.tr(`M ${q[0] - 12} ${q[1]} L ${q[0] + 12} ${q[1]}`, 0.7); } });
       [[0, 44, 4.4], [-10, 56, 3.4], [9, 60, 3.2]].forEach(([x, y, r]) => glass(shape(`M ${x} ${y - r * 2} C ${x + r} ${y - r * 0.6}, ${x + r} ${y + r}, ${x} ${y + r} C ${x - r} ${y + r}, ${x - r} ${y - r * 0.6}, ${x} ${y - r * 2} Z`, tf), G.aqua, { noStreak: true, lw: 2.2 }));
+      const jw = lastLight();
+      if (jw) {
+        glass(circ(jw.x, jw.y, 13.2), G.goldP, { lw: 2.4, noStreak: true, clean: true, paint: () => { for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; P.dot(jw.x + Math.cos(a) * 11.3, jw.y + Math.sin(a) * 11.3, 0.9, 0.8); } } });
+        glass(circ(jw.x, jw.y, 9), [176, 18, 34], { lw: 2.2, noStreak: true, clean: true, noFlash: true, paint: () => { const g = ctx.createRadialGradient(jw.x - 2.5, jw.y - 3, 0.5, jw.x, jw.y, 9); g.addColorStop(0, 'rgba(255,170,150,0.75)'); g.addColorStop(0.35, 'rgba(230,50,50,0.2)'); g.addColorStop(1, 'rgba(60,0,10,0.45)'); ctx.fillStyle = g; ctx.fillRect(jw.x - 10, jw.y - 10, 20, 20); } });
+      }
     }, R, 10, 'rose');
     await K.br();
     // the serpent
@@ -1855,6 +1861,68 @@
     });
   }
 
+  // ----- the string of lights that has run through the other drawings ends here, as a chain of votive glass beads
+  // hung along the stone, its last light set as a jewel in the window
+  const RING = { x: 262, y: 372, r: 88.5 };
+  function stringEnd() {
+    const FL = window.FamilyLights; if (!FL) return null;
+    for (let x = 0; x < 400; x += 0.25) if (Math.hypot(x - RING.x, FL.wireY(x) - RING.y) < RING.r) return x;
+    return null;
+  }
+  function lastLight() {
+    const FL = window.FamilyLights, xe = stringEnd(); if (!FL || xe === null) return null;
+    return FL.bulbs().find((b) => b.x > xe) || null;
+  }
+  function drawLightString(ctx) {
+    const FL = window.FamilyLights, xe = stringEnd();
+    if (!FL || xe === null) return;
+    const BR = FL.BULB_R, cols = [[176, 22, 36], [226, 162, 44], [36, 70, 176]];
+    const beads = FL.bulbs().filter((b) => b.x < xe - 4);
+    // glow first, under everything
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    beads.forEach((b) => {
+      const c = cols[b.i % 3], g = ctx.createRadialGradient(b.x, b.y, 1, b.x, b.y, BR * 3.6);
+      g.addColorStop(0, rgb(c, 0.32)); g.addColorStop(1, rgb(c, 0));
+      ctx.fillStyle = g; ctx.fillRect(b.x - BR * 4, b.y - BR * 4, BR * 8, BR * 8);
+    });
+    const jw = lastLight();
+    if (jw) { const g = ctx.createRadialGradient(jw.x, jw.y, 2, jw.x, jw.y, 34); g.addColorStop(0, 'rgba(255,60,60,0.22)'); g.addColorStop(1, 'rgba(255,40,40,0)'); ctx.fillStyle = g; ctx.fillRect(jw.x - 36, jw.y - 36, 72, 72); }
+    ctx.restore();
+    // the chain: small iron links laid along the shared curve, exactly on it at the seam
+    ctx.save(); ctx.lineCap = 'round';
+    let acc = 0, k = 0, px = 0, py = FL.wireY(0);
+    const LINK = 4.2;
+    ctx.beginPath(); FL.wirePath(ctx, 0, xe); ctx.strokeStyle = 'rgba(8,7,6,0.55)'; ctx.lineWidth = FL.WIRE_W * 0.55; ctx.stroke();
+    for (let x = 0.25; x <= xe; x += 0.25) {
+      const y = FL.wireY(x); acc += Math.hypot(x - px, y - py); px = x; py = y;
+      if (acc < LINK) continue; acc = 0; k++;
+      const a = Math.atan2(FL.wireY(x + 0.5) - FL.wireY(x - 0.5), 1);
+      ctx.save(); ctx.translate(x - Math.cos(a) * LINK / 2, y - Math.sin(a) * LINK / 2); ctx.rotate(a);
+      ctx.beginPath(); ctx.ellipse(0, 0, LINK * 0.62, k % 2 ? FL.WIRE_W * 0.5 : FL.WIRE_W * 0.22, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = '#0b0908'; ctx.lineWidth = 1.25; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-LINK * 0.4, -FL.WIRE_W * 0.45); ctx.lineTo(LINK * 0.4, -FL.WIRE_W * 0.45); ctx.strokeStyle = 'rgba(150,124,96,0.35)'; ctx.lineWidth = 0.5; ctx.stroke();
+      ctx.restore();
+    }
+    // an iron staple in the stone ring of the roundel, where the chain is made fast
+    const ey = FL.wireY(xe);
+    ctx.beginPath(); ctx.arc(xe + 1, ey, 3, 0, Math.PI * 2); ctx.strokeStyle = '#0b0908'; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.fillStyle = 'rgba(150,124,96,0.4)'; ctx.fillRect(xe - 1, ey - 3.6, 2.4, 0.8);
+    // the beads: blown glass with a little flame of light in each, on a brass cap
+    beads.forEach((b) => {
+      const c = cols[b.i % 3];
+      const cy = b.y;
+      const g = ctx.createRadialGradient(b.x - BR * 0.3, cy - BR * 0.35, 0.5, b.x, cy, BR);
+      g.addColorStop(0, rgb(mulc(c, 1.7))); g.addColorStop(0.35, rgb(mulc(c, 1.15))); g.addColorStop(0.85, rgb(mulc(c, 0.6))); g.addColorStop(1, rgb(mulc(c, 0.3)));
+      ctx.beginPath(); ctx.arc(b.x, cy, BR * 0.92, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(10,6,4,0.75)'; ctx.lineWidth = 0.9; ctx.stroke();
+      ctx.beginPath(); ctx.arc(b.x - BR * 0.32, cy - BR * 0.38, BR * 0.17, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,250,236,0.85)'; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(b.x, cy + BR * 0.15, BR * 0.16, BR * 0.3, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,240,200,0.55)'; ctx.fill();
+      const ta = Math.atan2(FL.wireY(b.x + 0.5) - FL.wireY(b.x - 0.5), 1);
+      [-1, 1].forEach((sd) => { ctx.save(); ctx.translate(b.x + Math.cos(ta) * BR * 0.92 * sd, cy + Math.sin(ta) * BR * 0.92 * sd); ctx.rotate(ta); ctx.fillStyle = '#3a2a14'; ctx.fillRect(-1.3, -2.4, 2.6, 4.8); ctx.fillStyle = 'rgba(220,180,110,0.5)'; ctx.fillRect(-1.3, -2.4, 2.6, 0.7); ctx.restore(); });
+    });
+    ctx.restore();
+  }
+
   function drawLamp(ctx) {
     const { x, y } = LAMP;
     // chain up the mullion
@@ -1952,9 +2020,10 @@
     await hazePass(ctx, beam, scale, breathe);
     drawFlames(ctx, flames);
 
-    // the orange, the last thing in
+    // the string of lights, the last thing in; a small orange at rest by the font
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    if (window.FamilyOrange) window.FamilyOrange.drawSeamOranges(ctx, true, false);
+    drawLightString(ctx);
+    if (window.FamilyOrange) { const q = proj(-0.06, 0.04, 10.5); window.FamilyOrange.drawOrange(ctx, q[0], q[1] - 1.5, 7); }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     return { flames };
   }
@@ -1964,8 +2033,8 @@
     id: 'baptism',
     title: 'I Do Renounce Him',
     medium: 'Pot-metal glass, grisaille and lead came, drawn in JavaScript',
-    note: 'The orange has come to rest.',
-    about: "Connie's son is baptised with Michael as his godfather, told as a great Gothic window: the font and the vows in the central light, and in the tracery around them the hour's other business, as small dark silhouettes. Below, the church is in shadow and the window's coloured light lies on the floor where the orange stops. An original interpretation of Puzo's novel, not the film.",
+    note: 'The string of lights ends here, in the glass.',
+    about: "Connie's son is baptised with Michael as his godfather, told as a great Gothic window: the font and the vows in the central light, and in the tracery around them the hour's other business, as small dark silhouettes. Below, the church is in shadow and the window's coloured light lies on the floor; the string of lights ends in the window as a ruby jewel. An original interpretation of Puzo's novel, not the film.",
     tone: 'dark',
     room: '#0b0a09',
     mount(el, api) {

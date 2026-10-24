@@ -856,6 +856,26 @@
     fruit(ctx, x + 0.2 * k, y + 0.08 * k, 0.05 * k, 'orange');
     fruit(ctx, x + 0.27 * k, y + 0.26 * k, 0.05 * k, 'orange');
   }
+  function drawSharedString(ctx) {
+    const FL = window.FamilyLights; if (!FL) return;
+    // the wire: exactly on the shared curve, a dark gouache line with a cold catch-light along its top
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); FL.wirePath(ctx); ctx.strokeStyle = '#15161c'; ctx.lineWidth = FL.WIRE_W; ctx.stroke();
+    ctx.beginPath(); FL.wirePath(ctx); ctx.strokeStyle = 'rgba(150,170,200,0.35)'; ctx.lineWidth = 0.8; ctx.translate(0, -0.9); ctx.stroke();
+    ctx.restore();
+    const r = FL.BULB_R;
+    for (const b of FL.bulbs()) {
+      const col = BULBS[b.i % 5], x = b.x, y = b.y;
+      glow(ctx, x, y + r * 0.3, r * 3.2, col, 0.32);
+      // socket on the wire, bulb hanging from it
+      ctx.fillStyle = '#1c1a18'; ctx.fillRect(x - r * 0.32, y - r * 0.55, r * 0.64, r * 0.6);
+      ctx.fillStyle = mix(col, '#000000', 0.25); ctx.beginPath(); ctx.ellipse(x, y + r * 0.35, r * 0.68, r * 0.78, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x - r * 0.08, y + r * 0.28, r * 0.52, r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mix(col, '#ffffff', 0.7); ctx.beginPath(); ctx.ellipse(x - r * 0.22, y + r * 0.12, r * 0.18, r * 0.26, -0.3, 0, Math.PI * 2); ctx.fill();
+      // a cap of snow on the socket
+      ctx.fillStyle = C.snow; ctx.beginPath(); ctx.ellipse(x, y - r * 0.58, r * 0.46, r * 0.2, 0, Math.PI, 0); ctx.fill();
+    }
+  }
   function drawLitter(ctx) {
     // a morning paper gone soft in the slush
     const cx = 1.3, cz = 2.2, a = 0.42, w = 0.58, h = 0.4, ca = Math.cos(a), sa = Math.sin(a);
@@ -1327,6 +1347,7 @@
       { const c = P((NEON.x0 + NEON.x1) / 2, 4.0, NEON.Z); glow(r, c[0], c[1], 16, '#ff4a5a', 0.6); }
       const e = P(1.5, 4, ZEND); glow(r, e[0], e[1], 60, '#e8b088', 0.35);
       MIR = null;
+      if (window.FamilyLights) for (const b of window.FamilyLights.bulbs()) glow(r, b.x, 2 * CAM.hy - b.y + 210, 9, BULBS[b.i % 5], 0.8);
     });
     S(() => {
       // smear the mirrored lights downward a little, as a wet, slightly rough road does
@@ -1477,6 +1498,9 @@
       }
     });
 
+    /* ---- the nearest string of Christmas lights: the shared wire that runs through all four drawings */
+    S(() => { drawSharedString(ctx); });
+
     /* ---- falling snow: spatter, the way the magazine painters did it with a stiff brush */
     S(() => {
       for (let i = 0; i < 1100; i++) {
@@ -1490,10 +1514,9 @@
       g.addColorStop(0, 'rgba(10,14,28,0)'); g.addColorStop(1, 'rgba(10,14,28,0.38)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     });
-    S(() => { window.FamilyOrange.drawSeamOranges(ctx, true, true); });
     return steps;
   }
-  const XMAS = [15.5, 24, 34, 48, 68];
+  const XMAS = [24, 34, 48, 68];
   const PUDDLES = [[0.2, 3.7, 0.6, 0.34, 1], [2.25, 6.2, 0.55, 0.36, 2]];
   function puddle(pd) {
     const out = [];
