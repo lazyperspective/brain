@@ -113,6 +113,8 @@
     fillOn(D.C, p, st, blur, D.S);
     fillOn(D.K, p, st, blur, D.S, 'destination-out');
   }
+  // an opaque object: rub out what is behind it, then lay in its own tone
+  function solid(D, p, a, blur) { fillOn(D.C, p, '#000', blur, D.S, 'destination-out'); fillOn(D.K, p, '#000', blur, D.S, 'destination-out'); tone(D, p, a, blur); }
   const lift = (D, p, a, blur) => fillOn(D.C, p, typeof a === 'number' ? blk(a) : a, blur, D.S, 'destination-out');
   const chalk = (D, p, a, blur) => fillOn(D.K, p, typeof a === 'number' ? wht(a) : a, blur, D.S);
   function line(D, p, w, a, ctx, blur) {
@@ -303,7 +305,7 @@
     const q = (dx * dx) / (b[2] * b[2]) + (dy * dy) / (b[3] * b[3]);
     return q > 9 ? 0 : b[4] * Math.exp(-q);
   }
-  function relief(D, o) {
+  async function relief(D, o) {
     const S = D.S, G = D.G || new DOMMatrix();
     const g = G.a; // uniform scale (translate + scale only)
     const toDev = (x, y) => [(G.a * x + G.e) * S, (G.d * y + G.f) * S];
@@ -317,9 +319,11 @@
       return m.getImageData(0, 0, sw, sh).data;
     };
     const ma = raster(o.mask), ta = o.texMask ? raster(o.texMask) : null;
+    const DEN = new Float32Array(sw * sh);
     const lu = 1 / (S * g); // local units per device pixel
     const Z = new Float32Array(sw * sh);
     for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) {
+      if (i === 0 && j % 90 === 89) await D.tick();
       const x = ((sx + i + 0.5) / S - G.e) / G.a, y = ((sy + j + 0.5) / S - G.f) / G.d;
       let z = o.base ? o.base(x, y) : 0;
       for (const b of o.bumps) z += bump(x, y, b);
@@ -334,6 +338,7 @@
     const dc = ic.createImageData(sw, sh), dk = ik.createImageData(sw, sh);
     const shadowSteps = Math.ceil((o.shadowLen || 18) / lu);
     for (let j = 1; j < sh - 1; j++) for (let i = 1; i < sw - 1; i++) {
+      if (i === 1 && j % 60 === 59) await D.tick();
       const k = j * sw + i, m = ma[k * 4 + 3] / 255;
       if (m <= 0) continue;
       const zx = (Z[k + 1] - Z[k - 1]) / (2 * lu), zy = (Z[k + sw] - Z[k - sw]) / (2 * lu);
@@ -358,11 +363,12 @@
         b = Math.max(0, Math.min(1, b));
         b = (bar.min || 0) + (1 - (bar.min || 0)) * b;
       }
-      const direct = shade * lit * b * (o.gain || 1) * (o.int ? o.int(x, y) : 1);
+      const alb = ta ? 1 - (1 - (o.texAlbedo === undefined ? 1 : o.texAlbedo)) * ta[k * 4 + 3] / 255 : 1;
+      const direct = shade * lit * b * alb * (o.gain || 1) * (o.int ? o.int(x, y) : 1);
       const amb = Math.max(0, nx * A[0] + ny * A[1] + nz * A[2]);
       const v = (o.floor || 0.03) + 0.95 * direct + (o.amb === undefined ? 0.1 : o.amb) * amb * (0.6 + 0.4 * shade);
       const dens = Math.min(o.dark || 0.95, Math.max(0.03, 1 - v));
-      dc.data[k * 4 + 3] = dens * 255 * m;
+      dc.data[k * 4 + 3] = dens * 255 * m; DEN[k] = dens;
       const ch = Math.max(0, Math.min(0.85, (direct - (o.chalkFrom || 0.6)) * 2.2));
       dk.data[k * 4 + 0] = dk.data[k * 4 + 1] = dk.data[k * 4 + 2] = 255; dk.data[k * 4 + 3] = ch * 255 * m;
     }
@@ -371,26 +377,31 @@
     for (const c of [D.C, D.K]) { c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000'; c.fill(o.mask); c.restore(); }
     for (const [c, src] of [[D.C, ic], [D.K, ik]]) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src.canvas, sx, sy); c.restore(); }
     if (o.outline) line(D, o.mask, o.outline, 0.6, null, 0.4); // the drawn contour closes the form
+    // a sampler of the modelled density in local coordinates, so that hatching can follow the shading
+    return (x, y) => {
+      const i = Math.round((G.a * x + G.e) * S - sx), j = Math.round((G.d * y + G.f) * S - sy);
+      return i < 0 || j < 0 || i >= sw || j >= sh ? 0 : DEN[j * sw + i];
+    };
   }
 
   /* ================================================================== THE ROOM */
 
   function groundTone(D) {
     const C = D.C;
-    C.fillStyle = grad(C, 0, 0, 0, FLOOR, [[0, 0.8], [0.45, 0.72], [1, 0.7]]); C.fillRect(0, 0, W, FLOOR);
-    C.fillStyle = grad(C, 0, FLOOR, 0, H, [[0, 0.74], [0.5, 0.72], [1, 0.8]]); C.fillRect(0, FLOOR, W, H - FLOOR);
+    C.fillStyle = grad(C, 0, 0, 0, FLOOR, [[0, 0.84], [0.45, 0.76], [1, 0.74]]); C.fillRect(0, 0, W, FLOOR);
+    C.fillStyle = grad(C, 0, FLOOR, 0, H, [[0, 0.78], [0.5, 0.76], [1, 0.84]]); C.fillRect(0, FLOOR, W, H - FLOOR);
     // the room is a little less dark around the bright window (bounce light), stumped
     lift(D, rect(0, 0, W, FLOOR), rgrad(C, 250, 470, 60, 430, [[0, 0.4], [0.5, 0.16], [1, 0]]));
     lift(D, rect(0, FLOOR, W, H - FLOOR), rgrad(C, 280, 900, 40, 460, [[0, 0.16], [1, 0]]));
     // the far corners sink into velvet
-    tone(D, rect(0, 0, W, H), rgrad(C, 600, 640, 480, 960, [[0, 0], [1, 0.55]]));
+    tone(D, rect(0, 0, W, H), rgrad(C, 560, 620, 360, 900, [[0, 0], [0.6, 0.45], [1, 0.75]]));
   }
 
   function wallSurface(D) {
     const wall = rect(0, 0, W, FLOOR);
     // the draughtsman's ground: even, quiet diagonal hatching in two directions
     // the dark of the room is built of strokes: one even diagonal layer, a crossing layer where it is darkest
-    const far = (x, y) => clamp(0.45 + Math.hypot(x - 250, y - 470) / 700, 0, 1);
+    const far = (x, y) => clamp(0.5 + Math.hypot(x - 250, y - 470) / 600, 0, 1.2);
     hatch(D, wall, [0, 0, W, FLOOR], { ang: 58, sp: 2.6, w: 0.8, a: 0.34, step: 5, jit: 0.4, maxLen: 120, af: far });
     hatch(D, wall, [0, 0, W, FLOOR], { ang: -32, sp: 3.2, w: 0.7, a: 0.26, step: 5, jit: 0.4, maxLen: 100, af: (x, y) => clamp(far(x, y) * 1.4 - 0.55, 0, 1) });
     // crown moulding at the top
@@ -844,10 +855,10 @@
     // the bars fall across the back wall above and beside the chair, fading out into the dark
     const bb = [456, 30, 900, 880];
     const wallM = rect(456, 30, 362, 850);
-    const fall = (X) => rgrad(X, 600, 200, 20, 330, [[0, 0.9], [0.4, 0.7], [0.75, 0.2], [1, 0]], W3);
+    const fall = (X) => rgrad(X, 600, 210, 20, 300, [[0, 0.9], [0.4, 0.66], [0.75, 0.16], [1, 0]], W3);
     const jamb = (X) => grad(X, 452, 0, 560, 0, [[0, 0], [1, 1]], W3); // the light thins out toward the window wall
-    light(D, { bb, mask: wallM, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.5, soft: 0.5 }); await D.tick();
-    light(D, { bb, mask: wallM, bars: bars(bb, 0), int: (X) => rgrad(X, 620, 160, 10, 230, [[0, 0.6], [1, 0]], W3), int2: jamb, chalk: 0.28, soft: 0.6 });
+    light(D, { bb, mask: wallM, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.44 }); await D.tick();
+    light(D, { bb, mask: wallM, bars: bars(bb, 0), int: (X) => rgrad(X, 620, 160, 10, 230, [[0, 0.6], [1, 0]], W3), int2: jamb, chalk: 0.28 });
     light(D, { bb, mask: D.damask, bars: bars(bb, 0), int: fall, int2: jamb, lift: 0.14 }); await D.tick();
     light(D, { bb, mask: D.corpus, bars: bars(bb, 0), chalk: 0.75, lift: 0.5 });
     light(D, { bb, mask: D.cross, bars: bars(bb, 0), lift: 0.35 });
@@ -900,9 +911,9 @@
     D.C.save(); D.C.clip(field); line(D, lat, 0.7, 0.3); D.C.restore();
     const my = 1215, mx = X((ul + ur) / 2, my);
     const med = cr([[mx, my - 50], [mx + 50, my - 26], [mx + 150, my], [mx + 50, my + 30], [mx, my + 62], [mx - 50, my + 30], [mx - 150, my], [mx - 50, my - 26]]);
-    tone(D, med, 0.3); line(D, med, 1, 0.5); eraseLine(D, moved(med, 0, -1.5), 0.8, 0.06);
+    tone(D, med, 0.18); line(D, med, 0.8, 0.3);
     const med2 = cr([[mx, my - 26], [mx + 70, my], [mx, my + 32], [mx - 70, my]]);
-    tone(D, med2, 0.3); line(D, med2, 0.8, 0.45);
+    tone(D, med2, 0.18); line(D, med2, 0.7, 0.25);
     hatch(D, rug, [0, ry0, W, H], { ang: 0, sp: 2.6, w: 0.5, a: 0.14, jit: 0.4, maxLen: 50 });
     // fringe along the far edge, half under the desk
     const fr = new Path2D();
@@ -915,11 +926,11 @@
   async function lightFloor(D) {
     // the bars on the floor run into the depth and gather towards the orange at the right edge
     const p = flatBars(FLOOR, H, 0.55, 1.7, 0.09, 0.5, 0.02);
-    const int = (X) => rgrad(X, 1075, 1080, 20, 290, [[0, 1], [0.35, 0.72], [0.75, 0.2], [1, 0]], W3);
+    const int = (X) => rgrad(X, 1075, 1080, 20, 300, [[0, 1], [0.3, 0.62], [0.62, 0.16], [1, 0]], W3);
     const bb = [600, FLOOR, W, H];
     const fm = rect(0, FLOOR, W, H - FLOOR);
-    light(D, { bb, mask: fm, bars: p, int, lift: 0.66, soft: 0.6 }); await D.tick();
-    light(D, { bb, mask: fm, bars: p, int: (X) => rgrad(X, 1070, 1085, 10, 180, [[0, 0.75], [1, 0]], W3), chalk: 0.42, soft: 0.6 });
+    light(D, { bb, mask: fm, bars: p, int, lift: 0.66 }); await D.tick();
+    light(D, { bb, mask: fm, bars: p, int: (X) => rgrad(X, 1070, 1085, 10, 180, [[0, 0.75], [1, 0]], W3), chalk: 0.42 });
     light(D, { bb, mask: D.rugMotif, bars: p, int, lift: 0.4 }); await D.tick();
     const bl = new Path2D();
     for (let u = 0.5; u < 1.7; u += 0.085) { bl.moveTo(VPX + u * (FLOOR - HZ), FLOOR); bl.lineTo(VPX + u * (H - HZ), H); }
@@ -1019,7 +1030,7 @@
     setGroup(D, DONM);
     const C = D.C;
     tone(D, moved(DON, 14, 9), 0.5, 3); // his shadow thrown on the chair
-    tone(D, DON_BODY, 0.84);
+    tone(D, DON_BODY, 0.88);
     hatch(D, DON_BODY, [505, 540, 745, 712], { ang: 72, sp: 2.2, w: 0.8, a: 0.42, bow: 0.04, jit: 0.4 });
     hatch(D, DON_BODY, [505, 540, 745, 712], { ang: -20, sp: 2.8, w: 0.7, a: 0.32, jit: 0.4, af: (x) => clamp((x - 560) / 150, 0.25, 1) });
     const shirt = cr([[603, 548], [626, 562], [650, 545], [646, 580], [634, 620], [626, 650], [617, 620], [606, 580]]);
@@ -1039,6 +1050,7 @@
     tone(D, fl, 0.85); D.flower = fl;
     D.lapL = lapL; D.shirt = shirt; D.collar = join(collarL, collarR);
     tone(D, DON_HEAD, 0.94);
+    line(D, DON_BODY, 1.3, 0.75, null, 0.4);
     lift(D, DON_HAIR, 0.14, 1.5);
     lift(D, DON_FRONT, 0.12, 3);
     tone(D, DON_EAR, 0.6); line(D, cr([[645, 482], [651, 480], [652, 492], [647, 501]], false), 0.9, 0.6);
@@ -1052,7 +1064,7 @@
     const shadowOnChair = holeOf(DON, 14, 9);
     const cb = [470, 320, 780, 712];
     const chairInt = (X) => grad(X, 480, 0, 640, 0, [[0, 1], [0.3, 0.5], [1, 0]], W3);
-    light(D, { bb: cb, mask: CHAIR, shadow: shadowOnChair, bars: bars(cb, 4), int: chairInt, lift: 0.3, soft: 0.5 }); await D.tick();
+    light(D, { bb: cb, mask: CHAIR, shadow: shadowOnChair, bars: bars(cb, 4), int: chairInt, lift: 0.3 }); await D.tick();
     light(D, { bb: cb, mask: join(D.nails, D.chairBtn), shadow: shadowOnChair, bars: bars(cb, 4), int: chairInt, chalk: 0.8, lift: 0.5 });
     setGroup(D, null);
   }
@@ -1063,12 +1075,15 @@
     // the face: lit plane first, then the hard bars across it, modelled from cheekbone and brow
     const fb = bars(bb, 1, 30, 0.58);
     // the head is modelled by the light itself
-    relief(D, { mask: DON_HEAD, bb: [566, 436, 678, 554], base: headDome, bumps: HEAD_BUMPS, texMask: DON_HAIR, tex: hairTex,
-      bars: { ang: BAR.ang, per: 30, duty: 0.58, phase: 1, min: 0.2 }, light: [-0.82, -0.45, 0.42], shadowLen: 18, amb: 0.1, chalkFrom: 0.55, outline: 0.9 });
+    const hd = await relief(D, { mask: DON_HEAD, bb: [566, 436, 678, 554], base: headDome, bumps: HEAD_BUMPS, texMask: DON_HAIR, tex: hairTex, texAlbedo: 0.78,
+      bars: { ang: BAR.ang, per: 30, duty: 0.58, phase: 1, min: 0.2 }, light: [-0.86, -0.44, 0.34], shadowLen: 18, amb: 0.08, chalkFrom: 0.55, outline: 0.9 });
     await D.tick();
-    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: 60, sp: 2.2, w: 0.5, a: 0.18, jit: 0.3, af: (x) => clamp((x - 618) / 34, 0, 1) });
-    light(D, { bb, mask: D.lapL, bars: fb, int: (X) => grad(X, 570, 0, 620, 0, [[0, 0.8], [1, 0.25]], W3), lift: 0.32, soft: 0.5 });
-    light(D, { bb, mask: cr([[540, 578], [566, 564], [590, 556], [575, 586], [548, 610], [528, 640], [522, 610], [530, 590]]), bars: fb, lift: 0.28, soft: 0.6 }); await D.tick();
+    // hatching follows the modelled shadow, as a draughtsman would put it in: one direction in the half-tone, a crossing in the dark
+    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: 62, sp: 1.9, w: 0.5, a: 0.3, jit: 0.3, step: 1.2, af: (x, y) => clamp((hd(x, y) - 0.35) * 1.8, 0, 1) });
+    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: -28, sp: 2.3, w: 0.45, a: 0.24, jit: 0.3, step: 1.2, af: (x, y) => clamp((hd(x, y) - 0.62) * 2.5, 0, 1) });
+    const sb = bars(bb, 16, 30, 0.5);
+    light(D, { bb, mask: D.lapL, bars: sb, int: (X) => grad(X, 570, 0, 620, 0, [[0, 0.8], [1, 0.25]], W3), lift: 0.24, soft: 0.5 });
+    light(D, { bb, mask: cr([[540, 578], [566, 564], [590, 556], [575, 586], [548, 610], [528, 640], [522, 610], [530, 590]]), bars: sb, lift: 0.2, soft: 0.6 }); await D.tick();
     light(D, { bb, mask: join(D.shirt, D.collar), int: (X) => grad(X, 600, 0, 650, 0, [[0, 1], [1, 0.3]], W3), lift: 0.25 });
     light(D, { bb, mask: join(D.shirt, D.collar), bars: fb, int: (X) => grad(X, 600, 0, 650, 0, [[0, 1], [1, 0.35]], W3), lift: 0.85, chalk: 0.7, soft: 0.4 });
     light(D, { bb, mask: D.flower, bars: fb, lift: 0.35, chalk: 0.15 });
@@ -1096,7 +1111,17 @@
       const t = i / 17, y = 450 + t * 38 + (r() - 0.5) * 2, x0 = 594 + t * 42 + r() * 4;
       hl.moveTo(x0, y + 3 - t * 2); hl.quadraticCurveTo(x0 + 22 - t * 10, y - 3, 668 - t * 6, y + 6 + t * 6);
     }
-    D.C.save(); D.C.clip(DON_HAIR); line(D, hl, 0.4, 0.14); D.C.restore();
+    D.C.save(); D.C.clip(DON_HAIR); line(D, hl, 0.45, 0.22); D.C.restore();
+    // silver where the bars cross the hair, and the roots darker along the hairline
+    const sil = new Path2D();
+    for (let i = 0; i < 26; i++) {
+      const t = i / 25, y = 449 + t * 40 + (r() - 0.5) * 2.5, x0 = 592 + t * 44 + r() * 5;
+      sil.moveTo(x0, y + 2 - t * 2); sil.quadraticCurveTo(x0 + 20 - t * 9, y - 3.6, 667 - t * 7, y + 5 + t * 6);
+    }
+    D.K.save(); D.K.clip(DON_HAIR); D.K.clip(bars([560, 430, 690, 560], 1, 30, 0.58));
+    D.K.lineWidth = 0.4; D.K.strokeStyle = wht(0.3); D.K.stroke(sil); D.K.restore();
+    D.C.save(); D.C.clip(DON_HAIR); eraseLine(D, sil, 0.55, 0.16); D.C.restore();
+    line(D, cr([[588, 452], [600, 454.5], [614, 455.5], [628, 460], [642, 469], [652, 482]], false), 1.6, 0.22, null, 1.2);
     setGroup(D, null);
   }
 
@@ -1107,7 +1132,7 @@
     const top = poly([[bx0, ty0], [bx1, ty0], [fx1, ty1], [fx0, ty1]]);
     const front = rect(fx0, ty1, fx1 - fx0, by - ty1);
     D.deskTop = top; D.deskFront = front;
-    tone(D, front, 0.68);
+    tone(D, front, 0.76);
     hatch(D, front, [fx0, ty1, fx1, by], { ang: 90, sp: 2.2, w: 0.85, a: 0.4, jit: 0.4, maxLen: 90 });
     hatch(D, front, [fx0, ty1, fx1, by], { ang: 28, sp: 3, w: 0.7, a: 0.28, jit: 0.4, maxLen: 90, af: (x, y) => clamp(0.4 + (y - 760) / 500 + (x - 700) / 1200, 0, 1) });
     // top surface: dark polished walnut, the far edge reflecting the window a little
@@ -1162,7 +1187,7 @@
     const db = bars(bb, 12);
     // only the top of the right pedestal is grazed; the face of the desk stays in the dark
     const int = (X) => rgrad(X, 960, 770, 10, 170, [[0, 0.8], [0.5, 0.3], [1, 0]], W3);
-    light(D, { bb, mask: D.deskFront, bars: db, int, lift: 0.3, soft: 0.5 });
+    light(D, { bb, mask: D.deskFront, bars: db, int, lift: 0.3 });
     light(D, { bb, mask: D.pulls, bars: db, int, lift: 0.9, chalk: 0.7 }); await D.tick();
     // the desk top: bars running into the depth
     const tb = flatBars(DESK.ty0, DESK.ty1 + 1, -0.4, 2.4, 0.14, 0.5, 0.02);
@@ -1172,44 +1197,53 @@
   }
 
   /* ------------------------------------------------------------------ on the desk */
-  function deskObjects(D) {
-    const C = D.C, r = D.r;
+  async function deskPapers(D) {
     // papers under his hands: a letter, a sheet turned at an angle
     const p1 = poly([[570, 734], [700, 731], [712, 741], [574, 745]]);
     const p2 = poly([[604, 727], [694, 718], [700, 728], [610, 737]]);
-    tone(D, p1, 0.4); lift(D, p1, 0.3); tone(D, p2, 0.35); lift(D, p2, 0.32);
-    line(D, p2, 0.6, 0.5);
+    solid(D, p1, 0.42); solid(D, p2, 0.38);
+    line(D, p2, 0.6, 0.5); line(D, p1, 0.5, 0.4);
+    for (let i = 0; i < 4; i++) line(D, seg(620 + i * 2, 722 + i * 3, 680 + i * 2, 718 + i * 3), 0.4, 0.25); // a few lines of handwriting
     D.papers = join(p1, p2);
-    // a decanter of anisette and a small glass
+    const bb = [500, 560, 1010, 760];
+    light(D, { bb, mask: D.papers, bars: bars(bb, 9), int: (X) => grad(X, 560, 0, 712, 0, [[0, 0.6], [0.3, 1], [1, 0.9]], W3), lift: 0.9, chalk: 0.65, soft: 0.4 });
+  }
+  function deskThings(D) {
+    const C = D.C, r = D.r;
+    // a decanter of anisette and a small glass: dark glass against his suit, found by its reflections
     const dx = 546;
     const dec = cr([[dx - 10, 738, 1], [dx - 15, 722], [dx - 14, 704], [dx - 7, 694], [dx - 4, 682], [dx - 5, 670], [dx - 7, 666, 1], [dx + 3, 666, 1], [dx + 1, 670], [dx, 682], [dx + 3, 694], [dx + 10, 704], [dx + 11, 722], [dx + 6, 738, 1]]);
-    tone(D, dec, 0.55); lift(D, dec, 0.12);
-    tone(D, cr([[dx - 13, 718], [dx + 9, 718], [dx + 6, 738], [dx - 10, 738]]), 0.3);
-    line(D, dec, 0.9, 0.7);
-    tone(D, cr([[dx - 8, 666], [dx + 4, 666], [dx + 4, 658], [dx, 652], [dx - 4, 652], [dx - 8, 658]]), 0.85);
-    D.decanter = dec;
+    solid(D, dec, 0.72);
+    const spirit = cr([[dx - 14.5, 716], [dx + 10.5, 716], [dx + 10, 726], [dx + 6, 738], [dx - 10, 738], [dx - 14, 726]]);
+    lift(D, spirit, 0.4);
+    line(D, dec, 0.9, 0.85);
+    solid(D, cr([[dx - 8, 666], [dx + 4, 666], [dx + 4, 658], [dx, 652], [dx - 4, 652], [dx - 8, 658]]), 0.6);
+    D.decanter = dec; D.spirit = spirit;
     const gl = cr([[564, 739, 1], [563, 725], [574, 725], [573, 739, 1]]);
-    tone(D, gl, 0.35); lift(D, gl, 0.15); line(D, gl, 0.7, 0.7);
+    solid(D, gl, 0.7); lift(D, cr([[563.5, 732], [573.5, 732], [573, 739], [564, 739]]), 0.4); line(D, gl, 0.7, 0.8);
     D.glass = gl;
-    // a cigar box, its lid ajar
+    // a cigar box, its lid ajar on a row of cigars
     const box = poly([[712, 738], [764, 738], [764, 721], [712, 721]]);
-    tone(D, box, 0.75);
+    solid(D, box, 0.62);
     const lid = poly([[710, 721], [766, 721], [770, 709], [714, 707]]);
-    tone(D, lid, 0.82); line(D, box, 0.8, 0.8); line(D, lid, 0.8, 0.8);
-    const label = rect(728, 725, 20, 9); lift(D, label, 0.25); line(D, label, 0.5, 0.4);
-    for (let i = 0; i < 4; i++) tone(D, rect(716 + i * 12, 716, 10, 4), 0.6);
-    D.box = join(box, lid);
-    // telephone: a black cradle set
+    solid(D, lid, 0.72); line(D, box, 0.8, 0.8); line(D, lid, 0.8, 0.8);
+    const label = rect(726, 725, 24, 9); solid(D, label, 0.22); line(D, label, 0.5, 0.5);
+    line(D, seg(729, 729.5, 747, 729.5), 0.6, 0.45);
+    for (let i = 0; i < 4; i++) { const c = cr([[716 + i * 12, 721], [716 + i * 12, 716.5], [726 + i * 12, 716.5], [726 + i * 12, 721]]); solid(D, c, 0.55); line(D, c, 0.4, 0.6); }
+    D.box = join(box, lid, label);
+    // telephone: a black cradle set, its bakelite catching the light on every edge
     const px = 798;
     const ph = cr([[px - 30, 737, 1], [px - 21, 710], [px + 21, 710], [px + 30, 737, 1]]);
-    tone(D, ph, 0.95);
+    solid(D, ph, 0.9);
+    eraseLine(D, cr([[px - 29, 735], [px - 20.5, 711], [px + 20.5, 711]], false), 1, 0.35);
     const dial = ell(px, 725, 10, 6);
-    lift(D, dial, 0.18); line(D, dial, 0.8, 0.8);
+    solid(D, dial, 0.6); line(D, dial, 0.8, 0.85); eraseLine(D, cr([[px - 9, 723], [px - 4, 719.5], [px + 4, 719.5]], false), 0.8, 0.4);
     for (let k = 0; k < 10; k++) { const a = -2.4 + k * 0.48; tone(D, ell(px + Math.cos(a) * 6.8, 725 + Math.sin(a) * 3.9, 1.1, 0.9), 0.9); }
-    tone(D, join(poly([[px - 17, 710], [px - 13, 698], [px - 9, 710]]), poly([[px + 9, 710], [px + 13, 698], [px + 17, 710]])), 0.95);
+    tone(D, ell(px, 725, 2.6, 1.6), 0.9);
+    solid(D, join(poly([[px - 17, 710], [px - 13, 698], [px - 9, 710]]), poly([[px + 9, 710], [px + 13, 698], [px + 17, 710]])), 0.92);
     const hand = cr([[px - 37, 700], [px - 29, 692], [px - 19, 694], [px + 21, 694], [px + 33, 692], [px + 41, 700], [px + 37, 706], [px + 27, 702], [px - 25, 702], [px - 33, 706]]);
-    tone(D, hand, 0.97);
-    lift(D, cr([[px - 27, 694], [px + 27, 694], [px + 25, 696], [px - 25, 696]]), 0.35);
+    solid(D, hand, 0.94);
+    eraseLine(D, cr([[px - 35, 699], [px - 28, 693.2], [px - 18, 694.8], [px + 20, 694.8], [px + 32, 693.2], [px + 39, 699]], false), 1, 0.45);
     line(D, cr([[px + 30, 734], [px + 36, 744], [px + 30, 760], [px + 38, 790]], false), 1.2, 0.8);
     D.phone = join(ph, hand);
     // the lamp: brass column, fabric shade, switched off
@@ -1217,10 +1251,13 @@
     const base = ell(lx, 738, 22, 5.5);
     const column = cr([[lx - 4, 736, 1], [lx - 5, 700], [lx - 3, 660], [lx - 4, 624, 1], [lx + 4, 624, 1], [lx + 3, 660], [lx + 5, 700], [lx + 4, 736, 1]]);
     const shade = cr([[lx - 22, 574, 1], [lx + 22, 574, 1], [lx + 38, 626, 1], [lx - 38, 626, 1]]);
-    tone(D, base, 0.85); tone(D, column, 0.85); tone(D, shade, 0.8);
-    lift(D, ell(lx, 735, 21, 2.6), 0.2);
+    solid(D, base, 0.8); solid(D, column, 0.82); solid(D, shade, 0.6);
+    lift(D, ell(lx, 735, 21, 2.6), 0.3);
+    eraseLine(D, seg(lx - 2.5, 628, lx - 2.5, 734), 0.9, 0.4); // brass: one long glint down the column
     line(D, shade, 1.1, 0.8);
-    hatch(D, shade, [lx - 40, 572, lx + 40, 628], { ang: 95, sp: 3.4, w: 0.6, a: 0.3, jit: 0.3 });
+    const pleats = new Path2D();
+    for (let i = 0; i <= 14; i++) { const t = i / 14; pleats.moveTo(lx - 22 + 44 * t, 574); pleats.lineTo(lx - 38 + 76 * t, 626); }
+    line(D, pleats, 0.5, 0.35);
     tone(D, ell(lx, 626, 37, 3.6), 0.9);
     D.shade = shade; D.column = join(column, base);
     // the bowl of oranges, one gone
@@ -1232,13 +1269,14 @@
     ors.forEach(([x, y, rr]) => orP.addPath(ell(x, y, rr, rr * 0.97)));
     for (const [x, y, rr] of ors) {
       const o = ell(x, y, rr, rr * 0.97);
-      tone(D, o, 0.88);
+      solid(D, o, 0.7);
       lift(D, o, rgrad(C, x - rr * 0.4, y - rr * 0.45, rr * 0.05, rr * 1.1, [[0, 0.42], [0.6, 0.16], [1, 0]]));
       line(D, o, 0.8, 0.7);
       tone(D, ell(x + rr * 0.25, y - rr * 0.8, 1.6, 1.1), 0.9); // the stem end
     }
-    tone(D, bowl, 0.9);
-    lift(D, cr([[bx - 42, 707], [bx + 42, 707], [bx + 40, 710], [bx - 40, 710]]), 0.45);
+    solid(D, bowl, 0.55);
+    line(D, cr([[bx - 38, 716], [bx, 722], [bx + 38, 716]], false), 1, 0.45); // a painted band on the majolica
+    lift(D, cr([[bx - 42, 707], [bx + 42, 707], [bx + 40, 710], [bx - 40, 710]]), 0.6);
     line(D, bowl, 0.9, 0.8);
     D.bowl = bowl; D.oranges = ors; D.orP = orP;
     const leaf = cr([[bx + 40, 704], [bx + 50, 697], [bx + 62, 699], [bx + 52, 707]]);
@@ -1253,22 +1291,24 @@
     const bb = [500, 560, 1010, 760];
     const db = bars(bb, 12);
     const int = (X) => rgrad(X, 820, 680, 30, 320, [[0, 1], [0.7, 0.75], [1, 0.4]], W3);
-    for (const m of [D.orP, D.bowl, D.box, D.phone]) light(D, { bb, mask: m, int, lift: 0.22, streak: false, soft: 1 });
+    for (const m of [D.orP, D.bowl, D.box]) light(D, { bb, mask: m, int, lift: 0.22, streak: false, soft: 1 });
     await D.tick();
-    light(D, { bb, mask: D.papers, bars: bars(bb, 9), int: (X) => grad(X, 560, 0, 712, 0, [[0, 0.6], [0.3, 1], [1, 0.9]], W3), lift: 0.9, chalk: 0.65, soft: 0.4 });
     light(D, { bb, mask: D.orP, bars: db, int, lift: 0.85, chalk: 0.55, soft: 0.4 }); await D.tick();
     light(D, { bb, mask: D.bowl, bars: db, int, lift: 0.5, chalk: 0.3, soft: 0.4 });
     light(D, { bb, mask: D.shade, bars: db, int, lift: 0.45, chalk: 0.12, soft: 0.4 });
-    light(D, { bb, mask: D.column, bars: db, int, lift: 0.6, chalk: 0.5 }); await D.tick();
+    await D.tick();
     light(D, { bb, mask: D.box, bars: db, int, lift: 0.55, chalk: 0.15, soft: 0.4 });
-    light(D, { bb, mask: D.phone, bars: db, int, lift: 0.45, chalk: 0.35 });
+    light(D, { bb, mask: D.phone, bars: db, int, lift: 0.26, chalk: 0.12 });
     // the glass things glint
-    const gl1 = cr([[533, 704], [535, 700], [536, 720], [534, 728]]);
-    lift(D, gl1, 0.5, 0.3); chalk(D, gl1, 0.8, 0.3);
-    lift(D, cr([[548, 668], [551, 672], [551, 690], [549, 694]]), 0.3, 0.4);
-    chalk(D, rect(565, 727, 1.4, 11), 0.65, 0.3);
-    chalk(D, ell(542, 672, 1.2, 4), 0.6, 0.3);
-    lift(D, cr([[534, 720], [556, 720], [553, 724], [536, 724]]), 0.35, 0.5); // the meniscus of the anisette
+    // the glass things glint: the window is mirrored in them
+    const gl1 = cr([[534, 702], [536, 698], [537, 722], [535, 732]]);
+    lift(D, gl1, 0.7, 0.3); chalk(D, gl1, 0.85, 0.3);
+    eraseLine(D, cr([[553, 700], [556, 712], [556, 728]], false), 1, 0.35, 0.3);
+    lift(D, cr([[540, 668], [543, 672], [543, 690], [541, 694]]), 0.4, 0.4);
+    chalk(D, rect(565.5, 727, 1.4, 11), 0.7, 0.3);
+    chalk(D, ell(542, 659, 1.3, 3), 0.7, 0.3);
+    light(D, { bb, mask: D.spirit, bars: db, int, lift: 0.5, chalk: 0.3 });
+    lift(D, cr([[532, 716], [556, 716], [554, 719], [534, 719]]), 0.55, 0.4); chalk(D, cr([[532, 716], [556, 716], [554, 718], [534, 718]]), 0.5); // the meniscus of the anisette
     for (const [x, y, rr] of D.oranges) line(D, ell(x - rr * 0.35, y - rr * 0.45, rr * 0.2, rr * 0.12), 0.5, 0.15, D.K);
   }
 
@@ -1279,40 +1319,37 @@
     const sleeveR = cr([[744, 690], [710, 688], [672, 698], [672, 728], [740, 730], [746, 712]]);
     tone(D, join(sleeveL, sleeveR), 0.96);
     hatch(D, join(sleeveL, sleeveR), [505, 685, 750, 736], { ang: 15, sp: 2.6, w: 0.6, a: 0.2 });
-    const cuffL = cr([[576, 702], [585, 701], [587, 726], [578, 728]]);
-    const cuffR = cr([[659, 700], [668, 701], [667, 725], [658, 724]]);
-    tone(D, join(cuffL, cuffR), 0.62);
-    // the two hands rest on the papers, palms down, fingers loosely curled toward us, the thumbs almost touching
-    const HA = [[580, 704], [590, 699], [603, 697], [610, 697], [618, 694], [627, 697, 1], [626, 702], [617, 704], [620, 709], [624, 716], [623, 726], [619, 729], [614, 733],
-      [609, 733], [604, 734], [599, 733], [593, 731], [588, 728], [582, 722], [579, 714]];
-    const handA = cr(HA), handB = cr(HA.map(([x, y, c]) => [1251 - x, y, c]).reverse());
-    tone(D, join(handA, handB), 0.8);
-    D.hands = join(handA, handB); D.cuffs = join(cuffL, cuffR);
+    const cuffL = cr([[576, 703], [582, 702], [583, 725], [577, 727]]);
+    const cuffR = cr([[664, 701], [670, 702], [669, 724], [663, 723]]);
+    tone(D, join(cuffL, cuffR), 0.68);
+    // the hands clasped on the papers, fingers laced, one thumb laid over the other
+    const HP = [[580, 708], [588, 700], [600, 697], [612, 698], [622, 694.5], [633, 697], [646, 697], [658, 700], [666, 708], [667, 722], [659, 730], [646, 733]];
+    for (let i = 0; i < 8; i++) HP.push([642 - i * 4.6, i % 2 ? 734 : 736.4]);
+    HP.push([600, 734], [588, 730], [580, 722]);
+    const hands = cr(HP);
+    tone(D, hands, 0.8);
+    D.hands = hands; D.cuffs = join(cuffL, cuffR);
     D.handLines = () => {
-      tone(D, cr([[584, 734], [612, 738], [640, 738], [666, 734], [668, 739], [640, 742], [600, 742]]), 0.5, 1.4); // their shadow on the paper
-      line(D, handA, 0.6, 0.45); line(D, handB, 0.6, 0.45);
-      const fl = new Path2D(); // the divisions between the curled fingers
-      for (const [x, d] of [[596.5, -0.3], [606.5, -0.3], [616.5, -0.35], [654.5, 0.3], [644.5, 0.3], [634.5, 0.35]]) { fl.moveTo(x + d * 8, 714); fl.quadraticCurveTo(x, 724, x + d * -2, 733); }
-      line(D, fl, 0.55, 0.4, null, 0.2);
-      tone(D, ell(641, 714, 3.2, 1.8, 0.4), 0.92); D.ring = ell(640.3, 713.4, 1.4, 0.8, 0.4); // a heavy gold ring
+      tone(D, cr([[584, 734], [612, 739], [640, 739], [666, 734], [668, 740], [640, 743], [600, 743]]), 0.5, 1.4); // their shadow on the paper
+      const fl = new Path2D(); // the divisions between the laced fingers
+      for (let i = 0; i < 7; i++) { const x = 639.7 - i * 4.6; fl.moveTo(x, 735); fl.quadraticCurveTo(x + 0.6, 726, x - 0.4, 717); }
+      line(D, fl, 0.45, 0.38, null, 0.2);
+      line(D, cr([[612, 700.5], [622, 697.5], [634, 699.5]], false), 0.5, 0.35); // the upper thumb
+      tone(D, ell(647, 716, 2.8, 1.8, 0.3), 0.92); D.ring = ell(646.3, 715.4, 1.3, 0.8, 0.3); // a heavy gold ring
     };
     setGroup(D, null);
   }
   const HAND_BUMPS = [
-    [600, 707, 17, 8, 7], [646, 707, 17, 8, 7],                                                   // the backs of the hands
-    [592, 706, 8, 0.9, 1, 0.1], [598, 709, 9, 0.9, 1, 0.15], [652, 706, 8, 0.9, 1, -0.1], [648, 709, 9, 0.9, 1, -0.15], // tendons
-    [592, 709, 2.8, 2.6, 2.4], [601, 709, 2.8, 2.6, 2.4], [610, 709, 2.8, 2.6, 2.4], [618, 709, 2.6, 2.4, 2.2], // knuckles, A
-    [659, 709, 2.8, 2.6, 2.4], [650, 709, 2.8, 2.6, 2.4], [641, 709, 2.8, 2.6, 2.4], [633, 709, 2.6, 2.4, 2.2], // knuckles, B
-    [591, 724, 4.4, 7, 4.2], [601, 725, 4.4, 7.5, 4.4], [611, 725, 4.4, 7.5, 4.4], [620, 721, 4, 6.5, 4],     // curled fingers, A
-    [660, 724, 4.4, 7, 4.2], [650, 725, 4.4, 7.5, 4.4], [640, 725, 4.4, 7.5, 4.4], [631, 721, 4, 6.5, 4],     // curled fingers, B
-    [618, 698, 8, 3, 4, -0.25], [633, 698, 8, 3, 4, 0.25]];                                       // thumbs
-  function lightHands(D) {
+    [595, 713, 15, 10, 7], [651, 713, 15, 10, 7],                                                 // the backs of the hands, turned in
+    [590, 706, 8, 0.9, 1, 0.25], [596, 710, 9, 0.9, 1, 0.25], [656, 706, 8, 0.9, 1, -0.25], [650, 710, 9, 0.9, 1, -0.25], // tendons
+    ...Array.from({ length: 8 }, (_, i) => [642 - i * 4.6, 720 + (i % 2) * 1.5, 2.3, 9, 4.2]),   // the laced fingers
+    [622, 698.5, 10, 2.6, 4, -0.12]];                                                             // the thumb laid over
+  async function lightHands(D) {
     setGroup(D, DONM);
     const bb = [540, 680, 700, 744];
     const hb = bars(bb, 9, 22, 0.56);
-    relief(D, { mask: D.hands, bb: [574, 690, 676, 742], bumps: HAND_BUMPS, bars: { ang: BAR.ang, per: 30, duty: 0.58, phase: 9, min: 0.22 }, light: [-0.8, -0.5, 0.45], shadowLen: 10, amb: 0.14, gain: 0.95, chalkFrom: 0.62, outline: 0.7 });
-    light(D, { bb, mask: D.cuffs, bars: hb, lift: 0.7, chalk: 0.4, soft: 0.4 });
-    light(D, { bb, mask: D.cuffs, lift: 0.2, streak: false });
+    await relief(D, { mask: D.hands, bb: [574, 690, 676, 742], bumps: HAND_BUMPS, bars: { ang: BAR.ang, per: 30, duty: 0.58, phase: 9, min: 0.25 }, light: [-0.75, -0.5, 0.5], shadowLen: 8, amb: 0.2, floor: 0.06, gain: 0.95, chalkFrom: 0.62, outline: 0.7 });
+    light(D, { bb, mask: D.cuffs, bars: hb, lift: 0.55, chalk: 0.2, soft: 0.4 });
     D.handLines();
     light(D, { bb, mask: D.ring, lift: 1, chalk: 1, streak: false });
     setGroup(D, null);
@@ -1321,14 +1358,17 @@
   /* ------------------------------------------------------------------ Amerigo Bonasera, bending over the desk */
   // in profile, bending from the hips toward the Don: the bowed face cut out against the bright window,
   // the long curve of the back, both forearms laid on the edge of the desk
-  const BON = cr([
+  const BON_PTS = [
     [354, 650], [342, 626], [336, 600], [342, 578], [358, 563], [378, 558], [398, 563], [410, 576], [414, 588], [412, 595, 1], [418, 604], [428, 617], [428, 621, 1],
     [420, 624], [418, 630], [415, 633, 1], [418, 638], [414, 647], [406, 655], [394, 660], [394, 672],                       // the head in profile
     [412, 684], [430, 704], [448, 722], [470, 734], [488, 740], [502, 741], [516, 748], [512, 754], [494, 754], [478, 752], [458, 748], [440, 746], // the near arm on the desk
     [420, 764], [404, 806], [386, 852], [366, 896], [346, 924],                                                            // the belly under the arm
     [338, 972], [334, 1030], [330, 1092], [322, 1160], [318, 1226], [336, 1238], [364, 1252], [366, 1264, 1], [302, 1266, 1], [300, 1246], [302, 1232], [306, 1160], // front leg
-    [302, 1110, 1], [290, 1160], [286, 1236], [300, 1250], [314, 1260], [314, 1270, 1], [246, 1272, 1], [246, 1252], [254, 1234], [260, 1160], [266, 1095], [266, 1020], // back leg
-    [258, 950], [258, 908], [266, 860], [278, 800], [296, 742], [318, 702], [340, 676]]);                                      // the back
+    [302, 1110, 1], [290, 1160], [286, 1236], [300, 1250], [314, 1260], [314, 1270, 1], [246, 1272, 1], [246, 1252], [252, 1234], [256, 1160], [260, 1095], [260, 1020], // back leg
+    [252, 952], [248, 908], [254, 860], [266, 800], [285, 742], [309, 702], [335, 676]];
+  // the head drawn a little smaller than first laid in, pivoting on the throat
+  for (let i = 0; i < 21; i++) { const q = BON_PTS[i]; q[0] = 392 + (q[0] - 392) * 0.88; q[1] = 664 + (q[1] - 664) * 0.88; }
+  const BON = cr(BON_PTS);                                      // the back
   const BON_HAT = cr([[238, 738, 1], [240, 722], [246, 712], [258, 707], [268, 712], [280, 706], [292, 712], [298, 724], [300, 738, 1]]);
 
   function bonasera(D) {
@@ -1339,7 +1379,7 @@
     line(D, cr([[241, 728], [268, 725], [297, 728]], false), 2.4, 0.85);
     eraseLine(D, cr([[244, 716], [258, 709], [268, 713]], false), 1, 0.18, 0.6);
     tone(D, ell(310, 1270, 120, 13), 0.55, 6); // where he stands
-    tone(D, BON, 0.88);
+    tone(D, BON, 0.93);
     hatch(D, BON, [240, 556, 520, 1275], { ang: 68, sp: 2.2, w: 0.85, a: 0.45, jit: 0.4 });
     hatch(D, BON, [240, 556, 520, 1275], { ang: -22, sp: 2.6, w: 0.75, a: 0.38, jit: 0.4 });
     // seams and folds of the black suit: long, very low lifts, so the black is a body and not a hole
@@ -1360,7 +1400,8 @@
     const bhand = cr([[490, 736], [504, 738], [516, 746], [512, 753], [498, 755], [486, 750]]);
     lift(D, bhand, 0.3, 0.6);
     line(D, cr([[496, 746], [508, 750]], false), 0.6, 0.6);
-    // the ear, hair combed flat with brilliantine
+    // the ear, hair combed flat with brilliantine (drawn in the head's own, slightly reduced, frame)
+    setGroup(D, new DOMMatrix().translate(392, 664).scale(0.88).translate(-392, -664));
     const ear = cr([[360, 596], [367, 592], [372, 600], [370, 614], [363, 618], [359, 608]]);
     lift(D, ear, 0.16, 0.6); line(D, cr([[363, 599], [368, 600], [366, 611]], false), 0.7, 0.5);
     const hl = new Path2D();
@@ -1369,6 +1410,7 @@
     // a little reflected light gives the face a hint of its features, sunk in shadow
     lift(D, cr([[398, 576], [410, 584], [414, 600], [424, 616], [416, 626], [412, 640], [402, 650], [394, 640], [400, 620], [396, 598]]), 0.1, 2);
     tone(D, ell(404, 598, 3.4, 1.6, 0.4), 0.5);
+    setGroup(D, null);
     // the window light behind him burns a rim along the whole profile: brow, nose, lips, chin, the crown and nape
     const rimZone = rect(GL.x0, GL.y0, GL.x1 - GL.x0, OPEN.y1 - GL.y0 + 12);
     for (const [ctx, mode, a] of [[D.C, 'destination-out', 0.9], [D.K, 'source-over', 0.75]]) {
@@ -1380,6 +1422,17 @@
     // the reflected light from the floor finds the back of his legs
     eraseLine(D, cr([[262, 1010], [262, 1100], [256, 1236]], false), 1.6, 0.08, 1.2);
     D.bonHand = bhand;
+  }
+
+  function velvet(D) {
+    const C = D.C;
+    const keep = rect(-50, -50, W + 100, H + 100);
+    keep.addPath(rect(OPEN.x0 - 20, OPEN.y0 - 20, OPEN.x1 - OPEN.x0 + 40, OPEN.y1 - OPEN.y0 + 34));
+    C.save(); C.clip(keep, 'evenodd');
+    tone(D, rect(0, 0, W, H), rgrad(C, 600, 560, 330, 980, [[0, 0], [0.45, 0.28], [1, 0.62]]));
+    C.restore();
+    // give back the pool of light around the orange
+    lift(D, rect(780, 880, 300, 470), rgrad(C, 1080, 1080, 30, 260, [[0, 0.3], [1, 0]]));
   }
 
   /* ================================================================== printing onto the paper */
@@ -1461,7 +1514,7 @@
   /* ================================================================== the sequence */
   const STEPS = [
     groundTone, wallSurface, windowFrame, garden, blindAndSash, windowSill, shutters, wallObjects, bookshelf, lightWall,
-    floor, lightFloor, hagen, chair, lightChair, don, lightDon, donFeatures, desk, lightDesk, deskObjects, lightObjects, donHands, lightHands, bonasera,
+    floor, lightFloor, hagen, chair, lightChair, don, lightDon, donFeatures, desk, lightDesk, deskPapers, donHands, lightHands, deskThings, lightObjects, bonasera, velvet,
   ];
 
   async function render(S, seed, out, tick) {

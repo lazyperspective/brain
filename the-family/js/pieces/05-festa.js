@@ -125,6 +125,25 @@
     c.lineWidth = o.lw || 0.5; c.strokeStyle = o.col || ink(0.5); c.lineCap = 'butt'; c.stroke();
     c.restore();
   }
+  // ordered stipple: dots on a jittered grid, kept where f(x,y) beats each dot's threshold
+  function stipple(c, x0, y0, w, h, f, o) {
+    o = o || {}; const sp = o.sp || 1.6, r = o.r || 0.42;
+    c.beginPath();
+    for (let y = y0; y < y0 + h; y += sp) for (let x = x0; x < x0 + w; x += sp) {
+      const k = Math.round(x * 7.13 + y * 131.7), jx = (hf(k) - 0.5) * sp * 0.8, jy = (hf(k + 9) - 0.5) * sp * 0.8;
+      const X = x + jx, Y = y + jy;
+      if (f(X, Y) > hf(k + 17)) { c.moveTo(X + r, Y); c.arc(X, Y, r, 0, TAU); }
+    }
+    c.fillStyle = o.col || ink(0.7); c.fill();
+  }
+  // tone carried by line: up to three hatch layers switched on by darkness f
+  function toneHatch(c, R, f, o) {
+    o = o || {};
+    const a = o.ang == null ? Math.PI / 2 : o.ang, sp = o.sp || 2.2, lw = o.lw || 0.46, col = o.col || ink(0.55), ko = o.ko || 0, step = o.step || 5;
+    hatch(c, R, { ang: a, sp, lw, col, f: (x, y) => f(x, y) * 1.6, step, jit: 0.15, ko, noclip: o.noclip });
+    hatch(c, R, { ang: a + 0.85, sp: sp * 1.08, lw: lw * 0.95, col, f: (x, y) => (f(x, y) - 0.42) * 2.2, step, jit: 0.15, ko: ko + 111, noclip: o.noclip });
+    hatch(c, R, { ang: a - 0.85, sp: sp * 1.12, lw: lw * 0.9, col, f: (x, y) => (f(x, y) - 0.68) * 3, step, jit: 0.15, ko: ko + 222, noclip: o.noclip });
+  }
   function glowDot(c, x, y, r, col, a) {
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, css(col, a)); g.addColorStop(0.35, css(col, a * 0.4)); g.addColorStop(1, css(col, 0));
@@ -201,11 +220,12 @@
     { x0: 1004, x1: 1134, xs: [1042, 1104], fl: 5, nw: 2, mat: 'brick', tone: 0.5, corn: 'dent', lint: 'flat', fe: null, store: { sign: 'SARTO', kind: 'sarto', ent: null, signX: [1008, 1072] }, upper: { 2: 'SARTO' } },
     { church: 1, x0: 1134, x1: 1468 },
     { tower: 1, x0: 1468, x1: 1534 },
-    { x0: 1534, x1: 1820, fl: 4, nw: 4, mat: 'brick', tone: 0.78, corn: 'brk', lint: 'seg', fe: [1, 2], banner: 'W SAN ROCCO', store: { sign: 'ALIMENTARI', kind: 'grocer', ent: 'R', awn: 1 } },
-    { x0: 1820, x1: 2088, fl: 5, nw: 3, mat: 'brick', tone: 0.6, corn: 'dent', lint: 'flat', fe: [0, 1], store: { sign: 'VINI E LIQUORI', kind: 'vini', ent: 'R' } },
+    { x0: 1534, x1: 1800, fl: 4, nw: 4, mat: 'brick', tone: 0.78, corn: 'brk', lint: 'seg', fe: [1, 2], banner: 'W SAN ROCCO', store: { sign: 'ALIMENTARI', kind: 'grocer', ent: 'R', awn: 1 } },
+    { alley: 1, x0: 1800, x1: 1858 },
+    { x0: 1858, x1: 2088, fl: 5, nw: 3, mat: 'brick', tone: 0.6, corn: 'dent', lint: 'flat', fe: [0, 1], store: { sign: 'VINI E LIQUORI', kind: 'vini', ent: 'R' } },
     { x0: 2088, x1: 2384, xs: [2126, 2200, 2268, 2336], fl: 4, nw: 4, mat: 'brown', tone: 0.62, corn: 'brk', lint: 'hood', fe: [2, 3], store: { sign: 'GROCERIA ABBANDANDO', kind: 'grocer', ent: 'L', awn: 2, signX: [2172, 2378] }, upper: { 1: 'DENTISTA' } },
-    { x0: 2384, x1: 2600, fl: 4, nw: 3, mat: 'stucco', tone: 0.42, corn: 'arc', lint: 'ped', fe: null, store: { sign: 'FARMACIA', kind: 'farmacia', ent: null } },
-    { x0: 2600, x1: 2928, fl: 5, nw: 4, mat: 'brick', tone: 0.72, corn: 'brk', lint: 'flat', fe: [1, 2], store: { sign: 'BANCA', sub: 'BIGLIETTI PER L\'ITALIA', kind: 'banca', ent: 'R' }, upper: { 1: 'NOTARO' } },
+    { x0: 2384, x1: 2600, fl: 2, nw: 3, mat: 'stucco', tone: 0.42, corn: 'arc', lint: 'ped', fe: null, billboard: 1, store: { sign: 'FARMACIA', kind: 'farmacia', ent: null } },
+    { x0: 2600, x1: 2928, fl: 5, nw: 4, mat: 'iron', tone: 0.5, corn: 'brk', lint: 'iron', fe: null, store: { sign: 'BANCA', sub: 'BIGLIETTI PER L\'ITALIA', kind: 'banca', ent: 'R' }, upper: { 1: 'NOTARO' } },
     { x0: 2928, x1: 3160, fl: 4, nw: 3, mat: 'brick', tone: 0.55, corn: 'dent', lint: 'seg', fe: [0, 1], store: { sign: 'CAFFÈ', sub: 'PASTICCERIA', kind: 'caffe', ent: 'R', awn: 1 } },
     { x0: 3160, x1: 3424, xs: [3198, 3292, 3372], fl: 5, nw: 3, mat: 'brown', tone: 0.66, corn: 'brk', lint: 'hood', fe: [1, 2], store: { sign: 'TABACCHI', kind: 'tabacchi', ent: 'L', signX: [3256, 3416] } },
     { x0: 3424, x1: 3644, fl: 4, nw: 3, mat: 'stucco', tone: 0.48, corn: 'dent', lint: 'flat', fe: null, store: { sign: 'MACELLERIA', kind: 'salumi', ent: 'R', awn: 2 }, upper: { 3: 'LEVATRICE' } },
@@ -213,11 +233,12 @@
     { x0: 3876, x1: 4154, fl: 4, nw: 4, mat: 'brick', tone: 0.6, corn: 'arc', lint: 'flat', fe: [2, 3], fanucci: 1, store: { sign: 'CALZOLAIO', kind: 'shoes', ent: 'C', signX: [3884, 3982] } },
     { x0: 4154, x1: 4330, fl: 5, nw: 2, mat: 'brown', tone: 0.7, corn: 'dent', lint: 'ped', fe: null, store: { sign: 'SARTORIA', kind: 'sarto', ent: null } },
   ];
-  BLD.forEach((b, i) => { if (b.gf == null) b.gf = (i === 2 || i === 3 || b.fanucci) ? GF : 142 + Math.round(hf(i * 5 + 1) * 16); if (b.fh == null) b.fh = (i === 2 || i === 3 || b.fanucci) ? FH : 102 + Math.round(hf(i * 3 + 2) * 12); });
+  BLD.forEach((b, i) => { if (b.gf == null) b.gf = (i === 2 || i === 3 || b.fanucci) ? GF : 132 + Math.round(hf(i * 5 + 1) * 34); if (b.fh == null) b.fh = (i === 2 || i === 3 || b.fanucci) ? FH : 102 + Math.round(hf(i * 3 + 2) * 12); });
   const bTop = (b) => BASE - (b.gf || GF) - b.fl * (b.fh || FH) - CORN;
   function cols(b) {
     const m = b.nw <= 2 ? 22 : 26, pitch = (b.x1 - b.x0 - 2 * m) / b.nw;
     if (b.xs) return { xs: b.xs, pitch, ww: Math.min(42, pitch * 0.55) };
+    if (b.mat === 'iron') { const xs = []; for (let i = 0; i < b.nw; i++) xs.push(b.x0 + m + pitch * (i + 0.5)); return { xs, pitch, ww: pitch * 0.62 }; }
     const xs = []; for (let i = 0; i < b.nw; i++) xs.push(b.x0 + m + pitch * (i + 0.5));
     return { xs, pitch, ww: Math.min(42, pitch * 0.55) };
   }
@@ -354,11 +375,13 @@
       if (typeof k === 'string') { c.fillStyle = k; c.fill(); }
       else {
         const sk = sepify(k, 0.3), d = 1 - lum(sk);
-        const wash = det && !F.solid ? mix(sk, PAPER, clamp((d - 0.15) * 0.5, 0, 0.32)) : sk;
+        const wash = det && !F.solid ? mix(sk, PAPER, clamp(0.22 + d * 0.32, 0, 0.5)) : sk;
         c.fillStyle = css(mix(wash, HAZE, hz)); c.fill();
-        if (det && d > 0.24 && !F.solid) penHatch(polys, d);
+        if (det && d > 0.14 && !F.solid) penHatch(polys, d);
+        if (shade && det && !F.solid) shadeIt(polys, shade * (0.55 + d), d);
+        return;
       }
-      if (shade && det && !F.solid) shadeIt(polys, shade);
+      if (shade && det && !F.solid) shadeIt(polys, shade, 0.4);
     }
     function bboxOf(polys) { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const p of polys) for (let i = 0; i < p.length; i += 2) { if (p[i] < x0) x0 = p[i]; if (p[i] > x1) x1 = p[i]; if (p[i + 1] < y0) y0 = p[i + 1]; if (p[i + 1] > y1) y1 = p[i + 1]; } return [x0, y0, x1, y1]; }
     function hl(b, ang, sp) {
@@ -368,21 +391,22 @@
     function penHatch(polys, d) {
       const b = bboxOf(polys);
       c.save(); c.beginPath(); for (const p of polys) addP(c, p); c.clip();
-      const sp = lerp(3.8, 1.7, clamp((d - 0.24) / 0.55, 0, 1)) / U;
+      const sp = lerp(4.4, 1.45, clamp((d - 0.14) / 0.66, 0, 1)) / U;
       c.beginPath(); hl(b, 1.15, sp);
-      c.lineWidth = 0.4 / U; c.strokeStyle = css(mix(INK, HAZE, hz * 0.8), 0.5); c.stroke();
+      c.lineWidth = 0.42 / U; c.strokeStyle = css(mix(INK, HAZE, hz * 0.8), 0.58); c.stroke();
       c.restore();
     }
-    function shadeIt(polys, amt) {
+    function shadeIt(polys, amt, dd) {
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
       for (const p of polys) for (let i = 0; i < p.length; i += 2) { if (p[i] < x0) x0 = p[i]; if (p[i] > x1) x1 = p[i]; if (p[i + 1] < y0) y0 = p[i + 1]; if (p[i + 1] > y1) y1 = p[i + 1]; }
       c.save(); c.beginPath(); for (const p of polys) addP(c, p); c.clip();
       const mid = (x0 + x1) / 2 + (x1 - x0) * 0.06 * lightLocal;
       c.beginPath(); if (lightLocal < 0) c.rect(mid, y0 - 1, x1 - mid + 1, y1 - y0 + 2); else c.rect(x0 - 1, y0 - 1, mid - x0 + 1, y1 - y0 + 2); c.clip();
-      const sp = Math.max(1.5 / U, 0.11), hgt = y1 - y0;
+      const sp = Math.max(lerp(2.6, 1.35, clamp(dd || 0.4, 0, 1)) / U, 0.1), hgt = y1 - y0;
       c.beginPath();
       for (let s = x0 - hgt; s < x1 + hgt; s += sp) { c.moveTo(s, y1 + 0.5); c.lineTo(s + hgt * 0.55, y0 - 0.5); }
-      c.lineWidth = 0.42 / U; c.strokeStyle = css(mix(INK, HAZE, hz), 0.5 * amt); c.stroke();
+      if (dd > 0.68) hl([x0, y0, x1, y1], 0, sp * 1.1);
+      c.lineWidth = 0.42 / U; c.strokeStyle = css(mix(INK, HAZE, hz), Math.min(0.7, 0.5 * amt)); c.stroke();
       c.restore();
     }
     const legPoly = (L, wmul) => limb([L.hx, L.hy, L.kx, L.ky, L.ax, L.ay], [B.lw * 1.18 * wmul, B.lw * 0.86 * wmul, B.lw * 0.6 * wmul]);
@@ -409,12 +433,20 @@
       const sleeve = w.sleeve || (top === 'shirt' || top === 'blouse' ? (w.tc || C.white) : (w.tc || C.dark));
       const bare = w.bare;
       group([limb([A.sx, A.sy, A.ex, A.ey, A.wx, A.wy], [B.aw * 1.1, B.aw * 0.92, B.aw * 0.75])], side < 0 ? mix(bare ? C.skin : sleeve, INK, 0.1) : (bare ? C.skin : sleeve), 0.7);
-      const hx = A.wx + (A.wx - A.ex) * 0.22, hy = A.wy + (A.wy - A.ey) * 0.22;
-      c.beginPath(); c.ellipse(hx, hy, 0.14, 0.17, Math.atan2(A.wy - A.ey, A.wx - A.ex) - Math.PI / 2, 0, TAU); c.lineWidth = ow * 2; c.strokeStyle = OUTC; c.stroke(); c.fillStyle = col(w.glove || C.skin); c.fill();
-      A.hx = hx; A.hy = hy;
+      if (det > 1 && !bare) { const mx = (A.sx + A.wx) / 2, my = (A.sy + A.wy) / 2; fold3(A.ex + (mx - A.ex) * 0.5 - 0.05, A.ey + (my - A.ey) * 0.5, A.ex, A.ey + 0.04, lerp(A.ex, A.wx, 0.28), lerp(A.ey, A.wy, 0.28)); fold3(lerp(A.ex, A.wx, 0.55) - 0.12, lerp(A.ey, A.wy, 0.55), lerp(A.ex, A.wx, 0.62), lerp(A.ey, A.wy, 0.62) + 0.05, lerp(A.ex, A.wx, 0.68) + 0.12, lerp(A.ey, A.wy, 0.68)); }
+      { const dx = A.wx - A.ex, dy = A.wy - A.ey, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux, X = A.wx, Y = A.wy;
+        const P0 = (a, b) => [X + ux * a + nx * b, Y + uy * a + ny * b];
+        const q = [].concat(P0(-0.02, 0.13), P0(0.3, 0.15), P0(0.5, 0.06), P0(0.46, -0.08), P0(0.28, -0.12), P0(0.24, -0.22), P0(0.1, -0.2), P0(0.0, -0.12));
+        c.beginPath(); addP(c, chaikin(q, true, 1)); c.lineWidth = ow * 2; c.strokeStyle = OUTC; c.stroke(); c.fillStyle = col(w.glove || C.skin); c.fill();
+        if (det > 1) { const f0 = P0(0.3, 0.02), f1 = P0(0.46, 0.0); line(c, f0[0], f0[1], f1[0], f1[1], css(mix(INK, HAZE, hz), 0.45), 0.35 / U); }
+        A.hx = X + ux * 0.24; A.hy = Y + uy * 0.24; }
     }
+    const foldC = css(mix(INK, HAZE, hz), 0.55);
+    function fold3(x0, y0, x1, y1, x2, y2) { if (det < 2) return; c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x1, y1, x2, y2); c.strokeStyle = foldC; c.lineWidth = 0.5 / U; c.stroke(); }
+    function legFolds(Lg) { if (skirt || robe) return; fold3(Lg.kx - 0.22, Lg.ky - 0.12, Lg.kx + 0.02, Lg.ky + 0.06, Lg.kx + 0.2, Lg.ky - 0.08); fold3(Lg.kx - 0.12, Lg.ky + 0.28, Lg.kx + 0.04, Lg.ky + 0.36, Lg.kx + 0.18, Lg.ky + 0.24); fold3(Lg.ax - 0.22, Lg.ay - 0.32, Lg.ax, Lg.ay - 0.22, Lg.ax + 0.22, Lg.ay - 0.34); }
+    if (!F.noLegs) legFolds(LF);
     if (farArmBehind && !F.noFarArm) armDraw(AF, -1);
-    if (!F.noLegs) { group([legPoly(LN, skirt || robe ? 0.7 : 1)], legC, 0.6); shoe(LN, w.shoe || C.black); }
+    if (!F.noLegs) { group([legPoly(LN, skirt || robe ? 0.7 : 1)], legC, 0.6); shoe(LN, w.shoe || C.black); legFolds(LN); }
     // knickers / trousers detail: crease
     // torso
     const T = B.torso, frw = 0.6 + 0.4 * fr;
@@ -445,6 +477,13 @@
     }
     const tc = w.tc || (top === 'shirt' || top === 'blouse' ? C.white : C.dark);
     group([torsoPts(jl, 1)], tc, 0.75);
+    if (det > 1 && !F.solid) {
+      const R = (x, y) => { const r = rot(x, y, lean); return [hip[0] + r[0], hip[1] + r[1]]; }, sg = lightLocal < 0 ? 1 : -1;
+      const a0 = R(sg * ws * 0.62, -T * 0.86), a1 = R(sg * wwst * 0.75, -T * 0.5), a2 = R(sg * whp * 0.55, Math.min(jl, 1.2) * 0.7);
+      fold3(a0[0], a0[1], a1[0], a1[1], a2[0], a2[1]);
+      const b0 = R(-sg * ws * 0.2, -T * 0.66), b1 = R(-sg * ws * 0.05 + fwd, -T * 0.52), b2 = R(sg * ws * 0.25, -T * 0.6); fold3(b0[0], b0[1], b1[0], b1[1], b2[0], b2[1]);
+      if (jl > 0.6) { const c0 = R(fwd * 0.6 - 0.1, -T * 0.3), c1 = R(fwd * 0.8 + 0.1, -T * 0.18), c2 = R(fwd * 0.6 + 0.3, Math.min(jl, 1.5) * 0.5); fold3(c0[0], c0[1], c1[0], c1[1], c2[0], c2[1]); }
+    }
     // garment details inside the torso
     if (det) {
       c.save(); c.beginPath(); addP(c, torsoPts(jl, 1)); c.clip();
@@ -504,6 +543,7 @@
         if (fr < 0.95) { c.fillStyle = css(mix(INK, HAZE, hz), 0.8); c.beginPath(); c.ellipse(e[0], e[1], 0.055, 0.035, tilt, 0, TAU); c.fill(); }
         if (fr > 0.55) { const e2 = H(-hrx * 0.25, -0.06); c.beginPath(); c.ellipse(e2[0], e2[1], 0.05, 0.035, tilt, 0, TAU); c.fill(); }
         const ea = H(-hrx * 0.12 * (1 - fr), 0.02); if (fr < 0.7 && det > 1) { c.beginPath(); c.arc(ea[0], ea[1], 0.08, -1.2, 1.8); c.strokeStyle = css(mix(INK, HAZE, hz), 0.55); c.lineWidth = 0.4 / U; c.stroke(); }
+        if (det > 1 && fr < 0.95) { const b0 = H(hrx * 0.25, -0.17), b1 = H(hrx * 0.75, -0.2); line(c, b0[0], b0[1], b1[0], b1[1], css(mix(INK, HAZE, hz), 0.6), 0.45 / U); if (!w.must) { const m0 = H(hrx * 0.5, 0.3), m1 = H(hrx * 0.82, 0.29); line(c, m0[0], m0[1], m1[0], m1[1], css(mix(INK, HAZE, hz), 0.55), 0.4 / U); } const n0 = H(hrx * 0.82, -0.14), n1 = H(hrx + 0.12, 0.1); line(c, n0[0], n0[1], n1[0], n1[1], css(mix(INK, HAZE, hz), 0.45), 0.4 / U); }
         if (w.must) { const m0 = H(hrx * 0.55, 0.2), m1 = H(hrx + 0.06, 0.2); c.beginPath(); c.moveTo(m0[0], m0[1]); c.quadraticCurveTo((m0[0] + m1[0]) / 2, m0[1] - 0.07, m1[0], m1[1] + 0.04); c.strokeStyle = col(hair === C.light ? C.mid : C.black); c.lineWidth = 0.11; c.stroke(); }
         c.save(); c.beginPath(); addP(c, hp); c.clip();
         c.beginPath(); const sp = Math.max(1.4 / U, 0.1);
@@ -576,6 +616,7 @@
     cross(c, F, J, pr, col) { const A = J.AN; const x = A.hx, top = -11.5; line(c, x, A.hy + 1.2, x, top, col(C.brown), 0.12); fillP(c, [x - 0.06, top - 1.2, x + 0.06, top - 1.2, x + 0.06, top + 0.3, x - 0.06, top + 0.3], css(GOLD)); fillP(c, [x - 0.45, top - 0.75, x + 0.45, top - 0.75, x + 0.45, top - 0.62, x - 0.45, top - 0.62], css(GOLD)); if (F.lights) { const m = c.getTransform(); F.lights.push({ x: (m.a * x + m.c * (top - 0.7) + m.e) / RSCALE, y: (m.b * x + m.d * (top - 0.7) + m.f) / RSCALE, r: 14, a: 0.4 }); } },
     censer(c, F, J, pr, col) { const A = J.AN; const x = A.hx + 0.3, y = A.hy + 1.6; line(c, A.hx, A.hy, x, y - 0.25, col(C.gold), 0.04); c.beginPath(); c.arc(x, y, 0.25, 0, TAU); c.fillStyle = css(GOLD); c.fill(); c.beginPath(); c.moveTo(x, y - 0.3); c.bezierCurveTo(x + 0.6, y - 1.2, x - 0.5, y - 2.0, x + 0.3, y - 3.4); c.strokeStyle = 'rgba(240,232,214,0.55)'; c.lineWidth = 0.22; c.stroke(); },
     tray(c, F, J, pr, col) { const s = J.hip; const x0 = s[0] + 0.1, y0 = s[1] - 1.2; fillP(c, [x0, y0, x0 + 1.9, y0 - 0.1, x0 + 1.95, y0 + 0.35, x0 + 0.05, y0 + 0.4], col(C.brown)); for (let i = 0; i < 9; i++) { c.fillStyle = css(i % 3 ? GOLD : C.white); c.beginPath(); c.arc(x0 + 0.2 + i * 0.2, y0 + 0.08 + (i % 2) * 0.12, 0.07, 0, TAU); c.fill(); } line(c, x0 + 0.1, y0, J.nk[0], J.nk[1], col(C.brown), 0.05); },
+    sack(c, F, J, pr, col) { const s = J.sh; const q = chaikin([s[0] - 1.2, s[1] - 0.1, s[0] - 0.9, s[1] - 0.75, s[0] + 0.2, s[1] - 0.95, s[0] + 1.1, s[1] - 0.6, s[0] + 1.0, s[1] + 0.05, s[0] - 0.1, s[1] + 0.2], true, 2); c.beginPath(); addP(c, q); c.fillStyle = col(C.cream); c.fill(); c.strokeStyle = css(INK, 0.8); c.lineWidth = 0.08; c.stroke(); c.beginPath(); c.moveTo(s[0] - 0.5, s[1] - 0.7); c.quadraticCurveTo(s[0], s[1] - 0.2, s[0] + 0.6, s[1] - 0.6); c.moveTo(s[0] - 0.8, s[1] - 0.2); c.quadraticCurveTo(s[0] - 0.2, s[1] - 0.4, s[0] + 0.3, s[1] - 0.1); c.lineWidth = 0.05; c.stroke(); },
     nightstick(c, F, J, pr, col) { const A = J.AN; line(c, A.hx, A.hy, A.hx + 0.2, A.hy + 1.6, col(C.brown), 0.14); },
     child(c, F, J, pr, col) {
       // a small child carried on the arm / hip
@@ -635,7 +676,7 @@
     const MOON = { x: 3982, y: 158, r: 19 };
     const inCres = (x, y) => Math.hypot(x - MOON.x, y - MOON.y) < MOON.r && Math.hypot(x - MOON.x - 8, y - MOON.y + 4) > MOON.r * 0.92;
     function skyTone(x, y) {
-      let t = 0.86 * Math.pow(clamp(1 - y / 450, 0, 1), 1.1);
+      let t = 0.8 * Math.pow(clamp(1 - y / 440, 0, 1), 0.9) * (0.62 + 0.38 * clamp(y / 110, 0, 1));
       t *= 1 - 0.45 * Math.exp(-x / 1000);
       t *= 1 - 0.55 * Math.exp(-((x - 760) * (x - 760)) / 90000 - ((y - 250) * (y - 250)) / 16000);
       t *= 1 - 0.5 * Math.exp(-((x - 3990) * (x - 3990)) / 60000 - ((y - 210) * (y - 210)) / 16000);
@@ -655,8 +696,8 @@
       for (const cl of CLOUDS) { const g2 = c.createRadialGradient(cl[0], cl[1] + cl[3] * 0.3, 0, cl[0], cl[1] + cl[3] * 0.3, cl[2]); g2.addColorStop(0, 'rgba(250,214,176,0.5)'); g2.addColorStop(1, 'rgba(250,214,176,0)'); c.save(); c.translate(cl[0], cl[1]); c.scale(1, cl[3] * 1.6 / cl[2]); c.translate(-cl[0], -cl[1]); c.fillStyle = g2; c.beginPath(); c.arc(cl[0], cl[1], cl[2], 0, TAU); c.fill(); c.restore(); }
     });
     for (let x = 0; x < W; x += 480) {
-      L.sky.push((c) => hatch(c, RR(x, 0, 480, 480), { ang: 0, sp: 2.7, lw: 0.5, col: ink(0.34), f: (X, Y) => skyTone(X, Y) * 1.9, step: 6, wob: 0.22 }));
-      L.sky.push((c) => hatch(c, RR(x, 0, 480, 420), { ang: 0, sp: 2.7, off: 1.35, lw: 0.45, col: ink(0.28), f: (X, Y) => (skyTone(X, Y) - 0.42) * 2.4, step: 6, wob: 0.22, ko: 333 }));
+      L.sky.push((c) => hatch(c, RR(x, 0, 480, 480), { ang: 0, sp: 2.2, lw: 0.46, col: ink(0.42), f: (X, Y) => skyTone(X, Y) * 1.8, step: 6 }));
+      L.sky.push((c) => hatch(c, RR(x, 0, 480, 420), { ang: 0, sp: 2.2, off: 1.1, lw: 0.4, col: ink(0.34), f: (X, Y) => (skyTone(X, Y) - 0.4) * 2.4, step: 6, ko: 333 }));
     }
     // cloud undersides: a few ruled contour strokes
     L.sky.push((c) => {
@@ -817,16 +858,30 @@
     }
 
     /* ---------- buildings ---------- */
-    const STO = (b, tone) => mix(STONE, [70, 52, 40], (tone || b.tone) * 0.45);
+    // how much festa light reaches a point of the facades: the arch, the lantern strings, the shop glow, the church door
+    function facadeLight(x, y) {
+      let v = 0.62 * Math.exp(-((x - 2788) * (x - 2788)) / 170000 - ((y - 600) * (y - 600)) / 70000);
+      v += 0.24 * Math.exp(-((y - 735) * (y - 735)) / 5200);
+      v += 0.3 * clamp((y - 690) / 70, 0, 1);
+      v += 0.35 * Math.exp(-((x - 1630) * (x - 1630)) / 60000 - ((y - 780) * (y - 780)) / 30000);
+      return v;
+    }
+    function wallTone(b, yT) {
+      const yB = BASE - b.gf;
+      return (x, y) => { const t = clamp((y - yT) / (yB - yT), 0, 1); return 0.3 + b.tone * 0.22 + 0.72 * Math.pow(1 - t, 1.05) - facadeLight(x, y); };
+    }
+    const STO = (b, tone) => mix([226, 212, 184], [120, 96, 74], (tone || b.tone) * 0.3);
     function wallColor(b) {
-      const base = b.mat === 'stucco' ? [190, 160, 122] : b.mat === 'brown' ? [124, 92, 66] : b.mat === 'stone' ? [168, 146, 112] : [136, 88, 62];
-      return sepify(mix(base, [62, 42, 30], b.tone * 0.42), 0.55);
+      const base = b.mat === 'stucco' ? [226, 210, 178] : b.mat === 'brown' ? [190, 164, 134] : b.mat === 'iron' ? [226, 216, 194] : b.mat === 'stone' ? [210, 192, 160] : [206, 174, 146];
+      return mix(base, [120, 90, 66], b.tone * 0.22);
     }
     function drawWindow(c, b, x, y, w, h, o) {
       const x0 = x - w / 2;
       if (o.lit) { const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#f6d27e'); g.addColorStop(1, '#de9a46'); c.fillStyle = g; }
-      else c.fillStyle = css(mix([48, 36, 34], [96, 84, 90], o.dim || 0.15));
+      else c.fillStyle = css(mix([104, 86, 74], [140, 128, 124], o.dim || 0.15));
       c.fillRect(x0, y, w, h);
+      if (!o.lit) { const R0 = RR(x0, y, w, h); hatch(c, R0, { ang: 0.8, sp: 1.5, lw: 0.5, col: ink(0.6) }); hatch(c, R0, { ang: -0.8, sp: 1.7, lw: 0.45, col: ink(0.5) }); hatch(c, R0, { ang: 0, sp: 2.4, lw: 0.4, col: ink(0.4), f: (X, Y) => 1 - (Y - y) / h * 0.7 }); }
+      else hatch(c, RR(x0, y, w, h), { ang: Math.PI / 2, sp: 2.6, lw: 0.35, col: 'rgba(150,80,30,0.35)' });
       if (o.lit && o.inner) { // a glimpse of the room
         c.fillStyle = 'rgba(120,70,30,0.55)';
         if (o.inner === 1) { c.fillRect(x0 + w * 0.2, y + h * 0.18, w * 0.22, h * 0.16); }
@@ -835,8 +890,8 @@
       }
       if (o.shade > 0.05) { const sh = o.shade * h * 0.5; c.fillStyle = o.lit ? '#f5e0a6' : css(mix([212, 194, 158], [70, 52, 40], b.tone * 0.4)); c.fillRect(x0 + 1, y + 1, w - 2, sh); line(c, x0 + 1, y + sh + 1, x0 + w - 1, y + sh + 1, ink(0.6), 0.8); c.strokeStyle = ink(0.6); c.lineWidth = 0.5; c.beginPath(); c.arc(x, y + sh + 3, 1.2, 0, TAU); c.stroke(); }
       if (o.curt) { c.fillStyle = o.lit ? 'rgba(255,244,214,0.75)' : 'rgba(226,214,190,0.55)'; c.beginPath(); c.moveTo(x0 + 1, y + 1); c.lineTo(x0 + w * 0.32, y + 1); c.quadraticCurveTo(x0 + w * 0.12, y + h * 0.45, x0 + w * 0.2, y + h * 0.62); c.lineTo(x0 + 1, y + h * 0.62); c.fill(); c.beginPath(); c.moveTo(x0 + w - 1, y + 1); c.lineTo(x0 + w * 0.68, y + 1); c.quadraticCurveTo(x0 + w * 0.88, y + h * 0.45, x0 + w * 0.8, y + h * 0.62); c.lineTo(x0 + w - 1, y + h * 0.62); c.fill(); }
-      // reveal shadow
-      c.fillStyle = 'rgba(30,18,12,0.5)'; c.fillRect(x0, y, w, 3); c.fillRect(x0, y, 2.5, h);
+      // reveal shadow: the depth of the wall, in close cross-hatching
+      hatch(c, RR(x0, y, w, 4), { ang: 0.6, sp: 1.1, lw: 0.5, col: ink(0.75) }); hatch(c, RR(x0, y, 3, h), { ang: -0.6, sp: 1.1, lw: 0.5, col: ink(0.75) }); hatch(c, RR(x0, y, w, 4), { ang: -0.6, sp: 1.3, lw: 0.45, col: ink(0.6) });
       // sashes
       c.strokeStyle = ink(0.85); c.lineWidth = 0.9; c.strokeRect(x0 + 0.5, y + 0.5, w - 1, h - 1);
       c.beginPath(); c.moveTo(x0, y + h * 0.5); c.lineTo(x0 + w, y + h * 0.5); c.lineWidth = 1.5; c.stroke();
@@ -846,7 +901,8 @@
       // sill
       const st = STO(b);
       rect(c, x0 - 4, y + h, w + 8, 4, css(st), ink(0.8), 0.6);
-      c.fillStyle = 'rgba(30,18,12,0.35)'; c.fillRect(x0 - 3, y + h + 4, w + 6, 2.5);
+      stipple(c, x0 - 3, y + h + 4, w + 6, 4.5, (X, Y) => 1.1 - (Y - y - h - 4) / 4.5, { sp: 1.25, r: 0.45, col: ink(0.75) });
+      if (o.lint) stipple(c, x0 - 4, y - 0.5, w + 8, 4, (X, Y) => 0.9 - (Y - y) / 4, { sp: 1.3, r: 0.4, col: ink(0.6) });
       // lintel
       const L = o.lint;
       if (L === 'flat') { fillP(c, [x0 - 5, y - 9, x0 + w + 5, y - 9, x0 + w + 5, y, x0 - 5, y], css(st)); fillP(c, [x - 4, y - 11, x + 4, y - 11, x + 3, y, x - 3, y], css(mix(st, [255, 240, 210], 0.2))); strokeL(c, [x0 - 5, y, x0 - 5, y - 9, x0 + w + 5, y - 9, x0 + w + 5, y], ink(0.8), 0.6); strokeL(c, [x - 3, y, x - 4, y - 11, x + 4, y - 11, x + 3, y], ink(0.8), 0.6); }
@@ -870,11 +926,12 @@
         for (let x = x0 + 20; x < x1 - 20; x += 46) { rect(c, x, py + 3, 26, b.parapet - 5, null, ink(0.5), 0.6); }
         rect(c, x0 - 2, py - 3, x1 - x0 + 4, 3.5, css(STO(b)), ink(0.85), 0.8);
       }
-      const cc = mix([196, 178, 148], [60, 44, 34], tone * 0.5);
+      const cc = mix([224, 210, 182], [90, 70, 52], tone * 0.3);
       // frieze
       rect(c, x0, yW - 15, x1 - x0, 15, css(mix(cc, [40, 28, 20], 0.12)));
       // soffit band (seen from below) and crown
-      rect(c, x0 - 3, yT + 9, x1 - x0 + 6, yW - 15 - yT - 9, css(mix(cc, [20, 12, 8], 0.55)));
+      rect(c, x0 - 3, yT + 9, x1 - x0 + 6, yW - 15 - yT - 9, css(mix(cc, [60, 44, 34], 0.3)));
+      { const R0 = RR(x0 - 3, yT + 9, x1 - x0 + 6, yW - 15 - yT - 9); hatch(c, R0, { ang: 0.7, sp: 1.2, lw: 0.5, col: ink(0.7) }); hatch(c, R0, { ang: -0.7, sp: 1.3, lw: 0.5, col: ink(0.65) }); hatch(c, R0, { ang: 0, sp: 1.5, lw: 0.4, col: ink(0.5) }); }
       rect(c, x0 - 4, yT, x1 - x0 + 8, 9, css(cc));
       // crown mouldings
       line(c, x0 - 4, yT + 0.5, x1 + 4, yT + 0.5, ink(0.95), 1.2);
@@ -896,7 +953,9 @@
       // end consoles
       for (const ex of [x0 + 1, x1 - 9]) { fillP(c, [ex, yT + 9, ex + 8, yT + 9, ex + 7, yW + 6, ex + 4, yW + 9, ex + 1, yW + 6], css(cc)); strokeL(c, [ex, yT + 9, ex + 1, yW + 6, ex + 4, yW + 9, ex + 7, yW + 6, ex + 8, yT + 9], ink(0.8), 0.6); c.beginPath(); c.arc(ex + 4, yW + 1, 2, 0, TAU); c.strokeStyle = ink(0.6); c.lineWidth = 0.5; c.stroke(); }
       // the shadow the cornice throws onto the wall
-      hatch(c, RR(x0, yW, x1 - x0, 12), { ang: -0.9, sp: 1.8, lw: 0.45, col: ink(0.4), f: (x, y) => 1 - (y - yW) / 12 });
+      { const R0 = RR(x0, yW, x1 - x0, 16); hatch(c, R0, { ang: -0.9, sp: 1.3, lw: 0.5, col: ink(0.6), f: (x, y) => 1.2 - (y - yW) / 16 }); hatch(c, R0, { ang: 0.9, sp: 1.4, lw: 0.45, col: ink(0.55), f: (x, y) => 1 - (y - yW) / 12, ko: 50 }); hatch(c, R0, { ang: 0, sp: 1.6, lw: 0.4, col: ink(0.5), f: (x, y) => 0.8 - (y - yW) / 10, ko: 90 }); }
+      // the frieze in light line
+      hatch(c, RR(x0, yW - 15, x1 - x0, 15), { ang: Math.PI / 2, sp: 2, lw: 0.4, col: ink(0.35), f: () => 0.6 });
     }
 
     function storefront(c, b) {
@@ -1199,45 +1258,53 @@
     }
 
     function addBuilding(b, bi) {
+      if (b.alley) { L.fac.push((c) => alley(c, b)); return; }
       if (b.church) { L.fac.push((c) => church(c, b)); return; }
       if (b.tower) { L.fac.push((c) => tower(c, b)); return; }
       const yT = bTop(b), rng = FX(1000 + bi), vr = SV(1000 + bi);
       const cl = cols(b);
       L.fac.push((c) => {
-        const wc = wallColor(b);
+        const wc = wallColor(b), yB = BASE - b.gf, top = yT + CORN;
         c.fillStyle = css(wc); c.fillRect(b.x0, yT + 8, b.x1 - b.x0, BASE - yT - 8);
-        const g = c.createLinearGradient(0, yT, 0, BASE);
-        g.addColorStop(0, 'rgba(34,22,24,0.44)'); g.addColorStop(0.45, 'rgba(34,22,24,0.2)'); g.addColorStop(0.8, 'rgba(34,22,24,0.06)'); g.addColorStop(1, 'rgba(34,22,24,0)');
-        c.fillStyle = g; c.fillRect(b.x0, yT, b.x1 - b.x0, BASE - yT);
-        c.save(); c.globalCompositeOperation = 'screen';
-        const g2 = c.createLinearGradient(0, BASE, 0, BASE - 430); g2.addColorStop(0, 'rgba(255,190,110,0.5)'); g2.addColorStop(0.5, 'rgba(255,190,110,0.12)'); g2.addColorStop(1, 'rgba(255,190,110,0)');
-        c.fillStyle = g2; c.fillRect(b.x0, BASE - 430, b.x1 - b.x0, 430);
+        // the warm festa light as a faint tint on the lower floors
+        c.save(); c.globalCompositeOperation = 'multiply';
+        const g = c.createLinearGradient(0, yT, 0, yB); g.addColorStop(0, 'rgba(150,136,146,0.75)'); g.addColorStop(0.55, 'rgba(206,190,178,0.55)'); g.addColorStop(1, 'rgba(255,236,200,0)');
+        c.fillStyle = g; c.fillRect(b.x0, yT, b.x1 - b.x0, yB - yT);
         c.restore();
-        const r2 = FX(2000 + bi);
-        if (b.mat !== 'stucco') {
-          c.beginPath(); for (let y = yT + CORN + 3.3; y < BASE - b.gf; y += 3.3) { c.moveTo(b.x0, y); c.lineTo(b.x1, y); }
-          c.strokeStyle = ink(0.24); c.lineWidth = 0.38; c.stroke();
+        const r2 = FX(2000 + bi), T = wallTone(b, yT);
+        if (b.mat === 'brick' || !b.mat) {
+          // brick: every course a row of short strokes broken by mortar joints, half a brick offset each course
           c.beginPath();
-          const np = Math.round((b.x1 - b.x0) * (BASE - b.gf - yT) / 7000);
-          for (let p = 0; p < np; p++) {
-            const px = r2.u(b.x0, b.x1), py = r2.u(yT + CORN, BASE - b.gf), pr = r2.u(12, 30);
-            for (let y = Math.ceil((py - pr) / 3.3) * 3.3; y < py + pr; y += 3.3) {
-              if (y < yT + CORN || y > BASE - b.gf - 3) continue;
-              const row = Math.round(y / 3.3), o2 = (row & 1) * 3.6;
-              for (let x = Math.floor((px - pr) / 7.2) * 7.2 + o2; x < px + pr; x += 7.2) {
-                const dd = ((x - px) * (x - px) + (y - py) * (y - py)) / (pr * pr);
-                if (dd < 1 && r2.r() > dd * 0.85 && x > b.x0 + 1 && x < b.x1 - 1) { c.moveTo(x, y); c.lineTo(x, y + 3.3); }
-              }
+          let row = 0;
+          for (let y = top + 3.3; y < yB; y += 3.3, row++) {
+            const off = (row & 1) * 3.6;
+            for (let x = b.x0 - off; x < b.x1; x += 7.2) {
+              const k = row * 977 + Math.round(x * 3.1) + bi * 31;
+              if (hf(k) < 0.06) continue;
+              const xa = Math.max(b.x0, x + 0.5 + hf(k + 1) * 0.4), xb = Math.min(b.x1, x + 6.4 + hf(k + 2) * 0.4);
+              if (xb > xa) { c.moveTo(xa, y + (hf(k + 3) - 0.5) * 0.3); c.lineTo(xb, y + (hf(k + 4) - 0.5) * 0.3); }
             }
           }
-          c.strokeStyle = ink(0.3); c.lineWidth = 0.35; c.stroke();
-        } else {
-          // stucco: scored joints and a few stains
-          c.beginPath(); for (let y = yT + CORN + 18; y < BASE - b.gf; y += 18) { c.moveTo(b.x0, y); c.lineTo(b.x1, y); } c.strokeStyle = ink(0.16); c.lineWidth = 0.5; c.stroke();
-          hatch(c, RR(b.x0, yT + CORN, b.x1 - b.x0, BASE - b.gf - yT - CORN), { ang: -1.0, sp: 2.6, lw: 0.4, col: ink(0.22), f: (x, y) => 0.55 - (y - yT) / 900 + 0.25 * Math.sin(x * 0.03) * Math.sin(y * 0.021) });
+          c.strokeStyle = ink(0.42); c.lineWidth = 0.5; c.stroke();
+          // in places the head joints are drawn too
+          c.beginPath(); row = 0;
+          for (let y = top + 3.3; y < yB; y += 3.3, row++) {
+            const off = (row & 1) * 3.6;
+            for (let x = b.x0 - off; x < b.x1; x += 7.2) { const xx = x + 7.0; if (xx > b.x0 && xx < b.x1 && T(xx, y) * 1.1 > hf(row * 313 + Math.round(xx * 5))) { c.moveTo(xx, y); c.lineTo(xx, y + 3.3); } }
+          }
+          c.strokeStyle = ink(0.35); c.lineWidth = 0.4; c.stroke();
+        } else if (b.mat === 'brown') {
+          // brownstone ashlar: long courses, staggered joints, a little tooling
+          c.beginPath(); let row = 0;
+          for (let y = top + 9; y < yB; y += 9, row++) { c.moveTo(b.x0, y); c.lineTo(b.x1, y); for (let x = b.x0 + (row & 1) * 14; x < b.x1; x += 28) { c.moveTo(x, y - 9); c.lineTo(x, y); } }
+          c.strokeStyle = ink(0.45); c.lineWidth = 0.55; c.stroke();
+          hatch(c, RR(b.x0, top, b.x1 - b.x0, yB - top), { ang: 0, sp: 1.8, lw: 0.35, col: ink(0.25), f: (x, y) => 0.5, ko: bi });
+        } else if (b.mat === 'stucco') {
+          c.beginPath(); for (let y = top + 18; y < yB; y += 18) { c.moveTo(b.x0, y); c.lineTo(b.x1, y); } c.strokeStyle = ink(0.32); c.lineWidth = 0.5; c.stroke();
+          c.beginPath(); for (let i = 0; i < 6; i++) { let x = r2.u(b.x0 + 10, b.x1 - 10), y = r2.u(top, yB - 40); c.moveTo(x, y); for (let j = 0; j < 6; j++) { x += r2.u(-4, 4); y += r2.u(3, 8); c.lineTo(x, y); } } c.strokeStyle = ink(0.35); c.lineWidth = 0.45; c.stroke();
         }
-        // etched dusk: vertical hatching, densest under the cornice, dying out toward the lit street
-        hatch(c, RR(b.x0, yT + CORN, b.x1 - b.x0, BASE - b.gf - yT - CORN), { ang: Math.PI / 2, sp: 2.1, lw: 0.46, col: ink(0.5), f: (x, y) => 0.95 * Math.pow(1 - (y - yT) / (BASE - b.gf - yT), 1.2) + 0.12 * b.tone, step: 5, jit: 0.2, ko: bi * 17 });
+        // dusk: value laid down in hatching, densest under the cornice, lifted where the festa light reaches
+        toneHatch(c, RR(b.x0, top, b.x1 - b.x0, yB - top), (x, y) => T(x, y) * (b.mat === 'stucco' || b.mat === 'iron' ? 0.85 : 1), { sp: 2.0, lw: 0.52, col: ink(0.62), ko: bi * 17 });
         // quoins / party-wall edges
         for (const ex of [b.x0, b.x1]) line(c, ex, yT + CORN, ex, BASE - b.gf, ink(0.7), 0.9);
         if (b.mat === 'brown' || b.mat === 'stucco') {
@@ -1306,7 +1373,7 @@
     L.fe.push((c) => {
       const rr = SV(7100);
       for (const [bi, b] of BLD.entries()) {
-        if (b.church || b.tower) continue;
+        if (b.church || b.tower || b.alley) continue;
         const cl = cols(b);
         for (let k = 1; k <= b.fl; k++) for (let i = 0; i < b.nw; i++) {
           if (b.fe && i >= b.fe[0] && i <= b.fe[1]) continue;
@@ -1326,12 +1393,12 @@
     // laundry between buildings and on roofs
     L.fe.push((c) => {
       const rr = SV(7200);
-      const lines = [[30, 600, 236, 612, 26], [266, 490, 500, 506, 30], [530, 390, 742, 400, 22], [790, 600, 990, 590, 28], [1830, 470, 2070, 478, 24], [2950, 600, 3140, 590, 24], [3180, 470, 3410, 480, 26]];
+      const lines = [[30, 600, 236, 612, 26], [266, 490, 500, 506, 30], [530, 390, 742, 400, 22], [790, 600, 990, 590, 28], [1872, 470, 2070, 478, 24], [2950, 600, 3140, 590, 24], [3180, 470, 3410, 480, 26]];
       for (const [x0, y0, x1, y1, s] of lines) laundry(c, x0, y0, x1, y1, s, laundryItems(rr, 12, x1 - x0, 40), rr);
     });
 
     /* ---------- roofs ---------- */
-    const roofY = (x) => { for (const b of BLD) if (x >= b.x0 && x < b.x1 && !b.church && !b.tower) return bTop(b); return 300; };
+    const roofY = (x) => { for (const b of BLD) if (x >= b.x0 && x < b.x1 && !b.church && !b.tower && !b.alley) return bTop(b); return 300; };
     L.roofB.push((c) => {
       const rr = SV(7300);
       tank(c, 120, roofY(120) + 4, 64, 66);
@@ -1367,11 +1434,11 @@
     L.roofF.push((c) => {
       // Vito, slide one: stepping up from one roof to the next, a slim silhouette against the afterglow
       const yC = bTop(BLD[2]), yD = bTop(BLD[3]) - BLD[3].parapet;
-      const uV = 72 / totH(BODY.man);
-      drawFig(c, { x: 744, y: yC + 1, h: 72, solid: 1, dir: 1, fr: 0.12, sex: 'm', age: 'a', slim: 0.82, pose: { nl: { to: [2.1, -(yC - yD + 1) / uV - 0.24], bend: 1 }, fl: [-0.18, -0.42], na: [-0.5, -0.3], fa: [0.55, 1.0], lean: 0.2, tilt: 0.05 }, w: { top: 'jacket', tc: [52, 40, 32], bc: [48, 38, 30], hat: 'cap', hc: [40, 32, 26], tie: false, shirt: C.cream }, noShadow: 1, lx: -1 });
+      const uV = 108 / totH(BODY.man);
+      drawFig(c, { x: 744, y: yC + 1, h: 108, solid: 1, dir: 1, fr: 0.12, sex: 'm', age: 'a', slim: 0.82, pose: { nl: { to: [2.1, -(yC - yD + 1) / uV - 0.24], bend: 1 }, fl: [-0.18, -0.42], na: [-0.5, -0.3], fa: [0.55, 1.0], lean: 0.2, tilt: 0.05 }, w: { top: 'jacket', tc: [52, 40, 32], bc: [48, 38, 30], hat: 'cap', hc: [40, 32, 26], tie: false, shirt: C.cream }, noShadow: 1, lx: -1 });
       // Vito, slide four: crouched at the roof edge above Fanucci's door
-      const yP = bTop(BLD[16]);
-      drawFig(c, { x: 3992, y: yP + 2, h: 80, solid: 1, dir: -1, fr: 0.15, sex: 'm', age: 'a', slim: 0.82, pose: { drop: 2.3, nl: { to: [0.9, -0.2], bend: 1 }, fl: { to: [-0.5, -0.2], bend: 1 }, na: { to: [0.95, 2.05], bend: -1 }, fa: [0.4, 0.2], lean: 0.62, tilt: 0.55 }, w: { top: 'jacket', tc: [52, 40, 32], bc: [48, 38, 30], hat: 'cap', hc: [40, 32, 26], tie: false, shirt: C.cream }, noShadow: 1, lx: 1 });
+      const yP = bTop(BLD.find((b) => b.fanucci));
+      drawFig(c, { x: 3992, y: yP + 2, h: 120, solid: 1, dir: -1, fr: 0.15, sex: 'm', age: 'a', slim: 0.82, pose: { drop: 2.3, nl: { to: [0.9, -0.2], bend: 1 }, fl: { to: [-0.5, -0.2], bend: 1 }, na: { to: [0.95, 2.05], bend: -1 }, fa: [0.4, 0.2], lean: 0.62, tilt: 0.55 }, w: { top: 'jacket', tc: [52, 40, 32], bc: [48, 38, 30], hat: 'cap', hc: [40, 32, 26], tie: false, shirt: C.cream }, noShadow: 1, lx: 1 });
       // pigeons wheeling over the first roofs
       const rr = SV(7400);
       for (let i = 0; i < 22; i++) { const t = i / 22, a = t * 4.2 + rr.u(-0.15, 0.15); pigeon(c, 330 + Math.cos(a) * (150 + t * 120) + rr.u(-10, 10), 150 + Math.sin(a) * 52 - t * 40 + rr.u(-8, 8), rr.u(0.9, 1.4), rr.u(0, TAU), Math.sin(a) > 0 ? -1 : 1); }
@@ -1382,7 +1449,7 @@
     L.street.push((c) => {
       // far sidewalk
       const g = c.createLinearGradient(0, BASE, 0, H);
-      g.addColorStop(0, '#e7c78e'); g.addColorStop(0.08, '#f0d49c'); g.addColorStop(0.3, '#e4c288'); g.addColorStop(0.55, '#c49a62'); g.addColorStop(1, '#6a4c34');
+      g.addColorStop(0, '#ead2a2'); g.addColorStop(0.1, '#f1dcae'); g.addColorStop(0.4, '#e9d1a2'); g.addColorStop(0.7, '#d9bc8e'); g.addColorStop(1, '#b89670');
       c.fillStyle = g; c.fillRect(0, BASE, W, H - BASE);
       // paving joints of the far sidewalk
       c.beginPath(); for (let k = 1; k < 4; k++) { const y = gY(k * 32); c.moveTo(0, y); c.lineTo(W, y); } for (let x = 0; x < W; x += 46) { c.moveTo(x, BASE); c.lineTo(x, CURB_F); } c.strokeStyle = ink(0.22); c.lineWidth = 0.5; c.stroke();
@@ -1392,47 +1459,53 @@
       for (const d of [250, 262, 330, 342]) line(c, 0, gY(d), W, gY(d), 'rgba(250,230,190,0.5)', 0.8);
       // near curb and near sidewalk
       rect(c, 0, CURB_N, W, 9, css([150, 120, 88])); line(c, 0, CURB_N, W, CURB_N, ink(0.85), 1.2); line(c, 0, CURB_N + 9, W, CURB_N + 9, ink(0.6), 0.8);
-      c.beginPath(); for (let x = 0; x < W; x += 92) { c.moveTo(x, CURB_N + 9); c.lineTo(x, H); } c.moveTo(0, gY(510)); c.lineTo(W, gY(510)); c.strokeStyle = ink(0.2); c.lineWidth = 0.6; c.stroke();
+      
     });
     // the etched ground: ruled lines that widen toward us, graded dark at the front and lifted where the festa glows
-    const GLOWS = [[1620, 1000, 520, 170, 0.5], [2780, 960, 640, 260, 0.75], [3600, 1080, 420, 180, 0.3], [3600, 1320, 260, 70, 0.8], [560, 990, 520, 140, 0.25], [2200, 1000, 300, 140, 0.3], [4000, 960, 260, 90, 0.3]];
+    const GLOWS = [[1620, 1030, 420, 150, 0.6], [2780, 990, 560, 220, 0.95], [1300, 940, 120, 40, 0.5], [3600, 1080, 420, 180, 0.3], [3600, 1320, 260, 70, 0.8], [560, 990, 520, 140, 0.25], [2200, 1000, 300, 140, 0.3], [4000, 960, 260, 90, 0.3]];
+    for (const b of BLD) if (b.store) GLOWS.push([(b.x0 + b.x1) / 2, BASE + 14, (b.x1 - b.x0) * 0.42, 26, 0.38]);
     const depthOf = (y) => DV - DV * (BASE - HZ) / (y - HZ);
     const groundTone = (x, y) => {
       const t = clamp((y - CURB_F) / (H - CURB_F), 0, 1);
-      let v = 0.2 + 0.72 * Math.pow(t, 1.35);
+      let v = 0.26 + 0.8 * Math.pow(t, 1.2);
       for (const g of GLOWS) { const dx = (x - g[0]) / g[2], dy = (y - g[1]) / g[3]; const e = dx * dx + dy * dy; if (e < 6) v -= g[4] * 0.9 * Math.exp(-e); }
       return v;
     };
-    for (let band = 0; band < 6; band++) {
+    // the cobbled roadway: every stone drawn, its lower edge in shadow; stones in the light keep only a hairline
+    for (let band = 0; band < 8; band++) {
       L.street.push((c) => {
-        const y0 = lerp(CURB_F + 5, H, band / 6), y1 = lerp(CURB_F + 5, H, (band + 1) / 6);
-        let y = CURB_F + 5, k = 0;
-        while (y < y0) { y += 2.1 * sAt(depthOf(y)); k++; }
-        c.beginPath();
-        for (; y < y1; k++) {
-          const sc = sAt(depthOf(y)), thr = vdc(k + 77);
-          let on = false;
-          for (let x = 0; x <= W + 8; x += 8) {
-            const yy = y + 0.25 * Math.sin(x * 0.013 + k);
-            if (groundTone(x, y) > thr) { if (!on) { c.moveTo(x, yy); on = true; } else c.lineTo(x, yy); } else on = false;
+        const ya = lerp(CURB_F + 5, H, band / 8), yb2 = lerp(CURB_F + 5, H, (band + 1) / 8);
+        const P1 = new Path2D(), P2 = new Path2D(), P3 = new Path2D();
+        let y = CURB_F + 5, row = 0;
+        while (true) { if (y > CURB_N - 3 && y < CURB_N + 10) { y = CURB_N + 10; row++; continue; } const bh = 3.9 * sAt(depthOf(y)); if (y + bh > ya) break; y += bh; row++; }
+        for (; y < yb2 && y < H; row++) {
+          if (y > CURB_N - 3 && y < CURB_N + 10) { y = CURB_N + 10; continue; }
+          const sc = sAt(depthOf(y)), bh = 3.9 * sc, gap = 0.5 * sc;
+          let x = -hf(row * 31) * 8 * sc;
+          while (x < W) {
+            const k = row * 7919 + Math.round(x * 3), bw = 8.2 * sc * (0.8 + hf(k) * 0.4);
+            const x0 = x + gap, x1 = x + bw - gap, y0 = y + gap * 0.7, y1 = y + bh - gap * 0.7, r = Math.min(bw, bh) * 0.32;
+            const t = groundTone((x0 + x1) / 2, (y0 + y1) / 2);
+            if (t > 0.08 + hf(k + 5) * 0.25) { P1.moveTo(x0, y1 - r); P1.quadraticCurveTo(x0, y0, x0 + r, y0); P1.lineTo(x1 - r, y0); P1.quadraticCurveTo(x1, y0, x1, y0 + r); }
+            if (t > 0.02) { P2.moveTo(x1, y0 + r); P2.lineTo(x1, y1 - r); P2.quadraticCurveTo(x1, y1, x1 - r, y1); P2.lineTo(x0 + r, y1); P2.quadraticCurveTo(x0, y1, x0, y1 - r); }
+            const nh = Math.floor(clamp(t, 0, 1) * 4.2);
+            for (let j = 0; j < nh; j++) { const yy = lerp(y1 - 0.8 * sc, y0 + 1 * sc, j / 4); P3.moveTo(x0 + r * 0.6 + j * 0.6, yy); P3.lineTo(x1 - r * 0.4, yy); }
+            x += bw;
           }
-          y += 2.1 * sc;
+          y += bh;
         }
-        c.strokeStyle = ink(0.3); c.lineWidth = 0.42; c.stroke();
-        // cobble joints: short ticks in staggered courses, only where the ground is in shadow
-        c.beginPath();
-        let yy = CURB_F + 8, row = 0;
-        while (yy < y0) { yy += 3.6 * sAt(depthOf(yy)); row++; }
-        for (; yy < y1; row++) {
-          const sc = sAt(depthOf(yy)), bw = 7.6 * sc, bh = 3.6 * sc;
-          for (let x = (row % 2) * bw * 0.5; x < W; x += bw) {
-            if (groundTone(x, yy) * 1.3 - 0.15 > hf(row * 7919 + Math.round(x)) ) { c.moveTo(x, yy); c.lineTo(x + 0.3 * sc, yy - bh * 0.85); }
-          }
-          yy += bh;
-        }
-        c.strokeStyle = ink(0.32); c.lineWidth = 0.42; c.stroke();
+        c.lineCap = 'round';
+        c.strokeStyle = ink(0.32); c.lineWidth = 0.42; c.stroke(P1);
+        c.strokeStyle = ink(0.68); c.lineWidth = 0.62; c.stroke(P2);
+        c.strokeStyle = ink(0.42); c.lineWidth = 0.42; c.stroke(P3);
       });
     }
+    // the near sidewalk: big flags, ruled and graded darker toward the bottom edge
+    L.street.push((c) => {
+      let k = 0;
+      // the far sidewalk, ruled lightly
+      for (let y = BASE + 1; y < CURB_F; y += 1.6, k++) { const thr = vdc(k + 5); c.beginPath(); let on = false; for (let x = 0; x <= W + 8; x += 8) { if (groundTone(x, CURB_F) * 0.8 + 0.1 > thr) { if (!on) { c.moveTo(x, y); on = true; } else c.lineTo(x, y); } else on = false; } c.strokeStyle = ink(0.3); c.lineWidth = 0.4; c.stroke(); }
+    });
     // the festa glow pooled in the street
     L.street.push((c) => {
       c.save(); c.globalCompositeOperation = 'screen';
@@ -1551,8 +1624,10 @@
     const add = (o) => { o.x = offSeam(o.x, (o.hw || o.h * 0.27)); FIG.push(o); return o; };
     const lxAt = (x) => (x > 2200 && x < 2788 ? 1 : x >= 2788 && x < 3300 ? -1 : -1);
     const P = (x, y, sex, age, pose, dir, extra, rr) => {
-      const h0 = figH(y) * (age === 'c' ? 0.7 : age === 't' ? 0.52 : sex === 'f' ? 0.94 : 1) * (extra && extra.hs || 1);
-      const o = Object.assign({ x, y, h: h0, dir, fr: 0.45, sex, age, pose: POSE[pose] || pose, w: dress(rr || SV(Math.round(x * 7 + y)), sex, age), haze: clamp((1070 - y) / 260, 0, 1) * 0.5, lx: lxAt(x) }, extra || {});
+      const kb = Math.round(x * 13.7 + y * 3.1), vh = extra && extra.hs ? extra.hs : (age === 'a' ? 0.9 + hf(kb) * 0.17 : 0.85 + hf(kb) * 0.3);
+      const h0 = figH(y) * (age === 'c' ? 0.7 : age === 't' ? 0.52 : sex === 'f' ? 0.94 : 1) * vh;
+      const build = extra && (extra.slim || extra.broad || extra.belly) ? {} : age === 'a' ? (hf(kb + 1) < 0.25 ? { slim: 0.84 } : hf(kb + 1) < 0.45 ? { broad: 1.1 } : sex === 'm' && hf(kb + 1) < 0.58 ? { belly: 1.25 + hf(kb + 2) * 0.25 } : {}) : {};
+      const o = Object.assign({ x, y, h: h0, dir, fr: 0.45, sex, age, pose: POSE[pose] || pose, w: dress(rr || SV(Math.round(x * 7 + y)), sex, age), haze: clamp((1070 - y) / 260, 0, 1) * 0.3, lx: lxAt(x) }, build, extra || {});
       return add(o);
     };
     const R = SV(9000);
@@ -1870,6 +1945,7 @@
     const rf = FX(9500);
     const blocked = (x, y, h) => rsv.some((r) => x > r[0] - h * 0.12 && x < r[1] + h * 0.12 && y > r[2] && y < r[3]) || (Math.abs(y - ARCH.yb) < 14 && (Math.abs(x - (ARCH.cx - ARCH.w / 2 + 20)) < 30 || Math.abs(x - (ARCH.cx + ARCH.w / 2 - 20)) < 30));
     const pickPose = (x, y, rf) => {
+      if (y < 1000 && !(x > 1140 && x < 2140)) return rf.p(['stand', 'stand2', 'walk', 'walk2', 'gesture', 'pocket', 'behind', 'hips', 'walk', 'hold', 'stand']);
       if (x > 1140 && x < 2140) return rf.p(['stand', 'stand', 'pray', 'stand2', 'lookup', 'stand2', 'behind', 'hips', 'pray', 'wave', 'pocket', 'stand']);
       if (x > 2300 && x < 3300) return rf.p(['lookup', 'stand', 'walk', 'walk2', 'gesture', 'eat', 'stand2', 'lookup', 'hold', 'walk', 'point', 'hips', 'behind']);
       if (x > 3440 && x < 3800) return rf.p(['stand', 'stand2', 'behind', 'walk2', 'pocket']);
@@ -1898,15 +1974,20 @@
         if (age === 'a' && sex === 'm' && rf.c(0.05) && y < 1100) { props.push({ t: 'shoulders', col: rf.p([C.white, C.cream]) }); pose = 'stand'; }
         if (y > 1200) extra.back = rf.c(0.4) ? 1 : 0;
         P(x, y, sex, age, pose, dir, extra, SV(Math.round(x * 13 + y)));
+        // couples walking arm in arm
+        if (!inProc && age === 'a' && rf.c(0.12)) {
+          const x2 = x - dir * h * 0.15;
+          if (!blocked(x2, y, h)) { const last = FIG[FIG.length - 1]; last.sex = 'm'; last.w = dress(SV(Math.round(x * 5 + y)), 'm', 'a'); last.pose = POSE.walk; last.na = { to: [0.5, 1.05], bend: -1 }; last.dir = dir; P(x2, y - 1, 'f', 'a', 'walk2', dir, { fr: last.fr, na: { to: [0.75, 0.95], bend: -1 } }, SV(Math.round(x2 * 9 + y))); }
+        } else if (!inProc && age === 'a' && sex === 'm' && rf.c(0.05)) { const last = FIG[FIG.length - 1]; last.pose = POSE.pole; last.props = [{ t: 'sack' }]; }
         // conversations: a second person turned toward the first
-        if (!inProc && rf.c(0.2) && age === 'a') {
+        else if (!inProc && rf.c(0.2) && age === 'a') {
           const x2 = x + dir * h * 0.24;
           if (!blocked(x2, y, h)) P(x2, y + rf.u(-1, 2), rf.c(0.5) ? 'f' : 'm', 'a', rf.p(['gesture', 'stand', 'shrug', 'hips']), -dir, { fr: rf.u(0.15, 0.5) }, SV(Math.round(x2 * 11 + y)));
         }
       }
     }
     console.log('[festa] people: ' + FIG.length);
-    for (const b of BLD) if (!b.church && !b.tower) { const cl = cols(b); for (const x of cl.xs) for (const sx of SEAMS) if (Math.abs(x - sx) < cl.ww / 2 + 3) console.log('[festa] window on seam', b.store.sign, x); }
+    for (const b of BLD) if (!b.church && !b.tower && !b.alley) { const cl = cols(b); for (const x of cl.xs) for (const sx of SEAMS) if (Math.abs(x - sx) < cl.ww / 2 + 3) console.log('[festa] window on seam', b.store.sign, x); }
     for (const f of FIG) for (const sx of SEAMS) if (Math.abs(f.x - sx) < f.h * 0.25) console.log('[festa] seam risk', Math.round(f.x), Math.round(f.y), Math.round(f.h));
     // draw them, back to front
     for (const f of FIG) {

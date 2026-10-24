@@ -743,7 +743,7 @@
     for (let k = 1; k < 7; k += 2) { const t0 = k / 7, t1 = (k + 1) / 7; const xa = lerp(XL, AW.xf, t0), xb2 = lerp(XL, AW.xf, t1); poly3(ctx, [[xa, lerp(AW.yb, AW.yf, t0), AW.z0], [xb2, lerp(AW.yb, AW.yf, t1), AW.z0], [xb2, lerp(AW.yb - 0.5, AW.yf - AW.val, t1), AW.z0], [xa, lerp(AW.yb - 0.5, AW.yf - AW.val, t0), AW.z0]], '#d9cdb0'); }
     // iron frame
     line3(ctx, [AW.xf, AW.yf, AW.z0], [AW.xf, AW.yf, AW.z1], '#16181c', 1.1);
-    for (const z of [AW.z0 + 0.05, (AW.z0 + AW.z1) / 2, AW.z1 - 0.05]) line3(ctx, [AW.xf, AW.yf, z], [XL, AW.yb - 0.9, z], 'rgba(20,20,24,0.8)', 0.9);
+    for (const z of [AW.z0 + 0.05, AW.z1 - 0.05]) line3(ctx, [AW.xf, AW.yf, z], [XL, AW.yb - 0.9, z], 'rgba(20,20,24,0.55)', 0.6);
   }
 
   function drawBulbs(ctx, stage) {
@@ -826,7 +826,10 @@
       const hc = P(sideX + out * 0.04, 0.42, U(wu - 0.04)); disc(ctx, hc[0], hc[1], 0.04 * k, chromeLt);
     }
     // the body side with its two wheel arches
-    const prof = CARP.map((q) => [sideX, q[1], U(q[0])]);
+    const LOWER = [[0, 0.3], [0, 0.56], [0.14, 0.64], [0.3, 0.86], [0.6, 0.99], [1.6, 1.07], [1.75, 1.08], [4.42, 1.08], [4.6, 1.04], [4.95, 0.86], [5.16, 0.62], [5.2, 0.32]];
+    const gx = sideX - out * 0.18; // the greenhouse sits inboard of the fenders
+    poly3(ctx, [[1.75, 1.06], [2.2, 1.56], [2.55, 1.63], [3.35, 1.63], [4.0, 1.38], [4.44, 1.06]].map((q) => [gx, q[1], U(q[0])]), body);
+    const prof = LOWER.map((q) => [sideX, q[1], U(q[0])]);
     const bottom = [[5.2, 0.32]];
     const arch = (c) => { const pts = []; for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI; pts.push([c + 0.45 * Math.cos(a), 0.34 + 0.46 * Math.sin(a)]); } return pts; };
     bottom.push(...arch(4.05)); bottom.push([0.95 + 0.45, 0.32]); bottom.push(...arch(0.95)); bottom.push([0, 0.32]);
@@ -838,59 +841,63 @@
     poly3(ctx, [[sideX, 0.32, U(1.42)], [sideX, 0.46, U(1.42)], [sideX, 0.46, U(3.58)], [sideX, 0.32, U(3.58)]], dark);
     // windows: the greenhouse, glass holding a little warm light
     const glass = o.glass || '#1a2234';
-    poly3(ctx, [[sideX, 1.12, U(1.86)], [sideX, 1.5, U(2.27)], [sideX, 1.55, U(3.3)], [sideX, 1.36, U(3.86)], [sideX, 1.12, U(3.96)]], glass);
+    poly3(ctx, [[gx, 1.12, U(1.9)], [gx, 1.5, U(2.27)], [gx, 1.55, U(3.3)], [gx, 1.36, U(3.86)], [gx, 1.12, U(3.96)]], glass);
     if (o.dome) { const dc = P(xm, 1.35, U(2.9)); glow(ctx, dc[0], dc[1], 0.75 * k, '#ffcf88', 0.5); }
-    poly3(ctx, [[sideX, 1.12, U(2.86)], [sideX, 1.55, U(2.86)], [sideX, 1.55, U(2.97)], [sideX, 1.12, U(2.97)]], body);
-    line3(ctx, [sideX + out * 0.01, 1.11, U(1.82)], [sideX + out * 0.01, 1.11, U(4.0)], chromeMd, lw(0.012));
+    poly3(ctx, [[gx, 1.12, U(2.86)], [gx, 1.55, U(2.86)], [gx, 1.55, U(2.97)], [gx, 1.12, U(2.97)]], body);
+    line3(ctx, [sideX + out * 0.01, 1.08, U(1.8)], [sideX + out * 0.01, 1.08, U(4.4)], chromeMd, lw(0.012));
     line3(ctx, [sideX + out * 0.01, 0.8, U(0.5)], [sideX + out * 0.01, 0.84, U(4.7)], rgba(chromeLt, 0.55), lw(0.008));
     for (const u of [1.84, 2.92]) line3(ctx, [sideX + out * 0.005, 0.5, U(u)], [sideX + out * 0.005, 1.1, U(u)], 'rgba(0,0,0,0.55)', lw(0.006));
     const zE = U(0), dir = front ? 1 : -1;
     const Zd = (d) => zE + dir * d; // depth behind the near end
-    if (front) {
-      // fenders seen nose-on, round headlamps set into them
-      for (const sgn of [-1, 1]) {
-        const xa = sgn < 0 ? x0 + 0.02 : x1 - 0.52, xb = xa + 0.5, xc = (xa + xb) / 2;
-        const pts = []; for (let i = 0; i <= 10; i++) { const a = (i / 10) * Math.PI; pts.push([xc + Math.cos(a) * 0.25, 0.46 + Math.sin(a) * 0.46, Zd(0.12 + Math.sin(a) * 0.18)]); }
-        poly3(ctx, pts, mix(body, '#6a7488', 0.12));
-        const hc = P(xc, 0.74, Zd(0.2)), hk = K(xc, Zd(0.2));
-        disc(ctx, hc[0], hc[1], 0.115 * hk, chromeMd); disc(ctx, hc[0], hc[1], 0.095 * hk, o.headOn ? '#fff4d0' : '#2e3644');
-        disc(ctx, hc[0] - 0.03 * hk, hc[1] - 0.035 * hk, 0.028 * hk, o.headOn ? '#ffffff' : '#a8b4c8');
-      }
-      // the tall grille: a dark mouth with thin chrome teeth
-      const gx0 = lerp(x0, x1, 0.34), gx1 = lerp(x0, x1, 0.66);
-      poly3(ctx, [[gx0, 0.47, Zd(0.04)], [gx1, 0.47, Zd(0.04)], [gx1 - 0.07, 0.95, Zd(0.36)], [gx0 + 0.07, 0.95, Zd(0.36)]], '#07080b');
-      for (let i = 0; i <= 8; i++) { const t = i / 8; line3(ctx, [lerp(gx0, gx1, t), 0.49, Zd(0.05)], [lerp(gx0 + 0.07, gx1 - 0.07, t), 0.93, Zd(0.35)], i === 2 ? rgba(chromeLt, 0.8) : rgba(chromeMd, 0.75), lw(0.008)); }
-      // nose of the hood and its ornament
-      poly3(ctx, [[gx0 + 0.04, 0.95, Zd(0.36)], [gx1 - 0.04, 0.95, Zd(0.36)], [gx1 - 0.14, 1.04, Zd(0.6)], [gx0 + 0.14, 1.04, Zd(0.6)]], lit);
-      line3(ctx, [xm, 1.04, Zd(0.6)], [xm, 1.1, Zd(0.75)], chromeLt, lw(0.015));
-      // bumper: dark chrome with one bright edge
-      poly3(ctx, [[x0 - 0.02, 0.3, Zd(-0.04)], [x1 + 0.02, 0.3, Zd(-0.04)], [x1 + 0.02, 0.44, Zd(-0.02)], [x0 - 0.02, 0.44, Zd(-0.02)]], chromeDk);
-      line3(ctx, [x0, 0.435, Zd(-0.03)], [x1, 0.435, Zd(-0.03)], chromeLt, lw(0.012));
-      for (const t of [0.3, 0.7]) { const g = P(lerp(x0, x1, t), 0.4, Zd(-0.04)); disc(ctx, g[0], g[1], 0.02 * k, '#ffd8a0'); }
-      // the cabin: windshield in two panes
-      poly3(ctx, [[x0 + 0.16, 1.1, Zd(1.68)], [x1 - 0.16, 1.1, Zd(1.68)], [x1 - 0.22, 1.56, Zd(2.2)], [x0 + 0.22, 1.56, Zd(2.2)]], body);
-      poly3(ctx, [[x0 + 0.22, 1.13, Zd(1.7)], [xm - 0.03, 1.13, Zd(1.7)], [xm - 0.03, 1.52, Zd(2.16)], [x0 + 0.27, 1.52, Zd(2.16)]], glass);
-      poly3(ctx, [[xm + 0.03, 1.13, Zd(1.7)], [x1 - 0.22, 1.13, Zd(1.7)], [x1 - 0.27, 1.52, Zd(2.16)], [xm + 0.03, 1.52, Zd(2.16)]], glass);
-      if (o.dome) { const dc = P(xm, 1.3, Zd(2.6)); glow(ctx, dc[0], dc[1], 0.45 * k, '#ffd08a', 0.45); }
-    } else {
-      // the rear: rounded trunk, small rear window, red tail lamps on the fenders
-      const pts = []; for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI; pts.push([xm + Math.cos(a) * 0.8, 0.46 + Math.sin(a) * 0.58, Zd(0.1 + Math.sin(a) * 0.5)]); }
-      poly3(ctx, pts, mix(body, '#6a7890', 0.14));
-      poly3(ctx, [[x0 + 0.3, 1.12, Zd(0.8)], [x1 - 0.3, 1.12, Zd(0.8)], [x1 - 0.36, 1.38, Zd(1.2)], [x0 + 0.36, 1.38, Zd(1.2)]], glass);
-      for (const xs of [x0 + 0.13, x1 - 0.13]) {
-        const tc = P(xs, 0.7, Zd(0.25)), tk = K(xs, Zd(0.25));
+    const FP = (pts, dz) => pts.map((q) => [xm + q[0], q[1], Zd(q.length > 2 ? q[2] : dz)]);
+    const mirrorX = (pts) => pts.map((q) => [-q[0], q[1], q[2]]);
+    // the cabin, a rounded dome set back on the body
+    const cab = [[-0.74, 1.05], [-0.73, 1.28], [-0.66, 1.47], [-0.5, 1.58], [-0.25, 1.635], [0.25, 1.635], [0.5, 1.58], [0.66, 1.47], [0.73, 1.28], [0.74, 1.05]];
+    const cabZ = front ? 1.95 : 1.15;
+    poly3(ctx, FP(cab, cabZ), body);
+    const pane = front ? [[-0.64, 1.11], [-0.62, 1.3], [-0.55, 1.44], [-0.4, 1.52], [-0.04, 1.545], [-0.04, 1.11]] : [[-0.5, 1.14], [-0.47, 1.33], [-0.32, 1.45], [0.32, 1.45], [0.47, 1.33], [0.5, 1.14]];
+    poly3(ctx, FP(pane, cabZ - 0.02), glass);
+    if (front) poly3(ctx, FP(mirrorX(pane), cabZ - 0.02), glass);
+    if (o.dome) { const dc = P(xm, 1.32, Zd(cabZ + 0.6)); glow(ctx, dc[0], dc[1], 0.42 * k, '#ffd08a', 0.5); }
+    // a cold sheen across the roof and the top of the glass
+    poly3(ctx, FP([[-0.5, 1.58], [-0.25, 1.635], [0.25, 1.635], [0.5, 1.58], [0.3, 1.6], [-0.3, 1.6]], cabZ + 0.01), lit);
+    // fenders: rounded humps either side, lamps set in them
+    const fender = (sx) => { const pts = []; for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI; pts.push([sx * 0.68 + Math.cos(a) * 0.26, 0.44 + Math.sin(a) * 0.52, 0.12 + Math.sin(a) * 0.3]); } return pts; };
+    for (const sx of [-1, 1]) {
+      poly3(ctx, FP(fender(sx)), mix(body, '#6a7488', 0.1));
+      poly3(ctx, FP(fender(sx).slice(3, 10).map((q) => [q[0], q[1] - 0.005, q[2] - 0.01]).concat(fender(sx).slice(3, 10).reverse().map((q) => [q[0] * 0.98 + sx * 0.0136, q[1] - 0.06, q[2] - 0.01]))), o.warmSide && sx < 0 ? warm : lit);
+      if (front) {
+        const hc = P(xm + sx * 0.68, 0.74, Zd(0.36)), hk = K(xm, Zd(0.36));
+        disc(ctx, hc[0], hc[1], 0.115 * hk, chromeMd); disc(ctx, hc[0], hc[1], 0.095 * hk, o.headOn ? '#fff4d0' : '#2c3442');
+        disc(ctx, hc[0] - 0.03 * hk, hc[1] - 0.035 * hk, 0.026 * hk, o.headOn ? '#ffffff' : '#9aa8bc');
+      } else {
+        const tc = P(xm + sx * 0.7, 0.72, Zd(0.3)), tk = K(xm, Zd(0.3));
         ctx.fillStyle = o.tailOn ? '#ff3a22' : '#5a1210'; ctx.beginPath(); ctx.ellipse(tc[0], tc[1], 0.045 * tk, 0.085 * tk, 0, 0, Math.PI * 2); ctx.fill();
         if (o.tailOn) { glow(ctx, tc[0], tc[1], 0.4 * tk, '#ff3a20', 0.55); disc(ctx, tc[0], tc[1] - 0.02 * tk, 0.02 * tk, '#ffd0c0'); }
       }
-      const pl = [[xm - 0.16, 0.48, Zd(0.05)], [xm + 0.16, 0.48, Zd(0.05)], [xm + 0.16, 0.6, Zd(0.06)], [xm - 0.16, 0.6, Zd(0.06)]];
-      poly3(ctx, pl, '#d8c890');
-      poly3(ctx, [[x0 - 0.02, 0.3, Zd(-0.04)], [x1 + 0.02, 0.3, Zd(-0.04)], [x1 + 0.02, 0.44, Zd(-0.02)], [x0 - 0.02, 0.44, Zd(-0.02)]], chromeDk);
-      line3(ctx, [x0, 0.435, Zd(-0.03)], [x1, 0.435, Zd(-0.03)], chromeLt, lw(0.012));
     }
-    // a cap of snow on the roof and on the fender tops, seen almost edge-on
+    if (front) {
+      // the long hood rising to the windshield, the tall grille, the ornament
+      poly3(ctx, FP([[-0.44, 0.5, 0.3], [-0.44, 0.84, 0.45], [-0.28, 0.99, 0.8], [0, 1.07, 1.2], [0.28, 0.99, 0.8], [0.44, 0.84, 0.45], [0.44, 0.5, 0.3]]), mix(body, '#5a6478', 0.08));
+      poly3(ctx, FP([[-0.28, 0.99, 0.8], [0, 1.07, 1.2], [0.28, 0.99, 0.8], [0.1, 1.01, 0.8], [0, 1.03, 0.9], [-0.1, 1.01, 0.8]]), lit);
+      poly3(ctx, FP([[-0.23, 0.47], [0.23, 0.47], [0.2, 0.95], [0, 0.99], [-0.2, 0.95]], 0.12), '#07080b');
+      for (let i = 0; i <= 8; i++) { const t = i / 8, xx = lerp(-0.21, 0.21, t); line3(ctx, [xm + xx, 0.49, Zd(0.11)], [xm + xx * 0.92, 0.95 - Math.abs(xx) * 0.18, Zd(0.11)], i === 3 ? rgba(chromeLt, 0.8) : rgba(chromeMd, 0.7), lw(0.009)); }
+      line3(ctx, [xm, 1.07, Zd(1.1)], [xm, 1.13, Zd(1.25)], chromeLt, lw(0.014));
+    } else {
+      // the rounded trunk and the plate
+      poly3(ctx, FP([[-0.5, 0.48, 0.15], [-0.52, 0.8, 0.3], [-0.38, 0.98, 0.55], [0, 1.04, 0.75], [0.38, 0.98, 0.55], [0.52, 0.8, 0.3], [0.5, 0.48, 0.15]]), mix(body, '#6a7890', 0.12));
+      poly3(ctx, FP([[-0.36, 0.97, 0.55], [0, 1.03, 0.75], [0.36, 0.97, 0.55], [0, 1.0, 0.65]]), lit);
+      poly3(ctx, FP([[-0.15, 0.5], [0.15, 0.5], [0.15, 0.61], [-0.15, 0.61]], 0.12), '#cfc08a');
+    }
+    // bumper: dark chrome with one bright edge and a warm glint
+    poly3(ctx, FP([[-0.98, 0.31], [0.98, 0.31], [1.0, 0.36], [0.98, 0.45], [-0.98, 0.45], [-1.0, 0.36]], -0.04), chromeDk);
+    line3(ctx, [xm - 0.95, 0.44, Zd(-0.045)], [xm + 0.95, 0.44, Zd(-0.045)], rgba(chromeLt, 0.85), lw(0.012));
+    for (const t of [-0.5, 0.55]) { const g = P(xm + t, 0.41, Zd(-0.05)); disc(ctx, g[0], g[1], 0.022 * k, '#ffd8a0'); }
+    // a cap of snow on the roof and on the fenders
     if (o.snow) {
-      poly3(ctx, [[sideX, 1.625, U(2.4)], [sideX, 1.625, U(3.5)], [sideX, 1.7, U(3.3)], [sideX, 1.71, U(2.62)]], mix(C.snow, C.snowShade, 0.25));
-      for (const c of [0.95, 4.05]) { const pts = arch(c).map((q) => [sideX + out * 0.012, q[1] + 0.13, U(q[0])]); const pts2 = pts.slice(4, 9); if (pts2.length > 1) line3(ctx, pts2[0], pts2[pts2.length - 1], rgba(C.snow, 0.7), lw(0.02)); }
+      const cabZ2 = front ? 1.95 : 1.15;
+      poly3(ctx, FP([[-0.5, 1.585], [-0.25, 1.64], [0.25, 1.64], [0.5, 1.585], [0.42, 1.66], [0.2, 1.7], [-0.2, 1.7], [-0.42, 1.66]], cabZ2 + 0.3), mix(C.snow, C.snowShade, 0.2));
+      for (const sx of [-1, 1]) poly3(ctx, FP([[sx * 0.68 - 0.2, 0.9], [sx * 0.68, 0.965], [sx * 0.68 + 0.2, 0.9], [sx * 0.68 + 0.12, 0.95], [sx * 0.68 - 0.12, 0.95]], 0.45), rgba(C.snow, 0.8));
     }
   }
 
@@ -1399,7 +1406,7 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'fruitstand',
     title: 'The Fruit Stand',
-    medium: 'Gouache on illustration board, after the magazine painters of 1945',
+    medium: 'Gouache on illustration board, in the manner of 1945',
     note: 'Ninth Avenue, a week before Christmas',
     about: 'An original interpretation of Puzo\'s novel, not the film: the last ordinary moment of a December dusk, when the old man stops to buy fruit and two men step off the curb across the street. Painted as a 1940s magazine cover would be, in flat opaque colour, warm windows against a cold blue street, so the violence stays a held breath.',
     tone: 'dark',

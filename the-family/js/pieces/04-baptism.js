@@ -241,6 +241,20 @@
       FILM = ctx.createPattern(tc, 'repeat');
       FILM.setTransform(new DOMMatrix([1 / scale, 0, 0, 1 / scale, 0, 0]));
     } catch (e) { FILM = null; }
+    // a tile of stippled matt: the paint dabbed on with the tip of a brush
+    let STIP = null;
+    try {
+      const n = Math.max(48, Math.round(72 * scale)), tc = document.createElement('canvas'); tc.width = tc.height = n;
+      const tx = tc.getContext('2d');
+      for (let i = 0; i < 700; i++) {
+        const x = R() * n, y = R() * n, r = (0.3 + R() * 0.75) * scale;
+        tx.fillStyle = `rgba(34,20,10,${0.22 + R() * 0.5})`;
+        for (const ox of [-n, 0, n]) for (const oy of [-n, 0, n]) { tx.beginPath(); tx.arc(x + ox, y + oy, r, 0, Math.PI * 2); tx.fill(); }
+      }
+      STIP = ctx.createPattern(tc, 'repeat');
+      STIP.setTransform(new DOMMatrix([1 / scale, 0, 0, 1 / scale, 0, 0]));
+    } catch (e) { STIP = null; }
+    const LF = [R() * 6.28, R() * 6.28, R() * 6.28];
     function jit(c, v) {
       v = v === undefined ? 1 : v;
       const k = 1 + (R() - 0.5) * 0.26 * v, h = (R() - 0.5) * 0.14 * v;
@@ -257,7 +271,9 @@
       let c = o.exact ? base : jit(base, o.v);
       if (!o.exact) {
         const my = (y0 + y1) / 2, mx = (x0 + x1) / 2;
-        const lum = 1.04 + 0.05 * clamp(1 - my / 700, 0, 1) - 0.1 * clamp((my - 760) / 160, 0, 1) - 0.05 * Math.abs(mx - 540) / 430 - (R() < 0.07 ? 0.16 : 0);
+        // uneven light: outside, a parapet and a tree soften parts of the window; some pieces are simply older and darker
+        const lum = (1.0 + 0.05 * clamp(1 - my / 700, 0, 1) - 0.1 * clamp((my - 760) / 160, 0, 1) - 0.05 * Math.abs(mx - 540) / 430 - (R() < 0.08 ? 0.17 : 0))
+          * (1 + 0.08 * Math.sin(mx * 0.013 + LF[0]) * Math.sin(my * 0.011 + LF[1]) + 0.045 * Math.sin((mx + my) * 0.021 + LF[2]));
         c = mulc(c, lum);
       }
       ctx.save();
@@ -301,6 +317,26 @@
         rg.addColorStop(0, 'rgba(40,24,12,0)'); rg.addColorStop(1, `rgba(40,24,12,${(o.edgeA || 0.16) * 0.5})`);
         ctx.fillStyle = rg; ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2);
       }
+      // flashed ruby: a thin red skin on white, here and there abraded back toward the white
+      const ruby = c[0] > 1.7 * c[1] && c[0] > 80 && c[2] < c[0] * 0.65;
+      if (ruby && !o.noFlash) {
+        for (let k = 0; k < 2; k++) { ctx.beginPath(); const yy = y0 + R() * h; ctx.moveTo(x0 - 2, yy); ctx.bezierCurveTo(x0 + w * 0.3, yy + (R() - 0.5) * 8, x0 + w * 0.7, yy + (R() - 0.5) * 8, x1 + 2, yy + (R() - 0.5) * 6); ctx.strokeStyle = `rgba(70,0,12,${0.12 + R() * 0.12})`; ctx.lineWidth = 0.8 + R() * 2.5; ctx.stroke(); }
+        if (R() < 0.15) {
+          const ax = x0 + w * (0.25 + R() * 0.5), ay = y0 + h * (0.25 + R() * 0.5), ar = 1.6 + R() * 2.6;
+          ctx.strokeStyle = 'rgba(255,214,200,0.42)'; ctx.lineWidth = 0.9 + R() * 0.8;
+          ctx.beginPath(); if (R() < 0.5) ctx.arc(ax, ay, ar, 0, Math.PI * 2); else { ctx.moveTo(ax - ar, ay); ctx.quadraticCurveTo(ax, ay - ar * 1.2, ax + ar, ay); } ctx.stroke();
+        }
+      }
+      // weathering: pitting, a little bloom of corrosion, the patina that gathers along the leads
+      if (!o.clean && R() < 0.3) {
+        const k = 4 + ((R() * 10) | 0);
+        for (let i = 0; i < k; i++) { ctx.beginPath(); ctx.arc(x0 + R() * w, y0 + R() * h, 0.25 + R() * 0.5, 0, Math.PI * 2); ctx.fillStyle = `rgba(30,20,12,${0.25 + R() * 0.25})`; ctx.fill(); }
+        if (R() < 0.3) { const bx = x0 + R() * w, by = y0 + R() * h, br2 = 3 + R() * 5; const bg = ctx.createRadialGradient(bx, by, 0, bx, by, br2); bg.addColorStop(0, 'rgba(226,220,204,0.16)'); bg.addColorStop(1, 'rgba(226,220,204,0)'); ctx.fillStyle = bg; ctx.fillRect(bx - br2, by - br2, br2 * 2, br2 * 2); }
+      }
+      if (o.patina !== false) {
+        ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(32,22,12,0.1)';
+        ctx.lineWidth = 10; ctx.stroke(sh.p); ctx.lineWidth = 5.5; ctx.stroke(sh.p); ctx.strokeStyle = 'rgba(32,22,12,0.14)'; ctx.lineWidth = 3.6; ctx.stroke(sh.p);
+      }
       if (FILM) { ctx.globalAlpha = o.paint ? 0.42 : 0.3; ctx.fillStyle = FILM; ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2); ctx.globalAlpha = 1; }
       if (o.paint) o.paint(c, sh);
       if (o.cuts) { ctx.strokeStyle = LEAD; ctx.lineWidth = (o.lw || LW) * 0.9; ctx.lineCap = 'round'; o.cuts.forEach((cp) => ctx.stroke(cp)); }
@@ -317,7 +353,41 @@
         for (let k = 0; k < 4; k++) { ctx.strokeStyle = `rgba(46,28,14,${a / 4})`; ctx.lineWidth = w * (1 - k * 0.22); ctx.stroke(s); }
       },
       hl(d, w, a) { const s = typeof d === 'string' ? new Path2D(d) : d; ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(255,248,228,${a || 0.35})`; ctx.lineWidth = w; ctx.stroke(s); },
-      shade(sh, x0, y0, x1, y1, a0, a1) { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, `rgba(46,28,14,${a0})`); g.addColorStop(1, `rgba(46,28,14,${a1})`); ctx.fillStyle = g; ctx.fillRect(sh.bb[0] - 2, sh.bb[1] - 2, sh.bb[2] - sh.bb[0] + 4, sh.bb[3] - sh.bb[1] + 4); },
+      shade(sh, x0, y0, x1, y1, a0, a1) {
+        const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, `rgba(46,28,14,${a0})`); g.addColorStop(1, `rgba(46,28,14,${a1})`); ctx.fillStyle = g; ctx.fillRect(sh.bb[0] - 2, sh.bb[1] - 2, sh.bb[2] - sh.bb[0] + 4, sh.bb[3] - sh.bb[1] + 4);
+        // stippled matt toward the dark side
+        const am = Math.max(a0, a1);
+        if (STIP && am > 0.12) {
+          const d = a0 >= a1 ? [x0, y0, x1, y1] : [x1, y1, x0, y0];
+          let dx = d[2] - d[0], dy = d[3] - d[1]; const len = Math.hypot(dx, dy) || 1; const ux = dx / len, uy = dy / len, vx = -uy, vy = ux, BIG = 3000;
+          [[0.5, 0.35], [0.26, 0.5]].forEach(([t, al]) => {
+            const px = d[0] + dx * t, py = d[1] + dy * t;
+            ctx.save(); ctx.beginPath(); ctx.moveTo(px + vx * BIG, py + vy * BIG); ctx.lineTo(px - vx * BIG, py - vy * BIG); ctx.lineTo(px - vx * BIG - ux * BIG, py - vy * BIG - uy * BIG); ctx.lineTo(px + vx * BIG - ux * BIG, py + vy * BIG - uy * BIG); ctx.closePath(); ctx.clip();
+            ctx.globalAlpha = am * al; ctx.fillStyle = STIP; ctx.fillRect(sh.bb[0] - 2, sh.bb[1] - 2, sh.bb[2] - sh.bb[0] + 4, sh.bb[3] - sh.bb[1] + 4); ctx.restore();
+          });
+        }
+      },
+      stip(sh, a) { if (!STIP) return; ctx.globalAlpha = a; ctx.fillStyle = STIP; ctx.fillRect(sh.bb[0] - 2, sh.bb[1] - 2, sh.bb[2] - sh.bb[0] + 4, sh.bb[3] - sh.bb[1] + 4); ctx.globalAlpha = 1; },
+      // a drapery fold as a glass painter makes it: a trace line, matting pushed to one side, hatching in the hollow, a scratched highlight on the ridge
+      fold(pts, side, wt, depth) {
+        side = side || 1; wt = wt || 1; depth = depth === undefined ? 1 : depth;
+        const cl = catmull(pts, 6), n = cl.length;
+        const path = new Path2D(); cl.forEach((q, i) => (i ? path.lineTo(q[0], q[1]) : path.moveTo(q[0], q[1])));
+        const off = (d) => { const p2 = new Path2D(); cl.forEach((q, i) => { const a = cl[Math.max(0, i - 1)], b = cl[Math.min(n - 1, i + 1)]; let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const m = Math.hypot(nx, ny) || 1; const x = q[0] + nx / m * d * side, y = q[1] + ny / m * d * side; if (i) p2.lineTo(x, y); else p2.moveTo(x, y); }); return p2; };
+        if (depth > 0) P.mat(off(3.2), 7 * depth, 0.42 * depth);
+        let acc = 0;
+        for (let i = 1; i < n - 1; i++) {
+          acc += Math.hypot(cl[i][0] - cl[i - 1][0], cl[i][1] - cl[i - 1][1]);
+          if (acc < 3.2 || depth <= 0) continue; acc = 0;
+          const t = i / (n - 1), a = cl[i - 1], b = cl[i + 1];
+          let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const m = Math.hypot(nx, ny) || 1; nx = nx / m * side; ny = ny / m * side;
+          const l = (2.5 + 4.5 * Math.sin(Math.PI * t)) * depth;
+          ctx.beginPath(); ctx.moveTo(cl[i][0] + nx * 0.8, cl[i][1] + ny * 0.8); ctx.lineTo(cl[i][0] + nx * l + (b[0] - a[0]) * 0.15, cl[i][1] + ny * l + (b[1] - a[1]) * 0.15);
+          ctx.strokeStyle = 'rgba(28,17,10,0.55)'; ctx.lineWidth = 0.55; ctx.lineCap = 'round'; ctx.stroke();
+        }
+        P.tr(path, 1.25 * wt);
+        P.hl(off(-2.2), 0.9, 0.32);
+      },
       rshade(sh, cx, cy, r0, r1, a0, a1) { const g = ctx.createRadialGradient(cx, cy, r0, cx, cy, r1); g.addColorStop(0, `rgba(46,28,14,${a0})`); g.addColorStop(1, `rgba(46,28,14,${a1})`); ctx.fillStyle = g; ctx.fillRect(sh.bb[0] - 2, sh.bb[1] - 2, sh.bb[2] - sh.bb[0] + 4, sh.bb[3] - sh.bb[1] + 4); },
       dot(x, y, r, a) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = a === undefined ? TRACE : `rgba(28,17,10,${a})`; ctx.fill(); },
       clear(x, y, r, a) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,250,232,${a || 0.5})`; ctx.fill(); },
@@ -372,6 +442,55 @@
       ctx.restore();
       lead(op, LW * 1.25);
     }
+    // the border of a lancet: a band of foliage scroll in segments, then a string of pearls
+    async function border(op, o) {
+      o = o || {};
+      const bw = o.bw || 12, pw = o.pw || 5.5;
+      const src = op.pts.concat([op.pts[0]]);
+      const Ls = [0];
+      for (let i = 1; i < src.length; i++) Ls.push(Ls[i - 1] + Math.hypot(src[i][0] - src[i - 1][0], src[i][1] - src[i - 1][1]));
+      const tot = Ls[Ls.length - 1], N = Math.round(tot / 1.5), pts = [];
+      let si = 1;
+      for (let k = 0; k < N; k++) { const sv = tot * k / N; while (si < Ls.length - 1 && Ls[si] < sv) si++; const t = (sv - Ls[si - 1]) / Math.max(1e-6, Ls[si] - Ls[si - 1]); pts.push([lerp(src[si - 1][0], src[si][0], t), lerp(src[si - 1][1], src[si][1], t)]); }
+      const ctr = centroid(op.pts);
+      const nrm = pts.map((p, i) => { const a = pts[(i - 3 + N) % N], b = pts[(i + 3) % N]; let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const m = Math.hypot(nx, ny) || 1; nx /= m; ny /= m; if (nx * (ctr[0] - p[0]) + ny * (ctr[1] - p[1]) < 0) { nx = -nx; ny = -ny; } return [nx, ny]; });
+      const at = (i, d) => [pts[i][0] + nrm[i][0] * d, pts[i][1] + nrm[i][1] * d];
+      const segN = Math.max(4, Math.round(tot / (o.seg || 46)));
+      const cols = o.cols || [G.ruby, G.whiteW, G.blue, G.goldP];
+      ctx.save(); ctx.clip(op.p);
+      ctx.lineJoin = 'round'; ctx.strokeStyle = LEAD; ctx.lineWidth = (bw + pw) * 2 + LW * 1.5; ctx.stroke(op.p);
+      for (let k = 0; k < segN; k++) {
+        const i0 = Math.floor(N * k / segN), i1 = Math.floor(N * (k + 1) / segN);
+        const sp = new Path2D(); for (let i = i0; i <= i1; i++) { const q = pts[i % N]; if (i === i0) sp.moveTo(q[0], q[1]); else sp.lineTo(q[0], q[1]); }
+        const base = cols[k % cols.length], col = jit(base, 0.8), light = base === G.whiteW || base === G.goldP;
+        ctx.lineCap = 'butt'; ctx.lineWidth = bw * 2 - LW * 0.9; ctx.strokeStyle = rgb(col); ctx.stroke(sp);
+        ctx.lineWidth = bw * 0.7; ctx.strokeStyle = rgb(mulc(col, 1.25), 0.3); ctx.stroke(sp);
+        // the scroll: on clear glass the ground is painted out and the stem left clear; on coloured glass the stem is traced
+        if (light) { ctx.lineWidth = bw * 2 - LW * 1.6; ctx.strokeStyle = 'rgba(30,18,10,0.72)'; ctx.stroke(sp); }
+        const vine = new Path2D();
+        for (let i = i0; i <= i1; i++) { const ii = i % N, ph = Math.sin(i * 1.5 / 24 * Math.PI * 2) * bw * 0.22, q = at(ii, bw / 2 + ph); if (i === i0) vine.moveTo(q[0], q[1]); else vine.lineTo(q[0], q[1]); }
+        const vc = light ? rgb(mulc(col, 1.1), 0.95) : 'rgba(28,17,10,0.85)';
+        ctx.strokeStyle = vc; ctx.fillStyle = vc; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.stroke(vine);
+        for (let i = i0 + 4; i < i1 - 2; i += 8) {
+          const ii = i % N, sgn = Math.sin(i * 1.5 / 24 * Math.PI * 2) >= 0 ? 1 : -1, q = at(ii, bw / 2 + sgn * bw * 0.2);
+          const tx = -nrm[ii][1], ty = nrm[ii][0];
+          ctx.beginPath(); ctx.ellipse(q[0] + tx * 1.4, q[1] + ty * 1.4, 2.4, 1.3, Math.atan2(ty, tx) + sgn * 0.6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(q[0] - tx * 1.2, q[1] - ty * 1.2, 1.1, 0, Math.PI * 2); ctx.fill();
+        }
+        // cut across the band
+        const a = at(i0 % N, -2), b = at(i0 % N, bw + 0.5);
+        ctx.strokeStyle = LEAD; ctx.lineWidth = LW * 0.85; ctx.lineCap = 'butt'; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+      }
+      // pearls
+      const pp = new Path2D(); for (let i = 0; i <= N; i++) { const q = at(i % N, bw + pw / 2 + LW * 0.25); if (i) pp.lineTo(q[0], q[1]); else pp.moveTo(q[0], q[1]); }
+      ctx.lineJoin = 'round'; ctx.lineCap = 'butt'; ctx.lineWidth = pw - LW * 0.35; ctx.strokeStyle = rgb(jit(G.whiteW, 0.4)); ctx.stroke(pp);
+      ctx.strokeStyle = 'rgba(30,18,10,0.62)'; ctx.stroke(pp);
+      ctx.fillStyle = 'rgba(246,238,214,0.95)';
+      for (let i = 0; i < N; i += 4) { const q = at(i, bw + pw / 2 + LW * 0.25); ctx.beginPath(); ctx.arc(q[0], q[1], 1.55, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+      lead(op, LW * 1.3);
+      await br();
+    }
     // a scratched diaper: a matt wash over the glass with a small pattern taken out of it
     function diaper(kind, c, sh) {
       const [x0, y0, x1, y1] = sh.bb;
@@ -409,22 +528,25 @@
       const V = [];
       for (let j = 0; j <= ny; j++) {
         V.push([]);
-        for (let i = 0; i <= nx; i++) V[j].push([bb[0] + i * cw + (R() - 0.5) * cw * 0.36, bb[1] + j * chh + (R() - 0.5) * chh * 0.32]);
+        for (let i = 0; i <= nx; i++) V[j].push([bb[0] + i * cw + (R() - 0.5) * cw * (o.jx || 0.36), bb[1] + j * chh + (R() - 0.5) * chh * (o.jy || 0.32)]);
       }
       for (let j = 0; j < ny; j++) {
         let i = 0;
         while (i < nx) {
-          const span = (R() < 0.3 && i + 2 <= nx) ? 2 : 1;
+          const span = (R() < (o.merge === undefined ? 0.3 : o.merge) && i + 2 <= nx) ? 2 : 1;
           const pts = [];
           for (let k = 0; k <= span; k++) pts.push(V[j][i + k]);
           for (let k = span; k >= 0; k--) pts.push(V[j + 1][i + k]);
           i += span;
-          const ct = centroid(pts);
-          const col = colourOf(ct[0], ct[1]);
-          if (!col) continue;
-          const sh = poly(pts);
-          glass(sh, col, { v: o.v === undefined ? 1.15 : o.v, edgeA: 0.24, lw: o.lw || 2.8, paint: o.paint ? (c) => o.paint(c, sh, ct) : null });
-          await step(2);
+          const parts = (span === 1 && R() < (o.split || 0)) ? (R() < 0.5 ? [[pts[0], pts[1], pts[2]], [pts[0], pts[2], pts[3]]] : [[pts[0], pts[1], pts[3]], [pts[1], pts[2], pts[3]]]) : [pts];
+          for (const pp of parts) {
+            const ct = centroid(pp);
+            const col = colourOf(ct[0], ct[1]);
+            if (!col) continue;
+            const sh = poly(pp);
+            glass(sh, col, { v: o.v === undefined ? 1.15 : o.v, edgeA: 0.24, lw: o.lw || 2.8, paint: o.paint ? (c) => o.paint(c, sh, ct) : null });
+            await step(2);
+          }
         }
       }
     }
@@ -461,12 +583,35 @@
       const sh = circ(cx, cy, rin);
       glass(sh, col, { v: 1.0, paint: o.diaper ? (c) => diaper(o.diaper, c, sh) : null });
     }
-    return { jit, lead, glass, P, field, band, diaper, quarries, trellis, wheel, step, br };
+    return { jit, lead, glass, P, field, band, border, diaper, quarries, trellis, wheel, step, br };
   }
 
   /* ------------------------------------------------------------------ figure silhouettes (local coords) */
   // a standing man in a coat and hat, about 54 high, feet at y=0, facing right; used for shadows
   const MAN = 'M -3 -50 C 1 -51.5, 5 -50.5, 6 -47 L 8 -47 L 8 -45 L 5 -44.5 C 5 -42, 4 -40, 2 -39 C 6 -38, 9 -36, 10 -32 L 13 -22 L 20 -24 L 21 -21 L 12 -16 L 11 -12 L 12 -2 L 10 0 L 6 0 L 4 -12 L 1 -12 L 0 -1 L 1 0 L -6 0 L -4 -12 L -6 -14 L -7 -30 C -7 -36, -4 -38, -2 -39 C -4 -41, -5 -43, -5 -45 L -7 -45 L -7 -47 L -4 -47 Z';
+
+  /* ------------------------------------------------------------------ Lombardic capitals, drawn stroke by stroke (box 14 x 16) */
+  const LOMB = {
+    A: [['M 2.4 16 C 2.2 9, 4.2 3.2, 8.4 1.2', 3.3], ['M 8.4 1.2 C 10.2 6, 11.4 11, 12.4 16', 1.2], ['M 3.6 10.2 L 10.6 10.2', 1.0], ['M 3.8 1.2 L 11 1.2', 1.5], ['M 0.4 16 L 4.6 16 M 10.6 16 L 14 16', 1.1]],
+    B: [['M 3 1 L 3 16', 3.3], ['M 3 1.2 C 10.6 0.6, 11.6 8.2, 3 8.2', 1.6], ['M 3 8.2 C 12.8 7.8, 12.8 16.6, 3 16', 2.4], ['M 0.4 1 L 5.4 1 M 0.4 16 L 5.4 16', 1.1]],
+    R: [['M 3 1 L 3 16', 3.3], ['M 3 1.2 C 10.8 0.8, 11.2 8.8, 3 8.8', 1.8], ['M 4.6 8.8 C 7.6 10, 9.6 14, 12.6 16', 2.6], ['M 0.4 1 L 5.4 1 M 0.4 16 L 5.4 16', 1.1]],
+    E: [['M 11.6 3.2 C 9 0.2, 1.8 0.8, 1.8 8.5 C 1.8 16.2, 9 16.8, 11.6 13.6', 1.3], ['M 3.4 3.6 C 2.2 6.6, 2.2 10.6, 3.4 13.4', 3.6], ['M 2.4 8.4 L 9.2 8.4', 1.2], ['M 11.6 1.2 L 11.6 15.6', 0.9]],
+    N: [['M 2.4 1 L 2.4 16', 1.2], ['M 2.6 1.2 C 5 5, 8.4 11, 11.4 15.6', 3.2], ['M 11.6 1 L 11.6 16', 1.2], ['M 0.4 1 L 4.4 1 M 9.6 16 L 13.6 16 M 0.4 16 L 4.4 16 M 9.6 1 L 13.6 1', 1.0]],
+    V: [['M 3 1 L 3 9.6 C 3 14, 4.8 16, 7.2 16', 3.3], ['M 7.2 16 C 10.2 16, 11.8 13, 11.8 9.2 L 11.8 1', 1.2], ['M 0.6 1 L 5.4 1 M 9.6 1 L 14 1', 1.1]],
+    T: [['M 1 2.6 L 13 2.6', 1.5], ['M 1 2.6 C -0.4 5.2, 0.8 7.6, 3.2 6.8', 1.2], ['M 7 2.6 L 7 12.2 C 7 15.2, 8.6 16.2, 11.2 15', 3.3]],
+    I: [['M 7 1 L 7 16', 3.5], ['M 3.8 1 L 10.2 1 M 3.8 16 L 10.2 16', 1.2]],
+    O: [['M 7 0.8 C 0.8 0.8, 0.8 16.2, 7 16.2 C 13.2 16.2, 13.2 0.8, 7 0.8 Z', 1.2], ['M 3.4 4 C 2.2 7, 2.2 10, 3.4 13', 3.2], ['M 10.6 4 C 11.8 7, 11.8 10, 10.6 13', 3.2]],
+  };
+  function lombardic(ctx, txt, cx, cy, h, sp, col) {
+    const k = h / 16;
+    ctx.save(); ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i < txt.length; i++) {
+      const g = LOMB[txt[i]]; if (!g) continue;
+      const ox = cx + (i - (txt.length - 1) / 2) * sp - 7 * k, oy = cy - 8 * k;
+      g.forEach(([d, w]) => { ctx.lineWidth = w * k; ctx.stroke(shape(d, (x, y) => [ox + x * k, oy + y * k]).p); });
+    }
+    ctx.restore();
+  }
 
   /* ------------------------------------------------------------------ the central light: the baptism */
   async function drawCentral(K, ctx, op, R) {
@@ -950,7 +1095,7 @@
     await drawMedallion(K, ctx, cx, 632, 1, top.ring, SCENES[top.scene], R);
     await drawMedallion(K, ctx, cx, 808, 1, bottom.ring, SCENES[bottom.scene], R);
     ctx.restore();
-    band(op, 10, 30, [G.ruby, G.ruby, G.gold]);
+    await K.border(op, { bw: 11, pw: 5, seg: 40 });
   }
 
   /* ------------------------------------------------------------------ roundels in the tracery */
