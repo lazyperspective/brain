@@ -741,7 +741,7 @@
     task(() => {
       wash([skyRegion], {
         c: { lin: [0, -40, 0, 350], stops: [[0, '#2a5db0'], [0.38, '#4a8fcb'], [0.78, '#8ec0da'], [1, '#c4dde0']] }, a: 0.84, e: 0.12, ew: 3, wob: 2, flow: 0.16, gran: 0, grad: 0.18, gradAngle: 0.5,
-        holes: clouds, holeSoft: 5.5, depth: 0, blooms: [[560, 60, 46], [960, 250, 36]], charges: [{ x: 30, y: -20, r: 420, c: '#2a2e94', a: 0.6 }, { x: 760, y: -30, r: 380, c: '#24489e', a: 0.45 }, { x: 1040, y: 30, r: 300, c: '#2a68b8', a: 0.3 }, { x: 620, y: 300, r: 280, c: '#d2c0c8', a: 0.35 }],
+        holes: clouds, holeSoft: 5.5, depth: 0, charges: [{ x: 30, y: -20, r: 420, c: '#2a2e94', a: 0.6 }, { x: 760, y: -30, r: 380, c: '#24489e', a: 0.45 }, { x: 1040, y: 30, r: 300, c: '#2a68b8', a: 0.3 }, { x: 620, y: 300, r: 280, c: '#d2c0c8', a: 0.35 }],
       });
       strokesIn(skyRegion, [
         { p: limb([[-100, 40, 120], [500, 18, 90], [1180, -6, 130]]), o: { c: '#2846a6', a: 0.26 } },
@@ -946,7 +946,7 @@
         for (let i = 0; i < 7; i++) { const a = R(-Math.PI * 0.95, 0.4), k = R(0.55, 0.88); const x = t.cx + Math.cos(a) * t.rx * k, y = t.cy + Math.sin(a) * t.ry * k; if (t.inside(x, y, 0.9)) sky.push([x, y, R(2, 4.5) * fs]); }
         G.sky = sky.map(([x, y, r]) => wob(ell(x, y, r * R(1, 1.6), r, R(0, 3), 16), 1.2, 0.2, 0.6));
         // clusters of leaves; each cluster is a little dome lit from the upper left
-        const L = [[], [], [], []], area = Math.PI * t.rx * t.ry, ncl = Math.round(area / (230 * fs * fs));
+        const L = [[], [], [], []], area = Math.PI * t.rx * t.ry, ncl = Math.round(area / (165 * fs * fs));
         for (let i = 0; i < ncl * 3 && L[0].length + L[1].length + L[2].length + L[3].length < ncl * 7; i++) {
           const x = t.cx + R(-1.05, 1.05) * t.rx, y = t.cy + R(-1.05, 1.05) * t.ry;
           if (!t.inside(x, y, 1.02) || sky.some(([sx, sy, r]) => Math.hypot(sx - x, sy - y) < r + 4 * fs)) continue;
@@ -1018,6 +1018,13 @@
         }
       }
       strokesIn(region, strokes, Object.assign({ e: 0.15, ew: 2, flow: 0.35, gran: 0.1, depth, soft: 1.6 }, extra || {}));
+      const tufts = [], peb = [], ox = [];
+      for (let i = 0; i < 46; i++) { const x = R(-20, 1100), y = lerp(yTop(x), yBot(x), R(0.2, 0.95)), n = 3 + ((rnd() * 4) | 0), k = 0.6 + (y - 600) / 700; for (let q = 0; q < n; q++) tufts.push(limb([[x + q * 2 * k, y, 1.6 * k], [x + q * 2 * k + R(-5, 5) * k, y - R(5, 12) * k, 0.3]])); }
+      for (let i = 0; i < 18; i++) { const x = R(-20, 1100), y = lerp(yTop(x), yBot(x), R(0.3, 0.95)); peb.push([x, y, R(1.5, 3.5)]); }
+      for (let i = 0; i < 7; i++) { const x = R(0, 1080), y = lerp(yTop(x), yBot(x), R(0.3, 0.8)); ox.push(ell(x, y, R(18, 46), R(3, 6), R(-0.05, 0.05), 20)); }
+      wash(ox, { c: '#eccc2c', a: 0.5, soft: 2, e: 0.2, depth: depth + 0.05, flow: 0.4 });
+      wash(tufts, { c: '#3e6a30', a: 0.62, e: 0.25, wob: 0.2, depth: depth + 0.06, flow: 0.2 });
+      wash(peb.map(([x, y, r]) => ell(x + r * 0.5, y + r * 0.4, r, r * 0.35, 0, 10)), { c: '#3e3a80', a: 0.55, e: 0.2, depth: depth + 0.06, flow: 0.1 });
     }
     function wallFace(fTop, h, depth, density) {
       task(() => {
@@ -1084,7 +1091,7 @@
       const shade = spline([[180, 640], [200, 612], [222, 590], [246, 566], [258, 574], [240, 600], [218, 626], [206, 652], [204, 678], [210, 702], [216, 724], [196, 726], [190, 700], [188, 670]], true, 3);
       wash([shade], { c: '#3e2c3a', a: 0.78, e: 0.4, depth: 8.49, gran: 0.25, flow: 0.25 });
       const gro = []; for (let k = 0; k < 13; k++) { const u = k / 12, x0 = lerp(142, 214, u), x1 = u < 0.45 ? lerp(98, 140, u / 0.45) : lerp(176, 252, (u - 0.45) / 0.55), y1 = u < 0.45 ? 584 : 576; gro.push(limb([[x0, 724, 0.6], [lerp(x0, x1, 0.35) + R(-8, 8), lerp(724, y1, 0.35), R(1, 1.9)], [lerp(x0, x1, 0.7) + R(-6, 6), lerp(724, y1, 0.7), R(0.8, 1.5)], [x1, y1, 0.4]])); }
-      wash(gro, { c: '#2a2028', a: 0.55, e: 0.2, wob: 0.5, rough: 0.3, depth: 8.49, flow: 0.3 });
+      wash(null, { bbox: [80, 560, 270, 730], mask: (g) => { fillPolys(g, gro); g.globalCompositeOperation = 'destination-in'; fillPolys(g, [trunk]); g.globalCompositeOperation = 'source-over'; }, c: '#2a2028', a: 0.55, e: 0.2, depth: 8.49, flow: 0.3 });
       wash([limb([[128, 712, 5], [134, 660, 7], [118, 612, 4]]), limb([[150, 700, 3], [156, 650, 4]])], { c: '#e6d6b2', a: 0.4, e: 0.2, depth: 8.49, dry: 3, flow: 0.3 });
       wash([spline([[166, 656], [180, 666], [182, 700], [172, 712], [164, 690]], true, 3), spline([[128, 616], [136, 628], [130, 640], [122, 628]], true, 3), limb([[150, 704, 2.2], [158, 676, 2], [154, 650, 1.6]]), limb([[132, 700, 1.8], [140, 680, 1.6]]), limb([[110, 590, 1.6], [124, 606, 2], [140, 622, 1.4]])], { c: '#2c2630', a: 0.75, e: 0.3, wob: 0.5, depth: 8.49, flow: 0.1 });
     });
@@ -1322,7 +1329,7 @@
         if (o.hair) wash(o.hair, Object.assign({}, fx, { c: o.hc || '#211a18', a: 0.88, e: 0.35, ew: 1, holes: o.hairHoles }));
         if (o.faceSh) wash(o.faceSh, Object.assign({}, fx, { c: '#8e4e3e', a: 0.55, e: 0.3, ew: 0.8, wob: 0.2 }));
         if (o.accents) wash(o.accents, Object.assign({}, fx, { c: '#2a1c1c', a: 0.85, e: 0.2, ew: 0.6, wob: 0.05, rough: 0.03, flow: 0 }));
-        if (o.foldsD) wash(o.foldsD, Object.assign({}, fx, { c: '#1e1a24', a: 0.55, e: 0.2, wob: 0.2, rough: 0.1, flow: 0.15 }));
+        if (o.foldsD) wash(o.foldsD, Object.assign({}, fx, { c: '#2a2434', a: 0.3, e: 0.2, wob: 0.2, rough: 0.1, flow: 0.15 }));
         if (o.foldsB) wash(o.foldsB, Object.assign({}, fx, { c: '#8a8ec4', a: 0.6, e: 0.25, wob: 0.2, rough: 0.1, flow: 0.15 }));
         if (o.buttons) wash(o.buttons, Object.assign({}, fx, { c: '#b89a5a', a: 0.9, e: 0, wob: 0, rough: 0, flow: 0 }));
         if (o.after) o.after();
@@ -1407,9 +1414,9 @@
       strokesIn(null, st, { e: 0.2, ew: 2, flow: 0.4, gran: 0.2, depth: 16.2, dry: 3 });
       // wet drifts of flowers, the colours running into one another, darks of grass under them
       const drift = (n, y0, y1, c, a, sx, sy) => { const d = []; for (let i = 0; i < n; i++) { const x = R(-20, 1100), y = R(y0, y1), w = R(sx[0], sx[1]), h = R(sy[0], sy[1]); d.push(spline([[x - w, y], [x - w * 0.3, y - h], [x + w * 0.5, y - h * 0.8], [x + w, y + R(-2, 2)], [x + w * 0.3, y + h * 0.7], [x - w * 0.5, y + h * 0.6]], true, 3)); } wash(d, { c, a, soft: 1.8, e: 0.25, depth: 16.22, flow: 0.4, holes: whites, holeSoft: 0.6 }); };
-      drift(16, 1204, 1286, '#ecc22c', 0.6, [14, 50], [3, 8]);
-      drift(10, 1210, 1290, '#dc3c24', 0.55, [8, 26], [3, 6]);
-      drift(9, 1214, 1290, '#7266b8', 0.5, [8, 30], [3, 6]);
+      drift(18, 1200, 1290, '#ecbe22', 0.78, [20, 64], [4, 10]);
+      drift(13, 1206, 1292, '#d83a22', 0.72, [10, 34], [3, 7]);
+      drift(10, 1210, 1292, '#6a5cb4', 0.62, [10, 36], [3, 7]);
       const gd = []; for (let i = 0; i < 70; i++) { const x = R(-10, 1090), y = R(1214, 1300); gd.push(limb([[x, y + 6, 2.2], [x + R(-4, 4), y - R(6, 16), 0.4]])); }
       wash(gd, { c: '#2e5a2a', a: 0.6, e: 0.3, depth: 16.23, flow: 0.25, wob: 0.3 });
       // shadow along the foot of the wall
@@ -1487,7 +1494,7 @@
       // drifts of flowers in the meadow, densest near the wall
       const drifts = [[60, 1236, 80], [190, 1222, 90], [360, 1240, 110], [520, 1218, 80], [660, 1250, 90], [800, 1226, 70], [260, 1270, 90], [600, 1280, 80]];
       for (const [dx, dy, r] of drifts) {
-        for (let k = 0; k < 16; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r; daisies.push(ell(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.35, R(2.2, 3.6), R(1.6, 2.8), 0, 10)); }
+        for (let k = 0; k < 8; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r; daisies.push(ell(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.35, R(2.2, 3.6), R(1.6, 2.8), 0, 10)); }
         for (let k = 0; k < 6; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r * 0.8; poppy(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.3 - 4, R(4.2, 6.5)); }
         for (let k = 0; k < 3; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r; borage.push(ell(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.3 + 6, 2.6, 2.6, 0, 5)); }
         for (let k = 0; k < 26; k++) { const x = dx + R(-r, r), y = dy + R(-10, 30); blades.push(limb([[x, y + 10, 2], [x + R(-10, 10), y - R(12, 30), 0.3]])); }

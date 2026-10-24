@@ -1053,7 +1053,7 @@
 
   /* ------------------------------------------------------------------ Don Vito Corleone (group coordinates) */
   const DON_HEAD = cr([
-    [612, 443], [634, 441], [655, 446], [668, 458], [674, 476], [673, 496], [668, 513], [664, 527], [656, 538], [640, 547], [622, 551], [605, 548], [594, 540], [588, 529],
+    [612, 446], [634, 444.5], [655, 448], [669, 459], [675, 476], [675, 496], [671, 513], [669, 530], [663, 546], [647, 555], [625, 558], [606, 553], [595, 543], [588, 530],
     [586, 521], [585, 515, 1], [586, 509], [584, 504], [578, 502, 1], [573, 497], [575, 489], [578, 481], [581, 473], [579, 467], [580, 458], [584, 450], [596, 445]]);
   const DON_FRONT = cr([ // the front plane of the face, turned to the light
     [588, 447], [604, 442], [620, 446], [628, 458], [631, 474], [627, 494], [629, 514], [624, 534], [610, 545], [604, 545], [593, 538], [588, 529],
@@ -1134,10 +1134,11 @@
     setGroup(D, HEADM);
     // soft-edged bars that model rather than stripe: a bright band across brow and cheekbone, the rest in half-light
     const hd = await relief(D, { mask: DON_HEAD, bb: [566, 436, 678, 554], base: headDome, bumps: HEAD_BUMPS, texMask: DON_HAIR, tex: hairTex, texAlbedo: 0.68,
-      bars: { ang: BAR.ang, per: 34, duty: 0.6, phase: 4, min: 0.34, soft: 2.6 }, light: [-0.82, -0.45, 0.42], shadowLen: 18, amb: 0.12, gain: 1.45, chalkFrom: 0.62, blur: 0.7 });
+      bars: { ang: BAR.ang, per: 34, duty: 0.5, phase: 6, min: 0.12, soft: 1.6 }, light: [-0.96, -0.2, 0.12], shadowLen: 22, amb: 0.03, floor: 0.02, dark: 0.93,
+      gain: 1.6, chalkFrom: 0.5, blur: 0.8, int: (x) => clamp((612 - x) / 22, 0, 1) });
     await D.tick();
     // hatching follows the modelled shadow, as a draughtsman would put it in: one direction in the half-tone, a crossing in the dark
-    hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: 62, sp: 2, w: 0.5, a: 0.2, jit: 0.3, step: 1.2, blur: 0.25, clip: rect(560, 430, 124, 130), af: (x, y) => clamp((hd(x, y) - 0.45) * 1.8, 0, 1) });
+    hatch(D, DON_HEAD, [566, 436, 680, 560], { ang: 62, sp: 2, w: 0.5, a: 0.2, jit: 0.3, step: 1.2, blur: 0.25, clip: rect(560, 430, 124, 130), af: (x, y) => clamp((hd(x, y) - 0.45) * 1.8, 0, 1) });
     hatch(D, DON_HEAD, [566, 436, 678, 554], { ang: -28, sp: 2.4, w: 0.45, a: 0.16, jit: 0.3, step: 1.2, blur: 0.25, clip: rect(560, 430, 124, 130), af: (x, y) => clamp((hd(x, y) - 0.7) * 2.5, 0, 1) });
     setGroup(D, DONM);
     const sb = bars(bb, 16, 30, 0.5);
@@ -1147,7 +1148,7 @@
     light(D, { bb, mask: join(D.shirt, D.collar), bars: fb, int: (X) => grad(X, 600, 0, 650, 0, [[0, 1], [1, 0.35]], W3), lift: 0.85, chalk: 0.7, soft: 0.4 });
     light(D, { bb, mask: D.flower, bars: fb, lift: 0.35, chalk: 0.15 });
     D.C.save(); D.K.save(); D.C.clip(join(D.shirt, D.collar)); D.K.clip(join(D.shirt, D.collar));
-    tone(D, cr([[598, 544], [620, 552], [646, 546], [652, 556], [626, 566], [602, 558]]), 0.55, 2.5); // the heavy jaw shades the collar
+    tone(D, cr([[596, 542], [622, 552], [650, 544], [656, 560], [626, 574], [600, 562]]), 0.8, 3); // the heavy jaw sinks into the shadow of the collar
     D.C.restore(); D.K.restore();
     setGroup(D, null);
   }
@@ -1158,7 +1159,7 @@
     tone(D, cr([[584, 467], [597, 463], [613, 464], [627, 470], [625, 482], [612, 479], [598, 481], [586, 479]]), 0.42, 1.6); // deep sockets under the brow
     tone(D, cr([[603, 476], [612, 474.5], [621, 476.5], [612, 479.5]]), 0.85, 0.5);      // the near eye, a heavy-lidded slit
     tone(D, cr([[583, 476], [588, 475], [592, 477], [587, 479]]), 0.7, 0.5);             // the far eye behind the nose
-    lift(D, ell(609.5, 476.8, 0.8, 0.6), 0.3);
+    lift(D, ell(609.5, 476.8, 1, 0.75), 0.75); chalk(D, ell(609.4, 476.7, 0.7, 0.55), 0.8); // a glint in the near eye
     line(D, cr([[601, 475.5], [611, 472.4], [624, 475]], false), 1.6, 0.62, null, 0.5);  // the heavy upper lid
     line(D, cr([[603, 486], [613, 489.5], [624, 486]], false), 0.9, 0.3, null, 0.7);     // the bag beneath it
     line(D, cr([[581, 466.5], [590, 462.5], [600, 463.5]], false), 2.6, 0.5, null, 0.9); // heavy brows
@@ -1170,7 +1171,7 @@
     line(D, cr([[587, 515], [593, 516], [600, 517.8], [607, 522.5]], false), 1.4, 0.8);  // the long closed mouth
     line(D, cr([[604, 520.5], [609, 525]], false), 1, 0.45);
     // the ear, deep in the shadow side: only its rim is found
-    eraseLine(D, cr([[641, 480], [648, 474], [655, 479], [657, 491], [653, 503], [646, 508]], false), 0.9, 0.16, 0.5);
+    eraseLine(D, cr([[644, 477], [649, 474], [654, 478], [656, 486]], false), 1, 0.15, 0.7);
     // the contour is found on the lit side only: brow, nose, lips, chin
     eraseLine(D, cr([[580, 458], [579, 467], [581, 473], [578, 481], [575.5, 489], [573.5, 497]], false), 0.8, 0.25, 0.3);
     line(D, cr([[579, 467], [581, 473], [578, 481], [575, 489], [573, 497], [578, 502]], false), 0.6, 0.35, null, 0.3);
@@ -1181,13 +1182,13 @@
       const p = r() < 0.5 ? soft : silver;
       p.moveTo(x0, y + 2 - t * 2); p.quadraticCurveTo(x0 + 18 * len, y - 3.4, x0 + (66 - t * 34) * len, y + 4 + t * 6);
     }
-    D.C.save(); D.C.clip(DON_HAIR);
-    line(D, soft, 0.8, 0.2, null, 0.5);
-    eraseLine(D, silver, 0.7, 0.22, 0.45);
+    const temple = ell(624, 466, 20, 15);
+    D.C.save(); D.C.clip(DON_HAIR); D.C.clip(temple);
+    eraseLine(D, silver, 0.9, 0.13, 0.9);
     D.C.restore();
-    D.K.save(); D.K.clip(DON_HAIR); D.K.filter = `blur(${(0.5 * D.S).toFixed(2)}px)`;
-    D.K.lineWidth = 0.6; D.K.strokeStyle = grad(D.K, 588, 0, 650, 0, [[0, 0.22], [1, 0]], W3); D.K.stroke(silver); D.K.restore();
-    tone(D, cr([[588, 452], [600, 455], [614, 456], [628, 460], [642, 469], [652, 482], [646, 484], [626, 464], [600, 458]]), 0.18, 1.6); // roots along the hairline
+    D.K.save(); D.K.clip(DON_HAIR); D.K.clip(temple); D.K.filter = `blur(${(0.5 * D.S).toFixed(2)}px)`;
+    D.K.lineWidth = 0.6; D.K.strokeStyle = grad(D.K, 588, 0, 650, 0, [[0, 0.1], [1, 0]], W3); D.K.stroke(silver); D.K.restore();
+    void soft;
     setGroup(D, null);
   }
 
@@ -1402,6 +1403,11 @@
     D.K.save(); D.K.clip(join(bars([700, 560, 820, 740], 12), rect(700, 700, 120, 40)));
     D.K.lineWidth = 0.9; D.K.strokeStyle = grad(D.K, 0, 728, 0, 580, [[0, 0.5], [0.6, 0.3], [1, 0]], W3); D.K.stroke(ribbon);
     D.K.lineWidth = 0.6; D.K.strokeStyle = grad(D.K, 0, 720, 0, 600, [[0, 0.3], [1, 0]], W3); D.K.stroke(wisp);
+    D.K.restore();
+    const drift = [[759, 728]];
+    { let qx = 759, qy = 728; for (let i = 0; i < 90; i++) { qy -= 3; qx -= 1.2 + Math.max(0, (640 - qy) / 160) + Math.sin(i * 0.21) * 1.1; drift.push([qx, qy]); } }
+    D.K.save(); D.K.clip(bars([560, 440, 800, 740], 12, 36, 0.6)); D.K.filter = `blur(${(0.7 * D.S).toFixed(2)}px)`;
+    D.K.lineWidth = 1.4; D.K.strokeStyle = grad(D.K, 0, 728, 0, 470, [[0, 0.32], [0.6, 0.22], [1, 0]], W3); D.K.stroke(cr(drift, false));
     D.K.restore();
     void sm;
   }
