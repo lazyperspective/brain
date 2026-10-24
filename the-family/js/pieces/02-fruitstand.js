@@ -581,6 +581,8 @@
         ['lapel', 'M -3 -108 C 0 -112 2 -118 2 -128 L -6 -130 C -6 -120 -5 -112 -3 -108 Z', 'coatDk'],
         ['arm', 'M 16 -139 C 22 -126 21 -112 13 -104 C 7 -99 0 -102 -3 -108 C 3 -111 9 -115 11 -124 Z', 'coat'],
         ['collar', 'M -13 -146 C -14 -153 -10 -151 -6 -149 L 5 -149 C 9 -151 12 -153 11 -146 Z', 'coat'],
+        ['shirt', 'M -7 -148.5 L -1 -148.5 L -4.2 -142 Z', 'shirt'],
+        ['tie', 'M -4.6 -147.5 L -3.4 -147.5 L -3.6 -141.5 L -4.5 -142.5 Z', 'coatDk'],
         ['head', 'M -2 -147 C 3 -149 5.5 -154 5 -160 C 4 -166 -4 -168 -9 -166 C -10.5 -164 -11 -162 -11.5 -160.5 C -13 -159.4 -14.6 -157.8 -15.4 -156.4 C -14.4 -155.6 -13 -155.4 -12.4 -155 C -12.8 -153.6 -12.6 -152.6 -12 -152 C -12.8 -151 -12.4 -149.6 -10.6 -148.6 C -8 -147.4 -5 -147 -2 -147 Z', 'face'],
         ['faceLit', 'M 5 -161 C 5.6 -155 3 -150 -1 -148 L 1.5 -150.5 C 3.5 -153 4 -157 3.4 -162 Z', 'faceLit'],
         ['cheek', 'M -11 -158.6 C -9.6 -159.2 -8 -159 -7.4 -158 C -8.6 -157.4 -10 -157.6 -11 -158.6 Z', 'cold'],
@@ -601,6 +603,8 @@
         ['fold', 'M -6 -120 C -8 -100 -10 -76 -12 -50 L -6 -49 C -4 -76 -3 -100 -2 -120 Z', 'coatDk'],
         ['arm', 'M 15 -139 C 21 -124 21 -110 17 -96 L 9 -94 C 11 -108 11 -122 9 -132 Z', 'coat'],
         ['pocket', 'M 7 -98 L 18 -99 L 18 -95 L 7 -94 Z', 'coatDk'],
+        ['scarfB', 'M -9 -150 C -4 -152 3 -152 8 -150 L 7 -145 C 3 -146 -3 -146 -8 -145 Z', 'scarf'],
+        ['scarfEnd', 'M -6 -146 L -2 -146 L -3 -128 L -7 -129 Z', 'scarf'],
         ['collar', 'M -13 -147 C -15 -155 -10 -153 -6 -150 L 5 -150 C 9 -153 13 -155 11 -147 Z', 'coat'],
         ['head', 'M -1 -148 C 4 -150 6.5 -155 6 -161 C 5 -167 -3 -169 -8 -167 C -9.5 -165 -10 -163 -10.5 -161.5 C -12 -160.4 -13.6 -158.8 -14.4 -157.4 C -13.4 -156.6 -12 -156.4 -11.4 -156 C -11.8 -154.6 -11.6 -153.6 -11 -153 C -11.8 -152 -11.4 -150.6 -9.6 -149.6 C -7 -148.4 -4 -148 -1 -148 Z', 'face'],
         ['faceLit', 'M 6 -162 C 6.6 -156 4 -151 0 -149 L 2.5 -151.5 C 4.5 -154 5 -158 4.4 -163 Z', 'faceLit'],
@@ -629,7 +633,7 @@
   };
   function drawFig(ctx, name, x, y, k, pal, o) {
     o = o || {};
-    const f = FIG[name], sx = (o.flip ? -1 : 1) * k / 100, sy = (o.mirror ? -1 : 1) * k / 100;
+    const f = FIG[name], sx = (o.flip ? -1 : 1) * (o.wide || 1) * k / 100, sy = (o.mirror ? -1 : 1) * k / 100;
     ctx.save(); ctx.translate(x, y); ctx.scale(sx, sy);
     if (o.mono) {
       ctx.fillStyle = o.mono;
@@ -851,6 +855,23 @@
     // two tumbling out of its mouth
     fruit(ctx, x + 0.2 * k, y + 0.08 * k, 0.05 * k, 'orange');
     fruit(ctx, x + 0.27 * k, y + 0.26 * k, 0.05 * k, 'orange');
+  }
+  function drawLitter(ctx) {
+    // a morning paper gone soft in the slush
+    const cx = 1.3, cz = 2.2, a = 0.42, w = 0.58, h = 0.4, ca = Math.cos(a), sa = Math.sin(a);
+    const Wp = (u, v, lift) => [cx + (u - 0.5) * w * ca - (v - 0.5) * h * sa, 0.004 + (lift || 0), cz + (u - 0.5) * w * sa + (v - 0.5) * h * ca];
+    poly3(ctx, [Wp(0, 0), Wp(1, 0), Wp(1, 1), Wp(0, 1)], 'rgba(6,8,12,0.5)');
+    poly3(ctx, [Wp(0.01, 0.0, 0.02), Wp(1, 0.02, 0.0), Wp(0.98, 1, 0.0), Wp(0.02, 0.97, 0.03)], '#cfc8b6');
+    poly3(ctx, [Wp(0.5, 0.0, 0.01), Wp(1, 0.02, 0.0), Wp(0.98, 1, 0.0), Wp(0.5, 0.98, 0.01)], '#b8b2a2');
+    poly3(ctx, [Wp(0.55, 0.45), Wp(0.95, 0.5), Wp(0.92, 0.95), Wp(0.6, 0.9)], 'rgba(70,74,84,0.35)');
+    poly3(ctx, [Wp(0.06, 0.06, 0.02), Wp(0.92, 0.07), Wp(0.92, 0.17), Wp(0.06, 0.16, 0.02)], '#2a2622');
+    poly3(ctx, [Wp(0.08, 0.22, 0.02), Wp(0.42, 0.22, 0.01), Wp(0.42, 0.55, 0.01), Wp(0.08, 0.55, 0.02)], '#7a7468');
+    for (let r = 0.25; r < 0.92; r += 0.055) { line3(ctx, Wp(0.5, r), Wp(0.9, r), 'rgba(60,56,50,0.45)', 0.7); if (r > 0.6) line3(ctx, Wp(0.08, r), Wp(0.44, r), 'rgba(60,56,50,0.45)', 0.7); }
+    line3(ctx, Wp(0.5, 0.02), Wp(0.5, 0.98), 'rgba(90,86,76,0.6)', 0.8);
+    // a cigarette end
+    const p0 = P(0.42, 0.012, 1.9), p1 = P(0.47, 0.012, 1.93), k = K(0.45, 1.9);
+    ctx.lineCap = 'round'; ctx.strokeStyle = '#e8e2d4'; ctx.lineWidth = 0.012 * k; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+    disc(ctx, p0[0], p0[1], 0.006 * k, '#5a5450');
   }
   function drawSpill(ctx, from, to) {
     for (let i = from; i < to; i++) {
@@ -1109,7 +1130,7 @@
   const PAL = {
     don: { trou: '#2a2727', trouDk: '#161414', shoe: '#0e0c0c', shoeLt: '#5a4a40', coatBounce: '#4a3c34', coatMid: '#352d29', scarf: '#d8d2c4', coat: '#2b2522', coatLit: '#8a5e3a', coatDk: '#191514', collar: '#38302b', skin: '#d0946a', skinDk: '#6e4434', hair: '#b8b2a8', hairDk: '#3a2a22', hat: '#4e4a43', hatLit: '#9a7a52', band: '#1a1816', hatTop: '#7d889c', coatTop: '#4e586c', rim: '#d2965a' },
     vendor: { trou: '#2a2624', shoe: '#120e0c', sw: '#3e3634', swLit: '#7a5e48', apron: '#efe2c4', apronSh: '#bca886', skin: '#dea27a', skinDk: '#9e5e42', skinLt: '#f6c49c', eye: '#f8f4ec', pupil: '#16100c', stache: '#4a4038', mouth: '#3a1610', scarf: '#962e24', cap: '#4e443a', capLit: '#8e7a5c' },
-    man: { trou: '#121318', shoe: '#08080a', coat: '#1b1d24', coatDk: '#0e0f14', face: '#1e1718', faceLit: '#a8703e', cold: '#4a5468', hat: '#1f2027', top: '#46506a', rim: '#d89452' },
+    man: { trou: '#121318', shoe: '#08080a', coat: '#1b1d24', coatDk: '#0e0f14', face: '#1e1718', faceLit: '#a8703e', cold: '#4a5468', shirt: '#b8b4ac', scarf: '#6a6660', hat: '#1f2027', top: '#46506a', rim: '#d89452' },
   };
   function walkerPal(i) {
     const coats = ['#3a2a2c', '#2a3042', '#4a3e30', '#2e3a34', '#3c3040'];
@@ -1206,6 +1227,18 @@
       wavyStrip(ctx, XR - 0.3, XR, 3, ZEND, rgba(C.snowShade, 0.45), 0.06, 2);
     });
     S(() => {
+      // the asphalt itself, laid in with horizontal strokes of near-black blues
+      ctx.save(); ctx.clip(path2(proj(groundPoly(CL, CR, 0, NEAR + 0.1, ZEND))));
+      const cols = ['#2c3646', '#19212e', '#36425a', '#232b3a', '#3c4658'];
+      for (let i = 0; i < 900; i++) {
+        const y = CAM.hy + (H - CAM.hy) * Math.pow(R(), 1.25), d = y - CAM.hy;
+        const len = 8 + d * 0.4 * rnd(0.4, 1.5), hh = 1 + d * 0.02 * rnd(0.6, 1.5);
+        ctx.fillStyle = rgba(cols[(R() * cols.length) | 0], rnd(0.3, 0.6));
+        ctx.beginPath(); ctx.ellipse(rnd(-40, W + 40), y, len / 2, hh / 2, rnd(-0.02, 0.02), 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    });
+    S(() => {
       // the gutters banked with old slush, the roadway marked by tyre tracks through a thin grey film
       wavyStrip(ctx, CL, CL + 0.45, 0.6, ZEND, rgba('#8e98a8', 0.75), 0.07, 0.3);
       wavyStrip(ctx, CL, CL + 0.2, 0.6, ZEND, rgba('#c3cad4', 0.7), 0.04, 1.3);
@@ -1221,9 +1254,12 @@
           poly3(ctx, top.concat(hl.slice().reverse()), rgba('#d6dee8', 0.7));
         }
       }
-      wavyStrip(ctx, -0.95, -0.3, 0.6, ZEND, rgba('#46526a', 0.45), 0.1, 0.7);
-      wavyStrip(ctx, 0.85, 1.6, 0.6, ZEND, rgba('#42506a', 0.4), 0.09, 1.9);
-      wavyStrip(ctx, 2.35, 3.1, 0.6, ZEND, rgba('#46526a', 0.38), 0.1, 3.1);
+      // slush trodden flat between the tyre tracks, each track a dark glossy groove with a raised lip
+      for (const [a0, b0, ph] of [[-1.0, -0.22, 0.7], [0.32, 0.98, 1.9], [1.62, 2.3, 3.1], [2.9, 3.35, 4.2]]) {
+        wavyStrip(ctx, a0, b0, 0.6, 40, rgba('#56627a', 0.55), 0.035, ph);
+        wavyStrip(ctx, a0, a0 + 0.07, 0.6, 40, rgba('#a4b0c2', 0.5), 0.03, ph);
+        wavyStrip(ctx, b0 - 0.06, b0, 0.6, 40, rgba('#8894a8', 0.45), 0.03, ph + 0.5);
+      }
     });
 
     S(() => {
@@ -1298,28 +1334,32 @@
       const N = 13;
       for (let i = 0; i < N; i++) { RSc.globalAlpha = 0.2 * Math.pow(1 - i / (N + 1), 1.3); RSc.drawImage(RF, Math.round(rnd(-0.8, 0.8) * s), Math.round((i * 2.2 + i * i * 0.55) * s)); }
     });
+    let PL = null;
     S(() => {
-      // two still puddles hold an unbroken mirror
-      for (const pd of PUDDLES) {
-        ctx.save(); ctx.clip(path2(proj(puddle(pd))));
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.globalAlpha = 0.95; ctx.drawImage(RB, 0, 0);
-        ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 1; ctx.drawImage(RS, 0, 0);
-        ctx.restore();
-      }
+      // two still puddles hold an unbroken mirror, their edges soft where the water thins
+      let pc; [PL, pc] = canvasLike(env);
+      pc.setTransform(1, 0, 0, 1, 0, 0);
+      pc.globalAlpha = 0.95; pc.drawImage(RB, 0, 0);
+      pc.globalCompositeOperation = 'screen'; pc.globalAlpha = 1; pc.drawImage(RS, 0, 0);
+      const [MK, mk] = canvasLike(env);
+      mk.fillStyle = '#fff'; for (const pd of PUDDLES) mk.fill(path2(proj(puddle(pd))));
+      pc.globalCompositeOperation = 'destination-in'; pc.globalAlpha = 1; pc.filter = 'blur(' + (2.6 * s).toFixed(1) + 'px)'; pc.drawImage(MK, 0, 0); pc.filter = 'none';
     });
     S(() => {
-      // break both with a few ripples: thin horizontal gaps, sparse, closer together toward the horizon
-      for (const c of [RSc, RBc]) { c.globalAlpha = 1; c.globalCompositeOperation = 'destination-out'; c.setTransform(s, 0, 0, s, 0, 0); }
-      for (let y = CAM.hy + 2; y < H; ) {
-        const d = (y - CAM.hy) / (H - CAM.hy), st = 2 + d * 22 * rnd(0.5, 1.5);
-        for (let x = rnd(-120, 0); x < W; ) {
-          const len = rnd(10, 80) * (0.5 + d * 1.8), gap = rnd(30, 160) * (0.5 + d), al = rnd(0.35, 0.9).toFixed(2), th = (0.3 + d * 1.8) * rnd(0.4, 1.3), tl = rnd(-0.015, 0.015);
-          for (const c of [RSc, RBc]) { c.fillStyle = 'rgba(0,0,0,' + al + ')'; c.beginPath(); c.ellipse(x + len / 2, y + rnd(-1, 1) * st * 0.3, len / 2, th, tl, 0, Math.PI * 2); c.fill(); }
+      // keep only horizontal dabs of reflection: the way a painter lays a wet street in broken strokes
+      const M = document.createElement('canvas'); M.width = env.pw; M.height = env.ph;
+      const m = M.getContext('2d'); m.setTransform(s, 0, 0, s, 0, 0);
+      for (let y = CAM.hy + 1; y < H; ) {
+        const d = (y - CAM.hy) / (H - CAM.hy), st = 1 + d * 8 * rnd(0.7, 1.3);
+        for (let x = rnd(-60, 0); x < W; ) {
+          const len = rnd(12, 95) * (0.6 + d * 2), hh = st * rnd(0.9, 1.7), gap = rnd(0, 22) * (0.4 + d * 2.2);
+          m.fillStyle = 'rgba(255,255,255,' + rnd(0.5, 1).toFixed(2) + ')';
+          m.beginPath(); m.ellipse(x + len / 2, y + rnd(-0.4, 0.4) * st, len / 2, hh / 2, rnd(-0.01, 0.01), 0, Math.PI * 2); m.fill();
           x += len + gap;
         }
         y += st;
       }
+      for (const c of [RSc, RBc]) { c.globalCompositeOperation = 'destination-in'; c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(M, 0, 0); c.setTransform(s, 0, 0, s, 0, 0); c.globalCompositeOperation = 'destination-out'; }
       // reflections are strongest at grazing angles, near the horizon, and fade toward our feet
       for (const c of [RSc, RBc]) {
         const g = c.createLinearGradient(0, CAM.hy + 30, 0, H);
@@ -1331,8 +1371,7 @@
       // the roadway is a mirror; the slushy pavements give back much less
       for (const [clip, f] of [[groundPoly(CL, CR, 0, NEAR + 0.1, ZEND), 0.78], [groundPoly(XL, CL, CURB, NEAR + 0.1, ZEND), 0.3], [groundPoly(CR, XR, CURB, NEAR + 0.1, ZEND), 0.3]]) {
         ctx.save();
-        const cp = path2(proj(clip)); if (f > 0.7) for (const pd of PUDDLES) cp.addPath(path2(proj(puddle(pd))));
-        ctx.clip(cp, 'evenodd');
+        ctx.clip(path2(proj(clip)));
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.globalAlpha = 0.42 * f; ctx.drawImage(RB, 0, 0);
         ctx.globalCompositeOperation = 'screen';
@@ -1340,13 +1379,17 @@
         ctx.filter = 'blur(' + (5 * s).toFixed(1) + 'px)'; ctx.globalAlpha = 0.3 * f; ctx.drawImage(RF, 0, 3 * s);
         ctx.restore();
       }
-      RB = RBc = RF = RS = RFc = RSc = null;
-      // the puddles' slushy rims
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.92; ctx.drawImage(PL, 0, 0); ctx.restore();
+      RB = RBc = RF = RS = RFc = RSc = PL = null;
+      // the puddles' rims: broken touches of slush, not a line
       for (const pd of PUDDLES) {
-        const pp = path2(proj(puddle(pd)));
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = rgba('#8e9aae', 0.3); ctx.lineWidth = 2.6; ctx.stroke(pp);
-        ctx.strokeStyle = rgba('#dfe6ef', 0.35); ctx.lineWidth = 0.7; ctx.stroke(pp);
+        const pts = proj(puddle(pd));
+        for (let i = 0; i < pts.length; i += 1) {
+          if (R() < 0.35) continue;
+          const q = pts[i], q2 = pts[(i + 1) % pts.length];
+          ctx.fillStyle = rgba(R() < 0.5 ? '#c8d0dc' : '#8a96aa', rnd(0.25, 0.55));
+          ctx.beginPath(); ctx.ellipse((q[0] + q2[0]) / 2, (q[1] + q2[1]) / 2 + rnd(-0.6, 0.6), Math.hypot(q2[0] - q[0], q2[1] - q[1]) * rnd(0.4, 0.8), rnd(0.6, 1.6), Math.atan2(q2[1] - q[1], q2[0] - q[0]), 0, Math.PI * 2); ctx.fill();
+        }
       }
     });
 
@@ -1402,7 +1445,7 @@
       drawBulbs(ctx, 0);
       drawScale(ctx);
     });
-    S(() => { drawStand(ctx); });
+    S(() => { drawStand(ctx); drawAwning(ctx, false); drawBulbs(ctx, 1); });
     S(() => {
       // the Don, and the bag between his hand and the vendor's
       const d = P(DON.X, CURB, DON.Z), kd = K(DON.X, DON.Z);
@@ -1410,16 +1453,14 @@
       const dh = [d[0] - 0.5 * kd, d[1] - 1.06 * kd], vh = [v[0] + 0.37 * kv, v[1] - 1.21 * kv];
       // his reflection on the wet pavement
       ctx.save(); groundClip(ctx);
-      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'don', d[0], d[1], kd, PAL.don, { mono: 'rgba(8,6,6,0.34)', mirror: true }); drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor, { mono: 'rgba(8,6,6,0.25)', mirror: true }); ctx.filter = 'none';
+      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'don', d[0], d[1], kd, PAL.don, { mono: 'rgba(8,6,6,0.34)', mirror: true, wide: 1.12 }); drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor, { mono: 'rgba(8,6,6,0.25)', mirror: true }); ctx.filter = 'none';
       ctx.restore();
       drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor);
       drawSpill(ctx, 1, 3);
       drawBag(ctx, [lerp(vh[0], dh[0], 0.45), lerp(vh[1], dh[1], 0.45) + 0.06 * kd]);
-      drawFig(ctx, 'don', d[0], d[1], kd, PAL.don);
-      drawAwning(ctx, false);
-      drawBulbs(ctx, 1);
+      drawFig(ctx, 'don', d[0], d[1], kd, PAL.don, { wide: 1.12 });
     });
-    S(() => { drawSpill(ctx, 3, SPILL.length); });
+    S(() => { drawLitter(ctx); drawSpill(ctx, 3, SPILL.length); });
     S(() => { drawSteam(ctx, env); });
 
     /* ---- the unevenness of opaque paint: broad, faint passages a shade lighter or darker */

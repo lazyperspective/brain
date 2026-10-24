@@ -1632,10 +1632,10 @@
     strokeP([[fb[0] - 0.05 * fk, fb[1] - 0.075 * fk], [fb[0] - 0.02 * fk, fb[1] - 0.06 * fk]], 'rgba(0,0,0,0.45)', 0.6);
     strokeP([[fb[0] + 0.05 * fk, fb[1] - 0.075 * fk], [fb[0] + 0.02 * fk, fb[1] - 0.06 * fk]], 'rgba(0,0,0,0.45)', 0.6);
     // the near rows: a hassock pushed out into the aisle, and now and then a prayer book left on it
-    if (z < 11) {
+    if (z === 6.8 || z === 9.2 || z === 11.6) {
       const hs = hash2(Math.round(z * 10), 5);
       const kc = hs < 0.5 ? [116, 26, 32] : [38, 66, 48];
-      const hx0 = x0 - 0.32 - hs * 0.06, hx1 = hx0 + 0.26, hz0 = z + 0.06, hz1 = z + 0.32, hy = 0.11;
+      const hx0 = x0 - 0.3 - hs * 0.16, hx1 = hx0 + 0.26, hz0 = z + 0.02 + hs * 0.12, hz1 = hz0 + 0.26, hy = 0.11;
       fill([P(hx0, 0.01, hz0), P(hx0, hy, hz0), P(hx0, hy, hz1), P(hx0, 0.01, hz1)], rgb(litColour(kc, bounce, [0.05, 0.045, 0.045])));
       fill([P(hx0, 0.01, hz0), P(hx1, 0.01, hz0), P(hx1, hy, hz0), P(hx0, hy, hz0)], rgb(litColour(kc, bounce, [0.07, 0.06, 0.06])));
       const top = [P(hx0, hy, hz0), P(hx1, hy, hz0), P(hx1, hy, hz1), P(hx0, hy, hz1)];
@@ -1647,7 +1647,7 @@
         const bx0 = hx0 + 0.04, bx1 = bx0 + 0.14, bz0 = hz0 + 0.03, bz1 = bz0 + 0.2, by = hy + 0.03;
         fill([P(bx0, hy, bz0), P(bx1, hy, bz0), P(bx1, by, bz0), P(bx0, by, bz0)], 'rgba(214,200,172,0.45)');
         fill([P(bx0, by, bz0), P(bx1, by, bz0), P(bx1, by, bz1), P(bx0, by, bz1)], rgb(litColour([36, 26, 24], [0.02, 0.02, 0.02], [0.1, 0.09, 0.09])));
-        strokeP([P(bx0 + 0.07, by, bz0), P(bx0 + 0.075, 0.02, bz0 - 0.02)], 'rgba(170,30,30,0.75)', 0.8);
+        strokeP([P(bx0 + 0.07, by, bz0), P(bx0 + 0.074, by - 0.05, bz0 - 0.005)], 'rgba(170,30,30,0.75)', 0.8);
         strokeP([P(bx0 + 0.02, by + 0.001, bz0 + 0.03), P(bx1 - 0.02, by + 0.001, bz0 + 0.03)], 'rgba(200,170,100,0.35)', 0.6);
       }
     }
