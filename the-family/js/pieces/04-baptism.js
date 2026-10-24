@@ -213,8 +213,8 @@
     ops.C = lightOpening(356, 724, 410, 190, 905, 15);
     ops.L = lightOpening(122, 330, 600, 473, 905, 12);
     ops.R = lightOpening(750, 958, 600, 473, 905, 12);
-    ops.SL = foilOpening(262, 372, 74, 6, -Math.PI / 2, 0.37);
-    ops.SR = foilOpening(818, 372, 74, 6, -Math.PI / 2, 0.37);
+    ops.SL = foilOpening(262, 372, 80, 6, -Math.PI / 2, 0.37);
+    ops.SR = foilOpening(818, 372, 80, 6, -Math.PI / 2, 0.37);
     ops.T = foilOpening(540, 119, 56, 4, -Math.PI / 2, 0.47);
     ops.TL = foilOpening(340, 228, 48, 3, Math.PI / 2, 0.5);
     ops.TR = foilOpening(740, 228, 48, 3, Math.PI / 2, 0.5);
@@ -566,7 +566,7 @@
       const q = h * 0.36;
       for (let j = 0, y = bb[1]; y < bb[3] + d; j++, y += h) {
         for (let x = bb[0] + ((j + 1) % 2) * h; x < bb[2] + d; x += d) {
-          glass(poly([[x, y - q], [x + q, y], [x, y + q], [x - q, y]]), node, { v: 0.9, noStreak: true, noSeed: true, edge: false, lw: 2.2 });
+          glass(poly([[x, y - q], [x + q, y], [x, y + q], [x - q, y]]), Array.isArray(node[0]) ? node[(hash2((x | 0) + 7, (y | 0) + 3) * node.length) | 0] : node, { v: 0.9, noStreak: true, noSeed: true, edge: false, lw: 2.2 });
           await step();
         }
       }
@@ -614,302 +614,305 @@
   }
 
   /* ------------------------------------------------------------------ the central light: the baptism */
+  const RUBIES = [[100, 8, 28], [124, 12, 32], [146, 16, 36], [170, 24, 38], [190, 38, 40], [134, 14, 46], [158, 20, 30]];
+  const BLUES = [[18, 34, 104], [24, 46, 128], [28, 58, 150], [40, 52, 162], [26, 80, 150], [50, 46, 148], [20, 62, 138], [34, 70, 170]];
   async function drawCentral(K, ctx, op, R) {
-    const { glass, P, band, quarries, diaper } = K;
+    const { glass, P, quarries, diaper } = K;
+    const pick = (a) => a[(R() * a.length) | 0];
+    const stain = (d, a) => { ctx.fillStyle = `rgba(228,158,28,${a || 0.55})`; ctx.fill(typeof d === 'string' ? new Path2D(d) : d); };
+    const box = (x0, y0, x1, y1) => `M ${x0} ${y0} L ${x1} ${y0} L ${x1} ${y1} L ${x0} ${y1} Z`;
     ctx.save(); ctx.clip(op.p);
-    // ground: ruby above the canopy, blue in the scene; plain quarries with a scratched diaper
-    await quarries([356, 182, 724, 905], 41, 47, (x, y) => (y < 404 ? G.ruby : G.blue), {
-      paint: (c, sh, ct) => diaper(ct[1] < 404 ? 'scale' : 'rose', c, sh),
+    // the ground: a mosaic of small irregular pieces, ruby round the canopy and blue behind the figures
+    await quarries([356, 182, 724, 905], 30, 34, (x, y) => ((y > 506 || (y > 440 && x > 398 && x < 682)) ? pick(BLUES) : pick(RUBIES)), {
+      split: 0.32, jx: 0.5, jy: 0.42, merge: 0.12, v: 0.7,
+      paint: (c, sh, ct) => diaper((ct[1] > 506 || (ct[1] > 440 && ct[0] > 398 && ct[0] < 682)) ? 'rose' : 'scale', c, sh),
     });
-
-    // glory and dove
-    const DY = 250;
-    for (let k = 0; k < 16; k++) {
-      const a = k * Math.PI * 2 / 16 + 0.2;
-      const ax = Math.cos(a), ay = Math.sin(a), bx = -ay, by = ax;
-      const r0 = 24, r1 = k % 2 ? 56 : 76, w0 = 3.4, cx = 540, cy = DY + 18;
-      const d = `M ${cx + ax * r0 + bx * w0} ${cy + ay * r0 + by * w0} L ${cx + ax * r1} ${cy + ay * r1} L ${cx + ax * r0 - bx * w0} ${cy + ay * r0 - by * w0} Z`;
-      glass(shape(d), k % 2 ? G.goldP : G.gold, { lw: 2.4, noSeed: true, paint: () => P.tr(`M ${cx + ax * (r0 + 4)} ${cy + ay * (r0 + 4)} L ${cx + ax * (r1 - 6)} ${cy + ay * (r1 - 6)}`, 0.5, 0.45) });
-    }
-    const D = (d) => shape(d, (x, y) => [x, y - 262 + DY - 8]);
-    glass(circ(540, DY + 36, 16), G.gold, {
-      paint: () => { ctx.save(); ctx.fillStyle = 'rgba(150,18,34,0.9)'; ctx.fillRect(536.5, DY + 20, 7, 32); ctx.fillRect(524, DY + 32.5, 32, 7); ctx.restore(); },
-    });
-    const wings = ['M 536 284 C 524 276, 510 262, 500 244 C 498 240, 503 240, 506 242 C 516 252, 526 262, 538 268 Z', 'M 544 284 C 556 276, 570 262, 580 244 C 582 240, 577 240, 574 242 C 564 252, 554 262, 542 268 Z'];
-    wings.forEach((d, i) => glass(D(d), G.white, {
-      paint: () => {
-        const s = i ? -1 : 1, oy = DY - 270;
-        for (let k = 0; k < 5; k++) { const x = 540 - s * (8 + k * 6.5), y = 276 - k * 6.2 + oy; P.tr(`M ${x} ${y} L ${x - s * 7} ${y - 9}`, 0.9); }
-        P.mat(shape(i ? 'M 546 280 C 556 272, 566 262, 576 246' : 'M 534 280 C 524 272, 514 262, 504 246', (x, y) => [x, y + oy]).p, 5, 0.4);
-      },
-    }));
-    glass(D('M 535 268 L 531 250 L 540 254 L 549 250 L 545 268 Z'), G.white, { paint: () => { P.tr(D('M 536 266 L 534 254 M 540 266 L 540 255 M 544 266 L 546 254').p, 0.7); } });
-    glass(D('M 540 262 C 547 266, 549 280, 547 296 C 546 304, 544 310, 540 316 C 536 310, 534 304, 533 296 C 531 280, 533 266, 540 262 Z'), G.white, {
-      paint: (c, sh) => { P.shade(sh, 534, 0, 548, 0, 0.0, 0.42); P.dot(538, DY + 36, 1.1); P.tr(D('M 538 312 L 540 318 L 542 312').p, 0.9); P.tr(D('M 535 290 C 538 294, 542 294, 545 290').p, 0.6, 0.5); },
-    });
-
     await K.br();
-    // canopy: crocketed gable, two pinnacles, a cusped arch over the heads
-    const archO = archHead(385, 695, 492, 412), archI = archHead(396, 684, 492, 425);
-    const gable = [];
-    const gL = [388, 472], gA = [540, 330], gR = [692, 472];
-    const crock = (a, b) => {
-      const n = 6;
-      for (let k = 0; k <= n; k++) {
-        const t = k / n;
-        gable.push([lerp(a[0], b[0], t), lerp(a[1], b[1], t)]);
-        if (k < n && k > 0) {
-          const nx = (b[1] - a[1]), ny = -(b[0] - a[0]), m = Math.hypot(nx, ny);
-          const ox = nx / m * 7.5, oy = ny / m * 7.5;
-          gable.push([lerp(a[0], b[0], (k + 0.45) / n) + ox, lerp(a[1], b[1], (k + 0.45) / n) + oy], [lerp(a[0], b[0], (k + 0.72) / n) + ox * 0.35, lerp(a[1], b[1], (k + 0.72) / n) + oy * 0.35]);
+
+    // ----- the canopy: a tower of micro-architecture in white glass and yellow stain
+    const crocketed = (pts, size) => { // a polyline with crockets bulging outward on its left
+      const out = [];
+      for (let s = 0; s < pts.length - 1; s++) {
+        const a = pts[s], b = pts[s + 1], n = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / (size * 2.6)));
+        const nx = (b[1] - a[1]), ny = -(b[0] - a[0]), m = Math.hypot(nx, ny), ox = nx / m * size, oy = ny / m * size;
+        for (let k = 0; k < n; k++) {
+          const t0 = k / n, t1 = (k + 0.5) / n, t2 = (k + 0.78) / n;
+          out.push([lerp(a[0], b[0], t0), lerp(a[1], b[1], t0)], [lerp(a[0], b[0], t1) + ox, lerp(a[1], b[1], t1) + oy], [lerp(a[0], b[0], t2) + ox * 0.3, lerp(a[1], b[1], t2) + oy * 0.3]);
         }
       }
+      out.push(pts[pts.length - 1]);
+      return out;
     };
-    crock(gL, gA); crock(gA, gR);
-    archO.pts.slice().reverse().forEach((q) => gable.push(q.p));
-    glass(poly(gable), G.gold, {
-      paint: () => {
-        ctx.save(); ctx.strokeStyle = TRACE;
-        ctx.beginPath(); ctx.arc(540, 392, 19, 0, Math.PI * 2); ctx.lineWidth = 1.6; ctx.stroke();
-        for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 - Math.PI / 2; ctx.beginPath(); ctx.arc(540 + Math.cos(a) * 9.5, 392 + Math.sin(a) * 9.5, 7, 0, Math.PI * 2); ctx.lineWidth = 1.1; ctx.stroke(); }
-        ctx.restore(); P.dot(540, 392, 3.2);
-        P.mat('M 396 470 L 540 342 L 684 470', 10, 0.45);
-        [[470, 428], [610, 428]].forEach(([x, y]) => { P.tr(`M ${x - 14} ${y + 26} L ${x - 14} ${y + 6} C ${x - 14} ${y - 6}, ${x + 14} ${y - 6}, ${x + 14} ${y + 6} L ${x + 14} ${y + 26}`, 1.0, 0.75); P.tr(`M ${x} ${y - 3} L ${x} ${y + 26}`, 0.8, 0.6); P.mat(`M ${x - 7} ${y + 4} L ${x - 7} ${y + 24} M ${x + 7} ${y + 4} L ${x + 7} ${y + 24}`, 5, 0.35); });
-        P.tr('M 400 468 L 540 346 L 680 468', 1.1, 0.8);
-        P.hl('M 410 466 L 540 352 L 670 466', 0.8, 0.3);
+    const white = () => mixc(G.whiteW, G.white, R());
+    const archPaint = (x0, y0, x1, y1) => { // tiny painted windows and courses on a stone face of glass
+      for (let y = y0 + 8; y < y1; y += 9) P.tr(`M ${x0 + 1} ${y} L ${x1 - 1} ${y}`, 0.45, 0.45);
+    };
+    // flying buttresses from the outer pinnacles to the turrets
+    [[398, 1], [682, -1]].forEach(([x, sd]) => glass(shape(`M ${x} 344 C ${x + 14 * sd} 328, ${x + 28 * sd} 318, ${x + 42 * sd} 312 L ${x + 42 * sd} 320 C ${x + 30 * sd} 326, ${x + 16 * sd} 336, ${x} 354 Z`), mixc(G.whiteW, G.white, 0.5), { lw: 2.2, noStreak: true, paint: () => { P.tr(`M ${x + 6 * sd} 342 C ${x + 18 * sd} 330, ${x + 30 * sd} 322, ${x + 40 * sd} 318`, 0.6, 0.6); } }));
+    // side turrets with tall spirelets
+    [[438, 464], [616, 642]].forEach(([a, b]) => {
+      const m = (a + b) / 2;
+      glass(shape(box(a, 292, b, 330)), white(), { paint: (c, sh) => { P.shade(sh, a, 0, b, 0, 0.0, 0.45); archPaint(a, 292, b, 330); P.fill(`M ${m - 4} 326 L ${m - 4} 306 C ${m - 4} 300, ${m} 297, ${m} 297 C ${m} 297, ${m + 4} 300, ${m + 4} 306 L ${m + 4} 326 Z`, 0.85); stain(box(a, 292, b, 297)); P.tr(`M ${a} 297 L ${b} 297`, 0.8); } });
+      glass(poly(crocketed([[a - 3, 294], [m, 242]], 2.8).concat(crocketed([[m, 242], [b + 3, 294]], 2.8))), G.goldP, { paint: (c, sh) => { P.shade(sh, a, 0, b, 0, 0.0, 0.42); P.tr(`M ${m} 248 L ${m} 292`, 0.6, 0.5); } });
+      glass(circ(m, 239, 3.4), G.goldP, { lw: 1.8, noStreak: true });
+    });
+    // the lantern: two lights with gablets, and the spire
+    glass(shape(box(510, 266, 570, 328)), white(), {
+      paint: (c, sh) => { P.shade(sh, 510, 0, 570, 0, 0.0, 0.42); archPaint(510, 266, 570, 328); P.tr('M 540 268 L 540 326', 0.8, 0.6); },
+    });
+    [[514, 536], [544, 566]].forEach(([a, b]) => {
+      const m = (a + b) / 2;
+      glass(shape(`M ${a} 322 L ${a} 288 C ${a} 280, ${m} 276, ${m} 276 C ${m} 276, ${b} 280, ${b} 288 L ${b} 322 Z`), pick(BLUES), { lw: 2.2, paint: () => { P.tr(`M ${m} 280 L ${m} 322`, 1.1); ctx.beginPath(); ctx.arc(m, 288, 3, 0, Math.PI * 2); ctx.strokeStyle = TRACE; ctx.lineWidth = 0.8; ctx.stroke(); P.tr(`M ${a + 2} 304 L ${b - 2} 304`, 0.5, 0.6); } });
+      glass(poly(crocketed([[a - 2, 276], [m, 258]], 2.2).concat(crocketed([[m, 258], [b + 2, 276]], 2.2)).concat([[b + 2, 280], [a - 2, 280]])), G.whiteW, { lw: 2.2, noStreak: true, paint: (c, sh) => { stain(sh.p, 0.42); P.tr(`M ${a + 1} 276 L ${m} 262 L ${b - 1} 276`, 0.7, 0.8); } });
+    });
+    glass(poly(crocketed([[510, 268], [540, 198]], 3.4).concat(crocketed([[540, 198], [570, 268]], 3.4))), G.goldP, {
+      paint: (c, sh) => { P.shade(sh, 522, 0, 570, 0, 0.0, 0.48); P.tr('M 540 204 L 540 264', 0.7, 0.6); for (let y = 214; y < 266; y += 8) P.tr(`M ${540 - (y - 198) * 0.4} ${y} L ${540 + (y - 198) * 0.4} ${y}`, 0.5, 0.42); },
+    });
+    // the gallery: a frieze of quatrefoils over a pointed arcade
+    glass(shape(box(404, 328, 676, 356)), white(), {
+      paint: (c, sh) => {
+        P.shade(sh, 0, 328, 0, 356, 0.05, 0.42);
+        stain(box(404, 328, 676, 336), 0.5);
+        for (let x = 410; x < 672; x += 11) { ctx.beginPath(); for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2; ctx.moveTo(x + 5.5 + Math.cos(an) * 1.6 + 1.5, 332 + Math.sin(an) * 1.6); ctx.arc(x + 5.5 + Math.cos(an) * 1.6, 332 + Math.sin(an) * 1.6, 1.5, 0, Math.PI * 2); } ctx.strokeStyle = TRACE; ctx.lineWidth = 0.6; ctx.stroke(); }
+        P.tr('M 404 336.5 L 676 336.5', 0.9);
+        for (let x = 408; x < 672; x += 10) P.fill(`M ${x + 2} 354 L ${x + 2} 344 C ${x + 2} 340, ${x + 5} 338.5, ${x + 5} 338.5 C ${x + 5} 338.5, ${x + 8} 340, ${x + 8} 344 L ${x + 8} 354 Z`, 0.8);
       },
     });
-    glass(shape('M 540 330 L 535 320 C 531 314, 534 306, 540 302 C 546 306, 549 314, 545 320 Z'), G.gold, { paint: () => P.tr('M 540 308 L 540 324', 0.7) });
-    [[368, 385], [695, 712]].forEach(([a, b]) => {
-      glass(shape(`M ${a} 500 L ${a} 372 L ${(a + b) / 2} 344 L ${b} 372 L ${b} 500 Z`), G.white, {
-        paint: () => {
-          const m = (a + b) / 2;
-          P.tr(`M ${m} 384 L ${m} 494`, 0.8, 0.7);
-          P.tr(`M ${a + 2} 430 L ${b - 2} 430 M ${a + 2} 462 L ${b - 2} 462`, 0.9, 0.8);
-          P.tr(`M ${a + 3} 398 C ${a + 3} 390, ${b - 3} 390, ${b - 3} 398`, 0.8, 0.8);
-          P.mat(`M ${b - 2} 374 L ${b - 2} 498`, 5, 0.38);
-          for (let y = 350; y < 372; y += 6) P.tr(`M ${a + 1} ${y + 4} L ${a - 1} ${y}`, 0.7);
+    // pinnacles at either side
+    [[374, 398], [682, 706]].forEach(([a, b]) => {
+      const m = (a + b) / 2;
+      glass(shape(box(a, 320, b, 524)), white(), {
+        paint: (c, sh) => {
+          P.shade(sh, a, 0, b, 0, 0.0, 0.5); archPaint(a, 320, b, 524);
+          [348, 410, 470].forEach((y) => { P.fill(`M ${m - 4.5} ${y + 26} L ${m - 4.5} ${y + 6} C ${m - 4.5} ${y}, ${m + 4.5} ${y}, ${m + 4.5} ${y + 6} L ${m + 4.5} ${y + 26} Z`, 0.85); P.tr(`M ${a + 1} ${y - 4} L ${m} ${y - 12} L ${b - 1} ${y - 4}`, 0.9); stain(`M ${a} ${y - 4} L ${m} ${y - 12} L ${b} ${y - 4} L ${b} ${y - 1} L ${a} ${y - 1} Z`, 0.5); });
+          P.hl(`M ${a + 3} 330 L ${a + 3} 520`, 0.9, 0.4);
         },
       });
+      glass(poly(crocketed([[a - 3, 322], [m, 266]], 3).concat(crocketed([[m, 266], [b + 3, 322]], 3))), G.goldP, { paint: (c, sh) => { P.shade(sh, a, 0, b, 0, 0.0, 0.45); P.tr(`M ${m} 272 L ${m} 320`, 0.6, 0.5); } });
+      glass(circ(m, 262, 4), G.goldP, { lw: 1.8, noStreak: true });
     });
-    const bandPts = archO.pts.map((q) => q.p).concat(archI.pts.map((q) => q.p).reverse());
-    glass(poly(bandPts), G.whiteW, {
+    // the gable, its quatrefoil window with the dove, its finial
+    const archO = archHead(398, 682, 506, 432), archI = archHead(409, 671, 506, 446);
+    const gable = crocketed([[402, 480], [540, 354]], 5.5).concat(crocketed([[540, 354], [678, 480]], 5.5));
+    archO.pts.slice().reverse().forEach((q) => gable.push(q.p));
+    glass(poly(gable), G.goldP, {
+      paint: (c, sh) => {
+        P.mat('M 408 476 L 540 362 L 672 476', 10, 0.5); P.tr('M 412 474 L 540 366 L 668 474', 1.1, 0.85); P.hl('M 420 472 L 540 372 L 660 472', 0.8, 0.35);
+        [[468, 448], [612, 448]].forEach(([x, y]) => { P.tr(`M ${x - 11} ${y + 18} L ${x - 11} ${y + 4} C ${x - 11} ${y - 6}, ${x + 11} ${y - 6}, ${x + 11} ${y + 4} L ${x + 11} ${y + 18}`, 1.0, 0.8); P.mat(`M ${x - 5} ${y + 2} L ${x - 5} ${y + 16} M ${x + 5} ${y + 2} L ${x + 5} ${y + 16}`, 4, 0.4); P.tr(`M ${x} ${y - 3} L ${x} ${y + 18}`, 0.7, 0.6); });
+        P.shade(sh, 402, 0, 678, 0, 0.0, 0.3);
+      },
+    });
+    const qf = foilOpening(540, 420, 27, 4, -Math.PI / 4, 0.47);
+    glass(qf, pick(BLUES), { lw: 2.6, paint: (c, sh) => diaper('dots', c, sh) });
+    const DV = (d) => shape(d, (x, y) => [540 + (x - 540) * 0.52, 422 + (y - 282) * 0.52]);
+    ['M 536 284 C 524 276, 510 262, 500 244 C 498 240, 503 240, 506 242 C 516 252, 526 262, 538 268 Z', 'M 544 284 C 556 276, 570 262, 580 244 C 582 240, 577 240, 574 242 C 564 252, 554 262, 542 268 Z'].forEach((d) => glass(DV(d), G.white, { lw: 1.8, noStreak: true, paint: (c, sh) => P.shade(sh, 0, 404, 0, 430, 0.0, 0.35) }));
+    glass(DV('M 540 262 C 547 266, 549 280, 547 296 C 546 304, 544 310, 540 316 C 536 310, 534 304, 533 296 C 531 280, 533 266, 540 262 Z'), G.white, { lw: 1.8, noStreak: true, paint: () => { P.dot(538.8, 434, 0.8); P.tr('M 539 437 L 540 440 L 541 437', 0.6); } });
+    glass(shape('M 540 354 L 534 342 C 530 336, 534 328, 540 324 C 546 328, 550 336, 546 342 Z'), G.goldP, { paint: () => P.tr('M 540 330 L 540 350', 0.7) });
+    // the cusped arch over the heads
+    glass(poly(archO.pts.map((q) => q.p).concat(archI.pts.map((q) => q.p).reverse())), G.whiteW, {
       paint: () => {
-        for (let k = 1; k < 10; k++) { const q = archO.pts[Math.floor(archO.pts.length * k / 10)].p; P.dot(q[0] + (540 - q[0]) * 0.035, q[1] + 6.5, 1.6); }
+        for (let k = 1; k < 12; k++) { const q = archO.pts[Math.floor(archO.pts.length * k / 12)].p; P.dot(q[0] + (540 - q[0]) * 0.03, q[1] + 6.5, 1.5); }
         P.tr(new Path2D(archI.pts.map((q, i) => (i ? 'L ' : 'M ') + q.p[0].toFixed(1) + ' ' + (q.p[1] - 2).toFixed(1)).join(' ')), 0.9, 0.75);
+        stain(new Path2D(archO.pts.map((q, i) => (i ? 'L ' : 'M ') + q.p[0].toFixed(1) + ' ' + (q.p[1] + 1).toFixed(1)).join(' ') + ' ' + archO.pts.slice().reverse().map((q) => 'L ' + q.p[0].toFixed(1) + ' ' + (q.p[1] + 4).toFixed(1)).join(' ') + ' Z'), 0.45);
       },
     });
-
-    // ----- the figures, a little elongated in the Gothic way
-    const FT = (x, y) => [540 + (x - 540) * 1.08, 842 - (842 - y) * 1.19];
-    const sf = (d) => shape(d, FT);
-    const T = (d) => shape(d, FT).p;
-    const Q = {
-      tr: (d, w, a) => P.tr(T(d), w * 1.3, a), fill: (d, a) => P.fill(T(d), a), mat: (d, w, a) => P.mat(T(d), w * 1.15, Math.min(1, a * 1.2)), hl: (d, w, a) => P.hl(T(d), w, a),
-      dot: (x, y, r, a) => { const q = FT(x, y); P.dot(q[0], q[1], r, a); },
-      shade: (sh, x0, y0, x1, y1, a0, a1) => { const p = FT(x0, y0), q = FT(x1, y1); P.shade(sh, p[0], p[1], q[0], q[1], a0, a1); },
-      col: (d, css) => { ctx.fillStyle = css; ctx.fill(T(d)); },
-      rect: (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`,
-    };
-    const FACE = 1.4; // trace weight on faces
-
+    [[0.3, 1], [0.7, -1]].forEach(([u, sd]) => {
+      const q = archI.pts[Math.floor(archI.pts.length * u)].p, x = q[0], y = q[1];
+      glass(shape(`M ${x - 11 * sd} ${y - 3} C ${x - 5 * sd} ${y + 1}, ${x - 1.5 * sd} ${y + 5}, ${x} ${y + 10} C ${x + 2 * sd} ${y + 5}, ${x + 6 * sd} ${y}, ${x + 13 * sd} ${y - 6} Z`), G.whiteW, { lw: 2.0, noStreak: true, paint: () => { P.dot(x, y + 8.5, 1.8, 0.9); P.clear(x, y + 8.5, 0.8, 0.6); } });
+    });
     await K.br();
-    // Connie
-    glass(sf('M 388 600 C 402 595, 422 598, 432 606 L 430 700 C 432 750, 434 800, 436 842 L 372 842 C 374 792, 377 742, 380 700 C 383 662, 385 628, 388 600 Z'), G.green, {
-      cuts: [T('M 404 606 C 403 700, 404 780, 406 842')],
-      paint: (c, sh) => {
-        Q.shade(sh, 372, 0, 436, 0, 0.48, 0.05);
-        Q.mat('M 392 650 C 390 720, 386 780, 382 838', 7, 0.55); Q.tr('M 392 660 C 390 724, 387 784, 384 838', 1.1);
-        Q.mat('M 410 690 C 410 750, 412 800, 412 840', 7, 0.45); Q.tr('M 410 700 C 410 754, 412 804, 413 840', 1.0);
-        Q.tr('M 424 720 C 424 770, 426 810, 428 840', 1.0);
-        Q.tr('M 376 836 C 388 830, 398 842, 410 834 C 420 830, 428 840, 436 836', 1.1);
-        Q.hl('M 401 700 C 401 760, 403 800, 404 836', 1.2, 0.3); Q.hl('M 418 712 C 419 770, 420 806, 421 834', 0.9, 0.22);
-      },
-    });
-    glass(sf('M 400 547 C 412 541, 425 548, 427 561 C 421 559, 417 565, 417 574 C 417 587, 421 596, 431 604 C 438 616, 441 640, 438 662 C 420 672, 395 686, 371 692 C 375 660, 383 622, 388 590 C 386 570, 390 554, 400 547 Z'), G.whiteB, {
-      cuts: [T('M 404 548 C 398 600, 394 640, 390 686')],
-      paint: (c, sh) => {
-        Q.shade(sh, 372, 0, 440, 0, 0.42, 0.0);
-        Q.tr('M 398 556 C 392 580, 388 620, 382 680', 1.1); Q.mat('M 396 566 C 390 600, 386 640, 380 684', 6, 0.45);
-        Q.tr('M 408 560 C 404 600, 400 640, 396 676', 0.9); Q.tr('M 424 604 C 430 624, 432 646, 430 664', 0.9);
-        Q.tr('M 372 690 C 386 684, 398 680, 410 676', 0.9, 0.6);
-        Q.hl('M 414 566 C 410 600, 412 630, 420 650', 1.0, 0.35);
-      },
-    });
-    glass(sf('M 418 557 C 423 555, 429 559, 430 566 L 433 572 L 430 574 C 431 579, 429 584, 425 587 C 421 589, 418 586, 417 580 C 416 572, 416 562, 418 557 Z'), G.flesh, {
-      noStreak: true,
-      paint: (c, sh) => {
-        Q.shade(sh, 416, 0, 432, 0, 0.55, 0.0);
-        Q.mat('M 421 567 C 423.6 565, 427 565, 429 567', 3.4, 0.45);
-        Q.tr('M 421.2 562.4 C 423.8 560.8, 427 561, 429.4 563.2', 1.35);
-        Q.tr('M 422.4 567 C 424.4 565.6, 427 565.6, 428.6 567.4', 1.15); Q.dot(426.6, 567.1, 1.2);
-        Q.tr('M 429 564.6 L 432 571.6 L 429.6 573.2', 1.15);
-        Q.tr('M 425.8 578 C 427.2 577.4, 428.6 577.6, 429.6 578.4', 1.05);
-      },
-    });
-    glass(sf('M 405 638 C 407 627, 413 617, 420 613 C 423 618, 421 628, 415 638 Z'), G.flesh, { noStreak: true, paint: (c, sh) => { Q.shade(sh, 405, 0, 422, 0, 0.35, 0); Q.tr('M 409 634 L 417 619 M 412 636 L 419 623', 0.7, 0.75); } });
 
-    await K.br();
-    // the priest
-    glass(sf('M 604 776 L 706 778 L 710 842 L 600 842 Z'), G.cassock, { paint: () => { Q.hl('M 626 790 L 624 840 M 680 790 L 684 840', 1.0, 0.22); Q.tr('M 652 790 L 654 840', 0.9, 0.8); } });
-    glass(sf('M 616 592 C 630 588, 672 588, 690 594 C 700 610, 706 650, 708 700 L 712 790 C 690 798, 630 798, 598 790 L 604 700 C 606 660, 608 620, 616 592 Z'), G.white, {
-      cuts: [T('M 630 598 C 628 680, 626 740, 624 797'), T('M 688 600 C 692 670, 696 730, 698 795')],
+    // ----- Connie: veiled, hands joined, swaying in the Gothic way
+    glass(shape('M 404 562 C 418 556, 436 560, 444 572 C 446 600, 438 630, 430 660 C 428 700, 438 760, 452 842 L 380 842 C 384 790, 388 740, 392 700 C 396 660, 394 620, 396 590 C 396 576, 398 566, 404 562 Z'), G.green, {
+      cuts: [new Path2D('M 420 566 C 422 620, 420 680, 430 740')],
       paint: (c, sh) => {
-        Q.shade(sh, 600, 0, 712, 0, 0.04, 0.42);
-        for (let k = 0; k < 9; k++) { const x = 606 + k * 12; Q.tr(`M ${x + 4} ${640 + (k % 2) * 10} C ${x + 2} 700, ${x - 1} 740, ${x - 2} 788`, 0.9, 0.75); if (k % 2) Q.mat(`M ${x + 8} ${650} C ${x + 6} 700, ${x + 3} 740, ${x + 2} 786`, 4, 0.25); }
-        Q.mat('M 694 610 C 702 660, 706 720, 708 786', 9, 0.5);
-        for (let k = 0; k < 10; k++) { const x = 601 + k * 11; Q.tr(`M ${x} 790 C ${x} 796.5, ${x + 10} 796.5, ${x + 10} 790`, 0.9); Q.dot(x + 5, 791.5, 1.0); }
+        P.shade(sh, 380, 0, 452, 0, 0.5, 0.05);
+        P.fold([[422, 590], [424, 630], [426, 668]], 1); P.fold([[410, 600], [408, 640], [410, 680]], -1, 0.8, 0.7);
+        P.fold([[438, 700], [442, 760], [448, 838]], -1); P.fold([[444, 720], [447, 780], [451, 838]], 1, 0.8, 0.6);
+        P.tr('M 384 836 C 400 830, 420 842, 452 836', 1.1);
       },
     });
-    [['M 640 594 L 652 596 L 650 786 L 638 786 Z', 645], ['M 664 596 L 676 594 L 681 786 L 669 786 Z', 674.5]].forEach(([d, x]) => glass(sf(d), G.gold, {
+    glass(shape('M 400 566 C 392 600, 388 660, 386 720 C 384 770, 384 805, 386 834 C 400 838, 416 834, 428 826 C 436 810, 444 760, 446 720 C 446 700, 444 684, 440 676 C 426 680, 412 668, 404 650 C 402 620, 402 590, 400 566 Z'), pick(RUBIES.slice(2, 5)), {
+      cuts: [new Path2D('M 388 740 C 404 736, 422 724, 440 700')],
       paint: (c, sh) => {
-        Q.shade(sh, x - 8, 0, x + 8, 0, 0.0, 0.32);
-        [700, 760].forEach((y) => { Q.col(Q.rect(x - 1.6, y - 7, 3.2, 14), 'rgba(150,18,32,0.92)'); Q.col(Q.rect(x - 5, y - 1.6, 10, 3.2), 'rgba(150,18,32,0.92)'); });
-        Q.tr(`M ${x - 7} 778 L ${x + 7} 778`, 0.9); for (let k = 0; k < 4; k++) Q.tr(`M ${x - 5 + k * 3.4} 780 L ${x - 5 + k * 3.4} 786`, 0.7);
+        P.shade(sh, 386, 0, 446, 0, 0.45, 0.0);
+        P.fold([[438, 692], [420, 724], [406, 770], [396, 826]], 1); P.fold([[430, 706], [414, 744], [402, 800]], 1, 0.9, 0.8);
+        P.fold([[398, 604], [392, 680], [390, 760], [390, 828]], -1, 0.9, 0.7);
+        P.tr('M 440 684 L 434 700 L 444 716 L 436 734 L 444 752 L 436 772 L 442 792 L 432 812 L 428 826', 1.1);
+        P.hl('M 418 712 C 410 740, 402 780, 400 820', 1.0, 0.3);
+      },
+    });
+    glass(shape('M 404 522 C 410 508, 432 506, 438 520 C 442 530, 440 544, 436 552 L 440 584 C 442 604, 438 622, 432 634 C 418 644, 404 652, 394 662 C 392 632, 394 600, 396 574 C 396 550, 398 534, 404 522 Z'), G.whiteB, {
+      paint: (c, sh) => {
+        P.shade(sh, 394, 0, 442, 0, 0.48, 0.0);
+        P.fold([[410, 520], [404, 560], [400, 610], [398, 652]], 1); P.fold([[422, 566], [430, 590], [436, 616]], -1, 0.8, 0.6);
+        P.fold([[400, 530], [398, 580], [396, 630]], 1, 0.7, 0.5);
+      },
+    });
+    glass(shape('M 416 534 C 424 530, 433 534, 435 542 L 437 549 L 434 551 C 435 556, 433 561, 429 564 C 425 567, 419 566, 416 561 C 413 554, 413 540, 416 534 Z'), G.flesh, {
+      noStreak: true, clean: true,
+      paint: (c, sh) => {
+        P.shade(sh, 414, 0, 436, 0, 0.55, 0.0);
+        P.mat('M 424 545.5 C 426.6 543.6, 430 543.8, 432 545.8', 3.4, 0.45); P.mat('M 418 548 C 419 554, 422 559, 428 562', 4, 0.35);
+        P.tr('M 422 540 C 425 538.4, 429 538.6, 432 540.6', 1.45);
+        P.tr('M 423.4 545 C 425.6 543.4, 428.6 543.6, 430.8 545.4', 1.3); P.dot(428.3, 545.3, 1.25);
+        P.tr('M 424.4 547.4 C 426.4 548.2, 429 548.2, 430.4 547.2', 0.6, 0.7);
+        P.tr('M 432 541 L 436.2 548.6 L 433.4 550.4', 1.15);
+        P.tr('M 428.4 555.6 C 430 554.8, 431.6 555, 432.6 555.8', 1.15); P.tr('M 429.4 557.8 C 430.4 558.4, 431.6 558.4, 432.2 557.8', 0.5, 0.6);
+        P.hl('M 426 536 C 429 535.6, 432 537.4, 433.6 540', 0.8, 0.4);
+      },
+    });
+    glass(shape('M 430 612 C 432 602, 436 594, 442 588 C 446 592, 444 602, 438 612 Z'), G.flesh, { noStreak: true, clean: true, paint: (c, sh) => { P.shade(sh, 430, 0, 446, 0, 0.35, 0); P.tr('M 434 608 L 441 593 M 437 610 L 443 597', 0.6, 0.75); } });
+    glass(shape('M 442 836 L 454 836 C 458 838, 458 842, 456 844 L 440 844 Z'), [26, 20, 26], { noStreak: true, clean: true });
+    await K.br();
+
+    // ----- the priest, in alb and gold cope, the book in one hand
+    glass(shape('M 616 560 C 630 554, 668 554, 684 560 C 690 600, 696 680, 704 760 L 708 842 L 604 842 C 606 780, 610 700, 612 640 C 612 600, 612 578, 616 560 Z'), G.white, {
+      cuts: [new Path2D('M 650 600 C 652 700, 652 780, 654 842')],
+      paint: (c, sh) => {
+        P.shade(sh, 604, 0, 708, 0, 0.05, 0.45);
+        P.fold([[632, 610], [630, 700], [628, 780], [624, 840]], 1); P.fold([[644, 620], [644, 720], [644, 840]], -1, 0.8, 0.7);
+        P.fold([[662, 610], [666, 710], [670, 840]], 1, 0.9, 0.8); P.fold([[676, 620], [684, 720], [692, 840]], -1);
+      },
+    });
+    glass(shape('M 634 812 L 672 812 L 674 838 L 632 838 Z'), pick(RUBIES.slice(3)), { lw: 2.4, paint: () => { for (let k = 0; k < 4; k++) { const x = 639 + k * 10; ctx.beginPath(); ctx.arc(x, 825, 3.2, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(240,196,90,0.85)'; ctx.lineWidth = 1.1; ctx.stroke(); } P.tr('M 634 816 L 672 816 M 633 834 L 673 834', 0.8); } });
+    glass(shape('M 618 558 C 606 570, 598 600, 596 650 C 594 700, 598 760, 606 800 L 626 804 C 622 740, 624 660, 630 600 C 632 580, 634 566, 640 558 Z'), G.gold, {
+      paint: (c, sh) => { P.shade(sh, 596, 0, 632, 0, 0.45, 0.05); P.fold([[612, 590], [604, 660], [604, 740], [608, 796]], 1); P.fold([[622, 610], [618, 700], [620, 790]], -1, 0.8, 0.6); P.tr('M 598 790 C 606 798, 616 804, 626 804', 1.0); },
+    });
+    glass(shape('M 660 556 C 674 556, 690 566, 698 590 C 706 640, 710 720, 712 800 L 690 806 C 686 740, 680 660, 672 610 C 668 588, 664 570, 660 556 Z'), mulc(G.gold, 0.9), {
+      paint: (c, sh) => { P.shade(sh, 664, 0, 712, 0, 0.0, 0.5); P.fold([[684, 590], [694, 670], [702, 760], [704, 800]], -1); P.fold([[676, 620], [684, 700], [690, 800]], 1, 0.8, 0.6); },
+    });
+    [['M 624 562 L 636 560 C 630 620, 628 700, 630 804 L 618 804 C 616 700, 618 620, 624 562 Z', 627], ['M 664 558 L 676 562 C 684 620, 690 700, 694 806 L 682 806 C 678 700, 672 620, 664 558 Z', 680]].forEach(([d, x]) => glass(shape(d), pick(RUBIES.slice(1, 4)), {
+      paint: (c, sh) => {
+        P.shade(sh, x - 8, 0, x + 8, 0, 0.0, 0.3);
+        for (let y = 584; y < 800; y += 26) { const xx = x + (y - 584) * (x < 650 ? -0.01 : 0.06); ctx.beginPath(); ctx.arc(xx, y, 3.4, 0, Math.PI * 2); ctx.fillStyle = 'rgba(240,198,90,0.9)'; ctx.fill(); ctx.strokeStyle = TRACE; ctx.lineWidth = 0.7; ctx.stroke(); P.dot(xx, y, 1.0, 0.8); }
+        P.tr(`M ${x - 5} 570 L ${x - 5} 800 M ${x + 5} 570 L ${x + 5} 800`, 0.5, 0.5);
       },
     }));
-    glass(sf('M 652 636 L 680 632 L 684 662 L 656 666 Z'), G.ruby, { paint: () => { Q.tr('M 656 640 L 680 636', 0.8); Q.col(Q.rect(666, 642, 4, 13), 'rgba(236,190,80,0.85)'); Q.col(Q.rect(662, 646, 12, 3), 'rgba(236,190,80,0.85)'); } });
-    glass(sf('M 662 652 C 667 648, 676 648, 679 653 L 677 661 L 665 662 Z'), G.flesh, { noStreak: true, paint: () => { Q.tr('M 666 655 L 676 654 M 667 658 L 676 657', 0.6, 0.75); } });
-    glass(sf('M 641 539 C 648 534, 660 536, 664 545 L 666 561 C 664 571, 657 579, 648 580 C 643 580, 639 576, 638 571 L 634 567 L 637 564 C 635 559, 635 552, 637 548 C 637 544, 639 541, 641 539 Z'), G.flesh, {
-      noStreak: true,
+    glass(circ(650, 570, 7.5), G.goldP, { lw: 2.2, paint: () => { ctx.beginPath(); ctx.arc(650, 570, 3.4, 0, Math.PI * 2); ctx.fillStyle = 'rgba(150,20,30,0.9)'; ctx.fill(); P.clear(649, 569, 1, 0.6); } });
+    glass(shape('M 656 626 L 684 622 L 688 652 L 660 656 Z'), pick(RUBIES.slice(1, 4)), { paint: () => { P.tr('M 660 630 L 684 626', 0.8); ctx.fillStyle = 'rgba(236,190,80,0.85)'; ctx.fillRect(670, 631, 4, 14); ctx.fillRect(666, 636, 12, 3); P.dot(661, 640, 1.4); P.dot(683, 637, 1.4); } });
+    glass(shape('M 666 642 C 671 638, 680 638, 683 643 L 681 651 L 669 652 Z'), G.flesh, { noStreak: true, clean: true, paint: () => { P.tr('M 670 645 L 680 644 M 671 648 L 680 647', 0.6, 0.75); } });
+    glass(shape('M 640 512 C 648 507, 658 510, 660 518 L 661 534 C 659 543, 653 549, 645 549 C 640 549, 637 545, 636 541 L 632 537 L 635 534 C 633 529, 633 522, 635 518 C 636 515, 638 513, 640 512 Z'), G.flesh, {
+      noStreak: true, clean: true,
       paint: (c, sh) => {
-        Q.shade(sh, 636, 0, 666, 0, 0.0, 0.6);
-        Q.mat('M 637 553.6 C 640 551, 645 551, 647 554', 4.5, 0.5);
-        Q.mat('M 655 548 C 661 556, 661 567, 655 576', 6, 0.42);
-        Q.tr('M 637.6 551 C 640.4 548.6, 644.6 548.6, 647.2 551.2', 1.8);
-        Q.tr('M 638.6 556 C 640.8 554.2, 644 554.2, 646.2 556.4', 1.4); Q.dot(640.9, 555.9, 1.45);
-        Q.tr('M 639 558.4 C 641 559.2, 643.6 559.2, 645.4 558.4', 0.7, 0.7);
-        Q.tr('M 638.4 552.6 L 634.4 566 L 637.8 567.4', 1.4);
-        Q.tr('M 638.4 572.2 C 640 571.4, 642.2 571.6, 643.8 572.6', 1.25);
-        Q.tr('M 645 576.6 C 648 579.4, 653 579.4, 657 576.4', 0.8, 0.6);
-        Q.tr('M 641 543.6 C 645 541.6, 649 541.6, 652 543.6', 0.7, 0.55);
-        Q.tr('M 643.6 560 C 645.4 562, 646.2 565, 645.2 568', 0.7, 0.55);
-        Q.tr('M 657 553 C 659.6 551, 661.6 555, 658.6 559', 1.0);
+        P.shade(sh, 632, 0, 662, 0, 0.0, 0.58);
+        P.mat('M 636 526.6 C 639 524.4, 643 524.4, 645.4 527', 4, 0.48); P.mat('M 655 520 C 660 528, 660 538, 654 546', 6, 0.42);
+        P.tr('M 636 521.6 C 638.6 519.6, 642.6 519.6, 645.4 521.8', 1.5);
+        P.tr('M 637 526.4 C 639.2 524.8, 642.4 524.8, 644.6 526.8', 1.3); P.dot(639.3, 526.5, 1.3);
+        P.tr('M 637.6 528.8 C 639.6 529.6, 642.4 529.6, 644.2 528.8', 0.6, 0.7);
+        P.tr('M 636.6 523 L 632.6 536.4 L 636 537.8', 1.25);
+        P.tr('M 636.8 542 C 638.4 541.4, 640.4 541.6, 642 542.4', 1.15);
+        P.tr('M 640 515.2 C 644 513.4, 648 513.4, 652 515.4', 0.6, 0.55); P.tr('M 642 530 C 644 533, 645 537, 644 540', 0.6, 0.55);
+        P.tr('M 655 524 C 658 522, 660 526, 657 530', 0.9);
+        P.hl('M 641 511 C 646 509, 652 510, 656 513', 0.8, 0.4);
       },
     });
-    glass(sf('M 655 537 C 664 539, 670 547, 669 558 C 668 567, 665 573, 661 575 L 663 558 C 662 549, 659 543, 652 539 Z'), G.stoneL, { noStreak: true, paint: () => { Q.tr('M 658 544 C 662 550, 664 558, 663 568 M 662 542 C 666 548, 667 556, 666 564', 0.65, 0.75); } });
+    glass(shape('M 650 507 C 660 508, 666 516, 665 526 C 664 535, 661 541, 657 543 L 659 527 C 658 518, 655 512, 648 509 Z'), G.stoneL, { noStreak: true, clean: true, paint: () => { for (let k = 0; k < 4; k++) P.tr(`M ${653 + k * 2.6} ${510 + k} C ${657 + k * 2.4} ${516 + k}, ${659 + k * 1.6} ${526}, ${658 + k * 1.2} ${536 - k * 2}`, 0.55, 0.75); } });
+    await K.br();
+
+    // ----- Michael: the dark suit drawn the Gothic way, head bowed to the child
+    glass(shape('M 448 688 L 504 688 L 506 750 L 503 836 L 488 836 L 482 756 L 476 836 L 460 836 L 452 750 Z'), G.suit, {
+      paint: (c, sh) => { P.shade(sh, 448, 0, 506, 0, 0.42, 0.0); P.hl('M 498 700 L 500 760 L 497 830 M 466 702 L 462 760 L 466 830', 1.1, 0.3); P.tr('M 482 704 L 482 752', 0.9, 0.8); P.hl('M 492 760 C 494 790, 494 812, 492 832', 0.7, 0.2); },
+    });
+    glass(shape('M 458 834 L 478 834 C 482 836, 484 840, 482 843 L 456 843 Z'), [22, 18, 24], { noStreak: true, clean: true, edge: false, paint: () => P.hl('M 464 836 L 478 836', 0.9, 0.35) });
+    glass(shape('M 487 834 L 503 834 C 510 836, 512 840, 510 843 L 486 843 Z'), [22, 18, 24], { noStreak: true, clean: true, edge: false, paint: () => P.hl('M 492 836 L 505 836', 0.9, 0.35) });
+    glass(shape('M 470 552 C 458 554, 450 562, 449 576 C 446 610, 442 650, 444 690 C 460 698, 486 698, 506 690 C 508 660, 506 630, 504 600 C 503 578, 498 562, 488 556 L 484 556 L 479 580 L 474 554 Z'), G.suit, {
+      cuts: [new Path2D('M 462 560 C 458 610, 456 650, 458 694')],
+      paint: (c, sh) => {
+        P.shade(sh, 444, 0, 506, 0, 0.48, 0.0);
+        P.hl('M 484 557 L 491 580 L 482 600', 1.1, 0.45); P.hl('M 474 555 L 470 574 L 478 596', 1.0, 0.34);
+        P.hl('M 452 580 C 450 620, 450 660, 452 690', 1.2, 0.22); P.hl('M 496 620 C 498 640, 499 660, 500 686', 0.9, 0.2);
+        P.tr('M 480 600 L 480 690', 0.9, 0.85); P.dot(483, 636, 1.2, 0.9); P.dot(483, 660, 1.2, 0.9);
+        P.hl('M 488 664 L 502 663', 1.0, 0.35); P.tr('M 450 690 C 468 698, 488 698, 506 690', 0.9, 0.6);
+      },
+    });
+    glass(shape('M 473 553 L 485 555 L 479 580 Z'), G.white, { noStreak: true, clean: true, paint: () => { P.fill('M 477.6 557 L 481.4 557 L 480.6 571 L 479.2 574 L 477.6 570 Z', 0.88); } });
+    glass(shape('M 472 540 L 486 542 L 486 556 L 471 554 Z'), G.flesh, { noStreak: true, clean: true, paint: (c, sh) => P.shade(sh, 471, 540, 471, 556, 0.55, 0.15) });
+    glass(shape('M 470 510 C 479 507, 488 512, 490 520 L 494 527 L 490 529 C 491 534, 489 539, 485 542 C 480 545, 474 544, 470 540 C 466 534, 465 518, 470 510 Z'), G.flesh, {
+      noStreak: true, clean: true,
+      paint: (c, sh) => {
+        P.shade(sh, 466, 0, 494, 0, 0.6, 0.0);
+        P.mat('M 477 521 C 480 518.6, 484 518.6, 487 521', 4.4, 0.48); P.mat('M 489 526 C 489 530, 487 534, 483 538', 3.5, 0.4); P.mat('M 469 524 C 469 532, 473 540, 480 543', 6, 0.45);
+        P.tr('M 476 516 C 479.4 514, 483.4 514.2, 487 516.4', 1.6);
+        P.tr('M 477.6 521 C 480 519.4, 483.4 519.6, 485.8 521.6', 1.4); P.dot(483.1, 521.3, 1.35);
+        P.tr('M 478.4 523.6 C 480.4 524.4, 483.4 524.4, 485.2 523.4', 0.6, 0.7);
+        P.tr('M 488 517.4 L 493.2 526.6 L 489.6 528.6', 1.3); P.dot(489.8, 527.6, 0.7);
+        P.tr('M 484 534 C 486.2 533.2, 488.4 533.6, 489.8 534.6', 1.2); P.tr('M 485.4 536.8 C 486.8 537.4, 488.4 537.4, 489.2 536.8', 0.55, 0.65);
+        P.tr('M 472.4 524 C 475.6 521.6, 477.4 526, 474 530', 0.95);
+        P.hl('M 482 509 C 485 510, 488 513, 489.4 517', 0.8, 0.45);
+      },
+    });
+    glass(shape('M 466 528 C 461 516, 464 502, 476 498 C 488 495, 496 504, 494 514 C 490 510, 484 508, 478 509 C 472 511, 470 516, 470 522 L 470 536 C 467 534, 466 531, 466 528 Z'), [46, 32, 28], {
+      noStreak: true, clean: true, edge: false,
+      paint: () => { ['M 470 503 C 476 499, 484 499, 491 504', 'M 466 511 C 471 505, 479 503, 487 506', 'M 465 520 C 467 512, 473 508, 479 508', 'M 467 528 C 466 522, 468 516, 472 513'].forEach((d, i) => P.hl(d, 0.7, 0.28 - i * 0.03)); },
+    });
+    glass(shape('M 494 562 C 504 564, 510 576, 512 594 L 514 612 C 524 610, 536 608, 546 609 L 547 626 C 532 628, 516 632, 504 632 C 498 626, 494 612, 492 596 Z'), G.suit, {
+      paint: () => { P.hl('M 502 570 C 507 580, 510 594, 511 608', 1.0, 0.34); P.tr('M 508 620 C 514 622, 520 622, 526 620', 0.9, 0.85); P.hl('M 518 614 L 544 612', 0.9, 0.28); ctx.fillStyle = 'rgba(230,236,226,0.85)'; ctx.fillRect(542, 609, 4.5, 17); },
+    });
+    glass(shape('M 545 609 C 552 607, 558 610, 560 615 C 558 621, 552 625, 546 626 Z'), G.flesh, { noStreak: true, clean: true, paint: () => P.tr('M 549 616 L 558 614 M 549 620 L 556 619', 0.65, 0.75) });
+
+    // ----- the child, in the long christening gown
+    glass(shape('M 514 610 C 506 620, 500 634, 497 654 C 493 700, 490 750, 486 800 C 500 808, 520 808, 534 800 C 531 760, 528 710, 528 670 C 528 650, 530 634, 536 622 Z'), G.white, {
+      cuts: [new Path2D('M 516 624 C 512 680, 510 740, 510 806')],
+      paint: (c, sh) => {
+        P.shade(sh, 486, 0, 536, 0, 0.3, 0.0);
+        P.fold([[510, 640], [506, 700], [502, 760], [498, 800]], 1, 0.9, 0.8); P.fold([[520, 650], [518, 710], [516, 770], [515, 800]], -1, 0.8, 0.6);
+        P.fold([[528, 640], [528, 700], [527, 760], [527, 798]], 1, 0.7, 0.5);
+        for (let k = 0; k < 5; k++) { const y = 690 + k * 20; P.tr(`M ${500 - k * 0.6} ${y} C ${506} ${y + 3}, ${516} ${y + 3}, ${526} ${y}`, 0.6, 0.5); }
+      },
+    });
+    glass(shape('M 486 794 C 500 802, 520 802, 534 794 L 535 808 C 520 816, 500 816, 485 808 Z'), G.goldP, {
+      noStreak: true,
+      paint: () => { for (let k = 0; k < 7; k++) { const x = 489 + k * 7; P.dot(x, 804, 1.3, 0.85); P.tr(`M ${x - 3} 809 C ${x - 1} 812, ${x + 1} 812, ${x + 3} 809`, 0.7, 0.8); } P.tr('M 487 799 C 500 806, 520 806, 534 799', 0.6, 0.6); },
+    });
+    glass(shape('M 512 606 C 526 598, 548 597, 564 602 L 566 618 C 548 622, 528 624, 514 620 Z'), G.white, {
+      paint: (c, sh) => { P.shade(sh, 0, 598, 0, 624, 0.0, 0.42); P.fold([[524, 602], [526, 612], [528, 621]], 1, 0.7, 0.5); P.fold([[542, 600], [544, 610], [545, 620]], 1, 0.7, 0.5); },
+    });
+    glass(shape('M 528 596 C 534 591, 544 591, 548 595 C 546 600, 538 602, 529 602 Z'), G.flesh, { noStreak: true, clean: true, paint: () => P.tr('M 533 595 L 545 594 M 532 598 L 544 598', 0.6, 0.7) });
+    glass(shape('M 562 602 C 566 594, 578 593, 584 600 C 587 607, 585 615, 580 619 L 566 618 Z'), G.whiteW, { noStreak: true, clean: true, paint: () => { P.tr('M 566 600 C 571 596, 578 596, 582 601', 0.7, 0.7); for (let k = 0; k < 5; k++) P.dot(566 + k * 4, 600 - Math.sin(k * 0.8) * 1.4, 0.8, 0.7); } });
+    glass(shape('M 569 604 C 573 601, 580 603, 581 609 C 581 614, 578 618, 573 618 C 569 617, 567 610, 569 604 Z'), G.flesh, {
+      noStreak: true, clean: true,
+      paint: (c, sh) => { P.shade(sh, 567, 0, 582, 0, 0.42, 0.0); P.tr('M 572.4 607.8 C 573.8 609, 575.6 609, 576.8 607.8', 1.0); P.tr('M 573.2 613.6 C 574.4 614.4, 575.8 614.4, 576.6 613.6', 0.8, 0.8); P.mat('M 569 610 C 569 614, 571 617, 574 617', 2.4, 0.35); },
+    });
+
+    // ----- the font in the glass
+    glass(shape('M 541 806 L 605 806 L 613 842 L 533 842 Z'), G.stone, { paint: (c, sh) => { P.shade(sh, 533, 0, 613, 0, 0.0, 0.48); P.tr('M 539 814 L 607 814', 1.0); P.tr('M 536 828 L 610 828', 0.7, 0.6); P.stip(sh, 0.12); } });
+    glass(shape('M 561 738 L 585 738 L 589 808 L 557 808 Z'), G.stone, { paint: (c, sh) => { P.shade(sh, 557, 0, 589, 0, 0.0, 0.5); P.tr('M 568 744 L 567 804 M 578 744 L 579 804', 0.8, 0.7); } });
+    glass(shape('M 530 692 L 616 692 L 610 716 C 604 730, 590 738, 573 738 C 556 738, 542 730, 536 716 Z'), G.stone, {
+      paint: (c, sh) => {
+        P.shade(sh, 530, 0, 616, 0, 0.0, 0.48);
+        for (let k = 0; k < 5; k++) { const x = 540 + k * 16.4; P.tr(`M ${x} 726 L ${x} 706 C ${x} 698, ${x + 12} 698, ${x + 12} 706 L ${x + 12} 726`, 0.9, 0.85); P.mat(`M ${x + 3} 705 L ${x + 3} 724`, 3, 0.3); P.dot(x + 6, 712, 1.1, 0.7); }
+        P.tr('M 537 720 C 550 732, 596 732, 609 720', 0.7, 0.6);
+      },
+    });
+    glass(shape('M 527 682 L 619 682 L 616 692 L 530 692 Z'), G.stoneL, { paint: () => { for (let x = 531; x < 616; x += 6) P.tr(`M ${x} 690 L ${x + 3} 684`, 0.6, 0.6); } });
+
+    // ----- the priest's hand and the shell, the water falling
+    glass(shape('M 630 590 C 620 594, 610 596, 600 590 L 596 600 C 604 608, 612 618, 618 632 C 624 634, 630 628, 632 618 Z'), G.white, {
+      paint: (c, sh) => { P.shade(sh, 596, 0, 632, 0, 0.0, 0.35); P.fold([[604, 598], [612, 610], [618, 626]], 1, 0.8, 0.6); P.tr('M 598 598 C 600 602, 603 604, 606 604', 0.8, 0.7); },
+    });
+    glass(shape('M 588 586 C 592 582, 600 583, 601 589 L 598 597 L 590 597 Z'), G.flesh, { noStreak: true, clean: true, paint: () => P.tr('M 591 587 L 598 586 M 591 591 L 598 591', 0.6, 0.75) });
+    glass(shape('M 572 588 C 576 580, 586 578, 591 584 L 586 598 C 580 598, 574 595, 572 588 Z'), G.goldP, { noStreak: true, clean: true, paint: () => { for (let k = 0; k < 6; k++) P.tr(`M 585 596 L ${573 + k * 3.4} ${587 - Math.sin(k * 0.62) * 5}`, 0.55, 0.8); } });
+    glass(shape('M 576 596 C 575.4 599, 574.6 601.6, 574.4 604.4 L 571.2 604 C 571.8 601.2, 572.8 598.6, 574 596 Z'), G.aqua, { noStreak: true, noSeed: true, clean: true, lw: 1.8 });
 
     await K.br();
-    // Michael
-    glass(sf('M 430 698 L 500 698 L 503 760 L 501 836 L 484 836 L 478 764 L 470 836 L 450 836 L 440 764 Z'), G.suit, {
-      paint: (c, sh) => { Q.shade(sh, 430, 0, 502, 0, 0.38, 0.0); Q.hl('M 492 712 L 494 760 L 492 830 M 458 714 L 456 764 L 460 830', 1.1, 0.3); Q.tr('M 476 720 L 477 764', 0.9, 0.8); },
-    });
-    glass(sf('M 448 834 L 471 834 C 476 836, 478 840, 476 843 L 446 843 Z'), [22, 18, 24], { noStreak: true, edge: false, paint: () => Q.hl('M 456 836 L 470 836', 0.9, 0.35) });
-    glass(sf('M 483 834 L 501 834 C 508 836, 511 840, 509 843 L 482 843 Z'), [22, 18, 24], { noStreak: true, edge: false, paint: () => Q.hl('M 488 836 L 503 836', 0.9, 0.35) });
-    glass(sf('M 446 588 C 434 591, 426 600, 425 614 L 426 700 C 444 708, 474 709, 502 702 L 501 664 L 495 628 C 493 609, 488 597, 477 591 L 471 590 L 466 610 L 458 589 Z'), G.suit, {
-      cuts: [T('M 448 590 C 446 640, 446 680, 448 708')],
-      paint: (c, sh) => {
-        Q.shade(sh, 425, 0, 500, 0, 0.45, 0.0);
-        Q.hl('M 471 591 L 478 612 L 471 628', 1.1, 0.42); Q.hl('M 458 590 L 455 606 L 464 624', 1.0, 0.32);
-        Q.hl('M 432 610 C 431 640, 432 670, 434 700', 1.2, 0.2); Q.hl('M 446 600 C 446 640, 448 676, 450 704', 0.8, 0.14);
-        Q.tr('M 466 612 L 466 700', 0.9, 0.85); Q.dot(469, 652, 1.2, 0.9); Q.dot(469, 674, 1.2, 0.9);
-        Q.tr('M 438 700 C 456 706, 478 706, 500 700', 0.9, 0.6);
-        Q.hl('M 478 680 L 494 679', 1.0, 0.35); Q.hl('M 436 676 C 440 684, 446 690, 452 692', 0.8, 0.2);
-        Q.mat('M 488 600 C 496 612, 498 630, 497 650', 7, 0.35);
-      },
-    });
-    glass(sf('M 457 588 L 472 589 L 466 612 Z'), G.white, { noStreak: true, paint: () => { Q.fill('M 463.5 592 L 468 592 L 467 606 L 465.5 609 L 463.5 605 Z', 0.88); } });
-    glass(sf('M 456 574 L 471 577 L 472 592 L 455 591 Z'), G.flesh, { noStreak: true, paint: (c, sh) => Q.shade(sh, 455, 576, 455, 592, 0.5, 0.15) });
-    glass(sf('M 466 538 C 474 539, 480 545, 481 552 L 484 559 L 481 562 C 482 565, 481 568, 479 570 C 477 575, 471 579, 464 578 C 458 577, 453 572, 452 565 L 452 551 C 455 545, 459 540, 466 538 Z'), G.flesh, {
-      noStreak: true,
-      paint: (c, sh) => {
-        Q.shade(sh, 452, 0, 482, 0, 0.62, 0.0);
-        Q.mat('M 467 553 C 471 550, 477 550, 480 553', 4.5, 0.5);
-        Q.mat('M 478 558 C 478 562, 476 566, 472 570', 3.5, 0.4);
-        Q.mat('M 456 552 C 454 562, 458 572, 466 577', 6, 0.45);
-        Q.tr('M 468 548 C 471 545.6, 476 545.6, 480 548', 1.9);
-        Q.tr('M 470 553.4 C 472.6 551.4, 476 551.4, 478.6 553.6', 1.5);
-        Q.dot(475.6, 553.5, 1.55);
-        Q.tr('M 471.4 556 C 473.4 556.8, 476 556.8, 477.6 555.8', 0.7, 0.7);
-        Q.tr('M 480 549.6 L 483.8 558.6 L 480.4 561.4', 1.4); Q.dot(480.4, 560.2, 0.8);
-        Q.tr('M 473.6 566.2 C 476 565.4, 478.2 565.6, 480 566.6', 1.3);
-        Q.tr('M 475 569 C 476.5 569.6, 478 569.6, 479 569', 0.7, 0.7);
-        Q.tr('M 457.6 555.6 C 461.4 553, 463.4 558, 459.6 562.4', 1.1);
-        Q.hl('M 474 541 C 477 542, 479.5 545, 480.5 548', 0.9, 0.45);
-      },
-    });
-    glass(sf('M 449 558 C 445 546, 449 533, 462 529 C 474 526, 483 534, 483 544 C 478 540, 471 538, 466 538 C 459 540, 455 545, 452 551 L 452 565 C 450 563, 449 561, 449 558 Z'), [44, 32, 28], {
-      noStreak: true, edge: false,
-      paint: () => { Q.hl('M 456 536 C 462 532, 470 531, 477 534', 0.9, 0.32); Q.hl('M 452 544 C 455 538, 461 535, 467 535', 0.7, 0.24); },
-    });
-    glass(sf('M 476 598 C 488 597, 496 606, 498 622 L 502 643 C 511 641, 522 640, 532 641 L 533 659 C 519 662, 501 665, 489 663 C 481 659, 477 648, 476 636 Z'), G.suit, {
-      paint: () => { Q.hl('M 490 656 C 496 650, 502 648, 508 648', 0.9, 0.3); Q.hl('M 486 604 C 492 612, 495 626, 497 640', 1.0, 0.34); Q.tr('M 492 650 C 498 652, 504 652, 508 650', 0.9, 0.85); Q.hl('M 506 645 L 530 644', 0.9, 0.28); Q.col(Q.rect(528, 641, 4, 18), 'rgba(230,236,226,0.85)'); },
-    });
-    glass(sf('M 532 641 C 538 639, 545 641, 548 646 C 546 651, 540 655, 533 659 Z'), G.flesh, { noStreak: true, paint: () => Q.tr('M 536 648 L 545 646 M 536 652 L 543 651', 0.65, 0.75) });
-
-    await K.br();
-    // the child in the long gown
-    glass(sf('M 500 632 C 490 640, 482 652, 478 672 C 473 712, 469 762, 464 806 C 478 813, 496 813, 510 806 C 508 766, 506 718, 506 684 C 506 666, 510 652, 516 644 Z'), G.white, {
-      cuts: [T('M 494 646 C 488 700, 484 750, 482 812')],
-      paint: (c, sh) => {
-        Q.shade(sh, 466, 0, 512, 0, 0.28, 0.0);
-        Q.tr('M 492 650 C 486 690, 482 740, 478 804', 0.95); Q.mat('M 490 660 C 485 700, 481 750, 477 800', 5, 0.36);
-        Q.tr('M 501 656 C 498 700, 497 750, 497 804', 0.9); Q.tr('M 484 664 C 478 700, 475 750, 471 800', 0.7, 0.6);
-        Q.hl('M 497 680 C 495 720, 493 760, 491 800', 1.0, 0.4);
-        for (let k = 0; k < 4; k++) { const y = 720 + k * 18; Q.tr(`M ${485 - k} ${y} C ${489 - k} ${y + 3}, ${495 - k} ${y + 3}, ${499 - k} ${y}`, 0.6, 0.55); }
-      },
-    });
-    glass(sf('M 464 800 C 478 807, 496 807, 510 800 L 511 812 C 496 819, 478 819, 463 812 Z'), G.goldP, {
-      noStreak: true,
-      paint: () => { for (let k = 0; k < 7; k++) { const x = 467 + k * 6.6; Q.dot(x, 809.6, 1.3, 0.85); Q.tr(`M ${x - 3} 814 C ${x - 1} 817, ${x + 1} 817, ${x + 3} 814`, 0.7, 0.8); } },
-    });
-    glass(sf('M 498 630 C 510 624, 530 623, 545 627 L 548 640 C 532 645, 512 646, 500 642 Z'), G.white, {
-      paint: (c, sh) => { Q.shade(sh, 0, 624, 0, 646, 0.0, 0.4); Q.tr('M 512 628 C 512 634, 514 640, 516 643 M 528 626 C 528 632, 530 638, 531 642', 0.8, 0.75); },
-    });
-    glass(sf('M 508 622 C 514 617, 524 617, 528 621 C 526 626, 518 628, 509 628 Z'), G.flesh, { noStreak: true, paint: () => Q.tr('M 513 621 L 525 620 M 512 624 L 524 624', 0.6, 0.7) });
-    glass(sf('M 543 626 C 548 619, 558 618, 564 624 C 567 630, 566 638, 561 643 L 548 642 Z'), G.whiteW, { noStreak: true, paint: () => { Q.tr('M 547 624 C 552 621, 558 621, 562 625', 0.7, 0.7); for (let k = 0; k < 4; k++) Q.dot(548 + k * 4, 625 - (k === 1 || k === 2 ? 1.6 : 0), 0.85, 0.7); } });
-    glass(sf('M 551 628 C 555 625, 561 627, 562 632 C 562 637, 559 641, 554 641 C 550 640, 549 633, 551 628 Z'), G.flesh, {
-      noStreak: true,
-      paint: (c, sh) => {
-        Q.shade(sh, 549, 0, 562, 0, 0.4, 0.0);
-        Q.tr('M 554.4 631.2 C 555.6 632.4, 557.4 632.4, 558.6 631.2', 1.0);
-        Q.tr('M 555 636.2 C 556 637, 557.4 637, 558.2 636.2', 0.8, 0.8);
-        Q.mat('M 551 634 C 551 637, 553 640, 556 640', 2.4, 0.35);
-      },
-    });
-    // the font
-    glass(sf('M 524 806 L 590 806 L 598 842 L 516 842 Z'), G.stone, { paint: (c, sh) => { Q.shade(sh, 516, 0, 598, 0, 0.0, 0.45); Q.tr('M 522 814 L 592 814', 1.0); Q.tr('M 519 828 L 595 828', 0.7, 0.6); } });
-    glass(sf('M 545 746 L 569 746 L 573 808 L 541 808 Z'), G.stone, { paint: (c, sh) => { Q.shade(sh, 541, 0, 573, 0, 0.0, 0.48); Q.tr('M 552 752 L 551 804 M 562 752 L 563 804', 0.8, 0.7); } });
-    glass(sf('M 511 702 L 603 702 L 597 726 C 591 740, 576 747, 557 747 C 538 747, 523 740, 517 726 Z'), G.stone, {
-      paint: (c, sh) => {
-        Q.shade(sh, 511, 0, 603, 0, 0.0, 0.45);
-        for (let k = 0; k < 5; k++) { const x = 523 + k * 17; Q.tr(`M ${x} 734 L ${x} 716 C ${x} 708, ${x + 13} 708, ${x + 13} 716 L ${x + 13} 734`, 0.9, 0.85); Q.mat(`M ${x + 3} 714 L ${x + 3} 732`, 3, 0.3); }
-        Q.tr('M 518 728 C 530 740, 584 740, 596 728', 0.7, 0.6);
-      },
-    });
-    glass(sf('M 508 692 L 606 692 L 603 702 L 511 702 Z'), G.stoneL, { paint: () => { Q.tr('M 512 697 L 602 697', 0.6, 0.55); } });
-
-    // the priest's raised arm, the shell, the water
-    glass(sf('M 622 600 C 606 606, 594 622, 588 640 C 584 652, 584 668, 590 682 C 600 690, 612 690, 620 682 C 618 660, 620 636, 626 618 Z'), G.white, {
-      paint: (c, sh) => { Q.shade(sh, 586, 0, 624, 0, 0.0, 0.36); Q.tr('M 604 616 C 598 640, 596 664, 600 684 M 614 620 C 609 646, 609 668, 612 686', 0.85, 0.75); Q.mat('M 592 646 C 590 660, 592 674, 596 684', 5, 0.32); Q.tr('M 588 676 C 596 686, 610 688, 620 680', 0.8, 0.6); },
-    });
-    glass(sf('M 586 645 L 596 638 L 584 615 L 576 621 Z'), G.cassock, { noStreak: true });
-    glass(sf('M 574 612 C 578 607, 585 607, 587 612 L 584 621 L 576 623 Z'), G.flesh, { noStreak: true, paint: () => Q.tr('M 577 612 L 583 611 M 577 615 L 584 615', 0.6, 0.75) });
-    glass(sf('M 558 612 C 562 604, 572 602, 578 608 L 572 622 C 566 622, 560 619, 558 612 Z'), G.goldP, { noStreak: true, paint: () => { for (let k = 0; k < 5; k++) Q.tr(`M 571 620 L ${559 + k * 4} ${611 - Math.sin(k * 0.8) * 4}`, 0.6, 0.8); } });
-    glass(sf('M 560 620 C 559 623, 557 625, 556 627.5 L 553 627 C 555 624, 557 621, 558 618.5 Z'), G.aqua, { noStreak: true, noSeed: true, lw: 1.8 });
-
-    await K.br();
-    // pavement and the inscription
-    for (let k = 0; k < 13; k++) {
-      const x = 356 + k * 29;
-      glass(shape(`M ${x} 842 L ${x + 29} 842 L ${x + 29} 866 L ${x} 866 Z`), k % 2 ? G.gold : G.murrey, {
-        paint: () => { const m = x + 14.5; P.tr(`M ${m} 846 L ${m + 8} 854 L ${m} 862 L ${m - 8} 854 Z`, 1.0, 0.85); P.dot(m, 854, 1.7, 0.8); },
+    // ----- pavement and the inscription in Lombardic capitals
+    for (let k = 0; k < 16; k++) {
+      const x = 356 + k * 23;
+      glass(shape(`M ${x} 842 L ${x + 23} 842 L ${x + 23} 866 L ${x} 866 Z`), [G.gold, G.murrey, G.green][k % 3], {
+        paint: () => { const m = x + 11.5; P.tr(`M ${m} 845.5 L ${m + 7.5} 854 L ${m} 862.5 L ${m - 7.5} 854 Z`, 1.0, 0.85); P.dot(m, 854, 1.6, 0.8); },
       });
     }
     glass(shape('M 356 866 L 724 866 L 724 893 L 356 893 Z'), G.whiteW, {
-      paint: () => {
-        ctx.save();
-        ctx.fillStyle = 'rgba(28,17,10,0.92)';
-        ctx.font = 'bold 17px serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
-        const txt = 'ABRENVNTIO', sp = 22.5;
-        for (let i = 0; i < txt.length; i++) ctx.fillText(txt[i], 540 + (i - (txt.length - 1) / 2) * sp, 880.5);
-        ctx.restore();
-        P.tr('M 372 871 L 708 871 M 372 889 L 708 889', 0.7, 0.6);
-        [392, 688].forEach((x) => { P.dot(x, 880, 2.2, 0.85); P.dot(x - 8, 880, 1.1, 0.85); P.dot(x + 8, 880, 1.1, 0.85); });
+      paint: (c, sh) => {
+        lombardic(ctx, 'ABRENVNTIO', 540, 879.5, 16.5, 22.5, 'rgba(28,17,10,0.92)');
+        P.tr('M 372 870.5 L 708 870.5 M 372 889 L 708 889', 0.7, 0.6);
+        [404, 676].forEach((x) => { P.dot(x, 880, 2.1, 0.85); P.dot(x - 7, 880, 1.1, 0.85); P.dot(x + 7, 880, 1.1, 0.85); });
+        P.stip(sh, 0.08);
       },
     });
     ctx.restore();
-    band(op, 11, 34, [G.ruby, G.ruby, G.goldP]);
+    await K.border(op, { bw: 12, pw: 5.5, seg: 44 });
   }
 
   /* ------------------------------------------------------------------ medallion scenes (local coords, field radius 64) */
@@ -1087,7 +1090,7 @@
     const { glass, P, field, band } = K;
     const cx = (op.x0 + op.x1) / 2;
     ctx.save(); ctx.clip(op.p);
-    await K.trellis([op.x0, 452, op.x1, 905], 30, [mulc(G.blueD, 0.9), mulc(G.blue, 0.85), mulc(G.blueV, 0.85), mulc(G.blueT, 0.85)], mulc(G.ruby, 0.85));
+    await K.trellis([op.x0, 452, op.x1, 905], 30, BLUES.map((c) => mulc(c, 0.88)), RUBIES);
     // fleur-de-lis in the head
     glass(shape(`M ${cx} 494 C ${cx + 6} 502, ${cx + 6} 512, ${cx + 2} 520 L ${cx + 2} 526 L ${cx + 12} 526 C ${cx + 14} 514, ${cx + 22} 508, ${cx + 26} 514 C ${cx + 22} 516, ${cx + 18} 522, ${cx + 18} 530 L ${cx + 4} 532 L ${cx + 4} 538 L ${cx - 4} 538 L ${cx - 4} 532 L ${cx - 18} 530 C ${cx - 18} 522, ${cx - 22} 516, ${cx - 26} 514 C ${cx - 22} 508, ${cx - 14} 514, ${cx - 12} 526 L ${cx - 2} 526 L ${cx - 2} 520 C ${cx - 6} 512, ${cx - 6} 502, ${cx} 494 Z`), G.gold, {
       paint: () => { P.tr(`M ${cx} 500 L ${cx} 524 M ${cx - 14} 529 L ${cx + 14} 529`, 0.8, 0.8); },

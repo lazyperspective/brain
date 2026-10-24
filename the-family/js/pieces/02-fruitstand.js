@@ -33,7 +33,7 @@
   function rgba(h, a) { const c = hx(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
 
   /* ------------------------------------------------------------------ the camera */
-  const CAM = { x: 1.0, y: 0.6, z: 0, yaw: -0.13, F: 860, cx: 520, hy: 765 };
+  const CAM = { x: 0.6, y: 1.05, z: 0, yaw: -0.095, F: 1050, cx: 540, hy: 660 };
   let MIR = null; // when set, the world is mirrored in the wet ground at this height (for reflections)
   const CS = Math.cos(CAM.yaw), SN = Math.sin(CAM.yaw), NEAR = 0.4;
   function cam(X, Y, Z) { if (MIR !== null) Y = 2 * MIR - Y; const dx = X - CAM.x, dz = Z - CAM.z; return [dx * CS - dz * SN, Y - CAM.y, dx * SN + dz * CS]; }
@@ -73,7 +73,7 @@
     ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke(path2(p, false));
   }
   // facade plane helpers: side -1 = left facade (X = XL), +1 = right facade (X = XR). (u = Z along street, v = height, o = outward offset)
-  const XL = -4.8, CL = -1.85, CR = 4.2, XR = 7.4, CURB = 0.15;
+  const XL = -4.6, CL = -1.3, CR = 3.6, XR = 6.8, CURB = 0.15;
   function F3(side, u, v, o) { return side < 0 ? [XL + (o || 0), v, u] : [XR - (o || 0), v, u]; }
   function frect(ctx, side, u0, u1, v0, v1, fill, o) { return poly3(ctx, [F3(side, u0, v0, o), F3(side, u1, v0, o), F3(side, u1, v1, o), F3(side, u0, v1, o)], fill); }
 
@@ -187,9 +187,9 @@
   // [z0, z1, height, brick colour, trim colour, ground-floor type, options]
   const LEFT = [
     { z0: -4, z1: 3.6, h: 17.2, brick: '#5d3d38', trim: '#8b7b6a', shop: 'dark', fe: [] },
-    { z0: 3.6, z1: 11.6, h: 16.4, brick: '#6a4236', trim: '#a4917a', shop: 'genco', fe: [1, 2], cornice: 'heavy' },
-    { z0: 11.6, z1: 18.8, h: 13.6, brick: '#857565', trim: '#b0a48e', shop: 'salumeria', fe: [0, 1] },
-    { z0: 18.8, z1: 27, h: 19.6, brick: '#6b4a3a', trim: '#9c8a72', shop: 'barber', fe: [1, 2] },
+    { z0: 3.6, z1: 13.4, h: 16.4, brick: '#6a4236', trim: '#a4917a', shop: 'genco', fe: [1, 2], cornice: 'heavy' },
+    { z0: 13.4, z1: 20.6, h: 13.6, brick: '#857565', trim: '#b0a48e', shop: 'salumeria', fe: [0, 1] },
+    { z0: 20.6, z1: 27, h: 19.6, brick: '#6b4a3a', trim: '#9c8a72', shop: 'barber', fe: [1, 2] },
     { z0: 27, z1: 33.5, h: 13.6, brick: '#6e5a3e', trim: '#a0927a', shop: 'lit', fe: [] },
     { z0: 33.5, z1: 42, h: 16.6, brick: '#644236', trim: '#988673', shop: 'lit', fe: [1] },
     { z0: 42, z1: 50, h: 10.6, brick: '#58463f', trim: '#8a7f73', shop: 'dark', fe: [] },
@@ -485,10 +485,17 @@
         ['armL', 'M -19 -139 C -26 -134 -32 -126 -33 -117 C -32 -113 -28 -114 -27 -118 C -26 -124 -24 -129 -21 -133 Z', 'sw'],
         ['foreL', 'M -33.5 -119 C -33.5 -126 -32.5 -134 -30.5 -141 L -25.5 -140 C -26.5 -133 -27.5 -125 -27.5 -117 Z', 'sw'],
         ['handL', 'M -32 -140.5 C -35.5 -146 -34 -153 -30 -153 C -27 -152 -25 -147 -25.5 -140.5 Z', 'skin'],
+        ['legL', 'M -15 -94 C -15 -60 -14 -30 -14 -5 L -4 -5 C -4 -30 -3 -60 -2 -94 Z', 'trou'],
+        ['legR', 'M 3 -94 C 4 -60 5 -30 6 -5 L 16 -5 C 15 -30 15 -60 15 -94 Z', 'trou'],
+        ['shoeL', 'M -18 0 C -18 -4 -12 -6 -4 -5 L -3 0 Z', 'shoe'],
+        ['shoeR', 'M 5 0 C 5 -4 12 -6 20 -4.5 L 21 0 Z', 'shoe'],
         ['torso', 'M -22 -140 C -24 -128 -24 -112 -22 -92 L 22 -92 C 23 -112 23 -128 21 -140 C 14 -146 -14 -146 -22 -140 Z', 'sw'],
         ['torsoLit', 'M 10 -142 C 18 -138 22 -126 22 -92 L 14 -92 C 15 -112 14 -128 10 -142 Z', 'swLit'],
         ['apron', 'M -11 -138 L 10 -138 L 15 -92 L -15 -92 Z', 'apron'],
         ['apronSh', 'M -11 -138 L -6 -138 L -9 -92 L -15 -92 Z', 'apronSh'],
+        ['apronLo', 'M -18 -96 L 18 -96 C 19 -80 20 -64 21 -48 C 8 -45 -8 -45 -20 -48 C -19.5 -64 -19 -80 -18 -96 Z', 'apron'],
+        ['apronLoSh', 'M -18 -96 L -10 -96 C -11 -80 -12 -64 -13 -46 C -16 -46.5 -18 -47 -20 -48 C -19.5 -64 -19 -80 -18 -96 Z', 'apronSh'],
+        ['apronStr', 'M -18 -97 L 18 -97 L 18 -93.5 L -18 -93.5 Z', 'apronSh'],
         ['strapL', 'M -11 -138 L -13 -145 L -11 -145.5 L -9 -138 Z', 'apron'],
         ['strapR', 'M 8 -138 L 11 -145.5 L 13 -145 L 10 -138 Z', 'apron'],
         ['neck', 'M -4 -149 L 6 -149 L 6 -144 L -4 -144 Z', 'skinDk'],
@@ -617,9 +624,10 @@
   }
 
   /* ------------------------------------------------------------------ the fruit stand under its awning */
-  const ST = { z0: 5.7, z1: 10.5, xf: -3.15, yf: 0.88, xb: -4.0, yb: 1.26, xs: -4.42, ys: 1.32 };
-  const AW = { z0: 5.0, z1: 11.3, xf: -2.55, yf: 2.42, yb: 3.06, val: 0.27 };
-  const DON = { X: -2.35, Z: 7.15 }, VEND = { X: -4.38, Z: 8.55 };
+  const ST = { z0: 7.4, z1: 12.2, xf: -2.85, yf: 0.88, xb: -3.7, yb: 1.26, xs: -4.12, ys: 1.32 };
+  const AW = { z0: 6.9, z1: 13.0, xf: -2.3, yf: 2.42, yb: 3.06, val: 0.27 };
+  const DON = { X: -1.2, Z: 5.5 }, VEND = { X: -3.1, Z: 7.0 };
+  const BULBZ = [7.9, 9.7, 11.5];
   const ROWF = ['orange', 'apple', 'orange', 'lemon', 'pear', 'orange', 'appleY', 'orange', 'lemon', 'apple'];
   const ROWB = ['apple', 'orange', 'pear', 'orange', 'appleY', 'lemon', 'orange', 'pear', 'apple', 'orange'];
   const PRICE = { orange: ['3/10¢', '2/5¢', '29¢ DOZ'], apple: ['5¢', '10¢'], appleY: ['4/10¢'], lemon: ['2/5¢', '3/10¢'], pear: ['5¢', '10¢'] };
@@ -645,7 +653,7 @@
     for (const f of list) {
       const k = CAM.F / f.d;
       // light: the bulbs hang above the front of the stand, the far end is a little dimmer
-      const lit = clamp(1.05 - Math.abs(f.Z - 8) * 0.06, 0.55, 1);
+      const lit = clamp(1.05 - Math.abs(f.Z - 9.7) * 0.06, 0.55, 1);
       fruit(ctx, f.s[0], f.s[1], f.r * k, f.type, lit);
     }
   }
@@ -718,7 +726,7 @@
       const fromBelow = area(pr) > 0;
       if (under && fromBelow) {
         // the underside glows where the bulbs are
-        const near = clamp(1 - Math.min(Math.abs(za - 6.4), Math.abs(za - 8.2), Math.abs(za - 10.0)) / 1.2, 0, 1);
+        const near = clamp(1 - Math.min(Math.abs(za - BULBZ[0]), Math.abs(za - BULBZ[1]), Math.abs(za - BULBZ[2])) / 1.2, 0, 1);
         const col = green ? mix('#1c3428', '#6a7a3a', near * 0.5) : mix('#8a7058', '#f4d49a', 0.35 + near * 0.55);
         ctx.fillStyle = col; ctx.fill(path2(pr));
       } else if (!under && !fromBelow) {
@@ -747,8 +755,8 @@
   }
 
   function drawBulbs(ctx, stage) {
-    for (const z of [6.4, 8.2, 10.0]) {
-      const top = P(-3.55, AW.yb - (AW.yb - AW.yf) * 0.62 + 0.01, z), b = P(-3.55, 2.5, z), k = K(-3.55, z);
+    for (const z of BULBZ) {
+      const top = P(-3.3, AW.yb - (AW.yb - AW.yf) * 0.62 + 0.01, z), b = P(-3.3, 2.5, z), k = K(-3.3, z);
       if (stage === 0) { glow(ctx, b[0], b[1], 0.9 * k, '#ffd890', 0.55); continue; }
       ctx.strokeStyle = '#1a1410'; ctx.lineWidth = Math.max(0.4, k * 0.006); ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
       glow(ctx, b[0], b[1] + 0.04 * k, 0.22 * k, '#fff4cc', 0.9);
@@ -757,7 +765,7 @@
   }
 
   function drawScale(ctx) {
-    const X = -3.05, Z = 9.55, k = K(X, Z);
+    const X = -2.75, Z = 11.4, k = K(X, Z);
     const top = P(X, AW.yf + 0.05, Z), dial = P(X, 2.0, Z), pan = P(X, 1.6, Z);
     ctx.strokeStyle = '#2a2420'; ctx.lineWidth = Math.max(0.4, k * 0.008);
     ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(dial[0], dial[1]); ctx.stroke();
@@ -774,8 +782,8 @@
   /* -------- the paper bag slipping, oranges spilling */
   const SPILL = [
     // [X, Y, Z] in metres; the first few are falling from the bag
-    [-3.02, 1.02, 7.95], [-2.96, 0.74, 7.72], [-2.84, 0.42, 7.45], [-2.66, CURB + 0.05, 7.0], [-2.42, CURB + 0.05, 6.35],
-    [-2.12, CURB + 0.05, 5.45], [-1.93, CURB + 0.16, 4.55], [-1.55, 0.05, 3.95], [-0.95, 0.05, 3.3], [-0.2, 0.05, 2.55], [1.35, 0.05, 2.0],
+    [-2.3, 1.0, 6.5], [-2.25, 0.62, 6.3], [-2.15, 0.3, 6.1], [-2.05, CURB + 0.05, 5.8], [-1.85, CURB + 0.05, 5.15],
+    [-1.6, CURB + 0.05, 4.55], [-1.38, CURB + 0.17, 4.05], [-1.05, 0.05, 3.65], [-0.55, 0.05, 3.2], [0.15, 0.05, 2.85], [1.25, 0.05, 2.7],
   ];
   function drawBag(ctx, hand) {
     // the bag hangs tipped between the vendor's fingers and the Don's open hand
@@ -945,7 +953,7 @@
   }
 
   /* -------- the manhole and its steam */
-  const MH = { X: 0.15, Z: 4.6 };
+  const MH = { X: 0.35, Z: 5.4 };
   function drawManhole(ctx) {
     const pts = [], pts2 = [];
     for (let i = 0; i < 28; i++) { const a = (i / 28) * Math.PI * 2; pts.push([MH.X + Math.cos(a) * 0.36, 0.003, MH.Z + Math.sin(a) * 0.36]); pts2.push([MH.X + Math.cos(a) * 0.3, 0.004, MH.Z + Math.sin(a) * 0.3]); }
@@ -997,7 +1005,7 @@
   /* ------------------------------------------------------------------ signs on the facades, lettered by hand */
   function bladeSign(ctx) {
     // GENCO stacked, PURA OLIVE OIL beneath, on a green enamel board hanging from the pier past the awning
-    const Z = 11.45, xa = XL + 0.12, xb = XL + 1.34, ya = 6.7, yb = 3.7, k = K(xa, Z);
+    const Z = 13.3, xa = XL + 0.12, xb = XL + 1.34, ya = 6.7, yb = 3.7, k = K(xa, Z);
     const M = (u, v) => P(lerp(xa, xb, u), lerp(ya, yb, v), Z);
     line3(ctx, [XL, ya + 0.15, Z], [xb + 0.1, ya + 0.15, Z], '#14161a', Math.max(0.8, 0.04 * k));
     line3(ctx, [XL, ya - 0.7, Z], [xb + 0.05, ya + 0.15, Z], '#14161a', Math.max(0.6, 0.025 * k));
@@ -1049,7 +1057,7 @@
   /* ------------------------------------------------------------------ palettes for the people */
   const PAL = {
     don: { trou: '#2a2727', trouDk: '#161414', shoe: '#0e0c0c', shoeLt: '#5a4a40', coatBounce: '#4a3c34', coatMid: '#352d29', scarf: '#d8d2c4', coat: '#2b2522', coatLit: '#8a5e3a', coatDk: '#191514', collar: '#38302b', skin: '#d0946a', skinDk: '#6e4434', hair: '#b8b2a8', hairDk: '#3a2a22', hat: '#4e4a43', hatLit: '#9a7a52', band: '#1a1816', hatTop: '#7d889c', coatTop: '#4e586c', rim: '#d2965a' },
-    vendor: { sw: '#3e3634', swLit: '#7a5e48', apron: '#efe2c4', apronSh: '#bca886', skin: '#dea27a', skinDk: '#9e5e42', skinLt: '#f6c49c', eye: '#f8f4ec', pupil: '#16100c', stache: '#4a4038', mouth: '#3a1610', scarf: '#962e24', cap: '#4e443a', capLit: '#8e7a5c' },
+    vendor: { trou: '#2a2624', shoe: '#120e0c', sw: '#3e3634', swLit: '#7a5e48', apron: '#efe2c4', apronSh: '#bca886', skin: '#dea27a', skinDk: '#9e5e42', skinLt: '#f6c49c', eye: '#f8f4ec', pupil: '#16100c', stache: '#4a4038', mouth: '#3a1610', scarf: '#962e24', cap: '#4e443a', capLit: '#8e7a5c' },
     man: { trou: '#121318', shoe: '#08080a', coat: '#1b1d24', coatDk: '#0e0f14', face: '#1e1718', faceLit: '#a8703e', cold: '#4a5468', hat: '#1f2027', top: '#46506a', rim: '#d89452' },
   };
   function walkerPal(i) {
@@ -1154,15 +1162,14 @@
           poly3(ctx, top.concat(hl.slice().reverse()), rgba('#d6dee8', 0.7));
         }
       }
-      wavyStrip(ctx, -1.25, -0.35, 0.6, ZEND, rgba('#46526a', 0.45), 0.1, 0.7);
-      wavyStrip(ctx, 0.2, 1.0, 0.6, ZEND, rgba('#42506a', 0.4), 0.09, 1.9);
-      wavyStrip(ctx, 1.6, 2.4, 0.6, ZEND, rgba('#46526a', 0.38), 0.1, 3.1);
-      wavyStrip(ctx, 2.85, 3.55, 0.6, ZEND, rgba('#42506a', 0.4), 0.09, 4.2);
+      wavyStrip(ctx, -0.95, -0.3, 0.6, ZEND, rgba('#46526a', 0.45), 0.1, 0.7);
+      wavyStrip(ctx, 0.85, 1.6, 0.6, ZEND, rgba('#42506a', 0.4), 0.09, 1.9);
+      wavyStrip(ctx, 2.35, 3.1, 0.6, ZEND, rgba('#46526a', 0.38), 0.1, 3.1);
     });
 
     S(() => {
       // old trolley rails let into the asphalt, catching the sky
-      for (const X of [0.62, 2.06]) {
+      for (const X of [0.55, 1.98]) {
         poly3(ctx, [[X - 0.05, 0.002, 0.85], [X + 0.05, 0.002, 0.85], [X + 0.05, 0.002, ZEND], [X - 0.05, 0.002, ZEND]], rgba('#0c1018', 0.6));
         poly3(ctx, [[X - 0.035, 0.003, 0.85], [X - 0.008, 0.003, 0.85], [X - 0.008, 0.003, ZEND], [X - 0.035, 0.003, ZEND]], rgba('#8a9ab4', 0.3));
       }
@@ -1215,7 +1222,7 @@
       // the stand under its bulbs: a block of orange light
       poly3(r, [sp(0, ST.z0, 0.0), sp(0, ST.z1, 0.0), sp(1, ST.z1, 0.5), sp(1, ST.z0, 0.5)], '#f08a28');
       poly3(r, [[ST.xf, 0, ST.z0], [ST.xf, ST.yf, ST.z0], [ST.xf, ST.yf, ST.z1], [ST.xf, 0, ST.z1]], '#3a2a1a');
-      for (const z of [6.4, 8.2, 10.0]) { const b = P(-3.55, 2.5, z); glow(r, b[0], b[1], 14, '#fff0c0', 0.9); }
+      for (const z of BULBZ) { const b = P(-3.3, 2.5, z); glow(r, b[0], b[1], 14, '#fff0c0', 0.9); }
       for (const L of LAMPS) { const p = P(L[0] + L[2] * 0.95, 4.1, L[1]); glow(r, p[0], p[1], Math.max(5, 0.8 * K(L[0], L[1])), '#fff0c8', 0.95); }
       for (let i = 0; i < XMAS.length; i++) xmasString(r, XMAS[i], i, 0);
       for (const x of [0.55, 1.75]) { const p = P(x, 0.72, ONC.Z); glow(r, p[0], p[1], 9, '#fff2d0', 1); }
@@ -1302,27 +1309,27 @@
     });
     S(() => {
       // nearer parked cars, people, the right-hand lamps
-      drawCar(ctx, { x0: CR - 1.9, x1: CR - 0.1, zf: 18.4, facing: 'front', col: '#3a1e22', snow: true, warmSide: true });
+      drawCar(ctx, { x0: CR - 1.9, x1: CR - 0.1, zf: 17.2, facing: 'front', col: '#3a1e22', snow: true, warmSide: true });
       drawCar(ctx, LCAR);
       for (let i = LAMPS.length - 1; i >= 0; i--) { const L = LAMPS[i]; if (L[1] <= 30) lamppost(ctx, L[0], L[1], L[2], 1); }
       for (const w of WALKERS) if (w[1] <= 30) { const p = P(w[0], CURB, w[1]); drawFig(ctx, 'walker', p[0], p[1], K(w[0], w[1]), walkerPal(w[2]), { flip: w[3] }); }
       neonSign(ctx, 1);
-      hangSign(ctx, 12.05, XL + 0.12, XL + 1.95, 3.95, 3.35, 'SALUMERIA', '#efe4c6', '#a42a1e', '#2a2a2a');
-      bandSign(ctx, -1, 11.9, 18.5, 2.98, 3.6, 'LATTICINI  FORMAGGI', '#e4d8b8', '#283c2c');
-      bandSign(ctx, -1, 6.6, 11.4, 3.08, 3.62, 'GENCO PURA OLIVE OIL CO.', '#1d3a2c', '#e8c060');
+      hangSign(ctx, 13.85, XL + 0.12, XL + 1.95, 3.95, 3.35, 'SALUMERIA', '#efe4c6', '#a42a1e', '#2a2a2a');
+      bandSign(ctx, -1, 13.7, 20.3, 2.98, 3.6, 'LATTICINI  FORMAGGI', '#e4d8b8', '#283c2c');
+      bandSign(ctx, -1, 8.4, 13.2, 3.08, 3.62, 'GENCO PURA OLIVE OIL CO.', '#1d3a2c', '#e8c060');
       bladeSign(ctx);
     });
     S(() => {
       // the dark sedan, its door open, and the two men stepping off the curb
-      const sx0 = CR - 1.92, sx1 = CR - 0.08;
+      const sx0 = CR - 1.88, sx1 = CR - 0.1;
       // its dark reflection
       ctx.save(); groundClip(ctx); MIR = 0;
-      poly3(ctx, CARP.map((q) => [sx0, q[1] * 0.9, 11.9 + q[0]]).concat([[sx0, 0.3, 17.1]]), 'rgba(6,8,12,0.55)');
+      poly3(ctx, CARP.map((q) => [sx0, q[1] * 0.9, 10.4 + q[0]]).concat([[sx0, 0.3, 15.6]]), 'rgba(6,8,12,0.55)');
       MIR = null; ctx.restore();
-      drawCar(ctx, { x0: sx0, x1: sx1, zf: 11.9, facing: 'front', col: '#11141b', snow: true, door: 0.95, dome: true, glass: '#1e2636' });
-      hydrant(ctx, CR + 0.4, 8.6);
-      const mb = P(4.45, CURB, 11.4), kb = K(4.45, 11.4);
-      const ma = P(3.55, 0, 10.8), ka = K(3.55, 10.8);
+      drawCar(ctx, { x0: sx0, x1: sx1, zf: 10.4, facing: 'front', col: '#11141b', snow: true, door: 0.95, dome: true, glass: '#1e2636' });
+      hydrant(ctx, CR + 0.35, 7.6);
+      const mb = P(3.75, CURB, 9.9), kb = K(3.75, 9.9);
+      const ma = P(2.5, 0, 8.6), ka = K(2.5, 8.6);
       ctx.save(); groundClip(ctx);
       ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'manA', ma[0], ma[1], ka, PAL.man, { mono: 'rgba(5,6,10,0.4)', mirror: true }); drawFig(ctx, 'manB', mb[0], mb[1], kb, PAL.man, { mono: 'rgba(5,6,10,0.34)', mirror: true }); ctx.filter = 'none';
       ctx.restore();
@@ -1334,20 +1341,19 @@
       // the awning seen from below, the vendor behind his fruit, the bulbs' glow
       drawAwning(ctx, true);
       drawBulbs(ctx, 0);
-      const v = P(VEND.X, CURB + 0.32, VEND.Z), kv = K(VEND.X, VEND.Z) * 1.1;
-      drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor);
       drawScale(ctx);
     });
     S(() => { drawStand(ctx); });
     S(() => {
       // the Don, and the bag between his hand and the vendor's
       const d = P(DON.X, CURB, DON.Z), kd = K(DON.X, DON.Z);
-      const v = P(VEND.X, CURB + 0.32, VEND.Z), kv = K(VEND.X, VEND.Z) * 1.1;
+      const v = P(VEND.X, CURB, VEND.Z), kv = K(VEND.X, VEND.Z);
       const dh = [d[0] - 0.5 * kd, d[1] - 1.06 * kd], vh = [v[0] + 0.37 * kv, v[1] - 1.21 * kv];
       // his reflection on the wet pavement
       ctx.save(); groundClip(ctx);
-      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'don', d[0], d[1], kd, PAL.don, { mono: 'rgba(8,6,6,0.34)', mirror: true }); ctx.filter = 'none';
+      ctx.filter = 'blur(' + (0.8 * s).toFixed(1) + 'px)'; drawFig(ctx, 'don', d[0], d[1], kd, PAL.don, { mono: 'rgba(8,6,6,0.34)', mirror: true }); drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor, { mono: 'rgba(8,6,6,0.25)', mirror: true }); ctx.filter = 'none';
       ctx.restore();
+      drawFig(ctx, 'vendor', v[0], v[1], kv, PAL.vendor);
       drawSpill(ctx, 1, 3);
       drawBag(ctx, [lerp(vh[0], dh[0], 0.45), lerp(vh[1], dh[1], 0.45) + 0.06 * kd]);
       drawFig(ctx, 'don', d[0], d[1], kd, PAL.don);
@@ -1386,7 +1392,7 @@
     return steps;
   }
   const XMAS = [15.5, 24, 34, 48, 68];
-  const PUDDLES = [[0.35, 2.9, 0.75, 0.42, 1], [2.3, 4.6, 0.55, 0.4, 2]];
+  const PUDDLES = [[0.2, 3.7, 0.6, 0.34, 1], [2.25, 6.2, 0.55, 0.36, 2]];
   function puddle(pd) {
     const out = [];
     for (let i = 0; i < 40; i++) {
@@ -1397,7 +1403,7 @@
   }
   const LAMPS = [[CL - 0.4, 12.2, 1], [CL - 0.4, 38, 1], [CL - 0.4, 64, 1], [CR + 0.4, 21, -1], [CR + 0.4, 47, -1], [CR + 0.4, 73, -1]];
   const ONC = { Z: 56 };
-  const LCAR = { x0: CL + 0.15, x1: CL + 1.95, zf: 15.2, facing: 'rear', col: '#3c4434', snow: true, tailOn: true };
+  const LCAR = { x0: CL + 0.15, x1: CL + 1.95, zf: 17.5, facing: 'rear', col: '#3c4434', snow: true, tailOn: true };
   const NEON = { x0: XR - 0.15, x1: XR - 1.55, Z: 19.6 };
   // [X, Z, palette, flip]
   const WALKERS = [[-3.4, 15.8, 0, false], [-2.6, 24.5, 1, true], [6.3, 25.5, 2, true], [5.2, 33, 3, false], [6.6, 45, 4, true], [-3.0, 36, 2, false], [1.2, 52, 1, true]];

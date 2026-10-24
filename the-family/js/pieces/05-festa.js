@@ -225,7 +225,7 @@
     { x0: 1858, x1: 2088, fl: 5, nw: 3, mat: 'brick', tone: 0.6, corn: 'dent', lint: 'flat', fe: [0, 1], store: { sign: 'VINI E LIQUORI', kind: 'vini', ent: 'R' } },
     { x0: 2088, x1: 2384, xs: [2126, 2200, 2268, 2336], fl: 4, nw: 4, mat: 'brown', tone: 0.62, corn: 'brk', lint: 'hood', fe: [2, 3], store: { sign: 'GROCERIA ABBANDANDO', kind: 'grocer', ent: 'L', awn: 2, signX: [2172, 2378] }, upper: { 1: 'DENTISTA' } },
     { x0: 2384, x1: 2600, fl: 2, nw: 3, mat: 'stucco', tone: 0.42, corn: 'arc', lint: 'ped', fe: null, billboard: 1, store: { sign: 'FARMACIA', kind: 'farmacia', ent: null } },
-    { x0: 2600, x1: 2928, fl: 5, nw: 4, mat: 'iron', tone: 0.5, corn: 'brk', lint: 'iron', fe: null, store: { sign: 'BANCA', sub: 'BIGLIETTI PER L\'ITALIA', kind: 'banca', ent: 'R' }, upper: { 1: 'NOTARO' } },
+    { x0: 2600, x1: 2928, fl: 5, nw: 4, mat: 'iron', tone: 0.75, corn: 'brk', lint: 'iron', fe: null, store: { sign: 'BANCA', sub: 'BIGLIETTI PER L\'ITALIA', kind: 'banca', ent: 'R' }, upper: { 1: 'NOTARO' } },
     { x0: 2928, x1: 3160, fl: 4, nw: 3, mat: 'brick', tone: 0.55, corn: 'dent', lint: 'seg', fe: [0, 1], store: { sign: 'CAFFÈ', sub: 'PASTICCERIA', kind: 'caffe', ent: 'R', awn: 1 } },
     { x0: 3160, x1: 3424, xs: [3198, 3292, 3372], fl: 5, nw: 3, mat: 'brown', tone: 0.66, corn: 'brk', lint: 'hood', fe: [1, 2], store: { sign: 'TABACCHI', kind: 'tabacchi', ent: 'L', signX: [3256, 3416] } },
     { x0: 3424, x1: 3644, fl: 4, nw: 3, mat: 'stucco', tone: 0.48, corn: 'dent', lint: 'flat', fe: null, store: { sign: 'MACELLERIA', kind: 'salumi', ent: 'R', awn: 2 }, upper: { 3: 'LEVATRICE' } },
@@ -375,7 +375,7 @@
       if (typeof k === 'string') { c.fillStyle = k; c.fill(); }
       else {
         const sk = sepify(k, 0.3), d = 1 - lum(sk);
-        const wash = det && !F.solid ? mix(sk, PAPER, clamp(0.22 + d * 0.32, 0, 0.5)) : sk;
+        const wash = det && !F.solid ? mix(sk, PAPER, clamp(0.22 + d * 0.32, 0, 0.5) * (det > 1 ? 1 : 0.45)) : sk;
         c.fillStyle = css(mix(wash, HAZE, hz)); c.fill();
         if (det && d > 0.14 && !F.solid) penHatch(polys, d);
         if (shade && det && !F.solid) shadeIt(polys, shade * (0.55 + d), d);
@@ -616,7 +616,7 @@
     cross(c, F, J, pr, col) { const A = J.AN; const x = A.hx, top = -11.5; line(c, x, A.hy + 1.2, x, top, col(C.brown), 0.12); fillP(c, [x - 0.06, top - 1.2, x + 0.06, top - 1.2, x + 0.06, top + 0.3, x - 0.06, top + 0.3], css(GOLD)); fillP(c, [x - 0.45, top - 0.75, x + 0.45, top - 0.75, x + 0.45, top - 0.62, x - 0.45, top - 0.62], css(GOLD)); if (F.lights) { const m = c.getTransform(); F.lights.push({ x: (m.a * x + m.c * (top - 0.7) + m.e) / RSCALE, y: (m.b * x + m.d * (top - 0.7) + m.f) / RSCALE, r: 14, a: 0.4 }); } },
     censer(c, F, J, pr, col) { const A = J.AN; const x = A.hx + 0.3, y = A.hy + 1.6; line(c, A.hx, A.hy, x, y - 0.25, col(C.gold), 0.04); c.beginPath(); c.arc(x, y, 0.25, 0, TAU); c.fillStyle = css(GOLD); c.fill(); c.beginPath(); c.moveTo(x, y - 0.3); c.bezierCurveTo(x + 0.6, y - 1.2, x - 0.5, y - 2.0, x + 0.3, y - 3.4); c.strokeStyle = 'rgba(240,232,214,0.55)'; c.lineWidth = 0.22; c.stroke(); },
     tray(c, F, J, pr, col) { const s = J.hip; const x0 = s[0] + 0.1, y0 = s[1] - 1.2; fillP(c, [x0, y0, x0 + 1.9, y0 - 0.1, x0 + 1.95, y0 + 0.35, x0 + 0.05, y0 + 0.4], col(C.brown)); for (let i = 0; i < 9; i++) { c.fillStyle = css(i % 3 ? GOLD : C.white); c.beginPath(); c.arc(x0 + 0.2 + i * 0.2, y0 + 0.08 + (i % 2) * 0.12, 0.07, 0, TAU); c.fill(); } line(c, x0 + 0.1, y0, J.nk[0], J.nk[1], col(C.brown), 0.05); },
-    sack(c, F, J, pr, col) { const s = J.sh; const q = chaikin([s[0] - 1.2, s[1] - 0.1, s[0] - 0.9, s[1] - 0.75, s[0] + 0.2, s[1] - 0.95, s[0] + 1.1, s[1] - 0.6, s[0] + 1.0, s[1] + 0.05, s[0] - 0.1, s[1] + 0.2], true, 2); c.beginPath(); addP(c, q); c.fillStyle = col(C.cream); c.fill(); c.strokeStyle = css(INK, 0.8); c.lineWidth = 0.08; c.stroke(); c.beginPath(); c.moveTo(s[0] - 0.5, s[1] - 0.7); c.quadraticCurveTo(s[0], s[1] - 0.2, s[0] + 0.6, s[1] - 0.6); c.moveTo(s[0] - 0.8, s[1] - 0.2); c.quadraticCurveTo(s[0] - 0.2, s[1] - 0.4, s[0] + 0.3, s[1] - 0.1); c.lineWidth = 0.05; c.stroke(); },
+    sack(c, F, J, pr, col) { const s = J.sh, x = s[0] - 0.25, y = s[1] - 0.25; const q = chaikin([x - 0.75, y + 0.2, x - 0.6, y - 0.45, x + 0.05, y - 0.62, x + 0.62, y - 0.38, x + 0.55, y + 0.18, x - 0.05, y + 0.32], true, 2); c.beginPath(); addP(c, q); c.fillStyle = col([176, 150, 112]); c.fill(); c.strokeStyle = css(INK, 0.85); c.lineWidth = 0.07; c.stroke(); c.save(); c.clip(); c.beginPath(); for (let k = -1; k < 1.2; k += 0.16) { c.moveTo(x + k, y - 0.8); c.lineTo(x + k + 0.5, y + 0.5); } c.strokeStyle = css(INK, 0.45); c.lineWidth = 0.035; c.stroke(); c.restore(); line(c, x - 0.1, y - 0.6, x + 0.1, y - 0.75, css(INK, 0.8), 0.06); },
     nightstick(c, F, J, pr, col) { const A = J.AN; line(c, A.hx, A.hy, A.hx + 0.2, A.hy + 1.6, col(C.brown), 0.14); },
     child(c, F, J, pr, col) {
       // a small child carried on the arm / hip
@@ -868,11 +868,11 @@
     }
     function wallTone(b, yT) {
       const yB = BASE - b.gf;
-      return (x, y) => { const t = clamp((y - yT) / (yB - yT), 0, 1); return 0.3 + b.tone * 0.22 + 0.72 * Math.pow(1 - t, 1.05) - facadeLight(x, y); };
+      return (x, y) => { const t = clamp((y - yT) / (yB - yT), 0, 1); return 0.36 + b.tone * 0.22 + 0.78 * Math.pow(1 - t, 0.95) - facadeLight(x, y); };
     }
     const STO = (b, tone) => mix([226, 212, 184], [120, 96, 74], (tone || b.tone) * 0.3);
     function wallColor(b) {
-      const base = b.mat === 'stucco' ? [226, 210, 178] : b.mat === 'brown' ? [190, 164, 134] : b.mat === 'iron' ? [226, 216, 194] : b.mat === 'stone' ? [210, 192, 160] : [206, 174, 146];
+      const base = b.mat === 'stucco' ? [226, 210, 178] : b.mat === 'brown' ? [190, 164, 134] : b.mat === 'iron' ? [150, 146, 128] : b.mat === 'stone' ? [210, 192, 160] : [206, 174, 146];
       return mix(base, [120, 90, 66], b.tone * 0.22);
     }
     function drawWindow(c, b, x, y, w, h, o) {
@@ -1315,7 +1315,7 @@
         c.fillStyle = css(wc); c.fillRect(b.x0, yT + 8, b.x1 - b.x0, BASE - yT - 8);
         // the warm festa light as a faint tint on the lower floors
         c.save(); c.globalCompositeOperation = 'multiply';
-        const g = c.createLinearGradient(0, yT, 0, yB); g.addColorStop(0, 'rgba(118,100,96,0.9)'); g.addColorStop(0.5, 'rgba(176,156,140,0.7)'); g.addColorStop(1, 'rgba(255,236,200,0)');
+        const g = c.createLinearGradient(0, yT, 0, yB); g.addColorStop(0, 'rgba(92,76,74,0.95)'); g.addColorStop(0.45, 'rgba(150,128,116,0.8)'); g.addColorStop(0.85, 'rgba(230,210,186,0.4)'); g.addColorStop(1, 'rgba(255,236,200,0)');
         c.fillStyle = g; c.fillRect(b.x0, yT, b.x1 - b.x0, yB - yT);
         c.restore();
         const r2 = FX(2000 + bi), T = wallTone(b, yT);
@@ -1368,7 +1368,7 @@
           c.beginPath(); for (let i = 0; i < 6; i++) { let x = r2.u(b.x0 + 10, b.x1 - 10), y = r2.u(top, yB - 40); c.moveTo(x, y); for (let j = 0; j < 6; j++) { x += r2.u(-4, 4); y += r2.u(3, 8); c.lineTo(x, y); } } c.strokeStyle = ink(0.35); c.lineWidth = 0.45; c.stroke();
         }
         // dusk: value laid down in hatching, densest under the cornice, lifted where the festa light reaches
-        toneHatch(c, RR(b.x0, top, b.x1 - b.x0, yB - top), (x, y) => T(x, y) * (b.mat === 'stucco' || b.mat === 'iron' ? 0.85 : 1), { sp: 1.9, lw: 0.55, col: ink(0.7), ko: bi * 17 });
+        toneHatch(c, RR(b.x0, top, b.x1 - b.x0, yB - top), (x, y) => T(x, y) * (b.mat === 'stucco' ? 0.85 : 1), { sp: 1.9, lw: 0.55, col: ink(0.7), ko: bi * 17 });
         // quoins / party-wall edges
         for (const ex of [b.x0, b.x1]) line(c, ex, yT + CORN, ex, BASE - b.gf, ink(0.7), 0.9);
         if (b.mat === 'brown' || b.mat === 'stucco') {
@@ -1522,7 +1522,7 @@
     L.street.push((c) => {
       // far sidewalk
       const g = c.createLinearGradient(0, BASE, 0, H);
-      g.addColorStop(0, '#ead2a2'); g.addColorStop(0.1, '#f1dcae'); g.addColorStop(0.4, '#e9d1a2'); g.addColorStop(0.7, '#d9bc8e'); g.addColorStop(1, '#b89670');
+      g.addColorStop(0, '#e2c696'); g.addColorStop(0.1, '#dcc092'); g.addColorStop(0.4, '#ccac80'); g.addColorStop(0.7, '#b8966c'); g.addColorStop(1, '#94744f');
       c.fillStyle = g; c.fillRect(0, BASE, W, H - BASE);
       // paving joints of the far sidewalk
       c.beginPath(); for (let k = 1; k < 4; k++) { const y = gY(k * 32); c.moveTo(0, y); c.lineTo(W, y); } for (let x = 0; x < W; x += 46) { c.moveTo(x, BASE); c.lineTo(x, CURB_F); } c.strokeStyle = ink(0.22); c.lineWidth = 0.5; c.stroke();
@@ -1540,8 +1540,8 @@
     const depthOf = (y) => DV - DV * (BASE - HZ) / (y - HZ);
     const groundTone = (x, y) => {
       const t = clamp((y - CURB_F) / (H - CURB_F), 0, 1);
-      let v = 0.26 + 0.8 * Math.pow(t, 1.2);
-      for (const g of GLOWS) { const dx = (x - g[0]) / g[2], dy = (y - g[1]) / g[3]; const e = dx * dx + dy * dy; if (e < 6) v -= g[4] * 0.9 * Math.exp(-e); }
+      let v = 0.42 + 0.7 * Math.pow(t, 1.1);
+      for (const g of GLOWS) { const dx = (x - g[0]) / g[2], dy = (y - g[1]) / g[3]; const e = dx * dx + dy * dy; if (e < 6) v -= g[4] * 1.15 * Math.exp(-e); }
       return v;
     };
     // the cobbled roadway: every stone drawn, its lower edge in shadow; stones in the light keep only a hairline
@@ -1582,7 +1582,7 @@
     // the festa glow pooled in the street
     L.street.push((c) => {
       c.save(); c.globalCompositeOperation = 'screen';
-      for (const [x, y, rx, ry, a] of GLOWS.map((g) => [g[0], g[1], g[2], g[3], g[4] * 0.6])) {
+      for (const [x, y, rx, ry, a] of GLOWS.map((g) => [g[0], g[1], g[2] * 1.15, g[3] * 1.2, Math.min(0.85, g[4] * 0.9)])) {
         c.save(); c.translate(x, y); c.scale(1, ry / rx); const g = c.createRadialGradient(0, 0, 0, 0, 0, rx); g.addColorStop(0, 'rgba(255,210,130,' + a + ')'); g.addColorStop(1, 'rgba(255,210,130,0)'); c.fillStyle = g; c.fillRect(-rx, -rx, 2 * rx, 2 * rx); c.restore();
       }
       c.restore();
@@ -1700,7 +1700,7 @@
       const kb = Math.round(x * 13.7 + y * 3.1), vh = extra && extra.hs ? extra.hs : (age === 'a' ? 0.9 + hf(kb) * 0.17 : 0.85 + hf(kb) * 0.3);
       const h0 = figH(y) * (age === 'c' ? 0.7 : age === 't' ? 0.52 : sex === 'f' ? 0.94 : 1) * vh;
       const build = extra && (extra.slim || extra.broad || extra.belly) ? {} : age === 'a' ? (hf(kb + 1) < 0.25 ? { slim: 0.84 } : hf(kb + 1) < 0.45 ? { broad: 1.1 } : sex === 'm' && hf(kb + 1) < 0.58 ? { belly: 1.25 + hf(kb + 2) * 0.25 } : {}) : {};
-      const o = Object.assign({ x, y, h: h0, dir, fr: 0.45, sex, age, pose: POSE[pose] || pose, w: dress(rr || SV(Math.round(x * 7 + y)), sex, age), haze: clamp((1070 - y) / 260, 0, 1) * 0.3, lx: lxAt(x) }, build, extra || {});
+      const o = Object.assign({ x, y, h: h0, dir, fr: 0.45, sex, age, pose: POSE[pose] || pose, w: dress(rr || SV(Math.round(x * 7 + y)), sex, age), haze: clamp((1070 - y) / 260, 0, 1) * 0.16, lx: lxAt(x) }, build, extra || {});
       return add(o);
     };
     const R = SV(9000);

@@ -338,7 +338,7 @@
 
     const farR = spline([[-60, 336], [0, 328], [50, 316], [110, 296], [165, 268], [215, 250], [290, 242], [350, 239], [390, 245], [410, 263], [436, 288], [500, 303], [580, 313], [660, 324], [760, 334], [880, 340], [1000, 342], [1140, 345]], false, 6);
     const midR = spline([[-60, 384], [0, 374], [60, 362], [130, 354], [200, 360], [262, 372], [330, 384], [400, 397], [450, 407], [500, 414], [560, 409], [640, 402]], false, 6);
-    const crest = spline([[400, 492], [440, 466], [490, 436], [540, 412], [600, 394], [660, 381], [740, 371], [820, 365], [900, 363], [980, 365], [1060, 369], [1140, 372]], false, 6);
+    const crest = spline([[250, 600], [330, 548], [400, 498], [440, 468], [490, 436], [540, 412], [600, 394], [660, 381], [740, 371], [820, 365], [900, 363], [980, 365], [1060, 369], [1140, 372]], false, 6);
     const valTop = spline([[-60, 430], [60, 420], [180, 414], [300, 420], [400, 430], [470, 444]], false, 6);
 
     /* ---- the town: Corleone on its rock, church tower above the roofs */
@@ -378,7 +378,7 @@
     /* ---- distant land */
     const midPoly = midR.concat([[640, 520], [-60, 520]]);
     const valPoly = valTop.concat(polyline((x) => W2(x) + 3, 470, -60, 20));
-    const hillPoly = crest.concat(polyline((x) => W2(x) + 3, 1140, 400, 20));
+    const hillPoly = crest.concat(polyline((x) => W2(x) + 3, 1140, 250, 20));
     reserve(3, [valPoly], 'land'); reserve(4, [hillPoly], 'land');
 
     /* ---- trees */
@@ -438,7 +438,7 @@
       const t = Object.assign({}, o);
       t.cl = o.clumps.map(([cx, cy, rx, ry]) => {
         const sprays = [], dabsL = [], dabsD = [];
-        const n = Math.round((rx * ry) / 60) + 4;
+        const n = Math.round((rx * ry) / 38) + 4;
         for (let i = 0; i < n; i++) {
           const a = R(0, TAU), d = Math.pow(rnd(), 0.6) * 0.92;
           const sx = cx + Math.cos(a) * rx * d, sy = cy + Math.sin(a) * ry * d;
@@ -457,13 +457,14 @@
     }
 
     // Big olive on terrace 3, top-left: silver against the blue distance
+    reserve(8.49, [spline([[140, 722], [148, 700], [152, 680], [146, 660], [134, 640], [120, 618], [106, 598], [96, 580], [120, 590], [142, 614], [162, 632], [174, 640], [186, 628], [204, 608], [226, 586], [248, 568], [240, 598], [220, 624], [208, 650], [206, 676], [212, 700], [216, 722]], true, 3)], 'trunk');
     const OLIVE1 = planOlive({ depth: 8.5, fs: 1, clumps: [[34, 498, 80, 44], [150, 448, 84, 46], [270, 480, 70, 40], [94, 584, 64, 32], [298, 572, 54, 30], [208, 538, 46, 28], [-16, 586, 48, 32]] });
     const OLIVE2 = planOlive({ depth: 8.55, fs: 0.8, clumps: [[560, 628, 52, 30], [624, 610, 44, 28], [592, 652, 40, 20]] });
     const SMALLOL = [[470, 568, 26], [700, 556, 28], [880, 542, 26], [1040, 532, 24]].map(([x, y, r], i) => planOlive({ depth: 6 + i * 0.01, fs: 0.6, clumps: [[x - r * 0.3, y, r, r * 0.62], [x + r * 0.5, y + 4, r * 0.7, r * 0.5]], base: [x, y + r * 0.9] }));
-    const TREE_F = planCitrus({ x: 1010, base: 680, cx: 1004, cy: 612, rx: 92, ry: 72, depth: 8.6, kind: 'orange', fs: 0.75, nf: 22, nb: 8, pal: ['#b8c463', '#6e9442', '#3d6340', '#d9d06a', '#2e5440'] });
-    const TREE_C = planCitrus({ x: 846, base: 806, cx: 806, cy: 690, rx: 152, ry: 112, depth: 10.5, kind: 'orange', fs: 0.9, nf: 40, nb: 16, pal: ['#a4c040', '#3f7434', '#1a3e2e', '#e0d468', '#14382c'] });
-    const TREE_A = planCitrus({ x: 440, base: 953, cx: 404, cy: 800, rx: 140, ry: 114, depth: 12.5, kind: 'orange', fs: 1.05, nf: 40, nb: 16, pal: ['#a8c444', '#3f7434', '#183c2a', '#ddd36a', '#12362a'] });
-    const TREE_B = planCitrus({ x: 1006, base: 941, cx: 990, cy: 800, rx: 126, ry: 112, depth: 12.6, kind: 'lemon', fs: 1.05, nf: 36, nb: 14, pal: ['#b4cc48', '#4c8038', '#1f4630', '#e6dc72', '#173e2c'] });
+    const TREE_F = planCitrus({ x: 1010, base: 680, cx: 1004, cy: 612, rx: 92, ry: 72, depth: 8.6, kind: 'orange', fs: 0.75, nf: 22, nb: 8, pal: ['#a2b844', '#5e8a3a', '#3d6340', '#d9d06a', '#2e5440'] });
+    const TREE_C = planCitrus({ x: 846, base: 806, cx: 806, cy: 690, rx: 152, ry: 112, depth: 10.5, kind: 'orange', fs: 0.9, nf: 40, nb: 16, pal: ['#90b02e', '#3a7030', '#1a3e2e', '#e0d468', '#14382c'] });
+    const TREE_A = planCitrus({ x: 440, base: 953, cx: 404, cy: 800, rx: 140, ry: 114, depth: 12.5, kind: 'orange', fs: 1.05, nf: 40, nb: 16, pal: ['#94b432', '#3a7030', '#183c2a', '#ddd36a', '#12362a'] });
+    const TREE_B = planCitrus({ x: 1006, base: 941, cx: 990, cy: 800, rx: 126, ry: 112, depth: 12.6, kind: 'lemon', fs: 1.05, nf: 36, nb: 14, pal: ['#a2c034', '#467c34', '#1f4630', '#e6dc72', '#173e2c'] });
 
     /* ---- figures (local coords: origin between the feet, y up is negative) */
     const FIG = {};
@@ -703,7 +704,7 @@
     // ---- sky: wet-into-wet, the hot blue laid in broad strokes around a few clouds and the town
     const clouds = [];
     {
-      const puff = (x, y, s, n) => { const out = []; let px = x; for (let i = 0; i < n; i++) { const r = R(12, 24) * s; out.push(ell(px, y - r * 0.5 + R(-4, 3), r * R(1.1, 1.5), r, R(-0.2, 0.2), 28)); px += r * R(0.9, 1.5); } out.push(ell(x + (px - x) / 2, y + 2, (px - x) / 2 + 8, 7 * s, 0, 36)); return out; };
+      const puff = (x, y, s, n) => { const out = []; let px = x; for (let i = 0; i < n; i++) { const r = R(9, 22) * s; out.push(ell(px, y - r * 0.45 + R(-5, 3), r * R(1.2, 1.9), r * R(0.7, 1), R(-0.25, 0.1), 28)); px += r * R(0.9, 1.7); } out.push(ell(x + (px - x) / 2, y + 3, (px - x) / 2 + 14, 5 * s, -0.02, 36)); return out; };
       clouds.push(...puff(R(-20, 10), R(200, 208), 1.05, 7), ...puff(R(250, 280), R(226, 232), 0.65, 4), ...puff(R(560, 590), R(150, 156), 0.45, 3));
     }
     const skyRegion = [[-60, -60], [1140, -60]].concat(farR.slice().reverse().map((p) => [p[0], p[1] + 4]));
@@ -711,7 +712,7 @@
     task(() => {
       wash([skyRegion], {
         c: { lin: [0, -40, 0, 350], stops: [[0, '#2a5db0'], [0.38, '#4a8fcb'], [0.78, '#8ec0da'], [1, '#c4dde0']] }, a: 0.84, e: 0.12, ew: 3, wob: 2, flow: 0.16, gran: 0, grad: 0.18, gradAngle: 0.5,
-        holes: clouds, holeSoft: 3.5, depth: 0, charges: [{ x: 30, y: 10, r: 360, c: '#33409e', a: 0.45 }, { x: 1040, y: 30, r: 300, c: '#2a68b8', a: 0.3 }, { x: 620, y: 300, r: 280, c: '#d2c0c8', a: 0.35 }],
+        holes: clouds, holeSoft: 5, depth: 0, charges: [{ x: 30, y: 10, r: 360, c: '#33409e', a: 0.45 }, { x: 1040, y: 30, r: 300, c: '#2a68b8', a: 0.3 }, { x: 620, y: 300, r: 280, c: '#d2c0c8', a: 0.35 }],
       });
       strokesIn(skyRegion, [
         { p: limb([[-100, 40, 120], [500, 18, 90], [1180, -6, 130]]), o: { c: '#2846a6', a: 0.26 } },
@@ -727,7 +728,7 @@
     task(() => {
       const poly = farR.concat([[1140, 480], [-60, 480]]);
       wash([poly], { c: { lin: [0, 236, 0, 430], stops: [[0, '#737cc4'], [0.45, '#9c9cd0'], [1, '#f4eee6']] }, a: 0.66, e: 0.35, ew: 2.4, depth: 1, wob: 1.2, gran: 0.2, flow: 0.3 });
-      wash([spline([[392, 247], [410, 265], [436, 290], [470, 304], [500, 330], [470, 336], [440, 318], [416, 300], [400, 276]], true, 3), spline([[212, 254], [236, 276], [250, 310], [236, 330], [220, 300], [210, 272]], true, 3), spline([[152, 276], [172, 296], [176, 330], [160, 326], [150, 300]], true, 3), spline([[302, 246], [322, 268], [330, 300], [314, 296], [306, 270]], true, 3)], { c: '#6062a6', a: 0.34, e: 0.25, depth: 1.1, wob: 1.5, soft: 1.4, flow: 0.4 });
+      wash([spline([[394, 249], [410, 266], [436, 291], [468, 305], [440, 312], [416, 298], [400, 276]], true, 3), limb([[226, 256, 0.5], [236, 280, 7], [246, 316, 3], [250, 334, 0.5]]), limb([[318, 248, 0.5], [326, 270, 6], [334, 302, 2.5], [338, 318, 0.5]]), limb([[160, 276, 0.5], [168, 298, 5], [174, 322, 0.5]])], { c: '#6264a8', a: 0.26, e: 0.3, depth: 1.1, wob: 1, soft: 1.1, flow: 0.4 });
     });
     // ---- middle hills, cobalt going green
     task(() => wash([midPoly], { c: { lin: [0, 352, 0, 470], stops: [[0, '#4a74b4'], [0.55, '#6f94ac'], [1, '#a2b88e']] }, a: 0.62, e: 0.3, depth: 2, wob: 1.6, gran: 0.1, flow: 0.3, soft: 0.9, charges: [{ x: 120, y: 360, r: 120, c: '#4a5c9c', a: 0.35 }] }));
@@ -743,8 +744,9 @@
       ];
       for (const [p, col, a] of F) wash([p], { c: col, a, e: 0.2, ew: 1.6, depth: 3.1, wob: 1, gran: 0.1, flow: 0.35, soft: 1.2 });
       for (const ln of [[[110, 426], [150, 448], [192, 478], [236, 514]], [[250, 422], [282, 444], [322, 472], [360, 514]], [[-60, 464], [150, 448], [282, 444], [420, 452]], [[-60, 496], [192, 478], [322, 472], [452, 484]]]) {
-        const pts = resample(ln, 9, false); const blobs = pts.map((q) => ell(q[0] + R(-2, 2), q[1] - 1, R(2, 3.6), R(1.4, 2.3), 0, 10));
-        wash(blobs, { c: '#56723e', a: 0.55, e: 0.3, ew: 1, depth: 3.2, wob: 0.4, flow: 0.15 });
+        const pts = spline(ln, false, 8), segs = [];
+        for (let i = 0; i < pts.length - 4; i += 4) { if (rnd() < 0.3) continue; segs.push(limb([[pts[i][0], pts[i][1] - 1, R(1.6, 2.6)], [pts[i + 2][0], pts[i + 2][1] - 1.5, R(2.4, 3.6)], [pts[i + 4][0], pts[i + 4][1] - 1, R(1.2, 2.2)]])); }
+        wash(segs, { c: '#56723e', a: 0.5, e: 0.3, ew: 1, depth: 3.2, wob: 0.8, rough: 0.5, flow: 0.25, soft: 0.4 });
       }
       const x = 386, y = 460;
       wash([[[x, y], [x + 26, y], [x + 26, y + 13], [x, y + 13]]], { c: '#efd8b0', a: 0.22, e: 0.2, wob: 0.3, depth: 3.3, flow: 0 });
@@ -847,8 +849,8 @@
       const bb = bboxOf(massP);
       if (trunk) trunk();
       task(() => {
-        wash(massP, { c: { lin: [bb[0], bb[1], bb[2], bb[3]], stops: [[0, '#bcc4a2'], [1, '#97a48a']] }, a: 0.55, soft: 3, e: 0.1, flow: 0.35, depth: t.depth });
-        wash(dL, { c: { lin: [bb[0], bb[1], bb[2], bb[3]], stops: [[0, '#a9b597'], [1, '#86947c']] }, a: 0.78, e: 0.35, ew: 1, wob: 0.5, rough: 0.2, depth: t.depth, gran: 0.2, flow: 0.25 });
+        wash(massP, { c: { lin: [bb[0], bb[1], bb[2], bb[3]], stops: [[0, '#b4bc96'], [1, '#8e9a80']] }, a: 0.4, soft: 4, e: 0, flow: 0.35, depth: t.depth });
+        wash(dL, { c: { lin: [bb[0], bb[1], bb[2], bb[3]], stops: [[0, '#9fae88'], [1, '#7c8c72']] }, a: 0.8, e: 0.35, ew: 1, wob: 0.5, rough: 0.2, depth: t.depth, gran: 0.2, flow: 0.25 });
         wash(dD, { c: { lin: [bb[0], bb[1], bb[2], bb[3]], stops: [[0, '#68766a'], [1, '#4c5850']] }, a: 0.78, e: 0.4, ew: 1, wob: 0.5, rough: 0.2, depth: t.depth, gran: 0.2, flow: 0.2 });
         wash(t.cl.map((k) => ell(k.cx + k.rx * 0.15, k.cy + k.ry * 0.45, k.rx * 0.5, k.ry * 0.18, 0, 24)), { c: '#3c463e', a: 0.4, soft: 2, e: 0, flow: 0.4, depth: t.depth });
       });
@@ -868,8 +870,8 @@
         wash([sh], { c: '#40408c', a: 0.68, e: 0.4, wob: 3, fr: 0.05, depth: t.depth - 0.25, holes: flecks, flow: 0.25 });
       });
       task(() => wash(lobeP.concat(t.dabs), {
-        c: { lin: [t.cx - t.rx, t.cy - t.ry, t.cx + t.rx * 0.5, t.cy + t.ry], stops: [[0, t.pal[0]], [0.5, t.pal[1]], [1, t.pal[2]]] }, a: 0.92, e: 0.3, ew: 2, wob: 2.6, fr: 0.06, grad: 0.15,
-        holes: holes.concat(t.gaps), depth: t.depth, gran: 0.08, flow: 0.18, gradAngle: -2.4,
+        c: { lin: [t.cx - t.rx, t.cy - t.ry, t.cx + t.rx * 0.5, t.cy + t.ry], stops: [[0, t.pal[0]], [0.5, t.pal[1]], [1, t.pal[2]]] }, a: 0.95, e: 0.3, ew: 2, wob: 2.6, fr: 0.06, grad: 0.08,
+        holes: holes.concat(t.gaps), depth: t.depth, gran: 0.08, flow: 0.1, gradAngle: -2.4,
         charges: [{ x: t.cx - t.rx * 0.45, y: t.cy - t.ry * 0.55, r: t.rx * 0.55, c: t.pal[3], a: 0.55 }, { x: t.cx + t.rx * 0.45, y: t.cy + t.ry * 0.35, r: t.rx * 0.6, c: '#1f3f50', a: 0.4 }],
       }));
       task(() => { // shadow mass: the lobes turned from the light, broken where lit lobes come forward, with leafy edges
@@ -1274,8 +1276,8 @@
       const B = BR;
       wash(B.twigs.map((t) => limb(t, 6)), { c: { lin: [1100, 0, 860, 160], stops: [[0, '#3a2a26'], [1, '#5a4636']] }, a: 0.86, e: 0.4, wob: 0.5, rough: 0.2, flow: 0.25, depth: 29 });
       const holesB = B.bl.concat(B.fruit.map((f) => ell(f.x, f.y, f.r, f.r, 0, 24)));
-      const C3 = ['#6c963a', '#2c5a30', '#10281e'];
-      for (let v = 0; v < 3; v++) wash(B.leaves.filter((L) => L.v === v).map((L) => L.poly), { c: C3[v], a: v === 0 ? 0.86 : 0.9, e: 0.45, ew: 1.4, wob: 0.6, rough: 0.2, flow: 0.2, holes: holesB, grad: 0.3 });
+      const C3 = ['#5f8c32', '#24502a', '#0e2419'];
+      for (let v = 0; v < 3; v++) wash(B.leaves.filter((L) => L.v === v).map((L) => L.poly), { c: C3[v], a: v === 0 ? 0.9 : 0.94, e: 0.45, ew: 1.4, wob: 0.6, rough: 0.2, flow: 0.08, holes: holesB, grad: 0.15 });
       // midribs on the light leaves
       wash(B.leaves.filter((L) => L.v === 0 && rnd() < 0.7).map((L) => limb([[L.x - Math.cos(L.ang) * 12, L.y - Math.sin(L.ang) * 12, 0.9], [L.x + Math.cos(L.ang) * 10, L.y + Math.sin(L.ang) * 10, 0.4]])), { c: '#3c5a2a', a: 0.6, e: 0, wob: 0, flow: 0 });
       // shadow under the light leaves where they overlap the dark
