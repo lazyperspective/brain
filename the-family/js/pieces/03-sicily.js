@@ -455,7 +455,7 @@
         const k = 2 + ((rnd() * 4) | 0);
         for (let j = 0; j < k; j++) t.blos.push({ x: x + R(-3.5, 3.5) * o.fs, y: y + R(-2.5, 2.5) * o.fs, r: R(1.1, 1.9) * o.fs });
       }
-      reserve(o.depth, lobes.map((L) => ell(L[0], L[1], L[2] * 0.97, L[2] * 0.93, 0, 24)), 'canopy');
+      reserve(o.depth, lobes.map((L) => ell(L[0], L[1], L[2] * 0.66, L[2] * 0.6, 0, 24)), 'canopy');
       return t;
     }
     function planOlive(o) {
@@ -729,17 +729,19 @@
 
     /* ================================================================== WASHES, BACK TO FRONT */
     // ---- sky: wet-into-wet, the hot blue laid in broad strokes around a few clouds and the town
-    const clouds = [];
+    const clouds = [], CUM = [];
     {
       const puff = (x, y, s, n) => { const out = []; let px = x; for (let i = 0; i < n; i++) { const r = R(9, 22) * s; out.push(ell(px, y - r * 0.45 + R(-5, 3), r * R(1.2, 1.9), r * R(0.7, 1), R(-0.25, 0.1), 28)); px += r * R(0.9, 1.7); } out.push(ell(x + (px - x) / 2, y + 3, (px - x) / 2 + 14, 5 * s, -0.02, 36)); return out; };
-      clouds.push(...puff(R(-20, 10), R(200, 208), 1.05, 7), ...puff(R(250, 280), R(226, 232), 0.65, 4), ...puff(R(560, 590), R(150, 156), 0.45, 3));
+      const cumulus = (x0, x1, y0, h) => { const out = []; for (let i = 0; i < 26; i++) { const u = R(0, 1), px = lerp(x0, x1, u), top = h * Math.pow(Math.sin(Math.PI * u), 0.7) * R(0.7, 1.05), r = R(16, 34) * (h / 150); out.push(ell(px, y0 - R(0.15, 1) * Math.max(0, top - r) - r * 0.4, r * R(1.05, 1.35), r * R(0.85, 1), 0, 28)); } out.push(ell((x0 + x1) / 2, y0, (x1 - x0) / 2, 12, 0, 40)); return out; };
+      CUM.push(cumulus(-70, 430, 252, 175), cumulus(462, 650, 236, 78));
+      for (const c2 of CUM) clouds.push(...c2);
     }
     const skyRegion = [[-60, -60], [1140, -60]].concat(farR.slice().reverse().map((p) => [p[0], p[1] + 4]));
     task(() => wash([[[-60, 140], [1140, 140], [1140, 480], [-60, 480]]], { raw: true, c: '#f3d8a4', a: 0.3, soft: 26, e: 0, flow: 0.2, depth: 0 }));
     task(() => {
       wash([skyRegion], {
         c: { lin: [0, -40, 0, 350], stops: [[0, '#2a5db0'], [0.38, '#4a8fcb'], [0.78, '#8ec0da'], [1, '#c4dde0']] }, a: 0.84, e: 0.12, ew: 3, wob: 2, flow: 0.16, gran: 0, grad: 0.18, gradAngle: 0.5,
-        holes: clouds, holeSoft: 5, depth: 0, charges: [{ x: 30, y: 10, r: 360, c: '#33409e', a: 0.45 }, { x: 1040, y: 30, r: 300, c: '#2a68b8', a: 0.3 }, { x: 620, y: 300, r: 280, c: '#d2c0c8', a: 0.35 }],
+        holes: clouds, holeSoft: 5.5, depth: 0, blooms: [[560, 60, 46], [960, 250, 36]], charges: [{ x: 30, y: -20, r: 420, c: '#2a2e94', a: 0.6 }, { x: 760, y: -30, r: 380, c: '#24489e', a: 0.45 }, { x: 1040, y: 30, r: 300, c: '#2a68b8', a: 0.3 }, { x: 620, y: 300, r: 280, c: '#d2c0c8', a: 0.35 }],
       });
       strokesIn(skyRegion, [
         { p: limb([[-100, 40, 120], [500, 18, 90], [1180, -6, 130]]), o: { c: '#2846a6', a: 0.26 } },
@@ -747,9 +749,13 @@
         { p: limb([[-60, 262, 30], [300, 252, 40], [560, 246, 26]]), o: { c: '#6aa2cc', a: 0.16 } },
       ], { soft: 11, e: 0, flow: 0.3, grad: 0, holes: clouds, holeSoft: 3.5, depth: 0 });
     });
-    task(() => { // cloud shadows, wet
-      const sh = []; for (let i = 0; i < clouds.length; i++) { const b = bboxOf([clouds[i]]); if (rnd() < 0.6) sh.push(ell((b[0] + b[2]) / 2 + R(-4, 4), b[3] - (b[3] - b[1]) * 0.25, (b[2] - b[0]) * 0.42, (b[3] - b[1]) * 0.22, 0, 24)); }
-      wash(sh, { c: '#9690b4', a: 0.32, soft: 2.8, e: 0.1, flow: 0.3, depth: 0.2 });
+    task(() => { // the cumulus: shadowed undersides and turned flanks wet into wet, warm light on the crowns
+      for (const c2 of CUM) {
+        const bb = bboxOf(c2);
+        wash(null, { bbox: [bb[0] - 10, bb[1] - 10, bb[2] + 20, bb[3] + 20], mask: (g) => { fillPolys(g, c2.map((p2) => p2.map((q) => [q[0] + 10, q[1] + 16]))); g.globalCompositeOperation = 'destination-in'; fillPolys(g, c2); g.globalCompositeOperation = 'source-over'; }, c: { lin: [0, bb[1], 0, bb[3]], stops: [[0, '#a8a2c0'], [1, '#7a7aa6']] }, a: 0.55, soft: 4.5, e: 0, flow: 0.4, depth: 0.2 });
+        wash([ell((bb[0] + bb[2]) / 2 + 20, bb[3] - 8, (bb[2] - bb[0]) * 0.42, 12, 0, 30)], { c: '#6e6c9c', a: 0.4, soft: 4, e: 0, flow: 0.3, depth: 0.25 });
+        wash(c2.slice(0, 12).map((p2) => p2.map((q) => [q[0] - 4, q[1] - 6])), { c: '#f4dcb0', a: 0.22, soft: 3, e: 0, flow: 0.3, depth: 0.3 });
+      }
     });
     // ---- far mountains: the long limestone ridge with its cliff, fading into haze
     task(() => {
@@ -1028,7 +1034,7 @@
           }
         }
         wash(j, { c: '#584c6c', a: 0.62, e: 0.2, wob: 0.4, rough: 0.2, depth: depth + 0.01, flow: 0.4 });
-        wash([band((x) => fTop(x) + 0.4, (x) => fTop(x) + 2.5 + h * 0.08)], { c: '#6e6488', a: 0.5, e: 0.2, depth: depth + 0.02, wob: 0.6, flow: 0.3 });
+        wash([band((x) => fTop(x) + 0.4, (x) => fTop(x) + 3 + h * 0.14 + 1.5 * Math.sin(x / 23))], { c: '#463e78', a: 0.64, e: 0.2, depth: depth + 0.02, wob: 0.6, flow: 0.3 });
       });
     }
 
@@ -1232,7 +1238,7 @@
     task(() => { // the donkey
       const D = DONKEY;
       wash([spline([[790, 1040], [900, 1046], [940, 1052], [900, 1056], [800, 1048]], true, 3)], { c: '#3a3688', a: 0.6, e: 0.4, depth: 14.2, flow: 0.2 });
-      wash([D.body, D.neck, D.tail].concat(D.legs, D.ears), { c: { lin: [780, 960, 900, 1040], stops: [[0, '#9a8c80'], [1, '#6a5e58']] }, a: 0.82, e: 0.45, ew: 1, wob: 0.6, rough: 0.3, depth: 14.3, gran: 0.35, flow: 0.3, holes: [D.belly, D.muzzle] });
+      wash([D.body, D.neck, D.tail].concat(D.legs, D.ears), { c: { lin: [780, 960, 900, 1040], stops: [[0, '#7a6c62'], [1, '#4e4440']] }, a: 0.9, e: 0.45, ew: 1, wob: 0.6, rough: 0.3, depth: 14.3, gran: 0.35, flow: 0.3, holes: [D.belly, D.muzzle] });
       wash([D.belly, D.muzzle], { c: '#e6dccb', a: 0.4, e: 0.3, depth: 14.3, flow: 0.2 });
       wash([D.mane, D.eye].concat(D.hooves), { c: '#241c1c', a: 0.85, e: 0.3, wob: 0.3, depth: 14.3, flow: 0.1 });
       wash([D.legs[1], D.legs[3], tr(822, 1040, 1.08)(spline([[10, -34], [34, -38], [40, -48], [32, -40]], true, 3))], { c: '#2a2434', a: 0.42, e: 0.3, depth: 14.3, flow: 0.2 });
@@ -1382,18 +1388,30 @@
         mask: (g) => { for (const s of STONES) { g.globalCompositeOperation = 'source-over'; fillPolys(g, [s.p]); g.globalCompositeOperation = 'destination-out'; fillPolys(g, [s.p.map((q) => [q[0] - 3.2, q[1] - 3.6])]); } g.globalCompositeOperation = 'source-over'; },
         c: '#5e5890', a: 0.5, e: 0.3, flow: 0.35,
       });
-      const li = [[140, 1146], [312, 1124], [470, 1170], [742, 1140], [640, 1176], [210, 1172]].map(([x, y]) => ell(x + R(-8, 8), y, R(4, 8), R(3, 5), R(0, 3), 14));
-      wash(li, { c: '#e8a632', a: 0.5, soft: 1, e: 0.2, depth: 16.15, flow: 0.3 });
+      const li = []; for (let i = 0; i < 18; i++) li.push(ell(R(20, 1060), R(1112, 1182), R(3, 8), R(2, 5), R(0, 3), 14));
+      wash(li.slice(0, 11), { c: '#e8a632', a: 0.55, soft: 0.8, e: 0.25, depth: 16.15, flow: 0.3 });
+      wash(li.slice(11), { c: '#9aaa8a', a: 0.5, soft: 0.8, e: 0.25, depth: 16.15, flow: 0.3 });
+      // the deepest darks: holes between the stones where the sun never reaches
+      const dk = []; for (const st of STONES) { if (rnd() < 0.55) continue; const b = bboxOf([st.p]); const x = rnd() < 0.5 ? b[0] - 1 : b[2] + 1, y = R(b[1] + 3, b[3]); dk.push([[x - 2.5, y - 2], [x + 2.5, y - 1], [x + 1, y + R(3, 6)]]); }
+      wash(dk, { c: '#241c2c', a: 0.8, e: 0.2, wob: 0.3, depth: 16.16, flow: 0.15 });
     });
     // the meadow at the foot of the wall: a wash that runs out before the bottom of the sheet
     task(() => {
       const top = polyline((x) => WB(x) - 2, -60, 1140, 10);
-      const bot = polyline((x) => 1262 + 10 * Math.sin(x / 47 + 1) + 6 * Math.sin(x / 17), 1140, -60, 8);
-      wash([top.concat(bot)], { c: { lin: [0, 1190, 0, 1270], stops: [[0, '#a9b856'], [1, '#c6c66a']] }, a: 0.5, e: 0.3, depth: 16.2, gran: 0.25, wob: 2, fr: 0.06, flow: 0.4, dry: 2,
+      const bot = polyline((x) => 1290 + 12 * Math.sin(x / 47 + 1) + 7 * Math.sin(x / 17), 1140, -60, 8);
+      const whites = []; for (let i = 0; i < 22; i++) { const x = R(0, 1080), y = R(1206, 1280); for (let k = 0; k < 4; k++) whites.push(ell(x + R(-8, 8), y + R(-3, 3), R(2, 3.6), R(1.4, 2.4), 0, 10)); }
+      wash([top.concat(bot)], { holes: whites, c: { lin: [0, 1190, 0, 1290], stops: [[0, '#9cb04c'], [1, '#c6c66a']] }, a: 0.55, e: 0.3, depth: 16.2, gran: 0.25, wob: 2, fr: 0.06, flow: 0.4, dry: 2,
         charges: [{ x: 300, y: 1230, r: 160, c: '#e6cc4a', a: 0.45 }, { x: 760, y: 1240, r: 140, c: '#8faa4c', a: 0.4 }] });
       const st = [];
-      for (const [y0, x0, x1, w] of [[1262, -80, 420, 26], [1270, 380, 900, 22], [1290, -60, 260, 18], [1296, 470, 700, 14], [1316, 120, 330, 10], [1252, 820, 1160, 24]]) st.push({ p: limb([[x0, y0 + R(-3, 3), w * 0.6], [lerp(x0, x1, 0.4), y0 + R(-4, 4), w], [x1, y0 + R(-3, 3), w * 0.35]]), o: { c: rnd() < 0.5 ? '#b8bf62' : '#cfc070', a: R(0.3, 0.42) } });
+      for (const [y0, x0, x1, w] of [[1288, -80, 420, 26], [1296, 380, 900, 22], [1312, -60, 260, 18], [1318, 470, 700, 14], [1334, 120, 330, 10], [1282, 820, 1160, 24]]) st.push({ p: limb([[x0, y0 + R(-3, 3), w * 0.6], [lerp(x0, x1, 0.4), y0 + R(-4, 4), w], [x1, y0 + R(-3, 3), w * 0.35]]), o: { c: rnd() < 0.5 ? '#b8bf62' : '#cfc070', a: R(0.3, 0.42) } });
       strokesIn(null, st, { e: 0.2, ew: 2, flow: 0.4, gran: 0.2, depth: 16.2, dry: 3 });
+      // wet drifts of flowers, the colours running into one another, darks of grass under them
+      const drift = (n, y0, y1, c, a, sx, sy) => { const d = []; for (let i = 0; i < n; i++) { const x = R(-20, 1100), y = R(y0, y1), w = R(sx[0], sx[1]), h = R(sy[0], sy[1]); d.push(spline([[x - w, y], [x - w * 0.3, y - h], [x + w * 0.5, y - h * 0.8], [x + w, y + R(-2, 2)], [x + w * 0.3, y + h * 0.7], [x - w * 0.5, y + h * 0.6]], true, 3)); } wash(d, { c, a, soft: 1.8, e: 0.25, depth: 16.22, flow: 0.4, holes: whites, holeSoft: 0.6 }); };
+      drift(16, 1204, 1286, '#ecc22c', 0.6, [14, 50], [3, 8]);
+      drift(10, 1210, 1290, '#dc3c24', 0.55, [8, 26], [3, 6]);
+      drift(9, 1214, 1290, '#7266b8', 0.5, [8, 30], [3, 6]);
+      const gd = []; for (let i = 0; i < 70; i++) { const x = R(-10, 1090), y = R(1214, 1300); gd.push(limb([[x, y + 6, 2.2], [x + R(-4, 4), y - R(6, 16), 0.4]])); }
+      wash(gd, { c: '#2e5a2a', a: 0.6, e: 0.3, depth: 16.23, flow: 0.25, wob: 0.3 });
       // shadow along the foot of the wall
       wash([band((x) => WB(x) - 3, (x) => WB(x) + 6 + 4 * Math.sin(x / 33))], { c: '#5e5890', a: 0.4, e: 0.3, depth: 16.25, wob: 1.2, flow: 0.3 });
     });
@@ -1415,6 +1433,8 @@
       });
     }
     lizard(548, 1140, 0.82, -0.12, 16.3);
+    caper(150, 1150, 1.2, 16.18);
+    caper(780, 1162, 1.1, 16.18);
     lizard(668, 974, 0.32, 0.08, 13.05);
     /* ---- prickly pear */
     task(() => wash(PADS.map((p) => p.poly.map((q) => [q[0] + 18, q[1] + 10])), { c: '#575290', a: 0.4, e: 0.35, depth: 16.5, wob: 1.2, flow: 0.3 }));
@@ -1465,12 +1485,12 @@
       // tufts hiding the foot of the wall
       for (let x = -10; x < 1090; x += R(16, 34)) { const y = WB(x) + 2; const n = 3 + ((rnd() * 5) | 0); for (let k = 0; k < n; k++) blades.push(limb([[x + k * 2.4, y + 6, 2.2], [x + k * 2.4 + R(-9, 9), y - R(8, 26), 0.3]])); }
       // drifts of flowers in the meadow, densest near the wall
-      const drifts = [[120, 1222, 90], [360, 1232, 110], [560, 1214, 70], [720, 1238, 100]];
+      const drifts = [[60, 1236, 80], [190, 1222, 90], [360, 1240, 110], [520, 1218, 80], [660, 1250, 90], [800, 1226, 70], [260, 1270, 90], [600, 1280, 80]];
       for (const [dx, dy, r] of drifts) {
-        for (let k = 0; k < 9; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r; daisies.push(ell(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.35, R(2.2, 3.6), R(1.6, 2.8), 0, 10)); }
-        for (let k = 0; k < 4; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r * 0.8; poppy(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.3 - 4, R(4.2, 6.5)); }
+        for (let k = 0; k < 16; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r; daisies.push(ell(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.35, R(2.2, 3.6), R(1.6, 2.8), 0, 10)); }
+        for (let k = 0; k < 6; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r * 0.8; poppy(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.3 - 4, R(4.2, 6.5)); }
         for (let k = 0; k < 3; k++) { const a = R(0, TAU), d = Math.sqrt(rnd()) * r; borage.push(ell(dx + Math.cos(a) * d, dy + Math.sin(a) * d * 0.3 + 6, 2.6, 2.6, 0, 5)); }
-        for (let k = 0; k < 14; k++) { const x = dx + R(-r, r), y = dy + R(-10, 30); blades.push(limb([[x, y + 10, 2], [x + R(-10, 10), y - R(12, 30), 0.3]])); }
+        for (let k = 0; k < 26; k++) { const x = dx + R(-r, r), y = dy + R(-10, 30); blades.push(limb([[x, y + 10, 2], [x + R(-10, 10), y - R(12, 30), 0.3]])); }
       }
       for (const p of poppies) { const b = bboxOf([p]); if (rnd() < 0.8) blades.push(limb([[(b[0] + b[2]) / 2, b[3], 0.9], [(b[0] + b[2]) / 2 + R(-4, 4), b[3] + R(10, 22), 0.9]])); if (rnd() < 0.4) buds.push(ell(b[2] + R(2, 6), b[1] + R(0, 8), 1.6, 2.4, R(-0.5, 0.5), 8)); }
       wash(blades, { c: '#5a8638', a: 0.72, e: 0.25, wob: 0.2, depth: 18.2, flow: 0.25 });

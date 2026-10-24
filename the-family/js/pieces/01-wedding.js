@@ -401,6 +401,7 @@
     const mm = mk(); mm.setTransform(S * G.a, 0, 0, S * G.d, S * G.e - sx, S * G.f - sy); mm.fillStyle = '#fff';
     if (o.blur) mm.filter = `blur(${(o.blur * S * 0.8).toFixed(2)}px)`;
     mm.fill(o.mask);
+    await D.tick();
     const mb = mm.getImageData(0, 0, sw, sh).data, rc = soften(ic), rk = soften(ik);
     for (const [c, rd, rgb] of [[D.C, rc, 0], [D.K, rk, 255]]) {
       const old = c.getImageData(sx, sy, sw, sh), od = old.data;
@@ -1104,7 +1105,7 @@
     D.lapL = lapL; D.shirt = shirt; D.collar = join(collarL, collarR);
     solid(D, DON_HEAD, 0.94);
     line(D, DON_BODY, 1.3, 0.75, null, 0.4);
-    solid(D, cr([[626, 534], [652, 522], [664, 518], [670, 552], [652, 560], [630, 556]]), 0.9, 1.5); // a thick neck, lost in shadow
+    solid(D, cr([[626, 534], [652, 522], [664, 518], [670, 552], [652, 560], [630, 556]]), 0.95); // a thick neck, lost in shadow
     setGroup(D, HEADM);
     lift(D, DON_HAIR, 0.14, 1.5);
     lift(D, DON_FRONT, 0.12, 3);
