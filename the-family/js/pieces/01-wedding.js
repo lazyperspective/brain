@@ -953,11 +953,11 @@
   // after the velvet: a thin catch-light along the top of the wire so it still reads in the dark at the seam
   function festoonGlint(D) {
     const FL = window.FamilyLights; if (!FL) return;
-    const wire = new Path2D(); FL.wirePath(wire, 456, W); wire.bb = [456, 280, W, 430];
-    D.K.save(); D.K.clip(rect(456, 0, W, 600));
-    D.K.lineWidth = 0.9; D.K.strokeStyle = grad(D.K, 456, 0, W, 0, [[0, 0.1], [0.7, 0.22], [1, 0.3]], W3);
+    const wire = new Path2D(); FL.wirePath(wire, 830, W); wire.bb = [830, 280, W, 430];
+    D.K.save(); D.K.clip(rect(830, 0, W, 600));
+    D.K.lineWidth = 0.9; D.K.strokeStyle = grad(D.K, 830, 0, W, 0, [[0, 0], [0.25, 0.18], [1, 0.3]], W3);
     D.K.stroke(wire); D.K.restore();
-    D.C.save(); D.C.globalCompositeOperation = 'destination-out'; D.C.lineWidth = 0.9; D.C.strokeStyle = grad(D.C, 456, 0, W, 0, [[0, 0.1], [1, 0.35]]);
+    D.C.save(); D.C.globalCompositeOperation = 'destination-out'; D.C.lineWidth = 0.9; D.C.strokeStyle = grad(D.C, 830, 0, W, 0, [[0, 0], [0.25, 0.15], [1, 0.35]]);
     D.C.stroke(wire); D.C.restore();
   }
 
