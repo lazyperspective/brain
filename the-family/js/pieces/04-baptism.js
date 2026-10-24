@@ -257,7 +257,7 @@
       let c = o.exact ? base : jit(base, o.v);
       if (!o.exact) {
         const my = (y0 + y1) / 2, mx = (x0 + x1) / 2;
-        const lum = 1.04 + 0.1 * clamp(1 - my / 700, 0, 1) - 0.1 * clamp((my - 760) / 160, 0, 1) - 0.05 * Math.abs(mx - 540) / 430 - (R() < 0.07 ? 0.16 : 0);
+        const lum = 1.04 + 0.05 * clamp(1 - my / 700, 0, 1) - 0.1 * clamp((my - 760) / 160, 0, 1) - 0.05 * Math.abs(mx - 540) / 430 - (R() < 0.07 ? 0.16 : 0);
         c = mulc(c, lum);
       }
       ctx.save();
@@ -942,7 +942,7 @@
     const { glass, P, field, band } = K;
     const cx = (op.x0 + op.x1) / 2;
     ctx.save(); ctx.clip(op.p);
-    await K.trellis([op.x0, 452, op.x1, 905], 30, [G.blueD, G.blue, G.blueV, G.blueT], G.ruby);
+    await K.trellis([op.x0, 452, op.x1, 905], 30, [mulc(G.blueD, 0.9), mulc(G.blue, 0.85), mulc(G.blueV, 0.85), mulc(G.blueT, 0.85)], mulc(G.ruby, 0.85));
     // fleur-de-lis in the head
     glass(shape(`M ${cx} 494 C ${cx + 6} 502, ${cx + 6} 512, ${cx + 2} 520 L ${cx + 2} 526 L ${cx + 12} 526 C ${cx + 14} 514, ${cx + 22} 508, ${cx + 26} 514 C ${cx + 22} 516, ${cx + 18} 522, ${cx + 18} 530 L ${cx + 4} 532 L ${cx + 4} 538 L ${cx - 4} 538 L ${cx - 4} 532 L ${cx - 18} 530 C ${cx - 18} 522, ${cx - 22} 516, ${cx - 26} 514 C ${cx - 22} 508, ${cx - 14} 514, ${cx - 12} 526 L ${cx - 2} 526 L ${cx - 2} 520 C ${cx - 6} 512, ${cx - 6} 502, ${cx} 494 Z`), G.gold, {
       paint: () => { P.tr(`M ${cx} 500 L ${cx} 524 M ${cx - 14} 529 L ${cx + 14} 529`, 0.8, 0.8); },
