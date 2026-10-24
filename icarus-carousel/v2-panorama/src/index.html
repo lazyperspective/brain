@@ -1,0 +1,15 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>render</title></head>
+<body style="margin:0;background:#111">
+<canvas id="out"></canvas>
+<script>
+  const q = new URLSearchParams(location.search);
+  const Wp = +(q.get('w') || 1080);
+  const scripts = ['lib.js', 'scene.js', 'world-paper.js', 'world-oil.js', 'world-geo.js', 'world-tonal.js', 'panorama.js'];
+  const load = (src) => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fail(new Error('could not load ' + src)); document.body.appendChild(s); });
+  (async () => {
+    try { for (const s of scripts) await load(s); await window.paint(document.getElementById('out'), Wp); window.__done = 'ok'; }
+    catch (e) { window.__done = 'error: ' + (e.stack || e); }
+  })();
+</script>
+</body></html>
