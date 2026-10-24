@@ -241,6 +241,13 @@
 
   // Light through the blinds: lift charcoal and lay chalk inside mask ∩ bars, shaped by an intensity gradient.
   function light(D, o) {
+    const t0 = performance.now();
+    lightImpl(D, o);
+    const dt = performance.now() - t0;
+    if (DEBUG && dt > 120) console.warn('slow light', Math.round(dt), D.at, JSON.stringify(o.bb));
+  }
+  const DEBUG = /[?&]debug/.test(location.search);
+  function lightImpl(D, o) {
     const { S, X } = D, bb = o.bb;
     let qx0 = bb[0], qy0 = bb[1], qx1 = bb[2], qy1 = bb[3];
     if (D.G) {

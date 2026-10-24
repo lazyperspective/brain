@@ -1181,15 +1181,44 @@
 
   /* ------------------------------------------------------------------ stone */
   function drawWall(ctx, R) {
-    ctx.fillStyle = '#131110'; ctx.fillRect(0, 0, W, H);
-    // ashlar
+    ctx.fillStyle = '#121010'; ctx.fillRect(0, 0, W, H);
+    // ashlar: dressed blocks, each a little different, with the mason's tooling and a worn arris
     for (let y = 0, row = 0; y < FLOOR_Y; y += 46, row++) {
-      for (let x = (row % 2) * -48 - 10; x < W; x += 96) {
-        const t = 0.9 + hash2(x + 300, row) * 0.2;
-        ctx.fillStyle = rgb(mulc([24, 21, 19], t)); ctx.fillRect(x + 1, y + 1, 94, 44);
+      for (let x = (row % 2) * -48 - 10, col = 0; x < W; x += 96, col++) {
+        const t = 0.86 + hash2(x + 300, row) * 0.26, c = mulc([25, 22, 19], t);
+        const g = ctx.createLinearGradient(0, y, 0, y + 46);
+        g.addColorStop(0, rgb(mulc(c, 1.12))); g.addColorStop(1, rgb(mulc(c, 0.88)));
+        ctx.fillStyle = g; ctx.fillRect(x + 1.2, y + 1.2, 93.6, 43.6);
+        ctx.save(); ctx.beginPath(); ctx.rect(x + 1.2, y + 1.2, 93.6, 43.6); ctx.clip();
+        const ang = (hash2(col, row + 9) < 0.5 ? 1 : -1) * (0.9 + hash2(col + 3, row) * 0.3);
+        ctx.strokeStyle = 'rgba(0,0,0,0.11)'; ctx.lineWidth = 0.6;
+        for (let k = -10; k < 26; k++) { ctx.beginPath(); ctx.moveTo(x + k * 4.2, y); ctx.lineTo(x + k * 4.2 + 46 * ang, y + 46); ctx.stroke(); }
+        ctx.restore();
+        ctx.fillStyle = 'rgba(120,104,88,0.1)'; ctx.fillRect(x + 1.2, y + 1.2, 93.6, 1.1);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x + 1.2, y + 43.6, 93.6, 1.2);
       }
     }
-    ctx.fillStyle = 'rgba(0,0,0,0.0)';
+  }
+  // a carved head at the end of the hood mould
+  function carvedHead(ctx, x, y, kind, side) {
+    const lit = (x0, y0, x1, y1) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, '#5c4e42'); g.addColorStop(0.55, '#33291f'); g.addColorStop(1, '#16120f'); return g; };
+    const L = (x0) => lit(x + side * 12, y, x - side * 12, y + 20);
+    const fp = (d) => { const p = new Path2D(d); return p; };
+    ctx.save();
+    ctx.fillStyle = '#0c0a09'; ctx.fillRect(x - 13, y - 2, 26, 4);
+    if (kind === 'king') {
+      ctx.fillStyle = L(); ctx.fill(fp(`M ${x - 9} ${y + 27} C ${x - 9.5} ${y + 40}, ${x - 3} ${y + 47}, ${x} ${y + 48} C ${x + 3} ${y + 47}, ${x + 9.5} ${y + 40}, ${x + 9} ${y + 27} C ${x + 5} ${y + 32}, ${x - 5} ${y + 32}, ${x - 9} ${y + 27} Z`));
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.7; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(x + k * 3, y + 32); ctx.quadraticCurveTo(x + k * 3.4, y + 40, x + k * 1.6, y + 46); ctx.stroke(); }
+    }
+    ctx.fillStyle = L(); ctx.beginPath(); ctx.ellipse(x, y + 22, 9.6, 12.6, 0, 0, Math.PI * 2); ctx.fill();
+    if (kind === 'king') { ctx.fillStyle = L(); ctx.fill(fp(`M ${x - 11} ${y + 13} L ${x - 11} ${y + 2} L ${x - 7} ${y + 7} L ${x - 3.5} ${y - 1} L ${x} ${y + 6} L ${x + 3.5} ${y - 1} L ${x + 7} ${y + 7} L ${x + 11} ${y + 2} L ${x + 11} ${y + 13} Z`)); }
+    else { ctx.fillStyle = L(); ctx.fill(fp(`M ${x - 10.5} ${y + 13} C ${x - 11} ${y + 4}, ${x - 5} ${y - 5}, ${x} ${y - 9} C ${x + 5} ${y - 5}, ${x + 11} ${y + 4}, ${x + 10.5} ${y + 13} Z`)); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x, y + 12); ctx.moveTo(x - 10, y + 10); ctx.lineTo(x + 10, y + 10); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    [-4, 4].forEach((dx) => { ctx.beginPath(); ctx.ellipse(x + dx, y + 20, 2.2, 1.0, 0, 0, Math.PI * 2); ctx.fill(); });
+    ctx.strokeStyle = 'rgba(120,100,84,0.6)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(x + side * 0.5, y + 19); ctx.lineTo(x + side * 1.6, y + 27); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(x - 3, y + 30); ctx.quadraticCurveTo(x, y + 31, x + 3, y + 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 5, y + 16); ctx.quadraticCurveTo(x - 3, y + 15, x - 1.5, y + 16.4); ctx.moveTo(x + 1.5, y + 16.4); ctx.quadraticCurveTo(x + 3, y + 15, x + 5, y + 16); ctx.stroke();
+    ctx.restore();
   }
   function drawWindowStone(ctx, plan) {
     const outer = plan.outer;
@@ -1197,14 +1226,16 @@
     const hood = archHead(OUTER.x0 - 92, OUTER.x1 + 92, OUTER.ys, OUTER.ya - 92 * 1.0);
     const hp = new Path2D(); hood.pts.forEach((q, i) => (i ? hp.lineTo(q.p[0], q.p[1]) : hp.moveTo(q.p[0], q.p[1])));
     ctx.lineCap = 'butt';
-    ctx.strokeStyle = '#0b0a09'; ctx.lineWidth = 16; ctx.stroke(hp);
-    ctx.strokeStyle = '#2a2420'; ctx.lineWidth = 11; ctx.stroke(hp);
-    ctx.strokeStyle = '#3a322b'; ctx.lineWidth = 3; ctx.save(); ctx.translate(0, -3); ctx.stroke(hp); ctx.restore();
-    // label stops
-    [[OUTER.x0 - 92, OUTER.ys], [OUTER.x1 + 92, OUTER.ys]].forEach(([x, y]) => {
-      ctx.fillStyle = '#231e1a'; ctx.beginPath(); ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y); ctx.lineTo(x + 7, y + 22); ctx.quadraticCurveTo(x, y + 30, x - 7, y + 22); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#3a322b'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x - 6, y + 8); ctx.quadraticCurveTo(x, y + 14, x + 6, y + 8); ctx.stroke();
-    });
+    // the hood mould: a roll between two hollows, its upper edge weathered, its underside in shadow
+    ctx.strokeStyle = '#090807'; ctx.lineWidth = 20; ctx.stroke(hp);
+    ctx.strokeStyle = '#211c18'; ctx.lineWidth = 15; ctx.stroke(hp);
+    ctx.strokeStyle = '#100e0c'; ctx.lineWidth = 9; ctx.stroke(hp);
+    ctx.strokeStyle = '#3a3129'; ctx.lineWidth = 5; ctx.stroke(hp);
+    ctx.strokeStyle = 'rgba(110,92,76,0.55)'; ctx.lineWidth = 1.2; ctx.save(); ctx.translate(0, -1.6); ctx.stroke(hp); ctx.restore();
+    ctx.strokeStyle = 'rgba(90,76,64,0.4)'; ctx.lineWidth = 1.2; ctx.save(); ctx.translate(0, -8.6); ctx.stroke(hp); ctx.restore();
+    // label stops: a crowned king and a mitred bishop
+    carvedHead(ctx, OUTER.x0 - 92, OUTER.ys + 6, 'king', 1);
+    carvedHead(ctx, OUTER.x1 + 92, OUTER.ys + 6, 'bishop', -1);
     // reveal: mouldings stepping in towards the glass
     const bands = [[86, '#0d0b0a'], [82, '#241f1b'], [78, '#110f0d'], [70, '#1a1714'], [64, '#3a322c'], [60, '#28231e'], [56, '#100e0c']];
     ctx.lineJoin = 'round';
@@ -1251,6 +1282,37 @@
         ctx.strokeStyle = 'rgba(110,96,82,0.18)'; ctx.lineWidth = 0.7; ctx.stroke();
       }
     }
+    // where the stone is broad, the mason has carved blind trefoils into it
+    const sc = ctx.getTransform().a, bpts = [];
+    all.forEach((a) => a.forEach((q, i) => { if (i % 3 === 0) bpts.push(q); }));
+    const cand = [];
+    for (let y = 60; y < 600; y += 7) for (let x = 120; x < 960; x += 7) {
+      if (!ctx.isPointInPath(plan.outer.p, x * sc, y * sc)) continue;
+      if (ops.some((op) => ctx.isPointInPath(op.p, x * sc, y * sc))) continue;
+      let d = 1e9; for (const q of bpts) { const dd = (q[0] - x) ** 2 + (q[1] - y) ** 2; if (dd < d) d = dd; }
+      d = Math.sqrt(d); if (d > 21) cand.push([x, y, d]);
+    }
+    cand.sort((p, q) => q[2] - p[2]);
+    const placed = [];
+    for (const [x, y, d] of cand) {
+      const r = Math.min(26, d - 9);
+      if (placed.some(([px, py, pr]) => Math.hypot(px - x, py - y) < pr + r + 10)) continue;
+      if (placed.length > 14) break;
+      placed.push([x, y, r]);
+    }
+    placed.forEach(([x, y, r]) => {
+      const f = foilOpening(x, y, r, 3, -Math.PI / 2 + (x < 540 ? 0.3 : -0.3), 0.5);
+      ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = '#141110'; ctx.fill(f.p);
+      ctx.save(); ctx.clip(f.p); ctx.translate(1.4, 1.4); ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 3; ctx.stroke(f.p); ctx.restore();
+      ctx.save(); ctx.translate(-0.8, -0.8); ctx.strokeStyle = 'rgba(98,84,70,0.4)'; ctx.lineWidth = 0.9; ctx.stroke(f.p); ctx.restore();
+    });
+    // a roll moulding down the face of each mullion
+    [[343, 410, 905], [737, 410, 905]].forEach(([x, y0, y1]) => {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x - 5, y0 + 120, 10, y1 - y0 - 120);
+      const g = ctx.createLinearGradient(x - 4, 0, x + 4, 0); g.addColorStop(0, '#2a241f'); g.addColorStop(0.45, '#5a4d42'); g.addColorStop(1, '#1a1613');
+      ctx.fillStyle = g; ctx.fillRect(x - 4, y0 + 120, 8, y1 - y0 - 120);
+    });
     // mason's joints in the mullions
     ctx.strokeStyle = 'rgba(10,9,8,0.7)'; ctx.lineWidth = 1;
     [[330, 356], [724, 750], [110, 122], [958, 970]].forEach(([a, b]) => {
@@ -1767,6 +1829,7 @@
     bl(Math.max(1, 2 * scale / 2), 2, 0.3); await breathe();
     bl(Math.max(1, 6 * scale / 2), 4, 0.42); await breathe();
     bl(Math.max(1, 16 * scale / 2), 6, 0.48); await breathe();
+    bl(Math.max(1, 40 * scale / 2), 6, 0.4); await breathe();
     (() => {
       const c = document.createElement('canvas'); c.width = Math.ceil(cv.width / 3); c.height = Math.ceil(cv.height / 3);
       const x = c.getContext('2d', { willReadFrequently: true }); x.filter = 'contrast(2.8) brightness(0.5) blur(2px)'; x.drawImage(cv, 0, 0, c.width, c.height); x.filter = 'none';
