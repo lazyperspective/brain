@@ -72,11 +72,11 @@
   // 0 day, 1 golden, 2 dusk, 3 blue hour, 4 night
   const hx = (h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
   const KEYS = [
-    { amb: [0.60, 0.64, 0.72], sun: [0.44, 0.40, 0.31], e: 1.05, top: hx('9cc2d6'), bot: hx('f6e6cc'), glow: hx('fbf2e2') },
-    { amb: [0.53, 0.49, 0.61], sun: [0.62, 0.44, 0.25], e: 0.55, top: hx('a7b3cf'), bot: hx('f6c79c'), glow: hx('fbd9b0') },
-    { amb: [0.45, 0.37, 0.55], sun: [0.40, 0.19, 0.13], e: 0.32, top: hx('51508a'), bot: hx('e6988a'), glow: hx('f0b49a') },
-    { amb: [0.27, 0.29, 0.48], sun: [0.00, 0.00, 0.00], e: 0.25, top: hx('1d2554'), bot: hx('645c92'), glow: hx('7a6aa0') },
-    { amb: [0.16, 0.18, 0.35], sun: [0.00, 0.00, 0.00], e: 0.25, top: hx('070a1c'), bot: hx('1a2352'), glow: hx('2a3468') },
+    { amb: [0.60, 0.64, 0.72], sun: [0.44, 0.40, 0.31], e: 1.05, top: hx('98c0d4'), mid: hx('d6e6e0'), bot: hx('f7e3c6') },
+    { amb: [0.53, 0.49, 0.61], sun: [0.62, 0.44, 0.25], e: 0.55, top: hx('a2b2cc'), mid: hx('e8cdbc'), bot: hx('f6c6a0') },
+    { amb: [0.45, 0.37, 0.55], sun: [0.40, 0.19, 0.13], e: 0.32, top: hx('4c4c84'), mid: hx('a07a9c'), bot: hx('e4a092') },
+    { amb: [0.30, 0.31, 0.53], sun: [0.06, 0.05, 0.10], e: 0.25, top: hx('1a2352'), mid: hx('34406e'), bot: hx('5e5a8e') },
+    { amb: [0.22, 0.25, 0.46], sun: [0.12, 0.14, 0.26], e: 0.25, top: hx('080b1e'), mid: hx('121a3c'), bot: hx('233060') },
   ];
   // light level factors: [amb, sun]; 0 underside, 1 right face, 2 left in shadow, 3 left lit, 4 top in shadow, 5 top lit
   const LV = [[0.50, 0.00], [0.64, 0.10], [0.86, 0.00], [0.86, 0.62], [1.00, 0.00], [1.00, 1.00]];
@@ -173,9 +173,9 @@
       [24, 24.5, 24, 24, -37, -40.5]];
     for (const [a, b, c, d, zt, zb] of L) box(a, b, zb, 54 - c, 54 - d, zt, M_EARTH1, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false });
     // floating pebbles
-    box(-8, 38, -16, -5, 41, -13.5, M_GRASS, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.1 });
+    box(14, 55, -21, 17, 58, -18.5, M_GRASS, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.1 });
     box(62, 16, -21, 64, 18, -19, M_GRASS, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.55 });
-    box(60, 60, -40, 61.5, 61.5, -38.5, M_EARTH1, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.3 });
+    box(58, 50, -33, 59.5, 51.5, -31.5, M_EARTH1, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.3 });
 
     /* --- water and plinths */
     box(4, 23, -2.5, 50, 31, -1, M_WATER, M_WATER, M_WATER, { spc: S_WATER, an: A_WATER });
@@ -206,7 +206,6 @@
     box(39, 7, 33, 41, 9, 35, M_ROOF, M_TEAL, M_TEAL, { an: A_DROP, t0: 4.74, du: 0.2, hh: 6 });
     box(26.1, 14.1, 69, 26.9, 14.9, 77, M_METAL, M_METAL, M_METAL, { an: A_GROW, t0: 4.65, du: 0.5 });
     box(25.9, 13.9, 77, 27.1, 15.1, 78, M_METAL, M_METAL, M_METAL, { spc: S_BEACON, an: A_GROW, t0: 5.1, du: 0.2 });
-    box(29.5, 35, 21, 33, 38, 23.5, M_STONE, M_SLATE, M_SLATE, { an: A_DROP, t0: 4.85, du: 0.2, hh: 6 });
     tank(48.5, 15.5, 21, 5.0);
     tank(7.5, 39.5, 25, 5.25);
 
@@ -507,13 +506,14 @@
   const LSX = -0.52, LSY = 0.40, LSZ = 0.75;
   function earthMat(X, Y, Z, face) {
     if (Z > -0.9) return M_GRASSD;
-    if (Z > -2.7) return M_SOIL;
     const u = face === 1 ? X : Y;
     const w = Z + 0.9 * Math.sin(u * 0.42 + Z * 0.07);
     const b = fl((-w - 2.7) / 3.4);
     if (b > 9) return M_EARTH3;
     return b % 3 === 0 ? M_EARTH1 : b % 3 === 1 ? M_EARTH2 : (b > 5 ? M_EARTH3 : M_EARTH1);
   }
+  // the light change sweeps upward: the ground turns first, tower tops keep the old light longest
+  const keyF = (Z) => clamp((KF - 0.5 * clamp(Z / 72, 0, 1)) * 2, 0, 1);
   function shadeHit(o, face, X, Y, Z, px, py, refl) {
     let m, lvl;
     if (face === 0) { m = o.mt; lvl = 5; }
@@ -544,13 +544,13 @@
     }
     if (!refl && SUN && (lvl === 5 || lvl === 3) && o.spc !== S_EARTH && inShadow(X, Y, Z, o.k === 0 ? null : o)) lvl -= 1;
     const k = m * 6 + lvl;
-    return bay(px, py) < KF ? SWB[k] : SWA[k];
+    return bay(px, py) < keyF(Z) ? SWB[k] : SWA[k];
   }
   function shadeWater(X, Y, Z, px, py, t) {
     // ripple: shift the mirrored ray sideways
     const rip = Math.sin(Y * 1.7 + X * 0.35 - TAU * t / (D / 12)) + 0.6 * Math.sin(X * 0.9 - Y * 0.6 + TAU * t / (D / 8));
     const dx = 0.32 * rip;
-    const base = PAL[bay(px, py) < KF ? SWB[M_WATER * 6 + 5] : SWA[M_WATER * 6 + 5]];
+    const base = PAL[bay(px, py) < keyF(0) ? SWB[M_WATER * 6 + 5] : SWA[M_WATER * 6 + 5]];
     let r, g, b, mix = 0.42;
     if (reflectHit(X + dx, Y - dx, Z, t)) {
       const c = shadeHit(RO, RF, RX, RY, RZ, px, py, true);
@@ -568,17 +568,47 @@
   }
 
   /* ================================================================ sky */
-  function skyPrep() {
-    const a = KEYS[K0], b = KEYS[K1], f = KF;
-    const t0 = [lerp(a.top[0], b.top[0], f), lerp(a.top[1], b.top[1], f), lerp(a.top[2], b.top[2], f)];
-    const b0 = [lerp(a.bot[0], b.bot[0], f), lerp(a.bot[1], b.bot[1], f), lerp(a.bot[2], b.bot[2], f)];
-    for (let y = 0; y < H; y++) {
-      const v = Math.pow(y / (H - 1), 1.15);
-      SKYR[y] = lerp(t0[0], b0[0], v); SKYG[y] = lerp(t0[1], b0[1], v); SKYB[y] = lerp(t0[2], b0[2], v);
+  // banded void: flat bands of palette colour with ordered-dither seams; key changes wipe down at dusk, up at dawn
+  const SKYBANDS = [
+    { c: [13, 12, 11, 10], b: [0.2, 0.44, 0.7] },
+    { c: [12, 11, 10, 9], b: [0.22, 0.46, 0.74] },
+    { c: [5, 6, 7, 8], b: [0.26, 0.5, 0.76] },
+    { c: [1, 2, 3, 4], b: [0.24, 0.52, 0.8] },
+    { c: [0, 1, 2, 3], b: [0.34, 0.7, 0.97] },
+  ];
+  const SKA = new Uint8Array(H * 4);
+  function bandRow(key, v, y) {
+    const S = SKYBANDS[key], bw = 0.075;
+    let k = 0;
+    while (k < S.b.length && v > S.b[k] + bw * 0.5) k++;
+    if (k < S.b.length && v > S.b[k] - bw * 0.5) {
+      const al = (v - (S.b[k] - bw * 0.5)) / bw;
+      return [S.c[k], S.c[k + 1], al];
     }
-    GLOW[0] = lerp(a.glow[0], b.glow[0], f); GLOW[1] = lerp(a.glow[1], b.glow[1], f); GLOW[2] = lerp(a.glow[2], b.glow[2], f);
+    return [S.c[k], S.c[k], 0];
   }
-  const GLOW = [0, 0, 0];
+  function skyPrep() {
+    for (let y = 0; y < H; y++) {
+      const v = y / (H - 1);
+      const kf = clamp((KF * 1.3 - v * 0.3 - 0.0) / 1.0, 0, 1);
+      const wipe = clamp((KF * 1.25 - v * 0.25 - 0) , 0, 1);
+      const a = bandRow(K0, v, y), b = bandRow(K1, v, y);
+      // wipe front: rows above it show the next key
+      const front = KF * 1.2 - 0.1, fw = 0.1;
+      const kk = clamp((front - v) / fw + 0.5, 0, 1);
+      SKA[y * 4] = a[0]; SKA[y * 4 + 1] = a[1]; SKF0[y] = a[2];
+      SKA[y * 4 + 2] = b[0]; SKA[y * 4 + 3] = b[1]; SKF1[y] = b[2]; SKK[y] = kk;
+      const pa = PAL[a[0]], pb = PAL[b[0]];
+      SKYR[y] = lerp(pa[0], pb[0], kk); SKYG[y] = lerp(pa[1], pb[1], kk); SKYB[y] = lerp(pa[2], pb[2], kk);
+      void kf; void wipe;
+    }
+  }
+  const SKF0 = new Float32Array(H), SKF1 = new Float32Array(H), SKK = new Float32Array(H);
+  function skyAt(x, y) {
+    const j = y * 4, bb = bay(x, y);
+    if (bay(x + 1, y + 3) < SKK[y]) return bb < SKF1[y] ? SKA[j + 3] : SKA[j + 2];
+    return bb < SKF0[y] ? SKA[j + 1] : SKA[j];
+  }
 
   /* ================================================================ sparks */
   let SPK = null; // packed: lx, ly, tau, seed
@@ -658,7 +688,6 @@
     drawSparks(t);
     // compose over the void
     const dy = bobAt(t);
-    const gcx = CX, gcy = CY + 40 + dy, gr2 = 1 / (150 * 150);
     const starA = sstep(2.6, 3.8, P);
     for (let y = 0; y < H; y++) {
       const ly = y - dy;
@@ -666,12 +695,7 @@
         const o = y * W + x;
         const c = ly >= 0 && ly < H ? ISL[ly * W + x] : 255;
         if (c !== 255) { OUT[o] = c; continue; }
-        const ddx = x - gcx, ddy = (y - gcy) * 1.25;
-        const gl = Math.max(0, 1 - (ddx * ddx + ddy * ddy) * gr2);
-        const gw = gl * gl * 0.55;
-        const dd = (bay(x, y) - 0.5) * 20;
-        let r = lerp(SKYR[y], GLOW[0], gw) + dd, gg = lerp(SKYG[y], GLOW[1], gw) + dd, b = lerp(SKYB[y], GLOW[2], gw) + dd;
-        let cc = lut(r, gg, b);
+        let cc = skyAt(x, y);
         if (starA > 0) {
           const hs = ih(x, y, 555);
           if (hs < 0.0045 && y < 250) {

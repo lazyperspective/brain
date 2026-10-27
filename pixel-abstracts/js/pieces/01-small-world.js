@@ -9,7 +9,7 @@
  * the ground; storms flash on the night side, cities twinkle, an aurora ripples over the north pole,
  * and a tidally locked moon makes one orbit per loop, crossing the sun line (its shadow runs across the
  * day side) and the anti-sun line (it turns copper in the planet’s shadow before slipping behind it).
- * 270 × 338 art pixels, 39 colours, shown at 4×. Every frame is a pure function of t.
+ * 270 × 338 art pixels, 40 colours, shown at 4×. Every frame is a pure function of t.
  */
 (function () {
   'use strict';
@@ -38,7 +38,7 @@
     return (h >>> 0) / 4294967296;
   }
 
-  /* ================================================================ palette (39) */
+  /* ================================================================ palette (40) */
   const P = {}, PAL_HEX = [];
   const C = (name, hex) => { P[name] = PAL_HEX.length; PAL_HEX.push(hex); };
   C('void', '04050c'); C('sp1', '0b0e20'); C('sp2', '151b38'); C('neb1', '1b1540'); C('neb2', '2a1d52');
@@ -51,7 +51,7 @@
   C('ro1', '4a3c40'); C('ro2', '7a6458'); C('ro3', 'ae9480');
   C('cl0', '262c4c'); C('cl1', '6a7498'); C('cl3', 'dfe6f4');
   C('ci1', 'b8682c'); C('ci2', 'f4b04c'); C('ci3', 'fff0c0');
-  C('au1', '1c5a48'); C('au2', '2fae74'); C('au3', '86f0a4');
+  C('au1', '1c5a48'); C('au2', '2fae74'); C('au3', '86f0a4'); C('au4', 'b0559a');
   const PAL = PAL_HEX.map((h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]);
 
   // biomes and their light ramps: [night, dusk, shade, lit, bright]
@@ -284,7 +284,7 @@
   const LEVF = new Uint8Array(NP).fill(255), DKOF = new Int32Array(NP).fill(-1);
   const BG = new Uint8Array(NP), OUT = new Uint8Array(NP);
   let RIM = [];          // [pixel, colour] for the atmosphere outside the disc
-  let AUR = null, AURPIX = null, AURACC = null;
+  let AUR = null, AURPIX = null, AURACC = null, AURALT = null;
   const STARS = [];
 
   function band(d, x, y) {   // light level 0..4 with a narrow ordered-dither seam at each step
@@ -348,14 +348,15 @@
   }
 
   /* aurora: samples of a thin shell (r = 1 … 1.09) over the north pole, on the night side, stored once */
-  const AW_ = 0.026;
+  const AW_ = 0.032;
   function buildAurora() {
     const x0 = CX - 60, x1 = CX + 100, y0 = CY - R - 22, y1 = CY - 5;
     const pix = [], smp = [];
     const NS = 22;
+    const mc = nrm(0.9, 0.3, 0.35), am = toBody(mc[0], mc[1], mc[2]), lonMid = Math.atan2(am[0], am[2]);   // centre of the arc: night side, facing us
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const u = (x + 0.5 - CX) / R, v = -(y + 0.5 - CY) / R, r2 = u * u + v * v;
-      const RO = 1.2;
+      const RO = 1.16;
       if (r2 >= RO * RO) continue;
       const zmax = Math.sqrt(RO * RO - r2), zmin = r2 < 1 ? Math.sqrt(1 - r2) : -zmax;
       const dz = (zmax - zmin) / NS;
@@ -365,18 +366,21 @@
         if (alt < 0) continue;
         const nx = u / rr, ny = v / rr, nz = z / rr;
         const night = nx * L[0] + ny * L[1] + nz * L[2];
-        if (night > 0.1) continue;
+        if (night > -0.02) continue;
         const b = toBody(nx, ny, nz);
         const colat = Math.acos(clamp(b[1], -1, 1));
-        if (colat < 0.12 || colat > 0.48) continue;
+        if (colat < 0.2 || colat > 0.56) continue;
         const lon = Math.atan2(b[0], b[2]);
+        let dl = lon - lonMid; dl -= TAU * Math.round(dl / TAU);
+        if (Math.abs(dl) > 1.5) continue;                       // only an arc around midnight, never the whole oval
+        const win = Math.cos(dl / 1.5 * Math.PI / 2);
         if (!any) { pix.push(y * AW + x); any = true; }
-        smp.push(pix.length - 1, lon, colat, alt, dz * R * clamp((0.1 - night) / 0.2, 0, 1));
+        smp.push(pix.length - 1, lon, colat, alt, dz * R * win * win * clamp((-0.02 - night) / 0.2, 0, 1));
       }
     }
     AURPIX = Int32Array.from(pix);
     AUR = Float32Array.from(smp);
-    AURACC = new Float32Array(pix.length);
+    AURACC = new Float32Array(pix.length); AURALT = new Float32Array(pix.length);
   }
 
   /* moon: a little crater map, tidally locked */
@@ -614,31 +618,34 @@
       if (b >= 3 && LEVF[pi + 1] === 0) OUT[pi + 1] = P.ci2;
     }
 
-    // aurora
-    AURACC.fill(0);
+    // aurora: an arc of soft curtains on the midnight side, bright at the foot, dithering away upward
+    AURACC.fill(0); AURALT.fill(0);
     for (let i = 0; i < AUR.length; i += 5) {
       const lon = AUR[i + 1], colat = AUR[i + 2], alt = AUR[i + 3];
-      const c0 = 0.27 + 0.016 * Math.sin(3 * lon + tau) + 0.009 * Math.sin(7 * lon - 2 * tau);
+      if (alt < 0.008) continue;
+      const c0 = 0.37 + 0.014 * Math.sin(4 * lon + 2 * tau) + 0.006 * Math.sin(9 * lon - 3 * tau);
       const dd = Math.abs(colat - c0);
       if (dd > AW_) continue;
-      if (alt < 0.012) continue;
       const fold = 1 - dd / AW_;
-      const prof = Math.exp(-(alt - 0.012) / 0.085);
-      let ray = 0.5 + 0.5 * Math.sin(37 * lon + 3 * tau + 2.2 * Math.sin(5 * lon - tau));
+      const prof = Math.exp(-(alt - 0.008) / 0.055);
+      let ray = 0.5 + 0.5 * Math.sin(29 * lon + 3 * tau + 2 * Math.sin(6 * lon - 2 * tau));
       ray = ray * ray * ray;
-      const pulse = 0.62 + 0.24 * Math.sin(2 * lon - 2 * tau) + 0.14 * Math.sin(5 * lon + 3 * tau);
+      const pulse = 0.55 + 0.45 * Math.sin(3 * lon - 2 * tau);
+      const e = 1.9 * AUR[i + 4] * fold * pulse * prof * (0.15 + 0.85 * ray);
       const p = AUR[i] | 0;
-      const w = AUR[i + 4] * fold * pulse;
-      AURACC[p] += w * (alt < 0.03 ? 1.4 : prof * (0.15 + 0.85 * ray));
+      AURACC[p] += e; AURALT[p] += e * alt;
     }
     for (let p = 0; p < AURPIX.length; p++) {
       const a = AURACC[p];
-      if (a < 0.05) continue;
+      if (a < 0.04) continue;
       const pi = AURPIX[p], x = pi % AW, y = (pi / AW) | 0, b = bay(x, y);
-      const e = a + (b - 0.5) * 0.25;
-      if (e > 1.5) OUT[pi] = P.au3;
-      else if (e > 0.75) OUT[pi] = P.au2;
-      else if (e > 0.3) OUT[pi] = P.au1;
+      const h = AURALT[p] / a;                 // mean height of the light along this line of sight
+      if (h > 0.075) { if (a > 0.1 && ih(x, y, 31) < 0.13) OUT[pi] = P.au4; continue; }      // sparse magenta tips
+      const e = a * (1 - h * 7);               // fades with height
+      if (e > 1.8 + (b - 0.5) * 0.4) OUT[pi] = P.au3;
+      else if (e > 0.85 + (b - 0.5) * 0.4) OUT[pi] = P.au2;
+      else if (e > 0.4) OUT[pi] = P.au1;
+      else if (e > 0.08 && b < (e - 0.08) / 0.32) OUT[pi] = P.au1;           // dithered upper reaches
     }
 
     if (mp[2] >= 0) drawMoon(mp, true);
@@ -667,7 +674,7 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'small-world',
     title: 'Small World',
-    medium: 'Pixel art in 39 colours, 270 × 338, animated in JavaScript · 20 s loop',
+    medium: 'Pixel art in 40 colours, 270 × 338, animated in JavaScript · 20 s loop',
     note: 'One day on a very small planet · tap to pause',
     about: 'A pocket planet turns once in twenty seconds. Continents slide around the curve with their deserts, forests and snowy poles; a cloud deck turns twice as fast and drags its shadows over the ground; on the night side cities twinkle, storms flash and an aurora ripples over the pole. Its moon makes one orbit per loop: it throws a small shadow across the day side, then turns copper in the planet’s shadow before slipping behind it. Every pixel is computed as it plays, lit with palette ramps and ordered dither.',
     tone: 'dark',

@@ -163,12 +163,12 @@
     for (let x = 0; x < 200; x++) {
       const yb = 74 + 16 * Math.sin(x * 0.021 + 0.6) + 7 * Math.sin(x * 0.057 + 2.1) - x * 0.12;
       const env = sstep(-20, 30, x) * sstep(205, 120, x);
-      const ray = 0.55 + 0.45 * fbm1(x * 0.21, 41, 3);
+      const ray = 0.38 + 0.75 * fbm1(x * 0.21, 41, 3);
       for (let y = 0; y < 120; y++) {
         const up = yb - y;
         let I;
         if (up < 0) I = Math.exp(up / 2.2);
-        else I = Math.exp(-up / (13 + 12 * vn1(x * 0.05, 43))) * (1 - sstep(48, 70, up));
+        else I = Math.exp(-up / (10 + 18 * vn1(x * 0.04, 43))) * (1 - sstep(44, 66, up)) * (0.75 + 0.25 * Math.sin(x * 0.09 + 1));
         I *= env * ray;
         auroraI[y * W + x] = I;
         if (I + (bay(x, y) - 0.5) * 0.28 < 0.16) continue;
@@ -390,7 +390,7 @@
       const mx = MX - 3 + 5 * (vn1(y * 0.18, 505) - 0.5) * sc * 0.6;
       const mw = 1.5 + (y - PY) * 0.12;
       let glint = 1.0 - Math.abs(x - mx) / mw;
-      glint = Math.max(glint, 0.62 * Math.exp(-(((x - FX) / 14) ** 2)) * sstep(PY + 30, PY, y));
+      glint = Math.max(glint, 0.5 * Math.exp(-(((x - FX) / 14) ** 2)) * sstep(PY + 30, PY, y));
       glint += (ih(x >> 1, y, 507) - 0.5) * 0.5 - 0.25 * sstep(0.75, 1, lat);
       const tb = glint + (bay(x, y) - 0.5) * 0.5 > 0.5;
       IDX[i] = cyc(tb ? RVB : RVA, p, x, y);
@@ -454,7 +454,7 @@
       const side = 0.7 * Math.exp(-(((x - 72) / 12) ** 2) - ((y - 238) / 8) ** 2) + 0.7 * Math.exp(-(((x - 210) / 12) ** 2) - ((y - 238) / 8) ** 2);
       const wx = 9 * (vn2(x * 0.02, y * 0.04, 711) - 0.5), wy = 7 * (vn2(x * 0.03, y * 0.02, 713) - 0.5);
       const f = fbm2((x + wx) * 0.07, (y + wy) * 0.045, 701, 4);
-      let dens = (col * 0.85 + veil * 1.15 + side) * (0.2 + 1.6 * sstep(0.3, 0.8, f));
+      let dens = (col * 0.7 + veil * 1.3 + side) * (0.2 + 1.6 * sstep(0.3, 0.8, f));
       if (dens + (bay(x, y) - 0.5) * 0.55 < 0.5) continue;
       if (own(x, y) === 6 || own(x, y) === 7) continue;
       const p = -y * 0.075 + 7 * fbm2(x * 0.03, y * 0.05, 709, 3) + 0.02 * x;
