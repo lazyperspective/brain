@@ -1,8 +1,8 @@
 /* The Night Shift — piece 1.
  *
- * A 20-second seamless loop of real pixel art: a haunted mansion shown as a dollhouse cutaway, sixteen
+ * A 20-second seamless loop of real pixel art: a haunted mansion shown as a dollhouse cutaway, twenty-six
  * rooms from a bat turret down to a crypt under the garden, everyone at a little routine until the
- * doorbell rings. Every frame is a pure function of t. The house is painted into a 360 × 450 art-pixel
+ * doorbell rings. Every frame is a pure function of t. The house is painted into an 800 × 450 art-pixel
  * buffer (palette index, light mode and room per pixel), lit room by room with stepped, ordered-dithered
  * light, quantised to a 40-colour palette and scaled up nearest-neighbour, with a hard cut to a 3x
  * close-up for the doorstep and a blackout that puts everyone back in their rooms.
@@ -11,7 +11,7 @@
   'use strict';
 
   /* ================================================================ constants & helpers */
-  const AW = 360, AH = 450, NP = AW * AH, D = 20;
+  const AW = 800, AH = 450, NP = AW * AH, D = 20;
   const TAU = Math.PI * 2;
   const fl = Math.floor;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -81,9 +81,10 @@
   const ME = 0, MR = 1, MS = 2, MX = 3;
   function mkT(w, h, full) { return { w, h, c: new Uint8Array(w * h), m: new Uint8Array(w * h), r: full ? new Uint8Array(w * h) : null, x0: 0, y0: 0, x1: w, y1: h }; }
   let TG = null, PM = MR, PR = 0;
+  let OX = 0; // x offset when drawing into the scene: the rooms east of the new wing keep their old coordinates
   const pen = (m, r) => { PM = m; if (r !== undefined) PR = r; };
   function put(x, y, col) {
-    x = fl(x); y = fl(y);
+    x = fl(x) + (TG.r ? OX : 0); y = fl(y);
     const T = TG;
     if (x < T.x0 || y < T.y0 || x >= T.x1 || y >= T.y1) return;
     const i = y * T.w + x;
@@ -177,26 +178,28 @@
   /* ================================================================ layout */
   // floors: y of the walking surface
   const F_ATT = 92, F4Y = 152, F3Y = 208, F2Y = 264, F1Y = 332, FCY = 392, GY = 338;
-  const HX0 = 8, HX1 = 320, DOORX = 316;
-  const MOONX = 326, MOONY = 44;
+  const HX0 = 8, HX1 = 720, DOORX = 716, DX = 400; // DX: how far the stairwell side moved east when the wing went in
+  const MOONX = 742, MOONY = 44;
   const R_EXT = 0, R_ATT = 1, R_TUR = 2, R_VAMP = 3, R_LIB = 4, R_BATH = 5, R_WOLF = 6, R_FRANK = 7, R_ARM = 8,
-    R_KIT = 9, R_CONS = 10, R_BALL = 11, R_PARL = 12, R_HALL = 13, R_CEL = 14, R_STR = 15, R_EARTH = 16, R_PORCH = 17, R_TOMB = 18;
+    R_KIT = 9, R_CONS = 10, R_BALL = 11, R_PARL = 12, R_HALL = 13, R_CEL = 14, R_STR = 15, R_EARTH = 16, R_PORCH = 17, R_TOMB = 18,
+    R_NURS = 19, R_ORGAN = 20, R_GUEST = 21, R_LAB = 22, R_GAL = 23, R_COST = 24, R_DINE = 25, R_GAME = 26, R_AQUA = 27, R_CINE = 28;
   // rooms: id, rect (interior)
   const ROOMS = [
     [R_TUR, 12, 40, 56, 92],
-    [R_VAMP, 12, 96, 92, 152], [R_LIB, 96, 96, 176, 152], [R_BATH, 180, 96, 262, 152],
-    [R_WOLF, 12, 156, 86, 208], [R_FRANK, 90, 156, 180, 208], [R_ARM, 184, 156, 262, 208],
-    [R_KIT, 12, 212, 112, 264], [R_CONS, 116, 212, 262, 264],
-    [R_BALL, 12, 268, 176, 332], [R_PARL, 180, 268, 262, 332],
-    [R_HALL, 266, 96, 316, 332], [R_CEL, 12, 336, 316, 392], [R_TOMB, 122, 406, 198, 436],
+    [R_VAMP, 12, 96, 92, 152], [R_LIB, 96, 96, 176, 152], [R_NURS, 180, 96, 300, 152], [R_ORGAN, 304, 96, 440, 152], [R_GUEST, 444, 96, 576, 152], [R_BATH, 580, 96, 662, 152],
+    [R_WOLF, 12, 156, 86, 208], [R_FRANK, 90, 156, 180, 208], [R_LAB, 184, 156, 320, 208], [R_GAL, 324, 156, 450, 208], [R_COST, 454, 156, 580, 208], [R_ARM, 584, 156, 662, 208],
+    [R_KIT, 12, 212, 112, 264], [R_DINE, 116, 212, 300, 264], [R_GAME, 304, 212, 512, 264], [R_CONS, 516, 212, 662, 264],
+    [R_BALL, 12, 268, 176, 332], [R_AQUA, 180, 268, 340, 332], [R_CINE, 344, 268, 576, 332], [R_PARL, 580, 268, 662, 332],
+    [R_HALL, 666, 96, 716, 332], [R_CEL, 12, 336, 716, 392], [R_TOMB, 122, 406, 198, 436],
   ];
   const INTERIOR = new Uint8Array(32);
   for (const r of ROOMS) INTERIOR[r[0]] = 1;
   INTERIOR[R_ATT] = 1;
-  const roofY = (x) => 14 + Math.abs(x - 190) / 138 * 78;
+  // two gables, west and east, with a flat roof and a widow's walk between
+  const roofY = (x) => Math.min(14 + Math.abs(x - 190) / 138 * 78, 14 + Math.abs(x - 590) / 138 * 78, 86);
   function roomAt(x, y) {
     for (const r of ROOMS) if (x >= r[1] && x < r[3] && y >= r[2] && y < r[4]) return r[0];
-    if (y < F_ATT && x >= 60 && x < 316 && y > roofY(x) + 5) return R_ATT;
+    if (y < F_ATT && x >= 60 && x < 716 && y > roofY(x) + 5) return R_ATT;
     return R_EXT;
   }
   // lights per room: [x, y, radius, [r,g,b], intensity, flicker]
@@ -209,22 +212,34 @@
     AMB[R_KIT] = [0.28, 0.2, 0.26]; AMB[R_CONS] = [0.26, 0.32, 0.48]; AMB[R_BALL] = [0.3, 0.2, 0.26]; AMB[R_PARL] = [0.26, 0.2, 0.26];
     AMB[R_HALL] = [0.22, 0.26, 0.28]; AMB[R_CEL] = [0.2, 0.16, 0.24]; AMB[R_TOMB] = [0.16, 0.14, 0.22];
     LIGHTS[R_TUR] = [[34, 58, 34, [0.55, 0.7, 1.0], 0.8, '']];
-    LIGHTS[R_ATT] = [[182, 76, 58, [1.0, 0.72, 0.4], 1.1, 'candle'], [190, 34, 30, [0.5, 0.65, 1.0], 0.6, '']];
+    LIGHTS[R_ATT] = [[182, 76, 58, [1.0, 0.72, 0.4], 1.1, 'candle'], [190, 34, 30, [0.5, 0.65, 1.0], 0.6, ''], [590, 34, 30, [0.5, 0.65, 1.0], 0.6, ''], [567, 86, 30, [0.6, 0.8, 1.0], 0.7, 'film']];
     LIGHTS[R_VAMP] = [[85, 122, 54, [1.0, 0.62, 0.38], 1.15, 'candle']];
     LIGHTS[R_LIB] = [[147, 122, 52, [1.0, 0.85, 0.5], 1.15, '']];
-    LIGHTS[R_BATH] = [[229, 114, 62, [0.72, 1.0, 0.78], 0.85, 'gas']];
+    LIGHTS[R_BATH] = [[629, 114, 62, [0.72, 1.0, 0.78], 0.85, 'gas']];
     LIGHTS[R_WOLF] = [[26, 168, 56, [1.0, 0.86, 0.55], 1.2, '']];
     LIGHTS[R_FRANK] = [[168, 168, 62, [0.5, 1.0, 0.72], 1.0, 'gas'], [134, 182, 40, [0.7, 0.9, 1.0], 0, 'arc']];
-    LIGHTS[R_ARM] = [[229, 166, 54, [1.0, 0.66, 0.38], 1.15, 'candle']];
+    LIGHTS[R_ARM] = [[629, 166, 54, [1.0, 0.66, 0.38], 1.15, 'candle']];
     LIGHTS[R_KIT] = [[32, 254, 52, [1.0, 0.55, 0.25], 1.3, 'fire'], [32, 240, 30, [0.5, 1.0, 0.4], 0.6, 'brew']];
-    LIGHTS[R_CONS] = [[196, 226, 84, [0.55, 0.7, 1.0], 0.7, ''], [252, 238, 34, [1.0, 0.75, 0.45], 0.8, 'candle']];
+    LIGHTS[R_CONS] = [[596, 226, 84, [0.55, 0.7, 1.0], 0.7, ''], [652, 238, 34, [1.0, 0.75, 0.45], 0.8, 'candle']];
     LIGHTS[R_BALL] = [[94, 279, 84, [1.0, 0.7, 0.42], 1.2, 'candle']];
-    LIGHTS[R_PARL] = [[228, 322, 58, [1.0, 0.55, 0.25], 1.3, 'fire']];
-    LIGHTS[R_HALL] = [[280, 112, 46, [0.55, 1.0, 0.6], 0.9, 'gas'], [269, 172, 46, [0.55, 1.0, 0.6], 0.9, 'gas'], [269, 228, 46, [0.55, 1.0, 0.6], 0.9, 'gas'],
-      [269, 290, 56, [0.6, 1.0, 0.62], 1.0, 'gas'], [314, 316, 30, [1.0, 0.7, 0.4], 0.5, 'porch']];
-    LIGHTS[R_CEL] = [[152, 380, 62, [1.0, 0.45, 0.22], 1.2, 'fire'], [40, 356, 36, [1.0, 0.8, 0.5], 0.6, 'candle'], [246, 364, 22, [0.5, 1.0, 0.45], 0.55, 'brew']];
+    LIGHTS[R_PARL] = [[628, 322, 58, [1.0, 0.55, 0.25], 1.3, 'fire']];
+    LIGHTS[R_HALL] = [[680, 112, 46, [0.55, 1.0, 0.6], 0.9, 'gas'], [669, 172, 46, [0.55, 1.0, 0.6], 0.9, 'gas'], [669, 228, 46, [0.55, 1.0, 0.6], 0.9, 'gas'],
+      [669, 290, 56, [0.6, 1.0, 0.62], 1.0, 'gas'], [714, 316, 30, [1.0, 0.7, 0.4], 0.5, 'porch']];
+    LIGHTS[R_CEL] = [[152, 380, 62, [1.0, 0.45, 0.22], 1.2, 'fire'], [40, 356, 36, [1.0, 0.8, 0.5], 0.6, 'candle'], [646, 364, 22, [0.5, 1.0, 0.45], 0.55, 'brew'], [342, 350, 44, [1.0, 0.75, 0.45], 0.8, 'candle'], [517, 384, 56, [1.0, 0.5, 0.25], 1.0, 'fire'], [440, 358, 50, [0.7, 0.75, 1.0], 0.5, ''], [620, 366, 44, [1.0, 0.7, 0.45], 0.6, '']];
+    for (const r of [R_NURS, R_ORGAN, R_GUEST, R_LAB, R_GAL, R_COST, R_DINE, R_GAME, R_AQUA, R_CINE]) AMB[r] = [0.26, 0.2, 0.28];
+    AMB[R_AQUA] = [0.2, 0.28, 0.36]; AMB[R_CINE] = [0.16, 0.14, 0.22]; AMB[R_LAB] = [0.2, 0.28, 0.28];
+    LIGHTS[R_NURS] = [[232, 112, 54, [1.0, 0.8, 0.6], 0.9, 'candle']];
+    LIGHTS[R_ORGAN] = [[314, 116, 44, [1.0, 0.65, 0.4], 1.05, 'candle'], [430, 116, 44, [1.0, 0.65, 0.4], 1.05, 'candle']];
+    LIGHTS[R_GUEST] = [[553, 130, 54, [1.0, 0.85, 0.55], 1.0, '']];
+    LIGHTS[R_LAB] = [[236, 184, 62, [0.5, 1.0, 0.5], 1.0, 'brew']];
+    LIGHTS[R_GAL] = [[387, 168, 72, [1.0, 0.8, 0.55], 0.95, '']];
+    LIGHTS[R_COST] = [[517, 168, 62, [1.0, 0.8, 0.6], 0.95, '']];
+    LIGHTS[R_DINE] = [[188, 234, 52, [1.0, 0.65, 0.4], 1.1, 'candle'], [248, 234, 52, [1.0, 0.65, 0.4], 1.1, 'candle']];
+    LIGHTS[R_GAME] = [[395, 232, 60, [0.9, 1.0, 0.6], 1.1, '']];
+    LIGHTS[R_AQUA] = [[256, 298, 84, [0.4, 0.9, 1.0], 1.0, 'water']];
+    LIGHTS[R_CINE] = [[462, 296, 84, [0.85, 0.9, 1.0], 0.85, 'film']];
     LIGHTS[R_TOMB] = [[190, 426, 34, [1.0, 0.7, 0.4], 1.1, 'candle']];
-    LIGHTS[R_PORCH] = [[324, 288, 32, [1.0, 0.7, 0.38], 1.0, 'candle']];
+    LIGHTS[R_PORCH] = [[724, 288, 32, [1.0, 0.7, 0.38], 1.0, 'candle']];
   }
 
   /* ================================================================ buffers */
@@ -252,12 +267,12 @@
     }
     ell(MOONX, MOONY, 14, 14, 7); ell(MOONX - 1, MOONY - 1, 12.5, 12.5, 8);
     for (const [dx, dy, r] of [[-5, -4, 2.5], [4, 4, 3], [-2, 6, 1.6], [6, -6, 1.8], [-7, 3, 1.4]]) ell(MOONX + dx, MOONY + dy, r, r, 7);
-    for (const [cx, cy, w] of [[302, 66, 28], [348, 74, 20], [24, 14, 30], [112, 8, 22], [336, 150, 26]]) {
+    for (const [cx, cy, w] of [[702, 70, 28], [772, 80, 20], [24, 14, 30], [112, 8, 22], [760, 150, 26], [330, 30, 34], [450, 18, 24], [560, 6, 20]]) {
       for (let k = 0; k < w; k++) { const x = cx - w / 2 + k, h = Math.round(Math.sin(k / w * Math.PI) * 3); for (let y = 0; y <= h; y++) put(x, cy - y, y === h ? 5 : 4); }
     }
     // a far hill behind the porch, with a little chapel and one lit window
-    for (let x = 320; x < AW; x++) { const hy = Math.round(306 + 5 * Math.sin(x / 11) + (x - 320) * 0.15); for (let y = hy; y < GY; y++) put(x, y, y === hy ? 3 : 2); }
-    rect(352, 307, 6, 8, 1); poly([[351, 307], [355, 302], [359, 307]], 1); vl(355, 297, 302, 1); hl(354, 356, 299, 1); put(354, 310, 23);
+    for (let x = 720; x < AW; x++) { const hy = Math.round(304 + 5 * Math.sin(x / 11) + (x - 720) * 0.12); for (let y = hy; y < GY; y++) put(x, y, y === hy ? 3 : 2); }
+    { const cy = Math.round(304 + 5 * Math.sin(775 / 11) + 55 * 0.12); rect(772, cy - 8, 6, 9, 1); poly([[771, cy - 8], [775, cy - 13], [779, cy - 8]], 1); vl(775, cy - 18, cy - 13, 1); hl(774, 776, cy - 16, 1); put(774, cy - 5, 23); }
     // ---- earth
     pen(MR, R_EARTH);
     for (let y = GY; y < AH; y++) for (let x = 0; x < AW; x++) {
@@ -274,11 +289,13 @@
     buildUnderground();
     // ---- structure (cut sections), lit cold by the moon
     pen(MR, R_STR);
-    // chimney with two pots
+    // chimneys with pots, one on each gable
+    for (const OXc of [0, DX]) { OX = OXc;
     rect(240, 24, 12, 30, 15); for (let y = 24; y < 54; y += 3) hl(240, 251, y, 14); for (let y = 25; y < 54; y += 6) { put(245, y + 1, 14); put(248, y + 4, 14); }
     rect(238, 22, 16, 3, 30); hl(238, 253, 22, 31); rect(241, 17, 3, 5, 19); rect(247, 18, 3, 4, 19); hl(241, 243, 17, 20);
+    } OX = 0;
     // the gable: slate roof slab
-    for (let x = 56; x < 332; x++) {
+    for (let x = 56; x < 732; x++) {
       const yr = Math.round(roofY(x));
       for (let y = yr - 3; y < yr + 4; y++) {
         if (y > 95) continue;
@@ -287,7 +304,10 @@
       }
     }
     // finial and a bat weather vane
-    vl(190, 4, 10, 31); put(190, 3, 32); spr(['o.....o', 'oo.o.oo', '.ooooo.', '..o.o..'], { o: 1 }, 192, 0);
+    for (const vx of [190, 590]) { vl(vx, 4, 10, 31); put(vx, 3, 32); spr(['o.....o', 'oo.o.oo', '.ooooo.', '..o.o..'], { o: 1 }, vx + 2, 0); }
+    // the widow's walk between the gables
+    for (let x = 316; x < 466; x++) { put(x, 76, 31); if (x % 5 === 0) vl(x, 77, 82, 30); }
+    for (const x of [316, 465]) { vl(x, 74, 82, 31); put(x, 73, 32); }
     // the turret: walls, cornice, a fish-scale cone and a pennant
     wall(HX0, 36, 92); wall(56, 36, 92);
     for (let x = 6; x < 62; x++) { put(x, 36, 32); put(x, 37, 31); put(x, 38, 30); if (x % 3 === 0) put(x, 39, 30); }
@@ -300,11 +320,15 @@
     // floors and walls
     slab(HX0, HX1 - 1, F_ATT); slab(HX0, HX1 - 1, F4Y); slab(HX0, HX1 - 1, F3Y); slab(HX0, HX1 - 1, F2Y); slab(HX0 - 2, HX1 + 1, F1Y); slab(HX0, HX1 - 1, FCY);
     wall(HX0, 96, 332); wall(HX1 - 4, 96, 332); wall(HX0, 336, 392); wall(HX1 - 4, 336, 392);
-    for (const [x, y0, y1] of [[92, 96, 152], [176, 96, 152], [86, 156, 208], [180, 156, 208], [112, 212, 264], [176, 268, 332],
-      [262, 96, 152], [262, 156, 208], [262, 212, 264], [262, 268, 332]]) wall(x, y0, y1);
+    for (const [x, y0, y1] of [[92, 96, 152], [176, 96, 152], [300, 96, 152], [440, 96, 152], [576, 96, 152],
+      [86, 156, 208], [180, 156, 208], [320, 156, 208], [450, 156, 208], [580, 156, 208],
+      [112, 212, 264], [300, 212, 264], [512, 212, 264], [176, 268, 332], [340, 268, 332], [576, 268, 332],
+      [662, 96, 152], [662, 156, 208], [662, 212, 264], [662, 268, 332]]) wall(x, y0, y1);
     // ---- rooms
-    buildTurret(); buildAttic(); buildVamp(); buildLib(); buildBath(); buildWolf(); buildFrank(); buildArm();
-    buildKitchen(); buildCons(); buildBall(); buildParl(); buildHall(); buildCellar(); buildTomb();
+    buildTurret(); buildAttic(); buildVamp(); buildLib(); buildWolf(); buildFrank(); buildKitchen(); buildBall();
+    buildNursery(); buildOrgan(); buildGuest(); buildLab(); buildGallery(); buildCostume(); buildDining(); buildGame(); buildAqua(); buildCinema();
+    OX = DX; buildBath(); buildArm(); buildCons(); buildParl(); buildHall(); OX = 0;
+    buildCellar(); buildTomb();
     // doorways in the partitions (cut openings with frames)
     const doorway = (x, yFloor, room) => {
       pen(MR, room);
@@ -312,19 +336,20 @@
       pen(MR, R_STR);
       hl(x - 1, x + 4, yFloor - 29, 20); hl(x - 1, x + 4, yFloor - 30, 21);
     };
-    doorway(92, F4Y, R_VAMP); doorway(176, F4Y, R_LIB); doorway(262, F4Y, R_BATH);
-    doorway(86, F3Y, R_WOLF); doorway(180, F3Y, R_FRANK); doorway(262, F3Y, R_ARM);
-    doorway(112, F2Y, R_KIT); doorway(262, F2Y, R_CONS);
-    doorway(176, F1Y, R_BALL); doorway(262, F1Y, R_PARL);
+    doorway(92, F4Y, R_VAMP); doorway(176, F4Y, R_LIB); doorway(300, F4Y, R_NURS); doorway(440, F4Y, R_ORGAN); doorway(576, F4Y, R_GUEST); doorway(662, F4Y, R_BATH);
+    doorway(86, F3Y, R_WOLF); doorway(180, F3Y, R_FRANK); doorway(320, F3Y, R_LAB); doorway(450, F3Y, R_GAL); doorway(580, F3Y, R_COST); doorway(662, F3Y, R_ARM);
+    doorway(112, F2Y, R_KIT); doorway(300, F2Y, R_DINE); doorway(512, F2Y, R_GAME); doorway(662, F2Y, R_CONS);
+    doorway(176, F1Y, R_BALL); doorway(340, F1Y, R_AQUA); doorway(576, F1Y, R_CINE); doorway(662, F1Y, R_PARL);
     // the front door opening in the right wall (the door itself is drawn live)
     pen(ME, R_EXT); for (let y = F1Y - 32; y < F1Y; y++) for (let k = 0; k < 4; k++) put(HX1 - 4 + k, y, 1);
     // scalloped barge boards under the eaves
     pen(MR, R_STR);
-    for (let x = 58; x < 332; x++) {
-      const yb = Math.round(roofY(x)) + 4; if (yb > 91) continue;
+    for (let x = 58; x < 732; x++) {
+      const yb = Math.round(roofY(x)) + 4; if (yb > 89) continue;
       put(x, yb, 20); if ((x & 3) !== 0) put(x, yb + 1, 20); if ((x & 3) === 2) put(x, yb + 2, 21);
     }
-    buildPorch();
+    OX = DX; buildPorch(); OX = 0;
+    rect(0, 326, 6, 12, 31); hl(0, 5, 326, 32);
   }
 
   function wallpaper(x0, y0, x1, y1, room, base, pat, kind) {
@@ -400,7 +425,7 @@
     else if (kind === 'count') { poly([[x + 2, y + h - 1], [cx, y + h * 0.5], [x + w - 2, y + h - 1]], 1); ell(cx, y + h * 0.42, w * 0.2, h * 0.22, 7); rect(fl(cx - w * 0.2), y + 2, fl(w * 0.4) + 1, 3, 0); }
     else if (kind === 'wolf') { ell(cx, y + h * 0.66, w * 0.32, h * 0.36, 34); ell(cx, y + h * 0.42, w * 0.24, h * 0.24, 35); put(cx - 3, y + 2, 34); put(cx + 2, y + 2, 34); put(cx - 3, y + 3, 34); put(cx + 2, y + 3, 34); }
     else { ell(cx, y + h * 0.66, w * 0.32, h * 0.38, 26); ell(cx, y + h * 0.4, w * 0.22, h * 0.24, 35); put(cx - 3, y + 2, 34); put(cx + 2, y + 2, 34); }
-    PORTRAITS.push({ x: Math.round(cx) - 2, y: Math.round(y + h * 0.4), room });
+    PORTRAITS.push({ x: Math.round(cx) - 2 + OX, y: Math.round(y + h * 0.4), room });
   }
 
   function buildUnderground() {
@@ -415,9 +440,19 @@
     // treasure chest
     rect(48, 424, 14, 9, 20); hl(48, 61, 424, 22); hl(48, 61, 427, 18); put(54, 428, 23); put(55, 428, 23); put(63, 432, 23); put(45, 433, 23); put(65, 431, 22);
     // the mole's tunnel under the porch
-    for (let k = 0; k < 34; k++) { const x = 322 + k, y = 362 + Math.round(Math.sin(k / 5) * 3); vl(x, y, y + 3, 18); }
-    ell(350, 364, 4, 3, 34); put(354, 364, 17); put(352, 363, 0); put(347, 367, 36); put(352, 367, 36);
-    ell(334, 404, 4, 3.4, 37); put(334, 400, 27); put(332, 403, 20); put(336, 403, 20);
+    for (let k = 0; k < 60; k++) { const x = 726 + k, y = 362 + Math.round(Math.sin(k / 5) * 3); vl(x, y, y + 3, 18); }
+    ell(776, 364, 4, 3, 34); put(780, 364, 17); put(778, 363, 0); put(773, 367, 36); put(778, 367, 36);
+    ell(740, 404, 4, 3.4, 37); put(740, 400, 27); put(738, 403, 20); put(742, 403, 20);
+    for (const [rx, ry, rr] of [[380, 420, 3], [470, 446, 3.5], [560, 410, 2.5], [640, 436, 4], [700, 414, 3], [760, 440, 3]]) { ell(rx, ry, rr, rr * 0.7, 30); put(rx - 1, ry - 1, 31); }
+    line(420, 398, 430, 420, 18); line(430, 420, 426, 440, 18); line(610, 398, 600, 416, 18);
+    // a whole dinosaur, sleeping it off
+    ell(430, 432, 9, 4, 32); ell(424, 431, 2, 1.4, 18); hl(421, 439, 434, 31); for (let x = 431; x < 440; x += 2) put(x, 435, 33);
+    for (let k = 0; k < 16; k++) { const x = 442 + k * 5, y = 430 - Math.round(Math.sin(k / 15 * Math.PI) * 8); rect(x, y, 3, 2, 32); if (k > 2 && k < 12) vl(x + 1, y + 2, y + 6 + (k & 1), 32); }
+    for (let k = 0; k < 8; k++) rect(522 + k * 5, 428 + k, 3, 2, 32);
+    for (const lx of [452, 492]) { line(lx, 436, lx - 3, 444, 32); line(lx + 4, 436, lx + 7, 444, 32); }
+    // the sewer pipe and a lost time capsule
+    hl(340, 640, 404, 30); hl(340, 640, 405, 31); hl(340, 640, 408, 30); for (let x = 350; x < 640; x += 40) vl(x, 403, 409, 32);
+    rect(660, 424, 10, 6, 31); hl(660, 669, 424, 32); put(664, 426, 23);
   }
 
   function buildTurret() {
@@ -438,17 +473,17 @@
   }
   function buildAttic() {
     pen(MR, R_ATT);
-    for (let y = 10; y < F_ATT; y++) for (let x = 60; x < 316; x++) {
+    for (let y = 10; y < F_ATT; y++) for (let x = 60; x < 716; x++) {
       if (y < roofY(x) + 5) continue;
       let c = (x % 8 === 0) ? 18 : 19;
       if (ih(x >> 1, y >> 2, 21) < 0.05) c = 18;
       put(x, y, c);
     }
     // rafters & collar beam
-    for (const x of [100, 138, 240, 278]) for (let y = Math.round(roofY(x) + 5); y < F_ATT; y++) { put(x, y, 20); put(x + 1, y, 20); put(x + 2, y, 18); }
-    hl(146, 234, 46, 20); hl(146, 234, 47, 18);
+    for (const x of [100, 138, 240, 278, 500, 538, 640, 678]) for (let y = Math.round(roofY(x) + 5); y < F_ATT; y++) { put(x, y, 20); put(x + 1, y, 20); put(x + 2, y, 18); }
+    hl(146, 234, 46, 20); hl(146, 234, 47, 18); hl(546, 634, 46, 20); hl(546, 634, 47, 18);
     // round gable window
-    pen(ME, R_ATT); ell(190, 32, 7, 7, 21); ell(190, 32, 5.5, 5.5, 3); ell(192, 30, 2.6, 2.6, 7); pen(MR, R_ATT); vl(190, 26, 38, 20); hl(184, 196, 32, 20);
+    for (const wx of [190, 590]) { pen(ME, R_ATT); ell(wx, 32, 7, 7, 21); ell(wx, 32, 5.5, 5.5, 3); ell(wx + 2, 30, 2.6, 2.6, 7); pen(MR, R_ATT); vl(wx, 26, 38, 20); hl(wx - 6, wx + 6, 32, 20); }
     // a rocking horse, a trunk, a dress form, a stack of portraits, hat boxes
     ell(112, 82, 7, 3, 21); rect(106, 81, 12, 3, 21); ell(119, 78, 2.6, 2.4, 21); put(120, 76, 20); put(121, 78, 0); hl(105, 108, 80, 20);
     line(107, 84, 104, 89, 20); line(117, 84, 120, 89, 20); for (let x = 100; x < 125; x++) put(x, 90 - Math.round(((x - 112) / 12) * ((x - 112) / 12) * 2), 18);
@@ -464,8 +499,15 @@
     rect(252, 72, 12, 20, 18); rect(253, 73, 10, 18, 11); rect(255, 76, 6, 6, 31); rect(258, 70, 9, 22, 19); rect(259, 72, 7, 8, 13);
     rect(270, 82, 10, 10, 38); hl(270, 279, 82, 39); rect(271, 76, 8, 6, 16); hl(271, 278, 76, 17); hl(270, 279, 86, 22);
     // the hatch in the floor above the stairwell
-    rect(268, 92, 10, 1, 18);
-    cobweb(62, Math.round(roofY(62)) + 6, 1, 1, 6); cobweb(312, Math.round(roofY(312)) + 5, -1, 1, 4);
+    rect(668, 92, 10, 1, 18);
+    // the east attic: an old television (its snow is live), a perch for the raven, boxes, pumpkins, a ship in a bottle
+    rect(558, 79, 18, 13, 20); hl(558, 575, 79, 21); rect(560, 81, 14, 10, 1); put(575, 84, 22); put(575, 87, 22); line(564, 79, 560, 71, 31); line(568, 79, 573, 70, 31);
+    vl(612, 62, 91, 20); hl(605, 619, 62, 20); hl(608, 616, 91, 20);
+    rect(520, 80, 16, 12, 20); hl(520, 535, 80, 21); line(520, 80, 535, 91, 19); rect(524, 72, 11, 8, 21); hl(524, 534, 72, 22); rect(526, 66, 7, 6, 19);
+    for (const [px, py, r] of [[640, 88, 4], [648, 89, 3.4], [644, 84, 3], [656, 89, 3]]) { ell(px, py, r, r * 0.8, 37); put(px, py - Math.round(r), 27); }
+    rect(486, 82, 14, 10, 19); hl(486, 499, 82, 21); ell(493, 78, 6, 3, 6); hl(489, 497, 78, 33); vl(493, 74, 77, 33); put(499, 78, 21);
+    rect(680, 82, 10, 10, 21); hl(680, 689, 82, 22); rect(470, 84, 10, 8, 16); hl(470, 479, 84, 17);
+    cobweb(62, Math.round(roofY(62)) + 6, 1, 1, 6); cobweb(712, Math.round(roofY(712)) + 5, -1, 1, 4); cobweb(546, 48, 1, 1, 5); cobweb(633, 48, -1, 1, 5);
     cobweb(146, 48, 1, 1, 5); cobweb(233, 48, -1, 1, 5);
   }
   function buildVamp() {
@@ -768,13 +810,13 @@
     rect(287, F1Y, 14, 1, 18);
   }
   function buildCellar() {
-    wallpaper(12, 336, 316, 392, R_CEL, 11, 10, 'stone');
+    wallpaper(12, 336, 716, 392, R_CEL, 11, 10, 'stone');
     pen(MR, R_CEL);
     // stone piers and vaults
-    for (const px of [92, 196]) { rect(px, 336, 6, 56, 31); for (let y = 339; y < 392; y += 5) hl(px, px + 5, y, 30); }
-    for (const [x0, x1] of [[12, 92], [98, 196], [202, 316]]) for (let x = x0; x < x1; x++) { const u = (x - x0) / (x1 - x0) * 2 - 1; const y = 336 + Math.round(7 * u * u); put(x, y, 31); put(x, y + 1, 30); }
+    for (const px of [92, 196, 400, 596]) { rect(px, 336, 6, 56, 31); for (let y = 339; y < 392; y += 5) hl(px, px + 5, y, 30); }
+    for (const [x0, x1] of [[12, 92], [98, 196], [202, 400], [406, 596], [602, 716]]) for (let x = x0; x < x1; x++) { const u = (x - x0) / (x1 - x0) * 2 - 1; const y = 336 + Math.round(7 * u * u); put(x, y, 31); put(x, y + 1, 30); }
     // pipes
-    hl(12, 315, 341, 31); hl(12, 315, 342, 30); vl(70, 336, 350, 31); ell(70, 350, 2, 2, 16);
+    hl(12, 715, 341, 31); hl(12, 715, 342, 30); vl(70, 336, 350, 31); ell(70, 350, 2, 2, 16);
     // furnace and its flue, a coal heap and a shovel
     rect(140, 362, 24, 30, 1); rect(142, 364, 20, 26, 2); rect(146, 376, 12, 8, 13); for (let x = 147; x < 157; x += 2) vl(x, 377, 383, 14);
     rect(149, 336, 6, 26, 31); vl(152, 336, 361, 30); ell(152, 368, 2.5, 2.5, 32); put(152, 368, 16);
@@ -791,6 +833,8 @@
     // candy sacks
     for (const [x, h] of [[102, 14], [114, 11], [124, 13]]) { poly([[x, 392], [x + 2, 392 - h], [x + 4, 392 - h - 2], [x + 6, 392 - h], [x + 9, 392]], 20); put(x + 4, 392 - h - 3, 21); }
     for (let k = 0; k < 9; k++) put(102 + fl(ih(k, 1, 33) * 30), 390 + fl(ih(k, 2, 33) * 2), [17, 28, 22, 39, 37][k % 5]);
+    buildCellarEast();
+    OX = DX;
     // barrels
     for (const [x, y] of [[204, 376], [217, 376], [210, 360]]) { rect(x, y, 12, 16, 19); hl(x, x + 11, y + 3, 31); hl(x, x + 11, y + 12, 31); vl(x + 5, y, y + 15, 18); }
     // a brain in a jar, wired to a box of dials (the liquid is live)
@@ -799,7 +843,8 @@
     rect(254, 362, 7, 10, 19); put(256, 364, 16); put(258, 364, 28); put(256, 367, 22); line(246, 354, 249, 349, 31); line(249, 349, 257, 362, 31);
     // the cellar stair from the trapdoor
     for (let s = 0; s < 8; s++) { const x = 296 - s * 4, y = 340 + s * 7; hl(x - 4, x + 2, y, 21); rect(x - 4, y + 1, 7, 3, 19); }
-    floorBoards(12, 316, 392, R_CEL, 30, 2);
+    OX = 0;
+    floorBoards(12, 716, 392, R_CEL, 30, 2);
   }
   function buildTomb() {
     // a little crypt under the garden, where the neighbour lives
@@ -815,6 +860,226 @@
     rect(189, 428, 2, 6, 33);
     text('RIP', 152, 408, 31);
   }
+  /* ---------------------------------------------------------------- the new east wing */
+  function buildNursery() {
+    const room = R_NURS;
+    wallpaper(180, 96, 300, 152, room, 35, 34, 'grid');
+    wainscot(180, 300, 140, 152, room, 20, 19, 22);
+    crown(180, 300, 96, room, 22, 20);
+    floorBoards(180, 300, 152, room, 19, 18);
+    nightWindow(278, 106, 12, 18, room, 38);
+    pen(MR, room);
+    // toy chest, a stitched teddy, alphabet blocks that spell it out
+    rect(184, 140, 16, 11, 16); hl(184, 199, 140, 17); hl(184, 199, 143, 15); put(191, 145, 22); put(192, 145, 22);
+    ell(207, 146, 3.5, 4.2, 35); ell(207, 140, 3, 2.6, 35); put(205, 138, 34); put(209, 138, 34); put(206, 140, 0); put(208, 140, 0); vl(207, 144, 149, 34); hl(204, 210, 146, 34);
+    [[250, 'B', 16], [257, 'O', 5], [264, 'O', 27]].forEach(([x, ch, c]) => { rect(x, 144, 6, 7, c); hl(x, x + 5, 144, LITE[c]); pen(MR, room); text(ch, x + 1, 145, 33); });
+    // a shelf of dolls (one has lost an eye)
+    hl(250, 272, 124, 20); hl(250, 272, 125, 19);
+    for (let k = 0; k < 4; k++) { const x = 251 + k * 6; ell(x + 1, 119, 2, 2, 36); rect(x, 121, 3, 3, [16, 38, 5, 37][k]); put(x, 119, 0); put(x + 2, 119, k === 1 ? 36 : 0); hl(x - 1, x + 3, 117, [19, 22, 1, 18][k]); }
+    // the mobile hook, and a framed stork delivering a bat
+    vl(232, 96, 101, 31);
+    frame(196, 108, 14, 11, 21, 4); spr(['o.....o', 'oo.o.oo', '.ooooo.', '..o.o..'], { o: 1 }, 199, 112);
+  }
+  function buildOrgan() {
+    const room = R_ORGAN;
+    wallpaper(304, 96, 440, 152, room, 10, 9, 'stone');
+    crown(304, 440, 96, room, 21, 10);
+    floorBoards(304, 440, 152, room, 13, 9);
+    pen(MR, room);
+    // the pipes
+    for (let k = 0; k < 17; k++) {
+      const x = 330 + k * 5, h = 16 + Math.round(16 * Math.cos((k - 8) / 8 * Math.PI / 2));
+      rect(x, 132 - h, 4, h, 21); vl(x, 132 - h, 131, 22); vl(x + 3, 132 - h, 131, 20); hl(x, x + 3, 132 - h, 23); put(x + 1, 126, 0); put(x + 2, 126, 0); hl(x, x + 3, 127, 20);
+    }
+    rect(326, 130, 92, 3, 19); hl(326, 417, 130, 21);
+    // the console: two manuals, rows of stops, a music stand
+    rect(342, 133, 60, 19, 19); hl(342, 401, 133, 21);
+    for (const ky of [137, 141]) { hl(345, 398, ky, 33); hl(345, 398, ky + 1, 32); for (let x = 346; x < 398; x += 4) if ((x >> 2) % 7 !== 2) put(x + 1, ky, 0); }
+    for (let k = 0; k < 4; k++) { put(344, 135 + k * 3, [16, 22, 33, 5][k]); put(399, 135 + k * 3, [5, 33, 22, 16][k]); }
+    rect(364, 125, 16, 7, 33); for (let k = 0; k < 3; k++) hl(365, 378, 127 + k * 2, 31);
+    // the bench, and two tall candelabras
+    rect(352, 147, 40, 2, 20); rect(354, 149, 2, 3, 19); rect(388, 149, 2, 3, 19);
+    for (const x of [314, 430]) { vl(x, 120, 151, 21); hl(x - 3, x + 3, 151, 21); hl(x - 3, x + 3, 120, 21); vl(x - 3, 117, 120, 21); vl(x + 3, 117, 120, 21); rect(x - 3, 114, 1, 3, 33); rect(x, 113, 1, 4, 33); rect(x + 3, 114, 1, 3, 33); }
+  }
+  function buildGuest() {
+    const room = R_GUEST;
+    wallpaper(444, 96, 576, 152, room, 3, 4, 'damask');
+    wainscot(444, 576, 138, 152, room, 2, 1, 21);
+    crown(444, 576, 96, room, 21, 2);
+    floorBoards(444, 576, 152, room, 19, 18);
+    pen(MR, room);
+    // a wardrobe, slightly ajar
+    rect(447, 102, 20, 2, 20); rect(448, 104, 18, 48, 19); hl(448, 465, 104, 21); vl(457, 106, 150, 18); vl(458, 106, 150, 9); put(455, 128, 22); put(460, 128, 22);
+    // four-poster bed (the sleeper and whatever is under it are drawn live)
+    for (const x of [472, 540]) { vl(x, 108, 151, 20); vl(x + 1, 108, 151, 19); put(x, 107, 22); put(x + 1, 107, 22); }
+    rect(470, 104, 74, 3, 16); hl(470, 543, 104, 17); for (let x = 472; x < 542; x += 3) vl(x, 107, 109 + ((x >> 1) & 1), 16);
+    rect(474, 124, 5, 20, 20); hl(474, 478, 124, 21); rect(536, 132, 4, 12, 20); hl(536, 539, 132, 21);
+    rect(474, 140, 66, 4, 20);
+    for (let x = 476; x < 536; x++) for (let y = 144; y < 151; y++) put(x, y, 9);
+    // nightstand and lamp, a stormy seascape, a rug
+    rect(548, 140, 10, 12, 19); hl(548, 557, 140, 21); put(552, 145, 22); vl(553, 133, 139, 31); poly([[549, 128], [557, 128], [559, 132], [547, 132]], 22);
+    frame(498, 112, 20, 10, 21, 3); for (let x = 499; x < 517; x++) { put(x, 118 + Math.round(Math.sin(x * 0.9)), 6); put(x, 120, 4); } put(508, 115, 33);
+    for (let x = 482; x < 560; x++) put(x, 151, (x & 3) ? 16 : 22);
+  }
+  function buildLab() {
+    const room = R_LAB;
+    wallpaper(184, 156, 320, 208, room, 2, 3, 'tile');
+    crown(184, 320, 156, room, 31, 2);
+    floorBoards(184, 320, 208, room, 30, 2);
+    pen(MR, room);
+    // an anatomical skeleton on its stand
+    vl(193, 166, 207, 31); hl(189, 197, 207, 31);
+    ell(193, 165, 2.6, 2.8, 33); put(192, 165, 0); put(194, 165, 0); for (let y = 170; y < 180; y += 2) hl(190, 196, y, 33); vl(193, 168, 186, 32);
+    line(190, 170, 187, 182, 33); line(196, 170, 199, 182, 33); line(191, 186, 190, 200, 33); line(195, 186, 196, 200, 33); hl(190, 196, 186, 32);
+    // shelves of specimen jars
+    for (const sy of [170, 181]) { hl(204, 252, sy, 20); hl(204, 252, sy + 1, 19); }
+    [[206, 28, 33], [213, 5, 17], [220, 39, 27], [227, 22, 0], [234, 28, 16], [241, 26, 33], [247, 5, 22]].forEach(([x, c, s], k) => {
+      const sy = k < 4 ? 170 : 181; const xx = k < 4 ? x : x - 22 + 6;
+      rect(xx, sy - 7, 5, 7, 6); rect(xx + 1, sy - 6, 3, 5, c); put(xx + 2, sy - 4, s); hl(xx, xx + 4, sy - 8, 31);
+    });
+    // a periodic table nobody has read
+    rect(262, 162, 24, 15, 33); for (let x = 263; x < 285; x += 3) vl(x, 163, 175, 31); for (let y = 165; y < 176; y += 3) hl(263, 284, y, 31);
+    // workbench with glassware (the liquids are live)
+    rect(200, 190, 96, 3, 20); hl(200, 295, 190, 21); rect(202, 193, 3, 15, 19); rect(291, 193, 3, 15, 19); rect(240, 193, 20, 6, 19); put(249, 195, 22);
+    rect(212, 186, 5, 4, 31); ell(214, 182, 4, 4, 6); vl(214, 172, 178, 6);
+    poly([[254, 189], [258, 178], [260, 178], [264, 189]], 6); vl(259, 174, 178, 6);
+    for (let k = 0; k < 4; k++) { vl(272 + k * 3, 180, 188, 6); } hl(270, 283, 184, 20); hl(270, 283, 189, 20);
+    line(214, 172, 236, 168, 7); for (let k = 0; k < 4; k++) ell(238 + k * 3, 172 + k * 2, 2, 1, 7); line(246, 178, 259, 175, 7);
+    // the big beaker on the floor (the slime in it is live)
+    vl(298, 184, 207, 6); vl(315, 184, 207, 6); hl(298, 315, 207, 6); hl(297, 316, 184, 7); for (let y = 190; y < 206; y += 4) put(299, y, 7);
+  }
+  function buildGallery() {
+    const room = R_GAL;
+    wallpaper(324, 156, 450, 208, room, 13, 15, 'stripe');
+    wainscot(324, 450, 194, 208, room, 14, 13, 22);
+    crown(324, 450, 156, room, 22, 13);
+    floorBoards(324, 450, 208, room, 32, 31);
+    pen(MR, room);
+    portrait(330, 162, 15, 19, room, 'count'); portrait(352, 160, 19, 23, room, 'lady'); portrait(378, 163, 15, 18, room, 'wolf');
+    portrait(400, 160, 19, 23, room, 'gent'); portrait(426, 162, 15, 19, room, 'count');
+    // busts on plinths, and a velvet rope
+    for (const x of [348, 422]) { rect(x - 3, 194, 7, 14, 32); hl(x - 4, x + 4, 194, 33); ell(x, 189, 3, 3.5, 33); hl(x - 4, x + 4, 193, 32); put(x - 1, 188, 31); put(x + 1, 188, 31); }
+    for (let k = 0; k < 4; k++) { const x = 334 + k * 34; vl(x, 197, 207, 22); put(x, 196, 23); if (k < 3) for (let i = 1; i < 34; i++) put(x + i, 198 + Math.round(3 * Math.sin(Math.PI * i / 34)), 16); }
+  }
+  function buildCostume() {
+    const room = R_COST;
+    wallpaper(454, 156, 580, 208, room, 11, 38, 'stripe');
+    crown(454, 580, 156, room, 21, 11);
+    floorBoards(454, 580, 208, room, 19, 18);
+    pen(MR, room);
+    // bolts of fabric on a shelf, spools of thread
+    hl(458, 506, 167, 20); hl(458, 506, 168, 19);
+    [16, 26, 37, 5, 22, 33, 15, 38].forEach((c, k) => { rect(460 + k * 6, 160, 5, 7, c); hl(460 + k * 6, 464 + k * 6, 160, LITE[c]); });
+    for (let k = 0; k < 6; k++) { rect(512 + k * 4, 164, 3, 4, [17, 28, 23, 6, 39, 33][k]); hl(512 + k * 4, 514 + k * 4, 163, 20); hl(512 + k * 4, 514 + k * 4, 168, 20); }
+    hl(510, 536, 169, 20);
+    // three mannequins: a pumpkin suit, a bedsheet ghost, a space suit just like the kid's
+    for (const x of [470, 494, 518]) { vl(x, 194, 207, 31); hl(x - 4, x + 4, 207, 31); }
+    ell(470, 186, 7, 7, 37); for (const dx of [-3, 0, 3]) vl(470 + dx, 180, 192, 22); rect(469, 177, 2, 3, 27); poly([[466, 184], [468, 182], [469, 185]], 0); poly([[472, 185], [473, 182], [475, 184]], 0); hl(466, 474, 189, 0);
+    poly([[487, 196], [489, 180], [494, 175], [499, 180], [501, 196], [497, 194], [494, 196], [491, 194]], 33); rect(491, 182, 2, 2, 0); rect(496, 182, 2, 2, 0);
+    rect(514, 183, 9, 11, 33); hl(514, 522, 187, 16); ell(518.5, 179, 4.6, 4.4, 33); ell(519.5, 179, 3, 2.6, 4); put(520, 178, 7);
+    // a mirror and a sewing table (the needle is live)
+    rect(562, 166, 13, 40, 21); rect(563, 167, 11, 38, 4); put(565, 170, 6); put(566, 171, 6); put(565, 172, 6);
+    rect(536, 194, 22, 2, 20); rect(538, 196, 2, 12, 19); rect(554, 196, 2, 12, 19);
+    rect(540, 186, 14, 3, 1); rect(551, 182, 3, 6, 1); hl(542, 554, 182, 1); put(548, 189, 22); hl(540, 553, 193, 16);
+  }
+  function buildDining() {
+    const room = R_DINE;
+    wallpaper(116, 212, 300, 264, room, 13, 14, 'damask');
+    wainscot(116, 300, 250, 264, room, 14, 13, 21);
+    crown(116, 300, 212, room, 21, 13);
+    floorBoards(116, 300, 264, room, 19, 18);
+    pen(MR, room);
+    portrait(199, 216, 15, 17, room, 'gent');
+    // high-backed chairs behind the table
+    for (const x of [144, 166, 230, 252]) { rect(x, 232, 8, 18, 19); hl(x, x + 7, 232, 21); put(x + 3, 231, 21); put(x + 4, 231, 21); rect(x + 2, 235, 4, 8, 15); }
+    for (const x of [126, 280]) { rect(x, 226, 9, 24, 19); hl(x, x + 8, 226, 21); poly([[x, 226], [x + 4, 221], [x + 8, 226]], 19); rect(x + 2, 229, 5, 12, 15); }
+    // the long table and its cloth
+    rect(140, 246, 140, 3, 33); hl(140, 279, 246, 8);
+    for (let y = 249; y < 257; y++) for (let x = 140; x < 280; x++) put(x, y, (x + y) % 6 === 0 ? 32 : 33);
+    for (let x = 140; x < 280; x += 2) put(x, 257, 32);
+    rect(144, 257, 3, 7, 19); rect(273, 257, 3, 7, 19);
+    // a roast, a skull-shaped jelly, a punch of something green
+    ell(206, 243, 6, 3, 20, (x, y, u, v) => (v < -0.3 ? 21 : 20)); hl(199, 213, 245, 32); put(200, 241, 33); put(212, 241, 33);
+    ell(222, 243, 3.5, 3, 28); put(221, 243, 0); put(223, 243, 0); put(222, 244, 26); hl(218, 226, 245, 32);
+    rect(168, 241, 4, 5, 26); hl(168, 171, 241, 27);
+    for (const x of [152, 176, 236, 260]) { hl(x - 3, x + 3, 245, 32); hl(x - 2, x + 2, 244, 33); vl(x + 5, 242, 245, 6); put(x + 5, 241, 7); }
+    // candelabras (flames live)
+    for (const x of [188, 248]) { vl(x, 238, 245, 21); hl(x - 3, x + 3, 238, 21); vl(x - 3, 236, 238, 21); vl(x + 3, 236, 238, 21); rect(x - 3, 234, 1, 2, 33); rect(x, 233, 1, 3, 33); rect(x + 3, 234, 1, 2, 33); }
+    // sideboard with a soup tureen
+    rect(118, 250, 18, 14, 19); hl(118, 135, 250, 21); vl(126, 252, 262, 18); ell(127, 247, 4, 2.5, 33); put(127, 244, 32);
+  }
+  function buildGame() {
+    const room = R_GAME;
+    wallpaper(304, 212, 512, 264, room, 18, 19, 'plank');
+    crown(304, 512, 212, room, 21, 18);
+    floorBoards(304, 512, 264, room, 20, 19);
+    pen(MR, room);
+    // mounted trophies: a jackalope and a very surprised fish
+    rect(314, 222, 9, 9, 20); hl(314, 322, 222, 21); ell(318, 227, 3, 2.6, 35); put(317, 226, 0); put(320, 228, 17); line(316, 224, 313, 216, 34); line(313, 216, 311, 214, 34); line(320, 224, 323, 216, 34); line(323, 216, 326, 214, 34); put(314, 219, 34); put(322, 219, 34);
+    rect(330, 222, 16, 8, 20); hl(330, 345, 222, 21); ell(337, 226, 5, 2.4, 5); poly([[341, 226], [345, 223], [345, 229]], 5); put(334, 225, 33); put(334, 225, 0); put(333, 227, 0);
+    // the billiard table under its green lamp
+    rect(350, 244, 90, 4, 26); hl(350, 439, 244, 27);
+    hl(348, 441, 243, 20); rect(348, 248, 94, 5, 19); hl(348, 441, 248, 21);
+    rect(352, 253, 4, 11, 19); rect(434, 253, 4, 11, 19); rect(393, 253, 4, 11, 19);
+    put(349, 243, 0); put(395, 243, 0); put(441, 243, 0);
+    vl(395, 212, 225, 31); poly([[384, 226], [406, 226], [409, 230], [381, 230]], 26); hl(382, 408, 230, 27);
+    // a cue rack, a chess table, a dartboard and a gramophone
+    hl(452, 462, 222, 20); for (let k = 0; k < 3; k++) line(453 + k * 4, 223, 452 + k * 4, 248, 21); hl(452, 462, 248, 20);
+    rect(456, 250, 22, 2, 20); rect(466, 252, 2, 12, 19); hl(461, 472, 263, 19);
+    for (let x = 458; x < 476; x++) put(x, 249, ((x >> 1) & 1) ? 33 : 0);
+    ell(492, 230, 6, 6, 1); ell(492, 230, 5, 5, 16, (x, y) => (((x + y) >> 1) & 1 ? 16 : 33)); ell(492, 230, 3, 3, 26); ell(492, 230, 1.5, 1.5, 16);
+    rect(490, 256, 12, 8, 19); hl(490, 501, 256, 21); vl(496, 248, 255, 31); poly([[496, 249], [506, 238], [510, 242], [497, 251]], 22); ell(508, 240, 2.5, 3, 23);
+  }
+  function buildAqua() {
+    const room = R_AQUA;
+    wallpaper(180, 268, 340, 332, room, 3, 4, 'tile');
+    crown(180, 340, 268, room, 21, 3);
+    floorBoards(180, 340, 332, room, 30, 2);
+    pen(MR, room);
+    // the stand and the tank's iron frame (the water and its inhabitants are live)
+    rect(192, 320, 128, 12, 19); hl(192, 319, 320, 21); for (let x = 196; x < 320; x += 20) vl(x, 322, 331, 18);
+    rect(192, 276, 128, 3, 31); hl(192, 319, 276, 32); rect(192, 317, 128, 3, 31);
+    rect(192, 276, 3, 44, 31); rect(317, 276, 3, 44, 31);
+    // a shelf with the fish food and a net
+    hl(322, 338, 306, 20); hl(322, 338, 307, 19); rect(325, 300, 4, 6, 37); hl(325, 328, 300, 22); vl(334, 290, 305, 20); ell(334, 288, 2.6, 2, 31);
+  }
+  function buildCinema() {
+    const room = R_CINE;
+    wallpaper(344, 268, 576, 332, room, 1, 2, 'damask');
+    crown(344, 576, 268, room, 16, 15);
+    floorBoards(344, 576, 332, room, 15, 13);
+    pen(MR, room);
+    // the screen in its frame (the film is live), red curtains, a little stage
+    rect(400, 277, 124, 38, 31);
+    rect(392, 273, 140, 3, 16); hl(392, 531, 273, 17);
+    for (const x0 of [390, 525]) for (let x = x0; x < x0 + 9; x++) vl(x, 276, 317, (x - x0) % 3 === 0 ? 15 : 16);
+    rect(392, 318, 140, 4, 19); hl(392, 531, 318, 21);
+    // the projector on its stand
+    vl(360, 308, 331, 31); hl(356, 364, 331, 31); rect(352, 300, 13, 8, 1); hl(352, 364, 300, 30); ell(354, 296, 3.4, 3.4, 30); ell(362, 296, 3.4, 3.4, 30); put(354, 296, 1); put(362, 296, 1); put(365, 303, 7);
+    // two rows of plush seats
+    for (let x = 404; x < 556; x += 13) { rect(x, 322, 10, 6, 16); hl(x, x + 9, 322, 17); rect(x, 328, 10, 4, 15); }
+    for (let x = 376; x < 392; x += 13) { rect(x, 322, 10, 6, 16); hl(x, x + 9, 322, 17); rect(x, 328, 10, 4, 15); }
+    // a glowing exit sign
+    pen(ME, room); rect(556, 278, 17, 7, 1); text('EXIT', 557, 279, 28);
+  }
+  function buildCellarEast() {
+    pen(MR, R_CEL);
+    // a wine rack
+    rect(210, 346, 58, 46, 19); for (let y = 348; y < 390; y += 6) for (let x = 212; x < 266; x += 6) { rect(x, y, 5, 5, 9); if (ih(x, y, 97) < 0.75) { ell(x + 2, y + 2, 1.8, 1.8, [15, 26, 16, 13][fl(ih(x, y, 98) * 4)]); put(x + 2, y + 2, 21); } }
+    // the dungeon cell (its prisoner and its bars are live)
+    rect(300, 346, 84, 46, 10); for (let y = 348; y < 392; y += 5) hl(300, 383, y, 9); hl(298, 385, 345, 31); hl(298, 385, 346, 30);
+    rect(312, 354, 3, 3, 31); rect(334, 354, 3, 3, 31);
+    hl(304, 324, 390, 22); for (let x = 304; x < 324; x += 3) put(x, 389, 21); // straw
+    // a stack of spare coffins
+    for (const [x, y] of [[414, 384], [418, 376], [412, 368]]) { poly([[x, y + 4], [x + 3, y], [x + 40, y], [x + 46, y + 4], [x + 40, y + 8], [x + 3, y + 8]], 18); hl(x + 4, x + 40, y + 1, 19); vl(x + 22, y + 2, y + 6, 20); hl(x + 19, x + 25, y + 4, 20); }
+    // the old boiler (its gauge is live)
+    rect(510, 352, 34, 40, 30); hl(510, 543, 352, 31); vl(543, 352, 391, 2); for (let y = 356; y < 390; y += 6) for (let x = 513; x < 542; x += 6) put(x, y, 32);
+    rect(523, 336, 6, 16, 31); vl(526, 336, 351, 30); ell(518, 362, 4, 4, 32); ell(518, 362, 3, 3, 33);
+    rect(512, 380, 10, 8, 1); for (let x = 513; x < 522; x += 2) vl(x, 381, 387, 13);
+    // a hanging lantern
+    vl(342, 336, 344, 31); rect(340, 345, 5, 6, 1); hl(339, 345, 344, 31);
+  }
+
   function buildPorch() {
     pen(MR, R_PORCH);
     rect(320, 332, 28, 3, 20); hl(320, 347, 332, 22); rect(320, 335, 28, 3, 19);
@@ -828,10 +1093,9 @@
     // a jack-o'-lantern on the steps
     ell(352, 334, 4.5, 3.6, 37); put(352, 330, 27); put(350, 333, 22); put(354, 333, 22); hl(350, 354, 335, 22);
     pen(MR, R_EXT);
-    for (let x = 350; x < AW; x++) put(x, GY, 31);
-    for (let x = 357; x < AW; x += 4) { vl(x, 322, 337, 1); put(x, 321, 4); }
-    hl(357, AW - 1, 325, 1); hl(357, AW - 1, 331, 1);
-    rect(0, 326, 6, 12, 31); hl(0, 5, 326, 32);
+    for (let x = 350; x < AW - DX; x++) put(x, GY, 31);
+    for (let x = 357; x < AW - DX; x += 4) { vl(x, 322, 337, 1); put(x, 321, 4); }
+    hl(357, AW - 1 - DX, 325, 1); hl(357, AW - 1 - DX, 331, 1);
   }
 
   /* ================================================================ sprite layers */
@@ -863,12 +1127,13 @@
   // stamp a layer into the scene, lit uniformly by the room it stands in
   function stamp(L, ox, oy, lx, ly, opt) {
     opt = opt || {};
+    lx += OX;
     const room = opt.room !== undefined ? opt.room : roomAt(lx, ly);
     const Lr = roomLight(room, lx, ly, -1), dm = INTERIOR[room] ? DIM : 1;
     let Lt = [(0.45 + 0.62 * Lr[0]) * dm, (0.45 + 0.62 * Lr[1]) * dm, (0.45 + 0.62 * Lr[2]) * dm];
     if (opt.bright) Lt = [Lt[0] * opt.bright, Lt[1] * opt.bright, Lt[2] * opt.bright];
     const slot = SLOTS.length; SLOTS.push(Lt);
-    ox = Math.round(ox); oy = Math.round(oy);
+    ox = Math.round(ox + OX); oy = Math.round(oy);
     for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) {
       const i = y * L.w + x, c = L.c[i]; if (!c) continue;
       const X = ox + x, Y = oy + y;
@@ -1078,7 +1343,7 @@
     if (R.J.eyeAt) { ex = R.J.eyeAt[0]; ey = R.J.eyeAt[1]; }
     if (S.head === 'none' && !R.J.eyeAt) return R;
     if (p.flip) ex = R.W - 1 - ex - 2;
-    EYES.push([Math.round(ox + ex), Math.round(oy + ey), S.eye || 23]);
+    EYES.push([Math.round(ox + ex) + OX, Math.round(oy + ey), S.eye || 23]);
     return R;
   }
 
@@ -1100,7 +1365,7 @@
     if (p.flip) flipL(L);
     outline(L, 3);
     stamp(L, x - 9, y - 16, x, y - 8, { room: p.room, bright: 1.15 });
-    EYES.push([x - 9 + (p.flip ? 5 : 10), y - 10, 8]);
+    EYES.push([x - 9 + (p.flip ? 5 : 10) + OX, y - 10, 8]);
   }
   const CAT_SIT = ['k....k..', 'kk..kk..', 'kkkkkk..', 'kekkek..', 'kkkkkk..', '.kkkk...', 'kkkkkk..', 'kkkkkkk.', 'kkkkkkkk', '.k.k..kk'];
   const CAT_SWAT = ['k....k....', 'kk..kk..kk', 'kkkkkk..k.', 'kekkekkk..', 'kkkkkkk...', '.kkkk.....', 'kkkkkk....', 'kkkkkkk...', 'kkkkkkkk..', '.k.k..kk..'];
@@ -1166,7 +1431,7 @@
   }
 
   /* ================================================================ the story */
-  const T_BELL = 7.8, T_RUN = 8.4, T_OPEN = 11.6, T_POSE = 12.1, T_COOL = 12.9, T_SIGH = 14.7, T_CANDY = 15.2, T_LEAVE = 15.9,
+  const T_BELL = 6.8, T_RUN = 7.4, T_OPEN = 11.6, T_POSE = 12.1, T_COOL = 12.9, T_SIGH = 14.7, T_CANDY = 15.2, T_LEAVE = 15.9,
     T_DARK = 17.0, T_LIGHT = 17.8;
   function along(pts, u) {
     let tot = 0; const seg = [];
@@ -1183,22 +1448,22 @@
   }
   const plen = (pts) => along(pts, 0).len;
   // stairwell route pieces: down from one floor to the next (the last flight is taller)
-  const DN = (y0, y1) => { const m = y1 - y0 > 60 ? y0 + 32 : y0 + 28; return [[308, m], [304, m], [272, y1]]; };
-  const TO_F2 = [[272, F4Y]].concat(DN(F4Y, F3Y), DN(F3Y, F2Y));
-  const F2_LANDING = [[308, 296], [304, 296]];
+  const DN = (y0, y1) => { const m = y1 - y0 > 60 ? y0 + 32 : y0 + 28; return [[708, m], [704, m], [672, y1]]; };
+  const TO_F2 = [[672, F4Y]].concat(DN(F4Y, F3Y), DN(F3Y, F2Y));
+  const F2_LANDING = [[708, 296], [704, 296]];
   const CAST = {
-    vamp: { path: [[56, F4Y - 14], [140, 196], [306, F1Y - 14]], end: [306, F1Y], d0: 0.25, ta: 10.3 },
-    invis: { path: [[134, F4Y]].concat(TO_F2, F2_LANDING, [[282, 321]]), d0: 0.35, ta: 11.5 },
-    mummy: { path: [[232, F4Y]].concat(TO_F2, F2_LANDING, [[292, 309.5]]), d0: 0.2, ta: 11.3 },
-    wolf: { path: [[46, F3Y], [272, F3Y]].concat(DN(F3Y, F2Y), F2_LANDING, [[272, F1Y], [283, F1Y]]), d0: 0.1, ta: 11.4 },
-    frank: { path: [[140, F3Y], [272, F3Y]].concat(DN(F3Y, F2Y), F2_LANDING, [[272, F1Y], [271, F1Y]]), d0: 0.4, ta: 11.8 },
-    knight: { path: [[234, F3Y], [272, F3Y]].concat(DN(F3Y, F2Y), F2_LANDING, [[272, F1Y], [259, F1Y]]), d0: 0.3, ta: 11.6 },
-    witch: { path: [[60, F2Y], [64, 252], [150, 250], [250, 252], [290, 251]], d0: 0.1, ta: 10.2 },
-    drum: { path: [[50, F1Y], [272, F1Y], [304, 296], [286, 276]], d0: 0.3, ta: 11.2 },
-    bass: { path: [[92, F1Y], [272, F1Y], [304, 296], [296, 285]], d0: 0.5, ta: 11.0 },
-    sing: { path: [[124, F1Y], [272, F1Y], [304, 296], [310, 296]], d0: 0.0, ta: 10.8 },
-    reaper: { path: [[198, F1Y], [249, F1Y]], d0: 0.8, ta: 10.6 },
-    zombie: { path: [[74, FCY], [264, FCY], [294, 341]], d0: 0.2, ta: 11.3 },
+    vamp: { path: [[56, F4Y - 14], [300, 190], [706, F1Y - 14]], end: [706, F1Y], d0: 0.25, ta: 9.7 },
+    invis: { path: [[134, F4Y]].concat(TO_F2, F2_LANDING, [[672, F1Y], [677, F1Y]]), d0: 0.35, ta: 11.5 },
+    mummy: { path: [[632, F4Y]].concat(TO_F2, F2_LANDING, [[692, 309.5]]), d0: 0.6, ta: 11.3 },
+    wolf: { path: [[46, F3Y], [672, F3Y]].concat(DN(F3Y, F2Y), F2_LANDING, [[672, F1Y], [656, F1Y]]), d0: 0.1, ta: 11.4 },
+    frank: { path: [[140, F3Y], [672, F3Y]].concat(DN(F3Y, F2Y), F2_LANDING, [[672, F1Y], [640, F1Y]]), d0: 0.4, ta: 11.8 },
+    knight: { path: [[634, F3Y], [672, F3Y]].concat(DN(F3Y, F2Y), F2_LANDING, [[672, F1Y], [622, F1Y]]), d0: 1.0, ta: 11.6 },
+    witch: { path: [[60, F2Y], [64, 252], [300, 250], [600, 252], [648, 251]], d0: 0.1, ta: 10.4 },
+    drum: { path: [[50, F1Y], [672, F1Y], [704, 296], [686, 276]], d0: 0.3, ta: 11.2 },
+    bass: { path: [[92, F1Y], [672, F1Y], [704, 296], [696, 285]], d0: 0.5, ta: 11.0 },
+    sing: { path: [[124, F1Y], [672, F1Y], [704, 296], [710, 296]], d0: 0.0, ta: 10.8 },
+    reaper: { path: [[598, F1Y], [605, F1Y]], d0: 1.6, ta: 10.6 },
+    zombie: { path: [[74, FCY], [664, FCY], [694, 341]], d0: 0.2, ta: 11.3 },
   };
   for (const k in CAST) CAST[k].len = plen(CAST[k].path);
   // where is a cast member, and what are they doing?
@@ -1215,7 +1480,7 @@
 
   // marks over heads when the bell rings
   const MARKS = [];
-  function mark(x, y) { MARKS.push([Math.round(x), Math.round(y)]); }
+  function mark(x, y) { MARKS.push([Math.round(x + OX), Math.round(y)]); }
   function drawMarks(t) {
     if (t < T_BELL + 0.15 || t >= T_RUN + 0.1) return;
     TG = SC; pen(MX, R_EXT);
@@ -1260,12 +1525,12 @@
       actor('vamp', x, y, p);
     }
     if (t >= go && t < go + 0.4) poof(56, F4Y - 14, (t - go) / 0.4);
-    if (t >= C.ta && t < C.ta + 0.4) poof(306, F1Y - 14, (t - C.ta) / 0.4);
+    if (t >= C.ta && t < C.ta + 0.4) poof(706, F1Y - 14, (t - C.ta) / 0.4);
   }
   function doMummy(t, q) {
     const w = where('mummy', t);
     const p = { aF: -5, aB: 5 };
-    let x = 232, y = F4Y, flip = false;
+    let x = 632, y = F4Y, flip = false;
     if (w.mode === 'home' || w.mode === 'freeze') {
       const u = (w.mode === 'freeze' ? T_BELL : q) % 2.5;
       p.aF = 150 + ((fl(q * 8) & 1) ? 6 : -6); p.brush = true; p.foam = u > 1.2;
@@ -1291,7 +1556,7 @@
     if (t < T_LIGHT) return 0;
     return L0 * clamp((t - T_LIGHT) / (D - T_LIGHT), 0, 1);
   }
-  const TRAIL = [[229, 144], [231, 151], [272, 151], [308, 179], [304, 179], [272, 207], [308, 235], [304, 235], [272, 263], [308, 295], [304, 295], [272, 331], [300, 331]];
+  const TRAIL = [[629, 144], [631, 151], [672, 151], [708, 179], [704, 179], [672, 207], [708, 235], [704, 235], [672, 263], [708, 295], [704, 295], [672, 331], [700, 331]];
   function drawTrail(t) {
     const L = trailLen(t); if (L < 1) return;
     const tot = plen(TRAIL);
@@ -1350,7 +1615,7 @@
   function doKnight(t, q) {
     const w = where('knight', t);
     const p = { aF: 10, aB: 10 };
-    let x = 234, y = F3Y, flip = true;
+    let x = 634, y = F3Y, flip = true;
     if (w.mode === 'home' || w.mode === 'freeze') {
       // polishing his own head on its cushion
       p.aF = 78 + Math.sin(q * TAU * 2) * 10; p.cloth = true; p.lean = 1; p.aB = 20;
@@ -1370,7 +1635,7 @@
   function doReaper(t, q) {
     const w = where('reaper', t);
     const p = { aF: 70, aB: 80 };
-    let x = 198, y = F1Y, flip = false;
+    let x = 598, y = F1Y, flip = false;
     if (w.mode === 'home' || w.mode === 'freeze') {
       p.sit = true; p.knit = fl(q * 6); p.aF = 72 + ((fl(q * 6) & 1) ? 5 : -5);
       if (w.mode === 'freeze') { p.knit = 0; p.aF = 80; mark(x + 1, y - 30); }
@@ -1393,7 +1658,7 @@
   function drawScarf(t) {
     // the reaper's endless scarf: from the needles, down the chair, along the rug
     const w = where('reaper', t), knitting = w.mode === 'home' || w.mode === 'freeze';
-    const pts = knitting ? [[207, 316], [208, 324], [206, 331], [182, 331], [182, 324]] : [[210, 331], [182, 331], [182, 324]];
+    const pts = knitting ? [[207, 316], [208, 324], [206, 331], [182, 331], [182, 324]] : [[210, 331], [182, 331], [182, 324]]; // parlour coordinates, drawn shifted
     const L = scarfLen(t), tot = plen(pts);
     TG = SC; pen(MR, R_PARL);
     for (let s = 0; s < Math.min(L, tot); s++) { const a = along(pts, s / tot); const c = (fl(s / 3) & 1) ? 16 : 37; put(a.x, a.y, c); put(a.x + (a.y > 330 ? 0 : 1), a.y - (a.y > 330 ? 1 : 0), c); }
@@ -1538,12 +1803,12 @@
   }
   function doGhosts(t, q) {
     const G = [
-      { home: [158, 84], spot: [276, 215], path: [[158, 84], [220, 150], [276, 215]], d: 0.05 },
-      { home: [182, 70], spot: [294, 210], path: [[182, 70], [250, 110], [294, 210]], d: 0.2 },
-      { home: [206, 84], spot: [308, 224], path: [[206, 84], [290, 120], [308, 224]], d: 0.35 },
+      { home: [158, 84], spot: [604, 214], path: [[158, 84], [400, 150], [604, 214]], d: 0.05 },
+      { home: [182, 70], spot: [636, 212], path: [[182, 70], [430, 110], [636, 212]], d: 0.2 },
+      { home: [206, 84], spot: [700, 220], path: [[206, 84], [490, 120], [700, 220]], d: 0.35 },
     ];
     G.forEach((g, k) => {
-      const go = T_RUN + g.d, arrive = go + 1.4;
+      const go = T_RUN + g.d, arrive = go + 2.2;
       let x = g.home[0], y = g.home[1];
       const pp = { ph: fl(q * 6) + k, flip: k === 2 };
       const bob = Math.round(Math.sin(q * TAU / 2.5 + k * 2) * 1.2);
@@ -1553,7 +1818,7 @@
         if (k === 1) pp.hold = biscuit(q);
         if (k === 2) pp.hold = teacup(q);
       } else if (t < go) { y += bob; pp.mouth = true; mark(x, y - 16); }
-      else if (t < arrive) { const a = along(g.path, (t - go) / 1.4); x = a.x; y = a.y; pp.flip = a.dir < 0; pp.armsUp = true; pp.mouth = true; }
+      else if (t < arrive) { const a = along(g.path, (t - go) / 2.2); x = a.x; y = a.y; pp.flip = a.dir < 0; pp.armsUp = true; pp.mouth = true; }
       else { x = g.spot[0]; y = g.spot[1] + bob; pp.flip = false; if (t >= T_POSE && t < T_SIGH) { pp.armsUp = true; pp.mouth = true; } }
       pp.room = roomAt(x, y - 6);
       if (pp.room === R_EXT) pp.room = R_HALL;
@@ -1592,7 +1857,7 @@
     const tau = ((t - T_LIGHT) % D + D) % D;
     const prog = clamp(tau / 9.6, 0, 1);
     const torn = t >= T_RUN + 0.4 && t < T_LIGHT;
-    const cx = 310, cy = 102;
+    const cx = 710, cy = 102;
     TG = SC; pen(MR, R_HALL);
     const rays = 7;
     const ang = (k) => Math.PI * 0.5 + (k / (rays - 1)) * Math.PI * 0.55;
@@ -1615,8 +1880,8 @@
     let x = sx, y = sy;
     if (t >= T_RUN && t < T_LIGHT) {
       const down = sstep(T_RUN, T_RUN + 2.2, t);
-      x = 313; y = lerp(cy, 254, down);
-      vl(313, 97, Math.round(y) - 1, 31);
+      x = 713; y = lerp(cy, 254, down);
+      vl(713, 97, Math.round(y) - 1, 31);
     }
     const slot = SLOTS.length; SLOTS.push([DIM, DIM, DIM]);
     const spot = (X, Y, c) => { X = Math.round(X); Y = Math.round(Y); if (X < 0 || Y < 0 || X >= AW || Y >= AH) return; const j = Y * AW + X; SC.c[j] = c + 1; SC.m[j] = MS; SL[j] = slot; };
@@ -1628,7 +1893,7 @@
   function doBats(t, q) {
     // six bats on the perch; at the bell they pour out of the turret and circle the porch
     for (let k = 0; k < 6; k++) {
-      const hx = 17 + k * 7, go = T_RUN + 0.15 + k * 0.09, arrive = go + 1.5;
+      const hx = 17 + k * 7, go = T_RUN + 0.15 + k * 0.09, arrive = go + 2.6;
       if (t < go || t >= T_LIGHT) {
         const L = layer(7, 8); TG = L; PM = MS;
         const stretch = k === 3 && (q % 5) > 4.2;
@@ -1640,11 +1905,11 @@
         if (k === 2 && t >= T_BELL && t < T_RUN) mark(hx + 3, 46);
         continue;
       }
-      const spot = [330 + (k % 3) * 10 + Math.cos(t * 5 + k) * 4, 214 + fl(k / 3) * 12 + Math.sin(t * 6 + k * 2) * 3];
+      const spot = [730 + (k % 3) * 10 + Math.cos(t * 5 + k) * 4, 214 + fl(k / 3) * 12 + Math.sin(t * 6 + k * 2) * 3];
       let x, y;
       if (t < arrive) {
-        const u = (t - go) / 1.5;
-        const a = along([[hx, 52], [60 + k * 8, 26], [200 + k * 10, 12 + (k & 1) * 6], spot], io(u));
+        const u = (t - go) / 2.6;
+        const a = along([[hx, 52], [60 + k * 8, 26], [400 + k * 20, 10 + (k & 1) * 6], spot], io(u));
         x = a.x; y = a.y;
       } else { x = spot[0]; y = spot[1]; }
       flyer(x, y, fl(t * 12) + k, t < arrive && y < 150, { room: R_EXT });
@@ -1671,7 +1936,7 @@
     for (let i = 0; i <= 60; i++) {
       const s = i / 60, a = (1 - s) * (1 - s), b = 2 * s * (1 - s), c = s * s;
       const X = a * bx + b * cx + c * (hx - 5 * look), Y = a * by + b * cy + c * hy;
-      pen(MR, roomAt(X, Y) || R_CONS);
+      pen(MR, roomAt(X + OX, Y) || R_CONS);
       put(X, Y, 27); put(X + 1, Y, 26);
       if (i === 18 || i === 38) { ell(X - 3, Y - 1, 3, 1.4, 27); ell(X + 3, Y - 2, 3, 1.4, 28); }
     }
@@ -1684,7 +1949,7 @@
     put(5, 1 - g, 33); put(6, 1 - g, 0);
     if (look < 0) flipL(L);
     outline(L, 0);
-    stamp(L, hx - 6, hy - 7, hx, hy, { room: roomAt(hx, hy) || R_CONS });
+    stamp(L, hx - 6, hy - 7, hx, hy, { room: roomAt(hx + OX, hy) || R_CONS });
     if (moth) { TG = SC; pen(MX, R_CONS); const mx = 196 + 22 * Math.cos(q * TAU / 4), my = 226 + 7 * Math.sin(q * TAU / 2), f = fl(t * 15) & 1; put(mx, my, 33); put(mx - 1, my - f, 32); put(mx + 1, my - f, 32); }
   }
   function doNeighbour(t, q) {
@@ -1731,6 +1996,238 @@
     pen(ME, R_CEL); if (fl(q * 5) & 1) put(256, 364, 17); if (fl(q * 3) & 1) put(258, 364, 29);
   }
 
+  /* ---------------------------------------------------------------- the east wing, live */
+  const NOTE = ['..oo', '..o.', '..o.', 'ooo.', 'oo..'];
+  const alarmAt = (t) => t >= T_BELL && t < T_LIGHT;
+  function notes(x, y, t, n, col) {
+    for (let k = 0; k < n; k++) {
+      const u = ((t / 2 + k / n) % 1);
+      spr(NOTE, { o: col }, x + Math.round(Math.sin(u * 6 + k) * 4) + k * 5 - n * 2, y - fl(u * 18));
+    }
+  }
+  function doNursery(t, q) {
+    TG = SC; pen(MR, R_NURS);
+    const s = Math.round(Math.sin(t * TAU / 2.5) * 1.5);
+    for (let k = -11; k <= 11; k++) put(232 + k + s, 151 - Math.round((k * k) / 42), 20);
+    vl(226 + s, 147, 150, 19); vl(238 + s, 147, 150, 19);
+    for (let y = 136; y < 148; y++) { const w = y < 140 ? 10 : 10 - fl((y - 140) / 3); hl(232 - w + s, 232 + w + s, y, y === 136 ? 33 : ((y & 1) ? 32 : 33)); }
+    poly([[221 + s, 137], [222 + s, 129], [229 + s, 126], [230 + s, 137]], 38, (x) => ((x & 1) ? 38 : 39));
+    // a baby vampire with a pacifier; at the bell it wakes and cries
+    const awake = alarmAt(t);
+    ell(236 + s, 133, 3.2, 2.8, 7); hl(233 + s, 239 + s, 131, 1); put(233 + s, 132, 1);
+    if (awake) { put(235 + s, 133, 0); put(238 + s, 133, 0); hl(235 + s, 238 + s, 135, 15); }
+    else { hl(234 + s, 235 + s, 133, 0); hl(237 + s, 238 + s, 133, 0); put(237 + s, 135, 16); put(236 + s, 135, 16); }
+    // the bat mobile turns
+    hl(225, 239, 101, 31);
+    for (let k = 0; k < 3; k++) {
+      const a = t * TAU / 4 + k * TAU / 3, bx = Math.round(232 + Math.cos(a) * 8), by = 108 + k * 2;
+      vl(bx, 102, by - 2, 31);
+      spr(['o...o', 'ooooo', '.o.o.'], { o: Math.sin(a) > 0 ? 1 : 2 }, bx - 2, by - 1);
+    }
+    if (awake && t < T_DARK && (fl(t * 3) & 1)) { pen(MX, R_NURS); textO('WAH', 226, 116, 8, 0, 1); }
+    if (t >= T_BELL && t < T_RUN) mark(236, 124);
+    EYES.push([235 + s + OX, 133, 16]);
+  }
+  function doOrganist(t, q) {
+    // a many-armed thing at the organ; it plays something dreadful, and gives a big chord for the scare
+    const L = layer(64, 30); TG = L; PM = MS;
+    const cx = 32, cy = 13, big = t >= T_POSE && t < T_SIGH, freeze = t >= T_BELL && t < T_RUN;
+    for (let k = 0; k < 8; k++) {
+      const side = k < 4 ? -1 : 1, j = k % 4;
+      const ph = q * TAU * (1 + j * 0.3) + k;
+      let ex, ey;
+      if (big) { ex = cx + side * (10 + j * 5); ey = 2 + j * 2 + Math.round(Math.sin(t * 20 + k)); }
+      else if (freeze) { ex = cx + side * (8 + j * 3); ey = 8; }
+      else { ex = cx + side * (6 + j * 6) + Math.round(Math.sin(ph) * 2); ey = 23 + (j & 1 ? 4 : 0) + (Math.sin(ph * 1.7) > 0.3 ? 1 : 0); }
+      for (let i = 0; i <= 12; i++) {
+        const u = i / 12, x = lerp(cx + side * 4, ex, u) + Math.sin(u * Math.PI) * side * 3, y = lerp(cy + 4, ey, u) - Math.sin(u * Math.PI) * 4;
+        put(x, y, 12); if (i < 9) put(x, y + 1, 11); if (i % 4 === 2) put(x, y + 1, 39);
+      }
+    }
+    ell(cx, cy, 9, 9.5, 12, (x, y, u, v) => (u > 0.35 && v < -0.2 ? 38 : v > 0.4 ? 11 : 12));
+    put(cx - 3, cy - 3, 39); put(cx + 2, cy - 5, 39); put(cx + 4, cy, 39);
+    if (freeze || big) { rect(cx - 4, cy - 2, 2, 2, 33); rect(cx + 2, cy - 2, 2, 2, 33); put(cx - 3, cy - 1, 0); put(cx + 3, cy - 1, 0); }
+    outline(L, 0);
+    stamp(L, 372 - cx, 132 - cy, 372, 132, { room: R_ORGAN });
+    if (freeze) mark(372, 118);
+    TG = SC; pen(MX, R_ORGAN);
+    if (big) { textO('DUN', 340, 100, 23, 0, 1); if (t > T_POSE + 0.3) textO('DUN', 360, 98, 23, 0, 1); if (t > T_POSE + 0.6) textO('DUNNN', 382, 100, 22, 0, 1); }
+    else if (!alarmAt(t)) { pen(ME, R_ORGAN); notes(372, 112, t, 3, 7); }
+    EYES.push([370 + OX, 130, 39]);
+  }
+  function doGuest(t, q) {
+    TG = SC; pen(MR, R_GUEST);
+    // the guest sleeps through everything: big hairy feet out of the end of the bed
+    const br = Math.round(1 + Math.sin(t * TAU / 2.5));
+    rect(478, 133, 9, 7, 33); hl(478, 486, 133, 8);
+    ell(484, 131, 4, 3.5, 34); put(482, 130, 35); put(486, 131, 35); put(487, 133, 36);
+    for (let x = 486; x < 536; x++) { const y = 136 - br - Math.round(2 * Math.sin((x - 486) / 50 * Math.PI)); vl(x, y, 139, ((x >> 2) & 1) ? 16 : 15); put(x, y, 17); }
+    rect(474, 138, 66, 3, 33);
+    for (const fy of [132, 136]) { rect(540, fy, 4, 3, 35); put(544, fy, 35); put(544, fy + 2, 34); put(541, fy - 1, 34); }
+    if (!alarmAt(t) || t >= T_RUN) { pen(ME, R_GUEST); const z = (t * 0.8) % 1; text('Z', 490 + fl(z * 10), 124 - fl(z * 10), 7); }
+    // something lives under the bed: eyes, and a furry arm that steals the slipper
+    pen(MX, R_GUEST);
+    const u = q % 5, blink = (q % 2.5) > 2.3;
+    if (!alarmAt(t)) {
+      if (!blink) { rect(500, 147, 2, 2, 23); rect(505, 147, 2, 2, 23); put(500, 147, 24); put(505, 147, 24); }
+      pen(MR, R_GUEST);
+      const reach = u > 3.0 && u < 4.4 ? Math.sin((u - 3.0) / 1.4 * Math.PI) : 0;
+      if (reach > 0) { const hx = 512 + Math.round(reach * 26); hl(510, hx, 149, 38); hl(510, hx, 150, 11); rect(hx, 148, 2, 3, 38); }
+      if (u < 3.7) { rect(538, 149, 6, 2, 16); put(543, 148, 16); } else if (u < 4.4) { const sx = 538 - Math.round((u - 3.7) / 0.7 * 26); rect(sx, 149, 6, 2, 16); }
+    } else if (t < T_RUN) { rect(499, 146, 3, 3, 23); rect(505, 146, 3, 3, 23); put(500, 147, 0); put(506, 147, 0); mark(504, 140); }
+    // (during the commotion it hides, and the bed shakes)
+    if (alarmAt(t) && t >= T_RUN && t < T_DARK) { pen(MR, R_GUEST); const j = fl(t * 20) & 1; hl(486 + j, 535, 136, 17); }
+  }
+  function doLab(t, q) {
+    // the liquids in the glassware, and the slime in the big beaker
+    TG = SC; pen(ME, R_LAB);
+    ell(214, 182, 2.6, 2.6, 28); put(213, 181, 29);
+    for (let y = 182; y < 189; y++) { const w = Math.round((y - 182) * 0.5); hl(259 - w, 259 + w, y, 39); }
+    for (let k = 0; k < 4; k++) vl(272 + k * 3, 184 + k, 188, [17, 23, 28, 6][k]);
+    for (let k = 0; k < 3; k++) { const v = ((q + k * 0.4) % 1.25) / 1.25; put(213 + k, 181 - fl(v * 10), 29); }
+    if (fl(t * 12) & 1) { put(214, 185, 23); put(215, 185, 22); } else put(214, 185, 22);
+    const L = layer(18, 22); TG = L; PM = MS;
+    const al = alarmAt(t), wob = Math.round(Math.sin(q * TAU / 1.25) * 1);
+    const h = al && t >= T_RUN ? 4 : 9 + wob;
+    for (let y = 21 - h; y < 21; y++) { const w = y === 21 - h ? 4 : 7; hl(8 - w, 8 + w, y, y < 23 - h ? 29 : 28); }
+    if (!al || t < T_RUN) { rect(5, 21 - h + 2, 2, 2, 33); rect(10, 21 - h + 2, 2, 2, 33); put(6, 21 - h + 3, 0); put(11, 21 - h + 3, 0); }
+    const u = q % 5;
+    if (!al && u > 3.8 && u < 4.8) { const r = Math.sin((u - 3.8) * Math.PI) * 8; for (let k = 0; k < r; k++) { put(2 - fl(k * 0.3), 21 - h - k, 28); put(3 - fl(k * 0.3), 21 - h - k, 29); } }
+    stamp(L, 298, 186, 306, 200, { room: R_LAB, bright: 1.2 });
+    if (t >= T_BELL && t < T_RUN) mark(306, 182);
+  }
+  function doDining(t, q) {
+    // the table lays itself: the cutlery hovers and turns over the plates
+    TG = SC; pen(MR, R_DINE);
+    [152, 176, 236, 260].forEach((x, k) => {
+      const al = alarmAt(t) && t >= T_RUN, y = al ? 245 : 238 + Math.round(2 * Math.sin(q * TAU / 2.5 + k * 1.7));
+      if (al) { hl(x - 6, x - 3, y, 32); hl(x + 3, x + 6, y, 31); return; }
+      vl(x - 4, y, y + 4, 32); put(x - 5, y, 32); put(x - 3, y, 32);
+      vl(x + 4, y + (k & 1), y + 4, 31); put(x + 4, y - 1 + (k & 1), 33);
+    });
+    if (t >= T_BELL && t < T_RUN) mark(206, 232);
+  }
+  function doGame(t, q) {
+    TG = SC; pen(MR, R_GAME);
+    // billiard balls knocking about by themselves
+    const tri = (u) => { u = ((u % 1) + 1) % 1; return u < 0.5 ? u * 2 : 2 - u * 2; };
+    const al = alarmAt(t) && t >= T_RUN;
+    [[37, 1 / 4, 0], [33, 1 / 5, 0.3], [23, 1 / 2.5, 0.7], [16, 1 / 10, 0.1]].forEach(([c, f, ph]) => {
+      const x = al ? 360 + c : 352 + Math.round(tri(t * f + ph) * 84);
+      rect(x, 241, 2, 2, c); put(x, 241, LITE[c]);
+    });
+    // a cue strikes on its own now and then
+    const cu = (q % 5);
+    if (!al && cu < 0.6) { const x = 330 + Math.round(Math.sin(cu / 0.6 * Math.PI) * 10); line(x, 236, x + 20, 241, 21); put(x + 20, 241, 33); }
+    // the chess pieces play a slow game
+    const step = fl(t / 2.5);
+    for (let k = 0; k < 5; k++) { const hop = (t % 2.5) < 0.3 && k === step % 5; const x = 459 + k * 4 + (k === step % 5 && !hop ? 1 : 0); vl(x, 246 - (hop ? 3 : 0), 248 - (hop ? 3 : 0), k & 1 ? 0 : 33); put(x, 245 - (hop ? 3 : 0), k & 1 ? 0 : 33); }
+    // darts fly into the board
+    const du = q % 5;
+    if (!al && du > 1 && du < 1.4) { const x = lerp(430, 488, (du - 1) / 0.4); hl(Math.round(x) - 3, Math.round(x), 230, 32); put(Math.round(x) - 3, 229, 16); }
+    if (du >= 1.4 || al) { hl(484, 487, 230, 32); put(484, 229, 16); }
+    if (!al) { pen(ME, R_GAME); notes(506, 236, t, 2, 22); }
+    if (t >= T_BELL && t < T_RUN) mark(395, 238);
+  }
+  function doAqua(t, q) {
+    TG = SC; pen(ME, R_AQUA);
+    for (let y = 279; y < 317; y++) for (let x = 195; x < 317; x++) {
+      const ray = ((x + y * 0.4 + fl(t * 3)) % 26) < 3 && y < 300;
+      let c = bay(x, y) < (y - 279) / 40 ? 4 : 5;
+      if (ray) c = 6;
+      if (y >= 311) c = bay(x, y) < 0.5 ? 22 : 21;
+      put(x, y, c);
+    }
+    hl(195, 316, 279, 6);
+    // rocks, a treasure chest that burps bubbles, weed in the current
+    pen(MR, R_AQUA);
+    ell(214, 310, 7, 4, 30); ell(296, 309, 9, 5, 30); put(292, 306, 31); put(211, 307, 31);
+    rect(250, 304, 12, 7, 20); hl(250, 261, 304, 22); const lid = (q % 4) > 3.2; if (lid) { hl(250, 261, 302, 21); put(250, 303, 20); } else hl(250, 261, 304, 21);
+    for (const [wx, wh] of [[204, 22], [230, 16], [278, 26], [306, 18]]) for (let j = 0; j < wh; j++) { const x = wx + Math.round(Math.sin(t * 2 + j * 0.35 + wx) * (j / 8)); put(x, 311 - j, j & 1 ? 27 : 28); }
+    pen(ME, R_AQUA);
+    for (let k = 0; k < 6; k++) { const v = ((q + k * 0.6) % 2) / 2; put(254 + (k % 3) * 2 + Math.round(Math.sin(v * 9) * 1), 302 - fl(v * 22), 7); }
+    // fish
+    pen(MR, R_AQUA);
+    [[37, 0.25, 286, 0], [23, 0.2, 294, 0.5], [17, 1 / 2.5, 282, 0.3], [6, 1 / 5, 300, 0.8]].forEach(([c, f, y, ph]) => {
+      const u = ((t * f + ph) % 1), dir = u < 0.5 ? 1 : -1, x = 200 + Math.round((u < 0.5 ? u * 2 : 2 - u * 2) * 108);
+      rect(x, y, 4, 2, c); put(x + (dir > 0 ? 4 : -1), y, c); put(x - dir * 1 + (dir > 0 ? -1 : 4), y - 1, c); put(x - dir * 1 + (dir > 0 ? -1 : 4), y + 2, c); put(x + (dir > 0 ? 3 : 0), y, 0);
+    });
+    // the tank's resident: waves from behind his rock, presses his face to the glass at the bell
+    const al = alarmAt(t);
+    const L = layer(16, 18); TG = L; PM = MS;
+    const up = al ? 0 : Math.round(2 + Math.sin(t * TAU / 4) * 2);
+    ell(8, 6 + up, 5, 4.6, 27); hl(3, 13, 3 + up, 28); put(2, 5 + up, 26); put(14, 5 + up, 26); put(1, 4 + up, 26); put(15, 4 + up, 26);
+    rect(5, 5 + up, 2, 2, 33); rect(10, 5 + up, 2, 2, 33); put(6, 6 + up, 0); put(10, 6 + up, 0);
+    hl(6, 10, 9 + up, al ? 0 : 26);
+    rect(5, 11 + up, 7, 6, 27);
+    if (!al) { const w = fl(t * 4) & 1; line(12, 12 + up, 15, 7 + up + w, 27); put(15, 6 + up + w, 28); }
+    else { put(3, 11, 27); put(13, 11, 27); hl(2, 4, 10, 28); hl(12, 14, 10, 28); }
+    outline(L, 25);
+    stamp(L, al ? 248 : 228, 294, 236, 304, { room: R_AQUA, clip: null });
+    if (t >= T_BELL && t < T_RUN) mark(236, 290);
+    EYES.push([(al ? 253 : 233) + OX, 300, 29]);
+  }
+  function doCinema(t, q) {
+    TG = SC;
+    const on = DIM > 0.3;
+    // the film: a grainy cartoon of a bouncing pumpkin, and a title card
+    pen(ME, R_CINE);
+    for (let y = 279; y < 313; y++) for (let x = 402; x < 522; x++) { let c = 32; if (ih(x, y, fl(t * 12)) < 0.04) c = 31; if (ih(x >> 3, fl(t * 12), 7) < 0.02) c = 33; put(x, y, c); }
+    const card = (t % 5) > 4;
+    if (card) textO('BOO!', 446, 290, 30, 33, 2);
+    else {
+      const u = (t % 1.25) / 1.25, bx = 420 + Math.round(((t % 5) / 4) * 80), by = 306 - Math.round(Math.abs(Math.sin(u * Math.PI)) * 18);
+      ell(bx, by - 4, 6, 5, 30); vl(bx, by - 11, by - 9, 1); put(bx - 2, by - 5, 33); put(bx + 2, by - 5, 33); hl(bx - 2, bx + 2, by - 2, 33);
+      hl(402, 521, 311, 30);
+    }
+    // the projector beam
+    if (on) { pen(MX, R_CINE); for (let i = 0; i < 40; i++) { const s = i / 40; for (let k = 0; k < 3; k++) { const v = ih(i, k, fl(t * 8)); const y = lerp(303, lerp(280, 312, v), s); if (ih(i, k, 3) < 0.5) put(lerp(366, 401, s), y, 7); } } }
+    // the audience: two goblins and their popcorn
+    const L = layer(40, 12); TG = L; PM = MS;
+    const al = alarmAt(t);
+    for (const [hx, k] of [[8, 0], [30, 1]]) {
+      const bob = al ? 0 : (fl(q * 4 + k) & 1);
+      ell(hx, 6 - bob, 3.4, 3, 27); put(hx - 4, 4 - bob, 27); put(hx + 4, 4 - bob, 27); put(hx - 5, 3 - bob, 27); put(hx + 5, 3 - bob, 27);
+    }
+    rect(17, 6, 5, 5, 16); for (let x = 17; x < 22; x += 2) vl(x, 6, 10, 33); hl(17, 21, 5, 33); put(18, 4, 33); put(20, 4, 23);
+    if (!al && (q % 2.5) > 2.0) put(14, 2, 33);
+    outline(L, 0);
+    stamp(L, 410, 316, 430, 318, { room: R_CINE });
+    if (t >= T_BELL && t < T_RUN) mark(430, 312);
+  }
+  function doRaven(t, q) {
+    const L = layer(12, 12); TG = L; PM = MS;
+    const al = alarmAt(t) && t < T_DARK, beak = al && (fl(t * 4) & 1);
+    spr(['....oo....', '...oooo...', '...ooeob..', '..oooooobb', '.ooooooo..', 'oooooooo..', '.ooooooo..', '..ooooo...', '...o..o...'], { o: 1, e: 23, b: 31 }, 1, 2);
+    if (beak) put(10, 4, 31);
+    if ((q % 5) > 4.6) put(6, 4, 1);
+    outline(L, 12);
+    stamp(L, 606, 54, 612, 60, { room: R_ATT });
+    if (al && t >= T_RUN && (fl(t * 2) & 1)) { TG = SC; pen(MX, R_ATT); textO('CAW', 620, 50, 8, 0, 1); }
+    if (t >= T_BELL && t < T_RUN) mark(612, 52);
+    EYES.push([612 + OX, 60, 23]);
+    // the old television in the corner shows nothing but snow
+    TG = SC; pen(ME, R_ATT);
+    for (let y = 82; y < 90; y++) for (let x = 562; x < 572; x++) put(x, y, ih(x, y, fl(t * 15)) < 0.5 ? 31 : 33);
+  }
+  function doCellarEast(t, q) {
+    // the prisoner rattles his chains; the bars are in front of him
+    const al = alarmAt(t);
+    const rattle = !al && (q % 2.5) < 1.2 ? (fl(q * 8) & 1) : 0;
+    actor('skel', 324, FCY - 4, { sit: true, aF: al ? 170 : 150 + rattle * 10, aB: al ? 170 : 140 - rattle * 10, hdy: al ? 0 : 1 });
+    TG = SC; pen(MR, R_CEL);
+    line(313, 356, 320 + rattle, 368 - rattle * 2, 31); line(335, 356, 329 - rattle, 368 - rattle * 2, 31);
+    for (let x = 344; x < 384; x += 5) vl(x, 347, 391, 31);
+    hl(344, 383, 360, 30); vl(366, 368, 374, 22);
+    if (t >= T_BELL && t < T_RUN) mark(325, 352);
+    // a rat runs the length of the cellar, back and forth
+    const u = (t % 10) / 10, dir = u < 0.5 ? 1 : -1, x = Math.round(200 + (u < 0.5 ? u * 2 : 2 - u * 2) * 400);
+    if (!al || t >= T_LIGHT) { rect(x, 389, 5, 2, 31); put(x + (dir > 0 ? 5 : -1), 389, 31); put(x + (dir > 0 ? 6 : -2), 390, 17); hl(x - dir * 4 + (dir > 0 ? -1 : 5), x - dir * 1 + (dir > 0 ? -1 : 5), 390, 17); put(x + (dir > 0 ? 4 : 0), 388, 31); }
+    // the boiler gauge needle
+    const a = al ? -0.3 : Math.sin(t * 1.3) * 0.8 + 0.4;
+    line(518, 362, 518 + Math.round(Math.cos(a - Math.PI / 2) * 2.5), 362 + Math.round(Math.sin(a - Math.PI / 2) * 2.5), 16);
+  }
+
   /* ---------------------------------------------------------------- props that live */
   function liveProps(t, q, fi) {
     TG = SC;
@@ -1746,14 +2243,17 @@
     // candles
     flame(85, 125, R_VAMP); flame(82, 123, R_VAMP); flame(88, 123, R_VAMP);
     flame(182, 73, R_ATT, true);
-    flame(229, 164, R_ARM); flame(215, 290, R_PARL); flame(240, 290, R_PARL);
-    flame(38, 351, R_CEL); flame(190, 427, R_TOMB, true); flame(252, 237, R_CONS);
+    OX = DX; flame(229, 164, R_ARM); flame(215, 290, R_PARL); flame(240, 290, R_PARL); flame(252, 237, R_CONS); OX = 0;
+    flame(38, 351, R_CEL); flame(190, 427, R_TOMB, true); flame(342, 348, R_CEL);
+    for (const x of [314, 430]) { flame(x - 3, 113, R_ORGAN); flame(x, 112, R_ORGAN, true); flame(x + 3, 113, R_ORGAN); }
+    for (const x of [188, 248]) { flame(x - 3, 233, R_DINE); flame(x, 232, R_DINE, true); flame(x + 3, 233, R_DINE); }
     // chandelier
     pen(MR, R_BALL);
     hl(85, 103, 281, 21); hl(87, 101, 282, 20); for (const x of [85, 90, 94, 98, 103]) { vl(x, 278, 280, 33); flame(x, 277, R_BALL); }
     vl(94, 282, 285, 21); put(94, 286, 22);
     // gas sconces
-    gas(229, 115, R_BATH); gas(280, 112, R_HALL); gas(269, 172, R_HALL); gas(269, 228, R_HALL); gas(269, 290, R_HALL);
+    OX = DX; gas(229, 115, R_BATH); gas(280, 112, R_HALL); gas(269, 172, R_HALL); gas(269, 228, R_HALL); gas(269, 290, R_HALL); OX = 0;
+    if (lit) { pen(ME, R_GUEST); hl(550, 556, 131, 24); pen(ME, R_GAME); hl(386, 404, 231, 24); }
     // the reading lamp
     if (lit) { pen(ME, R_LIB); hl(145, 149, 126, 24); put(147, 127, 23); }
     // vanity bulbs
@@ -1764,10 +2264,11 @@
     if (lit) {
       pen(ME, R_KIT);
       for (let k = 0; k < 6; k++) { const x = 26 + k * 2, f = ih(fl(t * 12), k, 8), h = 2 + fl(f * 4); for (let j = 0; j < h; j++) put(x, 261 - j, j > 2 ? 23 : j > 0 ? 22 : 37); }
-      pen(ME, R_PARL);
+      OX = DX; pen(ME, R_PARL);
       for (let k = 0; k < 9; k++) { const x = 220 + k * 2, f = ih(fl(t * 12), k, 18), h = 3 + fl(f * 6); for (let j = 0; j < h; j++) put(x + (j > 3 ? (f < 0.5 ? 1 : 0) : 0), 330 - j, j > 4 ? 23 : j > 1 ? 22 : 37); }
-      hl(219, 237, 331, 37);
+      hl(219, 237, 331, 37); OX = 0;
       pen(ME, R_CEL); for (let x = 147; x < 157; x += 2) for (let y = 378; y < 383; y++) put(x + 1, y, ih(fl(t * 10), x + y, 11) < 0.5 ? 37 : 22);
+      for (let x = 513; x < 522; x += 2) for (let y = 382; y < 387; y++) put(x + 1, y, ih(fl(t * 10), x + y, 12) < 0.5 ? 37 : 22);
     }
     // the brew, its bubbles, and the overflow
     pen(ME, R_KIT); hl(24, 42, 247, 28); hl(25, 41, 248, 27);
@@ -1784,12 +2285,14 @@
     }
     // the trousers on the ironing board, while he is at it
     { const wf = where('frank', t); if (wf.mode === 'home' || wf.mode === 'freeze') { pen(MR, R_FRANK); rect(108, 185, 18, 3, 2); hl(108, 125, 185, 3); line(116, 185, 119, 187, 32); put(121, 186, 22); put(123, 186, 22); rect(125, 185, 3, 3, 3); } }
+    OX = DX;
     // the knight's head, being polished on its cushion
-    { const wk = where('knight', t); if (wk.mode === 'home' || wk.mode === 'freeze') { pen(MR, R_ARM); const H = (q % 2.5) > 2.3 ? HELM_BLINK : wk.mode === 'freeze' ? HELM_ANGRY : HELM; spr(H.rows, H.map, 209, 185, true); if (wk.mode === 'home') EYES.push([211, 190, 23]); } }
+    { const wk = where('knight', t); if (wk.mode === 'home' || wk.mode === 'freeze') { pen(MR, R_ARM); const H = (q % 2.5) > 2.3 ? HELM_BLINK : wk.mode === 'freeze' ? HELM_ANGRY : HELM; spr(H.rows, H.map, 209, 185, true); if (wk.mode === 'home') EYES.push([211 + OX, 190, 23]); } }
     // the reaper's scythe, leaning on the mantel while he knits
     { const wr = where('reaper', t); if (wr.mode === 'home' || wr.mode === 'freeze') { pen(MR, R_PARL); vl(246, 290, 331, 20); vl(247, 290, 331, 19); for (let k = 0; k < 11; k++) { const bx = 246 - k, by = 290 + Math.round((k * k) / 22) + (k < 2 ? 0 : 1); put(bx, by, 32); put(bx, by + 1, k > 1 && k < 10 ? 33 : 32); } } }
     // the trapdoor, open while the zombie is up the cellar stair
     { const wz = where('zombie', t); if (wz.mode !== 'home' && wz.mode !== 'freeze' && (wz.mode !== 'run' || t > CAST.zombie.ta - 0.6)) { pen(MR, R_HALL); for (let y = F1Y; y < F1Y + 4; y++) hl(287, 300, y, 10); rect(285, F1Y - 14, 2, 14, 19); vl(285, F1Y - 14, F1Y - 1, 20); } }
+    OX = 0;
     // the vampire's mirror: no reflection, except the comb
     pen(ME, R_VAMP);
     for (let y = 119; y < 149; y++) for (let x = 65; x < 79; x++) {
@@ -1800,12 +2303,14 @@
     }
     { const wv = where('vamp', t); const u = q % 5; COMB = wv.mode === 'home' && u >= 3.1 && u < 4.6 ? [58 + ((fl(q * 6) & 1) ? 1 : 0), F4Y - 25] : null; }
     if (COMB) { const mx = 2 * 66 - COMB[0], my = COMB[1]; hl(mx - 1, mx + 2, my, 32); put(mx - 1, my + 1, 32); put(mx + 1, my + 1, 32); }
+    OX = DX;
     // grandfather clock pendulum and face
     pen(MR, R_HALL); const sw = Math.round(Math.sin(t * Math.PI) * 1.6);
     vl(286, 309, 318, 31); vl(286 + sw, 318, 321, 22); put(286 + sw, 322, 23);
     pen(lit ? ME : MR, R_HALL); ell(286.5, 301.5, 2.6, 2.6, 33); put(286, 299, 0); put(286, 300, 0); put(286, 301, 0); put(287, 301, 0);
     // porch lantern
     pen(ME, R_PORCH); const pf = ih(fl(t * 10), 2, 12); rect(323, 285, 3, 4, pf < 0.5 ? 22 : 23); put(324, 286, 24);
+    OX = 0;
     // portraits' eyes follow the action
     for (const P of PORTRAITS) {
       const fx = FOCUS[P.room] !== undefined ? FOCUS[P.room] : P.x;
@@ -1814,7 +2319,7 @@
     }
     // chimney smoke and the bats around the moon
     pen(ME, R_EXT);
-    for (let k = 0; k < 4; k++) { const u = ((t / 5 + k / 4) % 1); const sx = 244 + Math.round(Math.sin(u * 5 + k) * 3 + u * 12), sy = 16 - u * 16; if (sy >= 0) { put(sx, sy, 5); put(sx + 1, sy, 4); if (u < 0.5) put(sx, sy - 1, 4); } }
+    for (let k = 0; k < 4; k++) { const u = ((t / 5 + k / 4) % 1); const sx = 244 + Math.round(Math.sin(u * 5 + k) * 3 + u * 12), sy = 16 - u * 16; if (sy >= 0) { put(sx, sy, 5); put(sx + 1, sy, 4); if (u < 0.5) put(sx, sy - 1, 4); put(sx + DX, sy, 5); put(sx + DX + 1, sy, 4); } }
     for (let k = 0; k < 3; k++) {
       const a = t * TAU / 10 * (k === 1 ? -1 : 1) + k * 2.1;
       const bx = MOONX - 6 + Math.cos(a) * (22 + k * 6), by = MOONY + 4 + Math.sin(a) * (12 + k * 4);
@@ -1899,13 +2404,13 @@
   }
   function doKid(t) {
     let x = null, y = F1Y; const p = { walk: -1 };
-    if (t >= 4.4 && t < 7.3) { const u = (t - 4.4) / 2.9; x = lerp(384, 339, u); y = x > 348 ? GY : F1Y; p.walk = fl(t * 7); p.flip = true; }
-    else if (t >= 7.3 && t < T_LEAVE) {
+    if (t >= 3.4 && t < 6.3) { const u = (t - 3.4) / 2.9; x = lerp(412, 339, u); y = x > 348 ? GY : F1Y; p.walk = fl(t * 7); p.flip = true; }
+    else if (t >= 6.3 && t < T_LEAVE) {
       x = 338; p.flip = true;
-      if (t >= 7.4 && t < 7.85) p.press = true;
+      if (t >= 6.4 && t < 6.85) p.press = true;
       if (t >= 12.6 && t < T_LEAVE) p.bagOut = true;
       if (t >= T_CANDY + 0.3 && t < T_CANDY + 0.55) { TG = SC; pen(MX, R_PORCH); const u = (t - T_CANDY - 0.3) / 0.25; put(lerp(312, 330, u), 318 - Math.sin(u * Math.PI) * 6 + u * 6, 17); }
-    } else if (t >= T_LEAVE && t < 19.0) { const u = (t - T_LEAVE) / 3.1; x = lerp(339, 392, u); y = x > 348 ? GY : F1Y; p.walk = fl(t * 7); }
+    } else if (t >= T_LEAVE && t < 19.0) { const u = (t - T_LEAVE) / 3.1; x = lerp(339, 420, u); y = x > 348 ? GY : F1Y; p.walk = fl(t * 7); }
     if (x === null) return;
     kid(Math.round(x), y, p);
     if (t >= T_COOL && t < T_SIGH) bubble(318, 284, ['COOL', 'COSTUMES.'], 338);
@@ -1917,16 +2422,15 @@
     poolI = 0; MARKS.length = 0; EYES.length = 0; COMB = null; SIGH = null; AIR = null; IRON = null; JAW = null; POUR = null;
     for (const k in FOCUS) delete FOCUS[k];
     const alarm = t >= T_BELL && t < T_LIGHT;
-    FOCUS[R_VAMP] = 56; FOCUS[R_BALL] = 90; FOCUS[R_PARL] = alarm ? 262 : 200; FOCUS[R_HALL] = alarm ? 330 : 280;
+    FOCUS[R_VAMP] = 56; FOCUS[R_BALL] = 90; FOCUS[R_PARL] = alarm ? 662 : 600; FOCUS[R_HALL] = alarm ? 730 : 680;
+    FOCUS[R_GAL] = alarm ? 700 : 387 + Math.round(Math.sin(t * TAU / 5) * 60); FOCUS[R_DINE] = 206;
     // background things first
     liveProps(t, q, fi);
-    doDoor(t);
+    OX = DX; doDoor(t); drawScarf(t); doBrain(t, q); doPlant(t, q); OX = 0;
     drawTrail(t);
-    drawScarf(t);
     doRocker(t);
-    doBrain(t, q);
     doNeighbour(t, q);
-    doPlant(t, q);
+    doNursery(t, q); doOrganist(t, q); doGuest(t, q); doLab(t, q); doDining(t, q); doGame(t, q); doAqua(t, q); doCinema(t, q); doRaven(t, q); doCellarEast(t, q);
     // the cast: those on the stairs first, then the front row at the door
     doSkel('drum', t, q); doSkel('bass', t, q); doSkel('sing', t, q);
     doMummy(t, q); doInvis(t, q);
@@ -1937,8 +2441,7 @@
     doGhosts(t, q);
     doSpider(t, q);
     doBats(t, q);
-    doBell(t);
-    doKid(t);
+    OX = DX; doBell(t); doKid(t); OX = 0;
     liveFX(t, q, fi);
     drawMarks(t);
     // in the blackout only the eyes are left, and they blink once
@@ -1949,7 +2452,7 @@
     // a lightning flash outside when they all strike their poses
     FLASH = 0;
     if (t >= T_POSE && t < T_POSE + 0.12) FLASH = 0.9; else if (t >= T_POSE + 0.22 && t < T_POSE + 0.28) FLASH = 0.5;
-    if (FLASH > 0) { TG = SC; pen(ME, R_EXT); let x = 352, y = 192; for (let s = 0; s < 8; s++) { const nx = x + (s & 1 ? 4 : -3), ny = y + 10; line(x, y, nx, ny, 8); x = nx; y = ny; } }
+    if (FLASH > 0) { TG = SC; pen(ME, R_EXT); let x = 752, y = 192; for (let s = 0; s < 8; s++) { const nx = x + (s & 1 ? 4 : -3), ny = y + 10; line(x, y, nx, ny, 8); x = nx; y = ny; } }
   }
   let FLASH = 0, DIM = 1;
   function dimAt(t) {
@@ -1962,7 +2465,7 @@
     return 0.6;
   }
   function cameraAt(t) {
-    if (t >= T_OPEN && t < T_LIGHT) return { x: 240, y: 190, z: 3 };
+    if (t >= T_OPEN && t < T_LIGHT) return { x: 533, y: 190, z: 3 };
     return { x: 0, y: 0, z: 1 };
   }
   /* ================================================================ light */
@@ -1978,6 +2481,8 @@
     if (kind === 'candle') return 0.88 + 0.12 * ih(q, k, 61);
     if (kind === 'fire') return 0.8 + 0.25 * ih(q, k, 62);
     if (kind === 'gas') return 0.95 + 0.05 * ih(fl(t * 6), k, 63);
+    if (kind === 'film') return 0.78 + 0.22 * ih(fl(t * 12), k, 64);
+    if (kind === 'water') return 0.9 + 0.1 * Math.sin(t * 3 + k);
     return 1;
   }
   function roomLight(room, x, y, b) {
@@ -2047,9 +2552,9 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'nightshift',
     title: 'The Night Shift',
-    medium: 'Pixel art in 40 colours, 360 × 450, animated in JavaScript · 20 s loop',
+    medium: 'Pixel art in 40 colours, 800 × 450, animated in JavaScript · 20 s loop',
     note: 'Somebody is at the door · tap to pause',
-    about: 'A haunted mansion on Halloween, run like backstage at a theatre: sixteen rooms from the bat turret to a crypt under the garden, every monster at a tiny routine in its own lamplit room, until the doorbell rings and the whole cast scrambles down the stairs to give one small trick-or-treater the scare of a lifetime. Drawn pixel by pixel in code on a 360 × 450 grid, each room lit by its own lamp.',
+    about: 'A haunted mansion on Halloween, run like backstage at a theatre: twenty-six rooms from the bat turret to a crypt under the garden, every monster at a tiny routine in its own lamplit room, until the doorbell rings and the whole cast scrambles down the stairs to give one small trick-or-treater the scare of a lifetime. Drawn pixel by pixel in code on an 800 × 450 grid, each room lit by its own lamp.',
     tone: 'dark',
     room: '#05060f',
     mount(el, api) {
@@ -2069,7 +2574,7 @@
       function layout() {
         const dpr = Math.min(2, window.devicePixelRatio || 1);
         let left = 0, top = 0, cssW, cssH;
-        if (EXPORT) { cssW = 1080; cssH = 1350; cv.style.position = 'fixed'; K = Math.max(1, Math.round(1080 / AW * dpr)); cv.width = AW * K; cv.height = AH * K; }
+        if (EXPORT) { cssW = AW * 3; cssH = AH * 3; cv.style.position = 'fixed'; K = Math.max(1, Math.round(3 * dpr)); cv.width = AW * K; cv.height = AH * K; }
         else {
           const w = el.clientWidth || window.innerWidth, h = el.clientHeight || window.innerHeight;
           const fit = Math.min(w * dpr / AW, h * dpr / AH) * 0.97;
