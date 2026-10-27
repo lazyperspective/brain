@@ -77,7 +77,7 @@
   function setCamera(t) {
     const c = 0.5 + 0.5 * Math.cos(TAU * t / 8);           // 1 at t = 0, 8, 16: straight under the knot
     const e = lerp(0.85, 1.5, Math.pow(c, 0.8));
-    CY = lerp(180, 152, c);
+    CY = lerp(176, 146, c);
     const se = Math.sin(e), ce = Math.cos(e);
     cam.x = 0; cam.y = -CDIST * se; cam.z = CDIST * ce;
     cam.wx = 0; cam.wy = se; cam.wz = -ce;                 // view direction
@@ -594,8 +594,8 @@
   const LAND = new Uint8Array(NP);
   const PLT = new Float32Array(64 * 360);
   const WINDOWS = [], FIRES = [], LAVA = [];
-  const HZ = 262;
-  const VOLC = [{ x: 64, y: 228, s: 0.58 }, { x: 222, y: 246, s: 0.72 }];
+  const HZ = 272;
+  const VOLC = [{ x: 64, y: 240, s: 0.56 }, { x: 222, y: 257, s: 0.7 }];
   let built = false;
   const CELLS = [45, 27, 15, 9, 5];
   function build() {
@@ -662,7 +662,7 @@
     let x = -4;
     let bi = 0;
     while (x < W + 4) {
-      const w = 4 + fl(ih(bi, 1, 90) * 9), h = 10 + ih(bi, 2, 90) * 22, base = 286;
+      const w = 4 + fl(ih(bi, 1, 90) * 9), h = 10 + ih(bi, 2, 90) * 20, base = 296;
       const type = ih(bi, 3, 90);
       for (let xx = x; xx < x + w; xx++) {
         let top = base - h + fl(ih(xx, bi, 91) * 3);
@@ -675,7 +675,7 @@
     }
     // a great broken dome
     {
-      const dcx = 182, dcy = 254, R = 19;
+      const dcx = 182, dcy = 266, R = 18;
       for (let yy = dcy - R; yy <= dcy; yy++) for (let xx = dcx - R; xx <= dcx + R; xx++) {
         const d = Math.hypot(xx - dcx, (yy - dcy) * 1.1);
         if (d > R) continue;
@@ -683,14 +683,14 @@
         if (ang > 0.5 && ang < 1.25 && d > R * 0.35 + ih(xx, yy, 95) * 4) continue;   // the bite out of it
         put(xx, yy, 2);
       }
-      for (let yy = dcy; yy < 290; yy++) for (let xx = dcx - R - 2; xx <= dcx + R + 2; xx++) put(xx, yy, 2);
+      for (let yy = dcy; yy < 300; yy++) for (let xx = dcx - R - 2; xx <= dcx + R + 2; xx++) put(xx, yy, 2);
       for (let k = 0; k < 9; k++) put(dcx - 6 + (k % 3), dcy - R - 1 - fl(k / 3), 2);
     }
     // the near ruined city
     x = -6; bi = 0;
     while (x < W + 6) {
-      const w = 5 + fl(ih(bi, 1, 100) * 12), base = 300;
-      let h = 8 + ih(bi, 2, 100) * 26;
+      const w = 5 + fl(ih(bi, 1, 100) * 12), base = 310;
+      let h = 8 + ih(bi, 2, 100) * 22;
       const type = ih(bi, 3, 100);
       if (type > 0.86) h += 22;
       const brk = ih(bi, 5, 100);
@@ -709,7 +709,7 @@
     for (const f of FIRES) { let y = 0; while (y < H && LAND[y * W + f.x] === 255) y++; f.y = y; }
     // foreground rubble
     for (let xx = 0; xx < W; xx++) {
-      const top = Math.round(318 + (fbmp(xx, 0, [15, 9, 5], 0, 0, 110) - 0.5) * 14);
+      const top = Math.round(326 + (fbmp(xx, 0, [15, 9, 5], 0, 0, 110) - 0.5) * 10);
       for (let y = top; y < H; y++) put(xx, y, 0);
     }
   }
@@ -763,7 +763,7 @@
   const PUFFS = [], PTIER = new Int8Array(400);
   {
     // [count, y0, y1, r0, r1, span]: each tier is an evenly spaced row of overlapping lobes sharing one drift
-    const tiers = [[22, -12, 22, 26, 40, W + 100], [30, 16, 54, 18, 30, W + 140], [34, 50, 84, 13, 22, W + 70], [32, 80, 102, 9, 15, W + 110]];
+    const tiers = [[22, -12, 22, 26, 40, W + 100], [30, 16, 54, 18, 30, W + 140], [34, 50, 84, 13, 22, W + 70], [34, 76, 92, 10, 15, W + 110]];
     let k = 0, TIER = -1;
     for (const [n, y0, y1, r0, r1, span] of tiers) {
       TIER++;
@@ -914,7 +914,7 @@
     // the streets burn: firelight climbs the lower walls of the near city
     for (let x = 0; x < W; x++) {
       const fx = lvn(x / 9 + t * 1.5, 36, 190);
-      const base = 318 + fl((fbmp(x, 0, [15, 9, 5], 0, 0, 110) - 0.5) * 14);
+      const base = Math.round(326 + (fbmp(x, 0, [15, 9, 5], 0, 0, 110) - 0.5) * 10);
       const fl2 = 0.75 + 0.25 * lvn(t * 3 + x / 5, 72, 191);
       for (let y = base - 22; y < base; y++) {
         const i = y * W + x; if (LAND[i] !== 1) continue;
