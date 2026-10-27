@@ -75,7 +75,7 @@
 
   /* ================================================================ buffers */
   const T_GROUND = 0, T_ROCK = 1, T_WATER = 2, T_PAD = 3, T_LOTUS = 4, T_CANOPY = 5, T_ROOF = 6;
-  const DA_T = [16, 14, 14, 9, 7, 10, 10];
+  const DA_T = [11, 13, 14, 9, 7, 10, 9];
   const TYPE = new Uint8Array(NP);
   const ALR = new Float32Array(NP), ALG = new Float32Array(NP), ALB = new Float32Array(NP);
   const IN = new Uint8Array(NP);
@@ -673,7 +673,7 @@
           let r0 = 206 * v, g0 = 196 * v, b0 = 172 * v;
           if (ed < 0.6) { r0 *= 0.45; g0 *= 0.45; b0 *= 0.45; }
           const mo = fbm2(x * 0.3, y * 0.3, 664 + k, 3);
-          if (mo > 0.58 && !ridge && ed > 1) { const mm = vn2(x * 0.9, y * 0.9, 666); r0 = lerp(44, 90, mm) * v; g0 = lerp(80, 130, mm) * v; b0 = lerp(36, 52, mm) * v; }
+          if (mo > 0.64 && !ridge && ed > 1.7) { const mm = vn2(x * 0.9, y * 0.9, 666); r0 = lerp(r0, lerp(90, 140, mm) * v, 0.7); g0 = lerp(g0, lerp(130, 176, mm) * v, 0.7); b0 = lerp(b0, lerp(70, 90, mm) * v, 0.7); }
           if (ih(x, y, 668) < 0.03) { r0 = 210; g0 = 212; b0 = 186; }
           // finial: lotus-petal collar and the onion jewel
           const jr = Lt.kind === 'square' ? 2.2 : 2.8, cr = jr + 1.7;
@@ -1008,10 +1008,10 @@
       if (bay(x, y) > alpha) continue;
       const i = y * W + x;
       if (!above && TYPE[i] !== T_WATER && TYPE[i] !== T_PAD) continue;
-      let r = 246, g = 206, b2 = 222;
-      if (a < -1.1) { r = 214; g = 128; b2 = 162; }
-      else if (Math.abs(b) > 0.85 || a > 1.4) { r = 236; g = 166; b2 = 192; }
-      const I = LI[i], lr = (above ? 0.9 : 0.66) + I * 1.3, lg = (above ? 0.82 : 0.74) + I * 0.95, lb = (above ? 0.86 : 0.82) + I * 0.55;
+      let r = 250, g = 196, b2 = 216;
+      if (a < -1.1) { r = 206; g = 100; b2 = 146; }
+      else if (Math.abs(b) > 0.85 || a > 1.4) { r = 236; g = 150; b2 = 184; }
+      const I = LI[i], lr = 0.94 + I * 1.2, lg = 0.86 + I * 0.85, lb = 0.9 + I * 0.5;
       r *= lr; g *= lg; b2 *= lb;
       if (sink > 0 && TYPE[i] === T_WATER) { r = lerp(r, SCR[i] * lr, sink); g = lerp(g, SCG[i] * lg, sink); b2 = lerp(b2, SCB[i] * lb, sink); }
       OR[i] = r; OG[i] = g; OB[i] = b2; AMPF[i] = 6;
@@ -1073,7 +1073,7 @@
       const vx = -S.ax * Math.sin(e) - 6 * Math.sin(2 * e), vy = S.ay * Math.cos(e), va = Math.atan2(vy, vx);
       const c = Math.cos(va), s2 = Math.sin(va);
       const dot = (lx, ly, r, g, b) => { const px = fl(x + lx * c - ly * s2), py = fl(y + lx * s2 + ly * c); if (px < 0 || py < 0 || px >= W || py >= H) return; const i = py * W + px; if (TYPE[i] !== T_WATER) return; OR[i] = r; OG[i] = g; OB[i] = b; AMPF[i] = 3; };
-      const dim = (lx, ly) => { const px = fl(x + lx * c - ly * s2), py = fl(y + lx * s2 + ly * c); if (px < 0 || py < 0 || px >= W || py >= H) return; const i = py * W + px; if (TYPE[i] !== T_WATER) return; OR[i] += 40; OG[i] += 58; OB[i] += 60; };
+      const dim = (lx, ly) => { const px = fl(x + lx * c - ly * s2), py = fl(y + lx * s2 + ly * c); if (px < 0 || py < 0 || px >= W || py >= H) return; const i = py * W + px; if (TYPE[i] !== T_WATER) return; OR[i] += 80; OG[i] += 110; OB[i] += 112; AMPF[i] = 3; };
       for (const [fx, fy] of [[3.5, 3], [3.5, -3], [-3, 4.2], [-3, -4.2]]) dim(fx, fy);
       for (const [fx, fy] of [[1.7, 1.5], [1.7, -1.5], [-1.5, 2.2], [-1.5, -2.2]]) dot(fx, fy, 30, 34, 32);
       dot(0, 0, 18, 20, 18); dot(1, 0, 24, 26, 22); dot(-1, 0, 18, 20, 18);
@@ -1333,22 +1333,6 @@
     g.drawImage(SMALL, ox, oy, W * k, H * k);
   }
 
-  function stats() {
-    const out = { koi: [], pairs: [] };
-    for (const k of KOI) {
-      let m = 1e9; for (let q = 0; q < k.N; q += 2) { const i = clamp(fl(k.PY[q]), 0, H - 1) * W + clamp(fl(k.PX[q]), 0, W - 1); m = Math.min(m, SD[i]); }
-      out.koi.push({ name: k.name, len: Math.round(k.Lt), speed: +(k.Lt / D).toFixed(1), minSD: m });
-    }
-    const pos = (k, t) => { const sh = k.Lt * (k.s0 + k.dir * (k.n * t / D + 0.015 * Math.sin(TAU * t / D * 2 + k.ps))); pathAt(k, sh - k.dir * 0.35 * k.L); return [PA[0], PA[1]]; };
-    for (let a = 0; a < KOI.length; a++) for (let b = a + 1; b < KOI.length; b++) {
-      let m = 1e9, mt = 0;
-      for (let t = 0; t < D; t += 0.1) { const p = pos(KOI[a], t), q = pos(KOI[b], t), d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < m) { m = d; mt = t; } }
-      out.pairs.push(KOI[a].name + '-' + KOI[b].name + ' ' + m.toFixed(1) + ' @' + mt.toFixed(1));
-    }
-    let tot = 0; for (let q = 0; q < 10; q++) { const t0 = performance.now(); drawFrame(q * 2.1); tot += performance.now() - t0; }
-    out.ms = +(tot / 10).toFixed(1);
-    return out;
-  }
   function build() {
     buildLUT();
     paintPond();
@@ -1424,7 +1408,6 @@
           isReady: () => built && faded(),
           renderAt(t) { return new Promise((res) => { const t0 = performance.now(); draw(t); window.__koigarden.lastMs = performance.now() - t0; requestAnimationFrame(() => requestAnimationFrame(res)); }); },
           lastMs: 0,
-          stats,
         };
         document.documentElement.dataset.ready = 'koi-garden';
         api.ready();
