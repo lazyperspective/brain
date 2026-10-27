@@ -393,8 +393,8 @@
     for (const [lx, ly, la] of [[118, 214, 0.6], [168, 196, 2.4]]) {
       for (let y = ly - 6; y <= ly + 6; y++) for (let x = lx - 6; x <= lx + 6; x++) {
         const dx = x + 0.5 - lx, dy = y + 0.5 - ly, a = Math.atan2(dy, dx) - la, r = Math.hypot(dx, dy);
-        const lob = 3.2 + 2.2 * Math.abs(Math.cos(a * 2.5));
-        if (r < lob) { const i = y * W + x; setA(i, 92, 64, 40); if (Math.abs(Math.sin(a * 2.5)) < 0.15) setA(i, 70, 46, 30); }
+        const lob = 3 + 1.8 * (0.5 + 0.5 * Math.cos(a * 5)) + 0.6 * Math.cos(a);
+        if (r < lob) { const i = y * W + x; if (!IN[i]) continue; setA(i, 118, 70, 40); if (Math.cos(a * 5) > 0.96 || r < 0.8) setA(i, 82, 48, 30); }
       }
     }
     // depth, transmission and the water body colour
@@ -1011,7 +1011,7 @@
       let r = 246, g = 206, b2 = 222;
       if (a < -1.1) { r = 214; g = 128; b2 = 162; }
       else if (Math.abs(b) > 0.85 || a > 1.4) { r = 236; g = 166; b2 = 192; }
-      const I = LI[i], lr = 0.66 + I * 1.3, lg = 0.74 + I * 0.95, lb = 0.82 + I * 0.55;
+      const I = LI[i], lr = (above ? 0.9 : 0.66) + I * 1.3, lg = (above ? 0.82 : 0.74) + I * 0.95, lb = (above ? 0.86 : 0.82) + I * 0.55;
       r *= lr; g *= lg; b2 *= lb;
       if (sink > 0 && TYPE[i] === T_WATER) { r = lerp(r, SCR[i] * lr, sink); g = lerp(g, SCG[i] * lg, sink); b2 = lerp(b2, SCB[i] * lb, sink); }
       OR[i] = r; OG[i] = g; OB[i] = b2; AMPF[i] = 6;
@@ -1029,6 +1029,55 @@
         f1: 1 + fl(ih(k, 4, 700) * 2), f2: 1 + fl(ih(k, 5, 700) * 3), p1: ih(k, 6, 700) * TAU, p2: ih(k, 7, 700) * TAU,
         fb: 3 + fl(ih(k, 8, 700) * 4), pb: ih(k, 9, 700) * TAU });
     });
+  }
+
+  /* ================================================================ eelgrass and water striders */
+  const WEEDS = [];
+  function buildWeeds() {
+    const spots = [[70, 120], [214, 150], [92, 250], [222, 214], [150, 64], [60, 160], [188, 300]];
+    spots.forEach(([x, y], k) => {
+      let bx = x, by = y;
+      for (let a = 0; a < 30; a++) { const i = fl(by) * W + fl(bx); if (TYPE[i] === T_WATER && SD[i] > 10 && SD[i] < 34) break; bx += (PCX - bx) * 0.08; by += (PCY - by) * 0.08; }
+      const n = 6 + fl(ih(k, 1, 720) * 5), toC = Math.atan2(PCY - by, PCX - bx);
+      for (let b = 0; b < n; b++) WEEDS.push({ x: bx + (ih(k, b, 721) - 0.5) * 6, y: by + (ih(k, b, 722) - 0.5) * 6, a: toC + (ih(k, b, 723) - 0.5) * 1.6, L: 8 + ih(k, b, 724) * 12, ph: ih(k, b, 725) * TAU, f: 1 + fl(ih(k, b, 726) * 2), c: ih(k, b, 727) });
+    });
+  }
+  function drawWeeds(t) {
+    const ph = TAU * t / D;
+    for (const w of WEEDS) {
+      let x = w.x, y = w.y, a = w.a;
+      for (let s = 0; s < w.L; s += 0.5) {
+        const u = s / w.L;
+        a = w.a + 0.55 * u * Math.sin(ph * w.f + w.ph - u * 2.2);
+        x += Math.cos(a) * 0.5; y += Math.sin(a) * 0.5;
+        const px = fl(x), py = fl(y); if (px < 0 || py < 0 || px >= W || py >= H) continue;
+        const i = py * W + px; if (TYPE[i] !== T_WATER) continue;
+        const dp = DEP[i], T = TRN[i] * 1.3, I = LI[i];
+        const lr = AR + I * WR, lg = AG + I * WG, lb = AB + I * WB;
+        const gr = lerp(46, 86, w.c * (1 - u * 0.4)), gg = lerp(82, 128, w.c), gb = lerp(40, 56, w.c);
+        OR[i] = lerp(OR[i], (gr * T + SCR[i] * (1 - T)) * lr, 0.8 - 0.4 * dp);
+        OG[i] = lerp(OG[i], (gg * T + SCG[i] * (1 - T)) * lg, 0.8 - 0.4 * dp);
+        OB[i] = lerp(OB[i], (gb * T + SCB[i] * (1 - T)) * lb, 0.8 - 0.4 * dp);
+      }
+    }
+  }
+  // two water striders skating lazy loops by the pads, each foot dimpling the surface
+  const STRIDERS = [{ x: 168, y: 122, ax: 14, ay: 9, f: 2, p: 0.4 }, { x: 84, y: 232, ax: 12, ay: 8, f: 3, p: 2.2 }];
+  function drawStriders(t) {
+    const ph = TAU * t / D;
+    for (const S of STRIDERS) {
+      const q = ph * S.f + S.p;
+      // skate, glide, skate: the parameter advances in eased steps so they dart and coast
+      const e = q + 0.55 * Math.sin(q * 4);
+      const x = S.x + S.ax * Math.cos(e) + 3 * Math.cos(2 * e), y = S.y + S.ay * Math.sin(e);
+      const vx = -S.ax * Math.sin(e) - 6 * Math.sin(2 * e), vy = S.ay * Math.cos(e), va = Math.atan2(vy, vx);
+      const c = Math.cos(va), s2 = Math.sin(va);
+      const dot = (lx, ly, r, g, b) => { const px = fl(x + lx * c - ly * s2), py = fl(y + lx * s2 + ly * c); if (px < 0 || py < 0 || px >= W || py >= H) return; const i = py * W + px; if (TYPE[i] !== T_WATER) return; OR[i] = r; OG[i] = g; OB[i] = b; AMPF[i] = 3; };
+      const dim = (lx, ly) => { const px = fl(x + lx * c - ly * s2), py = fl(y + lx * s2 + ly * c); if (px < 0 || py < 0 || px >= W || py >= H) return; const i = py * W + px; if (TYPE[i] !== T_WATER) return; OR[i] += 40; OG[i] += 58; OB[i] += 60; };
+      for (const [fx, fy] of [[3.5, 3], [3.5, -3], [-3, 4.2], [-3, -4.2]]) dim(fx, fy);
+      for (const [fx, fy] of [[1.7, 1.5], [1.7, -1.5], [-1.5, 2.2], [-1.5, -2.2]]) dot(fx, fy, 30, 34, 32);
+      dot(0, 0, 18, 20, 18); dot(1, 0, 24, 26, 22); dot(-1, 0, 18, 20, 18);
+    }
   }
 
   /* ================================================================ caustics */
@@ -1167,6 +1216,8 @@
       }
     }
 
+    drawWeeds(t);
+
     // koi, deepest first
     ORDER.sort((a, b) => b.z - a.z);
     for (const k of ORDER) {
@@ -1197,6 +1248,8 @@
       }
       if (age < 0.3) { const x = fl(Dr.x), y = fl(Dr.y), i = y * W + x; const e = 1 - age / 0.3; OR[i] += 150 * e; OG[i] += 180 * e; OB[i] += 180 * e; }
     }
+
+    drawStriders(t);
 
     // glitter on the lantern pools: the surface catching the flame
     for (let i = 0; i < NP; i++) {
@@ -1313,6 +1366,7 @@
     buildPetals();
     buildFlies();
     buildSheen();
+    buildWeeds();
   }
 
   /* ================================================================ mount */
