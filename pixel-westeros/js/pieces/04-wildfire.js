@@ -279,7 +279,7 @@
       // patchy oil: noise in the plane, thinning out with distance from the ignition and the eruption
       const dI = Math.hypot(X - igX, (Z - igZ) * 0.8), dF = Math.hypot(X - fbX, (Z - fbZ) * 0.7);
       const n = nA(X * 34 + 11, Z * 34 + 40), n2 = nA(X * 90 + 70, Z * 90 + 3);
-      let oil = sstep(0.4, 0.6, n * 0.75 + n2 * 0.25 + 0.42 - 0.17 * Math.min(dI, dF * 1.2));
+      let oil = sstep(0.45, 0.6, n * 0.75 + n2 * 0.25 + 0.3 - 0.15 * Math.min(dI, dF * 1.2));
       if (dI < 0.3) oil = 1;
       if (dF < 0.45) oil = Math.max(oil, 1 - sstep(0.3, 0.45, dF));
       // slicks
@@ -467,12 +467,13 @@
   let TG = null;
   function buildTongues() {
     const rnd = mulberry32(3131), tg = [];
-    for (let k = 0; k < 7000; k++) tg.push([20 + fl(rnd() * 26), rnd(), rnd(), rnd(), rnd() * TAU, rnd()]);
+    for (let k = 0; k < 3200; k++) tg.push([20 + fl(rnd() * 26), rnd(), rnd(), rnd(), rnd() * TAU, rnd()]);
     TG = tg;
   }
   function tongues(t) {
     const tau = t - IGN;
     if (tau < 0 || tau > 16.5) return;
+    const gx = 256 * t / D;
     for (let k = 0; k < TG.length; k++) {
       const p = TG[k], nk = p[0], L = D / nk;
       const u = t / L + p[1], cyc = fl(u), age = u - cyc;
@@ -481,17 +482,19 @@
       const cnt = countBefore(tc);
       if (!cnt) continue;
       const i = WLIST[fl(ih(k, cyc % nk, 77) * cnt)];
-      const S = burnAt(i, tc + age * L);
-      if (S < 0.08) continue;
       const b = (i / W) | 0, x0 = (i % W) + 0.5, sc = b - YH + Y0;
-      const Sc = Math.min(S, 2.2);
+      // gusts: the field breathes in slow patches
+      const gust = sstep(0.25, 0.8, nA(PXA[i] * 9 + gx, Math.min(PZA[i], 9) * 9 - gx * 0.5));
+      const S = burnAt(i, tc + age * L) * (0.3 + 1.0 * gust);
+      if (S < 0.08) continue;
+      const Sc = Math.min(S, 1.6);
       const hmax = (0.05 + 0.13 * Sc) * Math.pow(sc, 0.85) * (0.55 + 0.9 * p[2]);
-      const wd = Math.max(0.55, (0.008 + 0.008 * Sc) * sc * (0.7 + 0.6 * p[3]));
+      const wd = Math.max(0.6, (0.012 + 0.01 * Sc) * sc * (0.6 + 0.8 * p[3]));
       const h = hmax * sstep(0, 0.3, age);
       const lift = hmax * 0.9 * Math.pow(sstep(0.4, 1, age), 1.5);
       const fade = 1 - sstep(0.55, 1, age);
       const curl = wd * 1.8, ph = p[4] + 7 * age;
-      const ef = 1.25 * Math.min(S, 1.8) * fade * (0.7 + 0.6 * p[5]);
+      const ef = 1.5 * Math.min(S, 1.5) * fade * (0.6 + 0.7 * p[5]);
       if (h < 0.6 || ef < 0.05) continue;
       const yb = b - lift;
       const y1 = fl(yb), y0 = fl(yb - h);
@@ -508,8 +511,8 @@
           if (d >= 1) continue;
           const j = y * W + x;
           if (SHIPB[j] > b) continue;
-          const e = er * (1 - d * d);
-          E[j] += e;
+          const e = er * (1 - d * d), o = E[j];
+          E[j] = (e > o ? e : o) + 0.18 * (e < o ? e : o);
           if (y < b) { const ry = 2 * b - y; if (ry < H) R0E[ry * W + x] += e * 0.8; }
         }
       }
@@ -1136,7 +1139,7 @@
         // ships and the boom: silhouettes with a green rim
         if (SHIPB[i]) {
           const c = SHIPC[i];
-          const lk = c === 2 ? 0.55 : c === 4 ? 0.7 : 0.35;
+          const lk = c === 2 ? 0.22 : c === 4 ? 0.5 : 0.12;
           const rim = (x + 1 < W && SHIPB[i + 1] !== SHIPB[i]) || (y > 0 && SHIPB[i - W] !== SHIPB[i]) ? 1.6 : 1;
           r = 3 + gl * lk * rim * GR * 50; g = 3 + gl * lk * rim * GG * 50; b = 9 + gl * lk * rim * GBL * 50;
           if (c === 2) { r += 2; g += 3; b += 6; }

@@ -82,7 +82,7 @@
   }
 
   /* ================================================================ hall layout */
-  const RC = 15, HC = 2.6, FOC = 300, CXS = W / 2, CYS = H / 2, TH0 = 0.62, TGY = 5.3, NEAR = 0.25;
+  const RC = 15, HC = 2.6, FOC = 370, CXS = W / 2, CYS = H / 2, TH0 = 0.62, TGY = 5.9, NEAR = 0.25;
   const STEP_H = 0.3, DAIS_A = [4.7, 4.25, 3.8, 3.35, 2.9], TY = 1.5, TZ = -0.6, TS = 1.3;
   const WALL_R = 23, VAULT_Y = 22.5;
   const WIN_N = 16, WIN_Y0 = 8.4, WIN_Y1 = 17.6, WIN_HW = 1.25, WIN_ARCH = 2.4;
@@ -994,12 +994,12 @@
   function shadeCore(x, y, z, nx, ny, nz, m) {
     // fused blades: bevelled stripes across the face
     let s;
-    if (ny !== 0) s = (x + z * 0.3) * 9;
-    else s = y * 11 + (nx !== 0 ? z : x) * 0.8;
+    if (ny !== 0) s = (x + z * 0.3) * 4.5;
+    else s = y * 4.2 + (nx !== 0 ? z : x) * 0.9;
     const id = fl(s), f = s - id - 0.5;
     const h = ih(id, m, 31);
     let px = nx, py = ny, pz = nz;
-    if (ny !== 0) { px += f * 0.8; } else { py += f * 0.9; }
+    if (ny !== 0) { px += f * 0.35; } else { py += f * 0.4; }
     const l = 1 / sqrt(px * px + py * py + pz * pz);
     shadeMetal(x, y, z, px * l, py * l, pz * l, h < 0.5 ? 4 : h < 0.85 ? 1 : 0, THRONE_L, 0.4 + 0.45 * h);
   }
@@ -1510,7 +1510,7 @@
         const i = py * W + px;
         const vx = (px - CXS) / W;
         const vig = 1 - 0.55 * (vx * vx * 1.1 + vy * vy * 0.9);
-        const d = (bay(px, py) - 0.5) * 20;
+        const d = (bay(px, py) - 0.5) * 14;
         let r = BR[i] * vig * 255 + d, gg = BG[i] * vig * 255 + d, b = BB[i] * vig * 255 + d;
         r = r < 0 ? 0 : r > 255 ? 255 : r; gg = gg < 0 ? 0 : gg > 255 ? 255 : gg; b = b < 0 ? 0 : b > 255 ? 255 : b;
         const li = ((r >> 3) << 10) | ((gg >> 3) << 5) | (b >> 3);
