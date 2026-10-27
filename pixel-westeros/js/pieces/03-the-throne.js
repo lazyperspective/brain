@@ -82,10 +82,10 @@
   }
 
   /* ================================================================ hall layout */
-  const RC = 15, HC = 2.6, FOC = 370, CXS = W / 2, CYS = H / 2, TH0 = 0.62, TGY = 5.9, NEAR = 0.25;
+  const RC = 11, HC = 1.4, FOC = 255, CXS = W / 2, CYS = H / 2, TH0 = 0.62, TGY = 5.8, NEAR = 0.25;
   const STEP_H = 0.3, DAIS_A = [4.7, 4.25, 3.8, 3.35, 2.9], TY = 1.5, TZ = -0.6, TS = 1.3;
   const WALL_R = 23, VAULT_Y = 22.5;
-  const WIN_N = 16, WIN_Y0 = 8.4, WIN_Y1 = 17.6, WIN_HW = 1.25, WIN_ARCH = 2.4;
+  const WIN_N = 16, WIN_Y0 = 7.2, WIN_Y1 = 17.6, WIN_HW = 1.65, WIN_ARCH = 2.8;
   const OCT = [[1, 0], [0.70710678, 0.70710678], [0, 1], [-0.70710678, 0.70710678]]; // dais slab normals
 
   // sun through the high windows
@@ -240,7 +240,7 @@
       }
       // jagged points along the stair cheeks
       for (const s of [-1, 1]) if (rnd() < 0.8) {
-        swordL(s * 0.52, (k + 0.5) * 0.3, zf - 0.12, [s * rr(0.6, 1), rr(-0.5, 0.4), rr(-0.2, 0.5)], rr(0.4, 0.8), 0.035, { hilt: 0 });
+        swordL(s * 0.52, (k + 0.5) * 0.3, zf - 0.12, [s * rr(0.6, 1), rr(-0.5, 0.4), rr(-0.2, 0.5)], rr(0.4, 0.8) * 0.45, 0.035, { hilt: 0 });
       }
     }
     // seat: blades across
@@ -277,7 +277,7 @@
     };
     const NR = 38;
     for (let r = 0; r < NR; r++) {
-      const a = -1.32 + 2.55 * (r + 0.5) / NR + gauss() * 0.03;
+      const a = -1.05 + 2.0 * (r + 0.5) / NR + gauss() * 0.03;
       const len = crownLen(a) * (0.95 + 0.45 * rnd());
       const ox = 0.55 * sin(a), oy = 2.45 + 0.55 * cos(a);
       chain(ox, oy, -0.72 - rr(0, 0.12), a, 0.12 + 0.12 * abs(a), len, rr(0.045, 0.06), 0);
@@ -296,13 +296,13 @@
       });
     }
     // wings
-    for (let i = 0; i < 26; i++) { // left: high and big
+    for (let i = 0; i < 12; i++) { // left: high and big
       const a = rr(0.1, 1.2);
       swordL(rr(-1.1, -0.85), rr(2.8, 4.0), rr(-0.95, -0.55), [-cos(a), sin(a), rr(-0.4, 0.15)], rr(1.2, 2.2), rr(0.04, 0.06), {
         hilt: hiltPick(0.25, 0.1), kink: rnd() < 0.3 ? rr(0.25, 0.6) : 0, kinkAxis: [0, 0, 1], twist: rnd() < 0.3 ? gauss() : 0,
       });
     }
-    for (let i = 0; i < 18; i++) { // right: lower, broken, drooping
+    for (let i = 0; i < 8; i++) { // right: lower, broken, drooping
       const a = rr(-0.15, 0.9);
       swordL(rr(0.85, 1.1), rr(2.6, 3.5), rr(-0.95, -0.55), [cos(a), sin(a), rr(-0.4, 0.2)], rr(0.8, 1.6), rr(0.04, 0.06), {
         hilt: hiltPick(0.25, 0.1), kink: rnd() < 0.5 ? rr(0.3, 0.7) : 0, kinkAxis: [0, 0, 1], twist: rnd() < 0.3 ? gauss() : 0,
@@ -325,7 +325,7 @@
       }
     }
     // spikes from the body and the back
-    for (let i = 0; i < 175; i++) {
+    for (let i = 0; i < 100; i++) {
       const f = i >= 120 ? 0.56 + 0.29 * rnd() : rnd();
       let x, y, z, n;
       if (f < 0.3) { x = -1.1; y = rr(0.2, 2.4); z = rr(-0.9, 0.7); n = [-1, 0, 0]; }
@@ -333,7 +333,7 @@
       else if (f < 0.85) { x = rr(-0.95, 0.95); y = rr(0.2, 3.8); z = -0.95; n = [0, 0, -1]; }
       else { x = (rnd() < 0.5 ? -1 : 1) * rr(0.72, 1.1); y = rr(0.1, 2.0); z = 0.75; n = [0, 0, 1]; }
       const d = norm3([n[0] + gauss() * 0.75, n[1] + gauss() * 0.75 + 0.15, n[2] + gauss() * 0.75]);
-      const L = rr(0.45, 1.3) * (x < 0 ? 1.15 : 0.95);
+      const L = rr(0.35, 0.85) * (x < 0 ? 1.1 : 0.95);
       const g = 0.17 + 0.05 * L;
       swordL(x - d[0] * g * 0.7, y - d[1] * g * 0.7, z - d[2] * g * 0.7, d, L, rr(0.032, 0.05), {
         hilt: rnd() < 0.25 ? 3 : hiltPick(0.25, 0.08), twist: rnd() < 0.3 ? gauss() : 0, kink: rnd() < 0.2 ? rr(0.2, 0.6) : 0,
@@ -415,7 +415,7 @@
       addStand(x, z, 1.8, [[0.5, 1.15, 10], [0.34, 1.45, 7], [0.18, 1.68, 4]]);
       RING_A.push(addLight(x, 1.55, z, 2.0, 1.7, 7));
     }
-    for (let k = 0; k < 12; k++) { // ring B, low trees between the pillars and the camera path
+    for (let k = 0; k < 0; k++) { // (ring B removed: the camera path runs here now)
       const a = (k + 0.5) * TAU / 12, x = 11.2 * cos(a), z = 11.2 * sin(a);
       addStand(x, z, 1.45, [[0.45, 0.95, 9], [0.3, 1.2, 6], [0.15, 1.38, 3]]);
       RING_B.push(addLight(x, 1.3, z, 1.7, 1.6, 6.5));
@@ -426,10 +426,10 @@
       RING_C.push(addLight(x, 2.0, z, 1.8, 1.9, 7));
     }
     // four great candle trees on the dais, flanking the throne
-    for (const a of [0.55, Math.PI - 0.55, Math.PI + 0.7, -0.7]) {
+    for (const a of [0.22, Math.PI - 0.22, Math.PI + 0.75, -0.75]) {
       const x = 2.72 * cos(a), z = 2.72 * sin(a);
       addStand(x, z, 2.2, [[0.4, 1.55, 8], [0.27, 1.85, 6], [0.15, 2.05, 3]], TY, 1.15);
-      DAIS_L.push(addLight(x, TY + 1.95, z, 1.5, 1.8, 7));
+      DAIS_L.push(addLight(x, TY + 1.95, z, 2.2, 1.9, 7));
     }
     for (let k = 0; k < 8; k++) { const a = k * TAU / 8; DAIS_L.push(addLight(4.0 * cos(a), 0.9, 4.0 * sin(a), 0.75, 1.8, 5)); }
     // candles along the dais treads
@@ -452,23 +452,23 @@
   /* ================================================================ pillars, banners, shafts, dust */
   function buildHall() {
     RS = 0xba77e5 + SEED * 7;
-    for (let k = 0; k < 6; k++) { const a = (k + 0.5) * TAU / 6; PIL.push({ x: 9.0 * cos(a), z: 9.0 * sin(a), r: 0.5, top: VAULT_Y, inner: 1 }); }
+    for (let k = 0; k < 2; k++) { const a = 1.25 + k * Math.PI; PIL.push({ x: 8.1 * cos(a), z: 8.1 * sin(a), r: 0.48, top: VAULT_Y, inner: 1 }); }
     for (let k = 0; k < 16; k++) { const a = k * TAU / 16; PIL.push({ x: 17.6 * cos(a), z: 17.6 * sin(a), r: 0.95, top: VAULT_Y, inner: 0 }); }
     for (const p of PIL) {
       p.lights = [];
       for (let k = 0; k < LX.length; k++) if (Math.hypot(LX[k] - p.x, LZ[k] - p.z) < sqrt(LRM2[k]) + p.r) p.lights.push(k);
-      p.lights = nearestLights(p.lights, p.x, p.z, 4);
+      p.lights = nearestLights(p.lights, p.x, p.z, 3);
     }
     // banners: field, charge, shape
     const SCHEMES = [
-      [[0.60, 0.10, 0.13], [0.86, 0.64, 0.26]], // crimson / gold
-      [[0.10, 0.36, 0.22], [0.82, 0.80, 0.70]], // emerald / bone
-      [[0.13, 0.22, 0.58], [0.86, 0.64, 0.26]], // sapphire / gold
-      [[0.34, 0.15, 0.46], [0.82, 0.80, 0.70]], // amethyst / bone
-      [[0.78, 0.55, 0.18], [0.08, 0.07, 0.09]], // gold / sable
-      [[0.08, 0.075, 0.09], [0.66, 0.12, 0.13]], // sable / crimson
-      [[0.10, 0.36, 0.38], [0.86, 0.64, 0.26]], // teal / gold
-      [[0.80, 0.76, 0.66], [0.13, 0.22, 0.58]], // bone / sapphire
+      [[0.55, 0.04, 0.08], [0.86, 0.62, 0.22]], // crimson / gold
+      [[0.04, 0.32, 0.17], [0.86, 0.62, 0.22]], // emerald / gold
+      [[0.07, 0.13, 0.55], [0.86, 0.62, 0.22]], // sapphire / gold
+      [[0.30, 0.07, 0.42], [0.86, 0.62, 0.22]], // amethyst / gold
+      [[0.04, 0.30, 0.32], [0.70, 0.08, 0.10]], // teal / crimson
+      [[0.05, 0.045, 0.06], [0.70, 0.08, 0.10]], // sable / crimson
+      [[0.40, 0.03, 0.10], [0.07, 0.13, 0.55]], // wine / sapphire
+      [[0.06, 0.10, 0.36], [0.86, 0.62, 0.22]], // night blue / gold
     ];
     const addBanner = (a, r, top, L, w, k, shape) => {
       const lights = [];
@@ -482,8 +482,7 @@
       });
       CAP.push({ ax: bx - sin(a) * (w / 2 + 0.15), ay: top + 0.05, az: bz + cos(a) * (w / 2 + 0.15), bx: bx + sin(a) * (w / 2 + 0.15), by: top + 0.05, bz: bz - cos(a) * (w / 2 + 0.15), r: 0.05, m: 3 });
     };
-    for (let k = 0; k < 16; k++) addBanner(k * TAU / 16, 16.45, 18.2, 11.6, 2.0, k, k % 9);
-    for (let k = 0; k < 6; k++) addBanner((k + 0.5) * TAU / 6, 8.3, 17.0, 7.6, 1.5, k + 3, (k * 4 + 2) % 9);
+    for (let k = 0; k < 8; k++) addBanner(k * TAU / 8 + TAU / 16, 16.5, 21.6, 7.4, 1.7, k, (k * 5 + 1) % 9);
     // shafts
     for (let k = 0; k <= 2; k++) {
       const phi = (k + 0.5) * TAU / WIN_N;
@@ -677,8 +676,8 @@
   let CAM = null;
   function camAt(t) {
     const th = TH0 + TAU * t / D;
-    const rc = RC + 0.45 * wave(2, t, 0.4);
-    const hc = HC + 0.35 * wave(1, t, 2.1) + 0.12 * wave(3, t, 0.3);
+    const rc = RC + 0.3 * wave(2, t, 0.4);
+    const hc = HC + 0.2 * wave(1, t, 2.1) + 0.06 * wave(3, t, 0.3);
     const cx = rc * sin(th), cz = rc * cos(th);
     const tx = 0.35 * wave(1, t, 1.0), ty = TGY + 0.25 * wave(2, t, 1.7), tz = TZ * 0.4;
     let fx = tx - cx, fy = ty - hc, fz = tz - cz;
@@ -726,6 +725,12 @@
     }
   }
   const OUT = new Uint8Array(NP), EMI = new Uint8Array(NP);
+  const VIG = new Float32Array(NP), DIT = new Float32Array(NP); // vignette x 255 and ordered dither, per pixel
+  for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+    const vx = (px - W / 2) / W, vy = (py - H / 2) / H;
+    VIG[py * W + px] = 255 * (1 - 0.75 * (vx * vx * 1.1 + vy * vy * 0.9));
+    DIT[py * W + px] = (BAY[((py & 3) << 2) | (px & 3)] - 0.5) * 14;
+  }
   let ZB = ZM, BR = CRM, BG = CGM, BB = CBM, MASK = null, MIRROR = false;
   function target(mirror) {
     MIRROR = mirror;
@@ -1387,7 +1392,9 @@
         // window light from behind / above, and silk sheen
         const fold = 0.3 + 0.7 * Math.max(0, nx * -b.nx * 0.2 + ny * 0.3 + ndv * 0.75);
         const sheen = Math.pow(1 - ndv, 3) * 0.12;
-        const amb = 0.2 + 0.08 * (1 - v);
+        const amb = 0.3 + 0.08 * (1 - v);
+
+
         FV[0] = ar * (FV[3] + amb) * fold * 1.25 + sheen * 0.9;
         FV[1] = ag * (FV[4] + amb) * fold * 1.25 + sheen * 0.75;
         FV[2] = ab * (FV[5] + amb * 1.1) * fold * 1.25 + sheen * 0.6;
@@ -1433,7 +1440,8 @@
             const ta = -l0 / dl; if (dl > 0) { if (ta > t0) t0 = ta; } else { if (ta < t1) t1 = ta; }
           }
           if (t0 >= t1) continue;
-          const len = t1 - t0, n = Math.min(8, 2 + fl(len / 1.2)), st = len / n;
+          const len = t1 - t0, n = Math.min(5, 2 + fl(len / 1.8)), st = len / n;
+
           let tt = t0 + st * bay(px >> 1, py >> 1);
           const w = st * sh.I;
           for (let q = 0; q < n; q++, tt += st) {
@@ -1449,10 +1457,11 @@
             if (tt < d0) c0 += e; if (tt < d1) c1 += e; if (tt < d2) c2 += e; if (tt < d3) c3 += e;
           }
         }
-        if (c0 > 0) { const h = (1 - Math.exp(-c0 * 0.16)) * 0.3; BR[i0] += h; BG[i0] += h * 0.94; BB[i0] += h * 0.84; }
-        if (c1 > 0) { const h = (1 - Math.exp(-c1 * 0.16)) * 0.3; BR[i1] += h; BG[i1] += h * 0.94; BB[i1] += h * 0.84; }
-        if (c2 > 0) { const h = (1 - Math.exp(-c2 * 0.16)) * 0.3; BR[i2] += h; BG[i2] += h * 0.94; BB[i2] += h * 0.84; }
-        if (c3 > 0) { const h = (1 - Math.exp(-c3 * 0.16)) * 0.3; BR[i3] += h; BG[i3] += h * 0.94; BB[i3] += h * 0.84; }
+        if (c0 > 0) { const h = (1 - Math.exp(-c0 * 0.16)) * 0.17; BR[i0] += h; BG[i0] += h * 0.96; BB[i0] += h * 0.9; }
+        if (c1 > 0) { const h = (1 - Math.exp(-c1 * 0.16)) * 0.17; BR[i1] += h; BG[i1] += h * 0.96; BB[i1] += h * 0.9; }
+        if (c2 > 0) { const h = (1 - Math.exp(-c2 * 0.16)) * 0.17; BR[i2] += h; BG[i2] += h * 0.96; BB[i2] += h * 0.9; }
+        if (c3 > 0) { const h = (1 - Math.exp(-c3 * 0.16)) * 0.17; BR[i3] += h; BG[i3] += h * 0.96; BB[i3] += h * 0.9;
+ }
       }
     }
   }
@@ -1499,7 +1508,7 @@
     for (let k = 0; k < WIN_N; k++) {
       const phi = (k + 0.5) * TAU / WIN_N, dphi = Math.atan2(sin(phi - SUN_PHI), cos(phi - SUN_PHI));
       const sunny = Math.max(0, cos(dphi));
-      WINS[k] = Math.pow(sunny, 2); WINB[k] = 0.36 + 0.95 * WINS[k] + 0.04 * wave(1, t, k);
+      WINS[k] = Math.pow(sunny, 2); WINB[k] = 0.58 + 0.8 * WINS[k] + 0.04 * wave(1, t, k);
     }
   }
   function drawFrame(t, g, cw, ch) {
@@ -1518,18 +1527,12 @@
     shaftPass(t);
     dustPass(t);
     // quantise
-    for (let py = 0; py < H; py++) {
-      const vy = (py - CYS) / H;
-      for (let px = 0; px < W; px++) {
-        const i = py * W + px;
-        const vx = (px - CXS) / W;
-        const vig = 1 - 0.55 * (vx * vx * 1.1 + vy * vy * 0.9);
-        const d = (bay(px, py) - 0.5) * 14;
-        let r = BR[i] * vig * 255 + d, gg = BG[i] * vig * 255 + d, b = BB[i] * vig * 255 + d;
-        r = r < 0 ? 0 : r > 255 ? 255 : r; gg = gg < 0 ? 0 : gg > 255 ? 255 : gg; b = b < 0 ? 0 : b > 255 ? 255 : b;
-        const li = ((r >> 3) << 10) | ((gg >> 3) << 5) | (b >> 3);
-        OUT[i] = EMI[i] ? LUT[li] : LUTS[li]; EMI[i] = 0;
-      }
+    for (let i = 0; i < NP; i++) {
+      const vig = VIG[i], d = DIT[i];
+      let r = (BR[i] * vig + d) | 0, gg = (BG[i] * vig + d) | 0, b = (BB[i] * vig + d) | 0;
+      r = r < 0 ? 0 : r > 255 ? 255 : r; gg = gg < 0 ? 0 : gg > 255 ? 255 : gg; b = b < 0 ? 0 : b > 255 ? 255 : b;
+      const li = ((r >> 3) << 10) | ((gg >> 3) << 5) | (b >> 3);
+      OUT[i] = EMI[i] ? LUT[li] : LUTS[li]; EMI[i] = 0;
     }
     present(g, cw, ch);
   }
@@ -1564,10 +1567,12 @@
     for (let k = 0; k < WIN_N; k++) {
       const a = (k + 0.5) * TAU / WIN_N, x = WALL_R * cos(a), z = WALL_R * sin(a), l = [];
       for (let q = 0; q < LX.length; q++) if (Math.hypot(LX[q] - x, LZ[q] - z) < sqrt(LRM2[q]) + 4) l.push(q);
-      WALL_L[k] = nearestLights(l, x, z, 4);
+      WALL_L[k] = nearestLights(l, x, z, 2);
+
     }
     const lowDais = new Set(DAIS_L.slice(4));
-    LISTS.length = 0; LISTS.push(THRONE_L.filter((k) => !lowDais.has(k)));
+    const ringA = new Set(RING_A);
+    LISTS.length = 0; LISTS.push(THRONE_L.filter((k) => !lowDais.has(k) && !ringA.has(k)));
     for (const sh of SHAFT) {
       sh.pil = [];
       for (let k = 0; k < PIL.length; k++) {
