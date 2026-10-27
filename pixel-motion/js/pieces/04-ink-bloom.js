@@ -149,7 +149,7 @@
     return rings;
   }
   let ONLY = -1, KREV = 20, KC = 3, SINPHI = 0.22, LOBE = 1.6, WARP = 7;
-  let P_R0 = 11, P_GROW = 0.55, P_K0 = 0.5, P_KP = 1.2, P_K1 = 0.45, P_DEL = 0.55, P_VP = 60, P_CORE = 0.55, P_SPOKE = 6, P_CAP = 0;
+  let P_R0 = 11, P_GROW = 0.55, P_K0 = 0.5, P_KP = 1.2, P_K1 = 0.45, P_DEL = 0.55, P_VP = 60, P_CORE = 0.55, P_SPOKE = 6, P_CAP = 0, P_SKIN = 0.45;
 
   // tracks: per ring, per 120 Hz age index: centre, perpendicular, radius, strength
   let TRK = null;   // TRK[j] = { n, cx, cy, nx, ny, r, g } each Float32Array(n * (NA + 1))
@@ -291,7 +291,7 @@
     // a skin of ink spread just under the surface by the impact
     for (let row = 0; row < 2; row++) {
       const half = 1.7 * R - row * 2, n = Math.round(2 * half / 0.3);
-      for (let k = 0; k <= n; k++) push(cx - half + 2 * half * k / n, S + 1.2 + row * 1.1 + rnd() * 0.3, k < n ? 1 : 0, 0.45);
+      for (let k = 0; k <= n; k++) push(cx - half + 2 * half * k / n, S + 1.2 + row * 1.1 + rnd() * 0.3, k < n ? 1 : 0, P_SKIN);
     }
     // the entry column
     for (let c = -1; c <= 1; c++) {
@@ -424,7 +424,9 @@
   }
 
   /* ---------------------------------------------------------------- ink */
-  const PX = new Float32Array(4096), PY = new Float32Array(4096);
+  // per-tracer azimuth jitter, so a knot of ink revolves into a ring rather than a row of copies
+  const JC = new Float32Array(8192), JS = new Float32Array(8192);
+  for (let k = 0; k < 8192; k++) { const d = (ih(k, 77, 5) - 0.5) * 1.15 * Math.PI / 20; JC[k] = Math.cos(d); JS[k] = Math.sin(d); }
   function inkLayer(t) {
     DEN.fill(0); HZB.fill(0);
     for (let j = 0; j < ND; j++) {
@@ -444,7 +446,7 @@
       for (let q = 0; q < KREV; q++) {
         const th = rot + Math.PI * (q + 0.15 + 0.7 * ih(j, q, 21)) / KREV;
         const rw = 1 + wv * (0.14 * Math.sin(2 * th + ph1) + 0.1 * (ih(j, q, 22) - 0.5));
-        const cq = Math.cos(th) * rw, sq = Math.sin(th) * SINPHI * rw;
+        const cq = Math.cos(th) * rw, sq = Math.sin(th) * rw;
         let aq = a + wv * (LOBE * Math.sin(2 * th + ph0) + 0.5 * LOBE * Math.sin(3 * th + ph1) + 0.5 * LOBE * (ih(j, q, 23) - 0.5));
         aq = clamp(aq, 0, LIFE);
         let sf = aq < SPLIT_A ? aq * 30 : NS1 + (aq - SPLIT_A) * 10;
@@ -456,8 +458,8 @@
         for (let k = 0; k < n; k++) {
           const x = (p[o0 + 2 * k] * (1 - f) + p[o1 + 2 * k] * f) * inv;
           const y0 = (p[o0 + 2 * k + 1] * (1 - f) + p[o1 + 2 * k + 1] * f) * inv;
-          const r = x - ax;
-          let X = ax + r * cq, Y = y0 + r * sq;
+          const r = x - ax, jc = JC[k], js = JS[k];
+          let X = ax + r * (cq * jc - sq * js), Y = y0 + r * SINPHI * (sq * jc + cq * js);
           if (wa > 0) {
             const wy = Y * 0.055 + wp0, wx = X * 0.04 + wp1;
             X += wa * (Math.sin(wy) + 0.5 * Math.sin(Y * 0.11 - wp1 + X * 0.02));
@@ -667,7 +669,7 @@
     mount(el, api) {
       const EXPORT = /[?&]export\b/.test(location.search);
       { const q = new URLSearchParams(location.search); if (q.has('only')) ONLY = +q.get('only');
-        for (const k of ['P_R0', 'P_GROW', 'P_K0', 'P_KP', 'P_K1', 'P_DEL', 'P_VP', 'P_CORE', 'P_SPOKE', 'P_CAP', 'KI', 'KH', 'KREV', 'KC', 'SINPHI', 'LOBE', 'WARP']) if (q.has(k)) eval(k + '=' + parseFloat(q.get(k))); }
+        for (const k of ['P_R0', 'P_GROW', 'P_K0', 'P_KP', 'P_K1', 'P_DEL', 'P_VP', 'P_CORE', 'P_SPOKE', 'P_CAP', 'P_SKIN', 'KI', 'KH', 'KREV', 'KC', 'SINPHI', 'LOBE', 'WARP']) if (q.has(k)) eval(k + '=' + parseFloat(q.get(k))); }
       let alive = true, raf = 0, playing = !EXPORT, clock = 0, last = 0, built = false, tmr = 0;
       el.style.background = '#e9f0ee';
       const cv = document.createElement('canvas');
