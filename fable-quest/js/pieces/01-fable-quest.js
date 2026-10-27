@@ -2,7 +2,7 @@
  *
  * A small coral hero pulls a sword from a stone in an enchanted forest at twilight, beats a water slime, a
  * thorn sprite and a storm wisp, takes an element orb from each, then fells an ancient forest guardian and
- * braids the four orbs into a column of light that unfolds into a storybook cathedral of crystal geometry.
+ * braids the four orbs into a column of light that unfolds into a glowing brain of neurons and drifting particles.
  *
  * Drawn into a 480 × 270 indexed buffer (64 colours, Bayer-dithered tints) and shown at exactly 4×.
  * Nothing is simulated forward: every frame is a pure function of t, built from keyframes and seeded hashes.
@@ -2593,7 +2593,7 @@
     title: 'Fable Quest',
     medium: 'Pixel art in 64 colours, 480 × 270, drawn in JavaScript · 36 s',
     note: 'A small hero, four orbs, one story · tap to pause',
-    about: 'A small coral hero lands in an enchanted forest at twilight and pulls a sword from a stone. It beats a water slime, a thorn sprite and a storm wisp, and each leaves an orb of its element to circle the hero: water, leaf and lightning. An ancient forest guardian wakes, slams the ground, rains down leaves and fires a beam from its eyes; the orbs pour into the sword, the guardian shatters into violet light and leaves the fourth orb, starlight. The four orbs braid into a column of light that unfolds into a storybook cathedral of crystal geometry. An unofficial fan concept, not affiliated with Anthropic.',
+    about: 'A small coral hero lands in an enchanted forest at twilight and pulls a sword from a stone. It beats a water slime, a thorn sprite and a storm wisp, and each leaves an orb of its element to circle the hero: water, leaf and lightning. An ancient forest guardian wakes, slams the ground, rains down leaves and fires a beam from its eyes; the orbs pour into the sword, the guardian shatters into violet light and leaves the fourth orb, starlight. The four orbs braid into a column of light that unfolds into a glowing brain of neurons and drifting particles. An unofficial fan concept, not affiliated with Anthropic.',
     tone: 'dark',
     room: '#04050b',
     mount(el, api) {
