@@ -767,7 +767,7 @@
 
   /* ================================================================ the hero */
   // Drawn from rectangles into a small local buffer (feet centre at HOX, HOY), then outlined and stamped.
-  const HBW = 72, HBH = 72, HOX = 36, HOY = 52;
+  const HBW = 104, HBH = 84, HOX = 52, HOY = 58;
   const HB = new Uint8Array(HBW * HBH), HK = new Uint8Array(HBW * HBH), HMASK = new Uint8Array(NP);
   HMASKREF = HMASK; // colour, class (1 body, 2 sword)
   function hrect(x, y, w, h, c, k) {
@@ -824,8 +824,10 @@
     }
     return g;
   }
-  // the little sword: u along the blade from the grip pivot, v across
+  // the sword: u along the blade from the grip pivot, v across (drawn at SS times its base size)
+  const SS = 1.8;
   function swordPix(u, v, blade, t) {
+    u /= SS; v /= SS;
     const av = Math.abs(v);
     if (u >= -3.5 && u < -2.5 && av <= 0.75) return 57;
     if (u >= -2.5 && u < 0.5 && av <= 0.6) return 21;
@@ -840,7 +842,7 @@
   }
   function drawSwordLocal(px, py, ang, blade, t) {
     const ca = Math.cos(ang), sa = Math.sin(ang);
-    for (let dy = -16; dy <= 16; dy++) for (let dx = -16; dx <= 16; dx++) {
+    for (let dy = -27; dy <= 27; dy++) for (let dx = -27; dx <= 27; dx++) {
       const fx = dx + 0.5 - (px - Math.floor(px)), fy = dy + 0.5 - (py - Math.floor(py));
       const u = fx * ca + fy * sa, v = -fx * sa + fy * ca;
       const c = swordPix(u, v, blade, t);
@@ -854,7 +856,7 @@
   function drawSwordAt(x, y, ang, clipY) {
     const ca = Math.cos(ang), sa = Math.sin(ang);
     const pts = [];
-    for (let dy = -16; dy <= 16; dy++) for (let dx = -16; dx <= 16; dx++) {
+    for (let dy = -27; dy <= 27; dy++) for (let dx = -27; dx <= 27; dx++) {
       const u = (dx + 0.5) * ca + (dy + 0.5) * sa, v = -(dx + 0.5) * sa + (dy + 0.5) * ca;
       const c = swordPix(u, v, null, 0);
       if (c && (clipY === undefined || y + dy < clipY)) pts.push(x + dx, y + dy, c);
@@ -866,7 +868,7 @@
   function drawSmear(cx, cy, a0, a1, e, big) {
     const da = a1 - a0;
     if (Math.abs(da) < 0.05) return;
-    const R0 = big ? 5 : 6, R1 = big ? 23 : 19;
+    const R0 = big ? 7 : 8, R1 = big ? 36 : 30;
     const ramp = e >= 0 ? [27, EL[e][3], EL[e][2], EL[e][1]] : [27, 26, 25, 24];
     const x0 = fl(cx - R1 - 1), x1 = Math.ceil(cx + R1 + 1), y0 = fl(cy - R1 - 1), y1 = Math.ceil(cy + R1 + 1);
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
@@ -1428,7 +1430,7 @@
   function swordTip(t) {
     const p = heroPose(t), X = sxw(p.x), Y = syw(p.h) - p.bob, g = heroGeom({ sx: p.sx, sy: p.sy, legK: p.legK });
     const a = swordAngle(t);
-    return [X + g.piv[0] + Math.cos(a) * 14, Y + g.piv[1] + Math.sin(a) * 14];
+    return [X + g.piv[0] + Math.cos(a) * 14 * SS, Y + g.piv[1] + Math.sin(a) * 14 * SS];
   }
   function drawBraidBack(t) {
     if (t < 27.6) return;
@@ -1485,12 +1487,8 @@
     }
   }
 
-  /* ================================================================ the reveal: a storybook cathedral of crystal */
-  const RCX = 240, RCY = 118, RR = 94, RSC = 101 / 94;
-  const TZ = new Float32Array(NP);
-  // when a piece of the construct assembles: outward from the heart, swept around
-  function rAppear(r, th) { return R_T0 + 0.35 + (r / 101) * 1.45 + mod(th + PI / 2, TAU) / TAU * 0.4; }
-  function petalShade(k, f, g) { const e = k % 4; return EL[e][g > 0.66 ? 3 : g > 0.33 ? 2 : 1]; }
+  /* ================================================================ the reveal: a mind made of the four elements */
+  const RCX = 240, RCY = 118;
   const NEBW = W + 160, NEB = new Float32Array(NEBW * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < NEBW; x++) NEB[y * NEBW + x] = fbm(x, y * 1.3, 60, 3, 513);
   function drawRevealBg(t) {
@@ -1519,356 +1517,184 @@
       }
     }
   }
-  function drawMandala(t) {
-    TZ.fill(-9);
-    const x0 = RCX - RR - 2, x1 = RCX + RR + 2, y0 = Math.max(0, RCY - RR - 2), y1 = RCY + RR + 2;
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      const dx = x + 0.5 - RCX, dy = y + 0.5 - RCY, r = Math.sqrt(dx * dx + dy * dy) * RSC;
-      if (r > 101.5) continue;
-      const th = Math.atan2(dy, dx), ta = rAppear(r, th);
-      if (t < ta - 0.45) continue;
-      if (t < ta) { // blueprint: faint guide lines ahead of the build
-        if (Math.abs(r - Math.round(r / 8) * 8) < 0.5 || Math.abs(Math.sin(th * 12)) < 0.02) P(x, y, 46);
-        continue;
-      }
-      let c = -1;
-      const line = (r0) => Math.abs(r - r0) < 0.75;
-      if (r >= 97) { // rim with beads
-        if (r > 99.6) c = 26;
-        else if (r > 98.6) c = 63;
-        else { const n = 96, a = mod((th + t * 0.08) / TAU * n, n), ai = fl(a), af = a - ai; c = Math.abs(af - 0.5) < 0.3 ? EL[ai % 4][ai % 2 ? 3 : 2] : 45; }
-      } else if (r >= 85.5) { // crystal teeth pointing outward
-        const n = 48, a = mod((th - t * 0.12) / TAU * n, n), ai = fl(a), af = a - ai, ext = 0.75 + 0.25 * Math.sin(t * 2.4 - ai * TAU / 12), rf = (r - 85.5) / (11.5 * ext);
-        const half = 0.5 * (1 - rf);
-        if (Math.abs(af - 0.5) < half) {
-          const e = ai % 4, edge = Math.abs(af - 0.5) > half - 0.06;
-          c = edge ? 26 : af < 0.5 ? EL[e][3] : EL[e][2];
-          if (rf < 0.18) c = EL[e][1];
-          if (frac(t * 0.9 + ai * 0.13) < 0.06 && af < 0.5) c = 27;
-        } else c = rf > 0.7 ? -1 : 63;
-      } else if (r >= 84) c = 26;
-      else if (r >= 61.5) { // twelve lancet petals of stained glass
-        const n = 12, rot = -t * 0.06, seg = TAU / n, ph = mod(th - rot, seg), ki = fl(mod(th - rot, TAU) / seg), pm = Math.min(ph, seg - ph) / seg; // 0 at petal edge, .5 at centre
-        const rr = (r - 61.5) / 22.5;
-        const w = 0.5 * Math.pow(Math.sin(PI * Math.min(1, rr * 1.05)), 0.55) * (rr > 0.6 ? 1 - (rr - 0.6) * 0.9 : 1);
-        const dc = 0.5 - pm;              // distance from the petal axis, in segment units
-        const e = ki % 4;
-        if (dc < w) {
-          if (dc > w - 0.045 || rr < 0.04) c = 26;
-          else {
-            const tier = fl(rr * 4), lead = Math.abs(rr * 4 - Math.round(rr * 4)) < 0.08 || dc < 0.012;
-            const jx = (rr - 0.55) * 22.5, jy = dc * seg * r, jd = Math.sqrt(jx * jx + jy * jy);
-            if (jd < 3.2) c = jd < 1.6 ? 27 : EL[(e + 2) % 4][3];
-            else c = lead ? 63 : EL[e][clamp(tier, 1, 3)];
-            if (!lead && jd >= 3.2 && ih(ki * 9 + tier, fl(dc * 40), 524) < 0.08 + 0.06 * Math.sin(t * 3 + ki)) c = EL[e][3];
-          }
-        } else {
-          c = 63;
-          const sx2 = (rr - 0.62) * 22.5, sy2 = pm * seg * r, sd2 = Math.abs(sx2) + Math.abs(sy2);
-          if (sd2 < 3.5 && (Math.abs(sx2) < 0.7 || Math.abs(sy2) < 0.7)) c = frac(t * 0.8 + ki * 0.3) < 0.2 ? 27 : 49;
-          else if (rr > 0.15 && rr < 0.35 && pm < 0.06) c = 46;
-        }
-      } else if (r >= 58) { // chain ring
-        if (line(58.6) || line(61)) c = 26;
-        else { const n = 60, a = mod((th + t * 0.35) / TAU * n, n), af = a - fl(a); c = af < 0.55 ? (fl(a) % 2 ? 44 : 25) : 63; }
-      } else if (r >= 41.5) { // spokes carrying pearls outward
-        const n = 24, rot = t * 0.1, seg = TAU / n, ph = mod(th - rot, seg), pm = Math.min(ph, seg - ph) * r;
-        c = 63;
-        if (pm < 1.0) {
-          c = 25;
-          const pr = 41.5 + frac(t * 0.5 + fl(mod(th - rot, TAU) / seg) * 0.37) * 16.5;
-          if (Math.abs(r - pr) < 1.4) c = 27;
-        } else if (ih(x, y, 525) < 0.05) c = 46;
-        else if (Math.abs(r - 50) < 0.5 && pm > 3) c = 46;
-      } else if (r >= 38.5) c = 26;
-      else if (r >= 27) { // a fractal ring: a Sierpinski weave in polar cells
-        const n = 128, a = fl(mod((th + t * 0.3) / TAU * n + t * 6, n)), v = fl((r - 27) * 1.1);
-        c = (a & v) === 0 ? EL[fl(a / 32)][v > 7 ? 3 : 2] : 63;
-        if (r < 27.8) c = 26;
-      } else { // heart rosette: two turning squares and rings
-        const rot = t * 0.6, a1 = th - rot, a2 = th + rot * 0.7;
-        const sq1 = r * Math.max(Math.abs(Math.cos(a1)), Math.abs(Math.sin(a1))), sq2 = r * Math.max(Math.abs(Math.cos(a2 + PI / 4)), Math.abs(Math.sin(a2 + PI / 4)));
-        c = Math.abs(sq1 - 17) < 0.8 ? 44 : Math.abs(sq2 - 17) < 0.8 ? 36 : Math.abs(r - 10) < 0.7 ? 49 : r < 5 ? 27 : (Math.abs(Math.sin(th * 8 - t)) < 0.15 ? 47 : 45);
-      }
-      if (c >= 0) TZ[y * W + x] = (r >= 61.5 && r < 84 && c !== 63) ? 0.6 : (r >= 84 && r < 97 && c !== 63) ? 0.3 : -9;
-      if (t < ta + 0.12) c = t < ta + 0.06 ? 27 : (c === 63 ? 49 : 26);
-      if (c >= 0) BUF[y * W + x] = c;
-    }
-    // an interlaced twelve-point star drawn over the glass
-    const tsA = R_T0 + 1.5;
-    if (t > tsA) {
-      const pr = eoc(lin(tsA, tsA + 0.8, t)), rot = t * 0.04;
-      for (let k = 0; k < 12; k++) {
-        const a0 = rot + k * TAU / 12, a1 = rot + (k + 5) * TAU / 12, R1 = 83 / RSC;
-        const x0 = RCX + Math.cos(a0) * R1, y0 = RCY + Math.sin(a0) * R1, x1 = RCX + Math.cos(a1) * R1, y1 = RCY + Math.sin(a1) * R1;
-        lineF(x0, y0, lerp(x0, x1, pr), lerp(y0, y1, pr), (x, y, u) => { const i = y * W + x; if (x < 0 || x >= W || y < 0 || y >= H) return; const rr2 = Math.hypot(x - RCX, y - RCY) * RSC; if (rr2 < 40) return; const b0 = BUF[i]; if (b0 === 63 || b0 === 45 || b0 === 46) BUF[i] = frac(u * 3 - t * 0.8 + k * 0.08) < 0.08 ? 27 : 57; });
-      }
-    }
-    // a pulse of light rolls outward through the rings
-    if (t > R_T0 + 2.6) {
-      const pr = frac((t - R_T0 - 2.6) / 1.4) * 125;
-      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-        const d = Math.hypot(x + 0.5 - RCX, y + 0.5 - RCY) * RSC - pr;
-        if (d > -5 && d < 0) tintP(x, y, T_WH, 0.45 * (1 + d / 5));
-      }
-    }
-    // glow of the whole rose
-    const ga = lin(R_T0 + 0.4, R_T0 + 2, t);
-    glow(RCX, RCY, 112, T_VI, 0.18 * ga, 1);
+  // A brain in side view, facing left, with one lobe per element: water (frontal), leaf (parietal),
+  // lightning (occipital) and starlight (temporal). Its folds, a web of neurons and the signals between them
+  // assemble out of the light, then the title writes itself beneath.
+  const BCX = 240, BCY = 92, TITLE_Y = 190;
+  const BW2 = 240, BH2 = 176, BOX = 120, BOY = 84, BX0 = BCX - BOX, BY0 = BCY - BOY;
+  const BM = new Uint8Array(BW2 * BH2);   // 1 cerebrum, 2 cerebellum, 3 brainstem
+  const BL = new Uint8Array(BW2 * BH2);   // lobe = element
+  const BS = new Uint8Array(BW2 * BH2);   // 1 fold, 2 great fissure
+  const BE = new Uint8Array(BW2 * BH2);   // outline
+  const BO = new Float32Array(BW2 * BH2); // assembly order, 0 first
+  const BG = new Float32Array(BW2 * BH2); // fold height: 1 on a gyrus crest, 0 deep in a sulcus
+  const inE = (x, y, cx, cy, rx, ry) => ((x - cx) * (x - cx)) / (rx * rx) + ((y - cy) * (y - cy)) / (ry * ry) <= 1;
+  const centralX = (y) => -10 - (y + 60) * 0.26 + 3 * Math.sin(y * 0.13);       // the central sulcus, leaning back
+  const sylvianY = (x) => 6 + (x + 70) * 0.13 + 2.5 * Math.sin(x * 0.09);          // the lateral fissure above the temporal lobe
+  function brainPart(x, y) {
+    if (inE(x, y, 60, 42, 33, 19)) return inE(x, y, 60, 42, 31, 17) ? 2 : 0;
+    const cer = inE(x, y, 0, -14, 92, 56) || inE(x, y, -56, -8, 44, 50) || inE(x, y, 52, -10, 46, 48) || inE(x, y, -16, 22, 62, 24);
+    if (cer && !inE(x, y, 58, 44, 38, 23)) return 1;
+    const sy = (y - 30) / 42;
+    if (sy >= 0 && sy <= 1) { const cx = 30 + sy * 14, w = 8 - sy * 2.6; if (Math.abs(x - cx) < w) return 3; }
+    return 0;
   }
-  // six little books ringing the heart, their pages turning into fractals
-  const BOOKS = [-60, -90, -120, 60, 90, 120];
-  function pagePat(p, x, y) {
-    if (p === 0) return (x & y) === 0;
-    if (p === 1) { let a = x, b = y; while (a > 0 || b > 0) { if (a % 3 === 1 && b % 3 === 1) return false; a = fl(a / 3); b = fl(b / 3); } return true; }
-    if (p === 2) return ((x ^ y) & 4) === 0 && ((x + y) & 1) === 0;
-    return ((x * x + y * y) % 7) < 2;
-  }
-  function drawBooks(t) {
-    for (let b = 0; b < BOOKS.length; b++) {
-      const a = BOOKS[b] * D2R, bx = Math.round(RCX + Math.cos(a) * 47 / RSC), by = Math.round(RCY + Math.sin(a) * 47 / RSC);
-      const ta = rAppear(47, a) + 0.1;
-      if (t < ta) continue;
-      const open = eob(lin(ta, ta + 0.4, t));
-      const pw = Math.round(8 * open), ph = 10;
-      // dark frame, covers and spine
-      for (let yy = -ph / 2 - 1; yy <= ph / 2 + 3; yy++) for (let q = -pw - 2; q <= pw + 2; q++) P(bx + q, by + yy, 63);
-      for (let q = -pw - 1; q <= pw + 1; q++) { P(bx + q, by + ph / 2 + 1, 46); P(bx + q, by + ph / 2 + 2, 45); }
-      for (let yy = -ph / 2; yy <= ph / 2; yy++) {
-        for (let q = 1; q <= pw; q++) {
-          const pat = fl((t - ta) / 0.9 + b) % 4;
-          const onL = pagePat((pat + 1) % 4, q, yy + 5), onR = pagePat(pat, q, yy + 5);
-          P(bx - q, by + yy, onL ? EL[(b + 1) % 4][2] : 26);
-          P(bx + q, by + yy, onR ? EL[b % 4][2] : 25);
-        }
-        P(bx, by + yy, 47);
+  (function buildBrain() {
+    for (let ly = 0; ly < BH2; ly++) for (let lx = 0; lx < BW2; lx++) {
+      const x = lx - BOX, y = ly - BOY, i = ly * BW2 + lx, m = brainPart(x, y);
+      if (!m) continue;
+      BM[i] = m;
+      let e = 1;
+      if (m === 2) e = 2; else if (m === 3) e = 3;
+      else if (y > sylvianY(x) && x < 44) e = 3;
+      else if (x < centralX(y)) e = 0;
+      else if (x > 40) e = 2;
+      BL[i] = e;
+      if (m === 1) {
+        // winding folds: contour lines of a domain-warped noise field
+        const q1 = fbm(x, y, 22, 2, 701), q2 = fbm(x + 40, y, 22, 2, 702);
+        const f = fbm(x + 30 * q1, y * 1.1 + 30 * q2, 22, 3, 703);
+        BG[i] = Math.sin(PI * frac(f * 5.5));
+        if (Math.abs(x - centralX(y)) < 1.1 && y < sylvianY(x)) BS[i] = 2;
+        if (Math.abs(y - sylvianY(x)) < 1.1 && x < 44 && x > -66) BS[i] = 2;
+      } else if (m === 2) { const ux = (x - 60) / 31; BG[i] = Math.sin(PI * frac((y - 40 - ux * ux * 7) / 3.6)); }
+      else BG[i] = 0.4 + 0.5 * Math.sin(PI * frac((x - y * 0.3) * 0.3));
+      BO[i] = clamp(Math.sqrt(x * x + y * y * 1.5) / 120 + (ih(lx, ly, 704) - 0.5) * 0.08, 0, 1);
+    }
+    for (let ly = 1; ly < BH2 - 1; ly++) for (let lx = 1; lx < BW2 - 1; lx++) {
+      const i = ly * BW2 + lx;
+      if (BM[i] && (BM[i - 1] !== BM[i] || BM[i + 1] !== BM[i] || BM[i - BW2] !== BM[i] || BM[i + BW2] !== BM[i])) BE[i] = 1;
+    }
+  })();
+  // neurons scattered through the lobes, each wired to its nearest neighbours
+  const NEU = [], NED = [];
+  (function buildNeurons() {
+    for (let k = 0; NEU.length < 150 && k < 30000; k++) {
+      const x = Math.round((ih(k, 1, 721) - 0.5) * 228), y = Math.round((ih(k, 2, 721) - 0.5) * 150);
+      const lx = x + BOX, ly = y + BOY;
+      if (lx < 4 || ly < 4 || lx >= BW2 - 4 || ly >= BH2 - 4) continue;
+      const i = ly * BW2 + lx;
+      if (BM[i] !== 1 && BM[i] !== 2) continue;
+      if (!BM[i - 4] || !BM[i + 4] || !BM[i - 4 * BW2] || !BM[i + 4 * BW2]) continue;
+      let ok = true;
+      for (const n of NEU) if ((n.x - x) * (n.x - x) + (n.y - y) * (n.y - y) < 110) { ok = false; break; }
+      if (!ok) continue;
+      NEU.push({ x, y, e: BL[i], o: BO[i], a: ih(k, 3, 721) * TAU, inc: [] });
+    }
+    for (let a = 0; a < NEU.length; a++) {
+      const d = [];
+      for (let b = 0; b < NEU.length; b++) if (b !== a) d.push([b, (NEU[b].x - NEU[a].x) ** 2 + (NEU[b].y - NEU[a].y) ** 2]);
+      d.sort((p, q) => p[1] - q[1]);
+      for (let k = 0; k < 3; k++) {
+        const b = d[k][0];
+        if (d[k][1] > 1000 || NED.some((ed) => ed.a === b && ed.b === a)) continue;
+        const ed = { a, b, sp: 0.55 + ih(a, b, 722) * 0.9, ph: ih(b, a, 723), len: Math.sqrt(d[k][1]), on: ih(a + 300, b, 724) };
+        NED.push(ed); NEU[b].inc.push(ed);
       }
-      // the turning page
-      const fp = frac((t - ta) / 0.9 + b * 0.37), fa = fp * PI, fw = Math.cos(fa) * pw;
-      if (open > 0.9) {
-        const sgn = fw >= 0 ? 1 : -1, aw = Math.abs(Math.round(fw));
-        const lift = Math.round(Math.sin(fa) * 3);
-        for (let q = 1; q <= aw; q++) for (let yy = -ph / 2; yy <= ph / 2; yy++) {
-          const on = pagePat((fl((t - ta) / 0.9 + b) + 2) % 4, q, yy + 5);
-          P(bx + sgn * q, by + yy - Math.round(lift * q / Math.max(1, aw)), q === aw ? 27 : on ? EL[(b + 2) % 4][3] : 27);
-        }
-        if (fp > 0.45 && fp < 0.55) glow(bx, by - 4, 10, T_WH, 0.4);
+    }
+  })();
+  function drawBrain(t) {
+    const g = lin(R_T0 + 0.5, R_T0 + 1.9, t) * 1.05;   // the assembly front
+    const live = lin(R_T0 + 1.3, R_T0 + 2.4, t);       // the signals wake up
+    const wave = R_T0 + 2.3;                             // a wave of light when the title arrives
+    const sweep = frac(t * 0.35);
+    for (let ly = 0; ly < BH2; ly++) for (let lx = 0; lx < BW2; lx++) {
+      const i = ly * BW2 + lx, m = BM[i];
+      if (!m) continue;
+      const o = BO[i];
+      if (o > g) continue;
+      const X = BX0 + lx, Y = BY0 + ly;
+      if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
+      const e = BL[i], x = lx - BOX, y = ly - BOY, b = bay(X, Y), R = EL[e], d = Math.sqrt(x * x + y * y);
+      let c;
+      if (g < 1.04 && o > g - 0.045) c = b < 0.55 ? 27 : R[3];                       // construction sparks at the front
+      else if (BE[i]) { const a = frac(Math.atan2(y, x) / TAU + 0.5); c = Math.abs(a - sweep) < 0.025 || Math.abs(a - sweep) > 0.975 ? 27 : R[3]; }
+      else if (BS[i] === 2) c = 0;
+      else {
+        const w = Math.max(0, Math.sin(d * 0.15 - t * 4 + e * 1.3)), wl = w * w * w * 0.55 * live;
+        const v = BG[i] * 0.6 + wl + 0.08 * (-x / 120 - y / 84) + 0.06;
+        const k = Math.floor(v * 4.3 + (b - 0.5) * 0.8);
+        c = BG[i] < 0.16 ? 0 : k <= 0 ? 63 : k === 1 ? R[0] : k === 2 ? R[1] : k === 3 ? R[2] : k === 4 ? R[3] : 27;
       }
+      if (t > wave) { const r = (t - wave) * 170, dd = Math.abs(d - r); if (dd < 6) c = dd < 2.2 ? 27 : R[3]; }
+      BUF[Y * W + X] = c;
+    }
+    // axons, and the signals running along them
+    for (const ed of NED) {
+      const A = NEU[ed.a], B = NEU[ed.b];
+      if (A.o > g - 0.06 || B.o > g - 0.06) continue;
+      const ax = BCX + A.x, ay = BCY + A.y, bx = BCX + B.x, by = BCY + B.y;
+      lineF(ax, ay, bx, by, (x, y) => { const q = bay(x, y); if (q < 0.3) P(x, y, 27); else if (q < 0.7) P(x, y, EL[A.e][3]); });
+      if (ed.on < live) {
+        const ph = frac(t * ed.sp + ed.ph);
+        for (let k = 4; k >= 0; k--) {
+          const q = ph - k * 1.6 / ed.len;
+          if (q < 0) continue;
+          P(lerp(ax, bx, q), lerp(ay, by, q), k === 0 ? 27 : k < 2 ? EL[A.e][3] : EL[B.e][2]);
+        }
+      }
+    }
+    // the neurons: a bright body, a few dendrites, a flash when a signal lands
+    for (const n of NEU) {
+      if (n.o > g - 0.03) continue;
+      const x = BCX + n.x, y = BCY + n.y, R = EL[n.e];
+      for (let k = 0; k < 3; k++) { const a = n.a + k * 2.1; for (let r = 2; r <= 4; r++) if (r < 4 || k === 0) P(x + Math.cos(a) * r, y + Math.sin(a) * r, R[2]); }
+      let fire = false;
+      for (const ed of n.inc) if (ed.on < live && frac(t * ed.sp + ed.ph) > 0.88) fire = true;
+      if (fire) { glow(x, y, 9, EL_T[n.e], 0.5); sparkle(x, y, 3, 27, R[3]); }
+      else { P(x - 1, y, 0); P(x + 2, y, 0); P(x, y - 1, 0); P(x + 1, y + 2, 0); P(x, y, 27); P(x + 1, y, R[3]); P(x, y + 1, R[3]); P(x + 1, y + 1, R[2]); if (frac(t * 1.7 + n.a) < 0.2) glow(x, y, 6, EL_T[n.e], 0.4); }
     }
   }
-  // four light threads weaving over and under one another across the rose
-  function drawThreads(t) {
-    const t0 = R_T0 + 1.2;
-    if (t < t0) return;
-    const grow = eoc(lin(t0, t0 + 1.1, t));
-    for (let k = 0; k < 4; k++) {
-      const N = 2400, lim = N * grow;
-      for (let i = 0; i < lim; i++) {
-        const th = i / N * TAU + k * 0.4;
-        const ph = 5 * th + k * PI / 2 + t * 0.7;
-        const r = (73 + 14 * Math.sin(ph)) / RSC;
-        const z = Math.cos(ph + k) + (k * 0.01);
-        const x = fl(RCX + Math.cos(th) * r), y = fl(RCY + Math.sin(th) * r);
-        if (x < 0 || x >= W || y < 0 || y >= H) continue;
-        const idx = y * W + x;
-        if (z < TZ[idx]) continue;
-        TZ[idx] = z;
-        const pulse = frac(i / N * 4 - t * 0.6 + k * 0.25) < 0.03;
-        BUF[idx] = pulse ? 27 : z > 0.55 ? EL[k][3] : EL[k][2];
-      }
-      // pulses glow
-      for (let p = 0; p < 4; p++) {
-        const f = mod(p / 4 + t * 0.15 - k * 0.0625, 1);
-        if (f > grow) continue;
-        const th = f * TAU + k * 0.4, r = (73 + 14 * Math.sin(5 * th + k * PI / 2 + t * 0.7)) / RSC;
-        glow(RCX + Math.cos(th) * r, RCY + Math.sin(th) * r, 9, EL_T[k], 0.5);
+  function drawMindParticles(t, front) {
+    // four streams of element light pour in from the corners and settle into the neurons
+    if (!front && t < R_T0 + 2.3) {
+      const CORN = [[-30, -20], [W + 30, -20], [W + 30, H + 20], [-30, H + 20]];
+      for (let i = 0; i < 320; i++) {
+        const e = i & 3, n = NEU[fl(ih(i, 1, 731) * NEU.length)];
+        const t0 = R_T0 + 0.1 + ih(i, 2, 731) * 1.5, u = (t - t0) / 0.75;
+        if (u <= 0 || u >= 1) continue;
+        const [cx, cy] = CORN[e], tx = BCX + n.x, ty = BCY + n.y, s = eic(u);
+        const sw = Math.sin(u * PI) * 50 * (ih(i, 3, 731) - 0.5);
+        const nx = -(ty - cy), ny = tx - cx, nl = Math.sqrt(nx * nx + ny * ny) || 1;
+        const x = lerp(cx, tx, s) + nx / nl * sw, y = lerp(cy, ty, s) + ny / nl * sw;
+        P(x, y, u > 0.85 ? 27 : EL[e][3]);
+        const s2 = eic(u - 0.04), x2 = lerp(cx, tx, s2) + nx / nl * sw, y2 = lerp(cy, ty, s2) + ny / nl * sw;
+        lineF(x2, y2, x, y, (px, py, f) => { if (f < 0.9 && bay(px, py) < 0.6) P(px, py, EL[e][2]); });
       }
     }
-  }
-  // motes on logarithmic spirals, thousands of little pieces in motion
-  function drawMotes(t) {
-    const a0 = lin(R_T0 + 0.2, R_T0 + 1.5, t);
-    for (let i = 0; i < 900; i++) {
-      if (ih(i, 9, 531) > a0) continue;
-      const dir = i % 2 ? 1 : -1, sp = 0.08 + ih(i, 1, 531) * 0.12;
-      const f = frac(ih(i, 2, 531) + t * sp), r = 8 + f * 150;
-      const th = ih(i, 3, 531) * TAU + dir * Math.log(r) * 1.4 + t * 0.2 * dir;
-      const x = RCX + Math.cos(th) * r, y = RCY + Math.sin(th) * r * 0.96;
-      if (r < RR && ih(i, 4, 531) < 0.6) continue;
-      const tw = frac(t * (0.8 + ih(i, 5, 531)) + ih(i, 6, 531));
-      P(x, y, tw < 0.15 ? 27 : EL[i % 4][tw < 0.5 ? 3 : 2]);
-    }
-  }
-  // the cathedral: clustered crystal pillars, a cusped pointed arch, side lancets, steps
-  function voussoir(x, y, c, ta, t) { if (t >= ta) P(x, y, t < ta + 0.08 ? 27 : c); }
-  const SPRING = 150, SPAN = 236, ARAD = 146;
-  function shaft(cx, w, y0, y1, ta0, t, jewel) {
-    for (let y = y1; y >= y0; y--) {
-      const ta = ta0 + (y1 - y) / 140 * 0.8;
-      if (t < ta) continue;
-      for (let x = cx - w; x <= cx + w; x++) {
-        const u = (x - cx) / (w + 0.5);
-        let c = u < -0.85 || u > 0.85 ? 63 : u < -0.4 ? 26 : u < 0.2 ? 25 : u < 0.6 ? 24 : 23;
-        if (jewel >= 0 && Math.abs(u) < 0.5) {
-          const blk = fl((y1 - y) / 10), by = mod(y1 - y, 10), dd = Math.abs(by - 5) / 4 + Math.abs(u) * 1.6;
-          if (dd < 1) { const e = (blk + jewel) % 4, pulse = frac(t * 0.8 - blk * 0.11) < 0.1; c = pulse ? 27 : dd < 0.45 ? EL[e][3] : EL[e][2]; }
-        }
-        P(x, y, t < ta + 0.06 ? 27 : c);
+    // three tilted rings of light circling the mind, with beads riding them
+    const on = lin(R_T0 + 1.1, R_T0 + 2.3, t);
+    if (on > 0) for (let ring = 0; ring < 3; ring++) {
+      const dir = ring === 1 ? -1 : 1, Rr = 136 + ring * 16, tilt = [-0.26, 0.14, 0.4][ring], c = EL[[0, 3, 2][ring]];
+      const pos = (a) => { const ex = Math.cos(a) * Rr, ey = Math.sin(a) * Rr * 0.2; return [BCX + ex * Math.cos(tilt) - ey * Math.sin(tilt), BCY + 6 + ex * Math.sin(tilt) + ey * Math.cos(tilt)]; };
+      for (let a = 0; a < TAU; a += 0.004) {
+        if ((Math.sin(a) > 0) !== front || frac(a / TAU + ring * 0.3) > on) continue;
+        const [x, y] = pos(a);
+        if (bay(x, y) < (front ? 0.45 : 0.22)) P(x, y, front ? c[1] : c[0]);
+      }
+      for (let k = 0; k < 9; k++) {
+        const a = k * TAU / 9 + t * (0.5 + ring * 0.15) * dir;
+        if ((Math.sin(a) > 0) !== front || k / 9 > on) continue;
+        const [x, y] = pos(a);
+        for (let q = 1; q <= 6; q++) { const [tx, ty] = pos(a - dir * q * 0.012); P(tx, ty, q < 3 ? c[3] : c[2]); }
+        if (front) { sparkle(x, y, 2, 27, c[3]); glow(x, y, 7, EL_T[[0, 3, 2][ring]], 0.4); } else { P(x, y, c[3]); P(x + 1, y, c[2]); }
       }
     }
-  }
-  function drawCathedral(t) {
-    const tb = R_T0 + 0.25;
-    // side lancet windows
-    for (const s of [-1, 1]) {
-      const wx = RCX + s * 190, x0 = wx - 22, x1 = wx + 22, top = 70, bot = 214;
-      const ta0 = tb + 0.5;
-      for (let y = 40; y <= bot; y++) for (let x = x0; x <= x1; x++) {
-        const dx = (x - wx) / 22, archY = y < top ? (top - y) / 30 : 0;
-        if (y < top) { const ac = Math.abs(dx) + archY * archY * 1.0 + archY * 0.2; if (ac > 1) continue; }
-        const ta = ta0 + (bot - y) / 170 * 0.9;
-        if (t < ta) continue;
-        const ad = Math.abs(dx);
-        let c;
-        const frameEdge = ad > 0.86 || (y < top && Math.abs(dx) + archY * archY * 1.0 + archY * 0.2 > 0.84) || y > bot - 3;
-        if (frameEdge) c = ad > 0.95 ? 63 : 25;
-        else {
-          // a small rose at the head, two sub-lancets below
-          const rx = x - wx, ry = y - (top + 4), rd = Math.sqrt(rx * rx + ry * ry);
-          if (rd < 13) {
-            const ra = Math.atan2(ry, rx) + t * 0.5 * s, pet = Math.abs(Math.sin(ra * 4));
-            c = rd < 3 ? 27 : rd > 11.8 ? 26 : pet > 0.55 ? EL[(fl(mod(ra, TAU) / (PI / 4)) + (s > 0 ? 2 : 0)) % 4][rd > 8 ? 1 : 2] : 63;
-            if (rd < 4.2 && rd >= 3) c = 26;
-          } else if (y < top + 18) c = Math.abs(rx) < 1 ? 26 : 63;
-          else {
-            const sub = rx < 0 ? -1 : 1, sx2 = wx + sub * 10, ux = (x - sx2) / 8, sy0 = top + 30;
-            let inside = Math.abs(ux) < 1 && y > sy0 - 10;
-            if (inside && y < sy0) { const ay = (sy0 - y) / 10; inside = Math.abs(ux) + ay * ay < 1; }
-            if (!inside) c = Math.abs(ux) < 1.25 && y > sy0 - 12 ? 26 : 63;
-            else {
-              const col = fl((x - sx2 + 8) / 4), row = fl((y - sy0 + 10) / 7);
-              const lead = mod(x - sx2 + 8, 4) < 1 || mod(y - sy0 + 10, 7) < 1;
-              const e = (row + (sub > 0 ? 2 : 0) + (s > 0 ? 1 : 0)) & 3;
-              const shim = frac(t * 0.5 - row * 0.06 + col * 0.1 + (sub > 0 ? 0.5 : 0)) < 0.07;
-              c = lead ? 45 : shim ? EL[e][3] : (ih(col, row, 546) < 0.3 ? EL[e][2] : EL[e][1]);
-            }
-          }
-        }
-        P(x, y, t < ta + 0.06 ? 27 : c);
-      }
-      glow(wx, 140, 40, EL_T[s < 0 ? 0 : 3], 0.18 * lin(ta0, ta0 + 1, t));
-    }
-    // clustered pillars with capitals, bases and climbing light
-    for (const s of [-1, 1]) {
-      const pc = RCX + s * SPAN / 2;
-      shaft(pc - 9, 2, SPRING + 4, 214, tb, t, -1);
-      shaft(pc + 9, 2, SPRING + 4, 214, tb, t, -1);
-      shaft(pc, 5, SPRING + 4, 214, tb, t, s > 0 ? 2 : 0);
-      // base and capital
-      for (const [y0, y1, w] of [[214, 222, 15], [SPRING - 2, SPRING + 4, 14]]) for (let y = y0; y <= y1; y++) {
-        const ta = tb + (y0 === 214 ? 0 : 0.8);
-        for (let x = pc - w; x <= pc + w; x++) {
-          const edge = y === y0 || y === y1 || x === pc - w || x === pc + w;
-          const leaf = y0 !== 214 && y === y1 - 1 && mod(x - pc, 4) === 0;
-          voussoir(x, y, edge ? 63 : leaf ? EL[(x >> 2) & 3][3] : (x < pc ? 26 : 24), ta, t);
-        }
-      }
-      // spiral of light winding up the cluster
-      for (let y = SPRING + 4; y <= 214; y++) {
-        const ta = tb + (214 - y) / 140 * 0.8 + 0.3;
-        if (t < ta) continue;
-        for (let k = 0; k < 2; k++) {
-          const ph = y * 0.16 - t * 4 + k * PI, z = Math.cos(ph);
-          if (z < 0) continue;
-          P(pc + Math.sin(ph) * 13, y, EL[(k * 2 + (s > 0 ? 1 : 0)) % 4][z > 0.6 ? 3 : 2]);
-        }
-      }
-      // pinnacle with crockets and a finial star
-      for (let q = 0; q < 34; q++) {
-        const ta = tb + 0.9 + q * 0.012, w = Math.round(8 * (1 - q / 34));
-        const y = SPRING - 3 - q;
-        for (let x = -w; x <= w; x++) voussoir(pc + x, y, Math.abs(x) === w ? 63 : x < 0 ? 26 : 24, ta, t);
-        if (q % 5 === 2 && w > 1) { voussoir(pc - w - 1, y, EL[q % 4][3], ta, t); voussoir(pc + w + 1, y, EL[(q + 1) % 4][3], ta, t); }
-      }
-      if (t > tb + 1.35) { sparkle(pc, SPRING - 40, 2.5 + 1.5 * Math.sin(t * 4 + s), 27, 49); glow(pc, SPRING - 40, 10, T_WH, 0.3); }
-    }
-    // the pointed arch: two arcs from the springing points meeting at the apex
-    for (const s of [-1, 1]) {
-      const cx = RCX - s * (ARAD - SPAN / 2), cy = SPRING;
-      const amax = Math.acos((ARAD - SPAN / 2) / ARAD);
-      for (let a = 0; a <= 1; a += 0.0012) {
-        const ang = s < 0 ? PI + a * amax : -a * amax;
-        const ta = tb + 0.95 + a * 0.75;
-        for (let w = -3; w < 14; w++) {
-          const r = ARAD - 12 + w, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r;
-          if (s < 0 ? x > RCX + 0.5 : x < RCX - 0.5) continue;
-          if (y > SPRING) continue;
-          const blk = fl(a * 34), edge = mod(a * 34, 1) < 0.05;
-          let c;
-          if (w < 0) { // crockets on the outer edge
-            if (mod(a * 34, 1) > 0.35 || w < -2 + (blk % 2)) continue;
-            c = EL[blk % 4][3];
-          } else if (w < 7) c = edge || w === 0 ? 63 : w < 2 ? 26 : w < 5 ? 25 : 24;
-          else if (w < 12) c = w === 7 || w === 11 ? 63 : EL[(blk + (s > 0 ? 2 : 0)) % 4][w === 9 ? 3 : 2];
-          else c = 26;
-          voussoir(x, y, c, ta, t);
-        }
-        // cusps hanging from the inner edge
-        const cuspN = 9, cf = mod(a * cuspN, 1);
-        if (a > 0.04 && a < 0.96) {
-          const dep = Math.round(Math.sin(PI * cf) * 4);
-          for (let d = 0; d < dep; d++) { const r = ARAD - 13 - d, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r; voussoir(x, y, d === dep - 1 ? 26 : 63, ta + 0.1, t); }
-        }
-      }
-    }
-    // keystone jewel and finial
-    const apexY = SPRING - Math.sqrt(ARAD * ARAD - Math.pow(ARAD - SPAN / 2, 2)) + 6;
-    if (t > tb + 1.7) { const g = 0.5 + 0.5 * Math.sin(t * 3); discF(RCX, apexY, 4.5, 26); discF(RCX, apexY, 3.4, 47); discF(RCX, apexY, 2.2, g > 0.5 ? 49 : 48); P(RCX - 1, apexY - 1, 27); glow(RCX, apexY, 18, T_VI, 0.45); }
-    // steps
-    for (let y = 222; y < H; y++) {
-      const st = y < 230 ? 0 : y < 238 ? 1 : y < 246 ? 2 : 3;
-      const half = [104, 124, 148, 240][st];
-      const ta = tb - 0.1 + st * 0.08;
-      if (t < ta) continue;
-      for (let x = RCX - half; x <= RCX + half; x++) {
-        const top = (st === 0 && y === 222) || (st === 1 && y === 230) || (st === 2 && y === 238) || (st === 3 && y === 246);
-        let c = top ? 26 : (Math.abs(x - RCX) > half - 1 ? 63 : (y % 8 === 7 ? 45 : 46));
-        if (!top && st < 3) { const rn = fl((x - RCX + 400) / 6); if (mod(x - RCX, 6) > 1 && mod(x - RCX, 6) < 5 && y % 8 >= 2 && y % 8 <= 5 && ih(rn, st, 541) < 0.35) c = frac(t * 0.6 - rn * 0.05 + st * 0.2) < 0.15 ? 49 : 47; }
-        if (st === 3 && !top) { const fy = y - 246, fxp = (x - RCX) / (1 + fy * 0.15); c = (mod(fxp, 16) < 1 || fy % 6 === 0) ? 45 : (bay(x, y) < 0.1 ? 46 : 63); if (y > 262) c = bay(x, y) < (270 - y) / 8 * 0.5 ? 63 : 0; }
-        P(x, y, c);
-      }
-    }
-  }
-  // pages torn loose from the little books, orbiting the cathedral and unfolding fractals
-  function drawPages(t, front) {
-    const t0 = R_T0 + 1.4;
-    for (let i = 0; i < 16; i++) {
-      const ts = t0 + i * 0.07;
-      if (t < ts) continue;
-      const out = eoc(lin(ts, ts + 0.9, t));
-      const a = i * TAU / 16 + t * 0.22;
-      const z = Math.sin(a);
-      if ((z >= 0) !== front) continue;
-      const x = RCX + Math.cos(a) * 214 * out, y = RCY + 4 + z * 72 * out + Math.sin(t * 1.3 + i) * 4;
-      const fw = Math.cos(t * 2.2 + i * 1.7), w = Math.max(0, Math.round(Math.abs(fw) * 5)), hgt = 7;
-      const pat = (fl((t * 2.2 + i * 1.7) / PI) + i) & 3, e = i % 4;
-      for (let dy = -hgt; dy <= hgt; dy++) for (let dx = -w; dx <= w; dx++) {
-        const edge = Math.abs(dx) === w || Math.abs(dy) === hgt;
-        const on = pagePat(pat, Math.abs(Math.round((dx + 5) * (5 / Math.max(1, w)))), dy + hgt);
-        P(x + dx, y + dy, edge ? (fw > 0 ? 26 : 25) : on ? EL[e][fw > 0 ? 2 : 1] : (fw > 0 ? 27 : 25));
-      }
-      if (w <= 1) sparkle(x, y, 3, 27, EL[e][3]);
-      if (front) glow(x, y, 10, EL_T[e], 0.2);
+    // thoughts drifting up off the crown
+    if (front && t > R_T0 + 1.8) for (let i = 0; i < 50; i++) {
+      const u = frac(ih(i, 1, 751) + t * 0.3), x = BCX + (ih(i, 2, 751) - 0.5) * 180 + Math.sin(u * 5 + i) * 4, y = BCY - 58 - u * 34 + Math.abs(x - BCX) * 0.25;
+      if (bay(x, y) > 1 - u) continue;
+      P(x, y, EL[i & 3][u < 0.5 ? 3 : 2]);
     }
   }
   // the title, built letter by letter
   const TITLE = 'FABLE 5.5';
   function drawTitle(t) {
-    const t0 = R_T0 + 1.75;
+    const t0 = R_T0 + 2.0;
     // banner
     const bu = eoc(lin(t0 - 0.35, t0, t));
     if (bu <= 0) return;
-    const bw = Math.round(86 * bu), y0 = RCY - 17, y1 = RCY + 17;
+    const bw = Math.round(86 * bu), y0 = TITLE_Y - 17, y1 = TITLE_Y + 17;
     for (let y = y0; y <= y1; y++) for (let x = RCX - bw; x <= RCX + bw; x++) {
       const edge = y === y0 || y === y1 || x === RCX - bw || x === RCX + bw, edge2 = y === y0 + 2 || y === y1 - 2;
       P(x, y, edge ? 26 : edge2 ? (fl((x + t * 20) / 3) % 4 === 0 ? 49 : 47) : 63);
@@ -1879,16 +1705,16 @@
       for (let dy = -17; dy <= 17; dy++) for (let dx = -5; dx <= 5; dx++) {
         const e = (dx * dx) / 25 + (dy * dy) / 289;
         if (e > 1) continue;
-        P(ex + dx, RCY + dy, e > 0.7 ? 26 : (Math.abs(dy) % 6 < 2 ? 46 : 45));
+        P(ex + dx, TITLE_Y + dy, e > 0.7 ? 26 : (Math.abs(dy) % 6 < 2 ? 46 : 45));
       }
-      discF(ex, RCY, 2.5, EL[s < 0 ? 0 : 3][3]);
+      discF(ex, TITLE_Y, 2.5, EL[s < 0 ? 0 : 3][3]);
     }
     // letters
     let wsum = 0;
     for (const ch of TITLE) wsum += GLYPHS[ch].w + 2;
     wsum -= 2;
     let lx = RCX - Math.floor(wsum / 2);
-    const ly = RCY - Math.floor(GH / 2);
+    const ly = TITLE_Y - Math.floor(GH / 2);
     let li = 0;
     for (const ch of TITLE) {
       const g = GLYPHS[ch];
@@ -1922,29 +1748,27 @@
   }
   function drawReveal(t) {
     drawRevealBg(t);
-    drawPages(t, false);
-    drawMotes(t);
-    drawCathedral(t);
-    drawMandala(t);
-    drawBooks(t);
-    drawThreads(t);
+    tintRect(0, 0, W - 1, H - 1, T_DARK, 0.38);
+    glow(BCX, BCY, 160, T_VI, 0.34 * lin(R_T0 + 0.5, R_T0 + 2, t), 1);
+    drawMindParticles(t, false);
+    drawBrain(t);
+    drawMindParticles(t, true);
     drawTitle(t);
-    drawPages(t, true);
-    // the hero, small and proud in front
-    const hp = { sx: 1, sy: 1, legK: frac(t / 0.9) > 0.5 ? 0.8 : 1 };
+    // the hero, small and proud beneath it
     let hy = 0, sx = 1, sy = 1;
     const jt = R_T0 + 0.55;
     if (t > jt && t < jt + 0.35) { const u = (t - jt) / 0.35; hy = 14 * 4 * u * (1 - u); sy = 1.15; sx = 0.9; }
     if (t >= jt + 0.35 && t < jt + 0.53) { const q = (t - jt - 0.35) / 0.18, a = Math.sin(PI * q) * 0.3; sx = 1 + a; sy = 1 - a; }
-    drawHero(RCX - 2, 246 - Math.round(hy), { sx, sy, legK: hp.legK, eyeDX: 0, happy: t > R_T0 + 2.5 && frac(t / 2.4) > 0.6, blink: frac(t / 2.7) < 0.05, sword: true, ang: -70 * D2R, blade: null, t });
+    const HX = RCX - 2, HY = 252;
+    drawHero(HX, HY - Math.round(hy), { sx, sy, legK: frac(t / 0.9) > 0.5 ? 0.8 : 1, eyeDX: 0, happy: t > R_T0 + 2.5 && frac(t / 2.4) > 0.6, blink: frac(t / 2.7) < 0.05, sword: true, ang: -70 * D2R, blade: [EL[0][3], EL[1][3], EL[2][3], EL[3][3]], t });
     const g = 0.5 + 0.5 * Math.sin(t * 4);
-    sparkle(RCX + 13, 246 - 44, 2 + g * 2, 27, 44);
+    sparkle(HX + 24, HY - 50 - Math.round(hy), 2 + g * 2, 27, 44);
     // the small print
     const s = 'Unofficial fan concept · not affiliated with Anthropic', w = miniWidth(s);
     const tf = R_T0 + 3.1;
-    if (t > tf) miniText(s, RCX - fl(w / 2), 259, 9, (k) => clamp((t - tf - k * 0.5) / 0.4, 0, 1));
+    if (t > tf) miniText(s, RCX - fl(w / 2), 262, 9, (k) => clamp((t - tf - k * 0.5) / 0.4, 0, 1));
     // dissolve from white at the start
-    if (t < R_T0 + 0.75) { const R = 300 * eic(lin(R_T0 + 0.02, R_T0 + 0.75, t)); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const dx = x + 0.5 - RCX, dy = (y + 0.5 - RCY) * 1.4, d = Math.sqrt(dx * dx + dy * dy) - bay(x, y) * 22; if (d > R) BUF[y * W + x] = d < R + 5 ? 25 : 27; } }
+    if (t < R_T0 + 0.75) { const R = 300 * eic(lin(R_T0 + 0.02, R_T0 + 0.75, t)); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const dx = x + 0.5 - BCX, dy = (y + 0.5 - BCY) * 1.4, d = Math.sqrt(dx * dx + dy * dy) - bay(x, y) * 22; if (d > R) BUF[y * W + x] = d < R + 5 ? 25 : 27; } }
   }
 
   /* ================================================================ hero choreography */
@@ -2041,6 +1865,7 @@
   }
   function bladeColours(t) {
     if (t >= 24.55 && t < 26.4) return [35, 36, 39, 40, 43, 44, 48, 49];
+    for (const [t0, e] of SURGES) if (t >= t0 && t < t0 + 0.9) return [EL[e][1], EL[e][2], EL[e][3], 27];
     return null;
   }
   function drawHeroAt(t) {
@@ -2049,7 +1874,7 @@
     const sword = t >= 2.6;
     const ang = swordAngle(t);
     const blade = bladeColours(t);
-    if (blade) glow(X + 18, Y - 20, 24, T_WH, 0.25 + 0.1 * Math.sin(t * 30));
+    if (blade) glow(X + 26, Y - 26, 32, T_WH, 0.25 + 0.1 * Math.sin(t * 30));
     if (t > FALL0 && t < FALL1) for (let k = -1; k <= 1; k++) for (let q = 0; q < 26; q++) if (bay(X + k * 9, Y - 30 - q) < 1 - q / 26) P(X + k * 9, Y - 26 - q, k ? 30 : 27);
     const g = drawHero(X, Y, { sx: p.sx, sy: p.sy, lift: p.lift, legK: p.legK, flash: p.flash, eyeDX: p.eyeDX, blink: p.blink, happy: p.happy, sword, ang, blade, t });
     const pvx = X + g.piv[0], pvy = Y + g.piv[1];
@@ -2117,7 +1942,7 @@
         const u1 = eio(lin(23.3, 23.5, t));
         x = lerp(x, sh[0], u1) + Math.sin(t * 40 + k) * (t > 23.55 && t < 24.3 ? 1 : 0); y = lerp(y, sh[1], u1);
         if (t >= 24.3) {
-          const hp2 = heroPose(t), sw = swordAngle(t), tipx = sxw(hp2.x) + 16 + Math.cos(sw) * 13, tipy = syw(hp2.h) - 14 + Math.sin(sw) * 13;
+          const hp2 = heroPose(t), sw = swordAngle(t), tipx = sxw(hp2.x) + 16 + Math.cos(sw) * 13 * SS, tipy = syw(hp2.h) - 14 + Math.sin(sw) * 13 * SS;
           const u2 = eic(lin(24.3, 24.58, t));
           x = lerp(x, tipx, u2); y = lerp(y, tipy, u2); s = 1 - u2;
           if (t >= 26.25) { const u3 = eoc(lin(26.25, 26.7, t)); x = lerp(tipx, ox, u3); y = lerp(tipy, oy, u3); s = u3; }
@@ -2150,6 +1975,99 @@
         }
       }
       drawOrb(o.x, o.y, o.e, t, o.s);
+    }
+  }
+
+  /* ================================================================ power-ups */
+  // each element the hero takes is a power-up: a surge as the orb arrives, then an elemental special on the next big hits
+  const SURGES = ORBS.slice(0, 3).map((o) => [o.join[1] - 0.05, o.e]);
+  const SPECIALS = [ // time, element, kind
+    [10.33, 0, 'wave'], [14.36, 1, 'leaves'],
+    [B_HITS[0], 0, 'wave'], [B_HITS[1], 1, 'leaves'], [B_HITS[2], 2, 'bolt'], [B_HITS[3], 3, 'nova'],
+  ];
+  function drawSurge(t, front) {
+    for (const [t0, e] of SURGES) {
+      const u = (t - t0) / 0.75;
+      if (u <= 0 || u >= 1) continue;
+      const hp = heroPose(t), hx = sxw(hp.x), hy = syw(hp.h) - 12, gy = syw(0);
+      const R = EL[e];
+      if (!front) {
+        glow(hx, hy, 44, EL_T[e], 0.75 * (1 - u));
+        // a column of light that rises off the ground and fades
+        const ch = 70 * eoc(u);
+        for (let y = fl(gy - ch); y <= gy; y++) for (let q = -14; q <= 14; q++) {
+          const f = Math.abs(q) / 14, a = (1 - f) * (1 - u) * (0.4 + 0.6 * (y - (gy - ch)) / (ch + 1));
+          if (bay(hx + q, y) < a * 0.6) P(hx + q, y, f < 0.3 ? R[3] : R[2]);
+        }
+        return;
+      }
+      // two rings rushing outward along the ground, and one around the body
+      for (const [rr, c] of [[8 + 56 * eoc(u), R[3]], [6 + 40 * eoc(u), 27], [4 + 24 * eoc(u), R[2]]]) for (let a = 0; a < TAU; a += 0.015) {
+        const x = hx + Math.cos(a) * rr, y = gy + Math.sin(a) * rr * 0.2;
+        if (bay(x, y) < 1 - u) P(x, y, c);
+      }
+      for (let a = 0; a < TAU; a += 0.03) { const rr = 10 + 18 * eoc(u); const x = hx + Math.cos(a) * rr, y = hy + Math.sin(a) * rr * 0.9; if (bay(x, y) < (1 - u) * 0.8) P(x, y, R[2]); }
+      // the element itself, rising: droplets, leaves or sparks
+      for (let i = 0; i < 40; i++) {
+        const lf = frac(ih(i, 1, 951 + e) + u * 1.3), x = hx + (ih(i, 2, 951) - 0.5) * 40 + Math.sin(lf * 6 + i) * 3, y = gy - 4 - lf * 54;
+        if (lf > 1 - u * 0.2 || ih(i, 3, 951) > 1 - u * 0.4 + 0.4) continue;
+        if (e === 0) { P(x, y, R[3]); P(x, y + 1, R[2]); }
+        else if (e === 1) { P(x, y, R[3]); P(x + 1, y - 1, R[2]); P(x - 1, y + 1, R[1]); }
+        else { P(x, y, 27); P(x - 1, y, R[3]); P(x + 1, y, R[3]); P(x, y - 1, R[2]); }
+      }
+      // power-up chevrons climbing above the head
+      for (let k = 0; k < 3; k++) {
+        const v = u * 1.6 - k * 0.22;
+        if (v <= 0 || v >= 1) continue;
+        const cy = hy - 22 - v * 26;
+        for (let q = -6; q <= 6; q++) { const yy = cy + Math.abs(q); P(hx + q, yy, v < 0.6 ? 27 : R[3]); P(hx + q, yy + 1, R[3]); P(hx + q, yy + 2, R[2]); }
+      }
+    }
+  }
+  function specialAt(sp) {
+    if (sp[0] === 10.33) { const p = spritePos(10.43); return [sxw(p[0]), syw(p[1])]; }
+    if (sp[0] === 14.36) { const p = wispPos(14.48); return [sxw(p[0]), syw(p[1])]; }
+    const tip = swordTip(sp[0] + 0.05); return [tip[0] + 8, tip[1]];
+  }
+  function drawSpecials(t) {
+    for (const sp of SPECIALS) {
+      const [t0, e, kind] = sp, dur = kind === 'nova' ? 0.8 : 0.6, u = (t - t0) / dur;
+      if (u <= 0 || u >= 1) continue;
+      const [cx, cy] = specialAt(sp), R = EL[e];
+      if (kind === 'wave') { // a crown of water bursting outward and falling back
+        glow(cx, cy, 46, T_BL, 0.6 * (1 - u));
+        for (let k = 0; k < 2; k++) { const rr = 6 + (34 + k * 14) * eoc(u); for (let a = 0; a < TAU; a += 0.025) { const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr * 0.55; if (bay(x, y) < 1 - u) P(x, y, k ? R[2] : R[3]); } }
+        for (let i = 0; i < 30; i++) {
+          const a = -PI * (0.05 + 0.9 * ih(i, 1, 961)), v = 40 + ih(i, 2, 961) * 50;
+          const x = cx + Math.cos(a) * v * u, y = cy + Math.sin(a) * v * u + 70 * u * u;
+          if (ih(i, 3, 961) < u) continue;
+          P(x, y, R[3]); P(x, y + 1, R[2]); P(x, y - 1, 27);
+        }
+      } else if (kind === 'leaves') { // a whirlwind of leaves spiralling up around the target
+        glow(cx, cy, 44, T_GR, 0.55 * (1 - u));
+        for (let i = 0; i < 34; i++) {
+          const a = i * TAU / 34 + u * 10 + ih(i, 1, 971), rr = 6 + (18 + ih(i, 2, 971) * 18) * eoc(u), lift = u * 26 * ih(i, 3, 971);
+          const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr * 0.45 - lift;
+          if (bay(x, y) < u * 0.9) continue;
+          const sx = Math.cos(a + 1) > 0 ? 1 : -1;
+          P(x, y, R[3]); P(x + sx, y - 1, R[2]); P(x - sx, y + 1, R[1]); if (i % 5 === 0) P(x, y - 1, 27);
+        }
+      } else if (kind === 'bolt') { // a bolt called down from the sky
+        if (u < 0.45) {
+          const fr = fl(t * 30);
+          drawBolt(cx + (ih(fr, 1, 981) - 0.5) * 30, 0, cx, cy, fr, 2, 27, 43);
+          if (fr % 2) drawBolt(cx + (ih(fr, 2, 981) - 0.5) * 60, 0, cx + (ih(fr, 3, 981) - 0.5) * 12, cy, fr + 7, 1, 44, 42);
+          glow(cx, cy, 90, T_YE, 0.7 * (1 - u / 0.45));
+        }
+        for (let i = 0; i < 24; i++) { const a = ih(i, 1, 982) * TAU, r = 50 * eoc(u) * (0.4 + ih(i, 2, 982)); if (ih(i, 3, 982) < u) continue; sparkle(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1 + (i % 3 === 0 ? 1 : 0), 27, R[3]); }
+      } else { // nova: every element at once
+        glow(cx, cy, 120 * eoc(u) + 20, T_WH, 0.6 * (1 - u));
+        for (let k = 0; k < 4; k++) {
+          drawBurst(cx, cy, clamp(u * 1.2 - k * 0.08, 0, 1), 60 + k * 22, 10 + k * 2, k * 0.4, [EL[k][3], EL[k][2]], 1.4 - k * 0.15);
+          const rr = (20 + k * 18) * eoc(clamp(u * 1.3 - k * 0.1, 0, 1));
+          for (let a = 0; a < TAU; a += 0.012) { const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; if (bay(x, y) < 1 - u) P(x, y, EL[k][3]); }
+        }
+      }
     }
   }
 
@@ -2210,12 +2128,12 @@
     const x = sxw(SWORD_X), y = syw(0);
     const rise = t > 2.15 ? Math.round(eic(lin(2.2, 2.6, t)) * 6) : 0;
     const jig = t > 2.15 && t < 2.6 ? (fl(t * 40) % 2) : 0;
-    drawSwordAt(x + jig, y - 15 - rise, PI / 2, y - 7);
+    drawSwordAt(x + jig, y - 22 - rise, PI / 2, y - 7);
     // the glint before the pull
     if (t > 1.55 && t < 2.0) {
-      const u = (t - 1.55) / 0.45, gy = y - 13 + u * 6;
+      const u = (t - 1.55) / 0.45, gy = y - 20 + u * 10;
       P(x, gy, 27); P(x + 1, gy, 27);
-      if (u > 0.1 && u < 0.9) sparkle(x, y - 19, 5 * Math.sin(PI * (u - 0.1) / 0.8), 27, 44);
+      if (u > 0.1 && u < 0.9) sparkle(x, y - 27, 5 * Math.sin(PI * (u - 0.1) / 0.8), 27, 44);
     }
   }
   function drawIntroOverlay(t) {
@@ -2611,16 +2529,19 @@
     drawBraidBack(t);
     drawFinaleFx(t);
     drawHeroFx(t);
+    drawSurge(t, false);
     drawOrbs(t, false);
     if (t >= FALL0) drawHeroAt(t);
     drawOrbs(t, true);
+    drawSurge(t, true);
     if (t < 2.6) drawStoneSword(t);
     drawShield(t);
+    drawSpecials(t);
     if (binfo) {
       const hp = heroPose(t);
       drawBeam(t, binfo, sxw(hp.x) + 34, syw(hp.h) - 15);
       drawLeaves(t, binfo);
-      for (let k = 0; k < B_HITS.length; k++) { const h = B_HITS[k]; if (t >= h && t < h + 0.16) drawImpactStar(sxw(hp.x) + 30, syw(hp.h) - 16, (t - h) / 0.16, k === 3 ? 40 : 26, k); }
+      for (let k = 0; k < B_HITS.length; k++) { const h = B_HITS[k]; if (t >= h && t < h + 0.16) drawImpactStar(sxw(hp.x) + 40, syw(hp.h) - 20, (t - h) / 0.16, k === 3 ? 44 : 30, k); }
       if (t > B_SHATTER && t < B_SHATTER + 0.9) {
         const u = (t - B_SHATTER) / 0.9;
         if (u < 0.7) drawBurst(binfo.ccx, binfo.ccy, u / 0.7, 240, 22, 0.3, [49, 48], 1.6);
@@ -2631,7 +2552,7 @@
         glow(binfo.ccx, binfo.ccy, 160 * eoc(u) + 20, T_VI, 0.7 * (1 - u));
       }
     }
-    if (t > 2.6 && t < 3.0) { const p = heroPose(2.7); drawTing(sxw(p.x) + 16, syw(0) - 30, (t - 2.6) / 0.4); }
+    if (t > 2.6 && t < 3.0) { const p = heroPose(2.7); drawTing(sxw(p.x) + 16, syw(0) - 42, (t - 2.6) / 0.4); }
     drawBraid(t);
     drawFireflies(t, 60);
     drawRain(t);
