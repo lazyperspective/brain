@@ -26,6 +26,7 @@
   const fl = Math.floor;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
+  const pmod = (v, m) => ((v % m) + m) % m;
   const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   function mulberry32(a) {
     return function () {
@@ -455,10 +456,63 @@
       const S = (front + body * flick * 0.95) * env;
       if (S < 0.05) continue;
       const y = (i / W) | 0;
-      SRC[i] = S; SRCB[i] = y;
-      const tall = nB((i % W) * 0.21 + 7, y * 0.12 + o2 * 0.25);
-      const Sc = Math.min(S, 2.2), hpx = (0.03 + 0.15 * Sc * Math.sqrt(Sc)) * Math.pow(y - YH + Y0, 0.72) * (0.25 + 1.5 * tall * tall);
-      SRCR[i] = S / Math.max(1.5, hpx);
+      if (SHIPB[i] > y) continue;
+      E[i] += S * 0.55 * (1 + 0.2 * S);
+    }
+  }
+
+  /* ================================================================ flame tongues on the water */
+  // thousands of tongue sprites, each anchored on a burning pixel for one short life, then re-anchored;
+  // each slot lives an integer number of times per loop
+  let TG = null;
+  function buildTongues() {
+    const rnd = mulberry32(3131), tg = [];
+    for (let k = 0; k < 7000; k++) tg.push([20 + fl(rnd() * 26), rnd(), rnd(), rnd(), rnd() * TAU, rnd()]);
+    TG = tg;
+  }
+  function tongues(t) {
+    const tau = t - IGN;
+    if (tau < 0 || tau > 16.5) return;
+    for (let k = 0; k < TG.length; k++) {
+      const p = TG[k], nk = p[0], L = D / nk;
+      const u = t / L + p[1], cyc = fl(u), age = u - cyc;
+      const tc = pmod((cyc - p[1]) * L, D) - IGN;
+      if (tc < 0) continue;
+      const cnt = countBefore(tc);
+      if (!cnt) continue;
+      const i = WLIST[fl(ih(k, cyc % nk, 77) * cnt)];
+      const S = burnAt(i, tc + age * L);
+      if (S < 0.08) continue;
+      const b = (i / W) | 0, x0 = (i % W) + 0.5, sc = b - YH + Y0;
+      const Sc = Math.min(S, 2.2);
+      const hmax = (0.05 + 0.13 * Sc) * Math.pow(sc, 0.85) * (0.55 + 0.9 * p[2]);
+      const wd = Math.max(0.55, (0.008 + 0.008 * Sc) * sc * (0.7 + 0.6 * p[3]));
+      const h = hmax * sstep(0, 0.3, age);
+      const lift = hmax * 0.9 * Math.pow(sstep(0.4, 1, age), 1.5);
+      const fade = 1 - sstep(0.55, 1, age);
+      const curl = wd * 1.8, ph = p[4] + 7 * age;
+      const ef = 1.25 * Math.min(S, 1.8) * fade * (0.7 + 0.6 * p[5]);
+      if (h < 0.6 || ef < 0.05) continue;
+      const yb = b - lift;
+      const y1 = fl(yb), y0 = fl(yb - h);
+      for (let y = y1; y >= y0; y--) {
+        if (y < 0 || y >= H) continue;
+        const r = clamp((yb - y - 0.5) / h, 0, 1);
+        const hw = wd * Math.pow(Math.sin(Math.PI * (0.18 + 0.82 * r)), 0.8) * Math.pow(1 - r, 0.25) * (r < 0.18 && lift < 0.5 ? 1 : 1);
+        if (hw < 0.3) continue;
+        const xc = x0 + curl * Math.pow(r, 1.4) * Math.sin(ph + r * 2.6);
+        const xa = Math.max(0, Math.ceil(xc - hw - 0.5)), xb = Math.min(W - 1, fl(xc + hw - 0.5));
+        const er = ef * (1.05 - 0.75 * r);
+        for (let x = xa; x <= xb; x++) {
+          const d = Math.abs(x + 0.5 - xc) / hw;
+          if (d >= 1) continue;
+          const j = y * W + x;
+          if (SHIPB[j] > b) continue;
+          const e = er * (1 - d * d);
+          E[j] += e;
+          if (y < b) { const ry = 2 * b - y; if (ry < H) R0E[ry * W + x] += e * 0.8; }
+        }
+      }
     }
   }
 
@@ -602,7 +656,7 @@
   }
 
   /* ================================================================ flames: one upward pass */
-  const PSC = new Float32Array(H); for (let y = 0; y < H; y++) PSC[y] = clamp(Math.sqrt(48 / Math.max(4, y - YH + Y0)), 0.42, 1.3);
+  const PSC = new Float32Array(H); for (let y = 0; y < H; y++) PSC[y] = clamp(Math.sqrt(30 / Math.max(4, y - YH + Y0)), 0.55, 1.1);
   const SINX = new Float32Array(W); for (let x = 0; x < W; x++) SINX[x] = Math.sin(x * 0.05);
   function flamePass(t) {
     const NOFL = DBG.indexOf('nofl') >= 0;
@@ -643,7 +697,7 @@
         // a tongue survives to height q where the rising noise is above q: separate licks with rounded tips
         const q = 1 - c / c0;
         const ps = PSC[cb], sw = Math.sin(y * 0.15 * ps - w * 2 + x * 0.05 * ps) + wob;
-        const n = nC((x * 0.55 + (0.5 + 2.2 * q) * sw) * ps, y * 0.12 * ps + v);
+        const n = nC((x + (0.6 + 2.4 * q) * sw) * 1.5 * ps, (y - cb) * 0.25 * ps + cb * 0.53 + v);
         const thr = 0.3 + q * 0.72, m = sstep(thr - 0.03, thr + 0.3, n);
         const k = 1 - q;
         let e = c0 * (0.08 * m + 1.5 * m * m * Math.pow(k, 1.3)) * (0.45 + 0.5 * Math.min(c0, 2.4));
@@ -1119,9 +1173,10 @@
     SRC.fill(0); SRCB.fill(0); SHIPB.fill(0); SHIPC.fill(0); E.fill(0); R0E.fill(0); R0S.fill(0); SM.fill(0);
     const P = window.__wfprof = {}; let pt = performance.now();
     const m = (k) => { const n = performance.now(); P[k] = +(n - pt).toFixed(1); pt = n; };
-    surfaceFire(t); m('surf');
     drawChain(t);
     drawShips(t); m('ships');
+    surfaceFire(t); m('surf');
+    tongues(t); m('tongues');
     flamePass(t); m('flame');
     mushroom(t); m('mush');
     burst(t);
@@ -1150,6 +1205,7 @@
     buildWaves();
     buildStars();
     buildParticles();
+    buildTongues();
   }
 
   /* ================================================================ present */

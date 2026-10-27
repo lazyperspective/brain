@@ -46,6 +46,7 @@
   const gauss = () => (rnd() + rnd() + rnd() - 1.5) * 1.15;
   const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
   const bay = (x, y) => BAY[((y & 3) << 2) | (x & 3)];
+  const FV = new Float64Array(24); // scratch floats (shading outputs, projections) kept unboxed
   const wave = (n, t, ph) => sin(TAU * n * t / D + ph); // n whole cycles per loop
 
   /* ================================================================ palette (45) */
@@ -506,9 +507,19 @@
   const SBX = SAY * SZ - SAZ * SY, SBY = SAZ * SX - SAX * SZ, SBZ = SAX * SY - SAY * SX; // B = A × S
   const SMR = 0.032;
   let SMW = 0, SMH = 0, SMA0 = 0, SMB0 = 0, SM = null;
-  let RD_T = 0, RD_NX = 0, RD_NY = 0, RD_NZ = 0, RD_S = 0;
+  let RD_S = 0;
   function rayDais(ox, oy, oz, dx, dy, dz) { // nearest hit into RD_*; returns true on a hit
     let bt = 1e9, bs = -1, bnx = 0, bny = 0, bnz = 0;
+    { // bounding cylinder pre-test
+      let ta = (0 - oy) / dy, tb = (TY - oy) / dy; if (ta > tb) { const w = ta; ta = tb; tb = w; }
+      if (abs(dy) < 1e-9) { ta = 0; tb = 1e4; }
+      if (tb < 0) return false; if (ta < 0) ta = 0;
+      const ax = ox + dx * ta, az = oz + dz * ta, ex = dx * (tb - ta), ez = dz * (tb - ta);
+      const ee = ex * ex + ez * ez;
+      let u = ee > 1e-12 ? -(ax * ex + az * ez) / ee : 0; u = u < 0 ? 0 : u > 1 ? 1 : u;
+      const cx = ax + ex * u, cz = az + ez * u;
+      if (cx * cx + cz * cz > 26.2) return false;
+    }
     for (let s = 0; s < 5; s++) {
       const a = DAIS_A[s], top = (s + 1) * STEP_H;
       let t0 = -1e9, t1 = 1e9, nx = 0, ny = 0, nz = 0;
@@ -535,11 +546,19 @@
       if (t0 > 0 && t0 < bt) { bt = t0; bnx = nx; bny = ny; bnz = nz; bs = s; }
     }
     if (bs < 0) return false;
-    RD_T = bt; RD_NX = bnx; RD_NY = bny; RD_NZ = bnz; RD_S = bs;
+    FV[17] = bt; FV[18] = bnx; FV[19] = bny; FV[20] = bnz; RD_S = bs;
     return true;
   }
+  const BOXU = [1e9, 1e9, 1e9, -1e9, -1e9, -1e9];
   function rayBoxes(ox, oy, oz, dx, dy, dz, tmax) {
     let bt = tmax, bn = -1, bax = 0, bsg = 0;
+    { // union pre-test
+      const q = BOXU; let t0 = 0, t1 = tmax;
+      let ta = (q[0] - ox) / dx, tb = (q[3] - ox) / dx; if (ta > tb) { const w = ta; ta = tb; tb = w; } if (ta > t0) t0 = ta; if (tb < t1) t1 = tb;
+      ta = (q[1] - oy) / dy; tb = (q[4] - oy) / dy; if (ta > tb) { const w = ta; ta = tb; tb = w; } if (ta > t0) t0 = ta; if (tb < t1) t1 = tb;
+      ta = (q[2] - oz) / dz; tb = (q[5] - oz) / dz; if (ta > tb) { const w = ta; ta = tb; tb = w; } if (ta > t0) t0 = ta; if (tb < t1) t1 = tb;
+      if (!(t0 <= t1)) { RB_I = -1; return -1; }
+    }
     for (let b = 0; b < BOX.length; b++) {
       const q = BOX[b];
       let t0 = -1e9, t1 = 1e9, ax = -1, sg = 0;
@@ -558,10 +577,10 @@
       }
       if (t0 <= t1 && t0 > 0 && t0 < bt) { bt = t0; bn = b; bax = ax; bsg = sg; }
     }
-    RB_T = bt; RB_I = bn; RB_AX = bax; RB_SG = bsg;
+    FV[16] = bt; RB_I = bn; RB_AX = bax; RB_SG = bsg;
     return bn;
   }
-  let RB_T = 0, RB_I = -1, RB_AX = 0, RB_SG = 0;
+  let RB_I = -1, RB_AX = 0, RB_SG = 0;
   function buildShadowMap() {
     // bounds from the dais and the throne
     let a0 = 1e9, a1 = -1e9, b0 = 1e9, b1 = -1e9;
@@ -576,8 +595,8 @@
       const a = SMA0 + (i + 0.5) * SMR, b = SMB0 + (j + 0.5) * SMR;
       const ox = SAX * a + SBX * b - SX * 60, oy = SAY * a + SBY * b - SY * 60, oz = SAZ * a + SBZ * b - SZ * 60;
       let best = 1e9;
-      if (rayDais(ox, oy, oz, SX, SY, SZ)) best = RD_T;
-      if (rayBoxes(ox, oy, oz, SX, SY, SZ, best) >= 0) best = RB_T;
+      if (rayDais(ox, oy, oz, SX, SY, SZ)) best = FV[17];
+      if (rayBoxes(ox, oy, oz, SX, SY, SZ, best) >= 0) best = FV[16];
       if (best < 1e9) SM[j * SMW + i] = best - 60; // depth along S relative to the plane through the origin
     }
     const splat = (x, y, z, rad) => {
@@ -661,14 +680,13 @@
     RX = c.rx; RY = 0; RZ = c.rz;
     UX = c.ux; UY = mirror ? -c.uy : c.uy; UZ = c.uz;
   }
-  let PX = 0, PY = 0, PZ = 0;
   function proj(x, y, z) {
     const vx = x - OX, vy = y - OY, vz = z - OZ;
     const zc = vx * FX + vy * FY + vz * FZ;
     if (zc < NEAR) return false;
-    PZ = zc;
-    PX = CXS + FOC * (vx * RX + vy * RY + vz * RZ) / zc;
-    PY = CYS - FOC * (vx * UX + vy * UY + vz * UZ) / zc;
+    FV[15] = zc;
+    FV[13] = CXS + FOC * (vx * RX + vy * RY + vz * RZ) / zc;
+    FV[14] = CYS - FOC * (vx * UX + vy * UY + vz * UZ) / zc;
     return true;
   }
 
@@ -689,7 +707,7 @@
       const m = GMT[i];
       if (m < 0) continue;
       shadeMetal(GPX[i], GPY[i], GPZ[i], GNX[i], GNY[i], GNZ[i], m, LISTS[GLS[i]], GTN[i]);
-      BR[i] = OR; BG[i] = OG; BB[i] = OB; GMT[i] = -1;
+      BR[i] = FV[0]; BG[i] = FV[1]; BB[i] = FV[2]; GMT[i] = -1;
     }
   }
   const OUT = new Uint8Array(NP), EMI = new Uint8Array(NP);
@@ -700,12 +718,11 @@
   }
 
   /* ================================================================ lighting */
-  let LR = 0, LG = 0, LB = 0, KR = 0, KG = 0, KB = 0, SUNV = 0;
-  // diffuse light (LR..) and specular (KR..) at a point; v = unit vector toward the eye; sq = spec sharpness (squarings)
+  // diffuse light (FV[3]..) and specular (FV[6]..) at a point; v = unit vector toward the eye; sq = spec sharpness (squarings)
   function lightUp(x, y, z, nx, ny, nz, vx, vy, vz, list, sq, spec, nosun) {
     const hemi = 0.5 + 0.5 * ny;
-    LR = 0.02 + 0.024 * hemi; LG = 0.024 + 0.03 * hemi; LB = 0.04 + 0.055 * hemi;
-    KR = 0; KG = 0; KB = 0;
+    FV[3] = 0.02 + 0.024 * hemi; FV[4] = 0.024 + 0.03 * hemi; FV[5] = 0.04 + 0.055 * hemi;
+    FV[6] = 0; FV[7] = 0; FV[8] = 0;
     for (let j = 0; j < list.length; j++) {
       const k = list[j];
       const lx = LX[k] - x, ly = LY[k] - y, lz = LZ[k] - z;
@@ -716,7 +733,7 @@
       if (ndl <= -0.2) continue;
       const fo = 1 - d2 / rm, att = LI[k] * fo * fo / (1 + d2 * LIR2[k]);
       const a = att * (ndl > 0 ? 0.2 + 0.8 * ndl : (ndl + 0.2));
-      LR += a; LG += a * 0.68; LB += a * 0.38;
+      FV[3] += a; FV[4] += a * 0.68; FV[5] += a * 0.38;
       if (spec) {
         let hx = ux + vx, hy = uy + vy, hz = uz + vz;
         const hl = 1 / sqrt(hx * hx + hy * hy + hz * hz + 1e-9);
@@ -724,27 +741,26 @@
         if (hn > 0.6) {
           for (let q = 0; q < sq; q++) hn *= hn;
           const s = hn * att * 1.5;
-          KR += s; KG += s * 0.76; KB += s * 0.48;
+          FV[6] += s; FV[7] += s * 0.76; FV[8] += s * 0.48;
         }
       }
     }
-    SUNV = nosun ? 0 : sunAt(x, y, z);
-    if (SUNV > 0) {
+    FV[12] = nosun ? 0 : sunAt(x, y, z);
+    if (FV[12] > 0) {
       const ndl = -(nx * SX + ny * SY + nz * SZ);
-      if (ndl > 0) { const a = SUNV * ndl; LR += a * SUN_C[0]; LG += a * SUN_C[1]; LB += a * SUN_C[2]; }
+      if (ndl > 0) { const a = FV[12] * ndl; FV[3] += a * SUN_C[0]; FV[4] += a * SUN_C[1]; FV[5] += a * SUN_C[2]; }
       if (spec) {
         let hx = vx - SX, hy = vy - SY, hz = vz - SZ;
         const hl = 1 / sqrt(hx * hx + hy * hy + hz * hz + 1e-9);
         let hn = (nx * hx + ny * hy + nz * hz) * hl;
-        if (hn > 0.7) { for (let q = 0; q < sq + 1; q++) hn *= hn; const s = hn * SUNV * 5; KR += s * 1.1; KG += s; KB += s * 0.85; }
+        if (hn > 0.7) { for (let q = 0; q < sq + 1; q++) hn *= hn; const s = hn * FV[12] * 5; FV[6] += s * 1.1; FV[7] += s; FV[8] += s * 0.85; }
       }
     }
   }
   // environment seen in a mirror direction (windows, candle rings, floor, vault)
-  let ER = 0, EG = 0, EB = 0;
   const WINB = new Float32Array(WIN_N), WINS = new Float32Array(WIN_N);
   function env(rx, ry, rz) {
-    ER = 0.045; EG = 0.05; EB = 0.075;
+    FV[9] = 0.045; FV[10] = 0.05; FV[11] = 0.075;
     if (ry > 0.1 && ry < 0.66) {
       const az = Math.atan2(rz, rx);
       const w = az * (WIN_N / TAU) - 0.5, wr = Math.round(w), fw = abs(w - wr);
@@ -752,9 +768,9 @@
         const k = ((wr % WIN_N) + WIN_N) % WIN_N;
         const e = 1 - fw / 0.1, band = sstep(0.1, 0.2, ry) * (1 - sstep(0.52, 0.66, ry));
         const b = e * e * band * WINB[k], sn = WINS[k];
-        ER += b * (0.5 + 0.5 * sn); EG += b * (0.58 + 0.36 * sn); EB += b * (0.85 - 0.1 * sn);
+        FV[9] += b * (0.5 + 0.5 * sn); FV[10] += b * (0.58 + 0.36 * sn); FV[11] += b * (0.85 - 0.1 * sn);
       }
-      ER += 0.02; EG += 0.022; EB += 0.03;
+      FV[9] += 0.02; FV[10] += 0.022; FV[11] += 0.03;
     } else if (ry <= 0.1 && ry > -0.42) {
       const az = Math.atan2(rz, rx);
       let c1 = cos(8 * az - Math.PI / 2), c2 = cos(12 * az - Math.PI), c3 = cos(16 * az - Math.PI);
@@ -763,12 +779,11 @@
       c3 = c3 > 0 ? c3 * c3 : 0; c3 *= c3; c3 *= c3;
       const band = sstep(-0.42, -0.25, ry) * (1 - sstep(-0.02, 0.1, ry));
       const b = band * (0.1 + 0.55 * c1 * sstep(-0.35, -0.2, ry) + 0.45 * c2 * (1 - sstep(-0.2, -0.05, ry)) + 0.35 * c3);
-      ER += b; EG += b * 0.6; EB += b * 0.28;
-    } else if (ry <= -0.42) { ER = 0.05; EG = 0.035; EB = 0.03; }
+      FV[9] += b; FV[10] += b * 0.6; FV[11] += b * 0.28;
+    } else if (ry <= -0.42) { FV[9] = 0.05; FV[10] = 0.035; FV[11] = 0.03; }
   }
 
-  // metal surface: writes OR, OG, OB
-  let OR = 0, OG = 0, OB = 0;
+  // metal surface: writes FV[0], FV[1], FV[2]
   function shadeMetal(x, y, z, nx, ny, nz, mat, list, tint) {
     let vx = OX - x, vy = OY - y, vz = OZ - z;
     const vl = 1 / sqrt(vx * vx + vy * vy + vz * vz); vx *= vl; vy *= vl; vz *= vl;
@@ -780,9 +795,9 @@
     env(rx, ry, rz);
     const fr = 0.65 + 0.35 * (1 - ndv) * (1 - ndv);
     const e = M.e * fr * tint;
-    OR = M.a[0] * LR * tint + M.s[0] * (ER * e + KR);
-    OG = M.a[1] * LG * tint + M.s[1] * (EG * e + KG);
-    OB = M.a[2] * LB * tint + M.s[2] * (EB * e + KB);
+    FV[0] = M.a[0] * FV[3] * tint + M.s[0] * (FV[9] * e + FV[6]);
+    FV[1] = M.a[1] * FV[4] * tint + M.s[1] * (FV[10] * e + FV[7]);
+    FV[2] = M.a[2] * FV[5] * tint + M.s[2] * (FV[11] * e + FV[8]);
   }
   let THRONE_L = [];
 
@@ -794,7 +809,7 @@
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, any = false, behind = false;
     for (const p of pts) {
       if (!proj(p[0], p[1], p[2])) { behind = true; continue; }
-      any = true; if (PX < x0) x0 = PX; if (PX > x1) x1 = PX; if (PY < y0) y0 = PY; if (PY > y1) y1 = PY;
+      any = true; if (FV[13] < x0) x0 = FV[13]; if (FV[13] > x1) x1 = FV[13]; if (FV[14] < y0) y0 = FV[14]; if (FV[14] > y1) y1 = FV[14];
     }
     if (behind) return any ? [0, 0, W, H] : [1, 1, 0, 0];
     return [x0 - 2, y0 - 2, x1 + 2, y1 + 2];
@@ -863,12 +878,12 @@
         }
         // dais
         if (px >= DAIS_BB[0] && px <= DAIS_BB[2] && py >= DAIS_BB[1] && py <= DAIS_BB[3]) {
-          if (rayDais(OX, OY, OZ, dx, dy, dz) && RD_T < best) { best = RD_T; type = 5; nx = RD_NX; ny = RD_NY; nz = RD_NZ; aux = RD_S; }
+          if (rayDais(OX, OY, OZ, dx, dy, dz) && FV[17] < best) { best = FV[17]; type = 5; nx = FV[18]; ny = FV[19]; nz = FV[20]; aux = RD_S; }
         }
         // throne core
         if (px >= BOX_BB[0] && px <= BOX_BB[2] && py >= BOX_BB[1] && py <= BOX_BB[3]) {
           if (rayBoxes(OX, OY, OZ, dx, dy, dz, best) >= 0) {
-            best = RB_T; type = 6; aux = RB_I;
+            best = FV[16]; type = 6; aux = RB_I;
             nx = RB_AX === 0 ? RB_SG : 0; ny = RB_AX === 1 ? RB_SG : 0; nz = RB_AX === 2 ? RB_SG : 0;
           }
         }
@@ -881,7 +896,7 @@
         else if (type === 4) shadePillar(PIL[pk], x, y, z, aux);
         else if (type === 5) shadeDais(x, y, z, nx, ny, nz, aux, px, py);
         else shadeCore(x, y, z, nx, ny, nz, BOX[aux][6]);
-        BR[i] = OR; BG[i] = OG; BB[i] = OB;
+        BR[i] = FV[0]; BG[i] = FV[1]; BB[i] = FV[2];
       }
     }
   }
@@ -919,7 +934,7 @@
       }
       const br = WINB[k] * (0.8 + 0.2 * (y - WIN_Y0) / (ytop - WIN_Y0));
       const f = br * (1 - lead * 0.93);
-      OR = r * f; OG = g * f; OB = b * f;
+      FV[0] = r * f; FV[1] = g * f; FV[2] = b * f;
       return;
     }
     // stone blocks
@@ -933,13 +948,13 @@
     const nx = -x / WALL_R, nz = -z / WALL_R;
     const list = WALL_L[k] || [];
     lightUp(x, y, z, nx, 0, nz, 0, 0, 0, list, 0, false, true);
-    OR = al * (LR + glow) * 1.0; OG = al * (LG + glow * 0.9) * 0.97; OB = al * (LB + glow * 0.75) * 1.02;
+    FV[0] = al * (FV[3] + glow) * 1.0; FV[1] = al * (FV[4] + glow * 0.9) * 0.97; FV[2] = al * (FV[5] + glow * 0.75) * 1.02;
   }
   function shadeVault(x, y, z) {
     const r = Math.hypot(x, z), az = Math.atan2(z, x);
     const rib = abs(fract(az * 16 / TAU) - 0.5) > 0.47 || abs(fract(r / 3.2) - 0.5) > 0.45;
     const v = rib ? 0.042 : 0.026;
-    OR = v * 0.9; OG = v * 0.9; OB = v * 1.2;
+    FV[0] = v * 0.9; FV[1] = v * 0.9; FV[2] = v * 1.2;
   }
   function shadePillar(p, x, y, z, base) {
     let nx = (x - p.x), nz = (z - p.z);
@@ -962,7 +977,7 @@
     if (metal) { shadeMetal(x, y, z, nx, 0, nz, 3, p.lights, 0.8); return; }
     lightUp(x, y, z, nx, 0, nz, 0, 0, 0, p.lights, 0, false);
     // cool rim from the windows
-    OR = a0 * LR; OG = a1 * LG; OB = a2 * LB;
+    FV[0] = a0 * FV[3]; FV[1] = a1 * FV[4]; FV[2] = a2 * FV[5];
   }
   function shadeDais(x, y, z, nx, ny, nz, s, px, py) {
     const top = (s + 1) * STEP_H;
@@ -974,7 +989,7 @@
     const ndv = nx * vx + ny * vy + nz * vz;
     env(2 * ndv * nx - vx, 2 * ndv * ny - vy, 2 * ndv * nz - vz);
     const k = 0.25;
-    OR = al * LR + (ER * k + KR * 0.15); OG = al * LG * 0.97 + (EG * k + KG * 0.15); OB = al * LB * 1.05 + (EB * k + KB * 0.15);
+    FV[0] = al * FV[3] + (FV[9] * k + FV[6] * 0.15); FV[1] = al * FV[4] * 0.97 + (FV[10] * k + FV[7] * 0.15); FV[2] = al * FV[5] * 1.05 + (FV[11] * k + FV[8] * 0.15);
   }
   function shadeCore(x, y, z, nx, ny, nz, m) {
     // fused blades: bevelled stripes across the face
@@ -1073,14 +1088,14 @@
   let C0 = null, C1 = null;
   function drawBlade(s) {
     if (!proj(s.ax, s.ay, s.az)) return;
-    const x0 = PX, y0 = PY, z0 = PZ;
+    const x0 = FV[13], y0 = FV[14], z0 = FV[15];
     if (!proj(s.bx, s.by, s.bz)) return;
-    const x1 = PX, y1 = PY, z1 = PZ;
+    const x1 = FV[13], y1 = FV[14], z1 = FV[15];
     proj(s.ax + s.e0x * s.h0, s.ay + s.e0y * s.h0, s.az + s.e0z * s.h0);
-    const w0x = PX - x0, w0y = PY - y0;
+    const w0x = FV[13] - x0, w0y = FV[14] - y0;
     const h1r = s.h1 > 0 ? s.h1 : s.h0;
     proj(s.bx + s.e1x * h1r, s.by + s.e1y * h1r, s.bz + s.e1z * h1r);
-    let w1x = PX - x1, w1y = PY - y1;
+    let w1x = FV[13] - x1, w1y = FV[14] - y1;
     if (s.h1 === 0) { w1x = 0; w1y = 0; }
     const ax = x1 - x0, ay = y1 - y0, len2 = ax * ax + ay * ay;
     if (len2 < 0.04) return;
@@ -1124,8 +1139,8 @@
   }
   function drawCap(c, list) {
     if (!clipSeg(c.ax, c.ay, c.az, c.bx, c.by, c.bz)) return;
-    proj(C0[0], C0[1], C0[2]); const x0 = PX, y0 = PY, z0 = PZ;
-    proj(C1[0], C1[1], C1[2]); const x1 = PX, y1 = PY, z1 = PZ;
+    proj(C0[0], C0[1], C0[2]); const x0 = FV[13], y0 = FV[14], z0 = FV[15];
+    proj(C1[0], C1[1], C1[2]); const x1 = FV[13], y1 = FV[14], z1 = FV[15];
     const r0 = c.r * FOC / z0, r1 = c.r * FOC / z1;
     let ax = x1 - x0, ay = y1 - y0, len2 = ax * ax + ay * ay;
     const hm = Math.max(r0, r1, 0.6) + 1;
@@ -1172,7 +1187,7 @@
   }
   function drawSph(s) {
     if (!proj(s.x, s.y, s.z)) return;
-    const cx = PX, cy = PY, z0 = PZ, rp = Math.max(0.55, s.r * FOC / z0);
+    const cx = FV[13], cy = FV[14], z0 = FV[15], rp = Math.max(0.55, s.r * FOC / z0);
     const bx0 = Math.max(0, fl(cx - rp)), bx1 = Math.min(W - 1, fl(cx + rp));
     const by0 = Math.max(0, fl(cy - rp)), by1 = Math.min(H - 1, fl(cy + rp));
     for (let py = by0; py <= by1; py++) for (let px = bx0; px <= bx1; px++) {
@@ -1194,7 +1209,7 @@
       const fk = 0.78 + 0.13 * wave(5 + f.n, t, f.ph0) + 0.09 * wave(13 + f.n * 2, t, f.ph1) * wave(3, t, f.ph2);
       const sway = 0.012 * wave(2 + f.n, t, f.ph1);
       if (!proj(f.x + sway, f.y, f.z)) continue;
-      const cx = PX, cy = PY, z0 = PZ;
+      const cx = FV[13], cy = FV[14], z0 = FV[15];
       const rp = 0.028 * f.s * FOC / z0, hp = rp * 2.3 * fk;
       const ix = fl(cx), iy = fl(cy);
       if (ix < -12 || ix > W + 12 || iy < -12 || iy > H + 12) continue;
@@ -1273,7 +1288,7 @@
       const l = 1 / sqrt(nx * nx + ny * ny + nz * nz + 1e-12);
       BNX[k] = nx * l; BNY[k] = ny * l; BNZ[k] = nz * l;
       BOK[k] = proj(BVX[k], BVY[k], BVZ[k]) ? 1 : 0;
-      BSX[k] = PX; BSY[k] = PY; BIZ[k] = 1 / PZ;
+      BSX[k] = FV[13]; BSY[k] = FV[14]; BIZ[k] = 1 / FV[15];
     }
   }
   function bannerAlbedo(b, u, v) {
@@ -1356,11 +1371,11 @@
         const fold = 0.3 + 0.7 * Math.max(0, nx * -b.nx * 0.2 + ny * 0.3 + ndv * 0.75);
         const sheen = Math.pow(1 - ndv, 3) * 0.12;
         const amb = 0.2 + 0.08 * (1 - v);
-        OR = ar * (LR + amb) * fold * 1.25 + sheen * 0.9;
-        OG = ag * (LG + amb) * fold * 1.25 + sheen * 0.75;
-        OB = ab * (LB + amb * 1.1) * fold * 1.25 + sheen * 0.6;
-        if (al === 2) { env(2 * ndv * nx - vx, 2 * ndv * ny - vy, 2 * ndv * nz - vz); OR += ER * 0.8; OG += EG * 0.6; OB += EB * 0.3; }
-        ZB[i] = z; BR[i] = OR; BG[i] = OG; BB[i] = OB; GMT[i] = -1;
+        FV[0] = ar * (FV[3] + amb) * fold * 1.25 + sheen * 0.9;
+        FV[1] = ag * (FV[4] + amb) * fold * 1.25 + sheen * 0.75;
+        FV[2] = ab * (FV[5] + amb * 1.1) * fold * 1.25 + sheen * 0.6;
+        if (al === 2) { env(2 * ndv * nx - vx, 2 * ndv * ny - vy, 2 * ndv * nz - vz); FV[0] += FV[9] * 0.8; FV[1] += FV[10] * 0.6; FV[2] += FV[11] * 0.3; }
+        ZB[i] = z; BR[i] = FV[0]; BG[i] = FV[1]; BB[i] = FV[2]; GMT[i] = -1;
       }
     }
   }
@@ -1371,14 +1386,16 @@
       const sh = SHAFT[s], m = sh.m, qx = OX - sh.cx, qy = OY - sh.cy, qz = OZ - sh.cz;
       sh.u0 = m[0] * qx + m[1] * qy + m[2] * qz; sh.v0 = m[3] * qx + m[4] * qy + m[5] * qz; sh.l0 = m[6] * qx + m[7] * qy + m[8] * qz;
     }
-    for (let py = 0; py < H; py++) {
-      const b = (py + 0.5 - CYS) / FOC;
-      for (let px = 0; px < W; px++) {
-        const i = py * W + px;
-        const a = (px + 0.5 - CXS) / FOC;
+    // half resolution: one ray per 2 x 2 block, integrated separately up to each pixel's depth
+    for (let py = 0; py < H; py += 2) {
+      const b = (py + 1 - CYS) / FOC;
+      for (let px = 0; px < W; px += 2) {
+        const i0 = py * W + px, i1 = i0 + 1, i2 = i0 + W, i3 = i2 + 1;
+        const d0 = ZB[i0], d1 = ZB[i1], d2 = ZB[i2], d3 = ZB[i3];
+        const a = (px + 1 - CXS) / FOC;
         const dx = FX + RX * a - UX * b, dy = FY + RY * a - UY * b, dz = FZ + RZ * a - UZ * b;
-        const tmax = Math.min(ZB[i], 70);
-        let acc = 0;
+        const tmax = Math.min(Math.max(d0, d1, d2, d3), 70);
+        let c0 = 0, c1 = 0, c2 = 0, c3 = 0;
         for (let s = 0; s < SHAFT.length; s++) {
           const sh = SHAFT[s], m = sh.m;
           const u0 = sh.u0, du = m[0] * dx + m[1] * dy + m[2] * dz;
@@ -1399,9 +1416,9 @@
             const ta = -l0 / dl; if (dl > 0) { if (ta > t0) t0 = ta; } else { if (ta < t1) t1 = ta; }
           }
           if (t0 >= t1) continue;
-          const len = t1 - t0, n = Math.min(7, 2 + fl(len / 1.4)), st = len / n;
-          let sum = 0;
-          let tt = t0 + st * bay(px, py);
+          const len = t1 - t0, n = Math.min(8, 2 + fl(len / 1.2)), st = len / n;
+          let tt = t0 + st * bay(px >> 1, py >> 1);
+          const w = st * sh.I;
           for (let q = 0; q < n; q++, tt += st) {
             const u = u0 + du * tt, v = v0 + dv * tt;
             const au = abs(u), vtop = sh.vmax - WIN_ARCH * 0.6 * (au / sh.hw) * (au / sh.hw);
@@ -1411,15 +1428,14 @@
             if (y < 0) continue;
             e *= Math.min(1, (v - sh.vmin) * 0.8) * (0.55 + 0.45 * Math.min(1, y / 3));
             if (e <= 0) continue;
-            e *= shadowAt(OX + dx * tt, y, OZ + dz * tt);
-            sum += e;
+            e *= shadowAt(OX + dx * tt, y, OZ + dz * tt) * w;
+            if (tt < d0) c0 += e; if (tt < d1) c1 += e; if (tt < d2) c2 += e; if (tt < d3) c3 += e;
           }
-          acc += sum * st * sh.I;
         }
-        if (acc > 0) {
-          const h = (1 - Math.exp(-acc * 0.16)) * 0.3;
-          BR[i] += h * 1.0; BG[i] += h * 0.94; BB[i] += h * 0.84;
-        }
+        if (c0 > 0) { const h = (1 - Math.exp(-c0 * 0.16)) * 0.3; BR[i0] += h; BG[i0] += h * 0.94; BB[i0] += h * 0.84; }
+        if (c1 > 0) { const h = (1 - Math.exp(-c1 * 0.16)) * 0.3; BR[i1] += h; BG[i1] += h * 0.94; BB[i1] += h * 0.84; }
+        if (c2 > 0) { const h = (1 - Math.exp(-c2 * 0.16)) * 0.3; BR[i2] += h; BG[i2] += h * 0.94; BB[i2] += h * 0.84; }
+        if (c3 > 0) { const h = (1 - Math.exp(-c3 * 0.16)) * 0.3; BR[i3] += h; BG[i3] += h * 0.94; BB[i3] += h * 0.84; }
       }
     }
   }
@@ -1437,14 +1453,14 @@
       const sv = sunAt(x, y, z);
       if (sv <= 0.05) continue;
       if (!proj(x, y, z)) continue;
-      const ix = fl(PX), iy = fl(PY);
+      const ix = fl(FV[13]), iy = fl(FV[14]);
       if (ix < 0 || iy < 0 || ix >= W || iy >= H) continue;
       const i = iy * W + ix;
-      if (PZ >= ZB[i]) continue;
+      if (FV[15] >= ZB[i]) continue;
       const tw_ = 0.5 + 0.5 * wave(m.tn, t, m.tp);
-      const br = sv * m.b * (0.25 + 0.75 * tw_ * tw_) * Math.min(1, 9 / PZ) * 0.9;
+      const br = sv * m.b * (0.25 + 0.75 * tw_ * tw_) * Math.min(1, 9 / FV[15]) * 0.9;
       BR[i] += br; BG[i] += br * 0.9; BB[i] += br * 0.7;
-      if (PZ < 7 && br > 0.25) { const j = ix + 1 < W ? i + 1 : i; BR[j] += br * 0.5; BG[j] += br * 0.45; BB[j] += br * 0.35; }
+      if (FV[15] < 7 && br > 0.25) { const j = ix + 1 < W ? i + 1 : i; BR[j] += br * 0.5; BG[j] += br * 0.45; BB[j] += br * 0.35; }
     }
   }
 
@@ -1544,6 +1560,7 @@
       for (let q = 0; q < LX.length; q++) if (Math.hypot(LX[q] - mx, LZ[q] - mz) < 5) l.push(q);
       c.li = LISTS.length; LISTS.push(l);
     }
+    for (const q of BOX) for (let c = 0; c < 3; c++) { BOXU[c] = Math.min(BOXU[c], q[c]); BOXU[c + 3] = Math.max(BOXU[c + 3], q[c + 3]); }
     buildShadowMap();
     BUILT = true;
   }
