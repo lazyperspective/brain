@@ -68,7 +68,7 @@
 
   // cycling ranges: { lo, n, k: whole rotations per loop, blend }
   const R = [];
-  function range(cols, k, blend) { const r = { lo: add(cols), n: cols.length, k, blend, base: cols.map(hex) }; R.push(r); return r; }
+  function range(cols, k, blend) { const r = { lo: add(cols), n: cols.length, k, blend, base: cols.map(hex), ph: blend ? 0 : 0.5 * ((R.length * 0.618) % 1) }; R.push(r); return r; }
   const STA = range(['2a3260', '6a78b0', 'eef2ff', '6a78b0'], 9, false);
   const STB = range(['2c2650', 'fff0e6', '8a7090'], 7, false);
   const AUA = range(['141c44', '16344e', '1c4c54', '206058', '18404f'], 3, true);   // aurora veil
@@ -502,7 +502,7 @@
     for (let i = 0; i < NPAL; i++) LIVE[i] = pack(PAL[i][0], PAL[i][1], PAL[i][2]);
     const u = t / D;
     for (const r of R) {
-      const o = u * r.k * r.n + 1e-7;
+      const o = u * r.k * r.n + r.ph + 1e-7; // a fixed phase staggers the stepped ranges; it cannot break the loop
       const s = fl(o), f = r.blend ? o - s : 0;
       for (let j = 0; j < r.n; j++) {
         const a = r.base[(((j - s) % r.n) + r.n) % r.n];
@@ -562,10 +562,12 @@
           OX = 0; OY = 0;
         } else {
           const w = el.clientWidth || window.innerWidth, h = el.clientHeight || window.innerHeight;
-          const fit = Math.min(w * dpr / W, h * dpr / H);
+          const fit = Math.min(w * dpr / W, h * dpr / H) * 0.97;
           K = Math.max(1, Math.floor(fit));
+          let show = K;
+          if (K < fit * 0.88) { K = Math.max(1, Math.ceil(fit)); show = fit; } // too much margin: scale the crisp canvas down a little
           CW = W * K; CH = H * K; OX = 0; OY = 0;
-          cssW = CW / dpr; cssH = CH / dpr;
+          cssW = W * show / dpr; cssH = H * show / dpr;
           left = Math.round((w - cssW) / 2); top = Math.round((h - cssH) / 2);
         }
         if (cv.width !== CW || cv.height !== CH) { cv.width = CW; cv.height = CH; }

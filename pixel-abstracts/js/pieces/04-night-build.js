@@ -85,7 +85,7 @@
   const MAT_HEX = [];
   const mat = (h) => { MAT_HEX.push(h); return MAT_HEX.length - 1; };
   const M_GRASS = mat('a9cb8a'), M_GRASSD = mat('84b06c'), M_STONE = mat('ebe2d2'), M_CREAM = mat('f8f3e8');
-  const M_ROSE = mat('eca690'), M_TEAL = mat('93c3b9'), M_SLATE = mat('b1b4ca'), M_GLASS = mat('97b2c8');
+  const M_ROSE = mat('eca690'), M_TEAL = mat('93c3b9'), M_SLATE = mat('b1b4ca'), M_GLASS = mat('7c96b6');
   const M_LEAF = mat('8cbb6e'), M_LEAF2 = mat('6aa46c'), M_TRUNK = mat('9a6a4c'), M_EARTH1 = mat('d6a46e');
   const M_EARTH2 = mat('b47252'), M_EARTH3 = mat('8a5444'), M_SOIL = mat('6c4038'), M_ROOF = mat('dc8c72');
   const M_METAL = mat('cfc8c4'), M_TRAIN = mat('f6f0e6'), M_WATER = mat('6aaac6'), M_BED = mat('c9c0b2');
@@ -175,7 +175,6 @@
     // floating pebbles
     box(14, 55, -21, 17, 58, -18.5, M_GRASS, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.1 });
     box(62, 16, -21, 64, 18, -19, M_GRASS, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.55 });
-    box(58, 50, -33, 59.5, 51.5, -31.5, M_EARTH1, M_EARTH1, M_EARTH1, { spc: S_EARTH, dis: false, an: A_BOB, ph: 0.3 });
 
     /* --- water and plinths */
     box(4, 23, -2.5, 50, 31, -1, M_WATER, M_WATER, M_WATER, { spc: S_WATER, an: A_WATER });
@@ -596,7 +595,7 @@
       const wipe = clamp((KF * 1.25 - v * 0.25 - 0) , 0, 1);
       const a = bandRow(K0, v, y), b = bandRow(K1, v, y);
       // wipe front: rows above it show the next key
-      const front = KF * 1.8 - 0.4, fw = 0.8;
+      const front = KF * 1.6 - 0.3, fw = 0.3;
       const kk = clamp((front - v) / fw + 0.5, 0, 1);
       SKA[y * 4] = a[0]; SKA[y * 4 + 1] = a[1]; SKF0[y] = a[2];
       SKA[y * 4 + 2] = b[0]; SKA[y * 4 + 3] = b[1]; SKF1[y] = b[2]; SKK[y] = kk;
