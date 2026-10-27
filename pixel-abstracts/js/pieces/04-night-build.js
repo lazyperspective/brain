@@ -39,8 +39,8 @@
   const PAL_HEX = [
     '080b1e', '111839', '1c2551', '2b386a', '434c82', '655f93', '8f749c', 'bc8b9d', 'e2a394', 'f4c5a2', // 0-9 void: night → dusk
     'f7e3c6', 'e8ede3', 'bed8de', '98c0d4',                                                             // 10-13 void: day
-    'fbf7ee', 'e6dccc', 'c4b9b1', '9a95a6', '6d6c88', '484a69',                                         // 14-19 white / slate
-    'f2bca5', 'd9917c', 'ac6866', '7a4a5d',                                                             // 20-23 rose
+    'b9b67c', 'e6dccc', 'c4b9b1', '9a95a6', '6d6c88', '484a69',                                         // 14 olive, 15-19 stone / slate
+    '8e7f70', 'd9917c', 'ac6866', '7a4a5d',                                                             // 20 taupe, 21-23 rose
     'add5c9', '7faeaa', '58848c', '3c5d6e',                                                             // 24-27 teal
     'c2d991', '8fbb70', '5f9464', '3d6b58', '284b48',                                                   // 28-32 green
     'd4a26d', 'ab6a4b', '78453f', '4b2d35',                                                             // 33-36 earth
@@ -108,7 +108,7 @@
   /* ================================================================ timeline */
   const T_DIS = 14.0, T_DSPAN = 2.5, T_DEND = T_DIS + T_DSPAN + 0.85;
   const T_WIN0 = 9.5, T_WIN1 = 12.2;
-  const T_TRAIN0 = 10.5, T_TRAIN1 = 13.5;
+  const T_TRAIN0 = 10.2, T_TRAIN1 = 14.0;
   // light phase p(t) in [0,4] through the five keys
   const PKEY = [[0, 0], [6.4, 0], [8.0, 1], [9.4, 2], [10.6, 3], [11.7, 4], [15.0, 4], [16.2, 3], [17.2, 2], [18.8, 0], [D, 0]];
   function phaseAt(t) {
@@ -484,7 +484,7 @@
         return fl((u - 1) / 2);
       }
       case W_TRAIN: {
-        if (face !== 2) return -1;
+        if (face === 1) return o.nose && u >= 0.7 && u < 1.5 && v >= 0.7 && v < 1.5 ? 98 : -1;
         const uu = Y - o.wy;
         if (v < 0.9 || v >= 1.6 || uu < 0.5 || uu >= o.wl - 0.5) return -1;
         return 99;
@@ -530,6 +530,8 @@
       if (o.k === 1 && nz < -0.55) lvl = lvl === 5 ? 3 : 1;
     }
     if (o.spc === S_EARTH && face !== 0) m = earthMat(X, Y, Z, face);
+    else if (face === 0 && m === M_GRASS && ih(fl(X * 2), fl(Y * 2), 3) < 0.045) m = M_GRASSD;
+    else if (face === 0 && m === M_STONE && o.z2 <= 1.01 && o.dis && ((X % 4) < 0.5 || (Y % 4) < 0.5)) lvl = 4;
     else if (o.spc === S_BEACON) {
       const ph = T % 1.2;
       if (P > 1.6 && ph < 0.22) return C_RED;
@@ -594,7 +596,7 @@
       const wipe = clamp((KF * 1.25 - v * 0.25 - 0) , 0, 1);
       const a = bandRow(K0, v, y), b = bandRow(K1, v, y);
       // wipe front: rows above it show the next key
-      const front = KF * 1.2 - 0.1, fw = 0.1;
+      const front = KF * 1.8 - 0.4, fw = 0.8;
       const kk = clamp((front - v) / fw + 0.5, 0, 1);
       SKA[y * 4] = a[0]; SKA[y * 4 + 1] = a[1]; SKF0[y] = a[2];
       SKA[y * 4 + 2] = b[0]; SKA[y * 4 + 3] = b[1]; SKF1[y] = b[2]; SKK[y] = kk;
