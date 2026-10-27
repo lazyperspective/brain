@@ -1163,7 +1163,7 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'lantern-library',
     title: 'The Lantern Library',
-    medium: 'Pixel art in 45 colours, 360 × 450, three parallax layers · 24 s loop',
+    medium: 'Pixel art in 45 colours, 360 × 450 · 24 s loop',
     note: 'It goes up forever · tap to pause',
     about: 'A well of bookshelves with no top and no bottom. The camera climbs past galleries lit by brass lanterns, a sleeping cat, a globe turning on its own and books that turn their own pages, while a staircase with steps on both sides crosses the dark and moonlight falls through the middle from a skylight nobody has seen. Three layers of shelves, drawn at three scales, climb at three speeds and meet themselves again every twenty-four seconds.',
     tone: 'dark',

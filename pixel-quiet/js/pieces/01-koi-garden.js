@@ -225,7 +225,6 @@
       const hue = fbm2(x * 0.035 + 9, y * 0.035, 415, 3);            // patches of yellower and bluer mosses
       let r = lerp(14, 62, v) * lerp(0.85, 1.2, hue), g = lerp(28, 98, v), b = lerp(20, 46, v) * lerp(1.15, 0.8, hue);
       // bare soil and needles in the hollows
-      if (m1 < 0.34 && m2 < 0.5) { const a = sstep(0.34, 0.24, m1) * 0.6; r = lerp(r, 34, a); g = lerp(g, 38, a); b = lerp(b, 26, a); }
       // the wet bank right at the water
       const sd = -SD[i];
       if (sd < 4) { const a = sstep(4, 0, sd) * 0.55; r = lerp(r, 28, a); g = lerp(g, 34, a); b = lerp(b, 28, a); }
@@ -668,11 +667,11 @@
         }
         if (ed >= 0) {
           TYPE[i] = T_ROOF;
-          let v = 0.7 + 0.22 * face + 0.14 * (fbm2(x * 0.4, y * 0.4, 660 + k, 2) - 0.5);
+          let v = 0.68 + 0.3 * face + 0.14 * (fbm2(x * 0.4, y * 0.4, 660 + k, 2) - 0.5);
           if (ridge) v += 0.22;
-          if (ed < 1.1) v += 0.16;                          // the thick eave catches the sky
-          if (ed < 0.5 && ih(x, y, 662) < 0.5) v -= 0.25;
-          let r0 = 196 * v, g0 = 194 * v, b0 = 182 * v;
+          if (ed >= 0.6 && ed < 1.7) v += 0.2;              // the thick eave catches the sky
+          let r0 = 206 * v, g0 = 196 * v, b0 = 172 * v;
+          if (ed < 0.6) { r0 *= 0.45; g0 *= 0.45; b0 *= 0.45; }
           const mo = fbm2(x * 0.3, y * 0.3, 664 + k, 3);
           if (mo > 0.58 && !ridge && ed > 1) { const mm = vn2(x * 0.9, y * 0.9, 666); r0 = lerp(44, 90, mm) * v; g0 = lerp(80, 130, mm) * v; b0 = lerp(36, 52, mm) * v; }
           if (ih(x, y, 668) < 0.03) { r0 = 210; g0 = 212; b0 = 186; }
@@ -761,19 +760,19 @@
     { name: 'kohaku', L: 52, L0: 46, Wm: 7.0, base: 'w', fin: 'w', metal: 0, z0: 0.1, n: 1, dir: -1, s0: 0.026, m: 12, ps: 0.3, pw: 0.0,
       blobs: [['r', 5.5, 0, 4.2, 9], ['r', 16, 1.6, 5.2, 4.8], ['r', 25.5, -1.2, 4.4, 6], ['r', 32, 0.8, 2.6, 3.2]],
       path: (p) => [160 + 44 * Math.cos(p) + 6 * Math.cos(2 * p + 0.7), 182 + 76 * Math.sin(p) + 8 * Math.sin(2 * p + 0.3)] },
-    { name: 'showa', L: 47, L0: 42, Wm: 6.4, base: 'w', fin: 'w', finBase: 'k', metal: 0, z0: 0.22, n: 1, dir: -1, s0: 0.297, m: 13, ps: 2.0, pw: 1.3,
+    { name: 'showa', L: 47, L0: 42, Wm: 6.4, base: 'w', fin: 'w', finBase: 'k', metal: 0, z0: 0.22, n: 1, dir: -1, s0: 0.427, m: 13, ps: 2.0, pw: 1.3,
       blobs: [['r', 5, 0.5, 4, 8], ['r', 16, -2, 5.5, 3.6], ['r', 26, 2.2, 4, 3.5], ['k', 3, -3, 2.5, 2.2], ['k', 9, 3.2, 3.2, 2.6], ['k', 13, -0.5, 1.6, 2.2], ['k', 19, 2, 3.4, 3.6],
         ['k', 24, -3.4, 3.2, 3], ['k', 30, 3, 2.8, 2.6], ['k', 33, -1.5, 2.5, 2]],
-      path: (p) => [110 + 30 * Math.sin(2 * p), 176 + 58 * Math.sin(p)] },
-    { name: 'yamabuki', L: 45, L0: 45, Wm: 6.1, base: 'g', fin: 'g', metal: 1, z0: 0.16, n: 1, dir: 1, s0: 0.207, m: 14, ps: 4.1, pw: 2.2, blobs: [],
+      path: (p) => [110 + 30 * Math.sin(2 * p), 188 + 54 * Math.sin(p)] },
+    { name: 'yamabuki', L: 45, L0: 45, Wm: 6.1, base: 'g', fin: 'g', metal: 1, z0: 0.16, n: 1, dir: 1, s0: 0.208, m: 14, ps: 4.1, pw: 2.2, blobs: [],
       path: (p) => [150 + 42 * Math.cos(p), 112 + 30 * Math.sin(p) + 4 * Math.sin(2 * p)] },
-    { name: 'shiro', L: 41, L0: 41, Wm: 5.5, base: 'c', fin: 'c', metal: 0, z0: 0.36, n: 1, dir: 1, s0: 0.452, m: 15, ps: 1.1, pw: 3.1, blobs: [],
+    { name: 'shiro', L: 41, L0: 41, Wm: 5.5, base: 'c', fin: 'c', metal: 0, z0: 0.36, n: 1, dir: 1, s0: 0.779, m: 15, ps: 1.1, pw: 3.1, blobs: [],
       path: (p) => [126 + 40 * Math.cos(p) + 5 * Math.cos(3 * p), 246 + 20 * Math.sin(p)] },
-    { name: 'platinum', L: 43, L0: 43, Wm: 5.8, base: 'p', fin: 'p', metal: 1, z0: 0.24, n: 1, dir: -1, s0: 0.359, m: 14, ps: 5.0, pw: 4.4, blobs: [],
+    { name: 'platinum', L: 43, L0: 43, Wm: 5.8, base: 'p', fin: 'p', metal: 1, z0: 0.24, n: 1, dir: -1, s0: 0.243, m: 14, ps: 5.0, pw: 4.4, blobs: [],
       path: (p) => [168 + 34 * Math.cos(p) + 6 * Math.cos(2 * p), 208 + 40 * Math.sin(p)] },
-    { name: 'tancho', L: 36, L0: 32, Wm: 4.9, base: 'w', fin: 'w', metal: 0, z0: 0.3, n: 1, dir: 1, s0: 0.186, m: 16, ps: 3.3, pw: 5.2,
+    { name: 'tancho', L: 36, L0: 32, Wm: 4.9, base: 'w', fin: 'w', metal: 0, z0: 0.3, n: 1, dir: 1, s0: 0.208, m: 16, ps: 3.3, pw: 5.2,
       blobs: [['r', 4.6, 0, 2.5, 2.3]],
-      path: (p) => [90 + 26 * Math.cos(p) + 10 * Math.cos(2 * p), 132 + 22 * Math.sin(p) + 10 * Math.sin(2 * p)] },
+      path: (p) => [94 + 26 * Math.cos(p) + 10 * Math.cos(2 * p), 112 + 20 * Math.sin(p) + 9 * Math.sin(2 * p)] },
   ];
   function buildPath(k) {
     const N0 = 4000, xs = new Float32Array(N0 + 1), ys = new Float32Array(N0 + 1), cum = new Float32Array(N0 + 1);
@@ -841,8 +840,8 @@
   }
   // light and water applied to a koi colour at pixel i
   function koiFinish(i, zm) {
-    const I = LI[i], c = 1 + 0.28 * CF[i];
-    const lr = (0.9 + I * 1.25) * c, lg = (0.92 + I * 0.85) * c, lb = (0.92 + I * 0.42) * c;
+    const I = LI[i], c = 1 + 0.12 * CF[i];
+    const lr = (1.03 + I * 1.1) * c, lg = (1.02 + I * 0.75) * c, lb = (1.0 + I * 0.36) * c;
     const dp = DEP[i];
     KR = lerp(KR * lr, SCR[i] * (AR + I * WR), zm);
     KG = lerp(KG * lg, SCG[i] * (AG + I * WG), zm);
@@ -931,7 +930,7 @@
           const row = fl(pv / 2.3 + 40), cu0 = pu / 2.7 + (row & 1) * 0.5, cu = cu0 - fl(cu0);
           const cv = pv / 2.3 + 40 - row;
           const rim = cu > 0.7 || (Math.abs(cv - 0.5) > 0.4 && cu > 0.4);
-          if (rim) s -= k.metal ? 0.07 : 0.16;
+          if (rim) s -= k.metal ? 0.05 : (col === 'w' || col === 'c') ? 0.08 : 0.14;
           if (k.metal) {
             const h = ih(row, fl(cu0), k.seed);
             const gl = Math.cos(ang * 2 + vn * 1.6 + h * TAU + ph * 2);
@@ -1102,7 +1101,7 @@
     const ph = TAU * t / D;
     const f0 = flick(0, t), f1 = flick(1, t), f2 = flick(2, t), FK = [f0, f1, f2];
     const L0 = LK[0], L1 = LK[1], L2 = LK[2];
-    for (let i = 0; i < NP; i++) { const I = f0 * L0[i] + f1 * L1[i] + f2 * L2[i]; LI[i] = I / (1 + 0.28 * I); }
+    for (let i = 0; i < NP; i++) { const I = f0 * L0[i] + f1 * L1[i] + f2 * L2[i]; LI[i] = I / (1 + 0.38 * I); }
     caustics(t);
     for (let i = 0; i < NP; i++) AMPF[i] = DA_T[TYPE[i]];
 
@@ -1148,7 +1147,7 @@
         const sh = 1 - 0.62 * Math.min(1, SHB[i] + PSH[i] * 0.75);
         const kb = (0.6 + c * (0.95 + 1.6 * I)) * sh;
         const T = TRN[i];
-        const s2 = 1 - 0.5 * Math.min(1, SHB[i]), wr = Math.pow(I, 1.5);
+        const s2 = 1 - 0.5 * Math.min(1, SHB[i]), wr = I * Math.sqrt(I);
         // the sky’s last light, broken by a slow drift of surface sheen
         const shn = SHEEN[(y0s + ((i / W) | 0)) * SW + x0s + (i % W)] * (0.4 + 0.6 * dp);
         const rf = REF[i] * FK[REFK[i]] * (0.12 + 2.4 * CG[i] * CG[i]);
@@ -1163,7 +1162,7 @@
       } else if (ty === T_ROOF) {
         OR[i] = ALR[i] * (AR * 1.35 + 0.08); OG[i] = ALG[i] * (AG * 1.3 + 0.05); OB[i] = ALB[i] * (AB * 1.2);
       } else {
-        const wr = Math.pow(I, 1.5);
+        const wr = I * Math.sqrt(I);
         OR[i] = ALR[i] * lr + wr * 22; OG[i] = ALG[i] * lg + wr * 10; OB[i] = ALB[i] * lb;
       }
     }
@@ -1218,7 +1217,7 @@
         const s2 = Math.min(P.tx.length - 1, s + 1);
         const x = lerp(P.tx[s], P.tx[s2], fr), y = lerp(P.ty[s], P.ty[s2], fr);
         const sk = sstep(P.float, P.float + P.sink, fa);
-        petalSprite(x, y, P.a0 + P.fall * 2.2 + fa * P.spin, P.sz * (1 - 0.2 * sk), 1 - sk * 0.9, sk * 0.8, false);
+        petalSprite(x, y, P.a0 + P.fall * 2.2 + fa * P.spin, P.sz * (1 - 0.15 * sk), 1 - sk, sk * 0.35, false);
         if (fa < 2.6) { // the little landing ring
           const rr = 1 + fa * 4.2, A0 = (1 - fa / 2.6) * 0.8;
           for (let y2 = fl(P.ly - rr - 2); y2 <= P.ly + rr + 2; y2++) for (let x2 = fl(P.lx - rr - 2); x2 <= P.lx + rr + 2; x2++) {
@@ -1240,16 +1239,17 @@
     // fireflies
     for (const F of FLIES) {
       const x = F.x + F.ax * Math.sin(ph * F.f1 + F.p1) + 3 * Math.sin(ph * 3 + F.p2), y = F.y + F.ay * Math.sin(ph * F.f2 + F.p2) + 2 * Math.cos(ph * 2 + F.p1);
-      const b = Math.pow(Math.max(0, Math.sin(ph * F.fb + F.pb)), 3);
+      const b = Math.pow(Math.max(0, Math.sin(ph * F.fb + F.pb)), 2);
       if (b < 0.03) continue;
       const cx = fl(x), cy = fl(y);
-      for (let oy = -5; oy <= 5; oy++) for (let ox = -5; ox <= 5; ox++) {
+      for (let oy = -6; oy <= 6; oy++) for (let ox = -6; ox <= 6; ox++) {
         const px = cx + ox, py = cy + oy; if (px < 0 || py < 0 || px >= W || py >= H) continue;
         const i = py * W + px; if (TYPE[i] === T_CANOPY) continue;
         const d = Math.hypot(ox, oy);
-        if (d < 0.5) { OR[i] = lerp(OR[i], 236, b); OG[i] = lerp(OG[i], 250, b); OB[i] = lerp(OB[i], 160, b); AMPF[i] = 4; continue; }
-        const gw = b * Math.pow(Math.max(0, 1 - d / 5.5), 2) * (d < 1.5 ? 1.6 : 1);
-        OR[i] += 70 * gw; OG[i] += 92 * gw; OB[i] += 26 * gw;
+        if (d < 0.5) { OR[i] = lerp(OR[i], 250, b); OG[i] = lerp(OG[i], 255, b); OB[i] = lerp(OB[i], 190, b); AMPF[i] = 3; continue; }
+        if (d < 1.1 && b > 0.45) { OR[i] = lerp(OR[i], 214, b); OG[i] = lerp(OG[i], 240, b); OB[i] = lerp(OB[i], 130, b); AMPF[i] = 4; continue; }
+        const gw = b * Math.pow(Math.max(0, 1 - d / 6), 2) * 1.3;
+        OR[i] += 80 * gw; OG[i] += 110 * gw; OB[i] += 30 * gw;
       }
     }
 
