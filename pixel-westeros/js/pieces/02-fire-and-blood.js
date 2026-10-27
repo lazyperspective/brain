@@ -448,7 +448,6 @@
     for (let i = 0; i < 3; i++) {
       nv = 0; nt = 0; nl = 0;
       const f = buildDragon(i, t), s = DESIGN[i].sc;
-      if (DBG.place) DBG.place(i, f);
       for (let v = 0; v < nv; v++) {
         const x = LX[v], y = LY[v], z = LZ[v];
         const wx = f.px + s * (x * f.fx + y * f.ux + z * f.rx), wy = f.py + s * (x * f.fy + y * f.uy + z * f.ry), wz = f.pz + s * (x * f.fz + y * f.uz + z * f.rz);
@@ -565,7 +564,7 @@
           if (stage > 0.6 && ok && (n & 1) === 0 && j < 6) {
             const ss = clamp((tau - FLIFE * 0.6) / (SLIFE - FLIFE * 0.6), 0, 1);
             const r = (0.015 + 0.06 * ss) * FOC / PZ;
-            splatSmoke(PX, PY, PZ, Math.min(4.5, r), 0.2 * env * Math.sin(PI * Math.min(1, ss * 1.3 + 0.15)));
+            splatSmoke(PX, PY, PZ, Math.min(6, r), 0.16 * env * Math.sin(PI * Math.min(1, ss * 1.3 + 0.15)));
           }
           PVX[j] = PX; PVY[j] = PY; PVZ[j] = PZ; PVOK[j] = ok ? 1 : 0;
         }
@@ -916,13 +915,14 @@
       const fx = lvn(x / 9 + t * 1.5, 36, 190);
       const base = Math.round(326 + (fbmp(x, 0, [15, 9, 5], 0, 0, 110) - 0.5) * 10);
       const fl2 = 0.75 + 0.25 * lvn(t * 3 + x / 5, 72, 191);
-      for (let y = base - 22; y < base; y++) {
-        const i = y * W + x; if (LAND[i] !== 1) continue;
-        const u = (y - (base - 22)) / 22;
-        const q = 1 + u * u * (3.6 + 3.2 * fx) * fl2;
+      for (let y = base - 30; y < base; y++) {
+        const i = y * W + x, L = LAND[i]; if (L !== 1 && L !== 2) continue;
+        const u = (y - (base - 30)) / 30;
+        const q = L + Math.pow(u, 1.6) * (4.5 + 5.5 * fx) * fl2 * (L === 2 ? 1.15 : 1);
         let k = fl(q); if (q - k > bay(x, y)) k++;
-        buf[i] = Math.min(8, k);
+        buf[i] = Math.min(11, k);
       }
+      if (LAND[(base - 1) * W + x] !== 0 && base < H) buf[base * W + x] = fx > 0.5 ? 5 : 4;   // the rubble's lit lip
     }
     // rooftop fires: a few licking tongues each
     for (const f of FIRES) {
@@ -1081,13 +1081,13 @@
         else { if (b < 0.5) c = 8; else c = -1; }
         if (c >= 0) { buf[i] = c; continue; }
       }
-      if (s > 0.05) {
-        const v = s + (b - 0.5) * 0.25;
-        if (v < 0.12) continue;
-        const warm = h > 0.02 || glowAt(x, y) > 0.25;
+      if (s > 0.04) {
+        // smoke as dithered coverage: thin smoke is a sparse veil, thick smoke nearly solid
+        const cov = Math.min(0.92, s * 1.5);
+        if (b > cov) continue;
+        const warm = h > 0.02 || glowAt(x, y) > 0.3;
         const cur = buf[i];
-        const tgt = v > 0.7 ? 3 : v > 0.4 ? 4 : 5;
-        buf[i] = warm ? Math.max(tgt + 2, 6) : (cur <= 17 ? Math.min(cur, tgt + (v < 0.25 ? 2 : 0)) : 19);
+        buf[i] = warm ? (s > 0.45 ? 5 : 6) : cur <= 17 ? Math.min(cur, s > 0.5 ? 2 : s > 0.25 ? 3 : 4) : 19;
       }
     }
   }
@@ -1097,7 +1097,6 @@
     t = mod(t, D);
     build();
     setCamera(t);
-    if (DBG.cam) DBG.cam(cam);
     FLARE = 0.35 * (breath(0, t) + breath(1, t) + breath(2, t));
     drawSky(t, BUF);
     drawLand(t, BUF);
@@ -1116,8 +1115,6 @@
     drawAsh(t, BUF, 2);
   }
 
-  const DBG = { place: null, cam: null };
-  window.__fabInternals = { render, BUF, PAL, W, H, DBG, cam, ZB, IDB };
   /* ================================================================ present */
   const LE = new Uint8Array(new Uint32Array([0x01020304]).buffer)[0] === 0x04;
   const pack = (r, g, b) => (LE ? ((255 << 24) | (b << 16) | (g << 8) | r) : ((r << 24) | (g << 16) | (b << 8) | 255)) >>> 0;

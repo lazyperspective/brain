@@ -63,10 +63,11 @@
     '0f3438', '1d6164', '3f9490',                                    // 42-44 teal
   ];
   const PAL = PAL_HEX.map((h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]);
-  const LUT = new Uint8Array(32768);
-  function nearest(r, g, b) {
+  const LUT = new Uint8Array(32768), LUTS = new Uint8Array(32768);
+  function nearest(r, g, b, nofire) {
     let best = 0, bd = 1e18;
     for (let k = 0; k < PAL.length; k++) {
+      if (nofire && (k === 26 || k === 27)) continue;
       const p = PAL[k], dr = r - p[0], dg = g - p[1], db = b - p[2];
       const rm = (r + p[0]) * 0.5;
       const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
@@ -76,7 +77,7 @@
   }
   function buildLUT() {
     for (let r = 0; r < 32; r++) for (let g = 0; g < 32; g++) for (let b = 0; b < 32; b++)
-      LUT[(r << 10) | (g << 5) | b] = nearest(r * 8 + 4, g * 8 + 4, b * 8 + 4);
+      { LUT[(r << 10) | (g << 5) | b] = nearest(r * 8 + 4, g * 8 + 4, b * 8 + 4); LUTS[(r << 10) | (g << 5) | b] = nearest(r * 8 + 4, g * 8 + 4, b * 8 + 4, true); }
   }
 
   /* ================================================================ hall layout */
@@ -87,7 +88,7 @@
   const OCT = [[1, 0], [0.70710678, 0.70710678], [0, 1], [-0.70710678, 0.70710678]]; // dais slab normals
 
   // sun through the high windows
-  const SUN_PHI = 1.5 * TAU / WIN_N, SUN_EL = 0.385;
+  const SUN_PHI = 1.5 * TAU / WIN_N, SUN_EL = 0.355;
   const SX = -cos(SUN_PHI) * cos(SUN_EL), SY = -sin(SUN_EL), SZ = -sin(SUN_PHI) * cos(SUN_EL);
   const SHX = -SX / Math.hypot(SX, SZ), SHZ = -SZ / Math.hypot(SX, SZ); // horizontal, toward the sun
   const SUN_C = [1.18, 1.1, 0.96];
@@ -95,6 +96,9 @@
   /* ================================================================ lights (candle stands) */
   const LX = [], LY = [], LZ = [], LI0 = [], LIR2 = [], LRM2 = [], LPH = [];
   let LI = null;
+  function nearestLights(list, x, z, n) {
+    return list.slice().sort((a, b) => Math.hypot(LX[a] - x, LZ[a] - z) - Math.hypot(LX[b] - x, LZ[b] - z)).slice(0, n);
+  }
   function addLight(x, y, z, I, r, rmax) {
     LX.push(x); LY.push(y); LZ.push(z); LI0.push(I); LIR2.push(1 / (r * r)); LRM2.push(rmax * rmax);
     LPH.push([rnd() * TAU, rnd() * TAU, rnd() * TAU]);
@@ -122,7 +126,7 @@
   const DUST = [];
   // metal materials: albedo, spec colour, env strength
   const MAT = [
-    { a: [0.30, 0.32, 0.36], s: [0.92, 0.96, 1.0], e: 1.0 },  // 0 bright steel
+    { a: [0.24, 0.26, 0.31], s: [0.85, 0.93, 1.05], e: 1.1 },  // 0 bright steel
     { a: [0.13, 0.13, 0.15], s: [0.62, 0.64, 0.72], e: 0.8 },  // 1 blackened steel
     { a: [0.30, 0.24, 0.18], s: [0.95, 0.78, 0.52], e: 0.9 },  // 2 old bronze-steel
     { a: [0.52, 0.36, 0.13], s: [1.05, 0.80, 0.40], e: 1.0 },  // 3 gold
@@ -223,19 +227,19 @@
     B(-0.95, 2.1, -0.95, 0.95, 3.9, -0.55, 0);   // back slab
     B(0.72, 2.1, -0.55, 1.1, 2.5, 0.85, 0);      // arms
     B(-1.1, 2.1, -0.55, -0.72, 2.5, 0.85, 0);
-    for (let k = 0; k < 7; k++) B(-0.68, 0, 0.75, 0.68, (k + 1) * 0.3, 0.75 + (7 - k) * 0.2, 1); // iron stair
+    for (let k = 0; k < 7; k++) B(-0.5, 0, 0.75, 0.5, (k + 1) * 0.3, 0.75 + (7 - k) * 0.2, 1); // iron stair
     // stair treads: swords laid across
     for (let k = 0; k < 7; k++) {
       const zf = 0.75 + (7 - k) * 0.2;
       for (let j = 0; j < 3; j++) {
         if (k === 6 && j > 0) break;
         const s = (k + j) % 2 ? 1 : -1;
-        swordL(-s * rr(0.85, 1.05), (k + 1) * 0.3 + 0.018, zf - 0.035 - j * 0.065, [s, rr(-0.02, 0.03), rr(-0.05, 0.05)], rr(1.45, 1.8), 0.042,
+        swordL(-s * rr(0.62, 0.8), (k + 1) * 0.3 + 0.018, zf - 0.035 - j * 0.065, [s, rr(-0.02, 0.03), rr(-0.08, 0.08)], rr(1.0, 1.35), 0.04,
           { e: [0, 0, 1], hilt: rnd() < 0.7 ? (rnd() < 0.3 ? 2 : 1) : 3 });
       }
       // jagged points along the stair cheeks
       for (const s of [-1, 1]) if (rnd() < 0.8) {
-        swordL(s * 0.7, (k + 0.5) * 0.3, zf - 0.12, [s * rr(0.6, 1), rr(-0.5, 0.4), rr(-0.2, 0.5)], rr(0.4, 0.8), 0.035, { hilt: 0 });
+        swordL(s * 0.52, (k + 0.5) * 0.3, zf - 0.12, [s * rr(0.6, 1), rr(-0.5, 0.4), rr(-0.2, 0.5)], rr(0.4, 0.8), 0.035, { hilt: 0 });
       }
     }
     // seat: blades across
@@ -319,8 +323,8 @@
       }
     }
     // spikes from the body and the back
-    for (let i = 0; i < 120; i++) {
-      const f = rnd();
+    for (let i = 0; i < 175; i++) {
+      const f = i >= 120 ? 0.56 + 0.29 * rnd() : rnd();
       let x, y, z, n;
       if (f < 0.3) { x = -1.1; y = rr(0.2, 2.4); z = rr(-0.9, 0.7); n = [-1, 0, 0]; }
       else if (f < 0.55) { x = 1.1; y = rr(0.2, 2.4); z = rr(-0.9, 0.7); n = [1, 0, 0]; }
@@ -374,11 +378,12 @@
     CAP.push({ ax: x, ay: y, az: z, bx: x, by: y + hc, bz: z, r: big ? 0.05 : 0.034, m: 6, wax: 1 });
     FLM.push({ x, y: y + hc + 0.045, z, s: big ? 1.15 : 1, ph0: rnd() * TAU, ph1: rnd() * TAU, ph2: rnd() * TAU, n: 1 + fl(rnd() * 3) });
   }
-  function addStand(x, z, h, tiers) {
-    CAP.push({ ax: x, ay: 0, az: z, bx: x, by: h, bz: z, r: 0.045, m: 5 });
-    for (let f = 0; f < 3; f++) { const a = f * TAU / 3 + rnd(); CAP.push({ ax: x, ay: 0.35, az: z, bx: x + 0.36 * cos(a), by: 0.02, bz: z + 0.36 * sin(a), r: 0.03, m: 5 }); }
+  function addStand(x, z, h, tiers, y0, thick) {
+    y0 = y0 || 0; thick = thick || 1;
+    CAP.push({ ax: x, ay: y0, az: z, bx: x, by: y0 + h, bz: z, r: 0.045 * thick, m: 5 });
+    for (let f = 0; f < 3; f++) { const a = f * TAU / 3 + rnd(); CAP.push({ ax: x, ay: y0 + 0.35 * thick, az: z, bx: x + 0.36 * thick * cos(a), by: y0 + 0.02, bz: z + 0.36 * thick * sin(a), r: 0.03 * thick, m: 5 }); }
     for (let k = 0; k < tiers.length; k++) {
-      const [rho, yy, n] = tiers[k];
+      const rho = tiers[k][0], yy = tiers[k][1] + y0, n = tiers[k][2];
       const seg = 10, a0 = rnd() * TAU;
       for (let s = 0; s < seg; s++) {
         const a = a0 + s * TAU / seg, b = a0 + (s + 1) * TAU / seg;
@@ -387,7 +392,7 @@
       for (let s = 0; s < 3; s++) { const a = a0 + s * TAU / 3 + 0.3; CAP.push({ ax: x, ay: yy - 0.18, az: z, bx: x + rho * cos(a), by: yy, bz: z + rho * sin(a), r: 0.018, m: 5 }); }
       for (let c = 0; c < n; c++) { const a = a0 + (c + 0.5) * TAU / n; addCandle(x + rho * cos(a), yy, z + rho * sin(a), rr(0.1, 0.24), false); }
     }
-    addCandle(x, h, z, rr(0.16, 0.26), true);
+    addCandle(x, h + y0, z, rr(0.16, 0.26), true);
   }
   function buildCandles() {
     RS = 0xca9d1e + SEED * 13;
@@ -406,6 +411,12 @@
       addStand(x, z, 2.2, [[0.42, 1.75, 8], [0.25, 2.0, 5]]);
       RING_C.push(addLight(x, 2.0, z, 1.45, 2.4, 7));
     }
+    // four great candle trees on the dais, flanking the throne
+    for (const a of [0.62, Math.PI - 0.62, Math.PI + 0.75, -0.75]) {
+      const x = 2.62 * cos(a), z = 2.62 * sin(a);
+      addStand(x, z, 2.7, [[0.44, 1.95, 9], [0.3, 2.3, 6], [0.17, 2.55, 4]], TY, 1.3);
+      DAIS_L.push(addLight(x, TY + 2.4, z, 1.15, 2.0, 7));
+    }
     for (let k = 0; k < 8; k++) { const a = k * TAU / 8; DAIS_L.push(addLight(4.0 * cos(a), 0.9, 4.0 * sin(a), 0.75, 1.8, 5)); }
     // candles along the dais treads
     for (let s = 0; s < 4; s++) {
@@ -414,7 +425,7 @@
       for (let f = 0; f < 8; f++) {
         const fa = f * TAU / 8, nx = cos(fa), nz = sin(fa), tx = -nz, tz = nx;
         for (let c = 0; c < per; c++) {
-          if (rnd() < 0.18) continue;
+          if (rnd() < 0.3) continue;
           const o = (c + 0.5) / per - 0.5;
           const x = nx * ap + tx * o * side, z = nz * ap + tz * o * side;
           if (abs(x) < 0.9 && z > 0) continue;
@@ -432,6 +443,7 @@
     for (const p of PIL) {
       p.lights = [];
       for (let k = 0; k < LX.length; k++) if (Math.hypot(LX[k] - p.x, LZ[k] - p.z) < sqrt(LRM2[k]) + p.r) p.lights.push(k);
+      p.lights = nearestLights(p.lights, p.x, p.z, 4);
     }
     // banners: field, charge, shape
     const SCHEMES = [
@@ -459,7 +471,7 @@
     for (let k = 0; k < 16; k++) addBanner(k * TAU / 16, 16.45, 18.2, 11.6, 2.0, k, k % 9);
     for (let k = 0; k < 6; k++) addBanner((k + 0.5) * TAU / 6, 8.3, 17.0, 7.6, 1.5, k + 3, (k * 4 + 2) % 9);
     // shafts
-    for (let k = -1; k <= 3; k++) {
+    for (let k = 0; k <= 2; k++) {
       const phi = (k + 0.5) * TAU / WIN_N;
       const c = [WALL_R * cos(phi), (WIN_Y0 + WIN_Y1) / 2, WALL_R * sin(phi)];
       const T = [-sin(phi), 0, cos(phi)], U = [0, 1, 0], S = [SX, SY, SZ];
@@ -680,7 +692,7 @@
       BR[i] = OR; BG[i] = OG; BB[i] = OB; GMT[i] = -1;
     }
   }
-  const OUT = new Uint8Array(NP);
+  const OUT = new Uint8Array(NP), EMI = new Uint8Array(NP);
   let ZB = ZM, BR = CRM, BG = CGM, BB = CBM, MASK = null, MIRROR = false;
   function target(mirror) {
     MIRROR = mirror;
@@ -692,7 +704,7 @@
   // diffuse light (LR..) and specular (KR..) at a point; v = unit vector toward the eye; sq = spec sharpness (squarings)
   function lightUp(x, y, z, nx, ny, nz, vx, vy, vz, list, sq, spec, nosun) {
     const hemi = 0.5 + 0.5 * ny;
-    LR = 0.026 + 0.03 * hemi; LG = 0.03 + 0.038 * hemi; LB = 0.05 + 0.065 * hemi;
+    LR = 0.02 + 0.024 * hemi; LG = 0.024 + 0.03 * hemi; LB = 0.04 + 0.055 * hemi;
     KR = 0; KG = 0; KB = 0;
     for (let j = 0; j < list.length; j++) {
       const k = list[j];
@@ -711,7 +723,7 @@
         let hn = (nx * hx + ny * hy + nz * hz) * hl;
         if (hn > 0.6) {
           for (let q = 0; q < sq; q++) hn *= hn;
-          const s = hn * att * 2.2;
+          const s = hn * att * 1.5;
           KR += s; KG += s * 0.76; KB += s * 0.48;
         }
       }
@@ -730,7 +742,7 @@
   }
   // environment seen in a mirror direction (windows, candle rings, floor, vault)
   let ER = 0, EG = 0, EB = 0;
-  const WINB = new Float32Array(WIN_N);
+  const WINB = new Float32Array(WIN_N), WINS = new Float32Array(WIN_N);
   function env(rx, ry, rz) {
     ER = 0.045; EG = 0.05; EB = 0.075;
     if (ry > 0.1 && ry < 0.66) {
@@ -739,8 +751,8 @@
       if (fw < 0.1) {
         const k = ((wr % WIN_N) + WIN_N) % WIN_N;
         const e = 1 - fw / 0.1, band = sstep(0.1, 0.2, ry) * (1 - sstep(0.52, 0.66, ry));
-        const b = e * e * band * WINB[k];
-        ER += b; EG += b * 0.92; EB += b * 0.76;
+        const b = e * e * band * WINB[k], sn = WINS[k];
+        ER += b * (0.5 + 0.5 * sn); EG += b * (0.58 + 0.36 * sn); EB += b * (0.85 - 0.1 * sn);
       }
       ER += 0.02; EG += 0.022; EB += 0.03;
     } else if (ry <= 0.1 && ry > -0.42) {
@@ -885,15 +897,28 @@
     const ytop = WIN_Y1 + WIN_ARCH * sqrt(Math.max(0, 1 - as / WIN_HW));
     if (as < WIN_HW && y > WIN_Y0 && y < ytop) {
       const edge = Math.min(WIN_HW - as, y - WIN_Y0, ytop - y);
+      const sun = WINS[k];
       let lead = 0;
-      if (as < 0.06 || edge < 0.09) lead = 1;
-      else if (abs(fract((y - WIN_Y0) / 1.55) - 0.5) > 0.47) lead = 1;
-      else { const g1 = fract((s + y) / 0.42), g2 = fract((s - y) / 0.42); if (g1 < 0.09 || g2 < 0.09) lead = 0.7; }
-      const br = WINB[k] * (0.82 + 0.18 * (y - WIN_Y0) / (ytop - WIN_Y0));
-      const hue = ih(fl((s + 3) / 0.42), fl(y / 0.42), k);
-      let r = 1.0, g = 0.93, b = 0.74;
-      if (hue < 0.1) { r = 0.95; g = 0.62; b = 0.3; } else if (hue < 0.16) { r = 0.55; g = 0.7; b = 0.95; }
-      const f = br * (1 - lead * 0.92);
+      let r = 0.36 + 0.64 * sun, g = 0.46 + 0.5 * sun, b = 0.8 + 0.02 * sun;
+      const cyM = WIN_Y1 - 0.9, dyM = y - cyM, rM = Math.hypot(s, dyM * 0.92);
+      if (edge < 0.08) lead = 1;
+      else if (rM < 0.98) { // rose medallion
+        const ang = Math.atan2(dyM, s), pf = fract((ang / TAU + 0.5) * 8 + 0.0625);
+        if (abs(rM - 0.3) < 0.05 || rM > 0.92 || pf < 0.07) lead = 1;
+        else if (rM < 0.3) { r = 1.1; g = 0.86; b = 0.4; }
+        else if (fl((ang / TAU + 0.5) * 8 + 0.0625) & 1) { r = 0.85; g = 0.22; b = 0.26; }
+        else { r = 0.3; g = 0.42; b = 1.0; }
+      } else if (as > WIN_HW - 0.24) { // border of alternating panes
+        if (as < WIN_HW - 0.21 || fract(y / 0.45) < 0.12) lead = 1;
+        else if (fl(y / 0.45) & 1) { r = 1.0; g = 0.78; b = 0.36; } else { r = 0.8; g = 0.24; b = 0.28; }
+      } else if (abs(fract((y - WIN_Y0) / 2.3) - 0.5) > 0.48 || as < 0.04) lead = 1;
+      else {
+        const g1 = fract((s + y * 0.6) / 0.36), g2 = fract((s - y * 0.6) / 0.36);
+        if (g1 < 0.1 || g2 < 0.1) lead = 0.75;
+        else { const q = ih(fl((s + y * 0.6) / 0.36), fl((s - y * 0.6) / 0.36), k); const v = 0.84 + 0.22 * q; r *= v; g *= v; b *= v; }
+      }
+      const br = WINB[k] * (0.8 + 0.2 * (y - WIN_Y0) / (ytop - WIN_Y0));
+      const f = br * (1 - lead * 0.93);
       OR = r * f; OG = g * f; OB = b * f;
       return;
     }
@@ -913,7 +938,7 @@
   function shadeVault(x, y, z) {
     const r = Math.hypot(x, z), az = Math.atan2(z, x);
     const rib = abs(fract(az * 16 / TAU) - 0.5) > 0.47 || abs(fract(r / 3.2) - 0.5) > 0.45;
-    const v = rib ? 0.06 : 0.03;
+    const v = rib ? 0.042 : 0.026;
     OR = v * 0.9; OG = v * 0.9; OB = v * 1.2;
   }
   function shadePillar(p, x, y, z, base) {
@@ -941,7 +966,7 @@
   }
   function shadeDais(x, y, z, nx, ny, nz, s, px, py) {
     const top = (s + 1) * STEP_H;
-    if (ny < 0.5 && y > top - 0.04) { shadeMetal(x, y, z, nx, 0.3, nz, 3, THRONE_L, 0.55); return; } // gilt nosing
+    if (ny < 0.5 && y > top - 0.03) { shadeMetal(x, y, z, nx, 0.3, nz, 3, THRONE_L, 0.32); return; } // gilt nosing
     const vein = 0.8 + 0.4 * ih(fl(x * 2.3), fl(z * 2.3), 11 + s);
     const al = ny > 0.5 ? 0.13 * vein : 0.09 * vein;
     let vx = OX - x, vy = OY - y, vz = OZ - z; const vl = 1 / sqrt(vx * vx + vy * vy + vz * vz); vx *= vl; vy *= vl; vz *= vl;
@@ -961,7 +986,7 @@
     let px = nx, py = ny, pz = nz;
     if (ny !== 0) { px += f * 0.8; } else { py += f * 0.9; }
     const l = 1 / sqrt(px * px + py * py + pz * pz);
-    shadeMetal(x, y, z, px * l, py * l, pz * l, h < 0.5 ? 4 : h < 0.85 ? 1 : 0, THRONE_L, 0.6 + 0.6 * h);
+    shadeMetal(x, y, z, px * l, py * l, pz * l, h < 0.5 ? 4 : h < 0.85 ? 1 : 0, THRONE_L, 0.4 + 0.45 * h);
   }
 
   /* ================================================================ floor */
@@ -1175,7 +1200,7 @@
       if (ix < -12 || ix > W + 12 || iy < -12 || iy > H + 12) continue;
       const vis = ix >= 0 && iy >= 0 && ix < W && iy < H && (!MASK || MASK[iy * W + ix]) && z0 < ZB[iy * W + ix] + 0.1;
       if (rp < 0.7) {
-        if (vis) { const i = iy * W + ix; BR[i] = 1.25 * fk; BG[i] = 0.95 * fk; BB[i] = 0.55 * fk; ZB[i] = z0; GMT[i] = -1; }
+        if (vis) { const i = iy * W + ix; BR[i] = 1.25 * fk; BG[i] = 0.95 * fk; BB[i] = 0.55 * fk; ZB[i] = z0; GMT[i] = -1; if (!MIRROR) EMI[i] = 1; }
       } else {
         const bx0 = Math.max(0, fl(cx - rp - 1)), bx1 = Math.min(W - 1, fl(cx + rp + 1));
         const by0 = Math.max(0, fl(cy - hp - 1)), by1 = Math.min(H - 1, fl(cy + rp + 1));
@@ -1189,7 +1214,7 @@
           const q2 = qx * qx / (wdt * wdt + 1e-3) + qy * qy;
           if (q2 > 1) continue;
           const core = q2 < 0.35;
-          BR[i] = core ? 1.4 : 1.15 * fk; BG[i] = core ? 1.25 : 0.62 * fk; BB[i] = core ? 0.85 : 0.22 * fk; ZB[i] = z0; GMT[i] = -1;
+          BR[i] = core ? 1.4 : 1.15 * fk; BG[i] = core ? 1.25 : 0.62 * fk; BB[i] = core ? 0.85 : 0.22 * fk; ZB[i] = z0; GMT[i] = -1; if (!MIRROR) EMI[i] = 1;
         }
       }
       if (vis) FLI.push(cx, cy, z0, fk);
@@ -1229,7 +1254,7 @@
         const d = Math.pow(v, 1.15) * (0.42 * sin(TAU * b.n1 * t / D - 6.5 * v + b.p1 + 0.5 * u)
           + 0.17 * sin(TAU * b.n2 * t / D - 12.5 * v + b.p2 - 1.2 * u)
           + 0.07 * sin(TAU * b.n3 * t / D - 22 * v + b.p3 + 2.2 * u))
-          + 0.07 * sin(Math.PI * 2.5 * (u + 1)) * (0.6 + 0.4 * v);
+          + 0.11 * sin(Math.PI * 2.5 * (u + 1)) * (0.6 + 0.4 * v);
         const sw = 0.28 * v * v * sin(TAU * t / D + b.p4) + 0.06 * v * sin(TAU * 2 * t / D + b.p2);
         const lift = 0.02 * d * d;
         const k = j * NU + i;
@@ -1328,9 +1353,9 @@
         else { ar = b.f[0]; ag = b.f[1]; ab = b.f[2]; }
         lightUp(x, y, zz, nx, ny, nz, vx, vy, vz, b.lights, 0, false);
         // window light from behind / above, and silk sheen
-        const fold = 0.55 + 0.45 * Math.max(0, nx * -b.nx * 0.2 + ny * 0.3 + ndv * 0.7);
+        const fold = 0.3 + 0.7 * Math.max(0, nx * -b.nx * 0.2 + ny * 0.3 + ndv * 0.75);
         const sheen = Math.pow(1 - ndv, 3) * 0.12;
-        const amb = 0.11 + 0.05 * (1 - v);
+        const amb = 0.2 + 0.08 * (1 - v);
         OR = ar * (LR + amb) * fold * 1.25 + sheen * 0.9;
         OG = ag * (LG + amb) * fold * 1.25 + sheen * 0.75;
         OB = ab * (LB + amb * 1.1) * fold * 1.25 + sheen * 0.6;
@@ -1374,14 +1399,14 @@
             const ta = -l0 / dl; if (dl > 0) { if (ta > t0) t0 = ta; } else { if (ta < t1) t1 = ta; }
           }
           if (t0 >= t1) continue;
-          const len = t1 - t0, n = Math.min(9, 2 + fl(len / 1.1)), st = len / n;
+          const len = t1 - t0, n = Math.min(7, 2 + fl(len / 1.4)), st = len / n;
           let sum = 0;
           let tt = t0 + st * bay(px, py);
           for (let q = 0; q < n; q++, tt += st) {
             const u = u0 + du * tt, v = v0 + dv * tt;
             const au = abs(u), vtop = sh.vmax - WIN_ARCH * 0.6 * (au / sh.hw) * (au / sh.hw);
             if (v > vtop) continue;
-            let e = (1 - au / sh.hw); e = e * (2 - e);
+            let e = Math.min(1, (sh.hw - au) * 2.5);
             const y = OY + dy * tt;
             if (y < 0) continue;
             e *= Math.min(1, (v - sh.vmin) * 0.8) * (0.55 + 0.45 * Math.min(1, y / 3));
@@ -1392,8 +1417,8 @@
           acc += sum * st * sh.I;
         }
         if (acc > 0) {
-          const h = (1 - Math.exp(-acc * 0.06)) * 0.42;
-          BR[i] += h * 1.0; BG[i] += h * 0.93; BB[i] += h * 0.8;
+          const h = (1 - Math.exp(-acc * 0.16)) * 0.3;
+          BR[i] += h * 1.0; BG[i] += h * 0.94; BB[i] += h * 0.84;
         }
       }
     }
@@ -1441,7 +1466,7 @@
     for (let k = 0; k < WIN_N; k++) {
       const phi = (k + 0.5) * TAU / WIN_N, dphi = Math.atan2(sin(phi - SUN_PHI), cos(phi - SUN_PHI));
       const sunny = Math.max(0, cos(dphi));
-      WINB[k] = 0.42 + 0.95 * Math.pow(sunny, 2) + 0.04 * wave(1, t, k);
+      WINS[k] = Math.pow(sunny, 2); WINB[k] = 0.36 + 0.95 * WINS[k] + 0.04 * wave(1, t, k);
     }
   }
   function drawFrame(t, g, cw, ch) {
@@ -1472,7 +1497,8 @@
         const d = (bay(px, py) - 0.5) * 20;
         let r = BR[i] * vig * 255 + d, gg = BG[i] * vig * 255 + d, b = BB[i] * vig * 255 + d;
         r = r < 0 ? 0 : r > 255 ? 255 : r; gg = gg < 0 ? 0 : gg > 255 ? 255 : gg; b = b < 0 ? 0 : b > 255 ? 255 : b;
-        OUT[i] = LUT[((r >> 3) << 10) | ((gg >> 3) << 5) | (b >> 3)];
+        const li = ((r >> 3) << 10) | ((gg >> 3) << 5) | (b >> 3);
+        OUT[i] = EMI[i] ? LUT[li] : LUTS[li]; EMI[i] = 0;
       }
     }
     present(g, cw, ch);
@@ -1508,7 +1534,7 @@
     for (let k = 0; k < WIN_N; k++) {
       const a = (k + 0.5) * TAU / WIN_N, x = WALL_R * cos(a), z = WALL_R * sin(a), l = [];
       for (let q = 0; q < LX.length; q++) if (Math.hypot(LX[q] - x, LZ[q] - z) < sqrt(LRM2[q]) + 4) l.push(q);
-      WALL_L[k] = l;
+      WALL_L[k] = nearestLights(l, x, z, 4);
     }
     LISTS.length = 0; LISTS.push(THRONE_L);
     for (const c of CAP) {

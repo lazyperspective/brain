@@ -184,6 +184,7 @@
   const DEP = new Float32Array(NP);     // metres along the ray
   const BR = new Float32Array(NP), BG = new Float32Array(NP), BB = new Float32Array(NP);
   const GL = new Float32Array(NP), GD = new Float32Array(NP); // ground: lateral and depth, for the ground drift
+  const STM = new Float32Array(NP).fill(1); // fog multiplier: the stair keeps its colour longer
   const CRK = new Int16Array(NP).fill(-1); // crack halo: crack id
   const CRS = new Float32Array(NP);        // position along the crack 0..1
   const CRD = new Float32Array(NP);        // distance from the crack in px
@@ -310,26 +311,31 @@
   // cracks: wandering polylines on the face, in metres
   const CRACKS = [];
   function buildCracks(xL, xR) {
-    // ice fractures: long straight runs that kink sharply, a few short spurs
-    for (let c = 0; c < 9; c++) {
-      const u = Math.pow(ih(c, 1, 600), 1.5);
-      const down = ih(c, 6, 600) < 0.4;
-      let X = lerp(xL, xR, u), Y = down ? crest(X) - 3 : lerp(0, HW * 0.55, ih(c, 2, 600));
-      const len = fl(lerp(6, 22, ih(c, 3, 600)));
-      let ang = (ih(c, 4, 600) - 0.5) * 0.5;
+    // stress fractures: long straight drops down the flutes, short steps sideways along a stratum,
+    // hardly ever a fork
+    for (let c = 0; c < 7; c++) {
+      const u = Math.pow(ih(c, 1, 600), 1.4);
+      const down = ih(c, 6, 600) < 0.45;
+      let X = lerp(xL, xR, u), Y = down ? crest(X) - 3 : lerp(2, HW * 0.45, ih(c, 2, 600));
+      const runs = 2 + fl(ih(c, 3, 600) * 3);
+      const lean = (ih(c, 4, 600) - 0.5) * 0.12;
       const pts = [[X, Y]];
-      for (let k = 0; k < len; k++) {
-        ang = clamp(ang + (ih(c, k, 601) - 0.5) * 0.9, -0.6, 0.6);
-        const sl = 3 + 6 * ih(c, k, 602);
-        X += Math.sin(ang) * sl; Y += (down ? -1 : 1) * Math.cos(ang) * sl;
-        if (Y < 1 || Y > HW - 2) break;
+      for (let k = 0; k < runs; k++) {
+        // a vertical run, dead straight but for a hair of lean
+        const L = 9 + 22 * ih(c, k, 602);
+        X += lean * L + (ih(c, k, 609) - 0.5) * 0.8; Y += (down ? -1 : 1) * L;
+        if (Y < 1 || Y > HW - 3) { Y = clamp(Y, 1, HW - 3); pts.push([X, Y]); break; }
         pts.push([X, Y]);
-        if (ih(c, k, 603) < 0.08) {
-          const bp = [[X, Y]];
-          let bxx = X, byy = Y, ba = ang + (ih(c, k, 604) < 0.5 ? -1 : 1) * (0.6 + 0.6 * ih(c, k, 605));
-          const bl = 2 + fl(ih(c, k, 606) * 3);
-          for (let q = 0; q < bl; q++) { const l = 2 + 4 * ih(q, k, 607); ba += (ih(q, k, 608) - 0.5) * 0.6; bxx += Math.sin(ba) * l; byy += (down ? -1 : 1) * Math.cos(ba) * l; bp.push([bxx, byy]); }
-          CRACKS.push({ pts: bp, major: false, trunk: c, at: k / len, br: true });
+        // then a sideways step along the stratum, with a sharp corner
+        if (k < runs - 1 && ih(c, k, 601) < 0.5) {
+          const sx = (ih(c, k, 604) < 0.5 ? -1 : 1) * (2.5 + 4 * ih(c, k, 605));
+          X += sx; Y += (down ? -1 : 1) * (2 + 3 * ih(c, k, 606));
+          pts.push([X, Y]);
+        }
+        if (ih(c, k, 603) < 0.1) {
+          // a single short straight spur
+          const sl = 4 + 6 * ih(c, k, 607), sd = ih(c, k, 608) < 0.5 ? -1 : 1;
+          CRACKS.push({ pts: [[X, Y], [X + sd * sl * 0.35, Y + (down ? -1 : 1) * sl]], major: false, trunk: c, at: (k + 1) / runs, br: true });
         }
       }
       CRACKS.push({ pts, major: ih(c, 5, 600) < 0.6, trunk: c, at: 0, br: false });
@@ -465,42 +471,98 @@
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 1.2));
     for (let q = 0; q <= n; q++) { const f = q / n; fn(lerp(ax, bx, f), lerp(ay, by, f), F / az); }
   }
+  // the stair as solid timber in the plane of its front face, tested per sample in metres
+  const ST = { xa: 0, xb: 0, LF: 30, RISE: 15, LAND: 4, NF: 0, NS: 10, T: 2.4, ZS: DW - 2.2 };
+  // material at (X, Y) on the stair's face: 0 none, 1 stringer, 2 dark underside, 3 step block, 4 snow, 5 post, 6 rail, 7 plank seam
+  function stairAt(X, Y) {
+    const { xa, xb, LF, RISE, LAND, NF, NS, T } = ST;
+    if (X < xa - LAND - 1 || X > xb + LAND + 1 || Y < -1 || Y > NF * RISE + 2) return 0;
+    let post = 0;
+    for (let k = Math.max(0, fl(Y / RISE) - 1); k <= Math.min(NF - 1, fl(Y / RISE) + 1); k++) {
+      const y0 = k * RISE, y1 = y0 + RISE, dir = k % 2 ? -1 : 1;
+      const from = dir > 0 ? xa : xb, to = dir > 0 ? xb : xa;
+      // the flight
+      const sf = (X - from) / (to - from);
+      if (sf >= 0 && sf <= 1) {
+        const yl = y0 + RISE * sf;
+        const j = Math.min(NS - 1, fl(sf * NS));
+        const top = y0 + RISE * (j + 1) / NS;
+        if (Y <= top && Y >= yl - T) {
+          if (top - Y < 0.38) return 4;
+          if (Y > yl) { const fx = frac(sf * NS); return (dir > 0 ? fx > 0.82 : fx < 0.18) ? 1 : 3; }
+          if (Y < yl - T + 0.55) return 2;
+          if (Math.abs(Y - (yl - T * 0.5)) < 0.18) return 7;
+          return 1;
+        }
+        // hand rail on the open side
+        const rl = yl + RISE / NS + 1.25;
+        if (Math.abs(Y - rl) < 0.16) return 6;
+      }
+      // landing at the top of this flight
+      const lx0 = Math.min(to, to + dir * LAND), lx1 = Math.max(to, to + dir * LAND);
+      if (X >= lx0 && X <= lx1) {
+        if (Y <= y1 && Y >= y1 - T) { if (y1 - Y < 0.38) return 4; if (Y < y1 - T + 0.55) return 2; return 1; }
+        if (Math.abs(Y - (y1 + 1.25)) < 0.22) return 6;
+      }
+      // posts at every turn, from the landing down to the one below it on the same side
+      // a post at the outer corner of every landing, standing proud of the rail and running down into
+      // a bracket that is bolted to the ice
+      const pxs = to + dir * (LAND - 0.55);
+      const pb = k === 0 ? 0 : y1 - 0.55 * RISE;
+      if (Math.abs(X - pxs) < 0.55 && Y <= y1 + 1.6 && Y >= pb) post = 5;
+      // the bracket: a strut from the post foot back up to the landing
+      const bt = (Y - pb) / (y1 - ST.T - pb);
+      if (k > 0 && bt >= 0 && bt <= 1 && Math.abs(X - (pxs - dir * bt * (LAND + 2.5))) < 0.4) post = 5;
+    }
+    return post;
+  }
+  const WOOD = [null, [0.23, 0.135, 0.075], [0.075, 0.05, 0.04], [0.37, 0.23, 0.13], [0.86, 0.91, 0.97], [0.2, 0.11, 0.06], [0.26, 0.15, 0.08], [0.13, 0.075, 0.045]];
   function paintStair() {
     const Xc = 104;
-    const LF = 30, RISE = 13, LAND = 2.5;
-    const NF = Math.floor((HW - 6) / RISE);
-    const xa = Xc - LF / 2, xb = Xc + LF / 2;
-    const ZS = DW - 2.5;
+    ST.xa = Xc - ST.LF / 2; ST.xb = Xc + ST.LF / 2;
+    ST.NF = Math.floor((HW - 8) / ST.RISE);
+    const { xa, xb, LF, RISE, LAND, NF, ZS } = ST;
     STAIR.push([xa - LAND, 0]);
     for (let k = 0; k < NF; k++) {
       const y0 = k * RISE, y1 = y0 + RISE;
       const from = k % 2 ? xb : xa, to = k % 2 ? xa : xb, dir = k % 2 ? -1 : 1;
-      STAIR.push([from, y0], [to, y1], [to + dir * LAND, y1]);
+      STAIR.push([from, y0], [to, y1], [to + dir * LAND * 0.6, y1]);
     }
     STAIRCUM.push(0);
     for (let k = 1; k < STAIR.length; k++) { STAIRLEN += Math.hypot(STAIR[k][0] - STAIR[k - 1][0], STAIR[k][1] - STAIR[k - 1][1]); STAIRCUM.push(STAIRLEN); }
-    // scaffold: a post under each end of every flight and one in the middle, down to the flight below
-    for (let k = 1; k < NF; k++) {
-      const y0 = k * RISE, from = k % 2 ? xb : xa, to = k % 2 ? xa : xb;
-      for (const s of [0, 1]) {
-        const X = lerp(from, to, s), Yt = y0 + RISE * s;
-        const pf = (k - 1) % 2 ? xb : xa, pt = (k - 1) % 2 ? xa : xb;
-        const sb = (X - pf) / (pt - pf), Yb = (k - 1) * RISE + RISE * sb;
-        lineW(X, Yt - 0.4, X, Yb + 0.4, ZS + 0.8, (x, y, sc) => blendPx(x, y, 0.1, 0.08, 0.08, 0.36));
-      }
+    // screen box of the whole stair
+    let x0 = W, x1 = 0, y0 = H, y1 = 0;
+    for (const X of [xa - LAND - 4, xb + LAND + 4]) for (const Y of [-2, NF * RISE + 4]) {
+      const p = proj(X, Y, ZS); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
     }
-    for (let k = 1; k < STAIR.length; k++) {
-      const a = STAIR[k - 1], b = STAIR[k];
-      let n = 0;
-      lineW(a[0], a[1], b[0], b[1], ZS, (x, y, sc) => {
-        n++;
-        blendPx(x, y, 0.09, 0.065, 0.06, 0.9);
-        if (sc > 1.2) blendPx(x, y + 1, 0.11, 0.08, 0.07, 0.45);
-        // snow on the treads, broken into steps
-        blendPx(x, y - 1, 0.86, 0.91, 0.96, (sc > 0.9 ? 0.7 : 0.4) * ((n >> 1) & 1 ? 1 : 0.55));
-        // a hand rail on the outer edge
-        if (sc > 1.0 && (n & 3) === 0) blendPx(x, y - 2, 0.12, 0.1, 0.1, 0.45);
-      });
+    x0 = clamp(fl(x0) - 2, 0, W - 1); x1 = clamp(Math.ceil(x1) + 2, 0, W - 1); y0 = clamp(fl(y0) - 2, 0, H - 1); y1 = clamp(Math.ceil(y1) + 2, 0, H - 1);
+    const SS4 = [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]];
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+      const i = py * W + px;
+      if (TYPE[i] !== 1) continue;
+      let r = 0, g = 0, b = 0, n = 0, sh = 0, Ym = 0;
+      for (const [ox, oy] of SS4) {
+        const d = ray(px + ox, py + oy);
+        // the stair's own shadow on the ice: light from the upper right, so it falls down and to the left
+        const tw = DW / d[2], Xw = tw * d[0], Yw = HC + tw * d[1];
+        if (stairAt(Xw + 1.6, Yw + 1.3)) sh++;
+        const t = ZS / d[2], X = t * d[0], Y = HC + t * d[1];
+        const m = stairAt(X, Y);
+        if (!m) continue;
+        let c = WOOD[m];
+        const grain = 0.85 + 0.3 * ih(fl(X * 1.3), fl(Y * 4), 777);
+        r += c[0] * (m === 4 ? 1 : grain); g += c[1] * (m === 4 ? 1 : grain); b += c[2] * (m === 4 ? 1 : grain); n++; Ym += Y;
+      }
+      if (sh) {
+        const k = 1 - 0.42 * sh / 4 * (1 - 0.6 * sstep(90, 190, Ym / Math.max(1, n)));
+        BR[i] *= k; BG[i] *= k * 1.02; BB[i] *= Math.min(1, k * 1.08);
+      }
+      if (!n) continue;
+      const Y = Ym / n;
+      // the stair fades into the storm higher up
+      const op = (n / 4) * (1 - 0.72 * sstep(80, 185, Y));
+      BR[i] += (r / n - BR[i]) * op; BG[i] += (g / n - BG[i]) * op; BB[i] += (b / n - BB[i]) * op;
+      STM[i] = 1 - 0.45 * op;
     }
     // a gate at the foot of the stair, warm inside
     const g0 = proj(xb + 14, apron(xb + 14) - 1.5, DW), gs = F / g0.z;
@@ -676,7 +738,7 @@
         const ns = samp(TB, x * 0.28 + os, ys);
         let f;
         if (TYPE[i] === 0) f = 0.18 + 0.4 * env * nb;
-        else f = 1 - Math.exp(-DEP[i] * rho0 * (0.45 + 1.1 * nb) * (0.7 + 0.6 * ns));
+        else f = 1 - Math.exp(-DEP[i] * STM[i] * rho0 * (0.45 + 1.1 * nb) * (0.7 + 0.6 * ns));
         FOG[i] = f;
         const fr = 0.27 + 0.12 * nb + 0.05 * ns, fg = 0.35 + 0.13 * nb + 0.05 * ns, fb = 0.5 + 0.13 * nb + 0.05 * ns;
         R[i] += (fr - R[i]) * f; G[i] += (fg - G[i]) * f; B[i] += (fb - B[i]) * f;

@@ -390,7 +390,7 @@
         const i = y * W + x;
         if (OIL[i] > 0.4 && ARR[i] < a) a = ARR[i];
       }
-      s.arr = a < 12 ? a + 0.25 : 1e9;
+      s.arr = a < 12 && s.u < 2.6 ? a + 0.25 : 1e9;    // the nearest hulls stay dark, framing the fire
       s.dur = 6 + 3 * ih(j, 3, 4);
       s.climb = (6 + 5 * ih(j, 3, 5));
     });
@@ -452,12 +452,12 @@
       const X = PXA[i], Z = Math.min(PZA[i], 9);
       const f1 = nA(X * 22 - o1, Z * 55 + 0.6 * nA(X * 30 + o2, Z * 30) * 20), f2 = nA(X * 60 + o2, Z * 90 - o1);
       const flick = 0.06 + 1.9 * sstep(0.45, 0.85, f1 * 0.7 + f2 * 0.4);
-      const S = (front + body * flick * 0.5) * env;
+      const S = (front + body * flick * 0.95) * env;
       if (S < 0.05) continue;
       const y = (i / W) | 0;
       SRC[i] = S; SRCB[i] = y;
       const tall = nB((i % W) * 0.21 + 7, y * 0.12 + o2 * 0.25);
-      const hpx = (0.07 + 0.2 * Math.min(S, 2.2)) * Math.pow(y - YH + Y0, 0.82) * (0.25 + 1.5 * tall * tall);
+      const Sc = Math.min(S, 2.2), hpx = (0.03 + 0.15 * Sc * Math.sqrt(Sc)) * Math.pow(y - YH + Y0, 0.72) * (0.25 + 1.5 * tall * tall);
       SRCR[i] = S / Math.max(1.5, hpx);
     }
   }
@@ -485,7 +485,7 @@
       const burning = la > 0 && la < s.dur + 3;
       const sEnv = burning ? env * (1 - sstep(s.dur - 1.5, s.dur + 2, la)) : 0;
       const climb = burning ? la * s.climb : -1;     // burnt height in hull units
-      const rate = 4 + 7 * u;              // flame height scale in px
+      const rate = 3 + 5 * u;              // flame height scale in px
       const L = 6, hh = 2.2;
       const masts = s.k === 1 ? [[0.8, 12]] : s.k === 0 ? [[-1.4, 13], [3.0, 10.5]] : [[-3.6, 9.5], [0.4, 14], [3.9, 11]];
       const belly = 0.55 + 0.2 * Math.sin(TAU * 2 * t / D + s.ph);
@@ -602,8 +602,10 @@
   }
 
   /* ================================================================ flames: one upward pass */
+  const PSC = new Float32Array(H); for (let y = 0; y < H; y++) PSC[y] = clamp(Math.sqrt(48 / Math.max(4, y - YH + Y0)), 0.42, 1.3);
   const SINX = new Float32Array(W); for (let x = 0; x < W; x++) SINX[x] = Math.sin(x * 0.05);
   function flamePass(t) {
+    const NOFL = DBG.indexOf('nofl') >= 0;
     const v = 64 * 2 * t / D;     // scroll of the licking texture (nB is 64-periodic)
     const w = TAU * 3 * t / D;
     FLV.fill(0);
@@ -616,7 +618,7 @@
         const i = row + x;
         let c = 0, cr = 0, cb = 0, c0 = 0;
         if (y < H - 1 && rowLive && (FLV[i + W] > 0 || (x > 0 && FLV[i + W - 1] > 0) || (x < W - 1 && FLV[i + W + 1] > 0) || (x > 1 && FLV[i + W - 2] > 0) || (x < W - 2 && FLV[i + W + 2] > 0))) {
-          const off = nB(x * 0.11 + 20, y * 0.07 + v * 0.5) > 0.86 ? 1 : 0;
+          const off = 0;
           const xs = x - off;
           if (xs >= 0 && xs < W) {
             const j = i + W - off, cj = FLV[j];
@@ -640,10 +642,12 @@
         if (SHIPB[i] > cb) { if (se > 0) E[i] += se; continue; }
         // a tongue survives to height q where the rising noise is above q: separate licks with rounded tips
         const q = 1 - c / c0;
-        const n = nC(x * 0.55 + (0.5 + 2.2 * q) * (Math.sin(y * 0.15 - w * 2 + x * 0.05) + wob), y * 0.12 + v);
-        const thr = 0.22 + q * 0.8, m = sstep(thr - 0.06, thr + 0.06, n);
+        const ps = PSC[cb], sw = Math.sin(y * 0.15 * ps - w * 2 + x * 0.05 * ps) + wob;
+        const n = nC((x * 0.55 + (0.5 + 2.2 * q) * sw) * ps, y * 0.12 * ps + v);
+        const thr = 0.3 + q * 0.72, m = sstep(thr - 0.03, thr + 0.3, n);
         const k = 1 - q;
-        let e = c0 * m * (0.22 + 1.1 * k * Math.sqrt(k)) * (1 + 0.25 * c0);
+        let e = c0 * (0.08 * m + 1.5 * m * m * Math.pow(k, 1.3)) * (0.45 + 0.5 * Math.min(c0, 2.4));
+        if (NOFL) e = 0;
         if (se > e) e = se;
         if (e <= 0) continue;
         E[i] += e;
@@ -850,10 +854,10 @@
         x = lerp(x, sx, sphere); y = lerp(y, sy, sphere);
       }
       // spiral bands: material lines rolling with the vortex
-      const band = 0.18 + 0.82 * sstep(-0.4, 0.7, Math.sin(3 * p[1] + 2 * th + 6 * rr));
+      const band = 0.3 + 0.7 * sstep(-0.6, 0.8, Math.sin(2 * p[1] + th + 3 * rr));
       const front = Math.sin(th) > 0 ? 1 : 0.75;                        // the near side of the ring a little brighter
-      const e = heat * (1.25 - 0.6 * rr) * band * front * fade * (0.75 + 0.5 * p[3]);
-      const rad = (1.1 + 1.6 * (1 - rr) + 1.0 * p[4]) * (0.75 + 0.1 * Math.min(a, 6));
+      const e = heat * (1.3 - 0.85 * rr) * band * front * fade * (0.8 + 0.4 * p[3]);
+      const rad = (1.2 + 1.8 * (1 - rr) + 1.0 * p[4]) * (0.75 + 0.14 * Math.min(a, 7));
       discE(x, y, rad, e * 0.3, FBY, 0.75, (smk * 0.1 + 0.05 * sstep(0.8, 3, a) * rr * rr) * (0.6 + 0.4 * p[4]) * (1.1 - band * 0.5));
     }
     // the stem: rising, twisting, brightest low and in its core
@@ -1054,10 +1058,14 @@
         const yr = clamp(y + dy, 0, H - 1), jr = yr * W + xx;
         if (R0S[jr]) { r *= 0.35; g *= 0.35; b *= 0.4; }
         const re = R0E[jr];
-        if (re > 0 && SHIPB[i] === 0 && DBG.indexOf('nore') < 0) E[i] += re * (0.55 + 0.25 * fr) * (R0S[jr] ? 0.4 : 1);
+        if (re > 0 && SHIPB[i] === 0 && DBG.indexOf('nore') < 0) {
+          // broken into streaks by the ripples
+          const st = sstep(-0.15, 0.45, sz * 3 + (nA(x * 0.09 + po, y * 0.8 - po) - 0.5) * 1.2);
+          E[i] += re * (0.18 + 0.5 * st) * (R0S[jr] ? 0.4 : 1);
+        }
         // fire light on the water, brightest on the crests that face us
-        const gl = DBG.indexOf('nogl') >= 0 ? 0 : Math.min(GLOW[i], 2), patch = sstep(0.4, 0.8, nA(x * 0.13 + po, y * 0.55 - po * 0.5));
-        const crest = sstep(0.25, 0.75, -sz * 2.6) * patch * (0.4 + 0.6 * near);
+        const gl = DBG.indexOf('nogl') >= 0 ? 0 : Math.min(GLOW[i], 2), patch = sstep(0.35, 0.8, nA(x * 0.06 + po, y * 0.7 - po * 0.5));
+        const crest = sstep(0.5, 0.95, -sz * 2.6) * patch * (0.4 + 0.6 * near);
         const lit = gl * (0.12 + 1.8 * crest * crest);
         r += lit * GR * 60 + crest * 10; g += lit * GG * 60 + crest * 12; b += lit * GBL * 60 + crest * 30;
         CR[i] = r; CG[i] = g; CB[i] = b;
