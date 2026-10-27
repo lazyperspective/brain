@@ -6,12 +6,14 @@
  * a slow, time-periodic background swirl, then thin out into haze.
  *
  * The flow is kinematic and divergence-free: every ring is a pair of smoothed point vortices on a prescribed
- * path, plus a separable periodic stream function for the background, all a pure function of each drop’s age.
- * At mount the ink of each drop (about 1,600 tracers laid out as material lines) is advected once through the
- * whole loop and stored; a frame is then a pure function of t. Eight drops arrive three seconds apart and each
- * one’s ink lives exactly one loop (D = 24 s), so t = D is the same frame as t = 0 and nothing accumulates.
- * Threads are drawn one pixel wide with ink conserved along them (a stretched thread is a fainter thread),
- * on a 270 × 338 grid, ordered-dithered into a 42-colour palette and shown at 4×.
+ * path (the ring’s cross-section), plus a separable periodic stream function for the background, all a pure
+ * function of each drop’s age. At mount the ink of each drop (600 to 1,000 tracers laid out as material lines)
+ * is advected once through its whole life and stored at 30 Hz. A frame revolves that cross-section into ten
+ * azimuthal copies, each a little ahead of or behind the others in time so the split rings break into lobes,
+ * projects them side-on and draws every material line as a one-pixel Catmull-Rom thread with its ink conserved
+ * (a stretched thread is a fainter thread). Eight drops arrive three seconds apart and each one’s ink lives
+ * exactly one loop (D = 24 s), so t = D is the same frame as t = 0 and nothing accumulates. 270 × 338, ordered
+ * dither into a 42-colour palette, shown at 4×.
  */
 (function () {
   'use strict';
@@ -68,14 +70,14 @@
   /* ================================================================ the drops */
   // x (fraction of width), ink: 0 indigo, 1 vermilion, 2 gold, 3 teal
   const DROPS = [
-    { x: 0.36, c: 0 }, { x: 0.70, c: 1 }, { x: 0.48, c: 3 }, { x: 0.22, c: 2 },
-    { x: 0.79, c: 0 }, { x: 0.41, c: 2 }, { x: 0.61, c: 1 }, { x: 0.28, c: 3 },
+    { x: 0.34, c: 0 }, { x: 0.72, c: 1 }, { x: 0.50, c: 3 }, { x: 0.17, c: 2 },
+    { x: 0.83, c: 0 }, { x: 0.40, c: 2 }, { x: 0.62, c: 1 }, { x: 0.25, c: 3 },
   ];
   const T0 = DROPS.map((d, i) => i * GAP);
 
   // half-step clock: the simulation runs at 60 Hz with midpoints, so every state lives on a 120 Hz grid
   const HZ = 120, NA = LIFE * HZ;                          // age indices 0 … NA
-  const SETTLE = 2.6;                                      // ink is a little denser than water
+  const SETTLE = 2.6, SINK = 5;                                      // ink is a little denser than water
 
   /* ---------------------------------------------------------------- background stream function */
   // psi = sum A sin(kx x + phase(t)) sin(ky (y - S)): zero at the surface, periodic in D
@@ -122,10 +124,10 @@
   function buildProgramme(j) {
     const rnd = mulberry32(977 + j * 131);
     const x0 = DROPS[j].x * W;
-    const R0 = P_R0 + rnd() * 2;
+    const R0 = P_R0 - 1.5 + rnd() * 4;
     const rings = [];
     const prim = { ab: 0, ad: 0, x: x0, y: S + 5, th: (rnd() - 0.5) * 0.22, curl: (rnd() - 0.5) * 0.05, V0: 38 + rnd() * 9, tau: 2.3, R: R0, grow0: P_GROW, kin: 0.15, fade: 1.3, parent: -1, side: 0, k0: P_K0, k1: P_K1 };
-    const split1 = 3.2 + rnd() * 1.3;
+    const split1 = P_SPLIT + rnd() * 1.1;
     prim.ad = split1 + prim.fade;
     rings.push(prim);
     const nc = rnd() < 0.62 ? 3 : 2;
@@ -148,8 +150,10 @@
     }
     return rings;
   }
-  let FLAT = 0, ONLY = -1, KREV = 20, KC = 3, SINPHI = 0.22, LOBE = 1.6, WARP = 7;
-  let P_R0 = 11, P_GROW = 0.55, P_K0 = 0.5, P_KP = 1.2, P_K1 = 0.45, P_DEL = 0.55, P_VP = 60, P_CORE = 0.55, P_SPOKE = 6, P_CAP = 0, P_SKIN = 0.45;
+  // ring programme: base radius, initial size, strength ramp (start, peak, end), core size, plunge, ink layout, split age
+  const P_R0 = 12, P_GROW = 0.55, P_K0 = 0.5, P_KP = 1.2, P_K1 = 0.45, P_DEL = 0.55, P_VP = 60, P_CORE = 0.55, P_SPOKE = 6, P_SKIN = 0.3, P_SPLIT = 3.2;
+  // the revolve: azimuthal copies, their jitter, lobe time-warp, ring tilt, view elevation, drift warp, longest drawn segment
+  const KREV = 10, JIT = 0.25, LOBE = 1.6, WV0 = 0.8, TILT = 0.25, SINPHI = 0.3, WARP = 7, KC = 2, MAXL = 22;
 
   // tracks: per ring, per 120 Hz age index: centre, perpendicular, radius, strength
   let TRK = null;   // TRK[j] = { n, cx, cy, nx, ny, r, g } each Float32Array(n * (NA + 1))
@@ -282,7 +286,6 @@
       for (let k = 0; k <= n; k++) { const a = a0 + TAU * k / n; push(x + rr * Math.cos(a), Math.max(S + 1, y + rr * Math.sin(a) * sq), k < n ? 1 : 0, m); }
     };
     for (let s = -1; s <= 1; s += 2) for (let r = 0.7; r < P_CORE * R; r += 0.9) ring(cx + s * R, cy, r, 0.3, 1, 1);
-    if (P_CAP > 0) for (let r = 1.1 * R; r < 1.6 * R; r += 0.25 * R) ring(cx, cy, r, 0.3, P_CAP, 0.85);
         const nsp = P_SPOKE, a1 = rnd() * TAU;
     for (let q = 0; q < nsp; q++) {
       const a = a1 + TAU * q / nsp, n = Math.round(1.5 * R / 0.3);
@@ -290,7 +293,7 @@
     }
     // a skin of ink spread just under the surface by the impact
     for (let row = 0; row < 2; row++) {
-      const half = 1.7 * R - row * 2, n = Math.round(2 * half / 0.3);
+      const half = 0.9 * R - row * 2, n = Math.round(2 * half / 0.3);
       for (let k = 0; k <= n; k++) push(cx - half + 2 * half * k / n, S + 1.2 + row * 1.1 + rnd() * 0.3, k < n ? 1 : 0, P_SKIN);
     }
     // the entry column
@@ -315,6 +318,7 @@
   // the whole simulation as a resumable job
   function* simJob() {
     initBGTables();
+    buildJitter();
     buildTracks();
     TR = [];
     for (let j = 0; j < ND; j++) { const tr = seedDrop(j); TR.push(tr); store(tr, 0); }
@@ -333,13 +337,14 @@
         const ai = n - Math.round(T0[j] * HZ);
         if (ai < 0 || ai >= NA) continue;
         const tr = TR[j], X = tr.x, Y = tr.y;
+        const sink = SINK * sstep(5, 15, ai / HZ) * dt;
         for (let k = 0; k < tr.n; k++) {
           const x = X[k], y = Y[k];
           vel(A, x, y);
           let xm = x + VU * h, ym = y + VV * h;
           if (ym < S + 1) ym = S + 1;
           vel(B, xm, ym);
-          let nx = x + VU * dt, ny = y + VV * dt;
+          let nx = x + VU * dt, ny = y + VV * dt + sink;
           if (ny < S + 1) ny = S + 1;
           if (nx < 1) nx = 1; else if (nx > W - 2) nx = W - 2;
           X[k] = nx; Y[k] = ny;
@@ -385,7 +390,7 @@
   /* ---------------------------------------------------------------- caustics on the back wall */
   const CW = 26, CH = 19, CNX = Math.ceil(W / CW) + 3, CNY = Math.ceil(H / CH) + 3;
   const CPX = new Float32Array(CNX * CNY), CPY = new Float32Array(CNX * CNY);
-  const CAU = new Float32Array(N);
+  const CAU = new Float32Array(N), CT = new Float32Array(W * 7);
   function caustics(t) {
     const ph = TAU * t / D;
     for (let j = 0; j < CNY; j++) for (let i = 0; i < CNX; i++) {
@@ -396,15 +401,25 @@
       CPY[k] = j + 0.5 + 0.36 * Math.sin(s2 * m2 * ph + ih(i, j, 4) * TAU);
     }
     const w1 = ph, w2 = 2 * ph;
+    // separable trig tables: sin(a + b) = sin a cos b + cos a sin b
+    for (let x = 0; x < W; x++) {
+      CT[x] = Math.sin(x * 0.021); CT[W + x] = Math.cos(x * 0.021);
+      CT[2 * W + x] = 6 * Math.sin(x * 0.052 + w1 + 1.3);
+      CT[3 * W + x] = Math.sin(x * 0.13 + w2); CT[4 * W + x] = Math.cos(x * 0.13 + w2);
+      CT[5 * W + x] = Math.sin(x * 0.031); CT[6 * W + x] = Math.cos(x * 0.031);
+    }
     for (let y = S; y < H; y++) {
       const z = (y - S) / (H - S);
       const str = Math.exp(-z * 2.4);
-      if (str < 0.06) { CAU.fill(0, y * W, y * W + W); continue; }
+      if (str < 0.1) { CAU.fill(0, y * W, y * W + W); continue; }
       const wy = 7 * Math.sin(y * 0.043 + w1);
+      const ra = y * 0.083 - w2, rsa = 5 * Math.sin(ra), rca = 5 * Math.cos(ra);
+      const rb = -y * 0.05, rsb = 3 * Math.sin(rb), rcb = 3 * Math.cos(rb);
+      const rc = -y * 0.022 + w1 + 0.6 * Math.sin(y * 0.05 - w2), rsc = Math.sin(rc), rcc = Math.cos(rc);
       for (let x = 0; x < W; x++) {
-        const qx = (x + wy + 5 * Math.sin(y * 0.083 - w2 + x * 0.021)) / CW + 1;
-        const qy = (y + 6 * Math.sin(x * 0.052 + w1 + 1.3) + 3 * Math.sin(x * 0.13 - y * 0.05 + w2)) / CH + 1;
-        const lum = 0.5 + 0.5 * Math.sin(x * 0.031 - y * 0.022 + w1 + 0.6 * Math.sin(y * 0.05 - w2));
+        const qx = (x + wy + rsa * CT[W + x] + rca * CT[x]) / CW + 1;
+        const qy = (y + CT[2 * W + x] + CT[3 * W + x] * rcb + CT[4 * W + x] * rsb) / CH + 1;
+        const lum = 0.5 + 0.5 * (CT[5 * W + x] * rcc + CT[6 * W + x] * rsc);
         const ix = qx | 0, iy = qy | 0;
         let f1 = 1e9, f2 = 1e9;
         for (let dj = -1; dj <= 1; dj++) {
@@ -418,23 +433,23 @@
         }
         // f in squared pixels; ridge between cells
         const e = Math.sqrt(f2) - Math.sqrt(f1);
-        CAU[y * W + x] = str * (0.35 + 0.65 * lum) * (1 - sstep(0.2, 1.9 + 0.8 * lum, e));
+        CAU[y * W + x] = str * lum * lum * (1 - sstep(0.1, 1.2 + 0.9 * lum, e));
       }
     }
   }
 
   /* ---------------------------------------------------------------- ink */
+  const PX = new Float32Array(16384), PY = new Float32Array(16384);
   // per-tracer azimuth jitter, so a knot of ink revolves into a ring rather than a row of copies
-  const JC = new Float32Array(8192), JS = new Float32Array(8192);
-  for (let k = 0; k < 8192; k++) { const d = (ih(k, 77, 5) - 0.5) * 1.15 * Math.PI / 20; JC[k] = Math.cos(d); JS[k] = Math.sin(d); }
+  const JC = new Float32Array(16384), JS = new Float32Array(16384);
+  function buildJitter() { for (let k = 0; k < 16384; k++) { const d = (ih(k, 77, 5) - 0.5) * JIT * Math.PI / KREV; JC[k] = Math.cos(d); JS[k] = Math.sin(d); } }
   function inkLayer(t) {
     DEN.fill(0); HZB.fill(0);
     for (let j = 0; j < ND; j++) {
-      if (ONLY >= 0 && j !== ONLY) continue;
       const a = lifeOf(t, j);
       const tr = TR[j], c = DROPS[j].c;
-      const at = (0.55 + 0.45 * sstep(0, 0.25, a)) * (1 - sstep(10, 21.5, a));
-      const ah = sstep(6, 14, a) * (1 - sstep(14, 23.4, a));
+      const at = sstep(-0.05, 0.5, a) * (1 - sstep(10, 22.5, a));
+      const ah = sstep(7, 15, a) * (1 - sstep(16, 23.7, a));
       if (at <= 0.001 && ah <= 0.001) continue;
       // the simulation is the ring’s cross-section; revolve it into K azimuthal copies and project them
       // side-on, each copy a little ahead or behind in time so the split rings break into lobes
@@ -442,38 +457,75 @@
       const dc = c * N, hc = c * HW * HH;
       const ink = KC * at / KREV, haze = 0.9 * ah / KREV;
       const wa = WARP * sstep(3, 16, a), wp0 = TAU * t / D + ih(j, 9, 4) * TAU, wp1 = -TAU * 2 * t / D + ih(j, 9, 5) * TAU;
-      const wv = sstep(2.2, 6, a), ph0 = ih(j, 9, 1) * TAU, ph1 = ih(j, 9, 2) * TAU, rot = ih(j, 9, 3) * Math.PI;
+      const wv = sstep(WV0, WV0 + 4, a), tilt = TILT * (ih(j, 9, 6) - 0.5) * 2, ph0 = ih(j, 9, 1) * TAU, ph1 = ih(j, 9, 2) * TAU, rot = ih(j, 9, 3) * Math.PI;
       for (let q = 0; q < KREV; q++) {
         const th = rot + Math.PI * (q + 0.15 + 0.7 * ih(j, q, 21)) / KREV;
-        const rw = 1 + wv * (0.14 * Math.sin(2 * th + ph1) + 0.1 * (ih(j, q, 22) - 0.5));
-        const cq = FLAT ? 1 : Math.cos(th) * rw, sq = FLAT ? 0 : Math.sin(th) * rw;
-        let aq = a + wv * (LOBE * Math.sin(2 * th + ph0) + 0.5 * LOBE * Math.sin(3 * th + ph1) + 0.5 * LOBE * (ih(j, q, 23) - 0.5));
+        const rw = 1 + wv * 0.14 * Math.sin(2 * th + ph1);
+        const cq = Math.cos(th) * rw, sq = Math.sin(th) * rw;
+        let aq = a + wv * (LOBE * Math.sin(2 * th + ph0) + 0.5 * LOBE * Math.sin(3 * th + ph1));
         aq = clamp(aq, 0, LIFE);
         let sf = aq < SPLIT_A ? aq * 30 : NS1 + (aq - SPLIT_A) * 10;
         if (sf > NS - 1) sf = NS - 1;
         let s0 = fl(sf); if (s0 >= NS - 1) s0 = NS - 2;
         const f = sf - s0, o0 = s0 * n * 2, o1 = o0 + n * 2;
         const ax = tr.ax[s0] * (1 - f) + tr.ax[s0 + 1] * f;
-        let px = 0, py = 0, pl = 0;
         for (let k = 0; k < n; k++) {
           const x = (p[o0 + 2 * k] * (1 - f) + p[o1 + 2 * k] * f) * inv;
           const y0 = (p[o0 + 2 * k + 1] * (1 - f) + p[o1 + 2 * k + 1] * f) * inv;
-          const r = x - ax, jc = FLAT ? 1 : JC[k], js = FLAT ? 0 : JS[k];
-          let X = ax + r * (cq * jc - sq * js), Y = y0 + r * SINPHI * (sq * jc + cq * js);
+          const r = x - ax, jc = JC[k], js = JS[k];
+          const ca = cq * jc - sq * js;
+          let X = ax + r * ca, Y = y0 + r * (SINPHI * (sq * jc + cq * js) + tilt * ca);
           if (wa > 0) {
             const wy = Y * 0.055 + wp0, wx = X * 0.04 + wp1;
             X += wa * (Math.sin(wy) + 0.5 * Math.sin(Y * 0.11 - wp1 + X * 0.02));
             Y += wa * 0.6 * Math.sin(wx + Y * 0.01);
           }
-          const m = tr.m[k];
+          PX[k] = X; PY[k] = Y;
           if (haze > 0) {
-            const hx = (X / HC) | 0, hy = (Y / HC) | 0;
-            if (hx >= 0 && hy >= 0 && hx < HW && hy < HH) HZB[hc + hy * HW + hx] += m * haze;
+            const gx = X / HC - 0.5, gy = Y / HC - 0.5, hx = Math.floor(gx), hy = Math.floor(gy);
+            if (hx >= 0 && hy >= 0 && hx < HW - 1 && hy < HH - 1) {
+              const fx = gx - hx, fy = gy - hy, w = tr.m[k] * haze, o = hc + hy * HW + hx;
+              HZB[o] += w * (1 - fx) * (1 - fy); HZB[o + 1] += w * fx * (1 - fy);
+              HZB[o + HW] += w * (1 - fx) * fy; HZB[o + HW + 1] += w * fx * fy;
+            }
           }
-          if (pl && ink > 0) seg(px, py, X, Y, m * ink, dc, pl === 2 ? 70 : 9);
-          px = X; py = Y; pl = tr.link[k];
+        }
+        if (ink > 0) {
+          const L = tr.link, plunge = a < 1.2 ? 3 + 110 * a : 0;
+          for (let k = 0; k < n - 1; k++) {
+            const l = L[k];
+            if (!l) continue;
+            const k0 = k > 0 && L[k - 1] ? k - 1 : k, k3 = L[k + 1] && k + 2 < n ? k + 2 : k + 1;
+            let mm = tr.m[k] * ink;
+            if (plunge > 0) mm *= sstep(plunge, plunge - 4, PY[k] - S);
+            if (mm > 0) spl(PX[k0], PY[k0], PX[k], PY[k], PX[k + 1], PY[k + 1], PX[k3], PY[k3], mm, dc, l === 2 ? 26 : MAXL);
+          }
         }
       }
+    }
+  }
+  // one segment of a Catmull-Rom spline through the tracers, so stretched threads stay curved
+  function spl(x0, y0, x1, y1, x2, y2, x3, y3, m, dc, maxl) {
+    const dx = x2 - x1, dy = y2 - y1, adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
+    const len = adx > ady ? adx : ady;
+    if (len > maxl) return;
+    if (len < 1.5) {
+      const ix = x1 | 0, iy = y1 | 0;
+      if (ix >= 0 && iy >= 0 && ix < W && iy < H) DEN[dc + iy * W + ix] += m;
+      return;
+    }
+    const el = Math.sqrt(dx * dx + dy * dy);
+    const w = m / Math.pow(el, maxl > 20 ? 0.3 : 0.7);
+    const steps = Math.ceil(len * 1.3);
+    const bx = -x0 + x2, cx = 2 * x0 - 5 * x1 + 4 * x2 - x3, ex = -x0 + 3 * x1 - 3 * x2 + x3;
+    const by = -y0 + y2, cy = 2 * y0 - 5 * y1 + 4 * y2 - y3, ey = -y0 + 3 * y1 - 3 * y2 + y3;
+    let lx = -1, ly = -1;
+    for (let k = 0; k < steps; k++) {
+      const u = k / steps;
+      const ix = (x1 + 0.5 * u * (bx + u * (cx + u * ex))) | 0, iy = (y1 + 0.5 * u * (by + u * (cy + u * ey))) | 0;
+      if (ix === lx && iy === ly) continue;
+      lx = ix; ly = iy;
+      if (ix >= 0 && iy >= 0 && ix < W && iy < H) DEN[dc + iy * W + ix] += w;
     }
   }
   function seg(x0, y0, x1, y1, m, dc, maxl) {
@@ -516,7 +568,7 @@
   }
 
   /* ---------------------------------------------------------------- composite */
-  let KI = 0.55, KH = 0.05;
+  const KI = 0.55, KH = 0.035, DITH = 0.55;
   function composite(t) {
     const HN = HW * HH;
     for (let y = 0; y < H; y++) {
@@ -534,7 +586,7 @@
         if (y === ys + 1) { OUT[i] = G0; continue; }
         // water ground
         const edge = Math.exp(-x / 9) + Math.exp(-(W - 1 - x) / 9);
-        let gl = 1.45 + 3.2 * Math.pow(z, 1.1) + 0.9 * edge - 2.2 * CAU[i];
+        let gl = 1.25 + 3.3 * Math.pow(z, 1.1) + 0.9 * edge - 1.5 * CAU[i];
         if (y <= ys + 3) gl = 0.6 + th * 0.2;
         let gi = fl(gl + th); gi = gi < 0 ? 0 : gi > 5 ? 5 : gi;
         let col = G0 + gi;
@@ -552,7 +604,7 @@
         }
         if (tot > 0.015) {
           const op = 1 - Math.exp(-tot);
-          let lv = op < 0.05 ? 0 : fl(op * 5.4 + th);
+          let lv = op < 0.05 ? 0 : fl(op * 5.4 + 0.5 + (th - 0.5) * DITH);
           if (lv > 0) {
             if (lv > 5) lv = 5;
             let c = best;
@@ -612,14 +664,14 @@
         }
       }
       // crown droplets
-      for (let k = 0; k < 11; k++) {
+      for (let k = 0; k < 18; k++) {
         const s = k & 1 ? 1 : -1;
-        const lx = x0 + s * (2 + 3 * ih(j, k, 11)), vx = s * (10 + 34 * ih(j, k, 12)), vy = -(40 + 60 * ih(j, k, 13));
+        const lx = x0 + s * (2 + 3 * ih(j, k, 11)), vx = s * (8 + 40 * ih(j, k, 12)), vy = -(45 + 70 * ih(j, k, 13));
         const a0 = 0.05 + 0.12 * ih(j, k, 14), la = a - a0;
         if (la < 0) continue;
         const xx = lx + vx * la, yy = S - 2 + vy * la + 0.5 * 430 * la * la;
         if (yy >= YS[clamp(fl(xx), 0, W - 1)]) continue;
-        put(xx, yy, ih(j, k, 15) < 0.5 ? r + 2 : MEN);
+        put(xx, yy, ih(j, k, 15) < 0.55 ? r + 1 + fl(ih(j, k, 16) * 3) : MEN);
       }
       // Worthington jet
       if (a > 0.2 && a < 0.7) {
@@ -661,15 +713,13 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'ink-bloom',
     title: 'Ink Bloom',
-    medium: 'Eight drops in still water, 270 × 338, advected and dithered in JavaScript · 24 s loop',
+    medium: 'Advected ink, 270 × 338, dithered in JavaScript · 24 s loop',
     note: 'Each drop’s ink lives exactly one loop · tap to pause',
     about: 'Drops of indigo, vermilion, gold and teal ink fall into a tall tank of clear water seen from the side. Each one punches in with a small splash crown, plunges as a vortex ring, and the ring rolls, slows and splits into smaller rings that split again, drawing the ink into mushroom heads, stems and silk filaments that shear and braid in a slow swirl before thinning into haze. Every thread is a line of ink carried by a smooth, divergence-free flow, one pixel wide; a new drop arrives every three seconds and each drop’s ink lives exactly one loop, so the water never fills up.',
     tone: 'light',
     room: '#e9f0ee',
     mount(el, api) {
       const EXPORT = /[?&]export\b/.test(location.search);
-      { const q = new URLSearchParams(location.search); if (q.has('only')) ONLY = +q.get('only');
-        for (const k of ['P_R0', 'P_GROW', 'P_K0', 'P_KP', 'P_K1', 'P_DEL', 'P_VP', 'P_CORE', 'P_SPOKE', 'P_CAP', 'P_SKIN', 'KI', 'KH', 'KREV', 'KC', 'SINPHI', 'LOBE', 'WARP', 'FLAT']) if (q.has(k)) eval(k + '=' + parseFloat(q.get(k))); }
       let alive = true, raf = 0, playing = !EXPORT, clock = 0, last = 0, built = false, tmr = 0;
       el.style.background = '#e9f0ee';
       const cv = document.createElement('canvas');
@@ -709,10 +759,8 @@
         while (performance.now() - t0 < 40) { if (job.next().done) { finish(); return; } }
         tmr = setTimeout(step, 0);
       }
-      const TB = performance.now();
       function finish() {
         built = true;
-        console.warn('sim ms', Math.round(performance.now() - TB), TR.map((t) => t.n).join(','));
         render(clock);
         if (EXPORT) {
           const faded = () => { const st = el.parentElement; return !st || parseFloat(getComputedStyle(st).opacity) >= 0.999; };
