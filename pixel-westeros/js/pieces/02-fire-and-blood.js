@@ -134,123 +134,175 @@
   }
 
   /* ================================================================ dragon designs */
-  // stations along the spine in the rest pose: x (forward), vertical radius, horizontal radius
+  // spine stations, snout → tail tip: x (forward), top radius, bottom radius, half width
   const ST = [
-    [0.67, 0.012, 0.018], [0.63, 0.023, 0.032], [0.575, 0.033, 0.043], [0.52, 0.041, 0.052], [0.47, 0.030, 0.034],
-    [0.41, 0.024, 0.024], [0.35, 0.026, 0.026], [0.29, 0.031, 0.033], [0.23, 0.044, 0.050], [0.16, 0.060, 0.066],
-    [0.08, 0.067, 0.070], [0.00, 0.064, 0.064], [-0.08, 0.056, 0.055], [-0.15, 0.046, 0.045], [-0.24, 0.035, 0.033],
-    [-0.34, 0.027, 0.025], [-0.44, 0.020, 0.018], [-0.54, 0.014, 0.013], [-0.64, 0.010, 0.009], [-0.74, 0.006, 0.006],
-    [-0.83, 0.003, 0.003],
+    [0.735, 0.011, 0.009, 0.016],
+    [0.695, 0.023, 0.018, 0.031],
+    [0.640, 0.033, 0.030, 0.044],
+    [0.590, 0.054, 0.034, 0.054],
+    [0.540, 0.053, 0.060, 0.064],
+    [0.495, 0.046, 0.048, 0.053],
+    [0.445, 0.055, 0.061, 0.059],
+    [0.385, 0.061, 0.070, 0.065],
+    [0.325, 0.076, 0.083, 0.078],
+    [0.265, 0.104, 0.110, 0.116],
+    [0.195, 0.119, 0.129, 0.129],
+    [0.115, 0.129, 0.140, 0.137],
+    [0.025, 0.121, 0.129, 0.123],
+    [-0.065, 0.105, 0.110, 0.105],
+    [-0.155, 0.085, 0.083, 0.085],
+    [-0.255, 0.071, 0.065, 0.065],
+    [-0.355, 0.051, 0.047, 0.047],
+    [-0.455, 0.036, 0.032, 0.032],
+    [-0.555, 0.026, 0.023, 0.023],
+    [-0.655, 0.018, 0.016, 0.016],
+    [-0.755, 0.012, 0.011, 0.011],
+    [-0.845, 0.006, 0.005, 0.005],
+    [-0.905, 0.002, 0.002, 0.002],
   ];
-  const NS = ST.length, RING = 6;
+  const NS = ST.length, RING = 10, RV1 = RING + 1;
+  const K_BROW = 3, K_JAW = 4, K_SKULL = 5, K_SHO = 10, K_HIP = 14;
+  const USTA = ST.map((s) => (ST[0][0] - s[0]) / 1.64);
   const DESIGN = [
-    { // obsidian: the biggest, broad heavy wings, long swept horns, a tail blade
-      sc: 0.88, beats: 12, amp: 0.95, neck: 1.0, tail: 1.05, girth: 1.45,
-      hum: 0.22, fore: 0.30, fing: [[-0.32, 0.50], [0.10, 0.56], [0.52, 0.50], [0.95, 0.40]], horn: 0, tip: 0, spike: 0.045,
+    { // obsidian: the biggest, heaviest, long swept horns, a tail blade
+      sc: 1.14, beats: 12, amp: 1.0, neck: 1.0, tail: 1.05, girth: 1.1,
+      hum: 0.178, fore: 0.246, fing: [[-0.04, 0.41], [0.38, 0.46], [0.80, 0.43], [1.22, 0.34]], horn: 0, tip: 0, spike: 0.05,
     },
-    { // cream: slender, long-necked, narrow pointed wings, forward-hooked horns, a fan of tail fins
-      sc: 0.8, beats: 15, amp: 1.0, neck: 1.22, tail: 1.15, girth: 1.2,
-      hum: 0.20, fore: 0.33, fing: [[-0.25, 0.58], [0.15, 0.58], [0.55, 0.46], [0.98, 0.34]], horn: 1, tip: 1, spike: 0.03,
+    { // cream: long-necked and lean, horns that hook up and forward, a fan of tail fins
+      sc: 1.04, beats: 15, amp: 1.0, neck: 1.1, tail: 1.12, girth: 0.96,
+      hum: 0.170, fore: 0.264, fing: [[0.02, 0.46], [0.42, 0.48], [0.82, 0.39], [1.25, 0.30]], horn: 1, tip: 1, spike: 0.034,
     },
-    { // green: compact, a crest frill, notched wings, a double barb
-      sc: 0.84, beats: 10, amp: 0.9, neck: 0.92, tail: 1.0, girth: 1.35,
-      hum: 0.21, fore: 0.29, fing: [[-0.30, 0.52], [0.05, 0.50], [0.40, 0.52], [0.78, 0.44], [1.12, 0.32]], horn: 2, tip: 2, spike: 0.038,
+    { // green: compact, a crest frill, five fingers, a double barb
+      sc: 1.09, beats: 10, amp: 0.95, neck: 0.95, tail: 1.0, girth: 1.04,
+      hum: 0.170, fore: 0.238, fing: [[-0.02, 0.41], [0.32, 0.41], [0.66, 0.43], [1.02, 0.38], [1.38, 0.28]], horn: 2, tip: 2, spike: 0.042,
     },
   ];
-
-  // material ramps per dragon (palette indices, dark → light)
-  const BODY = [[24, 25, 26, 27], [29, 30, 31, 32, 33, 34], [36, 37, 38, 39, 40]];
-  const MEMB = [[24, 25, 26, 27], [30, 31, 32, 33, 34], [36, 37, 38, 39, 40]];
-  const TRANS = [[26, 28, 7, 8, 9], [31, 32, 13, 14], [38, 41, 42, 43]];
-  const HORN = [[25, 27, 28, 9], [31, 32, 33, 34, 35], [41, 42, 43]];
-  const RIM = [[8, 10, 11], [33, 34, 35], [41, 42, 43]];
-  const BONE = [[27, 28, 9, 10], [30, 31, 32, 33], [37, 40, 41, 42]];
-  const OUTL = [24, 29, 36];
+  // ramps per dragon, dark → light
+  const BODY = [[24, 24, 25, 26, 27], [29, 30, 31, 32, 33, 34], [36, 37, 38, 39, 40]];
+  const BELLY = [[25, 26, 27, 28, 8], [31, 32, 33, 34, 35], [38, 40, 41, 42, 43]];
+  const SSS = [[8, 9, 10, 11], [34, 35, 16], [41, 42, 43]];          // subsurface glow at the lit rims
+  const MEMB = [[24, 25, 26, 27, 28, 7, 8, 9], [29, 30, 31, 32, 33, 34, 35], [36, 37, 38, 39, 40, 41, 42]];
+  const BONE = [[27, 28, 9, 10], [31, 32, 33, 34], [38, 40, 41, 42]];
+  const HORN = [[25, 26, 27, 28, 9], [31, 32, 33, 34, 35], [37, 41, 42, 43]];
+  const RIM = [[9, 10, 11], [33, 34, 35], [41, 42, 43]];
+  const OUTL = [28, 29, 36];
+  const EYEC = [[16, 12], [15, 12], [14, 11]];
 
   /* ================================================================ geometry */
-  const MAXV = 900, MAXT = 900;
-  const LX = new Float32Array(MAXV), LY = new Float32Array(MAXV), LZ = new Float32Array(MAXV), VA = new Float32Array(MAXV);  // local, attribute
-  const SX = new Float32Array(MAXV), SY = new Float32Array(MAXV), SZ = new Float32Array(MAXV);  // screen
-  const WXs = new Float32Array(MAXV), WYs = new Float32Array(MAXV), WZs = new Float32Array(MAXV); // world
-  const TA = new Uint16Array(MAXT), TB = new Uint16Array(MAXT), TC = new Uint16Array(MAXT), TM = new Uint8Array(MAXT);
-  const LA = new Uint16Array(200), LB = new Uint16Array(200), LM = new Uint8Array(200), LWD = new Uint8Array(200);
+  const MAXV = 1600, MAXT = 2600, MAXL = 160;
+  const LX = new Float32Array(MAXV), LY = new Float32Array(MAXV), LZ = new Float32Array(MAXV);
+  const LNX = new Float32Array(MAXV), LNY = new Float32Array(MAXV), LNZ = new Float32Array(MAXV), HASN = new Uint8Array(MAXV);
+  const VA = new Float32Array(MAXV), VU = new Float32Array(MAXV), VV = new Float32Array(MAXV), VS = new Float32Array(MAXV);
+  const SX = new Float32Array(MAXV), SY = new Float32Array(MAXV), SZ = new Float32Array(MAXV);
+  const WXs = new Float32Array(MAXV), WYs = new Float32Array(MAXV), WZs = new Float32Array(MAXV);
+  const TA = new Uint16Array(MAXT), TB = new Uint16Array(MAXT), TC = new Uint16Array(MAXT), TM = new Uint8Array(MAXT), TF = new Uint8Array(MAXT);
+  const LA = new Uint16Array(MAXL), LB = new Uint16Array(MAXL), LM = new Uint8Array(MAXL), LWD = new Uint8Array(MAXL), LSH = new Float32Array(MAXL);
   let nv = 0, nt = 0, nl = 0;
-  const vtx = (x, y, z, a) => { LX[nv] = x; LY[nv] = y; LZ[nv] = z; VA[nv] = a === undefined ? 0.5 : a; return nv++; };
-  const tri = (a, b, c, m) => { TA[nt] = a; TB[nt] = b; TC[nt] = c; TM[nt] = m; nt++; };
-  const seg = (a, b, m, w) => { LA[nl] = a; LB[nl] = b; LM[nl] = m; LWD[nl] = w; nl++; };
+  // a bent vertex with a normal (smooth-shaded)
+  const vtxn = (u, v) => { LX[nv] = BX; LY[nv] = BY; LZ[nv] = BZ; LNX[nv] = BNX; LNY[nv] = BNY; LNZ[nv] = BNZ; HASN[nv] = 1; VA[nv] = 0; VU[nv] = u; VV[nv] = v; return nv++; };
+  // a bent vertex without one (flat-shaded parts), carrying a gradient attribute
+  const vtxp = (p, a) => { bend(p[0], p[1], p[2], 0, 1, 0); LX[nv] = BX; LY[nv] = BY; LZ[nv] = BZ; HASN[nv] = 0; VA[nv] = a || 0; VU[nv] = 0; VV[nv] = 0; return nv++; };
+  const tri = (a, b, c, m, flat) => { TA[nt] = a; TB[nt] = b; TC[nt] = c; TM[nt] = m; TF[nt] = flat ? 1 : 0; nt++; };
+  const seg = (a, b, m, w, sh) => { LA[nl] = a; LB[nl] = b; LM[nl] = m; LWD[nl] = w; LSH[nl] = sh === undefined ? 0.6 : sh; nl++; };
 
-  // neck pose: yaw / pitch for the breath and an idle sway
-  const NECK = { yaw: 0, pitch: 0, env: 0, jaw: 0 };
-  function neckPose(i, t, out, o) {
-    const env = breath(i, t);
-    o.env = env;
-    o.yaw = out * env * (0.62 + 0.22 * Math.sin(TAU * t / 1.5 + i)) + 0.10 * Math.sin(TAU * t * 3 / D + i * 2);
-    o.pitch = -0.18 * env + 0.06 * Math.sin(TAU * t * 4 / D + i);
-    o.jaw = env * (0.55 + 0.1 * Math.sin(TAU * t / 0.75));
+  // the pose of the neck and head: breath, the beat, and slow idle sway
+  const NX0 = 0.26, NX1 = 0.50;
+  function wingPhase(dz, i, t) { const q = t * dz.beats / D + i * 0.37; return q + 0.11 * Math.sin(TAU * q); }
+  function poseState(i, t, out, o) {
+    const dz = DESIGN[i], env = breath(i, t), glide = triW(t), q = wingPhase(dz, i, t);
+    const amp = dz.amp * (1 - 0.35 * env) * (1 - 0.82 * glide);
+    o.env = env; o.glide = glide; o.q = q; o.amp = amp;
+    o.yaw = out * env * (0.62 + 0.22 * Math.sin(TAU * t / 1.5 + i)) + 0.10 * Math.sin(TAU * t * 3 / D + i * 2) + 0.06 * amp * Math.sin(TAU * q + 0.4);
+    o.pitch = -0.16 * env + 0.06 * Math.sin(TAU * t * 4 / D + i) + 0.13 * amp * Math.cos(TAU * q + 0.9);
+    o.jaw = env * (0.5 + 0.1 * Math.sin(TAU * t / 0.75));
+    o.bob = 0.045 * amp * Math.cos(TAU * q + PI - 0.5);       // the body lifts as the wings finish the downstroke
+    o.hx = NX0 + (NX1 - NX0) * dz.neck;
   }
-  const NX0 = 0.22, NX1 = 0.47;
-  // bend a rest-pose point of the neck/head; dragon-specific neck length already applied
-  let BX = 0, BY = 0, BZ = 0;
-  function bend(x, y, z, yaw, pitch, hx) {
-    const wgt = clamp((x - NX0) / (hx - NX0), 0, 1);
-    if (wgt <= 0) { BX = x; BY = y; BZ = z; return; }
-    const w = wgt * wgt * (3 - 2 * wgt), Y = yaw * w, P = pitch * w;
-    let dx = x - NX0, dy = y - 0.03, dz = z;
-    const cp = Math.cos(P), sp = Math.sin(P);
-    const ex = dx * cp - dy * sp, ey = dx * sp + dy * cp;
-    const cy = Math.cos(Y), sy = Math.sin(Y);
-    BX = NX0 + ex * cy - dz * sy; BY = 0.03 + ey; BZ = ex * sy + dz * cy;
+  // bend a rest-pose point (and a normal) through the neck: weighted yaw/pitch about the neck base, rigid past the head
+  let BX = 0, BY = 0, BZ = 0, BNX = 0, BNY = 0, BNZ = 0, BYAW = 0, BPIT = 0, BHX = 0.5;
+  function bend(x, y, z, nx, ny, nz) {
+    const wgt = clamp((x - NX0) / (BHX - NX0), 0, 1);
+    if (wgt <= 0) { BX = x; BY = y; BZ = z; BNX = nx; BNY = ny; BNZ = nz; return; }
+    const w = wgt * wgt * (3 - 2 * wgt), Y = BYAW * w, P = BPIT * w;
+    const cp = Math.cos(P), sp = Math.sin(P), cy = Math.cos(Y), sy = Math.sin(Y);
+    const dx = x - NX0, dy = y - 0.04;
+    let ex = dx * cp - dy * sp, ey = dx * sp + dy * cp;
+    BX = NX0 + ex * cy - z * sy; BY = 0.04 + ey; BZ = ex * sy + z * cy;
+    ex = nx * cp - ny * sp; ey = nx * sp + ny * cp;
+    BNX = ex * cy - nz * sy; BNY = ey; BNZ = ex * sy + nz * cy;
   }
-  const neckRise = (x) => 0.075 * sstep(NX0, NX1 + 0.05, x);
-  const stx = (dz, x) => (x > NX0 ? NX0 + (x - NX0) * dz.neck : x < -0.15 ? -0.15 + (x + 0.15) * dz.tail : x);
+  const neckRise = (x) => 0.10 * sstep(0.24, 0.44, x) - 0.03 * sstep(0.47, 0.74, x);   // an S: up, then the head dips forward
+  const stx = (dz, x) => (x > NX0 ? NX0 + (x - NX0) * dz.neck : x < -0.155 ? -0.155 + (x + 0.155) * dz.tail : x);
 
-  // mouth position and aim in world space at time t (used by the fire, at past moments)
+  // mouth position and aim in world space at time t (the fire asks for past moments)
   const MO = { x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: 0, vx: 0, vy: 0, vz: 0, env: 0 };
   const FT = { px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0, fx: 0, fy: 0, fz: 0, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0, out: 1 };
-  const NK = { yaw: 0, pitch: 0, env: 0, jaw: 0 };
+  const NK = {}, PSD = {};
   function mouthAt(i, t, o) {
     const dz = DESIGN[i];
     flight(i, t, FT);
-    neckPose(i, t, FT.out, NK);
-    const hx = NX0 + (NX1 - NX0) * dz.neck, sx = stx(dz, 0.66);
-    const bob = bodyBob(dz, t);
-    bend(sx, neckRise(0.66) - 0.012 + bob, 0, NK.yaw, NK.pitch, hx);
-    const mx = BX, my = BY, mz = BZ;
-    bend(sx + 0.2, neckRise(0.66) - 0.012 - 0.035 + bob, 0, NK.yaw, NK.pitch, hx);
-    let ax = BX - mx, ay = BY - my, az = BZ - mz;
-    const s = dz.sc;
+    poseState(i, t, FT.out, NK);
+    BYAW = NK.yaw; BPIT = NK.pitch; BHX = NK.hx;
+    const xr = 0.715;
+    bend(stx(dz, xr), neckRise(xr) + NK.bob - 0.006, 0, 1, -0.14, 0);
+    const mx = BX, my = BY, mz = BZ, s = dz.sc;
     o.x = FT.px + s * (mx * FT.fx + my * FT.ux + mz * FT.rx);
     o.y = FT.py + s * (mx * FT.fy + my * FT.uy + mz * FT.ry);
     o.z = FT.pz + s * (mx * FT.fz + my * FT.uz + mz * FT.rz);
-    let dx = ax * FT.fx + ay * FT.ux + az * FT.rx, dy = ax * FT.fy + ay * FT.uy + az * FT.ry, dw = ax * FT.fz + ay * FT.uz + az * FT.rz;
+    const dx = BNX * FT.fx + BNY * FT.ux + BNZ * FT.rx, dy = BNX * FT.fy + BNY * FT.uy + BNZ * FT.ry, dw = BNX * FT.fz + BNY * FT.uz + BNZ * FT.rz;
     const n = Math.hypot(dx, dy, dw);
     o.dx = dx / n; o.dy = dy / n; o.dz = dw / n;
     o.vx = FT.vx; o.vy = FT.vy; o.vz = FT.vz; o.env = NK.env;
   }
-  function wingPhase(dz, i, t) { const q = t * dz.beats / D + i * 0.37; return q + 0.07 * Math.sin(TAU * q); }
-  function bodyBob(dz, t) { return 0.028 * Math.cos(TAU * (t * dz.beats / D) + 0.6); }
 
-  // build dragon i in local coordinates (into LX/LY/LZ from index nv), with triangles and bone lines
-  const RV = new Uint16Array(NS * RING), SPX = new Float32Array(NS), SPY = new Float32Array(NS), SPZ = new Float32Array(NS);
-  function buildDragon(i, t) {
-    const dz = DESIGN[i], m0 = i * 4 + 1;
-    flight(i, t, FR);
-    neckPose(i, t, FR.out, NECK);
-    const glide = triW(t), q = wingPhase(dz, i, t), amp = dz.amp * (1 - 0.35 * NECK.env) * (1 - 0.82 * glide);
-    const bob = bodyBob(dz, t), hx = NX0 + (NX1 - NX0) * dz.neck;
-    // spine
-    for (let k = 0; k < NS; k++) {
-      const x0 = stx(dz, ST[k][0]);
-      let y = neckRise(ST[k][0]) + bob, z = 0;
-      if (ST[k][0] < -0.05) {                               // tail waves, lagging the wings
-        const u = (-0.05 - ST[k][0]) / 0.78;
-        z += 0.07 * u * u * Math.sin(TAU * (q * 0.5) - 5.5 * u + i);
-        y += 0.06 * u * u * Math.sin(TAU * q - 4.5 * u) - 0.03 * u;
+  // a tapering tube along a polyline of rest-pose points, smooth-shaded
+  function tube(pts, rad, mat, sides) {
+    const n = pts.length, base = nv;
+    for (let k = 0; k < n; k++) {
+      const a = pts[Math.max(0, k - 1)], b = pts[Math.min(n - 1, k + 1)];
+      let tx = b[0] - a[0], ty = b[1] - a[1], tz = b[2] - a[2];
+      let tn = Math.hypot(tx, ty, tz) || 1; tx /= tn; ty /= tn; tz /= tn;
+      let hx = 0, hy = 1, hz = 0;
+      if (Math.abs(ty) > 0.85) { hx = 1; hy = 0; }
+      const dd = hx * tx + hy * ty + hz * tz;
+      let nx = hx - tx * dd, ny = hy - ty * dd, nz = hz - tz * dd;
+      tn = Math.hypot(nx, ny, nz); nx /= tn; ny /= tn; nz /= tn;
+      const bx = ty * nz - tz * ny, by = tz * nx - tx * nz, bz = tx * ny - ty * nx;
+      for (let j = 0; j < sides; j++) {
+        const th = TAU * j / sides, c = Math.cos(th), s = Math.sin(th);
+        const ox = nx * c + bx * s, oy = ny * c + by * s, oz = nz * c + bz * s, r = rad[k];
+        bend(pts[k][0] + ox * r, pts[k][1] + oy * r, pts[k][2] + oz * r, ox, oy, oz);
+        vtxn(0, 0);
       }
-      bend(x0, y, z, NECK.yaw, NECK.pitch, hx);
-      SPX[k] = BX; SPY[k] = BY; SPZ[k] = BZ;
     }
-    // rings
+    for (let k = 0; k < n - 1; k++) for (let j = 0; j < sides; j++) {
+      const j1 = (j + 1) % sides, a = base + k * sides + j, b = base + k * sides + j1, c = base + (k + 1) * sides + j, d = base + (k + 1) * sides + j1;
+      tri(a, b, c, mat, 0); tri(b, d, c, mat, 0);
+    }
+  }
+  const add = (p, x, y, z) => [p[0] + x, p[1] + y, p[2] + z];
+
+  const RV = new Uint16Array(NS * RV1), SPX = new Float32Array(NS), SPY = new Float32Array(NS), SPZ = new Float32Array(NS);
+  const EYEL = [];      // eyes in local space, per frame
+  function buildDragon(i, t) {
+    const dz = DESIGN[i], m0 = i * 5 + 1, g = dz.girth;   // kinds: 0 body, 1 membrane, 2 bone, 3 horn, 4 belly
+    flight(i, t, FR);
+    poseState(i, t, FR.out, PSD);
+    const P = PSD, q = P.q, amp = P.amp;
+    BYAW = P.yaw; BPIT = P.pitch; BHX = P.hx;
+    // the spine in the rest pose, with the tail swinging on every beat
+    for (let k = 0; k < NS; k++) {
+      const xr = ST[k][0];
+      let y = neckRise(xr) + P.bob, z = 0;
+      if (xr < -0.06) {
+        const u = (-0.06 - xr) / 0.85, u15 = u * Math.sqrt(u);
+        z += (0.05 + 0.08 * amp) * u15 * Math.sin(TAU * q - 3.4 * u + i);
+        y += 0.09 * amp * u15 * Math.sin(TAU * q - 4.2 * u + 1) - 0.04 * u;
+      }
+      SPX[k] = stx(dz, xr); SPY[k] = y; SPZ[k] = z;
+    }
+    // rings: elliptical sections (separate top and bottom radii), jaw dropped open, then bent through the neck
+    const hgx = SPX[K_JAW], hgy = SPY[K_JAW] - 0.012, ja = P.jaw, cj = Math.cos(ja), sj = Math.sin(ja);
     for (let k = 0; k < NS; k++) {
       const a = Math.max(0, k - 1), b = Math.min(NS - 1, k + 1);
       let tx = SPX[a] - SPX[b], ty = SPY[a] - SPY[b], tz = SPZ[a] - SPZ[b];
@@ -258,156 +310,137 @@
       let nx = -tx * ty, ny = 1 - ty * ty, nz = -tz * ty;
       n = Math.hypot(nx, ny, nz); nx /= n; ny /= n; nz /= n;
       const bx = ty * nz - tz * ny, by = tz * nx - tx * nz, bz = tx * ny - ty * nx;
-      const rv = ST[k][1] * dz.girth, rh = ST[k][2] * dz.girth;
-      for (let j = 0; j < RING; j++) {
-        const th = TAU * j / RING + PI / 2, sv = Math.sin(th) * rv, ch = Math.cos(th) * rh;
-        RV[k * RING + j] = vtx(SPX[k] + nx * sv + bx * ch, SPY[k] + ny * sv + by * ch, SPZ[k] + nz * sv + bz * ch);
-      }
-    }
-    for (let k = 0; k < NS - 1; k++) {
-      for (let j = 0; j < RING; j++) {
-        const j1 = (j + 1) % RING;
-        const a = RV[k * RING + j], b = RV[k * RING + j1], c = RV[(k + 1) * RING + j], d = RV[(k + 1) * RING + j1];
-        const mm = (j === 2 || j === 3) && k >= 4 && k <= 16 ? m0 + 3 : m0;   // belly plates
-        tri(a, b, c, mm); tri(b, d, c, mm);
-      }
-    }
-    const top = (k) => RV[k * RING], bot = (k) => RV[k * RING + 3];
-    const ringP = (k, j) => RV[k * RING + j];
-    // jaw: drops open while breathing
-    {
-      const hk = 3, sk = 0;
-      const hxp = SPX[hk], hyp = SPY[hk], hzp = SPZ[hk];
-      let ax = SPX[sk] - hxp, ay = SPY[sk] - hyp - 0.012, az = SPZ[sk] - hzp;
-      // rotate the jaw line downward about the head's side axis (approximate: drop in local y)
-      const L = Math.hypot(ax, ay, az), dn = Math.sin(NECK.jaw) * L * 0.9;
-      const tip = vtx(hxp + ax * Math.cos(NECK.jaw), hyp + ay - dn, hzp + az * Math.cos(NECK.jaw));
-      tri(ringP(hk, 2), ringP(hk, 4), tip, m0);
-      tri(ringP(hk, 2), ringP(1, 3), tip, m0);
-      tri(ringP(hk, 4), ringP(1, 3), tip, m0);
-    }
-    // horns
-    {
-      const hk = 3, fx = SPX[1] - SPX[4], fy = SPY[1] - SPY[4], fz = SPZ[1] - SPZ[4];
-      const fn = Math.hypot(fx, fy, fz), ux = fx / fn, uy = fy / fn, uz = fz / fn;
-      // side axis of the head
-      let sx = uy * 0 - uz * 1, sy = uz * 0 - ux * 0, sz = ux * 1 - uy * 0;
-      const sn = Math.hypot(sx, sy, sz) || 1; sx /= sn; sy /= sn; sz /= sn;
-      const hb = vtx(SPX[hk], SPY[hk], SPZ[hk]);
-      for (const side of [-1, 1]) {
-        const base1 = ringP(hk, side > 0 ? 1 : 5), base2 = ringP(hk, 0);
-        if (dz.horn === 0) {          // long, straight, swept back
-          const tip = vtx(SPX[hk] - ux * 0.20 + sx * side * 0.06, SPY[hk] - uy * 0.20 + 0.075, SPZ[hk] - uz * 0.20 + sz * side * 0.06);
-          tri(base1, base2, tip, m0 + 3); seg(base1, tip, m0 + 3, 1);
-          const cheek = vtx(SPX[hk + 1] - ux * 0.07 + sx * side * 0.05, SPY[hk + 1] - uy * 0.07 - 0.01, SPZ[hk + 1] - uz * 0.07 + sz * side * 0.05);
-          tri(ringP(hk + 1, side > 0 ? 2 : 4), ringP(hk, side > 0 ? 2 : 4), cheek, m0 + 3);
-        } else if (dz.horn === 1) {   // back, then hooked up and forward
-          const mid = vtx(SPX[hk] - ux * 0.10 + sx * side * 0.035, SPY[hk] - uy * 0.10 + 0.05, SPZ[hk] - uz * 0.10 + sz * side * 0.035);
-          const tip = vtx(SPX[hk] - ux * 0.07 + sx * side * 0.05, SPY[hk] - uy * 0.07 + 0.11, SPZ[hk] - uz * 0.07 + sz * side * 0.05);
-          tri(base1, base2, mid, m0 + 3); seg(base1, mid, m0 + 3, 1); seg(mid, tip, m0 + 3, 1);
-        } else {                       // a frill: three spines with skin between
-          const tips = [];
-          for (let f = 0; f < 3; f++) {
-            const a = 0.35 + f * 0.5, L = 0.12 - f * 0.015;
-            tips.push(vtx(SPX[hk] - ux * L * Math.cos(a) + sx * side * (0.03 + 0.03 * f), SPY[hk] + L * Math.sin(a) * 0.8 - uy * L * 0.3, SPZ[hk] - uz * L * Math.cos(a) + sz * side * (0.03 + 0.03 * f)));
-          }
-          tri(base1, tips[0], tips[1], m0 + 1); tri(base1, tips[1], tips[2], m0 + 1); tri(base1, tips[2], ringP(hk + 2, side > 0 ? 1 : 5), m0 + 1);
-          for (const tp of tips) seg(base1, tp, m0 + 3, 1);
+      const rt = ST[k][1] * g, rb = ST[k][2] * g, rw = ST[k][3] * g;
+      for (let j = 0; j <= RING; j++) {
+        const th = TAU * j / RING + PI / 2, s = Math.sin(th), c = Math.cos(th), rv = s > 0 ? rt : rb;
+        let px = SPX[k] + nx * s * rv + bx * c * rw, py = SPY[k] + ny * s * rv + by * c * rw, pz = SPZ[k] + nz * s * rv + bz * c * rw;
+        let ex = nx * s / rv + bx * c / rw, ey = ny * s / rv + by * c / rw, ez = nz * s / rv + bz * c / rw;
+        const en = Math.hypot(ex, ey, ez); ex /= en; ey /= en; ez /= en;
+        if (k < K_JAW && s < -0.25 && ja > 0) {       // lower jaw swings down about the hinge
+          const dx = px - hgx, dy = py - hgy;
+          px = hgx + dx * cj + dy * sj; py = hgy - dx * sj + dy * cj;
+          const fx = ex * cj + ey * sj, fy = -ex * sj + ey * cj; ex = fx; ey = fy;
         }
+        bend(px, py, pz, ex, ey, ez);
+        RV[k * RV1 + j] = vtxn(USTA[k], j / RING);
       }
-      void hb;
+    }
+    for (let k = 0; k < NS - 1; k++) for (let j = 0; j < RING; j++) {
+      const a = RV[k * RV1 + j], b = RV[k * RV1 + j + 1], c = RV[(k + 1) * RV1 + j], d = RV[(k + 1) * RV1 + j + 1];
+      const mm = (j === 4 || j === 5) && k >= 6 && k <= 18 ? m0 + 4 : m0;
+      tri(a, b, c, mm, 0); tri(b, d, c, mm, 0);
+    }
+    const sp = (k, dy, z) => [SPX[k], SPY[k] + dy, SPZ[k] + z];
+    // eyes, under the brow
+    EYEL.length = 0;
+    for (const side of [-1, 1]) { bend(SPX[K_BROW] - 0.004, SPY[K_BROW] + 0.012 * g, side * 0.041 * g, 0, 0, 0); EYEL.push([BX, BY, BZ]); }
+    // horns and spikes of the head
+    for (const side of [-1, 1]) {
+      const hb = sp(K_SKULL, 0.032 * g, side * 0.03 * g);
+      if (dz.horn === 0) {
+        tube([hb, add(hb, -0.11, 0.035, side * 0.02), add(hb, -0.22, 0.05, side * 0.05), add(hb, -0.31, 0.04, side * 0.075)], [0.022, 0.015, 0.008, 0], m0 + 3, 5);
+        tube([sp(K_BROW, 0.04 * g, side * 0.03 * g), add(sp(K_BROW, 0.04 * g, side * 0.03 * g), -0.05, 0.035, side * 0.02)], [0.01, 0], m0 + 3, 4);
+      } else if (dz.horn === 1) {
+        tube([hb, add(hb, -0.07, 0.05, side * 0.015), add(hb, -0.08, 0.11, side * 0.03), add(hb, -0.035, 0.155, side * 0.04)], [0.019, 0.013, 0.008, 0], m0 + 3, 5);
+      } else {
+        tube([hb, add(hb, -0.09, 0.04, side * 0.02), add(hb, -0.15, 0.035, side * 0.045)], [0.017, 0.009, 0], m0 + 3, 5);
+        const f0 = sp(K_SKULL, 0.0, side * 0.04 * g), tips = [];
+        for (let f = 0; f < 4; f++) {
+          const an = 0.15 + f * 0.42, L = 0.13 - f * 0.012;
+          tips.push(add(f0, -L * Math.cos(an) * 0.9, L * Math.sin(an) * 0.55 - 0.02, side * (0.05 + 0.02 * f)));
+        }
+        const r0 = vtxp(f0, 0), T = tips.map((p) => vtxp(p, 1));
+        for (let f = 0; f < 3; f++) tri(r0, T[f], T[f + 1], m0 + 1, 1);
+        for (let f = 0; f < 4; f++) seg(r0, T[f], m0 + 3, 1, 0.8);
+      }
+      const cb = sp(K_JAW, -0.015 * g, side * 0.05 * g);         // cheek spikes
+      tube([cb, add(cb, -0.06, -0.012, side * 0.03), add(cb, -0.11, -0.01, side * 0.05)], [0.013, 0.007, 0], m0 + 3, 4);
     }
     // dorsal spikes
-    for (let k = 6; k < NS - 3; k += 1) {
-      if (k % 2 && k > 9) continue;
-      const h = dz.spike * (k < 9 ? 0.7 : k < 13 ? 1.0 : 1.0 - (k - 13) * 0.14);
-      if (h <= 0.004) continue;
-      const ux = SPX[k] - SPX[k + 1], uy = SPY[k] - SPY[k + 1], uz = SPZ[k] - SPZ[k + 1];
-      const tip = vtx(SPX[k] - ux * 0.6, SPY[k] + ST[k][1] * dz.girth + h, SPZ[k] - uz * 0.6);
-      tri(top(k), top(k + 1), tip, m0 + 3);
+    for (let k = 7; k < NS - 3; k++) {
+      if (k > 12 && k % 2) continue;
+      const prof = k < 10 ? 0.7 : k < 15 ? 1.0 : 1.0 - (k - 15) * 0.16;
+      const h = dz.spike * prof;
+      if (h <= 0.006) continue;
+      const top = sp(k, ST[k][1] * g, 0), nxt = sp(k + 1, ST[k + 1][1] * g, 0);
+      const a = vtxp(top), b = vtxp(nxt), c = vtxp(add(top, -(top[0] - nxt[0]) * 0.8, h, 0));
+      tri(a, b, c, m0 + 3, 1);
     }
     // tail tip
     {
-      const k = NS - 3, e = NS - 1;
-      const ux = SPX[k] - SPX[e], uz = SPZ[k] - SPZ[e];
-      const un = Math.hypot(ux, uz) || 1, sxv = -uz / un, szv = ux / un;
-      const P = (fx, side, dy) => vtx(SPX[e] + ux * fx + sxv * side, SPY[e] + dy, SPZ[e] + uz * fx + szv * side);
-      if (dz.tip === 0) {             // blade
-        const a = P(1.2, 0.07, 0), b = P(1.2, -0.07, 0), tip = P(-0.9, 0, 0), back = P(2.0, 0, 0);
-        tri(a, tip, back, m0 + 3); tri(b, tip, back, m0 + 3);
-      } else if (dz.tip === 1) {      // fan of three fins
-        const root = P(1.0, 0, 0);
-        const f1 = P(-0.6, 0.08, 0.02), f2 = P(-0.9, 0, 0.03), f3 = P(-0.6, -0.08, 0.02);
-        tri(root, f1, f2, m0 + 1); tri(root, f2, f3, m0 + 1);
-        seg(root, f1, m0 + 3, 1); seg(root, f2, m0 + 3, 1); seg(root, f3, m0 + 3, 1);
-      } else {                         // double barb
-        const a = P(0.2, 0.0, 0), tip = P(-0.7, 0, 0);
-        const b1 = P(0.5, 0.07, 0), b2 = P(0.5, -0.07, 0);
-        tri(a, tip, b1, m0 + 3); tri(a, tip, b2, m0 + 3);
-        const c1 = P(1.4, 0.05, 0), c2 = P(1.4, -0.05, 0), r = P(1.9, 0, 0);
-        tri(r, c1, a, m0 + 3); tri(r, c2, a, m0 + 3);
+      const k = NS - 4, e = NS - 1;
+      const ux = SPX[k] - SPX[e], uz = SPZ[k] - SPZ[e], un = Math.hypot(ux, uz) || 1, sxv = -uz / un, szv = ux / un;
+      const Pt = (fx, side, dy) => vtxp([SPX[e] + ux * fx + sxv * side, SPY[e] + dy, SPZ[e] + uz * fx + szv * side]);
+      if (dz.tip === 0) {
+        const a = Pt(0.9, 0.08, 0), b = Pt(0.9, -0.08, 0), tip = Pt(-0.7, 0, 0), back = Pt(1.6, 0, 0);
+        tri(a, tip, back, m0 + 3, 1); tri(b, tip, back, m0 + 3, 1);
+      } else if (dz.tip === 1) {
+        const root = Pt(0.9, 0, 0), f1 = Pt(-0.4, 0.09, 0.02), f2 = Pt(-0.7, 0, 0.03), f3 = Pt(-0.4, -0.09, 0.02);
+        tri(root, f1, f2, m0 + 1, 1); tri(root, f2, f3, m0 + 1, 1);
+        seg(root, f1, m0 + 3, 1, 0.8); seg(root, f2, m0 + 3, 1, 0.8); seg(root, f3, m0 + 3, 1, 0.8);
+      } else {
+        const a = Pt(0.2, 0, 0), tip = Pt(-0.6, 0, 0), b1 = Pt(0.45, 0.08, 0), b2 = Pt(0.45, -0.08, 0);
+        tri(a, tip, b1, m0 + 3, 1); tri(a, tip, b2, m0 + 3, 1);
+        const c1 = Pt(1.2, 0.06, 0), c2 = Pt(1.2, -0.06, 0), r = Pt(1.6, 0, 0);
+        tri(r, c1, a, m0 + 3, 1); tri(r, c2, a, m0 + 3, 1);
       }
     }
-    // hind legs, tucked
+    // hind legs, heavy and tucked
     for (const side of [-1, 1]) {
-      const k = 13;
-      const hip = ringP(k, side > 0 ? 2 : 4), hip2 = ringP(k + 1, 3);
-      const knee = vtx(SPX[k] + 0.02, SPY[k] - 0.075, SPZ[k] + side * 0.05);
-      const foot = vtx(SPX[k] - 0.11, SPY[k] - 0.085, SPZ[k] + side * 0.06);
-      tri(hip, hip2, knee, m0); tri(hip2, knee, foot, m0);
-      seg(knee, foot, m0, 1);
+      const hp = sp(K_HIP, -0.03 * g, side * 0.055 * g);
+      const kn = add(hp, 0.07, -0.08, side * 0.025), an = add(hp, -0.03, -0.125, side * 0.02), ft = add(hp, -0.11, -0.13, side * 0.015);
+      tube([hp, kn, an, ft], [0.05 * g, 0.036 * g, 0.022, 0.012], m0, 6);
+      const f = vtxp(ft);
+      for (let c = -1; c <= 1; c++) seg(f, vtxp(add(ft, -0.05, -0.01, side * 0.012 * c)), m0 + 3, 1, 0.4);
     }
-    // wings
-    const up = Math.cos(TAU * q), fold = Math.max(0, -Math.sin(TAU * q)) * (1 - glide);
-    const th1 = amp * 0.62 * up + 0.08 + 0.1 * glide, th2 = amp * 0.32 * Math.cos(TAU * q - 0.9), th3 = amp * 0.38 * Math.cos(TAU * q - 1.8);
-    const swp = 0.16 * Math.sin(TAU * q);
-    const bill = 0.035 * Math.sin(TAU * q - 1.2);
+    // wings: a heavy shoulder, a tube arm, finger bones fanning from the wrist, membrane between
+    const up = Math.cos(TAU * q), fold = Math.max(0, -Math.sin(TAU * q)) * (1 - P.glide) * 0.8;
+    const th1 = amp * 0.85 * up + 0.12 + 0.1 * P.glide, th2 = amp * 0.38 * Math.cos(TAU * q - 0.9), th3 = amp * 0.45 * Math.cos(TAU * q - 1.7);
+    const swp = 0.2 * Math.sin(TAU * q), bill = 0.04 * Math.sin(TAU * q - 1.2);
     let wx = 0, wy = 0, wz = 0;
     const wd = (psi, th, side) => { const c = Math.cos(psi); wx = -Math.sin(psi); wy = c * Math.sin(th); wz = c * Math.cos(th) * side; };
     for (const side of [-1, 1]) {
-      const sk = 8, hk = 13;
-      const Sx = SPX[sk] - 0.01, Sy = SPY[sk] + 0.035, Sz = SPZ[sk] + side * 0.045;
-      const S = vtx(Sx, Sy, Sz, 0.2);
+      const S0 = sp(K_SHO, 0.03 * g, side * 0.04 * g), S = sp(K_SHO, 0.07 * g, side * 0.088 * g);
       wd(0.35 + 0.3 * fold - swp, th1, side);
-      const Ex = Sx + dz.hum * wx, Ey = Sy + dz.hum * wy, Ez = Sz + dz.hum * wz;
-      const E = vtx(Ex, Ey, Ez, 0);
-      wd(-0.55 + 0.55 * fold - swp, th1 + th2, side);
-      const Rx = Ex + dz.fore * wx, Ry = Ey + dz.fore * wy, Rz = Ez + dz.fore * wz;
-      const R = vtx(Rx, Ry, Rz, 0);
-      const Hx = SPX[hk] - 0.02, Hy = SPY[hk] + 0.01, Hz = SPZ[hk] + side * 0.04;
-      const Hp = vtx(Hx, Hy, Hz, 0.3);
-      const nf = dz.fing.length, tips = [];
+      const E = add(S, dz.hum * wx, dz.hum * wy, dz.hum * wz);
+      wd(-0.42 + 0.55 * fold - swp, th1 + th2, side);
+      const R = add(E, dz.fore * wx, dz.fore * wy, dz.fore * wz);
+      tube([S0, S, E, R], [0.06 * g, 0.05 * g, 0.03, 0.021], m0, 7);
+      const Hp = sp(K_HIP + 1, 0.025 * g, side * 0.05 * g);
+      const nf = dz.fing.length, tips = [], mids = [];
       for (let f = 0; f < nf; f++) {
-        const [ps, L] = dz.fing[f];
-        wd(lerp(ps, 1.3, fold * 0.3) - swp * 0.5, th1 + th2 + th3 * (0.6 + 0.4 * f / nf), side);
-        tips.push([Rx + L * wx, Ry + L * wy, Rz + L * wz]);
+        const [ps, L] = dz.fing[f], th = th1 + th2 + th3 * (0.6 + 0.4 * f / nf), pf = lerp(ps, 1.3, fold * 0.3) - swp * 0.5;
+        wd(pf, th1 + th2 + th3 * 0.4, side);
+        const Fm = add(R, L * 0.5 * wx, L * 0.5 * wy, L * 0.5 * wz);
+        wd(pf + 0.22 + 0.05 * f, th, side);                       // each finger curls back toward its tip
+        mids.push(Fm); tips.push(add(Fm, L * 0.52 * wx, L * 0.52 * wy, L * 0.52 * wz));
+        tube([R, Fm], [0.018, 0.009], m0 + 2, 4);
       }
-      const T = tips.map((p) => vtx(p[0], p[1], p[2], 0));
-      // membrane, with scalloped trailing edge and a little billow
-      const mid = (a, b, pull, bl) => vtx(Rx + ((a[0] + b[0]) / 2 - Rx) * pull, Ry + ((a[1] + b[1]) / 2 - Ry) * pull + bl, Rz + ((a[2] + b[2]) / 2 - Rz) * pull, 1);
+      const vS = vtxp(S, 0), vE = vtxp(E, 0.25), vR = vtxp(R, 0.35), vH = vtxp(Hp, 0), vS0 = vtxp(S0, 0);
+      const vT = tips.map((p) => vtxp(p, 1)), vF = mids.map((p) => vtxp(p, 0.62));
+      const notch = dz.tip === 2 ? 0.5 : 0.58;
       for (let f = 0; f < nf - 1; f++) {
-        const notch = dz.tip === 2 ? 0.58 : 0.68;
-        const M = mid(tips[f], tips[f + 1], notch, bill);
-        tri(R, T[f], M, m0 + 1); tri(R, M, T[f + 1], m0 + 1);
+        const a = tips[f], b = tips[f + 1], ma = mids[f], mb = mids[f + 1];
+        const cx = (ma[0] + mb[0]) / 2, cy = (ma[1] + mb[1]) / 2, cz = (ma[2] + mb[2]) / 2;
+        const M = vtxp([cx + ((a[0] + b[0]) / 2 - cx) * notch, cy + ((a[1] + b[1]) / 2 - cy) * notch + bill, cz + ((a[2] + b[2]) / 2 - cz) * notch], 0.9);
+        tri(vR, vF[f], vF[f + 1], m0 + 1, 1); tri(vF[f], vT[f], M, m0 + 1, 1); tri(vF[f], M, vF[f + 1], m0 + 1, 1); tri(vF[f + 1], M, vT[f + 1], m0 + 1, 1);
       }
-      const last = tips[nf - 1];
-      const M4 = vtx(lerp(last[0], Hx, 0.5) * 0.85 + Rx * 0.15, lerp(last[1], Hy, 0.5) * 0.85 + Ry * 0.15 + bill, lerp(last[2], Hz, 0.5) * 0.85 + Rz * 0.15, 1);
-      tri(R, T[nf - 1], M4, m0 + 1); tri(R, M4, Hp, m0 + 1);
-      tri(R, Hp, E, m0 + 1); tri(E, Hp, S, m0 + 1); tri(S, E, R, m0 + 1);
-      // bones
-      seg(S, E, m0 + 2, 2); seg(E, R, m0 + 2, 2);
-      for (let f = 0; f < nf; f++) seg(R, T[f], m0 + 2, 1);
-      wd(-1.1, th1 + th2, side);
-      const claw = vtx(Rx + 0.05 * wx, Ry + 0.05 * wy - 0.01, Rz + 0.05 * wz);
-      seg(R, claw, m0 + 3, 1);
+      const last = tips[nf - 1], lm = mids[nf - 1];
+      const M4 = vtxp([lerp(last[0], Hp[0], 0.5) * 0.8 + lm[0] * 0.2, lerp(last[1], Hp[1], 0.5) * 0.8 + lm[1] * 0.2 + bill, lerp(last[2], Hp[2], 0.5) * 0.8 + lm[2] * 0.2], 0.75);
+      tri(vF[nf - 1], vT[nf - 1], M4, m0 + 1, 1); tri(vR, vF[nf - 1], M4, m0 + 1, 1); tri(vR, M4, vH, m0 + 1, 1);
+      tri(vR, vH, vE, m0 + 1, 1); tri(vE, vH, vS, m0 + 1, 1); tri(vS, vH, vS0, m0 + 1, 1); tri(vS, vE, vR, m0 + 1, 1);
+      for (let f = 0; f < nf; f++) { seg(vR, vF[f], m0 + 2, 1, f === 0 ? 0.85 : 0.6); seg(vF[f], vT[f], m0 + 2, 1, f === 0 ? 0.8 : 0.55); }
+      wd(-1.15, th1 + th2, side);
+      seg(vR, vtxp(add(R, 0.06 * wx, 0.06 * wy - 0.01, 0.06 * wz)), m0 + 3, 1, 0.9);   // thumb claw
     }
     return FR;
   }
 
   /* ================================================================ rasteriser */
   const ZB = new Float32Array(NP), IDB = new Uint8Array(NP), SHB = new Float32Array(NP);
+  const SAB = new Float32Array(NP), SUB = new Float32Array(NP), SVB = new Float32Array(NP);
   const LIGHT = (() => { const x = 0.25, y = -1, z = 0.45, n = Math.hypot(x, y, z); return [x / n, y / n, z / n]; })();
-  function raster(a, b, c, mat, sh, gr) {
+  function raster(a, b, c, mat, flat, fs) {
     const ax = SX[a], ay = SY[a], bx = SX[b], by = SY[b], cx = SX[c], cy = SY[c];
     const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     if (area * area < 1e-8) return;
@@ -415,6 +448,7 @@
     const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx))), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx, cx)));
     const y0 = Math.max(0, Math.floor(Math.min(ay, by, cy))), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by, cy)));
     const az = SZ[a], bz = SZ[b], cz = SZ[c];
+    const sa = flat ? fs : VS[a], sb = flat ? fs : VS[b], sc = flat ? fs : VS[c];
     for (let y = y0; y <= y1; y++) {
       const py = y + 0.5;
       for (let x = x0; x <= x1; x++) {
@@ -426,7 +460,13 @@
         const w2 = 1 - w0 - w1;
         if (w2 < 0) continue;
         const z = w0 * az + w1 * bz + w2 * cz, i = y * W + x;
-        if (z < ZB[i]) { ZB[i] = z; IDB[i] = mat; SHB[i] = gr ? sh * (0.55 + 0.75 * (w0 * VA[a] + w1 * VA[b] + w2 * VA[c])) : sh; }
+        if (z < ZB[i]) {
+          ZB[i] = z; IDB[i] = mat;
+          SHB[i] = w0 * sa + w1 * sb + w2 * sc;
+          SAB[i] = w0 * VA[a] + w1 * VA[b] + w2 * VA[c];
+          SUB[i] = w0 * VU[a] + w1 * VU[b] + w2 * VU[c];
+          SVB[i] = w0 * VV[a] + w1 * VV[b] + w2 * VV[c];
+        }
       }
     }
   }
@@ -434,17 +474,18 @@
     const ax = SX[a], ay = SY[a], bx = SX[b], by = SY[b];
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(by - ay))));
     for (let k = 0; k <= n; k++) {
-      const f = k / n, x = fl(lerp(ax, bx, f)), y = fl(lerp(ay, by, f)), z = lerp(SZ[a], SZ[b], f) - 0.02;
+      const f = k / n, x = fl(lerp(ax, bx, f)), y = fl(lerp(ay, by, f)), z = lerp(SZ[a], SZ[b], f) - 0.03;
       for (let d = 0; d < wide; d++) {
-        const xx = x, yy = y + d;
-        if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-        const i = yy * W + xx;
-        if (z < ZB[i]) { ZB[i] = z; IDB[i] = mat; SHB[i] = sh; }
+        const yy = y + d;
+        if (x < 0 || x >= W || yy < 0 || yy >= H) continue;
+        const i = yy * W + x;
+        if (z < ZB[i]) { ZB[i] = z; IDB[i] = mat; SHB[i] = sh; SAB[i] = 0; }
       }
     }
   }
+  const EYES = [];
   function drawDragons(t) {
-    ZB.fill(1e9); IDB.fill(0);
+    ZB.fill(1e9); IDB.fill(0); EYES.length = 0;
     for (let i = 0; i < 3; i++) {
       nv = 0; nt = 0; nl = 0;
       const f = buildDragon(i, t), s = DESIGN[i].sc;
@@ -453,9 +494,18 @@
         const wx = f.px + s * (x * f.fx + y * f.ux + z * f.rx), wy = f.py + s * (x * f.fy + y * f.uy + z * f.ry), wz = f.pz + s * (x * f.fz + y * f.uz + z * f.rz);
         WXs[v] = wx; WYs[v] = wy; WZs[v] = wz;
         project(wx, wy, wz); SX[v] = PX; SY[v] = PY; SZ[v] = PZ;
+        if (HASN[v]) {
+          const nx = LNX[v] * f.fx + LNY[v] * f.ux + LNZ[v] * f.rx, ny = LNX[v] * f.fy + LNY[v] * f.uy + LNZ[v] * f.ry, nz = LNX[v] * f.fz + LNY[v] * f.uz + LNZ[v] * f.rz;
+          let vx = cam.x - wx, vy = cam.y - wy, vz = cam.z - wz;
+          const vn = Math.hypot(vx, vy, vz); vx /= vn; vy /= vn; vz /= vn;
+          const l = nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2];
+          const edge = 1 - Math.abs(nx * vx + ny * vy + nz * vz);
+          VS[v] = 0.05 + 0.82 * Math.pow(Math.max(0, l), 0.9) + 0.9 * edge * edge * clamp(0.25 + 0.9 * l, 0, 1);
+        }
       }
       for (let k = 0; k < nt; k++) {
         const a = TA[k], b = TB[k], c = TC[k];
+        if (!TF[k]) { raster(a, b, c, TM[k], 0, 0); continue; }
         const ex = WXs[b] - WXs[a], ey = WYs[b] - WYs[a], ez = WZs[b] - WZs[a];
         const gx = WXs[c] - WXs[a], gy = WYs[c] - WYs[a], gz = WZs[c] - WZs[a];
         let nx = ey * gz - ez * gy, ny = ez * gx - ex * gz, nz = ex * gy - ey * gx;
@@ -463,13 +513,14 @@
         nx /= nn; ny /= nn; nz /= nn;
         if (nx * (cam.x - WXs[a]) + ny * (cam.y - WYs[a]) + nz * (cam.z - WZs[a]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
         const l = nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2];
-        const kind = (TM[k] - 1) & 3;
-        let sh;
-        if (kind === 1) sh = l >= 0 ? 0.15 + 0.85 * l : -(0.25 + 0.75 * -l);
-        else sh = 0.1 + 0.9 * Math.max(0, l) * (0.85 + 0.15 * ny);
-        raster(a, b, c, TM[k], sh, kind === 1);
+        const kind = (TM[k] - 1) % 5;
+        raster(a, b, c, TM[k], 1, kind === 1 ? l : 0.12 + 0.8 * Math.max(0, l));
       }
-      for (let k = 0; k < nl; k++) rline(LA[k], LB[k], LM[k], 0.55, SZ[LA[k]] < 3.6 ? LWD[k] : 1);
+      for (let k = 0; k < nl; k++) rline(LA[k], LB[k], LM[k], LSH[k], FOC / SZ[LA[k]] * s > 95 ? Math.max(LWD[k], 2) : LWD[k]);
+      for (const e of EYEL) {
+        const wx = f.px + s * (e[0] * f.fx + e[1] * f.ux + e[2] * f.rx), wy = f.py + s * (e[0] * f.fy + e[1] * f.uy + e[2] * f.ry), wz = f.pz + s * (e[0] * f.fz + e[1] * f.uz + e[2] * f.rz);
+        project(wx, wy, wz); EYES.push([PX, PY, PZ, i, FOC / PZ * s]);
+      }
     }
   }
 
@@ -1045,29 +1096,67 @@
       buf[i] = Math.min(16, c + fl(g * 3.2 + bay(x, y)));
     }
   }
+  const openAt = (j, z) => !IDB[j] || ZB[j] > z + 0.12;
   function resolveDragons(buf) {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x, m = IDB[i];
       if (!m) continue;
-      const d = (m - 1) >> 2, kind = (m - 1) & 3, z = ZB[i];
-      const g = glowAt(x, y);
-      let s = SHB[i];
-      let ramp;
-      if (kind === 1 && s < 0) { ramp = TRANS[d]; s = -s + g * 0.4; }
-      else { ramp = kind === 1 ? MEMB[d] : kind === 3 ? HORN[d] : kind === 2 ? BONE[d] : BODY[d]; s += g * 0.45; }
-      const n = ramp.length;
-      let c = ramp[clamp(fl(s * (n - 1) + bay(x, y)), 0, n - 1)];
-      // silhouette edges: rim light underneath, a dark line on top
-      const open = (j) => !IDB[j] || ZB[j] > z + 0.1;
-      const b1 = y + 1 < H && open(i + W), b2 = y + 2 < H && open(i + 2 * W);
-      const a1 = y > 0 && open(i - W);
-      const sd = (x > 0 && open(i - 1)) || (x < W - 1 && open(i + 1));
+      const d = ((m - 1) / 5) | 0, kind = (m - 1) % 5, z = ZB[i], bb = bay(x, y);
+      const gl = glowAt(x, y);
+      let s = SHB[i], c = -1;
+      if (kind === 1) {
+        // membrane: dark at the body, lighter and glowing toward the edges, firelight through it from behind
+        const a = SAB[i];
+        let v = 0.08 + 0.55 * a + 0.08 * Math.max(0, s) + (s < 0 ? 0.35 * -s * a : 0.1 * a) + gl * 0.4;
+        if (d === 0) v = 0.03 + 0.24 * a * a + 0.04 * Math.max(0, s) + (s < 0 ? 0.5 * -s * a * a * a : 0.06 * a * a) + gl * 0.35;
+        const r = MEMB[d], n = r.length;
+        c = r[clamp(fl(v * (n - 1) + bb), 0, n - 1)];
+      } else if (kind === 2) {
+        const r = BONE[d], n = r.length; s += gl * 0.3;
+        c = r[clamp(fl(s * (n - 1) + bb), 0, n - 1)];
+      } else {
+        s += gl * 0.45;
+        const r = kind === 3 ? HORN[d] : kind === 4 ? BELLY[d] : BODY[d], n = r.length;
+        if (s > (d === 0 ? 1.12 : 1) && kind !== 3) {
+          const ss = SSS[d]; c = ss[clamp(fl((s - 1) / 0.7 * ss.length + bb * 0.9), 0, ss.length - 1)];
+        } else {
+          let k = clamp(fl(s * (n - 1) + bb), 0, n - 1);
+          if (kind === 0) {        // scales, in the surface's own coordinates
+            const su = SUB[i] * 46, row = fl(su), fu = su - row, sv = SVB[i] * 16 + (row & 1) * 0.5, fv = sv - fl(sv), w = 2 * fv - 1;
+            if (Math.abs(fu - 0.45 * w * w) < 0.16) {
+              if (d === 0) { if (s > 0.5 && (row & 1)) c = s > 0.9 ? 9 : 8; }
+              else k = Math.max(0, k - 1);
+            }
+          } else if (kind === 4) {  // belly plates
+            const fu = SUB[i] * 30 - fl(SUB[i] * 30);
+            if (fu < 0.2) k = Math.max(0, k - 1);
+          }
+          if (c < 0) c = r[k];
+        }
+      }
+      // silhouette: rim light under, an outline elsewhere
+      const b1 = y + 1 < H && openAt(i + W, z), b2 = y + 2 < H && openAt(i + 2 * W, z);
+      const a1 = y > 0 && openAt(i - W, z);
+      const sl = x > 0 && openAt(i - 1, z), sr = x < W - 1 && openAt(i + 1, z);
       const rim = RIM[d];
-      if (b1) c = rim[clamp(1 + (g > 0.3 ? 1 : 0) + (bay(x, y) < 0.35 ? 0 : 0), 0, rim.length - 1)];
-      else if (b2 && bay(x, y) < 0.6) c = rim[0];
-      else if (a1 || sd) c = d === 0 ? c : OUTL[d];
-      if (d === 0 && b1 && g > 0.5) c = 12;
+      if (b1) c = rim[gl > 0.3 || d === 0 ? 2 : 1];
+      else if (b2 && (d === 0 || bb < 0.6)) c = rim[d === 0 ? 1 : 0];
+      else if (a1 || sl || sr) {
+        if (d === 0) {
+          const j = a1 ? i - W : sl ? i - 1 : i + 1;
+          c = buf[j] < 6 ? 9 : 28;        // a crimson edge keeps the black dragon off dark smoke
+        } else c = OUTL[d];
+      }
       buf[i] = c;
+    }
+    // ember eyes
+    for (const [ex, ey, ez, d, scl] of EYES) {
+      const xi = fl(ex), yi = fl(ey);
+      if (xi < 0 || xi >= W || yi < 0 || yi >= H) continue;
+      const i = yi * W + xi;
+      if (!IDB[i] || ZB[i] < ez - 0.05) continue;
+      buf[i] = EYEC[d][0];
+      if (scl > 85 && xi + 1 < W && IDB[i + 1]) buf[i + 1] = EYEC[d][1];
     }
   }
   function compositeFire(buf) {

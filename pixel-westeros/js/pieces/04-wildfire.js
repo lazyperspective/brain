@@ -10,12 +10,14 @@
  *
  * Everything is a pure function of t on a 270 × 338 grid (shown at 4×). At mount the water is laid out in
  * perspective, the oil and slicks are painted on it, and a Dijkstra pass over the water pixels gives every
- * pixel the time the fire reaches it. A frame then lights the burning water as flame sources, rasterises the
- * ships far to near (their sails become sources once the fire climbs them), and grows every flame upward in
- * one row-by-row pass whose sideways offsets and scrolling noise make the tongues lick and curl. The fireball,
- * thousands of sparks, embers and smoke are particles. Upright light is mirrored about its own waterline and
- * read back through the rippled water; the light of the fire is pooled into a soft glow map that tints sky,
- * smoke, stone and wave crests. The image is quantised to a 33-colour palette with 4 × 4 ordered dither.
+ * pixel the time the fire reaches it. A frame rasterises the ships far to near, lights the burning film on the
+ * water, and draws a few thousand flame tongues: each slot lives a whole number of times per loop, re-anchors
+ * on a burning pixel every life, grows, curls, detaches and fades, so the field licks and breathes. Sails burn
+ * from the waterline up and grow their own tongues and a row-by-row flame pass. The fireball rolls up as puffs
+ * on a turning torus over a twisting stem; thousands of sparks, a burst of falling streaks, embers, ash and
+ * smoke are particles. Upright light is mirrored about its own waterline and read back through the rippled
+ * water; the fire light is pooled into a soft glow map that tints sky, smoke, stone and wave crests. The image
+ * is quantised to a 35-colour palette with 4 × 4 ordered dither.
  */
 (function () {
   'use strict';
@@ -67,7 +69,7 @@
   for (let k = 0; k < NFR; k++) { const p = PAL[FR0 + k]; FLUM[k] = 0.3 * p[0] + 0.59 * p[1] + 0.11 * p[2]; }
   // background quantiser: a 64³ table indexed in square-root space, so the darks get most of the resolution
   const LUT = new Uint8Array(64 * 64 * 64);
-  const SQ = new Uint8Array(1024);               // value (0..1023 in quarter steps of 0..255) → sqrt index
+  const SQF = new Float32Array(1024);            // value in quarter steps of 0..255 → its square root
   function buildLUT() {
     const ps = PAL.map((p) => p.map((v) => Math.sqrt(v / 255)));
     for (let r = 0; r < 64; r++) for (let g = 0; g < 64; g++) for (let b = 0; b < 64; b++) {
@@ -81,7 +83,7 @@
       }
       LUT[(r << 12) | (g << 6) | b] = best;
     }
-    for (let v = 0; v < 1024; v++) SQ[v] = Math.round(Math.sqrt(v / 1023) * 63);
+    for (let v = 0; v < 1024; v++) SQF[v] = Math.sqrt(v / 1023);
   }
 
   const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
@@ -279,7 +281,7 @@
       // patchy oil: noise in the plane, thinning out with distance from the ignition and the eruption
       const dI = Math.hypot(X - igX, (Z - igZ) * 0.8), dF = Math.hypot(X - fbX, (Z - fbZ) * 0.7);
       const n = nA(X * 34 + 11, Z * 34 + 40), n2 = nA(X * 90 + 70, Z * 90 + 3);
-      let oil = sstep(0.45, 0.6, n * 0.75 + n2 * 0.25 + 0.3 - 0.15 * Math.min(dI, dF * 1.2));
+      let oil = sstep(0.4, 0.66, n * 0.75 + n2 * 0.25 + 0.3 - 0.15 * Math.min(dI, dF * 1.2));
       if (dI < 0.3) oil = 1;
       if (dF < 0.45) oil = Math.max(oil, 1 - sstep(0.3, 0.45, dF));
       // slicks
@@ -298,7 +300,7 @@
         if (dm < wv) { oil = Math.max(oil, 0.85); if (s.v > best) best = s.v; }
       });
       OIL[i] = oil; SL[i] = best;
-      LB[i] = 4.5 + 6.5 * nA(X * 14 + 90, Z * 14 + 120);
+      LB[i] = 5.5 + 7 * nA(X * 14 + 90, Z * 14 + 120);
     }
     // the boom carries a slick of its own
     for (const [cx, cy] of CHAIN) {
@@ -360,13 +362,13 @@
     L.sort((a, b) => ARR[a] - ARR[b]);
     WLIST = Int32Array.from(L); WARR = Float32Array.from(L.map((i) => ARR[i]));
   }
-  const ENV = (tau) => 1 - sstep(10, 15.5, tau);
+  const ENV = (tau) => 1 - sstep(10.5, 16, tau);
   // steady burn intensity of a water pixel at fire-time tau (no flicker)
   function burnAt(i, tau) {
     const la = tau - ARR[i];
     if (la < 0) return 0;
     const o = OIL[i];
-    return (1.4 * Math.exp(-la / 0.3) * Math.sqrt(o) + o * sstep(0, 0.5, la) * (1 - sstep(LB[i] - 2.5, LB[i], la))) * ENV(tau);
+    return (1.1 * Math.exp(-la / 0.3) * Math.sqrt(o) + o * (0.8 + 0.55 * sstep(1.5, 6.5, tau)) * sstep(0, 0.5, la) * (1 - sstep(LB[i] - 2.5, LB[i], la))) * ENV(tau);
   }
   function countBefore(tau) { let lo = 0, hi = WARR.length; while (lo < hi) { const m = (lo + hi) >> 1; if (WARR[m] <= tau) lo = m + 1; else hi = m; } return lo; }
 
@@ -457,7 +459,9 @@
       if (S < 0.05) continue;
       const y = (i / W) | 0;
       if (SHIPB[i] > y) continue;
-      E[i] += S * 0.55 * (1 + 0.2 * S);
+      // the burning film itself: a fine, crawling sparkle rather than a flat sheet
+      const sp = nA((i % W) * 1.7 + o2 * 2, y * 2.3 - o1 * 3);
+      E[i] += S * 0.9 * sstep(0.6, 0.95, sp) * (1 + 0.2 * S);
     }
   }
 
@@ -484,8 +488,8 @@
       const i = WLIST[fl(ih(k, cyc % nk, 77) * cnt)];
       const b = (i / W) | 0, x0 = (i % W) + 0.5, sc = b - YH + Y0;
       // gusts: the field breathes in slow patches
-      const gust = sstep(0.25, 0.8, nA(PXA[i] * 9 + gx, Math.min(PZA[i], 9) * 9 - gx * 0.5));
-      const S = burnAt(i, tc + age * L) * (0.3 + 1.0 * gust);
+      const gust = sstep(0.25, 0.8, nA(PXA[i] * 9 + gx, Math.min(PZA[i], 9) * 9 - gx));
+      const S = burnAt(i, tc + age * L) * (0.55 + 0.8 * gust);
       if (S < 0.08) continue;
       const Sc = Math.min(S, 1.6);
       const hmax = (0.05 + 0.13 * Sc) * Math.pow(sc, 0.85) * (0.55 + 0.9 * p[2]);
@@ -494,27 +498,53 @@
       const lift = hmax * 0.9 * Math.pow(sstep(0.4, 1, age), 1.5);
       const fade = 1 - sstep(0.55, 1, age);
       const curl = wd * 1.8, ph = p[4] + 7 * age;
-      const ef = 1.5 * Math.min(S, 1.5) * fade * (0.6 + 0.7 * p[5]);
+      const ef = 2.1 * Math.min(S, 1.15) * fade * (0.6 + 0.7 * p[5]);
       if (h < 0.6 || ef < 0.05) continue;
-      const yb = b - lift;
-      const y1 = fl(yb), y0 = fl(yb - h);
-      for (let y = y1; y >= y0; y--) {
-        if (y < 0 || y >= H) continue;
-        const r = clamp((yb - y - 0.5) / h, 0, 1);
-        const hw = wd * Math.pow(Math.sin(Math.PI * (0.18 + 0.82 * r)), 0.8) * Math.pow(1 - r, 0.25) * (r < 0.18 && lift < 0.5 ? 1 : 1);
-        if (hw < 0.3) continue;
-        const xc = x0 + curl * Math.pow(r, 1.4) * Math.sin(ph + r * 2.6);
-        const xa = Math.max(0, Math.ceil(xc - hw - 0.5)), xb = Math.min(W - 1, fl(xc + hw - 0.5));
-        const er = ef * (1.05 - 0.75 * r);
-        for (let x = xa; x <= xb; x++) {
-          const d = Math.abs(x + 0.5 - xc) / hw;
-          if (d >= 1) continue;
-          const j = y * W + x;
-          if (SHIPB[j] > b) continue;
-          const e = er * (1 - d * d), o = E[j];
-          E[j] = (e > o ? e : o) + 0.18 * (e < o ? e : o);
-          if (y < b) { const ry = 2 * b - y; if (ry < H) R0E[ry * W + x] += e * 0.8; }
-        }
+      tongue(x0, b - lift, h, wd, curl, ph, ef, b);
+    }
+    // tongues climbing the burning sails
+    for (let j = 0; j < SHIPS.length; j++) {
+      const s = SHIPS[j], la = tau - s.arr;
+      if (la < 0 || la > s.dur + 2) continue;
+      const u = s.u, env = ENV(tau) * (1 - sstep(s.dur - 1.5, s.dur + 2, la));
+      const climb = la * s.climb;
+      const bob = 0.35 * u * Math.sin(TAU * 2 * t / D + s.ph) + 0.25 * u * Math.sin(TAU * 3 * t / D + s.ph2);
+      const y0s = s.y + bob, b = Math.round(y0s);
+      for (let k = 0; k < 90; k++) {
+        const nk = 24 + (k % 17), L = D / nk, ph0 = ih(j, k, 5);
+        const uu = t / L + ph0, cyc = fl(uu), age = uu - cyc, cc = cyc % nk;
+        const lx = (ih(j * 131 + k, cc, 1) - 0.5) * 8.5, ly = 2.6 + ih(j * 131 + k, cc, 2) * Math.min(climb, 13);
+        const x0 = s.x + s.d * lx * u, ya = y0s - ly * u;
+        const xi = fl(x0), yi = fl(ya);
+        if (xi < 0 || xi >= W || yi < 0 || yi >= H) continue;
+        const pi = yi * W + xi;
+        if (SHIPB[pi] !== b || (SHIPC[pi] !== 2 && SHIPC[pi] !== 3)) continue;
+        const hmax = (2 + 4 * ih(j, k, 3)) * u, wd = Math.max(0.6, (0.35 + 0.35 * ih(j, k, 4)) * u);
+        const h = hmax * sstep(0, 0.3, age), lift = hmax * 0.9 * Math.pow(sstep(0.4, 1, age), 1.5);
+        const ef = 2.2 * env * (1 - sstep(0.55, 1, age)) * (0.6 + 0.6 * ih(j, k, 6));
+        if (h < 0.6 || ef < 0.05) continue;
+        tongue(x0, ya - lift, h, wd, wd * 1.8, ph0 * TAU + 7 * age, ef, b);
+      }
+    }
+  }
+  function tongue(x0, yb, h, wd, curl, ph, ef, b) {
+    const y1 = fl(yb), y0 = fl(yb - h);
+    for (let y = y1; y >= y0; y--) {
+      if (y < 0 || y >= H) continue;
+      const r = clamp((yb - y - 0.5) / h, 0, 1);
+      const hw = wd * Math.pow(Math.sin(Math.PI * (0.18 + 0.82 * r)), 0.8) * Math.pow(1 - r, 0.25);
+      if (hw < 0.3) continue;
+      const xc = x0 + curl * Math.pow(r, 1.4) * Math.sin(ph + r * 2.6);
+      const xa = Math.max(0, Math.ceil(xc - hw - 0.5)), xb = Math.min(W - 1, fl(xc + hw - 0.5));
+      const er = ef * (1.05 - 0.75 * r);
+      for (let x = xa; x <= xb; x++) {
+        const d = Math.abs(x + 0.5 - xc) / hw;
+        if (d >= 1) continue;
+        const j = y * W + x;
+        if (SHIPB[j] > b) continue;
+        const e = er * (1 - d * d), o = E[j];
+        E[j] = (e > o ? e : o) + 0.12 * (e < o ? e : o);
+        if (y < b) { const ry = 2 * b - y; if (ry < H) R0E[ry * W + x] += e * 0.8; }
       }
     }
   }
@@ -554,8 +584,9 @@
         // a bright burning edge crawling up the canvas, and flickering patches behind it
         const nn2 = nB(lx * 2.6 + j * 7 + 30, ly * 1.9 - 64 * 3 * t / D);
         const band = Math.exp(-front / 0.9) * (0.6 + 0.8 * nn2);
-        const patch = sstep(0.55, 0.85, nn2) * 0.9 * (1 - sstep(4, 12, front) * 0.5);
-        return (1.7 * band + patch) * sEnv;
+        const patch = sstep(0.5, 0.85, nn2) * 0.9;
+        const engulf = Math.exp(-Math.max(0, front - 1.5) / 9) * (0.75 + 0.7 * nn2);
+        return (1.9 * band + patch + engulf) * sEnv;
       };
       // bounding box in screen
       const top = 15.5 * u, xr = 9.5 * u;
@@ -598,7 +629,7 @@
             }
           }
           if (c) {
-            const f = fire(ly, lx) * (c === 2 ? 0.6 : 0.45);
+            const f = fire(ly, lx) * (c === 2 ? 1.15 : 0.6);
             shipPix(px, py, base, c, f, rate);
           }
         }
@@ -662,7 +693,6 @@
   const PSC = new Float32Array(H); for (let y = 0; y < H; y++) PSC[y] = clamp(Math.sqrt(30 / Math.max(4, y - YH + Y0)), 0.55, 1.1);
   const SINX = new Float32Array(W); for (let x = 0; x < W; x++) SINX[x] = Math.sin(x * 0.05);
   function flamePass(t) {
-    const NOFL = DBG.indexOf('nofl') >= 0;
     const v = 64 * 2 * t / D;     // scroll of the licking texture (nB is 64-periodic)
     const w = TAU * 3 * t / D;
     FLV.fill(0);
@@ -691,7 +721,7 @@
         let se = 0;
         if (s > 0) {
           const sb = SRCB[i];
-          if (SHIPB[i] <= sb) se = s * 0.45 * (1 + 0.2 * s);
+          if (SHIPB[i] <= sb) se = s * 0.75 * (1 + 0.15 * s);
           if (c <= 0 || s / SRCR[i] > c / cr) { c = s; cr = SRCR[i]; cb = sb; c0 = s; }
         }
         if (c <= 0) continue;
@@ -704,7 +734,7 @@
         const thr = 0.3 + q * 0.72, m = sstep(thr - 0.03, thr + 0.3, n);
         const k = 1 - q;
         let e = c0 * (0.08 * m + 1.5 * m * m * Math.pow(k, 1.3)) * (0.45 + 0.5 * Math.min(c0, 2.4));
-        if (NOFL) e = 0;
+        if (q < 0.03) e = 0;
         if (se > e) e = se;
         if (e <= 0) continue;
         E[i] += e;
@@ -751,8 +781,8 @@
     BU = bu;
     // embers floating on the water as the fire dies
     const em = [];
-    for (let k = 0; k < 1400; k++) {
-      const tb = IGN + 5 + 9 * rnd(), tau = tb - IGN;
+    for (let k = 0; k < 3200; k++) {
+      const tb = IGN + 4 + 11 * rnd(), tau = tb - IGN;
       const cnt = countBefore(tau - 2);
       if (!cnt) continue;
       const i = WLIST[fl(rnd() * cnt)];
@@ -792,7 +822,7 @@
     STEM = stem;
     // drifting ash embers high in the smoke
     const ash = [];
-    for (let k = 0; k < 900; k++) ash.push([TFB + 1.5 + 9 * rnd(), 2.5 + 3 * rnd(), rnd(), rnd(), rnd() * TAU, rnd()]);
+    for (let k = 0; k < 900; k++) { const tb = TFB + 1.5 + 9 * rnd(); ash.push([tb, Math.min(2.5 + 3 * rnd(), D - 0.4 - tb), rnd(), rnd(), rnd() * TAU, rnd()]); }
     ASH = ash;
   }
 
@@ -846,7 +876,7 @@
       const y = p[3], sc = clamp((y - YH + Y0) / 60, 0.3, 2.6);
       const x = p[2] + 2.2 * sc * age + 0.6 * sc * Math.sin(age * 1.3 + p[4]);
       const tw = 0.6 + 0.4 * Math.sin(p[5] * age + p[4]);
-      const e = (0.5 + 1.8 * p[6]) * sstep(0, 0.4, age) * (1 - sstep(0.55, 1, q)) * tw;
+      const e = (0.7 + 2.0 * p[6]) * sstep(0, 0.4, age) * (1 - sstep(0.55, 1, q)) * tw;
       addE(x, y, e, y + 1, 0);
       if (sc > 1.7) addE(x + 1, y, e * 0.8, y + 1, 0);
       addE(x, y + 2, e * 0.3, y + 1, 0);
@@ -882,8 +912,8 @@
     const a = t - TFB;
     if (a < 0 || a > 14.5) return;
     const hc = 6 + 132 * (1 - Math.exp(-a / 2.2)) + 2.0 * a;          // cap height above the water
-    const Rr = 5 + 50 * (1 - Math.exp(-a / 2.4)) + 1.2 * a;             // ring radius
-    const rt = 6 + 26 * (1 - Math.exp(-a / 2.0)) + 0.9 * a;             // tube radius
+    const Rr = 4 + 30 * (1 - Math.exp(-a / 2.6)) + 1.3 * a;             // ring radius
+    const rt = 8 + 26 * (1 - Math.exp(-a / 1.8)) + 0.9 * a;             // tube radius
     const rot = 9 * (1 - Math.exp(-a / 3.6));                          // roll, slowing
     const sphere = 1 - sstep(0.15, 1.6, a);                             // early: a ball
     const drift = WIND * 0.7 * a;
@@ -891,7 +921,7 @@
     const heat = 2.0 * Math.exp(-a / 5) + 0.6 * Math.exp(-a / 9);
     const fade = 1 - sstep(6.5, 12.5, a);
     const smk = sstep(2.0, 6.5, a) * (1 - sstep(9, 14.5, a));
-    const ELEV = 0.22;
+    const ELEV = 0.14;
     // the flash ball
     if (a < 0.9) {
       const rb = 4 + 26 * Math.sqrt(a / 0.9);
@@ -915,7 +945,7 @@
       const front = Math.sin(th) > 0 ? 1 : 0.75;                        // the near side of the ring a little brighter
       const e = heat * (1.3 - 0.85 * rr) * band * front * fade * (0.8 + 0.4 * p[3]);
       const rad = (1.2 + 1.8 * (1 - rr) + 1.0 * p[4]) * (0.75 + 0.14 * Math.min(a, 7));
-      discE(x, y, rad, e * 0.3, FBY, 0.75, (smk * 0.1 + 0.05 * sstep(0.8, 3, a) * rr * rr) * (0.6 + 0.4 * p[4]) * (1.1 - band * 0.5));
+      discE(x, y, rad, e * 0.25, FBY, 0.75, (smk * 0.1 + 0.05 * sstep(0.8, 3, a) * rr * rr) * (0.6 + 0.4 * p[4]) * (1.1 - band * 0.5));
     }
     // the stem: rising, twisting, brightest low and in its core
     const sh = Math.max(0, hc - rt * 0.6);
@@ -927,7 +957,7 @@
       const x = FBX + drift * s * s + wid * p[2] * Math.cos(ang);
       const band = 0.25 + 0.75 * sstep(-0.5, 0.8, Math.sin(18 * s - 7 * a + p[1]));
       const e = heat * (1.2 - 0.5 * p[2]) * (0.6 + 0.6 * (1 - s)) * band * fade * (1 - sstep(4, 9, a) * s);
-      discE(x, y, 1.3 + 1.6 * (1 - p[2]) + 1.2 * s, e * 0.2, FBY, 0.75, smk * 0.07 * s);
+      discE(x, y, 1.3 + 1.6 * (1 - p[2]) + 1.2 * s, e * 0.15, FBY, 0.75, smk * 0.07 * s);
     }
     // base surge: a ring rolling out across the water
     if (a < 6) {
@@ -946,14 +976,14 @@
   function comet(t) {
     const t0 = 0.25;
     if (t < t0 || t > IGN + 0.9) return;
-    const sx = 98, sy = 126;
-    const pos = (tt) => { const s = clamp((tt - t0) / (IGN - t0), 0, 1); return [lerp(sx, IGX, s), lerp(sy, IGY, s * s) - 40 * Math.sin(Math.PI * s) * (1 - s * 0.4)]; };
+    const sx = 90, sy = 114;
+    const pos = (tt) => { const s = clamp((tt - t0) / (IGN - t0), 0, 1); return [lerp(sx, IGX, s) + 34 * Math.sin(Math.PI * s), lerp(sy, IGY, s * s) - 46 * Math.sin(Math.PI * s) * (1 - s * 0.5)]; };
     if (t < IGN) {
-      for (let k = 0; k < 14; k++) {
-        const tt = t - k * 0.018;
+      for (let k = 0; k < 60; k++) {
+        const tt = t - k * 0.005;
         if (tt < t0) break;
         const [x, y] = pos(tt);
-        const e = 3 * (1 - k / 14);
+        const e = 3.2 * Math.pow(1 - k / 60, 1.5);
         addE(x, y, e, IGY, 0.6);
         if (k === 0) { addE(x + 1, y, e * 0.6, IGY, 0.6); addE(x, y + 1, e * 0.6, IGY, 0.6); addE(x + 1, y + 1, e * 0.5, IGY, 0.6); }
       }
@@ -1041,7 +1071,7 @@
           r = br; g = bg; b = bb;
           // drifting cloud streaks
           const n1 = nA(x * 0.9 - cs, y * 3.2), n2 = nA(x * 0.45 + cs2 * 0.5 + 60, y * 2.0 + 40);
-          const band = sstep(18, 40, y) * (1 - sstep(95, 135, y)) + 0.4 * (1 - sstep(10, 30, y));
+          const band = sstep(22, 45, y) * (1 - sstep(95, 135, y));
           const cl = sstep(0.42, 0.8, n1 * 0.6 + n2 * 0.5 - 0.05) * band;
           r += cl * 8; g += cl * 10; b += cl * 20;
           r += gl * (GR * 40 + cl * 14); g += gl * (GG * 40 + cl * 70); b += gl * (GBL * 40 + cl * 40);
@@ -1080,8 +1110,11 @@
     { kx: 4, kz: 26, n: 4, a: 0.010, p: 0.3 }, { kx: -9, kz: 41, n: -6, a: 0.006, p: 1.9 },
     { kx: 17, kz: 63, n: 8, a: 0.0035, p: 4.1 }, { kx: -25, kz: 93, n: -10, a: 0.0022, p: 2.7 },
     { kx: 2, kz: 12, n: 2, a: 0.016, p: 5.2 },
+    { kx: 30, kz: 150, n: 12, a: 0.0016, p: 0.9 }, { kx: -41, kz: 215, n: -14, a: 0.001, p: 3.3 },
   ];
   const WATT = WAVES.map(() => new Float32Array(H));
+  const COS = new Float32Array(4096), CSC = 4096 / TAU;
+  for (let k = 0; k < 4096; k++) COS[k] = Math.cos(k / CSC);
   function buildWaves() {
     WAVES.forEach((wv, k) => {
       const lam = TAU / Math.hypot(wv.kx, wv.kz);
@@ -1089,10 +1122,10 @@
     });
   }
   function composeWater(t) {
-    const ph = WAVES.map((w) => TAU * w.n * t / D), po = 256 * t / D;
+    const ph = WAVES.map((w) => TAU * w.n * t / D), po = 256 * t / D, pc = 6 * Math.cos(TAU * t / D), ps = 6 * Math.sin(TAU * t / D);
     for (let y = YH; y < H; y++) {
       const Z = ZR[y], near = (y - YH) / (H - YH);
-      const fr = 0.86 - 0.42 * near;                // more mirror toward the horizon
+      const fr = 0.86 - 0.5 * near;                 // more mirror toward the horizon
       for (let x = 0; x < W; x++) {
         if (y < FOOT[x]) continue;
         const i = y * W + x, X = PXA[i];
@@ -1100,7 +1133,7 @@
         for (let k = 0; k < WAVES.length; k++) {
           const wv = WAVES[k], at = WATT[k][y];
           if (at <= 0) continue;
-          const c = Math.cos(wv.kx * X + wv.kz * Z - ph[k] + wv.p) * wv.a * at;
+          const c = COS[((wv.kx * X + wv.kz * Z - ph[k] + wv.p) * CSC) & 4095] * wv.a * at;
           sx += c * wv.kx; sz += c * wv.kz;
         }
         const dx = Math.round(sx * 9), dy = Math.round(sz * 7 * (0.5 + near));
@@ -1115,14 +1148,14 @@
         const yr = clamp(y + dy, 0, H - 1), jr = yr * W + xx;
         if (R0S[jr]) { r *= 0.35; g *= 0.35; b *= 0.4; }
         const re = R0E[jr];
-        if (re > 0 && SHIPB[i] === 0 && DBG.indexOf('nore') < 0) {
+        if (re > 0 && SHIPB[i] === 0) {
           // broken into streaks by the ripples
-          const st = sstep(-0.15, 0.45, sz * 3 + (nA(x * 0.09 + po, y * 0.8 - po) - 0.5) * 1.2);
-          E[i] += re * (0.18 + 0.5 * st) * (R0S[jr] ? 0.4 : 1);
+          const st = sstep(-0.15, 0.45, sz * 3 + (nA(x * 0.09 + pc * 2, y * 0.8 + ps * 2 - po) - 0.5) * 1.2);
+          E[i] += re * (0.18 + 0.5 * st) * (R0S[jr] ? 0.4 : 1) * Math.max(0, 1 - E[i] * 0.5);
         }
         // fire light on the water, brightest on the crests that face us
-        const gl = DBG.indexOf('nogl') >= 0 ? 0 : Math.min(GLOW[i], 2), patch = sstep(0.35, 0.8, nA(x * 0.06 + po, y * 0.7 - po * 0.5));
-        const crest = sstep(0.5, 0.95, -sz * 2.6) * patch * (0.4 + 0.6 * near);
+        const gl = Math.min(GLOW[i], 2), patch = sstep(0.35, 0.8, nA(x * 0.06 + pc, y * 0.7 + ps - po));
+        const crest = sstep(0.7, 1.05, -sz * 2.6) * patch * (0.4 + 0.6 * near);
         const lit = gl * (0.12 + 1.8 * crest * crest);
         r += lit * GR * 60 + crest * 10; g += lit * GG * 60 + crest * 12; b += lit * GBL * 60 + crest * 30;
         CR[i] = r; CG[i] = g; CB[i] = b;
@@ -1135,7 +1168,7 @@
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
         let r = CR[i], g = CG[i], b = CB[i];
-        const gl = DBG.indexOf('nogl') >= 0 ? 0 : Math.min(GLOW[i], 3);
+        const gl = Math.min(GLOW[i], 3);
         // ships and the boom: silhouettes with a green rim
         if (SHIPB[i]) {
           const c = SHIPC[i];
@@ -1146,8 +1179,8 @@
         }
         // smoke, lit from below by the fire
         const sm = SM[i];
-        if (sm > 0.005 && DBG.indexOf('nosm') < 0) {
-          const tx = nA(x * 0.7 - SMO * 0.5, y * 0.9 + SMO);
+        if (sm > 0.005) {
+          const tx = nA(x * 0.7 - SMO, y * 0.9 + SMO);
           const al = 1 - Math.exp(-sm * (0.6 + 1.8 * tx));
           const sr = 7 + gl * 12, sg = 11 + gl * 50, sb = 15 + gl * 36;
           r = lerp(r, sr, al); g = lerp(g, sg, al); b = lerp(b, sb, al);
@@ -1164,35 +1197,32 @@
           }
         }
         const d = (th - 0.5) * 0.07;
-        const qr = clamp(Math.sqrt(clamp(r, 0, 255) / 255) + d, 0, 1), qg = clamp(Math.sqrt(clamp(g, 0, 255) / 255) + d, 0, 1), qb = clamp(Math.sqrt(clamp(b, 0, 255) / 255) + d, 0, 1);
+        const qr = clamp(SQF[clamp((r * 4) | 0, 0, 1023)] + d, 0, 1), qg = clamp(SQF[clamp((g * 4) | 0, 0, 1023)] + d, 0, 1), qb = clamp(SQF[clamp((b * 4) | 0, 0, 1023)] + d, 0, 1);
         OUT[i] = LUT[(Math.round(qr * 63) << 12) | (Math.round(qg * 63) << 6) | Math.round(qb * 63)];
       }
     }
   }
 
-  const DBG = (location.search.match(/dbg=([a-z,]+)/) || [0, ''])[1].split(',');
   function drawFrame(t) {
     t = ((t % D) + D) % D;
     SRC.fill(0); SRCB.fill(0); SHIPB.fill(0); SHIPC.fill(0); E.fill(0); R0E.fill(0); R0S.fill(0); SM.fill(0);
-    const P = window.__wfprof = {}; let pt = performance.now();
-    const m = (k) => { const n = performance.now(); P[k] = +(n - pt).toFixed(1); pt = n; };
     drawChain(t);
-    drawShips(t); m('ships');
-    surfaceFire(t); m('surf');
-    tongues(t); m('tongues');
-    flamePass(t); m('flame');
-    mushroom(t); m('mush');
+    drawShips(t);
+    surfaceFire(t);
+    tongues(t);
+    flamePass(t);
+    mushroom(t);
     burst(t);
     sparks(t);
     embers(t);
-    ash(t); m('parts');
-    smoke(t); m('smoke');
+    ash(t);
+    smoke(t);
     comet(t);
-    glow(t); m('glow');
-    composeFar(t); m('far');
-    composeWater(t); m('water');
+    glow(t);
+    composeFar(t);
+    composeWater(t);
     SMO = 256 * t / D;
-    composeTop(); m('top');
+    composeTop();
   }
 
   function build() {

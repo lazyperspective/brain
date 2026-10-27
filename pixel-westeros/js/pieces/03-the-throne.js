@@ -53,7 +53,7 @@
   const PAL_HEX = [
     '06050a', '0d0b14', '15131f', '1f1c2c', '2b2839',                // 0-4 shadow
     '3a3c52', '4e546d', '69728b', '8a95aa', 'aeb9c9', 'd2dbe4', 'f2f5f6', // 5-11 steel
-    '1e1412', '2f1f1a', '45302a', '5f4232',                          // 12-15 warm shadow
+    '1b1512', '2b211c', '41322a', '5b4635',                          // 12-15 warm shadow
     '4a4542', '6e675d', '958c7c', 'bcb29c',                          // 16-19 haze stone
     '7a5228', 'a06d2c', 'c8913a', 'e4b754', 'f5d886', 'fff2c0',      // 20-25 gold
     'ff8f3a', 'd4542a',                                              // 26-27 fire
@@ -268,7 +268,8 @@
         const hw = hw0 * (1 - 0.12 * k);
         swordL(px, py, pz, d, L, hw, {
           hilt: k === 0 ? (rnd() < 0.4 ? 3 : 0) : hiltPick(0.45, 0.22), twist: rnd() < 0.35 ? gauss() * 1.1 : 0,
-          kink: rnd() < 0.1 ? rr(0.15, 0.35) : 0, m: rnd() < 0.08 ? 3 : undefined, roll: layer === 0 ? rr(-0.5, 0.5) : undefined,
+          kink: rnd() < 0.1 ? rr(0.15, 0.35) : 0, m: rnd() < 0.13 ? 3 : undefined,
+ roll: layer === 0 ? rr(-0.5, 0.5) : undefined,
         });
         const adv = (0.17 + 0.05 * L) / TS + L * rr(0.62, 0.8);
         px += d[0] * adv; py += d[1] * adv; pz += d[2] * adv; got += adv; k++;
@@ -277,7 +278,7 @@
     const NR = 38;
     for (let r = 0; r < NR; r++) {
       const a = -1.32 + 2.55 * (r + 0.5) / NR + gauss() * 0.03;
-      const len = crownLen(a) * (0.8 + 0.4 * rnd());
+      const len = crownLen(a) * (0.95 + 0.45 * rnd());
       const ox = 0.55 * sin(a), oy = 2.45 + 0.55 * cos(a);
       chain(ox, oy, -0.72 - rr(0, 0.12), a, 0.12 + 0.12 * abs(a), len, rr(0.045, 0.06), 0);
       const nc = 2 + fl(rnd() * 3);
@@ -337,6 +338,18 @@
       swordL(x - d[0] * g * 0.7, y - d[1] * g * 0.7, z - d[2] * g * 0.7, d, L, rr(0.032, 0.05), {
         hilt: rnd() < 0.25 ? 3 : hiltPick(0.25, 0.08), twist: rnd() < 0.3 ? gauss() : 0, kink: rnd() < 0.2 ? rr(0.2, 0.6) : 0,
       });
+    }
+    // blades laid flat over the faces of the body and the back, welded in uneven courses
+    for (const sx of [-1, 1]) {
+      for (let y = 0.08; y < 2.1; y += rr(0.07, 0.11)) {
+        const dz = rnd() < 0.5 ? 1 : -1, z0 = dz > 0 ? rr(-1.1, -0.85) : rr(0.6, 0.85);
+        swordL(sx * (1.1 + rr(0.005, 0.03)), y, z0, [rr(-0.04, 0.04) * sx, rr(-0.06, 0.06), dz], rr(1.2, 1.9), rr(0.038, 0.05), { e: [0, 1, 0], hilt: rnd() < 0.25 ? 3 : rnd() < 0.3 ? 1 : 0 });
+      }
+    }
+    for (let y = 0.08; y < 3.9; y += rr(0.07, 0.11)) {
+      const half = y > 2.1 ? 0.95 : 1.1;
+      const dx = rnd() < 0.5 ? 1 : -1, x0 = -dx * rr(half - 0.1, half + 0.15);
+      swordL(x0, y, -0.95 - rr(0.005, 0.03), [dx, rr(-0.08, 0.08), rr(-0.03, 0.03)], rr(1.3, 2.1), rr(0.038, 0.05), { e: [0, 1, 0], hilt: rnd() < 0.25 ? 3 : rnd() < 0.3 ? 1 : 0 });
     }
     // melted blobs on the body edges
     for (let i = 0; i < 46; i++) {
@@ -400,23 +413,23 @@
     for (let k = 0; k < 8; k++) { // ring A, around the dais
       const a = (k + 0.5) * TAU / 8, x = 6.6 * cos(a), z = 6.6 * sin(a);
       addStand(x, z, 1.8, [[0.5, 1.15, 10], [0.34, 1.45, 7], [0.18, 1.68, 4]]);
-      RING_A.push(addLight(x, 1.55, z, 1.6, 2.2, 7));
+      RING_A.push(addLight(x, 1.55, z, 2.0, 1.7, 7));
     }
     for (let k = 0; k < 12; k++) { // ring B, low trees between the pillars and the camera path
       const a = (k + 0.5) * TAU / 12, x = 11.2 * cos(a), z = 11.2 * sin(a);
       addStand(x, z, 1.45, [[0.45, 0.95, 9], [0.3, 1.2, 6], [0.15, 1.38, 3]]);
-      RING_B.push(addLight(x, 1.3, z, 1.35, 2.0, 6.5));
+      RING_B.push(addLight(x, 1.3, z, 1.7, 1.6, 6.5));
     }
     for (let k = 0; k < WIN_N; k++) { // ring C, under each window
       const a = (k + 0.5) * TAU / WIN_N, x = 20.2 * cos(a), z = 20.2 * sin(a);
       addStand(x, z, 2.2, [[0.42, 1.75, 8], [0.25, 2.0, 5]]);
-      RING_C.push(addLight(x, 2.0, z, 1.45, 2.4, 7));
+      RING_C.push(addLight(x, 2.0, z, 1.8, 1.9, 7));
     }
     // four great candle trees on the dais, flanking the throne
-    for (const a of [0.62, Math.PI - 0.62, Math.PI + 0.75, -0.75]) {
-      const x = 2.62 * cos(a), z = 2.62 * sin(a);
-      addStand(x, z, 2.7, [[0.44, 1.95, 9], [0.3, 2.3, 6], [0.17, 2.55, 4]], TY, 1.3);
-      DAIS_L.push(addLight(x, TY + 2.4, z, 1.15, 2.0, 7));
+    for (const a of [0.55, Math.PI - 0.55, Math.PI + 0.7, -0.7]) {
+      const x = 2.72 * cos(a), z = 2.72 * sin(a);
+      addStand(x, z, 2.2, [[0.4, 1.55, 8], [0.27, 1.85, 6], [0.15, 2.05, 3]], TY, 1.15);
+      DAIS_L.push(addLight(x, TY + 1.95, z, 1.5, 1.8, 7));
     }
     for (let k = 0; k < 8; k++) { const a = k * TAU / 8; DAIS_L.push(addLight(4.0 * cos(a), 0.9, 4.0 * sin(a), 0.75, 1.8, 5)); }
     // candles along the dais treads
@@ -628,9 +641,9 @@
     const d = x * SX + y * SY + z * SZ;
     return d > SM[j * SMW + i] + 0.07 ? 0 : 1;
   }
-  function pillarShadow(x, z) {
-    for (let k = 0; k < PIL.length; k++) {
-      const p = PIL[k], qx = p.x - x, qz = p.z - z;
+  function pillarShadow(x, z, list) {
+    for (let j = 0; j < list.length; j++) {
+      const p = PIL[list[j]], qx = p.x - x, qz = p.z - z;
       const pr = qx * SHX + qz * SHZ;
       if (pr < 0.05) continue;
       const pp = qx * qx + qz * qz - pr * pr, r = p.r - 0.03;
@@ -640,7 +653,7 @@
   }
   // irradiance factor of the sun at a surface point (0..~1)
   function sunAt(x, y, z) {
-    let best = 0;
+    let best = 0, bs = 0;
     for (let s = 0; s < SHAFT.length; s++) {
       const sh = SHAFT[s], m = sh.m, qx = x - sh.cx, qy = y - sh.cy, qz = z - sh.cz;
       const u = m[0] * qx + m[1] * qy + m[2] * qz;
@@ -651,11 +664,11 @@
       const l = m[6] * qx + m[7] * qy + m[8] * qz;
       if (l < 0) continue;
       const e = Math.min(1, (sh.hw - au) * 4) * Math.min(1, (v - sh.vmin) * 3) * Math.min(1, (vtop - v) * 3) * sh.I;
-      if (e > best) best = e;
+      if (e > best) { best = e; bs = s; }
     }
     if (best <= 0) return 0;
     if (!shadowAt(x, y, z)) return 0;
-    if (pillarShadow(x, z)) return 0;
+    if (pillarShadow(x, z, SHAFT[bs].pil)) return 0;
     return best;
   }
 
@@ -705,8 +718,10 @@
   function resolve() {
     for (let i = 0; i < NP; i++) {
       const m = GMT[i];
-      if (m < 0) continue;
-      shadeMetal(GPX[i], GPY[i], GPZ[i], GNX[i], GNY[i], GNZ[i], m, LISTS[GLS[i]], GTN[i]);
+      if (m < 0 || (MASK && !MASK[i])) continue;
+
+      if (m >= 20) shadeDais(GPX[i], GPY[i], GPZ[i], GNX[i], GNY[i], GNZ[i], m - 20);
+      else shadeMetal(GPX[i], GPY[i], GPZ[i], GNX[i], GNY[i], GNZ[i], m, LISTS[GLS[i]], GTN[i]);
       BR[i] = FV[0]; BG[i] = FV[1]; BB[i] = FV[2]; GMT[i] = -1;
     }
   }
@@ -721,7 +736,8 @@
   // diffuse light (FV[3]..) and specular (FV[6]..) at a point; v = unit vector toward the eye; sq = spec sharpness (squarings)
   function lightUp(x, y, z, nx, ny, nz, vx, vy, vz, list, sq, spec, nosun) {
     const hemi = 0.5 + 0.5 * ny;
-    FV[3] = 0.02 + 0.024 * hemi; FV[4] = 0.024 + 0.03 * hemi; FV[5] = 0.04 + 0.055 * hemi;
+    FV[3] = 0.016 + 0.02 * hemi; FV[4] = 0.02 + 0.027 * hemi; FV[5] = 0.036 + 0.055 * hemi;
+
     FV[6] = 0; FV[7] = 0; FV[8] = 0;
     for (let j = 0; j < list.length; j++) {
       const k = list[j];
@@ -753,7 +769,7 @@
         let hx = vx - SX, hy = vy - SY, hz = vz - SZ;
         const hl = 1 / sqrt(hx * hx + hy * hy + hz * hz + 1e-9);
         let hn = (nx * hx + ny * hy + nz * hz) * hl;
-        if (hn > 0.7) { for (let q = 0; q < sq + 1; q++) hn *= hn; const s = hn * FV[12] * 5; FV[6] += s * 1.1; FV[7] += s; FV[8] += s * 0.85; }
+        if (hn > 0.85) { for (let q = 0; q < sq + 2; q++) hn *= hn; const s = hn * FV[12] * 4; FV[6] += s * 1.1; FV[7] += s; FV[8] += s * 0.85; }
       }
     }
   }
@@ -894,8 +910,8 @@
         if (type === 2) shadeWall(x, y, z, px, py);
         else if (type === 3) shadeVault(x, y, z);
         else if (type === 4) shadePillar(PIL[pk], x, y, z, aux);
-        else if (type === 5) shadeDais(x, y, z, nx, ny, nz, aux, px, py);
-        else shadeCore(x, y, z, nx, ny, nz, BOX[aux][6]);
+        else if (type === 5) { gput(i, best, x, y, z, nx, ny, nz, 20 + aux, 1, 0); continue; }
+        else { coreG(i, best, x, y, z, nx, ny, nz, BOX[aux][6]); continue; }
         BR[i] = FV[0]; BG[i] = FV[1]; BB[i] = FV[2];
       }
     }
@@ -979,19 +995,19 @@
     // cool rim from the windows
     FV[0] = a0 * FV[3]; FV[1] = a1 * FV[4]; FV[2] = a2 * FV[5];
   }
-  function shadeDais(x, y, z, nx, ny, nz, s, px, py) {
+  function shadeDais(x, y, z, nx, ny, nz, s) {
     const top = (s + 1) * STEP_H;
     if (ny < 0.5 && y > top - 0.03) { shadeMetal(x, y, z, nx, 0.3, nz, 3, THRONE_L, 0.32); return; } // gilt nosing
     const vein = 0.8 + 0.4 * ih(fl(x * 2.3), fl(z * 2.3), 11 + s);
     const al = ny > 0.5 ? 0.13 * vein : 0.09 * vein;
     let vx = OX - x, vy = OY - y, vz = OZ - z; const vl = 1 / sqrt(vx * vx + vy * vy + vz * vz); vx *= vl; vy *= vl; vz *= vl;
-    lightUp(x, y, z, nx, ny, nz, vx, vy, vz, THRONE_L, 3, true);
+    lightUp(x, y, z, nx, ny, nz, vx, vy, vz, THRONE_L, 3, false);
     const ndv = nx * vx + ny * vy + nz * vz;
     env(2 * ndv * nx - vx, 2 * ndv * ny - vy, 2 * ndv * nz - vz);
     const k = 0.25;
     FV[0] = al * FV[3] + (FV[9] * k + FV[6] * 0.15); FV[1] = al * FV[4] * 0.97 + (FV[10] * k + FV[7] * 0.15); FV[2] = al * FV[5] * 1.05 + (FV[11] * k + FV[8] * 0.15);
   }
-  function shadeCore(x, y, z, nx, ny, nz, m) {
+  function coreG(i, z0, x, y, z, nx, ny, nz, m) {
     // fused blades: bevelled stripes across the face
     let s;
     if (ny !== 0) s = (x + z * 0.3) * 4.5;
@@ -1001,7 +1017,8 @@
     let px = nx, py = ny, pz = nz;
     if (ny !== 0) { px += f * 0.35; } else { py += f * 0.4; }
     const l = 1 / sqrt(px * px + py * py + pz * pz);
-    shadeMetal(x, y, z, px * l, py * l, pz * l, h < 0.5 ? 4 : h < 0.85 ? 1 : 0, THRONE_L, 0.4 + 0.45 * h);
+    gput(i, z0, x, y, z, px * l, py * l, pz * l, h < 0.6 ? 4 : 1, 0.3 + 0.3 * h, 0);
+
   }
 
   /* ================================================================ floor */
@@ -1490,19 +1507,16 @@
     updateLights(t);
     buildLightmap();
     const cam = camAt(t);
-    const PR = window.__ttprof = {}; let T0 = performance.now();
-    const mark = (k) => { const n = performance.now(); PR[k] = +(n - T0).toFixed(1); T0 = n; };
-    mark('lm');
     // main background first (to know where the floor is seen)
-    useCam(cam, false); target(false); prepBG(); bgPass(); mark('bg');
+    useCam(cam, false); target(false); prepBG(); bgPass();
     // mirror pass: the hall seen in the floor
-    useCam(cam, true); target(true); prepBG(); bgPass(); mark('mbg'); sceneObjects(t); mark('mobj');
+    useCam(cam, true); target(true); prepBG(); bgPass(); sceneObjects(t);
     // back to the real camera
     useCam(cam, false); target(false);
-    floorPass(); mark('floor');
-    sceneObjects(t); mark('obj');
-    shaftPass(t); mark('shaft');
-    dustPass(t); mark('dust');
+    floorPass();
+    sceneObjects(t);
+    shaftPass(t);
+    dustPass(t);
     // quantise
     for (let py = 0; py < H; py++) {
       const vy = (py - CYS) / H;
@@ -1552,7 +1566,17 @@
       for (let q = 0; q < LX.length; q++) if (Math.hypot(LX[q] - x, LZ[q] - z) < sqrt(LRM2[q]) + 4) l.push(q);
       WALL_L[k] = nearestLights(l, x, z, 4);
     }
-    LISTS.length = 0; LISTS.push(THRONE_L);
+    const lowDais = new Set(DAIS_L.slice(4));
+    LISTS.length = 0; LISTS.push(THRONE_L.filter((k) => !lowDais.has(k)));
+    for (const sh of SHAFT) {
+      sh.pil = [];
+      for (let k = 0; k < PIL.length; k++) {
+        const p = PIL[k], qx = p.x - sh.cx, qz = p.z - sh.cz, pr = -(qx * SHX + qz * SHZ);
+        if (pr < 0) continue;
+        if (qx * qx + qz * qz - pr * pr < (sh.hw + p.r + 0.6) ** 2) sh.pil.push(k);
+      }
+    }
+
     for (const c of CAP) {
       const mx = (c.ax + c.bx) / 2, mz = (c.az + c.bz) / 2;
       if (Math.hypot(mx, mz) < 6) { c.li = 0; continue; }
