@@ -1,4 +1,4 @@
-/* Don't Look Behind You — the room around the artworks.
+/* Don’t Look Behind You — the room around the artworks.
  *
  * Each artwork registers itself on window.PIECES with
  *   { id, title, medium, note, about, tone: 'dark'|'light', mount(el, api) }
@@ -67,7 +67,7 @@
     $('title').textContent = p.title;
     $('medium').textContent = p.medium;
     $('note').textContent = p.note || '';
-    document.title = p.title + ' — Don't Look Behind You';
+    document.title = p.title + ' — Don’t Look Behind You';
     delete document.documentElement.dataset.ready;
 
     stage.classList.remove('in');

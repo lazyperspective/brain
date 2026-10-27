@@ -218,13 +218,13 @@
         if (n === NG || n === NST) n = NS;
         else if (n === NY) n = NS;
       } else if (mode === 1) {
-        if (n === NG) { col = 7; n = NE; }
+        if (n === NG) { col = 8; n = NE; }
         else if (n === NY) { n = NE; }
         else if (n === NST) { col = 6; n = NS; }
         else if (n === NR) { col = 5; }
         else { col = 1; n = NF; }
       } else {
-        if (n === NG) { col = 6; n = NE; }
+        if (n === NG) { col = 7; n = NE; }
         else if (n === NY) { n = NE; }
         else if (n === NST) { col = 13; n = NE; }
         else {
@@ -499,7 +499,7 @@
     put(122, 51, 8); put(123, 51, 9); put(122, 52, 7); put(123, 50, 8); put(124, 52, 8); // tinfoil
     // ---- jack-o'-lantern body (face drawn live)
     pen(NF, 152);
-    ell(70.5, 117.5, 7.5, 5.8, 16, (x, y, u, v) => (Math.abs(u) > 0.78 ? 15 : (fl(x) === 66 || fl(x) === 70 || fl(x) === 74) && Math.abs(v) < 0.8 ? 15 : (v < -0.55 && u < 0.1 ? 17 : 16)));
+    ell(70.5, 117.5, 7.8, 6.2, 15, (x, y, u, v) => (Math.abs(u) > 0.8 || v > 0.75 ? 14 : (fl(x) === 66 || fl(x) === 75) && Math.abs(v) < 0.8 ? 14 : (v < -0.5 && u < 0.2 ? 16 : 15)));
     rect(70, 110, 2, 3, 24); put(72, 110, 25); put(73, 111, 25);
     hl(65, 76, 123, 12);
     // ---- tapes stack and remote on the cabinet top
@@ -554,7 +554,7 @@
       if (x > 57 && y > 240) continue;
       const qx = fl(x / 9);
       const cols = [13, 28, 15, 24, 26, 5, 13];
-      let c = DARK[cols[qx % cols.length]];
+      let c = cols[qx % cols.length];
       if (y === 238) c = 22;
       if (x % 9 === 0) c = 19;
       if (y > 249 + scal) c = DARK[c];
@@ -665,13 +665,13 @@
   }
   // --- jack-o'-lantern faces (emissive, 13 wide, placed over the body)
   const JF = {
-    smile: ['..ab.....ba..', '.aaab...baaa.', '.............', '..a.......a..', '..aaabaaaa...', '....aaaab....'],
-    oh: ['..aa.....aa..', '.aaaa...aaaa.', '.............', '.....aaa.....', '....aaaaa....', '.....aaa.....'],
-    worry: ['.aa.....aa...', '.aab...aab...', '.............', '..aaaaaaa....', '..a.a.a.a....', '.............'],
-    side: ['ab......ab...', 'aa......aa...', '.............', '...aaaaaa....', '..a......a...', '.............'],
-    scared: ['..aaa...aaa..', '..aba...aba..', '..aaa...aaa..', '.............', '...a.a.a.a...', '....a.a.a....'],
-    grin: ['.aa.......aa.', '.aab.....baa.', '.............', '.aaaaaaaaaaa.', '..aa.aaa.aa..', '....aaaaa....'],
-    wink: ['.aa..........', '.aab.....aaa.', '.............', '.aaaaaaaaaaa.', '..aa.aaa.aa..', '....aaaaa....'],
+    smile: ['..a.....a..', '.aba...aba.', '.....a.....', 'a.........a', '.aabaaabaa.', '..aa.a.aa..', '...........'],
+    oh: ['.aa.....aa.', '.ab.....ba.', '.aa.....aa.', '...........', '....aaa....', '...abbba...', '....aaa....'],
+    worry: ['a.........a', '.aa.....aa.', '.aba...aba.', '...........', '..a.a.a.a..', '.a.a.a.a.a.', '...........'],
+    side: ['...........', 'ab....ab...', 'aa....aa...', '...........', '...aaaaa...', '...........', '...........'],
+    scared: ['.aaa...aaa.', '.aba...aba.', '.aaa...aaa.', '...........', '....aaa....', '...aabaa...', '...aaaaa...'],
+    grin: ['.a.......a.', 'aba.....aba', '...........', 'aaaaaaaaaaa', 'aa.aaaaa.aa', '.aaaaaaaaa.', '...aaaaa...'],
+    wink: ['...........', 'aaa.....aba', '...........', 'aaaaaaaaaaa', 'aa.aaaaa.aa', '.aaaaaaaaa.', '...aaaaa...'],
   };
   // --- teddy (back / front) and chair
   const TEDDY_B = [
@@ -752,7 +752,7 @@
     // eye holes (appear as the head turns over the left shoulder)
     const turn = k.turn || 0;
     if (turn > 0.02) {
-      const tf = Math.PI - turn * 2.55;
+      const tf = Math.PI - turn * 2.85;
       for (const off of [-0.38, 0.38]) {
         const th = tf + off, cs = Math.cos(th);
         if (cs < 0.12) continue;
@@ -852,7 +852,7 @@
     const sleeve = (x0, y0, x1, y1, r) => { for (let s = 0; s <= 12; s++) ell(lerp(x0, x1, s / 12), lerp(y0, y1, s / 12), r || 3.2, r || 3.2, G); };
     const ext = pose === 'lean' ? 3 : 0;
     if (!back && !sit && pose !== 'crouch') {
-      sleeve(44 + ux, 41 + uy, 51 + ux + ext, 50 + uy);
+      sleeve(44 + ux, 41 + uy, 51 + ux + ext, 50 + uy + (pose === 'lean' ? -8 : 0));
     } else if (sit) {
       sleeve(43, 66, 46, 76);
       if (p.arm) sleeve(44, 64, 58, 58, 2.8);
@@ -875,7 +875,7 @@
     }
     // far arm crosses in front of the body (drawn after the pass, its own shading)
     if (!back && !sit && pose !== 'crouch') {
-      for (let s = 0; s <= 12; s++) ell(lerp(20 + ux, 42 + ux + ext, s / 12), lerp(44 + uy, 55 + uy, s / 12), 3.1, 3.1, 0, (x, y, u, v) => (v < -0.5 ? 25 : v > 0.55 ? 23 : 24));
+      for (let s = 0; s <= 12; s++) ell(lerp(20 + ux, 42 + ux + ext, s / 12), lerp(44 + uy, 55 + uy + (pose === 'lean' ? -5 : 0), s / 12), 3.1, 3.1, 0, (x, y, u, v) => (v < -0.5 ? 25 : v > 0.55 ? 23 : 24));
     }
     // ----- belly patch with big homemade stitches
     if (!back) {
@@ -905,9 +905,10 @@
     };
     const hand = (x, y) => { x = Math.round(x); y = Math.round(y); rect(x, y, 3, 3, 30); put(x, y + 2, 31); put(x + 2, y + 2, 31); };
     if (!back && !sit && pose !== 'crouch') {
-      if (p.mugs >= 1) mug(49 + ux + ext, 43 + uy, 26);
-      if (p.mugs >= 2) mug(40 + ux + ext, 49 + uy, 29);
-      hand(48 + ux + ext, 47 + uy); hand(39 + ux + ext, 53 + uy);
+      const mu = pose === 'lean' ? -9 : 0;
+      if (p.mugs >= 1) mug(49 + ux + ext, 43 + uy + mu, 26);
+      if (p.mugs >= 2) mug(40 + ux + ext, 49 + uy + mu * 0.6, 29);
+      hand(48 + ux + ext, 47 + uy + mu); hand(39 + ux + ext, 53 + uy + mu * 0.6);
       if (p.remote) { rect(43 + ux, 50 + uy, 5, 2, 1); PN = NE; put(48 + ux, 50 + uy, p.remote > 1 ? 26 : 13); PN = NS; }
     } else if (sit) {
       if (p.mugs >= 1) mug(39, p.sip ? 60 : 66, 29);
@@ -923,8 +924,8 @@
       PN = NS;
     }
     // ----- horns (cardboard, one of them bent)
-    poly([[hx - 9, hy - 6], [hx - 4, hy - 9], [hx - 9, hy - 15], [hx - 15, hy - 21], [hx - 13, hy - 13]], 15, (x, y) => (x <= hx - 12 && y < hy - 14 ? 17 : x < hx - 8 ? 15 : 14));
-    poly([[hx + 4, hy - 9], [hx + 9, hy - 6], [hx + 12, hy - 13], [hx + 16, hy - 15], [hx + 18, hy - 11], [hx + 13, hy - 11]], 15, (x, y) => (y < hy - 12 ? 17 : 15));
+    poly([[hx - 9, hy - 6], [hx - 4, hy - 9], [hx - 8, hy - 15], [hx - 12, hy - 21], [hx - 17, hy - 25], [hx - 15, hy - 18], [hx - 13, hy - 12]], 15, (x, y) => (x <= hx - 12 && y < hy - 14 ? 17 : x < hx - 8 ? 15 : 14));
+    poly([[hx + 4, hy - 9], [hx + 9, hy - 6], [hx + 12, hy - 14], [hx + 16, hy - 18], [hx + 21, hy - 18], [hx + 20, hy - 15], [hx + 16, hy - 14], [hx + 13, hy - 11]], 15, (x, y) => (y < hy - 12 ? 17 : 15));
     put(hx - 7, hy - 9, 8); put(hx - 6, hy - 8, 8); put(hx - 8, hy - 8, 8); put(hx + 6, hy - 9, 8); put(hx + 7, hy - 8, 8);
     if (!back) {
       // the face peeks out of the monster's mouth
@@ -1271,8 +1272,8 @@
     if (q >= 23.2 && q < 25.3) {
       k.bob = 0;
       if (q < 23.8) k.dx = (fl(q * 10) & 1) ? 1 : 0;
-      k.turn = io(clamp((q - 23.9) / 1.2, 0, 1)) * 0.95;
-      k.look = q > 24.8 ? 1 : 0;
+      k.turn = io(clamp((q - 23.8) / 1.1, 0, 1)) * 0.95;
+      k.look = q > 24.7 ? 1 : 0;
     }
     if (q >= 25.3 && q < 29.0) {
       k.turn = 0.95; k.look = 2; k.bob = 0;
@@ -1320,7 +1321,7 @@
       tvr = lerp(r / m, 1, 0.45); tvg = lerp(gg / m, 1, 0.45); tvb = lerp(b / m, 1, 0.45);
       tvI = 0.7 + lum * 2.3;
     } else { tvr = 0.62; tvg = 0.9; tvb = 0.72; tvI = 0.95; }
-    if (ch === 'static') tvI *= 0.85 + ih(fi, 1, 99) * 0.3;
+    if (ch === 'static') { tvr = 0.95; tvg = 0.93; tvb = 0.98; tvI = Math.min(tvI, 1.25) * (0.85 + ih(fi, 1, 99) * 0.25); }
     tvI *= 0.96 + 0.04 * ih(fi, 2, 98);
     // ---------------- scene
     SC.c.set(BS.c); SC.n.set(BS.n); SC.g.set(BS.g); SC.hh.set(BS.hh);
@@ -1367,7 +1368,7 @@
       if (S === 6 && q > 27.6 && q < 28.2) f = 'wink';
       const flick = ih(fl(t * 12), 3, 70);
       const map = { a: flick < 0.15 ? 16 : 17, b: 18 };
-      pen(NE, 152); spr(JF[f], map, 64, 113);
+      pen(NE, 152); spr(JF[f], map, 65, 114);
     }
     // window: the cat's witch silhouette on the sill
     if (S === 3) {
@@ -1401,10 +1402,15 @@
         const yo = Math.round(s * u);
         for (let y = top + yo; y <= bot + yo; y++) {
           const lx = W * (1 - (x - xl) / (213 - xl + 1e-6));
-          let c = 20;
-          const ix = W - lx;
-          if (y - yo < top + 3 || y - yo > bot - 3) c = 21;
-          if ((ix > 4 && ix < 14) || (ix > 18 && ix < 29)) { if (y - yo > top + 6 && y - yo < bot - 6) { c = (y - yo === top + 7 || ix === 5 || ix === 19) ? 19 : 20; } }
+          let c = 21;
+          const ix = W - lx, yy = y - yo;
+          if (yy < top + 3 || yy > bot - 3) c = 22;
+          const inPanel = (ix > 4 && ix < 27) && ((yy > top + 6 && yy < top + 40) || (yy > top + 45 && yy < bot - 6));
+          if (inPanel) {
+            const edgeT = yy === top + 7 || yy === top + 46, edgeL = ix > 4 && ix < 6;
+            const edgeB = yy === top + 39 || yy === bot - 7, edgeR = ix > 25;
+            c = edgeT || edgeL ? 19 : edgeB || edgeR ? 22 : 20;
+          }
           if (x === Math.round(xl)) c = 22;
           put(x, y, c);
         }
@@ -1498,8 +1504,7 @@
     if (S === 3) return { pose: 'stand', x: 21, gy: 144, mode: 2, inDoor: true, remote: q > 18.7 && q < 18.85 ? 2 : 1, cat: false, t: q, gyLight: 144 };
     if (S === 4) return { pose: 'stand', x: 33, gy: 212, mode: 1, cat: true, catEyes: 25, remote: q > 22.3 && q < 22.45 ? 2 : 1, t: q, occ: { x: 33, z: 2 * (212 - FL), r: 10, h: 84 } };
     if (S === 5) {
-      const lean = q > 24.6;
-      return { pose: lean ? 'lean' : 'stand', x: 76, gy: 245, mode: 1, cat: true, catEyes: 25, mugs: 2, t: q, occ: { x: 76, z: 2 * (245 - FL), r: 11, h: 84 } };
+      return { pose: 'stand', x: 76, gy: 245, mode: 1, cat: true, catEyes: 25, mugs: 2, t: q, occ: { x: 76, z: 2 * (245 - FL), r: 11, h: 84 } };
     }
     if (S === 6) {
       if (q < 26.2) return { pose: 'lean', x: 76, gy: 245, mode: 0, cat: q < 26.5, mugs: q < 25.9 ? 2 : 1, t: q, occ: { x: 76, z: 198, r: 11, h: 84 } };
@@ -1507,8 +1512,8 @@
       if (q < 28.6) return { pose: 'sit', x: 82, gy: 240, mode: 0, mugs: 1, sip: q > 27.0 && q < 27.6, arm: q > 27.6, t: q };
       if (q < 28.9) return { pose: 'crouch', x: 79, gy: 243, mode: 0, mugs: 2, t: q };
       // walk out to the hall
-      const u = clamp((q - 28.9) / 2.5, 0, 1);
-      const x = lerp(82, 22, u), gy = Math.round(lerp(243, 140, u));
+      const u = clamp((q - 28.9) / 2.1, 0, 1), u2 = clamp((q - 31.0) / 0.55, 0, 1);
+      const x = lerp(82, 22, u) - u2 * 34, gy = Math.round(lerp(243, 144, u));
       const wf = fl(q * 8) & 3;
       const inDoor = gy < 150;
       return { pose: 'walk', back: true, x, gy, wf, mode: inDoor ? 2 : 0, t: q, inDoorWalk: inDoor, hallOcc: { x, z: 2 * (gy - FL), r: 8, h: 84 }, occ: { x, z: 2 * (gy - FL), r: 10, h: 84 } };
@@ -1550,7 +1555,7 @@
   /* ================================================================ light */
   const TX = 106.5, TZ = 26, TH = 56;
   const AMB = [0.30, 0.30, 0.44];
-  const STEP = 0.11, BW = 0.5;
+  const STEP = 0.11, BW = 0.3;
   function band(I, b) {
     const s = I / STEP; let k = fl(s); const f = s - k; const lo = 0.5 - BW * 0.5;
     if (f >= lo + BW) k++; else if (f > lo && (f - lo) / BW > b) k++;
@@ -1573,7 +1578,7 @@
       const i = y * AW + x, n = SC.n[i], col = SC.c[i] - 1;
       if (n === NE) { OUT[i] = col; continue; }
       const H = SC.hh[i], Z = 2 * (y + H - FL), X = x + 0.5;
-      const b = BAY[((y & 3) << 2) | (x & 3)];
+      const b = n === NS ? 0.5 : BAY[((y & 3) << 2) | (x & 3)];
       // TV
       let dx = TX - X, dz = TZ - Z, dh = TH - H;
       let d = Math.sqrt(dx * dx + dz * dz + dh * dh) + 1e-3;
@@ -1690,11 +1695,11 @@
         if (EXPORT) { cssW = 1080; cssH = 1350; cv.style.position = 'fixed'; K = Math.max(1, Math.round(5 * dpr)); }
         else {
           const w = el.clientWidth || window.innerWidth, h = el.clientHeight || window.innerHeight;
-          const fit = Math.min(w * dpr / AW, h * dpr / AH);
+          const fit = Math.min(w * dpr / AW, h * dpr / AH) * 0.97;
           let k = Math.floor(fit);
           if (k < 1) k = 1;
           K = k;
-          if (k * AH < fit * AH * 0.82) { // integer scale wastes too much: scale fractionally (still nearest-neighbour)
+          if (k < fit * 0.9) { // integer scale wastes too much: scale fractionally (still nearest-neighbour)
             K = Math.max(1, Math.ceil(fit));
             cssW = AW * fit / dpr; cssH = AH * fit / dpr;
           } else { cssW = AW * k / dpr; cssH = AH * k / dpr; }
