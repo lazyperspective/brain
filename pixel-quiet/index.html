@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Quiet Hours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="room"><div id="stage"></div></main>
+
+<footer id="ui" data-tone="dark">
+  <div id="label">
+    <div id="num"></div>
+    <div id="title"></div>
+    <div id="medium"></div>
+    <div id="note"></div>
+  </div>
+  <nav id="nav" aria-label="Artworks">
+    <button id="prev" aria-label="Previous artwork">&larr;</button>
+    <div id="dots"></div>
+    <button id="next" aria-label="Next artwork">&rarr;</button>
+    <button id="about" aria-label="About these works">i</button>
+  </nav>
+</footer>
+
+<section id="index" hidden>
+  <div class="inner">
+    <h1>Quiet Hours</h1>
+    <p class="lede">Four slow, soothing pixel-art loops, drawn entirely in JavaScript as they play. No images, no video files: every pixel is computed.</p>
+    <ol id="list"></ol>
+    <p class="keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> move between works &nbsp;·&nbsp; <kbd>i</kbd> this index &nbsp;·&nbsp; <kbd>h</kbd> hide the label</p>
+  </div>
+</section>
+
+<script src="js/pieces/01-koi-garden.js"></script>
+<script src="js/pieces/02-tidepool.js"></script>
+<script src="js/pieces/03-lantern-library.js"></script>
+<script src="js/pieces/04-glasshouse.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
