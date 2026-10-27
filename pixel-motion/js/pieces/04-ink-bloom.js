@@ -3,13 +3,14 @@
  * Drops of coloured ink fall into a tall tank of still water, seen side-on. Each drop punches in with a
  * small splash crown, plunges as a vortex ring, and the ring rolls, slows and splits into smaller rings that
  * split again, pulling the ink into mushroom heads, stems and curling silk filaments that shear and braid in
- * a slow, time-periodic background swirl, then thin out into haze.
+ * a slow, time-periodic background swirl, then thin and fade.
  *
  * The flow is kinematic and divergence-free: every ring is a pair of smoothed point vortices on a prescribed
  * path (the ring’s cross-section), plus a separable periodic stream function for the background, all a pure
  * function of each drop’s age. At mount the ink of each drop (600 to 1,000 tracers laid out as material lines)
  * is advected once through its whole life and stored at 30 Hz. A frame revolves that cross-section into ten
- * azimuthal copies, each a little ahead of or behind the others in time so the split rings break into lobes,
+ * azimuthal copies (held near side-on until the first ring splits, so a young ring shows two curled cores and
+ * an open middle), each a little ahead of or behind the others in time so the split rings break into lobes,
  * projects them side-on and draws every material line as a one-pixel Catmull-Rom thread with its ink conserved
  * (a stretched thread is a fainter thread). Eight drops arrive three seconds apart and each one’s ink lives
  * exactly one loop (D = 24 s), so t = D is the same frame as t = 0 and nothing accumulates. 270 × 338, ordered
@@ -151,18 +152,20 @@
     return rings;
   }
   // ring programme: base radius, initial size, strength ramp (start, peak, end), core size, plunge, ink layout, split age
-  const P_R0 = 12, P_GROW = 0.55, P_K0 = 0.5, P_KP = 1.2, P_K1 = 0.45, P_DEL = 0.55, P_VP = 60, P_CORE = 0.55, P_SPOKE = 6, P_SKIN = 0.3, P_SPLIT = 3.2;
+  const P_R0 = 12, P_GROW = 0.55, P_K0 = 0.5, P_KP = 1.2, P_K1 = 0.45, P_DEL = 0.55, P_VP = 60, P_CORE = 0.55, P_SPOKE = 6, P_SKIN = 0.15, P_SPLIT = 3.2;
   // the revolve: azimuthal copies, their jitter, lobe time-warp, ring tilt, view elevation, drift warp, longest drawn segment
-  const KREV = 10, JIT = 0.25, LOBE = 1.6, WV0 = 0.8, TILT = 0.25, SINPHI = 0.3, WARP = 7, KC = 2, MAXL = 22;
+  const KREV = 10, JIT = 0.25, LOBE = 1.6, TILT = 0.25, SINPHI = 0.3, WARP = 7, KC = 2, MAXL = 22;
 
   // tracks: per ring, per 120 Hz age index: centre, perpendicular, radius, strength
-  let TRK = null;   // TRK[j] = { n, cx, cy, nx, ny, r, g } each Float32Array(n * (NA + 1))
+  let TRK = null;
+  const SPL = new Float32Array(ND);   // age at which each drop’s first ring splits   // TRK[j] = { n, cx, cy, nx, ny, r, g } each Float32Array(n * (NA + 1))
   const KG = 1.0;
   function buildTracks() {
     TRK = [];
     const bv = [0, 0];
     for (let j = 0; j < ND; j++) {
       const rings = buildProgramme(j), nr = rings.length, M = NA + 1;
+      SPL[j] = rings[0].ad - rings[0].fade;
       const T = { n: nr, cx: new Float32Array(nr * M), cy: new Float32Array(nr * M), nx: new Float32Array(nr * M), ny: new Float32Array(nr * M), r: new Float32Array(nr * M), g: new Float32Array(nr * M) };
       for (let q = 0; q < nr; q++) {
         const rg = rings[q], o = q * M;
@@ -285,7 +288,7 @@
       const n = Math.max(6, Math.round(TAU * rr / sp)), a0 = rnd() * TAU;
       for (let k = 0; k <= n; k++) { const a = a0 + TAU * k / n; push(x + rr * Math.cos(a), Math.max(S + 1, y + rr * Math.sin(a) * sq), k < n ? 1 : 0, m); }
     };
-    for (let s = -1; s <= 1; s += 2) for (let r = 0.7; r < P_CORE * R; r += 0.9) ring(cx + s * R, cy, r, 0.3, 1, 1);
+    for (let s = -1; s <= 1; s += 2) for (let r = 0.7; r < P_CORE * R; r += 0.9) ring(cx + s * R, cy, r, 0.3, r < 0.3 * R ? 1.5 : 0.9, 1);
         const nsp = P_SPOKE, a1 = rnd() * TAU;
     for (let q = 0; q < nsp; q++) {
       const a = a1 + TAU * q / nsp, n = Math.round(1.5 * R / 0.3);
@@ -297,9 +300,9 @@
       for (let k = 0; k <= n; k++) push(cx - half + 2 * half * k / n, S + 1.2 + row * 1.1 + rnd() * 0.3, k < n ? 1 : 0, P_SKIN);
     }
     // the entry column
-    for (let c = -1; c <= 1; c++) {
-      const n = Math.round((cy + 1.6 * R - S) / 0.3);
-      for (let k = 0; k <= n; k++) push(cx + c * 0.8, S + 1 + k * 0.3, k < n ? 2 : 0, 0.9);
+    for (let c = -1; c <= 1; c += 2) {
+      const n = Math.round((cy - 0.4 * R - S) / 0.3);
+      for (let k = 0; k <= n; k++) push(cx + c * 0.35, S + 1 + k * 0.3, k < n ? 2 : 0, 0.45);
     }
     const n = xs.length;
     return { n, link: Uint8Array.from(link), m: Float32Array.from(ms), x: Float64Array.from(xs), y: Float64Array.from(ys), pos: new Int16Array(NS * n * 2), ax: new Float32Array(NS) };
@@ -360,8 +363,6 @@
 
   /* ================================================================ frame */
   const DEN = new Float32Array(N * 4);              // ink density per colour
-  const HC = 3, HW = Math.ceil(W / HC) + 2, HH = Math.ceil(H / HC) + 2;
-  const HZB = new Float32Array(HW * HH * 4), HZT = new Float32Array(HW * HH);
   const OUT = new Uint8Array(N);
   const YS = new Int16Array(W);                     // surface row per column
   const YSF = new Float32Array(W);
@@ -387,53 +388,26 @@
     for (let x = 0; x < W; x++) YS[x] = Math.round(YSF[x]);
   }
 
-  /* ---------------------------------------------------------------- caustics on the back wall */
-  const CW = 26, CH = 19, CNX = Math.ceil(W / CW) + 3, CNY = Math.ceil(H / CH) + 3;
-  const CPX = new Float32Array(CNX * CNY), CPY = new Float32Array(CNX * CNY);
-  const CAU = new Float32Array(N), CT = new Float32Array(W * 7);
+  /* ---------------------------------------------------------------- light on the back wall */
+  // soft, slow patches of refracted light: a warped product of sines on a 3 px grid, sampled bilinearly
+  const CG = 3, CGW = Math.ceil(W / CG) + 2, CGH = Math.ceil(H / CG) + 2;
+  const CGV = new Float32Array(CGW * CGH), CAU = new Float32Array(N);
   function caustics(t) {
     const ph = TAU * t / D;
-    for (let j = 0; j < CNY; j++) for (let i = 0; i < CNX; i++) {
-      const k = j * CNX + i;
-      const m1 = 1 + fl(ih(i, j, 1) * 3), m2 = 1 + fl(ih(i, j, 2) * 3);
-      const s1 = ih(i, j, 5) < 0.5 ? 1 : -1, s2 = ih(i, j, 6) < 0.5 ? 1 : -1;
-      CPX[k] = i + 0.5 + 0.36 * Math.cos(s1 * m1 * ph + ih(i, j, 3) * TAU);
-      CPY[k] = j + 0.5 + 0.36 * Math.sin(s2 * m2 * ph + ih(i, j, 4) * TAU);
-    }
-    const w1 = ph, w2 = 2 * ph;
-    // separable trig tables: sin(a + b) = sin a cos b + cos a sin b
-    for (let x = 0; x < W; x++) {
-      CT[x] = Math.sin(x * 0.021); CT[W + x] = Math.cos(x * 0.021);
-      CT[2 * W + x] = 6 * Math.sin(x * 0.052 + w1 + 1.3);
-      CT[3 * W + x] = Math.sin(x * 0.13 + w2); CT[4 * W + x] = Math.cos(x * 0.13 + w2);
-      CT[5 * W + x] = Math.sin(x * 0.031); CT[6 * W + x] = Math.cos(x * 0.031);
+    for (let j = 0; j < CGH; j++) {
+      const y = j * CG, z = clamp((y - S) / (H - S), 0, 1), str = Math.exp(-z * 3.2);
+      for (let i = 0; i < CGW; i++) {
+        const x = i * CG;
+        const u = Math.sin(x * 0.043 + 1.7 * Math.sin(y * 0.029 + ph) + ph);
+        const v = Math.sin(y * 0.05 + 1.5 * Math.sin(x * 0.035 - ph + 1.1) - 2 * ph + 0.6 * Math.sin(x * 0.011 + ph));
+        CGV[j * CGW + i] = str * sstep(0.25, 0.9, u * v);
+      }
     }
     for (let y = S; y < H; y++) {
-      const z = (y - S) / (H - S);
-      const str = Math.exp(-z * 2.4);
-      if (str < 0.1) { CAU.fill(0, y * W, y * W + W); continue; }
-      const wy = 7 * Math.sin(y * 0.043 + w1);
-      const ra = y * 0.083 - w2, rsa = 5 * Math.sin(ra), rca = 5 * Math.cos(ra);
-      const rb = -y * 0.05, rsb = 3 * Math.sin(rb), rcb = 3 * Math.cos(rb);
-      const rc = -y * 0.022 + w1 + 0.6 * Math.sin(y * 0.05 - w2), rsc = Math.sin(rc), rcc = Math.cos(rc);
+      const gy = y / CG, iy = gy | 0, fy = gy - iy;
       for (let x = 0; x < W; x++) {
-        const qx = (x + wy + rsa * CT[W + x] + rca * CT[x]) / CW + 1;
-        const qy = (y + CT[2 * W + x] + CT[3 * W + x] * rcb + CT[4 * W + x] * rsb) / CH + 1;
-        const lum = 0.5 + 0.5 * (CT[5 * W + x] * rcc + CT[6 * W + x] * rsc);
-        const ix = qx | 0, iy = qy | 0;
-        let f1 = 1e9, f2 = 1e9;
-        for (let dj = -1; dj <= 1; dj++) {
-          const row = (iy + dj) * CNX;
-          for (let di = -1; di <= 1; di++) {
-            const k = row + ix + di;
-            const dx = (CPX[k] - qx) * CW, dy = (CPY[k] - qy) * CH;
-            const d = dx * dx + dy * dy;
-            if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
-          }
-        }
-        // f in squared pixels; ridge between cells
-        const e = Math.sqrt(f2) - Math.sqrt(f1);
-        CAU[y * W + x] = str * lum * lum * (1 - sstep(0.1, 1.2 + 0.9 * lum, e));
+        const gx = x / CG, ix = gx | 0, fx = gx - ix, o = iy * CGW + ix;
+        CAU[y * W + x] = (CGV[o] * (1 - fx) + CGV[o + 1] * fx) * (1 - fy) + (CGV[o + CGW] * (1 - fx) + CGV[o + CGW + 1] * fx) * fy;
       }
     }
   }
@@ -444,22 +418,30 @@
   const JC = new Float32Array(16384), JS = new Float32Array(16384);
   function buildJitter() { for (let k = 0; k < 16384; k++) { const d = (ih(k, 77, 5) - 0.5) * JIT * Math.PI / KREV; JC[k] = Math.cos(d); JS[k] = Math.sin(d); } }
   function inkLayer(t) {
-    DEN.fill(0); HZB.fill(0);
+    DEN.fill(0);
     for (let j = 0; j < ND; j++) {
       const a = lifeOf(t, j);
       const tr = TR[j], c = DROPS[j].c;
       const at = sstep(-0.05, 0.5, a) * (1 - sstep(10, 22.5, a));
-      const ah = sstep(7, 15, a) * (1 - sstep(16, 23.7, a));
-      if (at <= 0.001 && ah <= 0.001) continue;
+      if (at <= 0.001) continue;
       // the simulation is the ring’s cross-section; revolve it into K azimuthal copies and project them
       // side-on, each copy a little ahead or behind in time so the split rings break into lobes
       const n = tr.n, p = tr.pos, inv = 1 / QS;
-      const dc = c * N, hc = c * HW * HH;
-      const ink = KC * at / KREV, haze = 0.9 * ah / KREV;
+      const dc = c * N;
+      const ink = KC * at / KREV;
       const wa = WARP * sstep(3, 16, a), wp0 = TAU * t / D + ih(j, 9, 4) * TAU, wp1 = -TAU * 2 * t / D + ih(j, 9, 5) * TAU;
-      const wv = sstep(WV0, WV0 + 4, a), tilt = TILT * (ih(j, 9, 6) - 0.5) * 2, ph0 = ih(j, 9, 1) * TAU, ph1 = ih(j, 9, 2) * TAU, rot = ih(j, 9, 3) * Math.PI;
+      // until its ring splits the drop is drawn as the bare cross-section (two curled cores, open middle);
+      // then the copies swing out around the axis and the ring breaks into lobes
+      const sp = SPL[j], spread = sstep(sp - 0.5, sp + 1.6, a);
+      const f1 = sstep(10, 14, a), f2 = sstep(15, 19, a);
+      const wv = sstep(sp - 0.3, sp + 3, a), tilt = TILT * (ih(j, 9, 6) - 0.5) * 2, ph0 = ih(j, 9, 1) * TAU, ph1 = ih(j, 9, 2) * TAU, rot = ih(j, 9, 3) * Math.PI;
       for (let q = 0; q < KREV; q++) {
-        const th = rot + Math.PI * (q + 0.15 + 0.7 * ih(j, q, 21)) / KREV;
+        let th = rot + Math.PI * (q + 0.15 + 0.7 * ih(j, q, 21)) / KREV;
+        th = pmod(th + Math.PI / 2, Math.PI) - Math.PI / 2;             // the same plane, centred on side-on
+        th *= 0.5 + 0.5 * spread;
+        // old ink keeps fewer, coherent threads: half the copies hand their ink to the others, then half again
+        const wq = (q & 1 ? 1 - f1 : (1 + f1) * ((q & 2) ? 1 - f2 : 1 + f2));
+        if (wq <= 0.001) continue;
         const rw = 1 + wv * 0.14 * Math.sin(2 * th + ph1);
         const cq = Math.cos(th) * rw, sq = Math.sin(th) * rw;
         let aq = a + wv * (LOBE * Math.sin(2 * th + ph0) + 0.5 * LOBE * Math.sin(3 * th + ph1));
@@ -481,14 +463,6 @@
             Y += wa * 0.6 * Math.sin(wx + Y * 0.01);
           }
           PX[k] = X; PY[k] = Y;
-          if (haze > 0) {
-            const gx = X / HC - 0.5, gy = Y / HC - 0.5, hx = Math.floor(gx), hy = Math.floor(gy);
-            if (hx >= 0 && hy >= 0 && hx < HW - 1 && hy < HH - 1) {
-              const fx = gx - hx, fy = gy - hy, w = tr.m[k] * haze, o = hc + hy * HW + hx;
-              HZB[o] += w * (1 - fx) * (1 - fy); HZB[o + 1] += w * fx * (1 - fy);
-              HZB[o + HW] += w * (1 - fx) * fy; HZB[o + HW + 1] += w * fx * fy;
-            }
-          }
         }
         if (ink > 0) {
           const L = tr.link, plunge = a < 1.2 ? 3 + 110 * a : 0;
@@ -496,7 +470,7 @@
             const l = L[k];
             if (!l) continue;
             const k0 = k > 0 && L[k - 1] ? k - 1 : k, k3 = L[k + 1] && k + 2 < n ? k + 2 : k + 1;
-            let mm = tr.m[k] * ink;
+            let mm = tr.m[k] * ink * wq;
             if (plunge > 0) mm *= sstep(plunge, plunge - 4, PY[k] - S);
             if (mm > 0) spl(PX[k0], PY[k0], PX[k], PY[k], PX[k + 1], PY[k + 1], PX[k3], PY[k3], mm, dc, l === 2 ? 26 : MAXL);
           }
@@ -543,37 +517,12 @@
       x += sx; y += sy;
     }
   }
-  function blurHaze() {
-    for (let c = 0; c < 4; c++) {
-      const o = c * HW * HH;
-      for (let pass = 0; pass < 2; pass++) {
-        // horizontal
-        for (let y = 0; y < HH; y++) {
-          const r = o + y * HW;
-          for (let x = 0; x < HW; x++) {
-            let s = 0;
-            for (let k = -2; k <= 2; k++) { const xx = x + k; if (xx >= 0 && xx < HW) s += HZB[r + xx]; }
-            HZT[y * HW + x] = s * 0.2;
-          }
-        }
-        for (let x = 0; x < HW; x++) {
-          for (let y = 0; y < HH; y++) {
-            let s = 0;
-            for (let k = -2; k <= 2; k++) { const yy = y + k; if (yy >= 0 && yy < HH) s += HZT[yy * HW + x]; }
-            HZB[o + y * HW + x] = s * 0.2;
-          }
-        }
-      }
-    }
-  }
-
   /* ---------------------------------------------------------------- composite */
-  const KI = 0.55, KH = 0.035, DITH = 0.55;
+  const KI = 0.55, DITH = 0.4;
+  const GCOL = new Uint8Array(N), KILL = new Uint8Array(N);
   function composite(t) {
-    const HN = HW * HH;
     for (let y = 0; y < H; y++) {
       const z = clamp((y - S) / (H - S), 0, 1);
-      const gy = (y + 0.5) / HC - 0.5, hy = clamp(gy | 0, 0, HH - 2), fy = clamp(gy - hy, 0, 1);
       for (let x = 0; x < W; x++) {
         const i = y * W + x, ys = YS[x];
         const th = bay(x, y);
@@ -586,37 +535,42 @@
         if (y === ys + 1) { OUT[i] = G0; continue; }
         // water ground
         const edge = Math.exp(-x / 9) + Math.exp(-(W - 1 - x) / 9);
-        let gl = 1.25 + 3.3 * Math.pow(z, 1.1) + 0.9 * edge - 1.5 * CAU[i];
+        let gl = 1.25 + 3.3 * Math.pow(z, 1.1) + 0.9 * edge - 1.1 * CAU[i];
         if (y <= ys + 3) gl = 0.6 + th * 0.2;
         let gi = fl(gl + th); gi = gi < 0 ? 0 : gi > 5 ? 5 : gi;
         let col = G0 + gi;
+        GCOL[i] = col;
         // ink
-        const gx = (x + 0.5) / HC - 0.5, hx = clamp(gx | 0, 0, HW - 2), fx = clamp(gx - hx, 0, 1);
-        const ho = hy * HW + hx;
         let best = -1, bd = 0, sec = -1, sd = 0, tot = 0;
         for (let c = 0; c < 4; c++) {
-          const hb = c * HN + ho;
-          const hz = (HZB[hb] * (1 - fx) + HZB[hb + 1] * fx) * (1 - fy) + (HZB[hb + HW] * (1 - fx) + HZB[hb + HW + 1] * fx) * fy;
-          const d = DEN[c * N + i] * KI + hz * KH;
+          const d = DEN[c * N + i] * KI;
           if (d <= 0) continue;
           tot += d;
           if (d > bd) { sec = best; sd = bd; best = c; bd = d; } else if (d > sd) { sec = c; sd = d; }
         }
-        if (tot > 0.015) {
+        if (tot > 0.05) {
           const op = 1 - Math.exp(-tot);
-          let lv = op < 0.05 ? 0 : fl(op * 5.4 + 0.5 + (th - 0.5) * DITH);
+          let lv = op < 0.07 ? 0 : fl(op * 5.4 + 0.5 + (th - 0.5) * DITH);
           if (lv > 0) {
             if (lv > 5) lv = 5;
-            let c = best;
             const share = sec >= 0 ? sd / (bd + sd) : 0;
-            if (share > 0.08 && bay2(x, y) < share) c = sec;
-            if (share > 0.3 && lv >= 3) col = PAIRI[best][sec] + (lv >= 4 ? 1 : 0);
-            else col = RAMP[c] + lv - 1;
+            if (share > 0.3 && lv >= 2) col = PAIRI[best][sec] + (lv >= 4 ? 1 : 0);
+            else col = RAMP[best] + lv - 1;
           }
         }
         OUT[i] = col;
       }
     }
+    // cut stray pixels: an ink pixel with no ink around it goes, and a palest-step pixel needs two neighbours
+    for (let y = S + 2; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x, o = OUT[i];
+      if (o < 10) continue;
+      let nb = 0;
+      for (let dy = -W; dy <= W; dy += W) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && OUT[i + dy + dx] >= 10) nb++;
+      const pale = o < 30 && (o - 10) % 5 === 0;
+      if (nb === 0 || (pale && nb < 2)) KILL[i] = 1;
+    }
+    for (let i = 0; i < N; i++) if (KILL[i]) { OUT[i] = GCOL[i]; KILL[i] = 0; }
   }
 
   /* ---------------------------------------------------------------- bubbles, splashes, falling drops */
@@ -688,7 +642,6 @@
     surface(t);
     caustics(t);
     inkLayer(t);
-    blurHaze();
     composite(t);
     bubbles(t);
     splashes(t);
@@ -715,7 +668,7 @@
     title: 'Ink Bloom',
     medium: 'Advected ink, 270 × 338, dithered in JavaScript · 24 s loop',
     note: 'Each drop’s ink lives exactly one loop · tap to pause',
-    about: 'Drops of indigo, vermilion, gold and teal ink fall into a tall tank of clear water seen from the side. Each one punches in with a small splash crown, plunges as a vortex ring, and the ring rolls, slows and splits into smaller rings that split again, drawing the ink into mushroom heads, stems and silk filaments that shear and braid in a slow swirl before thinning into haze. Every thread is a line of ink carried by a smooth, divergence-free flow, one pixel wide; a new drop arrives every three seconds and each drop’s ink lives exactly one loop, so the water never fills up.',
+    about: 'Drops of indigo, vermilion, gold and teal ink fall into a tall tank of clear water seen from the side. Each one punches in with a small splash crown, plunges as a vortex ring, and the ring rolls, slows and splits into smaller rings that split again, drawing the ink into mushroom heads, stems and silk filaments that shear and braid in a slow swirl before thinning to a few faint threads and fading away. Every thread is a line of ink carried by a smooth, divergence-free flow, one pixel wide; a new drop arrives every three seconds and each drop’s ink lives exactly one loop, so the water never fills up.',
     tone: 'light',
     room: '#e9f0ee',
     mount(el, api) {
