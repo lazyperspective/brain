@@ -202,7 +202,7 @@
     if (g < 0 || g > 1.2) return;
     cols = cols || [22, 105, 103]; seed = seed || 1161;
     // the ink-and-light impact frame only for the heavy blows (lighter ones flash light instead): fewer jolts, more flow
-    if (g < 0.03) { if (power >= 2.5) impactFrame(x, y, power >= 2.8 ? 1 : 0); else glow(x, y, 90 * power, T_WH, 0.6); }
+    if (g < 0.03) { if (power >= 2.5) impactFrame(x, y, power >= 2.8 ? 1 : 0); else glow(x, y, 34 * power, T_WH, 0.45); }
     const P_ = power;
     if (g < 0.5) {
       shockRing(x, y, 8 + g * 420 * P_, 5 + g * 240 * P_, 2 + P_, [22, cols[1], cols[2]], 1 - g / 0.5);
