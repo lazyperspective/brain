@@ -1,0 +1,60 @@
+# UNFORGOTTEN — Episode 1, part 1 (0:00–5:00): sound design cue sheet
+
+Deliverable: `ep1/audio/score_sfx.wav`, 48 kHz, 16-bit, **stereo**, exactly **300.0 s**. Music + sound effects + ambience only: **no dialogue** (dialogue is mixed in later, so leave room for it: duck music/ambience by ~6–8 dB under the dialogue windows listed below). Peak ≤ −1 dBFS; overall loudness around −18 LUFS integrated before dialogue. Also deliver the stems: `ep1/audio/music.wav`, `ep1/audio/sfx.wav`, `ep1/audio/amb.wav` (same format), and the generator script `ep1/audio/make_audio.py` (re-runnable).
+
+Everything must be **synthesised from scratch** in Python (numpy; scipy is fine to install into the venv). No samples, no downloads of audio. Tools: `/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/tts/bin/python` (has numpy, soundfile; `tts/bin/pip install scipy` if wanted), and `ffmpeg`. Work only inside `/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/ep1/audio/`. Do not run git.
+
+The show: an original pixel-art action fantasy, cinematic and emotional (think the scoring of Arcane / Blue Eye Samurai / Avatar: The Last Airbender — but our own). Instrument palette to synthesise: a soft felt piano or koto-like plucked string (additive, decaying partials), warm string pad (detuned saws, low-passed, slow attack), low taiko / frame drums (pitched sine-thump + noise), bronze bells (inharmonic additive partials — these matter: the villain is a bell), shakuhachi-like breathy flute (filtered noise + sine), sub drones, risers (filtered noise sweeps), braams (low detuned saws, filter opening). Keep it tasteful and dynamic: silence is a tool.
+
+## Timeline (seconds)
+
+### COLD OPEN — a village at night, years ago (0–93)
+| t | event |
+|---|---|
+| 0.0–2.0 | black: rain fades in (soft wide rain on wood + roof drips, stereo) |
+| 1.6–6.0 | **chalk** scratching on wet wood: 4 letters written ~1.1 s each (M at 1.6, I at 2.7, R at 3.8, A at 4.9), short rough scrapes per stroke; a tiny doodle 5.9–6.2 |
+| 2.0 → 30.6 | rain + distant thunder rumble at 12.0 and 24.5 (very soft); a crackling bonfire becomes audible from 17 s (shrine scene) |
+| 3.0–4.1, 9.6–12.1 | dialogue (narration, quiet woman) |
+| 5.0–30 | MUSIC A "Emberwick": gentle, warm, a little melancholic. Plucked string/felt piano melody over warm pad, slow (≈ 70 bpm), key of D minor-ish leaning to F major warmth. Builds slightly as the camera cranes up (7.5–17). |
+| 7.5–17 | a child's running footsteps on wet stone (light, quick) under the crane shot |
+| 18.3–22.3, 24.6–28.8 | dialogue (child, then a warm woman with a soft chuckle) |
+| 30.6 | **THE RAIN STOPS.** Hard cut of ALL sound (rain, fire, music) to near silence: only a faint high sine tone (~3.2 kHz, very soft) and a low sub swell |
+| 32.4–36.0 | a ring of glyphs opens in the sky: rising glassy shimmer (high additive tones, slow), sub pressure |
+| 36.0–41.0 | the villain (a king) seen from behind: a cold low bell drone; dialogue 38.4–39.2 (a whisper "Hush now.") — keep everything under it extremely quiet |
+| 41.4–48.0 | **THE WAVE**: a white erasing wave sweeps over the village. Huge but soft — a reversed-cymbal-like whoosh building into a sustained white-noise roar that is band-limited and *airless*, plus inharmonic shimmer; lanterns blink out (tiny "tink" clicks scattered); everything sounds like it's being muffled. Music: dissonant string cluster swelling. |
+| 48.0–51.0 | the chalk name dissolves: crumbling glitchy granular crackle, quiet |
+| 51.0–55.0 | silence-ish tension; a single held low string note; dialogue 52.4 ("Sable...?") |
+| 55.0–60.0 | panic: heartbeat-like low pulses accelerating; dialogue 55.4–59.0; **58.2 IMPACT**: the wave hits the child — a sharp digital glitch burst + white-noise slam, then glitch crackle fading 58.2–59.2 |
+| 60.0–65.0 | the scream (dialogue 60.5–61.7). Sound goes to a high ringing tinnitus tone + all else fades out by 62.5; 62.5–65 near silence (white) |
+| 65.0–74.0 | aftermath: cold wind (soft, hollow), occasional ember crackles; MUSIC B "Oath": solo breathy flute, very sparse, mournful; dialogue 66.2–67.6 |
+| 69.0 | the sword is pulled from the embers and **ignites**: a fiery whoosh + low roar + crackle that continues softly |
+| 74.0–82.0 | MUSIC B builds: low taiko heartbeats begin at 76, strings join; dialogue 77.4–78.6; 80.6–81.4 a rising riser into **81.4 SLASH** (sword whoosh, sharp) → **81.6 hard cut to silence** |
+| 82.0–93.0 | TITLE: 82.6 a deep **braam/boom hit** as the title ignites (letters catch fire 82.8–84.5: crackling ignition sweeps), then a sustained theme statement (the show's main theme, 4–6 notes, heroic but sad) 83–91; title burns away 90.6–92.6 (fire crackle fading); 92.6–93 silence |
+
+### ACT ONE — Halcyon Spire, now (93–300)
+| t | event |
+|---|---|
+| 93.0–104.0 | dawn above a sea of clouds: high wind, distant birds, **temple bells** (large bronze, tolling at 96.5, 99.5, 102.5); MUSIC C "Halcyon": bright, wide, airy, pentatonic, hopeful (strings + plucks + flute), moderate |
+| 104.0–112.0 | inside the vault: urgent **alarm bells** (rapid smaller bells, continuous), armoured footsteps running in; music turns tense (low ostinato). Dialogue 104.9–106.5 and 107.0–111.1 |
+| 112.0–122.0 | **113.0 a stained-glass window EXPLODES** (big glass shatter, layered, wide stereo) → slow-motion 113.2–116.0 (sound goes muffled, pitched-down, a low drone + slowed glass tinkles) — a character intro freeze 114–116 (a stinger: one taiko hit + a bright string stab at 114.0) → 116.0 snap back to real speed (whoosh), 117.2 she lands on a roof and rolls (thud + cloth + gravel) |
+| 118.0–148.0 | **CHASE**: MUSIC D "Courier" — fast (≈ 150 bpm), driving taiko + plucked ostinato + low strings, energetic, playful-dangerous. Under it: running footsteps on tiles (fast), wind rushing, pursuers' footsteps. Dialogue windows: 123.0–127.5, 128.6–131.0 (a man shouting), 131.6–132.4, 134.3–136.1 (duck under these) |
+| 120.6, 124.8, 129.0, 137.4, 142.0 | she **leaps** a gap between roofs (whoosh up, light landing thump) |
+| 133.0 | her chest **glows** (a warm pulsing hum, heartbeat-synced, swells 133–136) |
+| 136.0 | a chain-spear flies at her (metallic whoosh + chain rattle) → 136.4 she dodges with a lightning-fast step (**electric zap + afterimage whoosh**) → 136.7 the spear thunks into a chimney |
+| 140.0–148.0 | wide shot of the chase: chains rattling, more pursuers, a big spinning leap at 143.0 (big whoosh), lightning crackle on her blades |
+| 148.0–166.0 | dead end at a broken bridge: music cuts at 148.3 to a held tense drone; wind howls (high, lonely); pursuers land around her (thuds at 149.0, 149.6, 150.3, 151.0); dialogue 153.5–159.9 (a stern man), 162.3–163.6 (her quip) — keep music minimal; **164.5 she steps backward off the edge** → a sharp intake (riser) |
+| 166.0–176.0 | **THE FALL**: rushing wind (loud, Doppler), music explodes back (MUSIC D variation, faster); she crashes through cloth awnings at **169.5, 171.0, 172.5** (cloth rip + wooden pole crack, each smaller than the last); 172.6–176 market noise rushing past |
+| 176.0–182.0 | the docks: seagulls, lapping water, creaking ropes and wood (harbour ambience from here to 228); a boy whistles a little tune 176.2–177.8; **178.0 IMPACT** — she lands on him: crate explodes (wood splinter crash + wet fish slaps + a comedic **cartoon-ish thump**), 180.5 a fish lands with a wet slap |
+| 182.0–197.0 | comedy beat — music: light pizzicato/pluck comedic sting at 182.3; dialogue 182.6–184.2, 185.0–186.8, 187.6–188.1 (cut off); **188.6 THREE THUDS** as three armoured figures land on the dock (heavy, quick: 188.6, 188.8, 189.0); tense silence 189–191; dialogue 191.6–193.7 |
+| 197.0–214.0 | **THE ANCHOR**: dialogue 197.6–200.3 (an old dockhand); 199.5 hands grip iron (clank); **200.0–205.0** the dock groans, wood creaks, the sea *pulls back* (a huge reversed wave suck, water draining, rising low rumble); MUSIC E "Tide-Breaker" rising heroic swell from 200.5 (taiko build, brass-like saws, choir-ish pad); **203.0 the anchor rips free** (metal groan + water explosion) ; hero hold 203.5–205; dialogue 205.6–207.5 (a boy, confident); 207.5 music hit |
+| 214.0–221.0 | **FIGHT**: MUSIC E as fight theme (driving). 214.8 anchor swing (huge whoosh) + body hit + **big splash** (215.2); 216.8 a chain wraps the anchor (chain rattle) → 217.2 yank + whoosh → 218.0 crash into barrels (wood smash); 219.0 a spear thrust (whoosh) → 219.6 electric zap + kick hit + a splash at 220.1; 220.5 she lands beside him |
+| 221.0–228.0 | breather: dialogue 221.0–222.2, 222.9–226.5 (playful); music settles to warm light theme (MUSIC C reprise, brief) |
+| 228.0–246.0 | **THE HUSH RETURNS** (echo of the cold open — reuse its sounds): 228.5 all ambience (gulls, water) cuts out abruptly → near silence + the faint high sine tone; dialogue 230.6–231.2; 231.0–235.0 the glyph ring opens in the sky (same rising shimmer as 32.4); dialogue 235.6–239.7, 242.2–244.7; low dread drone, slow |
+| 246.0–262.0 | **HOLLOW ATTACK**: 246.0 the white wave touches the far side of the harbour (wave roar, distant); 247–250 shadowy figures **drop from the sky and land** (glitchy digital thuds, ~8 of them, staggered); 250–254 combat: spear clashes, glitch crackles; **252.5 a guard is erased** (the same glitch burst as 58.2, smaller); 254–260 the BELL LORD descends (a huge bronze bell drone, swelling, slowly ringing); **260.0 it lands and TOLLS**: an enormous bronze bell strike with a white shockwave (bell + sub boom + airy whoosh); MUSIC F "Bellwether": ominous, low brass-like drones, bell motifs, slow and huge |
+| 262.0–276.0 | dialogue 262.6–265.6, 267.0–268.8 (the bell lord, deep and echoing) — under it: low bell hum, tense string tremolo |
+| 276.0–292.0 | **THE TOLL**: 276.5 the bell rings again → a white wave rushes along the dock (roar approaching L→R); 277.5 he plants the anchor: a wall of water rises (big water surge, sustained churning roar); **278.5 the white wave hits the water wall**: hiss + crackling static + strain (sustained to 285.5); dialogue 279.0–283.3 (a boy straining, shouting), 283.8–285.1 (a girl, panicked) — duck under; her chest blazes 283.5 (the warm hum, stronger, unstable crackle); **285.5 the water wall breaks** (huge crash + splash) → 286.0 they're thrown (impact, bodies hitting wood); 288.0–290.5 the bell lord raises its arms: riser + bell swell toward a final toll... |
+| 290.5–300.0 | ...which **never comes**: at 290.8 everything drops to near silence. 291.0 a faint violet hum (a lantern) in the fog; **heavy armoured footsteps** (slow, metallic, echoing: 292.2, 293.4, 294.6, 295.8); dialogue 296.0–296.8 (a deep metallic voice: "Step away from them."); 297.2 a single resonant low note (the cliffhanger sting: a deep piano/strings chord, unresolved) → 298.5 cut to black: silence to 300.0 |
+
+Dialogue windows (for ducking), seconds: 3.0–4.1, 9.6–12.1, 18.3–22.3, 24.6–28.8, 38.4–39.2, 52.4–52.8, 55.4–59.0, 60.5–61.7, 66.2–67.6, 77.4–78.6, 104.9–106.5, 107.0–111.1, 123.0–127.5, 128.6–131.0, 131.6–132.4, 134.3–136.1, 153.5–159.9, 162.3–163.6, 182.6–184.2, 185.0–186.8, 187.6–188.1, 191.6–193.7, 197.6–200.3, 205.6–207.5, 221.0–222.2, 222.9–226.5, 230.6–231.2, 235.6–239.7, 242.2–244.7, 262.6–265.6, 267.0–268.8, 279.0–283.3, 283.8–285.1, 296.0–296.8.
+
+Quality bar: this is the score for a show that should feel like a premium animated series. Musical cues must be actually musical (real chords, voice-leading, a memorable main theme motif you reuse in the title, the oath, and the hero moments). Effects must be timed to within ±1 frame (33 ms) of the cue times. When you finish, listen-check is impossible, so verify programmatically: correct duration/format, no clipping, RMS levels per section that make sense (quiet where it says silence, loud at impacts), and render a spectrogram PNG (`ep1/audio/spectrogram.png`, matplotlib if available, else skip) for a sanity check. Report: what you built per cue, and any cue you could not do well.
