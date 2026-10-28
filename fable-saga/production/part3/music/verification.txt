@@ -1,0 +1,114 @@
+Integrated loudness (internal BS.1770 meter): -14.01 LUFS, true peak -1.25 dBTP
+ffmpeg ebur128: I:         -14.0 LUFS | LRA:        16.6 LU | Peak:       -1.2 dBFS
+score.wav: 5760000 frames = 120.000 s, 48000 Hz, 2 ch, PCM_24
+
+Hit alignment (low band <150 Hz onset detection on the master; tolerance +-33.3 ms = 1 frame)
+  OK  cue   7.000  HIT tear      measured   7.001  delta   +1.0 ms  rise  20.2 dB
+  OK  cue  10.500  HIT reveal    measured  10.502  delta   +2.0 ms  rise  16.8 dB
+  OK  cue  14.000  sting         measured  14.002  delta   +2.0 ms  rise  17.2 dB
+  OK  cue  17.500  sting         measured  17.490  delta  -10.0 ms  rise  16.4 dB
+  OK  cue  20.000  sting         measured  20.001  delta   +1.0 ms  rise  23.9 dB
+  OK  cue  27.000  dark sting    measured  27.000  delta   +0.0 ms  rise  30.2 dB
+  OK  cue  28.500  HIT title     measured  28.502  delta   +2.0 ms  rise  16.7 dB
+  OK  cue  30.000  charge        measured  30.002  delta   +2.0 ms  rise  11.4 dB
+  OK  cue  33.600  stab          measured  33.601  delta   +1.0 ms  rise  16.1 dB
+  OK  cue  34.200  stab          measured  34.190  delta  -10.0 ms  rise  11.6 dB
+  OK  cue  34.800  stab          measured  34.802  delta   +2.0 ms  rise  10.8 dB
+  OK  cue  35.600  HIT swat      measured  35.602  delta   +2.0 ms  rise  14.2 dB
+  OK  cue  42.000  HIT storm     measured  42.001  delta   +1.0 ms  rise  21.1 dB
+  OK  cue  44.500  stab          measured  44.501  delta   +1.0 ms  rise  13.7 dB
+  OK  cue  45.200  stab          measured  45.202  delta   +2.0 ms  rise   9.6 dB
+  OK  cue  45.900  stab          measured  45.902  delta   +2.0 ms  rise  12.5 dB
+  OK  cue  46.600  stab          measured  46.602  delta   +2.0 ms  rise  11.8 dB
+  OK  cue  47.300  stab          measured  47.302  delta   +2.0 ms  rise  14.1 dB
+  OK  cue  47.600  HIT crack     measured  47.602  delta   +2.0 ms  rise  11.7 dB
+  OK  cue  52.000  cluster 1     measured  52.003  delta   +3.0 ms  rise  17.4 dB
+  OK  cue  52.800  cluster 2     measured  52.803  delta   +3.0 ms  rise  12.8 dB
+  OK  cue  53.600  cluster 3     measured  53.602  delta   +2.0 ms  rise  14.4 dB
+  OK  cue  54.400  cluster 4     measured  54.401  delta   +1.0 ms  rise  13.4 dB
+  OK  cue  56.500  HIT shatter   measured  56.500  delta   +0.0 ms  rise  24.6 dB
+  OK  cue  72.000  HIT ZENITH    measured  72.002  delta   +2.0 ms  rise  13.7 dB
+  OK  cue  84.000  HIT mask      measured  84.002  delta   +2.0 ms  rise  18.2 dB
+  OK  cue  92.800  stab          measured  92.802  delta   +2.0 ms  rise  19.8 dB
+  OK  cue  93.600  stab          measured  93.601  delta   +1.0 ms  rise  19.3 dB
+  OK  cue  94.400  stab          measured  94.402  delta   +2.0 ms  rise  14.6 dB
+  OK  cue  95.200  stab          measured  95.203  delta   +3.0 ms  rise  12.8 dB
+  OK  cue 100.500  HIT STRIKE    measured 100.501  delta   +1.0 ms  rise  18.2 dB
+  OK  cue 104.000  HIT shatter   measured 103.999  delta   -1.0 ms  rise  24.7 dB
+  OK  cue 111.500  ominous       measured 111.501  delta   +1.0 ms  rise  21.2 dB
+  OK  cue 114.000  final chord   measured 114.001  delta   +1.0 ms  rise  19.8 dB
+  worst |delta| = 10.0 ms
+
+Energy contour (short-term K-weighted loudness of each section, LUFS)
+     0.0-   4.0  dawn                   -27.8 LUFS   RMS   -30.3 dBFS  #####################
+     4.0-   7.0  dread                  -19.4 LUFS   RMS   -25.0 dBFS  ###########################
+     7.0-  10.5  tear/ostinato          -15.1 LUFS   RMS   -17.9 dBFS  #############################
+    10.5-  14.0  reveal/villain         -14.6 LUFS   RMS   -16.8 dBFS  ##############################
+    14.0-  28.5  dialogue               -25.3 LUFS   RMS   -27.7 dBFS  #######################
+    28.5-  30.0  title slam             -12.4 LUFS   RMS   -14.6 dBFS  ###############################
+    30.0-  36.5  round 1                -15.7 LUFS   RMS   -18.0 dBFS  #############################
+    36.5-  42.0  gravity/build          -19.0 LUFS   RMS   -22.6 dBFS  ###########################
+    42.0-  48.0  storm form/blitz       -13.9 LUFS   RMS   -16.3 dBFS  ##############################
+    48.0-  51.0  kaleidoscope           -19.8 LUFS   RMS   -21.4 dBFS  ##########################
+    51.0-  57.0  unwrite/crush          -16.4 LUFS   RMS   -18.5 dBFS  #############################
+    57.0-  58.5  CUT (silence)         -200.7 LUFS   RMS  -240.0 dBFS  
+    58.5-  66.0  despair                -37.4 LUFS   RMS   -40.8 dBFS  ###############
+    66.0-  72.0  rebuild                -15.1 LUFS   RMS   -18.1 dBFS  #############################
+    72.0-  80.0  HERO THEME             -11.2 LUFS   RMS   -13.8 dBFS  ################################
+    80.0-  84.0  theme+menace           -10.9 LUFS   RMS   -14.0 dBFS  ################################
+    84.0-  92.0  black hole             -13.6 LUFS   RMS   -16.0 dBFS  ##############################
+    92.0- 100.5  final battle/clash     -13.9 LUFS   RMS   -16.4 dBFS  ##############################
+   100.5- 104.0  strike/held            -11.0 LUFS   RMS   -13.7 dBFS  ################################
+   104.0- 111.5  resolution             -16.7 LUFS   RMS   -18.9 dBFS  ############################
+   111.5- 114.0  ominous/build          -16.6 LUFS   RMS   -19.5 dBFS  ############################
+   114.0- 118.0  final chord            -14.1 LUFS   RMS   -16.7 dBFS  ##############################
+   118.0- 120.0  tail                   -51.3 LUFS   RMS   -54.1 dBFS  #####
+
+Silence check 57.000-58.500: peak -240.0 dBFS, RMS -240.0 dBFS
+End check 119.6-120.0: peak -240.0 dBFS
+
+Stem balance (K-weighted loudness of each stem in the section, LUFS, at master gain)
+  section                  strings    brass    choir     keys     perc    fxlow    fxair
+  dawn                       -40.9    -38.3    -45.6    -51.7   -200.7   -200.7   -109.1
+  dread                      -41.9    -49.0    -45.0    -41.5    -43.3   -200.7    -26.3
+  tear/ostinato              -27.6    -24.7    -25.7    -74.6    -35.8    -34.5    -28.0
+  reveal/villain             -25.5    -23.2    -25.2   -109.8    -35.1    -32.8    -38.8
+  dialogue                   -41.7    -40.3    -40.5    -47.4    -45.0    -40.1    -34.8
+  round 1                    -26.7    -24.6    -28.9   -105.0    -31.7    -33.0    -40.8
+  gravity/build              -30.9    -35.0    -31.1    -45.2    -41.4    -44.2    -28.9
+  storm form/blitz           -23.6    -21.9    -26.0    -36.8    -30.0    -31.1    -35.2
+  kaleidoscope               -29.8    -32.9    -28.6    -34.0    -41.3    -36.4    -52.8
+  unwrite/crush              -29.5    -26.1    -27.0    -46.3    -32.0    -31.4    -30.3
+  despair                    -55.6   -200.7    -88.5    -46.1   -200.7    -59.2   -200.7
+  rebuild                    -28.7    -30.6    -30.7    -27.3    -37.0    -37.9    -27.8
+  HERO THEME                 -23.1    -22.4    -23.4    -25.5    -32.9    -34.7    -35.6
+  theme+menace               -23.4    -23.2    -22.8    -25.9    -33.7    -37.4    -27.9
+  black hole                 -25.8    -24.7    -24.7    -40.8    -33.3    -33.0    -31.0
+  final battle/clash         -27.0    -24.5    -28.8   -126.6    -30.9    -36.1    -27.8
+  strike/held                -23.7    -21.1    -21.5   -200.7    -31.8    -27.3    -25.9
+  resolution                 -28.0    -26.1    -28.5    -36.1    -34.9    -35.5    -39.3
+  ominous/build              -32.0    -42.1    -29.0    -36.0    -36.4    -37.8    -29.6
+  final chord                -25.2    -22.3    -25.6    -26.8    -33.2    -33.3    -40.6
+
+Band balance of the master per section (dB relative to the full-band energy)
+  section                    <90Hz  90-300 300-1k   1k-4k   4k-16k
+  dawn                       -9.0   -10.4    -1.7    -9.8   -33.0
+  dread                     -16.1   -11.9    -9.3    -6.0    -2.7
+  tear/ostinato              -5.7   -10.5    -3.8    -7.7   -12.1
+  reveal/villain             -6.3    -9.1    -2.9    -9.0   -22.5
+  dialogue                   -2.7   -11.4    -7.3   -10.5    -9.5
+  round 1                    -4.6    -8.8    -4.8    -7.6   -19.5
+  gravity/build              -9.0   -11.1    -3.5    -7.0    -8.4
+  storm form/blitz           -5.0    -9.7    -3.9    -8.1   -19.0
+  kaleidoscope               -3.5   -10.1    -4.4   -10.8   -23.7
+  unwrite/crush              -3.8    -9.6    -4.6   -10.2   -14.5
+  despair                    -6.2   -11.4    -4.4    -5.0   -18.8
+  rebuild                    -6.8    -7.6    -3.9    -8.3   -12.2
+  HERO THEME                 -8.5    -8.8    -2.6    -7.9   -20.8
+  theme+menace              -11.1    -8.5    -2.7    -6.9   -14.4
+  black hole                 -5.6    -8.7    -3.5    -9.3   -16.9
+  final battle/clash         -5.2    -8.6    -4.2    -8.6   -13.9
+  strike/held                -5.9   -11.6    -3.5    -7.2   -13.8
+  resolution                 -5.7    -7.7    -3.7    -8.8   -21.9
+  ominous/build              -6.1    -7.7    -4.5    -9.6    -9.2
+  final chord                -6.7    -8.8    -3.4    -7.2   -21.7
