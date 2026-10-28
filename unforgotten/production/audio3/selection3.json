@@ -1,0 +1,2884 @@
+[
+ {
+  "id": "L01",
+  "who": "sable_vo",
+  "room": "vo",
+  "take": "ep1/takes3/L01_0_2.wav",
+  "gen": {
+   "id": "L01",
+   "engine": "cb",
+   "text": "Everything has a name.",
+   "ref": "refs/sable.wav",
+   "exaggeration": 0.35,
+   "cfg_weight": 0.3,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 0.636,
+  "rng": 5.88,
+  "sd": 1.77,
+  "mov": 15.5,
+  "f0med": 181.2,
+  "wps_final": 2.35,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.924,
+  "old_dur": 1.395,
+  "old_dry": 1.395,
+  "old_take": "ep1/takes/L01_1.wav",
+  "slot": 6.4,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Everything has a name. / Everything has a name.",
+  "tried": [
+   [
+    "ep1/takes3/L01_0_2.wav",
+    1.0,
+    "Everything has a name. / Everything has a name."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 12,
+  "top": [
+   [
+    "takes3/L01_0_2.wav",
+    0.636,
+    2.35,
+    5.88,
+    181.2
+   ],
+   [
+    "takes3/L01_1_2.wav",
+    0.705,
+    2.88,
+    11.51,
+    181.2
+   ],
+   [
+    "takes3/L01_1_1.wav",
+    0.488,
+    2.42,
+    9.64,
+    191.4
+   ],
+   [
+    "takes3/L01_1_0.wav",
+    0.386,
+    2.63,
+    8.89,
+    194.8
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L01_0.wav": [
+    "trunc"
+   ]
+  }
+ },
+ {
+  "id": "L02",
+  "who": "sable_vo",
+  "room": "vo",
+  "take": "ep1/takes3/L02_0_2.wav",
+  "gen": {
+   "id": "L02",
+   "engine": "cb",
+   "text": "A name is a promise. That something was here.",
+   "ref": "refs/sable.wav",
+   "exaggeration": 0.4,
+   "cfg_weight": 0.3,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 0.481,
+  "rng": 6.4,
+  "sd": 2.05,
+  "mov": 21.8,
+  "f0med": 187.1,
+  "wps_final": 2.54,
+  "gaps": [
+   "4: has 0.62s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 3.724,
+  "old_dur": 2.835,
+  "old_dry": 2.835,
+  "old_take": "ep1/takes/L02_0.wav",
+  "slot": 8.5,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "A name is a promise. That something was here. / a name is a promise. That something was here.",
+  "tried": [
+   [
+    "ep1/takes3/L02_0_2.wav",
+    1.0,
+    "A name is a promise. That something was here. / a name is a promise. That something was here."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 12,
+  "top": [
+   [
+    "takes3/L02_0_2.wav",
+    0.481,
+    2.54,
+    6.4,
+    187.1
+   ],
+   [
+    "takes3/L02_1_0.wav",
+    1.196,
+    2.49,
+    8.88,
+    186.0
+   ],
+   [
+    "takes3/L02_2_0.wav",
+    0.795,
+    2.85,
+    7.83,
+    181.7
+   ],
+   [
+    "takes3/L02_1_2.wav",
+    0.403,
+    3.19,
+    20.45,
+    198.2
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L02_0.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L03",
+  "who": "mira",
+  "room": "village",
+  "take": "ep1/takes3/L03_1_1.wav",
+  "gen": {
+   "id": "L03",
+   "engine": "cb",
+   "text": "Sable! I wrote it! I wrote my name on the wall, just like you showed me!",
+   "ref": "refs/mira.wav",
+   "exaggeration": 1.05,
+   "cfg_weight": 0.4,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 4.781,
+  "rng": 15.25,
+  "sd": 4.83,
+  "mov": 28.3,
+  "f0med": 284.4,
+  "wps_final": 3.96,
+  "gaps": [
+   "0: has 0.24s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 4.384,
+  "old_dur": 4.09,
+  "old_dry": 4.09,
+  "old_take": "ep1/takes/L03_0.wav",
+  "slot": 6.1,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Fable I wrote it I wrote my name on the wall just like you showed me / Fable I wrote it I wrote my name on the wall just like you showed me",
+  "tried": [
+   [
+    "ep1/takes3/L03_1_1.wav",
+    1.0,
+    "Fable I wrote it I wrote my name on the wall just like you showed me / Fable I wrote it I wrote my name on the wall just like you showed me"
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 12,
+  "top": [
+   [
+    "takes3/L03_1_1.wav",
+    4.781,
+    3.96,
+    15.25,
+    284.4
+   ],
+   [
+    "takes3/L03_2_0.wav",
+    2.864,
+    3.99,
+    23.2,
+    252.6
+   ],
+   [
+    "takes/L03_1.wav",
+    1.566,
+    3.94,
+    26.2,
+    218.6
+   ],
+   [
+    "takes3/L03_1_0.wav",
+    1.553,
+    3.63,
+    12.66,
+    267.6
+   ]
+  ],
+  "rejected": {
+   "ep1/takes3/L03_1_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L04",
+  "who": "sable",
+  "room": "village",
+  "take": "ep1/takes/L04_1.wav",
+  "gen": null,
+  "match": 1.0,
+  "score": 2.815,
+  "rng": 10.45,
+  "sd": 3.99,
+  "mov": 15.1,
+  "f0med": 207.6,
+  "wps_final": 2.62,
+  "gaps": [
+   "5: +0.28s (had 0.07, cut at -62 dB)"
+  ],
+  "added": 0.27999999999999997,
+  "tempo": 1.0,
+  "dur": 4.839,
+  "old_dur": 4.135,
+  "old_dry": 4.135,
+  "old_take": "ep1/takes/L04_0.wav",
+  "slot": 13.6,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Then the wall will remember you, even when I'm old and forgetful. / Then the wall will remember you, even when I'm old and forgetful.",
+  "tried": [
+   [
+    "ep1/takes/L04_1.wav",
+    1.0,
+    "Then the wall will remember you, even when I'm old and forgetful. / Then the wall will remember you, even when I'm old and forgetful."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 4,
+  "top": [
+   [
+    "takes/L04_1.wav",
+    2.815,
+    2.62,
+    10.45,
+    207.6
+   ],
+   [
+    "takes3/L04_1_1.wav",
+    1.285,
+    2.75,
+    8.7,
+    197.0
+   ],
+   [
+    "takes3/L04_0_1.wav",
+    -0.276,
+    3.07,
+    9.8,
+    211.2
+   ],
+   [
+    "takes3/L04_0_2.wav",
+    -1.36,
+    2.78,
+    7.33,
+    192.5
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L04_0.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L04_0.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L04_1.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L04_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L04_0_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L04_1_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L04_1_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L05",
+  "who": "king",
+  "room": "village",
+  "take": "ep1/takes3/L05_0_2.wav",
+  "gen": {
+   "id": "L05",
+   "engine": "cb",
+   "text": "Hush. Now.",
+   "ref": "refs/king.wav",
+   "exaggeration": 0.3,
+   "cfg_weight": 0.25,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 0.983,
+  "rng": 11.19,
+  "sd": 3.61,
+  "mov": 23.8,
+  "f0med": 110.3,
+  "wps_final": 1.54,
+  "gaps": [
+   "0: has 0.28s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.704,
+  "old_dur": 1.1,
+  "old_dry": 1.1,
+  "old_take": "ep1/takes/L05_0.wav",
+  "slot": 13.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 0.5,
+  "final_hyp": "Hush, now. / Hush, mail.",
+  "tried": [
+   [
+    "ep1/takes3/L05_0_2.wav",
+    0.5,
+    "Hush, now. / Hush, mail."
+   ],
+   [
+    "ep1/takes3/L05_0_1.wav",
+    0.5,
+    "Ha! Now! / Ha! Now!"
+   ],
+   [
+    "ep1/takes3/L05_0_0.wav",
+    0.0,
+    "Oh, no. / Oh, no."
+   ],
+   [
+    "ep1/takes3/L05_2_0.wav",
+    0.0,
+    "Oh, no. / Oh, no."
+   ],
+   [
+    "ep1/takes3/L05_2_1.wav",
+    0.5,
+    "Hush.  No. / Hush.  No."
+   ],
+   [
+    "ep1/takes/L05_1.wav",
+    0.0,
+    "I don't know. / I don't know."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes3/L05_0_2.wav",
+    0.983,
+    1.54,
+    11.19,
+    110.3
+   ],
+   [
+    "takes3/L05_0_1.wav",
+    0.826,
+    1.59,
+    4.64,
+    114.5
+   ],
+   [
+    "takes3/L05_0_0.wav",
+    0.553,
+    1.5,
+    8.53,
+    122.7
+   ],
+   [
+    "takes3/L05_2_0.wav",
+    0.403,
+    1.56,
+    13.88,
+    112.8
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L05_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L05_1_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L05_1_1.wav": [
+    "asr",
+    "trunc"
+   ],
+   "ep1/takes3/L05_1_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L06",
+  "who": "mira",
+  "room": "village",
+  "take": "ep1/takes3/L06_4_1.wav",
+  "gen": {
+   "id": "L06",
+   "engine": "turbo",
+   "text": "Sable?",
+   "ref": "refs/mira.wav",
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": -0.186,
+  "rng": 9.5,
+  "sd": 3.66,
+  "mov": 27.6,
+  "f0med": 176.1,
+  "wps_final": 2.13,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 0.725,
+  "old_dur": 0.755,
+  "old_dry": 0.745,
+  "old_take": "ep1/takes/L06_0.wav",
+  "slot": 2.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Sable. / Sable.",
+  "tried": [
+   [
+    "ep1/takes3/L06_4_1.wav",
+    1.0,
+    "Sable. / Sable."
+   ]
+  ],
+  "n_cands": 22,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes3/L06_4_1.wav",
+    -0.186,
+    2.13,
+    9.5,
+    176.1
+   ],
+   [
+    "takes2/L06_2.wav",
+    2.22,
+    2.27,
+    19.9,
+    222.5
+   ],
+   [
+    "takes3/L06_4_3.wav",
+    1.684,
+    1.85,
+    12.25,
+    189.8
+   ],
+   [
+    "takes2/L06_1.wav",
+    1.397,
+    1.59,
+    10.5,
+    213.6
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L06_0.wav": [
+    "mumble"
+   ],
+   "ep1/takes3/L06_0_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_0_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_0_3.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_1_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_1_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_1_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_2_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_2_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_3_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_3_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_3_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L06_3_3.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L07",
+  "who": "sable",
+  "room": "village",
+  "take": "ep1/takes3/L07_2_0.wav",
+  "gen": {
+   "id": "L07",
+   "engine": "cb",
+   "text": "Mira, take my hand! Don't let go. Don't let go!",
+   "ref": "refs/sable.wav",
+   "exaggeration": 1.4,
+   "cfg_weight": 0.4,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 3.142,
+  "rng": 15.17,
+  "sd": 4.48,
+  "mov": 20.2,
+  "f0med": 385.1,
+  "wps_final": 2.55,
+  "gaps": [
+   "3: has 0.45s",
+   "6: has 0.33s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 4.11,
+  "old_dur": 3.815,
+  "old_dry": 3.81,
+  "old_take": "ep1/takes/L07_0.wav",
+  "slot": 4.9,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "mirror. Take my hand. Don't let go. Don't let go. / mirror, take my hand. Don't let go. Don't let go.",
+  "tried": [
+   [
+    "ep1/takes3/L07_2_0.wav",
+    1.0,
+    "mirror. Take my hand. Don't let go. Don't let go. / mirror, take my hand. Don't let go. Don't let go."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 13,
+  "top": [
+   [
+    "takes3/L07_2_0.wav",
+    3.142,
+    2.55,
+    15.17,
+    385.1
+   ],
+   [
+    "takes3/L07_2_1.wav",
+    2.645,
+    2.66,
+    15.29,
+    345.1
+   ],
+   [
+    "takes3/L07_1_0.wav",
+    2.162,
+    2.65,
+    14.21,
+    349.1
+   ],
+   [
+    "takes3/L07_1_1.wav",
+    2.01,
+    2.67,
+    18.94,
+    322.0
+   ]
+  ],
+  "rejected": {}
+ },
+ {
+  "id": "L08",
+  "who": "sable",
+  "room": "village",
+  "take": "ep1/takes3/L08_4_2.wav",
+  "gen": {
+   "id": "L08",
+   "engine": "cb",
+   "text": "No! Mira!",
+   "ref": "refs/sable.wav",
+   "exaggeration": 1.8,
+   "cfg_weight": 0.5,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 1.831,
+  "rng": 11.56,
+  "sd": 4.01,
+  "mov": 31.7,
+  "f0med": 500.8,
+  "wps_final": 1.01,
+  "gaps": [
+   "0: has 0.34s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 2.28,
+  "old_dur": 1.515,
+  "old_dry": 1.44,
+  "old_take": "ep1/takes/L08_3.wav",
+  "slot": 5.5,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "No! Mira! / No! Mira!",
+  "tried": [
+   [
+    "ep1/takes3/L08_4_2.wav",
+    1.0,
+    "No! Mira! / No! Mira!"
+   ]
+  ],
+  "n_cands": 22,
+  "n_pass": 8,
+  "top": [
+   [
+    "takes3/L08_4_2.wav",
+    1.831,
+    1.01,
+    11.56,
+    500.8
+   ],
+   [
+    "takes3/L08_3_0.wav",
+    1.721,
+    1.27,
+    12.74,
+    577.0
+   ],
+   [
+    "takes3/L08_4_0.wav",
+    0.114,
+    1.68,
+    12.56,
+    364.5
+   ],
+   [
+    "takes3/L08_0_0.wav",
+    -0.04,
+    1.74,
+    15.23,
+    372.0
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L08_0.wav": [
+    "asr",
+    "trunc"
+   ],
+   "ep1/takes/L08_1.wav": [
+    "asr",
+    "mumble"
+   ],
+   "ep1/takes/L08_2.wav": [
+    "asr"
+   ],
+   "ep1/takes/L08_4.wav": [
+    "asr",
+    "mumble"
+   ],
+   "ep1/takes/L08_5.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L08_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L08_0_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L08_0_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L08_1_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L08_1_1.wav": [
+    "dur 1.18 not in 1.22-2.59"
+   ],
+   "ep1/takes3/L08_1_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L08_2_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L08_2_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L08_4_1.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L09",
+  "who": "sable_vo",
+  "room": "vo",
+  "take": "ep1/takes3/L09_1_0.wav",
+  "gen": {
+   "id": "L09",
+   "engine": "cb",
+   "text": "I don't remember... her face, anymore.",
+   "ref": "refs/sable.wav",
+   "exaggeration": 0.45,
+   "cfg_weight": 0.25,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 1.344,
+  "rng": 7.0,
+  "sd": 2.2,
+  "mov": 20.4,
+  "f0med": 179.1,
+  "wps_final": 2.45,
+  "gaps": [
+   "2: +0.30s (had 0.00, cut at -29 dB)"
+  ],
+  "added": 0.3,
+  "tempo": 1.0,
+  "dur": 2.644,
+  "old_dur": 1.68,
+  "old_dry": 1.68,
+  "old_take": "ep1/takes/L09_0.wav",
+  "slot": 11.0,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "I don't remember her face anymore. / I don't remember her face anymore.",
+  "tried": [
+   [
+    "ep1/takes3/L09_1_0.wav",
+    1.0,
+    "I don't remember her face anymore. / I don't remember her face anymore."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 10,
+  "top": [
+   [
+    "takes3/L09_1_0.wav",
+    1.344,
+    2.45,
+    7.0,
+    179.1
+   ],
+   [
+    "takes3/L09_0_0.wav",
+    1.053,
+    3.64,
+    6.8,
+    174.5
+   ],
+   [
+    "takes3/L09_1_2.wav",
+    0.288,
+    2.04,
+    6.3,
+    194.8
+   ],
+   [
+    "takes3/L09_0_2.wav",
+    0.15,
+    3.7,
+    4.46,
+    184.9
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L09_1.wav": [
+    "trunc"
+   ],
+   "ep1/takes2/L09_0.wav": [
+    "trunc"
+   ],
+   "ep1/takes3/L09_2_0.wav": [
+    "trunc"
+   ]
+  }
+ },
+ {
+  "id": "L10",
+  "who": "sable_vo",
+  "room": "vo",
+  "take": "ep1/takes3/L10_2_1.wav",
+  "gen": {
+   "id": "L10",
+   "engine": "turbo",
+   "text": "I remember... that I swore.",
+   "ref": "refs/sable.wav",
+   "temperature": 0.7
+  },
+  "match": 1.0,
+  "score": -0.346,
+  "rng": 6.39,
+  "sd": 1.93,
+  "mov": 21.2,
+  "f0med": 204.0,
+  "wps_final": 2.48,
+  "gaps": [
+   "1: has 0.59s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 2.244,
+  "old_dur": 1.585,
+  "old_dry": 1.585,
+  "old_take": "ep1/takes/L10_0.wav",
+  "slot": 27.3,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "I remember that I swore... / I remember that I swore...",
+  "tried": [
+   [
+    "ep1/takes3/L10_2_1.wav",
+    1.0,
+    "I remember that I swore... / I remember that I swore..."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 13,
+  "top": [
+   [
+    "takes3/L10_2_1.wav",
+    -0.346,
+    2.48,
+    6.39,
+    204.0
+   ],
+   [
+    "takes3/L10_0_2.wav",
+    1.318,
+    2.94,
+    5.27,
+    181.2
+   ],
+   [
+    "takes3/L10_2_0.wav",
+    0.837,
+    2.19,
+    8.2,
+    192.5
+   ],
+   [
+    "takes3/L10_1_1.wav",
+    0.771,
+    2.24,
+    20.17,
+    191.4
+   ]
+  ],
+  "rejected": {}
+ },
+ {
+  "id": "L11",
+  "who": "warden",
+  "room": "temple",
+  "take": "ep1/takes3/L11_1_1.wav",
+  "gen": {
+   "id": "L11",
+   "engine": "turbo",
+   "text": "The Storm Seed... it's gone!",
+   "ref": "refs/warden.wav",
+   "temperature": 0.9
+  },
+  "match": 1.0,
+  "score": 1.542,
+  "rng": 13.66,
+  "sd": 3.33,
+  "mov": 12.6,
+  "f0med": 119.2,
+  "wps_final": 2.86,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0422,
+  "dur": 1.9,
+  "old_dur": 1.9,
+  "old_dry": 1.83,
+  "old_take": "ep1/takes/L11_1.wav",
+  "slot": 1.9,
+  "reverb_trimmed_by_slot": true,
+  "final_match": 1.0,
+  "final_hyp": "The storm seed, it's gone. / The storm seed, it's gone.",
+  "tried": [
+   [
+    "ep1/takes3/L11_1_1.wav",
+    1.0,
+    "The storm seed, it's gone. / The storm seed, it's gone."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 7,
+  "top": [
+   [
+    "takes3/L11_1_1.wav",
+    1.542,
+    2.86,
+    13.66,
+    119.2
+   ],
+   [
+    "takes/L11_1.wav",
+    1.523,
+    3.01,
+    11.47,
+    115.8
+   ],
+   [
+    "takes2/L11_1.wav",
+    1.414,
+    2.92,
+    12.6,
+    114.8
+   ],
+   [
+    "takes2/L11_2.wav",
+    0.323,
+    2.76,
+    10.93,
+    114.5
+   ]
+  ],
+  "rejected": {
+   "ep1/takes3/L11_0_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L11_0_1.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L11_0_2.wav": [
+    "slot"
+   ]
+  }
+ },
+ {
+  "id": "L12",
+  "who": "oren",
+  "room": "temple",
+  "take": "ep1/takes/L12_1.wav",
+  "gen": null,
+  "match": 1.0,
+  "score": 1.422,
+  "rng": 16.72,
+  "sd": 5.25,
+  "mov": 28.3,
+  "f0med": 122.7,
+  "wps_final": 2.87,
+  "gaps": [
+   "1: has 0.45s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 5.7,
+  "old_dur": 5.7,
+  "old_dry": 4.605,
+  "old_take": "ep1/takes/L12_0.wav",
+  "slot": 5.7,
+  "reverb_trimmed_by_slot": true,
+  "final_match": 1.0,
+  "final_hyp": "The courier, Kyra, was the last one in the vault.  Find her. / The courier, Kyra, was the last one in the vault.  Find her.",
+  "tried": [
+   [
+    "ep1/takes/L12_1.wav",
+    1.0,
+    "The courier, Kyra, was the last one in the vault.  Find her. / The courier, Kyra, was the last one in the vault.  Find her."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 5,
+  "top": [
+   [
+    "takes/L12_1.wav",
+    1.422,
+    2.87,
+    16.72,
+    122.7
+   ],
+   [
+    "takes3/L12_1_1.wav",
+    1.402,
+    3.2,
+    15.9,
+    145.1
+   ],
+   [
+    "takes3/L12_0_1.wav",
+    1.117,
+    3.19,
+    19.38,
+    129.3
+   ],
+   [
+    "takes3/L12_1_0.wav",
+    0.252,
+    3.08,
+    22.3,
+    128.9
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L12_0.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L12_0.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L12_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L12_0_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L12_0_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L13",
+  "who": "kaira",
+  "room": "roof",
+  "take": "ep1/takes3/L13_1_0.wav",
+  "gen": {
+   "id": "L13",
+   "engine": "turbo",
+   "text": "[gasp] Okay... okay. Framed, chased, and glowing. Great start to the week.",
+   "ref": "refs/kaira.wav",
+   "temperature": 0.95
+  },
+  "match": 1.0,
+  "score": 4.476,
+  "rng": 20.58,
+  "sd": 5.51,
+  "mov": 23.8,
+  "f0med": 173.5,
+  "wps_final": 2.17,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 5.259,
+  "old_dur": 4.905,
+  "old_dry": 4.905,
+  "old_take": "ep1/takes/L13_1.wav",
+  "slot": 5.4,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Okay, okay, framed, chased, and glowing. Great start to the week. / Okay, okay, framed, chased, and glowing. Great start to the week.",
+  "tried": [
+   [
+    "ep1/takes3/L13_1_0.wav",
+    1.0,
+    "Okay, okay, framed, chased, and glowing. Great start to the week. / Okay, okay, framed, chased, and glowing. Great start to the week."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 7,
+  "top": [
+   [
+    "takes3/L13_1_0.wav",
+    4.476,
+    2.17,
+    20.58,
+    173.5
+   ],
+   [
+    "takes3/L13_0_2.wav",
+    1.78,
+    2.1,
+    19.5,
+    161.4
+   ],
+   [
+    "takes3/L13_0_1.wav",
+    1.72,
+    2.24,
+    15.17,
+    162.8
+   ],
+   [
+    "takes/L13_1.wav",
+    1.429,
+    2.35,
+    20.2,
+    158.7
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L13_1.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L13_0_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L13_1_1.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L13_1_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L14",
+  "who": "oren",
+  "room": "roof",
+  "take": "ep1/takes/L14_0.wav",
+  "gen": null,
+  "match": 1.0,
+  "score": 0.634,
+  "rng": 22.3,
+  "sd": 7.45,
+  "mov": 38.8,
+  "f0med": 184.9,
+  "wps_final": 1.63,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 2.639,
+  "old_dur": 2.665,
+  "old_dry": 2.665,
+  "old_take": "ep1/takes/L14_0.wav",
+  "slot": 2.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Courier. Return the seed. / Courier. Return the seed.",
+  "tried": [
+   [
+    "ep1/takes3/L14_1_0.wav",
+    0.75,
+    "Courier, return the seed. / Career, return the seed."
+   ],
+   [
+    "ep1/takes3/L14_1_1.wav",
+    0.75,
+    "Career, return the seed. / Career, return the seed."
+   ],
+   [
+    "ep1/takes/L14_0.wav",
+    1.0,
+    "Courier. Return the seed. / Courier. Return the seed."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 6,
+  "top": [
+   [
+    "takes3/L14_1_0.wav",
+    1.512,
+    1.95,
+    6.63,
+    239.8
+   ],
+   [
+    "takes3/L14_1_1.wav",
+    0.643,
+    2.2,
+    16.8,
+    187.1
+   ],
+   [
+    "takes/L14_0.wav",
+    0.634,
+    1.63,
+    22.3,
+    184.9
+   ],
+   [
+    "takes3/L14_0_2.wav",
+    0.461,
+    1.79,
+    15.02,
+    161.9
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L14_1.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L14_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L14_0_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L14_0_1.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L15",
+  "who": "kaira",
+  "room": "roof",
+  "take": "ep1/takes3/L15_1_1.wav",
+  "gen": {
+   "id": "L15",
+   "engine": "cb",
+   "text": "I don't HAVE it!",
+   "ref": "refs/kaira.wav",
+   "exaggeration": 1.2,
+   "cfg_weight": 0.45,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 2.698,
+  "rng": 35.42,
+  "sd": 11.47,
+  "mov": 39.9,
+  "f0med": 347.1,
+  "wps_final": 3.45,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.344,
+  "old_dur": 1.075,
+  "old_dry": 1.075,
+  "old_take": "ep1/takes/L15_0.wav",
+  "slot": 2.5,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "I don't have it. / I don't have it.",
+  "tried": [
+   [
+    "ep1/takes3/L15_1_1.wav",
+    1.0,
+    "I don't have it. / I don't have it."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 11,
+  "top": [
+   [
+    "takes3/L15_1_1.wav",
+    2.698,
+    3.45,
+    35.42,
+    347.1
+   ],
+   [
+    "takes3/L15_2_1.wav",
+    2.38,
+    4.4,
+    17.31,
+    298.7
+   ],
+   [
+    "takes3/L15_0_0.wav",
+    0.899,
+    3.85,
+    28.42,
+    225.0
+   ],
+   [
+    "takes3/L15_0_2.wav",
+    0.184,
+    3.15,
+    27.0,
+    211.2
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L15_2.wav": [
+    "trunc"
+   ],
+   "ep1/takes3/L15_2_0.wav": [
+    "trunc"
+   ]
+  }
+ },
+ {
+  "id": "L16",
+  "who": "kaira",
+  "room": "roof",
+  "take": "ep1/takes3/L16_1_2.wav",
+  "gen": {
+   "id": "L16",
+   "engine": "turbo",
+   "text": "[sigh] Okay... I might have it.",
+   "ref": "refs/kaira.wav",
+   "temperature": 0.9
+  },
+  "match": 1.0,
+  "score": 1.654,
+  "rng": 21.29,
+  "sd": 7.12,
+  "mov": 20.2,
+  "f0med": 155.9,
+  "wps_final": 2.36,
+  "gaps": [
+   "0: +0.15s (had 0.25, cut at -78 dB)"
+  ],
+  "added": 0.15000000000000002,
+  "tempo": 1.0,
+  "dur": 2.309,
+  "old_dur": 2.275,
+  "old_dry": 2.275,
+  "old_take": "ep1/takes/L16_0.wav",
+  "slot": 19.0,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Okay, I might have it. / Okay, I might have it.",
+  "tried": [
+   [
+    "ep1/takes3/L16_1_2.wav",
+    1.0,
+    "Okay, I might have it. / Okay, I might have it."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 8,
+  "top": [
+   [
+    "takes3/L16_1_2.wav",
+    1.654,
+    2.36,
+    21.29,
+    155.9
+   ],
+   [
+    "takes2/L16_0.wav",
+    1.566,
+    2.1,
+    20.08,
+    143.4
+   ],
+   [
+    "takes/L16_0.wav",
+    1.272,
+    2.37,
+    18.13,
+    154.6
+   ],
+   [
+    "takes3/L16_1_1.wav",
+    1.27,
+    2.34,
+    22.0,
+    162.8
+   ]
+  ],
+  "rejected": {
+   "ep1/takes3/L16_0_1.wav": [
+    "trunc"
+   ],
+   "ep1/takes3/L16_0_2.wav": [
+    "trunc"
+   ],
+   "ep1/takes3/L16_1_0.wav": [
+    "trunc"
+   ]
+  }
+ },
+ {
+  "id": "L17",
+  "who": "oren",
+  "room": "roof",
+  "take": "ep1/takes3/L17_0_0.wav",
+  "gen": {
+   "id": "L17",
+   "engine": "cb",
+   "text": "Five days, courier. That's how long the elders give you before it tears you apart. Come quietly.",
+   "ref": "refs/oren.wav",
+   "exaggeration": 0.5,
+   "cfg_weight": 0.35,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 0.575,
+  "rng": 13.8,
+  "sd": 4.53,
+  "mov": 27.7,
+  "f0med": 113.2,
+  "wps_final": 2.78,
+  "gaps": [
+   "2: +0.08s (had 0.17, cut at -61 dB)",
+   "14: has 0.31s"
+  ],
+  "added": 0.07999999999999999,
+  "tempo": 1.0,
+  "dur": 6.284,
+  "old_dur": 5.7,
+  "old_dry": 5.7,
+  "old_take": "ep1/takes2/L17_0.wav",
+  "slot": 8.6,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "five days' courier. That's how long the elders give you before it tears you apart. Come quietly. / five days' courier. That's how long the elders give you before it tears you apart. Come quietly.",
+  "tried": [
+   [
+    "ep1/takes3/L17_0_0.wav",
+    1.0,
+    "five days' courier. That's how long the elders give you before it tears you apart. Come quietly. / five days' courier. That's how long the elders give you before it tears you apart. Come quietly."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 3,
+  "top": [
+   [
+    "takes3/L17_0_0.wav",
+    0.575,
+    2.78,
+    13.8,
+    113.2
+   ],
+   [
+    "takes3/L17_1_0.wav",
+    0.398,
+    2.81,
+    15.6,
+    115.1
+   ],
+   [
+    "takes3/L17_0_1.wav",
+    0.165,
+    2.54,
+    12.3,
+    117.2
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L17_0.wav": [
+    "asr"
+   ],
+   "ep1/takes/L17_1.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L17_0.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L17_1.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L17_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L17_0_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L17_1_1.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L18",
+  "who": "kaira",
+  "room": "roof",
+  "take": "ep1/takes3/L18_0_0.wav",
+  "gen": {
+   "id": "L18",
+   "engine": "cb",
+   "text": "Quiet's not really my thing.",
+   "ref": "refs/kaira.wav",
+   "exaggeration": 0.7,
+   "cfg_weight": 0.45,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 1.794,
+  "rng": 15.9,
+  "sd": 6.02,
+  "mov": 26.9,
+  "f0med": 151.9,
+  "wps_final": 4.55,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.284,
+  "old_dur": 1.68,
+  "old_dry": 1.68,
+  "old_take": "ep1/takes/L18_0.wav",
+  "slot": 4.0,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Quiet's not really my thing. / Quiet's not really my thing.",
+  "tried": [
+   [
+    "ep1/takes3/L18_0_0.wav",
+    1.0,
+    "Quiet's not really my thing. / Quiet's not really my thing."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes3/L18_0_0.wav",
+    1.794,
+    4.55,
+    15.9,
+    151.9
+   ],
+   [
+    "takes2/L18_2.wav",
+    1.675,
+    3.38,
+    17.6,
+    151.1
+   ],
+   [
+    "takes/L18_0.wav",
+    1.51,
+    3.4,
+    19.28,
+    150.2
+   ],
+   [
+    "takes3/L18_1_1.wav",
+    1.246,
+    3.94,
+    16.14,
+    133.0
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L18_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L18_0_1.wav": [
+    "trunc"
+   ]
+  }
+ },
+ {
+  "id": "L19",
+  "who": "tamo",
+  "room": "harbour",
+  "take": "ep1/takes2/L19_1.wav",
+  "gen": null,
+  "match": 1.0,
+  "score": 2.163,
+  "rng": 20.2,
+  "sd": 7.89,
+  "mov": 35.9,
+  "f0med": 154.2,
+  "wps_final": 3.9,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.785,
+  "old_dur": 1.965,
+  "old_dry": 1.86,
+  "old_take": "ep1/takes/L19_0.wav",
+  "slot": 2.2,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Hey, that was the good crate. / Hey, that was the good crate.",
+  "tried": [
+   [
+    "ep1/takes2/L19_1.wav",
+    1.0,
+    "Hey, that was the good crate. / Hey, that was the good crate."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes2/L19_1.wav",
+    2.163,
+    3.9,
+    20.2,
+    154.2
+   ],
+   [
+    "takes2/L19_0.wav",
+    2.098,
+    3.11,
+    22.16,
+    189.2
+   ],
+   [
+    "takes3/L19_0_2.wav",
+    1.722,
+    2.9,
+    17.41,
+    223.1
+   ],
+   [
+    "takes2/L19_2.wav",
+    1.074,
+    3.73,
+    19.51,
+    139.3
+   ]
+  ],
+  "rejected": {
+   "ep1/takes3/L19_0_0.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L19_0_1.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L20",
+  "who": "kaira",
+  "room": "harbour",
+  "take": "ep1/takes3/L20_1_0.wav",
+  "gen": {
+   "id": "L20",
+   "engine": "turbo",
+   "text": "Sorry! Not sorry! You should run.",
+   "ref": "refs/kaira.wav",
+   "temperature": 0.9
+  },
+  "match": 1.0,
+  "score": 2.246,
+  "rng": 21.78,
+  "sd": 5.19,
+  "mov": 31.3,
+  "f0med": 181.7,
+  "wps_final": 3.14,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 2.265,
+  "old_dur": 2.15,
+  "old_dry": 2.045,
+  "old_take": "ep1/takes/L20_0.wav",
+  "slot": 2.4,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Sorry, not sorry, you should run. / Sorry, not sorry, you should run.",
+  "tried": [
+   [
+    "ep1/takes3/L20_1_0.wav",
+    1.0,
+    "Sorry, not sorry, you should run. / Sorry, not sorry, you should run."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 7,
+  "top": [
+   [
+    "takes3/L20_1_0.wav",
+    2.246,
+    3.14,
+    21.78,
+    181.7
+   ],
+   [
+    "takes2/L20_2.wav",
+    1.672,
+    3.16,
+    21.0,
+    178.6
+   ],
+   [
+    "takes/L20_1.wav",
+    0.424,
+    2.6,
+    20.05,
+    167.1
+   ],
+   [
+    "takes/L20_0.wav",
+    -0.245,
+    3.26,
+    19.1,
+    162.8
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L20_0.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L20_0_0.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L20_0_1.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L20_0_2.wav": [
+    "slot"
+   ]
+  }
+ },
+ {
+  "id": "L21",
+  "who": "tamo",
+  "room": "harbour",
+  "take": "ep1/takes/L21_0.wav",
+  "gen": null,
+  "match": 1.0,
+  "score": 0,
+  "rng": null,
+  "sd": null,
+  "mov": null,
+  "f0med": null,
+  "wps_final": null,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 0.86,
+  "old_dur": 0.875,
+  "old_dry": 0.565,
+  "old_take": "ep1/takes/L21_0.wav",
+  "slot": 3.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": null,
+  "final_hyp": null,
+  "tried": [
+   [
+    "ep1/takes/L21_0.wav",
+    null,
+    null
+   ]
+  ],
+  "n_cands": 1,
+  "n_pass": 1,
+  "top": [
+   [
+    "takes/L21_0.wav",
+    0,
+    null,
+    null,
+    null
+   ]
+  ],
+  "rejected": {}
+ },
+ {
+  "id": "L22",
+  "who": "tamo",
+  "room": "harbour",
+  "take": "ep1/takes3/L22_0_1.wav",
+  "gen": {
+   "id": "L22",
+   "engine": "cb",
+   "text": "Three grown-ups, against one girl?",
+   "ref": "refs/tamo.wav",
+   "exaggeration": 0.6,
+   "cfg_weight": 0.3,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 2.933,
+  "rng": 19.77,
+  "sd": 5.37,
+  "mov": 21.3,
+  "f0med": 115.1,
+  "wps_final": 2.37,
+  "gaps": [
+   "2: +0.34s (had 0.01, cut at -40 dB)"
+  ],
+  "added": 0.33999999999999997,
+  "tempo": 1.0,
+  "dur": 2.945,
+  "old_dur": 2.555,
+  "old_dry": 2.41,
+  "old_take": "ep1/takes/L22_0.wav",
+  "slot": 5.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Three grown-ups against one girl. / Three grown-ups against one girl.",
+  "tried": [
+   [
+    "ep1/takes3/L22_0_1.wav",
+    1.0,
+    "Three grown-ups against one girl. / Three grown-ups against one girl."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 11,
+  "top": [
+   [
+    "takes3/L22_0_1.wav",
+    2.933,
+    2.37,
+    19.77,
+    115.1
+   ],
+   [
+    "takes3/L22_1_1.wav",
+    2.825,
+    2.48,
+    15.98,
+    105.6
+   ],
+   [
+    "takes3/L22_1_2.wav",
+    2.624,
+    2.67,
+    18.1,
+    114.5
+   ],
+   [
+    "takes3/L22_1_0.wav",
+    1.555,
+    2.71,
+    12.76,
+    106.8
+   ]
+  ],
+  "rejected": {}
+ },
+ {
+  "id": "L23",
+  "who": "docker",
+  "room": "harbour",
+  "take": "ep1/takes3/L23_0_2.wav",
+  "gen": {
+   "id": "L23",
+   "engine": "cb",
+   "text": "Kid, that anchor hasn't moved in a hundred years.",
+   "ref": "refs/docker.wav",
+   "exaggeration": 0.55,
+   "cfg_weight": 0.4,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 1.775,
+  "rng": 16.19,
+  "sd": 5.59,
+  "mov": 35.5,
+  "f0med": 128.5,
+  "wps_final": 2.99,
+  "gaps": [
+   "0: has 0.35s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 3.24,
+  "old_dur": 3.04,
+  "old_dry": 2.98,
+  "old_take": "ep1/takes/L23_0.wav",
+  "slot": 7.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "kid, that anchor hasn't moved in 100 years. / kid, that anchor hasn't moved in 100 years.",
+  "tried": [
+   [
+    "ep1/takes3/L23_0_2.wav",
+    1.0,
+    "kid, that anchor hasn't moved in 100 years. / kid, that anchor hasn't moved in 100 years."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 8,
+  "top": [
+   [
+    "takes3/L23_0_2.wav",
+    1.775,
+    2.99,
+    16.19,
+    128.5
+   ],
+   [
+    "takes3/L23_0_0.wav",
+    1.491,
+    2.76,
+    28.31,
+    161.4
+   ],
+   [
+    "takes2/L23_0.wav",
+    0.961,
+    3.17,
+    21.65,
+    158.2
+   ],
+   [
+    "takes3/L23_0_1.wav",
+    0.684,
+    2.7,
+    13.93,
+    155.0
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L23_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L23_1_1.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L24",
+  "who": "tamo",
+  "room": "harbour",
+  "take": "ep1/takes3/L24_2_2.wav",
+  "gen": {
+   "id": "L24",
+   "engine": "turbo",
+   "text": "That's not very fair... for you.",
+   "ref": "refs/tamo.wav",
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 1.836,
+  "rng": 17.1,
+  "sd": 5.77,
+  "mov": 20.6,
+  "f0med": 109.9,
+  "wps_final": 2.63,
+  "gaps": [
+   "3: +0.18s (had 0.32, cut at -50 dB)"
+  ],
+  "added": 0.18,
+  "tempo": 1.0,
+  "dur": 2.49,
+  "old_dur": 2.235,
+  "old_dry": 2.13,
+  "old_take": "ep1/takes/L24_0.wav",
+  "slot": 15.2,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "That's not very fair for you. / That's not very fair for you.",
+  "tried": [
+   [
+    "ep1/takes3/L24_2_2.wav",
+    1.0,
+    "That's not very fair for you. / That's not very fair for you."
+   ]
+  ],
+  "n_cands": 13,
+  "n_pass": 12,
+  "top": [
+   [
+    "takes3/L24_2_2.wav",
+    1.836,
+    2.63,
+    17.1,
+    109.9
+   ],
+   [
+    "takes3/L24_0_0.wav",
+    1.362,
+    2.97,
+    18.3,
+    113.2
+   ],
+   [
+    "takes3/L24_2_0.wav",
+    1.21,
+    2.53,
+    21.28,
+    103.2
+   ],
+   [
+    "takes3/L24_0_1.wav",
+    1.164,
+    2.65,
+    17.6,
+    119.2
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L24_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L25",
+  "who": "kaira",
+  "room": "harbour",
+  "take": "ep1/takes3/L25_0_0.wav",
+  "gen": {
+   "id": "L25",
+   "engine": "cb",
+   "text": "Okay. Who are you?",
+   "ref": "refs/kaira.wav",
+   "exaggeration": 0.8,
+   "cfg_weight": 0.5,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 1.39,
+  "rng": 14.98,
+  "sd": 5.51,
+  "mov": 33.0,
+  "f0med": 315.5,
+  "wps_final": 2.9,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.65,
+  "old_dur": 1.495,
+  "old_dry": 1.465,
+  "old_take": "ep1/takes/L25_0.wav",
+  "slot": 1.7,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Okay, who are you? / Okay, who are you?",
+  "tried": [
+   [
+    "ep1/takes3/L25_0_0.wav",
+    1.0,
+    "Okay, who are you? / Okay, who are you?"
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 8,
+  "top": [
+   [
+    "takes3/L25_0_0.wav",
+    1.39,
+    2.9,
+    14.98,
+    315.5
+   ],
+   [
+    "takes2/L25_1.wav",
+    1.367,
+    3.08,
+    23.01,
+    219.3
+   ],
+   [
+    "takes3/L25_0_1.wav",
+    1.216,
+    2.72,
+    24.3,
+    208.8
+   ],
+   [
+    "takes/L25_0.wav",
+    0.971,
+    3.17,
+    20.7,
+    165.2
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L25_2.wav": [
+    "trunc"
+   ],
+   "ep1/takes3/L25_1_0.wav": [
+    "slot"
+   ],
+   "ep1/takes3/L25_1_1.wav": [
+    "slot"
+   ]
+  }
+ },
+ {
+  "id": "L26",
+  "who": "tamo",
+  "room": "harbour",
+  "take": "ep1/takes3/L26_0_1.wav",
+  "gen": {
+   "id": "L26",
+   "engine": "cb",
+   "text": "Tamo! I work here. Well. I did, until you landed on me.",
+   "ref": "refs/tamo.wav",
+   "exaggeration": 0.7,
+   "cfg_weight": 0.4,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 2.135,
+  "rng": 19.51,
+  "sd": 5.18,
+  "mov": 31.3,
+  "f0med": 108.4,
+  "wps_final": 3.09,
+  "gaps": [
+   "0: has 0.22s",
+   "3: +0.09s (had 0.11, cut at -60 dB)",
+   "4: +0.08s (had 0.22, cut at -56 dB)"
+  ],
+  "added": 0.16999999999999998,
+  "tempo": 1.0,
+  "dur": 4.095,
+  "old_dur": 3.855,
+  "old_dry": 3.855,
+  "old_take": "ep1/takes/L26_0.wav",
+  "slot": 7.5,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Tomo, I work here.  Well, I did until you landed on me. / Tomo, I work here.  Well, I did until you landed on me.",
+  "tried": [
+   [
+    "ep1/takes3/L26_0_1.wav",
+    1.0,
+    "Tomo, I work here.  Well, I did until you landed on me. / Tomo, I work here.  Well, I did until you landed on me."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 8,
+  "top": [
+   [
+    "takes3/L26_0_1.wav",
+    2.135,
+    3.09,
+    19.51,
+    108.4
+   ],
+   [
+    "takes3/L26_0_0.wav",
+    2.028,
+    3.03,
+    18.9,
+    117.2
+   ],
+   [
+    "takes3/L26_0_2.wav",
+    1.896,
+    2.8,
+    20.78,
+    112.5
+   ],
+   [
+    "takes/L26_1.wav",
+    0.769,
+    2.46,
+    21.63,
+    102.0
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L26_0.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L26_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L26_1_1.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L27",
+  "who": "kaira",
+  "room": "harbour",
+  "take": "ep1/takes3/L27_1_0.wav",
+  "gen": {
+   "id": "L27",
+   "engine": "turbo",
+   "text": "What... is that?",
+   "ref": "refs/kaira.wav",
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": -0.321,
+  "rng": 8.3,
+  "sd": 2.84,
+  "mov": 25.2,
+  "f0med": 163.8,
+  "wps_final": 2.24,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.68,
+  "old_dur": 0.985,
+  "old_dry": 0.865,
+  "old_take": "ep1/takes/L27_0.wav",
+  "slot": 4.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "What is that? / What is that?",
+  "tried": [
+   [
+    "ep1/takes3/L27_1_0.wav",
+    1.0,
+    "What is that? / What is that?"
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes3/L27_1_0.wav",
+    -0.321,
+    2.24,
+    8.3,
+    163.8
+   ],
+   [
+    "takes3/L27_0_0.wav",
+    0.171,
+    4.11,
+    15.91,
+    142.2
+   ],
+   [
+    "takes3/L27_1_1.wav",
+    0.15,
+    2.34,
+    19.25,
+    156.4
+   ],
+   [
+    "takes2/L27_0.wav",
+    -0.126,
+    4.29,
+    18.1,
+    166.7
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L27_1.wav": [
+    "trunc"
+   ]
+  }
+ },
+ {
+  "id": "L28",
+  "who": "tamo",
+  "room": "harbour",
+  "take": "ep1/takes/L28_1.wav",
+  "gen": null,
+  "match": 1.0,
+  "score": 0.894,
+  "rng": 13.81,
+  "sd": 3.85,
+  "mov": 21.2,
+  "f0med": 88.8,
+  "wps_final": 2.88,
+  "gaps": [
+   "0: +0.16s (had 0.19, cut at -102 dB)",
+   "7: +0.14s (had 0.16, cut at -48 dB)"
+  ],
+  "added": 0.29999999999999993,
+  "tempo": 1.0,
+  "dur": 4.745,
+  "old_dur": 4.525,
+  "old_dry": 4.525,
+  "old_take": "ep1/takes/L28_0.wav",
+  "slot": 6.4,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Hollow.  They took the lighthouse keeper last week.  Nobody even remembers his name. / Hollow.  They took the lighthouse keeper last week.  Nobody even remembers his name.",
+  "tried": [
+   [
+    "ep1/takes/L28_1.wav",
+    1.0,
+    "Hollow.  They took the lighthouse keeper last week.  Nobody even remembers his name. / Hollow.  They took the lighthouse keeper last week.  Nobody even remembers his name."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes/L28_1.wav",
+    0.894,
+    2.88,
+    13.81,
+    88.8
+   ],
+   [
+    "takes3/L28_0_1.wav",
+    0.691,
+    2.58,
+    13.2,
+    105.0
+   ],
+   [
+    "takes3/L28_1_0.wav",
+    0.423,
+    2.66,
+    13.07,
+    111.2
+   ],
+   [
+    "takes3/L28_0_0.wav",
+    0.412,
+    2.73,
+    13.19,
+    101.4
+   ]
+  ],
+  "rejected": {
+   "ep1/takes3/L28_0_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L29",
+  "who": "oren",
+  "room": "harbour",
+  "take": "ep1/takes3/L29_0_2.wav",
+  "gen": {
+   "id": "L29",
+   "engine": "cb",
+   "text": "No, not here. Not the harbor.",
+   "ref": "refs/oren.wav",
+   "exaggeration": 0.6,
+   "cfg_weight": 0.3,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 1.046,
+  "rng": 12.67,
+  "sd": 3.4,
+  "mov": 29.8,
+  "f0med": 111.9,
+  "wps_final": 2.44,
+  "gaps": [
+   "0: +0.20s (had 0.10, cut at -53 dB)"
+  ],
+  "added": 0.19999999999999998,
+  "tempo": 1.0,
+  "dur": 2.715,
+  "old_dur": 2.87,
+  "old_dry": 2.78,
+  "old_take": "ep1/takes/L29_0.wav",
+  "slot": 20.2,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "No, not here. Not the harbor. / No, not here. Not the harbor.",
+  "tried": [
+   [
+    "ep1/takes3/L29_0_2.wav",
+    1.0,
+    "No, not here. Not the harbor. / No, not here. Not the harbor."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes3/L29_0_2.wav",
+    1.046,
+    2.44,
+    12.67,
+    111.9
+   ],
+   [
+    "takes3/L29_0_1.wav",
+    0.822,
+    2.48,
+    6.3,
+    110.6
+   ],
+   [
+    "takes3/L29_0_0.wav",
+    0.771,
+    2.41,
+    13.2,
+    105.0
+   ],
+   [
+    "takes3/L29_1_1.wav",
+    0.169,
+    2.34,
+    12.12,
+    115.8
+   ]
+  ],
+  "rejected": {
+   "ep1/takes2/L29_0.wav": [
+    "dur 2.17 not in 2.36-5.00"
+   ]
+  }
+ },
+ {
+  "id": "L30",
+  "who": "bellwether",
+  "room": "harbour",
+  "take": "ep1/takes3/L30_1_0.wav",
+  "gen": {
+   "id": "L30",
+   "engine": "cb",
+   "text": "The courier. And the anchor-bearer. Two of four.",
+   "ref": "refs/bellwether.wav",
+   "exaggeration": 0.7,
+   "cfg_weight": 0.4,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 0.284,
+  "rng": 10.94,
+  "sd": 3.65,
+  "mov": 24.3,
+  "f0med": 127.8,
+  "wps_final": 2.46,
+  "gaps": [
+   "1: has 0.53s",
+   "5: +0.16s (had 0.14, cut at -71 dB)"
+  ],
+  "added": 0.15999999999999998,
+  "tempo": 1.0,
+  "dur": 3.96,
+  "old_dur": 3.15,
+  "old_dry": 3.09,
+  "old_take": "ep1/takes/L30_1.wav",
+  "slot": 4.2,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 0.667,
+  "final_hyp": "The Cooley and the Inca Vera 2 of 4. / The Cooley and the Inca Vera 2 of 4.",
+  "tried": [
+   [
+    "ep1/takes3/L30_0_0.wav",
+    0.471,
+    "The career of the Ancabera, team of four. / The career of the Ancabera, team of four."
+   ],
+   [
+    "ep1/takes3/L30_2_1.wav",
+    0.353,
+    "the curry, and the ancaberry.  She's full. / the curry, and the alcabera.  She will fall."
+   ],
+   [
+    "ep1/takes3/L30_1_0.wav",
+    0.667,
+    "The Cooley and the Inca Vera 2 of 4. / The Cooley and the Inca Vera 2 of 4."
+   ],
+   [
+    "ep1/takes3/L30_0_2.wav",
+    0.444,
+    "The glory, and the end to bear, two before. / The glory, and the end to bear, two before."
+   ],
+   [
+    "ep1/takes3/L30_0_1.wav",
+    0.476,
+    "The cool, I'm at the end of the mirror, two of four. / The cool, I'm at the end of the mirror, two of four."
+   ],
+   [
+    "ep1/takes3/L30_3_3.wav",
+    0.235,
+    "the Queen of the Uncabera to a full. / The Queen of the Ocabera to a Fall."
+   ]
+  ],
+  "n_cands": 19,
+  "n_pass": 8,
+  "top": [
+   [
+    "takes3/L30_0_0.wav",
+    1.402,
+    2.69,
+    12.57,
+    108.7
+   ],
+   [
+    "takes3/L30_2_1.wav",
+    0.617,
+    2.61,
+    14.5,
+    94.1
+   ],
+   [
+    "takes3/L30_1_0.wav",
+    0.284,
+    2.46,
+    10.94,
+    127.8
+   ],
+   [
+    "takes3/L30_0_2.wav",
+    0.275,
+    2.54,
+    11.28,
+    118.9
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L30_0.wav": [
+    "asr"
+   ],
+   "ep1/takes/L30_1.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L30_0.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L30_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L30_2_0.wav": [
+    "dur 4.25 not in 2.32-3.86"
+   ],
+   "ep1/takes3/L30_1_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L30_3_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L30_3_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L30_4_0.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L30_4_1.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L30_4_2.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L31",
+  "who": "bellwether",
+  "room": "harbour",
+  "take": "ep1/takes3/L31_0_3.wav",
+  "gen": {
+   "id": "L31",
+   "engine": "turbo",
+   "text": "[chuckle] The King will be so pleased.",
+   "ref": "refs/bellwether.wav",
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 2.715,
+  "rng": 13.75,
+  "sd": 3.79,
+  "mov": 27.0,
+  "f0med": 111.2,
+  "wps_final": 2.94,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 2.27,
+  "old_dur": 2.235,
+  "old_dry": 2.21,
+  "old_take": "ep1/takes/L31_0.wav",
+  "slot": 11.8,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 0.667,
+  "final_hyp": "The King will be so pleased. / The King will be served, please.",
+  "tried": [
+   [
+    "ep1/takes3/L31_0_3.wav",
+    0.667,
+    "The King will be so pleased. / The King will be served, please."
+   ],
+   [
+    "ep1/takes3/L31_0_0.wav",
+    0.5,
+    "The cake will be served, please. / The cake will be served, please."
+   ],
+   [
+    "ep1/takes3/L31_0_2.wav",
+    0.0,
+    "Huh, they can't only sell it, please. / Huh, they can't hold me so please."
+   ],
+   [
+    "ep1/takes2/L31_2.wav",
+    0.667,
+    "The King will be served, please. / The King will be served, please."
+   ],
+   [
+    "ep1/takes/L31_0.wav",
+    0.182,
+    "It can't be served, please. / It can't be served, please."
+   ],
+   [
+    "ep1/takes3/L31_0_1.wav",
+    0.545,
+    "Heh, I can't be so pleased. / Heh, I can't be so pleased."
+   ]
+  ],
+  "n_cands": 9,
+  "n_pass": 9,
+  "top": [
+   [
+    "takes3/L31_0_3.wav",
+    2.715,
+    2.94,
+    13.75,
+    111.2
+   ],
+   [
+    "takes3/L31_0_0.wav",
+    2.323,
+    2.43,
+    9.13,
+    87.3
+   ],
+   [
+    "takes3/L31_0_2.wav",
+    1.868,
+    2.68,
+    10.68,
+    104.4
+   ],
+   [
+    "takes2/L31_2.wav",
+    1.692,
+    2.99,
+    11.4,
+    106.8
+   ]
+  ],
+  "rejected": {}
+ },
+ {
+  "id": "L32",
+  "who": "tamo",
+  "room": "harbour",
+  "take": "ep1/takes3/L32_1_1.wav",
+  "gen": {
+   "id": "L32",
+   "engine": "cb",
+   "text": "Kaira! Whatever you've got, now would be a really good time!",
+   "ref": "refs/tamo.wav",
+   "exaggeration": 1.2,
+   "cfg_weight": 0.45,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 2.287,
+  "rng": 24.6,
+  "sd": 6.77,
+  "mov": 32.9,
+  "f0med": 217.4,
+  "wps_final": 3.05,
+  "gaps": [
+   "0: has 0.24s"
+  ],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 3.905,
+  "old_dur": 4.6,
+  "old_dry": 4.54,
+  "old_take": "ep1/takes/L32_0.wav",
+  "slot": 4.6,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Kyra, whatever you've got, now would be a really good time. / Kyra, whatever you've got, now would be a really good time.",
+  "tried": [
+   [
+    "ep1/takes3/L32_1_1.wav",
+    1.0,
+    "Kyra, whatever you've got, now would be a really good time. / Kyra, whatever you've got, now would be a really good time."
+   ]
+  ],
+  "n_cands": 10,
+  "n_pass": 5,
+  "top": [
+   [
+    "takes3/L32_1_1.wav",
+    2.287,
+    3.05,
+    24.6,
+    217.4
+   ],
+   [
+    "takes3/L32_0_0.wav",
+    0.892,
+    3.06,
+    22.27,
+    172.5
+   ],
+   [
+    "takes2/L32_0.wav",
+    0.045,
+    3.09,
+    7.7,
+    182.8
+   ],
+   [
+    "takes3/L32_0_1.wav",
+    -0.109,
+    3.33,
+    22.8,
+    161.9
+   ]
+  ],
+  "rejected": {
+   "ep1/takes/L32_0.wav": [
+    "asr"
+   ],
+   "ep1/takes/L32_1.wav": [
+    "asr"
+   ],
+   "ep1/takes2/L32_2.wav": [
+    "dur 3.25 not in 3.41-4.60"
+   ],
+   "ep1/takes3/L32_0_2.wav": [
+    "asr"
+   ],
+   "ep1/takes3/L32_1_0.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L33",
+  "who": "kaira",
+  "room": "harbour",
+  "take": "ep1/takes3/L33_1_2.wav",
+  "gen": {
+   "id": "L33",
+   "engine": "cb",
+   "text": "I don't know how to use it!",
+   "ref": "refs/kaira.wav",
+   "exaggeration": 1.25,
+   "cfg_weight": 0.4,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 2.588,
+  "rng": 18.32,
+  "sd": 5.96,
+  "mov": 32.1,
+  "f0med": 263.8,
+  "wps_final": 4.46,
+  "gaps": [],
+  "added": 0.0,
+  "tempo": 1.0,
+  "dur": 1.9,
+  "old_dur": 1.555,
+  "old_dry": 1.52,
+  "old_take": "ep1/takes/L33_0.wav",
+  "slot": 12.0,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "I don't know how to use it. / I don't know how to use it.",
+  "tried": [
+   [
+    "ep1/takes3/L33_1_2.wav",
+    1.0,
+    "I don't know how to use it. / I don't know how to use it."
+   ]
+  ],
+  "n_cands": 11,
+  "n_pass": 10,
+  "top": [
+   [
+    "takes3/L33_1_2.wav",
+    2.588,
+    4.46,
+    18.32,
+    263.8
+   ],
+   [
+    "takes3/L33_0_1.wav",
+    1.261,
+    5.07,
+    20.22,
+    231.0
+   ],
+   [
+    "takes3/L33_1_0.wav",
+    0.972,
+    4.09,
+    25.65,
+    225.0
+   ],
+   [
+    "takes3/L33_0_2.wav",
+    0.327,
+    4.22,
+    27.2,
+    210.0
+   ]
+  ],
+  "rejected": {
+   "ep1/takes3/L33_1_1.wav": [
+    "asr"
+   ]
+  }
+ },
+ {
+  "id": "L34",
+  "who": "vesper",
+  "room": "harbour",
+  "take": "ep1/takes3/L34_1_1.wav",
+  "gen": {
+   "id": "L34",
+   "engine": "cb",
+   "text": "Step away from them.",
+   "ref": "refs/vesper.wav",
+   "exaggeration": 0.5,
+   "cfg_weight": 0.25,
+   "temperature": 0.8
+  },
+  "match": 1.0,
+  "score": 0.202,
+  "rng": 9.22,
+  "sd": 3.47,
+  "mov": 15.4,
+  "f0med": 78.6,
+  "wps_final": 3.92,
+  "gaps": [
+   "1: no clean gap (-11 dB)"
+  ],
+  "added": 0.0,
+  "tempo": 0.9,
+  "dur": 1.435,
+  "old_dur": 1.24,
+  "old_dry": 1.24,
+  "old_take": "ep1/takes/L34_0.wav",
+  "slot": 2.5,
+  "reverb_trimmed_by_slot": false,
+  "final_match": 1.0,
+  "final_hyp": "Step away from them. / Step away from them.",
+  "tried": [
+   [
+    "ep1/takes3/L34_1_1.wav",
+    1.0,
+    "Step away from them. / Step away from them."
+   ]
+  ],
+  "n_cands": 12,
+  "n_pass": 11,
+  "top": [
+   [
+    "takes3/L34_1_1.wav",
+    0.202,
+    3.92,
+    9.22,
+    78.6
+   ],
+   [
+    "takes3/L34_2_1.wav",
+    0.135,
+    3.81,
+    6.8,
+    85.3
+   ],
+   [
+    "takes/L34_0.wav",
+    0.06,
+    4.0,
+    7.78,
+    75.1
+   ],
+   [
+    "takes3/L34_2_0.wav",
+    0.05,
+    3.92,
+    5.14,
+    79.6
+   ]
+  ],
+  "rejected": {
+   "ep1/takes3/L34_0_0.wav": [
+    "asr"
+   ]
+  }
+ }
+]
