@@ -52,11 +52,14 @@
     for (let y = 106; y < 111; y++) for (let x = 140; x < 342; x++) BUF[y * W + x] = cel(R.ink, 1.6 + (y === 106 ? 1 : 0), x, y);
     for (const x0 of [130, 344]) for (let y = 90; y < 104; y++) for (let x = x0; x < x0 + 8; x++) BUF[y * W + x] = cel(R.gold, 3.6 - (y - 90) / 10, x, y);
     lantern(178, 128, 5, rt, 1); lantern(296, 126, 6, rt, 2);
-    // the fire bowl
+    fireBowl(rt, o.fire);
+  }
+  // the fire bowl and its flame (drawn again in front of anyone passing behind it)
+  function fireBowl(rt, fo, again) {
     fillPoly([[FIRE[0] - 5, FIRE[1] + 3], [FIRE[0] + 5, FIRE[1] + 3], [FIRE[0] + 7, FIRE[1] + 8], [FIRE[0] - 7, FIRE[1] + 8]], (x, y) => cel(R.stone, 2.4 - (x - FIRE[0]) / 10, x, y));
     fillEll(FIRE[0], FIRE[1], 11, 5, 0, (x, y, u, v) => (v < -0.2 ? -1 : cel(R.bronze, 4 - v * 2.2 - u * 0.8 + (Math.abs(v - 0.1) < 0.15 ? 1.2 : 0), x, y)));
     fillEll(FIRE[0], FIRE[1] - 1, 10, 2, 0, (x, y, u) => cel(R.ember, 3 + (1 - Math.abs(u)) * 2 + ih(x, y, fl(rt * 6)) * 1.2, x, y));
-    if (o.fire !== 0) fire(FIRE[0], FIRE[1] - 1, 14 * (o.fire === undefined ? 1 : o.fire), rt, 4);
+    if (fo !== 0) fire(FIRE[0], FIRE[1] - 1, 14 * (fo === undefined ? 1 : fo), rt, 4, again ? { glow: false, sparks: 0 } : undefined);
   }
   // after the figures: embers, rain (or rain hanging in the air), the night's cool cast
   function shrineAfter(t, o) {
@@ -97,49 +100,118 @@
     ENV.edge = null; return r;
   }
 
-  // 3 — the shrine (0:17): Mira runs up out of the rain with her lantern and skids to a stop
-  shot(17.0, 20.3, (lt, t) => {
+
+  /* ---------------------------------------------------------------- the shrine scene, acted (0:17–0:32)
+     Every character drawing is held on twos (ON2) and every move is keyed: anticipation, action, overshoot, settle. */
+  // Mira's run: eight drawings (contact, down, passing, up, then the same off the other foot), two frames each
+  const MRUN = [
+    { hip: -15, lean: 2, legs: [{ foot: [6, 0] }, { foot: [-6, -4] }], arms: [{ a: -0.9, b: 1.0 }, { a: 1.1, b: 1.0 }] },
+    { hip: -13.5, lean: 3, legs: [{ foot: [3, 0] }, { foot: [-4, -6] }], arms: [{ a: -0.6, b: 1.1 }, { a: 0.8, b: 1.1 }] },
+    { hip: -14.5, lean: 3, legs: [{ foot: [-1, 0] }, { foot: [1, -7] }], arms: [{ a: 0, b: 1.0 }, { a: 0.1, b: 1.0 }] },
+    { hip: -16.5, lean: 2, legs: [{ foot: [-5, -1] }, { foot: [5, -4] }], arms: [{ a: 0.9, b: 1.0 }, { a: -0.8, b: 1.0 }] },
+  ];
+  const mrun = (i) => { const D = MRUN[i % 4]; if (i % 8 < 4) return D; return Object.assign({}, D, { legs: [D.legs[1], D.legs[0]], arms: [D.arms[1], D.arms[0]] }); };
+  // where she is: running in, then the skid
+  const MX = [[17.0, 150], [18.1, 226, 'lin'], [18.42, 236, 'out']];
+  const miraX = (t) => key(MX, t);
+  // the hops of "I wrote it!": [time, height above the floor, squash (hip offset)]
+  const MHOP = [[18.42, 0], [19.08, 0], [19.14, 0, 'lin'], [19.26, 5, 'out'], [19.36, 0, 'in'], [19.5, 0], [19.56, 3, 'out'], [19.66, 0, 'in']];
+  const MSQ = [[18.1, 0], [18.18, 3, 'out'], [18.42, 2], [18.47, -1.5, 'out'], [18.6, 0], [19.08, 0], [19.14, 2.5, 'out'], [19.2, -1.5], [19.36, 0], [19.4, 3, 'out'], [19.5, 0, 'back'], [19.66, 0], [19.7, 2, 'out'], [19.8, 0, 'back']];
+
+  // 3 — the shrine (0:17): Mira runs up the last steps out of the rain, skids, and bursts out with it
+  shot(17.0, 19.95, (lt, t) => {
+    const q = ON2(t);
     shrineStage(t);
-    const arrive = 1.25, run = lt < arrive, mx = run ? lerp(120, MIRA_X, eoc(lt / arrive) * 0.4 + lt / arrive * 0.6) : MIRA_X, skid = lt > arrive && lt < arrive + 0.25;
-    const tk = talking('mira', t), hop = lt > arrive + 0.25 ? -Math.round(Math.abs(Math.sin(t * 6.5)) * (tk ? 2 : 0.6)) : 0;
-    const P = run ? runPose({ face: { eyes: 'wide', smile: 0.6 } }, t * 15, 4, MIRA.body) : { hip: skid ? -13 : -16 + hop, lean: skid ? -2 : 0, wind: skid ? 2 : 0, face: { eyes: blink(t, 4) ? 'closed' : tk ? 'wide' : 'open', mouth: mouth('mira', t), smile: 0.8, blush: 1 }, arms: tk ? [{ a: 1.6 + Math.sin(t * 4.5) * 0.5, b: 0.4 }, { a: 0.3, b: 0.4 }] : skid ? [{ a: 1.2, b: 0.2 }, { a: 0.9 }] : [{ a: 0.4 }, { a: 0.3, b: 0.4 }], legs: skid ? [{ foot: [6, 0] }, { foot: [-4, 0] }] : [{ foot: [3, 0] }, { foot: [-3, 0] }] };
-    const look = sstep(1.9, 2.3, lt);
-    sable(t, Object.assign({}, KNEEL, { face: { eyes: blink(t, 3) ? 'closed' : look > 0.5 ? 'open' : 'half', brows: look > 0.5 ? 'up' : 'n', smile: 0.2 + look * 0.5, mouth: mouth('sable', t) }, arms: [{ hand: [10 + Math.sin(t * 6) * 1.2 * (1 - look), -17] }, { hand: [5 - Math.cos(t * 6) * 1.2 * (1 - look), -16] }], prop: kneelSword }), SABLE_X, FLOOR);
-    mira(t, P, mx, FLOOR + 2);
-    if (skid) for (let k = 0; k < 6; k++) put(mx - 6 - k * 2, FLOOR + 1 - (k & 1), C('sky', 6));
+    // Sable, kneeling, tying the red cord round her grip until she hears her name; her head comes up first, then her shoulders
+    const up = key([[18.5, 0], [18.66, 1, 'out']], q), sit = key([[18.6, 0], [18.8, 1, 'back']], q), sm = key([[18.9, 0.15], [19.4, 0.75]], q);
+    const tie = (1 - sstep(18.5, 18.6, q)), loop = fl(q * 7.5) % 4;
+    const SB = blinkK(q, 3);
+    sable(t, Object.assign({}, KNEEL, { lean: Math.round(-1 + sit), headY: Math.round(1 - up), headX: Math.round(up * (q > 19.3 ? 1 : 0)), face: { eyes: SB || (up > 0.5 ? 'open' : 'half'), brows: up > 0.5 ? 'up' : 'n', smile: sm, mouth: mouth('sable', q) }, arms: [{ hand: [10 + [0, 1, 1, 0][loop] * tie, -17 - [0, 0, 1, 1][loop] * tie] }, { hand: [5 + [1, 0, 0, 1][loop] * tie, -16] }], prop: kneelSword }), SABLE_X, FLOOR);
+    // Mira
+    const x = miraX(q), run = q < 18.1, skid = q >= 18.1 && q < 18.42, hop = key(MHOP, q), sq = key(MSQ, q);
+    let P;
+    if (run) P = Object.assign({ face: { eyes: 'wide', smile: 0.7, blush: 1 } }, mrun(fl(q * 15)));
+    else if (skid) P = { hip: -16 + sq, lean: -3, wind: 2, face: { eyes: 'wide', smile: 0.4, blush: 1, mouth: 0.3 }, legs: [{ foot: [8, 0] }, { foot: [-3, 0] }], arms: [{ a: 2.0, b: 0.3 }, { a: 1.6, b: 0.3 }] };
+    else {
+      const tk = talking('mira', q), burst = key([[18.42, 0], [18.5, 1, 'out'], [18.9, 1], [19.05, 0.3]], q), air = hop > 0.5;
+      P = { hip: -16 + sq, lean: Math.round(burst), face: { eyes: blinkK(q, 4) || (tk || burst > 0.5 ? 'wide' : 'open'), mouth: mouth('mira', q), smile: 0.8, blush: 1 },
+        arms: burst > 0.5 ? [{ a: 2.9, b: 0.2 }, { a: 2.4, b: 0.3 }] : air ? [{ a: 2.3, b: 0.4 }, { a: 1.8, b: 0.6 }] : [{ a: 1.5, b: 1.6 }, { a: 0.9, b: 1.2 }],
+        legs: air ? [{ foot: [3, -3] }, { foot: [-3, -2] }] : [{ foot: [3, 0] }, { foot: [-3, 0] }] };
+    }
+    // her lantern swings from her far hand, a pendulum driven by her own run and stop
+    const sw = pendulum(miraX, 17.0, q, 7, 2.2);
+    P.propFar = (A) => lanternArt(A.hand[0], A.hand[1] + 1, t, true, sw);
+    mira(t, P, Math.round(x), FLOOR + 1 - Math.round(hop));
+    if (x > 186 && x < 226) fireBowl(t, 1, true);
+    if (skid) for (let k = 0; k < 7; k++) { const g = (q - 18.1) / 0.32; put(fl(x - 4 - k * 2 - g * 3), fl(FLOOR + 1 - (k & 1) - ih(k, fl(q * 15), 31) * 4 * (1 - g)), C('sky', 6 + (k & 1))); }
+    if (q >= 18.1 && q < 18.2) shk(1);
     shrineAfter(t); splashes(t, FLOOR - 2, H, 18, 3);
-    view(lerp(222, 238, eio(lt / 3.3)), 168, lerp(1.6, 1.8, lt / 3.3));
+    // the camera picks her up on the stair and runs with her, overshooting a touch as she stops
+    const cx = key([[17.0, 196], [18.2, 247, 'io'], [18.5, 244, 'back'], [19.95, 246]], t);
+    view(cx, 171, 2);
   });
-  // 3b — Mira, close (0:20): "I wrote my name on the wall, just like you showed me!", bouncing on her toes
-  shot(20.3, 23.5, (lt, t) => {
-    closeBg(() => shrineStage(t), 258, 168, 3, 3);
-    const tk = talking('mira', t), hop = Math.round(Math.abs(Math.sin(t * 6.5)) * (tk ? 3 : 1));
-    fireBust('mira', t, { face: { eyes: blink(t, 4) ? 'closed' : tk && lt < 1.5 ? 'wide' : 'open', mouth: mouth('mira', t), smile: tk ? 0.4 : 0.9, blush: 1 }, headY: -hop, headX: Math.round(Math.sin(t * 2) * 1) }, 200, H - 22 + 6 - hop * 2, 1, 1);
+
+  // 3b — Mira, close (0:20): "…I wrote my name on the wall, just like you showed me!" — she points back at it,
+  // swings round to Sable, clasps her hands and bounces
+  shot(19.95, 23.4, (lt, t) => {
+    const q = ON2(t);
+    closeBg(() => shrineStage(t), key([[19.95, 252], [23.4, 260]], t), 168, 3, 3);
+    const turn = key([[20.05, 0], [20.3, -1.2, 'out'], [20.4, -1], [21.15, -1], [21.32, 0.5, 'out'], [21.45, 0.2, 'io']], q);
+    const point = key([[20.05, 0], [20.38, 1, 'back'], [21.12, 1], [21.35, 0, 'in']], q), pump = accent('mira', q) * (q < 21.2 ? 1 : 0);
+    const clasp = key([[21.38, 0], [21.6, 1, 'back'], [22.9, 1], [23.3, 0.7]], q);
+    const beam = key([[22.2, 0], [22.3, 1, 'out']], q), tilt = key([[20.0, 0], [21.5, 0], [22.35, 0.13, 'back'], [23.4, 0.09]], q) + accent('mira', q) * 0.05;
+    const bounce = q > 21.38 && q < 22.5 ? accent('mira', q) * 4 : 0, land = key([[19.95, -3], [20.02, 1, 'in'], [20.12, 0, 'back']], q);
+    const hands = [];
+    if (point > 0.02) hands.push({ from: [-14, 8], at: [lerp(-12, -21, point), lerp(8, -20, point) - pump * 2], pose: 'point', dir: [-0.5, -0.86] });
+    if (clasp > 0.02) { hands.push({ from: [-12, 8], at: [lerp(-12, -4, clasp), lerp(10, -17, clasp)], pose: 'fist' }); hands.push({ from: [14, 8], at: [lerp(14, 8, clasp), lerp(10, -17, clasp)], pose: 'fist' }); }
+    const F = { eyes: blinkK(q, 4) || (beam > 0.5 ? 'happy' : q < 21.3 ? 'wide' : 'wide'), look: q < 21.25 ? -2 : 1, mouth: mouth('mira', q), ee: syllable('mira', q) % 2, smile: beam > 0.5 ? 1 : 0.5, blush: 1, browUp: Math.round(accent('mira', q)) };
+    const yb = Math.round(-bounce + land), sqz = q > 21.38 && q < 22.5 ? 1 - Math.max(0, accent('mira', q - 0.12) - 0.5) * 0.1 : land > 0.5 ? 0.95 : 1;
+    fireBust('mira', t, { face: F, turn, tilt, hands, sy: sqz, sx: 2 - sqz, strings: Math.round(springTo((tt) => -bounce * 0.3 + turn * 2, 19.95, q, 120, 9)), fringe: Math.round(turn * -0.6) }, 200 + Math.round(key([[19.95, 0], [23.4, -4]], t)), H - 22 + 6 + yb, 1, 1);
     glow(110, 210, 50, tab('#ffb050', true), 0.3);
     nearRain(t, 40);
   });
-  // 4 — Sable, close (0:23): she laughs — "then the wall will remember you…"
-  shot(23.5, 26.6, (lt, t) => {
-    closeBg(() => shrineStage(t), 226, 168, 3, 3);
-    fireBust('sable', t, { face: { eyes: blink(t, 3) ? 'closed' : lt < 1.6 ? 'happy' : 'open', mouth: mouth('sable', t), smile: 0.7, brows: 'up' }, headX: Math.round(Math.sin(t * 1.3) * 0.6) }, 296, H - 22 + 4, -1, -1);
-    nearRain(t, 36);
-  });
-  // 4b — the two of them (0:26): she reaches over and pats the hood
-  shot(26.6, 30.0, (lt, t) => {
-    shrineStage(t);
-    const up = sstep(0.4, 0.85, lt) * (1 - sstep(2.1, 2.6, lt)), pat = up > 0.6, tap = pat ? Math.max(0, Math.sin((lt - 0.85) * 11)) : 0;
-    mira(t, { hip: -16 + (tap > 0.5 ? 1 : 0), face: { eyes: pat ? 'happy' : blink(t, 4) ? 'closed' : 'open', smile: 0.9, blush: 1 }, arms: [{ a: 0.4 }, { a: 0.3, b: 0.4 }], legs: [{ foot: [3, 0] }, { foot: [-3, 0] }] }, MIRA_X, FLOOR + 2);
-    // her near arm lifts, over and down onto the hood, and taps twice
-    const hx = lerp(9, 33, up), hy = lerp(-17, -45, up) + tap * 2;
-    sable(t, Object.assign({}, KNEEL, { lean: up * 2, face: { eyes: blink(t, 3) ? 'closed' : lt > 1.5 ? 'half' : 'open', smile: 0.7, mouth: mouth('sable', t) }, arms: [{ hand: [hx, hy], bend: up > 0.3 ? 1 : -1 }, { hand: [5, -16] }], prop: up < 0.1 ? kneelSword : undefined, propFar: up >= 0.1 ? (A) => swordArt(A.hand[0] - 1, A.hand[1] + 1, -PI / 2 - 0.55, 28, false) : undefined }), SABLE_X, FLOOR);
-    shrineAfter(t); splashes(t, FLOOR - 2, H, 18, 3);
-    view(lerp(248, 251, lt / 3.4), 178, 2.6 + lt * 0.05);
+
+  // 4 — Sable, close (0:23): she watches, her smile grows, a quiet laugh, then warmly — "Then the wall will remember you."
+  function sableClose(t, q, P, o) {
+    o = o || {};
+    closeBg(() => shrineStage(t, o.stage), o.fx || 226, o.fy || 168, 3, 3);
+    fireBust('sable', t, P, 296 + (o.dx || 0), H - 22 + 4 + (o.dy || 0), -1, -1);
+    nearRain(t, o.rain || 36, o.frozen);
+  }
+  shot(23.4, 27.15, (lt, t) => {
+    const q = ON2(t);
+    const sm = key([[23.4, 0.25], [24.2, 0.6], [24.55, 1, 'out'], [25.3, 1], [25.5, 0.7]], q), laugh = q > 24.55 && q < 25.3;
+    const tilt = key([[23.4, 0.02], [24.55, 0.02], [24.7, -0.09, 'out'], [25.25, -0.06], [25.45, 0.07, 'back'], [27.15, 0.06]], q) + accent('sable', q) * 0.05;
+    const shake = laugh ? (fl(q * 15) % 2 ? -1 : 0) : 0, breath = key([[24.1, 0], [24.4, -1, 'io'], [24.55, 0]], q);
+    const eyes = blinkK(q, 5) || (laugh ? 'happy' : q < 24.4 ? 'open' : 'half');
+    sableClose(t, q, { face: { eyes, look: q < 24.5 ? 1 : 0, smile: sm, mouth: laugh ? 0 : mouth('sable', q), ee: syllable('sable', q) % 2, browUp: q > 25.4 ? 1 : 0 }, tilt, turn: key([[25.3, 0], [25.6, -0.5]], q), headY: Math.round(accent('sable', q)) }, { dy: shake + breath, dx: Math.round(key([[23.4, 2], [27.15, -1]], t)) });
   });
 
-  // 5 — the rain stops in the air (0:30); she looks up
+  // 4b — the two of them (0:27): "Even when I'm old and forgetful." She reaches over in an arc and pats the hood twice
+  const PAT = [[27.15, [9, -17]], [27.35, [7, -14], 'io'], [27.58, [22, -30], 'out'], [27.72, [33, -42], 'out'], [27.82, [32, -39], 'back'],
+    [28.0, [32, -42], 'out'], [28.08, [32, -38], 'in'], [28.32, [32, -42], 'out'], [28.4, [32, -38], 'in'],
+    [28.6, [30, -39]], [28.8, [34, -39]], [29.0, [31, -39]], [29.2, [33, -39]], [29.45, [32, -40]], [29.75, [21, -28], 'io'], [29.95, [9, -17], 'out']];
+  const PAT_HIT = [27.82, 28.08, 28.4];
+  shot(27.15, 30.0, (lt, t) => {
+    const q = ON2(t);
+    shrineStage(t);
+    const hand = key(PAT, q), away = q > 27.4 && q < 29.85, reach = key([[27.3, 0], [27.7, 2, 'out'], [29.5, 2], [29.95, 0]], q);
+    // each landing pushes her down a pixel and squeezes her eyes shut; she giggles and leans into it
+    let hit = 0; for (const h of PAT_HIT) { const d = q - h; if (d >= 0 && d < 0.14) hit = 1; }
+    const giggle = q > 28.45 && q < 29.4 ? (fl(q * 7.5) % 2) : 0, after = key([[29.5, 0], [29.8, 1, 'out']], q);
+    mira(t, { hip: -16 + hit + giggle, lean: q > 28.5 && q < 29.5 ? 1 : 0, headY: hit, face: { eyes: hit || (q > 27.8 && q < 29.6) ? 'happy' : blinkK(q, 4) || 'open', smile: 1, blush: 1, mouth: giggle ? 0.2 : 0 }, arms: [{ a: 0.5 + after * 0.6, b: 0.6 + after * 0.6 }, { a: 0.3, b: 0.4 }], legs: [{ foot: [3, 0] }, { foot: [-3, 0] }], propFar: (A) => lanternArt(A.hand[0], A.hand[1] + 1, t, true, pendulum((tt) => (giggle ? 0.6 : 0) + hit * 0.8 + tt * 0, 27.15, q, 7, 2) + Math.sin(q * 3) * 0.12) }, MIRA_X, FLOOR + 2);
+    const shakeHead = q > 28.9 && q < 29.25 ? (fl(q * 7.5) % 2 ? 1 : -1) : 0;
+    sable(t, Object.assign({}, KNEEL, { lean: Math.round(reach), headX: shakeHead, face: { eyes: blinkK(q, 3) || 'half', smile: 0.75, mouth: mouth('sable', q) }, arms: [{ hand, bend: -1 }, { hand: [5, -16] }], prop: away ? undefined : kneelSword, propFar: away ? (A) => swordArt(A.hand[0] - 1, A.hand[1] + 1, -PI / 2 - 0.55, 28, false) : undefined }), SABLE_X, FLOOR);
+    shrineAfter(t); splashes(t, FLOOR - 2, H, 18, 3);
+    view(key([[27.15, 254], [30.0, 250]], t), key([[27.15, 180], [30.0, 178]], t), 3);
+  });
+
+  // 5 — the rain stops in the air (0:30). She hasn't noticed; then she has: the smile goes, the eyes go up, the head follows
   shot(30.0, 32.4, (lt, t) => {
-    const o = { freeze: FREEZE }, up = sstep(1.0, 1.5, lt);
-    closeBg(() => shrineStage(t, o), 226, 166, 3, 3);
-    fireBust('sable', t, { face: { eyes: lt > 1.0 ? 'wide' : blink(t, 3) ? 'closed' : 'open', brows: lt > 1.0 ? 'worried' : 'n', smile: lt > 0.7 ? 0 : 0.5 }, headY: -Math.round(up * 2), headX: Math.round(up) }, 296, H - 22 + 4, -1, -1);
-    nearRain(t, 60, t > FREEZE ? FREEZE : undefined);
+    const q = ON2(t), o = { freeze: FREEZE };
+    const sm = key([[30.85, 0.6], [30.95, 0, 'in']], q), alarm = key([[31.05, 0], [31.4, 1, 'back']], q);
+    const breathe = q < FREEZE ? (Math.sin(q * 2.4) > 0.3 ? -1 : 0) : 0;
+    const F = { eyes: q < 30.95 ? (blinkK(q, 6) || 'half') : q < 31.15 ? 'open' : 'wide', look: q < 30.95 ? 1 : 0, lookY: q >= 30.95 ? -1 : 0, brows: q > 31.15 ? 'worried' : 'n', smile: sm };
+    sableClose(t, q, { face: F, tilt: lerp(0.05, -0.15, alarm), turn: alarm * 0.4, headY: -Math.round(alarm * 2) }, { stage: o, frozen: t > FREEZE ? FREEZE : undefined, rain: 60, dy: breathe - Math.round(key([[31.2, 0], [32.4, 3]], t)), dx: Math.round(key([[31.2, 0], [32.4, 2]], t)), fy: key([[30.0, 168], [32.4, 162]], t) });
+    if (t > FREEZE) tintAll(tab('#8090c0', true), Math.min(0.12, (t - FREEZE) * 0.08));
   });

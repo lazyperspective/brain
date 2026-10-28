@@ -45,18 +45,21 @@
   const PMOUTH = {
     closed: ['nnnnn'], smile: ['n...n', '.nnn.'], grin: ['nwwwwwn', '.nmmmn.'], frown: ['.nnn.', 'n...n'],
     o1: ['.nnn.', 'nmmmn', '.nnn.'], o2: ['.nnnn.', 'nwwwwn', 'nmmmmn', '.nttn.'], o3: ['.nnnnn.', 'nwwwwwn', 'nmmmmmn', 'nmtttmn', '.nnnnn.'],
+    ee1: ['nnnnnn', '.nmmn.'], ee2: ['.nnnnn.', 'nwwwwwn', '.nmmmn.'],
     scream: ['..nnnnn..', '.nwwwwwn.', 'nmmmmmmmn', 'nmmmmmmmn', 'nmmtttmmn', '.nmmmmmn.', '..nnnnn..'],
   };
   function pFace(P, F, x0, y0, ex1, ex2, mx, my, skinRamp, iris) {
     // F: eyes, brows, mouth (0..1 voice), smile, blush, tear; (ex1, ex2): near/far eye left edges; y0 eye top
     const E = PEYE[F.eyes || 'open'] || PEYE.open, key = { k: C('ink', 0), w: C('snow', 7), I: C(iris, 5), i: C(iris, 3), P: C('ink', 1), o: C('snow', 7), l: C(skinRamp, 4) };
-    const look = Math.round(F.look || 0);
+    // gaze: look (sideways) and lookY (up < 0 < down) slide the iris inside the white, the lids staying put
+    const look = Math.round(F.look || 0), lookY = Math.round(F.lookY || 0), shifting = (look || lookY) && E !== PEYE.closed && E !== PEYE.happy && E !== PEYE.shut, IRIS = 'PoiI';
     [ex1, ex2].forEach((ex, side) => {
-      E.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const ch = row[i]; if (ch === '.') continue; if (side === 1 && (i === 0 || i === row.length - 1) && ch !== 'k') continue; let c = key[ch]; if ((ch === 'P' || ch === 'o' || ch === 'i') && look) { /* the pupil shifts by redrawing below */ } sp(x0 + ex + i, y0 + j, c, ch === 'o' ? 3 : 1); } });
-      if (look && E !== PEYE.closed && E !== PEYE.happy && E !== PEYE.shut) for (let j = 1; j < E.length - 1; j++) for (let i = 1; i < 7; i++) { const ch = E[j][clamp(i - look, 0, 7)]; if (ch === 'P' || ch === 'i' || ch === 'I' || ch === 'o') sp(x0 + ex + i, y0 + j, key[ch], ch === 'o' ? 3 : 1); }
+      E.forEach((row, j) => { for (let i = 0; i < row.length; i++) { let ch = row[i]; if (ch === '.') continue; if (side === 1 && (i === 0 || i === row.length - 1) && ch !== 'k') continue;
+        if (shifting && (IRIS.includes(ch) || ch === 'w')) { const sc = E[j - lookY] && E[j - lookY][i - look]; ch = sc && IRIS.includes(sc) ? sc : 'w'; }
+        sp(x0 + ex + i, y0 + j, key[ch], ch === 'o' ? 3 : 1); } });
       // brows
       const B = PBROW[F.brows || 'n'] || PBROW.n;
-      for (const [bx, by] of B) { if (side === 1 && bx === 6) continue; sp(x0 + ex + bx, y0 - 2 + by - (F.eyes === 'wide' ? 1 : 0), C('hair', 1)); sp(x0 + ex + bx, y0 - 3 + by - (F.eyes === 'wide' ? 1 : 0), C('hair', 2)); }
+      const bu = (F.eyes === 'wide' ? 1 : 0) + Math.round(F.browUp || 0); for (const [bx, by] of B) { if (side === 1 && bx === 6) continue; sp(x0 + ex + bx, y0 - 2 + by - bu, C('hair', 1)); sp(x0 + ex + bx, y0 - 3 + by - bu, C('hair', 2)); }
     });
     if (F.tear) { const ty = y0 + 6 + fl(frac((P.t || 0) * 0.6) * 8); sp(x0 + ex1 + 1, ty, C('sky', 6), 3); sp(x0 + ex1 + 1, ty + 1, C('sky', 5), 3); sp(x0 + ex1 + 1, y0 + 5, C('sky', 7), 3); }
     if (F.blush) for (const ex of [ex1, ex2]) for (let i = 1; i < 5; i++) if ((i + (ex & 1)) % 2 === 0 || F.blush > 0.7) sp(x0 + ex + i, y0 + 7, C('rose', 4));
@@ -73,7 +76,7 @@
       return;
     }
     const m = F.mouth || 0, sm = F.smile || 0;
-    const M = F.scream ? PMOUTH.scream : m > 0.72 ? PMOUTH.o3 : m > 0.42 ? PMOUTH.o2 : m > 0.14 ? PMOUTH.o1 : sm > 0.6 ? PMOUTH.grin : sm > 0.25 ? PMOUTH.smile : sm < -0.3 ? PMOUTH.frown : PMOUTH.closed;
+    const M = F.scream ? PMOUTH.scream : F.ee && m > 0.14 ? (m > 0.45 ? PMOUTH.ee2 : PMOUTH.ee1) : m > 0.72 ? PMOUTH.o3 : m > 0.42 ? PMOUTH.o2 : m > 0.14 ? PMOUTH.o1 : sm > 0.6 ? PMOUTH.grin : sm > 0.25 ? PMOUTH.smile : sm < -0.3 ? PMOUTH.frown : PMOUTH.closed;
     const mk = { n: C(skinRamp, 1), m: C('crimson', 1), t: C('crimson', 4), w: C('snow', 6) };
     M.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] !== '.') sp(mx - fl(row.length / 2) + i, my + j - (M.length > 2 ? 1 : 0), mk[row[i]]); });
   }
@@ -87,7 +90,7 @@
   }
   function sableBust(P, t) {
     const F = P.face || {}, wind = P.wind || 0, sw = Math.sin(t * 1.9) * (0.7 + wind * 0.6), hy = (P.headY || 0), hx = (P.headX || 0), breathe = Math.sin(t * 2.2) > 0.4 ? -1 : 0;
-    const HX = 4 + hx, HY = -43 + hy + breathe, s1 = Math.round(sw);
+    const HX = 4 + hx, HY = -43 + hy + breathe, s1 = Math.round(sw), TN = P.turn || 0, FX = HX + Math.round(TN * 2.5), OX = HX + Math.round(TN);
     // the ponytail: tied high at the back with a red cord, a thick tail falling and swaying behind
     hairMass([[HX - 10, HY - 16], [HX - 15, HY - 18], [HX - 22 + s1, HY - 10], [HX - 27 + s1 * 2 - wind * 3, HY + 6], [HX - 25 + s1 * 2 - wind * 3, HY + 22], [HX - 21 + s1, HY + 10], [HX - 16, HY - 6]], 1.6, (x, y) => Math.abs((x - (HX - 18)) + (y - HY) * 0.25) < 1 && y < HY + 6, (x, y) => Math.abs((x - (HX - 22)) + (y - HY) * 0.15 - s1) < 0.6);
     sEll(HX - 12, HY - 15, 3.2, 3.6, (x, y, u, v) => band(R.crimson, 4 + (litOf(u, v) > 0.2 ? 1 : litOf(u, v) < -0.3 ? -1 : 0)));
@@ -101,30 +104,31 @@
     // neck, shadowed under the jaw
     sPoly([[HX - 5, HY + 9], [HX + 6, HY + 9], [HX + 5, -20], [HX - 5, -20]], (x, y) => band(R.tan, y < HY + 15 ? 3 : 4));
     // the face: an oval whose jaw narrows to a chin turned a little to her right (three-quarter view)
-    sEll(HX, HY, 12.5, 14.5, (x, y, u, v) => {
+    sEll(OX, HY, 12.5, 14.5, (x, y, u, v) => {
       if (v > 0.05) { const uu = u - 0.18 * (v - 0.05), half = 1 - Math.pow((v - 0.05) / 0.95, 1.6) * 0.62; if (Math.abs(uu) > half) return -1; }
       const l = litOf(u, v * 0.8); let s = 5 + (l > 0.4 ? 1 : l < -0.45 ? -1 : 0);
       if (v > 0.74) s -= 1; if (v < -0.35) s -= 0.6;                // under the bangs, a little shade
       return band(R.tan, s);
     });
-    sEll(HX - 11, HY + 2, 2.2, 3.4, (x, y, u, v) => band(R.tan, 4 + (u < 0 ? -1 : 0)));
-    pFace(P, F, 0, HY - 1, HX - 9, HX + 2, HX + 3, HY + 9, R.tan, R.ember);
-    sp(HX + 5, HY + 5, C('tan', 3)); sp(HX + 5, HY + 6, C('tan', 3)); sp(HX + 4, HY + 6, C('tan', 4));
+    sEll(HX - 11 + Math.round(TN * 1.5), HY + 2, 2.2, 3.4, (x, y, u, v) => band(R.tan, 4 + (u < 0 ? -1 : 0)));
+    pFace(P, F, 0, HY - 1, FX - 9, FX + 2, FX + 3, HY + 9, R.tan, R.ember);
+    sp(FX + 5, HY + 5, C('tan', 3)); sp(FX + 5, HY + 6, C('tan', 3)); sp(FX + 4, HY + 6, C('tan', 4));
     // the crown, a band of light across it
     sEll(HX - 1, HY - 8, 14, 9.5, (x, y, u, v) => (v > 0.25 ? -1 : band(R.hair, 2 + (Math.abs(Math.hypot(u + 0.2, v + 0.1) - 0.78) < 0.09 && v < 0.05 && u > -0.75 ? 2.5 : 0) + (litOf(u, v) > 0.5 ? 1 : litOf(u, v) < -0.5 ? -1 : 0))));
     // bangs: four pointed clusters swept toward her right, the tips catching light
     const B = [[-10, -5, 7, 2], [-5, -1, 11, 3], [1, 4, 10, 3], [7, 10, 8, 2]];
-    for (const [a, b, len, sweep] of B) hairMass([[HX + a, HY - 11], [HX + b, HY - 11], [HX + b + sweep + s1 * 0.3, HY - 11 + len * 0.6], [HX + (a + b) / 2 + sweep + 1, HY - 11 + len], [HX + a + sweep * 0.4, HY - 11 + len * 0.5]], 2, (x, y) => y > HY - 11 + len * 0.55 && y < HY - 11 + len * 0.75 && x > HX + a + 1, (x, y) => Math.abs(x - (HX + (a + b) / 2) - (y - HY + 11) * 0.25) < 0.5);
+    const BX = HX + Math.round(TN * 1.6);
+    for (const [a, b, len, sweep] of B) hairMass([[BX + a, HY - 11], [BX + b, HY - 11], [BX + b + sweep + s1 * 0.3, HY - 11 + len * 0.6], [BX + (a + b) / 2 + sweep + 1, HY - 11 + len], [BX + a + sweep * 0.4, HY - 11 + len * 0.5]], 2, (x, y) => y > HY - 11 + len * 0.55 && y < HY - 11 + len * 0.75 && x > BX + a + 1, (x, y) => Math.abs(x - (BX + (a + b) / 2) - (y - HY + 11) * 0.25) < 0.5);
     // the locks framing her face: a wide one in front of the ear, a thin one down the cheek
     hairMass([[HX - 13, HY - 8], [HX - 7, HY - 8], [HX - 7, HY + 6], [HX - 9, HY + 16], [HX - 11 + s1 * 0.5, HY + 18], [HX - 14, HY + 8]], 1.8, (x, y) => Math.abs(x - (HX - 9)) < 0.6 && y > HY - 4 && y < HY + 4, (x, y) => Math.abs(x - (HX - 11) - (y - HY) * 0.1) < 0.5);
     hairMass([[HX + 10, HY - 8], [HX + 13, HY - 6], [HX + 13, HY + 8], [HX + 12 + s1 * 0.4, HY + 13], [HX + 11, HY + 4]], 2);
-    return { head: [HX, HY - 4], mouth: [HX + 3, HY + 9], chest: [2, -12] };
+    return { head: [HX, HY - 4], mouth: [FX + 3, HY + 9], chest: [2, -12], neck: [HX - 1, HY + 12] };
   }
 
   /* ---- Mira's bust: a round face in a peaked yellow hood, a brown fringe, red cheeks */
   function miraBust(P, t) {
     const F = P.face || {}, hy = (P.headY || 0), hx = (P.headX || 0), breathe = Math.sin(t * 2.6) > 0.3 ? -1 : 0;
-    const HX = 2 + hx, HY = -33 + hy + breathe;
+    const HX = 2 + hx, HY = -33 + hy + breathe, TN = P.turn || 0, FX = HX + Math.round(TN * 2.5), OX = HX + Math.round(TN);
     const gold = (x, y, base) => { const l = litOf((x - HX) / 16, (y - HY) / 16); return band(R.gold, base + (l > 0.3 ? 1 : l < -0.4 ? -1 : 0)); };
     // the raincoat's shoulders, a placket and buttons
     sPoly([[-21, 0], [-19, -10], [-12, -16], [14, -16], [21, -10], [23, 0]], (x, y) => gold(x, y, 4.4));
@@ -133,28 +137,33 @@
     // the hood: rounded with a soft peak, draping onto the shoulders, its seam down the middle
     sPoly([[HX - 17, HY + 14], [HX - 18, HY - 2], [HX - 13, HY - 14], [HX - 2, HY - 21], [HX + 4, HY - 22], [HX + 13, HY - 15], [HX + 18, HY - 3], [HX + 17, HY + 14], [HX + 10, HY + 18], [HX - 10, HY + 18]], (x, y) => gold(x, y, 4.2) - (Math.abs(x - HX - 2 + (y - HY) * 0.15) < 0.5 && y < HY - 12 ? 1 : 0));
     // face
-    sEll(HX, HY, 11.5, 12, (x, y, u, v) => {
+    sEll(OX, HY, 11.5, 12, (x, y, u, v) => {
       if (v > 0.3) { const uu = u - 0.1 * v, half = 1 - Math.pow((v - 0.3) / 0.7, 2) * 0.35; if (Math.abs(uu) > half) return -1; }
       const l = litOf(u, v * 0.8); return band(R.skin, 5 + (l > 0.38 ? 1 : l < -0.45 ? -1 : 0) - (v > 0.78 ? 1 : 0));
     });
-    pFace(P, F, 0, HY - 1, HX - 8, HX + 2, HX + 2, HY + 7, R.skin, R.wood);
-    sp(HX + 4, HY + 4, C('skin', 3));
-    if (F.blush === undefined || F.blush) for (const bx of [HX - 7, HX + 4]) { sp(bx, HY + 5, C('rose', 4)); sp(bx + 2, HY + 5, C('rose', 4)); sp(bx + 1, HY + 6, C('rose', 4)); }
+    pFace(P, F, 0, HY - 1, FX - 8, FX + 2, FX + 2, HY + 7, R.skin, R.wood);
+    sp(FX + 4, HY + 4, C('skin', 3));
+    if (F.blush === undefined || F.blush) for (const bx of [FX - 7, FX + 4]) { sp(bx, HY + 5, C('rose', 4)); sp(bx + 2, HY + 5, C('rose', 4)); sp(bx + 1, HY + 6, C('rose', 4)); }
     // the fringe
-    sEll(HX - 1, HY - 8, 12, 6, (x, y, u, v) => (v > 0.3 ? -1 : band(R.wood, 2.4 + (litOf(u, v) > 0.3 ? 1 : 0) + (Math.abs(v + 0.4) < 0.15 && u > -0.3 && u < 0.4 ? 1.5 : 0))));
-    for (const [bx, len] of [[-8, 4], [-4, 6], [0, 5], [4, 6], [8, 4]]) sLock(HX + bx, HY - 9, HX + bx + 1, HY - 9 + len, 0.4, 2, R.wood, 2.4, false);
+    const BX = HX + Math.round(TN * 1.5);
+    sEll(BX - 1, HY - 8, 12, 6, (x, y, u, v) => (v > 0.3 ? -1 : band(R.wood, 2.4 + (litOf(u, v) > 0.3 ? 1 : 0) + (Math.abs(v + 0.4) < 0.15 && u > -0.3 && u < 0.4 ? 1.5 : 0))));
+    for (const [bx, len] of [[-8, 4], [-4, 6], [0, 5], [4, 6], [8, 4]]) sLock(BX + bx, HY - 9, BX + bx + 1 + Math.round(P.fringe || 0), HY - 9 + len, 0.4, 2, R.wood, 2.4, false);
     // the hood's opening: a thick rolled rim, lit on top
     sEll(HX - 0.5, HY - 1, 15, 15, (x, y, u, v) => { const r = Math.hypot((u - 0.03) / 0.82, (v + 0.02) / 0.85); if (r < 1 || r > 1.18) return -1; return band(R.gold, 5.4 + (litOf(u, v) > 0.25 ? 1 : litOf(u, v) < -0.4 ? -1.4 : 0) + (r > 1.12 ? -1 : 0)); });
     // the drawstrings, swinging a little
     const ds = Math.sin(t * 3) * 0.6;
-    sLock(HX - 6, HY + 13, HX - 7 + ds, HY + 20, 0, 0.6, R.linen, 5, false); sLock(HX + 8, HY + 13, HX + 8 + ds, HY + 19, 0, 0.6, R.linen, 5, false);
-    return { head: [HX, HY - 4], mouth: [HX + 2, HY + 7], chest: [2, -8] };
+    const dsw = P.strings === undefined ? ds : P.strings;
+    sLock(HX - 6, HY + 13, HX - 7 + dsw, HY + 20, 0, 0.6, R.linen, 5, false); sLock(HX + 8, HY + 13, HX + 8 + dsw, HY + 19, 0, 0.6, R.linen, 5, false);
+    // her hands, when she talks with them: raincoat sleeves and small hands
+    for (const h of P.hands || []) bustHand(h, R.gold, 4, R.skin);
+    return { head: [HX, HY - 4], mouth: [FX + 2, HY + 7], chest: [2, -8], neck: [HX, HY + 11] };
   }
   const BUSTS = { sable: sableBust, mira: miraBust };
   // draw a bust into the frame: bottom centre at (x, y), whole-pixel scale S, facing f; o as for stamp
   function bust(who, P, x, y, S, f, o) {
     LIGHTS.x = LIGHT.x * (f < 0 ? -1 : 1); LIGHTS.y = LIGHT.y;
-    sclear(); const r = BUSTS[who](P, P.t || 0); soutline(ENV.edge); stamp(x, y, S, f < 0, o);
+    sclear(); const r = BUSTS[who](P, P.t || 0); if (P.tilt && r.neck) sprTilt(r.neck[0], r.neck[1], P.tilt); soutline(ENV.edge);
+    stamp(x, y, S, f < 0, (P.sx && P.sx !== 1) || (P.sy && P.sy !== 1) ? Object.assign({ sx: P.sx, sy: P.sy, piv: 0 }, o || {}) : o);
     const L = (q) => [x + (f < 0 ? -q[0] - 0.5 : q[0] + 0.5) * S, y + q[1] * S];
     return { head: L(r.head), mouth: L(r.mouth), chest: L(r.chest) };
   }

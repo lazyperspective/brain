@@ -221,8 +221,8 @@
     for (let u = 2; u < L; u += 0.5) { const w = u > L - 4 ? (L - u) / 4 : 1; for (let q = -0.6; q <= w * 1.1; q += 0.5) sp(hx + dx * u + nx * q, hy + dy * u + ny * q, burn ? C(q > 0.6 ? 'fire' : 'ember', q > 0.6 ? 6 : 5) : C('steel', q < 0 ? 6 : q > 0.8 ? 3 : 5), burn ? 3 : 2); }
   }
   // Mira's lantern, hanging from her hand
-  function lanternArt(hx, hy, t, lit) {
-    const sw = Math.round(Math.sin(t * 3) * 0.6);
+  function lanternArt(hx, hy, t, lit, ang) {
+    const sw = ang === undefined ? Math.round(Math.sin(t * 3) * 0.6) : Math.round(Math.sin(ang) * 6);
     for (let y = 0; y < 3; y++) sp(hx + sw * y / 3, hy + y, C('wood', 2), 2);
     for (let y = 3; y < 9; y++) for (let x = -2; x <= 2; x++) sp(hx + sw + x, hy + y, y === 3 || y === 8 ? C('wood', 2) : lit ? (Math.abs(x) < 1 ? C('snow', 7) : C('fire', 5)) : C('stone', 3), lit && y > 3 && y < 8 ? 3 : 2);
   }

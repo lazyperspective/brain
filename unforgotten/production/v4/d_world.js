@@ -76,7 +76,7 @@
       const life = 0.9 + ih(k, 1, seed) * 0.9, u = frac(ih(k, 2, seed) + t / life), sx = x + (ih(k, 3, seed) - 0.5) * w * 1.4 + Math.sin(t * 3 + k) * u * s * 0.5, sy = y - h * 0.4 - u * s * 3.2;
       if (u < 0.85) put(fl(sx), fl(sy), u < 0.3 ? WHITE : u < 0.6 ? C('fire', 6) : C('ember', 4));
     }
-    glow(x, y - s * 0.6, s * 4.5, tab('#ff9040', true), 0.5 + Math.sin(t * 13) * 0.04 + Math.sin(t * 7.3) * 0.04);
+    if (o.glow !== false) glow(x, y - s * 0.6, s * 4.5, tab('#ff9040', true), 0.5 + Math.sin(t * 13) * 0.04 + Math.sin(t * 7.3) * 0.04);
   }
   // rain splashes on a floor band: a crown of droplets, then a ring that spreads and fades (frozen: hold them)
   function splashes(t, y0, y1, n, seed, frozen) {
