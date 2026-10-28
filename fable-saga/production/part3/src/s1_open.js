@@ -70,7 +70,7 @@
     fadeIn(lt, 0.9);
   });
   const blinkN = (t) => frac(t / 2.7) < 0.05;
-  const fadeIn = (lt, d) => { if (lt < d) tintAll(T_DARK, 1 - lt / d); };
+  const fadeIn = (lt, d) => { if (lt < d) tintAll(T_DARK, 1 - eio(lt / d)); };
   CAPS.push([0.3, 1.9, 'n', '', 'THE NULL WAS GONE.'], [2.1, 3.9, 'n', '', 'BUT IT WAS NEVER ALONE.']);
 
   // 2 — dread (0:04): the ashes stop, hang, and are drawn up into the sky; the sun goes out; the hero turns and looks up
@@ -103,9 +103,12 @@
     // the hero, tiny, on the cloud tops: knocked back by the blast, then catching itself
     const blown = lt < 0.08 ? eoc(lt / 0.08) : 1 - 0.6 * eob(clamp((lt - 0.08) / 0.8, 0, 1));
     actor(HERO3({ eyes: 'wide', sword: -0.5 }), 120 - blown * 16, 200 - blown * 5, 1, -blown * 0.5, false);
-    if (lt < 0.5) { hitFx(240, 120, lt, 2, [22, 75]); shockRing(240, 130, 20 + lt * 700, 10 + lt * 300, 5, [75, 73, 22], 1 - lt * 2); }
+    if (lt < 0.5) { hitFx(240, 120, lt, 1.4, [22, 75]); shockRing(240, 130, 20 + lt * 700, 10 + lt * 300, 5, [75, 73, 22], 1 - lt * 2); }
     shk(lt < 0.6 ? 6 * (1 - lt / 0.6) : 1.5 * grip * (1 - lin(2.5, 3.5, lt)));
-    cam(1 + 0.12 * Math.exp(-lt * 3), 0, 240, 135);
+    // a match cut: the shot opens close on the hero, just where (and as big as) it was a moment ago, and is thrown back
+    // by the blast to show what tore the sky
+    const pb = eoc(clamp(lt / 0.7, 0, 1)), hx3 = 120 - blown * 16, hy3 = 200 - blown * 5;
+    cam(lerp(2.2, 1, pb) + 0.06 * Math.exp(-lt * 3), 0, lerp(hx3, 240, pb), lerp(hy3, 135, pb), lerp(262, 240, pb), lerp(128, 135, pb));
   });
   FLASH_CUTS.push(7.0);
 
