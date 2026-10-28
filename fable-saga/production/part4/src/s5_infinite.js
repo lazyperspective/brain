@@ -270,9 +270,10 @@
       if (g > 0) { b4Ember(HX + (k - 1.5) * 5, HY - 2 + (k % 2) * 3, k, 0.35 + 0.15 * Math.sin(t * 3 + k), t); if (g < 0.5) { sparkle(HX + (k - 1.5) * 5, HY - 2, 5 * (1 - g / 0.5), 22, ORB[k][2]); glow(HX, HY, 30, EL_T[k], 0.4 * (1 - g / 0.5)); } }
       else { b4Ember(x, y, k, 0.55 + 0.2 * Math.sin(t * 5 + k), t); for (let q = 1; q < 6; q++) { const [px, py] = b4EmberPath(k, t - q * 0.05, HX, HY); if (bay(fl(px), fl(py)) < 0.5 - q * 0.08) P(px, py, ORB[k][1]); } }
     }
-    // the camera sinks slowly toward it
-    const z = 1.1 + 0.5 * eio(lt / 3.4);
-    z5Cam(z, 0.004 * z5N(t * 0.4, 1), lerp(240, HX, eio(lt / 3.4)), lerp(150, HY - 14, eio(lt / 3.4)), 240, 140);
+    // the camera sinks toward it, all the way in: it ends where the next shot begins (the hero the same size, in the same
+    // place in the frame), so the cut to its waking is a step in along the same line
+    const cu = eio(lt / 3.4), z = 1.1 + 1.12 * cu;
+    z5Cam(z, 0.004 * z5N(t * 0.4, 1), lerp(240, HX - 4 / 2.22, cu), lerp(150, HY - 42 / 2.22, cu), 240, 140);
     fadeIn(lt, 0.5);
   });
 
@@ -342,8 +343,10 @@
     // the embers wake: they start to circle it again, brighter with each form
     for (let k = 0; k < 4; k++) { const a = t * (1.5 + lt * 1.5) + k * TAU / 4, R = 22 * S - lt * 10, z = Math.sin(a); b4Ember(HX + Math.cos(a) * R, HY + z * R * 0.3, k, 0.4 + lt * 0.25, t); }
     shk(0.5 + lt * 1.4);
-    const z = 1.0 + 0.3 * eic(lt / 2.5);
-    z5Cam(z, 0.006 * z5N(t, 3), HX, HY + 6, 240, 140);
+    // the camera opens on it as close as the last shot left it, pulls back as the light reaches the walls and the rocks
+    // lift, then pushes in again as the forms come faster
+    const po = eio(b4Clip(0, 1.3, lt)), z = lerp(1.62, 1.0, po) + 0.3 * eic(b4Clip(1.3, 2.5, lt));
+    z5Cam(z, 0.006 * z5N(t, 3), HX, HY + lerp(-16, 6, po), 240, 140);
   });
 
   /* ================================================================ V.4 — FABLE INFINITE (113.0–114.6) */
@@ -418,7 +421,7 @@
     // the near layer: the chasm walls, rushing past; the sea pouring over their lips; spires
     for (let y = top; y < bot; y++) {
       const Yn = Yc + (SY - y);
-      if (Yn >= 0 && Yn < B4_SEA) {
+      if (Yn >= -500 && Yn < B4_SEA) {
         const xl = 96 + (vn(Yn * 0.012, 0, 1, 2213) - 0.5) * 80 + (vn(Yn * 0.08, 0, 1, 2214) - 0.5) * 18, xr = 384 + (vn(Yn * 0.012, 3, 1, 2215) - 0.5) * 80 + (vn(Yn * 0.08, 3, 1, 2216) - 0.5) * 18;
         const lipF = B4_SEA - Yn < 160 ? 1 - (B4_SEA - Yn) / 160 : 0;
         for (let x = 0; x < W; x++) {
@@ -453,7 +456,8 @@
     streaks(PI / 2, 30, t, vel * 1.4, sc, 30 + vel * 0.06, 2231);
     streaks(PI / 2, 10, t + 0.3, vel * 1.9, Yc < B4_SEA ? 105 : 22, 50 + vel * 0.08, 2235);
     // crossing the sea's lip, and the cloud's base and top: the medium bursts round it
-    const HX = 240 + z5N(t * 1.3, 1) * 6 - 70 * eio(b4Clip(0.8, 1, u)), HY = 184 - 44 * vn_ + 14 * eio(b4Clip(0.85, 1, u));
+    // it leaves from where the last shot held it (higher in the frame and bigger), drops into a crouch and launches
+    const lc = eio(b4Clip(0, 0.45, lt)), HX = 240 + z5N(t * 1.3, 1) * 6 - 70 * eio(b4Clip(0.8, 1, u)), HY = lerp(124, 184 - 44 * vn_ + 14 * eio(b4Clip(0.85, 1, u)), lc);
     const tSea = b4TOf(B4_SEA - 40), tCB = b4TOf(B4_CB - 40), tCT = b4TOf(B4_CT - 40);
     const gs = lt - tSea; if (gs > 0 && gs < 0.8) { rocks(HX, HY + 40, gs, 26, 260, 3, [117, 118, 119, 22], 2232, 300, -PI / 2, 3.2); shockRing(HX, HY + 30, 10 + gs * 500, 3 + gs * 90, 3, [22, 119, 118], 1 - gs / 0.6); }
     const gc = lt - tCB; if (gc > 0 && gc < 0.5) shockRing(HX, HY - 20, 10 + gc * 600, 4 + gc * 120, 4, [22, 21, 20], 1 - gc / 0.5);
@@ -461,7 +465,7 @@
     // the hero: wings swept back for the climb, blade-stub up, afterimages streaming below it
     const after = []; for (let k = 1; k <= 4; k++) after.push([HX, HY + k * vel * 0.012, k === 1 ? 22 : PRISM[(k * 2 + fl(t * 30)) % 7], 0.6 - k * 0.12]);
     const climb = 1 - eio(b4Clip(0.86, 1, u));
-    b4Inf(HX, HY, 2.6, t, { sw: lerp(-0.6, -1.5, climb), ang: -0.12 * climb, spread: lerp(1, 0.45, climb), flap: 0.3, wt: t * 3.5, orbR: 52 - 16 * climb, after: vel > 300 ? after : undefined, warp: 0.35, auraR: 8 + 6 * climb, noLife: true, st: 0.35 * climb * Math.min(1, vel / 900), sd: -PI / 2, sq: -0.15 * climb });
+    b4Inf(HX, HY, lerp(3.4, 2.6, lc), t, { sw: lerp(-0.6, -1.5, climb), ang: -0.12 * climb, spread: lerp(1, 0.45, climb), flap: 0.3, wt: t * 3.5, orbR: 52 - 16 * climb, after: vel > 300 ? after : undefined, warp: 0.35, auraR: 8 + 6 * climb, noLife: true, st: 0.35 * climb * Math.min(1, vel / 900), sd: -PI / 2, sq: -0.15 * climb });
     shk(1 + vel / 500);
     z5Cam(1.02 + 0.03 * vn_, 0.02 * z5N(t * 1.7, 2) * vn_, 240, 135, 240, 135);
     if (lt < 0.1) glow(HX, HY, 120, T_WH, 0.5 * (1 - lt / 0.1));
@@ -587,15 +591,15 @@
     // the cup: where the sun sits once both hands have it (screen), the hands either side, fingers up and over it
     const [e1x, e1y] = b4Wr(CX, CY, s, t, PL(1)[0], PL(1)[1]), CUP = palmOf(e1x, e1y, PL(1)[2]);
     CUP[0] += 18 * cr; CUP[1] -= 6 * cr + 18 * rev;
-    const g2 = r * 1.05 + 2 - sq * 4 + 9 * rev, aL2 = -PI / 2 + 0.5 - 0.25 * rev, aR2 = -PI / 2 - 0.5 + 0.25 * rev;
+    const g2 = r * 1.3 + 4 - sq * 3 + 9 * rev, aL2 = -PI / 2 + 0.5 - 0.25 * rev, aR2 = -PI / 2 - 0.5 + 0.25 * rev;
     const toLocal = (px, py, a) => [(px - Math.cos(a) * 5.5 * se - CX) / s, (py - Math.sin(a) * 5.5 * se - CY - Math.sin(t * 0.9) * s) / s];
     const [l2x, l2y] = toLocal(CUP[0] - g2, CUP[1] + 3, aL2), [r2x, r2y] = toLocal(CUP[0] + g2, CUP[1] + 3, aR2);
     const aL = lerp(pa, aL2, cr), wL = [lerp(plx, l2x, cr), lerp(ply, l2y, cr)];
     // the right hand comes in from his side on a bow
     const rb = Math.sin(cr * PI) * 26, aR = lerp(-1.4, aR2, cr), wR = [lerp(132, r2x, cr) + rb * 0.4, lerp(110, r2y, cr) + rb];
     // the grip: shut hard on the hit, harder on each squeeze, easing open at the end
-    const gripL = lt < 0 ? b4Pose('open', 'grab', closeR) : cr > 0 ? b4Pose(b4Pose('claw', 'grab', cr), 'fist', 0.25 + sq * 0.5) : b4Pose('grab', 'fist', 0.15 + 0.35 * eoc(b4Clip(0, 0.15, lt)));
-    const gripR = b4Pose(b4Pose('open', 'grab', cr), 'fist', 0.25 + sq * 0.5);
+    const gripL = lt < 0 ? b4Pose('open', 'grab', closeR) : cr > 0 ? b4Pose(b4Pose('claw', 'grab', cr), 'claw', 0.35 - sq * 0.25) : b4Pose('grab', 'fist', 0.15 + 0.35 * eoc(b4Clip(0, 0.15, lt)));
+    const gripR = b4Pose(b4Pose('open', 'grab', cr), 'claw', 0.35 - sq * 0.25);
     const poseL = rev > 0 ? b4Pose(gripL, 'claw', rev) : gripL, poseR = rev > 0 ? b4Pose(gripR, 'claw', rev) : gripR;
     const sx0 = palmOf(...b4Wr(CX, CY, s, 122.0, PL(0)[0], PL(0)[1]), PL(0)[2]);
     const dark = eio(b4Clip(0.15, 2.3, lt));
@@ -708,12 +712,12 @@
     [132.0, [76, 202]], [132.15, [70, 206], 'o'], [132.6, [72, 208]], [133.4, [70, 214]], [134.0, [70, 214]], [134.5, [76, 200], 'o'], [135.2, [80, 190]], [135.75, [66, 188]], [138.0, [83, 183]],
     [139.35, [83, 183]], [139.6, [86, 164], 'i']]);
   const B4_HA = B4_KW([[127.0, -0.35], [129.0, -0.23], [131.0, -0.18], [132.0, -0.14], [132.3, -0.16], [132.9, -0.95], [134.0, -1.0], [134.35, -0.92], [135.25, -0.92], [135.75, -2.0]]);
-  const B4_D = B4_KW([[127, 160], [129, 142], [130, 120], [131, 108], [132, 96], [132.6, 72], [133.6, 60], [134.0, 60], [134.4, 66], [135.2, 92]]);
+  const B4_D = B4_KW([[127, 160], [129, 142], [130, 120], [131, 108], [132, 96], [132.6, 72], [133.6, 60], [134.0, 60], [134.4, 104, 'o'], [135.2, 96]]);
   const B4_R = B4_KW([[124.6, 13.5], [125.6, 26, 'o'], [126.4, 38], [129, 40], [132, 46], [139.6, 46]]);
   const B4_TG = [66 + 138.6, 188 - 70.9];                 // where FURTHER throws the black sun (world): where the swing meets it
   const B4_CL = [[124.6, 1.15, 382, 160], [125.4, 1.14, 390, 140], [125.9, 1.13, 398, 130], [126.2, 1.1, 404, 128], [126.55, 1.0, 300, 130], [126.9, 1.0, 240, 135], [127.6, 1.04, 236, 140],
     [128.4, 1.08, 226, 142], [129.0, 1.25, 200, 150], [129.8, 1.85, 150, 172], [130.4, 1.95, 148, 174], [131.3, 1.1, 196, 150], [132.0, 1.0, 205, 148], [132.5, 1.4, 140, 170], [133.3, 2.0, 108, 186],
-    [134.0, 2.05, 106, 184], [134.5, 1.55, 118, 165], [135.3, 1.35, 140, 158], [135.75, 1.27, 66 + 112 / 1.27, 188 - 53 / 1.27], [137.9, 1.38, 166, 142], [138.2, 1.36, 170, 142], [139.6, 1.15, 200, 140]];
+    [134.0, 2.05, 106, 184], [134.42, 0.95, 128, 106], [135.3, 1.02, 138, 114], [135.75, 1.27, 66 + 112 / 1.27, 188 - 53 / 1.27], [137.9, 1.38, 166, 142], [138.2, 1.36, 170, 142], [139.6, 1.15, 200, 140]];
   // the hero's look through it
   const B4_HO = { spread: B4_KW([[124.6, 1], [129, 1], [130, 0.9], [131.5, 0.7], [132.6, 0.55], [133.6, 0.32], [134.0, 0.3], [134.35, 1, 'o'], [139.6, 1]]),
     flap: B4_KW([[124.6, 0.3], [127, 0.5], [129, 0.42], [132.6, 0.3], [133.2, 0.08], [134, 0.08], [134.3, 0.32], [139.6, 0.32]]),
@@ -1008,6 +1012,9 @@
   const B4_FX = 250, B4_FY = 154, B4_FS = 1.4;
   function b4WorldWide(t, dk) {
     b4Sky(t, 150, 0, 0, 0, 0);
+    // the light let out of the broken black sun, where the last shot had it (high on the left), thinning as the ash comes
+    const f = eio(b4Clip(150.0, 153.0, t)), lx = lerp(141, 70, f), ly = lerp(27, 16, f);
+    z5GodRays(lx, ly, 9, t * 0.4, T_WARM, lerp(0.3, 0.12, f), 560); glow(lx, ly, 150, T_WH, lerp(0.22, 0.08, f));
     // the cloud sea to the horizon
     cloudBank(150, 10, 90, 5061, t * 4, [17, 18, 19, 20], false);
     cloudBank(176, 18, 70, 5051, t * 8, CLOUD_SUN, false);
@@ -1060,12 +1067,16 @@
   // are drawn at their size on screen, not magnified)
   const B4_WX = 320, B4_WY = 112, B4_WS = 1.5, B4_HS = 1.45;
   let B4V = { x: 240, y: 135, z: 1 };
+  // the horizon of the shot (world y, seen at 0.45 parallax): it opens where the clash left it, low in the frame, and rises
+  // to its place during the first dash
+  const b4Hk = (c) => lerp(289, 190, eio(b4Clip(139.6, 141.0, c)));
   const b4P = (x, y) => [240 + (x - B4V.x) * B4V.z, 135 + (y - B4V.y) * B4V.z];
-  const B4_FZ = 0.75;                                         // the final framing: wide, the hero high over his crown
-  const B4_CAMK = [[139.6, 179, 154, 1.3], [139.86, 168, 112, 1.04], [140.02, 196, 134, 1.08], [140.24, 300, 168, 0.97], [140.44, 372, 92, 0.95], [140.62, 340, 84, 0.9],
+  const B4_FZ = 0.95, B4_FMY = 146, B4_FHY = 80;             // the final framing: his mask big in the middle (screen y FMY), his whole height
+  // below it to the cloud sea, the hero FHY px over the mask; the cut then runs down the whole frame through him
+  const B4_CAMK = [[139.6, 225, 154, 1.3], [139.86, 168, 112, 1.04], [140.02, 196, 134, 1.08], [140.24, 300, 168, 0.97], [140.44, 372, 92, 0.95], [140.62, 340, 84, 0.9],
     [140.86, 252, 80, 0.88], [141.06, 196, 128, 0.92], [141.22, 212, 192, 1.04], [141.5, 330, 186, 0.95], [141.68, 380, 70, 1.05], [141.82, 352, 54, 1.1], [142.06, 300, 138, 1.12],
     [142.42, 372, 212, 1.0], [142.72, 334, 140, 0.95], [143.1, 300, 130, 0.92], [143.42, 272, 142, 1.0], [143.78, 272, 136, 0.98], [144.2, 286, 96, 0.95],
-    [144.62, B4_WX - 10 / B4_FZ, B4_WY - 55 / B4_FZ, B4_FZ], [146.6, B4_WX - 10 / B4_FZ, B4_WY - 55 / B4_FZ, B4_FZ]];
+    [144.62, B4_WX - 10 / B4_FZ, B4_WY - (B4_FMY - 135) / B4_FZ, B4_FZ], [146.6, B4_WX - 10 / B4_FZ, B4_WY - (B4_FMY - 135) / B4_FZ, B4_FZ]];
   // the hero (world): x, y, sw (the blade, unwrapped so each swing turns the way it is thrown), a (body), S (blade length)
   const B4_DV = K({ t: 139.6, x: 110, y: 190, sw: -0.47, a: 0, S: 190 },
     { t: 139.84, x: 84, y: 44, sw: -2.4, a: -0.15, e: 'o' },                 // up over his swipe, the blade cocked overhead
@@ -1089,7 +1100,7 @@
     { t: 143.4, x: 150, y: 150, sw: 12.566, a: 0.06, e: 'i' },              // braced, driving in: his fist meets the point
     { t: 143.8, x: 154, y: 150, sw: 12.566, a: 0, S: 140 },
     { t: 144.35, x: 236, y: 40, sw: 10.9, a: -0.15, e: 'io', S: 420 },      // it rises over his crown, the blade regrowing
-    { t: 144.75, x: B4_WX - 10 / B4_FZ + 1 / B4_FZ, y: B4_WY - 110 / B4_FZ, sw: 10.12, a: -0.1, e: 'o', S: 900 / B4_FZ },
+    { t: 144.75, x: B4_WX - 36 / B4_FZ, y: B4_WY - B4_FHY / B4_FZ, sw: 10.12, a: -0.1, e: 'o', S: 900 / B4_FZ },
     { t: 145.0, sw: 7.75, a: 0.15, e: EQ },                                 // THE FINAL CUT
     { t: 146.6, sw: 7.75, a: 0.1 });
   B4_DV.arcs = new Map([[140.36, -40], [140.5, -30], [142.33, -50], [143.05, -60]]);
@@ -1134,9 +1145,12 @@
   function b4CombBg(t, V, hz) {
     const z = V.z, ox = V.x * z * 0.5;
     b4Sky(t, clamp(hz, LB + 40, H - LB), 0, 0, 0, 0);
-    const lx = 240 + (150 - V.x) * z * 0.45, ly = 135 + (-60 - V.y) * z * 0.45;
-    z5GodRays(lx, ly, 9, t * 0.4, T_WARM, 0.3, 560);
-    glow(lx, ly, 150, T_WH, 0.22);
+    // the light opens where the clash left the split black sun in the frame, then settles high behind the hero
+    let Lx = 150, Ly = -60, e = 1;
+    if (t < 140.8) { const [x0, y0, z0] = b4Cam(139.6); e = eio(b4Clip(139.6, 140.8, t)); Lx = lerp(x0 + 5 / (z0 * 0.45), 150, e); Ly = lerp(y0 - 26 / (z0 * 0.45), -60, e); }
+    const lx = 240 + (Lx - V.x) * z * 0.45, ly = 135 + (Ly - V.y) * z * 0.45;
+    z5GodRays(lx, ly, 9, t * 0.4, T_WARM, lerp(0.7, 0.3, e), 560);
+    glow(lx, ly, lerp(300, 150, e), T_WH, lerp(0.33, 0.22, e));
     cloudBank(hz, 10 * z, 90, 5061, ox * 0.4 + t * 4, [17, 18, 19, 20], false);
     for (let k = 0; k < 6; k++) { const x = ((ih(k, 1, 2781) * 600 - ox * 0.55 + t * 6) % 600 + 600) % 600 - 60; cloudPuff(x, hz + 8 * z + ih(k, 2, 2781) * 10, (10 + ih(k, 3, 2781) * 10) * z, [17, 18, 19, 20], 2782 + k); }
     cloudBank(hz + 24 * z, 18 * z, 70, 5051, ox * 0.7 + t * 8, CLOUD_SUN, false);
@@ -1170,10 +1184,10 @@
   shot(139.6, 146.6, (lt, t) => {
     const c = b4Clk(t), [vx, vy, vz] = b4Cam(c), [px_, py_] = b4Cam(b4Clk(t - 1 / 30));
     B4V = { x: vx, y: vy, z: vz }; if (globalThis.B4DBG) console.log(t.toFixed(2), vx.toFixed(1), vy.toFixed(1), vz.toFixed(2), b4P(z5Trk(B4_DV, c).x, z5Trk(B4_DV, c).y).map((v) => v.toFixed(0)).join(","));
-    const hz = 135 + (127.3 - vy) * vz * 0.45, s = B4_WS * vz, [CX, CY] = b4P(B4_WX, B4_WY), bob = Math.sin(t * 0.9) * s;
+    const hz = 135 + (b4Hk(c) - vy) * vz * 0.45, s = B4_WS * vz, [CX, CY] = b4P(B4_WX, B4_WY), bob = Math.sin(t * 0.9) * s;
     const gH = B4_C.map((h) => c - h), g6 = c - 143.4, g7 = c - 145.0, gs7 = Math.max(0, g7 - B4_STOP);
     b4CombBg(t, B4V, hz);
-    tintAll(T_DARK, lerp(0.36, 0.16, eio(b4Clip(139.6, 146.6, t))));
+    tintAll(T_DARK, lerp(0.24, 0.16, eio(b4Clip(139.6, 141.0, t))));
     // embers and ash hanging in the air behind him (far, slow)
     for (let k = 0; k < 26; k++) { const x = ((ih(k, 1, 2791) * 560 - vx * vz * 0.6 + Math.sin(t * 0.5 + k) * 6) % 560 + 560) % 560 - 40, y = ((ih(k, 2, 2791) * 300 - vy * vz * 0.6 - t * 14) % 300 + 300) % 300; if (y > LB && y < H - LB) P(x, y, k % 3 ? 121 : 103); }
     // the cloud sea answers every blow
@@ -1189,7 +1203,7 @@
     if (c > 143.55) urPose = b4Pose('fist', 'claw', b4Clip(143.55, 144.0, c) * (1 - 0.6 * b4Clip(144.3, 144.7, c)));
     // the final cut: he sees it coming (looks up, the arm comes up to ward it off), is struck rigid, the blow drives him down
     const look = eio(b4Clip(144.75, 145.0, c));
-    if (c > 144.75) { const r = b4Reach(1, lerp(ux, 56, look) + b4Rx(g7, 30), lerp(uy, -16, look) + b4Rx(g7, -20), 138); ux = r[0]; uy = r[1]; urPose = g7 > B4_STOP ? b4Pose('claw', 'grab', 0.5 + 0.5 * Math.sin(gs7 * 9) * Math.exp(-gs7 * 2)) : b4Pose('fist', 'claw', look); }
+    if (c > 144.75) { const r = b4Reach(1, lerp(ux, 150, look) + b4Rx(g7, 24), lerp(uy, -64, look) + b4Rx(g7, -24), 138); ux = r[0]; uy = r[1]; urPose = g7 > B4_STOP ? b4Pose('claw', 'grab', 0.5 + 0.5 * Math.sin(gs7 * 9) * Math.exp(-gs7 * 2)) : b4Pose('fist', 'claw', look); }
     const run = g7 < B4_STOP ? 0 : eoc(b4Clip(0, 0.4, gs7)), fux = Math.cos(B4_FA), fuy = Math.sin(B4_FA);
     const wounds = g7 > 0 ? [[fux * -70, fuy * -70, fux * (-70 + 460 * run), fuy * (-70 + 460 * run), 2 + 2 * run]] : [];
     const maskCuts = (g7 > 0 ? [[-fux * 28, -fuy * 28, fux * 28, fuy * 28, Math.max(0.15, run * 1.4)]] : []).concat(B4_MCUT);
@@ -1229,7 +1243,7 @@
     if (g7 >= 0) {
       const crown = [CX + R_.lean * s * 0.95, CY - 40 * s], [px, py] = b4OnBlade(F.hand, F.p.sw, crown);
       b4Cut(px, py, g7, F.p.sw, 2801, 1.6, B4_STOP, true); if (t - 145.0 < 1 / 60) impactFrame(px, py, 0);
-      if (g7 > B4_STOP) { const amt = eoc(b4Clip(0, 0.5, gs7)), gap = 3 + 27 * eoc(b4Clip(0.05, 1.4, gs7)); worldSplit(CX, CY + 20, B4_FA, gap, amt, t); glow(CX, CY, 120, T_WH, 0.4 * Math.exp(-gs7 * 2)); shockRing(CX, CY + 40, 10 + gs7 * 600, 4 + gs7 * 80, 3, [22, 21, 20], 1 - gs7 / 0.8); shk(8 * Math.exp(-gs7 * 3)); }
+      if (g7 > B4_STOP) { const amt = eoc(b4Clip(0, 0.5, gs7)), gap = 3 + 27 * eoc(b4Clip(0.05, 1.4, gs7)); const lx_ = px + (CY + 20 - py) / Math.tan(B4_FA); worldSplit(lx_, CY + 20, B4_FA, gap, amt, t); glow(lx_, CY, 120, T_WH, 0.4 * Math.exp(-gs7 * 2)); shockRing(CX, CY + 40, 10 + gs7 * 600, 4 + gs7 * 80, 3, [22, 21, 20], 1 - gs7 / 0.8); shk(8 * Math.exp(-gs7 * 3)); }
     }
     // ---- foreground: wisps of cloud and cinders streaming past the lens, faster than anything (near)
     for (let k = 0; k < 6; k++) { const x = ((ih(k, 1, 2771) * 700 - vx * vz * 1.7 - t * 30) % 700 + 700) % 700 - 110, y = ((ih(k, 2, 2771) * 420 - vy * vz * 1.7) % 420 + 420) % 420 - 60; if (Math.abs(x - 240) < 170 && y > 60 && y < 220) continue; cloudPuff(x, y, 16 + ih(k, 3, 2771) * 14, [17, 18, 19, 20], 2772 + k); }
@@ -1244,14 +1258,25 @@
   // he comes apart along the cut, the halves sliding, fire dripping from the faces of it; his last hand reaches up into the
   // light, trembling, for something that is not there, and slowly closes on nothing
   shot(146.6, 150.0, (lt, t) => {
-    const u = lt / 3.4, spl = eio(b4Clip(0.1, 3.4, lt)) * 0.75;
-    b4WorldWide(t, 0.25);
-    worldSplit(240, 140, B4_FA, 34 + 10 * u, 1, t);
-    const CX = 240, CY = 118, s = 1.9;
+    const u = lt / 3.4, spl = lerp(0.26, 0.75, eio(b4Clip(0.1, 3.4, lt)));
+    // the same world and the same camera as the cut: it does not cut away, it pushes in slowly on his face from where the
+    // final cut left it (his mask big in the middle of the frame, the hero over him, the light behind)
+    const dz = eio(b4Clip(0, 3.4, lt)), z = lerp(B4_FZ, 1.3, dz), mx = lerp(240 + 10, 240, dz), my = lerp(B4_FMY, 118, dz);
+    B4V = { x: B4_WX - (mx - 240) / z, y: B4_WY - (my - 135) / z, z };
+    const hz = 135 + (b4Hk(t) - B4V.y) * z * 0.45, s = B4_WS * z, [CX, CY] = b4P(B4_WX, B4_WY);
+    b4CombBg(t, B4V, hz);
+    tintAll(T_DARK, lerp(0.16, 0.3, dz));
+    worldSplit(CX, CY + 20, B4_FA, 30 * z / B4_FZ * (1 + 0.3 * u), 1, t);
     const eyes = lerp(1.6, 0.25, eio(b4Clip(1.0, 3.2, lt))), third = 1 - eio(b4Clip(1.9, 3.0, lt));
+    // his last hand, raised beside his head where it warded off the blow, reaches up into the light, trembling, and closes
     const reach = eio(b4Clip(0.3, 2.0, lt)), close = eio(b4Clip(2.3, 3.3, lt)), tr = (1 + 2 * reach) * z5Sh(t, 5);
-    const [ix, iy] = b4Idle(t, 1, 3), ur = b4Reach(1, lerp(140, 30, reach) + ix + tr, lerp(124, -50, reach) + iy + tr * 0.5, 136);
-    b4SundC(CX, CY, s, t, { ur: { x: ur[0], y: ur[1], pose: b4Pose(b4Pose('claw', 'open', reach), 'grab', close), ang: lerp(-0.4, -1.75, reach), heat: lerp(0.8, 0.35, u) }, split: spl, splitA: B4_FA, splitX: 0, splitY: 0, eyes, third, roar: t > 147.0 && t < 148.2 ? 0.25 + 0.15 * Math.sin(t * 9) : 0.1, heat: lerp(0.95, 0.4, u), rage: lerp(1, 0.2, u), nod: 4 * u - 3 * reach * (1 - u), tilt: -0.08 * reach + 0.03 * Math.sin(t * 0.7) });
+    const [ix, iy] = b4Idle(t, 1, 3), ur = b4Reach(1, lerp(150, 40, reach) + ix + tr, lerp(-64, -92, reach) + iy + tr * 0.5, 136);
+    const fux = Math.cos(B4_FA), fuy = Math.sin(B4_FA), wf = 1 - eio(b4Clip(0.2, 1.2, lt));
+    b4SundC(CX, CY, s, t, { ur: { x: ur[0], y: ur[1], pose: b4Pose(b4Pose('claw', 'open', reach), 'grab', close), ang: lerp(-1.95, -1.85, reach), heat: lerp(0.8, 0.35, u) }, split: spl, splitA: B4_FA, splitX: 0, splitY: 0, eyes, third,
+      wounds: wf > 0.05 ? [[fux * -70, fuy * -70, fux * 390, fuy * 390, 4 * wf]] : [], maskCuts: [[-fux * 28, -fuy * 28, fux * 28, fuy * 28, 1.4]].concat(B4_MCUT),
+      roar: t > 147.0 && t < 148.2 ? 0.25 + 0.15 * Math.sin(t * 9) : 0.1, heat: lerp(0.95, 0.4, u), rage: lerp(1, 0.2, u), nod: -6 + 10 * u - 3 * reach * (1 - u), tilt: -0.08 * reach + 0.03 * Math.sin(t * 0.7) });
+    // the hero over him, the Worldblade still down through the cut: the camera leaves them above the frame as it comes in
+    if (dz < 0.8) b4Dive(146.6, t, 0, 0, { eyes: 'glow', rays: 40 * (1 - dz), over: 0, warp: 0, orbR: 13 * B4_HS * z, orbA: 1.2 }, null, 300);
     // fire dripping off both faces of the cut
     const ux = Math.cos(B4_FA), uy = Math.sin(B4_FA), sux = ux, suy = uy;
     for (const sd of [-1, 1]) {
@@ -1265,8 +1290,11 @@
     }
     // light pouring from the cut, embers and ash lifting off him already
     for (let k = 0; k < 50; k++) { const f = frac(ih(k, 1, 2811) + t * 0.35), x = CX + (ih(k, 2, 2811) - 0.5) * 300 * (0.3 + f), y = CY + 150 - f * 260 + ih(k, 3, 2811) * 40; if (bay(fl(x), fl(y)) < 1 - f) rectF(x, y, 2, 2, k % 3 ? 121 : 104); }
+    // the cloud sea still rocking from the blow, wisps passing the lens
+    b4Deck(CX, hz, lt + 1.6 - B4_STOP, 1.2, 2813);
+    for (let k = 0; k < 4; k++) { const x = ((ih(k, 1, 2814) * 700 - t * 26) % 700 + 700) % 700 - 110, y = 60 + ih(k, 2, 2814) * 170; if (Math.abs(x - 240) < 150) continue; cloudPuff(x, y, 16 + ih(k, 3, 2814) * 12, [17, 18, 19, 20], 2815 + k); }
     shk(0.6 + 1.5 * u);
-    z5Cam(1.04 + 0.08 * eio(u), 0.004 * z5N(t, 1), 240, 130, 240, 135);
+    z5Cam(1.0, 0.004 * z5N(t, 1), 240, 135, 240, 135);
   });
   CAPS.push([147.0, 149.6, 's', 'SUNDERER', '...BROTHER...']);
 
@@ -1343,10 +1371,18 @@
   });
 
   /* ================================================================ VI.3 — the sun is reborn (158.0–162.0) */
+  // the dawn spreading out from the sun over the ashen sky: a widening disc of morning with a soft dithered rim (u 0..1)
+  function b4MixFrom(u, cx, cy, drawA, drawB) {
+    if (u <= 0) { drawA(); return; }
+    if (u >= 1) { drawB(); return; }
+    drawA(); Z5B.set(BUF); drawB();
+    const R = 20 + 560 * u;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const d = Math.hypot(x - cx, (y - cy) * 1.5) / R + (vn(x, y, 30, 5011) - 0.5) * 0.12; if (d + (bay(x, y) - 0.5) * 0.18 > 1) BUF[y * W + x] = Z5B[y * W + x]; }
+  }
   shot(158.0, 162.0, (lt, t) => {
     const born = eio(b4Clip(0, 2.6, lt)), SX = 330, SY = lerp(196, 168, eoc(b4Clip(0.2, 4, lt)));
     // dawn returns: from grey and ash to the morning
-    z5Mix(born, () => { gradient(LB, 196, [17, 120, 121, 18, 19, 18]); cloudBank(204, 22, 80, 5051, t * 6, [17, 18, 19, 20], false); cloudBank(240, 30, 60, 5052, t * 9, [17, 18, 19, 20], false); }, () => { z5Dawn(t, 196, t * 8, SX, SY); });
+    b4MixFrom(born, SX, SY, () => { gradient(LB, 196, [17, 120, 121, 18, 19, 18]); cloudBank(204, 22, 80, 5051, t * 6, [17, 18, 19, 20], false); cloudBank(240, 30, 60, 5052, t * 9, [17, 18, 19, 20], false); }, () => { z5Dawn(t, 196, t * 8, SX, SY); });
     // the light gathers into a point, and the sun opens out of it
     const pt = eoc(b4Clip(0, 0.8, lt));
     if (born < 1) { glow(SX, SY, 30 + 120 * born, T_WARM, 0.7 * pt); sparkle(SX, SY, 4 + 16 * pt * (1 - born), 22, 16); }
