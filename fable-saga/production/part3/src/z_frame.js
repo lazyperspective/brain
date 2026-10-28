@@ -78,7 +78,7 @@
       const gy = Math.min(GH - 1, fl(y / GC));
       for (let x = 0; x < W; x++) {
         const i = y * W + x, j = gy * GW + fl(x / GC), m = GT[j];
-        if (m > 0 && LUMP[BUF[i]] < m * 255 * 2.2) tintI(i, x, y, BLOOM_T[GTI[j]][0], Math.min(0.5, m * 1.6) * 0.55);
+        if (m > 0 && LUMP[BUF[i]] < m * 255 * 2.2) tintI(i, x, y, BLOOM_T[GTI[j]][0], Math.min(0.42, m * 1.4) * 0.5);
         if (VIG[i] > 0.01) tintI(i, x, y, T_DARK, VIG[i]);
       }
     }

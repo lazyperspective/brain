@@ -3,7 +3,9 @@
   // whip pans escape (into SHOTS, CAPS, FLASH_CUTS, WHIPS).
   {
   const Z5B = new Uint8Array(NP), Z5C = new Uint8Array(NP);   // spare frames: dissolves, fades, split skies
-  const PRISM = [81, 82, 83, 84, 85, 86, 87], ZEN_AURA = [59, 60, 22, 22], SM_PRISM = [83, 60, 22];
+  const PRISM = [81, 82, 83, 84, 85, 86, 87], ZEN_AURA = [59, 60, 22, 22];
+  // the zenith flame: hot gold with a violet fringe, so the white body keeps its edge against it (and against the bloom)
+  const ZEN_FLAME = [62, 58, 59, 60];
   const VOIDSKY = [76, 77, 78, 79, 80], GREYS = [92, 93, 94, 95], GLEV = [0, 92, 93, 94, 95], GRAW = [0, 92, 94, 95, 22];   // grey levels, and a colour that drains to each
   const SKY_BOLD = [3, 4, 5, 6, 7, 8, 13, 14, 15, 16], CLOUD_SUN = [18, 19, 15, 16], CLOUD_NEAR = [36, 13, 14, 15];
   const z5Sw = (t) => { const k = fl(t * 14) % 7; return PRISM.slice(k).concat(PRISM.slice(0, k)); };   // the blade of light
@@ -132,47 +134,155 @@
     z5Wings(x - Math.sin(ang) * 6 * S, y + bob - Math.cos(ang) * 6 * S, S * (o.ws || 0.6), wt, sp, o.flap);
     const a = actor(HEROZ({ eyes: o.eyes || 'glow', mouth: o.mouth, sword: o.sw, swordCols: z5Sw(t), legs: o.legs, sq: o.sq, reach: o.reach }), x, y, S, ang, !!o.flip, { white: o.white, after: o.after, bob });
     z5Eyes();
-    aura(t, o.auraC || ZEN_AURA, o.auraR || 3 * S, { sparks: o.sparks === undefined ? 12 : o.sparks, rise: o.rise });
+    if (o.rim) z5Rim(o.rim[0], o.rim[1], o.rim[2], Math.max(2, S * 1.4));
+    aura(t, o.auraC || ZEN_FLAME, o.auraR || 3 * S, { sparks: o.sparks === undefined ? 12 : o.sparks, rise: o.rise });
+    if (!o.white) z5Rim(0, 0, null, 0, 63);
     if (o.orbR) z5Orbs(x, y, o.orbR, t, o.orbr || S * 1.3, o.tilt || 0.38, true);
     return a;
   }
-  // a key-tracked zenith fighter (core fighter() has no forms): leans, stretches, leaves afterimages, smears its swings
-  // trk(), but a segment whose end key is listed in keys.arcs (key time → bulge px) travels on an arc, not a line:
-  // the path bows sideways by bulge·sin(π·u) (positive bows to the left of the direction of travel)
+  /* -------------------------------------------------------------- the duel: a fighter that is a pure function of its track
+     The fight shots drive the hero from key tracks without life() (whose springs are stateful): every lean, stretch, reach
+     and slash trail here is computed from the track itself, so a hit-stop (the track clock held) freezes the whole pose,
+     smear and all, and any frame can be seeked. */
+  const Z5NUM = NUMF.concat(['spread', 'flap']);
+  const EQ = (u) => u * u;                                 // a swing: accelerating all the way into the hit
+  // trk() with ease functions allowed, and arcs: a segment whose end key time is in keys.arcs travels on a bow of that
+  // many px (positive bows to the left of the direction of travel)
   function z5Trk(keys, t) {
-    const p = trk(keys, t);
-    if (!keys.arcs) return p;
+    if (typeof keys === 'function') return keys(t);         // (a pose can also be a function of time)
     let k = 0; while (k < keys.length - 1 && keys[k + 1].t <= t) k++;
-    const A = keys[k], B = keys[k + 1], arc = B && keys.arcs.get(B.t);
-    if (arc && t > A.t) {
-      const u = EASE[B.e || 'io'](clamp((t - A.t) / (B.t - A.t), 0, 1)), dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, b = Math.sin(PI * u) * arc;
-      p.x += dy / L * b; p.y -= dx / L * b;
+    const A = keys[k], B = keys[k + 1], o = Object.assign({}, A);
+    if (B && t > A.t) {
+      const u = (typeof B.e === 'function' ? B.e : EASE[B.e || 'io'])(clamp((t - A.t) / (B.t - A.t), 0, 1));
+      for (const f of Z5NUM) if (typeof A[f] === 'number' && typeof B[f] === 'number') o[f] = A[f] + (B[f] - A[f]) * u;
+      const arc = keys.arcs && keys.arcs.get(B.t);
+      if (arc) { const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, b = Math.sin(PI * u) * arc; o.x += dy / L * b; o.y -= dx / L * b; }
     }
+    return o;
+  }
+  // a pose with its motion: velocity, a lean and a stretch along the path, the blade's world angle and how fast it turns
+  function z5Pose(keys, tt) {
+    const p = z5Trk(keys, tt), q = z5Trk(keys, tt - 1 / 30), r = z5Trk(keys, tt - 0.1);
+    const vx = (p.x - q.x) * 30, vy = (p.y - q.y) * 30, sp = Math.hypot(vx, vy), svx = (p.x - r.x) * 10;
+    p.vx = vx; p.vy = vy; p.sp = sp; p.svx = svx;
+    p.st = clamp((sp - 110) / 1250, 0, 0.42); p.sd = Math.atan2(vy, vx);
+    p.lean = clamp(svx / 2600, -0.16, 0.16);
+    p.ang = (p.a || 0) + p.lean;
+    p.wa = (p.sw || 0) + p.ang;
+    const qa = (q.sw || 0) + (q.a || 0) + clamp((q.x - z5Trk(keys, tt - 0.1 - 1 / 30).x) * 10 / 2600, -0.16, 0.16);
+    p.swv = (p.wa - qa) * 30;                               // rad/s, signed
+    p.reachT = (p.reach || 0) + clamp(Math.abs(p.swv) / 9, 0, 4);
     return p;
   }
-  function z5Fight(keys, lt, base) {
-    const trk = z5Trk;
-    const p = trk(keys, lt), q = trk(keys, lt - 1 / 30), q2 = trk(keys, lt - 2 / 30);
-    const vx = (p.x - q.x) * 30, vy = (p.y - q.y) * 30, sp = Math.hypot(vx, vy), S = p.S || base.S || 2;
-    const lean = 0, sq = p.sq || 0;                      // leaning and stretching with speed is done by life() now
-    const vib = (p.vib || 0) + FRZ, f = fl(T_NOW * 30), jx = vib ? Math.round((ih(f, 3, 601) - 0.5) * 2 * vib) : 0, jy = vib ? Math.round((ih(f, 4, 601) - 0.5) * 2 * vib) : 0;
-    const ang = (p.a || 0) + lean, x = p.x + jx, y = p.y + jy, t = T_NOW;
-    // the orbs trail the body (they are where it was a moment ago), so they swing out on every dash and catch up
-    const og = trk(keys, lt - 0.09), ox = og.x, oy = og.y;
-    if (base.orbR) z5Orbs(ox, oy, base.orbR, t, S * 1.2, 0.4, false);
-    const wt = t * (base.flap || 1), bob = z5Bob(wt, S, 0.26);
-    z5Wings(x - Math.sin(ang) * 6 * S, y + bob - Math.cos(ang) * 6 * S, S * 0.55, wt, p.spread === undefined ? 1 : p.spread, 0.26);
-    const after = [];
-    if (sp > 300) for (let k = 1; k <= 3; k++) { const a = trk(keys, lt - k * 0.03); after.push([a.x, a.y, k === 1 ? 22 : PRISM[(k * 2 + f) % 7], 0.6 - k * 0.14]); }
-    const res = actor(HEROZ({ eyes: p.eyes || 'glow', mouth: p.mouth, sword: p.sw, swordCols: z5Sw(t), sq, reach: p.reach }), x, y, S, ang, !!p.flip, { after, white: p.white, bob });
-    z5Eyes();
-    aura(t, ZEN_AURA, base.auraR || 3 * S, { sparks: 10, rise: base.rise });
-    if (base.orbR) z5Orbs(ox, oy, base.orbR, t, S * 1.2, 0.4, true);
-    if (typeof p.sw === 'number' && typeof q2.sw === 'number') {
-      const sa = (p.flip ? PI - p.sw : p.sw) + ang, sa0 = (q2.flip ? PI - q2.sw : q2.sw) + (q2.a || 0) + lean;
-      smearArc(res.hand[0], res.hand[1], sa0, sa, 30 * S, SM_PRISM);
+  // where buildSprite puts the hand for this pose (scale S, after the stretch), and a point a fraction f along the blade
+  function z5HandP(p, S) {
+    const sq = p.sq || 0, bw = Math.round(26 * (1 + sq * 0.5) / 2) * 2, bh = Math.max(10, Math.round(16 * (1 - sq * 0.4)));
+    const y0 = -Math.round(bh / 2), ah = Math.max(3, Math.round(bh * 0.32)), shY = y0 + Math.round(bh * 0.34) + ah / 2 - 0.5;
+    const armA = clamp((p.sw || 0) * 0.45, -1.1, 0.9), r = 3 + (p.reachT || 0);
+    const lx = (bw / 2 - 1 + Math.cos(armA) * r) * S, ly = (shY + Math.sin(armA) * r + 0.5) * S, c = Math.cos(p.ang), s = Math.sin(p.ang);
+    let dx = lx * c - ly * s, dy = lx * s + ly * c;
+    if (p.st) { const su = Math.cos(p.sd), sv = Math.sin(p.sd), k1 = 1 + p.st, a = (dx * su + dy * sv) * k1, b = (-dx * sv + dy * su) / Math.sqrt(k1); dx = a * su - b * sv; dy = a * sv + b * su; }
+    return [p.x + dx, p.y + dy];
+  }
+  const z5Blade = (p, S, f) => { const h = z5HandP(p, S); return [h[0] + Math.cos(p.wa) * 29 * S * f, h[1] + Math.sin(p.wa) * 29 * S * f]; };
+  // a slash trail: a crescent swept about (hx, hy) from a0 through d radians (signed, may go round more than once is
+  // capped at a full turn); thick and white at its leading edge, a band of prism colour across it, thinning and
+  // dissolving into its tail; fade 0 (fresh) .. 1 (gone)
+  function z5Arc(hx, hy, a0, d, L, fade) {
+    const ad = Math.min(Math.abs(d), TAU - 0.05); if (ad < 0.3 || fade >= 1) return;
+    const R = L * 1.1, x0 = Math.max(0, fl(hx - R)), x1 = Math.min(W - 1, Math.ceil(hx + R)), y0 = Math.max(LB, fl(hy - R)), y1 = Math.min(H - LB - 1, Math.ceil(hy + R));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const i = y * W + x; if (SMASK[i]) continue;
+      const dx = x + 0.5 - hx, dy = y + 0.5 - hy, r = Math.sqrt(dx * dx + dy * dy);
+      if (r > R || r < L * 0.42) continue;
+      let rel = Math.atan2(dy, dx) - a0; rel = d > 0 ? ((rel % TAU) + TAU) % TAU : ((-rel % TAU) + TAU) % TAU;
+      if (rel > ad) continue;
+      const u = rel / ad, rin = L * (1 - 0.52 * Math.pow(u, 1.6)), rout = L * (1.02 + 0.06 * u);
+      if (r < rin || r > rout) continue;
+      const e = (r - rin) / (rout - rin), b = bay(x, y);
+      if (b > u * 1.8 - fade * 1.9) continue;                          // the tail (and, as it fades, all of it) dissolves
+      BUF[i] = (e > 0.8 && u > 0.5) || u > 0.93 ? 22 : u > 0.7 ? (e > 0.45 ? 60 : PRISM[fl(e * 6.99)]) : PRISM[fl(e * 6.99)];
     }
-    return { x, y, S, hand: res.hand, tip: res.tip, p, sp };
+  }
+  // the trail of the last few frames of a track's blade: only the fast part of the stroke, shrinking from its tail as the
+  // stroke ages out (a held track holds it)
+  function z5Trail(keys, tt, hand, S) {
+    const N = 5, wa = []; for (let k = 0; k <= N; k++) wa.push(z5Pose(keys, tt - k / 30).wa);
+    let m = 0, newest = -1; for (let k = 0; k < N; k++) if (Math.abs(wa[k] - wa[k + 1]) > 0.3) { m = k + 1; if (newest < 0) newest = k; }
+    if (!m) return;
+    z5Arc(hand[0], hand[1], wa[m], wa[0] - wa[m], 29 * S * 1.03, newest / N * 0.9);
+  }
+  // the light of a scene on the last stamped sprite: the edge facing (lx, ly) takes c (the outline is left alone), and a
+  // one-pixel line of ink cc round the outside keeps the silhouette crisp against glows and bloom
+  function z5Rim(lx, ly, c, d, cc) {
+    if (SMB[2] < SMB[0]) return;
+    const x0 = Math.max(1, SMB[0] - 1), x1 = Math.min(W - 2, SMB[2] + 1), y0 = Math.max(LB, SMB[1] - 1), y1 = Math.min(H - LB - 1, SMB[3] + 1);
+    const ox = Math.round(lx * d), oy = Math.round(ly * d);
+    if (c !== undefined && c !== null) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const i = y * W + x; if (!SMASK[i]) continue;
+      const b = BUF[i]; if (b >= 81 && b <= 87) continue;
+      const X = x + ox, Y = y + oy;
+      if (X < 0 || Y < 0 || X >= W || Y >= H || !SMASK[Y * W + X]) BUF[i] = c;
+    }
+    if (cc !== undefined) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const i = y * W + x; if (SMASK[i]) continue;
+      if (SMASK[i - 1] || SMASK[i + 1] || SMASK[i - W] || SMASK[i + W]) BUF[i] = cc;
+    }
+  }
+  // a blade meeting something, g seconds on: a flare across the contact, sparks thrown on along the stroke (dir), void
+  // ichor spat back the other way, a ring; power scales it
+  function z5Hit(x, y, g, power, dir, col, seed) {
+    if (g < 0 || g > 0.55) return;
+    const f = g / 0.55, ca = Math.cos(dir), sa = Math.sin(dir);
+    if (g < 0.17) {
+      const k = 1 - g / 0.17, L1 = 80 * power * k, L2 = 26 * power * k;
+      glow(x, y, 46 * power * k + 6, T_WH, 0.55);
+      thick(x - ca * L1, y - sa * L1, x + ca * L1, y + sa * L1, k > 0.5 ? 2 : 1, 22);
+      lineP(x + sa * L2, y - ca * L2, x - sa * L2, y + ca * L2, 22);
+      discF(x, y, 2 + 5 * power * k, 22);
+    }
+    for (let k = 0; k < 24 * power; k++) {
+      const a = dir + (ih(k, 1, seed) - 0.5) * 1.5, v = (80 + ih(k, 2, seed) * 280) * power, dd = v * g * (1 - g * 0.9), px = x + Math.cos(a) * dd, py = y + Math.sin(a) * dd + 140 * g * g;
+      if (bay(fl(px), fl(py)) > 1.15 - f) continue;
+      const tl = 2 + v * 0.025 * (1 - f);
+      lineP(px, py, px - Math.cos(a) * tl, py - Math.sin(a) * tl, k % 3 ? col : 22);
+    }
+    for (let k = 0; k < 12 * power; k++) {
+      const a = dir + PI + (ih(k, 3, seed) - 0.5) * 1.8, v = (40 + ih(k, 4, seed) * 120) * power, px = x + Math.cos(a) * v * g, py = y + Math.sin(a) * v * g + 200 * g * g, s = 1 + fl(ih(k, 5, seed) * 2.5);
+      if (bay(fl(px), fl(py)) > 1 - f) continue;
+      rectF(px, py, s, s, k % 4 ? 77 : 74);
+    }
+    if (g < 0.3) shockRing(x, y, 4 + g * 220 * power, 3 + g * 150 * power, 2, [22, col, col], 1 - g / 0.3);
+    shk(4 * power * Math.max(0, 1 - g * 4));
+  }
+  // the zenith hero driven by a track (faces right): wings that beat and flare with the pose, orbs trailing the body,
+  // ghosts on a dash, the prism slash trail, the light of the scene on its edge; base: { S, orbR, auraR, rim: [lx, ly, c] }
+  function z5Fight(keys, tt, base) {
+    const p = z5Pose(keys, tt), S = p.S || base.S || 2, t = T_NOW, f = fl(t * 30);
+    const vib = (p.vib || 0) + FRZ, jx = vib ? Math.round((ih(f, 3, 601) - 0.5) * 2 * vib) : 0, jy = vib ? Math.round((ih(f, 4, 601) - 0.5) * 2 * vib) : 0;
+    const idle = 1 - clamp(p.sp / 220, 0, 1), wt = tt * (base.flap || 1.6), fa = p.flap === undefined ? 0.26 : p.flap, bob = z5Bob(wt, S, fa) * idle;
+    const OX = base.ox || 0, x = p.x + jx + OX, y = p.y + jy + bob, ang = p.ang;
+    // the orbs trail the body (they are where it was a moment ago), so they swing out on every dash and catch up
+    const og = z5Trk(keys, tt - 0.09); og.x += OX;
+    if (base.orbR) z5Orbs(og.x, og.y, base.orbR, tt, S * 1.2, 0.4, false);
+    z5Wings(x - Math.sin(ang) * 6 * S, y - Math.cos(ang) * 6 * S, S * 0.55, wt, p.spread === undefined ? 1 : p.spread, fa);
+    const after = [];
+    if (p.sp > 280) for (let k = 1; k <= 3; k++) { const a = z5Trk(keys, tt - k * 0.03); after.push([a.x + OX, a.y, k === 1 ? 22 : PRISM[(k * 2 + f) % 7], 0.6 - k * 0.14]); }
+    // the feet trail the motion; at rest they paddle
+    const lvx = p.svx * Math.cos(ang) + (p.vy || 0) * Math.sin(ang) * 0.3, legSh = clamp(-lvx / (60 * S), -3, 3) + Math.sin(tt * 4.2) * 0.7 * idle;
+    const legs = [0, 1, 2, 3].map((k) => Math.max(0, Math.sin(tt * 6.5 + k * 1.6)) * 1.2 * idle + (p.sq > 0.15 ? 1 : 0));
+    const res = actor(HEROZ({ eyes: p.eyes || 'glow', mouth: p.mouth, sword: p.sw, swordCols: z5Sw(t), sq: (p.sq || 0) + Math.sin(tt * 3.1) * 0.04 * idle, reach: p.reachT, legs, legSh }), x, y, S, ang, false, { still: true, after, st: p.st, sd: p.sd });
+    z5Eyes();
+    if (base.rim) z5Rim(base.rim[0], base.rim[1], base.rim[2], Math.max(2, S * 1.4));
+    aura(t, ZEN_FLAME, base.auraR || 3 * S, { sparks: 10, rise: base.rise });
+    z5Rim(0, 0, null, 0, 63);
+    if (base.orbR) z5Orbs(og.x, og.y, base.orbR, tt, S * 1.2, 0.4, true);
+    z5Trail(keys, tt, res.hand, S);
+    // a cocked blade, held: a glint runs up it to the point (the tell before the stroke)
+    if ((p.sq || 0) > 0.24 && Math.abs(p.swv) < 3) { const u = frac(tt * 3.2), gx = lerp(res.hand[0], res.tip[0], u), gy = lerp(res.hand[1], res.tip[1], u); sparkle(gx, gy, 2 + u * 5, 22, 60); if (u > 0.8) glow(res.tip[0], res.tip[1], 22, T_WH, 0.5); }
+    // a thrust leaves no arc: streaks run back from the point along the lunge
+    if (p.sp > 500 && Math.abs(p.swv) < 6) for (let k = 0; k < 5; k++) { const o = (k - 2) * 3 * S * 0.5, L = p.sp * 0.09, ca = Math.cos(p.sd), sa = Math.sin(p.sd), bx = res.tip[0] - sa * o - ca * 6, by = res.tip[1] + ca * o - sa * 6; lineF(bx, by, bx - ca * L, by - sa * L, (X, Y, u) => { if (bay(X, Y) < 0.9 - u) P(X, Y, k === 2 ? 22 : PRISM[(k + f) % 7]); }); }
+    return { x, y, S, hand: res.hand, tip: res.tip, p, sp: p.sp };
   }
   // a whirlpool: the picture turned about (cx, cy), more the nearer it is
   function z5Swirl(cx, cy, k, r0) {
@@ -222,13 +332,14 @@
     if (cut < 1) { const i = fl(cut * n); if (pts[i]) { const [x, y, r] = pts[Math.min(i, pts.length - 1)]; discF(x, y, r * 0.9, 74); discF(x, y, r * 0.5, 75); } }
   }
   // a configurable beam: colAt(f, u) gives the colour at fraction f of the half-width (core 0 → edge 1 → fringe 1.5) and u along it
-  function z5Beam(x0, y0, x1, y1, w, colAt, t, seed) {
-    const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy, L = Math.sqrt(L2) || 1;
+  function z5Beam(x0, y0, x1, y1, w, colAt, t, seed, wf) {
+    const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy, L = Math.sqrt(L2) || 1, w0 = w;
+    if (wf) w *= 1.8;                                         // (wf(s): a width factor along it, for pulses; bound the box)
     const bx0 = Math.max(0, fl(Math.min(x0, x1) - w * 2)), bx1 = Math.min(W - 1, Math.ceil(Math.max(x0, x1) + w * 2));
     const by0 = Math.max(0, fl(Math.min(y0, y1) - w * 2)), by1 = Math.min(H - 1, Math.ceil(Math.max(y0, y1) + w * 2));
     for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) {
       const px = x + 0.5 - x0, py = y + 0.5 - y0, u = clamp((px * dx + py * dy) / L2, 0, 1), qx = px - u * dx, qy = py - u * dy, d = Math.sqrt(qx * qx + qy * qy);
-      const wob = w * (0.85 + 0.15 * Math.sin(u * L * 0.25 - t * 40 + seed) + 0.08 * Math.sin(u * L * 0.7 + t * 23));
+      const wob = w0 * (wf ? wf(u * L) : 1) * (0.85 + 0.15 * Math.sin(u * L * 0.25 - t * 40 + seed) + 0.08 * Math.sin(u * L * 0.7 + t * 23));
       if (d > wob * 1.5) continue;
       const f = d / wob;
       if (f > 1 && bay(x, y) > (1.5 - f) * 1.4) continue;
@@ -354,6 +465,35 @@
   }
 
   /* ================================================================ 1 — all hope lost (0:57–1:06) */
+  // a giant porcelain finger (as the crush draws them): a chain of shaded, tapering segments, each turned by curl
+  function z5Finger(x, y, a, lens, r, curl) {
+    const pts = [[x, y, r]]; let px = x, py = y, aa = a, rr = r;
+    for (const L of lens) { const n = Math.ceil(L / 2); for (let k = 1; k <= n; k++) { px += Math.cos(aa) * L / n; py += Math.sin(aa) * L / n; pts.push([px, py, rr * (1 - 0.18 * k / n)]); } rr *= 0.82; aa += curl; pts.push(null); }
+    for (const pass of [0, 1, 2]) for (const q of pts) { if (!q) continue; const [qx, qy, qr] = q; if (pass === 0) discF(qx, qy, qr + 1.6, 69); else if (pass === 1) discF(qx, qy, qr, 65); else discF(qx - qr * 0.25, qy - qr * 0.3, qr * 0.45, 64); }
+    for (let i = 0; i < pts.length; i++) if (!pts[i] && i > 0 && i < pts.length - 1) { const [qx, qy, qr] = pts[i - 1]; thick(qx - qr * 0.6, qy, qx + qr * 0.6, qy, 2, 67); }
+  }
+  // 0: where the crush leaves it (same hand, same lens): the fist eases open, the shards of the sword drift on, slowing,
+  // and the grey body slides out between the fingers and begins to fall, turning, with nothing holding it
+  function lost0(lt, t) {
+    const CX = 250, CY = 140, open = eio(lin(0.12, 1.2, lt)), lift = eio(lin(0.55, 1.9, lt)), hx0 = lift * 46, hy0 = -lift * 120;
+    gradient(LB, H - LB, [76, 77, 78, 92, 93]);
+    for (let k = 0; k < 40; k++) { const u = frac(ih(k, 1, 5007) + t * 0.03), x = ih(k, 2, 5007) * W + Math.sin(t * 0.4 + k) * 4, y = H - LB - u * (H - 2 * LB); P(x, y, ih(k, 3, 5007) < 0.3 ? 94 : 93); }
+    // the hero: the grip gives (it sags a hair as the fingers part), then it slips free and falls, slowly, rolling over
+    const g = Math.max(0, lt - 0.4), sag = 3 * sstep(0.1, 0.5, lt), out = eio(lin(0.25, 1.1, lt));
+    const hx = 280 - out * 50 - g * 9 - Math.sin(g * 1.3) * 3, hy = 140 + sag + g * 5 + 7 * g * g, ang = 0.2 + g * 0.32 + Math.sin(g * 1.5) * 0.08;
+    // the palm (behind), the body in it, and the fingers uncurling over it; then the hand drawn away up out of the light
+    discF(CX + 96 + hx0, CY + 8 + hy0, 74, 69); discF(CX + 96 + hx0, CY + 8 + hy0, 72, 66); discF(CX + 88 + hx0, CY + hy0, 60, 65); discF(CX + 78 + hx0, CY - 14 + hy0, 30, 64);
+    if (lt > 0.22) actor(HERO({ form: 'grey', eyes: 'closed', legs: z5Limp(t, 0.6 + 0.4 * open), sq: -0.15 * (1 - open) + Math.sin(t * 1.4) * 0.03 * open, outline: 95 }), hx, hy, 3.4, ang, false, { still: true });
+    for (let f = 0; f < 4; f++) { const cf = 1 - open * (0.75 + f * 0.05) * eio(lin(0.12 + f * 0.06, 1.2 + f * 0.05, lt)) / Math.max(0.01, open); z5Finger(CX + 54 + hx0, CY - 66 + f * 36 + hy0, PI + 0.25 - f * 0.12 + open * 0.15, [44 - Math.abs(f - 1.5) * 4, 36, 26], 15 - Math.abs(f - 1.5), 0.25 + cf * 0.85 + (f > 1 ? -0.1 : 0)); }
+    z5Finger(CX + 60 + hx0, CY + 96 + hy0, -PI * 0.75 - open * 0.3, [40, 30], 15, -0.8 + open * 0.55);
+    // the shards of the sword, still flying out from the fist as they were, slowing to a drift (nothing to fall toward)
+    const G = 0.5 + (1 - Math.exp(-2 * lt)) / 2;
+    for (let k = 0; k < 26; k++) { const a = -PI * 0.2 - ih(k, 1, 291) * PI * 1.2, v = 120 + ih(k, 2, 291) * 260, x = CX - 20 + Math.cos(a) * v * G, y = CY + Math.sin(a) * v * G + 120 * G * G - lt * 6, rot = G * (8 + k) + lt * 0.4; thick(x, y, x + Math.cos(rot) * 7, y + Math.sin(rot) * 7, 2, k % 3 ? 34 : 22); }
+    mapFx(GREYM, 1);
+    // the lens of the crush, easing back and sinking after the body
+    const pull = eio(lin(0.3, 1.9, lt));
+    z5Cam(1.2 - 0.12 * pull, 0.006 * z5N(t * 0.5, 2) * pull, lerp(250, 238, pull), lerp(140, 158, pull), 240, 135);
+  }
   // A: the open hand lets the grey hero fall; far above, the colossus speaks, closes its eyes and turns away into the haze
   function lostA(lt, t) {
     const fall = 110 * Math.pow(lt / 4.2, 1.25), drift = fall * 0.4;
@@ -411,7 +551,9 @@
     z5Cam(1.01 + lean * 0.04, 0.008 * z5N(t * 0.5, 8), 240 + z5N(t * 0.4, 9) * 2, 135 + lean * 10, 240, 135);
   }
   shot(57.0, 66.0, (lt, t) => {
-    if (t < 60.4) lostA(lt, t);
+    if (t < 58.3) lost0(lt, t);
+    else if (t < 58.9) z5Mix(eio(lin(58.3, 58.9, t)), () => lost0(lt, t), () => lostA(lt, t));
+    else if (t < 60.4) lostA(lt, t);
     else if (t < 61.0) z5Mix(lin(60.4, 61.0, t), () => lostA(lt, t), () => lostB(t - 60.4, t));
     else if (t < 63.2) lostB(t - 60.4, t);
     else if (t < 63.45) z5Mix(lin(63.2, 63.45, t), () => lostB(t - 60.4, t), () => lostC(t - 63.2, t));
@@ -540,7 +682,7 @@
     // past its mark and comes back; the orbs are flung out from the chest and swing wide before they find their orbit
     const sq = lt < 0.08 ? 0.35 : lerp(-0.25, 0, z5Step(lt - 0.08, 13, 5)), lift = z5Step(lt - 0.04, 9, 4.5);
     const hy = HY + 9 - lift * 11 + Math.sin(t * 1.7) * 1.2 * lift;
-    z5Zenith(HX, hy, S, t, { sw: -1.3 + 0.5 * (1 - z5Step(lt - 0.05, 10, 4)), mouth: lt < 1.0 ? 2 : 0, spread: eob(lin(0.05, 0.6, lt)), orbR: 8 + 40 * z5Step(lt - 0.06, 7, 3.5), sq, auraR: 14, sparks: 30, legs: [1, 0, 1, 0] });
+    z5Zenith(HX, hy, S, t, { sw: -1.3 + 0.5 * (1 - z5Step(lt - 0.05, 10, 4)), mouth: lt < 1.0 ? 2 : 0, spread: eob(lin(0.05, 0.6, lt)), orbR: 8 + 40 * z5Step(lt - 0.06, 7, 3.5), sq, auraR: 14, sparks: 30, legs: [1, 0, 1, 0], rim: [0.9, 0.4, 15] });
     shockRing(HX, HY, 10 + lt * 520, 10 + lt * 520, 5, [22, 60, 59], 1 - lt / 0.8);
     flashWhite(lt < 0.067 ? 1 : 0);
     shk(6 * Math.exp(-lt * 3));
@@ -557,7 +699,7 @@
     z5Wave(HX, HY, R, 176, 3.2, t);
     for (let k = 0; k < 40; k++) { const a = ih(k, 1, 5131) * TAU, rr = R + (ih(k, 2, 5131) - 0.5) * 16, x = HX + Math.cos(a) * rr, y = HY + Math.sin(a) * rr * (Math.sin(a) > 0 ? 0.32 : 1); sparkle(x, y, 1 + ih(k, 3, 5131) * 2, 22, PRISM[k % 7]); }
     // the hero rides the wave up a little, drifting, the sword easing back and forth with its breath
-    z5Zenith(HX + z5N(lt * 0.6, 1) * 3, HY + Math.sin(t * 2) * 2 - eio(lt / 2.6) * 5, 2.1, t, { sw: -1.3 + Math.sin(t * 1.6) * 0.08, spread: 1, orbR: 30, auraR: 7, sparks: 14 });
+    z5Zenith(HX + z5N(lt * 0.6, 1) * 3, HY + Math.sin(t * 2) * 2 - eio(lt / 2.6) * 5, 2.1, t, { sw: -1.3 + Math.sin(t * 1.6) * 0.08, spread: 1, orbR: 30, auraR: 7, sparks: 14, rim: [0.8, 0.6, 15] });
     z5Cam(1.16 - 0.14 * eio(lt / 2.6), 0.03 * Math.sin(lt * 1.2) + 0.008 * z5N(t, 6), HX + z5N(t * 0.4, 7) * 3, HY + 10 - eio(lt / 2.6) * 4, 240, 132);
   });
 
@@ -579,7 +721,7 @@
     const spread = lt < 0.5 ? lerp(1, 0.78, eio(lt / 0.5)) : lerp(0.78, 1, z5Step(g, 9, 3.5));
     const sq = lt < 0.5 ? 0.12 * eio(lt / 0.5) : 0.12 * (1 - z5Step(g, 12, 6)) - z5Knock(g, 0.12, 11, 5);
     const flap = 0.16 + 0.14 * Math.exp(-Math.max(0, g) * 2) * (g > 0 ? 1 : 0);
-    const a = z5Zenith(HX, HY, S, t, { sw, spread, sq, orbR: 52 + Math.sin(t * 0.9) * 3, auraR: 9, sparks: 20, tilt: 0.3 + phi * 0.22, legs: [1, 0, 1, 0], flap });
+    const a = z5Zenith(HX, HY, S, t, { sw, spread, sq, orbR: 52 + Math.sin(t * 0.9) * 3, auraR: 9, sparks: 20, tilt: 0.3 + phi * 0.22, legs: [1, 0, 1, 0], flap, rim: [Math.sign(sunX - HX + 0.1) * 0.6, -0.8, 16] });
     // the glint runs up the blade
     const gl = lin(2.0, 2.4, lt);
     if (gl > 0 && gl < 1) sparkle(lerp(a.hand[0], a.tip[0], gl), lerp(a.hand[1], a.tip[1], gl), 4, 22, 60);
@@ -615,7 +757,7 @@
     z5GodRays(120, 152, 6, t * 0.5, T_WH, 0.35 + rc * 0.2, 260);
     // the hero presses forward into its own light, the blade levelling, hovering
     const adv = eio(lt / 1.6);
-    z5Zenith(118 + adv * 10, 152 + Math.sin(t * 2.1) * 1.5 - adv * 3, 1.9, t, { sw: -0.5 + adv * 0.2, spread: 1, orbR: 26, rays: 220, raysA: 0.5, auraR: 6 });
+    z5Zenith(118 + adv * 10, 152 + Math.sin(t * 2.1) * 1.5 - adv * 3, 1.9, t, { sw: -0.5 + adv * 0.2, spread: 1, orbR: 26, rays: 220, raysA: 0.5, auraR: 6, rim: [1, -0.2, 75] });
     z5Cam(1.02 + eio(lt / 1.6) * 0.05 + jolt * 0.015, 0.006 * z5N(t, 2), 240 + z5N(t * 0.5, 3) * 3 + adv * 6, 135, 240, 135);
   });
   shot(81.6, 84.0, (lt, t) => {
@@ -660,6 +802,7 @@
     const brace = eio(lin(1.0, 1.7, lt)), BX = 318, BY = 92, s = 1.55;
     const HX = 108 + z5N(lt * 0.8, 1) * 3 - brace * 3, HY = 166 + Math.sin(t * 1.9) * 2 + brace * 3;
     gradient(LB, H - LB, VOIDSKY); stars(t, H, 70, 5191);
+    z5Fog9(t, t * 8);
     cloudBank(236, 20, 60, 5192, t * 6, [77, 78, 79, 62], false);
     unmaker(BX, BY, s, t, { eyes: 2, broken: 1.25, halo: 1, heart: 1, arms: [[-50, 30, -100, 10, 1], [50, 30, 100, 0, 1]] });
     shatterFx(BX, BY, 0.4 * sstep(1.3, 2.2, lt) + (lt > 1.0 && lt < 1.1 ? 0.25 : 0), t, 34);
@@ -667,7 +810,7 @@
     const creep = 34 * eio(lin(0.4, 2.3, lt));
     rectF(0, LB, W, creep, 0); rectF(0, H - LB - creep, W, creep, 0);
     for (let x = 0; x < W; x++) { if (ih(x >> 2, fl(t * 20), 5193) < 0.5) { P(x, LB + creep, 74); P(x, H - LB - creep - 1, 74); } }
-    z5Zenith(HX, HY, 1.7, t, { sw: lerp(-0.5, -1.1, brace), sq: brace * 0.1, spread: 1 - brace * 0.15, orbR: 22 - brace * 3, auraR: 6 + brace * 2 });
+    z5Zenith(HX, HY, 1.7, t, { sw: lerp(-0.5, -1.1, brace), sq: brace * 0.1, spread: 1 - brace * 0.15, orbR: 22 - brace * 3, auraR: 6 + brace * 2, rim: [1, -0.4, 75] });
     shk(1.5);
     z5Cam(1 + eio(lt / 2.3) * 0.08, 0.006 * z5N(t, 3), lerp(240, 200, eio(lt / 2.3)), 135 + eio(lt / 2.3) * 6, 240, 135);
   });
@@ -686,6 +829,7 @@
   shot(88.0, 90.2, (lt, t) => {
     const EX = 336, EY = 116;
     gradient(LB, H - LB, VOIDSKY); stars(t, H, 120, 5201);
+    z5Fog9(t * 2, t * 30);
     cloudBank(230, 22, 60, 5202, t * 10, [17, 18, 19, 20], false);
     z5Swirl(EX, EY, 1.5 + lt * 0.3, 110);
     unmaker(EX, EY + 6, 2.6, t, { eyes: 2, broken: 1.3, halo: 1, heart: 1, arms: [[-50, 30, -100, 0, 1], [50, 30, 100, 0, 1]] });
@@ -695,7 +839,7 @@
     // flying against the pull: each downstroke wins a few pixels, each recovery gives some back; buffeted, pitching
     const beat = z5Beat(t * 3), hxAt = (u, tt) => 70 + eio(u / 2.2) * 60 - z5Beat(tt * 3) * 3.5 + z5N(tt * 1.7, 3) * 3;
     const hx = hxAt(lt, t), hy = 176 + Math.sin(t * 5) * 2 + z5Sh(t * 0.25, 4) * 2;
-    z5Zenith(hx, hy, 2.1, t, { ang: 0.28 + z5N(t * 1.3, 5) * 0.07 - beat * 0.04, sw: 0.1 + z5N(t * 1.1, 6) * 0.12, spread: 0.9 + 0.15 * Math.sin(t * 22), wt: t * 3, orbR: 26, auraR: 7, rise: 0.3 });
+    z5Zenith(hx, hy, 2.1, t, { ang: 0.28 + z5N(t * 1.3, 5) * 0.07 - beat * 0.04, sw: 0.1 + z5N(t * 1.1, 6) * 0.12, spread: 0.9 + 0.15 * Math.sin(t * 22), wt: t * 3, orbR: 26, auraR: 7, rise: 0.3, rim: [1, -0.3, 75] });
     shk(1.5 + lt);
     // the camera trails the hero (lagging, so its surges read), leaning toward the eye as the pull grows
     z5Cam(1.02 + eio(lt / 2.2) * 0.07, lt * 0.03 + 0.008 * z5N(t, 7), 240 + (hxAt(Math.max(0, lt - 0.2), t - 0.2) - 100) * 0.35, 140, 240, 140);
@@ -718,109 +862,235 @@
     }
     // the hero, close, is shoved by the gale (smooth buffet, not a per-frame rattle); it sets its jaw when the tendrils come
     const set = sstep(1.0, 1.4, lt);
-    z5Zenith(HX + z5Sh(t * 0.6, 7) * 1.5, HY, 4.0, t, { ang: 0.32 + z5N(t * 1.5, 8) * 0.05 - set * 0.06, sw: 0.25 - set * 0.25, spread: 0.85 + 0.2 * Math.sin(t * 26), wt: t * 4, mouth: 1, orbR: 50, auraR: 12, rise: 0.2, sq: 0.1 + set * 0.06 });
+    z5Zenith(HX + z5Sh(t * 0.6, 7) * 1.5, HY, 4.0, t, { ang: 0.32 + z5N(t * 1.5, 8) * 0.05 - set * 0.06, sw: 0.25 - set * 0.25, spread: 0.85 + 0.2 * Math.sin(t * 26), wt: t * 4, mouth: 1, orbR: 50, auraR: 12, rise: 0.2, sq: 0.1 + set * 0.06, rim: [1, -0.15, 75] });
     shk(2.5);
     z5Cam(1.04 + lt * 0.03, 0.02 * Math.sin(t * 7), 240, 135);
   });
 
   /* ================================================================ 9 — the last fight: tendrils against the blade (1:32–1:36) */
+  // A duel in four strikes, each a different cut, each with a held wind-up, a fast stroke that lands on the beat, a
+  // follow-through that carries the body on past the target, and a recovery; between them the tendrils lash back (a
+  // parry, a duck under a lash). Every cut stops the clock for two frames (hit-stop), severs the tendril (the stump whips
+  // back, the cut piece spins away and comes apart), and knocks the eye.
   const HITS9 = [0.8, 1.6, 2.4, 3.2], HS = 0.07, TH9 = HITS9.map((h, k) => h - k * HS);   // shot time → track time
-  // every strike is wind-up (coil, the blade drawn back opposite the cut) → a fast eased-in cut that lands on the hit →
-  // follow-through (the body carried on past, the blade swung beyond its mark) → a small bounce back and settle;
-  // travel between them bows on arcs (HK9.arcs: key time → bulge)
-  const T0 = TH9[0], T1 = TH9[1], T2 = TH9[2], T3 = TH9[3];
+  const T0 = TH9[0], T1 = TH9[1], T2 = TH9[2], T3 = TH9[3], S9 = 2.3, PAR9 = [0.28, 2.43];
   const HK9 = K(
-    { t: 0, x: 120, y: 150, a: 0, sw: -0.6, S: 2.6, sq: 0, reach: 0 },
-    { t: 0.42, x: 138, y: 162, a: 0.22, sw: 1.5, sq: 0.12, e: 'io' },          // dip and draw the blade down and back
-    { t: 0.62, x: 143, y: 165, a: 0.32, sw: 1.95, sq: 0.2, e: 'o' },           // coiled
-    { t: T0, x: 178, y: 138, a: -0.25, sw: -2.0, sq: -0.22, e: 'i' },          // HIT 1: rising cut
-    { t: T0 + 0.13, x: 188, y: 130, a: -0.38, sw: -2.7, sq: 0, e: 'o' },       // carried past
-    { t: T0 + 0.26, x: 181, y: 135, a: -0.15, sw: -2.3, sq: 0.05, e: 'io' },   // bounce back
-    { t: T1 - 0.24, x: 226, y: 94, a: -0.42, sw: -2.75, sq: 0.08, e: 'io' },   // a leap up on an arc
-    { t: T1 - 0.12, x: 232, y: 89, a: -0.5, sw: -2.95, sq: 0.18, e: 'o' },     // hang at the top, blade cocked
-    { t: T1, x: 266, y: 118, a: 0.35, sw: 1.3, sq: -0.2, e: 'i' },             // HIT 2: the downward chop
-    { t: T1 + 0.13, x: 276, y: 128, a: 0.48, sw: 1.75, sq: 0.04, e: 'o' },
-    { t: T1 + 0.27, x: 270, y: 124, a: 0.2, sw: 1.2, sq: 0.03, e: 'io' },
-    { t: T2 - 0.2, x: 290, y: 157, a: 0.32, sw: 0.7, sq: 0.16, e: 'io' },      // drop, turning the wrong way first
-    { t: T2, x: 318, y: 150, a: -TAU, sw: 0.2, sq: -0.12, e: 'i' },            // HIT 3: the spinning cut
-    { t: T2 + 0.13, x: 325, y: 147, a: -TAU - 0.4, sw: 0.05, sq: 0, e: 'o' },
-    { t: T2 + 0.26, x: 320, y: 148, a: -TAU + 0.05, sw: 0.2, e: 'io' },
-    { t: T3 - 0.19, x: 297, y: 147, a: -TAU + 0.14, sw: 0, sq: 0.3, reach: 0, e: 'io' },   // pull right back, coiled
-    { t: T3, x: 384, y: 140, a: -TAU - 0.05, sw: 0, sq: -0.28, reach: 8, e: 'i' },          // HIT 4: the thrust
-    { t: T3 + 0.13, x: 397, y: 138, a: -TAU - 0.1, sq: -0.06, reach: 4, e: 'o' },
-    { t: T3 + 0.3, x: 392, y: 140, a: -TAU, sq: 0.04, reach: 2, e: 'io' },
-    { t: 3.9, x: 440, y: 104, S: 2.0, sq: 0, e: 'io' });
-  HK9.arcs = new Map([[0.42, -10], [T0, 10], [T1 - 0.24, 16], [T1, 10], [T2 - 0.2, -8], [T2, 6], [T3, 5], [3.9, 14]]);
-  // each tendril: root, the point it rears back to, where it strikes (the hero's blade meets it at the hit)
-  const TN9 = [
-    { root: [500, 10], back: [400, 30], hit: [262, 104] },
-    { root: [520, 280], back: [430, 250], hit: [350, 152] },
-    { root: [470, 10], back: [430, 20], hit: [404, 156] },
-    { root: [640, 140], back: [600, 124], hit: [452, 140], big: 1 },
-  ];
-  // a tendril's tip before its hit: rears back (anticipation), then lashes in, accelerating into the blade
-  function tip9(d, h, tt) {
-    if (tt >= h) return d.hit;
-    const u = eic(clamp((tt - (h - 0.3)) / 0.3, 0, 1)), rear = eoc(clamp((tt - (h - 0.75)) / 0.45, 0, 1));
-    return [lerp(lerp(d.root[0], d.back[0], rear), d.hit[0], u), lerp(lerp(d.root[1], d.back[1], rear), d.hit[1], u)];
+    { t: 0.00, x: 86, y: 152, a: 0.08, sw: -1.0, sq: 0, reach: 0, spread: 1, flap: 0.26 },
+    { t: 0.19, x: 116, y: 146, a: 0.02, sw: -1.2, e: 'o' },
+    { t: 0.28, x: 124, y: 144, a: -0.1, sw: -0.2, sq: -0.06, e: EQ },                  // PARRY: the blade snapped into the lash
+    { t: 0.38, x: 110, y: 150, a: -0.28, sw: -1.3, sq: 0.1, e: 'o' },                  // knocked back, the blade batted up
+    { t: 0.55, x: 100, y: 157, a: -0.36, sw: -1.75, sq: 0.22, spread: 0.5, e: 'io' },   // turning away, blade drawn far back: coiled
+    { t: T0 - 0.1, x: 97, y: 159, a: -0.42, sw: -1.95, sq: 0.27, spread: 0.4, flap: 0.12, e: 'o' },   // held
+    { t: T0, x: 158, y: 142, a: 0.26, sw: -0.16, sq: -0.24, spread: 1.12, flap: 0.3, e: EQ },          // HIT 1: the cleave, over the top
+    { t: T0 + 0.11, x: 206, y: 132, a: 0.46, sw: 1.3, sq: -0.06, e: 'o' },             // carried on through, the blade past low
+    { t: T0 + 0.3, x: 222, y: 128, a: 0.12, sw: 0.8, sq: 0.04, spread: 1, flap: 0.26, e: 'io' },      // recover
+    { t: 1.22, x: 250, y: 168, a: 0.5, sw: 1.7, sq: -0.12, e: 'io' },                  // dive (under the whip)
+    { t: 1.33, x: 258, y: 182, a: 0.16, sw: 1.95, sq: 0.26, spread: 0.5, e: 'o' },    // ducked under the lash, coiled low
+    { t: T1 - 0.1, x: 256, y: 184, a: 0.1, sw: 2.12, sq: 0.3, spread: 0.4, flap: 0.12, e: 'io' },     // held
+    { t: T1, x: 296, y: 146, a: -0.26, sw: -0.34, sq: -0.3, spread: 1.15, flap: 0.3, e: EQ },          // HIT 2: the rising cut
+    { t: T1 + 0.12, x: 316, y: 114, a: -0.44, sw: -1.7, sq: -0.08, e: 'o' },
+    { t: T1 + 0.3, x: 320, y: 106, a: -0.2, sw: -1.45, sq: 0.03, spread: 1, flap: 0.26, e: 'io' },    // the top of the rise: a hang
+    { t: 1.96, x: 296, y: 148, a: 0.36, sw: 0.6, sq: 0.1, e: 'io' },                   // drop (under the whip), turning the wrong way
+    { t: 2.04, x: 290, y: 154, a: 0.64, sw: 0.95, sq: 0.27, spread: 0.5, e: 'o' },    // coiled for the spin
+    { t: T2 - 0.16, x: 288, y: 155, a: 0.68, sw: 1.0, sq: 0.29, spread: 0.4, flap: 0.12, e: 'io' },   // held
+    { t: T2, x: 334, y: 148, a: 0.1 - TAU, sw: 0.25, sq: -0.2, spread: 1.12, flap: 0.3, e: EQ },        // HIT 3: the spinning cut
+    { t: T2 + 0.1, x: 350, y: 146, a: -0.4 - TAU, sw: 0.1, sq: -0.04, e: 'o' },         // the turn runs on past
+    { t: PAR9[1] - 0.06, x: 348, y: 147, a: -0.22 - TAU, sw: -0.4, sq: 0.02, spread: 1, flap: 0.26, e: 'io' },
+    { t: PAR9[1], x: 346, y: 148, a: -0.12 - TAU, sw: -1.15, sq: -0.04, e: EQ },        // PARRY: the blade up to meet a lash from above
+    { t: PAR9[1] + 0.1, x: 334, y: 160, a: 0.24 - TAU, sw: -0.6, sq: 0.14, e: 'o' },   // beaten down
+    { t: 2.68, x: 314, y: 158, a: 0.14 - TAU, sw: -0.12, sq: 0.3, spread: 0.5, e: 'io' },              // drawn back for the thrust
+    { t: T3 - 0.08, x: 309, y: 158, a: 0.17 - TAU, sw: -0.1, sq: 0.35, spread: 0.4, flap: 0.12, e: 'o' },   // held
+    { t: T3, x: 398, y: 142, a: -0.04 - TAU, sw: 0, sq: -0.36, reach: 9, spread: 1.15, flap: 0.3, e: EQ },  // HIT 4: the thrust
+    { t: T3 + 0.12, x: 416, y: 140, sq: -0.08, reach: 6, e: 'o' },
+    { t: T3 + 0.3, x: 408, y: 141, a: -TAU, sq: 0.04, reach: 2, spread: 1, flap: 0.26, e: 'io' },
+    { t: 3.43, x: 404, y: 142, a: -0.14 - TAU, sw: -0.25, sq: 0.12, reach: 0, e: 'io' },              // the eye roars: braced
+    { t: 3.72, x: 300, y: 150, a: 0.08 - TAU, sw: 0, sq: 0.14, spread: 1.1, e: 'io' });              // blown back, blade levelled
+  HK9.arcs = new Map([[0.55, 8], [T0, 14], [T0 + 0.11, 6], [1.22, 12], [T1, -10], [T1 + 0.12, -6], [1.96, 18], [T2, 10], [T3, 4], [3.72, -16]]);
+  // the tendrils: each a tip track (track time) from a root; kind cut (severed at hit) or parry (batted away at hit)
+  const P9 = (tt) => z5Pose(HK9, tt), BP9 = (tt, f) => z5Blade(P9(tt), S9, f);
+  const TD9 = (() => {
+    const L = [];
+    const mk = (kind, hit, f, root, rear, w, side, extra) => {
+      const hp = BP9(hit, f), toB = P9(hit), dx = toB.x - hp[0], dy = toB.y - hp[1], dl = Math.hypot(dx, dy) || 1, over = kind === 'big' ? 4 : 22;
+      const keys = [{ t: hit - 0.62, x: root[0], y: root[1] }, { t: hit - 0.3, x: hp[0] + rear[0], y: hp[1] + rear[1], e: 'o' }, { t: hit - 0.1, x: hp[0] + rear[0] * 1.18, y: hp[1] + rear[1] * 1.18, e: 'o' }];
+      if (extra) keys.splice(1, 2, ...extra);
+      keys.push({ t: hit, x: hp[0] + dx / dl * over, y: hp[1] + dy / dl * over, e: EQ });
+      if (kind === 'parry') keys.push({ t: hit + 0.1, x: hp[0] + rear[0] * 0.6, y: hp[1] + rear[1] * 0.5, e: 'o' }, { t: hit + 0.7, x: root[0], y: root[1], e: 'io' });
+      const p = P9(hit);
+      L.push({ kind, hit, hp, root, keys, w, side, dir: kind === 'big' ? p.wa : p.wa + Math.sign(p.swv || 1) * PI / 2 });
+    };
+    mk('parry', PAR9[0], 0.6, [400, -40], [70, -80], 15, 1);
+    mk('cut', T0, 0.7, [470, -40], [70, -90], 20, 1);
+    mk('cut', T1, 0.7, [560, 210], [90, -40], 20, -1, [{ t: 1.1, x: 400, y: 128, e: 'o' }, { t: 1.3, x: 414, y: 112, e: 'o' }, { t: 1.4, x: 200, y: 146, e: EQ }, { t: 1.47, x: 186, y: 134, e: 'o' }]);
+    mk('cut', T2, 0.7, [540, 320], [80, 60], 20, -1);
+    mk('parry', PAR9[1], 0.6, [470, -40], [50, -90], 15, 1);
+    mk('big', T3, 0.92, [640, 150], [56, -26], 32, 1);
+    return L;
+  })();
+  // a tendril's body: a quadratic from its root, through a bend that lags the tip, to the tip, rippling (points [x, y, r, u])
+  function z5TPts(bx, by, qx, qy, tx, ty, w0, t, seed) {
+    const L = Math.hypot(qx - bx, qy - by) + Math.hypot(tx - qx, ty - qy), n = Math.max(16, fl(L / 2)), pts = [];
+    for (let i = 0; i <= n; i++) {
+      const u = i / n, a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
+      const x = a * bx + b * qx + c * tx, y = a * by + b * qy + c * ty;
+      const dx = 2 * (1 - u) * (qx - bx) + 2 * u * (tx - qx), dy = 2 * (1 - u) * (qy - by) + 2 * u * (ty - qy), dl = Math.hypot(dx, dy) || 1;
+      const rip = Math.sin(u * 10 - t * 11 + seed) * 7 * u * (1 - u) * 2;
+      pts.push([x - dy / dl * rip, y + dx / dl * rip, w0 * (1 - u * 0.6) + 0.8, u]);
+    }
+    return pts;
+  }
+  function z5TDraw(pts, claw, raw, dis) {
+    const keep = (k) => !dis || ih(k, fl(T_NOW * 30), 5407) > dis;
+    // a magenta skin round violet flesh, lit from above (a pale sheen along the top), with burning pores
+    for (let k = 0; k < pts.length; k++) if (keep(k)) discF(pts[k][0], pts[k][1], pts[k][2] + 1.5, 73);
+    for (let k = 0; k < pts.length; k++) if (keep(k)) discF(pts[k][0], pts[k][1], pts[k][2], 78);
+    for (let k = 0; k < pts.length; k++) { const [x, y, r] = pts[k]; if (keep(k) && r > 2) discF(x - r * 0.15, y - r * 0.28, r * 0.62, 80); }
+    for (let k = 0; k < pts.length; k++) { const [x, y, r, u] = pts[k]; if (!keep(k)) continue; if (r > 2.5) discF(x - r * 0.2, y - r * 0.5, r * 0.22, 71); if (fl(u * 40) % 6 === 0 && r > 3) { discF(x + r * 0.2, y + r * 0.1, Math.min(2.5, r * 0.3), 74); P(x + r * 0.2, y + r * 0.1, 75); } }
+    const n = pts.length;
+    if (claw && n > 3) { const [ax, ay] = pts[n - 4], [bx2, by2, br] = pts[n - 1], a = Math.atan2(by2 - ay, bx2 - ax), L2 = br * 3.2 + 3, w = br * 1.1 + 1;
+      z5Tri(bx2 - Math.sin(a) * w - Math.cos(a) * 2, by2 + Math.cos(a) * w - Math.sin(a) * 2, bx2 + Math.sin(a) * w - Math.cos(a) * 2, by2 - Math.cos(a) * w - Math.sin(a) * 2, bx2 + Math.cos(a) * L2, by2 + Math.sin(a) * L2, 67);
+      z5Tri(bx2 - Math.sin(a) * w * 0.6, by2 + Math.cos(a) * w * 0.6, bx2 + Math.sin(a) * w * 0.3, by2 - Math.cos(a) * w * 0.3, bx2 + Math.cos(a) * L2 * 0.85, by2 + Math.sin(a) * L2 * 0.85, 65);
+      lineP(bx2 - Math.sin(a) * w * 0.5, by2 + Math.cos(a) * w * 0.5, bx2 + Math.cos(a) * L2 * 0.8, by2 + Math.sin(a) * L2 * 0.8, 64); }
+    if (raw && n) { const [x, y, r] = pts[n - 1]; discF(x, y, r * 1.1, 74); discF(x, y, r * 0.6, 75); P(x, y, 22); }
+  }
+  // the bend of a tendril: the midpoint of root and where its tip was a beat ago, bowed out to one side
+  function z5TBend(d, tt) {
+    const lag = z5Trk(d.keys, tt - 0.1), tp = z5Trk(d.keys, tt), mx = (d.root[0] + lag.x) / 2, my = (d.root[1] + lag.y) / 2, dx = tp.x - d.root[0], dy = tp.y - d.root[1], L = Math.hypot(dx, dy) || 1;
+    return [mx - dy / L * 36 * d.side, my + dx / L * 36 * d.side, tp.x, tp.y];
+  }
+  const z5Sh9 = (pts, ox) => (ox ? pts.map((q) => [q[0] + ox, q[1], q[2], q[3]]) : pts);
+  function z5Tend9(d, tt, tw, ox) {
+    const t0 = d.keys[0].t, g = tt - d.hit;
+    if (tt < t0) return;
+    if (d.kind === 'parry' || g < 0) {
+      if (g > 0.75) return;
+      const [qx, qy, tx, ty] = z5TBend(d, tt), grow = eoc(clamp((tt - t0) / 0.25, 0, 1)), sh = d.kind === 'parry' && g > 0 ? 1 - clamp((g - 0.35) / 0.4, 0, 1) : 1;
+      z5TDraw(z5TPts(d.root[0] + ox, d.root[1], qx + ox, qy, tx + ox, ty, d.w * grow * (0.4 + 0.6 * sh), tw, d.hit * 7), true);
+      return;
+    }
+    // severed: the curve as it was at the cut, the cut where it passed the blade
+    if (!d.at) { const [qx, qy, tx, ty] = z5TBend(d, d.hit); d.at = { q: [qx, qy], pts: z5TPts(d.root[0], d.root[1], qx, qy, tx, ty, d.w, d.hit + 92 + d.hit * 0.0, d.hit * 7) }; let bi = 0, bd = 1e9; d.at.pts.forEach((p, k) => { const e = Math.hypot(p[0] - d.hp[0], p[1] - d.hp[1]); if (e < bd) { bd = e; bi = k; } }); d.at.ci = Math.max(4, bi); }
+    const A = d.at, ci = A.ci, cut = A.pts[ci];
+    // the stump whips back past where it reared from, then sinks away into the dark
+    const rc = z5Step(g, 9, 3.2), back = eio(clamp((g - 0.45) / 0.7, 0, 1)), rear = [d.root[0] + (cut[0] - d.root[0]) * 0.55, d.root[1] + (cut[1] - d.root[1]) * 0.55 - 30];
+    const sx = lerp(lerp(cut[0], rear[0], rc * 0.8), d.root[0], back), sy = lerp(lerp(cut[1], rear[1], rc * 0.8), d.root[1], back);
+    const qx = lerp(A.q[0], (d.root[0] + sx) / 2, rc), qy = lerp(A.q[1], (d.root[1] + sy) / 2 + 20 * d.side, rc);
+    const wS = d.w;
+    if (back < 1) {
+      if (d.kind === 'big') {
+        // the thrust splits it down its length: two halves peel apart
+        for (const s of [-1, 1]) z5TDraw(z5TPts(d.root[0] + ox, d.root[1] + s * 6, qx + ox, qy + s * 14, sx + 10 + ox, sy + s * (10 + rc * 70), wS * 0.55, tw, d.hit * 7 + s), false, true);
+      } else z5TDraw(z5TPts(d.root[0] + ox, d.root[1], qx + ox, qy, sx + ox, sy, wS, tw, d.hit * 7).slice(0, -1), false, true);
+    }
+    // the cut piece flies on along the stroke, spinning, and comes apart
+    if (g < 0.9) {
+      const piece = A.pts.slice(ci), c = piece[fl(piece.length / 2)], spin = (d.side > 0 ? 1 : -1) * 7 * g, cs = Math.cos(spin), sn = Math.sin(spin);
+      const vx = Math.cos(d.dir) * 190, vy = Math.sin(d.dir) * 190 - 40, shrink = Math.max(0, 1 - g / 0.95);
+      const moved = piece.map(([x, y, r, u]) => { const dx = x - c[0], dy = y - c[1]; return [c[0] + dx * cs - dy * sn + vx * g + ox, c[1] + dx * sn + dy * cs + vy * g + 220 * g * g, r * shrink, u]; });
+      if (d.kind === 'big') for (const s of [-1, 1]) z5TDraw(moved.map(([x, y, r, u]) => [x, y + s * (4 + g * 90), r * 0.6, u]), true, false, g * 1.1);
+      else z5TDraw(moved, true, false, g * 1.1);
+      if (g < 0.4) discF(moved[0][0], moved[0][1], moved[0][2] * 0.8, 74);
+    }
+  }
+  // the near layer: dark wreckage sweeping past the lens (parallax), and the far one: nebula banks drifting toward the eye
+  function z5Fog9(t, ox) {
+    for (let y = LB; y < H - LB; y++) {
+      const band = Math.sin(y * 0.045 + 1.3) * 0.5 + 0.5; if (band < 0.35) continue;
+      for (let x = 0; x < W; x++) { const n = vn(x + ox + t * 20, y * 2.2, 26, 5409); if (n * band > 0.42 && bay(x, y) < (n * band - 0.42) * 4) BUF[y * W + x] = n * band > 0.55 ? 62 : 80; }
+    }
   }
   shot(92.0, 96.0, (lt, t) => {
+    lt += 1e-6;                                            // (so a hit that lands on a frame is on it, not a hair after)
     const [tt, frz] = stopClock(lt, TH9, HS);
     FRZ = frz ? 2 : 0;
-    const tw = frz ? T_NOW - (lt - tt) : t;                // world clock, also frozen during the hit-stop
-    // every cut lands on the whole thing: the eye is knocked back and the waiting tendrils flinch, then ring out
-    const kn = z5Knocks(lt, HITS9, 1, 13, 5);
-    gradient(LB, H - LB, [76, 77, 78, 79, 80, 62]); stars(tw, H, 70, 5221);
-    const EXe = 430 + kn * 4, EYe = 74 - kn * 2;
-    spiralEye(EXe, EYe, 52 - kn * 2, tw, 1);
+    const tw = frz ? T_NOW - (lt - tt) : t;                // world clock, also held during the hit-stop
+    // the camera rides with the hero (a beat late): the world scrolls under it, far layers less (parallax)
+    const lag = z5Trk(HK9, Math.max(0, tt - 0.12)), pan = lag.x - 205, OX = -pan, par = pan;
+    // every cut lands on the whole thing: the eye is knocked back and the waiting tendrils flinch, then ring out; at the end
+    // it flares and roars
+    const kn = z5Knocks(lt, HITS9, 1, 13, 5), roar = sstep(3.3, 3.5, lt) * (1 - sstep(3.85, 4.0, lt));
+    gradient(LB, H - LB, [76, 77, 78, 79, 80, 62]); stars(tw * 0.3, H, 70, 5221);
+    z5Fog9(tw, par * 0.4);
+    const EXe = 430 - par * 0.25 + kn * 5, EYe = 66 - kn * 3;
+    glow(EXe, EYe, 120 + roar * 60, T_MAG, 0.3 + roar * 0.3);
+    spiralEye(EXe, EYe, 54 - kn * 3 + roar * 6, tw * (1 + roar * 2), 1);
     pulledClouds(EXe, EYe, tw, 260, 5222);
-    glow(40, 200, 200, T_WARM, 0.25);
+    glow(30 - par * 0.2, 220, 180, T_WARM, 0.22);
+    // embers in depth: far ones small and slow, near ones streaking (all pulled toward the eye)
+    for (let k = 0; k < 46; k++) { const z = ih(k, 1, 5402), u = frac(ih(k, 2, 5402) + tw * (0.15 + z * 0.4)), sx = ih(k, 3, 5402) * 560 - 40 - par * z * 0.6, sy = LB + ih(k, 4, 5402) * 220; const x = lerp(sx, EXe, u * u * 0.8), y = lerp(sy, EYe, u * u * 0.8); if (z > 0.75) lineP(x, y, x - (EXe - sx) * 0.03, y - (EYe - sy) * 0.03, PRISM[k % 7]); else P(x, y, z > 0.4 ? 75 : 73); }
     // more of them, writhing behind, waiting (a slow wave runs down each; they recoil with every cut)
-    for (let k = 0; k < 3; k++) z5Tendril(EXe, EYe, 360 - k * 30 + kn * 10, 160 + k * 30 + Math.sin(tw * 2 + k) * 20, 300 - k * 50 + Math.sin(tw * 1.3 + k) * 30 + kn * (16 + k * 6), 230 - k * 20 - kn * 8, 7, tw, 20 + k * 5);
-    TN9.forEach((d, k) => {
-      const h = TH9[k], g = tt - h, w0 = d.big ? 26 : 15;
-      if (tt < h - 0.75) return;
-      // the body of the tendril lags its tip (its bend is where the tip was a moment ago): a whip, not a stick
-      const tip = tip9(d, h, tt), lag = tip9(d, h, tt - 0.09);
-      const q = [(d.root[0] + lag[0]) / 2 + 40, (d.root[1] + lag[1]) / 2 + (k & 1 ? -40 : 40)];
-      if (g < 0) z5Tendril(d.root[0], d.root[1], q[0], q[1], tip[0], tip[1], w0, tw, k * 3);
-      else if (g < 1.2) {
-        // cut: the stump snaps back past where it reared from, sways and settles; its bend follows a beat late; the
-        // severed end flies off and comes apart
-        const rc = z5Step(g, 9, 3.2), rq = z5Step(g - 0.07, 7, 3), sx = lerp(tip[0], d.back[0], rc * 0.6), sy = lerp(tip[1], d.back[1], rc * 0.6);
-        const qx = q[0] + (d.back[0] - tip[0]) * 0.25 * rq, qy = q[1] + (d.back[1] - tip[1]) * 0.25 * rq;
-        if (d.big) { z5Tendril(d.root[0], d.root[1], qx, qy - 10, sx, sy - 12 - rc * 60, w0 * 0.6, tw, k * 3, 0.85, [-60, -120, g]); z5Tendril(d.root[0], d.root[1] + 6, qx, qy + 10, sx, sy + 12 + rc * 60, w0 * 0.6, tw, k * 3 + 1, 0.85, [-60, 80, g]); }
-        else z5Tendril(d.root[0], d.root[1], qx, qy, sx, sy, w0, tw, k * 3, 0.82, [(k & 1 ? -1 : 1) * 120, -80, g]);
-      }
-    });
-    const hero = z5Fight(HK9, tt, { S: 2.6, orbR: 28, auraR: 8, flap: 2 });
-    HITS9.forEach((h, k) => { const g = lt - h; if (g >= 0 && g < 0.5) { hitFx(TN9[k].hit[0], TN9[k].hit[1], g, k === 3 ? 1.4 : 1, [22, PRISM[(k * 2) % 7]]); if (g >= 0.034 && g < 0.067) impactFrame(TN9[k].hit[0], TN9[k].hit[1], 0); } });
+    for (let k = 0; k < 3; k++) { const mo = -par * 0.5; z5TDraw(z5TPts(EXe, EYe, 380 - k * 30 + kn * 10 + mo, 170 + k * 30 + Math.sin(tw * 2 + k) * 20, 330 - k * 50 + Math.sin(tw * 1.3 + k) * 30 + kn * (16 + k * 6) + mo, 236 - k * 16 - kn * 8, 7, tw, 20 + k * 5), true); }
+    TD9.forEach((d) => z5Tend9(d, tt, tw, OX));
+    const hero = z5Fight(HK9, tt, { S: S9, orbR: 26, auraR: 6, flap: 1.6, rim: [0.8, -0.6, 75], ox: OX });
+    // the contact: sparks on the beat; the parries spark smaller
+    TD9.forEach((d, k) => { const g = d.kind === 'parry' ? tt - d.hit : lt - HITS9[TH9.indexOf(d.hit)]; if (d.kind === 'parry') z5Hit(d.hp[0] + OX, d.hp[1], g, 0.8, d.dir + PI, 22, 5410 + k); else { z5Hit(d.hp[0] + OX, d.hp[1], g, d.kind === 'big' ? 1.4 : 1, d.dir, PRISM[(k * 2) % 7], 5410 + k); if (g >= 0 && g < 0.02) impactFrame(d.hp[0] + OX, d.hp[1], k & 1); } });
+    if (roar > 0) { const g = lt - 3.3; shockRing(EXe, EYe, 30 + g * 500, 30 + g * 420, 3, [75, 73, 71], 1 - g / 0.6); shk(3 * roar); }
+    // the near layer: wreckage of cloud and void sweeping past the lens, in the corners, never across the cut
+    for (let k = 0; k < 3; k++) { const u = frac(lt * 0.42 + k * 0.33), x = lerp(620, -180, u) - par * 0.6, y = k === 1 ? 236 : 34 + k * 4; cloudPuff(x, y, 34 + k * 6, [76, 77, 78, 79], 5420 + k); }
     // the camera: a new angle after each whip; it trails the hero a beat late, and every hit kicks it (a quick push in,
     // a jolt along the cut) that rings out
-    const seg = lt < 1.2 ? 0 : lt < 2.0 ? 1 : lt < 2.8 ? 2 : 3, Z = [1.12, 1.22, 1.1, 1.08][seg], R = [-0.05, 0.07, -0.08, 0.03][seg];
+    const seg = lt < 1.2 ? 0 : lt < 2.0 ? 1 : lt < 2.8 ? 2 : 3, Z = [1.12, 1.2, 1.1, 1.06][seg], R = [-0.05, 0.07, -0.08, 0.03][seg];
     let kick = 0, jx = 0, jy = 0;
-    HITS9.forEach((h, k) => { const g = lt - h, e = g > 0 ? Math.exp(-g * 9) : 0, kk = z5Knock(g, 1, 16, 7); kick += 0.14 * e; const dx = TN9[k].hit[0] - hero.x, dy = TN9[k].hit[1] - hero.y, L = Math.hypot(dx, dy) || 1; jx += kk * dx / L * 5; jy += kk * dy / L * 5; });
-    const z = (seg === 3 ? lerp(1.15, 1.0, eio(lin(3.3, 4.0, lt))) : Z) + kick;
-    const lag = z5Trk(HK9, Math.max(0, tt - 0.1));
-    z5Cam(z, R + kick * 0.3 + 0.006 * z5N(t, 2), lerp(lag.x, 240, 0.35) + jx, lerp(lag.y, 135, 0.4) + jy, 240, 135);
+    TD9.forEach((d) => { if (d.kind === 'parry') return; const h = HITS9[TH9.indexOf(d.hit)], g = lt - h, e = g > 0 ? Math.exp(-g * 9) : 0, kk = z5Knock(g, 1, 16, 7); kick += 0.12 * e; jx += kk * Math.cos(d.dir) * 6; jy += kk * Math.sin(d.dir) * 6; });
+    const z = (seg === 3 ? lerp(1.12, 0.98, eio(lin(3.3, 4.0, lt))) : Z) + kick;
+    z5Cam(z, R + kick * 0.3 + 0.006 * z5N(t, 2), 236 + jx, lerp(lag.y, 135, 0.4) + jy, 240, 135);
   });
   WHIPS.push([93.2, 0], [94.0, PI], [94.8, 0.4]);
 
   /* ================================================================ 10 — the beam clash (1:36–1:40.5) */
-  // where the beams meet: an uneven give-and-take (each side wins a little, loses it), then the void drives it back
-  // toward the hero, then the hero's surge pushes it all the way, in heaves rather than one smooth slide
-  const fight10 = (lt) => 248 + (z5N(lt * 2.3, 1) * 20 + z5Sh(lt * 0.3, 2) * 3) * sstep(0, 0.6, lt);
-  function clash10(lt) {
-    if (lt < 1.5) return fight10(lt);
-    if (lt < 2.5) return lerp(fight10(1.5), 150, eio((lt - 1.5) / 0.9)) + z5Sh(lt * 0.4, 3) * 2 * Math.sin(PI * clamp((lt - 1.5), 0, 1));
-    const u = (lt - 2.5) / 2.0, p = eio(u) - 0.035 * Math.sin(u * TAU * 2.5) * Math.sin(PI * clamp(u, 0, 1));
-    return lerp(150, 350, p) + z5Sh(lt * 0.4, 4) * 2.5;
+  // The meeting point is a contest in heaves: a pulse runs down one beam, lands, and that side drives the point a step;
+  // the other digs in and answers. The void wins the first exchanges (the hero is shoved back across the sky, crouched
+  // behind its blade); then the hero's surges carry it all the way to the colossus, and the hero follows its own light
+  // in, rises over the eye with the blade drawn back over its head, holds — and brings it down into the cut.
+  const CX10 = K({ t: 0, x: 262 }, { t: 0.2, x: 262 }, { t: 0.45, x: 272, e: 'io' }, { t: 0.72, x: 208, e: 'io' }, { t: 0.95, x: 218, e: 'o' },
+    { t: 1.22, x: 240, e: 'io' }, { t: 1.48, x: 180, e: 'io' }, { t: 1.7, x: 172, e: 'o' }, { t: 2.5, x: 164, e: 'io' }, { t: 2.66, x: 206, e: 'o' },
+    { t: 2.86, x: 198, e: 'io' }, { t: 3.08, x: 258, e: 'o' }, { t: 3.27, x: 250, e: 'io' }, { t: 3.5, x: 324, e: 'o' }, { t: 3.7, x: 318, e: 'io' }, { t: 3.92, x: 392, e: 'i' });
+  const VP10 = [0.45, 1.22], HP10 = [0.95, 2.5, 2.86, 3.27, 3.7], BR10 = 3.92, WU10 = 4.14, SW10 = 4.43;
+  const cx10 = (lt) => z5Trk(CX10, lt).x + z5Sh(lt * 0.4, 3) * 1.5 * sstep(0.2, 0.5, lt);
+  // the colossus is shoved back as the meeting point nears it, and rears when the light reaches its eye
+  const back10 = (lt) => Math.max(0, cx10(Math.min(lt, BR10)) - 290) * 0.22 + (lt > BR10 ? 8 * z5Step(lt - BR10, 9, 4) : 0);
+  const eye10 = (lt, t) => { const b = back10(lt); return [404 + b + z5Sh(t * 0.5, 5) * (1 + b * 0.08), 108 - b * 0.3 + z5Sh(t * 0.4, 6) * 0.8]; };
+  // a heave's pulse: g from launch (0) to landing (1)
+  const pulse10 = (lt, list, d) => list.map((h) => (lt - (h - d)) / d);
+  // the hero, tied to the contest: shoved back and crouched when it loses ground, leaning in and stretched when it gains
+  function hero10(lt) {
+    const t = 96 + lt, lc = Math.min(lt, BR10), c = cx10(lc), dc = (c - cx10(lc - 0.12)) / 0.12, lose = clamp(-dc / 240, 0, 1), gain = clamp(dc / 240, 0, 1);
+    const hx = (cc) => 98 - Math.max(0, 224 - cc) * 0.6;
+    const p = { S: 2.2, x: hx(c) + gain * 6 + z5Sh(t * 0.5, 7) * 1.2, y: 138 + lose * 3 + z5Sh(t * 0.45, 8) * 1.0,
+      a: 0.04 + gain * 0.16 - lose * 0.24 + z5Sh(t * 0.3, 9) * 0.02, sw: -0.04 - lose * 0.3 + gain * 0.05, sq: 0.14 + lose * 0.2 - gain * 0.24, reach: 2 + gain * 3,
+      spread: 1 + gain * 0.18 - lose * 0.14, flap: 0.2 + gain * 0.2, mouth: lt > 2.45 ? 2 : lose > 0.3 ? 1 : 0 };
+    if (lt >= BR10) {
+      // the breakthrough: in along its own beam on a rising arc, to above the eye
+      const [ex, ey] = eye10(lt, t), u = eic(lin(BR10, WU10, lt)), x0 = hx(cx10(BR10));
+      p.x = lerp(x0, ex - 86, u); p.y = lerp(138, ey + 6, u) - Math.sin(u * PI) * 30; p.a = lerp(0.1, -0.12, u); p.sw = lerp(-0.04, -0.5, u); p.sq = -0.2 * Math.sin(u * PI); p.reach = 0; p.spread = 1.1; p.mouth = 2;
+      // the wind-up: the body arches back and the blade goes up over its head and behind; held, trembling
+      const v = eoc(lin(WU10, WU10 + 0.13, lt)), hold = sstep(WU10 + 0.1, WU10 + 0.16, lt);
+      if (lt >= WU10) { p.x -= 6 * v; p.y -= 4 * v; p.a = -0.12 - 0.28 * v + z5Sh(t * 0.6, 10) * 0.025 * hold; p.sw = lerp(-0.5, -1.9, v); p.sq = 0.28 * v; p.spread = 1.1 - 0.5 * v; p.flap = 0.08; }
+      // and the stroke: two frames, landing on the cut
+      const w = EQ(lin(SW10, 4.5, lt));
+      if (lt >= SW10) { p.sw = lerp(-1.9, -0.25, w); p.a = lerp(-0.4, 0.28, w); p.sq = lerp(0.28, -0.25, w); p.x += 22 * w; p.y += 12 * w; p.spread = 1.3; p.flap = 0.3; }
+    }
+    return p;
+  }
+  // sparks thrown off the meeting point, up and down, carried toward the side that is giving way
+  function sparks10(cx, cy, t, push, n) {
+    for (let k = 0; k < n; k++) {
+      const life = frac(ih(k, 1, 5432) + t * (1.8 + ih(k, 4, 5432))), up = k & 1 ? -1 : 1, a = up * (PI / 2 - 0.2 - ih(k, 2, 5432) * 1.0) * (ih(k, 5, 5432) < 0.5 ? 1 : -1) + (ih(k, 5, 5432) < 0.5 ? 0 : PI), v = 50 + ih(k, 3, 5432) * 150;
+      const px = cx + Math.cos(a) * v * life + push * 90 * life, py = cy + Math.sin(a) * v * life + 110 * life * life;
+      if (bay(fl(px), fl(py)) > 1.1 - life) continue;
+      lineP(px, py, px - Math.cos(a) * 4 - push * 3, py - Math.sin(a) * 4, k % 3 === 0 ? 22 : px < cx ? 59 : 74);
+    }
   }
   function clashWide(lt, t) {
-    const cx = clash10(lt), cy = 132, surge = lt > 2.5 ? Math.exp(-(lt - 2.5) * 2) : 0;
+    const cx = cx10(Math.min(lt, BR10)), cy = 132, grow = eoc(lin(0, 0.2, lt)), brk = lt >= BR10 ? lt - BR10 : -1;
+    const dc = (cx - cx10(Math.max(0, Math.min(lt, BR10) - 0.1))) / 0.1, push = clamp(dc / 300, -1, 1);
+    const surge = HP10.reduce((m, h) => Math.max(m, lt > h ? Math.exp(-(lt - h) * 5) : 0), 0);
     z5Dawn(t, 196, t * 30, 40, 200);
+    // the sky splits at the meeting point: dawn on the hero's side, the void on its side, a prism seam between; when the
+    // light breaks through, the dawn floods the rest of the sky
+    const seam = brk < 0 ? cx : lerp(cx, 560, eoc(clamp(brk / 0.45, 0, 1)));
     for (let y = LB; y < H - LB; y++) {
-      const sx = cx + Math.sin(y * 0.07 + t * 5) * 7;
+      const sx = seam + Math.sin(y * 0.07 + t * 5) * 7;
       for (let x = Math.max(0, fl(sx)); x < W; x++) {
         const i = y * W + x;
         if (x < sx + 2) { BUF[i] = 22; continue; }
@@ -829,75 +1099,135 @@
       }
     }
     stars(t, 190, 30, 5231);
-    // the colossus leans into its beam, and is shoved back (and shudders) as the meeting point nears it
-    const back = Math.max(0, cx - 290) * 0.22, BX = 404 + back + z5Sh(t * 0.5, 5) * (1 + back * 0.08), BY = 108 - back * 0.3 + z5Sh(t * 0.4, 6) * 0.8;
-    unmaker(BX, BY, 2.0, t, { eyes: 2, broken: 1.25 + back * 0.004, halo: 1, heart: 1, arms: [[-50, 30, -88 + back * 0.8, 40 - back * 0.6, 1], [50, 30, 70 + back, 60 - back * 0.5, 0.5]], shake: 0.5 });
-    // the hero strains: shoved back as it loses ground (leaning back, crouched), forward into the surge; a smooth tremor,
-    // never a per-frame rattle
-    const push = cx < 200 ? (200 - cx) * 0.25 : 0, lean = clamp((cx - 248) * 0.0016, -0.18, 0.2), hx = 84 - push + z5Sh(t * 0.5, 7) * 1.5, hy = 136 + z5Sh(t * 0.45, 8) * 1;
-    z5Beam(BX - 6, BY - 4, cx, cy, 10, voidCol(t), t, 1);
-    const hero = z5Zenith(hx, hy, 2.2, t, { ang: lean + z5Sh(t * 0.3, 9) * 0.02, sw: -lean * 0.6, sq: 0.15 + Math.max(0, -lean) * 0.6 - surge * 0.2, spread: 1 + surge * 0.3, wt: t * 2, orbR: 26, auraR: 7 + surge * 12, mouth: lt > 2.5 ? 2 : 1, sparks: 16 });
-    z5Beam(hero.tip[0] - 4, hero.tip[1], cx, cy, 10 + surge * 8 + (lt > 2.5 ? 3 : 0), prismCol(t), t, 2);
-    if (surge > 0.2) shockRing(hx, hy, 10 + (1 - surge) * 260, 10 + (1 - surge) * 260, 4, [22, 60, 83], surge);
-    const R = 18 + Math.sin(t * 30) * 2 + lt * 3;
-    glow(cx, cy, R * 3, T_WH, 0.6);
-    for (let y = fl(cy - R); y <= cy + R; y++) for (let x = fl(cx - R); x <= cx + R; x++) { const d = Math.hypot(x - cx, y - cy) / R + (vn(x, y, 3, fl(t * 20)) - 0.5) * 0.4; if (d < 1) P(x, y, d < 0.5 ? 22 : x < cx ? PRISM[fl(d * 9 + t * 20) % 7] : 74); }
-    for (let k = 0; k < 4; k++) if (ih(k, fl(t * 15), 5233) < 0.7) { const a = ih(k, fl(t * 15) + 1, 5233) * TAU; bolt(cx, cy, cx + Math.cos(a) * 80, cy + Math.sin(a) * 60, fl(t * 15) + k * 5, 1, 22, k & 1 ? 74 : 83); }
-    shk(2.5 + surge * 4);
-    const zin = lt > 2.5 ? sstep(3.4, 3.8, lt) * (1 - sstep(4.3, 4.5, lt)) : sstep(0.6, 1.0, lt) * (1 - sstep(1.2, 1.5, lt)) * 0.5;
-    // the camera trails the meeting point a beat late (so the shoves read), with a kick when the surge starts
-    const lagx = clash10(Math.max(0, lt - 0.12));
-    z5Cam(1.04 + 0.55 * zin + z5Knock(lt - 2.5, 0.05, 12, 5), 0.05 * zin * z5Sh(t * 0.6, 10) + 0.006 * z5N(t, 11), lagx, cy, 240, 135);
+    // light spilled on the cloud tops under the meeting point: gold on the hero's side, magenta on the other
+    if (brk < 0.3) { glow(cx - 34, 204, 80, T_GOLD, 0.5 * grow); glow(cx + 34, 204, 80, T_MAG, 0.5 * grow); }
+    const [BX, BY] = eye10(lt, t), b = back10(lt), rear = brk > 0 ? z5Knock(brk, 1, 9, 3.5) : 0;
+    unmaker(BX, BY, 2.0, t, { eyes: 2, broken: 1.25 + b * 0.004, halo: 1, heart: 1, nod: -rear * 4, tilt: rear * 0.12, shake: 0.5 + rear * 1.5,
+      arms: [[-50, 30, -88 + b * 0.8 - rear * 10, 40 - b * 0.6 - rear * 50, 1], [50, 30, 70 + b + rear * 10, 60 - b * 0.5 - rear * 40, 0.5 + rear * 0.5]] });
+    // the void beam: a dark pulse runs down it before each of its heaves; driven back into the eye at the end
+    const ve = [BX - 6, BY - 4], vl = Math.hypot(cx - ve[0], cy - ve[1]), vg = pulse10(lt, VP10, 0.28);
+    const vw = (s) => { let k = 1; for (const g of vg) if (g > 0 && g < 1.2) k += 0.9 * Math.exp(-(((s - g * vl) / 16) ** 2)); return k; };
+    const vend = brk < 0 ? lerp(0, 1, grow) : 1 - eoc(clamp(brk / 0.1, 0, 1));
+    if (vend > 0.02) z5Beam(ve[0], ve[1], lerp(ve[0], cx, vend), lerp(ve[1], cy, vend), 10 - Math.max(0, brk) * 40, voidCol(t), t, 1, vw);
+    const hero = z5Fight(hero10, lt, { S: 2.2, orbR: 26, auraR: 7 + surge * 10, rim: [1, -0.25, 75], flap: 2 });
+    const tip = hero.tip, hl = Math.hypot(cx - tip[0], cy - tip[1]), hg = pulse10(lt, HP10, 0.22);
+    const hw = (s) => { let k = 1; for (const g of hg) if (g > 0 && g < 1.2) k += 0.8 * Math.exp(-(((s - g * hl) / 14) ** 2)); return k; };
+    // the prism beam, swelling on each surge; at the breakthrough it reaches the eye, then the hero is the light
+    const pend = brk < 0 ? grow : 1, pfade = brk < 0 ? 1 : 1 - lin(0.08, 0.2, brk);
+    if (pfade > 0.02) { const tx = brk < 0 ? cx : lerp(cx, BX, eoc(clamp(brk / 0.06, 0, 1))), ty = brk < 0 ? cy : lerp(cy, BY - 4, eoc(clamp(brk / 0.06, 0, 1))); z5Beam(tip[0] - 4, tip[1], lerp(tip[0], tx, pend), lerp(tip[1], ty, pend), (10 + surge * 6 + (lt > 2.5 ? 3 : 0)) * pfade, prismCol(t), t, 2, hw); }
+    for (const g of hg) if (g > 1 && g < 1.5) shockRing(cx, cy, 6 + (g - 1) * 160, 6 + (g - 1) * 160, 3, [22, 60, 83], 1 - (g - 1) / 0.5);
+    for (const g of vg) if (g > 1 && g < 1.5) shockRing(cx, cy, 6 + (g - 1) * 160, 6 + (g - 1) * 160, 3, [75, 73, 71], 1 - (g - 1) / 0.5);
+    if (brk < 0 && lt > 0.17) {
+      // the meeting point: a knot of both lights, boiling, throwing sparks and arcs
+      const R = 16 + Math.sin(t * 30) * 2 + surge * 6 + Math.min(lt, 3) * 2;
+      glow(cx, cy, R * 2.6, T_WH, 0.5);
+      for (let y = fl(cy - R); y <= cy + R; y++) for (let x = fl(cx - R); x <= cx + R; x++) { const d = Math.hypot(x - cx, y - cy) / R + (vn(x, y, 3, fl(t * 20)) - 0.5) * 0.4; if (d < 1) P(x, y, d < 0.45 ? 22 : x < cx + push * R * 0.5 ? PRISM[fl(d * 9 + t * 20) % 7] : 74); }
+      sparks10(cx, cy, t, push, 40);
+      for (let k = 0; k < 4; k++) if (ih(k, fl(t * 15), 5233) < 0.6) { const a = ih(k, fl(t * 15) + 1, 5233) * TAU; bolt(cx, cy, cx + Math.cos(a) * 70, cy + Math.sin(a) * 50, fl(t * 15) + k * 5, 1, 22, k & 1 ? 74 : 83); }
+      if (lt < 0.27) { const g = lt - 0.2; if (g > 0) { burst(cx, cy, g / 0.2, 70, 12, 0.4, [22, 60], 2); shk(4); } }
+    }
+    if (brk >= 0 && brk < 0.4) { z5Hit(BX, BY - 4, brk, 1.2, 0, 60, 5435); glow(BX, BY, 90 * (1 - brk / 0.4), T_WH, 0.6); }
+    // the hero's dash leaves a wake of light along the beam's path
+    if (brk > 0 && lt < WU10 + 0.05) streaks(-0.25, 30, t, 2400, 60, 60, 5436, [0, 60, W, 120]);
+    // the wind-up, held: light gathers to the raised blade
+    if (lt >= WU10 && lt < SW10) { const v = lin(WU10, SW10, lt); for (let k = 0; k < 18; k++) { const u = frac(ih(k, 1, 5437) + t * 2.5), a = ih(k, 2, 5437) * TAU, r = (1 - u) * 70 + 4; P(hero.tip[0] + Math.cos(a) * r, hero.tip[1] + Math.sin(a) * r, u > 0.6 ? 22 : 60); } glow(hero.tip[0], hero.tip[1], 30 + v * 20, T_WH, 0.5); }
+    shk(1.5 + surge * 3 + (brk >= 0 && brk < 0.25 ? 4 : 0));
+    // the camera trails the meeting point a beat late (so the shoves read), kicked by every heave that lands; at the
+    // breakthrough it rushes in with the hero to the eye
+    let kick = 0; for (const g of hg.concat(vg)) if (g > 1) kick += 0.035 * Math.exp(-(g - 1) * 2);
+    const u = eio(lin(BR10, WU10 + 0.08, lt)), lagx = cx10(Math.max(0, Math.min(lt, BR10) - 0.15));
+    z5Cam(lerp(1.05 + kick, 1.38, u) + (lt > SW10 ? 0.05 * EQ(lin(SW10, 4.5, lt)) : 0), lerp(0.006 * z5N(t, 11), -0.04, u), lerp(lerp(240, lagx, 0.3), BX - 58, u), lerp(135, BY - 14, u), 240, 135);
   }
-  shot(96.0, 100.5, (lt, t) => {
-    if (lt < 1.7 || lt >= 2.5) { clashWide(lt, t); return; }
-    // the hero, close: the void beam pushing the blade back, the light on its face
-    // driven back: it gives ground in heaves, trembling, and coils (squashes) for the surge in the last beat
-    const u = lt - 1.7, coil = sstep(0.45, 0.78, u), HX = 170 - eio(u / 0.8) * 12 - Math.max(0, Math.sin(u * 9)) * 2 + z5Sh(t * 0.6, 12) * 1.2, HY = 150 + z5Sh(t * 0.5, 13) * 1 + coil * 3;
+  // the hero, close: the void beam bearing on the blade; it is driven back in two shoves, trembling, then gathers itself
+  function clashClose(lt, t) {
+    const u = lt - 1.7, kb = z5Step(u - 0.08, 11, 5) + z5Step(u - 0.42, 11, 5), jolt = z5Knock(u - 0.08, 1, 15, 6) + z5Knock(u - 0.42, 1, 15, 6), coil = sstep(0.5, 0.78, u);
+    const HX = 172 - kb * 9 + z5Sh(t * 0.6, 12) * 1.2 - jolt * 5, HY = 152 + z5Sh(t * 0.5, 13) * 1 + coil * 3 + jolt * 2;
     gradient(LB, H - LB, [77, 78, 79, 80, 79]);
     streaks(PI, 50, t, 2400, 74, 70, 5241, [0, LB, W, H - 2 * LB]);
-    z5Beam(W + 20, 128, HX + 100, 128, 26, voidCol(t), t, 1);
-    const hero = z5Zenith(HX, HY, 5.4, t, { ang: -0.06 - coil * 0.05 + z5Sh(t * 0.35, 14) * 0.015, sw: -0.05 + z5Sh(t * 0.5, 15) * 0.03, sq: 0.22 + coil * 0.12, spread: 0.85 + 0.15 * Math.sin(t * 30) - coil * 0.1, wt: t * 3, mouth: u > 0.6 ? 2 : 1, orbR: 66, auraR: 16, sparks: 30 });
-    glow(hero.tip[0], hero.tip[1], 90, T_WH, 0.7); discF(hero.tip[0], hero.tip[1], 14 + Math.sin(t * 40) * 3, 22);
-    for (let k = 0; k < 5; k++) if (ih(k, fl(t * 15), 5242) < 0.7) bolt(hero.tip[0], hero.tip[1], hero.tip[0] + 40 + ih(k, 1, fl(t * 15)) * 100, hero.tip[1] + (ih(k, 2, fl(t * 15)) - 0.5) * 140, fl(t * 15) + k, 1, 22, 74);
-    glow(HX + 60, HY, 200, T_MAG, 0.25);
-    shk(3);
-    z5Cam(1 + eio(u / 0.8) * 0.12, -0.04 + z5Sh(t * 0.3, 16) * 0.006, 170 - eio(Math.max(0, u - 0.1) / 0.8) * 12 + 30, 140, 240, 135);
-  });
+    const C = [HX + 252, HY - 30];
+    const vw = (s) => { let k = 1; for (const h of [0.08, 0.42]) { const g = (u - h + 0.25) / 0.25; if (g > 0 && g < 1.2) k += 0.7 * Math.exp(-((((W + 20 - C[0]) * g - s) / 22) ** 2)); } return k; };
+    z5Beam(W + 20, C[1] + 4, C[0], C[1], 24, voidCol(t), t, 1, vw);
+    const hero = z5Zenith(HX, HY, 5.4, t, { ang: -0.06 - coil * 0.05 - jolt * 0.05 + z5Sh(t * 0.35, 14) * 0.015, sw: -0.12 - jolt * 0.12 + z5Sh(t * 0.5, 15) * 0.03, sq: 0.2 + coil * 0.14 + jolt * 0.1, spread: 0.9 + 0.1 * Math.sin(t * 30) - coil * 0.25, wt: t * 3, mouth: u > 0.55 ? 2 : 1, orbR: 66, auraR: 14 + coil * 6, sparks: 30, rim: [1, -0.2, 74] });
+    // the contact, on the blade: a white knot boiling, sparks streaming back past the hero toward the lens
+    const cp = [lerp(hero.hand[0], hero.tip[0], 0.82), lerp(hero.hand[1], hero.tip[1], 0.82)];
+    glow(cp[0], cp[1], 90, T_WH, 0.6); discF(cp[0], cp[1], 12 + Math.sin(t * 40) * 3 + jolt * 6, 22);
+    for (let k = 0; k < 44; k++) { const life = frac(ih(k, 1, 5442) + t * (2.5 + ih(k, 2, 5442))), x = cp[0] - life * 560, y = cp[1] + (ih(k, 3, 5442) - 0.5) * life * 300 + life * life * 40; if (bay(fl(x), fl(y)) > 1.2 - life) continue; lineP(x, y, x + 6 + life * 10, y, k % 3 ? (k & 1 ? 75 : 59) : 22); }
+    for (let k = 0; k < 4; k++) if (ih(k, fl(t * 15), 5242) < 0.7) bolt(cp[0], cp[1], cp[0] + 40 + ih(k, 1, fl(t * 15)) * 100, cp[1] + (ih(k, 2, fl(t * 15)) - 0.5) * 140, fl(t * 15) + k, 1, 22, 74);
+    glow(HX + 60, HY, 200, T_MAG, 0.2);
+    shk(2.5 + jolt * 4);
+    z5Cam(1 + eio(u / 0.8) * 0.12 + jolt * 0.03, -0.04 + z5Sh(t * 0.3, 16) * 0.006, HX + 70, 140, 240, 135);
+  }
+  shot(96.0, 100.5, (lt, t) => { if (lt < 1.7 || lt >= 2.5) clashWide(lt, t); else clashClose(lt, t); });
   CAPS.push([98.5, 100.3, 's', 'HERO', 'FOR EVERY STORY!']);
 
   /* ================================================================ 11 — STRIKE (1:40.5–1:44) */
+  // The overhead stroke lands on the cut: one frame of ink and light, a held beat with the blade buried in the eye (hit-
+  // stop), then the body is carried on down through it and out below. The cut it leaves splits the eye along the blade's
+  // path, and the two halves slide apart on a seam of light.
+  const S11 = 2.6, HK11 = K(
+    { t: 0, x: 168, y: 122, a: 0.3, sw: 0.1, sq: -0.22, reach: 4, spread: 1.3, flap: 0.3, mouth: 2 },
+    { t: 0.1, x: 226, y: 172, a: 0.6, sw: 1.4, sq: -0.08, reach: 2, e: 'o' },
+    { t: 0.3, x: 300, y: 214, a: 0.42, sw: 1.65, sq: 0.06, spread: 1.1, e: 'o' },
+    { t: 0.75, x: 330, y: 222, a: 0.2, sw: 1.3, sq: 0.1, spread: 1, flap: 0.2, e: 'io' });
+  HK11.arcs = new Map([[0.1, -8], [0.3, -6]]);
+  const HP11 = z5Blade(z5Pose(HK11, 0), S11, 0.7), CUT11 = 0.86;
+  // the eye split along a line through (cx, cy) at angle a: the halves are pushed apart by open px (copied from TMP), the
+  // seam between them burns; only along the length the blade has passed (from -L0 to L1 along the line)
+  function z5Split(cx, cy, R, a, open, L0, L1, t) {
+    TMP.set(BUF);
+    const ca = Math.cos(a), sa = Math.sin(a), x0 = Math.max(0, fl(cx - R * 1.3)), x1 = Math.min(W - 1, Math.ceil(cx + R * 1.3)), y0 = Math.max(LB, fl(cy - R * 1.3)), y1 = Math.min(H - LB - 1, Math.ceil(cy + R * 1.3));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const dx = x + 0.5 - cx, dy = y + 0.5 - cy, along = dx * ca + dy * sa, s = -dx * sa + dy * ca;
+      if (along < -L0 || along > L1) continue;
+      const taper = Math.min(1, (along + L0) / 30, (L1 - along) / 30), o = open * Math.max(0, taper), as = Math.abs(s);
+      const i = y * W + x;
+      if (as < o) { const f = as / Math.max(1, o); BUF[i] = f < 0.35 ? 22 : f < 0.7 ? (bay(x, y) < 0.5 ? 22 : 60) : 59; continue; }
+      if (as < o + 1.2) { BUF[i] = 58; continue; }
+      const sg = s > 0 ? 1 : -1, sx = fl(x - (-sa) * sg * o), sy = fl(y - ca * sg * o);
+      if (sx >= 0 && sy >= 0 && sx < W && sy < H) BUF[i] = TMP[sy * W + sx];
+    }
+  }
   shot(100.5, 101.35, (lt, t) => {
+    lt += 1e-6;
+    const [tt, frz] = stopClock(lt, [0], 0.1); FRZ = frz ? 2.5 : 0;
+    const tw = frz ? 100.5 : t - 0.1, EX = HP11[0], EY = HP11[1], R = 116;
     gradient(LB, H - LB, [80, 62, 71, 72, 73]);
-    radialLines(240, 140, 80, 50, 76, t, 5251);
-    radialLines(240, 140, 50, 70, 83, t, 5252);
-    radialLines(240, 140, 30, 90, 22, t, 5253);
-    // the void beam, split by the blade, peeling away either side
-    const sp = eoc(lt / 0.85);
-    z5Beam(240, 150, -60, 150 - sp * 120, 16 + sp * 20, voidCol(t), t, 1); z5Beam(240, 150, 540, 150 - sp * 120, 16 + sp * 20, voidCol(t), t, 2);
-    z5Sunburst(240, 160, 16, t * 2, 20, 260, 0.06);
-    // the cut is already moving as the shot opens: the blade comes down through the beam (life() swings it past), the body
-    // tips forward into the stroke and drives at the lens
-    const dr = eic(lt / 0.85);
-    z5Zenith(240 + z5Sh(t * 0.5, 1) * 1.5, lerp(178, 196, dr), lerp(4.4, 6.2, dr), t, { ang: lerp(-0.12, 0.1, eoc(lt / 0.4)), sw: lerp(-1.25, -0.35, eoc(lt / 0.22)), mouth: 2, spread: 0.8 - dr * 0.15, wt: t * 4, orbR: 70, auraR: 22 + lt * 10, sparks: 40, sq: -0.12 * dr + z5Sh(t * 0.8, 2) * 0.04 });
-    shk(4);
-    z5Cam(1 + lt * 0.15, 0, 240, 170);
-    zoomBlur(240, 160, 0.08 + lt * 0.1);
+    radialLines(EX, EY, 60, 70, 76, tw, 5251);
+    glow(EX, EY, 200, T_MAG, 0.3);
+    spiralEye(EX, EY, R, tw, 1);
+    // the cut runs along the blade's path as it passes, then opens; light pours out of the seam
+    const pass = eoc(clamp(tt / 0.14, 0, 1)), open = 2 + eoc(lin(0.16, 0.75, lt)) * 16;
+    z5Split(EX, EY, R, CUT11, open, 30, 30 + pass * R * 1.2, tw);
+    const ca = Math.cos(CUT11), sa = Math.sin(CUT11), go = lt - 0.12;
+    if (go > 0) for (let k = 0; k < 9; k++) { const u = (k + 0.5) / 9, along = lerp(-20, R * 1.1, u), px = EX + ca * along, py = EY + sa * along, sd = k & 1 ? 1 : -1; z5Ray(px, py, CUT11 + sd * PI / 2 + (ih(k, 1, 5255) - 0.5) * 0.5, 40 + eoc(go / 0.5) * 220, 4 + eoc(go / 0.5) * 6, 22, PRISM[k % 7], 0.9); }
+    const hero = z5Fight(HK11, tt, { S: S11, auraR: 10, rim: [0.6, 0.8, 22], flap: 2.4 });
+    // the stroke's arc, still in the air as the shot opens (held through the hit-stop)
+    if (tt < 0.06) z5Arc(hero.hand[0], hero.hand[1], -2.25 + 0.3, 2.25, 29 * S11 * 1.03, tt / 0.06 * 0.8);
+    z5Hit(EX, EY, lt - 0.0, 1.6, CUT11, 60, 5256);
+    if (lt < 0.02) impactFrame(EX, EY, 1);
+    shk(5 * Math.exp(-lt * 3) + 1.5);
+    // the camera: knocked on the blow, then drawn along after the body as it goes on through
+    z5Cam(1.02 + 0.1 * Math.exp(-lt * 6) + 0.06 * eio(lin(0.2, 0.85, lt)), 0.05 * Math.exp(-lt * 5) + 0.01 * z5N(t, 3), lerp(EX - 16, EX + 6, eio(lin(0.1, 0.85, lt))), lerp(EY + 4, EY + 14, eio(lin(0.1, 0.85, lt))), 240, 135);
   });
   CAPS.push([100.5, 101.4, 'x', '', 'STRIKE!', 52]);
+  // the colossus's face, the cut through its eye blazing open
+  function cutFace(BX, BY, s, t, lt, wide) {
+    const ex = BX, ey = BY - 2 * s, R = 22 * s;
+    z5Split(ex, ey, R, CUT11, wide, R * 1.15, R * 1.15, t);
+    glow(ex, ey, R * 2.4, T_WH, 0.45);
+    for (let k = 0; k < 7; k++) { const u = (k + 0.5) / 7, along = lerp(-R, R, u), sd = k & 1 ? 1 : -1; z5Ray(ex + Math.cos(CUT11) * along, ey + Math.sin(CUT11) * along, CUT11 + sd * PI / 2 + (ih(k, 2, 5265) - 0.5) * 0.6, 60 + lt * 140, 4 + lt * 4, 22, PRISM[(k * 3) % 7], 1); }
+  }
   shot(101.35, 101.85, (lt, t) => {
-    gradient(LB, H - LB, VOIDSKY);
-    spiralEye(240, 135, 160 + lt * 40, t, 1);
-    const in_ = eic(lin(0, 0.06, lt));
-    z5Zenith(lerp(140, 228, in_), 135, 1.6, t, { sw: 0, reach: 4, spread: 0.7, auraR: 8 });
-    const g = lt - 0.06;
-    if (g > 0) {
-      for (let k = 0; k < 12; k++) { const a = k / 12 * TAU + ih(k, 1, 5261) * 0.4; bolt(240, 135, 240 + Math.cos(a) * 300 * eoc(g / 0.3), 135 + Math.sin(a) * 300 * eoc(g / 0.3), k + 3, 2, 22, 60, 0.18); }
-      glow(240, 135, 120, T_WH, 0.9);
-      if (g < 0.034) flashWhite(1); else if (g < 0.134) impactFrame(240, 135, 0); else if (g < 0.2) impactFrame(240, 135, 1);
-      shk(8);
-    }
-    z5Cam(1 + lt * 0.3, 0, 240, 135);
+    const BX = 246, BY = 104 - lt * 6, s = 2.6;
+    gradient(LB, H - LB, VOIDSKY); stars(t, H, 60, 5262);
+    z5GodRays(BX, BY - 5, 9, t * 0.6, T_WH, 0.45 + lt * 0.3, 380);
+    unmaker(BX, BY, s, t, { eyes: 2, broken: 1.25, halo: 1, heart: 1, shake: 2, nod: -3, arms: [[-50, 30, -96, -10 - lt * 40, 1], [50, 30, 96, -20 - lt * 40, 1]] });
+    cutFace(BX, BY, s, t, lt, 8 + eoc(lt / 0.5) * 10);
+    // the hero, gone on through and below, turning back to look; lit from behind by the cut
+    const hx = 150 + eoc(lt / 0.5) * 10, hy = 196 - eoc(lt / 0.5) * 8;
+    z5Zenith(hx, hy, 1.8, t, { ang: 0.25 - eoc(lt / 0.5) * 0.2, sw: 1.3 - eoc(lt / 0.5) * 0.3, spread: 1, auraR: 4, sparks: 6, rim: [0.55, -0.83, 22] });
+    shk(3 * Math.exp(-lt * 4) + 1);
+    z5Cam(1.06 + lt * 0.08, 0.01 * z5N(t, 4), 230, 140, 240, 135);
   });
   // the light pours out of the colossus through cracks everywhere
   const CR11 = []; for (let k = 0; k < 600 && CR11.length < 26; k++) { const lx = (ih(k, 1, 5271) - 0.5) * 120, ly = ih(k, 2, 5271) * 120 + 18; if (bodyInside(lx, ly, 0) && bodyInside(lx + 6, ly, 0) && bodyInside(lx - 6, ly, 0)) CR11.push([lx, ly, ih(k, 3, 5271) * TAU]); }
@@ -908,16 +1238,21 @@
     cloudBank(236, 20, 60, 5283, t * 6, [77, 78, 79, 62], false);
     unmaker(BX, BY, s, t, { eyes: 2, broken: 1.25, halo: 1 - lt * 0.3, heart: 1, shake: 2, arms: [[-50, 30, -84 + Math.sin(t * 13) * 10, -40, 1], [50, 30, 90, -30 + Math.sin(t * 11) * 10, 1]] });
     const ex = BX, ey = BY - 2 * s;
-    for (let k = 0; k < 8; k++) z5Ray(ex, ey, k / 8 * TAU + t * 0.5, 90 + lt * 160, 5 + lt * 3, 22, PRISM[k % 7], 1);
+    // the cut through the eye still burning open (it widens as the light swells), and the light leaking out of it
+    cutFace(BX, BY, s, t, 0.5 + lt * 0.4, 14 + lt * 6);
+    for (let k = 0; k < 8; k++) z5Ray(ex, ey, k / 8 * TAU + t * 0.5, 90 + lt * 150, 4 + lt * 2.5, 22, PRISM[k % 7], 0.8);
+    // then the cracks: the light finds every seam in the body, one after another
     for (let k = 0; k < CR11.length; k++) {
       const g = lt - 0.05 - k * 0.07; if (g < 0) continue;
       const [lx, ly, a] = CR11[k], cx = BX + lx * s, cy = BY + ly * s, len = 6 + eoc(g / 0.2) * 14, oa = Math.atan2(cy - ey, cx - ex) + Math.sin(k) * 0.3;
-      glow(cx, cy, 26 + g * 20, T_WH, 0.8);
-      z5Ray(cx, cy, oa, 30 + eoc(g / 0.6) * 220, 3 + g * 4, 22, 60, 1);
+      glow(cx, cy, 18 + g * 10, T_WH, 0.45);
+      z5Ray(cx, cy, oa, 30 + eoc(g / 0.6) * 200, 2.5 + g * 3, 22, k % 3 ? 60 : PRISM[k % 7], 0.85);
       bolt(cx - Math.cos(a) * len, cy - Math.sin(a) * len, cx + Math.cos(a) * len, cy + Math.sin(a) * len, k, 3, 22, 60, 0.35);
       if (g < 0.06) shk(3);
     }
-    glow(ex, ey, 70 + lt * 70, T_WH, 0.9); sparkle(ex, ey, 16 + Math.sin(t * 30) * 4 + lt * 10, 22, 60); discF(ex, ey, 6 + lt * 4, 22);
+    sparkle(ex, ey, 16 + Math.sin(t * 30) * 4 + lt * 10, 22, 60); discF(ex, ey, 5 + lt * 3, 22);
+    // the hero below, small against all that light, hanging in the air, its edge lit by it
+    z5Zenith(150 - lt * 4, 206 - eio(lt / 2.1) * 6, 1.5, t, { ang: 0.05 + Math.sin(t * 1.3) * 0.03, sw: 1.0, spread: 1, auraR: 4, sparks: 6, rim: [0.6, -0.8, 22] });
     shk(2 + lt * 2.5);
     z5Cam(1 + lt * 0.07, 0, 240, 120);
     flashWhite(sstep(1.85, 2.15, lt));
@@ -952,8 +1287,8 @@
     z5Sunburst(CX, CY, 20, t * 0.6, 10, 140 + lt * 200, 0.08 * Math.max(0, 1 - lt / 1.4), [22, 60, 59]);
     shards12(CX, CY, 2.1, lt, t);
     // the blast lifts the hero (with the shards), and it rides it out and settles, wings beating hard then easing
-    z5Zenith(CX + z5N(lt, 1) * 1.5, CY - 4 - z5Knock(lt, 6, 6, 2.6), 1.4, t, { sw: -0.6 + z5Knock(lt - 0.05, -0.4, 9, 3), spread: 1, flap: 0.24 + 0.2 * Math.exp(-lt * 2), wt: t * (1 + Math.exp(-lt * 2)), auraR: 6, sparks: 10 });
-    glow(CX, CY, 90 * (1 - lt / 1.6), T_WH, 0.8);
+    z5Zenith(CX + z5N(lt, 1) * 1.5, CY - 4 - z5Knock(lt, 6, 6, 2.6), 1.4, t, { sw: -0.6 + z5Knock(lt - 0.05, -0.4, 9, 3), spread: 1, flap: 0.24 + 0.2 * Math.exp(-lt * 2), wt: t * (1 + Math.exp(-lt * 2)), auraR: 6, sparks: 10, rim: [0.8, 0.6, 15] });
+    glow(CX, CY, 90 * (1 - lt / 1.6), T_WH, 0.5);
     if (lt < 0.067) flashWhite(1);
     shk(8 * Math.exp(-lt * 2.5));
     z5Cam(1.12 - 0.1 * eoc(lt / 1.6), 0, CX, CY + 20, 240, 135);
@@ -971,7 +1306,7 @@
     if (sg > 0 && sg < 0.5) { sparkle(jagX(RY1), RY1, 18 * (1 - sg / 0.5), 22, 60); glow(jagX(RY1), RY1, 70, T_WH, 0.7 * (1 - sg / 0.5)); }
     for (let k = 0; k < 70; k++) { const u = frac(ih(k, 1, 5311) + t * 0.12), x = ih(k, 2, 5311) * W + Math.sin(t * 1.5 + k) * 8, y = LB + u * 200; if (fl(t * 12 + k) % 5) P(x, y, PRISM[k % 7]); else sparkle(x, y, 2, 22, PRISM[k % 7]); }
     // floating in the healed sky, drifting toward the seam as it closes, turning gently to watch it
-    z5Zenith(158 + eio(lt / 2.4) * 10 + z5N(lt * 0.5, 2) * 2, 120 + Math.sin(t * 1.6) * 3, 1.6, t, { ang: 0.04 * Math.sin(t * 0.9), sw: -1.0 + Math.sin(t * 1.1) * 0.06, spread: 1, orbR: 18, auraR: 5, sparks: 8 });
+    z5Zenith(158 + eio(lt / 2.4) * 10 + z5N(lt * 0.5, 2) * 2, 120 + Math.sin(t * 1.6) * 3, 1.6, t, { ang: 0.04 * Math.sin(t * 0.9), sw: -1.0 + Math.sin(t * 1.1) * 0.06, spread: 1, orbR: 18, auraR: 5, sparks: 8, rim: [0.9, 0.45, 15] });
     z5Cam(1.06 - 0.05 * eio(lt / 2.4), 0.006 * z5N(t * 0.6, 3), 240 + z5N(t * 0.4, 4) * 3, 135, 240, 135);
   });
 
