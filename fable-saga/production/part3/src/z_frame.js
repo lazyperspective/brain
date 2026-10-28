@@ -25,6 +25,7 @@
     T_NOW = t; SHAKE_A = 0; FRZ = 0; BUF.fill(0);
     let S = SHOTS[0];
     for (const s of SHOTS) if (t >= s.t0) S = s;
+    lifeTick(t, S);
     S.fn(t - S.t0, t);
     for (const [wt, dir] of WHIPS) { const d = Math.abs(t - wt); if (d < 0.1) whip(80 * (1 - d / 0.1), dir); }
     letterbox(LB);
@@ -32,7 +33,9 @@
     if (S.post) S.post(t - S.t0, t);
     drawCaptions(t);
     const f = fl(t * 30);
-    SHX = Math.round((ih(f, 1, 901) - 0.5) * 2 * SHAKE_A); SHY = Math.round((ih(f, 2, 901) - 0.5) * 2 * SHAKE_A);
+    // shake is a camera being knocked about, not static: smooth noise (a few wobbles a second) rather than a new random spot every frame
+    const nz = (k) => Math.sin(t * 37.1 + k) * 0.55 + Math.sin(t * 59.3 + k * 2.3) * 0.3 + (ih(f, k, 901) - 0.5) * 0.3;
+    SHX = Math.round(nz(1) * 1.6 * SHAKE_A); SHY = Math.round(nz(2) * 1.6 * SHAKE_A);
   }
 
   /* ================================================================ present */

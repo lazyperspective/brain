@@ -72,16 +72,20 @@
     const ca = Math.cos(a), sa = Math.sin(a), mx = bx + ca * L * 0.32, my = by + sa * L * 0.32, tx = bx + ca * L, ty = by + sa * L;
     z5Tri(bx, by, mx - sa * w, my + ca * w, tx, ty, c); z5Tri(bx, by, mx + sa * w, my - ca * w, tx, ty, c);
   }
+  // a wingbeat: a quick downstroke and a slower recovery (the phase is skewed); returns -1 (down) .. 1 (up)
+  const z5Beat = (t) => Math.sin(t * 3 - 0.5 * Math.cos(t * 3));
+  // the body rides the wings: it is lifted on the downstroke and sinks while they recover (in pixels, for scale S)
+  const z5Bob = (t, S, flap) => z5Beat(t) * Math.min(1, (flap === undefined ? 0.24 : flap) / 0.24) * 0.9 * S;
   function z5Wings(x, y, s, t, spread, flap) {
     if (spread <= 0.02) return;
-    const beat = Math.sin(t * 3) * (flap === undefined ? 0.07 : flap), sh = fl(t * 8);
+    const amp = flap === undefined ? 0.24 : flap, sh = fl(t * 8);
     glow(x, y - 8 * s, 70 * s * spread, T_GOLD, 0.3 * spread);
     for (const sd of [-1, 1]) {
-      const arm = -0.78 - beat + (1 - spread) * 1.3, ax = Math.cos(arm) * sd, ay = Math.sin(arm), Lw = 40 * s * (0.35 + 0.65 * spread);
+      const beat = z5Beat(t) * amp, arm = -0.78 - beat + (1 - spread) * 1.3, ax = Math.cos(arm) * sd, ay = Math.sin(arm), Lw = 40 * s * (0.35 + 0.65 * spread);
       const RANKS = [[9, 1, 0], [8, 0.62, 1], [7, 0.36, 2]];
       for (const [N, len, rank] of RANKS) for (let j = N - 1; j >= 0; j--) {
         const u = (j + 0.6) / N, bx = x + ax * Lw * u, by = y + ay * Lw * u - Math.sin(u * PI) * 5 * s;
-        const fr = lerp(PI / 2 - 0.12, -0.15 - beat * 1.5, Math.pow(u, 1.25)) - (1 - spread) * 0.5, fa = sd > 0 ? fr : PI - fr;
+        const bu = z5Beat(t - 0.12 * u) * amp, fr = lerp(PI / 2 - 0.12, -0.15 - bu * 1.5, Math.pow(u, 1.25)) - (1 - spread) * 0.5, fa = sd > 0 ? fr : PI - fr;
         const L = s * (15 + 30 * u) * len * (0.45 + 0.55 * spread), w = s * (4.4 - rank * 0.8);
         const fill = rank === 0 ? PRISM[(j + sh) % 7] : rank === 1 ? 60 : 22, rim = rank === 0 ? 22 : rank === 1 ? 59 : 60;
         z5Kite(bx - Math.cos(fa) * 1.2, by - Math.sin(fa) * 1.2, fa, L + 2.4, w + 1.1, rim);
@@ -124,8 +128,9 @@
     const ang = o.ang || 0, sp = o.spread === undefined ? 1 : o.spread;
     if (o.rays) z5Sunburst(x, y, 14, t * 0.35, 6 * S, o.rays, 0.09);
     if (o.orbR) z5Orbs(x, y, o.orbR, t, o.orbr || S * 1.3, o.tilt || 0.38, false);
-    z5Wings(x - Math.sin(ang) * 6 * S, y - Math.cos(ang) * 6 * S, S * (o.ws || 0.6), o.wt === undefined ? t : o.wt, sp, o.flap);
-    const a = actor(HEROZ({ eyes: o.eyes || 'glow', mouth: o.mouth, sword: o.sw, swordCols: z5Sw(t), legs: o.legs, sq: o.sq, reach: o.reach }), x, y, S, ang, !!o.flip, { white: o.white, after: o.after });
+    const wt = o.wt === undefined ? t : o.wt, bob = z5Bob(wt, S, o.flap) * sp;
+    z5Wings(x - Math.sin(ang) * 6 * S, y + bob - Math.cos(ang) * 6 * S, S * (o.ws || 0.6), wt, sp, o.flap);
+    const a = actor(HEROZ({ eyes: o.eyes || 'glow', mouth: o.mouth, sword: o.sw, swordCols: z5Sw(t), legs: o.legs, sq: o.sq, reach: o.reach }), x, y, S, ang, !!o.flip, { white: o.white, after: o.after, bob });
     z5Eyes();
     aura(t, o.auraC || ZEN_AURA, o.auraR || 3 * S, { sparks: o.sparks === undefined ? 12 : o.sparks, rise: o.rise });
     if (o.orbR) z5Orbs(x, y, o.orbR, t, o.orbr || S * 1.3, o.tilt || 0.38, true);
@@ -135,14 +140,15 @@
   function z5Fight(keys, lt, base) {
     const p = trk(keys, lt), q = trk(keys, lt - 1 / 30), q2 = trk(keys, lt - 2 / 30);
     const vx = (p.x - q.x) * 30, vy = (p.y - q.y) * 30, sp = Math.hypot(vx, vy), S = p.S || base.S || 2;
-    const lean = p.nolean ? 0 : clamp(vx / 1300, -0.45, 0.45), sq = (p.sq || 0) + (sp > 150 ? clamp((Math.abs(vx) - Math.abs(vy)) / 2400, -0.4, 0.4) : 0);
+    const lean = 0, sq = p.sq || 0;                      // leaning and stretching with speed is done by life() now
     const vib = (p.vib || 0) + FRZ, f = fl(T_NOW * 30), jx = vib ? Math.round((ih(f, 3, 601) - 0.5) * 2 * vib) : 0, jy = vib ? Math.round((ih(f, 4, 601) - 0.5) * 2 * vib) : 0;
     const ang = (p.a || 0) + lean, x = p.x + jx, y = p.y + jy, t = T_NOW;
     if (base.orbR) z5Orbs(x, y, base.orbR, t, S * 1.2, 0.4, false);
-    z5Wings(x - Math.sin(ang) * 6 * S, y - Math.cos(ang) * 6 * S, S * 0.55, t * (base.flap || 1), p.spread === undefined ? 1 : p.spread, 0.12);
+    const wt = t * (base.flap || 1), bob = z5Bob(wt, S, 0.26);
+    z5Wings(x - Math.sin(ang) * 6 * S, y + bob - Math.cos(ang) * 6 * S, S * 0.55, wt, p.spread === undefined ? 1 : p.spread, 0.26);
     const after = [];
     if (sp > 300) for (let k = 1; k <= 3; k++) { const a = trk(keys, lt - k * 0.03); after.push([a.x, a.y, k === 1 ? 22 : PRISM[(k * 2 + f) % 7], 0.6 - k * 0.14]); }
-    const res = actor(HEROZ({ eyes: p.eyes || 'glow', mouth: p.mouth, sword: p.sw, swordCols: z5Sw(t), sq, reach: p.reach }), x, y, S, ang, !!p.flip, { after, white: p.white });
+    const res = actor(HEROZ({ eyes: p.eyes || 'glow', mouth: p.mouth, sword: p.sw, swordCols: z5Sw(t), sq, reach: p.reach }), x, y, S, ang, !!p.flip, { after, white: p.white, bob });
     z5Eyes();
     aura(t, ZEN_AURA, base.auraR || 3 * S, { sparks: 10, rise: base.rise });
     if (base.orbR) z5Orbs(x, y, base.orbR, t, S * 1.2, 0.4, true);
@@ -499,7 +505,7 @@
     for (let k = 0; k < 7; k++) cloudPuff(frac(ih(k, 1, 5141) - lt * 0.05) * 700 - 110, 190 + ih(k, 2, 5141) * 40, 18 + ih(k, 3, 5141) * 14, CLOUD_SUN, 5142 + k);
     z5Sunburst(HX, HY - 10, 18, -t * 0.25, 30, 170, 0.06);
     const sw = lerp(-0.7, -1.45, eob(lin(0.1, 0.9, lt))), spread = 1 + 0.15 * Math.exp(-lt * 1.3) * Math.sin(lt * 7);
-    const a = z5Zenith(HX, HY + Math.sin(t * 1.8) * 2, S, t, { sw, spread, orbR: 52, auraR: 9, sparks: 20, tilt: 0.3, legs: [1, 0, 1, 0], flap: 0.04 });
+    const a = z5Zenith(HX, HY + Math.sin(t * 1.8) * 2, S, t, { sw, spread, orbR: 52, auraR: 9, sparks: 20, tilt: 0.3, legs: [1, 0, 1, 0], flap: 0.16 });
     // the glint runs up the blade
     const gl = lin(2.0, 2.4, lt);
     if (gl > 0 && gl < 1) sparkle(lerp(a.hand[0], a.tip[0], gl), lerp(a.hand[1], a.tip[1], gl), 4, 22, 60);
@@ -837,9 +843,10 @@
     const which = SETTLE.map((s) => lt < s);
     const orbR = 36, orbsAt = (front) => { for (let k = 0; k < 4; k++) { const st = SETTLE[k], u = eic(lin(st - 0.5, st, lt)); if (u >= 1) continue; const a = t * 2.4 + k * TAU / 4, z = Math.sin(a), R = orbR * (1 - u); if ((z > 0) !== front) continue; orbAt(HX + Math.cos(a) * R, HY + z * R * 0.4, k, 4, t); } };
     orbsAt(false);
-    if (calm < 1) z5Wings(HX, HY - 6 * S, S * 0.6, t, 1 - eoc(calm), 0.05);
+    const bob = z5Bob(t, S, 0.14) * (1 - eoc(calm));
+    if (calm < 1) z5Wings(HX, HY + bob - 6 * S, S * 0.6, t, 1 - eoc(calm), 0.14);
     const white = lt > 1.25 && lt < 1.4;
-    actor(HERO({ form: calm < 0.5 ? 'zenith' : undefined, eyes: lt < 1.4 ? 'glow' : (lt > 2.2 && lt < 2.32 ? 'closed' : 'normal'), sword: -1.0, swordCols: calm < 0.5 ? z5Sw(t) : PRISM, fly: true }), HX, HY, S, 0, false, { white });
+    actor(HERO({ form: calm < 0.5 ? 'zenith' : undefined, eyes: lt < 1.4 ? 'glow' : (lt > 2.2 && lt < 2.32 ? 'closed' : 'normal'), sword: -1.0, swordCols: calm < 0.5 ? z5Sw(t) : PRISM, fly: true }), HX, HY, S, 0, false, { white, bob: calm < 1 ? bob : undefined });
     aura(t, calm < 0.5 ? ZEN_AURA : AURA_GOLD, lerp(9, 2, calm), { sparks: fl(12 * (1 - calm)) });
     orbsAt(true);
     for (let k = 0; k < 4; k++) { const g = lt - SETTLE[k]; if (g > 0 && g < 0.35) { glow(HX, HY + 4, 30, EL_T[k], 0.6 * (1 - g / 0.35)); sparkle(HX, HY + 4, 8 * (1 - g / 0.35), 22, ORB[k][2]); } }

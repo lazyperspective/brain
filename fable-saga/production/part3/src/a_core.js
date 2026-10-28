@@ -216,7 +216,9 @@
     // legs
     const lift = o.legs || [0, 0, 0, 0], lh = o.fly ? 4 : 6;
     const lx = [x0, x0 + Math.round(bw * 0.2), x0 + bw - Math.round(bw * 0.2) - 4, x0 + bw - 4];
-    for (let k = 0; k < 4; k++) spRect(lx[k], y1, 4, Math.max(1, lh - lift[k]), k === 0 || k === 2 ? body : body, 1);
+    // legs bend: legSh slides the feet sideways (trailing behind a move), row by row so the leg leans rather than jumps
+    const shx = o.legSh || 0;
+    for (let k = 0; k < 4; k++) { const n = Math.max(1, lh - lift[k]); for (let j = 0; j < n; j++) spRect(lx[k] + Math.round(shx * (j + 1) / lh), y1 + j, 4, 1, body, 1); }
     // body with a little shading (flat, as in the reference, just a lit top edge and a darker base)
     spRect(x0, y0, bw, bh, body, 1);
     for (let i = 0; i < bw; i++) { sp(x0 + i, y1 - 1, dark, 1); if (o.shade) sp(x0 + i, y0, lite, 1); }
@@ -258,13 +260,16 @@
   function stamp(x, y, S, ang, flip, opt) {
     opt = opt || {};
     const ca = Math.cos(ang), sa = Math.sin(ang);
+    // stretch: st > 0 pulls the sprite long along screen angle sd (and thin across it), st < 0 squashes it; area is kept
+    const st = opt.st || 0, k1 = 1 + st, k2 = Math.sqrt(k1), su = Math.cos(opt.sd || 0), sv = Math.sin(opt.sd || 0);
     let R = 0;
     for (const [lx, ly] of [[LBB[0], LBB[1]], [LBB[2] + 1, LBB[1]], [LBB[0], LBB[3] + 1], [LBB[2] + 1, LBB[3] + 1]]) R = Math.max(R, Math.hypot(lx, ly));
-    R = R * S + 2;
+    R = R * S * Math.max(k1, 1 / k2) + 2;
     const x0 = Math.max(0, fl(x - R)), x1 = Math.min(W - 1, Math.ceil(x + R)), y0 = Math.max(0, fl(y - R)), y1 = Math.min(H - 1, Math.ceil(y + R));
     if (!opt.keepMask) { SMB[0] = W; SMB[1] = H; SMB[2] = -1; SMB[3] = -1; }
     for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) {
-      const dx = X + 0.5 - x, dy = Y + 0.5 - y;
+      let dx = X + 0.5 - x, dy = Y + 0.5 - y;
+      if (st) { const a = (dx * su + dy * sv) / k1, b = (-dx * sv + dy * su) * k2; dx = a * su - b * sv; dy = a * sv + b * su; }
       let lx = (dx * ca + dy * sa) / S;
       const ly = (-dx * sa + dy * ca) / S;
       if (flip) lx = -lx;
@@ -281,10 +286,61 @@
       }
     }
   }
+  /* ---------------------------------------------------------------- life: what keeps a drawn block from moving like a cut-out
+     Every hero draw passes through here. Each draw in a frame keeps its own little physics (by call order inside the shot):
+     it leans into its motion and overshoots when it stops, stretches along its path and lands in a squash that wobbles out,
+     its feet trail behind, its sword follows the hand a beat late and swings past, and when it is still it hovers, breathes,
+     paddles its feet and blinks. A jump cut inside a shot (a blink-fast dash) arrives stretched along the jump. */
+  const LIFE = { t: -1, dt: -1, shot: null, n: 0, s: [] };
+  function lifeTick(t, shot) {
+    const dt = t - LIFE.t;
+    LIFE.dt = shot !== LIFE.shot || dt < 0 || dt > 0.1 ? -1 : dt;      // -1: start over (a cut, a seek); 0: same frame again
+    LIFE.t = t; LIFE.shot = shot; LIFE.n = 0;
+  }
+  function spring(L, key, target, k, z, dt) {
+    let x = L[key], v = L[key + 'v'];
+    const c = 2 * z * Math.sqrt(k), n = Math.ceil(dt * 240), h = dt / n;
+    for (let i = 0; i < n; i++) { v += (k * (target - x) - c * v) * h; x += v * h; }
+    L[key] = x; L[key + 'v'] = v; return x;
+  }
+  function life(o, x, y, S, ang, flip, opt) {
+    const slot = LIFE.n++, t = T_NOW, dt = LIFE.dt, sw = typeof o.sword === 'number' ? o.sword : null;
+    let L = LIFE.s[slot];
+    if (!L || dt < 0 || Math.abs(S - L.S) > L.S * 0.5) {
+      L = LIFE.s[slot] = { px: x, py: y, vx: 0, vy: 0, lean: 0, leanv: 0, st: 0, stv: 0, sd: 0, leg: 0, legv: 0, sw: sw === null ? 0 : sw, swv: 0, hasSw: sw !== null, S, idle: 1 };
+    } else if (dt > 0) {
+      const dx = x - L.px, dy = y - L.py;
+      if (Math.hypot(dx, dy) > Math.max(45, 16 * S)) { L.vx = 0; L.vy = 0; L.sd = Math.atan2(dy, dx); L.st = 0.5; L.stv = 0; L.lean = 0; L.leanv = 0; }
+      else { L.vx += (dx / dt - L.vx) * 0.6; L.vy += (dy / dt - L.vy) * 0.6; }
+      const sp = Math.hypot(L.vx, L.vy);
+      spring(L, 'lean', clamp(L.vx / 1100, -0.42, 0.42), 120, 0.32, dt);
+      if (sp > 40) { let da = Math.atan2(L.vy, L.vx) - L.sd; da = Math.atan2(Math.sin(da), Math.cos(da)); L.sd += da * Math.min(1, dt * 14); }
+      spring(L, 'st', clamp((sp - 60) / 1500, 0, 0.42), 260, 0.22, dt);
+      const lvx = (L.vx * Math.cos(ang) + L.vy * Math.sin(ang)) * (flip ? -1 : 1);
+      spring(L, 'leg', clamp(-lvx / (60 * S), -3, 3), 90, 0.28, dt);
+      if (sw !== null) {
+        if (!L.hasSw) { L.sw = sw; L.swv = 0; L.hasSw = true; }
+        let tg = sw; while (tg - L.sw > PI) tg -= TAU; while (tg - L.sw < -PI) tg += TAU;
+        spring(L, 'sw', tg, 900, 0.4, dt);
+      } else L.hasSw = false;
+      L.idle += ((sp < 90 ? 1 : 0) - L.idle) * Math.min(1, dt * 3);
+      L.px = x; L.py = y; L.S = S;
+    }
+    const n = L.idle, ph = slot * 1.7, o2 = Object.assign({}, o);
+    if (sw !== null && L.hasSw) o2.sword = L.sw;
+    o2.legSh = (o.legSh || 0) + clamp(L.leg, -3, 3) + Math.sin(t * 4.2 + ph) * 0.7 * n;
+    if (!o.legs) { const a = t * 6.5 + ph; o2.legs = [0, 1, 2, 3].map((k) => Math.max(0, Math.sin(a + k * 1.6)) * 1.2 * n); }
+    o2.sq = (o.sq || 0) + Math.sin(t * 3.1 + ph) * 0.05 * n;
+    const e = o.eyes || 'normal';
+    if (e === 'normal' || e === 'angry' || e === 'wide' || e === 'narrow') { const P = 2.8 + ih(slot, 1, 77) * 1.5, q = (t + ih(slot, 2, 77) * P) % P; if (q < 0.1) o2.eyes = 'closed'; }
+    const bob = opt.bob !== undefined ? opt.bob : Math.sin(t * 2.3 + ph) * 0.6 * S * n;
+    return { o: o2, x, y: y + bob, ang: ang + L.lean, opt: Object.assign({}, opt, { st: Math.abs(L.st) > 0.02 ? L.st : 0, sd: L.sd }) };
+  }
   function clearMask() { if (SMB[2] >= SMB[0]) for (let y = SMB[1]; y <= SMB[3]; y++) SMASK.fill(0, y * W + SMB[0], y * W + SMB[2] + 1); SMB[0] = W; SMB[1] = H; SMB[2] = -1; SMB[3] = -1; }
   // a character in one call: build, optional ghosts and glitch, stamp; returns where its hand and sword tip are
   function actor(o, x, y, S, ang, flip, opt) {
     opt = opt || {};
+    if (o.who === 'hero' && !opt.still) { const L = life(o, x, y, S, ang, flip, opt); x = L.x; y = L.y; ang = L.ang; opt = L.opt; o = L.o; }
     const g = buildSprite(o);
     clearMask();
     if (o.who === 'null' && !opt.clean) { // chromatic ghosts either side
@@ -292,11 +348,13 @@
       stamp(x - off, y, S, ang, flip, { color: 61, alpha: 0.35, noMask: true });
       stamp(x + off, y, S, ang, flip, { color: 42, alpha: 0.35, noMask: true });
     }
-    if (opt.after) for (let k = opt.after.length - 1; k >= 0; k--) { const a = opt.after[k]; stamp(a[0], a[1], S, ang, flip, { color: a[2], alpha: a[3], noMask: true }); }
+    if (opt.after) for (let k = opt.after.length - 1; k >= 0; k--) { const a = opt.after[k]; stamp(a[0], a[1], S, ang, flip, { color: a[2], alpha: a[3], noMask: true, st: opt.st, sd: opt.sd }); }
     stamp(x, y, S, ang, flip, opt);
     if (o.who === 'null' && !opt.clean) glitchRows(T_NOW, Math.max(2, Math.round(S * 1.5)) * (1 + (opt.glitch || 0) * 3), opt.glitch ? 0.6 : 0.18);
     const c = Math.cos(ang), s = Math.sin(ang), hx = (flip ? -1 : 1) * g.hand[0] * S, hy = g.hand[1] * S;
-    const hand = [x + hx * c - hy * s, y + hx * s + hy * c];
+    let hdx = hx * c - hy * s, hdy = hx * s + hy * c;
+    if (opt.st) { const su = Math.cos(opt.sd), sv = Math.sin(opt.sd), k1 = 1 + opt.st, a = (hdx * su + hdy * sv) * k1, b = (-hdx * sv + hdy * su) / Math.sqrt(k1); hdx = a * su - b * sv; hdy = a * sv + b * su; }
+    const hand = [x + hdx, y + hdy];
     const sw = o.sword !== undefined && o.sword !== null ? o.sword : 0, da = flip ? PI - sw : sw, tipL = 29 * S;
     const tip = [hand[0] + Math.cos(da + ang) * tipL, hand[1] + Math.sin(da + ang) * tipL];
     return { hand, tip, g };
