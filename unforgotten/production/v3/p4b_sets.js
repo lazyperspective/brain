@@ -171,9 +171,9 @@
     // the dock: a long pier of planks on posts, a stringer along each side
     box(-30, -0.4, -4, 30, DY_H, 4, deckMat);
     box(-30, -0.25, -4.12, 30, 0.2, -4.0, plankMat(1.2)); box(-30, -0.25, 4.0, 30, 0.2, 4.12, plankMat(1.2));
-    for (const [x, z] of HB.posts) { box(x - 0.18, -3, z - 0.18, x + 0.18, 1.1, z + 0.18, plankMat(1.6)); box(x - 0.18, -3, -z - 0.18, x + 0.18, 1.1, -z + 0.18, plankMat(1.6)); }
+    for (const [x, z] of HB.posts) { box(x - 0.18, -3, z - 0.18, x + 0.18, 1.1, z + 0.18, plankMat(1.6)); box(x - 0.18, -3, -z - 0.18, x + 0.18, 0.15, -z + 0.18, plankMat(1.6)); }   // the near piles stop under the deck, out of the cameras' way
     // rope rails between the far posts, and a slack line along the near ones
-    for (let k = 0; k + 1 < HB.posts.length; k++) { const a = HB.posts[k], b = HB.posts[k + 1]; if (Math.abs(a[0] - CAM.x) > 40) continue; rope3([a[0], 0.98, a[1]], [b[0], 0.98, b[1]], 0.32, C('linen', 3)); if (k % 2 === 0) rope3([a[0], 0.95, -a[1]], [b[0], 0.95, -b[1]], 0.45, C('wood', 3)); }
+    for (let k = 0; k + 1 < HB.posts.length; k++) { const a = HB.posts[k], b = HB.posts[k + 1]; if (Math.abs(a[0] - CAM.x) > 40) continue; rope3([a[0], 0.98, a[1]], [b[0], 0.98, b[1]], 0.32, C('linen', 3)); }
     // gulls asleep on the post tops
     if (!opt.noGulls) for (const k of HB.perch) { const [x, z] = HB.posts[k], p = proj(x, 1.1, z); if (!p) continue; const s = Math.max(1, Math.round(CAM.F / p.z * 0.09)), hop = (opt.freeze === undefined && ih(k, fl(T * 1.5), 117) < 0.08) ? -s : 0; for (let j = 0; j < s * 2; j++) for (let i = -s * 2; i <= s * 2; i++) if ((i / (2 * s)) ** 2 + ((j - s) / s) ** 2 <= 1) PZ(p.x + i, p.y - j - 1 + hop, j > s * 1.2 ? WHITE : i < -s ? C('stone', 4) : C('hush', 3), p.z - 0.2); for (let i = 0; i <= s; i++) PZ(p.x + s * 2 + i, p.y - s * 1.6 + hop, C('gold', 5), p.z - 0.21); }
     // lamp posts and drying nets along the far edge, iron bollards with coiled lines
