@@ -125,7 +125,7 @@
     let kx = lerp(WINX + 10, landX, u), ky = lerp(WINY + 20, landY, u * u) - Math.sin(u * PI) * 60, rot = u < 0.85 ? eio(u / 0.85) * TAU * 1.0 : 0;
     const k = kairaAt(t), running = t > K_T0;
     if (running) { kx = k.x; ky = k.y; }
-    const camX = running ? Math.max(-140, k.x - 230) : -140, zoomF = frozen ? eio(lin(1.0, 1.15, g)) : 0;
+    const camX = lerp(-140, k.x - 230, eio(lin(K_T0 - 0.2, K_T0 + 1.2, t))), zoomF = frozen ? eio(lin(1.0, 1.15, g)) : 0;
     roofs(t, camX, 0); facade(t, camX, broken, g);
     LIGHT.x = -0.8; LIGHT.y = -0.5; ENV.edge = C('gold', 6);
     if (g <= 0) { /* before the burst: quiet, banners in the wind, the alarm glows behind the glass */ glow(WINX - camX, WINY, 40 + Math.sin(t * 9) * 4, tab('#ff4060', true), 0.12 + lin(112.0, 113.0, t) * 0.15); }
@@ -264,6 +264,8 @@
     }
     // the step itself: a flash and lightning down the line she travelled
     if (t > STEP_T && t < STEP_T + 0.35) { const a = 1 - (t - STEP_T) / 0.35; for (let b = 0; b < 2; b++) bolt(k.x - camX, sy - 28 + b * 10, sx, sy - 26 + b * 6, fl(t * 30) + b, C('snow', 7), C('gold', 6)); glow(sx, sy - 26, 40 * a, tab('#ffe080', true), 0.6 * a); if (t < STEP_T + 0.06) { flash(0.4); shk(3); } }
+    // then in close beside her as she runs on, grinning
+    if (t > 137.1) view(sx - 20, sy - 44, 2);
   });
 
   // 20 — the wide: the wardens throwing chains, a long gap between two roofs, her spinning leap over it (2:20)
@@ -294,4 +296,6 @@
     }
     // a gust of cloud through the long gap
     if (t > 142.0 && t < 144.5) streaks(t, 10, sy - 80, sy + 20, 491, C('linen', 7));
+    // in close running with her, pulled wide for the leap and the last chain
+    if (t < 142.2 || (t > 144.3 && t < 145.7)) view(sx - 30, sy - 50, 2);
   });

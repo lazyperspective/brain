@@ -289,7 +289,8 @@
     const w = P.wind || 0;
     for (let y = 0; y < 6; y++) for (let x = -3; x <= 3; x++) sp(neck[0] - 7 + x, neck[1] + 15 + y, C('linen', y === 0 ? 5 : x < 0 ? 4 : 3));
     // hair streaming back in the wind
-    for (let k = 0; k < 4; k++) { let x = neck[0] - 7, y = neck[1] - 14 - k * 3; for (let j = 0; j < 4 + k % 2; j++) { x -= 1.4 + w * 0.6; y += 0.3 + Math.sin(t * 7 + k + j) * 0.3; blob(x, y, Math.max(0.6, 1.5 - j * 0.3), R.hush, 3 + (j === 0 ? 2 : 0)); } }
+    // (each lock a chain of tapering limbs, so the strands stay solid however far the wind pulls them)
+    for (let k = 0; k < 4; k++) { let x = neck[0] - 6, y = neck[1] - 15 - k * 2.6; const n = 3 + (k % 2) + Math.round(w * 0.5), seg = 1.8 + w * 0.5; for (let j = 0; j < n; j++) { const nx = x - seg, ny = y + 0.5 + Math.sin(t * 7 + k * 1.3 + j * 0.9) * (0.4 + w * 0.15), r0 = Math.max(0.7, 1.7 - j * 0.32), r1 = Math.max(0.6, 1.7 - (j + 1) * 0.32); limb(x, y, nx, ny, r0, r1, R.hush, k === 1 ? 5 : k === 3 ? 2 : 3); x = nx; y = ny; } }
   };
 
   /* ---- Tamo: the dockhand; a teal topknot with a gold ring, rosy cheeks, a linen tunic and a sea-blue band */

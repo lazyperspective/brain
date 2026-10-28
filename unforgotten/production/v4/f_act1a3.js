@@ -45,7 +45,7 @@
     const g = t - tl; if (g < -0.45) return;
     const y = g < 0 ? BY - (g * g) * 900 : BY, crouch = g > 0 && g < 0.35 ? 1 - g / 0.35 : 0;
     const P = { t, face: {}, hip: -WARDEN.body.leg + 9 * crouch + (g < 0 ? 4 : 0), lean: 2 * crouch, legs: g < 0 ? [{ foot: [5, -6] }, { foot: [-5, -3] }] : [{ foot: [7, 0] }, { foot: [-6, 0] }], arms: [{ a: 1.2 - crouch * 0.4, b: 0.3 }, { a: 0.4 }] };
-    P.prop = (A) => spearArt(A.hand[0], A.hand[1], g < 0 ? 0.2 : lerp(1.35, 0.25, crouch), 34, t);
+    P.prop = (A) => spearArt(A.hand[0], A.hand[1], g < 0 ? 0.2 : lerp(0.75, 0.25, crouch), 34, t);
     actor(CH, P, x - camX, y - camY, S || 1, f || 1);
     if (g > 0 && g < 0.6) { dust(x - camX, BY - camY, g * 1.3, 7, 2); if (g < 0.08) shk(2); }
   }
