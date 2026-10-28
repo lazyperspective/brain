@@ -1,0 +1,227 @@
+Integrated loudness (internal BS.1770 meter): -14.03 LUFS, true peak -1.25 dBTP
+ffmpeg ebur128: I:         -14.0 LUFS | LRA:        18.9 LU | Peak:       -1.2 dBFS
+score.wav: 8640000 frames = 180.000 s, 48000 Hz, 2 ch, PCM_24
+
+Hit alignment (onset detection on the master; tolerance +-33.3 ms = 1 frame at 30 fps)
+  detector low = <150 Hz band (HITs, stabs, stingers); full = 150 Hz-5 kHz (soft pitched entries)
+  OK  cue   4.000  HIT gauntlet        low  measured   3.999  delta   -1.0 ms  rise  17.3 dB
+  OK  cue   7.000  HIT eyes+motif      low  measured   7.001  delta   +1.0 ms  rise  20.7 dB
+  OK  cue   8.000  stinger line        low  measured   7.998  delta   -2.0 ms  rise  10.2 dB
+  OK  cue  10.800  stinger hero        low  measured  10.790  delta  -10.0 ms  rise  22.3 dB
+  OK  cue  13.400  stinger dark        low  measured  13.401  delta   +1.0 ms  rise  27.5 dB
+  OK  cue  16.400  stinger ZENITH      low  measured  16.401  delta   +1.0 ms  rise  24.7 dB
+  OK  cue  18.200  dark answer         low  measured  18.197  delta   -3.0 ms  rise  25.2 dB
+  OK  cue  20.000  HIT title           low  measured  20.002  delta   +2.0 ms  rise  18.7 dB
+  OK  cue  22.500  stab                low  measured  22.501  delta   +1.0 ms  rise  17.5 dB
+  OK  cue  22.900  stab                low  measured  22.902  delta   +2.0 ms  rise  14.5 dB
+  OK  cue  23.300  stab                low  measured  23.300  delta   +0.0 ms  rise  22.4 dB
+  OK  cue  23.700  stab                low  measured  23.700  delta   +0.0 ms  rise  24.0 dB
+  OK  cue  24.000  HIT catch           low  measured  23.998  delta   -2.0 ms  rise  21.7 dB
+  OK  cue  25.400  HIT flick           low  measured  25.394  delta   -6.0 ms  rise  25.7 dB
+  OK  cue  26.600  HIT sea             low  measured  26.601  delta   +1.0 ms  rise  26.9 dB
+  OK  cue  27.600  stab hammer         low  measured  27.593  delta   -7.0 ms  rise  13.1 dB
+  OK  cue  28.300  stab uppercut       low  measured  28.302  delta   +2.0 ms  rise  16.1 dB
+  OK  cue  28.800  stab hook           low  measured  28.798  delta   -2.0 ms  rise  22.8 dB
+  OK  cue  29.300  stab hook           low  measured  29.297  delta   -3.0 ms  rise  18.4 dB
+  OK  cue  29.900  stab backhand       low  measured  29.902  delta   +2.0 ms  rise  15.7 dB
+  OK  cue  31.600  HIT spire           low  measured  31.594  delta   -6.0 ms  rise  21.2 dB
+  OK  cue  32.100  HIT spire           low  measured  32.101  delta   +1.0 ms  rise  14.2 dB
+  OK  cue  32.600  HIT spire           low  measured  32.599  delta   -1.0 ms  rise  19.8 dB
+  OK  cue  33.000  HIT slam            low  measured  33.001  delta   +1.0 ms  rise  22.4 dB
+  OK  cue  34.400  weak stab           low  measured  34.402  delta   +2.0 ms  rise  15.1 dB
+  OK  cue  35.200  weak stab           low  measured  35.197  delta   -3.0 ms  rise  28.5 dB
+  OK  cue  36.000  WEIGHT cluster      low  measured  35.998  delta   -2.0 ms  rise  29.2 dB
+  OK  cue  38.200  HIT shatter         low  measured  38.201  delta   +1.0 ms  rise  12.5 dB
+  OK  cue  41.000  HIT punch           low  measured  41.003  delta   +3.0 ms  rise  15.3 dB
+  OK  cue  46.000  HIT NOVA            low  measured  46.001  delta   +1.0 ms  rise  21.3 dB
+  OK  cue  47.600  HIT cleave          low  measured  47.601  delta   +1.0 ms  rise  22.0 dB
+  OK  cue  48.600  stab                low  measured  48.597  delta   -3.0 ms  rise  24.4 dB
+  OK  cue  49.200  stab                low  measured  49.201  delta   +1.0 ms  rise  14.9 dB
+  OK  cue  49.800  stab                low  measured  49.800  delta   +0.0 ms  rise  21.2 dB
+  OK  cue  50.600  HIT wound           low  measured  50.598  delta   -2.0 ms  rise  23.3 dB
+  OK  cue  51.600  HIT crown           low  measured  51.602  delta   +2.0 ms  rise  17.2 dB
+  OK  cue  53.200  HIT pin             low  measured  53.201  delta   +1.0 ms  rise  21.4 dB
+  OK  cue  54.000  his motif           low  measured  54.003  delta   +3.0 ms  rise  13.6 dB
+  OK  cue  55.600  HIT fusion          low  measured  55.595  delta   -5.0 ms  rise  17.5 dB
+  OK  cue  56.400  held (hammer)       low  measured  56.396  delta   -4.0 ms  rise  14.8 dB
+  OK  cue  58.000  HIT REWIND          low  measured  58.000  delta   +0.0 ms  rise  21.4 dB
+  OK  cue  62.000  HIT SUNDER          low  measured  62.001  delta   +1.0 ms  rise  23.1 dB
+  OK  cue  63.600  storm flare         low  measured  63.610  delta  +10.0 ms  rise  11.4 dB
+  OK  cue  64.600  HIT catch           low  measured  64.597  delta   -3.0 ms  rise  21.6 dB
+  OK  cue  65.200  HIT smash           low  measured  65.201  delta   +1.0 ms  rise  21.4 dB
+  OK  cue  66.600  blow punch          low  measured  66.593  delta   -7.0 ms  rise  20.8 dB
+  OK  cue  67.400  blow guard          low  measured  67.401  delta   +1.0 ms  rise  19.1 dB
+  OK  cue  68.100  blow body           low  measured  68.101  delta   +1.0 ms  rise  21.0 dB
+  OK  cue  68.700  blow body           low  measured  68.701  delta   +1.0 ms  rise  19.8 dB
+  OK  cue  69.300  blow body           low  measured  69.301  delta   +1.0 ms  rise  22.7 dB
+  OK  cue  70.000  blow falls          low  measured  70.001  delta   +1.0 ms  rise  24.7 dB
+  OK  cue  71.400  stomp               low  measured  71.401  delta   +1.0 ms  rise  25.9 dB
+  OK  cue  73.000  orb crush 1         low  measured  73.001  delta   +1.0 ms  rise  19.9 dB
+  OK  cue  74.000  orb crush 2         low  measured  74.002  delta   +2.0 ms  rise  17.7 dB
+  OK  cue  75.000  orb crush 3         low  measured  75.001  delta   +1.0 ms  rise  24.5 dB
+  OK  cue  76.000  orb crush 4         low  measured  76.000  delta   +0.0 ms  rise  23.7 dB
+  OK  cue  86.500  solo violin         full measured  86.506  delta   +6.0 ms  rise   9.9 dB
+  OK  cue  88.000  HIT LAST LIGHT      low  measured  87.993  delta   -7.0 ms  rise  19.6 dB
+  OK  cue  90.600  HIT                 low  measured  90.601  delta   +1.0 ms  rise  18.6 dB
+  OK  cue  91.400  HIT trade           low  measured  91.402  delta   +2.0 ms  rise  11.7 dB
+  OK  cue  92.000  HIT trade           low  measured  92.001  delta   +1.0 ms  rise  21.9 dB
+  OK  cue  92.600  HIT trade           low  measured  92.597  delta   -3.0 ms  rise  12.7 dB
+  OK  cue  93.200  HIT trade           low  measured  93.201  delta   +1.0 ms  rise  18.6 dB
+  OK  cue  94.200  HIT arm             low  measured  94.199  delta   -1.0 ms  rise  20.5 dB
+  OK  cue  95.400  HIT arm             low  measured  95.401  delta   +1.0 ms  rise  17.1 dB
+  OK  cue  96.600  HIT mask            low  measured  96.600  delta   +0.0 ms  rise  18.4 dB
+  OK  cue  97.400  HIT catch           low  measured  97.402  delta   +2.0 ms  rise  20.3 dB
+  OK  cue 100.000  HIT snap            low  measured 100.001  delta   +1.0 ms  rise  14.9 dB
+  OK  cue 100.800  HIT point-blank     low  measured 100.801  delta   +1.0 ms  rise  23.0 dB
+  OK  cue 104.600  ember 1 piano       full measured 104.590  delta  -10.0 ms  rise  66.5 dB
+  OK  cue 105.400  ember 2 piano       full measured 105.410  delta  +10.0 ms  rise   7.5 dB
+  OK  cue 106.200  ember 3 piano       full measured 106.208  delta   +8.0 ms  rise  11.4 dB
+  OK  cue 107.000  ember 4 piano       full measured 107.007  delta   +7.0 ms  rise  15.4 dB
+  OK  cue 113.000  HIT INFINITE        low  measured 112.994  delta   -6.0 ms  rise  18.3 dB
+  OK  cue 118.000  HIT WORLDBLADE      low  measured 118.001  delta   +1.0 ms  rise  20.6 dB
+  OK  cue 122.000  HIT BLACK SUN       low  measured 122.002  delta   +2.0 ms  rise  21.2 dB
+  OK  cue 127.000  HIT CLASH           low  measured 127.001  delta   +1.0 ms  rise  20.7 dB
+  OK  cue 130.000  HIT crack           low  measured 129.998  delta   -2.0 ms  rise  27.5 dB
+  OK  cue 132.000  HIT tip             low  measured 132.001  delta   +1.0 ms  rise  23.7 dB
+  OK  cue 134.000  FURTHER key change  low  measured 134.002  delta   +2.0 ms  rise  15.5 dB
+  OK  cue 136.000  HIT cut in          low  measured 136.001  delta   +1.0 ms  rise  17.2 dB
+  OK  cue 138.000  HIT split           low  measured 138.001  delta   +1.0 ms  rise  19.9 dB
+  OK  cue 140.000  stab                low  measured 140.002  delta   +2.0 ms  rise  10.7 dB
+  OK  cue 140.600  stab                low  measured 140.601  delta   +1.0 ms  rise  16.2 dB
+  OK  cue 141.200  stab                low  measured 141.201  delta   +1.0 ms  rise  21.7 dB
+  OK  cue 141.800  stab                low  measured 141.801  delta   +1.0 ms  rise  20.9 dB
+  OK  cue 142.400  stab                low  measured 142.402  delta   +2.0 ms  rise  13.6 dB
+  OK  cue 143.400  HIT fist            low  measured 143.394  delta   -6.0 ms  rise  23.6 dB
+  OK  cue 145.000  HIT FINAL CUT       low  measured 145.002  delta   +2.0 ms  rise  17.3 dB
+  OK  cue 150.000  HIT ash             low  measured 150.001  delta   +1.0 ms  rise  20.3 dB
+  OK  cue 158.000  dawn swell          low  measured 158.001  delta   +1.0 ms  rise  24.2 dB
+  OK  cue 171.000  final chord         low  measured 171.001  delta   +1.0 ms  rise  20.4 dB
+  92 cues, 92 within one frame; worst |delta| = 10.0 ms
+
+Energy contour (K-weighted loudness of each section, LUFS)
+     0.0-   4.0  I   dread/narration        -27.1 LUFS   peak  -11.9 dBFS  #####################
+     4.0-   7.0  I   gauntlet/rising        -15.8 LUFS   peak   -3.6 dBFS  #############################
+     7.0-   8.6  I   eyes+motif             -14.7 LUFS   peak   -2.3 dBFS  ##############################
+     8.6-  19.0  I   dialogue               -26.0 LUFS   peak   -8.5 dBFS  ######################
+    19.0-  20.0  I   build                  -17.3 LUFS   peak   -5.3 dBFS  ############################
+    20.0-  21.0  I   title slam             -12.7 LUFS   peak   -1.3 dBFS  ###############################
+    21.0-  24.0  II  blitz                  -17.6 LUFS   peak   -4.5 dBFS  ############################
+    24.0-  27.2  II  catch/flick/sea        -14.4 LUFS   peak   -2.3 dBFS  ##############################
+    27.2-  33.5  II  combo/spires           -16.6 LUFS   peak   -1.7 dBFS  ############################
+    33.5-  36.0  II  thin, desperate        -20.8 LUFS   peak   -4.8 dBFS  ##########################
+    36.0-  38.2  II  WEIGHT                 -18.6 LUFS   peak   -4.6 dBFS  ###########################
+    38.2-  41.2  II  shatter/held/punch     -16.0 LUFS   peak   -2.5 dBFS  #############################
+    41.2-  44.5  III near silence/solo      -30.2 LUFS   peak  -21.5 dBFS  ###################
+    44.5-  46.0  III swell                  -17.4 LUFS   peak   -4.1 dBFS  ############################
+    46.0-  53.9  III ZENITH NOVA            -13.4 LUFS   peak   -1.3 dBFS  ###############################
+    54.0-  58.0  III villain/fusion         -14.5 LUFS   peak   -2.3 dBFS  ##############################
+    58.0-  60.0  IV  REWIND                 -13.7 LUFS   peak   -2.9 dBFS  ##############################
+    60.0-  62.0  IV  high string            -33.1 LUFS   peak  -12.5 dBFS  #################
+    62.0-  66.0  IV  SUNDER/storm           -13.3 LUFS   peak   -1.3 dBFS  ###############################
+    66.0-  72.0  IV  the beating            -16.3 LUFS   peak   -2.4 dBFS  #############################
+    72.0-  77.0  IV  the orbs               -16.6 LUFS   peak   -5.0 dBFS  ############################
+    77.0-  80.0  IV  the drop               -24.4 LUFS   peak   -9.3 dBFS  #######################
+    80.0-  87.2  IV  all hope lost          -29.1 LUFS   peak  -10.6 dBFS  ####################
+    87.2-  88.0  IV  swell                  -16.1 LUFS   peak   -4.9 dBFS  #############################
+    88.0-  97.4  IV  LAST LIGHT             -12.3 LUFS   peak   -1.3 dBFS  ###############################
+    97.4- 101.0  IV  strain/snap            -12.7 LUFS   peak   -1.3 dBFS  ###############################
+   101.0- 104.0  IV  collapse               -18.1 LUFS   peak   -1.3 dBFS  ###########################
+   104.0- 110.5  V   embers                 -32.1 LUFS   peak  -13.3 dBFS  ##################
+   110.5- 113.0  V   cascade                -15.2 LUFS   peak   -1.3 dBFS  #############################
+   113.0- 118.0  V   INFINITE theme         -10.7 LUFS   peak   -1.3 dBFS  ################################
+   118.0- 122.0  V   WORLDBLADE             -10.4 LUFS   peak   -1.3 dBFS  #################################
+   122.0- 127.0  V   black sun              -15.5 LUFS   peak   -1.3 dBFS  #############################
+   127.0- 134.0  V   clash/grind            -13.4 LUFS   peak   -1.3 dBFS  ###############################
+   134.0- 140.0  V   FURTHER (A major)      -11.4 LUFS   peak   -1.3 dBFS  ################################
+   140.0- 145.0  V   final combo            -12.3 LUFS   peak   -1.3 dBFS  ###############################
+   145.0- 150.0  V   FINAL CUT/held         -12.5 LUFS   peak   -1.3 dBFS  ###############################
+   150.0- 153.0  VI  ash                    -16.3 LUFS   peak   -1.3 dBFS  #############################
+   153.0- 158.0  VI  low strings            -28.9 LUFS   peak  -15.6 dBFS  ####################
+   158.0- 166.0  VI  dawn/horn              -24.9 LUFS   peak  -13.8 dBFS  #######################
+   166.0- 171.0  VI  strings                -25.0 LUFS   peak  -14.3 dBFS  #######################
+   171.0- 176.0  VI  final chord            -20.0 LUFS   peak   -5.4 dBFS  ##########################
+   176.0- 180.0  VI  ring out               -48.6 LUFS   peak  -29.2 dBFS  #######
+
+Hit power: momentary loudness (K-weighted, 400 ms from the hit) and 3 s short-term after it
+      4.0  momentary  -12.8 LUFS   3 s  -15.8 LUFS
+      7.0  momentary  -12.9 LUFS   3 s  -17.2 LUFS
+     20.0  momentary  -12.3 LUFS   3 s  -15.5 LUFS
+     26.6  momentary  -12.3 LUFS   3 s  -15.5 LUFS
+     33.0  momentary  -12.5 LUFS   3 s  -18.0 LUFS
+     41.0  momentary  -14.9 LUFS   3 s  -22.9 LUFS
+     46.0  momentary  -12.3 LUFS   3 s  -12.9 LUFS
+     53.2  momentary  -12.0 LUFS   3 s  -13.5 LUFS
+     55.6  momentary  -11.9 LUFS   3 s  -13.7 LUFS
+     58.0  momentary  -11.9 LUFS   3 s  -15.4 LUFS
+     62.0  momentary  -10.4 LUFS   3 s  -13.0 LUFS
+     65.2  momentary  -12.9 LUFS   3 s  -15.7 LUFS
+     71.4  momentary  -12.4 LUFS   3 s  -15.5 LUFS
+     88.0  momentary  -12.0 LUFS   3 s  -12.5 LUFS
+    100.0  momentary  -10.9 LUFS   3 s  -14.2 LUFS
+    100.8  momentary  -11.1 LUFS   3 s  -16.8 LUFS
+    113.0  momentary  -11.0 LUFS   3 s  -11.0 LUFS
+    118.0  momentary  -10.0 LUFS   3 s  -10.6 LUFS
+    122.0  momentary  -10.9 LUFS   3 s  -15.2 LUFS
+    127.0  momentary  -10.5 LUFS   3 s  -14.3 LUFS
+    136.0  momentary  -10.5 LUFS   3 s  -11.2 LUFS
+    138.0  momentary  -11.0 LUFS   3 s  -11.5 LUFS
+    143.4  momentary  -10.3 LUFS   3 s  -10.5 LUFS
+    145.0  momentary   -9.7 LUFS   3 s  -10.5 LUFS
+    150.0  momentary  -10.7 LUFS   3 s  -16.3 LUFS
+    171.0  momentary  -15.1 LUFS   3 s  -17.9 LUFS
+
+Loudest 3-second windows (short-term, K-weighted):
+   144.5- 147.5    -9.9 LUFS
+   144.0- 147.0   -10.2 LUFS
+   116.0- 119.0   -10.2 LUFS
+   115.5- 118.5   -10.3 LUFS
+   116.5- 119.5   -10.4 LUFS
+   117.0- 120.0   -10.4 LUFS
+   143.5- 146.5   -10.4 LUFS
+   115.0- 118.0   -10.4 LUFS
+
+Silence check 41.20-41.75 (silence at 41.2): peak -240.0 dBFS
+Silence check 103.95-104.50 (silence by 104): peak -240.0 dBFS
+Silence check 179.60-180.00 (end): peak -240.0 dBFS
+Quiet check 60.3-61.9 (high string only): -33.8 LUFS, peak -21.1 dBFS, 300 Hz-4 kHz (phone band) RMS -40.2 dBFS
+Quiet check 80.0-86.4 (all hope lost): -30.2 LUFS, peak -10.6 dBFS, 300 Hz-4 kHz (phone band) RMS -42.8 dBFS
+Quiet check 104.5-108.0 (embers): -33.9 LUFS, peak -22.2 dBFS, 300 Hz-4 kHz (phone band) RMS -37.3 dBFS
+Quiet check 151.5-153.0 (ash): -31.3 LUFS, peak -15.5 dBFS, 300 Hz-4 kHz (phone band) RMS -36.3 dBFS
+Quiet check 176.0-179.0 (ring out): -47.4 LUFS, peak -29.2 dBFS, 300 Hz-4 kHz (phone band) RMS -51.9 dBFS
+
+Stem balance (K-weighted loudness of each stem in the section, LUFS, at master gain)
+  section                    strings    brass    choir     keys     perc    fxlow    fxair    fxmid
+  I   dread/narration          -44.8    -51.9    -45.0    -59.0    -46.0    -34.9    -32.5   -200.7
+  I   gauntlet/rising          -27.4    -23.8    -25.8    -90.4    -33.6    -29.4    -26.6    -36.1
+  I   dialogue                 -35.8    -33.8    -36.2    -41.5    -39.6    -38.1    -52.8    -47.4
+  II  blitz                    -26.4    -23.9    -29.6    -84.0    -31.8    -33.1    -37.5    -37.5
+  II  catch/flick/sea          -23.6    -21.9    -22.3    -33.7    -29.9    -27.2    -29.7    -41.7
+  II  combo/spires             -24.4    -23.9    -26.9    -48.4    -29.2    -27.0    -35.8    -39.4
+  II  thin, desperate          -29.6    -30.4    -28.7   -113.4    -33.9    -32.2    -53.5    -35.7
+  II  shatter/held/punch       -25.5    -23.8    -23.9   -194.3    -29.2    -26.6    -27.2    -39.6
+  III near silence/solo        -36.0   -200.7    -61.7   -200.7   -200.7    -55.0   -200.7   -200.7
+  III ZENITH NOVA              -21.5    -20.6    -22.4    -37.1    -29.1    -27.1    -31.3   -200.7
+  III villain/fusion           -24.4    -22.6    -22.2    -33.9    -27.4    -27.3    -28.4    -33.5
+  IV  SUNDER/storm             -22.7    -19.9    -23.4   -200.7    -29.3    -25.5    -25.5    -33.3
+  IV  the beating              -25.8    -24.0    -28.0   -200.7    -30.6    -26.9    -39.3    -39.0
+  IV  the orbs                 -27.1    -25.4    -25.2    -42.7    -35.7    -29.0    -42.1    -39.2
+  IV  the drop                 -37.4    -43.5    -38.1    -50.4    -44.5    -34.2    -34.2   -200.6
+  IV  all hope lost            -40.9    -66.7    -57.2    -68.5    -96.9    -35.8    -58.9   -200.7
+  IV  LAST LIGHT               -20.1    -20.6    -20.8   -152.1    -28.8    -27.1    -33.1    -38.0
+  IV  strain/snap              -22.2    -21.8    -20.9   -200.7    -27.2    -25.9    -25.9    -35.6
+  IV  collapse                 -28.1    -25.8    -25.6   -200.7    -35.1    -27.9    -33.4    -35.2
+  V   embers                   -63.1    -74.8    -58.1    -43.3   -200.7    -40.5   -200.7   -200.7
+  V   cascade                  -27.6    -31.4    -30.5    -36.3    -35.7    -39.7    -22.9   -200.7
+  V   INFINITE theme           -21.5    -22.1    -21.3    -28.3    -31.0    -29.6    -27.2   -200.7
+  V   WORLDBLADE               -19.4    -18.6    -20.9    -23.6    -32.0    -28.9    -30.6   -200.7
+  V   black sun                -26.3    -26.3    -24.5    -38.1    -29.8    -26.8    -28.0    -35.5
+  V   clash/grind              -23.8    -22.8    -23.2   -110.1    -30.6    -28.3    -28.2    -37.9
+  V   FURTHER (A major)        -21.0    -21.5    -21.5    -29.8    -29.4    -27.2    -31.2   -200.7
+  V   final combo              -23.4    -21.5    -26.5    -45.4    -28.8    -27.2    -27.6    -36.9
+  V   FINAL CUT/held           -22.0    -21.8    -27.4    -33.5    -33.4    -29.0    -25.3    -31.0
+  VI  ash                      -26.4    -25.2    -25.8    -84.9    -33.8    -31.1    -39.0    -74.9
+  VI  low strings              -36.7    -85.7    -76.9   -131.4    -79.6    -65.2   -111.6   -200.7
+  VI  dawn/horn                -36.2    -38.7    -40.4    -45.8    -56.4    -51.0   -200.7   -200.7
+  VI  strings                  -34.1    -57.6    -40.3    -47.5    -53.2   -200.7   -200.7   -200.7
+  VI  final chord              -31.5    -31.0    -33.3    -41.9    -44.2    -42.9   -200.7   -200.7
+  VI  ring out                 -57.7    -58.3    -61.4   -113.7   -104.0   -156.8   -200.7   -200.7
