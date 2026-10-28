@@ -711,7 +711,7 @@
   const B4_D = B4_KW([[127, 160], [129, 142], [130, 120], [131, 108], [132, 96], [132.6, 72], [133.6, 60], [134.0, 60], [134.4, 66], [135.2, 92]]);
   const B4_R = B4_KW([[124.6, 13.5], [125.6, 26, 'o'], [126.4, 38], [129, 40], [132, 46], [139.6, 46]]);
   const B4_TG = [66 + 138.6, 188 - 70.9];                 // where FURTHER throws the black sun (world): where the swing meets it
-  const B4_CL = [[124.6, 1.15, 356, 160], [125.4, 1.12, 368, 140], [125.9, 1.1, 384, 130], [126.2, 1.08, 396, 128], [126.55, 1.0, 300, 130], [126.9, 1.0, 240, 135], [127.6, 1.04, 236, 140],
+  const B4_CL = [[124.6, 1.15, 382, 160], [125.4, 1.14, 390, 140], [125.9, 1.13, 398, 130], [126.2, 1.1, 404, 128], [126.55, 1.0, 300, 130], [126.9, 1.0, 240, 135], [127.6, 1.04, 236, 140],
     [128.4, 1.08, 226, 142], [129.0, 1.25, 200, 150], [129.8, 1.85, 150, 172], [130.4, 1.95, 148, 174], [131.3, 1.1, 196, 150], [132.0, 1.0, 205, 148], [132.5, 1.4, 140, 170], [133.3, 2.0, 108, 186],
     [134.0, 2.05, 106, 184], [134.5, 1.55, 118, 165], [135.3, 1.35, 140, 158], [135.75, 1.27, 66 + 112 / 1.27, 188 - 53 / 1.27], [137.9, 1.38, 166, 142], [138.2, 1.36, 170, 142], [139.6, 1.15, 200, 140]];
   // the hero's look through it
@@ -771,7 +771,7 @@
     // ---- the black sun: in his hands (local), flung, pressing on the blade, thrown back up, then where the swing meets it
     const wind = eio(b4Clip(0, 0.42, l2)), hurl = eic(b4Clip(0.42, rel, l2)), ft = eoc(b4Clip(rel, 0.85, l2)), settle = eio(b4Clip(0.85, 1.6, l2));
     const lift = eoc(b4Clip(124.6, 125.8, t)), held = l2 < rel;
-    const sL = t < T0 ? [-8 + 4 * Math.sin(lift * PI), lerp(-10, -112, lift) - 8 * Math.sin(lift * PI)] : l2 < 0.42 ? [lerp(-8, 26, wind), lerp(-112, -120, wind)] : [lerp(26, -62, hurl), lerp(-120, -92, hurl) - Math.sin(hurl * PI) * 16];
+    const dr = lift * (1 - sstep(125.85, 126.2, t)), sL = t < T0 ? [-8 + 4 * Math.sin(lift * PI) + 5 * z5N(t * 0.9, 3) * dr, lerp(-10, -112, lift) - 8 * Math.sin(lift * PI) + 4 * Math.sin(t * 2.1) * dr] : l2 < 0.42 ? [lerp(-8, 26, wind), lerp(-112, -120, wind)] : [lerp(26, -62, hurl), lerp(-120, -92, hurl) - Math.sin(hurl * PI) * 16];
     const toS = (lx, ly) => b4P(SXw + lx, SYw + bobW + ly);
     const [rx0, ry0] = toS(-62, -92);
     let SX, SY;
@@ -792,7 +792,7 @@
       grip = b4Pose('claw', 'grab', 0.4 + 0.2 * Math.sin(t * 2.1) + 0.3 * lift);
       arms = [{ x: lx, y: ly, pose: grip, ang: aL, fs, front: true, layer: 'palm' }, { x: rx, y: ry, pose: grip, ang: aR, fs, front: true, layer: 'palm' }];
       const talk = t > 125.0 && t < 126.0 ? Math.max(0, Math.sin(t * 17)) * 0.35 : 0;
-      leanP = -8 * Math.sin(lift * PI) + 4 * lift + 2 * Math.sin(t * 0.8); nodP = 6 * Math.sin(lift * PI * 0.8) - 6 * lift * lift; roarP = talk + 0.2 * Math.sin(lift * PI);
+      leanP = -8 * Math.sin(lift * PI) + 4 * lift + 4 * Math.sin(t * 1.1) * dr + 6 * z5N(t * 0.9, 3) * dr; nodP = 6 * Math.sin(lift * PI * 0.8) - 6 * lift * lift; roarP = talk + 0.2 * Math.sin(lift * PI);
     } else {
       const aL0 = -0.95 - 0.5 * hurl, aR0 = PI + 0.95 - 0.5 * hurl;
       const [hlx, hly] = loc(SX - Rs - 5 * vz, SY + Rs * 0.3, aL0), [hrx, hry] = loc(SX + Rs + 5 * vz, SY + Rs * 0.3, aR0);
@@ -857,7 +857,7 @@
     if (t > 133.88 && t < 134.0) glow(HX, HY, 60 * vz, T_WH, 0.3 * (t - 133.88) / 0.12);
     // FURTHER!!: the dark blown back from it in a ring of every colour
     if (g3 >= 0 && g3 < 1.2) { shockRing(HX, HY, 10 + g3 * 420, 10 + g3 * 420, 5, [22, PRISM[fl(t * 20) % 7], PRISM[(fl(t * 20) + 3) % 7]], 1 - g3 / 1.2); shockRing(HX, HY, 6 + g3 * 260, 6 + g3 * 260, 3, [22, 60, 59], 1 - g3 / 0.9); }
-    if (g3 >= 0 && g3 < 0.034) impactFrame(HX, HY, 1);
+    if (g3 >= 0 && g3 < 1 / 60) impactFrame(HX, HY, 1);
     // into the black sun: where the blade is inside it light pours from the wound, and its edges throw sparks
     if (g4 > 0 && g5 < 0) {
       const px = SX - hero.hand[0], py = SY - hero.hand[1], m = px * ux + py * uy, q = Math.abs(-px * uy + py * ux), hc = Math.sqrt(Math.max(0, Rs * Rs - q * q)), drive = eio(b4Clip(136.0, 138.0, t));
@@ -867,7 +867,7 @@
       glow((e1[0] + e2[0]) / 2, (e1[1] + e2[1]) / 2, (40 + 60 * drive) * vz, T_WH, 0.35 + 0.2 * drive);
       megaHit(e1[0], e1[1], g4, 2.8, a, [22, 85, 83], 2602);
     }
-    if (g5 >= 0) { if (g5 < 0.034) impactFrame(SX, SY, 1); shockRing(SX, SY, 10 + g5 * 500, 10 + g5 * 500, 5, [22, 16, 15], 1 - g5 / 1.0); shk(7 * Math.exp(-g5 * 3)); }
+    if (g5 >= 0) { if (g5 < 1 / 60) impactFrame(SX, SY, 1); shockRing(SX, SY, 10 + g5 * 500, 10 + g5 * 500, 5, [22, 16, 15], 1 - g5 / 1.0); shk(7 * Math.exp(-g5 * 3)); }
     shk(t < T0 ? 0.6 + lift : pressing ? 1.2 + 3 * Math.exp(-Math.max(0, g0) * 2) : g3 > 0 && g3 < 1.75 ? 3 + 4 * (1 - g3 / 1.75) : 0.8);
     // ---- foreground: wisps of cloud and cinders streaming past the lens
     for (let k = 0; k < 5; k++) { const x = ((ih(k, 1, 2561) * 700 - vx * vz * 1.7 - t * 24) % 700 + 700) % 700 - 110, y = ((ih(k, 2, 2561) * 420 - vy * vz * 1.7) % 420 + 420) % 420 - 60; if (Math.abs(x - 240) < 180 && y > 50 && y < 230) continue; cloudPuff(x, y, 16 + ih(k, 3, 2561) * 14, [17, 18, 19, 15], 2562 + k); }
@@ -1063,7 +1063,7 @@
   const b4P = (x, y) => [240 + (x - B4V.x) * B4V.z, 135 + (y - B4V.y) * B4V.z];
   const B4_FZ = 0.75;                                         // the final framing: wide, the hero high over his crown
   const B4_CAMK = [[139.6, 179, 154, 1.3], [139.86, 168, 112, 1.04], [140.02, 196, 134, 1.08], [140.24, 300, 168, 0.97], [140.44, 372, 92, 0.95], [140.62, 340, 84, 0.9],
-    [140.86, 252, 80, 0.88], [141.06, 196, 128, 0.92], [141.22, 212, 192, 1.04], [141.5, 330, 186, 0.95], [141.68, 372, 84, 1.14], [141.82, 350, 72, 1.3], [142.06, 300, 138, 1.12],
+    [140.86, 252, 80, 0.88], [141.06, 196, 128, 0.92], [141.22, 212, 192, 1.04], [141.5, 330, 186, 0.95], [141.68, 380, 70, 1.05], [141.82, 352, 54, 1.1], [142.06, 300, 138, 1.12],
     [142.42, 372, 212, 1.0], [142.72, 334, 140, 0.95], [143.1, 300, 130, 0.92], [143.42, 272, 142, 1.0], [143.78, 272, 136, 0.98], [144.2, 286, 96, 0.95],
     [144.62, B4_WX - 10 / B4_FZ, B4_WY - 55 / B4_FZ, B4_FZ], [146.6, B4_WX - 10 / B4_FZ, B4_WY - 55 / B4_FZ, B4_FZ]];
   // the hero (world): x, y, sw (the blade, unwrapped so each swing turns the way it is thrown), a (body), S (blade length)
@@ -1079,8 +1079,8 @@
     { t: 141.2, x: 100, y: 200, sw: 6.74, a: 0.4, e: EQ },                  // 3 — down across the chest, the lower-left stump
     { t: 141.5, x: 446, y: 300, sw: 7.48, a: 0.4, e: 'o' },
     { t: 141.64, x: 476, y: 112, sw: 6.3, a: -0.3 },                        // up his right side, past the catching hand
-    { t: 141.72, x: 446, y: 2, sw: 4.88, a: -0.2, e: 'o' },
-    { t: 141.8, x: 372, y: 9, sw: 8.21, a: 0.4, e: EQ, S: 230 },            // 4 — down through his face
+    { t: 141.72, x: 440, y: 22, sw: 4.88, a: -0.2, e: 'o' },
+    { t: 141.8, x: 366, y: 30, sw: 8.21, a: 0.4, e: EQ, S: 230 },            // 4 — down through his face
     { t: 142.1, x: 228, y: 232, sw: 8.58, a: 0.5, e: 'o', S: 200 },
     { t: 142.33, x: 478, y: 296, sw: 7.48, a: -0.1, S: 190 },               // under him to the right
     { t: 142.4, x: 468, y: 258, sw: 9.5, a: -0.3, e: EQ },                  // 5 — up from under through the last stump
@@ -1161,7 +1161,7 @@
     const [kx, ky, z] = b4Spl(B4_CAMK, c), w = 0.35 * (1 - sstep(144.2, 144.6, c)) * (1 - 0.75 * sstep(142.75, 142.95, c) * (1 - sstep(143.7, 143.95, c))), h = z5Trk(B4_DV, c - 0.06), n = z5Trk(B4_DV, c);
     let x = lerp(kx, h.x, w), y = lerp(ky, h.y, w);
     if (c < 144.5) {
-      const sx = 240 + (n.x - x) * z, sy = 135 + (n.y - y) * z, mx = 70, yT = LB + 84, yB = H - LB - 12;
+      const sx = 240 + (n.x - x) * z, sy = 135 + (n.y - y) * z, mx = 70, yT = LB + 72, yB = H - LB - 12;
       if (sx < mx) x -= (mx - sx) / z; else if (sx > W - mx) x += (sx - W + mx) / z;
       if (sy < yT) y -= (yT - sy) / z; else if (sy > yB) y += (sy - yB) / z;
     }
