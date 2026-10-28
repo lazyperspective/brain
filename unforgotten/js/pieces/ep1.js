@@ -76,10 +76,10 @@
     TABS.set(key, T); return T;
   }
   const T_DARK = tab('#04040a'), T_WH = tab('#ffffff'), T_EMBER = tab('#ff8a2a', true), T_GOLD = tab('#ffd27a', true), T_HUSH = tab('#eef1f8'),
-    T_TEAL = tab('#5fe6d0', true), T_VIO = tab('#a070ff', true), T_RED = tab('#ff3050', true), T_COLD = tab('#2a3a70'), T_SEPIA = tab('#3a2a1a');
+    T_TEAL = tab('#5fe6d0', true), T_VIO = tab('#a070ff', true), T_RED = tab('#ff3050', true), T_COLD = tab('#2a3a70'), T_SEPIA = tab('#3a2a1a'), T_SHADE = tab('#2b2550');
 
   /* ================================================================ buffers & primitives */
-  const BUF = new Uint8Array(NP), ZB = new Float32Array(NP), IDB = new Uint16Array(NP);
+  const BUF = new Uint8Array(NP), ZB = new Float32Array(NP), IDB = new Uint16Array(NP), EMIS = new Uint8Array(NP);
   function P(x, y, c) { x = fl(x); y = fl(y); if (x >= 0 && x < W && y >= 0 && y < H) BUF[y * W + x] = c; }
   function PZ(x, y, c, z) { x = fl(x); y = fl(y); if (x >= 0 && x < W && y >= 0 && y < H) { const i = y * W + x; if (z < ZB[i]) { BUF[i] = c; ZB[i] = z; } } }
   function rectF(x, y, w, h, c) { const x0 = Math.max(0, fl(x)), y0 = Math.max(0, fl(y)), x1 = Math.min(W, fl(x + w)), y1 = Math.min(H, fl(y + h)); for (let yy = y0; yy < y1; yy++) BUF.fill(c, yy * W + x0, yy * W + Math.max(x0, x1)); }
@@ -141,6 +141,8 @@
     if (roll) { const c = Math.cos(roll), s = Math.sin(roll); const nrx = rx * c + ux * s, nry = ry * c + uy * s, nrz = rz * c + uz * s; ux = ux * c - rx * s; uy = uy * c - ry * s; uz = uz * c - rz * s; rx = nrx; ry = nry; rz = nrz; }
     Object.assign(CAM, { x: px, y: py, z: pz, fx, fy, fz, rx, ry, rz, ux, uy, uz, F: (W / 2) / Math.tan((fov || 60) * PI / 360) });
   }
+  // the same framing from k times farther back along the line of sight, with the aim raised by dy (keeps sprites at a sane size)
+  function lookK(px, py, pz, tx, ty, tz, fov, k, dy) { dy = dy || 0; lookAt(tx + (px - tx) * k, ty + dy + (py - ty) * k, tz + (pz - tz) * k, tx, ty + dy, tz, fov); }
   // world → screen; returns null behind the camera. Z is the depth along the view axis.
   const PR = { x: 0, y: 0, z: 0 };
   function proj(x, y, z) {
@@ -167,7 +169,7 @@
   const lightOf = (nx, ny, nz) => ENV.amb + (1 - ENV.amb) * Math.max(0, nx * ENV.sun[0] + ny * ENV.sun[1] + nz * ENV.sun[2]);
 
   let QID = 1;
-  function beginWorld() { ZB.fill(1e9); IDB.fill(0); QID = 1; }
+  function beginWorld() { ZB.fill(1e9); IDB.fill(0); EMIS.fill(0); QID = 1; }
   // the sky: fn(dirx, diry, dirz, x, y) → colour, for every pixel nothing else will cover
   function sky(fn) {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const d = ray(x + 0.5, y + 0.5), l = Math.hypot(d.x, d.y, d.z); BUF[y * W + x] = fn(d.x / l, d.y / l, d.z / l, x, y); }
@@ -238,7 +240,14 @@
       if (nn[0] * (CAM.x - pts[0][0]) + nn[1] * (CAM.y - pts[0][1]) + nn[2] * (CAM.z - pts[0][2]) <= 0) continue;
       const L = lightOf(nn[0], nn[1], nn[2]);
       // our corner order winds the normal inward for poly3, so pass it reversed
-      poly3([pts[0], pts[3], pts[2], pts[1]], (u, v, x, y, t) => mat(nm, v, u, x, y, t, L), opt);
+      const side = nm !== 'top' && nm !== 'bottom', cool = ENV.coolT && L < 0.62 ? Math.min(0.55, (0.62 - L) * 1.3) : 0, ao = ENV.ao || 0;
+      poly3([pts[0], pts[3], pts[2], pts[1]], (u, v, x, y, t) => {
+        let c = mat(nm, v, u, x, y, t, L); if (c < 0) return c;
+        // shadowed faces lean cool; the foot of every wall darkens where it meets the ground
+        if (cool > 0) { const l = fl(cool * 8 + bay(x, y) - 0.5); if (l >= 0) c = ENV.coolT[Math.min(7, l) * NPAL + c]; }
+        if (side && ao > 0 && u < 0.7) { const l = fl((0.7 - u) / 0.7 * ao * 8 + bay(x, y) - 0.5); if (l >= 0) c = T_DARK[Math.min(7, l) * NPAL + c]; }
+        return c;
+      }, opt);
     }
   }
   // a gabled roof over [x0..x1] × [z0..z1], ridge along x at height y0 + h
@@ -382,7 +391,7 @@
     // legs
     const legs = () => {
       let a = o.stride || 0, b = -(o.stride || 0), la = 0, lb = 0;
-      if (o.run !== undefined) { const s = Math.sin(o.run); a = s * 1.4; b = -s * 1.4; la = Math.max(0, -s) * 3; lb = Math.max(0, s) * 3; }
+      if (o.run !== undefined) { const s = Math.sin(o.run), g = o._gait || 1, c = Math.cos(o.run); a = s * 1.5 * g; b = -s * 1.5 * g; la = Math.max(0, c) * 3 * g; lb = Math.max(0, -c) * 3 * g; }
       if (o.air) { la = 3; lb = 4; a = -1; b = 1.2; }
       const leg = (x, sx, lift, c, cb) => { const top = ty + 14, bot = 60 - lift; sRect(x + sx * 2, top, x + 3 + sx * 2, bot, c); sRect(x + sx * 4 - 1 + (P.bootOut ? 0 : 0), bot - 1, x + sx * 4 + 4, bot, cb); };
       if (P.robe) { // robes hide the legs: a flared skirt, with feet peeking
@@ -430,14 +439,16 @@
     const cr = o.crouch || 0, bob = o.bob || 0, hx = 30 + (o.lean || 0) * 0.3, hy = 30 + cr * 4 + bob, ty = 39 + cr * 4 + bob, tx = 22;
     const back = view === 'back';
     // legs
-    const ls = o.run !== undefined ? Math.sin(o.run) : 0;
+    const ls = o.run !== undefined ? Math.sin(o.run) * 1.35 * (o._gait || 1) : 0;
     if (P.robe) { sPoly([[tx + 1, ty + 9], [tx + 15, ty + 9], [tx + 18, 59], [tx - 2, 59]], P.robe); sRect(tx - 2, 57, tx + 18, 58, P.robeD); }
     else { sRect(25, ty + 14, 28, 60 - Math.max(0, ls) * 3, P.legD); sRect(32, ty + 14, 35, 60 - Math.max(0, -ls) * 3, P.leg); sRect(24, 59 - Math.max(0, ls) * 3, 29, 60 - Math.max(0, ls) * 3, P.bootD); sRect(31, 59 - Math.max(0, -ls) * 3, 36, 60 - Math.max(0, -ls) * 3, P.boot); }
     if (back && P.backB) P.backB(o, hx, hy);
     // arms (screen-left and screen-right)
-    const aL = o.armL === undefined ? 1.9 : o.armL, aR = o.armF === undefined ? 1.25 : o.armF, rr = 7 + (o.reach || 0);
-    const sl = [tx + 1, ty + 3], sr = [tx + 15, ty + 3], hl = [sl[0] + Math.cos(aL) * 7, sl[1] + Math.sin(aL) * 7], hr = [sr[0] + Math.cos(aR) * rr, sr[1] + Math.sin(aR) * rr];
-    sLine(sl[0], sl[1], hl[0], hl[1], P.armD, 3); sLine(sr[0], sr[1], hr[0], hr[1], P.arm, 3);
+    // seen from the front, a swinging arm mostly foreshortens: the hand rises a little as it comes toward us
+    const au = o._autoArms, aL = au !== undefined ? 1.95 - au * 0.12 : o.armL === undefined ? 1.9 : o.armL, aR = au !== undefined ? 1.2 - au * 0.12 : o.armF === undefined ? 1.25 : o.armF;
+    const rl = (au !== undefined ? 7 - Math.max(0, au) * 2.2 : 7) + (o.reachL || 0), rr = (au !== undefined ? 7 - Math.max(0, -au) * 2.2 : 7) + (o.reach || 0);
+    const sl = [tx + 1, ty + 3], sr = [tx + 15, ty + 3], hl = [sl[0] + Math.cos(aL) * rl, sl[1] + Math.sin(aL) * rl], hr = [sr[0] + Math.cos(aR) * rr, sr[1] + Math.sin(aR) * rr];
+    if (!o.patL) sLine(sl[0], sl[1], hl[0], hl[1], P.armD, 3); sLine(sr[0], sr[1], hr[0], hr[1], P.arm, 3);
     // torso
     sPoly([[tx, ty], [tx + 16, ty], [tx + 17, ty + 15], [tx - 1, ty + 15]], back ? P.clothD || P.cloth : P.cloth);
     sRect(tx, ty, tx + 16, ty, P.clothL);
@@ -451,7 +462,12 @@
       faceF(o, hx, P);
       if (P.frontH) P.frontH(o, hx, hy);
     }
-    sRect(hl[0] - 1, hl[1] - 1, hl[0] + 1, hl[1] + 1, P.skin || SKIN.m); sRect(hr[0] - 1, hr[1] - 1, hr[0] + 1, hr[1] + 1, P.skin || SKIN.m);
+    // an arm raised to reach (a pat, a wave) passes in front of the head
+    if (o.reachL > 0) sLine(sl[0], sl[1], hl[0], hl[1], P.armD, 3);
+    // a bent arm laid on something (patL: the hand's offset from the screen-left shoulder): up over the elbow, down onto it
+    if (o.patL) { const ex = sl[0] + o.patL[0] * 0.5, ey = sl[1] + Math.min(o.patL[1], 0) - 5, hx2 = sl[0] + o.patL[0], hy2 = sl[1] + o.patL[1]; sLine(sl[0], sl[1], ex, ey, P.armD, 3); sLine(ex, ey, hx2, hy2, P.armD, 3); sRect(hx2 - 2, hy2 - 1, hx2 + 1, hy2 + 1, P.skin || SKIN.m); }
+    if (o.reach > 0 && hr[1] < sr[1]) sLine(sr[0], sr[1], hr[0], hr[1], P.arm, 3);
+    if (!o.patL) sRect(hl[0] - 1, hl[1] - 1, hl[0] + 1, hl[1] + 1, P.skin || SKIN.m); sRect(hr[0] - 1, hr[1] - 1, hr[0] + 1, hr[1] + 1, P.skin || SKIN.m);
     if (P.prop) P.prop(o, hr[0], hr[1]);
     return { hand: hr, head: [hx, hy], chest: [tx + 8, ty + 6] };
   }
@@ -655,8 +671,23 @@
   }
 
   // build a sprite for a character in a pose; returns anchor points in local space
+  // a run or walk drives the whole body: arms swing against the legs, the body dips on each footfall and rises
+  // as the legs pass, the runner leans in and the hair streams; anything a shot sets explicitly wins
+  function cycle(o) {
+    const ph = o.run !== undefined ? o.run : o.walk; if (ph === undefined || o.air) return o;
+    const s = Math.sin(ph), k = o.run !== undefined ? 1 : 0.55, q = Object.assign({}, o);
+    if (o.run === undefined) { q.run = ph; q.stride = 0; }
+    if (q.bob === undefined) q.bob = Math.abs(s) > 0.75 ? 1 : Math.abs(s) < 0.3 ? -1 : 0;
+    if (q.armF === undefined) { q.armF = PI / 2 + s * 0.95 * k - 0.15; q._autoArms = s * k * 2; }
+    if (q.armB === undefined) q.armB = PI / 2 - s * 0.95 * k - 0.1;
+    if (q.armL === undefined) q.armL = PI / 2 + 0.35 - s * 0.6 * k;
+    if (q.lean === undefined) q.lean = o.run !== undefined ? 2 : 0.5;
+    if (q.wind === undefined) q.wind = o.run !== undefined ? 3 : 1;
+    q._gait = k;
+    return q;
+  }
   function buildChar(who, o) {
-    clearSprite();
+    clearSprite(); o = cycle(o);
     let r = null;
     if (who === 'bellwether') drawBellwether(o);
     else if (who === 'king') drawKing(o);
@@ -699,7 +730,7 @@
         if (opt.tint) c = opt.tint.T[Math.min(7, Math.max(0, fl(opt.tint.a * 8 + bay(X, Y) - 0.5))) * NPAL + c];
         if (fogT && fa > 0 && SPK[si] !== 3) { const l = Math.min(7, fl(fa * 8 + bay(X, Y) - 0.5)); if (l >= 0) c = fogT[l * NPAL + c]; }
       }
-      BUF[i] = c; if (!opt.noZ) ZB[i] = z; IDB[i] = 65535;
+      BUF[i] = c; if (!opt.noZ) ZB[i] = z; IDB[i] = 65535; EMIS[i] = SPK[si] === 3 ? 1 : 0;
       if (!opt.noMask) { SMASK[i] = 1; if (X < SMB[0]) SMB[0] = X; if (Y < SMB[1]) SMB[1] = Y; if (X > SMB[2]) SMB[2] = X; if (Y > SMB[3]) SMB[3] = Y; }
     }
   }
@@ -714,10 +745,41 @@
       for (let x = SMB[0]; x <= SMB[2]; x++) { const sx = x - sh; if (sx >= SMB[0] && sx <= SMB[2] && SMASK[o + sx]) BUF[o + x] = ROWT[sx]; }
     }
   }
+  // light the built sprite: the pixels on the side facing the light step up their ramp (a rim), and the outline on that
+  // side can take a pale edge colour (ENV.edge), so figures read against any background
+  const RIMT = new Uint8Array(SW * SH);
+  function rimSprite(dx, dy, k, edge) {
+    if (k <= 0 && edge === undefined) return;
+    const ox = Math.round(dx * 1.4), oy = Math.round(dy * 1.4); if (!ox && !oy) return;
+    RIMT.set(SPR);
+    const x0 = Math.max(2, SBB[0]), x1 = Math.min(SW - 3, SBB[2]), y0 = Math.max(2, SBB[1]), y1 = Math.min(SH - 3, SBB[3]);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const i = y * SW + x, c = RIMT[i]; if (!c) continue;
+      const kd = SPK[i], j = i + oy * SW + ox, n = RIMT[j], nk = SPK[j];
+      if (kd === 4) { if (edge !== undefined && !n) SPR[i] = edge + 1; continue; }
+      if (kd === 3) continue;
+      if (k > 0 && (!n || nk === 4)) { const v = c - 1; SPR[i] = ((v & ~7) | Math.min(7, (v & 7) + k)) + 1; }
+    }
+  }
+  // the light's direction on screen (toward the light), from the sun and the camera, unless a shot sets ENV.rimDir
+  function rimDir() {
+    if (ENV.rimDir) return ENV.rimDir;
+    const s = ENV.sun; let x = s[0] * CAM.rx + s[1] * CAM.ry + s[2] * CAM.rz, y = -(s[0] * CAM.ux + s[1] * CAM.uy + s[2] * CAM.uz);
+    const l = Math.hypot(x, y); if (l < 0.2) { x = -0.6; y = -0.8; } else { x /= l; y /= l; }
+    return [x, y];
+  }
+  // pixel art at one scale: big sprites snap to whole pixels per sprite pixel, so they never shimmer as they move
+  const snapS = (S) => { if (S < 0.85) return S; const r = Math.round(S); if (Math.abs(S - r) < 0.15) return r; return Math.round(S * 4) / 4; };
+  // (whole pixels when close to a whole scale; otherwise quarter steps, so a slow dolly never jumps a whole size)
   // place a character in screen space: feet at (x, y), S scale. Hollow get ghosts and tearing.
   function actor(who, o, x, y, S, opt) {
     opt = opt || {};
+    // standing figures breathe: the chest and head rise one pixel and settle
+    if (o.run === undefined && !o.air && o.bob === undefined && !opt.still) { const ph = (who.charCodeAt(0) * 0.37 + (who.charCodeAt(1) || 0) * 0.11) % TAU; o = Object.assign({}, o, { bob: Math.sin(T_NOW * 2.3 + ph) > 0.35 ? -1 : 0 }); }
     const r = buildChar(who, o);
+    if (!opt.white && opt.color === undefined && ENV.rimK !== 0) { const d = rimDir(), f = opt.flip ? -1 : 1; rimSprite(d[0] * f, d[1], ENV.rimK === undefined ? 1 : ENV.rimK, ENV.edge === null ? undefined : ENV.edge); }
+    if (!opt.ang && !opt.smooth) { S = snapS(S); x = Math.round(x); y = Math.round(y); }
+    if (typeof window !== 'undefined' && window.__dbgS !== undefined && who !== 'bellwether' && who !== 'king') window.__dbgS = Math.max(window.__dbgS, S);
     clearMask();
     if (who === 'hollow' && !opt.clean) {
       const off = Math.max(1, Math.round(S * 1.1)) + (fl(T_NOW * 12) % 3 === 0 ? 1 : 0);
@@ -729,13 +791,32 @@
     if ((who === 'hollow' && !opt.clean) || opt.glitch) glitchRows(T_NOW, Math.max(2, Math.round(S * 1.5)) * (1 + (opt.glitch || 0) * 3), opt.glitch ? 0.55 : 0.2);
     // where things are, in screen space
     const L = (p) => { if (!p) return null; let lx = (p[0] - 30) * S, ly = (p[1] - 60) * S; if (opt.flip) lx = -lx; const c = Math.cos(opt.ang || 0), s = Math.sin(opt.ang || 0); return [x + lx * c - ly * s, y + lx * s + ly * c]; };
-    return r ? { hand: L(r.hand), head: L(r.head), chest: L(r.chest) } : { head: L([30, 20]) };
+    return r ? { hand: L(r.hand), head: L(r.head), chest: L(r.chest), S } : { head: L([30, 20]), S };
+  }
+  // a soft shadow where a figure meets the ground: a dithered dark disc on the surface under its feet (radius r metres)
+  function contactShadow(wx, gy, wz, r, a) {
+    const c = proj(wx, gy, wz); if (!c) return; const cx = c.x, cy = c.y, cz = c.z, R0 = r * CAM.F / cz * 1.2 + 2;
+    const x0 = Math.max(0, fl(cx - R0)), x1 = Math.min(W - 1, Math.ceil(cx + R0)), y0 = Math.max(0, fl(cy - R0)), y1 = Math.min(H - 1, Math.ceil(cy + R0));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const d = ray(x + 0.5, y + 0.5); if (Math.abs(d.y) < 1e-4) continue;
+      const t = (gy - CAM.y) / d.y; if (t <= 0) continue;
+      const i = y * W + x; if (Math.abs(ZB[i] - t) > 0.04 * t + 0.05) continue;     // only on the ground itself
+      const q = Math.hypot(CAM.x + t * d.x - wx, (CAM.z + t * d.z - wz) * 1.15) / r; if (q >= 1) continue;
+      tintI(i, x, y, T_DARK, a * (1 - q * q));
+    }
   }
   // place a character in the world: feet at (wx, wy, wz), hgt = sprite pixels per world metre (≈ 28 px is 1.6 m tall at S=1)
+  // opt.gy: the ground under an airborne figure (its shadow shrinks and fades with height); opt.shadow: false for none
   function actor3(who, o, wx, wy, wz, opt) {
     opt = opt || {}; const p = proj(wx, wy, wz); if (!p) return null;
-    const S = CAM.F / p.z * (opt.size || 1) / 26;
-    return Object.assign(actor(who, o, p.x, p.y, S, Object.assign({ z: p.z, fog: true }, opt)), { S, x: p.x, y: p.y, z: p.z });
+    const px = p.x, py = p.y, pz = p.z;
+    const S = CAM.F / pz * (opt.size || 1) / 26;
+    if (S > 12 && !opt.big) return null;                // a figure right on the lens: leave it out of the picture
+    if (opt.shadow !== false && !opt.white && opt.alpha === undefined) {
+      const gy = opt.gy === undefined ? wy : opt.gy, hgt = Math.max(0, wy - gy), sz = opt.size || 1;
+      if (hgt < 6) contactShadow(wx, gy, wz, (0.5 + hgt * 0.05) * sz * (who === 'bellwether' ? 2.2 : 1), 0.55 * (1 - hgt / 6));
+    }
+    return Object.assign(actor(who, o, px, py, S, Object.assign({ z: pz + (opt.zBias || 0), fog: true }, opt)), { x: px, y: py, z: pz });
   }
   // a natural blink every few seconds
   const blink = (t, seed) => frac(t / (2.6 + ih(seed, 1, 9) * 1.8) + ih(seed, 2, 9)) < 0.045;
@@ -813,16 +894,27 @@
     if (power >= 1 && g < (power >= 1.5 ? 0.067 : 0.034)) impactFrame(x, y, 1);
   }
   // the Hush: inside mask(x, y) → amount 0..1, colour drains to blank white, edges flicker with glyphs
+  // the Hush: what it touches loses its colour and becomes a pale, unpainted sketch of itself (graphite lines on paper)
+  const HUB = new Uint8Array(NP);
   function hushOver(amt, t, flecks) {
     if (flecks === undefined) flecks = true;
+    HUB.set(BUF);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const a = amt(x, y); if (a <= 0) continue;
-      const i = y * W + x;
-      if (a >= 1) { const l = LUM[BUF[i]]; BUF[i] = l > 150 ? WHITE : l > 80 ? C('hush', 6) : l > 40 ? C('hush', 4) : C('hush', 2); continue; }
+      const i = y * W + x, l = LUM[HUB[i]];
+      if (a >= 0.85) {
+        // an edge in the old picture stays as a faint line
+        const lr = x < W - 1 ? LUM[HUB[i + 1]] : l, ld = y < H - 1 ? LUM[HUB[i + W]] : l, e = Math.max(Math.abs(l - lr), Math.abs(l - ld));
+        if (e > 58) { BUF[i] = e > 95 ? C('stone', 5) : C('hush', 1); continue; }
+        BUF[i] = shadeC(R.hush, 2.2 + l / 255 * 5.6, x, y);
+        if (flecks && ih(x >> 1, y >> 1, fl(t * 12)) < 0.004) BUF[i] = C('crimson', 5);
+        continue;
+      }
       tintI(i, x, y, T_HUSH, a);
       if (flecks && a > 0.35 && a < 0.6 && ih(x >> 1, y >> 1, fl(t * 20)) < 0.05) BUF[i] = ih(x, y, 3) < 0.5 ? WHITE : C('crimson', 5);
     }
   }
+
   // a ring of white glyphs (the Hush sigil) as an ellipse on screen
   function sigil(cx, cy, r, ry, t, a, seed) {
     if (a <= 0) return;
@@ -907,12 +999,40 @@
   }
   // cards: on-screen titles in the picture area
   const CARDS = [];
+  // only light sources bloom: sky, glows, fire and sprites' glowing bits, not every pale wall in daylight
+  const RB_EM = (i) => IDB[i] === 0 || EMIS[i] === 1;
+  // the lens: bright things bloom into the air around them, and the corners fall off into shadow
+  const BLW = 120, BLH = 68, BL = new Float32Array(BLW * BLH), BL2 = new Float32Array(BLW * BLH);
+  function lens() {
+    const k = ENV.bloom;
+    if (k > 0) {
+      BL.fill(0);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const l = LUM[BUF[y * W + x]]; const i = y * W + x; if (l > 214 && (EMIS[i] === 1 || (IDB[i] === 0 && l > 238))) BL[(y >> 2) * BLW + (x >> 2)] += (l - 214) / 41 / 16; }
+      for (let pass = 0; pass < 3; pass++) {
+        for (let y = 0; y < BLH; y++) for (let x = 0; x < BLW; x++) { let v = 0, n = 0; for (let d = -2; d <= 2; d++) { const xx = x + d; if (xx >= 0 && xx < BLW) { v += BL[y * BLW + xx]; n++; } } BL2[y * BLW + x] = v / n; }
+        for (let y = 0; y < BLH; y++) for (let x = 0; x < BLW; x++) { let v = 0, n = 0; for (let d = -2; d <= 2; d++) { const yy = y + d; if (yy >= 0 && yy < BLH) { v += BL2[yy * BLW + x]; n++; } } BL[y * BLW + x] = v / n; }
+      }
+      const T = ENV.bloomT || T_GOLD;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        // bilinear up from the quarter-size map
+        const fx = x / 4 - 0.5, fy = y / 4 - 0.5, ix = clamp(fl(fx), 0, BLW - 2), iy = clamp(fl(fy), 0, BLH - 2), ux = clamp(fx - ix, 0, 1), uy = clamp(fy - iy, 0, 1);
+        const v = lerp(lerp(BL[iy * BLW + ix], BL[iy * BLW + ix + 1], ux), lerp(BL[(iy + 1) * BLW + ix], BL[(iy + 1) * BLW + ix + 1], ux), uy);
+        if (v > 0.02) tintI(y * W + x, x, y, T, Math.min(0.7, v * k * 2.2));
+      }
+    }
+    if (ENV.vig > 0) for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) {
+      const dx = (x - 240) / 240, dy = (y - 135) / 113, r = dx * dx * 0.75 + dy * dy * 0.5;
+      if (r > 0.6) tintI(y * W + x, x, y, T_DARK, Math.min(0.3, (r - 0.6) * ENV.vig));
+    }
+  }
   let SHX = 0, SHY = 0;
   function render(t) {
     t = clamp(t, 0, D - 1 / FPS);
     T_NOW = t; SHAKE_A = 0; BUF.fill(BLACK); beginWorld();
+    ENV.rimK = 1; ENV.edge = null; ENV.rimDir = null; ENV.bloom = 0.5; ENV.coolT = T_SHADE; ENV.ao = 0.4; ENV.bloomT = null; ENV.vig = 0;
     let S = SHOTS[0]; for (const s of SHOTS) if (t >= s.t0) S = s;
     S.fn(t - S.t0, t, S.t1 - S.t0);
+    lens();
     // whip pans between shots that ask for one
     for (const s of SHOTS) if (s.whip !== undefined) { const d = Math.abs(t - s.t0); if (d < 0.1) whip(80 * (1 - d / 0.1), s.whip); }
     if (!S.nobars) letterbox(LB);
@@ -1118,40 +1238,69 @@
     }
   })();
   function roofY(lane, z) { for (const r of RT.roofs) if (r.lane === lane && z >= r.z0 - 0.3 && z <= r.z1 + 0.3) return r.y; return null; }
-  function drawRooftops(t, opt) {
-    opt = opt || {};
-    setSun(-0.55, 0.45, 0.7, 0.45); setFog('#f0b3a6', 40, 260, 0.85);
-    sky(skyDawn);
-    plane(0, cloudSea, { maxD: 600 });
-    for (const T of HS.towers) { if (Math.abs(T.x + 60) < 30 + T.r || Math.hypot(T.x - CAM.x, T.z - CAM.z) > 380) continue; prism(T.x + 60, T.z + 120, T.r, -10, T.h, T.n, towerWin(3.4, T.seed)); cone(T.x + 60, T.z + 120, T.r * 1.25, T.h, T.cap, T.n, goldRoof); }
-    for (const r of RT.roofs) {
-      if (r.z1 < CAM.z - 4 || r.z0 > CAM.z + 140) continue;
-      box(r.x0, r.y - 14, r.z0, r.x1, r.y, r.z1, (face, u, v, x, y, tt, L) => face === 'top' ? shadeC(R.linen, 2.6 + L * 2.6 + (frac(u / 0.8) < 0.08 || frac(v / 0.8) < 0.08 ? -0.9 : 0), x, y) : towerWin(3, r.seed)(face, u, v, x, y, tt, L));
-      if (ih(r.seed, 1, 103) < 0.6) box(r.x0 + 0.8, r.y, r.z0 + 1.5, r.x0 + 1.6, r.y + 1.8, r.z0 + 2.3, flatMat(R.stone, 2.6));         // chimney
-      if (ih(r.seed, 2, 103) < 0.4) { prism(r.x1 - 1.5, r.z1 - 2, 0.9, r.y, r.y + 1.6, 6, flatMat(R.wood, 2.6)); cone(r.x1 - 1.5, r.z1 - 2, 1.1, r.y + 1.6, 0.8, 6, flatMat(R.wood, 2)); } // water tank
-      // prayer flags strung over the gap to the next roof
-      if (ih(r.seed, 3, 103) < 0.7 && r.lane === 0) for (let k = 0; k < 8; k++) { const z = r.z1 - 1 + k * 0.5, sag = Math.sin(k / 7 * PI) * 0.7, x = r.x0 + 0.5 + k * 0.7; const fy = r.y + 3.2 - sag; poly3([[x, fy, z], [x + 0.4, fy, z], [x + 0.2 + Math.sin(t * 6 + k) * 0.1, fy - 0.6, z + 0.05]], () => C([R.crimson, R.gold, R.indigo, R.teal, R.linen][k % 5], 5), { two: true }); }
+  // the houses of the spire: coloured plaster with brick showing through, shuttered windows, a gold cornice
+  const RT_RAMP = [R.linen, R.rose, R.linen, R.gold, R.stone, R.rose];
+  const houseSide = (r) => (face, u, v, x, y, tt, L) => {
+    const sd = ((r.seed % 6) + 6) % 6, ramp = RT_RAMP[sd], top = 14 - v;
+    if (top < 0.32) return shadeC(R.gold, 3.2 + L * 2.4 - (top < 0.07 ? 1.2 : 0), x, y);
+    if (top < 0.5) return shadeC(ramp, 1.2 + L * 1.6, x, y);
+    const wu = frac(u / 1.8), wv = frac((top - 0.9) / 2.6), cell = fl(u / 1.8) * 31 + fl((top - 0.9) / 2.6);
+    if (top > 0.9 && wu > 0.28 && wu < 0.72 && wv > 0.12 && wv < 0.74) {
+      if (wu < 0.36 || wu > 0.64) return shadeC(ih(cell, sd, 7) < 0.5 ? R.teal : R.crimson, 2.4 + L * 2.2 - (frac(wv * 6) < 0.15 ? 0.8 : 0), x, y);
+      return ih(cell, r.seed, 5) < 0.22 ? shadeC(R.gold, 5 + L, x, y) : shadeC(R.night, 1.8 + L * 1.4 + (wv < 0.25 ? 0.9 : 0), x, y);
     }
-  }
-
+    if (top > 0.9 && wu > 0.24 && wu < 0.76 && wv >= 0.74 && wv < 0.8) return shadeC(R.stone, 3.6 + L * 2, x, y);
+    const row = frac(v / 0.45) < 0.09, jt = frac(u / 0.9 + (fl(v / 0.45) % 2) * 0.5) < 0.06, patch = vn(u * 0.5, v * 0.5, 2, r.seed + 40) > 0.68;
+    if (patch) return shadeC(R.ember, 2.4 + L * 2.2 - (row || jt ? 1 : 0), x, y);
+    return shadeC(ramp, 3.4 + L * 2.6 + vn(u, v, 3, r.seed) * 0.7 - (vn(u * 2, v * 0.3, 2, r.seed + 9) > 0.8 ? 0.7 : 0), x, y);
+  };
   // ---------------------------------------------------------------- the harbour ring at the foot of the spire
-  const HB = { boats: [], crates: [], posts: [] };
+  const HB = { boats: [], crates: [], posts: [], lamps: [-19.5, -7.8, 4.2, 16.0], bollards: [-14.2, -5.6, 9.8, 21.5], perch: [2, 5, 9, 12] };
   (function buildHarbour() {
-    for (let k = 0; k < 9; k++) HB.boats.push({ x: -40 + k * 11 + ih(k, 1, 111) * 4, z: 18 + ih(k, 2, 111) * 30, len: 6 + ih(k, 3, 111) * 4, rot: ih(k, 4, 111) * 0.6 - 0.3, mast: ih(k, 5, 111) < 0.7, seed: k });
+    for (let k = 0; k < 9; k++) HB.boats.push({ x: -40 + k * 11 + ih(k, 1, 111) * 4, z: 18 + ih(k, 2, 111) * 30, len: 6 + ih(k, 3, 111) * 4, rot: ih(k, 4, 111) * 0.6 - 0.3, mast: ih(k, 5, 111) < 0.7, seed: k, sail: [R.linen, R.rose, R.linen, R.gold, R.crimson][k % 5] });
     for (let k = 0; k < 14; k++) HB.crates.push({ x: (k & 1 ? -1 : 1) * (13 + ih(k, 1, 112) * 14), z: -2 + ih(k, 2, 112) * 5, s: 0.8 + ih(k, 3, 112) * 0.5, barrel: ih(k, 4, 112) < 0.4 });
     HB.crates.push({ x: -10.4, z: 2.6, s: 0.9, barrel: true }, { x: -9.6, z: 3.1, s: 0.8, barrel: false });
     for (let k = 0; k < 16; k++) HB.posts.push([-20 + k * 2.6, 4.4]);
   })();
+  // the harbour keeps its own clock, so the Hush can stop the water, the boats and the birds; HWY is the sea's level
+  let HT = 0, HWY = -0.4;
   const waterTex = (lights) => (wx, wz, d, x, y) => {
-    const w = Math.sin(wx * 1.3 + T_NOW * 1.6 + Math.sin(wz * 0.7) * 2) + Math.sin(wz * 2.1 - T_NOW * 2.2 + wx * 0.4) * 0.7, n = vn(wx * 3, wz * 6 + T_NOW * 2, 1, 113);
+    const T = HT, w = Math.sin(wx * 1.3 + T * 1.6 + Math.sin(wz * 0.7) * 2) + Math.sin(wz * 2.1 - T * 2.2 + wx * 0.4) * 0.7, n = vn(wx * 3, wz * 6 + T * 2, 1, 113);
     let s = 2.6 + w * 0.5 + n * 0.8;
-    if (lights) for (const L of lights) { const dx = Math.abs(x - L[0]); if (dx < L[2] && y > L[1] && ih(fl(x / 2), y, fl(T_NOW * 8)) < 0.5 * (1 - dx / L[2])) s += 2.5; }
+    if (lights) for (const L of lights) { const dx = Math.abs(x - L[0]); if (dx < L[2] && y > L[1] && ih(fl(x / 2), y, fl(T * 8)) < 0.5 * (1 - dx / L[2])) s += 2.5; }
     if (n > 0.86) s += 2;
+    // sun glints that wink on and off
+    if (d < 70 && n > 0.55 && ih(fl(wx * 4), fl(wz * 7), fl(T * 4 + wx * 0.3)) < 0.03) return d < 26 ? WHITE : C('sea', 7);
+    // foam lapping at the piles and along the dock's edge
+    if (Math.abs(wx) < 30) {
+      const az = Math.abs(wz), lap = 4.06 + 0.1 + Math.sin(wx * 2.3 + T * 2.4) * 0.06;
+      if (az > 4.0 && az < lap) return bay(x, y) < 0.6 ? C('sea', 7) : C('hush', 4);
+      if (wx > -20.6 && wx < 19.6) { let dx = ((wx + 20) % 2.6 + 2.6) % 2.6; dx = Math.min(dx, 2.6 - dx); const r = Math.hypot(dx, az - 4.4); if (r > 0.2 && r < 0.3 + Math.sin(T * 3 + wx) * 0.04 && bay(x, y) < 0.7) return C('sea', 7); }
+    }
     return shadeC(R.sea, s, x, y);
   };
   const plankMat = (base) => (face, u, v, x, y, t, L) => { const p = fl(u / 0.35), seam = frac(u / 0.35) < 0.12; return shadeC(R.wood, (base || 2.4) + L * 2.6 + (ih(p, 3, 114) - 0.5) - (seam ? 1.1 : 0), x, y); };
+  // the dock's deck: boards along its length with staggered butt joints, nail heads, and weather in the grain
+  const deckMat = (face, u, v, x, y, t, L) => {
+    if (face !== 'top') return plankMat(1.6)(face, u, v, x, y, t, L);
+    const p = fl(v / 0.32), pv = frac(v / 0.32), off = ih(p, 5, 114) * 3.1, ju = (u + off) / 3.1, jf = frac(ju), id = p * 97 + fl(ju);
+    let s = 2.9 + L * 2.2 + (ih(id, 3, 114) - 0.5) * 1.0 + (vn(u * 1.5, v * 10, 1, 116) - 0.5) * 0.7;
+    if (pv < 0.1) s -= 1.5;
+    else if (jf < 0.02) s -= 1.2;
+    else if (t < 22 && (jf < 0.045 || jf > 0.985) && Math.abs(pv - 0.55) < 0.09) return C('stone', 2);
+    if (v < 0.25 || v > 7.75) s -= 0.6;                                          // the boards darken where the spray reaches
+    return shadeC(R.wood, s, x, y);
+  };
+  // little props
+  function crate3(x, y, z, s) { box(x - s / 2, y, z - s / 2, x + s / 2, y + s, z + s / 2, (f, u, v, xx, yy, tt, L) => shadeC(R.wood, 2.8 + L * 2.4 - (frac(u / 0.22) < 0.12 ? 1 : 0) - (u < 0.06 || v < 0.06 || u > s - 0.06 || v > s - 0.06 ? 1.2 : 0) + (Math.abs(u - v) < 0.05 || Math.abs(u + v - s) < 0.05 ? -0.9 : 0), xx, yy)); }
+  function barrel3(x, z, s, y) { y = y === undefined ? DY_H : y; prism(x, z, s * 0.42, y, y + s * 1.05, 8, (f, u, v, xx, yy, tt, L) => shadeC(R.wood, 2.5 + L * 2.4 - (Math.abs(v - s * 0.18) < 0.05 || Math.abs(v - s * 0.85) < 0.05 ? 1.6 : 0) - (frac(u / 0.16) < 0.12 ? 0.6 : 0), xx, yy)); cone(x, z, s * 0.42, y + s * 1.05, 0.001, 8, flatMat(R.wood, 2.2)); }
+  const DY_H = 0.35;
+  // a rope hung between two points, sagging
+  function rope3(a, b, sag, c) { let px = a[0], py = a[1], pz = a[2]; for (let k = 1; k <= 6; k++) { const u = k / 6, x = lerp(a[0], b[0], u), y = lerp(a[1], b[1], u) - Math.sin(u * PI) * sag, z = lerp(a[2], b[2], u); l3(px, py, pz, x, y, z, c); px = x; py = y; pz = z; } }
   function drawHarbour(t, opt) {
     opt = opt || {};
+    HT = opt.freeze !== undefined ? Math.min(t, opt.freeze) : t; HWY = opt.waterY === undefined ? -0.4 : opt.waterY;
+    const T = HT;
     setSun(-0.7, 0.4, 0.6, 0.45); setFog(opt.fogHex || '#f0c9a0', 30, 190, 0.8);
     sky(opt.sky || skyDawn);
     // the city wall rising behind the harbour, and the spire far above
@@ -1159,37 +1308,70 @@
     prism(0, 160, 9, -2, 160, 10, towerWin(4, 1)); cone(0, 160, 11, 160, 26, 10, goldRoof);
     // the lighthouse on the breakwater
     prism(70, 60, 2.6, -1, 22, 8, (f, u, v, x, y, tt, L) => shadeC(fl(v / 3) % 2 ? R.crimson : R.linen, 3 + L * 2.5, x, y)); cone(70, 60, 3, 22, 3, 8, flatMat(R.crimson, 2));
-    plane(-0.4, waterTex(opt.lights), { maxD: 400 });
-    // the dock: a long pier of planks on posts
-    box(-30, -0.4, -4, 30, 0.35, 4, (f, u, v, x, y, tt, L) => f === 'top' ? plankMat(2.6)(f, v, u, x, y, tt, L) : plankMat(1.8)(f, u, v, x, y, tt, L));
+    if (!opt.keeperGone) glow3(70, 23.5, 60, 2.2, T_GOLD, 0.5);
+    plane(HWY, waterTex(opt.lights), { maxD: 400 });
+    // the dock: a long pier of planks on posts, a stringer along each side
+    box(-30, -0.4, -4, 30, DY_H, 4, deckMat);
+    box(-30, -0.25, -4.12, 30, 0.2, -4.0, plankMat(1.2)); box(-30, -0.25, 4.0, 30, 0.2, 4.12, plankMat(1.2));
     for (const [x, z] of HB.posts) { box(x - 0.18, -3, z - 0.18, x + 0.18, 1.1, z + 0.18, plankMat(1.6)); box(x - 0.18, -3, -z - 0.18, x + 0.18, 1.1, -z + 0.18, plankMat(1.6)); }
+    // rope rails between the far posts, and a slack line along the near ones
+    for (let k = 0; k + 1 < HB.posts.length; k++) { const a = HB.posts[k], b = HB.posts[k + 1]; if (Math.abs(a[0] - CAM.x) > 40) continue; rope3([a[0], 0.98, a[1]], [b[0], 0.98, b[1]], 0.32, C('linen', 3)); if (k % 2 === 0) rope3([a[0], 0.95, -a[1]], [b[0], 0.95, -b[1]], 0.45, C('wood', 3)); }
+    // gulls asleep on the post tops
+    if (!opt.noGulls) for (const k of HB.perch) { const [x, z] = HB.posts[k], p = proj(x, 1.1, z); if (!p) continue; const s = Math.max(1, Math.round(CAM.F / p.z * 0.09)), hop = (opt.freeze === undefined && ih(k, fl(T * 1.5), 117) < 0.08) ? -s : 0; for (let j = 0; j < s * 2; j++) for (let i = -s * 2; i <= s * 2; i++) if ((i / (2 * s)) ** 2 + ((j - s) / s) ** 2 <= 1) PZ(p.x + i, p.y - j - 1 + hop, j > s * 1.2 ? WHITE : i < -s ? C('stone', 4) : C('hush', 3), p.z - 0.2); for (let i = 0; i <= s; i++) PZ(p.x + s * 2 + i, p.y - s * 1.6 + hop, C('gold', 5), p.z - 0.21); }
+    // lamp posts and drying nets along the far edge, iron bollards with coiled lines
+    for (const x of HB.lamps) {
+      if (Math.abs(x - CAM.x) > 45) continue;
+      box(x - 0.06, DY_H, 3.62, x + 0.06, DY_H + 2.5, 3.74, flatMat(R.char, 1.4, 2));
+      box(x - 0.06, DY_H + 2.38, 3.62, x + 0.5, DY_H + 2.46, 3.74, flatMat(R.char, 1.4, 2));
+      box(x + 0.32, DY_H + 1.98, 3.58, x + 0.58, DY_H + 2.3, 3.78, (f, u, v, xx, yy) => f === 'top' ? C('char', 2) : shadeC(R.ember, 5 + (u > 0.05 && u < 0.27 ? 1.2 : -2), xx, yy));
+      glow3(x + 0.45, DY_H + 2.14, 3.68, 0.7, T_GOLD, 0.3);
+    }
+    for (const x of HB.bollards) {
+      if (Math.abs(x - CAM.x) > 45) continue;
+      prism(x, 3.45, 0.16, DY_H, DY_H + 0.42, 6, flatMat(R.char, 1.2, 2.4)); prism(x, 3.45, 0.22, DY_H + 0.42, DY_H + 0.5, 6, flatMat(R.char, 1.8, 2.4));
+      const p = proj(x + 0.55, DY_H + 0.03, 3.2); if (p) { const r = CAM.F / p.z * 0.22; for (let q = 0; q < 3; q++) ring(p.x, p.y, r - q * 1.2, (r - q * 1.2) * 0.35, C('linen', 3 + (q & 1)), (xx, yy) => ZB[fl(yy) * W + fl(xx)] > p.z - 0.3); }
+    }
+    { const x0 = -12.8, x1 = -10.6; if (Math.abs(x0 - CAM.x) < 40) {
+      box(x0 - 0.05, DY_H, 3.66, x0 + 0.05, DY_H + 1.9, 3.76, flatMat(R.wood, 1.4)); box(x1 - 0.05, DY_H, 3.66, x1 + 0.05, DY_H + 1.9, 3.76, flatMat(R.wood, 1.4));
+      poly3([[x0, DY_H + 1.85, 3.7], [x1, DY_H + 1.85, 3.7], [x1, DY_H + 0.5, 3.72], [x0, DY_H + 0.3, 3.72]], (u, v, xx, yy) => { const sag = Math.sin(u / (x1 - x0) * PI) * 0.25; if (v > 1.55 - sag + 0.3) return -1; return frac(u / 0.11 + v * 2.2) < 0.22 || frac(u / 0.11 - v * 2.2) < 0.22 ? C('linen', 3) : -1; }, { two: true });
+    } }
     for (const c of HB.crates) {
       if (opt.skipCrate && opt.skipCrate(c)) continue;
-      if (c.barrel) { prism(c.x, c.z, c.s * 0.45, 0.35, 0.35 + c.s * 1.1, 8, (f, u, v, x, y, tt, L) => shadeC(R.wood, 2.4 + L * 2.4 - (frac(v / 0.35) < 0.15 ? 1.2 : 0), x, y)); }
-      else box(c.x - c.s / 2, 0.35, c.z - c.s / 2, c.x + c.s / 2, 0.35 + c.s, c.z + c.s / 2, (f, u, v, x, y, tt, L) => shadeC(R.wood, 2.8 + L * 2.4 - (frac(u / 0.25) < 0.12 ? 1 : 0) - (u < 0.06 || v < 0.06 || u > c.s - 0.06 || v > c.s - 0.06 ? 1.2 : 0), x, y));
+      if (Math.abs(c.x - CAM.x) > 60) continue;
+      if (c.barrel) barrel3(c.x, c.z, c.s); else crate3(c.x, DY_H, c.z, c.s);
     }
     for (const b of HB.boats) {
-      const bob = Math.sin(t * 1.3 + b.seed) * 0.12, ca = Math.cos(b.rot), sa = Math.sin(b.rot), hl = b.len / 2;
-      const pt = (u, w, h) => [b.x + ca * u - sa * w, h + bob, b.z + sa * u + ca * w];
+      const bob = Math.sin(T * 1.3 + b.seed) * 0.12 + HWY + 0.4, roll = Math.sin(T * 1.1 + b.seed * 2) * 0.03, ca = Math.cos(b.rot), sa = Math.sin(b.rot), hl = b.len / 2;
+      const pt = (u, w, h) => [b.x + ca * u - sa * w, h + bob + w * roll, b.z + sa * u + ca * w];
       const hull = (f, u, v, x, y, tt, L) => shadeC(b.seed % 3 ? R.wood : R.crimson, 2 + L * 2.6 - (frac(v / 0.3) < 0.15 ? 0.8 : 0), x, y);
       poly3([pt(-hl, -1.2, 0.8), pt(hl, -1.2, 0.8), pt(hl - 1, -0.6, -0.5), pt(-hl + 0.6, -0.6, -0.5)], hull, { two: true });
       poly3([pt(hl, 1.2, 0.8), pt(-hl, 1.2, 0.8), pt(-hl + 0.6, 0.6, -0.5), pt(hl - 1, 0.6, -0.5)], hull, { two: true });
       poly3([pt(hl, -1.2, 0.8), pt(hl + 1.4, 0, 1.0), pt(hl, 1.2, 0.8)], hull, { two: true });
       poly3([pt(-hl, -1.2, 0.8), pt(hl, -1.2, 0.8), pt(hl, 1.2, 0.8), pt(-hl, 1.2, 0.8)], (f, u, v, x, y) => shadeC(R.wood, 3.6 - (frac(u / 0.4) < 0.12 ? 1 : 0), x, y));
-      if (b.mast) { const m = pt(0, 0, 0.8), top = [m[0], m[1] + 6, m[2]]; l3(m[0], m[1], m[2], top[0], top[1], top[2], C('wood', 2), 2); poly3([[top[0], top[1] - 0.4, top[2]], [top[0] + ca * 3, top[1] - 1, top[2] + sa * 3], [m[0] + ca * 3.2, m[1] + 1.2, m[2] + sa * 3.2], [m[0], m[1] + 1.2, m[2]]], (f, u, v, x, y, tt) => shadeC(R.linen, 5 + Math.sin(u * 2 + t) * 0.4, x, y), { two: true }); }
+      if (b.mast) {
+        const m = pt(0, 0, 0.8), top = [m[0], m[1] + 6, m[2]], luff = Math.sin(T * 2 + b.seed) * 0.15;
+        l3(m[0], m[1], m[2], top[0], top[1], top[2], C('wood', 2), 2);
+        poly3([[top[0], top[1] - 0.4, top[2]], [top[0] + ca * 3, top[1] - 1, top[2] + sa * 3], [m[0] + ca * 3.2, m[1] + 1.2, m[2] + sa * 3.2 + luff], [m[0], m[1] + 1.2, m[2]]], (f, u, v, x, y) => shadeC(b.sail, 4.6 + Math.sin(u * 2 + T) * 0.4 + (Math.abs(v - 1.4) < 0.25 && b.sail === R.linen ? -2 : 0), x, y), { two: true });
+        poly3([[top[0], top[1] - 0.6, top[2]], [m[0] - ca * 2.6, m[1] + 1.0, m[2] - sa * 2.6], [m[0] - ca * 0.2, m[1] + 1.0, m[2] - sa * 0.2]], (f, u, v, x, y) => shadeC(R.linen, 5.4, x, y), { two: true });
+        const bw = pt(hl + 1.4, 0, 1.0); l3(top[0], top[1], top[2], bw[0], bw[1], bw[2], C('wood', 2));
+        const st = pt(-hl, 0, 0.8); l3(top[0], top[1], top[2], st[0], st[1], st[2], C('wood', 2));
+        for (let q = 0; q < 4; q++) { const fx = top[0] - ca * q * 0.25, fy = top[1] + 0.05 + Math.sin(T * 9 + q + b.seed) * 0.05 * q, fz = top[2] - sa * q * 0.25; p3(fx, fy, fz, b.seed & 1 ? C('crimson', 5) : C('teal', 5), 0.12); }
+      }
     }
   }
+  // gulls wheeling over the water: an M of wings that beats; frozen (a time) holds them in the air
   function gulls(t, n, cx, cy, cz, frozen) {
     for (let k = 0; k < n; k++) {
-      const tt = frozen === undefined ? t : frozen, a = tt * (0.35 + ih(k, 1, 121) * 0.25) + ih(k, 2, 121) * TAU, r = 8 + ih(k, 3, 121) * 14;
+      const tt = frozen === undefined ? t : Math.min(t, frozen), a = tt * (0.35 + ih(k, 1, 121) * 0.25) + ih(k, 2, 121) * TAU, r = 8 + ih(k, 3, 121) * 14;
       const x = cx + Math.cos(a) * r, y = cy + ih(k, 4, 121) * 7 + Math.sin(tt * 2 + k) * 0.6, z = cz + Math.sin(a) * r;
-      const p = proj(x, y, z); if (!p) continue; const s = Math.max(1, Math.round(CAM.F / p.z * 0.35)), fw = Math.sin(tt * 10 + k * 3);
-      for (let i = -s; i <= s; i++) PZ(p.x + i, p.y - Math.abs(i) * fw * 0.6, i === 0 ? C('stone', 5) : WHITE, p.z);
+      const p = proj(x, y, z); if (!p) continue; const s = Math.max(1.5, CAM.F / p.z * 0.32), fw = Math.sin(tt * (7 + ih(k, 5, 121) * 3) + k * 3), dir = Math.sin(a) > 0 ? -1 : 1;
+      const ey = -fw * s * 0.35, ty = fw * s * 0.45;
+      for (const sd of [-1, 1]) { lineF(p.x, p.y, p.x + sd * s * 0.5, p.y + ey, (xx, yy) => PZ(xx, yy, WHITE, p.z)); lineF(p.x + sd * s * 0.5, p.y + ey, p.x + sd * s, p.y + ty, (xx, yy, u) => PZ(xx, yy, u > 0.6 ? C('stone', 3) : C('hush', 4), p.z)); }
+      PZ(p.x, p.y + 1, C('hush', 2), p.z); if (s > 3) { PZ(p.x + dir, p.y, WHITE, p.z); PZ(p.x + dir * 2, p.y, C('gold', 5), p.z); }
     }
   }
-
   /* ================================================================ dialogue: timings and mouth envelopes (generated) */
-  const DLG = [{"id": "L01", "who": "sable_vo", "text": "Everything has a name.", "t0": 3.0, "dur": 1.111, "env": "6865787435677644666678998877665665"}, {"id": "L02", "who": "sable_vo", "text": "A name is a promise... that something was here.", "t0": 9.6, "dur": 2.474, "env": "689998899998876653223688877666664200000000012334568998545777766553357776664"}, {"id": "L03", "who": "mira", "text": "Sable! I wrote it! I wrote my name on the wall, just like you showed me!", "t0": 18.3, "dur": 3.964, "env": "13688876568876554310000258756787777777542100000157756787777777777777777777766667777654321135422465235655677776324654442"}, {"id": "L04", "who": "sable", "text": "[chuckle] Then the wall will remember you. Even when I'm old and forgetful.", "t0": 24.6, "dur": 4.151, "env": "54201453100001222210003799999876788999875457766677777777655534555555310000000136875789888888888899888765455531145457874211144"}, {"id": "L05", "who": "king", "text": "Hush now.", "t0": 38.4, "dur": 0.748, "env": "79998888999999998776664"}, {"id": "L06", "who": "mira", "text": "Sable...?", "t0": 52.4, "dur": 0.381, "env": "589997688753"}, {"id": "L07", "who": "sable", "text": "Mira, take my hand! Don't let go. Don't let go!", "t0": 55.4, "dur": 3.555, "env": "57877665420000000014677435888876666666787520000000002699987778886323699988742000001479987778986325899988864"}, {"id": "L08", "who": "sable", "text": "No! Mira!", "t0": 60.5, "dur": 1.185, "env": "578899988754210000000136778889999864"}, {"id": "L09", "who": "sable_vo", "text": "I don't remember her face anymore.", "t0": 66.2, "dur": 1.398, "env": "577898778999975567642247998766677777776665"}, {"id": "L10", "who": "sable_vo", "text": "I remember that I swore.", "t0": 77.4, "dur": 1.201, "env": "6876789998888766666567766776435788754"}, {"id": "L11", "who": "warden", "text": "The Storm Seed... it's gone!", "t0": 104.9, "dur": 1.618, "env": "4664368999987655554443210000000014544422799887763"}, {"id": "L12", "who": "oren", "text": "The courier. Kaira was the last one in the vault. Find her!", "t0": 107.0, "dur": 4.127, "env": "2222356654321000000000000000013467666544322222345422454556665553123566665443333211354310000000000000000000000258887776677763"}, {"id": "L13", "who": "kaira", "text": "[gasp] Okay. Okay. Framed, chased, and glowing. Great start to the week.", "t0": 123.0, "dur": 4.517, "env": "7999633568876433210000000000279985446898863000269999999886553125667888875443221268986347888776654321000000025899742333698731356677777764"}, {"id": "L14", "who": "oren", "text": "Courier! Return the Seed!", "t0": 128.6, "dur": 2.416, "env": "4557888877665421000000000000000257753135546777777767888877666666666655310"}, {"id": "L15", "who": "kaira", "text": "I don't HAVE it!", "t0": 131.6, "dur": 0.796, "env": "687888754567774356532100"}, {"id": "L16", "who": "kaira", "text": "[sigh] Okay. I might have it.", "t0": 134.3, "dur": 1.825, "env": "6998753100000026522467776531000000002589999743457753454"}, {"id": "L17", "who": "oren", "text": "Five days, courier. That's how long the elders give you before it tears you apart. Come quietly.", "t0": 153.5, "dur": 6.445, "env": "67778876444689987654445421357876543100000000000000001589756666887766899877666664126888655666651157865445544565323567776411455688776555555541013565310000000000000000000000000146898774334678776432"}, {"id": "L18", "who": "kaira", "text": "Quiet's not really my thing.", "t0": 162.3, "dur": 1.351, "env": "26899986335788875578888877775302566667764"}, {"id": "L19", "who": "tamo", "text": "Hey! That was the GOOD crate!", "t0": 182.6, "dur": 1.595, "env": "688888876410000000258888876677557998533467877653"}, {"id": "L20", "who": "kaira", "text": "Sorry! Not sorry! You should run.", "t0": 185.0, "dur": 1.776, "env": "479999987554310147985335788765532001577778767898776554"}, {"id": "L21", "who": "tamo", "text": "Run from wh-", "t0": 187.6, "dur": 0.5, "env": "589998657988875"}, {"id": "L22", "who": "tamo", "text": "Three grown-ups... against one girl?", "t0": 191.6, "dur": 2.144, "env": "37998657899877764113544310000001366679887644467898877766788888874"}, {"id": "L23", "who": "docker", "text": "Kid, that anchor hasn't moved in a hundred years", "t0": 197.6, "dur": 2.699, "env": "357887420000000025887667887644666667875456777777765346777667776556544567765321111"}, {"id": "L24", "who": "tamo", "text": "That's not very fair... for you.", "t0": 205.6, "dur": 1.868, "env": "686456899854678775311589888775310000000013788899999998763"}, {"id": "L25", "who": "kaira", "text": "Okay. Who ARE you?", "t0": 221.0, "dur": 1.205, "env": "7853467653100000002698779998876765542"}, {"id": "L26", "who": "tamo", "text": "Tamo! I work here. Well. I did, until you landed on me.", "t0": 222.9, "dur": 3.6, "env": "5898776532100000001578887789852124653200000000001356666663100000258876579998667654467666666677665556655555554"}, {"id": "L27", "who": "kaira", "text": "What is that?", "t0": 230.6, "dur": 0.598, "env": "688875226999864100"}, {"id": "L28", "who": "tamo", "text": "Hollow. They took the lighthouse keeper last week. Nobody even remembers his name.", "t0": 235.6, "dur": 4.132, "env": "6888776543100001589645885126888899877787665235532466667776554335776411100001478876777754566556777766777666665555545666655554"}, {"id": "L29", "who": "oren", "text": "No... not here. Not the harbor.", "t0": 242.2, "dur": 2.502, "env": "5789998642100000000146789997543467777643100000000001468986225765557998633443"}, {"id": "L30", "who": "bellwether", "text": "The courier. And the anchor-bearer. Two of four.", "t0": 262.6, "dur": 3.031, "env": "6656778777766554321000000001478898778998776664456654444322110000013567888877876554467766543"}, {"id": "L31", "who": "bellwether", "text": "[chuckle] The King will be so pleased.", "t0": 267.0, "dur": 1.77, "env": "786665531000013334688777787677665568887665577776655433"}, {"id": "L32", "who": "tamo", "text": "Kaira! Whatever you've got, now would be a really good time!", "t0": 279.0, "dur": 4.313, "env": "3689999988889999999999999998876531000247888899877887778763369998642122101357889999988776677545788776556899987764467742357877655432"}, {"id": "L33", "who": "kaira", "text": "I don't know how to use it!", "t0": 283.8, "dur": 1.254, "env": "69999999999876788887678999973368741012"}, {"id": "L34", "who": "vesper", "text": "Step away from them.", "t0": 296.0, "dur": 0.805, "env": "7864567899885335655666654"}];
+  const DLG = [{"id": "L01", "who": "sable_vo", "text": "Everything has a name.", "t0": 3.0, "dur": 1.395, "env": "146644552246665566544577766554333321000000"}, {"id": "L02", "who": "sable_vo", "text": "A name is a promise... that something was here.", "t0": 9.6, "dur": 2.835, "env": "14677777777777654441012566655444442100000000001112456776324566554332145554443100000000"}, {"id": "L03", "who": "mira", "text": "Sable! I wrote it! I wrote my name on the wall, just like you showed me!", "t0": 18.3, "dur": 4.09, "env": "000257654335544332000000000025766777666653100000000002566664456777665666666654566655421244224541145544456664345543321000000"}, {"id": "L04", "who": "sable", "text": "[chuckle] Then the wall will remember you. Even when I'm old and forgetful.", "t0": 24.6, "dur": 4.135, "env": "00123200000000000000002566666445787655555555666666554443332100000000000014554567766666667777664345421133466531001333210000000"}, {"id": "L05", "who": "king", "text": "Hush now.", "t0": 38.4, "dur": 1.1, "env": "014544433456666665433221110000000"}, {"id": "L06", "who": "mira", "text": "Sable...?", "t0": 52.4, "dur": 0.755, "env": "00025666544543100000000"}, {"id": "L07", "who": "sable", "text": "Mira, take my hand! Don't let go. Don't let go!", "t0": 55.4, "dur": 3.815, "env": "1356655443200000000123564235776655444445654210000000014677765556764213677766420000001477765557763246777776531000000"}, {"id": "L08", "who": "sable", "text": "No! Mira!", "t0": 60.5, "dur": 1.515, "env": "1355677776543100000000013456667777754100000000"}, {"id": "L09", "who": "sable_vo", "text": "I don't remember her face anymore.", "t0": 66.2, "dur": 1.68, "env": "144467765677776533453101467655444554555544431000000"}, {"id": "L10", "who": "sable_vo", "text": "I remember that I swore.", "t0": 77.4, "dur": 1.585, "env": "146655677766665444444455544553124665431100000000"}, {"id": "L11", "who": "warden", "text": "The Storm Seed... it's gone!", "t0": 104.9, "dur": 1.9, "env": "135554346677776555554332221111100133332367776654443333210"}, {"id": "L12", "who": "oren", "text": "The courier. Kaira was the last one in the vault. Find her!", "t0": 107.0, "dur": 5.7, "env": "133233456654433322111110000000000001356777767776654444456653345556677665554333456666666544344676543222221100000000000257776666544443332222100000000000000000000000000000000"}, {"id": "L13", "who": "kaira", "text": "[gasp] Okay. Okay. Framed, chased, and glowing. Great start to the week.", "t0": 123.0, "dur": 4.905, "env": "0145542100000000001465222455442100000000000000000025642235665421015777777765421135667654322236754567666655544431136774233467521344565555310000000000"}, {"id": "L14", "who": "oren", "text": "Courier! Return the Seed!", "t0": 128.6, "dur": 2.665, "env": "13345777776554310000000000000000135652124435666666666677766555555555554210000000"}, {"id": "L15", "who": "kaira", "text": "I don't HAVE it!", "t0": 131.6, "dur": 1.075, "env": "146666665334566422443100000000000"}, {"id": "L16", "who": "kaira", "text": "[sigh] Okay. I might have it.", "t0": 134.3, "dur": 2.275, "env": "002577764200000001442125665542000000000146777752124554334310000000000"}, {"id": "L17", "who": "oren", "text": "Five days, courier. That's how long the elders give you before it tears you apart. Come quietly.", "t0": 153.5, "dur": 5.7, "env": "014666542113421012212355431000000000000000000002576456777667776665531247776556555423576433333113332356531244566655544445410246664100000000000000013567643346754210000000000"}, {"id": "L18", "who": "kaira", "text": "Quiet's not really my thing.", "t0": 162.3, "dur": 1.68, "env": "014777752122357776422466666665543101344333321000000"}, {"id": "L19", "who": "tamo", "text": "Hey! That was the GOOD crate!", "t0": 182.6, "dur": 1.965, "env": "01466766654210000000146666653455335775312345654421000000000"}, {"id": "L20", "who": "kaira", "text": "Sorry! Not sorry! You should run.", "t0": 185.0, "dur": 2.15, "env": "01367777665332100146764334665543221001455566555776544331000000000"}, {"id": "L21", "who": "tamo", "text": "Run from wh-", "t0": 187.6, "dur": 0.875, "env": "024677653356655531000000000"}, {"id": "L22", "who": "tamo", "text": "Three grown-ups... against one girl?", "t0": 191.6, "dur": 2.555, "env": "00257754457766554310023221000000012444676543113456666554446666665310000000000"}, {"id": "L23", "who": "docker", "text": "Kid, that anchor hasn't moved in a hundred years", "t0": 197.6, "dur": 3.04, "env": "01256664200000000025776567766434554456643445666555542246655456654454323555643110000000000000"}, {"id": "L24", "who": "tamo", "text": "That's not very fair... for you.", "t0": 205.6, "dur": 2.235, "env": "14653345566533455542001466665532000000000014566677777766421000000000"}, {"id": "L25", "who": "kaira", "text": "Okay. Who ARE you?", "t0": 221.0, "dur": 1.495, "env": "257532455421000000002575457776644543210000000"}, {"id": "L26", "who": "tamo", "text": "Tamo! I work here. Well. I did, until you landed on me.", "t0": 222.9, "dur": 3.855, "env": "14677655432000000000257776678753113443100000000000235555553100000146665457777555542355555555555554334443333321000000"}, {"id": "L27", "who": "kaira", "text": "What is that?", "t0": 230.6, "dur": 0.985, "env": "135666431257765421000000000000"}, {"id": "L28", "who": "tamo", "text": "Hollow. They took the lighthouse keeper last week. Nobody even remembers his name.", "t0": 235.6, "dur": 4.525, "env": "0147776665543100000001454257632467677777777642124422566667776543113454310000000001356655665655444555555555555665444444444444443221000000"}, {"id": "L29", "who": "oren", "text": "No... not here. Not the harbor.", "t0": 242.2, "dur": 2.87, "env": "135677775320000000000245677765322356654321000000000012456763124543356775322321000000000"}, {"id": "L30", "who": "bellwether", "text": "The courier. And the anchor-bearer. Two of four.", "t0": 262.6, "dur": 3.15, "env": "12321223444433221000000000001356678777777654433332222100000000000123344443223687665544210000000"}, {"id": "L31", "who": "bellwether", "text": "[chuckle] The King will be so pleased.", "t0": 267.0, "dur": 2.235, "env": "00015765544310000023223576656665555544456765544466655443321100000000"}, {"id": "L32", "who": "tamo", "text": "Kaira! Whatever you've got, now would be a really good time!", "t0": 279.0, "dur": 4.6, "env": "013677777766677777777777777766553210000246666666555655566422477765310110001345677777666544553235566543345677655532355322355554432100000000"}, {"id": "L33", "who": "kaira", "text": "I don't know how to use it!", "t0": 283.8, "dur": 1.555, "env": "14666777777765445665544567776422453100000000000"}, {"id": "L34", "who": "vesper", "text": "Step away from them.", "t0": 296.0, "dur": 1.24, "env": "01333576435567777632345445544321000000"}];
 
   /* ================================================================ COLD OPEN — Emberwick, years ago */
   // the street up the middle of the village: terraces of 10 m, each 1.8 m higher, joined by stairs
@@ -1233,15 +1415,36 @@
     }
     if (letters >= 4.4 && erase <= 0) { const hx = cx + 6, hy = y0 + 24; for (const [i, j] of [[0, 1], [1, 0], [2, 1], [3, 0], [4, 1], [0, 2], [4, 2], [1, 3], [3, 3], [2, 4]]) rectF(hx + i * 4, hy + j * 4, 3, 3, C('hush', 4)); }
   }
-  // a big child's hand with chalk, for the close-up (x, y is the chalk tip)
-  function chalkHand(x, y) {
-    const sk = C('skin', 5), skd = C('skin', 3), sl = C('gold', 5), sld = C('gold', 3), ink_ = C('wood', 0);
-    // the sleeve: a yellow cuff running off the bottom-right of the frame
-    for (let yy = 16; yy < 120; yy++) for (let xx = -10; xx < 120; xx++) { const u = xx - (yy - 16) * 0.75; if (u > -4 && u < 52) P(x + xx + 4, y + yy, u < -1 || u > 49 ? ink_ : u > 40 ? sld : (yy < 24 ? C('gold', 6) : sl)); }
-    // the hand: a fist pinching the chalk
-    for (let yy = -4; yy < 30; yy++) for (let xx = -6; xx < 30; xx++) { const d = ((xx - 12) / 16) ** 2 + ((yy - 12) / 14) ** 2; if (d < 1) P(x + xx, y + yy, d > 0.8 ? ink_ : yy > 16 ? skd : sk); }
-    for (let k = 0; k < 3; k++) { const fx = x + 4 + k * 5, fy = y + 1 + k; for (let yy = -3; yy < 4; yy++) for (let xx = -2; xx < 3; xx++) if (xx * xx + yy * yy < 9) P(fx + xx, fy + yy, xx * xx + yy * yy > 5 ? ink_ : sk); }
-    rectF(x - 4, y - 6, 6, 9, WHITE); rectF(x - 4, y + 1, 6, 2, C('hush', 3)); rectF(x - 5, y - 7, 8, 1, ink_);
+  // a big child's hand with chalk, for the close-up (x, y is the chalk tip): the yellow raincoat sleeve comes in from
+  // the lower right, a small fist pinches the chalk, knuckles toward the wall; everything is shaded from the lanterns (upper left)
+  function chalkHand(x, y, t) {
+    const dx = 0.62, dy = 0.78, nx = -dy, ny = dx, ink_ = C('wood', 0);
+    const fx = x + dx * 17, fy = y + dy * 17;                                   // the fist's centre
+    for (let Y = fl(y - 30); Y < H; Y++) for (let X = fl(x - 34); X < W; X++) {
+      const px = X + 0.5, py = Y + 0.5, a = ((px - x) * dx + (py - y) * dy) / 1.4, b = ((px - x) * nx + (py - y) * ny) / 1.4;   // along / across the arm
+      let c = -1;
+      // the sleeve: from the wrist on, widening a little, with a cuff, two folds and a bright edge
+      if (a > 24) {
+        const w = 15 + (a - 24) * 0.12, e = Math.abs(b - 1) - w;
+        if (e < 0) { const cuff = a < 31, fold = Math.abs(a - 44 - b * 0.3) < 1.2 || Math.abs(a - 63 + b * 0.25) < 1.2, lit = b < -w + 4;
+          c = e > -1.2 ? ink_ : cuff ? (a < 25.5 ? C('gold', 3) : lit ? C('gold', 6) : C('gold', 4)) : fold ? C('gold', 3) : lit ? C('gold', 6) : b > w - 5 ? C('gold', 3) : C('gold', 5); }
+      }
+      // the fist: a rounded block of four fingers, the knuckles toward the wall
+      if (c < 0) {
+        const qa = (a - 17) / 11.5, qb = (b - 1.5) / 12, d = qa * qa + qb * qb;
+        if (d < 1) {
+          const knuck = qa < -0.55 && frac((b + 13.5) / 6) < 0.16, crease = qa > -0.75 && qa < 0.2 && frac((b + 13.5) / 6) < 0.1;
+          c = d > 0.86 ? ink_ : knuck || crease ? C('skin', 3) : (qa + qb * 0.8 < -0.55 ? C('skin', 6) : qa + qb > 0.6 ? C('skin', 3) : C('skin', 5));
+        }
+      }
+      // the thumb, wrapped over the chalk
+      if (c < 0) { const qa = (a - 8) / 7, qb = (b + 7.5) / 4.2, d = qa * qa + qb * qb; if (d < 1) c = d > 0.72 ? ink_ : qb < -0.2 ? C('skin', 6) : C('skin', 4); }
+      // the chalk: a short white stick, worn to a point at the wall
+      if (c < 0 && a > -1 && a < 12 && Math.abs(b + 1) < 2.6 - (a < 1 ? (1 - a) * 1.2 : 0)) c = Math.abs(b + 1) > 1.9 ? C('hush', 2) : b < -1.2 ? WHITE : C('hush', 5);
+      if (c >= 0) P(X, Y, c);
+    }
+    // chalk dust drifting off the tip
+    for (let k = 0; k < 10; k++) { const u = frac(ih(k, 1, 241) + t * 0.9); P(x - 2 + (ih(k, 2, 241) - 0.5) * 8 - u * 6, y + 2 + u * 18, u < 0.5 ? C('hush', 6) : C('hush', 3)); }
   }
 
   // 1 — the chalk (0:00)
@@ -1251,8 +1454,9 @@
     if (lt > 1.4 && lt < 6.6) {
       const k = Math.min(3, fl(letters)), g = FONT['MIRA'[k]], u = frac(letters), gw = g[0].length;
       const px = 196 + k * (gw + 1) * 9 + (u * gw) * 9, py = 92 + Math.sin(u * PI * 3) * 26 + 30;
-      chalkHand(px, py);
+      chalkHand(px, py, t);
     }
+    ENV.bloom = 0.2;
     rain2D(t, 60, 0.14);
     fade(1 - lin(0.8, 2.2, lt));
   }, { nobars: false });
@@ -1265,9 +1469,10 @@
     lookAt(lerp(1.4, -6, u), lerp(1.3, 21, u), lerp(mz0 - 3.2, -14, u), lerp(0.2, 0, u), lerp(streetY(mz0) + 1.0, 6, u), lerp(mz0 + 8, 40, u), lerp(58, 52, u));
     drawEmberwick(t);
     const mz = lerp(6, 36, lin(0.4, 9.5, lt)), my = streetY(mz);
-    actor3('mira', { view: 'back', run: t * 15, lantern: true }, 0.2, my, mz, { size: 0.72, dark: 1, rim: { side: 1, T: T_EMBER, a: 0.4 } });
+    ENV.rimK = 0;
+    actor3('mira', { view: 'back', run: t * 15, lantern: true }, 0.2, my, mz, { size: 0.72, dark: 1, rim: { side: 1, T: T_EMBER, a: 0.3 } });
     ink(2); emberwickLights(t);
-    const mp = proj(0.4, my + 0.4, mz); if (mp) glow(mp.x, mp.y, 16 * CAM.F / mp.z / 10, T_EMBER, 0.5);
+    const mp = proj(0.55, my + 0.35, mz); if (mp) glow(mp.x, mp.y, 9 * CAM.F / mp.z / 10, T_EMBER, 0.32);
     rain3(t, 420, 0.8, 0.15, RAINC, 91, 20);
   });
 
@@ -1275,11 +1480,15 @@
   shot(17.0, 23.5, (lt, t) => {
     lookAt(-4.4 + lt * 0.15, 14.6, 63.8 + lt * 0.2, 0.8, 13.4, 72.4, 50);
     drawEmberwick(t);
-    const mz = lerp(63, 70.4, eoc(lin(0, 1.8, lt))), my = streetY(mz);
+    // she runs the last steps (the stride slows as she brakes), skids, then bounces on her toes as she tells him
+    const arr = lin(0, 1.9, lt), mz = lerp(63, 70.4, 1 - (1 - arr) * (1 - arr)), my = streetY(mz), skid = lt > 1.9 && lt < 2.15;
     ink(2); emberwickLights(t);
-    const turn = lt > 2.2;
-    actor3('sable', { kneel: true, crouch: 1.4, armF: 0.4, sword: turn ? -0.4 : -0.05, eyes: blink(t, 3) ? 'closed' : turn ? 'open' : 'half', smile: turn ? 0.6 : 0.2, mouth: mouth('sable', t), wind: 1 }, 1.9, 12.6, 72.6, { flip: !turn, dark: 1, rim: { side: turn ? 1 : -1, T: T_EMBER, a: 0.65 } });
-    actor3('mira', { view: lt < 1.8 ? 'back' : 'side', run: lt < 1.8 ? t * 16 : undefined, lantern: true, eyes: blink(t, 4) ? 'closed' : 'open', mouth: mouth('mira', t), smile: 0.7, armF: talking('mira', t) ? -0.6 + Math.sin(t * 9) * 0.5 : 1.2 }, lerp(-0.4, -0.9, lin(0, 1.8, lt)), my, mz, { size: 0.72, dark: 1, rim: { side: 1, T: T_EMBER, a: 0.6 } });
+    const turn = sstep(2.0, 2.35, lt), tie = Math.sin(t * 5.5) * 0.25 * (1 - turn);
+    actor3('sable', { kneel: true, crouch: 1.4, armF: 0.45 + tie, reach: Math.cos(t * 5.5) * 1.2 * (1 - turn), sword: turn > 0.5 ? -0.4 : -0.05, look: turn > 0.5 ? 1 : 0, eyes: blink(t, 3) ? 'closed' : turn > 0.5 ? 'open' : 'half', brows: turn > 0.5 ? 'up' : 'n', smile: turn > 0.5 ? 0.6 : 0.2, mouth: mouth('sable', t), wind: 1 }, 1.9, 12.6, 72.6, { flip: turn < 0.5, dark: 1, rim: { side: turn > 0.5 ? 1 : -1, T: T_EMBER, a: 0.65 } });
+    const tk = talking('mira', t), hop = lt > 2.15 ? Math.round(-Math.abs(Math.sin(t * 6.5)) * 2 * (tk ? 1 : 0.4)) : 0;
+    actor3('mira', { view: lt < 1.9 ? 'back' : 'side', run: lt < 1.9 ? 10 + lt * 16 - lt * lt * 2.5 : undefined, crouch: skid ? 0.8 : 0, lean: skid ? -2 : 0.5, lantern: true, bob: hop,
+      eyes: blink(t, 4) ? 'closed' : tk ? 'wide' : 'open', mouth: mouth('mira', t), smile: 0.8, armF: tk ? -0.5 + Math.sin(t * 4.2) * 0.6 : skid ? -0.4 : 1.2, armB: tk ? 2.4 + Math.sin(t * 4.2 + 1) * 0.3 : undefined, wind: skid ? 3 : 1 },
+      lerp(-0.4, -0.9, arr), my, mz, { size: 0.72, dark: 1, rim: { side: 1, T: T_EMBER, a: 0.6 } });
     rain3(t, 360, 0.8, 0.15, RAINC, 92, 16);
   });
 
@@ -1288,9 +1497,9 @@
     lookAt(-0.6 - lt * 0.06, 14.3, 66.9 + lt * 0.12, 1.3, 13.5, 72.6, 46);
     drawEmberwick(t, { cull: (h) => h.z0 > 55 });
     ink(2); emberwickLights(t);
-    const pat = lt > 3.6 && lt < 5.2;
-    actor3('sable', { view: 'front', kneel: true, crouch: 1.4, armF: pat ? -1.3 : 1.0, armL: 1.6, eyes: blink(t, 3) ? 'closed' : lt > 4.4 ? 'half' : 'open', smile: 0.7, mouth: mouth('sable', t), look: -1 }, 2.0, 12.6, 72.8, { dark: 1, rim: { side: -1, T: T_EMBER, a: 0.75 } });
-    actor3('mira', { view: 'front', lantern: true, eyes: pat ? 'closed' : blink(t, 4) ? 'closed' : 'open', smile: 0.9, blush: pat, mouth: 0, look: 1, bob: pat ? 1 : 0 }, 0.6, 12.6, 72.0, { size: 0.72, dark: 1, rim: { side: 1, T: T_EMBER, a: 0.75 } });
+    const up = sstep(3.3, 3.75, lt) * (1 - sstep(5.0, 5.5, lt)), pat = up > 0.6, tap = pat ? Math.max(0, Math.sin((lt - 3.75) * 11)) * 0.25 : 0;
+    actor3('mira', { view: 'front', lantern: true, eyes: pat ? 'closed' : blink(t, 4) ? 'closed' : 'open', smile: 0.9, blush: up > 0.3, mouth: 0, look: pat ? 0 : 1, bob: pat ? (tap > 0.12 ? 1 : 0) : undefined, armL: pat ? 2.3 : undefined }, 0.95, 12.6, 72.3, { size: 0.72, dark: 1, rim: { side: 1, T: T_EMBER, a: 0.75 } });
+    actor3('sable', { view: 'front', kneel: true, crouch: 1.4, armF: 1.0, armL: 1.75, patL: up > 0.05 ? [lerp(-3, -14, up), lerp(4, -12, up) + Math.round(tap * 6)] : undefined, eyes: blink(t, 3) ? 'closed' : lt > 4.4 ? 'half' : 'open', smile: 0.7, mouth: mouth('sable', t), look: -1 }, 2.0, 12.6, 72.8, { dark: 1, zBias: -1.6, rim: { side: -1, T: T_EMBER, a: 0.75 } });
     rain3(t, 200, 0.6, 0.15, RAINC, 93, 8);
   });
 
@@ -1300,7 +1509,7 @@
     const ft = Math.min(t, FREEZE);
     if (lt < 2.4) {
       // close on Sable, drops hanging in front of her face
-      lookAt(0.6, 13.7, 68.6, 2.0, 13.5, 72.8, 30);
+      lookK(0.6, 13.7, 68.6, 2.0, 13.5, 72.8, 30, 1.9 - eio(lt / 2.4) * 0.3, 0.1);
       drawEmberwick(t, { cull: (h) => h.z0 > 58 });
       ink(2); emberwickLights(ft);
       actor3('sable', { view: 'front', kneel: true, crouch: 1.4, eyes: lt > 1.1 ? 'wide' : blink(t, 3) ? 'closed' : 'open', brows: lt > 1.1 ? 'worried' : 'n', look: lt > 1.1 ? 0 : -1, smile: lt > 0.8 ? 0 : 0.5, armF: 1.0 }, 2.0, 12.6, 72.8, { dark: 1, rim: { side: -1, T: T_EMBER, a: 0.7 } });
@@ -1363,7 +1572,7 @@
 
   // 9 — Mira turns toward the light: "Sable...?" (0:51)
   shot(51.0, 55.0, (lt, t) => {
-    lookAt(-0.9, 13.4, 68.9, 0.6, 13.15, 72.0, 34);
+    lookK(-0.9, 13.4, 68.9, 0.6, 13.15, 72.0, 34, 1.35, 0.05);
     drawEmberwick(t, { cull: (h) => h.z0 > 58 });
     ink(2); emberwickLights(FREEZE);
     actor3('mira', { view: lt < 0.7 ? 'side' : 'front', lantern: true, eyes: lt > 1.6 ? 'wide' : 'open', brows: 'worried', mouth: mouth('mira', t), look: lt > 0.7 ? -1 : 0, tear: lt > 2.4 }, 0.6, 12.6, 72.0, { size: 0.72, flip: lt < 0.7, dark: 1, rim: { side: -1, T: T_WH, a: 0.4 + lt * 0.12 } });
@@ -1393,7 +1602,7 @@
 
   // 11 — the scream (1:00)
   shot(60.0, 65.0, (lt, t) => {
-    lookAt(1.2, 13.65, 68.4, 2.0, 13.5, 72.8, 30 - lt * 2.2);
+    lookK(1.2, 13.65, 68.4, 2.0, 13.5, 72.8, 30 - lt * 2.2, 2.0);
     drawEmberwick(t, { cull: (h) => h.z0 > 60 });
     ink(2);
     actor3('sable', { view: 'front', kneel: true, crouch: 1.0, eyes: lt < 1.6 ? 'closed' : 'sad', brows: 'worried', mouth: mouth('sable', t), tear: true, armF: 1.2 }, 2.0, 12.6, 72.8, { dark: 0, rim: { side: 1, T: T_WH, a: 0.6 } });
@@ -1419,7 +1628,8 @@
     for (let k = 0; k < 30; k++) p3(-0.2 + (ih(k, 1, 201) - 0.5) * 1.6, 12.65, 72 + (ih(k, 2, 201) - 0.5) * 1.2, ih(k, 3, 201) < 0.5 ? C('ember', 3) : C('ember', 5), 0.12);
     glow3(0, 12.8, 72, 2.4, T_EMBER, 0.45, false);
     const sw = lt < pull ? undefined : lerp(1.7, -1.2, eob(lin(pull, pull + 0.8, lt)));
-    actor3('sable', { kneel: true, crouch: lt < pull ? 1.6 : 1.0, armF: lt < pull - 0.3 ? 1.6 : lt < pull ? 0.6 : -0.6, reach: lt < pull ? 3 : 0, eyes: lt > lit ? 'narrow' : 'half', brows: lt > lit ? 'angry' : 'worried', sword: sw, embers: lt > lit, mouth: 0, tear: lt < pull }, 1.4, 12.6, 72.4, { flip: true, dark: lt > lit ? 0 : 1, rim: lt > lit ? { side: 1, T: T_EMBER, a: 0.8 } : undefined });
+    const rise = sstep(lit + 0.15, lit + 0.7, lt), reachIn = sstep(pull - 1.2, pull - 0.3, lt);
+    actor3('sable', { kneel: rise < 0.35, crouch: rise < 0.35 ? (lt < pull ? 1.6 : 1.0) : lerp(1.6, 0, (rise - 0.35) / 0.65), armF: lt < pull ? lerp(1.6, 0.6, reachIn) : lerp(0.6, -0.6, eob(lin(pull, pull + 0.35, lt))), reach: lt < pull ? reachIn * 3 : 0, lean: rise > 0.35 ? (1 - rise) * 2 : 0, eyes: lt > lit ? 'narrow' : 'half', brows: lt > lit ? 'angry' : 'worried', sword: sw, embers: lt > lit, mouth: 0, tear: lt < pull }, 1.4, 12.6, 72.4, { flip: true, dark: lt > lit ? 0 : 1, rim: lt > lit ? { side: 1, T: T_EMBER, a: 0.8 } : undefined });
     // the porcelain mask, cracked, lying on the stones
     const mp = proj(2.6, 12.62, 71.4); if (mp) { const s = CAM.F / mp.z * 0.035; for (let y = -5; y <= 5; y++) for (let x = -4; x <= 4; x++) if ((x / 4.2) ** 2 + (y / 5.2) ** 2 <= 1) PZ(mp.x + x * s * 3, mp.y + y * s * 1.4, Math.abs(x - y * 0.4) < 0.7 ? C('night', 1) : C('hush', 6), mp.z - 0.01); }
     if (lt > lit) { glow3(0.6, 14, 72.4, 3 * Math.min(1, (lt - lit) * 2), T_EMBER, 0.6, false); embers3(t, 1, 12.8, 72.4, 70, 3, 202); }
@@ -1566,20 +1776,84 @@
     // the temple wall (front face at z = 0) and a lower roof in front of it
     box(-24, 0, 0, 24, 62, 6, (f, u, v, x, y, tt, L) => {
       if (f === 's') { const g = stained(u - 21, v - 33, x, y, broken); if (g === -2) return C('violet', 1); if (g >= 0 && u > 21 && u < 27 && v > 33) return g; }
+      if (f === 's') {
+        // pilasters every six metres, a carved frieze above the window, a gold surround on the glass
+        const pc = frac((u + 3) / 6); if (pc < 0.13) return shadeC(R.linen, 4.6 + L * 2 - (pc < 0.02 || pc > 0.11 ? 1.4 : 0) - (frac(v / 1.2) < 0.06 ? 0.6 : 0), x, y);
+        if (v > 45.4 && v < 47) return shadeC(R.gold, 3 + L * 2 + (Math.abs(frac(u / 1.4) - 0.5) * 4 > (v - 45.4) / 1.6 * 2 ? 1 : -0.6), x, y);
+        const wx_ = u - 24, top = 41 + Math.sqrt(Math.max(0, 9 - wx_ * wx_)) * 1.3; if (Math.abs(wx_) < 3.5 && v > 32.4 && v < top + 0.6 && (Math.abs(wx_) > 2.95 || v > top - 0.05)) return shadeC(R.gold, 4 + L * 2, x, y);
+      }
       return whiteStone(3.6)(f, u, v, x, y, tt, L);
     });
     box(-22, 31.6, -0.6, 22, 32.2, 0, flatMat(R.gold, 2.6, 3));
-    box(-14, 18, -26, 14, 30, -1, (f, u, v, x, y, tt, L) => f === 'top' ? shadeC(R.linen, 2.8 + L * 2.4 + (frac(u / 0.8) < 0.08 || frac(v / 0.8) < 0.08 ? -0.9 : 0), x, y) : towerWin(3, 9)(f, u, v, x, y, tt, L));
+    // long indigo banners either side of the window, stirring in the wind
+    for (const bx of [-6.5, 6.5]) { const sw = Math.sin(t * 1.6 + bx) * 0.25; poly3([[bx - 1, 44.5, -0.1], [bx + 1, 44.5, -0.1], [bx + 1 + sw, 35, -0.4], [bx - 1 + sw, 35, -0.4]], (u, v, x, y) => { const cy = 44.5 - v; if (cy > 7.6 && Math.abs(u - 1) < 1 - (cy - 7.6) * 0.8) return -1; if (Math.abs(u - 1) < 0.45 && Math.abs(cy - 3.2) < 0.45) return C('gold', 6); if (u < 0.12 || u > 1.88) return C('gold', 4); return shadeC(R.indigo, 3 + (frac(u / 0.5) < 0.2 ? -0.7 : 0), x, y); }, { two: true }); }
+    const LR = { seed: 4, lane: 0, x0: -14, x1: 14, z0: -26, z1: -1, y: 30 };
+    box(-14, 18, -26, 14, 30, -1, (f, u, v, x, y, tt, L) => f === 'top' ? RF_top(LR)(f, u, v, x, y, tt, L) : towerWin(3, 9)(f, u, v, x, y, tt, L));
+    for (const sx of [-14, 13.7]) box(sx, 30, -26, sx + 0.3, 30.45, -1, flatMat(R.gold, 2.6));
   }
+  // ---------------------------------------------------------------- the rooftops of the spire, dressed
+  // houses of coloured plaster with brick showing through, shuttered windows and a gold cornice
+  const RF_RAMP = [R.linen, R.rose, R.linen, R.gold, R.stone, R.rose];
+  const RF_side = (r) => (face, u, v, x, y, tt, L) => {
+    const sd = ((r.seed % 6) + 6) % 6, ramp = RF_RAMP[sd], top = 14 - v;
+    if (top < 0.32) return shadeC(R.gold, 3.2 + L * 2.4 - (top < 0.07 ? 1.2 : 0), x, y);
+    if (top < 0.5) return shadeC(ramp, 1.2 + L * 1.6, x, y);
+    const wu = frac(u / 1.8), wv = frac((top - 0.9) / 2.6), cell = fl(u / 1.8) * 31 + fl((top - 0.9) / 2.6);
+    if (top > 0.9 && wu > 0.28 && wu < 0.72 && wv > 0.12 && wv < 0.74) {
+      if (wu < 0.36 || wu > 0.64) return shadeC(ih(cell, sd, 7) < 0.5 ? R.teal : R.crimson, 2.4 + L * 2.2 - (frac(wv * 6) < 0.15 ? 0.8 : 0), x, y);
+      return ih(cell, r.seed, 5) < 0.22 ? shadeC(R.gold, 5 + L, x, y) : shadeC(R.night, 1.8 + L * 1.4 + (wv < 0.25 ? 0.9 : 0), x, y);
+    }
+    if (top > 0.9 && wu > 0.24 && wu < 0.76 && wv >= 0.74 && wv < 0.8) return shadeC(R.stone, 3.6 + L * 2, x, y);
+    const row = frac(v / 0.45) < 0.09, jt = frac(u / 0.9 + (fl(v / 0.45) % 2) * 0.5) < 0.06, patch = vn(u * 0.5, v * 0.5, 2, r.seed + 40) > 0.68;
+    if (patch) return shadeC(R.ember, 2.4 + L * 2.2 - (row || jt ? 1 : 0), x, y);
+    return shadeC(ramp, 3.4 + L * 2.6 + vn(u, v, 3, r.seed) * 0.7 - (vn(u * 2, v * 0.3, 2, r.seed + 9) > 0.8 ? 0.7 : 0), x, y);
+  };
+  // the roofs: clay tile, mossy flagstones or pale pavers
+  const RF_top = (r) => (face, u, v, x, y, tt, L) => {
+    const k = fl(ih(r.seed, 3, 107) * 3);
+    if (k === 0) { const rw = fl(v / 0.32), cu = frac(u / 0.45 + (rw % 2) * 0.5); return shadeC(R.crimson, 2.0 + L * 1.8 + (frac(v / 0.32) < 0.18 ? -1.1 : 0) + (cu < 0.08 ? -0.7 : 0) + (ih(fl(u / 0.45), rw, r.seed) - 0.5) * 0.7, x, y); }
+    const sz = k === 1 ? 0.9 : 0.75, crack = frac(u / sz) < 0.07 || frac(v / sz) < 0.07;
+    if (k === 1 && crack && vn(u, v, 1.5, r.seed) > 0.45) return shadeC(R.moss, 3 + L * 2, x, y);
+    return shadeC(k === 1 ? R.stone : R.linen, (k === 1 ? 3.4 : 3) + L * 2.4 + (crack ? -1 : 0) + (ih(fl(u / sz), fl(v / sz), r.seed) - 0.5) * 0.6, x, y);
+  };
+  // what lives on a roof: a parapet, a chimney, a water tank, pots of herbs, a skylight, laundry on a line
+  // (all of it on the far side of the courier's lane, so the side camera always sees her)
+  function RF_dress(r, t) {
+    const sd = ((r.seed % 6) + 6) % 6;
+    for (const sx of [r.x0, r.x1 - 0.28]) box(sx, r.y, r.z0, sx + 0.28, r.y + 0.42, r.z1, (f, u, v, x, y, tt, L) => shadeC(sd === 3 ? R.linen : R.gold, 2.6 + L * 2.4 - (frac(u / 1.2) < 0.05 ? 0.8 : 0), x, y));
+    const ex = r.lane * 9 - 2.3;
+    if (ih(r.seed, 1, 103) < 0.6) box(r.x0 + 0.5, r.y, r.z0 + 1.5, r.x0 + 1.3, r.y + 1.8, r.z0 + 2.3, (f, u, v, x, y, tt, L) => shadeC(R.ember, 2.2 + L * 2.2 - (frac(v / 0.3) < 0.12 ? 0.9 : 0), x, y));
+    if (ih(r.seed, 2, 103) < 0.4) { prism(r.x0 + 1.5, r.z1 - 2, 0.9, r.y, r.y + 1.6, 6, flatMat(R.wood, 2.6)); cone(r.x0 + 1.5, r.z1 - 2, 1.1, r.y + 1.6, 0.8, 6, flatMat(R.wood, 2)); }
+    for (let k = 0; k < 3; k++) { if (ih(r.seed, k + 10, 104) > 0.55) continue; const pz = r.z0 + 1 + ih(r.seed, k + 20, 104) * (r.z1 - r.z0 - 2), px = ex + (ih(r.seed, k + 30, 104) - 0.5) * 0.8; box(px - 0.22, r.y, pz - 0.22, px + 0.22, r.y + 0.4, pz + 0.22, flatMat(R.ember, 2.2)); box(px - 0.3, r.y + 0.4, pz - 0.3, px + 0.3, r.y + 0.75 + ih(k, r.seed, 105) * 0.3, pz + 0.3, (f, u, v, x, y, tt, L) => shadeC(R.moss, 2.6 + L * 2.6 + (ih(fl(x / 2), fl(y / 2), 106) - 0.5) * 1.4, x, y)); }
+    if (ih(r.seed, 6, 104) < 0.4) box(ex - 0.6, r.y, r.z1 - 3, ex + 0.6, r.y + 0.5, r.z1 - 2, (f, u, v, x, y, tt, L) => (f === 'top' ? shadeC(R.teal, 4 + L * 2 + (frac(u / 0.4) < 0.1 ? -1.5 : 0), x, y) : shadeC(R.stone, 2.6 + L * 2, x, y)));
+    if (ih(r.seed, 7, 104) < 0.5) {
+      const lx = r.lane * 9 - 2.9, z0 = r.z0 + 1.2, z1 = Math.min(r.z1 - 1, z0 + 5), hy = r.y + 1.9;
+      for (const z of [z0, z1]) box(lx - 0.05, r.y, z - 0.05, lx + 0.05, hy, z + 0.05, flatMat(R.wood, 2));
+      l3(lx, hy, z0, lx, hy - 0.15, (z0 + z1) / 2, C('linen', 6)); l3(lx, hy - 0.15, (z0 + z1) / 2, lx, hy, z1, C('linen', 6));
+      for (let k = 0; k < 4; k++) { const zc = lerp(z0, z1, (k + 0.6) / 4.4), sw = Math.sin(t * 2.2 + k * 1.3) * 0.12, cy_ = hy - 0.1 - Math.sin((k + 0.6) / 4.4 * PI) * 0.15, col = [R.crimson, R.teal, R.gold, R.linen][(k + sd) % 4];
+        poly3([[lx, cy_, zc - 0.3], [lx, cy_, zc + 0.3], [lx + sw, cy_ - 0.7, zc + 0.3], [lx + sw, cy_ - 0.75, zc - 0.3]], (u, v, x, y) => shadeC(col, 4 + (frac(u / 0.2) < 0.15 ? -0.8 : 0), x, y), { two: true }); }
+    }
+    // prayer flags strung over the gap to the next roof
+    if (ih(r.seed, 3, 103) < 0.7 && r.lane === 0) for (let k = 0; k < 8; k++) { const z = r.z1 - 1 + k * 0.5, sag = Math.sin(k / 7 * PI) * 0.7, x = r.x0 + 0.5 + k * 0.7, fy = r.y + 3.2 - sag, col = [R.crimson, R.gold, R.indigo, R.teal, R.linen][k % 5]; poly3([[x, fy, z], [x + 0.4, fy, z], [x + 0.2 + Math.sin(t * 3 + k) * 0.08, fy - 0.6, z + 0.05]], (u, v, xx, yy) => shadeC(col, 4.6, xx, yy), { two: true }); }
+  }
+  function drawRoofs(t) {
+    setSun(-0.55, 0.45, 0.7, 0.45); setFog('#f0b3a6', 40, 260, 0.85);
+    sky(skyDawn);
+    plane(0, cloudSea, { maxD: 600 });
+    for (const T of HS.towers) { if (Math.abs(T.x + 60) < 30 + T.r || Math.hypot(T.x - CAM.x, T.z - CAM.z) > 380) continue; prism(T.x + 60, T.z + 120, T.r, -10, T.h, T.n, towerWin(3.4, T.seed)); cone(T.x + 60, T.z + 120, T.r * 1.25, T.h, T.cap, T.n, goldRoof); }
+    for (const r of RT.roofs) {
+      if (r.z1 < CAM.z - 4 || r.z0 > CAM.z + 140) continue;
+      box(r.x0, r.y - 14, r.z0, r.x1, r.y, r.z1, (face, u, v, x, y, tt, L) => face === 'top' ? RF_top(r)(face, u, v, x, y, tt, L) : RF_side(r)(face, u, v, x, y, tt, L));
+      if (r.z0 < CAM.z + 70) RF_dress(r, t);
+    }
+  }
+
   // 17 — the window bursts; Kaira, in slow motion, and her card; then she lands and runs (1:52)
   shot(112.0, 122.0, (lt, t) => {
     const g = t - GLASS0, st = slowmo(Math.max(0, g)), broken = g > 0;
     const freeze = g > 1.9 && g < 3.9;
     const fo = sstep(-0.2, 1.0, g), ru = sstep(4.2, 7.5, g);
     const kxr = -2.2 - Math.max(0, slowmo(Math.max(0, g)) - 2.2) * 6;
-    lookAt(lerp(6.0, 4.0, fo) + (kxr + 2.2) * ru * 0.8, lerp(31.0, 31.4, fo), lerp(-18, -13.5, fo), lerp(0, -1.8, fo) + (kxr + 2.2) * ru, lerp(37.2, 31.6, fo), lerp(-0.5, -6.5, fo), lerp(60, 50, fo));
-    drawFacade(t, broken);
-    ink(2);
     // Kaira's arc out of the window to the roof
     let kx = 0, ky = 37, kz = 0.5, ka = 0, view = 'side';
     if (g > 0) {
@@ -1587,10 +1861,15 @@
       kx = lerp(0, -2.2, u); kz = lerp(-0.6, -7, u); ky = lerp(36.4, 30, u) + Math.sin(u * PI) * 2.4; ka = -u * TAU * 0.75;
       if (st > 1.7) { const r = st - 1.7; kz = -7; ky = 30; ka = r < 0.4 ? -PI * 1.5 - r * 4 : 0; kx = -2.2 - Math.max(0, r - 0.5) * 6; }
     }
+    // the camera rides with her once she is through the glass: a three-quarter view, a little below her line
+    const fy_ = Math.max(ky, 30.6) + 0.7;
+    lookAt(lerp(6.0, kx + 4.6, fo), lerp(31.0, fy_ - 0.2, fo), lerp(-18, kz - 7.8, fo), lerp(0, kx - 0.3, fo), lerp(37.2, fy_, fo), lerp(-0.5, kz, fo), lerp(60, 52, fo));
+    drawFacade(t, broken);
+    ink(2);
     const fx = (sx) => sx;
     if (g > 0) {
       const ruN = st > 2.1;
-      actor3('kaira', { view: ruN ? 'side' : 'side', run: ruN ? t * 18 : undefined, air: !ruN && st < 1.7, crouch: st > 1.7 && st < 2.2 ? 1 : 0, blade: 2.2, blade2: 2.6, seed: 0.6, wind: 4, eyes: 'narrow', brows: 'angry', armF: ruN ? 1.4 : -0.6 }, kx, ky, kz, { flip: st < 1.7, ang: ka, size: 1.25 });
+      actor3('kaira', { view: ruN ? 'side' : 'side', run: ruN ? t * 18 : undefined, air: !ruN && st < 1.7, crouch: st > 1.7 && st < 2.2 ? 1 : 0, blade: 2.2, blade2: 2.6, seed: 0.6, wind: 4, eyes: 'narrow', brows: 'angry', armF: ruN ? 1.4 : -0.6 }, kx, ky, kz, { flip: st < 1.7, ang: ka, size: 1.25, gy: 30 });
     }
     // the glass: a burst of coloured shards toward the camera
     if (g > 0) for (let k = 0; k < 160; k++) {
@@ -1637,7 +1916,7 @@
   shot(122.0, 131.0, (lt, t) => {
     const k = kairaAt(CH0, t);
     lookAt(0.6, k.y + 2.2, k.z - 5.2, 0, k.y + 1.0, k.z + 6, 64);
-    drawRooftops(t); ink(2);
+    drawRoofs(t); ink(2);
     wardensChase(t, CH0, 4);
     actor3('kaira', { view: 'back', run: k.air ? undefined : t * 19, air: k.air, wind: 5, seed: 0.5 + 0.3 * Math.sin(t * 6) }, 0, k.y, k.z, {});
     streaks(PI / 2, 26, t, 1600, C('linen', 7), 40, 321, [0, LB, W, H - 2 * LB]);
@@ -1647,24 +1926,29 @@
     const k = kairaAt(CH0, t), dodge = lin(136.3, 136.5, t), seedA = sstep(132.8, 133.6, t);
     const kx = -1.6 * eoc(dodge);
     lookAt(-0.4, k.y + 1.3, k.z + 5.4, -0.2, k.y + 0.9, k.z, 58);
-    drawRooftops(t); ink(2);
+    drawRoofs(t); ink(2);
     wardensChase(t, CH0, 4, 'front');
     const after = dodge > 0 && dodge < 1 || (t > 136.3 && t < 136.8) ? [[proj(0, k.y, k.z) || { x: 0, y: 0 }]].map((q) => [q.x, q.y, C('gold', 6), 0.5]) : undefined;
     const kk = actor3('kaira', { view: 'front', run: k.air ? undefined : t * 19, air: k.air, wind: 2, seed: 0.4 + seedA * 0.6, eyes: t > 133 && t < 136 ? 'half' : 'wide', brows: t > 133.4 && t < 136 ? 'worried' : 'n', look: 0, mouth: mouth('kaira', t), smile: t > 134.3 && t < 136 ? -0.5 : 0 }, kx, k.y, k.z, { after });
     if (kk && seedA > 0) { glow(kk.chest[0], kk.chest[1], 30 * kk.S / 3 * (0.7 + 0.3 * Math.sin(t * 8)), T_GOLD, 0.55 * seedA); }
     // the spear
-    if (t > 135.8 && t < 136.9) { const u = (t - 135.8) / 1.1, sz = k.z - 12 + u * 20, sx = lerp(-1, -0.2, u); l3(sx, k.y + 1.2, sz, sx, k.y + 1.25, sz + 2.2, C('wood', 4), 2); l3(sx, k.y + 1.25, sz + 2.2, sx, k.y + 1.26, sz + 2.8, C('stone', 7), 2); for (let c = 0; c < 8; c++) p3(sx, k.y + 1.2 + Math.sin(c + t * 20) * 0.08, sz - c * 0.35, C('stone', 6), 0.05); }
+    if (t > 135.8 && t < 136.9) {
+      const u = (t - 135.8) / 1.1, sz = k.z - 12 + u * 20, sx = lerp(-0.9, -0.15, u), sy = k.y + 1.15;
+      const a = proj(sx, sy, sz), A = a && [a.x, a.y, a.z], b = proj(sx, sy + 0.05, sz + 2.4), B = b && [b.x, b.y, b.z], c = proj(sx, sy + 0.06, sz + 3.0), Cc = c && [c.x, c.y];
+      if (A && B && Cc) { const w = Math.max(2, Math.min(6, CAM.F / B[2] * 0.06)); for (let q = 0; q < 6; q++) thick(A[0], A[1] + q * 0.5, B[0], B[1] + q * 0.5, w, q < 3 ? C('wood', 5) : C('wood', 3)); thick(B[0], B[1], Cc[0], Cc[1], w * 1.6, C('stone', 7)); P(Cc[0], Cc[1], WHITE); for (let q = 1; q < 6; q++) lineF(A[0] - (B[0] - A[0]) * q * 0.3, A[1] - (B[1] - A[1]) * q * 0.3 + q, A[0], A[1], (x, y) => { if (ih(x, y, q) < 0.4) P(x, y, C('linen', 7)); }); }
+    }
     if (dodge > 0 && dodge < 1) { for (let q = 0; q < 3; q++) { const p = proj(lerp(0, kx, q / 3), k.y + 0.8, k.z); if (p) { sparkle(p.x, p.y - q * 6, 6, WHITE, C('gold', 6)); } } shk(2); }
     if (t > 136.3 && t < 136.9) { const p = proj(kx, k.y + 0.8, k.z); if (p) for (let b = 0; b < 3; b++) lineF(p.x, p.y, p.x + (ih(b, fl(t * 30), 323) - 0.5) * 80, p.y + (ih(b, fl(t * 30) + 1, 323) - 0.5) * 60, (x, y) => P(x, y, C('gold', 7))); }
   });
   // 20 — the wide side view: three lanes, the clouds, a big spinning leap (2:20)
   shot(140.0, 148.0, (lt, t) => {
     const k = kairaAt(CH0, t);
-    lookAt(21, k.y + 9.5, k.z - 1, 0, k.y + 0.6, k.z + 3, 46);
-    drawRooftops(t); ink(2);
+    const lift_ = Math.sin(lin(142.5, 143.8, t) * PI) * 1.8;
+    lookAt(5.0, k.y + 1.9 + lift_ * 0.6, k.z - 3.4, 0, k.y + 1.3 + lift_, k.z + 1.4, 60);
+    drawRoofs(t); ink(2);
     wardensChase(t, CH0, 6, 'side');
     const spin = lin(142.6, 143.6, t);
-    actor3('kaira', { view: 'side', run: k.air ? undefined : t * 19, air: k.air, wind: 5, blade: spin > 0 && spin < 1 ? -0.6 + spin * 4 : 2.0, blade2: 2.5, storm: spin > 0 && spin < 1, eyes: 'narrow', brows: 'angry' }, 0, k.y + Math.sin(spin * PI) * 1.4, k.z, { flip: true, ang: spin > 0 && spin < 1 ? -spin * TAU : 0 });
+    actor3('kaira', { view: 'side', run: k.air ? undefined : t * 19, air: k.air, wind: 5, blade: spin > 0 && spin < 1 ? -0.6 + spin * 4 : 2.0, blade2: 2.5, storm: spin > 0 && spin < 1, eyes: 'narrow', brows: 'angry' }, 0, k.y + Math.sin(spin * PI) * 2.2, k.z, { flip: true, ang: spin > 0 && spin < 1 ? -eio(spin) * TAU : 0, gy: k.y, after: spin > 0.1 && spin < 0.95 ? [0.15, 0.3].map((d) => { const p = proj(0, k.y + Math.sin(Math.max(0, spin - d) * PI) * 2.2, k.z - d * 3); return p ? [p.x, p.y, C('gold', 6), 0.5 - d] : [0, 0, 0, 0]; }) : undefined });
     // thrown chains arcing at her
     for (const [c0, side] of [[141.2, -1], [144.6, 1], [146.0, -1]]) { const u = (t - c0) / 0.6; if (u <= 0 || u >= 1.4) continue; const x0 = side * 9, z0 = k.z - 6; const xe = lerp(x0, 0.4 * side, Math.min(1, u)), ze = lerp(z0, k.z + (u > 1 ? -1 : 0), Math.min(1, u)); for (let c = 0; c <= 12; c++) { const v = c / 12; p3(lerp(x0, xe, v), k.y + 1.4 + Math.sin(v * PI) * 1.4, lerp(z0, ze, v), C('stone', 6), 0.07); } }
   });
@@ -1699,7 +1983,7 @@
   // 21 — the dead end (2:28): a low orbit as they land around her
   shot(148.0, 153.0, (lt, t) => {
     const a = -0.7 + lt * 0.22, r = 6.6;
-    lookAt(Math.sin(a) * r, BR.y + 2.8, KAIRA_EDGE - 1 - Math.cos(a) * r, 0, BR.y + 1.0, KAIRA_EDGE - 2, 58);
+    lookK(Math.sin(a) * r, BR.y + 2.8, KAIRA_EDGE - 1 - Math.cos(a) * r, 0, BR.y + 1.0, KAIRA_EDGE - 2, 58, 1.3);
     drawBridge(t); ink(2);
     const skid = 1 - eoc(lin(0, 0.6, lt));
     actor3('kaira', { view: 'side', crouch: skid > 0.2 ? 1 : 0, eyes: 'wide', brows: 'worried', blade: 1.2, blade2: 2.5, seed: 0.6, wind: 2 }, 0, BR.y, KAIRA_EDGE - skid * 3, { flip: false });
@@ -1716,7 +2000,7 @@
       actor3('warden', { view: 'front', spear: -1.4 }, -1.7, BR.y, OREN_Z - 1.6, {});
     } else {
       // over Oren's shoulder: Kaira at the edge, the sky behind her
-      lookAt(-0.6, BR.y + 1.6, OREN_Z - 1.6, 0, BR.y + 1.0, KAIRA_EDGE, 36);
+      lookAt(-0.9, BR.y + 1.9, OREN_Z - 4.7, 0, BR.y + 1.0, KAIRA_EDGE, 36);
       drawBridge(t); ink(2);
       actor3('kaira', { view: 'front', eyes: blink(t, 11) ? 'closed' : 'open', brows: 'worried', blade: 1.4, seed: 0.6, wind: 2, look: 0 }, 0, BR.y, KAIRA_EDGE, {});
       actor3('warden', { view: 'back', captain: true, spear: -1.5 }, 0.4, BR.y, OREN_Z, { dark: 1 });
@@ -1731,10 +2015,11 @@
       zoomBlur(240, 135, 0.06 * Math.sin(v * PI));
     } else {
       const fall = lin(4.5, 5.6, lt), u = lt - 1.6;
-      const ky_ = BR.y - Math.max(0, fall - 0.35) ** 2 * 14, kz_ = KAIRA_EDGE + fall * 2.2, cr = sstep(0.3, 1.0, fall);
-      lookAt(0.2, BR.y + 1.4 + cr * 1.2, lerp(KAIRA_EDGE - 3.4, BR.z1 + 1.2, cr), 0, lerp(BR.y + 1.0, ky_ + 0.6, cr), lerp(KAIRA_EDGE, kz_ + 1.5, cr), 40 + cr * 10);
+      // she tips back off the edge, clear of the broken stones; the camera swings out past the edge and tilts down after her
+      const ky_ = BR.y - Math.max(0, fall - 0.3) ** 2 * 16, kz_ = KAIRA_EDGE + eoc(fall) * 4.6, cr = sstep(0.25, 0.55, fall);
+      lookK(lerp(0.2, 2.2, cr), lerp(BR.y + 1.4, BR.y + 1.0, cr), lerp(KAIRA_EDGE - 3.4, BR.z1 + 9, cr), 0, lerp(BR.y + 1.0, ky_ + 0.6, cr), lerp(KAIRA_EDGE, kz_, cr), 40 + cr * 16, lerp(1.4, 1, cr));
       drawBridge(t); ink(2);
-      actor3('kaira', { view: 'front', eyes: u > 0.6 ? 'half' : 'open', brows: u > 0.6 ? 'up' : 'n', smile: u > 0.5 ? 0.8 : 0, mouth: mouth('kaira', t), seed: 0.6, wind: 3, armF: fall > 0 ? -1.2 : 1.3, armL: fall > 0 ? -1.9 : 1.9 }, 0, BR.y - Math.max(0, fall - 0.35) ** 2 * 14, KAIRA_EDGE + fall * 2.2, { ang: fall * 1.4 });
+      actor3('kaira', { view: 'front', eyes: u > 0.6 ? 'half' : 'open', brows: u > 0.6 ? 'up' : 'n', smile: u > 0.5 ? 0.8 : 0, mouth: mouth('kaira', t), seed: 0.6, wind: 3 + fall * 3, armF: fall > 0 ? -1.2 : 1.3, armL: fall > 0 ? -1.9 : 1.9 }, 0, ky_, kz_, { ang: eio(fall) * 1.9, shadow: fall < 0.3 });
     }
   });
 
@@ -1826,7 +2111,7 @@
   function wardenDrop(t, k, x, z) { const g = t - THUDS[k]; const y = g < 0 ? DY + Math.min(14, -g * 30) : DY; return { y, g }; }
   shot(182.0, 197.0, (lt, t) => {
     if (t < 187.5) {
-      lookAt(-2.0, 1.25, -3.8, -2.4, 0.9, 0.4, 46);
+      lookK(-2.0, 1.25, -3.8, -2.4, 0.9, 0.4, 46, 1.25, 0.18);
       harbour(t);
       actor3('tamo', { view: 'front', crouch: 1.2, kneel: false, eyes: blink(t, 21) ? 'closed' : 'open', brows: 'angry', mouth: mouth('tamo', t), smile: -0.6, armF: talking('tamo', t) ? -0.9 + Math.sin(t * 8) * 0.3 : 1.3 }, -3.0, DY, 0.4, {});
       fish3(-3.0, 1.18 + DY, 0.36, 0.2, Math.sin(t * 18));
@@ -1834,21 +2119,21 @@
       actor3('kaira', { view: up > 0.5 ? 'front' : 'side', crouch: 1 - up, eyes: blink(t, 22) ? 'closed' : 'open', brows: t > 185 ? 'up' : 'worried', mouth: mouth('kaira', t), smile: t > 185 && t < 186 ? 0.5 : 0, armF: t > 186 ? -0.4 : 1.2, seed: 0.5, blade2: 2.4 }, -1.4, DY, 0.6, { flip: up < 0.5 });
     } else if (t < 189.4) {
       // Tamo, close: "run from wh—" … and three shapes land behind him
-      lookAt(-2.6, 1.3, -2.6, -3.0, 1.05, 0.4, 40);
+      lookK(-2.6, 1.3, -2.6, -3.0, 1.05, 0.4, 40, 1.6, 0.1);
       harbour(t);
       for (let k = 0; k < 3; k++) { const d = wardenDrop(t, k); actor3('warden', { view: 'front', spear: -1.3, crouch: d.g > 0 && d.g < 0.2 ? 1 : 0, air: d.g < 0 }, WDX[k], d.y, 1.6 + k * 0.4, {}); if (d.g > 0 && d.g < 0.3) { const p = proj(WDX[k], DY, 1.6 + k * 0.4); if (p) shockRing(p.x, p.y, 4 + d.g * 120, 1 + d.g * 26, 2, [WHITE, C('linen', 6), C('linen', 4)], 1 - d.g / 0.3); shk(2); } }
       actor3('tamo', { view: 'front', crouch: 1.2, eyes: t > 188.7 ? 'wide' : 'open', brows: t > 188.7 ? 'up' : 'n', mouth: mouth('tamo', t), armF: 1.2 }, -3.0, DY, 0.4, {});
       fish3(-3.0, 1.18 + DY, 0.36, 0.2, Math.sin(t * 18));
     } else if (t < 191.6) {
       // over his shoulder: the three of them, spears down, low angle
-      lookAt(-1.0, 1.25, -1.9, -6.2, 1.2, 2.0, 50);
+      lookK(-1.0, 1.25, -1.9, -6.2, 1.2, 2.0, 50, 1.25);
       harbour(t);
       for (let k = 0; k < 3; k++) actor3('warden', { view: 'front', spear: -1.1 + Math.sin(t * 2 + k) * 0.05, captain: false }, WDX[k], DY, 1.6 + k * 0.4, { rim: { side: 1, T: T_GOLD, a: 0.3 } });
       actor3('tamo', { view: 'back', crouch: 1.2 }, -3.0, DY, 0.4, { dark: 1 });
     } else {
       // he looks at them, at her, and gets up: "three grown-ups… against one girl?"
       const stand = lin(192.2, 193.0, t), walk = lin(195.0, 197.0, t);
-      lookAt(-1.4 - walk * 2, 1.4, -4.2, -2.9 + walk * 3, 1.0, 0.4, 46);
+      lookK(-1.4 - walk * 2, 1.4, -4.2, -2.9 + walk * 3, 1.0, 0.4, 46, 1.2, 0.18);
       harbour(t);
       for (let k = 0; k < 3; k++) actor3('warden', { view: 'front', spear: -1.1 }, WDX[k], DY, 1.6 + k * 0.4, {});
       const flick = lin(193.6, 194.0, t);
@@ -1941,7 +2226,7 @@
 
   // 28 — the breather: "Okay. Who ARE you?" / "Tamo! I work here…" (3:41)
   shot(221.0, 228.0, (lt, t) => {
-    lookAt(-0.4, 1.35, -4.6, -0.6, 1.0, 1.0, 46);
+    lookK(-0.4, 1.35, -4.6, -0.6, 1.0, 1.0, 46, 1.2, 0.2);
     harbour(t);
     actor3('tamo', { view: 'front', anchor: 1.45, armF: 1.1, eyes: blink(t, 31) ? 'closed' : 'open', smile: t > 222.8 ? 0.8 : 0.3, mouth: mouth('tamo', t), wind: 1 }, 0.5, DY, 1.0, {});
     actor3('kaira', { view: 'front', eyes: blink(t, 32) ? 'closed' : t > 225.6 ? 'closed' : 'open', brows: t < 222.5 ? 'up' : 'n', smile: t > 225.4 ? 0.9 : 0.2, mouth: mouth('kaira', t), seed: 0.4, blade: 1.3, blade2: 2.4, look: 1 }, -1.4, DY, 1.2, {});
@@ -1951,7 +2236,7 @@
   const SIGIL_H = [34, 46, 78];
   shot(228.0, 246.0, (lt, t) => {
     if (t < 231.0) {
-      lookAt(-0.4, 1.35, -4.6, -0.6, 1.0, 1.0, 46);
+      lookK(-0.4, 1.35, -4.6, -0.6, 1.0, 1.0, 46, 1.2, 0.2);
       harbour(t); harbourHush(t);
       const look = t > 229.4;
       actor3('tamo', { view: 'front', anchor: 1.45, armF: 1.1, eyes: look ? 'wide' : 'open', brows: look ? 'up' : 'n', smile: look ? 0 : 0.6, look: look ? 2 : 0 }, 0.5, DY, 1.0, {});
@@ -1967,7 +2252,7 @@
       shk(0.6);
     } else if (t < 242.0) {
       // Tamo, close: "Hollow."
-      lookAt(0.0, 1.4, -2.4, 0.5, 1.15, 1.0, 40);
+      lookK(0.0, 1.4, -2.4, 0.5, 1.15, 1.0, 40, 1.45, 0.05);
       harbour(t); harbourHush(t);
       actor3('tamo', { view: 'front', anchor: 1.45, armF: 1.1, eyes: blink(t, 33) ? 'closed' : 'sad', brows: 'worried', mouth: mouth('tamo', t), look: 1 }, 0.5, DY, 1.0, { rim: { side: 1, T: T_WH, a: 0.4 } });
       const p = proj(SIGIL_H[0], SIGIL_H[1], SIGIL_H[2]); if (p) glow(p.x, p.y, 200, T_WH, 0.2);
@@ -2041,7 +2326,7 @@
       const p = proj(8.4, 4.4, 1.0); if (p && sp_) glow(p.x, p.y, 40 * mouth('bellwether', t) + 10, T_WH, 0.35);
     } else if (t < 267.0) {
       // the two of them
-      lookAt(-1.0, 1.25, -3.4, -0.3, 1.0, 0.8, 42);
+      lookK(-1.0, 1.25, -3.4, -0.3, 1.0, 0.8, 42, 1.2, 0.15);
       harbour(t); harbourHush(t);
       actor3('tamo', { view: 'front', anchor: 1.45, armF: 1.1, eyes: 'narrow', brows: 'angry' }, 0.4, DY, 0.8, { rim: { side: 1, T: T_WH, a: 0.4 } });
       actor3('kaira', { view: 'front', seed: 0.7, blade: 0.5, blade2: 2.4, eyes: 'wide', brows: 'worried' }, -1.0, DY, 1.0, { rim: { side: 1, T: T_WH, a: 0.4 } });
@@ -2063,7 +2348,7 @@
   shot(276.0, 292.0, (lt, t) => {
     const close = t > 280.4 && t < 285.2;
     if (!close) lookAt(3.4, 2.2, -11.6, 3.4, 1.8, 1.0, 56);
-    else lookAt(-0.7, 1.3, -2.6, -0.2, 1.1, 1.0, 44);
+    else lookK(-0.7, 1.3, -2.6, -0.2, 1.1, 1.0, 44, 2.6, 0.1);
     harbour(t); harbourHush(t);
     // the wave of erasure along the dock, held back by the wall from MEET until BREAK
     const front = t < MEET ? waveX(t) : t < BREAK ? 1.2 + Math.sin(t * 7) * 0.08 : 1.2 - (t - BREAK) * 9;

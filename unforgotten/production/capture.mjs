@@ -11,7 +11,7 @@ const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=sw
 const page = await (await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 })).newPage();
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[' + m.type() + ']', m.text()); });
-await page.goto(`file:///home/user/brain/unforgotten/index.html?solo&seed=${o.seed || 7}&export#${o.id}`);
+await page.goto(`file://${o.page || '/home/user/brain/unforgotten/index.html'}?solo&seed=${o.seed || 7}&export#${o.id}`);
 await page.waitForFunction((h) => window[h] && window[h].isReady && window[h].isReady(), hook, { timeout: 120000, polling: 100 });
 const clip = { x: 0, y: 0, width: W, height: H };
 const shoot = async (t, p, type) => {
