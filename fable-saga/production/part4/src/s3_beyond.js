@@ -216,11 +216,20 @@
     const draw = eio(clamp((lt - 0.4) / 1.1, 0, 1)), laugh = [0.1, 0.35, 0.6].reduce((s_, h) => s_ + Math.max(0, Math.sin(PI * clamp((lt - h) / 0.2, 0, 1))), 0);
     const SX = 370;
     for (let q = 0; q < 210; q++) { const w = 70 * (1 - q / 260); thick(420 - w / 2, 250 - q, 420 + w / 2, 250 - q, 2, q % 37 < 2 ? 102 : q < 120 ? 98 : 99); }
-    const so = sunderer(SX, 78, 1.0, t, { eyes: 1.4, heat: 0.9, crown: 0.75, rage: 0.4, roar: 0.25 + laugh * 0.3, nod: -laugh * 2, wounds: [WOUND1, WOUND2],
-      arms: [{ x: lerp(-60, -150, draw), y: lerp(30, 40, draw), pose: 'grab', front: true, ang: 0 }, { x: 140, y: 90, pose: 'fist' }, { x: -96, y: 196, pose: 'fist' }, { x: 110, y: 190, pose: 'open' }] });
+    // the hero first (it is in front of nothing of his), then him: his hand closes round the blade — palm under it, fingers
+    // over it — and the blade is drawn inside the grip, so it is held, not overlaid
     const hx = 200 - draw * 70, hy = 170 + z5Sh(t, 4) * 2;
     const a = i4Nova(hx, hy, 2.0, t, { sw: -0.08, spread: 0.7, flap: 0.6, mouth: 2, noSmear: true, sq: -0.15 + z5Sh(t * 2, 3) * 0.08 });
-    bigBlade(a.hand[0], a.hand[1], -0.12, 460 - draw * 70, 4.8, t, { form: 'nova', flare: 0.6 });
+    const grip = eoc(clamp(lt / 0.3, 0, 1)), strainP = z5Sh(t * 1.5, 6) * 2 * draw;
+    // the grip point on the blade (it slides out through his hand as he draws it), and the wrist placed so the knuckles sit
+    // just over the blade with the fingers wrapping down round it
+    const gx = 318 - draw * 46, gy = a.hand[1] + (gx - a.hand[0]) * Math.tan(-0.12), GA = PI / 2 - 0.35;
+    const wlx = (gx - Math.cos(GA) * 12 - SX) / 1.0, wly = (gy - Math.sin(GA) * 12 - 78) / 1.0;
+    const so = sunderer(SX, 78, 1.0, t, { eyes: 1.4, heat: 0.9, crown: 0.75, rage: 0.4, roar: 0.25 + laugh * 0.3, nod: -laugh * 2, wounds: [WOUND1, WOUND2], lean: -draw * 10,
+      arms: [{ x: wlx, y: wly + strainP * 0.3, pose: { curl: lerp(0.15, 0.78, grip), thumb: lerp(0.2, 0.75, grip), spread: lerp(0.6, 0.05, grip) }, front: true, ang: GA,
+        hold: () => { bigBlade(a.hand[0], a.hand[1], -0.12, 460 - draw * 70, 4.8, t, { form: 'nova', flare: 0.6 }); } }, { x: 140, y: 90 + laugh * 4, pose: 'fist' }, { x: -96, y: 196, pose: 'fist' }, { x: 110, y: 190, pose: 'open' }] });
+    // where the porcelain grips the blade: it smokes and spits
+    if (so.hands[0]) { const [gx, gy] = so.hands[0].palm; for (let k = 0; k < 8; k++) { const g = frac(t * 2 + k / 8); P(gx + (ih(k, 1, 4492) - 0.5) * 16, gy - g * 30, g < 0.4 ? 105 : 121); } }
     // the molten blood running out of the hole as the blade comes out
     for (let k = 0; k < 10; k++) { const g = frac(t * 1.4 + ih(k, 1, 4491)); rectF(SX + 74 + (ih(k, 2, 4491) - 0.5) * 10, 120 + g * 90, 2, 3, g < 0.5 ? 105 : 103); }
     shk(1 + laugh * 2);

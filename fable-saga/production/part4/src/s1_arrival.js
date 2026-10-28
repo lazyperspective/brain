@@ -47,9 +47,12 @@
     const wy = lerp(380, SY + 52, rise) + z5Knock(lt - 0.3, 4, 18, 6) + down * 220, wx = SX + 2 + z5Sh(t, 5) * 1.5;
     const shy = grab ? SY + (wy - (SY + 52)) : SY - z5Knock(lt - 0.02, 6, 10, 5);
     glow(SX, SY + 40, 160, T_EMBER, 0.7 * (1 - down));
-    if (!grab) z5MaskShard(SX, shy, 2.4, 0.16 + lt * 2, 1, 0, t);
-    else { z5MaskShard(SX, shy - 6, 2.1, 0.5, 1, Math.sin(t * 30) * 0.9, t); }
-    sGauntlet(wx, wy, 3.4, -PI / 2, grab ? 'grab' : 'open', 0.8, t);
+    // the fingers close round it over four frames, the palm behind it, the fingers over it; inside, its eye thrashes
+    const cl = grab ? eoc(clamp((lt - 0.3) / 0.13, 0, 1)) : 0, sq_ = grab ? z5Knock(lt - 0.43, 0.12, 20, 6) : 0;
+    const shard = () => z5MaskShard(SX + z5Sh(t * 2, 3) * 2 * cl, shy - 4 - cl * 6, 2.2 - cl * 0.25, 0.16 + (grab ? 0.35 : lt * 2), 1, grab ? Math.sin(t * 30) * 0.9 : 0, t);
+    if (!grab) shard();
+    sGauntlet(wx, wy, 3.4, -PI / 2, { curl: lerp(0.06, 0.72 + sq_, cl), thumb: lerp(0.05, 0.62, cl), spread: lerp(1, 0.25, cl) }, 0.8, t, grab ? { hold: shard } : undefined);
+    if (grab && lt < 0.5) glow(SX, shy, 50, T_MAG, 0.5 * (1 - cl * 0.6));
     // the cloud erupting round the arm, and its tatters falling back
     i4CloudSpill(SX, SY + 30, lt, 26, 260, 4111);
     for (let k = 0; k < 6; k++) cloudPuff(SX - 120 + k * 48, SY + 40 + (k & 1) * 6, 16 + (k % 3) * 4, [17, 18, 14, 15], 4112 + k);
@@ -93,9 +96,9 @@
     const lift = eio(lin(0.9, 1.8, lt));
     const hand = [lerp(160, 52, lift), lerp(160, 22, lift)];
     const o = sunderer(MX, MY + 1.6 * z5N(t * 0.5, 1), s, t, { eyes: ign * 1.3, heat, dark, crown: 1, nod: -1 + lift * 1.6, tilt: -0.04 * lift,
-      arms: [{ x: -120, y: 140, pose: 'fist' }, { x: hand[0], y: hand[1], pose: 'fist', front: true, ang: -PI / 2 - 0.4 * lift }, null, null] });
-    // the shard, held up in his fist (its eye looking at its brother)
-    if (lift > 0.2) { const [fx, fy] = o.hands[1], wx = fx - Math.cos(-PI / 2 - 0.4 * lift) * 10 * s, wy = fy - Math.sin(-PI / 2 - 0.4 * lift) * 10 * s; glow(wx, wy - 10, 60, T_MAG, 0.5); z5MaskShard(wx + 4, wy - 24, 1.6, 0.4, 1, -0.6, t); sGauntlet(wx - Math.cos(-PI / 2 - 0.4 * lift) * 4 * s, wy - Math.sin(-PI / 2 - 0.4 * lift) * 4 * s, s, -PI / 2 - 0.4 * lift, 'fist', heat, t); }
+      arms: [{ x: -120, y: 140, pose: 'fist' }, { x: hand[0], y: hand[1], pose: lift > 0.5 ? 'grab' : 'fist', front: true, ang: -PI / 2 - 0.4 * lift,
+        // the shard, held up in his loosened grip between palm and fingers (its eye looking at its brother)
+        hold: lift > 0.2 ? (h) => { glow(h.palm[0], h.palm[1], 50, T_MAG, 0.5); z5MaskShard(h.palm[0] + h.ux * 9 * s, h.palm[1] + h.uy * 9 * s, 1.5, 0.4 + Math.sin(t * 2) * 0.05, 1, -0.6, t); } : undefined }, null, null] });
     if (lt < 0.067) tintAll(T_BLOOD, 0.4);
     for (const [ex, ey] of o.eyes) glow(ex, ey, 40 * ign, T_EMBER, 0.5 * Math.max(0, 1 - lt / 0.6));
     shk(lt < 0.4 ? 5 * (1 - lt / 0.4) : 0.6);

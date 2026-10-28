@@ -67,9 +67,13 @@
     const PX = 300, PY = 140;                                  // the pinch: where the tip is held
     const tugs = [0.25, 0.62, 0.98], pull = tugs.reduce((s_, h) => s_ + Math.max(0, Math.sin(PI * clamp((lt - h) / 0.3, 0, 1))), 0);
     const S = 3.2, hx = PX - 29 * S - 14 * S - pull * 4, hy = PY + 2 + z5Sh(t, 2) * pull;
+    // the hand: not one pixel of give. Palm behind the blade, finger and thumb closing on it (four frames), the hero in front
+    const pin = eoc(clamp(lt / 0.13, 0, 1)), HP = { curls: [lerp(0.15, 0.48, pin), lerp(0.4, 0.95, pin), lerp(0.45, 0.98, pin), 1], thumb: lerp(0.2, 0.66, pin), spread: lerp(0.6, 0, pin) };
+    sGauntlet(PX + 44, PY + 10, 3.4, PI + 0.3, HP, 0.6, t, { layer: 'palm' });
     z5Zenith(hx, hy, S, t, { sw: 0.04 * z5Sh(t * 2, 4), spread: 0.7 + 0.3 * pull, flap: 0.5, wt: t * 4, orbR: 0, auraR: 9, sparks: 18, sq: -0.12 * pull, eyes: 'glow', mouth: pull > 0.3 ? 2 : 1 });
-    // the hand: not one pixel of give
-    sGauntlet(PX + 34, PY + 14, 3.4, PI + 0.35, 'grab', 0.6, t);
+    sGauntlet(PX + 44, PY + 10, 3.4, PI + 0.3, HP, 0.6, t, { layer: 'fingers' });
+    // where porcelain grips light: the blade glows white there and grinds sparks on each tug
+    tugs.forEach((h, k) => { const g = lt - h; if (g > 0 && g < 0.25) for (let q = 0; q < 6; q++) { const a = PI + (ih(q, k, 4212) - 0.5) * 1.8, v = 40 + ih(q, k + 3, 4212) * 90; P(PX + Math.cos(a) * v * g, PY + Math.sin(a) * v * g + 60 * g * g, q % 2 ? 22 : 60); } });
     glow(PX, PY, 30, T_WH, 0.35 + 0.2 * pull);
     if (lt < 0.1) { i4Skid(PX, PY, lt, PI, 30, 4211); }
     shk(lt < 0.1 ? 4 : pull * 1.2);
@@ -79,14 +83,14 @@
 
   /* 12 — the flick (0:25.4–0:26.6): one finger. The hero is gone — down through the cloud sea, miles of it, tumbling,
      and out under it into the dark ocean world, the sea rushing up */
+  const PX4 = 300;
   shot(25.4, 26.6, (lt, t) => {
     const fall = clamp((lt - 0.12) / 1.08, 0, 1);
     if (lt < 0.12) {
       gradient(LB, H - LB, SKY_FIGHT);
       // the finger flicks out; the hero is simply gone along the line of it, a prism streak and a ring left in the air
       const fl_ = eoc(clamp(lt / 0.05, 0, 1));
-      sGauntlet(334, 154, 3.4, PI + 0.35, 'grab', 0.8, t);
-      capsF(300, 150, lerp(300, 252, fl_), lerp(150, 170, fl_), 9, 8, (u, d, X, Y, nx, ny) => d > 0.84 ? 96 : bone(nx, ny, X, Y));
+      sGauntlet(PX4 + 44, 150, 3.4, PI + 0.3, { curls: [lerp(0.48, 0, fl_), 0.95, 0.98, 1], thumb: lerp(0.66, 0.9, fl_), spread: 0 }, 0.8, t);
       const g = lt, hx = 250 - g * 1600, hy = 172 + g * 900;
       for (let q = 0; q < 40; q++) { const u = q / 40; thick(lerp(250, hx, u), lerp(172, hy, u), lerp(250, hx, u) + 1, lerp(172, hy, u), 3, PRISM_C[q % 7]); }
       shockRing(250, 170, 6 + g * 500, 4 + g * 300, 3, [22, 60, 59], 1 - g / 0.12);
@@ -144,14 +148,17 @@
     const A0 = fistAt(0, [-130, 120], [-60, -60], CB[0]), A3 = fistAt(3, A0, [-260, 20], CB[3]);
     const B2 = fistAt(2, [134, 120], [200, 0], CB[2]), D1 = fistAt(1, [96, 196], [60, 240], CB[1]), C4 = fistAt(4, [-96, 196], [40, 160], CB[4]);
     const armUL = tt < 29.0 ? A0 : A3;
-    sunderer(MX, my, s, t, { eyes: 1.3, heat: 0.75, crown: 1, nod: 0.8,
+    const DX = [0, 0.3, -1, 1, 1];                                  // which way each blow travels (sideways)
+    let leanW = 0, nodW = 0; CB.forEach((h, k) => { const g = tt - h; if (g > -0.32 && g < -0.08) { const u = Math.sin(PI * (g + 0.32) / 0.24); leanW -= DX[k] * 9 * u; nodW -= (k === 0 ? 2.5 : 1) * u; } else if (g >= -0.08 && g < 0.6) { const u = g < 0.05 ? eoc((g + 0.08) / 0.13) : Math.exp(-(g - 0.05) * 5); leanW += DX[k] * 12 * u; nodW += (k === 0 ? 3.5 : 1.5) * u; } });
+    sunderer(MX, my, s, t, { eyes: 1.3, heat: 0.75, crown: 1, nod: 0.8 + nodW, lean: leanW, tilt: leanW * 0.004,
       arms: [{ x: armUL[0], y: armUL[1], pose: 'fist', fs: 1.9, front: true }, { x: B2[0], y: B2[1], pose: 'fist', fs: 1.9, front: tt > 28.5 && tt < 29.1 }, { x: C4[0], y: C4[1], pose: tt > 29.6 && tt < 30.3 ? 'open' : 'fist', fs: 1.9, front: tt > 29.6 && tt < 30.3, ang: tt > 29.6 && tt < 30.3 ? PI * 0.15 : undefined }, { x: D1[0], y: D1[1], pose: 'fist', fs: 1.9, front: tt > 28.0 && tt < 28.6 }] });
     // the sea where he stands
     if (land > 0.9) rocks(MX, 230, t - 27.62, 30, 240, 3, [117, 118, 119, 22], 4241, 280, -PI / 2, 2.6);
     // the hero: guard thrown up as each blow comes (too late), then the blow: tumbling, wings crumpling
     const guard = CB.reduce((m, h) => Math.max(m, sstep(h - 0.2, h - 0.05, tt) * (1 - sstep(h, h + 0.02, tt))), 0);
     const spin = CB.reduce((a, h, k) => a + (tt > h ? (k % 2 ? -1 : 1) * 4.5 * eoc(clamp((tt - h) / 0.5, 0, 1)) : 0), 0);
-    z5Zenith(hx, hy, 1.15, t, { sw: guard > 0.2 ? -1.6 : -0.3 + Math.sin(tt * 7) * 0.8, ang: spin + guard * -0.2, spread: 0.45 + 0.2 * guard, flap: 0.5, orbR: 0, auraR: 4, sparks: 4, eyes: guard > 0.2 ? 'wide' : 'closed', mouth: guard > 0.2 ? 1 : 2, sq: guard * 0.2 });
+    const squash = CB.reduce((m, h) => { const g = t - h; return g >= 0 && g < 0.25 ? Math.max(m, Math.exp(-g * 14)) : m; }, 0);
+    z5Zenith(hx, hy, 1.15, t, { sq: 0.45 * squash, sw: guard > 0.2 ? -1.6 : -0.3 + Math.sin(tt * 7) * 0.8, ang: spin + guard * -0.2, spread: 0.45 + 0.2 * guard, flap: 0.5, orbR: 0, auraR: 4, sparks: 4, eyes: guard > 0.2 ? 'wide' : 'closed', mouth: guard > 0.2 ? 1 : 2, sq: guard * 0.2 });
     // the blows
     CB.forEach((h, k) => { const dir = [PI / 2, -PI / 2 - 0.3, PI - 0.3, 0.2, 0.15][k]; megaHit(HP[k][0], HP[k][1], t - h, k === 0 || k === 4 ? 2.6 : 2, dir, [22, 105, 103], 4242 + k); });
     // the backhand drags the hero across the sea: a trail of spray
@@ -175,9 +182,11 @@
     });
     // the arm, from off the right, and the fist with the hero crushed in it (a wing and the head showing)
     capsF(FX + 30, FY, W + 120, FY - 60, 18, 26, (u, d, X, Y, nx) => d > 0.84 ? 96 : OBS[clamp(fl(2 - nx * 1.6 + (bay(X, Y) - 0.5)), 0, 4)]);
-    z5Wings(FX - 8, FY - 20, 0.9, t * 3, 0.35, 0.6);
-    actor(HERO3({ form: 'zenith', eyes: 'closed', mouth: 2, sword: null }), FX - 26, FY - 10, 1.7, -0.6 + z5Sh(t, 5) * 0.2, false, { still: true });
-    sGauntlet(FX + 30, FY, 2.2, PI, 'grab', 0.8, t);
+    const sqz = 0.75 + 0.1 * Math.sin(t * 9) + SP15.reduce((m, h) => m + (t > h && t < h + 0.25 ? 0.15 * Math.exp(-(t - h) * 10) : 0), 0);
+    sGauntlet(FX + 30, FY, 2.2, PI, { curl: sqz, thumb: 0.7, spread: 0.1 }, 0.8, t, { hold: () => {
+      z5Wings(FX - 8, FY - 22, 0.9, t * 3, 0.32 + 0.08 * Math.sin(t * 7), 0.7);
+      actor(HERO3({ form: 'zenith', eyes: 'closed', mouth: 2, sword: null, sq: 0.25 + 0.1 * Math.sin(t * 9), cracks: 0.2 }), FX - 10, FY - 4, 1.7, -0.6 + z5Sh(t, 5) * 0.2, false, { still: true });
+    } });
     streaks(0, 30, t, 2600, 121, 60, 4257, [0, LB, W, H - 2 * LB]);
     shk(4);
     const [kz, kr] = kick(t, SP15.map((h) => [h, 1.2]));
@@ -218,7 +227,7 @@
     aura(t, ZEN_AURA, 6, { sparks: 4 });
     // the palm: immense, still; on the second blow its fingers close a little
     const curl = sstep(S2 + 0.05, S2 + 0.5, t);
-    sGauntlet(PX + 60, PY + 10, 3.6, PI, curl > 0.5 ? 'grab' : 'open', 0.7, t);
+    sGauntlet(PX + 60, PY + 10, 3.6, PI, { curl: 0.08 + 0.06 * Math.sin(t * 1.7) + curl * 0.45, thumb: 0.08 + curl * 0.3, spread: 0.85 - curl * 0.4 }, 0.7, t);
     [S1, S2].forEach((h, k) => { const g = t - h; if (g >= 0 && g < 0.35) { i4Skid(PX - 6, PY - 6 + k * 14, g, PI + 0.4 - k * 0.8, 26, 4273 + k); shockRing(PX - 6, PY, 4 + g * 160, 4 + g * 160, 2, [22, 60, 59], 1 - g / 0.3); } });
     shk((g1 > 0 && g1 < 0.2) || (g2 > 0 && g2 < 0.25) ? 3 : 0.5);
     z5Cam(1.08, 0.01 * z5N(t * 0.4, 2), 270, 150, 240, 140);
@@ -237,7 +246,8 @@
     actor(HERO3({ form: 'zenith', eyes: lt > 0.6 ? 'closed' : 'wide', mouth: lt > 0.4 ? 2 : 1, sword: 0.6 + press * 0.6, swordCols: z5Sw(t), sq: 0.15 + press * 0.45, cracks: 0.25 + press * 0.45, legs: [2, 2, 2, 2] }), CX, hy, 2.6, 0, false, { still: true });
     aura(t, ZEN_AURA, 6 + z5Sh(t, 2) * 2, { sparks: 6 });
     // the palm, enormous, face down, coming down out of the top of the frame
-    sGauntlet(CX + 10, lerp(-40, 30, eoc(pz)) + press * 26, 5.2, PI / 2, 'open', 0.9, t);
+    const tips = sGauntlet(CX + 10, lerp(-40, 30, eoc(pz)) + press * 26, 5.2, PI / 2, { curl: 0.12 - press * 0.12, thumb: 0.05, spread: 0.7 + press * 0.3 }, 0.9, t);
+    if (press > 0.3) for (let k = 0; k < 7; k++) { const a = -PI + (k + 0.5) / 7 * PI, L = 30 + press * 60 * (0.6 + ih(k, 1, 4283) * 0.6); let x = CX + Math.cos(a) * 34, y = CY + 12 + Math.sin(a) * -6; for (let q = 0; q < 6; q++) { const nx = x + Math.cos(a) * L / 6 + (ih(k, q, 4284) - 0.5) * 6, ny = y + Math.sin(a) * -L / 36; lineP(x, y, nx, ny, q < 2 && press > 0.7 ? 104 : 96); x = nx; y = ny; } }
     // the pressure itself: the air dragged downward, the picture bent toward the ground
     streaks(PI / 2, 50, t, 2000, 121, 50, 4281, [0, LB, W, H - 2 * LB]);
     warp(CX, CY - 10, 200, 0.18 + 0.32 * press, 1.4);
