@@ -55,20 +55,29 @@
   });
 
   // 6 — the King on the ridge, his back to us, the crown above him (0:36): "hush now"
+  // the Hollow King, from behind: a tall cloak that flares to a tattered hem stirring in a wind that isn't there,
+  // a deep hood, a collar trimmed with white glyphs, long sleeves with pale hands hanging out of them; his crown floats above
   function king(x, y, s, t, pulse) {
-    // a tall cloak that flares to the ground, a deep hood, long sleeves; seen from behind; the crown floats above
-    const sw = Math.sin(t * 0.9) * 2;
-    fillPoly([[x - 6 * s, y - 52 * s], [x + 6 * s, y - 52 * s], [x + 13 * s + sw, y], [x - 14 * s + sw * 1.3, y]], (xx, yy) => cel(R.ink, 1.1 + (frac((xx - x) / (4 * s)) < 0.15 ? -0.6 : 0) + (xx < x - 3 * s ? 0.5 : 0), xx, yy));
-    fillEll(x, y - 56 * s, 7 * s, 8 * s, 0, (xx, yy, u, v) => cel(R.ink, 1.2 + (u < -0.4 ? 0.6 : 0) - v * 0.3, xx, yy));
-    for (const side of [-1, 1]) fillPoly([[x + side * 5 * s, y - 48 * s], [x + side * 10 * s, y - 30 * s], [x + side * 9 * s, y - 20 * s], [x + side * 5 * s, y - 30 * s]], (xx, yy) => cel(R.ink, 1.4, xx, yy));
-    // the crown: tiles in a slow ring, brightening with his words
-    for (let k = 0; k < 12; k++) {
-      const a = k / 12 * TAU + t * 0.4, gx = x + Math.cos(a) * 12 * s, gy = y - 70 * s + Math.sin(a) * 3.5 * s;
-      if (Math.sin(a) < -0.2) continue;
-      glyph(fl(gx - s * 1.5), fl(gy - s * 1.5), k, Math.max(1, Math.round(s * 0.6)), pulse > 0.5 && k % 2 ? C('crimson', 6) : WHITE);
+    sclear(); LIGHTS.x = 0; LIGHTS.y = -1;
+    const sw = Math.sin(t * 0.9) * 2, ink = (v) => band(R.ink, v);
+    // the cloak: folds as darker vertical bands, lit along the shoulders from the crown above
+    sPoly([[-11, -96], [11, -96], [22 + sw, -8], [-24 + sw * 1.3, -8]], (xx, yy) => ink(1.2 + (frac((xx + 30) / 6 + yy * 0.01) < 0.22 ? -0.7 : 0) + (yy < -88 ? 1.4 : 0)));
+    // the tattered hem: strips of different length, each fluttering on its own
+    for (let k = 0; k < 12; k++) { const hx = -23 + k * 4 + sw * 1.2, len = 6 + ih(k, 1, 71) * 10, fl_ = Math.sin(t * 2.4 + k * 1.3) * 2; sPoly([[hx, -9], [hx + 4, -9], [hx + 3 + fl_, -9 + len], [hx + 1 + fl_ * 1.2, -9 + len + 2]], ink(0.9)); }
+    // sleeves and long pale hands
+    for (const side of [-1, 1]) {
+      sPoly([[side * 10, -92], [side * 17, -64], [side * 18, -42], [side * 12, -44], [side * 8, -70]], ink(1.6));
+      sEll(side * 15, -42, 2.2, 2.2, band(R.hush, 3)); for (let f = 0; f < 3; f++) sLock(side * 14 + f * side * 1.2, -41, side * 14 + f * side * 1.6 + Math.sin(t + f) * 0.6, -31 - (f === 1 ? 2 : 0), 0, 0.5, R.hush, 3, false);
     }
-    for (let k = 0; k < 12; k++) { const a = k / 12 * TAU + t * 0.4; if (Math.sin(a) >= -0.2) continue; const gx = x + Math.cos(a) * 12 * s, gy = y - 70 * s + Math.sin(a) * 3.5 * s; rectF(fl(gx), fl(gy), Math.max(1, s), Math.max(1, s), C('hush', 4)); }
-    glow(x, y - 70 * s, 26 * s, tab('#e8ecff', true), 0.25 + pulse * 0.25);
+    // the collar's glyph trim and the hood
+    for (let k = 0; k < 9; k++) { const cx = -10 + k * 2.5; sp(cx, -95 + (k % 2), C('snow', 7), 1); sp(cx + 1, -95, C('hush', 5), 1); }
+    sEll(0, -104, 10, 11, (xx, yy, u, v) => ink(1.2 + (v < -0.5 ? 1.4 : 0) - (Math.abs(u) < 0.1 && v > -0.2 ? 0.6 : 0)));
+    sPoly([[-3, -115], [3, -115], [0, -121]], ink(1.6));          // the hood's peak
+    soutline(C('hush', 5)); stamp(x, y, s, false);
+    // the crown: glyph tiles in a slow ring, brightening (and some turning red) as he speaks
+    const cy = y - 136 * s;
+    for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + t * 0.4, gx = x + Math.cos(a) * 20 * s, gy = cy + Math.sin(a) * 5 * s; if (Math.sin(a) < -0.2) { rectF(fl(gx), fl(gy), s, s, C('hush', 3)); continue; } glyph(fl(gx - 2.5 * s), fl(gy - 2.5 * s), k, s, pulse > 0.5 && k % 3 === 0 ? C('crimson', 6) : WHITE); }
+    glow(x, cy, 30 * s, tab('#e8ecff', true), 0.25 + pulse * 0.25);
   }
   shot(36.0, 41.0, (lt, t) => {
     vgrad(0, H, R.night, 0.5, 1.8);
@@ -79,11 +88,10 @@
     // the ridge he stands on, black rock with a wet lit edge
     for (let x = 0; x < W; x++) { const top = 214 + Math.sin(x * 0.03) * 8 + vn(x, 0, 14, 41) * 10 - Math.max(0, 40 - Math.abs(x - 250)) * 0.35; for (let y = fl(top); y < H; y++) BUF[y * W + x] = cel(R.ink, y - top < 1.5 ? 2.4 : 0.6 + vn(x, y, 6, 42) * 0.6, x, y); }
     const pulse = talking('king', t) ? 1 : 0;
-    king(250, 214, 1.5, t, pulse);
-    // the crown's light catching the edges of his hood and shoulders
-    for (let y = 100; y < 214; y++) for (let x = 220; x < 282; x++) { const i = y * W + x; if (BUF[i] >> 3 === R.ink && (BUF[i - W] >> 3) !== R.ink && y < 150) BUF[i] = C('hush', 4); }
+    rays(250, 46, 7, 220, tab('#c8d4ff', true), 0.22, t, 5);
+    king(250, 216, 1, t, pulse);
     rain(t, 160, 0.18, undefined, FREEZE);
-    view(250, lerp(140, 130, lt / 5), lerp(1.4, 1.7, eio(lt / 5)));
+    view(250, lerp(132, 126, lt / 5), lerp(1.0, 1.25, eio(lt / 5)));
   });
 
   // 7 — the wave (0:41): the crown comes down over the village, and everything it touches goes blank
@@ -120,17 +128,16 @@
     hush((x, y) => clamp((x - W + Math.max(0, lt - 0.6) * 170) / 60, 0, 1), t);
   });
 
-  // 9 — Mira turns toward the light: "Sable...?" (0:51)
+  // 9 — Mira turns toward the light: "Sable...?" (0:51); a cold white light comes over her from the left
   shot(51.0, 55.0, (lt, t) => {
-    const o = { freeze: FREEZE, fire: 0.5 };
-    shrineStage(t, o);
-    const turn = lt > 0.7;
-    sable(t, Object.assign({}, KNEEL, { face: { eyes: 'wide', brows: 'worried' }, arms: [{ hand: [10, -17] }, { hand: [5, -16] }], prop: kneelSword }), SABLE_X, FLOOR);
-    mira(t, { hip: -16, face: { eyes: lt > 1.6 ? 'wide' : 'open', brows: 'worried', mouth: mouth('mira', t), blush: 1 }, arms: [{ a: turn ? 0.9 : 0.4 }, { a: 0.3, b: 0.4 }], legs: [{ foot: [3, 0] }, { foot: [-3, 0] }] }, MIRA_X, FLOOR + 2, 1, turn ? -1 : 1);
-    shrineAfter(t, o);
-    hush((x, y) => clamp((lt - 1.2) * 0.35 - x / W * 0.9, 0, 0.8), t);
-    view(MIRA_X - 2, 186, 4);
-    if (lt > 2.2) { const ty = 120 + (lt - 2.2) * 30; for (let k = 0; k < 3; k++) rectF(230, ty + k * 4, 4, 4, C('sky', 6)); }
+    const o = { freeze: FREEZE, fire: 0.5 }, turn = sstep(0.5, 0.9, lt);
+    closeBg(() => shrineStage(t, o), 250, 168, 3, 3);
+    hush((x, y) => clamp((lt - 0.8) * 0.3 - x / W * 0.8 + 0.2, 0, 0.75), t);
+    LIGHT.x = turn > 0.5 ? -1 : 1; LIGHT.y = -0.2; ENV.edge = turn > 0.5 ? C('hush', 6) : C('fire', 5);
+    bust('mira', { t, face: { eyes: lt > 1.4 ? 'wide' : 'open', brows: 'worried', mouth: mouth('mira', t), smile: -0.2, blush: 1, tear: lt > 2.3, look: turn > 0.5 ? 1 : 0 }, headX: Math.round(turn * -1) }, 236 - Math.round(lt * 2), H - 22 + 6, 3, turn > 0.5 ? -1 : 1);
+    ENV.edge = null;
+    nearRain(t, 50, FREEZE);
+    glow(0, 120, 260, tab('#eef1fb', true), 0.15 + lt * 0.08);
   });
 
   // 10 — her hand in Sable's; the white reaches her; she comes apart into glyphs and is gone (0:55)
@@ -155,17 +162,18 @@
     shk(g > 0 ? 3 * Math.exp(-g * 3) : lin(1, 3, lt) * 1.2);
   });
 
-  // 11 — the scream (1:00)
+  // 11 — the scream (1:00): close on Sable as the white closes round her
   shot(60.0, 65.0, (lt, t) => {
     const o = { freeze: FREEZE, fire: 0 };
-    shrineStage(t, o);
-    const sr = sable(t, Object.assign({}, KNEEL, { face: { eyes: lt < 1.6 ? 'closed' : 'sad', brows: 'worried', mouth: Math.max(mouth('sable', t), lt > 0.4 && lt < 1.7 ? 1 : 0) }, arms: [{ hand: [20, -22] }, { hand: [5, -16] }] }), SABLE_X, FLOOR);
-    shrineAfter(t, o);
+    closeBg(() => shrineStage(t, o), 250, 168, 3, 3);
+    const scream = lt > 0.35 && lt < 1.75;
+    LIGHT.x = -1; LIGHT.y = -0.3; ENV.edge = C('hush', 6);
+    const sh = scream ? Math.round((ih(fl(t * 30), 1, 7) - 0.5) * 3) : 0;
+    bust('sable', { t, wind: scream ? 2 : 0, face: { eyes: scream ? 'shut' : lt < 0.35 ? 'wide' : 'sad', brows: 'worried', scream, mouth: mouth('sable', t), tear: lt > 1.8 }, headY: scream ? -1 : 0 }, 244 + sh, H - 22 + 6, 3, -1);
+    ENV.edge = null;
     // the white closes in round her, its edge ragged with glyph-dust
-    const hcx = sr.head[0], hcy = sr.head[1] + 8;
-    hush((x, y) => { const d = Math.hypot(x - hcx, (y - hcy) * 1.1) + (vn(Math.atan2(y - hcy, x - hcx) * 8 + 20, lt * 2, 1, 191) - 0.5) * 14; const r0 = 50 - lt * 7; return d > r0 ? 1 : d > r0 - 8 ? 0.6 : 0; }, t);
-    view(hcx, hcy - 2, lerp(3.4, 4.2, eio(lt / 2)));
-    if (lt > 0.4 && lt < 1.5) shk(3);
-    flash(lin(1.8, 2.6, lt));
-    if (lt > 2.6) { BUF.fill(WHITE); for (let k = 0; k < 60; k++) { const x = ih(k, 1, 191) * W, y = (ih(k, 2, 191) * H - (lt - 2.6) * 20 * (1 + ih(k, 3, 191)) + H) % H; put(fl(x), fl(y), C('hush', 3)); } tintAll(tab('#8a90a0'), lin(3.4, 5, lt) * 0.6); }
+    hush((x, y) => { const d = Math.hypot(x - 244, (y - 140) * 1.05) + (vn(Math.atan2(y - 140, x - 244) * 8 + 20, lt * 2, 1, 191) - 0.5) * 18; const r0 = 190 - lt * 32; return d > r0 ? 1 : d > r0 - 10 ? 0.6 : 0; }, t);
+    if (scream) shk(2.5);
+    flash(lin(1.9, 2.7, lt));
+    if (lt > 2.7) { BUF.fill(WHITE); for (let k = 0; k < 60; k++) { const x = ih(k, 1, 191) * W, y = (ih(k, 2, 191) * H - (lt - 2.7) * 20 * (1 + ih(k, 3, 191)) + H) % H; put(fl(x), fl(y), C('hush', 3)); } tintAll(tab('#8a90a0'), lin(3.4, 5, lt) * 0.6); }
   });

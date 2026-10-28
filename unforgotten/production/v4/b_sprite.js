@@ -50,6 +50,7 @@
   // white (a flash), color (a silhouette), noOutline
   function stamp(x, y, S, flip, o) {
     o = o || {}; x = Math.round(x); y = Math.round(y); S = Math.max(1, Math.round(S || 1));
+    if (o.rot) return stampRot(x, y, S, flip, o);
     for (let j = SBB[1]; j <= SBB[3]; j++) for (let i = SBB[0]; i <= SBB[2]; i++) {
       const k = j * SW + i; let c = SPR[k]; if (c < 0) continue;
       if (o.color !== undefined) c = o.color; else if (o.white) c = SPK[k] === 4 ? C('hush', 3) : WHITE;
@@ -60,5 +61,20 @@
         if (o.alpha !== undefined && bay(X, Y) >= o.alpha) continue;
         const cc = o.fx ? o.fx(c, X, Y, SPK[k]) : c; if (cc >= 0) BUF[Y * W + X] = cc;
       }
+    }
+  }
+  // a rotated stamp: every frame pixel samples the sprite through the inverse rotation about a pivot (piv: sprite px
+  // above the feet), so the pixels stay whole and crisp at any angle
+  function stampRot(x, y, S, flip, o) {
+    const piv = o.piv === undefined ? 30 : o.piv, px = x, py = y - piv * S, ca = Math.cos(o.rot), sa = Math.sin(o.rot);
+    const R_ = Math.hypot(Math.max(SOX - SBB[0], SBB[2] - SOX) + 1, Math.max(Math.abs(SBB[1] - SOY + piv), Math.abs(SBB[3] - SOY + piv)) + 1) * S;
+    for (let Y = Math.max(0, fl(py - R_)); Y < Math.min(H, py + R_); Y++) for (let X = Math.max(0, fl(px - R_)); X < Math.min(W, px + R_); X++) {
+      const dx = (X + 0.5 - px) / S, dy = (Y + 0.5 - py) / S, sx = dx * ca + dy * sa, sy = -dx * sa + dy * ca;
+      const ox = fl(sx), i = flip ? SOX - 1 - ox : ox + SOX, j = fl(sy - piv + SOY);
+      if (i < SBB[0] || i > SBB[2] || j < SBB[1] || j > SBB[3]) continue;
+      const k = j * SW + i; let c = SPR[k]; if (c < 0) continue;
+      if (o.color !== undefined) c = o.color; else if (o.white) c = WHITE;
+      if (o.alpha !== undefined && bay(X, Y) >= o.alpha) continue;
+      const cc = o.fx ? o.fx(c, X, Y, SPK[k]) : c; if (cc >= 0) BUF[Y * W + X] = cc;
     }
   }

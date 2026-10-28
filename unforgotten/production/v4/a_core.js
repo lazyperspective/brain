@@ -105,7 +105,8 @@
   function tintAll(T, a) { if (a <= 0.004) return; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) tintI(y * W + x, x, y, T, a); }
   function glow(cx, cy, r, T, amax, pw) {
     pw = pw || 1.6; const x0 = Math.max(0, fl(cx - r)), x1 = Math.min(W - 1, Math.ceil(cx + r)), y0 = Math.max(0, fl(cy - r)), y1 = Math.min(H - 1, Math.ceil(cy + r));
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const d = Math.hypot(x - cx, y - cy) / r; if (d < 1) tintI(y * W + x, x, y, T, amax * Math.pow(1 - d, pw)); }
+    const tf = r > 36 ? tintSoft : tintI;   // big glows dither softly; small ones step in hand-placed bands
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const d = Math.hypot(x - cx, y - cy) / r; if (d < 1) tf(y * W + x, x, y, T, amax * Math.pow(1 - d, pw)); }
   }
 
   /* ---------------------------------------------------------------- shapes: scanline fills with a per-pixel shader */

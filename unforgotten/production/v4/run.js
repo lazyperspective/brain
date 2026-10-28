@@ -2,7 +2,7 @@
 (function main() {
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const dir = __dirname, [scene, out, tArg] = process.argv.slice(2);
-const parts = ['a_core.js', 'b_sprite.js', ...['c_cast.js', 'd_world.js', 'e_dlg.js', 'e_frame.js'].filter((f) => fs.existsSync(path.join(dir, f))), ...fs.readdirSync(dir).filter((f) => /^f_.*\.js$/.test(f)).sort()].map((f) => fs.readFileSync(path.join(dir, f), 'utf8'));
+const parts = require('./parts.js')(dir);
 const src = '(function(){"use strict";\n' + parts.join('\n') + '\n' + fs.readFileSync(scene, 'utf8') + '\nreturn { BUF, PAL, W, H, draw };\n})()';
 const E = eval(src);
 if (String(tArg).includes(':')) {

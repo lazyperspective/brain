@@ -82,6 +82,10 @@
     for (const [rows, a] of [[B.n, hd.browN], [B.f, hd.browF]]) { const [x, y] = at(a); art({ rows, ax: 0, ay: 0 }, x, y - rows.length + 1, flip, ek); }
     const m = F.mouth || 0, M = m > 0.75 ? MOUTHS.o3 : m > 0.45 ? MOUTHS.o2 : m > 0.15 ? MOUTHS.o1 : F.smile > 0.3 ? MOUTHS.smile : F.smile < -0.3 ? MOUTHS.frown : MOUTHS.closed;
     const [mx, my] = at(hd.mouth); art({ rows: M, ax: 0, ay: 0 }, mx - (M[0].length > 2 ? 1 : 0), my, flip, ek);
+    // the cracked white mask: a plate over the upper face with two slits (embers burning behind them when lit)
+    if (F.mask) { const x0_ = hd.eyeF[0] - 2, x1_ = hd.eyeN[0] + 4, y0_ = hd.browF[1] - 1, y1_ = hd.mouth[1] + 1;
+      for (let yy = y0_; yy <= y1_; yy++) for (let xx = x0_; xx <= x1_; xx++) { if (yy === y1_ && (xx === x0_ || xx === x1_)) continue; const [px, py] = at([xx, yy]); const slit = yy === hd.eyeN[1] + 1 && ((xx >= hd.eyeN[0] && xx <= hd.eyeN[0] + 2) || (xx >= hd.eyeF[0] && xx <= hd.eyeF[0] + 1)); const crack = xx === hd.eyeN[0] + 1 + (yy > hd.eyeN[1] + 2 ? 1 : 0) && yy !== hd.eyeN[1] + 1;
+        sp(px, py, slit ? (F.mask > 1 ? C('fire', 6) : C('ink', 0)) : crack ? C('ink', 1) : yy === y0_ ? C('snow', 7) : C('hush', 5 + (xx > hd.eyeN[0] ? -1 : 0)), slit && F.mask > 1 ? 3 : 1); } }
     if (F.blush) for (const a of [[hd.eyeN[0] - 1, hd.eyeN[1] + 4], [hd.eyeF[0] - 1, hd.eyeF[1] + 4]]) { const [x, y] = at(a); sp(x, y, C('rose', 4)); sp(x + (flip ? -1 : 1), y, C('rose', 4)); }
   }
   SABLE.iris = R.ember;
@@ -187,7 +191,7 @@
     // the torso, the head and its face
     art(tr, neck[0], neck[1], false);
     const hx2 = neck[0] + (P.headX || 0), hy2 = neck[1] + 1 + (P.headY || 0);
-    art(hd, hx2, hy2, false); face(CH, hx2, hy2, false, P.face || {}, CH.key);
+    art(hd, hx2, hy2, false); if (!CH.noFace) face(CH, hx2, hy2, false, P.face || {}, CH.key);
     if (CH.front) CH.front(P, [hx2, hy2], t);
     const aN = arm(A[0], shN, 0);
     if (P.prop) P.prop(aN, t);
@@ -345,3 +349,75 @@
     body: { leg: 28, thigh: 14.5, shin: 14, legR: 2.8, arm1: 9, arm2: 8.5, armR: 2.2, pants: R.linen, pantsB: 3, sleeve: R.tan, sleeveB: 4, skin: R.tan, boot: R.wood },
   };
   TAMO.head.key = TAMO.torso.key = TAMO_KEY;
+
+  /* ---- the temple wardens: indigo lacquered lamellar, a rounded steel helm with a white plume and a visor slit that
+  // glows; Oren, their captain, in a gold helm with a crimson plume */
+  const WARDEN_KEY = { k: k_, H: C('steel', 5), h: C('steel', 4), j: C('steel', 3), J: C('steel', 6), d: C('ink', 0), e: C('cyan', 6), P: C('snow', 7), p: C('hush', 4),
+    A: C('steel', 4), a: C('steel', 3), b: C('steel', 2), T: C('indigo', 3), t: C('indigo', 2), G: C('gold', 4), g: C('gold', 5), s: C('tan', 4) };
+  const WARDEN = {
+    key: WARDEN_KEY, iris: R.indigo, noFace: true,
+    head: { ax: 11, ay: 23, eyeN: [15, 15], eyeF: [11, 15], mouth: [15, 19], browN: [14, 13], browF: [10, 13], rows: [
+      '......................',
+      '.....kkkk.............',
+      '...kkPPPPkk...........',
+      '..kPPPPpPPPk..........',
+      '.kPPPppkkkkkkk........',
+      '.kPPpkkJJJJHHhkk......',
+      'kPPpkJJJHHHHHHhhk.....',
+      'kPpkJJHHHHHHHHHhhk....',
+      'kPpkJHHHHHHHHHHHhjk...',
+      'kpkJHHHHHHHHHHHHhhjk..',
+      '.kkHHHHHHHHHHHHHHhjk..',
+      '..kHHHHHHHHHkkkkkkkk..',
+      '..kHHHHHHHHkdddddddk..',
+      '..kHHHHHHHHkddddeddek.',
+      '..khHHHHHHHkkkkkkkkkk.',
+      '..khhHHHHHHHHHHHHhhjk.',
+      '..khhhHHHHHHHHHHhhjjk.',
+      '..kjhhhHHHHHHHHhhjjk..',
+      '...kjjhhhhhhhhhhjjk...',
+      '....kkjjjjjjjjjjkk....',
+      '......kGGGGGGGGk......',
+      '......kGgggggggk......',
+      '.......kkkkkkkk.......',
+      '......................',
+    ] },
+    torso: { ax: 10, ay: 0, shN: [15, 3], shF: [4, 3], hip: [10, 16], rows: [
+      '.......kssssk.......',
+      '.....kAAAAAaabk.....',
+      '...kAAAAAAAaaaabk...',
+      '..kAAAGTTTTTttGbbk..',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kaaaaGTTTTTttGbbbk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kaaaaGTTTTTttGbbbk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kggggggggggggggggk.',
+      '.kGGGGGGGGGGGGGGGGk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kaaaaGTTTTTttGbbbk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '.kAAAAGTTTTTttGabbk.',
+      '..kaaaGTTTTTttGbbk..',
+      '..kAAAGTTTTTttGbbk..',
+      '..kAAAGTTTTTttGbbk..',
+      '..kaaaGTTTTTttGbbk..',
+      '..kAAAGTTTTTttGbbk..',
+      '..kbbbtttttttttbbk..',
+      '..kkkkkkkkkkkkkkkk..',
+    ] },
+    body: { leg: 30, thigh: 15.5, shin: 15, legR: 2.3, arm1: 9, arm2: 8.5, armR: 2, pants: R.indigo, pantsB: 1, sleeve: R.steel, sleeveB: 3, skin: R.tan, boot: R.ink, cuff: R.indigo },
+  };
+  WARDEN.head.key = WARDEN.torso.key = WARDEN_KEY;
+  const OREN_KEY = Object.assign({}, WARDEN_KEY, { H: C('gold', 5), h: C('gold', 4), j: C('gold', 3), J: C('gold', 6), P: C('crimson', 5), p: C('crimson', 3), e: C('fire', 6), T: C('ink', 3), t: C('ink', 2) });
+  const OREN = Object.assign({}, WARDEN, { key: OREN_KEY, head: Object.assign({}, WARDEN.head, { key: OREN_KEY }), torso: Object.assign({}, WARDEN.torso, { key: OREN_KEY }), body: Object.assign({}, WARDEN.body, { pants: R.ink, cuff: R.gold }) });
+  // a warden's spear: a long shaft and a leaf-shaped steel head with a red tassel; ang 0 points up
+  function spearArt(hx, hy, ang, L, t) {
+    const dx = Math.sin(ang), dy = -Math.cos(ang), nx = -dy, ny = dx;
+    for (let u = -L * 0.35; u < L; u += 0.5) sp(hx + dx * u, hy + dy * u, C('wood', u % 3 < 1.5 ? 3 : 4), 2);
+    for (let u = 0; u < 9; u += 0.5) { const w = u < 4 ? u / 4 * 1.6 : (9 - u) / 5 * 1.6; for (let q = -w; q <= w; q += 0.5) sp(hx + dx * (L + u) + nx * q, hy + dy * (L + u) + ny * q, C('steel', q < 0 ? 6 : 4), 2); }
+    for (let k = 0; k < 5; k++) sp(hx + dx * (L - 1) - nx * (1 + k * 0.3) + Math.sin((t || 0) * 5 + k) * 0.4, hy + dy * (L - 1) - ny * 1 + k, C('crimson', 4), 2);
+  }
