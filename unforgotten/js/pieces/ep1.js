@@ -1328,9 +1328,10 @@
       const lx = lh[0], ly = lh[1];
       line(lx, ly - 4 * s, lx, ly, C('ink', 1)); fillPoly([[lx - 3 * s, ly], [lx + 3 * s, ly], [lx + 3.6 * s, ly + 8 * s], [lx - 3.6 * s, ly + 8 * s]], C('ink', 1));
       lk(3); fillEll(lx, ly + 4.2 * s, 2.2 * s, 3 * s, 0, (xx, yy, u, v) => (Math.hypot(u, v) < 0.5 ? WHITE : C('lav', 6))); lk(1);
-      const fogC = C('dusk', 2);
-      lyEnd({ edge: o.edge === undefined ? C('lav', 6) : o.edge, fx: sil > 0 ? (c, xx, yy, k) => (k === 3 ? c : bay(xx, yy) < sil ? (k === 4 ? C('dusk', 4) : fogC) : c) : undefined });
-      glow(lx, ly + 4 * s, 22 * s, tab('#c8a0ff', true), 0.5 * (o.lamp === undefined ? 1 : o.lamp));
+      // lost in the fog: every colour pulled toward a dark violet-grey (no dither), the rim and the lights kept
+      const edgeC = o.edge === undefined ? C('lav', 6) : o.edge, TS = tab('#2a2440'), ls = Math.min(7, fl(sil * 8));
+      lyEnd({ edge: edgeC, fx: sil > 0.06 ? (c, xx, yy, k) => (k === 3 || c === edgeC ? c : TS[ls * NPAL + c]) : undefined });
+      glow(lx, ly + 4 * s, 16 * s, tab('#c8a0ff', true), 0.4 * (o.lamp === undefined ? 1 : o.lamp));
       if (ea > 0.3) glow(hx + f * s, hy - s, 10 * s * ea, tab('#d0a0ff', true), 0.6 * ea);
       return { head: [hx, hy], lamp: [lx, ly + 4 * s], foot: [x, y] };
     }
@@ -1344,7 +1345,9 @@
       // the crest, behind the helm
       for (let k = 0; k < 12; k++) { const len = 26 + ih(k, 1, 741) * 22, bx = HX - 4 + k * 0.6, by = HY - 20; let px = bx, py = by; for (let q = 0; q < 12; q++) { const u = q / 12, nx2 = px - len / 12 * (0.8 + u * 0.3), ny2 = py - len / 12 * (0.4 - u * 1.1) + Math.sin(t * 5 + k * 0.9 + q * 0.6) * 1.1; sLock(px, py, nx2, ny2, 0, Math.max(0.5, 2.2 - u * 1.8), u > 0.7 ? R.violet : R.lav, u > 0.7 ? 3 : u > 0.35 ? 4.6 : 5.6, false); px = nx2; py = ny2; } }
       // the helm
-      sPoly([[HX - 15, HY + 22], [HX + 15, HY + 22], [HX + 17, HY - 4], [HX + 12, HY - 18], [HX - 12, HY - 18], [HX - 17, HY - 4]], (x, y) => { const u = (x - HX) / 17; return band(R.steel, 3 + (-u * lx > 0.25 ? 1.4 : -u * lx < -0.35 ? -1 : 0) + (Math.abs(u + 0.3 * Math.sign(lx)) < 0.05 ? 2 : 0) + (Math.abs(x - HX) < 0.6 ? 1 : 0)); });
+      sPoly([[HX - 15, HY + 22], [HX + 15, HY + 22], [HX + 17, HY - 4], [HX + 12, HY - 18], [HX - 12, HY - 18], [HX - 17, HY - 4]], (x, y) => { const u = (x - HX) / 17, v = (y - HY) / 20; let b = 2.2 + (-u * lx > 0.25 ? 1.4 : -u * lx < -0.35 ? -1 : 0) + (Math.abs(u + 0.3 * Math.sign(lx || 1)) < 0.05 ? 2.2 : 0) + (Math.abs(x - HX) < 0.6 ? 1.2 : Math.abs(x - HX - 1) < 0.6 ? -0.6 : 0) + (v < -0.5 ? 0.6 : 0) + (vn(x * 0.9, y * 0.9, 2, 745) > 0.68 ? -0.5 : 0);
+        // an engraved border a few pixels in from the edge, and a band across the brow
+        const inner = Math.abs(Math.abs(u) - 0.82) < 0.05 || Math.abs(y - (HY - 7)) < 0.5; if (inner) return band(R.lav, 3.4 + (u * -lx > 0 ? 1 : 0)); return band(R.steel, b); });
       sEll(HX, HY - 17, 12, 5, (x, y, u, v) => band(R.steel, 4 + (v < 0 ? 1 : 0)));
       // rivets and breaths
       for (let k = 0; k < 6; k++) { sp(HX - 13 + k * 5.2, HY - 12, C('steel', 6)); }
@@ -1352,7 +1355,10 @@
       // the slit: a dark band with a cross bar
       sPoly([[HX - 14, HY - 2], [HX + 15, HY - 2], [HX + 15, HY + 1], [HX - 14, HY + 1]], C('ink', 0));
       sPoly([[HX - 1, HY], [HX + 2, HY], [HX + 2, HY + 12], [HX - 1, HY + 12]], C('ink', 0));
-      for (const ex of [HX - 8, HX + 7]) { const r = 0.8 + ea * 1.4; sEll(ex, HY - 0.5, r * 1.6, r * 0.8, (x, y, u, v) => (Math.hypot(u, v) < 0.55 && ea > 0.2 ? C('snow', 7) : C('violet', ea > 0.5 ? 7 : 6)), 3); }
+      for (const ex of [HX - 8, HX + 7]) { const r = 0.8 + ea * 1.6; sEll(ex, HY - 0.5, r * 1.8, r * 0.8, (x, y, u, v) => (Math.hypot(u, v) < 0.55 && ea > 0.2 ? C('snow', 7) : C('violet', ea > 0.5 ? 7 : 6)), 3); }
+      // the gorget's rivets and a violet cord
+      for (let k = 0; k < 5; k++) sp(-8 + k * 4.5, -27, C('steel', 6));
+      for (let x = -10; x <= 12; x++) sp(x, -24 + Math.round(Math.sin(x * 0.5)), C('violet', 4));
       return { head: [HX, HY], eyes: [[HX - 8, HY - 0.5], [HX + 7, HY - 0.5]], mouth: [HX, HY + 8], chest: [0, -12] };
     };
 
@@ -2594,6 +2600,8 @@
       for (let k = 0; k < 40; k++) { const x = fl((ih(k, 1, 371) * W + rt * (4 + ih(k, 2, 371) * 6) + Math.sin(rt + k) * 4) % W), y = fl(30 + ih(k, 3, 371) * 200 + Math.sin(rt * 0.7 + k) * 6); if (ih(k, 4, 371) < 0.5) put(x, y, C('fire', 6)); }
     }
     HB.harbour = harbour; HB.harbourAfter = harbourAfter;
+    // a whole-frame tint snapped to one of the tint table's levels, so it never lands on a band edge (which would checker the frame)
+    HB.tintFlat = (T, a) => { const l = Math.round(a * 8 - 0.5); if (l < 0) return; tintAll(T, (Math.min(7, l) + 0.5) / 8); };
     HB.consts = { HOR, DF, DY, DN, AX, IX, BRLX, BELLX, DOCKX, HUSH_T };
     HB.setCX = (v) => { CX = v; }; HB.sx = (wx) => wx - CX;
     HB.shadowE = shadowE; HB.crateArt = crateArt; HB.barrelArt = barrelArt;
@@ -2610,6 +2618,8 @@
       const x = HB.sx(wx); if (!(o && o.light === false)) dawnLit(x);
       if (HB.IMP || HB.IMPC !== undefined) { o = Object.assign({}, o || {}, { color: HB.IMPC !== undefined ? HB.IMPC : C('ink', 0), noShadow: true }); ENV.edge = null; }
       if (!(o && o.noShadow)) shadowE(x, y === undefined ? K.DY : Math.max(y, K.DF + 4), 10, 2.2);
+      // a breath: one pixel of rise and fall, out of step from figure to figure (frozen when the world stops)
+      if (P.bob === undefined && !(o && o.rot)) { const bt = Math.min(T_NOW, T_NOW < 228.5 || T_NOW > 240 ? T_NOW : 228.5); P = Object.assign({}, P, { bob: Math.sin(bt * 2.6 + wx * 0.37) > 0.55 ? -1 : 0 }); }
       const r = o && (o.rot || o.glitch || o.px) ? actorEx(CH, Object.assign({ t: T_NOW }, P), x, y, f, o) : actor(CH, Object.assign({ t: T_NOW }, P), x, y, 1, f, o);
       ENV.edge = null; return r;
     }
@@ -2661,7 +2671,7 @@
     function impactStar(x, y, g, size, col) {
       if (g < 0 || g > 0.35) return; const u = g / 0.35, r = size * (6 + u * 22);
       for (let k = 0; k < 10; k++) { const an = k / 10 * TAU + 0.3, l = r * (k & 1 ? 0.7 : 1.3) * (1 - u * 0.4); line(x + Math.cos(an) * r * 0.3 * u, y + Math.sin(an) * r * 0.3 * u, x + Math.cos(an) * l, y + Math.sin(an) * l, k & 1 ? (col || C('fire', 6)) : WHITE, u < 0.5 ? 2 : 1); }
-      if (u < 0.5) fillEll(x, y, size * 7 * (1 - u * 2), size * 7 * (1 - u * 2), 0, WHITE);
+      if (u < 0.6) { const r0 = size * 9 * (1 - u / 0.6), r1 = r0 * 0.28; const pts = []; for (let k = 0; k < 8; k++) { const an = k / 8 * TAU, rr = k & 1 ? r1 : r0 * (k % 4 === 0 ? 1 : 0.7); pts.push([x + Math.cos(an) * rr, y + Math.sin(an) * rr]); } fillPoly(pts, WHITE); fillEll(x, y, r1 * 1.2, r1 * 1.2, 0, col || C('fire', 6)); fillEll(x, y, r1 * 0.6, r1 * 0.6, 0, WHITE); }
       for (let a = 0; a < TAU; a += 0.04) { const xx = fl(x + Math.cos(a) * r * 1.3), yy = fl(y + Math.sin(a) * r * 0.8); if (bay(xx, yy) < 1 - u) put(xx, yy, WHITE); }
     }
     // the impact frame: the whole picture in two tones for a beat, figures black on white (or inverted)
@@ -3112,7 +3122,7 @@
       onDock(KAIRA, Object.assign(stand(KB, 6), { arms: [{ a: lerp(0.3, 1.2, draw_), b: 0.2 }, { a: lerp(0.2, -0.5, draw_), b: 0.4 }], face: { eyes: 'narrow', brows: 'angry', smile: 0.4 }, wind: 1, prop: draw_ > 0.3 ? (A) => swordArt(A.hand[0], A.hand[1], 0.9, 18, false) : undefined, propFar: draw_ > 0.3 ? (A) => swordArt(A.hand[0], A.hand[1], -0.6, 16, false) : undefined }), 150, DY + 6, 1);
       if (draw_ > 0.3 && draw_ < 1) { const kx = sx(150) + 10; for (let k = 0; k < 4; k++) put(kx + k * 3, DY - 40 - k, WHITE); }
       HB.harbourAfter(t);
-      view(lerp(sx(200), sx(230), cam), 162, lerp(1.9, 1.8, cam));
+      view(lerp(sx(236), sx(262), cam), 162, 1.8);
     });
   }
   /* ================================================================ 27: the fight (3:34–3:41) — an uppercut into the sea, a chain yanked
@@ -3159,7 +3169,7 @@
     function w1(t, T) {
       const hitT = A(H1);
       if (T < hitT) { const x = lerp(232, 272, lin(214.0, 214.72, T)); const P = runP({ arms: [{ a: 1.45 + lin(214.5, 214.72, T) * 0.2, b: 0 }, { a: -0.7 }] }, T * 15, 6, WB); P.prop = (Aa) => spearArt(Aa.hand[0], Aa.hand[1], 1.45, 26, t); return onDock(WARDEN, P, x, W1Y, 1); }
-      const g = T - hitT, [x, y] = arc(sx(272), W1Y - 30, -70, -255, 600, g);
+      const g = T - hitT, [x, y] = arc(sx(272), W1Y - 30, -160, -255, 600, g);
       if (g > 0.8) return null;
       return HB.actorEx(WARDEN, { t, legs: [{ foot: [5, -4] }, { foot: [-6, 2] }], arms: [{ a: 2.6, b: 0.4 }, { a: -2.2, b: 0.3 }] }, x, y, 1, { rot: -g * 13, px: 0, py: -30 });
     }
@@ -3182,8 +3192,9 @@
     }
     function w2(t, T) {
       const hitT = A(H3);
-      if (T < hitT) { const sneak = lin(hitT - 1.2, hitT - 0.6, T), x = lerp(232, 266, sneak), back = sstep(hitT - 0.6, hitT - 0.3, T), thrust = lin(hitT - 0.12, hitT, T);
-        const P = sneak < 1 ? walkP({ hip: -WB.leg + 5, lean: 3, arms: [{ a: 1.2, b: 0.2 }, { a: -0.3 }] }, T * 9, 4, WB) : { hip: -WB.leg + 5, lean: 3, legs: [{ foot: [10, 0] }, { foot: [-9, 0] }], arms: [{ a: 1.45, b: 0, }, { a: -0.5 }] };
+      if (T < hitT) { const sneak = lin(hitT - 1.5, hitT - 0.6, T), x = lerp(150, 266, sneak), back = sstep(hitT - 0.6, hitT - 0.3, T), thrust = lin(hitT - 0.12, hitT, T);
+        if (sneak <= 0) return null;
+        const P = sneak < 1 ? walkP({ hip: -WB.leg + 5, lean: 3, arms: [{ a: 1.2, b: 0.2 }, { a: -0.3 }] }, T * 11, 5, WB) : { hip: -WB.leg + 5, lean: 3, legs: [{ foot: [10, 0] }, { foot: [-9, 0] }], arms: [{ a: 1.45, b: 0, }, { a: -0.5 }] };
         const sx_ = -back * 8 + eoc(thrust) * 16;
         P.prop = (Aa) => spearArt(Aa.hand[0] + sx_, Aa.hand[1], 1.5, 26, t);
         return onDock(WARDEN, P, x, W2Y, 1); }
@@ -3199,7 +3210,7 @@
       if (T < arrive) {
         const u = lin(go, arrive, T), x0 = sx(160), x1 = sx(296);
         bolt(x0, DY - 20, lerp(x0, x1, u), DY - 24, fl(t * 30), 1, WHITE, C('gold', 5));
-        for (let k = 0; k < 4; k++) { const q = u * (k + 1) / 4; onDock(KAIRA, runP({ face: {} }, k * 1.3, 8, KB), lerp(160, 296, q), DY + 6 - k, 1, { alpha: 0.25 + k * 0.12, color: C('gold', 4 + (k & 1) * 2), noShadow: true }); }
+        for (let k = 0; k < 3; k++) { const q = Math.max(0, u - (2 - k) * 0.22); onDock(KAIRA, runP({ face: {} }, k * 1.3 + 0.6, 9, KB), lerp(160, 296, q), DY + 6 - k, 1, { color: C('gold', 3 + k * 2), noShadow: true }); }
         return [lerp(160, 296, u), DY];
       }
       // the turn, the kick, the follow-through and a crackling landing
@@ -3234,7 +3245,7 @@
       }
       fightStage(t, T, cx);
       // the far splash where the first one went in
-      splash(sx(272) - 56, 152, T - (A(H1) + 0.8), 0.8, 501);
+      splash(sx(272) - 128, 152, T - (A(H1) + 0.8), 0.8, 501);
       // W1, W3 (whirling the chain), Tamo, W2, Kaira
       const r1 = w1(t, T);
       const r3 = w3(t, T);
@@ -3344,7 +3355,7 @@
         t: { headY: -Math.round(up * 2), arms: laughing ? [{ hand: [-4, -60], bend: 1 }, { a: 0.2 }] : [{ a: 0.3, b: 0.3 }, { a: 0.2 }], face: { eyes: laughing ? 'happy' : 'wide', brows: laughing ? 'n' : 'up', mouth: laughing ? 0.5 : 0, smile: laughing ? 0.8 : 0, look: t > 228.9 && t < 229.4 ? 1 : 0 } }, noAnchor: true });
       HB.anchorFloor(t, TXX + 40);
       if (t < HUSH_T) harbourAfter(t);
-      tintAll(T_CHILL, ch);
+      HB.tintFlat(T_CHILL, ch);
       // a held breath: the motes hang too
       if (t > HUSH_T) for (let k = 0; k < 40; k++) { const x = fl((ih(k, 1, 371) * W + HUSH_T * (4 + ih(k, 2, 371) * 6)) % W), y = fl(30 + ih(k, 3, 371) * 200); if (ih(k, 4, 371) < 0.5) put(x, y, WHITE); }
       view(lerp(sx(250), sx(262), lt / 3), lerp(158, 150, up), lerp(2.0, 2.2, lt / 3));
@@ -3370,7 +3381,7 @@
       for (let y = H - 1; y >= sh; y--) BUF.copyWithin(y * W, (y - sh) * W, (y - sh) * W + W);
       for (let y = 0; y < sh; y++) for (let x = 0; x < W; x++) BUF[y * W + x] = soft(R.dusk, 0.9 + y / sh * 0.6, x, y);
       cloudBank(sh - 20, 9, 9, R.dusk, 1.8, 51, rt, 0);
-      tintAll(T_CHILL, chillOf(t) + 0.06);
+      HB.tintFlat(T_CHILL, chillOf(t) + 0.06);
       ringSky(t, 246, 58 + sh * 0.2, 40 + op * 200, Math.min(1, lt / 1.6));
       rays(246, 60 + sh * 0.2, 9, 300, tab('#e8ecff', true), 0.25 * op, t, 7);
       HB.gullsFrozen(t, sh);
@@ -3386,7 +3397,7 @@
     // 29c — Tamo, close (3:55): the dark lighthouse behind him — "Hollow. They took the lighthouse keeper last week.
     // Nobody even remembers his name."
     shot(235.4, 240.4, (lt, t) => {
-      closeBg(() => { harbour(t, { cx: 60, rt: HUSH_T }); tintAll(T_CHILL, chillOf(t) + 0.06); ringSky(t, 300, -6, 150, 1); }, 412, 66, 3, 3);
+      closeBg(() => { harbour(t, { cx: 60, rt: HUSH_T }); HB.tintFlat(T_CHILL, chillOf(t) + 0.06); ringSky(t, 300, -6, 150, 1); }, 412, 66, 3, 3);
       LIGHT.x = 0.2; LIGHT.y = -1; ENV.edge = C('hush', 6);
       bust('tamo', { t, face: { eyes: blink(t, 21) ? 'closed' : t > 238.6 ? 'sad' : 'half', brows: 'worried', mouth: mouth('tamo', t), smile: -0.2, look: t < 237 ? 1 : 0 }, headX: t > 238.6 ? -1 : 0 }, 160, H - 22 + 6, 3, 1);
       ENV.edge = null;
@@ -3395,12 +3406,12 @@
     });
     // 29d — Kaira, close (4:00): the mark on her chest stirring gold under her collar
     shot(240.4, 242.0, (lt, t) => {
-      closeBg(() => { harbour(t, { cx: 60, rt: HUSH_T }); tintAll(T_CHILL, chillOf(t) + 0.06); ringSky(t, 250, -6, 150, 1); }, 200, 110, 3, 3);
+      closeBg(() => { harbour(t, { cx: 60, rt: HUSH_T }); HB.tintFlat(T_CHILL, chillOf(t) + 0.06); ringSky(t, 250, -6, 150, 1); }, 200, 110, 3, 3);
       LIGHT.x = 0; LIGHT.y = -1; ENV.edge = C('hush', 6);
       const r = bust('kaira', { t, wind: 0.6, face: { eyes: blink(t, 22) ? 'closed' : 'open', brows: 'worried', look: -1 } }, 300, H - 22 + 6, 3, -1);
       ENV.edge = null;
       const p = 0.25 + Math.max(0, Math.sin(t * 5)) * 0.25;
-      glow(r.chest[0], r.chest[1] - 6, 54, tab('#ffd060', true), p);
+      HB.seedMark(r.chest[0] - 6, r.chest[1] - 18, p * 0.7, t);
       for (let k = 0; k < 8; k++) { const u = frac(t * 0.7 + k / 8); put(fl(r.chest[0] + Math.sin(k * 2 + t) * 26), fl(r.chest[1] + 10 - u * 70), C('gold', 7)); put(fl(r.chest[0] + Math.sin(k * 2 + t) * 26) + 1, fl(r.chest[1] + 10 - u * 70), C('gold', 6)); }
     });
 
@@ -3414,13 +3425,13 @@
       else { onDock(OREN, { hip: -WB.leg + 12 * cr, legs: [{ foot: [8, 0] }, { foot: [-8, 0] }], headY: t > 242.8 ? -2 : 0, arms: [{ a: 0.5 + cr, b: 0.5 }, { a: -0.4 - cr }], prop: (A) => spearArt(A.hand[0], A.hand[1], 0.15 + cr * 0.4, 36, t) }, 200, DY + 2, 1); dustRing(sx(200), DY + 2, g, 1.1, 641); HB.debris(sx(200), DY, g, 10, 642, { speed: 0.7 }); impactStar(sx(200), DY - 6, g, 1.2, C('gold', 6)); }
       heroes(t, { kf: turn ? -1 : 1, k: { hip: -KB.leg + (turn ? 4 : 0), arms: turn ? [{ a: 1.2, b: 0.2 }, { a: -0.5, b: 0.4 }] : [{ a: 0.5, b: 0.4 }, { a: -0.2 }], face: { eyes: 'wide', brows: turn ? 'angry' : 'worried' } }, t: { hip: -TB.leg + (turn ? 3 : 0), face: { eyes: 'wide', brows: turn ? 'angry' : 'up' } }, noAnchor: true });
       HB.anchorFloor(t, TXX + 40);
-      tintAll(T_CHILL, chillOf(t));
+      HB.tintFlat(T_CHILL, chillOf(t));
       view(sx(250), 158, 2.0);
       shk(g > 0 && g < 0.3 ? 3 * (1 - g / 0.3) : 0);
     });
     // Oren, close: he looks up at the ring, the slit of his visor lit as he speaks
     shot(243.4, 246.0, (lt, t) => {
-      closeBg(() => { harbour(t, { cx: 60, rt: HUSH_T }); tintAll(T_CHILL, chillOf(t) + 0.06); ringSky(t, 250, -6, 150, 1); }, 150, 100, 3, 3);
+      closeBg(() => { harbour(t, { cx: 60, rt: HUSH_T }); HB.tintFlat(T_CHILL, chillOf(t) + 0.06); ringSky(t, 250, -6, 150, 1); }, 150, 100, 3, 3);
       LIGHT.x = 0; LIGHT.y = -1; ENV.edge = C('hush', 6);
       bust('oren', { t, face: { mouth: mouth('oren', t) }, headY: -2 }, 220, H - 22 + 6, 3, 1);
       ENV.edge = null;
@@ -3440,10 +3451,10 @@
       o = o || {};
       const wl = aftermath(t, cx, Object.assign({ rt: HUSH_T, props: { noBarrels: true }, sky: (tt) => ringSky(tt, 300 - cx / 30, 4, 200, 1) }, o));
       const R0 = farHushR(t), ox = 300 - cx / 30, oy = 100;
-      if (R0 > 0) hush((x, y) => { if (y > DF + 1 || y < 62) return 0; const d = Math.hypot(x - ox, (y - oy) * 2.2); return (d < R0 - 8 ? 1 : d < R0 ? 0.6 : 0) * (y < 80 ? (y - 62) / 18 : 1); }, t, true);
+      if (R0 > 0) hush((x, y) => { if (y > DF + 1 || y < 58) return 0; const d = Math.abs(x - ox) + (vn(y * 0.35, t * 2, 1, 807) - 0.5) * 30 + Math.max(0, 80 - y) * 1.5; return d < R0 - 8 ? 1 : d < R0 ? 0.6 : 0; }, t, true);
       // round the Bellwether's feet the planks go pale too
       if (o.footR) { const fx = sx(BELLX); hush((x, y) => { const d = Math.hypot(x - fx, (y - DY) * 3.2); return d < o.footR - 6 ? 1 : d < o.footR ? 0.5 : 0; }, t, true); }
-      tintAll(T_CHILL, chillOf(t));
+      HB.tintFlat(T_CHILL, chillOf(t));
       return wl;
     }
     HB.drained = drained;
@@ -3451,7 +3462,13 @@
     function hollowFall(t, k, o) {
       const g = t - HL[k], x = sx(HLX[k]), y = HLY[k];
       if (g < -0.7) return null;
-      if (g < 0) { const u = 1 + g / 0.7, yy = lerp(-30, y - 30, u * u), xx = x + (1 - u) * 90; for (let j = 0; j < 30; j++) { const px = xx + j * 3, py = yy - j * 1.0 * 6 / 2; put(fl(px), fl(py), j < 3 ? WHITE : j < 12 ? C('ink', 0) : (j & 1) ? C('ink', 1) : -1); put(fl(px) + 1, fl(py), j < 12 ? C('ink', 0) : -1); } fillEll(xx, yy, 3, 3, 0, WHITE); glow(xx, yy, 10, tab('#e8ecff', true), 0.5); return null; }
+      if (g < 0) {
+        // a falling star the wrong way round: a white-hot head, a long black tail torn at the edges
+        const u = 1 + g / 0.7, e = u * u, yy = lerp(-40, y - 30, e), xx = x + (1 - e) * 110, dx = 110 / 0.7 * 2 * u, dy = (y + 10) / 0.7 * 2 * u, L = Math.hypot(dx, dy) || 1, nx = dx / L, ny = dy / L;
+        for (let j = 0; j < 46; j++) { const px = xx + nx * j * 1.5, py = yy - ny * j * 1.5, w = Math.max(0.8, 5 - j * 0.09); for (let q = -w; q <= w; q += 0.5) { const qx = fl(px - ny * q), qy = fl(py + nx * q); if (j > 30 && ih(qx, qy, fl(t * 20)) < (j - 30) / 16) continue; put(qx, qy, j < 4 ? WHITE : Math.abs(q) > w - 0.6 ? C('hush', 5) : C('ink', 0)); } }
+        fillEll(xx, yy, 5, 5, 0, WHITE); glow(xx, yy, 20, tab('#e8ecff', true), 0.6);
+        for (let k = 0; k < 6; k++) put(fl(xx - ny * (ih(k, 1, 667) - 0.5) * 14 + nx * ih(k, 2, 667) * 30), fl(yy + nx * (ih(k, 1, 667) - 0.5) * 14 - ny * ih(k, 2, 667) * 30), k & 1 ? WHITE : C('crimson', 5));
+        return null; }
       if (g < 0.5) { for (let q = 0; q < 24; q++) { const a = -PI * ih(q, 1, 661 + k), v = 30 + ih(q, 2, 661 + k) * 70, [px, py] = arc(x, y - 4, Math.cos(a) * v, Math.sin(a) * v * 0.7, 200, g); put(fl(px), fl(py), q % 4 === 0 ? WHITE : C('ink', 0)); put(fl(px) + 1, fl(py), C('ink', 1)); } dustRing(x, y, g, 0.6, 671 + k, R.ink); }
       const rise = eoc(lin(0.1, 0.6, g));
       return hollowFig(x, y, 1, (o && o.f) || (HLX[k] > 300 ? -1 : 1), t, Object.assign({ crouch: 1 - rise, seed: k + 3, glitch: g < 0.3 ? 0.8 : 0.15 }, o || {}));
@@ -3530,40 +3547,42 @@
     });
     shot(257.5, 260.0, (lt, t) => {
       // closer, riding down with it: the camera sinks with the bell; the lighthouse and the drained harbour rise into view behind
-      const u = lt / 2.5, sh = fl(lerp(150, 40, eio(u)));
+      const u = lt / 2.5, sh = fl(lerp(300, 58, eic(u) * 0.75 + u * 0.25));
       drained(t, 380);
       for (let y = H - 1; y >= sh; y--) BUF.copyWithin(y * W + 0, (y - sh) * W, (y - sh) * W + W);
       for (let y = 0; y < sh; y++) for (let x = 0; x < W; x++) BUF[y * W + x] = soft(R.dusk, 0.8 + y / Math.max(1, sh) * 0.9, x, y);
-      tintAll(T_CHILL, 0.2);
+      HB.tintFlat(T_CHILL, 0.2);
       ringSky(t, 240, sh - 150, 260, 1);
-      const bx = 250, by = 262 + fl(Math.sin(t * 2) * 2);
+      const bx = 250, by = 252 + fl(Math.sin(t * 2) * 1);
       glyphColumn(bx, 0, by, t, 1);
       LIGHT.x = 0.3; LIGHT.y = -1;
-      bellwether(bx, by, 1.15, t, { arms: lerp(0.35, 0.2, u), billow: 1.4, speak: 0.4 + Math.sin(t * 6) * 0.2, edge: C('hush', 6) });
+      bellwether(bx, by, 1.0, t, { arms: lerp(0.35, 0.2, u), billow: 1.4, speak: 0.4 + Math.sin(t * 6) * 0.2, edge: C('hush', 6) });
       rays(bx, 0, 8, 260, tab('#e8ecff', true), 0.15, t, 9);
       // pale streaks rushing upward past it (we are falling with it)
       for (let k = 0; k < 24; k++) { const x = ih(k, 1, 731) * W, y = H - frac(ih(k, 2, 731) + t * 1.8) * (H + 60); line(x, y, x, y + 14, C('hush', 6)); }
       shk(0.8);
     });
     shot(BELL_LAND, 262.0, (lt, t) => {
-      const g = t - BELL_LAND, cx = 200;
+      const g = t - BELL_LAND, cx = 200, sh = 40;
       drained(t, cx, { footR: 20 + g * 30 });
       HB.hollows(t);
       // they're knocked staggering by the toll
       const stag = g < 0.6 ? Math.sin(g / 0.6 * PI) : 0;
       heroes(t, { kx: 300 - stag * 6, kf: 1, tx: 284 - stag * 8, tf: 1, k: { hip: -KB.leg + 5 * stag, lean: -3 * stag, arms: [{ a: 1.25 + stag, b: 0.2 }, { a: -0.5, b: 0.4 }], face: { eyes: stag > 0.3 ? 'closed' : 'wide', brows: 'worried' }, wind: 3 * stag }, t: { hip: -TB.leg + 5 * stag, arms: [{ hand: [10, -40] }, { hand: [7, -38] }], face: { eyes: stag > 0.3 ? 'closed' : 'wide', brows: 'worried' }, prop: heldAnchor(1.9, 0.4, 1.0, 0, 3) } });
       onDock(OREN, { hip: -WB.leg + 5 * stag, legs: [{ foot: [8, 0] }, { foot: [-8, 0] }], arms: [{ a: 1.3 + stag, b: 0.1 }, { a: -0.3 }], prop: (A) => spearArt(A.hand[0], A.hand[1], 1.2, 36, t) }, 214 - stag * 8, DY + 2, 1);
-      const bx = sx(BELLX), sq = g < 0.15 ? 1 - g / 0.15 : 0;
-      LIGHT.x = -0.4; LIGHT.y = -1;
-      bellwether(bx, DY + 2, 0.85 * (1 - sq * 0.06), t, { arms: 0.15, speak: g < 0.6 ? 1 : 0.3, ring: Math.max(0, 1 - g), edge: C('hush', 6) });
-      // the toll: rings of sound, a ring of dust along the planks, planks jumping
-      for (let q = 0; q < 4; q++) { const gg = g - q * 0.18; if (gg < 0 || gg > 1.2) continue; const rr = 10 + gg * 260; for (let a = 0; a < TAU; a += 0.6 / rr) { const xx = fl(bx + Math.cos(a) * rr), yy = fl(DY - 150 + Math.sin(a) * rr * 0.55); if (bay(xx, yy) < 1 - gg / 1.2) put(xx, yy, WHITE); } }
+      const bx = sx(BELLX);
       dustRing(bx, DY + 2, g, 2.6, 701, R.hush); HB.debris(bx, DY, g, 30, 702, { speed: 1.4, big: true });
-      view(282, 128, 1.12);
+      HB.tipUp(sh, t);
+      LIGHT.x = -0.4; LIGHT.y = -1;
+      // a heavy settle: it comes down a touch below its stance and rises back
+      const settle = g < 0.35 ? Math.sin(g / 0.35 * PI) * 4 : 0;
+      bellwether(bx, DY + 2 + sh + settle, 0.92, t, { arms: 0.15 + settle * 0.03, speak: g < 0.6 ? 1 : 0.3, ring: Math.max(0, 1 - g), edge: C('hush', 6) });
+      // the toll: rings of sound
+      for (let q = 0; q < 4; q++) { const gg = g - q * 0.18; if (gg < 0 || gg > 1.2) continue; const rr = 10 + gg * 260; for (let a = 0; a < TAU; a += 0.6 / rr) { const xx = fl(bx + Math.cos(a) * rr), yy = fl(DY + sh - 165 + Math.sin(a) * rr * 0.55); if (bay(xx, yy) < 1 - gg / 1.2) put(xx, yy, WHITE); } }
+      view(240, 135, 1.0);
       shk(g < 1 ? 5 * (1 - g) : 0);
       if (g < 0.067) flash(0.9);
     });
-
     // 32 — "The courier. And the anchor-bearer. Two of four." / "[chuckle] The King will be so pleased." (4:22)
     function bellClose(t, lt, chuckle) {
       closeBg(() => { drained(t, 330, { footR: 120 }); HB.hollows(t); }, 300, 120, 3, 3);
@@ -3579,24 +3598,253 @@
     shot(266.2, 267.0, (lt, t) => {
       drained(t, 150, { footR: 120 });
       const d = eoc(lin(0, 0.35, lt));
-      heroes(t, { kx: 300, kf: 1, tx: 282, tf: 1, k: { hip: -KB.leg + 4, arms: [{ a: lerp(0.4, 1.35, d), b: 0.1 }, { a: lerp(-0.2, -0.7, d), b: 0.4 }], face: { eyes: 'narrow', brows: 'angry' }, wind: 2 }, t: { hip: -TB.leg + 3, arms: [{ hand: [12, lerp(-36, -58, d)] }, { hand: [9, lerp(-34, -56, d)] }], face: { eyes: 'narrow', brows: 'angry', smile: 0.3 }, prop: heldAnchor(lerp(1.9, 2.6, d), 1, 1.0, 0, 3), wind: 2 } });
-      glow(sx(282) + 20, DY - 70, 40, tab('#40ffd0', true), 0.4 * d);
-      view(sx(296), 152, 2.7);
+      heroes(t, { kx: 310, kf: 1, tx: 266, tf: 1, k: { hip: -KB.leg + 4, arms: [{ a: lerp(0.4, 1.35, d), b: 0.1 }, { a: lerp(-0.2, -0.7, d), b: 0.4 }], face: { eyes: 'narrow', brows: 'angry' }, wind: 2 }, t: { hip: -TB.leg + 3, arms: [{ hand: [12, lerp(-36, -58, d)] }, { hand: [9, lerp(-34, -56, d)] }], face: { eyes: 'narrow', brows: 'angry', smile: 0.3 }, prop: heldAnchor(lerp(1.9, 2.6, d), 1, 1.0, 0, 3), wind: 2 } });
+      glow(sx(266) + 20, DY - 70, 40, tab('#40ffd0', true), 0.4 * d);
+      view(sx(292), 152, 2.5);
     });
     shot(267.0, 270.2, (lt, t) => bellClose(t, lt + 4, true));
     // 32b — the standoff, wide (4:30): their stances; it spreads its arms; the Hollow edge in
     shot(270.2, 276.0, (lt, t) => {
-      const cx = 160;
+      const cx = 160, sh = 40;
       drained(t, cx, { footR: 140 });
       for (let k = 0; k < 8; k++) { const creep = lt * 3 * (HLX[k] > 300 ? -1 : 1); HB.hollowFig(sx(HLX[k] + creep), HLY[k], 1, HLX[k] > 300 ? -1 : 1, t, { seed: k + 3, reach: 0.2 + Math.sin(t * 1.5 + k) * 0.2 }); }
       onDock(OREN, { legs: [{ foot: [9, 0] }, { foot: [-9, 0] }], arms: [{ a: 1.45, b: 0.0 }, { a: -0.3 }], prop: (A) => spearArt(A.hand[0], A.hand[1], 1.4, 36, t) }, 220, DY + 2, 1);
       heroes(t, { kx: 300, kf: 1, tx: 280, tf: 1, k: { hip: -KB.leg + 4, arms: [{ a: 1.35, b: 0.1 }, { a: -0.7, b: 0.4 }], face: { eyes: 'narrow', brows: 'angry' }, wind: 2 }, t: { hip: -TB.leg + 3, arms: [{ hand: [12, -58] }, { hand: [9, -56] }], face: { eyes: 'narrow', brows: 'angry' }, prop: heldAnchor(2.6, 1, 1.0, 0, 3), wind: 2 } });
-      LIGHT.x = -0.4; LIGHT.y = -1;
-      bellwether(sx(BELLX), DY + 2, 0.85, t, { arms: lerp(0.15, 0.5, eio(lin(271.5, 274.5, t))), speak: 0.3, edge: C('hush', 6) });
       // wind off it: streaks of pale dust along the planks toward them
       for (let k = 0; k < 30; k++) { const u = frac(t * 0.9 + ih(k, 1, 721)), x = sx(BELLX) - u * 300, y = DY - 4 - ih(k, 2, 721) * 60; line(x, y, x + 6, y, C('hush', 5)); }
-      view(lerp(262, 268, lt / 5.8), lerp(124, 132, lt / 5.8), lerp(1.05, 1.18, eio(lt / 5.8)));
+      HB.tipUp(sh, t);
+      LIGHT.x = -0.4; LIGHT.y = -1;
+      bellwether(sx(BELLX), DY + 2 + sh, 0.92, t, { arms: lerp(0.15, 0.5, eio(lin(271.5, 274.5, t))), speak: 0.3, edge: C('hush', 6) });
+      view(lerp(250, 258, lt / 5.8), lerp(138, 146, lt / 5.8), lerp(1.04, 1.12, eio(lt / 5.8)));
     });
+  }
+  /* ================================================================ 33–34: the toll and the wall of water; the light in the fog (4:36–5:00) */
+  {
+    const { onDock, stand, arc, dustRing, impactStar, splash, shadowE, harbour, sx, heldAnchor, bolt, hollowFig, bellwether, heroes, drained, ringSky, chillOf, silFx, anchorArt, lyBegin, lyEnd, actorEx, vesperFig } = HB;
+    const K = HB.consts, DY = K.DY, DF = K.DF, BELLX = K.BELLX, HUSH_T = K.HUSH_T;
+    const TB = TAMO.body, KB = KAIRA.body, WB = WARDEN.body;
+    const TOLL = 276.5, SLAM = 277.25, WALL = 277.5, MEET = 278.5, BREAK = 285.5, THROWN = 286.0, WX = 362;
+    const T_CHILL = tab('#dfe3f2');
+    // the camera tipped up: the harbour drops down the frame (by sh) so the sky above it opens out for something tall
+    function tipUp(sh, t, ring) {
+      for (let y = H - 1; y >= sh; y--) BUF.copyWithin(y * W, (y - sh) * W, (y - sh) * W + W);
+      for (let y = 0; y < sh; y++) for (let x = 0; x < W; x++) BUF[y * W + x] = soft(R.dusk, 0.9 + y / Math.max(1, sh) * 0.7, x, y);
+      if (ring !== false) ringSky(t, 300, sh - 60, 280, 1);
+      HB.tintFlat(T_CHILL, 0.12);
+    }
+    HB.tipUp = tipUp;
+    // the Storm Seed's light under Kaira's collar, at close-up pixel size (3 px blocks): a diamond, a white core, pulsing rays
+    HB.seedMark = (x, y, p, t) => {
+      glow(x, y, 70, tab('#ffd060', true), 0.35 + p * 0.4); glow(x, y, 22, tab('#fff4c0', true), 0.5 + p * 0.4);
+      for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const d = Math.abs(i) + Math.abs(j); if (d > 3) continue; rectF(fl(x + i * 3), fl(y + j * 3), 3, 3, d < 1 ? WHITE : d < 2 ? C('gold', 7) : C('gold', 5)); }
+      for (let k = 0; k < 8; k++) { const a = k / 8 * TAU + t * 0.5, l = (k & 1 ? 4 : 7) + p * 5; for (let q = 4; q < l; q++) rectF(fl(x + Math.cos(a) * q * 3), fl(y + Math.sin(a) * q * 3), 3, 3, q < l - 2 ? C('gold', 6) : C('gold', 4)); }
+    };
+    // where the white has got to along the dock (stage x), coming from the Bellwether
+    const frontX = (t) => (t < TOLL ? 9999 : t < MEET ? lerp(sx(BELLX) - 30, sx(WX) + 18, eic(lin(TOLL + 0.1, MEET, t)) * 0.4 + lin(TOLL + 0.1, MEET, t) * 0.6) : t < BREAK ? sx(WX) + 18 - lin(MEET, BREAK, t) * 6 : Math.max(sx(WX) - (t - BREAK) * 160, sx(318)));
+    function whiteFront(t, dy) {
+      const fx = frontX(t); if (fx > W + 20) return;
+      hush((x, y) => { if (y < 40 + (dy || 0)) return 0; const n = vn(y * 0.3, t * 4, 1, 801) * 10; return x > fx + 10 + n ? 1 : x > fx + n ? 0.6 : 0; }, t, true);
+      for (let y = 40 + (dy || 0); y < H; y++) for (let x = Math.max(0, fl(fx - 16)); x < Math.min(W, fx + 4); x++) tintI(y * W + x, x, y, tab('#ffffff', true), (1 - Math.abs(x - fx + 4) / 16) * 0.7);
+      // its edge: a churning seam of glyphs and static
+      for (let k = 0; k < 70; k++) { const y = 60 + (dy || 0) + ih(k, 1, fl(t * 14)) * 190, x = fx + (ih(k, 2, fl(t * 14)) - 0.3) * 12; if (k % 6 === 0) glyph(fl(x), fl(y), k, 1, ih(k, 3, 9) < 0.7 ? WHITE : C('crimson', 5)); else put(fl(x), fl(y), k & 1 ? WHITE : C('hush', 4)); }
+    }
+    // the wall of water: a churning sheet thrown up out of the sea across the dock, a ragged crest leaning over, spray
+    function waterWall(t, dy, strain) {
+      const up = eob(lin(WALL, WALL + 0.6, t)), brk = t >= BREAK; if (up <= 0 || brk) return;
+      const x0 = sx(WX), hTop = 175 * up, bot = 262 + dy, base = DY + dy;
+      for (let y = Math.max(0, fl(base - hTop - 10)); y < Math.min(H, bot); y++) {
+        const v = (base - y) / Math.max(1, hTop), lean = Math.pow(Math.max(0, v - 0.45), 2) * 90, half = 24 + v * 10 + Math.max(0, v - 0.75) * 40 + (y > base ? (y - base) * 1.2 : 0) - strain * 7 * Math.sin(v * PI);
+        const cx = x0 + lean + Math.sin(y * 0.08 + t * 6) * 2;
+        for (let x = fl(cx - half - 3); x <= cx + half + 3; x++) {
+          if (x < 0 || x >= W) continue;
+          const u = (x - cx) / half, edge = Math.abs(u) > 1 - 3 / half;
+          if (Math.abs(u) > 1 + (vn(y * 0.5, t * 9 + x, 1, 803) - 0.5) * 0.3) continue;
+          if (v > 1 - 0.04) { BUF[y * W + x] = ih(x, y, fl(t * 16)) < 0.6 ? WHITE : C('sky', 6); continue; }
+          const flow = vn(x * 0.4, y * 0.25 + t * 40, 1, 804);
+          BUF[y * W + x] = edge ? (ih(x, y, fl(t * 20)) < 0.5 ? WHITE : C('teal', 6)) : cel(R.teal, 3.2 + u * -0.8 + (flow > 0.65 ? 1.6 : flow < 0.25 ? -0.8 : 0) + (v > 0.85 ? 1 : 0), x, y);
+        }
+      }
+      // spray thrown off the crest
+      for (let k = 0; k < 60; k++) { const ph = frac(t * 1.3 + ih(k, 1, 805)), a = -PI / 2 + (ih(k, 2, 805) - 0.3) * 1.6, v = 60 + ih(k, 3, 805) * 80, [px, py] = arc(x0 + 20, base - hTop + 4, Math.cos(a) * v, Math.sin(a) * v, 260, ph * 0.8); if (py < base) put(fl(px), fl(py), k % 3 ? WHITE : C('sky', 6)); }
+      glow(x0, base - hTop * 0.5, 70, tab('#40ffd0', true), 0.25);
+      // where the white meets it: static, glyphs flaking off, steam
+      if (t > MEET) for (let k = 0; k < 40; k++) { const y = base - ih(k, fl(t * 18), 811) * hTop, x = x0 + 14 + ih(k, 2, fl(t * 18)) * 8; if (k % 5 === 0) glyph(fl(x), fl(y), k, 1, WHITE); else put(fl(x), fl(y), k & 1 ? C('crimson', 5) : WHITE); }
+      if (t > MEET) for (let k = 0; k < 10; k++) { const u = frac(t * 0.8 + k / 10), x = x0 + 18 + u * 20, y = base - ih(k, 1, 812) * hTop - u * 30, r = 3 + u * 8; fillEll(x, y, r, r * 0.8, 0, (xx, yy) => (bay(xx, yy) < 0.5 * (1 - u) ? C('hush', 7) : -1)); }
+    }
+    // Tamo planting the anchor and holding it; Kaira at his back
+    function holders(t, dy, o) {
+      o = o || {}; const strain = lin(MEET, BREAK, t), sh = Math.round((ih(fl(t * 30), 3, 9) - 0.5) * 2 * strain), slam = lin(SLAM - 0.3, SLAM, t);
+      let tP;
+      if (t < SLAM - 0.3) tP = { hip: -TB.leg, legs: [{ foot: [8, 0] }, { foot: [-8, 0] }], arms: [{ hand: [12, -58] }, { hand: [9, -56] }], face: { eyes: 'narrow', brows: 'angry' }, prop: heldAnchor(2.6, 1, 1.0, 0, 3), wind: 2 };
+      else if (t < SLAM) tP = { hip: -TB.leg + 2, legs: [{ foot: [9, 0] }, { foot: [-9, 0] }], arms: [{ hand: [lerp(6, 18, eic(slam)), lerp(-74, -40, eic(slam))] }, { hand: [lerp(3, 15, eic(slam)), lerp(-72, -38, eic(slam))] }], face: { eyes: 'closed', brows: 'angry', mouth: 0.9 }, prop: heldAnchor(lerp(PI, 0.15, eic(slam)), 1, 1.0, 0, 3), wind: 3 };
+      else tP = { hip: -TB.leg + 9 + sh * 0, lean: 4, legs: [{ foot: [12, 0] }, { foot: [-11, 0] }], arms: [{ hand: [21, -30] }, { hand: [20, -24] }], face: { eyes: strain > 0.3 ? 'closed' : 'narrow', brows: 'angry', mouth: mouth('tamo', t) || 0.6 }, wind: 3 };
+      const rT = onDock(TAMO, tP, 300 + sh * 0.5, DY + 1 + dy, 1);
+      if (t >= SLAM) { lyBegin(); anchorArt(sx(324), DY - 46 + dy, 0.05, 1.0, 1, t); lyEnd({ edge: C('mint', 7) }); glow(sx(324), DY - 20 + dy, 40, tab('#40ffd0', true), 0.4); }
+      const kP = { hip: -KB.leg + 6, lean: 5, legs: [{ foot: [10, 0] }, { foot: [-12, 0] }], arms: [{ hand: [14, -36] }, { hand: [12, -30] }], face: { eyes: t > 283.6 ? 'wide' : 'narrow', brows: 'worried', mouth: mouth('kaira', t) }, wind: 3 };
+      const rK = onDock(KAIRA, kP, 276, DY + 3 + dy, 1);
+      return { rT, rK };
+    }
+    // 33a — the toll (4:36): it rings; a white wave rolls down the dock; he slams the anchor down; the sea stands up into a wall
+    shot(276.0, 278.5, (lt, t) => {
+      const sh = 40;
+      drained(t, 200, { footR: 150 });
+      for (let k = 0; k < 8; k++) if (HB.HLX[k] > 340) hollowFig(sx(HB.HLX[k] + 40), HB.HLY[k], 1, -1, t, { seed: k + 3 });
+      onDock(OREN, { legs: [{ foot: [9, 0] }, { foot: [-9, 0] }], arms: [{ a: 2.4, b: 0.6 }, { a: 2.0, b: 0.6 }], lean: -2, face: {} }, 232, DY + 2, 1);
+      holders(t, 0);
+      if (t > SLAM) { dustRing(sx(324), DY + 2, t - SLAM, 1.4, 821, R.mint); impactStar(sx(324), DY - 4, t - SLAM, 1.4, C('mint', 7)); HB.debris(sx(324), DY, t - SLAM, 16, 822, { speed: 1.2 }); }
+      whiteFront(t, 0);
+      tipUp(sh, t);
+      const g = t - TOLL, bx = sx(BELLX);
+      LIGHT.x = -0.4; LIGHT.y = -1;
+      bellwether(bx, DY + 2 + sh, 0.92, t, { arms: g > 0 ? lerp(0.5, 0.8, eoc(lin(0, 0.4, g))) : 0.5, speak: g > 0 && g < 1 ? 1 : 0.4, ring: g > 0 ? Math.max(0, 1 - g * 0.7) : 0, edge: C('hush', 6) });
+      if (g > 0) for (let q = 0; q < 4; q++) { const gg = g - q * 0.16; if (gg < 0 || gg > 1.4) continue; const rr = 10 + gg * 240; for (let a = 0; a < TAU; a += 0.6 / rr) { const xx = fl(bx + Math.cos(a) * rr), yy = fl(DY + sh - 170 + Math.sin(a) * rr * 0.6); if (bay(xx, yy) < 1 - gg / 1.4) put(xx, yy, WHITE); } }
+      waterWall(t, sh, 0);
+      // the sea climbing the piles on both sides to make the wall
+      if (t > WALL - 0.15 && t < WALL + 0.6) for (let k = 0; k < 60; k++) { const u = lin(WALL - 0.15, WALL + 0.6, t), x = sx(WX) + (ih(k, 1, 823) - 0.5) * 60, y = lerp(262, DY + sh - 90, u) + ih(k, 2, 823) * 50; put(fl(x), fl(y), k & 1 ? WHITE : C('teal', 6)); put(fl(x), fl(y) + 1, C('teal', 4)); }
+      view(240, 135, 1.0);
+      shk(g > 0 && g < 0.6 ? 3 : t > SLAM && t < SLAM + 0.25 ? 4 : t > MEET - 0.05 ? 3 : 0.5);
+      if (t >= MEET - 0.034) flash(0.7);
+    });
+    // 33b — the wall holds (4:38): close on it, roaring; the white eating its far face; he's down on one knee holding the iron
+    shot(278.5, 280.4, (lt, t) => {
+      drained(t, 180, { footR: 150 });
+      whiteFront(t, 0);
+      holders(t, 0);
+      waterWall(t, 0, lin(MEET, BREAK, t));
+      view(sx(318), 140, 2.1);
+      shk(1.6);
+      if (t < MEET + 0.06) flash(0.6);
+    });
+    // 33c — Tamo, close (4:40): "Kaira! Whatever you've got, now would be a really good time!"
+    shot(280.4, 283.6, (lt, t) => {
+      closeBg(() => { drained(t, 180, { footR: 150 }); whiteFront(t, 0); waterWall(t, 0, 0.5); }, sx(WX) - 20, 140, 3, 3);
+      LIGHT.x = 0.4; LIGHT.y = 0.6; ENV.edge = C('mint', 7);
+      const sh = Math.round((ih(fl(t * 30), 1, 7) - 0.5) * 2);
+      bust('tamo', { t, glow: 1, sweat: 1, face: { eyes: talking('tamo', t) ? 'narrow' : 'closed', brows: 'angry', mouth: mouth('tamo', t) || 0.3 }, headX: sh }, 180, H - 22 + 6, 3, 1);
+      ENV.edge = null;
+      glow(200, 280, 170, tab('#40ffd0', true), 0.35);
+      for (let k = 0; k < 50; k++) { const sp_ = 260 + ih(k, 1, 831) * 120, x = W - ((t * sp_ + ih(k, 2, 831) * 600) % (W + 40)), y = ih(k, 3, 831) * H; line(x, y, x + 10, y - 2, k % 3 ? WHITE : C('sky', 6)); }
+      shk(1);
+    });
+    // 33d — Kaira, close (4:43): "I don't know how to use it!" — the light under her collar flaring, useless
+    shot(283.6, 285.4, (lt, t) => {
+      closeBg(() => { drained(t, 180, { footR: 150 }); whiteFront(t, 0); waterWall(t, 0, 0.8); }, sx(WX) - 60, 140, 3, 3);
+      LIGHT.x = 0.4; LIGHT.y = 0.4; ENV.edge = C('gold', 6);
+      const r = bust('kaira', { t, wind: 2.5, face: { eyes: 'wide', brows: 'worried', mouth: mouth('kaira', t) } }, 280, H - 22 + 6, 3, 1);
+      ENV.edge = null;
+      const p = 0.45 + Math.max(0, Math.sin(t * 9)) * 0.35;
+      HB.seedMark(r.chest[0] - 6, r.chest[1] - 18, p, t);
+      for (let k = 0; k < 4; k++) if (ih(k, fl(t * 16), 3) < 0.5) bolt(r.chest[0] - 6, r.chest[1] - 18, r.chest[0] + (ih(k, fl(t * 16), 4) - 0.5) * 140, r.chest[1] - 18 - ih(k, fl(t * 16), 5) * 70, fl(t * 30) + k, 1, WHITE, C('gold', 5));
+      for (let k = 0; k < 50; k++) { const sp_ = 260 + ih(k, 1, 832) * 120, x = W - ((t * sp_ + ih(k, 2, 832) * 600) % (W + 40)), y = ih(k, 3, 832) * H; line(x, y, x + 10, y - 2, k % 3 ? WHITE : C('sky', 6)); }
+      shk(1.2);
+    });
+    // 33e — the wall breaks (4:45): it bursts toward them; they're thrown back down the dock and land hard; the anchor clatters down
+    shot(285.4, 288.0, (lt, t) => {
+      const g = t - BREAK, th = t - THROWN, sh = 30;
+      drained(t, 120, { footR: 150 });
+      whiteFront(t, 0);
+      // the two of them: braced, then flung, tumbling, down
+      if (t < THROWN) holders(t, 0);
+      else {
+        const fly = (k, x0, x1, tl, seed) => { const u = clamp(th / tl, 0, 1), x = lerp(x0, x1, eoc(u)), y = DY - Math.sin(u * PI) * 40 * (1 - u * 0.3); return [x, y, u]; };
+        const [tx, ty, tu] = fly(0, sx(300), sx(212), 0.6), [kx, ky, ku] = fly(1, sx(276), sx(130), 0.75);
+        if (tu < 1) actorEx(TAMO, { t, face: { eyes: 'closed', brows: 'worried', mouth: 0.6 }, arms: [{ a: 2.6, b: 0.3 }, { a: -2.4, b: 0.3 }], legs: [{ foot: [8, -4] }, { foot: [-6, 0] }] }, tx, ty - 30, 1, { rot: -tu * 4.2, px: 0, py: -30 });
+        else HB.onDock(TAMO, { face: { eyes: 'closed', brows: 'worried', mouth: 0.2 }, arms: [{ a: 2.9, b: 0.3 }, { a: 2.4, b: 0.4 }], legs: [{ foot: [7, 0] }, { foot: [-5, 0] }] }, 236, DY - 3, 1, { rot: -PI / 2, px: 0, py: -TB.leg, noShadow: true });
+        if (ku < 1) actorEx(KAIRA, { t, face: { eyes: 'closed', brows: 'worried', mouth: 0.6 }, arms: [{ a: 2.6, b: 0.3 }, { a: -2.4, b: 0.3 }], legs: [{ foot: [8, -4] }, { foot: [-6, 0] }], wind: 4 }, kx, ky - 30, 1, { rot: -ku * 3.6, px: 0, py: -30 });
+        else HB.onDock(KAIRA, { face: { eyes: 'closed', brows: 'worried' }, arms: [{ a: 2.9, b: 0.3 }, { a: 2.4, b: 0.4 }], legs: [{ foot: [7, 0] }, { foot: [-5, 0] }] }, 150, DY + 2, 1, { rot: -PI / 2, px: 0, py: -KB.leg, noShadow: true });
+        dustRing(sx(226), DY - 2, th - 0.6, 0.9, 841); dustRing(sx(140), DY + 2, th - 0.75, 0.9, 842);
+        // the anchor, spinning down and clattering
+        const [ax, ay, landed, ag] = arc(sx(330), DY - 60, -24, -160, 600, th, DY - 2);
+        lyBegin(); anchorArt(ax, ay - (landed ? Math.abs(Math.sin(ag * 18)) * 6 * Math.max(0, 1 - ag * 2) : 0), landed ? PI / 2 + 0.05 : th * 9, 0.95, Math.max(0, 0.6 - th), t); lyEnd({ edge: C('hush', 6) });
+        if (landed && ag < 0.4) HB.debris(ax, ay, ag, 8, 843, { ramp: () => WHITE, speed: 0.5 });
+      }
+      // the burst: water and white blown toward them
+      if (g >= 0 && g < 1.6) {
+        for (let k = 0; k < 220; k++) { const a = PI + (ih(k, 1, 844) - 0.5) * 1.3, v = 120 + ih(k, 2, 844) * 260, [px, py] = arc(sx(WX), DY - 20 - ih(k, 3, 844) * 120, Math.cos(a) * v, Math.sin(a) * v, 300, g); if (py < H) put(fl(px), fl(py), k % 4 === 0 ? C('teal', 6) : k % 4 === 1 ? C('sky', 6) : WHITE); }
+        fillEll(sx(WX), DY - 60, 30 + g * 120, 60 + g * 40, 0, (xx, yy) => (bay(xx, yy) < 0.6 * (1 - g / 1.6) ? WHITE : -1));
+      }
+      if (t < BREAK) waterWall(t, 0, 1);
+      view(lerp(sx(300), sx(214), eio(lin(THROWN, THROWN + 0.8, t))), 156, lerp(1.7, 1.9, lin(THROWN, 288, t)));
+      shk(g > 0 && g < 0.5 ? 5 : th > 0.55 && th < 0.9 ? 2.5 : 1);
+      if (g >= 0 && g < 0.067) flash(0.9);
+    });
+    // 33f — the last toll, coming (4:48): from the planks behind the fallen two, it looms; its arms rise; light gathers in the bell
+    const bellStep = (t) => lerp(BELLX, BELLX - 70, eio(lin(288.0, 291.5, t)));
+    HB.bellStep = bellStep;
+    function fallen(t, o) {
+      HB.onDock(TAMO, { face: { eyes: t > 289.5 ? 'half' : 'closed', brows: 'worried', mouth: 0.1 }, arms: [{ a: 2.9, b: 0.3 }, { a: 2.4, b: 0.4 }], legs: [{ foot: [7, 0] }, { foot: [-5, 0] }], headY: 0 }, 236, DY - 3, 1, { rot: -PI / 2 + (t > 290 ? 0.25 : 0), px: 0, py: -TB.leg, noShadow: true });
+      HB.onDock(KAIRA, { face: { eyes: t > 290.5 ? 'half' : 'closed', brows: 'worried' }, arms: [{ a: 2.9, b: 0.3 }, { a: 2.4 + (t > 291 ? Math.sin(t * 2) * 0.2 : 0), b: 0.4 }], legs: [{ foot: [7, 0] }, { foot: [-5, 0] }] }, 150, DY + 2, 1, { rot: -PI / 2, px: 0, py: -KB.leg, noShadow: true });
+      lyBegin(); anchorArt(sx(326) - 24, DY - 2, PI / 2 + 0.05, 0.95, 0, t); lyEnd({ edge: C('hush', 6) });
+    }
+    HB.fallen = fallen;
+    shot(288.0, 292.0, (lt, t) => {
+      const sh = 30, cx = 130;
+      drained(t, cx, { footR: 400 });
+      for (let k = 0; k < 8; k++) if (HB.HLX[k] > 300) hollowFig(sx(HB.HLX[k] - 30 - lt * 6), HB.HLY[k], 1, -1, t, { seed: k + 3, reach: 0.3 });
+      fallen(t);
+      tipUp(sh, t);
+      const arms = eio(lin(288.0, 290.6, t)), bx = sx(bellStep(t));
+      LIGHT.x = -0.3; LIGHT.y = -1;
+      const r = bellwether(bx, DY + 2 + sh, 0.92, t, { arms: lerp(0.5, 1, arms), speak: 0.4 + arms * 0.6, edge: C('hush', 6) });
+      // light gathering into the bell: motes drawn in toward it
+      for (let k = 0; k < 40; k++) { const u = frac(t * 0.8 + ih(k, 1, 851)), a = ih(k, 2, 851) * TAU, rr = (1 - u) * 120; put(fl(r.slit[0] + Math.cos(a) * rr), fl(r.slit[1] + Math.sin(a) * rr * 0.7), u > 0.7 ? WHITE : C('fire', 6)); }
+      glow(r.slit[0], r.slit[1], 30 + arms * 50, tab('#ffd080', true), 0.3 + arms * 0.4);
+      shk(arms * 1.2);
+    });
+
+    // 34 — the light in the fog (4:52): the Bellwether turns; something walks out of the white — a knight with a lantern,
+    // one heavy step at a time — "Step away from them." Close on the helm: the eyes flare. Black.
+    const VSTEPS = [292.2, 293.4, 294.6, 295.8], STING = 297.2, BLACK = 298.5;
+    function vesperScene(t, cx, sh, o) {
+      drained(t, cx, { footR: 400 });
+      fallen(t);
+      for (let k = 0; k < 8; k++) if (HB.HLX[k] > 300) hollowFig(sx(HB.HLX[k] - 54 + (t > 295 ? (t - 295) * 8 : 0)), HB.HLY[k], 1, -1, t, { seed: k + 3, reach: 0.2, glitch: t > 296 ? 0.5 : 0.2 });
+      const n = VSTEPS.filter((s_) => t >= s_).length, last = n ? t - VSTEPS[n - 1] : 9, st = clamp((t - 291.6) / 1.2, 0, 4.4);
+      const vx = lerp(40, 128, st / 4.4), vs = lerp(1.15, 1.5, st / 4.4), ph = st * PI;
+      // the fog bank on the left: white, rolling, and the knight walking out of it
+      const fogEdge = sx(vx) + 30 + Math.sin(t * 0.8) * 6;
+      for (let y = 0; y < H; y++) for (let x = 0; x < Math.min(W, fogEdge + 60); x++) { const nn = fbm(x * 0.6 + t * 8, y * 1.2, 30, 2, 861), a = clamp((fogEdge - x) / 70 + (nn - 0.5) * 0.8, 0, 1); if (a > 0) tintI(y * W + x, x, y, tab('#ece8f6', true), a * 0.95); }
+      LIGHT.x = 0.6; LIGHT.y = -0.6;
+      const r = vesperFig(sx(vx), DY + 4, vs, t, { f: 1, ph, sil: clamp(1 - st / 3.4, 0.45, 1), eyes: t > 296.0 ? 0.7 : 0.35, edge: C('lav', 6) });
+      // the fog curling round his legs, in front of him
+      for (let y = DY - 26; y < DY + 10; y++) for (let x = fl(sx(vx) - 30); x < sx(vx) + 40; x++) { if (x < 0 || x >= W) continue; const nn = fbm(x * 0.8 + t * 14, y * 1.6, 14, 2, 862), a = clamp((y - (DY - 26)) / 30 * 0.8 + (nn - 0.55) * 1.2, 0, 0.85) * clamp(1 - st / 5, 0.3, 1); if (a > 0.05) tintI(y * W + x, x, y, tab('#ece8f6', true), a); }
+      if (last < 0.5) { dustRing(sx(vx) + 6, DY + 4, last, 0.8, 871 + n, R.hush); for (let k = 0; k < 10; k++) { const [px, py] = arc(sx(vx) + 6, DY + 2, (ih(k, 1, 875 + n) - 0.5) * 80, -40 - ih(k, 2, 875 + n) * 40, 300, last); put(fl(px), fl(py), C('hush', 7)); } }
+      tipUp(sh, t);
+      const turn = sstep(292.6, 294.4, t), bx = sx(bellStep(t));
+      LIGHT.x = -0.5 + turn * 0.2; LIGHT.y = -1;
+      if (!o || !o.noBell) bellwether(bx, DY + 2 + sh, 0.92, t, { arms: 1 - turn * 0.35, speak: 0.6 - turn * 0.3, edge: C('hush', 6) });
+      glow(r.lamp[0], r.lamp[1] + sh, 30, tab('#c8a0ff', true), 0.3);
+      return { last, vx, r };
+    }
+    // the Bellwether stops; turns its bell; far off in the white, a lantern
+    shot(292.0, 294.0, (lt, t) => {
+      const v = vesperScene(t, 100, 30);
+      shk(v.last < 0.25 ? 1.4 * (1 - v.last / 0.25) : 0);
+    });
+    // closer: the knight walks out of the fog over the fallen two, one heavy step at a time — "Step away from them."
+    shot(294.0, STING, (lt, t) => {
+      const sh = 30, v = vesperScene(t, 40, sh, { noBell: false });
+      view(lerp(sx(v.vx) + 80, sx(v.vx) + 60, eio(lt / 3.2)), lerp(160, 156, eio(lt / 3.2)), lerp(1.3, 1.45, eio(lt / 3.2)));
+      shk(v.last < 0.25 ? 2 * (1 - v.last / 0.25) : 0);
+    });
+    shot(STING, 300, (lt, t) => {
+      if (t >= BLACK) { BUF.fill(BLACK); return; }
+      BUF.fill(C('ink', 1));
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const nn = fbm(x * 0.5 + t * 10, y * 1.1, 26, 2, 881); BUF[y * W + x] = soft(R.dusk, 0.6 + nn * 1.6 + (1 - Math.abs(y - 135) / 135) * 0.4, x, y); }
+      const flare = Math.min(1.25, eob(lin(STING, STING + 0.2, t)) * 1.15) * (1 - lin(STING + 0.7, BLACK, t) * 0.35);
+      LIGHT.x = 0.5; LIGHT.y = -0.7; ENV.edge = C('lav', 6);
+      const r = bust('vesper', { t, eyes: Math.min(1, flare) }, 244, H - 22 + 10 - fl(lt * 4), 3, 1);
+      ENV.edge = null;
+      // the flare: a burst of violet light from each eye, a horizontal streak
+      for (const e of [[244 + (2 - 8 + 0.5) * 3, r.head[1] - 1.5], [244 + (2 + 7 + 0.5) * 3, r.head[1] - 1.5]]) {
+        glow(e[0], e[1], 40 * flare + 4, tab('#c890ff', true), 0.7 * flare);
+        const L = 120 * flare; for (let x = -L; x <= L; x++) { const a = 1 - Math.abs(x) / Math.max(1, L); if (ih(fl(x), 1, 891) < a) put(fl(e[0] + x), fl(e[1]), a > 0.6 ? WHITE : C('violet', 6)); }
+        for (let k = 0; k < 8; k++) { const an = k / 8 * TAU, l = 30 * flare * (k & 1 ? 0.5 : 1); line(e[0], e[1], e[0] + Math.cos(an) * l, e[1] + Math.sin(an) * l, C('lav', 7)); }
+      }
+      // embers of violet drifting
+      for (let k = 0; k < 30; k++) { const u = frac(t * 0.3 + ih(k, 1, 892)), x = ih(k, 2, 892) * W, y = H - u * H; put(fl(x), fl(y), C('violet', 5 + (k & 1))); }
+      fade(lin(STING + 0.9, BLACK, t));
+    }, {});
   }
 
   /* ================================================================ COLD OPEN — the shrine above Emberwick, years ago */
