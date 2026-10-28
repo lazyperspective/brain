@@ -60,16 +60,32 @@
     soutline(); stamp(px - T[0] * 2, py - T[1] * 2, 2, false);
     glow(px + 70, py + 110, 120, tab('#ffae55', true), 0.28);      // her lantern, just below the frame
   }
+  // the writing, keyed: each letter a stroke-run with an ease, the chalk lifting off between letters, a breath, the heart
+  const WRITE = [[1.6, 0], [2.35, 1, 'io'], [2.5, 1], [2.85, 2, 'io'], [3.0, 2], [3.8, 3, 'io'], [3.95, 3], [4.7, 4, 'io'], [5.05, 4], [5.45, 4.6, 'out']];
+  const LIFT = [[1.3, 2], [1.6, 0, 'out'], [2.35, 0], [2.42, 1, 'out'], [2.5, 0, 'in'], [2.85, 0], [2.92, 1, 'out'], [3.0, 0, 'in'], [3.8, 0], [3.87, 1, 'out'], [3.95, 0, 'in'], [4.7, 0], [4.85, 1.8, 'out'], [5.05, 0.2, 'in'], [5.45, 0], [5.62, 2.5, 'out'], [5.9, 9, 'in']];
+  // where the chalk is: along the letters, then round the little heart
+  function penPos(letters) {
+    if (letters <= 4) return penAt(Math.min(letters, 3.999));
+    const { x0, y0, sc } = NAME; let cx = x0; for (const ch of 'MIRA') cx += (FONT[ch][0].length + 1) * sc;
+    const u = clamp((letters - 4.3) / 0.3, 0, 1), a = -PI / 2 + u * TAU;
+    return letters < 4.3 ? [lerp(penAt(3.999)[0], cx + 16, (letters - 4) / 0.3), lerp(penAt(3.999)[1], y0 + 34, (letters - 4) / 0.3)] : [cx + 16 + Math.cos(a) * 9, y0 + 40 + Math.sin(a) * 8];
+  }
   shot(0, 7.5, (lt, t) => {
-    const letters = lin(1.6, 6.0, lt) * 4.6, pull = sstep(5.7, 6.6, lt);
+    const q = ON2(t), letters = key(WRITE, q), lift = key(LIFT, q), pull = sstep(5.75, 6.5, lt);
     plankWall(t, 150);
     chalkName(letters, t);
-    if (lt > 1.4 && lt < 5.9) { const [px, py] = penAt(Math.min(letters, 3.999)); const jit = Math.sin(t * 40) * 0.6; chalkHand(px + jit, py, t); for (let k = 0; k < 6; k++) { const u = frac(ih(k, 1, 241) + t * 1.4); put(fl(px - 3 + (ih(k, 2, 241) - 0.5) * 8 - u * 5), fl(py + 3 + u * 16), u < 0.5 ? C('snow', 6) : C('hush', 3)); } }
+    if (q > 1.25 && q < 5.95) {
+      const [px, py] = penPos(letters), writing = lift < 0.3 && q > 1.6 && q < 5.45, jit = writing ? Math.round(Math.sin(q * 40) * 0.6) : 0;
+      chalkHand(px + jit + lift * 3, py + lift * 2, t);
+      if (writing) for (let k = 0; k < 6; k++) { const u = frac(ih(k, 1, 241) + t * 1.4); put(fl(px - 3 + (ih(k, 2, 241) - 0.5) * 8 - u * 5), fl(py + 3 + u * 16), u < 0.5 ? C('snow', 6) : C('hush', 3)); }
+    }
     if (pull > 0) {
-      // the focus pulls back to her: the wall goes soft, she leans into frame and grins at what she has made
+      // the focus pulls back to her: the wall goes soft, she leans into frame (overshooting), tips her head at what she
+      // has made, and squeezes with pride
       defocus(Math.round(1 + pull * 3));
       LIGHT.x = -0.8; LIGHT.y = -0.3; ENV.edge = C('fire', 5);
-      bust('mira', { t, face: { eyes: lt > 6.7 ? 'happy' : 'open', smile: 1, blush: 1, look: -1 } }, Math.round(lerp(560, 392, eoc(pull))), H - 22 + 8, 3, -1);
+      const bx = key([[5.75, 560], [6.35, 380, 'out'], [6.55, 392, 'back']], q), proud = key([[6.7, 1], [6.78, 0.94, 'out'], [6.9, 1.03, 'out'], [7.02, 1, 'io']], q), wig = q > 6.95 && q < 7.35 ? (fl(q * 15) % 2) : 0;
+      bust('mira', { t: q, face: { eyes: q > 6.72 ? 'happy' : blinkK(q, 9) || 'open', smile: 1, blush: 1, look: -1 }, tilt: key([[6.3, -0.04], [6.75, 0.13, 'back']], q), turn: key([[6.3, 0], [6.7, 0.4, 'out']], q), sy: proud, sx: 2 - proud, headY: wig }, Math.round(bx), H - 22 + 8, 3, -1);
       ENV.edge = null; glow(420, 250, 70, tab('#ffae55', true), 0.35 * pull);
     }
     rain(t, 70, 0.18);
@@ -119,12 +135,13 @@
   shot(7.5, 17.0, (lt, t) => {
     const mx = lerp(-30, 560, lt / 9.5), crane = eio(lin(5.6, 9.3, lt)), camX = mx - 200 + crane * 60, camY = stairY(mx) - 190 - crane * 90;
     villageSide(t, camX, camY);
-    // Mira: running, lantern swinging, the hood bouncing; a splash at each footfall
-    const ph = t * 15, my = stairY(mx) - camY + 1, x = mx - camX;
+    // Mira: the eight-drawing run on twos, a splash at each footfall, the lantern lagging behind her arm's swing
+    const q = ON2(t), mq = mx, i = fl(q * 15), my = stairY(mq) - camY + 1, x = mq - camX;
+    const swing = [0.3, 0.4, 0.22, -0.05, -0.3, -0.4, -0.22, 0.05][i % 8];
     LIGHT.x = 0.8; LIGHT.y = -0.5; ENV.edge = C('fire', 5);
-    actor(MIRA, Object.assign(runPose({ t, face: { eyes: 'open', smile: 0.7, blush: 1 }, propFar: (A) => lanternArt(A.hand[0], A.hand[1] + 1, t, true) }, ph, 4, MIRA.body)), x, my, 1, 1);
+    actor(MIRA, Object.assign({ t: q, face: { eyes: blinkK(q, 7) || 'open', smile: 0.7, blush: 1, mouth: i % 4 < 2 ? 0.2 : 0 }, propFar: (A) => lanternArt(A.hand[0], A.hand[1] + 1, t, true, swing) }, mrun(i)), Math.round(x), my, 1, 1);
     ENV.edge = null; glow(x - 4, my - 12, 22, tab('#ffb050', true), 0.35);
-    if (Math.abs(Math.cos(ph)) > 0.9) for (let k = 0; k < 5; k++) put(fl(x + (k - 2) * 2), fl(my - 1 - Math.abs(k - 2) * 0.6 - 1), C('sky', 6));
+    if (i % 4 === 0) for (let k = 0; k < 7; k++) put(fl(x + 4 + (k - 3) * 2), fl(my - 1 - (3 - Math.abs(k - 3)) * 0.8 - (i % 8 === 0 ? 1 : 0)), C('sky', 6 + (k & 1)));
     // the near posts and lanterns rushing past
     for (let k = -1; k < 8; k++) { const fx = k * 150 + 60 - camX / 0.55; if (fx < -20 || fx > W + 20) continue; rectF(fx, 0, 7, H, C('ink', 0)); rectF(fx + 1, 0, 1, H, C('ink', 2)); lantern(fx + 14, 46 + Math.sin(k) * 10, 7, t, k + 20); }
     rain(t, 240, 0.18);

@@ -4076,7 +4076,7 @@
     const SB = blinkK(q, 3);
     sable(t, Object.assign({}, KNEEL, { lean: Math.round(-1 + sit), headY: Math.round(1 - up), headX: Math.round(up * (q > 19.3 ? 1 : 0)), face: { eyes: SB || (up > 0.5 ? 'open' : 'half'), brows: up > 0.5 ? 'up' : 'n', smile: sm, mouth: mouth('sable', q) }, arms: [{ hand: [10 + [0, 1, 1, 0][loop] * tie, -17 - [0, 0, 1, 1][loop] * tie] }, { hand: [5 + [1, 0, 0, 1][loop] * tie, -16] }], prop: kneelSword }), SABLE_X, FLOOR);
     // Mira
-    const x = miraX(q), run = q < 18.1, skid = q >= 18.1 && q < 18.42, hop = key(MHOP, q), sq = key(MSQ, q);
+    const x = miraX(t), run = q < 18.1, skid = q >= 18.1 && q < 18.42, hop = key(MHOP, q), sq = key(MSQ, q);
     let P;
     if (run) P = Object.assign({ face: { eyes: 'wide', smile: 0.7, blush: 1 } }, mrun(fl(q * 15)));
     else if (skid) P = { hip: -16 + sq, lean: -3, wind: 2, face: { eyes: 'wide', smile: 0.4, blush: 1, mouth: 0.3 }, legs: [{ foot: [8, 0] }, { foot: [-3, 0] }], arms: [{ a: 2.0, b: 0.3 }, { a: 1.6, b: 0.3 }] };
@@ -4226,16 +4226,32 @@
     soutline(); stamp(px - T[0] * 2, py - T[1] * 2, 2, false);
     glow(px + 70, py + 110, 120, tab('#ffae55', true), 0.28);      // her lantern, just below the frame
   }
+  // the writing, keyed: each letter a stroke-run with an ease, the chalk lifting off between letters, a breath, the heart
+  const WRITE = [[1.6, 0], [2.35, 1, 'io'], [2.5, 1], [2.85, 2, 'io'], [3.0, 2], [3.8, 3, 'io'], [3.95, 3], [4.7, 4, 'io'], [5.05, 4], [5.45, 4.6, 'out']];
+  const LIFT = [[1.3, 2], [1.6, 0, 'out'], [2.35, 0], [2.42, 1, 'out'], [2.5, 0, 'in'], [2.85, 0], [2.92, 1, 'out'], [3.0, 0, 'in'], [3.8, 0], [3.87, 1, 'out'], [3.95, 0, 'in'], [4.7, 0], [4.85, 1.8, 'out'], [5.05, 0.2, 'in'], [5.45, 0], [5.62, 2.5, 'out'], [5.9, 9, 'in']];
+  // where the chalk is: along the letters, then round the little heart
+  function penPos(letters) {
+    if (letters <= 4) return penAt(Math.min(letters, 3.999));
+    const { x0, y0, sc } = NAME; let cx = x0; for (const ch of 'MIRA') cx += (FONT[ch][0].length + 1) * sc;
+    const u = clamp((letters - 4.3) / 0.3, 0, 1), a = -PI / 2 + u * TAU;
+    return letters < 4.3 ? [lerp(penAt(3.999)[0], cx + 16, (letters - 4) / 0.3), lerp(penAt(3.999)[1], y0 + 34, (letters - 4) / 0.3)] : [cx + 16 + Math.cos(a) * 9, y0 + 40 + Math.sin(a) * 8];
+  }
   shot(0, 7.5, (lt, t) => {
-    const letters = lin(1.6, 6.0, lt) * 4.6, pull = sstep(5.7, 6.6, lt);
+    const q = ON2(t), letters = key(WRITE, q), lift = key(LIFT, q), pull = sstep(5.75, 6.5, lt);
     plankWall(t, 150);
     chalkName(letters, t);
-    if (lt > 1.4 && lt < 5.9) { const [px, py] = penAt(Math.min(letters, 3.999)); const jit = Math.sin(t * 40) * 0.6; chalkHand(px + jit, py, t); for (let k = 0; k < 6; k++) { const u = frac(ih(k, 1, 241) + t * 1.4); put(fl(px - 3 + (ih(k, 2, 241) - 0.5) * 8 - u * 5), fl(py + 3 + u * 16), u < 0.5 ? C('snow', 6) : C('hush', 3)); } }
+    if (q > 1.25 && q < 5.95) {
+      const [px, py] = penPos(letters), writing = lift < 0.3 && q > 1.6 && q < 5.45, jit = writing ? Math.round(Math.sin(q * 40) * 0.6) : 0;
+      chalkHand(px + jit + lift * 3, py + lift * 2, t);
+      if (writing) for (let k = 0; k < 6; k++) { const u = frac(ih(k, 1, 241) + t * 1.4); put(fl(px - 3 + (ih(k, 2, 241) - 0.5) * 8 - u * 5), fl(py + 3 + u * 16), u < 0.5 ? C('snow', 6) : C('hush', 3)); }
+    }
     if (pull > 0) {
-      // the focus pulls back to her: the wall goes soft, she leans into frame and grins at what she has made
+      // the focus pulls back to her: the wall goes soft, she leans into frame (overshooting), tips her head at what she
+      // has made, and squeezes with pride
       defocus(Math.round(1 + pull * 3));
       LIGHT.x = -0.8; LIGHT.y = -0.3; ENV.edge = C('fire', 5);
-      bust('mira', { t, face: { eyes: lt > 6.7 ? 'happy' : 'open', smile: 1, blush: 1, look: -1 } }, Math.round(lerp(560, 392, eoc(pull))), H - 22 + 8, 3, -1);
+      const bx = key([[5.75, 560], [6.35, 380, 'out'], [6.55, 392, 'back']], q), proud = key([[6.7, 1], [6.78, 0.94, 'out'], [6.9, 1.03, 'out'], [7.02, 1, 'io']], q), wig = q > 6.95 && q < 7.35 ? (fl(q * 15) % 2) : 0;
+      bust('mira', { t: q, face: { eyes: q > 6.72 ? 'happy' : blinkK(q, 9) || 'open', smile: 1, blush: 1, look: -1 }, tilt: key([[6.3, -0.04], [6.75, 0.13, 'back']], q), turn: key([[6.3, 0], [6.7, 0.4, 'out']], q), sy: proud, sx: 2 - proud, headY: wig }, Math.round(bx), H - 22 + 8, 3, -1);
       ENV.edge = null; glow(420, 250, 70, tab('#ffae55', true), 0.35 * pull);
     }
     rain(t, 70, 0.18);
@@ -4285,12 +4301,13 @@
   shot(7.5, 17.0, (lt, t) => {
     const mx = lerp(-30, 560, lt / 9.5), crane = eio(lin(5.6, 9.3, lt)), camX = mx - 200 + crane * 60, camY = stairY(mx) - 190 - crane * 90;
     villageSide(t, camX, camY);
-    // Mira: running, lantern swinging, the hood bouncing; a splash at each footfall
-    const ph = t * 15, my = stairY(mx) - camY + 1, x = mx - camX;
+    // Mira: the eight-drawing run on twos, a splash at each footfall, the lantern lagging behind her arm's swing
+    const q = ON2(t), mq = mx, i = fl(q * 15), my = stairY(mq) - camY + 1, x = mq - camX;
+    const swing = [0.3, 0.4, 0.22, -0.05, -0.3, -0.4, -0.22, 0.05][i % 8];
     LIGHT.x = 0.8; LIGHT.y = -0.5; ENV.edge = C('fire', 5);
-    actor(MIRA, Object.assign(runPose({ t, face: { eyes: 'open', smile: 0.7, blush: 1 }, propFar: (A) => lanternArt(A.hand[0], A.hand[1] + 1, t, true) }, ph, 4, MIRA.body)), x, my, 1, 1);
+    actor(MIRA, Object.assign({ t: q, face: { eyes: blinkK(q, 7) || 'open', smile: 0.7, blush: 1, mouth: i % 4 < 2 ? 0.2 : 0 }, propFar: (A) => lanternArt(A.hand[0], A.hand[1] + 1, t, true, swing) }, mrun(i)), Math.round(x), my, 1, 1);
     ENV.edge = null; glow(x - 4, my - 12, 22, tab('#ffb050', true), 0.35);
-    if (Math.abs(Math.cos(ph)) > 0.9) for (let k = 0; k < 5; k++) put(fl(x + (k - 2) * 2), fl(my - 1 - Math.abs(k - 2) * 0.6 - 1), C('sky', 6));
+    if (i % 4 === 0) for (let k = 0; k < 7; k++) put(fl(x + 4 + (k - 3) * 2), fl(my - 1 - (3 - Math.abs(k - 3)) * 0.8 - (i % 8 === 0 ? 1 : 0)), C('sky', 6 + (k & 1)));
     // the near posts and lanterns rushing past
     for (let k = -1; k < 8; k++) { const fx = k * 150 + 60 - camX / 0.55; if (fx < -20 || fx > W + 20) continue; rectF(fx, 0, 7, H, C('ink', 0)); rectF(fx + 1, 0, 1, H, C('ink', 2)); lantern(fx + 14, 46 + Math.sin(k) * 10, 7, t, k + 20); }
     rain(t, 240, 0.18);
@@ -4313,6 +4330,8 @@
         if (ih(k, ring_, seed) > a * 1.2) continue;
         const ang = k / n * TAU + rot, x = cx + Math.cos(ang) * rr, y = cy + Math.sin(ang) * rr * tilt, sc = Math.max(1, Math.round(rr / 70 * (0.75 + 0.35 * Math.sin(ang))));
         glyph(fl(x - sc * 2.5), fl(y - sc * 2.5), k + ring_ * 7 + seed, sc, k % 5 === 2 ? C('crimson', 5) : WHITE, C('hush', 3));
+        // a tile that has only just appeared flares
+        const born = a * 1.2 - ih(k, ring_, seed); if (born < 0.06) glow(x, y, 8 + sc * 4, tab('#ffffff', true), 0.6 * (1 - born / 0.06));
       }
     }
   }
@@ -4347,8 +4366,9 @@
     const op = eoc(lin(0.2, 3, lt));
     cloudBank(80 - op * 30, 12, 6, R.night, 2.2, 3, FREEZE, 0); cloudBank(200 + op * 30, 14, 6, R.dusk, 1.4, 9, FREEZE, 0);
     sigil(240, 128, 30 + op * 120, 0.42, t, lin(0, 2.4, lt), 161);
-    // the shrine's eave at the bottom of the frame, black against it, and the rain hanging in the air
-    for (let x = 0; x < W; x++) { const top = 236 - Math.pow(Math.abs(x - 240) / 240, 2) * 18; for (let y = fl(top); y < H; y++) BUF[y * W + x] = cel(R.ink, y - top < 2 ? 2 : 0.6, x, y); }
+    // the shrine's eave at the bottom of the frame, black against it, sinking as the camera tilts up; the rain hanging
+    const tiltUp = Math.round(key([[32.4, 0], [35.6, 22, 'io']], t));
+    for (let x = 0; x < W; x++) { const top = 236 + tiltUp - Math.pow(Math.abs(x - 240) / 240, 2) * 18; for (let y = fl(top); y < H; y++) BUF[y * W + x] = cel(R.ink, y - top < 2 ? 2 : 0.6, x, y); }
     rain(t, 260, 0.18, undefined, FREEZE);
     shk(0.5 * lin(0, 2, lt));
   });
@@ -4356,8 +4376,10 @@
   // 6 — the King on the ridge, his back to us, the crown above him (0:36): "hush now"
   // the Hollow King, from behind: a tall cloak that flares to a tattered hem stirring in a wind that isn't there,
   // a deep hood, a collar trimmed with white glyphs, long sleeves with pale hands hanging out of them; his crown floats above
-  function king(x, y, s, t, pulse) {
-    sclear(); LIGHTS.x = 0; LIGHTS.y = -1;
+  function king(x, y, s, t, pulse, lift, hood) {
+    sclear(); LIGHTS.x = 0; LIGHTS.y = -1; lift = lift || 0; hood = hood || 0;
+    // the right sleeve swings up about its shoulder as he lifts his hand
+    const rot = (p, side) => { if (side < 0 || !lift) return p; const a = -lift * 0.85, ox = 10, oy = -92, dx = p[0] - ox, dy = p[1] - oy; return [ox + dx * Math.cos(a) - dy * Math.sin(a), oy + dx * Math.sin(a) + dy * Math.cos(a)]; };
     const sw = Math.sin(t * 0.9) * 2, ink = (v) => band(R.ink, v);
     // the cloak: folds as darker vertical bands, lit along the shoulders from the crown above
     sPoly([[-11, -96], [11, -96], [22 + sw, -8], [-24 + sw * 1.3, -8]], (xx, yy) => ink(1.2 + (frac((xx + 30) / 6 + yy * 0.01) < 0.22 ? -0.7 : 0) + (yy < -88 ? 1.4 : 0)));
@@ -4365,13 +4387,14 @@
     for (let k = 0; k < 12; k++) { const hx = -23 + k * 4 + sw * 1.2, len = 6 + ih(k, 1, 71) * 10, fl_ = Math.sin(t * 2.4 + k * 1.3) * 2; sPoly([[hx, -9], [hx + 4, -9], [hx + 3 + fl_, -9 + len], [hx + 1 + fl_ * 1.2, -9 + len + 2]], ink(0.9)); }
     // sleeves and long pale hands
     for (const side of [-1, 1]) {
-      sPoly([[side * 10, -92], [side * 17, -64], [side * 18, -42], [side * 12, -44], [side * 8, -70]], ink(1.6));
-      sEll(side * 15, -42, 2.2, 2.2, band(R.hush, 3)); for (let f = 0; f < 3; f++) sLock(side * 14 + f * side * 1.2, -41, side * 14 + f * side * 1.6 + Math.sin(t + f) * 0.6, -31 - (f === 1 ? 2 : 0), 0, 0.5, R.hush, 3, false);
+      sPoly([[side * 10, -92], [side * 17, -64], [side * 18, -42], [side * 12, -44], [side * 8, -70]].map((p) => rot(p, side)), ink(1.6));
+      const hp = rot([side * 15, -42], side), fp = (f) => rot([side * 14 + f * side * 1.6 + Math.sin(t + f) * 0.6, -31 - (f === 1 ? 2 : 0)], side), rp = (f) => rot([side * 14 + f * side * 1.2, -41], side);
+      sEll(hp[0], hp[1], 2.2, 2.2, band(R.hush, 3)); for (let f = 0; f < 3; f++) { const a = rp(f), b = fp(f); sLock(a[0], a[1], b[0], b[1], 0, 0.5, R.hush, 3, false); }
     }
     // the collar's glyph trim and the hood
     for (let k = 0; k < 9; k++) { const cx = -10 + k * 2.5; sp(cx, -95 + (k % 2), C('snow', 7), 1); sp(cx + 1, -95, C('hush', 5), 1); }
-    sEll(0, -104, 10, 11, (xx, yy, u, v) => ink(1.2 + (v < -0.5 ? 1.4 : 0) - (Math.abs(u) < 0.1 && v > -0.2 ? 0.6 : 0)));
-    sPoly([[-3, -115], [3, -115], [0, -121]], ink(1.6));          // the hood's peak
+    sEll(hood, -104, 10, 11, (xx, yy, u, v) => ink(1.2 + (v < -0.5 ? 1.4 : 0) - (Math.abs(u) < 0.1 && v > -0.2 ? 0.6 : 0)));
+    sPoly([[-3 + hood, -115], [3 + hood, -115], [hood * 1.5, -121]], ink(1.6));          // the hood's peak
     soutline(C('hush', 5)); stamp(x, y, s, false);
     // the crown: glyph tiles in a slow ring, brightening (and some turning red) as he speaks
     const cy = y - 136 * s;
@@ -4386,9 +4409,10 @@
     for (let k = 0; k < 90; k++) { const x = 60 + ih(k, 1, 31) * 360, y = 176 + ih(k, 2, 31) * 30; if (ih(k, 3, 31) < 0.6) put(fl(x), fl(y), C('fire', ih(k, 4, 31) < 0.5 ? 5 : 4)); }
     // the ridge he stands on, black rock with a wet lit edge
     for (let x = 0; x < W; x++) { const top = 214 + Math.sin(x * 0.03) * 8 + vn(x, 0, 14, 41) * 10 - Math.max(0, 40 - Math.abs(x - 250)) * 0.35; for (let y = fl(top); y < H; y++) BUF[y * W + x] = cel(R.ink, y - top < 1.5 ? 2.4 : 0.6 + vn(x, y, 6, 42) * 0.6, x, y); }
-    const pulse = talking('king', t) ? 1 : 0;
-    rays(250, 46, 7, 220, tab('#c8d4ff', true), 0.22, t, 5);
-    king(250, 216, 1, t, pulse);
+    // "Hush." — the hood turns a little toward the village; "Now." — the hand lifts, and the crown flares on each word
+    const q = ON2(t), pulse = accent('king', q) > 0.3 ? 1 : 0, lift = key([[39.05, 0], [39.35, 1, 'back'], [41.0, 0.9]], q), hood = Math.round(key([[38.2, 0], [38.5, -2, 'out']], q));
+    rays(250, 46, 7, 220, tab('#c8d4ff', true), 0.22 + accent('king', q) * 0.2, t, 5);
+    king(250, 216, 1, q, pulse, lift, hood);
     rain(t, 160, 0.18, undefined, FREEZE);
     view(250, lerp(132, 126, lt / 5), lerp(1.0, 1.25, eio(lt / 5)));
   });
@@ -4397,7 +4421,7 @@
   const WAVE0 = 41.4;
   shot(41.0, 48.0, (lt, t) => {
     vgrad(0, 120, R.night, 0.6, 2.2);
-    sigil(240, 40, 200, 0.25, t, 1, 161);
+    sigil(240, 40, key([[41.0, 200], [41.4, 168, 'io'], [41.6, 215, 'out'], [42.2, 200, 'io']], t), 0.25, t, 1, 161);
     ridge(118, 30, 70, 4, R.night, 1.3, 11, 0.8);
     // the whole village, terrace on terrace down the hill toward us
     for (let row = 0; row < 7; row++) {
@@ -4408,10 +4432,11 @@
     for (const [lx, ly] of LAMPS) if (ih(lx, ly, 9) < 0.04) glow(lx, ly, 6, tab('#ff9a40', true), 0.22);
     rain(t, 240, 0.18, undefined, FREEZE);
     // the ring drops onto the village: a white ring spreading out from the top of the hill, erasing as it goes
-    const R0 = Math.max(0, (t - WAVE0) * 80), cx = 240, cy = 100;
+    const R0 = key([[WAVE0, 0], [WAVE0 + 1.2, 170, 'out'], [48.0, 520, 'io']], t), cx = 240, cy = 100;
     hush((x, y) => { const d = Math.hypot(x - cx, (y - cy) * 2.2); return d < R0 - 10 ? 1 : d < R0 ? 0.6 : 0; }, t);
     for (let k = 0; k < 120; k++) { const a = k / 120 * PI + PI * 0, d = R0; const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d / 2.2; if (y > 100 && y < H) glyph(fl(x - 2), fl(y - 2), k, 1, ih(k, fl(t * 12), 5) < 0.75 ? WHITE : C('crimson', 5)); }
-    shk(1.2);
+    shk(t < WAVE0 ? 0.3 : 0.8 + 3 * Math.exp(-(t - WAVE0) * 2.5));
+    if (t > WAVE0 && t < WAVE0 + 0.08) flash(0.35);
   });
 
   // 8 — the name on the wall goes blank (0:48)
@@ -4419,21 +4444,33 @@
     // wet planks in close-up, lantern light from the left, the chalk letters, and the white creeping in from the right
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const u = x + y * 0.05, plank = fl(u / 46), seam = frac(u / 46) < 0.04, grain = vn(u * 0.3, y * 0.05 + plank * 50, 3, 133); BUF[y * W + x] = cel(R.wood, 1.4 + grain * 1.4 + (ih(plank, 1, 134) - 0.5) * 0.6 - (seam ? 1.2 : 0) + Math.max(0, 1 - x / 300) * 1.2, x, y); }
     for (let k = 0; k < 24; k++) { const x = 20 + ih(k, 1, 135) * 440, sp_ = 30 + ih(k, 2, 135) * 50, y0 = (FREEZE * sp_ + ih(k, 3, 135) * 400) % 300 - 20; for (let j = 0; j < 12; j++) put(fl(x), fl(y0 + j), j < 3 ? C('sky', 5) : C('wood', 4)); }
-    const sc = 8, s = 'MIRA', w = textWidth(s, sc), x0 = 240 - w / 2, y0 = 100, er = lin(0.9, 2.9, lt);
-    text(s, x0, y0, (i, j, k) => { const gone = ih(i + k * 7, j, 140) < er * 1.4 - k * 0.15; if (gone) return -1; return ih(i * 3 + k, j * 5, 141) < 0.12 ? C('hush', 4) : WHITE; }, sc);
-    // a little heart she drew after it
-    if (er < 0.8) for (const [i, j] of [[0, 1], [1, 0], [2, 1], [3, 0], [4, 1], [0, 2], [4, 2], [1, 3], [3, 3], [2, 4]]) rectF(x0 + w + 16 + i * 5, y0 + 14 + j * 5, 4, 4, C('hush', 6));
-    glyphDust(x0 + w * 0.3, y0 + 30, lt * 0.8, fl(er * 60), 140, 142);
+    const q = ON2(t), sc = 8, s = 'MIRA', w = textWidth(s, sc), x0 = 240 - w / 2, y0 = 100, ER = [50.25, 49.85, 49.45, 49.05], HEART = 48.65;
+    let lx = x0;
+    for (let k = 0; k < 4; k++) {
+      const e = ER[k], sh = q > e - 0.22 && q < e ? (fl(q * 15) % 2 ? 1 : -1) : 0, gone = clamp((q - e) / 0.35, 0, 1);
+      text(s[k], lx + sh, y0, (i, j) => (ih(i + k * 7, j, 140) < gone * 1.3 ? -1 : ih(i * 3 + k, j * 5, 141) < 0.12 ? C('hush', 4) : WHITE), sc);
+      if (q > e) glyphDust(lx + textWidth(s[k], sc) / 2, y0 + 28, (q - e) * 0.9, 34, 30, 142 + k);
+      lx += textWidth(s[k], sc) + sc;
+    }
+    // the little heart she drew after it, first to go
+    const hs = q > HEART - 0.2 && q < HEART ? (fl(q * 15) % 2 ? 1 : -1) : 0, hg = clamp((q - HEART) / 0.3, 0, 1);
+    for (const [i, j] of [[0, 1], [1, 0], [2, 1], [3, 0], [4, 1], [0, 2], [4, 2], [1, 3], [3, 3], [2, 4]]) if (ih(i, j, 143) >= hg * 1.2) rectF(x0 + w + 16 + i * 5 + hs, y0 + 14 + j * 5, 4, 4, C('hush', 6));
+    if (q > HEART) glyphDust(x0 + w + 28, y0 + 26, (q - HEART) * 0.9, 20, 20, 149);
     hush((x, y) => clamp((x - W + Math.max(0, lt - 0.6) * 170) / 60, 0, 1), t);
   });
 
-  // 9 — Mira turns toward the light: "Sable...?" (0:51); a cold white light comes over her from the left
+  // 9 — Mira, close (0:51): her eyes catch a cold light, her head turns to it, the smile drains away; she turns back to
+  // find Sable — "Sable...?" — her lip trembles and her hands close on her coat
   shot(51.0, 55.0, (lt, t) => {
-    const o = { freeze: FREEZE, fire: 0.5 }, turn = sstep(0.5, 0.9, lt);
+    const q = ON2(t), o = { freeze: FREEZE, fire: 0.5 };
     closeBg(() => shrineStage(t, o), 250, 168, 3, 3);
     hush((x, y) => clamp((lt - 0.8) * 0.3 - x / W * 0.8 + 0.2, 0, 0.75), t);
-    LIGHT.x = turn > 0.5 ? -1 : 1; LIGHT.y = -0.2; ENV.edge = turn > 0.5 ? C('hush', 6) : C('fire', 5);
-    bust('mira', { t, face: { eyes: lt > 1.4 ? 'wide' : 'open', brows: 'worried', mouth: mouth('mira', t), smile: -0.2, blush: 1, tear: lt > 2.3, look: turn > 0.5 ? 1 : 0 }, headX: Math.round(turn * -1) }, 236 - Math.round(lt * 2), H - 22 + 6, 3, turn > 0.5 ? -1 : 1);
+    const turn = key([[51.55, 0], [51.85, -1.1, 'out'], [52.0, -1], [52.15, -1], [52.4, 0.5, 'out'], [52.55, 0.35]], q);
+    const look = q < 51.45 ? 0 : q < 52.15 ? -2 : 2, smile = key([[51.0, 1], [51.5, 0.9], [52.0, -0.1, 'io']], q), tremble = q > 52.9 ? (fl(q * 15) % 2 ? -0.5 : -0.25) : smile;
+    const clutch = key([[53.35, 0], [53.65, 1, 'back']], q), breath = q > 52.9 ? (fl(q * 7.5) % 2 ? -1 : 0) : 0;
+    const hands = clutch > 0.02 ? [{ from: [-12, 10], at: [lerp(-12, -7, clutch), lerp(12, -9, clutch)], pose: 'fist' }, { from: [14, 10], at: [lerp(14, 9, clutch), lerp(12, -9, clutch)], pose: 'fist' }] : [];
+    LIGHT.x = -1; LIGHT.y = -0.2; ENV.edge = C('hush', 6);
+    bust('mira', { t: q, turn, tilt: key([[51.0, 0.09], [51.6, 0.02], [52.5, -0.05, 'io']], q), hands, face: { eyes: q < 51.45 ? 'happy' : blinkK(q, 12) || 'wide', brows: q > 51.8 ? 'worried' : 'n', look, mouth: mouth('mira', q), smile: tremble, blush: 1, tear: q > 53.8 }, headY: breath }, 236 - Math.round(lt * 2), H - 22 + 6, 3, 1);
     ENV.edge = null;
     nearRain(t, 50, FREEZE);
     glow(0, 120, 260, tab('#eef1fb', true), 0.15 + lt * 0.08);
@@ -4441,24 +4478,31 @@
 
   // 10 — her hand in Sable's; the white reaches her; she comes apart into glyphs and is gone (0:55)
   const HIT = 58.2;
+  // the reach, keyed in the frame: Sable winds back and lunges; Mira's hand comes up to meet hers; they hold; Sable hauls
+  // on "Don't let go"; then Mira is gone and Sable's hand closes on nothing
+  const GRIP = [[55.0, [258, FLOOR - 17]], [55.2, [261, FLOOR - 15], 'io'], [55.5, [249, FLOOR - 25], 'out'], [55.62, [251, FLOOR - 23], 'back'], [57.3, [251, FLOOR - 23]], [57.55, [255, FLOOR - 22], 'io'], [58.2, [255, FLOOR - 22]], [58.38, [245, FLOOR - 19], 'in'], [58.55, [247, FLOOR - 20], 'out']];
+  const MHAND = [[55.0, [MIRA_X + 6, FLOOR - 8]], [55.45, [MIRA_X + 6, FLOOR - 8]], [55.7, [251, FLOOR - 23], 'out']];
   shot(55.0, 60.0, (lt, t) => {
-    const o = { freeze: FREEZE, fire: t < HIT ? 0.4 : 0 }, g = t - HIT;
+    const q = ON2(t), o = { freeze: FREEZE, fire: t < HIT ? 0.4 : 0 }, g = t - HIT;
     shrineStage(t, o);
-    const reach = sstep(0.2, 0.9, lt);
-    sable(t, { hip: lerp(-15, -20, reach), lean: reach * 3, legs: [{ knee: [9, -9 - reach * 3], foot: [9, 0] }, { knee: [-3, -1], foot: [-13, -1] }], face: { eyes: g > 0 ? 'wide' : 'narrow', brows: 'worried', mouth: mouth('sable', t) }, arms: [{ hand: [lerp(10, 24, reach), lerp(-17, -24, reach)] }, { hand: [5, -16] }], propFar: kneelSword }, SABLE_X, FLOOR);
+    const strain = q > 56.0 && q < HIT && fl(q * 7.5) % 3 === 0 ? 1 : 0, G = key(GRIP, q), gx = G[0], gy = G[1] + strain;
+    const hip = key([[55.0, -15], [55.2, -14, 'io'], [55.5, -20, 'back'], [57.3, -20], [57.5, -19], [HIT, -19], [58.38, -17, 'in'], [58.55, -18, 'out']], q);
+    const lean = key([[55.0, 0], [55.2, -1, 'io'], [55.5, 4, 'back'], [57.3, 4], [57.55, 2, 'io'], [HIT, 2], [58.38, 6, 'in'], [58.6, 5]], q);
+    sable(t, { hip, lean: Math.round(lean), legs: [{ knee: [9, -9 - (hip < -17 ? 3 : 0)], foot: [9, 0] }, { knee: [-3, -1], foot: [-13, -1] }], face: { eyes: g > 0 ? 'wide' : 'narrow', brows: 'worried', mouth: mouth('sable', q) }, arms: [{ hand: [SABLE_X - gx, gy - FLOOR], bend: -1 }, { hand: [5, -16] }], propFar: kneelSword }, SABLE_X, FLOOR);
     if (g < 1.2) {
-      const MP = { hip: -16, face: { eyes: g > 0.1 ? 'closed' : 'wide', brows: 'worried', mouth: 0.3, blush: 1 }, arms: [{ a: 1.5, b: 0.1 }, { a: 0.3, b: 0.4 }], legs: [{ foot: [3, 0] }, { foot: [-3, 0] }], lamp: g < 0 };
-      if (g <= 0) mira(t, MP, MIRA_X, FLOOR + 2, 1, 1);
-      else { LIGHT.x = 1; LIGHT.y = -0.3; actor(MIRA, Object.assign({ t }, MP), MIRA_X, FLOOR + 2, 1, 1, { fx: (c, x, y) => (ih(x, y, fl(t * 20)) < g * 1.1 ? -1 : LUM[c] > 90 ? WHITE : C('hush', 3)) }); }
+      const mh = q < 55.7 ? key(MHAND, q) : [gx, gy], pull = key([[57.3, 0], [57.55, 2, 'io']], q);
+      const MP = { hip: -16, lean: Math.round(pull * 0.5), face: { eyes: g > 0.1 ? 'closed' : q > 57.9 ? 'closed' : 'wide', brows: 'worried', mouth: q > 56.9 && q < 57.4 ? 0.4 : 0.2, blush: 1, look: q > 56.9 && q < 57.6 ? -1 : 1 }, arms: [{ hand: [mh[0] - MIRA_X - pull, mh[1] - FLOOR - 2], bend: -1 }, { a: 0.3, b: 0.4 }], legs: [{ foot: [3 + pull, 0] }, { foot: [-3, 0] }], lamp: g < 0 };
+      if (g <= 0) mira(t, MP, MIRA_X + Math.round(pull), FLOOR + 2, 1, 1);
+      else { LIGHT.x = 1; LIGHT.y = -0.3; actor(MIRA, Object.assign({ t }, MP), MIRA_X + Math.round(pull), FLOOR + 2, 1, 1, { fx: (c, x, y) => (ih(x, y, fl(t * 20)) < g * 1.1 ? -1 : LUM[c] > 90 ? WHITE : C('hush', 3)) }); }
     }
     if (g > 0) glyphDust(MIRA_X, FLOOR - 18, g, 140, 20, 181);
     shrineAfter(t, o);
     // the white wall coming up the steps behind her, then over her
     const front = W * 0.15 + clamp((lt - 0.8) / (HIT - 55.8), 0, 1) * (MIRA_X - W * 0.15 + 4);
     hush((x, y) => (Math.hypot(x - SABLE_X, y - 190) < 26 && g > 0 ? 0 : x < front - 10 ? 1 : x < front ? 0.6 : 0), t);
-    view(252, 188, 3);
+    view(key([[55.0, 252], [HIT, 250], [60.0, 254]], t), key([[55.0, 188], [60.0, 186]], t), 3);
     if (g > 0 && g < 0.1) flash(0.8);
-    shk(g > 0 ? 3 * Math.exp(-g * 3) : lin(1, 3, lt) * 1.2);
+    shk(g > 0 ? 3 * Math.exp(-g * 3) : lin(1, 3, lt) * 1.2 + strain * 0.6);
   });
 
   // 11 — the scream (1:00): close on Sable as the white closes round her

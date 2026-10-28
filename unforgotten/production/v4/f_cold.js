@@ -128,7 +128,7 @@
     const SB = blinkK(q, 3);
     sable(t, Object.assign({}, KNEEL, { lean: Math.round(-1 + sit), headY: Math.round(1 - up), headX: Math.round(up * (q > 19.3 ? 1 : 0)), face: { eyes: SB || (up > 0.5 ? 'open' : 'half'), brows: up > 0.5 ? 'up' : 'n', smile: sm, mouth: mouth('sable', q) }, arms: [{ hand: [10 + [0, 1, 1, 0][loop] * tie, -17 - [0, 0, 1, 1][loop] * tie] }, { hand: [5 + [1, 0, 0, 1][loop] * tie, -16] }], prop: kneelSword }), SABLE_X, FLOOR);
     // Mira
-    const x = miraX(q), run = q < 18.1, skid = q >= 18.1 && q < 18.42, hop = key(MHOP, q), sq = key(MSQ, q);
+    const x = miraX(t), run = q < 18.1, skid = q >= 18.1 && q < 18.42, hop = key(MHOP, q), sq = key(MSQ, q);
     let P;
     if (run) P = Object.assign({ face: { eyes: 'wide', smile: 0.7, blush: 1 } }, mrun(fl(q * 15)));
     else if (skid) P = { hip: -16 + sq, lean: -3, wind: 2, face: { eyes: 'wide', smile: 0.4, blush: 1, mouth: 0.3 }, legs: [{ foot: [8, 0] }, { foot: [-3, 0] }], arms: [{ a: 2.0, b: 0.3 }, { a: 1.6, b: 0.3 }] };
