@@ -89,21 +89,21 @@
   }
 
   // the frame breaks like glass round (cx, cy): cracks race out (amt 0..0.6), then the pieces shift and tilt (0.6..1)
-  function frameCrack(cx, cy, amt, seed) {
+  function frameCrack(cx, cy, amt, seed, maxR) {
     if (amt <= 0) return;
     seed = seed || 1131;
-    const n = 14, gr = clamp((amt - 0.55) / 0.45, 0, 1);
+    const n = 14, gr = clamp((amt - 0.55) / 0.45, 0, 1), MR = maxR || 520;
     if (gr > 0) {
       TMP.set(BUF);
       for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) {
-        const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy), sec = fl(((Math.atan2(dy, dx) + PI) / TAU) * n + vn(r * 0.01, 0, 1, seed) * 0.6), ring = fl(r / 60);
+        const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy); if (r > MR) continue; const sec = fl(((Math.atan2(dy, dx) + PI) / TAU) * n + vn(r * 0.01, 0, 1, seed) * 0.6), ring = fl(r / 60);
         const k = sec * 7 + ring, ox = (ih(k, 1, seed) - 0.5) * 8 * gr + Math.cos(sec / n * TAU) * ring * 2 * gr, oy = (ih(k, 2, seed) - 0.5) * 8 * gr + Math.sin(sec / n * TAU) * ring * 2 * gr;
         BUF[y * W + x] = TMP[clamp(fl(y - oy), LB, H - LB - 1) * W + clamp(fl(x - ox), 0, W - 1)];
       }
     }
     for (let k = 0; k < n; k++) {
       let a = (k + ih(k, 3, seed) * 0.6) / n * TAU - PI, x = cx, y = cy;
-      const Lmax = 520 * Math.min(1, amt / 0.55);
+      const Lmax = MR * Math.min(1, amt / 0.55);
       for (let q = 0; q < 40 && Math.hypot(x - cx, y - cy) < Lmax; q++) {
         const st = 9 + ih(k, q, seed + 1) * 12, nx = x + Math.cos(a) * st, ny = y + Math.sin(a) * st;
         lineP(x, y, nx, ny, 22); lineP(x + 1, y, nx + 1, ny, 0);
@@ -111,7 +111,7 @@
         x = nx; y = ny; a += (ih(k, q, seed + 4) - 0.5) * 0.5;
       }
     }
-    for (let ringR = 30; ringR < 300 * Math.min(1, amt / 0.55); ringR += 55) for (let k = 0; k < n; k++) if (ih(k, ringR, seed + 5) < 0.6) { const a0 = k / n * TAU - PI, a1 = (k + 1) / n * TAU - PI; lineP(cx + Math.cos(a0) * ringR, cy + Math.sin(a0) * ringR, cx + Math.cos(a1) * ringR * 1.04, cy + Math.sin(a1) * ringR * 1.04, 22); }
+    for (let ringR = 30; ringR < Math.min(300, MR * 0.7) * Math.min(1, amt / 0.55); ringR += 55) for (let k = 0; k < n; k++) if (ih(k, ringR, seed + 5) < 0.6) { const a0 = k / n * TAU - PI, a1 = (k + 1) / n * TAU - PI; lineP(cx + Math.cos(a0) * ringR, cy + Math.sin(a0) * ringR, cx + Math.cos(a1) * ringR * 1.04, cy + Math.sin(a1) * ringR * 1.04, 22); }
   }
 
   // the world split along a line through (x0, y0) at angle a: the two sides slide apart by gap px, the chasm between
@@ -178,7 +178,7 @@
   function megaHit(x, y, g, power, dir, cols, seed) {
     if (g < 0 || g > 1.2) return;
     cols = cols || [22, 105, 103]; seed = seed || 1161;
-    if (g < 0.034) impactFrame(x, y, power >= 2.5 ? 1 : 0);
+    if (g < 0.03) impactFrame(x, y, power >= 2.5 ? 1 : 0);
     const P_ = power;
     if (g < 0.5) {
       shockRing(x, y, 8 + g * 420 * P_, 5 + g * 240 * P_, 2 + P_, [22, cols[1], cols[2]], 1 - g / 0.5);

@@ -153,7 +153,7 @@
   /* sunderer(cx, cy, s, t, o): the whole of him, mask centred at (cx, cy). o:
        eyes 0..2, rage 0..1 (the seams widen), roar 0..1, third 0..1 (his brother's eye in his brow), heat 0..1 (how hot the
        seams burn), crown 0..1, glow, tilt, nod, still, shake,
-       arms: up to four { x, y (the wrist, local), pose, front (drawn over the mask), cut (severed at the elbow), heat }, in
+       arms: up to four { x, y (the wrist, local), pose, front (drawn over the mask), cut (severed at the elbow), heat, fs (fist size) }, in
          the order upper-left, upper-right, lower-left, lower-right; null leaves an arm out,
        wounds: [[x0, y0, x1, y1, width]] glowing cuts in the body (local); maskCuts: [[x0, y0, x1, y1, amt]] (mask frame),
        split: 0..1 the final cut: he comes apart along splitA (angle) through (splitX, splitY) local, the halves sliding apart,
@@ -232,7 +232,7 @@
       // a seam of fire along the forearm
       lineF(ex, ey, wx, wy, (X, Y, u) => { if (u > 0.1 && u < 0.85 && ((X + Y) & 1)) P(X + (-dy / L) * 3 * s * Math.sin(u * 9), Y, heat > 0.5 ? 104 : 102); });
       const a = Math.atan2(wy - ey, wx - ex);
-      out.hands[k] = sGauntlet(wx, wy, s, A.ang === undefined ? a : A.ang, A.pose || 'fist', A.heat === undefined ? heat : A.heat, t);
+      out.hands[k] = sGauntlet(wx, wy, s * (A.fs || 1), A.ang === undefined ? a : A.ang, A.pose || 'fist', A.heat === undefined ? heat : A.heat, t);
     };
     const arms = o.arms || [];
     for (let k = 0; k < 4; k++) if (arms[k] && !arms[k].front) drawArm(k, arms[k]);

@@ -2,7 +2,7 @@
 const fs = require('fs'), { execFileSync } = require('child_process');
 const [piece, out, t0s, ns, steps] = process.argv.slice(2);
 global.window = { PIECES: [] }; eval(fs.readFileSync(piece, 'utf8'));
-const E = window.__unmaker_core, { BUF, PAL, W, H } = E, t0 = +t0s, n = +ns, step = +(steps || 2);
+const E = window.__sunderer_core, { BUF, PAL, W, H } = E, t0 = +t0s, n = +ns, step = +(steps || 2);
 const cols = 5, rows = Math.ceil(n / cols), big = Buffer.alloc(W * cols * H * rows * 3);
 let f0 = Math.round(t0 * 30) - 12, k = 0;
 for (let f = f0; k < n; f++) {
