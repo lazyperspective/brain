@@ -43,6 +43,12 @@
   //      arms [[shoulder x, y, hand x, y, spread], ...] (local units), halo 0..1, body (draw the body), glow 0..1, shake }
   function unmaker(cx, cy, s, t, o) {
     o = o || {};
+    // it is alive: the whole colossus rises and sinks on a slow breath, and the mask sways and tilts on its neck a beat
+    // behind the body (o.still turns this off; o.tilt adds a deliberate tilt, o.nod a deliberate dip of the head)
+    const live = o.still ? 0 : 1, breath = Math.sin(t * 1.1);
+    cy += breath * 0.8 * s * live;
+    const mcx = cx + (Math.sin(t * 0.7) * 0.7 * s) * live, mcy = cy + (Math.sin(t * 1.1 - 0.9) * 0.5 * s + (o.nod || 0) * s) * live;
+    const tilt = (Math.sin(t * 0.53) * 0.045 + Math.sin(t * 1.37) * 0.015) * live + (o.tilt || 0), cT = Math.cos(tilt), sT = Math.sin(tilt);
     const L = (lx, ly) => [cx + lx * s, cy + ly * s];
     // the halo of shards, behind everything
     if (o.halo !== 0) {
@@ -76,13 +82,13 @@
     }
     // arms: long thin void limbs in three segments, magenta-rimmed, ending in pale many-jointed fingers
     for (const A of o.arms || []) {
-      const [sx, sy, hx, hy, spread] = A, [ax, ay] = L(sx, sy), [bx, by] = L(hx, hy), mx = (ax + bx) / 2 + (by - ay) * 0.18, my = (ay + by) / 2 - (bx - ax) * 0.18;
+      const [sx, sy, hx0, hy0, spread] = A, hx = hx0 + Math.sin(t * 0.9 + sx * 0.1) * 2.2 * live, hy = hy0 + Math.cos(t * 0.75 + sx * 0.1) * 1.6 * live, [ax, ay] = L(sx, sy), [bx, by] = L(hx, hy), mx = (ax + bx) / 2 + (by - ay) * 0.18, my = (ay + by) / 2 - (bx - ax) * 0.18;
       for (const [p0, p1, w] of [[[ax, ay], [mx, my], 5], [[mx, my], [bx, by], 3.5]]) { thick(p0[0], p0[1], p1[0], p1[1], Math.max(2, w * s + 2), 73); thick(p0[0], p0[1], p1[0], p1[1], Math.max(1, w * s), 77); }
       discF(mx, my, 3 * s, 74); discF(mx, my, 2 * s, 77);
       const ha = Math.atan2(by - my, bx - mx);
       discF(bx, by, 4.5 * s, 66); discF(bx - Math.cos(ha) * s, by - Math.sin(ha) * s, 3.5 * s, 65);
       for (let f = -2; f <= 2; f++) {
-        const fa = ha + f * (0.28 + (spread || 0) * 0.25), L1 = (7 + (f === 0 ? 2 : 0) - Math.abs(f)) * s, bend = (spread || 0) * 0.5 + 0.3;
+        const fa = ha + f * (0.28 + (spread || 0) * 0.25), L1 = (7 + (f === 0 ? 2 : 0) - Math.abs(f)) * s, bend = (spread || 0) * 0.5 + 0.3 + Math.sin(t * 2.1 + f * 0.9 + sx) * 0.14 * live;
         const k1 = [bx + Math.cos(fa) * 4 * s, by + Math.sin(fa) * 4 * s], k2 = [k1[0] + Math.cos(fa) * L1, k1[1] + Math.sin(fa) * L1], k3 = [k2[0] + Math.cos(fa + bend) * L1 * 0.8, k2[1] + Math.sin(fa + bend) * L1 * 0.8];
         thick(k1[0], k1[1], k2[0], k2[1], Math.max(1, 1.6 * s), 65); thick(k2[0], k2[1], k3[0], k3[1], Math.max(1, 1.3 * s), 66);
         P(k2[0], k2[1], 68); P(k3[0], k3[1], 69);
@@ -90,12 +96,13 @@
     }
     // the mask (or what is left of it)
     const brk = o.broken || 0, sh = o.shake ? (ih(fl(t * 30), 5, 704) - 0.5) * o.shake : 0;
-    if (brk > 0) spiralEye(cx, cy - 2 * s, 22 * s * (0.6 + 0.4 * eoc(brk)), t, eoc(brk));
-    const RX = 16 * s, RY = 27 * s, x0 = Math.max(0, fl(cx - RX - 2 - brk * 60 * s)), x1 = Math.min(W - 1, Math.ceil(cx + RX + 2 + brk * 60 * s)), y0 = Math.max(0, fl(cy - RY - 2)), y1 = Math.min(H - 1, Math.ceil(cy + RY + 2 + brk * 90 * s));
+    if (brk > 0) spiralEye(mcx, mcy - 2 * s, 22 * s * (0.6 + 0.4 * eoc(brk)), t, eoc(brk));
+    const RX = 16 * s, RY = 27 * s, x0 = Math.max(0, fl(mcx - RX - 4 - 3 * s - brk * 60 * s)), x1 = Math.min(W - 1, Math.ceil(mcx + RX + 4 + 3 * s + brk * 60 * s)), y0 = Math.max(0, fl(mcy - RY - 4)), y1 = Math.min(H - 1, Math.ceil(mcy + RY + 4 + brk * 90 * s));
     const eyes = o.eyes === undefined ? 1 : o.eyes, crack = o.crack || 0, smile = o.smile || 0, grin = o.grin || 0, look = o.look || [0, 0];
     const SOCK = [[-6.5, -4, -0.38], [6.5, -4, 0.38]], CRACK = [[11, -26], [8, -19], [10, -14], [5, -8], [7, -3], [2, 3], [3, 9], [-2, 16], [-1, 22]];
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      let lx = (x + 0.5 - cx - sh) / s, ly = (y + 0.5 - cy) / s;
+      const qx = x + 0.5 - mcx - sh, qy = y + 0.5 - mcy;
+      let lx = (qx * cT + qy * sT) / s, ly = (-qx * sT + qy * cT) / s;
       // broken: the mask splits down a jagged line, the halves drift apart, tilt and fall
       if (brk > 0) { const split = Math.sin(ly * 0.5) * 2; let side = 0; for (const sd of [-1, 1]) { const dxh = sd * brk * 34, dyh = brk * brk * 70, qx = lx - dxh, qy = ly - dyh - sd * qx * brk * 0.15; if ((sd < 0 && qx < split) || (sd > 0 && qx >= split)) { side = sd; lx = qx; ly = qy; break; } } if (!side) continue; }
       // a long face: a round brow, cheekbones, a narrow pointed chin
@@ -134,7 +141,7 @@
       BUF[y * W + x] = c;
     }
     // the eyes burn
-    if (eyes > 0.5 && o.glow !== 0 && brk < 0.3) { const ga = (o.glow === undefined ? 0.3 : o.glow) * Math.min(1.4, eyes); for (const [ex, ey] of [[-6.5, -4], [6.5, -4], [0, -16]]) glow(cx + ex * s, cy + ey * s, 7 * s * (eyes > 1 ? 1.4 : 1), T_MAG, ga); }
+    if (eyes > 0.5 && o.glow !== 0 && brk < 0.3) { const ga = (o.glow === undefined ? 0.3 : o.glow) * Math.min(1.4, eyes); for (const [ex, ey] of [[-6.5, -4], [6.5, -4], [0, -16]]) glow(mcx + (ex * cT - ey * sT) * s, mcy + (ex * sT + ey * cT) * s, 7 * s * (eyes > 1 ? 1.4 : 1), T_MAG, ga); }
   }
 
   /* ================================================================ its powers, as screen effects */

@@ -63,8 +63,8 @@
   shot(0, 4.0, (lt, t) => {
     dawnSky(t, 0, 0);
     ashes(t, 50, 99, 99, 0, 0);
-    const hy = 122 + Math.sin(t * 1.6) * 4;
-    actor(HERO3({ eyes: blinkN(t) ? 'closed' : 'normal', sword: -1.0 }), 300, hy, 2.2, 0, true);
+    const hy = 122 + Math.sin(t * 1.6) * 4, hx = 300 - 6 * eio(lt / 4) + Math.sin(t * 0.9) * 2;
+    actor(HERO3({ eyes: 'normal', sword: -1.0 + Math.sin(t * 1.3) * 0.08 }), hx, hy, 2.2, Math.sin(t * 1.1) * 0.04, true);
     aura(t, AURA_GOLD, 1.5, { sparks: 3 });
     cam(1.08 + 0.05 * eio(lt / 4), 0, 270, 140);
     fadeIn(lt, 0.9);
@@ -78,8 +78,10 @@
     const dread = sstep(0.4, 2.6, lt);
     dawnSky(t, dread, 0);
     ashes(t - 4 + 4, 50, 4.4, 5.0, 240, -40);
-    const turn = lt > 1.2, hy = 122 + Math.sin(t * 1.6) * 4 * (1 - dread);
-    actor(HERO3({ eyes: lt > 1.0 ? 'wide' : 'normal', sword: lt > 1.6 ? -0.5 : -1.0, sq: lt > 1.0 && lt < 1.1 ? -0.25 : 0 }), 300, hy, 2.2, lt > 2.2 ? -0.18 : 0, !turn);
+    const turn = lt > 1.2, hop = lt < 1.0 ? 0 : lt < 1.12 ? eoc((lt - 1.0) / 0.12) : 1 - eob(clamp((lt - 1.12) / 0.45, 0, 1));
+    const hy = 122 + Math.sin(t * 1.6) * 4 * (1 - dread) - hop * 7, hx = 294 + 8 * eio(lin(1.3, 2.8, lt));
+    const sqk = lt < 0.9 ? 0 : lt < 1.0 ? 0.25 * (lt - 0.9) / 0.1 : lt < 1.12 ? -0.3 : 0;            // a crouch, then the jump
+    actor(HERO3({ eyes: lt > 1.0 ? 'wide' : 'normal', sword: lt > 1.6 ? -0.5 : -1.0, sq: sqk }), hx, hy, 2.2, -0.18 * eio(lin(2.0, 2.6, lt)), !turn);
     if (lt > 2.4) shk(lin(2.4, 3, lt) * 2);
     // a breath before it: everything holds still for the last moment
     cam(1.13 + 0.12 * eio(lin(1.5, 3, lt)), 0, 280 - 20 * eio(lin(1.5, 3, lt)), 140 - 30 * eio(lin(1.5, 3, lt)));
@@ -92,9 +94,15 @@
     cloudBank(236, 30, 70, 351, t * 10 + lt * 30, CLOUD_GOLD, false); tintAll(T_VOIDT, 0.5);
     skyRift(240, LB - 10, 230, open, t, 1);
     const grip = eoc(lin(0.9, 1.6, lt)), pull = eio(lin(1.0, 3.0, lt)) * 0.55 + 0.45 * eoc(lin(0, 0.5, lt));
-    if (grip > 0) for (const [dir, y] of [[1, 76], [-1, 100], [1, 150], [-1, 172]]) { const w = pull * 100 * (1 - Math.pow(Math.abs((y - 110) / 120) * 2, 3)); giantHand(240 + (dir > 0 ? -w - 22 : w + 22) + (vn(y, 0, 7, 91) - 0.5) * 30, y, 1.6, -dir, grip, t); }
-    // the hero, tiny, on the cloud tops
-    actor(HERO3({ eyes: 'wide', sword: -0.5 }), 120, 200, 1, 0, false);
+    [[1, 76], [-1, 100], [1, 150], [-1, 172]].forEach(([dir, y], k) => {
+      const gk = eob(lin(0.85 + k * 0.13, 1.4 + k * 0.13, lt)); if (gk <= 0) return;           // each hand grips in its own moment
+      const strain = Math.sin(t * 23 + k * 2) * 1.2 * (lt > 1.4 && lt < 3.0 ? 1 : 0);         // and trembles with the effort of pulling
+      const w = pull * 100 * (1 - Math.pow(Math.abs((y - 110) / 120) * 2, 3));
+      giantHand(240 + (dir > 0 ? -w - 22 : w + 22) + (vn(y, 0, 7, 91) - 0.5) * 30 + strain + (1 - gk) * dir * 18, y + strain * 0.5, 1.6, -dir, gk * grip, t);
+    });
+    // the hero, tiny, on the cloud tops: knocked back by the blast, then catching itself
+    const blown = lt < 0.08 ? eoc(lt / 0.08) : 1 - 0.6 * eob(clamp((lt - 0.08) / 0.8, 0, 1));
+    actor(HERO3({ eyes: 'wide', sword: -0.5 }), 120 - blown * 16, 200 - blown * 5, 1, -blown * 0.5, false);
     if (lt < 0.5) { hitFx(240, 120, lt, 2, [22, 75]); shockRing(240, 130, 20 + lt * 700, 10 + lt * 300, 5, [75, 73, 22], 1 - lt * 2); }
     shk(lt < 0.6 ? 6 * (1 - lt / 0.6) : 1.5 * grip * (1 - lin(2.5, 3.5, lt)));
     cam(1 + 0.12 * Math.exp(-lt * 3), 0, 240, 135);
@@ -110,7 +118,8 @@
     const by = 120 + camY + lerp(40, 0, eoc(lin(0, 1.8, lt))), eyes = lt < 1.0 ? 0 : lt < 1.6 ? eoc(lin(1.0, 1.6, lt)) : 1 + sstep(2.6, 3.0, lt);
     unmaker(240, by, 3.2, t, { eyes, halo: eoc(lin(0.3, 2.2, lt)), arms: [[-58, 28, -120, -40 + Math.sin(t) * 4, 0.9], [58, 28, 122, -30, 0.6], [-46, 40, -100, 70, 0.3], [46, 40, 104, 80, 0.4]], heart: 1 });
     // the hero in the foreground, tiny, looking up at it
-    actor(HERO3({ eyes: 'wide', sword: -0.5 }), 90, 232 + camY * 0.6, 2.2, -0.15, false);
+    const fl_ = lt < 1.0 ? 0 : lt < 1.1 ? eoc((lt - 1.0) / 0.1) : 1 - 0.4 * eio(clamp((lt - 1.1) / 1.2, 0, 1));
+    actor(HERO3({ eyes: 'wide', sword: -0.5 - fl_ * 0.5 }), 90 - fl_ * 8, 232 + camY * 0.6 - fl_ * 3, 2.2, -0.15 - fl_ * 0.2, false);
     if (lt < 0.25) flashWhite(1 - lt / 0.25);
     if (lt > 1.0 && lt < 1.3) { shk(4); for (const ex of [-6.5, 6.5, 0]) glow(240 + ex * 3.2, by + (ex ? -4 : -16) * 3.2, 40, T_MAG, 0.6 * (1 - (lt - 1) / 0.3)); }
     shk(lt < 0.6 ? 5 * (1 - lt / 0.6) : 0.8);
@@ -122,7 +131,8 @@
   shot(14.0, 17.5, (lt, t) => {
     gradient(LB, H - LB, SKY_VOID3); stars(t, H, 60, 51);
     const sm = eio(lin(0.4, 2.8, lt));
-    unmaker(240, 150 + lt * 2, 5.4, t, { eyes: 1, look: [0, 0.6], smile: sm, halo: 1, body: false, heart: 0 });
+    const nod = Math.sin(PI * clamp((lt - 0.1) / 0.7, 0, 1)) * 2.2;
+    unmaker(240, 150 + lt * 2, 5.4, t, { eyes: 1, look: [Math.sin(lt * 0.8) * 0.4, 0.6], smile: sm, halo: 1, body: false, heart: 0, nod, tilt: 0.09 * eio(lin(1.0, 3.0, lt)) });
     ashes(t, 24, 99, 99, 0, 0);
     cam(1.02 + lt * 0.03, 0.03 * Math.sin(lt * 0.6), 240, 135);
   });
@@ -134,9 +144,10 @@
     for (let k = 0; k < 30; k++) { const u = frac(ih(k, 1, 61) + t * 0.2); rectF(ih(k, 2, 61) * W, LB + u * 220, 2, 2, ih(k, 3, 61) < 0.5 ? 42 : 73); }
     glow(240, 300, 220, T_MAG, 0.4);
     const grip = lt > 1.4;
-    const a = actor(HERO3({ eyes: lt < 0.4 ? 'wide' : 'angry', sword: grip ? -1.25 : -2.2, shade: true, mouth: lt > 0.5 && lt < 1.4 ? 1 : 0 }), 230, 176, 7, 0, false);
+    const set = lt < 1.4 ? 0 : lt < 1.48 ? (lt - 1.4) / 0.08 : 1 - eob(clamp((lt - 1.48) / 0.4, 0, 1));
+    const a = actor(HERO3({ eyes: lt < 0.4 ? 'wide' : 'angry', sword: grip ? -1.25 : -2.2, shade: true, mouth: lt > 0.5 && lt < 1.4 ? 1 : 0, sq: set * 0.18 }), 230 + 4 * eio(lin(0.3, 1.2, lt)), 176 + set * 4, 7, 0.05 * eio(lin(0.3, 1.2, lt)), false);
     if (grip && lt < 1.7) { const u = (lt - 1.4) / 0.3; sparkle(lerp(a.hand[0], a.tip[0], 0.3 + u * 0.7), lerp(a.hand[1], a.tip[1], 0.3 + u * 0.7), 9 * Math.sin(PI * u), 22, 59); }
-    cam(1 + 0.04 * lt, 0, 230, 140);
+    cam(1 + 0.05 * eio(lt / 2.5), 0, 230, 140);
   });
   CAPS.push([17.6, 19.9, 's', 'HERO', 'WHO... ARE YOU?']);
 
@@ -148,7 +159,7 @@
     // the drain: from the middle outward, the clouds go grey and then blank, in ragged columns
     for (let y = 190; y < H; y++) for (let x = 0; x < W; x++) { const d = Math.abs(x - 240) / 240 + (ih(x >> 2, 0, 81) - 0.5) * 0.2; if (d < drain) BUF[y * W + x] = d < drain - 0.25 ? (ih(x >> 1, y >> 1, fl(t * 12)) < 0.02 ? 95 : 93) : GREYM[BUF[y * W + x]]; }
     const open = eio(lin(0.2, 1.6, lt)), ew = lt > 3.1 ? 2 : 1;
-    unmaker(240, 96, 2.4, t, { eyes: ew, smile: 1, halo: 1, arms: [[-58, 28, lerp(-80, -150, open), lerp(40, -10, open), open], [58, 28, lerp(80, 150, open), lerp(40, -10, open), open]] });
+    unmaker(240, 96, 2.4, t, { eyes: ew, smile: 1, halo: 1, nod: -1.5 * open, tilt: -0.05 * open, arms: [[-58, 28, lerp(-80, -150, open), lerp(40, -10, open), open], [58, 28, lerp(80, 150, open), lerp(40, -10, open), open]] });
     if (lt > 3.1 && lt < 3.4) shk(3);
     cam(1.04 - 0.04 * lt / 4, 0, 240, 135);
   });
@@ -160,7 +171,8 @@
     unmaker(330, 70, 2.6, t, { eyes: 1, smile: 1, halo: 1, body: true, heart: 1 });
     tintAll(T_VOIDT, 0.35);                                   // it stands far behind, in shadow
     const ign = eoc(lin(0.15, 0.7, lt)), sw = lerp(-1.6, -0.85, eob(lin(0.9, 1.3, lt)));
-    actor(HERO3({ eyes: ign > 0.3 ? 'glow' : 'angry', sword: sw, swordCols: ign > 0.5 ? GOLD_SW : undefined, shade: true }), 150, 178, 4.2, 0, false);
+    const crouch = lt < 0.15 ? eio(lt / 0.15) : 0, rise = lt < 0.15 ? 0 : lt < 0.25 ? eoc((lt - 0.15) / 0.1) : 1 - 0.7 * eob(clamp((lt - 0.25) / 0.6, 0, 1));
+    actor(HERO3({ eyes: ign > 0.3 ? 'glow' : 'angry', sword: sw, swordCols: ign > 0.5 ? GOLD_SW : undefined, shade: true, sq: crouch * 0.35 - (lt > 0.15 && lt < 0.3 ? 0.25 : 0) }), 150, 178 + crouch * 6 - rise * 10, 4.2, 0, false);
     aura(t, AURA_GOLD, 2 + ign * 12, { sparks: Math.round(ign * 24) });
     if (lt > 0.15 && lt < 0.45) { shockRing(150, 178, 10 + (lt - 0.15) * 500, 6 + (lt - 0.15) * 200, 3, [60, 59, 58], 1 - (lt - 0.15) * 3); shk(2); }
     glow(150, 178, 100 * ign, T_GOLD, 0.35);
@@ -172,11 +184,11 @@
   shot(27.0, 30.0, (lt, t) => {
     gradient(LB, H - LB, SKY_VOID3); stars(t, H, 60, 91);
     const gr = eio(lin(0.1, 1.2, lt));
-    unmaker(240, 150, 5.4, t, { eyes: lt > 1.0 ? 2 : 1, smile: 1, grin: gr, halo: 1, body: false, heart: 0, shake: lt > 1.5 ? 2 : 0 });
+    unmaker(240, 150, 5.4, t, { eyes: lt > 1.0 ? 2 : 1, smile: 1, grin: gr, halo: 1, body: false, heart: 0, shake: lt > 1.5 ? 2 : 0, nod: 2.5 * gr, tilt: -0.06 * gr });
     if (lt > 1.5) {
       // THE UNMAKER, slammed: the frame darkens, the letters land big then settle, torn by glitch
       const g = lt - 1.5; tintAll(T_DARK, 0.55);
-      const s = 'THE UNMAKER', sc = g < 0.08 ? 7 : 6, w = textWidth(s, sc), x0 = 240 - w / 2, y0 = 112 - 3.5 * sc;
+      const s = 'THE UNMAKER', sc = g < 0.034 ? 9 : g < 0.067 ? 8 : g < 0.1 ? 7 : 6, w = textWidth(s, sc), x0 = 240 - w / 2, y0 = 112 - 3.5 * sc - 14 * (1 - eoc(clamp(g / 0.1, 0, 1))) + (g > 0.1 && g < 0.25 ? Math.sin((g - 0.1) / 0.15 * PI) * 3 : 0);
       for (const [dx, c] of [[-3, 71], [3, 61]]) text(s, x0 + dx, y0, c, sc);
       text(s, x0, y0, (i, j) => (j < 2 ? 22 : j < 5 ? 75 : 73), sc, 76);
       glitchBand(t, y0, y0 + 7 * sc, 10 * Math.exp(-g * 3) + 2);

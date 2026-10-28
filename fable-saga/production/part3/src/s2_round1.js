@@ -29,14 +29,15 @@
   const CHARGE = (u) => [lerp(70, 296, eic(u) * 0.35 + u * 0.65), lerp(176, 104, u) - Math.sin(u * PI) * 30];
   shot(30.0, 33.0, (lt, t) => {
     battleSky(t, 0, lt * 40);
-    const fing = eoc(lin(1.2, 1.5, lt));
+    const fing = lt < 1.2 ? -0.15 * eio(lin(0.9, 1.2, lt)) : eob(lin(1.2, 1.45, lt));
     unmaker(372, 92, 2.0, t, { eyes: lt > 1.5 ? 2 : 1, smile: 1, halo: 1, arms: [[-58, 28, lerp(-70, -120, fing), lerp(40, -40, fing), 0.1], [58, 28, 90, 50, 0.3]] });
     // the charge (story time u runs forward, then backward through the rewind, then holds)
     const rw = lt > 1.5 && lt < 2.55, u = lt < 0.25 ? 0 : lt < 1.5 ? (lt - 0.25) / 1.25 : rw ? Math.max(0, 1 - (lt - 1.5) / 0.9) : 0;
     const [x, y] = CHARGE(clamp(u, 0, 0.92)), after = [];
     if (lt > 0.25 && lt < 2.55) for (let k = 1; k <= 3; k++) { const [ax, ay] = CHARGE(clamp(u + (rw ? 1 : -1) * k * 0.05, 0, 0.92)); after.push([ax, ay, 59, 0.5 - k * 0.12]); }
-    const crouch = lt < 0.25 ? 0.5 : 0;
-    heroForm('gold', { eyes: lt > 2.55 ? 'wide' : 'glow', sword: lt < 0.25 ? -2.4 : rw ? -0.3 : 0.2, sq: crouch, mouth: lt > 2.6 ? 1 : 0 }, x, y + crouch * 6, 2.2, lt > 0.25 && lt < 1.5 ? 0.25 : 0, false, { after });
+    const crouch = lt < 0.25 ? 0.5 * eio(lt / 0.2) : 0, back = lt < 0.25 ? 8 * eio(lt / 0.25) : 0;
+    const tilt = lt < 0.25 ? -0.15 * eio(lt / 0.25) : lt < 1.5 ? 0.25 * eoc(lin(0.25, 0.45, lt)) : rw ? 0.25 * (1 - eio(lin(1.5, 2.3, lt))) : 0;
+    heroForm('gold', { eyes: lt > 2.55 ? 'wide' : 'glow', sword: lt < 0.25 ? -2.4 : rw ? -0.3 : 0.2, sq: crouch, mouth: lt > 2.6 ? 1 : 0 }, x - back, y + crouch * 6, 2.2, tilt, false, { after });
     if (lt > 0.25 && lt < 1.5) streaks(-0.3, 30, t, 2000, 59, 70, 241, [0, LB, W, H - 2 * LB]);
     if (lt > 1.45 && lt < 1.6) { glow(372 - 120 * 2, 92 - 40 * 2 + 20, 30, T_MAG, 0.8); }
     rewindFx(rw ? 1 : lt > 2.55 && lt < 2.7 ? 0.4 : 0, t);
@@ -48,16 +49,19 @@
   const HAND_HITS = [33.6, 34.2, 34.8], HAND_PTS = [[250, 120], [300, 150], [270, 95]];
   shot(33.0, 36.5, (lt, t) => {
     battleSky(t, -20, 0);
-    const swat = lin(35.45, 35.65, t), hx = lerp(330, 160, eic(swat)), hy = lerp(132, 150, swat);
-    giantHand(hx, hy, 4.2, -1, 0.15 + swat * 0.6, t);
+    const swat = lin(35.45, 35.65, t), wind = eio(lin(35.0, 35.45, t)) * (1 - swat);
+    let rx = 0, ry = 0; HAND_HITS.forEach((h, k) => { const g = t - h; if (g > 0 && g < 1) { const d = Math.exp(-g * 7) * Math.cos(g * 26); rx += (k % 2 ? -1 : 1) * 7 * d; ry += 4 * d; } });
+    const hx = lerp(330, 160, eic(swat)) + wind * 34 + rx + Math.sin(t * 1.7) * 2, hy = lerp(132, 150, swat) - wind * 10 + ry + Math.sin(t * 1.3) * 1.5;
+    giantHand(hx, hy, 4.2, -1, 0.15 + swat * 0.6 + wind * 0.25, t);
     if (swat > 0 && swat < 1) streaks(PI, 30, t, 3000, 66, 120, 251, [0, 60, W, 160]);
     // the wounds: white gashes that seal over
     HAND_HITS.forEach((h, k) => { const g = t - h; if (g < 0 || g > 0.6 || swat > 0) return; const [px, py] = HAND_PTS[k], L = 40 * (1 - g / 0.6); thick(px - L * 0.7, py - L * 0.5, px + L * 0.7, py + L * 0.5, 3, g < 0.2 ? 22 : 74); });
     // the hero dashing across it, cut after cut
     let hp = [120, 150], ang = 0, sw = -0.6;
-    for (let k = 0; k < 3; k++) { const h = HAND_HITS[k], from = k === 0 ? [120, 150] : HAND_PTS[k - 1].map((v, i) => v + (i ? -30 : 60)), to = HAND_PTS[k].map((v, i) => v + (i ? -30 : 60)); if (t >= h - 0.25 && t < h + 0.35) { const u = eoc(lin(h - 0.25, h + 0.05, t)); hp = [lerp(from[0], to[0], u), lerp(from[1], to[1], u)]; sw = lerp(-2.2, 1.0, u); ang = (k % 2 ? -0.3 : 0.3); } else if (t >= h + 0.35) hp = to; }
+    for (let k = 0; k < 3; k++) { const h = HAND_HITS[k], from = k === 0 ? [120, 150] : HAND_PTS[k - 1].map((v, i) => v + (i ? -30 : 60)), to = HAND_PTS[k].map((v, i) => v + (i ? -30 : 60)); if (t >= h - 0.25 && t < h + 0.35) { const u = eoc(lin(h - 0.25, h + 0.05, t)), over = eoc(clamp((t - h - 0.05) / 0.3, 0, 1)); hp = [lerp(from[0], to[0], u) + (to[0] - from[0]) * 0.12 * over, lerp(from[1], to[1], u) + (to[1] - from[1]) * 0.12 * over]; sw = t < h - 0.1 ? lerp(-0.6, -2.4, eio(lin(h - 0.25, h - 0.1, t))) : lerp(-2.4, 1.0, eoc(lin(h - 0.1, h + 0.02, t))); ang = (k % 2 ? -0.3 : 0.3) * eio(lin(h - 0.25, h - 0.05, t)); } else if (t >= h + 0.35) hp = [to[0] + (to[0] - from[0]) * 0.12, to[1] + (to[1] - from[1]) * 0.12]; }
     let hidden = false;
-    if (t > 35.6) { const g = t - 35.6; hp = [lerp(hp[0], 40, eoc(g * 3)), lerp(hp[1], 330, eic(g * 1.5))]; ang = g * 14; hidden = g > 0.6; }
+    if (t > 35.6) { const g = t - 35.6; hp = [lerp(hp[0], 40, eoc(Math.min(1, g * 3))), lerp(hp[1], 330, eic(Math.min(1, g * 1.5)))]; ang = 14 * (g - g * g * 3); hidden = g > 0.6; }
+    else if (t > 35.25) { const u = eio(lin(35.25, 35.55, t)); sw = lerp(sw, -2.0, u); ang = -0.35 * u; }      // it sees the hand coming and braces
     if (!hidden) heroForm('gold', { eyes: t > 35.6 ? 'closed' : 'glow', sword: sw }, hp[0], hp[1], 2.2, ang, false);
     HAND_HITS.forEach((h, k) => hitFx(HAND_PTS[k][0], HAND_PTS[k][1], t - h, 0.8, [22, 59]));
     hitFx(200, 150, t - 35.6, 1.6, [22, 75]);
@@ -75,7 +79,7 @@
     streaks(-PI / 2, 40, t, 2400, 20, 70, 264, [0, LB, W, H - 2 * LB]);
     const hx = 240 + Math.sin(lt * 1.3) * 20, hy = 160 - lt * 8, close = eio(lin(1.3, 3.4, lt));
     for (let k = 0; k < 3; k++) glyphRing(hx, hy, lerp(140 + k * 30, 22 + k * 6, close), [0.35, 0.8, 0.2][k], t, k & 1 ? -1.4 : 1.1, 0);
-    heroForm('gold', { eyes: lt < 2 ? 'closed' : 'angry', sword: -0.4 }, hx, hy, 2.2, lt < 2.2 ? lt * 3 : 6.6 + Math.sin(lt * 9) * 0.05, false);
+    heroForm('gold', { eyes: lt < 2 ? 'closed' : 'angry', sword: -0.4 + Math.sin(lt * 4) * 0.3 * (1 - close) }, hx, hy, 2.2, 2 * PI * eoc(clamp(lt / 2.4, 0, 1)) + Math.sin(lt * 7) * 0.12 * (1 - close) + (lt > 2.2 ? Math.sin(lt * 9) * 0.05 : 0), false);
     shk(close * 1.5);
     cam(1 + close * 0.25, 0, hx, hy, 240, 140);
   });
@@ -88,7 +92,8 @@
       const strain = lin(0, 2, lt);
       tintAll(T_DARK, lin(1.6, 2, lt) * 0.5);
       for (let k = 0; k < 3; k++) glyphRing(240, 150, 84 + k * 12, [0.35, 0.8, 0.2][k], t, k & 1 ? -1.4 : 1.1, sstep(0.6, 1.9, lt));
-      heroForm('gold', { eyes: lt < 1 ? 'closed' : 'glow', sword: -0.4, vib: 1 }, 240, 150, 4, 0, false, {});
+      const heave = Math.max(0, Math.sin(lt * 5.5 - 1)) ** 3 * strain;                  // surges of effort, each stronger
+      heroForm('gold', { eyes: lt < 1 ? 'closed' : 'glow', sword: -0.4 - heave * 0.4, vib: 1 + heave * 2, sq: 0.2 * strain - heave * 0.3 }, 240, 150 + 4 * strain - heave * 5, 4, Math.sin(lt * 3) * 0.05 * strain, false, {});
       glow(240, 150, 30 + strain * 60, T_CYAN, strain * 0.5);
       for (let k = 0; k < fl(strain * 6); k++) { const f = fl(t * 15), a = ih(k, f, 272) * TAU; bolt(240, 150, 240 + Math.cos(a) * 70, 150 + Math.sin(a) * 50, f + k, 1, 91, 90); }
       shk(strain * 2.5);
@@ -98,7 +103,8 @@
       for (let k = 0; k < 40; k++) { const a = ih(k, 1, 273) * TAU, r = 30 + g * (200 + ih(k, 2, 273) * 300); rectF(240 + Math.cos(a) * r, 150 + Math.sin(a) * r * 0.6, 4, 4, k & 1 ? 75 : 76); }
       for (let k = 0; k < 8; k++) { const f = fl(t * 15), a = ih(k, f, 274) * TAU; bolt(240, 150, 240 + Math.cos(a) * 260, 150 + Math.sin(a) * 160, f + k * 7, 2, 91, 89, 0.3); }
       glow(240, 150, 120, T_CYAN, 0.3 * Math.max(0.2, 1 - g * 1.5));
-      heroForm('storm', { eyes: 'glow', sword: g < 0.6 ? -1.2 : -0.9, sq: g < 0.08 ? -0.3 : 0 }, 240, 150, 4.4, 0, false);
+      const up = g < 0.08 ? eoc(g / 0.08) : 1 - eob(clamp((g - 0.08) / 0.7, 0, 1));
+      heroForm('storm', { eyes: 'glow', sword: g < 0.6 ? -1.2 : -0.9, sq: g < 0.08 ? -0.3 : 0 }, 240, 150 - up * 12, 4.4, 0, false);
       shockRing(240, 150, 20 + g * 600, 10 + g * 260, 5, [91, 90, 22], 1 - g * 1.5);
       if (g < 0.12) { flashWhite(1 - g / 0.12); } else if (g < 0.2) impactFrame(240, 150, 1);
       shk(g < 0.6 ? 6 * (1 - g / 0.6) : 1);
@@ -116,17 +122,23 @@
     let shakeB = 0, crack = 0;
     for (const [h] of BLITZ) { const g = t - h; if (g > 0 && g < 0.3) shakeB = Math.max(shakeB, 5 * (1 - g / 0.3)); }
     if (t > 47.6) crack = eoc(lin(47.6, 47.95, t));
-    unmaker(BX, BY, S, t, { eyes: t > 47.6 ? 2 : 1, smile: t < 46 ? 1 : 0.6, halo: 1, crack, shake: shakeB, arms: [[-58, 28, -110, 20, 0.6], [58, 28, 116, 30, 0.8]] });
+    let kx = 0, ky = 0, kt = 0;
+    BLITZ.forEach(([h], k) => { const g = t - h; if (g > 0 && g < 1.2) { const d = Math.exp(-g * 6) * Math.cos(g * 22), p = k === BLITZ.length - 1 ? 2.2 : 1; kx += (k % 2 ? -1 : 1) * 5 * p * d; ky += 2 * p * d; kt += (k % 2 ? -1 : 1) * 0.06 * p * d; } });
+    unmaker(BX + kx, BY + ky, S, t, { eyes: t > 47.6 ? 2 : 1, smile: t < 46 ? 1 : 0.6, halo: 1, crack, shake: shakeB * 0.4, tilt: kt, look: [-kx * 0.15, 0], arms: [[-58, 28, -110 - kx, 20, 0.6], [58, 28, 116 - kx, 30, 0.8]] });
     // the hero: a bolt from strike to strike, appearing at each one mid-cut
     let prev = [40, 220];
     for (let k = 0; k < BLITZ.length; k++) {
       const [h, lx, ly] = BLITZ[k], p = [BX + lx * S, BY + ly * S], g = t - h;
       if (g > -0.12 && g < 0.06) bolt(prev[0], prev[1], p[0], p[1], k * 13 + fl(t * 30), 2, 91, 89, 0.25);
-      if (g >= -0.04 && g < (k + 1 < BLITZ.length ? BLITZ[k + 1][0] - h - 0.12 : 0.6)) { const u = clamp((g + 0.04) / 0.12, 0, 1); heroForm('storm', { eyes: 'glow', sword: lerp(-2.4, 1.2, eoc(u)) * (k % 2 ? -1 : 1) }, p[0] + (k % 2 ? 22 : -22), p[1] - 10, 2.2, 0, !!(k % 2)); }
+      if (g >= -0.04 && g < (k + 1 < BLITZ.length ? BLITZ[k + 1][0] - h - 0.12 : 0.6)) {
+        // arrive from the last strike's side, cut through, carry on past and decelerate into a hang (a moving hold)
+        const u = clamp((g + 0.04) / 0.12, 0, 1), dir = k % 2 ? -1 : 1, pass = eoc(clamp((g + 0.04) / 0.5, 0, 1));
+        heroForm('storm', { eyes: 'glow', sword: lerp(-2.4, 1.2, eoc(u)) * dir }, p[0] - dir * 22 + dir * 30 * pass, p[1] - 10 + 8 * pass, 2.2, dir * 0.3 * (1 - pass * 0.6), !!(k % 2));
+      }
       hitFx(p[0], p[1], g, k === BLITZ.length - 1 ? 2 : 0.9, [22, 91]);
       prev = p;
     }
-    if (t < 44.5) { const u = lin(44.0, 44.4, t); heroForm('storm', { eyes: 'glow', sword: -2.4, sq: 0.4 }, 40 + u * 10, 220 - u * 10, 2.2, 0, false); }
+    if (t < 44.46) { const u = eio(lin(44.0, 44.4, t)), coil = 0.4 * u; heroForm('storm', { eyes: 'glow', sword: -2.4 + 0.3 * u, sq: coil, vib: u * 1.5 }, 46 - u * 6, 214 + u * 4, 2.2, -0.2 * u, false); }
     if (t > 47.6 && t < 47.67) impactFrame(BX, BY, 0);
     let z = 1.02, r = 0; for (const [h] of BLITZ) { const g = t - h; if (g > 0) { z += 0.05 * Math.exp(-g * 10); } }
     if (t > 47.6) { r = 0.07 * Math.exp(-(t - 47.6) * 4); z += 0.12 * Math.exp(-(t - 47.6) * 5); }
@@ -136,8 +148,8 @@
   // 15 — it laughs (0:48): the crack opens into a fourth eye; then the world shatters into a kaleidoscope of its face
   shot(48.0, 51.0, (lt, t) => {
     gradient(LB, H - LB, SKY_VOID3); stars(t, H, 70, 281);
-    const ha = lt < 1.6 ? (fl(t * 10) % 2 ? 2 : -2) : 0;
-    unmaker(240, 150 + ha, 4.6, t, { eyes: 2, crack: 1, eye4: eoc(lin(0.3, 1.0, lt)), grin: 0.7 + 0.3 * Math.abs(Math.sin(t * 10)), halo: 1, body: false, heart: 0, shake: lt < 1.6 ? 3 : 0 });
+    let ha = 0; for (const b of [0.2, 0.65, 1.1]) { const g = lt - b; if (g > 0 && g < 0.5) ha += Math.sin(PI * Math.min(1, g / 0.12)) * (g < 0.12 ? 1 : Math.exp(-(g - 0.12) * 9)); }
+    unmaker(240, 150 + ha * 3, 4.6, t, { eyes: 2, crack: 1, eye4: eoc(lin(0.3, 1.0, lt)), grin: 0.7 + 0.3 * ha, halo: 1, body: false, heart: 0, shake: lt < 1.6 ? 1.2 : 0, nod: -ha * 3, tilt: -ha * 0.07 + 0.05 * Math.sin(lt * 1.5) });
     if (lt > 0.3 && lt < 1.0) glow(240 + 10.5 * 4.6, 150 - 13 * 4.6, 50, T_MAG, 0.5);
     const k = eio(lin(1.5, 1.9, lt));
     if (k > 0) kaleido(240, 135, 8, t * 0.6, k);
@@ -153,7 +165,8 @@
   shot(51.0, 55.0, (lt, t) => {
     battleSky(t, 0, 0);
     const BX = 330, BY = 82, S = 2.2, MX = BX, MY = BY + 13 * S;
-    unmaker(BX, BY, S, t, { eyes: 2, crack: 1, eye4: 1, grin: 1, halo: 1, arms: [[-58, 28, -100, 10, 0.8], [58, 28, 100, 40, 0.5]] });
+    let pullB = 0; for (const h of RIP) { const g = t - h; if (g > 0 && g < 0.7) pullB += Math.sin(PI * g / 0.7); }
+    unmaker(BX, BY, S, t, { eyes: 2, crack: 1, eye4: 1, grin: 1, halo: 1, nod: 1.5 * eio(lt / 2) + pullB * 1.2, tilt: -0.04 * pullB, arms: [[-58, 28, -100, 10 - pullB * 6, 0.8], [58, 28, 100 - pullB * 10, 40, 0.5]] });
     let kick = 0; for (const h of RIP) { const g = t - h; if (g > 0) kick += 6 * eoc(clamp(g / 0.15, 0, 1)) - (g > 0.15 ? 0 : 0); }
     const HX = 120 - kick, HY = 176 + kick * 0.3, drained = lin(51.6, 54.6, t), on = eoc(lin(0, 0.35, lt));
     // the beam, and everything inside it inverted
@@ -161,8 +174,10 @@
     for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) { const px = x - x0, py = y - y0, u = (px * dx + py * dy) / (L * L), d = Math.abs(-px * dy + py * dx) / L; if (u > 0 && u < on * 1.05 && d < 16 + u * 10) BUF[y * W + x] = INV[BUF[y * W + x]]; }
     beam(x0, y0, lerp(x0, HX, on), lerp(y0, HY, on), 7, [70, 72, 74, 75], t, 3);
     // the hero, held in it, colour draining out
-    heroForm(drained < 0.98 ? 'storm' : 'grey', { eyes: 'closed', sword: -0.4, vib: 2 }, HX, HY, 2.6, -0.15, false);
-    if (drained > 0) { actor(HERO3({ form: 'grey', eyes: 'closed', sword: -0.4 }), HX, HY, 2.6, -0.15, false, { alpha: drained }); }
+    let jerk = 0; for (const h of RIP) { const g = t - h; if (g > 0 && g < 0.6) jerk += Math.exp(-g * 8) * Math.cos(g * 30); }
+    const hang = -0.15 + jerk * 0.25 + Math.sin(t * 2.2) * 0.05, swH = -0.4 + jerk * 0.6, sqH = -jerk * 0.2;
+    heroForm(drained < 0.98 ? 'storm' : 'grey', { eyes: 'closed', sword: swH, vib: 2, sq: sqH }, HX, HY + jerk * 3, 2.6, hang, false);
+    if (drained > 0) { actor(HERO3({ form: 'grey', eyes: 'closed', sword: swH, sq: sqH }), HX, HY + jerk * 3, 2.6, hang, false, { alpha: drained }); }
     // the elements, torn out one at a time and swallowed
     RIP.forEach((h, k) => {
       const g = t - h; if (g < 0) return;
@@ -183,11 +198,12 @@
     const close = eio(lin(0.1, 0.9, lt)), sq = lt > 0.9 && lt < 1.5 ? 1 : 0, g = lt - 1.5;
     const CX = 250, CY = 140;
     // the hero inside, small and grey
-    if (close < 0.95) actor(HERO3({ form: 'grey', eyes: 'closed', sword: -0.7 }), CX - 20, CY + 4, 3.4, 0.2, false);
+    if (close < 0.95) actor(HERO3({ form: 'grey', eyes: 'closed', sword: -0.7 + Math.sin(t * 9) * 0.15 * (1 - close), sq: -0.15 * close }), CX - 20 + Math.sin(t * 7) * 2 * (1 - close), CY + 4, 3.4, 0.2 + Math.sin(t * 6) * 0.08 * (1 - close), false);
     // the palm, and four fingers curling over and round the hero, the thumb closing from below
     discF(CX + 96, CY + 8, 74, 69); discF(CX + 96, CY + 8, 72, 66); discF(CX + 88, CY, 60, 65); discF(CX + 78, CY - 14, 30, 64);
-    for (let f = 0; f < 4; f++) fingerChain(CX + 54, CY - 66 + f * 36, PI + 0.25 - f * 0.12, [44 - Math.abs(f - 1.5) * 4, 36, 26], 15 - Math.abs(f - 1.5), 0.25 + close * 0.85 + (f > 1 ? -0.1 : 0));
-    fingerChain(CX + 60, CY + 96, -PI * 0.75, [40, 30], 15, -0.2 - close * 0.6);
+    const squeeze = lt > 0.9 && lt < 1.5 ? Math.max(0, Math.sin((lt - 0.9) * 16)) * 0.06 : 0, jolt = g > 0 ? 0.18 * Math.exp(-g * 6) : 0;
+    for (let f = 0; f < 4; f++) { const cf = eio(lin(0.1 + f * 0.07, 0.8 + f * 0.05, lt)); fingerChain(CX + 54, CY - 66 + f * 36, PI + 0.25 - f * 0.12, [44 - Math.abs(f - 1.5) * 4, 36, 26], 15 - Math.abs(f - 1.5), 0.25 + cf * 0.85 + (f > 1 ? -0.1 : 0) + squeeze - jolt); }
+    fingerChain(CX + 60, CY + 96, -PI * 0.75, [40, 30], 15, -0.2 - close * 0.6 - squeeze + jolt);
     if (sq) shk(3);
     if (g > 0) {
       // the sword's shards, bursting out between the fingers
