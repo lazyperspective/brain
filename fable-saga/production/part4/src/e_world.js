@@ -7,31 +7,54 @@
 
   // under the cloud sea: a dark ocean to the horizon at hz, swells moving, rock spires standing out of it (three depths,
   // the near ones larger and faster with ox); burn (0..1) lights their broken tops with fire
-  function belowWorld(t, hz, ox, burn, skyCols) {
+  function belowWorld(t, hz, ox, burn, skyCols, light) {
     gradient(LB, hz, skyCols || SKY_BLOOD);
-    const deep = H - LB;
+    const LX = light === undefined ? 300 : light, deep = H - LB;
+    // the underside of the cloud sea, far above: heavy, lit red from below by the fire of the world
+    for (let k = 0; k < 16; k++) { const x = ((ih(k, 1, 1105) * 620 - ox * 0.15) % 620 + 620) % 620 - 70, y = LB - 6 + ih(k, 2, 1105) * 16, r = 20 + ih(k, 3, 1105) * 26; cloudPuff(x, y, r, [96, 97, 98, 101], 1106 + k); }
+    for (let x = 0; x < W; x++) for (let y = LB; y < LB + 30; y++) { const i = y * W + x; if (BUF[i] === 101 && bay(x, y) < 0.5) BUF[i] = 102; }
+    // the ocean: swells, a band of reflected fire under the light, foam on the crests
     for (let y = Math.max(LB, fl(hz)); y < deep; y++) {
       const u = (y - hz) / Math.max(1, deep - hz), base = fl(u * 3.2);
       for (let x = 0; x < W; x++) {
         const sw = Math.sin(x * 0.05 / (0.2 + u) + t * 1.2 + y * 0.9) + Math.sin(x * 0.013 / (0.2 + u) - t * 0.7 + y * 0.31);
         let c = OCEAN[clamp(base + (sw > 1.2 ? 2 : sw > 0.6 ? 1 : 0) - (bay(x, y) > 0.5 + u * 0.4 ? 1 : 0), 0, 3)];
         if (sw > 1.75 && u > 0.1) c = u > 0.5 ? 119 : 118;
+        // the reflection: a broken column of fire on the water under the light, wider toward us
+        const rw = 14 + u * 70, dxr = Math.abs(x - LX - Math.sin(y * 0.7 + t * 2) * (2 + u * 6));
+        if (dxr < rw && sw > 0.2 - (1 - dxr / rw) * 0.9 && ih(x >> 1, y, fl(t * 8)) < 0.85) c = sw > 1.2 ? 105 : sw > 0.7 ? 103 : 102;
         BUF[y * W + x] = c;
       }
     }
-    // the spires: jagged columns of rock, far to near
+    // the spires: faceted columns of rock (a lit face and a shadowed face), banded with strata, burning at the top,
+    // standing in mist; three depths, the far ones paler with distance
     for (let layer = 0; layer < 3; layer++) {
-      const n = 7 - layer * 2, par = 0.3 + layer * 0.5, sc = 0.6 + layer * 0.55, cols = layer === 0 ? [97, 98] : layer === 1 ? [98, 99] : [96, 99];
+      const n = 7 - layer * 2, par = 0.3 + layer * 0.5, sc = 0.6 + layer * 0.55;
+      const LIT = layer === 0 ? [99, 100, 121] : layer === 1 ? [98, 99, 100] : [97, 99, 100], SH = layer === 0 ? 98 : layer === 1 ? 97 : 96;
       for (let k = 0; k < n; k++) {
         const bx = ((ih(k, layer, 1101) * 640 - ox * par) % 640 + 640) % 640 - 80, bw = (14 + ih(k, 2, 1101 + layer) * 26) * sc, bh = (40 + ih(k, 3, 1101 + layer) * 90) * sc, by = hz + 6 + layer * 18;
+        const lean = (ih(k, 4, 1101 + layer) - 0.5) * 0.25, ridge = (ih(k, 5, 1101 + layer) - 0.5) * 0.5;
         for (let y = fl(by - bh); y < by + 4; y++) {
           if (y < LB || y >= deep) continue;
-          const v = (by - y) / bh, half = bw * (0.25 + 0.75 * Math.pow(Math.max(0, 1 - v), 0.6)) * (0.8 + 0.4 * vn(y * 0.2, k, 1, 1102 + layer));
-          for (let x = fl(bx - half); x <= bx + half; x++) { if (x < 0 || x >= W) continue; const lit = (x - bx) / half < -0.4; BUF[y * W + x] = burn > 0 && v > 0.85 && ih(x, y, 1103) < burn ? (v > 0.95 ? 105 : 103) : lit ? cols[1] : cols[0]; }
+          const v = (by - y) / bh, cxr = bx + lean * (by - y), half = bw * (0.25 + 0.75 * Math.pow(Math.max(0, 1 - v), 0.6)) * (0.8 + 0.4 * vn(y * 0.2, k, 1, 1102 + layer));
+          const top = by - bh + (vn((y + k * 13) * 0.5, k, 1, 1107) - 0.5) * 6 * sc;
+          for (let x = fl(cxr - half); x <= cxr + half; x++) {
+            if (x < 0 || x >= W) continue;
+            const f = (x - cxr) / half, onLit = f < ridge * (1 - v);
+            const strata = frac((y + vn(x * 0.2, k, 1, 1108) * 3) / (7 * sc)) < 0.14;
+            let c = onLit ? LIT[f < -0.75 ? 2 : f < -0.3 ? 1 : 0] : SH;
+            if (strata) c = onLit ? LIT[0] - 1 : 96;
+            if (Math.abs(f) > 0.9) c = 96;
+            if (burn > 0 && v > 0.85 && ih(x, y, 1103) < burn) c = v > 0.95 ? 105 : 103;
+            BUF[y * W + x] = c;
+          }
         }
+        // mist where it meets the sea
+        for (let q = 0; q < 6; q++) { const mx = bx + (ih(k, q, 1109 + layer) - 0.5) * bw * 2.2, my = by + 1 + Math.sin(t * 0.8 + q + k) * 1.5; cloudPuff(mx, my, (5 + q) * sc, [116, 117, 117, 118], 1110 + k * 7 + q); }
       }
     }
     if (burn > 0) glow(240, hz, 300, T_EMBER, 0.25 * burn);
+    glow(LX, hz, 110, T_EMBER, 0.3);
   }
   // the cloud sea seen from just above, torn by the fight: holes (centres, radii) blown through it show the ocean below
   function cloudSea(t, y0, ox, cols, holes) {
