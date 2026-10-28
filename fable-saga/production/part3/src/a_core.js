@@ -218,13 +218,18 @@
     const lx = [x0, x0 + Math.round(bw * 0.2), x0 + bw - Math.round(bw * 0.2) - 4, x0 + bw - 4];
     // legs bend: legSh slides the feet sideways (trailing behind a move), row by row so the leg leans rather than jumps
     const shx = o.legSh || 0;
-    for (let k = 0; k < 4; k++) { const n = Math.max(1, lh - lift[k]); for (let j = 0; j < n; j++) spRect(lx[k] + Math.round(shx * (j + 1) / lh), y1 + j, 4, 1, body, 1); }
+    for (let k = 0; k < 4; k++) { const n = Math.max(1, lh - lift[k]), lc = !N && (k === 1 || k === 2) ? dark : body; for (let j = 0; j < n; j++) spRect(lx[k] + Math.round(shx * (j + 1) / lh), y1 + j, 4, 1, lc, 1); }
     // body with a little shading (flat, as in the reference, just a lit top edge and a darker base)
     spRect(x0, y0, bw, bh, body, 1);
-    for (let i = 0; i < bw; i++) { sp(x0 + i, y1 - 1, dark, 1); if (o.shade) sp(x0 + i, y0, lite, 1); }
+    for (let i = 0; i < bw; i++) { sp(x0 + i, y1 - 1, dark, 1); if (!N || o.shade) sp(x0 + i, y0, lite, 1); if (!N && (i & 1)) sp(x0 + i, y1 - 2, dark, 1); }
+    if (!N) { for (let j = 1; j < bh - 1; j++) { sp(x0 + bw - 1, y0 + j, dark, 1); if (j & 1) sp(x0 + bw - 2, y0 + j, dark, 1); } sp(x0 + 1, y0 + 1, lite, 1); sp(x0 + 2, y0 + 1, lite, 1); sp(x0 + 1, y0 + 2, lite, 1); }
     // arms
     const ay = y0 + Math.round(bh * 0.34), ah = Math.max(3, Math.round(bh * 0.32)), ar = Math.round(o.reach || 0);
-    spRect(x0 - 4, ay, 4, ah, body, 1); spRect(x0 + bw, ay, 4 + ar, ah, body, 1);
+    const hasSw = o.sword !== undefined && o.sword !== null, armA = hasSw ? clamp(o.sword * 0.45, -1.1, 0.9) : 0;
+    const limbS = (sx, sy, a, len, c) => { const ca = Math.cos(a), sa = Math.sin(a); for (let q = 0; q <= len; q += 0.5) for (let v = -ah / 2 + 0.25; v < ah / 2; v += 0.5) sp(sx + ca * q - sa * v, sy + sa * q + ca * v, c, 1); };
+    const shY = ay + ah / 2 - 0.5;
+    limbS(x0 + 1, shY, PI - armA * 0.6, 4.5, N ? body : dark); limbS(x0 + bw - 1, shY, armA, 3.5 + ar, body);
+    const handX = x0 + bw - 1 + Math.cos(armA) * (3 + ar), handY = shY + Math.sin(armA) * (3 + ar);
     if (N) { // claws, and a jagged crown
       for (const s of [-1, 1]) { const ax = s < 0 ? x0 - 5 : x0 + bw + 4 + ar; sp(ax, ay, body, 1); sp(ax + s, ay - 1, 42, 1); sp(ax, ay + ah - 1, body, 1); sp(ax + s, ay + ah, 42, 1); }
       for (const [cx, h] of [[x0 + 5, 4], [0, 7], [x0 + bw - 6, 4]]) for (let j = 0; j < h; j++) { const w = Math.max(0, Math.round((h - j) * 0.45)); for (let i = -w; i <= w; i++) sp(cx + i, y0 - 1 - j, j > h - 3 ? 42 : 39, 1); }
@@ -237,6 +242,7 @@
       if (e === 'closed') { spRect(ex, ey + 2, 2, 1, EC, 1); return; }
       if (e === 'glow') { spRect(ex - 1, ey - 1, 4, 5, o.form === 'storm' ? 61 : o.form === 'zenith' ? 84 : 59, 1); spRect(ex, ey, 2, 3, 22, 1); return; }
       if (e === 'wide') { spRect(ex - 1, ey - 1, 3, 4, EC, 1); sp(ex - 1, ey - 1, 22, 1); return; }
+      if (!N && (e === 'normal' || e === 'angry')) { spRect(ex, ey, 2, 3, EC, 1); sp(ex + (side < 0 ? 0 : 1), ey, 22, 1); if (e === 'angry') { const inner = side < 0 ? ex + 1 : ex; sp(inner + side * -1, ey - 1, 0, 1); sp(inner + side * -1 + (side < 0 ? 1 : -1), ey - 2, 0, 1); } return; }
       if (e === 'narrow') { spRect(ex, ey + 1, 2, 2, EC, 1); return; }
       spRect(ex, ey, 2, 3, EC, 1);
       if (e === 'angry' || N) { const inner = side < 0 ? ex + 1 : ex; sp(inner + side * -1, ey - 1, N ? 42 : 0, 1); sp(inner + side * -1 + (side < 0 ? 1 : -1), ey - 2, N ? 42 : 0, 1); sp(ex + (side < 0 ? 0 : 1), ey, body, 1); }
@@ -244,7 +250,7 @@
     eye(ex0, -1); eye(ex1, 1);
     if (o.mouth) { const mw = o.mouth > 1 ? 8 : 4, mh = o.mouth > 1 ? 4 : 2; spRect(-mw / 2, ey + 5, mw, mh, N ? 42 : 0, 1); if (N) for (let i = -mw / 2; i < mw / 2; i += 2) sp(i, ey + 5, 39, 1); else if (o.mouth > 1) spRect(-mw / 2 + 1, ey + 5 + mh - 1, mw - 2, 1, 36, 1); }
     // sword on the right arm nub
-    if (o.sword !== undefined && o.sword !== null) spSword(x0 + bw + 2 + ar, ay + ah / 2 - 0.5, o.sword, o.swordCols || null);
+    if (hasSw) spSword(handX, handY, o.sword, o.swordCols || null);
     // outline
     const oc = o.outline !== undefined ? o.outline : N ? 42 : F ? F[3] : 22, prism = o.form === 'zenith', pf = fl(T_NOW * 12);
     const src = SPR.slice();
@@ -253,7 +259,7 @@
       if (src[i - 1] || src[i + 1] || src[i - SW] || src[i + SW]) { SPR[i] = (SPK[i - 1] === 2 || SPK[i + 1] === 2 || SPK[i - SW] === 2 || SPK[i + SW] === 2 ? (N ? 42 : 1) : prism ? 81 + ((((x + y) >> 1) + pf) % 7) : oc) + 1; SPK[i] = 4; }
     }
     LBB[0]--; LBB[1]--; LBB[2]++; LBB[3]++;
-    return { bw, bh, hand: [x0 + bw + 2 + ar, ay + ah / 2], top: y0, bottom: y1 + lh };
+    return { bw, bh, hand: [handX, handY + 0.5], top: y0, bottom: y1 + lh };
   }
   // stamp the built sprite at screen (x, y), scale S, angle (radians), mirrored if flip
   const SMASK = new Uint8Array(NP), SMB = [0, 0, 0, 0];
@@ -327,20 +333,21 @@
       L.px = x; L.py = y; L.S = S;
     }
     const n = L.idle, ph = slot * 1.7, o2 = Object.assign({}, o);
-    if (sw !== null && L.hasSw) o2.sword = L.sw;
+    if (sw !== null && L.hasSw) { o2.sword = L.sw; o2.reach = (o.reach || 0) + clamp(Math.abs(L.swv) / 9, 0, 4); }
     o2.legSh = (o.legSh || 0) + clamp(L.leg, -3, 3) + Math.sin(t * 4.2 + ph) * 0.7 * n;
     if (!o.legs) { const a = t * 6.5 + ph; o2.legs = [0, 1, 2, 3].map((k) => Math.max(0, Math.sin(a + k * 1.6)) * 1.2 * n); }
     o2.sq = (o.sq || 0) + Math.sin(t * 3.1 + ph) * 0.05 * n;
     const e = o.eyes || 'normal';
     if (e === 'normal' || e === 'angry' || e === 'wide' || e === 'narrow') { const P = 2.8 + ih(slot, 1, 77) * 1.5, q = (t + ih(slot, 2, 77) * P) % P; if (q < 0.1) o2.eyes = 'closed'; }
     const bob = opt.bob !== undefined ? opt.bob : Math.sin(t * 2.3 + ph) * 0.6 * S * n;
-    return { o: o2, x, y: y + bob, ang: ang + L.lean, opt: Object.assign({}, opt, { st: Math.abs(L.st) > 0.02 ? L.st : 0, sd: L.sd }) };
+    return { o: o2, x, y: y + bob, ang: ang + L.lean, L, opt: Object.assign({}, opt, { st: Math.abs(L.st) > 0.02 ? L.st : 0, sd: L.sd }) };
   }
   function clearMask() { if (SMB[2] >= SMB[0]) for (let y = SMB[1]; y <= SMB[3]; y++) SMASK.fill(0, y * W + SMB[0], y * W + SMB[2] + 1); SMB[0] = W; SMB[1] = H; SMB[2] = -1; SMB[3] = -1; }
   // a character in one call: build, optional ghosts and glitch, stamp; returns where its hand and sword tip are
   function actor(o, x, y, S, ang, flip, opt) {
     opt = opt || {};
-    if (o.who === 'hero' && !opt.still) { const L = life(o, x, y, S, ang, flip, opt); x = L.x; y = L.y; ang = L.ang; opt = L.opt; o = L.o; }
+    let LF = null;
+    if (o.who === 'hero' && !opt.still) { const L = life(o, x, y, S, ang, flip, opt); x = L.x; y = L.y; ang = L.ang; opt = L.opt; o = L.o; LF = L.L; }
     const g = buildSprite(o);
     clearMask();
     if (o.who === 'null' && !opt.clean) { // chromatic ghosts either side
@@ -357,6 +364,15 @@
     const hand = [x + hdx, y + hdy];
     const sw = o.sword !== undefined && o.sword !== null ? o.sword : 0, da = flip ? PI - sw : sw, tipL = 29 * S;
     const tip = [hand[0] + Math.cos(da + ang) * tipL, hand[1] + Math.sin(da + ang) * tipL];
+    // a fast stroke leaves its slash in the air: a crescent from where the blade was a frame ago to where it is
+    if (LF && o.sword !== undefined && o.sword !== null) {
+      const a1 = da + ang;
+      if (LF.lastA !== undefined && LIFE.dt > 0 && !opt.noSmear) {
+        let d = a1 - LF.lastA; d = Math.atan2(Math.sin(d), Math.cos(d));
+        if (Math.abs(d) > 0.28) smearArc(hand[0], hand[1], a1 - d * Math.min(1.6, 1 + Math.abs(d)), a1, tipL * 1.02, opt.smear || SMEAR_OF[o.form || 'gold']);
+      }
+      if (LIFE.dt !== 0) LF.lastA = a1;
+    }
     return { hand, tip, g };
   }
   // horizontal tears through the last stamped sprite
@@ -502,7 +518,7 @@
     for (let i = 0; i < NP; i++) { const p = PAL[BUF[i]], l = p[0] * 0.3 + p[1] * 0.55 + p[2] * 0.15; BUF[i] = mode ? (l > 110 ? 0 : 22) : (l > 140 ? 22 : 0); }
     for (let k = 0; k < 40; k++) { const a = ih(k, 1, 81) * TAU, r0 = 30 + ih(k, 2, 81) * 40; lineF(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a) * 500, cy + Math.sin(a) * 500, (x, y) => P(x, y, mode ? 22 : 0)); }
   }
-  function flashWhite(a) { if (a <= 0) return; if (a >= 1) { BUF.fill(22); return; } tintAll(T_WH, a); }
+  function flashWhite(a) { if (a <= 0) return; tintAll(T_WH, Math.min(a, 0.86)); }
 
   /* ================================================================ backgrounds */
   function gradient(y0, y1, ramp, shift) {
@@ -699,6 +715,7 @@
   const HERO = (o) => Object.assign({ who: 'hero' }, o), NULLO = (o) => Object.assign({ who: 'null' }, o);
   const AURA_NULL = [39, 43, 42, 44], AURA_GOLD = [58, 58, 59, 60], AURA_RAIN = (t) => EL[fl(t * 8) % 4].slice(0, 3).concat([60]);
   const GOLD_SW = [58, 59, 60, 59], SM_GOLD = [58, 59, 60], SM_RED = [43, 42, 44];
+  const SMEAR_OF = { gold: SM_GOLD, storm: [89, 90, 91], grey: [93, 94, 95], zenith: [83, 60, 22] };
   const HERO_GOLD = { swc: GOLD_SW, smear: SM_GOLD, ghost: 59, aura: AURA_GOLD, auraR: 7 };
   let SHAKE_A = 0;
   const shk = (a) => { SHAKE_A = Math.max(SHAKE_A, a); };

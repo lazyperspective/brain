@@ -28,14 +28,60 @@
     lifeTick(t, S);
     S.fn(t - S.t0, t);
     for (const [wt, dir] of WHIPS) { const d = Math.abs(t - wt); if (d < 0.1) whip(80 * (1 - d / 0.1), dir); }
-    letterbox(LB);
     for (const c of FLASH_CUTS) if (t >= c && t < c + 0.067) tintAll(T_WH, 0.55);
+    grade();
+    shakePicture(t);
+    letterbox(LB);
     if (S.post) S.post(t - S.t0, t);
     drawCaptions(t);
+    SHX = 0; SHY = 0;                       // (the shake is applied to the picture inside the bars, in shakePicture)
+  }
+  // shake is a camera being knocked about, not static: smooth noise (a few wobbles a second) rather than a new random spot
+  // every frame; only the picture moves, the letterbox bars stay put
+  function shakePicture(t) {
     const f = fl(t * 30);
-    // shake is a camera being knocked about, not static: smooth noise (a few wobbles a second) rather than a new random spot every frame
     const nz = (k) => Math.sin(t * 37.1 + k) * 0.55 + Math.sin(t * 59.3 + k * 2.3) * 0.3 + (ih(f, k, 901) - 0.5) * 0.3;
-    SHX = Math.round(nz(1) * 1.6 * SHAKE_A); SHY = Math.round(nz(2) * 1.6 * SHAKE_A);
+    const dx = Math.round(nz(1) * 1.6 * SHAKE_A), dy = Math.round(nz(2) * 1.6 * SHAKE_A);
+    if (!dx && !dy) return;
+    TMP.set(BUF);
+    for (let y = LB; y < H - LB; y++) { const sy = clamp(y - dy, LB, H - LB - 1); for (let x = 0; x < W; x++) BUF[y * W + x] = TMP[sy * W + clamp(x - dx, 0, W - 1)]; }
+  }
+
+  /* ================================================================ grade: light that spills, and a darkened edge
+     Bloom: bright pixels (emitters) are gathered into a coarse grid, blurred, and spilled back over their neighbourhood as a
+     tint of their own hue (gold light spills gold, magenta spills magenta), only onto what is darker than the light itself.
+     Vignette: the corners of the frame sink a little, to hold the eye in the middle. */
+  const GC = 4, GW = W / GC, GH = Math.ceil(H / GC), GR = new Float32Array(GW * GH), GG = new Float32Array(GW * GH), GB2 = new Float32Array(GW * GH), GT = new Float32Array(GW * GH), GTI = new Uint8Array(GW * GH);
+  const LUMP = PAL.map((p) => p[0] * 0.3 + p[1] * 0.55 + p[2] * 0.15);
+  const BLOOM_T = [[T_WH, [1, 1, 1]], [T_GOLD, [1, 0.75, 0.25]], [T_WARM, [1, 0.69, 0.38]], [T_MAG, [1, 0.23, 0.78]], [T_CYAN, [0.25, 0.85, 1]], [T_BL, [0.25, 0.6, 0.95]], [T_VI, [0.6, 0.36, 0.94]], [T_GR, [0.42, 0.75, 0.25]]];
+  const VIG = new Float32Array(NP);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2 - LB), r = Math.sqrt(dx * dx * 0.8 + dy * dy * 0.6); VIG[y * W + x] = 0.3 * sstep(0.62, 1.2, r); }
+  function blur(A) {
+    for (let pass = 0; pass < 2; pass++) {
+      for (let y = 0; y < GH; y++) { let acc = 0; const row = y * GW; for (let x = -3; x < GW + 3; x++) { if (x + 3 < GW) acc += A[row + x + 3]; if (x - 4 >= 0) acc -= A[row + x - 4]; if (x >= 0 && x < GW) GT[row + x] = acc / 7; } }
+      for (let x = 0; x < GW; x++) { let acc = 0; for (let y = -3; y < GH + 3; y++) { if (y + 3 < GH) acc += GT[(y + 3) * GW + x]; if (y - 4 >= 0) acc -= GT[(y - 4) * GW + x]; if (y >= 0 && y < GH) A[y * GW + x] = acc / 7; } }
+    }
+  }
+  function grade() {
+    GR.fill(0); GG.fill(0); GB2.fill(0);
+    for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) {
+      const c = BUF[y * W + x], l = LUMP[c]; if (l < 175) continue;
+      const k = (l - 175) / 80 / (GC * GC), p = PAL[c], j = fl(y / GC) * GW + fl(x / GC);
+      GR[j] += p[0] / 255 * k; GG[j] += p[1] / 255 * k; GB2[j] += p[2] / 255 * k;
+    }
+    blur(GR); blur(GG); blur(GB2);
+    for (let j = 0; j < GW * GH; j++) {
+      const r = GR[j], g = GG[j], b = GB2[j], m = Math.max(r, g, b); GT[j] = m > 0.02 ? m : 0; if (m <= 0.02) continue;
+      let best = 0, bd = 1e9; BLOOM_T.forEach(([, q], k) => { const d = (r / m - q[0]) ** 2 + (g / m - q[1]) ** 2 + (b / m - q[2]) ** 2; if (d < bd) { bd = d; best = k; } }); GTI[j] = best;
+    }
+    for (let y = LB; y < H - LB; y++) {
+      const gy = Math.min(GH - 1, fl(y / GC));
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x, j = gy * GW + fl(x / GC), m = GT[j];
+        if (m > 0 && LUMP[BUF[i]] < m * 255 * 2.2) tintI(i, x, y, BLOOM_T[GTI[j]][0], Math.min(0.5, m * 1.6) * 0.55);
+        if (VIG[i] > 0.01) tintI(i, x, y, T_DARK, VIG[i]);
+      }
+    }
   }
 
   /* ================================================================ present */
