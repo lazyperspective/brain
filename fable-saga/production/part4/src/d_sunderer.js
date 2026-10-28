@@ -242,7 +242,6 @@
   const SLIFE = { n: 0, s: [] };
   function sSpring(o, key, target, k, z, dt) { let x = o[key], v = o[key + 'v'] || 0; const c = 2 * z * Math.sqrt(k), n = Math.ceil(dt * 240), h = dt / n; for (let i = 0; i < n; i++) { v += (k * (target - x) - c * v) * h; x += v * h; } o[key] = x; o[key + 'v'] = v; return x; }
   function sLifeOf(s, still) {
-    if (LIFE.n === 0 && SLIFE.t !== LIFE.t) { SLIFE.n = 0; SLIFE.t = LIFE.t; }
     const slot = SLIFE.n++, dt = LIFE.dt;
     let st = SLIFE.s[slot];
     if (!st || dt < 0 || still) st = SLIFE.s[slot] = { lean: 0, leanv: 0, arms: [0, 1, 2, 3].map(() => null), fresh: true };

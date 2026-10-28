@@ -25,7 +25,7 @@
     T_NOW = t; SHAKE_A = 0; FRZ = 0; BUF.fill(0);
     let S = SHOTS[0];
     for (const s of SHOTS) if (t >= s.t0) S = s;
-    lifeTick(t, S);
+    lifeTick(t, S); SLIFE.n = 0;              // per-draw physics slots restart each frame (hero and villain)
     S.fn(t - S.t0, t);
     for (const [wt, dir] of WHIPS) { const d = Math.abs(t - wt); if (d < 0.1) whip(80 * (1 - d / 0.1), dir); }
     for (const c of FLASH_CUTS) if (t >= c && t < c + 0.067) tintAll(T_WH, 0.55);

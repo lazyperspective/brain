@@ -1610,34 +1610,111 @@
       const c = fn(u, Math.sqrt(d2) / r, x, y, qx / r, qy / r); if (c >= 0) BUF[y * W + x] = c;
     }
   }
+  /* a limb: a tube from a to b whose radius follows rfn(u); shaded as a lit cylinder (light from the upper left), glossy
+     where it faces the light, rim-lit by the fire on its far side; fn(u, side, lit, X, Y) may override the colour */
+  function limbF(ax, ay, bx, by, rfn, rmax, fn) {
+    const x0 = Math.max(0, fl(Math.min(ax, bx) - rmax - 1)), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx) + rmax + 1));
+    const y0 = Math.max(0, fl(Math.min(ay, by) - rmax - 1)), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by) + rmax + 1));
+    const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1, L = Math.sqrt(L2), nx0 = -dy / L, ny0 = dx / L;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5 - ax, py = y + 0.5 - ay, uu = (px * dx + py * dy) / L2, u = clamp(uu, 0, 1), qx = px - dx * u, qy = py - dy * u, r = rfn(u);
+      const d2 = qx * qx + qy * qy; if (d2 > r * r) continue;
+      const sdn = (qx * nx0 + qy * ny0) / r, cap = uu < 0 || uu > 1;                   // -1 .. 1 across the tube
+      // the surface normal of a cylinder seen side-on, tilted at the round ends
+      const nX = nx0 * sdn + (cap ? (uu < 0 ? -dx : dx) / L * 0.6 : 0), nY = ny0 * sdn + (cap ? (uu < 0 ? -dy : dy) / L * 0.6 : 0), nz = Math.sqrt(Math.max(0, 1 - sdn * sdn));
+      const lit = -nX * 0.55 - nY * 0.7 + nz * 0.45;
+      const c = fn(u, sdn, lit, x, y, Math.sqrt(d2) / r); if (c >= 0) BUF[y * W + x] = c;
+    }
+  }
+  const obsLit = (lit, X, Y, e, heat) => e > 0.9 ? 96 : (lit < -0.55 && e > 0.62 && heat > 0.2) ? 102 : lit > 0.78 ? (e < 0.5 ? 122 : 100) : OBS[clamp(fl(1.6 + lit * 2.6 + (bay(X, Y) - 0.5) * 0.8), 0, 4)];
   // porcelain, lit from the upper left: (nx, ny) the surface's lean (-1..1)
   const bone = (nx, ny, x, y, k) => BONE4[clamp(fl(3 + (-nx * 0.9 - ny * 0.8) * 1.6 + (bay(x, y) - 0.5) * 0.9 + (k || 0)), 0, 5)];
-  // a gauntlet: wrist at (x, y), pointing along angle a, scale s; pose 'fist' | 'open' | 'chop' | 'grab'; heat lights its seams
-  function sGauntlet(x, y, s, a, pose, heat, t) {
-    const ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux, L = (al, ac) => [x + ux * al * s + vx * ac * s, y + uy * al * s + vy * ac * s];
-    const parts = [];
-    const cap = (a0, c0, a1, c1, r0, r1) => parts.push([...L(a0, c0), ...L(a1, c1), r0 * s, (r1 === undefined ? r0 : r1) * s]);
-    if (pose === 'open' || pose === 'grab') {
-      const curl = pose === 'grab' ? 1 : 0;
-      cap(0, 0, 12, 0, 9.5, 11);
-      for (let f = 0; f < 4; f++) {
-        const ac = -7.5 + f * 5, sp = (f - 1.5) * 0.22 * (1 - curl), l1 = 11 - Math.abs(f - 1.5) * 1.4;
-        const m0 = 13 + Math.cos(sp) * l1 * 0.55, m1 = ac + Math.sin(sp) * l1 * 0.55, e0 = curl ? m0 - 1 : 13 + Math.cos(sp) * l1, e1 = curl ? ac + (ac > 0 ? -1 : 1) * 0.5 : ac + Math.sin(sp) * l1;
-        cap(13, ac, m0, m1, 3.1, 2.9); cap(m0, m1, curl ? m0 + 2 : e0, curl ? m1 : e1, 2.9, 2.3); if (curl) cap(m0 + 2, m1, e0 - 1, e1, 2.5, 2.2);
+  /* a hand of porcelain plates: wrist at (x, y), pointing along angle a, scale s.
+     h: { curl 0 (open) .. 1 (fist), or curls [index, middle, ring, little], thumb 0..1 (tucked across), spread 0..1 (fanned),
+          side ±1 (which side the thumb is on), heat (fire in the joints), layer 'palm' | 'fingers' | undefined (both),
+          hold(info): drawn between the palm and the fingers (whatever the hand is holding) }.
+     The fingers bend toward the viewer as they curl: each joint folds, the segment foreshortens (cos of its bend) and past a
+     right angle it lies back over the palm — so open hand, claw, grip and fist are one continuous motion.
+     Returns [x, y] of the striking point (the knuckles of a fist, the fingertips of an open hand) with .palm, .tip, .knuckles. */
+  const H_FL = [0.95, 1.05, 1.0, 0.82], H_FR = [1, 1.05, 1, 0.88], H_SEG = [8.2, 6.0, 4.4], H_SR = [2.7, 2.4, 2.1], H_FLEX = [1.0, 1.4, 1.05];
+  function sHand(x, y, s, a, h, t) {
+    h = h || {};
+    const ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux, sd = h.side || 1, heat = h.heat || 0;
+    const L = (al, ac) => [x + ux * al * s + vx * ac * s, y + uy * al * s + vy * ac * s];
+    const curls = h.curls || [0, 1, 2, 3].map((k) => clamp((h.curl || 0) * (1.06 - k * 0.02), 0, 1));
+    const spread = h.spread === undefined ? 0.3 : h.spread, th = h.thumb === undefined ? (h.curl || 0) * 0.9 : h.thumb;
+    const outl = Math.max(1, 1.3 * Math.min(1, s / 1.4));
+    // the geometry, in hand space: palm capsules, finger chains, thumb
+    const palm = [[1, 0, 9.5, 0, 8.6, 8.2], [2, -5.6, 10.4, -5.4, 4.6, 4.2], [2, 5.6, 10.4, 5.4, 4.6, 4.2]];
+    const fingers = [];
+    let front = -1e9, frontP = null, tipP = null;
+    for (let k = 0; k < 4; k++) {
+      const v0 = sd * (6.3 - 4.2 * k), fan = spread * (k - 1.5) * -sd * 0.17, c = curls[k];
+      let px = 10.8, py = v0, phi = 0;
+      const segs = [];
+      for (let j = 0; j < 3; j++) {
+        phi += c * H_FLEX[j] * 1.25;
+        const len = H_SEG[j] * H_FL[k], pr = Math.cos(Math.min(phi, PI)), dx = Math.cos(fan) * len * pr, dy = Math.sin(fan) * len * Math.abs(pr) + (phi > PI / 2 ? -sd * 0 : 0);
+        // past a right angle the segment comes back over the palm, drifting toward its middle
+        const qx = px + dx, qy = py + dy + (phi > 1.2 ? -v0 * 0.05 * (phi - 1.2) : 0);
+        segs.push([px, py, qx, qy, H_SR[j] * H_FR[k], phi]);
+        if (j === 0 && qx > front) { front = qx; frontP = [qx, qy]; }
+        px = qx; py = qy;
       }
-      cap(4, 9, 11, 15 - curl * 4, 3.2, 2.6);
-    } else if (pose === 'chop') {
-      cap(0, 0, 14, 0, 9, 8); cap(12, -1, 31, -1, 6.5, 4.2); cap(3, 7, 12, 10, 3, 2.6);
-    } else {
-      cap(0, 0, 10, 0, 9.5, 11.5);
-      for (let f = 0; f < 4; f++) cap(10, -7.6 + f * 5.07, 17.5, -7.6 + f * 5.07, 3.2, 3.4);
-      cap(4, 9.5, 13, 8, 3.4, 3);
+      if (k === 0) tipP = [px, py];
+      if (px > front) { front = px; frontP = [px, py]; }
+      fingers.push({ segs, c });
     }
-    // outline pass, then the porcelain, then the seams (fire between the plates)
-    for (const p of parts) capsF(p[0], p[1], p[2], p[3], p[4] + 1.6, p[5] + 1.6, () => 96);
-    for (const p of parts) capsF(p[0], p[1], p[2], p[3], p[4], p[5], (u, d, X, Y, nx, ny) => d > 0.84 ? (heat > 0.3 && d < 0.93 ? (heat > 0.7 ? 104 : 103) : 69) : bone(nx, ny, X, Y));
-    if (heat > 0.05) for (let k = 0; k < 5; k++) { const al = 2 + k * 3.5, ac = (ih(k, 1, 961) - 0.5) * 14; const [px, py] = L(al, ac), [qx, qy] = L(al + 3, ac + (ih(k, 2, 961) - 0.5) * 6); lineP(px, py, qx, qy, heat > 0.6 ? 105 : 103); }
-    return L(pose === 'chop' ? 31 : 17, 0);
+    const tb = [2.6, sd * 7.6], topen = [2.6 + 6.5 * Math.cos(1.0), sd * (7.6 + 6.5 * Math.sin(1.0))], tcurl = [11.4, sd * 0.6];
+    const tmid = [lerp((tb[0] + topen[0]) / 2, 8.2, th), lerp((tb[1] + topen[1]) / 2, sd * 6.4, th)], ttip = [lerp(topen[0], tcurl[0], th), lerp(topen[1], tcurl[1], th)];
+    const thumb = [[tb[0], tb[1], tmid[0], tmid[1], 3.1, 2.8], [tmid[0], tmid[1], ttip[0], ttip[1], 2.8, 2.3]];
+    // drawing helpers
+    const capL = (q, pad, fn) => { const [ax, ay] = L(q[0], q[1]), [bx, by] = L(q[2], q[3]); capsF(ax, ay, bx, by, q[4] * s + pad, q[5] * s + pad, fn); };
+    const shade = (k0) => (u, d, X, Y, nx, ny) => d > 0.84 ? 69 : bone(nx, ny, X, Y, k0);
+    const doPalm = h.layer !== 'fingers', doFing = h.layer !== 'palm';
+    if (doPalm) {
+      for (const q of palm) capL(q, outl, () => 96);
+      for (const q of palm) capL(q, 0, shade(-0.2));
+      // the plates of the back of the hand, and the knuckle ridge
+      for (let k = 0; k < 3; k++) { const [ax, ay] = L(2.5 + k * 0.3, sd * (4.2 - 4.2 * k) * 0.9), [bx, by] = L(9.6, sd * (4.2 - 4.2 * k)); lineP(ax, ay, bx, by, k === 1 ? 67 : 68); }
+      for (let k = 0; k < 4; k++) { const [kx, ky] = L(10.6, sd * (6.3 - 4.2 * k)); discF(kx, ky, Math.max(1, 2.2 * s), curls[k] > 0.45 ? 64 : 66); }
+      if (heat > 0.25) { const [ax, ay] = L(0.4, -7), [bx, by] = L(0.4, 7); lineP(ax, ay, bx, by, heat > 0.6 ? 105 : 103); }
+    }
+    if (h.hold) h.hold({ palm: L(5.5, 0), front: L(frontP[0], frontP[1]), ux, uy, s });
+    if (doFing) {
+      // fingers: the ones folded furthest are drawn last (they lie nearest the viewer)
+      const order = [0, 1, 2, 3].sort((p_, q_) => fingers[p_].c - fingers[q_].c);
+      const drawThumb = () => { for (const q of thumb) capL(q, outl, () => 96); for (const q of thumb) capL(q, 0, shade(0)); };
+      if (th < 0.5) drawThumb();
+      for (const k of order) {
+        const F = fingers[k];
+        for (const q of F.segs) capL(q, outl, () => 96);
+        F.segs.forEach((q, j) => {
+          const facing = Math.sin(Math.min(q[5], PI));               // a segment turned toward us catches more light
+          capL(q, 0, shade(0.15 + facing * 0.55 - j * 0.12 - (q[5] > PI * 0.6 ? 0 : 0.2)));
+          const [jx, jy] = L(q[0], q[1]);
+          if (j > 0) { if (heat > 0.3) P(jx, jy, heat > 0.65 ? 105 : 103); else P(jx, jy, 68); }
+        });
+        // a claw on the last segment while it still points outward
+        const q = F.segs[2], ph = q[5];
+        if (Math.cos(ph) > 0.25) { const [ex, ey] = L(q[2], q[3]), [bx, by] = L(q[0], q[1]), aa = Math.atan2(ey - by, ex - bx); z5Kite(ex - Math.cos(aa) * s, ey - Math.sin(aa) * s, aa, 3.2 * s, 1.1 * s, 97); }
+      }
+      if (th >= 0.5) drawThumb();
+    }
+    const out = L(frontP[0], frontP[1]);
+    out.palm = L(5.5, 0); out.tip = L(tipP[0], tipP[1]); out.knuckles = L(10.8, 0);
+    return out;
+  }
+  // the old poses, now presets of the hand (pose may also be a hand object)
+  const POSES = {
+    fist: { curl: 1, thumb: 0.95, spread: 0 }, open: { curl: 0.06, thumb: 0.05, spread: 1 }, chop: { curl: 0, thumb: 0.75, spread: 0 },
+    grab: { curl: 0.62, thumb: 0.55, spread: 0.45 }, claw: { curl: 0.42, thumb: 0.25, spread: 0.85 }, pinch: { curls: [0.42, 0.95, 0.98, 1], thumb: 0.62, spread: 0 },
+    point: { curls: [0, 1, 1, 1], thumb: 0.9, spread: 0 },
+  };
+  const poseOf = (p) => (typeof p === 'object' && p ? p : POSES[p] || POSES.fist);
+  function sGauntlet(x, y, s, a, pose, heat, t, extra) {
+    const h = Object.assign({}, poseOf(pose), { heat: heat || 0 }, extra || {});
+    return sHand(x, y, s, a, h, t);
   }
   // cellular seams over the obsidian (f2 - f1 small = on a seam); cheap enough per pixel
   function seamAt(px, py) {
@@ -1664,10 +1741,10 @@
     const ax = Math.abs(lx);
     // pectorals: two broad plates, lit along their tops, a groove under them and down the sternum
     const pu = (ax - 36) / 38, pv = (ly - 64) / 24, pr = pu * pu + pv * pv;
-    if (ax < 3.2 && ly > 44 && ly < 150) return [-1.5, true];
+    if (ax < 2.2 && ly > 48 && ly < 92) return [-1.2, true];
     if (pr < 1) return [0.4 - pv * 1.1 - pu * 0.3, pr > 0.86 && pv > 0];
     // the plates of the stomach, three rows
-    if (ly > 90 && ly < 150 && ax < 44) { const row = (ly - 90) / 20, f = frac(row), col = ax / 22; if (f < 0.12 || Math.abs(col - 1) < 0.07) return [-1.4, true]; return [0.3 - f * 1.1 - col * 0.25, false]; }
+    if (ly > 90 && ly < 150 && ax < 44) { const row = (ly - 90) / 20, f = frac(row); return [0.25 - Math.abs(f - 0.5) * 0.9 - ax / 90, false]; }
     // the flanks fall into shadow
     return [-0.6 - (ax - 40) / 90, false];
   }
@@ -1749,12 +1826,29 @@
        split: 0..1 the final cut: he comes apart along splitA (angle) through (splitX, splitY) local, the halves sliding apart,
        dark: 0..1 silhouette (only the fire shows), body: false to skip the body, core 0..1 the molten heart in the chest.
      Returns { hands: screen points of the four fists, eyes: [[x, y], [x, y]], core: [x, y], brow: [x, y] }. */
+  /* his body has physics too (like the hero's life()): per draw, per arm, a little state — the elbow trails the hand, the
+     shoulder heaves toward a reach, the whole upper body leans into a blow and rocks back, the hand turns a beat after the
+     forearm and shudders when a blow stops dead, the fingers close and open over a few frames instead of snapping */
+  const SLIFE = { n: 0, s: [] };
+  function sSpring(o, key, target, k, z, dt) { let x = o[key], v = o[key + 'v'] || 0; const c = 2 * z * Math.sqrt(k), n = Math.ceil(dt * 240), h = dt / n; for (let i = 0; i < n; i++) { v += (k * (target - x) - c * v) * h; x += v * h; } o[key] = x; o[key + 'v'] = v; return x; }
+  function sLifeOf(s, still) {
+    const slot = SLIFE.n++, dt = LIFE.dt;
+    let st = SLIFE.s[slot];
+    if (!st || dt < 0 || still) st = SLIFE.s[slot] = { lean: 0, leanv: 0, arms: [0, 1, 2, 3].map(() => null), fresh: true };
+    st.dt = dt; return st;
+  }
   function sunderer(cx, cy, s, t, o) {
     o = o || {};
+    const ST = sLifeOf(s, o.still), dt = ST.dt;
+    // the lean: the upper body pushed by the arms' motion (local units), springing back
+    let push = 0;
+    (o.arms || []).forEach((A, k) => { const a = ST.arms[k]; if (A && a && !a.fresh && dt > 0) push += (a.vx || 0) * 0.0045 + (a.vy || 0) * 0.0015 * (k % 2 ? 1 : -1); });
+    const leanT = clamp(push, -16, 16) + (o.lean || 0);
+    const lean = dt > 0 ? sSpring(ST, 'lean', leanT, 70, 0.55, dt) : ST.lean;
     const live = o.still ? 0 : 1;
     cy += Math.sin(t * 0.9) * 1.0 * s * live;
     const sh = o.shake ? z5Sh(t, 7) * o.shake : 0, heat = o.heat === undefined ? 0.5 : o.heat, dark = o.dark || 0;
-    const mcx = cx + (Math.sin(t * 0.6) * 0.6 * s) * live + sh, mcy = cy + (Math.sin(t * 0.9 - 0.8) * 0.5 * s + (o.nod || 0) * s) * live;
+    const mcx = cx + (Math.sin(t * 0.6) * 0.6 * s) * live + sh + lean * s * 0.95, mcy = cy + (Math.sin(t * 0.9 - 0.8) * 0.5 * s + (o.nod || 0) * s) * live;
     const tilt = (Math.sin(t * 0.47) * 0.035) * live + (o.tilt || 0), cT = Math.cos(tilt), sT = Math.sin(tilt);
     // the split: which side of the cut a local point is on, and how far that side has slid
     const spl = o.split || 0, sa = o.splitA === undefined ? 1.2 : o.splitA, sux = Math.cos(sa), suy = Math.sin(sa), spx = o.splitX || 0, spy = o.splitY || 0;
@@ -1768,7 +1862,7 @@
       if (spl > 0) { for (const sd of [1, -1]) { const [ox, oy] = slide(sd), qx = lx - ox, qy = ly - oy; if (side(qx, qy) === sd) return [qx, qy, sd]; } return null; }
       return [lx, ly, 0];
     };
-    const out = { hands: [], eyes: [], core: LS(0, 70), brow: [mcx, mcy - 16 * s] };
+    const out = { hands: [], eyes: [], core: LS(lean * 0.75, 70), brow: [mcx, mcy - 16 * s], lean };
     // the crown, behind everything
     if (o.crown !== 0) sCrown(mcx, mcy, s, t, o.crown === undefined ? 1 : o.crown, o.crownSpin);
     const glowA = o.glow === undefined ? 0.35 : o.glow;
@@ -1778,16 +1872,22 @@
       const x0 = Math.max(0, fl(cx - 112 * s - 60)), x1 = Math.min(W - 1, Math.ceil(cx + 112 * s + 60)), y0 = Math.max(0, fl(cy + 14 * s - 40)), y1 = H - 1;
       const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-        const q = SL(x, y); if (!q) continue; const [lx, ly] = q;
+        const q = SL(x, y); if (!q) continue; const ly = q[1], lx = q[0] - lean * Math.max(0, 1 - (ly - 16) / 220);
         if (!sBodyIn(lx, ly)) continue;
         const rim = !sBodyIn(lx + 2.2, ly) || !sBodyIn(lx - 2.2, ly) || !sBodyIn(lx, ly - 2.2);
         if (rim) { BUF[y * W + x] = heat > 0.2 ? (lx < 0 ? 102 : 101) : 98; continue; }
-        const ax = Math.abs(lx), [pk, groove] = sPlanes(lx, ly), lit = 0.45 - lx / 260 + pk * 0.42;
-        let c = OBS[clamp(fl(lit * 3.2 + (bay(x, y) - 0.5) * 0.9), 0, 4)];
-        // fire runs in the grooves near the heart, and in veins that branch out from it, fading with distance
-        const dh = Math.hypot(lx, (ly - 70) * 1.2), vh = Math.min(1, heat * 1.3 * Math.max(0, 1 - dh / 120));
-        if (groove) c = vh > 0.5 ? (vh > 0.7 ? 104 : 103) : vh > 0.3 ? 102 : 96;
-        else { const sd_ = seamAt(lx / 24 + 3, ly / 22), wv = 0.012 + vh * vh * 0.11; if (sd_ < wv) c = sd_ < wv * 0.4 && vh > 0.3 ? (vh > 0.55 ? (pulse > 0.5 ? 106 : 105) : 104) : vh > 0.15 ? 103 : 101; }
+        // the stone has relief: a height field (the planes of muscle, then rock grain) lit from the upper left, glossy where
+        // it faces the light; fire collects in the grooves and in veins that branch out from the heart
+        const [pk, groove] = sPlanes(lx, ly);
+        const hg = (X, Y) => sPlanes(X, Y)[0] * 3.0 + vn(X, Y, 9, 1201) * 2.4 + vn(X, Y, 3.2, 1202) * 0.8;
+        const gx = hg(lx + 0.8, ly) - hg(lx - 0.8, ly), gy = hg(lx, ly + 0.8) - hg(lx, ly - 0.8);
+        const lit = 0.42 - lx / 320 + pk * 0.25 + (-gx * 0.55 - gy * 0.8) * 0.42;
+        let c = lit > 0.86 ? (bay(x, y) < 0.5 ? 122 : 100) : OBS[clamp(fl(lit * 3.4 + (bay(x, y) - 0.5) * 0.8), 0, 4)];
+        const dh = Math.hypot(lx, (ly - 70) * 1.2), vh = Math.min(1, heat * 1.3 * Math.max(0, 1 - dh / 125));
+        if (groove) c = vh > 0.62 ? (vh > 0.8 ? 104 : 103) : vh > 0.4 ? 101 : 96;
+        else { const sd_ = seamAt(lx / 30 + 3, ly / 28), wv = vh > 0.25 ? 0.006 + (vh - 0.25) * (vh - 0.25) * 0.16 : 0.004; if (sd_ < wv) c = sd_ < wv * 0.4 && vh > 0.3 ? (vh > 0.55 ? (pulse > 0.5 ? 106 : 105) : 104) : vh > 0.15 ? 103 : 101; }
+        // the fire's light on the stone round the heart
+        if (c < 101 && vh > 0.35 && bay(x, y) < (vh - 0.35) * 0.9) c = c === 96 ? 101 : 102;
         // porcelain plates over the shoulders: two layers, with a fin of black blade rising from each
         for (const sd of [-1, 1]) { const px = (lx - sd * 84) / 36, py = (ly - 40) / 22, pr2 = px * px + py * py; if (pr2 < 1 && ly < 56) { c = pr2 > 0.84 ? 69 : bone(px * 0.9, py - 0.5, x, y, -0.2); if (Math.abs(py - 0.15 - px * px * 0.3) < 0.08) c = 96; if (Math.abs(py + 0.35 - px * px * 0.25) < 0.05) c = 68; } }
         // the molten heart
@@ -1802,27 +1902,63 @@
     // the arms (behind the mask unless 'front')
     const drawArm = (k, A) => {
       if (!A) return;
-      const [sx0, sy0] = SH4[k], sd = sx0 < 0 ? -1 : 1, up = k < 2;
-      const [ax, ay] = LS(sx0, sy0), [wx, wy] = LS(A.x, A.y);
-      // the elbow bows outward and down
-      const mx = (ax + wx) / 2, my = (ay + wy) / 2, dx = wx - ax, dy = wy - ay, L = Math.hypot(dx, dy) || 1, bend = Math.max(0, 150 * s - L) * 0.45;
-      const ex = mx + (-dy / L) * bend * -sd * (up ? 1 : 0.8), ey = my + (dx / L) * bend * -sd * (up ? 1 : 0.8) + bend * 0.3;
-      const ob = (u, d, X, Y, nx) => d > 0.82 ? 96 : OBS[clamp(fl(2 + -nx * 1.6 + (bay(X, Y) - 0.5) * 0.8), 0, 4)];
-      capsF(ax, ay, ex, ey, 20 * s, 15 * s, ob);
-      discF(ex, ey, 9 * s, 96); discF(ex, ey, 6 * s, (A.heat || heat) > 0.4 ? 104 : 102); discF(ex, ey, 3 * s, 106);
+      const sd = SH4[k][0] < 0 ? -1 : 1, up = k < 2, AS = ST.arms[k] || (ST.arms[k] = { fresh: true });
+      // the wrist where the shot wants it (exact: contacts land on their frames)
+      const [wx, wy] = LS(A.x, A.y);
+      // its motion, measured frame to frame
+      if (!AS.fresh && dt > 0) { const ivx = (wx - AS.px) / dt, ivy = (wy - AS.py) / dt; AS.pvx = AS.vx || 0; AS.pvy = AS.vy || 0; AS.vx = lerp(AS.pvx, ivx, 0.6); AS.vy = lerp(AS.pvy, ivy, 0.6); }
+      else if (AS.fresh) { AS.vx = 0; AS.vy = 0; AS.pvx = 0; AS.pvy = 0; AS.ex = 0; AS.ey = 0; AS.hx = 0; AS.hy = 0; AS.ha = null; AS.shud = 0; }
+      const sp = Math.hypot(AS.vx, AS.vy), psp = Math.hypot(AS.pvx || 0, AS.pvy || 0);
+      // a blow that stops dead: the hand shudders
+      if (dt > 0 && psp > 520 && sp < psp * 0.35) AS.shud = 1;
+      AS.shud = (AS.shud || 0) * (dt > 0 ? Math.exp(-dt * 9) : 1);
+      // the shoulder heaves toward the reach (local units)
+      const rlx = A.x - SH4[k][0], rly = A.y - SH4[k][1], rl = Math.hypot(rlx, rly) || 1, ext = clamp(rl / 170, 0, 1.2);
+      const hxT = rlx / rl * 8 * ext + (A.y < SH4[k][1] - 40 ? 0 : 0), hyT = rly / rl * 6 * ext - (A.y < SH4[k][1] - 30 ? 5 : 0);
+      if (dt > 0) { sSpring(AS, 'hx', hxT, 140, 0.5, dt); sSpring(AS, 'hy', hyT, 140, 0.5, dt); } else if (AS.fresh) { AS.hx = hxT; AS.hy = hyT; }
+      const [ax, ay] = LS(SH4[k][0] + AS.hx + lean * (up ? 0.85 : 0.6), SH4[k][1] + AS.hy);
+      // the elbow: bowed outward and down, and trailing the hand's motion
+      const mx = (ax + wx) / 2, my = (ay + wy) / 2, dx = wx - ax, dy = wy - ay, L = Math.hypot(dx, dy) || 1, bend = Math.max(0, 152 * s - L) * 0.45;
+      if (dt > 0) { sSpring(AS, 'ex', clamp(-AS.vx * 0.03, -24 * s, 24 * s), 160, 0.42, dt); sSpring(AS, 'ey', clamp(-AS.vy * 0.03, -24 * s, 24 * s) + 3 * s, 160, 0.42, dt); }
+      const ex = mx + (-dy / L) * bend * -sd * (up ? 1 : 0.8) + (AS.ex || 0), ey = my + (dx / L) * bend * -sd * (up ? 1 : 0.8) + bend * 0.3 + (AS.ey || 0);
+      const aHeat = A.heat === undefined ? heat : A.heat;
+      // the shoulder joint: a ball of black stone ringed with fire
+      discF(ax, ay, 15 * s, 96); limbF(ax - 2, ay - 2, ax + 2, ay + 2, () => 13.5 * s, 14 * s, (u, sdn, lit, X, Y, e) => e > 0.86 ? (aHeat > 0.3 ? 102 : 96) : obsLit(lit, X, Y, e, aHeat));
+      // the upper arm: a muscle that swells in the middle and tapers to the elbow
+      const rU = (u) => s * (17 + 5 * Math.sin(PI * Math.min(1, u * 1.25)) - u * 4);
+      limbF(ax, ay, ex, ey, rU, 22 * s, (u, sdn, lit, X, Y, e) => { const vein = Math.abs(sdn - 0.35 * Math.sin(u * 9 + k)) < 0.06 && u > 0.12 && u < 0.86; return vein && aHeat > 0.25 ? (aHeat > 0.6 ? 104 : 103) : obsLit(lit, X, Y, e, aHeat); });
       if (A.cut) {
         // severed at the elbow: a stump that burns and drips
-        discF(ex, ey, 11 * s, 103); discF(ex, ey, 7 * s, 105); discF(ex, ey, 3.5 * s, 22);
+        discF(ex, ey, 12 * s, 101); discF(ex, ey, 10 * s, 103); discF(ex, ey, 7 * s, 105); discF(ex, ey, 3.5 * s, 22);
         for (let q = 0; q < 5; q++) { const g = frac(t * 0.9 + ih(k, q, 995)), dx2 = (ih(k, q, 996) - 0.5) * 12 * s; rectF(ex + dx2, ey + 6 * s + g * 70 * s, Math.max(1, s * 1.5), Math.max(2, s * 3), g < 0.5 ? 105 : 103); }
         glow(ex, ey, 30 * s, T_EMBER, 0.6);
         out.hands[k] = [ex, ey]; return;
       }
-      capsF(ex, ey, wx, wy, 15 * s, 12 * s, ob);
-      { const bx0 = lerp(ex, wx, 0.5), by0 = lerp(ey, wy, 0.5); capsF(bx0, by0, wx, wy, 13.5 * s, 12.5 * s, (u, d, X, Y, nx, ny) => d > 0.86 ? 69 : bone(nx, ny, X, Y, -0.3)); }
-      // a seam of fire along the forearm
-      lineF(ex, ey, wx, wy, (X, Y, u) => { if (u > 0.1 && u < 0.85 && ((X + Y) & 1)) P(X + (-dy / L) * 3 * s * Math.sin(u * 9), Y, heat > 0.5 ? 104 : 102); });
-      const a = Math.atan2(wy - ey, wx - ex);
-      out.hands[k] = sGauntlet(wx, wy, s * (A.fs || 1), A.ang === undefined ? a : A.ang, A.pose || 'fist', A.heat === undefined ? heat : A.heat, t);
+      // the forearm: black stone under a porcelain vambrace of three plates, fire showing in the gaps
+      const rF = (u) => s * (12.5 + u * 2.5);
+      limbF(ex, ey, wx, wy, rF, 16 * s, (u, sdn, lit, X, Y, e) => {
+        if (u < 0.28) return obsLit(lit, X, Y, e, aHeat);
+        const pf = (u - 0.28) / 0.72 * 3, gap = frac(pf) < 0.07 && u < 0.98;
+        if (gap) return aHeat > 0.25 ? (aHeat > 0.6 ? 104 : 102) : 96;
+        if (e > 0.9) return 69;
+        if (Math.abs(sdn + 0.15) < 0.05 && frac(pf) > 0.25 && frac(pf) < 0.8) return 67;              // an engraved line
+        return BONE4[clamp(fl(2.6 + lit * 2.4 + (bay(X, Y) - 0.5) * 0.9 - (frac(pf) < 0.18 ? 0.8 : 0)), 0, 5)];
+      });
+      // the elbow cop: a porcelain plate over the joint, fire round its edge
+      discF(ex, ey, 11 * s, aHeat > 0.3 ? 102 : 96); limbF(ex - 1, ey - 1, ex + 1, ey + 1, () => 9.5 * s, 10 * s, (u, sdn, lit, X, Y, e) => e > 0.86 ? 69 : BONE4[clamp(fl(2.4 + lit * 2.4 + (bay(X, Y) - 0.5) * 0.9), 0, 5)]);
+      discF(wx, wy, 13 * s, aHeat > 0.3 ? 103 : 96);
+      // the hand: it turns a beat after the forearm (and shudders when a blow stops)
+      const fa = Math.atan2(wy - ey, wx - ex), aT = A.ang === undefined ? fa : A.ang;
+      if (AS.ha === null || AS.ha === undefined || AS.fresh) { AS.ha = aT; AS.hav = 0; }
+      else if (dt > 0) { let tg = aT; while (tg - AS.ha > PI) tg -= TAU; while (tg - AS.ha < -PI) tg += TAU; sSpring(AS, 'ha', tg, 420, 0.45, dt); }
+      const shk_ = AS.shud * 0.18 * Math.sin(t * 70);
+      // the fingers close and open over a few frames
+      const P_ = poseOf(A.pose || 'fist'), tc = P_.curls || [0, 1, 2, 3].map(() => P_.curl);
+      if (!AS.c || AS.fresh) { AS.c = tc.map((c) => ({ v: c, vv: 0 })); AS.th = { v: P_.thumb, vv: 0 }; AS.spd = { v: P_.spread, vv: 0 }; }
+      else if (dt > 0) { AS.c.forEach((c, i) => sSpring(c, 'v', tc[i], 520, 0.7, dt)); sSpring(AS.th, 'v', P_.thumb, 520, 0.7, dt); sSpring(AS.spd, 'v', P_.spread, 400, 0.7, dt); }
+      out.hands[k] = sHand(wx, wy, s * (A.fs || 1), AS.ha + shk_, { curls: AS.c.map((c) => clamp(c.v, 0, 1)), thumb: clamp(AS.th.v, 0, 1), spread: clamp(AS.spd.v, 0, 1), side: up ? sd : -sd, heat: aHeat, hold: A.hold, layer: A.layer }, t);
+      out.hands[k].shudder = AS.shud;
+      AS.px = wx; AS.py = wy; AS.fresh = false;
     };
     const arms = o.arms || [];
     for (let k = 0; k < 4; k++) if (arms[k] && !arms[k].front) drawArm(k, arms[k]);
@@ -1857,31 +1993,54 @@
 
   // under the cloud sea: a dark ocean to the horizon at hz, swells moving, rock spires standing out of it (three depths,
   // the near ones larger and faster with ox); burn (0..1) lights their broken tops with fire
-  function belowWorld(t, hz, ox, burn, skyCols) {
+  function belowWorld(t, hz, ox, burn, skyCols, light) {
     gradient(LB, hz, skyCols || SKY_BLOOD);
-    const deep = H - LB;
+    const LX = light === undefined ? 300 : light, deep = H - LB;
+    // the underside of the cloud sea, far above: heavy, lit red from below by the fire of the world
+    for (let k = 0; k < 16; k++) { const x = ((ih(k, 1, 1105) * 620 - ox * 0.15) % 620 + 620) % 620 - 70, y = LB - 6 + ih(k, 2, 1105) * 16, r = 20 + ih(k, 3, 1105) * 26; cloudPuff(x, y, r, [96, 97, 98, 101], 1106 + k); }
+    for (let x = 0; x < W; x++) for (let y = LB; y < LB + 30; y++) { const i = y * W + x; if (BUF[i] === 101 && bay(x, y) < 0.5) BUF[i] = 102; }
+    // the ocean: swells, a band of reflected fire under the light, foam on the crests
     for (let y = Math.max(LB, fl(hz)); y < deep; y++) {
       const u = (y - hz) / Math.max(1, deep - hz), base = fl(u * 3.2);
       for (let x = 0; x < W; x++) {
         const sw = Math.sin(x * 0.05 / (0.2 + u) + t * 1.2 + y * 0.9) + Math.sin(x * 0.013 / (0.2 + u) - t * 0.7 + y * 0.31);
         let c = OCEAN[clamp(base + (sw > 1.2 ? 2 : sw > 0.6 ? 1 : 0) - (bay(x, y) > 0.5 + u * 0.4 ? 1 : 0), 0, 3)];
         if (sw > 1.75 && u > 0.1) c = u > 0.5 ? 119 : 118;
+        // the reflection: a broken column of fire on the water under the light, wider toward us
+        const rw = 14 + u * 70, dxr = Math.abs(x - LX - Math.sin(y * 0.7 + t * 2) * (2 + u * 6));
+        if (dxr < rw && sw > 0.2 - (1 - dxr / rw) * 0.9 && ih(x >> 1, y, fl(t * 8)) < 0.85) c = sw > 1.2 ? 105 : sw > 0.7 ? 103 : 102;
         BUF[y * W + x] = c;
       }
     }
-    // the spires: jagged columns of rock, far to near
+    // the spires: faceted columns of rock (a lit face and a shadowed face), banded with strata, burning at the top,
+    // standing in mist; three depths, the far ones paler with distance
     for (let layer = 0; layer < 3; layer++) {
-      const n = 7 - layer * 2, par = 0.3 + layer * 0.5, sc = 0.6 + layer * 0.55, cols = layer === 0 ? [97, 98] : layer === 1 ? [98, 99] : [96, 99];
+      const n = 7 - layer * 2, par = 0.3 + layer * 0.5, sc = 0.6 + layer * 0.55;
+      const LIT = layer === 0 ? [99, 100, 121] : layer === 1 ? [98, 99, 100] : [97, 99, 100], SH = layer === 0 ? 98 : layer === 1 ? 97 : 96;
       for (let k = 0; k < n; k++) {
         const bx = ((ih(k, layer, 1101) * 640 - ox * par) % 640 + 640) % 640 - 80, bw = (14 + ih(k, 2, 1101 + layer) * 26) * sc, bh = (40 + ih(k, 3, 1101 + layer) * 90) * sc, by = hz + 6 + layer * 18;
+        const lean = (ih(k, 4, 1101 + layer) - 0.5) * 0.25, ridge = (ih(k, 5, 1101 + layer) - 0.5) * 0.5;
         for (let y = fl(by - bh); y < by + 4; y++) {
           if (y < LB || y >= deep) continue;
-          const v = (by - y) / bh, half = bw * (0.25 + 0.75 * Math.pow(Math.max(0, 1 - v), 0.6)) * (0.8 + 0.4 * vn(y * 0.2, k, 1, 1102 + layer));
-          for (let x = fl(bx - half); x <= bx + half; x++) { if (x < 0 || x >= W) continue; const lit = (x - bx) / half < -0.4; BUF[y * W + x] = burn > 0 && v > 0.85 && ih(x, y, 1103) < burn ? (v > 0.95 ? 105 : 103) : lit ? cols[1] : cols[0]; }
+          const v = (by - y) / bh, cxr = bx + lean * (by - y), half = bw * (0.25 + 0.75 * Math.pow(Math.max(0, 1 - v), 0.6)) * (0.8 + 0.4 * vn(y * 0.2, k, 1, 1102 + layer));
+          const top = by - bh + (vn((y + k * 13) * 0.5, k, 1, 1107) - 0.5) * 6 * sc;
+          for (let x = fl(cxr - half); x <= cxr + half; x++) {
+            if (x < 0 || x >= W) continue;
+            const f = (x - cxr) / half, onLit = f < ridge * (1 - v);
+            const strata = frac((y + vn(x * 0.2, k, 1, 1108) * 3) / (7 * sc)) < 0.14;
+            let c = onLit ? LIT[f < -0.75 ? 2 : f < -0.3 ? 1 : 0] : SH;
+            if (strata) c = onLit ? LIT[0] - 1 : 96;
+            if (Math.abs(f) > 0.9) c = 96;
+            if (burn > 0 && v > 0.85 && ih(x, y, 1103) < burn) c = v > 0.95 ? 105 : 103;
+            BUF[y * W + x] = c;
+          }
         }
+        // mist where it meets the sea
+        for (let q = 0; q < 6; q++) { const mx = bx + (ih(k, q, 1109 + layer) - 0.5) * bw * 2.2, my = by + 1 + Math.sin(t * 0.8 + q + k) * 1.5; cloudPuff(mx, my, (5 + q) * sc, [116, 117, 117, 118], 1110 + k * 7 + q); }
       }
     }
     if (burn > 0) glow(240, hz, 300, T_EMBER, 0.25 * burn);
+    glow(LX, hz, 110, T_EMBER, 0.3);
   }
   // the cloud sea seen from just above, torn by the fight: holes (centres, radii) blown through it show the ocean below
   function cloudSea(t, y0, ox, cols, holes) {
@@ -2100,9 +2259,12 @@
     const wy = lerp(380, SY + 52, rise) + z5Knock(lt - 0.3, 4, 18, 6) + down * 220, wx = SX + 2 + z5Sh(t, 5) * 1.5;
     const shy = grab ? SY + (wy - (SY + 52)) : SY - z5Knock(lt - 0.02, 6, 10, 5);
     glow(SX, SY + 40, 160, T_EMBER, 0.7 * (1 - down));
-    if (!grab) z5MaskShard(SX, shy, 2.4, 0.16 + lt * 2, 1, 0, t);
-    else { z5MaskShard(SX, shy - 6, 2.1, 0.5, 1, Math.sin(t * 30) * 0.9, t); }
-    sGauntlet(wx, wy, 3.4, -PI / 2, grab ? 'grab' : 'open', 0.8, t);
+    // the fingers close round it over four frames, the palm behind it, the fingers over it; inside, its eye thrashes
+    const cl = grab ? eoc(clamp((lt - 0.3) / 0.13, 0, 1)) : 0, sq_ = grab ? z5Knock(lt - 0.43, 0.12, 20, 6) : 0;
+    const shard = () => z5MaskShard(SX + z5Sh(t * 2, 3) * 2 * cl, shy - 4 - cl * 6, 2.2 - cl * 0.25, 0.16 + (grab ? 0.35 : lt * 2), 1, grab ? Math.sin(t * 30) * 0.9 : 0, t);
+    if (!grab) shard();
+    sGauntlet(wx, wy, 3.4, -PI / 2, { curl: lerp(0.06, 0.72 + sq_, cl), thumb: lerp(0.05, 0.62, cl), spread: lerp(1, 0.25, cl) }, 0.8, t, grab ? { hold: shard } : undefined);
+    if (grab && lt < 0.5) glow(SX, shy, 50, T_MAG, 0.5 * (1 - cl * 0.6));
     // the cloud erupting round the arm, and its tatters falling back
     i4CloudSpill(SX, SY + 30, lt, 26, 260, 4111);
     for (let k = 0; k < 6; k++) cloudPuff(SX - 120 + k * 48, SY + 40 + (k & 1) * 6, 16 + (k % 3) * 4, [17, 18, 14, 15], 4112 + k);
@@ -2146,9 +2308,9 @@
     const lift = eio(lin(0.9, 1.8, lt));
     const hand = [lerp(160, 52, lift), lerp(160, 22, lift)];
     const o = sunderer(MX, MY + 1.6 * z5N(t * 0.5, 1), s, t, { eyes: ign * 1.3, heat, dark, crown: 1, nod: -1 + lift * 1.6, tilt: -0.04 * lift,
-      arms: [{ x: -120, y: 140, pose: 'fist' }, { x: hand[0], y: hand[1], pose: 'fist', front: true, ang: -PI / 2 - 0.4 * lift }, null, null] });
-    // the shard, held up in his fist (its eye looking at its brother)
-    if (lift > 0.2) { const [fx, fy] = o.hands[1], wx = fx - Math.cos(-PI / 2 - 0.4 * lift) * 10 * s, wy = fy - Math.sin(-PI / 2 - 0.4 * lift) * 10 * s; glow(wx, wy - 10, 60, T_MAG, 0.5); z5MaskShard(wx + 4, wy - 24, 1.6, 0.4, 1, -0.6, t); sGauntlet(wx - Math.cos(-PI / 2 - 0.4 * lift) * 4 * s, wy - Math.sin(-PI / 2 - 0.4 * lift) * 4 * s, s, -PI / 2 - 0.4 * lift, 'fist', heat, t); }
+      arms: [{ x: -120, y: 140, pose: 'fist' }, { x: hand[0], y: hand[1], pose: lift > 0.5 ? 'grab' : 'fist', front: true, ang: -PI / 2 - 0.4 * lift,
+        // the shard, held up in his loosened grip between palm and fingers (its eye looking at its brother)
+        hold: lift > 0.2 ? (h) => { glow(h.palm[0], h.palm[1], 50, T_MAG, 0.5); z5MaskShard(h.palm[0] + h.ux * 9 * s, h.palm[1] + h.uy * 9 * s, 1.5, 0.4 + Math.sin(t * 2) * 0.05, 1, -0.6, t); } : undefined }, null, null] });
     if (lt < 0.067) tintAll(T_BLOOD, 0.4);
     for (const [ex, ey] of o.eyes) glow(ex, ey, 40 * ign, T_EMBER, 0.5 * Math.max(0, 1 - lt / 0.6));
     shk(lt < 0.4 ? 5 * (1 - lt / 0.4) : 0.6);
@@ -2296,9 +2458,13 @@
     const PX = 300, PY = 140;                                  // the pinch: where the tip is held
     const tugs = [0.25, 0.62, 0.98], pull = tugs.reduce((s_, h) => s_ + Math.max(0, Math.sin(PI * clamp((lt - h) / 0.3, 0, 1))), 0);
     const S = 3.2, hx = PX - 29 * S - 14 * S - pull * 4, hy = PY + 2 + z5Sh(t, 2) * pull;
+    // the hand: not one pixel of give. Palm behind the blade, finger and thumb closing on it (four frames), the hero in front
+    const pin = eoc(clamp(lt / 0.13, 0, 1)), HP = { curls: [lerp(0.15, 0.48, pin), lerp(0.4, 0.95, pin), lerp(0.45, 0.98, pin), 1], thumb: lerp(0.2, 0.66, pin), spread: lerp(0.6, 0, pin) };
+    sGauntlet(PX + 44, PY + 10, 3.4, PI + 0.3, HP, 0.6, t, { layer: 'palm' });
     z5Zenith(hx, hy, S, t, { sw: 0.04 * z5Sh(t * 2, 4), spread: 0.7 + 0.3 * pull, flap: 0.5, wt: t * 4, orbR: 0, auraR: 9, sparks: 18, sq: -0.12 * pull, eyes: 'glow', mouth: pull > 0.3 ? 2 : 1 });
-    // the hand: not one pixel of give
-    sGauntlet(PX + 34, PY + 14, 3.4, PI + 0.35, 'grab', 0.6, t);
+    sGauntlet(PX + 44, PY + 10, 3.4, PI + 0.3, HP, 0.6, t, { layer: 'fingers' });
+    // where porcelain grips light: the blade glows white there and grinds sparks on each tug
+    tugs.forEach((h, k) => { const g = lt - h; if (g > 0 && g < 0.25) for (let q = 0; q < 6; q++) { const a = PI + (ih(q, k, 4212) - 0.5) * 1.8, v = 40 + ih(q, k + 3, 4212) * 90; P(PX + Math.cos(a) * v * g, PY + Math.sin(a) * v * g + 60 * g * g, q % 2 ? 22 : 60); } });
     glow(PX, PY, 30, T_WH, 0.35 + 0.2 * pull);
     if (lt < 0.1) { i4Skid(PX, PY, lt, PI, 30, 4211); }
     shk(lt < 0.1 ? 4 : pull * 1.2);
@@ -2308,14 +2474,14 @@
 
   /* 12 — the flick (0:25.4–0:26.6): one finger. The hero is gone — down through the cloud sea, miles of it, tumbling,
      and out under it into the dark ocean world, the sea rushing up */
+  const PX4 = 300;
   shot(25.4, 26.6, (lt, t) => {
     const fall = clamp((lt - 0.12) / 1.08, 0, 1);
     if (lt < 0.12) {
       gradient(LB, H - LB, SKY_FIGHT);
       // the finger flicks out; the hero is simply gone along the line of it, a prism streak and a ring left in the air
       const fl_ = eoc(clamp(lt / 0.05, 0, 1));
-      sGauntlet(334, 154, 3.4, PI + 0.35, 'grab', 0.8, t);
-      capsF(300, 150, lerp(300, 252, fl_), lerp(150, 170, fl_), 9, 8, (u, d, X, Y, nx, ny) => d > 0.84 ? 96 : bone(nx, ny, X, Y));
+      sGauntlet(PX4 + 44, 150, 3.4, PI + 0.3, { curls: [lerp(0.48, 0, fl_), 0.95, 0.98, 1], thumb: lerp(0.66, 0.9, fl_), spread: 0 }, 0.8, t);
       const g = lt, hx = 250 - g * 1600, hy = 172 + g * 900;
       for (let q = 0; q < 40; q++) { const u = q / 40; thick(lerp(250, hx, u), lerp(172, hy, u), lerp(250, hx, u) + 1, lerp(172, hy, u), 3, PRISM_C[q % 7]); }
       shockRing(250, 170, 6 + g * 500, 4 + g * 300, 3, [22, 60, 59], 1 - g / 0.12);
@@ -2373,14 +2539,17 @@
     const A0 = fistAt(0, [-130, 120], [-60, -60], CB[0]), A3 = fistAt(3, A0, [-260, 20], CB[3]);
     const B2 = fistAt(2, [134, 120], [200, 0], CB[2]), D1 = fistAt(1, [96, 196], [60, 240], CB[1]), C4 = fistAt(4, [-96, 196], [40, 160], CB[4]);
     const armUL = tt < 29.0 ? A0 : A3;
-    sunderer(MX, my, s, t, { eyes: 1.3, heat: 0.75, crown: 1, nod: 0.8,
+    const DX = [0, 0.3, -1, 1, 1];                                  // which way each blow travels (sideways)
+    let leanW = 0, nodW = 0; CB.forEach((h, k) => { const g = tt - h; if (g > -0.32 && g < -0.08) { const u = Math.sin(PI * (g + 0.32) / 0.24); leanW -= DX[k] * 9 * u; nodW -= (k === 0 ? 2.5 : 1) * u; } else if (g >= -0.08 && g < 0.6) { const u = g < 0.05 ? eoc((g + 0.08) / 0.13) : Math.exp(-(g - 0.05) * 5); leanW += DX[k] * 12 * u; nodW += (k === 0 ? 3.5 : 1.5) * u; } });
+    sunderer(MX, my, s, t, { eyes: 1.3, heat: 0.75, crown: 1, nod: 0.8 + nodW, lean: leanW, tilt: leanW * 0.004,
       arms: [{ x: armUL[0], y: armUL[1], pose: 'fist', fs: 1.9, front: true }, { x: B2[0], y: B2[1], pose: 'fist', fs: 1.9, front: tt > 28.5 && tt < 29.1 }, { x: C4[0], y: C4[1], pose: tt > 29.6 && tt < 30.3 ? 'open' : 'fist', fs: 1.9, front: tt > 29.6 && tt < 30.3, ang: tt > 29.6 && tt < 30.3 ? PI * 0.15 : undefined }, { x: D1[0], y: D1[1], pose: 'fist', fs: 1.9, front: tt > 28.0 && tt < 28.6 }] });
     // the sea where he stands
     if (land > 0.9) rocks(MX, 230, t - 27.62, 30, 240, 3, [117, 118, 119, 22], 4241, 280, -PI / 2, 2.6);
     // the hero: guard thrown up as each blow comes (too late), then the blow: tumbling, wings crumpling
     const guard = CB.reduce((m, h) => Math.max(m, sstep(h - 0.2, h - 0.05, tt) * (1 - sstep(h, h + 0.02, tt))), 0);
     const spin = CB.reduce((a, h, k) => a + (tt > h ? (k % 2 ? -1 : 1) * 4.5 * eoc(clamp((tt - h) / 0.5, 0, 1)) : 0), 0);
-    z5Zenith(hx, hy, 1.15, t, { sw: guard > 0.2 ? -1.6 : -0.3 + Math.sin(tt * 7) * 0.8, ang: spin + guard * -0.2, spread: 0.45 + 0.2 * guard, flap: 0.5, orbR: 0, auraR: 4, sparks: 4, eyes: guard > 0.2 ? 'wide' : 'closed', mouth: guard > 0.2 ? 1 : 2, sq: guard * 0.2 });
+    const squash = CB.reduce((m, h) => { const g = t - h; return g >= 0 && g < 0.25 ? Math.max(m, Math.exp(-g * 14)) : m; }, 0);
+    z5Zenith(hx, hy, 1.15, t, { sq: 0.45 * squash, sw: guard > 0.2 ? -1.6 : -0.3 + Math.sin(tt * 7) * 0.8, ang: spin + guard * -0.2, spread: 0.45 + 0.2 * guard, flap: 0.5, orbR: 0, auraR: 4, sparks: 4, eyes: guard > 0.2 ? 'wide' : 'closed', mouth: guard > 0.2 ? 1 : 2, sq: guard * 0.2 });
     // the blows
     CB.forEach((h, k) => { const dir = [PI / 2, -PI / 2 - 0.3, PI - 0.3, 0.2, 0.15][k]; megaHit(HP[k][0], HP[k][1], t - h, k === 0 || k === 4 ? 2.6 : 2, dir, [22, 105, 103], 4242 + k); });
     // the backhand drags the hero across the sea: a trail of spray
@@ -2404,9 +2573,11 @@
     });
     // the arm, from off the right, and the fist with the hero crushed in it (a wing and the head showing)
     capsF(FX + 30, FY, W + 120, FY - 60, 18, 26, (u, d, X, Y, nx) => d > 0.84 ? 96 : OBS[clamp(fl(2 - nx * 1.6 + (bay(X, Y) - 0.5)), 0, 4)]);
-    z5Wings(FX - 8, FY - 20, 0.9, t * 3, 0.35, 0.6);
-    actor(HERO3({ form: 'zenith', eyes: 'closed', mouth: 2, sword: null }), FX - 26, FY - 10, 1.7, -0.6 + z5Sh(t, 5) * 0.2, false, { still: true });
-    sGauntlet(FX + 30, FY, 2.2, PI, 'grab', 0.8, t);
+    const sqz = 0.75 + 0.1 * Math.sin(t * 9) + SP15.reduce((m, h) => m + (t > h && t < h + 0.25 ? 0.15 * Math.exp(-(t - h) * 10) : 0), 0);
+    sGauntlet(FX + 30, FY, 2.2, PI, { curl: sqz, thumb: 0.7, spread: 0.1 }, 0.8, t, { hold: () => {
+      z5Wings(FX - 8, FY - 22, 0.9, t * 3, 0.32 + 0.08 * Math.sin(t * 7), 0.7);
+      actor(HERO3({ form: 'zenith', eyes: 'closed', mouth: 2, sword: null, sq: 0.25 + 0.1 * Math.sin(t * 9), cracks: 0.2 }), FX - 10, FY - 4, 1.7, -0.6 + z5Sh(t, 5) * 0.2, false, { still: true });
+    } });
     streaks(0, 30, t, 2600, 121, 60, 4257, [0, LB, W, H - 2 * LB]);
     shk(4);
     const [kz, kr] = kick(t, SP15.map((h) => [h, 1.2]));
@@ -2447,7 +2618,7 @@
     aura(t, ZEN_AURA, 6, { sparks: 4 });
     // the palm: immense, still; on the second blow its fingers close a little
     const curl = sstep(S2 + 0.05, S2 + 0.5, t);
-    sGauntlet(PX + 60, PY + 10, 3.6, PI, curl > 0.5 ? 'grab' : 'open', 0.7, t);
+    sGauntlet(PX + 60, PY + 10, 3.6, PI, { curl: 0.08 + 0.06 * Math.sin(t * 1.7) + curl * 0.45, thumb: 0.08 + curl * 0.3, spread: 0.85 - curl * 0.4 }, 0.7, t);
     [S1, S2].forEach((h, k) => { const g = t - h; if (g >= 0 && g < 0.35) { i4Skid(PX - 6, PY - 6 + k * 14, g, PI + 0.4 - k * 0.8, 26, 4273 + k); shockRing(PX - 6, PY, 4 + g * 160, 4 + g * 160, 2, [22, 60, 59], 1 - g / 0.3); } });
     shk((g1 > 0 && g1 < 0.2) || (g2 > 0 && g2 < 0.25) ? 3 : 0.5);
     z5Cam(1.08, 0.01 * z5N(t * 0.4, 2), 270, 150, 240, 140);
@@ -2466,7 +2637,8 @@
     actor(HERO3({ form: 'zenith', eyes: lt > 0.6 ? 'closed' : 'wide', mouth: lt > 0.4 ? 2 : 1, sword: 0.6 + press * 0.6, swordCols: z5Sw(t), sq: 0.15 + press * 0.45, cracks: 0.25 + press * 0.45, legs: [2, 2, 2, 2] }), CX, hy, 2.6, 0, false, { still: true });
     aura(t, ZEN_AURA, 6 + z5Sh(t, 2) * 2, { sparks: 6 });
     // the palm, enormous, face down, coming down out of the top of the frame
-    sGauntlet(CX + 10, lerp(-40, 30, eoc(pz)) + press * 26, 5.2, PI / 2, 'open', 0.9, t);
+    const tips = sGauntlet(CX + 10, lerp(-40, 30, eoc(pz)) + press * 26, 5.2, PI / 2, { curl: 0.12 - press * 0.12, thumb: 0.05, spread: 0.7 + press * 0.3 }, 0.9, t);
+    if (press > 0.3) for (let k = 0; k < 7; k++) { const a = -PI + (k + 0.5) / 7 * PI, L = 30 + press * 60 * (0.6 + ih(k, 1, 4283) * 0.6); let x = CX + Math.cos(a) * 34, y = CY + 12 + Math.sin(a) * -6; for (let q = 0; q < 6; q++) { const nx = x + Math.cos(a) * L / 6 + (ih(k, q, 4284) - 0.5) * 6, ny = y + Math.sin(a) * -L / 36; lineP(x, y, nx, ny, q < 2 && press > 0.7 ? 104 : 96); x = nx; y = ny; } }
     // the pressure itself: the air dragged downward, the picture bent toward the ground
     streaks(PI / 2, 50, t, 2000, 121, 50, 4281, [0, LB, W, H - 2 * LB]);
     warp(CX, CY - 10, 200, 0.18 + 0.32 * press, 1.4);
@@ -2726,11 +2898,20 @@
     const draw = eio(clamp((lt - 0.4) / 1.1, 0, 1)), laugh = [0.1, 0.35, 0.6].reduce((s_, h) => s_ + Math.max(0, Math.sin(PI * clamp((lt - h) / 0.2, 0, 1))), 0);
     const SX = 370;
     for (let q = 0; q < 210; q++) { const w = 70 * (1 - q / 260); thick(420 - w / 2, 250 - q, 420 + w / 2, 250 - q, 2, q % 37 < 2 ? 102 : q < 120 ? 98 : 99); }
-    const so = sunderer(SX, 78, 1.0, t, { eyes: 1.4, heat: 0.9, crown: 0.75, rage: 0.4, roar: 0.25 + laugh * 0.3, nod: -laugh * 2, wounds: [WOUND1, WOUND2],
-      arms: [{ x: lerp(-60, -150, draw), y: lerp(30, 40, draw), pose: 'grab', front: true, ang: 0 }, { x: 140, y: 90, pose: 'fist' }, { x: -96, y: 196, pose: 'fist' }, { x: 110, y: 190, pose: 'open' }] });
+    // the hero first (it is in front of nothing of his), then him: his hand closes round the blade — palm under it, fingers
+    // over it — and the blade is drawn inside the grip, so it is held, not overlaid
     const hx = 200 - draw * 70, hy = 170 + z5Sh(t, 4) * 2;
     const a = i4Nova(hx, hy, 2.0, t, { sw: -0.08, spread: 0.7, flap: 0.6, mouth: 2, noSmear: true, sq: -0.15 + z5Sh(t * 2, 3) * 0.08 });
-    bigBlade(a.hand[0], a.hand[1], -0.12, 460 - draw * 70, 4.8, t, { form: 'nova', flare: 0.6 });
+    const grip = eoc(clamp(lt / 0.3, 0, 1)), strainP = z5Sh(t * 1.5, 6) * 2 * draw;
+    // the grip point on the blade (it slides out through his hand as he draws it), and the wrist placed so the knuckles sit
+    // just over the blade with the fingers wrapping down round it
+    const gx = 318 - draw * 46, gy = a.hand[1] + (gx - a.hand[0]) * Math.tan(-0.12), GA = PI / 2 - 0.35;
+    const wlx = (gx - Math.cos(GA) * 12 - SX) / 1.0, wly = (gy - Math.sin(GA) * 12 - 78) / 1.0;
+    const so = sunderer(SX, 78, 1.0, t, { eyes: 1.4, heat: 0.9, crown: 0.75, rage: 0.4, roar: 0.25 + laugh * 0.3, nod: -laugh * 2, wounds: [WOUND1, WOUND2], lean: -draw * 10,
+      arms: [{ x: wlx, y: wly + strainP * 0.3, pose: { curl: lerp(0.15, 0.78, grip), thumb: lerp(0.2, 0.75, grip), spread: lerp(0.6, 0.05, grip) }, front: true, ang: GA,
+        hold: () => { bigBlade(a.hand[0], a.hand[1], -0.12, 460 - draw * 70, 4.8, t, { form: 'nova', flare: 0.6 }); } }, { x: 140, y: 90 + laugh * 4, pose: 'fist' }, { x: -96, y: 196, pose: 'fist' }, { x: 110, y: 190, pose: 'open' }] });
+    // where the porcelain grips the blade: it smokes and spits
+    if (so.hands[0]) { const [gx, gy] = so.hands[0].palm; for (let k = 0; k < 8; k++) { const g = frac(t * 2 + k / 8); P(gx + (ih(k, 1, 4492) - 0.5) * 16, gy - g * 30, g < 0.4 ? 105 : 121); } }
     // the molten blood running out of the hole as the blade comes out
     for (let k = 0; k < 10; k++) { const g = frac(t * 1.4 + ih(k, 1, 4491)); rectF(SX + 74 + (ih(k, 2, 4491) - 0.5) * 10, 120 + g * 90, 2, 3, g < 0.5 ? 105 : 103); }
     shk(1 + laugh * 2);
@@ -2764,7 +2945,7 @@
   {
     /* -------------------------------------------------------------- state and helpers (all a4…) */
     const A4W0 = [[-60, 58, 44, 112, 3.5], [70, 34, 92, 52, 4]];             // his two wounds at 58.0 (they rewind closed)
-    const A4SAVE = new Uint8Array(NP), A4SAVE2 = new Uint8Array(NP);
+    const A4SAVE = new Uint8Array(NP);
     const A4L = PAL.map((p) => p[0] * 0.3 + p[1] * 0.55 + p[2] * 0.15);
     const WARMF = [104, 105, 106, 107, 108, 109, 110], CORONA = [103, 105, 106, 107], LASTF = [101, 103, 104, 107];
     const ORBD = [[45, 46, 47], [48, 49, 50], [51, 52, 53], [54, 55, 56]];
@@ -2773,66 +2954,13 @@
     function a4Cam(z, r, fx, fy, k) { k = k || [0, 0, 0, 0]; z5Cam(Math.max(1, z + k[0]), r + k[1], fx - k[2], fy - k[3], 240, 135); }
     const a4Tw = (t, s) => Math.sin(t * 23 + s) * 0.5 + Math.sin(t * 37 + s * 1.7) * 0.3 + Math.sin(t * 59 + s * 2.9) * 0.2;   // a tremble
 
-    /* the Sunderer, with his body drawn by a faster copy of the engine's own body pass (the same picture: seams looked up in a
-       precomputed field, the row shape computed once per row), so that he can fill the frame and stay inside the budget */
-    let A4SG = null; const SGX0 = -132, SGX1 = 132, SGY0 = 10, SGY1 = 430, SGR = 2, SGW = (SGX1 - SGX0) * SGR, SGH = (SGY1 - SGY0) * SGR;
-    function a4Seams() {
-      if (A4SG) return A4SG;
-      A4SG = new Float32Array(SGW * SGH);
-      for (let j = 0; j < SGH; j++) for (let i = 0; i < SGW; i++) A4SG[j * SGW + i] = seamAt((SGX0 + (i + 0.5) / SGR) / 24 + 3, (SGY0 + (j + 0.5) / SGR) / 22);
-      return A4SG;
-    }
-    function a4In(lx, ly, hw, nl, nr) {
-      if (hw < 0) return false;
-      const ax = lx < 0 ? -lx : lx;
-      if (ly < 46 && ax > 26) { const top = 30 + Math.pow(Math.max(0, ax - 26) / 82, 1.6) * 16; if (ly < top) return false; }
-      return ax < hw + ((lx > 0 ? nr : nl) - 0.5) * 8;
-    }
-    function a4Body(cx, cy, s, t, o) {
-      const heat = o.heat === undefined ? 0.5 : o.heat, dark = o.dark || 0, core = o.core === undefined ? 1 : o.core, wounds = o.wounds || [], G = a4Seams();
-      const x0 = Math.max(0, fl(cx - 112 * s - 60)), x1 = Math.min(W - 1, Math.ceil(cx + 112 * s + 60)), y0 = Math.max(LB, fl(cy + 14 * s - 40)), y1 = H - LB - 1;
-      const pulse = 0.5 + 0.5 * Math.sin(t * 2.2), is = 1 / s;
-      for (let y = y0; y <= y1; y++) {
-        const ly = (y + 0.5 - cy) * is, hw = sHW(ly); if (hw < 0) continue;
-        const nl = vn(ly * 0.08, 0, 1, 973), nr = vn(ly * 0.08, 1, 1, 973), lu = ly - 2.2, hwu = sHW(lu), nlu = vn(lu * 0.08, 0, 1, 973), nru = vn(lu * 0.08, 1, 1, 973);
-        const xa = Math.max(x0, fl(cx - (hw + 5) * s)), xb = Math.min(x1, Math.ceil(cx + (hw + 5) * s)), gj = fl((ly - SGY0) * SGR), row = y * W;
-        for (let x = xa; x <= xb; x++) {
-          const lx = (x + 0.5 - cx) * is;
-          if (!a4In(lx, ly, hw, nl, nr)) continue;
-          if (!a4In(lx + 2.2, ly, hw, nl, nr) || !a4In(lx - 2.2, ly, hw, nl, nr) || !a4In(lx, lu, hwu, nlu, nru)) { BUF[row + x] = heat > 0.2 ? (lx < 0 ? 102 : 101) : 98; continue; }
-          const ax = lx < 0 ? -lx : lx;
-          // the planes (sPlanes, inlined)
-          let pk, groove = false;
-          const pu = (ax - 36) / 38, pv = (ly - 64) / 24, pr = pu * pu + pv * pv;
-          if (ax < 3.2 && ly > 44 && ly < 150) { pk = -1.5; groove = true; }
-          else if (pr < 1) { pk = 0.4 - pv * 1.1 - pu * 0.3; groove = pr > 0.86 && pv > 0; }
-          else if (ly > 90 && ly < 150 && ax < 44) { const f = frac((ly - 90) / 20), col = ax / 22; if (f < 0.12 || Math.abs(col - 1) < 0.07) { pk = -1.4; groove = true; } else pk = 0.3 - f * 1.1 - col * 0.25; }
-          else pk = -0.6 - (ax - 40) / 90;
-          const lit = 0.45 - lx / 260 + pk * 0.42;
-          let c = OBS[clamp(fl(lit * 3.2 + (bay(x, y) - 0.5) * 0.9), 0, 4)];
-          const dh = Math.sqrt(lx * lx + (ly - 70) * (ly - 70) * 1.44), vh = Math.min(1, heat * 1.3 * Math.max(0, 1 - dh / 120));
-          if (groove) c = vh > 0.5 ? (vh > 0.7 ? 104 : 103) : vh > 0.3 ? 102 : 96;
-          else {
-            const gi = fl((lx - SGX0) * SGR), sd_ = gi >= 0 && gi < SGW && gj >= 0 && gj < SGH ? G[gj * SGW + gi] : seamAt(lx / 24 + 3, ly / 22), wv = 0.012 + vh * vh * 0.11;
-            if (sd_ < wv) c = sd_ < wv * 0.4 && vh > 0.3 ? (vh > 0.55 ? (pulse > 0.5 ? 106 : 105) : 104) : vh > 0.15 ? 103 : 101;
-          }
-          if (ly < 56) for (let sd = -1; sd <= 1; sd += 2) { const px = (lx - sd * 84) / 36, py = (ly - 40) / 22, pr2 = px * px + py * py; if (pr2 < 1) { c = pr2 > 0.84 ? 69 : bone(px * 0.9, py - 0.5, x, y, -0.2); if (Math.abs(py - 0.15 - px * px * 0.3) < 0.08) c = 96; if (Math.abs(py + 0.35 - px * px * 0.25) < 0.05) c = 68; } }
-          const hy = ly - 70, hr = Math.sqrt(lx * lx + hy * hy);
-          if (core > 0 && hr < 15) c = hr < 13 ? (hr < 6 * core ? (hr < 3 * core ? 22 : 107) : hr < 10 ? (Math.abs(Math.sin(Math.atan2(hy, lx) * 4 + t)) < 0.25 ? 105 : 103) : 102) : 96;
-          for (let k = 0; k < wounds.length; k++) { const [ax0, ay0, ax1, ay1, ww] = wounds[k], ddx = ax1 - ax0, ddy = ay1 - ay0, L2 = ddx * ddx + ddy * ddy || 1, u = clamp(((lx - ax0) * ddx + (ly - ay0) * ddy) / L2, 0, 1), d = Math.hypot(lx - ax0 - ddx * u, ly - ay0 - ddy * u), w3 = ww || 3; if (d < w3) c = d < w3 * 0.45 ? 22 : 105; else if (d < w3 + 1.5) c = 101; }
-          if (dark > 0 && c !== 22 && c < 103 && bay(x, y) < dark) c = 96;
-          BUF[row + x] = c;
-        }
-      }
-      if (heat > 0) glow(cx, cy + 70 * s, 40 * s, T_EMBER, 0.35 * heat * core);
-    }
+    /* the Sunderer: the engine's own (the bump-mapped body, the sculpted arms with their physics, the jointed hands). His
+       physics keep per-draw state by call order within a frame, but only start counting afresh when he is drawn before any
+       hero in that frame — so count afresh here, whatever was drawn first */
     function a4Sund(cx, cy, s, t, o) {
-      o = o || {};
-      sunderer(cx, cy, s, t, Object.assign({}, o, { body: false, mask: false, arms: [] }));     // the crown and his heat on the air
-      if (o.body !== false) a4Body(cx + (o.shake ? z5Sh(t, 7) * o.shake : 0), cy + (o.still ? 0 : Math.sin(t * 0.9) * s), s, t, o);
-      return sunderer(cx, cy, s, t, Object.assign({}, o, { body: false, crown: 0, glow: 0 }));
+      if (SLIFE.t !== LIFE.t) { SLIFE.n = 0; SLIFE.t = LIFE.t; }
+      return sunderer(cx, cy, s, t, o || {});
     }
-    const A4ARMS = (a, b, c, d) => [a, b, c, d];
 
     /* the hero's wings in the colours of a form: 'nova' (flame-light), 'zenith' (prism, the engine's), 'ghost' (a magenta trace) */
     function a4Wings(x, y, s, t, spread, flap, kind) {
@@ -2925,8 +3053,9 @@
           let hole = false;
           if (holes) for (const [hx, hy, hr] of holes) { const dx = (x - hx) / hr, dy = (y - hy) / (hr * 0.3); const d = dx * dx + dy * dy; if (d < 1) { hole = true; BUF[y * W + x] = d > 0.8 ? 106 : d > 0.55 ? 15 : 16; break; } }
           if (hole) continue;
-          let c = dd < 1.5 ? (lit > 0.5 ? 103 : 99) : dd < 4 ? (lit > 0.5 ? 102 : 98) : dd < 10 + 9 * vn(wx, y, 9, 4412) ? 121 : 97;
-          if (bay(x, y) < 0.14 && dd > 4) c = 120;
+          const n = vn(wx, y, 9, 4412), m = vn(wx * 1.7, y * 2, 5, 4413), b = bay(x, y);
+          let c = dd < 1.5 ? (lit > 0.5 ? 103 : 99) : dd < 4 ? (lit > 0.5 ? (b < 0.5 ? 102 : 103) : 98) : dd < 7 + 5 * m ? (lit > 0.5 && b < 0.5 ? 102 : 121) : dd < 12 + 9 * n ? (m > 0.5 ? 121 : b < 0.5 ? 120 : 121) : n > 0.6 ? 120 : 97;
+          if (b < 0.14 && dd > 4) c = 120;
           BUF[y * W + x] = c;
         }
       }
@@ -2934,10 +3063,10 @@
     // a stump of rock out of the sea: flat broken top at (x0..x1, top), jagged sides down to the water
     function a4Rock(x0, x1, top, bot, seed, lit) {
       for (let y = Math.max(LB, fl(top)); y < Math.min(H - LB, bot); y++) {
-        const v = (y - top) / (bot - top), l = x0 - v * 14 - vn(y * 0.3, 1, 1, seed) * 8, r = x1 + v * 12 + vn(y * 0.3, 2, 1, seed) * 8;
+        const v = (y - top) / (bot - top), l = x0 - v * 14 - vn(y * 0.3, 1, 1, seed) * 8, r = x1 + v * 12 + vn(y * 0.3, 2, 1, seed) * 8, R = a4TexRow(seed, fl(y * 1.4));
         for (let x = Math.max(0, fl(l)); x <= Math.min(W - 1, r); x++) {
           const e = (x - l) / Math.max(1, r - l);
-          BUF[y * W + x] = y - top < 2 ? (lit ? 123 : 122) : e < 0.18 ? (lit ? 122 : 99) : e > 0.8 ? 97 : bay(x, y) < 0.3 ? 98 : 99;
+          BUF[y * W + x] = y - top < 1.5 ? (lit ? 123 : 122) : y - top < 3.5 ? (lit ? 122 : 121) : a4Lit(R[x], x, y, 0.15, lit ? 0.45 : 0.2, e < 0.15 ? 1 : e > 0.8 ? -2 : -1 + (v < 0.2 ? 1 : 0));
         }
       }
     }
@@ -2980,7 +3109,7 @@
       const turn = eio(lin(58.0, 59.8, t)), wc = 1 - eio(lin(58.55, 59.55, t + (frac(t * 6.3) < 0.2 ? -0.06 : 0)));
       const wounds = A4W0.map(([a, b, c, d, w], k) => { const m = k ? Math.min(1, wc * 1.4) : wc, mx = (a + c) / 2, my = (b + d) / 2; return [lerp(mx, a, m), lerp(my, b, m), lerp(mx, c, m), lerp(my, d, m), w * (0.4 + 0.6 * m)]; }).filter((w) => Math.hypot(w[2] - w[0], w[3] - w[1]) > 1.5);
       const so = a4Sund(322, 92, 1.2, t, { third: 1, eyes: 1.3, heat: 0.8, crown: 0.75, rage: 0.3, wounds, tilt: -0.05 * turn,
-        arms: [{ x: -142, y: 38 - turn * 10, pose: 'open', ang: -PI / 2 - 0.5 - turn * 1.3 }, { x: 128, y: 150, pose: 'fist' }, { x: -84, y: 186, pose: 'fist' }, { x: 92, y: 182, pose: 'fist' }] });
+        arms: [{ x: -142, y: 38 - turn * 10, pose: 'open', ang: -PI / 2 - 0.5 - turn * 1.3 }, a4Rest(128, 150, 11, t), a4Rest(-84, 186, 12, t), a4Rest(92, 182, 13, t)] });
       // the wounds close with light running along them, backwards
       if (wc > 0 && wc < 1) for (const [a, b, c, d] of wounds) for (const e of [[a, b], [c, d]]) sparkle(322 + e[0] * 1.2, 92 + e[1] * 1.2 + Math.sin(t * 0.9) * 1.2, 2 + 3 * ih(fl(t * 30), e[0] | 0, 4431), 22, 105);
       // his eye: at the hit a ring of void runs out from it; then a thread of magenta binds it to the hero
@@ -3021,39 +3150,92 @@
       shk(rw ? 1.5 : 0); if (g0 < 0.3) shk(6 * (1 - g0 / 0.3));
     });
   
-    /* -------------------------------------------------------------- the chasm */
+    /* -------------------------------------------------------------- the chasm
+       Its rock is one lit texture in world space (x across, wy down), cached row by row as it is first seen: tilted strata of
+       two rocks (black glass and ash-grey stone) with dark partings between them, relief from three octaves of noise lit from
+       above, and molten seams. Each texel keeps its brightness (0..7), which way it faces (up, level, down), its stratum and
+       how near a seam it is, so walls scroll for nothing and are lit afresh each frame by a4Lit. */
+    const A4TX = new Map();
+    function a4TexRow(seed, wy) {
+      let T = A4TX.get(seed); if (!T) A4TX.set(seed, T = new Map());
+      let r = T.get(wy); if (r) return r;
+      r = new Uint8Array(W); T.set(wy, r);
+      const sl = (ih(seed, 1, 4590) - 0.5) * 0.022, sx = (seed % 17) * 3.1;
+      const hf = (x, y) => vn(x, y, 13, seed + 1) * 1.1 + vn(x, y, 4.5, seed + 2) * 0.45 + vn(x, y, 1.7, seed + 3) * 0.14;
+      const sv = (x, y) => y * 0.045 + x * sl + vn(x, y, 90, seed + 4) * 1.3 + vn(x, y, 23, seed + 6) * 0.25;
+      const rdg = (q) => { const g = q - fl(q); return g < 0.07 ? -0.6 : Math.sin(g * PI) * 0.35; };
+      for (let x = 0; x < W; x++) {
+        const s0 = sv(x, wy), band = fl(s0), f = s0 - band;
+        const h0 = hf(x, wy) + rdg(s0), gx = hf(x + 1, wy) + rdg(sv(x + 1, wy)) - h0, gy = hf(x, wy + 1) + rdg(sv(x, wy + 1)) - h0;
+        const lit = 0.5 - gy * 2.4 - gx * 0.9 + (f < 0.07 ? -0.3 : 0) + (ih(band, 3, seed) - 0.5) * 0.25;
+        const lvl = clamp(fl(lit * 7 + (ih(x, wy, seed + 5) - 0.5) * 0.8), 0, 7), face = gy < -0.05 ? 1 : gy > 0.07 ? 2 : 0;
+        const sd = vn(x, wy, 60, seed + 7) < 0.52 ? 1 : seamAt(x / 64 + sx, wy / 52), sq = sd < 0.009 ? 0 : sd < 0.024 ? 1 : sd < 0.045 ? 2 : 3;
+        r[x] = lvl | (face << 3) | ((band & 1) << 5) | (sq << 6);
+      }
+      return r;
+    }
+    // a texel lit for this frame: hot 0..1 the fire's light on it (lit faces turn red, seams burn), sky 0..1 the cold dawn
+    // far above (lit faces turn ash-pale), k extra brightness
+    const A4RA = [96, 96, 97, 98, 98, 99, 100, 100], A4RB = [96, 97, 97, 120, 121, 121, 122, 122];
+    function a4Lit(v, x, y, hot, sky, k) {
+      let lvl = (v & 7) + k; lvl = lvl < 0 ? 0 : lvl > 7 ? 7 : lvl;
+      const face = (v >> 3) & 3, B = (v >> 5) & 1, sq = v >> 6, b = bay(x, y);
+      let c = B ? A4RB[lvl] : A4RA[lvl];
+      if (face === 1 && lvl >= 4) { if (b < hot * 1.2) c = lvl >= 6 && hot > 0.45 ? 103 : lvl >= 5 ? 102 : 101; else if (b < sky && lvl >= 5) c = B ? 123 : 122; }
+      else if (face === 2 && lvl < 4 && b < 0.5) c = 96;
+      if (sq === 0) { if (hot > 0.03) c = hot > 0.6 ? (b < 0.5 ? 106 : 105) : hot > 0.35 ? 104 : hot > 0.15 ? 103 : 102; }
+      else if (sq === 1) { if (hot > 0.12) c = hot > 0.5 ? 103 : 102; }
+      else if (sq === 2 && hot > 0.3 && b < hot - 0.2) c = 101;
+      return c;
+    }
     // a wall of the chasm: rock from the frame edge to a jagged face at xe (side -1: the wall is on the left), oy the camera's
-    // depth (world y = y + oy); molten seams burn in it, hotter near the top (heat at depth 0, cooling with depth over cool px)
+    // depth (world y = y + oy); its seams burn hotter near the top (heat at depth 0, cooling over cool px); the face's lip
+    // catches the chasm's light, the rock deep in shadow away from it
     function a4Wall(side, xe, oy, t, heat, cool, seed, lit) {
       seed = seed || 4501; cool = cool || 900;
       for (let y = LB; y < H - LB; y++) {
-        const wy = y + oy, e = xe + (vn(wy * 0.05, 0, 1, seed) - 0.5) * 36 + (vn(wy * 0.21, 0, 1, seed + 1) - 0.5) * 9, hy = heat * clamp(1 - wy / cool, 0, 1);
-        const xa = side < 0 ? 0 : Math.max(0, fl(e)), xb = side < 0 ? Math.min(W - 1, fl(e)) : W - 1, row = y * W;
+        const wy = fl(y + oy), e = xe + (vn(wy * 0.05, 0, 1, seed) - 0.5) * 36 + (vn(wy * 0.21, 0, 1, seed + 1) - 0.5) * 9, hy = heat * clamp(1 - wy / cool, 0, 1);
+        const xa = side < 0 ? 0 : Math.max(0, fl(e)), xb = side < 0 ? Math.min(W - 1, fl(e)) : W - 1, row = y * W, R = a4TexRow(seed, wy);
         for (let x = xa; x <= xb; x++) {
-          const d = side < 0 ? e - x : x - e;
-          const n = vn(x * 0.9 + wy * 0.13, wy * 0.11, 9, seed + 2), v = seamAt(x / 70 + seed, wy / 56) + (vn(x, wy, 40, seed + 5) < 0.45 ? 1 : 0);
-          let c = d < 1.5 ? (lit ? 122 : 100) : d < 4 ? (lit ? 100 : 99) : n > 0.62 ? 99 : n > 0.35 ? 98 : 97;
-          if (v < 0.015 + hy * 0.03) c = hy > 0.55 ? (v < 0.015 ? 106 : 104) : hy > 0.25 ? 103 : hy > 0.08 ? 102 : 101;
-          else if (d > 60 && bay(x, y) < 0.3) c = 96;
+          const d = side < 0 ? e - x : x - e, near = d < 70 ? 1 - d / 70 : 0;
+          let c = a4Lit(R[side < 0 ? x : W - 1 - x], x, y, hy * (0.35 + 0.65 * near), lit ? 0.35 : 0.1, d < 6 ? 2 : d < 18 ? 1 : d > 150 ? -1 : 0);
+          if (d < 1.5) c = lit ? (hy > 0.25 ? 104 : 123) : hy > 0.2 ? 102 : 99;
+          else if (d < 3) c = lit ? (hy > 0.25 ? 102 : 122) : 98;
           BUF[row + x] = c;
         }
       }
     }
-    // the inside of the chasm behind the walls: its far face, dim, seams and glow fading with depth
+    // the inside of the chasm behind the walls: its far face, dim and low in contrast, hazed with the fire's light (hotter
+    // near the top), shafts of light falling from the cut far above
     function a4Deep(oy, t, heat, cool) {
       cool = cool || 900;
       for (let y = LB; y < H - LB; y++) {
-        const wy = y + oy, hy = heat * clamp(1 - wy / cool, 0, 1), row = y * W, base = hy > 0.6 ? 98 : hy > 0.3 ? 97 : 96;
+        const wy = fl((y + oy) * 0.6), hy = heat * clamp(1 - (y + oy) / cool, 0, 1), row = y * W, R = a4TexRow(4512, wy);
         for (let x = 0; x < W; x++) {
-          const v = seamAt(x / 60 + 7, wy / 80) + (vn(x, wy, 50, 4512) < 0.45 ? 1 : 0), n = vn(x, wy * 0.25, 24, 4513);
-          BUF[row + x] = v < 0.01 + hy * 0.015 && hy > 0.05 ? (hy > 0.5 ? 103 : 102) : bay(x, y) < hy * 0.3 + n * 0.25 ? (hy > 0.5 ? 101 : 97) : base;
+          const v = R[x], lvl = v & 7, sq = v >> 6, b = bay(x, y);
+          let c = lvl < 3 ? 96 : lvl < 6 ? 97 : (v >> 5) & 1 ? 120 : 98;
+          if (b < hy * (0.08 + lvl * 0.045)) c = lvl > 4 ? 102 : 101;
+          if (sq === 0 && hy > 0.3) c = hy > 0.65 ? 103 : 102;
+          BUF[row + x] = c;
         }
       }
+      // the shafts: soft slanting bands of the cut's light, drifting
+      for (let k = 0; k < 4; k++) {
+        const x0 = ih(k, 1, 4514) * 560 - 40 + Math.sin(t * 0.3 + k) * 12, w = 10 + ih(k, 2, 4514) * 26, sl = 0.25 + ih(k, 3, 4514) * 0.2, a = (0.05 + 0.07 * ih(k, 4, 4514)) * (0.4 + heat * 0.6);
+        for (let y = LB; y < H - LB; y++) { const cx = x0 + (y - LB) * sl, fade = a * (1 - (y - LB) / (H - 2 * LB) * 0.6); for (let x = Math.max(0, fl(cx - w)); x < Math.min(W, cx + w); x++) { const e = 1 - Math.abs(x - cx) / w; tintI(y * W + x, x, y, T_WARM, fade * e); } }
+      }
     }
-    // embers and grit drifting in the chasm (dir: +1 rising, -1 falling, speed px/s)
+    // embers and grit drifting in the chasm at three depths (speed px/s: + rising, - falling): far ones dim specks, near ones
+    // bright, streaked along their motion and wavering more
     function a4Embers(t, n, speed, seed, cols) {
       cols = cols || [105, 103];
-      for (let k = 0; k < n; k++) { const y = LB + frac(ih(k, 1, seed) - t * speed / 218) * 218, x = ih(k, 2, seed) * W + Math.sin(t * 1.3 + k) * 6; P(x, y, cols[k & 1]); if (k % 3 === 0) P(x, y + (speed > 0 ? 1 : -1), 101); }
+      const dn = speed > 0 ? 1 : -1;
+      for (let k = 0; k < n; k++) {
+        const z = ih(k, 7, seed), sp = speed * (0.4 + z * 1.2), y = LB + frac(ih(k, 1, seed) - t * sp / 218) * 218, x = ih(k, 2, seed) * W + Math.sin(t * (0.8 + z) + k) * (3 + 9 * z);
+        if (z > 0.78) { P(x, y, cols[0]); P(x + 1, y, cols[1]); P(x, y + dn, cols[1]); P(x + 1, y + dn, 101); if (Math.abs(speed) > 60) { P(x, y + 2 * dn, cols[1]); P(x, y + 3 * dn, 101); } }
+        else if (z > 0.35) { P(x, y, cols[k & 1]); P(x, y + dn, 101); }
+        else if (bay(fl(x), fl(y)) < 0.75) P(x, y, 102);
+      }
     }
     // the hero's sword as a loose piece (dropped, flung): hilt at (x, y), pointing a, scale S; broken leaves a stub
     function a4Sword(x, y, a, S, cols, cracked, broken) {
@@ -3076,7 +3258,7 @@
       for (let k = 0; k < 7; k++) { const x = 30 + k * 70 + Math.sin(k * 3.1) * 20, y = 120 + Math.sin(k * 1.7) * 20; glow(x, y, 26 + (k % 3) * 8, T_EMBER, 0.5); discF(x, y, 3 + (k % 2) * 2, k % 2 ? 103 : 102); }
       for (let y = 180; y < H - LB; y++) for (let x = 0; x < W; x++) BUF[y * W + x] = bay(x, y) < (y - 180) / 70 ? 114 : 115;
       // his mass at the frame's right edge, out of focus: dark, a seam of fire, the third eye far up
-      for (let y = LB; y < H - LB; y++) { const e = 400 + Math.sin(y * 0.02) * 10 + (y - LB) * 0.15; for (let x = fl(e); x < W; x++) BUF[y * W + x] = bay(x, y) < 0.2 ? 98 : 97; }
+      for (let y = LB; y < H - LB; y++) { const e = 400 + Math.sin(y * 0.02) * 10 + (y - LB) * 0.15, R = a4TexRow(4534, fl(y * 0.5 + 300)); for (let x = fl(e); x < W; x++) { const d = x - e; BUF[y * W + x] = d < 1.5 ? 102 : d < 4 ? 98 : a4Lit(R[fl(x * 0.5)], x, y, 0.3 * Math.max(0, 1 - d / 40), 0.1, -2); } }
       lineF(430, LB, 452, H - LB, (x, y) => { if (bay(x, y) < 0.6) P(x, y, 102); });
       glow(452, 40, 30, T_MAG, 0.5);
       a4Embers(t, 30, -14, 4531, [103, 102]);
@@ -3105,7 +3287,7 @@
       a4Ceil(LB + camY * 0.5 - 4, 26, 70, null, 1);
       const hx = lerp(lerp(150, 30, rise), -170, chop), hy = lerp(lerp(150, -96, rise), 240, chop);
       const so = a4Sund(318, 110 + camY, 0.95, t, { third: 1, eyes: 1.2, heat: 0.8, crown: 0.75, tilt: 0.04 * rise - 0.1 * chop, nod: -2 * rise,
-        arms: [{ x: -150, y: 150, pose: 'fist' }, { x: hx, y: hy, pose: 'chop', ang: lerp(-PI / 2 - 0.1, PI * 0.7, chop), heat: 0.6 + rise * 0.4 }, { x: -86, y: 196, pose: 'fist' }, { x: 92, y: 192, pose: 'fist' }] });
+        arms: [a4Rest(-150, 150, 14, t), { x: hx, y: hy, pose: a4PL('fist', 'chop', eoc(lin(61.15, 61.5, t))), ang: lerp(-PI / 2 - 0.1, PI * 0.7, chop), heat: 0.6 + rise * 0.4 }, a4Rest(-86, 196, 15, t), a4Rest(92, 192, 16, t)] });
       const [qx, qy] = so.hands[1];
       if (rise > 0.9 && chop < 0.1) { glow(qx, qy, 40, T_EMBER, 0.6); sparkle(qx + 4, qy - 22, 2 + 4 * frac(t * 3), 22, 106); }
       if (chop > 0.05) { streaks(Math.atan2(240 - hy, -170 - hx), 26, t, 2600, 105, 90, 4541, [0, LB, W, H - 2 * LB]); smearArc(318 + 84 * 0.95, 110 + camY + 40 * 0.95, -PI / 2, -PI / 2 + chop * 2.2, 190, [102, 104, 22]); }
@@ -3159,7 +3341,7 @@
       // he is on the far side of the line, slid away with his half; the hand that cut it lies along its lip, lifting off it
       const lift = eio(lin(62.15, 62.6, t)), sl = gap * 0.42;
       a4Sund(392 + sl * 0.5, 62, 0.66, t, { third: 1, eyes: 1.4, heat: 0.9, crown: 0.75, rage: 0.4, nod: 2,
-        arms: [{ x: -150, y: 150, pose: 'fist' }, { x: 120, y: 170, pose: 'fist' }, { x: -86, y: 196, pose: 'fist' }, { x: -150 + sl * 0.4 + lift * 30, y: 268 - lift * 40, pose: 'chop', ang: PI * 0.7 - lift * 0.4, front: true }] });
+        arms: [a4Rest(-150, 150, 17, t), a4Rest(120, 170, 18, t), a4Rest(-86, 196, 19, t), { x: -150 + sl * 0.4 + lift * 30, y: 268 - lift * 40, pose: 'chop', ang: PI * 0.7 - lift * 0.4, front: true }] });
       // steam boiling up out of the whole length of it, and spray where the sea goes over
       for (let k = 0; k < 9; k++) { const q = 0.15 + 0.8 * ih(k, 1, 4552), y = lerp(SHZ + 4, H - LB, q), cx = lerp(SVX, SBX, (y - SHZ) / (H - LB - SHZ)), up = frac(ih(k, 2, 4552) + g * 0.9); cloudPuff(cx + (ih(k, 3, 4552) - 0.5) * 20 * q, y - up * (30 + 60 * q), (5 + up * 14) * (0.4 + q), [120, 121, 122, 123], 4553 + k); }
       rocks(SBX + 8, 230, g, 18, 300, 4, [97, 99, 122, 105], 4554, 220, -PI / 2, 1.2);
@@ -3192,14 +3374,52 @@
       a4Cam(1.04, 0.04 * tilt, 240, 135 + fall * 14);
     });
   
-    // one of his arms seen close: the porcelain forearm running back off the frame from the wrist (x, y), and the gauntlet
-    function a4Fist(x, y, s, a, pose, heat, t, back) {
-      const bx = x - Math.cos(a) * (back || 400), by = y - Math.sin(a) * (back || 400);
-      capsF(bx, by, x, y, 15 * s + 1.5, 13 * s + 1.5, () => 96);
-      capsF(bx, by, x, y, 15 * s, 13 * s, (u, d, X, Y, nx, ny) => d > 0.86 ? 69 : bone(nx, ny, X, Y, -0.3));
-      const nx = -Math.sin(a), ny = Math.cos(a);
-      lineF(bx, by, x - Math.cos(a) * 8 * s, y - Math.sin(a) * 8 * s, (X, Y, u) => { if ((X + Y) & 1) P(X + nx * 4 * s * Math.sin(u * 30), Y + ny * 4 * s * Math.sin(u * 30), heat > 0.5 ? 104 : 102); });
-      return sGauntlet(x, y, s, a, pose, heat, t);
+    /* one of his arms seen close, at the engine's own fidelity: the muscled obsidian upper arm (glossy, veined with fire,
+       rim-lit) running back off the frame, the elbow cop, the porcelain vambrace of three plates with fire in its gaps, and
+       the jointed hand. (x, y) the wrist, a the forearm's direction, s the scale (local units like his), pose a preset name or
+       a hand object; o: { bend (the elbow's turn, so the upper arm comes in from another angle), len (the forearm, units),
+       ang (the hand's own angle; default a), hold, layer ('palm' draws the whole arm and the palm; 'fingers' only the
+       fingers), side (thumb side), rim (0..1 the fire's light on its far side) }. Returns the hand's striking point (with
+       .palm, .tip, .knuckles, .elbow) */
+    function a4Fore(ex, ey, wx, wy, s, heat, rim) {
+      limbF(ex, ey, wx, wy, (u) => s * (12.5 + u * 2.5), 16 * s, (u, sdn, lit, X, Y, e) => {
+        if (u < 0.26) return obsLit(lit, X, Y, e, heat);
+        const pf = (u - 0.26) / 0.74 * 3, fp = frac(pf);
+        if (fp < 0.07 && u < 0.98) return heat > 0.25 ? (heat > 0.6 ? (Math.abs(sdn) < 0.5 ? 105 : 104) : 102) : 96;
+        if (e > 0.9) return rim > 0.3 && lit < -0.2 ? 103 : 69;
+        if (rim > 0.3 && lit < -0.45 && e > 0.72) return bay(X, Y) < rim ? 102 : 68;           // the fire's light on its far side
+        if (Math.abs(sdn + 0.15) < 0.05 && fp > 0.25 && fp < 0.8) return 67;                     // an engraved line
+        if (fp > 0.86 && Math.abs(sdn) < 0.8) return BONE4[clamp(fl(3.4 + lit * 2), 0, 5)];      // the plate's raised lip
+        if (lit > 0.78 && fp > 0.2) return 64;                                                     // the gloss along its top
+        return BONE4[clamp(fl(1.7 + lit * 3.3 + (bay(X, Y) - 0.5) * 0.9 - (fp < 0.18 ? 0.8 : 0)), 0, 5)];
+      });
+    }
+    function a4Upper(ax, ay, ex, ey, s, heat, k) {
+      limbF(ax, ay, ex, ey, (u) => s * (17 + 5 * Math.sin(PI * Math.min(1, (1 - u) * 1.25)) - (1 - u) * 4), 22 * s, (u, sdn, lit, X, Y, e) => {
+        const vein = Math.abs(sdn - 0.35 * Math.sin(u * 9 + k)) < 0.05 && u > 0.1 && u < 0.9;
+        return vein && heat > 0.25 ? (heat > 0.6 ? 104 : 103) : obsLit(lit, X, Y, e, heat);
+      });
+    }
+    const a4P = (p) => { const q = poseOf(p); return { curls: q.curls ? q.curls.slice() : [0, 1, 2, 3].map(() => q.curl), thumb: q.thumb, spread: q.spread }; };
+    // a pose between two poses (names or hand objects)
+    const a4PL = (a, b, u) => { const A = a4P(a), B = a4P(b); u = clamp(u, 0, 1); return { curls: A.curls.map((c, i) => lerp(c, B.curls[i], u)), thumb: lerp(A.thumb, B.thumb, u), spread: lerp(A.spread, B.spread, u) }; };
+    function a4Arm(x, y, s, a, pose, heat, t, o) {
+      o = o || {};
+      const len = (o.len || 76) * s, ex = x - Math.cos(a) * len, ey = y - Math.sin(a) * len, a2 = a + (o.bend === undefined ? 0.35 : o.bend);
+      const ax = ex - Math.cos(a2) * 170 * s, ay = ey - Math.sin(a2) * 170 * s, rim = o.rim === undefined ? 0.6 : o.rim;
+      if (o.layer !== 'fingers') {
+        a4Upper(ax, ay, ex, ey, s, heat, o.k || 0);
+        a4Fore(ex, ey, x, y, s, heat, rim);
+        // the elbow cop: a porcelain plate over the joint, fire round its edge
+        const cx_ = Math.cos(a) * 3 * s, cy_ = Math.sin(a) * 3 * s;
+        capsF(ex - cx_, ey - cy_, ex + cx_, ey + cy_, 10 * s, 10 * s, () => (heat > 0.3 ? 102 : 96));
+        limbF(ex - cx_, ey - cy_, ex + cx_, ey + cy_, () => 8.8 * s, 10 * s, (u, sdn, lit, X, Y, e) => e > 0.86 ? 69 : BONE4[clamp(fl(2.4 + lit * 2.4 + (bay(X, Y) - 0.5) * 0.9), 0, 5)]);
+        limbF(x - 1, y - 1, x + 1, y + 1, () => 10 * s, 11 * s, (u, sdn, lit, X, Y, e) => obsLit(lit, X, Y, e, heat));
+      }
+      const h = Object.assign(a4P(pose), { heat, side: o.side || 1, hold: o.hold, layer: o.layer });
+      const r = sHand(x, y, s, o.ang === undefined ? a : o.ang, h, t);
+      r.elbow = [ex, ey];
+      return r;
     }
     // lightning crawling over the last stamped sprite and out of it
     function a4Storm(x, y, S, t, amt, n) {
@@ -3232,85 +3452,120 @@
       shk(t >= A4STAB && t < 63.3 ? 3 : storm && g < 0.3 ? 4 : 0.5);
       a4Cam(1.06, 0.02 * Math.sin(lt * 2), 240, 135, kick(t, [[A4STAB, 1.2, -PI / 2], [63.6, 1.5]]));
     });
-    // looking straight up the chasm: the walls run up to a slit of fire, and his face is there, looking down. The hero goes
-    // up it as a bolt of lightning; a hand the size of the slit comes down into it and closes
-    function a4Up(t, slitW, oyy) {
+    /* looking straight up the chasm: its two walls rise on either side and converge (in perspective) on a narrow slit of fire
+       and dawn far overhead. Wall texels are the chasm's own rock, laid out by height (h ~ 1 / distance from the slit), so its
+       strata run parallel to the slit and crowd together toward it; far rock drowns in the haze of the cut's light; oyy
+       scrolls the walls past (a rise up them). The slit is a little wider at the bottom of the frame (its nearer end). */
+    function a4Up(t, slitW, oyy, heat) {
+      heat = heat === undefined ? 1 : heat;
       for (let y = LB; y < H - LB; y++) {
-        const q = (y - LB) / (H - 2 * LB), half = lerp(slitW, 200, Math.pow(q, 1.4)), cx = 240 + Math.sin(q * 3) * 10, row = y * W;
+        const q = (y - LB) / (H - 2 * LB), cx = 240 + Math.sin(q * 3 + 0.4) * 8 + (vn(y, 0, 7, 4641) - 0.5) * 5, half = slitW * (0.32 + 0.5 * q), row = y * W;
         for (let x = 0; x < W; x++) {
-          const d = Math.abs(x - cx) - half;
-          if (d < 0) { BUF[row + x] = q < 0.05 ? 16 : q < 0.12 ? 15 : q < 0.3 ? (bay(x, y) < 0.5 ? 104 : 103) : q < 0.6 ? 102 : 101; continue; }
-          const n = vn(x * 0.7, y + oyy * 0.3, 7 + 12 * q, 4641), ledge = vn(y * 0.15 + oyy * 0.05, x < cx ? 1 : 2, 1, 4642) > 0.72 && d < 40 + 60 * q;
-          BUF[row + x] = d < 2 ? 104 : d < 5 ? 102 : ledge ? (bay(x, y) < 0.5 ? 100 : 99) : d < 10 + 30 * q ? (n > 0.5 ? 99 : 98) : n > 0.66 ? 98 : n > 0.3 ? 97 : 96;
+          const dx = x - cx, d = Math.abs(dx) - half - (vn(y, dx < 0 ? 1 : 2, 4, 4642) - 0.5) * 3;
+          if (d < 0) {
+            // the slit: molten lips, then the burning air of the cut, and the dawn beyond it at the middle
+            const e = Math.abs(dx) / Math.max(1, half), b = bay(x, y), sm = vn(x * 0.7, y - t * 30, 6, 4645);
+            BUF[row + x] = e > 0.8 ? (b < 0.5 ? 104 : 105) : sm > 0.7 ? (sm > 0.8 ? 104 : 105) : e > 0.45 ? (b < 0.6 ? 106 : 105) : b < 0.5 ? 16 : 107;
+            continue;
+          }
+          const hh = 1600 / (d + half * 0.7 + 6), far = clamp(hh / 110, 0, 1), wy = fl(oyy * 2 + (4000 - hh) * 4);
+          const u = fl((y - 135) * hh / 30), tx = ((u % W) + W) % W, R = a4TexRow(dx < 0 ? 4643 : 4644, wy);
+          let c = a4Lit(R[dx < 0 ? tx : W - 1 - tx], x, y, heat * (0.1 + 0.9 * far * far), 0.15 + 0.4 * far, fl(far * 3 - 1.6));
+          // the lips of the walls, lit by the slit; the haze of its light on the far rock
+          if (d < 1.5) c = 104; else if (d < 3.5) c = ((x + y) & 1) === 0 ? 103 : 102;
+          else if (bay(x, y) < far * far * far * 0.85) c = far > 0.85 ? 103 : 102;
+          BUF[row + x] = c;
         }
       }
+      glow(240, LB + 10, 120, T_EMBER, 0.25 * heat);
+    }
+    const A4TC = 64.55;                                                     // the bolt meets his palm
+    // the storm hero held in his hand (drawn inside it, between the palm and the closing fingers): squeezed, thrashing,
+    // its lightning bursting out round the fingers and dying
+    function a4Caught(info, t, g, S, amt) {
+      const [px, py] = info.palm, vx = info.uy, vy = -info.ux, o = info.s * 11, hx = px + info.ux * 2 * info.s + vx * o + z5Sh(t, 3) * 1.6 * amt, hy = py + info.uy * 2 * info.s + vy * o + z5Sh(t * 1.3, 5) * 1.2 * amt;
+      const sq = Math.min(0.5, g * 4) * (0.7 + 0.3 * Math.sin(t * 9)), kick = (k) => clamp(1.5 + Math.sin(t * 17 + k * 1.9) * 1.5 * amt, 0, 3);
+      const st = g < 0.12 || (amt > 0.45 && fl(t * 20) % 3 === 0) ? 'storm' : 'plain';
+      heroForm(st, { eyes: g < 0.12 || fl(t * 6) % 3 === 0 ? 'wide' : 'closed', mouth: 2, sword: -2.3 + z5Sh(t, 4) * 0.5 * amt, sq: -0.3 * sq, legs: [0, 1, 2, 3].map(kick), cracks: 0.1 + 0.25 * Math.min(1, g * 2) }, hx, hy, S, Math.atan2(vy, vx) + PI / 2 + Math.sin(t * 11) * 0.15 * amt, false, { still: true });
+      return [hx, hy];
     }
     shot(64.2, 64.6, (lt, t) => {
-      const u = eic(lin(64.2, 64.56, t)), hand = eio(lin(64.3, 64.55, t)), close = eoc(lin(64.54, 64.6, t));
+      const u = eic(lin(64.2, A4TC, t)), hand = eoc(lin(64.28, 64.5, t)), g = t - A4TC, close = eoc(lin(A4TC - 0.02, A4TC + 0.1, t));
       a4Up(t, 26, t * 200);
-      a4Sund(240, 44 - hand * 4, 0.85, t, { third: 1, eyes: 1.6, heat: 0.9, crown: 0.75, body: false, nod: 2 });
-      // the bolt it has become: a white-blue streak from the depths, its head the hero
-      const hy = lerp(300, 96, u), hx = 240 + Math.sin(u * 7) * 14, S = lerp(2.6, 1.0, u);
-      bolt(hx, hy, 240 + Math.sin(u * 3) * 30, H - LB + 10, fl(t * 30), 3, 22, 90, 0.3);
-      bolt(hx, hy, 240 - Math.sin(u * 5) * 40, H - LB + 10, fl(t * 30) + 9, 1, 91, 89, 0.4);
-      glow(hx, hy, 50, T_CYAN, 0.7);
-      heroForm('storm', { eyes: 'glow', mouth: 2, sword: -1.5, sq: -0.35 }, hx, hy, S, -PI / 2 + 0.2, false, { still: true });
-      a4Storm(hx, hy, S, t, 1, 4);
-      // the hand comes down into the slit, opening, and shuts
-      if (hand > 0) { const gy = lerp(-80, 50, hand); a4Fist(262, gy, 2.4, PI / 2 + 0.2, close > 0.5 ? 'grab' : 'open', 0.8, t, 260); }
+      // his face over the slit, watching it come; he leans in as the hand goes down
+      a4Sund(240, 44 - hand * 4, 0.85, t, { third: 1, eyes: 1.6, heat: 0.9, crown: 0.75, body: false, nod: 2 + hand * 2, tilt: -0.05 * hand });
+      // the hand: down into the slit, open, fingers splayed (the claw), braced; it takes the bolt and the fingers snap shut
+      const wx = 254 + z5N(t * 2, 3) * 3, wy = lerp(-90, 44, hand) - z5Knock(g, 10, 16, 6) + (1 - hand) * 0, fa = PI / 2 + 0.15 - 0.1 * hand;
+      const palmY = wy + Math.sin(fa) * 5.5 * 2.4, palmX = wx + Math.cos(fa) * 5.5 * 2.4;
+      // the bolt it has become: a white-blue streak from the depths, its head the hero, homing on the palm
+      if (g < 0) {
+        const hy = lerp(300, palmY + 16, u), hx = lerp(240, palmX, u) + Math.sin(u * 7) * 14 * (1 - u), S = lerp(2.6, 1.3, u);
+        bolt(hx, hy, 240 + Math.sin(u * 3) * 30, H - LB + 10, fl(t * 30), 3, 22, 90, 0.3);
+        bolt(hx, hy, 240 - Math.sin(u * 5) * 40, H - LB + 10, fl(t * 30) + 9, 1, 91, 89, 0.4);
+        glow(hx, hy, 50, T_CYAN, 0.7);
+        heroForm('storm', { eyes: 'glow', mouth: 2, sword: -1.5, sq: -0.35 }, hx, hy, S, -PI / 2 + 0.2, false, { still: true });
+        a4Storm(hx, hy, S, t, 1, 4);
+      }
+      if (hand > 0) a4Arm(wx, wy, 2.4, fa, a4PL({ curl: 0.18, thumb: 0.1, spread: 1 }, { curl: 0.8, thumb: 0.7, spread: 0.2 }, close), 0.85, t, { bend: -0.5, side: -1,
+        hold: g >= 0 ? (info) => { a4Caught(info, t, g, 1.3, 1); } : undefined });
+      if (g >= 0) { glow(palmX, palmY, 70, T_CYAN, 0.6); for (let k = 0; k < 6; k++) { const a = PI / 2 + (k - 2.5) * 0.5; bolt(palmX, palmY, palmX + Math.cos(a) * 70, palmY + Math.sin(a) * 50, fl(t * 30) + k, 1, 91, 89); } }
       shk(1 + u * 2);
       a4Cam(1.02 + u * 0.06, 0, 240, 135);
     });
-    // the catch, close: the fist shut on the hero, lightning bursting out between the fingers and dying as it squeezes; then
-    // it draws back, and swings
+    // the catch, close: the fist shut on the hero, its lightning bursting out between the fingers and dying as it squeezes;
+    // the hero thrashes inside; then he draws it back on an arc (the whole arm winding up), and swings
     shot(64.6, 65.2, (lt, t) => {
-      const g = t - 64.6, back = eio(lin(64.82, 65.12, t)), swing = eic(lin(65.12, 65.2, t));
-      a4Up(t, 40, t * 120);
-      tintAll(T_DARK, 0.25);
-      const fx = 270 + back * 70 - swing * 420 + z5Sh(t, 2) * 1.5, fy = 160 - back * 20 + swing * 30 + z5Knock(g, 8, 18, 5), s = 3.4 - back * 0.4;
-      // the hero in the fist: its top half sticks out above the fingers, the rest is in his grip
-      const fa = 0.3 + back * 0.15 - swing * 0.2, ux = Math.cos(fa), uy = Math.sin(fa), vx = -uy, vy = ux, wx = fx - ux * 18 * s, wy2 = fy - uy * 18 * s;
-      const sq = Math.min(1, g * 3) * (1 - back * 0.3), hS = 2.6 - back * 0.3;
-      const hx = wx + ux * 17 * s + vx * -13 * s, hy = wy2 + uy * 17 * s + vy * -13 * s;
-      const storm = Math.max(0, 1 - g * 1.6);
-      heroForm(storm < 0.3 && fl(t * 20) % 3 === 0 ? 'plain' : 'storm', { eyes: g < 0.2 ? 'wide' : 'closed', mouth: 2, sword: -2.3 + z5Sh(t, 4) * 0.2, sq: -0.15 * sq, legs: [3, 3, 3, 3] }, hx, hy, hS, fa - 0.1, false, { still: true });
-      if (storm > 0.05) aura(t, AURA_STORM, 4 * hS * storm, { sparks: 6 });
-      a4Fist(wx, wy2, s, fa, 'grab', 0.9, t, 300);
-      const amt = storm;
-      for (let k = 0; k < 7; k++) if (ih(k, fl(t * 20), 4621) < amt + 0.15) { const a = -PI * 0.9 + (k / 6) * PI * 1.1, L = 40 + 90 * amt * ih(k, 2, 4621); bolt(hx, hy + 6, hx + Math.cos(a) * L, hy + 6 + Math.sin(a) * L * 0.8, fl(t * 20) + k, k % 3 ? 1 : 2, 91, 89); }
-      glow(hx, hy, 70 * amt + 10, T_CYAN, 0.4 * amt);
-      if (swing > 0) streaks(PI, 34, t, 4000, 66, 140, 4622, [0, LB, W, H - 2 * LB]);
-      z5Hit(fx - 10, fy - 30, g, 1.4, -PI / 2, 91, 4623);
-      if (g >= 0 && g < 0.02) impactFrame(fx, fy, 1);
-      shk(g < 0.3 ? 5 * (1 - g / 0.3) : 1.5);
-      a4Cam(1.0, -0.03 * back + 0.05 * swing, 240, 135, kick(t, [[64.6, 2.2, 0]]));
+      const g = t - A4TC, back = eio(lin(64.8, 65.1, t)), swing = eic(lin(65.1, 65.2, t));
+      a4Up(t, 40, t * 120, 0.9);
+      tintAll(T_DARK, 0.2);
+      // the wrist on an arc: settles from the catch, drawn back and up, then hurled down and left
+      const fx = 250 + back * 80 - swing * 430 + z5Sh(t, 2) * 1.5 * (1 - back), fy = 176 - Math.sin(back * PI * 0.5) * 50 + swing * 40 + z5Knock(g - 0.05, 10, 16, 5);
+      const fa = -0.4 - back * 0.5 + swing * 0.9, s = 3.4 - back * 0.3;
+      const amt = Math.max(0, 1 - g * 1.5), squeeze = Math.min(1, g * 2.5);
+      let held = null;
+      const r = a4Arm(fx, fy, s, fa, a4PL({ curl: 0.7, thumb: 0.6, spread: 0.2 }, { curl: 0.86, thumb: 0.8, spread: 0 }, squeeze * (0.85 + 0.15 * Math.sin(t * 13))), 0.9, t, { bend: 0.5 + back * 0.4, side: -1,
+        hold: (info) => { held = a4Caught(info, t, g, 2.5, amt); } });
+      // its lightning, forced out between the fingers, weaker with every squeeze
+      const [hx, hy] = held;
+      for (let k = 0; k < 7; k++) if (ih(k, fl(t * 20), 4621) < amt + 0.1) { const a = fa - PI * 0.6 + (k / 6) * PI * 1.2, L = 30 + 90 * amt * ih(k, 2, 4621); bolt(hx, hy, hx + Math.cos(a) * L, hy + Math.sin(a) * L * 0.8, fl(t * 20) + k, k % 3 ? 1 : 2, 91, 89); }
+      glow(hx, hy, 60 * amt + 14, T_CYAN, 0.22 * amt + 0.05);
+      if (swing > 0) { streaks(PI - 0.1, 34, t, 4000, 66, 140, 4622, [0, LB, W, H - 2 * LB]); smearArc(fx + 300, fy - 200, PI * 0.6, PI * 0.6 + swing * 0.6, 340, [96, 98, 66]); }
+      z5Hit(r.palm[0], r.palm[1], g, 1.4, -PI / 2, 91, 4623);
+      shk(g < 0.3 ? 5 * (1 - g / 0.3) : swing > 0 ? 3 : 1.2);
+      a4Cam(1.0 + 0.04 * back, -0.03 * back + 0.06 * swing, 240, 135, kick(t, [[64.6, 2.2, -PI / 2]]));
     });
     WHIPS.push([65.17, PI]);
-    // the slam: side on, the fist drives the hero into the chasm wall; rock bursts; the fist comes away and leaves it in the
-    // crater, its storm going out, and it slides out and drops
+    // the slam: side on, the fist with the hero in it drives into the chasm wall; rock bursts; it holds it there, grinding;
+    // then the fingers open and the hand draws away and leaves it in the crater, its storm going out; it slides out and drops
     shot(65.2, 66.0, (lt, t) => {
-      const g = t - 65.2, away = eio(lin(65.42, 65.8, t)), slide = eic(lin(65.78, 66.0, t));
+      const g = t - 65.2, open = eoc(lin(65.42, 65.56, t)), away = eio(lin(65.5, 65.85, t)), slide = eic(lin(65.78, 66.0, t));
       a4Deep(500, t, 0.8, 1400);
       a4Wall(-1, 190, 520, t, 0.8, 1400, 4631, true);
       // the crater: a dish of shattered rock, its rim burning, cracks running out of it
-      const cx = 176, cy = 140, cr = 46 * eoc(Math.min(1, g * 8));
+      const cx = 194, cy = 140, cr = 46 * eoc(Math.min(1, g * 8)), S = 2.5;
       if (g > 0) {
-        for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + ih(k, 1, 4632), L = cr + 30 + ih(k, 2, 4632) * 90 * Math.min(1, g * 5); let x = cx, y = cy; for (let q = 0; q < 6; q++) { const nx = x + Math.cos(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 6, ny = y + Math.sin(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 6; if (Math.hypot(nx - cx, ny - cy) > cr * 0.9) lineP(x, y, nx, ny, q < 2 ? 104 : 102); x = nx; y = ny; } }
-        for (let y = fl(cy - cr); y < cy + cr; y++) for (let x = fl(cx - cr); x < cx + cr * 0.5; x++) { const d = Math.hypot((x - cx) / cr, (y - cy) / cr); if (d < 1 && x < 190 + 30) P(x, y, d > 0.86 ? (bay(x, y) < 0.5 ? 104 : 102) : d > 0.6 ? 97 : 96); }
+        for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + ih(k, 1, 4632), L = cr + 30 + ih(k, 2, 4632) * 90 * Math.min(1, g * 5); let x = cx, y = cy; for (let q = 0; q < 6; q++) { const nx = x + Math.cos(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 6, ny = y + Math.sin(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 6; if (Math.hypot(nx - cx, ny - cy) > cr * 0.9) { lineP(x, y, nx, ny, q < 2 ? 104 : 102); lineP(x + 1, y, nx + 1, ny, 96); } x = nx; y = ny; } }
+        for (let y = fl(cy - cr); y < cy + cr; y++) for (let x = fl(cx - cr); x < cx + cr * 0.3; x++) { const d = Math.hypot((x - cx) / cr, (y - cy) / cr); if (d < 1) P(x, y, d > 0.86 ? (bay(x, y) < 0.5 ? 104 : 102) : d > 0.6 ? (x < cx - cr * 0.3 ? 98 : 97) : 96); }
       }
-      // the hero in it, then falling out of it
-      const hx = 176 + slide * 20, hy = 140 + slide * slide * 120;
-      const fz = g > 0.15 && g < 0.6 ? fl(t * 15) % 3 : 1;
-      heroForm(fz === 0 && away < 1 ? 'storm' : 'plain', { eyes: 'closed', mouth: g < 0.5 ? 2 : 0, sword: lerp(-2.4, 1.2, slide), sq: lerp(-0.25, 0, away), legs: z5Limp(t, 1.5), cracks: 0.15 }, hx, hy, 2.5, -0.3 + slide * 1.2, false, { still: g < 0.6 });
-      if (fz === 0 && away < 1) a4Storm(hx, hy, 2.5, t, 0.5, 2);
-      // the fist: in, then drawn away
-      const fx = 186 + 80 * away + (g < 0 ? 0 : 0) + z5Knock(g, -10, 20, 7), fy = 140 - 10 * away;
-      if (away < 1) a4Fist(fx + 400 * away * away, fy, 3.2, PI, 'fist', 0.8, t, 400);
-      rocks(cx + 20, cy, g, 30, 340, 5, [97, 99, 122, 105], 4634, 260, 0, 1.7);
-      megaHit(cx + 10, cy, g, 2.6, 0, [22, 106, 103], 4635);
+      // the hand: it arrives already shut on the hero (the blow lands on the frame), shudders against the rock, opens, goes
+      const hx0 = cx + 13 * S - 2, push = z5Knock(g, -9, 20, 7), grind = (1 - open) * z5Sh(t, 4) * 1.8;
+      const fs = 3.2, fa = PI + 0.08, wx = hx0 + 30 + 5.5 * fs + push + grind + 330 * away * away + 80 * away, wy = cy + 4 - 30 * away + grind * 0.5;
+      const held = open < 0.35;
+      const hx = held ? 0 : hx0 + 3 * open + slide * 20, hy = cy + slide * slide * 120;
+      const drawHero = (x, y, sq) => {
+        const fz = g > 0.15 && g < 0.6 ? fl(t * 15) % 3 : 1;
+        heroForm(fz === 0 && away < 1 ? 'storm' : 'plain', { eyes: 'closed', mouth: g < 0.5 ? 2 : 0, sword: lerp(-2.4, 1.2, slide), sq, legs: z5Limp(t, 1.5), cracks: 0.25 }, x, y, S, -0.3 + slide * 1.2, false, { still: true });
+        if (fz === 0 && away < 1) a4Storm(x, y, S, t, 0.5, 2);
+      };
+      if (!held) drawHero(hx, hy, lerp(-0.35, 0, away));
+      if (away < 1) a4Arm(wx, wy, fs, fa, a4PL({ curl: 0.92, thumb: 0.85, spread: 0 }, { curl: 0.15, thumb: 0.1, spread: 0.9 }, open), 0.8, t, { bend: -0.25, rim: 0.8,
+        hold: held ? () => drawHero(hx0 + z5Sh(t, 6) * 0.8, cy, -0.35 - 0.2 * Math.exp(-g * 8)) : undefined });
+      rocks(cx + 10, cy, g, 30, 340, 5, [97, 99, 122, 105], 4634, 260, 0, 1.7);
+      megaHit(cx, cy, g, 2.6, 0, [22, 106, 103], 4635);
+      if (g > 0 && g < 0.35) for (let k = 0; k < 10; k++) { const a = -PI / 2 + (ih(k, 1, 4637) - 0.5) * 2.6, q = (g + ih(k, 2, 4637) * 0.1) * 3, x = cx + 4 + Math.cos(a) * 120 * q, y = cy + Math.sin(a) * 90 * q + 140 * q * q; if (q < 1) P(x, y, q < 0.4 ? 22 : 106); }
       a4Embers(t, 20, -30, 4636);
       a4Cam(1.04, 0.02, 240, 135, kick(t, [[65.2, 3, PI]]));
-      shk(g < 0.4 ? 8 * (1 - g / 0.4) : 0.5);
+      shk(g < 0.4 ? 8 * (1 - g / 0.4) : open < 1 ? 1.5 : 0.5);
     });
   
     /* ============================================================== 5 · the beating (66.0–72.0)
@@ -3318,11 +3573,23 @@
        guard breaks and the sword cracks. Three body blows — a hook, an uppercut, a downward drive — it folds round each one.
        It hits the ledge. It tries to get up. He puts his hand on it and presses it into the rock. */
     // a ledge of the chasm wall to stand on: its top at y (a little uneven), rubble, cracks
+    // a ledge of the chasm wall to stand on: its lip lit (ash-pale, or by the fire), a band of rubble along it, the cut face
+    // of the rock below in the chasm's own lit strata
     function a4Ledge(top, ox, t, lit) {
       for (let x = 0; x < W; x++) {
-        const wx = x + ox, y0 = top + (vn(wx, 0, 30, 4701) - 0.5) * 6;
-        for (let y = Math.max(LB, fl(y0)); y < H - LB; y++) { const d = y - y0, n = vn(wx, y * 2, 6, 4702); BUF[y * W + x] = d < 1.5 ? (lit ? 123 : 122) : d < 4 ? 100 : n > 0.62 ? 99 : n > 0.3 ? 98 : 97; }
+        const wx = x + ox, y0 = top + (vn(wx, 0, 30, 4701) - 0.5) * 6 + (vn(wx, 0, 6, 4703) - 0.5) * 2, tx = ((fl(wx) % W) + W) % W;
+        for (let y = Math.max(LB, fl(y0)); y < H - LB; y++) {
+          const d = y - y0, b = bay(x, y);
+          let c;
+          if (d < 1.2) c = lit ? 123 : 122;
+          else if (d < 3.2) c = vn(wx, y, 3, 4704) > 0.45 ? (lit ? 122 : 121) : 100;
+          else if (d < 6) c = b < 0.5 ? 121 : 99;
+          else c = a4Lit(a4TexRow(4702, fl(y * 1.3 + 900))[tx], x, y, lit ? 0.3 : 0.12, 0.25, d < 14 ? 0 : d > 40 ? -2 : -1);
+          BUF[y * W + x] = c;
+        }
       }
+      // rubble along the lip: stones lit on top
+      for (let k = 0; k < 26; k++) { const x = ((ih(k, 1, 4705) * 640 - ox) % 640 + 640) % 640 - 80, r = 1 + ih(k, 2, 4705) * 3.2, y = top - r * 0.5 + (vn(x + ox, 0, 30, 4701) - 0.5) * 6; discF(x, y, r, 98); discF(x - r * 0.3, y - r * 0.35, r * 0.55, lit ? 122 : 121); }
     }
     function a4Dust(x, y, g, n, spread, seed, cols) {
       if (g < 0 || g > 1) return;
@@ -3338,96 +3605,138 @@
       for (let k = 0; k < 4; k++) { if (ih(k, 1, seed) > amt) continue; const u = 0.3 + k * 0.16, px = hand[0] + dx * u, py = hand[1] + dy * u, w = L * 0.08; lineP(px - nx * w, py - ny * w, px + nx * w + dx * 0.03, py + ny * w + dy * 0.03, 96); P(px, py, 22); }
     }
     const A4GRD = 214;
-    // 66.0–67.0 the punch, side on: he is a mountain at the right; the guard holds, the knees buckle
+    // a screen point → his local units (for putting a wrist exactly where a blow must land), his mask at M, scale s
+    const a4Loc = (M, s, t, X, Y) => [(X - M[0]) / s, (Y - M[1] - Math.sin(t * 0.9) * s) / s];
+    // where to put the wrist so the striking point of a hand (knuckles, scale s·fs, pointing a) lands on (kx, ky)
+    const a4Wr = (kx, ky, a, s) => [kx - Math.cos(a) * 10.8 * s, ky - Math.sin(a) * 10.8 * s];
+    // an arm between blows: never still — it drifts, and its fingers flex
+    const a4Rest = (x, y, k, t, pose) => ({ x: x + z5N(t * 0.8, k) * 6, y: y + z5N(t * 0.7, k + 3) * 5, pose: a4PL(pose || 'fist', 'grab', 0.35 + 0.35 * z5N(t * 1.4, k + 7)) });
+    // 66.0–67.0 the punch, side on: he is a mountain at the right; he cocks his upper arm back behind his shoulder (leaning
+    // away), and drives it straight through the guard — the knuckles meet the hilt on the hit frame; the guard holds, the
+    // fist rides on through with the skid, and he settles back
     shot(66.0, 67.0, (lt, t) => {
-      const T = a4Stop(t, [66.6], 0.07), g = t - 66.6, wind = eio(lin(66.0, 66.42, T)), strike = eic(lin(66.42, 66.6, T)), off = eio(lin(66.82, 67.0, T));
+      const T = a4Stop(t, [66.6], 0.07), g = t - 66.6, wind = eio(lin(66.0, 66.42, T)), strike = eic(lin(66.42, 66.6, T)), rec = eio(lin(66.72, 67.0, T));
       a4Deep(260, t, 0.7, 1200);
       a4Wall(-1, 30, 280, t, 0.6, 1200, 4711, false);
-      const skid = g > 0 ? 64 * eoc(Math.min(1, (T - 66.6) / 0.36)) : 0, S = 2.4, hx = 188 - skid, hy = A4GRD - 14 * S;
-      const C = [hx + 26, hy - 4];
-      const wx = lerp(lerp(C[0] + 150, C[0] + 210, wind), C[0] + 22, strike) + 70 * off, wy = lerp(hy - 20, C[1], strike) - 20 * off;
-      const so = a4Sund(452, 34, 1.3, t, { third: 1, eyes: 1.25, heat: 0.85, crown: 0.75, rage: 0.2, tilt: -0.06 * wind + 0.04 * strike, nod: 2 * strike,
-        arms: [{ x: (wx - 452) / 1.3, y: (wy - 34) / 1.3, pose: 'fist', ang: PI - 0.08 + 0.2 * wind * (1 - strike), front: true }, { x: 110, y: 160, pose: 'fist' }, { x: -70, y: 200, pose: 'fist' }, { x: 80, y: 196, pose: 'fist' }] });
       a4Ledge(A4GRD, 0, t, true);
-      const buckle = g > 0 ? 0.22 * sstep(0, 0.3, g) + z5Knock(g, 0.28, 13, 4) : 0, tr = g > 0 ? a4Tw(t, 5) * 0.8 : 0;
+      const sk = g > 0 ? eoc(Math.min(1, (T - 66.6) / 0.36)) : 0, skid = 64 * sk, S = 2.4, hx = 188 - skid, hy = A4GRD - 14 * S;
+      const C = [hx + 15 * S + 2, hy - 3 * S];                          // its guard: the hilt, the sword held up before it
+      const buckle = g > 0 ? 0.22 * sstep(0.08, 0.3, g) + z5Knock(g - 0.08, 0.2, 13, 4) : 0, tr = g > 0 ? a4Tw(t, 5) * 0.8 : 0;
       const flare = 1 + 0.6 * sstep(66.0, 66.4, t) * (1 - strike);
-      heroForm('gold', { eyes: g > 0 && g < 0.25 ? 'closed' : 'angry', mouth: g > 0 ? 2 : 1, sword: -1.32 - (g > 0 ? z5Knock(g, 0.35, 16, 6) : 0) + tr * 0.03, sq: buckle, reach: 1, legs: g > 0 ? [0, 1.5 * sstep(0, 0.3, g), 1.5 * sstep(0, 0.3, g), 0] : undefined }, hx + tr, hy + buckle * 8, S, -0.08 - (g > 0 ? z5Knock(g, 0.2, 14, 5) : 0), false, {});
+      // the blow lands along it: crushed narrow for two frames, then the knees go
+      const sq = g > 0 ? (T - 66.6 < 0.001 ? -0.38 : -0.38 * Math.exp(-(T - 66.6) * 14) + buckle) : 0;
+      heroForm('gold', { eyes: g > 0 && g < 0.25 ? 'closed' : 'angry', mouth: g > 0 ? 2 : 1, sword: -1.32 - (g > 0 ? z5Knock(g, 0.35, 16, 6) : 0) + tr * 0.03, sq, reach: 1, legs: g > 0 ? [0, 1.5 * sstep(0, 0.3, g), 1.5 * sstep(0, 0.3, g), 0] : undefined }, hx + tr, hy + Math.max(0, sq) * 8, S, -0.08 - (g > 0 ? z5Knock(g, 0.2, 14, 5) : 0), false, {});
       if (flare > 1.05) glow(hx, hy, 50 * flare, T_GOLD, 0.25 * (flare - 1) * 2);
+      // the fist: rest → cocked high behind → straight in (a slight downward arc) → on with the skid → back
+      const M = [446, 44], s = 1.5, fs = 1.3, a = PI - 0.05;
+      const K0 = [C[0] + 130, C[1] - 24], K1 = [C[0] + 205, C[1] - 70];
+      let kx, ky;
+      if (g <= 0) { kx = lerp(lerp(K0[0], K1[0], wind), C[0], strike); ky = lerp(lerp(K0[1], K1[1], wind), C[1], strike) - Math.sin(strike * PI) * 10; }
+      else { kx = lerp(C[0] - 4 * sk, K0[0] + 10, rec); ky = lerp(C[1] + 3 * sk, K0[1] - 6, rec); }
+      const [wx, wy] = a4Wr(kx, ky, a, s * fs), [lx, ly] = a4Loc(M, s, t, wx, wy);
+      a4Sund(M[0], M[1], s, t, { third: 1, eyes: 1.25 + 0.4 * strike * (1 - rec), heat: 0.85, crown: 0.75, rage: 0.2 + 0.3 * strike * (1 - rec), lean: 10 * wind * (1 - strike) - 16 * strike * (1 - rec), tilt: -0.07 * wind * (1 - strike) + 0.05 * strike, nod: -2 * wind * (1 - strike) + 3 * strike * (1 - rec),
+        arms: [{ x: lx, y: ly, pose: 'fist', ang: a + 0.3 * wind * (1 - strike), front: true, fs }, a4Rest(112, 156, 1, t), a4Rest(-66, 206, 2, t), a4Rest(80, 200, 3, t)] });
       if (g > 0) { megaHit(C[0], C[1], g, 1.7, PI, [22, 59, 58], 4715); z5Hit(C[0], C[1], g, 1.3, PI, 59, 4712); a4Dust(hx - 10, A4GRD, g, 6, 50, 4713); for (let k = 0; k < 2; k++) lineP(hx - 30 - skid * 0.2 * k, A4GRD - 1 + k, hx - 6, A4GRD - 1 + k, 123); }
       if (strike > 0.2 && strike < 1) streaks(PI, 24, t, 3200, 66, 120, 4714, [0, hy - 40, W, 80]);
       shk(g > 0 && g < 0.4 ? 6 * (1 - g / 0.4) : 0.4);
       a4Cam(1.03, 0, 240, 135, kick(t, [[66.6, 2, PI]]));
     });
-    // 67.0–67.75 the hammer-fist, from below: it comes down on the guard from above and breaks it; the sword cracks
+    // 67.0–67.75 the hammer-fist, from below: he raises his right fist high over his head (rising onto it, leaning back) and
+    // brings it down on the sword held across its guard; the knuckles meet the blade on the hit frame; the guard breaks, the
+    // fist goes on down onto its head, and he lifts it away
     shot(67.0, 67.75, (lt, t) => {
-      const T = a4Stop(t, [67.4], 0.08), g = t - 67.4, down = eic(lin(67.18, 67.4, T)), lift = eio(lin(67.5, 67.75, T));
+      const T = a4Stop(t, [67.4], 0.08), g = t - 67.4, raise = eio(lin(67.0, 67.2, T)), down = eic(lin(67.2, 67.4, T)), lift = eio(lin(67.5, 67.75, T));
       a4Deep(400, t, 0.6, 1200);
-      a4Sund(392, -70, 1.8, t, { third: 1, eyes: 1.3, heat: 0.85, crown: 0.75, arms: [], core: 1 });
       a4Ledge(220, 40, t, true);
       const S = 3.0, broke = g > 0, hx = 214 + (broke ? z5Knock(g, -6, 12, 5) : a4Tw(t, 2) * 0.6), hy = 220 - 14 * S + (broke ? 10 * sstep(0, 0.2, g) + z5Knock(g, 8, 14, 5) : 0);
       const sw = broke ? lerp(-1.2, 1.15, eoc(Math.min(1, g / 0.12))) + z5Knock(g - 0.12, 0.2, 14, 5) : -1.2 + Math.sin(t * 20) * 0.02;
-      const a = heroForm(g > 0.25 && fl(t * 15) % 4 === 0 ? 'plain' : 'gold', { eyes: broke ? (g < 0.3 ? 'closed' : 'wide') : 'angry', mouth: broke ? 2 : 1, sword: sw, sq: broke ? 0.42 * sstep(0, 0.15, g) : 0.05, reach: broke ? 3 : 1, legs: broke ? [1, 3, 3, 0] : undefined, cracks: broke ? 0.2 : 0 }, hx, hy, S, broke ? 0.12 : -0.05, false, {});
+      const sq = broke ? (g < 0.06 ? 0.5 : 0.42 * sstep(0, 0.15, g) + z5Knock(g - 0.06, 0.12, 16, 6)) : 0.05;
+      const a = heroForm(g > 0.25 && fl(t * 15) % 4 === 0 ? 'plain' : 'gold', { eyes: broke ? (g < 0.3 ? 'closed' : 'wide') : 'angry', mouth: broke ? 2 : 1, sword: sw, sq, reach: broke ? 3 : 1, legs: broke ? [1, 3, 3, 0] : undefined, cracks: broke ? 0.2 : 0 }, hx, hy, S, broke ? 0.12 : -0.05, false, {});
       if (broke) a4SwordCracks(a.hand, a.tip, Math.min(1, g * 6), 4721);
-      const fx = a.hand[0] + 16, fy = lerp(-120, hy - 32 * S * 0.5 - 14, down) - 90 * lift + (broke ? z5Knock(g, 6, 14, 6) : 0);
-      a4Fist(fx, fy, 2.6, PI / 2 + 0.06, 'fist', 0.9, t, 300);
-      if (down > 0.3 && down < 1) streaks(PI / 2, 26, t, 3600, 66, 110, 4722, [fx - 70, LB, 140, H - 2 * LB]);
-      if (broke) { z5Hit(fx - 4, fy + 30, g, 1.6, PI / 2 + 0.4, 59, 4723); for (let k = 0; k < 8; k++) { const q = g * 2, x = a.tip[0] - 20 + (ih(k, 1, 4724) - 0.5) * 120 * q, y = a.tip[1] - 30 * q + 90 * q * q; if (q < 1) sparkle(x, y, 1.5, 22, 34); } a4Dust(hx, 220, g, 8, 70, 4725); megaHit(fx, fy + 30, g, 1.9, PI / 2, [22, 59, 58], 4726); }
+      // the contact: the blade 60% of the way up, where it is held across the guard (the pose before the break)
+      const Kc = [214 + 15 * S + Math.cos(-1.2) * 18 * S, 220 - 14 * S - 2 * S + Math.sin(-1.2) * 18 * S], fa = PI / 2 + 0.08;
+      const kx = Kc[0] + 40 * raise * (1 - down) + (broke ? -6 * sstep(0, 0.2, g) : 0), ky = lerp(Kc[1] - 40 - 70 * raise, Kc[1], down) + (broke ? 26 * eoc(Math.min(1, g / 0.15)) - 150 * lift : 0);
+      const M = [404, -54], s = 1.6, fs = 1.3, [wx, wy] = a4Wr(kx, ky, fa, s * fs), [lx, ly] = a4Loc(M, s, t, wx, wy);
+      a4Sund(M[0], M[1], s, t, { third: 1, eyes: 1.3 + 0.4 * down, heat: 0.85, crown: 0.75, core: 1, rage: 0.3 * down, lean: 8 * raise * (1 - down) - 14 * down * (1 - lift), nod: -3 * raise * (1 - down) + 4 * down * (1 - lift), tilt: 0.05 * raise - 0.08 * down,
+        arms: [null, { x: lx, y: ly, pose: 'fist', ang: fa - 0.5 * raise * (1 - down), front: true, fs }, null, a4Rest(96, 196, 6, t)] });
+      if (down > 0.3 && down < 1) streaks(PI / 2, 26, t, 3600, 66, 110, 4722, [kx - 70, LB, 140, H - 2 * LB]);
+      if (broke) { z5Hit(Kc[0], Kc[1], g, 1.6, PI / 2 + 0.4, 59, 4723); for (let k = 0; k < 8; k++) { const q = g * 2, x = a.tip[0] - 20 + (ih(k, 1, 4724) - 0.5) * 120 * q, y = a.tip[1] - 30 * q + 90 * q * q; if (q < 1) sparkle(x, y, 1.5, 22, 34); } a4Dust(hx, 220, g, 8, 70, 4725); megaHit(Kc[0], Kc[1], g, 1.9, PI / 2, [22, 59, 58], 4726); }
       shk(broke && g < 0.4 ? 7 * (1 - g / 0.4) : 0.4);
       a4Cam(1.05, -0.06, 240, 128, kick(t, [[67.4, 2.4, PI / 2]]));
     });
-    // 67.75–68.4 a hook from the left into its side: it folds round the fist and is thrown along the ledge
+    // 67.75–68.4 a hook from the left into its side: the arm swings in on a wide arc (the elbow out, then whipping straight),
+    // the knuckles sink into its side on the hit frame; it folds round the fist and is thrown along the ledge; the fist
+    // follows through and is drawn back
     shot(67.75, 68.4, (lt, t) => {
-      const T = a4Stop(t, [68.1], 0.08), g = T - 68.1, hitv = g > 0, wind = eio(lin(67.75, 68.0, T)), strike = eic(lin(67.98, 68.1, T));
+      const T = a4Stop(t, [68.1], 0.08), g = T - 68.1, hitv = t >= 68.1, wind = eio(lin(67.75, 67.98, T)), strike = eic(lin(67.98, 68.1, T));
       a4Deep(520, t, 0.5, 1200);
       a4Wall(1, 470, 540, t, 0.5, 1200, 4731, false);
       a4Ledge(200, 90, t, false);
       const S = 2.7, fold = hitv ? eoc(Math.min(1, g / 0.06)) : 0, fly = hitv ? eoc(Math.min(1, g / 0.42)) : 0;
       const hx = 190 + 150 * fly + a4Tw(t, 7) * (hitv ? 0 : 0.6), hy = 200 - 14 * S + 4 - Math.sin(fly * PI) * 40 + (hitv ? 0 : 4);
-      heroForm(hitv ? 'plain' : 'gold', { eyes: hitv ? 'closed' : 'wide', mouth: 2, sword: hitv ? lerp(1.0, 2.2, fly) : 1.0, sq: hitv ? -0.4 * fold * (1 - fly * 0.6) : 0.3, reach: 3, legs: z5Limp(t, 1.5), cracks: 0.25 + 0.1 * fold }, hx, hy, S, hitv ? 0.5 * fold + fly * 1.2 : 0.1, false, {});
-      const fx = lerp(lerp(-60, -140, wind), hx - 30, strike) + (hitv ? 40 * fly - 60 * sstep(0.2, 0.55, g) : 0), fy = hy + 8 + (hitv ? -10 * fly : 0);
-      a4Fist(fx, fy, 2.5, -0.08, 'fist', 0.9, t, 400);
-      if (strike > 0.2 && !hitv) streaks(0, 22, t, 3400, 66, 120, 4732, [0, fy - 40, W, 80]);
-      if (hitv) { megaHit(hx - 22, hy, g, 1.8, 0, [22, 37, 35], 4735); z5Hit(hx - 20, hy, g, 1.5, 0, 37, 4733); a4Dust(190, 200, g, 6, 60, 4734); }
+      heroForm(hitv ? 'plain' : 'gold', { eyes: hitv ? 'closed' : 'wide', mouth: 2, sword: hitv ? lerp(1.0, 2.2, fly) : 1.0, sq: hitv ? (g < 0.001 ? -0.5 : -0.45 * fold * (1 - fly * 0.7) + 0.15 * Math.sin(fly * PI)) : 0.3, reach: 3, legs: z5Limp(t, 1.5), cracks: 0.25 + 0.1 * fold }, hx, hy, S, hitv ? 0.5 * fold + fly * 1.2 : 0.1, false, {});
+      // contact: its left side, a little below the middle
+      const C = [190 - 13 * S * (hitv ? 0.75 : 1) + 2, 200 - 14 * S + 4 + 3 * S], fa = -0.1 + 0.25 * (1 - strike);
+      let kx, ky;
+      if (!hitv) { kx = lerp(lerp(C[0] - 110, C[0] - 140, wind), C[0], strike); ky = lerp(lerp(C[1] + 40, C[1] + 66, wind), C[1], strike) + Math.sin(strike * PI) * 20; }
+      else { const ft = eoc(Math.min(1, g / 0.18)), rec = eio(lin(0.22, 0.3, g)); kx = lerp(C[0] + 70 * ft, C[0] - 160, rec); ky = lerp(C[1] - 10 * ft, C[1] + 60, rec); }
+      a4Arm(kx - Math.cos(fa) * 10.8 * 2.5, ky - Math.sin(fa) * 10.8 * 2.5, 2.5, fa, 'fist', 0.9, t, { bend: lerp(1.1, 0.35, strike) + (hitv ? 0.2 * sstep(0.2, 0.3, g) : 0), side: 1 });
+      if (strike > 0.2 && !hitv) streaks(0, 22, t, 3400, 66, 120, 4732, [0, ky - 40, W, 80]);
+      const gr = t - 68.1;
+      if (hitv) { megaHit(C[0], C[1], gr, 1.8, 0, [22, 37, 35], 4735); z5Hit(C[0], C[1], gr, 1.5, 0, 37, 4733); a4Dust(190, 200, gr, 6, 60, 4734); }
       shk(hitv && g < 0.4 ? 7 * (1 - g / 0.4) : 0.4);
       a4Cam(1.04, -0.03, 240 + 30 * fly, 135, kick(t, [[68.1, 2.2, 0]]));
     });
-    // 68.4–69.0 an uppercut from under it, seen from below: it folds over the fist and is thrown up the chasm
+    // 68.4–69.0 an uppercut from under it, looking up the chasm: the fist comes up out of the depth, the knuckles meet its
+    // belly on the hit frame, it folds flat over them, then stretches as it is thrown up the chasm; the fist rides up after
+    // it and falls away
     shot(68.4, 69.0, (lt, t) => {
-      const T = a4Stop(t, [68.7], 0.08), g = T - 68.7, hitv = g > 0, strike = eic(lin(68.52, 68.7, T)), up = hitv ? eoc(Math.min(1, g / 0.3)) : 0, camY = 70 * eio(lin(68.7, 69.0, T));
-      a4Up(t, 30 + camY * 0.2, t * 60 - camY);
+      const T = a4Stop(t, [68.7], 0.08), g = T - 68.7, hitv = t >= 68.7, strike = eic(lin(68.5, 68.7, T)), up = hitv ? eoc(Math.min(1, g / 0.3)) : 0, camY = 70 * eio(lin(68.7, 69.0, T));
+      a4Up(t, 30 + camY * 0.2, t * 60 - camY, 0.8);
       const S = 2.6, hx = 238 + Math.sin(lt * 3) * 3, hy = lerp(150, 168, eio(lin(68.4, 68.7, T))) - 200 * up + camY;
-      heroForm('plain', { eyes: hitv ? 'closed' : 'wide', mouth: 2, sword: 2.0 + (hitv ? 1.0 * up : 0), sq: hitv ? 0.45 * Math.exp(-g * 6) : 0, reach: 3, legs: z5Limp(t, 2), cracks: 0.35 }, hx, hy, S, hitv ? -0.3 - 2.4 * up : 0.6, false, {});
-      const fx = 230, fy = lerp(H + 60, hy + 26, strike) - (hitv ? 160 * up : 0) + camY * 0.4;
-      a4Fist(fx, fy, 2.4, -PI / 2 + 0.04, 'fist', 0.95, t, 400);
-      if (strike > 0.2 && !hitv) streaks(-PI / 2, 24, t, 3600, 66, 120, 4741, [fx - 60, LB, 120, H - 2 * LB]);
-      if (hitv) { megaHit(hx, hy + 18, g, 1.8, -PI / 2, [22, 37, 35], 4744); z5Hit(hx, hy + 18, g, 1.6, -PI / 2, 37, 4742); for (let k = 0; k < 6; k++) { const q = g * 2.5, x = hx + (ih(k, 1, 4743) - 0.5) * 70 * q, y = hy + 10 - 60 * q + 120 * q * q; if (q < 1) rectF(x, y, 2, 2, k % 2 ? 37 : 22); } }
+      const sq = hitv ? (g < 0.001 ? 0.55 : g < 0.06 ? 0.45 : -0.35 * Math.exp(-(g - 0.06) * 5)) : 0;
+      heroForm('plain', { eyes: hitv ? 'closed' : 'wide', mouth: 2, sword: 2.0 + (hitv ? 1.0 * up : 0), sq, reach: 3, legs: z5Limp(t, 2), cracks: 0.35 }, hx, hy, S, hitv ? -0.3 - 2.4 * up : 0.6, false, {});
+      const C = [hx - 4, hy + 8 * S * (1 - 0.4 * Math.max(0, sq)) - 2], fa = -PI / 2 + 0.06;
+      const ky = hitv ? C[1] - 16 * eoc(Math.min(1, g / 0.12)) + 260 * eic(lin(0.18, 0.3, g)) : lerp(H + 70, C[1], strike), kx = hitv ? C[0] : C[0] + (1 - strike) * 30;
+      a4Arm(kx - Math.cos(fa) * 10.8 * 2.4, ky - Math.sin(fa) * 10.8 * 2.4, 2.4, fa, 'fist', 0.95, t, { bend: 0.25, side: -1 });
+      if (strike > 0.2 && !hitv) streaks(-PI / 2, 24, t, 3600, 66, 120, 4741, [kx - 60, LB, 120, H - 2 * LB]);
+      const gr = t - 68.7;
+      if (hitv) { megaHit(C[0], C[1], gr, 1.8, -PI / 2, [22, 37, 35], 4744); z5Hit(C[0], C[1], gr, 1.6, -PI / 2, 37, 4742); for (let k = 0; k < 6; k++) { const q = g * 2.5, x = hx + (ih(k, 1, 4743) - 0.5) * 70 * q, y = hy + 10 - 60 * q + 120 * q * q; if (q < 1) rectF(x, y, 2, 2, k % 2 ? 37 : 22); } }
       shk(hitv && g < 0.4 ? 7 * (1 - g / 0.4) : 0.4);
       a4Cam(1.06, 0, 240, 135, kick(t, [[68.7, 2.4, -PI / 2]]));
     });
-    // 69.0–70.0 at the top of its arc a fist drives down on it from above and to the right, and it is thrown down on the
-    // ledge so hard the rock breaks; it bounces once
+    // 69.0–70.0 at the top of its arc his upper-left fist comes down on it from above and to the right (he leans into it),
+    // the knuckles on its back on the hit frame; it is thrown down on the ledge so hard the rock breaks; it bounces once
     shot(69.0, 70.0, (lt, t) => {
-      const T = a4Stop(t, [69.3, 70.0], 0.07), g = T - 69.3, hitv = g > 0, strike = eic(lin(69.14, 69.3, T)), fall = hitv ? eic(Math.min(1, g / 0.62)) : 0;
+      const T = a4Stop(t, [69.3, 70.0], 0.07), g = T - 69.3, hitv = t >= 69.3, wind = eio(lin(69.0, 69.16, T)), strike = eic(lin(69.14, 69.3, T)), fall = hitv ? eic(Math.min(1, g / 0.62)) : 0;
       const camY = 70 * (1 - eio(lin(69.0, 69.85, t)));
       a4Deep(500 + camY, t, 0.6, 1200);
       a4Wall(-1, 40, 520 + camY, t, 0.6, 1200, 4751, false);
-      a4Sund(470, 10 + camY, 1.1, t, { third: 1, eyes: 1.3, heat: 0.85, crown: 0.75, rage: 0.3, nod: 2, arms: [{ x: -60, y: 120, pose: 'fist' }, { x: 100, y: 150, pose: 'fist' }, { x: -70, y: 196, pose: 'fist' }, { x: 80, y: 196, pose: 'fist' }] });
       a4Ledge(222 + camY * 0.2, 60, t, true);
       const S = 2.3, ax = 236, ay = 70 + camY, gx = 150, gy = 222 + camY * 0.2 - 14 * S * 0.6;
       const pre = eio(lin(69.0, 69.3, T)), hx = hitv ? lerp(ax, gx, fall) : lerp(250, ax, pre), hy = hitv ? lerp(ay, gy, fall) : lerp(90 + camY, ay, pre) - Math.sin(pre * PI) * 6;
       const land = T - 69.93, bounce = land > 0 ? Math.abs(Math.sin(Math.min(land, 0.3) / 0.3 * PI)) * 12 * Math.exp(-land * 3) : 0;
-      heroForm('plain', { eyes: 'closed', mouth: hitv && land < 0 ? 2 : 0, sword: 2.4, sq: land > 0 ? 0.55 * Math.exp(-land * 4) + 0.3 : hitv ? -0.3 : 0, reach: 3, legs: land > 0 ? [3, 3, 3, 3] : z5Limp(t, 2), cracks: 0.45 }, hx, hy - bounce, S, land > 0 ? 0.08 : hitv ? -0.6 + fall * 0.6 : 1.4 * pre - 0.8, false, {});
-      const C = [ax + 20, ay - 14], fx = lerp(C[0] + 220, C[0] + 18, strike) - (hitv ? 110 * fall : 0), fy = lerp(C[1] - 200, C[1] - 12, strike) + (hitv ? 160 * fall : 0);
-      a4Fist(fx, fy, 2.0, PI * 0.75, 'fist', 0.9, t, 500);
+      const sq = land > 0 ? 0.55 * Math.exp(-land * 4) + 0.3 : hitv ? (g < 0.001 ? 0.45 : -0.3) : 0;
+      heroForm('plain', { eyes: 'closed', mouth: hitv && land < 0 ? 2 : 0, sword: 2.4, sq, reach: 3, legs: land > 0 ? [3, 3, 3, 3] : z5Limp(t, 2), cracks: 0.45 }, hx, hy - bounce, S, land > 0 ? 0.08 : hitv ? -0.6 + fall * 0.6 : 1.4 * pre - 0.8, false, {});
+      // the fist: the knuckles meet its upper right on the hit frame, then follow it down a way and pull back
+      const C = [ax + 9 * S, ay - 6 * S], fa = PI * 0.75;
+      let kx, ky;
+      if (!hitv) { kx = lerp(lerp(C[0] + 110, C[0] + 170, wind), C[0], strike); ky = lerp(lerp(C[1] - 70, C[1] - 120, wind), C[1], strike); }
+      else { const ft = eoc(Math.min(1, g / 0.2)), rec = eio(lin(0.25, 0.6, g)); kx = lerp(C[0] - 50 * ft, C[0] + 120, rec); ky = lerp(C[1] + 50 * ft, C[1] - 80, rec); }
+      const M = [470, 10 + camY], s = 1.25, fs = 1.5, [wx, wy] = a4Wr(kx, ky, fa, s * fs), [lx, ly] = a4Loc(M, s, t, wx, wy);
+      a4Sund(M[0], M[1], s, t, { third: 1, eyes: 1.3 + 0.4 * strike, heat: 0.85, crown: 0.75, rage: 0.3, lean: 8 * wind * (1 - strike) - 18 * strike * (1 - eio(lin(69.55, 69.9, T))), nod: 2 + 3 * strike, tilt: 0.06 * strike,
+        arms: [{ x: lx, y: ly, pose: 'fist', ang: fa, front: true, fs }, a4Rest(100, 150, 7, t), a4Rest(-70, 196, 8, t), a4Rest(80, 196, 9, t)] });
       if (strike > 0.2 && !hitv) streaks(PI * 0.75, 22, t, 3400, 66, 120, 4752, [0, LB, W, H - 2 * LB]);
-      if (hitv) { megaHit(C[0], C[1], g, 1.8, PI * 0.75, [22, 37, 35], 4758); z5Hit(C[0], C[1], g, 1.5, PI * 0.75, 37, 4753); if (fall < 1) streaks(Math.atan2(gy - ay, gx - ax), 20, t, 3000, 122, 90, 4754, [0, LB, W, H - 2 * LB]); }
-      if (land > 0) { megaHit(gx, 222 + camY * 0.2, land, 1.6, -PI / 2, [22, 122, 99], 4755); a4Dust(gx, 222 + camY * 0.2, land, 10, 90, 4756); rocks(gx, 222 + camY * 0.2, land, 14, 160, 3, [97, 99, 122, 123], 4757, 400, -PI / 2, 1.8); }
+      const gr = t - 69.3, lr = t - 70.0;
+      if (hitv) { megaHit(C[0], C[1], gr, 1.8, PI * 0.75, [22, 37, 35], 4758); z5Hit(C[0], C[1], gr, 1.5, PI * 0.75, 37, 4753); if (fall < 1) streaks(Math.atan2(gy - ay, gx - ax), 20, t, 3000, 122, 90, 4754, [0, LB, W, H - 2 * LB]); }
+      if (land > 0) { megaHit(gx, 222 + camY * 0.2, lr, 1.6, -PI / 2, [22, 122, 99], 4755); a4Dust(gx, 222 + camY * 0.2, land, 10, 90, 4756); rocks(gx, 222 + camY * 0.2, land, 14, 160, 3, [97, 99, 122, 123], 4757, 400, -PI / 2, 1.8); }
       shk(hitv && g < 0.4 ? 7 * (1 - g / 0.4) : land > 0 && land < 0.4 ? 6 : 0.4);
       a4Cam(1.03, 0, 240, 135, kick(t, [[69.3, 2.2, PI * 0.75], [70.0, 1.6, PI / 2]]));
     });
   
-    // 70.0–72.0 on the ledge, close and low: it tries to get up on its sword, and can't; a shadow; his hand comes down flat
-    // on it and presses it into the rock
+    // 70.0–72.0 on the ledge, close and low: it tries to get up on its sword, and can't; a shadow; his hand comes down on it
+    // and presses it into the rock: the palm flattens on its back, the fingers splay out over the stone, the stone cracks
+    // round the fingertips; and he keeps pressing (it squirms under the hand)
     const A4PIN = [182, 196];                                     // where the hero lies pinned (72–77 reuse it)
     function a4PinScene(t, press, crack) {
       a4Deep(700, t, 0.45, 1400);
@@ -3435,25 +3744,40 @@
       a4Ledge(214, 200, t, true);
       if (crack > 0) { groundCracks(A4PIN[0], 214, 90 * crack, 9, 4762, 104, 99); groundCracks(A4PIN[0] + 4, 215, 60 * crack, 6, 4763, 102, 98); }
     }
+    // the pressing hand: palm on its back, angled down to the right so the fingertips reach the stone beyond it
+    const A4PA = 0.4, A4PS = 3.0;
+    function a4PinHand(t, hy, down, press, o) {
+      o = o || {};
+      // the heel of the palm on the stone behind it, the splayed fingers across its back (it shows between them)
+      const px = A4PIN[0] - 44, py = hy - 6 * 3.2, pal = 5.5 * A4PS, wx = px - Math.cos(A4PA) * pal + (o.dx || 0), wy = lerp(-150, py - Math.sin(A4PA) * pal, down) + (o.dy || 0);
+      const flex = 0.04 * z5N(t * 2.2, 5);
+      const pose = a4PL({ curl: 0.38, thumb: 0.3, spread: 0.45 }, { curls: [0.08 + flex, 0.1 - flex, 0.12 + flex, 0.16], thumb: 0.1, spread: 1 }, press);
+      return a4Arm(wx, wy, A4PS, A4PA + (o.da || 0), pose, 0.9, t, { bend: -0.6, side: -1 });
+    }
     shot(70.0, 72.0, (lt, t) => {
-      const g = t - 71.4, hitv = g > 0, down = eic(lin(71.22, 71.4, t)), shade = sstep(71.0, 71.38, t);
+      const g = t - 71.4, hitv = g > 0, down = eic(lin(71.2, 71.4, t)), shade = sstep(71.0, 71.38, t), press = eoc(lin(71.38, 71.52, t));
       a4PinScene(t, 0, hitv ? Math.min(1, g * 5) : 0);
       const S = 3.2, base = 214 - 14 * S;
       // the attempts: up on the sword, trembling, the arm gives; again, less
       const up1 = eio(lin(70.3, 70.85, t)) * (1 - eic(lin(70.88, 70.98, t))), up2 = eio(lin(71.02, 71.3, t)) * 0.35 * (1 - (hitv ? 1 : 0));
       const up = Math.max(up1, up2), tr = a4Tw(t, 8) * (0.4 + up * 1.6);
-      const press = hitv ? 0.62 + 0.06 * sstep(0, 0.5, g) : 0;
-      const hx = A4PIN[0] + tr * 0.6, hy = base + 12 * (1 - up) + (hitv ? 5 + 3 * sstep(0, 0.4, g) : 0) + tr * 0.3;
+      const squirm = hitv ? sstep(0.35, 0.6, g) : 0;
+      const sq = hitv ? (g < 0.05 ? 0.75 : 0.62 + 0.06 * sstep(0, 0.5, g) + 0.04 * Math.sin(t * 7) * squirm) : 0.38 * (1 - up);
+      const hx = A4PIN[0] + tr * 0.6 + squirm * Math.sin(t * 5) * 1.5, hy = base + 12 * (1 - up) + (hitv ? 5 + 3 * sstep(0, 0.4, g) : 0) + tr * 0.3;
       const lookUp = !hitv && t > 71.12;
-      const a = actor(HERO3({ eyes: hitv ? (g < 0.3 ? 'closed' : 'wide') : lookUp ? 'wide' : up > 0.2 ? 'narrow' : 'closed', mouth: hitv ? 2 : up > 0.3 ? 1 : 0, sword: hitv ? 0.15 : lerp(0.25, 1.45, up), sq: hitv ? press : 0.38 * (1 - up), reach: up > 0.2 ? 2 : 0, legs: hitv ? [3, 3, 3, 3] : [3 - up * 2.2, 3 - up * 2, 3 - up * 2, 3 - up * 2.2], cracks: hitv ? 0.6 : 0.5 }), hx, hy, S, hitv ? 0.02 : -0.06 * up + 0.04, false, { bob: 0 });
+      const a = actor(HERO3({ eyes: hitv ? (g < 0.3 ? 'closed' : 'wide') : lookUp ? 'wide' : up > 0.2 ? 'narrow' : 'closed', mouth: hitv ? 2 : up > 0.3 ? 1 : 0, sword: hitv ? 0.15 + 0.1 * squirm * Math.sin(t * 6) : lerp(0.25, 1.45, up), sq, reach: up > 0.2 ? 2 : 0, legs: hitv ? [3, 3 - squirm * Math.max(0, Math.sin(t * 9)), 3, 3] : [3 - up * 2.2, 3 - up * 2, 3 - up * 2, 3 - up * 2.2], cracks: hitv ? 0.6 : 0.5 }), hx, hy, S, hitv ? 0.02 : -0.06 * up + 0.04, false, { bob: 0 });
       if (up1 > 0.4 && !hitv) for (let k = 0; k < 4; k++) { const x = a.tip[0] + (ih(k, fl(t * 12), 4764) - 0.5) * 8, y = 214 - ih(k, fl(t * 12) + 1, 4764) * 4; P(x, y, 123); }
       // the light goes: his shadow, grit falling out of it
       if (shade > 0) { for (let y = LB; y < H - LB; y++) { const k = shade * clamp(1.1 - (y - LB) / 200, 0, 1) * 0.7; if (k > 0.02) for (let x = 0; x < W; x++) tintI(y * W + x, x, y, T_DARK, k); } for (let k = 0; k < 30; k++) { const q = frac(ih(k, 1, 4765) + t * 1.5), x = 60 + ih(k, 2, 4765) * 300, y = LB + q * 190; if (q < shade) P(x, y, 122); } }
-      // the hand: flat, palm down, fingers spread over it
-      const px = A4PIN[0] - 70, py = lerp(-150, hy - 52, down) + (hitv ? 4 * sstep(0, 0.5, g) + z5Knock(g, 5, 14, 5) + z5Sh(t, 3) * 1.2 : 0);
-      if (down > 0) a4Fist(px, py, 3.0, 0.42 + (hitv ? Math.sin(g * 4) * 0.03 : 0), 'open', 0.9, t, 400);
-      if (down > 0.2 && !hitv) streaks(PI / 2, 26, t, 3600, 66, 120, 4766, [px - 120, LB, 240, H - 2 * LB]);
-      if (hitv) { megaHit(hx, 214, g, 2.4, -PI / 2, [22, 106, 103], 4767); a4Dust(hx, 214, g, 12, 110, 4768); rocks(hx, 214, g, 16, 200, 3, [97, 99, 122, 123], 4769, 400, -PI / 2, 2.4); }
+      // the hand: down, relaxed, then flattening on the hit frame (spread, straightened), a pump of weight, a slow grind
+      const pump = hitv ? 4 * sstep(0, 0.5, g) + z5Knock(g, 5, 14, 5) + z5Sh(t, 3) * 1.0 + squirm * Math.sin(t * 5) * 1.2 : 0;
+      if (down > 0) {
+        const r = a4PinHand(t, hy, down, press, { dy: pump, da: hitv ? Math.sin(g * 4) * 0.02 : -0.15 * (1 - down) });
+        // the stone cracks round the fingertips
+        if (hitv) for (let k = 0; k < 4; k++) { const fx = r.tip[0] + (r[0] - r.tip[0]) * k / 3 + 6, fy = 214; groundCracks(fx, fy, 34 * Math.min(1, g * 6), 4, 4769 + k, 103, 99); }
+      }
+      if (down > 0.2 && !hitv) streaks(PI / 2, 26, t, 3600, 66, 120, 4766, [A4PIN[0] - 160, LB, 240, H - 2 * LB]);
+      if (hitv) { megaHit(hx, 214, g, 2.4, -PI / 2, [22, 106, 103], 4767); a4Dust(hx, 214, g, 12, 110, 4768); rocks(hx + 40, 214, g, 16, 200, 3, [97, 99, 122, 123], 4769, 400, -PI / 2, 2.4); }
       shk(hitv ? (g < 0.5 ? 8 * (1 - g / 0.5) : 0.8) : 0.2);
       a4Cam(1.06 + 0.04 * lt / 2, 0, 230, 150, kick(t, [[71.4, 2.6, PI / 2]]));
     });
@@ -3470,32 +3794,44 @@
       const T = A4OT[K], reach = eio(lin(T - 0.85, T - 0.55, t)), lift = eio(lin(T - 0.55, T - 0.12, t)), sq = eic(lin(T - 0.12, T, t)), g = t - T;
       const drained = A4OT.filter((x) => t >= x).length;
       a4PinScene(t, 1, 1);
-      const S = 3.2, base = 214 - 14 * S, hx = A4PIN[0] + a4Tw(t, 9) * 0.5, hy = base + 13 + z5Knocks(t, A4OT, 3, 16, 6);
+      const S = 3.2, base = 214 - 14 * S, hx = A4PIN[0] + a4Tw(t, 9) * 0.5, hy = base + 8 + z5Knocks(t, A4OT, 3, 16, 6);
       const strain = K === 3 ? eio(lin(75.6, 76.15, t)) * (1 - sstep(76.3, 76.9, t) * 0.7) : 0;
       // the halo: the orbs not yet taken still orbit it, dim
-      const live = [0, 1, 2, 3].map((k) => (k > K || (k === K && t < T - 0.55) ? 1 : 0));
+      const live = [0, 1, 2, 3].map((k) => (k > K || (k === K && t < T - 0.6) ? 1 : 0));
       for (let k = 0; k < 4; k++) { if (!live[k]) continue; const [x, y, z] = a4OrbPos(k, t, hx, hy); if (z < 0) a4Orb(x, y, k, 6.5, 0.9); }
       const a = actor(HERO3({ eyes: g >= 0 && g < 0.3 ? 'closed' : 'wide', mouth: strain > 0.2 || (g >= 0 && g < 0.4) ? 2 : 1, sword: 0.15 - strain * 0.5, sq: 0.66 - strain * 0.12, reach: 1 + strain * 3, legs: [3, 3, 3, 3], cracks: 0.6 + drained * 0.07 }), hx + strain * 6, hy - strain * 3, S, -0.04 - strain * 0.1, false, { bob: 0 });
       for (let k = 0; k < 4; k++) { if (!live[k]) continue; const [x, y, z] = a4OrbPos(k, t, hx, hy); if (z >= 0) a4Orb(x, y, k, 6.5, 0.9); }
-      // the pinning hand on its back, from the upper left
-      a4Fist(A4PIN[0] - 70, hy - 52 + z5Sh(t, 3) * 1.2, 3.0, 0.42 + Math.sin(t * 1.3) * 0.02, 'open', 0.9, t, 400);
-      // the taking hand, from the upper right: down to the orb, up in front of its eyes, shut
-      const [ox, oy] = a4OrbPos(K, Math.min(t, T - 0.55), hx, hy), rest = [430, 40 + Math.sin(t) * 4], top = [hx + 104, hy - 100];
-      const fa = PI * 0.66 - lift * 0.15, ux = Math.cos(fa), uy = Math.sin(fa), FS = 2.2, tipD = 20 * FS;
-      let fx = lerp(rest[0], ox - ux * tipD, reach), fy = lerp(rest[1], oy - uy * tipD, reach);
-      fx = lerp(fx, top[0], lift); fy = lerp(fy, top[1], lift);
-      if (K === 3 && g > 0.3) { const back = eio(lin(T + 0.3, T + 1.0, t)); fx += back * 30; fy -= back * 20; }
-      fx += z5Knock(g, 4, 18, 5); fy += z5Knock(g, 5, 18, 5) + (sq > 0 ? z5Sh(t, 4) * 1.5 * sq : 0);
-      const held = reach > 0.98 && g < 0, pose = sq > 0.5 || g >= 0 ? 'fist' : reach > 0.98 ? 'grab' : 'open';
-      const orbP = held ? [fx + ux * 17 * FS, fy + uy * 17 * FS] : [ox, oy];
+      // the pinning hand on its back: it never lets up — it grinds, and bears down when it strains
+      a4PinHand(t, hy, 1, 1, { dy: z5Sh(t, 3) * 0.9 + 3 * strain, da: Math.sin(t * 1.3) * 0.02 });
+      // the taking hand, from the upper right: down to the orb on its orbit, fingers open; they close round it (four
+      // frames); up in front of its eyes, held there pinched; the fingers crush shut on it; then they open on what is left
+      const [ox, oy] = a4OrbPos(K, Math.min(t, T - 0.6), hx, hy), FS = 2.2, GR = 9.5 * FS;
+      const grab = eoc(lin(T - 0.6, T - 0.48, t)), after = K === 3 ? 0 : eio(lin(T + 0.32, T + 0.6, t));
+      const fa = PI * 0.66 - lift * 0.12 - sq * 0.06, ux = Math.cos(fa), uy = Math.sin(fa);
+      const rest = [430, 30 + Math.sin(t) * 4], top = [hx + 74 + z5N(t, 4) * 3, hy - 62 + z5N(t * 1.2, 6) * 2];
+      let gx = lerp(rest[0], ox, reach), gy = lerp(rest[1], oy, reach);
+      gx = lerp(gx, top[0], lift); gy = lerp(gy, top[1], lift);
+      if (K === 3 && g > 0.3) { const back = eio(lin(T + 0.3, T + 1.0, t)); gx += back * 30; gy -= back * 20; }
+      gx += z5Knock(g, 4, 18, 5); gy += z5Knock(g, 5, 18, 5) + (sq > 0 ? z5Sh(t, 4) * 1.5 * sq : 0);
+      const held = grab > 0 && g < 0.02;
+      const orbP = held ? [gx, gy] : [ox, oy];
       // the thread of its light from its chest to the orb, stretching till it snaps
       if (held && lift < 0.6) lineF(hx + 10, hy - 6, orbP[0], orbP[1], (x, y, u) => { if (bay(x, y) < 0.9 - Math.abs(u - 0.5) - lift) P(x, y + Math.sin(u * 12 + t * 30) * 2 * lift, ELC[K][2]); });
-      a4Fist(fx, fy, FS, fa, pose, 0.9, t, 400);
-      // pinched in his fingertips, it burns brighter, as if it knew (and the squeeze closes over it)
-      if (held && sq < 0.6) { const r = (7 + lift * 3) * (1 - sq), pv = 1 + 0.25 * Math.sin(t * 40) * lift; glow(orbP[0], orbP[1], 34 * pv, EL_T[K], 0.5 + 0.3 * lift); a4Orb(orbP[0], orbP[1], K, r, 1); }
+      const flex = 0.05 * z5N(t * 2, 9) * lift;
+      let pose = a4PL({ curl: 0.3, thumb: 0.2, spread: 0.9 }, { curl: 0.56 + flex, thumb: 0.62, spread: 0.3 }, grab);
+      if (sq > 0 || g >= 0) pose = a4PL(pose, 'fist', g >= 0 ? 1 : sq);
+      if (after > 0) pose = a4PL(pose, { curl: 0.3, thumb: 0.2, spread: 0.7 }, after);
+      const r_ = a4Arm(gx - ux * GR, gy - uy * GR, FS, fa, pose, 0.9, t, { bend: 0.6, side: 1, hold: held ? () => {
+        // inside his hand: it burns brighter, as if it knew, and is crushed out of shape as the fingers shut
+        const r = (7 + lift * 2.5) * (1 - 0.55 * sq), pv = 1 + 0.25 * Math.sin(t * 40) * lift;
+        glow(gx, gy, 34 * pv, EL_T[K], 0.5 + 0.3 * lift);
+        a4Orb(gx + z5Sh(t, 7) * sq, gy, K, r, 1);
+      } : undefined });
+      // the light forced out between the fingers as they close on it
+      if (held && sq > 0) { glow(gx, gy, 40 * sq + 10, EL_T[K], 0.35 * sq); for (let k = 0; k < 5; k++) { const a2 = fa + PI + (k - 2) * 0.45, L = 6 + 20 * sq * ih(k, fl(t * 30), 4779); lineP(gx, gy, gx + Math.cos(a2) * L, gy + Math.sin(a2) * L, ELC[K][2]); } }
       // the crushes, each its own
       if (g >= 0 && g < 1.6) {
-        const [c0, c1, c2] = ELC[K], cx = fx + ux * 15 * FS, cy = fy + uy * 15 * FS, fade = 1 - clamp(g / 0.9, 0, 1);
+        const [c0, c1, c2] = ELC[K], cx = gx, cy = gy, fade = 1 - clamp(g / 0.9, 0, 1);
         if (g < 0.5) glow(cx, cy, 110 * (1 - g * 2), EL_T[K], 0.7);
         // water: it runs out between his fingers and falls on its face like rain
         if (K === 0) for (let k = 0; k < 44; k++) { const q = g * (0.7 + ih(k, 1, 4771) * 0.6), x = cx + (ih(k, 2, 4771) - 0.5) * 34 + (ih(k, 4, 4771) - 0.5) * 30 * q, y = cy + 8 + q * 30 + q * q * 220; if (y < hy + 12 && bay(fl(x), fl(y)) < 1.3 - g * 0.8) { P(x, y, k % 3 ? c1 : 22); P(x, y - 1, c0); P(x, y - 2, c0); } }
@@ -3522,26 +3858,32 @@
     /* ============================================================== 7 · the drop (77.0–80.0)
        He takes his hand off it, picks it up between two fingers, holds it out over the dark, and lets it go. */
     shot(77.0, 78.4, (lt, t) => {
-      const off = eio(lin(77.0, 77.35, t)), pick = eio(lin(77.15, 77.45, t)), raise = eio(lin(77.45, 78.0, t)), open = eoc(lin(78.02, 78.1, t)), drop = t > 78.05 ? t - 78.05 : 0;
+      const off = eio(lin(77.0, 77.35, t)), come = eio(lin(77.08, 77.4, t)), pinch = eoc(lin(77.38, 77.5, t)), raise = eio(lin(77.52, 78.0, t)), open = eoc(lin(78.02, 78.12, t)), drop = t > 78.06 ? t - 78.06 : 0;
       const camY = 150 * raise;
       a4Deep(700 - camY, t, 0.45, 1400);
       a4Wall(1, 430, 720 - camY, t, 0.45, 1400, 4761, false);
       a4Ledge(214 + camY, 200, t, true);
-      tintAll(T_ASH, 0.64);
-      const S = 3.2, base = 214 - 14 * S + 13;
-      // the pinning hand goes
-      a4Fist(A4PIN[0] - 70 - off * 160, base - 52 - off * 200 + camY, 3.0, 0.42 - off * 0.3, 'open', 0.9, t, 400);
-      // the other hand: down, two fingers round it, up, out, open
-      const fa = PI * 0.62 + raise * 0.2, ux = Math.cos(fa), uy = Math.sin(fa), FS = 2.2, tipD = 18 * FS;
-      const gx = A4PIN[0] + 10, gy = base - 8 + camY, hold = [300, 110];
-      let hx = lerp(A4PIN[0], gx, pick), hy = lerp(base + camY, gy, pick);
-      hx = lerp(hx, hold[0], raise); hy = lerp(hy, hold[1], raise);
-      const fx = hx - ux * tipD + z5Sh(t, 5) * 0.8, fy = hy - uy * tipD;
-      const sway = Math.sin(t * 3.2) * 0.25 * raise;
+      const S = 3.2, base = 214 - 14 * S + 8 + camY;
+      // the pinning hand lifts off it (the fingers curling as they come away)
+      if (off < 1) a4PinHand(t, base, 1, 1 - off, { dx: -off * 150, dy: -off * 190 });
+      // the other hand: down to it, finger and thumb open; they close on the scruff of it (three frames); up, out over the
+      // drop, held there; and they open
+      const fa = PI * 0.56 + raise * 0.1, ux = Math.cos(fa), uy = Math.sin(fa), FS = 2.4;
+      const P0 = [A4PIN[0] + 6, base - 8 * S + 2], P1 = [300, 104];                 // the pinch: on it, and out over the dark
+      let px = lerp(420, P0[0], come), py = lerp(-60, P0[1], come);
+      px = lerp(px, P1[0], raise) + z5Sh(t, 5) * 0.6 * raise; py = lerp(py, P1[1], raise) - z5Knock(t - 77.45, 4, 16, 6);
+      const sway = Math.sin(t * 3.2) * 0.25 * raise + z5Knock(t - 78.0, 0.12, 9, 3);
       const fallY = drop * drop * 500 + drop * 40;
-      actor(HERO3({ eyes: 'narrow', mouth: 0, sword: 1.5 - sway, sq: lerp(0.6, -0.1, pick), legs: z5Limp(t, 1.4), cracks: 0.88, reach: 2 }), hx + drop * 10, hy + 12 * pick + fallY, S - drop, pick * (PI * 0.08) + sway + drop * 2, false, { bob: 0 });
-      a4Fist(fx, fy, FS, fa, open > 0.5 ? 'open' : pick > 0.6 ? 'grab' : 'open', 0.9, t, 400);
+      const drawHero = (x, y, ang, held) => actor(HERO3({ eyes: 'narrow', mouth: held ? 1 : 0, sword: 1.5 - sway, sq: held ? lerp(0.6, -0.15, pinch) : 0.1, legs: z5Limp(t, 1.4), cracks: 0.88, reach: 2 }), x, y, S - drop * 0.8, ang, false, { bob: 0, still: held });
+      const held = pinch > 0 && open < 0.4;
+      // hanging from the pinch: its top caught between finger and thumb, the rest of it swinging under
+      const hang = (q) => [q[0] - Math.sin(sway) * 8 * S, q[1] + Math.cos(sway) * 8 * S];
+      if (!held) { const [hx0, hy0] = pinch > 0 ? hang([px, py]) : [A4PIN[0], base]; drawHero(hx0 + drop * 10, hy0 + fallY, pinch > 0 ? sway + drop * 2 : 0.02, false); }
+      const pose = a4PL(a4PL({ curls: [0.15, 0.9, 0.95, 1], thumb: 0.15, spread: 0.2 }, 'pinch', pinch), { curls: [0.05, 0.6, 0.7, 0.8], thumb: 0.05, spread: 0.6 }, open);
+      if (come > 0) a4Arm(px - ux * 15 * FS, py - uy * 15 * FS, FS, fa, pose, 0.9, t, { bend: 0.5, side: -1,
+        hold: held ? () => { const [hx0, hy0] = hang([px, py]); drawHero(hx0, hy0, sway, true); } : undefined });
       a4Embers(t, 24, -40, 4781, [94, 93]);
+      tintAll(T_ASH, 0.5);
       shk(0.5);
       a4Cam(1.05, 0, 240, 135);
     });
@@ -3589,7 +3931,16 @@
     function a4Pit(t, slit, eyes, flare) {
       gradient(LB, H - LB, [96, 96, 97, 96, 96]);
       // the walls rise on both sides to a slit of fire, far above
-      for (let y = LB; y < H - LB; y++) { const q = (y - LB) / (H - 2 * LB), half = lerp(slit, 260, Math.pow(q, 1.6)), row = y * W; for (let x = 0; x < W; x++) { const d = Math.abs(x - 240 - Math.sin(q * 4) * 6) - half; if (d > 0) BUF[row + x] = d < 1.5 ? (q < 0.3 ? 102 : 97) : bay(x, y) < 0.15 ? 97 : 0; else if (q < 0.08) BUF[row + x] = q < 0.03 ? 105 : 103; } }
+      // (the walls: the chasm's rock, barely lit — the slit's fire catching the ledges near the top, dying with depth)
+      for (let y = LB; y < H - LB; y++) {
+        const q = (y - LB) / (H - 2 * LB), half = lerp(slit, 260, Math.pow(q, 1.6)), row = y * W, cx = 240 + Math.sin(q * 4) * 6;
+        const hot = 0.6 * (1 - q) * (1 - q) * (1 - q), RL = a4TexRow(4806, fl(y * 1.6 + 2000)), RR = a4TexRow(4807, fl(y * 1.6 + 2000));
+        for (let x = 0; x < W; x++) {
+          const dx = x - cx, d = Math.abs(dx) - half;
+          if (d > 0) { const v = dx < 0 ? RL[x] : RR[W - 1 - x]; BUF[row + x] = d < 1.5 ? (q < 0.4 ? 103 : 99) : d < 4 && q < 0.5 ? 101 : a4Lit(v, x, y, hot * (d < 40 ? 1 : 0.6), 0.08, -3 + (d < 12 ? 1 : 0) - fl(q * 1.5)); }
+          else if (q < 0.08) BUF[row + x] = q < 0.03 ? 105 : 103;
+        }
+      }
       glow(240, LB, 120, T_EMBER, 0.35);
       if (eyes > 0) { a4Moons(240, LB + 16, 5.2 * eyes, t, flare); for (let k = 0; k < 3; k++) z5Ray(240 + (k - 1) * 14, LB + 10, PI / 2 + (k - 1) * 0.12, 220, 16, 97, 97, 0.18); }
       // ash drifting down through the dark
@@ -3658,20 +4009,20 @@
     shot(88.0, 88.9, (lt, t) => {
       const g = t - 88.0, rise = eoc(Math.min(1, g / 0.3)), grow = eic(lin(88.25, 88.9, t)), tiltUp = eic(lin(88.55, 88.9, t));
       a4Pit(t, 18, 0.9, 0.6);
-      a4Floor(t, 232 + tiltUp * 60, 600, 3);
-      groundCracks(236, 232 + tiltUp * 60, 200 * rise, 12, 4832, 106, 104);
-      const S = 5.0, hx = 236 + a4Tw(t, 15) * 1.2, hy = 232 - 14 * S + tiltUp * 60;
+      a4Floor(t, 236 + tiltUp * 60, 600, 3);
+      groundCracks(226, 236 + tiltUp * 60, 200 * rise, 12, 4832, 106, 104);
+      const S = 3.6, hx = 226 + a4Tw(t, 15) * 1.2, hy = 236 - 14 * S + tiltUp * 60;
       const a = a4Last(hx, hy, S, t, { eyes: 'glow', mouth: 2, sw: -1.45, sq: -0.15 * (1 - rise) });
       // the sword re-forged: fire runs up the cracked blade and it grows, and keeps growing, up out of the top of the frame
       const L = 29 * S * (1 + grow * 14);
       bigBlade(a.hand[0], a.hand[1], -PI / 2 + 0.05, L, 6, t, { form: 'lastlight', grow: grow < 1 ? 0.999 : 1, surge: true, flare: 0.9 });
-      if (g < 0.4) { shockRing(hx, 232, 10 + g * 900, 4 + g * 120, 4, [22, 106, 104], 1 - g / 0.4); glow(hx, hy, 260 * (1 - g * 2), T_WH, 0.6); }
-      rocks(hx, 232, g, 26, 260, 4, [97, 99, 104, 106], 4833, 300, -PI / 2, 2.4);
+      if (g < 0.4) { shockRing(hx, 236, 10 + g * 900, 4 + g * 120, 4, [22, 106, 104], 1 - g / 0.4); glow(hx, hy, 260 * (1 - g * 2), T_WH, 0.6); }
+      rocks(hx, 236, g, 26, 260, 4, [97, 99, 104, 106], 4833, 300, -PI / 2, 2.4);
       if (g < 0.02) impactFrame(hx, hy, 0);
       shk(g < 0.5 ? 7 * (1 - g / 0.5) : 2);
       a4Cam(1.0, 0, 236, 140, kick(t, [[88.0, 3, PI / 2]]));
     });
-    CAPS.push([88.0, 89.3, 'x', '', 'LAST LIGHT!', 62]);
+    CAPS.push([88.0, 89.3, 'x', '', 'LAST LIGHT!', 54]);
     /* the column of the world, side on, for the ride up the blade: world x 240 is the blade; altitude a (0 the chasm floor,
        600 the sea, 1500–1620 the cloud cover, the dawn above); the camera sits at altitude cA, k screen px per unit */
     const A4SEA = 600, A4CL0 = 1500, A4CL1 = 1640;
@@ -3706,9 +4057,11 @@
       const tipA = 300 + 2600 * eoc(lin(88.9, 89.7, t)), cA = lerp(lerp(70, 1560, u), 1300, zo), k = lerp(lerp(1.0, 0.7, u), 0.085, zo);
       const hole = tipA > A4CL0 ? Math.min(150, 30 + (tipA - A4CL0) * 0.1) : 0;
       a4Column(t, cA, k, tipA, hole);
+      // embers and ash falling past as we rise
+      a4Embers(t, 50, -700 * (1 - u) - 40, 4849, [104, 102]);
       // him: standing in the sea beside it, his face passing as we rise; he turns to look at it
       const so = 1.5 * k, mx = 240 + 300 * k, my = 135 - (1080 - cA) * k;
-      if (my > -200 && my < H + 200) { a4Sund(mx, my, so, t, { third: 1, eyes: 1.4, heat: 0.85, crown: 0.75, tilt: 0.15 * u, arms: [{ x: -110, y: 140, pose: 'fist' }, { x: 110, y: 150, pose: 'fist' }, { x: -80, y: 200, pose: 'fist' }, { x: 80, y: 200, pose: 'fist' }] }); const sy = fl(135 - (A4SEA + 16 - cA) * k); if (sy < H - LB) a4Column(t, cA, k, tipA, hole, sy); }
+      if (my > -200 && my < H + 200) { a4Sund(mx, my, so, t, { third: 1, eyes: 1.4, heat: 0.85, crown: 0.75, tilt: 0.15 * u, arms: [a4Rest(-110, 140, 20, t), a4Rest(110, 150, 21, t), a4Rest(-80, 200, 22, t), a4Rest(80, 200, 23, t)] }); const sy = fl(135 - (A4SEA + 16 - cA) * k); if (sy < H - LB) a4Column(t, cA, k, tipA, hole, sy); }
       // the blade, from the hero far below to its tip
       const hy = 135 - (24 - cA) * k, ty = 135 - (tipA - cA) * k;
       bigBlade(240, hy, -PI / 2, hy - ty, Math.max(1.6, 7 * k), t, { form: 'lastlight', grow: tipA < 2890 ? 0.999 : 1, surge: true, flare: 0.9 });
@@ -3727,7 +4080,7 @@
        then he catches it in his two hands, holds it, and snaps it. One world, seen through many cameras: V = { k, ox, oy }
        maps world (the wide view at k 1) to the screen. */
     const GM = [340, 78], GS = 0.8, GSEA = 200, GWL = 246;            // his mask, scale; the horizon; his waterline
-    const gl = (lx, ly) => [GM[0] + lx * GS, GM[1] + ly * GS];
+    const gl = (lx, ly) => [GM[0] + lx * GS, GM[1] + ly * GS], lg = (x, y) => [(x - GM[0]) / GS, (y - GM[1]) / GS];
     // the exchange: blade pivot (the hero's hand, deep in the chasm) and angle and length, keyed in time
     const GK = [
       // t, pivot x, pivot y, angle, length, ease
@@ -3744,169 +4097,252 @@
     function a4Blade(t) {
       let i = 0; while (i < GK.length - 1 && GK[i + 1][0] <= t) i++;
       const A = GK[i], B = GK[i + 1];
-      if (!B || t <= A[0]) return { x: A[1], y: A[2], a: A[3], L: A[4] };
-      const u = EASE[B[5] || 'io'](clamp((t - A[0]) / (B[0] - A[0]), 0, 1));
-      return { x: lerp(A[1], B[1], u), y: lerp(A[2], B[2], u), a: lerp(A[3], B[3], u), L: lerp(A[4], B[4], u) };
+      let r;
+      if (!B || t <= A[0]) r = { x: A[1], y: A[2], a: A[3], L: A[4] };
+      else { const u = EASE[B[5] || 'io'](clamp((t - A[0]) / (B[0] - A[0]), 0, 1)); r = { x: lerp(A[1], B[1], u), y: lerp(A[2], B[2], u), a: lerp(A[3], B[3], u), L: lerp(A[4], B[4], u) }; }
+      // the jab at 92.0 sets the whole blade ringing
+      const gj = t - 92.0; if (gj > 0 && gj < 0.5) r.a += 0.05 * Math.exp(-gj * 9) * Math.sin(gj * 70);
+      return r;
     }
-    const GHITS = [[90.6, 2.4, ...gl(0, 60)], [91.4, 1.8, ...gl(-120, 50)], [92.0, 1.8, ...gl(-110, 120)], [92.6, 2.2, ...gl(-80, 22)], [93.2, 2.0, ...gl(0, 125)], [94.2, 2.6, ...gl(-105, 130)], [95.4, 2.6, ...gl(-60, 160)], [96.6, 2.4, ...gl(0, 0)], [97.4, 2.6, 150 + Math.cos(-0.86) * 270, 340 + Math.sin(-0.86) * 270]];
-    const A4CUT2 = 94.2, A4CUT3 = 95.4, A4MASK = 96.6, A4CATCH = 97.4, A4SNAP = 100.0;
-    // his arms through the exchange (local wrist positions), in his own key track
+    // the point d along the blade at time t (world)
+    const a4BP = (t, d) => { const B = a4Blade(t); return [B.x + Math.cos(B.a) * d, B.y + Math.sin(B.a) * d]; };
+    const A4CUT2 = 94.2, A4CUT3 = 95.4, A4MASK = 96.6, A4CATCH = 97.4, A4SNAP = 100.0, GD1 = 236, GD2 = 296, GDS = 266;
+    // the five trades (time, where along the blade they meet, power): the four-armed block, the backhand, the jab into the
+    // flat, the two-fisted hammer, the crossed block of the thrust — then the cuts, and the catch
+    const GTR = [[90.6, 286, 2.4], [91.4, 230, 1.9], [92.0, 200, 2.0], [92.6, 270, 2.3], [93.2, 225, 2.1]];
+    const GHITS = [...GTR.map(([h, d, p]) => [h, p, ...a4BP(h, d)]), [94.2, 2.6, ...gl(-105, 130)], [95.4, 2.6, ...gl(-60, 160)], [96.6, 2.4, ...gl(0, 0)], [97.4, 2.6, ...a4BP(97.4, GDS)]];
+    /* his arms through the exchange: keyed striking points (local) [t, x, y, ang] — or, at a blow, [t, 'C', d, dx, dy, ang]:
+       the point d along the blade at that moment (plus dx, dy), so the knuckles land exactly on it. Into a blow the key eases
+       in (accelerating), out of one it eases out; the engine's arm physics add the elbow's trail and the shoulder's heave */
+    const GAK = [
+      // upper left: the crossed block; a backhand out across the blade; up overhead and the two-fisted hammer; rest
+      [[90.0, -110, 140, 1.6], [90.42, 34, 58, 0.15], [90.6, 'C', 286, 30, 4, 0.1], [90.76, 40, 50, 0.0], [91.0, 26, 66, 0.15], [91.24, 44, 30, -0.6], [91.4, 'C', 230, 0, 0, 3.5], [91.56, -166, 36, 2.7], [92.1, -122, 104, 1.9], [92.42, -50, -56, -1.4], [92.6, 'C', 270, 3, -3, 2.0], [92.76, -98, 78, 2.2], [93.3, -112, 96, 1.7], [97.1, -110, 86, 1.6]],
+      // upper right: the crossed block; back; overhead with the other for the hammer; rest
+      [[90.0, 110, 150, 1.5], [90.42, -34, 64, 3.0], [90.6, 'C', 286, -30, 6, 3.1], [90.76, -26, 56, 3.2], [91.0, -20, 68, 3.0], [91.6, 92, 122, 1.8], [92.42, -36, -48, -1.6], [92.6, 'C', 270, -6, 5, 2.1], [92.76, -104, 86, 2.3], [93.4, 100, 112, 1.6], [96.9, 100, 108, 1.6]],
+      // lower left: the crossed block; a straight jab into the flat of the blade; the cross block of the thrust; reaching
+      [[90.0, -80, 200, 1.5], [90.42, 34, 112, 0.1], [90.6, 34, 112, 0.1], [91.0, 20, 118, 0.1], [91.82, -26, 140, 3.0], [92.0, 'C', 200, 0, 0, 3.0], [92.14, -126, 106, 3.0], [92.5, -70, 160, 2.0], [93.02, 30, 124, -0.2], [93.2, 'C', 225, 28, 2, -0.25], [93.36, 36, 116, -0.3], [93.65, -60, 150, 2.4], [94.0, -128, 138, 3.0], [94.2, -136, 140, 3.0]],
+      // lower right: the crossed block; rest; the cross block; recoil from the first cut; reaching to grab
+      [[90.0, 80, 200, 1.5], [90.42, -30, 116, 3.0], [90.6, -30, 116, 3.0], [91.0, -20, 120, 3.0], [92.0, 70, 168, 1.7], [93.0, -38, 126, 3.4], [93.2, 'C', 225, -36, -2, 3.45], [93.36, -30, 118, 3.5], [93.7, -20, 140, 3.0], [94.6, 110, 170, 1.6], [95.2, -40, 166, 3.2], [95.4, -62, 162, 3.3]],
+    ];
+    function a4GTrack(keys, t) {
+      const pt = (K) => { if (K[1] !== 'C') return [K[1], K[2], K[3]]; const [lx, ly] = lg(...a4BP(K[0], K[2])); return [lx + K[3], ly + K[4], K[5]]; };
+      let i = 0; while (i < keys.length - 1 && keys[i + 1][0] <= t) i++;
+      const A = pt(keys[i]), Bk = keys[i + 1];
+      if (!Bk || t <= keys[i][0]) return A;
+      const B = pt(Bk), u = clamp((t - keys[i][0]) / (Bk[0] - keys[i][0]), 0, 1), e = Bk[1] === 'C' ? eic(u) : keys[i][1] === 'C' ? eoc(u) : eio(u);
+      return [lerp(A[0], B[0], e), lerp(A[1], B[1], e), lerp(A[2], B[2], e)];
+    }
+    // his lean (local units, + away from the blade): rocked back by what he blocks and by the cuts, winding up away before
+    // each of his own blows and throwing his weight into them
+    const a4Bump = (g) => (g > 0 ? (1 - Math.exp(-g * 25)) * Math.exp(-g * 3) : 0);
+    function a4GLean(t) {
+      let l = 0;
+      for (const h of [90.6, 93.2, 97.4]) l += 12 * a4Bump(t - h);
+      for (const h of [94.2, 95.4]) l += 9 * a4Bump(t - h);
+      for (const h of [91.4, 92.0, 92.6]) { const d = h - t; if (d > 0 && d < 0.3) l += 7 * Math.sin((1 - d / 0.3) * PI / 2); l -= 14 * a4Bump(t - h); }
+      return l;
+    }
+    // the hands on the blade (97.4–100.6): the palm on it, the hand square across it; d along it, sd which side
+    function a4Grip(t, d, sd, B) {
+      const ga = B.a + sd * PI / 2, [bx, by] = [B.x + Math.cos(B.a) * d, B.y + Math.sin(B.a) * d], [lx, ly] = lg(bx, by);
+      return { x: lx - Math.cos(ga) * 5.5, y: ly - Math.sin(ga) * 5.5, ang: ga };
+    }
     function a4GArms(t) {
-      const L = (keys) => { let i = 0; while (i < keys.length - 1 && keys[i + 1][0] <= t) i++; const A = keys[i], B = keys[i + 1]; if (!B || t <= A[0]) return A.slice(1); const u = eio(clamp((t - A[0]) / (B[0] - A[0]), 0, 1)); return A.slice(1).map((v, j) => (typeof v === 'number' && typeof B[j + 1] === 'number' ? lerp(v, B[j + 1], u) : v)); };
-      const ul = L([[90.0, -110, 140], [90.45, 30, 62], [91.0, 20, 70], [91.25, -60, 30], [91.4, -125, 48], [91.7, -150, 90], [92.4, -130, 0], [92.6, -84, 20], [92.9, -100, 60], [97.1, -110, 80]]);
-      const ur = L([[90.0, 110, 150], [90.45, -30, 66], [91.0, -20, 70], [92.0, 90, 120], [96.9, 100, 110]]);
-      const ll = L([[90.0, -80, 200], [90.45, 34, 112], [91.0, 20, 118], [91.8, -40, 150], [92.0, -112, 120], [92.3, -90, 170], [93.0, 30, 124], [93.3, 20, 128], [93.9, -120, 140], [94.2, -150, 150]]);
-      const lr = L([[90.0, 80, 200], [90.45, -30, 116], [91.0, -20, 120], [93.0, -26, 126], [93.3, -20, 130], [94.6, 110, 170], [95.2, -40, 166], [95.4, -62, 162]]);
-      const grip = (d, sd) => { const ba = -0.86, bx = 150 + Math.cos(ba) * d, by = 340 + Math.sin(ba) * d, ga = ba + sd * PI / 2; return { x: (bx - GM[0]) / GS - Math.cos(ga) * 13, y: (by - GM[1]) / GS - Math.sin(ga) * 13, pose: 'grab', ang: ga, front: true }; };
-      const cg = eoc(lin(97.25, 97.4, t));
-      if (cg > 0) { const g1 = grip(236, 1), g2 = grip(296, -1); ul[0] = lerp(ul[0], g1.x, cg); ul[1] = lerp(ul[1], g1.y, cg); ur[0] = lerp(ur[0], g2.x, cg); ur[1] = lerp(ur[1], g2.y, cg); }
-      return [
-        cg > 0 ? { x: ul[0], y: ul[1], pose: cg > 0.8 ? 'grab' : 'open', ang: -0.86 + PI / 2, front: true } : { x: ul[0], y: ul[1], pose: 'fist', front: t < 91.2 },
-        cg > 0 ? { x: ur[0], y: ur[1], pose: cg > 0.8 ? 'grab' : 'open', ang: -0.86 - PI / 2, front: true } : { x: ur[0], y: ur[1], pose: 'fist', front: t < 91.2 },
-        t >= A4CUT2 ? { x: -150, y: 150, cut: true } : { x: ll[0], y: ll[1], pose: t > 93.8 ? 'open' : 'fist', front: t < 91.2 || (t > 92.9 && t < 93.6) },
-        t >= A4CUT3 ? { x: 150, y: 150, cut: true } : { x: lr[0], y: lr[1], pose: t > 94.7 ? 'grab' : 'fist', front: t < 91.2 || t > 92.9 },
-      ];
+      const near = Math.min(...GHITS.map((h) => Math.abs(t - h[0]))), dr = 5 * clamp(near / 0.35, 0, 1);
+      const arms = GAK.map((keys, k) => {
+        const [x, y, ang] = a4GTrack(keys, t);
+        const pose = k === 2 && t > 93.75 ? a4PL('fist', 'claw', lin(93.75, 93.95, t)) : k === 3 && t > 94.75 ? a4PL('fist', 'grab', lin(94.9, 95.25, t)) : a4PL('fist', 'grab', dr > 2 ? 0.2 + 0.2 * z5N(t * 1.4, k + 7) : 0);
+        return { x: x - Math.cos(ang) * 10.8 + z5N(t * 0.9, k * 3) * dr, y: y - Math.sin(ang) * 10.8 + z5N(t * 0.8, k * 3 + 1) * dr, ang, pose, front: true };
+      });
+      if (t >= A4CUT2) { const [x, y, ang] = a4GTrack(GAK[2], A4CUT2); arms[2] = { x: x - Math.cos(ang) * 10.8, y: y - Math.sin(ang) * 10.8, cut: true, front: true }; }
+      if (t >= A4CUT3) { const [x, y, ang] = a4GTrack(GAK[3], A4CUT3); arms[3] = { x: x - Math.cos(ang) * 10.8, y: y - Math.sin(ang) * 10.8, cut: true, front: true }; }
+      // the catch: both upper hands to the blade, open, and shut on it; the strain; the snap twists them apart
+      const cg = eoc(lin(97.22, 97.4, t));
+      if (cg > 0) {
+        const B = a4Blade(t), close = eoc(lin(97.36, 97.5, t)), strain = lin(97.5, 100.0, t), snap = t >= A4SNAP ? eoc(Math.min(1, (t - A4SNAP) / 0.25)) : 0;
+        const push = 7 * a4Bump(t - A4CATCH) + 2 * z5Sh(t, 31) * strain;      // the blade's force taken in the arms
+        [[0, GD1, 1], [1, GD2, -1]].forEach(([k, d, sd]) => {
+          const G = a4Grip(t, d, sd, B), A = arms[k], tr = z5Sh(t * 1.3, k * 5) * (0.6 + 1.6 * strain);
+          const tw = snap * (k === 0 ? 1 : -1);                                   // the snap: one hand down and round, one up
+          A.x = lerp(A.x, G.x + Math.cos(B.a) * push + tw * -14, cg) + tr * (cg > 0.9 ? 1 : 0); A.y = lerp(A.y, G.y + Math.sin(B.a) * push + tw * 22, cg) + tr * 0.6 * (cg > 0.9 ? 1 : 0);
+          A.ang = lerp(A.ang, G.ang + tw * 0.6, cg);
+          const tight = 0.08 * strain + 0.04 * Math.sin(t * 9 + k);
+          A.pose = a4PL({ curl: 0.15, thumb: 0.1, spread: 0.95 }, { curl: 0.8 + tight, thumb: 0.75, spread: 0.1 }, close);
+          if (snap > 0) A.pose = a4PL(A.pose, k === 0 ? 'fist' : { curl: 0.3, thumb: 0.2, spread: 0.9 }, snap);
+        });
+      }
+      return arms;
     }
-    // a severed forearm, falling: elbow end (molten) at (x, y), pointing a, gauntlet at the far end
+    // a severed forearm, falling: the burning elbow end at (x, y), pointing a — the vambrace and the hand gone slack
     function a4Limb(x, y, s, a, t, len) {
       const ex = x + Math.cos(a) * len * s, ey = y + Math.sin(a) * len * s;
-      capsF(x, y, ex, ey, 15 * s + 1.5, 12 * s + 1.5, () => 96);
-      capsF(x, y, ex, ey, 15 * s, 12 * s, (u, d, X, Y, nx, ny) => d > 0.86 ? 69 : u < 0.35 ? OBS[clamp(fl(2 - nx * 1.6), 0, 4)] : bone(nx, ny, X, Y, -0.3));
+      a4Fore(x, y, ex, ey, s, 0.7, 0.6);
       discF(x, y, 13 * s, 103); discF(x, y, 8 * s, 105); discF(x, y, 4 * s, 22);
       glow(x, y, 26 * s, T_EMBER, 0.6);
-      sGauntlet(ex, ey, s, a, 'open', 0.4, t);
+      sHand(ex, ey, s, a + Math.sin(t * 3) * 0.1, Object.assign(a4P({ curl: 0.45, thumb: 0.3, spread: 0.6 }), { heat: 0.3 }), t);
     }
     // the severed arms: [time cut, cut point (local), initial velocity, spin, splash time]
     const GLIMBS = [[A4CUT2, -105, 130, -90, -60, -2.4, 94.95], [A4CUT3, -60, 160, 70, -50, 2.0, 96.1]];
     const a4LimbAt = (L, t) => { const g = t - L[0], [wx, wy] = gl(L[1], L[2]); return [wx + L[3] * g, wy + L[4] * g + 260 * g * g, (L[0] === A4CUT2 ? 2.4 : 0.5) + L[5] * g]; };
+    /* the giants' world through the camera V = { k, ox, oy }: the sky and the dark ocean under the cloud cover, its spires,
+       the fire of the blade on the water; the cloud cover with a hole blown through it, miles across, at every blow (dawn
+       light pours down through each in shafts); the burning chasm cut through the sea; him; the blade; the hits.
+       o: arms, push, shake, tilt, nod, roar, eyes, blade, cracks, noBlade, kink (the blade bent at his grip) */
     function a4Giant(t, V, o) {
       o = o || {};
       const k = V.k, X = (wx) => 240 + (wx - V.ox) * k, Y = (wy) => 135 + (wy - V.oy) * k, WX = (x) => V.ox + (x - 240) / k, WY = (y) => V.oy + (y - 135) / k;
-      // sky
-      const hzY = Y(GSEA);
-      for (let y = LB; y < Math.min(H - LB, hzY); y++) { const q = clamp((WY(y) + 60) / (GSEA + 60), 0, 0.999), R = [97, 98, 101, 102, 103], f = q * 4, i = fl(f); for (let x = 0; x < W; x++) BUF[y * W + x] = bay(x, y) < f - i ? R[Math.min(4, i + 1)] : R[i]; }
-      // the cloud cover, its belly lit; every heavy hit blows a ring in it, miles across (dawn light pours through)
+      const B = o.blade || a4Blade(t), px = X(B.x), py = Y(B.y), hzY = Y(GSEA);
+      // where the blade meets the horizon (its fire on the water under it)
+      const LX = Math.abs(Math.sin(B.a)) > 0.05 ? px + Math.cos(B.a) * (hzY - py) / Math.sin(B.a) : px;
+      belowWorld(t, hzY, V.ox * 1.5 + 900, 0.85, [97, 98, 101, 102, 103], clamp(LX, -40, W + 40));
+      // the cloud cover, its belly lit red from below; every heavy hit blows a ring in it, miles across
       const holes = []; for (const [h, p, hx] of GHITS) { const g = t - h; if (g > 0) holes.push([hx, (50 + 210 * eoc(Math.min(1, g / 1.0))) * p / 2.4, g]); }
       for (let x = 0; x < W; x++) {
-        const wx = WX(x), bot = Y(58 + 26 * fbm(wx, 0, 70, 3, 4851)), y1 = Math.min(H - LB, Math.ceil(bot));
+        const wx = WX(x), bot = Y(56 + 22 * fbm(wx, 0, 70, 3, 4851) + 7 * vn(wx, 0, 9, 4855)), y1 = Math.min(H - LB, Math.ceil(bot));
         for (let y = LB; y < y1; y++) {
-          const wy = WY(y), dd = (bot - y) / k;
-          let c = dd < 1.5 ? 103 : dd < 4 ? 102 : dd < 11 + 8 * vn(wx, wy, 9, 4852) ? 121 : 97;
-          for (const [hx, r, g] of holes) { const dx = (wx - hx) / r, dy = (wy - 40) / (r * 0.16), d = dx * dx + dy * dy; if (d < 1) { c = d > 0.85 ? (g < 0.6 ? 22 : 106) : d > 0.6 ? 15 : 16; break; } else if (d < 1.25 && g < 1.2) { c = bay(x, y) < 0.5 ? 121 : 122; } }
+          const wy = WY(y), dd = (bot - y) / k, n = vn(wx, wy, 9, 4852), b = bay(x, y);
+          let c = dd < 1.5 ? 104 : dd < 3.5 ? (b < 0.5 ? 103 : 102) : dd < 8 + 6 * n ? (b < 0.4 ? 102 : 121) : dd < 16 + 8 * n ? (b < 0.5 ? 121 : 120) : n > 0.62 ? 120 : 97;
+          for (const [hx, r, g] of holes) { const dx = (wx - hx) / r, dy = (wy - 40) / (r * 0.16), d = dx * dx + dy * dy; if (d < 1) { c = d > 0.85 ? (g < 0.6 ? 22 : 106) : d > 0.6 ? 15 : b < 0.5 ? 16 : 15; break; } else if (d < 1.25 && g < 1.2) { c = b < 0.5 ? 121 : 122; } }
           BUF[y * W + x] = c;
         }
       }
-      // the sea (to the horizon) and the burning chasm running into it
+      // the dawn falling through the newest holes: shafts of light down to the sea
+      for (const [hx, r, g] of holes.slice(-3)) {
+        if (g > 3) continue;
+        const a = 0.2 * Math.min(1, g * 3) * (1 - g / 3), x0 = X(hx), w0 = r * k * 0.55, y0 = Math.max(LB, fl(Y(48))), y1 = Math.min(H - LB, fl(hzY));
+        for (let y = y0; y < y1; y++) { const q = (y - y0) / Math.max(1, y1 - y0), w = w0 * (0.6 + 0.6 * q), cx = x0 + q * 30 * k; for (let x = Math.max(0, fl(cx - w)); x < Math.min(W, cx + w); x++) { const e = 1 - Math.abs(x - cx) / w; if (vn(x * 0.3 + y * 0.1, g * 3, 3, 4856) > 0.35) tintI(y * W + x, x, y, T_WARM, a * e * (1 - q * 0.5)); } }
+      }
+      // the burning chasm cut through the sea toward us, the sea pouring over its lips
       for (let y = Math.max(LB, fl(hzY)); y < H - LB; y++) {
         const wy = WY(y), q = clamp((wy - GSEA) / 140, 0, 1), cxw = lerp(196, 140, q), half = 3 + (wy - GSEA) * 0.55, row = y * W;
-        for (let x = 0; x < W; x++) {
+        const xa = Math.max(0, fl(X(cxw - half - 4 / k))), xb = Math.min(W - 1, Math.ceil(X(cxw + half + 4 / k)));
+        for (let x = xa; x <= xb; x++) {
           const wx = WX(x), d = Math.abs(wx - cxw) - half;
-          if (d < 0) { const e = -d / half; BUF[row + x] = e < 0.1 ? 104 : e < 0.35 ? 102 : e < 0.7 ? 101 : 98; continue; }
-          const sw = Math.sin(wx * 0.06 / (0.2 + q) + t * 1.4 + wy * 0.9) + Math.sin(wx * 0.017 - t * 0.8 + wy * 0.3);
-          let c = OCEAN[clamp(fl(q * 3.2) + (sw > 1.1 ? 2 : sw > 0.5 ? 1 : 0) - (bay(x, y) > 0.5 + q * 0.4 ? 1 : 0), 0, 3)];
-          if (d < 3 / k) c = bay(x, y) < 0.5 ? 22 : 119;               // foam on the lip where the sea goes over
-          BUF[row + x] = c;
+          if (d < 0) { const e = -d / half, n = vn(wx, wy, 5, 4857); BUF[row + x] = e < 0.08 ? 104 : e < 0.3 ? (n > 0.5 ? 102 : 103) : e < 0.65 ? (n > 0.6 ? 102 : 101) : n > 0.55 ? 98 : 101; continue; }
+          if (d < 3 / k) BUF[row + x] = bay(x, y) < 0.5 ? 22 : 119;               // foam on the lip where the sea goes over
         }
       }
-      for (let k2 = 0; k2 < 6; k2++) { const wx = 20 + k2 * 90 + ih(k2, 1, 4853) * 40, h = 20 + ih(k2, 2, 4853) * 40, x0 = X(wx), yb = hzY + 2; if (Math.abs(wx - 170) < 40) continue; for (let y = fl(yb - h * k); y < yb; y++) { const v = (yb - y) / (h * k), hw = (6 + 6 * (1 - v)) * k; for (let x = fl(x0 - hw); x <= x0 + hw; x++) P(x, y, v > 0.88 ? 103 : 98); } }
-      // him
+      // him: the arms (keyed, or given), rocked by the blows; the cut across his mask
       const arms = o.arms || a4GArms(t), maskCuts = t >= A4MASK ? [[-17, -9, 17, 13, Math.min(1, (t - A4MASK) * 8)]] : [];
+      // the thrust at 93.2 drives him back through the sea
+      const shove = 16 * eoc(lin(93.2, 93.5, t)) * (1 - eio(lin(93.6, 94.4, t)));
       const sh = o.shake || 0, roar = o.roar || 0;
-      const so = a4Sund(X(GM[0] + (o.push || 0)), Y(GM[1]), GS * k, t, { third: 1, eyes: o.eyes || 1.4, heat: 0.9, crown: 0.75, rage: t >= A4MASK ? 1 : 0.4 + roar * 0.4, roar, shake: sh, tilt: o.tilt || 0, nod: o.nod || 0, arms, maskCuts });
-      // the sea in front of his waist
-      const wl = Y(GWL);
-      if (wl < H - LB) for (let y = Math.max(LB, fl(wl)); y < H - LB; y++) for (let x = Math.max(0, fl(X(220))); x < W; x++) { const wy = WY(y), wx = WX(x), q = clamp((wy - GSEA) / 140, 0, 1), sw = Math.sin(wx * 0.06 / (0.2 + q) + t * 1.4 + wy * 0.9); BUF[y * W + x] = y - wl < 2 ? 22 : OCEAN[clamp(fl(q * 3.2) + (sw > 0.8 ? 1 : 0), 0, 3)]; }
-      // the severed arms falling, and the sea thrown up where they land
-      for (const L of GLIMBS) { const g = t - L[0]; if (g < 0) continue; const [wx, wy, a] = a4LimbAt(L, Math.min(t, L[6])); if (t < L[6]) a4Limb(X(wx), Y(wy), GS * k, a, t, 70); for (let q = 0; q < 6; q++) { const gg = g - q * 0.04; if (gg < 0 || t > L[6]) continue; const [px, py] = a4LimbAt(L, L[0] + gg); P(X(px), Y(py), q < 2 ? 105 : 103); } const gs = t - L[6]; if (gs > 0 && gs < 1.6) { const sx = X(wx), sy = Y(GWL); rocks(sx, sy, gs, 26, 220 * k, 3 * k + 1, [117, 118, 119, 22], 4854 + L[0], 160 * k, -PI / 2, 1.2); shockRing(sx, sy, 10 + gs * 300 * k, 3 + gs * 50 * k, 3, [22, 119, 118], 1 - gs / 1.6); if (gs < 0.5) glow(sx, sy, 60 * k, T_WH, 0.5 * (1 - gs * 2)); } }
-      // the blade
-      const B = o.blade || a4Blade(t), px = X(B.x), py = Y(B.y);
-      if (!o.noBlade) {
-        const snapG = t - A4SNAP;
-        if (snapG < 0) o.tip = bigBlade(px, py, B.a, B.L * k, Math.max(2, 7 * k), t, { form: 'lastlight', flare: 0.9, cracks: o.cracks || 0, surge: true });
+      // the blade as it is now (straight, or bent at his grip as he bends it); drawn inside his hands while he holds it
+      const bw = Math.max(2, 7 * k), bo = { form: 'lastlight', flare: 0.9, cracks: o.cracks || 0, surge: true };
+      const drawBlade = () => {
+        if (o.kink) { const [sx, sy] = [X(B.x + Math.cos(B.a) * GDS), Y(B.y + Math.sin(B.a) * GDS)]; bigBlade(px, py, B.a, GDS * k, bw, t, bo); bigBlade(sx, sy, B.a - o.kink, (B.L - GDS) * k, bw, t, bo); }
+        else o.tip = bigBlade(px, py, B.a, B.L * k, bw, t, bo);
+      };
+      const holding = !o.noBlade && t >= 97.37 && t < A4SNAP;
+      if (holding && arms[0] && arms[1]) {
+        arms[0] = Object.assign({}, arms[0], { hold: () => drawBlade() });
+        // the second hand: its palm went down over the blade — so draw the blade again, but only round that palm
+        arms[1] = Object.assign({}, arms[1], { hold: (info) => { const R = 26 * GS * k, [cx, cy] = info.palm; A4SAVE.set(BUF); drawBlade(); for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) { const dx = x - cx, dy = y - cy; if (dx * dx + dy * dy > R * R) BUF[y * W + x] = A4SAVE[y * W + x]; } } });
       }
-      // the hits
-      for (const [h, p, hx, hy] of GHITS) { const g = t - h; if (g < 0 || g > 1.2) continue; megaHit(X(hx), Y(hy), g, Math.min(2.4, p), PI + B.a, [22, 106, 103], 4860 + fl(h * 10)); if (g < 1.0) { const sx = X(hx), cy = Y(40); shockRing(sx, cy, 20 + g * 700 * k, 4 + g * 80 * k, 3, [22, 21, 20], 1 - g); } if (g < 1.2) rocks(X(170), Y(GSEA + 10), g, 10, 120 * k, 3 * k + 1, [97, 99, 122, 103], 4870 + fl(h * 10), 200 * k, -PI / 2, 2.4); }
+      const so = a4Sund(X(GM[0] + (o.push || 0) + shove), Y(GM[1]), GS * k, t, { third: 1, eyes: o.eyes || 1.4, heat: 0.9, crown: 0.75, rage: t >= A4MASK ? 1 : 0.4 + roar * 0.4, roar, shake: sh, tilt: o.tilt || 0, nod: o.nod || 0, lean: a4GLean(t), arms, maskCuts });
+      // the sea in front of his waist (the shove throws up a bow wave)
+      const wl = Y(GWL);
+      if (wl < H - LB) for (let y = Math.max(LB, fl(wl)); y < H - LB; y++) for (let x = Math.max(0, fl(X(220))); x < W; x++) { const wy = WY(y), wx = WX(x), q = clamp((wy - GSEA) / 140, 0, 1), sw = Math.sin(wx * 0.06 / (0.2 + q) + t * 1.4 + wy * 0.9); let c = y - wl < 2 ? 22 : OCEAN[clamp(fl(q * 3.2) + (sw > 0.8 ? 1 : 0), 0, 3)]; if (Math.abs(x - LX) < 10 + q * 40 && sw > 0.3 && c !== 22) c = sw > 0.9 ? 103 : 102; BUF[y * W + x] = c; }
+      if (shove > 1 && t < 94.4) { const g = t - 93.2; rocks(X(GM[0] - 60 + shove), wl, g, 14, 160 * k, 1.5 * k + 1, [117, 118, 119, 22], 4858, 200 * k, -PI / 2 - 0.5, 1.0); }
+      // the severed arms falling, and the sea thrown up where they land
+      for (const L of GLIMBS) { const g = t - L[0]; if (g < 0) continue; const [wx, wy, a] = a4LimbAt(L, Math.min(t, L[6])); if (t < L[6]) a4Limb(X(wx), Y(wy), GS * k, a, t, 70); for (let q = 0; q < 6; q++) { const gg = g - q * 0.04; if (gg < 0 || t > L[6]) continue; const [px2, py2] = a4LimbAt(L, L[0] + gg); P(X(px2), Y(py2), q < 2 ? 105 : 103); } const gs = t - L[6]; if (gs > 0 && gs < 1.6) { const sx = X(wx), sy = Y(GWL); rocks(sx, sy, gs, 26, 220 * k, 3 * k + 1, [117, 118, 119, 22], 4854 + L[0], 160 * k, -PI / 2, 1.2); shockRing(sx, sy, 10 + gs * 300 * k, 3 + gs * 50 * k, 3, [22, 119, 118], 1 - gs / 1.6); if (gs < 0.5) glow(sx, sy, 60 * k, T_WH, 0.5 * (1 - gs * 2)); } }
+      // the blade (when he is not holding it)
+      if (!o.noBlade && !holding) drawBlade();
+      // the hits, each its own: sparks from the exact point of contact thrown along the blow
+      for (const [h, p, hx, hy] of GHITS) {
+        const g = t - h; if (g < 0 || g > 1.2) continue;
+        const sx = X(hx), sy = Y(hy);
+        megaHit(sx, sy, g, Math.min(2.4, p), PI + B.a, [22, 106, 103], 4860 + fl(h * 10));
+        if (g < 1.0) shockRing(sx, Y(40), 20 + g * 700 * k, 4 + g * 80 * k, 3, [22, 21, 20], 1 - g);
+        if (g < 1.2) rocks(X(170), Y(GSEA + 10), g, 10, 120 * k, 3 * k + 1, [97, 99, 122, 103], 4870 + fl(h * 10), 200 * k, -PI / 2, 2.4);
+        // the backhand throws a fan of sparks off the flat; the jab rings the blade (light running along it); the hammer
+        // blasts the sea where the blade goes in; the thrust grinds sparks off the crossed vambraces
+        if (h === 91.4 && g < 0.5) for (let q = 0; q < 24; q++) { const a = PI + B.a + 0.6 + (ih(q, 1, 4861) - 0.5) * 1.2, v = (60 + 200 * ih(q, 2, 4861)) * k, x = sx + Math.cos(a) * v * g, y = sy + Math.sin(a) * v * g + 200 * g * g; lineP(x, y, x - Math.cos(a) * 5, y - Math.sin(a) * 5, q % 3 ? 106 : 22); }
+        if (h === 92.0 && g < 0.45) for (let q = 0; q < 8; q++) { const d = (frac(q / 8 + g * 3) - 0.5) * 900 * k, x = sx + Math.cos(B.a) * d, y = sy + Math.sin(B.a) * d; glow(x, y, 16 * k + 4, T_WH, 0.5 * (1 - g / 0.45)); }
+        if (h === 93.2 && g < 0.6) for (let q = 0; q < 14; q++) { const a = PI + B.a + (ih(q, fl(t * 30), 4862) - 0.5) * 2.4, L = (8 + 30 * ih(q, 3, 4862)) * k; lineP(sx, sy, sx + Math.cos(a) * L, sy + Math.sin(a) * L, q % 2 ? 22 : 105); }
+      }
+      { const g = t - 92.75; if (g > 0 && g < 1.4 && k < 1.2) { const x = X(300), y = Y(GSEA + 8); rocks(x, y, g, 30, 300 * k, 3 * k + 1, [117, 118, 119, 22], 4881, 160 * k, -PI / 2, 1.0); shockRing(x, y, 10 + g * 320 * k, 3 + g * 50 * k, 3, [22, 119, 118], 1 - g / 1.4); if (g < 0.4) glow(x, y, 70 * k, T_WH, 0.5 * (1 - g / 0.4)); } }
       // his waterline: the sea pushed out in a ring from him on every hit
       for (const [h] of GHITS) { const g = t - h; if (g > 0 && g < 1.4) shockRing(X(GM[0]), Y(GWL), 20 + g * 260 * k, 3 + g * 20 * k, 2, [22, 119, 118], 1 - g / 1.4); }
       return { so, X, Y, B, px, py };
     }
     const a4GK = (t) => kick(t, GHITS.map(([h, p, x, y]) => [h, p * 0.8, Math.atan2(y - 300, x - 160)]));
-    // G1 90.6–91.4: wide: the blade comes up out of the chasm into his four crossed arms
-    shot(90.6, 91.4, (lt, t) => { a4Giant(t, { k: 1, ox: 250, oy: 140 }, { push: 10 * eoc(Math.min(1, lt * 3)) }); shk(lt < 0.4 ? 7 : 1); a4Cam(1.02, 0, 240, 135, a4GK(t)); });
-    // G2 91.4–92.4: closer: a backhand turns it away; a fist knocks it back
-    shot(91.4, 92.4, (lt, t) => { a4Giant(t, { k: 1.55, ox: 300, oy: 120 }, { tilt: 0.04 }); shk(1.5); a4Cam(1.0, 0.02, 240, 135, a4GK(t)); });
-    // G3 92.4–93.6: wider: the hammer drives it down into the sea; then he takes a thrust on his crossed arms
-    shot(92.4, 93.6, (lt, t) => {
-      a4Giant(t, { k: 0.78, ox: 260, oy: 150 }, {});
-      const g = t - 92.75; if (g > 0 && g < 1.4) { const x = 240 + (300 - 260) * 0.78, y = 135 + (GSEA + 8 - 150) * 0.78; rocks(x, y, g, 30, 240, 3, [117, 118, 119, 22], 4881, 160, -PI / 2, 1.0); shockRing(x, y, 10 + g * 260, 3 + g * 40, 3, [22, 119, 118], 1 - g / 1.4); }
-      shk(1.5); a4Cam(1.0, 0, 240, 135, a4GK(t));
-    });
-    // G4 93.6–94.15: in the chasm, close: the hero, burning, hauls the blade back for everything it has
+    // G1 90.6–91.4: wide: the blade comes up out of the chasm into his four crossed arms; they give, and hold
+    shot(90.6, 91.4, (lt, t) => { a4Giant(t, { k: 1, ox: 250, oy: 140 }, { push: 10 * eoc(Math.min(1, lt * 3)), tilt: -0.05 * a4Bump(lt) }); shk(lt < 0.4 ? 7 : 1); a4Cam(1.02, 0, 240, 135, a4GK(t)); });
+    // G2 91.4–92.0: close on his shoulder: the backhand — the back of his fist across the flat, the blade knocked away
+    shot(91.4, 92.0, (lt, t) => { a4Giant(t, { k: 1.75, ox: 262, oy: 116 }, { tilt: 0.06 - 0.05 * a4Bump(lt), nod: 1 }); shk(lt < 0.3 ? 6 : 1.2); a4Cam(1.0, -0.04, 240, 135, a4GK(t)); });
+    // G3 92.0–92.45: low and tilted, beside the blade: the jab into its flat sets it ringing end to end
+    shot(92.0, 92.45, (lt, t) => { a4Giant(t, { k: 1.3, ox: 236, oy: 152 }, { tilt: -0.04, nod: 2 }); shk(lt < 0.3 ? 6 : 1.2); a4Cam(1.0, 0.08, 240, 135, a4GK(t)); });
+    // G4 92.45–93.0: wide: both fists overhead and down — the hammer drives it into the sea
+    shot(92.45, 93.0, (lt, t) => { a4Giant(t, { k: 0.78, ox: 260, oy: 150 }, { nod: 3 * eio(lin(92.45, 92.6, t)) }); shk(t > 92.6 && t < 92.9 ? 6 : 1.5); a4Cam(1.0, 0, 240, 135, a4GK(t)); });
+    // G5 93.0–93.6: tight on his chest: the thrust, taken on his crossed lower forearms; it drives him back through the sea
+    shot(93.0, 93.6, (lt, t) => { a4Giant(t, { k: 1.7, ox: 318, oy: 176 }, { tilt: 0.04, nod: -2 * a4Bump(t - 93.2) }); shk(t > 93.2 && t < 93.5 ? 7 : 1.5); a4Cam(1.0, 0.03, 240, 135, a4GK(t)); });
+    // G6 93.6–94.15: in the chasm, close: the hero, burning, hauls the blade back for everything it has
     function a4HeroPit(t, S, hx, hy, o) {
       a4Wall(-1, 70, 300 + t * 20, t, 1, 1000, 4891, true);
       a4Wall(1, 410, 300 + t * 20, t, 1, 1000, 4892, true);
-      for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (BUF[i] === 0) BUF[i] = bay(x, y) < 0.3 ? 101 : 97; }
-      const a = a4Last(hx, hy, S, t, o);
-      return a;
+      return a4Last(hx, hy, S, t, o);
     }
     shot(93.6, 94.15, (lt, t) => {
       a4Deep(300, t, 1, 1000);
       const B = a4Blade(t), S = 3.4, hx = 210 + a4Tw(t, 16) * 1.5, hy = 170;
       const a = a4HeroPit(t, S, hx, hy, { eyes: 'glow', mouth: 2, sw: -1.9 + (B.a + 1.45) * 0.6, sq: -0.1 + 0.2 * Math.sin(t * 9), legs: [0, 1, 1, 0] });
       bigBlade(a.hand[0], a.hand[1], B.a - 0.3, 600, 6, t, { form: 'lastlight', flare: 1, surge: true });
-      for (let k = 0; k < 20; k++) { const q = frac(ih(k, 1, 4893) + t * 1.8), x = ih(k, 2, 4893) * W, y = H - LB - q * 230; P(x, y, q < 0.5 ? 106 : 104); }
+      a4Embers(t, 30, 140, 4893, [106, 104]);
       shk(2.5); a4Cam(1.04, -0.04, 240, 135);
     });
-    // G5 94.15–95.3: the sweep takes the lower left arm off at the elbow; it falls into the sea
-    shot(94.15, 95.3, (lt, t) => { const r = a4Giant(t, { k: 1.12, ox: 290, oy: 160 }, { shake: t > A4CUT2 ? 1.2 : 0, tilt: t > A4CUT2 ? 0.06 * eoc(Math.min(1, (t - A4CUT2) * 3)) : 0 }); shk(t > A4CUT2 && t < 94.6 ? 7 : 1.5); a4Cam(1.0, 0, 240, 135, a4GK(t)); });
+    // G7 94.15–95.3: the sweep takes the lower left arm off at the elbow; it falls into the sea
+    shot(94.15, 95.3, (lt, t) => { a4Giant(t, { k: 1.12, ox: 290, oy: 160 }, { shake: t > A4CUT2 ? 1.2 : 0, tilt: t > A4CUT2 ? 0.06 * eoc(Math.min(1, (t - A4CUT2) * 3)) : 0, roar: 0.4 * a4Bump(t - A4CUT2) }); shk(t > A4CUT2 && t < 94.6 ? 7 : 1.5); a4Cam(1.0, 0, 240, 135, a4GK(t)); });
     WHIPS.push([95.28, 0]);
-    // G6 95.3–96.5: and the lower right; he roars, the camera pushed in on it
+    // G8 95.3–96.5: and the lower right; he roars, the camera pushed in on it
     shot(95.3, 96.5, (lt, t) => {
       const roar = sstep(95.55, 95.85, t) * (1 - sstep(96.3, 96.5, t) * 0.5), push = eio(lin(95.6, 96.45, t));
       a4Giant(t, { k: lerp(1.0, 1.8, push), ox: lerp(260, GM[0], push), oy: lerp(150, GM[1] + 20, push) }, { roar, shake: roar * 1.4, nod: -roar * 3 });
       shk(roar * 3 + (t - A4CUT3 > 0 && t - A4CUT3 < 0.4 ? 5 : 0)); a4Cam(1.0, 0, 240, 135, a4GK(t));
     });
-    // G7 96.5–97.3: on his face: the blade goes across the mask; the seam of fire widens
+    // G9 96.5–97.3: on his face: the blade goes across the mask; the seam of fire widens
     shot(96.5, 97.3, (lt, t) => {
       const g = t - A4MASK, recoil = g > 0 ? z5Knock(g, 0.12, 9, 4) : 0;
       a4Giant(t, { k: 2.4, ox: GM[0], oy: GM[1] + 12 }, { tilt: recoil, shake: g > 0 ? 1.5 : 0.3, roar: g > 0 ? 0.3 * Math.exp(-g * 3) : 0 });
       shk(g > 0 && g < 0.4 ? 6 : 1); a4Cam(1.0, 0, 240, 135, a4GK(t));
     });
-  
-    // G8 97.3–98.2: he catches it in his two hands, and it stops dead
+    // G10 97.3–98.2: he catches it in his two hands — the palms meet it, the fingers close over it — and it stops dead;
+    // sparks grind out of each grip; his arms give a little, and hold
+    function a4GripFx(r, t, g, amt) {
+      for (const d of [GD1, GD2]) {
+        const [bx, by] = a4BP(t, d), sx = r.X(bx), sy = r.Y(by);
+        for (let q = 0; q < 8; q++) { const f = frac(ih(q, 1, 4901 + d) + t * 2.6), a = r.B.a + PI + (ih(q, 2, 4901 + d) - 0.5) * 2, v = 60 * r.Y(1) / r.Y(1); const x = sx + Math.cos(a) * f * 50 * amt, y = sy + Math.sin(a) * f * 50 * amt + f * f * 30; P(x, y, f < 0.4 ? 22 : 106); }
+        glow(sx, sy, 40 * amt, T_EMBER, 0.45 * amt);
+      }
+    }
     shot(97.3, 98.2, (lt, t) => {
       const g = t - A4CATCH, B = a4Blade(t); if (g > 0) B.a += z5Sh(t, 21) * 0.004;
       const r = a4Giant(t, { k: 1.45, ox: 300, oy: 108 }, { blade: B, cracks: g > 0 ? 0.15 * g : 0, shake: g > 0 ? 0.8 : 0, eyes: 1.7 });
-      if (g > 0) { const hx = 150 + Math.cos(-0.86) * 266, hy = 340 + Math.sin(-0.86) * 266; for (let k = 0; k < 10; k++) { const q = frac(ih(k, 1, 4901) + t * 2.6), a = B.a + PI + (ih(k, 2, 4901) - 0.5) * 2, x = r.X(hx) + Math.cos(a) * q * 60, y = r.Y(hy) + Math.sin(a) * q * 60 + q * q * 30; P(x, y, q < 0.4 ? 22 : 106); } glow(r.X(hx), r.Y(hy), 50, T_EMBER, 0.5); }
+      if (g > 0) a4GripFx(r, t, g, 1);
       shk(g > 0 ? (g < 0.4 ? 8 : 2.5) : 1); a4Cam(1.0, 0, 240, 135, a4GK(t));
     });
-    // G9 98.2–98.9: the hero, everything pouring out of it into the blade, the cracks in it widening
+    // G11 98.2–98.9: the hero, everything pouring out of it into the blade, the cracks in it widening
     shot(98.2, 98.9, (lt, t) => {
       a4Deep(300, t, 1, 1000);
       const S = 3.6, hx = 214 + a4Tw(t, 17) * 2.2, hy = 176;
       const a = a4HeroPit(t, S, hx, hy, { eyes: 'glow', mouth: 2, sw: -1.62, sq: 0.12 + 0.06 * Math.sin(t * 13), legs: [0, 2, 2, 0], power: 1.3 });
       bigBlade(a.hand[0], a.hand[1], -1.25 + z5Sh(t, 22) * 0.01, 600, 6.5, t, { form: 'lastlight', flare: 1, surge: true, cracks: 0.25 });
-      for (let k = 0; k < 30; k++) { const q = frac(ih(k, 1, 4902) + t * 2.4), x = ih(k, 2, 4902) * W, y = H - LB - q * 230; P(x, y, q < 0.5 ? 106 : 104); }
+      a4Embers(t, 40, 160, 4902, [106, 104]);
       shk(3); a4Cam(1.06 + lt * 0.05, 0.03, 220, 160);
     });
-    // G10 98.9–100.0: the hands on the blade, close: it cracks along its length, light leaking out, bending where he holds it — SNAP
+    // G12 98.9–100.0: the hands on the blade, close: it cracks along its length, light leaking out, bending where he holds it
     shot(98.9, 100.0, (lt, t) => {
       const B = a4Blade(t), u = lin(98.9, 100.0, t); B.a += z5Sh(t, 23) * 0.006 * (1 + u * 2);
-      const r = a4Giant(t, { k: 2.5, ox: 312, oy: 102 }, { blade: B, noBlade: true, eyes: 2, shake: 0.6 + u, roar: 0.2 * u });
-      // the blade in two parts, kinked at his grip as it bends
-      const hx = 150 + Math.cos(-0.86) * 266, hy = 340 + Math.sin(-0.86) * 266, sx = r.X(hx), sy = r.Y(hy), kink = 0.12 * eic(u);
-      const L1 = Math.hypot(sx - r.px, sy - r.py);
-      bigBlade(r.px, r.py, B.a, L1, 7 * 2.5 * 0.6, t, { form: 'lastlight', flare: 0.9, cracks: 0.3 + u * 0.7, surge: true });
-      bigBlade(sx, sy, B.a - kink, 900, 7 * 2.5 * 0.6, t, { form: 'lastlight', flare: 0.9, cracks: 0.3 + u * 0.7 });
-      // his hands back over it
-      sunderer(r.X(GM[0]), r.Y(GM[1]), GS * 2.5, t, { third: 1, eyes: 2, heat: 0.9, crown: 0, rage: 1, body: false, mask: false, glow: 0, arms: a4GArms(t).map((A, k) => (k < 2 ? A : null)), shake: 0.6 + u });
+      const r = a4Giant(t, { k: 2.3, ox: 322, oy: 132 }, { blade: B, eyes: 2, shake: 0.6 + u, roar: 0.2 * u, cracks: 0.3 + u * 0.7, kink: 0.12 * eic(u) });
       // light leaking through the cracks round his grip
+      const [bx, by] = a4BP(t, GDS), sx = r.X(bx), sy = r.Y(by);
       for (let k = 0; k < 16 * u; k++) { const a = ih(k, 1, 4903) * TAU, L = 20 + 60 * u * ih(k, 2, 4903); lineF(sx, sy, sx + Math.cos(a) * L, sy + Math.sin(a) * L, (x, y, q) => { if (bay(x, y) < (1 - q) * u) P(x, y, 22); }); }
       glow(sx, sy, 60 + 80 * u, T_WH, 0.3 + 0.4 * u);
+      a4GripFx(r, t, 0, 0.5 + 0.5 * u);
       shk(1 + u * 4); a4Cam(1.0, 0.02 * u, 240, 135);
     });
-    // G11 100.0–100.8: wide: snapped — the long half tumbles out of his hands and comes apart in the air, pieces the size of
-    // mountains falling into the sea
+    // G13 100.0–100.6: wide: snapped — his hands wrench apart, the long half tumbles out of them and comes apart in the air,
+    // pieces the size of mountains falling into the sea
     function a4Frag(x, y, L, w, a, lit) {
       const ca = Math.cos(a), sa = Math.sin(a), nx = -sa * w, ny = ca * w, tx = x + ca * L, ty = y + sa * L, bx = x - ca * L * 0.6, by = y - sa * L * 0.6;
       z5Tri(tx, ty, bx + nx, by + ny, bx - nx * 0.6, by - ny * 0.6, 102); z5Tri(tx, ty, bx + nx * 0.6, by + ny * 0.6, bx - nx * 0.2, by - ny * 0.2, lit ? 106 : 104);
@@ -3915,10 +4351,9 @@
     shot(100.0, 100.6, (lt, t) => {
       const g = t - A4SNAP;
       const r = a4Giant(t, { k: 0.85, ox: 262, oy: 132 }, { noBlade: true, eyes: 2, roar: 0.6 * Math.exp(-g * 2) });
-      const B = a4Blade(t), hx = 150 + Math.cos(-0.86) * 266, hy = 340 + Math.sin(-0.86) * 266, sx = r.X(hx), sy = r.Y(hy);
+      const B = a4Blade(t), [bx, by] = a4BP(t, GDS), sx = r.X(bx), sy = r.Y(by);
       const back = eic(Math.min(1, g / 0.6));
       bigBlade(r.px, r.py + back * 120, B.a, Math.hypot(sx - r.px, sy - r.py) * (1 - back * 0.3), 7 * 0.85, t, { form: 'lastlight', flare: 0.6, cracks: 0.6 });
-      // the long half comes apart in the air: pieces the size of mountains, burning, raining down on the sea
       for (let k = 0; k < 9; k++) {
         const d = 40 + k * 110, br = clamp((g - 0.04 * k) * 3, 0, 1), px0 = sx + Math.cos(B.a) * d * 0.85, py0 = sy + Math.sin(B.a) * d * 0.85;
         const px = px0 + (ih(k, 1, 4904) - 0.5) * 160 * g + 30 * g, py = py0 + 520 * g * g + (ih(k, 2, 4904) - 0.5) * 60 * g, rot = B.a + (ih(k, 3, 4904) - 0.5) * 3 * g;
@@ -3935,23 +4370,27 @@
        Point blank, his third eye blazing over the hero in the chasm: one fist, and it is driven straight down through the
        floor of the world, through the rock beneath it, into the dark; its fire goes out on the way down. */
     shot(100.6, 101.25, (lt, t) => {
-      const g = t - 100.8, wind = eic(lin(100.62, 100.8, t)), drive = g > 0 ? eic(Math.min(1, g / 0.5)) : 0, lean = eoc(lin(100.6, 100.75, t));
+      const T = a4Stop(t, [100.8], 0.07), g = t - 100.8, hitv = g >= 0, wind = eio(lin(100.6, 100.72, T)), strike = eic(lin(100.7, 100.8, T)), drive = hitv ? eic(Math.min(1, (T - 100.8) / 0.45)) : 0, lean = eoc(lin(100.6, 100.75, t));
       a4Deep(800 + drive * 300, t, 0.8, 1400);
       a4Wall(-1, 60, 820 + drive * 300, t, 0.8, 1400, 4911, true);
       a4Wall(1, 420, 820 + drive * 300, t, 0.8, 1400, 4912, true);
-      // his face leaning in over it, the brother's eye in his brow blazing
-      const my = lerp(-10, 104, lean) - drive * 260;
-      a4Sund(340, my, 2.3, t, { third: 1, eyes: 2, heat: 1, crown: 0.75, rage: 1, roar: 0.3, body: false, maskCuts: [[-17, -9, 17, 13, 1]], nod: 3 });
+      // his face leaning in over it, the brother's eye in his brow blazing; he drops his weight into the blow
+      const my = lerp(-10, 104, lean) - drive * 260 + 10 * strike;
+      a4Sund(340, my, 2.3, t, { third: 1, eyes: 2, heat: 1, crown: 0.75, rage: 1, roar: 0.3 + 0.4 * strike, body: false, maskCuts: [[-17, -9, 17, 13, 1]], nod: 3 + 3 * strike, tilt: -0.08 * wind + 0.06 * strike });
       glow(340, my - 16 * 2.3, 130, T_MAG, 0.7); glow(340, my - 16 * 2.3, 40, T_WH, 0.5);
-      // the hero, with what is left of the blade, looking up; then gone downward
-      const S = 3.0, hx = 170 + a4Tw(t, 18), hy = 176 + drive * 260;
-      const a = a4Last(hx, hy, S, t, { eyes: g > 0 ? 'closed' : 'wide', mouth: 2, sw: -1.2, still: g > 0, power: 1 - drive * 0.5, ang: drive * 0.4 });
+      // the hero, with what is left of the blade, looking up: crushed flat by the blow on the hit frame, then driven down
+      // through the floor, stretched along its fall
+      const S = 3.0, hx = 170 + a4Tw(t, 18) * (hitv ? 0 : 1), hy = 176 + drive * 260;
+      const sq = hitv ? (T - 100.8 < 0.001 ? 0.6 : -0.35 * Math.min(1, (T - 100.8) * 8)) : 0;
+      const a = a4Last(hx, hy, S, t, { eyes: hitv ? 'closed' : 'wide', mouth: 2, sw: -1.2, still: hitv, power: 1 - drive * 0.5, ang: drive * 0.4, sq });
       bigBlade(a.hand[0], a.hand[1], -1.2, 70, 5, t, { form: 'lastlight', flare: 0.6, cracks: 0.6 });
-      // the fist
-      const fx = lerp(520, hx + 46, wind), fy = lerp(40, hy - 34, wind) + drive * 230;
-      a4Fist(fx, fy, 3.2, PI * 0.72, 'fist', 1, t, 400);
-      if (g > 0) { megaHit(hx + 10, hy - 30, g, 3.3, PI / 2, [22, 75, 103], 4913); streaks(PI / 2, 40, t, 4000, 103, 120, 4914, [0, LB, W, H - 2 * LB]); }
-      shk(g > 0 && g < 0.6 ? 9 : 1); a4Cam(1.0, 0, 240, 135, kick(t, [[100.8, 3.5, PI / 2]]));
+      // the fist: cocked up and back, then down onto it — the knuckles on its crown on the hit frame — and on down with it
+      const fa = PI * 0.62, C = [hx + 2, hy - 8 * S * (1 - 0.4 * Math.max(0, sq))];
+      const kx = hitv ? C[0] + 6 * drive : lerp(lerp(C[0] + 120, C[0] + 165, wind), C[0], strike), ky = hitv ? C[1] + 10 * Math.min(1, (T - 100.8) * 10) : lerp(lerp(C[1] - 70, C[1] - 105, wind), C[1], strike);
+      a4Arm(kx - Math.cos(fa) * 10.8 * 3.2, ky - Math.sin(fa) * 10.8 * 3.2, 3.2, fa, 'fist', 1, t, { bend: 0.5 - 0.3 * strike, side: 1, rim: 1 });
+      if (strike > 0.2 && !hitv) streaks(fa, 30, t, 4000, 103, 120, 4915, [0, LB, W, H - 2 * LB]);
+      if (hitv) { megaHit(C[0], C[1], g, 3.3, PI / 2, [22, 75, 103], 4913); streaks(PI / 2, 40, t, 4000, 103, 120, 4914, [0, LB, W, H - 2 * LB]); }
+      shk(hitv && g < 0.6 ? 9 : 1); a4Cam(1.0, 0, 240, 135, kick(t, [[100.8, 3.5, PI / 2]]));
     });
     // through the rock beneath the world, and then nothing but the dark; its fire going out, plain and cracked again, a
     // broken hilt in its hand
@@ -4103,16 +4542,41 @@
   }
   // the world under it all: the abyss below the chasm floor; slit (screen y) a crack of molten light far above
   function b4Abyss(t, gy, slitY, lightA, ox) {
+    ox = ox || 0;
     gradient(LB, H - LB, [0, 0, 1, 96, 96, 97]);
+    // the walls of the chasm climbing out of the frame either side, two depths of them: black rock in strata, faces turned
+    // to the light far above catching a rim of it, seams of fire in the deep
+    for (let layer = 0; layer < 2; layer++) {
+      const par = 0.25 + layer * 0.45, base = layer ? 150 : 104, SH = layer ? 96 : 0, MID = layer ? 97 : 96, LIT = layer ? 98 : 97;
+      for (let y = LB; y < gy + 14; y++) {
+        const v = (y - LB) / Math.max(1, gy - LB);
+        for (const sd of [-1, 1]) {
+          const e0 = 240 + sd * (base - 26 * v + (vn(y * 0.045, layer * 2 + (sd > 0 ? 1 : 0), 1, 2115) - 0.5) * 60 + (vn(y * 0.22, layer + (sd > 0 ? 5 : 0), 1, 2116) - 0.5) * 10) - ox * par;
+          const xa = sd < 0 ? 0 : Math.max(0, fl(e0)), xb = sd < 0 ? Math.min(W - 1, fl(e0)) : W - 1;
+          for (let x = xa; x <= xb; x++) {
+            const e = Math.abs(x - e0), st = frac((y + vn(x * 0.1, layer, 1, 2117) * 5) / (9 - layer * 3)) < 0.12;
+            const n = vn(x * 0.07 + layer * 9, y * 0.045, 1, 2120 + layer) + (1 - Math.min(1, e / 60)) * 0.25 - v * 0.15;
+            let c = e < 1.5 ? (lightA > 0.25 && bay(x, y) < 0.3 + lightA * 0.5 ? 101 : LIT) : n > 0.66 ? LIT : n > 0.44 ? MID : SH;
+            if (st && c !== SH) c = c === LIT ? MID : SH;
+            if (layer === 1 && v > 0.45 && Math.abs(vn(x * 0.06, y * 0.03, 1, 2118) - 0.5) < 0.007 && e < 30) c = 101;
+            BUF[y * W + x] = c;
+          }
+        }
+      }
+    }
     if (slitY !== null) {
       glow(250, slitY, 120, T_EMBER, 0.18);
       for (let x = 150; x < 350; x++) { const w = (1 - Math.pow(Math.abs(x - 250) / 100, 2)) * 1.6, yy = slitY + (vn(x, 0, 9, 2111) - 0.5) * 6; for (let q = -fl(w) - 1; q <= w + 1; q++) P(x, yy + q, Math.abs(q) < w * 0.5 ? 105 : Math.abs(q) <= w ? 103 : 101); }
     }
-    // dust hanging in the dark
-    for (let k = 0; k < 40; k++) { const x = ((ih(k, 1, 2112) * 520 - (ox || 0) * (0.3 + ih(k, 3, 2112)) + t * 3) % 520 + 520) % 520 - 20, y = LB + ih(k, 2, 2112) * (gy - LB) + Math.sin(t * 0.4 + k) * 3; P(x, y, k % 3 ? 97 : 98); }
+    // a shaft of the far light falling down the chasm (dithered, drifting)
+    const sx = 250 - ox * 0.2;
+    for (let y = LB; y < gy; y++) { const v = (y - LB) / (gy - LB), hw = 18 + 50 * v, cx = sx + (vn(y * 0.02, t * 0.2, 1, 2119) - 0.5) * 20; for (let x = Math.max(0, fl(cx - hw)); x < Math.min(W, cx + hw); x++) { const f = 1 - Math.abs(x - cx) / hw; tintI(y * W + x, x, y, T_EMBER, f * f * 0.22 * (0.5 + lightA) * (1 - v * 0.4)); } }
+    // dust and embers hanging in the dark at two depths, drifting up on the heat
+    for (let k = 0; k < 40; k++) { const x = ((ih(k, 1, 2112) * 520 - ox * (0.3 + ih(k, 3, 2112)) + t * 3) % 520 + 520) % 520 - 20, y = LB + ih(k, 2, 2112) * (gy - LB) + Math.sin(t * 0.4 + k) * 3; P(x, y, k % 3 ? 97 : 98); }
+    for (let k = 0; k < 18; k++) { const near = k % 3 === 0, f = frac(ih(k, 4, 2112) - t * (0.04 + ih(k, 5, 2112) * 0.05)), x = ((ih(k, 6, 2112) * 500 - ox * (near ? 1.2 : 0.5) + Math.sin(t * 0.7 + k) * 8) % 500 + 500) % 500 - 10, y = LB + f * (gy - LB + 20); if (near) { rectF(x, y, 2, 2, f < 0.5 ? 102 : 101); P(x, y, 104); } else P(x, y, f < 0.3 ? 103 : 101); }
     // the floor: broken rock, its lip lit faintly from above
-    ridge(gy, 14, 40, 2113, 96, 98, ox || 0);
-    ridge(gy + 18, 10, 26, 2114, 96, 97, (ox || 0) * 1.4);
+    ridge(gy, 14, 40, 2113, 96, 98, ox);
+    ridge(gy + 18, 10, 26, 2114, 96, 97, ox * 1.4);
     if (lightA > 0) glow(240, gy, 260, T_EMBER, 0.1 * lightA);
   }
   // the cracked crater the hero lies in
@@ -4123,6 +4587,77 @@
     }
   }
   const b4Clip = (a, b, t) => clamp((t - a) / (b - a), 0, 1);
+
+  /* -------------------------------------------------------------- b4 hands, arms and life (the engine's anatomy) */
+  // his stone and porcelain (what light squeezing out of a grip must not paint over)
+  const b4IsHim = (c) => (c >= 64 && c <= 69) || (c >= 96 && c <= 100);
+  // a hand pose between two poses (names or objects), u 0..1
+  function b4Pose(a, b, u) {
+    const A = poseOf(a), B = poseOf(b), ca = A.curls || [0, 1, 2, 3].map(() => A.curl), cb = B.curls || [0, 1, 2, 3].map(() => B.curl);
+    u = clamp(u, 0, 1);
+    return { curls: ca.map((c, i) => lerp(c, cb[i], u)), thumb: lerp(A.thumb, B.thumb, u), spread: lerp(A.spread, B.spread, u) };
+  }
+  // the fingers of a hand sunderer() drew with layer 'palm' (so something can sit in the palm first): the hand's place,
+  // angle and scale are read back from the point it returned
+  function b4Fing(h, pose, heat, side) {
+    const ax = h.knuckles[0] - h.palm[0], ay = h.knuckles[1] - h.palm[1], d = Math.hypot(ax, ay) || 1, s = d / 5.3;
+    return sHand(h.palm[0] - ax / d * 5.5 * s, h.palm[1] - ay / d * 5.5 * s, s, Math.atan2(ay, ax), Object.assign({}, poseOf(pose), { heat: heat || 0, side, layer: 'fingers' }), 0);
+  }
+  // light squeezed out of a grip: rays from (cx, cy) that show only where his hand is not (so they come out between the
+  // fingers), and the porcelain round it lit through like a lamp; amt 0..1
+  function b4Leak(cx, cy, r0, len, n, t, amt, seed, cols) {
+    if (amt <= 0.02) return;
+    cols = cols || [22, 16];
+    for (let k = 0; k < n; k++) {
+      const a = (k + ih(k, 1, seed) * 0.8) / n * TAU + Math.sin(t * 2.3 + k) * 0.06, L = len * (0.45 + 0.55 * ih(k, fl(t * 10), seed + 1)) * amt, ca = Math.cos(a), sa = Math.sin(a), w = 1.2 + ih(k, 2, seed) * 2.2;
+      for (let r = r0 * 0.6; r < r0 + L; r += 0.8) {
+        const fade = r < r0 ? 1 : 1 - (r - r0) / L, ww = w * (0.6 + 0.4 * fade);
+        for (let q = -ww; q <= ww; q += 0.7) {
+          const x = fl(cx + ca * r - sa * q), y = fl(cy + sa * r + ca * q); if (x < 0 || x >= W || y < LB || y >= H - LB) continue;
+          const i = y * W + x; if (b4IsHim(BUF[i])) continue;
+          if (bay(x, y) < fade * (1.1 - Math.abs(q) / (ww + 0.6))) BUF[i] = Math.abs(q) < ww * 0.45 && fade > 0.45 ? cols[0] : cols[1];
+        }
+      }
+    }
+    // the porcelain lit through, hottest nearest the light
+    const R = r0 * 2.6;
+    for (let y = Math.max(LB, fl(cy - R)); y < Math.min(H - LB, cy + R); y++) for (let x = Math.max(0, fl(cx - R)); x < Math.min(W, cx + R); x++) {
+      const i = y * W + x, c = BUF[i]; if (!b4IsHim(c)) continue;
+      const d = Math.hypot(x - cx, y - cy) / R; if (d < 1) tintI(i, x, y, T_WARM, amt * 0.75 * (1 - d));
+    }
+  }
+  // where sunderer() bends an elbow, for arms drawn apart from him (severed ones)
+  function b4Elbow(ax, ay, wx, wy, s, k) {
+    const sd = SH4[k][0] < 0 ? -1 : 1, up = k < 2, mx = (ax + wx) / 2, my = (ay + wy) / 2, dx = wx - ax, dy = wy - ay, L = Math.hypot(dx, dy) || 1, bend = Math.max(0, 152 * s - L) * 0.45;
+    return [mx + (-dy / L) * bend * -sd * (up ? 1 : 0.8), my + (dx / L) * bend * -sd * (up ? 1 : 0.8) + bend * 0.3 + 3 * s];
+  }
+  /* an arm of his, drawn the engine's way (muscled obsidian upper arm with veins, an elbow cop, a vambrace of three porcelain
+     plates with fire in the gaps, the jointed hand), for arms that are no longer attached to him: shoulder (ax, ay) — the
+     cut end, burning — elbow (ex, ey), wrist (wx, wy) or null (a stump cut at the elbow, burning there too) */
+  function b4ArmLook(ax, ay, ex, ey, wx, wy, s, heat, k, pose, ang, t) {
+    const rU = (u) => s * (17 + 5 * Math.sin(PI * Math.min(1, u * 1.25)) - u * 4);
+    limbF(ax, ay, ex, ey, rU, 22 * s, (u, sdn, lit, X, Y, e) => {
+      if (u < 0.05) return e < 0.45 ? 22 : e < 0.75 ? 105 : 103;
+      const vein = Math.abs(sdn - 0.35 * Math.sin(u * 9 + k)) < 0.06 && u > 0.12 && u < 0.86; return vein && heat > 0.25 ? (heat > 0.6 ? 104 : 103) : obsLit(lit, X, Y, e, heat);
+    });
+    if (wx === null) { discF(ex, ey, 12 * s, 101); discF(ex, ey, 9 * s, 103); discF(ex, ey, 5.5 * s, 105); discF(ex, ey, 2.5 * s, 22); return null; }
+    limbF(ex, ey, wx, wy, (u) => s * (12.5 + u * 2.5), 16 * s, (u, sdn, lit, X, Y, e) => {
+      if (u < 0.28) return obsLit(lit, X, Y, e, heat);
+      const pf = (u - 0.28) / 0.72 * 3; if (frac(pf) < 0.07 && u < 0.98) return heat > 0.25 ? (heat > 0.6 ? 104 : 102) : 96;
+      if (e > 0.9) return 69;
+      if (Math.abs(sdn + 0.15) < 0.05 && frac(pf) > 0.25 && frac(pf) < 0.8) return 67;
+      return BONE4[clamp(fl(2.6 + lit * 2.4 + (bay(X, Y) - 0.5) * 0.9 - (frac(pf) < 0.18 ? 0.8 : 0)), 0, 5)];
+    });
+    discF(ex, ey, 11 * s, heat > 0.3 ? 102 : 96); limbF(ex - 1, ey - 1, ex + 1, ey + 1, () => 9.5 * s, 10 * s, (u, sdn, lit, X, Y, e) => e > 0.86 ? 69 : BONE4[clamp(fl(2.4 + lit * 2.4 + (bay(X, Y) - 0.5) * 0.9), 0, 5)]);
+    discF(wx, wy, 13 * s, heat > 0.3 ? 103 : 96);
+    const sd = SH4[k][0] < 0 ? -1 : 1;
+    return sHand(wx, wy, s, ang === undefined ? Math.atan2(wy - ey, wx - ex) : ang, Object.assign({}, poseOf(pose || 'open'), { heat, side: k < 2 ? sd : -sd }), t);
+  }
+  // an arm between blows is never still: the wrist drifts on a slow loop and the fingers flex (k: which arm)
+  const b4Idle = (t, k, amp) => [z5N(t * 0.55, k * 3.1) * (amp || 6), z5N(t * 0.47, k * 1.7 + 9) * (amp || 6) * 0.8];
+  const b4Flex = (t, k, base) => { const P_ = poseOf(base || 'fist'), cs = P_.curls || [0, 1, 2, 3].map(() => P_.curl); return { curls: cs.map((c, i) => clamp(c + 0.07 * Math.sin(t * 1.3 + k * 2 + i * 0.9), 0, 1)), thumb: P_.thumb, spread: clamp(P_.spread + 0.08 * Math.sin(t * 0.9 + k), 0, 1) }; };
+  // keep a reach inside what the arm can do (local units from shoulder k): a straight arm is a tube, a bent one an arm
+  function b4Reach(k, x, y, max) { const dx = x - SH4[k][0], dy = y - SH4[k][1], d = Math.hypot(dx, dy), m = max || 140; return d <= m ? [x, y] : [SH4[k][0] + dx / d * m, SH4[k][1] + dy / d * m]; }
 
   /* ================================================================ V.1 — rock bottom (104.0–107.4) */
   // the four embers fall and land on it at these times (absolute), one piano note each
@@ -4262,8 +4797,10 @@
   const B4_MCUT = [[-12, -18, 10, 20, 1]];
   const B4_LOW = [{ x: -118, y: 150, cut: true }, { x: 118, y: 150, cut: true }];
   function b4Sund(cx, cy, s, t, o) {
-    const arms = o.arms || [{ x: -150, y: 110, pose: 'fist' }, { x: 150, y: 110, pose: 'fist' }];
-    return sunderer(cx, cy, s, t, Object.assign({ heat: 0.85, rage: 0.8, third: 1, eyes: 1.2, crown: 1, maskCuts: B4_MCUT }, o, { arms: [arms[0], arms[1], o.low === false ? null : B4_LOW[0], o.low === false ? null : B4_LOW[1]] }));
+    const arms = o.arms || [0, 1].map((k) => { const [dx, dy] = b4Idle(t, k); return { x: (k ? 132 : -132) + dx, y: 110 + dy, pose: b4Flex(t, k, 'fist') }; });
+    // arms marked drift breathe between blows: the wrist on a slow loop, the fingers flexing
+    const live = (A, k) => !A || !A.drift ? A : Object.assign({}, A, { x: A.x + b4Idle(t, k, A.drift)[0], y: A.y + b4Idle(t, k, A.drift)[1], pose: typeof A.pose === 'string' ? b4Flex(t, k, A.pose) : A.pose });
+    return sunderer(cx, cy, s, t, Object.assign({ heat: 0.85, rage: 0.8, third: 1, eyes: 1.2, crown: 1, maskCuts: B4_MCUT }, o, { arms: [live(arms[0], 0), live(arms[1], 1), o.low === false ? null : B4_LOW[0], o.low === false ? null : B4_LOW[1]] }));
   }
   function b4Ascent(lt, t, Yc, vel) {
     const top = LB, bot = H - LB, SY = 135;
@@ -4292,7 +4829,7 @@
       cloudBank(hz2 + 30, 30, 60, 5052, t * 18, [17, 18, 19, 15], false);
       // the Sunderer, waiting: a mountain rising out of the cloud sea
       const sy = 92 + (B4_TOP - Yc) * 0.3;
-      if (sy < bot + 40) { b4Sund(396, sy, 1.25, t, { eyes: 1.4, arms: [{ x: -150, y: 120, pose: 'fist' }, { x: 140, y: 100, pose: 'open' }] }); cloudBank(hz2 + 40, 24, 50, 5053, t * 22, [17, 18, 19, 15], false); }
+      if (sy < bot + 40) { b4Sund(396, sy, 1.25, t, { eyes: 1.4, tilt: -0.08, nod: 2, arms: [{ x: -132, y: 120, pose: 'fist', drift: 6 }, { x: 130, y: 100, pose: 'claw', drift: 8 }] }); cloudBank(hz2 + 40, 24, 50, 5053, t * 22, [17, 18, 19, 15], false); }
       // until it is clear of the clouds, the old picture shows below the cloud's top
       if (Yc < B4_CT + 200) for (let y = top; y < bot; y++) { const Yn = Yc + (SY - y); if (Yn < B4_CT) for (let x = 0; x < W; x++) BUF[y * W + x] = Z5B[y * W + x]; }
     }
@@ -4390,7 +4927,7 @@
     if (space > 0.3) for (let k = 0; k < 6; k++) { const a = k * PI / 3 + t * 0.1; lineF(sunX, sunY, sunX + Math.cos(a) * sunR * 4 * space, sunY + Math.sin(a) * sunR * 4 * space, (x, y, u) => { if (bay(x, y) < 0.8 - u) P(x, y, 16); }); }
     // the Sunderer, a mountain standing in the cloud sea (he shrinks more slowly than everything: he is that big)
     const Zs = Math.pow(Z, 0.35), ss = 1.25 * Zs;
-    b4Sund(AX + 290 * Zs, AY + lerp(10, -50, Zs), ss, t, { eyes: 1.4, arms: [{ x: -104, y: 150, pose: 'fist' }, { x: 140, y: 96, pose: 'open' }] });
+    b4Sund(AX + 290 * Zs, AY + lerp(10, -50, Zs), ss, t, { eyes: 1.4, tilt: -0.1, arms: [{ x: -104, y: 150, pose: 'fist', drift: 5 }, { x: 132, y: 96, pose: 'claw', drift: 7 }] });
     // the world under them
     b4Planet(AX, AY + 80 * Z, B4_RW * Z, t, sunX, sunY, 0);
     if (Z > 0.3) cloudBank(AY + 80 * Z + 6, 16 * Z, 70, 5051, t * 12, CLOUD_SUN, false);
@@ -4422,21 +4959,31 @@
   });
 
   /* ================================================================ V.7 — he reaches for the sun (121.5–122.0) */
-  // low, under him: the arm goes up, the hand opens over the sun
+  // low, under him: the arm sweeps up on an arc, the hand opens wide over the sun, the palm meets it and the fingers
+  // begin to close round it (they are shut on the cut, 122.0)
+  const B4_SUN7 = [170, 74], B4_SR = 18, B4_SUNIN = 3.2;
   shot(121.5, 122.0, (lt, t) => {
-    const u = eic(lt / 0.5), sunX = 176, sunY = 64;
-    b4Sky(t, H - LB, sunX, sunY, 24, 1);
+    const CX = 300, CY = 160, s = 1.45, fs = 1.0, se = s * fs, [sx, sy] = B4_SUN7;
+    const reach = eio(b4Clip(0, 0.3, lt)), close = eio(b4Clip(0.24, 0.5, lt)), held = lt >= 0.27;
+    const a = -1.75 + 0.5 * (1 - reach), ux = Math.cos(a), uy = Math.sin(a), bob = Math.sin(t * 0.9) * s;
+    // the wrist that puts his palm on the sun, reached on a bow from his side
+    const W1 = [(sx - ux * (5.5 + B4_SUNIN) * se - CX) / s, (sy - uy * (5.5 + B4_SUNIN) * se - CY - bob) / s], P0 = [-122, 92], Pc = [-176, -6], q = 1 - reach;
+    const wx = q * q * P0[0] + 2 * q * reach * Pc[0] + reach * reach * W1[0], wy = q * q * P0[1] + 2 * q * reach * Pc[1] + reach * reach * W1[1];
+    b4Sky(t, H - LB, sx, sy, B4_SR, held ? 0 : 1);
     cloudBank(236, 26, 70, 5051, t * 10, CLOUD_SUN, false);
+    cloudBank(252, 30, 50, 5052, t * 14, [17, 18, 19, 15], false);
     // the Worldblade's light still runs across the sky behind him
     bigBlade(-20, 210, -0.32, 900, 3, t, { form: 'infinite', flare: 0.7 });
-    const wx = lerp(-120, -96, u), wy = lerp(40, -104, u);
-    b4Sund(300, 120 + 4 * u, 1.45, t, { eyes: 1.5, rage: 0.9, tilt: -0.12 * u, arms: [{ x: wx, y: wy, pose: 'open', ang: lerp(-1.2, -2.2, u) }, { x: 150, y: 110, pose: 'fist' }] });
-    z5Cam(1.04 + 0.04 * u, -0.02 * u, 260, 120, 240, 135);
+    let SP = [sx, sy];
+    const hold = held ? (I) => { SP = [I.palm[0] + I.ux * B4_SUNIN * I.s, I.palm[1] + I.uy * B4_SUNIN * I.s]; glow(SP[0], SP[1], B4_SR * 6, T_WARM, 0.5); b4DyingSun(SP[0], SP[1], B4_SR, t, 0); } : undefined;
+    b4Sund(CX, CY, s, t, { eyes: 1.5, rage: 0.9, tilt: -0.14 * reach, nod: -4 * reach, lean: -6 * reach, arms: [{ x: wx, y: wy, pose: b4Pose('open', 'grab', close), ang: a, fs, hold }, { x: 132, y: 110, pose: 'fist', drift: 6 }] });
+    // its light on his porcelain as the hand nears; then squeezing out between the closing fingers
+    b4Leak(SP[0], SP[1], B4_SR, 46 + 40 * close, held ? 12 : 0, t, held ? 0.35 + 0.65 * close : 0.4 * reach, 2402);
+    z5Cam(1.04 + 0.06 * reach, -0.02 * reach, lerp(250, 222, reach), lerp(122, 104, reach), 240, 135);
   });
 
   /* ================================================================ V.8 — he tears the sun out of the sky (122.0–124.6) */
-  // his wrist in screen space (as sunderer() places it), so what he holds can be drawn in his hand and the hand redrawn
-  // over it
+  // his wrist in screen space (as sunderer() places it), so what he holds can be placed against his hand
   const b4Wr = (cx, cy, s, t, lx, ly) => [cx + lx * s, cy + Math.sin(t * 0.9) * s + ly * s];
   // only the pixels inside R of (cx, cy) turn to their negative: light inverted at a point of unbearable pressure
   function b4Inv(cx, cy, R, seed) {
@@ -4455,75 +5002,107 @@
     if (amt > 0) { discF(x, y, r * amt, 103); discF(x, y, r * amt * 0.85, 0); }
     else discF(x - r * 0.2, y - r * 0.2, r * 0.45, 22);
   }
+  /* 0 the HIT: the fist shut round it · 0.1–1.0 it is torn down out of the sky on a long arc to before his chest, light
+     dragged after it · 0.95–1.4 the other hand comes in and the two hands cup it · 1.55, 1.9, 2.15 three squeezes, light
+     spurting between the fingers each time, the sun going dark · 2.2–2.6 the hands ease open on a black sun */
   shot(122.0, 124.6, (lt, t) => {
-    const CX = 300, CY = 168, s = 1.3;
-    // the left hand: up, closed round the sun (the hit at 0), torn down in an arc to in front of him; then both hands
-    // clasp it there and crush it
-    const pull = eio(b4Clip(0.1, 1.0, lt)), cr = eio(b4Clip(0.95, 1.35, lt));
-    const PL = (p) => [lerp(-92, -40, p) - Math.sin(p * PI) * 34, lerp(-78, 6, p) - Math.sin(p * PI) * 12, lerp(-2.1, -0.4, p)];
-    const shrink = eio(b4Clip(1.35, 2.4, lt)), r = lerp(24, 19, shrink), amt = eio(b4Clip(1.3, 2.35, lt));
-    const sq = z5Knocks(lt, [1.55, 1.9, 2.15], 1, 14, 5);
-    // palms (local) → wrists
-    const rev = eio(b4Clip(2.2, 2.55, lt)), gap = r / s + 5 + 20 * rev;
-    const [plx, ply, pa] = PL(pull), palmL = [lerp(plx + Math.cos(pa) * 13, -gap - sq * 1.5, cr), lerp(ply + Math.sin(pa) * 13, 8, cr)], aL = lerp(pa, -0.05 + rev * 0.5, cr);
-    const palmR = [lerp(150, gap + sq * 1.5, cr), lerp(100, 8, cr)], aR = lerp(-1.4, PI + 0.05 - rev * 0.5, cr);
-    const wL = [palmL[0] - Math.cos(aL) * 13, palmL[1] - Math.sin(aL) * 13], wR = [palmR[0] - Math.cos(aR) * 13, palmR[1] - Math.sin(aR) * 13];
-    const [SX, SY] = b4Wr(CX, CY, s, t, cr > 0 ? lerp(palmL[0], 0, cr) : palmL[0], palmL[1]);
-    const [sx0, sy0] = (() => { const [x0, y0, a0] = PL(0); return b4Wr(CX, CY, s, 122.0, x0 + Math.cos(a0) * 13, y0 + Math.sin(a0) * 13); })();
+    const CX = 300, CY = 168, s = 1.3, fs = 1.08, se = s * fs;
+    const pull = eio(b4Clip(0.1, 1.0, lt)), cr = eio(b4Clip(0.95, 1.4, lt)), rev = eio(b4Clip(2.2, 2.6, lt));
+    const amt = eio(b4Clip(1.3, 2.35, lt)), r = lerp(B4_SR, 15, eio(b4Clip(1.35, 2.4, lt)));
+    const sq = Math.max(0, z5Knocks(lt, [1.55, 1.9, 2.15], 1, 14, 5));
+    let spurt = 0; for (const h of [1.55, 1.9, 2.15]) { const g = lt - h; if (g > 0) spurt = Math.max(spurt, Math.exp(-g * 7)); }
+    // the left hand tearing it down: wrist (local) and angle along the arc
+    const PL = (p) => [lerp(-90, -40, p) - Math.sin(p * PI) * 36, lerp(-62, 14, p) - Math.sin(p * PI) * 14, lerp(-1.95, -1.15, p)];
+    const palmOf = (wx, wy, a) => [wx + Math.cos(a) * (5.5 + B4_SUNIN) * se, wy + Math.sin(a) * (5.5 + B4_SUNIN) * se];
+    const [plx, ply, pa] = PL(pull), [w1x, w1y] = b4Wr(CX, CY, s, t, plx, ply);
+    // the cup: where the sun sits once both hands have it (screen), the hands either side, fingers up and over it
+    const [e1x, e1y] = b4Wr(CX, CY, s, t, PL(1)[0], PL(1)[1]), CUP = palmOf(e1x, e1y, PL(1)[2]);
+    CUP[0] += 18 * cr; CUP[1] -= 6 * cr + 4 * rev;
+    const g2 = r * 1.05 + 2 - sq * 4 + 9 * rev, aL2 = -PI / 2 + 0.5 - 0.25 * rev, aR2 = -PI / 2 - 0.5 + 0.25 * rev;
+    const toLocal = (px, py, a) => [(px - Math.cos(a) * 5.5 * se - CX) / s, (py - Math.sin(a) * 5.5 * se - CY - Math.sin(t * 0.9) * s) / s];
+    const [l2x, l2y] = toLocal(CUP[0] - g2, CUP[1] + 3, aL2), [r2x, r2y] = toLocal(CUP[0] + g2, CUP[1] + 3, aR2);
+    const aL = lerp(pa, aL2, cr), wL = [lerp(plx, l2x, cr), lerp(ply, l2y, cr)];
+    // the right hand comes in from his side on a bow
+    const rb = Math.sin(cr * PI) * 26, aR = lerp(-1.4, aR2, cr), wR = [lerp(132, r2x, cr) + rb * 0.4, lerp(110, r2y, cr) + rb];
+    // the grip: shut hard on the hit, harder on each squeeze, easing open at the end
+    const gripL = cr > 0 ? b4Pose(b4Pose('claw', 'grab', cr), 'fist', 0.25 + sq * 0.5) : b4Pose('grab', 'fist', 0.15 + 0.35 * eoc(b4Clip(0, 0.15, lt)));
+    const gripR = b4Pose(b4Pose('open', 'grab', cr), 'fist', 0.25 + sq * 0.5);
+    const poseL = rev > 0 ? b4Pose(gripL, 'claw', rev) : gripL, poseR = rev > 0 ? b4Pose(gripR, 'claw', rev) : gripR;
+    const sx0 = palmOf(...b4Wr(CX, CY, s, 122.0, PL(0)[0], PL(0)[1]), PL(0)[2]);
     const dark = eio(b4Clip(0.15, 2.3, lt));
     b4Sky(t, H - LB, 0, 0, 0, 0);
     cloudBank(232, 26, 70, 5051, t * 10, CLOUD_SUN, false);
     cloudBank(250, 30, 50, 5052, t * 14, [17, 18, 19, 15], false);
     // the hole the sun leaves: torn sky, burning at its edge, night inside
     const hole = eoc(b4Clip(0.1, 0.9, lt));
-    if (hole > 0) for (let y = Math.max(LB, fl(sy0 - 44)); y < sy0 + 44; y++) for (let x = fl(sx0 - 50); x < sx0 + 50; x++) { const d = Math.hypot(x - sx0, (y - sy0) * 1.1) / (28 * hole) + (vn(x, y, 5, 2411) - 0.5) * 0.5; if (d < 1) P(x, y, d > 0.85 ? 104 : d > 0.72 ? 102 : 0); }
+    if (hole > 0) for (let y = Math.max(LB, fl(sx0[1] - 44)); y < sx0[1] + 44; y++) for (let x = fl(sx0[0] - 50); x < sx0[0] + 50; x++) { const d = Math.hypot(x - sx0[0], (y - sx0[1]) * 1.1) / (28 * hole) + (vn(x, y, 5, 2411) - 0.5) * 0.5; if (d < 1) P(x, y, d > 0.85 ? 104 : d > 0.72 ? 102 : 0); }
     bigBlade(-20, 236, -0.3, 900, 3, t, { form: 'infinite', flare: 0.7 });
-    glow(SX, SY, 200, T_WARM, 0.35 * (1 - amt));
+    const pS = palmOf(w1x, w1y, pa);
+    glow(pS[0], pS[1], 200, T_WARM, 0.35 * (1 - amt));
     tintAll(T_DARK, 0.72 * dark);
-    const pre = lt < 0.05;
-    const arms = [{ x: wL[0], y: wL[1], pose: pre || rev > 0.3 ? 'open' : 'grab', ang: aL, front: true }, { x: wR[0], y: wR[1], pose: cr > 0.6 && rev < 0.3 ? 'grab' : 'open', ang: aR, front: cr > 0.3 }];
-    b4Sund(CX, CY, s, t, { eyes: 1.4 + 0.4 * dark, rage: 1, roar: 0.3 * eio(b4Clip(1.4, 2.0, lt)), tilt: -0.1 * (1 - pull), nod: 4 * pull, arms, heat: 0.9 });
     // dragged light, ripped out with it
-    if (lt > 0.1 && lt < 1.3) for (let k = 1; k < 14; k++) { const p2 = eio(b4Clip(0.1, 1.0, lt - k * 0.025)), [qx, qy, qa] = PL(p2), [ax, ay] = b4Wr(CX, CY, s, t, qx + Math.cos(qa) * 13, qy + Math.sin(qa) * 13), rr = r * (1 - k * 0.06); for (let yy = -rr; yy <= rr; yy++) for (let xx = -rr; xx <= rr; xx++) if (xx * xx + yy * yy < rr * rr && bay(fl(ax + xx), fl(ay + yy)) < 0.9 - k * 0.06) P(ax + xx, ay + yy, k < 4 ? 16 : k < 8 ? 15 : 14); }
-    b4DyingSun(SX, SY, r, t, amt);
-    // jets of light squeezed out between the fingers as he crushes it, dying as it goes black
-    if (amt < 0.95 && lt > 0.02) for (let k = 0; k < 5; k++) { const a = -PI / 2 + (k - 2) * 0.5 + (cr > 0.5 ? 0 : aL + PI / 2) + Math.sin(t * 7 + k) * 0.08 + (k > 2 && cr > 0.5 ? PI : 0); z5Ray(SX, SY, a, (40 + 34 * ih(k, fl(t * 15), 2412)) * (1 - amt), 3, 22, 16, 0.9 * (1 - amt)); }
-    // the hands over it
-    { const [x1, y1] = b4Wr(CX, CY, s, t, wL[0], wL[1]); sGauntlet(x1, y1, s, aL, arms[0].pose, 0.9, t); }
-    if (cr > 0.3) { const [x2, y2] = b4Wr(CX, CY, s, t, wR[0], wR[1]); sGauntlet(x2, y2, s, aR, arms[1].pose, 0.9, t); }
+    if (lt > 0.1 && lt < 1.3) for (let k = 1; k < 14; k++) { const p2 = eio(b4Clip(0.1, 1.0, lt - k * 0.025)), [qx, qy, qa] = PL(p2), [ax, ay] = palmOf(...b4Wr(CX, CY, s, t, qx, qy), qa), rr = r * (1 - k * 0.06); for (let yy = -rr; yy <= rr; yy++) for (let xx = -rr; xx <= rr; xx++) if (xx * xx + yy * yy < rr * rr && bay(fl(ax + xx), fl(ay + yy)) < 0.9 - k * 0.06) P(ax + xx, ay + yy, k < 4 ? 16 : k < 8 ? 15 : 14); }
+    let SC = pS;
+    const sunAt = (x, y) => b4DyingSun(x, y, r, t, amt);
+    const hold = cr > 0 ? undefined : (I) => { SC = [I.palm[0] + I.ux * B4_SUNIN * I.s, I.palm[1] + I.uy * B4_SUNIN * I.s]; sunAt(SC[0], SC[1]); };
+    const twoR = cr > 0.5;
+    const arms = [{ x: wL[0], y: wL[1], pose: poseL, ang: aL, fs, front: true, hold, layer: cr > 0 ? 'palm' : undefined, heat: 0.9 },
+      { x: wR[0], y: wR[1], pose: poseR, ang: aR, fs, front: cr > 0.3, layer: twoR ? 'palm' : undefined, heat: 0.9 }];
+    // he hauls with his whole body: leans in and down after it, then hunches over it as he crushes
+    const R_ = b4Sund(CX, CY, s, t, { eyes: 1.4 + 0.4 * dark, rage: 1, roar: 0.3 * eio(b4Clip(1.4, 2.0, lt)) + 0.25 * sq, tilt: -0.1 * (1 - pull) + 0.04 * sq, nod: 4 * pull + 3 * sq, lean: -8 * Math.sin(pull * PI) + 3 * cr, arms, heat: 0.9 });
+    const hL = R_.hands[0], hR = R_.hands[1];
+    if (cr > 0) {
+      // both hands: the sun sits between the palms, the fingers close over it
+      const mid = twoR ? [(hL.palm[0] + hR.palm[0]) / 2, (hL.palm[1] + hR.palm[1]) / 2 - 4] : CUP, al = Math.atan2(hL.knuckles[1] - hL.palm[1], hL.knuckles[0] - hL.palm[0]);
+      const own = [hL.palm[0] + Math.cos(al) * B4_SUNIN * se, hL.palm[1] + Math.sin(al) * B4_SUNIN * se], k = eio(b4Clip(0, 0.6, cr));
+      SC = [lerp(own[0], mid[0], k), lerp(own[1], mid[1], k)];
+      sunAt(SC[0], SC[1]);
+      b4Fing(hL, poseL, 0.9, -1);
+      if (twoR) b4Fing(hR, poseR, 0.9, 1);
+    }
+    // light squeezed out between the fingers, spurting on each squeeze, dying as it goes black
+    const lk = (1 - amt) * (cr > 0 ? 0.55 + 0.45 * spurt : 1);
+    b4Leak(SC[0], SC[1], r, 50 + 110 * spurt, 14, t, lk, 2412, amt > 0.5 ? [105, 103] : [22, 16]);
     // the light sucked in toward it as it collapses
-    if (amt > 0.2) { for (let k = 0; k < 40; k++) { const a = ih(k, 1, 2413) * TAU, u = frac(ih(k, 2, 2413) - t * 1.4), R = 24 + u * 160; if (bay(k, fl(t * 30)) < amt) lineP(SX + Math.cos(a) * R, SY + Math.sin(a) * R, SX + Math.cos(a) * (R + 10 * u), SY + Math.sin(a) * (R + 10 * u), u < 0.4 ? 15 : 14); } }
-    if (lt < 0.03) impactFrame(SX, SY, 1);
-    if (lt < 0.5) { shockRing(SX, SY, 6 + lt * 300, 6 + lt * 300, 3, [22, 16, 15], 1 - lt / 0.5); shk(6 * (1 - lt / 0.5)); }
-    for (const h of [1.55, 1.9, 2.15]) { const g = lt - h; if (g > 0 && g < 0.3) { shk(4 * (1 - g / 0.3)); shockRing(SX, SY, r + g * 200, r + g * 200, 2, [105, 103, 101], 1 - g / 0.3); } }
-    const [kz, kr] = kick(lt, [[0, 2], [1.55, 0.8], [2.15, 1]]);
+    if (amt > 0.2) { for (let k = 0; k < 40; k++) { const a = ih(k, 1, 2413) * TAU, u = frac(ih(k, 2, 2413) - t * 1.4), R = 24 + u * 160; if (bay(k, fl(t * 30)) < amt) lineP(SC[0] + Math.cos(a) * R, SC[1] + Math.sin(a) * R, SC[0] + Math.cos(a) * (R + 10 * u), SC[1] + Math.sin(a) * (R + 10 * u), u < 0.4 ? 15 : 14); } }
+    if (lt < 0.03) impactFrame(SC[0], SC[1], 1);
+    if (lt < 0.5) { shockRing(SC[0], SC[1], 6 + lt * 300, 6 + lt * 300, 3, [22, 16, 15], 1 - lt / 0.5); shk(6 * (1 - lt / 0.5)); }
+    for (const h of [1.55, 1.9, 2.15]) { const g = lt - h; if (g > 0 && g < 0.3) { shk(4 * (1 - g / 0.3)); shockRing(SC[0], SC[1], r + g * 200, r + g * 200, 2, [105, 103, 101], 1 - g / 0.3); } }
+    const [kz, kr] = kick(lt, [[0, 2], [1.55, 0.8], [1.9, 0.6], [2.15, 1]]);
     const fo = eio(b4Clip(0.5, 1.6, lt));
-    z5Cam(1.0 + 0.3 * eio(b4Clip(1.2, 2.6, lt)) + kz, kr - 0.03 * (1 - pull), lerp(sx0 + 40, SX, fo), lerp(sy0 + 40, SY - 10, fo), 240, 135);
+    z5Cam(1.0 + 0.3 * eio(b4Clip(1.2, 2.6, lt)) + kz, kr - 0.03 * (1 - pull), lerp(sx0[0] + 40, SC[0], fo), lerp(sx0[1] + 40, SC[1] - 10, fo), 240, 135);
   });
 
   /* ================================================================ V.9 — then we both end (124.6–126.2) */
+  // the black sun held up over his head in both hands: the palms against its sides, the fingers spread over its face
   shot(124.6, 126.2, (lt, t) => {
-    const CX = 240, CY = 178, s = 1.15;
+    const CX = 240, CY = 178, s = 1.15, fs = 1.25, se = s * fs;
     b4Sky(t, H - LB, 0, 0, 0, 0);
     cloudBank(222, 26, 70, 5051, t * 10, CLOUD_SUN, false);
     tintAll(T_DARK, 0.8);
     stars(t, 120, 30, 2421);
     // the Worldblade, far off, the only light left in the sky
     bigBlade(-40, 120, -0.18, 900, 2, t, { form: 'infinite', flare: 0.6 });
-    const lift = eio(b4Clip(1.0, 1.6, lt)), talk = t > 125.0 && t < 126.0 ? Math.max(0, Math.sin(t * 17)) * 0.35 : 0;
-    const arms = [{ x: -40, y: -70 - 14 * lift, pose: 'grab', ang: -0.9, front: true }, { x: 40, y: -70 - 14 * lift, pose: 'grab', ang: PI + 0.9, front: true }];
-    const so = { eyes: 1.8, rage: 1, roar: talk, nod: -3 * lift, arms, heat: 0.95 };
-    const [ax, ay] = b4Wr(CX, CY, s, t, -40, -70 - 14 * lift), [bx, by] = b4Wr(CX, CY, s, t, 40, -70 - 14 * lift);
-    const SX = (ax + bx) / 2, SY = ay - 22 * s, BR = 28 + 4 * eio(lt / 1.6) + Math.sin(t * 6) * 0.8;
+    // he heaves it up (1.0–1.6): a dip first, then the lift
+    const dip = Math.sin(b4Clip(0.7, 1.0, lt) * PI) * 0.4, lift = eio(b4Clip(1.0, 1.6, lt)), talk = t > 125.0 && t < 126.0 ? Math.max(0, Math.sin(t * 17)) * 0.35 : 0;
+    const BR = 28 + 4 * eio(lt / 1.6) + Math.sin(t * 6) * 0.8, bob = Math.sin(t * 0.9) * s;
+    const SX = CX + z5N(t * 0.8, 4) * 2, SY = CY + bob - (98 - 10 * dip + 22 * lift) * s;
+    // the palms against its sides, a little below its middle, turned up and in
+    const aL = -0.95 + 0.1 * Math.sin(t * 1.7), aR = PI + 0.95 - 0.1 * Math.sin(t * 1.5 + 1);
+    const loc = (px, py, a) => [(px - Math.cos(a) * 5.5 * se - CX) / s, (py - Math.sin(a) * 5.5 * se - CY - bob) / s];
+    const [lx, ly] = loc(SX - BR - 5, SY + BR * 0.3, aL), [rx, ry] = loc(SX + BR + 5, SY + BR * 0.3, aR);
+    const grip = b4Pose('claw', 'grab', 0.4 + 0.2 * Math.sin(t * 2.1) + 0.3 * lift);
+    const arms = [{ x: lx, y: ly, pose: grip, ang: aL, fs, front: true, layer: 'palm' }, { x: rx, y: ry, pose: grip, ang: aR, fs, front: true, layer: 'palm' }];
     // what light there is left streams into it
     for (let k = 0; k < 50; k++) { const a = ih(k, 1, 2422) * TAU, u = frac(ih(k, 2, 2422) - t * 0.9), R = BR + 6 + u * 220; lineP(SX + Math.cos(a) * R, SY + Math.sin(a) * R, SX + Math.cos(a) * (R + 4 + 14 * u), SY + Math.sin(a) * (R + 4 + 14 * u), u < 0.3 ? 105 : u < 0.6 ? 18 : 17); }
     warp(SX, SY, 90, 0.35, 1);
-    b4BSun(SX, SY, BR, t);
-    b4Sund(CX, CY, s, t, so);
+    const R_ = b4Sund(CX, CY, s, t, { eyes: 1.8, rage: 1, roar: talk, nod: -3 * lift + 3 * dip, lean: 2 * Math.sin(t * 0.8), arms, heat: 0.95 });
     // its corona drinks what light there is; tongues of fire lash out round his hands
-    for (let k = 0; k < 3; k++) { const a = -PI / 2 + (k - 1) * 0.9 + Math.sin(t * 2 + k) * 0.2; z5Ray(SX, SY, a, 60 + 20 * Math.sin(t * 3 + k), 4, 105, 103, 0.7); }
     b4BSun(SX, SY, BR, t);
-    sGauntlet(ax, ay, s, -0.9, 'grab', 0.95, t); sGauntlet(bx, by, s, PI + 0.9, 'grab', 0.95, t);
+    for (let k = 0; k < 3; k++) { const a = -PI / 2 + (k - 1) * 0.9 + Math.sin(t * 2 + k) * 0.2; z5Ray(SX, SY, a, 60 + 20 * Math.sin(t * 3 + k), 4, 105, 103, 0.7); }
+    b4Fing(R_.hands[0], grip, 0.95, -1); b4Fing(R_.hands[1], grip, 0.95, 1);
+    // its fire licking up between his fingers
+    b4Leak(SX, SY, BR, 26, 10, t, 0.6, 2423, [105, 103]);
     shk(0.6 + lift);
     z5Cam(1.05 + 0.1 * eio(lt / 1.6), 0.004 * z5N(t, 2), 240, lerp(140, 120, eio(lt / 1.6)), 240, 135);
   });
@@ -4551,40 +5130,68 @@
   // where its hand will be, without leaving a mark (draw, read, put the picture back), so what is behind it can go first
   function b4HandPre(x, y, S, t, o) { Z5C.set(BUF); const r = b4Inf(x, y, S, t, o); BUF.set(Z5C); return r.hand; }
   // the point of contact: blade against black sun at the limit — the light there turns inside out, sparks and void spray
-  function b4Contact(px, py, lt, t, power, dir) {
-    b4Inv(px, py, (26 + 8 * Math.sin(t * 5)) * power, 2511);
-    for (let k = 0; k < 4; k++) { const g = frac(lt * 2.6 + k * 0.25) * 0.5; z5Hit(px, py, g, 0.7 * power, dir + (k - 1.5) * 0.4, 85, 2512 + k + fl(lt * 2.6 + k * 0.25) * 7); }
-    glow(px, py, 50 * power, T_WH, 0.55);
-    sparkle(px, py, 10 * power + Math.sin(t * 31) * 3, 22, 105);
-    shk(1.5 * power);
+  function b4Contact(px, py, lt, t, power, dir, sun) {
+    // one clean point of pressure: a small knot of inverted light, a white-hot core, a modest glow
+    b4Inv(px, py, (6 + 2 * Math.sin(t * 5)) * power, 2511);
+    glow(px, py, 26 * power, T_WH, 0.4);
+    // the black sun's rim heated white where the edge bites into it, the heat running off round it
+    if (sun) {
+      const [cx, cy, r] = sun, ac = Math.atan2(py - cy, px - cx), sp = 0.55 * power;
+      for (let da = -sp; da <= sp; da += 0.6 / r) { const f = 1 - Math.abs(da) / sp, a = ac + da; for (let q = -1.5; q <= 1.5 + f * 2; q += 0.7) { const x = cx + Math.cos(a) * (r + q - 1), y = cy + Math.sin(a) * (r + q - 1); if (bay(fl(x), fl(y)) < f * 1.2) P(x, y, f > 0.75 ? 22 : f > 0.4 ? 107 : 105); } }
+    }
+    discF(px, py, 1.4 + power * 1.1, 22);
+    // a steady fountain of sparks off the contact, thrown both ways along the edge (dir is the normal), falling as they go
+    const ea = dir - PI / 2;
+    for (let k = 0; k < 28; k++) {
+      const life = frac(t * 2.4 + ih(k, 1, 2512)); if (life > 0.82) continue;
+      const a = ea + (k % 2 ? 0 : PI) + (ih(k, 2, 2512) - 0.5) * 0.8, v = (70 + ih(k, 3, 2512) * 120) * power, d = v * life * 0.55;
+      const x = px + Math.cos(a) * d, y = py + Math.sin(a) * d + 70 * life * life, tl = 1.5 + 5 * (1 - life);
+      lineP(x, y, x - Math.cos(a) * tl, y - Math.sin(a) * tl, life < 0.25 ? 22 : k % 3 ? 105 : 85);
+    }
+    shk(1.2 * power);
   }
+  /* 0–0.42 the wind-up: the black sun held overhead in both hands, he rears back with his whole body · 0.42–0.62 the hurl:
+     the arms whip over and down at the hero, the sun leaves his hands at 0.56, the arms follow through and stay out, open,
+     driving it with fire · 0.8 (127.0) the hero's swing meets it: the CLASH */
   shot(126.2, 129.0, (lt, t) => {
-    const T0 = 126.2, tc = 127.0 - T0;
+    const T0 = 126.2, tc = 127.0 - T0, rel = 0.56;
     b4Night(t, 206, 0);
-    // the Sunderer at the right edge: the black sun overhead, a lean back, the hurl; then his hands stay out, driving it
-    const wind = eio(b4Clip(0, 0.42, lt)), hurl = eic(b4Clip(0.42, 0.62, lt)), rel = 0.56;
-    const SCX = 436, SCY = 146, ss = 1.0;
-    const hy0 = lerp(-92, -104, wind), hx0 = lerp(0, 22, wind);
-    const armL = { x: lerp(hx0 - 36, -170, hurl), y: lerp(hy0, -20, hurl), pose: hurl > 0.7 ? 'open' : 'grab', ang: lerp(-0.9, -PI + 0.2, hurl), front: true };
-    const armR = { x: lerp(hx0 + 36, -130, hurl), y: lerp(hy0, 20, hurl), pose: hurl > 0.7 ? 'open' : 'grab', ang: lerp(PI + 0.9, -PI + 0.05, hurl), front: true };
+    const wind = eio(b4Clip(0, 0.42, lt)), hurl = eic(b4Clip(0.42, rel, lt)), ft = eoc(b4Clip(rel, 0.85, lt)), settle = eio(b4Clip(0.85, 1.6, lt));
+    const SCX = 430, SCY = 194, ss = 1.0, fs = 1.25, se = ss * fs, R = 38, bob = Math.sin(t * 0.9) * ss;
     // the hero at left: blade raised, then the swing down to meet it
     const sw = eic(b4Clip(0.62, tc, lt)), push = eoc(b4Clip(tc, 2.8, lt)) + z5Knock(lt - tc, 0.4, 10, 4);
     const HX = 118 - 14 * push + z5Sh(t, 1) * (lt > tc ? 1.2 : 0), HY = 186 + 6 * push, S = 1.5;
-    const a = lt < tc ? lerp(0.75, -0.35, sw) : -0.35 + 0.12 * push, D = 160 - 18 * push, R = 38, w = 4;
+    const a = lt < tc ? lerp(0.75, -0.35, sw) : -0.35 + 0.12 * push, D = 160 - 18 * push, w = 4;
     const ho = { sw: a, spread: 1, flap: 0.3 + 0.2 * (lt > tc ? 1 : 0), wt: t * 2.2, orbR: 30, warp: 0.3, auraR: 6, noLife: true, mouth: lt > tc ? 2 : 0, eyes: 'glow', cracks: lt > tc ? 0.15 * push : 0, sq: lt > tc ? 0.1 * push : -0.05 }, hand = b4HandPre(HX, HY, S, t, ho);
     const C = b4Press(hand[0], hand[1], a, D, R, w, -1);
+    // the sun in his hands (local, its centre): overhead, reared back, then whipped over and forward to the release
+    const sL = lt < 0.42 ? [lerp(-8, 26, wind), lerp(-112, -120, wind)] : [lerp(26, -62, hurl), lerp(-120, -92, hurl) - Math.sin(hurl * PI) * 16];
+    const held = lt < rel, toS = (lx, ly) => [SCX + lx * ss, SCY + bob + ly * ss];
+    const [bx, by] = toS(...sL), [rx0, ry0] = toS(-62, -92);
+    // the palms against its sides while he holds it, turned up and in; after the release they fly on open and stay out
+    const aL0 = -0.95 - 0.5 * hurl, aR0 = PI + 0.95 - 0.5 * hurl;
+    const wristAt = (px, py, aa) => [(px - Math.cos(aa) * 5.5 * se - SCX) / ss, (py - Math.sin(aa) * 5.5 * se - SCY - bob) / ss];
+    const [hlx, hly] = wristAt(bx - R - 5, by + R * 0.3, aL0), [hrx, hry] = wristAt(bx + R + 5, by + R * 0.3, aR0);
+    const [rlx, rly] = wristAt(rx0 - R - 5, ry0 + R * 0.3, -0.95 - 0.5), [rrx, rry] = wristAt(rx0 + R + 5, ry0 + R * 0.3, PI + 0.95 - 0.5);
+    const [dlx, dly] = b4Idle(t, 0, 4), [drx, dry] = b4Idle(t, 1, 4);
+    const outL = [lerp(rlx, -150, ft) + dlx * settle, lerp(rly, -4, ft) + dly * settle], outR = [lerp(rrx, -40, ft) + drx * settle, lerp(rry, 10, ft) + dry * settle];
+    const gripP = b4Pose('claw', 'grab', 0.45 + 0.35 * wind), openP = b4Pose('grab', 'open', ft);
+    const armL = held ? { x: hlx, y: hly, pose: gripP, ang: aL0, fs, front: true, layer: 'palm' } : { x: outL[0], y: outL[1], pose: openP, ang: lerp(-1.45, PI + 0.1, ft), fs, front: true };
+    const armR = held ? { x: hrx, y: hry, pose: gripP, ang: aR0, fs, front: true, layer: 'palm' } : { x: outR[0], y: outR[1], pose: openP, ang: lerp(PI + 0.45, PI - 0.1, ft), fs, front: true };
     // the black sun's path: in his hands, then flung (fast, accelerating), then held hard on the blade
-    const [bx, by] = b4Wr(SCX, SCY, ss, t, (armL.x + armR.x) / 2, (armL.y + armR.y) / 2 - 24);
     const fl_ = eic(b4Clip(rel, tc, lt));
-    const SX = lt < rel ? bx : lerp(bx, C.cx, fl_), SY = lt < rel ? by : lerp(by, C.cy, fl_) - Math.sin(fl_ * PI) * 20;
-    if (lt > rel && lt < tc) for (let k = 1; k < 6; k++) { const f2 = eic(b4Clip(rel, tc, lt - k * 0.025)); blackSun(lerp(bx, C.cx, f2), lerp(by, C.cy, f2) - Math.sin(f2 * PI) * 20, R * (1 - k * 0.12), t, 0.5); }
-    b4Sund(SCX, SCY, ss, t, { eyes: 1.8, rage: 1, roar: 0.4 * hurl, nod: -4 * wind + 6 * hurl, tilt: 0.1 * hurl, arms: [armL, armR], heat: 0.95 });
-    // he keeps it pressing: fire pours from his open hands into it
-    if (lt > tc) { const [hx, hy] = b4Wr(SCX, SCY, ss, t, armL.x - 14, armL.y); z5Beam(hx, hy, C.cx, C.cy, 4 + Math.sin(t * 20), (f) => f < 0.4 ? 106 : f < 0.8 ? 104 : 102, t, 3); }
-    b4BSun(SX, SY, R, t);
+    const SX = held ? bx : lerp(rx0, C.cx, fl_), SY = held ? by : lerp(ry0, C.cy, fl_) - Math.sin(fl_ * PI) * 20;
+    if (lt > rel && lt < tc) for (let k = 1; k < 6; k++) { const f2 = eic(b4Clip(rel, tc, lt - k * 0.025)); blackSun(lerp(rx0, C.cx, f2), lerp(ry0, C.cy, f2) - Math.sin(f2 * PI) * 20, R * (1 - k * 0.12), t, 0.5); }
+    // the whole body throws it: rear back, then everything forward, then a slow settle into the push
+    const lean = lt < 0.42 ? 12 * wind : lerp(12, -14, hurl) * (1 - settle) + (-7 + 1.5 * Math.sin(t * 1.3)) * settle - 3 * z5Knock(lt - tc, 1, 9, 4);
+    const R_ = b4Sund(SCX, SCY, ss, t, { eyes: 1.8, rage: 1, roar: 0.25 + 0.5 * hurl * (1 - settle), nod: -5 * wind * (1 - hurl) + 7 * hurl * (1 - settle) + 3 * settle, tilt: 0.12 * hurl * (1 - settle) + 0.06 * settle, lean, arms: [armL, armR], heat: 0.95 });
+    if (held) { b4BSun(SX, SY, R, t); b4Fing(R_.hands[0], gripP, 0.95, -1); b4Fing(R_.hands[1], gripP, 0.95, 1); b4Leak(SX, SY, R, 22, 10, t, 0.5, 2523, [105, 103]); }
+    // he keeps it pressing: fire pours from his open palms into it
+    if (lt > tc) for (const h of R_.hands.slice(0, 2)) z5Beam(h.palm[0], h.palm[1], C.cx, C.cy, 3 + Math.sin(t * 20), (f) => f < 0.4 ? 106 : f < 0.8 ? 104 : 102, t, 3);
+    if (!held) b4BSun(SX, SY, R, t);
     const hero = b4Inf(HX, HY, S, t, ho);
     bigBlade(hero.hand[0], hero.hand[1], a, 1100, w, t, { form: 'infinite', flare: 0.8, surge: true });
-    if (lt >= tc) { b4Contact(C.px, C.py, lt - tc, t, 1 + 0.3 * push, a + PI / 2); megaHit(C.px, C.py, lt - tc, 2.5, a + PI / 2, [22, 85, 83], 2521); }
+    if (lt >= tc) { b4Contact(C.px, C.py, lt - tc, t, 1 + 0.3 * push, a + PI / 2, [C.cx, C.cy, R]); megaHit(C.px, C.py, lt - tc, 2.5, a + PI / 2, [22, 85, 83], 2521); }
     const [kz, kr] = kick(lt, [[tc, 2.5]]);
     z5Cam(1.0 + 0.12 * eio(b4Clip(tc, 2.8, lt)) + kz, kr, lerp(240, C.px, 0.5 * eio(b4Clip(tc, 2.8, lt))), 135, 240, 135);
   });
@@ -4604,7 +5211,7 @@
     bigBlade(hero.hand[0], hero.hand[1], a, 1100, 7, t, { form: 'infinite', flare: 0.8, cracks: g > 0 ? 0.5 + 0.3 * lt : 0 });
     // the cracks race along the blade from the contact
     if (g > 0) for (let k = 0; k < 7; k++) { const u = clamp(g * 3, 0, 1) * (40 + ih(k, 1, 2531) * 160), s0 = (ih(k, 2, 2531) - 0.5) * 2 * u, ux = Math.cos(a), uy = Math.sin(a); let x = C.px - uy * 2, y = C.py + ux * 2; for (let q = 0; q < 8; q++) { const nx = x + ux * s0 / 8 + (ih(k, q, 2532) - 0.5) * 6, ny = y + uy * s0 / 8 + (ih(k, q, 2533) - 0.5) * 6; lineP(x, y, nx, ny, 0); x = nx; y = ny; } }
-    b4Contact(C.px, C.py, lt, t, 1.4 + 0.3 * lt, a + PI / 2);
+    b4Contact(C.px, C.py, lt, t, 1.4 + 0.3 * lt, a + PI / 2, [C.cx, C.cy, R]);
     if (g >= 0) megaHit(C.px, C.py, g, 2.6, a + PI / 2, [22, 85, 83], 2534);
     // grit and void ripped off its body by the pressure
     for (let k = 0; k < 14; k++) { const u = frac(ih(k, 1, 2535) + t * 1.8), x = HX + 50 - u * 260 + ih(k, 2, 2535) * 30, y = HY - 40 + ih(k, 3, 2535) * 90 + u * 20; if (bay(fl(x), fl(y)) < 1 - u) rectF(x, y, 2, 1, k % 3 ? 85 : 22); }
@@ -4627,7 +5234,7 @@
     b4BSun(C.cx, C.cy, R, t);
     const hero = b4Inf(HX, HY, S, t, ho);
     bigBlade(hero.hand[0], hero.hand[1], a, L, w, t, g > 0 ? { form: 'infinite', flare: 0.6, cracks: 0.6, snap, snapOff: off } : { form: 'infinite', flare: 0.6, cracks: 0.5 });
-    b4Contact(C.px, C.py, lt, t, 1.1, a + PI / 2);
+    b4Contact(C.px, C.py, lt, t, 1.1, a + PI / 2, [C.cx, C.cy, R]);
     if (g >= 0) { megaHit(C.px, C.py, g, 2.9, a, [22, 85, 83], 2541); const sx = hero.hand[0] + Math.cos(a) * snap * L, sy = hero.hand[1] + Math.sin(a) * snap * L; rocks(sx, sy, g, 26, 260, 3, [83, 85, 22, 22], 2542, 120, a + 0.4, 1.8); }
     const [kz, kr] = kick(lt, [[hb, 3]]);
     z5Cam(1.02 + kz, kr, 230, 140, 240, 135);
@@ -4644,7 +5251,7 @@
     b4BSun(C.cx, C.cy, R, t);
     const hero = b4Inf(HX, HY, S, t, ho);
     bigBlade(hero.hand[0], hero.hand[1], a, 150, 6, t, { form: 'infinite', flare: 0.4, cracks: 0.7, snap: 0.999 });
-    b4Contact(C.px, C.py, lt, t, 0.9, a + PI / 2);
+    b4Contact(C.px, C.py, lt, t, 0.9, a + PI / 2, [C.cx, C.cy, R]);
     // the dark closes in from the edges
     for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) { const d = Math.hypot((x - HX) / 260, (y - HY) / 150); if (d > 0.6) tintI(y * W + x, x, y, T_DARK, (d - 0.6) * 1.2 * (0.5 + 0.5 * sink)); }
     if (lt > 1.28) glow(HX, HY, 60, T_WH, 0.3 * (lt - 1.28) / 0.12);
@@ -4709,7 +5316,7 @@
     if (g > 0) {
       const ux = Math.cos(a), uy = Math.sin(a), px = BX - hero.hand[0], py = BY - hero.hand[1], m = px * ux + py * uy, q = Math.abs(-px * uy + py * ux), hc = Math.sqrt(Math.max(0, R * R - q * q));
       const e1 = [hero.hand[0] + ux * (m - hc), hero.hand[1] + uy * (m - hc)], e2 = [hero.hand[0] + ux * (m + hc), hero.hand[1] + uy * (m + hc)];
-      for (const [ex, ey] of [e1, e2]) { b4Contact(ex, ey, lt, t, 0.8 + 0.4 * drive, a - PI / 2); }
+      for (const [ex, ey] of [e1, e2]) { b4Contact(ex, ey, lt, t, 0.8 + 0.4 * drive, a - PI / 2, [BX, BY, R]); }
       for (let k = 0; k < 6; k++) { const u = (k + 0.5) / 6, x = lerp(e1[0], e2[0], u), y = lerp(e1[1], e2[1], u); z5Ray(x, y, a - PI / 2 + Math.sin(t * 9 + k) * 0.2, 10 + 30 * drive * ih(k, fl(t * 15), 2601), 2, 22, 60, 0.8); }
       glow((e1[0] + e2[0]) / 2, (e1[1] + e2[1]) / 2, 40 + 60 * drive, T_WH, 0.35 + 0.2 * drive);
       megaHit(e1[0], e1[1], g, 2.8, a, [22, 85, 83], 2602);
@@ -4726,7 +5333,7 @@
     z5GodRays(BX, BY, 9, t * 0.5, T_WARM, 0.7 * op, 520);
     glow(BX, BY, 60 + 200 * op, T_WH, 0.55 * (1 - 0.4 * op));
     // the Sunderer, seen behind it as it comes apart: rocked back by the light
-    b4Sund(420, 150 + 6 * op, 1.0, t, { eyes: 1.6, rage: 1, roar: 0.6 * op, tilt: 0.1 * op, nod: -4 * op, arms: [{ x: -150, y: -10 - 30 * op, pose: 'open', front: true }, { x: 110, y: 80, pose: 'fist' }], heat: 0.9 });
+    b4Sund(420, 150 + 6 * op, 1.0, t, { eyes: 1.6, rage: 1, roar: 0.6 * op, tilt: 0.1 * op, nod: -4 * op, arms: [{ x: -150, y: -10 - 30 * op, pose: b4Pose('claw', 'open', op), ang: -2.3 - 0.4 * op, front: true }, { x: 110, y: 80, pose: 'fist', drift: 6 }], lean: 8 * op, heat: 0.9 });
     const HX = 150, HY = 182, S = 1.9, a = -0.47;
     const ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux, gap = 6 + 70 * op;
     for (const sd of [-1, 1]) b4HalfSun(BX + nx * gap * sd + ux * 20 * op * sd, BY + ny * gap * sd + 30 * op * op, R * (1 - 0.15 * op), t, nx, ny, sd, op, sstep(0.3, 1.4, lt));
@@ -4746,22 +5353,25 @@
   // five cuts, each taking part of him; his state at any moment of it (absolute t)
   const B4_C = [140.0, 140.6, 141.2, 141.8, 142.4];
   const B4_MASKA = 1.93;                                   // the line the mask is cut along (mask frame)
+  const B4_STOP = 0.1;                                     // each cut holds on its contact for three frames
   function b4SundC(cx, cy, s, t, o) {
     const ul = t < B4_C[0] ? o.ul : null, l0 = t < B4_C[2], l1 = t < B4_C[4], half = t >= B4_C[3] && o.mask !== false;
-    const wound = t >= B4_C[2] ? [[-92, 48, 72, 132, 3 + 2 * Math.min(1, (t - B4_C[2]) * 6)]] : [];
-    const so = Object.assign({ heat: 0.95, rage: 1, third: 1, eyes: 1.6, crown: t < B4_C[1] ? 1 : 0.22, maskCuts: B4_MCUT, wounds: wound }, o, { arms: [ul, o.ur || null, l0 ? B4_LOW[0] : null, l1 ? B4_LOW[1] : null] });
+    const wound = (o.wounds || []).concat(t >= B4_C[2] ? [[-110, 64, 80, 178, 3 + 2 * Math.min(1, (t - B4_C[2]) * 6)]] : []);
+    const so = Object.assign({ heat: 0.95, rage: 1, third: 1, eyes: 1.6, crown: t < B4_C[1] ? 1 : 0.22, maskCuts: B4_MCUT }, o, { wounds: wound, arms: [ul, o.ur || null, l0 ? B4_LOW[0] : null, l1 ? B4_LOW[1] : null] });
     if (half) so.mask = false;
     const r = sunderer(cx, cy, s, t, so);
-    // where an arm was taken at the shoulder: a burning socket
-    if (!o.split) for (const [k, gone] of [[0, !ul], [2, !l0], [3, !l1]]) if (gone && (k !== 0 || t >= B4_C[0])) { const [lx, ly] = SH4[k], X = cx + lx * s, Y = cy + Math.sin(t * 0.9) * s + ly * s; discF(X, Y, 9 * s, 101); discF(X, Y, 6 * s, 103); discF(X, Y, 3 * s, 105); glow(X, Y, 22 * s, T_EMBER, 0.4); for (let q = 0; q < 4; q++) { const g = frac(t * 0.9 + ih(k, q, 2701)); rectF(X + (ih(k, q, 2702) - 0.5) * 14 * s, Y + 8 * s + g * 60 * s, Math.max(1, s * 1.5), Math.max(2, s * 3), g < 0.5 ? 105 : 103); } }
-    if (half) b4MaskPart(cx, cy, s, t, so, 1, null, 0);
+    // where an arm was taken at the shoulder: a burning socket, riding the shoulders' lean
+    if (!o.split) for (const [k, gone] of [[0, !ul], [2, !l0], [3, !l1]]) if (gone && (k !== 0 || t >= B4_C[0])) { const [lx, ly] = SH4[k], X = cx + (lx + r.lean * (k < 2 ? 0.85 : 0.6)) * s, Y = cy + Math.sin(t * 0.9) * s + ly * s; discF(X, Y, 9 * s, 101); discF(X, Y, 6 * s, 103); discF(X, Y, 3 * s, 105); glow(X, Y, 22 * s, T_EMBER, 0.4); for (let q = 0; q < 4; q++) { const g = frac(t * 0.9 + ih(k, q, 2701)); rectF(X + (ih(k, q, 2702) - 0.5) * 14 * s, Y + 8 * s + g * 60 * s, Math.max(1, s * 1.5), Math.max(2, s * 3), g < 0.5 ? 105 : 103); } }
+    if (half) b4MaskPart(cx, cy, s, t, so, 1, null, 0, r.lean);
     return r;
   }
-  // one side of his mask (side +1 keeps the right of the cut, -1 the left), placed as sunderer() places it, moved by off
-  // and turned by rot (the half that falls); the kept half shows the molten inside of his head where the other was
-  function b4MaskPart(cx, cy, s, t, o, side, off, rot) {
+  // one side of his mask (side +1 keeps the right of the cut, -1 the left), placed exactly as sunderer() places it (with
+  // its lean and shake), moved by off and turned by rot (the half that falls); the kept half shows the molten inside of
+  // his head where the other was, with relief and the glow of the cut on it
+  function b4MaskPart(cx, cy, s, t, o, side, off, rot, lean) {
     cy += Math.sin(t * 0.9) * s;
-    const mcx = cx + Math.sin(t * 0.6) * 0.6 * s + (off ? off[0] : 0), mcy = cy + Math.sin(t * 0.9 - 0.8) * 0.5 * s + (o.nod || 0) * s + (off ? off[1] : 0);
+    const sh = o.shake ? z5Sh(t, 7) * o.shake : 0;
+    const mcx = cx + Math.sin(t * 0.6) * 0.6 * s + sh + (lean || 0) * s * 0.95 + (off ? off[0] : 0), mcy = cy + Math.sin(t * 0.9 - 0.8) * 0.5 * s + (o.nod || 0) * s + (off ? off[1] : 0);
     const tilt = Math.sin(t * 0.47) * 0.035 + (o.tilt || 0) + (rot || 0), cT = Math.cos(tilt), sT = Math.sin(tilt), ax = Math.cos(B4_MASKA), ay = Math.sin(B4_MASKA);
     const spl = o.split || 0, sa = o.splitA === undefined ? 1.2 : o.splitA, sux = Math.cos(sa), suy = Math.sin(sa), spx = o.splitX || 0, spy = o.splitY || 0;
     const sideOf = (lx, ly) => ((lx - spx) * -suy + (ly - spy) * sux) > 0 ? 1 : -1;
@@ -4774,33 +5384,92 @@
       const c = sMaskPx(mx, my, x, y, t, o); if (c < 0) continue;
       if (spl > 0 && Math.abs((qx - (o.splitX || 0)) * -suy + (qy - (o.splitY || 0)) * sux) < 1.2) { BUF[y * W + x] = 22; continue; }
       const sd = (mx * ay - my * ax) * -1, e = Math.abs(sd);
-      if (sd * side < 0) { if (side > 0 && !off) BUF[y * W + x] = e < 1.2 ? 107 : seamAt(mx / 4 + 7, my / 4) < 0.06 ? 104 : e < 3 ? 102 : vn(mx, my, 3, 2703) > 0.6 ? 97 : 96; continue; }
+      if (sd * side < 0) {
+        if (side > 0 && !off) {
+          // the inside of his head: black stone in relief, lit by the cut, molten seams running back from it
+          const hgt = vn(mx, my, 2.6, 2703) * 1.4 + vn(mx, my, 6, 2704), gx = vn(mx + 0.6, my, 2.6, 2703) * 1.4 + vn(mx + 0.6, my, 6, 2704) - hgt, lit = 0.4 - gx * 3 - e * 0.05;
+          BUF[y * W + x] = e < 1.2 ? 107 : e < 2.4 ? 105 : seamAt(mx / 4 + 7, my / 4) < 0.06 ? (e < 8 ? 104 : 102) : e < 4.5 ? 102 : OBS[clamp(fl(lit * 3 + (bay(x, y) - 0.5) * 0.8), 0, 3)];
+        }
+        continue;
+      }
       BUF[y * W + x] = e < 0.9 ? 22 : e < 1.8 ? 105 : c;
     }
   }
   // a hero from a key track, Infinite, with its giant blade: afterimages on the dash, a stretch along it, and the slash
-  // of light its blade leaves when it turns fast
-  function b4Fighter(keys, lt, t, S, L, w, extra) {
-    const p = z5Trk(keys, lt), q = z5Trk(keys, lt - 1 / 30), vx = (p.x - q.x) * 30, vy = (p.y - q.y) * 30, sp = Math.hypot(vx, vy);
-    const after = []; if (sp > 300) for (let k = 1; k <= 4; k++) { const a = z5Trk(keys, lt - k * 0.03); after.push([a.x, a.y, k === 1 ? 22 : PRISM[(k * 2 + fl(t * 30)) % 7], 0.6 - k * 0.13]); }
-    const r = b4Inf(p.x, p.y, S, t, Object.assign({ sw: p.sw, ang: p.a || 0, noLife: true, after, st: clamp((sp - 150) / 1500, 0, 0.45), sd: Math.atan2(vy, vx), spread: 1, flap: 0.36, wt: t * 3, orbR: 16 * S, orbA: 2, auraR: 4 * S, mouth: 2, warp: 0.2 }, extra || {}));
-    const N = 5, wa = []; for (let k = 0; k <= N; k++) wa.push(z5Trk(keys, lt - k / 30).sw);
+  // of light its blade leaves when it turns fast; stop: the track time of a hit to hold on for B4_STOP (the hit-stop)
+  function b4Fighter(keys, lt, t, S, L, w, extra, stop) {
+    const tk = (x) => stop === undefined ? x : stopClock(x, [stop], B4_STOP)[0];
+    const p = z5Trk(keys, tk(lt)), q = z5Trk(keys, tk(lt - 1 / 30)), vx = (p.x - q.x) * 30, vy = (p.y - q.y) * 30, sp = Math.hypot(vx, vy);
+    const after = []; if (sp > 300) for (let k = 1; k <= 4; k++) { const a = z5Trk(keys, tk(lt - k * 0.03)); after.push([a.x, a.y, k === 1 ? 22 : PRISM[(k * 2 + fl(t * 30)) % 7], 0.6 - k * 0.13]); }
+    // in the combo it is drawn lean: small orbs, no warp, a tight aura, so the silhouette and the blade read
+    const r = b4Inf(p.x, p.y, S, t, Object.assign({ sw: p.sw, ang: p.a || 0, noLife: true, after, st: clamp((sp - 150) / 1500, 0, 0.45), sd: Math.atan2(vy, vx), spread: 1, flap: 0.36, wt: t * 3, orbR: 13 * S, orbA: 1.2, auraR: 2.6 * S, mouth: 2, warp: 0 }, extra || {}));
+    const N = 5, wa = []; for (let k = 0; k <= N; k++) wa.push(z5Trk(keys, tk(lt - k / 30)).sw);
     let m = 0, nw = -1; for (let k = 0; k < N; k++) if (Math.abs(wa[k] - wa[k + 1]) > 0.12) { m = k + 1; if (nw < 0) nw = k; }
-    if (m) z5Arc(r.hand[0], r.hand[1], wa[m], wa[0] - wa[m], L * 1.02, nw / N * 0.9);
-    const tip = bigBlade(r.hand[0], r.hand[1], p.sw, L, w, t, { form: 'infinite', flare: 0.7, surge: true });
+    if (m) b4Arc(r.hand[0], r.hand[1], wa[m], wa[0] - wa[m], L * 1.02, nw / N * 0.9);
+    const tip = bigBlade(r.hand[0], r.hand[1], p.sw, L, w, t, { form: 'infinite', flare: 0.5, surge: true });
     return { p, hand: r.hand, tip, sp };
   }
-  // a severed limb: from (ax, ay) to the wrist (bx, by) at the moment of the cut, g seconds ago, thrown along (vx, vy)
-  // and turning; with its gauntlet if it had one
-  function b4Limb(ax, ay, bx, by, s, g, vx, vy, spin, pose, t) {
+  // the slash a giant blade leaves in the combo: only a thin crescent near its tip (the old full-width fan hid the bodies),
+  // white at the leading edge, a band of prism, dissolving into its tail
+  function b4Arc(hx, hy, a0, d, L, fade) {
+    const ad = Math.min(Math.abs(d), TAU - 0.05); if (ad < 0.3 || fade >= 1) return;
+    const R = L * 1.06, x0 = Math.max(0, fl(hx - R)), x1 = Math.min(W - 1, Math.ceil(hx + R)), y0 = Math.max(LB, fl(hy - R)), y1 = Math.min(H - LB - 1, Math.ceil(hy + R));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const i = y * W + x; if (SMASK[i]) continue;
+      const dx = x + 0.5 - hx, dy = y + 0.5 - hy, r = Math.sqrt(dx * dx + dy * dy); if (r > R || r < L * 0.7) continue;
+      let rel = Math.atan2(dy, dx) - a0; rel = d > 0 ? ((rel % TAU) + TAU) % TAU : ((-rel % TAU) + TAU) % TAU;
+      if (rel > ad) continue;
+      const u = rel / ad, rin = L * (0.97 - 0.13 * Math.pow(u, 1.5)), rout = L * 1.02; if (r < rin || r > rout) continue;
+      const e = (r - rin) / (rout - rin); if (bay(x, y) > u * 1.5 - fade * 1.8 - 0.15) continue;
+      BUF[i] = u > 0.95 || e > 0.9 ? 22 : u > 0.75 ? 60 : PRISM[fl(e * 6.99)];
+    }
+  }
+  // where a blade from hand at angle a passes a target: the point on the blade nearest it (the contact), and how far off
+  function b4OnBlade(hand, a, T) { const ux = Math.cos(a), uy = Math.sin(a), d = (T[0] - hand[0]) * ux + (T[1] - hand[1]) * uy; return [hand[0] + ux * d, hand[1] + uy * d, Math.abs(-(T[0] - hand[0]) * uy + (T[1] - hand[1]) * ux)]; }
+  /* a cut landing, g seconds after: ONE impact frame; then the held contact (the stroke of light left across him along the
+     blade, a hot point where it bites); sparks thrown on along the stroke, molten spatter back; a tight ring; the shake.
+     Small glow: the hit is read off the bodies, not off a white-out */
+  function b4Cut(x, y, g, a, seed, pw) {
+    if (g < 0 || g > 0.8) return;
+    pw = pw || 1;
+    if (g < 1 / 60) impactFrame(x, y, 0);
+    const ux = Math.cos(a), uy = Math.sin(a);
+    if (g < B4_STOP + 0.07) {
+      const k = 1 - g / (B4_STOP + 0.07), L = 64 * pw;
+      thick(x - ux * L * k, y - uy * L * k, x + ux * L, y + uy * L, 1, 22);
+      lineP(x - ux * L * 0.6 - uy * 2, y - uy * L * 0.6 + ux * 2, x + ux * L * 0.8 - uy * 2, y + uy * L * 0.8 + ux * 2, 60);
+      discF(x, y, 2 + 3 * k * pw, 22);
+      glow(x, y, 22 * pw, T_WH, 0.5 * k);
+    }
+    if (g < 0.55) {
+      const f = g / 0.55;
+      for (let k = 0; k < 22 * pw; k++) {
+        const aa = a + (ih(k, 1, seed) - 0.5) * 0.9, v = (120 + ih(k, 2, seed) * 260) * pw, dd = v * g * (1 - g * 0.8), px = x + Math.cos(aa) * dd, py = y + Math.sin(aa) * dd + 120 * g * g;
+        if (bay(fl(px), fl(py)) > 1.1 - f) continue;
+        const tl = 2 + v * 0.02 * (1 - f); lineP(px, py, px - Math.cos(aa) * tl, py - Math.sin(aa) * tl, k % 3 ? 85 : 22);
+      }
+      for (let k = 0; k < 12 * pw; k++) {
+        const aa = a + PI + (ih(k, 3, seed) - 0.5) * 1.6, v = (40 + ih(k, 4, seed) * 110) * pw, px = x + Math.cos(aa) * v * g, py = y + Math.sin(aa) * v * g + 220 * g * g;
+        if (bay(fl(px), fl(py)) > 1.05 - f) continue;
+        rectF(px, py, 2, 2, f < 0.4 ? 105 : 103);
+      }
+      shockRing(x, y, 6 + g * 160 * pw, 4 + g * 70 * pw, 1, [22, 85, 83], 1 - g / 0.3);
+    }
+    glow(x, y, 50 * pw * Math.max(0, 1 - g * 2), T_GOLD, 0.3);
+    shk(5 * pw * Math.max(0, 1 - g * 3));
+  }
+  // a severed arm: shoulder (ax, ay), elbow, wrist (or null for a stump) as they were at the cut, g seconds ago, thrown
+  // along (vx, vy) and turning about its middle; the fingers spasm and go slack, and the cut end bleeds fire
+  function b4Limb(ax, ay, ex, ey, wx, wy, s, g, vx, vy, spin, pose, k, t) {
     if (g < 0) return;
-    const mx = (ax + bx) / 2 + vx * g, my = (ay + by) / 2 + vy * g + 160 * g * g, rot = spin * g, c = Math.cos(rot), sn = Math.sin(rot);
-    const rp = (x, y) => { const dx = x - (ax + bx) / 2, dy = y - (ay + by) / 2; return [mx + dx * c - dy * sn, my + dx * sn + dy * c]; };
-    const [pa, pb] = [rp(ax, ay), rp(bx, by)];
-    capsF(pa[0], pa[1], pb[0], pb[1], 15 * s, 12 * s, (u, d, X, Y, nx) => d > 0.82 ? 96 : u < 0.06 ? 105 : OBS[clamp(fl(2 - nx * 1.6 + (bay(X, Y) - 0.5) * 0.8), 0, 4)]);
-    discF(pa[0], pa[1], 10 * s, 103); discF(pa[0], pa[1], 6 * s, 105);
-    if (pose) sGauntlet(pb[0], pb[1], s, Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), pose, 0.4, t);
-    for (let q = 0; q < 4; q++) { const gg = g - q * 0.04; if (gg > 0) P(pa[0] - vx * q * 0.01, pa[1] + q * 3, 105); }
+    const ox = wx === null ? (ax + ex) / 2 : (ax + ex + wx) / 3, oy = wx === null ? (ay + ey) / 2 : (ay + ey + wy) / 3;
+    const mx = ox + vx * g, my = oy + vy * g + 160 * g * g, rot = spin * g, c = Math.cos(rot), sn = Math.sin(rot);
+    const rp = (x, y) => { const dx = x - ox, dy = y - oy; return [mx + dx * c - dy * sn, my + dx * sn + dy * c]; };
+    const pa = rp(ax, ay), pe = rp(ex, ey), pw = wx === null ? null : rp(wx, wy);
+    const twitch = b4Pose(pose || 'open', 'claw', 0.5 + 0.5 * Math.sin(g * 34) * Math.exp(-g * 3));
+    b4ArmLook(pa[0], pa[1], pe[0], pe[1], pw ? pw[0] : null, pw ? pw[1] : null, s, 0.3 + 0.5 * Math.exp(-g * 1.5), k, twitch, undefined, t);
+    for (let q = 1; q < 7; q++) { const gg = g - q * 0.03; if (gg > 0) { const [qx, qy] = [ox + vx * gg, oy + vy * gg + 160 * gg * gg], d = [pa[0] - mx, pa[1] - my]; rectF(qx + d[0], qy + d[1], 2, 2, q < 3 ? 105 : 103); } }
+    glow(pa[0], pa[1], 18 * s, T_EMBER, 0.5 * Math.exp(-g * 2));
   }
   // the crown's blades, cut loose and flung
   function b4CrownShards(cx, cy, s, g, seed) {
@@ -4812,101 +5481,121 @@
       lineP(x - ux * L * 0.5, y - uy * L * 0.5, x + ux * L * 0.5, y + uy * L * 0.5, 103);
     }
   }
-  // the sky as the light comes back after the black sun
+  // the sky as the light comes back after the black sun: a little darker behind the fight, so the bodies read
   function b4Return(t, hz, ox, dk) {
     b4Sky(t, H - LB, 0, 0, 0, 0);
     cloudBank(hz, 24, 70, 5051, (ox || 0) + t * 10, CLOUD_SUN, false);
     cloudBank(hz + 24, 30, 50, 5052, (ox || 0) * 1.4 + t * 14, [17, 18, 19, 15], false);
-    z5GodRays(80, 30, 8, t * 0.4, T_WARM, 0.35, 520);
-    tintAll(T_DARK, dk === undefined ? 0.3 : dk);
+    z5GodRays(80, 30, 8, t * 0.4, T_WARM, 0.22, 520);
+    tintAll(T_DARK, (dk === undefined ? 0.3 : dk) + 0.08);
   }
-  const b4Cut = (x, y, g, a, seed) => { megaHit(x, y, g, 2.2, a, [22, 85, 83], seed); };
-  // 1 — the dive: along its blade and down through his upper left arm at the shoulder (140.0)
-  const B4_K1 = K({ t: 0, x: 40, y: 236, sw: -0.7 }, { t: 0.25, x: 146, y: 92, sw: -2.6, e: 'o' }, { t: 0.4, x: 200, y: 118, sw: 1.3, e: EQ }, { t: 0.7, x: 262, y: 226, sw: 1.75, e: 'o' });
+  // his reaction to a cut g seconds after it: nothing while the contact holds, then the knock (a function of g)
+  const b4Rx = (g, amp, w, d) => g < B4_STOP ? 0 : z5Knock(g - B4_STOP, amp, w || 9, d || 4);
+  const b4Shud = (g, t) => g >= 0 && g < B4_STOP ? z5Sh(t, 7) * 2.5 : 0;
+  // his surviving upper-right arm: never still; jolted by each cut
+  const b4UR = (t, g, jx, jy, base) => { const [dx, dy] = b4Idle(t, 1, 5); return { x: (base ? base[0] : 140) + dx + b4Rx(g, jx), y: (base ? base[1] : 104) + dy + b4Rx(g, jy), pose: g >= 0 && g < 0.5 ? b4Pose('fist', 'claw', Math.sin(Math.min(1, g * 3) * PI)) : b4Flex(t, 1, 'fist') }; };
+  // 1 — the dive (140.0): his upper-left hand swipes at it, and it comes down along its blade through that arm at the shoulder
+  const B4_K1 = K({ t: 0, x: 40, y: 236, sw: -0.7 }, { t: 0.22, x: 96, y: 58, sw: -2.4, e: 'o' }, { t: 0.4, x: 144, y: 120, sw: 1.0, e: EQ }, { t: 0.75, x: 286, y: 236, sw: 2.0, e: 'o' });
   shot(139.6, 140.3, (lt, t) => {
     const tc = 0.4, g = lt - tc;
     b4Return(t, 214, 260, 0.34);
     const CX = 318, CY = 104, s = 1.5;
-    b4SundC(CX, CY, s, t, { ul: { x: -150, y: 110, pose: 'fist' }, ur: { x: 150, y: 100, pose: 'fist' }, roar: g > 0 ? 0.6 : 0.1, tilt: g > 0 ? z5Knock(g, 0.12, 9, 4) : 0 });
-    if (g > 0) b4Limb(CX - 102 * s, CY + 52 * s, CX - 150 * s, CY + 110 * s, s, g, -120, -60, -4, 'fist', t);
-    b4Fighter(B4_K1, lt, t, 1.5, 150, 4);
-    if (g >= 0) b4Cut(CX - 96 * s, CY + 44 * s, g, 1.3, 2711);
-    const [kz, kr] = kick(lt, [[tc, 2, 1.3]]);
-    z5Cam(1.04 + kz, kr, 250, 140, 240, 135);
+    const sw_ = eio(b4Clip(0.05, 0.32, lt));
+    const ulA = b4Reach(0, lerp(-132, -176, sw_), lerp(110, 28, sw_)), ul = { x: ulA[0], y: ulA[1], pose: b4Pose('fist', 'claw', sw_), ang: lerp(1.9, -2.7, sw_) };
+    const R_ = b4SundC(CX, CY, s, t, { ul, ur: b4UR(t, g, 10, -8), roar: g > 0 ? 0.7 : 0.15 + 0.2 * sw_, eyes: 1.6 + 0.4 * sw_, lean: -6 * sw_ + b4Rx(g, 12), tilt: -0.06 * sw_ + b4Rx(g, 0.1), nod: b4Rx(g, 4), shake: g > 0 && g < 0.6 ? 0.5 : 0 });
+    const shA = [CX + (SH4[0][0] + R_.lean * 0.85) * s, CY + Math.sin(t * 0.9) * s + SH4[0][1] * s];
+    if (g > 0) { const tg = Math.max(0, g - B4_STOP), wr = [CX + ul.x * s, CY + Math.sin(140.0 * 0.9) * s + ul.y * s], el = b4Elbow(shA[0], shA[1], wr[0], wr[1], s, 0); b4Limb(shA[0], shA[1], el[0], el[1], wr[0], wr[1], s, tg, -230, -150, -5, 'claw', 0, t); }
+    const F = b4Fighter(B4_K1, lt, t, 1.5, 170, 4, null, tc);
+    if (g >= 0) { const [px, py] = b4OnBlade(F.hand, F.p.sw, shA); b4Cut(px, py, g, F.p.sw, 2711, 1); }
+    const [kz, kr, kx, ky] = kick(lt, [[tc + B4_STOP, 2, 1.0]]);
+    z5Cam(1.04 + kz, kr, 250 - kx, 140 - ky, 240, 135);
   });
-  // 2 — overhead and across: the crown (140.6)
-  const B4_K2 = K({ t: 0, x: 470, y: 96, sw: 0.2 }, { t: 0.2, x: 396, y: 86, sw: 0.0, e: 'o' }, { t: 0.4, x: 120, y: 94, sw: 3.1, e: EQ }, { t: 0.6, x: 50, y: 110, sw: 3.4, e: 'o' });
+  // 2 — overhead and across (140.6): the blade sweeps over him from the right and takes the crown
+  const B4_K2 = K({ t: 0, x: 470, y: 70, sw: -0.4 }, { t: 0.16, x: 420, y: 58, sw: -0.9, e: 'o' }, { t: 0.3, x: 330, y: 92, sw: -3.47, e: EQ }, { t: 0.6, x: 90, y: 118, sw: -4.0, e: 'o' });
   shot(140.3, 140.9, (lt, t) => {
     const tc = 0.3, g = lt - tc;
     b4Return(t, 230, 300, 0.32);
     const CX = 250, CY = 204, s = 1.8;
-    b4SundC(CX, CY, s, t, { ur: { x: 150, y: 110, pose: 'fist' }, roar: 0.5, nod: g > 0 ? z5Knock(g, 6, 9, 4) : 0 });
-    b4CrownShards(CX, CY - 4 * s, g, 2721);
-    b4Fighter(B4_K2, lt, t, 1.5, 130, 4);
-    if (g >= 0) b4Cut(CX - 10, CY - 70 * s, g, PI, 2722);
-    const [kz, kr] = kick(lt, [[tc, 2, -PI / 2]]);
-    z5Cam(1.0 + kz, kr, 250, 140, 240, 135);
+    const R_ = b4SundC(CX, CY, s, t, { ur: b4UR(t, g, 6, 14), roar: 0.5 + (g > 0 ? 0.3 : 0), eyes: g > 0 && g < 0.4 ? 2 : 1.6, nod: b4Rx(g, 7), tilt: -0.05 + b4Rx(g, 0.08), lean: b4Rx(g, -8), shake: g > 0 && g < 0.5 ? 0.4 : 0 });
+    const T = [CX + R_.lean * s * 0.95, CY - 46 * s];
+    b4CrownShards(CX + R_.lean * s, CY - 4 * s, g - B4_STOP, 2721);
+    const F = b4Fighter(B4_K2, lt, t, 1.5, 150, 4, null, tc);
+    if (g >= 0) { const [px, py] = b4OnBlade(F.hand, F.p.sw, T); b4Cut(px, py, g, F.p.sw, 2722, 0.9); }
+    const [kz, kr, kx, ky] = kick(lt, [[tc + B4_STOP, 2, -PI / 2]]);
+    z5Cam(1.0 + kz, kr, 250 - kx, 140 - ky, 240, 135);
   });
-  // 3 — down across the chest, through the left stump (141.2)
-  const B4_K3 = K({ t: 0, x: 30, y: 46, sw: -1.6 }, { t: 0.15, x: 72, y: 66, sw: -2.5, e: 'o' }, { t: 0.3, x: 204, y: 150, sw: 0.9, e: EQ }, { t: 0.6, x: 440, y: 234, sw: 1.5, e: 'o' });
+  // 3 — down across the chest, through the lower-left stump (141.2)
+  const B4_K3 = K({ t: 0, x: 30, y: 40, sw: -1.6 }, { t: 0.15, x: 52, y: 70, sw: -2.5, e: 'o' }, { t: 0.3, x: 67, y: 181, sw: 0.54, e: EQ }, { t: 0.6, x: 430, y: 236, sw: 1.1, e: 'o' });
   shot(140.9, 141.5, (lt, t) => {
     const tc = 0.3, g = lt - tc;
     b4Return(t, 250, 340, 0.36);
     const CX = 222, CY = 56, s = 1.6;
-    b4SundC(CX, CY, s, t, { ur: { x: 150, y: 110, pose: 'fist' }, roar: 0.8, tilt: g > 0 ? z5Knock(g, -0.1, 9, 4) : 0 });
-    if (g > 0) b4Limb(CX - 60 * s, CY + 94 * s, CX - 118 * s, CY + 150 * s, s, g, -90, 20, 3, null, t);
-    b4Fighter(B4_K3, lt, t, 1.5, 170, 4);
-    if (g >= 0) b4Cut(CX - 10 * s, CY + 90 * s, g, 0.6, 2731);
-    const [kz, kr] = kick(lt, [[tc, 2, 0.6]]);
-    z5Cam(1.0 + kz, kr, 240, 135, 240, 135);
+    const R_ = b4SundC(CX, CY, s, t, { ur: b4UR(t, g, 14, 10), roar: 0.8, eyes: 1.8, tilt: b4Rx(g, -0.1), lean: b4Rx(g, 10), nod: b4Rx(g, 5), shake: g > 0 && g < 0.6 ? 0.5 : 0 });
+    const by = CY + Math.sin(t * 0.9) * s, T = [CX + (SH4[2][0] + R_.lean * 0.6) * s, by + SH4[2][1] * s];
+    if (g > 0) { const tg = Math.max(0, g - B4_STOP), wr = [CX + B4_LOW[0].x * s, by + B4_LOW[0].y * s], el = b4Elbow(T[0], T[1], wr[0], wr[1], s, 2); b4Limb(T[0], T[1], el[0], el[1], null, null, s, tg, -200, 60, 4, null, 2, t); }
+    const F = b4Fighter(B4_K3, lt, t, 1.5, 190, 4, null, tc);
+    if (g >= 0) { const [px, py] = b4OnBlade(F.hand, F.p.sw, T); b4Cut(px, py, g, F.p.sw, 2731, 1); }
+    const [kz, kr, kx, ky] = kick(lt, [[tc + B4_STOP, 2, 0.54]]);
+    z5Cam(1.0 + kz, kr, 240 - kx, 135 - ky, 240, 135);
   });
-  // 4 — straight down through his face: half the mask (141.8)
-  const B4_K4 = K({ t: 0, x: 468, y: 96, sw: 2.6 }, { t: 0.15, x: 400, y: 84, sw: -0.9, e: 'o' }, { t: 0.3, x: 300, y: 110, sw: 2.1, e: EQ }, { t: 0.7, x: 110, y: 236, sw: 2.5, e: 'o' });
+  // 4 — straight down through his face (141.8): half the mask falls away
+  const B4_K4 = K({ t: 0, x: 468, y: 60, sw: -0.6 }, { t: 0.15, x: 420, y: 40, sw: -1.4, e: 'o' }, { t: 0.3, x: 242, y: 54, sw: 1.93, e: EQ }, { t: 0.7, x: 110, y: 236, sw: 2.3, e: 'o' });
   shot(141.5, 142.2, (lt, t) => {
     const tc = 0.3, g = lt - tc;
     b4Return(t, 260, 380, 0.4);
-    const CX = 240, CY = 142, s = 3.0, o = { ur: { x: 150, y: 110, pose: 'fist' }, roar: 0.4 + (g > 0 ? 0.5 : 0), eyes: 1.8, tilt: g > 0 ? z5Knock(g, 0.12, 8, 4) : 0 };
-    b4SundC(CX, CY, s, t, o);
-    if (g > 0) b4MaskPart(CX, CY, s, t, Object.assign({ heat: 0.95, rage: 1, third: 1, eyes: 1.8, maskCuts: B4_MCUT }, o), -1, [-g * 140, g * 60 + g * g * 260], -g * 2.2);
-    b4Fighter(B4_K4, lt, t, 1.6, 230, 5);
-    if (g >= 0) megaHit(CX, CY, g, 1.6, 2.0, [22, 85, 83], 2741);
-    const [kz, kr] = kick(lt, [[tc, 2.5, 2.0]]);
-    z5Cam(1.0 + kz, kr, 240, 135, 240, 135);
+    const CX = 240, CY = 142, s = 3.0, o = { ur: b4UR(t, g, 8, 8), roar: 0.4 + (g > 0 ? 0.5 : 0), eyes: 1.8, tilt: b4Rx(g, 0.14), nod: b4Rx(g, 3), lean: b4Rx(g, -5), shake: g > 0 && g < 0.5 ? 0.3 : 0 };
+    const R_ = b4SundC(CX, CY, s, t, o);
+    if (g > B4_STOP) { const tg = g - B4_STOP; b4MaskPart(CX, CY, s, t, Object.assign({ heat: 0.95, rage: 1, third: 1, eyes: 1.8, maskCuts: B4_MCUT }, o), -1, [-tg * 140, tg * 60 + tg * tg * 260], -tg * 2.2, R_.lean); }
+    const T = [CX + R_.lean * s * 0.95, CY + Math.sin(t * 0.9) * s];
+    const F = b4Fighter(B4_K4, lt, t, 1.6, 260, 5, null, tc);
+    if (g >= 0) { const [px, py] = b4OnBlade(F.hand, F.p.sw, T); b4Cut(px, py, g, F.p.sw, 2741, 1.1); }
+    const [kz, kr, kx, ky] = kick(lt, [[tc + B4_STOP, 2.5, 2.0]]);
+    z5Cam(1.0 + kz, kr, 240 - kx, 135 - ky, 240, 135);
   });
-  // 5 — up from under: the last stump (142.4); he roars
-  const B4_K5 = K({ t: 0, x: 450, y: 240, sw: 1.6 }, { t: 0.1, x: 410, y: 236, sw: 2.3, e: 'o' }, { t: 0.2, x: 352, y: 176, sw: -1.0, e: EQ }, { t: 0.55, x: 300, y: 60, sw: -1.5, e: 'o' });
+  // 5 — up from under (142.4): the last stump; he roars
+  const B4_K5 = K({ t: 0, x: 470, y: 238, sw: 0.6 }, { t: 0.1, x: 440, y: 240, sw: 1.2, e: 'o' }, { t: 0.2, x: 384, y: 214, sw: -3.06, e: EQ }, { t: 0.55, x: 300, y: 60, sw: -1.6, e: 'o' });
   shot(142.2, 142.75, (lt, t) => {
     const tc = 0.2, g = lt - tc;
     b4Return(t, 240, 420, 0.38);
-    const CX = 250, CY = 100, s = 1.4;
-    b4SundC(CX, CY, s, t, { ur: { x: 156, y: 96, pose: 'fist' }, roar: g > 0 ? 1 : 0.4, eyes: 2, nod: g > 0 ? -5 : 0, shake: g > 0 ? 0.6 : 0 });
-    if (g > 0) b4Limb(CX + 60 * s, CY + 94 * s, CX + 118 * s, CY + 150 * s, s, g, 80, -220, 5, null, t);
-    b4Fighter(B4_K5, lt, t, 1.5, 150, 4);
-    if (g >= 0) b4Cut(CX + 64 * s, CY + 100 * s, g, -1.2, 2751);
-    const [kz, kr] = kick(lt, [[tc, 2, -1.2]]);
-    z5Cam(1.02 + kz, kr, 250, 140, 240, 135);
+    const CX = 250, CY = 76, s = 1.4;
+    const R_ = b4SundC(CX, CY, s, t, { ur: b4UR(t, g, -10, -18, [150, 96]), roar: g > 0 ? 1 : 0.4, eyes: 2, nod: -5 * Math.min(1, Math.max(0, g - B4_STOP) * 4), lean: b4Rx(g, -9), tilt: b4Rx(g, -0.08), shake: g > 0 ? 0.6 : 0 });
+    const by = CY + Math.sin(t * 0.9) * s, T = [CX + (SH4[3][0] + R_.lean * 0.6) * s, by + SH4[3][1] * s];
+    if (g > 0) { const tg = Math.max(0, g - B4_STOP), wr = [CX + B4_LOW[1].x * s, by + B4_LOW[1].y * s], el = b4Elbow(T[0], T[1], wr[0], wr[1], s, 3); b4Limb(T[0], T[1], el[0], el[1], null, null, s, tg, 90, -230, 5, null, 3, t); }
+    const F = b4Fighter(B4_K5, lt, t, 1.5, 170, 4, null, tc);
+    if (g >= 0) { const [px, py] = b4OnBlade(F.hand, F.p.sw, T); b4Cut(px, py, g, F.p.sw, 2751, 1); }
+    const [kz, kr, kx, ky] = kick(lt, [[tc + B4_STOP, 2, -1.2]]);
+    z5Cam(1.02 + kz, kr, 250 - kx, 140 - ky, 240, 135);
   });
 
   /* ================================================================ V.15 — his last fist (142.75–144.1) */
+  // the fist: drawn back with his whole body, then thrown with everything he has left; its knuckles stop dead on the point
+  // of the blade (143.4), the gauntlet breaks from the knuckles back, the arm is driven back and he reels
   shot(142.75, 144.1, (lt, t) => {
     const T0 = 142.75, hc = 143.4 - T0, g = lt - hc;
     b4Return(t, 226, 460, 0.45);
-    const CX = 380, CY = 104, s = 1.3;
-    // the fist: drawn back, then thrown with everything he has left; it stops dead on the point of the blade
-    const cock = eio(b4Clip(0, 0.35, lt)), thr = eic(b4Clip(0.35, hc, lt)), rec = g > 0 ? eoc(b4Clip(0, 0.6, g)) : 0;
-    const contact = [242, 140];
-    const wrC = [(contact[0] - CX) / s + 17, (contact[1] - CY) / s];
-    const wx = lerp(lerp(150, 128, cock), wrC[0], thr) + rec * 50, wy = lerp(lerp(100, -10, cock), wrC[1], thr) + rec * 10;
-    const sh = g > 0 ? z5Sh(t, 7) * 2 * Math.exp(-g * 3) : 0;
-    b4SundC(CX + sh, CY, s, t, { ur: { x: wx, y: wy, pose: 'fist', ang: lerp(-0.6, PI - 0.05, thr), heat: 1, front: true }, roar: 1, eyes: 2, nod: -3 * cock + 5 * thr });
+    const CX = 330, CY = 104, s = 1.3, contact = [242, 140];
+    const cock = eio(b4Clip(0, 0.4, lt)), thr = eic(b4Clip(0.4, hc, lt)), rec = g > 0 ? eoc(b4Clip(0.05, 0.6, g)) : 0;
+    // the wrist that lands the knuckles on the point (the hand pointing straight at it)
+    const bob = Math.sin(t * 0.9) * s, kn = 10.8 * s;
+    const wC = [(contact[0] + kn - CX) / s, (contact[1] - CY - bob) / s];
+    const wBack = [82, 14];
+    const wx = lerp(lerp(140, wBack[0], cock), wC[0], thr) + rec * 46 + b4Rx(g + B4_STOP, 10), wy = lerp(lerp(104, wBack[1], cock), wC[1], thr) + rec * 14 - Math.sin(thr * PI) * 18;
+    const shud = g > 0 && g < 0.25 ? z5Sh(t, 7) * 2.5 * (1 - g / 0.25) : 0;
+    const lean = 10 * cock * (1 - thr) - 12 * thr * (1 - rec) + 8 * rec + b4Rx(g + B4_STOP, 6);
+    const R_ = b4SundC(CX + shud, CY, s, t, { ur: { x: wx, y: wy, pose: g > 0.3 ? b4Pose('fist', 'claw', b4Clip(0.3, 0.8, g)) : 'fist', ang: lerp(-0.2, PI, eio(b4Clip(0.25, hc, lt))), heat: 1, front: true }, roar: 1, eyes: 2, nod: -3 * cock + 5 * thr * (1 - rec), tilt: -0.08 * thr + b4Rx(g + B4_STOP, 0.12), lean });
+    const fist = R_.hands[1];
     // the gauntlet breaks from the knuckles back
-    if (g > 0) { rocks(contact[0] + 10, contact[1], g, 30, 220, 3.5, [67, 66, 65, 64], 2761, 140, 0, 2.4); rocks(contact[0], contact[1], g, 16, 160, 2, [103, 105, 107, 22], 2762, 100, 0.3, 2); }
-    // the hero, blade levelled at him, braced; driven back a little at the hit, then drives on
-    const HX = 112 - z5Knock(g, 12, 9, 4) + 14 * eio(b4Clip(0.3, 1.2, g)) - 6 * cock + z5N(t, 3) * 2, HY = 142 + z5Sh(t, 2) * (g > 0 ? 1 : 0.4) + Math.sin(t * 2.4) * 2 * (1 - thr);
+    if (g > 0) { rocks(fist[0] + 6, fist[1], g, 30, 220, 3.5, [67, 66, 65, 64], 2761, 140, -0.2, 2.4); rocks(contact[0], contact[1], g, 16, 160, 2, [103, 105, 107, 22], 2762, 100, 0.3, 2); }
+    // the hero, blade levelled at him, braced; driven back by the blow (squashed along it), then drives on
+    const kb = z5Knock(g, 14, 9, 4);
+    const HX = 112 - kb + 14 * eio(b4Clip(0.3, 1.2, g)) - 6 * cock + z5N(t, 3) * 2, HY = 142 + z5Sh(t, 2) * (g > 0 ? 1 : 0.4) + Math.sin(t * 2.4) * 2 * (1 - thr);
     const a = -0.02 + z5Knock(g, 0.08, 10, 4);
-    const hero = b4Inf(HX, HY, 1.9, t, { sw: a, spread: 1, flap: 0.34, wt: t * 3, orbR: 34, orbA: 2, auraR: 8, noLife: true, mouth: 2, eyes: 'glow', warp: 0.3, rays: g > 0 && g < 0.5 ? 80 : 0 });
-    bigBlade(hero.hand[0], hero.hand[1], a, contact[0] - hero.hand[0] + (g > 0 ? 40 * eio(b4Clip(0.2, 1, g)) : 0), 5, t, { form: 'infinite', flare: 0.9, surge: true });
-    if (g >= 0) { megaHit(contact[0], contact[1], g, 4, PI, [22, 85, 83], 2763); b4Inv(contact[0], contact[1], 40 * Math.exp(-g * 2), 2764); }
+    const hero = b4Inf(HX, HY, 1.9, t, { sw: a, spread: 1, flap: 0.34, wt: t * 3, orbR: 30, orbA: 1.6, auraR: 7, noLife: true, mouth: 2, eyes: g > 0 && g < 0.3 ? 'wide' : 'glow', warp: 0.2, sq: Math.max(0, kb) * 0.02, rays: g > 0 && g < 0.5 ? 60 : 0 });
+    // the blade's point is exactly where the knuckles land; after the hit it drives on into the broken fist
+    const tipX = g > 0 ? Math.min(fist[0] - 4, contact[0] + 40 * eio(b4Clip(0.2, 1, g))) : contact[0];
+    bigBlade(hero.hand[0], hero.hand[1], a, Math.max(10, tipX - hero.hand[0]), 5, t, { form: 'infinite', flare: 0.8, surge: true });
+    if (g >= 0) { megaHit(contact[0], contact[1], g, 3, PI, [22, 85, 83], 2763); b4Inv(contact[0], contact[1], 18 * Math.exp(-g * 2.5), 2764); }
+    if (g < 0) { glow(contact[0], contact[1], 30 * thr, T_WH, 0.25 * thr); }
     const [kz, kr, kx] = kick(lt, [[hc, 3, 0]]);
     z5Cam(1.04 + 0.1 * thr + kz, kr, 250 + kx, 138, 240, 135);
   });
@@ -4940,37 +5629,59 @@
     if (dk > 0) tintAll(T_DARK, dk);
   }
   shot(144.75, 146.6, (lt, t) => {
-    const tc = 0.25, g = lt - tc;
+    const tc = 0.25, g = lt - tc, gs = Math.max(0, g - B4_STOP);
     b4WorldWide(t, 0.35 - 0.15 * eio(b4Clip(0, 1.8, lt)));
     z5GodRays(B4_FX - 6, 40, 10, t * 0.5, T_WARM, 0.45, 500);
-    const frz = g > 0 ? Math.min(1, g * 3) : 0;
-    b4SundC(B4_FX, B4_FY, B4_FS, t, { ur: { x: 150, y: 96, pose: 'fist' }, roar: g > 0 ? 0.8 : 0.3, eyes: g > 0 ? 2 : 1.6, nod: g > 0 ? 3 * frz : 0, shake: g > 0 ? 0.4 * Math.exp(-g * 2) : 0 });
+    // the cut runs through him from the crown down (local units along the split line), after the held contact
+    const run = g < B4_STOP ? 0 : eoc(b4Clip(0, 0.4, gs)), ux = Math.cos(B4_FA), uy = Math.sin(B4_FA);
+    const wounds = g > 0 ? [[ux * -70, uy * -70, ux * (-70 + 460 * run), uy * (-70 + 460 * run), 2 + 2 * run]] : [];
+    const maskCuts = (g > 0 ? [[-ux * 28, -uy * 28, ux * 28, uy * 28, Math.max(0.15, run * 1.4)]] : []).concat(B4_MCUT);
+    // he sees it coming (looks up, the arm comes up to ward it off), is struck rigid, then the blow drives his head down
+    const look = eio(b4Clip(0, tc, lt)), sh = b4Shud(g, t);
+    const ur = b4Reach(1, lerp(140, 70, look) + b4Rx(g, 30), lerp(100, -40, look) + b4Rx(g, -20), 138);
+    const R_ = b4SundC(B4_FX + sh, B4_FY, B4_FS, t, { ur: { x: ur[0], y: ur[1], pose: g > B4_STOP ? b4Pose('claw', 'open', b4Clip(0, 0.3, gs)) : b4Pose('fist', 'claw', look), ang: -1.2 }, wounds, maskCuts, roar: g > 0 ? 0.9 : 0.3 + 0.3 * look, eyes: g > 0 ? 2.1 : 1.6 + 0.3 * look, nod: -4 * look * (g > 0 ? 0 : 1) + b4Rx(g, 6), tilt: b4Rx(g, 0.06), lean: b4Rx(g, -4), shake: g > 0 ? 0.6 * Math.exp(-gs * 1.5) : 0 });
     // the cloud closes over his base in front
     cloudBank(250, 16, 60, 5053, t * 16, [17, 18, 19, 15], false);
-    // the hero high over his crown, the blade swung over from straight up to straight down
-    const HX = 222, HY = 62 - 4 * frz, a = lt < tc ? lerp(PI + 0.7, B4_FA, eic(lt / tc)) : B4_FA;
-    const hero = b4Inf(HX, HY, 1.3, t, { sw: a, spread: 1, flap: 0.3, wt: t * 2.6, orbR: 22, orbA: 2, auraR: 5, noLife: true, mouth: 2, eyes: 'glow', warp: 0.3, rays: 60 });
-    if (lt < tc + 0.15) { const a0 = lerp(PI + 0.7, B4_FA, eic(clamp(lt - 0.12, 0, tc) / tc)); z5Arc(hero.hand[0], hero.hand[1], a0, a - a0, 420, lt < tc ? 0 : (lt - tc) / 0.15); }
+    // the hero high over his crown, the blade swung over from behind it to straight down; it holds on the contact
+    const tt = g > 0 ? Math.min(lt, tc) + gs : lt, HY = 62 - 4 * Math.min(1, gs * 3) + b4Rx(g, -5), HX = 222;
+    const a = tt < tc ? lerp(PI + 0.7, B4_FA, eic(tt / tc)) : B4_FA;
+    const hero = b4Inf(HX, HY, 1.3, t, { sw: a, spread: 1, flap: 0.3, wt: t * 2.6, orbR: 18, orbA: 1.6, auraR: 4, noLife: true, mouth: 2, eyes: 'glow', warp: 0.2, rays: g > 0 ? 50 : 0, sq: g > 0 && g < B4_STOP ? 0.12 : 0 });
+    if (tt < tc + 0.15) { const a0 = lerp(PI + 0.7, B4_FA, eic(clamp(tt - 0.12, 0, tc) / tc)); b4Arc(hero.hand[0], hero.hand[1], a0, a - a0, 300, tt < tc ? 0 : (tt - tc) / 0.15); }
     bigBlade(hero.hand[0], hero.hand[1], a, 900, 4, t, { form: 'infinite', flare: 1, surge: true });
+    const crown = [B4_FX + R_.lean * B4_FS * 0.95, B4_FY - 40 * B4_FS];
     // the split runs out from where it struck him, both ways along the line, and the two halves of the world part
-    if (g > 0) {
-      const amt = eoc(b4Clip(0, 0.5, g)), gap = 3 + 27 * eoc(b4Clip(0.05, 1.4, g));
-      worldSplit(B4_FX, B4_FY + 20, B4_FA, gap, amt, t);
-      megaHit(B4_FX, B4_FY, g, 2.9, PI / 2, [22, 85, 83], 2801);
-      glow(B4_FX, B4_FY, 120, T_WH, 0.5 * Math.exp(-g * 2));
+    if (g >= 0) {
+      const [px, py] = b4OnBlade(hero.hand, a, crown);
+      b4Cut(px, py, g, a, 2801, 1.6);
+      if (g > B4_STOP) { const amt = eoc(b4Clip(0, 0.5, gs)), gap = 3 + 27 * eoc(b4Clip(0.05, 1.4, gs)); worldSplit(B4_FX, B4_FY + 20, B4_FA, gap, amt, t); glow(B4_FX, B4_FY, 120, T_WH, 0.4 * Math.exp(-gs * 2)); shockRing(B4_FX, B4_FY + 40, 10 + gs * 600, 4 + gs * 80, 3, [22, 21, 20], 1 - gs / 0.8); shk(8 * Math.exp(-gs * 3)); }
     }
-    const [kz, kr] = kick(lt, [[tc, 4, PI / 2]]);
+    const [kz, kr] = kick(lt, [[tc, 2], [tc + B4_STOP, 4, PI / 2]]);
     z5Cam(1.0 + kz - 0.04 * eio(b4Clip(tc, 1.8, lt)), kr, 250, 122, 240, 135);
   });
 
   /* ================================================================ V.18 — he comes apart; "...brother..." (146.6–150.0) */
+  // he comes apart along the cut, the halves sliding, fire dripping from the faces of it; his last hand reaches up into the
+  // light, trembling, for something that is not there, and slowly closes on nothing
   shot(146.6, 150.0, (lt, t) => {
     const u = lt / 3.4, spl = eio(b4Clip(0.1, 3.4, lt)) * 0.75;
     b4WorldWide(t, 0.25);
     worldSplit(240, 140, B4_FA, 34 + 10 * u, 1, t);
     const CX = 240, CY = 118, s = 1.9;
     const eyes = lerp(1.6, 0.25, eio(b4Clip(1.0, 3.2, lt))), third = 1 - eio(b4Clip(1.9, 3.0, lt));
-    b4SundC(CX, CY, s, t, { ur: { x: 140, y: 120 + 30 * u, pose: 'open', heat: 0.6 }, split: spl, splitA: B4_FA, splitX: 0, splitY: 0, eyes, third, roar: t > 147.0 && t < 148.2 ? 0.25 + 0.15 * Math.sin(t * 9) : 0.1, heat: lerp(0.95, 0.4, u), rage: lerp(1, 0.2, u), nod: 4 * u });
+    const reach = eio(b4Clip(0.3, 2.0, lt)), close = eio(b4Clip(2.3, 3.3, lt)), tr = (1 + 2 * reach) * z5Sh(t, 5);
+    const [ix, iy] = b4Idle(t, 1, 3), ur = b4Reach(1, lerp(140, 30, reach) + ix + tr, lerp(124, -50, reach) + iy + tr * 0.5, 136);
+    b4SundC(CX, CY, s, t, { ur: { x: ur[0], y: ur[1], pose: b4Pose(b4Pose('claw', 'open', reach), 'grab', close), ang: lerp(-0.4, -1.75, reach), heat: lerp(0.8, 0.35, u) }, split: spl, splitA: B4_FA, splitX: 0, splitY: 0, eyes, third, roar: t > 147.0 && t < 148.2 ? 0.25 + 0.15 * Math.sin(t * 9) : 0.1, heat: lerp(0.95, 0.4, u), rage: lerp(1, 0.2, u), nod: 4 * u - 3 * reach * (1 - u), tilt: -0.08 * reach + 0.03 * Math.sin(t * 0.7) });
+    // fire dripping off both faces of the cut
+    const ux = Math.cos(B4_FA), uy = Math.sin(B4_FA), sux = ux, suy = uy;
+    for (const sd of [-1, 1]) {
+      const ox = (-suy * sd * spl * 40 + sux * sd * spl * 10) * s, oy = (sux * sd * spl * 40 + suy * sd * spl * 10 + spl * spl * 30) * s;
+      for (let k = 0; k < 9; k++) {
+        const along = (-40 + k * 26 + ih(k, sd + 2, 2812) * 10) * s, f = frac(t * (0.6 + ih(k, sd + 4, 2812) * 0.5) + ih(k, sd + 6, 2812));
+        const x = CX + ux * along + ox + uy * sd * 2, y = CY + uy * along + oy + f * f * 60;
+        if (y < LB || y > H - LB) continue;
+        rectF(x, y, 1 + (f < 0.3 ? 1 : 0), 2 + fl(3 * (1 - f)), f < 0.4 ? 105 : 103);
+      }
+    }
     // light pouring from the cut, embers and ash lifting off him already
     for (let k = 0; k < 50; k++) { const f = frac(ih(k, 1, 2811) + t * 0.35), x = CX + (ih(k, 2, 2811) - 0.5) * 300 * (0.3 + f), y = CY + 150 - f * 260 + ih(k, 3, 2811) * 40; if (bay(fl(x), fl(y)) < 1 - f) rectF(x, y, 2, 2, k % 3 ? 121 : 104); }
     shk(0.6 + 1.5 * u);
@@ -5016,10 +5727,17 @@
   const B4_ASHF = (t, n, seed, sp) => { for (let k = 0; k < n; k++) { const x = ((ih(k, 1, seed) * 520 + Math.sin(t * 0.5 + k) * 12 - t * 4) % 520 + 520) % 520 - 20, y = LB + ((ih(k, 2, seed) * 230 + t * (8 + ih(k, 3, seed) * 10) * sp) % 230), big = k % 3 === 0; rectF(x, y, big ? 2 : 1, big ? 2 : 1, big ? 123 : ASH[1 + (k * 7) % 3]); if (big) P(x + 1, y + 1, 121); } };
   shot(153.0, 158.0, (lt, t) => {
     const drain = eio(b4Clip(0.2, 2.2, lt)), coral = lt > 1.7, fall = eic(b4Clip(3.0, 5.0, lt));
-    gradient(LB, H - LB, [17, 120, 121, 18, 19, 18]);
-    tintAll(T_DARK, 0.35);
-    cloudBank(220 - 60 * fall, 22, 70, 5051, t * 4, [17, 18, 19, 20], false);
-    tintAll(T_DARK, 0.2);
+    // an ashen sky with no sun in it: a dim band of light low down where the dawn should be, the cloud sea in layers below,
+    // pale shafts through the ash, the ash itself falling at three depths
+    const hz = 196 - 60 * fall;
+    gradient(LB, hz + 6, [1, 96, 120, 121, 17, 18]);
+    glow(150, hz, 220, T_WARM, 0.12);
+    z5GodRays(70, LB - 10, 6, t * 0.08, T_WH, 0.1, 360);
+    cloudBank(hz + 4, 12, 90, 5061, t * 2, [120, 121, 17, 18], false);
+    cloudBank(hz + 22, 22, 70, 5051, t * 4, [17, 120, 121, 18], false);
+    cloudBank(hz + 50, 30, 55, 5052, t * 7, [96, 120, 121, 17], false);
+    tintAll(T_DARK, 0.3);
+    for (let k = 0; k < 10; k++) { const f = frac(ih(k, 1, 2835) + t * (0.05 + ih(k, 2, 2835) * 0.04)), x = ((ih(k, 3, 2835) * 520 + Math.sin(t * 0.6 + k) * 16 - t * 9) % 520 + 520) % 520 - 20, y = LB + f * (H - 2 * LB); rectF(x, y, 3, 2, 121); P(x + 1, y, 123); }
     B4_ASHF(t, 140, 2831, 1);
     const HX = 236 + z5N(t * 0.4, 1) * 2 + 8 * fall, HY = 118 + 30 * fall + Math.sin(t * 1.2) * 2 * (1 - fall), S = 3.2;
     const ang = 0.05 + 1.2 * fall * fall + Math.sin(t * 0.8) * 0.03;
@@ -5062,28 +5780,46 @@
   });
 
   /* ================================================================ VI.4 — still here (162.0–171.0) */
+  // it floats limp over the healed cloud sea: never still — it drifts on the air, turns slowly, breathes (shallow, then a
+  // longer breath when it wakes), its limbs and the broken sword hang and sway; the four orbs come back as sparks one by
+  // one, circling it on a tilted ring (behind it and in front), trailing light, twinkling, shedding motes, and drawing in
+  // closer and brighter as it wakes and speaks
   const B4_SPARK = [163.0, 163.7, 164.4, 165.0];
   shot(162.0, 171.0, (lt, t) => {
     const SX = 352, SY = 170;
     z5Dawn(t, 192, t * 6, SX, SY);
     z5GodRays(SX, SY, 7, t * 0.15, T_WARM, 0.45, 380);
     B4_ASHF(t, 16, 2851, 0.6);
-    // it floats limp over the healed cloud sea, barely glowing; it wakes enough to speak
-    const HX = 214 + z5N(t * 0.3, 1) * 2, HY = 132 + Math.sin(t * 1.1) * 2.4, S = 3.0;
-    const wake = t > 165.5, eyes = t < 165.5 ? 'closed' : t < 165.62 ? 'narrow' : t < 165.7 ? 'closed' : t > 169.6 && t < 169.72 ? 'closed' : 'narrow';
-    const r = b4Hero({ eyes, mouth: t > 166.0 && t < 168.4 && fl(t * 6) % 3 === 0 ? 1 : 0, sword: 0.55 + Math.sin(t * 0.7) * 0.05, cracks: 0.85, legs: z5Limp(t, 1.0), sq: 0.04 }, HX, HY, S, 0.16 + Math.sin(t * 0.6) * 0.03 - (wake ? 0.06 * eio(b4Clip(165.5, 167, t)) : 0), false, { still: true }, 8, true);
-    b4TintSprite(T_DARK, 0.18);
-    glow(HX, HY, 50, T_WARM, 0.15 + 0.05 * Math.sin(t * 2));
-    // the four orbs, flickering back as sparks, one by one, then holding (faint) round it
-    for (let k = 0; k < 4; k++) {
-      const st = B4_SPARK[k]; if (t < st) continue;
+    const wake = clamp((t - 165.5) / 1.5, 0, 1), speak = t > 166.0 && t < 169.4 ? 1 : 0;
+    // breath: about one every 4 s, deeper once it is awake
+    const breath = Math.sin(t * 1.55 - 0.6) * (0.6 + 0.4 * wake);
+    const HX = 214 + z5N(t * 0.21, 1) * 7 + 3 * Math.sin(t * 0.37), HY = 132 + Math.sin(t * 0.9) * 3.2 + z5N(t * 0.3, 2) * 2 - breath * 0.8, S = 3.0;
+    const rot = 0.16 + Math.sin(t * 0.45) * 0.06 + z5N(t * 0.25, 3) * 0.03 - 0.06 * eio(wake);
+    const eyes = t < 165.5 ? 'closed' : t < 165.62 ? 'narrow' : t < 165.7 ? 'closed' : t > 169.6 && t < 169.72 ? 'closed' : 'narrow';
+    // the four sparks: where each is on its ring at time tt (and whether it is in front of it)
+    const ringR = lerp(72, 60, wake), sp = (k, tt) => { const a = tt * 0.75 + k * TAU / 4, z = Math.sin(a); return [HX + Math.cos(a) * ringR, HY - 12 + z * ringR * 0.36 + Math.sin(tt * 2 + k) * 3, z]; };
+    const drawSpark = (k, front) => {
+      const st = B4_SPARK[k]; if (t < st) return;
       const g = t - st, flick = g < 0.6 ? ih(k, fl(t * 14), 2852) < 0.55 : true;
-      if (!flick) continue;
-      const a = t * 0.9 + k * TAU / 4, x = HX + Math.cos(a) * 52, y = HY + Math.sin(a) * 14;
-      const R = lerp(2.6, 1.6, clamp(g / 1.5, 0, 1)) + 0.3 * Math.sin(t * 3 + k); glow(x, y, R * 5, EL_T[k], 0.4); discF(x, y, R, ORB[k][1]); discF(x - R * 0.3, y - R * 0.3, R * 0.55, ORB[k][2]); P(x - R * 0.4, y - R * 0.4, 22);
-      if (g < 0.25) sparkle(x, y, 4 * (1 - g / 0.25), 22, ORB[k][2]);
-    }
-    z5Cam(1.05 + 0.12 * eio(b4Clip(162, 167, t)) - 0.1 * eio(b4Clip(168, 171, t)), 0.004 * z5N(t * 0.4, 3), lerp(240, HX, eio(b4Clip(162, 166, t))), lerp(135, HY, eio(b4Clip(162, 166, t))), 240, 135);
+      const [x, y, z] = sp(k, t); if ((z > 0) !== front || !flick) return;
+      const lvl = Math.min(1, g / 1.5) * (0.6 + 0.25 * wake + 0.25 * speak * (0.5 + 0.5 * Math.sin(t * 5 + k))), dz = 0.75 + 0.25 * z;
+      // its trail along the ring, dissolving
+      for (let q = 1; q < 9; q++) { const [px, py] = sp(k, t - q * 0.05); if (bay(fl(px), fl(py)) < (1 - q / 9) * lvl) P(px, py, q < 3 ? ORB[k][2] : ORB[k][1]); }
+      const R = (2.2 + 1.6 * lvl) * dz + 0.3 * Math.sin(t * 3 + k);
+      glow(x, y, R * 7, EL_T[k], 0.4 + 0.3 * lvl); discF(x, y, R + 1, 63); discF(x, y, R, ORB[k][1]); discF(x - R * 0.3, y - R * 0.3, R * 0.55, ORB[k][2]); P(x - R * 0.4, y - R * 0.4, 22);
+      if (g < 0.25) sparkle(x, y, 5 * (1 - g / 0.25), 22, ORB[k][2]);
+      else if (ih(k, fl(t * 2.5), 2855) < 0.45) { const tw = frac(t * 2.5); sparkle(x, y, 6 * Math.sin(tw * PI) * lvl, 22, ORB[k][2]); }
+      // motes shed as it goes, sinking and going out
+      for (let q = 0; q < 4; q++) { const f = frac(t * 0.8 + q * 0.25 + k * 0.13), [mx, my] = sp(k, t - f * 1.2); if (bay(fl(mx), fl(my + f * 16)) < (1 - f) * lvl * 0.8) P(mx + Math.sin(f * 7 + q) * 2, my + f * 16, ORB[k][f < 0.5 ? 2 : 1]); }
+    };
+    for (let k = 0; k < 4; k++) drawSpark(k, false);
+    glow(HX, HY, 50 + 8 * breath, T_WARM, 0.15 + 0.05 * breath + 0.06 * wake);
+    b4Hero({ eyes, mouth: speak && fl(t * 6) % 3 === 0 ? 1 : 0, sword: 0.55 + Math.sin(t * 0.6) * 0.12 + z5N(t * 0.4, 5) * 0.05, cracks: 0.85, legs: z5Limp(t * 0.8, 1.1), sq: 0.04 + 0.035 * breath }, HX, HY, S, rot, false, { still: true }, 8, true);
+    b4TintSprite(T_DARK, 0.18 - 0.05 * wake);
+    // the dawn on it: its sun-side edge lit
+    z5Rim(1, -0.4, 60, 1);
+    for (let k = 0; k < 4; k++) drawSpark(k, true);
+    z5Cam(1.05 + 0.12 * eio(b4Clip(162, 167, t)) - 0.1 * eio(b4Clip(168, 171, t)), 0.006 * z5N(t * 0.4, 3), lerp(240, HX, eio(b4Clip(162, 166, t))) + z5N(t * 0.2, 6) * 4, lerp(135, HY, eio(b4Clip(162, 166, t))) + z5N(t * 0.23, 7) * 3, 240, 135);
     tintAll(T_DARK, sstep(169.9, 170.95, t));
   });
   CAPS.push([166.0, 169.4, 's', 'HERO', '...STILL... HERE.']);
@@ -5128,7 +5864,7 @@
     T_NOW = t; SHAKE_A = 0; FRZ = 0; BUF.fill(0);
     let S = SHOTS[0];
     for (const s of SHOTS) if (t >= s.t0) S = s;
-    lifeTick(t, S);
+    lifeTick(t, S); SLIFE.n = 0;              // per-draw physics slots restart each frame (hero and villain)
     S.fn(t - S.t0, t);
     for (const [wt, dir] of WHIPS) { const d = Math.abs(t - wt); if (d < 0.1) whip(80 * (1 - d / 0.1), dir); }
     for (const c of FLASH_CUTS) if (t >= c && t < c + 0.067) tintAll(T_WH, 0.55);
