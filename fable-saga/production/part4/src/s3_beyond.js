@@ -112,129 +112,100 @@
     return { a, so, tip };
   }
 
-  /* 24 — the first blow that matters (0:47.6–0:48.4): the giant blade comes down; he blocks it with crossed arms — and for
-     the first time he moves: shoved back, ploughing the sea; the stroke's force runs on past him, cleaving the sea in a line
-     to the horizon */
-  shot(47.6, 48.4, (lt, t) => {
-    const back = eoc(clamp(lt / 0.5, 0, 1)) * 46, swA = lerp(-1.5, 0.12, eic(clamp(lt / 0.04, 0, 1)));
-    const { so } = i4BladeFight(t, { hx: 100, hy: 176, swA, sx: 330 + back, sy: 82, ss: 0.95,
-      sun: { eyes: 1.5, heat: 0.8, crown: 1, rage: 0.2, nod: 1, arms: [{ x: 30, y: 30, pose: 'fist', front: true, ang: -0.6 }, { x: -30, y: 36, pose: 'fist', front: true, ang: -2.4 }, { x: -96, y: 196, pose: 'open' }, { x: 96, y: 196, pose: 'open' }] },
-      trail: (d) => lt - d < 0.04 ? lerp(-1.5, 0.12, eic(clamp((lt - d) / 0.04, 0, 1))) : undefined });
-    // the cleave runs on: a trench torn in the sea from his feet to the horizon, walls of water either side
-    const run = eoc(clamp(lt / 0.35, 0, 1));
-    for (let q = 0; q < 120 * run; q++) { const u = q / 120, x = lerp(330 + back, 470, u), y = lerp(250, 152, u), h = (1 - u) * 26 * (1 - lt / 0.8); for (let k = 0; k < h; k++) { P(x - 6 * (1 - u), y - k, k > h - 3 ? 22 : 119); P(x + 6 * (1 - u), y - k, k > h - 3 ? 22 : 118); } P(x, y, 22); }
-    // the wake behind him: the sea ploughed up
-    rocks(330 + back + 40, 240, lt, 40, 220, 3, [117, 118, 119, 22], 4441, 260, -PI / 2 + 0.6, 1.4);
-    megaHit(332 + back * 0.5, 130, lt, 2.4, 0.3, [22, 108, 105], 4442); if (lt < 0.5) frameCrack(332, 130, clamp(lt * 4, 0, 0.5) * (1 - sstep(0.3, 0.5, lt)), 4443, 90);
-    shk(8 * Math.max(0, 1 - lt / 0.6));
-    const [kz, kr, kx, ky] = kick(lt, [[0, 2, 0.2]]);
-    z5Cam(1.04 + kz, kr, 250 - kx, 140 - ky, 240, 140);
+  /* 24–29 — the duel of the giant blade (0:47.6–0:55.6), ONE continuous shot. The camera travels with the fight across the
+     dark sea; the beats land on their cues: 47.6 the overhead he blocks with crossed arms and is shoved back for the first
+     time · 48.6 a sweep (lower-left arm) · 49.2 a rising cut (upper-right) · 49.8 an overhead (crossed pair) · 50.6 a cut
+     that gets through: a wound across his chest · 51.6 an upward cut from under his guard: a gauntlet thrown up, blades blown
+     out of his crown · 53.2 the thrust: through his shoulder, driving him back onto a spire, pinned · 54.0 he laughs, takes
+     the blade in his hand and draws it back out of himself. He fights with his whole body: he leans into every block, is
+     shoved and recoils, winds up and drifts between blows; his arms flow from one guard to the next on arcs. */
+  // a keyed track of numbers or arrays: keys [[t, value, ease]] (ease into the key: 'o' out, 'i' in, 'io' (default), 'b' back, 'l')
+  function i4K(keys, t) {
+    const E_ = { o: eoc, i: eic, io: eio, b: eob, l: (u) => u };
+    if (t <= keys[0][0]) return keys[0][1];
+    for (let n = 1; n < keys.length; n++) if (t < keys[n][0]) {
+      const [t0, a] = keys[n - 1], [t1, b, e] = keys[n], u = E_[e || 'io']((t - t0) / (t1 - t0));
+      return Array.isArray(a) ? a.map((v, k) => lerp(v, b[k], u)) : lerp(a, b, u);
+    }
+    return keys[keys.length - 1][1];
+  }
+  const DH = [47.6, 48.6, 49.2, 49.8, 50.6, 51.6, 53.2];
+  // the blade's angle: each blow cocked back (a held wind-up), whipped through onto its cue, carried past, recovered
+  const D_SW = [[47.6, -2.29], [47.64, 0.12, 'i'], [47.95, 0.3, 'o'], [48.3, 0.45], [48.52, -1.25], [48.6, 0.55, 'i'], [48.9, 0.75, 'o'], [49.1, 1.25], [49.2, -0.75, 'i'], [49.45, -1.05, 'o'], [49.7, -2.25],
+    [49.8, 0.25, 'i'], [50.1, 0.4, 'o'], [50.48, -1.35], [50.6, 0.6, 'i'], [50.9, 0.85, 'o'], [51.45, 1.15], [51.6, -1.25, 'i'], [51.95, -1.5, 'o'], [52.6, -0.35], [53.05, -0.1], [53.2, -0.12, 'i'], [55.6, -0.12]];
+  // where the hero is (world): pressing in, dipping under his guard, coiling back, the lunge, then dragged along its blade
+  const D_HP = [[47.6, [100, 176]], [48.1, [92, 180], 'o'], [48.5, [104, 172]], [48.6, [108, 170], 'i'], [49.1, [100, 168]], [49.2, [106, 172], 'i'], [49.7, [96, 158]], [49.8, [108, 166], 'i'],
+    [50.45, [116, 168]], [50.6, [134, 166], 'i'], [51.0, [126, 186], 'o'], [51.5, [140, 206]], [51.6, [150, 196], 'i'], [52.1, [136, 178], 'o'], [52.9, [108, 172]], [53.14, [212, 168], 'i'], [53.4, [214, 168], 'o'],
+    [54.4, [214, 170]], [55.5, [146, 172]]];
+  // him: the mask's world x (shoved back on each blow, staggering at the wound, pinned against the spire), his lean and nod
+  const D_SX = [[47.6, 330], [48.1, 362, 'o'], [48.6, 362], [48.85, 372, 'o'], [49.2, 372], [49.45, 382, 'o'], [49.8, 382], [50.1, 394, 'o'], [50.6, 396], [51.05, 422, 'o'], [51.6, 424], [51.95, 434, 'o'], [53.2, 432], [53.38, 452, 'o'], [55.6, 452]];
+  const D_LEAN = [[47.6, 10], [47.66, -16, 'i'], [48.1, 14, 'o'], [48.45, -8], [48.6, -18, 'i'], [48.9, 10, 'o'], [49.1, -6], [49.2, -18, 'i'], [49.5, 10, 'o'], [49.7, -10], [49.8, -22, 'i'], [50.1, 12, 'o'], [50.5, 0],
+    [50.6, 4], [50.9, 26, 'o'], [51.4, 6], [51.6, -10, 'i'], [51.9, 20, 'o'], [52.8, -6], [53.2, -4], [53.35, 24, 'o'], [54.2, 18], [55.0, -6], [55.6, -10]];
+  const D_NOD = [[47.6, 1], [47.7, 3, 'o'], [48.2, 0], [49.8, 0], [49.9, 2.5, 'o'], [50.5, 0.5], [50.6, 0.5], [50.85, -2.5, 'o'], [51.5, -0.5], [51.6, -0.5], [51.8, -3, 'o'], [52.6, 0.5], [53.2, 0.5], [53.4, 2, 'o'], [55.6, 0]];
+  // his arms (local wrist positions): rest guards between, the block for each blow, thrown wide after the wound, out to the sides when pinned
+  const D_A0 = [[47.6, [-30, 70]], [47.62, [30, 30], 'i'], [48.1, [-40, 70], 'o'], [49.5, [-120, 110]], [49.78, [0, -10], 'i'], [50.1, [-60, 30], 'o'], [50.5, [-90, 50]], [50.9, [-140, 40], 'o'], [51.5, [-60, 50]], [51.85, [-150, -90], 'o'], [52.6, [-130, 30]], [53.4, [-130, 80], 'o'], [54.2, [-90, 40]], [55.5, [-150, 40]]];
+  const D_A1 = [[47.6, [40, 70]], [47.62, [-30, 36], 'i'], [48.1, [60, 80], 'o'], [48.9, [120, 120]], [49.18, [-40, 150], 'i'], [49.5, [60, 100], 'o'], [49.78, [-40, -4], 'i'], [50.1, [40, 40], 'o'], [50.6, [100, 90]], [50.9, [150, 60], 'o'], [51.6, [132, 100]], [53.2, [130, 90]], [53.4, [150, 70], 'o'], [55.6, [140, 90]]];
+  const D_A2 = [[47.6, [-96, 196]], [48.3, [-110, 180]], [48.58, [-150, 130], 'i'], [48.9, [-110, 170], 'o'], [49.5, [-96, 196]], [55.6, [-96, 196]]];
+  const D_A3 = [[47.6, [96, 196]], [50.6, [96, 196]], [50.9, [110, 180], 'o'], [53.4, [110, 190]], [55.6, [110, 190]]];
+  const D_ANG0 = (t) => (t < 48.0 && t > 47.55 ? -0.6 : t > 49.7 && t < 50.2 ? -0.8 : undefined);
+  shot(47.6, 55.6, (lt, t) => {
+    const [hxW, hyW] = i4K(D_HP, t), SXW = i4K(D_SX, t), swA = i4K(D_SW, t) + (t > 50.6 && t < 51.0 ? 0.25 * eoc(clamp((t - 50.6) / 0.3, 0, 1)) : 0);
+    // the camera's pan: it keeps the two of them framed, a beat behind (so it is pushed by the action, not locked to it)
+    const pan = i4K([[47.6, 0], [48.6, 20], [50.6, 40], [51.6, 64], [53.2, 60], [53.6, 86], [55.6, 76]], t) + z5N(t * 0.6, 2) * 4;
+    belowWorld(t, 148, 950 + pan * 1.4, 0.8);
+    // the spire he will be pinned to, standing in the sea behind him the whole time
+    const SPX = 500 - pan, pinned = t > 53.2;
+    for (let q = 0; q < 214; q++) { const w = 72 * (1 - q / 262), cx = SPX + Math.sin(q * 0.09) * 2; for (let x = fl(cx - w / 2); x <= cx + w / 2; x++) { const f = (x - cx) / (w / 2); P(x, 252 - q, Math.abs(f) > 0.88 ? 96 : q % 37 < 2 ? 102 : pinned && t > 53.3 && Math.abs((q * 7 + x) % 61 - 30) < 1 ? 104 : f < -0.25 ? 99 : 98); } }
+    for (let k = 0; k < 6; k++) cloudPuff(SPX - 40 + k * 16, 250 + Math.sin(t + k) * 1.5, 7 + k % 3 * 2, [116, 117, 117, 118], 4490 + k);
+    const SX = SXW - pan, hx = hxW - pan, hy = hyW, wound = sstep(50.6, 50.68, t), cut1 = eoc(clamp((t - 50.6) / 0.08, 0, 1));
+    const W1 = [WOUND1[0], WOUND1[1], lerp(WOUND1[0], WOUND1[2], cut1), lerp(WOUND1[1], WOUND1[3], cut1), WOUND1[4]], wounds = [];
+    if (t > 50.6) wounds.push(W1); if (pinned) wounds.push(WOUND2);
+    const crown = t < 51.6 ? 1 : 1 - 0.25 * eoc(clamp((t - 51.6) / 0.3, 0, 1));
+    const laugh = [54.1, 54.35, 54.6].reduce((s_, h) => s_ + Math.max(0, Math.sin(PI * clamp((t - h) / 0.2, 0, 1))), 0), draw = eio(clamp((t - 54.4) / 1.1, 0, 1));
+    const g6 = t - 50.6, g7 = t - 51.6;
+    // the hero first (it never overlaps him), so the blade can be drawn inside his grip later
+    const a = i4Nova(hx, hy, 1.8, t, { sw: swA, spread: t > 53.1 && t < 53.4 ? 1 : 0.8 + 0.2 * Math.sin(t * 3), flap: 0.4, mouth: t > 53 ? 2 : 1, noSmear: true, ang: t > 51.4 && t < 51.9 ? -0.25 : swA > 0.3 ? 0.15 : swA < -0.6 ? -0.12 : 0, sq: t > 52.6 && t < 53.14 ? 0.3 * Math.sin(PI * (t - 52.6) / 0.54) : 0 });
+    const LEN = 430 - draw * 70, blade = () => bigBlade(a.hand[0], a.hand[1], swA, LEN, 4.6, t, { form: 'nova', flare: 0.75, surge: true });
+    // the blade's slash: the arc it swept in the last frames, fading
+    const trailAt = (d) => i4K(D_SW, t - d);
+    for (let q = 1; q <= 5; q++) { const aa = trailAt(q * 0.016); if (Math.abs(aa - swA) < 0.05) continue; for (let r = 40; r < LEN; r += 3) P(a.hand[0] + Math.cos(aa) * r, a.hand[1] + Math.sin(aa) * r, q < 2 ? 108 : q < 4 ? 109 : 110); }
+    if (t < 54.0) blade();
+    // the grip that pulls it out (from 54.0): the knuckles sit over the blade, the fingers wrap down round it
+    const gx = 318 + (SX - 370) - draw * 46, gy = a.hand[1] + (gx - a.hand[0]) * Math.tan(swA), GA = PI / 2 - 0.35, grip = eoc(clamp((t - 54.0) / 0.3, 0, 1));
+    const A0 = t < 54.0 ? i4K(D_A0, t) : [lerp(i4K(D_A0, 54.0)[0], (gx - Math.cos(GA) * 12 - SX), grip), lerp(i4K(D_A0, 54.0)[1], (gy - Math.sin(GA) * 12 - 82), grip)];
+    const blockPose = (k) => (DH.some((h) => t > h - 0.12 && t < h + 0.3) ? 'fist' : 'grab');
+    const so = sunderer(SX, 82, 0.95, t, { eyes: 1.5 + (g6 > 0 && g6 < 1 ? 0.5 * Math.exp(-g6 * 3) : 0), heat: 0.85, crown, rage: t > 50.6 ? 0.5 : 0.25, roar: (g6 > 0 ? 0.6 * Math.exp(-g6 * 2) * (1 - Math.exp(-g6 * 20)) : 0) + (g7 > 0 && g7 < 1 ? 0.3 * Math.exp(-g7 * 3) : 0) + (t > 53.2 && t < 54 ? 0.6 * Math.exp(-(t - 53.2) * 2) : 0) + laugh * 0.3,
+      nod: i4K(D_NOD, t) - laugh * 2, lean: i4K(D_LEAN, t), tilt: i4K(D_LEAN, t) * -0.003 + (pinned ? 0.08 : 0), wounds,
+      arms: [{ x: A0[0], y: A0[1], pose: t >= 54.0 ? { curl: lerp(0.15, 0.78, grip), thumb: lerp(0.2, 0.75, grip), spread: lerp(0.6, 0.05, grip) } : t > 50.6 && t < 52.6 ? 'open' : blockPose(0), front: t >= 54.0 || (t > 47.55 && t < 48.1) || (t > 49.7 && t < 50.2) || (t > 51.6 && t < 52.4), ang: t >= 54.0 ? GA : D_ANG0(t), hold: t >= 54.0 ? blade : undefined },
+        { x: i4K(D_A1, t)[0], y: i4K(D_A1, t)[1], pose: pinned ? 'open' : blockPose(1), front: (t > 47.55 && t < 48.1) || (t > 49.0 && t < 50.2), ang: t > 47.55 && t < 48.1 ? -2.4 : undefined },
+        { x: i4K(D_A2, t)[0], y: i4K(D_A2, t)[1], pose: t > 48.4 && t < 48.9 ? 'open' : 'fist', front: t > 48.35 && t < 48.95 },
+        { x: i4K(D_A3, t)[0], y: i4K(D_A3, t)[1], pose: 'open' }] });
+    // contact: where the blade meets him on each beat (along the blade to his front)
+    const contact = () => { const fr = SX - 46, al = clamp((fr - a.hand[0]) / Math.max(0.2, Math.cos(swA)), 60, LEN); return [a.hand[0] + Math.cos(swA) * al, a.hand[1] + Math.sin(swA) * al]; };
+    DH.forEach((h, k) => {
+      const g = t - h; if (g < 0 || g > 1.2) return;
+      const [cx, cy] = k === 4 ? [SX + lerp(WOUND1[0], WOUND1[2], 0.5) * 0.95, 82 + lerp(WOUND1[1], WOUND1[3], 0.5) * 0.95] : k === 6 ? [SX + 74, 124] : contact();
+      megaHit(cx, cy, g, k === 0 || k === 4 || k === 6 ? 2.6 : 2.1, [0.3, PI + PI, -PI / 2 + PI, PI / 2 + 0.3, 0.4, -PI / 2 - 0.3, -0.1][k], [22, 108, 105], 4451 + k);
+      if (k === 4 && g < 0.8) rocks(cx, cy, g, 34, 240, 3, [102, 104, 105, 107], 4461, 240, 0.4, 2);
+      if (k === 5 && g < 1) rocks(SX, 40, g, 9, 260, 6, [96, 97, 101, 103], 4471, 200, -PI / 2, 1.6);
+      if (k === 6 && g < 1) rocks(SPX - 10, 120, g, 30, 180, 5, [97, 98, 99, 104], 4482, 200, 0, 2);
+    });
+    // the first block's force runs on: a trench torn in the sea to the horizon
+    if (t < 48.4) { const lt0 = t - 47.6, run = eoc(clamp(lt0 / 0.35, 0, 1)); for (let q = 0; q < 120 * run; q++) { const u = q / 120, x = lerp(SX, 470, u), y = lerp(250, 152, u), hh = (1 - u) * 26 * (1 - lt0 / 0.8); for (let k = 0; k < hh; k++) { P(x - 6 * (1 - u), y - k, k > hh - 3 ? 22 : 119); P(x + 6 * (1 - u), y - k, k > hh - 3 ? 22 : 118); } P(x, y, 22); } }
+    // the sea ploughed up behind him every time he is shoved back
+    [47.6, 48.6, 49.2, 49.8, 50.6, 53.2].forEach((h, k) => rocks(SX + 50, 240, t - h, 20, 200, 3, [117, 118, 119, 22], 4441 + k, 260, -PI / 2 + 0.6, 1.4));
+    // foreground spray drifting past the camera (depth)
+    for (let k = 0; k < 10; k++) { const x = ((ih(k, 1, 4495) * 560 - pan * 2.2 - t * 30) % 560 + 560) % 560 - 40, y = 236 + ih(k, 2, 4495) * 10; cloudPuff(x, y, 10 + ih(k, 3, 4495) * 8, [115, 116, 117, 118], 4496 + k); }
+    // the molten blood running out of the hole as he draws the blade out
+    if (t > 54.0) { for (let k = 0; k < 10; k++) { const g = frac(t * 1.4 + ih(k, 1, 4491)); rectF(SX + 74 + (ih(k, 2, 4491) - 0.5) * 10, 120 + g * 90, 2, 3, g < 0.5 ? 105 : 103); } if (so.hands[0]) { const [px, py] = so.hands[0].palm; for (let k = 0; k < 8; k++) { const g = frac(t * 2 + k / 8); P(px + (ih(k, 1, 4492) - 0.5) * 16, py - g * 30, g < 0.4 ? 105 : 121); } } }
+    if (t > 47.6 && t < 48.1) frameCrack(SX + 2, 130, clamp((t - 47.6) * 4, 0, 0.5) * (1 - sstep(0.3, 0.5, t - 47.6)), 4443, 90);
+    // the camera: pushed in slowly across the fight, kicked along each blow, a slight roll toward the side giving ground
+    const [kz, kr, kx, ky] = kick(t, DH.map((h, k) => [h, k === 0 || k === 4 || k === 6 ? 2 : 1.3, [0.2, PI, -PI / 2, PI / 2, 0.4, -PI / 2, 0][k]]));
+    shk(DH.some((h) => t > h && t < h + 0.25) ? 6 : 1 + laugh);
+    const push = 1.02 + 0.06 * eio(clamp((t - 47.6) / 6, 0, 1)) + (t > 54 ? 0.04 * eio(clamp((t - 54) / 1.6, 0, 1)) : 0);
+    z5Cam(push + kz, kr + 0.012 * z5N(t * 0.5, 7), 250 - kx, 140 - ky, 240, 140);
   });
-  FLASH_CUTS.push(47.6);
-
-  /* 25 — the giant blade, again and again (0:48.4–0:50.4): a sweep from the left, a rising cut, an overhead; he blocks each
-     with a different arm, and gives ground with every one */
-  const GB = [48.6, 49.2, 49.8];
-  shot(48.4, 50.4, (lt, t) => {
-    const keys = [[48.4, 0.12], [48.45, 0.4], [48.56, -1.25, 'io'], [48.6, 0.55, 'i'], [48.9, 0.7, 'o'], [49.12, 1.25, 'io'], [49.2, -0.75, 'i'], [49.5, -1.0, 'o'], [49.7, -2.2, 'io'], [49.8, 0.25, 'i'], [50.4, 0.3, 'o']];
-    const angAt = (tt) => { if (tt <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) if (tt < keys[i][0]) { const [t0, a0] = keys[i - 1], [t1, a1, e] = keys[i], u = (tt - t0) / (t1 - t0); return lerp(a0, a1, e === 'i' ? eic(u) : e === 'o' ? eoc(u) : eio(u)); } return keys[keys.length - 1][1]; };
-    const swA = angAt(t), back = GB.reduce((s_, h) => s_ + (t > h ? 14 * eoc(clamp((t - h) / 0.3, 0, 1)) : 0), 46);
-    // blocks: lower-left takes the sweep, upper-right the rising cut, the crossed upper pair the overhead
-    const blk = (h) => sstep(h - 0.2, h - 0.05, t) * (1 - sstep(h + 0.3, h + 0.5, t));
-    const b1 = blk(GB[0]), b2 = blk(GB[1]), b3 = blk(GB[2]);
-    const hx = 100 + 10 * Math.sin(t * 2), hy = 176 - b3 * 10;
-    i4BladeFight(t, { hx, hy, swA, pan: lt * 30, sx: 330 + back, sy: 82, ss: 0.95, ang: (swA > 0 ? 0.15 : -0.15),
-      sun: { eyes: 1.5, heat: 0.85, crown: 1, rage: 0.25, nod: 1,
-        arms: [{ x: lerp(-130, 0, b3), y: lerp(124, -10, b3), pose: 'fist', front: b3 > 0.1, ang: b3 > 0.1 ? -0.8 : undefined }, { x: lerp(132, -40, Math.max(b2, b3)), y: lerp(124, lerp(150, -4, b3 / Math.max(0.01, Math.max(b2, b3))), Math.max(b2, b3)), pose: 'fist', front: Math.max(b2, b3) > 0.1 }, { x: lerp(-96, -150, b1), y: lerp(196, 130, b1), pose: b1 > 0.3 ? 'open' : 'fist', front: b1 > 0.1 }, { x: 96, y: 196, pose: 'open' }] },
-      trail: (d) => angAt(t - d) });
-    const CP = [[300, 150], [300, 196], [318, 100]];
-    GB.forEach((h, k) => megaHit(CP[k][0] + back - 46, CP[k][1], t - h, 2.2, [PI, PI / 2 + 0.5, -PI / 2 - 0.2][k] + PI, [22, 108, 105], 4451 + k));
-    const [kz, kr, kx, ky] = kick(t, GB.map((h, k) => [h, 1.3, k * 1.3]));
-    shk(GB.some((h) => t > h && t < h + 0.25) ? 6 : 1.5);
-    z5Cam(1.04 + kz, kr, 260 - kx, 140 - ky, 240, 140);
-  });
-
-  /* 26 — it gets through (0:50.4–0:51.4): a diagonal stroke past his guard; a burning wound opens across his chest; he
-     staggers back — and for the first time, something in the mask that might be pain */
-  shot(50.4, 51.4, (lt, t) => {
-    belowWorld(t, 130, 960, 0.8);
-    const h = 0.2, g = lt - h, cut = eoc(clamp(g / 0.08, 0, 1)), stag = g > 0 ? eoc(clamp(g / 0.45, 0, 1)) : 0;
-    const W1 = [WOUND1[0], WOUND1[1], lerp(WOUND1[0], WOUND1[2], cut), lerp(WOUND1[1], WOUND1[3], cut), WOUND1[4]];
-    const so = sunderer(300 + stag * 24, 70 - stag * 4, 1.3, t, { eyes: 1.4 + (g > 0 ? 0.5 * Math.exp(-g * 3) : 0), heat: 0.9, crown: 1, rage: g > 0 ? 0.5 : 0.2, roar: g > 0 ? 0.6 * Math.exp(-g * 2) * (1 - Math.exp(-g * 20)) : 0, tilt: -0.08 * stag, nod: -2 * stag,
-      wounds: g > 0 ? [W1] : [], arms: [{ x: -132, y: 60 - stag * 30, pose: 'open' }, { x: 132, y: 100, pose: 'fist' }, { x: -96, y: 196, pose: 'open' }, { x: 96, y: 196, pose: 'fist' }] });
-    // the blade: in from off the left, cutting down through him
-    const swA = lerp(-0.95, 0.55, eic(clamp((lt - h + 0.06) / 0.08, 0, 1))) + (g > 0 ? 0.25 * eoc(clamp(g / 0.3, 0, 1)) : 0);
-    bigBlade(-40, 100, swA, 520, 5, t, { form: 'nova', flare: 0.8 });
-    if (g > 0) { const sx = 300 + stag * 24 + lerp(WOUND1[0], WOUND1[2], 0.5) * 1.3, sy = 70 + lerp(WOUND1[1], WOUND1[3], 0.5) * 1.3; rocks(sx, sy, g, 34, 240, 3, [102, 104, 105, 107], 4461, 240, 0.4, 2); megaHit(sx, sy, g, 2.6, 0.4, [22, 107, 104], 4462); }
-    shk(g > 0 ? 7 * Math.exp(-g * 3) : 1);
-    const [kz, kr] = kick(lt, [[h, 1.8]]);
-    z5Cam(1.06 + kz, kr, 280, 130, 240, 135);
-  });
-
-  /* 27 — the upward cut (0:51.4–0:52.8): from under his guard; a gauntlet thrown up and back, blades blown out of his crown */
-  shot(51.4, 52.8, (lt, t) => {
-    belowWorld(t, 140, 980, 0.8);
-    const h = 0.2, g = lt - h, up = g > 0 ? eoc(clamp(g / 0.3, 0, 1)) : 0;
-    const crown = 1 - 0.25 * up;
-    sunderer(320, 84, 1.1, t, { eyes: 1.6, heat: 0.9, crown, rage: 0.5, roar: 0.3 * up, nod: -1.5 * up, tilt: 0.06 * up,
-      wounds: [WOUND1], arms: [{ x: lerp(-40, -140, up), y: lerp(40, -90, up), pose: 'open', front: true }, { x: 132, y: 100, pose: 'fist' }, { x: -96, y: 196, pose: 'fist' }, { x: 96, y: 196, pose: 'fist' }] });
-    // crown blades flying off
-    if (g > 0) rocks(320, 40, g, 9, 260, 6, [96, 97, 101, 103], 4471, 200, -PI / 2, 1.6);
-    const swA = lerp(1.0, -1.25, eic(clamp((lt - h + 0.05) / 0.07, 0, 1))) - (g > 0 ? 0.25 * eoc(clamp(g / 0.4, 0, 1)) : 0);
-    const a = i4Nova(130, 200, 1.9, t, { sw: swA, spread: 0.9, flap: 0.4, mouth: 2, noSmear: true, ang: -0.2 });
-    bigBlade(a.hand[0], a.hand[1], swA, 420, 4.6, t, { form: 'nova', flare: 0.8 });
-    megaHit(270, 120, g, 2.4, -PI / 2 - 0.3, [22, 108, 105], 4472);
-    shk(g > 0 ? 6 * Math.exp(-g * 3) : 1);
-    const [kz, kr] = kick(lt, [[h, 1.5]]);
-    z5Cam(1.04 + kz, kr, 240, 140, 240, 140);
-  });
-
-  /* 28 — the thrust (0:52.8–0:54): it lunges with everything, the giant blade straight out: through his shoulder, and on,
-     driving him back into a spire, pinning him there */
-  shot(52.8, 54.0, (lt, t) => {
-    belowWorld(t, 140, 1000, 0.8);
-    const h = 0.4, g = lt - h, coil = eio(clamp(lt / 0.3, 0, 1)) * (g < 0 ? 1 : 0), lunge = g > -0.06 ? eic(clamp((g + 0.06) / 0.06, 0, 1)) : 0;
-    const pin = g > 0 ? eoc(clamp(g / 0.15, 0, 1)) : 0, SX = 340 + pin * 30;
-    // the spire behind him; it cracks when he hits it
-    for (let q = 0; q < 210; q++) { const w = 70 * (1 - q / 260); thick(420 - w / 2, 250 - q, 420 + w / 2, 250 - q, 2, q % 37 < 2 ? 102 : g > 0.15 && Math.abs((q * 7) % 53 - 26) < 1 ? 104 : q < 120 ? 98 : 99); }
-    sunderer(SX, 78, 1.0, t, { eyes: 1.6, heat: 0.9, crown: 0.75, rage: 0.6, roar: g > 0 ? 0.7 * Math.exp(-g * 2) : 0, tilt: 0.1 * pin, wounds: g > 0 ? [WOUND1, WOUND2] : [WOUND1],
-      arms: [{ x: -130, y: 80, pose: 'open' }, { x: 140, y: 60 + pin * 30, pose: 'open' }, { x: -96, y: 196, pose: 'fist' }, { x: 110, y: 190, pose: 'open' }] });
-    const hx = lerp(110 - coil * 20, 200, lunge), hy = 170;
-    const a = i4Nova(hx, hy, 2.0, t, { sw: -0.08, spread: 0.6 + 0.4 * lunge, flap: 0.4, mouth: 2, noSmear: true, sq: 0.3 * coil - 0.2 * lunge });
-    bigBlade(a.hand[0], a.hand[1], -0.12, 460, 4.8, t, { form: 'nova', flare: 0.8 });
-    if (g > 0) { megaHit(SX + 74, 120, g, 2.4, -0.1, [22, 108, 105], 4481); rocks(430, 120, g, 30, 180, 5, [97, 98, 99, 104], 4482, 200, 0, 2); }
-    shk(g > 0 ? 8 * Math.exp(-g * 3) : coil * 1.5);
-    const [kz, kr, kx] = kick(lt, [[h, 2, 0]]);
-    z5Cam(1.05 + kz, kr, 270 - kx, 140, 240, 140);
-  });
-  FLASH_CUTS.push(53.2);
-
-  /* 29 — he laughs (0:54–0:55.6): pinned, he laughs; a hand closes round the blade, and he draws it back out of himself,
-     slowly, the hero dragged along the length of its own sword */
-  shot(54.0, 55.6, (lt, t) => {
-    belowWorld(t, 140, 1000, 0.8);
-    const draw = eio(clamp((lt - 0.4) / 1.1, 0, 1)), laugh = [0.1, 0.35, 0.6].reduce((s_, h) => s_ + Math.max(0, Math.sin(PI * clamp((lt - h) / 0.2, 0, 1))), 0);
-    const SX = 370;
-    for (let q = 0; q < 210; q++) { const w = 70 * (1 - q / 260); thick(420 - w / 2, 250 - q, 420 + w / 2, 250 - q, 2, q % 37 < 2 ? 102 : q < 120 ? 98 : 99); }
-    // the hero first (it is in front of nothing of his), then him: his hand closes round the blade — palm under it, fingers
-    // over it — and the blade is drawn inside the grip, so it is held, not overlaid
-    const hx = 200 - draw * 70, hy = 170 + z5Sh(t, 4) * 2;
-    const a = i4Nova(hx, hy, 2.0, t, { sw: -0.08, spread: 0.7, flap: 0.6, mouth: 2, noSmear: true, sq: -0.15 + z5Sh(t * 2, 3) * 0.08 });
-    const grip = eoc(clamp(lt / 0.3, 0, 1)), strainP = z5Sh(t * 1.5, 6) * 2 * draw;
-    // the grip point on the blade (it slides out through his hand as he draws it), and the wrist placed so the knuckles sit
-    // just over the blade with the fingers wrapping down round it
-    const gx = 318 - draw * 46, gy = a.hand[1] + (gx - a.hand[0]) * Math.tan(-0.12), GA = PI / 2 - 0.35;
-    const wlx = (gx - Math.cos(GA) * 12 - SX) / 1.0, wly = (gy - Math.sin(GA) * 12 - 78) / 1.0;
-    const so = sunderer(SX, 78, 1.0, t, { eyes: 1.4, heat: 0.9, crown: 0.75, rage: 0.4, roar: 0.25 + laugh * 0.3, nod: -laugh * 2, wounds: [WOUND1, WOUND2], lean: -draw * 10,
-      arms: [{ x: wlx, y: wly + strainP * 0.3, pose: { curl: lerp(0.15, 0.78, grip), thumb: lerp(0.2, 0.75, grip), spread: lerp(0.6, 0.05, grip) }, front: true, ang: GA,
-        hold: () => { bigBlade(a.hand[0], a.hand[1], -0.12, 460 - draw * 70, 4.8, t, { form: 'nova', flare: 0.6 }); } }, { x: 140, y: 90 + laugh * 4, pose: 'fist' }, { x: -96, y: 196, pose: 'fist' }, { x: 110, y: 190, pose: 'open' }] });
-    // where the porcelain grips the blade: it smokes and spits
-    if (so.hands[0]) { const [gx, gy] = so.hands[0].palm; for (let k = 0; k < 8; k++) { const g = frac(t * 2 + k / 8); P(gx + (ih(k, 1, 4492) - 0.5) * 16, gy - g * 30, g < 0.4 ? 105 : 121); } }
-    // the molten blood running out of the hole as the blade comes out
-    for (let k = 0; k < 10; k++) { const g = frac(t * 1.4 + ih(k, 1, 4491)); rectF(SX + 74 + (ih(k, 2, 4491) - 0.5) * 10, 120 + g * 90, 2, 3, g < 0.5 ? 105 : 103); }
-    shk(1 + laugh * 2);
-    z5Cam(1.05, 0, 280, 140, 240, 140);
-  });
+  FLASH_CUTS.push(47.6, 53.2);
 
   /* 30 — his brother's eye (0:55.6–0:58): close. The fist with the shard comes up to his brow and presses it in. It sinks
      into him; a spiral eye opens in his forehead. "Brother. See this." */
