@@ -24,8 +24,7 @@
      The blade skids off porcelain; it is the hero that is thrown back by each one */
   const BZ = [22.5, 22.9, 23.3, 23.7];
   shot(21.0, 24.0, (lt, t) => {
-    gradient(LB, H - LB, SKY_FIGHT);
-    cloudBank(222, 30, 60, 4201, t * 10, [97, 98, 101, 102], false);
+    highSky(t, lt * 60, 130, 172, 0.65);
     const MX = 300, MY = 96, s = 1.3;
     const o = sunderer(MX, MY, s, t, { eyes: 1.15, heat: 0.65, crown: 1, arms: [{ x: -132, y: 128, pose: 'fist' }, { x: 132, y: 124, pose: 'fist' }, { x: -96, y: 190, pose: 'open' }, { x: 96, y: 196, pose: 'open' }] });
     // the four contact points (on him) and where the hero comes from for each
@@ -61,7 +60,7 @@
   /* 11 — caught (0:24–0:25.4): the blade, stopped dead between two porcelain fingers. The hero hauls on it with
      everything — wings thrashing — and the hand does not so much as tremble */
   shot(24.0, 25.4, (lt, t) => {
-    gradient(LB, H - LB, SKY_FIGHT);
+    highSky(t, 180, 130, 172, 0.7);
     sunderer(380, 60, 1.6, t, { eyes: 1.2, heat: 0.6, crown: 1, dark: 0.3, arms: [null, null, null, null] });
     tintAll(T_DARK, 0.25);
     const PX = 300, PY = 140;                                  // the pinch: where the tip is held
@@ -87,7 +86,7 @@
   shot(25.4, 26.6, (lt, t) => {
     const fall = clamp((lt - 0.12) / 1.08, 0, 1);
     if (lt < 0.12) {
-      gradient(LB, H - LB, SKY_FIGHT);
+      highSky(t, 190, 130, 172, 0.7);
       // the finger flicks out; the hero is simply gone along the line of it, a prism streak and a ring left in the air
       const fl_ = eoc(clamp(lt / 0.05, 0, 1));
       sGauntlet(PX4 + 44, 150, 3.4, PI + 0.3, { curls: [lerp(0.48, 0, fl_), 0.95, 0.98, 1], thumb: lerp(0.66, 0.9, fl_), spread: 0 }, 0.8, t);
@@ -273,7 +272,7 @@
   /* 20 — "Is that all?" (0:39–0:41.2): from the ground behind the fallen hero, up at him: he lifts a fist over it, high, higher;
      it comes down at us; the frame breaks */
   shot(39.0, 41.2, (lt, t) => {
-    gradient(LB, H - LB, [96, 97, 98, 101]);
+    belowWorld(t, 168, 930, 0.6, undefined, 330);
     const raise = eio(clamp(lt / 1.4, 0, 1)), wind = eio(lin(1.4, 1.8, lt)), down = eic(clamp((lt - 1.8) / 0.2, 0, 1)), hit = lt >= 2.0;
     const fx = lerp(-40, -96, raise) + wind * -16, fy = lerp(80, -40, raise) - wind * 22;
     sunderer(262, 84, 1.45, t, { eyes: 1.4 + down * 0.5, heat: 0.8, crown: 1, nod: 1.5, rage: 0.3 * wind, arms: [down > 0 ? null : { x: fx, y: fy, pose: 'fist', front: true }, { x: 140, y: 110, pose: 'fist' }, { x: -100, y: 200, pose: 'open' }, { x: 100, y: 200, pose: 'open' }] });
@@ -283,7 +282,18 @@
     if (hit) { const g = lt - 2.0; rectF(0, LB, W, H - 2 * LB, 96); sGauntlet(250, 135, 9, PI / 2 + 0.3, 'fist', 1, t); frameCrack(250, 135, clamp(g / 0.15, 0, 1), 4301); if (g < 0.034) impactFrame(250, 135, 1); tintAll(T_DARK, sstep(0.12, 0.2, g)); }
     shk(hit ? 10 : wind * 2);
   });
-  function belowWorldFore(t) { for (let y = 210; y < H - LB; y++) for (let x = 0; x < W; x++) BUF[y * W + x] = ((x + y) & 3) === 0 ? 115 : 114; for (let k = 0; k < 8; k++) ring(80 + k * 50, 222, 20, 3, 116); }
+  // the sea right in front of the camera: swells with a lit wave edge (never a flat box), foam, the fire's light on it
+  function belowWorldFore(t) {
+    for (let x = 0; x < W; x++) {
+      const top = 214 + Math.sin(x * 0.045 + t * 1.6) * 3 + Math.sin(x * 0.11 - t * 2.3) * 1.5;
+      for (let y = Math.floor(top); y < H - LB; y++) {
+        const d = y - top, sw = Math.sin(x * 0.06 + y * 0.7 + t * 1.4) + Math.sin(x * 0.021 - t + y * 0.2);
+        let c = d < 1.2 ? 119 : d < 3 ? 118 : OCEAN[clamp(fl(2.6 - d / 12 + (sw > 1 ? 1 : 0) + (bay(x, y) - 0.5)), 0, 3)];
+        if (Math.abs(x - 330) < 30 + d * 1.5 && sw > 0.5 && d > 3) c = sw > 1.3 ? 105 : 103;
+        BUF[y * W + x] = c;
+      }
+    }
+  }
   FLASH_CUTS.push(41.0);
   CAPS.push([39.2, 40.9, 's', 'SUNDERER', 'IS THAT ALL?']);
 

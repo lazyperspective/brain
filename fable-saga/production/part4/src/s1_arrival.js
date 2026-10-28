@@ -110,9 +110,9 @@
 
   /* 5 — the hero (0:10.6–0:13.2): close, small against a red sky and the shape of him; not backing down */
   shot(10.6, 13.2, (lt, t) => {
-    gradient(LB, H - LB, [97, 98, 101, 102, 13, 14]);
+    highSky(t, t * 20, 380, 120, 0.75);
     sunderer(380, 80, 1.0, t, { eyes: 1.3, heat: 0.6, dark: 0.8, crown: 1, arms: [null, { x: 70, y: 40, pose: 'grab', front: true }, null, null] });
-    cloudBank(226, 30, 60, 4141, t * 10, [97, 98, 101, 102], false);
+    highFore(t, t * 30, 226);
     for (let k = 0; k < 24; k++) { const g = frac(t * 0.35 + ih(k, 1, 4142)); rectF(W - g * 520, LB + ih(k, 2, 4142) * 200 + Math.sin(t + k) * 6, 2, 1, k % 3 ? 103 : 105); }
     const speak = lt > 0.15 && lt < 2.1 && Math.sin(t * 22) > -0.3 ? 1 : 0;
     const a = actor(i4Coral({ eyes: 'angry', shade: true, mouth: speak, sword: -1.25 + z5N(t, 3) * 0.04 }), 190 + 4 * eio(lt / 2.6), 172, 6.4, 0.03, false);
@@ -124,8 +124,7 @@
 
   /* 6 — "He erased. I break." (0:13.2–0:16.2): he brings a fist up and clenches it, and the air round it cracks */
   shot(13.2, 16.2, (lt, t) => {
-    gradient(LB, H - LB, [96, 97, 98, 101, 102, 13]);
-    cloudBank(220, 30, 60, 4151, t * 6, [97, 98, 101, 102], false);
+    highSky(t, t * 12, 120, 176, 0.7);
     const up = eio(lin(0.9, 1.6, lt)), clench = lt > 1.75;
     const sq = clench ? z5Knock(lt - 1.75, 6, 22, 7) : 0;
     const o = sunderer(300, 96, 1.4, t, { eyes: 1.2 + (clench ? 0.4 : 0), heat: 0.6 + (clench ? 0.3 : 0), rage: clench ? 0.3 : 0, crown: 1, nod: 0.6,
@@ -138,7 +137,7 @@
 
   /* 7 — "Then try." (0:16.2–0:18): it gathers itself, and Zenith comes back: prism light, the wings, the orbs, the blade */
   shot(16.2, 18.0, (lt, t) => {
-    gradient(LB, H - LB, [96, 97, 98, 101, 102, 13]);
+    highSky(t, t * 12, 330, 180, 0.8); tintAll(T_DARK, 0.25);
     const ign = lt > 0.3, g = lt - 0.3, open = eob(clamp(g / 0.45, 0, 1));
     const HX = 240, HY = 158 - (ign ? 10 * eob(clamp(g / 0.5, 0, 1)) : 0) + (ign ? 0 : 5 * eio(lt / 0.3));
     if (ign) {

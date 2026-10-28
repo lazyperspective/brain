@@ -40,7 +40,7 @@
     for (let k = 0; k < 5; k++) { const r = 30 + k * 30 + frac(t * 0.3 + k * 0.2) * 30; ring(HX, HY + 8, r, r * 0.22, 115); }
     actor(HERO3({ eyes: lt > 1.4 && lt < 1.55 ? 'narrow' : 'closed', sword: lerp(0.9, 0.4, grip) + z5Sh(t, 3) * 0.05 * grip, swordCols: z5Sw(t * 0.2), cracks: 0.55, legs: [3, 3, 3, 3], sq: Math.sin(t * 1.6) * 0.04 }), HX, HY - 6, 3.0, 0.12, false, { still: true });
     // the water over its lower half
-    for (let y = HY + 2; y < H - LB; y++) for (let x = HX - 70; x < HX + 70; x++) { const d = Math.abs(x - HX) / 70; if (y > HY + 2 + Math.sin(x * 0.2 + t * 2) * 1.5 + d * 4) { BUF[y * W + x] = (x + y) % 5 === 0 ? 116 : 115; tintI(y * W + x, x, y, T_DARK, 0.6 + d * 0.1); } }
+    for (let y = HY + 2; y < H - LB; y++) for (let x = HX - 90; x < HX + 90; x++) { const d = Math.abs(x - HX) / 90, e = (x - HX) * (x - HX) / 8100 + (y - HY - 12) * (y - HY - 12) / 400; if (e < 1 && y > HY + 2 + Math.sin(x * 0.2 + t * 2) * 1.5 + d * 4 && bay(x, y) < 1.6 - e * 1.4) { BUF[y * W + x] = (x + y) % 5 === 0 ? 116 : 115; tintI(y * W + x, x, y, T_DARK, 0.6 + d * 0.1); } }
     // the orbs, guttering
     for (let k = 0; k < 4; k++) { const a = t * 0.6 + k * TAU / 4, fl_ = 0.6 + 0.4 * Math.sin(t * 7 + k * 2); if (ih(k, fl(t * 10), 4401) < 0.85) orbAt(HX + Math.cos(a) * 34, HY - 10 + Math.sin(a) * 9, k, 2 * fl_, t); }
     for (let k = 0; k < 14; k++) { const g = frac(t * 0.12 + ih(k, 1, 4402)); P(HX - 120 + ih(k, 2, 4402) * 240, HY - g * 120, 121); }

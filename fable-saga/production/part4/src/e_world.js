@@ -224,3 +224,19 @@
     for (const [h, p, dir] of hits) { const g = t - h; if (g < 0 || g > 1.5) continue; const e = Math.exp(-g * 7) * (p || 1) * (amt || 1); z += 0.05 * e; r += 0.03 * e * Math.cos(g * 30) * ((h * 7) % 2 < 1 ? 1 : -1); if (dir !== undefined) { dx += Math.cos(dir) * 10 * e * Math.cos(g * 18); dy += Math.sin(dir) * 10 * e * Math.cos(g * 18); } }
     return [z, r, dx, dy];
   }
+
+  /* high above the cloud sea, after he has come: the dawn sky stained by him (crimson high up, burning orange at the horizon),
+     the sun low behind the cloud with rays thrown up through it, three decks of cloud moving with parallax (ox), embers
+     drifting on the wind. highFore draws the nearest deck, to go in front of whatever stands in the cloud. */
+  function highSky(t, ox, sunX, sunY, stain) {
+    ox = ox || 0; sunX = sunX === undefined ? 380 : sunX; sunY = sunY === undefined ? 168 : sunY; stain = stain === undefined ? 0.6 : stain;
+    gradient(LB, 200, [97, 98, 10, 11, 12, 13, 14, 15]);
+    glow(sunX, sunY, 210, T_WARM, 0.55); glow(sunX, sunY, 90, T_WH, 0.35);
+    discF(sunX, sunY, 20, 15); discF(sunX, sunY, 16, 16); discF(sunX - 3, sunY - 3, 8, 22);
+    z5GodRays(sunX, sunY, 8, t * 0.08, T_WARM, 0.32, 430);
+    cloudBank(162, 24, 90, 1171, ox * 0.25 + t * 3, [12, 13, 14, 15], false);
+    cloudBank(190, 32, 70, 1172, ox * 0.55 + t * 6, [10, 11, 13, 14], false);
+    if (stain > 0) tintAll(T_BLOOD, stain * 0.22);
+    for (let k = 0; k < 30; k++) { const g = frac(t * (0.1 + ih(k, 3, 1173) * 0.12) + ih(k, 1, 1173)), x = ((ih(k, 2, 1173) * 560 - g * 300 - ox * 0.8) % 560 + 560) % 560 - 40, y = LB + 10 + ih(k, 4, 1173) * 190 - g * 40 + Math.sin(t * 2 + k) * 3; P(x, y, k % 4 ? 104 : 106); if (k % 3 === 0) P(x + 1, y, 103); }
+  }
+  function highFore(t, ox, y0) { cloudBank(y0 || 232, 44, 52, 1174, (ox || 0) + t * 10, [9, 10, 11, 13], false); }
