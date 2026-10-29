@@ -24,12 +24,15 @@
      fn(x, y, X, Y) with unit coords x, y and screen X, Y; return a palette index to paint it, or -1 to leave it.
      V.vis(x0, y0, x1, y1): does that box of units touch the frame at all (skip work when it doesn't).
      V.lod: a detail level (0 when the layer is tiny on screen, 1 at nominal size, > 1 when magnified). */
-  function zView(u, R) {
+  function zView(u, R, clip) {
     R = R || 420;
     const cx = 240, cy = 135, V = { u, cx, cy, R };
     V.X = (x) => cx + x * u; V.Y = (y) => cy + y * u; V.S = (n) => n * u;
     V.lx = (X) => (X + 0.5 - cx) / u; V.ly = (Y) => (Y + 0.5 - cy) / u;
     V.box = [Math.max(0, fl(cx - R * u)), Math.max(0, fl(cy - R * u)), Math.min(W - 1, Math.ceil(cx + R * u)), Math.min(H - 1, Math.ceil(cy + R * u))];
+    // an inner layer only shows through the outer layer's window: the compositor passes that window's screen rect, and
+    // per-pixel work outside it is skipped (V.clipped says so; a layer may also use V.box to skip its own loops)
+    if (clip) { V.box[0] = Math.max(V.box[0], clip[0]); V.box[1] = Math.max(V.box[1], clip[1]); V.box[2] = Math.min(V.box[2], clip[2]); V.box[3] = Math.min(V.box[3], clip[3]); V.clipped = true; }
     V.vis = (x0, y0, x1, y1) => V.X(x1) >= 0 && V.X(x0) < W && V.Y(y1) >= 0 && V.Y(y0) < H;
     V.each = (x0, y0, x1, y1, fn) => {
       const X0 = Math.max(V.box[0], fl(V.X(x0))), X1 = Math.min(V.box[2], Math.ceil(V.X(x1))), Y0 = Math.max(V.box[1], fl(V.Y(y0))), Y1 = Math.min(V.box[3], Math.ceil(V.Y(y1)));
@@ -59,8 +62,8 @@
   /* ---------------------------------------------------------------- the compositor (one shot, the whole film) */
   const ZSAVE = new Uint8Array(NP);
   const Z_FALL = [135, 140, 137, 143, 117, 78, 62];
-  function zDraw(k, u, t) {
-    const L = ZL[zMod(k)], V = zView(u, L && L.R);
+  function zDraw(k, u, t, clip) {
+    const L = ZL[zMod(k)], V = zView(u, L && L.R, clip);
     if (L) { L.draw(V, t); return V; }
     // (a layer not written yet: a flat placeholder with its number)
     V.each(-420, -420, 420, 420, () => Z_FALL[zMod(k)]);
@@ -91,7 +94,10 @@
       const kk = k - n, u = uO / ZR;
       if (u * 840 < 1.5) break;                                   // smaller than a pixel or two: nothing to see
       ZSAVE.set(BUF);
-      zDraw(kk, u, t);
+      const Lo = ZL[zMod(kk + 1)], mb = (Lo && Lo.maskBox) || ZRECT_BOX;
+      const clip = [Math.max(0, fl(240 + mb[0] * uO) - 1), Math.max(0, fl(135 + mb[1] * uO) - 1), Math.min(W - 1, Math.ceil(240 + mb[2] * uO) + 1), Math.min(H - 1, Math.ceil(135 + mb[3] * uO) + 1)];
+      if (clip[2] < clip[0] || clip[3] < clip[1]) break;
+      zDraw(kk, u, t, clip);
       zWindow(kk + 1, uO);
       uO = u;
     }
