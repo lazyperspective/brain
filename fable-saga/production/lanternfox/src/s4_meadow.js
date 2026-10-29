@@ -90,7 +90,7 @@
   };
   const F4LIGHT = { sky: [-0.55, -0.85], rim: 0.9, amb: 0.4, z: 4, gain: 1.5 };
   function f4Cam(t) {
-    const v = eio((t - 16.7) / 1.9), push = eio((t - 21.65) / 1.45);
+    const v = eio((t - 17.0) / 1.8), push = eio((t - 21.65) / 1.45);
     let cx = lerp(170, 236, eis((t - 16.7) / 4.8)) + drift(t, 7, 1), cy = lerp(-120, 132, v), z = 1;
     if (push > 0) {
       // the push in on the far lighthouse: it slides to a place right of centre and everything grows round it
@@ -189,6 +189,17 @@
     for (let j = 0; j < 4; j++) glow(Xs + 14 * z * o.S + j * 3, Y + 1, (12 + j * 3) * z * o.S, T_SHADE, 0.32, 1, 0.22);
     drawDeer(Xs, Y, o.S * z, o.f, { up, turn, earF, tail: 0.5 * bump(19.5 + o.ph * 0.3, 19.8 + o.ph * 0.3, t), antlers: o.antlers, fawn: o.fawn, gait: fawnStep, step: t * 1.8 }, { sky: [-0.55, -0.85], amb: 0.42, z: (F4G - o.y) * 3 });
   }
+  /* the one sky the falls tilt up into and the meadow tilts down from (in the meadow's sky coordinates): its gradient,
+     stars, aurora and moon, so that the hand-over between the two shots, in the sky, is the same picture */
+  function heavens(t, ox, oy, z, amt) {
+    skyLive([202, 202, 203, 203, 204, 204, 205, 206, 207], 30, OY4 + 150, ox, oy, z, 401);
+    comp(F4.L.sky, ox, oy, z, 0);
+    aurora2(t, ox, oy, z, amt, F4AUR);
+    liveStars(t, 30, 491, ox, oy, z, OY4 + 100, (c) => c >= 202 && c <= 205);
+    moon4(ox, oy, z);
+  }
+  // where f4's sky sits at time t (the falls' sky is drawn at the same place while the two hand over)
+  const f4SkyAt = (t) => { const [cx, cy, z] = f4Cam(t); return [300 + cx * 0.1, OY4 + 135 + (cy - 135) * 0.86, z]; };
   function f4Draw(t) {
     TAB = F4.rig; FOGT = F4FOG; SPK_SNOW = M_SNOW; SHAD.length = 0; LAMP.on = 0;
     const [cx, cy, z] = f4Cam(t), L = F4.L, oy = (p) => OY4 + 135 + (cy - 135) * p;
@@ -198,11 +209,7 @@
     const [mx, my] = FOXOUT.mouth, LS = F4LS * z, fl0 = lanternFlame(mx, my, LS, th);
     LAMP.on = 1; LAMP.x = fl0[0]; LAMP.y = fl0[1]; LAMP.z = 0; LAMP.h = Math.max(4, (fys - fl0[1]) / z); LAMP.I = 1.15 * flick(t); LAMP.R = 54 * z; LAMP.zoom = z; LAMP.rot = th * 2;
     SHAD.push({ x: fxs + 14 * z, y: fys + 1, rx: 26 * z, ry: 3.5 * z, a: 0.55, lamp: 1 });
-    skyLive([202, 202, 203, 203, 204, 204, 205, 206, 207], 30, OY4 + 150, 300 + cx * 0.1, oy(0.86), z, 401);
-    comp(L.sky, 300 + cx * 0.1, oy(0.86), z, 0);
-    aurora(t, 300 + cx * 0.1, oy(0.86), z, 1.0, F4AUR);
-    liveStars(t, 30, 491, 300 + cx * 0.1, oy(0.86), z, OY4 + 100, (c) => c >= 202 && c <= 205);
-    moon4(300 + cx * 0.1, oy(0.86), z);
+    heavens(t, 300 + cx * 0.1, oy(0.86), z, 1);
     const oxF = 300 + cx * F4P, oyF = oy(F4PY);
     stormBank(oxF, oyF, z, t);
     comp(L.far, oxF, oyF, z, 0.3);
@@ -221,10 +228,10 @@
     comp(L.fore, 120 + cx * 1.25, oy(1.05), z, 0);
     snowfall(t, cx, cy, z, { dens: 0.45 });
   }
-  const F4AUR = [{ y: OY4 + 78, amp: 14, len: 95, k: 0.012, ph: 1.1, x0: 60, x1: 560, b: 1 }, { y: OY4 + 30, amp: 12, len: 90, k: 0.017, ph: 3.0, x0: 160, x1: 720, b: 0.8 }, { y: OY4 - 50, amp: 16, len: 110, k: 0.011, ph: 0.2, x0: 0, x1: 620, b: 0.85 }, { y: OY4 - 140, amp: 14, len: 100, k: 0.014, ph: 4.2, x0: 100, x1: 700, b: 0.7 }];
+  const F4AUR = [{ y: OY4 + 72, amp: 18, len: 120, k: 0.011, ph: 1.1, x0: 20, x1: 640, b: 1 }, { y: OY4 - 40, amp: 24, len: 110, k: 0.008, ph: 3.0, x0: 230, x1: 780, b: 0.55 }, { y: OY4 - 175, amp: 14, len: 90, k: 0.015, ph: 0.2, x0: -40, x1: 380, b: 0.4 }];
   let F4FOG = null;
   BUILDERS.push(() => { F4FOG = mkTab('425a90', false); });
   shot(16.7, 22.75, (lt, t) => {
-    if (t < 17.25) dissolve(() => f3Draw(t), () => f4Draw(t), eis((t - 16.7) / 0.55), 35);
+    if (t < 17.12) dissolve(() => f3Draw(t), () => f4Draw(t), eis((t - 16.92) / 0.2), 35);
     else f4Draw(t);
   });

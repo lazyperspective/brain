@@ -226,6 +226,36 @@
       }
     }
   }
+  /* the aurora, as curtains: a sinuous hem that folds (brightest where a fold turns edge-on to us), each curtain of
+     uneven height along its length, its rays irregular (two octaves of noise) and leaning as they rise, a violet fringe
+     under the hem, mint-white at the hem, green, then teal and thinning out above. */
+  const R_AUL = [230, 231, 232, 233, 234], R_AUH = [124, 125, 230, 231, 232];
+  function aurora2(t, ox, oy, z, amt, curtains) {
+    if (amt <= 0.01) return;
+    for (let X = 0; X < W; X++) {
+      const wx = toLX(ox, z, X);
+      for (let ci = 0; ci < curtains.length; ci++) {
+        const C = curtains[ci], env = sstep(C.x0, C.x0 + 140, wx) * (1 - sstep(C.x1 - 140, C.x1, wx));
+        if (env <= 0.01) continue;
+        const a1 = wx * C.k + t * 0.22 + C.ph, a2 = wx * C.k * 2.9 - t * 0.33 + C.ph * 2;
+        const hem = C.y + C.amp * Math.sin(a1) + C.amp * 0.35 * Math.sin(a2), slope = C.amp * C.k * (Math.cos(a1) + 1.015 * Math.cos(a2));
+        const fold = 0.5 + 0.5 * Math.min(1, Math.abs(slope) * 1.6), q = env * amt * fold * (C.b || 1);
+        const lenL = C.len * (0.6 + 0.55 * (0.5 + 0.5 * n1(wx * 0.011 + C.ph * 3 + t * 0.05, 7311)));
+        const Yh = toSY(oy, z, hem), y0 = Math.max(ROW0, fl(toSY(oy, z, hem - lenL))), y1 = Math.min(ROW1, Math.ceil(Yh + 5 * z));
+        const lean = 0.3 * Math.sin(wx * 0.006 + C.ph + t * 0.08);
+        for (let Y = y0; Y <= y1; Y++) {
+          const d = (Yh - Y) / z, b = BAYF[((Y & 7) << 3) | (X & 7)], i = Y * W + X;
+          if (d < 0) { const A = q * Math.exp(d / 1.7) * 0.7; if (A > 0.28 + b * 0.5) BUF[i] = A > 0.62 ? 192 : 253; continue; }
+          const u = d / lenL; if (u > 0.3 && ih(X, Y, 1777) > Math.exp(-(u - 0.3) * 1.2) + 0.42) continue;
+          const rx = wx + d * lean, r1 = 0.5 + 0.5 * n1(rx * 0.05 + t * 0.3 + C.ph * 5, 7312), r2 = 0.5 + 0.5 * n1(rx * 0.21 - t * 0.7 + C.ph, 7313);
+          const ray = 0.42 + 0.5 * r1 * r1 + 0.2 * r2 * r2, prof = d < 2 ? 0.72 + d * 0.14 : Math.exp(-u * 2.3) * (1 - u * u * 0.5);
+          const lv = q * ray * prof * 5.4 + (b - 0.5) * 1.1;
+          if (lv < 0.42) continue;
+          BUF[i] = d < 2.5 && lv > 3.4 ? 234 : (u > 0.5 ? R_AUH : R_AUL)[clamp(fl(lv - 0.42), 0, 4)];
+        }
+      }
+    }
+  }
   // a dark trunk sweeping past the lens (a wipe): its centre x on screen, half-width hw
   function wipeTrunk(cxs, hw, t, lampLit) {
     const x0 = Math.max(0, fl(cxs - hw - 2)), x1 = Math.min(W - 1, Math.ceil(cxs + hw + 2));

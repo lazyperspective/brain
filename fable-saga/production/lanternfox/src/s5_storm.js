@@ -55,20 +55,25 @@
     }
   }
   // the sea: dark swells rolling in, whitecaps, spray at the rocks; the ship's lights (and later the beam) on the water
+  const SEA_R = [240, 241, 242, 243, 244, 245];
   function stormSea(cx, cy, z, t, cliffX, glints) {
     for (let Y = ROW0; Y <= ROW1; Y++) {
       const wy = toLY(135 + (cy - 135) * 0.95, z, Y);
       if (wy < HORIZ) continue;
       const p = (wy - HORIZ) / 120, o = Y * W, dist = 1 / (p + 0.05);
       for (let X = 0; X < W; X++) {
-        const wx = toLX(240 + cx * 0.95, z, X);
-        // long swells rolling in (foreshortened toward the horizon), heaving; foam on their crests, streaks behind
-        const sw = dist * 1.6 - t * 0.7 + n1(wx * 0.006 + 3, 531) * 2.2 * (1 - 0.75 * Math.min(1, p)) + n1(wx * 0.012 + 7, 534) * 0.35;
-        const f = frac(sw), face = f < 0.35;                     // the lit face of each swell, then its long back
-        const fn = vn(wx * (0.25 + p * 0.6), wy * (1.5 + p), 3 + p * 4, 532);
-        let c = p < 0.06 ? 242 : face ? (f < 0.12 ? 242 : 241) : 240;
-        if (f < 0.07 + 0.05 * p && fn > 0.5 - p * 0.15) c = fn > 0.75 ? 194 : p > 0.3 ? 246 : 245;      // whitecaps
-        else if (f > 0.35 && f < 0.5 && fn > 0.78 - p * 0.1 && p > 0.15) c = 244;                       // foam streaks
+        const wx = toLX(240 + cx * 0.95, z, X), d = BAYF[((Y & 7) << 3) | (X & 7)];
+        // long swells rolling in, foreshortened toward the horizon: each a steep face catching the sky's grey light and a
+        // long darkening back; a choppy texture over them; whitecaps tearing along the crests and foam lacing the backs
+        const warp = n1(wx * 0.006 + 3, 531) * 2.2 * (1 - 0.75 * Math.min(1, p)) + n1(wx * 0.012 + 7, 534) * 0.35;
+        const sw = dist * 1.25 - t * 0.6 + warp, f = frac(sw), fi = fl(sw);
+        const chop = vn(wx * (0.35 + p * 0.5) + t * 3, wy * (2.2 + p * 2) - t * 4, 2 + p * 3, 535) - 0.5;
+        let v = f < 0.28 ? 0.62 - f * 1.4 : 0.2 + (f - 0.28) * 0.18;
+        v += chop * (0.08 + p * 0.1) + (1 - sstep(0, 0.12, p)) * 0.28;
+        const fn = vn(wx * (0.22 + p * 0.5), sw * 5, 1.5 + p * 3, 532);
+        let c = SEA_R[clamp(fl(v * 6.5 + (d - 0.5) * 0.55 - 0.5), 0, 5)];
+        if (f < 0.08 + 0.05 * p && fn > 0.48 - p * 0.15) c = fn > 0.72 ? 194 : fn > 0.6 ? 246 : 245;          // whitecaps
+        else if (f > 0.3 && f < 0.7 && p > 0.22) { const lace = vn(wx * (0.18 + p * 0.3), sw * 9 + fi * 3.1, 1.6, 536); if (lace > 0.86 - (0.7 - f) * 0.08) c = lace > 0.93 ? 245 : 244; }   // foam lacing the back
         BUF[o + X] = c;
       }
     }
@@ -157,6 +162,6 @@
   BUILDERS.push(() => { F5FOG = mkTab('324050', false); });
   let beamFx = null;                                             // (the beam is given by shot 6)
   shot(22.75, 25.3, (lt, t) => {
-    if (t < 23.25) dissolve(() => f4Draw(t), () => f5Draw(t), eis((t - 22.75) / 0.5), 37);
+    if (t < 23.25) dip(() => f4Draw(t), () => f5Draw(t), (t - 22.75) / 0.5);
     else f5Draw(t);
   });

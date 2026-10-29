@@ -229,3 +229,13 @@
       if (q <= 0) BUF[i] = BUFA[i]; else if (q < 4) BUF[i] = mixC(BUFA[i], BUF[i], q);
     }
   }
+  // a dip between two shots: down through the dark (or a warm light), then up into the next: never two pictures at once
+  function dip(drawA, drawB, u, T, amax) {
+    T = T || T_DARK; amax = amax === undefined ? 0.92 : amax;
+    const a = u < 0.5 ? eio(u / 0.5) : eio((1 - u) / 0.5);
+    if (u < 0.5) drawA(); else drawB();
+    const lv = Math.round(a * amax * 8); if (lv <= 0) return;
+    const TT = T[Math.min(8, lv)];
+    for (let y = ROW0; y <= ROW1; y++) { const o = y * W; for (let x = 0; x < W; x++) BUF[o + x] = TT[BUF[o + x]]; }
+  }
+

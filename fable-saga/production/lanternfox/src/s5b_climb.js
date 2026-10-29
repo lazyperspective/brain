@@ -17,7 +17,11 @@
     const oy = OYI;
     for (let y = -6; y < SHAFT + 30; y++) for (let x = 0; x < 480; x++) {
       const dx = x - NEW_X, q = dx / WALL_R;
-      if (Math.abs(q) >= 1) { lput(L.back, x, y + oy, M_STONE, 0.04, 120, 0, 0, 0); continue; }
+      if (Math.abs(q) >= 1) {
+        // the tower cut away: the section through its thick wall (big blocks, the cut face lighter), then outside
+        if (Math.abs(dx) < WALL_R + 24) { const sx = Math.abs(dx) - WALL_R, blk = ((fl(y / 12) + fl(sx / 12)) & 1), j = frac(y / 12) < 0.08 || frac(sx / 12 + 0.5 * (fl(y / 12) & 1)) < 0.07; lput(L.back, x, y + oy, M_STONE, (j ? 0.18 : 0.34 + blk * 0.05 + ih(fl(y / 12), fl(sx / 12), 604) * 0.08) - (sx > 21 ? 0.12 : 0), 30, dx < 0 ? 0.8 : -0.8, 0, 0); }
+        continue;
+      }
       // the curved wall: courses of dressed stone, foreshortened toward the sides; mortar; damp streaks; slit windows
       const phi = Math.asin(q), course = fl(y / 9.5), cf = frac(y / 9.5), along = (phi * WALL_R) / 15 + (course & 1) * 0.5 + ih(course, 0, 601) * 0.3, af = frac(along);
       const mortar = cf < 0.1 || af < 0.05 / Math.max(0.25, Math.cos(phi));
@@ -55,6 +59,55 @@
       }
       if (m) lput(L.back, x, y + oy, m, s, 30, nx, ny, 0);
     }
+    // the lamp room, furnished: wood panelling under the glass with a brass rail; frost in the panes' corners; the
+    // gallery railing outside; an oilskin coat on a hook and the ship's bell on the mullions; a desk with the open log,
+    // an inkwell, a mug and an oil can; a little iron stove with its kettle and a red-glowing grate; an oil barrel
+    for (let y = -48; y < -6; y++) for (let x = 0; x < 480; x++) {
+      if (y < -45) { lput(L.back, x, y + oy, M_BRASSM, 0.45 + (y < -47 ? 0.3 : 0), 20, 0, y < -47 ? -1 : 0, 0); continue; }
+      const pw = 40, px = frac(x / pw), inset = px > 0.1 && px < 0.9 && y > -40 && y < -12, edge = inset && (px < 0.14 || px > 0.86 || y < -37 || y > -15);
+      lput(L.back, x, y + oy, M_WOOD, 0.3 + (inset ? -0.05 : 0.04) + (edge ? (px < 0.14 || y < -37 ? -0.08 : 0.08) : 0) + (vn(x * 0.5, y * 0.08, 3, 612) - 0.5) * 0.08, 20, 0, 0, 0);
+    }
+    for (let y = -216; y < -54; y++) for (let x = 0; x < 480; x++) {
+      const i = (y + oy) * 480 + x; if (L.back.M[i]) continue;
+      const mul = frac(x / 96 + 0.5), dmul = Math.min(mul, 1 - mul) * 96, dtop = Math.min(Math.abs(y + 136), y + 216, -54 - y);
+      const frost = Math.min(dmul, dtop); if (frost < 9 && ih(x, y, 613) < Math.pow((9 - frost) / 9, 1.6) * 0.55) { lput(L.back, x, y + oy, M_SNOW, 0.5 + ih(x, y, 614) * 0.3, 30, 0, 0, 0); continue; }
+      if (Math.abs(y + 78) < 1.2 || Math.abs(y + 64) < 0.8 || (Math.abs(frac(x / 24) - 0.5) < 0.04 && y > -80)) lput(L.back, x, y + oy, M_IRON, 0.12, 200, 0, 0, 0);   // the gallery rail beyond the glass
+    }
+    const coat = (x, y) => { const cx = 48, top = -170; if (y < top || y > -76) return false; const hw = 4 + (y - top) * 0.13 + Math.sin((y - top) * 0.2) * 1.5; return Math.abs(x - cx) < hw; };
+    for (let y = -178; y < -74; y++) for (let x = 20; x < 80; x++) {
+      if (Math.abs(x - 48) < 2 && y < -170) { lput(L.back, x, y + oy, M_IRON, 0.3, 15, 0, 0, 0); continue; }
+      if (coat(x, y)) { const fold = Math.sin((x - 48) * 0.6 + y * 0.05), sl = Math.abs(x - 48) > 6 + (y + 170) * 0.05; lput(L.back, x, y + oy, M_CAP, 0.28 + fold * 0.08 + (x < 46 ? 0.08 : -0.06) - (sl ? 0.06 : 0), 15, (x - 48) / 12, 0, 0); }
+    }
+    for (let y = -150; y < -120; y++) for (let x = 268; x < 296; x++) {
+      const dx = x - 282, v = y + 150;
+      if (Math.abs(dx) < 1 && v < 5) lput(L.back, x, y + oy, M_IRON, 0.3, 15, 0, 0, 0);
+      else if (v >= 5 && Math.abs(dx) < 3 + (v - 5) * 0.42 && v < 26) lput(L.back, x, y + oy, M_BRASSM, 0.35 - dx * 0.04 + (v > 24 ? 0.15 : 0), 15, dx / 10, 0, 0);
+      else if (v >= 26 && v < 29 && Math.abs(dx) < 1.4) lput(L.back, x, y + oy, M_BRASSM, 0.5, 15, 0, 0, 0);
+    }
+    for (let y = -40; y < -6; y++) for (let x = 30; x < 122; x++) {                 // the desk and what is on it
+      const dx = x - 76;
+      if (y >= -34 && y < -30 && Math.abs(dx) < 44) { lput(L.back, x, y + oy, M_WOOD, y < -33 ? 0.55 : 0.32, 12, 0, y < -33 ? -1 : 0, 0); continue; }
+      if (y >= -30 && (Math.abs(dx + 39) < 2 || Math.abs(dx - 39) < 2)) { lput(L.back, x, y + oy, M_WOOD, 0.24, 12, 0, 0, 0); continue; }
+      if (y >= -30 && y < -24 && Math.abs(dx) < 36) { lput(L.back, x, y + oy, M_WOOD, 0.2 + (Math.abs(dx) < 1 ? -0.08 : 0) + (Math.abs(dx - 18) < 2 && y > -28 ? 0.25 : 0), 12, 0, 0, 0); continue; }
+      if (y < -34 && y >= -37 && dx > -30 && dx < -2) { const page = dx < -16 ? -16 - dx : dx + 16, line = frac((y + 37) / 1.5) < 0.3 && page > 2; lput(L.back, x, y + oy, M_WOOLC, 0.6 - (Math.abs(dx + 16) < 0.8 ? 0.2 : 0) - (line ? 0.18 : 0), 12, 0, -1, 0); continue; }
+      if (y < -34 && y >= -39 && Math.abs(dx - 6) < 2.5) { lput(L.back, x, y + oy, M_IRON, 0.2 + (dx < 6 ? 0.1 : 0), 12, 0, 0, 0); continue; }      // the inkwell
+      if (y < -34 && y >= -36 && Math.abs(dx - 9) < 0.5) { lput(L.back, x, y + oy, M_WOOLC, 0.7, 12, 0, 0, 0); }
+      if (y < -34 && y >= -40 && Math.abs(dx - 17) < 3) { lput(L.back, x, y + oy, M_WOOL, 0.4 - (dx - 17) * 0.05 + (y < -39 ? 0.2 : 0), 12, 0, 0, 0); continue; }   // the mug
+      if (y < -34 && y >= -44 && dx > 26 && dx < 36) { const hw = 4 - Math.max(0, -40 - y) * 0.7; if (Math.abs(dx - 31) < hw) lput(L.back, x, y + oy, M_BRASSM, 0.35 - (dx - 31) * 0.05, 12, (dx - 31) / 5, 0, 0); else if (y < -40 && dx > 33 && Math.abs(y + 42 - (dx - 33) * 0.4) < 0.7) lput(L.back, x, y + oy, M_BRASSM, 0.4, 12, 0, 0, 0); }
+    }
+    for (let y = -60; y < -6; y++) for (let x = 410; x < 480; x++) {                // the stove, its pipe, the kettle, the barrel
+      const sx = x - 436;
+      if (Math.abs(sx) < 3 && y < -40) { lput(L.back, x, y + oy, M_IRON, 0.2 + (sx < 0 ? 0.1 : 0), 14, sx / 3, 0, 0); continue; }
+      if (Math.abs(sx) < 13 && y >= -40 && y < -12) {
+        const grate = Math.abs(sx) < 7 && y > -28 && y < -17, bars = Math.abs(frac(sx / 3) - 0.5) < 0.15;
+        if (grate) { L.back.M[(y + oy) * 480 + x] = 0; continue; }
+        lput(L.back, x, y + oy, M_IRON, 0.18 + (sx < -8 ? 0.12 : 0) + (y < -38 ? 0.15 : 0) + (bars && Math.abs(y + 22) < 6 ? 0 : 0), 14, sx / 13, 0, 0); continue;
+      }
+      if (Math.abs(sx) < 11 && y >= -12 && (Math.abs(sx + 9) < 1.5 || Math.abs(sx - 9) < 1.5)) { lput(L.back, x, y + oy, M_IRON, 0.16, 14, 0, 0, 0); continue; }
+      const kx = sx + 2, ky = y + 46; if (Math.hypot(kx / 7, ky / 5) < 1 && y < -40) { lput(L.back, x, y + oy, M_IRON, 0.26 - kx * 0.03 + (ky < -3 ? 0.12 : 0), 14, kx / 7, ky / 5, 0); continue; }
+      if (y < -48 && y > -53 && kx > 5 && Math.abs(y + 50 - (kx - 5) * 0.5) < 0.8) { lput(L.back, x, y + oy, M_IRON, 0.3, 14, 0, 0, 0); continue; }
+      const bx = x - 466; if (Math.abs(bx) < 11 && y > -34) { const st = Math.abs(y + 26) < 1 || Math.abs(y + 12) < 1; lput(L.back, x, y + oy, st ? M_IRON : M_WOOD, (st ? 0.28 : 0.22 + 0.2 * Math.sqrt(Math.max(0, 1 - (bx / 11) ** 2))) - bx * 0.01, 14, bx / 11, 0, 0); }
+    }
     // the lens's pedestal: an iron column with a brass collar
     for (let y = -46; y < -6; y++) for (let x = LENS_X - 18; x <= LENS_X + 18; x++) {
       const w = y > -12 ? 18 : y > -40 ? 11 : 16, q = (x - LENS_X) / w; if (Math.abs(q) > 1) continue;
@@ -67,8 +120,8 @@
       const wy = toLY(cy, z, Y), o = Y * W;
       for (let X = 0; X < W; X++) {
         const wx = toLX(cx, z, X), b = BAYF[((Y & 7) << 3) | (X & 7)];
-        if (wy > -92) {                                         // the sea far below: dark swells, a few whitecaps
-          const sw = (wy + 92) * 0.16 - t * 0.7 + n1(wx * 0.01, 622) * 1.5, f = frac(sw);
+        if (wy > cy + 6) {                                      // the sea far below (its horizon at eye level): dark swells, whitecaps
+          const sw = (wy - cy - 6) * 0.16 - t * 0.7 + n1(wx * 0.01, 622) * 1.5, f = frac(sw);
           BUF[o + X] = f < 0.06 && vn(wx * 0.3, wy, 3, 624) > 0.55 ? 245 : f < 0.4 ? 241 : 240;
           continue;
         }
@@ -84,30 +137,127 @@
       P(x, y, c); P(x - 1, y - 0.5, 245); if (ih(k, 5, 623) < 0.4) P(x - 2, y - 1, 244);
     }
   }
-  // the stair, live (so the half in front can be cut away clear of the kit): iron plates round the newel, a lit top edge,
-  // a bracket at the outer end; the rail along them. pass: 0 the back half, 1 the front half (cut short unless near kFox)
+  // the stove's fire through its grate: embers breathing red and gold, a faint warm glow round it
+  function stoveGlow(cx, cy, z, t) {
+    const X0 = fl(toSX(cx, z, 429)), X1 = Math.ceil(toSX(cx, z, 443)), Y0 = fl(toSY(cy, z, -28)), Y1 = Math.ceil(toSY(cy, z, -17));
+    if (X1 < 0 || X0 >= W || Y1 < ROW0 || Y0 > ROW1) return;
+    for (let Y = Math.max(ROW0, Y0); Y <= Math.min(ROW1, Y1); Y++) for (let X = Math.max(0, X0); X <= Math.min(W - 1, X1); X++) {
+      const lx = toLX(cx, z, X) - 436, ly = toLY(cy, z, Y), bars = Math.abs(frac(lx / 3) - 0.5) < 0.17;
+      const e = 0.5 + 0.5 * Math.sin(lx * 0.9 + t * 3.1) * Math.sin(ly * 0.7 - t * 2.3) + (ly + 17) * 0.06;
+      BUF[Y * W + X] = bars ? 195 : e > 0.85 ? 182 : e > 0.55 ? 180 : e > 0.3 ? 178 : 177;
+    }
+    glow(toSX(cx, z, 436), toSY(cy, z, -22), 26 * z, T_WARM, 0.22 + 0.05 * Math.sin(t * 5));
+  }
+  // the stair, live (so the half in front can be cut away clear of the kit). Each tread is a cast-iron wedge seen a little
+  // from above or below (by its height against the camera's): its top (a cast diamond pattern) or its ribbed underside,
+  // its nosing edge catching the lantern, two balusters at its outer end; the handrail runs over them. pass: 0 the back
+  // half, 1 the front half (cut short unless near kFox)
+  const TSTP = new Uint32Array(NP); let tStamp = 0;
+  const TSIN = new Float32Array(1024), TCOS = new Float32Array(1024), TTH = new Float32Array(1024);
   function stairLive(cx, cy, z, pass, kFox) {
-    const oyw = (y) => toSY(cy, z, y);
     for (let k = 0; k < TREAD_N; k++) {
-      const T = tread(k), ca = Math.cos(T.a + TREAD_DA * 0.46), front = ca > 0;
+      const T = tread(k), a0 = T.a, a1 = T.a + TREAD_DA * 0.92, cm = Math.cos(T.a + TREAD_DA * 0.46), front = cm > 0;
       if ((pass === 1) !== front) continue;
       const near = Math.abs(k - kFox) < 2.6, r1 = front && !near ? 58 : STAIR_R1;
-      const Y = oyw(T.y); if (Y < ROW0 - 4 || Y > ROW1 + 4) continue;
-      const sa = Math.sin(T.a), sa2 = Math.sin(T.a + TREAD_DA * 0.92), zt = -STAIR_R1 * ca * 0.5;
-      for (let r = STAIR_R0; r <= r1; r += 0.7) {
-        const xa = toSX(cx, z, NEW_X + r * sa), xb = toSX(cx, z, NEW_X + r * sa2), fade = front && !near ? 1 - (r - STAIR_R0) / (58 - STAIR_R0) : 1;
-        for (let X = fl(Math.min(xa, xb)); X <= Math.ceil(Math.max(xa, xb)); X++) {
-          if (X < 0 || X >= W) continue;
-          for (let d = 0; d < 3; d++) { const YY = fl(Y + d); if (YY < ROW0 || YY > ROW1) continue; if (fade < 1 && bay(X, YY) > fade * 1.4) continue; BUF[YY * W + X] = mc(M_IRON, d === 0 ? 0.5 : 0.18, lampAt(X, YY, zt, 0, d === 0 ? -0.75 : 0.5), X, YY); }
+      const Yt = toSY(cy, z, T.y); if (Yt < ROW0 - 30 || Yt > ROW1 + 30) continue;
+      const kk = clamp((T.y - cy) * 0.0018, -0.14, 0.14), above = kk < 0;      // seen from above (its top) or from below
+      // the slab: rows of (r, angle) samples; the top/underside, then its leading edge's thickness
+      const nA = Math.ceil((a1 - a0) * r1 * z * 1.6) + 2; tStamp++;
+      for (let ai = 0; ai <= nA; ai++) { const th = lerp(a0, a1, ai / nA); TSIN[ai] = Math.sin(th); TCOS[ai] = Math.cos(th); TTH[ai] = th; }
+      for (let ri = 0; ; ri++) {
+        const r = STAIR_R0 + ri * 0.6 / z; if (r > r1) break;
+        const fade = front && !near ? 1 - (r - STAIR_R0) / (58 - STAIR_R0) : 1;
+        for (let ai = 0; ai <= nA; ai++) {
+          const th = TTH[ai], sx = NEW_X + r * TSIN[ai], dz = r * TCOS[ai], X = fl(toSX(cx, z, sx)), Y = fl(Yt - dz * kk * z);
+          if (X < 0 || X >= W || Y < ROW0 || Y > ROW1) continue;
+          const pi = Y * W + X; if (TSTP[pi] === tStamp) continue; TSTP[pi] = tStamp;
+          if (fade < 1 && BAYF[((Y & 7) << 3) | (X & 7)] > fade * 1.4) continue;
+          const pat = (Math.abs(frac(r / 6 + th * 3) - 0.5) < 0.12 || Math.abs(frac(r / 6 - th * 3) - 0.5) < 0.12) ? -0.07 : 0;
+          const rib = !above && Math.abs(frac((th - a0) / (a1 - a0) * 3) - 0.5) < 0.12 ? 0.08 : 0;
+          const s0 = above ? 0.52 + pat + (r > r1 - 3 ? 0.16 : 0) - (r < STAIR_R0 + 6 ? 0.12 : 0) : 0.24 + rib;
+          BUF[Y * W + X] = mc(M_IRON, s0, lampAt(X, Y, -dz * 0.5, 0, above ? -1 : 0.9), X, Y);
         }
       }
-      if (r1 === STAIR_R1) { const xo = toSX(cx, z, NEW_X + STAIR_R1 * sa); for (let d = 0; d < 13 * z; d++) { const YY = fl(Y - d); if (YY >= ROW0 && YY <= ROW1 && xo >= 0 && xo < W) BUF[YY * W + fl(xo)] = mc(M_IRON, 0.3, lampAt(fl(xo), YY, zt, 0, 0), fl(xo), YY); } }
+      // the leading edge (the nosing), three units thick, lit face on
+      const thick = 3 * z;
+      for (let ri = 0; ; ri++) {
+        const r = STAIR_R0 + ri * 0.5 / z; if (r > r1) break;
+        const th = a0, sx = NEW_X + r * Math.sin(th), dz = r * Math.cos(th), X = fl(toSX(cx, z, sx)), Yb = Yt - dz * kk * z;
+        if (X < 0 || X >= W) continue;
+        const fade = front && !near ? 1 - (r - STAIR_R0) / (58 - STAIR_R0) : 1;
+        for (let dd = 0; dd < thick; dd++) { const Y = fl(Yb + dd); if (Y < ROW0 || Y > ROW1) continue; if (fade < 1 && BAYF[((Y & 7) << 3) | (X & 7)] > fade * 1.4) continue; BUF[Y * W + X] = mc(M_IRON, dd < 1 ? 0.48 : 0.22 - dd * 0.02, lampAt(X, Y, -dz * 0.5, 0, 0), X, Y); }
+      }
+      // two balusters at the outer end, up to the handrail
+      if (r1 === STAIR_R1) for (const f of [0.2, 0.75]) {
+        const th = lerp(a0, a1, f), sx = NEW_X + STAIR_R1 * Math.sin(th), dz = STAIR_R1 * Math.cos(th), X = toSX(cx, z, sx), Yb = Yt - dz * kk * z;
+        for (let d = 0; d < 14 * z; d++) { const YY = fl(Yb - d); if (YY < ROW0 || YY > ROW1) continue; for (let w = 0; w < Math.max(1, fl(1.4 * z)); w++) { const XX = fl(X) + w; if (XX < 0 || XX >= W) continue; BUF[YY * W + XX] = mc(M_IRON, w === 0 ? 0.36 : 0.18, lampAt(XX, YY, -dz * 0.5, w === 0 ? -0.6 : 0.6, 0), XX, YY); } }
+      }
     }
-    for (let a = TREAD_A0; a < TREAD_A0 + TREAD_N * TREAD_DA; a += 0.008) {
+    // the handrail: a helix over the balusters, two px thick, its top catching the light
+    for (let a = TREAD_A0; a < TREAD_A0 + TREAD_N * TREAD_DA; a += 0.004 / z) {
       const ca = Math.cos(a); if ((pass === 1) !== (ca > 0)) continue;
       const k = (a - TREAD_A0) / TREAD_DA; if (pass === 1 && Math.abs(k - kFox) > 3) continue;
-      const X = fl(toSX(cx, z, NEW_X + STAIR_R1 * Math.sin(a))), Y = fl(toSY(cy, z, SHAFT - 8 - k * TREAD_DY - 13));
-      if (X >= 0 && X < W && Y >= ROW0 && Y <= ROW1 - 1) { BUF[Y * W + X] = mc(M_IRON, 0.42, lampAt(X, Y, -STAIR_R1 * ca * 0.5, 0, -0.6), X, Y); BUF[(Y + 1) * W + X] = mc(M_IRON, 0.16, 0, X, Y + 1); }
+      const hy = SHAFT - 8 - k * TREAD_DY - 14, kk = clamp((hy - cy) * 0.0018, -0.14, 0.14), dz = STAIR_R1 * ca;
+      const X = fl(toSX(cx, z, NEW_X + STAIR_R1 * Math.sin(a))), Y = fl(toSY(cy, z, hy) - dz * kk * z);
+      for (let d = 0; d < Math.max(2, fl(2 * z)); d++) { const YY = Y + d; if (X >= 0 && X < W && YY >= ROW0 && YY <= ROW1) BUF[YY * W + X] = mc(M_IRON, d === 0 ? 0.5 : 0.18, lampAt(X, YY, -dz * 0.5, 0, d === 0 ? -0.8 : 0.4), X, YY); }
+    }
+  }
+  // the lantern throws the stair's shadows across the curved wall behind: each tread's outer edge and its balusters,
+  // projected from the flame onto the masonry (so the shadows sweep round as the kit climbs)
+  function stairShadows(cx, cy, z, kFox) {
+    if (!LAMP.on) return;
+    const Lx = toLX(cx, z, LAMP.x), Ly = toLY(cy, z, LAMP.y), Lz = LAMP.z > 30 ? -60 : 40;
+    const put = (wx, wy, a) => { const X = fl(toSX(cx, z, wx)), Y = fl(toSY(cy, z, wy)); if (X < 0 || X >= W || Y < ROW0 || Y > ROW1) return; const i = Y * W + X; const l = lampAt(X, Y, -100, 0, 0); if (l < 0.15) return; const lv = clamp(fl(a * 8 * Math.min(1, l * 1.5)), 0, 6); if (lv > 0) BUF[i] = T_DARK[lv][BUF[i]]; };
+    for (let k = Math.max(0, fl(kFox - 5)); k < Math.min(TREAD_N, kFox + 6); k++) {
+      const T = tread(k);
+      for (let f = 0; f <= 1; f += 0.012) {
+        const th = T.a + TREAD_DA * 0.92 * f;
+        for (const [r, h, a] of [[STAIR_R1, 0, 0.34], [STAIR_R1, -14, 0.3]]) {
+          const px = NEW_X + r * Math.sin(th), pz = r * Math.cos(th), py = T.y + h;
+          if (pz > Lz - 2) continue;
+          // the wall point behind along the ray from the flame: x on the wall's circle, depth behind
+          const dirx = px - Lx, diry = py - Ly, dirz = pz - Lz;
+          let s = 1.2; for (let it = 0; it < 4; it++) { const wx = Lx + dirx * s - NEW_X, wz = Lz + dirz * s; const rr = Math.hypot(wx, wz); s *= WALL_R / Math.max(1, rr); }
+          const wx = Lx + dirx * s, wy = Ly + diry * s; if (Lz + dirz * s > 0) continue;
+          put(wx, wy, a);
+        }
+      }
+      // the balusters' long shadows
+      for (const f of [0.2, 0.75]) {
+        const th = T.a + TREAD_DA * 0.92 * f, px = NEW_X + STAIR_R1 * Math.sin(th), pz = STAIR_R1 * Math.cos(th);
+        if (pz > Lz - 2) continue;
+        for (let h = 0; h < 14; h += 0.6) {
+          const py = T.y - h, dirx = px - Lx, diry = py - Ly, dirz = pz - Lz;
+          let s = 1.2; for (let it = 0; it < 4; it++) { const wx = Lx + dirx * s - NEW_X, wz = Lz + dirz * s; s *= WALL_R / Math.max(1, Math.hypot(wx, wz)); }
+          put(Lx + dirx * s, Ly + diry * s, 0.3);
+        }
+      }
+    }
+  }
+  // the rope handrail fixed to the wall (the back half), sagging between its iron eyes
+  function wallRope(cx, cy, z) {
+    for (let a = TREAD_A0; a < TREAD_A0 + TREAD_N * TREAD_DA; a += 0.003 / z) {
+      const ca = Math.cos(a); if (ca > -0.05) continue;
+      const k = (a - TREAD_A0) / TREAD_DA, seg = frac(k * 2), sag = Math.sin(seg * PI) * 2.2;
+      const X = fl(toSX(cx, z, NEW_X + 172 * Math.sin(a))), Y = fl(toSY(cy, z, SHAFT - 8 - k * TREAD_DY - 16 + sag));
+      if (X < 0 || X >= W || Y < ROW0 || Y > ROW1 - 1) continue;
+      const tw = frac(a * 60) < 0.5;
+      BUF[Y * W + X] = mc(M_WOOD, tw ? 0.4 : 0.28, lampAt(X, Y, -150, 0, -0.5), X, Y); BUF[(Y + 1) * W + X] = mc(M_WOOD, 0.14, 0, X, Y + 1);
+      if (seg < 0.02 && Y + 3 <= ROW1) for (let d = -1; d <= 2; d++) BUF[(Y + d) * W + X] = mc(M_IRON, 0.35, 0, X, Y + d);
+    }
+  }
+  // cold storm light falling in through the slit windows: pale shafts slanting down across the shaft, and snow in them
+  function slitShafts(cx, cy, z, t) {
+    for (const [wx, wy, dir] of [[150, 260, 1], [330, 165, -1], [168, 70, 1]]) {
+      const X0 = Math.max(0, fl(toSX(cx, z, Math.min(wx, wx + dir * 100) - 20))), X1 = Math.min(W - 1, Math.ceil(toSX(cx, z, Math.max(wx, wx + dir * 100) + 20)));
+      const Y0 = Math.max(ROW0, fl(toSY(cy, z, wy - 12))), Y1 = Math.min(ROW1, Math.ceil(toSY(cy, z, wy + 90)));
+      for (let Y = Y0; Y <= Y1; Y++) for (let X = X0; X <= X1; X++) {
+        const px = toLX(cx, z, X) - wx, py = toLY(cy, z, Y) - (wy - 4), along = (px * dir * 0.8 + py * 0.6), across = (-px * dir * 0.6 + py * 0.8);
+        if (along < 0 || along > 110) continue;
+        const wdt = 4 + along * 0.1, e = (1 - Math.abs(across) / wdt) * (1 - along / 110) * 0.7; if (e <= 0) continue;
+        const b = BAYF[((Y & 7) << 3) | (X & 7)]; if (b < e) BUF[Y * W + X] = T_WH[e > 0.45 && b < e * 0.5 ? 3 : 2][BUF[Y * W + X]];
+      }
+      for (let q = 0; q < 10; q++) { const u = frac(ih(q, wx, 631) + t * 0.5), d = u * 100, x = wx + dir * d * 0.75 + (ih(q, 3, 631) - 0.5) * 10, y = wy - 4 + d * 0.55 + (ih(q, 4, 631) - 0.5) * 8; P(toSX(cx, z, x), toSY(cy, z, y), u < 0.6 ? 194 : 246); }
     }
   }
   function newelLive(cx, cy, z) {
@@ -155,7 +305,9 @@
     const [mx, my] = FOXOUT.mouth, fl0 = lanternFlame(mx, my, LS, th);
     LAMP.on = 1; LAMP.x = fl0[0]; LAMP.y = fl0[1]; LAMP.z = front ? 0 : 60; LAMP.h = 10; LAMP.I = 1.25 * flick(t); LAMP.R = 70; LAMP.zoom = 1; LAMP.rot = th * 2;
     comp(L.back, 240, OYI + cy, z, 0);
+    stoveGlow(cx, cy, z, t);
     const kF = t < 28.25 ? climbK(t) : 99;
+    if (t < 28.4) { slitShafts(cx, cy, z, t); wallRope(cx, cy, z); stairShadows(cx, cy, z, Math.min(kF, TREAD_N)); }
     const drawKit = () => { drawFox(p, fxs, fys, S, f, Object.assign({}, FILIGHT, { z: front ? 4 : 64 })); drawLantern(mx, my, LS, th, { lit: 1 }); };
     stairLive(cx, cy, z, 0, kF);
     if (!front) drawKit();                                        // (behind the newel on the far half of the turn)
@@ -187,6 +339,6 @@
     return drawKeeper(toSX(cx, z, KEEP_X), toSY(cy, z, 0), 2.05 * z, -1, o, { sky: [-0.4, -0.9], amb: 0.3, z: 10, gain: 1.4 });
   }
   shot(25.3, 30.0, (lt, t) => {
-    if (t < 25.8) dissolve(() => f5Draw(t), () => fiDraw(t), eis((t - 25.3) / 0.5), 39);
+    if (t < 25.8) dip(() => f5Draw(t), () => fiDraw(t), (t - 25.3) / 0.5);
     else fiDraw(t);
   });

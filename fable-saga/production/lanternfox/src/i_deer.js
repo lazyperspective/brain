@@ -16,7 +16,7 @@
     if (id === 1) { // body: pale belly, white rump patch
       if (ly > L.belly) m = M_DEERW;
       if (lx < L.rumpX && ly < L.belly - 1 && ly > L.rumpY) m = M_DEERW;
-      sk += furG(lx * 1.6, ly) * 0.08 - 0.05;
+      sk += furG(lx * 1.6, ly) * 0.08 - 0.05 + (ly < L.belly - 9.5 ? -0.07 : 0) + 0.18 * Math.max(0, -ny - 0.55);   // a darker line down the back, moonlight on the top
     } else if (id === 2) { if (SDF.side * DRF > 0 && SDF.lat > 0.3) m = M_DEERW; sk -= 0.02; }      // neck: a pale throat
     else if (id === 3) { if (SDF.u > 0.86) m = M_DEERK; else if (SDF.side * DRF > 0 && SDF.lat > 0.45) m = M_DEERW; } // head: dark nose, pale chin
     else if (id === 4) { m = SDF.lat < 0.55 && SDF.u < 0.7 ? M_DEERW : M_DEER; sk -= 0.08; }   // ears
@@ -46,20 +46,22 @@
     // far legs first
     sdBegin();
     for (const [hx, far, off] of legs) if (far) {
-      const [fx, fy] = legPath(hx, off, 1), top = [hx, bodyY + 3 * k], kn = [lerp(hx, fx, 0.5) + 1.2 * k, lerp(top[1], fy, 0.5)];
-      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), 3.2 * k * S, 1.4 * k * S, 1.2 * S, 8, 0, 0.5);
-      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.2 * k * S, 0.9 * k * S, 0.6 * S, 8, 0.5, 1);
+      const [fx, fy] = legPath(hx, off, 1), hind = hx < 0, top = [hx, bodyY + 3 * k], kn = hind ? [lerp(hx, fx, 0.45) - 3.6 * k, bodyY * 0.42] : [lerp(hx, fx, 0.5) + 0.8 * k, bodyY * 0.36];
+      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), (hind ? 3.8 : 3.0) * k * S, 1.5 * k * S, 1.2 * S, 8, 0, 0.5);
+      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.25 * k * S, 0.9 * k * S, 0.6 * S, 8, 0.5, 1);
     }
     sdDraw(deerShade);
     sdBegin();
     // body, neck, head, near legs, tail
-    sdCap(dX(rump[0]), dY(rump[1]), dX(chest[0]), dY(chest[1]), 6.8 * k * S, 7.2 * k * S, 2.5 * S, 1, 0, 1, 0.2 * S);
+    sdCap(dX(rump[0]), dY(rump[1]), dX(chest[0]), dY(chest[1]), 6.2 * k * S, 6.8 * k * S, 2.5 * S, 1, 0, 1, 0.2 * S);
+    sdCap(dX(rump[0] + 1.5 * k), dY(bodyY - 1.5 * k), dX(rump[0] - 0.5 * k), dY(bodyY + 2.5 * k), 7.0 * k * S, 6.0 * k * S, 2.5 * S, 1, 0, 1);       // the haunch
+    sdCap(dX(chest[0] - 2 * k), dY(bodyY - 2.5 * k), dX(chest[0] + 0.5 * k), dY(bodyY + 3.5 * k), 6.0 * k * S, 5.6 * k * S, 2.5 * S, 1, 0, 1);      // the shoulder and deep chest
     sdCap(dX(nb[0]), dY(nb[1]), dX(nt[0]), dY(nt[1]), 4.6 * k * S, 3.0 * k * S, 2.5 * S, 2, 0, 1);
     sdCap(dX(nt[0]), dY(nt[1]), dX(hn[0]), dY(hn[1]), 3.4 * k * S, 1.6 * k * S, 1.5 * S, 3, 0, 1);
     for (const [hx, far, off] of legs) if (!far) {
-      const [fx, fy] = legPath(hx, off, 0), top = [hx, bodyY + 3 * k], kn = [lerp(hx, fx, 0.5) + (hx > 0 ? -1.2 : 1.5) * k, lerp(top[1], fy, 0.5)];
-      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), 3.6 * k * S, 1.5 * k * S, 1.4 * S, 5, 0, 0.5);
-      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.3 * k * S, 1.0 * k * S, 0.6 * S, 5, 0.5, 1);
+      const [fx, fy] = legPath(hx, off, 0), hind = hx < 0, top = [hx, bodyY + 3 * k], kn = hind ? [lerp(hx, fx, 0.45) - 3.8 * k, bodyY * 0.42] : [lerp(hx, fx, 0.5) + 0.8 * k, bodyY * 0.36];
+      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), (hind ? 4.4 : 3.4) * k * S, 1.6 * k * S, 1.4 * S, 5, 0, 0.5);
+      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.35 * k * S, 1.0 * k * S, 0.6 * S, 5, 0.5, 1);
     }
     const tl = (o.tail || 0);
     sdCap(dX(rump[0] - 6 * k), dY(rump[1] - 2.5 * k), dX(rump[0] - 8 * k - tl * 1.5), dY(rump[1] + 1 * k - tl * 3), 1.8 * k * S, 1.1 * k * S, 0.8 * S, 6);

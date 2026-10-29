@@ -238,6 +238,16 @@
       if (q <= 0) BUF[i] = BUFA[i]; else if (q < 4) BUF[i] = mixC(BUFA[i], BUF[i], q);
     }
   }
+  // a dip between two shots: down through the dark (or a warm light), then up into the next: never two pictures at once
+  function dip(drawA, drawB, u, T, amax) {
+    T = T || T_DARK; amax = amax === undefined ? 0.92 : amax;
+    const a = u < 0.5 ? eio(u / 0.5) : eio((1 - u) / 0.5);
+    if (u < 0.5) drawA(); else drawB();
+    const lv = Math.round(a * amax * 8); if (lv <= 0) return;
+    const TT = T[Math.min(8, lv)];
+    for (let y = ROW0; y <= ROW1; y++) { const o = y * W; for (let x = 0; x < W; x++) BUF[o + x] = TT[BUF[o + x]]; }
+  }
+
 
   /* ================================================================ light: materials, the lantern, deferred layers
      A surface is a material (an albedo, and the palette colours it may resolve to) lit by three lights: the scene's
@@ -1267,6 +1277,36 @@
       }
     }
   }
+  /* the aurora, as curtains: a sinuous hem that folds (brightest where a fold turns edge-on to us), each curtain of
+     uneven height along its length, its rays irregular (two octaves of noise) and leaning as they rise, a violet fringe
+     under the hem, mint-white at the hem, green, then teal and thinning out above. */
+  const R_AUL = [230, 231, 232, 233, 234], R_AUH = [124, 125, 230, 231, 232];
+  function aurora2(t, ox, oy, z, amt, curtains) {
+    if (amt <= 0.01) return;
+    for (let X = 0; X < W; X++) {
+      const wx = toLX(ox, z, X);
+      for (let ci = 0; ci < curtains.length; ci++) {
+        const C = curtains[ci], env = sstep(C.x0, C.x0 + 140, wx) * (1 - sstep(C.x1 - 140, C.x1, wx));
+        if (env <= 0.01) continue;
+        const a1 = wx * C.k + t * 0.22 + C.ph, a2 = wx * C.k * 2.9 - t * 0.33 + C.ph * 2;
+        const hem = C.y + C.amp * Math.sin(a1) + C.amp * 0.35 * Math.sin(a2), slope = C.amp * C.k * (Math.cos(a1) + 1.015 * Math.cos(a2));
+        const fold = 0.5 + 0.5 * Math.min(1, Math.abs(slope) * 1.6), q = env * amt * fold * (C.b || 1);
+        const lenL = C.len * (0.6 + 0.55 * (0.5 + 0.5 * n1(wx * 0.011 + C.ph * 3 + t * 0.05, 7311)));
+        const Yh = toSY(oy, z, hem), y0 = Math.max(ROW0, fl(toSY(oy, z, hem - lenL))), y1 = Math.min(ROW1, Math.ceil(Yh + 5 * z));
+        const lean = 0.3 * Math.sin(wx * 0.006 + C.ph + t * 0.08);
+        for (let Y = y0; Y <= y1; Y++) {
+          const d = (Yh - Y) / z, b = BAYF[((Y & 7) << 3) | (X & 7)], i = Y * W + X;
+          if (d < 0) { const A = q * Math.exp(d / 1.7) * 0.7; if (A > 0.28 + b * 0.5) BUF[i] = A > 0.62 ? 192 : 253; continue; }
+          const u = d / lenL; if (u > 0.3 && ih(X, Y, 1777) > Math.exp(-(u - 0.3) * 1.2) + 0.42) continue;
+          const rx = wx + d * lean, r1 = 0.5 + 0.5 * n1(rx * 0.05 + t * 0.3 + C.ph * 5, 7312), r2 = 0.5 + 0.5 * n1(rx * 0.21 - t * 0.7 + C.ph, 7313);
+          const ray = 0.42 + 0.5 * r1 * r1 + 0.2 * r2 * r2, prof = d < 2 ? 0.72 + d * 0.14 : Math.exp(-u * 2.3) * (1 - u * u * 0.5);
+          const lv = q * ray * prof * 5.4 + (b - 0.5) * 1.1;
+          if (lv < 0.42) continue;
+          BUF[i] = d < 2.5 && lv > 3.4 ? 234 : (u > 0.5 ? R_AUH : R_AUL)[clamp(fl(lv - 0.42), 0, 4)];
+        }
+      }
+    }
+  }
   // a dark trunk sweeping past the lens (a wipe): its centre x on screen, half-width hw
   function wipeTrunk(cxs, hw, t, lampLit) {
     const x0 = Math.max(0, fl(cxs - hw - 2)), x1 = Math.min(W - 1, Math.ceil(cxs + hw + 2));
@@ -1390,7 +1430,7 @@
     if (id === 1) { // body: pale belly, white rump patch
       if (ly > L.belly) m = M_DEERW;
       if (lx < L.rumpX && ly < L.belly - 1 && ly > L.rumpY) m = M_DEERW;
-      sk += furG(lx * 1.6, ly) * 0.08 - 0.05;
+      sk += furG(lx * 1.6, ly) * 0.08 - 0.05 + (ly < L.belly - 9.5 ? -0.07 : 0) + 0.18 * Math.max(0, -ny - 0.55);   // a darker line down the back, moonlight on the top
     } else if (id === 2) { if (SDF.side * DRF > 0 && SDF.lat > 0.3) m = M_DEERW; sk -= 0.02; }      // neck: a pale throat
     else if (id === 3) { if (SDF.u > 0.86) m = M_DEERK; else if (SDF.side * DRF > 0 && SDF.lat > 0.45) m = M_DEERW; } // head: dark nose, pale chin
     else if (id === 4) { m = SDF.lat < 0.55 && SDF.u < 0.7 ? M_DEERW : M_DEER; sk -= 0.08; }   // ears
@@ -1420,20 +1460,22 @@
     // far legs first
     sdBegin();
     for (const [hx, far, off] of legs) if (far) {
-      const [fx, fy] = legPath(hx, off, 1), top = [hx, bodyY + 3 * k], kn = [lerp(hx, fx, 0.5) + 1.2 * k, lerp(top[1], fy, 0.5)];
-      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), 3.2 * k * S, 1.4 * k * S, 1.2 * S, 8, 0, 0.5);
-      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.2 * k * S, 0.9 * k * S, 0.6 * S, 8, 0.5, 1);
+      const [fx, fy] = legPath(hx, off, 1), hind = hx < 0, top = [hx, bodyY + 3 * k], kn = hind ? [lerp(hx, fx, 0.45) - 3.6 * k, bodyY * 0.42] : [lerp(hx, fx, 0.5) + 0.8 * k, bodyY * 0.36];
+      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), (hind ? 3.8 : 3.0) * k * S, 1.5 * k * S, 1.2 * S, 8, 0, 0.5);
+      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.25 * k * S, 0.9 * k * S, 0.6 * S, 8, 0.5, 1);
     }
     sdDraw(deerShade);
     sdBegin();
     // body, neck, head, near legs, tail
-    sdCap(dX(rump[0]), dY(rump[1]), dX(chest[0]), dY(chest[1]), 6.8 * k * S, 7.2 * k * S, 2.5 * S, 1, 0, 1, 0.2 * S);
+    sdCap(dX(rump[0]), dY(rump[1]), dX(chest[0]), dY(chest[1]), 6.2 * k * S, 6.8 * k * S, 2.5 * S, 1, 0, 1, 0.2 * S);
+    sdCap(dX(rump[0] + 1.5 * k), dY(bodyY - 1.5 * k), dX(rump[0] - 0.5 * k), dY(bodyY + 2.5 * k), 7.0 * k * S, 6.0 * k * S, 2.5 * S, 1, 0, 1);       // the haunch
+    sdCap(dX(chest[0] - 2 * k), dY(bodyY - 2.5 * k), dX(chest[0] + 0.5 * k), dY(bodyY + 3.5 * k), 6.0 * k * S, 5.6 * k * S, 2.5 * S, 1, 0, 1);      // the shoulder and deep chest
     sdCap(dX(nb[0]), dY(nb[1]), dX(nt[0]), dY(nt[1]), 4.6 * k * S, 3.0 * k * S, 2.5 * S, 2, 0, 1);
     sdCap(dX(nt[0]), dY(nt[1]), dX(hn[0]), dY(hn[1]), 3.4 * k * S, 1.6 * k * S, 1.5 * S, 3, 0, 1);
     for (const [hx, far, off] of legs) if (!far) {
-      const [fx, fy] = legPath(hx, off, 0), top = [hx, bodyY + 3 * k], kn = [lerp(hx, fx, 0.5) + (hx > 0 ? -1.2 : 1.5) * k, lerp(top[1], fy, 0.5)];
-      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), 3.6 * k * S, 1.5 * k * S, 1.4 * S, 5, 0, 0.5);
-      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.3 * k * S, 1.0 * k * S, 0.6 * S, 5, 0.5, 1);
+      const [fx, fy] = legPath(hx, off, 0), hind = hx < 0, top = [hx, bodyY + 3 * k], kn = hind ? [lerp(hx, fx, 0.45) - 3.8 * k, bodyY * 0.42] : [lerp(hx, fx, 0.5) + 0.8 * k, bodyY * 0.36];
+      sdCap(dX(top[0]), dY(top[1]), dX(kn[0]), dY(kn[1]), (hind ? 4.4 : 3.4) * k * S, 1.6 * k * S, 1.4 * S, 5, 0, 0.5);
+      sdCap(dX(kn[0]), dY(kn[1]), dX(fx), dY(fy - 0.8), 1.35 * k * S, 1.0 * k * S, 0.6 * S, 5, 0.5, 1);
     }
     const tl = (o.tail || 0);
     sdCap(dX(rump[0] - 6 * k), dY(rump[1] - 2.5 * k), dX(rump[0] - 8 * k - tl * 1.5), dY(rump[1] + 1 * k - tl * 3), 1.8 * k * S, 1.1 * k * S, 0.8 * S, 6);
@@ -1606,59 +1648,129 @@
      through, small windows up it, an arched door at its foot; a railed gallery; the lantern room (glass panes between
      iron mullions; dark, or alight with the lens) under a domed cap with a ball and vane. Local units, base centre at
      (0, 0), y down. o: { lit (0..1), sweep (beam angle), door (0..1 glow in the doorway) }. */
-  const TW = { H: 120, w0: 16, w1: 11, gal: 3, room: 17, cap: 9 };
+  const TW = { H: 120, w0: 16, w1: 11, gal: 3.2, room: 17, cap: 9 };
   function drawTower(bx, by, S, o, light) {
-    const lit = o.lit || 0, H = TW.H, top = by - H * S;
-    const x0 = Math.max(0, fl(bx - (TW.w0 + 4) * S)), x1 = Math.min(W - 1, Math.ceil(bx + (TW.w0 + 4) * S));
-    const y0 = Math.max(ROW0, fl(top - (TW.gal + TW.room + TW.cap + 4) * S)), y1 = Math.min(ROW1, Math.ceil(by + 1));
+    const lit = o.lit || 0, H = TW.H, top = by - H * S, door = o.door || 0;
+    const x0 = Math.max(0, fl(bx - (TW.w0 + 7) * S)), x1 = Math.min(W - 1, Math.ceil(bx + (TW.w0 + 7) * S));
+    const y0 = Math.max(ROW0, fl(top - (TW.gal + TW.room + TW.cap + 9) * S)), y1 = Math.min(ROW1, Math.ceil(by + 2 * S));
+    const lx = light.sky[0];
     for (let Y = y0; Y <= y1; Y++) {
       const v = (by - (Y + 0.5)) / S;                          // height above the base, units
       for (let X = x0; X <= x1; X++) {
-        const dx = (X + 0.5 - bx) / S;
+        const dx = (X + 0.5 - bx) / S, d = BAYF[((Y & 7) << 3) | (X & 7)];
         let c = -1;
-        if (v >= 0 && v <= H) {
+        if (v < -1.5) { }
+        else if (v < 6.5) {
+          // the plinth: big dressed blocks, a snowed-on ledge, steps up to the door, drifts banked against the foot
+          const w = TW.w0 + 3.2 - Math.max(0, v - 5.2) * 1.2, q = dx / w;
+          const drift = 2.6 + 1.4 * Math.sin(dx * 0.31 + 1) + (dx < 0 ? 1.6 : 0) - Math.abs(q) * 0.8;
+          if (Math.abs(dx) < w + 2.5 && v < drift - 0.5 && v > -1.5 && !(Math.abs(dx) < 5.5 && v > 0.6)) c = mc(M_SNOW, 0.42 + (dx < 0 ? 0.12 : 0) + (v > drift - 1.4 ? 0.14 : 0), lampAt(X, Y, light.z, 0, -1), X, Y);
+          else if (Math.abs(dx) < 5.5 && v < 4.2) {               // three stone steps
+            const st = fl(v / 1.4), f = v - st * 1.4, sw = 5.5 - st * 0.9;
+            if (Math.abs(dx) < sw) c = f > 1.05 ? mc(M_SNOW, 0.6 + (dx < 0 ? 0.1 : 0), lampAt(X, Y, light.z, 0, -1), X, Y) : mc(M_STONE, 0.28 - f * 0.08 + (dx < 0 ? 0.06 : 0), lampAt(X, Y, light.z, 0, 0), X, Y);
+          }
+          if (c < 0 && Math.abs(q) < 1 && v >= 0) {
+            const nc = Math.sqrt(1 - q * q), blk = frac(Math.asin(q) * w / 5.2 + (fl(v / 3.2) & 1) * 0.5), cr = frac(v / 3.2);
+            let sh = 0.24 + 0.34 * Math.max(0, -q * 0.7 + nc * 0.5) + (ih(fl(Math.asin(q) * w / 5.2 + (fl(v / 3.2) & 1) * 0.5), fl(v / 3.2), 958) - 0.5) * 0.1;
+            if (cr < 0.12 || blk < 0.06 / Math.max(0.3, nc)) sh -= 0.12; else if (cr > 0.8) sh -= 0.05; else if (cr < 0.25) sh += 0.05;
+            c = v > 5.2 ? mc(M_SNOW, 0.55 + (dx < 0 ? 0.12 : 0), 0, X, Y) : mc(M_STONE, sh, lampAt(X, Y, light.z, q * 0.9, 0), X, Y);
+          }
+        } else if (v <= H) {
           const u = v / H, w = lerp(TW.w0, TW.w1, u);
           if (Math.abs(dx) < w) {
-            const q = dx / w, nx = q, nc = Math.sqrt(1 - q * q);
-            // masonry: courses and joints faintly showing through the whitewash; weather streaks
-            const course = frac(v / 3.4), joint = frac(dx / 4.6 + (fl(v / 3.4) & 1) * 0.5);
-            let s = 0.32 + 0.5 * Math.max(0, -nx * light.sky[0] * 1.2 + nc * 0.55) - (course < 0.1 || joint < 0.05 ? 0.08 : 0) - vn(dx * 0.6, v * 0.1, 4, 961) * 0.1;
-            const band = (u > 0.3 && u < 0.4) || (u > 0.62 && u < 0.72);
+            const q = dx / w, nc = Math.sqrt(1 - q * q), ang = Math.asin(q);
+            // masonry under the whitewash: courses, blocks foreshortened round the curve, each with its bevel
+            const cv = v / 3.4, course = fl(cv), cr = cv - course, bk = ang * w / 4.6 + (course & 1) * 0.5, bf = frac(bk), bi = fl(bk);
+            let sh = 0.3 + 0.78 * Math.max(0, -q * (-lx) * 0.95 + nc * 0.5) + 0.1 * sstep(0.82, 0.98, q);   // moonlit side, and the storm's rim on the far edge
+            sh += (ih(bi, course, 961) - 0.5) * 0.05;
+            if (cr < 0.08 || bf < 0.035 / Math.max(0.3, nc)) sh -= 0.07; else if (cr > 0.84) sh -= 0.025; else if (cr < 0.22) sh += 0.03;
+            // weathering: streaks down from the gallery and the windows, salt and grime low down, a crack or two
+            const streak = vn(ang * 9, v * 0.035, 1, 962), grime = (1 - sstep(6, 26, v)) * (0.6 + 0.4 * vn(ang * 6, v * 0.2, 1, 963));
+            if (streak > 0.72) sh -= (streak - 0.72) * 0.35 * (0.4 + 0.6 * u);
+            sh -= grime * 0.12;
+            for (let wi = 0; wi < 3; wi++) { const wv = 34 + wi * 28; if (v < wv - 3 && v > wv - 16 && Math.abs(dx - 1) < 2.4) sh -= 0.05 * (1 - (wv - 3 - v) / 13); }
+            const band = (u > 0.3 && u < 0.4) || (u > 0.62 && u < 0.72), bandEdge = Math.abs(u - 0.3) < 0.004 || Math.abs(u - 0.4) < 0.004 || Math.abs(u - 0.62) < 0.004 || Math.abs(u - 0.72) < 0.004;
             let m = band ? M_REDW : M_WHITEW;
-            // the door, arched; small windows up the tower
-            if (Math.abs(dx) < 3.6 && v < 10 + 3.6 * Math.sqrt(Math.max(0, 1 - dx * dx / 13))) {
-              const inner = Math.abs(dx) < 3.0 && v < 9.6 + 3 * Math.sqrt(Math.max(0, 1 - dx * dx / 9));
-              if (inner) { const g = o.door || 0; c = g > 0.05 && bay(X, Y) < g * (1 - v / 14) ? (g > 0.6 && v < 6 ? 182 : 180) : (dx > 1.6 ? 216 : 215); } else { m = M_STONE; s -= 0.05; }
+            if (bandEdge) sh -= 0.08;
+            // snow plastered on the windward side, and lying on every ledge
+            if (q < -0.35 && ih(fl(ang * 40), fl(v * 1.5), 964) > 0.93) { m = M_SNOW; sh = 0.85; }
+            // the door, arched, in a deep reveal: planks, iron straps, a ring; its glow when the kit slips in
+            if (v < 18.5 && Math.abs(dx) < 4.6) {
+              const ar = 12.2 + 3.6 * Math.sqrt(Math.max(0, 1 - dx * dx / 13));
+              if (v < ar + 1.2 && Math.abs(dx) < 4.6) {
+                const inner = Math.abs(dx) < 3.5 && v < ar - 0.4 && v > 6.5;
+                if (inner) {
+                  const g = door; if (g > 0.05 && d < g * (1 - (v - 6.5) / 14)) c = g > 0.6 && v < 12 ? 182 : 180;
+                  else { const plank = frac((dx + 3.5) / 1.75) < 0.12, strap = Math.abs(v - 9) < 0.45 || Math.abs(v - 14) < 0.45; c = strap ? mc(M_IRON, 0.32, lampAt(X, Y, light.z, 0, 0), X, Y) : mc(M_WOOD, 0.2 + (plank ? -0.08 : 0) + (dx < 0 ? 0.06 : 0), lampAt(X, Y, light.z, 0, 0) * 1.1, X, Y); if (Math.hypot(dx - 2, v - 11) < 0.7) c = mc(M_BRASSM, 0.5, 0.3, X, Y); }
+                } else if (v > 6.5) { m = M_STONE; sh = 0.36 + (dx < 0 ? 0.08 : -0.04) - (Math.abs(dx) < 4 ? 0.12 : 0); }
+              }
             }
-            for (const wv of [34, 62, 90]) if (Math.abs(dx - 1) < 1.7 && Math.abs(v - wv) < 2.6) { c = lit > 0.3 ? 182 : 241; if (Math.abs(dx - 1) > 1.2 || Math.abs(v - wv) > 2.2) c = 243; }
-            if (c < 0) c = mc(m, s, lampAt(X, Y, light.z, nx * 0.9, 0) * 1.2 + lit * 0.25 * (u > 0.85 ? 1 : 0), X, Y);
+            // three small windows up the tower: a stone surround, dark glass (or lit), a sill holding snow
+            for (let wi = 0; wi < 3 && c < 0; wi++) {
+              const wv = 34 + wi * 28, ex = dx - 1, ev = v - wv;
+              if (Math.abs(ex) < 2.4 && ev > -3.6 && ev < 3.4) {
+                if (ev < -2.8) c = mc(M_SNOW, 0.6, 0, X, Y);
+                else if (Math.abs(ex) < 1.5 && ev < 2.6 && ev > -2.6) c = lit > 0.3 ? (ev > 0 ? 182 : 181) : (ex < -0.6 && ev > 0.8 ? 243 : d < 0.25 ? 242 : 241);
+                else { m = M_STONE; sh = 0.4 + (ex < 0 ? 0.08 : -0.05); }
+              }
+            }
+            if (c < 0) c = mc(m, sh, lampAt(X, Y, light.z, q * 0.9, 0) * 1.2 + lit * 0.25 * (u > 0.85 ? 1 : 0), X, Y);
+          } else if (v > H - 5 && Math.abs(dx) < TW.w1 + 3) {        // the corbels under the gallery
+            const cb = frac((dx + 30) / 2.6), cv = (v - (H - 5)) / 5;
+            if (Math.abs(cb - 0.5) < 0.22 + cv * 0.25 && Math.abs(dx) < w + 3 * cv) c = mc(M_STONE, 0.18 + cv * 0.2 + (dx < 0 ? 0.08 : 0), lit * 0.4, X, Y);
           }
-        } else if (v > H) {
+        } else {
           const vv = v - H;
-          if (vv <= TW.gal) {                                   // the gallery: a ledge and its railing
-            if (vv < 1.2 && Math.abs(dx) < TW.w1 + 3.5) c = mc(M_IRON, 0.35 - vv * 0.1 + (dx < 0 ? 0.1 : 0), lit * 0.6, X, Y);
-            else if (Math.abs(dx) < TW.w1 + 3.2 && (vv > TW.gal - 0.7 || frac(dx / 2.2) < 0.25)) c = mc(M_IRON, 0.25, lit * 0.5, X, Y);
-          } else if (vv <= TW.gal + TW.room) {                  // the lantern room
-            const rw = TW.w1 * 0.86;
-            if (Math.abs(dx) < rw) {
-              const mul = Math.abs(dx) < 0.6 || Math.abs(Math.abs(dx) - rw * 0.55) < 0.5 || Math.abs(dx) > rw - 0.8 || (vv - TW.gal) < 1 || vv > TW.gal + TW.room - 0.8;
-              if (mul) c = mc(M_IRON, 0.28 + (dx < 0 ? 0.08 : 0), lit * 0.8, X, Y);
-              else if (lit > 0.02) {
-                // alight: the lens glowing gold-white inside, hottest in the middle
-                const r = Math.hypot(dx / rw, (vv - TW.gal - TW.room / 2) / (TW.room / 2)), g = lit * (1.25 - r * 0.6);
-                c = g > 1 ? 22 : g > 0.8 ? 60 : g > 0.6 ? 200 : g > 0.4 ? 199 : g > 0.2 ? 182 : 181;
-              } else c = dx < -rw * 0.35 && (vv - TW.gal) > TW.room * 0.55 ? 205 : (bay(X, Y) < 0.2 ? 242 : 241);   // dark glass, one cold glint
+          if (vv <= TW.gal) {
+            // the gallery: its slab (snowed on), a railing of posts, a mid rail and a top rail
+            if (vv < 1.5 && Math.abs(dx) < TW.w1 + 4) c = vv > 1.0 ? mc(M_SNOW, 0.6 + (dx < 0 ? 0.12 : 0), lit * 0.3, X, Y) : mc(M_STONE, 0.3 + (dx < 0 ? 0.08 : 0), lit * 0.5, X, Y);
+            else if (Math.abs(dx) < TW.w1 + 3.6) {
+              const post = Math.abs(frac((dx + 30) / 2.3) - 0.5) < 0.16, rail = vv > TW.gal - 0.55 || Math.abs(vv - 2.1) < 0.25;
+              if (post || rail) c = mc(M_IRON, 0.22 + (rail && vv > TW.gal - 0.55 ? 0.14 : 0) + (dx < 0 ? 0.08 : 0), lit * 0.6, X, Y);
+              if (rail && vv > TW.gal - 0.3 && dx < -3 && d < 0.5) c = mc(M_SNOW, 0.6, 0, X, Y);
             }
-          } else if (vv <= TW.gal + TW.room + TW.cap) {          // the domed cap, the ball, the vane
-            const cv = (vv - TW.gal - TW.room) / TW.cap, cw = TW.w1 * 0.95 * Math.sqrt(Math.max(0, 1 - cv * cv * 0.85));
-            if (Math.abs(dx) < cw && cv < 0.82) c = mc(M_IRON, 0.22 + (dx < -cw * 0.3 ? 0.18 : 0) + (cv < 0.1 ? 0.1 : 0), lit * 0.4, X, Y);
-            else if (Math.abs(dx) < 1.3 && cv >= 0.82) c = mc(M_IRON, 0.3, 0, X, Y);
+          } else if (vv <= TW.gal + TW.room) {
+            // the lantern room: a low iron sill, then glazing between mullions with diagonal storm panes
+            const rw = TW.w1 * 0.88, ry = vv - TW.gal, q = dx / rw;
+            if (Math.abs(q) < 1) {
+              const ang = Math.asin(q), seg = ang / (PI / 5), sf = frac(seg + 0.5), mull = Math.abs(sf - 0.5) > 0.5 - 0.06 / Math.max(0.35, Math.cos(ang));
+              const lat = Math.abs(frac((ang * rw + ry) / 5.5) - 0.5) < 0.05 || Math.abs(frac((ang * rw - ry) / 5.5) - 0.5) < 0.05;
+              if (ry < 2.4) c = mc(M_IRON, 0.24 + (q < 0 ? 0.1 : 0) - (ry < 0.4 ? 0.06 : 0), lit * 0.8, X, Y);
+              else if (ry > TW.room - 0.9 || mull) c = mc(M_IRON, 0.26 + (q < 0 ? 0.1 : 0), lit * 0.8, X, Y);
+              else if (lit > 0.02) {
+                // alight: the lens burning gold-white inside, its prism rings as bright bands, hottest at the centre
+                const r = Math.hypot(q, (ry - TW.room / 2) / (TW.room / 2)), ring = Math.abs(frac((ry - TW.room / 2) / 1.6) - 0.5) < 0.12 ? 0.18 : 0;
+                const g = lit * (1.25 - r * 0.6 + ring) - (lat ? 0.25 : 0);
+                c = g > 1 ? 22 : g > 0.8 ? 60 : g > 0.6 ? 200 : g > 0.4 ? 199 : g > 0.2 ? 182 : 181;
+              } else if (lat) c = mc(M_IRON, 0.2, 0, X, Y);
+              else {
+                // dark glass holding the storm: lighter where it faces the sky, a cold streak of reflection, the lens
+                // faint behind it
+                const refl = 0.3 + 0.35 * (1 - ry / TW.room) + (q < -0.2 ? 0.2 : 0) + (Math.abs(q + 0.45 - ry * 0.03) < 0.08 ? 0.5 : 0), lens = Math.abs(q) < 0.45 && Math.abs(frac(ry / 1.6) - 0.5) < 0.1 ? 0.12 : 0;
+                const g = refl + lens + (d - 0.5) * 0.18;
+                c = g > 0.95 ? 194 : g > 0.75 ? 246 : g > 0.55 ? 244 : g > 0.35 ? 243 : 242;
+              }
+            }
+          } else if (vv <= TW.gal + TW.room + TW.cap + 7) {
+            // the domed cap with its ribs and a cushion of snow, the ventilator ball, the lightning rod and the vane
+            const cv = (vv - TW.gal - TW.room) / TW.cap, cw = TW.w1 * 0.98 * Math.sqrt(Math.max(0, 1 - cv * cv * 0.86));
+            if (cv < 0.84 && Math.abs(dx) < cw) {
+              const q = dx / Math.max(0.5, cw), rib = Math.abs(frac(Math.asin(clamp(q, -1, 1)) / (PI / 6) + 0.5) - 0.5) > 0.42;
+              const snow = q < 0.1 && cv > 0.25 + q * 0.3 && vn(dx * 1.4, cv * 6, 1, 966) > 0.4;
+              c = snow ? mc(M_SNOW, 0.55 + (q < -0.4 ? 0.12 : 0), lit * 0.2, X, Y) : mc(M_IRON, 0.16 + (q < -0.3 ? 0.18 : 0) + (rib ? 0.1 : 0) + (cv < 0.08 ? 0.1 : 0) - (q > 0.6 ? 0.06 : 0), lit * 0.4, X, Y);
+            } else {
+              const bvv = (vv - TW.gal - TW.room) - TW.cap * 0.84;
+              if (Math.hypot(dx, bvv - 1.4) < 1.5) c = mc(M_IRON, 0.3 + (dx < -0.4 && bvv > 1.6 ? 0.3 : 0), lit * 0.3, X, Y);
+              else if (Math.abs(dx) < 0.35 && bvv > 2.6 && bvv < 6.8) c = mc(M_IRON, 0.32, 0, X, Y);
+              else if (bvv > 5.0 && bvv < 5.7 && dx > -3.2 && dx < 3.2) c = mc(M_IRON, 0.3, 0, X, Y);                 // the vane's arm
+              else if (bvv > 4.6 && bvv < 6.1 && dx > 2.4 && dx < 3.8 && Math.abs(bvv - 5.35) < (3.8 - dx) * 0.6) c = mc(M_IRON, 0.36, 0, X, Y);   // its arrowhead
+            }
           }
         }
         if (c >= 0) BUF[Y * W + X] = c;
       }
     }
-    return { lamp: [bx, top - (TW.gal + TW.room / 2) * S], door: [bx, by - 6 * S] };
+    return { lamp: [bx, top - (TW.gal + TW.room / 2) * S], door: [bx, by - 9 * S] };
   }
   // the keeper's cottage: stone walls, a snow-heavy roof, a lit window, a chimney (its smoke torn off by the wind)
   function drawCottage(bx, by, S, light, t) {
@@ -2331,7 +2443,7 @@
   }
   // the ice, live: cool and deep in the dark; gold inside and cyan at the rims where the lantern reaches; caustics; cracks
   const R_ICEC = [222, 223, 224, 225, 226, 227, 228, 229];
-  const R_ICEW = [176, 178, 180, 181, 182, 183, 199, 200, 22];
+  const R_ICEW = [225, 226, 227, 228, 229, 188, 187, 200, 22];       // light diffusing through ice: it stays icy until near the flame, then cream-gold
   function iceShade(m, s, l, f, X, Y, lx, ly, nx) {
     const b = bay(X, Y);
     if (m === M_RIVER) return riverShade(s, l, f, X, Y, lx, ly, b);
@@ -2349,7 +2461,7 @@
       const w = g * (0.9 + 0.25 * filament) - 0.08;
       // a smooth handover from the cool ice to the warm glow (a narrow dither seam)
       const k = clamp((w - 0.06) * 3.2, 0, 1);
-      if (b < k) return rq(R_ICEW, clamp(w * 0.72 + v * 0.22, 0, 1), b, 0.6);
+      if (b < k) return rq(R_ICEW, clamp(w * 0.8 + v * 0.18, 0, 1), b, 0.6);
     }
     return rq(R_ICEC, clamp(v * 0.6 + (deep ? -0.05 : 0.04), 0, 1), b, 0.8);
   }
@@ -2400,8 +2512,8 @@
   };
   const F3LIGHT = { sky: [-0.3, -0.95], rim: 0.85, amb: 0.36, z: 4, gain: 1.5 };
   function f3Cam(t) {
-    const u = eis((t - 10.45) / 4.4), v = eio((t - 14.7) / 2.3);
-    const z = lerp(1.25, 1.0, u), cy = lerp(lerp(184, 118, u), -196, v), cx = lerp(186, 238, eis((t - 10.45) / 5.2)) + drift(t, 5, 1);
+    const u = eis((t - 10.45) / 4.4), v = eio((t - 14.4) / 2.55);
+    const z = lerp(1.25, 1.0, u), cy = lerp(lerp(184, 118, u), -372, v), cx = lerp(186, 238, eis((t - 10.45) / 5.2)) + drift(t, 5, 1);
     return [cx, cy, z];
   }
   function f3Draw(t) {
@@ -2413,10 +2525,10 @@
     const [mx, my] = FOXOUT.mouth, LS = F3LS * z, fl0 = lanternFlame(mx, my, LS, th);
     LAMP.on = 1; LAMP.x = fl0[0]; LAMP.y = fl0[1]; LAMP.z = 0; LAMP.h = Math.max(4, (fys - fl0[1]) / z); LAMP.I = 1.15 * flick(t); LAMP.R = 62 * z; LAMP.zoom = z; LAMP.rot = th * 2;
     SHAD.push({ x: fxs - 20 * z, y: fys + 1.5 * z, rx: 32 * z, ry: 4.5 * z, a: 0.6, lamp: 1 });
-    skyLive([202, 202, 203, 203, 204, 205, 206], 40, OY3 - 60, 240 + cx * 0.1, oy(0.82), z, 301);
-    comp(L.sky, 240 + cx * 0.1, oy(0.82), z, 0);
-    aurora(t, 240 + cx * 0.1, oy(0.82), z, 0.25 + 0.75 * sstep(15.3, 16.8, t), F3AUR);
-    liveStars(t, 26, 391, 240 + cx * 0.1, oy(0.82), z, OY3 + 30, (c) => c >= 202 && c <= 205);
+    // the sky is the meadow's (heavens): placed so that at the hand-over (16.95 s, both cameras at rest) it is exactly where
+    // the meadow's camera has it, and moving with this camera until then
+    { const [hx, hy] = f4SkyAt(16.95), [cx0, cy0] = f3Cam(16.95), sx = hx + (cx - cx0) * 0.1, sy = hy + (cy - cy0) * 0.82;
+      heavens(t, sx, sy, z, 0.25 + 0.75 * sstep(15.3, 16.8, t)); }
     comp(L.far, 220 + cx * 0.35, oy(0.88), z, 0.3, { mist: 0.2, mistY: OY3 - 110, mistH: 40 });
     RIVM.fill(0);
     comp(L.gorge, 120 + cx * 0.85, oy(0.95), z, 0.08, { custom: iceShade, cm0: M_ICE, cm1: M_ICED });
@@ -2537,7 +2649,7 @@
   };
   const F4LIGHT = { sky: [-0.55, -0.85], rim: 0.9, amb: 0.4, z: 4, gain: 1.5 };
   function f4Cam(t) {
-    const v = eio((t - 16.7) / 1.9), push = eio((t - 21.65) / 1.45);
+    const v = eio((t - 17.0) / 1.8), push = eio((t - 21.65) / 1.45);
     let cx = lerp(170, 236, eis((t - 16.7) / 4.8)) + drift(t, 7, 1), cy = lerp(-120, 132, v), z = 1;
     if (push > 0) {
       // the push in on the far lighthouse: it slides to a place right of centre and everything grows round it
@@ -2636,6 +2748,17 @@
     for (let j = 0; j < 4; j++) glow(Xs + 14 * z * o.S + j * 3, Y + 1, (12 + j * 3) * z * o.S, T_SHADE, 0.32, 1, 0.22);
     drawDeer(Xs, Y, o.S * z, o.f, { up, turn, earF, tail: 0.5 * bump(19.5 + o.ph * 0.3, 19.8 + o.ph * 0.3, t), antlers: o.antlers, fawn: o.fawn, gait: fawnStep, step: t * 1.8 }, { sky: [-0.55, -0.85], amb: 0.42, z: (F4G - o.y) * 3 });
   }
+  /* the one sky the falls tilt up into and the meadow tilts down from (in the meadow's sky coordinates): its gradient,
+     stars, aurora and moon, so that the hand-over between the two shots, in the sky, is the same picture */
+  function heavens(t, ox, oy, z, amt) {
+    skyLive([202, 202, 203, 203, 204, 204, 205, 206, 207], 30, OY4 + 150, ox, oy, z, 401);
+    comp(F4.L.sky, ox, oy, z, 0);
+    aurora2(t, ox, oy, z, amt, F4AUR);
+    liveStars(t, 30, 491, ox, oy, z, OY4 + 100, (c) => c >= 202 && c <= 205);
+    moon4(ox, oy, z);
+  }
+  // where f4's sky sits at time t (the falls' sky is drawn at the same place while the two hand over)
+  const f4SkyAt = (t) => { const [cx, cy, z] = f4Cam(t); return [300 + cx * 0.1, OY4 + 135 + (cy - 135) * 0.86, z]; };
   function f4Draw(t) {
     TAB = F4.rig; FOGT = F4FOG; SPK_SNOW = M_SNOW; SHAD.length = 0; LAMP.on = 0;
     const [cx, cy, z] = f4Cam(t), L = F4.L, oy = (p) => OY4 + 135 + (cy - 135) * p;
@@ -2645,11 +2768,7 @@
     const [mx, my] = FOXOUT.mouth, LS = F4LS * z, fl0 = lanternFlame(mx, my, LS, th);
     LAMP.on = 1; LAMP.x = fl0[0]; LAMP.y = fl0[1]; LAMP.z = 0; LAMP.h = Math.max(4, (fys - fl0[1]) / z); LAMP.I = 1.15 * flick(t); LAMP.R = 54 * z; LAMP.zoom = z; LAMP.rot = th * 2;
     SHAD.push({ x: fxs + 14 * z, y: fys + 1, rx: 26 * z, ry: 3.5 * z, a: 0.55, lamp: 1 });
-    skyLive([202, 202, 203, 203, 204, 204, 205, 206, 207], 30, OY4 + 150, 300 + cx * 0.1, oy(0.86), z, 401);
-    comp(L.sky, 300 + cx * 0.1, oy(0.86), z, 0);
-    aurora(t, 300 + cx * 0.1, oy(0.86), z, 1.0, F4AUR);
-    liveStars(t, 30, 491, 300 + cx * 0.1, oy(0.86), z, OY4 + 100, (c) => c >= 202 && c <= 205);
-    moon4(300 + cx * 0.1, oy(0.86), z);
+    heavens(t, 300 + cx * 0.1, oy(0.86), z, 1);
     const oxF = 300 + cx * F4P, oyF = oy(F4PY);
     stormBank(oxF, oyF, z, t);
     comp(L.far, oxF, oyF, z, 0.3);
@@ -2668,11 +2787,11 @@
     comp(L.fore, 120 + cx * 1.25, oy(1.05), z, 0);
     snowfall(t, cx, cy, z, { dens: 0.45 });
   }
-  const F4AUR = [{ y: OY4 + 78, amp: 14, len: 95, k: 0.012, ph: 1.1, x0: 60, x1: 560, b: 1 }, { y: OY4 + 30, amp: 12, len: 90, k: 0.017, ph: 3.0, x0: 160, x1: 720, b: 0.8 }, { y: OY4 - 50, amp: 16, len: 110, k: 0.011, ph: 0.2, x0: 0, x1: 620, b: 0.85 }, { y: OY4 - 140, amp: 14, len: 100, k: 0.014, ph: 4.2, x0: 100, x1: 700, b: 0.7 }];
+  const F4AUR = [{ y: OY4 + 72, amp: 18, len: 120, k: 0.011, ph: 1.1, x0: 20, x1: 640, b: 1 }, { y: OY4 - 40, amp: 24, len: 110, k: 0.008, ph: 3.0, x0: 230, x1: 780, b: 0.55 }, { y: OY4 - 175, amp: 14, len: 90, k: 0.015, ph: 0.2, x0: -40, x1: 380, b: 0.4 }];
   let F4FOG = null;
   BUILDERS.push(() => { F4FOG = mkTab('425a90', false); });
   shot(16.7, 22.75, (lt, t) => {
-    if (t < 17.25) dissolve(() => f3Draw(t), () => f4Draw(t), eis((t - 16.7) / 0.55), 35);
+    if (t < 17.12) dissolve(() => f3Draw(t), () => f4Draw(t), eis((t - 16.92) / 0.2), 35);
     else f4Draw(t);
   });
 
@@ -2733,20 +2852,25 @@
     }
   }
   // the sea: dark swells rolling in, whitecaps, spray at the rocks; the ship's lights (and later the beam) on the water
+  const SEA_R = [240, 241, 242, 243, 244, 245];
   function stormSea(cx, cy, z, t, cliffX, glints) {
     for (let Y = ROW0; Y <= ROW1; Y++) {
       const wy = toLY(135 + (cy - 135) * 0.95, z, Y);
       if (wy < HORIZ) continue;
       const p = (wy - HORIZ) / 120, o = Y * W, dist = 1 / (p + 0.05);
       for (let X = 0; X < W; X++) {
-        const wx = toLX(240 + cx * 0.95, z, X);
-        // long swells rolling in (foreshortened toward the horizon), heaving; foam on their crests, streaks behind
-        const sw = dist * 1.6 - t * 0.7 + n1(wx * 0.006 + 3, 531) * 2.2 * (1 - 0.75 * Math.min(1, p)) + n1(wx * 0.012 + 7, 534) * 0.35;
-        const f = frac(sw), face = f < 0.35;                     // the lit face of each swell, then its long back
-        const fn = vn(wx * (0.25 + p * 0.6), wy * (1.5 + p), 3 + p * 4, 532);
-        let c = p < 0.06 ? 242 : face ? (f < 0.12 ? 242 : 241) : 240;
-        if (f < 0.07 + 0.05 * p && fn > 0.5 - p * 0.15) c = fn > 0.75 ? 194 : p > 0.3 ? 246 : 245;      // whitecaps
-        else if (f > 0.35 && f < 0.5 && fn > 0.78 - p * 0.1 && p > 0.15) c = 244;                       // foam streaks
+        const wx = toLX(240 + cx * 0.95, z, X), d = BAYF[((Y & 7) << 3) | (X & 7)];
+        // long swells rolling in, foreshortened toward the horizon: each a steep face catching the sky's grey light and a
+        // long darkening back; a choppy texture over them; whitecaps tearing along the crests and foam lacing the backs
+        const warp = n1(wx * 0.006 + 3, 531) * 2.2 * (1 - 0.75 * Math.min(1, p)) + n1(wx * 0.012 + 7, 534) * 0.35;
+        const sw = dist * 1.25 - t * 0.6 + warp, f = frac(sw), fi = fl(sw);
+        const chop = vn(wx * (0.35 + p * 0.5) + t * 3, wy * (2.2 + p * 2) - t * 4, 2 + p * 3, 535) - 0.5;
+        let v = f < 0.28 ? 0.62 - f * 1.4 : 0.2 + (f - 0.28) * 0.18;
+        v += chop * (0.08 + p * 0.1) + (1 - sstep(0, 0.12, p)) * 0.28;
+        const fn = vn(wx * (0.22 + p * 0.5), sw * 5, 1.5 + p * 3, 532);
+        let c = SEA_R[clamp(fl(v * 6.5 + (d - 0.5) * 0.55 - 0.5), 0, 5)];
+        if (f < 0.08 + 0.05 * p && fn > 0.48 - p * 0.15) c = fn > 0.72 ? 194 : fn > 0.6 ? 246 : 245;          // whitecaps
+        else if (f > 0.3 && f < 0.7 && p > 0.22) { const lace = vn(wx * (0.18 + p * 0.3), sw * 9 + fi * 3.1, 1.6, 536); if (lace > 0.86 - (0.7 - f) * 0.08) c = lace > 0.93 ? 245 : 244; }   // foam lacing the back
         BUF[o + X] = c;
       }
     }
@@ -2835,7 +2959,7 @@
   BUILDERS.push(() => { F5FOG = mkTab('324050', false); });
   let beamFx = null;                                             // (the beam is given by shot 6)
   shot(22.75, 25.3, (lt, t) => {
-    if (t < 23.25) dissolve(() => f4Draw(t), () => f5Draw(t), eis((t - 22.75) / 0.5), 37);
+    if (t < 23.25) dip(() => f4Draw(t), () => f5Draw(t), (t - 22.75) / 0.5);
     else f5Draw(t);
   });
 
@@ -2858,7 +2982,11 @@
     const oy = OYI;
     for (let y = -6; y < SHAFT + 30; y++) for (let x = 0; x < 480; x++) {
       const dx = x - NEW_X, q = dx / WALL_R;
-      if (Math.abs(q) >= 1) { lput(L.back, x, y + oy, M_STONE, 0.04, 120, 0, 0, 0); continue; }
+      if (Math.abs(q) >= 1) {
+        // the tower cut away: the section through its thick wall (big blocks, the cut face lighter), then outside
+        if (Math.abs(dx) < WALL_R + 24) { const sx = Math.abs(dx) - WALL_R, blk = ((fl(y / 12) + fl(sx / 12)) & 1), j = frac(y / 12) < 0.08 || frac(sx / 12 + 0.5 * (fl(y / 12) & 1)) < 0.07; lput(L.back, x, y + oy, M_STONE, (j ? 0.18 : 0.34 + blk * 0.05 + ih(fl(y / 12), fl(sx / 12), 604) * 0.08) - (sx > 21 ? 0.12 : 0), 30, dx < 0 ? 0.8 : -0.8, 0, 0); }
+        continue;
+      }
       // the curved wall: courses of dressed stone, foreshortened toward the sides; mortar; damp streaks; slit windows
       const phi = Math.asin(q), course = fl(y / 9.5), cf = frac(y / 9.5), along = (phi * WALL_R) / 15 + (course & 1) * 0.5 + ih(course, 0, 601) * 0.3, af = frac(along);
       const mortar = cf < 0.1 || af < 0.05 / Math.max(0.25, Math.cos(phi));
@@ -2896,6 +3024,55 @@
       }
       if (m) lput(L.back, x, y + oy, m, s, 30, nx, ny, 0);
     }
+    // the lamp room, furnished: wood panelling under the glass with a brass rail; frost in the panes' corners; the
+    // gallery railing outside; an oilskin coat on a hook and the ship's bell on the mullions; a desk with the open log,
+    // an inkwell, a mug and an oil can; a little iron stove with its kettle and a red-glowing grate; an oil barrel
+    for (let y = -48; y < -6; y++) for (let x = 0; x < 480; x++) {
+      if (y < -45) { lput(L.back, x, y + oy, M_BRASSM, 0.45 + (y < -47 ? 0.3 : 0), 20, 0, y < -47 ? -1 : 0, 0); continue; }
+      const pw = 40, px = frac(x / pw), inset = px > 0.1 && px < 0.9 && y > -40 && y < -12, edge = inset && (px < 0.14 || px > 0.86 || y < -37 || y > -15);
+      lput(L.back, x, y + oy, M_WOOD, 0.3 + (inset ? -0.05 : 0.04) + (edge ? (px < 0.14 || y < -37 ? -0.08 : 0.08) : 0) + (vn(x * 0.5, y * 0.08, 3, 612) - 0.5) * 0.08, 20, 0, 0, 0);
+    }
+    for (let y = -216; y < -54; y++) for (let x = 0; x < 480; x++) {
+      const i = (y + oy) * 480 + x; if (L.back.M[i]) continue;
+      const mul = frac(x / 96 + 0.5), dmul = Math.min(mul, 1 - mul) * 96, dtop = Math.min(Math.abs(y + 136), y + 216, -54 - y);
+      const frost = Math.min(dmul, dtop); if (frost < 9 && ih(x, y, 613) < Math.pow((9 - frost) / 9, 1.6) * 0.55) { lput(L.back, x, y + oy, M_SNOW, 0.5 + ih(x, y, 614) * 0.3, 30, 0, 0, 0); continue; }
+      if (Math.abs(y + 78) < 1.2 || Math.abs(y + 64) < 0.8 || (Math.abs(frac(x / 24) - 0.5) < 0.04 && y > -80)) lput(L.back, x, y + oy, M_IRON, 0.12, 200, 0, 0, 0);   // the gallery rail beyond the glass
+    }
+    const coat = (x, y) => { const cx = 48, top = -170; if (y < top || y > -76) return false; const hw = 4 + (y - top) * 0.13 + Math.sin((y - top) * 0.2) * 1.5; return Math.abs(x - cx) < hw; };
+    for (let y = -178; y < -74; y++) for (let x = 20; x < 80; x++) {
+      if (Math.abs(x - 48) < 2 && y < -170) { lput(L.back, x, y + oy, M_IRON, 0.3, 15, 0, 0, 0); continue; }
+      if (coat(x, y)) { const fold = Math.sin((x - 48) * 0.6 + y * 0.05), sl = Math.abs(x - 48) > 6 + (y + 170) * 0.05; lput(L.back, x, y + oy, M_CAP, 0.28 + fold * 0.08 + (x < 46 ? 0.08 : -0.06) - (sl ? 0.06 : 0), 15, (x - 48) / 12, 0, 0); }
+    }
+    for (let y = -150; y < -120; y++) for (let x = 268; x < 296; x++) {
+      const dx = x - 282, v = y + 150;
+      if (Math.abs(dx) < 1 && v < 5) lput(L.back, x, y + oy, M_IRON, 0.3, 15, 0, 0, 0);
+      else if (v >= 5 && Math.abs(dx) < 3 + (v - 5) * 0.42 && v < 26) lput(L.back, x, y + oy, M_BRASSM, 0.35 - dx * 0.04 + (v > 24 ? 0.15 : 0), 15, dx / 10, 0, 0);
+      else if (v >= 26 && v < 29 && Math.abs(dx) < 1.4) lput(L.back, x, y + oy, M_BRASSM, 0.5, 15, 0, 0, 0);
+    }
+    for (let y = -40; y < -6; y++) for (let x = 30; x < 122; x++) {                 // the desk and what is on it
+      const dx = x - 76;
+      if (y >= -34 && y < -30 && Math.abs(dx) < 44) { lput(L.back, x, y + oy, M_WOOD, y < -33 ? 0.55 : 0.32, 12, 0, y < -33 ? -1 : 0, 0); continue; }
+      if (y >= -30 && (Math.abs(dx + 39) < 2 || Math.abs(dx - 39) < 2)) { lput(L.back, x, y + oy, M_WOOD, 0.24, 12, 0, 0, 0); continue; }
+      if (y >= -30 && y < -24 && Math.abs(dx) < 36) { lput(L.back, x, y + oy, M_WOOD, 0.2 + (Math.abs(dx) < 1 ? -0.08 : 0) + (Math.abs(dx - 18) < 2 && y > -28 ? 0.25 : 0), 12, 0, 0, 0); continue; }
+      if (y < -34 && y >= -37 && dx > -30 && dx < -2) { const page = dx < -16 ? -16 - dx : dx + 16, line = frac((y + 37) / 1.5) < 0.3 && page > 2; lput(L.back, x, y + oy, M_WOOLC, 0.6 - (Math.abs(dx + 16) < 0.8 ? 0.2 : 0) - (line ? 0.18 : 0), 12, 0, -1, 0); continue; }
+      if (y < -34 && y >= -39 && Math.abs(dx - 6) < 2.5) { lput(L.back, x, y + oy, M_IRON, 0.2 + (dx < 6 ? 0.1 : 0), 12, 0, 0, 0); continue; }      // the inkwell
+      if (y < -34 && y >= -36 && Math.abs(dx - 9) < 0.5) { lput(L.back, x, y + oy, M_WOOLC, 0.7, 12, 0, 0, 0); }
+      if (y < -34 && y >= -40 && Math.abs(dx - 17) < 3) { lput(L.back, x, y + oy, M_WOOL, 0.4 - (dx - 17) * 0.05 + (y < -39 ? 0.2 : 0), 12, 0, 0, 0); continue; }   // the mug
+      if (y < -34 && y >= -44 && dx > 26 && dx < 36) { const hw = 4 - Math.max(0, -40 - y) * 0.7; if (Math.abs(dx - 31) < hw) lput(L.back, x, y + oy, M_BRASSM, 0.35 - (dx - 31) * 0.05, 12, (dx - 31) / 5, 0, 0); else if (y < -40 && dx > 33 && Math.abs(y + 42 - (dx - 33) * 0.4) < 0.7) lput(L.back, x, y + oy, M_BRASSM, 0.4, 12, 0, 0, 0); }
+    }
+    for (let y = -60; y < -6; y++) for (let x = 410; x < 480; x++) {                // the stove, its pipe, the kettle, the barrel
+      const sx = x - 436;
+      if (Math.abs(sx) < 3 && y < -40) { lput(L.back, x, y + oy, M_IRON, 0.2 + (sx < 0 ? 0.1 : 0), 14, sx / 3, 0, 0); continue; }
+      if (Math.abs(sx) < 13 && y >= -40 && y < -12) {
+        const grate = Math.abs(sx) < 7 && y > -28 && y < -17, bars = Math.abs(frac(sx / 3) - 0.5) < 0.15;
+        if (grate) { L.back.M[(y + oy) * 480 + x] = 0; continue; }
+        lput(L.back, x, y + oy, M_IRON, 0.18 + (sx < -8 ? 0.12 : 0) + (y < -38 ? 0.15 : 0) + (bars && Math.abs(y + 22) < 6 ? 0 : 0), 14, sx / 13, 0, 0); continue;
+      }
+      if (Math.abs(sx) < 11 && y >= -12 && (Math.abs(sx + 9) < 1.5 || Math.abs(sx - 9) < 1.5)) { lput(L.back, x, y + oy, M_IRON, 0.16, 14, 0, 0, 0); continue; }
+      const kx = sx + 2, ky = y + 46; if (Math.hypot(kx / 7, ky / 5) < 1 && y < -40) { lput(L.back, x, y + oy, M_IRON, 0.26 - kx * 0.03 + (ky < -3 ? 0.12 : 0), 14, kx / 7, ky / 5, 0); continue; }
+      if (y < -48 && y > -53 && kx > 5 && Math.abs(y + 50 - (kx - 5) * 0.5) < 0.8) { lput(L.back, x, y + oy, M_IRON, 0.3, 14, 0, 0, 0); continue; }
+      const bx = x - 466; if (Math.abs(bx) < 11 && y > -34) { const st = Math.abs(y + 26) < 1 || Math.abs(y + 12) < 1; lput(L.back, x, y + oy, st ? M_IRON : M_WOOD, (st ? 0.28 : 0.22 + 0.2 * Math.sqrt(Math.max(0, 1 - (bx / 11) ** 2))) - bx * 0.01, 14, bx / 11, 0, 0); }
+    }
     // the lens's pedestal: an iron column with a brass collar
     for (let y = -46; y < -6; y++) for (let x = LENS_X - 18; x <= LENS_X + 18; x++) {
       const w = y > -12 ? 18 : y > -40 ? 11 : 16, q = (x - LENS_X) / w; if (Math.abs(q) > 1) continue;
@@ -2908,8 +3085,8 @@
       const wy = toLY(cy, z, Y), o = Y * W;
       for (let X = 0; X < W; X++) {
         const wx = toLX(cx, z, X), b = BAYF[((Y & 7) << 3) | (X & 7)];
-        if (wy > -92) {                                         // the sea far below: dark swells, a few whitecaps
-          const sw = (wy + 92) * 0.16 - t * 0.7 + n1(wx * 0.01, 622) * 1.5, f = frac(sw);
+        if (wy > cy + 6) {                                      // the sea far below (its horizon at eye level): dark swells, whitecaps
+          const sw = (wy - cy - 6) * 0.16 - t * 0.7 + n1(wx * 0.01, 622) * 1.5, f = frac(sw);
           BUF[o + X] = f < 0.06 && vn(wx * 0.3, wy, 3, 624) > 0.55 ? 245 : f < 0.4 ? 241 : 240;
           continue;
         }
@@ -2925,30 +3102,127 @@
       P(x, y, c); P(x - 1, y - 0.5, 245); if (ih(k, 5, 623) < 0.4) P(x - 2, y - 1, 244);
     }
   }
-  // the stair, live (so the half in front can be cut away clear of the kit): iron plates round the newel, a lit top edge,
-  // a bracket at the outer end; the rail along them. pass: 0 the back half, 1 the front half (cut short unless near kFox)
+  // the stove's fire through its grate: embers breathing red and gold, a faint warm glow round it
+  function stoveGlow(cx, cy, z, t) {
+    const X0 = fl(toSX(cx, z, 429)), X1 = Math.ceil(toSX(cx, z, 443)), Y0 = fl(toSY(cy, z, -28)), Y1 = Math.ceil(toSY(cy, z, -17));
+    if (X1 < 0 || X0 >= W || Y1 < ROW0 || Y0 > ROW1) return;
+    for (let Y = Math.max(ROW0, Y0); Y <= Math.min(ROW1, Y1); Y++) for (let X = Math.max(0, X0); X <= Math.min(W - 1, X1); X++) {
+      const lx = toLX(cx, z, X) - 436, ly = toLY(cy, z, Y), bars = Math.abs(frac(lx / 3) - 0.5) < 0.17;
+      const e = 0.5 + 0.5 * Math.sin(lx * 0.9 + t * 3.1) * Math.sin(ly * 0.7 - t * 2.3) + (ly + 17) * 0.06;
+      BUF[Y * W + X] = bars ? 195 : e > 0.85 ? 182 : e > 0.55 ? 180 : e > 0.3 ? 178 : 177;
+    }
+    glow(toSX(cx, z, 436), toSY(cy, z, -22), 26 * z, T_WARM, 0.22 + 0.05 * Math.sin(t * 5));
+  }
+  // the stair, live (so the half in front can be cut away clear of the kit). Each tread is a cast-iron wedge seen a little
+  // from above or below (by its height against the camera's): its top (a cast diamond pattern) or its ribbed underside,
+  // its nosing edge catching the lantern, two balusters at its outer end; the handrail runs over them. pass: 0 the back
+  // half, 1 the front half (cut short unless near kFox)
+  const TSTP = new Uint32Array(NP); let tStamp = 0;
+  const TSIN = new Float32Array(1024), TCOS = new Float32Array(1024), TTH = new Float32Array(1024);
   function stairLive(cx, cy, z, pass, kFox) {
-    const oyw = (y) => toSY(cy, z, y);
     for (let k = 0; k < TREAD_N; k++) {
-      const T = tread(k), ca = Math.cos(T.a + TREAD_DA * 0.46), front = ca > 0;
+      const T = tread(k), a0 = T.a, a1 = T.a + TREAD_DA * 0.92, cm = Math.cos(T.a + TREAD_DA * 0.46), front = cm > 0;
       if ((pass === 1) !== front) continue;
       const near = Math.abs(k - kFox) < 2.6, r1 = front && !near ? 58 : STAIR_R1;
-      const Y = oyw(T.y); if (Y < ROW0 - 4 || Y > ROW1 + 4) continue;
-      const sa = Math.sin(T.a), sa2 = Math.sin(T.a + TREAD_DA * 0.92), zt = -STAIR_R1 * ca * 0.5;
-      for (let r = STAIR_R0; r <= r1; r += 0.7) {
-        const xa = toSX(cx, z, NEW_X + r * sa), xb = toSX(cx, z, NEW_X + r * sa2), fade = front && !near ? 1 - (r - STAIR_R0) / (58 - STAIR_R0) : 1;
-        for (let X = fl(Math.min(xa, xb)); X <= Math.ceil(Math.max(xa, xb)); X++) {
-          if (X < 0 || X >= W) continue;
-          for (let d = 0; d < 3; d++) { const YY = fl(Y + d); if (YY < ROW0 || YY > ROW1) continue; if (fade < 1 && bay(X, YY) > fade * 1.4) continue; BUF[YY * W + X] = mc(M_IRON, d === 0 ? 0.5 : 0.18, lampAt(X, YY, zt, 0, d === 0 ? -0.75 : 0.5), X, YY); }
+      const Yt = toSY(cy, z, T.y); if (Yt < ROW0 - 30 || Yt > ROW1 + 30) continue;
+      const kk = clamp((T.y - cy) * 0.0018, -0.14, 0.14), above = kk < 0;      // seen from above (its top) or from below
+      // the slab: rows of (r, angle) samples; the top/underside, then its leading edge's thickness
+      const nA = Math.ceil((a1 - a0) * r1 * z * 1.6) + 2; tStamp++;
+      for (let ai = 0; ai <= nA; ai++) { const th = lerp(a0, a1, ai / nA); TSIN[ai] = Math.sin(th); TCOS[ai] = Math.cos(th); TTH[ai] = th; }
+      for (let ri = 0; ; ri++) {
+        const r = STAIR_R0 + ri * 0.6 / z; if (r > r1) break;
+        const fade = front && !near ? 1 - (r - STAIR_R0) / (58 - STAIR_R0) : 1;
+        for (let ai = 0; ai <= nA; ai++) {
+          const th = TTH[ai], sx = NEW_X + r * TSIN[ai], dz = r * TCOS[ai], X = fl(toSX(cx, z, sx)), Y = fl(Yt - dz * kk * z);
+          if (X < 0 || X >= W || Y < ROW0 || Y > ROW1) continue;
+          const pi = Y * W + X; if (TSTP[pi] === tStamp) continue; TSTP[pi] = tStamp;
+          if (fade < 1 && BAYF[((Y & 7) << 3) | (X & 7)] > fade * 1.4) continue;
+          const pat = (Math.abs(frac(r / 6 + th * 3) - 0.5) < 0.12 || Math.abs(frac(r / 6 - th * 3) - 0.5) < 0.12) ? -0.07 : 0;
+          const rib = !above && Math.abs(frac((th - a0) / (a1 - a0) * 3) - 0.5) < 0.12 ? 0.08 : 0;
+          const s0 = above ? 0.52 + pat + (r > r1 - 3 ? 0.16 : 0) - (r < STAIR_R0 + 6 ? 0.12 : 0) : 0.24 + rib;
+          BUF[Y * W + X] = mc(M_IRON, s0, lampAt(X, Y, -dz * 0.5, 0, above ? -1 : 0.9), X, Y);
         }
       }
-      if (r1 === STAIR_R1) { const xo = toSX(cx, z, NEW_X + STAIR_R1 * sa); for (let d = 0; d < 13 * z; d++) { const YY = fl(Y - d); if (YY >= ROW0 && YY <= ROW1 && xo >= 0 && xo < W) BUF[YY * W + fl(xo)] = mc(M_IRON, 0.3, lampAt(fl(xo), YY, zt, 0, 0), fl(xo), YY); } }
+      // the leading edge (the nosing), three units thick, lit face on
+      const thick = 3 * z;
+      for (let ri = 0; ; ri++) {
+        const r = STAIR_R0 + ri * 0.5 / z; if (r > r1) break;
+        const th = a0, sx = NEW_X + r * Math.sin(th), dz = r * Math.cos(th), X = fl(toSX(cx, z, sx)), Yb = Yt - dz * kk * z;
+        if (X < 0 || X >= W) continue;
+        const fade = front && !near ? 1 - (r - STAIR_R0) / (58 - STAIR_R0) : 1;
+        for (let dd = 0; dd < thick; dd++) { const Y = fl(Yb + dd); if (Y < ROW0 || Y > ROW1) continue; if (fade < 1 && BAYF[((Y & 7) << 3) | (X & 7)] > fade * 1.4) continue; BUF[Y * W + X] = mc(M_IRON, dd < 1 ? 0.48 : 0.22 - dd * 0.02, lampAt(X, Y, -dz * 0.5, 0, 0), X, Y); }
+      }
+      // two balusters at the outer end, up to the handrail
+      if (r1 === STAIR_R1) for (const f of [0.2, 0.75]) {
+        const th = lerp(a0, a1, f), sx = NEW_X + STAIR_R1 * Math.sin(th), dz = STAIR_R1 * Math.cos(th), X = toSX(cx, z, sx), Yb = Yt - dz * kk * z;
+        for (let d = 0; d < 14 * z; d++) { const YY = fl(Yb - d); if (YY < ROW0 || YY > ROW1) continue; for (let w = 0; w < Math.max(1, fl(1.4 * z)); w++) { const XX = fl(X) + w; if (XX < 0 || XX >= W) continue; BUF[YY * W + XX] = mc(M_IRON, w === 0 ? 0.36 : 0.18, lampAt(XX, YY, -dz * 0.5, w === 0 ? -0.6 : 0.6, 0), XX, YY); } }
+      }
     }
-    for (let a = TREAD_A0; a < TREAD_A0 + TREAD_N * TREAD_DA; a += 0.008) {
+    // the handrail: a helix over the balusters, two px thick, its top catching the light
+    for (let a = TREAD_A0; a < TREAD_A0 + TREAD_N * TREAD_DA; a += 0.004 / z) {
       const ca = Math.cos(a); if ((pass === 1) !== (ca > 0)) continue;
       const k = (a - TREAD_A0) / TREAD_DA; if (pass === 1 && Math.abs(k - kFox) > 3) continue;
-      const X = fl(toSX(cx, z, NEW_X + STAIR_R1 * Math.sin(a))), Y = fl(toSY(cy, z, SHAFT - 8 - k * TREAD_DY - 13));
-      if (X >= 0 && X < W && Y >= ROW0 && Y <= ROW1 - 1) { BUF[Y * W + X] = mc(M_IRON, 0.42, lampAt(X, Y, -STAIR_R1 * ca * 0.5, 0, -0.6), X, Y); BUF[(Y + 1) * W + X] = mc(M_IRON, 0.16, 0, X, Y + 1); }
+      const hy = SHAFT - 8 - k * TREAD_DY - 14, kk = clamp((hy - cy) * 0.0018, -0.14, 0.14), dz = STAIR_R1 * ca;
+      const X = fl(toSX(cx, z, NEW_X + STAIR_R1 * Math.sin(a))), Y = fl(toSY(cy, z, hy) - dz * kk * z);
+      for (let d = 0; d < Math.max(2, fl(2 * z)); d++) { const YY = Y + d; if (X >= 0 && X < W && YY >= ROW0 && YY <= ROW1) BUF[YY * W + X] = mc(M_IRON, d === 0 ? 0.5 : 0.18, lampAt(X, YY, -dz * 0.5, 0, d === 0 ? -0.8 : 0.4), X, YY); }
+    }
+  }
+  // the lantern throws the stair's shadows across the curved wall behind: each tread's outer edge and its balusters,
+  // projected from the flame onto the masonry (so the shadows sweep round as the kit climbs)
+  function stairShadows(cx, cy, z, kFox) {
+    if (!LAMP.on) return;
+    const Lx = toLX(cx, z, LAMP.x), Ly = toLY(cy, z, LAMP.y), Lz = LAMP.z > 30 ? -60 : 40;
+    const put = (wx, wy, a) => { const X = fl(toSX(cx, z, wx)), Y = fl(toSY(cy, z, wy)); if (X < 0 || X >= W || Y < ROW0 || Y > ROW1) return; const i = Y * W + X; const l = lampAt(X, Y, -100, 0, 0); if (l < 0.15) return; const lv = clamp(fl(a * 8 * Math.min(1, l * 1.5)), 0, 6); if (lv > 0) BUF[i] = T_DARK[lv][BUF[i]]; };
+    for (let k = Math.max(0, fl(kFox - 5)); k < Math.min(TREAD_N, kFox + 6); k++) {
+      const T = tread(k);
+      for (let f = 0; f <= 1; f += 0.012) {
+        const th = T.a + TREAD_DA * 0.92 * f;
+        for (const [r, h, a] of [[STAIR_R1, 0, 0.34], [STAIR_R1, -14, 0.3]]) {
+          const px = NEW_X + r * Math.sin(th), pz = r * Math.cos(th), py = T.y + h;
+          if (pz > Lz - 2) continue;
+          // the wall point behind along the ray from the flame: x on the wall's circle, depth behind
+          const dirx = px - Lx, diry = py - Ly, dirz = pz - Lz;
+          let s = 1.2; for (let it = 0; it < 4; it++) { const wx = Lx + dirx * s - NEW_X, wz = Lz + dirz * s; const rr = Math.hypot(wx, wz); s *= WALL_R / Math.max(1, rr); }
+          const wx = Lx + dirx * s, wy = Ly + diry * s; if (Lz + dirz * s > 0) continue;
+          put(wx, wy, a);
+        }
+      }
+      // the balusters' long shadows
+      for (const f of [0.2, 0.75]) {
+        const th = T.a + TREAD_DA * 0.92 * f, px = NEW_X + STAIR_R1 * Math.sin(th), pz = STAIR_R1 * Math.cos(th);
+        if (pz > Lz - 2) continue;
+        for (let h = 0; h < 14; h += 0.6) {
+          const py = T.y - h, dirx = px - Lx, diry = py - Ly, dirz = pz - Lz;
+          let s = 1.2; for (let it = 0; it < 4; it++) { const wx = Lx + dirx * s - NEW_X, wz = Lz + dirz * s; s *= WALL_R / Math.max(1, Math.hypot(wx, wz)); }
+          put(Lx + dirx * s, Ly + diry * s, 0.3);
+        }
+      }
+    }
+  }
+  // the rope handrail fixed to the wall (the back half), sagging between its iron eyes
+  function wallRope(cx, cy, z) {
+    for (let a = TREAD_A0; a < TREAD_A0 + TREAD_N * TREAD_DA; a += 0.003 / z) {
+      const ca = Math.cos(a); if (ca > -0.05) continue;
+      const k = (a - TREAD_A0) / TREAD_DA, seg = frac(k * 2), sag = Math.sin(seg * PI) * 2.2;
+      const X = fl(toSX(cx, z, NEW_X + 172 * Math.sin(a))), Y = fl(toSY(cy, z, SHAFT - 8 - k * TREAD_DY - 16 + sag));
+      if (X < 0 || X >= W || Y < ROW0 || Y > ROW1 - 1) continue;
+      const tw = frac(a * 60) < 0.5;
+      BUF[Y * W + X] = mc(M_WOOD, tw ? 0.4 : 0.28, lampAt(X, Y, -150, 0, -0.5), X, Y); BUF[(Y + 1) * W + X] = mc(M_WOOD, 0.14, 0, X, Y + 1);
+      if (seg < 0.02 && Y + 3 <= ROW1) for (let d = -1; d <= 2; d++) BUF[(Y + d) * W + X] = mc(M_IRON, 0.35, 0, X, Y + d);
+    }
+  }
+  // cold storm light falling in through the slit windows: pale shafts slanting down across the shaft, and snow in them
+  function slitShafts(cx, cy, z, t) {
+    for (const [wx, wy, dir] of [[150, 260, 1], [330, 165, -1], [168, 70, 1]]) {
+      const X0 = Math.max(0, fl(toSX(cx, z, Math.min(wx, wx + dir * 100) - 20))), X1 = Math.min(W - 1, Math.ceil(toSX(cx, z, Math.max(wx, wx + dir * 100) + 20)));
+      const Y0 = Math.max(ROW0, fl(toSY(cy, z, wy - 12))), Y1 = Math.min(ROW1, Math.ceil(toSY(cy, z, wy + 90)));
+      for (let Y = Y0; Y <= Y1; Y++) for (let X = X0; X <= X1; X++) {
+        const px = toLX(cx, z, X) - wx, py = toLY(cy, z, Y) - (wy - 4), along = (px * dir * 0.8 + py * 0.6), across = (-px * dir * 0.6 + py * 0.8);
+        if (along < 0 || along > 110) continue;
+        const wdt = 4 + along * 0.1, e = (1 - Math.abs(across) / wdt) * (1 - along / 110) * 0.7; if (e <= 0) continue;
+        const b = BAYF[((Y & 7) << 3) | (X & 7)]; if (b < e) BUF[Y * W + X] = T_WH[e > 0.45 && b < e * 0.5 ? 3 : 2][BUF[Y * W + X]];
+      }
+      for (let q = 0; q < 10; q++) { const u = frac(ih(q, wx, 631) + t * 0.5), d = u * 100, x = wx + dir * d * 0.75 + (ih(q, 3, 631) - 0.5) * 10, y = wy - 4 + d * 0.55 + (ih(q, 4, 631) - 0.5) * 8; P(toSX(cx, z, x), toSY(cy, z, y), u < 0.6 ? 194 : 246); }
     }
   }
   function newelLive(cx, cy, z) {
@@ -2996,7 +3270,9 @@
     const [mx, my] = FOXOUT.mouth, fl0 = lanternFlame(mx, my, LS, th);
     LAMP.on = 1; LAMP.x = fl0[0]; LAMP.y = fl0[1]; LAMP.z = front ? 0 : 60; LAMP.h = 10; LAMP.I = 1.25 * flick(t); LAMP.R = 70; LAMP.zoom = 1; LAMP.rot = th * 2;
     comp(L.back, 240, OYI + cy, z, 0);
+    stoveGlow(cx, cy, z, t);
     const kF = t < 28.25 ? climbK(t) : 99;
+    if (t < 28.4) { slitShafts(cx, cy, z, t); wallRope(cx, cy, z); stairShadows(cx, cy, z, Math.min(kF, TREAD_N)); }
     const drawKit = () => { drawFox(p, fxs, fys, S, f, Object.assign({}, FILIGHT, { z: front ? 4 : 64 })); drawLantern(mx, my, LS, th, { lit: 1 }); };
     stairLive(cx, cy, z, 0, kF);
     if (!front) drawKit();                                        // (behind the newel on the far half of the turn)
@@ -3028,7 +3304,7 @@
     return drawKeeper(toSX(cx, z, KEEP_X), toSY(cy, z, 0), 2.05 * z, -1, o, { sky: [-0.4, -0.9], amb: 0.3, z: 10, gain: 1.4 });
   }
   shot(25.3, 30.0, (lt, t) => {
-    if (t < 25.8) dissolve(() => f5Draw(t), () => fiDraw(t), eis((t - 25.3) / 0.5), 39);
+    if (t < 25.8) dip(() => f5Draw(t), () => fiDraw(t), (t - 25.3) / 0.5);
     else fiDraw(t);
   });
 
@@ -3082,6 +3358,7 @@
     outside(cx, cy, z, t);
     if (beamOut > 0) windowBeam(t, cx, cy, z, beamOut);
     comp(L.back, 240, OYI + cy, z, 0);
+    stoveGlow(cx, cy, z, t);
     drawLens(toSX(cx, z, LENS_X), toSY(cy, z, LENS_Y), LENS_S * z, { lit: c, catch: c, rot: 0.3 + Math.max(0, t - T_CATCH) * 0.35 });
     keeperFn();
     kitFn();
@@ -3194,11 +3471,11 @@
   }
   shot(30.0, 32.25, (lt, t) => f6Draw(t));
   shot(32.25, 34.2, (lt, t) => {
-    if (t < 32.75) dissolve(() => f6Draw(Math.min(t, 32.4)), () => f6Out(t), eis((t - 32.25) / 0.5), 41);
+    if (t < 32.75) dip(() => f6Draw(Math.min(t, 32.4)), () => f6Out(t), (t - 32.25) / 0.5, T_WARM, 0.55);
     else f6Out(t);
   });
   shot(34.2, 36.0, (lt, t) => {
-    if (t < 34.7) dissolve(() => f6Out(t), () => f6End(t), eis((t - 34.2) / 0.5), 43);
+    if (t < 34.7) dip(() => f6Out(t), () => f6End(t), (t - 34.2) / 0.5);
     else f6End(t);
   });
 

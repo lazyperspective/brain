@@ -174,7 +174,7 @@
   }
   // the ice, live: cool and deep in the dark; gold inside and cyan at the rims where the lantern reaches; caustics; cracks
   const R_ICEC = [222, 223, 224, 225, 226, 227, 228, 229];
-  const R_ICEW = [176, 178, 180, 181, 182, 183, 199, 200, 22];
+  const R_ICEW = [225, 226, 227, 228, 229, 188, 187, 200, 22];       // light diffusing through ice: it stays icy until near the flame, then cream-gold
   function iceShade(m, s, l, f, X, Y, lx, ly, nx) {
     const b = bay(X, Y);
     if (m === M_RIVER) return riverShade(s, l, f, X, Y, lx, ly, b);
@@ -192,7 +192,7 @@
       const w = g * (0.9 + 0.25 * filament) - 0.08;
       // a smooth handover from the cool ice to the warm glow (a narrow dither seam)
       const k = clamp((w - 0.06) * 3.2, 0, 1);
-      if (b < k) return rq(R_ICEW, clamp(w * 0.72 + v * 0.22, 0, 1), b, 0.6);
+      if (b < k) return rq(R_ICEW, clamp(w * 0.8 + v * 0.18, 0, 1), b, 0.6);
     }
     return rq(R_ICEC, clamp(v * 0.6 + (deep ? -0.05 : 0.04), 0, 1), b, 0.8);
   }
@@ -243,8 +243,8 @@
   };
   const F3LIGHT = { sky: [-0.3, -0.95], rim: 0.85, amb: 0.36, z: 4, gain: 1.5 };
   function f3Cam(t) {
-    const u = eis((t - 10.45) / 4.4), v = eio((t - 14.7) / 2.3);
-    const z = lerp(1.25, 1.0, u), cy = lerp(lerp(184, 118, u), -196, v), cx = lerp(186, 238, eis((t - 10.45) / 5.2)) + drift(t, 5, 1);
+    const u = eis((t - 10.45) / 4.4), v = eio((t - 14.4) / 2.55);
+    const z = lerp(1.25, 1.0, u), cy = lerp(lerp(184, 118, u), -372, v), cx = lerp(186, 238, eis((t - 10.45) / 5.2)) + drift(t, 5, 1);
     return [cx, cy, z];
   }
   function f3Draw(t) {
@@ -256,10 +256,10 @@
     const [mx, my] = FOXOUT.mouth, LS = F3LS * z, fl0 = lanternFlame(mx, my, LS, th);
     LAMP.on = 1; LAMP.x = fl0[0]; LAMP.y = fl0[1]; LAMP.z = 0; LAMP.h = Math.max(4, (fys - fl0[1]) / z); LAMP.I = 1.15 * flick(t); LAMP.R = 62 * z; LAMP.zoom = z; LAMP.rot = th * 2;
     SHAD.push({ x: fxs - 20 * z, y: fys + 1.5 * z, rx: 32 * z, ry: 4.5 * z, a: 0.6, lamp: 1 });
-    skyLive([202, 202, 203, 203, 204, 205, 206], 40, OY3 - 60, 240 + cx * 0.1, oy(0.82), z, 301);
-    comp(L.sky, 240 + cx * 0.1, oy(0.82), z, 0);
-    aurora(t, 240 + cx * 0.1, oy(0.82), z, 0.25 + 0.75 * sstep(15.3, 16.8, t), F3AUR);
-    liveStars(t, 26, 391, 240 + cx * 0.1, oy(0.82), z, OY3 + 30, (c) => c >= 202 && c <= 205);
+    // the sky is the meadow's (heavens): placed so that at the hand-over (16.95 s, both cameras at rest) it is exactly where
+    // the meadow's camera has it, and moving with this camera until then
+    { const [hx, hy] = f4SkyAt(16.95), [cx0, cy0] = f3Cam(16.95), sx = hx + (cx - cx0) * 0.1, sy = hy + (cy - cy0) * 0.82;
+      heavens(t, sx, sy, z, 0.25 + 0.75 * sstep(15.3, 16.8, t)); }
     comp(L.far, 220 + cx * 0.35, oy(0.88), z, 0.3, { mist: 0.2, mistY: OY3 - 110, mistH: 40 });
     RIVM.fill(0);
     comp(L.gorge, 120 + cx * 0.85, oy(0.95), z, 0.08, { custom: iceShade, cm0: M_ICE, cm1: M_ICED });

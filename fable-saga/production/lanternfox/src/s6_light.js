@@ -48,6 +48,7 @@
     outside(cx, cy, z, t);
     if (beamOut > 0) windowBeam(t, cx, cy, z, beamOut);
     comp(L.back, 240, OYI + cy, z, 0);
+    stoveGlow(cx, cy, z, t);
     drawLens(toSX(cx, z, LENS_X), toSY(cy, z, LENS_Y), LENS_S * z, { lit: c, catch: c, rot: 0.3 + Math.max(0, t - T_CATCH) * 0.35 });
     keeperFn();
     kitFn();
@@ -160,10 +161,10 @@
   }
   shot(30.0, 32.25, (lt, t) => f6Draw(t));
   shot(32.25, 34.2, (lt, t) => {
-    if (t < 32.75) dissolve(() => f6Draw(Math.min(t, 32.4)), () => f6Out(t), eis((t - 32.25) / 0.5), 41);
+    if (t < 32.75) dip(() => f6Draw(Math.min(t, 32.4)), () => f6Out(t), (t - 32.25) / 0.5, T_WARM, 0.55);
     else f6Out(t);
   });
   shot(34.2, 36.0, (lt, t) => {
-    if (t < 34.7) dissolve(() => f6Out(t), () => f6End(t), eis((t - 34.2) / 0.5), 43);
+    if (t < 34.7) dip(() => f6Out(t), () => f6End(t), (t - 34.2) / 0.5);
     else f6End(t);
   });
