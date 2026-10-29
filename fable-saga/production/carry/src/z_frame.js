@@ -175,9 +175,8 @@
         raf = requestAnimationFrame(frame);
         const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
         if (!playing) return;
-        if (clock >= D) { hold += dt; if (hold < 2.5) return; hold = 0; clock = 0; } // a short rest on the last frame, then again
-        clock = Math.min(D, clock + dt);
-        draw(Math.min(clock, D - 1 / 30));
+        clock = (clock + dt) % D;                                     // a seamless loop: straight round again
+        draw(clock);
       }
       if (!EXPORT) raf = requestAnimationFrame(frame);
       const onDown = () => { if (EXPORT) return; playing = !playing; last = 0; pauseMark.style.opacity = playing ? '0' : '1'; };

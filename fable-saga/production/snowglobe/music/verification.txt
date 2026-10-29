@@ -1,0 +1,65 @@
+SNOW GLOBE - score verification (all values measured on the rendered score.wav)
+
+Summary
+  PASS  duration exactly 15.000 s (720000 frames)
+  PASS  48 kHz / stereo / 24-bit PCM
+  PASS  integrated loudness about -16 LUFS (-16.00)
+  PASS  true peak <= -1 dBTP (-4.58; looped x3: -4.58)
+  PASS  seamless: loop == continuous render around the seam (-114.2 dBFS)
+  FAIL  no click: spectral step at the seam 7.08 dB, no larger than at the other cues (max 6.47 dB)
+  FAIL  all 4 cues marked within +-33 ms (worst 63.0 ms)
+
+Integrated loudness (internal BS.1770 meter): -16.00 LUFS, true peak -4.58 dBTP (4x oversampled)
+ffmpeg ebur128: I:         -16.0 LUFS | LRA:         1.9 LU | Peak:       -4.6 dBFS
+score.wav: 720000 frames = 15.000 s, 48000 Hz, 2 ch, PCM_24
+Render: 1 s pre-roll + three cycles through fluidsynth (one instance per channel), hall, compressor and limiter; score.wav = the middle cycle (render 16.000-31.000 s)
+Limiter (true-peak, ceiling -1.5 dBTP): max gain reduction 0.0 dB, more than 1 dB for 0 ms of the 15 s
+
+Loop seam (the last sample of score.wav -> its first)
+  first sample  L +0.026442  R +0.026553   last sample  L +0.074541  R +0.058999
+  step across the seam (first - last)   L -0.048099  R -0.032446  (|step| sits at percentile 95 (L) / 88 (R) of all sample steps in the file; median 0.012264, max 0.265983)
+  the same step in the continuous render at 30.000 s      L -0.048100  R -0.032446  (difference -119.1 dBFS)
+  looped signal vs continuous render, +-1 s around the seam: max |difference| -114.2 dBFS
+  cycle identity (kept cycle vs the next): first 3 s -114.2 dBFS, whole cycle (to 0.5 s before its end, where the 4th cycle would begin) -76.5 dBFS
+  click test (>12 kHz, 1 ms RMS): at the seam -54.6 dBFS, continuous render there -54.6 dBFS; file median -58.2, 99th pct -40.4 dBFS
+  spectral continuity (2048-pt frames, 5 ms hop, 210 Hz-16 kHz): the largest frame-to-frame log-spectral distance across the seam is 7.08 dB (99th percentile of the whole loop; median 4.27, 99th pct 7.19 dB)
+  for comparison, the same measure at the other cues: 3.75 s 6.47, 7.50 s 5.11, 11.25 s 5.47 dB
+  the frames around the seam vs the same frames of the continuous render: max difference 0.0150 dB
+  level either side of the seam (K-weighted, 250 ms): before -15.1 LUFS, after -14.3 LUFS (the seam is the D chord arriving from the Gm6)
+  dry stems, kept cycle vs the next (first 14 s), max |difference|: strings -300, keys -84, choir -300, brass -300, perc -300, pad -300, fxlow -300, fxair -300 dBFS
+Hall tail of the previous cycle under the start of the loop (RMS, at master gain):
+  0.00-0.25 s  -23.7 dBFS | 0.25-0.50 s  -28.7 dBFS | 0.50-1.00 s  -35.6 dBFS | 1.00-2.00 s  -48.7 dBFS | 2.00-3.00 s  -67.3 dBFS
+
+Cue alignment (onset detection on the looped signal; tolerance +-33.3 ms = 1 frame at 30 fps)
+  bands: low < 150 Hz (each arrival has a harp + pizzicato root, timpani from 8.08), high 3-10 kHz (the chime)
+  OK  cue   0.00  seam: the cabin, D waltz             low  measured -0.012  delta  -12.0 ms  rise   9.4 dB
+  OK  cue   3.75  the village: G, sleigh bells         low  measured  3.759  delta   +9.0 ms  rise  11.4 dB   (next within 120 ms: 3.685, 3.9 dB)
+  OFF cue   7.50  the workshop: Bm, tubular bell       low  measured  7.563  delta  +63.0 ms  rise   8.3 dB   (next within 120 ms: 7.481, 6.1 dB)
+  OK  cue  11.25  the forest: Em9, choir               low  measured 11.264  delta  +14.0 ms  rise   6.7 dB   (next within 120 ms: 11.361, 5.0 dB)
+  4 cues, 3 within one frame; worst |delta| = 63.0 ms
+
+Music at each cue (from the notes as written): sounding chord after the cue, and the entries on it
+    0.00  seam: the cabin, D waltz             pcs D-F#-A                   entries: celesta, contrabass, glockenspiel, harp, music box, pizzicato, slow strings, violas+celli, warm pad
+    3.75  the village: G, sleigh bells         pcs D-G-B                    entries: celesta, contrabass, french horns, glockenspiel, harp, music box, slow strings, violas+celli, warm pad
+    7.50  the workshop: Bm, tubular bell       pcs D-F#-B                   entries: celesta, contrabass, flute, glockenspiel, harp, music box, percussion, pizzicato, slow strings, tubular bells, violas+celli, warm pad
+   11.25  the forest: Em9, choir               pcs E-F#-G-B                 entries: celesta, choir oohs, contrabass, glockenspiel, harp, music box, slow strings, violas+celli, warm pad
+  first note in the cycle: contrabass 0.00, choir oohs 11.25, choir aahs 13.12, french horns 3.75, flute 7.50
+
+Tempo map (3/4; bar lines on the cues; periodic spline):
+  bar 1  0.000 s  96.0 bpm | bar 2  1.875 s  96.0 bpm | bar 3  3.750 s  96.0 bpm | bar 4  5.625 s  96.0 bpm | bar 5  7.500 s  96.0 bpm
+  bar 6  9.375 s  96.0 bpm | bar 7 11.250 s  96.0 bpm | bar 8 13.125 s  96.0 bpm | bar 9 15.000 s  96.0 bpm
+
+Momentary loudness (K-weighted, 400 ms from the cue; looped signal): 0.00 -15.0, 3.75 -13.7, 7.50 -14.1, 11.25 -13.7 LUFS
+
+Energy contour (K-weighted loudness of each section, LUFS)
+    0.00-  3.75  the cabin (music box, harp, fire)   -16.8 LUFS   peak    -4.6 dBFS  ############################
+    3.75-  7.50  the village (sleigh bells)     -15.5 LUFS   peak    -5.2 dBFS  #############################
+    7.50- 11.25  the workshop (ticks, flute)    -16.7 LUFS   peak    -5.9 dBFS  ############################
+   11.25- 15.00  the forest cabin (choir)       -15.1 LUFS   peak    -5.1 dBFS  #############################
+
+Stem balance (K-weighted loudness of each stem in the section, LUFS, approx. master gain)
+  section                       strings     keys    choir    brass     perc      pad    fxlow    fxair
+  the cabin (music box, harp, fire)    -21.4    -19.5    -51.1    -74.2   -200.7    -44.0   -200.7    -29.7
+  the village (sleigh bells)      -18.3    -19.3   -200.6    -39.1   -200.7    -42.0   -200.7    -28.0
+  the workshop (ticks, flute)     -21.8    -19.1    -59.0    -35.9    -44.6    -41.5   -200.7    -29.9
+  the forest cabin (choir)        -18.1    -18.7    -28.2    -51.0    -65.8    -41.1   -200.7    -28.9
