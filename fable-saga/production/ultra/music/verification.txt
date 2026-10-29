@@ -1,0 +1,81 @@
+ultrathink - score verification (all values measured on the rendered score.wav)
+
+Summary
+  PASS  duration exactly 15.000 s
+  PASS  48 kHz / stereo / 24-bit PCM
+  PASS  integrated loudness about -14 LUFS (-14.00)
+  PASS  true peak <= -1 dBTP (-1.30)
+  PASS  silent by the end (digital zero from 14.86 s)
+  PASS  all 8 timed cues within +-33 ms (worst 10.0 ms)
+
+Integrated loudness (internal BS.1770 meter): -14.00 LUFS, true peak -1.30 dBTP (4x oversampled)
+ffmpeg ebur128: I:         -14.0 LUFS | LRA:        10.4 LU | Peak:       -1.3 dBFS
+score.wav: 720000 frames = 15.000 s, 48000 Hz, 2 ch, PCM_24
+
+Cue alignment (onset detection on the master; tolerance +-33.3 ms = 1 frame at 30 fps)
+  detector low = <150 Hz band (stabs, HITs, sting, chord); full = 150 Hz-5 kHz (the plip)
+  OK  cue  1.600  CLANK 1 (small stab)       low  measured  1.597  delta   -3.0 ms  rise  21.5 dB
+  OK  cue  2.600  CLANK 2 (bigger stab)      low  measured  2.599  delta   -1.0 ms  rise  20.1 dB
+  OK  cue  5.600  plip (celesta+glock)       full measured  5.601  delta   +1.0 ms  rise  19.6 dB
+  OK  cue  6.000  time stops: whoosh-boom    low  measured  5.998  delta   -2.0 ms  rise  32.0 dB
+  OK  cue 10.000  found it: D major sting    low  measured 10.000  delta   +0.0 ms  rise  16.6 dB
+  OK  cue 11.000  HIT time restarts (D)      low  measured 10.990  delta  -10.0 ms  rise  54.8 dB
+  OK  cue 11.800  BIGGEST HIT shatter (A)    low  measured 11.801  delta   +1.0 ms  rise  22.0 dB
+  OK  cue 12.400  final chord / title (D')   low  measured 12.401  delta   +1.0 ms  rise  20.7 dB
+  8 cues, 8 within one frame; worst |delta| = 10.0 ms
+
+Hero theme quote D-A-B-A-D' (1-5-6-5-8), trumpets, as written in score.mid:
+   11.00 s  D5   present (vel 116)
+   11.80 s  A5   present (vel 127)
+   12.10 s  B5   present (vel 116)
+   12.25 s  A5   present (vel 114)
+   12.40 s  D6   present (vel 127)
+
+Energy contour (K-weighted loudness of each section, LUFS)
+    0.00-  1.60  curious (pizz/celesta)       -23.6 LUFS   peak   -12.0 dBFS  ########################
+    1.60-  2.60  clank 1                      -19.2 LUFS   peak    -3.4 dBFS  ###########################
+    2.60-  3.00  clank 2 / boing              -14.6 LUFS   peak    -2.6 dBFS  ##############################
+    3.00-  4.00  deflated bassoon             -21.5 LUFS   peak   -10.8 dBFS  #########################
+    4.00-  5.60  held high note               -28.7 LUFS   peak   -14.2 dBFS  ####################
+    5.60-  6.00  plip / gold glow             -15.2 LUFS   peak    -7.7 dBFS  #############################
+    6.00-  7.20  time frozen                  -17.0 LUFS   peak    -3.3 dBFS  ############################
+    7.20-  8.60  search (accelerating)        -19.5 LUFS   peak    -9.1 dBFS  ##########################
+    8.60- 10.00  search (building)            -13.3 LUFS   peak    -2.9 dBFS  ###############################
+   10.00- 10.80  found it                     -12.7 LUFS   peak    -1.6 dBFS  ###############################
+   10.80- 10.93  breath (silence)            -200.7 LUFS   peak  -240.0 dBFS  
+   11.00- 11.80  HIT / dash                   -10.4 LUFS   peak    -1.4 dBFS  #################################
+   11.80- 12.40  BIGGEST HIT / blocks fall     -8.2 LUFS   peak    -1.3 dBFS  ##################################
+   12.40- 13.40  final chord                   -9.6 LUFS   peak    -1.3 dBFS  #################################
+   13.40- 15.00  ring out                     -26.2 LUFS   peak    -8.2 dBFS  ######################
+
+Hit power: momentary loudness (K-weighted, 400 ms from the cue)
+    1.60  CLANK 1 (small stab)        -16.3 LUFS
+    2.60  CLANK 2 (bigger stab)       -14.6 LUFS
+    5.60  plip (celesta+glock)        -15.2 LUFS
+    6.00  time stops: whoosh-boom     -14.2 LUFS
+   10.00  found it: D major sting     -10.6 LUFS
+   11.00  HIT time restarts (D)       -10.0 LUFS
+   11.80  BIGGEST HIT shatter (A)      -7.2 LUFS
+   12.40  final chord / title (D')     -7.6 LUFS
+
+Silence check 10.80-10.93 (the breath before the dash): peak -inf (digital zero)
+Silence check 14.86-15.00 (digital zero to the end): peak -inf (digital zero)
+Silence check 14.50-15.00 (last 0.5 s): peak -43.3 dBFS
+Last sample: L 0.0e+00, R 0.0e+00
+
+Stem balance (K-weighted loudness of each stem in the section, LUFS, approx. master gain)
+  section                      strings    winds    brass    choir     keys     perc    fxlow    fxair
+  curious (pizz/celesta)         -39.4   -200.7    -74.6   -200.7    -35.6    -46.1   -200.7   -200.7
+  clank 1                        -34.2    -44.4    -39.2   -200.7    -39.8    -37.7    -36.1    -36.7
+  clank 2 / boing                -28.8    -45.2    -28.6   -200.7    -45.0    -33.2    -30.8    -30.1
+  deflated bassoon               -36.9    -33.9    -46.1   -200.7    -58.1    -46.5    -43.7    -41.0
+  held high note                 -41.4    -45.6    -74.5   -200.7    -62.4    -67.4    -51.6    -50.2
+  plip / gold glow               -41.9    -81.3    -52.0    -44.9    -29.2   -102.2    -50.7    -27.3
+  time frozen                    -33.9    -96.7    -33.2    -40.1    -36.9    -38.1    -26.1    -37.4
+  search (accelerating)          -31.8   -200.7    -52.1    -34.7    -33.8    -56.8    -44.8    -42.9
+  search (building)              -26.7   -200.7    -32.6    -31.4    -25.8    -43.3    -93.3    -25.7
+  found it                       -24.8   -200.7    -22.6    -30.2    -23.5    -34.4    -31.0    -32.3
+  HIT / dash                     -20.5   -200.7    -18.1    -38.1    -27.7    -28.1    -24.7    -24.8
+  BIGGEST HIT / blocks fall      -18.3   -200.7    -17.4    -22.9    -34.0    -25.9    -23.8    -30.4
+  final chord                    -21.0   -200.7    -16.7    -23.2    -29.5    -28.4    -24.1    -47.6
+  ring out                       -37.7   -200.7    -34.2    -39.0    -48.5    -48.5    -38.6    -58.6
