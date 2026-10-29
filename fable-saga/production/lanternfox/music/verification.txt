@@ -1,0 +1,50 @@
+THE LANTERN FOX - score verification (all values measured on the rendered score.wav)
+
+Summary
+  PASS  duration exactly 36.000 s (1728000 frames)
+  PASS  48 kHz / stereo / 24-bit PCM
+  PASS  integrated loudness about -16 LUFS (-16.00)
+  PASS  true peak <= -1 dBTP (-1.50)
+  PASS  a natural ending: the hall faded out inside the 36 s (last 50 ms -72.5 dBFS, last sample 0.00e+00)
+  PASS  cues within +-33 ms (9/9, worst 11.0 ms)
+
+Integrated loudness (internal BS.1770 meter): -16.00 LUFS, true peak -1.50 dBTP (4x oversampled)
+ffmpeg ebur128: I:         -16.0 LUFS | LRA:         7.8 LU | Peak:       -1.5 dBFS
+score.wav: 1728000 frames = 36.000 s, 48000 Hz, 2 ch, PCM_24
+Render: 1 s pre-roll, the 36 s cue, one fluidsynth per MIDI channel; hall; compressor; true-peak limiter (ceiling -1.5 dBTP, max gain reduction 2.3 dB, more than 1 dB for 730 ms); fade 35.05-36.00 s
+617 notes, 19 synthesized fx events
+
+Cue alignment (onset detection; tolerance +-33.3 ms = 1 frame at 30 fps)
+  OK  cue   0.00  the find: celesta theme              high measured -0.001  delta   -1.0 ms  rise 105.0 dB
+  OK  cue   3.00  the light blooms: glockenspiel       high measured  3.002  delta   +2.0 ms  rise  17.9 dB
+  OK  cue   5.00  the woods: flute, pizzicato          low  measured  5.009  delta   +9.0 ms  rise   7.2 dB
+  OK  cue  11.00  the frozen falls: B minor            high measured 11.003  delta   +3.0 ms  rise  14.5 dB
+  OK  cue  17.00  the aurora: G major, choir, horn     low  measured 17.010  delta  +10.0 ms  rise   7.9 dB
+  OK  cue  23.00  the storm: D minor, brass            low  measured 22.993  delta   -7.0 ms  rise  10.6 dB
+  OK  cue  29.00  he looks up: celesta                 high measured 29.002  delta   +2.0 ms  rise  14.1 dB
+  OK  cue  32.00  THE BEAM: tutti                      low  measured 31.989  delta  -11.0 ms  rise  10.7 dB
+  OK  cue  34.00  the lullaby                          high measured 34.007  delta   +7.0 ms  rise   6.4 dB
+  9 cues, 9 within one frame; worst |delta| = 11.0 ms
+
+Energy contour (K-weighted loudness of each section, LUFS)
+    0.00-  5.00  the find (celesta)             -16.8 LUFS   peak    -5.5 dBFS  ############################
+    5.00- 11.00  the woods (flute)              -16.9 LUFS   peak    -4.7 dBFS  ############################
+   11.00- 17.00  the frozen falls               -19.4 LUFS   peak    -8.5 dBFS  ###########################
+   17.00- 23.00  the aurora meadow              -17.4 LUFS   peak    -4.6 dBFS  ############################
+   23.00- 28.20  the storm and the climb        -14.9 LUFS   peak    -1.6 dBFS  ##############################
+   28.20- 30.00  the lamp room                  -21.0 LUFS   peak    -9.3 dBFS  ##########################
+   30.00- 32.00  the lantern into the lens      -14.1 LUFS   peak    -1.5 dBFS  ##############################
+   32.00- 34.00  THE BEAM                       -10.0 LUFS   peak    -1.5 dBFS  #################################
+   34.00- 36.00  the lullaby                    -18.3 LUFS   peak    -5.7 dBFS  ###########################
+
+Stem balance (K-weighted loudness of each stem in the section, LUFS, approx. master gain)
+  section                       strings     keys    winds    choir    brass     perc    fxlow    fxair
+  the find (celesta)              -30.5    -19.8    -59.1   -200.7   -200.7   -125.7    -33.1    -30.1
+  the woods (flute)               -24.8    -22.0    -24.9   -200.7   -200.7    -42.2    -54.4    -31.9
+  the frozen falls                -27.2    -24.1    -51.9    -66.6    -64.9    -86.3   -200.7    -34.1
+  the aurora meadow               -22.7    -24.2   -200.7    -28.9    -32.0    -39.5   -200.7    -32.4
+  the storm and the climb         -19.4    -27.1   -200.7    -51.5    -23.6    -25.8    -29.9    -27.3
+  the lamp room                   -26.4    -27.5   -200.7   -200.7    -35.6    -31.8    -38.6    -41.8
+  the lantern into the lens       -21.8    -19.5   -200.7    -43.1    -42.1    -23.7    -85.5    -19.5
+  THE BEAM                        -10.5    -14.6   -200.7    -14.1    -16.3    -20.8    -25.3    -26.5
+  the lullaby                     -23.4    -20.3   -200.7    -26.2    -37.9    -45.4    -45.0    -45.9

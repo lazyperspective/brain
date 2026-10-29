@@ -204,9 +204,10 @@
         if (env <= 0.01) continue;
         // the hem folds and drifts; the rays are thin bright streaks over a faint veil, sliding along the curtain
         const hem = C.y + C.amp * Math.sin(wx * C.k + t * 0.22 + C.ph) + C.amp * 0.35 * Math.sin(wx * C.k * 2.9 - t * 0.33 + C.ph * 2);
-        const r1 = 0.5 + 0.5 * Math.sin(wx * 0.19 + 3.1 * Math.sin(wx * 0.017 + t * 0.21 + C.ph) + t * 0.55);
-        const r2 = 0.5 + 0.5 * Math.sin(wx * 0.53 - 2.0 * Math.sin(wx * 0.041 - t * 0.37) + t * 1.1 + C.ph);
-        const ray = 0.32 + 0.48 * sstep(0.5, 0.7, r1) + 0.32 * sstep(0.62, 0.8, r2);   // flat-sided streaks, not spikes
+        const r1 = 0.5 + 0.5 * Math.sin(wx * 0.33 + 3.1 * Math.sin(wx * 0.017 + t * 0.21 + C.ph) + t * 0.55);
+        const r2 = 0.5 + 0.5 * Math.sin(wx * 0.91 - 2.0 * Math.sin(wx * 0.041 - t * 0.37) + t * 1.1 + C.ph);
+        const r3 = 0.5 + 0.5 * Math.sin(wx * 0.06 + t * 0.15 + C.ph * 2);
+        const ray = 0.45 + 0.3 * sstep(0.45, 0.8, r1) + 0.18 * r2 + 0.22 * r3;   // fine rays in a soft veil
         const fold = 0.6 + 0.4 * Math.sin(wx * C.k * 1.7 + t * 0.3 + C.ph * 3);   // brighter where the curtain turns toward us
         const q = env * amt * ray * fold * (C.b || 1);
         const len = C.len;
@@ -232,11 +233,14 @@
       const wob = 3 * Math.sin(Y * 0.02 + 1.3) + 2 * Math.sin(Y * 0.071);
       for (let X = x0; X <= x1; X++) {
         const q = (X + 0.5 - cxs - wob) / hw; if (Math.abs(q) > 1) continue;
-        const fu = vn(q * 14, Y * 0.06, 1.2, 9101), nc = Math.sqrt(1 - q * q), pl = vn(q * 5, Y * 0.02, 1, 9103);
-        let c = fu < 0.3 ? 195 : nc > 0.55 && pl > 0.45 ? 216 : 215;
-        if (q < -0.86) c = 217;                                         // cool rim
+        // furrowed bark: long vertical grooves wandering a little, plates between them; round, dark, out of focus
+        const nc = Math.sqrt(1 - q * q), u = Math.asin(q) * 6.5 + n1(Y * 0.013, 9101) * 0.8;
+        const fu = Math.abs(Math.sin(u * PI)), plate = vn(u * 3, Y * 0.03, 1.5, 9103);
+        let v = 0.25 + 0.5 * nc - (fu < 0.18 ? 0.35 : 0) + (plate - 0.5) * 0.2 - q * 0.15;
+        let c = v > 0.62 ? 217 : v > 0.42 ? 216 : v > 0.22 ? 215 : 195;
+        if (q < -0.88) c = 217;                                          // cool rim
         if (q > 0.9 && lampLit > 0) c = bay(X, Y) < 0.5 ? 219 : 177;    // a thin warm edge from the lantern
-        if (q < -0.45 && fu > 0.72 && vn(q * 5, Y * 0.12, 2, 9102) > 0.62) c = 136;   // snow caught in the bark
+        if (q < -0.3 && fu > 0.6 && vn(u, Y * 0.05, 2, 9102) > 0.78) c = 136;   // snow caught on the windward plates
         BUF[Y * W + X] = c;
       }
     }

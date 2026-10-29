@@ -145,8 +145,8 @@
     comp(L.fore, 30 + cx * 1.4, 135 + (cy - 135) * 1.4, z, 0);
     snowfall(t, cx, cy, z, { dens: 0.9 });
   }
-  shot(4.75, 10.45, (lt, t) => {
+  shot(4.75, 10.8, (lt, t) => {
     if (t < 5.25) dissolve(() => f1Draw(t), () => f2Draw(t), eis((t - 4.75) / 0.5), 31);
     else f2Draw(t);
-    if (t > 10.25) f23Trunk(t);
+    if (t > 10.6) f23Trunk(t);
   });

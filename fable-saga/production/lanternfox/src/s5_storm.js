@@ -90,7 +90,7 @@
       }
     }
   }
-  const f5X = (t) => lerp(-24, T5X - 2, eis(clamp((t - 22.4) / 2.75, 0, 1)) * 0.25 + clamp((t - 22.4) / 2.75, 0, 1) * 0.75);
+  const f5X = (t) => lerp(-10, T5X - 2, eis(clamp((t - 22.75) / 2.4, 0, 1)) * 0.25 + clamp((t - 22.75) / 2.4, 0, 1) * 0.75);
   const f5Pose = (t) => {
     const ph = t * 3.3, inside = t > 25.15;
     const wagD = (u) => { const tt = t - u * 0.12; return 0.12 * Math.sin(TAU * 1.6 * tt) + 0.05 * Math.sin(TAU * 3.3 * tt); };
@@ -99,7 +99,7 @@
   };
   const F5LIGHT = { sky: [-0.5, -0.85], rim: 0.6, amb: 0.3, z: 4, gain: 1.5 };
   function f5Cam(t) {
-    const a = eis((t - 22.35) / 1.7), b = eio((t - 24.0) / 1.6);
+    const a = eis((t - 22.75) / 1.5), b = eio((t - 24.0) / 1.6);
     let z = lerp(1.25, 1.0, a), cx = lerp(208, 246, a) + drift(t, 9, 1), cy = lerp(126, 134, a);
     if (b > 0) { z = lerp(z, 1.8, b); const fx = T5X, fy = T5Y - 10, sx = lerp(toSX(cx, 1, fx), 250, b), sy = lerp(toSY(cy, 1, fy), 150, b); cx = fx - (sx + 0.5 - 240) / z; cy = fy - (sy + 0.5 - 135) / z; }
     return [cx, cy, z];
@@ -156,7 +156,7 @@
   let F5FOG = null;
   BUILDERS.push(() => { F5FOG = mkTab('324050', false); });
   let beamFx = null;                                             // (the beam is given by shot 6)
-  shot(22.35, 25.3, (lt, t) => {
-    if (t < 22.85) dissolve(() => f4Draw(t), () => f5Draw(t), eis((t - 22.35) / 0.5), 37);
+  shot(22.75, 25.3, (lt, t) => {
+    if (t < 23.25) dissolve(() => f4Draw(t), () => f5Draw(t), eis((t - 22.75) / 0.5), 37);
     else f5Draw(t);
   });

@@ -67,6 +67,7 @@
       if (fr && nr && p.dig > 0) { // digging: the near forepaw reaches forward and scrapes back
         fx = lerp(fx, cx + 4.5 + p.digReach * 4.5, p.dig); fy = lerp(fy, -1.2 - 4.0 * clamp(p.digReach, 0, 1) * (1 - p.digReach * 0.5), p.dig);
       }
+      if (p.lift > 0) { fy -= p.lift * 0.92; fx += (fr ? -1.2 : 1.4) * Math.min(1, p.lift / 4); }   // airborne: the paws leave the snow and tuck
       if (sit > 0 && !fr) { fx = lerp(fx, rx + 5.5, sit); }
       if (sit > 0 && fr) { fx = lerp(fx, cx + 1.4, sit); }
       if (cur > 0) { fx = lerp(fx, fr ? cx + 3.2 + (nr ? 0 : -1.5) : rx + 4.0 + (nr ? 0 : -1.5), cur); fy = lerp(fy, fr ? -0.8 : -1.0, cur); }

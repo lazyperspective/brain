@@ -72,7 +72,7 @@
   }
 
   /* ================================================================ mount */
-  if (typeof window !== 'undefined') window.__foxcore = { render, BUF, PAL, W, H, D, SHAKE: () => [0, 0], dbg: () => ({ LAMP, lampAt, FOXOUT, TAB, mc, M_FOXW, M_SNOW }) };
+  if (typeof window !== 'undefined') window.__foxcore = { render, BUF, PAL, W, H, D, SHAKE: () => [0, 0] };
   (window.PIECES = window.PIECES || []).push({
     id: 'the-lantern-fox',
     title: 'The Lantern Fox',

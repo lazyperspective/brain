@@ -90,7 +90,7 @@
   };
   const F4LIGHT = { sky: [-0.55, -0.85], rim: 0.9, amb: 0.4, z: 4, gain: 1.5 };
   function f4Cam(t) {
-    const v = eio((t - 16.7) / 1.9), push = eio((t - 21.5) / 1.4);
+    const v = eio((t - 16.7) / 1.9), push = eio((t - 21.65) / 1.45);
     let cx = lerp(170, 236, eis((t - 16.7) / 4.8)) + drift(t, 7, 1), cy = lerp(-120, 132, v), z = 1;
     if (push > 0) {
       // the push in on the far lighthouse: it slides to a place right of centre and everything grows round it
@@ -224,7 +224,7 @@
   const F4AUR = [{ y: OY4 + 78, amp: 14, len: 95, k: 0.012, ph: 1.1, x0: 60, x1: 560, b: 1 }, { y: OY4 + 30, amp: 12, len: 90, k: 0.017, ph: 3.0, x0: 160, x1: 720, b: 0.8 }, { y: OY4 - 50, amp: 16, len: 110, k: 0.011, ph: 0.2, x0: 0, x1: 620, b: 0.85 }, { y: OY4 - 140, amp: 14, len: 100, k: 0.014, ph: 4.2, x0: 100, x1: 700, b: 0.7 }];
   let F4FOG = null;
   BUILDERS.push(() => { F4FOG = mkTab('425a90', false); });
-  shot(16.7, 22.35, (lt, t) => {
+  shot(16.7, 22.75, (lt, t) => {
     if (t < 17.25) dissolve(() => f3Draw(t), () => f4Draw(t), eis((t - 16.7) / 0.55), 35);
     else f4Draw(t);
   });

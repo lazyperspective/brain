@@ -5,8 +5,8 @@
      the lost ship comes about for the harbour's lights. Inside again, in the warm lamp-room light, the kit turns once and
      curls up against the keeper's boots, tail over its nose, and he smiles down at it; snow falls past the glass; the
      beam goes round once more. Hold. */
-  const T_LENS = 31.62, T_CATCH = 31.72;                       // the lantern set down inside; the light catching
-  const lensCatch = (t) => eis(clamp((t - T_CATCH) / 0.62, 0, 1));
+  const T_LENS = 31.4, T_CATCH = 31.45;                       // the lantern set down inside; the light catching
+  const lensCatch = (t) => eis(clamp((t - T_CATCH) / 0.55, 0, 1));
   const beamAngle = (t) => (t - T_CATCH) * 1.25 - 0.9;         // the lens turns: the beam's bearing (0 = straight at us)
   // the beam outside: a long cone from the lamp room, foreshortened as it turns, widening and fading with distance;
   // snow glittering in it; brightest (a flare at the lantern room) when it swings toward us
@@ -70,7 +70,7 @@
   }
   // the keeper's acting through shot 6
   function keeper6(t, cx, cy, z, mouth) {
-    const take = sstep(30.05, 30.45, t), lift = sstep(30.45, 30.85, t), turn = t > 30.95 ? 1 : 0, place = sstep(31.05, 31.55, t), back = sstep(31.75, 32.15, t);
+    const take = sstep(30.05, 30.45, t), lift = sstep(30.45, 30.8, t), turn = t > 30.85 ? 1 : 0, place = sstep(30.9, 31.38, t), back = sstep(31.55, 32.0, t);
     const smileUp = sstep(30.5, 31.0, t);
     let f = turn ? 1 : -1, o;
     const ks = 2.05 * z, kx = toSX(cx, z, KEEP_X), ky = toSY(cy, z, 0);

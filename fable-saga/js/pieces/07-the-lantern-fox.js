@@ -616,6 +616,7 @@
       if (fr && nr && p.dig > 0) { // digging: the near forepaw reaches forward and scrapes back
         fx = lerp(fx, cx + 4.5 + p.digReach * 4.5, p.dig); fy = lerp(fy, -1.2 - 4.0 * clamp(p.digReach, 0, 1) * (1 - p.digReach * 0.5), p.dig);
       }
+      if (p.lift > 0) { fy -= p.lift * 0.92; fx += (fr ? -1.2 : 1.4) * Math.min(1, p.lift / 4); }   // airborne: the paws leave the snow and tuck
       if (sit > 0 && !fr) { fx = lerp(fx, rx + 5.5, sit); }
       if (sit > 0 && fr) { fx = lerp(fx, cx + 1.4, sit); }
       if (cur > 0) { fx = lerp(fx, fr ? cx + 3.2 + (nr ? 0 : -1.5) : rx + 4.0 + (nr ? 0 : -1.5), cur); fy = lerp(fy, fr ? -0.8 : -1.0, cur); }
@@ -1244,9 +1245,10 @@
         if (env <= 0.01) continue;
         // the hem folds and drifts; the rays are thin bright streaks over a faint veil, sliding along the curtain
         const hem = C.y + C.amp * Math.sin(wx * C.k + t * 0.22 + C.ph) + C.amp * 0.35 * Math.sin(wx * C.k * 2.9 - t * 0.33 + C.ph * 2);
-        const r1 = 0.5 + 0.5 * Math.sin(wx * 0.19 + 3.1 * Math.sin(wx * 0.017 + t * 0.21 + C.ph) + t * 0.55);
-        const r2 = 0.5 + 0.5 * Math.sin(wx * 0.53 - 2.0 * Math.sin(wx * 0.041 - t * 0.37) + t * 1.1 + C.ph);
-        const ray = 0.32 + 0.48 * sstep(0.5, 0.7, r1) + 0.32 * sstep(0.62, 0.8, r2);   // flat-sided streaks, not spikes
+        const r1 = 0.5 + 0.5 * Math.sin(wx * 0.33 + 3.1 * Math.sin(wx * 0.017 + t * 0.21 + C.ph) + t * 0.55);
+        const r2 = 0.5 + 0.5 * Math.sin(wx * 0.91 - 2.0 * Math.sin(wx * 0.041 - t * 0.37) + t * 1.1 + C.ph);
+        const r3 = 0.5 + 0.5 * Math.sin(wx * 0.06 + t * 0.15 + C.ph * 2);
+        const ray = 0.45 + 0.3 * sstep(0.45, 0.8, r1) + 0.18 * r2 + 0.22 * r3;   // fine rays in a soft veil
         const fold = 0.6 + 0.4 * Math.sin(wx * C.k * 1.7 + t * 0.3 + C.ph * 3);   // brighter where the curtain turns toward us
         const q = env * amt * ray * fold * (C.b || 1);
         const len = C.len;
@@ -1272,11 +1274,14 @@
       const wob = 3 * Math.sin(Y * 0.02 + 1.3) + 2 * Math.sin(Y * 0.071);
       for (let X = x0; X <= x1; X++) {
         const q = (X + 0.5 - cxs - wob) / hw; if (Math.abs(q) > 1) continue;
-        const fu = vn(q * 14, Y * 0.06, 1.2, 9101), nc = Math.sqrt(1 - q * q), pl = vn(q * 5, Y * 0.02, 1, 9103);
-        let c = fu < 0.3 ? 195 : nc > 0.55 && pl > 0.45 ? 216 : 215;
-        if (q < -0.86) c = 217;                                         // cool rim
+        // furrowed bark: long vertical grooves wandering a little, plates between them; round, dark, out of focus
+        const nc = Math.sqrt(1 - q * q), u = Math.asin(q) * 6.5 + n1(Y * 0.013, 9101) * 0.8;
+        const fu = Math.abs(Math.sin(u * PI)), plate = vn(u * 3, Y * 0.03, 1.5, 9103);
+        let v = 0.25 + 0.5 * nc - (fu < 0.18 ? 0.35 : 0) + (plate - 0.5) * 0.2 - q * 0.15;
+        let c = v > 0.62 ? 217 : v > 0.42 ? 216 : v > 0.22 ? 215 : 195;
+        if (q < -0.88) c = 217;                                          // cool rim
         if (q > 0.9 && lampLit > 0) c = bay(X, Y) < 0.5 ? 219 : 177;    // a thin warm edge from the lantern
-        if (q < -0.45 && fu > 0.72 && vn(q * 5, Y * 0.12, 2, 9102) > 0.62) c = 136;   // snow caught in the bark
+        if (q < -0.3 && fu > 0.6 && vn(u, Y * 0.05, 2, 9102) > 0.78) c = 136;   // snow caught on the windward plates
         BUF[Y * W + X] = c;
       }
     }
@@ -1719,12 +1724,12 @@
         const u = (X + 0.5 - cx) / S, b = bay(X, Y);
         let c = -1;
         // the brass rings top and bottom, and the cage's vertical bars (8 round; the front ones show)
-        if (av > LENS.H - 2.5 && av <= LENS.H + 1 && Math.abs(u) < r + 1.5) { const q = u / (r + 1.5); c = rq(R_BRASS, clamp(0.35 - q * 0.3 + (av > LENS.H ? -0.1 : 0.15) + lit * 0.5, 0, 1), b, 0.8); }
+        if (av > LENS.H - 2.5 && av <= LENS.H + 1 && Math.abs(u) < r + 1.5) { const q = u / (r + 1.5); c = rq(R_BRASS, clamp(0.24 - q * 0.3 + (av > LENS.H ? -0.1 : 0.12) + lit * 0.5, 0, 1), b, 0.8); }
         else if (Math.abs(u) < r) {
           const q = u / r, phi = Math.asin(clamp(q, -1, 1));
           let bar = false;
           for (let k = 0; k < 8; k++) { const a = rot + k * TAU / 8; if (Math.cos(a) < 0.1) continue; if (Math.abs(Math.sin(a) - q) < 0.045 / Math.max(0.3, Math.cos(a))) bar = true; }
-          if (bar) c = rq(R_BRASS, clamp(0.3 - q * 0.25 + lit * 0.55, 0, 1), b, 0.8);
+          if (bar) c = rq(R_BRASS, clamp(0.18 - q * 0.2 + lit * 0.6, 0, 1), b, 0.8);
           else {
             // the glass: which ring, where in it
             let ring, f;
@@ -1746,8 +1751,12 @@
               if (g < 0.35 && b > g * 2.8) c = edge ? 226 : 224;
             } else {
               // dark: deep blue glass, thin bright lines along the prism edges, a soft reflection of the windows
-              const wl = 0.3 + shine * 0.5 + (edge ? 0.35 : 0) + (Math.abs(q + 0.55) < 0.08 ? 0.3 : 0) + (LAMP.on ? 0 : 0);
-              c = edge ? (wl > 0.6 ? 227 : 225) : wl > 0.55 ? 225 : wl > 0.38 ? 224 : wl > 0.25 ? 223 : 222;
+              // dark: clear glass (the room and the storm show through it, cooled), thin bright lines on the prism lips,
+              // a soft reflection of the windows; the lantern's warm light catches it near
+              const wl = 0.3 + shine * 0.5 + (edge ? 0.35 : 0) + (Math.abs(q + 0.55) < 0.08 ? 0.3 : 0);
+              const lm = LAMP.on ? lampAt(X, Y, 0, q * 0.8, 0) : 0;
+              if (edge) c = lm > 0.35 ? (lm > 0.7 ? 200 : 182) : wl > 0.6 ? 227 : 225;
+              else { const g2 = wl > 0.55 ? 225 : wl > 0.38 ? 224 : wl > 0.25 ? 223 : 222; c = mixC(BUF[Y * W + X], g2, 2); if (lm > 0.4 && b < (lm - 0.4) * 1.5) c = 181; }
             }
           }
         }
@@ -1900,7 +1909,7 @@
       gait: t > 4.7 ? sstep(4.7, 5.0, t) : 0, ph: (t - 4.7) * 2.6, A: 3.6 * sstep(4.7, 5.0, t),
       pitch: k.pitch, tilt, hy: k.hy, hx: k.hx, yaw: k.yaw, earN, earF, perk: k.perk, tLift: k.tLift, wagD,
       mouth: happy ? 2 : k.mouth > 0.5 ? 1 : 0, eyes, happy, wide: k.wide, lookX: k.lookX, lookY: k.lookY,
-      dig: k.dig, digReach: reach, sq: k.sq, lift: k.lift, breath: t * TAU * 0.9, whisk: 1,
+      dig: k.dig, digReach: reach, sq: k.sq, lift: k.lift, breath: t * TAU * 0.9, whisk: 0,
     };
   }
   const F1LIGHT = { sky: [-0.45, -0.9], rim: 0.75, amb: 0.36, z: 4, gain: 1.6 };
@@ -2140,10 +2149,10 @@
     comp(L.fore, 30 + cx * 1.4, 135 + (cy - 135) * 1.4, z, 0);
     snowfall(t, cx, cy, z, { dens: 0.9 });
   }
-  shot(4.75, 10.45, (lt, t) => {
+  shot(4.75, 10.8, (lt, t) => {
     if (t < 5.25) dissolve(() => f1Draw(t), () => f2Draw(t), eis((t - 4.75) / 0.5), 31);
     else f2Draw(t);
-    if (t > 10.25) f23Trunk(t);
+    if (t > 10.6) f23Trunk(t);
   });
 
   /* ================================================================ 3 · The frozen waterfall (10.45 … 11.0 – 17.0)
@@ -2168,7 +2177,7 @@
     { const ht = (x) => 30 * fbm(x, 0, 80, 4, 311) + 34 * Math.abs(Math.sin(x * 0.0095 + 0.6)) ** 3;
       for (let x = 0; x < 700; x++) {
         const top = OY3 - 112 - ht(x), sl = (ht(x + 2) - ht(x - 2)) / 4;
-        for (let y = fl(top); y < OY3 + 40; y++) {
+        for (let y = fl(top); y < OY3 - 70; y++) {
           // a far ridge, mostly in shadow: a lit snowy crest on the faces turned to the light
           const dd = y - top, snow = dd < 2 + 7 * fbm(x, 0, 22, 2, 313);
           lput(L.far, x, y, snow ? M_SNOW : M_ROCK, snow ? 0.42 + clamp(sl, -0.15, 0.15) - dd * 0.02 : 0.18 - dd * 0.001, 200, 0, -0.4, 0);
@@ -2408,7 +2417,7 @@
     comp(L.sky, 240 + cx * 0.1, oy(0.82), z, 0);
     aurora(t, 240 + cx * 0.1, oy(0.82), z, 0.25 + 0.75 * sstep(15.3, 16.8, t), F3AUR);
     liveStars(t, 26, 391, 240 + cx * 0.1, oy(0.82), z, OY3 + 30, (c) => c >= 202 && c <= 205);
-    comp(L.far, 220 + cx * 0.35, oy(0.88), z, 0.45, { mist: 0.35, mistY: OY3 - 110, mistH: 50 });
+    comp(L.far, 220 + cx * 0.35, oy(0.88), z, 0.3, { mist: 0.2, mistY: OY3 - 110, mistH: 40 });
     RIVM.fill(0);
     comp(L.gorge, 120 + cx * 0.85, oy(0.95), z, 0.08, { custom: iceShade, cm0: M_ICE, cm1: M_ICED });
     comp(L.main, cx + 120, oy(1), z, 0, { custom: iceShade, cm0: M_RIVER, cm1: M_RIVER });
@@ -2425,13 +2434,13 @@
     snowfall(t, cx, cy, z, { dens: 0.7 });
   }
   const F3AUR = [{ y: OY3 - 165, amp: 16, len: 95, k: 0.013, ph: 0.4, x0: 100, x1: 680, b: 1 }, { y: OY3 - 230, amp: 12, len: 80, k: 0.018, ph: 2.2, x0: 20, x1: 520, b: 0.8 }];
-  const f23Trunk = (t) => { if (t > 10.25 && t < 11.1) wipeTrunk(lerp(580, -160, eio((t - 10.25) / 0.8)), 98, t, 0.8); };
+  const f23Trunk = (t) => { if (t > 10.6 && t < 11.45) wipeTrunk(lerp(580, -160, eio((t - 10.6) / 0.8)), 98, t, 0.8); };
   let F3FOG = null;
   BUILDERS.push(() => { F3FOG = mkTab('3a5a8a', false); });
-  shot(10.45, 16.7, (lt, t) => {
-    if (t < 11.0) {
+  shot(10.8, 16.7, (lt, t) => {
+    if (t < 11.2) {
       // the trunk sweeps past; behind it the woods dissolve into the gorge
-      dissolve(() => f2Draw(t), () => f3Draw(t), eis((t - 10.5) / 0.4), 33);
+      dissolve(() => f2Draw(t), () => f3Draw(t), eis((t - 10.8) / 0.4), 33);
       f23Trunk(t);
     } else f3Draw(t);
   });
@@ -2528,7 +2537,7 @@
   };
   const F4LIGHT = { sky: [-0.55, -0.85], rim: 0.9, amb: 0.4, z: 4, gain: 1.5 };
   function f4Cam(t) {
-    const v = eio((t - 16.7) / 1.9), push = eio((t - 21.5) / 1.4);
+    const v = eio((t - 16.7) / 1.9), push = eio((t - 21.65) / 1.45);
     let cx = lerp(170, 236, eis((t - 16.7) / 4.8)) + drift(t, 7, 1), cy = lerp(-120, 132, v), z = 1;
     if (push > 0) {
       // the push in on the far lighthouse: it slides to a place right of centre and everything grows round it
@@ -2662,7 +2671,7 @@
   const F4AUR = [{ y: OY4 + 78, amp: 14, len: 95, k: 0.012, ph: 1.1, x0: 60, x1: 560, b: 1 }, { y: OY4 + 30, amp: 12, len: 90, k: 0.017, ph: 3.0, x0: 160, x1: 720, b: 0.8 }, { y: OY4 - 50, amp: 16, len: 110, k: 0.011, ph: 0.2, x0: 0, x1: 620, b: 0.85 }, { y: OY4 - 140, amp: 14, len: 100, k: 0.014, ph: 4.2, x0: 100, x1: 700, b: 0.7 }];
   let F4FOG = null;
   BUILDERS.push(() => { F4FOG = mkTab('425a90', false); });
-  shot(16.7, 22.35, (lt, t) => {
+  shot(16.7, 22.75, (lt, t) => {
     if (t < 17.25) dissolve(() => f3Draw(t), () => f4Draw(t), eis((t - 16.7) / 0.55), 35);
     else f4Draw(t);
   });
@@ -2759,7 +2768,7 @@
       }
     }
   }
-  const f5X = (t) => lerp(-24, T5X - 2, eis(clamp((t - 22.4) / 2.75, 0, 1)) * 0.25 + clamp((t - 22.4) / 2.75, 0, 1) * 0.75);
+  const f5X = (t) => lerp(-10, T5X - 2, eis(clamp((t - 22.75) / 2.4, 0, 1)) * 0.25 + clamp((t - 22.75) / 2.4, 0, 1) * 0.75);
   const f5Pose = (t) => {
     const ph = t * 3.3, inside = t > 25.15;
     const wagD = (u) => { const tt = t - u * 0.12; return 0.12 * Math.sin(TAU * 1.6 * tt) + 0.05 * Math.sin(TAU * 3.3 * tt); };
@@ -2768,7 +2777,7 @@
   };
   const F5LIGHT = { sky: [-0.5, -0.85], rim: 0.6, amb: 0.3, z: 4, gain: 1.5 };
   function f5Cam(t) {
-    const a = eis((t - 22.35) / 1.7), b = eio((t - 24.0) / 1.6);
+    const a = eis((t - 22.75) / 1.5), b = eio((t - 24.0) / 1.6);
     let z = lerp(1.25, 1.0, a), cx = lerp(208, 246, a) + drift(t, 9, 1), cy = lerp(126, 134, a);
     if (b > 0) { z = lerp(z, 1.8, b); const fx = T5X, fy = T5Y - 10, sx = lerp(toSX(cx, 1, fx), 250, b), sy = lerp(toSY(cy, 1, fy), 150, b); cx = fx - (sx + 0.5 - 240) / z; cy = fy - (sy + 0.5 - 135) / z; }
     return [cx, cy, z];
@@ -2825,8 +2834,8 @@
   let F5FOG = null;
   BUILDERS.push(() => { F5FOG = mkTab('324050', false); });
   let beamFx = null;                                             // (the beam is given by shot 6)
-  shot(22.35, 25.3, (lt, t) => {
-    if (t < 22.85) dissolve(() => f4Draw(t), () => f5Draw(t), eis((t - 22.35) / 0.5), 37);
+  shot(22.75, 25.3, (lt, t) => {
+    if (t < 23.25) dissolve(() => f4Draw(t), () => f5Draw(t), eis((t - 22.75) / 0.5), 37);
     else f5Draw(t);
   });
 
@@ -2842,7 +2851,7 @@
   const tread = (k) => ({ a: TREAD_A0 + k * TREAD_DA, y: SHAFT - 8 - k * TREAD_DY });
   const HATCH_X = 152, KEEP_X = 262, LENS_X = 372, LENS_Y = -100, LENS_S = 1.95;
   BUILDERS.push(() => {
-    FI.rig = mkRig([0.05, 0.045, 0.07], [0.42, 0.45, 0.62], [1.0, 0.56, 0.24]);
+    FI.rig = mkRig([0.06, 0.055, 0.08], [0.5, 0.52, 0.7], [1.0, 0.56, 0.24]);
     const L = FI.L, Hh = 960;
     // the wall, the newel and the treads behind it (back), and the treads and rail in front (front)
     L.back = mkLayer(480, Hh, { z0: -60 });
@@ -2898,14 +2907,22 @@
     for (let Y = ROW0; Y <= ROW1; Y++) {
       const wy = toLY(cy, z, Y), o = Y * W;
       for (let X = 0; X < W; X++) {
-        const wx = toLX(cx, z, X);
-        const n = vn(wx * 0.5 + t * 30, wy * 1.2, 26, 621), sea = wy > -90 ? 1 : 0;
-        BUF[o + X] = sea ? (frac(wy * 0.11 - t * 0.6 + n1(wx * 0.02, 622)) < 0.12 && n > 0.5 ? 243 : 241) : n > 0.62 ? 244 : n > 0.45 ? 243 : 242;
+        const wx = toLX(cx, z, X), b = BAYF[((Y & 7) << 3) | (X & 7)];
+        if (wy > -92) {                                         // the sea far below: dark swells, a few whitecaps
+          const sw = (wy + 92) * 0.16 - t * 0.7 + n1(wx * 0.01, 622) * 1.5, f = frac(sw);
+          BUF[o + X] = f < 0.06 && vn(wx * 0.3, wy, 3, 624) > 0.55 ? 245 : f < 0.4 ? 241 : 240;
+          continue;
+        }
+        // torn storm cloud racing past, lighter toward the horizon
+        const n = vn(wx * 0.7 + t * 34, wy * 1.6, 22, 621) * 0.6 + vn(wx * 1.6 + t * 52, wy * 3, 8, 625) * 0.4;
+        const v = n * 0.85 + clamp((wy + 220) / 130, 0, 1) * 0.3 + (b - 0.5) * 0.12;
+        BUF[o + X] = v > 0.74 ? 244 : v > 0.58 ? 243 : v > 0.42 ? 242 : 241;
       }
     }
-    for (let k = 0; k < 90; k++) {                               // snow streaming past the glass
-      const x = frac(ih(k, 1, 623) + t * (0.35 + ih(k, 2, 623) * 0.3)) * 520 - 20, y = frac(ih(k, 3, 623) + t * 0.18) * 260 + ROW0 - 20;
-      P(x, y, 246); if (ih(k, 4, 623) < 0.5) P(x - 1, y, 245);
+    for (let k = 0; k < 110; k++) {                              // snow driving past the glass in the wind
+      const sp = 0.35 + ih(k, 2, 623) * 0.4, x = frac(ih(k, 1, 623) + t * sp) * 540 - 30, y = frac(ih(k, 3, 623) + t * sp * 0.45) * 260 + ROW0 - 20;
+      const c = ih(k, 4, 623) < 0.3 ? 247 : 246;
+      P(x, y, c); P(x - 1, y - 0.5, 245); if (ih(k, 5, 623) < 0.4) P(x - 2, y - 1, 244);
     }
   }
   // the stair, live (so the half in front can be cut away clear of the kit): iron plates round the newel, a lit top edge,
@@ -2982,8 +2999,8 @@
     const kF = t < 28.25 ? climbK(t) : 99;
     const drawKit = () => { drawFox(p, fxs, fys, S, f, Object.assign({}, FILIGHT, { z: front ? 4 : 64 })); drawLantern(mx, my, LS, th, { lit: 1 }); };
     stairLive(cx, cy, z, 0, kF);
+    if (!front) drawKit();                                        // (behind the newel on the far half of the turn)
     newelLive(cx, cy, z);
-    if (!front) drawKit();
     stairLive(cx, cy, z, 1, kF);
     // the lamp room's furniture and its keeper (above the floor)
     if (toSY(cy, z, 0) > ROW0) {
@@ -3022,8 +3039,8 @@
      the lost ship comes about for the harbour's lights. Inside again, in the warm lamp-room light, the kit turns once and
      curls up against the keeper's boots, tail over its nose, and he smiles down at it; snow falls past the glass; the
      beam goes round once more. Hold. */
-  const T_LENS = 31.62, T_CATCH = 31.72;                       // the lantern set down inside; the light catching
-  const lensCatch = (t) => eis(clamp((t - T_CATCH) / 0.62, 0, 1));
+  const T_LENS = 31.4, T_CATCH = 31.45;                       // the lantern set down inside; the light catching
+  const lensCatch = (t) => eis(clamp((t - T_CATCH) / 0.55, 0, 1));
   const beamAngle = (t) => (t - T_CATCH) * 1.25 - 0.9;         // the lens turns: the beam's bearing (0 = straight at us)
   // the beam outside: a long cone from the lamp room, foreshortened as it turns, widening and fading with distance;
   // snow glittering in it; brightest (a flare at the lantern room) when it swings toward us
@@ -3087,7 +3104,7 @@
   }
   // the keeper's acting through shot 6
   function keeper6(t, cx, cy, z, mouth) {
-    const take = sstep(30.05, 30.45, t), lift = sstep(30.45, 30.85, t), turn = t > 30.95 ? 1 : 0, place = sstep(31.05, 31.55, t), back = sstep(31.75, 32.15, t);
+    const take = sstep(30.05, 30.45, t), lift = sstep(30.45, 30.8, t), turn = t > 30.85 ? 1 : 0, place = sstep(30.9, 31.38, t), back = sstep(31.55, 32.0, t);
     const smileUp = sstep(30.5, 31.0, t);
     let f = turn ? 1 : -1, o;
     const ks = 2.05 * z, kx = toSX(cx, z, KEEP_X), ky = toSY(cy, z, 0);
@@ -3259,7 +3276,7 @@
   }
 
   /* ================================================================ mount */
-  if (typeof window !== 'undefined') window.__foxcore = { render, BUF, PAL, W, H, D, SHAKE: () => [0, 0], dbg: () => ({ LAMP, lampAt, FOXOUT, TAB, mc, M_FOXW, M_SNOW }) };
+  if (typeof window !== 'undefined') window.__foxcore = { render, BUF, PAL, W, H, D, SHAKE: () => [0, 0] };
   (window.PIECES = window.PIECES || []).push({
     id: 'the-lantern-fox',
     title: 'The Lantern Fox',

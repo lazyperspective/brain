@@ -20,7 +20,7 @@
     { const ht = (x) => 30 * fbm(x, 0, 80, 4, 311) + 34 * Math.abs(Math.sin(x * 0.0095 + 0.6)) ** 3;
       for (let x = 0; x < 700; x++) {
         const top = OY3 - 112 - ht(x), sl = (ht(x + 2) - ht(x - 2)) / 4;
-        for (let y = fl(top); y < OY3 + 40; y++) {
+        for (let y = fl(top); y < OY3 - 70; y++) {
           // a far ridge, mostly in shadow: a lit snowy crest on the faces turned to the light
           const dd = y - top, snow = dd < 2 + 7 * fbm(x, 0, 22, 2, 313);
           lput(L.far, x, y, snow ? M_SNOW : M_ROCK, snow ? 0.42 + clamp(sl, -0.15, 0.15) - dd * 0.02 : 0.18 - dd * 0.001, 200, 0, -0.4, 0);
@@ -260,7 +260,7 @@
     comp(L.sky, 240 + cx * 0.1, oy(0.82), z, 0);
     aurora(t, 240 + cx * 0.1, oy(0.82), z, 0.25 + 0.75 * sstep(15.3, 16.8, t), F3AUR);
     liveStars(t, 26, 391, 240 + cx * 0.1, oy(0.82), z, OY3 + 30, (c) => c >= 202 && c <= 205);
-    comp(L.far, 220 + cx * 0.35, oy(0.88), z, 0.45, { mist: 0.35, mistY: OY3 - 110, mistH: 50 });
+    comp(L.far, 220 + cx * 0.35, oy(0.88), z, 0.3, { mist: 0.2, mistY: OY3 - 110, mistH: 40 });
     RIVM.fill(0);
     comp(L.gorge, 120 + cx * 0.85, oy(0.95), z, 0.08, { custom: iceShade, cm0: M_ICE, cm1: M_ICED });
     comp(L.main, cx + 120, oy(1), z, 0, { custom: iceShade, cm0: M_RIVER, cm1: M_RIVER });
@@ -277,13 +277,13 @@
     snowfall(t, cx, cy, z, { dens: 0.7 });
   }
   const F3AUR = [{ y: OY3 - 165, amp: 16, len: 95, k: 0.013, ph: 0.4, x0: 100, x1: 680, b: 1 }, { y: OY3 - 230, amp: 12, len: 80, k: 0.018, ph: 2.2, x0: 20, x1: 520, b: 0.8 }];
-  const f23Trunk = (t) => { if (t > 10.25 && t < 11.1) wipeTrunk(lerp(580, -160, eio((t - 10.25) / 0.8)), 98, t, 0.8); };
+  const f23Trunk = (t) => { if (t > 10.6 && t < 11.45) wipeTrunk(lerp(580, -160, eio((t - 10.6) / 0.8)), 98, t, 0.8); };
   let F3FOG = null;
   BUILDERS.push(() => { F3FOG = mkTab('3a5a8a', false); });
-  shot(10.45, 16.7, (lt, t) => {
-    if (t < 11.0) {
+  shot(10.8, 16.7, (lt, t) => {
+    if (t < 11.2) {
       // the trunk sweeps past; behind it the woods dissolve into the gorge
-      dissolve(() => f2Draw(t), () => f3Draw(t), eis((t - 10.5) / 0.4), 33);
+      dissolve(() => f2Draw(t), () => f3Draw(t), eis((t - 10.8) / 0.4), 33);
       f23Trunk(t);
     } else f3Draw(t);
   });

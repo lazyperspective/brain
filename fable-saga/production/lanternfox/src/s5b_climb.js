@@ -10,7 +10,7 @@
   const tread = (k) => ({ a: TREAD_A0 + k * TREAD_DA, y: SHAFT - 8 - k * TREAD_DY });
   const HATCH_X = 152, KEEP_X = 262, LENS_X = 372, LENS_Y = -100, LENS_S = 1.95;
   BUILDERS.push(() => {
-    FI.rig = mkRig([0.05, 0.045, 0.07], [0.42, 0.45, 0.62], [1.0, 0.56, 0.24]);
+    FI.rig = mkRig([0.06, 0.055, 0.08], [0.5, 0.52, 0.7], [1.0, 0.56, 0.24]);
     const L = FI.L, Hh = 960;
     // the wall, the newel and the treads behind it (back), and the treads and rail in front (front)
     L.back = mkLayer(480, Hh, { z0: -60 });
@@ -66,14 +66,22 @@
     for (let Y = ROW0; Y <= ROW1; Y++) {
       const wy = toLY(cy, z, Y), o = Y * W;
       for (let X = 0; X < W; X++) {
-        const wx = toLX(cx, z, X);
-        const n = vn(wx * 0.5 + t * 30, wy * 1.2, 26, 621), sea = wy > -90 ? 1 : 0;
-        BUF[o + X] = sea ? (frac(wy * 0.11 - t * 0.6 + n1(wx * 0.02, 622)) < 0.12 && n > 0.5 ? 243 : 241) : n > 0.62 ? 244 : n > 0.45 ? 243 : 242;
+        const wx = toLX(cx, z, X), b = BAYF[((Y & 7) << 3) | (X & 7)];
+        if (wy > -92) {                                         // the sea far below: dark swells, a few whitecaps
+          const sw = (wy + 92) * 0.16 - t * 0.7 + n1(wx * 0.01, 622) * 1.5, f = frac(sw);
+          BUF[o + X] = f < 0.06 && vn(wx * 0.3, wy, 3, 624) > 0.55 ? 245 : f < 0.4 ? 241 : 240;
+          continue;
+        }
+        // torn storm cloud racing past, lighter toward the horizon
+        const n = vn(wx * 0.7 + t * 34, wy * 1.6, 22, 621) * 0.6 + vn(wx * 1.6 + t * 52, wy * 3, 8, 625) * 0.4;
+        const v = n * 0.85 + clamp((wy + 220) / 130, 0, 1) * 0.3 + (b - 0.5) * 0.12;
+        BUF[o + X] = v > 0.74 ? 244 : v > 0.58 ? 243 : v > 0.42 ? 242 : 241;
       }
     }
-    for (let k = 0; k < 90; k++) {                               // snow streaming past the glass
-      const x = frac(ih(k, 1, 623) + t * (0.35 + ih(k, 2, 623) * 0.3)) * 520 - 20, y = frac(ih(k, 3, 623) + t * 0.18) * 260 + ROW0 - 20;
-      P(x, y, 246); if (ih(k, 4, 623) < 0.5) P(x - 1, y, 245);
+    for (let k = 0; k < 110; k++) {                              // snow driving past the glass in the wind
+      const sp = 0.35 + ih(k, 2, 623) * 0.4, x = frac(ih(k, 1, 623) + t * sp) * 540 - 30, y = frac(ih(k, 3, 623) + t * sp * 0.45) * 260 + ROW0 - 20;
+      const c = ih(k, 4, 623) < 0.3 ? 247 : 246;
+      P(x, y, c); P(x - 1, y - 0.5, 245); if (ih(k, 5, 623) < 0.4) P(x - 2, y - 1, 244);
     }
   }
   // the stair, live (so the half in front can be cut away clear of the kit): iron plates round the newel, a lit top edge,
@@ -150,8 +158,8 @@
     const kF = t < 28.25 ? climbK(t) : 99;
     const drawKit = () => { drawFox(p, fxs, fys, S, f, Object.assign({}, FILIGHT, { z: front ? 4 : 64 })); drawLantern(mx, my, LS, th, { lit: 1 }); };
     stairLive(cx, cy, z, 0, kF);
+    if (!front) drawKit();                                        // (behind the newel on the far half of the turn)
     newelLive(cx, cy, z);
-    if (!front) drawKit();
     stairLive(cx, cy, z, 1, kF);
     // the lamp room's furniture and its keeper (above the floor)
     if (toSY(cy, z, 0) > ROW0) {

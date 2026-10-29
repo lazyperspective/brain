@@ -18,12 +18,12 @@
         const u = (X + 0.5 - cx) / S, b = bay(X, Y);
         let c = -1;
         // the brass rings top and bottom, and the cage's vertical bars (8 round; the front ones show)
-        if (av > LENS.H - 2.5 && av <= LENS.H + 1 && Math.abs(u) < r + 1.5) { const q = u / (r + 1.5); c = rq(R_BRASS, clamp(0.35 - q * 0.3 + (av > LENS.H ? -0.1 : 0.15) + lit * 0.5, 0, 1), b, 0.8); }
+        if (av > LENS.H - 2.5 && av <= LENS.H + 1 && Math.abs(u) < r + 1.5) { const q = u / (r + 1.5); c = rq(R_BRASS, clamp(0.24 - q * 0.3 + (av > LENS.H ? -0.1 : 0.12) + lit * 0.5, 0, 1), b, 0.8); }
         else if (Math.abs(u) < r) {
           const q = u / r, phi = Math.asin(clamp(q, -1, 1));
           let bar = false;
           for (let k = 0; k < 8; k++) { const a = rot + k * TAU / 8; if (Math.cos(a) < 0.1) continue; if (Math.abs(Math.sin(a) - q) < 0.045 / Math.max(0.3, Math.cos(a))) bar = true; }
-          if (bar) c = rq(R_BRASS, clamp(0.3 - q * 0.25 + lit * 0.55, 0, 1), b, 0.8);
+          if (bar) c = rq(R_BRASS, clamp(0.18 - q * 0.2 + lit * 0.6, 0, 1), b, 0.8);
           else {
             // the glass: which ring, where in it
             let ring, f;
@@ -45,8 +45,12 @@
               if (g < 0.35 && b > g * 2.8) c = edge ? 226 : 224;
             } else {
               // dark: deep blue glass, thin bright lines along the prism edges, a soft reflection of the windows
-              const wl = 0.3 + shine * 0.5 + (edge ? 0.35 : 0) + (Math.abs(q + 0.55) < 0.08 ? 0.3 : 0) + (LAMP.on ? 0 : 0);
-              c = edge ? (wl > 0.6 ? 227 : 225) : wl > 0.55 ? 225 : wl > 0.38 ? 224 : wl > 0.25 ? 223 : 222;
+              // dark: clear glass (the room and the storm show through it, cooled), thin bright lines on the prism lips,
+              // a soft reflection of the windows; the lantern's warm light catches it near
+              const wl = 0.3 + shine * 0.5 + (edge ? 0.35 : 0) + (Math.abs(q + 0.55) < 0.08 ? 0.3 : 0);
+              const lm = LAMP.on ? lampAt(X, Y, 0, q * 0.8, 0) : 0;
+              if (edge) c = lm > 0.35 ? (lm > 0.7 ? 200 : 182) : wl > 0.6 ? 227 : 225;
+              else { const g2 = wl > 0.55 ? 225 : wl > 0.38 ? 224 : wl > 0.25 ? 223 : 222; c = mixC(BUF[Y * W + X], g2, 2); if (lm > 0.4 && b < (lm - 0.4) * 1.5) c = 181; }
             }
           }
         }

@@ -142,7 +142,7 @@
       gait: t > 4.7 ? sstep(4.7, 5.0, t) : 0, ph: (t - 4.7) * 2.6, A: 3.6 * sstep(4.7, 5.0, t),
       pitch: k.pitch, tilt, hy: k.hy, hx: k.hx, yaw: k.yaw, earN, earF, perk: k.perk, tLift: k.tLift, wagD,
       mouth: happy ? 2 : k.mouth > 0.5 ? 1 : 0, eyes, happy, wide: k.wide, lookX: k.lookX, lookY: k.lookY,
-      dig: k.dig, digReach: reach, sq: k.sq, lift: k.lift, breath: t * TAU * 0.9, whisk: 1,
+      dig: k.dig, digReach: reach, sq: k.sq, lift: k.lift, breath: t * TAU * 0.9, whisk: 0,
     };
   }
   const F1LIGHT = { sky: [-0.45, -0.9], rim: 0.75, amb: 0.36, z: 4, gain: 1.6 };
