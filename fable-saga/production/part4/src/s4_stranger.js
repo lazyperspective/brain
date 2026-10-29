@@ -372,13 +372,25 @@
           let c;
           if (below) {
             // the cut faces of the sea floor fall away into the glow; foam and steam along the lips
-            const fall = (1 - e) * 1.0, wy = y * 1.0 - t * 160;
-            c = e > 0.9 ? (ih(x, fl(wy) >> 1, 4571) < 0.6 ? 119 : 22) : e > 0.55 ? (vn(x * 0.3, wy * 0.3, 3, 4572) > 0.5 ? 99 : 98) : e > 0.3 ? (bay(x, y) < 0.5 ? 101 : 102) : e > 0.12 ? 104 : e > 0.04 ? 106 : 22;
-            if (e > 0.55 && e < 0.9 && ih(fl(x * 0.5), fl(wy * 0.25), 4573) < 0.06 * fall + 0.03) c = 118;
+            c = e < 0.05 ? 22 : a4Gorge(x, y, 1 - e, d < 0 ? -1 : 1, 50 / (q + 0.06), half * 0.45, t);
           } else c = e < 0.3 ? 22 : e < 0.6 ? 107 : e < 0.85 ? 105 : 103;
           BUF[row + x] = c;
         }
       }
+    }
+    /* the inside of a cut seen from above: its two faces falling away from the lips to the molten floor along its middle,
+       in the chasm's own strata (running along the cut, crowding toward the floor), lit by the floor's fire more the deeper
+       they go, the sea pouring in over the lips in ropes that break into spray down the faces. dep 0 at a lip .. 1 at the
+       floor; sd which face (-1 left, 1 right); al a coordinate along the cut; sc the strata's spread */
+    function a4Gorge(x, y, dep, sd, al, sc, t) {
+      if (dep > 0.86) { const n = vn(x * 0.5, al * 0.2 - t * 10, 4, 4581); return dep > 0.96 ? (n > 0.45 ? 22 : 107) : n > 0.5 ? 106 : 105; }
+      const R = a4TexRow(sd < 0 ? 4582 : 4583, fl(Math.sqrt(dep) * sc + 400)), tx = ((fl(al) % W) + W) % W, hot = dep * Math.sqrt(dep), b = bay(x, y);
+      let c = a4Lit(R[tx], x, y, 0.2 + hot * 0.8, 0.04, (sd < 0 ? 0 : -1) + (dep > 0.55 ? 1 : 0) + (dep > 0.75 ? 1 : 0));
+      if (dep < 0.45 && ih(fl(al / 11), sd + 2, 4584) < 0.1) { const n = ih(x, fl(y - t * 140) >> 1, 4585); if (n > 0.3 + dep * 0.9) c = n > 0.9 ? 22 : n > 0.65 ? 119 : 118; }
+      if (dep < 0.04) c = b < 0.5 ? 22 : 119;
+      else if (dep < 0.09) c = b < 0.5 ? 99 : 98;
+      else if (b < hot * 0.5) c = dep > 0.7 ? 104 : 103;
+      return c;
     }
     const SVX = 236, SHZ = 138, SBX = 176;
     const a4Gap = (t) => 260 * eoc(lin(62.04, 62.9, t)) + 40 * lin(62.9, 64, t);
@@ -392,6 +404,11 @@
       a4Sunder(SVX, SHZ, SBX, gap, sky, run, t);
       // the hero rides its half away on the very lip; the lip breaks under it and it goes over, into the light
       const brk = t - 62.45, fw = eic(lin(62.47, 62.75, t)), lip = a4Lip(214, t);
+      // the slab of sea floor it rides on the lip: its crust lit, its cut face glowing; the end of it breaks off under it
+      // and tips over into the light, carrying it
+      a4Chunk(lip - (brk > 0 ? 76 : 62), 228, brk > 0 ? 100 : 128, 30, 0.02, 4578, true);
+      if (brk < 0) { if (t > 62.3) { const k = lin(62.3, 62.45, t); for (let q = 0; q < 3; q++) lineP(lip - 26 + q * 2, 214, lip - 30 + q * 4 + k * 3, 214 + 26 * k, q === 1 ? 104 : 96); } }
+      else a4Chunk(lip - 13 + 30 * fw, 228 + 64 * fw * fw, 30, 28, 0.05 + fw * 1.1, 4579, true);
       const hx = lip - 13 + 24 * fw + (brk > 0 ? 0 : a4Tw(t, 3) * 0.5), hy = 214 - 14 * 1.25 + 4 + 70 * fw * fw - 8 * Math.sin(fw * PI) * 0.5;
       actor(HERO3({ eyes: 'wide', sword: lerp(0.5, -1.4, fw), legs: fw > 0.1 ? z5Limp(t, 1.4) : [0, 0, 0, 0], mouth: brk > 0 ? 2 : 1 }), hx, hy, 1.25, 0.12 * sstep(0.25, 0.45, g) + fw * 1.1, false, {});
       if (brk > 0) rocks(lip - 4, 214, brk, 14, 90, 2.5, [97, 99, 122, 105], 4557, 300, PI / 2 - 0.4, 1.4);
@@ -469,46 +486,69 @@
        as lightning, at his face — and he catches it out of the air like a fly, and smashes it into the wall. */
     const A4STAB = 63.12;
     const a4FallY = (t) => t < A4STAB ? -38.2 + 1100 * Math.max(0, t - 62.8) ** 2 : 74.4 + 520 * 0.38 * (1 - Math.pow(1 - clamp((t - A4STAB) / 0.38, 0, 1), 2)) / 2;
-    /* ONE shot, 62.75–64.2: from the lip (cut in on its fall) down the cut face: the camera starts above the drop, the slab
-       under it tips out and goes, and the camera dives after it, overtaking it, down to where its sword bites the rock;
-       it hangs there, flares STORM, crouches and leaps back up as lightning. Drawn with the wall at the right and mirrored
-       at the end, so the wall is on the left: the side it fell from. */
-    const A4TOP = 295;                                                     // the lip of the near wall (world depth)
+    /* a slab of the broken lip, tumbling: the sea-floor crust on top, the rock's strata through it, its cut face glowing;
+       (cx, cy) its centre, w × h, turned rot */
+    function a4Chunk(cx, cy, w, h, rot, seed, hot) {
+      const ca = Math.cos(rot), sa = Math.sin(rot), R = Math.hypot(w, h) / 2 + 3;
+      for (let y = Math.max(LB, fl(cy - R)); y < Math.min(H - LB, cy + R); y++) for (let x = Math.max(0, fl(cx - R)); x < Math.min(W, cx + R); x++) {
+        const dx = x + 0.5 - cx, dy = y + 0.5 - cy, u = dx * ca + dy * sa, v = -dx * sa + dy * ca;
+        const ju = w / 2 - vn(v + 40, 0, 4, seed) * 5, jv = h / 2 - vn(u + 70, 0, 6, seed + 1) * 4;
+        if (Math.abs(u) > ju || Math.abs(v) > jv) continue;
+        const R2 = a4TexRow(seed, fl(v * 1.4 + 300)), tx = ((fl(u * 1.3 + 200) % W) + W) % W;
+        let c = a4Lit(R2[tx], x, y, 0.3, 0.3, v < 0 ? 1 : -1);
+        if (v < -jv + 1.5) c = 123; else if (v < -jv + 3.5) c = bay(x, y) < 0.5 ? 122 : 99;
+        else if (u > ju - 2.5) c = hot ? 104 : 102; else if (u > ju - 5 && bay(x, y) < 0.5) c = 102;
+        else if (u < -ju + 1.5 || v > jv - 1.5) c = 96;
+        BUF[y * W + x] = c;
+      }
+    }
+    /* ONE shot, 62.75–64.2: cut in on its fall: thrown off its lip, it tumbles across the chasm with the broken slabs of the
+       lip, the camera diving with it, at the far face; its sword bites the rock and ploughs down it to a stop; it hangs
+       there, flares STORM, crouches and leaps back up as lightning. The wall is at the right, so it faces it as everywhere
+       (to the right), the open chasm and the lip it fell from behind it at the left. */
+    const A4TOP = 295;                                                     // the lip of the far wall (world depth)
     shot(62.75, 64.2, (lt, t) => {
       const wy = a4FallY(t), cw = lerp(9.8, a4FallY(Math.min(t + 0.09, Math.max(t, A4STAB + 0.3))), eio(lin(62.78, 63.05, t))), oy = 300 + cw - 118, storm = t >= 63.6, g = t - 63.6, launch = eic(lin(64.08, 64.2, t));
       const topY = A4TOP - oy;
       a4Deep(oy - 200, t, 1, 1400);
-      a4Falls(70, Math.max(LB, topY - 2), H - LB, 14, t, 4611);
-      a4Falls(150, Math.max(LB, topY - 2), H - LB, 9, t, 4618);
-      a4Wall(1, 330, oy, t, 1, 1400, 4612, true);
-      // above the lip: the burning air of the cut, the sea pouring over the far lip in foam
+      // above the lips: the burning air of the cut, steam boiling up out of it, and the lip it fell from (far, at the left)
+      // with the sea pouring over it
+      const farY = topY - 20;
       if (topY > LB) {
-        for (let y = LB; y < Math.min(H - LB, topY); y++) { const d = topY - y; for (let x = 0; x < W; x++) BUF[y * W + x] = d < 1.5 ? 123 : d < 4 ? 102 : bay(x, y) < clamp(1 - d / 60, 0, 1) ? 103 : d < 90 ? 102 : 101; }
-        for (let x = 0; x < W; x++) for (let y = fl(topY) - 3; y < topY + 2; y++) if (y >= LB && y < H - LB && x < 300 && ih(x, fl(y + t * 30), 4566) < 0.6) P(x, y, ih(x, y, 4567) < 0.3 ? 22 : 118);
+        for (let y = LB; y < Math.min(H - LB, topY); y++) { const d = topY - y; for (let x = 0; x < W; x++) BUF[y * W + x] = bay(x, y) < clamp(1 - d / 70, 0, 1) * 0.8 ? 103 : d < 110 ? 102 : bay(x, y) < 0.5 ? 101 : 102; }
+        for (let k = 0; k < 7; k++) { const up = frac(ih(k, 1, 4568) + t * 0.5), x = ih(k, 2, 4568) * 340 - 20 + up * 30; cloudPuff(x, topY - 10 - up * 110, 10 + up * 22, [120, 121, 122, 123], 4569 + k); }
+        for (let x = 0; x < 300; x++) { const fy = farY + (vn(x, 0, 14, 4570) - 0.5) * 10 + (vn(x, 0, 4, 4571) - 0.5) * 3; const fb = fy + 9 + vn(x, 0, 7, 4576) * 8; for (let y = Math.max(LB, fl(fy)); y < Math.min(H - LB, fb); y++) { const d = y - fy; BUF[y * W + x] = d < 1.2 ? 123 : d < 3 ? 102 : y > fb - 2 ? 101 : bay(x, y) < 0.3 ? 101 : vn(x, y, 5, 4572) > 0.6 ? 97 : 96; } }
+        for (let x = 0; x < 300; x++) for (let y = fl(farY) - 5; y < farY + 1; y++) if (y >= LB && ih(x, fl(y + t * 30), 4566) < 0.5) P(x, y, ih(x, y, 4567) < 0.3 ? 22 : 118);
         glow(240, LB, 200, T_EMBER, 0.4);
       }
-      // the slab it stood on: tipping out over the drop about the wall's edge, then falling away with it
-      const tip = eio(lin(62.72, 62.84, t)) * 0.35, sd = Math.max(0, wy + 38.2) * 0.92, srot = tip + Math.max(0, t - 62.84) * 2.2;
-      if (topY + sd < H - LB + 30) { const px = 334, py = topY + sd, ca = Math.cos(srot), sa = Math.sin(srot), R = (x, y) => [px + x * ca + y * sa, py - x * sa + y * ca]; const a = R(-68, 0), b = R(0, 0), c = R(0, 12), d = R(-68, 9); z5Tri(a[0], a[1], b[0], b[1], c[0], c[1], 98); z5Tri(a[0], a[1], c[0], c[1], d[0], d[1], 99); thick(a[0], a[1], b[0], b[1], 2, 123); }
+      a4Falls(70, Math.max(LB, farY - 2), H - LB, 14, t, 4611);
+      a4Falls(150, Math.max(LB, farY - 2), H - LB, 9, t, 4618);
+      a4Falls(236, Math.max(LB, farY - 2), H - LB, 6, t, 4620);
+      a4Wall(1, 330, oy, t, 1, 1400, 4612, true);
+      // the slabs of its lip, falling with it (the nearest passing in front)
+      const drop = (f) => -38.2 + 1100 * f * Math.max(0, t - 62.76) ** 2 + 118 - cw;
+      const CH = [[104, -24, 66, 24, 0.9, 1.6, 4573], [212, -70, 46, 20, 1.0, -2.4, 4574], [36, 40, 92, 30, 0.8, 1.1, 4575]];
+      for (const [x0, y0, w, h, f, sp, sd] of CH.slice(0, 2)) a4Chunk(x0 + (t - 62.75) * 50, drop(f) + y0, w, h, 0.5 + (t - 62.75) * sp, sd, true);
       if (t < A4STAB && t > 62.88) streaks(-PI / 2, 40, t, 3000, 103, 60, 4613, [0, LB, W, H - 2 * LB]);
-      if (t > 62.8 && t < 63.3) rocks(300, topY, t - 62.8, 16, 80, 3, [97, 99, 122, 105], 4564, 500, PI / 2, 2);
+      if (t > 62.8 && t < 63.3) rocks(220, drop(1) - 20, t - 62.8, 16, 80, 3, [97, 99, 122, 105], 4564, 500, PI / 2, 2);
       // the scar its sword ploughed down the rock, still glowing
       const hsy = 118 + wy - cw; if (t >= A4STAB) { const y0 = hsy - (wy - 74.4); for (let y = Math.max(LB, fl(y0)); y < hsy; y++) { const q = (hsy - y) / Math.max(1, hsy - y0); P(322 + Math.sin(y * 0.7) * 0.8, y, q < 0.3 ? 106 : q < 0.7 ? 104 : 102); P(323, y, 101); P(321, y, 96); } }
-      const crouch = storm ? eio(lin(63.7, 64.0, t)) * (1 - launch) : 0, hx = 290 - crouch * 8 - launch * 20 - tip * 12, hy = hsy + 6 * crouch - launch * 150 + tip * 14;
-      const hang = t >= A4STAB && !storm ? Math.sin((t - A4STAB) * 9) * 0.06 * Math.exp(-(t - A4STAB) * 3) : 0, tum = t < A4STAB ? tip * 1.4 * (1 - sstep(62.95, A4STAB - 0.04, t)) : 0;
-      const sw = t < 62.86 ? lerp(0.5, -1.3, eio(lin(62.74, 62.86, t))) : t < A4STAB - 0.06 ? -1.3 : t < A4STAB ? lerp(-1.3, 0.05, eoc((t - A4STAB + 0.06) / 0.06)) : launch > 0 ? lerp(0.05, -1.4, launch) : 0.05 + hang;
+      // across the chasm to the far face, tumbling, righting itself as it reaches it
+      const across = eoc(lin(62.75, 63.04, t)), crouch = storm ? eio(lin(63.7, 64.0, t)) * (1 - launch) : 0, hx = lerp(172, 290, across) - crouch * 8 - launch * 20, hy = hsy + 6 * crouch - launch * 150;
+      const hang = t >= A4STAB && !storm ? Math.sin((t - A4STAB) * 9) * 0.06 * Math.exp(-(t - A4STAB) * 3) : 0, tum = t < A4STAB ? 1.2 * (1 - eio(lin(62.75, 63.06, t))) : 0;
+      const sw = t < A4STAB - 0.06 ? -1.35 : t < A4STAB ? lerp(-1.35, 0.05, eoc((t - A4STAB + 0.06) / 0.06)) : launch > 0 ? lerp(0.05, -1.4, launch) : 0.05 + hang;
       const form = storm ? 'storm' : null, flick = storm && g < 0.25 && fl(g * 30) % 3 === 1;
       if (storm && g < 0.5) glow(hx, hy, 140 * (1 - g * 1.5), T_CYAN, 0.6);
       const a = heroForm(flick ? 'plain' : form || 'plain', { eyes: storm ? 'glow' : t < 62.9 ? 'wide' : t < A4STAB + 0.4 ? 'closed' : 'wide', mouth: t < 62.9 || (t > A4STAB && t < 63.5) ? 2 : storm ? 1 : 0, sword: sw, sq: crouch * 0.3 - launch * 0.2, legs: storm ? undefined : z5Limp(t, 1.2) }, hx, hy, 2.4, hang * 2 - launch * 0.5 + tum, false, {});
       if (storm) { a4Storm(hx, hy, 2.4, t, g < 0.4 ? 1 : 0.6, g < 0.4 ? 5 : 3); if (g < 0.3) for (let k = 0; k < 4; k++) bolt(hx, hy, hx + (ih(k, 1, 4614) - 0.5) * 300, hy - 60 - ih(k, 2, 4614) * 120, k + fl(t * 20), 2, 91, 89); }
       if (t >= A4STAB && t < A4STAB + 0.4) { const g2 = t - A4STAB; for (let k = 0; k < 14; k++) { const q = frac(ih(k, 1, 4615) + g2 * 4), x = a.tip[0] - 2 - q * 40 * ih(k, 2, 4615), y = a.tip[1] - q * 30 + q * q * 40; P(x, y, q < 0.4 ? 22 : 106); } glow(a.tip[0], a.tip[1], 30, T_EMBER, 0.6); }
+      // the biggest slab, near the lens, falls past in front of it
+      { const [x0, y0, w, h, f, sp, sd] = CH[2]; a4Chunk(x0 + (t - 62.75) * 70, drop(f) + y0, w, h, 0.3 + (t - 62.75) * sp, sd, false); }
       if (launch > 0) streaks(-PI / 2, 30, t, 3000, 91, 80, 4616, [0, LB, W, H - 2 * LB]);
       a4Embers(t, 26, storm ? 30 : t < 62.88 ? 60 : 400, 4617);
-      a4FG(0, oy, t, 1.5, 4619, H - LB + 40 - Math.min(60, Math.max(0, oy - 190) * 0.0));
-      // the mirror (see above)
-      for (let y = LB; y < H - LB; y++) { const o = y * W; for (let x = 0; x < W / 2; x++) { const c = BUF[o + x]; BUF[o + x] = BUF[o + W - 1 - x]; BUF[o + W - 1 - x] = c; } }
+      a4FG(0, oy, t, 1.5, 4619, H - LB + 40);
       shk(t < 62.9 ? 2.5 : t >= A4STAB && t < 63.3 ? 3 : storm && g < 0.3 ? 4 : 0.5);
-      a4Cam(1.06, 0.02 * Math.sin(lt * 2) - 0.03 * (1 - sstep(62.75, 63.0, t)), 240, 135, kick(t, [[A4STAB, 1.2, -PI / 2], [63.6, 1.5]]));
+      a4Cam(1.06, 0.02 * Math.sin(lt * 2) + 0.03 * (1 - sstep(62.75, 63.0, t)), 240, 135, kick(t, [[A4STAB, 1.2, -PI / 2], [63.6, 1.5]]));
     });
     /* looking straight up the chasm: its two walls rise on either side and converge (in perspective) on a narrow slit of fire
        and dawn far overhead. Wall texels are the chasm's own rock, laid out by height (h ~ 1 / distance from the slit), so its
@@ -589,38 +629,7 @@
       a4Cam(1.02 + u * 0.06 * (1 - pull) + 0.04 * back, -0.03 * back + 0.06 * swing, 240, 135, kick(t, [[A4TC, 2.2, -PI / 2]]));
     });
     WHIPS.push([65.17, PI]);
-    // the slam: side on, the fist with the hero in it drives into the chasm wall; rock bursts; it holds it there, grinding;
-    // then the fingers open and the hand draws away and leaves it in the crater, its storm going out; it slides out and drops
-    shot(65.2, 66.0, (lt, t) => {
-      const g = t - 65.2, open = eoc(lin(65.42, 65.56, t)), away = eio(lin(65.5, 65.85, t)), slide = eic(lin(65.78, 66.0, t));
-      a4Deep(500, t, 0.8, 1400);
-      a4Wall(-1, 190, 520, t, 0.8, 1400, 4631, true);
-      // the crater: a dish of shattered rock, its rim burning, cracks running out of it
-      const cx = 194, cy = 140, cr = 46 * eoc(Math.min(1, g * 8)), S = 2.5;
-      if (g > 0) {
-        for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + ih(k, 1, 4632), L = cr + 30 + ih(k, 2, 4632) * 90 * Math.min(1, g * 5); let x = cx, y = cy; for (let q = 0; q < 6; q++) { const nx = x + Math.cos(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 6, ny = y + Math.sin(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 6; if (Math.hypot(nx - cx, ny - cy) > cr * 0.9) { lineP(x, y, nx, ny, q < 2 ? 104 : 102); lineP(x + 1, y, nx + 1, ny, 96); } x = nx; y = ny; } }
-        for (let y = fl(cy - cr); y < cy + cr; y++) for (let x = fl(cx - cr); x < cx + cr * 0.3; x++) { const d = Math.hypot((x - cx) / cr, (y - cy) / cr); if (d < 1) P(x, y, d > 0.86 ? (bay(x, y) < 0.5 ? 104 : 102) : d > 0.6 ? (x < cx - cr * 0.3 ? 98 : 97) : 96); }
-      }
-      // the hand: it arrives already shut on the hero (the blow lands on the frame), shudders against the rock, opens, goes
-      const hx0 = cx + 13 * S - 2, push = z5Knock(g, -9, 20, 7), grind = (1 - open) * z5Sh(t, 4) * 1.8;
-      const fs = 3.2, fa = PI + 0.08, wx = hx0 + 30 + 5.5 * fs + push + grind + 330 * away * away + 80 * away, wy = cy + 4 - 30 * away + grind * 0.5;
-      const held = open < 0.35;
-      const hx = held ? 0 : hx0 + 3 * open + slide * 20, hy = cy + slide * slide * 120;
-      const drawHero = (x, y, sq) => {
-        const fz = g > 0.15 && g < 0.6 ? fl(t * 15) % 3 : 1;
-        heroForm(fz === 0 && away < 1 ? 'storm' : 'plain', { eyes: 'closed', mouth: g < 0.5 ? 2 : 0, sword: lerp(-2.4, 1.2, slide), sq, legs: z5Limp(t, 1.5), cracks: 0.25 }, x, y, S, -0.3 + slide * 1.2, false, { still: true });
-        if (fz === 0 && away < 1) a4Storm(x, y, S, t, 0.5, 2);
-      };
-      if (!held) drawHero(hx, hy, lerp(-0.35, 0, away));
-      if (away < 1) a4Arm(wx, wy, fs, fa, a4PL({ curl: 0.92, thumb: 0.85, spread: 0 }, { curl: 0.15, thumb: 0.1, spread: 0.9 }, open), 0.8, t, { bend: -0.25, rim: 0.8,
-        hold: held ? () => drawHero(hx0 + z5Sh(t, 6) * 0.8, cy, -0.35 - 0.2 * Math.exp(-g * 8)) : undefined });
-      rocks(cx + 10, cy, g, 30, 340, 5, [97, 99, 122, 105], 4634, 260, 0, 1.7);
-      megaHit(cx, cy, g, 2.6, 0, [22, 106, 103], 4635);
-      if (g > 0 && g < 0.35) for (let k = 0; k < 10; k++) { const a = -PI / 2 + (ih(k, 1, 4637) - 0.5) * 2.6, q = (g + ih(k, 2, 4637) * 0.1) * 3, x = cx + 4 + Math.cos(a) * 120 * q, y = cy + Math.sin(a) * 90 * q + 140 * q * q; if (q < 1) P(x, y, q < 0.4 ? 22 : 106); }
-      a4Embers(t, 20, -30, 4636);
-      a4Cam(1.04, 0.02, 240, 135, kick(t, [[65.2, 3, PI]]));
-      shk(g < 0.4 ? 8 * (1 - g / 0.4) : open < 1 ? 1.5 : 0.5);
-    });
+    // (the slam, 65.2, opens the beating's shot: one world, his whole body, the fist driving it into the near wall)
   
     /* ============================================================== 5 · the beating (66.0–72.0)
        Fable Mode, gold, guard up, everything it has left. A straight punch: the guard holds, the knees go. A hammer-fist: the
@@ -705,14 +714,28 @@
        68.7 an uppercut (lower left) that lifts it up the chasm · 69.3 at the top of its arc his upper right drives it down
        · 70.0 it hits the ledge (cut on the impact). Hits ease the clock, never freeze it. */
     const BS = 2.4, BY0 = A4GRD - 14 * BS, BHIT = [66.6, 67.4, 68.1, 68.7, 69.3];
+    // the near wall's face (world x) at world row y, as a4Wall draws it in the beating (seed 4711); the slam's crater on it
+    const a4FaceX = (y) => { const wy = fl(y + 280); return 20 + (vn(wy * 0.05, 0, 1, 4711) - 0.5) * 36 + (vn(wy * 0.21, 0, 1, 4712) - 0.5) * 9; };
+    const A4SLAM = 65.2, A4SY = 104, A4CX = a4FaceX(104), A4SX = A4CX + 27;
     // the hero through the beating (world), on the eased clock T
     function a4BH(T) {
       const s = { x: 188, y: BY0, ang: -0.08, sq: 0, sw: -1.32, form: 'gold', eyes: 'angry', mouth: 1, legs: undefined, cracks: 0, reach: 1 };
-      if (T < 66.6) {
-        const f = clamp((T - 66.0) / 0.12, 0, 1), ld = T - 66.12;
-        s.y = lerp(92, BY0, eic(f)); s.x = 188 - 8 * (1 - f) + a4Tw(T, 5) * 0.4;
-        if (ld < 0) { s.form = 'plain'; s.eyes = 'closed'; s.ang = 0.35; s.sw = 0.5; s.sq = -0.2; s.legs = z5Limp(T, 1.2); }
-        else { s.sq = 0.4 * Math.exp(-ld * 11); s.sw = lerp(0.5, -1.32, eoc(clamp(ld / 0.22, 0, 1))); s.eyes = ld < 0.1 ? 'closed' : 'angry'; s.form = ld < 0.03 ? 'plain' : 'gold'; s.legs = ld < 0.2 ? [0, 1.5 * (1 - ld / 0.2), 1.5 * (1 - ld / 0.2), 0] : undefined; }
+      if (T < 65.56) {
+        // the slam: crushed into the wall inside his fist, its storm stuttering out
+        const g = Math.max(0, T - A4SLAM);
+        s.x = A4SX + z5Sh(T, 6) * 0.8; s.y = A4SY; s.form = g < 0.3 && fl(T * 15) % 3 === 0 ? 'storm' : 'plain'; s.eyes = 'closed'; s.mouth = 2;
+        s.sw = -2.4; s.sq = -0.35 - 0.2 * Math.exp(-g * 8); s.legs = z5Limp(T, 1.5); s.cracks = 0.25; s.ang = -0.12;
+      } else if (T < 66.12) {
+        // let go: it peels off the crater and drops down the wall to the ledge
+        const f = (T - 65.56) / 0.56;
+        s.x = A4SX + 30 * eoc(f); s.y = lerp(A4SY, BY0, f * f); s.form = 'plain'; s.eyes = 'closed'; s.mouth = 2;
+        s.sw = lerp(-2.4, 0.5, eio(f)); s.sq = -0.25 * (1 - f); s.legs = z5Limp(T, 1.5); s.cracks = 0.25; s.ang = -0.12 + 0.5 * f;
+      } else if (T < 66.6) {
+        // it lands, comes up gold with its guard up, and charges him — straight into the punch
+        const ld = T - 66.12, ch = eio(lin(66.3, 66.6, T));
+        s.x = lerp(A4SX + 30, 188, ch) + a4Tw(T, 5) * 0.4 * (1 - ch); s.y = BY0 - 3 * Math.sin(ch * PI);
+        s.sq = 0.4 * Math.exp(-ld * 11) - 0.1 * Math.sin(ch * PI); s.sw = lerp(0.5, -1.32, eoc(clamp(ld / 0.22, 0, 1))); s.eyes = ld < 0.1 ? 'closed' : 'angry'; s.form = ld < 0.03 ? 'plain' : 'gold';
+        s.legs = ld < 0.2 ? [0, 1.5 * (1 - ld / 0.2), 1.5 * (1 - ld / 0.2), 0] : ch > 0 && ch < 1 ? [0, 1, 2, 3].map((k) => Math.max(0, Math.sin(T * 40 + k * 1.6)) * 2) : undefined; s.ang = -0.1 * Math.sin(ch * PI);
       } else if (T < 67.4) {
         const g = T - 66.6, sk = eoc(Math.min(1, g / 0.36)), rec = sstep(0.5, 0.75, g), buckle = 0.22 * sstep(0.08, 0.3, g) * (1 - rec) + z5Knock(g - 0.08, 0.2, 13, 4);
         s.x = 188 - 64 * sk + a4Tw(T, 5) * 0.8;
@@ -753,15 +776,15 @@
     // his knuckles (world x, y, the fist's angle); ['C', i, dx, dy, ang] is contact i (plus dx, dy)
     const BAK = [
       // upper left: braced · raised high over his head · the hammer · onto its head · back up and across him · the backhand · round · settle
-      [[66.0, [296, 176, 2.0]], [66.6, [306, 166, 2.1]], [66.95, [300, 70, -1.0], 'io'], [67.22, [236, -6, -PI / 2 + 0.5], 'o'], [67.4, ['C', 1, 0, 0, PI / 2 + 0.08], 'i'], [67.52, ['C', 1, -4, 30, PI / 2 + 0.1], 'o'],
+      [[65.2, [A4SX - 2, A4SY + 2, PI + 0.08]], [65.42, [A4SX + 2, A4SY + 2, PI + 0.1], 'o'], [65.62, [A4SX + 70, A4SY - 30, PI - 0.5], 'io'], [66.0, [296, 176, 2.0], 'io'], [66.6, [306, 166, 2.1]], [66.95, [300, 70, -1.0], 'io'], [67.22, [236, -6, -PI / 2 + 0.5], 'o'], [67.4, ['C', 1, 0, 0, PI / 2 + 0.08], 'i'], [67.52, ['C', 1, -4, 30, PI / 2 + 0.1], 'o'],
         [67.76, [300, 64, 0.7], 'io'], [67.96, [424, 146, PI - 0.1], 'io'], [68.1, ['C', 2, 0, 0, PI], 'i'], [68.24, [96, 204, PI - 0.25], 'o'], [68.62, [290, 176, 2.0], 'io'], [70.0, [300, 160, 2.0]]],
       // upper right: hangs back, swaying; drawn up high behind his head; the drive; carried through; back
-      [[66.0, [520, 216, 1.4]], [67.4, [540, 196, 1.3]], [68.1, [500, 226, 1.6]], [68.76, [506, 206, 1.5]], [69.08, [474, -70, -1.0], 'io'], [69.3, ['C', 4, 0, 0, PI * 0.75], 'i'], [69.46, ['C', 4, -44, 44, PI * 0.75], 'o'], [69.9, [470, 140, 1.7], 'io'], [70.0, [470, 140, 1.7]]],
+      [[65.2, [470, 196, 1.5]], [65.6, [500, 220, 1.4]], [66.0, [520, 216, 1.4]], [67.4, [540, 196, 1.3]], [68.1, [500, 226, 1.6]], [68.76, [506, 206, 1.5]], [69.08, [474, -70, -1.0], 'io'], [69.3, ['C', 4, 0, 0, PI * 0.75], 'i'], [69.46, ['C', 4, -44, 44, PI * 0.75], 'o'], [69.9, [470, 140, 1.7], 'io'], [70.0, [470, 140, 1.7]]],
       // lower left: cocked back past his hip · the straight punch · through it · down · drawn low under the ledge · the uppercut · up after it · back
-      [[66.0, [372, 236, 2.3]], [66.42, [406, 150, PI - 0.05], 'io'], [66.6, ['C', 0, 0, 0, PI - 0.05], 'i'], [66.78, [194, 178, PI - 0.05], 'o'], [67.15, [330, 222, 2.5], 'io'], [68.2, [350, 234, 2.4]],
+      [[65.2, [300, 226, 2.5]], [65.7, [350, 240, 2.4]], [66.0, [372, 236, 2.3]], [66.42, [406, 150, PI - 0.05], 'io'], [66.6, ['C', 0, 0, 0, PI - 0.05], 'i'], [66.78, [194, 178, PI - 0.05], 'o'], [67.15, [330, 222, 2.5], 'io'], [68.2, [350, 234, 2.4]],
         [68.5, [296, 300, -PI / 2 + 0.3], 'io'], [68.7, ['C', 3, 0, 0, -PI / 2 + 0.06], 'i'], [68.86, ['C', 3, -6, -46, -PI / 2], 'o'], [69.25, [366, 232, 2.3], 'io'], [70.0, [372, 236, 2.3]]],
       // lower right: swings against the blows (the counterweight)
-      [[66.0, [536, 240, 1.3]], [66.6, [580, 220, 1.0]], [67.0, [540, 244, 1.3]], [67.4, [590, 210, 0.9]], [67.8, [540, 240, 1.3]], [68.1, [470, 250, 1.8]], [68.4, [560, 236, 1.2]], [68.7, [570, 200, 1.0]], [69.3, [590, 220, 0.9]], [69.7, [540, 240, 1.3]]],
+      [[65.2, [560, 214, 1.1]], [65.6, [520, 246, 1.3]], [66.0, [536, 240, 1.3]], [66.6, [580, 220, 1.0]], [67.0, [540, 244, 1.3]], [67.4, [590, 210, 0.9]], [67.8, [540, 240, 1.3]], [68.1, [470, 250, 1.8]], [68.4, [560, 236, 1.2]], [68.7, [570, 200, 1.0]], [69.3, [590, 220, 0.9]], [69.7, [540, 240, 1.3]]],
     ];
     function a4BArm(k, T) {
       const K = BAK[k], pt = (v) => (v[0] === 'C' ? [BC[v[1]][0] + v[2], BC[v[1]][1] + v[3], v[4]] : v);
@@ -772,16 +795,16 @@
       return [lerp(A[0], Bv[0], e), lerp(A[1], Bv[1], e), lerp(A[2], Bv[2], e)];
     }
     // his mask (world): he steps in to each blow and drops his weight into the hammer and the drive
-    const BMK = [[66.0, [452, 62]], [66.42, [464, 56]], [66.6, [436, 66], 'i'], [67.0, [442, 54]], [67.22, [450, 40]], [67.4, [418, 74], 'i'], [67.8, [428, 62]], [67.96, [440, 58]], [68.1, [412, 68], 'i'], [68.4, [432, 60]], [68.6, [420, 62]], [68.7, [414, 50], 'i'], [69.08, [412, 38]], [69.3, [384, 70], 'i'], [69.7, [396, 64]], [70.0, [404, 64]]];
-    const BLEAN = [[66.0, 0], [66.42, 25], [66.6, -30, 'i'], [66.85, -14, 'o'], [67.22, 22], [67.4, -32, 'i'], [67.7, -8, 'o'], [67.96, 26], [68.1, -24, 'i'], [68.35, -30, 'o'], [68.55, -6], [68.7, -18, 'i'], [68.85, 4, 'o'], [69.08, 24], [69.3, -30, 'i'], [69.6, -12, 'o'], [70.0, 0]];
-    const BNOD = [[66.0, 0], [66.42, -5], [66.6, 7, 'i'], [66.9, 2], [67.22, -8], [67.4, 10, 'i'], [67.8, 2], [67.96, -4], [68.1, 5, 'i'], [68.5, 0], [68.7, -8, 'i'], [69.08, -6], [69.3, 10, 'i'], [69.7, 3], [70.0, 2]];
-    const BTILT = [[66.0, 0], [66.42, -0.08], [66.6, 0.06, 'i'], [67.22, 0.08], [67.4, -0.1, 'i'], [67.96, 0.12], [68.1, -0.1, 'i'], [68.4, -0.14, 'o'], [68.7, 0.06], [69.08, -0.06], [69.3, 0.1, 'i'], [70.0, 0]];
+    const BMK = [[65.2, [372, 80]], [65.45, [380, 78]], [65.8, [430, 64]], [66.0, [452, 62]], [66.42, [464, 56]], [66.6, [436, 66], 'i'], [67.0, [442, 54]], [67.22, [450, 40]], [67.4, [418, 74], 'i'], [67.8, [428, 62]], [67.96, [440, 58]], [68.1, [412, 68], 'i'], [68.4, [432, 60]], [68.6, [420, 62]], [68.7, [414, 50], 'i'], [69.08, [412, 38]], [69.3, [384, 70], 'i'], [69.7, [396, 64]], [70.0, [404, 64]]];
+    const BLEAN = [[65.2, -30], [65.42, -26], [65.75, -4, 'o'], [66.0, 0], [66.42, 25], [66.6, -30, 'i'], [66.85, -14, 'o'], [67.22, 22], [67.4, -32, 'i'], [67.7, -8, 'o'], [67.96, 26], [68.1, -24, 'i'], [68.35, -30, 'o'], [68.55, -6], [68.7, -18, 'i'], [68.85, 4, 'o'], [69.08, 24], [69.3, -30, 'i'], [69.6, -12, 'o'], [70.0, 0]];
+    const BNOD = [[65.2, 8], [65.45, 6], [65.8, 1], [66.0, 0], [66.42, -5], [66.6, 7, 'i'], [66.9, 2], [67.22, -8], [67.4, 10, 'i'], [67.8, 2], [67.96, -4], [68.1, 5, 'i'], [68.5, 0], [68.7, -8, 'i'], [69.08, -6], [69.3, 10, 'i'], [69.7, 3], [70.0, 2]];
+    const BTILT = [[65.2, 0.08], [65.6, 0.02], [66.0, 0], [66.42, -0.08], [66.6, 0.06, 'i'], [67.22, 0.08], [67.4, -0.1, 'i'], [67.96, 0.12], [68.1, -0.1, 'i'], [68.4, -0.14, 'o'], [68.7, 0.06], [69.08, -0.06], [69.3, 0.1, 'i'], [70.0, 0]];
     // the camera (world point at the frame centre, zoom, roll): a beat behind the action, pushed in on each contact
-    const BCAM = [[66.0, [268, 132]], [66.5, [252, 142]], [66.62, [246, 144], 'o'], [67.0, [226, 108]], [67.25, [222, 90]], [67.42, [212, 138], 'i'], [67.8, [204, 140]], [68.1, [184, 140]], [68.26, [148, 142], 'o'], [68.7, [236, 132]], [69.0, [290, 72]], [69.3, [296, 62]], [69.7, [226, 118]], [70.0, [186, 150], 'i']];
-    const BZ = [[66.0, 1.0], [66.6, 1.08, 'i'], [67.0, 1.0], [67.4, 1.1, 'i'], [67.85, 1.02], [68.1, 1.06], [68.24, 1.1], [68.7, 1.03], [69.0, 1.0], [69.3, 1.06], [69.7, 1.02], [70.0, 1.1]];
-    const BROLL = [[66.0, 0], [66.6, 0.02], [67.2, -0.03], [67.4, 0.03, 'i'], [68.1, -0.03], [68.3, -0.05], [68.7, 0.02], [69.1, 0.05], [69.4, -0.03], [70.0, 0]];
-    const BSTRIKER = (T) => (T < 67.1 ? 2 : T < 68.55 ? 0 : T < 69.0 ? 2 : 1);
-    shot(66.0, 70.0, (lt, t) => {
+    const BCAM = [[65.2, [160, 116]], [65.42, [166, 118]], [65.8, [206, 130]], [66.1, [222, 136]], [66.5, [252, 142]], [66.62, [246, 144], 'o'], [67.0, [226, 108]], [67.25, [222, 90]], [67.42, [212, 138], 'i'], [67.8, [204, 140]], [68.1, [184, 140]], [68.26, [148, 142], 'o'], [68.7, [236, 132]], [69.0, [290, 72]], [69.3, [296, 62]], [69.7, [226, 118]], [70.0, [186, 150], 'i']];
+    const BZ = [[65.2, 1.2], [65.42, 1.17], [65.9, 1.03], [66.2, 1.0], [66.6, 1.08, 'i'], [67.0, 1.0], [67.4, 1.1, 'i'], [67.85, 1.02], [68.1, 1.06], [68.24, 1.1], [68.7, 1.03], [69.0, 1.0], [69.3, 1.06], [69.7, 1.02], [70.0, 1.1]];
+    const BROLL = [[65.2, -0.03], [65.6, 0.01], [66.0, 0], [66.6, 0.02], [67.2, -0.03], [67.4, 0.03, 'i'], [68.1, -0.03], [68.3, -0.05], [68.7, 0.02], [69.1, 0.05], [69.4, -0.03], [70.0, 0]];
+    const BSTRIKER = (T) => (T < 65.56 ? 0 : T < 67.1 ? 2 : T < 68.55 ? 0 : T < 69.0 ? 2 : 1);
+    shot(A4SLAM, 70.0, (lt, t) => {
       const T = a4Slow(t, BHIT), [cx, cy] = a4K(BCAM, t), ox = cx - 240, oy = cy - 135, SX = (x) => x - ox, SY = (y) => y - oy;
       // the world: the far face (half parallax), the near wall, the ledge (ending in a broken lip beside him)
       a4Deep(260 + oy * 0.5, t, 0.7, 1200, ox * 0.5);
@@ -792,6 +815,10 @@
       for (const [h, x, y, n, L, sd] of [[66.6, 160, A4GRD, 5, 50, 4790], [67.4, 124, A4GRD, 8, 80, 4791], [69.98, 150, A4GRD, 9, 100, 4792]]) { const g = t - h; if (g > 0) groundCracks(SX(x), SY(y), L * Math.min(1, g * 6), n, sd, g < 0.6 ? 104 : 102, 99); }
       if (t > 66.6) { const sk = Math.min(1, (t - 66.6) / 0.36); for (let k = 0; k < 2; k++) lineP(SX(188 - 64 * sk - 26), SY(A4GRD) - 1 + k, SX(188 - 2), SY(A4GRD) - 1 + k, k ? 99 : 123); }
       { const g = t - 68.22; if (g > 0) { const wx = SX(40), wy = SY(BY0 - 4), cr = 26 * eoc(Math.min(1, g * 8)); for (let k = 0; k < 10; k++) { const a = -PI / 2 + (k / 9 - 0.5) * PI * 1.1 + ih(k, 1, 4793) * 0.3, L = cr + 20 + ih(k, 2, 4793) * 50; lineF(wx, wy, wx + Math.cos(a) * L, wy + Math.sin(a) * L, (x, y, u) => { if (u > 0.4) P(x, y, u < 0.6 ? 104 : 102); }); } discF(wx, wy, cr * 0.6, 96); ring(wx, wy, cr * 0.6, cr * 0.6, g < 0.5 ? 104 : 102); } }
+      // the slam's crater in the near wall: a dish of shattered rock, its rim burning, cracks running out over the face
+      { const g = t - A4SLAM, wx = SX(A4CX + 4), wy = SY(A4SY), cr = 30 * eoc(Math.min(1, g * 8)), hot = g < 1.2 ? 104 : 102;
+        for (let k = 0; k < 12; k++) { const a = PI / 2 + (k / 11) * PI + (ih(k, 1, 4632) - 0.5) * 0.3, L = cr + 16 + ih(k, 2, 4632) * 70 * Math.min(1, g * 5); let x = wx, y = wy; for (let q = 0; q < 5; q++) { const nx = x + Math.cos(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 5, ny = y + Math.sin(a + (ih(k, q, 4633) - 0.5) * 0.8) * L / 5; if (Math.hypot(nx - wx, ny - wy) > cr * 0.9) { lineP(x, y, nx, ny, q < 2 ? hot : 102); lineP(x + 1, y + 1, nx + 1, ny + 1, 96); } x = nx; y = ny; } }
+        for (let y = fl(wy - cr); y < wy + cr; y++) for (let x = fl(wx - cr * 0.8); x < wx + cr * 0.35; x++) { const d = Math.hypot((x - wx) / (cr * 0.8), (y - wy) / cr); if (d < 1) P(x, y, d > 0.84 ? (bay(x, y) < 0.5 ? hot : 99) : d > 0.55 ? (y < wy ? 98 : 97) : 96); } }
       // him
       const Mw = a4K(BMK, T), s = 1.45, fs = 1.3, H_ = a4BH(T), str = BSTRIKER(T);
       let drawn = false;
@@ -801,12 +828,17 @@
         // his fire on its near side, its own light on him
         glow(hx + 10, hy, 40, T_EMBER, 0.18);
         heroForm(H_.form, { eyes: H_.eyes, mouth: H_.mouth, sword: H_.sw, sq: H_.sq, reach: H_.reach, legs: H_.legs, cracks: H_.cracks }, hx, hy, BS, H_.ang, false, {});
+        if (H_.form === 'storm') a4Storm(hx, hy, BS, t, 0.5, 2);
         if (H_.form === 'gold') glow(hx, hy, 46, T_GOLD, 0.14);
       };
       const arms = [0, 1, 2, 3].map((k) => {
-        const [kx, ky, a] = a4BArm(k, T), [wx, wy] = a4Wr(kx, ky, a, s * fs);
+        // the slam's fist: big on it, grinding it into the rock, then opening and drawing back to his size
+        const sl = k === 0 && T < 66.0, fsk = sl ? lerp(2.0, fs, eio(lin(65.45, 66.0, T))) : fs, opn = sl ? eoc(lin(65.42, 65.56, T)) * (1 - eio(lin(65.62, 65.95, T))) : 0;
+        let [kx, ky, a] = a4BArm(k, T);
+        if (sl && T < 65.5) { kx += z5Knock(T - A4SLAM, -9, 20, 7) + z5Sh(t, 4) * 1.8 * (1 - opn); ky += z5Sh(t * 1.2, 9) * 0.9; }
+        const [wx, wy] = a4Wr(kx, ky, a, s * fsk);
         const lx = (wx - Mw[0]) / s, ly = (wy - Mw[1] - Math.sin(t * 0.9) * s) / s, live = k === 3 || (k === 1 && T < 68.8) ? 1 : 0;
-        const A = { x: lx + z5N(t * 0.8, k) * 4 * live, y: ly + z5N(t * 0.7, k + 3) * 3 * live, ang: a, fs, pose: live ? a4PL('fist', 'grab', 0.3 + 0.3 * z5N(t * 1.4, k + 7)) : 'fist', front: k === str };
+        const A = { x: lx + z5N(t * 0.8, k) * 4 * live, y: ly + z5N(t * 0.7, k + 3) * 3 * live, ang: a, fs: fsk, pose: sl ? a4PL({ curl: 0.92, thumb: 0.85, spread: 0 }, { curl: 0.15, thumb: 0.1, spread: 0.9 }, opn) : live ? a4PL('fist', 'grab', 0.3 + 0.3 * z5N(t * 1.4, k + 7)) : 'fist', front: k === str || sl };
         if (k === str) A.hold = drawHero;
         return A;
       });
@@ -819,15 +851,16 @@
       for (const [a0, a1, d] of SW) if (T > a0 + 0.06 && T < a1) streaks(d, 22, t, 3400, 66, 120, 4794 + fl(a0 * 10), [0, LB, W, H - 2 * LB]);
       const HP = [1.7, 2.6, 1.8, 2.0, 2.6], HC = [[22, 59, 58], [22, 59, 58], [22, 37, 35], [22, 37, 35], [22, 37, 35]];
       BHIT.forEach((h, i) => { const g = t - h; if (g < 0 || g > 1.2) return; const [x, y] = [SX(BC[i][0]), SY(BC[i][1])]; megaHit(x, y, g, HP[i], [PI, PI / 2, PI, -PI / 2, PI * 0.75][i], HC[i], 4795 + i * 3); z5Hit(x, y, g, 1.4, [PI, PI / 2, PI, -PI / 2, PI * 0.75][i], HC[i][1], 4796 + i * 3); });
+      { const g = t - A4SLAM; if (g < 1.2) { const x = SX(A4CX + 8), y = SY(A4SY); megaHit(x, y, g, 2.4, 0, [22, 106, 103], 4635); rocks(x, y, g, 30, 300, 4, [97, 99, 122, 105], 4634, 260, 0, 1.7); a4Dust(x + 10, y + 24, g, 8, 70, 4636); } }
       a4Dust(SX(160), SY(A4GRD), t - 66.6, 6, 60, 4713); a4Dust(SX(124), SY(A4GRD), t - 67.4, 9, 80, 4725);
       { const g = t - 68.22; if (g > 0 && g < 1.2) { rocks(SX(40), SY(BY0), g, 20, 220, 3, [97, 99, 122, 123], 4797, 300, 0, 1.6); megaHit(SX(40), SY(BY0 - 4), g, 1.5, 0, [22, 122, 99], 4798); } }
       // the hammer bursts the ledge's lip; the uppercut throws the grit of the ledge up after it
       rocks(SX(140), SY(A4GRD), t - 67.4, 16, 200, 3, [97, 99, 122, 123], 4799, 400, -PI / 2, 2.0);
       rocks(SX(230), SY(A4GRD), t - 68.7, 14, 260, 2, [97, 99, 122, 104], 4800, 300, -PI / 2, 0.8);
       a4FG(ox, oy, t, 1.6, 4801);
-      const tz = BHIT.find((h) => t >= h && t - h < 0.4), sh = tz ? 7 * (1 - (t - tz) / 0.4) : 0.5;
+      const tz = [A4SLAM, ...BHIT].find((h) => t >= h && t - h < 0.4), sh = tz ? (tz === A4SLAM ? 8 : 7) * (1 - (t - tz) / 0.4) : 0.5;
       shk(sh);
-      a4Cam(a4K(BZ, t), a4K(BROLL, t), 240, 135, kick(t, BHIT.map((h, i) => [h, [2, 2.4, 2.2, 2.4, 2.4][i], [PI, PI / 2, PI, -PI / 2, PI * 0.75][i]])));
+      a4Cam(a4K(BZ, t), a4K(BROLL, t), 240, 135, kick(t, [[A4SLAM, 3, PI], ...BHIT.map((h, i) => [h, [2, 2.4, 2.2, 2.4, 2.4][i], [PI, PI / 2, PI, -PI / 2, PI * 0.75][i]])]));
     });
   
     // 70.0–72.0 on the ledge, close and low: it tries to get up on its sword, and can't; a shadow; his hand comes down on it
@@ -1138,10 +1171,17 @@
             if (ax < 70 + q * 20) c = q > 0.85 ? (bay(x, y) < (q - 0.85) * 6 ? 103 : 102) : q > 0.5 ? (bay(x, y) < 0.3 ? 101 : 97) : 96;
             else { const v = k > 0.3 ? seamAt(wx / 50 + 20, a / 60) : 1; c = v < 0.02 + q * 0.03 ? (q > 0.7 ? 104 : q > 0.4 ? 102 : 101) : ax < 76 + q * 20 ? (q > 0.6 ? 103 : 99) : vn(wx, a, 12, 4842) > 0.55 ? 98 : 97; }
           } else if (a < A4SEA + 16 && ax > 90) { const sw = Math.sin(wx * 0.05 + t * 2 + a); c = a < A4SEA + 3 ? 118 : sw > 0.6 ? 117 : OCEAN[fl((a - A4SEA) / 6)]; }
-          else if (a < A4CL0) { const q = (a - A4SEA) / (A4CL0 - A4SEA), R = [102, 101, 98, 97, 97], f = q * 4, i = fl(f); c = bay(x, y) < f - i ? R[Math.min(4, i + 1)] : R[i]; }
+          else if (a < A4CL0) {
+            // the air between the sea and the cloud: banks of smoke drifting in layers (the near ones darker, edged with the
+            // fire's light from below), the cloud's lit belly glowing down through it, the blade's light on everything near it
+            const q = (a - A4SEA) / (A4CL0 - A4SEA), sm = fbm(wx * 0.22 + t * 4, a * 2.2, 110, 3, 4890), bank = sstep(0.44, 0.56, sm), rim = sm > 0.44 && sm < 0.47;
+            const near = clamp(1 - ax / 300, 0, 1), L = clamp(0.14 + 0.3 * (1 - q) * (1 - q) + 0.4 * q * q * q + near * near * 0.3 - bank * 0.16 + (rim ? 0.2 : 0), 0, 0.999) * 6;
+            const R = [96, 97, 98, 101, 102, 103], i = fl(L); c = bay(x, y) < L - i ? R[Math.min(5, i + 1)] : R[i];
+            if (bank > 0.5 && vn(wx * 0.9, a * 3, 22, 4892) > 0.72) c = 120;
+          }
           else if (a < A4CL1) {
             const bot = A4CL0 + fbm(wx, 0, 90, 3, 4843) * 50, top = A4CL1 - 40 + fbm(wx + 7, 0, 60, 3, 4844) * 70, hr = hole * (1 + 0.3 * vn(wx, a, 30, 4845));
-            if (ax < hr || a < bot || a > top) c = a > (A4CL0 + A4CL1) / 2 ? SKYD[0] : 97;
+            if (ax < hr || a < bot || a > top) c = a > (A4CL0 + A4CL1) / 2 ? SKYD[0] : ax >= hr ? (bay(x, y) < 0.35 + 0.4 * (a - A4CL0) / Math.max(1, bot - A4CL0) ? 102 : 101) : 97;
             else { const db = a - bot, dt = top - a, n = vn(wx * 1.2, a * 2, 14, 4848); c = db < 3 ? 102 : db < 10 ? (n > 0.5 ? 121 : 120) : dt < 3 ? 16 : dt < 10 ? (n > 0.4 ? 15 : 19) : dt < 26 ? (n > 0.55 ? 19 : 18) : n > 0.6 ? 18 : 121; if (ax < hr + 5 / k) c = 106; }
           } else { const q = clamp((a - A4CL1) / 900, 0, 0.999); c = SKYD[fl(q * 7)]; if (bay(x, y) < frac(q * 7)) c = SKYD[Math.min(6, fl(q * 7) + 1)]; }
           BUF[row + x] = c;
@@ -1317,7 +1357,7 @@
         const xa = Math.max(0, fl(X(cxw - half - 4 / k))), xb = Math.min(W - 1, Math.ceil(X(cxw + half + 4 / k)));
         for (let x = xa; x <= xb; x++) {
           const wx = WX(x), d = Math.abs(wx - cxw) - half;
-          if (d < 0) { const e = -d / half, n = vn(wx, wy, 5, 4857); BUF[row + x] = e < 0.08 ? 104 : e < 0.3 ? (n > 0.5 ? 102 : 103) : e < 0.65 ? (n > 0.6 ? 102 : 101) : n > 0.55 ? 98 : 101; continue; }
+          if (d < 0) { BUF[row + x] = a4Gorge(x, y, -d / half, wx < cxw ? -1 : 1, wy * 3, half * k * 0.6, t); continue; }
           if (d < 3 / k) BUF[row + x] = bay(x, y) < 0.5 ? 22 : 119;               // foam on the lip where the sea goes over
         }
       }
@@ -1474,41 +1514,75 @@
     /* ============================================================== 11 · the floor of the world (100.8–104.0)
        Point blank, his third eye blazing over the hero in the chasm: one fist, and it is driven straight down through the
        floor of the world, through the rock beneath it, into the dark; its fire goes out on the way down. */
+    /* the floor of the world and the rock under it, side on: its top at screen y top; world depth d = y - top. The rock's
+       own strata (the chasm's texture, tilted a little), lit by the hero's fire near (hx, hy) (burn 0..1); the bore it is
+       driven through (half width by depth, opened by open 0..1), its broken walls glowing where its fire passes; and, at
+       depth A4UNDER, the rock's ragged underside, with nothing below it */
+    const A4UNDER = 430;
+    function a4Bedrock(top, hx, hy, burn, open, t) {
+      for (let y = Math.max(LB, fl(top)); y < H - LB; y++) {
+        const d = y - top, row = y * W, R = a4TexRow(4926, fl(d * 1.1 + 600));
+        for (let x = 0; x < W; x++) {
+          const ub = A4UNDER + (vn(x, 0, 18, 4927) - 0.5) * 50 + (vn(x, 0, 5, 4928) - 0.5) * 12;
+          if (d > ub) continue;
+          const ft = (vn(x, 0, 26, 4801) - 0.5) * 8 + (vn(x, 0, 6, 4802) - 0.5) * 3;
+          if (d < ft) continue;
+          const hw = open * (d < 30 ? 58 - d * 0.5 : 34 + 9 * vn(d * 0.1, 0, 1, 4929)), dx = Math.abs(x - 172 - Math.sin(d * 0.03) * 6) - hw;
+          if (dx < 0) { if (dx > -3 && bay(x, y) < 0.5) BUF[row + x] = 96; continue; }
+          const dist = Math.hypot(x - hx, y - hy), hot = burn * clamp(1 - dist / 170, 0, 1);
+          let c = a4Lit(R[(x + 37) % W], x, y, 0.12 + hot * 0.9, 0.08, (d - ft < 10 ? 1 : 0) + (hot > 0.4 ? 1 : 0) - (dx > 60 ? 1 : 0) - (ub - d < 24 ? 1 : 0));
+          if (d - ft < 1.2) c = 121; else if (ub - d < 1.5) c = 99;
+          else if (open > 0 && dx < 2) c = hot > 0.3 ? 104 : 102; else if (open > 0 && dx < 5 && bay(x, y) < 0.6) c = hot > 0.3 ? 103 : 101;
+          BUF[row + x] = c;
+        }
+      }
+    }
     function a4Punch(t) {
       const T = a4Slow(t, [100.8]), g = t - 100.8, hitv = g >= 0, wind = eio(lin(100.38, 100.66, T)), strike = eic(lin(100.64, 100.8, T)), drive = hitv ? eic(Math.min(1, (T - 100.8) / 0.45)) : 0, lean = eoc(lin(100.35, 100.62, t));
-      a4Deep(800 + drive * 500, t, 0.8, 1400);
-      a4Wall(-1, 60, 820 + drive * 900, t, 0.8, 1400, 4911, true);
-      a4Wall(1, 420, 820 + drive * 900, t, 0.8, 1400, 4912, true);
-      a4Embers(t, 40, hitv ? 900 : 60, 4916, [106, 104]);
+      // the camera goes down with it (the world rises past, not too fast to read)
+      const dv = drive * 240, FT = 218 - dv;
+      a4Deep(800 + dv * 0.5, t, 0.8, 1400);
+      a4Wall(-1, 60, 820 + dv, t, 0.8, 1400, 4911, true);
+      a4Wall(1, 420, 820 + dv, t, 0.8, 1400, 4912, true);
+      const S = 3.0, hx = 170 + a4Tw(t, 18) * (hitv ? 0 : 1), hy = 176 + drive * 30;
+      a4Bedrock(FT, hx, hy, 1 - drive * 0.4, hitv ? eoc(Math.min(1, g * 8)) : 0, t);
+      if (hitv) groundCracks(172, FT, 160 * Math.min(1, g * 5), 12, 4917, 104, 99);
+      a4Embers(t, 40, hitv ? 500 : 60, 4916, [106, 104]);
       // his face leaning in over it, the brother's eye in his brow blazing; he drops his weight into the blow
-      const my = lerp(-10, 104, lean) - drive * 260 + 10 * strike;
+      const my = lerp(-10, 104, lean) - dv + 10 * strike;
       a4Sund(340, my, 2.3, t, { third: 1, eyes: 2, heat: 1, crown: 0.75, rage: 1, roar: 0.3 + 0.4 * strike, body: false, maskCuts: [[-17, -9, 17, 13, 1]], nod: 3 - 6 * wind * (1 - strike) + 9 * strike, lean: 22 * wind * (1 - strike) - 28 * strike, tilt: -0.1 * wind + 0.1 * strike });
       glow(340, my - 16 * 2.3, 130, T_MAG, 0.7); glow(340, my - 16 * 2.3, 40, T_WH, 0.5);
-      // the hero, with what is left of the blade, looking up: crushed flat by the blow on the hit frame, then driven down
-      // through the floor, stretched along its fall
-      const S = 3.0, hx = 170 + a4Tw(t, 18) * (hitv ? 0 : 1), hy = 176 + drive * 30;
       const sq = hitv ? (T - 100.8 < 0.001 ? 0.6 : -0.35 * Math.min(1, (T - 100.8) * 8)) : 0;
-      const a = a4Last(hx, hy, S, t, { eyes: hitv ? 'closed' : 'wide', mouth: 2, sw: -1.2, still: hitv, power: 1 - drive * 0.5, ang: drive * 0.4, sq });
-      bigBlade(a.hand[0], a.hand[1], -1.2, 70, 5, t, { form: 'lastlight', flare: 0.6, cracks: 0.6 });
-      // the fist: cocked up and back, then down onto it — the knuckles on its crown on the hit frame — and on down with it
       const fa = PI * 0.62, C = [hx + 2, hy - 8 * S * (1 - 0.4 * Math.max(0, sq))];
+      // the burst behind them (its impact frame on the hit frame itself)
+      const imp = hitv && g < 0.034;
+      if (hitv && !imp) megaHit(C[0], C[1], g, 2.9, PI / 2, [22, 75, 103], 4913);
+      // the fist: cocked up and back, then down onto it — the knuckles on its crown on the hit frame — and on down with it
       const kx = hitv ? C[0] + 6 * drive : lerp(lerp(C[0] + 120, C[0] + 165, wind), C[0], strike), ky = hitv ? C[1] + 10 * Math.min(1, (T - 100.8) * 10) : lerp(lerp(C[1] - 70, C[1] - 105, wind), C[1], strike);
-      a4Arm(kx - Math.cos(fa) * 10.8 * 3.2, ky - Math.sin(fa) * 10.8 * 3.2, 3.2, fa, 'fist', 1, t, { bend: 0.5 - 0.3 * strike, side: 1, rim: 1 });
+      const r = a4Arm(kx - Math.cos(fa) * 10.8 * 3.2, ky - Math.sin(fa) * 10.8 * 3.2, 3.2, fa, 'fist', 1, t, { bend: 0.5 - 0.3 * strike, side: 1, rim: 1 });
+      // the hero, in front of the knuckles, with what is left of the blade: crushed on the hit frame, then driven down,
+      // its fire lighting the fist from below
+      const a = a4Last(hx, hy, S, t, { eyes: hitv ? 'closed' : 'wide', mouth: 2, sw: -1.2, still: hitv, power: 1 - drive * 0.4, ang: drive * 0.4, sq });
+      bigBlade(a.hand[0], a.hand[1], -1.2, 70, 5, t, { form: 'lastlight', flare: 0.6, cracks: 0.6 });
+      if (hitv) glow(r.knuckles ? r.knuckles[0] : kx, ky, 70, T_FIRE, 0.35 * (1 - drive * 0.5));
       if (strike > 0.2 && !hitv) streaks(fa, 30, t, 4000, 103, 120, 4915, [0, LB, W, H - 2 * LB]);
-      if (hitv) { megaHit(C[0], C[1], g, 3.3, PI / 2, [22, 75, 103], 4913); streaks(PI / 2, 40, t, 4000, 103, 120, 4914, [0, LB, W, H - 2 * LB]); }
-      shk(hitv && g < 0.6 ? 9 : 1); a4Cam(1.0 + 0.06 * wind * (1 - strike), 0.03 * wind * (1 - strike), 240, 135, kick(t, [[100.8, 3.5, PI / 2]]));
+      if (hitv) { if (imp) megaHit(C[0], C[1], g, 2.9, PI / 2, [22, 75, 103], 4913); rocks(172, FT, g, 30, 260, 4, [97, 99, 121, 104], 4918, -200, -PI / 2, 2.6); streaks(PI / 2, 30, t, 2400, 103, 90, 4914, [0, LB, W, H - 2 * LB]); }
+      shk(hitv && g < 0.6 ? 9 * (1 - g / 0.6) + 2 : 1); a4Cam(1.0 + 0.06 * wind * (1 - strike), 0.03 * wind * (1 - strike), 240, 135, kick(t, [[100.8, 3.5, PI / 2]]));
     }
-    // through the rock beneath the world, and then nothing but the dark; its fire going out, plain and cracked again, a
-    // broken hilt in its hand
+    // on down through the rock beneath the world, out of its underside, and then nothing but the dark; its fire going out,
+    // plain and cracked again, a broken hilt in its hand
     function a4Plunge(t) {
-      const u = lin(101.25, 104.0, t), rockU = lin(101.25, 102.2, t), fade = eio(lin(102.2, 103.7, t));
+      const u = lin(101.25, 104.0, t), fade = eio(lin(102.2, 103.7, t));
       BUF.fill(0, LB * W, (H - LB) * W);
-      // strata of rock rushing up past it as it is driven through them, then none
-      if (rockU < 1) for (let k = 0; k < 7; k++) { const y = H - LB - frac(k / 7 + rockU * 2.4) * 300 + 40; if (y < LB - 40 || y > H - LB + 40) continue; for (let yy = fl(y); yy < y + 18; yy++) if (yy >= LB && yy < H - LB) for (let x = 0; x < W; x++) { const hole = Math.abs(x - 240) < 30 + (yy - y) * 0.5; if (!hole) BUF[yy * W + x] = (yy - y) < 2 ? 99 : vn(x, yy, 6, 4921 + k) > 0.5 ? 97 : 96; } rocks(240, y, frac(rockU * 2.4 + k / 7) * 0.6, 10, 200, 3, [97, 98, 99, 103], 4922 + k, -400, -PI / 2, 2.8); }
-      const S = lerp(3.0, 1.6, eio(u)), hx = lerp(170, 240, eio(Math.min(1, u * 2))) + Math.sin(t * 1.3) * 8 * u, hy = lerp(206, 150, eoc(Math.min(1, u * 2.5))) + 26 * eic(u) + Math.sin(t * 2) * 2 * u;
-      for (let k = 0; k < 40; k++) { const sp = 900 * (1 - u * 0.7), y = H - LB - frac(ih(k, 1, 4925) + t * sp / 218) * 218, x = ih(k, 2, 4925) * W; if (bay(fl(x), fl(y)) < 0.8 - u * 0.5) { P(x, y, k % 3 ? 97 : 121); P(x, y + 1, 96); } }
-      if (rockU < 1) streaks(-PI / 2, 30, t, 3000 * (1 - rockU), 103, 90, 4924, [0, LB, W, H - 2 * LB]);
+      const S = lerp(3.0, 1.6, eio(u)), hx = lerp(170, 240, eio(lin(101.8, 102.8, t))) + Math.sin(t * 1.3) * 8 * u, hy = lerp(206, 150, eoc(Math.min(1, u * 2.5))) + 26 * eic(u) + Math.sin(t * 2) * 2 * u;
       const burning = 1 - eio(lin(101.8, 102.9, t));
+      // the rock rushing up past it (carrying on from the punch's fall), the underside, and the dark under it
+      const D = 640 * eoc(lin(101.25, 102.9, t)), top = 218 - 240 - D - (t - 101.25) * 20;
+      a4Bedrock(top, hx, hy, burning, 1, t);
+      { const uy = top + A4UNDER; if (uy > LB - 40 && uy < H) for (let k = 0; k < 30; k++) { const g = frac(ih(k, 1, 4930) + t * 0.7), x = ih(k, 2, 4930) * W, y = uy + 10 + g * 200 * (0.5 + ih(k, 3, 4930)); if (bay(fl(x), fl(y)) < 1 - g) P(x, y, k % 3 ? 97 : 99); } }
+      // grit and chips of rock falling with it
+      for (let k = 0; k < 40; k++) { const sp = 700 * (1 - u * 0.7), y = H - LB - frac(ih(k, 1, 4925) + t * sp / 218) * 218, x = ih(k, 2, 4925) * W; if (bay(fl(x), fl(y)) < 0.8 - u * 0.5) { P(x, y, k % 3 ? 97 : 121); P(x, y + 1, 96); } }
+      if (t < 101.9) streaks(-PI / 2, 22, t, 1800 * (1 - lin(101.25, 101.9, t)), 103, 70, 4924, [0, LB, W, H - 2 * LB]);
       glow(hx, hy, 60 * S * burning + 14 * (1 - fade), burning > 0.1 ? T_FIRE : T_WARM, 0.45 * burning + 0.2 * (1 - fade));
       const form = burning > 0.5 || (burning > 0.15 && fl(t * 15) % 2) ? 'lastlight' : undefined;
       const a = actor(HERO3({ form, eyes: 'closed', sword: null, legs: z5Limp(t, 1.6), cracks: 0.9, sq: -0.05 }), hx, hy, S, 0.3 + u * 0.5 + Math.sin(t * 0.8) * 0.1, false, { still: true });
@@ -1517,7 +1591,7 @@
       // embers peeling off it and falling behind (upward, as it drops)
       for (let k = 0; k < 20; k++) { const q = frac(ih(k, 1, 4923) + t * 1.2), x = hx + (ih(k, 2, 4923) - 0.5) * 40, y = hy - q * 120; if (bay(fl(x), fl(y)) < (1 - q) * (burning * 0.8 + 0.2)) P(x, y, burning > 0.3 ? 104 : 37); }
       // the light goes out
-      tintAll(T_DARK, 0.25 + 0.6 * fade);
+      tintAll(T_DARK, 0.15 + 0.7 * fade);
       a4Cam(1.0, 0, 240, 135);
     }
     // ONE shot 100.35–104.0 (the whip down from the snap hides the cut into it): his face over the hero in the chasm, the
