@@ -44,14 +44,14 @@
       const u = V.u, [X0, Y0, X1, Y1] = V.box, a1 = zP(t, 1), a2 = zP(t, 2), Yt = Math.max(Y0, LB), Yb = Math.min(Y1, H - 1 - LB);
       for (let X = X0; X <= X1; X++) {
         const x = V.lx(X), h = yH(x), b = yB(x), m = h - mt(x);
-        // the aurora's shape in this column: a ribbon whose lower edge waves, folded into fine vertical rays
+        // the aurora's shape in this column: a ribbon whose lower edge waves, folded by the wind (its rays: zAur)
         const fold = x + 26 * Math.sin(x / 95 + a1) + 9 * Math.sin(x / 29 - a2);
         const bot = -30 + 9 * Math.sin(x / 80 + a1) - 5 * Math.sin(x / 26 + a2) - 0.05 * Math.max(0, -x - 60);
         const env = (0.55 + 0.45 * Math.sin(x / 130 + 0.6 + a1 * 0.5)) * (1 - sstep(120, 300, x)) * sstep(-460, -300, x);
-        const rays = 0.55 + 0.45 * Math.sin(fold * 0.55) * Math.sin(fold * 0.23 + 1.3), aur = env * rays;
         // where the Milky Way crosses this column (it rises out of the window up to the left): its centre y and half-width
-        const mwY = (x - 26) / 0.89, mwW = 10 + 0.42 * Math.max(0, -mwY), msd = mside(x) < 0;
+        const mwY = (x - 26) / 0.89, mwW = 10 + 0.42 * Math.max(0, -mwY), msd = mside(x) < 0, hc = V.hole && X >= V.hole[0] && X <= V.hole[2];
         for (let Y = Yt; Y <= Yb; Y++) {
+          if (hc && Y >= V.hole[1] && Y <= V.hole[3]) { Y = V.hole[3]; continue; }
           const y = V.ly(Y), d = bay(X, Y);
           let c;
           if (y < m && y < b) {
@@ -61,9 +61,9 @@
               const k = 1 - Math.abs(y - mwY) * 0.89 / mwW;
               if (k > 0) { const n = vn(x * 0.06, y * 0.06, 1, 2240) * 0.8 + d * 0.2, e = Math.pow(k, 1.4) * (0.22 + n) * (0.8 + 0.2 * sstep(-60, -10, y)); if (e > 1.15 + d * 0.25) c = 56; else if (e > 0.72 + d * 0.3) c = 55; else if (e > 0.42 + d * 0.35) c = 4; else if (e > 0.18 + d * 0.3) c = 136; if (e > 0.3 && ih(fl(x * 1.5), fl(y * 1.5), 2247) < 0.05 * e) c = e > 0.7 ? 22 : 20; if (Math.abs(y - mwY - mwW * 0.3 * (n - 0.3)) * 0.89 < 0.6 * (0.5 + n) && k > 0.5 && d < 0.6) c = 134; }
               const hg = bot - y;
-              if (hg > 0 && aur > 0.05) {
-                const I = aur * Math.exp(-hg / 26) * (hg < 2.5 ? hg / 2.5 : 1) * (0.32 + 0.68 * sstep(28, 80, Math.sqrt(x * x + y * y)));
-                if (I > 0.62 + d * 0.25) c = hg < 10 ? 49 : 147; else if (I > 0.4 + d * 0.25) c = hg < 14 ? 48 : 61; else if (I > 0.22 + d * 0.22) c = hg < 20 ? 125 : 117; else if (I > 0.1 + d * 0.18) c = hg < 26 ? 124 : 116;
+              if (hg > 0 && hg < 110 && env > 0.05) {
+                const I = env * zAur(fold, hg) * (hg < 2.5 ? hg / 2.5 : 1) * (0.32 + 0.68 * sstep(28, 80, Math.sqrt(x * x + y * y)));
+                if (I > 0.62 + d * 0.25) c = hg < 10 ? 49 : hg < 30 ? 48 : 126; else if (I > 0.4 + d * 0.25) c = hg < 14 ? 48 : hg < 40 ? 126 : 125; else if (I > 0.22 + d * 0.22) c = hg < 20 ? 125 : 117; else if (I > 0.1 + d * 0.18) c = hg < 26 ? 124 : 116;
               }
             }
           } else if (y < b && y < h) {
@@ -95,8 +95,7 @@
       // the brow's grass fringe against the sky: fine dark blades along the hill's outline
       if (u > 1.6) for (let X = X0; X <= X1; X++) { const x = V.lx(X), b = yB(x), k = fl(x * 3); if (ih(k, 1, 2244) > 0.55) continue; const hh = (0.4 + ih(k, 2, 2244) * 0.9) * (1 + 0.15 * Math.sin(zP(t, 1) + x)); const Yb = fl(V.Y(b)), Yt2 = fl(V.Y(b - hh)); for (let Y = Math.max(LB, Yt2); Y < Math.min(H - LB, Yb); Y++) BUF[Y * W + X] = ih(k, 3, 2244) < 0.4 ? 139 : 24; }
       // stars in the sky (behind nothing but the sky: drawn only where the sky is)
-      zStars(V, t, -420, -420, 420, 0, 0.9 * Math.min(1, 1 / u + 0.15), 2250, [136, 19, 20, 21, 22]);
-      for (let X = X0; X <= X1; X++) { const x = V.lx(X), lim = Math.min(yH(x) - mt(x), yB(x)); for (let Y = Math.max(LB, fl(V.Y(lim))); Y <= Math.min(Y1, H - 1 - LB); Y++) { const c = BUF[Y * W + X]; if (c >= 19 && c <= 22 && V.ly(Y) >= lim) BUF[Y * W + X] = 139; } }
+      zStars(V, t, -420, -420, 420, 0, 6, 2250, [136, 19, 20, 21, 22], (x, y) => y < Math.min(yH(x) - mt(x), yB(x)));
       // the forest on the left: conifers, far to near
       for (const [x, y, s] of TREES) {
         if (y > yB(x) - 0.2 || !V.vis(x - s, y - s * 3, x + s, y)) continue;

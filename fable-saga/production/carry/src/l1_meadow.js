@@ -456,7 +456,7 @@
         if (env <= 0) { C1AQ[X] = 0; continue; }
         C1AE[X] = -44 - 0.21 * (x + 250) + 5 * Math.sin(x * 0.034 + zP(t, 1)) + 2.2 * Math.sin(x * 0.105 - zP(t, 2));
         const r = 0.5 + 0.5 * Math.sin(x * 0.2 + 2.1 * Math.sin(x * 0.041 + zP(t, 1)) + zP(t, 1)), r2 = 0.5 + 0.5 * Math.sin(x * 0.62 - 1.2 * Math.sin(x * 0.085 - zP(t, 2)) + zP(t, 3));
-        C1AQ[X] = env * (0.5 + 0.32 * r + 0.18 * r2) * 0.62;
+        C1AQ[X] = env * (0.5 + 0.32 * r + 0.18 * r2) * 0.62 * sstep(0.3, 0.75, u);   // (gone by the time L2's own aurora is in view)
       }
       const mx0 = C1MX0, mx1 = C1MX0 + (C1MW - 1) * C1MC;
       for (let Y = c1Y0; Y <= c1Y1; Y++) {
