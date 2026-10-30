@@ -1,4 +1,5 @@
-// Render "The Red Gathers" through its page and the render hook (window.__keyframes).
+// Render a Keyframes film through its page and the render hook (window.__keyframes).
+//   FILM=the-sower node render.js ...             picks the film (default: red-gathers)
 //   node render.js video <out.mp4>                 silent H.264, 1080 x 1920, 30 fps, every frame of the film
 //   node render.js stills <dir> 0,1.5,3            PNGs of single frames
 //   node render.js check                           bookend pixel-diffs (frame 0 vs keyframe 1, last frame vs keyframe 2)
@@ -38,8 +39,9 @@ function diff(a, b) {
 
 (async () => {
   const srv = await serve();
-  const url = `http://127.0.0.1:${srv.address().port}/index.html?export`;
-  const browser = await chromium.launch();
+  const FILM = process.env.FILM || 'red-gathers';
+  const url = `http://127.0.0.1:${srv.address().port}/index.html?export&film=${FILM}`;
+  const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const page = await (await browser.newContext({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 })).newPage();
   page.on('pageerror', (e) => console.error('[pageerror]', e.message));
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.error('[console]', m.text()); });
@@ -48,7 +50,7 @@ function diff(a, b) {
   const info = await page.evaluate(() => window.__keyframes.info());
   console.log('build', Math.round(info.buildMs), 'ms;', info.particles, 'particles');
   const frames = await page.evaluate(() => window.__keyframes.frames);
-  if (process.env.ONLY) await page.evaluate((o) => { window.KEYFRAMES.only = o.split(','); }, process.env.ONLY);
+  if (process.env.ONLY) await page.evaluate((o) => { window.__keyframes.setOnly(o.split(',')); }, process.env.ONLY);
   const grab = (t) => page.evaluate((t) => { const ms = window.__keyframes.renderAt(t); return { px: window.__keyframes.pixels(), ms }; }, t);
 
   if (mode === 'info') {
@@ -62,7 +64,7 @@ function diff(a, b) {
     fs.mkdirSync(out, { recursive: true });
     for (const t of String(arg || '0').split(',').map(Number)) {
       const r = await grab(t);
-      const p = path.join(out, 'kf-' + t.toFixed(2).padStart(5, '0') + '.png');
+      const p = path.join(out, (FILM === 'red-gathers' ? 'kf-' : FILM + '-') + t.toFixed(2).padStart(5, '0') + '.png');
       await png(r.px, p);
       console.log(p, r.ms.toFixed(1) + ' ms');
     }
@@ -79,7 +81,7 @@ function diff(a, b) {
       lines.push(`${label}: max |diff| ${d.max}, mean ${d.mean.toFixed(4)}, channel values off by >2: ${d.over2}`);
     }
     // the procedural layers alone, without the last half-second's settle onto the keyframe
-    await page.evaluate(() => { window.KEYFRAMES.noSettle = true; });
+    await page.evaluate(() => { window.__keyframes.setNoSettle(true); });
     for (const t of [15.0, 15.35, 15.967]) {
       const r = await grab(t);
       const a = Buffer.from(r.px, 'base64');
@@ -87,7 +89,7 @@ function diff(a, b) {
       let px8 = 0; for (let i = 0; i < a.length; i += 3) if (Math.abs(a[i] - k2[i]) > 8 || Math.abs(a[i + 1] - k2[i + 1]) > 8 || Math.abs(a[i + 2] - k2[i + 2]) > 8) px8++;
       lines.push(`procedural layers only (no settle) at t=${t} vs keyframe 2: mean |diff| ${d.mean.toFixed(4)}, max ${d.max}, pixels off by >8: ${px8} of ${1080 * 1920} (${(100 * px8 / (1080 * 1920)).toFixed(3)}%)`);
     }
-    await page.evaluate(() => { window.KEYFRAMES.noSettle = false; });
+    await page.evaluate(() => { window.__keyframes.setNoSettle(false); });
     console.log(lines.join('\n'));
     if (out) fs.writeFileSync(out, lines.join('\n') + '\n');
   } else if (mode === 'video') {

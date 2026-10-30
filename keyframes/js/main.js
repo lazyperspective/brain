@@ -1,17 +1,37 @@
-/* Keyframes — the room around the film (after The Still Point's room).
+/* Keyframes — the room around the films (after The Still Point's room).
  *
- * Loads the two keyframes from assets/, builds the film (window.KEYFRAMES), and plays it in a canvas fitted to the
- * window, clocked by the score when sound is available. ?export shows the canvas at exactly 1080 x 1920 and exposes
- * the render hook window.__keyframes for production/render.js; ?t=<seconds> shows one frame; ?debug=seg1|seg2 shows
- * the segmentation of a keyframe.
+ * Two first-frame / last-frame films share the room; ?film=the-sower (or the 01 / 02 buttons) picks one. The room
+ * loads that film's two keyframes from assets/, builds it, and plays it in a canvas fitted to the window, clocked by
+ * its score when sound is available. ?export shows the canvas at exactly 1080 x 1920 and exposes the render hook
+ * window.__keyframes for production/render.js; ?t=<seconds> shows one frame; ?debug=seg1|seg2 shows a segmentation.
  */
 (function () {
   'use strict';
-  const KF = window.KEYFRAMES;
+  const FILMS = [
+    { id: 'red-gathers', engine: window.KEYFRAMES, title: 'The Red Gathers', assets: ['assets/first.jpg', 'assets/last.jpg'], score: 'production/music/score.wav',
+      medium: 'Two keyframes · 15 s between them computed in JavaScript · 1080 × 1920 · 30 fps' },
+    { id: 'the-sower', engine: window.SOWER, title: 'The Sower', assets: ['assets/sower-first.jpg', 'assets/sower-last.jpg'], score: 'production/music/sower/score.wav',
+      medium: 'Two keyframes · nothing destroyed, only transformed · 1080 × 1920 · 30 fps' },
+  ];
   const params = new URLSearchParams(location.search);
+  const fi = Math.max(0, FILMS.findIndex((f) => f.id === params.get('film')));
+  const FILM = FILMS[fi], KF = FILM.engine;
   const EXPORT = params.has('export');
   const $ = (id) => document.getElementById(id);
   const stage = $('stage'), ui = $('ui'), audio = $('score');
+  audio.src = FILM.score;
+  document.title = FILM.title;
+  $('num').textContent = 'Keyframes · ' + String(fi + 1).padStart(2, '0') + ' / ' + String(FILMS.length).padStart(2, '0');
+  $('title').textContent = FILM.title;
+  $('medium').textContent = FILM.medium;
+  const dots = $('dots');
+  FILMS.forEach((f, k) => {
+    const b = document.createElement('button');
+    b.textContent = String(k + 1).padStart(2, '0'); b.setAttribute('aria-label', f.title);
+    if (k === fi) b.classList.add('on');
+    b.addEventListener('click', () => { if (k !== fi) { const q = new URLSearchParams(location.search); q.set('film', f.id); location.search = q.toString(); } });
+    dots.appendChild(b);
+  });
   if (EXPORT || params.has('solo')) document.body.classList.add('solo');
 
   const cv = document.createElement('canvas');
@@ -45,6 +65,9 @@
     isReady: () => ready,
     get lastMs() { return lastMs; },
     info: () => KF.info(),
+    film: FILM.id,
+    setOnly(o) { KF.only = o; },
+    setNoSettle(v) { KF.noSettle = v; },
     renderAt(t) { playing = false; clock = t; draw(t); return lastMs; },
     // the current frame, 1080 x 1920 RGB, base64
     pixels() {
@@ -68,7 +91,7 @@
 
   (async () => {
     try {
-      const [a, b] = await Promise.all([load('assets/first.jpg'), load('assets/last.jpg')]);
+      const [a, b] = await Promise.all(FILM.assets.map(load));
       await new Promise((r) => setTimeout(r, 20));
       await KF.build(a, b);
     } catch (e) {
@@ -82,6 +105,7 @@
     ready = true;
     document.documentElement.dataset.ready = 'keyframes';
     if (params.has('debug')) { KF.debugView(g, params.get('debug')); return; }
+    document.documentElement.dataset.film = FILM.id;
     const t0 = params.has('t') ? parseFloat(params.get('t')) : 0;
     clock = t0; draw(t0);
     if (!EXPORT) { mark.classList.add('on'); requestAnimationFrame(frame); }

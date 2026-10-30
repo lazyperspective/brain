@@ -73,3 +73,5 @@ body.solo #ui{display:none}
 #playmark.on{opacity:1}
 #playmark::after{content:"";position:absolute;left:25px;top:20px;border-left:18px solid rgba(240,234,222,.85);border-top:12px solid transparent;border-bottom:12px solid transparent}
 #index code{font-family:ui-monospace,Menlo,monospace;font-size:.85em;opacity:.85}
+/* the film picker stays available on phones (two films only) */
+@media (max-width:720px){ #nav #dots{display:flex} }
