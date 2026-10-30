@@ -138,9 +138,15 @@
     let eyes = 1;
     for (const b of [0.55, 2.0, 4.38]) { const q = (t - b) / 0.14; if (q > 0 && q < 1) eyes = Math.abs(q * 2 - 1); }
     const happy = t > 3.52 && t < 3.98 ? 1 : 0;
+    // the sniff: quick little jabs of the nose at the glow, the weight leaning in; a forepaw lifted, curious; then a
+    // crouch and a wiggle of the rump before the first scrape (the fox's mousing pounce, small)
+    let jab = 0; for (const s of [0.62, 0.76, 0.9, 1.22, 1.34, 1.46]) jab = Math.max(jab, Math.exp(-(((t - s) / 0.045) ** 2)));
+    const lean = sstep(0.4, 0.9, t) * (1 - sstep(1.55, 1.75, t)), pawUp = bump(0.98, 1.5, t) ** 0.6, crouch = bump(1.45, 1.86, t);
+    const wig = 0.9 * Math.sin((t - 1.5) * TAU * 7) * bump(1.5, 1.8, t);
     return {
       gait: t > 4.7 ? sstep(4.7, 5.0, t) : 0, ph: (t - 4.7) * 2.6, A: 3.6 * sstep(4.7, 5.0, t),
-      pitch: k.pitch, tilt, hy: k.hy, hx: k.hx, yaw: k.yaw, earN, earF, perk: k.perk, tLift: k.tLift, wagD,
+      pitch: k.pitch + 0.06 * lean, tilt: tilt + 0.06 * jab, hy: k.hy + 0.35 * jab, hx: k.hx + 0.75 * jab + 0.6 * lean, yaw: k.yaw, earN: earN - 0.1 * lean, earF: earF - 0.08 * lean, perk: k.perk + 0.3 * lean, tLift: k.tLift + 0.15 * crouch, wagD: crouch > 0.05 ? (u) => wagD(u) + 0.25 * crouch * Math.sin(TAU * 5 * (t - u * 0.12)) : wagD,
+      pawUp, crouch, wig,
       mouth: happy ? 2 : k.mouth > 0.5 ? 1 : 0, eyes, happy, wide: k.wide, lookX: k.lookX, lookY: k.lookY,
       dig: k.dig, digReach: reach, sq: k.sq, lift: k.lift, breath: t * TAU * 0.9, whisk: 0,
     };

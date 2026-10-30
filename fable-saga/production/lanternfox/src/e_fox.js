@@ -12,7 +12,7 @@
       earN: 0, earF: 0, perk: 0,
       tLift: 0, tCurl: 0, wag: 0, wagD: null,
       mouth: 0, eyes: 1, happy: 0, lookX: 0.3, lookY: 0, wide: 0,
-      dig: 0, digReach: 0, sit: 0, curl: 0, breath: 0, sniff: 0, sleep: 0,
+      dig: 0, digReach: 0, sit: 0, curl: 0, breath: 0, sniff: 0, sleep: 0, pawUp: 0, crouch: 0, wig: 0,
     }, o || {});
   }
   // two-bone IK: from a to target t with bone lengths l1, l2; bend +1 or −1; returns the joint
@@ -32,22 +32,23 @@
   const FOX = {};                                              // the rig of the frame being drawn (local units)
   function foxRig(p) {
     const R = FOX, g = p.gait, cur = p.curl, sit = p.sit;
-    const bob = p.bob - (g > 0 ? 0.55 * g * Math.cos(p.ph * TAU * 2) : 0) - p.lift;
+    const tb4 = p.ph * TAU * 2, bounce = g > 0 ? 0.95 * g * Math.cos(tb4) : 0;
+    const bob = p.bob - bounce - p.lift + 1.7 * p.crouch;
     const br = 0.18 * Math.sin(p.breath);
     // the body: rump, waist, chest; pitch tips it (nose down +), sitting lowers the rump, curling bends it round
-    const pc = Math.cos(p.pitch), ps = Math.sin(p.pitch);
+    const pit = p.pitch + (g > 0 ? 0.035 * g * Math.sin(tb4 + 0.6) : 0), pc = Math.cos(pit), ps = Math.sin(pit);
     const rot = (x, y) => [x * pc - y * ps, x * ps + y * pc];
-    let [rx, ry] = rot(-5.8, -15.4), [mx, my] = rot(-0.2, -16.0), [cx, cy] = rot(5.2, -16.0);
-    ry += bob; my += bob; cy += bob;
+    let [rx, ry] = rot(-6.6, -15.6), [mx, my] = rot(-0.3, -16.3), [cx, cy] = rot(6.0, -16.2);
+    ry += bob + 0.6 * p.crouch; my += bob; cy += bob - 0.3 * p.crouch; rx += p.wig;
     if (sit > 0) { rx = lerp(rx, -4.5, sit); ry = lerp(ry, -6.8, sit); mx = lerp(mx, 0.3, sit); my = lerp(my, -12.5, sit); cx = lerp(cx, 4.6, sit); cy = lerp(cy, -18.0, sit); }
     if (cur > 0) { // lying curled: rump to the left, chest round in front, low to the ground
       rx = lerp(rx, -6, cur); ry = lerp(ry, -6.2, cur); mx = lerp(mx, 0, cur); my = lerp(my, -7.4, cur); cx = lerp(cx, 6.5, cur); cy = lerp(cy, -6.4, cur);
     }
-    R.rump = [rx, ry, 5.7 + br * 0.5]; R.mid = [mx, my, 4.9 + br]; R.chest = [cx, cy, 5.4 + br];
+    R.rump = [rx, ry, 5.9 + br * 0.5]; R.mid = [mx, my, 5.0 + br]; R.chest = [cx, cy, 6.0 + br];
     // the head: on the neck, ahead of the chest and above it
-    let hxl = cx + 7.6 + p.hx, hyl = cy - 9.6 + p.hy - (g > 0 ? 0.35 * g * Math.cos(p.ph * TAU * 2 + 0.9) : 0);
+    let hxl = cx + 7.4 + p.hx, hyl = cy - 9.4 + p.hy + bounce * 0.6 - (g > 0 ? 0.3 * g * Math.cos(tb4 + 1.4) : 0);
     if (cur > 0) { hxl = lerp(hxl, 10.5, cur); hyl = lerp(hyl, -9.2, cur); }
-    R.hc = [hxl, hyl]; R.hr = 7.1;
+    R.hc = [hxl, hyl]; R.hr = 7.35;
     const yaw = p.yaw, ya = yaw * PI / 2;
     R.F = { cx: hxl, cy: hyl, fx: Math.cos(ya), fz: Math.sin(ya), rx: -Math.sin(ya), rz: Math.cos(ya), tilt: p.tilt + p.nod + p.pitch * 0.5 };
     // legs: four foot paths (trot: diagonal pairs), with IK
@@ -67,6 +68,7 @@
       if (fr && nr && p.dig > 0) { // digging: the near forepaw reaches forward and scrapes back
         fx = lerp(fx, cx + 4.5 + p.digReach * 4.5, p.dig); fy = lerp(fy, -1.2 - 4.0 * clamp(p.digReach, 0, 1) * (1 - p.digReach * 0.5), p.dig);
       }
+      if (fr && nr && p.pawUp > 0) { fx = lerp(fx, cx + 2.4, p.pawUp); fy = lerp(fy, -4.8, p.pawUp); }   // a forepaw lifted, curious
       if (p.lift > 0) { fy -= p.lift * 0.92; fx += (fr ? -1.2 : 1.4) * Math.min(1, p.lift / 4); }   // airborne: the paws leave the snow and tuck
       if (sit > 0 && !fr) { fx = lerp(fx, rx + 5.5, sit); }
       if (sit > 0 && fr) { fx = lerp(fx, cx + 1.4, sit); }
@@ -74,24 +76,24 @@
       const top = [hx, hy];
       if (fr) {
         const pawX = fx, pawY = fy - 1.5;
-        const el = ik2(hx, hy, pawX - 0.3, pawY, 6.5, 6.4, cur > 0.5 ? -1 : 1);
+        const el = ik2(hx, hy, pawX - 0.3, pawY, 6.6, 6.5, cur > 0.5 ? -1 : 1);
         legs.push({ fr, nr, top, j1: el, j2: null, paw: [pawX, pawY] });
       } else {
         const pawX = fx, pawY = fy - 1.5, hk = [pawX - 1.5 + (sit > 0 ? -2.5 * sit : 0), pawY - 4.2 + (sit > 0 ? 2.6 * sit : 0)];
-        const kn = ik2(hx, hy, hk[0], hk[1], 5.8, 5.6, -1);
+        const kn = ik2(hx, hy, hk[0], hk[1], 5.9, 5.6, -1);
         legs.push({ fr, nr, top, j1: kn, j2: hk, paw: [pawX, pawY] });
       }
     }
     R.legs = legs;
     // the tail: a chain from the rump, lifted and curled, its wag delayed down its length (follow-through)
-    const tb = [rx - 5.0, ry - 1.4], wagD = p.wagD || ((d) => p.wag);
+    const tb = [rx - 3.9, ry - 0.4], wagD = p.wagD || ((d) => p.wag);
     const pts = [];
     for (let k = 0; k <= 8; k++) {
       const u = k / 8;
       // rest shape: out and back, then up toward the tip
-      let ax = -u * 18 - u * u * 1.5 + u * u * u * 4, ay = u * 2.5 - u * u * 11.5;
+      let ax = -u * 18 - u * u * 1.5 + u * u * u * 4, ay = (u * 2.5 - u * u * 11.5) * (1 - 0.45 * g);
       const lf = p.tLift * u, cu = p.tCurl * u * u;
-      const ang = lf + wagD(u) * (0.25 + 0.75 * u) + cu * 1.2;
+      const ang = lf + wagD(u) * (0.25 + 0.75 * u) + cu * 1.2 + (g > 0 ? 0.13 * g * u * Math.sin(tb4 - 0.8 - u * 3.4) : 0);
       const ca = Math.cos(ang), sa = Math.sin(ang);
       let x = tb[0] + ax * ca - ay * sa, y = tb[1] + ax * sa + ay * ca;
       if (cur > 0) { // curled: from the rump along the front of the body (over the paws), its tip up over the nose
@@ -103,7 +105,7 @@
     R.tail = pts;
     return R;
   }
-  const TAILR0 = (u) => (2.4 + 4.6 * Math.pow(Math.sin(PI * clamp(u * 0.86 + 0.07, 0, 1)), 0.55)) * (u > 0.92 ? 1 - (u - 0.92) * 4.5 : 1);
+  const TAILR0 = (u) => (2.7 + 5.0 * Math.pow(Math.sin(PI * clamp(u * 0.86 + 0.07, 0, 1)), 0.55)) * (u > 0.92 ? 1 - (u - 0.92) * 4.5 : 1);
   let TAILK = 1;
   const TAILR = (u) => TAILR0(u) * TAILK;
   // fur grain: a tile of streaky noise (in local units), looked up cheaply
@@ -117,10 +119,13 @@
   const FOXOUT = { mouth: [0, 0], nose: [0, 0], eye: [0, 0], head: [0, 0], chest: [0, 0] };
   let FXs = 0, FYs = 0, FS = 1, FF = 1, FLT = null, FP = null;
   const fX = (x) => FXs + FF * x * FS, fY = (y) => FYs + y * FS;
+  // which pixels this fox's tail covers (stamped per draw): the body's outline melts into the tail fur there
+  const TAILST = new Uint32Array(NP); let tailStamp = 1, inTail = false, inBody = false;
   function foxShade(X, Y, s, pass) {
     const S = FS, ol = Math.max(0.75, 0.55 * S);
     const id = SDF.id;
-    if (-s < ol) return pass === 0 ? 196 : 176;                // the ink edge (darker still on the far side)
+    if (inTail && -s >= ol) TAILST[Y * W + X] = tailStamp;
+    if (-s < ol) { if (inBody && (id === 1 || id === 2) && TAILST[Y * W + X] === tailStamp) return mcq(M_FOX, FLT.amb + 0.12, 0, X, Y); return pass === 0 ? 196 : 176; }   // the ink edge (darker still on the far side)
     const n = sdNormal(s), nx = n[0], ny = n[1], nc = n[2];
     const lx = (X + 0.5 - FXs) / (S * FF), ly = (Y + 0.5 - FYs) / S;
     const L = FLT;
@@ -163,8 +168,13 @@
       if (id === 4) { if (SDF.side * FF > 0 && SDF.lat > 0.25 - 0.1 * Math.sin(ly * 2.5)) m = M_FOXW; }
       else if (lx > ch[0] + 1.2 + 0.6 * Math.sin(ly * 2.4) && ly > ch[1] - 3.2) m = M_FOXW;
     } else if (id === 1 || id === 2) {
-      if (ly > FOX.mid[1] + 3.3) sk += 0.06;
+      // a darker saddle along the back, the flanks lighter, the belly paler and softer still
+      const back = (FOX.mid[1] - ly) / 5;
+      if (back > 0.45) sk -= 0.1 * clamp((back - 0.45) / 0.4, 0, 1);
+      if (ly > FOX.mid[1] + 3.3) sk += 0.08;
+      if (ly > FOX.mid[1] + 4.3) m = M_FOXW;
     }
+    if (id !== 7 && id !== 16 && m === M_FOX && SDF.tf > 0.1) sk += 0.07;     // the tips of the fur tufts catch the light
     if (m === M_FOXK) g *= 0.6;
     sk += g * 0.11;
     if (pass === 0) { sk *= 0.72; l *= 0.62; }
@@ -181,15 +191,15 @@
   function foxLeg(g) {
     const S = FS, [hx, hy] = g.top, [jx, jy] = g.j1, [px, py] = g.paw, idb = g.fr ? 10 : 13;
     if (g.fr) {
-      sdCap(fX(hx), fY(hy), fX(jx), fY(jy), 2.5 * S, 1.6 * S, 1.2 * S, idb, 0, 0.5);
-      sdCap(fX(jx), fY(jy), fX(px), fY(py), 1.6 * S, 1.35 * S, 0.7 * S, idb + 1, 0.5, 1);
-      sdBall(fX(px + 0.6), fY(py + 0.35), 1.7 * S, 0.8 * S, 12);
+      sdCap(fX(hx), fY(hy), fX(jx), fY(jy), 3.0 * S, 1.75 * S, 1.2 * S, idb, 0, 0.5);
+      sdCap(fX(jx), fY(jy), fX(px), fY(py), 1.7 * S, 1.45 * S, 0.7 * S, idb + 1, 0.5, 1);
+      sdBall(fX(px + 0.7), fY(py + 0.3), 1.9 * S, 0.8 * S, 12);
     } else {
       const [kx, ky] = g.j2;
-      sdCap(fX(hx), fY(hy), fX(jx), fY(jy), 3.5 * S, 2.1 * S, 1.6 * S, idb, 0, 0.4);
-      sdCap(fX(jx), fY(jy), fX(kx), fY(ky), 2.0 * S, 1.4 * S, 1.0 * S, idb + 1, 0.4, 0.7);
-      sdCap(fX(kx), fY(ky), fX(px), fY(py), 1.4 * S, 1.3 * S, 0.6 * S, idb + 1, 0.7, 1);
-      sdBall(fX(px + 0.5), fY(py + 0.35), 1.65 * S, 0.8 * S, 15);
+      sdCap(fX(hx), fY(hy), fX(jx), fY(jy), 4.4 * S, 2.3 * S, 1.6 * S, idb, 0, 0.4);
+      sdCap(fX(jx), fY(jy), fX(kx), fY(ky), 2.1 * S, 1.5 * S, 1.0 * S, idb + 1, 0.4, 0.7);
+      sdCap(fX(kx), fY(ky), fX(px), fY(py), 1.5 * S, 1.4 * S, 0.6 * S, idb + 1, 0.7, 1);
+      sdBall(fX(px + 0.6), fY(py + 0.3), 1.85 * S, 0.8 * S, 15);
     }
   }
   function foxPassTail(R, k0, k1) {
@@ -197,9 +207,9 @@
     const S = FS, T = R.tail;
     for (let k = k0 || 0; k < (k1 || 8); k++) {
       const u0 = k / 8, u1 = (k + 1) / 8;
-      sdCap(fX(T[k][0]), fY(T[k][1]), fX(T[k + 1][0]), fY(T[k + 1][1]), TAILR(u0) * S, TAILR(u1) * S, 1.4 * S, 16, u0, u1, 0.62 * S);
+      sdCap(fX(T[k][0]), fY(T[k][1]), fX(T[k + 1][0]), fY(T[k + 1][1]), TAILR(u0) * S, TAILR(u1) * S, 1.4 * S, 16, u0, u1, 0.85 * S);
     }
-    sdDraw((X, Y, s) => foxShade(X, Y, s, 1));
+    inTail = true; sdDraw((X, Y, s) => foxShade(X, Y, s, 1)); inTail = false;
   }
   function foxPassBody(R) {
     sdBegin();
@@ -207,18 +217,18 @@
     sdCap(fX(ru[0]), fY(ru[1]), fX(mi[0]), fY(mi[1]), ru[2] * S, mi[2] * S, 2.5 * S, 1, 0, 0.5, 0.3 * S);
     sdCap(fX(mi[0]), fY(mi[1]), fX(ch[0]), fY(ch[1]), mi[2] * S, ch[2] * S, 2.5 * S, 2, 0.5, 1, 0.25 * S);
     // the neck up into the head's ruff, and the chest's fluff
-    sdCap(fX(ch[0] + 1.2), fY(ch[1] - 1.5), fX(hc[0] - 2.4), fY(hc[1] + 3.8), 4.6 * S, 3.8 * S, 2.4 * S, 4, 0, 1, 0.3 * S);
-    sdBall(fX(ch[0] + 3.0), fY(ch[1] + 0.8), 3.9 * S, 2.0 * S, 3, 0.45 * S);
+    sdCap(fX(ch[0] + 1.2), fY(ch[1] - 1.5), fX(hc[0] - 2.4), fY(hc[1] + 3.8), 5.0 * S, 4.1 * S, 2.4 * S, 4, 0, 1, 0.55 * S);
+    sdBall(fX(ch[0] + 3.2), fY(ch[1] + 0.9), 4.2 * S, 2.0 * S, 3, 0.7 * S);
     for (const g of R.legs) if (g.nr) foxLeg(g);
-    sdDraw((X, Y, s) => foxShade(X, Y, s, 1));
+    inBody = true; sdDraw((X, Y, s) => foxShade(X, Y, s, 1)); inBody = false;
   }
   function foxPassHead(R) {
     sdBegin();
     const S = FS, F = R.F, hc = R.hc, r = R.hr;
     sdBall(fX(hc[0]), fY(hc[1]), r * S, 1.5 * S, 5);
     // the muzzle: out along the face's forward direction, a little below centre
-    const m0 = hfeat(F, 0, -0.32, r * 0.42), m1 = hfeat(F, 0, -0.33, r * 1.3);
-    sdCap(fX(m0[0]), fY(m0[1]), fX(m1[0]), fY(m1[1]), 3.6 * S, 1.9 * S, 1.8 * S, 6, 0, 1);
+    const m0 = hfeat(F, 0, -0.32, r * 0.42), m1 = hfeat(F, 0, -0.36, r * 1.42);
+    sdCap(fX(m0[0]), fY(m0[1]), fX(m1[0]), fY(m1[1]), 3.5 * S, 1.55 * S, 1.8 * S, 6, 0, 1);
     FOXOUT.mzl = hfeat(F, 0, -0.42, r * 0.62);
     // cheek ruffs: white tufts out at the sides, low
     for (const sd of [1, -1]) {
@@ -236,7 +246,8 @@
     const ear = (sd, swing) => {
       const b = hfeat(F, sd * 0.78, 0.98, r * 0.78);
       const side = b[0] - F.cx;                               // ears flare away from the middle of the head
-      const a = -PI / 2 + clamp(side / r, -1, 1) * 0.42 - swing + F.tilt * 0.8 + F.fx * 0.1;
+      const flop = p.gait > 0 ? 0.09 * p.gait * Math.sin(p.ph * TAU * 2 - 1.3 + sd * 0.4) : 0;
+      const a = -PI / 2 + clamp(side / r, -1, 1) * 0.42 - swing + F.tilt * 0.8 + F.fx * 0.1 + flop * sd * (F.fx >= 0 ? 1 : -1) - Math.abs(flop) * 0.5;
       const L = 10.6 + 1.0 * p.perk;
       return [b[0], b[1], b[0] + Math.cos(a) * L * 0.9, b[1] + Math.sin(a) * L, b[2]];
     };
@@ -299,7 +310,7 @@
       }
     }
     // the nose: a small glossy button at the muzzle's tip
-    const nz = hfeat(F, 0, -0.27, r * 1.4);
+    const nz = hfeat(F, 0, -0.3, r * 1.52);
     const nx = fX(nz[0]), ny = fY(nz[1]), nr = Math.max(0.9, 1.25 * S);
     for (let Y = fl(ny - nr - 1); Y <= Math.ceil(ny + nr + 1); Y++) for (let X = fl(nx - nr * 1.4 - 1); X <= Math.ceil(nx + nr * 1.4 + 1); X++) {
       if (Y < ROW0 || Y > ROW1 || X < 0 || X >= W) continue;
@@ -309,7 +320,7 @@
     }
     if (S >= 1.5) P(nx - FF * 0.3 * S, ny - 0.45 * S, 194);
     // the mouth: a little line back from under the nose (open around the bail when carrying, a smile when happy)
-    const m0 = hfeat(F, 0, -0.5, r * 1.18), mback = hfeat(F, -0.3 * (1 - F.fz), -0.6, r * 0.95);
+    const m0 = hfeat(F, 0, -0.52, r * 1.3), mback = hfeat(F, -0.3 * (1 - F.fz), -0.6, r * 0.98);
     if (S >= 1.1) {
       const ax = fX(m0[0]), ay = fY(m0[1]), bx = fX(mback[0]), by = fY(mback[1]) + (p.happy > 0 || p.mouth === 2 ? -0.8 * S : 0.3 * S);
       lineF(nx, ny + nr * 0.8, ax, ay, (x, y) => P(x, y, 176));
@@ -345,9 +356,9 @@
     }
     foxEars(R, p);
     const F = R.F, r = R.hr;
-    const m0 = hfeat(F, 0, -0.5, r * 1.18), mb = hfeat(F, -0.3 * (1 - F.fz), -0.6, r * 0.95);
+    const m0 = hfeat(F, 0, -0.52, r * 1.3), mb = hfeat(F, -0.3 * (1 - F.fz), -0.6, r * 0.98);
     FOXOUT.mouth = [fX(lerp(m0[0], mb[0], 0.45)), fY(lerp(m0[1], mb[1], 0.45) + 0.5)];
-    const nz = hfeat(F, 0, -0.27, r * 1.4); FOXOUT.nose = [fX(nz[0]), fY(nz[1])];
+    const nz = hfeat(F, 0, -0.3, r * 1.52); FOXOUT.nose = [fX(nz[0]), fY(nz[1])];
     FOXOUT.head = [fX(R.hc[0]), fY(R.hc[1])]; FOXOUT.chest = [fX(R.chest[0]), fY(R.chest[1])];
     FOXOUT.top = fY(Math.min(R.earN[3], R.earF[3])); FOXOUT.p = p; FOXOUT.R = R;
     return FOXOUT;
@@ -355,7 +366,7 @@
   function drawFox(p, sx, sy, S, f, light) {
     foxPrep(p, sx, sy, S, f, light);
     p = FP; const R = FOXOUT.R;
-    TAILK = 1 - 0.18 * clamp(p.curl, 0, 1);
+    TAILK = 1 - 0.18 * clamp(p.curl, 0, 1); tailStamp++;
     foxPassFar(R);
     if (p.curl < 0.5) foxPassTail(R);
     foxPassBody(R);
