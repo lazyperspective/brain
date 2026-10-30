@@ -1,6 +1,6 @@
 /* Keyframes — the room around the films (after The Still Point's room).
  *
- * Two first-frame / last-frame films share the room; ?film=the-sower (or the 01 / 02 buttons) picks one. The room
+ * Two first-frame / last-frame films share the room; ?film=evening-walk (or the 01 / 02 buttons) picks one. The room
  * loads that film's two keyframes from assets/, builds it, and plays it in a canvas fitted to the window, clocked by
  * its score when sound is available. ?export shows the canvas at exactly 1080 x 1920 and exposes the render hook
  * window.__keyframes for production/render.js; ?t=<seconds> shows one frame; ?debug=seg1|seg2 shows a segmentation.
@@ -10,8 +10,8 @@
   const FILMS = [
     { id: 'red-gathers', engine: window.KEYFRAMES, title: 'The Red Gathers', assets: ['assets/first.jpg', 'assets/last.jpg'], score: 'production/music/score.wav',
       medium: 'Two keyframes · 15 s between them computed in JavaScript · 1080 × 1920 · 30 fps' },
-    { id: 'the-sower', engine: window.SOWER, title: 'The Sower', assets: ['assets/sower-first.jpg', 'assets/sower-last.jpg'], score: 'production/music/sower/score.wav',
-      medium: 'Two keyframes · nothing destroyed, only transformed · 1080 × 1920 · 30 fps' },
+    { id: 'evening-walk', engine: window.EVENING, title: 'The Evening Walk', assets: ['assets/evening-first.jpg', 'assets/evening-last.jpg'], score: 'production/music/evening/score.wav',
+      medium: 'Two keyframes · a puppet cut from them walks the 15 s between · 1080 × 1920 · 30 fps' },
   ];
   const params = new URLSearchParams(location.search);
   const fi = Math.max(0, FILMS.findIndex((f) => f.id === params.get('film')));

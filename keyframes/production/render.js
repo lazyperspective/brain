@@ -1,9 +1,9 @@
 // Render a Keyframes film through its page and the render hook (window.__keyframes).
-//   FILM=the-sower node render.js ...             picks the film (default: red-gathers)
+//   FILM=evening-walk node render.js ...          picks the film (default: red-gathers)
 //   node render.js video <out.mp4>                 silent H.264, 1080 x 1920, 30 fps, every frame of the film
 //   node render.js stills <dir> 0,1.5,3            PNGs of single frames
 //   node render.js check                           bookend pixel-diffs (frame 0 vs keyframe 1, last frame vs keyframe 2)
-//   node render.js debug <seg1|seg2> <out.png>     the segmentation of a keyframe
+//   node render.js debug <view> <out.png>          a debug view (film 01: seg1|seg2; film 02: parts1|parts2|front2|sprites|plate1|sky2|terrain)
 //   node render.js info                            build stats and the traveller's path
 // The page reads the keyframes' pixels, which Chromium forbids on file://, so this serves the folder on a local port.
 // Uses the pre-installed Playwright Chromium.
@@ -50,6 +50,7 @@ function diff(a, b) {
   const info = await page.evaluate(() => window.__keyframes.info());
   console.log('build', Math.round(info.buildMs), 'ms;', info.particles, 'particles');
   const frames = await page.evaluate(() => window.__keyframes.frames);
+  if (process.env.NOSETTLE) await page.evaluate(() => window.__keyframes.setNoSettle(true));   // procedural layers only
   if (process.env.ONLY) await page.evaluate((o) => { window.__keyframes.setOnly(o.split(',')); }, process.env.ONLY);
   const grab = (t) => page.evaluate((t) => { const ms = window.__keyframes.renderAt(t); return { px: window.__keyframes.pixels(), ms }; }, t);
 

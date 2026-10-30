@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build the video of a Keyframes film: FILM=red-gathers (default) or FILM=the-sower.
-#   1. synthesise the score (music/score.py or music/sower/score.py -> score.wav, 17.500 s)
+# Build the video of a Keyframes film: FILM=red-gathers (default) or FILM=evening-walk.
+#   1. synthesise the score (music/score.py or music/evening/score.py -> score.wav, 17.500 s)
 #   2. render every frame through the page with Playwright (render.js video), silent H.264
 #   3. mux: H.264 yuv420p + AAC, 1080 x 1920, 30 fps, 17.5 s
 #   4. check: bookend pixel-diffs, flashes and the drain, durations and frame counts
@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 export FILM=${FILM:-red-gathers}
 OUT=../../keyframes-video
 SCRATCH=${SCRATCH:-/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/keyframes}/$FILM
-if [ "$FILM" = the-sower ]; then MUSIC=music/sower; NAME=the-sower-9x16.mp4; else MUSIC=music; NAME=keyframes-9x16.mp4; fi
+if [ "$FILM" = evening-walk ]; then MUSIC=music/evening; NAME=the-evening-walk-9x16.mp4; else MUSIC=music; NAME=keyframes-9x16.mp4; fi
 SILENT="$SCRATCH/silent.mp4"
 mkdir -p "$OUT" "$SCRATCH"
 
