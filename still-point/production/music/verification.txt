@@ -1,0 +1,10 @@
+THE STILL POINT - sound verification (measured on the written score.wav)
+
+duration: 1152000 frames = 24.000000 s at 48000 Hz, 2 ch, PCM_24
+integrated loudness (internal BS.1770 meter, looped): -18.00 LUFS; true peak -6.14 dBTP (4x oversampled)
+seam step |x[0] - x[N-1]|: L 1.60e-03, R 3.06e-03; ordinary steps: median 3.79e-03, 99.9th pct 2.01e-02, max 3.40e-02
+click test (>6 kHz energy, 5 ms windows): window at the seam -28.7 dB; median -28.8 dB; max anywhere -27.7 dB; seam rank 1843 of 4799 windows louder
+ffmpeg ebur128 (single pass, not looped): I:         -18.0 LUFS | LRA:         2.5 LU | Peak:       -6.1 dBFS
+
+PASS  seamless loop: no step or click at the seam beyond ordinary programme content
+PASS  exactly 24.000 s

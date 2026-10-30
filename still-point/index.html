@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Still Point</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="room"><div id="stage"></div></main>
+
+<footer id="ui" data-tone="dark">
+  <div id="label">
+    <div id="num"></div>
+    <div id="title"></div>
+    <div id="medium"></div>
+    <div id="note"></div>
+  </div>
+  <nav id="nav" aria-label="Artworks">
+    <button id="prev" aria-label="Previous artwork">&larr;</button>
+    <div id="dots"></div>
+    <button id="next" aria-label="Next artwork">&rarr;</button>
+    <button id="about" aria-label="About this work">i</button>
+  </nav>
+</footer>
+
+<section id="index" hidden>
+  <div class="inner">
+    <h1>The Still Point</h1>
+    <p class="lede">A slow, breathing pixel-art loop under a soft painted light, drawn entirely in JavaScript as it plays. No images, no video files: every pixel and every glow is computed.</p>
+    <ol id="list"></ol>
+    <p class="keys"><kbd>i</kbd> this index &nbsp;·&nbsp; <kbd>h</kbd> hide the label &nbsp;·&nbsp; tap the picture to pause</p>
+  </div>
+</section>
+
+<script src="js/pieces/01-still-point.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
