@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Red Gathers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="room"><div id="stage"></div></main>
+
+<footer id="ui">
+  <div id="label">
+    <div id="num">Keyframes · 01</div>
+    <div id="title">The Red Gathers</div>
+    <div id="medium">Two keyframes · 15 s between them computed in JavaScript · 1080 × 1920 · 30 fps</div>
+    <div id="note">Tap to play with sound · tap again to pause</div>
+  </div>
+  <nav id="nav" aria-label="Playback">
+    <button id="replay" aria-label="Play from the start">&#8634;</button>
+    <button id="about" aria-label="About this work">i</button>
+  </nav>
+</footer>
+
+<section id="index" hidden>
+  <div class="inner">
+    <h1>The Red Gathers</h1>
+    <p class="lede">A first-frame / last-frame film made entirely in code. It opens on one painting and ends on another;
+      the fifteen seconds between them are computed in the browser as they play. A wind takes the blossom apart petal by
+      petal, the traveller walks out through the gate, the colour drains from the world until only red is left, and all
+      of the red gathers into the sun over the sea where he sits down to rest.</p>
+    <p class="lede">The in-between is built only from the two keyframes' own pixels and from procedural drawing: petals
+      and ink flakes are Voronoi pieces cut from the paintings, the cliff and the house are assembled from the last
+      frame's dark mask, and the traveller, his hat, the wind and the water's motion are drawn in code.</p>
+    <p class="keys">Serve this folder over http (for example <kbd>python3 -m http.server</kbd>) — browsers will not let a
+      page read the pixels of images opened from <code>file://</code>. Keyframe images go in <code>assets/</code>
+      as <code>first.jpg</code> and <code>last.jpg</code>.</p>
+    <p class="keys"><kbd>space</kbd> play / pause &nbsp;·&nbsp; <kbd>r</kbd> from the start &nbsp;·&nbsp; <kbd>i</kbd> this note &nbsp;·&nbsp; <kbd>h</kbd> hide the label</p>
+  </div>
+</section>
+
+<audio id="score" src="production/music/score.wav" preload="auto"></audio>
+<script src="js/keyframes.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

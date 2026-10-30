@@ -1,0 +1,21 @@
+score.wav: 17.500 s, 48000 Hz, stereo, 24-bit
+integrated loudness -16.04 LUFS (target -16.0), true peak -1.50 dBTP (ceiling -1.5)
+short-term loudness at the cues (K-weighted, 400 ms):
+   0.30 s   -33.6 LUFS  first frame held
+   1.60 s   -16.8 LUFS  wind + petal motif
+   5.00 s   -21.1 LUFS  journey
+  11.50 s   -13.0 LUFS  the gathering
+  12.90 s   -14.0 LUFS  the sun is whole
+  14.20 s   -21.4 LUFS  he sits
+  16.05 s   -13.8 LUFS  resolution
+  17.00 s   -22.3 LUFS  held last frame
+resolution chord lands at 16.000 s (koto roll 15.880-16.000, pad and cello under it, low bowl at 15.990)
+stem RMS (dBFS, pre-master) in windows 0-1 | 1.2-2.4 | 3-9 | 9.3-12.7 | 12.8-13.8 | 13.8-15.8 | 16-17.5
+  koto        -180.0  -33.6  -34.7  -29.7  -30.5  -42.0  -32.6
+  shakuhachi  -180.0 -180.0  -33.3  -62.5  -45.0  -47.9 -180.0
+  warm pad     -44.1  -41.1  -42.2  -37.5  -39.7  -41.1  -30.8
+  cello       -180.0 -180.0 -180.0 -180.0  -47.1  -47.0  -39.1
+  wind        -180.0  -45.3  -40.0  -36.6  -44.2  -53.1  -65.9
+  sea         -180.0 -180.0  -46.6  -38.8  -38.2  -41.8  -52.3
+  bowl        -180.0 -180.0 -180.0 -180.0  -37.6  -42.2  -35.2
+notes: 87; instruments: koto (GM 107), shakuhachi (GM 77), warm pad (GM 89), cello (GM 42)
