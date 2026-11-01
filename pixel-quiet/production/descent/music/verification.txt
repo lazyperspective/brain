@@ -1,0 +1,12 @@
+THE DESCENT - sound verification (measured on the written score.wav)
+
+duration: 1536000 frames = 32.000000 s at 48000 Hz, 2 ch, PCM_24
+eye goes under at 1.324 s (plunge placed there); comes out at 31.531 s (breach)
+integrated loudness (internal BS.1770 meter, looped): -18.00 LUFS; true peak -4.99 dBTP (4x oversampled)
+seam step |x[0] - x[N-1]|: L 1.23e-02, R 1.02e-03; ordinary steps: median 4.01e-03, 99.9th pct 4.08e-02, max 1.03e-01
+click test (>6 kHz energy, 5 ms windows): window at the seam -17.7 dB; median -32.6 dB; max anywhere -8.2 dB; seam rank 481 of 6399 windows louder
+local click test: seam window -17.7 dB vs the surrounding 1 s: median -15.8 dB, max -8.2 dB
+ffmpeg ebur128 (single pass, not looped): I:         -18.0 LUFS | LRA:         3.2 LU | Peak:       -5.0 dBFS
+
+PASS  seamless loop: no step or click at the seam beyond ordinary programme content
+PASS  exactly 32.000 s
