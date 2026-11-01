@@ -60,7 +60,7 @@
   const hx = (h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
   const per = (k, t) => TAU * k * t / D;       // a phase that turns k whole times per loop
 
-  /* ================================================================ palette (50) */
+  /* ================================================================ palette (55) */
   const PAL_HEX = [
     '020308', '050915', '091022', '0c1834', '15184a', '0f2758', '0c3a72', '0a5290', // 0-7   abyss → blue
     '0c6ca8', '1288bc', '1ea6c8', '44c2d0', '7cdcd6', 'b6f0e4',                     // 8-13  blue → shallow turquoise
@@ -71,6 +71,7 @@
     'eeeae0', 'b8bec2', '7c8a96', '434c58', '262a33',                               // 37-41 bone, silver, slate
     'e0c890', 'a8905e', '6e5e3c', '3e3824', 'd87c66', '93485a', '5c7a3c', '6a4aa0', // 42-49 sand, olive, coral, algae, violet
     '4b98d6', '8ccaec',                                                             // 50-51 sea seen from above
+    '1e1a1f', '362c2c', '58483f',                                                   // 52-54 basalt: cool dark neutrals for the seabed
   ];
   const PAL = PAL_HEX.map(hx), NPAL = PAL.length;
   const P = (k) => PAL[k];
@@ -180,10 +181,13 @@
     }
   }
 
+  // pixels drawn so far this frame by the creature functions (the motion check reads it per creature, see trk)
+  let PXN = 0;
   // shade one creature pixel: albedo 0..1, a normal (y down, z toward the viewer), fog toward the water, alpha
   function lightPx(x, y, ar, ag, ab, nx, ny, nz, fog, alpha, er, eg, eb) {
     x = fl(x); y = fl(y);
     if (x < 0 || y < 0 || x >= W || y >= H) return;
+    PXN++;
     const yw = CH + y - 225, o = yIdx(yw), i = y * W + x, j = i * 3;
     const dif = 0.4 + 0.6 * clamp(-ny * 0.8 + nz * 0.45, 0, 1);
     // creatures are lit a little brighter than the open water scatters (they sit in the light, not behind it)
@@ -199,12 +203,14 @@
   function addPx(x, y, r, g, b) {
     x = fl(x); y = fl(y);
     if (x < 0 || y < 0 || x >= W || y >= H) return;
+    PXN++;
     const j = (y * W + x) * 3;
     C[j] += r; C[j + 1] += g; C[j + 2] += b;
   }
   function mixPx(x, y, r, g, b, a) {
     x = fl(x); y = fl(y);
     if (x < 0 || y < 0 || x >= W || y >= H) return;
+    PXN++;
     const j = (y * W + x) * 3;
     C[j] += (r - C[j]) * a; C[j + 1] += (g - C[j + 1]) * a; C[j + 2] += (b - C[j + 2]) * a;
   }
@@ -1399,9 +1405,11 @@
   function drawSiphonophore(t) {
     const p = 0.72, Y0 = 2230, X0 = 96;
     const hx = scrX(X0 - (t - 11) * 4, p), hy = scrY(Y0 + (t - 11) * 10, p);
-    if (hy < -420 || hy > H + 60) return;
     const L = 560, ang = 2.15;               // heading down and to the left, trailing behind up-right
     const dx = Math.cos(ang), dy = Math.sin(ang);
+    // cull on the whole chain (head to tail, plus its sway and hanging tentacles), never on the head alone
+    const ty = hy - dy * L;
+    if (Math.min(hy, ty) - 80 > H || Math.max(hy, ty) + 120 < 0) return;
     const pt = (sd) => {
       // the chain trails behind (opposite its heading), undulating
       const wv = Math.sin(sd * 0.026 - per(5, t)) * (4 + sd * 0.05) + Math.sin(sd * 0.011 + per(2, t)) * sd * 0.06;
@@ -1455,7 +1463,7 @@
   function rainbow(u) { u = fr(u) * RAINBOW.length; const k = fl(u), f = u - k, a = RAINBOW[k], b = RAINBOW[(k + 1) % RAINBOW.length]; return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)]; }
   function combAt(t) { return [292 - (t - 14.6) * 8, 2440 + (t - 14.6) * 42]; }
   function drawComb(t) {
-    if (t < 13.6 || t > 19.5) return;
+    if (t < 13.2 || t > 21.5) return;
     const p = 0.9, q = combAt(t), cx = scrX(q[0], p), cy = scrY(q[1], p);
     if (cy < -60 || cy > H + 60) return;
     const rx = 20, ry = 32, rot = per(1, t) * 0.5, tilt = 0.25 + 0.08 * Math.sin(per(2, t));
@@ -1539,6 +1547,151 @@
     }
   }
 
+  /* ================================================================ the glow field */
+  // the midnight water is never quite empty: dinoflagellates hang in it at three depths of field, each one
+  // flaring on its own (a quick rise, a slow fade) and otherwise a bare ember; brighter where the angler's lure is
+  const GLOW = [];
+  function buildGlowField() {
+    const R = mulberry32(8282);
+    for (let k = 0; k < 420; k++) {
+      const p = R() < 0.5 ? 0.55 + 0.25 * R() : R() < 0.7 ? 0.9 + 0.2 * R() : 1.25 + 0.3 * R();
+      GLOW.push({ x: R() * (W + 60) - 30, y: 2150 + R() * 1250, p, per: 2.2 + 3.5 * R(), ph: R() * 40, c: R() < 0.75 ? 0 : R() < 0.6 ? 1 : 2 });
+    }
+  }
+  const GLOWC = [[40, 150, 255], [60, 255, 210], [150, 120, 255]];
+  function drawGlowField(t) {
+    if (CH < 1800 || CH > 3700) return;
+    for (const g of GLOW) {
+      const x = g.x - CX * g.p, y = 225 + g.p * (g.y - CH);
+      if (y < -2 || y > H + 2 || x < -2 || x > W + 2) continue;
+      const yw = CH + (y - 225) / g.p, deep = sstep(2100, 2600, yw) * (1 - sstep(3350, 3650, yw));
+      if (deep <= 0) continue;
+      // a flare once per cycle: rises in 0.15 s, fades over ~0.9 s; between flares a faint ember
+      const u = mod(t + g.ph, g.per), fl2 = u < 0.15 ? u / 0.15 : Math.exp(-(u - 0.15) / 0.45);
+      const a = deep * (0.07 + 0.55 * fl2 * fl2) * (g.p > 1.2 ? 1.2 : g.p < 0.8 ? 0.6 : 1);
+      if (a < 0.03) continue;
+      const c = GLOWC[g.c];
+      addPx(x, y, c[0] * a, c[1] * a, c[2] * a);
+      if (g.p > 1.2 && a > 0.25) { const h = a * 0.35; addPx(x + 1, y, c[0] * h, c[1] * h, c[2] * h); addPx(x, y + 1, c[0] * h, c[1] * h, c[2] * h); }
+    }
+  }
+
+  /* ================================================================ firefly squid */
+  // small, glassy squid that travel in jets (the mantle squeezes, then glides), covered in blue photophores
+  const SQUID = [];
+  function buildSquid() {
+    const R = mulberry32(9393);
+    for (let k = 0; k < 7; k++) SQUID.push({ x0: 40 + R() * 280, y: 2480 + R() * 300, p: 0.8 + 0.35 * R(), dir: R() < 0.5 ? -1 : 1, v: 10 + 8 * R(), P: 1.5 + 0.6 * R(), ph: R() * 7, sz: 1.15 + 0.5 * R(), tilt: (R() - 0.5) * 0.5 });
+  }
+  function drawSquid(t) {
+    if (t < 12 || t > 26) return;
+    for (const q of SQUID) {
+      // travel in pulses: speed v·(1 − 0.9 cos), so a jet and a glide each cycle
+      const ph = (t + q.ph) / q.P * TAU, jet = Math.max(0, Math.cos(ph));
+      const along = q.v * ((t - 12) - 0.9 * q.P / TAU * Math.sin(ph)) * 2.2;
+      const wx = q.x0 + q.dir * along, wy = q.y + 6 * Math.sin(per(2, t) + q.ph) - along * q.tilt * 0.3;
+      const x = scrX(wx, q.p), y = scrY(wy, q.p);
+      if (x < -40 || x > W + 40 || y < -30 || y > H + 30) continue;
+      const s = q.sz * (0.8 + 0.6 * q.p), d = q.dir, ca = Math.cos(q.tilt), sa = Math.sin(q.tilt) * d;
+      const P2 = (u, v) => [x + d * (u * ca - v * sa), y + u * sa + v * ca];   // u: + toward the arms, v: down
+      const L = 11 * s * (1 - 0.1 * jet), Hm = 3.1 * s * (1 + 0.12 * jet);
+      // the light it carries lights its own glassy body
+      addLight(x + d * 3 * s, y, 30, 110, 220, 7 * s, 0.25, 3);
+      // mantle: a tapered torpedo behind the head (u from −L to 0), with two fins at the tip
+      for (let u = -L - 2 * s; u <= 0; u += 0.5) {
+        const f = (u + L) / L, hw = u < -L ? 0 : Hm * Math.sqrt(Math.max(0, f)) * (1 - 0.15 * f);
+        for (let v = -hw; v <= hw; v += 0.5) { const p = P2(u, v); lightPx(p[0], p[1], 0.62, 0.36, 0.34, 0, v / Math.max(0.5, hw) * 0.7, 0.7, 0.05, 0.55 + 0.25 * (1 - Math.abs(v) / Math.max(0.5, hw))); }
+        if (u < -L * 0.75) { const fw = (u + L * 0.75) / (L * 0.25) * -2.6 * s; for (const sg of [-1, 1]) { const p = P2(u, sg * (hw + Math.max(0, fw * 0.6))); lightPx(p[0], p[1], 0.55, 0.32, 0.32, 0, sg * 0.6, 0.6, 0.05, 0.45); } }
+      }
+      // head, eyes, and the arms trailing forward in a bundle that spreads as it glides
+      for (let u = 0; u <= 2.4 * s; u += 0.5) for (let v = -2 * s; v <= 2 * s; v += 0.5) { const p = P2(u, v); lightPx(p[0], p[1], 0.6, 0.34, 0.32, 0, 0, 1, 0.05, 0.6); }
+      const eye = P2(1 * s, -1.2 * s); lightPx(eye[0], eye[1], 0.1, 0.1, 0.14, 0, 0, 1, 0, 1); addPx(eye[0], eye[1] - 1, 30, 50, 70);
+      const spread = 0.6 + 1.6 * (1 - jet);
+      for (let a = 0; a < 6; a++) {
+        const off = (a - 2.5) / 2.5, al = (6.5 + (a === 0 || a === 5 ? 2 : 0)) * s;
+        for (let u = 0; u <= al; u += 0.6) { const p = P2(2.4 * s + u, off * (1 + u / al * spread) * s + Math.sin(u * 0.5 - t * 6 + a) * 0.4); lightPx(p[0], p[1], 0.58, 0.34, 0.34, 0, 0, 1, 0.05, 0.5 * (1 - u / al * 0.5)); }
+        if (a === 0 || a === 5 || a === 2) { const p = P2(2.4 * s + al, off * (1 + spread) * s); const tw = 0.7 + 0.3 * Math.sin(per(13, t) + a + q.ph); addPx(p[0], p[1], 60 * tw, 190 * tw, 255 * tw); addPx(p[0] + d, p[1], 20 * tw, 70 * tw, 110 * tw); }
+      }
+      // photophores scattered over the mantle; a wave of brightness runs down them
+      for (let k = 0; k < 16; k++) {
+        const u = -L * (0.1 + 0.8 * ih(k, 1, 940 + q.x0)), v = (ih(k, 2, 940 + q.x0) * 2 - 1) * Hm * 0.7 * Math.sqrt((u + L) / L);
+        const tw = 0.45 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(per(9, t) * 2 + u * 0.4 + q.ph), 2);
+        const p = P2(u, v); addPx(p[0], p[1], 30 * tw, 120 * tw, 230 * tw);
+      }
+    }
+  }
+
+  /* ================================================================ the dragonfish */
+  // long, black and slender, two rows of violet photophores down its side, a red light under the eye, and a
+  // barbel hanging from its chin with a glowing bulb that lights its own face
+  function dragonAt(t) { return [40 + (t - 18.2) * 32, 2905 + 8 * Math.sin(per(2, t) + 0.7)]; }
+  function drawDragon(t) {
+    if (t < 15 || t > 26) return;
+    const p = 1.0, q = dragonAt(t), hx = scrX(q[0], p), hy = scrY(q[1], p), s = 1.15, L = 96 * s;
+    if (hx < -10 || hx - L > W + 20 || hy < -50 || hy > H + 60) return;
+    // the spine trails behind the head (to the left); a slow wave runs back along it
+    const spine = (u) => [hx - u, hy + Math.sin(u * 0.07 - per(11, t)) * 3.2 * s * (u / L) + Math.sin(per(3, t)) * 1.2];
+    // head: a blunt snout rounding into the skull; body: slim, tapering hard into the tail
+    const half = (u) => 3.3 * s * Math.min(1, Math.sqrt(u / (5 * s) + 0.08)) * (1 - 0.7 * Math.pow(u / L, 1.5));
+    const bulb = [hx + 2 * s + 3 * Math.sin(per(4, t)), hy + 30 * s + 2 * Math.sin(per(5, t) + 1)];
+    const bt = 0.75 + 0.25 * Math.sin(per(7, t));
+    addLight(bulb[0], bulb[1], 60 * bt, 170 * bt, 255 * bt, 26 * s, 0.35 * bt, 6);
+    addLight(hx - 4 * s, hy + 1.5 * s, 200, 30, 50, 9 * s, 0.25, 4);
+    sprBegin();
+    for (let u = 0; u <= L; u += 0.5) {
+      const c = spine(u), h = half(u);
+      // the lower jaw juts below the head, upturned to the snout
+      const jaw = u < 9 * s ? 1.4 * s * (1 - u / (9 * s)) * (u / (9 * s)) * 3 : 0;
+      for (let v = -h; v <= h + jaw; v += 0.5) {
+        const vv = v / Math.max(0.6, h);
+        // black skin with a faint indigo-bronze sheen along the upper flank, fading toward the tail
+        const sheen = vv > -0.75 && vv < -0.15 ? 1 - Math.abs(vv + 0.45) / 0.3 : 0, fade = 1 - u / L * 0.6;
+        let col = vv > 1 ? [0.24, 0.17, 0.2] : vv < -0.6 ? [0.1, 0.09, 0.13] : [0.17, 0.14, 0.2];
+        if (sheen > 0) col = mixA(col, [0.34, 0.3, 0.52], sheen * fade);
+        sput(c[0], c[1] + v, col[0], col[1], col[2], 0, vv * 0.8, 0.6, 14 + 44 * sheen * fade);
+      }
+    }
+    // dorsal and anal fins set far back, and a small forked tail
+    for (let k = 0; k < 7; k++) for (const sg of [-1, 1]) { const u = L * 0.82 + k * 1.2, c = spine(u), h = half(u); sput(c[0], c[1] + sg * (h + 1 + (3 - Math.abs(k - 3)) * 0.8), 0.14, 0.12, 0.17, 0, sg * 0.5, 0.6, 0); }
+    for (let k = 0; k < 7; k++) for (const sg of [-1, 1]) { const c = spine(L + k); sput(c[0], c[1] + sg * k * 0.7, 0.13, 0.11, 0.16, 0, 0, 1, 0); }
+    sprEnd(0.04, 1, 0.5, 1.1);
+    // the jaw: a line of needle teeth catching the barbel's light
+    for (let k = 0; k < 6; k++) { const x = hx - 1.2 * s - k * 1.4 * s; addPx(x, hy + 1.6 * s, 70 * bt, 90 * bt, 110 * bt); if (k % 2 === 0) addPx(x, hy + 2.6 * s, 50 * bt, 60 * bt, 80 * bt); }
+    // eye, and the red suborbital light behind it
+    { const ex = hx - 3.2 * s, ey = hy - 1.1 * s;      // a big eye: a pale ring, a dark pupil, a glint
+      for (let yy = -1; yy <= 1; yy++) for (let xx = -1; xx <= 1; xx++) addPx(ex + xx, ey + yy, 22, 30, 44);
+      mixPx(ex, ey, 4, 6, 10, 0.9); addPx(ex - 1, ey - 1, 70, 90, 120); }
+    const so = 0.8 + 0.2 * Math.sin(per(5, t) + 2);
+    addPx(hx - 5.5 * s, hy + 0.6 * s, 230 * so, 40 * so, 60 * so); addPx(hx - 6.5 * s, hy + 0.6 * s, 120 * so, 20 * so, 30 * so);
+    // the photophore rows: two lines of violet beads along the flank, a slow wave of light down them
+    for (let u = 12 * s; u < L * 0.86; u += 3.2 * s) {
+      const c = spine(u), h = half(u), tw = 0.5 + 0.5 * Math.pow(0.5 + 0.5 * Math.sin(per(8, t) * 2 - u * 0.12), 2);
+      addPx(c[0], c[1] + h * 0.55, 90 * tw, 70 * tw, 240 * tw);
+      if (fl(u / (3.2 * s)) % 2 === 0) addPx(c[0], c[1] + h * 0.1, 60 * tw, 50 * tw, 190 * tw);
+    }
+    // the barbel: a fine thread from the chin, swaying, down to its lure
+    for (let k = 0; k <= 1; k += 0.02) {
+      const x = lerp(hx - 2 * s, bulb[0], k) + Math.sin(k * 5 + per(6, t)) * 2.5 * k * (1 - k), y = lerp(hy + 3 * s, bulb[1], k);
+      lightPx(x, y, 0.5, 0.42, 0.45, 0, 0, 1, 0.04, 0.8);
+    }
+    for (let yy = -2; yy <= 2; yy++) for (let xx = -2; xx <= 2; xx++) { const d = xx * xx + yy * yy; if (d > 5) continue; const k = (1 - d / 6) * bt; addPx(bulb[0] + xx, bulb[1] + yy, 80 * k, 200 * k, 255 * k); }
+  }
+
+  /* ================================================================ the vent's warmth, seen from above */
+  // long before the seabed comes into view its glow does: a deep red-orange rising from below as the camera sinks
+  function drawVentApproach(t) {
+    if (CH < 2700 || CH > 3900) return;
+    const vy = 225 + (3640 - CH), a = 0.5 * sstep(2700, 3250, CH) * (1 - 0.8 * sstep(3300, 3700, CH));
+    const breathe = ventFlicker(t, 0);
+    for (let y = 0; y < H; y++) {
+      const d = vy - y;
+      const k = a * breathe * (d > 0 ? Math.exp(-d / 150) : 1);    // full below the glow line, falling off above it
+      if (k < 0.004) continue;
+      const r = 70 * k, g = 22 * k, b = 6 * k;
+      for (let x = 0; x < W; x++) { const j = (y * W + x) * 3, e = 1 - 0.3 * Math.abs(x - 180) / 180; C[j] += r * e; C[j + 1] += g * e; C[j + 2] += b * e; }
+    }
+  }
+
   /* ================================================================ far lights */
   // tiny living lights far off in the dark, drifting with the slowest layer
   const FARL = [];
@@ -1576,7 +1729,7 @@
     const I = A.glow * pulse;
     // the lure's light: it falls on the face, the teeth, the snow
     addLight(lx, ly, 80 * I * 3, 200 * I * 3, 255 * I * 3, 34 * s + 8, 0.5 * I, 8 * s);
-    if (A.glow < 0.15) return;
+    if (A.glow < 0.003) return;
     const fog = 0.04;
     const body = [0.56, 0.48, 0.46], dark = [0.3, 0.25, 0.25], light = [0.72, 0.64, 0.6];
     const toS = (u, v) => [A.x + u * s, A.y + v * s];
@@ -1666,7 +1819,7 @@
   function ventFlicker(t, k) { return 1 + 0.1 * Math.sin(per(7 + k * 4, t) + k) + 0.05 * Math.sin(per(17 + k, t) + 2 * k); }
   function paintVent() {
     const R = mulberry32(3880);
-    const fill = [0.012, 0.02, 0.05];
+    const fill = [0.02, 0.042, 0.095];               // a cool fill from the living dark, so the vent's warmth has something to warm
     /* ---- far: a ridge with two little smokers, one glowing */
     VFAR = makeLayer(300, 0.45, 0, { vent: true }); VFAR.y0 = VFAR.wy0 = CREST - 45 / 0.45; LAY = VFAR;
     {
@@ -1805,7 +1958,7 @@
         }
       }
       VLIGHTS.length = 0;
-      VLIGHTS.push({ x: ORX, y: ly(ORY + 2), z: 16, r: 300, g: 150, b: 52, rad: 105 }, { x: 150, y: ly(3828), z: 26, r: 300, g: 110, b: 36, rad: 120 });
+      VLIGHTS.push({ x: ORX, y: ly(ORY + 2), z: 16, r: 300, g: 205, b: 120, rad: 105 }, { x: 150, y: ly(3828), z: 26, r: 290, g: 100, b: 34, rad: 120 });
       for (let i = 0; i < L.n; i++) L.F[i] = 0.04;
       bakeLayer(L, { fill, ao: 0.13 });
       // glowing seams: thin hot cracks on the chimney and the mound, brighter low and at the throat
@@ -1844,9 +1997,9 @@
           WORMS.push({ L: VNEAR, lx: bx + lean, ly: g - hgt, r, ph: R() * TAU, k: 1 + fl(R() * 3), ret: R(), sz: 2.0 + 0.6 * R() });
         }
       }
-      VLIGHTS.length = 0; VLIGHTS.push({ x: ORX, y: -170, z: 60, r: 300, g: 140, b: 50, rad: 150 }, { x: 150, y: -40, z: 40, r: 300, g: 100, b: 34, rad: 150 });
+      VLIGHTS.length = 0; VLIGHTS.push({ x: ORX, y: -170, z: 60, r: 300, g: 190, b: 105, rad: 150 }, { x: 150, y: -40, z: 40, r: 290, g: 95, b: 32, rad: 150 });
       for (let i = 0; i < L.n; i++) L.F[i] = 0;
-      bakeLayer(L, { fill: [0.004, 0.006, 0.014] });
+      bakeLayer(L, { fill: [0.012, 0.03, 0.07] });
       L.EM.fill(0);
     }
   }
@@ -1873,7 +2026,7 @@
       for (let x = Math.max(0, fl(ox - wv * 1.6 + drift)); x <= Math.min(W - 1, ox + wv * 1.6 + drift); x++) {
         const u = (x - ox - drift) / wv;
         const n = NZ[row1 + clamp(fl(x * 1.7 + 40), 0, W - 1)] + 0.6 * NZ[row2 + clamp(fl(x * 2.6 + 9), 0, W - 1)];
-        let dens = Math.exp(-u * u * 1.4) * (0.75 + 1.9 * n);
+        let dens = Math.exp(-u * u * 1.4) * (0.75 + 1.9 * n) * (1 - sstep(1.1, 1.6, Math.abs(u)));
         dens *= Math.min(1, dy / 3 + 0.5) * (1 - sstep(320 * scale, 520 * scale, dy));
         if (dens <= 0.02) continue;
         const a = clamp(dens, 0, 0.92) * alpha;
@@ -2028,7 +2181,7 @@
     if (!ventVisible()) return;
     const f0 = ventFlicker(t, 0), f1 = ventFlicker(t, 1);
     const oy = ORY - CH + 225;
-    addLight(ORX - CX, oy + 2, 255 * 1.5 * f0, 120 * 1.5 * f0, 40 * 1.5 * f0, 90, 0.07 * f0, 14);
+    addLight(ORX - CX, oy + 2, 255 * 1.5 * f0, 170 * 1.5 * f0, 92 * 1.5 * f0, 90, 0.07 * f0, 14);
     addLight(150 - CX, 3828 - CH + 225, 255 * f1, 90 * f1, 30 * f1, 110, 0.06 * f1, 24);
     addLight(316 - CX * 0.72, layerTop(VMID) + 62, 220 * f0, 100 * f0, 34 * f0, 30, 0.12, 8);
   }
@@ -2058,7 +2211,7 @@
   function drawRiders(t) {
     if (t < RIDE0 - 0.01) return;
     const yb = rideY(t);
-    if (yb < -10) return;
+    if (yb < -120) return;
     const grow = clamp((VBY - yb) / VBY, 0, 1);       // bubbles swell as the pressure falls
     for (const b of RIDERS) {
       const wob = Math.sin(t * 9 + b.ph) * (1.5 + b.r1 * 0.3);
@@ -2066,10 +2219,17 @@
       const spread = Math.min(1, age / 1.2);
       const x = VBX - 4 * sstep(RIDE0, 29, t) + b.dx * spread + wob - CX;
       const wy = yb + b.dy * spread;
-      if (wy < 1) continue;                             // reached the surface
+      const r = lerp(b.r0, b.r1, Math.pow(grow, 0.7)) * (1 + 0.06 * Math.sin(t * 13 + b.ph));
+      if (wy < 2) {                                     // reached the surface: it bursts into a ring that spreads and fades
+        const k = clamp((wy + 12) / 14, 0, 1);
+        if (k <= 0) continue;
+        const sy = 1 - CH + 225, R = r * (1.2 + 2.6 * (1 - k)), c = bubbleTint(x, sy), a = 0.7 * k;
+        if (sy < -6 || sy > H + 6) continue;
+        for (let q = 0; q < TAU; q += 0.6 / Math.max(1, R)) mixPx(x + Math.cos(q) * R, sy + Math.sin(q) * R * 0.32, c[0], c[1], c[2], a);
+        continue;
+      }
       const y = wy - CH + 225;
       if (y < -12 || y > H + 12) continue;
-      const r = lerp(b.r0, b.r1, Math.pow(grow, 0.7)) * (1 + 0.06 * Math.sin(t * 13 + b.ph));
       bubble(x, y, r, bubbleTint(x, y), 1);
     }
   }
@@ -2150,37 +2310,58 @@
   }
 
   /* ================================================================ the manta */
-  // gliding overhead in the blue, seen a little from below: a spotted pale belly in shadow, slow wingbeats
+  // gliding overhead in the blue, seen from below against the light: a pale belly shading to dark margins, falcate
+  // wings swept back to points, a wave running out along each wing as it beats, curled cephalic fins, gill slits
   function drawManta(t) {
     if (t < 8.4 || t > 13.6) return;
-    const p = 0.6, s = 1.5, yaw = 0.95, cyw = Math.cos(yaw), syw = Math.sin(yaw);
-    const proj = (u, w, lift) => [cx + (u * cyw + w * syw) * s, cy + ((-u * syw + w * cyw) * f - lift) * s];
+    const p = 0.6, s = 1.3, yaw = -0.8, cyw = Math.cos(yaw), syw = Math.sin(yaw), f = 0.8, fog = 0.16;
     const cx = scrX(470 - (t - 8.4) * 118, p), cy = scrY(1430 - (t - 8.4) * 14, p);
-    if (cx < -160 || cx > W + 160) return;
-    const ts = fl(t * 12) / 12;
-    const flap = Math.sin(per(9, ts));                  // a wingbeat every 3.6 s
-    const S = 62, f = 0.66, fog = 0.26;
-    // planform: leading edge from the head to the tip, a swept trailing edge back to the body
-    const lead = (aw) => -20 + 32 * Math.pow(aw / S, 1.5), trail = (aw) => 22 - 10 * Math.pow(aw / S, 2.4) - (aw < 9 ? 0 : 3 * Math.sin((aw - 9) / (S - 9) * Math.PI));
+    if (cx < -170 || cx > W + 170) return;
+    const ts = fl(t * 15) / 15;
+    const S = 64;
+    // u runs head (−) to tail (+), w across the span; lift raises a point toward the light (up the screen)
+    const proj = (u, w, lift) => [cx + (u * cyw + w * syw) * s, cy + ((-u * syw + w * cyw) * f - lift) * s];
+    // planform: the leading edge sweeps back to a hooked tip; the trailing edge runs forward to it, concave
+    // the wing by its chord and its sweep: deep at the body, tapering to a point; the mid-chord line sweeps back
+    // harder toward the tip, which hooks the wing into the manta's falcate shape
+    const chord = (aw) => 34 * Math.pow(1 - aw / S, 0.75), mid = (aw) => -2 + 15 * Math.pow(aw / S, 1.5);
+    const lead = (aw) => mid(aw) - chord(aw) * 0.45, trail = (aw) => mid(aw) + chord(aw) * 0.55 - 2.2 * Math.sin(aw / S * Math.PI) * (aw > 8 ? 1 : aw / 8);
+    // the beat: a 3.6 s stroke, the outer wing lagging so a wave travels out to the tip
+    const liftAt = (aw) => { const q = aw / S; return 15 * Math.pow(q, 1.6) * Math.sin(per(3.6, ts) - q * 1.4); };
+    const tilt = (aw) => (liftAt(Math.min(S, aw + 2)) - liftAt(Math.max(0, aw - 2))) / 4;   // wing slope, for shading
     sprBegin();
-    for (let w = -S; w <= S; w += 0.45 / s) {
+    const st = 0.42 / s;
+    for (let w = -S; w <= S; w += st) {
       const aw = Math.abs(w), u0 = lead(aw), u1 = trail(aw);
       if (u1 < u0) continue;
-      const lift = flap * 16 * Math.pow(aw / S, 1.8);
-      for (let u = u0; u <= u1; u += 0.45 / s) {
+      const lift = liftAt(aw), sl = tilt(aw) * Math.sign(w);
+      for (let u = u0; u <= u1; u += st) {
         const pp = proj(u, w, lift), x = pp[0], y = pp[1];
-        const rim = aw > S - 6 || u > u1 - 2.5 || u < u0 + 1.2;
-        const spot = aw < 26 && u > -6 && u < 14 && vn2(u / 2.6, w / 2.6, 960) > 0.72;
-        const gill = aw > 6 && aw < 13 && u > -10 && u < 2 && fr((u + 10) / 2.4) < 0.2;
-        let c = rim ? [0.2, 0.22, 0.26] : spot || gill ? [0.24, 0.26, 0.3] : [1.15, 1.2, 1.25];
-        if (!rim && aw > 30) c = mixA(c, [0.3, 0.32, 0.36], (aw - 30) / 40);
-        sput(x, y, c[0], c[1], c[2], w / S * 0.3, 0.3, 0.8, 0);
+        const eL = u - u0, eT = u1 - u, edge = Math.min(eL, eT), q = aw / S;
+        // belly: pale at the centre, darkening out to the margins and the tips (the dark dorsal shows round them)
+        let k = clamp(1 - Math.pow(q, 1.4) * 0.85 - (edge < 4 ? (4 - edge) * 0.09 : 0), 0, 1);
+        let c = mixA([0.22, 0.27, 0.35], [1.25, 1.28, 1.32], k);
+        // the belly spots: a few irregular dark blots between the gills
+        if (aw < 15 && u > 0 && u < 12 && vn2(u / 1.8 + 3, w / 1.8, 961) > 0.86) c = [0.5, 0.54, 0.62];
+        // gill slits: five short dark arcs each side behind the head
+        if (aw > 5 && aw < 10.5) { const g = (u + 11 - (aw - 5) * 0.25) / 2.4; if (g > 0 && g < 5 && fr(g) < 0.2) c = mixA(c, [0.3, 0.34, 0.42], 0.7); }
+        // the mouth: a broad dark bar at the front of the head
+        if (aw < 7 && u < u0 + 2.2 && u > u0 + 0.6) c = [0.12, 0.13, 0.18];
+        // the leading edge catches the light from above; the trailing edge is thin and translucent
+        const lit = eL < 1.6 ? 0.35 : 0;
+        const ny = clamp(-0.35 - sl * 0.6, -1, 1);
+        sput(x, y, c[0] + lit, c[1] + lit, c[2] + lit, w / S * 0.25, ny, 0.75, 0);
       }
     }
-    // cephalic fins curled at the head, the whip of a tail behind
-    for (const side of [-1, 1]) for (let q = 0; q < 12; q++) { const a = q / 12, pp = proj(-21 - a * 7 + a * a * 4, side * (7 + a * 2) - a * a * 3 * side, 0); sput(pp[0], pp[1], 0.2, 0.22, 0.26, 0, 0.5, 0.6, 0); }
-    for (let q = 0; q < 60; q += 0.6) { const pp = proj(22 + q, Math.sin(q * 0.12 - per(9, ts)) * 2 * (q / 60), 0); sput(pp[0], pp[1], 0.22, 0.24, 0.28, 0, 0, 1, 0); }
-    sprEnd(fog, 1, 0.7, 1.4);
+    // cephalic fins: two lobes curled down in front of the mouth
+    for (const side of [-1, 1]) for (let q = 0; q <= 1; q += 0.04) {
+      const uu = -19.5 - q * 7 + q * q * 3.5, ww = side * (4.5 + q * 2.5 - q * q * 2.5);
+      for (let d = -1.2; d <= 1.2; d += 0.6) { const pp = proj(uu, ww + side * d * 0.6, 0); sput(pp[0], pp[1], 0.24 + 0.2 * (1 - q), 0.28 + 0.2 * (1 - q), 0.36 + 0.2 * (1 - q), side * 0.3, -0.2, 0.8, 0); }
+    }
+    // pelvic fins and the short whip of the tail
+    for (const side of [-1, 1]) for (let q = 0; q <= 1; q += 0.08) { const pp = proj(16 + q * 5, side * (3 - q * 1.5), 0); sput(pp[0], pp[1], 0.5, 0.55, 0.62, 0, 0, 1, 0); }
+    for (let q = 0; q < 34; q += 0.5) { const pp = proj(19 + q, Math.sin(q * 0.15 - per(3.6, ts)) * 1.6 * (q / 34), 0); sput(pp[0], pp[1], 0.24, 0.28, 0.34, 0, 0, 1, 0); }
+    sprEnd(fog, 1, 0.55, 1.3);
   }
 
   /* ================================================================ post: living-light halos and the shafts' veil */
@@ -2216,13 +2397,16 @@
   }
 
   /* ================================================================ frame */
-  let PROF = null;
+  let PROF = null, TRK = null;
   const stage = (name, fn, t) => {
-    if (!PROF) { fn(t); return; }
+    if (!PROF) { trk(name, () => fn(t)); return; }
     const t0 = performance.now(); fn(t); PROF[name] = (PROF[name] || 0) + performance.now() - t0;
   };
+  // pixels drawn per creature this frame, when tracking is on (the motion check uses it to find pops)
+  function trk(name, fn) { if (!TRK) { fn(); return; } const n0 = PXN; fn(); TRK[name] = (TRK[name] || 0) + PXN - n0; }
   function render(t) {
     t = mod(t, D);
+    if (TRK) for (const k in TRK) TRK[k] = 0;
     setCamera(t);
     LIGHTS.length = 0;
     causLattice(t);
@@ -2248,26 +2432,31 @@
     stage('above', drawAbove, t);
     stage('lens', drawLens, t);
     stage('edge', drawWaterlineEdge, t);
+    // the vent's glow seen from above: over everything, as light scattered in the water (thins as the camera settles)
+    stage('approach', drawVentApproach, t);
     stage('quantise', quantise, t);
   }
   // filled in below
   function collectLights(t) { ventLights(t); }
   function drawScene(t) {
-    drawFarLights(t);
-    drawManta(t);
+    trk('farlights', () => drawFarLights(t));
+    trk('glowfield', () => drawGlowField(t));
+    trk('manta', () => drawManta(t));
     // twilight: two far jellies, the siphonophore, a near jelly
-    if (t > 9.5 && t < 18) {
-      drawJelly(scrX(64, 0.45), scrY(1990 + (t - 12) * 30, 0.45), 0.55, t, 'helmet', 0.3, 0.22, 0.15);
-      drawJelly(scrX(292, 0.55), scrY(2070 + (t - 12) * 20, 0.55), 0.62, t, 'moon', 0.65, 0.18, -0.2);
-      drawJelly(scrX(250, 0.78), scrY(2010 + (t - 12) * 24, 0.78), 0.82, t, 'moon', 0.45, 0.1, -0.1 + 0.04 * Math.sin(per(3, t)));
-      drawSiphonophore(t);
-      drawJelly(scrX(118 + (t - 11) * 3, 0.95), scrY(1810 + (t - 11) * 30, 0.95), 1.3, t, 'stripe', 0.1, 0.08, 0.12 + 0.05 * Math.sin(per(2, t)));
+    if (t > 9 && t < 21.5) {
+      trk('jelly-helmet', () => drawJelly(scrX(64, 0.45), scrY(1990 + (t - 12) * 30, 0.45), 0.55, t, 'helmet', 0.3, 0.22, 0.15));
+      trk('jelly-moon1', () => drawJelly(scrX(292, 0.55), scrY(2070 + (t - 12) * 20, 0.55), 0.62, t, 'moon', 0.65, 0.18, -0.2));
+      trk('jelly-moon2', () => drawJelly(scrX(250, 0.78), scrY(2010 + (t - 12) * 24, 0.78), 0.82, t, 'moon', 0.45, 0.1, -0.1 + 0.04 * Math.sin(per(3, t))));
+      trk('siphonophore', () => drawSiphonophore(t));
+      trk('jelly-stripe', () => drawJelly(scrX(118 + (t - 11) * 3, 0.95), scrY(1810 + (t - 11) * 30, 0.95), 1.3, t, 'stripe', 0.1, 0.08, 0.12 + 0.05 * Math.sin(per(2, t))));
     }
-    drawComb(t);
-    drawLanternfish(t);
-    drawSparks(t);
-    drawAngler(t);
-    drawVent(t);
+    trk('comb', () => drawComb(t));
+    trk('squid', () => drawSquid(t));
+    trk('lanternfish', () => drawLanternfish(t));
+    trk('dragonfish', () => drawDragon(t));
+    trk('sparks', () => drawSparks(t));
+    trk('angler', () => drawAngler(t));
+    trk('vent', () => drawVent(t));
   }
   function drawNear(t) { drawVentNear(t); }
 
@@ -2283,13 +2472,15 @@
     buildSchool();
     buildLantern();
     buildFarLights();
+    buildGlowField();
+    buildSquid();
     paintVent();
     buildShrimp();
     buildRiders();
     BUILT = true;
   }
 
-  const core = { W, H, D, PAL, OUT, C, build, render, hAt, get CH() { return CH; }, prof(on) { PROF = on ? {} : null; return PROF; }, get PROF() { return PROF; } };
+  const core = { W, H, D, PAL, OUT, C, build, render, hAt, get CH() { return CH; }, prof(on) { PROF = on ? {} : null; return PROF; }, get PROF() { return PROF; }, track(on) { TRK = on ? {} : null; return TRK; }, get TRK() { return TRK; } };
   window.__descentCore = core;
   if (typeof document === 'undefined') return;
 
@@ -2323,7 +2514,7 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'the-descent',
     title: 'The Descent',
-    medium: 'Pixel art in 52 colours, 360 × 450, drawn in JavaScript · 32 s loop',
+    medium: 'Pixel art in 55 colours, 360 × 450, drawn in JavaScript · 32 s loop',
     note: 'From the sunlit surface to a vent in the abyss · tap to pause',
     about: 'One continuous fall through the sea. The camera sinks through the sparkling surface, past a reef where caustics dance, through a swirling bait ball of silver fish and a passing turtle, into the blue twilight of jellies and siphonophores where marine snow streams upward, and on into the midnight zone, where the only light is alive: comb jellies, lanternfish, an anglerfish’s lure. At the bottom a black smoker glows and shimmers among tube worms, crabs and shrimp, until a cluster of its bubbles lets go and carries the camera all the way back up into the sun.',
     tone: 'dark',
