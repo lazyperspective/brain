@@ -5,13 +5,14 @@ sampled instruments rendered by FluidSynth (FluidR3_GM) from a MIDI file this sc
 It follows the picture's own clock (06-the-seed-and-the-stone.js):
 
     t        picture                                         sound
-    0-5      dawn: the seed in the crack, it swells           a soft breeze; a distant bird or two; a low open fifth
+    0-5      dawn: first light sweeps over the seed; a flock  a soft breeze; a glint of celesta; wingbeats and a distant
+             crosses; the seed swells                           call; a bird or two; a low open fifth
     3.0      the coat splits                                  a tiny dry tick
     5.9-6.85 the shoot pushes the flake: strain, tremble      a held tone that tightens and trembles
     6.85     the pause before it breaks                       the tone drops away: held breath
     7.25     the flake breaks off, chips spring, dust         a stone crack, little ticks as the chips land
     7.3-14   the shoot rises, leaves unfold one by one        a sparse warm motif (harp, piano), one note per leaf
-    14.6-17  the bud opens; the words come                    strings swell softly under the motif to D major
+    13.9-16.6 three poppies open in turn; the words come       a harp note for each; strings swell softly to D major
     16.7-19.4 a hoverfly visits                                a small buzz that comes, stops while it lands, goes
     19.25-20.4 the petals fall                                four falling notes
     21.05-23.7 the wind flicks the seed along the stone       a gust; a tick at release; taps as it bounces; it drops in
@@ -65,7 +66,7 @@ def sstep(a, b, x):
 # ------------------------------------------------------------------ the picture's clock
 T_BREAK = 7.25
 T_REL = 21.05
-TD = [19.25, 19.7, 20.05, 20.4]
+TD = [19.25, 19.7, 20.05, 20.4]               # the hero's petals (the side flowers' are in NOTES below)
 
 
 def stem_len(tau):
@@ -198,7 +199,15 @@ for c in range(CYC):
     call(o + 2.6, 0.016, 2, 0.6)
     warble(o + 4.1, 0.017, 3, -0.5)
     call(o + 23.3, 0.012, 4, 0.55)                   # the first bird of the next dawn
+    call(o + 0.35, 0.010, 5, 0.75)                   # a distant call from the flock as it comes over
 birds = circ(lambda x: lp(x, 6500, 2), birds)
+# the flock's wingbeats: a soft, fast flutter that passes overhead right to left (t = 23.3 .. 4.9, wrapping)
+fu = np.mod(t_all - 23.3, D)
+flock_env = np.clip(np.sin(np.pi * np.clip(fu / 5.6, 0, 1)), 0, 1) ** 2 * (fu < 5.6)
+flut = (0.5 + 0.5 * np.sin(2 * np.pi * 13.0 * t_all)) ** 3 * (0.6 + 0.4 * np.sin(2 * np.pi * 9.7 * t_all + 1))
+wings = circ(lambda x: bp(x, 500, 3200, 2), tiled(15)[0]) * flut * flock_env * 0.022
+fpan = np.clip(0.8 - fu / 3.0, -0.8, 0.8)
+birds += np.vstack([wings * np.sqrt(0.5 * (1 - fpan)), wings * np.sqrt(0.5 * (1 + fpan))])
 
 # ------------------------------------------------------------------ the stone: a tick, the crack, chips, taps
 fx = np.zeros((2, NT))
@@ -280,6 +289,14 @@ NOTES += [(14.8, HARP, 'A4', 50, 2.0), (15.15, HARP, 'D5', 52, 2.0), (15.5, HARP
           (18.9, PIANO, 'D5', 32, 2.6)]
 for k, td in enumerate(TD):                                                                                # petals fall
     NOTES += [(td + 0.05, CEL, ['D6', 'B5', 'A5', 'F#5'][k], 40 - k * 3, 1.6)]
+# the side flowers: one opens just before the hero, one just after; their petals fall too
+NOTES += [(13.95, HARP, 'B5', 44, 2.2), (13.95, PIANO, 'G3', 26, 2.6), (16.65, HARP, 'C#6', 46, 2.4), (16.65, PIANO, 'A3', 28, 2.6)]
+for k, td in enumerate([18.35, 18.7, 19.0, 19.35]):
+    NOTES += [(td + 0.05, CEL, ['A6', 'F#6', 'E6', 'D6'][k], 26 - k * 2, 1.2)]
+for k, td in enumerate([19.75, 20.05, 20.3, 20.65]):
+    NOTES += [(td + 0.08, CEL, ['E6', 'C#6', 'B5', 'A5'][k], 24 - k * 2, 1.2)]
+# first light finds the seed: a small glint of sound
+NOTES += [(0.12, CEL, 'F#6', 30, 1.4), (0.42, CEL, 'A6', 26, 1.4), (0.12, HARP, 'D4', 30, 2.4)]
 NOTES += [(20.9, STR, 'D3', 30, 2.4), (20.9, STR, 'A3', 26, 2.4), (T_REL + 0.02, CEL, 'A6', 28, 1.2), (T_DROP + 0.02, HARP, 'D5', 34, 2.5)]
 
 

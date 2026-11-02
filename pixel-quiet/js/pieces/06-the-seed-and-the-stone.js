@@ -16,8 +16,8 @@
  * right, a dim violet turn through the front back to dawn), so every grain and pit throws its own shadow. The
  * plant is built every frame in 3D (a turtle-integrated stem with real thickness, leaves unfolding from folded,
  * a cup of four parametric petals with a crumple field) and throws a long shadow across the stone. The image is
- * quantised with a 4 × 4 Bayer dither in a square-root space to a 45-colour palette in which only the plant may
- * use the saturated greens and reds; 360 × 450, shown at 3×.
+ * quantised with a 4 × 4 Bayer dither in a square-root space to a 48-colour palette in which only the plant may
+ * use the saturated greens, reds and the seed's russet; 360 × 450, shown at 3×.
  */
 (function () {
   'use strict';
@@ -75,7 +75,7 @@
   }
   const hx = (h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 
-  /* ================================================================ palette (45) */
+  /* ================================================================ palette (48) */
   const PAL_HEX = [
     '120e14', '1e1820', '2c242c', '3b3139', '4b4046', '5d5153', '716461', '86786f',  // 0-7   stone: warm greys, dark
     '9c8d7f', 'b2a290', 'c8b8a2', 'ddceb5', 'efe3ca', 'fdf6e4',                      // 8-13  stone: warm greys, light
@@ -85,6 +85,7 @@
     '50492f', '7d7a55', 'a9aa84',                                                    // 28-30 olive, sage (lichen, dry stalk)
     '0e2612', '1c4519', '2c6a1f', '479627', '73bf35', 'a6de55', 'd6f592',            // 31-37 the plant: greens
     '260709', '560c10', '8c1712', 'c22418', 'e6441e', 'ff7436', 'ff9e6c',            // 38-44 the flower: reds
+    '5a2410', '93461c', 'd08a3c',                                                    // 45-47 the seed: russet, amber
   ];
   const PAL = PAL_HEX.map(hx), NPAL = PAL.length;
 
@@ -96,10 +97,11 @@
     let best = 0, bd = 1e18;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx > 1 ? (mx - mn) / mx : 0;
     const greenOK = sat > 0.4 && g >= r * 1.04 && g >= b, oliveOK = g >= r * 0.93;
-    const redOK = sat > 0.5 && r > g * 1.55 && r >= b;
+    const redOK = sat > 0.5 && r > g * 1.55 && r >= b, seedOK = sat > 0.6 && r > g * 1.45 && r >= b;
     for (let k = 0; k < NPAL; k++) {
       if (k >= 31 && k <= 37 && !greenOK) continue;
-      if (k >= 38 && !redOK) continue;
+      if (k >= 38 && k <= 44 && !redOK) continue;
+      if (k >= 45 && !seedOK) continue;
       if (k >= 28 && k <= 30 && !oliveOK) continue;
       const p = PAL[k], dr = r - p[0], dg = g - p[1], db = b - p[2], rm = (r + p[0]) * 0.5;
       const s = 1 / (14 + (r + g + b + p[0] + p[1] + p[2]) / 6);
@@ -150,10 +152,10 @@
   // the light at each time of day: elevation (deg), azimuth (× π), sun strength, sun rgb, sky (shadow) rgb,
   // haze top rgb, haze bottom rgb, bokeh strength
   const LKEYS = [
-    [0.00, 10, -0.12, 1.2, 1.0, 0.83, 0.70, 0.30, 0.33, 0.56, 0.60, 0.65, 0.80, 0.93, 0.80, 0.74, 0.55],
+    [0.00, 12, -0.12, 1.38, 1.0, 0.8, 0.6, 0.32, 0.33, 0.56, 0.66, 0.62, 0.84, 1.0, 0.76, 0.6, 0.65],
     [0.25, 30, 0.50, 0.86, 1.0, 0.95, 0.86, 0.36, 0.38, 0.52, 0.72, 0.74, 0.74, 0.9, 0.84, 0.72, 0.70],
     [0.50, 13, 0.86, 1.45, 1.0, 0.66, 0.36, 0.34, 0.31, 0.6, 0.80, 0.57, 0.41, 0.97, 0.73, 0.49, 1.00],
-    [0.75, 9, 1.45, 0.68, 0.9, 0.72, 0.84, 0.27, 0.26, 0.46, 0.45, 0.42, 0.58, 0.68, 0.57, 0.62, 0.30],
+    [0.75, 9, 1.45, 0.8, 0.95, 0.7, 0.78, 0.3, 0.28, 0.5, 0.5, 0.45, 0.68, 0.85, 0.62, 0.64, 0.40],
   ];
   const LDV = new Array(16).fill(0); LDV[1] = 2;
   const LT = new Array(16).fill(0);
@@ -502,6 +504,97 @@
     }
   }
 
+  /* ================================================================ the sky: soft clouds, a flock at dawn */
+  // A few soft clouds form, drift slowly and dissolve again (each lives a window of the loop, so the sky at t = D is
+  // the sky at t = 0); their edges catch the colour of the hour on the side toward the sun. None of them sits behind
+  // the words while the words are up.
+  const CLOUDS = [
+    { y: 50, x: 150, v: 3.2, tm: 3.0, life: 12, w: 64, h: 11, a: 0.8 },
+    { y: 112, x: 262, v: 2.4, tm: 8.5, life: 14, w: 54, h: 10, a: 0.5 },
+    { y: 138, x: 46, v: 3.0, tm: 18.5, life: 12, w: 50, h: 9, a: 0.42 },
+    { y: 150, x: 300, v: 2.0, tm: 13.0, life: 13, w: 70, h: 8, a: 0.4 },
+  ];
+  function buildClouds() {
+    CLOUDS.forEach((c, k) => {
+      const w = c.w, h = c.h, cw = 2 * w + 1, ch = 3 * h + 1;
+      const Dn = new Float32Array(cw * ch);
+      for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {
+        const u = (i - w) / w, v = (j - 2 * h) / h;              // the cloud's base sits at v = 0, puffs rise to v = −2
+        const top = 1.2 + 0.8 * fbm(i / 16 + k * 7, 0.5, 700 + k, 3) - 0.9 * u * u;
+        const inside = v < 0 ? (-v) / Math.max(0.2, top) : v / 0.55;
+        let d = 1 - inside * inside - 0.5 * u * u;
+        d += 0.55 * (fbm(i / 9 + k * 3, j / 5, 710 + k, 3) - 0.5);
+        Dn[j * cw + i] = clamp(d * 1.8, 0, 1);
+      }
+      c.cw = cw; c.ch = ch; c.D = Dn;
+    });
+  }
+  function drawClouds(t) {
+    const sdx = LS.lx >= 0 ? 1 : -1;                              // which side the sun is on
+    for (const c of CLOUDS) {
+      const dt = mod(t - c.tm + D / 2, D) - D / 2;
+      if (Math.abs(dt) >= c.life / 2) continue;
+      const al = c.a * Math.pow(Math.sin(Math.PI * (dt / c.life + 0.5)), 2);
+      const ox = Math.round(c.x + c.v * dt - c.w), oy = Math.round(c.y - 2 * c.h), cw = c.cw, Dn = c.D;
+      for (let j = 0; j < c.ch; j++) {
+        const y = oy + j; if (y < 0 || y >= BGH) continue;
+        for (let i = 1; i < cw - 1; i++) {
+          const x = ox + i; if (x < 0 || x >= W) continue;
+          const d = Dn[j * cw + i]; if (d <= 0) continue;
+          // light on the edge facing the sun and on the tops, a cooler belly
+          const lit = clamp((Dn[j * cw + i - sdx] - d) * -3 + (j > 0 ? (d - Dn[(j - 1) * cw + i]) * 2.2 : 0), 0, 1);
+          const belly = j > 2 * c.h - 2 ? 0.08 : 0;
+          const k = (y * W + x) * 3, a = d * al;
+          const r = C[k] * (1.04 - belly) + (24 + 70 * lit) * LS.sr * LS.sun * 0.5;
+          const g = C[k + 1] * (1.03 - belly) + (22 + 60 * lit) * LS.sg * LS.sun * 0.5;
+          const b = C[k + 2] * (1.02 - belly * 0.5) + (20 + 40 * lit) * LS.sb * LS.sun * 0.5;
+          C[k] += (r - C[k]) * a; C[k + 1] += (g - C[k + 1]) * a; C[k + 2] += (b - C[k + 2]) * a;
+          if (a > 0.06) PXN++;                       // the motion check counts what shows
+        }
+      }
+    }
+  }
+  // a small flock crossing high at first light, in a loose V, wings beating; enters and leaves by the edges
+  const FLOCK = [[0, 0], [9, -5], [8, 6], [18, -10], [17, 11], [27, -14]];
+  function drawFlock(t) {
+    const u = mod(t - 23.3, D);
+    if (u > 6.6) return;
+    const x0 = 392 - 72 * u, y0 = 74 - 5 * u + 3 * Math.sin(u * 1.3);
+    const cr = LS.h0[0] * 255 * 0.34, cg = LS.h0[1] * 255 * 0.3, cb = LS.h0[2] * 255 * 0.38;
+    for (let i = 0; i < FLOCK.length; i++) {
+      const x = x0 + FLOCK[i][0] + 1.6 * Math.sin(u * 2.1 + i), y = y0 + FLOCK[i][1] * 0.85 + 1.3 * Math.sin(u * 3.1 + i * 1.7);
+      if (x < -6 || x > W + 6) continue;
+      const fp = Math.sin(TAU * 3.3 * u + i * 1.3);
+      mixPx(x, y, cr, cg, cb, 0.9); mixPx(x + 1, y, cr, cg, cb, 0.75);
+      for (let s = 1; s <= 3; s++) {
+        const wy = y - fp * s * 0.6 + (s === 3 ? 0.3 : 0);
+        mixPx(x + 0.4 - s * 0.35, wy - (s > 1 ? 0 : 0), cr, cg, cb, 0.8 - s * 0.12);
+        mixPx(x + 0.6 + s * 0.35, wy + 0.1, cr, cg, cb, 0.8 - s * 0.12);
+      }
+    }
+  }
+  // first light: a warm shaft of low sun sweeping across the rock from the left; it arrives as the seed lands at the
+  // end of the loop and is on the seed at t = 0, then moves on and fades as the day comes up
+  const T_BEAM = 22.6;
+  function drawBeam(t) {
+    const u = mod(t - T_BEAM, D);
+    const E = sstep(0, 1.1, u) * (1 - sstep(3.4, 5.4, u));
+    if (E <= 0.002) return;
+    const xs = X0 + 58 * (u - 1.6), w = 30;
+    const wr = 0.9 * LS.sr, wg = 0.72 * LS.sg, wb = 0.42 * LS.sb, tx0 = mod(CAMI + OFFX, TW);
+    for (let y = 0; y < H; y++) {
+      const off = xs + 0.62 * (y - SITE_Y);
+      const x0 = Math.max(0, fl(off - 2.6 * w)), x1 = Math.min(W - 1, Math.ceil(off + 2.6 * w));
+      for (let x = x0; x <= x1; x++) {
+        const q = (x - off) / w, b = Math.exp(-q * q) * E;
+        if (b < 0.01) continue;
+        const j = (y * W + x) * 3, sky = y < RIM[mod(tx0 + x, TW)];
+        if (sky) { const a = 16 * b; C[j] += a * wr; C[j + 1] += a * wg; C[j + 2] += a * wb; }
+        else { const m = 0.62 * b; C[j] *= 1 + m * wr; C[j + 1] *= 1 + m * wg; C[j + 2] *= 1 + m * wb; C[j] += 8 * b * wr; C[j + 1] += 6 * b * wg; C[j + 2] += 3 * b * wb; }
+      }
+    }
+  }
+
   /* ================================================================ per frame: the rock, relit */
   const PSH = new Float32Array(NP);             // the plant's shadow on the rock, 0..1
   const CRM = new Uint8Array(NP);               // 1 where the rock shows the inside of the crack this frame
@@ -806,7 +899,7 @@
     if (L < 0.3) { STN = 0; return 0; }
     const hook = Math.PI * (1 + 0.16 * sstep(5.6, 6.8, tau) * (1 - sstep(T_BREAK, 7.5, tau))) * (1 - s5(ph(tau, 7.6, 9.4)));
     const Lh = Math.min(L, 15);
-    const nod = 2.5 * sstep(11.9, 12.7, tau) * (1 - s5(ph(tau, 13.7, 14.7))), Ln = 34;
+    const nod = budNod(FLOWERS[0], tau), Ln = 34;
     const dry = 1.15 * s5(ph(tau, 20.2, 21.0)) - 0.75 * s5(ph(tau, 21.3, 23.0)), Ld = 62;
     const wf = sstep(16, 80, L) * windAt(t);
     const trem = (tau > 5.7 && tau < 6.85) ? 0.05 * sstep(5.7, 6.4, tau) * (1 - sstep(6.6, 6.85, tau)) * Math.sin(t * 57) : 0;
@@ -825,28 +918,28 @@
   }
   const mixC = (a, b, u) => [lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u)];
   const GREEN = [0.2, 0.5, 0.12], PALEG = [0.66, 0.74, 0.36], DRY = [0.56, 0.47, 0.29], DRYL = [0.6, 0.5, 0.3];
-  function drawStem(tau, L, dry) {
-    const rB = 1.6 + 1.0 * s5(ph(tau, 8.5, 14)) + 0.45 * sstep(5.6, 6.8, tau) * (1 - sstep(T_BREAK, 7.6, tau));
-    const young = 1 - s5(ph(tau, 7.4, 10.8));
+  // a stem or branch as a shaded tube along its centre line, with fine hairs
+  function drawTube(XA, YA, AA, N, L, rB, tau, dry, id, hs) {
+    const main = id === 1, young = main ? 1 - s5(ph(tau, 7.4, 10.8)) : 0;
     const hairy = sstep(9.5, 12, tau);
-    let px = 0, py = 0;
-    for (let n = 0; n < STN; n++) {
-      const s = n * 0.5, cx = STX[n], cy = STY[n], a = STA[n];
+    let px = XA[0], py = YA[0];
+    for (let n = 0; n < N; n++) {
+      const s = n * 0.5, cx = XA[n], cy = YA[n], a = AA[n];
       const tip = L - s < 1.6 ? 0.55 + 0.45 * (L - s) / 1.6 : 1;
       const r = rB * (1 - 0.28 * s / (L + 1)) * tip;
       const nx = -Math.sin(a), ny = Math.cos(a);
-      let c = mixC(GREEN, PALEG, Math.max(young, 0.35 * sstep(10, 0, s)));
-      c = mixC(c, DRY, sstep(0, 1, dry * 1.15 - 0.15 * s / (L + 1)));
+      const yg = main ? Math.max(young, 0.35 * sstep(10, 0, s)) : 0, dd = sstep(0, 1, dry * 1.15 - 0.15 * s / (L + 1));
+      const c0 = lerp(lerp(GREEN[0], PALEG[0], yg), DRY[0], dd), c1 = lerp(lerp(GREEN[1], PALEG[1], yg), DRY[1], dd), c2 = lerp(lerp(GREEN[2], PALEG[2], yg), DRY[2], dd);
       const below = cy < 0.2, sm = cy < 2.5 ? 0.25 : 1;
       for (let w = -r; w <= r + 1e-6; w += 0.42) {
         const q = w / Math.max(0.5, r), nz = Math.sqrt(Math.max(0, 1 - q * q));
-        pshade(c[0], c[1], c[2], nx * q, ny * q, nz, 0.45, c[0] * 1.4 + 0.1, c[1] * 1.5 + 0.2, c[2] * 0.6, 0.12, sm);
-        splat(cx + nx * w, cy + ny * w, nz * r, 1, below);
+        pshade(c0, c1, c2, nx * q, ny * q, nz, 0.45, c0 * 1.4 + 0.1, c1 * 1.5 + 0.2, c2 * 0.6, 0.12, sm);
+        splat(cx + nx * w, cy + ny * w, nz * r, id, below);
       }
       if (n % 3 === 0) { if (n) shSeg(px, py, 0, cx, cy, 0, rB > 1.6 ? 1 : 0); px = cx; py = cy; }
       // fine hairs standing off the stem, lit up when the sun is behind
-      if (hairy > 0 && s > 6 && s < L - 4 && ih(n, 3, 501) < 0.08 * hairy) {
-        const side = ih(n, 4, 501) < 0.5 ? -1 : 1, hl = 2 + 2.2 * ih(n, 5, 501), up = 0.5;
+      if (hairy > 0 && s > 6 && s < L - 4 && ih(n, 3, 501 + hs * 7) < 0.08 * hairy) {
+        const side = ih(n, 4, 501 + hs * 7) < 0.5 ? -1 : 1, hl = 2 + 2.2 * ih(n, 5, 501 + hs * 7), up = 0.5;
         const hx = nx * side * 0.85 + Math.cos(a) * up, hy = ny * side * 0.85 + Math.sin(a) * up;
         const hc = mixC([0.5, 0.66, 0.32], DRY, dry);
         for (let q = 0.5; q <= hl; q += 0.5) {
@@ -857,11 +950,11 @@
     }
   }
   /* ---------------------------------------------------------------- the seed */
-  const SEEDC = [0.6, 0.4, 0.24];
+  const SEEDC = [0.6, 0.3, 0.1];
   function drawSeed(X, Y, rot, swell, split, shell, id, sunMul) {
-    const rx = 5.8 * (1 + 0.22 * swell) * (1 - 0.12 * shell), ry = 3.7 * (1 + 0.26 * swell) * (1 - 0.25 * shell), rz = 3.4;
+    const rx = 6.4 * (1 + 0.2 * swell) * (1 - 0.12 * shell), ry = 4.1 * (1 + 0.24 * swell) * (1 - 0.25 * shell), rz = 3.6;
     const cr = Math.cos(rot), sr = Math.sin(rot), R = rx + 1;
-    const base = mixC(mixC(SEEDC, [0.5, 0.4, 0.28], swell * 0.7), [0.24, 0.19, 0.16], shell);
+    const base = mixC(mixC(SEEDC, [0.78, 0.46, 0.16], swell * 0.7), [0.32, 0.17, 0.08], shell);
     for (let v = -R; v <= R; v += 0.45) for (let u = -R; u <= R; u += 0.45) {
       const lu = (u * cr + v * sr) / rx, lv = (-u * sr + v * cr) / ry, d = lu * lu + lv * lv;
       if (d > 1) continue;
@@ -917,7 +1010,7 @@
     }
     const SXv = -dz, SZv = dx;                                // the blade's side direction (horizontal)
     const cf = Math.cos(fold), sf = Math.sin(fold);
-    const ns = Math.max(4, Math.ceil(len * 2.6));
+    const ns = Math.max(4, Math.ceil(len * 1.75));
     const lc = mixC(LEAFC, DRYL, dry), vc = mixC(VEINC, [0.66, 0.56, 0.34], dry);
     for (let q = 0; q <= ns; q++) {
       const s = q / ns, mf = s * M, m0 = Math.min(M - 1, fl(mf)), f = mf - m0;
@@ -930,7 +1023,7 @@
       let hw = wid * Math.pow(Math.sin(Math.PI * Math.pow(s, 0.72)), 0.85);
       if (lobes) hw *= 1 - 0.34 * Math.pow(1 - Math.abs(Math.sin(Math.PI * s * 4.5 + 0.4)), 2.2) * sstep(0.1, 0.3, s);
       hw *= 1 + 0.06 * Math.sin(s * 70);
-      const nv = Math.max(1, Math.ceil(hw * 2.3));
+      const nv = Math.max(1, Math.ceil(hw * 1.75));
       for (let j = -nv; j <= nv; j++) {
         const v = j / nv, av = Math.abs(v), sg = v < 0 ? -1 : 1;
         const ox = cf * sg * SXv + sf * nx, oy = sf * ny, oz = cf * sg * SZv + sf * nz;
@@ -945,19 +1038,32 @@
       }
     }
   }
+  // leaves on the side branches (unfold as the branch passes their node)
+  const BLEAVES = [{ b: 0, f: 0.42, psi: -0.25, len: 30, wid: 7, t0: 0 }, { b: 1, f: 0.48, psi: Math.PI + 0.3, len: 27, wid: 6.4, t0: 0 }, { b: 2, f: 0.5, psi: 0.7, len: 18, wid: 4.4, t0: 0 }];
+  function buildBranchLeafTimes() {
+    for (const Lf of BLEAVES) { const B = BRANCHES[Lf.b]; let a = B.t0, b = B.t1; for (let k = 0; k < 40; k++) { const m = (a + b) / 2; if (branchLen(B, m) < Lf.f * B.len + 3) a = m; else b = m; } Lf.t0 = (a + b) / 2; }
+  }
+  function leafAt(XA, YA, AA, ni, Lf, k, tau, t, dry, ws, id) {
+    const a = ph(tau, Lf.t0, Lf.t0 + 2.1);
+    const g = (0.1 + 0.9 * back(a, 0.7)) * (1 - 0.1 * dry);
+    const ld = sstep(0, 1, dry * 1.3 - k * 0.1);
+    const fold = lerp(1.42, 0.2, s5(ph(tau, Lf.t0 + 0.2, Lf.t0 + 1.9))) + 0.75 * ld;
+    const e0 = lerp(1.3, 0.48, s5(a)) + 0.07 * Math.sin(per(19 + 2 * k, t) + k) * ws - 0.55 * ld + 0.25 * (AA[ni] - Math.PI / 2) * Math.cos(Lf.psi);
+    const droop = lerp(0.3, 0.95, s5(a)) + 0.8 * ld;
+    const psi = Lf.psi + 0.09 * Math.sin(per(11 + k, t) + 2 * k) * ws;
+    leafBlade(XA[ni], YA[ni], 0, psi, e0, droop, Lf.len * g, Lf.wid * g, fold, true, ld, id, 0.95);
+  }
   function drawLeaves(tau, t, dry) {
     const ws = 0.6 + 0.4 * Math.abs(windAt(t));
     for (let k = 0; k < LEAVES.length; k++) {
       const Lf = LEAVES[k];
       if (tau < Lf.t0) continue;
-      const a = ph(tau, Lf.t0, Lf.t0 + 2.1), ni = Math.min(STN - 1, Math.round(Lf.s / 0.5));
-      const g = (0.1 + 0.9 * back(a, 0.7)) * (1 - 0.1 * dry);
-      const ld = sstep(0, 1, dry * 1.3 - k * 0.1);
-      const fold = lerp(1.42, 0.2, s5(ph(tau, Lf.t0 + 0.2, Lf.t0 + 1.9))) + 0.75 * ld;
-      const e0 = lerp(1.3, 0.48, s5(a)) + 0.07 * Math.sin(per(19 + 2 * k, t) + k) * ws - 0.55 * ld + 0.25 * (STA[ni] - Math.PI / 2) * Math.cos(Lf.psi);
-      const droop = lerp(0.3, 0.95, s5(a)) + 0.8 * ld;
-      const psi = Lf.psi + 0.09 * Math.sin(per(11 + k, t) + 2 * k) * ws;
-      leafBlade(STX[ni], STY[ni], 0, psi, e0, droop, Lf.len * g, Lf.wid * g, fold, true, ld, 3 + k, 0.95);
+      leafAt(STX, STY, STA, Math.min(STN - 1, Math.round(Lf.s / 0.5)), Lf, k, tau, t, dry, ws, 3 + k);
+    }
+    for (let k = 0; k < BLEAVES.length; k++) {
+      const Lf = BLEAVES[k], B = BRANCHES[Lf.b];
+      if (tau < Lf.t0 || B.n < 2) continue;
+      leafAt(B.X, B.Y, B.A, Math.min(B.n - 1, Math.round(Lf.f * B.len / 0.5)), Lf, k + 4, tau, t, dry, ws, 14 + k);
     }
   }
   function drawCotyledons(tau, t, dry) {
@@ -975,24 +1081,70 @@
     }
   }
 
-  /* ---------------------------------------------------------------- the bud, the flower, the pod */
+  /* ---------------------------------------------------------------- branches and flowers */
+  // The hero flower crowns the main stem; three side shoots leave it, curve back up toward the light and carry a
+  // smaller flower each (the last stays a bud, droops and dries). Blooms are staggered through the golden hour:
+  // the first side flower just before the hero, the hero as the words come, the second side flower just after.
+  const FLOWERS = [
+    { b: -1, sc: 1.0, to: 15.0, td: [19.25, 19.7, 20.05, 20.4] },
+    { b: 0, sc: 0.72, to: 13.9, td: [18.35, 18.7, 19.0, 19.35] },
+    { b: 1, sc: 0.66, to: 16.6, td: [19.7, 20.0, 20.3, 20.65] },
+    { b: 2, sc: 0.56, to: 99, td: null, tb: 13.4 },
+  ];
+  for (const f of FLOWERS) if (f.tb === undefined) f.tb = f.to - 2.6;
+  const budNod = (f, tau) => 2.5 * sstep(f.tb - 0.1, f.tb + 0.7, tau) * (1 - s5(ph(tau, f.to - 0.9, f.to + 0.1)));
+  const BRANCHES = [
+    { s: 60, out: 1, a: 0.66, len: 92, t0: 10.2, t1: 13.0, up: 0.55 },
+    { s: 86, out: -1, a: 0.62, len: 78, t0: 10.9, t1: 14.0, up: 0.5 },
+    { s: 118, out: 1, a: 0.5, len: 46, t0: 11.8, t1: 14.6, up: 0.3 },
+  ];
+  const BN = 220;
+  for (const B of BRANCHES) { B.X = new Float32Array(BN); B.Y = new Float32Array(BN); B.A = new Float32Array(BN); B.n = 0; B.L = 0; }
+  const branchLen = (B, tau) => B.len * Math.pow(s5(ph(tau, B.t0, B.t1)), 1.1);
+  function branchCurve(bi, tau, t) {
+    const B = BRANCHES[bi], L = branchLen(B, tau), f = FLOWERS[bi + 1];
+    B.L = L; B.n = 0;
+    const ni = Math.round(B.s / 0.5);
+    if (L < 0.3 || ni >= STN) return 0;
+    const nod = budNod(f, tau), Ln = Math.min(L, 22 * f.sc + 4);
+    const dry = 0.9 * s5(ph(tau, 20.0, 21.6));
+    const wf = windAt(t) * sstep(10, 50, L);
+    let a = STA[ni] - B.out * B.a, x = STX[ni], y = STY[ni], n = 0;
+    for (let s = 0; s <= L + 1e-6 && n < BN; s += 0.5) {
+      B.X[n] = x; B.Y[n] = y; B.A[n] = a; n++;
+      let k = B.out * B.up / B.len;
+      k -= 0.006 * wf * (1 - s / (L + 1));
+      if (nod > 0 && s > L - Ln) k -= B.out * nod / Ln;
+      if (dry > 0) k -= B.out * dry / L;
+      a += k * 0.5; x += Math.cos(a) * 0.5; y += Math.sin(a) * 0.5;
+    }
+    B.n = n; return L;
+  }
+  // the flower frame at the tip of a stem: centre, axis (tilted a little toward us), and two axes across it
   const FF = { cx: 0, cy: 0, cz: 0, ax: 0, ay: 1, az: 0, e1x: 1, e1y: 0, e1z: 0, e2x: 0, e2y: 0, e2z: 1 };
-  function frameAt(F, n, lift) {
-    const a = STA[n];
+  function frameAt(F, XA, YA, AA, n, lift) {
+    const a = AA[n];
     let ax = Math.cos(a), ay = Math.sin(a), az = lift;
     const al = Math.hypot(ax, ay, az); ax /= al; ay /= al; az /= al;
     F.ax = ax; F.ay = ay; F.az = az;
-    F.cx = STX[n] + ax * 0.6; F.cy = STY[n] + ay * 0.6; F.cz = az * 0.6;
+    F.cx = XA[n] + ax * 0.6; F.cy = YA[n] + ay * 0.6; F.cz = az * 0.6;
     let e1x = ay, e1y = -ax, e1z = 0; const el = Math.hypot(e1x, e1y) || 1; e1x /= el; e1y /= el;
     F.e1x = e1x; F.e1y = e1y; F.e1z = e1z;
     F.e2x = e1y * az - e1z * ay; F.e2y = e1z * ax - e1x * az; F.e2z = e1x * ay - e1y * ax;
     return F;
   }
+  function flowerFrame(F, fi) {
+    const f = FLOWERS[fi];
+    if (f.b < 0) return STN > 0 ? frameAt(F, STX, STY, STA, STN - 1, 0.45) : null;
+    const B = BRANCHES[f.b];
+    return B.n > 0 ? frameAt(F, B.X, B.Y, B.A, B.n - 1, 0.45) : null;
+  }
   const PET = [{ th: Math.PI * 0.25, big: 1.06, inner: 0 }, { th: Math.PI * 0.75, big: 0.96, inner: 1 }, { th: Math.PI * 1.25, big: 1.03, inner: 0 }, { th: Math.PI * 1.75, big: 0.95, inner: 1 }];
-  const TD = [19.25, 19.7, 20.05, 20.4];        // the petals let go
+  const TD = FLOWERS[0].td;
+  let PSC = 1;                                  // the size of the flower being drawn
   let PPX = 0, PPY = 0, PPZ = 0, PNX = 0, PNY = 0, PNZ = 0;
   function petalPt(F, k, r, a, op, loose) {
-    const pk = PET[k], R = lerp(13, 28, s5(op)) * pk.big;
+    const pk = PET[k], R = lerp(13, 28, s5(op)) * pk.big * PSC;
     const hwt = lerp(0.42, 1.0, op) * (0.3 + 0.7 * Math.sin(Math.PI / 2 * Math.min(1, r / 0.7)));
     const th = pk.th + a * hwt;
     const beta = lerp(0.33 + 0.15 * r, 0.2 + 0.8 * Math.pow(r, 1.15), op) - pk.inner * 0.1 * op + loose * r;
@@ -1002,7 +1154,7 @@
     // the crumple field, tabulated per petal at build (bilinear)
     const fr0 = clamp(r, 0, 1) * CRN, fa0 = (clamp(a, -1, 1) + 1) * 0.5 * CRN, ri = Math.min(CRN - 1, fl(fr0)), ai = Math.min(CRN - 1, fl(fa0)), fr1 = fr0 - ri, fa1 = fa0 - ai;
     const o0 = (k * (CRN + 1) + ri) * (CRN + 1) + ai, o1 = o0 + CRN + 1;
-    const cr = lerp(1.9, 0.55, s5(op)) * CRA[ri] * lerp(lerp(CRT[o0], CRT[o0 + 1], fa1), lerp(CRT[o1], CRT[o1 + 1], fa1), fr1);
+    const cr = lerp(1.9, 0.55, s5(op)) * PSC * CRA[ri] * lerp(lerp(CRT[o0], CRT[o0 + 1], fa1), lerp(CRT[o1], CRT[o1 + 1], fa1), fr1);
     const d = R * r;
     PPX = F.cx + d * (cb * F.ax + sb * rx) + cr * ox; PPY = F.cy + d * (cb * F.ay + sb * ry) + cr * oy; PPZ = F.cz + d * (cb * F.az + sb * rz) + cr * oz;
     PNX = ox; PNY = oy; PNZ = oz;
@@ -1017,47 +1169,86 @@
     }
   }
   const PETC = [0.86, 0.085, 0.05], PETO = [0.76, 0.1, 0.06], BLOT = [0.06, 0.02, 0.03];
-  // petal surfaces are evaluated once per point on a grid (r along the petal, a across it); normals come from
-  // the neighbouring grid points
+  // petal surfaces are evaluated once per point on a grid (r along the petal, a across it); normals come from the
+  // neighbouring grid points. A fully open petal's shape in its own flower frame never changes, so it is baked once
+  // (open, and loosened for the fall) and each frame only moves it with the flower.
   const PGX = new Float32Array(80 * 160), PGY = new Float32Array(80 * 160), PGZ = new Float32Array(80 * 160), PGO = new Int8Array(80 * 160);
-  function drawPetal(F, k, op, loose, xf, id, dark) {
-    const pk = PET[k], R = lerp(13, 28, s5(op)) * pk.big;
-    const nr = Math.min(78, Math.ceil(R * 1.8)), na = Math.min(158, Math.ceil(2 * lerp(0.42, 1.0, op) * R * Math.sin(Math.min(1.4, 0.2 + 0.8 * op + 0.35)) * 1.9) + 2);
-    const nA = na + 1;
+  const CF = { cx: 0, cy: 0, cz: 0, ax: 0, ay: 0, az: 1, e1x: 1, e1y: 0, e1z: 0, e2x: 0, e2y: 1, e2z: 0 };   // canonical frame
+  const PCACHE = [];
+  function petalDims(k, op) {
+    const R = lerp(13, 28, s5(op)) * PET[k].big * PSC;
+    return [Math.min(78, Math.ceil(R * 1.8)), Math.min(158, Math.ceil(2 * lerp(0.42, 1.0, op) * R * Math.sin(Math.min(1.4, 0.2 + 0.8 * op + 0.35)) * 1.9) + 2)];
+  }
+  function petalGrid(F, k, op, loose, put) {
+    const [nr, na] = petalDims(k, op), nA = na + 1;
     for (let qi = 0; qi <= nr; qi++) {
       const r = Math.max(0.02, qi / nr), rmEdge = r > 0.8 ? Math.sqrt(Math.max(0, 1 - Math.pow((r - 0.8) / 0.2, 2))) : 1;
       for (let qa = 0; qa <= na; qa++) {
         const a = (qa / na * 2 - 1) * Math.max(0.02, rmEdge), g = qi * nA + qa;
         petalPt(F, k, r, a, op, loose);
-        PGO[g] = Math.abs(a) > (1 - 0.07 * Math.abs(Math.sin(r * 9 + k))) * rmEdge ? 0 : 1;
-        if (xf) { xf(PPX, PPY, PPZ); PGX[g] = XFX; PGY[g] = XFY; PGZ[g] = XFZ; } else { PGX[g] = PPX; PGY[g] = PPY; PGZ[g] = PPZ; }
+        put(g, PPX, PPY, PPZ, Math.abs(a) > (1 - 0.07 * Math.abs(Math.sin(r * 9 + k))) * rmEdge ? 0 : 1);
       }
     }
-    // the outward normal of the cup at this petal's middle (to tell inside from outside)
-    let ox, oy, oz;
+    return [nr, na];
+  }
+  function buildPetalCache() {
+    for (let fi = 0; fi < FLOWERS.length; fi++) {
+      PCACHE.push([]);
+      PSC = FLOWERS[fi].sc;
+      for (let k = 0; k < 4; k++) {
+        const v = [];
+        for (const loose of [0, 0.22]) {
+          const [nr, na] = petalDims(k, 1), n = (nr + 1) * (na + 1);
+          const U = new Float32Array(n), V = new Float32Array(n), Wc = new Float32Array(n), O = new Int8Array(n);
+          petalGrid(CF, k, 1, loose, (g, x, y, z, o) => { U[g] = x; V[g] = y; Wc[g] = z; O[g] = o; });
+          petalPt(CF, k, 0.5, 0, 1, loose);
+          v.push({ nr, na, U, V, W: Wc, O, on: [PNX, PNY, PNZ] });
+        }
+        PCACHE[fi].push(v);
+      }
+    }
+    PSC = 1;
+  }
+  function drawPetal(F, k, op, loose, xf, id, dark, cache) {
+    let nr, na, ox, oy, oz;
+    if (cache) {
+      nr = cache.nr; na = cache.na;
+      const U = cache.U, V = cache.V, Wc = cache.W, n = (nr + 1) * (na + 1);
+      for (let g = 0; g < n; g++) {
+        const u = U[g], v = V[g], w = Wc[g];
+        let x = F.cx + u * F.e1x + v * F.e2x + w * F.ax, y = F.cy + u * F.e1y + v * F.e2y + w * F.ay, z = F.cz + u * F.e1z + v * F.e2z + w * F.az;
+        if (xf) { xf(x, y, z); x = XFX; y = XFY; z = XFZ; }
+        PGX[g] = x; PGY[g] = y; PGZ[g] = z; PGO[g] = cache.O[g];
+      }
+      const o = cache.on; ox = o[0] * F.e1x + o[1] * F.e2x + o[2] * F.ax; oy = o[0] * F.e1y + o[1] * F.e2y + o[2] * F.ay; oz = o[0] * F.e1z + o[1] * F.e2z + o[2] * F.az;
+    } else {
+      [nr, na] = petalGrid(F, k, op, loose, (g, x, y, z, o) => { PGX[g] = x; PGY[g] = y; PGZ[g] = z; PGO[g] = o; });
+      petalPt(F, k, 0.5, 0, op, loose); ox = PNX; oy = PNY; oz = PNZ;
+    }
     if (xf) { ox = XFNX; oy = XFNY; oz = XFNZ; }
-    else { petalPt(F, k, 0.5, 0, op, loose); ox = PNX; oy = PNY; oz = PNZ; }
+    const nA = na + 1;
     for (let qi = 0; qi < nr; qi++) {
-      const r = Math.max(0.02, qi / nr);
-      for (let qa = 0; qa < na; qa++) {
+      const r = Math.max(0.02, qi / nr), st = Math.max(1, Math.min(8, fl(0.85 / Math.max(r, 0.1))));   // the grid is denser than needed near the base
+      for (let qa = (qi * 7) % st; qa < na; qa += st) {
         const g = qi * nA + qa; if (!PGO[g]) continue;
         const x = PGX[g], y = PGY[g], z = PGZ[g];
         const ux = PGX[g + nA] - x, uy = PGY[g + nA] - y, uz = PGZ[g + nA] - z, vx = PGX[g + 1] - x, vy = PGY[g + 1] - y, vz = PGZ[g + 1] - z;
         let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
         const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
         const facing = nz + 0.3 * ny > 0 ? 1 : -1, inner = (nx * ox + ny * oy + nz * oz) * facing < 0;
-        const a = qa / na * 2 - 1;
         let c = inner ? PETC : PETO, tr = 1.15, tc0 = 1.0, tc1 = 0.3, tc2 = 0.08;
-        if (inner && r < 0.19 + 0.06 * vn2(a * 4 + k * 3, 1, 122)) { c = BLOT; tr = 0.15; tc0 = 0.3; tc1 = 0.05; tc2 = 0.04; }
-        const m = (0.93 + 0.1 * ih(qi >> 1, qa >> 1, 123 + k)) * (dark || 1);
+        if (inner && r < 0.19 + 0.06 * BLV[(qa * 16 / na) | 0 & 15]) { c = BLOT; tr = 0.15; tc0 = 0.3; tc1 = 0.05; tc2 = 0.04; }
+        const m = (0.93 + 0.1 * ih(qi >> 1, qa >> 1, 123 + k)) * dark;
         pshade(c[0] * m, c[1] * m, c[2] * m, nx, ny, nz, tr, tc0, tc1, tc2, 0.32, 1);
         splat(x, y, z, id, false);
-        if ((qi + qa) % 3 === 0) shDot(x, y, z);
+        if ((qi + qa) % 4 === 0) shDot(x, y, z);
       }
     }
   }
+  const BLV = new Float32Array(17);             // the black blotch's ragged edge
+  for (let i = 0; i < 17; i++) BLV[i] = ih(i, 7, 122);
   // the falling petals: a rigid tumble about the petal's middle while it drifts down; flattened once it lands
-  const PFALL = [];                             // per petal: frame at release, centroid, axis, landing
+  const PFALL = [];                             // per flower, per petal: frame at release, centroid, axis, landing
   let XFX = 0, XFY = 0, XFZ = 0, XFNX = 0, XFNY = 0, XFNZ = 0, XFOX = 0, XFOY = 0;
   function petalFallXf(pf, dt) {
     const dl = pf.dl, dd = Math.min(dt, dl), al = (1.7 * Math.sin(2.6 * dd + pf.k) - 1.7 * Math.sin(pf.k) + 0.9 * dd * pf.sg);
@@ -1065,7 +1256,6 @@
     const ox = pf.cx + 3 * dd + 5 * pf.sg * (1 - Math.cos(1.9 * dd)), oy = pf.cy - Math.min(pf.cy - 1, 50 * dd - 2.5 * Math.sin(5 * dd + pf.k) + 2.5 * Math.sin(pf.k));
     const oz = pf.cz + pf.zl * sstep(0, dl, dd) + 2 * Math.sin(1.3 * dd + pf.k);
     const sq = sstep(dl, dl + 0.25, dt);
-    // the outward normal of the petal at release, rotated with it (to tell its faces apart)
     const k0 = K[0], k1 = K[1], k2 = K[2], c1 = 1 - ca;
     let RX = 0, RY = 0, RZ = 0;
     const rot = (x, y, z) => {
@@ -1074,33 +1264,39 @@
     };
     rot(pf.nx, pf.ny, pf.nz); XFNX = RX; XFNY = RY; XFNZ = RZ;
     XFOX = ox; XFOY = oy;
-    const ys = 1 - 0.88 * sq;
+    const ys = 1 - 0.88 * sq, shr = 1 - 0.55 * sstep(dl + 0.3, dl + 3.6, dt);   // once down, it shrivels
     return (x, y, z) => {
       rot(x - pf.cx, y - pf.cy, z - pf.cz);
-      XFX = ox + RX; XFY = oy + RY * ys; XFZ = oz + RZ;
+      XFX = ox + RX * shr; XFY = oy + RY * ys * shr; XFZ = oz + RZ * shr;
       if (XFY < 0.6) XFY = 0.6 + (XFY - 0.6) * 0.15;
     };
   }
+  function geomAt(tau, t) { stemCurve(tau, t); for (let b = 0; b < BRANCHES.length; b++) branchCurve(b, tau, t); }
   function buildPetalFall() {
-    for (let k = 0; k < 4; k++) {
-      const td = TD[k];
-      stemCurve(td, td);
-      const F = frameAt({}, STN - 1, 0.45);
-      const R = 28 * PET[k].big, b = 0.2 + 0.8 * Math.pow(0.55, 1.15) - PET[k].inner * 0.1 + 0.22 * 0.55, ct = Math.cos(PET[k].th), st = Math.sin(PET[k].th);
-      const rx = ct * F.e1x + st * F.e2x, ry = ct * F.e1y + st * F.e2y, rz = ct * F.e1z + st * F.e2z;
-      const cx = F.cx + R * 0.55 * (Math.cos(b) * F.ax + Math.sin(b) * rx), cy = F.cy + R * 0.55 * (Math.cos(b) * F.ay + Math.sin(b) * ry), cz = F.cz + R * 0.55 * (Math.cos(b) * F.az + Math.sin(b) * rz);
-      const sg = k % 2 ? -1 : 1, Kx = Math.cos(k * 1.7 + 0.3), Kz = Math.sin(k * 1.7 + 0.3), Kl = Math.hypot(Kx, 0.35, Kz);
-      const pf = { F, k, cx, cy, cz, sg, K: [Kx / Kl, 0.35 / Kl, Kz / Kl], nx: Math.cos(b) * rx - Math.sin(b) * F.ax, ny: Math.cos(b) * ry - Math.sin(b) * F.ay, nz: Math.cos(b) * rz - Math.sin(b) * F.az, zl: [7, -4, 10, 3][k], dl: 0 };
-      let dt = 0; while (dt < 8 && cy - (50 * dt - 2.5 * Math.sin(5 * dt + k) + 2.5 * Math.sin(k)) > 1) dt += 0.005;
-      pf.dl = dt;
-      PFALL.push(pf);
+    for (let fi = 0; fi < FLOWERS.length; fi++) {
+      const f = FLOWERS[fi], list = [];
+      PFALL.push(list);
+      if (!f.td) continue;
+      for (let k = 0; k < 4; k++) {
+        const td = f.td[k];
+        geomAt(td, td);
+        const F = flowerFrame({}, fi);
+        const R = 28 * PET[k].big * f.sc, b = 0.2 + 0.8 * Math.pow(0.55, 1.15) - PET[k].inner * 0.1 + 0.22 * 0.55, ct = Math.cos(PET[k].th), st = Math.sin(PET[k].th);
+        const rx = ct * F.e1x + st * F.e2x, ry = ct * F.e1y + st * F.e2y, rz = ct * F.e1z + st * F.e2z;
+        const cx = F.cx + R * 0.55 * (Math.cos(b) * F.ax + Math.sin(b) * rx), cy = F.cy + R * 0.55 * (Math.cos(b) * F.ay + Math.sin(b) * ry), cz = F.cz + R * 0.55 * (Math.cos(b) * F.az + Math.sin(b) * rz);
+        const kk = k + fi * 4, sg = kk % 2 ? -1 : 1, Kx = Math.cos(kk * 1.7 + 0.3), Kz = Math.sin(kk * 1.7 + 0.3), Kl = Math.hypot(Kx, 0.35, Kz);
+        const pf = { F, k: kk, cx, cy, cz, sg, K: [Kx / Kl, 0.35 / Kl, Kz / Kl], nx: Math.cos(b) * rx - Math.sin(b) * F.ax, ny: Math.cos(b) * ry - Math.sin(b) * F.ay, nz: Math.cos(b) * rz - Math.sin(b) * F.az, zl: [7, -4, 10, 3][k] + (fi === 2 ? -3 : fi === 1 ? 4 : 0), dl: 0 };
+        let dt = 0; while (dt < 8 && cy - (50 * dt - 2.5 * Math.sin(5 * dt + kk) + 2.5 * Math.sin(kk)) > 1) dt += 0.005;
+        pf.dl = dt;
+        list.push(pf);
+      }
     }
   }
-  function drawBud(F, tau, t, dry) {
-    const bb = s5(ph(tau, 12.0, 14.2)), lb = 4 + 10 * bb, rb = 2.3 + 4.2 * bb;
-    const o = ph(tau, 14.45, 14.85), fallT = tau - 14.85;
+  function drawBud(F, tau, t, dry, f) {
+    const sc = f.sc, bb = s5(ph(tau, f.tb, f.tb + 2.2)), lb = (4 + 10 * bb) * sc, rb = (2.3 + 4.2 * bb) * sc;
+    const o = ph(tau, f.to - 0.15, f.to + 0.25), fallT = tau - (f.to + 0.25);
     const bx = F.cx, by = F.cy, bz = F.cz;
-    const cd = sstep(15.4, 17.5, tau);
+    const cd = sstep(f.to + 0.8, f.to + 2.9, tau);
     for (const side of [-1, 1]) {
       // each sepal: half of the bud's shell; it swings open about the base, then drops
       const gam = 1.5 * s5(o) * side;
@@ -1111,38 +1307,38 @@
       }
       const cg = Math.cos(gam + rot2), sgm = Math.sin(gam + rot2);
       const nu = Math.max(3, Math.ceil(lb * 1.4));
+      const c0 = mixC([0.3, 0.5, 0.18], DRY, Math.max(dry, cd * (fallT > 0 ? 1 : 0)));
       for (let qu = -nu; qu <= nu; qu++) {
         const u = qu / nu, rr = rb * Math.sqrt(Math.max(0, 1 - u * u)) * (u > 0 ? 1 - 0.3 * u * u : 1);
         const nph = Math.max(4, Math.ceil(rr * TAU * 2.3));
         for (let qp = 0; qp < nph; qp++) {
           const p = qp / nph * TAU, cp = Math.cos(p), sp = Math.sin(p);
           if (cp * side < -0.02) continue;
-          // local: along the axis (u), across (cp → e1), depth (sp → e2); rotate about e2 through the base
-          let la = (u + 1) * lb / 2, lc = rr * cp;
+          const la = (u + 1) * lb / 2, lc = rr * cp;
           const la2 = la * cg - lc * sgm, lc2 = la * sgm + lc * cg;
           let x = bx + F.ax * la2 + F.e1x * lc2 + F.e2x * rr * sp, y = by + F.ay * la2 + F.e1y * lc2 + F.e2y * rr * sp, z = bz + F.az * la2 + F.e1z * lc2 + F.e2z * rr * sp;
           x += fx; y += fy;
           if (sq > 0) y = lerp(y, 0.8 + (y - (by + fy)) * 0.15, sq);
           const nx = F.e1x * cp + F.e2x * sp + F.ax * u * 0.6, ny = F.e1y * cp + F.e2y * sp + F.ay * u * 0.6, nz = F.e1z * cp + F.e2z * sp + F.az * u * 0.6;
           const nl = Math.hypot(nx, ny, nz) || 1;
-          let c = mixC([0.3, 0.5, 0.18], DRY, Math.max(dry, cd * (fallT > 0 ? 1 : 0)));
           const m = Math.abs(cp) < 0.1 ? 0.7 : 0.9 + 0.15 * ih(qu, qp, 530);
-          pshade(c[0] * m, c[1] * m, c[2] * m, nx / nl, ny / nl, nz / nl, 0.5, 0.45, 0.85, 0.2, 0.1, 1);
+          pshade(c0[0] * m, c0[1] * m, c0[2] * m, nx / nl, ny / nl, nz / nl, 0.5, 0.45, 0.85, 0.2, 0.1, 1);
           splat(x, y, z, 7, false);
-          if ((qu + qp) % 3 === 0) shDot(x, y, z);
-          // stiff pale bristles on the bud, lit up when backlit
+          if ((qu + qp) % 4 === 0) shDot(x, y, z);
           if (fallT <= 0 && ih(qu, qp, 531) < 0.07 && Math.abs(u) < 0.85) {
-            const hx = nx / nl, hy = ny / nl, hz = nz / nl;
-            for (let q = 0.6; q <= 1.6; q += 0.5) { pshade(0.62, 0.74, 0.42, hx, hy, 0.3, 1.3, 0.95, 1, 0.6, 0, 1); splat(x + hx * q, y + hy * q, z + hz * q, 13, false); }
+            const hx = nx / nl, hy = ny / nl, hz = nz / nl, hc = mixC([0.62, 0.74, 0.42], DRY, dry);
+            for (let q = 0.6; q <= 1.6; q += 0.5) { pshade(hc[0], hc[1], hc[2], hx, hy, 0.3, 1.3, 0.95, 1, 0.6, 0, 1); splat(x + hx * q, y + hy * q, z + hz * q, 13, false); }
           }
         }
       }
     }
   }
-  function drawCentre(F, tau, dry) {
-    const g = s5(ph(tau, 15.5, 20.5)), pd = s5(ph(tau, 19.8, 21.0));
-    const rc = 3.2 + 1.2 * g, hc = 5.2 + 2 * g;
+  function drawCentre(F, tau, dry, f) {
+    const sc = f.sc, t0 = f.td[0];
+    const g = s5(ph(tau, f.to + 0.9, t0 + 1.2)), pd = s5(ph(tau, t0 + 0.55, t0 + 1.75));
+    const rc = (3.2 + 1.2 * g) * sc, hc = (5.2 + 2 * g) * sc;
     const body = mixC([0.42, 0.5, 0.3], [0.64, 0.53, 0.35], pd), disc = mixC([0.3, 0.17, 0.22], [0.4, 0.31, 0.22], pd);
+    const rayc = mixC([0.5, 0.44, 0.48], [0.55, 0.46, 0.32], pd);
     // the capsule: a small barrel along the flower's axis
     for (let h = 0; h <= hc; h += 0.4) {
       const rr = rc * (0.75 + 0.3 * Math.sin(Math.PI * h / hc));
@@ -1150,7 +1346,7 @@
       for (let q = 0; q < nph; q++) {
         const p = q / nph * TAU, cp = Math.cos(p), sp = Math.sin(p);
         const nx = F.e1x * cp + F.e2x * sp, ny = F.e1y * cp + F.e2y * sp, nz = F.e1z * cp + F.e2z * sp;
-        const m = 0.9 + 0.12 * Math.cos(p * 9);                                     // faint ribs
+        const m = 0.9 + 0.12 * Math.cos(p * 9);
         pshade(body[0] * m, body[1] * m, body[2] * m, nx, ny, nz, 0.2, 0.6, 0.7, 0.3, 0.2, 1);
         splat(F.cx + F.ax * h + nx * rr, F.cy + F.ay * h + ny * rr, F.cz + F.az * h + nz * rr, 10, false);
       }
@@ -1161,8 +1357,7 @@
       const nph = Math.max(1, Math.ceil(rr * TAU * 2.3));
       for (let q = 0; q < nph; q++) {
         const p = q / nph * TAU, cp = Math.cos(p), sp = Math.sin(p);
-        const ray = Math.abs(Math.sin(p * 4)) < 0.22 && rr > 0.5;
-        const c = ray ? mixC([0.5, 0.44, 0.48], [0.55, 0.46, 0.32], pd) : disc;
+        const c = Math.abs(Math.sin(p * 4)) < 0.22 && rr > 0.5 ? rayc : disc;
         const lx = F.e1x * cp + F.e2x * sp, ly = F.e1y * cp + F.e2y * sp, lz = F.e1z * cp + F.e2z * sp;
         pshade(c[0], c[1], c[2], F.ax + lx * 0.3, F.ay + ly * 0.3, F.az + lz * 0.3, 0.1, 0, 0, 0, 0.2, 1);
         splat(F.cx + F.ax * (hc + 0.3) + lx * rr, F.cy + F.ay * (hc + 0.3) + ly * rr, F.cz + F.az * (hc + 0.3) + lz * rr, 10, false);
@@ -1170,22 +1365,44 @@
     }
     shDot(F.cx + F.ax * hc, F.cy + F.ay * hc, F.cz);
     // stamens: a dark ring of filaments with anthers, withering away after the petals go
-    const sl = 5.6 * (1 - s5(ph(tau, 19.3, 20.6)));
-    if (sl > 0.3) for (let m = 0; m < 34; m++) {
-      const p = m / 34 * TAU + 0.13, cp = Math.cos(p), sp = Math.sin(p), b = 0.75 + 0.2 * ih(m, 1, 540);
+    const sl = 5.6 * sc * (1 - s5(ph(tau, t0 + 0.05, t0 + 1.35)));
+    const nm = Math.round(34 * sc);
+    if (sl > 0.3) for (let m = 0; m < nm; m++) {
+      const p = m / nm * TAU + 0.13, cp = Math.cos(p), sp = Math.sin(p), b = 0.75 + 0.2 * ih(m, 1, 540);
       const rx = F.e1x * cp + F.e2x * sp, ry = F.e1y * cp + F.e2y * sp, rz = F.e1z * cp + F.e2z * sp;
       const dx = Math.cos(b) * F.ax + Math.sin(b) * rx, dy = Math.cos(b) * F.ay + Math.sin(b) * ry, dz = Math.cos(b) * F.az + Math.sin(b) * rz;
       const x0 = F.cx + rx * rc * 0.8 + F.ax * 0.6, y0 = F.cy + ry * rc * 0.8 + F.ay * 0.6, z0 = F.cz + rz * rc * 0.8 + F.az * 0.6;
+      const pollen = ih(m, 2, 540) < 0.4;
       for (let s = 0; s <= sl; s += 0.45) {
         const end = s > sl - 0.9;
-        const c = end ? (ih(m, 2, 540) < 0.4 ? [0.85, 0.78, 0.55] : [0.16, 0.12, 0.18]) : [0.1, 0.07, 0.1];
-        pshade(c[0], c[1], c[2], rx, ry, rz, 0.1, 0, 0, 0, end ? 0.3 : 0, 1);
+        if (end) { if (pollen) pshade(0.85, 0.78, 0.55, rx, ry, rz, 0.1, 0, 0, 0, 0.3, 1); else pshade(0.16, 0.12, 0.18, rx, ry, rz, 0.1, 0, 0, 0, 0.3, 1); }
+        else pshade(0.1, 0.07, 0.1, rx, ry, rz, 0.1, 0, 0, 0, 0, 1);
         splat(x0 + dx * s, y0 + dy * s, z0 + dz * s, 10, false);
       }
     }
   }
+  function drawFlower(fi, tau, t, dry) {
+    const f = FLOWERS[fi];
+    if (tau < f.tb) return null;
+    const F = flowerFrame(FF, fi);
+    if (!F) return null;
+    PSC = f.sc;
+    drawBud(F, tau, t, dry, f);
+    if (f.td && tau >= f.to - 0.15) {
+      const op = back(ph(tau, f.to, f.to + 1.7), 0.9);
+      for (let q = 0; q < 4; q++) {
+        if (tau >= f.td[q]) continue;
+        const loose = 0.22 * sstep(f.td[q] - 0.6, f.td[q], tau);
+        drawPetal(F, q, op, loose, null, 8, 1, op >= 1 && loose === 0 ? PCACHE[fi][q][0] : null);
+      }
+      drawCentre(F, tau, dry, f);
+    }
+    PSC = 1;
+    return F;
+  }
+
   /* ---------------------------------------------------------------- the seed let go */
-  let PRX = 0, PRY = 0;                         // the pod's mouth at release (plant-local)
+  let PRX = 0, PRY = 0;                         // the hero pod's mouth at release (plant-local)
   const SEED_ROT = 0.16;
   function seedPathAt(tau) {
     const t1 = 22.6, t2 = 23.0, t3 = 23.28, t4 = 23.62, t5 = 23.95, XB1 = P - 70;
@@ -1208,7 +1425,7 @@
     const tauRaw = t - k * D, tau = Math.min(tauRaw, D - 0.001);
     BX = X0 - CAMI + k * P; BY = SITE_Y;
     if (k === 0) drawSeedFlight(tau);
-    if (BX < -150 || BX > W + 90) return;
+    if (BX < -170 || BX > W + 110) return;
     const L = stemCurve(tau, t), dry = dryAt(tau);
     // the seed: resting, swelling, splitting; afterwards its empty coat stays in the crack
     const sw = s5(ph(tau, 1.2, 3.0)) * (1 + 0.04 * Math.sin(tau * 5.2) * sstep(1.2, 2.0, tau) * (1 - sstep(2.6, 3.0, tau)));
@@ -1216,29 +1433,33 @@
     drawSeed(0, 1.8, SEED_ROT, sw, sp, shell, 11, 0.9);
     drawRoot(tau);
     if (L > 0) {
-      drawStem(tau, L, dry);
+      drawTube(STX, STY, STA, STN, L, 1.6 + 1.0 * s5(ph(tau, 8.5, 14)) + 0.45 * sstep(5.6, 6.8, tau) * (1 - sstep(T_BREAK, 7.6, tau)), tau, dry, 1, 0);
+      for (let b = 0; b < BRANCHES.length; b++) {
+        const B = BRANCHES[b], Lb = branchCurve(b, tau, t);
+        if (Lb > 0.3) drawTube(B.X, B.Y, B.A, B.n, Lb, 0.8 + 0.75 * s5(ph(tau, B.t0, B.t1 + 1)), tau, dry, 17, 1 + b);
+      }
       drawCotyledons(tau, t, dry);
       drawLeaves(tau, t, dry);
-      const F = frameAt(FF, STN - 1, 0.45);
-      if (k === 0) { FLX = BX + F.cx; FLY = BY - F.cy + 0.3 * F.cz; }
-      if (tau >= 12.0) drawBud(F, tau, t, dry);
-      if (tau >= 14.45) {
-        const op = back(ph(tau, 14.6, 16.3), 0.9);
-        for (let q = 0; q < 4; q++) if (tau < TD[q]) drawPetal(F, q, op, 0.22 * sstep(TD[q] - 0.6, TD[q], tau) + 0.03 * Math.sin(per(13, t) + q) * op * (1 - sstep(TD[q] - 0.6, TD[q], tau)), null, 8, 1);
-        drawCentre(F, tau, dry);
+      for (let fi = 0; fi < FLOWERS.length; fi++) {
+        const F = drawFlower(fi, tau, t, dry);
+        if (fi === 0 && k === 0 && F) { FLX = BX + F.cx; FLY = BY - F.cy + 0.3 * F.cz; }
       }
     }
-    for (let q = 0; q < 4; q++) {
-      const dt = tauRaw - TD[q];
-      if (dt < 0) continue;
-      const pf = PFALL[q], xf = petalFallXf(pf, dt);
-      if (BX + XFOX < -40 || BX + XFOX > W + 40 || BY - XFOY < -40) continue;
-      drawPetal(pf.F, q, 1, 0.22, xf, 8, 1 - 0.3 * sstep(pf.dl, pf.dl + 3, dt));
+    for (let fi = 0; fi < FLOWERS.length; fi++) {
+      const f = FLOWERS[fi];
+      if (!f.td) continue;
+      for (let q = 0; q < 4; q++) {
+        const dt = tauRaw - f.td[q];
+        if (dt < 0) continue;
+        const pf = PFALL[fi][q], xf = petalFallXf(pf, dt);
+        if (BX + XFOX < -40 || BX + XFOX > W + 40 || BY - XFOY < -40) continue;
+        drawPetal(pf.F, q, 1, 0.22, xf, 8, 1 - 0.6 * sstep(pf.dl, pf.dl + 3.6, dt), PCACHE[fi][q][1]);
+      }
     }
   }
 
   /* ---------------------------------------------------------------- composite the plant over the rock */
-  const PNAME = ['', 'stem', 'cotyledons', 'leaf1', 'leaf2', 'leaf3', 'leaf4', 'bud', 'petals', 'fallen', 'pod', 'seed', 'root', 'hairs'];
+  const PNAME = ['', 'stem', 'cotyledons', 'leaf1', 'leaf2', 'leaf3', 'leaf4', 'bud', 'petals', 'fallen', 'pod', 'seed', 'root', 'hairs', 'bleaf1', 'bleaf2', 'bleaf3', 'branches'];
   let FHIDE = false;
   function compositePlant() {
     if (PB1 < PB0) return;
@@ -1260,7 +1481,23 @@
       C[j] = r; C[j + 1] = g; C[j + 2] = b;
       if (TRK) TRK[PNAME[id]] = (TRK[PNAME[id]] || 0) + 1;
     }
+    OLN.fill(0, 0, 0);
+    for (let y = PB2; y <= PB3; y++) for (let x = PB0; x <= PB1; x++) {
+      const i = y * W + x;
+      if (PID[i] !== 11 || !vis(i)) continue;
+      for (const [dx, dy, a] of SEEDRING) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const n = yy * W + xx; if (vis(n) && PID[n] !== 13) continue;
+        if (OLS[n] !== FR || OLA[n] < a) { OLS[n] = FR; OLA[n] = a; }
+      }
+    }
+    for (let y = Math.max(0, PB2 - 1); y <= Math.min(H - 1, PB3 + 3); y++) for (let x = Math.max(0, PB0 - 2); x <= Math.min(W - 1, PB1 + 2); x++) {
+      const n = y * W + x; if (OLS[n] !== FR) continue;
+      const m = 1 - OLA[n], j = n * 3; C[j] *= m; C[j + 1] *= m; C[j + 2] *= m * 1.05;
+    }
   }
+  const OLN = [0], OLS = new Int32Array(NP), OLA = new Float32Array(NP);
+  const SEEDRING = [[-1, 0, 0.55], [1, 0, 0.55], [0, -1, 0.5], [0, 1, 0.62], [1, 1, 0.5], [-1, 1, 0.45], [0, 2, 0.32], [1, 2, 0.25]];
   function blurShadow() {
     if (SB1 < SB0) return;
     const x0 = Math.max(0, SB0 - 1), x1 = Math.min(W - 1, SB1 + 1), y0 = Math.max(RIMTOP, SB2 - 1), y1 = Math.min(H - 1, SB3 + 1);
@@ -1418,11 +1655,14 @@
     CAMI = Math.round(camAt(t));
     stage('plant', plants, t);
     stage('haze', drawBackground, t);
+    stage('clouds', drawClouds, t);
+    stage('flock', drawFlock, t);
     stage('stone', drawStone, t);
     FHIDE = t < T_BREAK;
     stage('site', (tt) => { drawSite(-1, tt); drawSite(0, tt); }, t);
     stage('focus', softFocus, t);
     stage('composite', compositePlant, t);
+    stage('beam', drawBeam, t);
     stage('insect', drawInsect, t);
     stage('motes', drawMotes, t);
     stage('text', drawText, t);
@@ -1437,11 +1677,14 @@
     paintStone();
     RIMTOP = H; for (let x = 0; x < TW; x++) RIMTOP = Math.min(RIMTOP, fl(RIM[x]));
     paintBackground();
+    buildClouds();
     buildChips(); buildGrit(); buildDust();
     buildLeafTimes();
     buildCrumple();
+    buildPetalCache();
+    buildBranchLeafTimes();
     buildPetalFall();
-    { stemCurve(T_REL, T_REL); const F = frameAt({}, STN - 1, 0.45), hc = 5.2 + 2; PRX = F.cx + F.ax * (hc + 0.8); PRY = F.cy + F.ay * (hc + 0.8); }
+    { geomAt(T_REL, T_REL); const F = flowerFrame({}, 0), hc = 5.2 + 2; PRX = F.cx + F.ax * (hc + 0.8); PRY = F.cy + F.ay * (hc + 0.8); }
     buildMotes();
     buildText();
     BUILT = true;
@@ -1482,7 +1725,7 @@
   (window.PIECES = window.PIECES || []).push({
     id: 'the-seed-and-the-stone',
     title: 'The Seed and the Stone',
-    medium: 'Pixel art in 45 colours, 360 × 450, drawn in JavaScript · 24 s loop',
+    medium: 'Pixel art in 48 colours, 360 × 450, drawn in JavaScript · 24 s loop',
     note: 'All glory comes from daring to begin · tap to pause',
     about: 'A seed in a crack in a granite slab, seen from the ground. At dawn it splits and sends up a curled shoot, which meets a flake of stone, strains, and breaks it off. Through the day the sun walks round the rock, every grain throwing its own small shadow, while the stem climbs and its leaves unfold against the light. In the golden hour a nodding bud lifts and opens into a single red poppy. Then the petals fall, the head dries to a pod, and the evening wind flicks one seed away along the stone into a fresh, narrow crack.',
     tone: 'dark',
