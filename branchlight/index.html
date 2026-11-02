@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Branchlight</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="room">
+  <div id="frame">
+    <canvas id="slide" width="1080" height="1920" aria-label="Pixel-art slide"></canvas>
+    <div id="busy" hidden>drawing…</div>
+  </div>
+</main>
+<nav id="nav" aria-label="Slides">
+  <button id="prev" aria-label="Previous slide">&larr;</button>
+  <div id="dots"></div>
+  <button id="next" aria-label="Next slide">&rarr;</button>
+</nav>
+
+<script src="js/lib/core.js"></script>
+<script src="js/lib/palette.js"></script>
+<script src="js/lib/strands.js"></script>
+<script src="js/lib/splatter.js"></script>
+<script src="js/lib/path.js"></script>
+<script src="js/lib/figure.js"></script>
+<script src="js/slides/01-the-way-in.js"></script>
+<script src="js/slides/02-looking-up.js"></script>
+<script src="js/slides/03-the-threshold.js"></script>
+<script src="js/slides/04-beyond.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
