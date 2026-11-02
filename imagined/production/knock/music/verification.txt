@@ -1,0 +1,20 @@
+THE KNOCK - sound verification (measured on the written score.wav)
+
+duration: 1872000 frames = 39.000000 s at 48000 Hz, 2 ch, PCM_24
+events (loop time, from timeline.json): knocks 0.00 0.40 0.80 4.30 4.60; scratch 7.65-8.30 8.55-9.20 9.45-10.10; thunder 11.30; eyes shut 17.85 / open 19.40; latch 22.62; open 22.70; barks 23.80 24.25 28.40; close 30.80; flap 37.95
+integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -3.09 dBTP (4x oversampled)
+seam step |x[0] - x[N-1]|: L 1.04e-02, R 6.59e-03; ordinary steps: median 9.28e-03, 99.9th pct 5.80e-02, max 1.00e-01
+click test (>6 kHz energy, 5 ms windows): seam window -10.7 dB; surrounding 1 s median -13.4 dB, max -9.7 dB
+ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         9.5 LU | Peak:       -3.1 dBFS
+stem levels before the mix, dB RMS in windows 0-1 | 8-10 | 15-17.5 | 18-19.4 | 23.5-26 | 26.5-29 | 32-37.5 s:
+  rain    -20.6  -20.6  -20.7  -20.6  -16.9  -16.8  -20.7
+  fx      -12.1  -32.2  -33.8 -120.0  -54.2 -120.0 -120.0
+  drone  -120.0  -19.6  -10.7 -120.0 -120.0 -120.0 -120.0
+  heart  -120.0  -24.6  -17.7  -18.9 -120.0 -120.0 -120.0
+  music   -44.0  -37.9  -27.1  -41.6  -26.6  -27.1  -33.2
+  dog    -120.0 -120.0 -120.0 -120.0  -31.1  -32.5 -120.0
+  clock   -60.8  -71.8  -72.7  -74.3  -70.7  -71.3  -60.3
+
+PASS  seamless loop: no step or click at the seam beyond ordinary programme content
+PASS  exactly 39.000 s
+PASS  true peak below -1 dBTP (-3.09)

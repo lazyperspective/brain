@@ -1,0 +1,37 @@
+== ../../../imagined-video/03-the-knock-4x5.mp4 (53M)
+stream|codec_name=h264|profile=High|width=1080|height=1350|pix_fmt=yuv420p|r_frame_rate=30/1|duration=39.000000|bit_rate=11038814|nb_read_frames=1170
+stream|codec_name=aac|profile=LC|sample_rate=48000|channels=2|r_frame_rate=0/0|duration=39.000000|bit_rate=192295|nb_read_frames=1829
+format|duration=39.000000
+== ../../../imagined-video/03-the-knock-4x5-2loops.mp4 (105M)
+stream|codec_name=h264|profile=High|width=1080|height=1350|pix_fmt=yuv420p|r_frame_rate=30/1|duration=78.000000|bit_rate=11038814|nb_read_frames=2340
+stream|codec_name=aac|profile=LC|sample_rate=48000|channels=2|r_frame_rate=0/0|duration=78.000000|bit_rate=192347|nb_read_frames=3657
+format|duration=78.000000
+
+../../../imagined-video/03-the-knock-4x5.mp4: 1170 frames, mean relative luminance 0.0851
+worst frame-to-frame change of a large-area mean: 0.1541 (q12, frame 791)
+largest single swing between turning points: 0.3382 (q12, frames 678-791, 3.77 s)
+conservative count (any two >=0.10 transitions within 1 s, either direction): 1 (limit 3) at frame 791 (q12)
+WCAG general flashes (pairs of opposing >=0.10 changes) in any 1 s: 1 (limit 3) at frame 791 (q12)
+PASS
+
+/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/imagined/knock/vid/knock-silent.mp4: 1170 frames
+seam step (last frame -> first frame): 1.769
+ordinary steps: median 3.411, 95th pct 9.042, max 60.928; within 0.5 s of the seam: median 2.293, max 9.024
+PASS  seam step is an ordinary step
+
+/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/imagined/knock/vid/knock-silent.mp4: 1170 frames; whole-frame step median 2.42, 95th pct 7.44, max 64.97 (grey levels)
+designed cuts at 0.00 1.30 2.70 5.40 7.00 10.20 12.40 14.40 17.60 20.00 22.60 26.40 29.30 31.10 s; knock hits excluded
+47 large step(s) at designed motion (listed by second): t=10.70 designed motion; t=16.10 ink boil (10 fps) at high fear; t=16.20 ink boil (10 fps) at high fear; t=16.30 ink boil (10 fps) at high fear; t=16.40 ink boil (10 fps) at high fear; t=16.50 ink boil (10 fps) at high fear; t=16.60 ink boil (10 fps) at high fear; t=16.70 ink boil (10 fps) at high fear; t=16.80 ink boil (10 fps) at high fear; t=17.10 ink boil (10 fps) at high fear; t=17.30 ink boil (10 fps) at high fear; t=17.40 ink boil (10 fps) at high fear; t=17.50 ink boil (10 fps) at high fear; t=17.70 ink boil (10 fps) at high fear; t=17.87 designed motion; t=25.97 designed motion; t=26.00 designed motion; t=26.03 designed motion; t=26.07 designed motion; t=26.10 designed motion; t=26.13 designed motion; t=26.30 designed motion; t=30.27 designed motion; t=30.30 designed motion; t=30.33 designed motion; t=30.37 designed motion; t=30.40 designed motion; t=30.43 designed motion; t=30.47 designed motion
+t=9.90 cell 1,1 17.0 (neighbours 1.6)
+t=10.00 whole frame 6.2 (neighbours 1.9)
+t=10.10 whole frame 5.6 (neighbours 1.6)
+3 pop(s) outside designed cuts, hits and motion
+
+muxed AAC loudness (ffmpeg ebur128, true peak):
+    I:         -20.0 LUFS
+    LRA:         9.6 LU
+    Peak:       -3.2 dBFS
+
+/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/imagined/knock/vid/knock-silent.mp4: 1170 frames; Chromium ms/frame (render + present) avg 167.33, median 160.10, p95 295.70, worst 424.50
+  slowest: 22.77s:424.5 21.73s:399.2 22.73s:383.9 25.40s:379.1 24.33s:364.9
+  by 3 s: 0s 146.2 | 3s 148.8 | 6s 200.0 | 9s 183.3 | 12s 177.7 | 15s 203.7 | 18s 229.7 | 21s 250.4 | 24s 212.8 | 27s 115.3 | 30s 106.7 | 33s 98.1 | 36s 102.5
