@@ -1,0 +1,12 @@
+3 A.M. - sound verification (measured on the written score.wav)
+
+duration: 1824000 frames = 38.000000 s at 48000 Hz, 2 ch, PCM_24
+events (loop time): thud 0.00, creaks 1.30 3.45 10.85, heartbeats 20 from 3.90 to 16.85, click 16.55, whack 16.85, torch on 17.10, clank 21.18, mrrp 21.85, light 24.90
+integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -2.08 dBTP (4x oversampled)
+seam step |x[0] - x[N-1]|: L 1.05e-03, R 6.51e-04; ordinary steps: median 6.03e-03, 99.9th pct 1.71e-01, max 5.67e-01
+click test (>6 kHz energy, 5 ms windows): seam window -25.6 dB; median -19.9 dB; surrounding 1 s max -14.5 dB
+ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         8.1 LU | Peak:       -2.1 dBFS
+
+PASS  seamless loop: no step or click at the seam beyond ordinary programme content
+PASS  loudness -20.0 LUFS, true peak -2.1 dBTP (target -20 LUFS, < -1 dBTP)
+PASS  exactly 38.000 s
