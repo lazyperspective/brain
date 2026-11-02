@@ -85,7 +85,7 @@
     '50492f', '7d7a55', 'a9aa84',                                                    // 28-30 olive, sage (lichen, dry stalk)
     '0e2612', '1c4519', '2c6a1f', '479627', '73bf35', 'a6de55', 'd6f592',            // 31-37 the plant: greens
     '260709', '560c10', '8c1712', 'c22418', 'e6441e', 'ff7436', 'ff9e6c',            // 38-44 the flower: reds
-    '5a2410', '93461c', 'd08a3c',                                                    // 45-47 the seed: russet, amber
+    '57301a', '8e5226', 'cf9048',                                                    // 45-47 the seed: russet, amber
   ];
   const PAL = PAL_HEX.map(hx), NPAL = PAL.length;
 
@@ -97,7 +97,7 @@
     let best = 0, bd = 1e18;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx > 1 ? (mx - mn) / mx : 0;
     const greenOK = sat > 0.4 && g >= r * 1.04 && g >= b, oliveOK = g >= r * 0.93;
-    const redOK = sat > 0.5 && r > g * 1.55 && r >= b, seedOK = sat > 0.6 && r > g * 1.45 && r >= b;
+    const redOK = sat > 0.5 && r > g * 1.55 && r >= b, seedOK = sat > 0.6 && r > g * 1.4 && r >= b;
     for (let k = 0; k < NPAL; k++) {
       if (k >= 31 && k <= 37 && !greenOK) continue;
       if (k >= 38 && k <= 44 && !redOK) continue;
@@ -146,7 +146,7 @@
   }
   // the time of day w (0 dawn, .25 noon, .5 golden hour, .75 the violet turn) against loop time: dawn lingers,
   // the gold arrives with the bud and holds through the bloom
-  const WKEYS = [[0, 0], [5.2, 0.1], [10.6, 0.25], [15.6, 0.47], [19.4, 0.6], [22.0, 0.8]];
+  const WKEYS = [[0, 0], [3.4, 0.1], [8.6, 0.25], [14.2, 0.47], [18.8, 0.6], [21.8, 0.8]];
   const WTMP = [0];
   const dayAt = (t) => cyc(WKEYS, D, t, WTMP, [1])[0];
   // the light at each time of day: elevation (deg), azimuth (× π), sun strength, sun rgb, sky (shadow) rgb,
@@ -189,16 +189,39 @@
   // the camera drifts along the stone by exactly one period of its texture per loop: slowly while the plant grows,
   // then gliding after the seed. velocity = base + a periodic bump; integrated once into a table
   const P = 280;                        // stone period = camera travel per loop (px)
-  const X0 = 222;                       // where the seed lies on screen at t = 0
+  const X0 = 236;                       // where the seed comes to rest (the plant's base) on screen, at t = 0
   const CAMN = 4800, CAM = new Float64Array(CAMN + 1);
   function buildCam() {
-    const v = (t) => 1 + 26 * Math.exp(4.5 * (Math.cos(TAU * (t - 21.5) / D) - 1));
+    const v = (t) => 1 + 14 * Math.exp(2.2 * (Math.cos(TAU * (t - 22.0) / D) - 1));
     let s = 0; CAM[0] = 0;
     for (let i = 1; i <= CAMN; i++) { s += (v((i - 0.5) * D / CAMN)) * D / CAMN; CAM[i] = s; }
     for (let i = 0; i <= CAMN; i++) CAM[i] *= P / s;
   }
   function camAt(t) { t = mod(t, D); const f = t / D * CAMN, i = Math.min(CAMN - 1, fl(f)); return lerp(CAM[i], CAM[i + 1], f - i); }
   let CAMI = 0;                         // this frame's camera offset, whole pixels (the stone scrolls crisply)
+  // The plant keeps its own clock ("story time"). Loop time t maps onto it through a smooth monotone curve that is
+  // periodic (story(t + D) = story(t) + D): frame 0 catches the seed on its last bounce, it drops into the crack at
+  // 0.4 s, swells and splits by 1.1 s, the shoot is out by 1.75 s, strains against the flake 2.5–3.7 s, holds its
+  // breath, and breaks it at 4.1 s; the time saved goes to the leaves, the bloom with the words, and the glide.
+  const STK = [[0, -0.85], [0.4, -0.38], [0.56, 0.02], [0.66, 1.2], [0.98, 3.0], [1.12, 3.5], [1.75, 5.6], [2.5, 5.9],
+    [3.7, 6.85], [4.0, 7.25], [4.2, 7.45], [6.4, 9.4], [11.4, 13.4], [13.4, 15.0], [18.6, 19.25], [20.6, 21.05]];
+  const STM = new Float64Array(STK.length);
+  function buildStory() {
+    // Fritsch–Carlson slopes, with the keys wrapped round the loop so the curve is smooth across the seam
+    const n = STK.length, key = (i) => { const q = mod(i, n), w = Math.floor(i / n); return [STK[q][0] + w * D, STK[q][1] + w * D]; };
+    for (let i = 0; i < n; i++) {
+      const a = key(i - 1), b = key(i), c = key(i + 1);
+      const d0 = (b[1] - a[1]) / (b[0] - a[0]), d1 = (c[1] - b[1]) / (c[0] - b[0]);
+      STM[i] = d0 * d1 <= 0 ? 0 : 3 * (b[0] - a[0] + c[0] - b[0]) / ((2 * (c[0] - b[0]) + (b[0] - a[0])) / d0 + ((c[0] - b[0]) + 2 * (b[0] - a[0])) / d1);
+    }
+  }
+  function storyAt(t) {
+    const n = STK.length, w = Math.floor(t / D), x = t - w * D;
+    let i = n - 1; for (let k = 0; k < n; k++) if (STK[k][0] <= x) i = k;
+    const j = (i + 1) % n, x0 = STK[i][0], x1 = j ? STK[j][0] : D, y0 = STK[i][1], y1 = j ? STK[j][1] : STK[0][1] + D;
+    const h = x1 - x0, u = (x - x0) / h, u2 = u * u, u3 = u2 * u;
+    return w * D + (2 * u3 - 3 * u2 + 1) * y0 + (u3 - 2 * u2 + u) * h * STM[i] + (-2 * u3 + 3 * u2) * y1 + (u3 - u2) * h * STM[j];
+  }
 
   /* ================================================================ the stone: painted once */
   // A texture P px wide (it repeats exactly once per loop, as the camera travels) covering screen rows TY0..H.
@@ -575,12 +598,12 @@
   }
   // first light: a warm shaft of low sun sweeping across the rock from the left; it arrives as the seed lands at the
   // end of the loop and is on the seed at t = 0, then moves on and fades as the day comes up
-  const T_BEAM = 22.6;
+  const T_BEAM = 22.85;
   function drawBeam(t) {
     const u = mod(t - T_BEAM, D);
     const E = sstep(0, 1.1, u) * (1 - sstep(3.4, 5.4, u));
     if (E <= 0.002) return;
-    const xs = X0 + 58 * (u - 1.6), w = 30;
+    const xs = X0 - 12 + 58 * (u - 1.6), w = 30;
     const wr = 0.9 * LS.sr, wg = 0.72 * LS.sg, wb = 0.42 * LS.sb, tx0 = mod(CAMI + OFFX, TW);
     for (let y = 0; y < H; y++) {
       const off = xs + 0.62 * (y - SITE_Y);
@@ -903,7 +926,7 @@
     const dry = 1.15 * s5(ph(tau, 20.2, 21.0)) - 0.75 * s5(ph(tau, 21.3, 23.0)), Ld = 62;
     const wf = sstep(16, 80, L) * windAt(t);
     const trem = (tau > 5.7 && tau < 6.85) ? 0.05 * sstep(5.7, 6.4, tau) * (1 - sstep(6.6, 6.85, tau)) * Math.sin(t * 57) : 0;
-    let a = Math.PI / 2 + 0.07 - 0.1 * sstep(20.4, 21.4, tau) + 0.12 * sstep(21.3, 23.0, tau) + trem, x = 0, y = 0, n = 0;
+    let a = Math.PI / 2 + 0.07 - 0.1 * sstep(20.4, 21.4, tau) + 0.12 * sstep(21.3, 23.0, tau) + 1.25 * s5(ph(tau, 22.3, 23.95)) + trem, x = 0, y = 0, n = 0;
     for (let s = 0; s <= L + 1e-6 && n < SN; s += 0.5) {
       STX[n] = x; STY[n] = y; STA[n] = a; n++;
       let k = 0.0032 * Math.sin(TAU * s / 170 + 0.5) * sstep(30, 120, L);
@@ -950,11 +973,11 @@
     }
   }
   /* ---------------------------------------------------------------- the seed */
-  const SEEDC = [0.6, 0.3, 0.1];
+  const SEEDC = [0.56, 0.32, 0.12];
   function drawSeed(X, Y, rot, swell, split, shell, id, sunMul) {
     const rx = 6.4 * (1 + 0.2 * swell) * (1 - 0.12 * shell), ry = 4.1 * (1 + 0.24 * swell) * (1 - 0.25 * shell), rz = 3.6;
     const cr = Math.cos(rot), sr = Math.sin(rot), R = rx + 1;
-    const base = mixC(mixC(SEEDC, [0.78, 0.46, 0.16], swell * 0.7), [0.32, 0.17, 0.08], shell);
+    const base = mixC(mixC(SEEDC, [0.74, 0.47, 0.19], swell * 0.7), [0.32, 0.19, 0.1], shell);
     for (let v = -R; v <= R; v += 0.45) for (let u = -R; u <= R; u += 0.45) {
       const lu = (u * cr + v * sr) / rx, lv = (-u * sr + v * cr) / ry, d = lu * lu + lv * lv;
       if (d > 1) continue;
@@ -1086,9 +1109,9 @@
   // smaller flower each (the last stays a bud, droops and dries). Blooms are staggered through the golden hour:
   // the first side flower just before the hero, the hero as the words come, the second side flower just after.
   const FLOWERS = [
-    { b: -1, sc: 1.0, to: 15.0, td: [19.25, 19.7, 20.05, 20.4] },
-    { b: 0, sc: 0.72, to: 13.9, td: [18.35, 18.7, 19.0, 19.35] },
-    { b: 1, sc: 0.66, to: 16.6, td: [19.7, 20.0, 20.3, 20.65] },
+    { b: -1, sc: 1.0, to: 15.0, td: [19.25, 19.6, 19.95, 20.3] },
+    { b: 0, sc: 0.72, to: 13.9, td: [17.7, 18.1, 18.5, 18.9] },
+    { b: 1, sc: 0.66, to: 16.6, td: [20.05, 20.4, 20.7, 21.0] },
     { b: 2, sc: 0.56, to: 99, td: null, tb: 13.4 },
   ];
   for (const f of FLOWERS) if (f.tb === undefined) f.tb = f.to - 2.6;
@@ -1238,8 +1261,8 @@
         const facing = nz + 0.3 * ny > 0 ? 1 : -1, inner = (nx * ox + ny * oy + nz * oz) * facing < 0;
         let c = inner ? PETC : PETO, tr = 1.15, tc0 = 1.0, tc1 = 0.3, tc2 = 0.08;
         if (inner && r < 0.19 + 0.06 * BLV[(qa * 16 / na) | 0 & 15]) { c = BLOT; tr = 0.15; tc0 = 0.3; tc1 = 0.05; tc2 = 0.04; }
-        const m = (0.93 + 0.1 * ih(qi >> 1, qa >> 1, 123 + k)) * dark;
-        pshade(c[0] * m, c[1] * m, c[2] * m, nx, ny, nz, tr, tc0, tc1, tc2, 0.32, 1);
+        const m = (0.93 + 0.1 * ih(qi >> 1, qa >> 1, 123 + k)) * (0.5 + 0.5 * dark), wd = 1 - dark;          // withering: darker, browner
+        pshade((c[0] + (0.3 - c[0]) * wd) * m, (c[1] + (0.16 - c[1]) * wd) * m, (c[2] + (0.1 - c[2]) * wd) * m, nx, ny, nz, tr, tc0, tc1, tc2, 0.32, 1);
         splat(x, y, z, id, false);
         if ((qi + qa) % 4 === 0) shDot(x, y, z);
       }
@@ -1253,7 +1276,7 @@
   function petalFallXf(pf, dt) {
     const dl = pf.dl, dd = Math.min(dt, dl), al = (1.7 * Math.sin(2.6 * dd + pf.k) - 1.7 * Math.sin(pf.k) + 0.9 * dd * pf.sg);
     const ca = Math.cos(al), sa = Math.sin(al), K = pf.K;
-    const ox = pf.cx + 3 * dd + 5 * pf.sg * (1 - Math.cos(1.9 * dd)), oy = pf.cy - Math.min(pf.cy - 1, 50 * dd - 2.5 * Math.sin(5 * dd + pf.k) + 2.5 * Math.sin(pf.k));
+    const ox = pf.cx + 3 * dd + 5 * pf.sg * (1 - Math.cos(1.9 * dd)), oy = pf.cy - Math.min(pf.cy - 1, 62 * dd - 2.5 * Math.sin(5 * dd + pf.k) + 2.5 * Math.sin(pf.k));
     const oz = pf.cz + pf.zl * sstep(0, dl, dd) + 2 * Math.sin(1.3 * dd + pf.k);
     const sq = sstep(dl, dl + 0.25, dt);
     const k0 = K[0], k1 = K[1], k2 = K[2], c1 = 1 - ca;
@@ -1264,7 +1287,7 @@
     };
     rot(pf.nx, pf.ny, pf.nz); XFNX = RX; XFNY = RY; XFNZ = RZ;
     XFOX = ox; XFOY = oy;
-    const ys = 1 - 0.88 * sq, shr = 1 - 0.55 * sstep(dl + 0.3, dl + 3.6, dt);   // once down, it shrivels
+    const ys = 1 - 0.88 * sq, shr = 1 - 0.7 * sstep(dl + 0.3, dl + 3.6, dt);   // once down, it shrivels
     return (x, y, z) => {
       rot(x - pf.cx, y - pf.cy, z - pf.cz);
       XFX = ox + RX * shr; XFY = oy + RY * ys * shr; XFZ = oz + RZ * shr;
@@ -1286,7 +1309,7 @@
         const cx = F.cx + R * 0.55 * (Math.cos(b) * F.ax + Math.sin(b) * rx), cy = F.cy + R * 0.55 * (Math.cos(b) * F.ay + Math.sin(b) * ry), cz = F.cz + R * 0.55 * (Math.cos(b) * F.az + Math.sin(b) * rz);
         const kk = k + fi * 4, sg = kk % 2 ? -1 : 1, Kx = Math.cos(kk * 1.7 + 0.3), Kz = Math.sin(kk * 1.7 + 0.3), Kl = Math.hypot(Kx, 0.35, Kz);
         const pf = { F, k: kk, cx, cy, cz, sg, K: [Kx / Kl, 0.35 / Kl, Kz / Kl], nx: Math.cos(b) * rx - Math.sin(b) * F.ax, ny: Math.cos(b) * ry - Math.sin(b) * F.ay, nz: Math.cos(b) * rz - Math.sin(b) * F.az, zl: [7, -4, 10, 3][k] + (fi === 2 ? -3 : fi === 1 ? 4 : 0), dl: 0 };
-        let dt = 0; while (dt < 8 && cy - (50 * dt - 2.5 * Math.sin(5 * dt + kk) + 2.5 * Math.sin(kk)) > 1) dt += 0.005;
+        let dt = 0; while (dt < 8 && cy - (62 * dt - 2.5 * Math.sin(5 * dt + kk) + 2.5 * Math.sin(kk)) > 1) dt += 0.005;
         pf.dl = dt;
         list.push(pf);
       }
@@ -1417,6 +1440,7 @@
   function drawSeedFlight(tau) {
     if (tau < T_REL || tau >= D) return;
     const p = seedPathAt(tau);
+    if (BX + p[0] < -12 || BX + p[0] > W + 12) return;
     drawSeed(p[0], p[1], p[2], 0, 0, 0, 11, 0.9 + 0.1 * sstep(1.6, 3, p[1]));
   }
 
@@ -1424,13 +1448,14 @@
   function drawPlant(k, t) {
     const tauRaw = t - k * D, tau = Math.min(tauRaw, D - 0.001);
     BX = X0 - CAMI + k * P; BY = SITE_Y;
-    if (k === 0) drawSeedFlight(tau);
+    drawSeedFlight(tauRaw);
     if (BX < -170 || BX > W + 110) return;
     const L = stemCurve(tau, t), dry = dryAt(tau);
     // the seed: resting, swelling, splitting; afterwards its empty coat stays in the crack
-    const sw = s5(ph(tau, 1.2, 3.0)) * (1 + 0.04 * Math.sin(tau * 5.2) * sstep(1.2, 2.0, tau) * (1 - sstep(2.6, 3.0, tau)));
+    const su = ph(tau, 1.2, 3.0), sw = s5(su) * (1 + 0.07 * Math.sin(Math.PI * 4 * su) * (1 - su));   // swelling in pulses
     const sp = s5(ph(tau, 3.0, 3.5)), shell = s5(ph(tau, 3.5, 6.0));
-    drawSeed(0, 1.8, SEED_ROT, sw, sp, shell, 11, 0.9);
+    const jolt = Math.sin(Math.PI * ph(tau, 2.95, 3.3)) * (1 - ph(tau, 2.95, 3.3));                       // the coat gives
+    if (tau >= 0) drawSeed(0.5 * jolt, 1.8 + 0.7 * jolt, SEED_ROT - 0.14 * jolt, sw, sp, shell, 11, 0.9);
     drawRoot(tau);
     if (L > 0) {
       drawTube(STX, STY, STA, STN, L, 1.6 + 1.0 * s5(ph(tau, 8.5, 14)) + 0.45 * sstep(5.6, 6.8, tau) * (1 - sstep(T_BREAK, 7.6, tau)), tau, dry, 1, 0);
@@ -1454,6 +1479,27 @@
         const pf = PFALL[fi][q], xf = petalFallXf(pf, dt);
         if (BX + XFOX < -40 || BX + XFOX > W + 40 || BY - XFOY < -40) continue;
         drawPetal(pf.F, q, 1, 0.22, xf, 8, 1 - 0.6 * sstep(pf.dl, pf.dl + 3.6, dt), PCACHE[fi][q][1]);
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------- dust kicked up where the seed lands */
+  let TS = 0;
+  const IMPACTS = [[22.6, 1.0], [23.0, 0.7], [23.28, 0.45], [23.62, 0.6]];   // story times of the bounces and the drop
+  function drawImpacts(ts) {
+    for (const k of [0, -1]) {
+      const tau = ts - k * D, bx = X0 - CAMI + k * P;
+      for (let q = 0; q < IMPACTS.length; q++) {
+        const ti = IMPACTS[q][0], life = Math.min(0.6, 23.99 - ti), dt = tau - ti;
+        if (dt <= 0 || dt >= life) continue;
+        const x0 = bx + seedPathAt(ti)[0], y0 = SITE_Y - 1.5, u = dt / life;
+        const cr = 70 + 150 * LS.sr * LS.sun, cg = 58 + 120 * LS.sg * LS.sun, cb = 44 + 80 * LS.sb * LS.sun;   // dust lit by the low sun
+        const al = 0.8 * Math.min(1, IMPACTS[q][1] + 0.3) * (1 - u) * (1 - u) * sstep(0, 0.06, dt), n0 = PXN;
+        for (let n = 0; n < 18; n++) {
+          const a = Math.PI * (0.08 + 0.84 * ih(n, q, 950)), sp = (10 + 30 * ih(n, q, 951)) * IMPACTS[q][1], e = 1 - Math.exp(-dt * 5);
+          softPx(x0 + Math.cos(a) * sp * e / 5 * 1.7, y0 - Math.sin(a) * sp * e / 5 + 9 * dt * dt, cr, cg, cb, al);
+        }
+        PXN = n0 + Math.round((PXN - n0) * al);      // the motion check counts the dust as much as it shows
       }
     }
   }
@@ -1537,7 +1583,7 @@
 
   /* ================================================================ a hoverfly, once, at the flower */
   let FLX = -999, FLY = -999;                   // the flower's centre on screen this frame (set by the plant)
-  const FLYK = [[16.7, 210, -100], [17.2, 70, -42], [17.55, 18, -12], [17.8, 7, -6], [18.0, 3, -3.5], [18.45, 3, -3.5], [18.7, 24, -24], [19.05, 120, -100], [19.4, 260, -200]];
+  const FLYK = [[15.4, 210, -100], [15.9, 70, -42], [16.25, 18, -12], [16.5, 7, -6], [16.7, 3, -3.5], [17.15, 3, -3.5], [17.4, 24, -24], [17.75, 120, -100], [18.1, 260, -200]];
   function flyPos(t) {
     let i = 0; while (i < FLYK.length - 2 && FLYK[i + 1][0] <= t) i++;
     const k0 = FLYK[Math.max(0, i - 1)], k1 = FLYK[i], k2 = FLYK[i + 1], k3 = FLYK[Math.min(FLYK.length - 1, i + 2)];
@@ -1550,12 +1596,12 @@
     return out;
   }
   function drawInsect(t) {
-    if (t < 16.7 || t > 19.4 || FLX < -900) return;
-    const p = flyPos(t), landed = t > 17.95 && t < 18.5;
+    if (t < 15.4 || t > 18.1 || FLX < -900) return;
+    const p = flyPos(t), landed = t > 16.65 && t < 17.2;
     const jx = landed ? 0 : 1.1 * Math.sin(t * 23) + 0.5 * Math.sin(t * 41 + 1), jy = landed ? 0 : 0.8 * Math.sin(t * 31 + 2);
     const x = FLX + p[0] + jx, y = FLY + p[1] + jy;
     if (x < -10 || x > W + 10 || y < -10) return;
-    const q = flyPos(t + 0.05), dir = q[0] - p[0] < -0.2 ? -1 : q[0] - p[0] > 0.2 ? 1 : (t < 18.2 ? -1 : 1);
+    const q = flyPos(t + 0.05), dir = q[0] - p[0] < -0.2 ? -1 : q[0] - p[0] > 0.2 ? 1 : (t < 16.9 ? -1 : 1);
     const l = LS.sun * 0.9, am = 0.95;
     const sh = (c) => [c[0] * (LS.sr * l + LS.ar * am) * 255, c[1] * (LS.sg * l + LS.ag * am) * 255, c[2] * (LS.sb * l + LS.ab * am) * 255];
     // body, head first: eyes, a bronze thorax, a banded abdomen
@@ -1606,7 +1652,7 @@
       }
     });
   }
-  const TXF0 = 15.9, TXF1 = 17.1, TXF2 = 19.5, TXF3 = 20.6;
+  const TXF0 = 14.3, TXF1 = 15.3, TXF2 = 18.4, TXF3 = 19.4;
   function drawText(t) {
     const f = s5(ph(t, TXF0, TXF1)) * (1 - s5(ph(t, TXF2, TXF3)));
     if (f <= 0) return;
@@ -1653,15 +1699,18 @@
     setLight(t); lightPrep();
     { const vx = 0, vy = 0.29, vz = 0.96; VHX = LS.lx + vx; VHY = LS.ly + vy; VHZ = LS.lz + vz; const l = Math.hypot(VHX, VHY, VHZ) || 1; VHX /= l; VHY /= l; VHZ /= l; }
     CAMI = Math.round(camAt(t));
-    stage('plant', plants, t);
+    const ts = storyAt(t);
+    TS = ts;
+    stage('plant', plants, ts);
     stage('haze', drawBackground, t);
     stage('clouds', drawClouds, t);
     stage('flock', drawFlock, t);
     stage('stone', drawStone, t);
-    FHIDE = t < T_BREAK;
-    stage('site', (tt) => { drawSite(-1, tt); drawSite(0, tt); }, t);
+    FHIDE = ts < T_BREAK;
+    stage('site', (tt) => { drawSite(-1, tt); drawSite(0, tt); }, ts);
     stage('focus', softFocus, t);
     stage('composite', compositePlant, t);
+    stage('impacts', drawImpacts, ts);
     stage('beam', drawBeam, t);
     stage('insect', drawInsect, t);
     stage('motes', drawMotes, t);
@@ -1674,6 +1723,7 @@
     if (BUILT) return;
     buildLUT();
     buildCam();
+    buildStory();
     paintStone();
     RIMTOP = H; for (let x = 0; x < TW; x++) RIMTOP = Math.min(RIMTOP, fl(RIM[x]));
     paintBackground();
@@ -1690,7 +1740,7 @@
     BUILT = true;
   }
 
-  const core = { W, H, D, PAL, OUT, C, build, render, camAt, get CAMI() { return CAMI; }, get SITE_Y() { return SITE_Y; }, LS, LEAVES, TD,
+  const core = { W, H, D, PAL, OUT, C, build, render, camAt, storyAt, get CAMI() { return CAMI; }, get SITE_Y() { return SITE_Y; }, LS, LEAVES, TD,
     prof(on) { PROF = on ? {} : null; return PROF; }, get PROF() { return PROF; }, track(on) { TRK = on ? {} : null; return TRK; }, get TRK() { return TRK; } };
   window.__seedCore = core;
   if (typeof document === 'undefined') return;

@@ -1,12 +1,12 @@
 THE SEED AND THE STONE - sound verification (measured on the written score.wav)
 
 duration: 1152000 frames = 24.000000 s at 48000 Hz, 2 ch, PCM_24
-events: split 3.00, break 7.25, leaves 9.30 10.10 10.68 11.27, petals 19.25 19.70 20.05 20.40, release 21.05, bounces 22.60 23.00 23.28, drop 23.62
-integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -6.61 dBTP (4x oversampled)
-seam step |x[0] - x[N-1]|: L 9.17e-03, R 1.78e-02; ordinary steps: median 3.73e-03, 99.9th pct 6.16e-02, max 3.30e-01
-click test (>6 kHz energy, 5 ms windows): window at the seam -19.5 dB; median -24.6 dB; max anywhere 4.4 dB; seam rank 1176 of 4799 windows louder
-local click test: seam window -19.5 dB vs the surrounding 1 s: median -19.7 dB, max -14.2 dB
-ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         5.5 LU | Peak:       -6.6 dBFS
+events (loop time): split 0.98, break 4.00, leaves 6.28 7.24 7.96 8.70, hero petals 18.60 18.99 19.36 19.73, release 20.60, bounces 23.28 23.82 24.14, drop 24.40 (mod 24)
+integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -5.78 dBTP (4x oversampled)
+seam step |x[0] - x[N-1]|: L 1.39e-02, R 3.20e-02; ordinary steps: median 3.94e-03, 99.9th pct 6.06e-02, max 3.10e-01
+click test (>6 kHz energy, 5 ms windows): window at the seam -15.2 dB; median -25.1 dB; max anywhere 3.9 dB; seam rank 1031 of 4799 windows louder
+local click test: seam window -15.2 dB vs the surrounding 1 s: median -15.3 dB, max -11.5 dB
+ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         6.1 LU | Peak:       -5.8 dBFS
 
 PASS  seamless loop: no step or click at the seam beyond ordinary programme content
 PASS  exactly 24.000 s
