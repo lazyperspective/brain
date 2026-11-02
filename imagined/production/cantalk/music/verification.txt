@@ -1,0 +1,15 @@
+CAN WE TALK LATER? - sound verification (measured on the written score.wav)
+
+duration: 1776000 frames = 37.000000 s at 48000 Hz, 2 ch, PCM_24
+cues: chime 36.47; buzz 36.45-0.15 and 0.55-1.05
+cues: 19 heartbeats 7.30..19.19
+cues: pen scratches at 7.5 8.1 8.7 9.2 9.4 9.9 11.0 11.8 12.6 13.3 14.2 15.0 16.0 16.8 17.6 and 30.95
+cues: 41 clock ticks from 10.8, last interval 0.118s
+integrated loudness (internal BS.1770 meter, looped): -20.28 LUFS; true peak -1.60 dBTP (4x oversampled)
+seam step |x[0] - x[N-1]|: L 2.14e-03, R 2.07e-03; ordinary steps: median 4.06e-03, 99.9th pct 6.30e-02, max 1.50e-01
+click test (>6 kHz energy, 5 ms windows): seam window -13.9 dB vs the surrounding 1 s: median -14.9 dB, max -7.6 dB
+ffmpeg ebur128 (two loops): I:         -20.2 LUFS | LRA:        10.3 LU | Peak:       -1.6 dBFS
+
+PASS  seamless loop: no step or click at the seam beyond ordinary programme content
+PASS  exactly 37.000 s
+PASS  loudness -20.28 LUFS (target -20.0), true peak -1.60 dBTP (< -1)
