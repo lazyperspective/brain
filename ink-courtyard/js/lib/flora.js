@@ -159,13 +159,13 @@
     for (const f of florets) {
       const dx = f.x - cx[0], dy = f.y - cx[1], dl = Math.hypot(dx, dy) + 1e-3;
       const lit = ((dx * LX + dy * LY) / dl) * Math.min(1, dl / spec.r);
-      let v = 2.7 + lit * 2.3 + (spec.depth - 0.5) * 2.6 + R.g() * 0.95 + (f.rr > 0.6 ? 0.4 : -0.4);
+      let v = 2.35 + lit * 2.5 + (spec.depth - 0.5) * 2.6 + R.g() * 1.05 + (f.rr > 0.6 ? 0.4 : -0.6);
       f.tone = Math.round(CY.clamp(v, 0, 7));
       f.key = v + R.f() * 0.4;
     }
     florets.sort((a, b) => a.key - b.key);
     // leaves, mostly in the darker underside
-    const nl = Math.round(n * (spec.leaves == null ? 0.08 : spec.leaves));
+    const nl = Math.round(n * (spec.leaves == null ? 0.17 : spec.leaves));
     for (let i = 0; i < nl; i++) {
       const f = florets[Math.floor(R.f() * R.f() * florets.length)];
       leaves.push({ x: f.x + R.g() * 6, y: f.y + R.g() * 6, ang: R.f() * 6.283, s: R.r(9, 16) * fs, col: R.pick(CY.LEAF) });
@@ -175,7 +175,7 @@
     const ext = (x, y, m) => { x0 = Math.min(x0, x - m); y0 = Math.min(y0, y - m); x1 = Math.max(x1, x + m); y1 = Math.max(y1, y + m); };
     ext(0, 0, 8);
     for (const t of twigs) for (const p of t.pts) ext(p[0], p[1], 8);
-    for (const f of florets) ext(f.x, f.y, f.s * 1.2 + 24);
+    for (const f of florets) ext(f.x, f.y, f.s * 1.2 + 24 + 30 * (spec.fs || 1));
     for (const l of leaves) ext(l.x, l.y, l.s + 4);
     const ox = -Math.floor(x0), oy = -Math.floor(y0);
     const S = CY.mk(x1 - x0, y1 - y0), g = S.g;
@@ -201,10 +201,10 @@
     const RF = CY.rng(spec.seed + 4242);
     for (const f of florets) CY.floret(g, f, RF);
     for (const l of leaves.slice(Math.ceil(leaves.length * 0.6))) CY.leaf(g, l.x, l.y, l.ang, l.s * 0.9, l.col, 0.85);
-    for (let i = 0; i < n * 0.06; i++) {
+    for (let i = 0; i < n * 0.16; i++) {
       const f = florets[Math.floor(RF.f() * florets.length)];
-      if (f.rr < 0.7) continue;
-      const a = Math.atan2(f.y - cx[1], f.x - cx[0]) + RF.g() * 0.6, d = RF.r(6, 16);
+      if (f.rr < 0.6) continue;
+      const a = Math.atan2(f.y - cx[1], f.x - cx[0]) + RF.g() * 0.7, d = RF.r(6, 30) * (spec.fs || 1);
       CY.bract(g, f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, RF.f() * 6.283, f.s * RF.r(0.8, 1.1), 0.52, CY.TONES[CY.clamp(f.tone + RF.i(-1, 1), 0, 7)], 0.88, RF);
     }
     g.setTransform(1, 0, 0, 1, 0, 0);

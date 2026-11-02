@@ -48,7 +48,16 @@
   }
   A.buildClusters = function () {
     const G = CY.G, R = CY.rng(500), SK = G.SKW, list = [];
-    const mass = (pt, ang, angV, r0, r1, d0, d1, extra) => list.push(Object.assign({ x: pt.x + R.g() * 5 * pt.k, y: pt.y + R.g() * 5 * pt.k, ang: ang + R.g() * angV, len: R.r(10, 30) * pt.k, r: R.r(r0, r1) * pt.k, depth: R.r(d0, d1), seed: R.i(1, 1e6), kind: 'mass', elong: R.r(0.9, 1.3), fs: pt.k }, extra || {}));
+    // masses vary: a few big, some small, and here and there a gap where the vine is bare
+    const mass = (pt, ang, angV, r0, r1, d0, d1, extra) => {
+      const roll = R.f();
+      if (roll < 0.14) return;
+      const kk = roll > 0.82 ? R.r(1.2, 1.45) : roll < 0.36 ? R.r(0.55, 0.75) : 1;
+      massRaw(pt, ang, angV, r0 * kk, r1 * kk, d0, d1, extra);
+      // a small sprig straying off the mass
+      if (R.f() < 0.45) list.push({ x: pt.x + R.g() * 10 * pt.k, y: pt.y + R.g() * 10 * pt.k, ang: R.f() * 6.283, len: R.r(30, 60) * pt.k, r: R.r(13, 20) * pt.k, depth: R.r(d0, d1), seed: R.i(1, 1e6), kind: 'spray', dens: 0.6, leaves: 0.3, fs: 0.85 * pt.k });
+    };
+    const massRaw = (pt, ang, angV, r0, r1, d0, d1, extra) => list.push(Object.assign({ x: pt.x + R.g() * 5 * pt.k, y: pt.y + R.g() * 5 * pt.k, ang: ang + R.g() * angV, len: R.r(10, 30) * pt.k, r: R.r(r0, r1) * pt.k, depth: R.r(d0, d1), seed: R.i(1, 1e6), kind: 'mass', elong: R.r(0.9, 1.3), fs: pt.k }, extra || {}));
     const spray = (pt, ang, r) => list.push({ x: pt.x, y: pt.y, ang: ang + R.g() * 0.25, len: R.r(26, 44) * pt.k, r: r * pt.k, depth: R.r(0.45, 0.8), seed: R.i(1, 1e6), kind: 'spray', dens: 0.55, leaves: 0.16, fs: 0.92 * pt.k });
     const strand = (pt, nseg, d0) => {
       let parent = null;
@@ -302,7 +311,7 @@
       const w = R.r(320, 480), h = 70, S = CY.mk(w + 40, h), g = S.g;
       for (let i = 0; i < 5; i++) {
         const y = h / 2 + R.g() * 7, x0 = 20 + R.r(0, w * 0.3), x1 = 20 + w - R.r(0, w * 0.3);
-        CY.ink(g, CY.smooth([[x0, y], [(x0 + x1) / 2, y + R.g() * 5], [x1, y + R.g() * 4]], 2), { w: R.r(8, 20), col: R.pick([[120, 170, 176], [96, 150, 160], [200, 180, 150]]), a: R.r(0.25, 0.5), dry: 0.55, seed: 951 + k * 10 + i, tin: 0.3, tout: 0.4, wob: 3 });
+        CY.ink(g, CY.smooth([[x0, y], [(x0 + x1) / 2, y + R.g() * 5], [x1, y + R.g() * 4]], 2), { w: R.r(8, 20), col: R.pick([[236, 214, 176], [214, 222, 206], [246, 226, 190]]), a: R.r(0.16, 0.34), dry: 0.55, seed: 951 + k * 10 + i, tin: 0.3, tout: 0.4, wob: 3 });
       }
       const m = CY.G.moon;
       A.wisps.push({ c: S.c, x: m.x + [-60, 110, -170][k], y: m.y + [-40, 80, -130][k], ph: [2, 11, 19][k], v: [5, 4, 6][k] });
@@ -326,7 +335,7 @@
   A.buildSparrow = function () {
     const PG = CY.G.perch;
     A.SP.perch = [PG.x, PG.y]; A.SP.hop[2] = PG.hop; A.SP.hop[3] = PG.hopY;
-    const sc = 3, Z = 1.35;
+    const sc = 3, Z = 0.62; // a sparrow is small against a house: about 15 cm on an 8 m ridge
     const mk = (w, h, ox, oy, fn) => { const S = CY.mk(w * sc, h * sc), g = S.g; g.scale(sc, sc); g.translate(ox, oy); fn(g); return S.c; };
     const brown = '#8d6647', dark = '#3f2a1d', buff = '#c9a77a', pale = '#ece2cc', crown = '#80807a', nape = '#8f4f2c', chest = '#b4ad9f';
     const R = CY.rng(960);
@@ -407,7 +416,7 @@
     // hop
     const hp = S.hop;
     if (t >= hp[1]) { x += hp[2]; y += hp[3]; }
-    else if (t > hp[0]) { const u = (t - hp[0]) / (hp[1] - hp[0]); x += hp[2] * sm(0, 1, u); y += hp[3] * sm(0, 1, u); lift = Math.sin(Math.PI * u) * 9; }
+    else if (t > hp[0]) { const u = (t - hp[0]) / (hp[1] - hp[0]); x += hp[2] * sm(0, 1, u); y += hp[3] * sm(0, 1, u); lift = Math.sin(Math.PI * u) * 5; }
     // turning: face 1 is beak to the left; it arrives facing right (-1); a turn squeezes through edge-on over 0.16 s
     for (const [tt, dir] of S.turns) { if (t >= tt) face = dir; }
     for (const [tt, dir] of S.turns) { const d = t - tt; if (d > -0.08 && d < 0.08) { const prev = -dir; face = prev * Math.cos(((d + 0.08) / 0.16) * Math.PI) || 0.02; } }
@@ -499,7 +508,7 @@
       for (let u = e.u0; u <= e.u1 + 0.001; u += 0.08) { top.push(e.F.at(u, e.v + 0.3)); bot.push(e.F.at(u, e.v - dd - 0.06 * Math.abs(Math.sin((u * Math.PI) / 0.32)))); }
       s.beginPath(); top.concat(bot.reverse()).forEach((q, i) => (i ? s.lineTo(q[0], q[1]) : s.moveTo(q[0], q[1]))); s.closePath(); s.fill();
     }
-    s.globalCompositeOperation = 'source-in'; s.fillStyle = '#1d3a52'; s.fillRect(0, 0, shadowL.w, shadowL.h);
+    s.globalCompositeOperation = 'source-in'; s.fillStyle = '#10263a'; s.fillRect(0, 0, shadowL.w, shadowL.h);
     s.globalCompositeOperation = 'destination-in'; s.drawImage(L.wallMask.c, 0, 0);
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalCompositeOperation = 'multiply'; g.globalAlpha = 0.55 * sun;

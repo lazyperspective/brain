@@ -157,106 +157,198 @@
     };
   }
 
-  // the lime-washed walls: a base coat, broad blue blocks, the courses of the stone showing low down, pale lime
-  // where the wash has worn, dark stains and drips. Everything is laid in the face's own plane.
+  // the lime-washed walls. Weathering with causes: the wash laid in long low strokes; damp rising from the ground
+  // to a ragged tide line; plaster fallen away at the corners, around the openings and along the foot, the stone
+  // behind showing; stains run down from the eave; cracks start from the openings' corners.
   function plaster(g, F, polys, o) {
-    const A = F.w * F.h, vmax = o.vmax || F.h;
+    const vmax = o.vmax || F.h, A = F.w * vmax, op = o.openings || [];
+    const uvPoly = (pts) => pts.map(([u, v]) => F.at(u, v));
     CY.gouache(g, polys, {
-      col: o.base, rough: 2.2, passes: 2, erode: 0.5, eb: 3, seed: o.seed, mott: 0.2, grain: 1.2, rule: 'evenodd',
+      col: o.base, rough: 2.2, passes: 2, erode: 0.5, eb: 3, seed: o.seed, mott: 0.22, grain: 1.2, rule: 'evenodd',
       fx: (t, R) => {
-        dabs(t, R, F, A * 16, { u: [-0.4, F.w], v: [-0.2, vmax], du: [0.4, 1.7], dv: [0.12, 0.55], cols: o.cols, a: [0.22, 0.55] });
-        // stone courses low down, blocky, some showing through the wash
-        const top = o.stones || 0;
-        let v = 0;
-        while (v < top) {
-          const rh = R.r(0.16, 0.28);
-          for (let u = -R.r(0, 0.4); u < F.w;) {
-            const du = R.r(0.22, 0.62);
-            if (R.f() < 0.7 * (1 - (v / top) * 0.6)) {
-              const q = F.quad(u + 0.015, v + 0.012, u + du - 0.015, v + rh - 0.012);
-              for (const p of q) { p[0] += R.g() * 0.8; p[1] += R.g() * 0.8; }
-              fillPoly(t, q, CY.jit(R.pick(o.stoneCols), R, 0.08), R.r(0.35, 0.8));
-              if (R.f() < 0.5) fillPoly(t, F.quad(u + 0.015, v + 0.012, u + du - 0.015, v + 0.04), '#0f2230', R.r(0.25, 0.5));
+        // the wash, in long low strokes
+        dabs(t, R, F, A * 9, { u: [-0.6, F.w], v: [-0.2, vmax], du: [0.6, 2.4], dv: [0.05, 0.2], cols: o.cols, a: [0.16, 0.4], jit: 2.2 });
+        dabs(t, R, F, A * 2, { u: [-0.6, F.w], v: [vmax * 0.35, vmax], du: [0.3, 1.2], dv: [0.08, 0.3], cols: o.fresh || o.cols, a: [0.15, 0.35], jit: 3 });
+        // rising damp: darker below a ragged tide line, a pale salt bloom just above it
+        const damp = o.damp || 0.9, tide = [];
+        for (let u = -0.4; u <= F.w + 0.4; u += 0.08) tide.push([u, damp + 0.32 * (CY.vnoise(u * 1.1, 1.5, o.seed) - 0.5) + 0.1 * (CY.vnoise(u * 4.5, 2.5, o.seed) - 0.5)]);
+        fillPoly(t, uvPoly(tide.concat([[F.w + 0.4, -0.2], [-0.4, -0.2]])), o.dark[1], 0.38);
+        fillPoly(t, uvPoly(tide.map(([u, v]) => [u, v * 0.55]).concat([[F.w + 0.4, -0.2], [-0.4, -0.2]])), o.dark[0], 0.22);
+        CY.ink(t, uvPoly(tide.map(([u, v]) => [u, v + 0.04])), { w: 4, col: CY.C(o.lime[1]), a: 0.14, dry: 0.75, seed: o.seed + 5, nb: 4, tin: 0.02, tout: 0.02, wob: 1 });
+        // where the plaster has fallen away
+        const spots = [];
+        const add = (u, v, ru, rv) => spots.push([u, v, ru, rv]);
+        add(R.r(0, 0.3), R.r(0.3, damp + 0.4), R.r(0.3, 0.6), R.r(0.25, 0.55));
+        add(F.w - R.r(0, 0.3), R.r(0.6, vmax - 0.4), R.r(0.25, 0.5), R.r(0.3, 0.6));
+        for (const w of op) { add(w.u1 + R.r(0.05, 0.3), w.v1 + R.r(-0.2, 0.25), R.r(0.2, 0.45), R.r(0.15, 0.35)); if (R.f() < 0.7) add(w.u0 - R.r(0.05, 0.3), w.v0 + R.r(-0.25, 0.3), R.r(0.18, 0.4), R.r(0.15, 0.32)); }
+        for (let k = 0; k < (o.extra || 2); k++) add(R.r(0.5, F.w - 0.5), R.r(0.15, vmax * 0.8), R.r(0.18, 0.5), R.r(0.12, 0.35));
+        spots.forEach(([u, v, ru, rv], k) => {
+          const bl = CY.blob(u, v, ru, rv, o.seed * 13 + k, 0.45, 34);
+          const sp = uvPoly(bl);
+          t.save(); CY.path(t, [sp]); t.clip();
+          fillPoly(t, uvPoly([[u - ru * 1.5, v - rv * 1.5], [u + ru * 1.5, v - rv * 1.5], [u + ru * 1.5, v + rv * 1.5], [u - ru * 1.5, v + rv * 1.5]]), '#4a585c', 1);
+          for (let vv = v - rv * 1.4; vv < v + rv * 1.4;) {
+            // rubble stone laid in rough courses: every stone its own size, none square
+            const rh = R.r(0.12, 0.22);
+            for (let uu = u - ru * 1.5 - R.r(0, 0.3); uu < u + ru * 1.5;) {
+              const du = R.r(0.14, 0.46), sh = rh * R.r(0.6, 1), dy = R.r(0, rh - sh);
+              const q = F.quad(uu + 0.02, vv + dy + 0.02, uu + du - 0.02, vv + dy + sh - 0.02);
+              for (const p of q) { p[0] += R.g() * 2.4; p[1] += R.g() * 2.4; }
+              fillPoly(t, q, CY.jit(R.pick(o.stoneCols), R, 0.12), R.r(0.75, 0.95));
+              fillPoly(t, F.quad(uu + 0.03, vv + dy + sh - 0.06, uu + du * R.r(0.4, 0.9), vv + dy + sh - 0.025), '#d6dcd4', R.r(0.04, 0.14));
+              uu += du;
             }
-            u += du;
+            vv += rh;
           }
-          v += rh;
-        }
-        // lime where the blue has worn away; worse low down and at the corner
-        dabs(t, R, F, A * 4, { u: [-0.2, F.w], v: [0, vmax], du: [0.05, 0.42], dv: [0.03, 0.2], cols: o.lime, a: [0.15, 0.55], jit: 3.5, keep: (u, v) => R.f() < 0.35 + 0.52 * (1 - v / vmax) || u < 0.6 });
-        dabs(t, R, F, A * 4, { u: [-0.2, F.w], v: [0, vmax], du: [0.04, 0.32], dv: [0.03, 0.14], cols: o.dark, a: [0.3, 0.75] });
-        // drips and damp running down from the eave
+          t.restore();
+          // the broken edge of the plaster: a pale rim, its shadow falling inside
+          t.lineJoin = 'round';
+          t.strokeStyle = rgba('#0b1a24', 0.28); t.lineWidth = 3; t.beginPath(); uvPoly(bl.map(([a, b2]) => [a + 0.02, b2 - 0.03])).forEach((p, j) => (j ? t.lineTo(p[0], p[1]) : t.moveTo(p[0], p[1]))); t.closePath(); t.stroke();
+          CY.ink(t, sp.concat([sp[0]]), { w: 3, col: CY.C(R.pick(o.lime)), a: 0.6, dry: 0.55, seed: o.seed * 31 + k, nb: 3, tin: 0.02, tout: 0.05, wob: 0.6 });
+        });
+        // stains from the eave: long soft runs
         t.lineCap = 'round';
-        for (let i = 0; i < A * 1.6; i++) {
-          const u = R.r(0, F.w), v1 = vmax - R.r(0, 0.3), v2 = v1 - R.r(0.3, 1.6);
-          const a = F.at(u, v1), b = F.at(u + R.g() * 0.02, v2);
-          t.strokeStyle = rgba(R.pick(o.dark), R.r(0.08, 0.22)); t.lineWidth = R.r(2, 7);
-          t.beginPath(); t.moveTo(a[0], a[1]); t.lineTo(b[0], b[1]); t.stroke();
+        for (let i = 0; i < F.w * 3; i++) {
+          const u = R.r(0, F.w), v1 = vmax - R.r(0, 0.15), v2 = v1 - R.r(0.4, 1.8);
+          const a = F.at(u, v1), b2 = F.at(u + R.g() * 0.02, v2);
+          t.strokeStyle = rgba(R.pick(o.dark), R.r(0.06, 0.16)); t.lineWidth = R.r(3, 12);
+          t.beginPath(); t.moveTo(a[0], a[1]); t.lineTo(b2[0], b2[1]); t.stroke();
         }
       },
     });
-  }
-
-  // a tiled roof slope: courses of small, uneven tiles laid from the eave up, each course lapping the one below
-  function tiles(g, F, polys, o) {
-    CY.gouache(g, polys, {
-      col: '#252e34', rough: 1.4, passes: 2, erode: 0.35, seed: o.seed, mott: 0.12, rule: 'evenodd',
-      fx: (t, R) => {
-        const rowH = o.row || 0.22;
-        let r = 0;
-        for (let v = -0.05; v < F.h; v += rowH * (1 + R.g() * 0.06), r++) {
-          let u = -R.r(0, 0.25) - (r % 2) * 0.12;
-          while (u < F.w) {
-            const tw = R.r(0.17, 0.3);
-            const q = F.quad(u + 0.012, v, u + tw - 0.012, v + rowH * 1.35);
-            for (const p of q) { p[0] += R.g() * 0.7; p[1] += R.g() * 0.7; }
-            const cool = R.f() < 0.78;
-            fillPoly(t, q, CY.jit(cool ? R.pick(o.cols) : R.pick(o.warm), R, 0.1), R.r(0.75, 1));
-            // the lit upper face of the tile, and the dark shadow under its lip
-            fillPoly(t, F.quad(u + 0.03, v + rowH * 0.55, u + tw * R.r(0.5, 0.9), v + rowH * 1.2), R.pick(o.lit), R.r(0.12, 0.35));
-            fillPoly(t, F.quad(u, v - 0.035, u + tw, v + 0.008), '#0e1418', R.r(0.45, 0.8));
-            if (R.f() < 0.05) fillPoly(t, F.quad(u + 0.03, v + 0.03, u + tw * 0.6, v + rowH), '#0c1216', 0.7); // a broken one
-            if (R.f() < 0.06) fillPoly(t, F.quad(u + 0.02, v + rowH * 0.3, u + tw * 0.7, v + rowH), R.pick(['#6f7d55', '#8a8f62']), 0.4); // moss
-            u += tw;
-          }
-        }
-        // the slope darkens toward the ridge, away from the moonlight
-        fillPoly(t, F.quad(0, F.h * 0.55, F.w, F.h), '#080e14', 0.18);
-      },
-    });
-  }
-  // round end tiles along an eave (vertical discs facing the camera), and the dark fascia under them
-  function eaveEdge(g, x0, x1, y, z, seed, step) {
-    const R = CY.rng(seed);
-    const fas = [P(x0, y, z), P(x1, y, z), P(x1, y - 0.2, z), P(x0, y - 0.2, z)];
-    CY.gouache(g, fas, { col: '#1e272d', rough: 0.8, passes: 2, erode: 0.3, seed, mott: 0.15 });
-    for (let x = x0 + 0.08; x < x1; x += step * (1 + R.g() * 0.05)) {
-      const r = 0.085 * R.r(0.9, 1.1), cy = y - 0.03 + R.g() * 0.01;
-      const ring = []; for (let k = 0; k < 18; k++) { const a = (k / 18) * 6.283; ring.push(P(x + Math.cos(a) * r, cy + Math.sin(a) * r, z - 0.02)); }
-      fillPoly(g, ring, CY.jit('#55626a', R, 0.12), 1);
-      const s = ppm(x, z), c = P(x, cy, z - 0.02);
-      g.strokeStyle = rgba('#a9b8bc', 0.4); g.lineWidth = 1; g.beginPath(); g.arc(c[0], c[1], r * s * 0.55, 0, 6.283); g.stroke();
-      ink(g, ring.concat([ring[0]]), { w: 1.2, a: 0.6, dry: 0.4, seed: seed + Math.round(x * 100), nb: 2, tin: 0.02, tout: 0.04 });
+    // cracks from the openings' upper corners, and one or two wandering ones
+    const RC = CY.rng(o.seed + 77);
+    for (const w of op) {
+      const a = F.at(w.u1, w.v1), b2 = F.at(w.u1 + 0.3, w.v1 + 0.3);
+      CY.crack(g, a[0], a[1], Math.atan2(b2[1] - a[1], b2[0] - a[0]) + RC.g() * 0.2, RC.r(30, 70), o.seed + 78, { w: 1.1, a: 0.55, col: [16, 32, 44] });
+      if (RC.f() < 0.6) { const c = F.at(w.u0, w.v1), d2 = F.at(w.u0 - 0.3, w.v1 + 0.3); CY.crack(g, c[0], c[1], Math.atan2(d2[1] - c[1], d2[0] - c[0]) + RC.g() * 0.2, RC.r(25, 55), o.seed + 79, { w: 1, a: 0.5, col: [16, 32, 44] }); }
     }
   }
-  // a ridge: tiles set on edge along the top, an upturned curl at the open end
+
+  // a tiled roof slope, pan and cover: columns run down the slope, a dark channel of concave pan tiles between
+  // rounded cover tiles, every course ending in a curved lip with its shadow under it. Returns the columns, so the
+  // eave can end each cover column with a round end tile and each channel with a pointed drip tile.
+  function tiles(g, F, polys, o) {
+    const pitch = o.pitch || 0.24, cw = pitch * 0.48, rowH = o.row || 0.24;
+    const cols = [];
+    for (let u = -R0(o.seed).r(0, pitch); u < F.w + pitch; u += pitch * (1 + R0(o.seed + u * 100).g() * 0.05)) cols.push(u);
+    CY.gouache(g, polys, {
+      col: '#1a2227', rough: 1.4, passes: 2, erode: 0.35, seed: o.seed, mott: 0.12, rule: 'evenodd',
+      fx: (t, R) => {
+        // the channels: pan tiles, their lower ends showing as pale arcs in the dark
+        for (let i = 0; i < cols.length - 1; i++) {
+          const u0 = cols[i] + cw / 2, u1 = cols[i + 1] - cw / 2;
+          fillPoly(t, F.quad(u0, 0, u1, F.h), CY.jit(o.pan || '#2b353b', R, 0.1), 1);
+          for (let v = R.r(0, rowH); v < F.h; v += rowH * (1 + R.g() * 0.08)) {
+            const arc = []; for (let k = 0; k <= 6; k++) { const q = k / 6; arc.push(F.at(u0 + (u1 - u0) * q, v - 0.035 * Math.sin(q * Math.PI))); }
+            t.strokeStyle = rgba(R.pick(o.lit), R.r(0.12, 0.3)); t.lineWidth = 1.2; t.beginPath(); arc.forEach((p, k) => (k ? t.lineTo(p[0], p[1]) : t.moveTo(p[0], p[1]))); t.stroke();
+          }
+        }
+        // the cover tiles: a rounded column, lit on the moon's side, a course at a time from the eave up
+        for (let i = 0; i < cols.length; i++) {
+          const uc = cols[i], u0 = uc - cw / 2, u1 = uc + cw / 2;
+          let v = -0.02 - R.r(0, rowH * 0.5);
+          while (v < F.h) {
+            const h = rowH * R.r(0.92, 1.1);
+            const warm = R.f() < 0.16, base = CY.jit(warm ? R.pick(o.warm) : R.pick(o.cols), R, 0.09);
+            const body = F.quad(u0, v, u1, v + h * 1.25);
+            for (const p of body) { p[0] += R.g() * 0.5; p[1] += R.g() * 0.5; }
+            fillPoly(t, body, base, 1);
+            fillPoly(t, F.quad(u0 + cw * 0.08, v + 0.02, u0 + cw * 0.42, v + h * 1.2), R.pick(o.lit), R.r(0.25, 0.5)); // lit flank
+            fillPoly(t, F.quad(u1 - cw * 0.25, v, u1, v + h * 1.25), '#0b1115', R.r(0.3, 0.5)); // shaded flank
+            // the lip: a little curved edge, pale, with a dark shadow under it on the tile below
+            const lip = [], sh = [];
+            for (let k = 0; k <= 8; k++) { const q = k / 8, u = u0 + (u1 - u0) * q, b = 0.03 * Math.sin(q * Math.PI); lip.push(F.at(u, v - b)); sh.push(F.at(u, v - b - 0.05)); }
+            fillPoly(t, lip.concat(sh.slice().reverse()), '#05090c', R.r(0.45, 0.75));
+            t.strokeStyle = rgba(R.pick(o.lit), R.r(0.35, 0.7)); t.lineWidth = 1.3; t.beginPath(); lip.forEach((p, k) => (k ? t.lineTo(p[0], p[1]) : t.moveTo(p[0], p[1]))); t.stroke();
+            if (R.f() < 0.035) fillPoly(t, F.quad(u0, v + h * 0.3, u1, v + h * 1.1), '#0a0f12', 0.85); // a lost tile, the channel showing
+            if (R.f() < 0.05) fillPoly(t, F.quad(u0 + 0.01, v + h * 0.2, u1 - 0.01, v + h * 0.9), R.pick(['#5f6d45', '#77804f', '#4f5a3c']), R.r(0.4, 0.7)); // moss
+            v += h;
+          }
+        }
+        // a few tufts of grass in the channels, and the slope darkening away from the moon toward the ridge
+        for (let k = 0; k < F.w * 0.6; k++) {
+          const u = R.pick(cols) + pitch / 2, v = R.r(F.h * 0.3, F.h), a = F.at(u, v);
+          for (let j = 0; j < 5; j++) { t.strokeStyle = rgba(R.pick(['#6b7a48', '#8a925a', '#4d5a36']), 0.8); t.lineWidth = 1.2; t.beginPath(); t.moveTo(a[0], a[1]); t.lineTo(a[0] + R.g() * 4, a[1] - R.r(5, 12)); t.stroke(); }
+        }
+        fillPoly(t, F.quad(0, F.h * 0.5, F.w, F.h), '#060b10', 0.22);
+      },
+    });
+    return { cols, cw };
+  }
+  const R0 = (s) => CY.rng(Math.round(s * 7919) | 0);
+  // the eave: a dark board, a round end tile on every cover column (an invented whorl on each, worn), a pointed
+  // drip tile under every channel
+  function eaveEdge(g, F, cols, seed) {
+    const R = CY.rng(seed);
+    const y = F.O[1], z = F.O[2], x0 = F.O[0];
+    const fas = [P(x0, y, z), P(x0 + F.w, y, z), P(x0 + F.w, y - 0.17, z), P(x0, y - 0.17, z)];
+    CY.gouache(g, fas, { col: '#151d22', rough: 0.8, passes: 2, erode: 0.3, seed, mott: 0.15 });
+    const { cols: cs, cw } = cols;
+    for (let i = 0; i < cs.length - 1; i++) {
+      const xm = x0 + (cs[i] + cs[i + 1]) / 2;
+      if (xm < x0 || xm > x0 + F.w) continue;
+      const hw = (cs[i + 1] - cs[i] - cw) * 0.55;
+      fillPoly(g, [P(xm - hw, y - 0.01, z - 0.01), P(xm + hw, y - 0.01, z - 0.01), P(xm + hw * 0.4, y - 0.11, z - 0.01), P(xm, y - 0.15, z - 0.01), P(xm - hw * 0.4, y - 0.11, z - 0.01)], CY.jit('#323c42', R, 0.1), 1);
+    }
+    for (const u of cs) {
+      const x = x0 + u;
+      if (x < x0 + 0.02 || x > x0 + F.w - 0.02) continue;
+      const r = cw * 0.52 * R.r(0.92, 1.06), cy = y - 0.005 + R.g() * 0.008;
+      if (R.f() < 0.05) continue; // lost
+      const ring = []; for (let k = 0; k < 16; k++) { const a = (k / 16) * 6.283; ring.push(P(x + Math.cos(a) * r, cy + Math.sin(a) * r, z - 0.02)); }
+      fillPoly(g, ring, CY.jit(R.pick(['#3a454b', '#434e54', '#30393e']), R, 0.1), 1);
+      // moonlight on its upper left rim only
+      const arc = []; for (let k = 0; k <= 6; k++) { const a = Math.PI * (0.5 + k * 0.08); arc.push(P(x + Math.cos(a) * r * 0.86, cy + Math.sin(a) * r * 0.86, z - 0.025)); }
+      g.strokeStyle = rgba('#9fb2b6', 0.55); g.lineWidth = 1.2; g.beginPath(); arc.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.stroke();
+      if (R.f() < 0.7) { const c = P(x, cy, z - 0.025), s2 = ppm(x, z) * r * 0.45; g.strokeStyle = rgba('#1a2125', 0.6); g.lineWidth = 1; g.beginPath(); g.arc(c[0], c[1], s2, R.r(0, 3), R.r(3.5, 6)); g.stroke(); }
+    }
+  }
+  // a ridge: a lumpy built-up mass of tiles set on edge, capped, with a solid sweep up at the open end
   function ridge(g, x0, x1, y, z, seed, curl) {
-    const hgt = 0.34;
+    const R = CY.rng(seed), hgt = 0.36;
     const F = face([x0, y - 0.06, z], [1, 0, 0], [0, 1, 0], x1 - x0, hgt);
-    CY.gouache(g, F.poly, { col: '#262f35', rough: 1, passes: 2, erode: 0.3, seed, mott: 0.15, fx: (t, R2) => {
-      for (let u = 0; u < F.w; u += R2.r(0.06, 0.1)) fillPoly(t, F.quad(u, 0.08, u + 0.04, hgt - 0.08), R2.pick(['#4a565d', '#3a454b', '#5c676c']), 0.85);
-      fillPoly(t, F.quad(0, hgt - 0.08, F.w, hgt), '#56636a', 0.9);
+    // an uneven top line: it has settled
+    const topV = (u) => hgt + 0.025 * (CY.vnoise(u * 1.6, 0.5, seed) - 0.5) * 2;
+    const outline = [F.at(0, 0)];
+    for (let u = 0; u <= F.w + 0.001; u += 0.1) outline.push(F.at(u, topV(u)));
+    outline.push(F.at(F.w, 0));
+    CY.gouache(g, outline, { col: '#20292e', rough: 1, passes: 2, erode: 0.3, seed, mott: 0.18, fx: (t, R2) => {
+      // tiles stacked on edge, leaning, in irregular runs
+      let lean = 0.5;
+      for (let u = 0; u < F.w;) {
+        const w = R2.r(0.05, 0.09);
+        if (R2.f() < 0.06) lean = -lean;
+        const q = [F.at(u, 0.06), F.at(u + w * 0.7, 0.06), F.at(u + w * 0.7 + lean * 0.06, topV(u) - 0.09), F.at(u + lean * 0.06, topV(u) - 0.09)];
+        fillPoly(t, q, R2.pick(['#3b464c', '#2e373c', '#4a555a', '#343e43']), R2.r(0.6, 0.95));
+        u += w;
+      }
+      // the cap: a row of half-round tiles, their lips catching the moon
+      for (let u = 0; u < F.w; u += R2.r(0.2, 0.26)) {
+        const cap = []; for (let k = 0; k <= 8; k++) { const q = k / 8; cap.push(F.at(u + q * 0.24, topV(u) - 0.075 + 0.07 * Math.sin(q * Math.PI))); }
+        cap.push(F.at(u + 0.24, topV(u) - 0.09), F.at(u, topV(u) - 0.09));
+        fillPoly(t, cap, R2.pick(['#4c585e', '#56626a', '#434e54']), 1);
+      }
+      fillPoly(t, F.quad(0, 0, F.w, 0.07), '#0c1114', 0.6);
     } });
-    ink(g, [F.at(0, hgt), F.at(F.w, hgt)], { w: 2.2, a: 0.8, dry: 0.45, seed: seed + 1, tin: 0.01, tout: 0.01, wob: 1 });
+    const top = []; for (let u = 0; u <= F.w; u += 0.1) top.push(F.at(u, topV(u)));
+    ink(g, top, { w: 2.4, a: 0.75, dry: 0.5, seed: seed + 1, tin: 0.01, tout: 0.01, wob: 0.8 });
     if (curl) {
-      // the ridge end sweeps up and out into a curl
-      const s = ppm(x0, z), b = F.at(0, hgt * 0.5);
-      const pts = []; for (let k = 0; k <= 20; k++) { const u = k / 20; pts.push([b[0] - u * 0.55 * s + Math.sin(u * 2.4) * 0.05 * s, b[1] - Math.pow(u, 1.8) * 0.5 * s]); }
-      const e = pts[pts.length - 1];
-      for (let k = 0; k < 10; k++) { const a = -1.4 + k * 0.42, r = 0.1 * s * (1 - k / 14); pts.push([e[0] + 0.09 * s + Math.cos(a + Math.PI) * r, e[1] + Math.sin(a + Math.PI) * r]); }
-      const thick = pts.map((p, i) => [p[0] + (1 - i / pts.length) * 0.04 * s, p[1] + (1 - i / pts.length) * 0.26 * s + 0.03 * s]);
-      fillPoly(g, pts.concat(thick.slice().reverse()), '#262f35', 1);
-      ink(g, pts, { w: 2.6, a: 0.85, dry: 0.4, seed: seed + 2, tin: 0.05, tout: 0.3 });
+      // the ridge end sweeps up: a solid horn, thick at the root, tapering to a point, its top edge lit
+      const s = ppm(x0, z), b0 = F.at(0.02, 0.06), b1 = F.at(0.02, topV(0));
+      const cl = [], len = 0.75 * s;
+      for (let k = 0; k <= 24; k++) {
+        const q = k / 24;
+        cl.push([b0[0] - q * len * 0.62 - Math.sin(q * 1.2) * 0.04 * s, (b0[1] + b1[1]) / 2 - Math.pow(q, 2.1) * len * 0.78]);
+      }
+      const wid = (q) => (b0[1] - b1[1]) * 0.55 * Math.pow(1 - q, 1.3) + 1.2;
+      const upper = cl.map((p, k) => { const q = k / 24, n = k < 24 ? [cl[k + 1][1] - p[1], -(cl[k + 1][0] - p[0])] : [cl[k][1] - cl[k - 1][1], -(cl[k][0] - cl[k - 1][0])], l = Math.hypot(n[0], n[1]) || 1; return [p[0] + (n[0] / l) * wid(q), p[1] + (n[1] / l) * wid(q)]; });
+      const lower = cl.map((p, k) => { const q = k / 24, n = k < 24 ? [cl[k + 1][1] - p[1], -(cl[k + 1][0] - p[0])] : [cl[k][1] - cl[k - 1][1], -(cl[k][0] - cl[k - 1][0])], l = Math.hypot(n[0], n[1]) || 1; return [p[0] - (n[0] / l) * wid(q), p[1] - (n[1] / l) * wid(q)]; });
+      const horn = upper.concat(lower.slice().reverse());
+      CY.gouache(g, horn, { col: '#20292e', rough: 0.6, passes: 2, erode: 0.2, seed: seed + 3, pad: 6 });
+      ink(g, upper.slice(2), { w: 1.8, col: [150, 172, 178], a: 0.5, dry: 0.5, seed: seed + 4, nb: 2, tin: 0.05, tout: 0.4 });
+      ink(g, lower, { w: 2.2, a: 0.8, dry: 0.4, seed: seed + 2, tin: 0.05, tout: 0.5 });
+      void R;
     }
     return F;
   }
@@ -268,9 +360,9 @@
     const bx0 = -9, bx1 = 6, bz = 12.5, beY = 4.4, brZ = 15.2, brY = 7.1;
     CY.gouache(g, [P(bx0, 0, bz), P(bx1, 0, bz), P(bx1, beY, bz), P(bx0, beY, bz)], { col: '#3f7f95', rough: 2, passes: 2, erode: 0.5, seed: 21, mott: 0.2, streaks: { dens: 300, ang: Math.PI / 2, len: [10, 50], w: [3, 10], a: [0.1, 0.3], cols: ['#5a95a8', '#2f6a80', '#8fb6bf'] } });
     const bR = face([bx0 - 0.4, beY - 0.1, bz - 0.7], [1, 0, 0], norm([0, brY - beY, brZ - bz + 0.7]), bx1 - bx0 + 0.8, Math.hypot(brY - beY, brZ - bz + 0.7));
-    tiles(g, bR, [bR.poly], { seed: 22, row: 0.3, cols: ['#3a4a52', '#46565e', '#2f3c43'], warm: ['#5b5550', '#4f4a48'], lit: ['#7d8e94'] });
+    const bc = tiles(g, bR, [bR.poly], { seed: 22, row: 0.3, pitch: 0.3, cols: ['#3a4a52', '#46565e', '#2f3c43'], warm: ['#5b5550', '#4f4a48'], lit: ['#7d8e94'] });
     ridge(g, bx0 - 0.4, bx1 + 0.4, brY, brZ, 24, false);
-    eaveEdge(g, bx0 - 0.4, bx1 + 0.4, beY - 0.1, bz - 0.7, 25, 0.32);
+    eaveEdge(g, bR, bc, 25);
     // the pole and its sagging wires
     ink(g, [P(1.2, 0, 8.5), P(1.2, 9.6, 8.5)], { w: 5, col: [30, 40, 46], a: 0.92, dry: 0.3, seed: 26, tin: 0.01, tout: 0.02, wob: 0.6 });
     ink(g, [P(0.6, 9.0, 8.5), P(1.8, 9.0, 8.5)], { w: 3, col: [30, 40, 46], a: 0.9, dry: 0.3, seed: 27, tin: 0.01, tout: 0.01 });
@@ -285,15 +377,15 @@
   }
 
   // ------------------------------------------------------------------ the blue house
-  const LIT = { base: '#5f97ad', cols: ['#77abbe', '#5a91a8', '#8fbccb', '#4b839d', '#6aa1b5'], lime: ['#d9e6e1', '#eef0e4', '#b9d4d8'], dark: ['#2a5670', '#3d6276', '#5b7a80'], stoneCols: ['#6b8c99', '#879fa6', '#5a7a88', '#9fb2b3'] };
-  const SHADE = { base: '#336f8f', cols: ['#2b6688', '#3f7fa0', '#4d8eac', '#245b7c', '#5f9ab4', '#1f5272'], lime: ['#a9c9d2', '#c9dcd9', '#88b4c4'], dark: ['#173a52', '#1d4560', '#3a5560'], stoneCols: ['#3f6578', '#567888', '#2f5468', '#6e8b94'] };
+  const LIT = { base: '#5f97ad', cols: ['#77abbe', '#5a91a8', '#8fbccb', '#4b839d', '#6aa1b5'], fresh: ['#9cc6d3', '#86b8c8'], lime: ['#d9e6e1', '#eef0e4', '#b9d4d8'], dark: ['#2a5670', '#3d6276', '#5b7a80'], stoneCols: ['#7d8c8c', '#8f9893', '#6f8288', '#9a9a8e', '#848a84', '#a39a88'] };
+  const SHADE = { base: '#336f8f', cols: ['#2b6688', '#3f7fa0', '#4d8eac', '#245b7c', '#5f9ab4', '#1f5272'], fresh: ['#5a98b6', '#4d8fae'], lime: ['#a9c9d2', '#c9dcd9', '#88b4c4'], dark: ['#173a52', '#12324a', '#3a5560'], stoneCols: ['#5f737a', '#6f7c7c', '#56686f', '#7d8580', '#677276', '#8a8274'] };
   const TILE_COLS = ['#4d5a62', '#5b676e', '#414d55', '#66737a', '#53606a'], TILE_WARM = ['#806a5c', '#8c624c', '#71665d', '#9a7058'], TILE_LIT = ['#a9bbc1', '#ccd2cb'];
 
   function paintHouse(g) {
     // --- the ground floor: gable end (moonlit) and front
-    plaster(g, F_gable, [gablePoly, F_gable.quad(WIN3.u0, WIN3.v0, WIN3.u1, WIN3.v1)], Object.assign({ seed: 301, stones: 1.1, vmax: 4.9 }, LIT));
+    plaster(g, F_gable, [gablePoly, F_gable.quad(WIN3.u0, WIN3.v0, WIN3.u1, WIN3.v1)], Object.assign({ seed: 301, vmax: 4.9, openings: [WIN3], extra: 3 }, LIT));
     recess(g, F_gable, WIN3, 320, windowBack(F_gable, WIN3, 6), true);
-    plaster(g, F_front, [F_front.poly, F_front.quad(DOOR.u0, DOOR.v0, DOOR.u1, DOOR.v1), F_front.quad(WIN1.u0, WIN1.v0, WIN1.u1, WIN1.v1)], Object.assign({ seed: 302, stones: 1.3 }, SHADE));
+    plaster(g, F_front, [F_front.poly, F_front.quad(DOOR.u0, DOOR.v0, DOOR.u1, DOOR.v1), F_front.quad(WIN1.u0, WIN1.v0, WIN1.u1, WIN1.v1)], Object.assign({ seed: 302, openings: [WIN1, DOOR], extra: 3 }, SHADE));
     // the plinth: a course of big dressed stones the wall stands on
     const plinth = face([0, 0, -0.06], [1, 0, 0], [0, 1, 0], GF.x1, 0.5);
     CY.gouache(g, plinth.poly, { col: '#2f4d5c', rough: 1.4, passes: 2, erode: 0.45, seed: 303, mott: 0.2, fx: (t, R2) => {
@@ -306,33 +398,63 @@
     ink(g, [P(0, 0, 0), P(0, lrY(0), 0)], { w: 3.2, a: 0.85, dry: 0.5, seed: 306, dbl: 1.4, tin: 0.02, tout: 0.05, wob: 1 });
     // windows and the door, cut in
     recess(g, F_front, WIN1, 330, windowBack(F_front, WIN1, 8));
+    // the door's surround: faded red paper strips pasted either side and over the lintel, their brushwork
+    // reduced to a few round dabs (no strokes that could make a character)
+    const RD = CY.rng(339);
+    const strip = (q, seed, n, horiz) => {
+      CY.gouache(g, q, { col: '#9c3a2e', rough: 1.4, passes: 3, erode: 0.9, eb: 3, holes: 1.4, seed, a: 0.78, mott: 0.45, grain: 2,
+        fx: (t, R4) => { t.fillStyle = 'rgba(214,160,130,0.22)'; t.fillRect(0, 0, W, H); for (let i = 0; i < 30; i++) { t.fillStyle = rgba(R4.pick(['#c8a088', '#6e2a22', '#d9b49a']), R4.r(0.1, 0.35)); t.fillRect(R4.r(0, W), R4.r(0, H), R4.r(2, 9), R4.r(4, 26)); } } });
+      for (let k = 0; k < n; k++) {
+        const u = (k + 0.5) / n, c = horiz ? [q[0][0] + (q[1][0] - q[0][0]) * u, (q[0][1] + q[3][1]) / 2 + (q[1][1] - q[0][1]) * u] : [(q[0][0] + q[1][0]) / 2 + (q[3][0] - q[0][0]) * u, q[0][1] + (q[3][1] - q[0][1]) * u];
+        g.fillStyle = rgba('#2a1512', RD.r(0.35, 0.6)); g.beginPath(); g.ellipse(c[0] + RD.g(), c[1] + RD.g(), RD.r(3, 6), RD.r(3, 5.5), RD.f() * 3, 0, 6.283); g.fill();
+      }
+    };
+    strip(F_front.quad(DOOR.u0 - 0.36, 0.95, DOOR.u0 - 0.1, 2.6, -0.005), 335, 6);
+    strip(F_front.quad(DOOR.u1 + 0.1, 0.95, DOOR.u1 + 0.36, 2.6, -0.005), 336, 6);
     recess(g, F_front, DOOR, 340, (g2, q, seed) => {
-      // two leaves of old boards, darker than the wall, a hint of blue in the wood
+      // two leaves of old boards in a heavy frame, iron studs in rows, knockers; paler and scuffed low down
       const F2 = face(F_front.W3(DOOR.u0, DOOR.v0, DOOR.d), [1, 0, 0], [0, 1, 0], DOOR.u1 - DOOR.u0, DOOR.v1 - DOOR.v0);
-      CY.gouache(g2, q, { col: '#25323a', rough: 0.8, passes: 2, erode: 0.25, seed, mott: 0.18, fx: (t, R2) => {
-        for (let u = 0; u < F2.w; u += R2.r(0.11, 0.17)) {
-          fillPoly(t, F2.quad(u + 0.008, 0, u + R2.r(0.09, 0.15), F2.h), CY.jit(R2.pick(['#2f4049', '#344853', '#28363e', '#3d525c']), R2, 0.08), 0.9);
-          const a = F2.at(u, 0), b = F2.at(u, F2.h); t.strokeStyle = 'rgba(10,16,20,0.7)'; t.lineWidth = 1.4; t.beginPath(); t.moveTo(a[0], a[1]); t.lineTo(b[0], b[1]); t.stroke();
+      CY.gouache(g2, q, { col: '#1c262c', rough: 0.6, passes: 2, erode: 0.2, seed, mott: 0.2, fx: (t, R2) => {
+        for (let u = 0.1; u < F2.w - 0.1;) {
+          const bw = R2.r(0.12, 0.17), col = CY.jit(R2.pick(['#2c3c45', '#33454f', '#283740', '#3a4d57', '#2f4049']), R2, 0.07);
+          fillPoly(t, F2.quad(u + 0.006, 0, u + bw - 0.006, F2.h), col, 0.95);
+          for (let k = 0; k < 4; k++) { const uu = u + R2.r(0.02, bw - 0.02), a = F2.at(uu, R2.r(0, 0.6)), b2 = F2.at(uu + R2.g() * 0.01, R2.r(1.2, F2.h)); t.strokeStyle = rgba(R2.pick(['#4c616b', '#1a242a']), R2.r(0.15, 0.35)); t.lineWidth = R2.r(0.8, 1.6); t.beginPath(); t.moveTo(a[0], a[1]); t.lineTo(b2[0], b2[1]); t.stroke(); }
+          u += bw;
         }
-        for (let i = 0; i < 40; i++) { const u = R2.r(0, F2.w), v = R2.r(0, F2.h); const a = F2.at(u, v), b = F2.at(u, v - R2.r(0.1, 0.5)); t.strokeStyle = rgba(R2.pick(['#5d7480', '#16222a', '#6e8790']), R2.r(0.15, 0.4)); t.lineWidth = R2.r(1, 3); t.beginPath(); t.moveTo(a[0], a[1]); t.lineTo(b[0], b[1]); t.stroke(); }
-        fillPoly(t, F2.quad(0, 0, F2.w, 0.35), '#6d8790', 0.2);
-        for (const v of [0.35, 1.25, 1.95]) fillPoly(t, F2.quad(0.03, v, F2.w - 0.03, v + 0.07), '#1d282e', 0.8);
+        // scuffed, rain-splashed foot
+        dabs(t, R2, F2, 30, { u: [0, F2.w], v: [0, 0.45], du: [0.04, 0.2], dv: [0.02, 0.12], cols: ['#6d838c', '#57707a', '#8a9ea4'], a: [0.15, 0.4], jit: 1.5 });
+        // frame: posts and head, heavier timber, lit on the moon side
+        for (const [u0, u1] of [[0, 0.1], [F2.w - 0.1, F2.w]]) { fillPoly(t, F2.quad(u0, 0, u1, F2.h), '#20292e', 1); fillPoly(t, F2.quad(u0 + 0.01, 0, u0 + 0.03, F2.h), '#6f8790', 0.35); }
+        fillPoly(t, F2.quad(0, F2.h - 0.12, F2.w, F2.h), '#1a2328', 1);
       } });
-      ink(g2, [F2.at(F2.w / 2, 0), F2.at(F2.w / 2, F2.h)], { w: 2.6, a: 0.9, dry: 0.3, seed: seed + 3 });
-      for (const s of [-1, 1]) { const c = F2.at(F2.w / 2 + s * 0.09, 1.15); g2.fillStyle = '#0f1518'; g2.beginPath(); g2.arc(c[0], c[1], 4, 0, 6.283); g2.fill(); const r = ppm(DOOR.u0 + 0.8, DOOR.d) * 0.05; ink(g2, CY.circle(c[0], c[1] + r, r, 18).concat([[c[0] + r, c[1] + r]]), { w: 1.6, a: 0.8, dry: 0.2, seed: seed + 5 + s, tin: 0.02, tout: 0.04, col: [180, 150, 90] }); }
-      // a faded paper notice pasted on one leaf, its writing reduced to a few brush dabs
-      CY.gouache(g2, F2.quad(0.18, 1.45, 0.52, 1.9), { col: '#c9b48c', rough: 0.6, passes: 2, erode: 0.7, eb: 1.5, seed: seed + 7, a: 0.7, mott: 0.3 });
-      for (let k = 0; k < 3; k++) ink(g2, [F2.at(0.26 + k * 0.09, 1.82), F2.at(0.26 + k * 0.09, 1.52)], { w: 2.4, a: 0.5, dry: 0.6, seed: seed + 8 + k, nb: 3, col: [70, 40, 30] });
+      const mid = F2.w / 2;
+      ink(g2, [F2.at(mid, 0), F2.at(mid, F2.h - 0.12)], { w: 2.2, a: 0.9, dry: 0.25, seed: seed + 3 });
+      // iron studs in rows on each leaf
+      const R3 = CY.rng(seed + 9);
+      for (let r = 0; r < 5; r++) for (const side of [0, 1]) for (let c = 0; c < 4; c++) {
+        const u = (side ? mid + 0.08 : 0.16) + c * ((mid - 0.24) / 3), v = 0.35 + r * 0.38, p = F2.at(u, v), rr = ppm(DOOR.u0 + u, DOOR.d) * 0.018;
+        g2.fillStyle = rgba('#0d1215', 0.9); g2.beginPath(); g2.arc(p[0], p[1], rr, 0, 6.283); g2.fill();
+        if (R3.f() < 0.8) { g2.fillStyle = rgba('#8fa0a4', 0.5); g2.beginPath(); g2.arc(p[0] - rr * 0.35, p[1] - rr * 0.35, rr * 0.4, 0, 6.283); g2.fill(); }
+      }
+      // knockers: round backplates and dull bronze rings
+      for (const sd of [-1, 1]) {
+        const c = F2.at(mid + sd * 0.1, 1.15), rp = ppm(DOOR.u0 + 0.8, DOOR.d) * 0.055;
+        g2.fillStyle = rgba('#3b3426', 0.95); g2.beginPath(); g2.arc(c[0], c[1], rp, 0, 6.283); g2.fill();
+        g2.strokeStyle = rgba('#a88a52', 0.6); g2.lineWidth = 1.2; g2.beginPath(); g2.arc(c[0], c[1], rp * 0.85, 3.4, 5.2); g2.stroke();
+        ink(g2, CY.circle(c[0], c[1] + rp * 1.25, rp * 0.95, 20).concat([[c[0] + rp * 0.95, c[1] + rp * 1.25]]), { w: 2, a: 0.85, dry: 0.15, seed: seed + 5 + sd, tin: 0.02, tout: 0.04, col: [150, 120, 72] });
+      }
     });
-    // the lintel beam over the door
-    fillPoly(g, F_front.quad(DOOR.u0 - 0.25, DOOR.v1, DOOR.u1 + 0.25, DOOR.v1 + 0.18, -0.03), '#26323a', 0.95);
-    ink(g, [F_front.at(DOOR.u0 - 0.25, DOOR.v1 + 0.18, -0.03), F_front.at(DOOR.u1 + 0.25, DOOR.v1 + 0.18, -0.03)], { w: 1.8, a: 0.7, dry: 0.4, seed: 345 });
-    fillPoly(g, F_front.quad(DOOR.u0 - 0.25, DOOR.v1 + 0.13, DOOR.u1 + 0.25, DOOR.v1 + 0.18, -0.03), '#7f9aa3', 0.35);
+    // the lintel beam over the door, and the red strip pasted across it
+    fillPoly(g, F_front.quad(DOOR.u0 - 0.3, DOOR.v1, DOOR.u1 + 0.3, DOOR.v1 + 0.2, -0.04), '#1f2a30', 0.97);
+    fillPoly(g, F_front.quad(DOOR.u0 - 0.3, DOOR.v1 + 0.15, DOOR.u1 + 0.3, DOOR.v1 + 0.2, -0.04), '#7f9aa3', 0.35);
+    ink(g, [F_front.at(DOOR.u0 - 0.3, DOOR.v1, -0.04), F_front.at(DOOR.u1 + 0.3, DOOR.v1, -0.04)], { w: 2, a: 0.8, dry: 0.4, seed: 345 });
+    for (const sd of [0, 1]) { const u = sd ? DOOR.u1 + 0.3 : DOOR.u0 - 0.3; fillPoly(g, [F_front.at(u, DOOR.v1, -0.04), F_front.at(u, DOOR.v1 + 0.2, -0.04), F_front.at(u, DOOR.v1 + 0.2, 0), F_front.at(u, DOOR.v1, 0)], '#111a1f', 0.9); }
+    strip(F_front.quad(DOOR.u0 + 0.25, DOOR.v1 + 0.24, DOOR.u1 - 0.25, DOOR.v1 + 0.48, -0.005), 337, 4, true);
 
     // --- the upper storey, set back on the lower roof
-    plaster(g, F_usLeft, [usLeftPoly], Object.assign({ seed: 350, vmax: 4.3 }, LIT));
-    plaster(g, F_usFront, [F_usFront.poly, F_usFront.quad(WIN2.u0 - US.x0, WIN2.v0 - US.y0, WIN2.u1 - US.x0, WIN2.v1 - US.y0)], Object.assign({ seed: 351 }, SHADE));
+    plaster(g, F_usLeft, [usLeftPoly], Object.assign({ seed: 350, vmax: 4.3, damp: 0.55, extra: 2 }, LIT));
     const W2 = { u0: WIN2.u0 - US.x0, u1: WIN2.u1 - US.x0, v0: WIN2.v0 - US.y0, v1: WIN2.v1 - US.y0, d: WIN2.d };
+    plaster(g, F_usFront, [F_usFront.poly, F_usFront.quad(W2.u0, W2.v0, W2.u1, W2.v1)], Object.assign({ seed: 351, damp: 0.75, openings: [W2], extra: 2 }, SHADE));
     recess(g, F_usFront, W2, 360, windowBack(F_usFront, W2, 7));
     ink(g, [P(US.x0, US.y0, US.z0), P(US.x0, US.h, US.z0)], { w: 3, a: 0.85, dry: 0.5, seed: 361, dbl: 1.3, tin: 0.02, tout: 0.05, wob: 1 });
     // the soffit under the upper eave: dark boards and rafter ends, seen from below
@@ -342,25 +464,37 @@
       ink(g, [P(x, UR.eaveY - 0.02, UR.eaveZ + 0.05), P(x, US.h - 0.04, US.z0)], { w: 3.4, col: [58, 72, 80], a: 0.85, dry: 0.3, seed: 363 + Math.round(x * 10), nb: 3, tin: 0.05, tout: 0.05 });
     }
     // the verge soffit at the left end of the upper roof
-    CY.gouache(g, [P(UR.x0, UR.eaveY, UR.eaveZ), P(UR.x0, UR.ridgeY, UR.ridgeZ), P(US.x0, UR.ridgeY - 0.12, UR.ridgeZ), P(US.x0, US.h, US.z0)], { col: '#1d282e', rough: 0.8, passes: 2, erode: 0.25, seed: 364, mott: 0.15 });
+    CY.gouache(g, [P(UR.x0, UR.eaveY, UR.eaveZ), P(UR.x0, UR.ridgeY, UR.ridgeZ), P(US.x0, UR.ridgeY - 0.12, UR.ridgeZ), P(US.x0, US.h, US.z0)], { col: '#26343c', rough: 0.8, passes: 2, erode: 0.25, seed: 364, mott: 0.2 });
+    // the back half of the upper gable: the far slope's verge, its board and the soffit under it
+    const bEZ = UR.ridgeZ + (UR.ridgeZ - UR.eaveZ);
+    CY.gouache(g, [P(UR.x0, UR.ridgeY, UR.ridgeZ), P(UR.x0, UR.eaveY, bEZ), P(US.x0, US.h, US.z1), P(US.x0, UR.ridgeY - 0.12, UR.ridgeZ)], { col: '#2b3b44', rough: 0.8, passes: 2, erode: 0.25, seed: 380, mott: 0.2,
+      streaks: { dens: 120, ang: -0.5, angv: 0.1, len: [20, 80], w: [2, 6], a: [0.1, 0.25], cols: ['#3d525c', '#1c262b'] } });
+    // the purlins run out through the gable: their ends, square and dark, under the verge
+    for (const [z, y] of [[UR.ridgeZ, UR.ridgeY - 0.18], [UR.ridgeZ + 0.95, UR.ridgeY - 0.75], [UR.ridgeZ + 1.9, UR.ridgeY - 1.3], [UR.ridgeZ - 0.95, UR.ridgeY - 0.75], [UR.ridgeZ - 1.9, UR.ridgeY - 1.3]]) {
+      const q = [P(US.x0 - 0.35, y, z - 0.08), P(US.x0 - 0.35, y, z + 0.08), P(US.x0 - 0.35, y - 0.16, z + 0.08), P(US.x0 - 0.35, y - 0.16, z - 0.08)];
+      fillPoly(g, q, '#3a2c24', 0.95); ink(g, q.concat([q[0]]), { w: 1.2, a: 0.6, dry: 0.3, seed: 383 + Math.round(z * 10), nb: 2 });
+      fillPoly(g, [P(US.x0 - 0.35, y, z - 0.08), P(US.x0, y, z - 0.08), P(US.x0, y - 0.16, z - 0.08), P(US.x0 - 0.35, y - 0.16, z - 0.08)], '#22191a', 0.8);
+    }
+    CY.gouache(g, [P(UR.x0, UR.ridgeY + 0.05, UR.ridgeZ), P(UR.x0, UR.eaveY + 0.05, bEZ), P(UR.x0, UR.eaveY - 0.18, bEZ), P(UR.x0, UR.ridgeY - 0.17, UR.ridgeZ)], { col: '#20292f', rough: 0.6, passes: 2, erode: 0.2, seed: 381 });
+    ink(g, [P(UR.x0, UR.ridgeY + 0.06, UR.ridgeZ), P(UR.x0, UR.eaveY + 0.06, bEZ)], { w: 2.6, a: 0.8, dry: 0.4, seed: 382, tin: 0.02, tout: 0.1 });
     // the upper roof
-    tiles(g, F_uroof, [F_uroof.poly], { seed: 365, row: 0.21, cols: ['#46535b', '#55626a', '#3a464e', '#606b70', '#4d5960'], warm: ['#7b6457', '#8a5e48', '#6d625a', '#946b52'], lit: ['#9fb1b8', '#c2c9c3'] });
+    const ucols = tiles(g, F_uroof, [F_uroof.poly], { seed: 365, row: 0.22, cols: ['#46535b', '#55626a', '#3a464e', '#606b70', '#4d5960'], warm: ['#7b6457', '#8a5e48', '#6d625a', '#946b52'], lit: ['#9fb1b8', '#c2c9c3'] });
     CY.gouache(g, [P(UR.x0, UR.eaveY, UR.eaveZ), P(UR.x0, UR.ridgeY + 0.05, UR.ridgeZ), P(UR.x0, UR.ridgeY - 0.17, UR.ridgeZ), P(UR.x0, UR.eaveY - 0.22, UR.eaveZ)], { col: '#20292f', rough: 0.6, passes: 2, erode: 0.2, seed: 366 });
     ink(g, [P(UR.x0, UR.eaveY + 0.02, UR.eaveZ), P(UR.x0, UR.ridgeY + 0.06, UR.ridgeZ)], { w: 3, a: 0.85, dry: 0.4, seed: 367, dbl: 1, tin: 0.02, tout: 0.05 });
-    eaveEdge(g, UR.x0, UR.x1, UR.eaveY + 0.04, UR.eaveZ, 368, 0.26);
+    eaveEdge(g, F_uroof, ucols, 368);
     ridge(g, UR.x0 - 0.1, UR.x1, UR.ridgeY, UR.ridgeZ, 369, true);
 
     // --- the lower roof, in two parts: beside the upper storey, then the full width in front of it
     const vB = vAtZ(US.z0);
-    tiles(g, F_lroof, [F_lroof.quad(0, vB - 0.02, US.x0 - LR.x0, lenL)], { seed: 370, row: 0.22, cols: TILE_COLS, warm: TILE_WARM, lit: TILE_LIT });
+    tiles(g, F_lroof, [F_lroof.quad(0, vB - 0.02, US.x0 - LR.x0, lenL)], { seed: 370, cols: TILE_COLS, warm: TILE_WARM, lit: TILE_LIT });
     ridge(g, LR.x0 - 0.05, US.x0, LR.ridgeY, LR.ridgeZ, 371, true);
     // where the lower roof meets the upper walls: a lime mortar flashing
     CY.gouache(g, [P(US.x0, lrY(US.z0), US.z0), P(US.x1 + 1, lrY(US.z0), US.z0), P(US.x1 + 1, lrY(US.z0) + 0.14, US.z0), P(US.x0, lrY(US.z0) + 0.14, US.z0)], { col: '#8ea4aa', rough: 0.8, passes: 2, erode: 0.4, seed: 372, mott: 0.2 });
     CY.gouache(g, [P(US.x0, lrY(US.z0), US.z0), P(US.x0, LR.ridgeY, LR.ridgeZ), P(US.x0, LR.ridgeY + 0.12, LR.ridgeZ), P(US.x0, lrY(US.z0) + 0.12, US.z0)], { col: '#a9bfc3', rough: 0.8, passes: 2, erode: 0.4, seed: 373, mott: 0.2 });
-    tiles(g, F_lroof, [F_lroof.quad(0, 0, F_lroof.w, vB)], { seed: 374, row: 0.22, cols: TILE_COLS, warm: TILE_WARM, lit: TILE_LIT });
+    const lcols = tiles(g, F_lroof, [F_lroof.quad(0, 0, F_lroof.w, vB)], { seed: 370, cols: TILE_COLS, warm: TILE_WARM, lit: TILE_LIT });
     CY.gouache(g, [P(LR.x0, LR.eaveY, LR.eaveZ), P(LR.x0, LR.ridgeY + 0.05, LR.ridgeZ), P(LR.x0, LR.ridgeY - 0.17, LR.ridgeZ), P(LR.x0, LR.eaveY - 0.22, LR.eaveZ)], { col: '#222c32', rough: 0.6, passes: 2, erode: 0.2, seed: 375 });
     ink(g, [P(LR.x0, LR.eaveY + 0.02, LR.eaveZ), P(LR.x0, LR.ridgeY + 0.06, LR.ridgeZ)], { w: 3, a: 0.85, dry: 0.4, seed: 376, dbl: 1, tin: 0.02, tout: 0.05 });
-    eaveEdge(g, LR.x0, LR.x1, LR.eaveY + 0.04, LR.eaveZ, 377, 0.25);
+    eaveEdge(g, F_lroof, lcols, 377);
     ink(g, [P(LR.x0, LR.eaveY + 0.06, LR.eaveZ), P(LR.x1, LR.eaveY + 0.06, LR.eaveZ)], { w: 1.6, col: [190, 205, 205], a: 0.35, dry: 0.7, seed: 378, nb: 3, tin: 0.01, tout: 0.01 });
 
     // --- ground, steps up to the door, a jar
@@ -372,24 +506,44 @@
     ];
     G.stepTops = [];
     steps.forEach((s, k) => {
-      const top = [P(s.x0, s.y, s.z0), P(s.x1, s.y, s.z0), P(s.x1, s.y, s.z1), P(s.x0, s.y, s.z1)];
-      const front = [P(s.x0, s.y, s.z0), P(s.x1, s.y, s.z0), P(s.x1, 0, s.z0), P(s.x0, 0, s.z0)];
+      const RS = CY.rng(380 + k);
+      // each step is two or three slabs that have each settled their own way
+      const cuts = [s.x0];
+      for (let x = s.x0 + RS.r(0.7, 1.2); x < s.x1 - 0.5; x += RS.r(0.8, 1.4)) cuts.push(x);
+      cuts.push(s.x1);
       const side = [P(s.x0, s.y, s.z1), P(s.x0, s.y, s.z0), P(s.x0, 0, s.z0), P(s.x0, 0, s.z1)];
-      CY.gouache(g, side, { col: '#6f8f9c', rough: 1, passes: 2, erode: 0.4, seed: 385 + k, mott: 0.22 });
-      const Fr = face([s.x0, 0, s.z0], [1, 0, 0], [0, 1, 0], s.x1 - s.x0, s.y);
-      CY.gouache(g, front, { col: '#3f5c69', rough: 1.2, passes: 2, erode: 0.4, seed: 388 + k, mott: 0.22, fx: (t, R2) => {
-        for (let u = 0; u < Fr.w;) { const du = R2.r(0.35, 0.8); fillPoly(t, Fr.quad(u + 0.015, 0.01, u + du - 0.015, Fr.h - 0.01), CY.jit(R2.pick(['#4d6b78', '#3c5865', '#577684', '#46616c']), R2, 0.08), 0.85); u += du; }
-      } });
-      const Ft = face([s.x0, s.y, s.z0], [1, 0, 0], [0, 0, 1], s.x1 - s.x0, s.z1 - s.z0);
-      CY.gouache(g, top, { col: '#90a6ac', rough: 1, passes: 2, erode: 0.4, seed: 391 + k, mott: 0.22, fx: (t, R2) => {
-        dabs(t, R2, Ft, 40, { u: [0, Ft.w], v: [0, Ft.h], du: [0.1, 0.5], dv: [0.04, 0.2], cols: ['#a7b9bc', '#7f979e', '#b8c5c3', '#6c868f'], a: [0.2, 0.55] });
-        fillPoly(t, Ft.quad(Ft.w * 0.35, 0, Ft.w * 0.65, Ft.h * 0.8), '#c3cfcc', 0.25); // worn where feet go
-      } });
-      ink(g, [top[0], top[1]], { w: 2.4, a: 0.85, dry: 0.5, seed: 394 + k, dbl: 1, tin: 0.04, tout: 0.1, wob: 0.8 });
-      ink(g, [top[0], top[3]], { w: 1.6, a: 0.6, dry: 0.5, seed: 397 + k, nb: 3 });
-      ink(g, [front[0], front[3]], { w: 1.6, a: 0.6, dry: 0.5, seed: 399 + k, nb: 3 });
-      CY.wash(g, CY.blob(front[3][0] + 14, front[3][1] - 4, 12, 5, 400 + k, 0.5, 14), '#6f7d52', { a: 0.5, blur: 1.2, seed: 400 + k, rim: 0.3, blend: null });
-      G.stepTops.push(top);
+      CY.gouache(g, side, { col: '#6f8f9c', rough: 1.4, passes: 2, erode: 0.45, seed: 385 + k, mott: 0.25, streaks: { dens: 120, ang: 0, len: [5, 25], w: [1, 4], a: [0.1, 0.3], cols: ['#58747f', '#93acb3'] } });
+      for (let j = 0; j < cuts.length - 1; j++) {
+        const xa = cuts[j], xb = cuts[j + 1], dy = RS.g() * 0.012, dz = RS.g() * 0.02;
+        const Ft = face([xa, s.y + dy, s.z0 + dz], [1, 0, 0], [0, 0, 1], xb - xa, s.z1 - s.z0 - dz);
+        // the nosing: worn into a shallow dip where feet go, chipped here and there
+        const nose = [];
+        for (let x = xa; x <= xb + 1e-6; x += 0.05) {
+          const q = (x - xa) / (xb - xa);
+          let ny = s.y + dy - 0.012 * Math.sin(q * Math.PI) - 0.008 * (CY.vnoise(x * 9, k, 389) - 0.5) * 2;
+          nose.push([x, ny]);
+        }
+        const front = nose.map(([x, y]) => P(x, y, s.z0 + dz)).concat([P(xb, 0, s.z0 + dz), P(xa, 0, s.z0 + dz)]);
+        const top = nose.map(([x, y]) => P(x, y, s.z0 + dz)).concat([P(xb, s.y + dy, s.z1), P(xa, s.y + dy, s.z1)]).reverse();
+        CY.gouache(g, front, { col: CY.jit('#3f5c69', RS, 0.08), rough: 1.4, passes: 2, erode: 0.45, seed: 388 + k * 10 + j, mott: 0.26,
+          streaks: { dens: 90, ang: 0, angv: 0.2, len: [8, 40], w: [2, 6], a: [0.08, 0.22], cols: ['#2f4652', '#5a7581', '#6b7a5a'] } });
+        CY.gouache(g, top, { col: CY.jit('#93a8ad', RS, 0.06), rough: 1.4, passes: 2, erode: 0.45, seed: 391 + k * 10 + j, mott: 0.26, fx: (t, R2) => {
+          dabs(t, R2, Ft, 30, { u: [0, Ft.w], v: [0, Ft.h], du: [0.1, 0.6], dv: [0.03, 0.15], cols: ['#a7b9bc', '#7f979e', '#b8c5c3', '#6c868f'], a: [0.15, 0.45], jit: 2 });
+          fillPoly(t, Ft.quad(Ft.w * 0.25, 0, Ft.w * 0.75, Ft.h * 0.7), '#c6d2cf', 0.18);
+          fillPoly(t, Ft.quad(0, Ft.h * 0.8, Ft.w, Ft.h), '#2c4350', 0.3); // where the step above shades it
+        } });
+        ink(g, nose.map(([x, y]) => P(x, y, s.z0 + dz)), { w: 2.2, a: 0.8, dry: 0.6, seed: 394 + k * 10 + j, dbl: 0.8, tin: 0.05, tout: 0.1, wob: 0.6 });
+        // a chip out of the nosing
+        if (RS.f() < 0.7) { const x = RS.r(xa + 0.1, xb - 0.2), w2 = RS.r(0.06, 0.16); fillPoly(g, [P(x, s.y + dy, s.z0 + dz), P(x + w2, s.y + dy, s.z0 + dz), P(x + w2 * 0.6, s.y + dy - RS.r(0.03, 0.07), s.z0 + dz), P(x + w2 * 0.2, s.y + dy - 0.02, s.z0 + dz)], '#24363f', 0.8); }
+        if (j) {
+          ink(g, [P(xa, s.y + dy, s.z0 + dz), P(xa, 0, s.z0 + dz)], { w: 2, a: 0.7, dry: 0.4, seed: 397 + k * 10 + j, nb: 3 });
+          ink(g, [P(xa, s.y + dy, s.z0 + dz), P(xa, s.y + dy, s.z1)], { w: 1.6, a: 0.6, dry: 0.4, seed: 398 + k * 10 + j, nb: 2 });
+          const m = P(xa, 0.02, s.z0 - 0.02);
+          CY.wash(g, CY.blob(m[0], m[1] - 3, 9, 5, 400 + k * 10 + j, 0.5, 14), R0(k + j).pick(['#6f7d52', '#5f6d45', '#7e8a5e']), { a: 0.6, blur: 1, seed: 400 + k * 10 + j, rim: 0.3, blend: null });
+        }
+      }
+      ink(g, [side[1], side[2]], { w: 1.6, a: 0.6, dry: 0.5, seed: 399 + k, nb: 3 });
+      G.stepTops.push([P(s.x0, s.y, s.z0), P(s.x1, s.y, s.z0), P(s.x1, s.y, s.z1), P(s.x0, s.y, s.z1)]);
     });
     paintJar(g);
   }
@@ -461,17 +615,17 @@
     g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = 0.5; g.drawImage(b.c, 0, 0); g.restore();
     // the trunk: three old stems twisting round each other, thinning upward
     const T = CY.resample(sk.trunk, 3);
-    const taper = (q) => 1 - (q / T.L) * 0.55;
+    const taper = (q) => 1 - (q / T.L) * 0.62;
     g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
-    for (let i = 0; i < T.length - 1; i++) { g.strokeStyle = rgba('#3a2a24', 0.8); g.lineWidth = 17 * taper(T[i].s); g.beginPath(); g.moveTo(T[i].x, T[i].y); g.lineTo(T[i + 1].x, T[i + 1].y); g.stroke(); }
+    for (let i = 0; i < T.length - 1; i++) { g.strokeStyle = rgba('#3a2a24', 0.8); g.lineWidth = 26 * taper(T[i].s); g.beginPath(); g.moveTo(T[i].x, T[i].y); g.lineTo(T[i + 1].x, T[i + 1].y); g.stroke(); }
     g.restore();
     for (const front of [false, true]) {
       for (let k = 0; k < 3; k++) {
-        const pts = T.map((p) => { const o = 6 * Math.sin(p.s / 34 + k * 2.09) * taper(p.s); return [p.x + p.nx * o, p.y + p.ny * o]; });
+        const pts = T.map((p) => { const o = 8.5 * Math.sin(p.s / 34 + k * 2.09) * taper(p.s); return [p.x + p.nx * o, p.y + p.ny * o]; });
         let run = [];
         const flush = (i) => {
           if (run.length > 3) {
-            const w = 6.5 * taper(T[i].s);
+            const w = 9 * taper(T[i].s);
             CY.ink(g, run, { w, col: front ? [36, 26, 22] : [74, 56, 46], a: front ? 0.95 : 0.8, dry: 0.38, seed: 460 + k * 31 + i, tin: 0.08, tout: 0.08, wob: 0.7 });
             if (front) CY.ink(g, run.map((p) => [p[0] - w * 0.25, p[1] - 0.5]), { w: w * 0.3, col: [168, 150, 128], a: 0.45, dry: 0.6, seed: 470 + k * 31 + i, nb: 2, tin: 0.2, tout: 0.2 });
           }
@@ -480,6 +634,18 @@
         for (let i = 0; i < T.length; i++) { const isFront = Math.cos(T[i].s / 34 + k * 2.09) >= 0; if (isFront === front) run.push(pts[i]); else flush(i); }
         flush(T.length - 1);
       }
+    }
+    // the root: it flares into the ground inside a little ring of loose stones
+    const RR = CY.rng(495), rx = SKW.trunk[0][0], rz = SKW.trunk[0][2];
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * 6.283 + RR.g() * 0.3, L2 = RR.r(0.25, 0.5);
+      ink(g, [P(rx, 0.04, rz), P(rx + Math.cos(a) * L2 * 0.5, 0.01, rz + Math.sin(a) * L2 * 0.5), P(rx + Math.cos(a) * L2, 0, rz + Math.sin(a) * L2)], { w: RR.r(4, 8), col: [44, 32, 26], a: 0.85, dry: 0.4, seed: 496 + k, tin: 0.02, tout: 0.7 });
+    }
+    for (let k = 0; k < 11; k++) {
+      const a = (k / 11) * 6.283, c = P(rx + Math.cos(a) * 0.55, 0.05, rz - 0.15 + Math.sin(a) * 0.4), r2 = ppm(rx, rz) * RR.r(0.07, 0.11);
+      if (Math.sin(a) > 0.3) continue; // the back of the ring is hidden behind the trunk's mass
+      CY.gouache(g, CY.blob(c[0], c[1], r2, r2 * 0.6, 497 + k, 0.35, 16), { col: CY.jit('#6f8790', RR, 0.12), rough: 0.6, passes: 2, erode: 0.3, seed: 497 + k, mott: 0.25 });
+      CY.inkPoly(g, CY.blob(c[0], c[1], r2, r2 * 0.6, 497 + k, 0.35, 16), { w: 1.4, a: 0.6, dry: 0.5, seed: 520 + k, seg: [20, 60] });
     }
     const br = (pts, w0, seed) => { CY.ink(g, pts, { w: w0, col: [42, 30, 25], a: 0.9, dry: 0.42, seed, tin: 0.02, tout: 0.35, press: (u) => 1 - u * 0.55, wob: 1, dbl: 0.8 }); CY.ink(g, pts.map((p) => [p[0] - 1.4, p[1] - 1]), { w: 1.2, col: [160, 140, 118], a: 0.35, dry: 0.7, seed: seed + 1, nb: 2 }); };
     br(sk.eave, 5.5, 480); br(sk.roof, 5, 482); br(sk.upper, 4.5, 484); br(sk.top, 4, 486);
@@ -518,7 +684,7 @@
     }
     for (let i = 0; i < 40; i++) {
       const x = R.r(260, 1060), y = dissolveBottom(x) + R.r(-40, 30);
-      CY.ink(g, [[x, y], [x + R.g() * 4, y + R.r(10, 60)]], { w: R.r(4, 12), col: R.pick([[120, 145, 152], [143, 163, 168], [90, 120, 130]]), a: R.r(0.25, 0.6), dry: 0.65, seed: 600 + i, tin: 0.05, tout: 0.6, nb: 6 });
+      CY.ink(g, [[x, y], [x + R.r(30, 120) * R.sign(), y + R.g() * 3]], { w: R.r(5, 14), col: R.pick([[120, 145, 152], [143, 163, 168], [90, 120, 130]]), a: R.r(0.25, 0.55), dry: 0.7, seed: 600 + i, tin: 0.05, tout: 0.6, nb: 7 });
     }
     return L;
   }
@@ -617,8 +783,8 @@
     G.perch = { x: pa[0], y: pa[1], hop: pb[0] - pa[0], hopY: pb[1] - pa[1] };
     // eaves whose shadows on the walls move with the light
     G.eaveShadow = [
-      { F: F_front, v: GF.h, u0: 0, u1: GF.x1, base: 0.5 },
-      { F: F_usFront, v: US.h - US.y0, u0: 0, u1: US.x1 - US.x0, base: 0.45 },
+      { F: F_front, v: GF.h, u0: 0, u1: GF.x1, base: 0.85 },
+      { F: F_usFront, v: US.h - US.y0, u0: 0, u1: US.x1 - US.x0, base: 0.7 },
     ];
   }
 
