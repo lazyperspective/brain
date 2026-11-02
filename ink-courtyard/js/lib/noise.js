@@ -1,4 +1,4 @@
-// Seeded randomness and noise for "The Moon Gate". Nothing here calls Math.random: every value is a pure
+// Seeded randomness and noise for "The Blue House". Nothing here calls Math.random: every value is a pure
 // function of a seed (and, for animation, of the loop time t).
 (function () {
   const CY = (window.CY = window.CY || {});

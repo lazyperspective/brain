@@ -2,11 +2,11 @@
 // Each cluster is painted once into its own sprite (pivot = where it hangs from the vine) so it can sway alone.
 (function () {
   const CY = window.CY;
-  // deep crimson-magenta -> bright pink; index 0 is the shadowed underside of the mass
-  CY.TONES = ['#470720', '#690b30', '#8c1040', '#ad1752', '#c92465', '#dc3f7a', '#ea6896', '#f498b7'].map(CY.hex);
+    // deep oxblood -> vermilion -> coral: the red bougainvillea, loud against the blue lime
+  CY.TONES = ['#4a0a0e', '#6f1112', '#951a15', '#b8231a', '#d3301f', '#e6472a', '#f06a42', '#f8946a'].map(CY.hex);
   CY.LEAF = ['#2f3a22', '#43502c', '#5a6436'].map(CY.hex);
   CY.TWIG = [52, 36, 30];
-  const LX = 0.62, LY = -0.78; // light from the upper right (late sun)
+  const LX = -0.62, LY = -0.78; // light from the upper left (the moon)
 
   // one bract: an angular heart with a pointed tip, s = length in px
   CY.bractPath = function (g, x, y, ang, s, w) {

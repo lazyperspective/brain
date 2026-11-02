@@ -1,4 +1,4 @@
-// Stills, a contact sheet and full-resolution crops of "The Moon Gate".
+// Stills, a contact sheet and full-resolution crops of "The Blue House".
 //   node stills.js <dir> [n=9]          n frames spread evenly over the loop (plus the crops from one of them)
 //   CROPT=9 node stills.js <dir>        which frame the crops come from (default 9 s)
 // Writes <dir>/courtyard-TT.TT.png, <dir>/contact-sheet.png (3 columns, quarter size, time-stamped) and

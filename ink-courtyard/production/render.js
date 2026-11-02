@@ -1,4 +1,4 @@
-// Render "The Moon Gate" through its page and render hook (window.__courtyard) in the pre-installed Playwright
+// Render "The Blue House" through its page and render hook (window.__courtyard) in the pre-installed Playwright
 // Chromium, over file://.
 //   node render.js video <out.mp4> [workers]   silent H.264 yuv420p, 1080x1920, 30 fps, one loop; CRF=n (default 19);
 //                                              -tune grain keeps the paper tooth steady between keyframes

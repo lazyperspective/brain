@@ -1,4 +1,4 @@
-// "The Moon Gate" - everything that moves. Every function of time here is periodic in G.D, so frame D == frame 0.
+// "The Blue House" - everything that moves. Every function of time here is periodic in G.D, so frame D == frame 0.
 (function () {
   const CY = window.CY;
   const { W, H, rgba, mod, wrapd, sm, clamp } = CY;
@@ -23,87 +23,65 @@
   // the late sun is held steady: a slow global fade of the wall changes every pixel by sub-level amounts per
   // frame, which H.264 cannot carry cleanly (it drifts, then snaps at the keyframe). The lantern breathes instead.
   A.sun = () => 1;
-  // instead the light travels: the shade line across the far courtyard rises and falls once a loop, and the
-  // vine's shadows on the plaster lengthen with it. Moving crisp edges are what a codec carries well.
+  // instead the light travels: the eaves' shadows on the walls deepen and draw back once a loop, and the vine's
+  // shadows on the plaster lengthen with them. Moving crisp edges are what a codec carries well.
   A.sunPhase = (t) => Math.sin((TAU * t) / CY.G.D + 0.6);
-  A.drawSunBand = function (g, L, t) {
-    const G = CY.G, I = G.inner, dy = 36 - 45 * A.sunPhase(t);
-    g.save();
-    g.beginPath(); g.moveTo(I.X0 - 20, I.Y0 - 30); g.lineTo(I.X1 + 20, I.Y0 - 30);
-    for (const p of G.sunEdge) g.lineTo(p[0], p[1] + dy);
-    g.closePath(); g.clip();
-    g.drawImage(L.farLit.c, 0, 0);
-    g.restore();
-  };
+
 
   // ------------------------------------------------------------------ the bougainvillea
-  function nearest(sk, x, y) {
-    let best = null, bd = 1e9;
-    for (const k in sk) for (const p of CY.resample(sk[k], 4)) { const d = (p.x - x) ** 2 + (p.y - y) ** 2; if (d < bd) { bd = d; best = [p.x, p.y]; } }
-    return best;
+  // evenly spaced samples along a world polyline: world point, screen point, and scale (1 = 140 px per metre)
+  function along(pts, step, from, to) {
+    const out = [];
+    let need = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+      let s0 = need;
+      for (; s0 < L; s0 += step) {
+        const u = s0 / L, w = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
+        const sp = CY.P(w[0], w[1], w[2]);
+        out.push({ w, x: sp[0], y: sp[1], k: CY.ppm(w[0], w[2]) / 140 });
+      }
+      need = s0 - L;
+    }
+    const n = out.length;
+    return out.slice(Math.floor((from || 0) * n), Math.ceil((to == null ? 1 : to) * n));
   }
   A.buildClusters = function () {
-    const G = CY.G, R = CY.rng(500), sk = G.skel, list = [];
-    // the vine has topped the wall: the masses lie along the coping and spill over its eave, with a few
-    // trained along the plaster, rather than a crown standing in the sky
-    const regions = [
-      { x: 150, y: 688, rx: 150, ry: 56, n: 8, r: [44, 62] },
-      { x: 420, y: 680, rx: 150, ry: 48, n: 7, r: [40, 58] },
-      { x: 676, y: 690, rx: 120, ry: 44, n: 5, r: [36, 50] },
-      { x: 256, y: 800, rx: 80, ry: 60, n: 4, r: [40, 56] },
-      { x: 60, y: 830, rx: 70, ry: 90, n: 4, r: [38, 52] },
-      { x: 312, y: 940, rx: 100, ry: 46, n: 4, r: [30, 44] },
-      { x: 520, y: 764, rx: 170, ry: 38, n: 6, r: [36, 50] },
-      { x: 790, y: 762, rx: 56, ry: 28, n: 2, r: [30, 40] },
-    ];
-    const placed = [];
-    for (const rg of regions) {
-      let tries = 0, made = 0;
-      while (made < rg.n && tries++ < 4000) {
-        const a = R.f() * TAU, rr = Math.sqrt(R.f());
-        const x = rg.x + Math.cos(a) * rg.rx * rr, y = rg.y + Math.sin(a) * rg.ry * rr, r = R.r(rg.r[0], rg.r[1]);
-        if (placed.some((p) => Math.hypot(p[0] - x, p[1] - y) < (p[2] + r) * 0.62)) continue;
-        placed.push([x, y, r]); made++;
-        let q = nearest(sk, x, y);
-        let d = Math.hypot(x - q[0], y - q[1]);
-        if (d > 130) { q = [x - ((x - q[0]) / d) * 130, y - ((y - q[1]) / d) * 130]; d = 130; }
-        list.push({ x: q[0], y: q[1], ang: Math.atan2(y - q[1], x - q[0]) + (d < 8 ? R.g() : 0), len: Math.max(8, d), r, depth: R.r(0.12, 0.9), seed: R.i(1, 1e6), kind: 'mass', elong: R.r(0.9, 1.25) });
-      }
-    }
-    // sprays rising off the coping into the evening sky
-    for (const [x, y, ang, r] of [[330, 630, -1.35, 42], [440, 628, -1.1, 40], [560, 636, -0.9, 36], [690, 640, -1.25, 34], [150, 650, -1.8, 40], [50, 650, -2.1, 38], [784, 652, -0.7, 30]]) {
-      const q = nearest(sk, x, y);
-      list.push({ x: q[0], y: q[1], ang, len: R.r(26, 44), r, depth: R.r(0.45, 0.8), seed: R.i(1, 1e6), kind: 'spray', dens: 0.55, leaves: 0.16, fs: 0.92 });
-    }
-    // strands hanging from the eave down the plaster and across the top of the gate
-    for (const [x, nseg] of [[330, 3], [420, 2], [500, 4], [580, 3], [660, 4], [740, 3], [812, 2]]) {
-      const q = nearest({ c: sk.cope }, x, 760);
+    const G = CY.G, R = CY.rng(500), SK = G.SKW, list = [];
+    const mass = (pt, ang, angV, r0, r1, d0, d1, extra) => list.push(Object.assign({ x: pt.x + R.g() * 5 * pt.k, y: pt.y + R.g() * 5 * pt.k, ang: ang + R.g() * angV, len: R.r(10, 30) * pt.k, r: R.r(r0, r1) * pt.k, depth: R.r(d0, d1), seed: R.i(1, 1e6), kind: 'mass', elong: R.r(0.9, 1.3), fs: pt.k }, extra || {}));
+    const spray = (pt, ang, r) => list.push({ x: pt.x, y: pt.y, ang: ang + R.g() * 0.25, len: R.r(26, 44) * pt.k, r: r * pt.k, depth: R.r(0.45, 0.8), seed: R.i(1, 1e6), kind: 'spray', dens: 0.55, leaves: 0.16, fs: 0.92 * pt.k });
+    const strand = (pt, nseg, d0) => {
       let parent = null;
       for (let k = 0; k < nseg; k++) {
-        const c = { x: q[0], y: q[1], ang: Math.PI / 2 + R.g() * 0.18 + (k ? 0 : R.g() * 0.1), len: R.r(34, 56), r: R.r(26, 36) * (k === nseg - 1 ? 0.8 : 1), depth: R.r(0.72, 0.98), seed: R.i(1, 1e6), kind: 'hang', elong: 1.45, dens: 1.1, parent, level: k };
+        const c = { x: pt.x, y: pt.y, ang: Math.PI / 2 + R.g() * 0.18 + (k ? 0 : R.g() * 0.1), len: (k ? R.r(30, 48) : R.r(14, 30)) * pt.k, r: R.r(24, 34) * (k === nseg - 1 ? 0.8 : 1) * pt.k, depth: R.r(d0, 0.98), seed: R.i(1, 1e6), kind: 'hang', elong: 1.45, dens: 1.1, fs: pt.k, parent, level: k };
         if (parent) parent.child = c;
         list.push(c); parent = c;
       }
-    }
-    // cascades over the coping on the left, where the vine first tops the wall
-    for (const [x, y, nseg] of [[96, 670, 3], [168, 672, 4], [30, 660, 3], [226, 764, 3]]) {
-      const q = nearest(sk, x, y);
-      let parent = null;
-      for (let k = 0; k < nseg; k++) {
-        const c = { x: q[0], y: q[1], ang: Math.PI / 2 + R.g() * 0.2, len: k ? R.r(34, 52) : R.r(60, 100), r: R.r(30, 40) * (k === nseg - 1 ? 0.8 : 1), depth: R.r(0.55, 0.95), seed: R.i(1, 1e6), kind: 'hang', elong: 1.4, dens: 1.1, parent, level: k };
-        if (parent) parent.child = c;
-        list.push(c); parent = c;
-      }
-    }
-    // low sprigs along the trunk
-    for (const [px, py, ang, r] of [[40, 1062, 1.9, 38], [282, 962, 0.2, 34], [74, 1074, 2.6, 30], [402, 918, 0.1, 32], [340, 938, -0.6, 28]]) {
-      list.push({ x: px, y: py, ang, len: 16, r, depth: R.r(0.3, 0.6), seed: R.i(1, 1e6), kind: 'hang', elong: 1.2, dens: 0.9 });
-    }
+    };
+    // on the front wall, the climbing trunk carries a few masses
+    for (const pt of along(SK.trunk.slice(0, 6), 0.75, 0.35, 1)) mass(pt, R.sign() * 1.4 + Math.PI / 2, 0.6, 26, 40, 0.55, 0.8);
+    // along the lower eave, over the door: masses sitting on the eave, strands falling across the wall
+    for (const pt of along(SK.eave, 0.5)) mass(pt, -Math.PI / 2, 0.9, 30, 46, 0.5, 0.85);
+    along(SK.eave, 0.85, 0.02, 0.98).forEach((pt) => { const x = pt.w[0]; if (x > 1.7 && x < 2.8) return; strand(pt, x >= 2.8 && x < 4.7 ? 1 : R.i(2, 4), 0.78); });
+    // across the lower roof, reaching toward the moon, and lying on the tiles
+    for (const pt of along(SK.roof, 0.45)) mass(pt, -2.3, 0.6, 32, 52, 0.25, 0.6);
+    const rp = along(SK.roof, 0.9);
+    for (const pt of rp.slice(-3)) spray(pt, -2.5, 38);
+    spray(rp[1], -2.0, 34);
+    // up the face of the upper storey, then along under its eave with strands down its wall
+    for (const pt of along(SK.trunk.slice(7), 0.5)) mass(pt, R.sign() * 1.3 - Math.PI / 2, 0.6, 30, 48, 0.4, 0.7);
+    for (const pt of along(SK.upper, 0.5)) mass(pt, -Math.PI / 2, 0.8, 28, 44, 0.45, 0.75);
+    along(SK.upper, 0.8, 0.1, 1).forEach((pt) => strand(pt, R.i(2, 3), 0.8));
+    // over the upper eave and up into the sky
+    for (const pt of along(SK.top, 0.4)) mass(pt, -1.9, 0.7, 30, 46, 0.3, 0.6);
+    const tp = along(SK.top, 0.7);
+    tp.forEach((pt, i) => spray(pt, -1.4 - i * 0.25, 40));
+    spray(tp[tp.length - 1], -2.4, 36);
     for (const c of list) {
       CY.makeCluster(c);
       // sway: smaller, stiffer masses move less; hanging strands more, each level lagging its parent
       c.A = c.kind === 'hang' ? 0.05 : c.kind === 'spray' ? 0.085 : 0.06 * Math.sqrt(60 / (c.r + c.len * 0.25));
-      c.own = CY.loopFn(G.D, c.seed, 2, 9, 0.8);
+      c.own = CY.loopFn(CY.G.D, c.seed, 2, 9, 0.8);
       c.lag = (c.level || 0) * 0.32 + (c.kind === 'spray' ? 0.15 : 0);
       c.gustDir = Math.sin(c.ang) >= 0 ? 1 : -1; // so the gust always pushes tips toward the left
       c.flick = CY.rng(c.seed + 7).f() * TAU;
@@ -169,20 +147,25 @@
         rot0: R.f() * TAU, spin: R.r(0.8, 2.6) * R.sign(), fw: R.r(2.2, 5.2), fp: R.f() * TAU,
         rest: R.r(5, 12), fade: R.r(2.2, 3.2), pushK: R.r(0.7, 1.3), var: i % 2,
       };
-      // where it lands: snap to a step tread, the sill, or the paving; never on the pot
+      // where it lands: a step, the lower roof's tiles, or the paving (also where the paving has dissolved
+      // into the paper, as if the petals lie on the sheet itself)
       let yl = 1800, F = 6;
       for (let it = 0; it < 3; it++) {
         F = (yl - y0) / p.v;
         const xl = A.petalX(p, F);
-        const r = R.f(), s1 = G.steps[0], s2 = G.steps[1], si = G.sill;
-        if (it < 2) {
-          if (xl > s2.x0 + 8 && xl < s2.x1 - 8 && r < 0.22) yl = R.r(s2.top + 4, s2.face - 3);
-          else if (xl > s1.x0 + 8 && xl < s1.x1 - 8 && r < 0.42) yl = R.r(s1.top + 4, s1.face - 3);
-          else if (xl > si.x0 + 8 && xl < si.x1 - 8 && r < 0.5) yl = R.r(si.top + 3, si.face - 3);
-          else if (xl < s2.x0 || xl > s2.x1) yl = R.r(1592, 1880);
-          else yl = R.r(1722, 1880);
-          if (xl > 10 && xl < 290 && yl < 1752) yl = R.r(1756, 1880);
-        }
+        const cand = [];
+        for (const s2 of G.stepTops) { const r = yRange(s2, xl); if (r && r[0] > y0 + 10) cand.push([r, 0.25]); }
+        const rr = yRange(G.lroof, xl); if (rr && rr[0] > y0 + 10) cand.push([rr, 0.3]);
+        const bottom = Math.min(1870, G.dissolveBottom(xl) + 60), gTop = Math.max(y0 + 20, groundTop(xl));
+        if (bottom > gTop) cand.push([[gTop, bottom], 1]);
+        if (!cand.length) { yl = 1880; continue; }
+        let pick = R.f() * cand.reduce((s3, c) => s3 + c[1], 0), ch = cand[0];
+        for (const c of cand) { pick -= c[1]; if (pick <= 0) { ch = c; break; } }
+        yl = R.r(ch[0][0] + 3, Math.max(ch[0][0] + 4, ch[0][1] - 3));
+        // not on the jar, and not on the paving where the steps stand in front of it
+        const J = G.jar;
+        if (Math.abs(xl - J.x) < J.r && yl < J.y + 4 && yl > J.y - J.r * 2.3) yl = J.y + R.r(6, 30);
+        if (ch[1] === 1) for (const s2 of G.stepTops) { const r = yRange(s2, xl); if (r && yl < r[1] + 40 && yl > r[0]) yl = r[1] + 40 + R.r(0, 20); }
       }
       p.yl = yl; p.F = (yl - y0) / p.v;
       p.xl = A.petalX(p, p.F);
@@ -193,6 +176,19 @@
     }
     A.petals = P;
   };
+  // the vertical extent of a convex screen polygon at x (null if x misses it)
+  function yRange(poly, x) {
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length];
+      if ((a[0] - x) * (b[0] - x) > 0 || a[0] === b[0]) continue;
+      const y = a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]);
+      lo = Math.min(lo, y); hi = Math.max(hi, y);
+    }
+    return lo < hi ? [lo, hi] : null;
+  }
+  // the top of the visible paving at x: just in front of the house's foot
+  function groundTop(x) { const r = yRange(CY.G.ground, x); return r ? Math.max(r[0], (CY.G.footY ? CY.G.footY(x) : r[0]) + 6) : 1900; }
   A.petalX = function (p, tau) {
     const s = clamp(tau / Math.max(0.1, p.F || 6), 0, 1);
     return p.x0 + p.drift * tau - (A.windInt(p.t0 + tau) - A.windInt(p.t0)) * p.pushK + p.sw * Math.sin(p.sf * tau + p.sp) * Math.min(1, tau / 1.2);
@@ -285,6 +281,8 @@
     rg.addColorStop(0, `rgba(255,160,80,${(0.34 * glow).toFixed(3)})`); rg.addColorStop(0.4, `rgba(240,120,60,${(0.13 * glow).toFixed(3)})`); rg.addColorStop(1, 'rgba(200,80,40,0)');
     g.fillStyle = rg; g.fillRect(bx - 190, by - 190, 380, 380);
     g.globalCompositeOperation = 'source-over';
+    // the cord from the eave
+    g.strokeStyle = 'rgba(28,24,22,0.9)'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(G.hookFrom[0], G.hookFrom[1]); g.lineTo(G.hook.x, G.hook.y); g.stroke();
     // tassel, lagging behind the body
     const tx = G.hook.x - s * 118, ty = G.hook.y + c * 118;
     g.setTransform(Math.cos(tht), Math.sin(tht), -Math.sin(tht), Math.cos(tht), tx, ty);
@@ -304,9 +302,10 @@
       const w = R.r(320, 480), h = 70, S = CY.mk(w + 40, h), g = S.g;
       for (let i = 0; i < 5; i++) {
         const y = h / 2 + R.g() * 7, x0 = 20 + R.r(0, w * 0.3), x1 = 20 + w - R.r(0, w * 0.3);
-        CY.ink(g, CY.smooth([[x0, y], [(x0 + x1) / 2, y + R.g() * 5], [x1, y + R.g() * 4]], 2), { w: R.r(8, 20), col: R.pick([[214, 204, 212], [196, 190, 204], [232, 214, 196]]), a: R.r(0.25, 0.5), dry: 0.55, seed: 951 + k * 10 + i, tin: 0.3, tout: 0.4, wob: 3 });
+        CY.ink(g, CY.smooth([[x0, y], [(x0 + x1) / 2, y + R.g() * 5], [x1, y + R.g() * 4]], 2), { w: R.r(8, 20), col: R.pick([[120, 170, 176], [96, 150, 160], [200, 180, 150]]), a: R.r(0.25, 0.5), dry: 0.55, seed: 951 + k * 10 + i, tin: 0.3, tout: 0.4, wob: 3 });
       }
-      A.wisps.push({ c: S.c, x: [520, 640, 880][k], y: [330, 448, 300][k], ph: [2, 11, 19][k], v: [5, 4, 6][k] });
+      const m = CY.G.moon;
+      A.wisps.push({ c: S.c, x: m.x + [-60, 110, -170][k], y: m.y + [-40, 80, -130][k], ph: [2, 11, 19][k], v: [5, 4, 6][k] });
     }
   };
   A.drawWisps = function (g, t) {
@@ -323,8 +322,10 @@
   // ------------------------------------------------------------------ a sparrow on the wall's ridge
   // timeline (s): 4.3-6.0 flies in from the right and lands; 6-19 on the ridge (turns, hops, pecks, flicks its
   // tail); 19.0-20.8 flies off up and out to the right. Off the picture otherwise.
-  A.SP = { arrive: 4.3, land: 6.0, leave: 19.0, gone: 20.8, perch: [906, 640], hop: [10.6, 10.88, -30], turns: [[8.4, -1], [15.2, 1], [18.55, -1]], pecks: [12.6, 13.25], flicks: [7.2, 11.6, 16.9, 18.3] };
+  A.SP = { arrive: 4.3, land: 6.0, leave: 19.0, gone: 20.8, perch: [0, 0], hop: [10.6, 10.88, -30, 0], turns: [[8.4, 1], [15.2, -1], [18.55, 1]], pecks: [12.6, 13.25], flicks: [7.2, 11.6, 16.9, 18.3] };
   A.buildSparrow = function () {
+    const PG = CY.G.perch;
+    A.SP.perch = [PG.x, PG.y]; A.SP.hop[2] = PG.hop; A.SP.hop[3] = PG.hopY;
     const sc = 3, Z = 1.35;
     const mk = (w, h, ox, oy, fn) => { const S = CY.mk(w * sc, h * sc), g = S.g; g.scale(sc, sc); g.translate(ox, oy); fn(g); return S.c; };
     const brown = '#8d6647', dark = '#3f2a1d', buff = '#c9a77a', pale = '#ece2cc', crown = '#80807a', nape = '#8f4f2c', chest = '#b4ad9f';
@@ -402,12 +403,12 @@
   A.sparrowState = function (t) {
     const S = A.SP;
     if (t < S.arrive || t >= S.gone) return null;
-    let [x, y] = S.perch, rot = 0, face = 1, sprite = 'perch', tail = 0, lift = 0;
+    let [x, y] = S.perch, rot = 0, face = -1, sprite = 'perch', tail = 0, lift = 0;
     // hop
     const hp = S.hop;
-    if (t >= hp[1]) x += hp[2];
-    else if (t > hp[0]) { const u = (t - hp[0]) / (hp[1] - hp[0]); x += hp[2] * sm(0, 1, u); lift = Math.sin(Math.PI * u) * 9; }
-    // turning: the bird faces left (face 1); a turn squeezes through edge-on over 0.16 s
+    if (t >= hp[1]) { x += hp[2]; y += hp[3]; }
+    else if (t > hp[0]) { const u = (t - hp[0]) / (hp[1] - hp[0]); x += hp[2] * sm(0, 1, u); y += hp[3] * sm(0, 1, u); lift = Math.sin(Math.PI * u) * 9; }
+    // turning: face 1 is beak to the left; it arrives facing right (-1); a turn squeezes through edge-on over 0.16 s
     for (const [tt, dir] of S.turns) { if (t >= tt) face = dir; }
     for (const [tt, dir] of S.turns) { const d = t - tt; if (d > -0.08 && d < 0.08) { const prev = -dir; face = prev * Math.cos(((d + 0.08) / 0.16) * Math.PI) || 0.02; } }
     // pecking: tip forward about the feet
@@ -418,7 +419,9 @@
     if (t < S.land) {
       const u = (t - S.arrive) / (S.land - S.arrive);
       const e = 1 - Math.pow(1 - u, 2.2);
-      [x, y] = bez([1150, 470], [1060, 420], [960, 560], S.perch, e);
+      const [px, py] = S.perch;
+      [x, y] = bez([-120, py - 300], [-20, py - 330], [px - 140, py - 110], S.perch, e);
+      face = -1;
       sprite = u > 0.86 ? 'perch' : 'fly' + flap(t);
       if (u > 0.72 && u <= 0.86) sprite = 'fly2';
       rot = u <= 0.86 ? -0.15 * (1 - u) : 0;
@@ -426,9 +429,9 @@
     } else if (t >= S.leave) {
       const u = (t - S.leave) / (S.gone - S.leave);
       const e = Math.pow(u, 1.7);
-      const from = [S.perch[0] + hp[2], S.perch[1]];
-      [x, y] = bez(from, [from[0] + 10, from[1] - 60], [1040, 380], [1170, 330], e);
-      face = -1;
+      const from = [S.perch[0] + hp[2], S.perch[1] + hp[3]];
+      [x, y] = bez(from, [from[0] - 10, from[1] - 60], [-30, from[1] - 330], [-170, from[1] - 380], e);
+      face = 1;
       sprite = u < 0.08 ? 'perch' : 'fly' + flap(t);
       rot = u < 0.08 ? 0 : 0.2;
       lift = u < 0.08 ? -2 * (1 - sm(0, 1, u / 0.08)) : 0; // springing up out of the crouch
@@ -475,9 +478,6 @@
     g.drawImage(L.sky.c, 0, 0);
     A.drawWisps(g, t);
     g.drawImage(L.far.c, 0, 0);
-    A.drawSunBand(g, L, t);
-    A.drawLantern(g, t);
-    g.setTransform(1, 0, 0, 1, 0, 0);
     g.drawImage(L.front.c, 0, 0);
     const T = A.transforms(t);
     const sun = A.sun(t);
@@ -492,12 +492,22 @@
       s.drawImage(c.sh, -c.ox, -c.oy);
     }
     s.setTransform(1, 0, 0, 1, 0, 0);
-    s.globalCompositeOperation = 'source-in'; s.fillStyle = '#5e5a6e'; s.fillRect(0, 0, shadowL.w, shadowL.h);
+    // the eaves' shadows, their depth moving with the light, toothed by the rafter ends
+    s.fillStyle = '#000';
+    for (const e of G.eaveShadow) {
+      const dd = e.base + 0.16 * A.sunPhase(t), top = [], bot = [];
+      for (let u = e.u0; u <= e.u1 + 0.001; u += 0.08) { top.push(e.F.at(u, e.v + 0.3)); bot.push(e.F.at(u, e.v - dd - 0.06 * Math.abs(Math.sin((u * Math.PI) / 0.32)))); }
+      s.beginPath(); top.concat(bot.reverse()).forEach((q, i) => (i ? s.lineTo(q[0], q[1]) : s.moveTo(q[0], q[1]))); s.closePath(); s.fill();
+    }
+    s.globalCompositeOperation = 'source-in'; s.fillStyle = '#1d3a52'; s.fillRect(0, 0, shadowL.w, shadowL.h);
     s.globalCompositeOperation = 'destination-in'; s.drawImage(L.wallMask.c, 0, 0);
     g.setTransform(1, 0, 0, 1, 0, 0);
-    g.globalCompositeOperation = 'multiply'; g.globalAlpha = 0.42 * sun;
+    g.globalCompositeOperation = 'multiply'; g.globalAlpha = 0.55 * sun;
     g.drawImage(shadowL.c, 0, 0);
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    A.drawLantern(g, t);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(L.dissolve.c, 0, 0);
     // petals resting on the stone
     const states = A.petals.map((p) => A.petalState(p, t));
     for (let i = 0; i < A.petals.length; i++) { const st = states[i]; if (st && st.landed) A.drawPetal(g, A.petals[i], st); }
@@ -513,8 +523,8 @@
     // petals in the air
     for (let i = 0; i < A.petals.length; i++) { const st = states[i]; if (st && !st.landed) A.drawPetal(g, A.petals[i], st); }
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
-    // warm late sun
-    g.globalCompositeOperation = 'soft-light'; g.globalAlpha = 0.85 * sun;
+    // the warm light of the moon
+    g.globalCompositeOperation = 'soft-light'; g.globalAlpha = 0.6 * sun;
     g.drawImage(L.light.c, 0, 0);
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
     const b = L.over.box;
@@ -529,7 +539,7 @@
     const out = {};
     A.petals.forEach((p, i) => { const st = A.petalState(p, mod(t, CY.G.D)); const on = st ? clamp((st.x + 30) / 60, 0, 1) * clamp((W + 30 - st.x) / 60, 0, 1) * clamp((H + 30 - st.y) / 60, 0, 1) : 0; /* soft frame edge: leaving the picture is motion, not a pop */ out['petal' + i] = st ? st.a * st.sx * st.sy * p.s * p.s * p.w * on : 0; });
     const sp = A.sparrowState(mod(t, CY.G.D));
-    out.sparrow = sp && sp.x < W + 30 ? 1500 * Math.min(1, (W + 30 - sp.x) / 60) : 0;
+    out.sparrow = sp && sp.x > -30 ? 1500 * Math.min(1, (sp.x + 30) / 240) : 0; // it flies in across the left edge: entering is motion, not a pop
     A.wisps.forEach((w, k) => { const u = mod(t - w.ph, CY.G.D) / CY.G.D; out['wisp' + k] = Math.pow(Math.sin(Math.PI * u), 2) * 0.85 * 4000; });
     return out;
   };

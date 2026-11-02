@@ -1,4 +1,4 @@
-// "The Moon Gate" - boot, clock and the render hook.
+// "The Blue House" - boot, clock and the render hook.
 //   index.html            plays the loop on the wall clock
 //   index.html?t=12.5     a frozen frame at t = 12.5 s
 //   index.html?export     static clock: nothing draws until window.__courtyard.renderAt(t) is called
