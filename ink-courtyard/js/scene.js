@@ -38,11 +38,12 @@
   const S = (p) => CY.smooth(p, 3);
   G.skel = {
     trunk: S([[150, 1442], [170, 1372], [148, 1300], [130, 1222], [158, 1142], [190, 1072], [176, 992], [198, 912], [226, 842], [236, 772], [254, 704], [266, 660]]),
-    up: S([[262, 664], [296, 610], [340, 556], [392, 500], [446, 452], [506, 412], [560, 384]]),
-    left: S([[252, 700], [206, 652], [150, 604], [90, 556], [28, 512], [-10, 490]]),
+    // the old wood tops the wall and runs both ways along the coping, lying on the tiles
+    ridge: S([[262, 664], [306, 650], [372, 642], [450, 643], [532, 647], [612, 651], [690, 653], [760, 659], [818, 668]]),
+    left: S([[252, 700], [208, 676], [150, 664], [88, 658], [26, 655], [-20, 654]]),
     cope: S([[236, 768], [318, 748], [418, 742], [520, 748], [622, 757], [720, 762], [800, 771], [880, 781], [930, 790]]),
     low1: S([[164, 1128], [118, 1100], [74, 1074], [40, 1062]]),
-    low2: S([[184, 1006], [226, 990], [262, 966], [282, 948]]),
+    low2: S([[184, 1006], [226, 988], [282, 962], [340, 938], [402, 918]]),
   };
 
   // ------------------------------------------------------------------ helpers
@@ -104,30 +105,35 @@
   function tileField(t, R, x0, x1, y0, y1, pitch, cover, o) {
     o = o || {};
     const course = o.course || 13, irr = o.irr == null ? 1 : o.irr;
-    for (let x = x0; x < x1; x += pitch) {
-      const cx = x + R.g() * 0.9 * irr;
-      cover = Math.max(4, o.cover0 || (o.cover0 = cover)) + R.g() * 1.2 * irr;
-      // pan channel
-      t.fillStyle = rgba(o.pan || '#383e42', 0.85); t.fillRect(cx - pitch / 2 - (pitch - cover) / 2, y0, pitch - cover + 1, y1 - y0);
+    // columns: laid by hand, so the spacing wanders and each run leans a little
+    let cols = o.cols;
+    if (!cols) { cols = []; for (let x = x0; x < x1 + pitch * 2; x += pitch * (1 + R.g() * 0.07 * irr)) cols.push({ x, lean: R.g() * 0.02 * irr }); }
+    for (let ci = 0; ci < cols.length - 1; ci++) {
+      const C = cols[ci], pi = cols[ci + 1].x - C.x;
+      const cv = Math.max(4, cover * (pi / pitch) + R.g() * 1.2 * irr);
+      const h = y1 - y0 + (C.dy || 0);
+      t.save(); t.translate(C.x, y0); t.transform(1, 0, C.lean || 0, 1, 0, 0);
+      const xl = -cv / 2, xr = cv / 2;
+      // pan channel to the next run
+      t.fillStyle = rgba(o.pan || '#383e42', 0.85); t.fillRect(xr - 1, 0, pi - cv + 2, h);
       // cover strip
-      const c0 = o.cov || '#6d7478';
-      t.fillStyle = rgba(CY.jit(c0, R, 0.07), 1); t.fillRect(cx + (pitch - cover) / 2 - pitch / 2, y0, cover, y1 - y0);
-      const xl = cx + (pitch - cover) / 2 - pitch / 2, xr = xl + cover;
-      t.fillStyle = rgba(o.dark || '#3f4549', 0.55); t.fillRect(xl, y0, cover * 0.22, y1 - y0);
-      t.fillStyle = rgba(o.lit || '#9ba2a3', 0.65); t.fillRect(xr - cover * 0.34, y0, cover * 0.2, y1 - y0);
-      // courses: each overlapping tile end is a soft arc with a lit lip
-      for (let y = y0 + R.r(2, course); y < y1 - 3; y += course + R.g() * 1.6 * irr) {
-        // each tile a little different: tone, a chipped lip, now and then a broken one
-        t.fillStyle = rgba(CY.jit(c0, R, 0.16 * irr), 0.45); t.fillRect(xl + 1, y, cover - 2, course);
-        if (R.f() < 0.04 * irr) { t.fillStyle = rgba('#24282a', 0.7); t.fillRect(xl + R.r(2, cover * 0.4), y + 2, R.r(3, cover * 0.5), course * R.r(0.5, 1.2)); }
-        t.strokeStyle = rgba('#202427', o.courseA || 0.55); t.lineWidth = o.courseW || 1.3;
-        t.beginPath(); t.moveTo(xl, y); t.quadraticCurveTo((xl + xr) / 2, y + course * 0.32, xr, y); t.stroke();
-        t.strokeStyle = rgba(o.lit || '#a7adad', 0.35); t.lineWidth = 1;
-        t.beginPath(); t.moveTo(xl + 2, y + 2); t.quadraticCurveTo((xl + xr) / 2, y + 2 + course * 0.3, xr - 2, y + 2); t.stroke();
-        // pan courses
+      const c0 = C.tone || o.cov || '#6d7478';
+      t.fillStyle = rgba(CY.jit(c0, R, 0.07), 1); t.fillRect(xl, 0, cv, h);
+      t.fillStyle = rgba(o.dark || '#3f4549', 0.55); t.fillRect(xl, 0, cv * 0.22, h);
+      t.fillStyle = rgba(o.lit || '#9ba2a3', 0.65); t.fillRect(xr - cv * 0.34, 0, cv * 0.2, h);
+      // courses: each overlapping tile end is a soft arc with a lit lip; tiles differ in tone and length
+      for (let y = R.r(2, course); y < h - 3; y += course * (1 + R.g() * 0.12 * irr)) {
+        t.fillStyle = rgba(CY.jit(c0, R, 0.18 * irr), 0.45); t.fillRect(xl + 1, y, cv - 2, course);
+        if (R.f() < 0.05 * irr) { t.fillStyle = rgba('#24282a', 0.7); t.fillRect(xl + R.r(2, cv * 0.4), y + 2, R.r(3, cv * 0.5), course * R.r(0.5, 1.2)); }
+        const sl = R.g() * 1.4 * irr;
+        t.strokeStyle = rgba('#202427', (o.courseA || 0.55) * R.r(0.7, 1)); t.lineWidth = (o.courseW || 1.3) * R.r(0.8, 1.2);
+        t.beginPath(); t.moveTo(xl, y - sl); t.quadraticCurveTo(0, y + course * R.r(0.25, 0.4), xr, y + sl); t.stroke();
+        t.strokeStyle = rgba(o.lit || '#a7adad', 0.35 * R.r(0.5, 1)); t.lineWidth = 1;
+        t.beginPath(); t.moveTo(xl + 2, y + 2 - sl); t.quadraticCurveTo(0, y + 2 + course * 0.3, xr - 2, y + 2 + sl); t.stroke();
         t.strokeStyle = rgba('#202426', 0.45);
-        t.beginPath(); t.moveTo(xr, y + course / 2); t.quadraticCurveTo(xr + (pitch - cover) / 2, y + course / 2 - course * 0.25, xr + pitch - cover, y + course / 2); t.stroke();
+        t.beginPath(); t.moveTo(xr, y + course / 2); t.quadraticCurveTo(xr + (pi - cv) / 2, y + course / 2 - course * 0.25, xr + pi - cv, y + course / 2 + R.g()); t.stroke();
       }
+      t.restore();
     }
   }
 
@@ -175,12 +181,9 @@
         t.lineCap = 'round';
         for (let i = 0; i < 260; i++) { const y = R.r(Y0, GY), x = R.r(X0 - 60, X1); t.strokeStyle = rgba(R.pick(['#8f9894', '#aab1ab', '#949c9a', '#b3b6a8']), R.r(0.12, 0.3)); t.lineWidth = R.r(4, 18); t.beginPath(); t.moveTo(x, y); t.lineTo(x + R.r(40, 160), y + R.g() * 4); t.stroke(); }
         // lit band with a scalloped shadow edge (the coping's drip tiles, cast across the courtyard)
-        const top = [[X0 - 20, Y0 - 20], [X1 + 20, Y0 - 20]];
-        for (let x = X1 + 20; x >= X0 - 20; x -= 8) top.push([x, SHADE + 70 - (x - X0) * 0.26 + 6 * CY.fbm(x * 0.02, 3, 31, 2)]);
-        t.filter = 'blur(5px)';
-        t.fillStyle = rgba('#e0c79a', 1); CY.path(t, [top]); t.fill();
-        t.filter = 'none';
-        t.fillStyle = lgrad(t, X0, 0, X1, 0, [[0, '#c9a77c', 0.25], [1, '#f2d6a0', 0.3]]); CY.path(t, [top]); t.fill();
+        // the lit band is not painted here: the sunlit version of this whole layer is revealed above a moving
+        // shade line at render time (see paintScene, A.sunLine), so the light can travel across the far wall
+        G.inner = { X0, X1, Y0, SHADE };
         // rain streaks down the far wall, through light and shade alike
         for (let i = 0; i < 70; i++) { const x = R.r(X0, X1), y = R.r(Y0, GY - 160); t.strokeStyle = rgba(R.pick(['#7c8582', '#8a8e86', '#a39477']), R.r(0.1, 0.24)); t.lineWidth = R.r(2, 9); t.beginPath(); t.moveTo(x, y); t.lineTo(x + R.g() * 2, y + R.r(40, 200)); t.stroke(); }
         // the shade is not empty: old wash marks and a damp foot
@@ -446,11 +449,19 @@
 
   function paintCoping(g) {
     const c = G.cope;
+    // the runs of the coping: uneven spacing, a lean, the odd replaced or darker tile; the eave sags a little
+    const RC = CY.rng(4100), cols = [];
+    for (let x = -26; x < W + 60; x += RC.r(33, 44)) {
+      const st = RC.f();
+      cols.push({ x, lean: RC.g() * 0.035, dy: 0, r: RC.r(12.2, 14.8), st, tone: st < 0.07 ? '#8a8f8e' : st > 0.93 ? '#596064' : null, ddy: RC.g() * 1.6 });
+    }
+    const sag = (x) => 4.5 * Math.sin(Math.PI * CY.clamp((x + 20) / (W + 40), 0, 1)) + 1.6 * Math.sin(x * 0.013 + 1);
+    const foot = (C) => C.x + C.lean * (c.eave - c.rb);
     // tile field
     CY.gouache(g, CY.rect(-20, c.rb - 2, W + 40, c.eave - c.rb + 6), {
       col: '#555c60', rough: 1, passes: 2, erode: 0.3, seed: 100, mott: 0.12,
       fx: (t, R) => {
-        tileField(t, R, 19 - 38, W + 40, c.rb - 2, c.eave + 4, 38, 26, { course: 14, cov: '#737b7f', lit: '#b0b6b5', pan: '#2a2f32', dark: '#3a4044', courseA: 0.8, courseW: 1.8 });
+        tileField(t, R, -26, W + 40, c.rb - 2, c.eave + 4, 38, 26, { cols, course: 14, cov: '#737b7f', lit: '#b0b6b5', pan: '#2a2f32', dark: '#3a4044', courseA: 0.8, courseW: 1.8 });
         for (let i = 0; i < 22; i++) { t.fillStyle = rgba(R.pick(['#8e9670', '#a19a6c', '#6f7a5a']), R.r(0.25, 0.5)); CY.path(t, [CY.blob(R.r(0, W), R.r(c.rb + 10, c.eave), R.r(5, 16), R.r(3, 9), R.i(1, 999), 0.5, 16)]); t.fill(); }
         t.fillStyle = lgrad(t, 0, c.rb, 0, c.rb + 40, [[0, '#1f2224', 0.4], [1, '#1f2224', 0]]); t.fillRect(-20, c.rb - 2, W + 40, 40);
         t.fillStyle = lgrad(t, 0, 0, W, 0, [[0, '#2f3437', 0.15], [0.6, '#000', 0], [1, '#e5c18e', 0.18]]); t.fillRect(-20, c.rb - 2, W + 40, 120);
@@ -462,38 +473,46 @@
       fx: (t, R) => {
         for (let x = -20; x < W + 30; x += 8) { t.strokeStyle = rgba(R.f() < 0.5 ? '#626a6e' : '#2a2f31', 0.75); t.lineWidth = 2.6; t.beginPath(); t.moveTo(x, c.top + 9); t.lineTo(x + 7, c.rb - 2); t.stroke(); }
         t.fillStyle = rgba('#5f676b', 1); t.fillRect(-20, c.top, W + 40, 8);
-        for (let x = -20; x < W + 30; x += 15) { t.fillStyle = rgba(CY.jit('#6b7377', R, 0.12), 1); t.beginPath(); t.ellipse(x, c.top + 5, 8, 5, 0, Math.PI, 0); t.fill(); t.strokeStyle = rgba('#24282a', 0.6); t.lineWidth = 1.2; t.stroke(); }
+        for (let x = -20; x < W + 30; x += R.r(12.5, 17.5)) { t.fillStyle = rgba(CY.jit('#6b7377', R, 0.14), 1); t.beginPath(); t.ellipse(x, c.top + 5 + R.g() * 0.8, R.r(7, 9), R.r(4.4, 5.6), R.g() * 0.06, Math.PI, 0); t.fill(); t.strokeStyle = rgba('#24282a', R.r(0.45, 0.7)); t.lineWidth = 1.2; t.stroke(); }
         t.fillStyle = rgba('#cbb38a', 0.35); t.fillRect(-20, c.top, W + 40, 2.5);
       },
     });
-    ink(g, [[-10, c.top + 1], [W + 10, c.top]], { w: 2.8, a: 0.85, dry: 0.45, seed: 102, dbl: 1.2, tin: 0.01, tout: 0.01 });
+    ink(g, [[-10, c.top + 1], [W * 0.3, c.top + 2], [W * 0.7, c.top + 1.5], [W + 10, c.top]], { w: 2.8, a: 0.85, dry: 0.45, seed: 102, dbl: 1.2, tin: 0.01, tout: 0.01, wob: 1.4 });
     ink(g, [[-10, c.top + 9], [W + 10, c.top + 9]], { w: 1.4, a: 0.6, dry: 0.55, seed: 103, tin: 0.01, tout: 0.01 });
     ink(g, [[-10, c.rb], [W + 10, c.rb + 1]], { w: 2.2, a: 0.8, dry: 0.45, seed: 104, tin: 0.01, tout: 0.01 });
-    // the cover tiles' edges
-    for (let x = 19 - 38, i = 0; x < W + 40; x += 38, i++) {
-      const xl = x - 13, xr = x + 13;
-      ink(g, [[xl, c.rb + 2], [xl + CY.hash(i, 2, 9) * 2 - 1, c.eave]], { w: 2, a: 0.8, dry: 0.55, seed: 105 + i * 3, nb: 3, tin: 0.05, tout: 0.1 });
-      if (CY.hash(i, 9, 9) < 0.7) ink(g, [[xr, c.rb + 2], [xr, c.eave]], { w: 1.1, a: 0.5, dry: 0.6, seed: 106 + i * 3, nb: 2 });
-    }
-    // drip tiles (pointed lips) between the round end tiles
-    const drips = [], discs = [];
-    for (let x = 19 - 38; x < W + 40; x += 38) {
-      const m = x + 19;
-      drips.push(CY.smooth([[m - 15, c.eave - 2], [m + 15, c.eave - 2], [m + 13, c.eave + 10], [m + 4, c.drip - 4], [m, c.drip], [m - 4, c.drip - 4], [m - 13, c.eave + 10]], 2, true));
-      discs.push(CY.circle(x, c.disc, 13.5, 30));
-    }
-    CY.gouache(g, drips, { col: '#4c5357', rough: 0.6, passes: 2, erode: 0.25, eb: 1.5, seed: 107, rule: 'nonzero', fx: (t) => { t.fillStyle = lgrad(t, 0, c.eave, 0, c.drip, [[0, '#1d2123', 0.35], [1, '#9aa2a3', 0.2]]); t.fillRect(-40, c.eave - 4, W + 80, 40); } });
-    CY.gouache(g, discs, { col: '#7b8285', rough: 0.6, passes: 2, erode: 0.25, eb: 1.5, seed: 108, rule: 'nonzero', fx: (t) => { t.fillStyle = lgrad(t, 0, 0, W, 0, [[0, '#3c4245', 0.3], [1, '#d9c39c', 0.25]]); t.fillRect(-40, c.eave, W + 80, 40); } });
+    // the cover tiles' edges, following each run's lean
+    cols.forEach((C, i) => {
+      const hw = 13 * ((cols[i + 1] ? cols[i + 1].x - C.x : 38) / 38), fx = foot(C) - C.x;
+      ink(g, [[C.x - hw, c.rb + 2], [C.x - hw + fx + CY.hash(i, 2, 9) * 2 - 1, c.eave + sag(C.x)]], { w: 2, a: 0.8, dry: 0.55, seed: 105 + i * 3, nb: 3, tin: 0.05, tout: 0.1 });
+      if (CY.hash(i, 9, 9) < 0.7) ink(g, [[C.x + hw, c.rb + 2], [C.x + hw + fx, c.eave + sag(C.x)]], { w: 1.1, a: 0.5, dry: 0.6, seed: 106 + i * 3, nb: 2 });
+    });
+    // drip tiles (pointed lips) between the round end tiles; each sits where its run ends, on the sagging eave
+    const drips = [], discs = [], gone = [];
+    cols.forEach((C, i) => {
+      if (!cols[i + 1]) return;
+      const N = cols[i + 1], m = (foot(C) + foot(N)) / 2, e = c.eave + sag(m) + C.ddy * 0.5, hw = Math.min(16, (N.x - C.x) / 2.5);
+      drips.push(CY.smooth([[m - hw, e - 2], [m + hw, e - 2], [m + hw - 2, e + 10], [m + 4, e + (c.drip - c.eave) - 4], [m + C.ddy * 0.4, e + (c.drip - c.eave) + C.ddy * 0.6], [m - 4, e + (c.drip - c.eave) - 4], [m - hw + 2, e + 10]], 2, true));
+      const fx = foot(C), dy = c.disc + sag(fx) + C.ddy;
+      if (C.st > 0.5 && C.st < 0.54) gone.push([fx, dy, C.r]); // an end tile lost: the dark socket shows
+      else discs.push({ poly: CY.circle(fx, dy, C.r, 30), x: fx, y: dy, r: C.r, i, tone: C.tone });
+    });
+    CY.gouache(g, drips, { col: '#4c5357', rough: 0.6, passes: 2, erode: 0.25, eb: 1.5, seed: 107, rule: 'nonzero', fx: (t) => { t.fillStyle = lgrad(t, 0, c.eave, 0, c.drip, [[0, '#1d2123', 0.35], [1, '#9aa2a3', 0.2]]); t.fillRect(-40, c.eave - 4, W + 80, 50); } });
+    for (const [x, y, r] of gone) { g.fillStyle = rgba('#25292b', 0.85); g.beginPath(); g.ellipse(x, y - 2, r * 0.8, r * 0.6, 0, 0, 6.283); g.fill(); CY.crack(g, x - r * 0.6, y - 4, 0.4, 14, 4200 + x, { w: 1, a: 0.5 }); }
+    CY.gouache(g, discs.map((d) => d.poly), { col: '#7b8285', rough: 0.6, passes: 2, erode: 0.25, eb: 1.5, seed: 108, rule: 'nonzero', fx: (t, R2) => {
+      t.fillStyle = lgrad(t, 0, 0, W, 0, [[0, '#3c4245', 0.3], [1, '#d9c39c', 0.25]]); t.fillRect(-40, c.eave, W + 80, 50);
+      for (const d of discs) { t.fillStyle = rgba(d.tone || CY.jit('#7b8285', R2, 0.12), d.tone ? 0.55 : 0.35); t.beginPath(); t.arc(d.x, d.y, d.r + 2, 0, 6.283); t.fill(); }
+    } });
     const R = CY.rng(109);
-    for (let k = 0; k < drips.length; k++) {
-      CY.inkPoly(g, drips[k], { w: 1.4, a: 0.7, dry: 0.45, seed: 110 + k, seg: [40, 80] });
-      const x = 19 - 38 + k * 38;
-      ink(g, CY.circle(x, c.disc, 13.5, 28).concat([[x + 13.5, c.disc]]), { w: 1.8, a: 0.8, dry: 0.4, seed: 111 + k * 5, tin: 0.02, tout: 0.04 });
-      // the end-tile motif: an inner ring and a small whorl, invented
-      ink(g, CY.circle(x, c.disc, 8.5, 20).concat([[x + 8.5, c.disc]]), { w: 0.9, a: 0.5, dry: 0.5, seed: 112 + k * 5, nb: 2 });
-      const wh = []; for (let s = 0; s < 14; s++) { const a = s * 0.6 + k, r = 1 + s * 0.42; wh.push([x + Math.cos(a) * r, c.disc + Math.sin(a) * r]); }
-      ink(g, wh, { w: 1, a: 0.55, dry: 0.3, seed: 113 + k * 5, nb: 2 });
-      if (R.f() < 0.3) CY.wash(g, CY.blob(x + 4, c.disc + 4, 8, 6, 114 + k, 0.3, 16), '#8f9a7c', { a: 0.4, blur: 1.5, seed: 114 + k, rim: 0.4 }); // lichen
+    drips.forEach((dp, k) => CY.inkPoly(g, dp, { w: 1.4, a: 0.7, dry: 0.45, seed: 110 + k, seg: [40, 80] }));
+    for (const d of discs) {
+      const k = d.i, x = d.x, y = d.y;
+      ink(g, CY.circle(x, y, d.r, 28).concat([[x + d.r, y]]), { w: 1.8, a: 0.8, dry: 0.4, seed: 111 + k * 5, tin: 0.02, tout: 0.04 });
+      // the end-tile motif: an inner ring and a small whorl, invented; worn away on some
+      if (R.f() < 0.85) ink(g, CY.circle(x, y, d.r * 0.63, 20).concat([[x + d.r * 0.63, y]]), { w: 0.9, a: 0.5 * R.r(0.5, 1), dry: 0.5, seed: 112 + k * 5, nb: 2 });
+      const wh = []; for (let s2 = 0; s2 < 14; s2++) { const a = s2 * 0.6 + k, r = 1 + s2 * 0.42; wh.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); }
+      if (R.f() < 0.8) ink(g, wh, { w: 1, a: 0.55 * R.r(0.4, 1), dry: 0.3, seed: 113 + k * 5, nb: 2 });
+      if (R.f() < 0.12) CY.crack(g, x + R.g() * 4, y - d.r * 0.8, 1.5 + R.g() * 0.3, d.r * 1.4, 4300 + k, { w: 0.9, a: 0.55 });
+      if (R.f() < 0.3) CY.wash(g, CY.blob(x + 4, y + 4, 8, 6, 114 + k, 0.3, 16), '#8f9a7c', { a: 0.4, blur: 1.5, seed: 114 + k, rim: 0.4 }); // lichen
     }
     // painted band under the eave, with a running scroll
     CY.gouache(g, CY.rect(-20, c.drip - 2, W + 40, c.band - c.drip + 2), { col: '#d6d0c2', rough: 1, passes: 2, erode: 0.35, seed: 115, streaks: { dens: 300, ang: 0, len: [20, 90], w: [1, 4], a: [0.08, 0.2], cols: ['#bfb8a8', '#e4dfd2'] } });
@@ -569,29 +588,45 @@
     CY.wash(g, [[x0, face], [x0, bot], [x0 - 36, bot + 4], [x0 - 28, face + 8]], '#6f6a70', { a: 0.42, blur: 3, seed: seed + 40, rim: 0 });
     // the run is laid as separate stones of uneven length, not quite level, with worn and chipped nosings
     const blocks = [];
-    for (let x = x0; x < x1 - 1;) { let w = R.r(120, 240); if (x1 - (x + w) < 70) w = x1 - x; blocks.push([x, x + w]); x += w; }
+    for (let x = x0; x < x1 - 1;) { let w = R.f() < 0.2 ? R.r(70, 110) : R.r(130, 250); if (x1 - (x + w) < 70) w = x1 - x; blocks.push([x, x + w]); x += w; }
     blocks.forEach(([a, b], k) => {
-      const dy = R.g() * 1.1;
+      // each stone has settled its own way: tilted, a little proud or sunk, its nosing worn into shallow dips
+      // where feet go, and now and then a bite broken out of the edge
+      const dyL = R.g() * 1.8, dyR = R.g() * 1.8, fo = R.g() * 2;
+      const dy = (dyL + dyR) / 2 + fo;
+      const lin = (xx) => dyL + (dyR - dyL) * ((xx - a) / (b - a));
+      const bite = R.f() < 0.5 ? [R.r(a + 8, b - 40), R.r(14, 36), R.r(4, 9)] : null;
+      const wear = R.r(1, 3.4);
       const nose = [];
-      for (let xx = a; xx <= b + 0.1; xx += 6) nose.push([Math.min(xx, b), face + dy + (R.f() < 0.1 ? R.r(1.5, 5) : R.g() * 0.7) + 1.2 * Math.sin((xx - a) * 0.02 + k)]);
-      const tread = [[a + (k ? 0 : 4), top + dy], [b - (k === blocks.length - 1 ? 4 : 0), top + dy + R.g() * 0.7]].concat(nose.slice().reverse());
-      const riser = nose.concat([[b, bot], [a, bot]]);
+      for (let xx = a; xx <= b + 0.1; xx += 5) {
+        const u = (xx - a) / (b - a);
+        let yy = face + lin(xx) + fo + (CY.vnoise(xx * 0.07, k * 3.1, seed) - 0.5) * 3.2 + (CY.vnoise(xx * 0.31, k * 3.1 + 9, seed) - 0.5) * 1.3 + 1.4 * Math.sin((xx - a) * 0.018 + k * 2.1) + wear * Math.sin(u * Math.PI);
+        if (bite && xx > bite[0] && xx < bite[0] + bite[1]) yy += bite[2] * Math.sin(((xx - bite[0]) / bite[1]) * Math.PI);
+        // worn, rounded corners
+        yy += 3.5 * Math.max(0, 1 - (xx - a) / 9) * (k ? 1 : 0.5) + 3.5 * Math.max(0, 1 - (b - xx) / 9) * (k === blocks.length - 1 ? 0.5 : 1);
+        nose.push([Math.min(xx, b), yy]);
+      }
+      const tread = [[a + (k ? 1.5 : 4), top + lin(a) + R.g() * 0.6], [(a + b) / 2 + R.g() * 20, top + (dyL + dyR) / 2 + R.g() * 0.8], [b - (k === blocks.length - 1 ? 4 : 1.5), top + lin(b)]].concat(nose.slice().reverse());
+      const riser = nose.concat([[b, bot + R.g() * 1.2], [b - (b - a) * 0.33, bot + R.g() * 1.6], [a + (b - a) * 0.33, bot + R.g() * 1.6], [a, bot + R.g() * 1.2]]);
       CY.gouache(g, tread, {
-        col: CY.jit(o.tread || '#c9c1ac', R, 0.05), rough: 1.4, passes: 3, erode: 0.45, seed: seed + 1 + k * 7, mott: 0.22,
+        col: CY.jit(o.tread || R.pick(['#c9c1ac', '#cdc3aa', '#c2bcaa', '#c8c0a6']), R, 0.06), rough: 1.4, passes: 3, erode: 0.45, seed: seed + 1 + k * 7, mott: 0.22,
         streaks: { dens: 110, ang: 0, angv: 0.05, len: [14, 70], w: [1, 3.5], a: [0.12, 0.3], cols: ['#a59f90', '#ddd5c2', '#b7ae98'] },
         fx: (t) => { t.fillStyle = lgrad(t, a, 0, b, 0, [[0, '#a7a194', 0.25], [1, '#f2d9a8', 0.35]]); t.fillRect(a - 8, top - 4, b - a + 16, face - top + 14); },
       });
       CY.gouache(g, riser, {
-        col: CY.jit(o.riser || '#8b887e', R, 0.06), rough: 1.4, passes: 3, erode: 0.4, seed: seed + 2 + k * 7, mott: 0.24,
+        col: CY.jit(o.riser || R.pick(['#8b887e', '#878a7c', '#938b7d', '#808079', '#8e8a80']), R, 0.08), rough: 1.4, passes: 3, erode: 0.4, seed: seed + 2 + k * 7, mott: 0.24,
         streaks: { dens: 140, ang: 0, angv: 0.15, len: [6, 30], w: [2, 6], a: [0.08, 0.22], cols: ['#6f6c63', '#a7a397', '#7c8770', '#5d5a53'] },
         fx: (t, R2) => {
           t.strokeStyle = rgba('#3e3a36', 0.4); t.lineWidth = 6; t.beginPath(); t.moveTo(a - 4, face + dy + 4); t.lineTo(b + 4, face + dy + 4); t.stroke();
           for (let i = 0; i < 7; i++) { t.fillStyle = rgba(R2.pick(['#5c584f', '#a9a598', '#6d7560']), R2.r(0.12, 0.25)); CY.path(t, [CY.blob(R2.r(a, b), R2.r(face + 8, bot - 4), R2.r(8, 26), R2.r(4, 10), R2.i(1, 999), 0.5, 18)]); t.fill(); }
         },
       });
-      CY.ink(g, nose, { w: 2.6, a: 0.88, dry: 0.5, seed: seed + 3 + k * 7, dbl: 1.3, tin: 0.04, tout: 0.08, wob: 0.6 });
+      CY.ink(g, nose, { w: R.r(1.8, 2.6), a: 0.85, dry: 0.6, seed: seed + 3 + k * 7, dbl: 1.1, tin: R.r(0.04, 0.2), tout: R.r(0.08, 0.3), wob: 0.8 });
       if (R.f() < 0.8) CY.ink(g, [[a + 4, top + dy], [b - 4, top + dy]], { w: 1.3, a: 0.5, dry: 0.65, seed: seed + 4 + k * 7, nb: 2 });
       if (k) {
+        // a dark joint, and moss where the joint meets the ground
+        g.fillStyle = rgba('#3d3a35', 0.55); g.fillRect(a - 1.2, top + lin(a), 2.6, bot - top - lin(a));
+        if (R.f() < 0.6) CY.wash(g, CY.blob(a, bot - R.r(3, 8), R.r(5, 10), R.r(3, 7), seed + 50 + k, 0.5, 14), R.pick(['#6f7d52', '#7e8a5e', '#5f6c48']), { a: 0.55, blur: 1.2, seed: seed + 50 + k, rim: 0.3 });
         CY.ink(g, [[a, face + dy + 3], [a + R.g() * 1.5, bot - 1]], { w: 1.6, a: 0.7, dry: 0.45, seed: seed + 5 + k * 7, nb: 2 });
         CY.ink(g, [[a + 2, top + dy + 1], [a, face + dy - 1]], { w: 1.1, a: 0.45, dry: 0.5, seed: seed + 6 + k * 7, nb: 2 });
       }
@@ -604,8 +639,9 @@
   }
   function paintSteps(g) {
     const s = G.sill;
-    for (let k = G.steps.length - 1; k >= 0; k--) { const st = G.steps[k]; stoneBlock(g, st.x0, st.x1, st.top, st.face, st.bot, 140 + k * 10); }
-    stoneBlock(g, s.x0, s.x1, s.top, s.face, s.bot, 170, { tread: '#c4beae', riser: '#96928a' });
+    const R = CY.rng(139);
+    for (let k = G.steps.length - 1; k >= 0; k--) { const st = G.steps[k]; stoneBlock(g, st.x0 + R.g() * 5, st.x1 + R.g() * 5, st.top, st.face + R.g(), st.bot, 140 + k * 10); }
+    stoneBlock(g, s.x0 + R.g() * 4, s.x1 + R.g() * 4, s.top, s.face, s.bot, 170, { tread: '#c4beae', riser: '#96928a' });
   }
 
   // ------------------------------------------------------------------ the glazed pot the vine grows from
@@ -707,10 +743,10 @@
     }
     // branches (static wood; the flowering twigs are in the cluster sprites)
     const br = (pts, w0, seed) => { CY.ink(g, pts, { w: w0, col: [46, 34, 28], a: 0.9, dry: 0.42, seed, tin: 0.02, tout: 0.35, press: (u) => 1 - u * 0.55, wob: 1, dbl: 1 }); CY.ink(g, pts.map((p) => [p[0] + 1.6, p[1] - 1]), { w: 1.4, col: [150, 128, 104], a: 0.35, dry: 0.7, seed: seed + 1, nb: 2 }); };
-    br(sk.up, 7, 170); br(sk.left, 6.5, 172); br(sk.cope, 5.5, 174); br(sk.low1, 4, 176); br(sk.low2, 4, 178);
+    br(sk.ridge, 7, 170); br(sk.left, 6.5, 172); br(sk.cope, 5.5, 174); br(sk.low1, 4, 176); br(sk.low2, 4, 178);
     // thorns and nodes
     const R = CY.rng(180);
-    for (const pts of [sk.trunk, sk.up, sk.left, sk.cope]) {
+    for (const pts of [sk.trunk, sk.ridge, sk.left, sk.cope, sk.low2]) {
       const P = CY.resample(pts, 22);
       for (const p of P) if (R.f() < 0.5) { const sd = R.sign(); ink(g, [[p.x, p.y], [p.x + p.nx * sd * 7 + R.g(), p.y + p.ny * sd * 7 - 3]], { w: 1.4, a: 0.8, dry: 0.1, seed: R.i(1, 9999), nb: 2, tin: 0.01, tout: 0.9 }); }
     }
@@ -811,6 +847,20 @@
     const L = {};
     stage('L.sky = paintSky();', () => { L.sky = paintSky(); });
     stage('L.far = paintFar();', () => { L.far = paintFar(); });
+    // the far courtyard in the late sun: the same painting, warmed and lifted (colour-dodge brightens in
+    // proportion, so the red door turns brighter red and the grey wall warm cream, rather than everything paling)
+    stage('L.farLit', () => {
+      const Lt = CY.mk(W, H), q = Lt.g, I = G.inner;
+      q.drawImage(L.far.c, 0, 0);
+      q.globalCompositeOperation = 'color-dodge'; q.fillStyle = 'rgb(78,46,4)'; q.fillRect(0, I.Y0 - 30, W, H - I.Y0 + 30);
+      q.globalCompositeOperation = 'multiply'; q.fillStyle = 'rgb(255,250,236)'; q.fillRect(0, I.Y0 - 30, W, H - I.Y0 + 30);
+      q.globalCompositeOperation = 'source-over';
+      const RL = CY.rng(33);
+      const edge = [];
+      for (let x = I.X1 + 20; x >= I.X0 - 20; x -= 6) edge.push([x, I.SHADE + 70 - (x - I.X0) * 0.26 + 6 * CY.fbm(x * 0.02, 3, 31, 2) + 4 * Math.abs(Math.sin(((x - 4) * Math.PI) / 31)) + RL.g() * 0.6]);
+      G.sunEdge = edge;
+      L.farLit = Lt;
+    });
     const F = CY.mk(W, H), g = F.g;
     // the paper itself shows below the painting
     g.fillStyle = '#efe6d1'; g.fillRect(0, G.wallBot - 10, W, H);

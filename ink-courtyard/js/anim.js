@@ -23,6 +23,18 @@
   // the late sun is held steady: a slow global fade of the wall changes every pixel by sub-level amounts per
   // frame, which H.264 cannot carry cleanly (it drifts, then snaps at the keyframe). The lantern breathes instead.
   A.sun = () => 1;
+  // instead the light travels: the shade line across the far courtyard rises and falls once a loop, and the
+  // vine's shadows on the plaster lengthen with it. Moving crisp edges are what a codec carries well.
+  A.sunPhase = (t) => Math.sin((TAU * t) / CY.G.D + 0.6);
+  A.drawSunBand = function (g, L, t) {
+    const G = CY.G, I = G.inner, dy = 36 - 45 * A.sunPhase(t);
+    g.save();
+    g.beginPath(); g.moveTo(I.X0 - 20, I.Y0 - 30); g.lineTo(I.X1 + 20, I.Y0 - 30);
+    for (const p of G.sunEdge) g.lineTo(p[0], p[1] + dy);
+    g.closePath(); g.clip();
+    g.drawImage(L.farLit.c, 0, 0);
+    g.restore();
+  };
 
   // ------------------------------------------------------------------ the bougainvillea
   function nearest(sk, x, y) {
@@ -32,12 +44,17 @@
   }
   A.buildClusters = function () {
     const G = CY.G, R = CY.rng(500), sk = G.skel, list = [];
+    // the vine has topped the wall: the masses lie along the coping and spill over its eave, with a few
+    // trained along the plaster, rather than a crown standing in the sky
     const regions = [
-      { x: 205, y: 618, rx: 215, ry: 150, n: 15, r: [52, 74] },
-      { x: 405, y: 500, rx: 120, ry: 92, n: 6, r: [44, 62] },
-      { x: 72, y: 775, rx: 95, ry: 115, n: 5, r: [40, 58] },
-      { x: 520, y: 724, rx: 185, ry: 48, n: 7, r: [38, 54] },
-      { x: 806, y: 752, rx: 90, ry: 34, n: 3, r: [32, 44] },
+      { x: 150, y: 688, rx: 150, ry: 56, n: 8, r: [44, 62] },
+      { x: 420, y: 680, rx: 150, ry: 48, n: 7, r: [40, 58] },
+      { x: 676, y: 690, rx: 120, ry: 44, n: 5, r: [36, 50] },
+      { x: 256, y: 800, rx: 80, ry: 60, n: 4, r: [40, 56] },
+      { x: 60, y: 830, rx: 70, ry: 90, n: 4, r: [38, 52] },
+      { x: 312, y: 940, rx: 100, ry: 46, n: 4, r: [30, 44] },
+      { x: 520, y: 764, rx: 170, ry: 38, n: 6, r: [36, 50] },
+      { x: 790, y: 762, rx: 56, ry: 28, n: 2, r: [30, 40] },
     ];
     const placed = [];
     for (const rg of regions) {
@@ -53,33 +70,33 @@
         list.push({ x: q[0], y: q[1], ang: Math.atan2(y - q[1], x - q[0]) + (d < 8 ? R.g() : 0), len: Math.max(8, d), r, depth: R.r(0.12, 0.9), seed: R.i(1, 1e6), kind: 'mass', elong: R.r(0.9, 1.25) });
       }
     }
-    // sprays reaching into the evening sky
-    for (const [x, y, ang, r] of [[560, 384, -0.55, 50], [506, 412, -1.05, 46], [446, 452, -1.45, 40], [28, 512, -2.2, 46], [150, 604, -1.9, 44], [340, 556, -1.25, 42]]) {
+    // sprays rising off the coping into the evening sky
+    for (const [x, y, ang, r] of [[330, 630, -1.35, 42], [440, 628, -1.1, 40], [560, 636, -0.9, 36], [690, 640, -1.25, 34], [150, 650, -1.8, 40], [50, 650, -2.1, 38], [784, 652, -0.7, 30]]) {
       const q = nearest(sk, x, y);
       list.push({ x: q[0], y: q[1], ang, len: R.r(26, 44), r, depth: R.r(0.45, 0.8), seed: R.i(1, 1e6), kind: 'spray', dens: 0.55, leaves: 0.16, fs: 0.92 });
     }
-    // strands hanging over the plaster and across the top of the gate
-    for (const [x, nseg] of [[466, 2], [552, 2], [640, 3], [724, 3], [806, 2], [880, 2]]) {
+    // strands hanging from the eave down the plaster and across the top of the gate
+    for (const [x, nseg] of [[330, 3], [420, 2], [500, 4], [580, 3], [660, 4], [740, 3], [812, 2]]) {
       const q = nearest({ c: sk.cope }, x, 760);
       let parent = null;
       for (let k = 0; k < nseg; k++) {
-        const c = { x: q[0], y: q[1], ang: Math.PI / 2 + R.g() * 0.18 + (k ? 0 : R.g() * 0.1), len: R.r(34, 56), r: R.r(27, 38) * (k === nseg - 1 ? 0.85 : 1), depth: R.r(0.72, 0.98), seed: R.i(1, 1e6), kind: 'hang', elong: 1.45, dens: 1.1, parent, level: k };
+        const c = { x: q[0], y: q[1], ang: Math.PI / 2 + R.g() * 0.18 + (k ? 0 : R.g() * 0.1), len: R.r(34, 56), r: R.r(26, 36) * (k === nseg - 1 ? 0.8 : 1), depth: R.r(0.72, 0.98), seed: R.i(1, 1e6), kind: 'hang', elong: 1.45, dens: 1.1, parent, level: k };
         if (parent) parent.child = c;
         list.push(c); parent = c;
       }
     }
     // cascades over the coping on the left, where the vine first tops the wall
-    for (const [x, y, nseg] of [[96, 610, 3], [168, 640, 3], [30, 560, 2], [300, 744, 2], [380, 742, 3]]) {
+    for (const [x, y, nseg] of [[96, 670, 3], [168, 672, 4], [30, 660, 3], [226, 764, 3]]) {
       const q = nearest(sk, x, y);
       let parent = null;
       for (let k = 0; k < nseg; k++) {
-        const c = { x: q[0], y: q[1], ang: Math.PI / 2 + R.g() * 0.2, len: k ? R.r(34, 52) : R.r(60, 110), r: R.r(30, 42) * (k === nseg - 1 ? 0.85 : 1), depth: R.r(0.55, 0.95), seed: R.i(1, 1e6), kind: 'hang', elong: 1.4, dens: 1.1, parent, level: k };
+        const c = { x: q[0], y: q[1], ang: Math.PI / 2 + R.g() * 0.2, len: k ? R.r(34, 52) : R.r(60, 100), r: R.r(30, 40) * (k === nseg - 1 ? 0.8 : 1), depth: R.r(0.55, 0.95), seed: R.i(1, 1e6), kind: 'hang', elong: 1.4, dens: 1.1, parent, level: k };
         if (parent) parent.child = c;
         list.push(c); parent = c;
       }
     }
     // low sprigs along the trunk
-    for (const [px, py, ang, r] of [[40, 1062, 1.9, 38], [282, 948, 0.2, 34], [74, 1074, 2.6, 30]]) {
+    for (const [px, py, ang, r] of [[40, 1062, 1.9, 38], [282, 962, 0.2, 34], [74, 1074, 2.6, 30], [402, 918, 0.1, 32], [340, 938, -0.6, 28]]) {
       list.push({ x: px, y: py, ang, len: 16, r, depth: R.r(0.3, 0.6), seed: R.i(1, 1e6), kind: 'hang', elong: 1.2, dens: 0.9 });
     }
     for (const c of list) {
@@ -126,6 +143,17 @@
     const push = (t) => 10 + 70 * A.gust(t) + 6 * A.wind(t, 500);
     for (let i = 1; i < n; i++) Wi[i] = Wi[i - 1] + push((i - 0.5) * dt) * dt;
     A.windInt = (t) => { const f = t / dt, i = Math.max(0, Math.min(n - 2, f | 0)), u = f - i; return Wi[i] + (Wi[i + 1] - Wi[i]) * u; };
+    // the falling petal, painted once per tone (two variants each) at 4x its size on the screen
+    A.petalSpr = CY.TONES.map((col, k) => [0, 1].map((v) => {
+      const S = CY.mk(48, 48), R2 = CY.rng(1300 + k * 2 + v);
+      S.g.translate(4, 24);
+      CY.bract(S.g, 0, 0, 0, 40, 0.5, col, 0.96, R2);
+      S.g.strokeStyle = rgba(CY.TONES[Math.max(0, k - 3)], 0.4); S.g.lineWidth = 2.2;
+      S.g.beginPath(); S.g.moveTo(2, R2.g()); S.g.quadraticCurveTo(18, R2.g() * 3, 32, R2.g() * 2); S.g.stroke();
+      S.g.setTransform(1, 0, 0, 1, 0, 0);
+      CY.pigment(S, 1300 + k * 2 + v, { blur: 1.4, bleed: 0, lo: 0.08, hi: 0.3, gran: 0.2 });
+      return S.c;
+    }));
     const P = [];
     const N = 96, NG = 22;
     for (let i = 0; i < N + NG; i++) {
@@ -139,7 +167,7 @@
         t0: mod(t0, D), x0, y0, tone: Math.max(2, f.tone), s: R.r(7, 10.5), w: R.r(0.42, 0.56),
         v: R.r(120, 175), drift: R.r(-8, 4), sw: R.r(10, 30), sf: R.r(1.6, 3.2), sp: R.f() * TAU,
         rot0: R.f() * TAU, spin: R.r(0.8, 2.6) * R.sign(), fw: R.r(2.2, 5.2), fp: R.f() * TAU,
-        rest: R.r(5, 12), fade: R.r(2.2, 3.2), pushK: R.r(0.7, 1.3),
+        rest: R.r(5, 12), fade: R.r(2.2, 3.2), pushK: R.r(0.7, 1.3), var: i % 2,
       };
       // where it lands: snap to a step tread, the sill, or the paving; never on the pot
       let yl = 1800, F = 6;
@@ -202,10 +230,8 @@
     const tone = clamp(p.tone + (st.light > 0.25 ? 1 : st.light < -0.4 ? -1 : 0), 1, 7);
     g.setTransform(st.sx * Math.cos(st.rot), st.sx * Math.sin(st.rot), -st.sy * Math.sin(st.rot), st.sy * Math.cos(st.rot), st.x, st.y);
     g.globalAlpha = st.a;
-    g.fillStyle = rgba(CY.TONES[tone], 0.95);
-    g.beginPath(); CY.bractPath(g, -p.s * 0.45, 0, 0, p.s, p.w); g.fill();
-    g.strokeStyle = rgba(CY.TONES[Math.max(0, tone - 3)], 0.4); g.lineWidth = 0.7;
-    g.beginPath(); g.moveTo(-p.s * 0.45, 0); g.lineTo(p.s * 0.35, 0); g.stroke();
+    const k = p.s / 40, ky = k * (p.w / 0.5);
+    g.drawImage(A.petalSpr[tone][p.var], -p.s * 0.45 - 4 * k, -24 * ky, 48 * k, 48 * ky);
   };
 
   // ------------------------------------------------------------------ the lantern in the far courtyard
@@ -299,40 +325,74 @@
   // tail); 19.0-20.8 flies off up and out to the right. Off the picture otherwise.
   A.SP = { arrive: 4.3, land: 6.0, leave: 19.0, gone: 20.8, perch: [906, 640], hop: [10.6, 10.88, -30], turns: [[8.4, -1], [15.2, 1], [18.55, -1]], pecks: [12.6, 13.25], flicks: [7.2, 11.6, 16.9, 18.3] };
   A.buildSparrow = function () {
-    const sc = 2;
-    const mk = (fn) => { const S = CY.mk(70 * sc, 56 * sc), g = S.g; g.scale(sc, sc); g.translate(35, 40); fn(g); return S.c; };
-    const brown = '#8a6546', dark = '#4f3524', pale = '#e2d5bb', cap = '#6e5a4c', chest = '#b9a68a';
-    const body = (g, R) => {
-      CY.gouache(g, CY.smooth([[-16, -10], [-6, -14], [8, -12], [16, -6], [18, -2], [10, 4], [-4, 6], [-14, 2], [-18, -4]], 2, true), { col: brown, rough: 0.4, passes: 2, erode: 0.2, eb: 1, seed: 961, pad: 4, mott: 0.1,
-        fx: (t) => { t.fillStyle = rgba(chest, 0.9); t.beginPath(); t.ellipse(-9, 0, 9, 6, 0.2, 0, TAU); t.fill(); for (let i = 0; i < 9; i++) { t.strokeStyle = rgba(dark, 0.7); t.lineWidth = 1.2; t.beginPath(); const x = R.r(-4, 14), y = R.r(-12, -3); t.moveTo(x, y); t.lineTo(x + 4, y + 1); t.stroke(); } } });
-    };
-    const head = (g) => {
-      g.fillStyle = rgba(cap, 1); g.beginPath(); g.arc(-17, -14, 7, 0, TAU); g.fill();
-      g.fillStyle = rgba(pale, 1); g.beginPath(); g.ellipse(-18, -11, 4.5, 3.4, 0, 0, TAU); g.fill();
-      g.fillStyle = rgba('#2a201b', 1); g.beginPath(); g.ellipse(-20, -7.5, 2.5, 3, 0, 0, TAU); g.fill();
-      g.fillStyle = '#1b1512'; g.beginPath(); g.arc(-19.5, -15, 1.3, 0, TAU); g.fill();
-      g.fillStyle = rgba('#3a3026', 1); g.beginPath(); g.moveTo(-23, -14); g.lineTo(-28, -12.5); g.lineTo(-23, -11); g.fill();
-      CY.ink(g, CY.circle(-17, -14, 7, 18, -2.6, 0.6), { w: 1, a: 0.6, dry: 0.3, seed: 962, nb: 2 });
-    };
-    const wingFolded = (g) => {
-      g.fillStyle = rgba(dark, 0.95); g.beginPath(); g.moveTo(-6, -11); g.quadraticCurveTo(8, -12, 20, -4); g.quadraticCurveTo(6, 0, -4, -4); g.fill();
-      g.strokeStyle = rgba(pale, 0.9); g.lineWidth = 1.4; g.beginPath(); g.moveTo(-2, -7); g.lineTo(7, -7.5); g.stroke();
-    };
+    const sc = 3, Z = 1.35;
+    const mk = (w, h, ox, oy, fn) => { const S = CY.mk(w * sc, h * sc), g = S.g; g.scale(sc, sc); g.translate(ox, oy); fn(g); return S.c; };
+    const brown = '#8d6647', dark = '#3f2a1d', buff = '#c9a77a', pale = '#ece2cc', crown = '#80807a', nape = '#8f4f2c', chest = '#b4ad9f';
     const R = CY.rng(960);
+    // the body without the head: gouache mass, pale breast, streaked mantle in dry brush, a crisp contour in places
+    const body = (g) => {
+      const shape = CY.smooth([[-15, -11], [-6, -14.5], [8, -12.5], [16, -6.5], [18.5, -2.5], [10, 4.5], [-4, 6.5], [-14, 2.5], [-17.5, -4]], 2, true);
+      CY.gouache(g, shape, { col: brown, rough: 0.35, passes: 2, erode: 0.18, eb: 0.8, seed: 961, pad: 4, mott: 0.14,
+        fx: (t) => {
+          t.fillStyle = rgba(chest, 0.95); t.beginPath(); t.ellipse(-8, 0.5, 9.5, 6.2, 0.25, 0, TAU); t.fill();
+          t.fillStyle = rgba(pale, 0.55); t.beginPath(); t.ellipse(-4, 3.5, 8, 3, 0.1, 0, TAU); t.fill();
+          t.fillStyle = rgba('#5e4636', 0.35); t.beginPath(); t.ellipse(6, 2.5, 8, 3.5, 0, 0, TAU); t.fill();
+        } });
+      // mantle streaks: alternating dark and buff dry-brush dashes
+      for (let i = 0; i < 14; i++) {
+        const x = R.r(-6, 12), y = R.r(-12.5, -6), L = R.r(3, 6);
+        CY.ink(g, [[x, y], [x + L, y + L * 0.22]], { w: i % 3 ? 1.5 : 1.1, col: i % 3 ? [52, 34, 22] : [214, 180, 128], a: 0.85, dry: 0.3, seed: 970 + i, nb: 2, tin: 0.2, tout: 0.4 });
+      }
+      // breast and flank: soft grey-buff dabs
+      for (let i = 0; i < 8; i++) { g.fillStyle = rgba(R.pick(['#a39b8c', '#c4bcab', '#9d8f7c']), 0.35); g.beginPath(); g.ellipse(R.r(-14, 4), R.r(-2, 4), R.r(2, 4), R.r(1, 2), R.g() * 0.4, 0, TAU); g.fill(); }
+      CY.ink(g, [[-17.5, -4], [-13, 3], [-2, 6.5], [10, 4.5]], { w: 1.2, a: 0.55, dry: 0.45, seed: 965, nb: 3 });
+      CY.ink(g, [[-6, -14.5], [8, -12.5], [16, -6.5]], { w: 1.1, a: 0.5, dry: 0.55, seed: 966, nb: 2 });
+    };
+    // folded wing: rows of covert feathers, dark centres with buff fringes, a white bar, dark primaries
+    const wingFolded = (g) => {
+      g.fillStyle = rgba(dark, 0.95); g.beginPath(); g.moveTo(-7, -10.5); g.quadraticCurveTo(8, -12.5, 21, -4); g.quadraticCurveTo(7, 0.5, -5, -3.5); g.fill();
+      for (let row = 0; row < 2; row++) for (let j = 0; j < 5; j++) {
+        const x = -4 + j * 3.4 + row * 1.6, y = -9.5 + row * 3;
+        g.fillStyle = rgba(row ? '#6b4a33' : '#5a3d2a', 0.95); g.beginPath(); g.ellipse(x, y, 2.4, 1.7, 0.3, 0, TAU); g.fill();
+        g.strokeStyle = rgba(buff, 0.85); g.lineWidth = 0.6; g.beginPath(); g.arc(x, y, 2.2, 0.1, 2.6); g.stroke();
+      }
+      g.strokeStyle = rgba(pale, 0.95); g.lineWidth = 1.3; g.lineCap = 'round'; g.beginPath(); g.moveTo(-3, -6.2); g.lineTo(9, -6.8); g.stroke();
+      for (let j = 0; j < 4; j++) { g.strokeStyle = rgba(j % 2 ? '#2a1c14' : buff, 0.8); g.lineWidth = 0.8; g.beginPath(); g.moveTo(9 + j * 2, -5.5 + j * 0.4); g.lineTo(20 - j * 0.5, -4 + j * 0.3); g.stroke(); }
+    };
+    // the head, drawn about the neck pivot so it can turn on its own
+    const head = (g, px, py) => {
+      g.save(); g.translate(px, py);
+      g.fillStyle = rgba(nape, 1); g.beginPath(); g.ellipse(-1.5, -3.5, 6.5, 5.5, 0.4, 0, TAU); g.fill();
+      g.fillStyle = rgba(crown, 1); g.beginPath(); g.arc(-4, -4.5, 6.4, Math.PI * 0.95, Math.PI * 2.1); g.fill();
+      g.fillStyle = rgba(pale, 1); g.beginPath(); g.ellipse(-5, -0.6, 4.6, 3.3, -0.1, 0, TAU); g.fill();
+      g.fillStyle = rgba('#1f1915', 1); g.beginPath(); g.moveTo(-10, -1.5); g.quadraticCurveTo(-9, 5, -5.5, 7); g.quadraticCurveTo(-3, 3, -5, 0.5); g.fill();
+      g.fillStyle = rgba('#2a201b', 0.9); g.beginPath(); g.moveTo(-10.5, -5.5); g.lineTo(-3, -4); g.lineTo(-3.5, -3); g.lineTo(-10, -3.6); g.fill();
+      g.fillStyle = '#120e0c'; g.beginPath(); g.arc(-6.6, -4.6, 1.35, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(255,248,230,0.9)'; g.beginPath(); g.arc(-7, -5, 0.45, 0, TAU); g.fill();
+      g.fillStyle = rgba('#34291f', 1); g.beginPath(); g.moveTo(-10, -4.4); g.quadraticCurveTo(-13, -3.4, -15.2, -2.6); g.lineTo(-10, -1.4); g.fill();
+      g.strokeStyle = rgba('#8a7a62', 0.6); g.lineWidth = 0.5; g.beginPath(); g.moveTo(-10, -3); g.lineTo(-14.6, -2.6); g.stroke();
+      CY.ink(g, CY.circle(-4, -4.5, 6.6, 18, -2.7, 0.2), { w: 1, a: 0.6, dry: 0.35, seed: 962, nb: 2 });
+      g.restore();
+    };
     A.sparrow = {
-      sc,
-      perch: mk((g) => {
-        CY.ink(g, [[-6, 5], [-7, 12]], { w: 1.2, a: 0.9, dry: 0, seed: 963, nb: 1, tin: 0.01, tout: 0.01 });
-        CY.ink(g, [[0, 5], [1, 12]], { w: 1.2, a: 0.9, dry: 0, seed: 964, nb: 1, tin: 0.01, tout: 0.01 });
-        body(g, R); wingFolded(g); head(g);
-        CY.ink(g, [[-18, -4], [-12, 4], [0, 6], [12, 2]], { w: 1.3, a: 0.65, dry: 0.4, seed: 965 });
+      sc, Z,
+      perch: mk(70, 56, 35, 40, (g) => {
+        CY.ink(g, [[-6, 5], [-7, 12], [-9.5, 12.5]], { w: 1.2, col: [92, 70, 52], a: 0.95, dry: 0, seed: 963, nb: 1, tin: 0.01, tout: 0.01 });
+        CY.ink(g, [[0, 5], [1, 12], [-1.5, 12.5]], { w: 1.2, col: [92, 70, 52], a: 0.95, dry: 0, seed: 964, nb: 1, tin: 0.01, tout: 0.01 });
+        body(g); wingFolded(g);
       }),
-      tail: mk((g) => { g.fillStyle = rgba(dark, 0.95); g.beginPath(); g.moveTo(0, 0); g.lineTo(17, -6); g.lineTo(18, -2); g.lineTo(0, 3); g.fill(); CY.ink(g, [[0, 0], [17, -6]], { w: 0.9, a: 0.6, dry: 0.3, seed: 966, nb: 1 }); }),
-      fly: [-1, 0, 1].map((ph, k) => mk((g) => {
-        body(g, R); head(g);
+      head: mk(36, 32, 24, 20, (g) => head(g, 0, 0)),
+      tail: mk(70, 56, 35, 40, (g) => {
+        g.fillStyle = rgba(dark, 0.95); g.beginPath(); g.moveTo(0, 0); g.lineTo(17, -6.5); g.lineTo(18.5, -2); g.lineTo(0, 3); g.fill();
+        g.strokeStyle = rgba(buff, 0.6); g.lineWidth = 0.6; g.beginPath(); g.moveTo(2, 0.6); g.lineTo(17.5, -4.5); g.stroke();
+        CY.ink(g, [[0, 0], [17, -6.5]], { w: 0.9, a: 0.6, dry: 0.3, seed: 967, nb: 1 });
+      }),
+      fly: [-1, -0.5, 0, 0.5, 1].map((ph) => mk(70, 56, 35, 40, (g) => {
+        body(g); head(g, -13, -10);
         const tipY = ph * 20 - 4, tipX = 6 + Math.abs(ph) * 3;
         g.fillStyle = rgba(dark, 0.95); g.beginPath(); g.moveTo(-6, -8); g.quadraticCurveTo(tipX - 6, tipY - 2, tipX + 8, tipY); g.quadraticCurveTo(tipX, tipY * 0.4, 10, -5); g.fill();
-        g.strokeStyle = rgba(pale, 0.8); g.lineWidth = 1.2; g.beginPath(); g.moveTo(-2, -7 + tipY * 0.25); g.lineTo(tipX - 2, tipY * 0.7 - 3); g.stroke();
+        for (let j = 0; j < 4; j++) { g.strokeStyle = rgba(buff, 0.55); g.lineWidth = 0.6; g.beginPath(); g.moveTo(-2 + j * 2, -7 + tipY * 0.2); g.lineTo(tipX - 2 + j * 2.5, tipY * (0.6 + j * 0.1) - 2); g.stroke(); }
+        g.strokeStyle = rgba(pale, 0.85); g.lineWidth = 1.2; g.beginPath(); g.moveTo(-2, -7 + tipY * 0.25); g.lineTo(tipX - 2, tipY * 0.7 - 3); g.stroke();
         g.fillStyle = rgba(dark, 0.95); g.beginPath(); g.moveTo(14, -6); g.lineTo(28, -8); g.lineTo(27, -3); g.lineTo(14, -2); g.fill();
       })),
     };
@@ -354,13 +414,13 @@
     for (const pt of S.pecks) { const d = t - pt; if (d > 0 && d < 0.45) rot = -0.5 * Math.sin((Math.PI * d) / 0.45); }
     for (const ft of S.flicks) { const d = t - ft; if (d > 0 && d < 0.5) tail = -0.5 * Math.sin((Math.PI * d) / 0.5) * Math.exp(-d * 3); }
     // flight in and out
-    const flap = (tt) => { const ph = Math.sin(tt * TAU * 9); return ph > 0.35 ? 2 : ph < -0.35 ? 0 : 1; };
+    const flap = (tt) => Math.max(0, Math.min(4, Math.round((Math.sin(tt * TAU * 9) + 1) * 2)));
     if (t < S.land) {
       const u = (t - S.arrive) / (S.land - S.arrive);
       const e = 1 - Math.pow(1 - u, 2.2);
       [x, y] = bez([1150, 470], [1060, 420], [960, 560], S.perch, e);
       sprite = u > 0.86 ? 'perch' : 'fly' + flap(t);
-      if (u > 0.72 && u <= 0.86) sprite = 'fly1';
+      if (u > 0.72 && u <= 0.86) sprite = 'fly2';
       rot = u <= 0.86 ? -0.15 * (1 - u) : 0;
       lift = 0;
     } else if (t >= S.leave) {
@@ -371,23 +431,38 @@
       face = -1;
       sprite = u < 0.08 ? 'perch' : 'fly' + flap(t);
       rot = u < 0.08 ? 0 : 0.2;
-      lift = u < 0.08 ? -2 * Math.sin((Math.PI * u) / 0.08) : 0;
+      lift = u < 0.08 ? -2 * (1 - sm(0, 1, u / 0.08)) : 0; // springing up out of the crouch
     }
-    return { x, y: y - lift, rot, face, sprite, tail };
+    // it crouches a little before it springs
+    if (sprite === 'perch' && t < S.leave && t > S.leave - 0.3) lift = -2 * sm(S.leave - 0.3, S.leave, t);
+    // the head moves in quick little saccades while perched: look about, look up, back
+    let head = 0;
+    if (sprite === 'perch') {
+      const looks = [[6.5, 0], [7.6, -0.22], [9.4, 0.16], [10.3, 0], [11.9, -0.38], [12.45, 0], [14.1, 0.2], [16.0, -0.12], [17.7, 0.28], [18.7, 0]];
+      let prev = 0;
+      for (const [lt, v] of looks) { const d = t - lt; if (d >= 0.09) prev = v; else if (d > 0) { prev = prev + (v - prev) * sm(0, 0.09, d); break; } else break; }
+      head = prev;
+    }
+    const breathe = sprite === 'perch' ? 0.018 * Math.sin(t * TAU * 2.3) : 0;
+    return { x, y: y - lift, rot, face, sprite, tail, head, breathe };
   };
   A.drawSparrow = function (g, t) {
     const st = A.sparrowState(t);
     if (!st) return;
-    const S = A.sparrow, k = 1 / S.sc;
+    const S = A.sparrow, Z = S.Z;
     const c = Math.cos(st.rot), s = Math.sin(st.rot);
-    // feet at the origin of the sprite: local (0, 12) relative to the sprite centre (35, 40)
+    // feet at the origin; a unit point (ux, uy) of the sprites lands at (ux * Z, (uy - 12) * Z)
     g.setTransform(c * st.face, s * st.face, -s, c, st.x, st.y);
-    const img = st.sprite === 'perch' ? S.perch : S.fly[+st.sprite.slice(3)];
     if (st.sprite === 'perch') {
-      g.save(); g.translate(14, -16); g.rotate(st.tail); g.drawImage(S.tail, -35, -40, 70, 56); g.restore();
+      g.save(); g.translate(14 * Z, -16 * Z); g.rotate(st.tail); g.drawImage(S.tail, -35 * Z, -40 * Z, 70 * Z, 56 * Z); g.restore();
+      g.save(); g.scale(1, 1 + st.breathe);
+      g.drawImage(S.perch, -35 * Z, -52 * Z, 70 * Z, 56 * Z);
+      g.translate(-13 * Z, -22 * Z); g.rotate(st.head);
+      g.drawImage(S.head, -24 * Z, -20 * Z, 36 * Z, 32 * Z);
+      g.restore();
+    } else {
+      g.drawImage(S.fly[+st.sprite.slice(3)], -35 * Z, -52 * Z, 70 * Z, 56 * Z);
     }
-    g.drawImage(img, -35, -52, 70, 56);
-    void k;
   };
 
   // ------------------------------------------------------------------ the frame
@@ -400,6 +475,7 @@
     g.drawImage(L.sky.c, 0, 0);
     A.drawWisps(g, t);
     g.drawImage(L.far.c, 0, 0);
+    A.drawSunBand(g, L, t);
     A.drawLantern(g, t);
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.drawImage(L.front.c, 0, 0);
@@ -409,7 +485,7 @@
     if (!shadowL) shadowL = CY.mk(W, H);
     const s = shadowL.g;
     s.setTransform(1, 0, 0, 1, 0, 0); s.globalCompositeOperation = 'source-over'; s.clearRect(0, 0, shadowL.w, shadowL.h);
-    const so = G.shadowOff;
+    const sk = 1 + 0.16 * A.sunPhase(t), so = [G.shadowOff[0] * sk, G.shadowOff[1] * sk];
     for (const c of A.clusters) {
       const m = T.get(c);
       s.setTransform(m[0], m[1], -m[1], m[0], m[2] + so[0] * (c.kind === 'hang' ? 0.8 : 1), m[3] + so[1] * (c.kind === 'hang' ? 0.8 : 1));

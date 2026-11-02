@@ -24,9 +24,14 @@ async function openPage(browser) {
 }
 const grab = (page, t, px) => page.evaluate(([t, px]) => { window.__courtyard.renderAt(t); return { px: px ? window.__courtyard.pixels() : null, ms: window.__courtyard.lastMs }; }, [t, px]);
 
+// A single GOP keeps the paper texture from pulsing at keyframes, but then the only keyframe is frame 0. At CRF the
+// encoder gives that keyframe less fidelity than the P-frames go on to build up, so the step from the last frame
+// back to frame 0 was about twice an ordinary step. Zones fix it: frame 0 at a high fixed quality, and the last
+// 40 frames ramped up to meet it, so the encoded seam matches the seam in a near-lossless master.
+const ZONES = (n) => `zones=0,0,q=10/${n - 40},${n - 25},q=18/${n - 24},${n - 13},q=17/${n - 12},${n - 7},q=16/${n - 6},${n - 1},q=15`;
 function encoder(out, nframes) {
   return spawn('ffmpeg', ['-loglevel', 'error', '-y', ...FF, '-r', String(FPS), '-i', '-',
-    '-c:v', 'libx264', '-preset', 'slow', '-tune', 'grain', '-crf', String(process.env.CRF || 19), '-x264-params', `keyint=${nframes}:min-keyint=${nframes}:scenecut=0`, '-pix_fmt', 'yuv420p', '-r', String(FPS),
+    ...(process.env.MASTER ? ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '6'] : ['-c:v', 'libx264', '-preset', 'slow', '-tune', 'grain', '-crf', String(process.env.CRF || 19)]), '-x264-params', `keyint=${nframes}:min-keyint=${nframes}:scenecut=0${process.env.MASTER ? '' : ':' + ZONES(nframes)}${process.env.X264EXTRA ? ':' + process.env.X264EXTRA : ''}`, '-pix_fmt', 'yuv420p', '-r', String(FPS),
     '-movflags', '+faststart', '-frames:v', String(nframes), out], { stdio: ['pipe', 'inherit', 'inherit'] });
 }
 

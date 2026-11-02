@@ -16,8 +16,64 @@
     g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.quadraticCurveTo(m1[0], m1[1], tip[0], tip[1]);
     g.quadraticCurveTo(m2[0], m2[1], d[0], d[1]); g.closePath();
   };
-  CY.bract = function (g, x, y, ang, s, w, col, a) {
-    g.fillStyle = CY.rgba(col, a); g.beginPath(); CY.bractPath(g, x, y, ang, s, w); g.fill();
+  // a brushed bract: the heart outline sampled, nudged and drawn through midpoints, so every edge is a little
+  // different and none is ruled; a darker rim where the pigment pooled, and a pale drag of the brush inside.
+  CY.bractPoly = function (x, y, ang, s, w, R) {
+    const c = Math.cos(ang), sn = Math.sin(ang), N = 7, pts = [];
+    const prof = (u) => w * (u < 0.3 ? Math.sin((u / 0.3) * Math.PI / 2) * (0.72 + 0.28 * (u / 0.3)) : 1 - Math.pow((u - 0.3) / 0.7, 1.5));
+    for (let k = 0; k <= N; k++) { const u = k / N; pts.push([u, -prof(u)]); }
+    for (let k = N - 1; k >= 1; k--) { const u = k / N; pts.push([u, prof(u)]); }
+    return pts.map(([u, v], k) => {
+      const ju = k === N ? R.g() * 0.04 : R.g() * 0.05, jv = R.g() * 0.07 * (k ? 1 : 0.3);
+      const U = (u + ju) * s, V = (v + jv) * s;
+      return [x + c * U - sn * V, y + sn * U + c * V];
+    });
+  };
+  CY.curvy = function (g, P) {
+    const n = P.length;
+    g.moveTo((P[n - 1][0] + P[0][0]) / 2, (P[n - 1][1] + P[0][1]) / 2);
+    for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; g.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+    g.closePath();
+  };
+  CY.bract = function (g, x, y, ang, s, w, col, a, R) {
+    R = R || CY.rng(((x * 73) | 0) ^ ((y * 151) | 0) ^ ((ang * 1000) | 0));
+    col = CY.C(col);
+    const P = CY.bractPoly(x, y, ang, s, w, R);
+    g.fillStyle = CY.rgba(col, a); g.beginPath(); CY.curvy(g, P); g.fill();
+    if (s > 4.5) {
+      g.strokeStyle = CY.rgba(CY.mix(col, [40, 4, 20], 0.38), 0.22 * a); g.lineWidth = R.r(0.8, 1.3);
+      g.beginPath(); CY.curvy(g, P); g.stroke();
+      const c = Math.cos(ang), sn = Math.sin(ang), o = R.g() * s * w * 0.25;
+      g.strokeStyle = CY.rgba(CY.mix(col, [255, 226, 236], 0.3), R.r(0.1, 0.22) * a); g.lineWidth = s * w * R.r(0.25, 0.45); g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x + c * s * 0.18 - sn * o, y + sn * s * 0.18 + c * o); g.lineTo(x + c * s * R.r(0.55, 0.75) - sn * o * 0.6, y + sn * s * R.r(0.55, 0.75) + c * o * 0.6); g.stroke();
+    }
+  };
+  // the pigment pass on a painted sprite: where the mass is dense the colour bleeds into the gaps (wet into wet,
+  // a touch darker), where it thins the paint breaks up on the paper's tooth, and everywhere it granulates.
+  CY.pigment = function (S, seed, o) {
+    o = Object.assign({ blur: 2, bleed: 0.55, lo: 0.1, hi: 0.36, gran: 0.16 }, o);
+    const B = CY.mk(S.w, S.h); B.g.filter = `blur(${o.blur}px)`; B.g.drawImage(S.c, 0, 0); B.g.filter = 'none';
+    const bd = B.g.getImageData(0, 0, S.w, S.h).data;
+    const img = S.g.getImageData(0, 0, S.w, S.h), d = img.data, sw = S.w;
+    for (let p = 0, i = 0; i < d.length; p++, i += 4) {
+      const ba = bd[i + 3] / 255;
+      let al = d[i + 3] / 255;
+      if (!al && ba < 0.5) { d[i + 3] = 0; continue; }
+      const x = p % sw, y = (p / sw) | 0;
+      const nm = CY.vnoise(x * 0.14, y * 0.14, seed), nf = CY.hash(x, y, seed + 3);
+      let r = d[i], gg = d[i + 1], b = d[i + 2];
+      if (ba > 0.5 && al < 1) {
+        const f = ((ba - 0.5) / 0.5) * o.bleed * (0.55 + 0.9 * nm), fa = f * (1 - al), na = al + fa;
+        r = (r * al + bd[i] * 0.8 * fa) / na; gg = (gg * al + bd[i + 1] * 0.8 * fa) / na; b = (b * al + bd[i + 2] * 0.82 * fa) / na;
+        al = na;
+      }
+      const e = ba + (nm - 0.5) * 0.42 + (nf - 0.5) * 0.3;
+      al *= CY.sm(o.lo, o.hi, e);
+      if (nf > 0.988) al *= 0.3;
+      const k = 1 - o.gran / 2 + o.gran * nf + 0.1 * (nm - 0.5);
+      d[i] = r * k; d[i + 1] = gg * k; d[i + 2] = b * k; d[i + 3] = al * 255;
+    }
+    S.g.putImageData(img, 0, 0);
   };
   // a flower: three bracts around a tiny cream floret
   CY.floret = function (g, f, R) {
@@ -26,7 +82,7 @@
       const ang = f.rot + (k * Math.PI * 2) / 3 + R.g() * 0.18;
       const s = f.s * R.r(0.82, 1.12);
       const c = CY.jit(col, R, 0.05);
-      CY.bract(g, f.x + Math.cos(ang) * 0.6, f.y + Math.sin(ang) * 0.6, ang, s, R.r(0.4, 0.56), c, R.r(0.86, 0.97));
+      CY.bract(g, f.x + Math.cos(ang) * 0.6, f.y + Math.sin(ang) * 0.6, ang, s, R.r(0.42, 0.58), c, R.r(0.8, 0.95), R);
       if (f.tone >= 3 && R.f() < 0.55) { // a darker vein, the papery look
         g.strokeStyle = CY.rgba(CY.TONES[Math.max(0, f.tone - 3)], 0.35); g.lineWidth = 0.7;
         g.beginPath(); g.moveTo(f.x, f.y); g.lineTo(f.x + Math.cos(ang) * s * 0.75, f.y + Math.sin(ang) * s * 0.75); g.stroke();
@@ -123,15 +179,22 @@
     for (const l of leaves) ext(l.x, l.y, l.s + 4);
     const ox = -Math.floor(x0), oy = -Math.floor(y0);
     const S = CY.mk(x1 - x0, y1 - y0), g = S.g;
+    const TW = CY.mk(S.w, S.h), tg = TW.g;
+    tg.translate(ox, oy);
     g.translate(ox, oy);
-    // 1. twigs (ink, under the flowers)
-    for (const t of twigs) CY.ink(g, t.pts, { w: t.w, col: CY.TWIG, a: 0.9, dry: 0.25, seed: t.seed, tin: 0.02, tout: t.end ? 0.8 : 0.4, wob: 0.6 });
-    // 2. dark underpainting: big shadowy bracts
+    // 1. twigs (ink, under the flowers) on their own sheet, so the pigment pass does not eat the fine lines
+    for (const t of twigs) CY.ink(tg, t.pts, { w: t.w, col: CY.TWIG, a: 0.9, dry: 0.25, seed: t.seed, tin: 0.02, tout: t.end ? 0.8 : 0.4, wob: 0.6 });
+    // 2. dark underpainting: a loose wash of the mass, then big shadowy bracts
     const RU = CY.rng(spec.seed + 999);
+    for (const b of blobs) {
+      const [bx, by] = toXY(b.u, b.v);
+      g.fillStyle = CY.rgba(CY.TONES[spec.depth < 0.4 ? 0 : 1], 0.5);
+      CY.path(g, [CY.blob(bx, by, b.r * 0.62 * el, b.r * 0.55, RU.i(1, 999), 0.35, 28)]); g.fill();
+    }
     for (let i = 0; i < n * 0.55; i++) {
       const f = florets[Math.floor(RU.f() * florets.length)];
       if (f.rr > 0.95) continue;
-      CY.bract(g, f.x + RU.g() * 3, f.y + RU.g() * 3, RU.f() * 6.283, f.s * RU.r(1.3, 1.9), 0.58, CY.TONES[RU.f() < 0.6 ? 0 : 1], RU.r(0.55, 0.88));
+      CY.bract(g, f.x + RU.g() * 3, f.y + RU.g() * 3, RU.f() * 6.283, f.s * RU.r(1.3, 1.9), 0.6, CY.TONES[RU.f() < 0.6 ? 0 : 1], RU.r(0.5, 0.82), RU);
     }
     for (const l of leaves.slice(0, Math.ceil(leaves.length * 0.6))) CY.leaf(g, l.x, l.y, l.ang, l.s, l.col, 0.92);
     // 3. flowers, dark to light
@@ -142,20 +205,15 @@
       const f = florets[Math.floor(RF.f() * florets.length)];
       if (f.rr < 0.7) continue;
       const a = Math.atan2(f.y - cx[1], f.x - cx[0]) + RF.g() * 0.6, d = RF.r(6, 16);
-      CY.bract(g, f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, RF.f() * 6.283, f.s * RF.r(0.8, 1.1), 0.5, CY.TONES[CY.clamp(f.tone + RF.i(-1, 1), 0, 7)], 0.9);
+      CY.bract(g, f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, RF.f() * 6.283, f.s * RF.r(0.8, 1.1), 0.52, CY.TONES[CY.clamp(f.tone + RF.i(-1, 1), 0, 7)], 0.88, RF);
     }
-    // 4. a few twig ends re-inked over the flowers so the vine threads through
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    CY.pigment(S, spec.seed);
+    // the twigs go under the paint, and a few twig ends are re-inked over it so the vine threads through
+    g.globalCompositeOperation = 'destination-over'; g.drawImage(TW.c, 0, 0); g.globalCompositeOperation = 'source-over';
+    g.translate(ox, oy);
     for (const t of twigs) if (t.end) CY.ink(g, t.pts.slice(1), { w: t.w * 0.8, col: CY.TWIG, a: 0.85, dry: 0.3, seed: t.seed + 1, tin: 0.05, tout: 0.8, wob: 0.4 });
-    // paper tooth on the sprite: knock out a few pinholes so the bracts read as stamped pigment
-    const img = g.getImageData(0, 0, S.w, S.h), d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (!d[i + 3]) continue;
-      const h = CY.hash(i >> 2, spec.seed, 5);
-      if (h > 0.985) d[i + 3] *= 0.35;
-      const k = 0.94 + 0.12 * CY.hash(i >> 2, spec.seed, 9);
-      d[i] *= k; d[i + 1] *= k; d[i + 2] *= k;
-    }
-    g.putImageData(img, 0, 0);
+    g.setTransform(1, 0, 0, 1, 0, 0);
     // cast-shadow silhouette, full resolution: the bracts merged (blur) and cut back to a crisp flat shape
     // (threshold), like a gouache shadow laid in one tone. Crisp edges also keep the codec honest: a soft,
     // slowly moving shadow changes large areas by sub-level amounts every frame, which smears the paper grain.

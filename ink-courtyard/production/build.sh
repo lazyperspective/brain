@@ -2,7 +2,7 @@
 # Build the videos of "The Moon Gate" (ink-courtyard).
 #   1. synthesise the score (music/score.py -> music/score.wav, seamless 28.000 s, -20 LUFS)
 #   2. render the silent loop through the page with Playwright (render.js, 3 workers): 1080x1920, 30 fps
-#   3. mux: one loop (28 s) and two loops (56 s), H.264 yuv420p CRF 19 + AAC 192k
+#   3. mux: one loop (28 s) and two loops (56 s), H.264 yuv420p CRF 19 (seam zones, see render.js) + AAC 192k
 #   4. check: streams, durations, frame counts, flashes, the loop seam, pops, loudness of the delivered audio
 # SKIP_RENDER=1 reuses an existing silent render; SCORE=1 forces the score to be re-synthesised;
 # SCRATCH sets where intermediates go; CRF sets the video quality; WORKERS the render parallelism.
