@@ -1,0 +1,21 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #121013;
+  overflow: hidden;
+}
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#art {
+  display: block;
+  background: #121013;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+}
+body.ready #art {
+  opacity: 1;
+}

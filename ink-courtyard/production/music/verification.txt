@@ -1,0 +1,15 @@
+THE MOON GATE - sound verification (measured on the written score.wav)
+
+duration: 1344000 frames = 28.000000 s at 48000 Hz, 2 ch, PCM_24
+events (loop time): sparrow wings 4.40-6.00 and 19.00-20.10, cheeps 6.35 6.62 9.70 10.55 13.90 16.50, gust peak 18.60, creaks 18.25 19.65
+component levels (RMS dBFS, dry, after the final gain): music -28.2 | breeze+leaves -35.1 | birds+sparrow -41.1 | chimes+creaks -37.8 | drone -37.0
+integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -4.73 dBTP (4x oversampled)
+seam step |x[0] - x[N-1]|: L 1.34e-03, R 7.86e-03; ordinary steps: median 5.22e-03, 99.9th pct 7.45e-02, max 1.64e-01
+click test (>6 kHz energy, 5 ms windows): window at the seam -20.7 dB; median -22.8 dB; max anywhere -0.9 dB; seam rank 1859 of 5599 windows louder
+local click test: seam window -20.7 dB vs the surrounding 1 s: median -24.1 dB, max -16.6 dB
+ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         8.8 LU | Peak:       -4.7 dBFS
+
+PASS  seamless loop: no step or click at the seam beyond ordinary programme content
+PASS  loudness -20.00 LUFS (target -20)
+PASS  true peak -4.73 dBTP (< -1)
+PASS  exactly 28.000 s
