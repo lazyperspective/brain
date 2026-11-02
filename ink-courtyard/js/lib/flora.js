@@ -3,7 +3,7 @@
 (function () {
   const CY = window.CY;
     // deep oxblood -> vermilion -> coral: the red bougainvillea, loud against the blue lime
-  CY.TONES = ['#4a0a0e', '#6f1112', '#951a15', '#b8231a', '#d3301f', '#e6472a', '#f06a42', '#f8946a'].map(CY.hex);
+  CY.TONES = ['#3e070d', '#661013', '#8f1816', '#b3211b', '#cf2c20', '#e2402a', '#ec5e3d', '#f37a56'].map(CY.hex);
   CY.LEAF = ['#2f3a22', '#43502c', '#5a6436'].map(CY.hex);
   CY.TWIG = [52, 36, 30];
   const LX = -0.62, LY = -0.78; // light from the upper left (the moon)
@@ -208,6 +208,13 @@
       CY.bract(g, f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, RF.f() * 6.283, f.s * RF.r(0.8, 1.1), 0.52, CY.TONES[CY.clamp(f.tone + RF.i(-1, 1), 0, 7)], 0.88, RF);
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
+    // volume: the mass turns from the moonlit upper left into its own shadow at the lower right
+    {
+      const [mx, my] = toXY(cu, 0), r = spec.r * el;
+      const gr = g.createLinearGradient(ox + mx + LX * r, oy + my + LY * r, ox + mx - LX * r * 1.1, oy + my - LY * r * 1.1);
+      gr.addColorStop(0, 'rgba(60,0,10,0)'); gr.addColorStop(0.5, 'rgba(60,0,10,0.12)'); gr.addColorStop(1, 'rgba(40,0,12,0.5)');
+      g.globalCompositeOperation = 'source-atop'; g.fillStyle = gr; g.fillRect(0, 0, S.w, S.h); g.globalCompositeOperation = 'source-over';
+    }
     CY.pigment(S, spec.seed);
     // the twigs go under the paint, and a few twig ends are re-inked over it so the vine threads through
     g.globalCompositeOperation = 'destination-over'; g.drawImage(TW.c, 0, 0); g.globalCompositeOperation = 'source-over';

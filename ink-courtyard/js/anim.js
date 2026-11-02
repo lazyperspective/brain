@@ -335,7 +335,7 @@
   A.buildSparrow = function () {
     const PG = CY.G.perch;
     A.SP.perch = [PG.x, PG.y]; A.SP.hop[2] = PG.hop; A.SP.hop[3] = PG.hopY;
-    const sc = 3, Z = 0.62; // a sparrow is small against a house: about 15 cm on an 8 m ridge
+    const sc = 3, Z = 0.82; // small against the house, but still readable as a bird
     const mk = (w, h, ox, oy, fn) => { const S = CY.mk(w * sc, h * sc), g = S.g; g.scale(sc, sc); g.translate(ox, oy); fn(g); return S.c; };
     const brown = '#8d6647', dark = '#3f2a1d', buff = '#c9a77a', pale = '#ece2cc', crown = '#80807a', nape = '#8f4f2c', chest = '#b4ad9f';
     const R = CY.rng(960);
