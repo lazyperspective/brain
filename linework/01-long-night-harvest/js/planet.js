@@ -359,23 +359,4 @@
     ctx.fillStyle = P.ink;
     ctx.fill(ink);
   };
-
-  // ---------------------------------------------------------------- seen through air
-  // the low part of the planet and rings lies behind the horizon air: darks lift toward the glow
-  // in flat steps that thicken toward the horizon; lights barely move
-  LW.drawPlanetAir = function (ctx) {
-    const D = LW.depth;
-    const RO = 2.33 * R, RB = RO * PL.sphi;
-    D.pixelHaze(ctx, 1640, SC.yh + 2, (x, y, lum) => {
-      const dx = x - PL.x, dy = y - PL.y;
-      const inDisc = dx * dx + dy * dy < (R + 2) * (R + 2);
-      const u = dx * PL.ct + dy * PL.st, v = -dx * PL.st + dy * PL.ct;
-      const inRing = (u / RO) ** 2 + (v / RB) ** 2 < 1;
-      if (!inDisc && !inRing) return 0;
-      const band = D.q(AIR * Math.pow(LW.smooth(1700, SC.yh, y), 1.2));
-      if (band <= 0) return 0;
-      return band * (lum < 0.3 ? 1 : lum < 0.5 ? 0.55 : 0.2);
-    });
-  };
-  const AIR = 0.42;
 })();

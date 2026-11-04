@@ -55,8 +55,7 @@
     const bb = OB.bbox(out);
     const [cx, cy] = OB.centroid(base);
     const w = bb[2] - bb[0], h = bb[3] - bb[1];
-    const inkC = o.ink || C.ink;
-    const inkAt = (x, y) => OB.warmCss(inkC, x, y, tag, 1);
+    const inkAt = (x, y) => OB.warmCss(C.ink, x, y, tag, 1);
     const wk = OB.warm(cx, cy, tag);
     const tone = (d) => mix(OB.toneOf(o.tones, d), C.warmStone, Math.min(0.45, wk * 0.5));
     if (o.halo !== false) {
@@ -181,7 +180,7 @@
       }
       ctx.fillStyle = css(C.lichen, 0.55);
       ctx.fill(Pl);
-      ctx.fillStyle = css(inkC, 0.55);
+      ctx.fillStyle = css(C.ink, 0.55);
       ctx.fill(Pd);
     }
     ctx.restore();
@@ -255,17 +254,10 @@
       }
       return best;
     };
-    // depth: 1 at the summit, 0 at the foot of the massif behind the foreground rocks
-    const far = (M.far = (y) => 1 - smooth(1760, 3150, y));
     M.D = (x, y) => {
       const sh = smooth(-90, 140, x - spurX(y));
-      let d = clamp(0.12 + 0.62 * mval[macroAt(x, y)] + 0.26 * sh + 0.1 * smooth(1400, 2150, x) + 0.1 * smooth(2000, 3800, y)
-        - 0.14 * (1 - smooth(0, 120, y - crest(x))) + 0.06 * N.fbm(x * 0.008, y * 0.008, 2));
-      // aerial perspective: far up the slope the darks lift and the lights dim
-      d = lerp(d, 0.24 + 0.56 * d, 0.78 * far(y));
-      // and the foot of the slope between the near rocks belongs to the near plane: darker
-      d += 0.1 * smooth(3250, 3800, y);
-      return clamp(d - 0.55 * OB.warm(x, y, 'massif'));
+      return clamp(0.12 + 0.62 * mval[macroAt(x, y)] + 0.26 * sh + 0.1 * smooth(1400, 2150, x) + 0.1 * smooth(2000, 3800, y)
+        - 0.14 * (1 - smooth(0, 120, y - crest(x))) + 0.06 * N.fbm(x * 0.008, y * 0.008, 2) - 0.55 * OB.warm(x, y, 'massif'));
     };
     M.macro = { seeds: mseeds, val: mval };
     M.grass = (x, y) => N.fbm(x * 0.0035 + 3, y * 0.0045, 3) - 0.08 * smooth(1500, 2000, x);
@@ -279,9 +271,6 @@
     ctx.save();
     ctx.clip(M.path);
     const Bc = new OB.Batch();
-    const strataP = new Path2D();
-    let strataN = 0;
-    const near = (y) => smooth(1800, 3700, y);
     cells.forEach((c, k) => {
       const [sx, sy] = c.seed;
       const g = grad(sx, sy);
@@ -293,55 +282,23 @@
       const rp = OB.roughen(c.poly, true, c.size * 0.04, 2.5 / c.size, k % 997, Math.max(3, c.size * 0.04));
       const cb = OB.bbox(rp);
       const ch = cb[3] - cb[1] + 1;
-      if (far(sy) + 0.34 * (OB.hash(k, 913) - 0.5) > 0.6) { OB.path(rp, true, strataP); strataN++; return; }
       ctx.save();
       ctx.clip(OB.path(rp));
       const p = persp(sy);
       OB.engrave(ctx, {
-        bbox: cb, angle: ang, sp: lerp(3.0, 4.7, near(sy)) * (grassy ? 1.25 : 1), D: (x, y) => M.D(x, y) + (off + 0.16 * ((y - cb[1]) / ch - 0.45)) * (1 - 0.5 * far(sy)),
-        w: lerp(0.55, 2.1, near(sy)), wmin: 0.3, levels: 8, colAt: (x, y) => OB.warmCss(C.ink, x, y, 'massif', 1), wob: 0.4, seed: 2000 + k, step: 3 + p, fade: 0.25,
+        bbox: cb, angle: ang, sp: lerp(2.5, 5.2, smooth(1700, 3900, sy)) * (grassy ? 1.25 : 1), D: (x, y) => M.D(x, y) + off + 0.16 * ((y - cb[1]) / ch - 0.45),
+        w: lerp(0.8, 1.8, smooth(1700, 3900, sy)), wmin: 0.3, levels: 8, colAt: (x, y) => OB.warmCss(C.ink, x, y, 'massif', 1), wob: 0.4, seed: 2000 + k, step: 3 + p, fade: 0.25,
       });
       ctx.restore();
       // crack network: broken cell edges, stronger where the ground is rocky
       if (!grassy) {
         const loop = rp.concat([rp[0]]);
         const m = loop[loop.length >> 1];
-        const lw = lerp(0.6, 1.7, near(sy));
-        OB.runs(Bc.get(OB.warmCss(C.ink, m[0], m[1], 'massif', 1)), loop, (i) => lw * (0.8 + 0.6 * OB.N(i * 0.1, k)), (i) => OB.N(i * 0.06 + k * 1.3, k * 0.7) > -0.05 + 0.5 * far(sy), 3);
+        const lw = lerp(0.8, 1.7, smooth(1700, 3900, sy));
+        OB.runs(Bc.get(OB.warmCss(C.ink, m[0], m[1], 'massif', 1)), loop, (i) => lw * (0.8 + 0.6 * OB.N(i * 0.1, k)), (i) => OB.N(i * 0.06 + k * 1.3, k * 0.7) > -0.05, 3);
       }
     });
     Bc.fill(ctx);
-    // far slopes: long contour-following strata lines instead of cells; spacing follows tone,
-    // lines are fine and break up, and near the crest they run parallel to the skyline
-    if (strataN) {
-      const smask = OB.mask((g) => g.fill(strataP), 0.5);
-      const crS = new Float32Array(W + 1);
-      for (let x = 0; x <= W; x++) { let a = 0; for (let k = -4; k <= 4; k++) a += crest(x + k * 22); crS[x] = a / 9; }
-      const cs = (x) => crS[Math.max(0, Math.min(W, Math.round(x)))];
-      const angle = (x, y) => {
-        const g = grad(x, y);
-        const ah = 0.4 * Math.atan2(g[0], -g[1]);
-        const ac = Math.atan2(cs(x + 30) - cs(x - 30), 60);
-        const a = 0.85 * (1 - smooth(20, 460, y - cs(x)));
-        return ah * (1 - a) + ac * a + 0.07 * N.fbm(x * 0.0022, y * 0.004, 2);
-      };
-      const sep = (x, y) => lerp(12.5, 4.6, clamp(M.D(x, y)));
-      const lines = OB.streamlines({ inside: (x, y) => smask.inside(x, y) && M.mask.inside(x, y), angle, sep, bbox: [0, 1640, W, 2900], step: 2.5, cell: 4, seed: 4401, minLen: 30, maxSteps: 900, dtest: 0.62, seedGrid: 36 });
-      const B = new OB.Batch();
-      const Ph = new Path2D();
-      lines.forEach((L, li) => {
-        if (L.length < 4) return;
-        const m = L[L.length >> 1];
-        const key = OB.warmCss(C.ink, m[0], m[1], 'massif', 1);
-        // now and then a heavier bedding line with a pale lit lip, so the lines read as strata
-        const bed = OB.hash(li, 4402) < 0.11 ? 1.9 : 1;
-        OB.runs(B.get(key), L, (i) => bed * lerp(0.4, 1.2, clamp(M.D(L[i][0], L[i][1]))) * (1 + 0.25 * OB.N(i * 0.07, li)), (i) => OB.N(i * 0.022 + li * 1.7, li * 0.31) > -0.6, 4);
-        if (bed > 1) OB.runs(Ph, L.map((q) => [q[0], q[1] - 2.4]), () => 0.8, (i) => OB.N(i * 0.03 + li, 6.1) > 0.05 && M.D(L[i][0], L[i][1]) < 0.62, 4);
-      });
-      B.fill(ctx);
-      ctx.fillStyle = css(C.rockHi, 0.4);
-      ctx.fill(Ph);
-    }
     // arêtes: ink along the edges between the big planes, with a pale lit lip where the
     // upper plane faces the light
     {
@@ -350,8 +307,8 @@
       mc.forEach((poly, i) => {
         const loop = OB.resample(poly.concat([poly[0]]), 6, false);
         const pts = OB.roughen(loop, false, 5, 0.03, i % 97, 6);
-        const ws = pts.map((q) => lerp(0.7, 3.2, near(q[1])));
-        OB.runs(Pk, pts, (k) => ws[k] * (0.7 + 0.6 * OB.N(k * 0.08, i)), (k) => M.mask.inside(pts[k][0], pts[k][1]) && pts[k][1] > crest(pts[k][0]) + 12 && OB.N(k * 0.05 + i, 3.3) > -0.3 + 0.75 * far(pts[k][1]), 3);
+        const ws = pts.map((q) => lerp(1.2, 3.2, smooth(1700, 3900, q[1])));
+        OB.runs(Pk, pts, (k) => ws[k] * (0.7 + 0.6 * OB.N(k * 0.08, i)), (k) => M.mask.inside(pts[k][0], pts[k][1]) && pts[k][1] > crest(pts[k][0]) + 12 && OB.N(k * 0.05 + i, 3.3) > -0.3, 3);
         if (M.macro.val[i] < 0.42) OB.runs(Ph, pts.map((q) => [q[0], q[1] - 3]), () => 1.0, (k) => M.mask.inside(pts[k][0], pts[k][1]) && pts[k][1] > crest(pts[k][0]) + 12 && OB.N(k * 0.07 + i, 8.1) > 0.15, 3);
       });
       ctx.fillStyle = css(C.ink);
@@ -399,7 +356,6 @@
       for (let k = 0; k < 5200; k++) {
         const x = R() * W, y = 1720 + R() * 2150;
         if (!M.mask.inside(x, y) || y < crest(x) + 8) continue;
-        if (R() < 0.6 * far(y)) continue;
         const gr = M.grass(x, y);
         if (gr < 0.12 && R() > 0.12) continue;
         const sz = lerp(8, 34, smooth(1700, 3800, y)) * (0.6 + 0.6 * R());
@@ -472,9 +428,9 @@
     ctx.fillStyle = css(C.crevice, 0.55);
     ctx.fill(shadows);
     OB.drawCliff(ctx, face, [0, 1700, W, 3900], {
-      D: (x, y) => clamp(M.D(x, y) + 0.05), far: M.far, dip: -0.06, fold: 20, seed: 57, tag: 'massif', tones: C.rockTones, olw: 2.2, grass: 0.14,
+      D: (x, y) => clamp(M.D(x, y) + 0.05), dip: -0.06, fold: 20, seed: 57, tag: 'massif', tones: C.rockTones, olw: 2.2, grass: 0.14,
       bandH: (y) => lerp(16, 70, Math.pow(smooth(1680, 3900, y), 0.9)),
-      strips: [[0, 2250, 3.5, 0.66], [2250, 2900, 3.4, 1.05], [2900, 4000, 4.2, 1.7]], noOutline: true,
+      strips: [[0, 2250, 2.5, 0.95], [2250, 2900, 3.2, 1.2], [2900, 4000, 4.2, 1.6]], noOutline: true,
     });
     {
       // ink only where the step casts its edge: a heavy undercut line, a broken lit lip on top
@@ -509,20 +465,16 @@
       const ex = c.poly.map((q) => [cx + (q[0] - cx) * 1.05, cy + (q[1] - cy) * 1.05]);
       OB.path(OB.roughen(ex, true, c.size * 0.035, 2.4 / c.size, nb++ % 997, Math.max(3, c.size * 0.03)), true, cf);
     }
-    M.rockPath = cf;
     OB.drawCliff(ctx, cf, [0, 1640, W, 3900], {
-      D: (x, y) => clamp(M.D(x, y) + 0.04), far: M.far, dip: -0.08, fold: 26, seed: 47, tag: 'massif', tones: C.rockTones, olw: 2.6, grass: 0.12,
+      D: (x, y) => clamp(M.D(x, y) + 0.04), dip: -0.08, fold: 26, seed: 47, tag: 'massif', tones: C.rockTones, olw: 2.6, grass: 0.12,
       bandH: (y) => lerp(24, 110, Math.pow(smooth(1680, 3900, y), 0.9)),
-      strips: [[0, 2250, 3.6, 0.68], [2250, 2900, 3.5, 1.08], [2900, 4000, 4.4, 1.8]],
+      strips: [[0, 2250, 2.6, 0.95], [2250, 2900, 3.3, 1.25], [2900, 4000, 4.4, 1.7]],
     });
     // 3) granite outcrops strewn on the slope
     const loose = cells.filter((c) => !c.cliff).sort((a, b) => a.seed[1] - b.seed[1]);
     for (const c of loose) {
       const [sx, sy] = c.seed;
-      const ff = M.far(sy);
-      // detail falloff: far up the slope most small outcrops are left out
-      if (OB.hash(Math.round(sx), Math.round(sy)) < 0.8 * ff) continue;
-      OB.drawGranite(ctx, c.poly, { D: clamp(M.D(sx, sy) + 0.05 + 0.1 * (1 - 0.6 * ff) * R.norm()), size: c.size, tones: C.rockTones, tag: 'massif', seed: 3000 + nb++, sp: lerp(2.9, 5, smooth(1800, 3700, sy)), lw: lerp(0.6, 1.8, smooth(1800, 3700, sy)), olw: lerp(0.75, 1, smooth(1800, 3300, sy)) });
+      OB.drawGranite(ctx, c.poly, { D: clamp(M.D(sx, sy) + 0.05 + 0.1 * R.norm()), size: c.size, tones: C.rockTones, tag: 'massif', seed: 3000 + nb++, sp: lerp(2.4, 5, smooth(1700, 3900, sy)), lw: lerp(0.8, 1.8, smooth(1700, 3900, sy)) });
     }
     ctx.restore();
     // 4) rocks and grass mounds that stand in front of the path, hiding stretches of it
@@ -561,105 +513,15 @@
     S.massifBlocks = nb;
   };
 
-  // ------------------------------------------------------------------ depth: aerial haze on the massif
-  // Stepped, flat screen-print tint plates of night-sky blue, one level per big rock plane, so
-  // the steps fall on the arêtes; the levels rise up the slope with distance.
-  OB.drawMassifHaze = (ctx, S) => {
-    const M = S.massif, C = OB.C;
-    const seeds = M.macro.seeds;
-    const mc = OB.voronoi(seeds, [-300, 1400, W + 300, 4200]);
-    const lv = [0, 0.06, 0.12, 0.18, 0.24, 0.3];
-    const P = lv.map(() => new Path2D());
-    mc.forEach((poly, i) => {
-      if (poly.length < 3) return;
-      const f = M.far(seeds[i][1]) + 0.18 * (OB.hash(i, 71) - 0.5);
-      const k = Math.max(0, Math.min(lv.length - 1, Math.round(f * (lv.length - 0.6))));
-      if (k > 0) OB.path(poly, true, P[k]);
-    });
-    const paint = () => P.forEach((p, k) => { if (k) { ctx.fillStyle = css(C.haze, lv[k]); ctx.fill(p); } });
-    ctx.save();
-    ctx.clip(M.path);
-    paint();
-    ctx.restore();
-    if (M.rockPath) {
-      // the summit crown pokes a little above the massif outline
-      ctx.save();
-      ctx.clip(M.rockPath);
-      const out = new Path2D();
-      out.rect(-50, 1400, W + 100, 2600);
-      out.addPath(M.path);
-      ctx.clip(out, 'evenodd');
-      paint();
-      ctx.restore();
-    }
-  };
-
-  // ------------------------------------------------------------------ depth: mist in the gap
-  // Mist rising out of the gap between the near rocks and the massif: stepped pale plates with
-  // fine horizontal rules and stipple, so the ridge clearly stands behind the foreground.
-  OB.drawGapMist = (ctx, S) => {
-    const C = OB.C, N = OB.noise(131), R = OB.rng(132);
-    const fgTop = OB.crestLookup(S.fg[0].top.concat(S.fg[1].top));
-    const bot = (x) => Math.min(fgTop(x) + 30, 3225 + 26 * N(x * 0.004, 1.7));
-    const hgt = (x) => lerp(50, 205, smooth(330, 760, x)) * (1 + 0.22 * N.fbm(x * 0.003, 2.2, 3));
-    const top = (x) => bot(x) - hgt(x) + 10 * N(x * 0.012, 5);
-    const xs = [];
-    for (let x = -30; x <= W + 30; x += 5) xs.push(x);
-    // plate k spans from a fraction a of the band height to b below the bottom; stacking gives
-    // a stepped rise from the top and a stepped fall at the bottom (visible only in the gap)
-    const plates = [[-0.12, 70, 0.14], [0.22, 34, 0.16], [0.5, -6, 0.13]];
-    ctx.save();
-    ctx.translate(OB.MR[0], OB.MR[1]);
-    for (const [a, b, al] of plates) {
-      const up = xs.map((x) => [x, top(x) + a * hgt(x) + 6 * N(x * 0.02, a * 9)]);
-      const dn = xs.map((x) => [x, bot(x) + b + 5 * N(x * 0.02, a * 7 + 3)]).reverse();
-      ctx.fillStyle = css(C.gapMist, al);
-      ctx.fill(OB.path(up.concat(dn)));
-    }
-    ctx.restore();
-    // fine horizontal rules, densest in the body of the bank
-    const B = new OB.Batch();
-    let i = 0;
-    for (let y = 2700; y < 3330; i++) {
-      y += 8 + 7 * OB.hash(i, 133);
-      const line = [];
-      for (let x = -20; x <= W + 20; x += 6) line.push([x, y + 2 * N(x * 0.004, y * 0.02) + 5 * N.fbm(x * 0.0015, y * 0.003, 2)]);
-      const key = css(C.gapLine, 0.25 + 0.25 * OB.hash(i, 134));
-      OB.runs(B.get(key), line, (k) => 0.75 + 0.45 * OB.N(k * 0.1, y), (k) => {
-        const [x, yy] = line[k];
-        const t0 = top(x), b0 = bot(x);
-        const t = (yy - t0) / (b0 - t0);
-        if (t < -0.12 || yy > b0 + 50) return false;
-        const body = t < 0 ? 0.15 : t > 1 ? 1 - (yy - b0) / 50 : Math.min(1, 0.4 + t);
-        return N(x * 0.003 + i * 0.7, yy * 0.05) > 0.7 - 0.95 * body;
-      }, 4);
-    }
-    B.fill(ctx);
-    // stipple: a fine dust of pale dots, thicker low in the bank
-    const Pd = new Path2D();
-    for (let k = 0; k < 9000; k++) {
-      const x = R() * W, yb = bot(x), yt = top(x);
-      const t = Math.pow(R(), 0.7);
-      const y = yt - 20 + (yb + 40 - yt) * t;
-      if (R() > 0.35 + 0.5 * t) continue;
-      const r = 0.6 + 0.8 * R();
-      Pd.moveTo(x + r, y);
-      Pd.arc(x, y, r, 0, OB.TAU);
-    }
-    ctx.fillStyle = css(C.gapLine, 0.45);
-    ctx.fill(Pd);
-  };
-
   // ------------------------------------------------------------------ foreground: fractured granite
   OB.drawForeground = (ctx, S) => {
     const C = OB.C, R = OB.rng(81), N = OB.noise(82);
     for (const F of S.fg) {
-      const corner = (x, y) => smooth(0.55, 1, Math.abs(x - 1080) / 1080) * smooth(3250, 3840, y);
-      const D = (x, y) => clamp(F.d0 + 0.18 * smooth(2950, 3500, y) + 0.24 * smooth(3400, 3840, y) + 0.12 * N.fbm(x * 0.002, y * 0.002, 3) + (F.side === 'L' ? 0.25 * (1 - smooth(0, 650, x)) : 0.25 * smooth(1550, 2160, x)) + 0.22 * corner(x, y) - 0.5 * OB.warm(x, y, 'fg'));
+      const D = (x, y) => clamp(F.d0 + 0.18 * smooth(2950, 3500, y) + 0.22 * smooth(3400, 3840, y) + 0.12 * N.fbm(x * 0.002, y * 0.002, 3) + (F.side === 'L' ? 0.25 * (1 - smooth(0, 650, x)) : 0.25 * smooth(1550, 2160, x)) - 0.5 * OB.warm(x, y, 'fg'));
       // joints and soil between the stones
-      OB.flatFill(ctx, F.path, css(C.nearInk));
-      ctx.lineWidth = 10;
-      ctx.strokeStyle = css(C.nearInk);
+      OB.flatFill(ctx, F.path, css(C.crevice));
+      ctx.lineWidth = 9;
+      ctx.strokeStyle = css(C.ink);
       ctx.stroke(F.path);
       const mask = OB.mask((g) => g.fill(F.path), 0.5);
       // a boulder field: rocks of power-law sizes, laid back to front so nearer ones overlap
@@ -705,7 +567,7 @@
           y = Math.min(y, q.y + q.r * sq * 0.6);
           poly.push([q.x + Math.cos(a) * q.r * (0.75 + 0.4 * R()), y]);
         }
-        const rp = OB.drawGranite(ctx, poly, { D: clamp(D(q.x, q.y) + 0.1 * R.norm()), size: q.r * 1.6, tones: C.fgTones, tag: 'fg', seed: 6000 + F.seed * 1000 + k, sp: lerp(4.2, 6.8, smooth(2900, 3840, q.y)), lw: lerp(2.0, 3.1, smooth(2900, 3840, q.y)), olw: 1.6, gap: 0, ink: C.nearInk, topF: flat < 0.25 ? 0.4 + 0.12 * R() : 0.14 + 0.16 * R() });
+        const rp = OB.drawGranite(ctx, poly, { D: clamp(D(q.x, q.y) + 0.1 * R.norm()), size: q.r * 1.6, tones: C.fgTones, tag: 'fg', seed: 6000 + F.seed * 1000 + k, sp: lerp(3.8, 6.4, smooth(2900, 3840, q.y)), lw: lerp(1.4, 2.4, smooth(2900, 3840, q.y)), olw: 1.35, gap: 0, topF: flat < 0.25 ? 0.4 + 0.12 * R() : 0.14 + 0.16 * R() });
         if (rp) rocks.push({ p: rp, size: q.r * 1.6, x: q.x, y: q.y });
       });
       // grass and flowers in the joints
@@ -728,7 +590,7 @@
         if (R() < 0.45) continue;
         OB.tuft(Pd, Pl, p[0], p[1] + 5, lerp(26, 60, smooth(2800, 3840, p[1])) * (0.6 + 0.7 * R()), 0.42, R, 0.35);
       }
-      ctx.fillStyle = css(C.nearInk);
+      ctx.fillStyle = css(C.ink);
       ctx.fill(Pd);
       ctx.fillStyle = css(C.grassHi, 0.8);
       ctx.fill(Pl);

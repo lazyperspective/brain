@@ -166,8 +166,7 @@
     const { stones, vous, par } = buildStones();
     const all = stones.concat(par, vous);
     const kindW = 'bridge';
-    // middle distance: darks lifted toward the night blue (it sits one plane behind the hut and lantern)
-    const palF = [P.rock1, P.rock2, LW.mix(P.rock3, P.mid[1], 0.25), LW.mix(P.rock4, P.mid[2], 0.35), LW.mix(P.rock4, P.midInk, 0.45)];
+    const palF = [P.rock1, P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.5)];
     LW.shadeFill(ctx, S, G.facePath, G.bbox, (x, y, out) => {
       const d = faceDark(x, y);
       let c = LW.stepPick(palF, LW.clamp(d, 0, 0.999), x, y, 0.04);
@@ -182,7 +181,7 @@
       out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
     });
     // soffit fill: underside, dark unless firelit
-    const palS = [P.rock3, LW.mix(P.rock4, P.mid[3], 0.3), LW.mix(P.rock4, P.midInk, 0.5)];
+    const palS = [P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.45)];
     LW.shadeFill(ctx, S, G.soffitPath, LW.bbox(G.soffit, 4), (x, y, out) => {
       const d = 0.45 + 0.3 * LW.smooth(2000, 2240, y);
       let c = LW.stepPick(palS, d, x, y, 0.04);
@@ -194,10 +193,9 @@
     // ---- ink
     const ink = new LW.Ink(503);
     ink.wobble = 0.7;
-    const BINK = LW.bridgeInk = LW.mix(P.ink, P.midInk, 0.7);
-    const base = ink.col(BINK);
-    const warmI = [0, 1, 2, 3, 4, 5, 6].map((b) => ink.col(LW.warmInkColor(b, BINK)));
-    const rimI = ink.col(LW.mix(BINK, P.water1, 0.7));
+    const base = ink.col(P.ink);
+    const warmI = [0, 1, 2, 3, 4, 5, 6].map((b) => ink.col(LW.warmInkColor(b, P.ink)));
+    const rimI = ink.col(LW.mix(P.ink, P.water1, 0.7));
     const colAt = (x, y, k = kindW) => {
       const b = LW.warmBand(LW.warm(x, y, k), x, y);
       if (b > 0) return warmI[b];
@@ -231,7 +229,7 @@
           const x = xa + ((xb - xa) * k) / steps;
           pts.push([x, y + N.n2(x / 30, y / 7) * 0.9]);
         }
-        const w = 0.8 + d * 1.05;
+        const w = 0.9 + d * 1.3;
         ink.line(pts, (x, yy) => ink.st(colAt(x, yy), w), { taper: 8, wobble: 0.5 });
       }
       // texture: pits and a crack on some stones
@@ -269,7 +267,7 @@
         // a lit band on the outer half is left open
         if ((r - v.r0) / (v.r1 - v.r0) > 0.45 + d * 0.6 && rng.next() < 0.7) continue;
         const pts = arcPts(nearC, r, v.a0 + 0.004, v.a1 - 0.004, 0.004);
-        ink.line(pts, (x, y) => ink.st(colAt(x, y), 0.8 + d * 1.0), { taper: 6, wobble: 0.4 });
+        ink.line(pts, (x, y) => ink.st(colAt(x, y), 0.9 + d * 1.2), { taper: 6, wobble: 0.4 });
       }
     }
     // stone outlines (heavier on the shadow side of each stone)
@@ -288,8 +286,8 @@
         const nx = x - mx, ny = y - my;
         const L0 = Math.hypot(nx, ny) || 1;
         const facing = (nx * lx + ny * ly) / L0; // >0 toward light
-        const w = (s.kind === 'vous' ? 1.7 : 1.45) + (facing < 0 ? -facing * 1.25 : -facing * 0.4);
-        return ink.st(colAt(x, y), Math.max(0.8, w));
+        const w = (s.kind === 'vous' ? 2.0 : 1.7) + (facing < 0 ? -facing * 1.5 : -facing * 0.5);
+        return ink.st(colAt(x, y), Math.max(0.9, w));
       }, { taper: 0, wobble: 0.5 });
     }
     // shadow under the string course: a run of short vertical hatch
@@ -348,11 +346,11 @@
     // outlines: silhouette, intrados, soffit far edge
     const ink2 = new LW.Ink(504);
     ink2.wobble = 0.6;
-    const oc = ink2.col(BINK);
+    const oc = ink2.col(P.ink);
     const top = [];
     for (let x = B.x0; x <= B.x1; x += 5) top.push([x, topY(x)]);
-    ink2.line(top, ink2.st(oc, 3.8), { taper: 0 });
-    ink2.line(arcPts(nearC, nearC.r, -Math.PI, 0, 0.005), (x, y) => ink2.st(colAt(x, y, 'soffit') === base ? oc : colAt(x, y, 'soffit'), 3.1), { taper: 0 });
+    ink2.line(top, ink2.st(oc, 4.6), { taper: 0 });
+    ink2.line(arcPts(nearC, nearC.r, -Math.PI, 0, 0.005), (x, y) => ink2.st(colAt(x, y, 'soffit') === base ? oc : colAt(x, y, 'soffit'), 3.6), { taper: 0 });
     ink2.line(arcPts(farC, farC.r, -Math.PI, 0, 0.005), ink2.st(oc, 2.6), { taper: 0 });
     ink2.line([[nearC.x - nearC.r, nearC.y], [nearC.x - nearC.r, WY]], ink2.st(oc, 3.2), { taper: 0 });
     ink2.line([[nearC.x + nearC.r, nearC.y], [nearC.x + nearC.r, WY]], ink2.st(oc, 3.2), { taper: 0 });
@@ -375,7 +373,7 @@
           if (ir.next() < 0.55) leaves.push([x + (ir.next() - 0.5) * 8, y + (ir.next() - 0.5) * 6, ir.next() * Math.PI * 2, 0.75 + ir.next() * 0.55]);
           if (depth < 3 && ir.next() < 0.06) stem(x, y, ang + ir.sign() * (0.5 + ir.next() * 0.6), len * 0.45, depth + 1);
         }
-        iv.line(pts, iv.st(iv.col(LW.bridgeInk), 1.6 - depth * 0.3), { taper: 16 });
+        iv.line(pts, iv.st(iv.col(P.ink), 1.6 - depth * 0.3), { taper: 16 });
       };
       // climbing: from the base of the left abutment up its face and onto the spandrel
       for (let k = 0; k < 5; k++) stem(600 + k * 26 + ir.next() * 14, L.waterY - 6, -Math.PI / 2 + (ir.next() - 0.5) * 0.5, 160 + ir.next() * 170, 0);
@@ -398,8 +396,8 @@
         const lit = ((Math.cos(a) * 0.6 - Math.sin(a) * 0.8) > 0);
         ctx.fillStyle = LW.rgb(wb >= 3 ? (lit ? P.warm3 : P.warm1) : wb >= 1 ? LW.mix(P.teal, P.warm1, 0.55) : lit ? P.teal : P.tealDark);
         ctx.fill(LW.polyPath(LW.chaikin(leaf, 1, true)));
-        iv.line(LW.chaikin(leaf, 1, true).concat([leaf[0]]), iv.st(iv.col(LW.bridgeInk), 1.1), { taper: 0, wobble: 0.1 });
-        iv.line([tr(0.15 * s, 0), tr(1.1 * s, 0)], iv.st(iv.col(LW.bridgeInk), 0.7), { taper: 3, wobble: 0 });
+        iv.line(LW.chaikin(leaf, 1, true).concat([leaf[0]]), iv.st(iv.col(P.ink), 1.1), { taper: 0, wobble: 0.1 });
+        iv.line([tr(0.15 * s, 0), tr(1.1 * s, 0)], iv.st(iv.col(P.ink), 0.7), { taper: 3, wobble: 0 });
       }
       iv.flush(ctx);
     }

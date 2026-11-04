@@ -19,8 +19,7 @@
   ctx.setTransform(S, 0, 0, S, 0, 0);
   const status = document.getElementById('status');
 
-  // reflected darkness steps with distance like the walls themselves
-  const REFV = { F: 0.3, L2: 0.36, R2: 0.38, L1: 0.58, R1: 0.62, R0: 0.88, L0: 0.85 };
+  const REFV = { F: 0.42, L2: 0.5, R2: 0.5, L1: 0.6, R1: 0.62, R0: 0.88, L0: 0.85 };
   const cliffStage = (names) => () => {
     for (const n of names) {
       const l = LW.cliff(n);
@@ -70,7 +69,6 @@
       t.restore();
       LW.drawWater(ctx, S);
     }],
-    ['mist', () => LW.drawMist && LW.drawMist(ctx, S)],
     ['bank', () => LW.drawBank && LW.drawBank(ctx, S)],
     ['hut', () => LW.drawHut && LW.drawHut(ctx, S)],
     ['smoke', () => LW.drawSmoke && LW.drawSmoke(ctx, S)],
@@ -78,7 +76,6 @@
     ['boat', () => LW.drawBoat && LW.drawBoat(ctx, S)],
     ['lantern', () => LW.drawLantern && LW.drawLantern(ctx, S)],
     ['foreground', () => LW.drawForeground && LW.drawForeground(ctx, S)],
-    ['nearshade', () => LW.drawNearShade && LW.drawNearShade(ctx, S)],
     ['glow', () => LW.drawGlow && LW.drawGlow(ctx, S)],
     ['print', () => LW.drawPrint && LW.drawPrint(ctx, S)],
   ];

@@ -41,15 +41,6 @@
     far1: H('#365579'),
     far2: H('#2e4a6d'),
     far3: H('#28405f'),
-    // aerial-perspective steps: far bend (palest, bluest) and the walls behind the bridge
-    air: [H('#5383ae'), H('#4a79a5'), H('#43709b'), H('#3c6791'), H('#355e87')],
-    airInk: H('#2f5a88'),
-    airEdge: H('#2a5280'),
-    mid: [H('#405f87'), H('#37557c'), H('#2f4c70'), H('#284364'), H('#223b59')],
-    midInk: H('#1a2d4b'),
-    midBlack: H('#1f3454'),
-    mist: H('#a6d3ee'),
-    mistRule: H('#bfe3f6'),
     // water
     water0: H('#0a3f6e'),
     water1: H('#0d5d97'),

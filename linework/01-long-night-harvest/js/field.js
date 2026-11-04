@@ -201,7 +201,7 @@
         const ga = SC.groundY(Xa, Za), gb = SC.groundY(Xb, Zb);
         const ha = 0.6 + 0.1 * LW.N1(Za * 1.7, side), hb = 0.6 + 0.1 * LW.N1(Zb * 1.7, side);
         const ca = ga - (f * ha) / Za, cb = gb - (f * hb) / Zb;
-        const q = wall.p(Za > 70 ? '#2c3e45' : Za > 32 ? '#1f323c' : Za > 14 ? '#15262f' : Za > 7 ? '#0f1c25' : '#0b141c');
+        const q = wall.p(Za > 60 ? '#172a35' : Za > 9 ? '#0f1c25' : '#0c161e');
         q.moveTo(xa, ga + 0.5); q.lineTo(xb, gb + 0.5); q.lineTo(xb, cb); q.lineTo(xa, ca); q.closePath();
       }
       if (i % 40 === 39) wall.flush(ctx);
@@ -327,13 +327,13 @@
         const ri = rampIdx(v);
         let col = ri <= 1 && rng.next() < 0.5 ? (rng.next() < 0.6 ? P.orange : P.rust) : RAMP[Math.max(1, ri)][1];
         if (Zi > 140) col = rng.next() < 0.55 ? P.straw : rng.next() < 0.6 ? P.amber : P.orange;
-        const w = 0.3 + earPx * 0.1; // finer toward the horizon, continuous with distance
+        const w = Math.max(0.5, earPx * 0.13);
         LW.ribbon(B.tick.p(col), [x, yb, x + Math.sin(lean) * h * 0.5, yb - h * 0.5, x + Math.sin(lean * 1.2) * h, yb - h], (t) => w * LW.taper(t, 0.3, 0.25));
         if (nearPath && dPath < 0.3) {
           const ground = yh + (f * (H - g)) / Zi;
           LW.ribbon(B.stem.p(edge ? (sunWall ? (rng.next() < 0.6 ? P.rust : P.amber) : (rng.next() < 0.2 ? P.rust : '#2b4f59')) : '#17303a'), [x, yb, x - Math.sin(lean) * (ground - yb) * 0.3, ground], (t) => Math.max(0.35, earPx * 0.06));
         }
-        if (earPx > 2.5 && rng.next() < 0.5 * LW.smooth(2.5, 4.5, earPx)) {
+        if (earPx > 2.5 && rng.next() < 0.5) {
           // the shadow side of the ear: a dark sliver
           LW.ribbon(B.stem.p('#0f1d26'), [x + w * 1.4, yb + 1, x + w * 1.4 + Math.sin(lean) * h * 0.8, yb - h * 0.8], (t) => w * 0.6 * LW.taper(t, 0.3, 0.3));
         }
@@ -411,8 +411,7 @@
     B.stem.flush(ctx);
     B.tick.flush(ctx, ORDER);
     if (lod > 0) {
-      // outline weight grows continuously toward the camera (no step at the LOD switches)
-      ctx.strokeStyle = P.ink; ctx.lineWidth = LW.clamp(0.5 + 0.075 * earPx, 0.8, 2.3); ctx.lineJoin = 'round';
+      ctx.strokeStyle = P.ink; ctx.lineWidth = lod === 2 ? 1.6 : 1.1; ctx.lineJoin = 'round';
       ctx.stroke(B.ink);
       B.fill.flush(ctx, ORDER);
       B.awn.flush(ctx, ORDER);
@@ -424,15 +423,11 @@
     const objs = [];
     const oak = SC.oak;
     const obx = SC.screenX(oak.X, oak.Z), oby = SC.groundY(oak.X, oak.Z);
-    const os = f / oak.Z;
     objs.push({
-      Z: oak.Z, box: [obx - 0.75 * 18.6 * os - 160, oby - 21 * os * 1.15 - 120, obx + 0.75 * 18.6 * os + 200, oby + 0.6 * os + 60],
-      x: obx, k: 0.15, cool: 0.6, haloClip: SC.landTop(obx) - 6,
-      halo: [[5, 0.46, P.sea], [13, 0.22, P.sea]],
-      draw: (ctx) => {
+      Z: oak.Z, draw: (ctx) => {
         const s = f / oak.Z;
         const t = LW.makeTree('oak-long-night', { bx: obx, by: oby, H: 21 * s, spread: 18.6 * s, trunkW: 2.3 * s, clumpR: 1.5 * s, lean: 0.25, canopyDx: 0.6 * s, canopyY: 0.67, canopyRy: 0.32, trunkFrac: 0.36, roots: 7, limbs: 7, holes: 0.13 });
-        LW.drawTree(ctx, t, { seed: 'oak', ink: 1.2, rimW: 2.0, fillCol: '#1a3945', backCol: '#142a35', masses: 16, backFrac: 0.22 });
+        LW.drawTree(ctx, t, { seed: 'oak', ink: 1.5, rimW: 2.2, fillCol: '#1a3945', backCol: '#142a35', masses: 16, backFrac: 0.22 });
         // grass and nettles at the foot
         const rng = new LW.RNG('oak-foot');
         const fb = new LW.FillBatch();
@@ -454,24 +449,20 @@
       const s = f / Z;
       const zz = Z;
       const hh = 2.3 + 0.5 * LW.N1(Z * 0.08, 3);
-      const r = 1.15 * s;
-      objs.push({ Z: zz, x, cool: 0.4, box: [x - 2.2 * r - 30, gy - hh * s - 2.2 * r - 30, x + 2.2 * r + 30, gy + 14],
-        draw: (ctx) => LW.drawHedgeClump(ctx, x, gy, r, hh * s, rng, { seed: 'h', ink: Math.min(1.5, 0.4 + s * 0.011), bump: 0.32, markScale: Math.min(1, 0.4 + s / 150), rimW: Math.min(2, 0.5 + s / 80) }) });
+      objs.push({ Z: zz, draw: (ctx) => LW.drawHedgeClump(ctx, x, gy, 1.15 * s, hh * s, rng, { seed: 'h', ink: Math.min(1.6, 0.6 + s * 0.012), bump: 0.32, markScale: Math.min(1, 0.4 + s / 150), rimW: Math.min(2, 0.6 + s / 80) }) });
     }
     const hedgeTree = (Z, h, sp, seed) => {
       const X = SC.hedgeX(Z);
       const x = SC.screenX(X, Z), gy = SC.groundY(X, Z), s = f / Z;
-      objs.push({ Z: Z + 0.5, x, cool: 0.5, box: [x - sp * s - 60, gy - h * s * 1.25 - 60, x + sp * s + 60, gy + 24],
-        halo: [[4, 0.22, P.sea]], haloClip: SC.landTop(x) - 4,
-        draw: (ctx) => {
+      objs.push({ Z: Z + 0.5, draw: (ctx) => {
         const t = LW.makeTree(seed, { bx: x, by: gy, H: h * s, spread: sp * s, trunkW: 0.8 * s, clumpR: 1.6 * s, lean: -0.1, roots: 2, limbs: 4, holes: 0.34, maxClumps: 70 });
-        LW.drawTree(ctx, t, { seed, ink: 0.45 + 40 / Z, markScale: 0.8, rimW: 1.2 + 25 / Z });
+        LW.drawTree(ctx, t, { seed, ink: 1.2, markScale: 0.8, rimW: 1.6 });
       } });
     };
     hedgeTree(82, 13.5, 10, 'ash-a');
     hedgeTree(142, 11, 8, 'ash-b');
     hedgeTree(58, 9, 7, 'thorn');
-    objs.push({ Z: SC.farHedgeZ, k: 0.3, cool: 0.3, box: [-40, 2120, SC.W + 40, 2345], draw: (ctx) => LW.drawFarHedge(ctx) });
+    objs.push({ Z: SC.farHedgeZ, draw: (ctx) => LW.drawFarHedge(ctx) });
     objs.sort((a, b) => b.Z - a.Z);
     return objs;
   }
@@ -486,18 +477,16 @@
     const d = img.data;
     const cache = new Map();
     const rgb = (h) => { let c = cache.get(h); if (!c) { c = LW.hex(h); cache.set(h, c); } return c; };
-    const hz = LW.depth.hazeData;
     for (let py = py0; py < py1; py++) {
       const y = (py + 0.5) / S;
       const Z = (f * (H - CANOPY)) / Math.max(0.5, y - yh);
-      const kz = LW.depth.k(Z);
       for (let px = 0; px < w; px++) {
         const x = (px + 0.5) / S;
         const X = SC.worldX(x, Z);
         const v = fieldLight(x, y, X, Z) + 0.05 * LW.N3(x * 0.03, y * 0.06) + 0.03 * LW.N4(x * 0.2, y * 0.2);
         const c = rgb(PLATE[RAMP[rampIdx(v)][1]]);
-        const o = ((py - py0) * w + px) * 4, ho = (py * w + px) * 4;
-        d[o] = c[0] + (hz[ho] - c[0]) * kz; d[o + 1] = c[1] + (hz[ho + 1] - c[1]) * kz; d[o + 2] = c[2] + (hz[ho + 2] - c[2]) * kz; d[o + 3] = 255;
+        const o = ((py - py0) * w + px) * 4;
+        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
       }
     }
     ctx.putImageData(img, 0, py0);
@@ -547,48 +536,19 @@
     }
     const tp = new Path2D(); LW.ribbon(tp, track, (t) => 1.6 - t);
     ctx.fillStyle = P.straw; ctx.fill(tp);
-    const D = LW.depth;
-    const kCanopy = (y) => D.k((f * (H - CANOPY)) / Math.max(0.3, y - yh));
-    const kGround = (y) => D.k((f * H) / Math.max(0.3, y - yh));
-    // the cart path, hazed by its own ground distance
-    drawPath(D.begin());
-    D.tintByY(kGround, yh - 10, 3300);
-    D.commit(ctx, yh - 40, SC.H);
+    drawPath(ctx);
     const objs = objects();
     const rng = new LW.RNG('rows');
-    // rows accumulate in the layer; before anything that stands in the field is drawn they are hazed
-    // strip by strip (their y gives their distance) and moved onto the page
-    let ry0 = 1e9, ry1 = -1e9;
-    const flushRows = () => {
-      if (ry1 < ry0) return;
-      D.tintByY(kCanopy, ry0, Math.min(ry1, 3300));
-      D.commit(ctx, ry0, ry1);
-      ry0 = 1e9; ry1 = -1e9;
-    };
-    const drawObj = (o) => {
-      flushRows();
-      const [x0, y0, x1, y1] = o.box;
-      const c = D.begin();
-      c.save(); c.beginPath(); c.rect(x0, y0, x1 - x0, y1 - y0); c.clip();
-      o.draw(c);
-      c.restore();
-      D.tint(o.k !== undefined ? o.k : D.k(o.Z), y0, y1, x0, x1, D.airAt(o.x !== undefined ? o.x : (x0 + x1) / 2, o.cool || 0));
-      if (o.halo) D.halo(ctx, o.halo, o.haloClip || yh, o.box);
-      D.commit(ctx, y0, y1, x0, x1);
-    };
     let Z = 232, oi = 0, rows = 0;
     while (Z > 2.25) {
-      while (oi < objs.length && objs[oi].Z >= Z) { drawObj(objs[oi]); oi++; }
+      while (oi < objs.length && objs[oi].Z >= Z) { objs[oi].draw(ctx); oi++; }
       const earPx = (0.085 * f) / Z;
       const dy = Math.max(1.05, earPx * 0.34);
       const dZ = (dy * Z * Z) / (f * (H - CANOPY));
-      drawRow(D.begin(), Z, dZ, rng);
-      ry0 = Math.min(ry0, yh + (f * (H - 3.1)) / Z - 3.2 * earPx - 30);
-      ry1 = Math.max(ry1, yh + (f * (H + 1.9)) / Z + 40);
+      drawRow(ctx, Z, dZ, rng);
       Z -= dZ; rows++;
     }
-    flushRows();
-    while (oi < objs.length) { drawObj(objs[oi]); oi++; }
+    while (oi < objs.length) { objs[oi].draw(ctx); oi++; }
     LW.log('field rows: ' + rows);
   };
 })();

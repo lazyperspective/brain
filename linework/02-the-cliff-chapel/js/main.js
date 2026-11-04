@@ -40,9 +40,7 @@
     status.textContent = 'drawing ' + name + '...';
     await LW.tick();
     try {
-      LW.depthBegin(name);
       await fn();
-      await LW.depthEnd(name);
     } catch (e) {
       console.error('step ' + name + ' failed: ' + e.message + '\n' + e.stack);
     }

@@ -128,10 +128,9 @@
     const bd = bankDist(x, y);
     const open = LW.smooth(30, 260, bd);
     v += 0.2 * Math.exp(-Math.pow((x - 1250) / 430, 2)) * open;
-    // brightest in the mid channel; the far bend sits under mist, the foreground water is darkest
-    v += 0.11 * Math.exp(-Math.pow((y - 2540) / 300, 2)) + 0.04 * LW.smooth(2400, 2120, y);
+    v += 0.12 * LW.smooth(2400, 2120, y);
     v -= 0.2 * LW.smooth(150, 0, bd);
-    v -= 0.31 * LW.smooth(2780, 3840, y);
+    v -= 0.24 * LW.smooth(2700, 3840, y);
     return v;
   }
 
@@ -223,14 +222,14 @@
       const persp = LW.clamp((y - HZ + 30) / 900, 0.05, 2.2);
       let x = -20 + rng.next() * 30;
       while (x < LW.W + 20) {
-        const len = (10 + rng.next() * rng.next() * 110) * (0.35 + persp * 1.15);
+        const len = (10 + rng.next() * rng.next() * 110) * (0.35 + persp);
         const gap = (6 + rng.next() * 50) * (0.3 + persp * 0.8);
         const cx = x + len / 2;
         const sx = cx + bands.dx[j], sy = y + bands.dy[j];
         const dk = sampleBuf(D, sx, sy);
         const wm = sampleBuf(Wm, sx, sy);
         const mg = moonGlitter(sx, sy) * (1 - LW.smooth(0.45, 0.7, dk));
-        let ci = -1, wdt = 0.42 + persp * 1.45;
+        let ci = -1, wdt = 0.7 + persp * 1.0;
         const r = rng.next();
         if (wm > 0.32) {
           if (r < 0.75) { ci = wm > 0.75 ? cW[2] : wm > 0.5 ? cW[1] : cW[0]; wdt *= 1.25; }
@@ -252,10 +251,7 @@
             const xx = x + len * t;
             pts.push([xx, y + Math.sin(t * Math.PI) * curv + N.n2(xx / 50, y / 20) * 0.8 * persp]);
           }
-          // near ripples are bigger and break up; far ones stay fine and unbroken
-          const code = ink.st(ci, wdt);
-          const brk = persp > 0.75 ? LW.smooth(0.75, 1.6, persp) : 0;
-          ink.line(pts, brk ? (xx) => (N2.n2(xx / (22 + 18 * persp), j * 1.71) > 0.7 - 0.3 * brk ? -1 : code) : code, { taper: Math.min(len * 0.35, 18), minScale: 0.25 });
+          ink.line(pts, ink.st(ci, wdt), { taper: Math.min(len * 0.35, 18), minScale: 0.25 });
         }
         x += len + gap;
       }
@@ -353,127 +349,5 @@
     ctx.drawImage(layer, 0, 0);
     ctx.restore();
     LW.log('water ms', Math.round(performance.now() - t0));
-  };
-
-  // ---------------------------------------------------------------- mist
-  /* Low mist as an overprinted pale cyan-blue plate in flat steps (no airbrush):
-     each band lifts what is behind it by two or three stepped amounts with ragged
-     edges, then gets engraved with fine broken horizontal rules and a stipple
-     fringe. Nearer planes are cut out of the plate so the mist sits between them. */
-  const MN = new LW.Noise(631), MN2 = new LW.Noise(632);
-  function mistField(bd, x, y) {
-    const cy = bd.cy(x);
-    const t = y - cy;
-    const u = t < 0 ? -t / bd.up : t / bd.dn;
-    if (u >= 1.25) return 0;
-    // horizontal strata: long streaks that thin and thicken along the band
-    const streak = 0.5 + 0.5 * MN.n2(x / bd.streak, y / 13 + bd.seed);
-    const prof = Math.max(0, 1 - u * u);
-    const xe = LW.smooth(bd.x0, bd.x0 + bd.fx, x) * LW.smooth(bd.x1, bd.x1 - bd.fx, x);
-    return prof * xe * (0.55 + 0.6 * streak) + MN2.n2(x / 23, y / 6) * 0.06;
-  }
-  LW.drawMist = function (ctx, S) {
-    const t0 = performance.now();
-    const G = LW.bridgeGeom, B = L.bridge;
-    const cut = (names, bridge) => (c) => {
-      c.globalCompositeOperation = 'destination-out';
-      for (const n of names) c.fill(LW.cliff(n).path);
-      if (bridge) { c.fill(G.facePath); c.fill(G.soffitPath); }
-    };
-    const bandsM = [
-      // far bend: a low bank on the water and the feet of the far walls, behind the walls of the bridge
-      { name: 'far', x0: 980, x1: 1360, fx: 110, cy: (x) => 2074 + 8 * MN.n2(x / 90, 1.3), up: 72, dn: 40, k: [0.13, 0.25, 0.37], streak: 160, seed: 1,
-        cutNames: ['L1', 'R1', 'L0', 'R0'], bridge: true, rule: 4.2, ruleW: 0.7, bbox: [960, 1960, 1380, 2140] },
-      // a thinner sheet under and behind the bridge, in front of the walls behind it
-      { name: 'under', x0: 800, x1: 1600, fx: 180, cy: (x) => 2158 + 8 * MN.n2(x / 120, 4.1), up: 42, dn: 34, k: [0.09, 0.17, 0.25], streak: 220, seed: 7,
-        cutNames: ['L0', 'R0'], bridge: true, rule: 5.5, ruleW: 0.8, bbox: [780, 2090, 1620, 2210] },
-      // haze lying behind the parapet so the bridge's top stands off the walls behind it
-      { name: 'halo', x0: 660, x1: 1680, fx: 200, cy: (x) => B.topY(x) + 4, up: 60, dn: 30, k: [0.08, 0.16, 0.24], streak: 260, seed: 13,
-        only: ['L1', 'R1', 'L2', 'R2', 'F'], rule: 6.5, ruleW: 0.65, bbox: [640, 1660, 1700, 2000] },
-    ];
-    for (const bd of bandsM) {
-      const bb = bd.bbox;
-      const px0 = Math.floor(bb[0] * S), py0 = Math.floor(bb[1] * S);
-      const w = Math.ceil((bb[2] - bb[0]) * S), h = Math.ceil((bb[3] - bb[1]) * S);
-      // allowed mask
-      const mc = LW.mkCanvas(w, h);
-      const mx = mc.getContext('2d', { willReadFrequently: true });
-      mx.setTransform(S, 0, 0, S, -px0, -py0);
-      mx.fillStyle = '#fff';
-      if (bd.only) {
-        for (const n of bd.only) mx.fill(LW.cliff(n).path);
-        cut(['L0', 'R0'], true)(mx);
-      } else {
-        mx.fillRect(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]);
-        cut(bd.cutNames, bd.bridge)(mx);
-      }
-      const md = mx.getImageData(0, 0, w, h).data;
-      // stepped tint plate
-      const img = ctx.getImageData(px0, py0, w, h);
-      const d = img.data;
-      const MC = P.mist;
-      for (let py = 0; py < h; py++) {
-        const y = (py0 + py + 0.5) / S;
-        for (let px = 0; px < w; px++) {
-          const k = (py * w + px) * 4;
-          const a = md[k + 3] / 255;
-          if (a < 0.02) continue;
-          const x = (px0 + px + 0.5) / S;
-          const m = mistField(bd, x, y);
-          const lvl = m > 0.78 ? 3 : m > 0.48 ? 2 : m > 0.2 ? 1 : 0;
-          if (!lvl) continue;
-          const t = bd.k[lvl - 1] * a;
-          d[k] += (MC[0] - d[k]) * t;
-          d[k + 1] += (MC[1] - d[k + 1]) * t;
-          d[k + 2] += (MC[2] - d[k + 2]) * t;
-        }
-      }
-      ctx.putImageData(img, px0, py0);
-      // engraved rules + stipple fringe on their own layer, cut by the same mask
-      const lc = LW.mkCanvas(w, h);
-      const lx = lc.getContext('2d');
-      lx.setTransform(S, 0, 0, S, -px0, -py0);
-      const ink = new LW.Ink(LW.hashStr('mist' + bd.name));
-      ink.wobble = 0.35;
-      const rng = new LW.RNG('mist-' + bd.name);
-      const cR = ink.col(P.mistRule), cR2 = ink.col(LW.mix(P.mist, P.water3, 0.35));
-      for (let y = bb[1] + rng.next() * bd.rule; y < bb[3]; y += bd.rule * (0.75 + rng.next() * 0.5)) {
-        let x = bb[0] + rng.next() * 40;
-        while (x < bb[2]) {
-          const len = 14 + rng.next() * rng.next() * 140;
-          const gap = 8 + rng.next() * 46;
-          const mxm = mistField(bd, x + len / 2, y);
-          if (mxm > 0.42 && rng.next() < 0.35 + 0.6 * mxm) {
-            const pts = [];
-            for (let s = 0; s <= len; s += 6) pts.push([x + s, y + MN.n2((x + s) / 70, y / 9) * 0.9]);
-            if (pts.length > 1) ink.line(pts, (xx, yy) => (mistField(bd, xx, yy) < 0.3 ? -1 : ink.st(mxm > 0.75 ? cR : cR2, bd.ruleW * (0.7 + 0.5 * mxm))), { taper: Math.min(18, len * 0.4), minScale: 0.15 });
-          }
-          x += len + gap;
-        }
-      }
-      ink.flush(lx);
-      // stipple fringe along the band's soft edges
-      const area = (bb[2] - bb[0]) * (bb[3] - bb[1]);
-      // fine stipple only where the band frays out, low contrast so it reads as vapour, not snow
-      const dotA = LW.mix(P.mist, P.air[1], 0.35), dotB = LW.mix(P.mist, P.air[3], 0.6);
-      for (let i = 0; i < area / 120; i++) {
-        const x = bb[0] + rng.next() * (bb[2] - bb[0]), y = bb[1] + rng.next() * (bb[3] - bb[1]);
-        const m = mistField(bd, x, y);
-        if (m < 0.1 || m > 0.42) continue;
-        if (rng.next() > 0.85 - Math.abs(m - 0.25) * 3) continue;
-        lx.fillStyle = LW.rgb(m > 0.25 ? dotA : dotB);
-        lx.beginPath();
-        lx.arc(x, y, 0.45 + rng.next() * 0.45, 0, Math.PI * 2);
-        lx.fill();
-      }
-      lx.setTransform(1, 0, 0, 1, 0, 0);
-      lx.globalCompositeOperation = 'destination-in';
-      lx.drawImage(mc, 0, 0);
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(lc, px0, py0);
-      ctx.restore();
-    }
-    LW.log('mist ms', Math.round(performance.now() - t0));
   };
 })();

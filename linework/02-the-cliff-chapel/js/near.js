@@ -261,7 +261,7 @@
         const path = LW.polyPath(scr);
         fg.addPath(path);
         LW.occlude(path);
-        LW.flat(path, st.replaced ? '#cbbf9f' : rnd() < 0.5 ? '#d2bf8e' : '#c9b282'); // depth: near risers one tone deeper (full value range up front)
+        LW.flat(path, st.replaced ? '#d3c9ab' : rnd() < 0.5 ? '#dccb9c' : '#d4c08e');
         if (st.corner > 0.04) { // the broken corner shows raw, darker stone
           const cq = [F(st.s0, 0, st.yT - cornerAt(st, 0) * 0.6), F(st.s0, 0.2, st.yT - dipAt(st, st.s0, 0.2)), F(st.s0, 0.12, st.yT - cornerAt(st, 0.12) * 0.6 - 0.02), F(st.s0, 0, st.yT - cornerAt(st, 0) - 0.03)];
           LW.flat(LW.polyPath(cq), '#b9a477');

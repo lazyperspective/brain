@@ -372,7 +372,7 @@
     });
     const Dc = (x, y) => {
       const [k, t] = bandAt(x, y);
-      let d = 0;
+      let d = o.D(x, y);
       if (k >= 0) {
         d += (OB.hash(k, o.seed) - 0.5) * 0.18;
         if (t < 0.17) d -= 0.4 * (1 - t / 0.17) + 0.12;
@@ -381,9 +381,6 @@
         const sw = 6 + o.bandH(y) * 0.14;
         for (let j = 0; j < J.length; j++) { const dx = x - J[j]; if (dx > 0 && dx < sw) { d += 0.26 * (1 - dx / sw) + 0.1; break; } if (dx < 0) break; }
       }
-      // depth: far cliffs lose contrast like the slope around them (o.D is already compressed)
-      if (o.far) d *= 1 - 0.7 * o.far(y);
-      d += o.D(x, y);
       return clamp(d - 0.5 * OB.warm(x, y, o.tag));
     };
     const inkAt = (x, y) => OB.warmCss(C.ink, x, y, o.tag, 1);
@@ -837,10 +834,9 @@
     L.lx = lx; L.ly = ly;
   };
   OB.lanternGlow = (ctx, L) => {
-    const C = OB.C, s = L.s, dm = L.dim === undefined ? 1 : L.dim;
-    // depth: far lanterns are smaller and their halos weaker and tighter
-    OB.glow(ctx, L.lx, L.ly, 100 * s * lerp(0.75, 1, dm), C.amber, 0.22 * dm);
-    OB.glow(ctx, L.lx, L.ly, 26 * s, C.amber, 0.4 * lerp(0.7, 1, dm));
+    const C = OB.C, s = L.s;
+    OB.glow(ctx, L.lx, L.ly, 100 * s, C.amber, 0.22);
+    OB.glow(ctx, L.lx, L.ly, 26 * s, C.amber, 0.4);
     // engraved rays
     const P = new Path2D();
     const R = OB.rng(Math.round(L.x));
@@ -849,7 +845,7 @@
       const r0 = 12 * s, r1 = (18 + 14 * R()) * s;
       OB.ribbon(P, [[L.lx + Math.cos(a) * r0, L.ly + Math.sin(a) * r0], [L.lx + Math.cos(a) * r1, L.ly + Math.sin(a) * r1]], [0.9 * s, 0.1]);
     }
-    ctx.fillStyle = css(C.amberHot, 0.4 * dm);
+    ctx.fillStyle = css(C.amberHot, 0.4);
     ctx.fill(P);
   };
 

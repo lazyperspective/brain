@@ -118,7 +118,7 @@
       const f = i / (n - 1);
       return w0 * (1 - (t.taper || 0.8) * Math.pow(f, 0.9)) * (1 + 0.14 * OB.N(i * 0.15, t.seed)) * (f < 0.06 ? 1.35 - f * 5 : 1);
     });
-    const woodOpt = (dead, w) => ({ fill: dead ? C.snag : t.wood || C.bark, hi: dead ? C.snagHi : t.woodHi || C.barkHi, olw: Math.max(1.1, w * 0.1) * (t.olwK || 1), lines: dead ? 5 : 4, seed: t.seed + Math.round(w * 10), spiral: dead ? 1 : 0.3 });
+    const woodOpt = (dead, w) => ({ fill: dead ? C.snag : t.wood || C.bark, hi: dead ? C.snagHi : t.woodHi || C.barkHi, olw: Math.max(1.1, w * 0.1), lines: dead ? 5 : 4, seed: t.seed + Math.round(w * 10), spiral: dead ? 1 : 0.3 });
     const limbs = [], clusters = [];
     const nl = t.limbs || 7;
     const needle = t.needle || t.h * 0.022;
@@ -189,7 +189,7 @@
         drawWood(ctx, sm, sm.map((p, i) => L.w * (1 - 0.82 * (i / (sm.length - 1)))), woodOpt(L.dead, L.w));
       }
     }
-    drawWood(ctx, spine, ws, { fill: t.wood || C.bark, hi: t.woodHi || C.barkHi, olw: Math.max(1.6, w0 * 0.07) * (t.olwK || 1), lines: t.barkLines || 11, seed: t.seed, spiral: t.spiral || 0.3 });
+    drawWood(ctx, spine, ws, { fill: t.wood || C.bark, hi: t.woodHi || C.barkHi, olw: Math.max(1.6, w0 * 0.07), lines: t.barkLines || 11, seed: t.seed, spiral: t.spiral || 0.3 });
     if (t.roots) {
       const P = new Path2D();
       for (let k = 0; k < t.roots; k++) {
@@ -215,13 +215,12 @@
       ctx.fillStyle = css(t.padFill || C.pineFill);
       ctx.fill(L.core);
       ctx.lineCap = 'round';
-      const nw = t.needleW || 1;
-      ctx.lineWidth = Math.max(0.75, needle * 0.065) * nw;
-      ctx.strokeStyle = css(t.near ? C.nearInk : C.ink);
+      ctx.lineWidth = Math.max(0.75, needle * 0.065);
+      ctx.strokeStyle = css(C.ink);
       ctx.stroke(L.dark);
       ctx.strokeStyle = css(t.midCol || C.pineMid);
       ctx.stroke(L.mid);
-      ctx.lineWidth = Math.max(0.7, needle * 0.055) * (1 + (nw - 1) * 0.5);
+      ctx.lineWidth = Math.max(0.7, needle * 0.055);
       ctx.strokeStyle = css(t.hiCol || C.pineHi);
       ctx.stroke(L.light);
     }

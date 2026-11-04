@@ -84,8 +84,8 @@
         const mx = P.x + r * Math.cos(mid), my = P.y + r * Math.sin(mid);
         if (mx > -300 && mx < W + 300 && my > -300 && my < skyBot) {
           if (R() < Math.max(0, cov(mx, my)) * 1.5) {
-            // atmospheric extinction: low trails are fainter and fewer reach full brightness
-            b = clamp(b * (1 - 0.32 * smooth(1250, 2200, my)));
+            // near the horizon the air glows: trails a touch brighter
+            b = clamp(b + 0.05 * smooth(1500, 2150, my));
             arcs.push(mk(r, th, L, b));
           }
         }
@@ -110,8 +110,7 @@
         }
         const m = pts[segs >> 1];
         const wm = OB.warm(m[0], m[1], 'sky');
-        let col = a.col, al = a.a * (1.02 - 0.42 * smooth(1150, 2250, m[1]));
-        col = mix(col, C.trailBlue, 0.35 * smooth(1300, 2250, m[1]));
+        let col = a.col, al = a.a * (0.78 + 0.35 * smooth(900, 2150, m[1]));
         if (wm > 0.02) { col = mix(col, C.amberHot, Math.min(1, wm * 1.4)); al = Math.min(1, al + wm * 0.5); }
         const q = (v) => Math.round(v / 6) * 6;
         const key = css([q(col[0]), q(col[1]), q(col[2])], Math.round(clamp(al) * 20) / 20);
@@ -133,7 +132,7 @@
         for (let x = 0; x < W; x += cell) {
           const d = S.mwDensity(x, y);
           if (d < 0.02) continue;
-          if (R() > Math.min(1, Math.pow(d, 0.95) * 1.1) * (1 - 0.45 * smooth(1300, 2250, y))) continue;
+          if (R() > Math.min(1, Math.pow(d, 0.95) * 1.1)) continue;
           const px = x + R() * cell, py = y + R() * cell;
           const rr = 0.42 + 1.0 * Math.pow(R(), 5) + (R() < 0.006 ? 1.2 : 0);
           const c = R();
@@ -146,7 +145,7 @@
       // field stars everywhere
       for (let y = 0; y < 2300; y += 15) {
         for (let x = 0; x < W; x += 15) {
-          if (R() > 0.11 * (1 - 0.5 * smooth(1300, 2250, y))) continue;
+          if (R() > 0.11) continue;
           const px = x + R() * 15, py = y + R() * 15;
           const rr = 0.45 + 1.1 * Math.pow(R(), 4);
           const p = B.get(R() < 0.7 ? cols[3] : cols[0]);

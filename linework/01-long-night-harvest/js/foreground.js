@@ -9,9 +9,6 @@
     { n: 12, y0: 2700, y1: 3420, s0: 0.95, s1: 1.45, stem: '#173340', leafA: '#21505a', leafB: '#173340', grain: P.orange, grainB: P.rust, rim: P.straw, awn: P.amber, awnLit: P.straw, hatch: '#5e2a22', vein: '#3f7a78' },
   ];
 
-  // key-line weight per layer: the nearest plants carry the heaviest ink in the picture
-  const INK = [1, 1.12, 1.3, 1.3];
-
   function bez(p0, p1, p2, n) {
     const out = [];
     for (let i = 0; i <= n; i++) {
@@ -111,7 +108,7 @@
       if (dead && sI === segs.length - 2) col = L.layer === 2 ? '#7a3a26' : '#4a2620';
       ctx.fillStyle = col; LW.offset(ctx, LW.REG.cool, () => ctx.fill(path));
       ctx.fill(path);
-      LW.ribbonClosed(ink, LW.resample(poly, 3.5), (t, i, x2, y2) => (1.05 * L.sc + 0.35) * INK[L.layer] * (0.85 + 0.3 * LW.N2(x2 * 0.04, y2 * 0.04)));
+      LW.ribbonClosed(ink, LW.resample(poly, 3.5), (t, i, x2, y2) => (1.05 * L.sc + 0.35) * (0.85 + 0.3 * LW.N2(x2 * 0.04, y2 * 0.04)));
       // engraved veins in this segment; the underside gets denser hatching (shadow)
       const veins = new LW.FillBatch();
       const nv = under ? 4 : 2;
@@ -212,7 +209,7 @@
       LW.polyPath(ink, pts, true);
       LW.polyPath(g.side > 0 ? fA : fB, pts, true);
     }
-    ctx.strokeStyle = P.ink; ctx.lineWidth = (2.2 * L.sc + 0.6) * INK[L.layer]; ctx.lineJoin = 'round';
+    ctx.strokeStyle = P.ink; ctx.lineWidth = 2.2 * L.sc + 0.6; ctx.lineJoin = 'round';
     ctx.stroke(ink);
     LW.offset(ctx, LW.REG.warm, () => { ctx.fillStyle = L.grain; ctx.fill(fA); ctx.fillStyle = L.grainB; ctx.fill(fB); });
     const rims = new Path2D();
@@ -250,7 +247,7 @@
   function stem(ctx, L, pts, rng) {
     const ink = new Path2D(), fl = new Path2D(), hl = new Path2D();
     const hw = (t) => (5.2 - 2.4 * t) * L.sc;
-    LW.ribbon(ink, pts, (t) => hw(t) + (1.3 * L.sc + 0.5) * INK[L.layer]);
+    LW.ribbon(ink, pts, (t) => hw(t) + 1.3 * L.sc + 0.5);
     LW.ribbon(fl, pts, hw);
     ctx.fillStyle = P.ink; ctx.fill(ink);
     ctx.fillStyle = L.stem; LW.offset(ctx, LW.REG.cool, () => ctx.fill(fl));

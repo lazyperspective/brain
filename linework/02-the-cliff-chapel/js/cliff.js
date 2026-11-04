@@ -84,9 +84,7 @@
     const nFace = V.norm(V.add(S.NF, [0, S.LEAN, 0]));
     const fillG = LW.fill, inkG = LW.ink;
     LW.occlude(G.path);
-    LW.hazeConst = 0.55; // the ground flat only shows on the summit, which is far
     LW.flat(G.path, LIME[1]);
-    LW.hazeConst = 0;
     fillG.save(); fillG.clip(G.path);
     inkG.save(); inkG.clip(G.path);
     const beds = LW.cliffBeds();
@@ -164,7 +162,6 @@
         const path = LW.polyPath(scr);
         const inside = (x, y) => LW.pointInPoly(x, y, scr);
         const dc = darkAt(ctr[0], ctr[1]);
-        LW.hazeConst = 0.14 + 0.52 * LW.cliffDepth(bd.h0 + bd.t / 2); // depth: each bed one step further into the air
         LW.flat(path, LIME[Math.min(3, Math.floor(LW.clamp(dc, 0, 0.99) * 3.2))]);
         // flats for the undercut band / lit ledge
         if (band || ledge) {
@@ -253,7 +250,6 @@
       }
       const c = fp(u0, h0);
       if (!G.mask.in(c[0], c[1])) continue;
-      LW.hazeConst = 0.14 + 0.52 * LW.cliffDepth(h0);
       const path = LW.polyPath(pts);
       LW.occlude(path);
       LW.flat(path, '#5a4a3c');
@@ -273,23 +269,13 @@
       if (big && caves() < 0.7) LW.caper(c[0] + caves.range(-20, 20), c[1] + rh * 30, caves.range(36, 60), caves);
     }
     pen.draw(inkG, C.ink);
-    // depth: the face's ink drifts toward warm grey and thins with height (aerial perspective)
-    LW.inkLift({ x0: 640, y0: 0, x1: 2200, y1: 3300 }, (x, y) => LW.cliffDepth(S.unproj(x, y, 0)[1]), LW.AIR.inkStone, 0.52, 0.16, 0.25);
     inkG.restore();
     fillG.restore();
-    // ---- silhouette contour of the headland (lifted along its length like the face)
+    // ---- silhouette contour of the headland
     const sp = new LW.Pen();
-    const silh = (pts, wf) => {
-      for (let i = 0; i < pts.length - 1; i += 40) {
-        const seg = pts.slice(i, Math.min(pts.length, i + 42));
-        const m = seg[seg.length >> 1];
-        LW.inkContour(sp, seg, wf, { closed: false, taper: 0.02 });
-        LW.inkMix = 0.5 * LW.cliffDepth(S.unproj(m[0], m[1], 0)[1]);
-        sp.draw(inkG, C.ink);
-      }
-    };
-    silh(G.sky, () => 3.0 + rnd() * 0.8);
-    silh(G.corner, () => 3.6 + rnd() * 1.0);
+    LW.inkContour(sp, G.sky, () => 3.0 + rnd() * 0.8, { closed: false, taper: 0.02 });
+    LW.inkContour(sp, G.corner, () => 3.6 + rnd() * 1.0, { closed: false, taper: 0.02 });
+    sp.draw(inkG, C.ink);
     {
       const rc = LW.rng('capers');
       for (let k = 0; k < 18; k++) {
@@ -297,12 +283,9 @@
         const u = rc.range(0.5, 16), h = bedLine(j, u) + 0.05;
         const p = S.faceP(u, h, 0);
         if (!G.mask.in(p[0], p[1]) || h < -7 || h > 11) continue;
-        LW.hazeConst = 0.14 + 0.52 * LW.cliffDepth(h);
-        LW.inkMix = 0.5 * LW.cliffDepth(h);
         LW.caper(p[0], p[1], rc.range(28, 52), rc);
       }
     }
-    LW.hazeConst = 0; LW.inkMix = 0;
   };
 })();
 

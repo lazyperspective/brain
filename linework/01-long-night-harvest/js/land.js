@@ -73,7 +73,7 @@
   }
 
   // ---------------------------------------------------------------- the farmhouse
-  function farmhouse(ctx, part) {
+  function farmhouse(ctx) {
     const fx0 = 1062, base0 = SC.ridgeNear(fx0) + 7;
     ctx.save();
     ctx.translate(fx0, base0); ctx.scale(1.35, 1.35); ctx.translate(-fx0, -base0);
@@ -94,12 +94,8 @@
     parts.push([hL + 8, base, hL + 8, base - 14, hL + 30, base - 18, hL + 30, base]);
     const sp = new Path2D();
     for (const p of parts) LW.polyPath(sp, LW.wobble(LW.resample(p, 2), 0.35, 0.2, 7, true), true);
-    const wx = hL + 42, wy = hT + 12, ww = 11, wh = 13;
-    const tf = (x, y) => [fx0 + (x - fx0) * 1.35, base0 + (y - base0) * 1.35];
-    { const a = tf(wx, wy), b = tf(wx + ww, wy + wh); LW.farmWindow = { x0: a[0], y0: a[1], x1: b[0], y1: b[1] }; }
-    if (part === 'window') { farmWindow(ctx, sp, wx, wy, ww, wh, base, rng); ctx.restore(); return; }
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = ink; ctx.lineWidth = 1.7; ctx.stroke(sp); // finer key line: the farthest built thing
+    ctx.strokeStyle = ink; ctx.lineWidth = 2.6; ctx.stroke(sp);
     ctx.fillStyle = sil; ctx.fill(sp);
     // board / shingle hatching inside the silhouette
     ctx.save(); ctx.clip(sp);
@@ -117,14 +113,8 @@
     LW.ribbon(rim, [bL - 25, base - 18, bL - 1, base - 28], (t) => 0.9 * LW.taper(t, 0.1, 0.1));
     LW.ribbon(rim, [hR - 17, hT - 33, hR - 17, hT - 14], (t) => 0.8 * LW.taper(t, 0.1, 0.1));
     ctx.fillStyle = P.amber; ctx.fill(rim);
-    // a small tree beside the house
-    LW.miniTree(ctx, hR + 22, base, 46, 20, rng, true);
-    LW.miniTree(ctx, bL - 40, base + 2, 30, 14, rng, true);
-    ctx.restore();
-  }
-  // the lit window is drawn after the haze, so it stays the one unveiled warm accent
-  function farmWindow(ctx, sp, wx, wy, ww, wh, base, rng) {
-    const ink = P.ink;
+    // the one lit window, with a posterised halo
+    const wx = hL + 42, wy = hT + 12, ww = 11, wh = 13;
     // light leaking round the window: short engraved rays on the dark wall
     ctx.save(); ctx.clip(sp);
     const rays = new LW.FillBatch();
@@ -148,6 +138,10 @@
       LW.ribbon(spill.p(k < 3 ? P.straw : k < 5 ? P.amber : P.orange), [wx + ww / 2 - half, y, wx + ww / 2 + half, y + 0.6], (t) => (1.1 - k * 0.1) * LW.taper(t, 0.25, 0.25));
     }
     spill.flush(ctx);
+    // a small tree beside the house
+    LW.miniTree(ctx, hR + 22, base, 46, 20, rng, true);
+    LW.miniTree(ctx, bL - 40, base + 2, 30, 14, rng, true);
+    ctx.restore();
   }
 
   // tiny distant tree: trunk + scalloped blob
@@ -157,7 +151,7 @@
     ctx.fillStyle = P.ink; ctx.fill(ink);
     const pts = LW.scallop(x, y - h + r * 0.9, r, rng, { bumpSize: Math.max(4, r * 0.35), depth: 0.12, per: 5, squash: 1.05 });
     const p = new Path2D(); LW.polyPath(p, pts, true);
-    ctx.strokeStyle = P.ink; ctx.lineWidth = Math.min(2, 0.9 + r * 0.06); ctx.stroke(p);
+    ctx.strokeStyle = P.ink; ctx.lineWidth = 2; ctx.stroke(p);
     ctx.fillStyle = '#132430'; ctx.fill(p);
     if (rim) {
       const g = SC.glow(x, y - h);
@@ -272,7 +266,7 @@
     for (let xx = SC.W + 20; xx >= -20; xx -= 8) base.push(xx, gyAt(xx) + 1.5);
     const bp = new Path2D(); LW.polyPath(bp, base, true);
     ctx.fillStyle = '#0f1922'; ctx.fill(bp);
-    const opts = { seed: 'fh', ink: 0.5, bump: 0.3, markScale: 0.4, markDensity: 170, rimW: 1.1, fillCol: '#142a33', backCol: '#10202a', capCol: '#21454f' };
+    const opts = { seed: 'fh', ink: 0.8, bump: 0.3, markScale: 0.45, markDensity: 140, rimW: 1.5, fillCol: '#142a33', backCol: '#10202a', capCol: '#21454f' };
     const trees = [];
     let x = -16;
     while (x < SC.W + 16) {
@@ -293,7 +287,7 @@
     }
     for (const [tx, gy, sc] of trees) {
       const t = LW.makeTree('fh-tree-' + Math.round(tx), { bx: tx, by: gy, H: 84 * sc, spread: 62 * sc, trunkW: 5 * sc, clumpR: 10 * sc, roots: 0, limbs: 3, holes: 0.35, maxClumps: 40 });
-      LW.drawTree(ctx, t, Object.assign({}, opts, { seed: 'fht' + Math.round(tx), masses: 5, backFrac: 0.2, ink: 0.6 }));
+      LW.drawTree(ctx, t, Object.assign({}, opts, { seed: 'fht' + Math.round(tx), masses: 5, backFrac: 0.2, ink: 0.9 }));
     }
   };
 
@@ -310,74 +304,7 @@
     // near ridge
     fillUnder(ctx, SC.ridgeNear, x0, x1, 2400, '#162a36', LW.REG.cool);
     patchwork(ctx);
-    rimLine(ctx, SC.ridgeNear, x0, x1, { seed: 5, warmAt: 0.3, coolCol: P.teal, drop: 2.0, ink: 0.9 });
-    const D = LW.depth;
-    // aerial perspective: the far ridge sits deepest in the air, the near hill a step less; the lowest
-    // bands (where mist lies) take extra flat steps. Every shift is quantised, so the plates stay flat.
-    D.pixelHaze(ctx, 2060, 2300, (x, y) => {
-      const top = SC.landTop(x);
-      if (y < top - 3) return 0;
-      let k = y >= SC.ridgeNear(x) - 1 ? HAZE.near : HAZE.far;
-      // mist steps with ragged, terrain-following edges (not ruled straight across)
-      const m = 6 * LW.N1(x * 0.005, 3.1) + 2.5 * LW.N2(x * 0.03, 1.7);
-      if (y > 2258 + m) k += HAZE.low; if (y > 2274 + 0.6 * m) k += HAZE.low;
-      return k;
-    }, SC.yh - 8);
-    // farm: drawn on its own, pulled back one step less than the hill it stands on
-    const c = D.begin();
-    farmhouse(c, 'body');
-    D.tint(HAZE.farm, 2120, 2300, 780, 1260, D.airAt(1062));
-    D.commit(ctx, 2120, 2300, 780, 1260);
-    hazeRules(ctx);
-    farmhouse(ctx, 'window');
+    rimLine(ctx, SC.ridgeNear, x0, x1, { seed: 5, warmAt: 0.3, coolCol: P.teal, drop: 2.0, ink: 1.1 });
+    farmhouse(ctx);
   };
-  const HAZE = { far: 0.52, near: 0.36, low: 0.06, farm: 0.22 };
-  LW.HAZE = HAZE;
-
-  // horizon mist in line work: fine horizontal rules in the glow colour, dense at the foot of the hills
-  // and thinning upward; they skip the lit window so it stays the clear focal accent
-  function hazeRules(ctx) {
-    const rng = new LW.RNG('haze-rules');
-    const D = LW.depth, S = LW.S, hz = D.hazeData;
-    const fb = new LW.FillBatch();
-    const win = LW.farmWindow;
-    // posterise the rule ink to the sky's own plate steps, so the mist is drawn in the glow's inks
-    const STEPS = [P.cream, P.straw, P.amber, P.orange, P.rust].map((h) => [h, LW.hex(h)]);
-    const colAt = (x) => {
-      const o = (Math.min(D.H - 1, Math.round((SC.yh - 8) * S)) * D.W + LW.clamp(Math.round(x * S), 0, D.W - 1)) * 4;
-      let best = null, bd = 1e9;
-      let bi = 0;
-      STEPS.forEach(([h, c], i) => { const d = (c[0] - hz[o]) ** 2 + (c[1] - hz[o + 1]) ** 2 + (c[2] - hz[o + 2]) ** 2; if (d < bd) { bd = d; bi = i; } });
-      best = STEPS[Math.min(STEPS.length - 1, bi + 1)][0]; // one ink step below the glow: mist, not light
-      return best;
-    };
-    for (let y = 2150; y < 2296; y += rng.range(3.0, 4.2)) {
-      const dens = Math.pow(LW.smooth(2195, 2292, y), 1.4);
-      if (dens < 0.03) continue;
-      let x = -20 + rng.range(0, 40);
-      while (x < SC.W + 20) {
-        const len = rng.range(20, 200) * (0.3 + dens);
-        const gap = rng.range(14, 110) * (1.7 - dens);
-        if (rng.next() < 0.15 + 0.6 * dens) {
-          // split the dash wherever it would leave the land or cross the window
-          let run = [];
-          const flush = () => {
-            if (run.length >= 4) {
-              const mx = run[(run.length >> 2) * 2], my = run[(run.length >> 2) * 2 + 1];
-              LW.ribbon(fb.p(colAt(mx)), run, (t) => (0.22 + 0.26 * dens) * LW.taper(t, 0.15, 0.15));
-            }
-            run = [];
-          };
-          for (let xx = x; xx <= x + len; xx += 4) {
-            const yy = y + 0.25 * LW.N2(xx * 0.004, y * 0.2);
-            const inWin = win && xx > win.x0 - 7 && xx < win.x1 + 7 && yy > win.y0 - 7 && yy < win.y1 + 7;
-            if (yy > SC.landTop(xx) + 2.5 && !inWin) run.push(xx, yy); else flush();
-          }
-          flush();
-        }
-        x += len + gap;
-      }
-    }
-    fb.flush(ctx);
-  }
 })();

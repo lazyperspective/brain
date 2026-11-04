@@ -141,15 +141,6 @@
     const phiL = -1.15;
     const cylD = (p, off) => 0.6 - 0.46 * Math.cos(p - phiL) + off;
 
-    // ---------------------------------------------------------- contact shadow on the summit
-    {
-      // a dark band under the terrace foot seats the building on the hazed far rock
-      const Rt = o.terraceR, sh = [];
-      for (let p = -Math.PI / 2; p <= Math.PI / 2; p += 0.03) sh.push(o.ring(Rt + 6, o.terraceBot - 6, p));
-      for (let p = Math.PI / 2; p >= -Math.PI / 2; p -= 0.03) { const q = o.ring(Rt + 18 + 10 * Math.sin(p), o.terraceBot + 16 + 12 * Math.max(0, Math.sin(p)), p); sh.push([q[0] + 6, q[1] + 6 * OB.N(p * 4, 2)]); }
-      ctx.fillStyle = css(C.crevice, 0.7);
-      ctx.fill(OB.path(OB.roughen(sh, true, 2, 0.06, 5, 4)));
-    }
     // ---------------------------------------------------------- terrace wall
     {
       const Rt = o.terraceR;
@@ -165,11 +156,11 @@
         while (p < Math.PI / 2) {
           const dp = (60 / Rt) * (0.7 + 0.8 * R());
           const off = 0.1 * R.norm() + 0.05;
-          cylStone(ctx, o, B, Rt, p, p + dp, o.terraceTop + c * ch, o.terraceTop + (c + 1) * ch, (q) => cylD(q, off), R, 'terrace', 1.1);
+          cylStone(ctx, o, B, Rt, p, p + dp, o.terraceTop + c * ch, o.terraceTop + (c + 1) * ch, (q) => cylD(q, off), R, 'terrace', 1.3);
           p += dp;
         }
       }
-      flushStones(ctx, B, 1.35, 'terrace');
+      flushStones(ctx, B, 1.6, 'terrace');
       // coping
       const cop = [];
       for (let p = -Math.PI / 2; p <= Math.PI / 2; p += 0.02) cop.push(o.ring(Rt + 7, o.terraceTop - 13, p));
@@ -247,11 +238,11 @@
         while (p < Math.PI / 2) {
           const dp = (46 / Rd) * (0.65 + 0.9 * R());
           const off = 0.09 * R.norm();
-          cylStone(ctx, o, B, Rd, p, p + dp, o.drumTop + c * ch, o.drumTop + (c + 1) * ch, (q) => cylD(q, off), R, 'drum', 0.98);
+          cylStone(ctx, o, B, Rd, p, p + dp, o.drumTop + c * ch, o.drumTop + (c + 1) * ch, (q) => cylD(q, off), R, 'drum', 1.15);
           p += dp;
         }
       }
-      flushStones(ctx, B, 1.2, 'drum');
+      flushStones(ctx, B, 1.4, 'drum');
       // silhouette edges
       const Pe = new Path2D();
       OB.ink(Pe, OB.wline(o.cx - Rd, o.drumTop, o.cx - Rd, o.terraceTop - 10, 6, 0.6, 1), 2.6, { t0: 0, t1: 0 });

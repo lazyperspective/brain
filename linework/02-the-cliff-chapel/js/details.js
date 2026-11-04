@@ -81,18 +81,14 @@
   LW.drawVignette = async function () {
     const pen = new LW.Pen();
     const W = LW.W, H = LW.H;
-    // (the noise only modulates the edge falloff: unmodulated it scattered stray strokes over the sea and island)
-    const dark = (x, y) => {
-      const e = Math.max(1.0 * LW.smooth(3360, 3840, y), 0.78 * LW.smooth(190, 0, x) * LW.smooth(900, 1600, y), 0.82 * LW.smooth(1980, 2160, x) * LW.smooth(1300, 1800, y));
-      return e > 0.02 ? e + 0.05 * LW.noise(x * 0.01, y * 0.01) * Math.min(1, e * 4) : 0;
-    };
+    const dark = (x, y) => Math.max(0.95 * LW.smooth(3420, 3840, y), 0.7 * LW.smooth(170, 0, x) * LW.smooth(900, 1600, y), 0.75 * LW.smooth(1990, 2160, x) * LW.smooth(1300, 1800, y)) + 0.05 * LW.noise(x * 0.01, y * 0.01);
     LW.hatchDither(pen, { x0: -10, y0: 900, x1: W + 10, y1: H + 10 }, -0.75, {
       spacing: 3.6, step: 4, wob: 1.0, seed: 401, inside: (x, y) => dark(x, y) > 0.03, dark, w: (x, y, d) => 0.6 + 1.2 * d, taper: 0.3,
     });
     LW.hatchDither(pen, { x0: -10, y0: 3300, x1: W + 10, y1: H + 10 }, 0.35, {
-      spacing: 4.4, step: 4, wob: 1.0, seed: 402, dark: (x, y) => 0.92 * LW.smooth(3520, 3840, y), w: () => 1.1, taper: 0.3,
+      spacing: 4.4, step: 4, wob: 1.0, seed: 402, dark: (x, y) => 0.85 * LW.smooth(3560, 3840, y), w: () => 1.0, taper: 0.3,
     });
-    pen.draw(LW.ink, C.ink, 0.92);
+    pen.draw(LW.ink, C.ink, 0.85);
   };
 
   LW.drawDetails = async function () {
@@ -100,7 +96,6 @@
     const S = LW.scene;
     // ---- scrub along the summit skyline right of the chapel and on ledges
     const G = LW.cliffGeom();
-    LW.hazeConst = 0.58; LW.inkMix = 0.48; // depth: the summit scrub is as far off as the chapel
     for (const p of G.sky) {
       if (p[0] < 1750 || p[0] > 2200) continue;
       if (rnd() < 0.06) bush(p[0], p[1] + 8, rnd.range(26, 46), rnd);
@@ -110,7 +105,6 @@
       if (p[0] < 900 || p[0] > 1180) continue;
       if (rnd() < 0.05) bush(p[0], p[1] + 6, rnd.range(20, 34), rnd);
     }
-    LW.hazeConst = 0; LW.inkMix = 0;
     await LW.tick();
     // ---- ferns at the foot of the parapet and in the floor joints
     const zP = S.parapet.z;

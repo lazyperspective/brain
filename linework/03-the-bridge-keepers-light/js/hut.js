@@ -555,81 +555,103 @@
     LW.log('hut ms', Math.round(performance.now() - t0));
   };
 
-  // chimney smoke: no fills, only fine broken filaments that rise, lean away from the
-  // cliff on the draught down the gorge, curl and thin out to nothing, so the bridge
-  // end and the walls behind it read through the gaps
+  // chimney smoke: a drifting ribbon with curling engraved lines
+  // chimney smoke as an engraved plume: opaque billows with curling contour lines
   LW.drawSmoke = function (ctx, S) {
-    const rng = new LW.RNG('smoke4');
-    const SN = new LW.Noise(4471);
-    const base = [487, 2120];
-    // straight up out of the pot, then bent over by the draught and carried across the bridge end
-    const ctrl = [[487, 2120], [491, 2052], [512, 1996], [566, 1962], [646, 1948], [740, 1925], [836, 1886], [930, 1842], [1010, 1800]];
-    const cl = LW.resample(LW.spline(ctrl, 16), 3);
-    const n0 = cl.length - 1;
-    const wAt = (t) => 8 + 150 * Math.pow(t, 1.1);
-    const ink = new LW.Ink(782);
-    ink.wobble = 0.35;
-    const cPale = ink.col(LW.mix(P.rock0, P.mist, 0.5)), cPale2 = ink.col(LW.mix(P.rock1, P.mist, 0.4));
-    const cShade = ink.col(LW.mix(P.inkBlue, P.rock2, 0.4)), cWarm = ink.col(P.warm3), cWarm2 = ink.col(P.warm2);
-    const nS = 11;
-    for (let k = 0; k < nS; k++) {
-      // strands braid round the plume's axis (a twisted rope that loosens as it rises)
-      const ph = (k / nS) * Math.PI * 2 + rng.next() * 0.6;
-      const fr = 3.5 + rng.next() * 3;
-      const u0 = k / (nS - 1) - 0.5;
-      const tEnd = 0.6 + rng.next() * 0.4;
-      const pts = [];
-      for (let i = 0; i <= Math.floor(n0 * tEnd); i++) {
-        const t = i / n0;
-        const a = cl[Math.min(n0, i + 1)], b = cl[Math.max(0, i - 1)];
-        let tx = a[0] - b[0], ty = a[1] - b[1];
-        const L0 = Math.hypot(tx, ty) || 1;
-        tx /= L0; ty /= L0;
-        const w = wAt(t);
-        const off = w * (0.8 * u0 + 0.2 * Math.sin(ph + t * fr) * (0.8 + 0.4 * SN.n2(t * 3, k)) + 0.1 * SN.n2(t * 9, k + 20));
-        // the plume's upper side lifts and frays as it drifts
-        const lift = -Math.max(0, -u0) * 30 * t * t;
-        pts.push([cl[i][0] - ty * off, cl[i][1] + tx * off + lift]);
-      }
-      const back = u0 > 0.25; // the underside of the drifting plume is the shaded one // strands on the far side of the twist are the shaded ones
-      ink.line(pts, (x, y, i) => {
-        const t = i / n0;
-        // dissolve: gaps open up with distance until only scraps remain
-        const g = SN.n2(i / (6 + 10 * t) + k * 3.7, k * 1.3);
-        if (g < -0.85 + 1.35 * Math.pow(t, 1.05)) return -1;
-        const w = 1.5 - 0.95 * t;
-        if (t < 0.06) return ink.st(k % 2 ? cWarm : cWarm2, w);
-        if (back && t < 0.5) return ink.st(cShade, w * 0.8);
-        return ink.st(t > 0.5 || k % 3 === 1 ? cPale2 : cPale, w);
-      }, { taper: 14, minScale: 0.15 });
+    const rng = new LW.RNG('smoke3');
+    const base = [487, 2126];
+    const n = 140;
+    const cl = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const rise = t * 760;
+      cl.push([base[0] - rise * 0.16 - 210 * t * t + 46 * Math.sin(t * 6.2) * t, base[1] - rise + 22 * Math.sin(t * 4 + 1) * t]);
     }
-    // a few small open curls where the plume rolls over
-    for (let c = 0; c < 2; c++) {
-      const t = 0.34 + c * 0.2 + rng.next() * 0.05;
-      const i = Math.floor(t * n0);
-      const w = wAt(t);
-      const r0 = w * (0.22 + rng.next() * 0.08), dir = c % 2 ? 1 : -1;
-      const cx = cl[i][0] + (rng.next() - 0.5) * w * 0.3, cy = cl[i][1] - w * 0.38;
-      const sp = [];
-      for (let a = 0; a < Math.PI * 1.6; a += 0.1) {
-        const r = r0 * (1 - a / (Math.PI * 2.4));
-        sp.push([cx + Math.cos(a * dir + 1.2) * r, cy + Math.sin(a * dir + 1.2) * r * 0.75]);
+    const wAt = (t) => 14 + 200 * Math.pow(t, 1.05);
+    const ink = new LW.Ink(781);
+    ink.wobble = 0.6;
+    const cLit = LW.mix(P.rock0, P.sky5, 0.3), cShade = LW.mix(P.rock2, P.sky3, 0.45);
+    const iDark = ink.col(P.inkBlue), iMid = ink.col(LW.mix(P.inkBlue, P.rock1, 0.35)), iWarm = ink.col(P.warm3);
+    // thin rising column out of the chimney
+    for (let k = 0; k < 5; k++) {
+      const pts = [];
+      for (let i = 0; i <= 22; i++) {
+        const t = i / n;
+        const w = wAt(t) * 0.5;
+        pts.push([cl[i][0] + (k - 2) * w * 0.4 + Math.sin(i * 0.45 + k) * 2, cl[i][1]]);
       }
-      ink.line(sp, (x, y, j) => (SN.n2(j / 4, c * 9.1) > 0.45 + 0.1 * c ? -1 : ink.st(cPale, 1.1 - t * 0.6)), { taper: 12, minScale: 0.15 });
+      ink.line(pts, (x, y, i) => ink.st(i < 6 ? iWarm : iMid, 1.6), { taper: 18, minScale: 0.2 });
+    }
+    // billows: overlapping lobes merged into one scalloped plume
+    const lobes = [];
+    for (let t = 0.13; t < 0.99; t += 0.025 + rng.next() * 0.045) {
+      const i = Math.floor(t * n);
+      const w = wAt(t);
+      const side = lobes.length % 2 ? 1 : -1;
+      const a = cl[Math.min(n, i + 1)], b = cl[Math.max(0, i - 1)];
+      let tx = a[0] - b[0], ty = a[1] - b[1];
+      const L = Math.hypot(tx, ty) || 1;
+      tx /= L; ty /= L;
+      const off = 0.12 + rng.next() * 0.2;
+      lobes.push({ x: cl[i][0] - ty * w * off * side, y: cl[i][1] + tx * w * off * side, r: w * (0.32 + rng.next() * 0.3), t, seed: rng.next() * 50 });
+    }
+    for (const lb of lobes) lb.pts = LW.blob(lb.x, lb.y, lb.r, lb.r * 0.84, lb.seed, 0.1, 56);
+    const solid = lobes.filter((lb) => lb.t < 0.8);
+    const inside = (x, y, self, set) => set.some((o) => o !== self && Math.pow((x - o.x) / (o.r * 0.97), 2) + Math.pow((y - o.y) / (o.r * 0.82), 2) < 1);
+    // one shadow-tone fill for the merged body, lit caps per billow
+    const body = new Path2D();
+    for (const lb of solid) { body.moveTo(lb.pts[0][0], lb.pts[0][1]); for (const p of lb.pts) body.lineTo(p[0], p[1]); body.closePath(); }
+    ctx.save();
+    ctx.translate(LW.PLATE_OFF[0], LW.PLATE_OFF[1]);
+    ctx.fillStyle = LW.rgb(LW.mix(P.rock3, P.sky2, 0.35));
+    ctx.fill(body);
+    ctx.clip(body);
+    for (const lb of solid.slice().reverse()) {
+      const path = LW.polyPath(lb.pts);
+      ctx.save();
+      ctx.translate(lb.x + lb.r * 0.24, lb.y - lb.r * 0.3);
+      ctx.scale(0.8, 0.72);
+      ctx.translate(-lb.x, -lb.y);
+      ctx.fillStyle = LW.rgb(LW.mix(P.rock2, P.sky4, 0.35));
+      ctx.fill(path);
+      ctx.restore();
+    }
+    ctx.restore();
+    for (const lb of lobes) {
+      const fade = lb.t >= 0.8;
+      // curling contour arcs on each billow's shadow side, hidden where a nearer billow overlaps
+      const nArcs = Math.max(2, Math.round(lb.r / 10));
+      for (let k = 1; k <= nArcs; k++) {
+        const f = 1 - k / (nArcs + 1);
+        const arc = lb.pts.map((p) => [lb.x + (p[0] - lb.x) * f - (1 - f) * lb.r * 0.2, lb.y + (p[1] - lb.y) * f + (1 - f) * lb.r * 0.28]);
+        arc.push(arc[0]);
+        ink.line(arc, (x, y) => {
+          const nx = (x - lb.x) / lb.r, ny = (y - lb.y) / lb.r;
+          if (nx * 0.55 - ny * 0.75 > -0.15 - (k % 2) * 0.2) return -1;
+          if (fade && k % 2) return -1;
+          if (inside(x, y, lb, lobes.filter((o) => o.t < lb.t))) return -1;
+          return ink.st(k % 3 ? iMid : iDark, 1.0 + 0.6 * (1 - f));
+        }, { taper: 12 });
+      }
+      // merged outline: only where this billow is the outer edge of the plume
+      ink.line(lb.pts.concat([lb.pts[0]]), (x, y, i) => {
+        if (inside(x, y, lb, fade ? lobes : solid)) return -1;
+        if (fade && N.n2(i / 6, lb.seed) > 0.05) return -1;
+        const nx = (x - lb.x) / lb.r, ny = (y - lb.y) / lb.r;
+        return ink.st(iDark, 1.1 + Math.max(0, ny * 0.8 - nx * 0.4) * 1.8);
+      }, { taper: 8 });
+    }
+    // a few curls
+    for (const lb of lobes.filter((_, i) => i % 4 === 1)) {
+      const sp = [];
+      const r0 = lb.r * 0.42, dir = lb.seed > 25 ? 1 : -1;
+      for (let a = 0; a < Math.PI * 2.1; a += 0.08) {
+        const r = r0 * (1 - a / (Math.PI * 2.7));
+        sp.push([lb.x - lb.r * 0.12 + Math.cos(a * dir + 2) * r, lb.y + lb.r * 0.12 + Math.sin(a * dir + 2) * r * 0.85]);
+      }
+      ink.line(sp, (x, y) => (inside(x, y, lb, lobes.filter((o) => o.t < lb.t)) ? -1 : ink.st(iDark, 1.4)), { taper: 24, minScale: 0.15 });
     }
     ink.flush(ctx);
-    // the last of it: a sparse drift of specks
-    for (let i = 0; i < 260; i++) {
-      const t = 0.72 + rng.next() * 0.33;
-      const j = Math.min(n0, Math.floor(t * n0));
-      const w = wAt(t);
-      const x = cl[j][0] + (rng.next() - 0.5) * w * 1.1, y = cl[j][1] + (rng.next() - 0.5) * 30;
-      if (rng.next() > 1.2 - t) continue;
-      ctx.fillStyle = LW.rgb(LW.mix(P.rock0, P.mist, 0.45));
-      ctx.beginPath();
-      ctx.arc(x, y, 0.6 + rng.next() * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-    }
   };
 
   function drawProps(ctx, S) {

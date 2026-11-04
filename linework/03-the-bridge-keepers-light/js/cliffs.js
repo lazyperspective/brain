@@ -18,35 +18,33 @@
   // ---------------------------------------------------------------- layer specs
   function buildLayers() {
     const layers = [];
-    // far wall at the bend (the farthest plane: a low rounded shoulder closing the gorge)
+    // far wall at the bend
     {
-      const edge = edgeFrom([[1050, 1930], [1100, 1868], [1160, 1840], [1225, 1852], [1300, 1920]], 41, 7, 1 / 60, 2);
-      const poly = edge.concat([[1300, 2088], [1050, 2088]]);
-      layers.push({ name: 'F', poly, edge, tier: 0, face: [0.1, 0.99], base: [[1050, 2087], [1300, 2087]], seed: 41, far: 1 });
+      const edge = edgeFrom([[1060, 1930], [1110, 1880], [1170, 1862], [1230, 1878], [1300, 1930]], 41, 8, 1 / 60, 2);
+      const poly = edge.concat([[1300, 2088], [1060, 2088]]);
+      layers.push({ name: 'F', poly, edge, tier: 0, face: [0.1, 0.99], base: [[1060, 2087], [1300, 2087]], seed: 41 });
     }
-    // far bend walls: they stand clear of the walls behind the bridge so each plane reads as its own step
     {
-      const edge = edgeFrom([[870, 1428], [940, 1478], [1000, 1560], [1050, 1660], [1090, 1770], [1120, 1880], [1142, 1980], [1155, 2050], [1160, 2083]], 42, 13, 1 / 70, 2.5);
+      const edge = edgeFrom([[880, 1540], [960, 1600], [1030, 1690], [1085, 1800], [1125, 1930], [1148, 2040], [1160, 2083]], 42, 16, 1 / 70, 3);
       const base = [[1160, 2083], [1110, 2092], [1020, 2100], [900, 2104]];
-      const poly = edge.concat(base.slice(1), [[800, 2104], [800, 1428]]);
+      const poly = edge.concat(base.slice(1), [[860, 2104], [860, 1540]]);
       layers.push({ name: 'L2', poly, edge, tier: 0, face: [0.62, 0.78], base, seed: 42 });
     }
     {
-      const edge = edgeFrom([[1445, 1398], [1372, 1488], [1310, 1590], [1265, 1700], [1230, 1820], [1208, 1940], [1196, 2030], [1190, 2084]], 43, 13, 1 / 70, 2.5);
+      const edge = edgeFrom([[1430, 1530], [1350, 1620], [1285, 1740], [1235, 1860], [1205, 1980], [1192, 2060], [1190, 2084]], 43, 16, 1 / 70, 3);
       const base = [[1190, 2084], [1250, 2092], [1350, 2100], [1450, 2106]];
-      const poly = edge.concat(base.slice(1), [[1520, 2106], [1520, 1398]]);
+      const poly = edge.concat(base.slice(1), [[1460, 2106], [1460, 1530]]);
       layers.push({ name: 'R2', poly, edge, tier: 0, face: [-0.6, 0.8], base, seed: 43 });
     }
-    // walls behind the bridge (one step nearer)
     {
-      const edge = edgeFrom([[740, 1200], [810, 1260], [860, 1360], [895, 1480], [925, 1600], [955, 1720], [985, 1840], [1010, 1960], [1025, 2050], [1028, 2100], [1020, 2118]], 44, 22, 1 / 80, 4);
-      const base = [[1020, 2118], [970, 2140], [900, 2164], [800, 2186]];
-      const poly = edge.concat(base.slice(1), [[640, 2186], [640, 1200]]);
+      const edge = edgeFrom([[760, 1210], [850, 1270], [925, 1370], [985, 1500], [1025, 1630], [1055, 1760], [1078, 1880], [1095, 1990], [1100, 2075], [1092, 2102]], 44, 24, 1 / 80, 4);
+      const base = [[1092, 2102], [1040, 2128], [960, 2152], [880, 2172], [800, 2186]];
+      const poly = edge.concat(base.slice(1), [[640, 2186], [640, 1210]]);
       layers.push({ name: 'L1', poly, edge, tier: 1, face: [0.6, 0.8], base, seed: 44 });
     }
     {
-      const edge = edgeFrom([[1530, 1150], [1480, 1240], [1440, 1360], [1405, 1500], [1375, 1640], [1350, 1780], [1328, 1910], [1312, 2020], [1305, 2080], [1310, 2116]], 45, 22, 1 / 80, 4);
-      const base = [[1310, 2116], [1370, 2134], [1450, 2155], [1560, 2172]];
+      const edge = edgeFrom([[1520, 1150], [1440, 1260], [1375, 1400], [1322, 1550], [1285, 1700], [1258, 1840], [1240, 1960], [1232, 2050], [1240, 2098]], 45, 24, 1 / 80, 4);
+      const base = [[1240, 2098], [1300, 2116], [1390, 2140], [1480, 2162], [1560, 2172]];
       const poly = edge.concat(base.slice(1), [[1720, 2172], [1720, 1150]]);
       layers.push({ name: 'R1', poly, edge, tier: 1, face: [-0.62, 0.78], base, seed: 45 });
     }
@@ -84,22 +82,10 @@
   LW.cliff = (name) => LW.cliffLayers.find((l) => l.name === name);
 
   // ---------------------------------------------------------------- tier parameters
-  /* Each receding plane is its own step: the far bend is palest and bluest with the
-     finest, sparsest marks and the simplest cells; the walls behind the bridge are one
-     step nearer; the near framing walls carry the heaviest ink and the full value range. */
   const TIER = [
-    {
-      ink: P.airInk, pal: P.air, outline: 1.25, outlineCol: P.airEdge, rim: 0.8, pocket: 9, black: null,
-      cell: { sc: 0.82, lineW: [0.5, 0.85], step: 10, wedge: false, hatchCut: 0.2, crackW: 0.5, crackFill: 0.1, crackGap: 0.35, lump: 0.45, aniso: 1.7, wobble: 0.5 },
-    },
-    {
-      ink: P.midInk, pal: P.mid, outline: 2.1, outlineCol: P.midInk, rim: 1, pocket: 1.04, black: P.midBlack,
-      cell: { sc: 0.8, lineW: [0.8, 1.55], step: 6.6, wedgeW: 6, hatchCut: 0, crackW: 0.8, crackFill: 0.22, crackGap: 0.06, lump: 0.7, aniso: 1.6, wobble: 0.7 },
-    },
-    {
-      ink: P.ink, pal: [P.rock0, P.rock1, P.rock2, P.rock3, P.rock4], outline: 5.5, outlineCol: P.ink, rim: 1, pocket: 1.0, black: P.ink,
-      cell: { sc: 1, lineW: [1.25, 2.9], step: 5.5, wedgeW: 12, hatchCut: 0, crackW: 1.05, crackFill: 0.3, crackGap: 0, lump: 0.74, aniso: 1.45, wobble: 0.8 },
-    },
+    { dsep: [11, 30], w: [0.9, 1.5], ink: P.inkFar2, pal: [P.far0, P.far1, P.far2], pocket: 1.0, crack: 0, outline: 2.4, rim: 0.9 },
+    { dsep: [8, 24], w: [1.1, 2.0], ink: P.inkFar, pal: [P.far1, P.far2, P.far3, LW.mix(P.far3, P.ink, 0.35)], pocket: 0.98, crack: 0.6, outline: 3.4, rim: 1 },
+    { dsep: [5.5, 22], w: [1.3, 2.9], ink: P.ink, pal: [P.rock0, P.rock1, P.rock2, P.rock3, P.rock4], pocket: 1.0, crack: 1, outline: 5.5, rim: 1 },
   ];
 
   // ---------------------------------------------------------------- per-layer fields
@@ -152,8 +138,8 @@
       }
       // gorge depth: lower = darker; far tiers lighter overall
       if (l.tier === 2) d += 0.2 * LW.smooth(900, 2600, y);
-      // far bend: the tops sink toward the sky's value, the feet pale out into the mist
-      if (l.tier === 0) d += -0.1 + 0.32 * LW.smooth(1980, 1460, y);
+      if (l.tier === 1) d += 0.14 * LW.smooth(1500, 2150, y);
+      if (l.tier === 0) d -= 0.08;
       d += 0.05 * n2.fbm(x / 160, y / 240, 2);
       // black rim band along the right cliff's sky edge (its turned face)
       if (l.name === 'R0') {
@@ -186,8 +172,6 @@
       // the waterline is darker (wet rock)
       const by = baseY(x);
       if (y < by) d += 0.12 * LW.smooth(by - 70, by - 8, y);
-      // walls behind the bridge: darks lifted and range compressed (aerial perspective)
-      if (l.tier === 1) d = 0.1 + 0.84 * d;
       return LW.clamp(d, 0, 1.1);
     });
     // flow direction: down the face, hugging the silhouette, meandering
@@ -229,8 +213,7 @@
   // ---------------------------------------------------------------- cellular rock wall (mid + near tiers)
   function drawCellCliff(ctx, S, l, f, kind, pal, T, rimCol) {
     const near = l.tier === 2;
-    const C = T.cell;
-    const sc = C.sc;
+    const sc = near ? 1 : 0.62;
     const rim = l.base ? (x, y) => {
       const rimD = f.baseY(x) - y;
       if (rimD > 34 * T.rim || rimD < -2) return 0;
@@ -248,17 +231,16 @@
         return s * sc;
       },
       maxSize: 140 * sc,
-      aniso: C.aniso,
+      aniso: near ? 1.45 : 1.6,
       kind, pal,
       ink: T.ink,
-      lineW: C.lineW,
-      step: C.step,
-      lumpRatio: l.name === 'R0' ? 0.55 : C.lump,
+      lineW: near ? [1.15, 2.7] : [0.95, 1.8],
+      step: near ? 5.6 : 6.4,
+      lumpRatio: l.name === 'R0' ? 0.55 : 0.74,
       light: [0.62, -0.78],
       flow: () => Math.PI / 2 + tilt,
-      wedge: C.wedge, wedgeW: C.wedgeW,
-      hatchCut: C.hatchCut, crackW: C.crackW, crackFill: C.crackFill, crackGap: C.crackGap, wobble: C.wobble,
-      black: T.black || T.ink,
+      wedgeW: near ? 12 : 7,
+      black: near ? P.ink : LW.mix(P.inkFar, P.ink, 0.6),
       rim, rimCol,
     });
     const ink = new LW.Ink(l.seed + 900);
@@ -279,8 +261,8 @@
       if (kind !== 'far') v -= 0.4 * LW.clamp(LW.warm(x, y, kind), 0, 1);
       return v;
     };
-    const black = T.black;
-    if (black) LW.contours({ bbox: bb, step: 4, field: blackField, levels: [0] }, (pts) => {
+    const black = near ? P.ink : LW.mix(P.inkFar, P.ink, 0.6);
+    LW.contours({ bbox: bb, step: 4, field: blackField, levels: [0] }, (pts) => {
       if (pts.length < 4) return;
       let area = 0;
       for (let i = 0; i < pts.length - 1; i++) area += pts[i][0] * pts[i + 1][1] - pts[i + 1][0] * pts[i][1];
@@ -315,7 +297,7 @@
     // silhouette outline
     const ink2 = new LW.Ink(l.seed + 901);
     ink2.wobble = 0.6;
-    const oc = ink2.col(T.outlineCol);
+    const oc = ink2.col(P.ink);
     const wn = new LW.Noise(l.seed + 55);
     ink2.line(l.edge, (x, y) => (l.name === 'SC' && x < 700 ? -1 : ink2.st(l.kind === 'rock' ? ink2.col(LW.warmInkColor(LW.warmBand(LW.warm(x, y, 'rock'), x, y, 0), P.ink)) : oc, T.outline * (0.75 + 0.5 * (0.5 + 0.5 * wn.n2(x / 60, y / 60))))), { taper: 0 });
     if (l.base) ink2.line(l.base, ink2.st(oc, T.outline * 0.7), { taper: 20 });
@@ -329,8 +311,153 @@
     const f = layerFields(l);
     const kind = l.kind || (l.tier === 2 ? 'rock' : 'far');
     const pal = l.name === 'R0' ? [P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.3), LW.mix(P.rock4, P.ink, 0.55)] : l.tier === 2 ? [P.rock0, P.rock1, P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.4)] : T.pal;
-    const rimCol = l.tier === 0 ? LW.mix(P.water3, P.air[0], 0.5) : P.water2;
-    drawCellCliff(ctx, S, l, f, kind, pal, T, rimCol);
-    LW.log('cliff', l.name, 'ms', Math.round(performance.now() - t0));
+    const rimCol = l.tier === 0 ? P.water3 : P.water2;
+    if (l.tier >= 1) {
+      drawCellCliff(ctx, S, l, f, kind, pal, T, rimCol);
+      LW.log('cliff', l.name, 'ms', Math.round(performance.now() - t0));
+      return;
+    }
+    // ---- fill
+    LW.shadeFill(ctx, S, l.path, l.bbox, (x, y, out) => {
+      let d = f.dark.at(x, y);
+      const by = f.baseY(x);
+      let c = LW.stepPick(pal, LW.clamp(d, 0, 0.999), x, y, 0.05);
+      // cyan bounce from the river along the foot of the wall
+      const rimD = by - y;
+      if (rimD < 34 * T.rim && rimD > -2) {
+        const t = LW.smooth(34, 4, rimD + LW.lnoise.n2(x / 9, y / 9) * 7);
+        if (t > 0.5) c = LW.mix(c, rimCol, 0.55);
+      }
+      if (kind !== 'far') {
+        const wv = LW.warm(x, y, kind);
+        const b = LW.warmBand(wv, x, y);
+        if (b > 0) c = LW.warmFill[b];
+      }
+      out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
+    });
+
+    const ink = new LW.Ink(l.seed + 900);
+    ink.wobble = l.tier === 2 ? 1.1 : 0.8;
+    // ---- black crevices and pockets (contour fills)
+    const cn = new LW.Noise(l.seed + 77);
+    const bb = l.bbox;
+    const blackField = (x, y) => {
+      if (x < bb[0] + 9 || y < bb[1] + 9 || x > bb[2] - 9 || y > bb[3] - 9) return -1;
+      if (!f.mask.in(x, y)) return -1;
+      const d = f.dark.at(x, y);
+      let v = d - T.pocket;
+      if (T.crack > 0) {
+        const wx = x + 40 * cn.fbm(x / 200, y / 200, 2);
+        const r = cn.ridged(wx / 46, y / 430, 2);
+        const env = LW.smooth(0.05, 0.55, cn.fbm(x / 160 + 9, y / 300, 2));
+        const g = 0.35 + 0.65 * LW.smooth(0.25, 0.8, d);
+        v = Math.max(v, (r - 0.94) * 4 * env * g * T.crack - 0.004);
+      }
+      if (kind !== 'far') v -= 0.1 * LW.clamp(LW.warm(x, y, kind), 0, 1);
+      return v;
+    };
+    const black = l.tier === 2 ? P.ink : l.tier === 1 ? LW.mix(P.inkFar, P.ink, 0.6) : P.inkFar;
+    LW.contours({ bbox: l.bbox, step: 4, field: blackField, levels: [0] }, (pts) => {
+      if (pts.length < 4) return;
+      let area = 0;
+      for (let i = 0; i < pts.length - 1; i++) area += pts[i][0] * pts[i + 1][1] - pts[i + 1][0] * pts[i][1];
+      if (Math.abs(area) < 60) return;
+      const sm = LW.chaikin(pts, 1, true);
+      // warm-lit crevices are dark rust rather than navy
+      const cx = sm[0][0], cy = sm[0][1];
+      const b = kind !== 'far' ? LW.warmBand(LW.warm(cx, cy, kind), cx, cy, 0) : 0;
+      ink.fill(sm, b >= 3 ? P.warmInk2 : b >= 1 ? P.warmInk1 : black, 0.8);
+    });
+
+    // ---- streamline hatching
+    const rng = new LW.RNG('cliff-' + l.name);
+    const [ds0, ds1] = T.dsep;
+    const dsep = (x, y) => {
+      let d = LW.clamp(f.dark.at(x, y), 0, 1);
+      if (kind !== 'far') d *= 1 - 0.35 * LW.clamp(LW.warm(x, y, kind), 0, 1);
+      return ds1 + (ds0 - ds1) * Math.pow(d, 0.85);
+    };
+    const lines = LW.streamlines({
+      bbox: l.bbox,
+      dir: f.dir,
+      inside: (x, y) => f.mask.in(x, y),
+      dsep,
+      dtest: 0.5,
+      dmin: ds0,
+      step: 2.6,
+      maxLen: l.tier === 2 ? 1400 : 700,
+      minLen: l.tier === 2 ? 26 : 18,
+      rng,
+      gapStep: ds1 * 0.8,
+    });
+    const baseInk = ink.col(T.ink);
+    const rimInk = ink.col(LW.mix(T.ink, P.water1, 0.75));
+    const warmInks = [0, 1, 2, 3, 4, 5, 6].map((b) => ink.col(LW.warmInkColor(b, T.ink)));
+    const wn = new LW.Noise(l.seed + 55);
+    const style = (x, y) => {
+      const d = LW.clamp(f.dark.at(x, y), 0, 1);
+      let w = T.w[0] + (T.w[1] - T.w[0]) * d;
+      w *= 0.85 + 0.3 * (0.5 + 0.5 * wn.n2(x / 40, y / 40));
+      let ci = baseInk;
+      const by = f.baseY(x);
+      if (by - y < 30 && by - y > -2) ci = rimInk;
+      if (kind !== 'far') {
+        const b = LW.warmBand(LW.warm(x, y, kind), x, y);
+        if (b > 0) ci = warmInks[b];
+      }
+      return ink.st(ci, w);
+    };
+    for (const pts of lines) ink.line(pts, style, { taper: 16 });
+
+    // ---- crack cross-strokes making the cell network
+    if (T.crack > 0) {
+      const perp = (x, y) => {
+        const v = f.dir(x, y);
+        if (!v) return null;
+        const a = 1.1 + 0.6 * wn.n2(x / 90, y / 90);
+        const c = Math.cos(a), s = Math.sin(a);
+        return [v[0] * c - v[1] * s, v[0] * s + v[1] * c];
+      };
+      const cracks = LW.streamlines({
+        bbox: l.bbox,
+        dir: perp,
+        inside: (x, y) => f.mask.in(x, y) && f.dark.at(x, y) > 0.3,
+        dsep: (x, y) => (l.tier === 2 ? 30 : 52) + 44 * (1 - LW.clamp(f.dark.at(x, y), 0, 1)),
+        dtest: 0.5,
+        dmin: 28,
+        step: 2.5,
+        maxLen: l.tier === 2 ? 52 : 30,
+        minLen: 10,
+        rng: new LW.RNG('crack-' + l.name),
+        gapStep: 50,
+      });
+      for (const pts of cracks) {
+        if (rng.next() < 0.15) continue;
+        ink.line(pts, (x, y) => {
+          const s = style(x, y);
+          const ci = Math.floor(s / 512);
+          return ink.st(ci, ((s % 512) / 16) * 0.8);
+        }, { taper: 10 });
+      }
+    }
+    ctx.save();
+    ctx.clip(l.path);
+    ink.flush(ctx);
+    ctx.restore();
+
+    // ---- silhouette outline, heavier on shadow side
+    const ink2 = new LW.Ink(l.seed + 901);
+    ink2.wobble = 0.6;
+    const oc = ink2.col(l.tier === 0 ? P.inkFar : P.ink);
+    const ow = T.outline;
+    ink2.line(l.edge, (x, y) => {
+      const v = 0.75 + 0.5 * (0.5 + 0.5 * wn.n2(x / 60, y / 60));
+      return ink2.st(oc, ow * v);
+    }, { taper: 0 });
+    if (l.base && l.tier > 0) {
+      ink2.line(l.base, ink2.st(oc, ow * 0.7), { taper: 20 });
+    }
+    ink2.flush(ctx);
+    LW.log('cliff', l.name, 'lines', lines.length, 'ms', Math.round(performance.now() - t0));
   };
 })();
