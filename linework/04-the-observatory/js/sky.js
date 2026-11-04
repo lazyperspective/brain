@@ -20,14 +20,14 @@
     const N = OB.noise(21);
     S.mwDensity = (x, y) => {
       const [u, d] = OB.mwCoord(S, x, y);
-      const hw = S.mw.hw * (0.72 + 0.5 * (0.5 + 0.5 * N.fbm(u * 2.6, 0.5, 3)));
+      const hw = S.mw.hw * (0.85 + 0.3 * (0.5 + 0.5 * N.fbm(u * 2.6, 0.5, 3)));
       const dd = d + hw * 0.25 * N.fbm(u * 3.1, 4.2, 3);
       const core = Math.exp(-(dd * dd) / (hw * hw));
       const rd = d - hw * (0.1 + 0.25 * N.fbm(u * 4.0, 3.3, 3));
       const rift = Math.exp(-(rd * rd) / Math.pow(hw * (0.1 + 0.08 * N(u * 9, 1.1)), 2)) * smooth(-0.25, 0.35, N.fbm(u * 5, 7.7, 3) + 0.15);
       const clump = 0.5 + 0.5 * N.fbm(x * 0.0035, y * 0.0035, 4);
       const knots = Math.pow(clamp(N.fbm(x * 0.009 + 5, y * 0.009, 3) * 1.6), 2);
-      return clamp(core * (0.25 + 0.95 * clump + 0.6 * knots) * (1 - 0.9 * rift));
+      return clamp(core * (0.5 + 0.65 * clump + 0.45 * knots) * (1 - 0.7 * rift));
     };
   };
 
@@ -43,7 +43,7 @@
       let t = clamp(y / 2200);
       t = 0.82 * Math.pow(t, 1.25) + 0.18 * t;
       t += 0.035 * N.fbm(x * 0.0011, y * 0.0013, 3);
-      t += 0.17 * S.mwDensity(x, y);
+      t += 0.3 * S.mwDensity(x, y);
       t += 0.06 * Math.exp(-Math.pow(Math.hypot(x - S.slit.x, y - S.slit.y) / 520, 2));
       return t;
     };
@@ -52,38 +52,44 @@
 
     // ---- 2. star trails
     const baseL = 0.58;
+    // breathing room around the dome: trails thin out near the lit building
+    const ox = S.obs.cx, oy = S.obs.y0 - 60;
     const cov = (x, y) => {
       const h = clamp(y / 2150);
-      return 0.11 + 0.5 * Math.pow(h, 1.6) - 0.05 * S.mwDensity(x, y) + 0.04 * N.fbm(x * 0.002, y * 0.002, 2);
+      const nearDome = Math.exp(-Math.pow(Math.hypot(x - ox, (y - oy) * 1.1) / 520, 2));
+      const rp = Math.hypot(x - P.x, y - P.y);
+      return (0.1 + 0.4 * Math.pow(h, 1.6) - 0.22 * S.mwDensity(x, y) * smooth(300, 700, rp) + 0.04 * N.fbm(x * 0.002, y * 0.002, 2)) * (1 - 0.72 * nearDome);
     };
     const arcs = [];
     const mk = (r, th, L, b) => {
       const temp = R();
       let col, kind = 0;
-      if (temp < 0.035) { col = C.trailOrange; kind = 1; }
-      else if (temp < 0.085) { col = C.trailGold; kind = 1; }
-      else if (temp < 0.15) { col = C.trailTeal; kind = 2; }
+      // colour only as a hint: warm or teal stars are rare and pale
+      if (temp < 0.02) { col = mix(C.trailOrange, C.trailCream, 0.35); kind = 1; }
+      else if (temp < 0.05) { col = mix(C.trailGold, C.trailCream, 0.4); kind = 1; }
+      else if (temp < 0.08) { col = mix(C.trailTeal, C.trailBlue, 0.45); kind = 2; }
       else col = mix(C.trailBlue, C.trailCream, R());
-      return { r, th, L, b, col, kind, w: 0.5 + 0.55 * b + 3.1 * b * b * b, a: 0.2 + 0.8 * Math.pow(b, 0.55) };
+      return { r, th, L, b, col, kind, w: 0.45 + 0.5 * b + 3.2 * b * b * b, a: 0.16 + 0.84 * Math.pow(b, 0.6) };
     };
     for (let r = 5; r < 2500;) {
       r += r < 90 ? 2.6 + R() * 1.4 : 1.7 + R() * 2.3;
       let th = R() * OB.TAU;
       const stop = th + OB.TAU;
       while (th < stop) {
-        const L = baseL * (0.45 + R() * 0.95);
+        // a few long bright trails, many faint short ones
+        let b = Math.pow(R(), 3.4);
+        if (R() < 0.0035) b = 0.85 + 0.15 * R();
+        const L = baseL * (0.22 + 0.5 * Math.pow(R(), 1.5) + 1.25 * Math.pow(b, 0.8));
         const mid = th + L / 2;
         const mx = P.x + r * Math.cos(mid), my = P.y + r * Math.sin(mid);
         if (mx > -300 && mx < W + 300 && my > -300 && my < skyBot) {
-          if (R() < cov(mx, my) * 1.5) {
-            let b = Math.pow(R(), 3.4);
-            if (R() < 0.0035) b = 0.85 + 0.15 * R();
-            // near the horizon the air glows: trails brighter and more numerous
-            b = clamp(b + 0.06 * smooth(1500, 2150, my));
+          if (R() < Math.max(0, cov(mx, my)) * 1.5) {
+            // near the horizon the air glows: trails a touch brighter
+            b = clamp(b + 0.05 * smooth(1500, 2150, my));
             arcs.push(mk(r, th, L, b));
           }
         }
-        th += L * (0.3 + R() * 1.0);
+        th += L * (0.3 + R() * 1.0) + baseL * 0.12 * R();
       }
     }
     // the pole star itself
@@ -126,7 +132,7 @@
         for (let x = 0; x < W; x += cell) {
           const d = S.mwDensity(x, y);
           if (d < 0.02) continue;
-          if (R() > Math.pow(d, 1.05)) continue;
+          if (R() > Math.min(1, Math.pow(d, 0.95) * 1.1)) continue;
           const px = x + R() * cell, py = y + R() * cell;
           const rr = 0.42 + 1.0 * Math.pow(R(), 5) + (R() < 0.006 ? 1.2 : 0);
           const c = R();

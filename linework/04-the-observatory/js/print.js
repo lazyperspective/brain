@@ -27,7 +27,8 @@
           if (k > 0.86) gr += (k - 0.86) * 160;
         }
         const dx = x - cx, dy = y - cy;
-        const v = 1 - 0.16 * Math.pow((dx * dx + dy * dy) / rr, 1.6);
+        const ex = Math.abs(dx) / cx, ey = Math.abs(dy) / cy;
+        const v = (1 - 0.2 * Math.pow((dx * dx + dy * dy) / rr, 1.5)) * (1 - 0.22 * Math.pow(Math.max(ex, ey), 6)) * (1 - 0.12 * Math.max(0, (y / h - 0.7) / 0.3));
         d[i] = Math.max(0, Math.min(255, (r + gr) * v));
         d[i + 1] = Math.max(0, Math.min(255, (g + gr) * v));
         d[i + 2] = Math.max(0, Math.min(255, (b + gr * 0.9) * v));

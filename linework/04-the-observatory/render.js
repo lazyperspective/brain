@@ -45,6 +45,10 @@ const cropDir = path.join(outDir, 'crops-04');
       fg_left: [0, 3000, 900, 840],
       fg_right: [1250, 3100, 910, 740],
       edge_top: [1700, 0, 460, 460],
+      stair: [880, 1600, 620, 400],
+      meteor: [200, 250, 900, 600],
+      corner_br: [1500, 3050, 660, 790],
+      village: [0, 2650, 900, 450],
     };
     execFileSync('python3', ['-c', `
 import sys, json

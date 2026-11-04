@@ -202,220 +202,117 @@
     B.fill(ctx);
   };
 
-  // ------------------------------------------------------------------ village glimmer
-  OB.drawVillage = (ctx, S) => {
-    const v = S.village, R = OB.rng(61), C = OB.C;
-    const B = new OB.Batch();
-    const lights = [];
-    for (let k = 0; k < v.n; k++) {
-      const t = R();
-      const x = v.x0 + (v.x1 - v.x0) * t + R() * 18 - 9;
-      const y = v.y + Math.sin(t * 3.2) * v.bow + (R() - 0.5) * v.spread * (1 - Math.abs(t - 0.5));
-      lights.push([x, y, 0.9 + R() * 1.5]);
-    }
-    // a few roofs as tiny dark blocks behind lights
-    const roofs = new Path2D();
-    for (const [x, y, r] of lights) {
-      if (R() < 0.5) continue;
-      const w = 6 + R() * 7, h = 4 + R() * 4;
-      roofs.moveTo(x - w / 2, y + 2);
-      roofs.lineTo(x - w / 2, y - h * 0.6);
-      roofs.lineTo(x, y - h * 1.2);
-      roofs.lineTo(x + w / 2, y - h * 0.6);
-      roofs.lineTo(x + w / 2, y + 2);
-      roofs.closePath();
+  // ------------------------------------------------------------------ valley floor
+  // Fields in horizontal strokes, a lake with rippled line hatching and amber reflections, a
+  // river glinting in from behind the massif, a pale road thread, and a village of small
+  // dark houses with warm windows and a squat bell tower.
+  OB.drawValley = (ctx, S) => {
+    const V = S.valley, C = OB.C, R = OB.rng(61), N = OB.noise(62);
+    // floor
+    const floorTop = (x) => V.y0 + 10 * N(x * 0.006, 1) + 6 * N(x * 0.02, 2);
+    const fl = [];
+    for (let x = -30; x <= V.x1 + 40; x += 6) fl.push([x, floorTop(x)]);
+    const floor = OB.path(fl.concat([[V.x1 + 40, V.y1], [-30, V.y1]]));
+    OB.flatFill(ctx, floor, css(C.valleyFloor));
+    ctx.save();
+    ctx.clip(floor);
+    OB.engrave(ctx, { bbox: [-30, V.y0 - 20, V.x1 + 40, V.y1], angle: 0.01, sp: 3.4, D: (x, y) => 0.35 + 0.35 * smooth(V.y0, V.y1, y) + 0.2 * N.fbm(x * 0.004, y * 0.02, 2), w: 1.1, levels: 8, col: css(C.rangeInk3, 0.85), wob: 0.8, seed: 63, step: 4 });
+    // hedgerows / field boundaries: short dark dashes
+    const Ph = new Path2D();
+    for (let k = 0; k < 90; k++) {
+      const x = R() * V.x1, y = V.y0 + 6 + R() * (V.y1 - V.y0 - 10);
+      const L = 10 + R() * 40;
+      OB.ink(Ph, [[x, y], [x + L, y + (R() - 0.5) * 3]], 1.4 + R(), { t0: 0.2, t1: 0.2 });
     }
     ctx.fillStyle = css(C.rangeInk3);
-    ctx.fill(roofs);
-    for (const [x, y, r] of lights) OB.glow(ctx, x, y, 9 + r * 4, C.amber, 0.22);
-    for (const [x, y, r] of lights) {
-      const p = B.get(css(R() < 0.7 ? C.amberHot : C.amber));
-      p.moveTo(x + r, y);
-      p.arc(x, y, r, 0, OB.TAU);
+    ctx.fill(Ph);
+    // lake
+    const lk = V.lake;
+    const shore = [];
+    for (let a = 0; a < OB.TAU; a += 0.05) {
+      const r = 1 + 0.12 * N(Math.cos(a) * 1.5, Math.sin(a) * 1.5) + 0.05 * N(a * 5, 3);
+      shore.push([lk.x + Math.cos(a) * lk.rx * r, lk.y + Math.sin(a) * lk.ry * r]);
     }
-    B.fill(ctx);
-  };
-
-  // ------------------------------------------------------------------ rock
-  // A rock. Two kinds:
-  //  'boulder': a rounded lump. Flat two-tone fill (sky-lit cap), contour lines that wrap the
-  //             form, bunching toward the outline on the shadow side and dying out toward the light.
-  //  'slab':    an angular strata block of a cliff mass. Thin cracks to its neighbours, a narrow
-  //             lit ledge, a front face hatched along or across the bedding, a dark side plane.
-  OB.drawRock = (ctx, poly, o) => {
-    const R = OB.rng(o.seed), C = OB.C;
-    const s = o.size;
-    const boulder = o.kind === 'boulder';
-    const c0 = OB.centroid(poly);
-    const gap = boulder ? s * 0.04 + 1.5 : s * 0.012 + 1.2;
-    let p = poly.map((q) => {
-      const dx = q[0] - c0[0], dy = q[1] - c0[1];
-      const l = Math.hypot(dx, dy) || 1;
-      const k = Math.max(0.25, (l - gap) / l);
-      return [c0[0] + dx * k, c0[1] + dy * k];
-    });
-    if (boulder) p = OB.chaikin(p, 2, true);
-    p = OB.roughen(p, true, s * (boulder ? 0.05 : 0.025), 2.6 / s, o.seed % 997, Math.max(3, s * 0.025));
-    p = OB.roughen(p, true, s * 0.008 + 0.4, 0.12, (o.seed % 991) + 5, 3);
-    if (p.length < 5) return null;
-    const path = OB.path(p);
-    const bb = OB.bbox(p);
-    const [cx, cy] = OB.centroid(p);
-    let mr = 0;
-    for (const q of p) mr += Math.hypot(q[0] - cx, q[1] - cy);
-    mr /= p.length;
-    const tag = o.tag, Db = o.D, lw = o.lw;
-    const wk = OB.warm(cx, cy, tag);
-    const inkAt = (x, y) => OB.warmCss(C.ink, x, y, tag, 1);
-    const tone = (d) => mix(OB.toneOf(o.tones, d), C.warmStone, Math.min(0.5, wk * 0.55));
-    if (o.halo !== false) {
-      const k = (mr + gap * (boulder ? 1.6 : 2.5)) / mr;
-      ctx.fillStyle = css(C.crevice, 0.92);
-      ctx.fill(OB.path(p.map((q) => [cx + (q[0] - cx) * k, cy + (q[1] - cy) * k + gap * 0.5])));
-      if (boulder) {
-        ctx.fillStyle = css(C.crevice, 0.45);
-        ctx.fill(OB.path(p.map((q) => [q[0] + s * 0.05, q[1] + s * 0.07])));
-      }
-    }
-    OB.flatFill(ctx, path, css(tone(Db)));
+    const lake = OB.path(shore);
+    OB.flatFill(ctx, lake, css(C.water));
     ctx.save();
-    ctx.clip(path);
-    if (boulder) {
-      // sky-lit cap: a flat lighter shape offset toward the upper left
-      const hlx = cx - (bb[2] - bb[0]) * 0.16, hly = cy - (bb[3] - bb[1]) * 0.26;
-      const cap = p.map((q) => [hlx + (q[0] - hlx) * 0.74 - mr * 0.06, hly + (q[1] - hly) * 0.66 - mr * 0.1]);
-      ctx.save();
-      ctx.translate(OB.MR[0], OB.MR[1]);
-      ctx.fillStyle = css(mix(tone(clamp(Db - 0.3)), C.rockHi, 0.1));
-      ctx.fill(OB.path(OB.roughen(cap, true, mr * 0.05, 3 / mr, o.seed % 37, 3)));
-      ctx.restore();
-      // wrapping contour lines
-      const B = new OB.Batch();
-      const n = Math.round(clamp(mr / (o.sp * 0.9), 4, 34));
-      const sd = [0.48, 0.88];
-      for (let k = 1; k <= n; k++) {
-        const f = 1 - Math.pow(k / (n + 1), 1.25);
-        const cp = p.map((q, i) => {
-          const w = 0.6 * OB.N(i * 0.05 + k * 0.3, o.seed * 0.01);
-          return [hlx + (q[0] - hlx) * f + w, hly + (q[1] - hly) * f + w];
-        });
-        cp.push(cp[0]);
-        const lvl = k / (n + 1);
-        const dk = (i) => {
-          const q = cp[i];
-          const dx = q[0] - hlx, dy = q[1] - hly, l = Math.hypot(dx, dy) || 1;
-          const side = 0.5 + 0.5 * ((dx / l) * sd[0] + (dy / l) * sd[1]);
-          return Db * 0.6 + side * 0.75 - 0.5 * OB.warm(q[0], q[1], tag);
-        };
-        const m = cp[cp.length >> 1];
-        if (f < 0.42) continue;
-        OB.runs(B.get(inkAt(m[0], m[1])), cp, (i) => lw * (0.3 + 1.1 * clamp(dk(i) - 0.35 - lvl * 0.3)), (i) => dk(i) > 0.4 + lvl * 0.75 + 0.07 * OB.N(i * 0.09, k * 3.3), 3);
-      }
-      B.fill(ctx);
-      // a pale rim where the cap meets the sky
-      const rimPts = p.map((q) => [cx + (q[0] - cx) * 0.93, cy + (q[1] - cy) * 0.93]);
-      rimPts.push(rimPts[0]);
-      const Pr = new Path2D();
-      OB.runs(Pr, rimPts, () => lw * 0.9, (i) => { const q = rimPts[i]; return (q[0] - cx) * -0.5 + (q[1] - cy) * -0.86 > mr * 0.45; }, 4);
-      ctx.fillStyle = css(mix(C.rockHi, C.amberLine, Math.min(1, wk * 1.3)), 0.7);
-      ctx.fill(Pr);
-    } else {
-      const dip = o.dip, ca = Math.cos(dip), sa = Math.sin(dip);
-      let umin = Infinity, umax = -Infinity, vmin = Infinity, vmax = -Infinity;
-      for (const q of p) {
-        const u = (q[0] - cx) * ca + (q[1] - cy) * sa, v = -(q[0] - cx) * sa + (q[1] - cy) * ca;
-        umin = Math.min(umin, u); umax = Math.max(umax, u); vmin = Math.min(vmin, v); vmax = Math.max(vmax, v);
-      }
-      const hv = vmax - vmin || 1;
-      const vcut = vmin + hv * (0.08 + 0.16 * R());
-      const sideF = 0.2 + 0.25 * R(), slant = (R() - 0.4) * 0.5;
-      const sideU = (v) => umax - (umax - umin) * sideF + (v - vmin) * slant;
-      const W2 = (u, v) => [cx + u * ca - v * sa, cy + u * sa + v * ca];
-      const UV = (x, y) => [(x - cx) * ca + (y - cy) * sa, -(x - cx) * sa + (y - cy) * ca];
-      const Dtop = clamp(Db - 0.36), Dside = clamp(Db + 0.24);
-      ctx.save();
-      ctx.translate(OB.MR[0], OB.MR[1]);
-      const sidePoly = [];
-      for (let v = vmin - 30; v <= vmax + 30; v += 4) sidePoly.push(W2(sideU(v), v));
-      sidePoly.push(W2(umax + 60, vmax + 30), W2(umax + 60, vmin - 30));
-      ctx.fillStyle = css(tone(Dside));
-      ctx.fill(OB.path(sidePoly));
-      ctx.fillStyle = css(mix(tone(Dtop), C.rockHi, 0.12));
-      ctx.fill(OB.path([W2(umin - 40, vcut), W2(umax + 40, vcut), W2(umax + 40, vmin - 40), W2(umin - 40, vmin - 40)]));
-      ctx.restore();
-      const Df = (x, y) => {
-        const [u, v] = UV(x, y);
-        if (v < vcut) return -1;
-        let d = Db + 0.3 * ((v - vcut) / (vmax - vcut + 1) - 0.35) + 0.08 * ((u - umin) / (umax - umin + 1) - 0.5);
-        if (u > sideU(v)) d += 0.24;
-        return d - 0.5 * OB.warm(x, y, tag);
-      };
-      const spF = o.sp * (0.85 + 0.3 * R());
-      const across = R() < 0.55; // hatch across the bedding (vertical) or along it
-      const a1 = across ? Math.PI / 2 + dip + (R() - 0.5) * 0.35 : dip + (R() - 0.5) * 0.12;
-      OB.engrave(ctx, { bbox: bb, angle: a1, sp: spF, D: Df, w: lw * 1.25, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.5, seed: o.seed, step: 3, fade: 0.25, warp: across ? null : (u, v) => s * 0.03 * Math.sin(u / (s * 0.25) + o.seed) });
-      OB.engrave(ctx, { bbox: bb, angle: a1 + (across ? -1.05 : 0.95), sp: spF * 1.15, D: (x, y) => Df(x, y) - 0.5, thrRange: 0.5, w: lw * 0.95, wmin: lw * 0.25, levels: 8, colAt: inkAt, wob: 0.5, seed: o.seed + 2, step: 3 });
-      // ledge lip
-      const lip = [];
-      for (let u = umin - 4; u <= umax + 4; u += 3) lip.push(W2(u, vcut + s * 0.015 * OB.N(u * 0.05, o.seed)));
-      const Pl = new Path2D();
-      OB.ink(Pl, lip, lw * 1.3, { t0: 0.08, t1: 0.08, wn: 0.5, ph: o.seed });
-      ctx.fillStyle = inkAt(cx, cy);
-      ctx.fill(Pl);
-      const Ph = new Path2D();
-      OB.ink(Ph, lip.map((q) => [q[0] + sa * lw * 2.3, q[1] - ca * lw * 2.3]), lw, { t0: 0.25, t1: 0.3, wn: 0.7, ph: o.seed + 4 });
-      ctx.fillStyle = css(mix(C.rockHi, C.amberLine, Math.min(1, wk * 1.3)), 0.75);
-      ctx.fill(Ph);
-      const se = [];
-      for (let v = vcut; v <= vmax; v += 3) se.push(W2(sideU(v), v));
-      if (se.length > 3) {
-        const Ps = new Path2D();
-        OB.ink(Ps, se, lw * 0.9, { t0: 0.2, t1: 0.1, wn: 0.5, ph: o.seed + 8 });
-        ctx.fillStyle = inkAt(cx, cy);
-        ctx.fill(Ps);
-      }
+    ctx.clip(lake);
+    OB.engrave(ctx, { bbox: [lk.x - lk.rx * 1.3, lk.y - lk.ry * 1.4, lk.x + lk.rx * 1.3, lk.y + lk.ry * 1.4], angle: 0, sp: 2.6, D: (x, y) => 0.25 + 0.4 * smooth(lk.y - lk.ry, lk.y + lk.ry, y), w: 1.0, levels: 8, col: css(C.waterLine, 0.85), wob: 0.5, seed: 64, step: 3 });
+    // sky glints on the water
+    const Pg = new Path2D();
+    for (let k = 0; k < 60; k++) {
+      const x = lk.x + (R() - 0.5) * lk.rx * 1.8, y = lk.y + (R() - 0.5) * lk.ry * 1.6;
+      OB.ink(Pg, [[x, y], [x + 4 + R() * 14, y]], 1.1, { t0: 0.3, t1: 0.3 });
     }
-    // cracks
-    if (s > 60 && R() < 0.7) {
-      const P = new Path2D();
-      const nc = 1 + Math.floor(R() * (s > 180 ? 3 : 2));
-      for (let c = 0; c < nc; c++) {
-        const p0 = p[Math.floor(R() * p.length)];
-        let x = p0[0], y = p0[1];
-        let a = Math.atan2(cy - y, cx - x) + (R() - 0.5) * 0.9;
-        const pts = [[x, y]];
-        const L = s * (0.25 + 0.4 * R());
-        for (let d = 0; d < L; d += 5) {
-          a += (R() - 0.5) * 0.7;
-          x += Math.cos(a) * 5; y += Math.sin(a) * 5;
-          pts.push([x, y]);
-          if (R() < 0.05) {
-            const br = [[x, y]];
-            let bx = x, by = y, ba = a + R() * 1.4 - 0.7;
-            for (let e = 0; e < L * 0.3; e += 5) { ba += (R() - 0.5) * 0.6; bx += Math.cos(ba) * 5; by += Math.sin(ba) * 5; br.push([bx, by]); }
-            OB.ink(P, br, lw * 0.8, { t0: 0, t1: 0.8, wn: 0.4, ph: c * 9 });
+    ctx.fillStyle = css(C.trailCream, 0.55);
+    ctx.fill(Pg);
+    ctx.restore();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = css(C.rangeInk3);
+    ctx.stroke(lake);
+    // river winding in from the right
+    const rv = OB.spline(V.river, 4);
+    const rws = rv.map((p, i) => lerp(V.riverW[0], V.riverW[1], i / (rv.length - 1)));
+    const Pr = new Path2D();
+    OB.ribbon(Pr, rv, rws);
+    ctx.fillStyle = css(C.water);
+    ctx.fill(Pr);
+    const Prl = new Path2D();
+    OB.runs(Prl, rv, (i) => rws[i] * 0.3, (i) => OB.N(i * 0.2, 4) > -0.2, 3);
+    ctx.fillStyle = css(C.trailCream, 0.6);
+    ctx.fill(Prl);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = css(C.rangeInk3);
+    ctx.stroke(Pr);
+    // road thread
+    const rd = OB.spline(V.road, 4);
+    const Pd = new Path2D();
+    OB.ink(Pd, rd, 2.6, { t0: 0.02, t1: 0.05, wn: 0.3 });
+    ctx.fillStyle = css(C.road, 0.85);
+    ctx.fill(Pd);
+    ctx.restore();
+    // village
+    const houses = [];
+    for (let k = 0; k < V.n; k++) {
+      const t = R();
+      const x = V.vx0 + (V.vx1 - V.vx0) * t + (R() - 0.5) * 10;
+      const y = V.vy + Math.sin(t * 2.6) * 6 + (R() - 0.5) * 14 * (1 - Math.abs(t - 0.5));
+      houses.push({ x, y, w: 9 + R() * 9, h: 6 + R() * 5, roof: 4 + R() * 4, lit: R() });
+    }
+    houses.push({ x: V.vx0 + (V.vx1 - V.vx0) * 0.45, y: V.vy - 2, w: 9, h: 26, roof: 12, lit: 0.95, tower: true });
+    houses.sort((a, b) => a.y - b.y);
+    const Pb = new Path2D(), Pw = new Path2D(), Pref = new Path2D();
+    for (const hs of houses) {
+      const { x, y, w, h, roof } = hs;
+      Pb.moveTo(x - w / 2, y);
+      Pb.lineTo(x - w / 2, y - h);
+      Pb.lineTo(x, y - h - roof);
+      Pb.lineTo(x + w / 2, y - h);
+      Pb.lineTo(x + w / 2, y);
+      Pb.closePath();
+      const nw = hs.tower ? 1 : hs.lit > 0.35 ? 1 + Math.floor(hs.lit * 2.4) : 0;
+      for (let k = 0; k < nw; k++) {
+        const wx = x - w / 2 + 2 + ((w - 5) * (k + 0.5)) / Math.max(1, nw) - 1, wy = y - h * (hs.tower ? 0.75 : 0.55);
+        Pw.rect(wx, wy, 2.2, 2.8);
+        if (y > V.lake.y - V.lake.ry - 30) {
+          // a broken shimmer column, wider near the shore and fading out
+          const top = V.lake.y - V.lake.ry * 0.85;
+          for (let r = 0; r < 7; r++) {
+            if (R() < 0.3) continue;
+            const ww = (5 - r * 0.55) * (0.6 + 0.8 * R());
+            if (ww < 0.8) continue;
+            Pref.ellipse(wx + 1 + (R() - 0.5) * 3, top + r * 5 + R() * 2, ww, 0.8, 0, 0, OB.TAU);
           }
         }
-        OB.ink(P, pts, lw * 1.3, { t0: 0.05, t1: 0.75, wn: 0.4, ph: c * 3 + o.seed });
       }
-      ctx.fillStyle = inkAt(cx, cy);
-      ctx.fill(P);
     }
-    if (s > 110) {
-      const P = new Path2D();
-      const nd = Math.floor(s * s * 0.0006);
-      for (let k = 0; k < nd; k++) {
-        const x = bb[0] + R() * (bb[2] - bb[0]), y = bb[1] + R() * (bb[3] - bb[1]);
-        const r = 0.6 + R() * 1.1;
-        P.moveTo(x + r, y);
-        P.arc(x, y, r, 0, OB.TAU);
-      }
-      ctx.fillStyle = css(C.ink, 0.55);
-      ctx.fill(P);
-    }
-    ctx.restore();
-    OB.outline(ctx, p, lw * (boulder ? 1.8 : 1.5) * (o.olw || 1), inkAt, {});
-    return p;
+    ctx.fillStyle = css(C.rangeInk3);
+    ctx.fill(Pb);
+    for (const hs of houses) if (hs.lit > 0.6) OB.glow(ctx, hs.x, hs.y - hs.h * 0.6, 14, C.amber, 0.18);
+    ctx.fillStyle = css(C.amberHot);
+    ctx.fill(Pw);
+    ctx.fillStyle = css(C.amber, 0.45);
+    ctx.fill(Pref);
   };
 
   // ------------------------------------------------------------------ cliff faces
@@ -429,13 +326,25 @@
     const xs = 6;
     const nx = Math.ceil((x1 - x0) / xs) + 2;
     const tilt = Math.tan(o.dip);
+    // faults: vertical breaks every few hundred px; each block is displaced up or down so the
+    // strata step instead of draping
+    const faults = [x0 - 400];
+    while (faults[faults.length - 1] < x1 + 400) faults.push(faults[faults.length - 1] + (o.faultW || 190) * (0.5 + R()));
+    const fdy = faults.map(() => (R() - 0.5) * 1.3);
+    const fang = faults.map(() => (R() - 0.5) * 0.5);
+    const fcol = (x) => { let i = 0; while (i < faults.length - 2 && x > faults[i + 1]) i++; return i; };
+    const off = (x) => {
+      const i = fcol(x);
+      const t = clamp((x - faults[i + 1] + 6) / 12);
+      return lerp(fdy[i], fdy[i + 1], t);
+    };
     const bands = [];
     let cur = new Float32Array(nx);
-    for (let i = 0; i < nx; i++) { const x = x0 + i * xs; cur[i] = y0 - 260 + (x - x0) * tilt + o.fold * N.fbm(x * 0.0016, 0.5, 3); }
+    for (let i = 0; i < nx; i++) { const x = x0 + i * xs; cur[i] = y0 - 260 + (x - x0) * tilt + o.fold * N.fbm(x * 0.0016, 0.5, 3) + off(x) * o.bandH(y0); }
     bands.push(cur);
     for (let k = 0; k < 500; k++) {
       const nxt = new Float32Array(nx);
-      const hk = 0.6 + 0.8 * R();
+      const hk = 0.4 + 1.5 * Math.pow(R(), 1.4);
       let mn = Infinity;
       for (let i = 0; i < nx; i++) {
         const x = x0 + i * xs;
@@ -476,17 +385,39 @@
     };
     const inkAt = (x, y) => OB.warmCss(C.ink, x, y, o.tag, 1);
     // outline: a heavy stroke whose inner half the face will cover
-    ctx.lineWidth = o.olw * 2;
-    ctx.strokeStyle = css(C.ink);
-    ctx.stroke(clip);
+    if (!o.noOutline) {
+      ctx.lineWidth = o.olw * 2;
+      ctx.strokeStyle = css(C.ink);
+      ctx.stroke(clip);
+    }
     OB.posterFill(ctx, clip, bbox, Dc, o.tones, { step: 3, dither: 0.025 });
     ctx.save();
     ctx.clip(clip);
     for (const [ya, yb, sp, lw] of o.strips) {
-      const bb = [x0, Math.max(y0, ya), x1, Math.min(y1, yb)];
-      if (bb[3] <= bb[1]) continue;
-      OB.engrave(ctx, { bbox: bb, angle: Math.PI / 2 + 0.06, sp, D: Dc, w: lw * 1.25, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.35, seed: o.seed + ya, step: 4, fade: 0.22, warp: (u, v) => 2.5 * N(u * 0.008, v * 0.03) });
-      OB.engrave(ctx, { bbox: bb, angle: o.dip + 0.04, sp: sp * 1.15, D: (x, y) => Dc(x, y) - 0.55, thrRange: 0.45, w: lw, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.6, seed: o.seed + ya + 1, step: 3 });
+      for (let fi = 0; fi < faults.length - 1; fi++) {
+        const bb = [Math.max(x0, faults[fi]), Math.max(y0, ya), Math.min(x1, faults[fi + 1]), Math.min(y1, yb)];
+        if (bb[3] <= bb[1] || bb[2] <= bb[0]) continue;
+        ctx.save();
+        const cr = new Path2D();
+        cr.rect(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]);
+        ctx.clip(cr);
+        const blockD = (x, y) => Dc(x, y) + fdy[fi] * 0.12;
+        OB.engrave(ctx, { bbox: bb, angle: Math.PI / 2 + 0.06 + fang[fi], sp: sp * (0.9 + 0.25 * OB.hash(fi, ya)), D: blockD, w: lw * 1.25, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.35, seed: o.seed + ya + fi * 13, step: 4, fade: 0.22, warp: (u, v) => 2.5 * N(u * 0.008, v * 0.03) });
+        OB.engrave(ctx, { bbox: bb, angle: o.dip + 0.04 + fang[fi] * 0.5 + (OB.hash(fi, 3) < 0.4 ? 0.7 : 0), sp: sp * 1.15, D: (x, y) => blockD(x, y) - 0.55, thrRange: 0.45, w: lw, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.6, seed: o.seed + ya + fi * 13 + 1, step: 3 });
+        ctx.restore();
+      }
+    }
+    // the faults themselves: dark ragged fissures
+    {
+      const Pf = new Path2D();
+      for (let fi = 1; fi < faults.length - 1; fi++) {
+        const fx = faults[fi];
+        if (fx < x0 || fx > x1) continue;
+        const ln = OB.wline(fx, y0 - 40, fx + (R() - 0.5) * 30, y1 + 40, 6, 3, fx);
+        OB.ink(Pf, ln, 2 + (o.bandH(y1) / 40), { t0: 0, t1: 0, wn: 0.7, ph: fx });
+      }
+      ctx.fillStyle = css(C.ink);
+      ctx.fill(Pf);
     }
     // ledge lips, highlights, joints
     const B = new OB.Batch();
@@ -535,34 +466,6 @@
     ctx.restore();
   };
 
-  // ------------------------------------------------------------------ block fields
-  // Strata-like Voronoi blocks: rows of seeds in a dipping, gently folded bed frame.
-  OB.blockField = (o) => {
-    const R = OB.rng(o.seed), N = OB.noise(o.seed + 1);
-    const seeds = [];
-    const ca = Math.cos(o.dip), sa = Math.sin(o.dip);
-    const [x0, y0, x1, y1] = o.bbox;
-    for (let y = y0 - 60; y < y1 + 60;) {
-      const s = o.size(y);
-      const rowH = s * o.aspect * (0.75 + 0.5 * R());
-      y += rowH;
-      let x = x0 - 80 - R() * s;
-      while (x < x1 + 80) {
-        const fy = y + o.fold * N(x * 0.0025, y * 0.003) + (x - (x0 + x1) / 2) * Math.tan(o.dip);
-        seeds.push([x + (R() - 0.5) * s * 0.3, fy + (R() - 0.5) * rowH * 0.35, s]);
-        x += s * (0.65 + 0.9 * R());
-      }
-    }
-    // Voronoi in the stretched bed frame -> wide flat blocks
-    const k = 1 / o.aspect;
-    const fw = (p) => { const u = p[0] * ca + p[1] * sa, v = -p[0] * sa + p[1] * ca; return [u, v * k]; };
-    const bw = (p) => { const u = p[0], v = p[1] / k; return [u * ca - v * sa, u * sa + v * ca]; };
-    const tp = seeds.map(fw);
-    const tb = OB.bbox(tp);
-    const cells = OB.voronoi(tp, [tb[0] - 50, tb[1] - 50, tb[2] + 50, tb[3] + 50]);
-    return cells.map((c, i) => ({ poly: c.map(bw), seed: seeds[i], size: seeds[i][2] })).filter((c) => c.poly.length > 2);
-  };
-
   // crest lookup: y of the top silhouette of a polygon region per x
   OB.crestLookup = (pts) => {
     const arr = new Float32Array(W + 1).fill(1e9);
@@ -597,126 +500,6 @@
       const ws = pts.map((p, k) => Math.max(0.2, size * 0.075 * (1 - k / 5.5)));
       OB.ribbon(R() < light ? Pl : Pd, pts, ws);
     }
-  };
-
-  // ------------------------------------------------------------------ the massif
-  OB.drawMassif = (ctx, S) => {
-    const M = S.massif, C = OB.C;
-    const N = OB.noise(41), N2 = OB.noise(42), R = OB.rng(43);
-    const crest = M.crest;
-    // terrain: a slope rising to the crest, carved by spurs and gullies that run down it
-    const persp = (y) => lerp(0.5, 2.0, smooth(1700, 3900, y));
-    const hgt = (x, y) => {
-      const p = persp(y);
-      const sx = x / (240 * p), sy = y / (760 * p);
-      const r1 = 1 - Math.abs(N2(sx, sy));
-      const r2 = 1 - Math.abs(N2(sx * 2.2 + 5.1, sy * 2.0));
-      return -y + p * (62 * r1 * r1 + 20 * r2 * r2);
-    };
-    const grad = (x, y) => {
-      const e = 4;
-      return [(hgt(x + e, y) - hgt(x - e, y)) / (2 * e), (hgt(x, y + e) - hgt(x, y - e)) / (2 * e)];
-    };
-    M.grad = grad;
-    // the big light/shadow division: the main spur runs down from the summit; right of it
-    // the mountain turns away from the sky-light
-    const spurX = (y) => (y < 2600 ? lerp(1780, 1560, (y - 1750) / 850) : lerp(1560, 1380, (y - 2600) / 1300)) + 70 * N.fbm(y * 0.003, 2.2, 2);
-    M.D = (x, y) => {
-      const g = grad(x, y);
-      const sh = smooth(-90, 140, x - spurX(y));
-      return clamp(0.33 - 0.3 * Math.tanh(g[0] * 2.2) + 0.3 * sh + 0.12 * smooth(1400, 2150, x) + 0.12 * smooth(2000, 3800, y)
-        - 0.14 * (1 - smooth(0, 120, y - crest(x))) + 0.05 * N.fbm(x * 0.01, y * 0.01, 2) - 0.55 * OB.warm(x, y, 'massif'));
-    };
-    OB.posterFill(ctx, M.path, M.bbox, M.D, C.massifTones, { step: 6, dither: 0.03 });
-
-    // slope: streamlines along the terrain contours (V-shapes in the gullies)
-    {
-      const ang = (x, y) => { const g = grad(x, y); return Math.atan2(g[1], g[0]) + Math.PI / 2; };
-      const sep = (x, y) => lerp(13, 3.0, M.D(x, y)) * persp(y) * 0.9;
-      const lines = OB.streamlines({ inside: (x, y) => M.mask.inside(x, y) && y > crest(x) + 4, angle: ang, sep, bbox: M.bbox, step: 2.5, cell: 4, seed: 44, minLen: 16, maxSteps: 240, dtest: 0.5, seedGrid: 45 });
-      const B = new OB.Batch();
-      for (const L of lines) {
-        const m = L[L.length >> 1];
-        const d = M.D(m[0], m[1]);
-        const ws = OB.inkWidths(L, lerp(0.6, 1.9, d) * lerp(0.9, 1.6, smooth(1800, 3800, m[1])), { t0: 0.25, t1: 0.3, wn: 0.4, ph: m[0] * 0.1 });
-        OB.ribbon(B.get(OB.warmCss(C.ink, m[0], m[1], 'massif', 1)), L, ws);
-      }
-      B.fill(ctx);
-    }
-    // fall-line cross hatching in the shadowed gullies
-    ctx.save();
-    ctx.clip(M.path);
-    OB.engrave(ctx, { bbox: [M.bbox[0], M.bbox[1], M.bbox[2], M.bbox[3]], angle: Math.PI / 2 + 0.12, sp: 4.2, D: (x, y) => M.D(x, y) - 0.5, thrRange: 0.5, w: 1.25, wmin: 0.35, levels: 8, colAt: (x, y) => OB.warmCss(C.ink, x, y, 'massif', 1), seed: 46, step: 4, wob: 1.2, warp: (u, v) => 18 * OB.N(u * 0.004, v * 0.01) });
-    ctx.restore();
-    // grass ticks on the slope, thicker in the gullies
-    {
-      const Pd = new Path2D(), Pl = new Path2D();
-      for (let k = 0; k < 3400; k++) {
-        const x = R() * W, y = 1720 + R() * 2100;
-        if (!M.mask.inside(x, y) || y < crest(x) + 10) continue;
-        if (N2.fbm(x * 0.004, y * 0.004, 2) < -0.1) continue;
-        const sz = lerp(8, 30, smooth(1700, 3800, y)) * (0.6 + 0.6 * R());
-        OB.tuft(Pd, Pl, x, y, sz, 0.35, R, 0.25);
-      }
-      ctx.fillStyle = css(C.ink);
-      ctx.fill(Pd);
-      ctx.fillStyle = css(C.grassHi, 0.6);
-      ctx.fill(Pl);
-    }
-
-    {
-      const P = new Path2D();
-      OB.ink(P, M.crestPts, 4.2, { t0: 0, t1: 0, wn: 0.4, ph: 3 });
-      ctx.fillStyle = css(C.ink);
-      ctx.fill(P);
-    }
-    // rock outcrops: clusters of rounded strata blocks; cliffs under the summit and on the
-    // shadowed right flank. Rocks may stand proud of the crest line.
-    const field = OB.blockField({ seed: 45, dip: -0.1, aspect: 0.62, fold: 30, bbox: [M.bbox[0], M.bbox[1] - 60, M.bbox[2], M.bbox[3]], size: (y) => lerp(42, 230, Math.pow(smooth(1680, 3950, y), 0.9)) * (0.8 + 0.5 * OB.N(y * 0.01, 3)) });
-    const rocky = (x, y) => N.fbm(x * 0.0019 + 11, y * 0.0024, 3) * 1.2 + 0.55 * smooth(1550, 1980, x) + 0.75 * (1 - smooth(0, 170, y - crest(x))) - 0.05;
-    const clipP = new Path2D();
-    const up = M.crestPts.map((q) => [q[0], q[1] - 42]);
-    OB.path(up.concat([[2200, 3900], [-40, 3900]]), true, clipP);
-    ctx.save();
-    ctx.clip(clipP);
-    let nb = 0;
-    const cliffAt = (x, y) => x > 1530 + 120 * N(y * 0.003, 1) || y < crest(x) + 150;
-    const cells = field.filter((c) => {
-      const [sx, sy] = c.seed;
-      if (!M.mask.inside(sx, sy + c.size * 0.25)) return false;
-      const pd = S.pathDist(sx, sy);
-      const near = 1 - smooth(pd.w * 0.5, pd.w * 1.4 + 26, pd.d - c.size * 0.35);
-      const cliff = cliffAt(sx, sy);
-      c.cliff = cliff;
-      const rk = rocky(sx, sy) + (cliff ? 0.15 : -0.25) - 1.1 * near;
-      if (rk < 0.32) return false;
-      return cliff ? R() > 0.04 : R() > 0.45;
-    });
-    // cliff cells merge into continuous faces; the rest become loose boulders
-    const face = new Path2D();
-    for (const c of cells) {
-      if (!c.cliff) continue;
-      const [cx, cy] = OB.centroid(c.poly);
-      const ex = c.poly.map((q) => [cx + (q[0] - cx) * 1.04, cy + (q[1] - cy) * 1.04]);
-      OB.path(OB.roughen(ex, true, c.size * 0.035, 2.4 / c.size, nb++ % 997, Math.max(3, c.size * 0.03)), true, face);
-    }
-    OB.drawCliff(ctx, face, [M.bbox[0], M.bbox[1] - 60, M.bbox[2], M.bbox[3]], {
-      D: (x, y) => clamp(M.D(x, y) + 0.04), dip: -0.08, fold: 34, seed: 47, tag: 'massif', tones: C.rockTones, olw: 2.6, grass: 0.12,
-      bandH: (y) => lerp(26, 120, Math.pow(smooth(1680, 3900, y), 0.9)),
-      strips: [[0, 2250, 2.6, 0.95], [2250, 2900, 3.3, 1.25], [2900, 4000, 4.4, 1.7]],
-    });
-    const loose = cells.filter((c) => !c.cliff).sort((a, b) => a.seed[1] - b.seed[1]);
-    for (const c of loose) {
-      const [sx, sy] = c.seed;
-      const D = clamp(M.D(sx, sy) + 0.12 * R.norm() + 0.06);
-      OB.drawRock(ctx, c.poly, {
-        D, dip: -0.1 + 0.25 * N(sx * 0.002, sy * 0.002), size: c.size, kind: 'boulder', tones: C.rockTones, tag: 'massif', seed: 1000 + nb,
-        sp: lerp(2.4, 5.2, smooth(1700, 3900, sy)), lw: lerp(0.85, 1.9, smooth(1700, 3900, sy)),
-      });
-      nb++;
-    }
-    ctx.restore();
-    S.massifBlocks = nb;
   };
 
   // ------------------------------------------------------------------ the path
@@ -769,11 +552,25 @@
     const n = pp.length;
     // consistent left/right edges; "down" weight says which one is the downhill lip
     const Le = [], Re = [], dw = [];
-    for (const p of pp) {
-      Le.push([p.x - p.nx * p.w * 0.5, p.y - p.ny * p.w * 0.5]);
-      Re.push([p.x + p.nx * p.w * 0.5, p.y + p.ny * p.w * 0.5]);
+    pp.forEach((p, i) => {
+      // worn, uneven edges: each side frays independently
+      const fl = 0.5 * (1 + 0.14 * N(i * 0.045, 1.3) + 0.06 * N(i * 0.3, 2.1));
+      const fr = 0.5 * (1 + 0.14 * N(i * 0.045, 7.7) + 0.06 * N(i * 0.3, 5.9));
+      Le.push([p.x - p.nx * p.w * fl, p.y - p.ny * p.w * fl]);
+      Re.push([p.x + p.nx * p.w * fr, p.y + p.ny * p.w * fr]);
       dw.push(smooth(-0.3, 0.3, p.ny)); // 1: right edge is downhill
-    }
+    });
+    // retaining walls only where the path needs holding up: around the turns and on a few
+    // exposed stretches
+    const turn = pp.map((p, i) => {
+      const a = pp[Math.max(0, i - 8)], b = pp[Math.min(n - 1, i + 8)];
+      return 1 - (a.tx * b.tx + a.ty * b.ty);
+    });
+    const wallOK = pp.map((p, i) => {
+      let t = 0;
+      for (let k = Math.max(0, i - 30); k < Math.min(n, i + 30); k += 3) t = Math.max(t, turn[k]);
+      return t > 0.25 || N(i * 0.011, 9.3) > 0.32;
+    });
     const flat = pp.map((p) => Math.pow(Math.abs(p.tx), 1.6));
     const depth = (y) => smooth(1800, 3800, y);
     const dnPt = (i) => (dw[i] > 0.5 ? Re[i] : Le[i]);
@@ -810,12 +607,12 @@
         piece = [];
       };
       for (let i = 0; i < n; i++) {
-        if (flat[i] < 0.05 || (piece.length && (dw[i] > 0.5) !== (dw[piece[0]] > 0.5)) || piece.length > 40) {
+        if (flat[i] < 0.05 || !wallOK[i] || (piece.length && (dw[i] > 0.5) !== (dw[piece[0]] > 0.5)) || piece.length > 40) {
           const last = piece.length ? piece[piece.length - 1] : -1;
           flush();
-          if (flat[i] >= 0.05 && last === i - 1) piece.push(i - 1);
+          if (flat[i] >= 0.05 && wallOK[i] && last === i - 1) piece.push(i - 1);
         }
-        if (flat[i] >= 0.05) piece.push(i);
+        if (flat[i] >= 0.05 && wallOK[i]) piece.push(i);
       }
       flush();
       ctx.save();
@@ -850,7 +647,7 @@
         OB.path(poly, true, Pf);
         const p = pp[Math.min(n - 1, i + 3)];
         const wm = OB.warm(p.x, p.y, 'path');
-        ctx.fillStyle = css(mix(mix(C.pathFill, C.pathShade, 0.75 * smooth(2900, 3850, p.y)), C.pathWarm, Math.min(1, wm * 1.15)));
+        ctx.fillStyle = css(mix(mix(C.pathFill, C.pathShade, 0.9 * smooth(2750, 3700, p.y)), C.pathWarm, Math.min(1, wm * 1.15)));
         ctx.fill(OB.path(poly));
       }
       // shaded band under the bank
@@ -1006,7 +803,7 @@
     ctx.fill(P);
     const lx = x + 12 * s, ly = y - 26 * s;
     // glass box
-    ctx.fillStyle = css(C.amberHot);
+    ctx.fillStyle = css(C.amber);
     ctx.beginPath();
     ctx.moveTo(lx - 5 * s, ly - 7 * s);
     ctx.lineTo(lx + 5 * s, ly - 7 * s);
@@ -1014,9 +811,9 @@
     ctx.lineTo(lx - 4 * s, ly + 6 * s);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = css([255, 248, 225]);
+    ctx.fillStyle = css(C.amberHot);
     ctx.beginPath();
-    ctx.ellipse(lx, ly, 2 * s, 3.2 * s, 0, 0, OB.TAU);
+    ctx.ellipse(lx, ly, 1.8 * s, 2.8 * s, 0, 0, OB.TAU);
     ctx.fill();
     // frame, roof, ring
     ctx.strokeStyle = css(C.ink);
@@ -1038,8 +835,8 @@
   };
   OB.lanternGlow = (ctx, L) => {
     const C = OB.C, s = L.s;
-    OB.glow(ctx, L.lx, L.ly, 120 * s, C.amber, 0.28);
-    OB.glow(ctx, L.lx, L.ly, 34 * s, C.amberHot, 0.5);
+    OB.glow(ctx, L.lx, L.ly, 100 * s, C.amber, 0.22);
+    OB.glow(ctx, L.lx, L.ly, 26 * s, C.amber, 0.4);
     // engraved rays
     const P = new Path2D();
     const R = OB.rng(Math.round(L.x));
@@ -1052,63 +849,4 @@
     ctx.fill(P);
   };
 
-  // ------------------------------------------------------------------ foreground outcrop
-  OB.drawForeground = (ctx, S) => {
-    const C = OB.C, R = OB.rng(81), N = OB.noise(82);
-    for (const F of S.fg) {
-      const D = (x, y) => clamp(F.d0 + 0.3 * smooth(2950, 3840, y) + 0.16 * N.fbm(x * 0.002, y * 0.002, 3) + (F.side === 'L' ? 0.2 * (1 - smooth(0, 600, x)) : 0.2 * smooth(1600, 2160, x)) - 0.5 * OB.warm(x, y, 'fg'));
-      const mask = OB.mask((g) => g.fill(F.path), 0.5);
-      OB.drawCliff(ctx, F.path, F.bbox, {
-        D, dip: F.dip * 0.6, fold: 40, seed: 90 + F.seed, tag: 'fg', tones: C.fgTones, olw: 4.5, grass: 0.22,
-        bandH: (y) => lerp(80, 170, smooth(2850, 3840, y)),
-        strips: [[0, 3250, 4.0, 1.6], [3250, 4000, 5.2, 2.1]],
-      });
-      // rocks and boulders, back to front
-      const field = OB.blockField({ seed: F.seed, dip: F.dip, aspect: F.aspect, fold: 50, bbox: [F.bbox[0], F.bbox[1] - 60, F.bbox[2], F.bbox[3]], size: (y) => lerp(F.size[0], F.size[1], smooth(F.bbox[1], 3840, y)) * (0.75 + 0.5 * OB.N(y * 0.01, F.seed)) });
-      const clipP = OB.path(F.top.map((q) => [q[0], q[1] - 55]).concat(F.poly.slice(F.top.length)));
-      ctx.save();
-      ctx.clip(clipP);
-      let k = 0;
-      const rocks = [];
-      const cells = field.filter((c) => {
-        const [sx, sy] = c.seed;
-        if (!mask.inside(sx, sy + c.size * 0.2)) return false;
-        if (N(sx * 0.0028 + F.seed, sy * 0.0028) < 0.05) return false;
-        const pd = S.pathDist(sx, sy);
-        return pd.d > pd.w * 0.5 + c.size * 0.3;
-      }).sort((a, b) => a.seed[1] - b.seed[1]);
-      for (const c of cells) {
-        const [sx, sy] = c.seed;
-        const d = clamp(D(sx, sy) + 0.12 * R.norm());
-        const rp = OB.drawRock(ctx, c.poly, { D: d, dip: F.dip + 0.18 * N(sx * 0.002, sy * 0.002), size: c.size, kind: 'boulder', tones: C.fgTones, tag: 'fg', seed: 5000 + F.seed * 100 + k, sp: lerp(4.2, 7, smooth(2900, 3840, sy)), lw: lerp(1.5, 2.5, smooth(2900, 3840, sy)), olw: 1.3 });
-        if (rp) rocks.push({ p: rp, size: c.size });
-        k++;
-      }
-      ctx.restore();
-      // grass in the cracks and along the top edge
-      {
-        const Pd = new Path2D(), Pl = new Path2D();
-        for (const c of rocks) {
-          if (R() < 0.35) continue;
-          const poly = c.p;
-          // pick a low vertex (bottom of a block): grass grows in the joint beneath
-          let lo = poly[0];
-          for (const p of poly) if (p[1] > lo[1]) lo = p;
-          if (!mask.inside(lo[0], lo[1] - 4)) continue;
-          const nt = 1 + Math.floor(R() * 3);
-          for (let t = 0; t < nt; t++) OB.tuft(Pd, Pl, lo[0] + (R() - 0.5) * c.size * 0.5, lo[1] - R() * 6, lerp(30, 70, smooth(2900, 3840, lo[1])) * (0.6 + 0.6 * R()), 0.4, R, 0.3);
-        }
-        const top = F.top;
-        for (let t = 0; t < top.length; t += 3) {
-          const p = top[t];
-          if (R() < 0.5 || p[1] > 3700) continue;
-          OB.tuft(Pd, Pl, p[0], p[1] + 6, lerp(26, 60, smooth(2800, 3840, p[1])) * (0.6 + 0.7 * R()), 0.45, R, 0.35);
-        }
-        ctx.fillStyle = css(C.ink);
-        ctx.fill(Pd);
-        ctx.fillStyle = css(C.grassHi, 0.85);
-        ctx.fill(Pl);
-      }
-    }
-  };
 })();

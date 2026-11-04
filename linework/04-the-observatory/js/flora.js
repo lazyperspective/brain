@@ -1,28 +1,16 @@
-// The Observatory: wind-bent pines and twisted junipers, built from a tapered spine, bark
-// lines that follow the wood, flat cloud-pads of foliage made of thousands of needle tufts.
+// The Observatory: wind-flagged pines and junipers. A gnarled tapered trunk with bark lines,
+// limbs streaming to the leeward side, foliage as clusters of radiating needle tufts with sky
+// showing between them, and silver dead snags.
 'use strict';
 (function () {
   const OB = window.OB;
   const { clamp, smooth, lerp, mix, css } = OB;
 
-  const spineOf = (x, y, h, lean, R, segs = 26, twist = 0.18) => {
-    const pts = [];
-    let a = -Math.PI / 2 + lean * 0.15;
-    const sl = h / segs;
-    for (let i = 0; i <= segs; i++) {
-      pts.push([x, y]);
-      const t = i / segs;
-      a += lean * 0.075 * (0.4 + t) + (R() - 0.5) * twist;
-      a = Math.max(-Math.PI / 2 - 0.5, Math.min(-Math.PI / 2 + 1.3, a));
-      x += Math.cos(a) * sl;
-      y += Math.sin(a) * sl;
-    }
-    return pts;
-  };
-
-  // wood: tapered body with bark lines along it
+  // wood: tapered body with bark lines that follow it
   const drawWood = (ctx, pts, ws, o) => {
     const C = OB.C;
+    const n = pts.length;
+    if (n < 2) return;
     const P = new Path2D();
     OB.ribbon(P, pts, ws);
     ctx.save();
@@ -30,41 +18,37 @@
     ctx.fillStyle = css(o.fill);
     ctx.fill(P);
     ctx.restore();
-    const n = pts.length;
     const nr = pts.map((p, i) => {
       const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
       let nx = -(b[1] - a[1]), ny = b[0] - a[0];
       const l = Math.hypot(nx, ny) || 1;
       return [nx / l, ny / l];
     });
-    // orient so +normal points right-ish (shadow side)
-    const sgn = nr[n >> 1][0] >= 0 ? 1 : -1;
+    // +normal toward the lower-right (shadow side)
+    const sgn = nr[n >> 1][0] + nr[n >> 1][1] >= 0 ? 1 : -1;
     const Bd = new Path2D(), Bl = new Path2D();
     const lines = o.lines || 9;
     for (let k = 0; k < lines; k++) {
       const f = -0.9 + (1.8 * (k + 0.5)) / lines;
-      const sw = o.spiral || 0;
       const ln = pts.map((p, i) => {
-        const ff = clamp(f + sw * Math.sin(i * 0.35 + k) * 0.3, -0.95, 0.95);
+        const ff = clamp(f + (o.spiral || 0) * 0.28 * Math.sin(i * 0.3 + k * 0.9), -0.95, 0.95);
         return [p[0] + nr[i][0] * sgn * ws[i] * 0.5 * ff, p[1] + nr[i][1] * sgn * ws[i] * 0.5 * ff];
       });
-      const lit = f < -0.35;
-      OB.runs(lit ? Bl : Bd, ln, (i) => Math.max(0.5, ws[i] * 0.035 + 0.6) * (lit ? 0.9 : 1.2), (i) => OB.N(i * 0.11 + k * 3.7, k + o.seed) > (lit ? 0.0 : -0.45 + 0.4 * (1 - (f + 1) / 2)), 3);
+      const lit = f < -0.3;
+      OB.runs(lit ? Bl : Bd, ln, (i) => Math.max(0.5, ws[i] * 0.03 + 0.55) * (lit ? 0.9 : 1.2), (i) => OB.N(i * 0.11 + k * 3.7, k + o.seed) > (lit ? 0.05 : -0.5 + 0.45 * (1 - (f + 1) / 2)), 3);
     }
-    // transverse bark plate cracks on the shadow side
     for (let i = 2; i < n - 2; i += 2) {
-      if (OB.hash(i, o.seed) < 0.55) continue;
+      if (OB.hash(i, o.seed) < 0.5) continue;
       const w = ws[i] * 0.5;
-      const f0 = 0.1 + OB.hash(i + 9, o.seed) * 0.5;
+      const f0 = 0.05 + OB.hash(i + 9, o.seed) * 0.5;
       const a = [pts[i][0] + nr[i][0] * sgn * w * f0, pts[i][1] + nr[i][1] * sgn * w * f0];
       const b = [pts[i][0] + nr[i][0] * sgn * w * 0.95, pts[i][1] + nr[i][1] * sgn * w * 0.95];
-      OB.ribbon(Bd, [a, b], [0.5, Math.max(0.8, w * 0.07)]);
+      OB.ribbon(Bd, [a, b], [0.5, Math.max(0.8, w * 0.08)]);
     }
     ctx.fillStyle = css(C.ink);
     ctx.fill(Bd);
     ctx.fillStyle = css(o.hi, 0.85);
     ctx.fill(Bl);
-    // outline, heavier on the shadow side
     const Lp = pts.map((p, i) => [p[0] - nr[i][0] * sgn * ws[i] * 0.5, p[1] - nr[i][1] * sgn * ws[i] * 0.5]);
     const Rp = pts.map((p, i) => [p[0] + nr[i][0] * sgn * ws[i] * 0.5, p[1] + nr[i][1] * sgn * ws[i] * 0.5]);
     const Po = new Path2D();
@@ -74,180 +58,180 @@
     ctx.fill(Po);
   };
 
-  // a cloud-pad of needles
-  const drawPad = (ctx, pad, o, R) => {
-    const C = OB.C;
-    const { x, y, w, h } = pad;
-    const circles = [];
-    const nc = Math.max(3, Math.round(w / (h * 0.7)));
-    for (let i = 0; i < nc; i++) {
-      const t = nc === 1 ? 0.5 : i / (nc - 1);
-      const cx = x - w / 2 + w * t + (R() - 0.5) * h * 0.3;
-      const arch = -Math.sin(t * Math.PI) * h * 0.25;
-      const r = h * (0.45 + 0.35 * Math.sin(t * Math.PI) + R() * 0.2);
-      circles.push([cx, y + arch + (R() - 0.5) * h * 0.2, r]);
+  // a cluster of needle tufts: a small dark core, then fans of short radiating strokes,
+  // darker beneath and catching sky-light on top
+  const cluster = (L, c, o, R) => {
+    const { x, y, r } = c;
+    const core = L.core;
+    const nb = 3 + Math.floor(R() * 3);
+    for (let k = 0; k < nb; k++) {
+      const bx = x + (R() - 0.5) * r * 1.2 * (1 + 0.5 * o.wind), by = y + r * 0.15 + (R() - 0.5) * r * 0.35;
+      const br = r * (0.2 + 0.18 * R());
+      core.moveTo(bx + br, by);
+      core.ellipse(bx, by, br * 1.3, br * 0.75, (R() - 0.5) * 0.6, 0, OB.TAU);
     }
-    const inside = (px, py) => {
-      if (py > y + h * (0.42 - 0.18 * ((px - x) / w) ** 2)) return false;
-      for (const c of circles) if ((px - c[0]) ** 2 + (py - c[1]) ** 2 < c[2] * c[2]) return true;
-      return false;
-    };
-    const shape = new Path2D();
-    for (const c of circles) { shape.moveTo(c[0] + c[2], c[1]); shape.arc(c[0], c[1], c[2], 0, OB.TAU); }
-    // lumpy underside, never a ruled line
-    const clipBottom = new Path2D();
-    clipBottom.moveTo(x - w, y - h * 3);
-    clipBottom.lineTo(x + w, y - h * 3);
-    for (let px = x + w; px >= x - w; px -= 4) {
-      const t = (px - x) / w;
-      const lump = h * (0.42 - 0.18 * t * t + 0.07 * OB.N(px * 0.05, y * 0.01) + 0.05 * Math.abs(Math.sin(px * 0.045 + y)));
-      clipBottom.lineTo(px, y + lump);
+    const nt = 5 + Math.floor(R() * 6);
+    const tufts = [];
+    for (let k = 0; k < nt; k++) {
+      const a = R() * OB.TAU, rr = Math.sqrt(R());
+      tufts.push([x + Math.cos(a) * r * 1.25 * rr + o.wind * r * 0.25, y + Math.sin(a) * r * 0.6 * rr]);
     }
-    clipBottom.closePath();
-    ctx.save();
-    ctx.clip(clipBottom);
-    ctx.save();
-    ctx.translate(OB.MR[0], OB.MR[1]);
-    ctx.fillStyle = css(o.padFill);
-    ctx.fill(shape);
-    ctx.restore();
-    // underside shadow band: dense curved lines
-    ctx.save();
-    ctx.clip(shape);
-    const bb = [x - w, y - h * 1.5, x + w, y + h * 0.5];
-    OB.engrave(ctx, { bbox: bb, angle: 0.06 * o.wind, sp: Math.max(1.8, h * 0.035), D: (px, py) => smooth(y - h * 0.55, y + h * 0.35, py) * 1.1 + 0.1, w: Math.max(0.9, h * 0.022), levels: 4, col: css(C.ink), wob: 0.8, seed: Math.floor(x + y), warp: (u) => -Math.abs(Math.sin(u / (h * 0.7))) * h * 0.12 });
-    ctx.restore();
-    ctx.restore();
-    // needle tufts
-    const s = o.needle;
-    const dark = new Path2D(), mid = new Path2D(), light = new Path2D();
-    const step = s * 0.55;
-    for (let py = y - h * 1.3; py < y + h * 0.5; py += step) {
-      for (let px = x - w * 0.75; px < x + w * 0.75; px += step) {
-        const qx = px + (R() - 0.5) * step, qy = py + (R() - 0.5) * step;
-        if (!inside(qx, qy)) continue;
-        // vertical position within the pad -> light at top, dark beneath
-        let top = qy;
-        for (let t = 0; t < 4; t++) { if (inside(qx, top - s * 0.6)) top -= s * 0.6; else break; }
-        const depth = (qy - top) / (h * 0.6);
-        const tgt = depth < 0.35 && R() < 0.85 - depth ? light : depth < 0.9 && R() < 0.55 ? mid : dark;
-        const nn = 7 + Math.floor(R() * 7);
-        const out = Math.atan2((qy - y) * 1.8 - h * 0.6, qx - x) * 0.35 + (-Math.PI / 2) * 0.65 + o.wind * 0.35;
-        for (let k = 0; k < nn; k++) {
-          const a = out + (k / (nn - 1) - 0.5) * 2.0 + (R() - 0.5) * 0.2;
-          const L = s * (0.6 + 0.55 * R());
-          const bx = qx + Math.cos(a) * L * 0.08, by = qy + Math.sin(a) * L * 0.08;
-          tgt.moveTo(bx, by);
-          tgt.quadraticCurveTo(qx + Math.cos(a - 0.12 * o.wind) * L * 0.6, qy + Math.sin(a - 0.12 * o.wind) * L * 0.6, qx + Math.cos(a) * L, qy + Math.sin(a) * L);
-        }
+    tufts.sort((a, b) => b[1] - a[1]);
+    for (const [tx, ty] of tufts) {
+      const rel = (ty - (y - r * 0.6)) / (r * 1.2);
+      const tgt = rel > 0.6 ? L.dark : rel > 0.3 ? (R() < 0.6 ? L.mid : L.dark) : R() < 0.75 ? L.light : L.mid;
+      const nn = 12 + Math.floor(R() * 9);
+      const base = -Math.PI / 2 + o.wind * 0.35;
+      for (let k = 0; k < nn; k++) {
+        const a = base + (k / (nn - 1) - 0.5) * 4.4 + (R() - 0.5) * 0.18;
+        const up = Math.max(0, -Math.sin(a));
+        const len = o.needle * (0.45 + 0.35 * R() + 0.35 * up);
+        const a2 = a + o.wind * 0.12 * (1 - up);
+        tgt.moveTo(tx + Math.cos(a) * len * 0.12, ty + Math.sin(a) * len * 0.12);
+        tgt.quadraticCurveTo(tx + Math.cos(a) * len * 0.6, ty + Math.sin(a) * len * 0.6, tx + Math.cos(a2) * len, ty + Math.sin(a2) * len);
       }
     }
-    ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(0.8, s * 0.06);
-    ctx.strokeStyle = css(C.ink);
-    ctx.stroke(dark);
-    ctx.strokeStyle = css(o.midCol);
-    ctx.stroke(mid);
-    ctx.lineWidth = Math.max(0.7, s * 0.055);
-    ctx.strokeStyle = css(o.hiCol);
-    ctx.stroke(light);
-    // a few dark twigs showing beneath the pad
-    const tw = new Path2D();
-    for (let k = 0; k < 4; k++) {
-      const tx = x + (R() - 0.5) * w * 0.7;
-      OB.ink(tw, [[pad.bx || x, pad.by || y + h * 0.3], [tx, y + h * 0.2 + R() * h * 0.2]], Math.max(1, h * 0.03), { t0: 0, t1: 0.6 });
-    }
-    ctx.fillStyle = css(C.ink);
-    ctx.fill(tw);
   };
 
-  OB.drawPine = (ctx, S, t) => {
+  OB.drawFlagPine = (ctx, S, t) => {
     const C = OB.C, R = OB.rng(t.seed);
-    const spine = OB.resample(OB.chaikin(t.spine || spineOf(t.x, t.y, t.h, t.lean, R), 2, false), Math.max(3, t.h / 120), false);
+    const wind = t.wind || 1;
+    // spine
+    let ctrl = t.spine;
+    if (!ctrl) {
+      ctrl = [];
+      let x = t.x, y = t.y, a = -Math.PI / 2 + (R() - 0.5) * 0.2;
+      const segs = 8;
+      for (let i = 0; i <= segs; i++) {
+        ctrl.push([x, y]);
+        const f = i / segs;
+        a += wind * t.lean * 0.16 * (0.3 + f) + (R() - 0.5) * 0.35;
+        a = clamp(a, -Math.PI / 2 - 0.6, -Math.PI / 2 + 1.25);
+        x += (Math.cos(a) * t.h) / segs;
+        y += (Math.sin(a) * t.h) / segs;
+      }
+    }
+    const spine = OB.resample(OB.chaikin(ctrl, t.smooth || 3, false), Math.max(2.5, t.h / 140), false);
     const n = spine.length;
-    const w0 = t.h * (t.thick || 0.05);
-    const ws = spine.map((p, i) => w0 * (1 - 0.82 * Math.pow(i / (n - 1), 0.8)) * (1 + 0.08 * OB.N(i * 0.2, t.seed)) * (i < 3 ? 1.25 - i * 0.08 : 1));
-    const pads = [];
-    const branches = [];
-    // branches, mostly streaming downwind: droop from the trunk, kink, then lift at the tips
-    const nb = t.branches || 7;
-    for (let b = 0; b < nb; b++) {
-      const f = 0.3 + (0.64 * (b + 0.2 + R() * 0.6)) / nb;
-      const i0 = Math.min(n - 2, Math.floor(f * n));
+    const w0 = t.h * (t.thick || 0.06);
+    const ws = spine.map((p, i) => {
+      const f = i / (n - 1);
+      return w0 * (1 - (t.taper || 0.8) * Math.pow(f, 0.9)) * (1 + 0.14 * OB.N(i * 0.15, t.seed)) * (f < 0.06 ? 1.35 - f * 5 : 1);
+    });
+    const woodOpt = (dead, w) => ({ fill: dead ? C.snag : t.wood || C.bark, hi: dead ? C.snagHi : t.woodHi || C.barkHi, olw: Math.max(1.1, w * 0.1), lines: dead ? 5 : 4, seed: t.seed + Math.round(w * 10), spiral: dead ? 1 : 0.3 });
+    const limbs = [], clusters = [];
+    const nl = t.limbs || 7;
+    const needle = t.needle || t.h * 0.022;
+    for (let b = 0; b < nl; b++) {
+      const f = (t.f0 || 0.32) + ((1 - (t.f0 || 0.32)) * (b + 0.25 + R() * 0.5)) / nl;
+      const i0 = Math.min(n - 2, Math.floor(f * (n - 1)));
       const p0 = spine[i0];
-      const up = R() < 0.22;
-      const dirx = up ? -Math.sign(t.lean) : Math.sign(t.lean);
-      const len = t.h * (up ? 0.1 + 0.06 * R() : 0.16 + 0.2 * Math.sin(Math.min(1, f * 1.1) * Math.PI) * (0.6 + 0.6 * R())) * (t.spread || 1);
-      const pts = [p0];
-      let a = Math.atan2(0.15 + R() * 0.35, dirx);
+      const lee = R() > (t.upwind || 0.12);
+      const dead = R() < (t.dead || 0.16);
+      const dir = lee ? wind : -wind;
+      // the flag: lower/mid limbs longest, streaming leeward
+      const env = Math.sin(Math.min(1, (f - 0.15) * 1.25) * Math.PI) * 0.6 + 0.4;
+      const len = t.h * (lee ? (0.18 + 0.28 * env) * (0.7 + 0.5 * R()) : 0.06 + 0.07 * R()) * (t.spread || 1);
+      let a = Math.atan2(0.12 + R() * 0.3, dir);
       let x = p0[0], y = p0[1];
-      const segs = 12;
-      const k1 = 2 + Math.floor(R() * 3), k2 = 6 + Math.floor(R() * 3);
+      const pts = [[x, y]];
+      const segs = 14, kink = 3 + Math.floor(R() * 5);
       for (let k = 0; k < segs; k++) {
-        if (k === k1) a += (R() - 0.5) * 1.1;
-        if (k === k2) a -= dirx * (0.35 + R() * 0.4);
-        a += (R() - 0.5) * 0.18 - (k > segs * 0.6 ? dirx * 0.08 : 0);
+        if (k === kink) a += (R() - 0.5) * 1.0;
+        a += (R() - 0.5) * 0.22 - (k > segs * 0.55 ? dir * 0.07 : 0);
         x += (Math.cos(a) * len) / segs;
         y += (Math.sin(a) * len) / segs;
         pts.push([x, y]);
       }
-      const bw = ws[i0] * (0.5 + 0.15 * R());
-      branches.push({ pts, w: bw });
-      const ph = t.h * (0.06 + 0.03 * R()) * (t.padScale || 1);
-      pads.push({ x: x + dirx * ph * 0.5, y: y - ph * 0.35, w: ph * (2.6 + R() * 1.6), h: ph, bx: x, by: y });
-      if (len > t.h * 0.18 && R() < 0.85) {
-        const q = pts[k2];
-        pads.push({ x: q[0] + dirx * ph * 0.2, y: q[1] - ph * 0.5, w: ph * (1.8 + R()), h: ph * 0.8, bx: q[0], by: q[1] });
+      const bw = Math.max(1.5, ws[i0] * (0.42 + 0.15 * R()));
+      limbs.push({ pts, w: bw, dead });
+      if (dead) {
+        // broken twigs
+        for (let k = 0; k < 3; k++) {
+          const q = pts[4 + Math.floor(R() * (segs - 5))];
+          const ta = a - dir * (0.6 + R() * 0.8) - 0.5;
+          const tl = len * (0.08 + 0.12 * R());
+          limbs.push({ pts: [q, [q[0] + Math.cos(ta) * tl * 0.5, q[1] + Math.sin(ta) * tl * 0.5], [q[0] + Math.cos(ta - 0.2) * tl, q[1] + Math.sin(ta - 0.2) * tl]], w: bw * 0.3, dead: true });
+        }
+        continue;
       }
-      // a short side twig with its own small pad
-      if (!up && R() < 0.6) {
-        const q = pts[k1 + 1];
-        const tw = [q];
-        let tx = q[0], ty = q[1], ta = a - dirx * 0.9;
-        for (let k = 0; k < 5; k++) { ta += (R() - 0.5) * 0.3; tx += (Math.cos(ta) * len * 0.3) / 5; ty += (Math.sin(ta) * len * 0.3) / 5 - 2; tw.push([tx, ty]); }
-        branches.push({ pts: tw, w: bw * 0.45 });
-        pads.push({ x: tx, y: ty - ph * 0.3, w: ph * (1.5 + R() * 0.8), h: ph * 0.7, bx: tx, by: ty });
+      // twigs rising from the limb, each tipped with a needle cluster; gaps left between
+      const ntw = 2 + Math.floor(len / (needle * (t.twigGap || 3.2)));
+      for (let k = 0; k < ntw; k++) {
+        const j = Math.min(segs, 3 + Math.floor(((segs - 3) * (k + 0.5 + (R() - 0.5) * 0.6)) / ntw));
+        const q = pts[j];
+        const ta = -Math.PI / 2 + dir * (0.5 + R() * 0.6) + (R() - 0.5) * 0.4;
+        const tl = needle * (0.6 + R() * 1.1);
+        const tip = [q[0] + Math.cos(ta) * tl, q[1] + Math.sin(ta) * tl];
+        limbs.push({ pts: [q, [(q[0] + tip[0]) / 2 + (R() - 0.5) * 3, (q[1] + tip[1]) / 2], tip], w: bw * 0.35, dead: false, twig: true });
+        if (R() < 0.88) clusters.push({ x: tip[0], y: tip[1], r: needle * (0.9 + 0.7 * R()) * (t.clusterScale || 1) });
       }
+      clusters.push({ x: x + dir * needle * 0.3, y: y - needle * 0.2, r: needle * (1.2 + 0.6 * R()) * (t.clusterScale || 1) });
     }
-    // crown pad
+    // leader: a living crown cluster or a silver dead spike
     const tip = spine[n - 1];
-    const cph = t.h * 0.065 * (t.padScale || 1);
-    pads.push({ x: tip[0] + Math.sign(t.lean) * cph * 0.8, y: tip[1] + cph * 0.1, w: cph * 3.6, h: cph * 1.1, bx: tip[0], by: tip[1] });
-    // draw: back pads (upwind/higher) first, then wood, then pads in front
-    pads.sort((a, b) => a.y - b.y);
-    const opts = { padFill: t.padFill || C.pineFill, midCol: t.midCol || C.pineMid, hiCol: t.hiCol || C.pineHi, needle: t.needle || t.h * 0.018, wind: Math.sign(t.lean) };
-    const back = pads.filter((p, i) => i % 3 === 0), front = pads.filter((p, i) => i % 3 !== 0);
-    for (const p of back) drawPad(ctx, p, opts, R);
-    for (const br of branches) {
-      const bws = br.pts.map((p, i) => br.w * (1 - 0.75 * (i / (br.pts.length - 1))));
-      drawWood(ctx, br.pts, bws, { fill: t.wood || C.bark, hi: t.woodHi || C.barkHi, olw: Math.max(1.2, br.w * 0.12), lines: 4, seed: t.seed + br.pts.length });
+    if (t.deadTop) {
+      const L = t.h * 0.22;
+      const a0 = -Math.PI / 2 - wind * 0.15;
+      limbs.push({ pts: [spine[n - 6] || tip, tip, [tip[0] + Math.cos(a0) * L * 0.5, tip[1] + Math.sin(a0) * L * 0.5], [tip[0] + Math.cos(a0 + 0.1) * L, tip[1] + Math.sin(a0 + 0.1) * L]], w: ws[n - 1] * 1.4, dead: true });
+    } else clusters.push({ x: tip[0] + wind * needle * 0.6, y: tip[1] - needle * 0.2, r: needle * 1.6 * (t.clusterScale || 1) });
+
+    // draw: limbs behind, trunk, then foliage
+    for (const L of limbs) {
+      const lws = L.pts.map((p, i) => L.w * (1 - 0.8 * (i / (L.pts.length - 1))));
+      if (L.twig) {
+        const P = new Path2D();
+        OB.ribbon(P, L.pts, lws);
+        ctx.fillStyle = css(C.ink);
+        ctx.fill(P);
+      } else {
+        const sm = OB.resample(OB.chaikin(L.pts, 2, false), 3, false);
+        drawWood(ctx, sm, sm.map((p, i) => L.w * (1 - 0.82 * (i / (sm.length - 1)))), woodOpt(L.dead, L.w));
+      }
     }
-    drawWood(ctx, spine, ws, { fill: t.wood || C.bark, hi: t.woodHi || C.barkHi, olw: Math.max(1.6, w0 * 0.07), lines: t.barkLines || 11, seed: t.seed, spiral: t.spiral || 0 });
-    for (const p of front) drawPad(ctx, p, opts, R);
-    // roots gripping the rock
+    drawWood(ctx, spine, ws, { fill: t.wood || C.bark, hi: t.woodHi || C.barkHi, olw: Math.max(1.6, w0 * 0.07), lines: t.barkLines || 11, seed: t.seed, spiral: t.spiral || 0.3 });
     if (t.roots) {
       const P = new Path2D();
       for (let k = 0; k < t.roots; k++) {
-        const dir = (k / (t.roots - 1) - 0.5) * 2.6;
-        const pts = [[t.x + dir * w0 * 0.2, t.y - w0 * 0.2]];
-        let x = pts[0][0], y = pts[0][1], a = Math.PI / 2 - dir * 0.55;
-        for (let s = 0; s < 8; s++) { a += (R() - 0.5) * 0.4; x += Math.cos(a) * w0 * 0.22; y += Math.sin(a) * w0 * 0.12 + 1; pts.push([x, y]); }
-        OB.ribbon(P, pts, pts.map((p, i) => w0 * 0.28 * (1 - i / pts.length)));
+        const d = (k / (t.roots - 1) - 0.5) * 2.4;
+        const pts = [[t.x + d * w0 * 0.25, t.y - w0 * 0.3]];
+        let x = pts[0][0], y = pts[0][1], a = Math.PI / 2 - d * 0.6;
+        for (let s = 0; s < 9; s++) { a += (R() - 0.5) * 0.45; x += Math.cos(a) * w0 * 0.24; y += Math.sin(a) * w0 * 0.12 + 1; pts.push([x, y]); }
+        OB.ribbon(P, pts, pts.map((p, i) => w0 * 0.3 * (1 - i / pts.length)));
       }
       ctx.fillStyle = css(t.wood || C.bark);
       ctx.fill(P);
-      ctx.lineWidth = 1.6;
+      ctx.lineWidth = 1.8;
       ctx.strokeStyle = css(C.ink);
       ctx.stroke(P);
     }
+    clusters.sort((a, b) => a.y - b.y);
+    const opts = { wind, needle };
+    // foliage in a few passes so clusters overlap naturally
+    const chunk = 6;
+    for (let i = 0; i < clusters.length; i += chunk) {
+      const L = { core: new Path2D(), dark: new Path2D(), mid: new Path2D(), light: new Path2D() };
+      for (const c of clusters.slice(i, i + chunk)) cluster(L, c, opts, R);
+      ctx.fillStyle = css(t.padFill || C.pineFill);
+      ctx.fill(L.core);
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(0.75, needle * 0.065);
+      ctx.strokeStyle = css(C.ink);
+      ctx.stroke(L.dark);
+      ctx.strokeStyle = css(t.midCol || C.pineMid);
+      ctx.stroke(L.mid);
+      ctx.lineWidth = Math.max(0.7, needle * 0.055);
+      ctx.strokeStyle = css(t.hiCol || C.pineHi);
+      ctx.stroke(L.light);
+    }
   };
 
-  // juniper: twisted silver deadwood strands and dense scale-leaf clumps
+  OB.drawPine = OB.drawFlagPine;
   OB.drawJuniper = (ctx, S, t) => {
     const C = OB.C;
-    OB.drawPine(ctx, S, Object.assign({}, t, {
+    OB.drawFlagPine(ctx, S, Object.assign({
       wood: C.juniperWood, woodHi: C.juniperHi, padFill: C.junFill, midCol: C.junMid, hiCol: C.junHi,
-      needle: t.h * 0.03, thick: 0.085, branches: t.branches || 6, spread: 0.8, padScale: 1.25, spiral: 1, barkLines: 9,
-    }));
+      thick: 0.1, limbs: 6, spread: 0.9, spiral: 1, barkLines: 9, dead: 0.25, needle: t.h * 0.03, clusterScale: 1.1,
+    }, t));
   };
 })();

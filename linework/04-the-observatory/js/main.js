@@ -33,8 +33,8 @@
     pathWarm: H('#c88d55'),
     pathHi: H('#c7d8de'),
     pineFill: H('#0f2b2f'),
-    pineMid: H('#22504d'),
-    pineHi: H('#4b8d84'),
+    pineMid: H('#234c4a'),
+    pineHi: H('#4f877e'),
     bark: H('#272a31'),
     barkHi: H('#7f939a'),
     juniperWood: H('#5f6b71'),
@@ -44,6 +44,16 @@
     junHi: H('#5b968a'),
     mistFill: H('#7f9fb2'),
     mistLine: H('#bcd4dc'),
+    lichen: H('#a3b8a8'),
+    flower: H('#e2e6d8'),
+    scree: H('#4f6978'),
+    screeStone: H('#7a909b'),
+    snag: H('#87949a'),
+    snagHi: H('#d0dadd'),
+    valleyFloor: H('#2a4357'),
+    water: H('#5a8499'),
+    waterLine: H('#9dc1cf'),
+    road: H('#b8c8cb'),
     crevice: H('#0a111d'),
     pathShade: H('#4d6672'),
   });
@@ -61,7 +71,7 @@
   OB.scene = () => {
     const S = {};
     S.pole = { x: 1260, y: 500 };
-    S.mw = { ax: -250, ay: 2050, bx: 2450, by: 120, bend: 60, hw: 430 };
+    S.mw = { ax: -250, ay: 2050, bx: 2450, by: 120, bend: 60, hw: 470 };
     S.meteor = { x0: 640, y0: 170, x1: 250, y1: 560 };
     const o = (S.obs = {
       cx: 1440, k: 0.09, terraceR: 300, terraceTop: 1712, terraceBot: 1808, drumR: 185, drumTop: 1405, courses: 12,
@@ -87,8 +97,8 @@
       { x: doorX + 16, y: 1680, r: 210, i: 0.9, sy: 1.1, tags: ['rail', 'stair', 'path', 'massif', 'terrace'] },
     ];
 
-    // massif
-    const crestCtrl = [[-40, 3010], [150, 2960], [330, 2890], [470, 2790], [560, 2680], [640, 2540], [700, 2400], [760, 2240], [820, 2090], [880, 1965], [950, 1868], [1030, 1806], [1100, 1772], [1160, 1758], [1300, 1754], [1500, 1752], [1700, 1756], [1770, 1768], [1860, 1806], [1960, 1868], [2070, 1935], [2200, 1995]];
+    // massif: the left flank pulled back to open the valley
+    const crestCtrl = [[-40, 3070], [160, 3020], [330, 2965], [480, 2900], [590, 2810], [670, 2700], [730, 2560], [785, 2410], [835, 2250], [885, 2095], [940, 1965], [1005, 1865], [1075, 1795], [1160, 1760], [1300, 1754], [1500, 1752], [1700, 1756], [1770, 1768], [1860, 1806], [1960, 1868], [2070, 1935], [2200, 1995]];
     let crest = OB.spline(crestCtrl, 6);
     crest = OB.roughen(crest, false, 13, 0.011, 2, 5);
     crest = OB.roughen(crest, false, 3.5, 0.09, 3, 3);
@@ -96,47 +106,86 @@
     S.massif = { crestPts: crest, poly: mpoly, path: OB.path(mpoly), bbox: [0, 1700, W, OB.H], crest: OB.crestLookup(crest) };
     S.massif.mask = OB.mask((g) => g.fill(S.massif.path), 0.5);
 
-    // path
+    // path: legs of uneven length and width, steep zigs with steps, following the ground
     S.pathVerts = [
-      [1070, 3920, 211], [1085, 3640, 180], [1030, 3380, 146], [1005, 3170, 121], [1080, 3040, 105], [1300, 2960, 93],
-      [1560, 2880, 86], [1250, 2775, 77], [880, 2660, 69], [1150, 2560, 63], [1450, 2470, 58], [1200, 2385, 53],
-      [960, 2300, 50], [1180, 2215, 45], [1380, 2140, 41], [1200, 2065, 37], [1020, 1990, 35], [1062, 1915, 32], [1042, 1856, 31],
+      [1080, 3920, 205], [1100, 3700, 178], [1045, 3470, 150], [1000, 3300, 118], [1045, 3160, 104],
+      [1250, 3065, 94], [1450, 3010, 80], [1545, 2965, 84],
+      [1360, 2905, 72], [1150, 2870, 80], [985, 2815, 70],
+      [1060, 2745, 62], [1240, 2700, 58], [1420, 2630, 64],
+      [1320, 2565, 52], [1160, 2525, 56], [1010, 2460, 49],
+      [1080, 2395, 44], [1180, 2350, 46], [1270, 2300, 41],
+      [1185, 2245, 40], [1050, 2195, 37],
+      [995, 2130, 34], [1035, 2070, 35], [1120, 2020, 32],
+      [1075, 1965, 31], [1062, 1910, 31], [1060, 1856, 30],
     ];
     OB.buildPath(S);
+    // a chain of lanterns, shrinking with distance, leads the eye up to the dome
     S.lanterns = [];
-    for (const vi of [6, 8, 12, 16]) {
+    for (const vi of [7, 10, 13, 16, 19, 21, 24, 27]) {
       const V = S.pathVerts[vi];
       let best = null, bd = Infinity;
       for (const p of S.path) { const d = Math.hypot(p.x - V[0], p.y - V[1]); if (d < bd) { bd = d; best = p; } }
       const ux = (V[0] - best.x) / (bd || 1), uy = (V[1] - best.y) / (bd || 1);
-      const s = best.w / 46;
-      S.lanterns.push({ x: best.x + ux * (best.w * 0.5 + 6 * s), y: best.y + uy * (best.w * 0.5 + 6 * s) + 4 * s, s });
+      const s = Math.max(0.6, best.w / 46);
+      if (vi === 27) S.lanterns.push({ x: best.x - best.w * 0.7, y: best.y + 2, s });
+      else S.lanterns.push({ x: best.x + ux * (best.w * 0.5 + 6 * s), y: best.y + uy * (best.w * 0.5 + 6 * s) + 4 * s, s });
     }
-    for (const L of S.lanterns) OB.lights.push({ x: L.x + 12 * L.s, y: L.y - 20 * L.s, r: 120 * L.s + 60, i: 0.95, sy: 1.3, tags: ['path', 'massif', 'fg'] });
+    for (const L of S.lanterns) OB.lights.push({ x: L.x + 12 * L.s, y: L.y - 20 * L.s, r: 110 * L.s + 50, i: 0.85, sy: 1.3, tags: ['path', 'massif', 'fg'] });
+    S.pathOccluders = [
+      { t: 0.3, s: 0.75, dx: 0.15, dy: 0.42 },
+      { t: 0.47, s: 0.7, dx: -0.2, dy: 0.4 },
+      { t: 0.63, s: 0.8, dx: 0.25, dy: 0.38 },
+      { t: 0.8, s: 0.7, dx: -0.1, dy: 0.42 },
+    ];
+    S.rockBands = [
+      { x0: 820, x1: 2200, y: 2045, slope: 0.05, fold: 26, h: 62, gaps: -0.15 },
+      { x0: 760, x1: 2200, y: 2330, slope: -0.04, fold: 34, h: 70, gaps: -0.05, occlude: true },
+      { x0: 700, x1: 2200, y: 2590, slope: 0.06, fold: 38, h: 76, gaps: -0.1 },
+      { x0: 560, x1: 2200, y: 2925, slope: -0.03, fold: 44, h: 80, gaps: 0.0 },
+      { x0: 700, x1: 1400, y: 3260, slope: 0.07, fold: 40, h: 76, gaps: 0.1 },
+    ];
+    S.scree = [
+      { x: 1720, y: 2085, len: 230, spread: 0.32, tilt: 0.1 },
+      { x: 1330, y: 2385, len: 190, spread: 0.28, tilt: -0.12 },
+      { x: 1880, y: 2650, len: 300, spread: 0.34, tilt: 0.15 },
+      { x: 880, y: 2650, len: 200, spread: 0.3, tilt: -0.18 },
+      { x: 1660, y: 2990, len: 300, spread: 0.3, tilt: 0.05 },
+    ];
 
-    S.village = { x0: 110, x1: 430, y: 2752, bow: 10, spread: 26, n: 28 };
+    // valley floor, lake, river, road, village
+    S.valley = {
+      y0: 2772, y1: 3010, x1: 760, n: 30, vx0: 120, vx1: 470, vy: 2822,
+      lake: { x: 300, y: 2866, rx: 250, ry: 30 },
+      river: [[780, 2945], [680, 2925], [600, 2905], [530, 2888], [480, 2874]], riverW: [12, 6],
+      road: [[-20, 2800], [120, 2812], [260, 2806], [420, 2820], [520, 2846], [610, 2880], [760, 2905]],
+    };
 
-    // ranges
+    // ranges, receding in blues with mist between
     const pk = (arr) => arr.map(([x, h, wl, wr, e]) => ({ x, h, wl, wr, e }));
     S.ranges = [
-      { seed: 101, base: 2330, bottom: 2720, rough: 26, peaks: pk([[-60, 230, 240, 260, 1.2], [180, 300, 260, 240, 1.3], [420, 190, 200, 220, 1.1], [640, 330, 270, 250, 1.25], [900, 230, 230, 260, 1.2], [1150, 270, 250, 250, 1.2], [1420, 220, 240, 240, 1.2], [1720, 260, 260, 240, 1.2], [2010, 310, 260, 260, 1.25], [2260, 210, 220, 220, 1.2]]),
-        tones: T([[0.45, '#5f7f95'], [0.58, '#557589'], [9, '#4b6a80']]), dLit: 0.36, dShadow: 0.62, mistFade: 0.25, sepMin: 4.2, sepMax: 11, lw: [0.6, 1.15], blend: 160,
-        lineCss: OB.css(H('#34536b'), 0.85), crestCss: OB.css(H('#2c4960')), crestW: 2.0 },
-      { seed: 102, base: 2450, bottom: 2820, rough: 30, peaks: pk([[60, 190, 230, 250, 1.25], [330, 270, 250, 260, 1.3], [560, 160, 190, 200, 1.1], [800, 250, 250, 230, 1.3], [1100, 210, 240, 240, 1.2], [1500, 260, 260, 260, 1.2], [1900, 230, 250, 250, 1.2]]),
-        tones: T([[0.45, '#4b6b82'], [0.58, '#425f76'], [9, '#38556b']]), dLit: 0.38, dShadow: 0.66, mistFade: 0.25, sepMin: 3.8, sepMax: 10, lw: [0.75, 1.4], blend: 170,
-        lineCss: OB.css(H('#223e56'), 0.9), crestCss: OB.css(H('#1b3248')), crestW: 2.6 },
-      { seed: 103, base: 2620, bottom: 2980, rough: 36, peaks: pk([[-50, 260, 250, 240, 1.3], [250, 320, 260, 280, 1.35], [520, 220, 220, 230, 1.2], [760, 210, 230, 240, 1.2], [1100, 240, 250, 250, 1.2]]),
-        tones: T([[0.45, '#37546b'], [0.58, '#2e4a60'], [9, '#264156']]), dLit: 0.4, dShadow: 0.72, mistFade: 0.2, sepMin: 3.4, sepMax: 9, lw: [0.9, 1.7], blend: 190,
-        lineCss: OB.css(H('#122539'), 0.95), crestCss: OB.css(H('#0e1c2d')), crestW: 3.2, trees: { n: 700, depth: 240, h: 15 } },
+      { seed: 101, base: 2290, bottom: 2700, rough: 26, peaks: pk([[-60, 250, 240, 260, 1.2], [180, 320, 260, 240, 1.3], [420, 200, 200, 220, 1.1], [640, 330, 270, 250, 1.25], [900, 230, 230, 260, 1.2], [1150, 270, 250, 250, 1.2], [1420, 220, 240, 240, 1.2], [1720, 260, 260, 240, 1.2], [2010, 310, 260, 260, 1.25], [2260, 210, 220, 220, 1.2]]),
+        tones: T([[0.45, '#62829a'], [0.58, '#58788e'], [9, '#4e6e84']]), dLit: 0.36, dShadow: 0.62, mistFade: 0.25, sepMin: 4.4, sepMax: 11, lw: [0.6, 1.1], blend: 160,
+        lineCss: OB.css(H('#37566e'), 0.85), crestCss: OB.css(H('#2e4b62')), crestW: 1.8 },
+      { seed: 102, base: 2420, bottom: 2800, rough: 30, peaks: pk([[60, 200, 230, 250, 1.25], [330, 250, 250, 260, 1.3], [560, 160, 190, 200, 1.1], [800, 240, 250, 230, 1.3], [1100, 210, 240, 240, 1.2], [1500, 260, 260, 260, 1.2], [1900, 230, 250, 250, 1.2]]),
+        tones: T([[0.45, '#506f86'], [0.58, '#46647b'], [9, '#3c5970']]), dLit: 0.38, dShadow: 0.66, mistFade: 0.25, sepMin: 4.0, sepMax: 10, lw: [0.7, 1.3], blend: 170,
+        lineCss: OB.css(H('#264259'), 0.9), crestCss: OB.css(H('#1e364c')), crestW: 2.3 },
+      { seed: 103, base: 2560, bottom: 2900, rough: 32, peaks: pk([[-50, 200, 250, 240, 1.3], [250, 230, 240, 260, 1.35], [520, 170, 220, 230, 1.2], [760, 190, 230, 240, 1.2], [1100, 200, 250, 250, 1.2]]),
+        tones: T([[0.45, '#3f5d73'], [0.58, '#365369'], [9, '#2e4a60']]), dLit: 0.4, dShadow: 0.7, mistFade: 0.2, sepMin: 3.6, sepMax: 9, lw: [0.8, 1.5], blend: 180,
+        lineCss: OB.css(H('#172b40'), 0.92), crestCss: OB.css(H('#13243a')), crestW: 2.8 },
+      { seed: 104, base: 2705, bottom: 2960, rough: 18, peaks: pk([[-80, 110, 240, 260, 1.1], [190, 150, 230, 250, 1.2], [430, 90, 200, 220, 1.1], [640, 130, 220, 230, 1.2], [900, 120, 240, 240, 1.1]]),
+        tones: T([[0.45, '#2f4a5f'], [0.58, '#283f53'], [9, '#213749']]), dLit: 0.45, dShadow: 0.75, mistFade: 0.15, sepMin: 3.4, sepMax: 8, lw: [0.9, 1.6], blend: 140,
+        lineCss: OB.css(H('#0f1f31'), 0.95), crestCss: OB.css(H('#0c192a')), crestW: 3.0, trees: { n: 900, depth: 160, h: 13 } },
     ];
     S.mists = [
-      { seed: 111, top: 2225, amp: 26, bottom: 2460, fill: C.mistFill, alpha: 0.42, lineCol: C.mistLine, lineA: 0.55, lw: 1.3, sp: [16, 6] },
-      { seed: 112, top: 2390, amp: 30, bottom: 2600, fill: C.mistFill, alpha: 0.45, lineCol: C.mistLine, lineA: 0.6, lw: 1.5, sp: [15, 5.5] },
-      { seed: 113, top: 2610, amp: 34, bottom: 2990, fill: C.mistFill, alpha: 0.5, lineCol: C.mistLine, lineA: 0.65, lw: 1.7, sp: [14, 5] },
+      { seed: 111, top: 2205, amp: 24, bottom: 2430, fill: C.mistFill, alpha: 0.4, lineCol: C.mistLine, lineA: 0.55, lw: 1.2, sp: [16, 6] },
+      { seed: 112, top: 2345, amp: 28, bottom: 2560, fill: C.mistFill, alpha: 0.42, lineCol: C.mistLine, lineA: 0.58, lw: 1.4, sp: [15, 5.5] },
+      { seed: 113, top: 2490, amp: 30, bottom: 2700, fill: C.mistFill, alpha: 0.45, lineCol: C.mistLine, lineA: 0.6, lw: 1.5, sp: [14, 5.5] },
+      { seed: 114, top: 2640, amp: 26, bottom: 2790, fill: C.mistFill, alpha: 0.42, lineCol: C.mistLine, lineA: 0.6, lw: 1.5, sp: [14, 5] },
+      { seed: 115, top: 2768, amp: 14, bottom: 2812, fill: C.mistFill, alpha: 0.25, lineCol: C.mistLine, lineA: 0.45, lw: 1.3, sp: [10, 6] },
     ];
 
-    // foreground outcrops
-    const fgL = [[-40, 2880], [60, 2852], [170, 2840], [290, 2862], [420, 2912], [550, 3000], [670, 3122], [770, 3282], [835, 3462], [870, 3662], [892, 3920]];
+    // foreground: fractured granite outcrops either side of the path
+    const fgL = [[-40, 2995], [80, 2968], [200, 2958], [330, 2980], [460, 3025], [580, 3095], [690, 3195], [780, 3335], [840, 3495], [875, 3680], [895, 3920]];
     const fgR = [[1300, 3920], [1312, 3700], [1347, 3530], [1432, 3392], [1562, 3282], [1732, 3202], [1932, 3142], [2200, 3100]];
     const mk = (ctrl, close, seed) => {
       let top = OB.spline(ctrl, 6);
@@ -146,24 +195,27 @@
       return { top, poly, path: OB.path(poly), bbox: OB.bbox(poly) };
     };
     S.fg = [
-      Object.assign(mk(fgL, [[892, 3920], [-40, 3920]], 121), { side: 'L', d0: 0.5, dip: 0.24, aspect: 0.55, size: [150, 360], seed: 7 }),
-      Object.assign(mk(fgR, [[2200, 3920], [1300, 3920]], 122), { side: 'R', d0: 0.52, dip: -0.2, aspect: 0.55, size: [140, 340], seed: 8 }),
+      Object.assign(mk(fgL, [[895, 3920], [-40, 3920]], 121), { side: 'L', d0: 0.3, size: [170, 420], seed: 7 }),
+      Object.assign(mk(fgR, [[2200, 3920], [1300, 3920]], 122), { side: 'R', d0: 0.32, size: [160, 400], seed: 8 }),
     ];
 
     S.pines = [
-      { x: 1872, y: 2335, h: 230, lean: 0.9, seed: 301 },
-      { x: 762, y: 2478, h: 220, lean: 0.75, seed: 302 },
-      { x: 1660, y: 2652, h: 300, lean: 0.85, seed: 303 },
-      { x: 1585, y: 2108, h: 150, lean: 0.8, seed: 304 },
-      { x: 2070, y: 2820, h: 380, lean: 0.85, seed: 305 },
+      { x: 1880, y: 2340, h: 270, lean: 0.9, seed: 301, needle: 15, clusterScale: 1.3, twigGap: 2.4, thick: 0.08 },
+      { x: 778, y: 2470, h: 230, lean: 0.8, seed: 302, needle: 14, clusterScale: 1.3, twigGap: 2.4, thick: 0.08 },
+      { x: 1690, y: 2700, h: 330, lean: 0.9, seed: 303, needle: 17, clusterScale: 1.3, twigGap: 2.4, thick: 0.08 },
+      { x: 1600, y: 2160, h: 170, lean: 0.85, seed: 304, needle: 11, clusterScale: 1.3, twigGap: 2.4, thick: 0.08 },
+      { x: 2060, y: 2880, h: 420, lean: 0.9, seed: 305, needle: 20, clusterScale: 1.3, twigGap: 2.4, thick: 0.08 },
+      { x: 1770, y: 2475, h: 250, lean: 0.7, seed: 306, dead: 1, deadTop: true, wood: C.snag, woodHi: C.snagHi },
     ];
     S.junipers = [
-      { x: 958, y: 1912, h: 200, lean: 0.9, seed: 401, roots: 3 },
-      { x: 1772, y: 1778, h: 165, lean: 0.85, seed: 402, roots: 3 },
+      { x: 950, y: 1915, h: 150, lean: 1.0, seed: 401, roots: 3, thick: 0.15, limbs: 7, f0: 0.15, spread: 1.3, needle: 12, clusterScale: 1.5, twigGap: 2, dead: 0.15,
+        spine: [[950, 1915], [944, 1860], [962, 1815], [1000, 1785], [1050, 1775]] },
+      { x: 1772, y: 1778, h: 140, lean: 0.85, seed: 402, roots: 3, thick: 0.14, limbs: 6, f0: 0.2, spread: 1.2, needle: 11, clusterScale: 1.5, twigGap: 2, deadTop: true },
     ];
+    // the big framing pine: rooted in the left outcrop, thrown hard over to leeward
     S.bigPine = {
-      x: 150, y: 2856, h: 1180, lean: 0.95, seed: 501, roots: 6, thick: 0.064, branches: 7, needle: 21, padScale: 0.95, spread: 0.8,
-      spine: [[150, 2856], [118, 2660], [146, 2470], [120, 2290], [150, 2110], [214, 1960], [300, 1850], [400, 1775], [500, 1735]],
+      x: 70, y: 2985, h: 1150, seed: 501, roots: 6, thick: 0.12, taper: 0.72, smooth: 2, limbs: 11, f0: 0.3, needle: 30, spread: 0.6, dead: 0.12, upwind: 0.12, twigGap: 2.2, clusterScale: 1.35,
+      spine: [[70, 2990], [52, 2820], [96, 2650], [74, 2500], [118, 2370], [214, 2300], [318, 2290], [392, 2225], [450, 2120], [560, 2060], [690, 2050], [790, 2005]],
     };
     return S;
   };
@@ -192,19 +244,17 @@
     };
     await step('sky', () => OB.drawSky(ctx, S));
     await step('ranges', () => {
-      OB.drawRange(ctx, S, S.ranges[0]);
-      OB.drawMist(ctx, S, S.mists[0]);
-      OB.drawRange(ctx, S, S.ranges[1]);
-      OB.drawMist(ctx, S, S.mists[1]);
-      OB.drawRange(ctx, S, S.ranges[2]);
-      OB.drawVillage(ctx, S);
-      OB.drawMist(ctx, S, S.mists[2]);
+      for (let i = 0; i < 4; i++) {
+        OB.drawRange(ctx, S, S.ranges[i]);
+        OB.drawMist(ctx, S, S.mists[i]);
+      }
+      OB.drawValley(ctx, S);
+      OB.drawMist(ctx, S, S.mists[4]);
     });
-    await step('massif', () => OB.drawMassif(ctx, S));
-    await step('path', () => {
-      OB.drawPath(ctx, S);
-      for (const L of S.lanterns) OB.drawLantern(ctx, L);
-    });
+    await step('massif', () => OB.drawMassifBase(ctx, S));
+    await step('path', () => OB.drawPath(ctx, S));
+    await step('rocks', () => OB.drawMassifRocks(ctx, S));
+    await step('lanterns', () => { for (const L of S.lanterns) OB.drawLantern(ctx, L); });
     await step('pines', () => {
       for (const p of S.pines.slice().sort((a, b) => a.y - b.y)) OB.drawPine(ctx, S, p);
     });
