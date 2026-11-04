@@ -37,6 +37,25 @@
       d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
     });
     const fg = LW.fill;
+    { // plate grain and ink-starved speckle, laid in the colour plate as marks
+      const pr = LW.rng('plate');
+      const grain = new LW.Pen(), pale = new LW.Pen(), dark = new LW.Pen();
+      for (let k = 0; k < 9000; k++) { // the plate's grain: long faint horizontal drags
+        const x = pr.range(-50, LW.W), y = pr.range(0, LW.H), L = pr.range(20, 140);
+        grain.line([[x, y], [x + L * 0.5, y + pr.gauss() * 0.6], [x + L, y + pr.gauss() * 0.8]], pr.range(0.6, 1.4), 0.4, 0.1);
+      }
+      for (let k = 0; k < 3500; k++) { // starved spots where the colour did not take
+        const x = pr.range(0, LW.W), y = pr.range(0, LW.H);
+        pale.dot(x, y, pr.range(0.4, 1.0));
+        if (pr() < 0.35) pale.dot(x + pr.gauss() * 2, y + pr.gauss() * 2, pr.range(0.4, 0.9));
+      }
+      for (let k = 0; k < 26000; k++) dark.dot(pr.range(0, LW.W), pr.range(0, LW.H), pr.range(0.5, 1.3)); // ink picks
+      fg.save();
+      grain.draw(fg, '#000', 0.05);
+      pale.draw(fg, C.paper, 0.35);
+      dark.draw(fg, '#000', 0.16);
+      fg.restore();
+    }
     fg.save();
     fg.setTransform(1, 0, 0, 1, 0, 0);
     fg.globalCompositeOperation = 'soft-light';

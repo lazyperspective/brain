@@ -25,8 +25,8 @@
     const TP = (u, h) => AB(u, h, dT);
     const tw = (a, b) => [[a, S.summitH], [b, S.summitH], [b, fl.h0 - 0.5 + 0.2 * LW.noise(b, 3)], [(a + b) / 2, fl.h0 - 0.8], [a, fl.h0 - 0.4]];
     const shade = (top) => (u, h) => 0.18 + 0.5 * LW.clamp((top - h) / 1.8, 0, 1);
-    LW.masonry(TP, tw(5.0, fl.u0 - 0.25), { rnd, course: [0.24, 0.42], len: [0.3, 0.9], sp: 4.0, chisel: 0.5, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2, dark: shade(S.summitH) });
-    LW.masonry(TP, tw(fl.u1 + 0.25, 13.8), { rnd, course: [0.24, 0.42], len: [0.3, 0.9], sp: 4.0, chisel: 0.5, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2, dark: shade(S.summitH) });
+    LW.masonry(TP, tw(5.0, fl.u0 - 0.25), { rnd, course: [0.24, 0.42], len: [0.3, 0.9], sp: 4.0, chisel: 0.5, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2, tex: 1, moss: 0.06, dark: shade(S.summitH) });
+    LW.masonry(TP, tw(fl.u1 + 0.25, 13.8), { rnd, course: [0.24, 0.42], len: [0.3, 0.9], sp: 4.0, chisel: 0.5, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2, tex: 1, moss: 0.06, dark: shade(S.summitH) });
 
     // ---------------------------------------------------------- final flight into the cliff
     {
@@ -59,6 +59,23 @@
       const ang = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]);
       LW.hatchDither(pen, bb, ang, { spacing: 3.4, step: 3, wob: 0.7, seed: 3, inside: (x, y) => LW.pointInPoly(x, y, sideQ), dark: (x, y) => 0.72 + 0.2 * LW.clamp((y - bb.y0) / bb.h, 0, 1), w: (x, y, d) => 0.7 + 1.0 * d });
       LW.hatchDither(pen, bb, Math.PI / 2 + 0.05, { spacing: 4.2, step: 3, wob: 0.6, seed: 4, inside: (x, y) => LW.pointInPoly(x, y, sideQ), dark: () => 0.66, w: () => 0.8 });
+      pen.draw(ink, C.ink);
+      { // the flank's render has fallen in places, showing rubble stone; hairline cracks
+        const sr = LW.rng('flank');
+        for (const [dd0, hh0, r] of [[-1.3, h0 + 1.2, 0.55], [-5.2, h0 + 2.6, 0.5], [-4.0, hE - 0.9, 0.35], [-0.6, hE - 1.4, 0.3]]) {
+          const blob = [];
+          for (let a = 0; a < LW.TAU; a += 0.2) {
+            const rr = r * (0.7 + 0.3 * LW.noise(Math.cos(a) * 1.5 + dd0, Math.sin(a) * 1.5 + hh0) + 0.15 * LW.noise2(Math.cos(a) * 5 + dd0, Math.sin(a) * 5));
+            blob.push([dd0 + Math.cos(a) * rr * 1.3, hh0 + Math.sin(a) * rr * 0.8]);
+          }
+          LW.masonry((a, b) => P(ch.u1, b, a), blob, { rnd: sr, course: [0.2, 0.3], len: [0.25, 0.55], sp: 3.4, chisel: 0.2, roundness: 0.3, dark: () => 0.78, outline: false, tex: 0.7, mortar: '#7a6a4e' });
+          const bs = blob.map(([a, b]) => P(ch.u1, b, a));
+          LW.inkContour(pen, bs, (nx, ny) => 0.6 + 1.6 * (1 - LW.shadowSide(nx, ny)), { taper: 0.2 });
+        }
+        const inSide = (x, y) => LW.pointInPoly(x, y, sideQ);
+        for (let k = 0; k < 6; k++) LW.tex.fracture(pen, sr.range(bb.x0, bb.x1), sr.range(bb.y0 + bb.h * 0.2, bb.y1), -Math.PI / 2 + sr.gauss() * 0.6, sr.range(40, 100), 1.0, sr, 2, inSide, 5);
+        LW.tex.grain(pen, bb, inSide, Math.floor(bb.w * bb.h * 0.004), sr, [0.5, 1.0]);
+      }
       // small arched window in the side wall
       const win = [];
       for (let a = Math.PI; a <= LW.TAU; a += 0.2) win.push([-2.6 + Math.cos(a) * 0.32, hE - 1.6 + Math.sin(-a) * -0.32 + 0.0]);
@@ -82,6 +99,7 @@
         const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - Math.hypot(b[0] - a[0], b[1] - a[1]) * 0.55];
         pen.line([a, m, b], 1.6, 0.1);
         pen.line([[m[0], m[1]], [LW.lerp(e3[0], e2[0], (t0 + t1) / 2), LW.lerp(e3[1], e2[1], (t0 + t1) / 2)]], 0.9, 0.3);
+        if (k % 2) pen.line([[LW.lerp(a[0], b[0], 0.5), LW.lerp(a[1], b[1], 0.5) + 1.5], [LW.lerp(e3[0], e2[0], (t0 + t1) / 2) + 1, LW.lerp(e3[1], e2[1], (t0 + t1) / 2) + 1.5]], 0.6, 0.3);
       }
       LW.outline(pen, [e0, e1, e2, e3], 2.2, 0.8);
       // shadow band under the eave on the side wall
@@ -188,6 +206,24 @@
           const pp = new LW.Pen(); pp.line(q, rnd.range(2, 5), 0.3); pp.draw(LW.fill, C.patina, 0.8);
         }
       });
+      LW.clipDo(LW.fill, bpath, () => {
+        const pr = LW.rng('patina');
+        const sp2 = new LW.Pen(), dk = new LW.Pen();
+        for (let k = 0; k < 120; k++) {
+          const t = pr.range(0.05, 1), s2 = pr.range(-1, 1);
+          const pr0 = prof[Math.round(t * (prof.length - 1))][0];
+          const q = P(uc + pr0 * s2, bellTop - t * bh, -0.2);
+          (pr() < 0.6 ? sp2 : dk).dot(q[0], q[1], pr.range(0.6, 1.6));
+        }
+        for (let k = 0; k < 5; k++) {
+          const s2 = pr.range(-0.9, 0.9), t0 = pr.range(0.3, 0.7);
+          const q = [];
+          for (let t = t0; t <= 1.0; t += 0.05) { const pr0 = prof[Math.round(t * (prof.length - 1))][0]; q.push(P(uc + pr0 * s2, bellTop - t * bh, -0.2)); }
+          sp2.line(q, pr.range(1.2, 2.4), 0.4);
+        }
+        sp2.draw(LW.fill, '#6fa891', 0.9);
+        dk.draw(LW.fill, '#5b4318', 0.8);
+      });
       const bp = new LW.Pen();
       for (let k = -9; k <= 9; k++) {
         const s = k / 9.5;
@@ -232,13 +268,33 @@
     const inFac = (x, y) => LW.pointInPoly(x, y, facS);
     // plaster losses revealing stonework
     LW.fill.save(); LW.fill.clip(fpath); ink.save(); ink.clip(fpath);
-    for (const [pu, ph, r] of [[ch.u0 + 0.9, h0 + 2.3, 0.45], [ch.u1 - 0.8, h0 + 3.1, 0.42], [ch.u0 + 0.5, hE - 0.7, 0.3]]) {
+    // patched plaster: newer lime render in slightly different tones, trowelled the other way
+    {
+      const pr = LW.rng('patches');
+      const pp = new LW.Pen();
+      for (const [pu, ph, w0, h1] of [[ch.u0 + 1.9, h0 + 3.4, 0.8, 0.55], [ch.u1 - 1.5, h0 + 1.2, 0.7, 0.8], [uc - 0.2, hE + 0.4, 0.9, 0.45], [ch.u0 + 0.4, h0 + 0.9, 0.55, 0.5]]) {
+        const blob = [];
+        for (let a = 0; a < LW.TAU; a += 0.25) {
+          const c = Math.cos(a), sn = Math.sin(a);
+          const sq = Math.pow(Math.abs(c) ** 4 + Math.abs(sn) ** 4, -0.25); // squarish
+          const rr = 1 + 0.12 * LW.noise(c * 2 + pu, sn * 2 + ph);
+          blob.push(P(pu + c * sq * w0 * 0.5 * rr, ph + sn * sq * h1 * 0.5 * rr, 0.005));
+        }
+        const bp = LW.polyPath(blob);
+        LW.flat(bp, pr() < 0.5 ? '#ebe1c2' : '#efe6c9');
+        const bbp = LW.bbox(blob, 1);
+        LW.hatchDither(pp, bbp, 0.5 + pr.gauss() * 0.2, { spacing: 4.4, step: 3, wob: 1.0, seed: 300 + pu * 10, inside: (x, y) => LW.pointInPoly(x, y, blob), dark: () => 0.22, w: () => 0.55, taper: 0.4 });
+        LW.inkContour(pp, blob, (nx, ny, x, y) => (LW.noise3(x * 0.05 + pu, y * 0.05) > 0.15 ? 0 : 0.5 + 0.9 * LW.shadowSide(nx, ny)), { taper: 0.3 });
+      }
+      pp.draw(ink, C.ink);
+    }
+    for (const [pu, ph, r] of [[ch.u0 + 0.9, h0 + 2.3, 0.45], [ch.u1 - 0.8, h0 + 3.1, 0.42], [ch.u0 + 0.5, hE - 0.7, 0.3], [ch.u1 - 1.25, h0 + 0.75, 0.3], [uc - 1.7, hE - 1.9, 0.2]]) {
       const blob = [];
       for (let a = 0; a < LW.TAU; a += 0.18) {
         const rr = r * (0.7 + 0.3 * LW.noise(Math.cos(a) * 1.5 + pu, Math.sin(a) * 1.5 + ph) + 0.15 * LW.noise2(Math.cos(a) * 5 + pu, Math.sin(a) * 5));
         blob.push([pu + Math.cos(a) * rr * 1.2, ph + Math.sin(a) * rr * 0.75]);
       }
-      LW.masonry((u, h) => P(u, h, -0.02), blob, { rnd, course: [0.2, 0.32], len: [0.25, 0.6], sp: 3.8, chisel: 0.2, roundness: 0.3, dark: () => 0.3, outline: false });
+      LW.masonry((u, h) => P(u, h, -0.02), blob, { rnd, course: [0.2, 0.32], len: [0.25, 0.6], sp: 3.8, chisel: 0.2, roundness: 0.3, dark: () => 0.3, outline: false, tex: 0.8 });
       const bs = blob.map(([u, h]) => P(u, h, 0));
       LW.inkContour(pen, bs, (nx, ny) => 0.6 + 1.8 * (1 - LW.shadowSide(nx, ny)), { taper: 0.2 }); // broken plaster edge (shadow on upper-left inside)
     }
@@ -289,6 +345,14 @@
         tp.line([A, M, B], 1.4, 0.1);
         const T2 = [LW.lerp(q[3][0], q[2][0], (t0 + t1) / 2), LW.lerp(q[3][1], q[2][1], (t0 + t1) / 2)];
         tp.line([[(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], T2], 0.8, 0.3);
+        // each tile: a dark mouth under its roll, alternate tiles weathered darker
+        tp.dot(M[0], M[1] - 1.2, 1.5);
+        const C2 = [LW.lerp(q[3][0], q[2][0], t0), LW.lerp(q[3][1], q[2][1], t0)], D2 = [LW.lerp(q[3][0], q[2][0], t1), LW.lerp(q[3][1], q[2][1], t1)];
+        const nh = k % 3 === 1 ? 4 : k % 2 ? 2 : 0;
+        for (let m = 1; m <= nh; m++) {
+          const f = m / (nh + 1);
+          tp.line([[LW.lerp(A[0], B[0], f), LW.lerp(A[1], B[1], f)], [LW.lerp(C2[0], D2[0], f), LW.lerp(C2[1], D2[1], f)]], 0.55, 0.35);
+        }
       }
       tp.draw(ink, C.ink);
     }
@@ -353,6 +417,35 @@
           const s = P(uc - dw + 0.12 + k * 0.22, hh + 0.12, -0.34);
           dp.dot(s[0], s[1], 2.2);
         }
+      }
+      { // knots in the planks, with the grain swirling round them; clout-nail studs; iron stains
+        const kr = LW.rng('doorknots');
+        for (let k = 0; k < 7; k++) {
+          const u = uc - dw + 0.08 + kr() * (2 * dw - 0.16), hh = kr.range(dB + 0.2, dS + 0.3);
+          const c = P(u, hh, -0.35);
+          if (!inLeaf(c[0], c[1])) continue;
+          const r = kr.range(2.5, 5);
+          for (let m = 0; m < 3; m++) {
+            const q = [];
+            for (let a = 0; a <= LW.TAU + 0.01; a += 0.35) q.push([c[0] + Math.cos(a) * r * (1 + m * 0.9) * 0.55, c[1] + Math.sin(a) * r * (1 + m * 0.9)]);
+            dp.line(q, m === 0 ? 1.4 : 0.6, 0.1);
+          }
+          dp.dot(c[0], c[1], r * 0.35);
+        }
+        for (const hh of [dB + 0.15, dB + 0.75, dB + 1.55]) {
+          for (let k = 0; k < 6; k++) {
+            const s2 = P(uc - dw + 0.1 + k * (2 * dw - 0.2) / 5, hh, -0.34);
+            if (!inLeaf(s2[0], s2[1])) continue;
+            dp.dot(s2[0], s2[1], 1.9);
+          }
+        }
+        const rf = new LW.Pen();
+        for (const hh of [dB + 0.4, dB + 1.3]) for (let k = 0; k < 4; k++) {
+          const a = P(uc - dw + 0.15 + kr() * dw * 1.3, hh - 0.03, -0.34);
+          const L = kr.range(10, 30);
+          rf.line([a, [a[0] + 0.5, a[1] + L * 0.5], [a[0] + 1, a[1] + L]], (t) => 2.5 * (1 - t) + 0.3, 0.2);
+        }
+        LW.clipDo(LW.fill, lp, () => rf.draw(LW.fill, '#4e2c16', 0.8));
       }
       const ring = P(uc + dw * 0.45, dB + 0.95, -0.34);
       dp.p.moveTo(ring[0] + 7, ring[1]);
@@ -440,6 +533,41 @@
       lp.poly(cap.concat([[lt[0], lt[1] + 1]]));
       lp.line([[lt[0], lt[1] - hw * 0.9], le], 1.4, 0.05);
       lp.draw(ink, C.ink);
+    }
+    // plaster surface: branching hairline cracks, fine grain, trowel arcs, bell stain
+    {
+      const tr = LW.rng('plaster');
+      const tp = new LW.Pen();
+      const sf = new LW.Pen();
+      LW.clipDo(ink, fpath, () => {
+        const TX = LW.tex;
+        const dS = h0 + 2.05;
+        const starts = [
+          [P(uc - 0.98, dS + 0.35, 0), -2.0], [P(uc + 0.98, dS + 0.4, 0), -1.1], [P(uc + 0.3, hE - 0.25, 0), -1.3],
+          [P(ch.u0 + 0.05, hE - 0.2, 0), -0.4], [P(ch.u1 - 0.05, h0 + 1.6, 0), Math.PI + 0.3], [P(uc - 0.4, h0 + 0.5, 0), -1.7],
+          [P(ch.u0 + 1.3, h0 + 0.3, 0), -1.4], [P(uc + 0.2, hA - 0.6, 0), 1.9],
+        ];
+        for (const [p0, a] of starts) TX.fracture(tp, p0[0], p0[1], a + tr.gauss() * 0.2, tr.range(50, 120), 0.95, tr, 2, inFac, 5);
+        TX.grain(tp, fbb, inFac, Math.floor(fbb.w * fbb.h * 0.0016), tr, [0.4, 0.85], (x) => 0.35 + 0.5 * LW.clamp((x - fbb.x0) / fbb.w, 0, 1));
+        for (let k = 0; k < 70; k++) { // trowel arcs
+          const x = tr.range(fbb.x0, fbb.x1), y = tr.range(fbb.y0 + fbb.h * 0.2, fbb.y1);
+          if (!inFac(x, y)) continue;
+          const r = tr.range(8, 18), a0 = tr.range(-2.6, -0.6);
+          const q = [];
+          for (let a = a0; a < a0 + 1.1; a += 0.2) q.push([x + Math.cos(a) * r, y + Math.sin(a) * r * 0.5]);
+          tp.line(q, 0.55, 0.45, 0.1);
+        }
+        // the bell's verdigris and rain have run down from the cote onto the gable
+        for (let k = 0; k < 7; k++) {
+          const u = uc + tr.range(-0.6, 0.6);
+          const top = P(u, hA - 0.05 - Math.abs(u - uc) * (ch.gableH / 3.1), 0);
+          const L = tr.range(40, 150) * (1 - Math.abs(u - uc) / 0.9);
+          if (L < 15) continue;
+          TX.drip(sf, tp, top[0], top[1], L, tr.range(3, 7), tr, inFac);
+        }
+      });
+      sf.draw(LW.fill, '#9fae98', 0.45);
+      tp.draw(ink, C.ink);
     }
     // facade contour (heavier on the right/shadow side)
     pen = new LW.Pen();

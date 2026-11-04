@@ -56,6 +56,26 @@
       cg.putImageData(id, 0, 0);
       g.drawImage(c, x0, y0, w, h);
     }
+    // ---- long swells: darker trough bands in the colour plate, compressing toward the horizon
+    {
+      const sw = new LW.Pen();
+      let y = HY + 26;
+      let k = 0;
+      while (y < H + 20) {
+        const depth = LW.clamp((y - HY) / 900, 0, 1);
+        let run = [];
+        const flush = () => { if (run.length > 2) sw.line(run, (t) => (0.8 + 3.2 * depth) * Math.sin(Math.PI * Math.min(1, t * 1.0001)) + 0.3, 0.3); run = []; };
+        for (let x = -20; x <= W + 20; x += 8) {
+          const yy = y + Math.sin(x * 0.006 / (0.3 + depth) + k * 1.7) * (2 + 10 * depth) + LW.noise(x * 0.004, k * 0.7) * (3 + 14 * depth);
+          if (LW.noise3(x * 0.0035 + k * 3.3, k * 0.9) > 0.15) { flush(); continue; }
+          run.push([x, yy]);
+        }
+        flush();
+        y += 9 + (y - HY) * 0.07;
+        k++;
+      }
+      sw.draw(g, '#1b5560', 0.85);
+    }
     // ---- ripple rows at world spacing
     const pen = new LW.Pen();
     const lit = new LW.Pen();
@@ -106,6 +126,21 @@
       gi.draw(LW.ink, '#14343a');
     }
     pen.draw(LW.ink, '#14343a');
+    { // wind ripples: small hooked chevrons scattered over the nearer water
+      const wr = LW.rng('windripple');
+      const wp = new LW.Pen(), wl = new LW.Pen();
+      for (let k = 0; k < 4200; k++) {
+        const y = HY + 60 + Math.pow(wr(), 0.8) * (H - HY);
+        const depth = LW.clamp((y - HY) / 900, 0, 1);
+        const x = wr.range(-10, W + 10);
+        if (x > reflX0 - 40 && x < reflX1 && y < HY + 380 && wr() < 0.7) continue;
+        const L = (3 + 6 * wr()) * (0.5 + depth * 1.4), hgt = L * (0.25 + 0.2 * wr());
+        const q = [[x - L, y + hgt * 0.4], [x - L * 0.3, y - hgt * 0.3], [x, y - hgt], [x + L * 0.4, y - hgt * 0.2], [x + L, y + hgt * 0.5]];
+        if (wr() < 0.72) wp.line(q, 0.5 + 0.9 * depth, 0.4); else wl.line(q.map(([a, b]) => [a, b - 1.5]), 0.6 + 0.8 * depth, 0.45);
+      }
+      wl.draw(g, '#9fc3b8');
+      wp.draw(LW.ink, '#14343a');
+    }
     await LW.tick();
 
     // ---- far island on the horizon
@@ -124,7 +159,43 @@
       const bb = LW.bbox(pts);
       LW.hatchDither(ip, bb, 0.05, { spacing: 3, step: 3, wob: 0.5, seed: 3, inside: (x, y) => LW.pointInPoly(x, y, pts), dark: (x) => 0.25 + 0.45 * LW.clamp((x - 520) / 270, 0, 1), w: () => 0.8 });
       ip.line(pts.slice(1, -1), 1.4, 0.1);
+      const inI = (x, y) => LW.pointInPoly(x, y, pts);
+      // terraced slopes: broken contour lines
+      for (let k = 1; k < 7; k++) {
+        const yy = HY - k * 5.2;
+        let run = [];
+        for (let x = 520; x <= 790; x += 3) {
+          const q = [x, yy + LW.noise(x * 0.04, k) * 1.2];
+          if (!inI(q[0], q[1] - 1) || LW.noise3(x * 0.05, k * 2.1) > 0.4) { if (run.length > 2) ip.line(run, 0.55, 0.3); run = []; continue; }
+          run.push(q);
+        }
+        if (run.length > 2) ip.line(run, 0.55, 0.3);
+      }
+      // low sea cliffs along the waterline
+      for (let x = 524; x < 786; x += 1.6) {
+        const hh = 3 + 3 * (0.5 + 0.5 * LW.noise(x * 0.06, 9));
+        ip.line([[x, HY + 0.5], [x + 0.3, HY - hh]], 0.7, 0.2);
+      }
       ip.draw(LW.ink, '#1d4a50');
+      // a white village on the lower slope, a chapel dome, a lighthouse at the point
+      const vr = LW.rng('village');
+      const vf = new LW.Pen(), vs = new LW.Pen(), vi = new LW.Pen();
+      for (let k = 0; k < 16; k++) {
+        const x = vr.range(585, 660), y = HY - 7 - vr.range(0, 12) - (x - 585) * 0.06;
+        if (!inI(x, y - 3)) continue;
+        const w = vr.range(3, 5.5), h = vr.range(2.5, 4);
+        vf.poly([[x, y], [x + w, y], [x + w, y - h], [x, y - h]]);
+        vs.poly([[x + w, y], [x + w + 1.4, y - 0.4], [x + w + 1.4, y - h - 0.4], [x + w, y - h]]);
+      }
+      const lh = [[766, HY - 4], [769.5, HY - 4], [769, HY - 21], [766.5, HY - 21]];
+      vf.poly(lh);
+      vi.line([[765.5, HY - 21], [770, HY - 21]], 1.2, 0);
+      vi.line([[767.75, HY - 21], [767.75, HY - 25]], 2.2, 0.1);
+      vi.line([[766.2, HY - 12], [769.3, HY - 12]], 1.2, 0);
+      vi.line([[769.5, HY - 4], [769, HY - 21]], 0.9, 0);
+      vf.draw(g, '#eee7cf');
+      vs.draw(g, '#3f6f70');
+      vi.draw(LW.ink, '#1d4a50');
     }
     // ---- a small boat with a lateen sail far out
     {
@@ -146,7 +217,20 @@
       bp.draw(LW.ink, '#14343a');
       const rf = new LW.Pen();
       for (let m = 0; m < 5; m++) rf.line([[bx - 6 + m, by + 4 + m * 4], [bx + 8 - m, by + 4 + m * 4]], 1.6, 0.4);
+      // a V wake spreading astern, broken into foam
+      const wk = new LW.Pen();
+      for (const sgn of [-1, 1]) {
+        let run = [];
+        for (let t = 0; t <= 1.0001; t += 0.04) {
+          const q = [bx - 16 - t * 120, by + 1 + sgn * t * (sgn < 0 ? 6 : 14) + Math.sin(t * 22) * 0.8];
+          if (LW.noise3(t * 9, sgn * 4) > 0.3) { if (run.length > 1) wk.line(run, (tt) => 1.8 * (1 - 0.6 * tt), 0.3); run = []; continue; }
+          run.push(q);
+        }
+        if (run.length > 1) wk.line(run, 1.4, 0.3);
+      }
+      for (let m = 0; m < 14; m++) wk.dot(bx - 18 - m * 5 + LW.noise(m, 3) * 2, by + 2 + LW.noise(m, 7) * 3, 0.9);
       rf.draw(g, '#d9d6be');
+      wk.draw(g, '#e9e6d0');
     }
     // ---- sea stacks with surf
     const stacks = [
@@ -180,8 +264,44 @@
         for (let x = bb.x0; x <= bb.x1; x += 4) if (inS(x, yy)) q.push([x, yy + 2 * LW.noise(x * 0.05, k)]);
         if (q.length > 2) sp.line(q, 1.3, 0.3);
       }
+      { // weathering of the stack: fractures, a wave-cut notch, guano streaks and roosting gulls
+        const tr = LW.rng('stack' + st.seed);
+        for (let k = 0; k < Math.round(st.w / 25); k++) LW.tex.fracture(sp, tr.range(bb.x0 + 4, bb.x1 - 4), bb.y0 + tr.range(4, bb.h * 0.4), Math.PI / 2 + tr.gauss() * 0.35, bb.h * tr.range(0.4, 0.8), 1.0, tr, 1, inS, 3);
+        LW.tex.pits(sp, bb, inS, Math.round(st.w * 0.25), tr, { r: [0.8, 2.2], cluster: 4, spread: 4 });
+        const notch = [];
+        for (let x = bb.x0; x <= bb.x1; x += 3) if (inS(x, st.y - 3)) notch.push([x, st.y - 2 - 3 * (0.5 + 0.5 * LW.noise(x * 0.1, st.seed))]);
+        if (notch.length > 2) {
+          const nb = { x0: bb.x0, y0: st.y - 10, x1: bb.x1, y1: st.y + 4 };
+          LW.hatchDither(sp, nb, 0.6, { spacing: 2.2, step: 2, wob: 0.3, seed: st.seed + 5, inside: (x, y) => inS(x, y) && y > st.y - 6, dark: () => 0.95, w: () => 1.0 });
+        }
+        const gf = new LW.Pen();
+        const ng = Math.max(1, Math.round(st.w / 22));
+        for (let k = 0; k < ng; k++) {
+          const t = tr.range(0.15, 0.85), i = Math.round(t * (top.length - 1));
+          const [gx, gy] = top[i];
+          const L = bb.h * tr.range(0.25, 0.6);
+          const q = [];
+          for (let s2 = 0; s2 <= L; s2 += 2) { const qq = [gx + LW.noise(s2 * 0.1, k + st.seed) * 1.2, gy + 2 + s2]; if (!inS(qq[0], qq[1])) break; q.push(qq); }
+          if (q.length > 2) { gf.line(q, (tt) => tr.range(2, 3.4) * (1 - 0.7 * tt), 0.2); sp.line(q.map(([a, b]) => [a + 1.6, b]), 0.5, 0.4); }
+          if (st.w > 60 || k === 0) { // a gull roosting at the top of the streak
+            gf.p.ellipse(gx, gy - 2, 2.2, 1.5, 0, 0, LW.TAU); gf.n++;
+            sp.dot(gx - 1.6, gy - 3, 0.8);
+            sp.line([[gx - 1, gy - 1], [gx + 2.4, gy - 1.6]], 0.6, 0.2);
+          }
+        }
+        LW.clipDo(g, p, () => gf.draw(g, '#f1ead6'));
+      }
       LW.outline(sp, poly, 2.2, 1.4);
       sp.draw(LW.ink, C.ink);
+      if (st.seed === 1) { // gulls wheeling over the big stack
+        const gp = new LW.Pen();
+        for (const [gx, gy, gs, ga] of [[500, 2440, 9, 0.2], [565, 2420, 7, -0.15], [612, 2462, 6, 0.1], [470, 2480, 5, 0.3]]) {
+          const ca = Math.cos(ga), sa = Math.sin(ga);
+          const Tg = (u, v) => [gx + u * ca - v * sa, gy + u * sa + v * ca];
+          gp.line([Tg(-gs, 0.2 * gs), Tg(-gs * 0.5, -0.35 * gs), Tg(-gs * 0.1, 0), Tg(0, 0.1 * gs), Tg(gs * 0.1, 0), Tg(gs * 0.5, -0.35 * gs), Tg(gs, 0.2 * gs)], 1.0, 0.3);
+        }
+        gp.draw(LW.ink, C.ink);
+      }
       // surf: foam rings at the waterline
       const fp = new LW.Pen();
       const foam = new LW.Pen();
@@ -205,6 +325,21 @@
         flushF();
       }
       for (let m = 0; m < 30; m++) { const a = Math.PI + LW.rng(st.seed * 100 + m)() * Math.PI; foam.dot(st.x + Math.cos(a) * st.w * 0.55, st.y + 1 + Math.sin(a) * 6, 1.6); }
+      { // foam lacework: a net of small loops breaking up toward open water
+        const lr = LW.rng('lace' + st.seed);
+        const nl = Math.round(st.w * 5);
+        for (let m = 0; m < nl; m++) {
+          const a = lr.range(-0.2, Math.PI + 0.2);
+          const k = Math.pow(lr(), 1.6);
+          const rx = st.w * (0.55 + k * 1.9), ry = 4 + k * 34;
+          const x = st.x + Math.cos(a) * rx + lr.gauss() * 3, y = st.y + 3 + Math.sin(a) * ry + lr.gauss() * 2;
+          const r = lr.range(1.5, 4.5) * (1 - 0.5 * k);
+          const q = [];
+          for (let t = 0; t <= LW.TAU + 0.01; t += 0.7) q.push([x + Math.cos(t) * r * 1.6, y + Math.sin(t) * r * 0.6]);
+          foam.line(q, 0.9 * (1 - 0.4 * k), 0);
+          if (lr() < 0.3) fp.dot(x + r * 1.4, y + r * 0.6, 0.6);
+        }
+      }
       foam.draw(g, '#e9e6d0');
       fp.draw(LW.ink, '#14343a');
     }

@@ -198,6 +198,36 @@
         flush();
       }
     }
+    // bark texture: cross-checks between the grain, small holes, crusts of lichen on the lit side
+    if (o.bark) {
+      const br = LW.rng('bark' + seed);
+      const inB = o.exclude ? (x, y) => mask.in(x, y) && !o.exclude.mask.in(x, y) : (x, y) => mask.in(x, y);
+      const area = bb.w * bb.h;
+      const nck = Math.floor(area * 0.008 * o.bark);
+      for (let k = 0; k < nck; k++) {
+        const x = br.range(bb.x0, bb.x1), y = br.range(bb.y0, bb.y1);
+        if (!inB(x, y)) continue;
+        const d = darkAt(x, y);
+        if (d < 0.25 || br() > 0.35 + d * 0.6) continue;
+        const [dx, dy] = dirAt(x, y);
+        const L = br.range(3, 9) * (o.lw || 1);
+        pen.line([[x - dy * L, y + dx * L], [x + dx * 0.8, y + dy * 0.8], [x + dy * L, y - dx * L]], (0.6 + 0.9 * d) * (o.lw || 1), 0.4, 0.15);
+      }
+      LW.tex.pits(pen, bb, inB, Math.floor(area * 0.0005 * o.bark), br, { r: [1.2, 3.4], cluster: 3, spread: 6, dark: (x, y) => 0.3 + darkAt(x, y) * 0.7 });
+      pen.draw(LW.ink, C.ink);
+      const lf = [new LW.Pen(), new LW.Pen()], lp = new LW.Pen();
+      const nl = Math.floor(area * 0.00008 * o.bark);
+      for (let k = 0; k < nl; k++) {
+        const x = br.range(bb.x0, bb.x1), y = br.range(bb.y0, bb.y1);
+        if (!inB(x, y) || darkAt(x, y) > 0.55) continue;
+        LW.tex.lichen(lf, lp, x, y, br.range(7, 16), br, 1.2);
+      }
+      LW.fill.save(); LW.fill.clip(fillPath);
+      lf[0].draw(LW.fill, '#a7a684', 0.85);
+      lf[1].draw(LW.fill, '#c79a52', 0.85);
+      LW.fill.restore();
+      LW.ink.save(); LW.ink.clip(fillPath); lp.draw(LW.ink, C.ink); LW.ink.restore();
+    }
     // knot eyes
     for (const k of knots) {
       const ang = Math.atan2(k.tn[1], k.tn[0]);
@@ -328,6 +358,20 @@
       if (shadeAt(x, y) < 0.7) continue;
       const ang = rnd.range(0.3, 1.2);
       pen.line([[x, y], [x + Math.cos(ang) * 9, y + Math.sin(ang) * 9]], 1.6, 0.4);
+    }
+    { // texture: silvery leaf undersides flicked into the lit/mid leaves, midribs, cross-hatched shadow pockets
+      const fr = LW.rng('fol' + Math.round(cx) + '_' + Math.round(cy));
+      const silver = new LW.Pen();
+      for (const lf of leaves) {
+        if (lf.tone < 1) continue;
+        const ca = Math.cos(lf.ang), sa = Math.sin(lf.ang);
+        if (fr() < 0.16) silver.line([[lf.x - ca * lf.L * 0.35, lf.y - sa * lf.L * 0.35], [lf.x + ca * lf.L * 0.35, lf.y + sa * lf.L * 0.35]], lf.Wl * 0.45, 0.45, 0.2);
+        else if (fr() < 0.22) pen.line([[lf.x - ca * lf.L * 0.4, lf.y - sa * lf.L * 0.4], [lf.x + ca * lf.L * 0.3, lf.y + sa * lf.L * 0.3]], 0.5, 0.4, 0.1);
+      }
+      clipLeaf(LW.fill, () => silver.draw(LW.fill, '#b4d2c3'));
+      const bbC = LW.bbox(pts, 2);
+      const inC = (x, y) => LW.pointInPoly(x, y, pts);
+      LW.tex.deepHatch(pen, bbC, inC, shadeAt, 0, { seed: Math.round(cx), layers: [[0.75, 0.66, 3.2], [-0.6, 0.8, 3.8]], lw: (o.leafScale || 1) });
     }
     clipLeaf(LW.ink, () => pen.draw(LW.ink, C.ink));
     // contour: leaf-tip scallops, heavy underneath
@@ -469,7 +513,7 @@
     twigPen.draw(LW.ink, C.ink);
     // ---------------------------------------------------- the trunk, then limbs rising out of it
     const trunk = tube(spine, trunkR, {
-      rnd, twist: 1.9, strands: 4, amp: 0.13, seed: 1.7, fissures: 0.22, lw: 1.1, minSp: 2.3, maxSp: 10, grooveW: 1.15,
+      rnd, twist: 1.9, strands: 4, amp: 0.13, seed: 1.7, fissures: 0.22, lw: 1.1, minSp: 2.3, maxSp: 10, grooveW: 1.15, bark: 1,
       knots: [[0.13, -0.35, 0.3], [0.29, 0.3, 0.26], [0.4, -0.62, 0.2], [0.5, 0.1, 0.24], [0.72, -0.3, 0.3], [0.86, 0.35, 0.3]],
       darkT: (t) => 0.08 * LW.smooth(0.2, 0.0, t),
     });
@@ -487,7 +531,7 @@
     for (const li of [1, 2, 0]) {
       const l = limbs[li];
       tube(limbSp[li], (t) => LW.lerp(l.r0, l.r1, Math.pow(t, 0.6)) * (1 + 0.25 * Math.exp(-t * 12)) * (1 - 0.8 * LW.smooth(0.82, 1, t)) + 2, {
-        rnd, twist: l.twist, strands: 3, amp: 0.06, seed: li * 3.3, lw: 1, minSp: 2.3, maxSp: 9, darkBias: 0.16, exclude: trunk,
+        rnd, twist: l.twist, strands: 3, amp: 0.06, seed: li * 3.3, lw: 1, minSp: 2.3, maxSp: 9, darkBias: 0.16, exclude: trunk, bark: 0.8,
         knots: li === 2 ? [[0.3, -0.2, 0.4]] : [[0.32 + 0.08 * li, -0.3, 0.32], [0.62, 0.35, 0.26]],
         darkT: (t) => 0.15 * LW.smooth(0.15, 0, t),
       });
@@ -521,7 +565,7 @@
         sh.line(sp.map(([x, y]) => [x + 10, y + 12]), sp.map((_, i) => rad(i / (sp.length - 1)) * 2.1), 0.2);
         sh.draw(LW.ink, C.ink, 0.5);
       });
-      tube(sp, rad, { rnd, twist: 0.5, strands: 2, amp: 0.1, seed: rnd() * 10, lw: 0.95, minSp: 2.2, maxSp: 8, darkBias: 0.08, capFade: r.fade });
+      tube(sp, rad, { rnd, twist: 0.5, strands: 2, amp: 0.1, seed: rnd() * 10, lw: 0.95, minSp: 2.2, maxSp: 8, darkBias: 0.08, capFade: r.fade, bark: 0.7 });
       const pen = new LW.Pen();
       if (r.r < 40) {
         for (let k = 0; k < 2; k++) {

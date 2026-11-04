@@ -29,6 +29,8 @@
     let v = v0 - rnd() * 0.2;
     let row = 0;
     const blocks = [];
+    const mossAt = [];
+    const stoneLichen = [new LW.Pen(), new LW.Pen()];
     while (v < v1) {
       const ch = rnd.range(o.course[0], o.course[1]);
       let u = u0 - rnd() * o.len[1];
@@ -111,6 +113,57 @@
         for (let k = 0; k < 8 && y > B0 - step; k++) { p.push(fp(x, y)); a += rnd.gauss() * 0.5; x += Math.cos(a) * step; y += Math.sin(a) * step; }
         if (p.length > 2) pen.line(p, 1.3 * lw, 0.45);
       }
+      // ---- texture: plate grain, pitting, drafted margins, chipped arrises
+      if (o.tex) {
+        const tr = LW.rng('mtex' + (LW._mtexN = (LW._mtexN || 0) + 1));
+        const ts = o.tex;
+        const inS = (x, y) => LW.pointInPoly(x, y, sp2);
+        const area = bb.w * bb.h;
+        LW.tex.grain(pen, bb, inS, Math.floor(area * 0.009 * ts), tr, [0.45 * lw, 1.0 * lw], () => 0.4 + 0.6 * bdark);
+        // stipple gathering toward the block's shadowed arrises: rounds the stone
+        const sdT = (x, y) => ((x - c0[0]) * sd[0] + (y - c0[1]) * sd[1]) / rad;
+        LW.tex.grain(pen, bb, inS, Math.floor(area * 0.02 * ts), tr, [0.45 * lw, 1.05 * lw], (x, y) => LW.smooth(0.15, 0.95, sdT(x, y)) * (0.6 + 0.4 * bdark));
+        LW.tex.pits(pen, bb, inS, Math.floor(area * 0.0014 * ts), tr, { cluster: 4, r: [1.0 * lw, 2.8 * lw], spread: 5 * lw });
+        LW.tex.dry(pen, bb, inS, Math.floor(area * 0.0028 * ts), tr, ang + (tr() < 0.5 ? 0 : 0.5), [5 * lw, 16 * lw], 0.6 * lw, () => 0.75);
+        // claw-tool dressing: short parallel strokes across the face, in one direction per stone
+        LW.tex.dry(pen, bb, inS, Math.floor(area * 0.0035 * ts), tr, ang + 1.1 + tr.gauss() * 0.15, [3 * lw, 8 * lw], 0.55 * lw, () => 0.8);
+        const up = fp(cu, b1)[1] < fp(cu, b0)[1], left = fp(a0, cv)[0] < fp(a1, cv)[0];
+        if (tr() < 0.65) { // drafted margin along the lit (upper, left) arrises
+          const m = Math.min(A1 - A0, B1 - B0) * 0.16;
+          const uL = left ? A0 + m : A1 - m, uR = left ? A1 - m * 2 : A0 + m * 2;
+          const vT = up ? B1 - m : B0 + m, vB = up ? B0 + m * 2 : B1 - m * 2;
+          const uv = [];
+          for (let t = 0; t <= 1.0001; t += 0.1) uv.push([uL, LW.lerp(vB, vT, t)]);
+          for (let t = 0.1; t <= 1.0001; t += 0.1) uv.push([LW.lerp(uL, uR, t), vT]);
+          let run = [];
+          for (const q of uv) {
+            const sq = fp(q[0], q[1]);
+            if (!inS(sq[0], sq[1]) || LW.noise3(sq[0] * 0.08 + seed, sq[1] * 0.08) > 0.3) { if (run.length > 1) pen.line(run, 0.55 * lw, 0.35); run = []; continue; }
+            run.push(sq);
+          }
+          if (run.length > 1) pen.line(run, 0.55 * lw, 0.35);
+        }
+        const nChip = tr.int(0, 3);
+        let gx = 0, gy = 0;
+        for (const q of sp2) { gx += q[0]; gy += q[1]; }
+        gx /= sp2.length; gy /= sp2.length;
+        for (let c = 0; c < nChip; c++) { // chipped arris: small dark notch biting into the block
+          const i = tr.int(2, sp2.length - 3);
+          const a = sp2[i - 2], b = sp2[i + 2], m = sp2[i];
+          const dx = gx - m[0], dy = gy - m[1], l = Math.hypot(dx, dy) || 1;
+          const dep = tr.range(2, 4.5) * lw;
+          pen.poly([a, [m[0] + (dx / l) * dep, m[1] + (dy / l) * dep], b]);
+        }
+        if (tr() < 0.3 * ts) { // weathering stain: a darker cloud on part of the face
+          const sx = tr.range(bb.x0, bb.x1), sy = tr.range(bb.y0, bb.y1), sr = Math.max(bb.w, bb.h) * tr.range(0.25, 0.5);
+          const st = [];
+          for (let a = 0; a < LW.TAU; a += 0.4) { const rr = sr * (0.6 + 0.4 * LW.noise(Math.cos(a) + sx, Math.sin(a) + sy)); st.push([sx + Math.cos(a) * rr, sy + Math.sin(a) * rr * 0.6]); }
+          LW.clipDo(fillG, path, () => LW.flat(LW.polyPath(st), bdark > 0.55 ? '#b49d70' : '#cdb98d'));
+          LW.tex.grain(pen, LW.bbox(st), (x, y) => inS(x, y) && LW.pointInPoly(x, y, st), Math.floor(sr * sr * 0.05), tr, [0.45 * lw, 0.9 * lw]);
+        }
+        if (tr() < 0.12 * ts) { const lf = [stoneLichen[0], stoneLichen[1]]; LW.tex.lichen(lf, pen, tr.range(bb.x0, bb.x1), tr.range(bb.y0, bb.y0 + bb.h * 0.5), tr.range(5, 10) * lw, tr, 0.6); }
+        if (o.moss && tr() < o.moss) mossAt.push([LW.lerp(sp2[0][0], gx, 0.1), Math.max(...sp2.map((q) => q[1])) - 1, tr.range(3, 6) * lw]);
+      }
       // joint outline: heavy on the shadow side
       LW.inkContour(pen, sp2, (nx, ny, x, y) => {
         const s = LW.shadowSide(nx, ny);
@@ -120,6 +173,12 @@
       if (pen.n > 400) pen.draw(inkG, C.ink);
     }
     pen.draw(inkG, C.ink);
+    stoneLichen[0].draw(fillG, '#a8824a', 0.75);
+    stoneLichen[1].draw(fillG, '#8b9478', 0.8);
+    if (o.tex) {
+      const mr = LW.rng('mmoss' + LW._mtexN);
+      for (const [x, y, r] of mossAt) LW.mossTuft(x, y, r, mr);
+    }
     inkG.restore();
     fillG.restore();
     if (o.outline !== false) {
@@ -235,6 +294,47 @@
     pen.line(pts, w, 0.02);
     return pts;
   }
+  // a hemp rope: tan body, inked edges and twist ticks
+  function hemp(a, b, sag, w) {
+    const pts = [];
+    const n = Math.max(6, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3));
+    for (let k = 0; k <= n; k++) {
+      const t = k / n;
+      pts.push([LW.lerp(a[0], b[0], t), LW.lerp(a[1], b[1], t) + sag * 4 * t * (1 - t)]);
+    }
+    const body = new LW.Pen();
+    body.line(pts, w, 0.02);
+    LW.occlude(body.p);
+    body.draw(LW.fill, '#c49a5a');
+    const pen = new LW.Pen();
+    const nr = (i) => { const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(pts.length - 1, i + 1)]; const l = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1; return [-(p1[1] - p0[1]) / l, (p1[0] - p0[0]) / l]; };
+    const hw = w * 0.5;
+    pen.line(pts.map((p, i) => { const q = nr(i); return [p[0] + q[0] * hw, p[1] + q[1] * hw]; }), 1.1, 0.02);
+    pen.line(pts.map((p, i) => { const q = nr(i); return [p[0] - q[0] * hw, p[1] - q[1] * hw]; }), 0.6, 0.02);
+    const dense = LW.resample(pts, 2.6);
+    for (let i = 1; i < dense.length - 1; i++) {
+      const p = dense[i], q = nr(Math.min(pts.length - 1, Math.round((i / dense.length) * pts.length)));
+      const tx = -q[1], ty = q[0];
+      pen.line([[p[0] - q[0] * hw - tx * 1.2, p[1] - q[1] * hw - ty * 1.2], [p[0] + q[0] * hw + tx * 1.2, p[1] + q[1] * hw + ty * 1.2]], 0.55, 0.3);
+    }
+    pen.draw(LW.ink, C.ink);
+  }
+  // rust weeping from an iron post's foot down the wall below it
+  function rust(x, y, rnd) {
+    const f = new LW.Pen(), p = new LW.Pen();
+    const n = rnd.int(1, 3);
+    for (let k = 0; k < n; k++) {
+      const x0 = x + rnd.gauss() * 2, L = rnd.range(10, 34);
+      const pts = [];
+      for (let s = 0; s <= L; s += 3) pts.push([x0 + LW.noise(s * 0.1, x0) * 1.2, y + s]);
+      f.line(pts, (t) => rnd.range(2.5, 4.5) * (1 - 0.7 * t), 0.3, 0.2);
+      if (rnd() < 0.7) p.line(pts.slice(0, Math.max(2, Math.floor(pts.length * 0.6))), 0.5, 0.4);
+    }
+    f.draw(LW.fill, '#9a5a2e', 0.75);
+    p.draw(LW.ink, '#5a2e18');
+  }
+  LW.hemp = hemp;
+  LW.rustStain = rust;
   LW.railPost = railPost;
   LW.rope = rope;
 
@@ -242,6 +342,7 @@
   LW.drawZigzag = async function () {
     const parts = ZZ.build();
     const rnd = LW.rng('zigzag');
+    const trr = LW.rng('zzrust');
     const W = S.WIDTH;
     // draw from the top (furthest) down
     const order = parts.slice().sort((a, b) => {
@@ -266,7 +367,7 @@
         }
         const topH = (u) => f.h0 + Math.abs(u - f.u0) / S.GO * S.RISE;
         LW.masonry(fp, p.poly, {
-          rnd, course: [0.24, 0.5], len: [0.3, 1.1], sp: 4.0, lw: 1, chisel: 0.6, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2,
+          rnd, course: [0.24, 0.5], len: [0.3, 1.1], sp: 4.0, lw: 1, chisel: 0.6, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2, tex: 1, moss: 0.05,
           dark: (u, h) => darkWall(u, h, topH(u), topH(u) - 1.5),
         });
         // step-end stones along the sawtooth (worn nosings)
@@ -295,9 +396,10 @@
           const b = S.faceP(u, h, W - 0.08), t = S.faceP(u, h + 0.95, W - 0.08);
           posts.push(t);
           railPost(rp, b, t, 3.4);
+          const wb = S.faceP(u, h - 0.04, W);
+          rust(wb[0], wb[1], trr);
         }
-        for (let k = 0; k < posts.length - 1; k++) rope(rp, posts[k], posts[k + 1], 9, 2.0, k);
-        void 0;
+        for (let k = 0; k < posts.length - 1; k++) hemp(posts[k], posts[k + 1], 9, 3.4);
         rp.draw(LW.ink, C.ink);
       } else {
         const l = p.l;
@@ -305,12 +407,12 @@
         if (p.i === 1) {
           const q = [S.faceP(l.u0, l.h, W), S.faceP(l.u0, l.h, 0.0), S.faceP(l.u0, l.h - 2.3, 0.0), S.faceP(l.u0, l.h - 2.3, W)];
           LW.masonry((a, b) => S.faceP(l.u0, b, a), [[W, l.h], [0, l.h], [0, l.h - 1.6], [W, l.h - 1.6]], {
-            rnd, course: [0.32, 0.5], len: [0.4, 0.8], sp: 4.0, chisel: 0.4, dark: () => 0.42, roundness: 0.12, joint: 0.018, mortar: '#b09668',
+            rnd, course: [0.32, 0.5], len: [0.4, 0.8], sp: 4.0, chisel: 0.4, dark: () => 0.42, roundness: 0.12, joint: 0.018, mortar: '#b09668', tex: 1,
           });
           void q;
         }
         LW.masonry(fp, p.poly, {
-          rnd, course: [0.32, 0.5], len: [0.45, 1.05], sp: 4.2, chisel: 0.6, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2,
+          rnd, course: [0.32, 0.5], len: [0.45, 1.05], sp: 4.2, chisel: 0.6, roundness: 0.12, joint: 0.018, mortar: '#b09668', jitter: 0.2, tex: 1, moss: 0.05,
           dark: (u, h) => darkWall(u, h, l.h, l.h - 1.7),
         });
         // coping line + corner posts
@@ -321,12 +423,15 @@
         pen.line([c, d], 1.2, 0.2);
         const pa = S.faceP(l.u0 + 0.1, l.h, W - 0.08), pb = S.faceP(l.u1 - 0.1, l.h, W - 0.08);
         const ta = S.faceP(l.u0 + 0.1, l.h + 0.95, W - 0.08), tb = S.faceP(l.u1 - 0.1, l.h + 0.95, W - 0.08);
-        if (p.i !== 2) {
-          railPost(pen, pa, ta, 3.4);
-          railPost(pen, pb, tb, 3.4);
-          rope(pen, ta, tb, 8, 2.0, 0);
-        }
         pen.draw(LW.ink, C.ink);
+        if (p.i !== 2) {
+          for (const uu of [l.u0 + 0.1, l.u1 - 0.1]) { const wb = S.faceP(uu, l.h - 0.04, W); rust(wb[0], wb[1], trr); }
+          hemp(ta, tb, 8, 3.4);
+          const pp = new LW.Pen();
+          railPost(pp, pa, ta, 3.4);
+          railPost(pp, pb, tb, 3.4);
+          pp.draw(LW.ink, C.ink);
+        }
       }
       await LW.tick();
     }

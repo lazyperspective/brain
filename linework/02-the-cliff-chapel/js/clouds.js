@@ -234,6 +234,30 @@
           if (q.length > 3) pen.line(q, 0.8 * lwS, 0.45, 0.05);
         }
       }
+      // cauliflower detail: small nested scallops just inside the sunward rim
+      if (b.r > 22 * (o.scale || 1) && (o.scale || 1) > 0.5) {
+        const thL = Math.atan2(ly, lx);
+        const br = LW.rng('scal' + i + '_' + Math.floor(o.bbox.y0));
+        const ns = Math.round(b.r / 14);
+        for (let m = 0; m < ns; m++) {
+          const a = thL + br.gauss() * 0.9;
+          const rr = radAt(b, a);
+          const sr = br.range(5, 11) * lwS;
+          const cx2 = b.cx + Math.cos(a) * (rr - sr * br.range(1.4, 2.6)), cy2 = b.cy + Math.sin(a) * (rr - sr * br.range(1.4, 2.6));
+          const q = [];
+          for (let t = a - 1.3; t <= a + 1.3; t += 0.25) q.push([cx2 + Math.cos(t) * sr, cy2 + Math.sin(t) * sr]);
+          pen.line(q, 0.6 * lwS, 0.45, 0.05);
+        }
+        // stipple: soft shadowed edge grains toward the rim on the side away from the sun
+        const nd = Math.round(b.r * 2.2);
+        for (let m = 0; m < nd; m++) {
+          const a = br() * LW.TAU;
+          const sh = LW.shadowSide(Math.cos(a), Math.sin(a));
+          if (br() > sh * sh) continue;
+          const rr = radAt(b, a) - Math.abs(br.gauss()) * 10 * lwS - 1.5;
+          pen.dot(b.cx + Math.cos(a) * rr, b.cy + Math.sin(a) * rr, br.range(0.45, 1.0) * lwS);
+        }
+      }
       pen.draw(ink, C.ink);
     }
     await LW.tick();
@@ -260,6 +284,16 @@
     const pen = new LW.Pen();
     LW.drawLines(pen, lines, (x, y) => (0.35 + 1.5 * Math.pow(darkAt(x, y), 1.3)) * lwS, 0.35, 0.05);
     pen.draw(ink, C.ink);
+    // cross-hatching laid over the contour lines in the deepest folds
+    if ((o.scale || 1) > 0.5) {
+      LW.tex.deepHatch(pen, ub, (x, y) => mask.in(x, y) && y < base - 2, (x, y) => darkAt(x, y), 0, {
+        seed: 71, lw: lwS, layers: [[0.62, 0.77, 3.3], [-0.55, 0.88, 3.9]],
+      });
+      // stippled grain in the shaded body of the cloud
+      const sr = LW.rng('cstip' + Math.floor(o.bbox.y0));
+      LW.tex.grain(pen, ub, (x, y) => mask.in(x, y) && y < base - 2, Math.floor((ub.x1 - ub.x0) * (ub.y1 - ub.y0) * 0.004), sr, [0.4, 0.9], (x, y) => LW.smooth(0.58, 0.9, darkAt(x, y)));
+      pen.draw(ink, C.ink);
+    }
     // ---- the flat, darker ruled base
     const band = o.baseBand || 80;
     const bb2 = { x0: ub.x0, y0: base - band, x1: ub.x1, y1: base + 8 };
@@ -272,6 +306,12 @@
       spacing: (o.baseSp || 3.0), step: 4, wob: 1.6, seed: 31, inside: (x, y) => mask.in(x, y), jitter: 0.1,
       dark: (x, y) => { const t = LW.clamp((y - (base - band)) / band, 0, 1); return t <= 0 ? 0 : 0.15 + 0.85 * Math.pow(t, 1.3) + 0.06 * LW.noise(x * 0.01, y * 0.03); },
       w: (x, y, d) => (0.5 + 1.6 * d) * lwS, taper: 0.35,
+    });
+    // a second, crossing ruling in the darkest bottom of the base
+    LW.hatchDither(bp, bb2, 0.1, {
+      spacing: (o.baseSp || 3.0) * 1.3, step: 4, wob: 1.2, seed: 37, inside: (x, y) => mask.in(x, y),
+      dark: (x, y) => { const t = LW.clamp((y - (base - band * 0.55)) / (band * 0.55), 0, 1); return t * 0.9; },
+      w: () => 0.8 * lwS, taper: 0.35,
     });
     // the base line itself
     const bl = [];

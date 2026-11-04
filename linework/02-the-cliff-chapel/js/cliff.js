@@ -96,7 +96,15 @@
     const fp = (u, h) => S.faceP(u, h, 0);
     const pen = new LW.Pen();
     const hp = new LW.Pen(); // hatch pen (cool umber)
-    const flush = () => { hp.draw(inkG, HATCH); pen.draw(inkG, C.ink); };
+    const lichenFill = [new LW.Pen(), new LW.Pen()], dripFill = new LW.Pen(), sprigFill = new LW.Pen();
+    const flush = () => {
+      dripFill.draw(fillG, '#a8916a', 0.5);
+      lichenFill[0].draw(fillG, '#a8824a', 0.75);
+      lichenFill[1].draw(fillG, '#8b9478', 0.8);
+      sprigFill.draw(fillG, '#7f9452');
+      hp.draw(inkG, HATCH); pen.draw(inkG, C.ink);
+    };
+    const bedChar = beds.map((_, j) => Math.floor(LW.rng('bedc' + j)() * 4));
     let blocks = 0;
     for (let j = 0; j < beds.length; j++) {
       const bd = beds[j], above = beds[j + 1] || { p: bd.p };
@@ -218,6 +226,80 @@
         // limestone pitting and short horizontal weathering ticks
         LW.stipple(hp, bb, Math.floor(bb.w * bb.h * 0.0007), { rng: r, inside, r: [0.6, 1.4], dark: (x, y) => 0.3 + darkAt(x, y) * 0.7 });
         LW.flecks(hp, bb, Math.floor(bb.w * bb.h * 0.0005), { rng: r, inside, angle: strike, spread: 0.08, len: [4, 12], w: 1.0, dark: () => 0.8 });
+        // ---- surface texture: every bed has its own character
+        {
+          const tr = LW.rng('ctex' + j + '_' + k);
+          const ch = bedChar[j];
+          const area = bb.w * bb.h;
+          const TX = LW.tex;
+          // a third hatch layer deepens the darkest faces (cross-hatch over hatch)
+          TX.deepHatch(hp, bb, inside, darkAt, fall, { seed: j * 13 + k, layers: [[fall + 0.95, 0.6, 3.5], [strike - 0.5, 0.8, 4.4]] });
+          // plate grain everywhere, thicker in shade
+          TX.grain(hp, bb, inside, Math.floor(area * 0.006), tr, [0.45, 1.0], (x, y) => 0.35 + 0.65 * darkAt(x, y));
+          // dry broken strokes down the fall line give the lit stone a worked surface
+          TX.dry(hp, bb, inside, Math.floor(area * 0.0022), tr, fall, [8, 26], 0.7, (x, y) => 0.55 + 0.45 * (1 - darkAt(x, y)));
+          TX.dry(hp, bb, inside, Math.floor(area * 0.0008), tr, strike, [6, 18], 0.65, () => 0.8);
+          // pitting: vuggy beds are riddled, others lightly pocked
+          TX.pits(hp, bb, inside, Math.floor(area * (ch === 0 ? 0.0016 : 0.00035)), tr, { cluster: ch === 0 ? 8 : 4, r: [1.0, ch === 0 ? 4.2 : 3.0] });
+          if (ch === 1) { // shelly bed: fossil traces and broken shell hash
+            const nf = Math.max(1, Math.round(area * 0.00011));
+            for (let m = 0; m < nf; m++) {
+              const x = tr.range(bb.x0, bb.x1), y = tr.range(bb.y0, bb.y1);
+              if (inside(x, y) && darkAt(x, y) < 0.8) TX.fossil(hp, x, y, tr.range(4, 9), tr, 0.9);
+            }
+            TX.shellHash(hp, bb, inside, Math.floor(area * 0.0012), tr, 0.75);
+          } else if (ch === 2) { // laminated bed: fine extra partings, brittle fracture networks
+            for (let m = 0; m < 5; m++) {
+              const hh0 = bd.h0 + bd.t * tr.range(0.08, 0.92);
+              let q = [];
+              for (let uu = J0.u; uu <= J1.u; uu += 0.06) {
+                const pq = fp(uu, hh0 + bd.slope * (uu - 8) + 0.02 * LW.noise(uu * 3, m + j * 3));
+                if (inside(pq[0], pq[1]) && LW.noise3(uu * 1.3 + m, j * 5.1) > -0.1) q.push(pq);
+                else { if (q.length > 3) hp.line(q, 0.55, 0.45); q = []; }
+              }
+              if (q.length > 3) hp.line(q, 0.55, 0.45);
+            }
+            for (let m = 0; m < 3; m++) TX.fracture(hp, tr.range(bb.x0, bb.x1), tr.range(bb.y0, bb.y1), tr() * LW.TAU, tr.range(25, 70), 0.85, tr, 2, inside, 4);
+          } else if (ch === 3) { // karst bed: solution runnels from the top down the fall line
+            const ng = 1 + Math.floor(bb.w / 160) + (tr() < 0.5 ? 1 : 0);
+            for (let m = 0; m < ng; m++) {
+              const uu = LW.lerp(J0.u, J1.u, tr.range(0.12, 0.88));
+              const s0 = fp(uu, topH(uu) - (band || 0) - 0.08);
+              TX.runnels(hp, s0[0], s0[1], fall, tr.int(3, 6), tr.range(28, Math.min(110, bb.h * 0.8)), tr.range(5, 8), tr, inside);
+            }
+          }
+          // hairline fracture network crossing the block
+          if (tr() < 0.6) {
+            const nfr = tr.int(1, 2);
+            for (let m = 0; m < nfr; m++) TX.fracture(hp, tr.range(bb.x0, bb.x1), tr.range(bb.y0, bb.y0 + bb.h * 0.5), fall + tr.gauss() * 0.7, tr.range(40, 120), 1.0, tr, 2, inside, 5);
+          }
+          // lichen speckle on the upper, lit part of some blocks
+          if (tr() < 0.24 && hTop < 12) { // a lichen run along the top of the block, under the parting
+            const nl = tr.int(1, 4);
+            let x = tr.range(bb.x0 + 10, bb.x1 - 10);
+            const uu0 = S.unproj(x, ctr[1], 0)[0];
+            for (let m = 0; m < nl; m++) {
+              const uu = uu0 + m * tr.range(0.12, 0.3);
+              const q = fp(uu, topH(uu) - (band || 0) - tr.range(0.08, 0.35));
+              if (inside(q[0], q[1])) TX.lichen(lichenFill, hp, q[0], q[1], tr.range(5, 18) * (m ? 0.7 : 1), tr, 0.42);
+            }
+          }
+          // drip stains run down from the bed parting under an overhang (or at random)
+          if ((band && tr() < 0.75) || tr() < 0.18) {
+            const nd = tr.int(1, 3);
+            for (let m = 0; m < nd; m++) {
+              const uu = LW.lerp(J0.u, J1.u, tr.range(0.1, 0.9));
+              const s0 = fp(uu, topH(uu) - (band || 0) - 0.02);
+              if (inside(s0[0], s0[1] + 3)) TX.drip(dripFill, hp, s0[0], s0[1], tr.range(30, Math.min(160, bb.h)), tr.range(3, 8), tr, inside);
+            }
+          }
+          // a crack-plant rooted in the bed joint
+          if (tr() < 0.11 && hTop < 11) {
+            const uu = LW.lerp(J0.u, J1.u, tr.range(0.15, 0.85));
+            const s0 = fp(uu, bedLine(j, uu) + 0.03);
+            if (G.mask.in(s0[0], s0[1])) TX.sprig(sprigFill, hp, s0[0], s0[1], tr.range(12, 24), tr);
+          }
+        }
         // rounded/chipped edges: bed line heavy where it sits under an overhang, joint lines broken
         LW.inkContour(pen, scr, (nx, ny, x, y) => {
           const sh = LW.shadowSide(nx, ny);
@@ -266,6 +348,17 @@
       const lipPts = pts.filter((_, i) => { const a = i * 0.2; return Math.sin(a) > 0.35; });
       if (lipPts.length > 2) lipP.line(lipPts.map(([x, y]) => [x, y - 2]), 3.2, 0.4);
       lipP.draw(fillG, '#f3e8c6');
+      { // stains weeping from the cave mouth, and a cross-hatched brow above it
+        const tr = LW.rng('cavedrip' + k);
+        const df = new LW.Pen(), dp = new LW.Pen();
+        const inG = (x, y) => G.mask.in(x, y);
+        for (let m = 0; m < (big ? 3 : 1); m++) LW.tex.drip(df, dp, tr.range(cbb.x0 + cbb.w * 0.2, cbb.x1 - cbb.w * 0.2), cbb.y1 - 2, tr.range(40, big ? 190 : 90), tr.range(4, big ? 11 : 6), tr, inG);
+        df.draw(fillG, '#9c8763', 0.55);
+        const brow = pts.filter((_, i) => Math.sin(i * 0.2) < -0.2).map(([x, y]) => [x, y - 3]);
+        if (brow.length > 2) dp.line(brow, 1.4, 0.4);
+        LW.tex.pits(dp, LW.bbox(pts, 14), (x, y) => inG(x, y) && !inC(x, y), big ? 10 : 4, tr, { cluster: 4, spread: 6 });
+        dp.draw(inkG, HATCH);
+      }
       if (big && caves() < 0.7) LW.caper(c[0] + caves.range(-20, 20), c[1] + rh * 30, caves.range(36, 60), caves);
     }
     pen.draw(inkG, C.ink);

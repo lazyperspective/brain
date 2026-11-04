@@ -57,7 +57,7 @@
       const reg = [[-6, 1.85], [3.2, 1.85], [3.2, 2.1], [2.21, 2.34], [-0.2, zP], [-6, zP]];
       LW.fgLast = LW.masonry(fp, reg, {
         rnd, course: [0.38, 0.62], len: [0.45, 0.95], sp: 6.2, lw: 1.9, chisel: 0.0, roundness: 0.1, joint: 0.006, wear: 0.012,
-        mortar: '#4a3a28', cracks: 0.45, jitter: 0.06, wob: 0.8, pits: 0.4,
+        mortar: '#4a3a28', cracks: 0.45, jitter: 0.06, wob: 0.8, pits: 0.4, tex: 0.3,
         dark: (x, z) => 0.16 + 0.4 * LW.smooth(2.7, zP, z) + 0.45 * LW.smooth(2.55, 2.05, z) + 0.1 * LW.noise(x * 2, z * 2),
         shadowDir: [0.3, -0.95],
       });
@@ -91,7 +91,7 @@
     {
       const fp = (x, y) => Q(x, y, zP);
       LW.fgLast = LW.masonry(fp, [[-6, yF], [PIER.x0, yF], [PIER.x0, S.parapet.top], [-6, S.parapet.top]], {
-        rnd, course: [0.2, 0.34], len: [0.3, 0.7], sp: 5.4, lw: 1.8, chisel: 1.2, roundness: 0.14, wear: 0.009, jitter: 0.1, wob: 1.1, mortar: '#4a3a28', joint: 0.005,
+        rnd, course: [0.2, 0.34], len: [0.3, 0.7], sp: 5.4, lw: 1.8, chisel: 1.2, roundness: 0.14, wear: 0.009, jitter: 0.1, wob: 1.1, mortar: '#4a3a28', joint: 0.005, tex: 0.4, moss: 0.12,
         dark: (x, y) => 0.3 + 0.35 * LW.smooth(-1.05, -1.6, y) + 0.12 * LW.noise(x * 3, y * 3),
       });
       fg.addPath(LW.fgLast.path);
@@ -178,6 +178,12 @@
           LW.flecks(p2, bb, Math.floor(bb.w * bb.h * 0.0011), { rng: rnd, inside: inT, angle: -0.6, spread: 0.25, len: [4, 10], w: 1.2, dark: () => 0.7 });
           LW.stipple(p2, bb, Math.floor(bb.w * bb.h * 0.0016), { rng: rnd, inside: inT, r: [0.7, 1.7], dark: (x, y) => 0.5 + 0.5 * LW.noise(x * 0.02, y * 0.03) });
           if (rnd() < 0.45) lichen(bb, inT, rnd, 0.00004);
+          { // worn-tread texture: pitting clusters and dry drag marks along the nosing
+            const tr = LW.rng('tread' + st.seed);
+            const na = map(st.s0, 0), nb2 = map(st.s0, Wd);
+            LW.tex.pits(p2, bb, inT, Math.floor(bb.w * bb.h * 0.00045), tr, { r: [1.4, 4.2], cluster: 6, spread: 12, w: [1.0, 1.8] });
+            LW.tex.dry(p2, bb, inT, Math.floor(bb.w * bb.h * 0.0007), tr, Math.atan2(nb2[1] - na[1], nb2[0] - na[0]), [10, 34], 0.8, () => 0.75);
+          }
           // occasional crack
           if (rnd() < 0.5) {
             let s = st.s0 + 0.01, w = rnd.range(0.5, 2.2);
@@ -315,7 +321,7 @@
       const fp = (x, y) => Q(x, y, z);
       const reg = [[x0, yF], [x1, yF], [x1, top], [x0, top]];
       LW.fgLast = LW.masonry(fp, reg, {
-        rnd, course: [0.2, 0.3], len: [0.22, 0.46], sp: 5.4, lw: 1.9, chisel: 1.2, roundness: 0.14, wear: 0.008, jitter: 0.1, wob: 1.1, mortar: '#4a3a28', joint: 0.005,
+        rnd, course: [0.2, 0.3], len: [0.22, 0.46], sp: 5.4, lw: 1.9, chisel: 1.2, roundness: 0.14, wear: 0.008, jitter: 0.1, wob: 1.1, mortar: '#4a3a28', joint: 0.005, tex: 0.4,
         dark: (x, y) => 0.25 + 0.3 * LW.smooth(-1.1, -1.6, y),
       });
       fg.addPath(LW.fgLast.path);
@@ -696,6 +702,17 @@
         pen.line(cp, (t) => w * (1 - 0.7 * t), 0.2, 0.2);
       };
       for (let c = 0; c < 2; c++) crack(s2.x + r.gauss() * 40, s2.y + r.gauss() * 80, fall + r.gauss() * 0.6, r.range(90, 220), r.range(2.2, 3.6), 2);
+      { // fine texture: hairline fracture networks, pitting, grain, sparse lichen
+        const tr = LW.rng('otex' + k);
+        for (let c = 0; c < 4; c++) LW.tex.fracture(pen, tr.range(bb.x0, bb.x1), tr.range(bb.y0, bb.y1), tr() * LW.TAU, tr.range(40, 110), 1.0, tr, 2, inF, 5);
+        LW.tex.pits(pen, bb, inF, Math.floor(bb.w * bb.h * 0.0006), tr, { r: [1.2, 3.6], cluster: 5, spread: 8 });
+        LW.tex.grain(pen, bb, inF, Math.floor(bb.w * bb.h * 0.004), tr, [0.5, 1.1]);
+        if (tr() < 0.5) {
+          const lf = [new LW.Pen(), new LW.Pen()];
+          for (let c = 0; c < 2; c++) { const x = tr.range(bb.x0, bb.x1), y = tr.range(bb.y0, bb.y1); if (inF(x, y) && rimAt(x, y) < 0.5) LW.tex.lichen(lf, pen, x, y, tr.range(8, 18), tr, 0.8); }
+          lf[0].draw(LW.fill, '#8d8a6c', 0.8); lf[1].draw(LW.fill, '#9c7a44', 0.8);
+        }
+      }
       LW.inkContour(pen, pts, (ex, ey, x, y) => {
         const sh = LW.shadowSide(ex, ey);
         return (0.8 + 4.2 * sh * sh) * (1 + 0.3 * LW.noise3(x * 0.02, y * 0.02));

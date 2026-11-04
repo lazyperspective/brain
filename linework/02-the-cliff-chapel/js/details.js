@@ -24,7 +24,25 @@
     LW.occlude(path);
     LW.flat(path, '#2b2a33');
     const pen = new LW.Pen();
+    // tail streamers
+    for (const sg of [-1, 1]) pen.line([T(-0.6 * w, sg * 0.19 * w), T(-0.75 * w, sg * 0.25 * w), T(-0.9 * w, sg * 0.3 * w)], 1.1, 0.5, 0.1);
     LW.outline(pen, sm, 1.4, 0.6);
+    // flight feathers: paler separations along each wing
+    const fpen = new LW.Pen();
+    for (const sg of [-1, 1]) {
+      for (let k = 0; k < 5; k++) {
+        const t = 0.25 + k * 0.15;
+        const a = T((-0.02 + flap * 0.1 * t) * w, sg * (0.12 + t * 0.5) * w);
+        const b = T((-0.14 + flap * 0.1 * t - 0.12 * t) * w, sg * (0.18 + t * 0.62) * w);
+        fpen.line([a, b], 0.7 + 0.004 * s, 0.4);
+      }
+    }
+    fpen.draw(LW.fill, '#57566a');
+    // buff belly with a few ink ticks
+    const bl = T(0.02 * w, 0);
+    const be = new Path2D(); be.ellipse(bl[0], bl[1], w * 0.13, w * 0.05, ang, 0, LW.TAU);
+    LW.flat(be, '#d6c49c');
+    for (let k = -2; k <= 1; k++) { const q0 = T((-0.03 + k * 0.03) * w, -0.035 * w), q1 = T((-0.03 + k * 0.03) * w, 0.035 * w); pen.line([q0, q1], 0.5, 0.4); }
     // pale throat
     const th = T(0.25 * w, 0);
     const e = new Path2D(); e.ellipse(th[0], th[1], w * 0.08, w * 0.05, ang, 0, LW.TAU);
@@ -120,5 +138,6 @@
       [1880, 520, 40, 3.4, -0.2], [940, 300, 46, 0.1, 0.5], [2040, 760, 34, 2.9, 0.1],
     ];
     for (const [x, y, s, a, f] of birds) swallow(x, y, s * 1.55, a, f, rnd);
+    for (const [x, y, s, a, f] of [[1700, 230, 26, 2.2, 0.3], [1580, 410, 22, 0.6, -0.2], [2090, 180, 20, 3.0, 0.2]]) swallow(x, y, s * 1.55, a, f, rnd);
   };
 })();

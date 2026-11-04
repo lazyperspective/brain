@@ -49,5 +49,13 @@
       taper: 0.4,
     });
     pen.draw(LW.ink, '#1a4c55', 0.9);
+    // engraved ruling over the whole sky: fine, slightly wavering, broken rules
+    const rp = new LW.Pen();
+    LW.hatchDither(rp, { x0: -10, y0: 300, x1: W + 10, y1: HY - 4 }, -0.004, {
+      spacing: 5.2, step: 6, wob: 1.6, seed: 11, jitter: 0.35,
+      dark: (x, y) => 0.38 + 0.25 * LW.smooth(1100, 300, y) + 0.22 * LW.noise(x * 0.002, y * 0.004) + 0.12 * LW.noise3(x * 0.02, y * 0.3),
+      w: () => 0.5, taper: 0.45,
+    });
+    rp.draw(LW.ink, '#205a64', 0.55);
   };
 })();
