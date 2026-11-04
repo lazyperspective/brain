@@ -52,6 +52,13 @@
         const sp = LW.hash2(x, y, 99);
         if (lum < 0.22 && sp < 0.0016 + 0.002 * Math.max(0, mo)) k += 0.6;
         else if (lum > 0.6 && sp < 0.0005) k -= 0.35;
+        // plate wipe: short horizontal streaks left by the wiping cloth
+        k += (LW.hash2(x >> 3, y, 41) - 0.5) * 0.035 * (0.4 + lum);
+        // ink-starved patches (2px voids, clustered where the mottle runs thin) and plate speckle in the lights
+        const bx = x >> 1, by = y >> 1;
+        const sp2 = LW.hash2(bx, by, 77);
+        if (lum > 0.1 && lum < 0.55 && sp2 < 0.003 * Math.max(0, mo * 2.2 - 0.1)) k += 0.22;
+        else if (lum > 0.42 && LW.hash2(bx, by, 78) < 0.0032) k -= 0.28;
         r *= k; g *= k; b *= k;
         // warm the paper whites a touch
         if (lum > 0.8) { r += 2; b -= 3; }

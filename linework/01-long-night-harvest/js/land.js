@@ -105,7 +105,80 @@
     for (let x = hL + 2; x < hR; x += 4) { const q = h.p('#1d3540', 0.6); q.moveTo(x, hT + 1); q.lineTo(x, base); }
     for (let y = hT - 28; y < hT; y += 3) { const q = h.p('#24414c', 0.7); q.moveTo(hL - 4, y); q.lineTo(hR + 4, y + 1); }
     h.flush(ctx);
+    {
+      // surface marks: roof tiles, stone courses with pitting, barn planks with knots, door, loft hatch
+      const trng = new LW.RNG('farm-tex');
+      const tx = new LW.FillBatch();
+      const INK = '#0a131b', MID = '#2a4853', LO = '#1a303b';
+      // house roof: staggered tile joints between the courses
+      for (let y = hT - 27, row = 0; y < hT - 0.5; y += 3, row++) {
+        const half = ((y - (hT - 30)) / 30) * (hR - hL) / 2;
+        const cx0 = (hL + hR) / 2 - half, cx1 = (hL + hR) / 2 + half;
+        for (let x = cx0 + (row % 2) * 1.6; x < cx1; x += 3.2 + trng.range(-0.3, 0.3)) {
+          LW.ribbon(tx.p(INK), [x, y + 0.3, x - 0.2, y + 2.6], () => 0.32);
+          if (trng.next() < 0.35) LW.dot(tx.p(MID), x + 1.5, y + 1.2, 0.35);
+        }
+      }
+      // house walls: stone courses, broken mortar lines, staggered joints, pitting
+      for (let y = hT + 2, row = 0; y < base - 0.5; y += 2.7, row++) {
+        let x = hL + 0.5 + (row % 2) * 2;
+        while (x < hR) {
+          const L = trng.range(3, 7);
+          LW.ribbon(tx.p(row % 3 ? LO : MID), [x + 0.4, y, x + L - 0.4, y + trng.range(-0.15, 0.15)], () => 0.32);
+          LW.ribbon(tx.p(INK), [x + L, y - 1.2, x + L, y + 1.2], () => 0.3);
+          if (trng.next() < 0.3) LW.dot(tx.p(INK), x + trng.range(0.5, L), y + trng.range(-1, 1), 0.3);
+          x += L;
+        }
+      }
+      // second, unlit window and a door on the house
+      ctx.fillStyle = '#081018'; ctx.fillRect(hL + 13, hT + 13, 8, 10); ctx.fillRect(hL + 20, base - 19, 9, 19);
+      LW.ribbon(tx.p(MID), [hL + 12.5, hT + 13, hL + 21.5, hT + 13], () => 0.45);
+      LW.ribbon(tx.p(MID), [hL + 17, hT + 13, hL + 17, hT + 23], () => 0.3);
+      // barn: plank knots and nail rows, a braced double door, a loft hatch
+      for (let k = 0; k < 26; k++) { const x = trng.range(bL + 2, bR - 2), y = trng.range(bT, base - 2); LW.dot(tx.p(INK), x, y, trng.range(0.3, 0.6)); }
+      for (const y of [bT + 6, base - 12]) for (let x = bL + 2; x < bR; x += 3.4) LW.dot(tx.p(MID), x + 0.6, y, 0.3);
+      const dL = bL + 28, dR = bL + 54, dT = base - 26;
+      ctx.fillStyle = '#0d1820'; ctx.fillRect(dL, dT, dR - dL, base - dT);
+      for (const pts of [[dL, dT, dR, base], [dL, base, dR, dT], [(dL + dR) / 2, dT, (dL + dR) / 2, base], [dL, dT, dR, dT], [dL, (dT + base) / 2, dR, (dT + base) / 2]]) LW.ribbon(tx.p(MID), pts, () => 0.45);
+      ctx.fillStyle = '#081018'; ctx.fillRect((bL + bR) / 2 - 5, bT - 14, 10, 9);
+      LW.ribbon(tx.p(MID), [(bL + bR) / 2 - 5.5, bT - 14.5, (bL + bR) / 2 + 5.5, bT - 14.5], () => 0.4);
+      // lean-to: corrugated roof
+      for (let x = bL - 25; x < bL; x += 2.2) { const t = (x - (bL - 26)) / 26; LW.ribbon(tx.p(INK), [x, base - 20 - 10 * t + 0.8, x + 0.1, base - 20 - 10 * t + 4], () => 0.3); }
+      tx.flush(ctx, [LO, MID, INK]);
+    }
     ctx.restore();
+    // chimney cap
+    {
+      const cap = new Path2D();
+      LW.ribbon(cap, [hR - 19.5, hT - 34.5, hR - 7.5, hT - 34.5], () => 1.3);
+      ctx.fillStyle = P.ink; ctx.fill(cap);
+    }
+    // a fence running off from the house, a two-wheeled cart by the barn
+    {
+      const fz = new LW.FillBatch(), rimz = new LW.FillBatch();
+      const fr = new LW.RNG('farm-fence');
+      for (let x = hR + 6; x < hR + 92; x += fr.range(6.5, 9)) {
+        const y = base + 1 + (x - hR) * 0.02;
+        LW.ribbon(fz.p(P.ink), [x, y + 1, x + fr.range(-0.4, 0.4), y - 7.5], () => 0.75);
+      }
+      for (const dy of [-6, -3]) LW.ribbon(fz.p(P.ink), LW.wobble([hR + 5, base + dy + 1, hR + 50, base + dy + 1.8, hR + 92, base + dy + 2.8], 0.3, 0.1, dy), () => 0.4);
+      for (let x = bL - 130; x < bL - 60; x += fr.range(6.5, 9)) LW.ribbon(fz.p(P.ink), [x, base + 2, x + fr.range(-0.4, 0.4), base - 5.5], () => 0.7);
+      LW.ribbon(fz.p(P.ink), [bL - 130, base - 3.5, bL - 95, base - 3, bL - 60, base - 3.4], () => 0.4);
+      // cart
+      const cx = bL - 82, cy = base - 5;
+      const body = new Path2D(); body.rect(cx - 11, cy - 9, 22, 6);
+      ctx.fillStyle = '#121e2a'; ctx.fill(body); ctx.strokeStyle = P.ink; ctx.lineWidth = 0.9; ctx.stroke(body);
+      for (let x = cx - 9; x < cx + 11; x += 2.6) LW.ribbon(fz.p('#24414c'), [x, cy - 8.4, x, cy - 3.6], () => 0.3);
+      LW.ribbon(fz.p(P.ink), [cx + 11, cy - 5, cx + 26, base + 1], () => 0.6);
+      const wr = 5.6;
+      const wheel = new Path2D(); wheel.arc(cx - 2, cy, wr, 0, 6.2832);
+      ctx.lineWidth = 1.1; ctx.stroke(wheel);
+      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; LW.ribbon(fz.p(P.ink), [cx - 2, cy, cx - 2 + Math.cos(a) * wr, cy + Math.sin(a) * wr], () => 0.32); }
+      const arc = []; for (let a = 2.2; a <= 4.2; a += 0.2) arc.push(cx - 2 + Math.cos(a) * (wr + 0.6), cy + Math.sin(a) * (wr + 0.6));
+      LW.ribbon(rimz.p(P.amber), arc, (t) => 0.55 * LW.taper(t, 0.2, 0.2));
+      LW.ribbon(rimz.p(P.amber), [cx - 11, cy - 9.4, cx + 4, cy - 9.4], (t) => 0.5 * LW.taper(t, 0.1, 0.4));
+      fz.flush(ctx); rimz.flush(ctx);
+    }
     // rim light on the sun-facing (left) roof slopes and walls
     const rim = new Path2D();
     LW.ribbon(rim, [bL + 1.5, bT + 2, bL + 13, bT - 14, (bL + bR) / 2, bT - 24], (t) => 1.3 * LW.taper(t, 0.1, 0.2));
@@ -166,6 +239,7 @@
   // ---------------------------------------------------------------- patchwork on the near hill
   function patchwork(ctx) {
     const rng = new LW.RNG('patch');
+    const trng = new LW.RNG('patch-tex');
     const yb = 2334;
     const top = (x) => SC.ridgeNear(x);
     const sOf = (x, s) => top(x) + (yb - top(x)) * s;
@@ -183,6 +257,7 @@
         for (let xx = xb; xx >= xa; xx -= 5) pts.push(xx + ((xx - xa) / Math.max(1, xb - xa)) * 0, contour(b + 1, xx));
         const path = new Path2D(); LW.polyPath(path, pts, true);
         const kind = rng.int(0, 3);
+        const kind2 = trng.next();
         const g = SC.glow((xa + xb) / 2, top((xa + xb) / 2) - 20);
         ctx.save(); ctx.clip(path);
         const fill = new LW.FillBatch();
@@ -210,6 +285,32 @@
           for (let i = 0; i < (xb - xa) * (y1 - y0) * 0.06; i++) {
             const px = rng.range(xa, xb), py = rng.range(y0, y1);
             const q = fill.p(col); q.moveTo(px + 0.8, py); q.arc(px, py, rng.range(0.5, 1.0), 0, 6.283);
+          }
+        }
+        {
+          // texture over every patch: a second hatch direction in some, stooks in others, grain in all
+          const y0 = Math.min(contour(b, xa), contour(b, xb)) - 4, y1 = Math.max(contour(b + 1, xa), contour(b + 1, xb)) + 4;
+          const dk = LW.darker(col);
+          if (kind2 < 0.3) {
+            const a = trng.sign() * trng.range(0.35, 0.7), gap = trng.range(3.2, 4.6);
+            for (let o = xa - (y1 - y0) * 2; o < xb + (y1 - y0) * 2; o += gap) {
+              const yA = y0, yB = y1;
+              LW.ribbon(fill.p(dk), LW.wobble([o, yA, o + (yB - yA) * a * 0.5, (yA + yB) / 2, o + (yB - yA) * a, yB], 0.4, 0.1, o), (t) => 0.45 * LW.taper(t, 0.05, 0.05));
+            }
+          } else if (kind2 < 0.5 && b > 0) {
+            // stooks: rows of little tents of sheaves
+            for (let yy = y0 + 5; yy < y1; yy += trng.range(5, 8)) {
+              for (let xx = xa + trng.range(0, 6); xx < xb; xx += trng.range(6, 10)) {
+                const sc = 0.6 + 0.6 * ((yy - 2160) / 170);
+                const hh = 4.5 * sc, ww = 2.3 * sc;
+                LW.ribbon(fill.p('#0f1923'), [xx - ww, yy, xx, yy - hh, xx + ww, yy], () => 0.55 * sc + 0.15);
+                if (g > 0.3) LW.ribbon(fill.p(P.amber), [xx - ww * 0.8, yy - 0.5, xx - 0.2, yy - hh + 0.4], () => 0.35);
+              }
+            }
+          }
+          for (let i = 0; i < (xb - xa) * (y1 - y0) * 0.035; i++) {
+            const px = trng.range(xa, xb), py = trng.range(y0, y1);
+            LW.dot(fill.p(trng.next() < 0.7 ? '#0f1923' : dk), px, py, trng.range(0.35, 0.75));
           }
         }
         fill.flush(ctx);
@@ -243,6 +344,36 @@
         }
         fill.flush(ctx, ['#0f1923', P.amber]);
       }
+    }
+    // post-and-wire fences along a few field boundaries
+    {
+      const fz = new LW.FillBatch();
+      for (const [b, xa, xb] of [[2, 1240, 1700], [3, 1780, 2160], [1, 0, 330], [3, 60, 420]]) {
+        const wire = [];
+        for (let x = xa; x <= xb; x += trng.range(7, 11)) {
+          const y = contour(b, x) + 2;
+          if (y > yb - 2) continue;
+          const sc = 0.6 + 0.6 * ((y - 2160) / 170);
+          LW.ribbon(fz.p('#0f1923'), [x, y + 1, x + trng.range(-0.3, 0.3), y - 6 * sc], () => 0.4 + 0.3 * sc);
+          wire.push(x, y - 4.2 * sc);
+        }
+        if (wire.length >= 4) LW.ribbon(fz.p('#0f1923'), LW.wobble(wire, 0.25, 0.1, b), () => 0.35);
+      }
+      // haystacks: domed ricks with thatch lines and a rim of glow
+      for (const [hx, s0] of [[1330, 0.45], [1352, 0.5], [1410, 0.3], [250, 0.55]]) {
+        const hy = sOf(hx, s0), sc = 0.6 + 0.6 * ((hy - 2160) / 170);
+        const w = 10 * sc, hh = 12.5 * sc;
+        const pts = [];
+        for (let a = 0; a <= Math.PI; a += 0.15) pts.push(hx - Math.cos(a) * w, hy - Math.sin(a) * hh);
+        const hp = new Path2D(); LW.polyPath(hp, pts, true);
+        ctx.fillStyle = '#1a2a33'; ctx.fill(hp); ctx.strokeStyle = P.ink; ctx.lineWidth = 0.9; ctx.stroke(hp);
+        const g = SC.glow(hx, hy - 20);
+        for (let k = 1; k < 5; k++) { const yy = hy - hh * k / 5; const ww = w * Math.sqrt(1 - (k / 5) ** 2); LW.ribbon(fz.p(k % 2 ? '#3a3a33' : '#0a131b'), [hx - ww, yy, hx + ww * 0.2, yy + 0.4], () => 0.35); }
+        const arc = []; for (let a = 0.1; a <= 1.6; a += 0.1) arc.push(hx - Math.cos(a) * (w - 0.8), hy - Math.sin(a) * (hh - 0.8));
+        const rp = new Path2D(); LW.ribbon(rp, arc, (t) => 1.1 * LW.taper(t, 0.2, 0.2));
+        ctx.fillStyle = g > 0.12 ? P.amber : P.sea; ctx.fill(rp);
+      }
+      fz.flush(ctx);
     }
     // scattered trees on the hill
     for (let i = 0; i < 26; i++) {
@@ -300,11 +431,92 @@
       seed: 'far', gap: 4.2, w: 0.75,
       colFn: (x, y, d, g, r) => (g > 0.55 ? (r < 0.5 ? P.rust : '#5a2b25') : r < 0.75 ? P.deep : '#173039'),
     });
+    farRidgeTexture(ctx);
     rimLine(ctx, SC.ridgeFar, x0, x1, { seed: 2, warmAt: 0.32, coolCol: P.sea, drop: 2.4 });
     // near ridge
     fillUnder(ctx, SC.ridgeNear, x0, x1, 2400, '#162a36', LW.REG.cool);
     patchwork(ctx);
     rimLine(ctx, SC.ridgeNear, x0, x1, { seed: 5, warmAt: 0.3, coolCol: P.teal, drop: 2.0, ink: 1.1 });
+    telegraph(ctx);
     farmhouse(ctx);
   };
+
+  // far ridge: field boundaries, patches hatched across the contour, tiny trees and hedge dots, grain
+  function farRidgeTexture(ctx) {
+    const rng = new LW.RNG('far-tex');
+    const clip = new Path2D(); LW.polyPath(clip, profile(SC.ridgeFar, -20, SC.W + 20, 3).concat([SC.W + 20, 2400, -20, 2400]), true);
+    ctx.save(); ctx.clip(clip);
+    const fb = new LW.FillBatch();
+    let x = -20;
+    while (x < SC.W) {
+      const w = rng.range(70, 210), xa = x, xb = x + w;
+      const top = SC.ridgeFar((xa + xb) / 2);
+      const g = SC.glow((xa + xb) / 2, top - 15);
+      const col = g > 0.55 ? (rng.next() < 0.5 ? '#5a2b25' : P.rust) : rng.next() < 0.5 ? '#173039' : '#0f1923';
+      const u = rng.next();
+      if (u < 0.4) {
+        const a = rng.sign() * rng.range(0.4, 1.1), gap = rng.range(3.4, 5);
+        for (let o = xa; o < xb; o += gap) LW.ribbon(fb.p(col), [o, SC.ridgeFar(o) + 3, o + 70 * a, SC.ridgeFar(o) + 73], (t) => 0.5 * LW.taper(t, 0.05, 0.3));
+      } else if (u < 0.6) {
+        for (let i = 0; i < w * 6; i++) { const px = rng.range(xa, xb), py = SC.ridgeFar(px) + rng.range(3, 70); LW.dot(fb.p(col), px, py, rng.range(0.4, 0.8)); }
+      }
+      // boundary hedge running down the slope
+      if (rng.next() < 0.7) {
+        const hp = LW.resample([xb, SC.ridgeFar(xb) + 2, xb + rng.range(-14, 14), SC.ridgeFar(xb) + 70], 2.5);
+        LW.ribbon(fb.p('#0b141c'), LW.wobble(hp, 0.9, 0.25, xb), (t) => 0.9 * LW.taper(t, 0.05, 0.05));
+        for (let k = 0; k < hp.length; k += 4) if (rng.next() < 0.5) LW.dot(fb.p('#0b141c'), hp[k] + rng.range(-1, 1), hp[k + 1], rng.range(0.8, 1.6));
+      }
+      x = xb;
+    }
+    // plate grain over the whole ridge
+    for (let i = 0; i < 9000; i++) { const px = rng.range(-20, SC.W + 20), py = SC.ridgeFar(px) + rng.range(2, 80); LW.dot(fb.p(rng.next() < 0.75 ? '#0f1923' : '#2c4c57'), px, py, rng.range(0.35, 0.7)); }
+    fb.flush(ctx, ['#2c4c57', '#173039', '#5a2b25', P.rust, '#0f1923', '#0b141c']);
+    ctx.restore();
+    // tiny trees standing on the far skyline
+    const tr = new LW.FillBatch(), rim = new LW.FillBatch();
+    for (let i = 0; i < 70; i++) {
+      const tx = rng.range(0, SC.W), ty = SC.ridgeFar(tx) + 1.5;
+      if (Math.abs(tx - 1062) < 170) continue;
+      const r = rng.range(1.6, 3.8);
+      const n = rng.int(1, 3);
+      for (let k = 0; k < n; k++) {
+        const ox = tx + k * r * 1.5;
+        LW.ribbon(tr.p(P.ink), [ox, ty + 1, ox, ty - r * 1.2], () => 0.5);
+        LW.polyPath(tr.p(P.ink), LW.scallop(ox, ty - r * 1.6, r, rng, { bumps: 5, depth: 0.15, per: 3 }), true);
+        if (SC.glow(ox, ty - 10) > 0.35) LW.ribbon(rim.p(P.amber), [ox - r * 0.9, ty - r * 1.5, ox - r * 0.2, ty - r * 2.4], () => 0.45);
+      }
+    }
+    tr.flush(ctx); rim.flush(ctx);
+  }
+
+  // a line of telegraph poles on the left ridge, wires sagging against the glow
+  function telegraph(ctx) {
+    const rng = new LW.RNG('poles');
+    const xs = [70, 205, 330, 448, 556, 655];
+    const tops = [];
+    const fb = new LW.FillBatch(), rim = new LW.FillBatch();
+    for (let i = 0; i < xs.length; i++) {
+      const x = xs[i] + rng.range(-6, 6);
+      const base = SC.landTop(x) + 6 + i * 1.2;
+      const hgt = 40 - i * 3.3;
+      const lean = rng.range(-0.02, 0.02);
+      const tx = x + hgt * lean, ty = base - hgt;
+      LW.ribbon(fb.p(P.ink), [x, base, tx, ty], (t) => 1.25 - 0.4 * t - i * 0.06);
+      const cw = 7 - i * 0.6;
+      LW.ribbon(fb.p(P.ink), [tx - cw, ty + 3, tx + cw, ty + 2.6], () => 0.75 - i * 0.04);
+      for (const sx of [-cw * 0.8, cw * 0.8]) LW.dot(fb.p(P.ink), tx + sx, ty + 1.8, 0.9 - i * 0.05);
+      if (SC.glow(x, ty) > 0.3) LW.ribbon(rim.p(P.amber), [x - 0.8, base - 2, tx - 0.8, ty + 4], (t) => 0.45 * LW.taper(t, 0.1, 0.1));
+      tops.push([tx, ty + 2, cw]);
+    }
+    for (let i = 0; i < tops.length - 1; i++) {
+      const [ax, ay, aw] = tops[i], [bx, by, bw] = tops[i + 1];
+      for (const sgn of [-1, 1]) {
+        const x0 = ax + sgn * aw * 0.8, x1 = bx + sgn * bw * 0.8;
+        const pts = [];
+        for (let k = 0; k <= 24; k++) { const t = k / 24; pts.push(x0 + (x1 - x0) * t, ay + (by - ay) * t + 9 * 4 * t * (1 - t)); }
+        LW.ribbon(fb.p(P.ink), pts, () => 0.42);
+      }
+    }
+    fb.flush(ctx); rim.flush(ctx);
+  }
 })();

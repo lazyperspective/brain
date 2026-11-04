@@ -90,7 +90,9 @@
     const sun = [SC.sun.x - PL.x, SC.sun.y - PL.y];
     const sl = Math.hypot(sun[0], sun[1]);
     for (let rr = RIN; rr <= ROUT; rr += 3.3 / R) {
+      // ringlets of varied brightness: a per-ringlet gain on top of the density profile
       const D0 = ringD(rr);
+      const gain = (0.78 + 0.44 * LW.hash2(Math.round(rr * R / 3.3), 17, 5)) * (0.9 + 0.2 * LW.N4(rr * 30, 0.7));
       if (D0 < 0.04) continue;
       const rho = rr * R;
       const dt = 2.4 / rho;
@@ -108,8 +110,8 @@
         const towardSun = (mx * sun[0] + my * sun[1]) / (ml * sl);
         const g = SC.glow(sub[mi], sub[mi + 1]);
         const lit = (0.5 + 0.5 * Math.max(0, towardSun)) * sh;
-        const v2 = D0 * lit * (0.85 + 0.3 * rng.next());
         const warm = (towardSun > 0.55 ? (towardSun - 0.55) * 1.6 : 0) + g * 0.9;
+        const v2 = D0 * lit * (0.85 + 0.3 * rng.next()) * (warm > 0.55 ? 1 + (gain - 1) * 0.3 : gain);
         let col;
         if (sh < 0.3) col = v2 > 0.06 ? P.deep : '#16303d';
         else if (warm > 0.55 && v2 > 0.3) col = v2 > 0.62 ? P.straw : v2 > 0.42 ? P.amber : P.orange;
@@ -127,6 +129,63 @@
       });
     }
     fill.flush(ctx, ['#16303d', P.deep, P.teal, P.sea, P.pale, P.mist, P.amber, P.straw, P.cream]);
+    {
+      const trng = new LW.RNG('ring-tex-' + half);
+      const tex = new LW.FillBatch();
+      const ringLit = (rho, t) => {
+        const q = ringPoint(rho, t);
+        const ml = Math.hypot(q[0], q[1]) || 1;
+        const ts = (q[0] * sun[0] + q[1] * sun[1]) / (ml * sl);
+        const sh = planetShadowOnRing(q);
+        return [PL.x + q[0], PL.y + q[1], (0.5 + 0.5 * Math.max(0, ts)) * sh, sh, ts];
+      };
+      // thin dark gaps between ringlets
+      const gr = new LW.RNG('ring-gaps');
+      const gaps = [];
+      for (let i = 0; i < 22; i++) { const rr = gr.range(1.24, 2.23); if (ringD(rr) > 0.12 && Math.abs(rr - 2.155) > 0.01) gaps.push([rr, gr.range(0.55, 1.25)]); }
+      for (const [rr, w] of gaps) {
+        const pts = [];
+        for (let t = t0; t <= t1; t += 2.2 / (rr * R)) { const q = ringPoint(rr * R, t); pts.push(PL.x + q[0], PL.y + q[1]); }
+        LW.dashes(pts, trng, 120, 700, 4, 40, (sub) => {
+          // gap colour: a plate below the local ring ink (black only where the ring is already dark)
+          const mi = (sub.length >> 2) * 2;
+          const mx = sub[mi] - PL.x, my = sub[mi + 1] - PL.y;
+          const u = mx * PL.ct + my * PL.st, v = -mx * PL.st + my * PL.ct;
+          const [, , lit, sh, ts] = ringLit(rr * R, Math.atan2(v / PL.sphi, u));
+          const g = SC.glow(sub[mi], sub[mi + 1]);
+          const warm = (ts > 0.55 ? (ts - 0.55) * 1.6 : 0) + g * 0.9;
+          if (warm > 0.55 && trng.next() < 0.55) return;
+          const col = sh < 0.3 ? '#070e16' : warm > 0.55 ? (lit > 0.5 ? P.amber : P.orange) : lit > 0.55 ? P.sea : lit > 0.4 ? P.teal : '#0b1520';
+          LW.ribbon(tex.p(col), LW.wobble(sub, 0.4, 0.05, rr * 7), (tt) => w * (warm > 0.55 ? 0.6 : 1) * LW.taper(tt, 0.1, 0.1));
+        });
+      }
+      // particle stipple fraying the ring edges
+      for (const [er, dir] of [[1.235, -1], [1.5, 0], [1.94, 1], [2.03, -1], [2.235, 1], [2.29, 0]]) {
+        const n = 2600;
+        for (let i = 0; i < n; i++) {
+          const t = trng.range(t0, t1);
+          const off = dir === 0 ? trng.normal() * 3.5 : dir * Math.abs(trng.normal()) * 5 - dir * 1.5;
+          const rho = er * R + off;
+          const [x, y, lit, sh, ts] = ringLit(rho, t);
+          if (sh < 0.3) { if (trng.next() < 0.5) LW.dot(tex.p('#16303d'), x, y, trng.range(0.4, 0.8)); continue; }
+          const g = SC.glow(x, y);
+          const warm = (ts > 0.55 ? (ts - 0.55) * 1.6 : 0) + g * 0.9;
+          const v = lit * (0.55 + 0.4 * trng.next()) * (Math.abs(off) > 3 ? 0.7 : 1);
+          const col = warm > 0.55 ? (v > 0.5 ? P.straw : P.amber) : v > 0.6 ? P.mist : v > 0.45 ? P.pale : v > 0.3 ? P.sea : P.teal;
+          LW.dot(tex.p(col), x, y, trng.range(0.4, 0.9));
+        }
+      }
+      // ring texture inside the planet's shadow: radial ink ticks across the ringlets, crossed by fine dust
+      for (let i = 0; i < 9000; i++) {
+        const t = trng.range(t0, t1), rr = trng.range(1.24, 2.24);
+        if (ringD(rr) < 0.1) continue;
+        const [x, y, , sh] = ringLit(rr * R, t);
+        if (sh >= 0.3) continue;
+        const [x2, y2] = ringLit(rr * R + trng.range(5, 10), t);
+        LW.ribbon(tex.p('#070e16'), [x, y, x2, y2], (tt) => 0.65 * LW.taper(tt, 0.3, 0.3) + 0.1);
+      }
+      tex.flush(ctx, ['#0b1520', '#16303d', P.rust, P.orange, P.teal, P.sea, P.pale, P.mist, P.amber, P.straw, '#070e16']);
+    }
     // ink edges
     const ink = new Path2D();
     for (const rr of [1.5, 1.94, 2.03, 2.235]) {
@@ -180,7 +239,41 @@
     return P.deep;
   }
   // storm in (t, sb) parameter space
-  const STORM = { t: 2.55, sb: -0.07, rt: 0.27, rs: 0.085 };
+  const STORM = { t: 2.55, sb: -0.07, rt: 0.27, rs: 0.085, loops: 9, col: 0.04 };
+  // band boundaries (where the warm/cool belts flip) and the small eddies, festoons and storms that ride them
+  const BOUNDS = [];
+  (function () {
+    let prev = LW.N2(-0.99 * 6, 9.1) > 0.25;
+    for (let sb = -0.99; sb <= 0.99; sb += 0.001) { const w = LW.N2(sb * 6, 9.1) > 0.25; if (w !== prev) BOUNDS.push(sb); prev = w; }
+  })();
+  function boundaryW(sb) { let d = 1; for (const b of BOUNDS) d = Math.min(d, Math.abs(sb - b)); return Math.exp(-((d / 0.03) ** 2)); }
+  const STORMS = [STORM];
+  (function () {
+    const rng = new LW.RNG('eddies');
+    const placed = [];
+    for (let it = 0; it < 6000 && STORMS.length < 19; it++) {
+      const b = BOUNDS.length ? BOUNDS[Math.floor(rng.next() * BOUNDS.length)] : 0;
+      const sbx = b + rng.range(-0.018, 0.018);
+      if (Math.abs(sbx) > 0.9) continue;
+      const t = rng.range(0, Math.PI * 2);
+      const cb = Math.sqrt(1 - sbx * sbx);
+      const p = sphereRaw(sbx, t);
+      if (p[2] < 0.35 * R) continue;
+      const lam = (p[0] * L[0] + p[1] * L[1] + p[2] * L[2]) / R;
+      if (lam < 0.05) continue;
+      const sx = PL.x + p[0], sy = PL.y + p[1];
+      if (placed.some((q) => Math.hypot(q[0] - sx, q[1] - sy) < 70)) continue;
+      const big = rng.next() < 0.25;
+      const w = (big ? rng.range(34, 52) : rng.range(18, 32));
+      STORMS.push({ t, sb: sbx, rt: w / (R * cb), rs: (big ? 0.026 : 0.017) * cb, loops: big ? 4 : 3, col: (sbx > b ? -1 : 1) * 0.03 });
+      placed.push([sx, sy]);
+    }
+  })();
+  function sphereRaw(sb, t) {
+    const cb = Math.sqrt(Math.max(0, 1 - sb * sb));
+    const c = Math.cos(t), s = Math.sin(t);
+    return [R * (cb * (c * E1[0] + s * E2[0]) + sb * NN[0]), R * (cb * (c * E1[1] + s * E2[1]) + sb * NN[1]), R * (cb * (c * E1[2] + s * E2[2]) + sb * NN[2])];
+  }
 
   LW.drawPlanet = function (ctx) {
     // base disc
@@ -204,7 +297,7 @@
       }
       ctx.putImageData(img, x0, y0);
     }
-    const lats = [];
+    const lats = [], latSb = [];
     const rng = new LW.RNG('planet');
     const fill = new LW.FillBatch();
     const NL = 196;
@@ -246,35 +339,44 @@
       let run = [];
       const cb = Math.sqrt(1 - sb0 * sb0);
       const dt = Math.min(0.05, 2.2 / (R * cb));
+      const bw0 = boundaryW(sb0);
       for (let t = 0; t <= Math.PI * 2 + dt; t += dt) {
         let sb = sb0 + 0.0045 * LW.N1(t * 0.9, sb0 * 2.2);
+        // turbulent band edges: lines near a belt boundary wander and curl
+        if (bw0 > 0.02) sb += bw0 * (0.0065 * LW.N1(t * 4.2 + sb0 * 3, sb0 * 30) + 0.0018 * LW.N3(t * 11, sb0 * 60));
         // storm deflection
-        let du = t - STORM.t; du = Math.atan2(Math.sin(du), Math.cos(du));
-        const dv = sb - STORM.sb;
-        const bump = Math.max(0, 1 - (du / (STORM.rt * 1.6)) ** 2);
-        if (bump > 0 && Math.abs(dv) < STORM.rs * 3) {
-          const sgn = dv >= 0 ? 1 : -1;
-          const k = Math.pow(bump, 1.4) * (1 - LW.smooth(STORM.rs * 1.5, STORM.rs * 3, Math.abs(dv)));
-          sb = STORM.sb + sgn * Math.sqrt(dv * dv + (STORM.rs * 1.05) ** 2 * k);
+        for (const ST of STORMS) {
+          let du = t - ST.t; du = Math.atan2(Math.sin(du), Math.cos(du));
+          const dv = sb - ST.sb;
+          const bump = Math.max(0, 1 - (du / (ST.rt * 1.6)) ** 2);
+          if (bump > 0 && Math.abs(dv) < ST.rs * 3) {
+            const sgn = dv >= 0 ? 1 : -1;
+            const k = Math.pow(bump, 1.4) * (1 - LW.smooth(ST.rs * 1.5, ST.rs * 3, Math.abs(dv)));
+            sb = ST.sb + sgn * Math.sqrt(dv * dv + (ST.rs * 1.05) ** 2 * k);
+          }
         }
         const p = sphere(sb, t);
         if (p[2] > 1) run.push(PL.x + p[0], PL.y + p[1]);
-        else if (run.length) { if (run.length > 6) { emit(run, sb0); lats.push(run); } run = []; }
+        else if (run.length) { if (run.length > 6) { emit(run, sb0); lats.push(run); latSb.push(sb0); } run = []; }
       }
-      if (run.length > 6) { emit(run, sb0); lats.push(run); }
+      if (run.length > 6) { emit(run, sb0); lats.push(run); latSb.push(sb0); }
     }
-    // storm interior: concentric spiralling loops
-    for (let j = 1; j <= 9; j++) {
-      const s = j / 9.6;
-      const pts = [];
-      for (let a = 0; a <= Math.PI * 2 + 0.05; a += 0.035) {
-        const sp = s * (1 - 0.06 * a / 6.28);
-        const t = STORM.t + Math.cos(a) * STORM.rt * sp;
-        const sb = STORM.sb + Math.sin(a) * STORM.rs * sp;
-        const p = sphere(sb, t);
-        if (p[2] > 1) pts.push(PL.x + p[0], PL.y + p[1]);
+    // storm interiors: concentric spiralling loops (the great storm, then the eddies along the belts)
+    for (const ST of STORMS) {
+      const nl = ST.loops;
+      for (let j = ST === STORM ? 1 : 2; j <= nl; j++) {
+        const s = j / (nl + 0.6);
+        const pts = [];
+        const da = ST === STORM ? 0.035 : 0.09;
+        for (let a = 0; a <= Math.PI * 2 + 0.05; a += da) {
+          const sp = s * (1 - (ST === STORM ? 0.06 : 0.16) * a / 6.28);
+          const t = ST.t + Math.cos(a) * ST.rt * sp;
+          const sb = ST.sb + Math.sin(a) * ST.rs * sp;
+          const p = sphere(sb, t);
+          if (p[2] > 1) pts.push(PL.x + p[0], PL.y + p[1]);
+        }
+        if (pts.length > 6) emit(pts, ST.sb + ST.col);
       }
-      if (pts.length > 6) emit(pts, STORM.sb + 0.04);
     }
     // night: dark ink cross-hatching that thickens toward the far limb (and inside the ring shadow)
     const night = new LW.FillBatch();
@@ -312,6 +414,74 @@
     }
     fill.flush(ctx, [P.deep, P.teal, P.sea, P.orange, P.amber, P.straw, P.cream]);
     night.flush(ctx);
+    {
+      const trng = new LW.RNG('planet-tex');
+      const tex = new LW.FillBatch();
+      const surf = (x, y) => { const ax = x - PL.x, ay = y - PL.y; const zz = Math.sqrt(Math.max(0, R * R - ax * ax - ay * ay)); return [ax, ay, zz]; };
+      const inDisc = (x, y, m) => (x - PL.x) ** 2 + (y - PL.y) ** 2 < (R - (m || 3)) ** 2;
+      // streaks within the belts: darker runs laid over the lit lines
+      for (let li = 0; li < lats.length; li++) {
+        const run = lats[li], sb = latSb[li];
+        let seg = [], segV = 0;
+        const flush = () => {
+          if (seg.length >= 10) {
+            const col = LW.darker(planetInk(segV, 0.5, sb), segV > 0.6 ? 2 : 1);
+            LW.ribbon(tex.p(col), seg, (tt) => (0.55 + 1.1 * Math.min(1, segV)) * LW.taper(tt, 0.25, 0.25));
+          }
+          seg = [];
+        };
+        for (let i = 0; i < run.length; i += 2) {
+          const x = run[i], y = run[i + 1];
+          const nz = LW.N3(x * 0.012 + li * 0.37, y * 0.03);
+          const v = lightAt(surf(x, y)) * bandMod(sb);
+          if (nz > 0.42 && v > 0.2 && inDisc(x, y, 6)) { if (!seg.length) segV = v; seg.push(x, y); } else flush();
+        }
+        flush();
+      }
+      tex.flush(ctx);
+      const ink = new LW.FillBatch();
+      // night side: a diagonal third hatch, and a fourth in the deepest night
+      for (const [ang, cut, wmax, gap] of [[0.62, 0.42, 1.35, 4.6], [-0.75, 0.72, 1.1, 5.4]]) {
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        for (let k = -R; k <= R; k += gap * trng.range(0.7, 1.3)) {
+          const aj = trng.range(-0.04, 0.04);
+          const cj = Math.cos(ang + aj), sj = Math.sin(ang + aj);
+          const ox = PL.x - sj * k, oy = PL.y + cj * k;
+          let run = [];
+          const wl = wmax * trng.range(0.7, 1.15);
+          const flush = () => { if (run.length >= 6) LW.dashes(LW.wobble(run, 0.9, 0.03, k), trng, 30, 240, 2, 10, (sub) => LW.ribbon(ink.p('#070e16'), sub, (tt, i, x, y) => wl * Math.pow(LW.smooth(cut, 1, shade(x, y)), 0.9) * LW.taper(tt, 0.15, 0.15))); run = []; };
+          for (let s = -R; s <= R; s += 3) {
+            const x = ox + cj * s, y = oy + sj * s;
+            if (inDisc(x, y, 2) && shade(x, y) > cut) run.push(x, y); else flush();
+          }
+          flush();
+        }
+      }
+      // terminator drawn in hatching: short strokes thrown toward the light across the day/night line
+      const ld = Math.hypot(L[0], L[1]), lx = L[0] / ld, ly = L[1] / ld;
+      for (let i = 0; i < 9000; i++) {
+        const a = trng.range(0, 6.283), d = Math.sqrt(trng.next()) * (R - 4);
+        const x = PL.x + Math.cos(a) * d, y = PL.y + Math.sin(a) * d;
+        const sh = shade(x, y);
+        if (sh < 0.06 || sh > 0.8) continue;
+        const band = Math.sin(Math.PI * LW.smooth(0.06, 0.8, sh));
+        if (trng.next() > band * 0.85) continue;
+        const len = trng.range(5, 16) * (0.6 + band);
+        const aj = Math.atan2(ly, lx) + trng.range(-0.18, 0.18);
+        LW.fleck(ink.p('#0b1520'), x, y, len, aj, 0.45 + 0.75 * sh);
+      }
+      // stipple in the ring shadow and along the terminator
+      for (let i = 0; i < 26000; i++) {
+        const a = trng.range(0, 6.283), d = Math.sqrt(trng.next()) * (R - 4);
+        const x = PL.x + Math.cos(a) * d, y = PL.y + Math.sin(a) * d;
+        const p = surf(x, y);
+        const rs = ringShadowOnPlanet(p), sh = shade(x, y);
+        const w = Math.max((1 - rs) * 0.8, sh > 0.04 && sh < 0.85 ? 0.45 * Math.sin(Math.PI * sh) : 0);
+        if (trng.next() > w) continue;
+        LW.dot(ink.p('#0b1520'), x, y, trng.range(0.45, 0.95));
+      }
+      ink.flush(ctx);
+    }
 
     // atmosphere: arcs hugging the lit limb
     const halo = new LW.FillBatch();

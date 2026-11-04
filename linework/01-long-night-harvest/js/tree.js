@@ -92,7 +92,7 @@
     // twigs that break the silhouette
     const twigs = [];
     for (const c of clumps) {
-      if (c.rr < 0.78 || rng.next() > 0.55) continue;
+      if (c.rr < 0.72 || rng.next() > 0.7) continue;
       const a = Math.atan2(c.y - cy, c.x - cx) + rng.range(-0.5, 0.5);
       const L = c.r * rng.range(0.7, 1.4);
       const x0 = c.x + Math.cos(a) * c.r * 0.5, y0 = c.y + Math.sin(a) * c.r * 0.5;
@@ -225,6 +225,50 @@
       }
     }
     marks.flush(ctx, ['#0c1720', '#0d1923', '#24495a', P.teal, P.sea, P.rust, P.orange, P.amber]);
+    // foliage texture: dense leaf flecks through each clump, cross-hatched shadow pockets in the undersides
+    {
+      const ms = opts.markScale || 1;
+      const tx = new LW.FillBatch();
+      const trng = new LW.RNG('fol-' + (opts.seed || 't') + Math.round(m.cx) + '_' + Math.round(m.cy));
+      const dark = m.back ? '#08121a' : '#0a151d';
+      for (const c of m.clumps) {
+        const sd = sunDir(c.x, c.y);
+        const warm = edgeWarmth(c.x);
+        // flecks
+        const nf = Math.round((c.r * c.r) / (34 * ms * ms + 6));
+        for (let i = 0; i < nf; i++) {
+          const a = trng.range(0, 6.283), d = Math.sqrt(trng.next()) * c.r * 0.88;
+          const x = c.x + Math.cos(a) * d, y = c.y + Math.sin(a) * d;
+          const up = -Math.sin(a) * (d / c.r);
+          const toward = (Math.cos(a) * sd[0] + Math.sin(a) * sd[1]) * (d / c.r);
+          const len = trng.range(1.6, 3.6) * ms + 0.6, ang = trng.range(-0.9, 0.9) + (trng.next() < 0.5 ? 0 : Math.PI / 2);
+          let col = dark;
+          if (up > 0.45 && toward > 0.1 && trng.next() < 0.45) col = m.back ? '#1d3946' : (warm > 0.4 ? P.rust : P.teal);
+          else if (up > 0.25 && trng.next() < 0.42) col = m.back ? '#16303c' : '#24495a';
+          if (col === dark && up > 0.35 && trng.next() < (opts.flank ? 0.15 : 0.6)) continue;
+          LW.fleck(tx.p(col), x, y, len, ang, 0.42 * ms + 0.12);
+        }
+        // shadow pocket: crosshatch in the lower, sun-averted crescent
+        if (c.r * (1 / ms) < 7) continue;
+        const gap = LW.clamp(c.r * 0.065, 2.4, 4.6) * (0.6 + 0.4 * ms) + 0.4;
+        const hw = LW.clamp(0.3 + c.r * 0.006, 0.35, 0.75) * (0.6 + 0.4 * ms);
+        for (const [ang, lim] of [[0.75, 0.15], [-0.75, 0.42]]) {
+          const ca = Math.cos(ang), sa = Math.sin(ang);
+          for (let k = -c.r; k <= c.r; k += gap) {
+            let run = [];
+            const flush = () => { if (run.length >= 4) LW.ribbon(tx.p(dark), LW.wobble(run, 0.35 * ms, 0.12, k + c.x), (tt) => hw * LW.taper(tt, 0.2, 0.2)); run = []; };
+            for (let sx = -c.r; sx <= c.r; sx += 1.5) {
+              const x = c.x - sa * k + ca * sx, y = c.y + ca * k + sa * sx;
+              const dx = (x - c.x) / c.r, dy = (y - c.y) / c.r, rr = Math.hypot(dx, dy);
+              const shadow = opts.flank ? dy * 0.55 + 0.3 - 0.35 * (dx * sd[0] + dy * sd[1]) + 0.15 * rr : dy * 0.9 - (dx * sd[0] + dy * sd[1]) * 0.6 + (rr - 0.3) * 0.5;
+              if (rr < 0.86 && shadow > lim + 0.12 * LW.N1(x * 0.08, y * 0.08)) run.push(x, y); else flush();
+            }
+            flush();
+          }
+        }
+      }
+      tx.flush(ctx, [dark, '#16303c', '#1d3946', '#24495a', P.teal, P.rust]);
+    }
     // rim light: only on silhouette edges (outward probe hits sky) that face the sun
     const rim = new LW.FillBatch();
     for (const c of m.clumps) {
@@ -332,6 +376,63 @@
       }
     }
     grain.flush(ctx, ['#1d3944', '#2a4f5a', P.teal, P.sea, P.orange, P.amber, P.ink]);
+    // bark: dark fissures running with the grain, bridged by short diagonal cracks into a network;
+    // cross-contour hatching curling round the shadow side
+    const brng = new LW.RNG('bark' + opts.seed);
+    const bark = new LW.FillBatch();
+    for (const b of all) {
+      const f = hw(b);
+      const maxW = Math.max(b.w0, b.w1) * (b.trunk ? 1.9 : 1);
+      if (maxW < 5) continue;
+      const n = b.pts.length >> 1;
+      const nx = new Float64Array(n), ny = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        const a = Math.max(0, i - 1), c = Math.min(n - 1, i + 1);
+        let tx = b.pts[2 * c] - b.pts[2 * a], ty = b.pts[2 * c + 1] - b.pts[2 * a + 1];
+        const l = Math.hypot(tx, ty) || 1; nx[i] = -ty / l; ny[i] = tx / l;
+      }
+      const sd = sunDir(b.pts[0], b.pts[1]);
+      const lines = Math.max(2, Math.round(maxW / 3.1));
+      const fis = [];
+      for (let Lk = 0; Lk < lines; Lk++) {
+        const s0 = -0.9 + (1.8 * (Lk + 0.5)) / lines + brng.range(-0.08, 0.08);
+        const pts = [];
+        for (let i = 0; i < n; i++) {
+          const t = i / (n - 1);
+          const s = LW.clamp(s0 + 0.09 * LW.N3(i * 0.09 + Lk * 3.1, b.w0 * 0.3), -0.93, 0.93);
+          const w = f(t);
+          pts.push(b.pts[2 * i] + nx[i] * w * s, b.pts[2 * i + 1] + ny[i] * w * s);
+        }
+        fis.push(pts);
+        const side = nx[0] * sd[0] + ny[0] * sd[1];
+        const shaded = side * s0 < 0.1;
+        LW.dashes(pts, brng, 8, 60, 2, 7, (sub) => LW.ribbon(bark.p(P.ink), sub, (t) => (shaded ? 0.85 : 0.55) * (b.trunk ? 1.15 : 0.8) * LW.taper(t, 0.3, 0.3) + 0.12));
+      }
+      // cracks bridging neighbouring fissures
+      for (let Lk = 0; Lk < fis.length - 1; Lk++) {
+        const A = fis[Lk], B = fis[Lk + 1];
+        for (let i = 2; i < n - 2; i += brng.int(3, 7)) {
+          if (brng.next() < 0.45) continue;
+          const j = Math.min(n - 1, i + brng.int(-2, 3));
+          LW.ribbon(bark.p(P.ink), [A[2 * i], A[2 * i + 1], B[2 * j], B[2 * j + 1]], (t) => 0.4 * LW.taper(t, 0.25, 0.25) + 0.1);
+        }
+      }
+      // cross-contour hatch on the shadow side
+      for (let i = 0; i < n; i += 1) {
+        if (brng.next() < 0.25) continue;
+        const t = i / (n - 1);
+        const w = f(t);
+        const side = nx[i] * sd[0] + ny[i] * sd[1];
+        const sgn = side > 0 ? -1 : 1; // shadow side normal sign
+        const s1 = 0.15 + brng.range(0, 0.2), s2 = 0.95;
+        const bow = 0.12 * w;
+        const ax = b.pts[2 * i] + nx[i] * w * s1 * sgn, ay = b.pts[2 * i + 1] + ny[i] * w * s1 * sgn;
+        const cx = b.pts[2 * i] + nx[i] * w * s2 * sgn, cy = b.pts[2 * i + 1] + ny[i] * w * s2 * sgn;
+        const tx = -ny[i], ty = nx[i];
+        LW.ribbon(bark.p('#0b161e'), [ax, ay, (ax + cx) / 2 + tx * bow, (ay + cy) / 2 + ty * bow, cx, cy], (tt) => (b.trunk ? 0.75 : 0.55) * LW.taper(tt, 0.4, 0.1) + 0.1);
+      }
+    }
+    bark.flush(ctx, ['#0b161e', P.ink]);
   }
 
   LW.drawTree = function (ctx, tree, opts) {
@@ -364,6 +465,6 @@
     ctx.fillStyle = P.ink; ctx.fill(st);
     prepClumps(cl, rng, opts);
     const covered = makeCovered(cl);
-    drawMass(ctx, { clumps: cl, back: false }, rng, opts, covered);
+    drawMass(ctx, { clumps: cl, back: false }, rng, Object.assign({ flank: true }, opts), covered);
   };
 })();

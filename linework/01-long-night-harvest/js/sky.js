@@ -134,6 +134,7 @@
       bounds: [-40, -40, SC.W + 40, 1560], cell: 10, step: 2, dtest: 0.5, minLen: 16, seeds,
     });
     LW.log('galaxy streamlines: ' + lines.length);
+    LW.galaxyLines = lines;
     const rng = new LW.RNG('galaxy');
     const fill = new LW.FillBatch();
     for (const Ls of lines) {
@@ -157,7 +158,27 @@
     fill.flush(ctx, ['#1b3243', '#284957', '#3d6670', '#5d8a8a', '#05090f']);
   };
 
+  // ruled plate tone in the dark night: fine broken lines a shade deeper than the ground
+  function plateTone(ctx) {
+    const rng = new LW.RNG('plate-tone');
+    const fb = new LW.FillBatch();
+    for (let y = 2; y < 1900; y += 3.4 + rng.range(-0.4, 0.4)) {
+      const pts = [];
+      for (let x = -10; x <= SC.W + 10; x += 12) pts.push(x, y + 1.2 * LW.N3(x * 0.002, y * 0.01) + 0.3 * rng.normal());
+      let run = [];
+      const flush = () => { if (run.length >= 4) LW.dashes(run, rng, 20, 260, 3, 30, (sub) => LW.ribbon(fb.p('#060b14'), sub, (t) => 0.55 * LW.taper(t, 0.15, 0.15))); run = []; };
+      for (let i = 0; i < pts.length; i += 2) {
+        const x = pts[i], yy = pts[i + 1];
+        const ok = SC.glow(x, yy) < 0.12 && SC.vortexFade(x, yy) < 0.75 && (x - PL.x) ** 2 + (yy - PL.y) ** 2 > (PL.R + 8) ** 2 && milky(x, yy) < 0.55;
+        if (ok) run.push(x, yy); else flush();
+      }
+      flush();
+    }
+    fb.flush(ctx);
+  }
+
   LW.drawStars = function (ctx) {
+    plateTone(ctx);
     LW.drawGalaxy(ctx);
     const rng = new LW.RNG('stars');
     const fill = new LW.FillBatch();
@@ -178,6 +199,91 @@
       }
     }
     fill.flush(ctx);
+    // ---- texture: denser band stipple, knots of light, faint dust everywhere, layered dust lanes
+    {
+      const trng = new LW.RNG('stars-tex');
+      const tex = new LW.FillBatch();
+      const okSky = (x, y) => { const dx = x - PL.x, dy = y - PL.y; return dx * dx + dy * dy > (PL.R + 6) ** 2 && y < SC.landTop(Math.max(0, Math.min(SC.W, x))) - 6; };
+      // second, finer band stipple
+      for (let y = 0; y < 1700; y += 3) {
+        for (let x = 0; x < SC.W; x += 3) {
+          const jx = x + trng.next() * 3, jy = y + trng.next() * 3;
+          const m = milky(jx, jy);
+          if (m < 0.08) continue;
+          const vf = SC.vortexFade(jx, jy);
+          const p = Math.pow(m, 1.6) * 0.42 * (1 - vf * 0.9) * (1 - 0.95 * rift(jx, jy));
+          if (trng.next() > p || !okSky(jx, jy)) continue;
+          const u = trng.next();
+          LW.dot(tex.p(u < 0.55 ? '#2f4c5a' : u < 0.85 ? '#4d6f78' : '#7d9c9b'), jx, jy, trng.range(0.35, 0.7));
+        }
+      }
+      // knots and bright patches along the band
+      let knots = 0;
+      for (let it = 0; it < 4000 && knots < 26; it++) {
+        const t = trng.next(), off = trng.range(-200, 200);
+        const kx = 2160 * t + 0.44 * off, ky = 1180 - 1060 * t + 0.9 * off;
+        const m = milky(kx, ky);
+        if (m < 0.55 || rift(kx, ky) > 0.25 || SC.vortexFade(kx, ky) > 0.4 || !okSky(kx, ky)) continue;
+        knots++;
+        const sd = trng.range(14, 42), nd = Math.round(trng.range(90, 260) * m);
+        for (let i = 0; i < nd; i++) {
+          const x = kx + trng.normal() * sd * 1.3, y = ky + trng.normal() * sd * 0.8;
+          if (!okSky(x, y) || rift(x, y) > 0.5) continue;
+          const d = Math.hypot((x - kx) / sd, (y - ky) / sd);
+          const col = d < 0.7 && trng.next() < 0.5 ? '#c3dacb' : d < 1.3 ? '#8fa9a4' : '#5d7f86';
+          LW.dot(tex.p(col), x, y, trng.range(0.35, d < 0.8 ? 1.05 : 0.75));
+        }
+      }
+      // faint dust over the whole night: clumpy, dim
+      for (let y = 0; y < 2250; y += 3) {
+        for (let x = 0; x < SC.W; x += 3) {
+          const jx = x + trng.next() * 3, jy = y + trng.next() * 3;
+          const g = SC.glow(jx, jy);
+          if (g > 0.25) continue;
+          const vf = SC.vortexFade(jx, jy);
+          const clump = LW.smooth(-0.1, 0.5, LW.fbm(LW.N4, jx * 0.004 + 5, jy * 0.004, 4));
+          const p = (0.03 + 0.13 * clump) * (1 - 0.85 * vf) * (1 - LW.smooth(0.1, 0.25, g));
+          if (trng.next() > p || !okSky(jx, jy)) continue;
+          const u = trng.next();
+          LW.dot(tex.p(u < 0.55 ? '#22384a' : u < 0.88 ? '#34505f' : '#5d7f86'), jx, jy, trng.range(0.4, u > 0.88 ? 0.8 : 0.65));
+        }
+      }
+      tex.flush(ctx, ['#22384a', '#34505f', '#2f4c5a', '#4d6f78', '#5d7f86', '#7d9c9b', '#8fa9a4', '#c3dacb']);
+      // layered dust lanes: dark engraved strokes riding the galaxy flow through the rift, two layers
+      const lanes = new LW.FillBatch();
+      for (const layer of [0, 1]) {
+        for (const Ls of LW.galaxyLines || []) {
+          const pts = layer ? LW.offsetLine(Ls, 3.2) : Ls;
+          let run = [];
+          const flush = () => {
+            if (run.length >= 8) LW.dashes(run, trng, 14, 90, 2, 9, (sub) => LW.ribbon(lanes.p(layer ? '#08101a' : '#05090f'), sub, (tt, i, x, y) => (layer ? 0.5 : 0.7) * (0.6 + 2 * rift(x, y)) * LW.taper(tt, 0.2, 0.2)));
+            run = [];
+          };
+          for (let i = 0; i < pts.length; i += 4) {
+            const x = pts[i], y = pts[i + 1];
+            if (rift(x, y) > (layer ? 0.18 : 0.3) && okSky(x, y)) run.push(x, y); else flush();
+          }
+          flush();
+        }
+      }
+      lanes.flush(ctx, ['#08101a', '#05090f']);
+      // micro clusters of faint stars scattered through the dark sky
+      const cl = new LW.FillBatch();
+      let nc = 0;
+      for (let it = 0; it < 3000 && nc < 34; it++) {
+        const cx = trng.range(40, SC.W - 40), cy = trng.range(30, 1500);
+        if (SC.glow(cx, cy) > 0.15 || SC.vortexFade(cx, cy) > 0.45 || !okSky(cx, cy)) continue;
+        nc++;
+        const rad = trng.range(12, 38), n = trng.int(6, 18);
+        for (let i = 0; i < n; i++) {
+          const a = trng.range(0, 6.283), d = Math.pow(trng.next(), 0.7) * rad;
+          const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * 0.85;
+          const u = trng.next();
+          LW.dot(cl.p(u < 0.15 ? P.cream : u < 0.45 ? '#9fb6b0' : '#5d7f86'), x, y, u < 0.15 ? trng.range(1.0, 1.7) : trng.range(0.45, 0.95));
+        }
+      }
+      cl.flush(ctx, ['#5d7f86', '#9fb6b0', P.cream]);
+    }
     // stars: jittered-grid dart throwing driven by a density map
     const sc = 7;
     for (let y = 0; y < 2200; y += sc) {
@@ -305,7 +411,16 @@
     });
     LW.log('sky streamlines: ' + lines.length + ' in ' + (performance.now() - t0).toFixed(0) + 'ms');
     const rng = new LW.RNG('sky-dash');
+    const trng = new LW.RNG('sky-tex');
     const fill = new LW.FillBatch();
+    const fine = new LW.FillBatch();
+    const lineW = (x, y, wmul, wseed) => {
+      const g = SC.glow(x, y);
+      const vl = SC.vortexLight(x, y);
+      const f = SC.vortexFade(x, y);
+      const v = LW.clamp(0.26 + 0.72 * vl + 0.7 * g, 0, 1.2);
+      return (0.55 + 2.6 * v) * wmul * (0.35 + 0.65 * f) * (0.85 + 0.3 * LW.N2(x * 0.02 + wseed, y * 0.02));
+    };
     for (const L of lines) {
       LW.dashes(L, rng, 70, 520, 3, 13, (sub) => {
         const n = sub.length >> 1;
@@ -317,17 +432,62 @@
         const [col, wmul] = skyInk(mx, my, r);
         const wseed = rng.next() * 100;
         const pts = LW.wobble(sub, 0.5, 0.05, wseed, false);
-        LW.ribbon(fill.p(col), pts, (t, i, x, y) => {
-          const g = SC.glow(x, y);
-          const vl = SC.vortexLight(x, y);
-          const f = SC.vortexFade(x, y);
-          const v = LW.clamp(0.26 + 0.72 * vl + 0.7 * g, 0, 1.2);
-          const w = (0.55 + 2.6 * v) * wmul * (0.35 + 0.65 * f) * (0.85 + 0.3 * LW.N2(x * 0.02 + wseed, y * 0.02));
-          return Math.max(0.35, w) * LW.taper(t, 0.12, 0.12);
-        });
+        // engraver's variety: weight swells, dry broken strokes, the odd doubled line
+        const kind = trng.next();
+        const wv = 0.72 + 0.6 * trng.next();
+        if (kind < 0.24 && n > 10) {
+          LW.dashes(pts, trng, 6, 34, 1.4, 4.8, (s2) => LW.ribbon(fill.p(col), s2, (t, i, x, y) => Math.max(0.3, lineW(x, y, wmul, wseed) * 0.8 * wv) * LW.taper(t, 0.3, 0.3)));
+        } else {
+          LW.ribbon(fill.p(col), pts, (t, i, x, y) => Math.max(0.35, lineW(x, y, wmul, wseed) * wv) * LW.taper(t, 0.12, 0.12));
+        }
+        if (kind > 0.88 && fade > 0.35 && n > 14) {
+          const dc = LW.darker(col);
+          const side = trng.sign() * (2.3 + trng.next() * 0.9);
+          const lo = Math.floor(n * trng.range(0, 0.3)), hi = Math.ceil(n * trng.range(0.6, 1));
+          const twin = LW.offsetLine(pts, side).slice(lo * 2, hi * 2);
+          if (twin.length >= 6) LW.ribbon(fine.p(dc), twin, (t, i, x, y) => Math.max(0.3, lineW(x, y, wmul, wseed) * 0.42) * LW.taper(t, 0.25, 0.25));
+        }
       });
     }
+    // fine stipple in the troughs between lines, one plate darker than the line it sits beside
+    const grain = new LW.FillBatch();
+    for (let y = 0; y < 2300; y += 4) {
+      for (let x = 0; x < SC.W; x += 4) {
+        const jx = x + trng.next() * 4, jy = y + trng.next() * 4;
+        if (!skyInDomain(jx, jy) || jy > SC.landTop(jx) - 3) { trng.next(); continue; }
+        const f = SC.vortexFade(jx, jy);
+        const vl = SC.vortexLight(jx, jy), g = SC.glow(jx, jy);
+        const patch = 0.55 + 0.45 * LW.fbm(LW.N4, jx * 0.006, jy * 0.006, 3);
+        const p = (0.05 + 0.32 * vl + 0.08 * g) * f * patch * (1 - 0.6 * LW.smooth(0.5, 0.9, g));
+        if (trng.next() > p) continue;
+        const [lc] = skyInk(jx, jy, 0.5);
+        const dc = LW.darker(lc, 1);
+        LW.dot(grain.p(dc), jx, jy, trng.range(0.4, 0.85));
+      }
+    }
+    grain.flush(ctx);
     fill.flush(ctx, [P.deep, P.teal, P.sea, P.orange, P.pale, P.mist, P.amber, P.straw, P.cream, '#e99a3a']);
+    fine.flush(ctx);
+    // faint cross-ripples: short dark ink strokes running across the flow, in patches
+    const rip = new LW.FillBatch();
+    for (let k = 0; k < 3400; k++) {
+      let x = trng.range(0, SC.W), y = trng.range(200, 2290);
+      const L0 = trng.range(10, 42), w0 = trng.range(0.32, 0.6);
+      if (!skyInDomain(x, y)) continue;
+      const f = SC.vortexFade(x, y), vl = SC.vortexLight(x, y);
+      const patch = LW.fbm(LW.N3, x * 0.0035 + 11, y * 0.0035, 3);
+      if (patch < 0.12 || f < 0.4 || vl < 0.18 || SC.glow(x, y) > 0.1) continue;
+      const pts = [x, y];
+      for (let s = 0; s < L0; s += 3) {
+        const d = skyDir(x, y);
+        x += -d[1] * 3; y += d[0] * 3;
+        if (!skyInDomain(x, y)) break;
+        pts.push(x, y);
+      }
+      if (pts.length < 8) continue;
+      LW.ribbon(rip.p('#081018'), LW.wobble(pts, 0.6, 0.08, k * 0.37, false), (t, i, x, y) => w0 * LW.smooth(0.12, 0.4, patch) * (1 - LW.smooth(0.03, 0.1, SC.glow(x, y))) * LW.taper(t, 0.3, 0.3) + 0.1);
+    }
+    rip.flush(ctx);
     LW.skyLines = lines;
   };
 

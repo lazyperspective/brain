@@ -37,6 +37,13 @@
     const d = Math.min(k, 24 - k);
     return Math.abs(d - 0.95) < 0.24 && Z > 6;
   }
+  // wind-laid patches: stalks flattened in swirls by a gust
+  function windLaid(X, Z) {
+    const k = LW.smooth(9, 16, Z) * (1 - LW.smooth(80, 130, Z));
+    if (k <= 0) return 0;
+    if (Math.abs(X - SC.pathX(Z)) < SC.pathHalf(Z) + 1.2) return 0;
+    return k * LW.smooth(0.2, 0.4, LW.fbm(LW.N4, X * 0.045 + 2.3, Z * 0.06 - 1.1, 3));
+  }
   function beyondHedge(X, Z) { return Z > 20 && Z < SC.farHedgeZ && X > SC.hedgeX(Z) - 0.4; }
 
   // ---------------------------------------------------------------- the cart path
@@ -191,6 +198,53 @@
     pudInk.flush(ctx);
     LW.puddlePaths = puddles.map((pd) => { const q = new Path2D(); const poly = pd.pl.slice(); for (let k = pd.pr.length - 2; k >= 0; k -= 2) poly.push(pd.pr[k], pd.pr[k + 1]); LW.polyPath(q, poly, true); return q; });
     const inWater = (x, y) => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(S, S); let r = false; for (const q of LW.puddlePaths) if (ctx.isPointInPath(q, x * S, y * S)) { r = true; break; } ctx.restore(); return r; };
+    // soil texture: clods, grit stipple and pitting across the track
+    {
+      const trng = new LW.RNG('path-tex');
+      const grit = new LW.FillBatch();
+      for (let i = 0; i < 40000; i++) {
+        const y = trng.range(yh + 8, SC.H);
+        const Z = (f * H) / (y - yh);
+        if (Z < 2.2 || Z > 200) continue;
+        const X = SC.pathX(Z) + trng.range(-1, 1) * SC.pathHalf(Z) * 0.97;
+        const x = SC.screenX(X, Z), gy = SC.groundY(X, Z);
+        const sc = f / Z;
+        const r = Math.min(1.7, 0.35 + sc * trng.range(0.002, 0.009));
+        let u = trng.next();
+        if (Math.abs(Math.abs(X - SC.pathX(Z)) - 0.33) < 0.13) { if (u > 0.5) continue; u = 0; } // ruts: dark grit only
+        if (inWater(x, gy)) continue;
+        LW.dot(grit.p(u < 0.72 ? '#0d171e' : u < 0.92 ? '#2a3a40' : '#4a5856'), x, gy, r);
+      }
+      grit.flush(ctx, ['#4a5856', '#2a3a40', '#0d171e']);
+      // stones: flattened by perspective, lit on the sun side, ink outline, cast shadow, pitted
+      const st = new LW.FillBatch(), stInk = new LW.FillBatch(), stLit = new LW.FillBatch(), stSh = new LW.FillBatch();
+      for (let i = 0; i < 520; i++) {
+        const y = trng.range(yh + 30, SC.H);
+        const Z = (f * H) / (y - yh);
+        if (Z < 2.3 || Z > 60) continue;
+        const X = SC.pathX(Z) + trng.range(-1, 1) * SC.pathHalf(Z) * 0.9;
+        if (Math.abs(Math.abs(X - SC.pathX(Z)) - 0.33) < 0.16 || trng.next() < 0.35) continue; // keep the ruts clear, thin the scatter
+        const sc = f / Z;
+        const rx = sc * trng.range(0.015, 0.05) * (trng.next() < 0.08 ? 1.7 : 1);
+        if (rx < 1.6) continue;
+        const x = SC.screenX(X, Z), gy = SC.groundY(X, Z);
+        if (inWater(x, gy) || inWater(x + rx, gy)) continue;
+        const ry = rx * trng.range(0.45, 0.65), rot = trng.range(-0.25, 0.25);
+        const pts = [];
+        for (let a = 0; a < 6.283; a += 0.35) { const rr = 1 + 0.12 * LW.N3(x * 0.1 + Math.cos(a), y * 0.1 + Math.sin(a)); const cx = Math.cos(a) * rx * rr, cy = Math.sin(a) * ry * rr; pts.push(x + cx * Math.cos(rot) - cy * Math.sin(rot), gy - ry * 0.7 + cx * Math.sin(rot) + cy * Math.cos(rot)); }
+        const side = x > SC.sun.x ? 1 : -1;
+        const sh = []; for (let k = 0; k < pts.length; k += 2) sh.push(pts[k] + side * rx * 0.35, pts[k + 1] + ry * 0.45);
+        LW.polyPath(stSh.p('#081018'), sh, true);
+        LW.polyPath(st.p(Z > 25 ? '#30434a' : '#273840'), pts, true);
+        LW.ribbonClosed(stInk.p(P.ink), pts, () => Math.min(1.4, 0.35 + rx * 0.06));
+        const az = Math.exp(-(((x - SC.sun.x) / 600) ** 2));
+        const arc = [];
+        for (let a = Math.PI + 0.3; a < 2 * Math.PI - 0.2; a += 0.25) arc.push(x - side * rx * 0.15 + Math.cos(a) * rx * 0.75, gy - ry * 0.7 + Math.sin(a) * ry * 0.7);
+        LW.ribbon(stLit.p(az > 0.4 ? '#6a5a4c' : '#46565a'), arc, (t) => Math.max(0.3, ry * 0.18) * LW.taper(t, 0.25, 0.25));
+        for (let k = 0; k < Math.min(6, rx / 3); k++) LW.dot(stInk.p('#0d171e'), x + trng.range(-0.6, 0.6) * rx, gy - ry * 0.7 + trng.range(-0.4, 0.5) * ry, Math.max(0.3, rx * 0.05));
+      }
+      stSh.flush(ctx); st.flush(ctx); stLit.flush(ctx); stInk.flush(ctx);
+    }
     // walls of stalks either side of the slot, far to near
     const wall = new LW.FillBatch();
     for (let i = 0; i < Zs.length - 1; i++) {
@@ -294,7 +348,7 @@
     const earPx = (0.085 * f) / Z;
     const lod = earPx < 4.5 ? 0 : earPx < 15 ? 1 : 2;
     const sx = Math.max(1.9, earPx * (lod === 2 ? 0.55 : 0.42));
-    const B = { ink: new Path2D(), fill: new LW.FillBatch(), awn: new LW.FillBatch(), stem: new LW.FillBatch(), tick: new LW.FillBatch() };
+    const B = { ink: new Path2D(), fill: new LW.FillBatch(), awn: new LW.FillBatch(), stem: new LW.FillBatch(), tick: new LW.FillBatch(), tex: [] };
     let any = false;
     let nextStep = 1;
     for (let x = -30 + rng.next() * sx; x < SC.W + 30; x += sx * rng.range(0.6, 1.4) * nextStep) {
@@ -313,8 +367,10 @@
       const yb = yh + (f * (H - g - c)) / Zi;
       if (yb > 3920 + earPx) continue;
       let lean = 0.22 * LW.N1(X * 0.04 + Zi * 0.02, Zi * 0.04) + 0.1 * rng.normal() + 0.08;
+      const wl = windLaid(X, Zi);
+      if (wl > 0) lean += wl * (0.75 + 0.45 * LW.N2(X * 0.3, Zi * 0.3)) * (LW.N3(X * 0.02, Zi * 0.03) > 0 ? 1 : -1);
       if (edge && rng.next() < 0.07) lean += rng.sign() * rng.range(0.4, 0.8); // a lodged stalk
-      let v = fieldLight(x, yb, X, Zi) + rng.range(-0.06, 0.06);
+      let v = fieldLight(x, yb, X, Zi) + rng.range(-0.06, 0.06) - 0.16 * wl;
       any = true;
       if (pasture) {
         const h = earPx * 0.6;
@@ -329,6 +385,7 @@
         if (Zi > 140) col = rng.next() < 0.55 ? P.straw : rng.next() < 0.6 ? P.amber : P.orange;
         const w = Math.max(0.5, earPx * 0.13);
         LW.ribbon(B.tick.p(col), [x, yb, x + Math.sin(lean) * h * 0.5, yb - h * 0.5, x + Math.sin(lean * 1.2) * h, yb - h], (t) => w * LW.taper(t, 0.3, 0.25));
+        if (earPx > 2.6 && ((x * 7.3 + Zi * 13.1) % 1 + 1) % 1 < 0.35) B.tex.push(RAMP[Math.min(RAMP.length - 1, rampIdx(v) + 2)][1], [x + Math.sin(lean) * h * 0.55 - w * 0.6, yb - h * 0.55, x + Math.sin(lean) * h * 0.55 + w * 0.6, yb - h * 0.5], w * 0.45);
         if (nearPath && dPath < 0.3) {
           const ground = yh + (f * (H - g)) / Zi;
           LW.ribbon(B.stem.p(edge ? (sunWall ? (rng.next() < 0.6 ? P.rust : P.amber) : (rng.next() < 0.2 ? P.rust : '#2b4f59')) : '#17303a'), [x, yb, x - Math.sin(lean) * (ground - yb) * 0.3, ground], (t) => Math.max(0.35, earPx * 0.06));
@@ -372,6 +429,16 @@
         for (let t = 0.75; t > 0.0001; t -= 0.25) { const ww = Math.sin(Math.PI * Math.pow(t, 0.8)) * w; pts.push(x + ax * h * t + ay * ww, yb + ay * h * t - ax * ww); }
         LW.polyPath(B.ink, pts, true);
         LW.polyPath(B.fill.p(col), pts, true);
+        {
+          // grain rows: dark ticks across the spindle, alternating sides
+          const dk = RAMP[Math.min(RAMP.length - 1, ci + 2)][1];
+          const nt = earPx > 9 ? 4 : 3;
+          for (let k = 1; k <= nt; k++) {
+            const s = k / (nt + 1), ww = Math.sin(Math.PI * Math.pow(s, 0.8)) * w * 0.85, sg = k % 2 ? 1 : -1;
+            const cx = x + ax * h * s, cy = yb + ay * h * s;
+            B.tex.push(dk, [cx, cy, cx - ay * ww * sg + ax * h * 0.06, cy + ax * ww * sg + ay * h * 0.06], Math.max(0.25, w * 0.16));
+          }
+        }
         if (edge && (v > 0.4 || sunWall)) {
           const rimc = v > 0.6 ? P.straw : P.amber;
           LW.ribbon(B.awn.p(rimc), [x + ax * h * 0.15 - ay * w * 0.5, yb + ay * h * 0.15 + ax * w * 0.5, x + ax * h * 0.85 - ay * w * 0.35, yb + ay * h * 0.85 + ax * w * 0.35], (t) => w * 0.35 * LW.taper(t, 0.2, 0.2) + 0.2);
@@ -410,10 +477,20 @@
     if (!any) return;
     B.stem.flush(ctx);
     B.tick.flush(ctx, ORDER);
+    if (lod === 0 && B.tex.length) {
+      const tb = new LW.FillBatch();
+      for (let i = 0; i < B.tex.length; i += 3) { const w = B.tex[i + 2]; LW.ribbon(tb.p(B.tex[i]), B.tex[i + 1], (t) => w * LW.taper(t, 0.3, 0.3)); }
+      tb.flush(ctx);
+    }
     if (lod > 0) {
       ctx.strokeStyle = P.ink; ctx.lineWidth = lod === 2 ? 1.6 : 1.1; ctx.lineJoin = 'round';
       ctx.stroke(B.ink);
       B.fill.flush(ctx, ORDER);
+      if (B.tex.length) {
+        const tb = new LW.FillBatch();
+        for (let i = 0; i < B.tex.length; i += 3) { const w = B.tex[i + 2]; LW.ribbon(tb.p(B.tex[i]), B.tex[i + 1], (t) => w * LW.taper(t, 0.2, 0.3)); }
+        tb.flush(ctx);
+      }
       B.awn.flush(ctx, ORDER);
     }
   }
@@ -537,6 +614,25 @@
     const tp = new Path2D(); LW.ribbon(tp, track, (t) => 1.6 - t);
     ctx.fillStyle = P.straw; ctx.fill(tp);
     drawPath(ctx);
+    // tractor tramlines: dark wheel tracks at canopy level, seen where the rows part
+    {
+      const tb = new LW.FillBatch();
+      for (let k = -12; k <= 12; k++) {
+        for (const sgn of [-1, 1]) {
+          const pts = [];
+          for (let lz = Math.log(6.2); lz < Math.log(42); lz += 0.01) {
+            const Z = Math.exp(lz);
+            const X = 6 + 0.15 * Z + 24 * k + sgn * 0.95;
+            if (inPath(X, Z, 0.1) || beyondHedge(X, Z)) { if (pts.length >= 4) { const q = pts.splice(0); LW.ribbon(tb.p('#0c1820'), q, (t, i, x, y) => Math.max(0.4, (0.2 * f) / Math.max(6, (f * H) / Math.max(1, y - yh))) * 0.5); } continue; }
+            const x = SC.screenX(X, Z);
+            if (x < -40 || x > SC.W + 40) continue;
+            pts.push(x, yh + (f * (H - SC.terrain(X, Z) - CANOPY)) / Z);
+          }
+          if (pts.length >= 4) LW.ribbon(tb.p('#0c1820'), pts, (t, i, x, y) => Math.max(0.4, (0.2 * f) / Math.max(6, (f * H) / Math.max(1, y - yh))) * 0.5);
+        }
+      }
+      tb.flush(ctx);
+    }
     const objs = objects();
     const rng = new LW.RNG('rows');
     let Z = 232, oi = 0, rows = 0;

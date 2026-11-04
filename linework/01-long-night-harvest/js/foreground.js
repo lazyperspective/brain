@@ -123,6 +123,34 @@
         LW.dashes(vp, rng, 30, 200, 4, 16, (sub) => LW.ribbon(veins.p(v === 0 ? (under ? '#0e1b23' : L.vein) : under ? '#0f1d26' : (L.layer === 0 ? '#16303b' : P.deep)), sub, (t) => (v === 0 ? 0.95 : 0.55) * L.sc * LW.taper(t, 0.2, 0.2) + 0.15));
       }
       veins.flush(ctx);
+      {
+        // fine dry striations between the veins and stipple drifting toward the shadowed edge
+        const trng = new LW.RNG('blade-tex' + Math.round(x) + '_' + Math.round(y) + '_' + sI);
+        const st = new LW.FillBatch();
+        const dk = under ? '#09131a' : L.layer === 0 ? '#0b161e' : '#0d1a22';
+        const ns = under ? 9 : 7;
+        for (let v = -ns; v <= ns; v++) {
+          if (v === 0) continue;
+          const base = v / (ns + 0.6) + trng.range(-0.03, 0.03);
+          const vp = [];
+          for (let i = Math.max(1, from); i <= Math.min(n - 2, to); i++) {
+            const t = i / (n - 1);
+            const sv = base * pinch(t);
+            vp.push(c[2 * i] + (left[2 * i] - c[2 * i]) * sv, c[2 * i + 1] + (left[2 * i + 1] - c[2 * i + 1]) * sv);
+          }
+          if (vp.length < 4) continue;
+          LW.dashes(vp, trng, 8, 70, 3, 22, (sub) => LW.ribbon(st.p(dk), sub, (t) => (0.3 * L.sc + 0.12) * LW.taper(t, 0.3, 0.3)));
+        }
+        const area = (to - from) * wid * 0.8;
+        for (let k = 0; k < area * 0.5; k++) {
+          const i = Math.floor(trng.range(Math.max(1, from), Math.min(n - 2, to)));
+          const t = i / (n - 1);
+          const sv = (under ? trng.range(-1, 1) : -Math.pow(trng.next(), 0.6)) * 0.92 * pinch(t);
+          const px = c[2 * i] + (left[2 * i] - c[2 * i]) * sv, py = c[2 * i + 1] + (left[2 * i + 1] - c[2 * i + 1]) * sv;
+          LW.dot(st.p(dk), px, py, trng.range(0.35, 0.5 + 0.45 * L.sc));
+        }
+        st.flush(ctx);
+      }
       // rim light on the upper edge of top-surface segments
       if (!under && L.layer > 0 && !(dead && sI === segs.length - 2)) {
         const rim = [];

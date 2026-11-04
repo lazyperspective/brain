@@ -103,6 +103,13 @@
     paper: '#f3e7c4', cream: '#fbeec8', straw: '#f5ca72', amber: '#eb9b39', orange: '#d4652b',
     rust: '#9c4529', ember: '#5e2a22', soil: '#24323b',
   };
+  // one plate step darker: used for texture marks that sit inside a surface without lifting it
+  LW.DARKER = {
+    '#fff4d6': '#f3e7c4', '#fff6dc': '#fbeec8', '#fbeec8': '#f5ca72', '#f3e7c4': '#f5ca72', '#f5ca72': '#eb9b39', '#eb9b39': '#d4652b',
+    '#d4652b': '#9c4529', '#9c4529': '#5e2a22', '#5e2a22': '#2a1a1c', '#c3dacb': '#8fbcae', '#8fbcae': '#4a8783',
+    '#4a8783': '#2c5f66', '#2c5f66': '#1d3d49', '#1d3d49': '#142a35', '#142a35': '#0c161e', '#e99a3a': '#d4652b',
+  };
+  LW.darker = function (c, k) { k = k || 1; for (let i = 0; i < k; i++) c = LW.DARKER[c] || '#0c161e'; return c; };
 
   // misregistration: each colour plate is offset a little from the key (ink) plate
   LW.REG = { cool: [1.4, 0.9], warm: [-1.1, 1.3], light: [0.8, -1.2] };
@@ -249,6 +256,24 @@
       }
     }
     if (drawing && cur.length >= 4) cb(cur);
+  };
+
+  // parallel copy of a polyline, offset d along its left normal
+  LW.offsetLine = function (pts, d) {
+    const n = pts.length >> 1, out = new Array(pts.length);
+    for (let i = 0; i < n; i++) {
+      const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1);
+      let tx = pts[2 * b] - pts[2 * a], ty = pts[2 * b + 1] - pts[2 * a + 1];
+      const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+      out[2 * i] = pts[2 * i] - ty * d; out[2 * i + 1] = pts[2 * i + 1] + tx * d;
+    }
+    return out;
+  };
+  LW.dot = function (path, x, y, r) { path.moveTo(x + r, y); path.arc(x, y, r, 0, 6.2832); };
+  // a short engraved fleck (tapered stroke) centred at x,y
+  LW.fleck = function (path, x, y, len, ang, w) {
+    const c = Math.cos(ang) * len * 0.5, s = Math.sin(ang) * len * 0.5;
+    LW.ribbon(path, [x - c, y - s, x, y, x + c, y + s], (t) => w * LW.taper(t, 0.35, 0.35) + 0.08);
   };
 
   // blob: closed scalloped outline around (cx,cy)
