@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Observatory</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #04070e; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  canvas { display: block; max-width: 100vw; max-height: 100vh; width: auto; height: auto; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="js/core.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/land.js"></script>
+<script src="js/observatory.js"></script>
+<script src="js/flora.js"></script>
+<script src="js/print.js"></script>
+<script src="js/main.js"></script>
+<script>
+  // ?size=1080 renders a half-size preview; default is native 2160x3840.
+  // ?skip=layer,layer skips layers (debug).
+  (function () {
+    const q = new URLSearchParams(location.search);
+    const size = parseInt(q.get('size') || '2160', 10);
+    const scale = size / OB.W;
+    const c = document.getElementById('c');
+    c.width = Math.round(OB.W * scale);
+    c.height = Math.round(OB.H * scale);
+    window.__drawing = { ready: false, ms: 0 };
+    OB.render(c, scale, { skip: q.get('skip') || '' }).catch((e) => {
+      window.__drawing = { ready: true, error: String(e && e.stack || e), ms: 0 };
+      console.error(e);
+    });
+  })();
+</script>
+</body>
+</html>
