@@ -56,6 +56,13 @@
     road: H('#b8c8cb'),
     crevice: H('#0a111d'),
     pathShade: H('#4d6672'),
+    // depth: aerial haze over the massif, the gap mist, and the near-plane extremes
+    haze: H('#3f6584'),
+    gapMist: H('#88a8bc'),
+    gapLine: H('#c9dde4'),
+    nearInk: H('#060a13'),
+    bigPineFill: H('#081a1d'),
+    bigPineBark: H('#1c1e25'),
   });
   C.skyTones = T([
     [0.12, '#060b1d'], [0.24, '#08102a'], [0.36, '#0b1533'], [0.47, '#0e1b3d'], [0.57, '#112247'],
@@ -63,7 +70,7 @@
   ]);
   C.massifTones = T([[0.25, '#4b6676'], [0.38, '#3f596a'], [0.5, '#344d5e'], [0.62, '#2a4253'], [0.75, '#213646'], [9, '#192a39']]);
   C.rockTones = T([[0.25, '#5a7280'], [0.38, '#4c6372'], [0.5, '#3f5665'], [0.62, '#334958'], [0.75, '#293c4b'], [9, '#1e2e3c']]);
-  C.fgTones = T([[0.3, '#465b68'], [0.42, '#394d5b'], [0.54, '#2e404e'], [0.66, '#243442'], [0.78, '#1b2834'], [9, '#121b25']]);
+  C.fgTones = T([[0.28, '#5b7482'], [0.4, '#3e5462'], [0.52, '#2a3b48'], [0.64, '#1c2935'], [0.76, '#121b26'], [9, '#090f18']]);
   C.stoneTones = T([[0.25, '#6e7d86'], [0.38, '#5d6c76'], [0.5, '#4d5c67'], [0.62, '#404e59'], [0.75, '#34414c'], [9, '#28333e']]);
   C.domeTones = T([[0.25, '#6d8899'], [0.4, '#56707f'], [0.55, '#435b6c'], [0.7, '#354c5e'], [0.82, '#2a3e50'], [9, '#1f3041']]);
 
@@ -130,7 +137,12 @@
       if (vi === 27) S.lanterns.push({ x: best.x - best.w * 0.7, y: best.y + 2, s });
       else S.lanterns.push({ x: best.x + ux * (best.w * 0.5 + 6 * s), y: best.y + uy * (best.w * 0.5 + 6 * s) + 4 * s, s });
     }
-    for (const L of S.lanterns) OB.lights.push({ x: L.x + 12 * L.s, y: L.y - 20 * L.s, r: 110 * L.s + 50, i: 0.85, sy: 1.3, tags: ['path', 'massif', 'fg'] });
+    // depth: a lantern's reach and strength fall off with distance (s shrinks up the path)
+    for (const L of S.lanterns) {
+      L.near = OB.clamp((L.s - 0.6) / 1.1);
+      L.dim = OB.lerp(0.5, 1, Math.pow(L.near, 0.7));
+      OB.lights.push({ x: L.x + 12 * L.s, y: L.y - 20 * L.s, r: 110 * L.s + 50, i: 0.85 * L.dim, sy: 1.3, tags: ['path', 'massif', 'fg'] });
+    }
     S.pathOccluders = [
       { t: 0.3, s: 0.75, dx: 0.15, dy: 0.42 },
       { t: 0.47, s: 0.7, dx: -0.2, dy: 0.4 },
@@ -164,23 +176,23 @@
     const pk = (arr) => arr.map(([x, h, wl, wr, e]) => ({ x, h, wl, wr, e }));
     S.ranges = [
       { seed: 101, base: 2290, bottom: 2700, rough: 26, peaks: pk([[-60, 250, 240, 260, 1.2], [180, 320, 260, 240, 1.3], [420, 200, 200, 220, 1.1], [640, 330, 270, 250, 1.25], [900, 230, 230, 260, 1.2], [1150, 270, 250, 250, 1.2], [1420, 220, 240, 240, 1.2], [1720, 260, 260, 240, 1.2], [2010, 310, 260, 260, 1.25], [2260, 210, 220, 220, 1.2]]),
-        tones: T([[0.45, '#62829a'], [0.58, '#58788e'], [9, '#4e6e84']]), dLit: 0.36, dShadow: 0.62, mistFade: 0.25, sepMin: 4.4, sepMax: 11, lw: [0.6, 1.1], blend: 160,
-        lineCss: OB.css(H('#37566e'), 0.85), crestCss: OB.css(H('#2e4b62')), crestW: 1.8 },
+        tones: T([[0.45, '#7898ad'], [0.58, '#6f8ea4'], [9, '#65849a']]), dLit: 0.34, dShadow: 0.6, mistFade: 0.3, sepMin: 5.6, sepMax: 14, lw: [0.45, 0.8], blend: 160,
+        lineCss: OB.css(H('#52718a'), 0.7), crestCss: OB.css(H('#48667e')), crestW: 1.2 },
       { seed: 102, base: 2420, bottom: 2800, rough: 30, peaks: pk([[60, 200, 230, 250, 1.25], [330, 250, 250, 260, 1.3], [560, 160, 190, 200, 1.1], [800, 240, 250, 230, 1.3], [1100, 210, 240, 240, 1.2], [1500, 260, 260, 260, 1.2], [1900, 230, 250, 250, 1.2]]),
-        tones: T([[0.45, '#506f86'], [0.58, '#46647b'], [9, '#3c5970']]), dLit: 0.38, dShadow: 0.66, mistFade: 0.25, sepMin: 4.0, sepMax: 10, lw: [0.7, 1.3], blend: 170,
-        lineCss: OB.css(H('#264259'), 0.9), crestCss: OB.css(H('#1e364c')), crestW: 2.3 },
+        tones: T([[0.45, '#5b7a91'], [0.58, '#516f86'], [9, '#47657b']]), dLit: 0.38, dShadow: 0.66, mistFade: 0.25, sepMin: 4.6, sepMax: 11.5, lw: [0.6, 1.1], blend: 170,
+        lineCss: OB.css(H('#2c485f'), 0.85), crestCss: OB.css(H('#243d53')), crestW: 1.9 },
       { seed: 103, base: 2560, bottom: 2900, rough: 32, peaks: pk([[-50, 200, 250, 240, 1.3], [250, 230, 240, 260, 1.35], [520, 170, 220, 230, 1.2], [760, 190, 230, 240, 1.2], [1100, 200, 250, 250, 1.2]]),
         tones: T([[0.45, '#3f5d73'], [0.58, '#365369'], [9, '#2e4a60']]), dLit: 0.4, dShadow: 0.7, mistFade: 0.2, sepMin: 3.6, sepMax: 9, lw: [0.8, 1.5], blend: 180,
-        lineCss: OB.css(H('#172b40'), 0.92), crestCss: OB.css(H('#13243a')), crestW: 2.8 },
+        lineCss: OB.css(H('#152940'), 0.93), crestCss: OB.css(H('#11223a')), crestW: 2.8 },
       { seed: 104, base: 2705, bottom: 2960, rough: 18, peaks: pk([[-80, 110, 240, 260, 1.1], [190, 150, 230, 250, 1.2], [430, 90, 200, 220, 1.1], [640, 130, 220, 230, 1.2], [900, 120, 240, 240, 1.1]]),
-        tones: T([[0.45, '#2f4a5f'], [0.58, '#283f53'], [9, '#213749']]), dLit: 0.45, dShadow: 0.75, mistFade: 0.15, sepMin: 3.4, sepMax: 8, lw: [0.9, 1.6], blend: 140,
-        lineCss: OB.css(H('#0f1f31'), 0.95), crestCss: OB.css(H('#0c192a')), crestW: 3.0, trees: { n: 900, depth: 160, h: 13 } },
+        tones: T([[0.45, '#2b465b'], [0.58, '#243b4f'], [9, '#1d3245']]), dLit: 0.45, dShadow: 0.75, mistFade: 0.15, sepMin: 3.2, sepMax: 7.5, lw: [1.0, 1.8], blend: 140,
+        lineCss: OB.css(H('#0c1a2b'), 0.97), crestCss: OB.css(H('#09152a')), crestW: 3.4, trees: { n: 900, depth: 160, h: 13 } },
     ];
     S.mists = [
-      { seed: 111, top: 2205, amp: 24, bottom: 2430, fill: C.mistFill, alpha: 0.4, lineCol: C.mistLine, lineA: 0.55, lw: 1.2, sp: [16, 6] },
-      { seed: 112, top: 2345, amp: 28, bottom: 2560, fill: C.mistFill, alpha: 0.42, lineCol: C.mistLine, lineA: 0.58, lw: 1.4, sp: [15, 5.5] },
-      { seed: 113, top: 2490, amp: 30, bottom: 2700, fill: C.mistFill, alpha: 0.45, lineCol: C.mistLine, lineA: 0.6, lw: 1.5, sp: [14, 5.5] },
-      { seed: 114, top: 2640, amp: 26, bottom: 2790, fill: C.mistFill, alpha: 0.42, lineCol: C.mistLine, lineA: 0.6, lw: 1.5, sp: [14, 5] },
+      { seed: 111, top: 2205, amp: 24, bottom: 2430, fill: C.mistFill, alpha: 0.52, lineCol: C.mistLine, lineA: 0.66, lw: 1.0, sp: [16, 6] },
+      { seed: 112, top: 2345, amp: 28, bottom: 2560, fill: C.mistFill, alpha: 0.47, lineCol: C.mistLine, lineA: 0.6, lw: 1.2, sp: [15, 5.5] },
+      { seed: 113, top: 2490, amp: 30, bottom: 2700, fill: C.mistFill, alpha: 0.42, lineCol: C.mistLine, lineA: 0.55, lw: 1.4, sp: [14, 5.5] },
+      { seed: 114, top: 2640, amp: 26, bottom: 2790, fill: C.mistFill, alpha: 0.36, lineCol: C.mistLine, lineA: 0.5, lw: 1.5, sp: [14, 5] },
       { seed: 115, top: 2768, amp: 14, bottom: 2812, fill: C.mistFill, alpha: 0.25, lineCol: C.mistLine, lineA: 0.45, lw: 1.3, sp: [10, 6] },
     ];
 
@@ -215,6 +227,7 @@
     // the big framing pine: rooted in the left outcrop, thrown hard over to leeward
     S.bigPine = {
       x: 70, y: 2985, h: 1150, seed: 501, roots: 6, thick: 0.12, taper: 0.72, smooth: 2, limbs: 11, f0: 0.3, needle: 30, spread: 0.6, dead: 0.12, upwind: 0.12, twigGap: 2.2, clusterScale: 1.35,
+      near: true, padFill: C.bigPineFill, wood: C.bigPineBark, needleW: 1.3, olwK: 1.5,
       spine: [[70, 2990], [52, 2820], [96, 2650], [74, 2500], [118, 2370], [214, 2300], [318, 2290], [392, 2225], [450, 2120], [560, 2060], [690, 2050], [790, 2005]],
     };
     return S;
@@ -254,16 +267,18 @@
     await step('massif', () => OB.drawMassifBase(ctx, S));
     await step('path', () => OB.drawPath(ctx, S));
     await step('rocks', () => OB.drawMassifRocks(ctx, S));
-    await step('lanterns', () => { for (const L of S.lanterns) OB.drawLantern(ctx, L); });
     await step('pines', () => {
       for (const p of S.pines.slice().sort((a, b) => a.y - b.y)) OB.drawPine(ctx, S, p);
     });
+    await step('haze', () => OB.drawMassifHaze(ctx, S));
+    await step('lanterns', () => { for (const L of S.lanterns) OB.drawLantern(ctx, L); });
     await step('observatory', () => OB.drawObservatory(ctx, S));
     await step('junipers', () => { for (const j of S.junipers) OB.drawJuniper(ctx, S, j); });
     await step('glows', () => {
       for (const L of S.lanterns) OB.lanternGlow(ctx, L);
       OB.observatoryGlow(ctx, S);
     });
+    await step('gapmist', () => OB.drawGapMist(ctx, S));
     await step('foreground', () => OB.drawForeground(ctx, S));
     await step('bigpine', () => OB.drawPine(ctx, S, S.bigPine));
     await step('print', () => OB.printPass(ctx, canvas, scale));
