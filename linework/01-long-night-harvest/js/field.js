@@ -105,117 +105,89 @@
     }
     ruts.flush(ctx);
     grooves.flush(ctx);
-    // puddles: flat water in the ruts (and two across the track) mirroring the sky about the horizon
-    const puddles = [];
-    for (const side of [-1, 1]) {
-      let i = 0;
-      const pn = (Z) => LW.N4(Z * 0.16 + side * 11, 0.5 + side) + 0.22 * Math.exp(-(((Z - 28) / 22) ** 2)) - 0.1 * LW.smooth(70, 130, Z);
-      while (i < Zs.length) {
-        const Z = Zs[i];
-        if (pn(Z) > 0.4 && Z < 170) {
-          let j = i;
-          while (j < Zs.length && pn(Zs[j]) > 0.4 && j - i < 34) j++;
-          if (j - i > 3) {
-            const pl = [], pr = [];
-            for (let k = i; k < j; k++) {
-              const Zk = Zs[k];
-              const t = (k - i) / (j - i - 1);
-              const bulge = Math.pow(Math.sin(Math.PI * t), 0.3) * (1 + 0.15 * LW.N3(Zk * 2, side));
-              const c = rutC(Zk, side);
-              const y = SC.groundY(c, Zk);
-              pl.push(SC.screenX(c - 0.1 * bulge - 0.004, Zk), y); pr.push(SC.screenX(c + 0.11 * bulge + 0.004, Zk), y);
-            }
-            puddles.push({ pl, pr, seed: i * 3 + side });
-          }
-          i = j + 1;
-        } else i++;
-      }
-    }
-    for (const [Zc, len, wid, off] of [[7.0, 0.95, 0.62, 0.1], [20, 3.2, 0.5, -0.08]]) {
-      const pl = [], pr = [];
-      for (const Z of Zs) {
-        if (Z < Zc - len / 2 || Z > Zc + len / 2) continue;
-        const t = (Z - (Zc - len / 2)) / len;
-        const b = Math.pow(Math.sin(Math.PI * t), 1.1) * (1 + 0.35 * LW.N3(Z * 3.1, Zc));
-        const c = SC.pathX(Z) + off + 0.06 * LW.N2(Z * 0.9, Zc);
-        const y = SC.groundY(c, Z);
-        pl.push(SC.screenX(c - wid * b * (1 + 0.15 * LW.N1(Z * 1.3, 1)), Z), y);
-        pr.push(SC.screenX(c + wid * b * (1 + 0.15 * LW.N1(Z * 1.3, 2)), Z), y);
-      }
-      if (pl.length > 6) puddles.push({ pl, pr, seed: Zc });
-    }
-    // the reflection source: the sky band just above the horizon, mirrored, smeared and darkened
+    // puddles: few, long, flat water lying in the ruts, plus one thin sliver across the track.
+    // Engraved-water convention: horizontal lines only; far bank reflected as a dark band,
+    // a thin amber band where the horizon glow reflects, teal sky below it, navy at the near edge.
     const S = LW.S;
-    const ry0 = 1150, ry1 = yh + 4;
-    const src = document.createElement('canvas');
-    src.width = ctx.canvas.width; src.height = Math.ceil((ry1 - ry0) * S);
-    const sx = src.getContext('2d');
-    sx.drawImage(ctx.canvas, 0, Math.floor(ry0 * S), src.width, src.height, 0, 0, src.width, src.height);
-    const sm = document.createElement('canvas'); sm.width = src.width; sm.height = src.height;
-    const smx = sm.getContext('2d');
-    for (let k = -6; k <= 6; k++) { smx.globalAlpha = 1 / (Math.abs(k) * 0.6 + 1.0); smx.drawImage(src, 0, k * 13 * S); }
-    smx.globalAlpha = 1;
-    // posterise to the print palette, one step darker than the sky (water swallows light)
-    {
-      const pal = ['#0a1220', '#122033', '#1d3d49', '#2c5f66', '#4a8783', '#8fbcae', '#5e2a22', '#9c4529', '#d4652b', '#eb9b39', '#f5ca72', '#f3e7c4'].map(LW.hex);
-      const down = [0, 0, 1, 2, 3, 4, 6, 6, 7, 8, 9, 10];
-      const im = smx.getImageData(0, 0, sm.width, sm.height), d = im.data;
-      for (let o = 0; o < d.length; o += 4) {
-        let best = 0, bd = 1e9;
-        for (let k = 0; k < pal.length; k++) { const c = pal[k]; const e = (d[o] - c[0]) ** 2 + (d[o + 1] - c[1]) ** 2 * 1.2 + (d[o + 2] - c[2]) ** 2; if (e < bd) { bd = e; best = k; } }
-        const c = pal[down[best]];
-        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2];
+    const puddles = [];
+    const taperEnds = (t) => Math.pow(Math.max(0, Math.min(1, t / 0.18, (1 - t) / 0.18)), 0.65);
+    const rutPool = (side, Za, Zb, seed) => {
+      const pl = [], pr = [];
+      const zs = Zs.filter((Z) => Z <= Zb && Z >= Za); // Zs runs far -> near, so pl[0] is the far tip
+      for (let k = 0; k < zs.length; k++) {
+        const Z = zs[k], t = k / (zs.length - 1);
+        const c = rutC(Z, side), y = SC.groundY(c, Z);
+        const w = 0.085 * taperEnds(t) * (1 + 0.08 * LW.N3(Z * 1.7, seed)) + 0.002;
+        pl.push(SC.screenX(c - w, Z), y); pr.push(SC.screenX(c + w, Z), y);
       }
-      smx.putImageData(im, 0, 0);
-      LW._refl = im;
+      puddles.push({ pl, pr, seed, kind: 'rut' });
+    };
+    rutPool(-1, 11.5, 19, 1);
+    rutPool(1, 8.3, 10.9, 2);
+    rutPool(1, 26, 38, 3);
+    {
+      // the cross-track sliver: wide, very shallow in depth, its far edge following the far rut line
+      const Zc = 6.85, dz = 0.27, Xa = SC.pathX(Zc) - 0.5, Xb = SC.pathX(Zc) + 0.46;
+      const top = [], bot = [];
+      for (let k = 0; k <= 60; k++) {
+        const u = k / 60, X = Xa + (Xb - Xa) * u;
+        const th = dz * taperEnds(u) * (1 + 0.15 * LW.N2(u * 6, 4)) + 0.004;
+        const Zf = Zc + th * 0.65, Zn = Zc - th * 0.35;
+        top.push(SC.screenX(X, Zf), SC.groundY(X, Zf));
+        bot.push(SC.screenX(X, Zn), SC.groundY(X, Zn));
+      }
+      puddles.push({ pl: top, pr: bot, seed: 9, kind: 'cross' });
     }
-    const pudInk = new LW.FillBatch(), rip = new LW.FillBatch(), glint = new LW.FillBatch();
+    const water = new LW.FillBatch(), lines = new LW.FillBatch(), pudInk = new LW.FillBatch();
+    const sunX = SC.sun.x;
     for (const pd of puddles) {
       const { pl, pr } = pd;
       const poly = pl.slice();
       for (let k = pr.length - 2; k >= 0; k -= 2) poly.push(pr[k], pr[k + 1]);
-      const wp = LW.wobble(LW.resample(poly, 3), 0.3 + 1.2 * LW.smooth(yh, 3300, poly[1]), 0.05, pd.seed, true);
-      const path = new Path2D(); LW.polyPath(path, wp, true);
+      const path = new Path2D(); LW.polyPath(path, poly, true);
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (let k = 0; k < poly.length; k += 2) { x0 = Math.min(x0, poly[k]); x1 = Math.max(x1, poly[k]); y0 = Math.min(y0, poly[k + 1]); y1 = Math.max(y1, poly[k + 1]); }
+      const near = LW.smooth(yh, 3500, y1);
+      ctx.fillStyle = '#0a1219'; ctx.fill(path);
       ctx.save(); ctx.clip(path);
-      // mirror about the horizon: native y' = 2*yh - y  ->  draw sm flipped
-      ctx.save();
-      ctx.translate(0, 2 * yh); ctx.scale(1, -1);
-      ctx.drawImage(sm, 0, ry0, SC.W, ry1 - ry0);
-      ctx.restore();
-      // engraved ripples over the reflection: dark lines, gap-broken, spacing grows toward the viewer
-      const y0 = Math.min(pl[1], pl[pl.length - 1]), y1 = Math.max(pl[1], pl[pl.length - 1]);
-      let xa = 1e9, xb = -1e9;
-      for (let k = 0; k < pl.length; k += 2) { xa = Math.min(xa, pl[k], pr[k]); xb = Math.max(xb, pl[k], pr[k]); }
-      const near = LW.smooth(yh, 3600, y0);
-      let yy = y0 + 0.5;
-      while (yy < y1) {
-        const step = 1.5 + 3.4 * LW.smooth(yh, 3700, yy);
-        let xx = xa - 4 + rng.range(0, 8);
-        const R = LW._refl;
-        const ys = Math.floor(((2 * yh - yy) - ry0) * S);
-        while (xx < xb + 4) {
-          const ww = rng.range(10, 60) * (0.4 + near);
-          const px = Math.max(0, Math.min(R.width - 1, Math.floor((xx + ww / 2) * S)));
-          const o = (Math.max(0, Math.min(R.height - 1, ys)) * R.width + px) * 4;
-          const lum = (R.data[o] * 0.3 + R.data[o + 1] * 0.59 + R.data[o + 2] * 0.11) / 255;
-          const col = lum > 0.3 ? '#0b141b' : rng.next() < 0.5 ? P.teal : '#24474f';
-          LW.ribbon(rip.p(col), [xx, yy, xx + ww * 0.5, yy + rng.range(-0.3, 0.3), xx + ww, yy], (t) => (0.45 + 1.15 * near) * LW.taper(t, 0.25, 0.25));
-          xx += ww + rng.range(2, 12) * (0.4 + near);
-        }
-        // a bright catch-light ripple where the slot is mirrored
-        const g = SC.glow((xa + xb) / 2, 2 * yh - yy);
-        if (g > 0.45 && rng.next() < 0.35) {
-          const gx = rng.range(xa, xb), gw = rng.range(4, 18) * (0.4 + near);
-          LW.ribbon(glint.p(g > 0.8 ? '#fff6dc' : P.straw), [gx, yy + step * 0.5, gx + gw, yy + step * 0.5], (t) => (0.4 + 0.6 * near) * LW.taper(t, 0.3, 0.3));
-        }
-        yy += step * rng.range(0.85, 1.15);
-      }
-      rip.flush(ctx); glint.flush(ctx);
-      ctx.restore();
-      // banks: heavy far-edge lip (the bank's shadow), thin broken near edge
       const hgt = Math.max(1, y1 - y0);
-      LW.ribbonClosed(pudInk.p(P.ink), wp, (t, k, x, y) => (0.3 + 0.9 * near) * (0.25 + 2.2 * LW.smooth(y0 + hgt * 0.4, y0, y)));
+      // band profile measured from the far edge, in px (so long rut pools keep the bands near their far end)
+      const bank = Math.max(1.5, Math.min(hgt * 0.2, 3 + 5 * near));
+      const amberH = Math.max(1.6, Math.min(hgt * 0.25, 3 + 9 * near));
+      const tealH = Math.min(hgt * 0.45, 10 + 40 * near);
+      const step = 1.5 + 2.3 * near;
+      const glowK = Math.exp(-((((x0 + x1) / 2 - sunX) / 700) ** 2));
+      for (let yy = y0 + bank; yy < y1; yy += step * rng.range(0.85, 1.15)) {
+        const d = yy - y0 - bank;
+        let col, w, gapMul;
+        if (d < amberH) { col = glowK > 0.5 && d < amberH * 0.5 ? P.straw : P.amber; w = 0.55 + 0.9 * near; gapMul = 0.25; }
+        else if (d < amberH + tealH) { const k = (d - amberH) / tealH; col = k < 0.35 ? P.sea : k < 0.7 ? P.teal : '#1d3d49'; w = 0.45 + 0.8 * near; gapMul = 0.5 + k; }
+        else { col = '#16303b'; w = 0.4 + 0.7 * near; gapMul = 1.8; }
+        let xx = x0 - 3 + rng.range(0, 6);
+        while (xx < x1 + 3) {
+          const ww = rng.range(8, 46) * (0.4 + 1.2 * near);
+          LW.ribbon(lines.p(col), [xx, yy, xx + ww * 0.25, yy, xx + ww * 0.5, yy + 0.15, xx + ww * 0.75, yy, xx + ww, yy], (t) => w * LW.taper(t, 0.12, 0.12));
+          xx += ww + rng.range(1.5, 8) * gapMul * (0.5 + near);
+        }
+        // broken white glints in the bright band
+        if (d < amberH && rng.next() < 0.6) {
+          const gx = rng.range(x0, x1), gw = rng.range(2, 9) * (0.5 + near);
+          LW.ribbon(lines.p('#fff6dc'), [gx, yy, gx + gw * 0.5, yy, gx + gw, yy], (t) => (0.5 + 0.6 * near) * LW.taper(t, 0.3, 0.3));
+        }
+      }
+      lines.flush(ctx, ['#16303b', '#1d3d49', P.teal, P.sea, P.amber, P.straw, '#fff6dc']);
+      ctx.restore();
+      // banks: heavy shadowed far bank, fine broken near edge
+      const top = pd.kind === 'cross' ? pl : null;
+      if (top) {
+        LW.ribbon(pudInk.p(P.ink), top, (t) => (1.2 + 2.2 * near) * LW.taper(t, 0.06, 0.06));
+        LW.dashes(pr, rng, 30, 120, 6, 18, (sub) => LW.ribbon(pudInk.p(P.ink), sub, (t) => (0.4 + 0.6 * near) * LW.taper(t, 0.2, 0.2)));
+      } else {
+        // rut pools: the rut walls are the sides; far tip heavy, sides thin
+        LW.ribbonClosed(pudInk.p(P.ink), LW.resample(poly, 3), (t, k, x, y) => (0.35 + 0.6 * near) * (0.6 + 1.6 * LW.smooth(y0 + hgt * 0.12, y0, y)));
+      }
     }
+    void water;
     pudInk.flush(ctx);
     LW.puddlePaths = puddles.map((pd) => { const q = new Path2D(); const poly = pd.pl.slice(); for (let k = pd.pr.length - 2; k >= 0; k -= 2) poly.push(pd.pr[k], pd.pr[k + 1]); LW.polyPath(q, poly, true); return q; });
     const inWater = (x, y) => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(S, S); let r = false; for (const q of LW.puddlePaths) if (ctx.isPointInPath(q, x * S, y * S)) { r = true; break; } ctx.restore(); return r; };

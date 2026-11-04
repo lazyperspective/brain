@@ -520,47 +520,69 @@
     ctx.fillStyle = P.amber; ctx.fill(ti);
   }
 
+  // a moth in flight, seen from above and behind: soft broad wings, fine veins, a pale furry fringe
   function moth(ctx, x, y, s, a, rng) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s);
-    const wing = (sgn, fore) => {
+    const WING = '#4f5a52', WINGD = '#39433f', HIND = '#3d4844', FRINGE = '#a9b39f', VEIN = '#232c2b';
+    // wing outline: root at the body, leading edge nearly straight, broad rounded-triangular tip, scalloped trailing edge
+    const wingPts = (sgn, fore) => {
+      const span = fore ? 44 : 30, chord = fore ? 20 : 22, sweep = fore ? -0.32 : 0.42;
       const pts = [];
-      const L = fore ? 46 : 32, Wd = fore ? 22 : 20;
-      for (let i = 0; i <= 24; i++) {
-        const u = i / 24;
-        const th = (fore ? -0.35 : 0.45) * sgn + (u - 0.5) * 1.2;
-        const rad = L * Math.pow(Math.sin(Math.PI * u), 0.6) * (fore ? 1 : 0.8) + 4;
-        pts.push(sgn * Math.cos(th) * rad, Math.sin(th) * rad * (Wd / L) * 1.6 + (fore ? -4 : 6));
+      const N = 30;
+      for (let i = 0; i <= N; i++) {
+        const u = i / N;
+        // leading edge from root to tip
+        const lx = span * u, ly = -chord * 0.18 * Math.sin(Math.PI * u * 0.9);
+        pts.push(lx, ly);
       }
-      return pts;
+      for (let i = N; i >= 0; i--) {
+        const u = i / N;
+        // trailing edge back from tip to root, bellied, with tiny scallops
+        const belly = chord * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.08)), 0.75) * (fore ? 1 - 0.25 * u : 1 - 0.1 * u);
+        const sc = 0.7 * Math.sin(u * 40);
+        pts.push(span * u * 0.97, belly + sc);
+      }
+      const out = [];
+      const ca = Math.cos(sweep), sa = Math.sin(sweep);
+      for (let i = 0; i < pts.length; i += 2) {
+        const px = pts[i], py = pts[i + 1];
+        out.push(sgn * (px * ca - py * sa), px * sa + py * ca + (fore ? -3 : 4));
+      }
+      return out;
     };
     const fb = new LW.FillBatch();
     for (const fore of [false, true]) for (const sgn of [-1, 1]) {
-      const pts = wing(sgn, fore);
-      LW.polyPath(fb.p(fore ? '#c98a4a' : '#8a5536'), pts, true);
-      LW.ribbonClosed(fb.p(P.ink), pts, () => 1.5);
-      // pattern: wavy transverse bands and a kidney spot
-      for (let k = 1; k <= 3; k++) {
-        const band = [];
-        for (let i = 2; i < pts.length - 2; i += 2) band.push(pts[i] * (k / 4), pts[i + 1] * (k / 4) + Math.sin(i) * 0.6);
-        LW.ribbon(fb.p('#3b3a30'), band, (t) => 0.55 * LW.taper(t, 0.2, 0.2));
+      const pts = wingPts(sgn, fore);
+      LW.polyPath(fb.p(fore ? WING : HIND), pts, true);
+      // fine veins radiating from the root
+      for (let k = 0; k < 6; k++) {
+        const e = 6 + Math.floor(((pts.length >> 1) / 2 - 6) * (k / 5));
+        const tx = pts[2 * (pts.length / 2 - 1 - e)], ty = pts[2 * (pts.length / 2 - 1 - e) + 1];
+        LW.ribbon(fb.p(VEIN), [0, 0, tx * 0.45, ty * 0.45 + 1, tx * 0.9, ty * 0.9], (t) => 0.35 + 0.2 * (1 - t));
       }
-      if (fore) { const q = fb.p('#3b3a30'); q.moveTo(sgn * 22 + 3, -6); q.arc(sgn * 22, -6, 3, 0, 6.283); }
-      // amber light on the leading edge
-      const lead = [];
-      for (let i = 0; i < pts.length / 2; i += 2) lead.push(pts[i], pts[i + 1] + 1);
-      if (fore) LW.ribbon(fb.p(P.straw), lead, (t) => 1.2 * LW.taper(t, 0.2, 0.2));
+      // a soft darker band across the forewing, drawn as short parallel hatch
+      if (fore) for (let k = 0; k < 7; k++) {
+        const u = 0.45 + k * 0.04;
+        const px = sgn * 44 * u, py0 = -3 + (-0.32) * 44 * u * sgn * sgn * 0;
+        LW.ribbon(fb.p(WINGD), [px * Math.cos(-0.32) , py0 - 2 + px * Math.sin(-0.32) * sgn, px * Math.cos(-0.32) + sgn * 1.5, py0 + 12 + px * Math.sin(-0.32) * sgn], () => 0.4);
+      }
+      // pale furry fringe along the trailing edge
+      const half = pts.length / 2;
+      for (let i = half + 2; i < pts.length - 4; i += 4) {
+        const px = pts[i], py = pts[i + 1];
+        LW.ribbon(fb.p(FRINGE), [px, py - 0.5, px + rng.range(-0.6, 0.6), py + 1.2, px + rng.range(-0.8, 0.8), py + 2.6], (t) => 0.55 * (1 - t));
+      }
+      // faint warm light on the leading edge (the glow is behind and low)
+      const lead = pts.slice(4, half - 6);
+      if (fore) LW.ribbon(fb.p('#c98a4a'), lead, (t) => 0.55 * LW.taper(t, 0.2, 0.3));
+      LW.ribbonClosed(fb.p(VEIN), pts, () => 0.55);
     }
-    // body and antennae
-    LW.ribbon(fb.p(P.ink), [0, -14, 0, 0, 0, 20], (t) => 4.2 * Math.sin(Math.PI * (0.15 + t * 0.7)));
-    for (const sgn of [-1, 1]) LW.ribbon(fb.p(P.ink), [0, -14, sgn * 6, -26, sgn * 14, -34], (t) => 0.7);
-    fb.flush(ctx, ['#8a5536', '#c98a4a', '#3b3a30', P.straw, P.ink]);
+    // small furry body and thin antennae
+    LW.ribbon(fb.p('#2b3431'), [0, -9, 0, 2, 0, 15], (t) => 2.6 * Math.sin(Math.PI * (0.1 + t * 0.8)));
+    for (let k = 0; k < 10; k++) { const yy = -6 + k * 2; LW.ribbon(fb.p(FRINGE), [-2, yy, 2, yy + 0.6], () => 0.25); }
+    for (const sgn of [-1, 1]) LW.ribbon(fb.p(VEIN), [0, -9, sgn * 4, -17, sgn * 9, -23, sgn * 12, -25], (t) => 0.35);
+    fb.flush(ctx, [HIND, WING, WINGD, VEIN, FRINGE, '#c98a4a', '#2b3431']);
     ctx.restore();
-    // a fine flight trail curving in from below, toward the window
-    const tr = new LW.FillBatch();
-    const pts = [];
-    for (let i = 0; i <= 30; i++) { const t = i / 30; pts.push(x - 150 * (1 - t) - 30 * Math.sin(t * 5), y + 120 * (1 - t) * (1 - t) + 18 * Math.sin(t * 9)); }
-    LW.dashes(pts, rng, 5, 10, 8, 16, (sub) => LW.ribbon(tr.p(P.straw), sub, () => 0.55));
-    tr.flush(ctx);
   }
 
   // near-black framing silhouettes: huge blades and stems right at the lens
@@ -717,7 +739,7 @@
         }
       }
     }
-    moth(ctx, 1330, 2700, 1.15, -0.3, rng);
+    moth(ctx, 1345, 2690, 0.9, -0.18, rng);
     framing(ctx, rng);
   };
 })();

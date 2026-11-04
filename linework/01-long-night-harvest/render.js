@@ -42,7 +42,7 @@ const CROPS = [
   const url = 'file://' + path.join(root, 'index.html') + '?size=' + size + (only ? '&only=' + only : '');
   const t0 = Date.now();
   await page.goto(url);
-  await page.waitForFunction(() => window.__drawing && window.__drawing.ready, null, { timeout: 0, polling: 1000 });
+  await page.waitForFunction(() => window.__drawing && window.__drawing.ready, null, { timeout: 300000, polling: 1000 }); // fail fast if a script error leaves ready=false
   const ms = await page.evaluate(() => window.__drawing.ms);
   console.log(`rendered in ${(ms / 1000).toFixed(1)} s (wall ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 
