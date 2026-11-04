@@ -162,7 +162,7 @@
         if (type[c]) d -= 0.14 * facing(c, x, y);
         if (ED[k] < 1.3) crack = true;
       }
-      let col = LW.stepPick(pal, LW.clamp(crack ? d + 0.3 : d, 0, 0.999), x, y, 0.03);
+      let col = LW.stepPick(pal, LW.clamp(crack ? d + (o.crackFill === undefined ? 0.3 : o.crackFill) : d, 0, 0.999), x, y, 0.03);
       if (o.rim) {
         const r = o.rim(x, y);
         if (r > 0.5) col = LW.mix(col, o.rimCol || P.water2, 0.55);
@@ -244,12 +244,13 @@
           let d = localDark(x, y);
           if (kind !== 'far') d -= 0.24 * LW.clamp(LW.warm(x, y, kind), 0, 1.1);
           // the first ring next to the crack carries the edge of the block
+          const hc = o.hatchCut || 0;
           if (isLump && L === 1) {
-            if (d < 0.18) return -1;
+            if (d < 0.18 + hc) return -1;
           } else {
-            if (rank === 2 && d < 0.62) return -1;
-            if (rank === 1 && d < 0.4) return -1;
-            if (rank === 0 && d < 0.2) return -1;
+            if (rank === 2 && d < 0.62 + hc * 2) return -1;
+            if (rank === 1 && d < 0.4 + hc * 1.5) return -1;
+            if (rank === 0 && d < 0.2 + hc) return -1;
           }
           const w = w0 + (w1 - w0) * LW.clamp(d, 0, 1);
           return ink.st(colAt(x, y), w);
@@ -264,6 +265,8 @@
           const k = at(x, y);
           const c = k >= 0 ? ID[k] : -1;
           if (c < 0) return -1;
+          // far rock: the crack network breaks up and goes quiet
+          if (o.crackGap && Nw.n2(x / 38, y / 38) * 0.5 + 0.5 < o.crackGap) return -1;
           const f = facing(c, x, y);
           let d = o.dark(x, y);
           if (kind !== 'far') d -= 0.4 * LW.clamp(LW.warm(x, y, kind), 0, 1);

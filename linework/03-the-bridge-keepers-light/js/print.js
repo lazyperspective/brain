@@ -33,6 +33,37 @@
     ctx.restore();
   };
 
+
+  /* Near-plane shadow plate: two flat overprint steps toward the ink along the bottom
+     edge (ragged, hand-cut edges), so the nearest ground is the darkest thing in the
+     print. Lights (glitter, lantern reflection) are left open. */
+  LW.drawNearShade = function (ctx, S) {
+    const y0 = 3380;
+    const py0 = Math.floor(y0 * S), w = ctx.canvas.width, h = ctx.canvas.height - py0;
+    const img = ctx.getImageData(0, py0, w, h);
+    const d = img.data;
+    const K = P.ink;
+    for (let py = 0; py < h; py++) {
+      const y = (py0 + py + 0.5) / S;
+      for (let px = 0; px < w; px++) {
+        const x = (px + 0.5) / S;
+        const k = (py * w + px) * 4;
+        const r = d[k], g = d[k + 1], b = d[k + 2];
+        const lum = 0.3 * r + 0.59 * g + 0.11 * b;
+        if (lum > 150 || r > g + 40) continue;
+        // the boundary sags toward the corners
+        const cx = Math.abs(x - 1180) / 1080;
+        const e = y + 140 * cx * cx + 34 * N.fbm(x / 140, 3.3, 3) + 9 * N2.n2(x / 21, y / 17);
+        const t = e > 3720 ? 0.3 : e > 3540 ? 0.17 : 0;
+        if (!t) continue;
+        d[k] = r + (K[0] - r) * t;
+        d[k + 1] = g + (K[1] - g) * t;
+        d[k + 2] = b + (K[2] - b) * t;
+      }
+    }
+    ctx.putImageData(img, 0, py0);
+  };
+
   LW.drawPrint = function (ctx, S) {
     const w = ctx.canvas.width, h = ctx.canvas.height;
     const img = ctx.getImageData(0, 0, w, h);
