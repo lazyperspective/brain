@@ -32,40 +32,24 @@
     };
     const G = new LW.Grid(bb, 5, shade);
     const pal = spec.pal || [P.rock1, P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.5)];
-    LW.shadeFill(ctx, S, path, bb, (x, y, o) => {
-      const d = G.at(x, y);
-      let c = LW.stepPick(pal, d, x, y, 0.05);
-      const b = LW.warmBand(LW.warm(x, y, kind) * (spec.warmK || 1), x, y);
-      if (b > 0) c = LW.warmFill[b];
-      if (spec.wetY && y > spec.wetY - 14 && y < spec.wetY + 4) c = LW.mix(c, P.water2, 0.6);
-      o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
+    const wet = spec.wetY ? (x, y) => (y > spec.wetY - 14 && y < spec.wetY + 4 ? 1 : 0) : null;
+    LW.cellRock(ctx, S, {
+      path, bbox: bb, mask, seed: 'b' + spec.seed,
+      dark: (x, y) => G.at(x, y),
+      size: () => LW.clamp(Math.min(spec.rx, spec.ry * 1.6) * 0.42, 22, 96),
+      maxSize: 100,
+      aniso: 0.8,
+      kind, pal, ink: P.ink,
+      lineW: [1.2, 2.9], step: spec.lineStep || 6.2,
+      lumpRatio: 0.82, light: [0.5, -0.86], wedgeW: 9,
+      rim: wet, rimCol: P.water2,
     });
     const ink = new LW.Ink(spec.seed * 7 + 3);
     ink.wobble = 0.9;
     // black shadow pocket under the overhang of the base
-    const blk = (x, y) => (mask.in(x, y) ? G.at(x, y) - 0.9 : -1);
+    const blk = (x, y) => (mask.in(x, y) ? G.at(x, y) - 0.92 : -1);
     LW.contours({ bbox: bb, step: 4, field: blk, levels: [0] }, (c) => {
       if (c.length > 5) ink.fill(LW.chaikin(c, 1, true), P.ink, 0.6);
-    });
-    const step = spec.lineStep || 7.5;
-    const field = (x, y) => {
-      if (!mask.in(x, y)) return NaN;
-      return mask.edtAt(x, y) + 7 * N.fbm(x / 130, y / 90, 3);
-    };
-    const wn = spec.seed;
-    LW.contours({ bbox: bb, step: 3, field, levelStep: step }, (c, lev) => {
-      const rank = lev % 4 === 0 ? 0 : lev % 2 === 0 ? 1 : 2;
-      ink.line(c, (x, y) => {
-        let d = G.at(x, y);
-        const wv = LW.clamp(LW.warm(x, y, kind) * (spec.warmK || 1), 0, 1);
-        d *= 1 - 0.4 * wv;
-        if (rank === 2 && d < 0.6) return -1;
-        if (rank === 1 && d < 0.33) return -1;
-        if (rank === 0 && d < 0.12) return -1;
-        if (N.n2(x / 40 + wn, y / 40 + lev * 0.3) > 0.55 - d * 0.4) return -1;
-        const b = LW.warmBand(LW.warm(x, y, kind) * (spec.warmK || 1), x, y);
-        return ink.st(ink.col(LW.warmInkColor(b, P.ink)), 1.1 + d * 1.9);
-      }, { taper: 14 });
     });
     // cracks
     const rng = new LW.RNG('crk' + spec.seed);
@@ -106,7 +90,17 @@
     return { pts, path };
   };
 
+  // short downstream wake: nested crescents trailing below the stone
+  function wakeV(ink, x, y, rx, col, seed) {
+    for (let k = 1; k <= 4; k++) {
+      const pts = [];
+      const R = rx * (0.75 + k * 0.16), dy = 5 + k * Math.min(rx, 60) * 0.16;
+      for (let a = 0.15; a <= Math.PI - 0.15; a += 0.05) pts.push([x + Math.cos(a) * R, y + dy + Math.sin(a) * R * 0.16]);
+      ink.line(pts, (xx, yy, i) => (N.n2(i / 5 + seed * 3, k * 1.7) > 0.32 ? -1 : ink.st(col, 2.0 - k * 0.3)), { taper: 14 });
+    }
+  }
   function ripples(ink, x, y, rx, n, col, seed) {
+    wakeV(ink, x, y, rx, col, seed);
     for (let k = 1; k <= n; k++) {
       const R0 = rx * (1 + k * 0.22), ry = R0 * 0.2;
       const pts = [];
@@ -161,6 +155,43 @@
     LW.drawBoulder(ctx, S, { x: 1560, y: 3290, rx: 62, ry: 26, seed: 31, dark: 0.55, wetY: 3302, cracks: 1, outline: 2.6, lineStep: 6 });
     LW.drawBoulder(ctx, S, { x: 1160, y: 3140, rx: 40, ry: 17, seed: 33, dark: 0.55, wetY: 3150, cracks: 0, outline: 2.4, lineStep: 6 });
     LW.drawBoulder(ctx, S, { x: 1840, y: 3590, rx: 175, ry: 70, seed: 35, dark: 0.55, wetY: 3612, cracks: 2, outline: 3.2 });
+    // a heron standing on one leg on the big rock, silhouetted against the glowing river
+    {
+      const hx = 0, hy = 0;
+      const T = (p) => [p[0] + hx, p[1] + hy];
+      const body = [[1852, 3446], [1838, 3416], [1818, 3400], [1797, 3398], [1782, 3406], [1776, 3420], [1784, 3440], [1806, 3452], [1830, 3453]].map(T);
+      const hi = new LW.Ink(931);
+      hi.wobble = 0.2;
+      const cInk = hi.col(P.ink), cRim = hi.col(LW.mix(P.water4, P.star, 0.3));
+      // leg and tucked foot
+      hi.line([[1801, 3536], [1805, 3492], [1800, 3448]].map(T), hi.st(cInk, 3.2), { taper: 0 });
+      hi.line([[1800, 3536], [1786, 3538]].map(T), hi.st(cInk, 2.2), { taper: 0 });
+      hi.line([[1801, 3536], [1812, 3539]].map(T), hi.st(cInk, 2.0), { taper: 0 });
+      hi.line([[1812, 3452], [1822, 3470], [1814, 3474]].map(T), hi.st(cInk, 2.6), { taper: 0 });
+      // S-curved neck
+      const neck = [[1786, 3410], [1778, 3394], [1783, 3378], [1792, 3367], [1789, 3354], [1779, 3346]].map(T);
+      hi.flush(ctx);
+      ctx.save();
+      ctx.strokeStyle = LW.rgb(P.ink);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let i = 0; i < neck.length - 1; i++) {
+        ctx.lineWidth = 11 - i * 1.0;
+        ctx.beginPath(); ctx.moveTo(neck[i][0], neck[i][1]); ctx.lineTo(neck[i + 1][0], neck[i + 1][1]); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle = LW.rgb(P.ink);
+      ctx.fill(LW.polyPath(LW.chaikin(body, 2, true)));
+      ctx.beginPath(); ctx.ellipse(1773 + hx, 3343 + hy, 8, 5.5, -0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fill(LW.polyPath([[1767, 3339], [1732, 3347], [1767, 3347]].map(T)));
+      // plumes: crest and drooping back feathers
+      hi.line([[1777, 3339], [1796, 3333]].map(T), hi.st(cInk, 1.4), { taper: 8, wobble: 0 });
+      for (let k = 0; k < 4; k++) hi.line([[1830 + k * 5, 3446], [1848 + k * 6, 3462 + k * 3]].map(T), hi.st(cInk, 1.6), { taper: 6, wobble: 0 });
+      // cool rim light from the river along the back and neck
+      const rimB = LW.chaikin(body, 2, true).filter((p) => p[1] < 3420 + hy);
+      hi.line(rimB, hi.st(cRim, 1.5), { taper: 10 });
+      hi.line(neck.map((p, i) => [p[0] + 5.5 - i * 0.5, p[1]]), hi.st(cRim, 1.3), { taper: 10 });
+      hi.flush(ctx);
+    }
     // dark rock bed under the framing boulders so no water shows through gaps
     {
       const bed = [[-40, 3200], [300, 3360], [560, 3480], [800, 3640], [1080, 3790], [1120, 3880], [-40, 3880]];

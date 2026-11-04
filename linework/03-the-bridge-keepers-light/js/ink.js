@@ -115,14 +115,14 @@
       const P = pts.map((p) => this.wob(p[0], p[1], amp));
       this.fills.push({ pts: P, color: typeof color === 'string' ? color : LW.rgb(color) });
     }
-    fillPath(path, color) {
-      this.fills.push({ path, color: typeof color === 'string' ? color : LW.rgb(color) });
+    fillPath(path, color, rule) {
+      this.fills.push({ path, color: typeof color === 'string' ? color : LW.rgb(color), rule: rule || 'nonzero' });
     }
     flush(ctx) {
       ctx.save();
       for (const f of this.fills) {
         ctx.fillStyle = f.color;
-        if (f.path) ctx.fill(f.path);
+        if (f.path) ctx.fill(f.path, f.rule || 'nonzero');
         else {
           ctx.beginPath();
           ctx.moveTo(f.pts[0][0], f.pts[0][1]);

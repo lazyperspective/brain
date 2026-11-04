@@ -357,6 +357,50 @@
     ink2.line([[farC.x - farC.r, farC.y], [farC.x - farC.r, G.farWY]], ink2.st(oc, 2.2), { taper: 0 });
     ink2.line([[farC.x + farC.r, farC.y], [farC.x + farC.r, G.farWY]], ink2.st(oc, 2.2), { taper: 0 });
     ink2.flush(ctx);
+    // ivy: climbing up the left abutment from the waterline and draping from the parapet on the right
+    {
+      const ir = new LW.RNG('ivy2');
+      const iv = new LW.Ink(505);
+      iv.wobble = 0.3;
+      const leaves = [];
+      const stem = (x, y, ang, len, depth) => {
+        const pts = [[x, y]];
+        for (let s = 0; s < len; s += 5) {
+          ang += (ir.next() - 0.5) * 0.5;
+          x += Math.cos(ang) * 5; y += Math.sin(ang) * 5;
+          if (x < B.x0 + 4 || x > B.x1 - 4) break;
+          pts.push([x, y]);
+          if (ir.next() < 0.55) leaves.push([x + (ir.next() - 0.5) * 8, y + (ir.next() - 0.5) * 6, ir.next() * Math.PI * 2, 0.75 + ir.next() * 0.55]);
+          if (depth < 3 && ir.next() < 0.06) stem(x, y, ang + ir.sign() * (0.5 + ir.next() * 0.6), len * 0.45, depth + 1);
+        }
+        iv.line(pts, iv.st(iv.col(P.ink), 1.6 - depth * 0.3), { taper: 16 });
+      };
+      // climbing: from the base of the left abutment up its face and onto the spandrel
+      for (let k = 0; k < 5; k++) stem(600 + k * 26 + ir.next() * 14, L.waterY - 6, -Math.PI / 2 + (ir.next() - 0.5) * 0.5, 160 + ir.next() * 170, 0);
+      // draping: from the parapet foot on the right side, hanging down
+      for (let k = 0; k < 7; k++) {
+        const x0 = 1470 + k * 30 + ir.next() * 16;
+        stem(x0, topY(x0) + PAR + STR - 3, Math.PI / 2 + (ir.next() - 0.5) * 0.3, 70 + ir.next() * 150, 1);
+      }
+      for (let k = 0; k < 40; k++) {
+        const x = 1460 + ir.next() * 240;
+        leaves.push([x, topY(x) + PAR + STR - 8 + ir.next() * 16, ir.next() * Math.PI * 2, 0.9 + ir.next() * 0.4]);
+      }
+      iv.flush(ctx);
+      for (const [x, y, a, sc] of leaves) {
+        const s = 9 * sc;
+        const tr = (u, v) => [x + Math.cos(a) * u - Math.sin(a) * v, y + Math.sin(a) * u + Math.cos(a) * v];
+        // three-lobed ivy leaf
+        const leaf = [tr(0, 0), tr(s * 0.35, -s * 0.55), tr(s * 0.5, -s * 0.95), tr(s * 0.8, -s * 0.45), tr(s * 1.45, -s * 0.3), tr(s * 1.1, 0), tr(s * 1.45, s * 0.3), tr(s * 0.8, s * 0.45), tr(s * 0.5, s * 0.95), tr(s * 0.35, s * 0.55)];
+        const wb = LW.warmBand(LW.warm(x, y, 'bridge'), x, y, 0);
+        const lit = ((Math.cos(a) * 0.6 - Math.sin(a) * 0.8) > 0);
+        ctx.fillStyle = LW.rgb(wb >= 3 ? (lit ? P.warm3 : P.warm1) : wb >= 1 ? LW.mix(P.teal, P.warm1, 0.55) : lit ? P.teal : P.tealDark);
+        ctx.fill(LW.polyPath(LW.chaikin(leaf, 1, true)));
+        iv.line(LW.chaikin(leaf, 1, true).concat([leaf[0]]), iv.st(iv.col(P.ink), 1.1), { taper: 0, wobble: 0.1 });
+        iv.line([tr(0.15 * s, 0), tr(1.1 * s, 0)], iv.st(iv.col(P.ink), 0.7), { taper: 3, wobble: 0 });
+      }
+      iv.flush(ctx);
+    }
     LW.log('bridge stones', all.length, 'ms', Math.round(performance.now() - t0));
   };
 })();

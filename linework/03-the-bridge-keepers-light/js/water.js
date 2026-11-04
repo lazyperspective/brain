@@ -122,11 +122,15 @@
   LW.moonGlitter = moonGlitter;
 
   function waterBase(x, y) {
-    // inner glow of the river: bright mid-channel and toward the far bend
-    let v = 0.62;
-    v += 0.16 * Math.exp(-Math.pow((x - 1230) / 520, 2));
+    // inner glow of the river: brightest in the open channel and toward the far bend,
+    // darker against the banks and stepping down toward the foreground
+    let v = 0.6;
+    const bd = bankDist(x, y);
+    const open = LW.smooth(30, 260, bd);
+    v += 0.2 * Math.exp(-Math.pow((x - 1250) / 430, 2)) * open;
     v += 0.12 * LW.smooth(2400, 2120, y);
-    v -= 0.16 * LW.smooth(2800, 3840, y) * (0.5 + 0.5 * LW.smooth(900, 1900, Math.abs(x - 1230) + 900));
+    v -= 0.2 * LW.smooth(150, 0, bd);
+    v -= 0.24 * LW.smooth(2700, 3840, y);
     return v;
   }
 
@@ -143,6 +147,24 @@
     if (LW.bridgeGeom) { x.fill(LW.bridgeGeom.facePath); x.fill(LW.bridgeGeom.soffitPath); }
     return c;
   }
+
+  // distance (px) from any bank, for darker, denser water along the edges
+  let bankMask = null;
+  function bankDist(x, y) {
+    if (!bankMask) {
+      bankMask = new LW.Mask([0, HZ - 10, LW.W, LW.H], 6, (c) => {
+        c.fillRect(-50, HZ - 4, LW.W + 100, LW.H);
+        c.globalCompositeOperation = 'destination-out';
+        for (const l of LW.cliffLayers) c.fill(l.path);
+        if (LW.bridgeGeom) { c.fill(LW.bridgeGeom.facePath); c.fill(LW.bridgeGeom.soffitPath); }
+        if (LW.beach) c.fill(LW.polyPath(LW.beach));
+        c.fillRect(-50, 3500, 1100, 400); // the boulder bank bottom-left
+      });
+      bankMask.edt();
+    }
+    return bankMask.edtAt(x, y);
+  }
+  LW.bankDist = bankDist;
 
   // ---------------------------------------------------------------- draw
   const pal = [P.water0, P.water1, P.water2, P.water3, P.water4, P.water5];
@@ -172,12 +194,11 @@
         const ib = inBand - 0.5;
         const edge = ib * ib * 4; // 0 mid-band .. 1 at band edges
         // reflections thin out toward each band edge -> lens-shaped fragments
-        let v = waterBase(x, y) - dk * 0.62 * (1 - 0.32 * edge) + mg * 0.26 * (1 - 0.6 * edge);
+        let v = waterBase(x, y) - dk * 0.62 * (1 - 0.32 * edge) + mg * 0.2 * (1 - 0.5 * edge);
         mg *= 1 - 0.55 * edge;
         v += (LW.hash2(px, py) - 0.5) * 0.04 + N.n2(x / 17, y / 9) * 0.03;
         let c = pal[Math.floor(LW.clamp(v, 0, 0.999) * pal.length)];
         const gate = N2.n2(x / (bands.fx[j] * (0.4 + (y - HZ) / 1400)) + bands.ph[j], j * 3.17) * 0.5 + 0.5;
-        if (mg * (0.6 + gate) > 0.78) c = mg * (0.6 + gate) > 1.0 ? P.water6 : P.water5;
         const wb = LW.warmBand(wm * (0.75 + 0.75 * gate) * (1 - 0.5 * edge), x, y, 0.03);
         if (wb >= 2) c = LW.warmFill[Math.min(6, wb)];
         else if (wb === 1) c = LW.mix(c, P.warm2, 0.45);
@@ -212,11 +233,14 @@
         const r = rng.next();
         if (wm > 0.32) {
           if (r < 0.75) { ci = wm > 0.75 ? cW[2] : wm > 0.5 ? cW[1] : cW[0]; wdt *= 1.25; }
-        } else if (mg > 0.35) {
-          if (r < 0.8) { ci = mg > 0.62 ? cHi : cHi2; wdt *= 1.35; }
+        } else if (mg > 0.4) {
+          // the glitter path is engraved separately; keep it clean
         } else {
-          const p = 0.32 + dk * 0.75;
-          if (r < p) ci = dk > 0.6 ? cDeep : dk > 0.4 ? cInk : cMid;
+          const near = LW.smooth(170, 10, bankDist(cx, y));
+          const fore = LW.smooth(2900, 3840, y);
+          const p = 0.3 + dk * 0.7 + near * 0.45 + fore * 0.2;
+          if (r < p) ci = dk > 0.6 || near > 0.6 ? cDeep : dk > 0.4 || near > 0.3 || fore > 0.5 ? cInk : cMid;
+          wdt *= 1 + near * 0.35;
         }
         if (ci >= 0) {
           const pts = [];
@@ -230,6 +254,58 @@
           ink.line(pts, ink.st(ci, wdt), { taper: Math.min(len * 0.35, 18), minScale: 0.25 });
         }
         x += len + gap;
+      }
+    }
+    // current slicks: long, faint, broken streams converging on the far bend
+    {
+      const sr = new LW.RNG('slicks');
+      const cS = [ink.col(P.water4), ink.col(LW.mix(P.water3, P.water4, 0.5))];
+      for (let k = 0; k < 26; k++) {
+        const u = (sr.next() - 0.5) * 2; // across-channel coordinate at the bottom
+        const pts = [];
+        const y0 = 2330 + sr.next() * 500, y1 = Math.min(LW.H, y0 + 500 + sr.next() * 900);
+        for (let y = y0; y <= y1; y += 8) {
+          const t = (y - HZ) / (LW.H - HZ);
+          const x = 1180 + u * (60 + t * 900) + 30 * Math.sin(y / 140 + k) * t + N.n2(y / 300, k) * 20 * t;
+          pts.push([x, y]);
+        }
+        ink.line(pts, (x, y, i) => {
+          if (N2.n2(i / 7 + k * 5.3, k) > 0.05) return -1;
+          if (sampleBuf(D, x, y) > 0.45 || bankDist(x, y) < 90 || moonGlitter(x, y) > 0.3) return -1;
+          const t = (y - HZ) / (LW.H - HZ);
+          return ink.st(cS[k % 2], 0.8 + t * 1.4);
+        }, { taper: 30, minScale: 0.15 });
+      }
+    }
+    // the moon's glitter path: hand-engraved dashes, irregular lengths, gaps and jitter
+    {
+      const [mx] = L.moon;
+      const gr = new LW.RNG('glitter');
+      const cG = [ink.col([255, 255, 255]), ink.col(P.water6), ink.col(P.water5), ink.col(LW.mix(P.water5, P.water4, 0.5))];
+      for (let i = 0; i < 2700; i++) {
+        const y = HZ + 70 + Math.pow(gr.next(), 0.8) * (LW.H - HZ - 60);
+        const t = (y - HZ) / (LW.H - HZ);
+        const wdt0 = 22 + (y - HZ) * 0.095;
+        const x = mx + gr.gauss() * wdt0 * 0.62;
+        const g = moonGlitter(x, y);
+        const dk = sampleBuf(D, x, y);
+        if (dk > 0.5) continue;
+        if (gr.next() > g * 0.95) continue;
+        const persp = 0.3 + t * 1.6;
+        const len = (2 + Math.pow(gr.next(), 2.6) * 115) * persp * (0.5 + g * 0.6);
+        const yy = y + (gr.next() - 0.5) * 3;
+        const core = g > 0.7;
+        const ci = core ? (gr.next() < 0.18 ? 0 : gr.next() < 0.6 ? 1 : 2) : g > 0.45 ? 2 : 3;
+        const th = (0.8 + gr.next() * 1.6) * (0.5 + persp * 0.7) * (core ? 1.2 : 0.85);
+        const bow = (gr.next() - 0.5) * 2.2 * persp;
+        const pts = [[x - len / 2, yy], [x - len / 6, yy + bow * 0.7], [x + len / 6, yy + bow * 0.7], [x + len / 2, yy + (gr.next() - 0.5) * 1.5]];
+        ink.line(pts, ink.st(cG[ci], th), { taper: len * 0.45, minScale: 0.12, wobble: 0.3 });
+        // rare tiny star-glints in the core
+        if (core && gr.next() < 0.02) {
+          const s = 5 + gr.next() * 7;
+          ink.line([[x - s, yy], [x + s, yy]], ink.st(cG[0], 1.2), { taper: s * 0.8, minScale: 0.1, wobble: 0 });
+          ink.line([[x, yy - s * 0.8], [x, yy + s * 0.8]], ink.st(cG[0], 1.0), { taper: s * 0.6, minScale: 0.1, wobble: 0 });
+        }
       }
     }
     // the lantern's reflection: an engraver's column of tapered warm dashes

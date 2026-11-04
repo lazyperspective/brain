@@ -252,7 +252,8 @@
     for (let k = 0; k < n; k++) {
       const x = 286 + k * 54, y = HUT.base + k * 24;
       const w = 118 + k * 4;
-      STEPS.push({ x, y, w, rise: 24, depth: 13 });
+      const jr = new LW.RNG('step' + k);
+      STEPS.push({ x: x + (jr.next() - 0.5) * 10, y, w: w + (jr.next() - 0.5) * 16, rise: 24, depth: 13, tilt: (jr.next() - 0.5) * 3, seed: k });
     }
   }
   const LANDING = (LW.landing = [[640, 2876], [944, 2884], [984, 2902], [978, 2920], [640, 2922]]);
@@ -277,7 +278,7 @@
       }
       return best;
     };
-    const gDark = (x, y) => 0.36 + 0.4 * LW.smooth(2950, 3550, y) + 0.22 * LW.smooth(420, 0, x) + 0.06 * N.fbm(x / 120, y / 60, 2);
+    const gDark = (x, y) => 0.5 + 0.38 * LW.smooth(2950, 3500, y) + 0.22 * LW.smooth(420, 0, x) + 0.06 * N.fbm(x / 120, y / 60, 2);
     LW.shadeFill(ctx, S, gp, gbb, (x, y, o) => {
       const sd = shoreDist(x, y);
       let c = stoneFill(gDark(x, y), x, y, 'rock', [P.rock0, P.rock1, P.rock2, P.rock3, P.rock4]);
@@ -288,17 +289,29 @@
       const ink = new LW.Ink(711);
       ink.wobble = 0.8;
       const field = (x, y) => shoreDist(x, y) + 34 * N.fbm(x / 260, y / 170, 3);
-      LW.contours({ bbox: gbb, step: 3, field, levelStep: 9 }, (pts, lev) => {
+      LW.contours({ bbox: gbb, step: 3, field, levelStep: 13 }, (pts, lev) => {
         ink.line(pts, (x, y) => {
           const wv = LW.warm(x, y, 'rock');
           const rank = lev % 4 === 0 ? 0 : lev % 2 === 0 ? 1 : 2;
           const d = gDark(x, y) + 0.1 - 0.3 * Math.min(1, wv);
           if (rank === 2 && d < 0.5) return -1;
           if (rank === 1 && d < 0.32) return -1;
-          if (N.n2(x / 90, y / 30 + lev * 0.7) > 0.45) return -1;
+          if (N.n2(x / 70, y / 26 + lev * 0.9) > 0.25) return -1;
           return ink.st(inkAt(ink, x, y), 1.0 + d * 1.0);
         }, { taper: 14 });
       });
+      // sand stipple: dot density follows value
+      {
+        const sr = new LW.RNG('sand');
+        for (let i = 0; i < 26000; i++) {
+          const x = gbb[0] + sr.next() * (gbb[2] - gbb[0]), y = gbb[1] + sr.next() * (gbb[3] - gbb[1]);
+          if (!LW.pointInPoly(x, y, ground)) continue;
+          const d = gDark(x, y) - 0.35 * Math.min(1, LW.warm(x, y, 'rock'));
+          if (sr.next() > 0.15 + d * 0.8) continue;
+          const r = 0.7 + sr.next() * 1.0;
+          ink.fill([[x - r, y], [x, y - r * 0.8], [x + r, y], [x, y + r * 0.8]], LW.warmInkColor(LW.warmBand(LW.warm(x, y, 'rock'), x, y, 0), P.ink), 0);
+        }
+      }
       ctx.save();
       ctx.clip(gp);
       ink.flush(ctx);
@@ -331,7 +344,17 @@
     }
     // scree between the hut and the river under the bridge end
     const scree = [[590, 2290], [700, 2296], [772, 2334], [780, 2420], [756, 2520], [774, 2620], [824, 2730], [880, 2826], [720, 2846], [640, 2760], [606, 2600], [596, 2440]];
-    LW.drawStonePile(ctx, S, scree, { rMin: 13, rMax: 30, seed: 'scree1', dark: 0.5, kind: 'rock', persp: true, tries: 5000, wetY: (x) => 1e9 });
+    {
+      // a fractured rock buttress under the bridge end (cellular rock, firelit)
+      const sc = { name: 'SC', poly: scree, edge: scree.slice(0, 4), tier: 2, face: [0.5, 0.86], base: null, seed: 63, kind: 'rock' };
+      sc.path = LW.polyPath(LW.chaikin(scree, 2, true));
+      sc.poly = LW.chaikin(scree, 2, true);
+      sc.bbox = LW.bbox(sc.poly, 4);
+      sc.edge = sc.poly;
+      LW.drawCliffLayer(ctx, S, sc);
+      // a few loose stones at its foot
+      LW.drawStonePile(ctx, S, [[700, 2800], [880, 2826], [860, 2862], [700, 2870]], { rMin: 9, rMax: 18, seed: 'foot', dark: 0.45, persp: true, tries: 90 });
+    }
     LW.log('bank ms', Math.round(performance.now() - t0));
   };
 
@@ -439,11 +462,23 @@
       for (let k = 0; k < 5; k++) ink.line([[D.x0 + 2 + k * 3, D.y0 + r * 0.7 + k * 4], [D.x0 + 2 + k * 3, D.y1 - 4]], ink.st(ink.col(P.warmInk3), 0.9), { taper: 4 });
       // interior back wall hatch, faint, warm
       for (let y = D.y0; y < D.y1 - 50; y += 7) ink.line([[D.x0 + 18, y], [D.x1, y + 2]], (x, yy) => (Math.hypot(x - cx, yy - (D.y1 - 40)) < 46 ? -1 : ink.st(ink.col(P.warm3), 1.0)), { taper: 6 });
-      // the keeper: a small hooded silhouette in the doorway
-      const kx = cx + 10, ky = D.y1 - 4;
-      const body = [[kx - 13, ky], [kx - 11, ky - 46], [kx - 13, ky - 70], [kx - 9, ky - 86], [kx - 4, ky - 96], [kx + 4, ky - 97], [kx + 9, ky - 88], [kx + 10, ky - 72], [kx + 13, ky - 50], [kx + 15, ky]];
-      ctx.fillStyle = LW.rgb(P.warmInk1);
-      ctx.fill(LW.polyPath(LW.chaikin(body, 2, true)));
+      // the keeper, leaning on the door frame: brimmed hat, coat, an arm up on the jamb
+      const body = [[328, 2712], [330, 2690], [324, 2662], [321, 2632], [324, 2612], [330, 2604], [337, 2601], [338, 2593],
+        [334, 2591], [327, 2588], [329, 2584], [340, 2582], [342, 2566], [347, 2562], [356, 2563], [358, 2581], [368, 2582], [371, 2586], [362, 2590],
+        [360, 2600], [368, 2603], [373, 2597], [376, 2586], [379, 2578], [383, 2577], [383, 2592], [380, 2602], [376, 2616], [373, 2640],
+        [372, 2664], [369, 2690], [367, 2712], [354, 2712], [352, 2695], [347, 2695], [345, 2712]];
+      const fig = LW.chaikin(body, 1, true);
+      ctx.fillStyle = LW.rgb(LW.mix(P.warmInk1, P.ink, 0.5));
+      ctx.fill(LW.polyPath(fig));
+      // backlit rim: a thin warm line hugging the silhouette
+      const rimI = new LW.Ink(729);
+      rimI.wobble = 0.15;
+      rimI.line(fig.concat([fig[0]]), (x, y) => rimI.st(rimI.col(P.warm5), 1.6), { taper: 0 });
+      rimI.line(fig.concat([fig[0]]), (x, y) => rimI.st(rimI.col(P.warmInk1), 0.8), { taper: 0 });
+      // coat seam and sleeve fold catching a little light
+      rimI.line([[350, 2606], [349, 2640], [350, 2688]], rimI.st(rimI.col(P.warmInk2), 1.2), { taper: 10 });
+      rimI.line([[365, 2606], [368, 2616], [371, 2630]], rimI.st(rimI.col(P.warmInk3), 1.1), { taper: 6 });
+      rimI.flush(ctx);
       ctx.restore();
       ink.line(open, ink.st(ink.col(P.ink), 3.4), { taper: 0 });
       // threshold slab
@@ -521,8 +556,9 @@
   };
 
   // chimney smoke: a drifting ribbon with curling engraved lines
+  // chimney smoke as an engraved plume: opaque billows with curling contour lines
   LW.drawSmoke = function (ctx, S) {
-    const rng = new LW.RNG('smoke2');
+    const rng = new LW.RNG('smoke3');
     const base = [487, 2126];
     const n = 140;
     const cl = [];
@@ -531,75 +567,89 @@
       const rise = t * 760;
       cl.push([base[0] - rise * 0.16 - 210 * t * t + 46 * Math.sin(t * 6.2) * t, base[1] - rise + 22 * Math.sin(t * 4 + 1) * t]);
     }
-    const wAt = (t) => 16 + 230 * Math.pow(t, 1.1);
-    const L = [], R = [];
-    for (let i = 0; i <= n; i++) {
-      const a = cl[Math.max(0, i - 1)], b = cl[Math.min(n, i + 1)];
-      let tx = b[0] - a[0], ty = b[1] - a[1];
-      const l = Math.hypot(tx, ty) || 1;
-      tx /= l; ty /= l;
-      const t = i / n;
-      const w = wAt(t);
-      // billowing lobes on each edge
-      const lobeL = 1 + 0.42 * Math.pow(Math.abs(Math.sin(t * 15 + 0.4)), 0.6) * Math.sqrt(t) + 0.1 * N.n2(t * 8, 3);
-      const lobeR = 1 + 0.42 * Math.pow(Math.abs(Math.sin(t * 13 + 2.1)), 0.6) * Math.sqrt(t) + 0.1 * N.n2(t * 8, 9);
-      L.push([cl[i][0] - ty * w * 0.5 * lobeL, cl[i][1] + tx * w * 0.5 * lobeL]);
-      R.push([cl[i][0] + ty * w * 0.5 * lobeR, cl[i][1] - tx * w * 0.5 * lobeR]);
-    }
-    // three stepped tints, thinning as the plume rises
-    const sections = [[0, 0.5, 0.9], [0.5, 0.8, 0.72], [0.8, 1, 0.45]];
-    for (const [s0, s1, alpha] of sections) {
-      const i0 = Math.floor(s0 * n), i1 = Math.floor(s1 * n);
-      const poly = L.slice(i0, i1 + 1).concat(R.slice(i0, i1 + 1).reverse());
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(LW.PLATE_OFF[0], LW.PLATE_OFF[1]);
-      ctx.fillStyle = LW.rgb(LW.mix(P.rock1, P.sky4, 0.35));
-      ctx.fill(LW.polyPath(LW.chaikin(poly, 2, true)));
-      ctx.restore();
-    }
+    const wAt = (t) => 14 + 200 * Math.pow(t, 1.05);
     const ink = new LW.Ink(781);
     ink.wobble = 0.6;
-    const cWarm = ink.col(P.warm4), cLight = ink.col(LW.mix(P.rock0, [236, 242, 250], 0.45)), cMid = ink.col(LW.mix(P.rock0, P.sky5, 0.3)), cDark = ink.col(P.inkBlue);
-    // flowing lines inside the plume
-    for (let k = 0; k < 22; k++) {
-      const off = -0.47 + (k / 21) * 0.94;
-      const ph = rng.next() * 6;
-      const amp = 0.06 + rng.next() * 0.1;
+    const cLit = LW.mix(P.rock0, P.sky5, 0.3), cShade = LW.mix(P.rock2, P.sky3, 0.45);
+    const iDark = ink.col(P.inkBlue), iMid = ink.col(LW.mix(P.inkBlue, P.rock1, 0.35)), iWarm = ink.col(P.warm3);
+    // thin rising column out of the chimney
+    for (let k = 0; k < 5; k++) {
       const pts = [];
-      for (let i = 0; i <= n; i++) {
+      for (let i = 0; i <= 22; i++) {
         const t = i / n;
-        const o = off + amp * Math.sin(t * (8 + k % 4) + ph) * t;
-        pts.push([L[i][0] + (R[i][0] - L[i][0]) * (o + 0.5), L[i][1] + (R[i][1] - L[i][1]) * (o + 0.5)]);
+        const w = wAt(t) * 0.5;
+        pts.push([cl[i][0] + (k - 2) * w * 0.4 + Math.sin(i * 0.45 + k) * 2, cl[i][1]]);
       }
-      const t0 = rng.next() * 0.25 * Math.abs(off) * 2, t1 = 0.45 + rng.next() * 0.55;
-      const seg = pts.slice(Math.floor(t0 * n), Math.floor(t1 * n));
-      const darkSide = off > 0.25; // shadowed underside of the plume
-      ink.line(seg, (x, y, i) => {
-        const t = (i + t0 * n) / n;
-        const c = t < 0.1 ? cWarm : darkSide ? cDark : k % 3 === 0 ? cMid : cLight;
-        return ink.st(c, (darkSide ? 2.2 : 1.8) * (1 - t * 0.55));
-      }, { taper: 50, minScale: 0.1 });
+      ink.line(pts, (x, y, i) => ink.st(i < 6 ? iWarm : iMid, 1.6), { taper: 18, minScale: 0.2 });
     }
-    // a few big curls rolling inside the billows
-    for (let c = 0; c < 5; c++) {
-      const t = 0.3 + c * 0.13;
+    // billows: overlapping lobes merged into one scalloped plume
+    const lobes = [];
+    for (let t = 0.13; t < 0.99; t += 0.025 + rng.next() * 0.045) {
       const i = Math.floor(t * n);
-      const side = c % 2 ? L : R;
-      const p = side[i];
-      const r0 = 16 + t * 46;
-      const sp = [];
-      const dir = c % 2 ? 1 : -1;
-      const cx = p[0] + (cl[i][0] - p[0]) * 0.45, cy = p[1] + (cl[i][1] - p[1]) * 0.45;
-      for (let a = 0; a < Math.PI * 1.7; a += 0.08) {
-        const r = r0 * (1 - a / (Math.PI * 2.6));
-        sp.push([cx + Math.cos(a * dir + 1) * r, cy + Math.sin(a * dir + 1) * r * 0.8]);
-      }
-      ink.line(sp, ink.st(c % 2 ? cLight : cDark, 2.0), { taper: 30, minScale: 0.15 });
+      const w = wAt(t);
+      const side = lobes.length % 2 ? 1 : -1;
+      const a = cl[Math.min(n, i + 1)], b = cl[Math.max(0, i - 1)];
+      let tx = a[0] - b[0], ty = a[1] - b[1];
+      const L = Math.hypot(tx, ty) || 1;
+      tx /= L; ty /= L;
+      const off = 0.12 + rng.next() * 0.2;
+      lobes.push({ x: cl[i][0] - ty * w * off * side, y: cl[i][1] + tx * w * off * side, r: w * (0.32 + rng.next() * 0.3), t, seed: rng.next() * 50 });
     }
-    // edge contour, broken
-    for (const side of [L, R]) {
-      ink.line(side, (x, y, i) => (N.n2(i / 9, side === L ? 1 : 5) > 0.2 || i / n > 0.85 ? -1 : ink.st(side === L ? cLight : cDark, 1.6)), { taper: 18 });
+    for (const lb of lobes) lb.pts = LW.blob(lb.x, lb.y, lb.r, lb.r * 0.84, lb.seed, 0.1, 56);
+    const solid = lobes.filter((lb) => lb.t < 0.8);
+    const inside = (x, y, self, set) => set.some((o) => o !== self && Math.pow((x - o.x) / (o.r * 0.97), 2) + Math.pow((y - o.y) / (o.r * 0.82), 2) < 1);
+    // one shadow-tone fill for the merged body, lit caps per billow
+    const body = new Path2D();
+    for (const lb of solid) { body.moveTo(lb.pts[0][0], lb.pts[0][1]); for (const p of lb.pts) body.lineTo(p[0], p[1]); body.closePath(); }
+    ctx.save();
+    ctx.translate(LW.PLATE_OFF[0], LW.PLATE_OFF[1]);
+    ctx.fillStyle = LW.rgb(LW.mix(P.rock3, P.sky2, 0.35));
+    ctx.fill(body);
+    ctx.clip(body);
+    for (const lb of solid.slice().reverse()) {
+      const path = LW.polyPath(lb.pts);
+      ctx.save();
+      ctx.translate(lb.x + lb.r * 0.24, lb.y - lb.r * 0.3);
+      ctx.scale(0.8, 0.72);
+      ctx.translate(-lb.x, -lb.y);
+      ctx.fillStyle = LW.rgb(LW.mix(P.rock2, P.sky4, 0.35));
+      ctx.fill(path);
+      ctx.restore();
+    }
+    ctx.restore();
+    for (const lb of lobes) {
+      const fade = lb.t >= 0.8;
+      // curling contour arcs on each billow's shadow side, hidden where a nearer billow overlaps
+      const nArcs = Math.max(2, Math.round(lb.r / 10));
+      for (let k = 1; k <= nArcs; k++) {
+        const f = 1 - k / (nArcs + 1);
+        const arc = lb.pts.map((p) => [lb.x + (p[0] - lb.x) * f - (1 - f) * lb.r * 0.2, lb.y + (p[1] - lb.y) * f + (1 - f) * lb.r * 0.28]);
+        arc.push(arc[0]);
+        ink.line(arc, (x, y) => {
+          const nx = (x - lb.x) / lb.r, ny = (y - lb.y) / lb.r;
+          if (nx * 0.55 - ny * 0.75 > -0.15 - (k % 2) * 0.2) return -1;
+          if (fade && k % 2) return -1;
+          if (inside(x, y, lb, lobes.filter((o) => o.t < lb.t))) return -1;
+          return ink.st(k % 3 ? iMid : iDark, 1.0 + 0.6 * (1 - f));
+        }, { taper: 12 });
+      }
+      // merged outline: only where this billow is the outer edge of the plume
+      ink.line(lb.pts.concat([lb.pts[0]]), (x, y, i) => {
+        if (inside(x, y, lb, fade ? lobes : solid)) return -1;
+        if (fade && N.n2(i / 6, lb.seed) > 0.05) return -1;
+        const nx = (x - lb.x) / lb.r, ny = (y - lb.y) / lb.r;
+        return ink.st(iDark, 1.1 + Math.max(0, ny * 0.8 - nx * 0.4) * 1.8);
+      }, { taper: 8 });
+    }
+    // a few curls
+    for (const lb of lobes.filter((_, i) => i % 4 === 1)) {
+      const sp = [];
+      const r0 = lb.r * 0.42, dir = lb.seed > 25 ? 1 : -1;
+      for (let a = 0; a < Math.PI * 2.1; a += 0.08) {
+        const r = r0 * (1 - a / (Math.PI * 2.7));
+        sp.push([lb.x - lb.r * 0.12 + Math.cos(a * dir + 2) * r, lb.y + lb.r * 0.12 + Math.sin(a * dir + 2) * r * 0.85]);
+      }
+      ink.line(sp, (x, y) => (inside(x, y, lb, lobes.filter((o) => o.t < lb.t)) ? -1 : ink.st(iDark, 1.4)), { taper: 24, minScale: 0.15 });
     }
     ink.flush(ctx);
   };
@@ -607,6 +657,47 @@
   function drawProps(ctx, S) {
     const ink = new LW.Ink(791);
     ink.wobble = 0.5;
+    // a fishing net hung to dry between two pegs on the front wall, cork floats along the head rope
+    {
+      const p0 = [138, 2452], p1 = [268, 2446];
+      const sag = (u) => Math.sin(Math.PI * u);
+      const at = (u, v) => {
+        const x = p0[0] + (p1[0] - p0[0]) * u + Math.sin(v * 3 + u * 5) * 3 * v;
+        const top = p0[1] + (p1[1] - p0[1]) * u + 16 * sag(u);
+        const drop = 70 + 46 * sag(u) + 10 * Math.sin(u * 9);
+        return [x + v * (u - 0.5) * 18, top + drop * v];
+      };
+      const netI = ink.col(LW.mix(P.warmInk1, P.ink, 0.3));
+      const M = 14;
+      for (let d = -M; d <= M; d++) {
+        const a = [], b = [];
+        for (let s = 0; s <= 30; s++) {
+          const v = s / 30;
+          const u1 = d / M + v * 0.55, u2 = d / M - v * 0.55 + 0.55;
+          if (u1 >= 0 && u1 <= 1) a.push(at(u1, v));
+          if (u2 >= 0 && u2 <= 1) b.push(at(u2, v));
+        }
+        if (a.length > 1) ink.line(a, ink.st(netI, 0.9), { taper: 4, wobble: 0.3 });
+        if (b.length > 1) ink.line(b, ink.st(netI, 0.9), { taper: 4, wobble: 0.3 });
+      }
+      const head = [];
+      for (let s = 0; s <= 30; s++) head.push(at(s / 30, 0));
+      ink.line(head, ink.st(ink.col(P.ink), 2.4), { taper: 0 });
+      const foot = [];
+      for (let s = 0; s <= 30; s++) foot.push(at(s / 30, 1));
+      ink.line(foot, ink.st(netI, 1.6), { taper: 10 });
+      for (let s = 1; s < 8; s++) {
+        const [fx, fy] = at(s / 8, 0);
+        const fl = LW.blob(fx, fy + 1, 5, 3.6, s, 0.1, 12);
+        ctx.fillStyle = LW.rgb(stoneFill(0.15, fx, fy, 'hutwall', [P.warm3, P.warm2, P.wood0]));
+        ctx.fill(LW.polyPath(fl));
+        ink.line(fl.concat([fl[0]]), ink.st(ink.col(P.ink), 1.2), { taper: 0 });
+      }
+      for (const p of [p0, p1]) {
+        ctx.fillStyle = LW.rgb(P.ink);
+        ctx.beginPath(); ctx.arc(p[0], p[1], 4, 0, Math.PI * 2); ctx.fill();
+      }
+    }
     // woodpile against the cliff left of the hut: log ends with rings
     const rng = new LW.RNG('logs');
     const logs = [];
@@ -692,9 +783,25 @@
     for (let k = 0; k < STEPS.length; k++) {
       const s = STEPS[k];
       const back = 9; // tread recedes toward the VP a little
-      const tread = [[s.x, s.y], [s.x + s.w, s.y], [s.x + s.w + back, s.y - s.depth], [s.x + back, s.y - s.depth]];
-      const riser = [[s.x, s.y], [s.x + s.w, s.y], [s.x + s.w, s.y + s.rise], [s.x, s.y + s.rise]];
-      const side = [[s.x + s.w, s.y], [s.x + s.w + back, s.y - s.depth], [s.x + s.w + back, s.y + s.rise - s.depth + 4], [s.x + s.w, s.y + s.rise]];
+      // worn block: every edge resampled and nudged, front corners rounded off
+      const wr = new LW.RNG('wear' + k);
+      const worn = (poly, amp) => {
+        const out = [];
+        for (let i = 0; i < poly.length; i++) {
+          const a = poly[i], b = poly[(i + 1) % poly.length];
+          const L0 = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          const n = Math.max(2, Math.round(L0 / 7));
+          for (let q = 0; q < n; q++) {
+            const t = q / n;
+            out.push([a[0] + (b[0] - a[0]) * t + (wr.next() - 0.5) * amp, a[1] + (b[1] - a[1]) * t + (wr.next() - 0.5) * amp + (wr.next() < 0.06 ? 2.5 : 0)]);
+          }
+        }
+        return LW.chaikin(out, 2, true);
+      };
+      const tl = s.tilt;
+      const tread = worn([[s.x, s.y], [s.x + s.w, s.y + tl], [s.x + s.w + back, s.y - s.depth + tl], [s.x + back, s.y - s.depth]], 1.6);
+      const riser = worn([[s.x, s.y], [s.x + s.w, s.y + tl], [s.x + s.w, s.y + s.rise + tl], [s.x, s.y + s.rise]], 1.6);
+      const side = worn([[s.x + s.w, s.y + tl], [s.x + s.w + back, s.y - s.depth + tl], [s.x + s.w + back, s.y + s.rise - s.depth + 4 + tl], [s.x + s.w, s.y + s.rise + tl]], 1.2);
       const fill = (poly, d, kind = 'rock') => LW.shadeFill(ctx, S, LW.polyPath(poly), LW.bbox(poly, 2), (x, y, o) => {
         const c = stoneFill(d, x, y, kind);
         o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
@@ -714,9 +821,41 @@
       const jx = s.x + s.w * (0.35 + 0.3 * ((k * 0.37) % 1));
       ink.line([[jx, s.y], [jx + back * 0.8, s.y - s.depth]], (x, y) => ink.st(inkAt(ink, x, y), 1.3), { taper: 0 });
       ink.line([[jx, s.y], [jx, s.y + s.rise]], (x, y) => ink.st(inkAt(ink, x, y), 1.3), { taper: 0 });
-      ink.line(tread.concat([tread[0]]), (x, y) => ink.st(inkAt(ink, x, y), 1.8), { taper: 0 });
-      ink.line(riser.concat([riser[0]]), (x, y) => ink.st(inkAt(ink, x, y), y > s.y + s.rise - 2 ? 3.0 : 2.0), { taper: 0 });
+      // worn nosing: a rounded highlight along the front edge, chipped in places
+      {
+        const rr = new LW.RNG('nose' + k);
+        let xa = s.x + 4;
+        while (xa < s.x + s.w - 6) {
+          const xb = Math.min(s.x + s.w - 4, xa + 14 + rr.next() * 40);
+          ink.line([[xa, s.y - 2.2], [xb, s.y - 2.0]], (x, y) => ink.st(ink.col(LW.warm(x, y, 'rock') > 0.45 ? P.warm6 : P.rock0), 1.6), { taper: 6 });
+          xa = xb + 4 + rr.next() * 10;
+          if (rr.next() < 0.45) {
+            // a chip bitten out of the nosing
+            const cx = xa - 2, cw = 4 + rr.next() * 6;
+            const chip = [[cx - cw, s.y], [cx - cw * 0.4, s.y + 3 + rr.next() * 3], [cx + cw * 0.5, s.y + 2], [cx + cw, s.y]];
+            ink.fill(chip, LW.warmInkColor(LW.warmBand(LW.warm(cx, s.y, 'rock'), cx, s.y, 0), P.ink), 0.2);
+          }
+        }
+        // moss in the shadowed inner corner where tread meets the step above
+        const nm = rr.next() < 0.5 ? 0 : rr.int(1, 4);
+        const mx0 = s.x + 6 + rr.next() * (s.w - 30);
+        for (let m = 0; m < nm; m++) {
+          const mx = mx0 + rr.next() * 18, my = s.y - s.depth + 3 + rr.next() * 6;
+          const tuft = LW.blob(mx, my, 5 + rr.next() * 5, 3 + rr.next() * 2, mx, 0.35, 10);
+          ink.fill(tuft, m % 2 ? P.teal : P.tealDark, 0.3);
+          ink.line(tuft.slice(0, 6), ink.st(ink.col(P.ink), 0.9), { taper: 3 });
+        }
+      }
+      ink.line(LW.chaikin(tread, 1, true).concat([tread[0]]), (x, y) => ink.st(inkAt(ink, x, y), 1.8), { taper: 0 });
+      ink.line(riser.concat([riser[0]]), (x, y) => ink.st(inkAt(ink, x, y), y > s.y + s.rise - 4 ? 3.0 : 2.0), { taper: 0 });
       ink.line(side.concat([side[0]]), (x, y) => ink.st(inkAt(ink, x, y), 2.0), { taper: 0 });
+      // a crack and pitting on the riser face
+      if (wr.next() < 0.6) {
+        let cx = s.x + 20 + wr.next() * (s.w - 40), cy = s.y + 2;
+        const cp = [[cx, cy]];
+        while (cy < s.y + s.rise - 2) { cy += 3 + wr.next() * 3; cx += (wr.next() - 0.5) * 5; cp.push([cx, cy]); }
+        ink.line(cp, (x, y) => ink.st(inkAt(ink, x, y), 1.4), { taper: 6 });
+      }
       ink.flush(ctx);
     }
   }
@@ -795,6 +934,56 @@
       ink.line([[p.x - p.w / 2 - 2, y], [p.x + p.w / 2 + 2, y + 3]], ink.st(ink.col(P.ink), 3.2), { taper: 0 });
     }
     ink.flush(ctx);
+    // a short chain and a small brass bell hanging under the lantern
+    {
+      const cx = lx, top = ly + 28;
+      for (let k = 0; k < 4; k++) {
+        const yy = top + 3 + k * 5.5;
+        const link = [];
+        for (let a = 0; a <= 6.35; a += 0.4) link.push([cx + Math.cos(a) * (k % 2 ? 1.6 : 2.8), yy + Math.sin(a) * 3.4]);
+        ink.line(link, ink.st(ink.col(P.ink), 1.3), { taper: 0, wobble: 0 });
+      }
+      const by = top + 26;
+      const bell = [[cx - 5, by], [cx + 5, by], [cx + 8, by + 12], [cx + 12, by + 19], [cx - 12, by + 19], [cx - 8, by + 12]];
+      const bs = LW.chaikin(bell, 2, true);
+      LW.shadeFill(ctx, S, LW.polyPath(bs), LW.bbox(bs, 2), (x, y, o) => {
+        const c = x > cx + 3 ? P.warm6 : y < by + 9 ? P.warm4 : P.warm2;
+        o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
+      });
+      const bi = new LW.Ink(742);
+      bi.wobble = 0.15;
+      bi.line(bs.concat([bs[0]]), bi.st(bi.col(P.warmInk2), 1.6), { taper: 0 });
+      bi.line([[cx - 11, by + 16], [cx + 11, by + 16]], bi.st(bi.col(P.warmInk2), 1.0), { taper: 3 });
+      ctx.fillStyle = LW.rgb(P.warmInk2);
+      ctx.beginPath(); ctx.arc(cx, by + 21.5, 2.4, 0, Math.PI * 2); ctx.fill();
+      // moths circling the light, with dotted flight loops
+      const mr = new LW.RNG('moths');
+      for (let m = 0; m < 7; m++) {
+        const a = mr.next() * Math.PI * 2, r = 46 + mr.next() * 80;
+        const mx = lx + Math.cos(a) * r, my = ly + Math.sin(a) * r * 1.05;
+        const rot = mr.next() * Math.PI * 2, sz = 5 + mr.next() * 4;
+        const tr = (u, v) => [mx + Math.cos(rot) * u - Math.sin(rot) * v, my + Math.sin(rot) * u + Math.cos(rot) * v];
+        const wing1 = [tr(0, 0), tr(-sz * 1.3, -sz * 0.9), tr(-sz * 1.1, sz * 0.4)];
+        const wing2 = [tr(0, 0), tr(sz * 1.3, -sz * 0.9), tr(sz * 1.1, sz * 0.4)];
+        for (const wg of [wing1, wing2]) {
+          ctx.fillStyle = LW.rgb(P.warmInk1);
+          ctx.fill(LW.polyPath(LW.chaikin(wg, 1, true)));
+          bi.line([wg[1], wg[2]], bi.st(bi.col(P.warm5), 1.0), { taper: 0, wobble: 0 });
+        }
+        bi.line([tr(0, -sz * 0.4), tr(0, sz * 0.7)], bi.st(bi.col(P.ink), 1.6), { taper: 0, wobble: 0 });
+        if (m % 3 === 0) {
+          const loop = [];
+          for (let q = 0; q < 26; q++) {
+            const aa = a + 0.5 + q * 0.14, rr = r - 8 + Math.sin(q * 0.6) * 10;
+            if (q % 2) continue;
+            const px = lx + Math.cos(aa) * rr, py = ly + Math.sin(aa) * rr * 1.05;
+            loop.push([px, py]);
+          }
+          for (const pt of loop) { ctx.fillStyle = LW.rgb(P.warm5, 0.85); ctx.beginPath(); ctx.arc(pt[0], pt[1], 1.1, 0, Math.PI * 2); ctx.fill(); }
+        }
+      }
+      bi.flush(ctx);
+    }
   };
 
   // ---------------------------------------------------------------- boat
@@ -846,6 +1035,34 @@
         const shrink = 1 - k / 22;
         ink.line(pts.slice(Math.floor((1 - shrink) * 6), 13 - Math.floor((1 - shrink) * 4)), ink.st(ri, 2.6 - k * 0.08), { taper: 14 });
       }
+      ink.flush(ctx);
+    }
+    // wake: broken current lines peeling off the hull, the river running past toward us
+    {
+      const wr = new LW.RNG('wake');
+      const cW = [ink.col(P.waterInk), ink.col(P.water5), ink.col(LW.mix(P.waterInk, P.water2, 0.4))];
+      for (let k = 1; k <= 7; k++) {
+        const pts = [];
+        for (let i = 0; i <= 30; i++) {
+          const t = 0.04 + i / 30 * 0.98;
+          const p = B.at(t, B.beam(t) * 0.42 + k * 9 + t * k * 6, -6 - k * 2.5);
+          pts.push([p[0] + k * 5 * t, p[1] + Math.sin(i * 0.7 + k) * 1.5]);
+        }
+        ink.line(pts, (x, y, i) => {
+          if (N.n2(i / 4 + k * 3.1, k) > 0.25) return -1;
+          return ink.st(k % 3 === 2 ? cW[1] : k > 4 ? cW[2] : cW[0], 2.2 - k * 0.18);
+        }, { taper: 14 });
+      }
+      // ripple rings where the bow and stern touch the water
+      for (const [t, rr] of [[0.03, 26], [0.97, 34]]) {
+        const p = B.at(t, B.beam(t) * 0.3, -6);
+        for (let k = 1; k <= 3; k++) {
+          const ring = [];
+          for (let a = -0.2; a <= Math.PI + 0.2; a += 0.06) ring.push([p[0] + Math.cos(a) * rr * k * 0.6, p[1] + Math.sin(a) * rr * k * 0.16]);
+          ink.line(ring, (x, y, i) => (N.n2(i / 5, k + t * 9) > 0.3 ? -1 : ink.st(cW[0], 1.6)), { taper: 10 });
+        }
+      }
+      void wr;
       ink.flush(ctx);
     }
     // inside of the hull

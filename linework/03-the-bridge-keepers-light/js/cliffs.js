@@ -108,6 +108,12 @@
     const baseY = l.base ? (x) => LW.yAt(l.base, x) : () => 1e9;
     // recess field: long vertical clefts between buttresses (shadowed), plus strata ledges
     const ledges = l.name === 'L0' ? [[700, -0.12], [1340, 0.1]] : l.name === 'R0' ? [[560, 0.16], [1250, -0.12]] : [];
+    const ledgeY = (ly, sl, x) => ly + sl * (x - 900) + 70 * n.fbm(x / 300, ly, 3);
+    const ledgeGate = (ly, x) => LW.smooth(-0.15, 0.25, n2.fbm(x / 340, ly * 0.01, 2));
+    const cleftAt = (x, y) => {
+      const wx = x + 90 * n.fbm(x / 400, y / 400, 2) * scale;
+      return LW.smooth(0.12, 0.45, n2.fbm(wx / (210 * scale), y / (1400 * scale) + 3.3, 2));
+    };
     const dark = new LW.Grid(l.bbox, res, (x, y) => {
       const e = 6;
       const gx = (FB.at(x + e, y) - FB.at(x - e, y)) / (2 * e);
@@ -122,8 +128,8 @@
       d += 0.3 * LW.smooth(0.12, 0.45, cl) * (l.tier === 0 ? 0.5 : 1);
       // ledges: a lit lip then a shadow band under it
       for (const [ly, sl] of ledges) {
-        const yy = ly + sl * (x - 900) + 70 * n.fbm(x / 300, ly, 3);
-        const gate = LW.smooth(-0.15, 0.25, n2.fbm(x / 340, ly * 0.01, 2));
+        const yy = ledgeY(ly, sl, x);
+        const gate = ledgeGate(ly, x);
         if (gate <= 0) continue;
         const t = y - yy;
         const len = 70 + 90 * (0.5 + 0.5 * n.n2(x / 180, ly));
@@ -149,7 +155,9 @@
       }
       // the right wall's cast shadow falls diagonally across the lower left wall
       if (l.name === 'L0') {
-        const ys = 1720 - 0.58 * x + 70 * n.fbm(x / 240, 7.7, 3) + 25 * n2.n2(x / 60, 2.2);
+        const sx = (x - 860) / 600, sy = (y - 1500) / 780;
+        d += 0.42 * (1 - Math.exp(-(sx * sx + sy * sy))) * LW.smooth(2000, 1250, y);
+        const ys = 1880 - 0.6 * x + 70 * n.fbm(x / 240, 7.7, 3) + 25 * n2.n2(x / 60, 2.2);
         const t = y - ys;
         if (t > 0) d += 0.3 * LW.smooth(0, 26, t);
         else d -= 0.06;
@@ -158,6 +166,9 @@
       if (l.tier === 2) d += 0.26 * LW.smooth(900, 0, y) + 0.12 * LW.smooth(300, 0, Math.min(x, LW.W - x));
       // under-ledge shadow
       if (l.name === 'L0' && y > 1860 && y < 2010 && x > 600) d += 0.3 * LW.smooth(2000, 1878, y);
+      if (l.name === 'SC') d += 0.28;
+      // grade the left wall darker toward the frame edges so the brightest rock sits by the bridge and hut
+      if (l.name === 'L0') d += 0.22 * LW.smooth(1500, 150, y) + 0.2 * LW.smooth(520, 0, x);
       // the waterline is darker (wet rock)
       const by = baseY(x);
       if (y < by) d += 0.12 * LW.smooth(by - 70, by - 8, y);
@@ -196,7 +207,101 @@
       if (L < 1e-4) return null;
       return [vx / L, vy / L];
     };
-    return { mask, dark, dir, F, n, n2, T, baseY };
+    return { mask, dark, dir, F, n, n2, T, baseY, ledges, ledgeY, ledgeGate, cleftAt, scale };
+  }
+
+  // ---------------------------------------------------------------- cellular rock wall (mid + near tiers)
+  function drawCellCliff(ctx, S, l, f, kind, pal, T, rimCol) {
+    const near = l.tier === 2;
+    const sc = near ? 1 : 0.62;
+    const rim = l.base ? (x, y) => {
+      const rimD = f.baseY(x) - y;
+      if (rimD > 34 * T.rim || rimD < -2) return 0;
+      return LW.smooth(34, 4, rimD + LW.lnoise.n2(x / 9, y / 9) * 7);
+    } : null;
+    const tilt = l.face[0] > 0 ? 0.15 : -0.15;
+    LW.cellRock(ctx, S, {
+      path: l.path, bbox: l.bbox, mask: f.mask, seed: l.name,
+      dark: (x, y) => f.dark.at(x, y),
+      size: (x, y) => {
+        const cl = f.cleftAt(x, y);
+        let s = (112 - 76 * cl) * (0.75 + 0.5 * (0.5 + 0.5 * f.n.n2(x / 260, y / 260)));
+        // smaller, busier cells along the silhouette and at the foot
+        s *= 0.7 + 0.3 * LW.smooth(0, 90, f.mask.edtAt(x, y));
+        return s * sc;
+      },
+      maxSize: 140 * sc,
+      aniso: near ? 1.45 : 1.6,
+      kind, pal,
+      ink: T.ink,
+      lineW: near ? [1.15, 2.7] : [0.95, 1.8],
+      step: near ? 5.6 : 6.4,
+      lumpRatio: l.name === 'R0' ? 0.55 : 0.74,
+      light: [0.62, -0.78],
+      flow: () => Math.PI / 2 + tilt,
+      wedgeW: near ? 12 : 7,
+      black: near ? P.ink : LW.mix(P.inkFar, P.ink, 0.6),
+      rim, rimCol,
+    });
+    const ink = new LW.Ink(l.seed + 900);
+    ink.wobble = 0.9;
+    // vertical fissures and deep pockets (contour fills)
+    const cn = new LW.Noise(l.seed + 77);
+    const bb = l.bbox;
+    const blackField = (x, y) => {
+      if (x < bb[0] + 9 || y < bb[1] + 9 || x > bb[2] - 9 || y > bb[3] - 9) return -1;
+      if (!f.mask.in(x, y)) return -1;
+      const d = f.dark.at(x, y);
+      let v = d - T.pocket;
+      const wx = x + 40 * cn.fbm(x / 200, y / 200, 2);
+      const r = cn.ridged(wx / 52, y / 520, 2);
+      const env = LW.smooth(0.1, 0.6, cn.fbm(x / 170 + 9, y / 340, 2));
+      const g = 0.3 + 0.7 * LW.smooth(0.3, 0.85, d);
+      v = Math.max(v, (r - 0.945) * 4 * env * g - 0.006);
+      if (kind !== 'far') v -= 0.4 * LW.clamp(LW.warm(x, y, kind), 0, 1);
+      return v;
+    };
+    const black = near ? P.ink : LW.mix(P.inkFar, P.ink, 0.6);
+    LW.contours({ bbox: bb, step: 4, field: blackField, levels: [0] }, (pts) => {
+      if (pts.length < 4) return;
+      let area = 0;
+      for (let i = 0; i < pts.length - 1; i++) area += pts[i][0] * pts[i + 1][1] - pts[i + 1][0] * pts[i][1];
+      if (Math.abs(area) < 60) return;
+      const sm = LW.chaikin(pts, 1, true);
+      const cx = sm[0][0], cy = sm[0][1];
+      const b = kind !== 'far' ? LW.warmBand(LW.warm(cx, cy, kind), cx, cy, 0) : 0;
+      ink.fill(sm, b >= 3 ? P.warmInk2 : b >= 1 ? P.warmInk1 : black, 0.8);
+    });
+    // strata ledges: a lit lip line with an undercut black shadow beneath
+    for (const [ly, sl] of f.ledges) {
+      let run = [];
+      const flushRun = () => {
+        if (run.length > 6) {
+          ink.line(run, (x, y) => ink.st(ink.col(P.ink), 3.2), { taper: 30 });
+          const under = run.map((p, i) => [p[0], p[1] + 4 + 12 * Math.pow(Math.sin(Math.PI * i / (run.length - 1)), 0.7) * (0.6 + 0.4 * cn.n2(p[0] / 50, ly))]);
+          ink.fill(run.concat(under.slice().reverse()), P.ink, 0.6);
+        }
+        run = [];
+      };
+      for (let x = bb[0]; x <= bb[2]; x += 6) {
+        const y = f.ledgeY(ly, sl, x);
+        if (f.ledgeGate(ly, x) > 0.35 && f.mask.in(x, y) && f.mask.edtAt(x, y) > 14) run.push([x, y]);
+        else flushRun();
+      }
+      flushRun();
+    }
+    ctx.save();
+    ctx.clip(l.path);
+    ink.flush(ctx);
+    ctx.restore();
+    // silhouette outline
+    const ink2 = new LW.Ink(l.seed + 901);
+    ink2.wobble = 0.6;
+    const oc = ink2.col(P.ink);
+    const wn = new LW.Noise(l.seed + 55);
+    ink2.line(l.edge, (x, y) => (l.name === 'SC' && x < 700 ? -1 : ink2.st(l.kind === 'rock' ? ink2.col(LW.warmInkColor(LW.warmBand(LW.warm(x, y, 'rock'), x, y, 0), P.ink)) : oc, T.outline * (0.75 + 0.5 * (0.5 + 0.5 * wn.n2(x / 60, y / 60))))), { taper: 0 });
+    if (l.base) ink2.line(l.base, ink2.st(oc, T.outline * 0.7), { taper: 20 });
+    ink2.flush(ctx);
   }
 
   // ---------------------------------------------------------------- draw one layer
@@ -207,6 +312,11 @@
     const kind = l.kind || (l.tier === 2 ? 'rock' : 'far');
     const pal = l.name === 'R0' ? [P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.3), LW.mix(P.rock4, P.ink, 0.55)] : l.tier === 2 ? [P.rock0, P.rock1, P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.4)] : T.pal;
     const rimCol = l.tier === 0 ? P.water3 : P.water2;
+    if (l.tier >= 1) {
+      drawCellCliff(ctx, S, l, f, kind, pal, T, rimCol);
+      LW.log('cliff', l.name, 'ms', Math.round(performance.now() - t0));
+      return;
+    }
     // ---- fill
     LW.shadeFill(ctx, S, l.path, l.bbox, (x, y, out) => {
       let d = f.dark.at(x, y);

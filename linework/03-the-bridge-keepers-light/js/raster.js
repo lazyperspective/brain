@@ -163,6 +163,7 @@
     const V = o.values || new Float32Array(nx * ny);
     if (!o.values) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) V[j * nx + i] = o.field(x0 + i * step, y0 + j * step);
     const ls = o.levelStep, lo = o.levelOffset || 0;
+    const IDS = o.ids || null;
     const levelsOnly = o.levels; // optional explicit list of level values
     const segsByLevel = new Map();
     const HOFF = 0, VOFF = nx * ny;
@@ -175,6 +176,10 @@
       for (let i = 0; i < nx - 1; i++) {
         const v0 = V[j * nx + i], v1 = V[j * nx + i + 1], v2 = V[(j + 1) * nx + i + 1], v3 = V[(j + 1) * nx + i];
         if (v0 !== v0 || v1 !== v1 || v2 !== v2 || v3 !== v3) continue;
+        if (IDS) {
+          const a = IDS[j * nx + i];
+          if (a < 0 || IDS[j * nx + i + 1] !== a || IDS[(j + 1) * nx + i + 1] !== a || IDS[(j + 1) * nx + i] !== a) continue;
+        }
         let mn = Math.min(v0, v1, v2, v3), mx = Math.max(v0, v1, v2, v3);
         let kList;
         if (levelsOnly) {
