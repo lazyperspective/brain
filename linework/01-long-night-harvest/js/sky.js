@@ -18,20 +18,39 @@
     const img = ctx.createImageData(w, h);
     const d = img.data;
     const night = BG[0][1];
+    const ramp = (v) => { for (let k = BG.length - 1; k >= 0; k--) if (v >= BG[k][0]) return BG[k][1]; return night; };
+    // haze plate: the air colour at each pixel. Above the horizon it is the sky ground itself; below it,
+    // the horizon glow straight above (what the air between eye and field is lit by), stepped like the sky.
+    // It is interpolated (not posterised) so tinting toward it never imprints the sky's step edges;
+    // the steps come from the quantised tint amounts instead.
+    const haze = ctx.createImageData(w, h), hd = haze.data;
+    const yHz = SC.yh - 6;
+    const smoothRamp = (v) => {
+      if (v <= BG[0][0]) return BG[0][1];
+      for (let k = 1; k < BG.length; k++) if (v < BG[k][0]) { const a = BG[k - 1], b = BG[k], t = (v - a[0]) / (b[0] - a[0]); return [a[1][0] + (b[1][0] - a[1][0]) * t, a[1][1] + (b[1][1] - a[1][1]) * t, a[1][2] + (b[1][2] - a[1][2]) * t]; }
+      return BG[BG.length - 1][1];
+    };
+    LW.hazeRamp = smoothRamp;
+    const hzCol = [];
+    for (let px = 0; px < w; px++) hzCol.push(smoothRamp(LW.skyValue((px + 0.5) / S, yHz)));
     for (let py = 0; py < h; py++) {
       const y = (py + 0.5) / S;
       for (let px = 0; px < w; px++) {
         const x = (px + 0.5) / S;
-        let c = night;
+        let c = night, sv = 0;
         if (y > 700) {
-          const v = LW.skyValue(x, y) + 0.035 * LW.N1(x * 0.006, y * 0.009) + 0.015 * LW.N2(x * 0.05, y * 0.05);
-          for (let k = BG.length - 1; k >= 0; k--) if (v >= BG[k][0]) { c = BG[k][1]; break; }
+          sv = LW.skyValue(x, y);
+          const v = sv + 0.035 * LW.N1(x * 0.006, y * 0.009) + 0.015 * LW.N2(x * 0.05, y * 0.05);
+          c = ramp(v);
         }
         const o = (py * w + px) * 4;
         d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+        const hc = y < yHz ? (y > 1500 ? smoothRamp(sv) : c) : hzCol[px];
+        hd[o] = hc[0]; hd[o + 1] = hc[1]; hd[o + 2] = hc[2]; hd[o + 3] = 255;
       }
     }
     ctx.putImageData(img, 0, 0);
+    if (LW.depth) LW.depth.init(ctx.canvas, haze);
   };
 
   // ---------------------------------------------------------------- stars

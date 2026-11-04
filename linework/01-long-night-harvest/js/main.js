@@ -32,6 +32,7 @@
     ['rings back', (c) => LW.drawRings(c, 'back')],
     ['planet', (c) => LW.drawPlanet(c)],
     ['rings front', (c) => LW.drawRings(c, 'front')],
+    ['planet air', (c) => LW.drawPlanetAir(c), true],
     ['land', (c) => LW.drawLand && LW.drawLand(c)],
     ['field', (c) => LW.drawField && LW.drawField(c)],
     ['edge shade', (c) => LW.drawEdgeShade(c)],
