@@ -223,22 +223,41 @@
   // A clump of olive foliage: scalloped mass whose tone is built from hundreds of
   // small leaf shapes (deep -> mid -> lit), inked with leaf strokes in shadow.
   function clump(cx, cy, r, rnd, o = {}) {
-    const n = Math.max(14, Math.round(r / 7));
+    // irregular silhouette: per-clump aspect, rotation, lumpiness and scallop size
+    const n = Math.max(12, Math.round(r / rnd.range(5, 10)));
+    const asp = rnd.range(0.62, 0.95), rot = rnd.gauss() * 0.35;
+    const lumpy = rnd.range(0.2, 0.45), scal = rnd.range(0.06, 0.15);
     const pts = [];
     const s0 = rnd() * 100;
+    const cr = Math.cos(rot), sr = Math.sin(rot);
     for (let k = 0; k < n; k++) {
       const a0 = (k / n) * LW.TAU, a1 = ((k + 1) / n) * LW.TAU;
-      const r0 = r * (0.8 + 0.28 * LW.noise(Math.cos(a0) * 1.2 + s0, Math.sin(a0) * 1.2 + s0));
+      const r0 = r * (0.82 + lumpy * LW.noise(Math.cos(a0) * 1.1 + s0, Math.sin(a0) * 1.1 + s0));
       for (let m = 0; m < 5; m++) {
         const t = m / 5;
         const a = a0 + (a1 - a0) * t;
-        const bump = Math.sin(t * Math.PI) * r * 0.1 * (0.5 + rnd());
-        pts.push([cx + Math.cos(a) * (r0 + bump), cy + Math.sin(a) * (r0 + bump) * 0.8]);
+        const bump = Math.sin(t * Math.PI) * r * scal * (0.5 + rnd());
+        const ex = Math.cos(a) * (r0 + bump), ey = Math.sin(a) * (r0 + bump) * asp;
+        pts.push([cx + ex * cr - ey * sr, cy + ex * sr + ey * cr]);
       }
     }
     const path = LW.polyPath(pts);
-    LW.occlude(path);
-    LW.flat(path, LEAF_DEEP);
+    // sky holes through bigger clumps (even-odd), in the upper, thinner part of the mass
+    const holes = [];
+    if (r > 70 && rnd() < (o.holes ?? 0.7)) {
+      const nh = rnd.int(1, 3);
+      for (let h = 0; h < nh; h++) {
+        const a = -Math.PI / 2 + rnd.gauss() * 0.9, d = r * rnd.range(0.35, 0.6);
+        const hx = cx + Math.cos(a) * d, hy = cy + Math.sin(a) * d * asp, hr = r * rnd.range(0.1, 0.2);
+        const hp = [];
+        for (let q = 0; q < 14; q++) { const t = (q / 14) * LW.TAU; const rr = hr * (1 + 0.35 * LW.noise(Math.cos(t) + h * 3 + s0, Math.sin(t))); hp.push([hx + Math.cos(t) * rr, hy + Math.sin(t) * rr * 0.8]); }
+        holes.push(hp);
+        LW.polyPath(hp, true, path);
+      }
+    }
+    for (const g of [LW.ink]) { g.save(); g.globalCompositeOperation = 'destination-out'; g.fill(path, 'evenodd'); g.restore(); }
+    LW.fill.save(); LW.fill.fillStyle = LEAF_DEEP; LW.fill.fill(path, 'evenodd'); LW.fill.restore();
+    const clipLeaf = (g, fn) => { g.save(); g.clip(path, 'evenodd'); fn(); g.restore(); };
     const [lx, ly] = LW.LIGHT2;
     const under = o.under ?? 0.35;
     // sub-masses inside the clump, each with its own lit crown
@@ -253,17 +272,18 @@
       for (const sb of subs) { const dd = Math.hypot(x - sb[0], y - sb[1]) / sb[2]; if (dd < bd) { bd = dd; best = sb; } }
       const local = ((x - best[0]) * lx + (y - best[1]) * ly) / best[2]; // + toward light
       const glob = ((x - cx) * lx + (y - cy) * ly) / r;
-      return LW.clamp(0.5 - 0.55 * local - 0.35 * glob + 0.28 * under + 0.25 * LW.smooth(150, 1000, y) - 0.1 * LW.smooth(320, 0, y) + 0.1 * LW.noise(x * 0.03, y * 0.03), 0, 1);
+      const belly = LW.smooth(0.15, 0.85, (y - cy) / (r * asp)); // pocket of shade under each mass
+      return LW.clamp(0.45 - 0.55 * local - 0.35 * glob + 0.28 * under + 0.35 * belly + 0.22 * LW.smooth(150, 1000, y) - 0.1 * LW.smooth(320, 0, y) + 0.1 * LW.noise(x * 0.03, y * 0.03), 0, 1);
     };
     const layers = [new Path2D(), new Path2D(), new Path2D()];
     const cols = [LEAF_DK, LEAF, LEAF_LIT];
     const pen = new LW.Pen();
-    const count = Math.round(r * r * 0.026 * (o.density || 1));
+    const count = Math.round(r * r * 0.026 * (o.density || 1) * rnd.range(0.7, 1.3));
     const leafL = 17 * (o.leafScale || 1), leafW = 5 * (o.leafScale || 1);
     const leaves = [];
     for (let k = 0; k < count; k++) {
       const a = rnd() * LW.TAU, d = Math.sqrt(rnd()) * r * 1.02;
-      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * 0.8;
+      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * asp;
       const sh = shadeAt(x, y);
       const tone = sh < 0.3 ? 2 : sh < 0.58 ? 1 : sh < 0.8 ? 0 : -1;
       // olive leaves droop: mostly pointing down/outward, with scatter
@@ -292,7 +312,7 @@
         pen.line([[lf.x - ca * ex + ox, lf.y - sa * ex + oy], [lf.x + ox * 1.3, lf.y + oy * 1.3], [lf.x + ca * ex + ox, lf.y + sa * ex + oy]], 0.6 + 1.5 * lf.sh, 0.45, 0.1);
       }
     }
-    LW.clipDo(LW.fill, path, () => {
+    clipLeaf(LW.fill, () => {
       for (let t = 0; t < 3; t++) LW.flat(layers[t], cols[t]);
     });
     // deep shadow strokes (tiny dark leaves) in the darkest part
@@ -301,7 +321,15 @@
       const ca = Math.cos(lf.ang), sa = Math.sin(lf.ang);
       pen.line([[lf.x - ca * lf.L * 0.4, lf.y - sa * lf.L * 0.4], [lf.x + ca * lf.L * 0.4, lf.y + sa * lf.L * 0.4]], 2.2, 0.45, 0.1);
     }
-    LW.clipDo(LW.ink, path, () => pen.draw(LW.ink, C.ink));
+    // dense short strokes in the shadow pocket under the mass
+    for (let k = 0; k < count * 0.25; k++) {
+      const a = Math.PI / 2 + rnd.gauss() * 0.7, d = r * rnd.range(0.35, 0.95);
+      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * asp;
+      if (shadeAt(x, y) < 0.7) continue;
+      const ang = rnd.range(0.3, 1.2);
+      pen.line([[x, y], [x + Math.cos(ang) * 9, y + Math.sin(ang) * 9]], 1.6, 0.4);
+    }
+    clipLeaf(LW.ink, () => pen.draw(LW.ink, C.ink));
     // contour: leaf-tip scallops, heavy underneath
     const p2 = new LW.Pen();
     LW.inkContour(p2, pts, (nx, ny, x, y) => {
@@ -316,7 +344,42 @@
       const L = leafL * rnd.range(0.6, 1.1);
       p2.line([p, [p[0] + Math.cos(a) * L * 0.5 + rnd.gauss() * 1.5, p[1] + Math.sin(a) * L * 0.5], [p[0] + Math.cos(a) * L, p[1] + Math.sin(a) * L]], 2.2, 0.5, 0.1);
     }
+    for (const hp of holes) LW.inkContour(p2, hp, (nx, ny) => { const sh = 1 - LW.shadowSide(nx, ny); return 0.6 + 2.2 * sh * sh; }, { taper: 0.2 });
     p2.draw(LW.ink, C.ink);
+    // individual olive sprays escaping the mass at the outer/lower edge
+    if (o.sprays !== false && r > 40) {
+      const ns = rnd.int(1, Math.min(5, Math.round(r / 35)));
+      for (let k = 0; k < ns; k++) {
+        const p = pts[Math.floor(rnd() * pts.length)];
+        const out = Math.atan2(p[1] - cy, p[0] - cx);
+        if (Math.sin(out) < -0.5) continue; // not from the top
+        oliveSpray(p[0] - Math.cos(out) * 8, p[1] - Math.sin(out) * 8, out + rnd.gauss() * 0.3 + 0.25, rnd.range(60, 110) * (o.leafScale || 1), rnd);
+      }
+    }
+  }
+  // a single olive spray: thin twig with paired narrow leaves, silvery above, dark below
+  function oliveSpray(x, y, ang, L, rnd) {
+    const pen = new LW.Pen();
+    const tw = [[x, y]];
+    let a = ang, px = x, py = y;
+    for (let m = 0; m < 6; m++) { a += (Math.PI / 2 - a) * 0.08 + rnd.gauss() * 0.1; px += Math.cos(a) * L / 6; py += Math.sin(a) * L / 6; tw.push([px, py]); }
+    pen.line(tw, (t) => 2.6 * (1 - 0.6 * t), 0.1);
+    for (let m = 1; m < tw.length; m++) {
+      for (const sd of m === tw.length - 1 ? [0] : [-1, 1]) {
+        const p = tw[m], q = tw[m - 1];
+        const ta = Math.atan2(p[1] - q[1], p[0] - q[0]) + sd * rnd.range(0.35, 0.95) + rnd.gauss() * 0.15;
+        const ll = rnd.range(20, 34), lw = ll * rnd.range(0.24, 0.32);
+        const ca = Math.cos(ta), sa = Math.sin(ta);
+        const leaf = [];
+        for (let t = 0; t < LW.TAU; t += LW.TAU / 10) { const ex = (Math.cos(t) * 0.5 + 0.5) * ll, ey = Math.sin(t) * lw * 0.5 * (0.4 + 0.6 * Math.sin((Math.cos(t) * 0.5 + 0.5) * Math.PI)); leaf.push([p[0] + ex * ca - ey * sa, p[1] + ex * sa + ey * ca]); }
+        const lp = LW.polyPath(leaf);
+        LW.occlude(lp);
+        LW.flat(lp, sa < 0.1 ? '#a9cbbb' : rnd() < 0.6 ? LEAF_LIT : LEAF);
+        LW.outline(pen, leaf, 1.3, 1.0);
+        pen.line([p, [p[0] + ca * ll * 0.85, p[1] + sa * ll * 0.85]], 0.7, 0.4);
+      }
+    }
+    pen.draw(LW.ink, C.ink);
   }
   LW.clump = clump;
 
@@ -410,6 +473,16 @@
       knots: [[0.13, -0.35, 0.3], [0.29, 0.3, 0.26], [0.4, -0.62, 0.2], [0.5, 0.1, 0.24], [0.72, -0.3, 0.3], [0.86, 0.35, 0.3]],
       darkT: (t) => 0.08 * LW.smooth(0.2, 0.0, t),
     });
+    {
+      // the canopy shades the top of the trunk: a cross-hatched band fading downward
+      const sp = new LW.Pen();
+      const bb = { x0: 0, y0: -20, x1: 700, y1: 520 };
+      LW.clipDo(LW.ink, trunk.path, () => {
+        LW.hatchDither(sp, bb, 0.5, { spacing: 2.8, step: 3, wob: 0.6, seed: 5, dark: (x, y) => 0.97 * LW.smooth(520, 140, y + 40 * LW.noise(x * 0.01, 3)), w: (x, y, d) => 0.7 + 1.5 * d });
+        LW.hatchDither(sp, bb, -0.7, { spacing: 4, step: 3, wob: 0.6, seed: 6, dark: (x, y) => 0.9 * LW.smooth(380, 100, y), w: () => 1.0 });
+        sp.draw(LW.ink, C.ink);
+      });
+    }
     await LW.tick();
     for (const li of [1, 2, 0]) {
       const l = limbs[li];

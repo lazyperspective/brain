@@ -87,7 +87,24 @@
       }
       y += 2.6 + (y - HY) * 0.022 + rnd() * (0.5 + depth * 3);
     }
-    lit.draw(g, '#bcd3c4');
+    // ---- sun glitter: a broken column of bright dashes under the (off-frame) sun
+    {
+      const gr = LW.rng('glitter');
+      const gp = new LW.Pen(), gi = new LW.Pen();
+      for (let k = 0; k < 2600; k++) {
+        const t = Math.pow(gr(), 1.3); // 0 at horizon
+        const y = HY + 4 + t * 700;
+        const cxg = 560 - t * 120, spread = 40 + t * 260;
+        const x = cxg + gr.gauss() * spread * 0.5;
+        const L = (3 + gr() * 10) * (0.5 + t * 1.6);
+        const pts = [[x - L / 2, y], [x, y - 0.6 - t], [x + L / 2, y]];
+        gp.line(pts, 1.4 + 2.6 * t * gr(), 0.4);
+        if (gr() < 0.5) gi.line([[x - L * 0.4, y + 2 + t * 3], [x + L * 0.4, y + 2 + t * 3]], 0.7 + t, 0.4);
+      }
+      lit.draw(g, '#bcd3c4');
+      gp.draw(g, '#f1ead2');
+      gi.draw(LW.ink, '#14343a');
+    }
     pen.draw(LW.ink, '#14343a');
     await LW.tick();
 
@@ -109,11 +126,33 @@
       ip.line(pts.slice(1, -1), 1.4, 0.1);
       ip.draw(LW.ink, '#1d4a50');
     }
+    // ---- a small boat with a lateen sail far out
+    {
+      const bx = 650, by = 2262, k = 1.0;
+      const hull = [[bx - 20 * k, by - 6 * k], [bx + 22 * k, by - 7 * k], [bx + 14 * k, by], [bx - 15 * k, by]];
+      const sail = [[bx - 3 * k, by - 7 * k], [bx + 18 * k, by - 9 * k], [bx - 6 * k, by - 46 * k]];
+      const bp = new LW.Pen();
+      const hp = LW.polyPath(hull), sp = LW.polyPath(sail);
+      LW.occlude(hp); LW.occlude(sp);
+      LW.flat(hp, '#3a2e26');
+      LW.flat(sp, '#f1e8cc');
+      LW.outline(bp, sail, 1.6, 0.8);
+      bp.line([[bx - 2 * k, by - 7 * k], [bx - 2 * k, by - 40 * k]], 1.6, 0.05);
+      bp.line([[bx - 9 * k, by - 50 * k], [bx + 20 * k, by - 8 * k]], 1.3, 0.05); // the yard
+      for (let m = 1; m < 4; m++) bp.line([[bx + (m * 5 - 4) * k, by - 9 * k], [bx - 5 * k + m * 1.5, by - (44 - m * 6) * k]], 0.6, 0.3);
+      LW.outline(bp, hull, 1.6, 0.5);
+      // wake and reflection
+      for (let m = 0; m < 4; m++) bp.line([[bx - 30 - m * 14, by + 3 + m * 2.2], [bx - 16 - m * 12, by + 3 + m * 2.2]], 1.0, 0.4);
+      bp.draw(LW.ink, '#14343a');
+      const rf = new LW.Pen();
+      for (let m = 0; m < 5; m++) rf.line([[bx - 6 + m, by + 4 + m * 4], [bx + 8 - m, by + 4 + m * 4]], 1.6, 0.4);
+      rf.draw(g, '#d9d6be');
+    }
     // ---- sea stacks with surf
     const stacks = [
-      { x: 520, y: 2610, w: 150, h: 120, seed: 1 },
-      { x: 612, y: 2600, w: 54, h: 40, seed: 2 },
-      { x: 905, y: 2770, w: 80, h: 58, seed: 3 },
+      { x: 530, y: 2580, w: 120, h: 105, seed: 1 },
+      { x: 478, y: 2405, w: 46, h: 28, seed: 2 },
+      { x: 866, y: 2790, w: 52, h: 36, seed: 3 },
     ];
     for (const st of stacks) {
       const top = [];
@@ -153,6 +192,19 @@
         foam.line(arc, 5 - k, 0.3);
         fp.line(arc.map(([x, y]) => [x, y + 2.5]), 1.0, 0.4);
       }
+      // swell lines wrapping round the stack, broken into foam on the windward side
+      for (let k = 1; k <= 5; k++) {
+        const rx = st.w * (0.75 + k * 0.4), ry = 5 + k * 5.5;
+        let run = [];
+        const flushF = () => { if (run.length > 2) { foam.line(run, 3.4 - k * 0.4, 0.4); fp.line(run.map(([x, y]) => [x, y + 2.2]), 0.9, 0.4); } run = []; };
+        for (let a = -0.15; a < Math.PI + 0.15; a += 0.05) {
+          const x = st.x + Math.cos(a) * rx + LW.noise(a * 4, k + st.seed) * 5, y = st.y + 4 + Math.sin(a) * ry;
+          if (LW.noise3(a * 5 + st.seed, k * 1.7) > 0.25 + k * 0.05) { flushF(); continue; }
+          run.push([x, y]);
+        }
+        flushF();
+      }
+      for (let m = 0; m < 30; m++) { const a = Math.PI + LW.rng(st.seed * 100 + m)() * Math.PI; foam.dot(st.x + Math.cos(a) * st.w * 0.55, st.y + 1 + Math.sin(a) * 6, 1.6); }
       foam.draw(g, '#e9e6d0');
       fp.draw(LW.ink, '#14343a');
     }

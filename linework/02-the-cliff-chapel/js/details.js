@@ -77,6 +77,20 @@
     pen.draw(LW.ink, C.ink);
   };
 
+  // edge darkening by hatching, so the eye goes to the lit chapel and bell
+  LW.drawVignette = async function () {
+    const pen = new LW.Pen();
+    const W = LW.W, H = LW.H;
+    const dark = (x, y) => Math.max(0.95 * LW.smooth(3420, 3840, y), 0.7 * LW.smooth(170, 0, x) * LW.smooth(900, 1600, y), 0.75 * LW.smooth(1990, 2160, x) * LW.smooth(1300, 1800, y)) + 0.05 * LW.noise(x * 0.01, y * 0.01);
+    LW.hatchDither(pen, { x0: -10, y0: 900, x1: W + 10, y1: H + 10 }, -0.75, {
+      spacing: 3.6, step: 4, wob: 1.0, seed: 401, inside: (x, y) => dark(x, y) > 0.03, dark, w: (x, y, d) => 0.6 + 1.2 * d, taper: 0.3,
+    });
+    LW.hatchDither(pen, { x0: -10, y0: 3300, x1: W + 10, y1: H + 10 }, 0.35, {
+      spacing: 4.4, step: 4, wob: 1.0, seed: 402, dark: (x, y) => 0.85 * LW.smooth(3560, 3840, y), w: () => 1.0, taper: 0.3,
+    });
+    pen.draw(LW.ink, C.ink, 0.85);
+  };
+
   LW.drawDetails = async function () {
     const rnd = LW.rng('details');
     const S = LW.scene;

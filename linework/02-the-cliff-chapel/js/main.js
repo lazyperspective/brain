@@ -31,6 +31,7 @@
     ['shade', LW.drawShade],
     ['roots', LW.drawRoots],
     ['details', LW.drawDetails],
+    ['vignette', LW.drawVignette],
   ];
   for (const [name, fn] of steps) {
     if (!fn) continue;

@@ -109,11 +109,28 @@
     // ---------------------------------------------------------- the flight (far to near)
     const R = nr.rise, G = nr.go, Wd = nr.width, n = nr.n;
     const steps = [];
-    for (let i = 0; i < n; i++) steps.push({ i, s0: i * G, s1: (i + 1) * G, yB: i * R, yT: (i + 1) * R, seed: rnd() * 100, joint: rnd.range(0.9, 1.7) });
+    {
+      // hand-cut steps: rises and goings vary, middles worn into dips, some corners broken off
+      let sAcc = 0, yAcc = 0;
+      const sr = LW.rng('steps');
+      for (let i = 0; i < n; i++) {
+        const go = G * (1 + 0.07 * LW.clamp(sr.gauss(), -1.8, 1.8)), rise = R * (1 + 0.1 * LW.clamp(sr.gauss(), -1.8, 1.8));
+        steps.push({
+          i, s0: sAcc, s1: sAcc + go, yB: yAcc, yT: yAcc + rise, seed: sr() * 100, joint: sr.range(0.9, 1.7),
+          dip: sr.range(0.03, 0.06), dipW: sr.range(0.8, 1.3), corner: sr() < 0.45 ? sr.range(0.05, 0.11) : 0.015,
+          replaced: i === 4, cracked: i === 8 || i === 2,
+        });
+        sAcc += go; yAcc += rise;
+      }
+    }
+    const dipAt = (st, s, w) => st.dip * Math.exp(-(((w - st.dipW) / 0.55) ** 2)) * (1 - 0.65 * LW.clamp((s - st.s0) / (st.s1 - st.s0), 0, 1));
+    const cornerAt = (st, w) => st.corner * LW.smooth(0.2, 0, w);
+    const FT = (st, s, w) => F(s, w, st.yT - dipAt(st, s, w) - (s < st.s0 + 0.08 ? cornerAt(st, w) * 0.5 : 0));
+    const sEnd = steps[n - 1].s1;
     // top landing (hidden top), its far edge with a post
-    const landEnd = n * G + 1.7;
+    const landEnd = sEnd + 1.7;
     // stair surface height (relative to floor) for shadows
-    const surf = (s) => (s < 0 ? 0 : s < n * G ? (Math.floor(s / G) + 1) * R : n * R);
+    const surf = (s) => { if (s < 0) return 0; for (const st of steps) if (s < st.s1) return st.yT; return steps[n - 1].yT; };
     for (let k = n - 1; k >= 0; k--) {
       const st = steps[k];
       const yT = yF + st.yT, yB = yF + st.yB;
@@ -123,17 +140,22 @@
         const NW = 26;
         for (let j = 0; j <= NW; j++) {
           const w = (j / NW) * Wd;
-          const chip = Math.max(0, LW.noise(w * 3 + st.seed, 1.3)) * 0.035 + (j === 0 ? 0.03 : 0);
+          const chip = Math.max(0, LW.noise(w * 3 + st.seed, 1.3)) * 0.035 + cornerAt(st, w);
           nosing.push([st.s0 - 0.025 + chip, w]);
         }
         const back = [[st.s1, Wd], [st.s1, 0]];
-        const tp = nosing.concat(back).map(([s, w]) => F(s, w, st.yT));
+        const tp = nosing.concat(back).map(([s, w]) => FT(st, s, w));
         const path = LW.polyPath(tp);
         fgH.addPath(path);
         LW.occlude(path);
-        LW.flat(path, rnd() < 0.5 ? '#efe4c2' : '#eadcb5');
+        LW.flat(path, st.replaced ? '#e4dcc4' : rnd() < 0.5 ? '#efe4c2' : '#eadcb5');
+        if (!st.replaced) { // the polished hollow worn by centuries of feet
+          const pol = [];
+          for (let a = 0; a < LW.TAU; a += 0.2) pol.push(FT(st, st.s0 + (st.s1 - st.s0) * (0.38 + 0.3 * Math.cos(a)), st.dipW + 0.5 * Math.sin(a)));
+          LW.clipDo(LW.fill, path, () => LW.flat(LW.polyPath(pol), '#f5ecd2'));
+        }
         // hatch along the nosing, bowed by wear, dark toward the back & the rock side
-        const map = (s, w) => F(s, w, st.yT);
+        const map = (s, w) => FT(st, s, w);
         LW.clipDo(ink, path, () => {
           const p2 = new LW.Pen();
           LW.paramHatch(p2, map, st.s0, st.s1, 0, Wd, {
@@ -143,8 +165,9 @@
               const back = LW.smooth(st.s0 + 0.4 * G, st.s1, s);
               const rock = LW.smooth(1.25, Wd, w);
               const wear = Math.exp(-(((w - 0.75) / 0.38) ** 2)) * 0.16 * LW.smooth(st.s0 + 0.6 * G, st.s0 + 0.1 * G, s);
-              const joint = Math.exp(-(((w - st.joint) / 0.03) ** 2)) * 0.5;
-              return LW.clamp(0.08 + 0.55 * back * back + 0.42 * rock + wear + joint + 0.12 * LW.noise(s * 9 + st.seed, w * 4), 0, 1);
+              const joint = st.replaced ? 0 : Math.exp(-(((w - st.joint) / 0.03) ** 2)) * 0.5;
+              const dipSh = 0.25 * LW.smooth(st.dipW - 0.1, st.dipW + 0.45, w) * LW.smooth(st.dipW + 0.9, st.dipW + 0.45, w) * (st.dip / 0.034);
+              return LW.clamp(0.08 + 0.55 * back * back + 0.42 * rock + wear + joint + dipSh + 0.12 * LW.noise(s * 9 + st.seed, w * 4), 0, 1);
             },
             w: (d) => 0.7 + 1.9 * d,
             breaks: 0.5, bf: 26, bf2: 3, wob: 0.6,
@@ -167,9 +190,31 @@
         // tread contour: nosing line + side; joint between the two slabs
         const p3 = new LW.Pen();
         const jt = [];
-        for (let m = 0; m <= 8; m++) jt.push(F(st.s0 + (G * m) / 8, st.joint + LW.noise(m * 0.4, st.seed) * 0.02, st.yT));
-        p3.line(jt, 2.2, 0.15);
-        p3.line(nosing.map(([s, w]) => F(s, w, st.yT)), (t) => 2.2 + 1.2 * LW.noise(t * 6 + st.seed, 2), 0.05);
+        if (st.replaced) {
+          // a newer slab let into the old step: crisp joints on both sides, a few setting wedges
+          for (const jw of [0.85, 1.95]) {
+            const q = [];
+            for (let m = 0; m <= 8; m++) q.push(FT(st, st.s0 + ((st.s1 - st.s0) * m) / 8, jw));
+            p3.line(q, 2.8, 0.05);
+          }
+        } else {
+          for (let m = 0; m <= 8; m++) jt.push(FT(st, st.s0 + ((st.s1 - st.s0) * m) / 8, st.joint + LW.noise(m * 0.4, st.seed) * 0.02));
+          p3.line(jt, 2.2, 0.15);
+        }
+        if (st.cracked) {
+          // a crack running across the tread and down the riser, with a branch
+          let s2 = st.s1 - 0.02, w2 = rnd.range(0.9, 1.9);
+          const cp = [];
+          for (let m = 0; m < 14; m++) { cp.push(FT(st, s2, w2)); s2 -= (st.s1 - st.s0) / 13; w2 += rnd.gauss() * 0.04 - 0.012; }
+          for (let m = 1; m < 6; m++) cp.push(F(st.s0, w2 + rnd.gauss() * 0.01, st.yT - dipAt(st, st.s0, w2) - m * (st.yT - st.yB) / 5.5));
+          p3.line(cp, (t) => 2.6 * (1 - 0.5 * Math.abs(t - 0.5)), 0.2);
+          const bi = 6;
+          const bq = [cp[bi]];
+          let bs = st.s1 - (st.s1 - st.s0) * 0.45, bw = w2 + 0.05;
+          for (let m = 0; m < 5; m++) { bs -= 0.02; bw += 0.04 + rnd.gauss() * 0.01; bq.push(FT(st, bs, bw)); }
+          p3.line(bq, 1.4, 0.4);
+        }
+        p3.line(nosing.map(([s, w]) => FT(st, s, w)), (t) => 2.2 + 1.2 * LW.noise(t * 6 + st.seed, 2), 0.05);
         // worn, rounded nosing: a pale polished band just behind the edge, broken by chips
         {
           const hl = new LW.Pen();
@@ -177,7 +222,7 @@
           const flushH = () => { if (run.length > 2) hl.line(run, (t) => 4.5 + 3 * Math.sin(t * Math.PI), 0.3); run = []; };
           for (const [s0n, w] of nosing) {
             if (LW.noise3(w * 6 + st.seed, 7.7) > 0.45) { flushH(); continue; }
-            run.push(F(s0n + 0.045, w, st.yT));
+            run.push(FT(st, s0n + 0.045, w));
           }
           flushH();
           LW.clipDo(LW.fill, path, () => hl.draw(LW.fill, '#f6efd8'));
@@ -188,6 +233,13 @@
             const bite = [a, m, b, F(st.s0 - 0.02, w + cw * 0.6, st.yT - 0.025), F(st.s0 - 0.02, w + cw * 0.3, st.yT - 0.03)];
             LW.flat(LW.polyPath(bite), '#c9b384');
             p3.line([a, m, b], 1.5, 0.2);
+          }
+          // grass in the joints at both ends of the step
+          for (let g2 = 0; g2 < 2; g2++) {
+            if (rnd() < 0.35) continue;
+            const w = g2 ? Wd - rnd.range(0.02, 0.2) : rnd.range(0.05, 0.25);
+            const c = F(st.s1 - 0.01, w, st.yT);
+            LW.grass(c[0], c[1], rnd.range(60, 120) * (LW.cam.f / FW(st.s1, w, 0)[2]) / 600, rnd);
           }
           // moss creeping along the tread/riser joint on the rock side
           for (let m2 = 0; m2 < 3; m2++) {
@@ -202,14 +254,18 @@
       {
         const rp = [];
         const NW = 26;
-        for (let j = 0; j <= NW; j++) rp.push([(j / NW) * Wd, st.yT + (j === 0 ? -0.02 : 0)]);
+        for (let j = 0; j <= NW; j++) { const w = (j / NW) * Wd; rp.push([w, st.yT - dipAt(st, st.s0, w) - cornerAt(st, w) * 0.6]); }
         rp.push([Wd, st.yB], [0, st.yB]);
         const map = (y, w) => F(st.s0, w, y);
         const scr = rp.map(([w, y]) => F(st.s0, w, y));
         const path = LW.polyPath(scr);
         fg.addPath(path);
         LW.occlude(path);
-        LW.flat(path, rnd() < 0.5 ? '#dccb9c' : '#d4c08e');
+        LW.flat(path, st.replaced ? '#d3c9ab' : rnd() < 0.5 ? '#dccb9c' : '#d4c08e');
+        if (st.corner > 0.04) { // the broken corner shows raw, darker stone
+          const cq = [F(st.s0, 0, st.yT - cornerAt(st, 0) * 0.6), F(st.s0, 0.2, st.yT - dipAt(st, st.s0, 0.2)), F(st.s0, 0.12, st.yT - cornerAt(st, 0.12) * 0.6 - 0.02), F(st.s0, 0, st.yT - cornerAt(st, 0) - 0.03)];
+          LW.flat(LW.polyPath(cq), '#b9a477');
+        }
         LW.clipDo(ink, path, () => {
           const p2 = new LW.Pen();
           LW.paramHatch(p2, map, st.yB, st.yT, 0, Wd, {
@@ -501,7 +557,7 @@
     if (!fgV) return;
     const fg = new Path2D(); fg.addPath(fgV); fg.addPath(fgH);
     const x0 = -10, y0 = 2600, w = 2000, h = 1250, res = 0.5;
-    const field = (x, y) => 0.95 * LW.smooth(3000, 3650, y) - 0.42 + 0.55 * LW.fbm(x * 0.0026 + 3, y * 0.005, 2) + 0.12 * LW.noise2(x * 0.007, y * 0.012);
+    const field = (x, y) => 0.95 * LW.smooth(3000, 3650, y) - 0.42 + 0.55 * LW.fbm(x * 0.0026 + 3, y * 0.005, 2) + 0.12 * LW.noise2(x * 0.007, y * 0.012) + 0.07 * LW.noise3(x * 0.03, y * 0.05) + 0.04 * LW.noise(x * 0.08, y * 0.12);
     const mc = LW.canvas(w * res, h * res);
     const mg = mc.getContext('2d');
     const id = mg.createImageData(mc.width, mc.height);
@@ -564,8 +620,16 @@
     const path = LW.polyPath(poly);
     LW.outcropPath = path;
     LW.occlude(path);
-    LW.flat(path, '#a08356');
+    LW.flat(path, '#6f5b46');
     const ink = LW.ink;
+    // silhouette x at each row, for the sunlit rim
+    const edgeX = new Float32Array(4000).fill(2240);
+    for (let i = 1; i < edge.length; i++) {
+      const [x0, y0] = edge[i - 1], [x1, y1] = edge[i];
+      for (let y = Math.ceil(Math.min(y0, y1)); y <= Math.floor(Math.max(y0, y1)); y++) if (y >= 0 && y < 4000) edgeX[y] = Math.min(edgeX[y], LW.lerp(x0, x1, (y - y0) / ((y1 - y0) || 1)));
+    }
+    const rimW = (y) => 16 + 14 * (0.5 + 0.5 * LW.noise(y * 0.006, 4.4));
+    const rimAt = (x, y) => LW.smooth(rimW(y) + 14, rimW(y) * 0.4, x - edgeX[LW.clamp(y | 0, 0, 3999)]);
     LW.fill.save(); LW.fill.clip(path); ink.save(); ink.clip(path);
     // irregular, vertically elongated facets (power diagram)
     const sites = [];
@@ -609,35 +673,54 @@
       const r = s2.r;
       const nx = -0.2 + r.gauss() * 0.5, ny = r.gauss() * 0.3, nz = 1;
       const lam = (nx * L[0] + ny * L[1] + nz * L[2]) / Math.hypot(nx, ny, nz);
-      const d0 = LW.clamp(0.62 + 0.7 * (0.6 - lam) + 0.12 * LW.smooth(2000, 3700, s2.y), 0.42, 0.97);
+      const d0 = LW.clamp(0.7 + 0.7 * (0.6 - lam) + 0.12 * LW.smooth(2000, 3700, s2.y), 0.5, 0.98);
       const fp = LW.polyPath(pts);
-      LW.flat(fp, d0 < 0.55 ? '#b39b6c' : d0 < 0.7 ? '#9a8058' : d0 < 0.85 ? '#7f6646' : '#634e36');
+      LW.flat(fp, d0 < 0.62 ? '#8f7856' : d0 < 0.76 ? '#77634b' : d0 < 0.88 ? '#5f4f40' : '#4a3e33');
       const bb = LW.bbox(pts, 2);
       const fall = Math.PI / 2 + nx * 0.5 + r.gauss() * 0.05;
       const inF = (x, y) => LW.pointInPoly(x, y, pts);
       // darker under the facet's top edge (overhang) and toward its shadow side
       const topY = bb.y0;
-      const darkF = (x, y) => LW.clamp(d0 + 0.3 * LW.smooth(topY + 70, topY, y) + 0.15 * ((x - s2.x) / (bb.w * 0.5 + 1)) + 0.08 * LW.noise(x * 0.015, y * 0.01), 0, 1);
+      const darkF = (x, y) => LW.clamp(d0 + 0.3 * LW.smooth(topY + 70, topY, y) + 0.15 * ((x - s2.x) / (bb.w * 0.5 + 1)) + 0.08 * LW.noise(x * 0.015, y * 0.01) - 0.75 * rimAt(x, y), 0, 1);
       LW.hatchDither(pen, bb, fall, { spacing: 3.0, step: 3, wob: 1.1, seed: k * 13, jitter: 0.08, inside: inF, dark: darkF, w: (x, y, d) => 0.7 + 1.7 * d, taper: 0.2 });
       LW.hatchDither(pen, bb, fall + 0.55, { spacing: 4.0, step: 3, wob: 1.0, seed: k * 7, inside: inF, dark: (x, y) => darkF(x, y) - 0.3, w: () => 0.9, taper: 0.3 });
       if (d0 > 0.7) LW.hatchDither(pen, bb, fall - 0.6, { spacing: 4.6, step: 3, wob: 1.0, seed: k * 5, inside: inF, dark: (x, y) => darkF(x, y) - 0.55, w: () => 0.9, taper: 0.3 });
-      // cracks within the facet
-      for (let c = 0; c < 2; c++) {
-        let x = s2.x + r.gauss() * 40, y = s2.y + r.gauss() * 80, a = fall + r.gauss() * 0.5;
-        const cp = [];
-        for (let m = 0; m < 16; m++) { cp.push([x, y]); a += r.gauss() * 0.3; x += Math.cos(a) * 11; y += Math.sin(a) * 11; }
-        pen.line(cp, 2.4, 0.45);
-      }
+      // crack networks: branching, tapering fissures
+      const crack = (x, y, a, len, w, depth) => {
+        const cp = [[x, y]];
+        const n = Math.max(3, Math.round(len / 10));
+        for (let m = 0; m < n; m++) {
+          a += r.gauss() * 0.32; x += Math.cos(a) * 10; y += Math.sin(a) * 10; cp.push([x, y]);
+          if (depth > 0 && r() < 0.12) crack(x, y, a + r.sign() * r.range(0.5, 1.1), len * r.range(0.3, 0.6), w * 0.6, depth - 1);
+        }
+        pen.line(cp, (t) => w * (1 - 0.7 * t), 0.2, 0.2);
+      };
+      for (let c = 0; c < 2; c++) crack(s2.x + r.gauss() * 40, s2.y + r.gauss() * 80, fall + r.gauss() * 0.6, r.range(90, 220), r.range(2.2, 3.6), 2);
       LW.inkContour(pen, pts, (ex, ey, x, y) => {
         const sh = LW.shadowSide(ex, ey);
         return (0.8 + 4.2 * sh * sh) * (1 + 0.3 * LW.noise3(x * 0.02, y * 0.02));
       }, { taper: 0.2 });
       pen.draw(ink, C.ink);
     }
+    {
+      // the sunlit rim along the outcrop's edge: pale flat + sparse fine hatching
+      const strip = edge.map(([x, y]) => [x, y]).concat(edge.slice().reverse().map(([x, y]) => [x + rimW(y), y]));
+      const sp = LW.polyPath(strip);
+      LW.clipDo(LW.fill, sp, () => LW.flat(sp, '#d3bd90'));
+      const rp = new LW.Pen();
+      const sbb = LW.bbox(strip, 2);
+      LW.clipDo(ink, sp, () => {
+        LW.hatchDither(rp, sbb, Math.PI / 2 - 0.1, { spacing: 4, step: 3, wob: 0.8, seed: 61, dark: (x, y) => 0.08 + 0.45 * LW.smooth(8, 30, x - edgeX[LW.clamp(y | 0, 0, 3999)]), w: () => 0.8 });
+        rp.draw(ink, C.ink);
+      });
+    }
     LW.fill.restore(); ink.restore();
     const op = new LW.Pen();
     LW.outline(op, poly, 4.6, 1.0);
     op.draw(ink, C.ink);
+    // a wild fig rooted in a crack, leaning out toward the steps, and a caper lower down
+    LW.figBush(edgeX[2080] + 8, 2080, 200, rnd);
+    LW.caper(edgeX[2930] + 4, 2930, 70, rnd);
     // ferns and tufts in its crevices
     for (let k = 0; k < 7; k++) {
       const y = rnd.range(1700, 3600);
@@ -647,6 +730,67 @@
       LW.fern(x + rnd.range(-10, 30), y, rnd.range(90, 170), Math.PI + rnd.range(0.3, 0.9), rnd);
     }
   }
+
+  // wild fig: a few woody stems with big lobed leaves; base at (x,y), leaning left
+  LW.figBush = function (x, y, size, rnd) {
+    const pen = new LW.Pen();
+    const leaves = [];
+    const stems = new LW.Pen();
+    for (let k = 0; k < 3; k++) {
+      let a = Math.PI + (k - 1) * 0.55 + rnd.gauss() * 0.12, px = x, py = y;
+      const L = size * rnd.range(0.7, 1.1);
+      const pts = [[px, py]];
+      for (let m = 0; m < 8; m++) { a += rnd.gauss() * 0.15 - 0.03; px += Math.cos(a) * L / 8; py += Math.sin(a) * L / 8; pts.push([px, py]); }
+      stems.line(pts, (t) => 9 * (1 - 0.7 * t), 0.05);
+      pen.line(pts.map(([qx, qy], i) => [qx + 3.5 * (1 - 0.7 * i / 8), qy + 2]), 2.2, 0.1);
+      pen.line(pts.map(([qx, qy], i) => [qx - 3.5 * (1 - 0.7 * i / 8), qy - 2]), 1.2, 0.1);
+      for (let m = 5; m <= 8; m += 3) leaves.push([pts[m][0], pts[m][1], a + rnd.gauss() * 0.6 - 0.2 + (m === 8 ? 0 : rnd.sign() * 0.9), size * rnd.range(0.32, 0.42)]);
+    }
+    stems.draw(LW.fill, '#8a7a62');
+    pen.draw(LW.ink, LW.C.ink);
+    leaves.sort((a, b) => a[1] - b[1]);
+    for (const [lx, ly, la, ls] of leaves) {
+      // fig leaf: petiole at the origin, blade along +u with 3 or 5 rounded lobes
+      const lobes = rnd() < 0.5 ? 3 : 5;
+      const loc = [];
+      const N = 90;
+      for (let i = 0; i <= N; i++) {
+        const t = i / N; // 0..1 around the blade, from the base round the tip and back
+        const th = -Math.PI * 0.92 + t * Math.PI * 1.84; // angle from the blade axis
+        const k = (th / (Math.PI * 0.92) + 1) / 2 * lobes; // lobe coordinate
+        const f = k - Math.floor(k);
+        const lobeR = 1 - Math.pow(Math.abs(2 * f - 1), 2.4); // broad lobes, narrow deep sinuses
+        const li = Math.min(lobes - 1, Math.floor(k)), mid = (lobes - 1) / 2;
+        const lobeLen = 1 - 0.22 * Math.abs(li - mid); // central lobe longest
+        const rr = ls * (0.42 + 0.58 * lobeR) * lobeLen * (1 - 0.2 * Math.abs(th) / Math.PI);
+        loc.push([ls * 0.15 + Math.cos(th) * rr, Math.sin(th) * rr * 0.9]);
+      }
+      const ca = Math.cos(la), sa = Math.sin(la);
+      const T = (u, v) => [lx + u * ca - v * sa, ly + u * sa + v * ca];
+      const sp = loc.map(([u, v]) => T(u, v));
+      const lp = LW.polyPath(sp);
+      LW.occlude(lp);
+      LW.flat(lp, rnd() < 0.5 ? '#3f7262' : '#355f55');
+      LW.clipDo(LW.fill, lp, () => {
+        const half = [T(-ls, -ls * 1.2), T(ls * 1.5, -ls * 1.2), T(ls * 1.5, 0), T(-ls, 0)];
+        LW.flat(LW.polyPath(half), la > Math.PI / 2 && la < 1.5 * Math.PI ? '#6f9c86' : '#2a4d47');
+      });
+      LW.outline(pen, sp, 2.0, 1.2);
+      // midrib and lobe veins
+      const base = T(ls * 0.15, 0);
+      for (let v = 0; v < lobes; v++) {
+        const th = -Math.PI * 0.92 + ((v + 0.5) / lobes) * Math.PI * 1.84;
+        const rr = ls * 0.8 * (1 - 0.25 * Math.abs(th) / Math.PI);
+        pen.line([base, T(ls * 0.15 + Math.cos(th) * rr * 0.5, Math.sin(th) * rr * 0.45), T(ls * 0.15 + Math.cos(th) * rr, Math.sin(th) * rr * 0.9)], 1.3, 0.3);
+      }
+      // shade strokes on the darker half
+      const sb = LW.bbox(sp);
+      LW.hatchDither(pen, sb, la + 0.9, { spacing: 3.4, step: 2, wob: 0.3, seed: lx | 0, inside: (qx, qy) => LW.pointInPoly(qx, qy, sp) && ((qx - lx) * -sa + (qy - ly) * ca) > ls * 0.1, dark: () => 0.62, w: () => 0.9 });
+      pen.line([[lx - ca * ls * 0.25, ly - sa * ls * 0.25], base], 1.8, 0.2);
+      pen.draw(LW.ink, LW.C.ink);
+    }
+    pen.draw(LW.ink, LW.C.ink);
+  };
 
   // a fern frond fan: base point, size, main direction
   LW.fern = function (x, y, size, dir, rnd) {
@@ -761,6 +905,26 @@
     LW.outline(pen, body, 1.6, 1.0);
     const eye = T(0.45, 0.015);
     pen.dot(eye[0], eye[1], 1.4);
+    pen.draw(LW.ink, C.ink);
+  };
+
+  // a tuft of grass blades with a seed head or two; base (x,y), height px
+  LW.grass = function (x, y, h, rnd) {
+    const pen = new LW.Pen(), fillP = new LW.Pen();
+    const nb = rnd.int(6, 12);
+    for (let k = 0; k < nb; k++) {
+      const a = -Math.PI / 2 + rnd.gauss() * 0.45;
+      const L = h * rnd.range(0.45, 1.0), bend = rnd.gauss() * 0.5;
+      const pts = [];
+      for (let t = 0; t <= 1.0001; t += 0.2) {
+        const aa = a + bend * t * t;
+        pts.push([x + rnd.gauss() * 0.5 + Math.cos(aa) * L * t + (k - nb / 2) * 1.6, y + Math.sin(aa) * L * t]);
+      }
+      fillP.line(pts, (t) => 3.2 * (1 - t) + 0.4, 0.05);
+      pen.line(pts, (t) => 1.3 * (1 - 0.7 * t), 0.1);
+      if (k < 2 && rnd() < 0.6) { const e = pts[pts.length - 1]; for (let m = 0; m < 4; m++) pen.dot(e[0] + rnd.gauss() * 2, e[1] + m * 3, 1.6); }
+    }
+    fillP.draw(LW.fill, '#8a9a5a');
     pen.draw(LW.ink, C.ink);
   };
 

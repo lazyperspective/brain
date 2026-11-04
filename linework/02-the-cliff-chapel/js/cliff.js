@@ -33,8 +33,17 @@
     }
     // corner profile (the headland's edge against the sea), multi-scale jagged
     const corner = [];
-    for (let h = 5.4; h >= -19; h -= 0.1) {
-      const u = 0.25 + 0.6 * Math.max(-0.3, LW.fbm(h * 0.16, 9.1, 2)) + 0.22 * LW.fbm(h * 0.7, 3.3, 2) + 0.05 * LW.noise2(h * 3.5, 1) + (h < -4 ? (h + 4) * -0.03 : 0);
+    const beds = LW.cliffBeds();
+    const bedP = (h) => {
+      for (let j = beds.length - 1; j >= 0; j--) if (h >= beds[j].h0) {
+        const b = beds[j], nb = beds[j + 1];
+        const t = LW.smooth(b.h0 + b.t - 0.18, b.h0 + b.t, h);
+        return LW.lerp(b.p, nb ? nb.p : b.p, t * 0) * 1 + (nb ? (nb.p - b.p) * t : 0);
+      }
+      return 0;
+    };
+    for (let h = 5.4; h >= -19; h -= 0.05) {
+      const u = 0.25 + 0.6 * Math.max(-0.3, LW.fbm(h * 0.16, 9.1, 2)) + 0.12 * LW.fbm(h * 0.7, 3.3, 2) + 0.03 * LW.noise2(h * 3.5, 1) + (h < -4 ? (h + 4) * -0.03 : 0) - 0.6 * bedP(h);
       corner.push(S.faceP(u, h, 0));
     }
     const poly = sky.concat([[2400, sky[sky.length - 1][1]], [2400, 4000]], [[corner[corner.length - 1][0], 4000]], corner.slice().reverse());
@@ -45,177 +54,237 @@
     return LW._cliffGeom;
   };
 
-  // relief (metres of displacement) in face coords
-  function relief(u, h) {
-    const wu = u + 0.6 * LW.fbm(h * 0.11, u * 0.09 + 3, 2);
-    const butt = LW.ridge(wu * 0.36, h * 0.055 + 2.0, 3); // vertical buttresses
-    const lump = LW.fbm(u * 0.62 + 11, h * 0.5, 3);
-    const s = h / 2.3 + 0.35 * LW.fbm(u * 0.13, h * 0.08 + 5, 2);
-    const fr = s - Math.floor(s);
-    const strata = fr < 0.1 ? fr / 0.1 : 1 - (fr - 0.1) / 0.9;
-    return 1.15 * butt + 0.5 * lump + 0.32 * strata;
+  // ------------------------------------------------------------------ limestone
+  // The face is built as bedded limestone: beds (courses metres thick, slightly
+  // wavy and tilted) split by vertical joints into big blocks. Each bed stands
+  // proud or recessed; where the bed above overhangs there is an undercut shadow
+  // band, below eye level the ledge tops catch light. Blocks are faceted (own
+  // tilted normal) and hatched with cool umber fall-line strokes, crossed in the
+  // darks; pockets and small caves sit along the bedding planes.
+  const LIME = ['#ecdcb0', '#e1cd9b', '#d3bc87', '#c3ad82'];
+  const HATCH = '#352c28';
+
+  function buildBeds(rnd) {
+    const beds = [];
+    let h = -22;
+    while (h < 16) {
+      const t = rnd.range(0.8, 2.5) * (h > 8 ? 0.8 : 1);
+      beds.push({ h0: h, t, p: rnd.range(0, 0.55), slope: rnd.gauss() * 0.012, seed: rnd() * 100 });
+      h += t;
+    }
+    return beds;
   }
 
+  LW.cliffBeds = () => LW._beds || (LW._beds = buildBeds(LW.rng('beds')));
   LW.drawCliff = async function () {
     const S = LW.scene;
     const G = LW.cliffGeom();
-    const rnd = LW.rng('cliff');
+    const rnd = LW.rng('limestone');
     const shadow = LW.zz.shadowMask();
     const nFace = V.norm(V.add(S.NF, [0, S.LEAN, 0]));
-    const VA = V.norm([-S.LEAN * S.NF[0], 1, -S.LEAN * S.NF[2]]);
-
-    // ---- precompute fields on a 4px grid
-    const grid = new LW.Grid(600, 0, 2200, 3900, 4);
-    const R = grid.field(), D = grid.field(), DX = grid.field(), DY = grid.field(), GX = grid.field(), GY = grid.field(), SL = grid.field();
-    const e = 0.04;
-    for (let j = 0; j < grid.h; j++) {
-      for (let i = 0; i < grid.w; i++) {
-        const k = j * grid.w + i;
-        const x = grid.x0 + i * grid.cs, y = grid.y0 + j * grid.cs;
-        const [u, h] = S.unproj(x, y, 0);
-        const r0 = relief(u, h), ru = (relief(u + e, h) - r0) / e, rh = (relief(u, h + e) - r0) / e;
-        R[k] = r0;
-        const n = V.norm(V.sub(nFace, V.add(V.mul(S.U, ru * 0.9), V.mul(VA, rh * 0.9))));
-        const lam = V.dot(n, LW.L3);
-        // screen jacobian
-        const p0 = S.faceP(u, h, 0), pu = S.faceP(u + 0.05, h, 0), ph = S.faceP(u, h + 0.05, 0);
-        const ju = [(pu[0] - p0[0]) / 0.05, (pu[1] - p0[1]) / 0.05], jh = [(ph[0] - p0[0]) / 0.05, (ph[1] - p0[1]) / 0.05];
-        // iso-line direction (perpendicular to gradient) in screen
-        let tu = -rh, th = ru;
-        const gl = Math.hypot(tu, th);
-        // blend with vertical fall-line where the relief is flat
-        const wv = LW.smooth(0.25, 0.0, gl);
-        tu = tu / (gl || 1) * (1 - wv); th = th / (gl || 1) * (1 - wv) + wv;
-        let dx = ju[0] * tu + jh[0] * th, dy = ju[1] * tu + jh[1] * th;
-        let dl = Math.hypot(dx, dy) || 1;
-        dx /= dl; dy /= dl;
-        if (dy < 0) { dx = -dx; dy = -dy; }
-        // engraver's compromise: mostly the fall line, bent by the form
-        const fx = jh[0], fy = jh[1], fl = Math.hypot(fx, fy) || 1;
-        dx = 0.42 * dx + 0.58 * (-fx / fl); dy = 0.42 * dy + 0.58 * (-fy / fl);
-        dl = Math.hypot(dx, dy) || 1;
-        DX[k] = dx / dl; DY[k] = dy / dl;
-        // screen gradient direction (uphill)
-        let gx = ju[0] * ru + jh[0] * rh, gy = ju[1] * ru + jh[1] * rh;
-        const gg = Math.hypot(gx, gy) || 1;
-        GX[k] = gx / gg; GY[k] = gy / gg;
-        SL[k] = gl;
-        let d = LW.clamp(1 - (lam - 0.08) / 0.8, 0, 1);
-        d = 0.08 + 0.72 * Math.pow(d, 1.25);
-        d += 0.28 * LW.smooth(0.42, 0.12, LW.ridge((u + 0.6 * LW.fbm(h * 0.11, u * 0.09 + 3, 2)) * 0.36, h * 0.055 + 2.0, 3)); // buttress valleys
-        d += 0.3 * LW.smooth(2000, 3300, y);
-        d += (shadow.at(x, y) / 255) * 0.42;
-        d += 0.06 * LW.noise(x * 0.01, y * 0.01);
-        D[k] = LW.clamp(d, 0, 1);
-      }
-      if (j % 120 === 0) await LW.tick();
-    }
-    const dAt = (x, y) => grid.get(D, x, y);
-
-    LW.occlude(G.path);
     const fillG = LW.fill, inkG = LW.ink;
-    // ---- flat plates: 4 rock tones from the value field (rendered at 2px)
-    {
-      const cw = Math.ceil(1600 / 2), chh = Math.ceil(3900 / 2);
-      const c = LW.canvas(cw, chh);
-      const g = c.getContext('2d');
-      const id = g.createImageData(cw, chh);
-      const cols = ROCK.map((h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
-      for (let j = 0; j < chh; j++) for (let i = 0; i < cw; i++) {
-        const x = 600 + i * 2, y = j * 2;
-        const d = dAt(x, y) + 0.05 * LW.noise3(x * 0.03, y * 0.03);
-        const t = d < 0.34 ? 0 : d < 0.55 ? 1 : d < 0.74 ? 2 : 3;
-        const o = (j * cw + i) * 4;
-        id.data[o] = cols[t][0]; id.data[o + 1] = cols[t][1]; id.data[o + 2] = cols[t][2]; id.data[o + 3] = 255;
-      }
-      g.putImageData(id, 0, 0);
-      fillG.save();
-      fillG.clip(G.path);
-      fillG.imageSmoothingEnabled = true;
-      fillG.drawImage(c, 600, 0, 1600, 3900);
-      fillG.restore();
-    }
-    await LW.tick();
+    LW.occlude(G.path);
+    LW.flat(G.path, LIME[1]);
+    fillG.save(); fillG.clip(G.path);
     inkG.save(); inkG.clip(G.path);
-    let pen = new LW.Pen();
-    // ---- form-following hatching
-    const inside = (x, y) => G.mask.in(x, y);
-    const lines = LW.streamlines({
-      bbox: { x0: 600, y0: 0, x1: 2200, y1: 3900 }, seed: 11,
-      inside,
-      dir: (x, y) => [grid.get(DX, x, y), grid.get(DY, x, y)],
-      sep: (x, y) => { const d = dAt(x, y); return d < 0.13 ? 0 : 2.7 + 12.5 * Math.pow(1 - d, 1.9); },
-      step: 2.6, minLen: 14, seedGrid: 30, cell: 6,
-    });
-    LW.drawLines(pen, lines, (x, y) => 0.5 + 1.75 * dAt(x, y), 0.3, 0.1);
-    pen.draw(inkG, C.ink);
-    await LW.tick();
-    // ---- cross-hatching in the darks (along the gradient)
-    const lines2 = LW.streamlines({
-      bbox: { x0: 600, y0: 0, x1: 2200, y1: 3900 }, seed: 12,
-      inside,
-      dir: (x, y) => [grid.get(GX, x, y), grid.get(GY, x, y)],
-      sep: (x, y) => { const d = dAt(x, y); return d < 0.6 ? 0 : 3.2 + 16 * Math.pow(1 - d, 1.4); },
-      step: 2.6, minLen: 8, seedGrid: 30, cell: 6,
-    });
-    LW.drawLines(pen, lines2, (x, y) => 0.5 + 1.1 * dAt(x, y), 0.35, 0.1);
-    pen.draw(inkG, C.ink);
-    await LW.tick();
-    // ---- iso-contours of the relief: lump outlines, heavy on the shadow side
-    for (let lv = 0.4; lv < 2.0; lv += 0.32) {
-      const iso = LW.marching(R, grid.w, grid.h, lv + 0.03 * Math.sin(lv * 13), grid.map());
-      for (const L of iso) {
-        if (L.length < 4) continue;
-        const pts = LW.spline(L.filter((_, i) => i % 2 === 0 || i === L.length - 1), 3);
-        const seed = rnd() * 100;
-        let run = [], ws = [];
-        const flush = () => { if (run.length > 3) pen.line(run, ws, 0.25, 0.15); run = []; ws = []; };
-        for (const p of pts) {
-          if (!inside(p[0], p[1])) { flush(); continue; }
-          const gx = grid.get(GX, p[0], p[1]), gy = grid.get(GY, p[0], p[1]);
-          const sh = LW.shadowSide(-gx, -gy); // outward = downhill
-          const sl = LW.smooth(0.3, 1.4, grid.get(SL, p[0], p[1]));
-          const w = (0.3 + 2.8 * sh * sh * sh) * (0.4 + 0.8 * sl) * (1 + 0.3 * LW.noise3(p[0] * 0.03 + seed, p[1] * 0.03));
-          if (sh < 0.55 || w < 0.75 || LW.noise3(p[0] * 0.012 + seed, p[1] * 0.012) < -0.2) { flush(); continue; }
-          run.push(p); ws.push(w);
+    const beds = LW.cliffBeds();
+    const bedLine = (j, u) => {
+      if (j >= beds.length) return 30;
+      const b = beds[j];
+      return b.h0 + b.slope * (u - 8) + 0.16 * LW.fbm(u * 0.22 + b.seed, b.seed, 2) + 0.03 * LW.noise2(u * 3, b.seed);
+    };
+    const fp = (u, h) => S.faceP(u, h, 0);
+    const pen = new LW.Pen();
+    const hp = new LW.Pen(); // hatch pen (cool umber)
+    const flush = () => { hp.draw(inkG, HATCH); pen.draw(inkG, C.ink); };
+    let blocks = 0;
+    for (let j = 0; j < beds.length; j++) {
+      const bd = beds[j], above = beds[j + 1] || { p: bd.p };
+      // joints
+      const joints = [];
+      let u = -3 - rnd() * 2;
+      while (u < 22) { joints.push({ u, lean: rnd.gauss() * 0.06, seed: rnd() * 50, partial: rnd() < 0.25 }); u += rnd.range(0.9, 3.4) * (bd.t > 1.8 ? 1.15 : 1); }
+      const jointU = (jt, h) => jt.u + jt.lean * (h - bd.h0) + 0.06 * LW.noise(h * 1.5, jt.seed);
+      for (let k = 0; k < joints.length - 1; k++) {
+        const J0 = joints[k], J1 = joints[k + 1];
+        // quick visibility test
+        const mid = fp((J0.u + J1.u) / 2, bd.h0 + bd.t / 2);
+        const c0 = fp(J0.u, bd.h0), c1 = fp(J1.u, bd.h0 + bd.t);
+        if (Math.max(mid[0], c0[0], c1[0]) < 650 || Math.min(mid[1], c0[1], c1[1]) > 3900 || Math.max(mid[1], c0[1], c1[1]) < 0) continue;
+        if (!G.mask.in(mid[0], mid[1]) && !G.mask.in(c0[0], c0[1]) && !G.mask.in(c1[0], c1[1])) continue;
+        // polygon in (u,h): bottom, right, top, left
+        const poly = [];
+        const st = 0.12;
+        const hb0 = bedLine(j, J0.u), hb1 = bedLine(j, J1.u);
+        for (let uu = jointU(J0, hb0); uu < jointU(J1, hb1); uu += st) poly.push([uu, bedLine(j, uu)]);
+        const ht0 = bedLine(j + 1, J1.u);
+        for (let hh = bedLine(j, J1.u); hh < ht0; hh += st) poly.push([jointU(J1, hh), hh]);
+        for (let uu = jointU(J1, ht0); uu > jointU(J0, bedLine(j + 1, J0.u)); uu -= st) poly.push([uu, bedLine(j + 1, uu)]);
+        for (let hh = bedLine(j + 1, J0.u); hh > bedLine(j, J0.u); hh -= st) poly.push([jointU(J0, hh), hh]);
+        if (poly.length < 6) continue;
+        // chip the corners a little
+        const scr = poly.map(([a, b2]) => fp(a, b2));
+        const bb = LW.bbox(scr, 2);
+        if (bb.w < 2 || bb.h < 2) continue;
+        const r = LW.rng(j * 1000 + k * 7 + 11);
+        // facet normal & base value
+        const ta = r.gauss() * 0.4 - 0.05, tb = r.gauss() * 0.25 + 0.04;
+        const n = V.norm(V.add(V.add(nFace, V.mul(S.U, ta)), [0, tb, 0]));
+        const lam = V.dot(n, LW.L3);
+        const d0 = LW.clamp(0.08 + 1.15 * (0.78 - lam) + 0.55 * (0.3 - bd.p), 0.03, 0.85);
+        // a facet split: one side of a diagonal turns away from the sun
+        const fa = [LW.lerp(J0.u, J1.u, r.range(0.2, 0.8)), bd.h0 + bd.t], fb = [LW.lerp(J0.u, J1.u, r.range(0.1, 0.9)), bd.h0];
+        const fsplit = r() < 0.6 ? r.range(0.12, 0.26) : 0;
+        const ctr = fp((J0.u + J1.u) / 2, bd.h0 + bd.t / 2);
+        const topH = (uu) => bedLine(j + 1, uu);
+        // undercut (bed above overhangs) or lit ledge top (we look down on it)
+        const over = above.p - bd.p;
+        const hTop = bd.h0 + bd.t;
+        const eye = hTop > 0.3; // ledge above eye level -> we see the soffit
+        const band = over > 0.14 ? 0.1 + over * 1.1 : 0;
+        const ledge = !eye && over < -0.05 ? Math.min(0.35, 0.05 + -over * 0.5 * LW.clamp(-hTop / 8, 0.2, 1)) : 0;
+        const toUH = (x, y) => S.unproj(x, y, 0);
+        const darkAt = (x, y) => {
+          const [uu, hh] = toUH(x, y);
+          const dTop = topH(uu) - hh;
+          let d = d0;
+          d += 0.22 * LW.clamp((x - ctr[0]) / (bb.w * 0.5 + 1), -1, 1) * 0.5; // recess toward the right joint
+          d += 0.18 * LW.smooth(0.5, 0.0, (jointU(J1, hh) - uu)); // shadowed right edge
+          if (fsplit && (uu - fa[0]) * (fb[1] - fa[1]) - (hh - fa[1]) * (fb[0] - fa[0]) < 0) d += fsplit;
+          if (band && dTop < band) return 0; // the undercut band is ruled separately
+          d += 0.3 * LW.smooth(band + 0.6, band, dTop) * (band ? 1 : 0);
+          d += 0.3 * LW.smooth(1950, 3300, y);
+          d += 0.45 * (shadow.at(x, y) / 255);
+          d += 0.08 * LW.noise(x * 0.01, y * 0.01);
+          if (ledge && dTop < ledge) d = 0.02;
+          return LW.clamp(d, 0, 1);
+        };
+        const path = LW.polyPath(scr);
+        const inside = (x, y) => LW.pointInPoly(x, y, scr);
+        const dc = darkAt(ctr[0], ctr[1]);
+        LW.flat(path, LIME[Math.min(3, Math.floor(LW.clamp(dc, 0, 0.99) * 3.2))]);
+        // flats for the undercut band / lit ledge
+        if (band || ledge) {
+          const bandPoly = [];
+          const bh = band || ledge;
+          for (let uu = poly[0][0]; uu <= jointU(J1, ht0); uu += 0.1) bandPoly.push(fp(uu, topH(uu)));
+          for (let uu = jointU(J1, ht0); uu >= poly[0][0]; uu -= 0.1) bandPoly.push(fp(uu, topH(uu) - bh * (0.92 + 0.12 * LW.noise(uu * 0.6, j))));
+          LW.clipDo(fillG, path, () => LW.flat(LW.polyPath(bandPoly), band ? '#a39577' : '#f3e7c4'));
+          if (band) {
+            const inB = (x, y) => LW.pointInPoly(x, y, bandPoly) && LW.pointInPoly(x, y, scr);
+            const b0s = fp(J0.u, bd.h0 + bd.t), b1s = fp(J0.u + 0.3, bd.h0 + bd.t);
+            const ang = Math.atan2(b1s[1] - b0s[1], b1s[0] - b0s[0]);
+            const bbB = LW.bbox(bandPoly, 1);
+            LW.hatchDither(hp, bbB, ang, { spacing: 2.5, step: 3, wob: 0.5, seed: j * 7 + k, inside: inB, dark: () => 0.97, w: () => 1.3, taper: 0.1 });
+            LW.hatchDither(hp, bbB, ang + 1.3, { spacing: 3.4, step: 3, wob: 0.5, seed: j * 9 + k, inside: inB, dark: (x, y) => 0.75, w: () => 1.0, taper: 0.2 });
+          }
+          if (ledge) { // the ledge lip: heavy line under the lit top
+            const lip = [];
+            for (let uu = poly[0][0]; uu <= jointU(J1, ht0); uu += 0.1) lip.push(fp(uu, topH(uu) - ledge * (0.92 + 0.12 * LW.noise(uu * 0.6, j))));
+            pen.line(lip, 2.4, 0.15);
+          }
         }
-        flush();
+        // fall-line hatching (slightly leaning per block), cross-hatch along the bed in the darks
+        const a0 = fp(J0.u, hTop), a1 = fp(J0.u, hTop - 0.3);
+        const fall = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]) + r.gauss() * 0.06;
+        const b0 = fp(J0.u, bd.h0), b1 = fp(J0.u + 0.3, bd.h0);
+        const strike = Math.atan2(b1[1] - b0[1], b1[0] - b0[0]);
+        LW.hatchDither(hp, bb, fall, {
+          spacing: 3.0, step: 3, wob: 1.2, seed: j * 31 + k, jitter: 0.03, inside, dark: darkAt,
+          w: (x, y, d) => 0.5 + 1.5 * d, taper: 0.25,
+        });
+        LW.hatchDither(hp, bb, strike + r.gauss() * 0.03, {
+          spacing: 3.6, step: 3, wob: 0.8, seed: j * 17 + k, inside, dark: (x, y) => darkAt(x, y) - 0.48,
+          w: () => 0.9, taper: 0.3,
+        });
+        if (fsplit) {
+          const q = [];
+          for (let t = 0; t <= 1.0001; t += 0.1) q.push(fp(LW.lerp(fa[0], fb[0], t) + 0.04 * LW.noise(t * 4, k), LW.lerp(fa[1], fb[1], t)));
+          const qi = q.filter((pq) => inside(pq[0], pq[1]));
+          if (qi.length > 2) pen.line(qi, 1.2, 0.4);
+        }
+        // laminations: thin broken partings inside thick beds
+        if (bd.t > 1.4) {
+          for (let m = 1; m < 3; m++) {
+            const hh0 = bd.h0 + bd.t * (m / 3) + r.gauss() * 0.08;
+            const q = [];
+            for (let uu = J0.u; uu <= J1.u; uu += 0.1) {
+              const pq = fp(uu, hh0 + bd.slope * (uu - 8) + 0.03 * LW.noise(uu * 2, m + j));
+              if (inside(pq[0], pq[1]) && LW.noise3(uu * 0.8, m * 3 + j) > -0.2) q.push(pq); else { if (q.length > 3) pen.line(q.splice(0), 0.9, 0.4); q.length = 0; }
+            }
+            if (q.length > 3) pen.line(q, 0.9, 0.4);
+          }
+        }
+        // limestone pitting and short horizontal weathering ticks
+        LW.stipple(hp, bb, Math.floor(bb.w * bb.h * 0.0007), { rng: r, inside, r: [0.6, 1.4], dark: (x, y) => 0.3 + darkAt(x, y) * 0.7 });
+        LW.flecks(hp, bb, Math.floor(bb.w * bb.h * 0.0005), { rng: r, inside, angle: strike, spread: 0.08, len: [4, 12], w: 1.0, dark: () => 0.8 });
+        // rounded/chipped edges: bed line heavy where it sits under an overhang, joint lines broken
+        LW.inkContour(pen, scr, (nx, ny, x, y) => {
+          const sh = LW.shadowSide(nx, ny);
+          const [uu, hh] = toUH(x, y);
+          const onTop = Math.abs(topH(uu) - hh) < 0.08;
+          const onBot = Math.abs(bedLine(j, uu) - hh) < 0.08;
+          let w = 0.6 + 2.4 * sh * sh;
+          if (onTop) w = band ? 3.6 : 1.4;
+          if (onBot) w = 1.6;
+          if (!onTop && !onBot && J0.partial && Math.abs(uu - jointU(J0, hh)) < 0.1 && hh > bd.h0 + bd.t * 0.55) return 0;
+          if (LW.noise3(x * 0.02 + k, y * 0.02 + j) > 0.55) return 0;
+          return w * (0.85 + 0.3 * LW.noise3(x * 0.05, y * 0.05));
+        }, { taper: 0.2 });
+        if (++blocks % 12 === 0) { flush(); await LW.tick(); }
       }
-      if (pen.n > 3000) pen.draw(inkG, C.ink);
     }
-    pen.draw(inkG, C.ink);
-    // ---- tafoni pocks
-    for (let k = 0; k < 45; k++) {
-      const cu = rnd.range(-0.3, 19), ch = rnd.range(-16, 11);
-      const cluster = rnd.int(1, 5);
-      for (let m = 0; m < cluster; m++) {
-        const u = cu + rnd.gauss() * 0.35, h = ch + rnd.gauss() * 0.22;
-        const r = rnd.range(0.04, 0.17);
-        const pts = [];
-        for (let a = 0; a < LW.TAU; a += 0.3) pts.push(S.faceP(u + Math.cos(a) * r * (1 + 0.25 * LW.noise(a, k + m)), h + Math.sin(a) * r * 0.65, 0));
-        if (!inside(pts[0][0], pts[0][1])) continue;
-        LW.flat(LW.polyPath(pts), '#6b5236');
-        LW.inkContour(pen, pts, (nx, ny) => { const sh = 1 - LW.shadowSide(nx, ny); return 0.3 + 3.0 * sh * sh; }, { taper: 0.3 });
+    flush();
+    // ---- pockets and small caves along the bedding planes
+    const caves = LW.rng('caves');
+    for (let k = 0; k < 26; k++) {
+      const j = caves.int(2, beds.length - 2);
+      const u0 = caves.range(-0.5, 18);
+      const h0 = bedLine(j, u0) + caves.range(-0.05, 0.25);
+      const big = caves() < 0.25;
+      const rw = big ? caves.range(0.45, 0.9) : caves.range(0.1, 0.32), rh = rw * caves.range(0.45, 0.75);
+      const pts = [];
+      for (let a = 0; a < LW.TAU; a += 0.2) {
+        const flatB = Math.sin(a) < 0 ? 0.35 : 1; // flat floor along the bed
+        pts.push(fp(u0 + Math.cos(a) * rw * (1 + 0.18 * LW.noise(a * 2, k)), h0 + Math.sin(a) * rh * flatB * (1 + 0.2 * LW.noise2(a * 2, k))));
       }
+      const c = fp(u0, h0);
+      if (!G.mask.in(c[0], c[1])) continue;
+      const path = LW.polyPath(pts);
+      LW.occlude(path);
+      LW.flat(path, '#5a4a3c');
+      const cbb = LW.bbox(pts, 1);
+      const inC = (x, y) => LW.pointInPoly(x, y, pts);
+      LW.clipDo(inkG, path, () => {
+        LW.hatchDither(hp, cbb, 0.1, { spacing: 2.4, step: 2, wob: 0.4, seed: k, inside: inC, dark: () => 0.95, w: () => 1.2 });
+        LW.hatchDither(hp, cbb, 1.2, { spacing: 3.0, step: 2, wob: 0.4, seed: k + 3, inside: inC, dark: (x, y) => 0.4 + 0.6 * LW.clamp((cbb.y1 - y) / cbb.h, 0, 1), w: () => 1.0 });
+        hp.draw(inkG, C.ink);
+      });
+      // lit inner floor lip (lower right) and a heavy brow (upper left)
+      LW.inkContour(pen, pts, (nx, ny) => { const lit = 1 - LW.shadowSide(nx, ny); return 0.6 + 3.2 * lit * lit; }, { taper: 0.25 });
+      const lipP = new LW.Pen();
+      const lipPts = pts.filter((_, i) => { const a = i * 0.2; return Math.sin(a) > 0.35; });
+      if (lipPts.length > 2) lipP.line(lipPts.map(([x, y]) => [x, y - 2]), 3.2, 0.4);
+      lipP.draw(fillG, '#f3e8c6');
+      if (big && caves() < 0.7) LW.caper(c[0] + caves.range(-20, 20), c[1] + rh * 30, caves.range(36, 60), caves);
     }
     pen.draw(inkG, C.ink);
     inkG.restore();
+    fillG.restore();
     // ---- silhouette contour of the headland
-    pen = new LW.Pen();
-    LW.inkContour(pen, G.sky, () => 3.0 + rnd() * 0.8, { closed: false, taper: 0.02 });
-    LW.inkContour(pen, G.corner, () => 3.6 + rnd() * 1.0, { closed: false, taper: 0.02 });
-    pen.draw(inkG, C.ink);
-    LW.cliffDark = dAt;
+    const sp = new LW.Pen();
+    LW.inkContour(sp, G.sky, () => 3.0 + rnd() * 0.8, { closed: false, taper: 0.02 });
+    LW.inkContour(sp, G.corner, () => 3.6 + rnd() * 1.0, { closed: false, taper: 0.02 });
+    sp.draw(inkG, C.ink);
     {
-      const S = LW.scene;
-      const rnd = LW.rng('capers');
-      // ---- caper tufts in crevices of the far cliff (only where the cliff is visible)
-    for (let k = 0; k < 26; k++) {
-      const u = rnd.range(0.5, 16), h = rnd.range(-6, 10);
-      const p = S.faceP(u, h, 0);
-      if (!G.mask.in(p[0], p[1])) continue;
-      LW.caper(p[0], p[1], rnd.range(28, 52), rnd);
-    }
+      const rc = LW.rng('capers');
+      for (let k = 0; k < 18; k++) {
+        const j = rc.int(2, beds.length - 2);
+        const u = rc.range(0.5, 16), h = bedLine(j, u) + 0.05;
+        const p = S.faceP(u, h, 0);
+        if (!G.mask.in(p[0], p[1]) || h < -7 || h > 11) continue;
+        LW.caper(p[0], p[1], rc.range(28, 52), rc);
+      }
     }
   };
 })();
