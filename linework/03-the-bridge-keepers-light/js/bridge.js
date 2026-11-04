@@ -297,9 +297,112 @@
       ink.line([[x, y0], [x + 0.6, y0 + len]], (xx, yy) => ink.st(colAt(xx, yy), 1.3), { taper: 5, wobble: 0.3 });
     }
 
+    // ---- face texture: chisel marks, cross-hatch on shadowed stones, mortar grit,
+    //      moss on the upper beds, weathering streaks, stipple
+    const fdots = new LW.Dots();
+    {
+      const tr = new LW.RNG('bridge-tex');
+      const T = new LW.Noise(511);
+      const dotCol = (x, y, k = kindW) => {
+        const b = LW.warmBand(LW.warm(x, y, k), x, y, 0);
+        return b > 0 ? LW.rgb(LW.warmInkColor(b, P.ink)) : y > L.waterY - 24 ? LW.rgb(LW.mix(P.ink, P.water1, 0.7)) : LW.rgb(P.ink);
+      };
+      const mossC = LW.rgb(LW.texCol.moss), mossD = LW.rgb(LW.texCol.mossDark), mossW = LW.rgb(LW.mix(P.warm1, P.teal, 0.45));
+      for (const s of all) {
+        const xs = s.out.map((p) => p[0]), ys = s.out.map((p) => p[1]);
+        const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        let d = LW.clamp(faceDark(cx, cy) + s.tone, 0, 1);
+        const wv = LW.clamp(LW.warm(cx, cy, kindW), 0, 1.2);
+        d *= 1 - 0.45 * Math.min(1, wv);
+        // chisel marks: a few runs of short parallel diagonal strokes
+        const runs = s.kind === 'vous' ? 1 : 1 + tr.int(0, 2);
+        for (let r = 0; r < runs; r++) {
+          const px = x0 + 6 + tr.next() * Math.max(1, x1 - x0 - 12), py = y0 + 5 + tr.next() * Math.max(1, (y1 - y0) * 0.6);
+          const ang = -1.05 + (tr.next() - 0.5) * 0.4;
+          const cnt = 3 + tr.int(0, 4);
+          for (let k = 0; k < cnt; k++) {
+            const qx = px + k * 2.6, qy = py + (tr.next() - 0.5) * 1.5;
+            const len = 3 + tr.next() * 4;
+            const e = [qx + Math.cos(ang) * len, qy + Math.sin(ang) * len];
+            if (!LW.pointInPoly(qx, qy, s.out) || !LW.pointInPoly(e[0], e[1], s.out)) continue;
+            ink.line([[qx, qy], e], (x, y) => ink.st(colAt(x, y), 0.7), { taper: 2, wobble: 0.1 });
+          }
+        }
+        // second hatch direction on stones in shadow
+        if (d > 0.5) {
+          const sp = 4.2 + (1 - d) * 6;
+          for (let k = -(y1 - y0); k < x1 - x0; k += sp) {
+            const p0 = [x0 + k, y1], p1 = [x0 + k + (y1 - y0) * 0.75, y0];
+            const pts = [];
+            for (let t = 0; t <= 1.0001; t += 0.1) pts.push([p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t]);
+            ink.line(pts, (x, y) => {
+              if (!LW.pointInPoly(x, y, s.out)) return -1;
+              if (T.n2(x / 14, y / 14) > 0.5) return -1;
+              return ink.st(colAt(x, y), 0.75);
+            }, { taper: 4, wobble: 0.3 });
+          }
+        }
+        // stipple: pits and grain
+        const area = (x1 - x0) * (y1 - y0);
+        const nd = Math.round(area / 55 * (0.35 + d));
+        for (let k = 0; k < nd; k++) {
+          const px = x0 + tr.next() * (x1 - x0), py = y0 + tr.next() * (y1 - y0);
+          if (!LW.pointInPoly(px, py, s.out)) continue;
+          fdots.dot(px, py, 0.5 + tr.next() * 0.65, dotCol(px, py));
+        }
+        // mortar grit: dots just outside the stone edge
+        for (let i = 0; i < s.out.length; i += 2) {
+          if (tr.next() > 0.45) continue;
+          const p = s.out[i];
+          const ox = (p[0] - cx), oy = (p[1] - cy);
+          const L0 = Math.hypot(ox, oy) || 1;
+          fdots.dot(p[0] + ox / L0 * 2.2, p[1] + oy / L0 * 2.2, 0.5 + tr.next() * 0.5, dotCol(p[0], p[1]));
+        }
+        // moss along the upper bed of coping, string course and the wet lower courses
+        const mossy = s.kind === 'coping' ? 0.8 : s.kind === 'string' ? 0.55 : s.cy > 2120 ? 0.6 : s.kind === 'vous' ? 0.15 : 0.18;
+        if (tr.next() < mossy) {
+          const mx0 = x0 + tr.next() * (x1 - x0) * 0.6, mw = 10 + tr.next() * 40;
+          for (let x = mx0; x < Math.min(x1, mx0 + mw); x += 1.8) {
+            let yTop = y0;
+            for (let yy = y0; yy < y1; yy += 1.5) if (LW.pointInPoly(x, yy, s.out)) { yTop = yy; break; }
+            const b = LW.warmBand(LW.warm(x, yTop, kindW), x, yTop, 0);
+            const n = 1 + tr.int(0, 2);
+            for (let q = 0; q < n; q++) fdots.dot(x + (tr.next() - 0.5) * 2, yTop + tr.next() * 4.5 - 1, 0.7 + tr.next() * 0.8, b > 1 ? mossW : tr.next() < 0.55 ? mossD : mossC);
+            if (tr.next() < 0.12) fdots.flick(x, yTop, -Math.PI / 2 + (tr.next() - 0.5) * 1.2, 3 + tr.next() * 3, 1, b > 1 ? mossW : mossC);
+          }
+        }
+      }
+      // weathering streaks running down from under the string course
+      for (let i = 0; i < 170; i++) {
+        const x = B.x0 + 10 + tr.next() * (B.x1 - B.x0 - 20);
+        const y = topY(x) + PAR + STR + 3;
+        if (T.n2(x / 70, 2.5) < -0.1) continue;
+        const len = 20 + Math.pow(tr.next(), 1.5) * 150;
+        const pts = [];
+        for (let yy = y; yy < Math.min(WY, y + len); yy += 4) {
+          const xx = x + 1.2 * T.n2(yy / 30, x);
+          const dc = Math.hypot(xx - nearC.x, yy - nearC.y);
+          if (yy > nearC.y - nearC.r - 2 && dc < nearC.r + 1) break;
+          pts.push([xx, yy]);
+        }
+        if (pts.length < 3) continue;
+        const Lp = pts.length;
+        ink.line(pts, (xx, yy, k) => (T.n2(xx / 5, yy / 20) > 0.4 ? -1 : ink.st(colAt(xx, yy), 0.55 + 0.9 * (1 - k / Lp))), { taper: 10, minScale: 0.2, wobble: 0.3 });
+      }
+      // the keystone: a dark wet stain down its face
+      {
+        const kx = nearC.x, ky0 = nearC.y - G.ringOuter - 20, ky1 = nearC.y - nearC.r;
+        for (let k = 0; k < 6; k++) {
+          const xx = kx - 6 + k * 2.4 + (tr.next() - 0.5);
+          ink.line([[xx, ky0 + tr.next() * 20], [xx + 0.5, (ky0 + ky1) / 2], [xx, ky1 - 2]], (x, y) => ink.st(colAt(x, y), 1.1), { taper: 8, wobble: 0.4 });
+        }
+      }
+    }
     ctx.save();
     ctx.clip(G.facePath);
     ink.flush(ctx);
+    fdots.flush(ctx);
     ctx.restore();
 
     // soffit (inside the opening, so its own clip): barrel courses + transverse joints + dense hatch
@@ -337,9 +440,41 @@
         }
       }
     }
+    // soffit texture: stone joints broken irregularly, stipple grain, chisel flecks, wet stains at the springing
+    const sdots = new LW.Dots();
+    {
+      const tr = new LW.RNG('soffit-tex');
+      const sbb = LW.bbox(G.soffit, 0);
+      for (let i = 0; i < 22000; i++) {
+        const x = sbb[0] + tr.next() * (sbb[2] - sbb[0]), y = sbb[1] + tr.next() * (sbb[3] - sbb[1]);
+        if (!LW.pointInPoly(x, y, G.soffit)) continue;
+        const wv = LW.warm(x, y, 'soffit');
+        const p = 0.7 - 0.3 * LW.clamp(wv - 0.6, 0, 1);
+        if (tr.next() > p) continue;
+        const ci = colAt(x, y, 'soffit');
+        if (tr.next() < 0.12) {
+          const a = -1.0 + (tr.next() - 0.5) * 0.5, l = 2.5 + tr.next() * 3;
+          ink.line([[x, y], [x + Math.cos(a) * l, y + Math.sin(a) * l]], ink.st(ci, 0.7), { taper: 2, wobble: 0.1 });
+        } else sdots.dot(x, y, 0.5 + tr.next() * 0.6, ink.colors[ci]);
+      }
+      // dark damp at the foot of each side of the barrel
+      for (const side of [-1, 1]) {
+        for (let k = 0; k < 40; k++) {
+          const t = tr.next();
+          const c = { x: LW.lerp(nearC.x, farC.x, t), y: LW.lerp(nearC.y, farC.y, t) }, r = LW.lerp(nearC.r, farC.r, t);
+          const a = side < 0 ? -Math.PI + 0.02 + tr.next() * 0.35 : -0.02 - tr.next() * 0.35;
+          const p = [c.x + Math.cos(a) * r, c.y + Math.sin(a) * r];
+          const yb = LW.lerp(WY, G.farWY, t);
+          const pts = [];
+          for (let y = p[1]; y < yb; y += 4) pts.push([p[0] + side * (y - p[1]) * 0.0 + (tr.next() - 0.5) * 0.8, y]);
+          if (pts.length > 2) ink.line(pts, (x, y) => ink.st(colAt(x, y, 'soffit'), 0.8), { taper: 8, wobble: 0.3 });
+        }
+      }
+    }
     ctx.save();
     ctx.clip(G.soffitPath);
     ink.flush(ctx);
+    sdots.flush(ctx);
     ctx.restore();
 
 
@@ -357,6 +492,37 @@
     ink2.line([[farC.x - farC.r, farC.y], [farC.x - farC.r, G.farWY]], ink2.st(oc, 2.2), { taper: 0 });
     ink2.line([[farC.x + farC.r, farC.y], [farC.x + farC.r, G.farWY]], ink2.st(oc, 2.2), { taper: 0 });
     ink2.flush(ctx);
+    // drips hanging from the keystone, one falling, a ring where it lands
+    {
+      const kx = nearC.x, ky = nearC.y - nearC.r + 2;
+      const dc = LW.rgb(P.water5), dk = LW.rgb(P.ink);
+      const drop = (x, y, s) => {
+        const pts = [];
+        for (let a = 0; a <= Math.PI * 2 + 0.01; a += 0.3) {
+          const r = s * (a < Math.PI ? 1 : 1 - 0.75 * Math.sin(a - Math.PI));
+          pts.push([x + Math.cos(a) * r * 0.75, y + Math.sin(a) * r * (a > Math.PI ? 1.9 : 1)]);
+        }
+        ctx.fillStyle = dc;
+        ctx.fill(LW.polyPath(pts));
+        ctx.strokeStyle = dk;
+        ctx.lineWidth = 0.9;
+        ctx.stroke(LW.polyPath(pts));
+      };
+      drop(kx - 9, ky + 6, 2.4);
+      drop(kx + 2, ky + 9, 3.2);
+      drop(kx + 11, ky + 5, 2.0);
+      drop(kx + 1, ky + 80, 2.6);
+      drop(kx + 1.5, ky + 190, 2.2);
+      ctx.save();
+      ctx.strokeStyle = LW.rgb(P.water5);
+      for (let k = 1; k <= 3; k++) {
+        ctx.lineWidth = 1.3 - k * 0.25;
+        ctx.beginPath();
+        ctx.ellipse(kx + 1.5, L.waterY + 14 + k * 1.5, 6 + k * 7, 1.6 + k * 1.4, 0, Math.PI * 0.05, Math.PI * 0.95 + (k === 2 ? 0.6 : 0));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     // ivy: climbing up the left abutment from the waterline and draping from the parapet on the right
     {
       const ir = new LW.RNG('ivy2');

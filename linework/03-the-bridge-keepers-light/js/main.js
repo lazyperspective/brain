@@ -36,6 +36,7 @@
     ['reflinit', () => LW.reflInit()],
     ['far', cliffStage(['F', 'L2', 'R2'])],
     ['mid', cliffStage(['L1', 'R1'])],
+    ['gorgedetail', () => { LW.drawGorgeDetails(ctx, S); LW.drawBats(ctx, S); }],
     ['bridge', () => {
       LW.drawBridge(ctx, S);
       const G = LW.bridgeGeom;

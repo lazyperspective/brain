@@ -337,6 +337,58 @@
         ink.line(pts, (xx, yy) => (N.n2(xx / 25, k * 3.3) > 0.3 ? -1 : ink.st(cInk, 1.4 - k * 0.08)), { taper: 10 });
       }
     }
+    // ---- a second, finer ripple layer laid between the bands: short thin dashes,
+    //      thick in the reflected darks and along the banks, sparse in the open glow
+    {
+      const fr = new LW.RNG('fine-ripples');
+      const cF = [ink.col(P.waterInkDeep), ink.col(P.waterInk), ink.col(LW.mix(P.waterInk, P.water1, 0.5)), ink.col(LW.mix(P.water2, P.water3, 0.5))];
+      for (let j = 0; j < bands.ys.length - 1; j++) {
+        const y0 = bands.ys[j], y1 = bands.ys[j + 1];
+        if (y0 < HZ + 4 || y0 > LW.H) continue;
+        const persp = LW.clamp((y0 - HZ + 30) / 900, 0.05, 2.2);
+        const sub = y1 - y0 > 9 ? 2 : 1;
+        for (let q = 0; q < sub; q++) {
+          const y = y0 + (y1 - y0) * (q + 1) / (sub + 1);
+          let x = -10 + fr.next() * 20;
+          while (x < LW.W + 10) {
+            const len = (4 + fr.next() * fr.next() * 40) * (0.4 + persp * 0.8);
+            const gap = (3 + fr.next() * 22) * (0.4 + persp * 0.7);
+            const cx = x + len / 2;
+            const dkv = sampleBuf(D, cx + bands.dx[j], y + bands.dy[j]);
+            const wm = sampleBuf(Wm, cx + bands.dx[j], y + bands.dy[j]);
+            const mg = moonGlitter(cx, y);
+            const near = LW.smooth(160, 10, bankDist(cx, y));
+            const p = 0.08 + LW.smooth(0.3, 0.7, dkv) * 0.8 + near * 0.5;
+            if (wm < 0.3 && mg < 0.35 && fr.next() < p) {
+              const ci = dkv > 0.55 || near > 0.6 ? cF[0] : dkv > 0.35 ? cF[1] : fr.next() < 0.5 ? cF[2] : cF[3];
+              const pts = [[x, y], [x + len * 0.5, y + (fr.next() - 0.5) * 1.2 * persp], [x + len, y + (fr.next() - 0.5) * 0.8]];
+              ink.line(pts, ink.st(ci, 0.45 + persp * 0.55), { taper: len * 0.4, minScale: 0.2, wobble: 0.3 });
+            }
+            x += len + gap;
+          }
+        }
+      }
+    }
+    // ---- eddies: little curling spirals shed behind the rocks and the abutments
+    {
+      const er = new LW.RNG('eddies');
+      const cE = [ink.col(P.waterInk), ink.col(LW.mix(P.water4, P.water3, 0.5))];
+      const spots = [[1560, 3302, 62], [1160, 3150, 40], [1840, 3612, 175], [850, 2262, 40], [1470, 2262, 40], [1665, 2272, 50]];
+      for (const [rx, ry, rr] of spots) {
+        const persp = LW.clamp((ry - HZ + 30) / 900, 0.3, 2.2);
+        for (let k = 0; k < 5; k++) {
+          const side = k % 2 ? 1 : -1;
+          const ex = rx + side * rr * (0.9 + er.next() * 0.6), ey = ry + 10 + er.next() * rr * 0.5 * persp + k * 3;
+          const R = (10 + er.next() * 14) * persp * (rr > 100 ? 1.4 : 1);
+          const pts = [];
+          for (let a = 0; a < Math.PI * 2.3; a += 0.2) {
+            const r = R * (1 - a / (Math.PI * 3.4));
+            pts.push([ex + Math.cos(a * side) * r * 1.5, ey + Math.sin(a * side) * r * 0.16 + a * 1.2]);
+          }
+          ink.line(pts, (x, y, i) => (N.n2(i / 3 + k * 5, rx) > 0.35 ? -1 : ink.st(cE[0], 0.7 + persp * 0.35)), { taper: R * 0.9, minScale: 0.2, wobble: 0.2 });
+        }
+      }
+    }
     lx.setTransform(S, 0, 0, S, 0, 0);
     ink.flush(lx);
 

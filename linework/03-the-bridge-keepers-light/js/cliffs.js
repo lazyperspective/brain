@@ -107,7 +107,12 @@
     const FB = new LW.Grid(l.bbox, res, formBig);
     const baseY = l.base ? (x) => LW.yAt(l.base, x) : () => 1e9;
     // recess field: long vertical clefts between buttresses (shadowed), plus strata ledges
-    const ledges = l.name === 'L0' ? [[700, -0.12], [1340, 0.1]] : l.name === 'R0' ? [[560, 0.16], [1250, -0.12]] : [];
+    const LEDGES = {
+      L0: [[700, -0.12], [1340, 0.1]], R0: [[560, 0.16], [1250, -0.12]],
+      L1: [[1370, 0.08], [1600, -0.05], [1830, 0.06]], R1: [[1290, -0.12], [1500, 0.05], [1760, -0.06]],
+      L2: [[1680, 0.12], [1880, -0.04]], R2: [[1660, -0.12], [1870, 0.05]],
+    };
+    const ledges = LEDGES[l.name] || [];
     const ledgeY = (ly, sl, x) => ly + sl * (x - 900) + 70 * n.fbm(x / 300, ly, 3);
     const ledgeGate = (ly, x) => LW.smooth(-0.15, 0.25, n2.fbm(x / 340, ly * 0.01, 2));
     const cleftAt = (x, y) => {
@@ -132,7 +137,7 @@
         const gate = ledgeGate(ly, x);
         if (gate <= 0) continue;
         const t = y - yy;
-        const len = 70 + 90 * (0.5 + 0.5 * n.n2(x / 180, ly));
+        const len = (70 + 90 * (0.5 + 0.5 * n.n2(x / 180, ly))) * (l.tier === 2 ? 1 : l.tier === 1 ? 0.55 : 0.4);
         if (t > -12 && t < 0) d -= 0.22 * gate;
         else if (t >= 0 && t < len) d += 0.32 * gate * Math.pow(1 - t / len, 1.6);
       }
@@ -213,7 +218,13 @@
   // ---------------------------------------------------------------- cellular rock wall (mid + near tiers)
   function drawCellCliff(ctx, S, l, f, kind, pal, T, rimCol) {
     const near = l.tier === 2;
-    const sc = near ? 1 : 0.62;
+    const far = l.tier === 0;
+    const sc = near ? 1 : far ? 0.4 : 0.62;
+    const texOpts = near
+      ? { tex: 1, moss: true, stains: true, pitBase: 0.12, lichenMix: 0.3, strata: { slope: l.face[0] > 0 ? -0.07 : 0.07, sp: 38, w: 0.95 } }
+      : far
+        ? { tex: 0.9, moss: false, stains: true, strata: { slope: l.face[0] > 0 ? -0.14 : 0.14, sp: 15, w: 0.7, amp: 10 }, pitStep: 4.8, lichenStep: 3.2, markBias: 0.3, texCell: 3.0, xStep: 1.1, xThresh: 0.5, fracture: 0.7 }
+        : { tex: 1, moss: true, stains: true, strata: { slope: l.face[0] > 0 ? -0.1 : 0.1, sp: 21, w: 0.75, amp: 14 }, pitStep: 5.2, lichenStep: 3.2, markBias: 0.28, texCell: 3.2, xStep: 1.15, xThresh: 0.52, fracture: 0.7 };
     const rim = l.base ? (x, y) => {
       const rimD = f.baseY(x) - y;
       if (rimD > 34 * T.rim || rimD < -2) return 0;
@@ -233,15 +244,16 @@
       maxSize: 140 * sc,
       aniso: near ? 1.45 : 1.6,
       kind, pal,
-      ink: T.ink,
-      lineW: near ? [1.15, 2.7] : [0.95, 1.8],
-      step: near ? 5.6 : 6.4,
+      ink: far ? LW.mix(P.inkFar, P.ink, 0.25) : near ? T.ink : LW.mix(P.inkFar, P.ink, 0.4),
+      lineW: near ? [1.15, 2.7] : far ? [0.8, 1.35] : [0.95, 1.8],
+      step: near ? 5.6 : far ? 5.6 : 6.0,
       lumpRatio: l.name === 'R0' ? 0.55 : 0.74,
       light: [0.62, -0.78],
       flow: () => Math.PI / 2 + tilt,
-      wedgeW: near ? 12 : 7,
-      black: near ? P.ink : LW.mix(P.inkFar, P.ink, 0.6),
+      wedgeW: near ? 12 : far ? 5 : 7,
+      black: near ? P.ink : far ? LW.mix(P.inkFar, P.ink, 0.5) : LW.mix(P.inkFar, P.ink, 0.6),
       rim, rimCol,
+      ...texOpts,
     });
     const ink = new LW.Ink(l.seed + 900);
     ink.wobble = 0.9;
@@ -261,7 +273,7 @@
       if (kind !== 'far') v -= 0.4 * LW.clamp(LW.warm(x, y, kind), 0, 1);
       return v;
     };
-    const black = near ? P.ink : LW.mix(P.inkFar, P.ink, 0.6);
+    const black = near ? P.ink : far ? LW.mix(P.inkFar, P.ink, 0.5) : LW.mix(P.inkFar, P.ink, 0.6);
     LW.contours({ bbox: bb, step: 4, field: blackField, levels: [0] }, (pts) => {
       if (pts.length < 4) return;
       let area = 0;
@@ -273,13 +285,18 @@
       ink.fill(sm, b >= 3 ? P.warmInk2 : b >= 1 ? P.warmInk1 : black, 0.8);
     });
     // strata ledges: a lit lip line with an undercut black shadow beneath
+    const lk = near ? 1 : far ? 0.45 : 0.62;
+    const plantR = new LW.RNG('ledge-plants-' + l.name);
+    const plants = [];
     for (const [ly, sl] of f.ledges) {
       let run = [];
       const flushRun = () => {
         if (run.length > 6) {
-          ink.line(run, (x, y) => ink.st(ink.col(P.ink), 3.2), { taper: 30 });
-          const under = run.map((p, i) => [p[0], p[1] + 4 + 12 * Math.pow(Math.sin(Math.PI * i / (run.length - 1)), 0.7) * (0.6 + 0.4 * cn.n2(p[0] / 50, ly))]);
-          ink.fill(run.concat(under.slice().reverse()), P.ink, 0.6);
+          ink.line(run, (x, y) => ink.st(ink.col(P.ink), 3.2 * lk), { taper: 30 });
+          const under = run.map((p, i) => [p[0], p[1] + (4 + 12 * Math.pow(Math.sin(Math.PI * i / (run.length - 1)), 0.7) * (0.6 + 0.4 * cn.n2(p[0] / 50, ly))) * lk]);
+          ink.fill(run.concat(under.slice().reverse()), black, 0.6);
+          // ferns and small bushes rooted along the ledge lip
+          if (!near) for (let i = 2; i < run.length - 2; i++) if (plantR.next() < 0.07) plants.push([run[i][0], run[i][1] - 1, plantR.next()]);
         }
         run = [];
       };
@@ -294,6 +311,21 @@
     ctx.clip(l.path);
     ink.flush(ctx);
     ctx.restore();
+    // plants on the mid/far ledges (drawn unclipped so fronds can overhang the lip)
+    if (plants.length) {
+      const pi = new LW.Ink(l.seed + 950);
+      const pd = new LW.Dots();
+      const cDark = far ? LW.mix(P.tealDark, P.inkFar, 0.5) : LW.mix(P.tealDark, P.ink, 0.4);
+      const cLit = far ? LW.mix(P.teal, P.far1, 0.4) : LW.mix(P.teal, P.far0, 0.25);
+      const cF = pi.col(cDark), cF2 = pi.col(cLit);
+      for (const [x, y, r] of plants) {
+        const s = (far ? 9 : 14) * (0.7 + r * 0.7);
+        if (r < 0.45) LW.fernTuft(pi, x, y, s, r < 0.2 ? cF2 : cF, plantR, { w: far ? 0.8 : 1.0, lean: (plantR.next() - 0.5) * 0.6 });
+        else LW.shrub(pi, pd, x, y - s * 0.25, s * 0.55, plantR, cDark, LW.rgb(cLit));
+      }
+      pi.flush(ctx);
+      pd.flush(ctx);
+    }
     // silhouette outline
     const ink2 = new LW.Ink(l.seed + 901);
     ink2.wobble = 0.6;
@@ -312,7 +344,7 @@
     const kind = l.kind || (l.tier === 2 ? 'rock' : 'far');
     const pal = l.name === 'R0' ? [P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.3), LW.mix(P.rock4, P.ink, 0.55)] : l.tier === 2 ? [P.rock0, P.rock1, P.rock2, P.rock3, P.rock4, LW.mix(P.rock4, P.ink, 0.4)] : T.pal;
     const rimCol = l.tier === 0 ? P.water3 : P.water2;
-    if (l.tier >= 1) {
+    if (l.tier >= 0) {
       drawCellCliff(ctx, S, l, f, kind, pal, T, rimCol);
       LW.log('cliff', l.name, 'ms', Math.round(performance.now() - t0));
       return;
@@ -459,5 +491,122 @@
     }
     ink2.flush(ctx);
     LW.log('cliff', l.name, 'lines', lines.length, 'ms', Math.round(performance.now() - t0));
+  };
+
+  // ---------------------------------------------------------------- small details on the mid walls
+  /* a thread of waterfall down the right mid wall, a cave mouth in the left
+     mid wall, bats over the gorge notch */
+  LW.drawGorgeDetails = function (ctx, S) {
+    const R1 = LW.cliff('R1'), L1 = LW.cliff('L1');
+    const rng = new LW.RNG('gorge-details');
+    const N = new LW.Noise(4401);
+    // ---- waterfall thread
+    {
+      const ink = new LW.Ink(4402);
+      ink.wobble = 0.25;
+      const dots = new LW.Dots();
+      const path = [];
+      for (let y = 1318; y < 1800; y += 4) {
+        const t = (y - 1318) / 480;
+        // the fall steps outward at two ledges, otherwise hugs the face
+        const x = 1446 - 22 * t + 9 * LW.smooth(1446, 1462, y) - 6 * LW.smooth(1618, 1634, y) + 3.2 * N.n2(y / 30, 1.1) + 1.2 * N.n2(y / 7, 4.4);
+        path.push([x, y]);
+      }
+      const wet = LW.mix(P.inkFar, P.ink, 0.55);
+      // the wet dark rock band either side of the thread
+      const band = path.map((p, i) => [p[0] - 7 - 3 * N.n2(i / 6, 2), p[1]]).concat(path.slice().reverse().map((p, i) => [p[0] + 8 + 3 * N.n2(i / 7, 5), p[1]]));
+      ink.fill(band, wet, 0.5);
+      const cs = [ink.col(LW.mix(P.water4, P.far0, 0.35)), ink.col(LW.mix(P.water3, P.far0, 0.45)), ink.col(LW.mix(P.water2, P.far0, 0.6))];
+      // the thread is a braid of short broken strands, widening as it falls
+      for (let k = 0; k < 6; k++) {
+        const pts = path.map((p, i) => [p[0] + (k - 2.5) * (1.1 + i / path.length * 1.6) + 1.2 * N.n2(p[1] / 9, k * 3), p[1]]);
+        ink.line(pts, (x, y, i) => {
+          if (N.n2(i / 2.6 + k * 7, k * 1.3) > (k === 2 || k === 3 ? 0.3 : -0.05)) return -1;
+          return ink.st(cs[k === 2 || k === 3 ? 0 : k % 2 ? 1 : 2], k === 2 || k === 3 ? 1.05 : 0.75);
+        }, { taper: 8, minScale: 0.2 });
+      }
+      // spray where it strikes each ledge: a small fan of droplets and flicks
+      for (const [sy, sx] of [[1462, 1447], [1634, 1428], [1778, 1416]]) {
+        for (let i = 0; i < 34; i++) {
+          const a = -Math.PI * (0.1 + 0.8 * rng.next());
+          const r = 3 + Math.pow(rng.next(), 1.4) * 16;
+          const px = sx + Math.cos(a) * r, py = sy + Math.sin(a) * r * 0.7 + 3;
+          if (rng.next() < 0.4) dots.flick(px, py, a, 2 + rng.next() * 3, 0.9, LW.rgb(P.water4));
+          else dots.dot(px, py, 0.45 + rng.next() * 0.6, LW.rgb(rng.next() < 0.4 ? P.water4 : LW.mix(P.water3, P.far0, 0.4)));
+        }
+      }
+      ctx.save();
+      ctx.clip(R1.path);
+      ink.flush(ctx);
+      dots.flush(ctx);
+      ctx.restore();
+    }
+    // ---- cave mouth in the left mid wall
+    {
+      const ink = new LW.Ink(4403);
+      ink.wobble = 0.3;
+      const cx = 948, cy = 1700, w = 30, h = 46;
+      // an irregular leaning cleft rather than a neat arch
+      const rel = [[-24, 9], [-29, -6], [-25, -22], [-17, -36], [-9, -47], [0, -50], [7, -43], [12, -34], [20, -24], [27, -9], [26, 4], [14, 11], [-6, 13]];
+      const base = LW.resample(rel.concat([rel[0]]).map(([u, v]) => [cx + u * (w / 28), cy + v * (h / 48)]), 3.5);
+      const sm = base.map((p, i) => [p[0] + 2.4 * N.n2(i * 0.45, 9) + 1.1 * N.n2(i * 1.7, 2), p[1] + 2.4 * N.n2(i * 0.45, 4) + 1.1 * N.n2(i * 1.7, 6)]);
+      ink.fill(sm, LW.mix(P.ink, [0, 0, 0], 0.3), 0.3);
+      // overhanging brow: arcs of hatch above the opening
+      const cl = ink.col(P.ink);
+      // moonlight catching the upper-right lip, broken
+      {
+        const lip = [];
+        for (const p of sm) {
+          const ox = p[0] - cx, oy = p[1] - (cy - h * 0.45);
+          const L0 = Math.hypot(ox, oy) || 1;
+          lip.push([p[0] + ox / L0 * 2.4, p[1] + oy / L0 * 2.4, (ox / L0) * 0.6 - (oy / L0) * 0.8]);
+        }
+        ink.line(lip.map((p) => [p[0], p[1]]), (x, y, i) => (lip[i][2] < 0.25 || N.n2(i / 3, 7.7) > 0.3 ? -1 : ink.st(ink.col(P.far0), 1.5)), { taper: 6, minScale: 0.3 });
+      }
+      // brow: short tapered strokes radiating off the lip, longer over the crown, broken
+      for (let i = 0; i < 46; i++) {
+        const a = Math.PI * (1.06 + 0.88 * rng.next());
+        const k = 1 + 0.12 * N.n2((a - Math.PI) * 40 / Math.PI / 5, 9);
+        const r0 = 1.08 + rng.next() * 0.1;
+        const len = (5 + rng.next() * 12) * (0.5 + Math.sin(a - Math.PI));
+        const p0 = [cx + Math.cos(a) * w * k * r0, cy + Math.sin(a) * h * k * r0];
+        const da = a + (rng.next() - 0.5) * 0.5;
+        ink.line([p0, [p0[0] + Math.cos(da) * len * 0.6, p0[1] + Math.sin(da) * len]], ink.st(cl, 0.9 + rng.next() * 0.6), { taper: len * 0.6, minScale: 0.2 });
+      }
+      // a lit sill
+      ink.line([[cx - w * 0.75, cy + 13], [cx - w * 0.2, cy + 17], [cx + w * 0.55, cy + 15]], ink.st(ink.col(P.far0), 1.5), { taper: 10 });
+      // talus spilling from the sill
+      for (let k = 0; k < 16; k++) {
+        const x = cx - w * 0.6 + rng.next() * w * 1.6, y = cy + 14 + rng.next() * rng.next() * 40;
+        const r = 1.5 + rng.next() * 2.5;
+        ink.fill([[x - r, y], [x - r * 0.3, y - r * 0.8], [x + r, y - r * 0.3], [x + r * 0.6, y + r * 0.5]], LW.mix(P.inkFar, P.ink, 0.4), 0.2);
+      }
+      ctx.save();
+      ctx.clip(L1.path);
+      ink.flush(ctx);
+      ctx.restore();
+    }
+  };
+  LW.drawBats = function (ctx, S) {
+    const bats = [[1182, 1436, 13, 0.1], [1252, 1388, 9, -0.3], [1118, 1494, 8, 0.4], [1296, 1478, 7, 0.2], [1066, 1398, 6, -0.2], [1210, 1300, 6.5, 0.5]];
+    ctx.save();
+    ctx.fillStyle = LW.rgb(P.ink);
+    for (const [x, y, s, rot] of bats) {
+      const c = Math.cos(rot), sn = Math.sin(rot);
+      const T = (u, v) => [x + (u * c - v * sn) * s / 10, y + (u * sn + v * c) * s / 10];
+      // wings raised in a V with a scalloped trailing edge
+      const wing = [[0, -1], [-6, -6], [-12, -8], [-19, -5], [-24, -7], [-20, -2], [-17, 1], [-13, -1], [-10, 3], [-6, 0], [-3, 3], [0, 2], [3, 3], [6, 0], [10, 3], [13, -1], [17, 1], [20, -2], [24, -7], [19, -5], [12, -8], [6, -6]];
+      ctx.beginPath();
+      wing.forEach((p, i) => { const q = T(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath();
+      ctx.fill();
+      const b = T(0, 1.5);
+      ctx.beginPath();
+      ctx.ellipse(b[0], b[1], s * 0.22, s * 0.38, rot, 0, Math.PI * 2);
+      ctx.fill();
+      const e1 = T(-1.6, -2.6), e2 = T(1.6, -2.6);
+      ctx.beginPath(); ctx.arc(e1[0], e1[1], s * 0.1, 0, 7); ctx.arc(e2[0], e2[1], s * 0.1, 0, 7); ctx.fill();
+    }
+    ctx.restore();
   };
 })();

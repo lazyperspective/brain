@@ -49,6 +49,13 @@
         const hsh = LW.hash2(px * 1.7 + 3, py * 1.3 + 7);
         const grain = (hsh - 0.5) * 10 + N.n2(x / 3.1, y / 3.1) * 4 + N2.n2(x / 60, y / 60) * 3;
         r += grain; g += grain; b += grain * 0.9;
+        // plate wiping: a faint horizontal drag in the grain
+        const wipe = N2.n2(x / 1.4, y / 9) * 1.6;
+        r += wipe; g += wipe; b += wipe;
+        // stray ink specks and starved-ink holidays (2x2 px), balanced so value holds
+        const hb = LW.hash2((px >> 1) * 7 + 11, (py >> 1) * 5 + 3);
+        if (hb < 0.0018 && lum > 55) { r *= 0.62; g *= 0.62; b *= 0.66; }
+        else if (hb > 0.9982 && lum > 30 && lum < 110) { r += (paper[0] * 0.5 - r) * 0.22; g += (paper[1] * 0.5 - g) * 0.22; b += (paper[2] * 0.5 - b) * 0.22; }
         // dry ink: tiny paper flecks in the darkest solids
         if (lum < 45) {
           const f = N.n2(x / 2.3, y / 2.3) + (hsh - 0.5) * 0.6;

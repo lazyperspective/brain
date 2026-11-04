@@ -119,6 +119,24 @@
         const ny = (y - s.y) / s.ry;
         return ink.st(iCol, 1.5 + Math.max(0, ny) * 2.2 * (opts.weight || 1));
       }, { taper: 0 });
+      // grain: pitting stipple heavier on the shadow side, a few pale flecks on the cap
+      {
+        const pd = new LW.Dots();
+        const nd = Math.round(s.rx * s.ry * 0.16);
+        const ic = ink.colors[iCol];
+        const pale = LW.rgb(stoneFill(d - 0.3, s.x, s.y - s.ry * 0.4, kind));
+        for (let k = 0; k < nd; k++) {
+          const a = rng.next() * 6.283, rr = Math.sqrt(rng.next());
+          const px = s.x + Math.cos(a) * s.rx * rr * 0.92, py = s.y + Math.sin(a) * s.ry * rr * 0.85;
+          const facing = Math.cos(a) * lx + Math.sin(a) * ly;
+          if (facing < -0.1 || rng.next() < 0.3) pd.dot(px, py, 0.45 + rng.next() * 0.5, ic);
+          else if (rng.next() < 0.12) pd.dot(px, py, 0.5, pale);
+        }
+        ctx.save();
+        ctx.clip(path);
+        pd.flush(ctx);
+        ctx.restore();
+      }
       // flush per stone so later stones overlap earlier ink properly
       ink.flush(ctx);
     }
@@ -176,6 +194,7 @@
   function drawWall(ctx, S, clipPath, q, rows, cMin, cMax, seed, baseDark, kind, hatchDir) {
     const rng = new LW.RNG(seed);
     const stones = masonry(q, rows, cMin, cMax, rng);
+    const wdots = new LW.Dots();
     const ink = new LW.Ink(LW.hashStr(seed));
     ink.wobble = 0.5;
     const off = LW.PLATE_OFF;
@@ -213,12 +232,43 @@
         }
         ink.line(pts, (x, y) => ink.st(inkAt(ink, x, y, kind), 0.8 + dd * 0.9), { taper: 6 });
       }
+      // stone texture: pitting stipple, chisel flicks, an occasional spall line
+      {
+        const xs = out.map((p) => p[0]), ys = out.map((p) => p[1]);
+        const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+        const nd = Math.round((x1 - x0) * (y1 - y0) / 26 * (0.3 + dd));
+        for (let k = 0; k < nd; k++) {
+          const px = x0 + rng.next() * (x1 - x0), py = y0 + rng.next() * (y1 - y0);
+          if (!LW.pointInPoly(px, py, out)) continue;
+          wdots.dot(px, py, 0.45 + rng.next() * 0.6, ink.colors[inkAt(ink, px, py, kind)]);
+        }
+        const nc = rng.int(0, 2);
+        for (let k = 0; k < nc; k++) {
+          const px = x0 + 4 + rng.next() * Math.max(1, x1 - x0 - 10), py = y0 + 3 + rng.next() * Math.max(1, y1 - y0 - 8);
+          for (let q = 0; q < 3; q++) {
+            const a = -1.0, l = 2.5 + rng.next() * 2.5;
+            const qx = px + q * 2.4;
+            if (LW.pointInPoly(qx, py, out)) ink.line([[qx, py], [qx + Math.cos(a) * l, py + Math.sin(a) * l]], (x, y) => ink.st(inkAt(ink, x, y, kind), 0.65), { taper: 2, wobble: 0.1 });
+          }
+        }
+      }
       ink.line(out.concat([out[0]]), (x, y) => {
         const below = y > cy;
         return ink.st(inkAt(ink, x, y, kind), below ? 2.1 : 1.3);
       }, { taper: 0 });
     }
+    // mortar grit over the whole face
+    {
+      const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      const nd = Math.round((x1 - x0) * (y1 - y0) / 70);
+      for (let k = 0; k < nd; k++) {
+        const px = x0 + rng.next() * (x1 - x0), py = y0 + rng.next() * (y1 - y0);
+        wdots.dot(px, py, 0.4 + rng.next() * 0.5, ink.colors[inkAt(ink, px, py, kind)]);
+      }
+    }
     ink.flush(ctx);
+    wdots.flush(ctx);
     ctx.restore();
     void hatchDir;
   }
@@ -312,10 +362,57 @@
           ink.fill([[x - r, y], [x, y - r * 0.8], [x + r, y], [x, y + r * 0.8]], LW.warmInkColor(LW.warmBand(LW.warm(x, y, 'rock'), x, y, 0), P.ink), 0);
         }
       }
+      // a second, finer grain of sand and grit, plus pale shell/quartz flecks
+      const sdots = new LW.Dots();
+      {
+        const sr = new LW.RNG('sand2');
+        const pale = LW.rgb(LW.mix(P.rock0, P.paper, 0.25));
+        for (let i = 0; i < 70000; i++) {
+          const x = gbb[0] + sr.next() * (gbb[2] - gbb[0]), y = gbb[1] + sr.next() * (gbb[3] - gbb[1]);
+          const u = sr.next(), r = sr.next();
+          if (!LW.pointInPoly(x, y, ground)) continue;
+          const wv = LW.warm(x, y, 'rock');
+          const d = gDark(x, y) - 0.35 * Math.min(1, wv);
+          if (u < 0.1 + d * 0.5) sdots.dot(x, y, 0.4 + r * 0.5, LW.rgb(LW.warmInkColor(LW.warmBand(wv, x, y, 0), P.ink)));
+          else if (u > 0.992) sdots.dot(x, y, 0.6 + r * 0.6, wv > 0.25 ? LW.rgb(P.warm5) : pale);
+        }
+      }
       ctx.save();
       ctx.clip(gp);
       ink.flush(ctx);
+      sdots.flush(ctx);
       ctx.restore();
+      // grass tufts along the foot of the shelf and the back of the beach
+      {
+        const gr = new LW.RNG('grass');
+        const gi = new LW.Ink(714);
+        gi.wobble = 0.3;
+        const tuft = (x, y, h) => {
+          const n = 4 + gr.int(0, 6);
+          const wb = LW.warmBand(LW.warm(x, y - h * 0.5, 'rock'), x, y, 0);
+          const col = gi.col(wb >= 3 ? P.warmInk2 : wb >= 1 ? P.warmInk1 : P.ink);
+          const hl = gi.col(wb >= 3 ? P.warm5 : wb >= 1 ? P.warm3 : LW.mix(P.teal, P.rock1, 0.5));
+          for (let k = 0; k < n; k++) {
+            const lean = (gr.next() - 0.5) * 1.3;
+            const hh = h * (0.5 + gr.next() * 0.6);
+            const bx = x + (gr.next() - 0.5) * 8;
+            const pts = [];
+            for (let t = 0; t <= 1.0001; t += 0.2) pts.push([bx + lean * hh * t * t, y - hh * t]);
+            gi.line(pts, gi.st(k % 3 === 0 ? hl : col, 1.3), { taper: hh * 0.8, minScale: 0.12 });
+          }
+        };
+        for (let i = 0; i < 46; i++) {
+          const x = 10 + gr.next() * 620;
+          tuft(x, 2904 + gr.next() * 22, 12 + gr.next() * 16);
+        }
+        for (let i = 0; i < 40; i++) {
+          const t = gr.next();
+          const x = 40 + t * 560, y = 3180 + t * 170 + (gr.next() - 0.5) * 60;
+          if (!LW.pointInPoly(x, y, ground)) continue;
+          tuft(x, y, 14 + gr.next() * 18);
+        }
+        gi.flush(ctx);
+      }
       // pebbles and grit
       const rng = new LW.RNG('pebbles');
       const ink2 = new LW.Ink(712);
@@ -518,6 +615,23 @@
             const s0 = LW.quadPt(rq, u + 0.012, vv), s1 = LW.quadPt(rq, u2 - 0.012, vv);
             if (hh < 2 && tone < 0.45) continue;
             ink.line([s0, s1], (x, y) => ink.st(inkAt(ink, x, y, 'hutwall'), 0.9 + hh * 0.2), { taper: 5 });
+          }
+          // slate texture: cleavage speckle and a nail hole near the head
+          {
+            const sd = new LW.Dots();
+            const nd = 10 + Math.round(tone * 20);
+            for (let m = 0; m < nd; m++) {
+              const pp = LW.quadPt(q, 0.05 + rng.next() * 0.9, 0.05 + rng.next() * 0.9);
+              sd.dot(pp[0], pp[1], 0.45 + rng.next() * 0.55, ink.colors[inkAt(ink, pp[0], pp[1], 'hutwall')]);
+            }
+            const nh = LW.quadPt(q, 0.5 + (rng.next() - 0.5) * 0.2, 0.18);
+            sd.dot(nh[0], nh[1], 1.3, LW.rgb(P.ink));
+            if (rng.next() < 0.3) {
+              const a = LW.quadPt(q, rng.next(), 0.3), b = LW.quadPt(q, rng.next(), 0.95);
+              ink.line([a, [(a[0] + b[0]) / 2 + 2, (a[1] + b[1]) / 2], b], (x, y) => ink.st(inkAt(ink, x, y, 'hutwall'), 0.7), { taper: 6 });
+            }
+            ink.flush(ctx);
+            sd.flush(ctx);
           }
           ink.line([q[3], q[2]], (x, y) => ink.st(inkAt(ink, x, y, 'hutwall'), 2.4), { taper: 0 });
           ink.line([q[0], q[3]], (x, y) => ink.st(inkAt(ink, x, y, 'hutwall'), 1.4), { taper: 0 });
@@ -1099,6 +1213,13 @@
         pts.push(B.at(t, B.beam(t) * s, 16));
       }
       ink.line(pts, (x, y) => ink.st(inkAt(ink, x, y), 1.1), { taper: 10 });
+      // grain on the floor boards
+      const g2 = [];
+      for (let i = 3; i <= 37; i++) {
+        const t = i / 40;
+        g2.push(B.at(t, B.beam(t) * (s + 0.07) + 0.8 * N.n2(i / 3, k), 16));
+      }
+      ink.line(g2, (x, y, i) => (N2.n2(i / 3 + k * 4, 3.3) > 0.25 ? -1 : ink.st(inkAt(ink, x, y, 'boat'), 0.6)), { taper: 6, wobble: 0.2 });
     }
     // thwarts (seats)
     for (const t of [0.3, 0.58, 0.84]) {
@@ -1139,6 +1260,19 @@
       const f = k / 9;
       const pts = B.near.map((p, i) => [p[0] + (B.keel[i][0] - p[0]) * f, p[1] + (B.keel[i][1] - p[1]) * f]);
       ink.line(pts, (x, y) => ink.st(inkAt(ink, x, y), k % 2 ? 1.0 : 1.6), { taper: 0 });
+      // wood grain within the strake: fine wavering lines with the odd knot
+      for (let gl = 1; gl <= 2; gl++) {
+        const f2 = f - (gl / 3) / 9;
+        const gp2 = B.near.map((p, i) => [p[0] + (B.keel[i][0] - p[0]) * f2, p[1] + (B.keel[i][1] - p[1]) * f2 + 0.7 * N.n2(i / 3, k * 5 + gl)]);
+        ink.line(gp2, (x, y, i) => (N2.n2(i / 4 + k * 3, gl * 7) > 0.3 ? -1 : ink.st(inkAt(ink, x, y), 0.6)), { taper: 6, wobble: 0.2 });
+      }
+      if (k % 3 === 1) {
+        const i = Math.floor(pts.length * (0.25 + 0.5 * ((k * 0.37) % 1)));
+        const p = pts[Math.min(pts.length - 1, i)];
+        const knot = [];
+        for (let a = 0; a <= 6.4; a += 0.5) knot.push([p[0] + Math.cos(a) * 3.5, p[1] + 4 + Math.sin(a) * 1.6]);
+        ink.line(knot, (x, y) => ink.st(inkAt(ink, x, y), 0.8), { taper: 0, wobble: 0.1 });
+      }
       // planking shadow hatch under each strake lap
       for (let i = 1; i < pts.length - 1; i += 1) {
         const p = pts[i];

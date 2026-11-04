@@ -78,11 +78,54 @@
       ink.line(pts, (x, yy) => {
         const v = skyValue(x, yy);
         if (v > 0.36) return -1;
-        const w = 1.25 * LW.smooth(0.38, 0.12, v) + 0.25;
+        const w = 1.3 * LW.smooth(0.38, 0.12, v) + 0.4;
         // gaps
         if (N.n2(x / 70, yy / 13) > 0.55) return -1;
         return ink.st(v < 0.22 ? ci : ci2, w);
       }, { taper: 30 });
+    }
+    // finer interleaved rules carried down through the brighter sky, one band darker than the ground
+    const bandInk = pal.map((c, i) => ink.col(LW.mix(c, pal[Math.max(0, i - 1)], 0.75)));
+    for (let y = 10.25; y < 2150; y += 8.5) {
+      const pts = [];
+      for (let x = 0; x <= LW.W; x += 12) pts.push([x, y + N.n2(x / 400, y / 90) * 5 + N2.n2(x / 90, y / 30) * 1.2]);
+      ink.line(pts, (x, yy) => {
+        const v = skyValue(x, yy);
+        if (v < 0.3) return -1;
+        if (N2.n2(x / 55, yy / 11) > 0.35 - 0.25 * LW.smooth(0.3, 0.75, v)) return -1;
+        const t = LW.clamp(v, 0, 0.999);
+        return ink.st(bandInk[Math.floor(t * pal.length)], 0.85);
+      }, { taper: 26 });
+    }
+    ink.flush(ctx);
+    LW.drawDustLanes(ctx, S);
+  };
+
+  // the Milky Way's dark rift drawn as broken engraved strokes running along the band
+  LW.drawDustLanes = function (ctx, S) {
+    const ink = new LW.Ink(331);
+    ink.wobble = 0.5;
+    const rng = new LW.RNG('dust');
+    const cA = ink.col(LW.mix(P.sky1, P.sky0, 0.85)), cB = ink.col(LW.mix(P.sky2, P.sky1, 0.7));
+    for (let along = 0; along < mwLen; along += 5) {
+      const str = LW.smooth(-0.3, 0.3, N2.fbm(along / 380, 7.7, 2));
+      if (str < 0.05) continue;
+      const centre = 38 + 55 * N2.fbm(along / 260, 1.7, 3) - N.fbm(along / 420, 3.3, 3) * 90;
+      const n = Math.round(str * 4.5);
+      for (let k = 0; k < n; k++) {
+        const off = centre + rng.gauss() * 17;
+        const len = 60 + rng.next() * 190 * str;
+        const pts = [];
+        for (let t = 0; t <= len; t += 6) {
+          const a = along + t;
+          const pp = off + 3 * N.n2(a / 60, off / 30);
+          pts.push([MW_A[0] + mwT[0] * a + mwN[0] * pp, MW_A[1] + mwT[1] * a + mwN[1] * pp]);
+        }
+        if (pts.length < 2) continue;
+        const w = (0.45 + rng.next() * 0.55) * (0.6 + 0.6 * str);
+        const ci = Math.abs(off - centre) < 14 ? cA : cB;
+        ink.line(pts, (x, y) => (Math.hypot(x - L.moon[0], y - L.moon[1]) < L.moon[2] * 1.4 ? -1 : ink.st(ci, w)), { taper: len * 0.4, minScale: 0.2 });
+      }
     }
     ink.flush(ctx);
   };
@@ -115,16 +158,33 @@
       }
     }
     // Milky Way micro-stipple
-    const g2 = 5.5;
+    const g2 = 4.4;
     for (let y = -40; y < 1700; y += g2) {
       for (let x = 300; x < 1900; x += g2) {
         const sx = x + rng.next() * g2, sy = y + rng.next() * g2;
         const mw = LW.milky(sx, sy);
         if (mw.m < 0.08) continue;
-        const p = Math.pow(mw.m, 1.6) * 0.5;
+        const p = Math.pow(mw.m, 1.5) * 0.58;
         if (rng.next() > p) continue;
         if (Math.hypot(sx - mx, sy - my) < mr * 1.3) continue;
-        dots.push([sx, sy, 0.55 + rng.next() * 0.65, rng.next() < 0.7 ? P.starBlue : P.star]);
+        dots.push([sx, sy, 0.42 + rng.next() * 0.5, rng.next() < 0.7 ? P.starBlue : P.star]);
+      }
+    }
+    // bright knots: tight star clouds strung along the band
+    {
+      const kr = new LW.RNG('knots');
+      for (let i = 0; i < 26; i++) {
+        const a = 150 + kr.next() * (mwLen - 300);
+        const pp = (kr.next() - 0.5) * 260;
+        const kx = MW_A[0] + mwT[0] * a + mwN[0] * pp, ky = MW_A[1] + mwT[1] * a + mwN[1] * pp;
+        const mw = LW.milky(kx, ky);
+        if (mw.m < 0.35 || mw.rift > 0.4 || Math.hypot(kx - mx, ky - my) < mr * 3.6) continue;
+        const R = 18 + kr.next() * 34;
+        const cnt = Math.round(R * 2.2);
+        for (let q = 0; q < cnt; q++) {
+          const rr = Math.pow(kr.next(), 1.7) * R, aa = kr.next() * 6.283;
+          dots.push([kx + Math.cos(aa) * rr * 1.5, ky + Math.sin(aa) * rr, 0.42 + kr.next() * 0.55 + (rr < R * 0.3 ? 0.25 : 0), kr.next() < 0.55 ? P.star : P.starBlue]);
+        }
       }
     }
     // a few named-bright stars with glints
@@ -180,6 +240,36 @@
       ctxS.fill();
       // tiny dark ring like an engraved star
       ctxS.strokeStyle = LW.rgb(LW.mix(P.sky0, P.sky1, 0.5), 0.0);
+    }
+    // star variety: small four-ray stars, ringed stars, doubles
+    {
+      const vr = new LW.RNG('star-variety');
+      for (const d of dots) {
+        if (d[2] < 1.55) continue;
+        const u = vr.next();
+        const [x, y, r] = d;
+        if (Math.hypot(x - mx, y - my) < mr * 3.2) continue;
+        ctxS.strokeStyle = LW.rgb(d[3]);
+        if (u < 0.22) {
+          const len = r * (3 + vr.next() * 2.5);
+          ctxS.lineWidth = 0.7;
+          ctxS.beginPath();
+          ctxS.moveTo(x - len, y); ctxS.lineTo(x + len, y);
+          ctxS.moveTo(x, y - len); ctxS.lineTo(x, y + len);
+          ctxS.stroke();
+        } else if (u < 0.255) {
+          ctxS.lineWidth = 0.6;
+          ctxS.beginPath();
+          ctxS.arc(x, y, r + 1.6 + vr.next() * 0.8, 0, Math.PI * 2);
+          ctxS.stroke();
+        } else if (u < 0.42) {
+          ctxS.fillStyle = LW.rgb(vr.next() < 0.5 ? P.starWarm : P.starBlue);
+          const a = vr.next() * 6.283, dd = r * 2.6 + 2;
+          ctxS.beginPath();
+          ctxS.arc(x + Math.cos(a) * dd, y + Math.sin(a) * dd, r * 0.55, 0, Math.PI * 2);
+          ctxS.fill();
+        }
+      }
     }
     ctxS.restore();
     LW.log('stars', dots.length, 'glints', big.length);
@@ -269,5 +359,63 @@
       return ink2.st(cr, lit ? 1.8 : 1.1);
     }, { taper: 0 });
     ink2.flush(ctx);
+    // ---- surface texture: maria stipple, craters on the crescent, earthshine on the dark disc
+    const dots = new LW.Dots();
+    const mr2 = new LW.RNG('moon-tex');
+    const ink3 = new LW.Ink(323);
+    ink3.wobble = 0.15;
+    const inLit = (x, y) => {
+      const dx = x - (mx + off[0]), dy = y - (my + off[1]);
+      return Math.hypot(x - mx, y - my) < r - 2.5 && dx * dx + dy * dy > (r * 0.97 + 1.5) * (r * 0.97 + 1.5);
+    };
+    const mariaC = LW.rgb(LW.mix(P.moonShade, P.sky4, 0.45)), mariaC2 = LW.rgb(LW.mix(P.moonShade, P.moon, 0.3));
+    const earthC = LW.rgb(LW.mix(P.moonDark, P.sky4, 0.55)), earthC2 = LW.rgb(LW.mix(P.moonDark, P.sky3, 0.6));
+    for (let y = my - r; y < my + r; y += 2.6) {
+      for (let x = mx - r; x < mx + r; x += 2.6) {
+        const px = x + mr2.next() * 2.6, py = y + mr2.next() * 2.6;
+        const u = mr2.next();
+        if (Math.hypot(px - mx, py - my) > r - 3) continue;
+        const m = N2.fbm(px / 38, py / 38, 3);
+        if (inLit(px, py)) {
+          if (u < LW.smooth(0.12, 0.45, m) * 0.6) dots.dot(px, py, 0.55 + mr2.next() * 0.5, mariaC);
+          else if (u > 0.985) dots.dot(px, py, 0.6, mariaC2);
+        } else {
+          const dx = px - (mx + off[0]), dy = py - (my + off[1]);
+          if (dx * dx + dy * dy > (r * 0.97) * (r * 0.97)) continue;
+          // earthshine: highlands faintly lit, maria left dark
+          if (u < LW.smooth(0.25, -0.15, m) * 0.18) dots.dot(px, py, 0.6 + mr2.next() * 0.4, mr2.next() < 0.5 ? earthC : earthC2);
+        }
+      }
+    }
+    // craters, foreshortened toward the limb, shadow inside the rim facing the sun
+    const crC = ink3.col(LW.mix(P.moonShade, P.sky4, 0.6));
+    const sunDir = [0.55, 0.83];
+    for (let i = 0; i < 70; i++) {
+      const a = mr2.next() * 6.283, rr = Math.sqrt(mr2.next()) * (r - 8);
+      const x = mx + Math.cos(a) * rr, y = my + Math.sin(a) * rr;
+      const lit = inLit(x, y);
+      const cr0 = (1.6 + Math.pow(mr2.next(), 2.2) * 6.5);
+      const q = Math.sqrt(Math.max(0.15, 1 - Math.pow(rr / r, 2)));
+      const pts = [];
+      for (let t = 0; t <= 6.35; t += 0.35) {
+        const u = Math.cos(t) * cr0, v = Math.sin(t) * cr0;
+        // squash along the radial direction
+        const ux = Math.cos(a), uy = Math.sin(a);
+        const pr = (u * ux + v * uy) * q, pt = -u * uy + v * ux;
+        pts.push([x + pr * ux - pt * uy, y + pr * uy + pt * ux]);
+      }
+      if (lit) {
+        ink3.line(pts, ink3.st(crC, 0.75), { taper: 0 });
+        for (let k = 0; k < cr0 * 2.5; k++) {
+          const t = Math.atan2(sunDir[1], sunDir[0]) + (mr2.next() - 0.5) * 2.2;
+          const f = 0.45 + mr2.next() * 0.45;
+          dots.dot(x + Math.cos(t) * cr0 * f * q, y + Math.sin(t) * cr0 * f, 0.5 + mr2.next() * 0.3, mariaC);
+        }
+      } else if (Math.hypot(x - mx, y - my) < r - 6 && mr2.next() < 0.5) {
+        ink3.line(pts, ink3.st(ink3.col(LW.mix(P.moonDark, P.sky3, 0.5)), 0.7), { taper: 0 });
+      }
+    }
+    ink3.flush(ctx);
+    dots.flush(ctx);
   };
 })();
