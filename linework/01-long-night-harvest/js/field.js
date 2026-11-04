@@ -105,66 +105,120 @@
     }
     ruts.flush(ctx);
     grooves.flush(ctx);
-    const pud = new LW.FillBatch(), rip = new LW.FillBatch(), glint = new LW.FillBatch(), pudInk = new LW.FillBatch();
+    // puddles: flat water in the ruts (and two across the track) mirroring the sky about the horizon
+    const puddles = [];
     for (const side of [-1, 1]) {
       let i = 0;
       const pn = (Z) => LW.N4(Z * 0.16 + side * 11, 0.5 + side) + 0.22 * Math.exp(-(((Z - 28) / 22) ** 2)) - 0.1 * LW.smooth(70, 130, Z);
       while (i < Zs.length) {
         const Z = Zs[i];
-        if (pn(Z) > 0.42 && Z < 170) {
+        if (pn(Z) > 0.4 && Z < 170) {
           let j = i;
-          while (j < Zs.length && pn(Zs[j]) > 0.42) j++;
+          while (j < Zs.length && pn(Zs[j]) > 0.4 && j - i < 34) j++;
           if (j - i > 3) {
             const pl = [], pr = [];
             for (let k = i; k < j; k++) {
               const Zk = Zs[k];
               const t = (k - i) / (j - i - 1);
-              const bulge = Math.pow(Math.sin(Math.PI * t), 0.55) * (1 + 0.25 * LW.N3(Zk * 2, side));
+              const bulge = Math.pow(Math.sin(Math.PI * t), 0.3) * (1 + 0.15 * LW.N3(Zk * 2, side));
               const c = rutC(Zk, side);
-              const hw = 0.1 * bulge + 0.004;
               const y = SC.groundY(c, Zk);
-              pl.push(SC.screenX(c - hw, Zk), y); pr.push(SC.screenX(c + hw * 1.15, Zk), y);
+              pl.push(SC.screenX(c - 0.1 * bulge - 0.004, Zk), y); pr.push(SC.screenX(c + 0.11 * bulge + 0.004, Zk), y);
             }
-            const poly2 = pl.slice();
-            for (let k = pr.length - 2; k >= 0; k -= 2) poly2.push(pr[k], pr[k + 1]);
-            const wp = LW.wobble(poly2, 1.2, 0.06, i + side, true);
-            const mx = pl[(pl.length >> 2) * 2], my = pl[(pl.length >> 2) * 2 + 1];
-            const g = SC.glow(mx, yh - 40 - (my - yh) * 0.18);
-            const ci = Math.min(4, (g > 0.95 ? 0 : g > 0.7 ? 1 : g > 0.5 ? 2 : g > 0.36 ? 3 : 4) + (my > 2700 ? 1 : 0));
-            const col = [P.cream, P.straw, P.amber, P.orange, P.sea][ci];
-            const rcol = [P.amber, P.orange, P.rust, P.ember, P.deep][ci];
-            LW.polyPath(pud.p('#0d171f'), wp, true);
-            LW.dashes(wp.concat(wp.slice(0, 4)), rng, 20, 120, 3, 12, (sub) => LW.ribbon(pudInk.p(P.ink), sub, (t, k, x, y) => (0.45 + 0.9 * LW.smooth(yh, 3600, y)) * LW.taper(t, 0.2, 0.2)));
-            // engraved ripples: horizontal hatch, denser toward the far edge
-            const y0 = Math.min(pl[1], pl[pl.length - 1]), y1 = Math.max(pl[1], pl[pl.length - 1]);
-            const hgt = y1 - y0;
-            const step = Math.max(1.6, hgt / 16);
-            for (let yy = y0 + step * 0.4; yy < y1; yy += step * rng.range(0.8, 1.2)) {
-              let k = 0;
-              while (k < pl.length - 2 && pl[k + 1] < yy) k += 2;
-              const xa = Math.min(pl[k], pr[k]), xb = Math.max(pl[k], pr[k]);
-              if (xb - xa < 2.5) continue;
-              let xx = xa + rng.range(0.02, 0.12) * (xb - xa);
-              while (xx < xb) {
-                const ww = (xb - xa) * rng.range(0.45, 1.0);
-                const x2 = Math.min(xb - 0.5, xx + ww);
-                if (x2 - xx > 1.5) LW.ribbon(rip.p(rng.next() < 0.75 ? col : rcol), [xx, yy, (xx + x2) / 2, yy + 0.3, x2, yy], (t) => Math.min(step * 0.42, 0.5 + 1.1 * LW.smooth(yh, 3600, yy)) * LW.taper(t, 0.3, 0.3));
-                xx = x2 + (xb - xa) * rng.range(0.05, 0.25);
-              }
-              if (rng.next() < 0.18) {
-                const gx = xa + rng.range(0.1, 0.8) * (xb - xa);
-                LW.ribbon(glint.p('#fff6dc'), [gx, yy - step * 0.5, gx + (xb - xa) * 0.12, yy - step * 0.5], (t) => 0.6 * LW.taper(t, 0.3, 0.3));
-              }
-            }
+            puddles.push({ pl, pr, seed: i * 3 + side });
           }
           i = j + 1;
         } else i++;
       }
     }
-    LW.offset(ctx, LW.REG.warm, () => pud.flush(ctx));
-    rip.flush(ctx);
-    glint.flush(ctx);
+    for (const [Zc, len, wid, off] of [[7.0, 0.95, 0.62, 0.1], [20, 3.2, 0.5, -0.08]]) {
+      const pl = [], pr = [];
+      for (const Z of Zs) {
+        if (Z < Zc - len / 2 || Z > Zc + len / 2) continue;
+        const t = (Z - (Zc - len / 2)) / len;
+        const b = Math.pow(Math.sin(Math.PI * t), 1.1) * (1 + 0.35 * LW.N3(Z * 3.1, Zc));
+        const c = SC.pathX(Z) + off + 0.06 * LW.N2(Z * 0.9, Zc);
+        const y = SC.groundY(c, Z);
+        pl.push(SC.screenX(c - wid * b * (1 + 0.15 * LW.N1(Z * 1.3, 1)), Z), y);
+        pr.push(SC.screenX(c + wid * b * (1 + 0.15 * LW.N1(Z * 1.3, 2)), Z), y);
+      }
+      if (pl.length > 6) puddles.push({ pl, pr, seed: Zc });
+    }
+    // the reflection source: the sky band just above the horizon, mirrored, smeared and darkened
+    const S = LW.S;
+    const ry0 = 1150, ry1 = yh + 4;
+    const src = document.createElement('canvas');
+    src.width = ctx.canvas.width; src.height = Math.ceil((ry1 - ry0) * S);
+    const sx = src.getContext('2d');
+    sx.drawImage(ctx.canvas, 0, Math.floor(ry0 * S), src.width, src.height, 0, 0, src.width, src.height);
+    const sm = document.createElement('canvas'); sm.width = src.width; sm.height = src.height;
+    const smx = sm.getContext('2d');
+    for (let k = -6; k <= 6; k++) { smx.globalAlpha = 1 / (Math.abs(k) * 0.6 + 1.0); smx.drawImage(src, 0, k * 13 * S); }
+    smx.globalAlpha = 1;
+    // posterise to the print palette, one step darker than the sky (water swallows light)
+    {
+      const pal = ['#0a1220', '#122033', '#1d3d49', '#2c5f66', '#4a8783', '#8fbcae', '#5e2a22', '#9c4529', '#d4652b', '#eb9b39', '#f5ca72', '#f3e7c4'].map(LW.hex);
+      const down = [0, 0, 1, 2, 3, 4, 6, 6, 7, 8, 9, 10];
+      const im = smx.getImageData(0, 0, sm.width, sm.height), d = im.data;
+      for (let o = 0; o < d.length; o += 4) {
+        let best = 0, bd = 1e9;
+        for (let k = 0; k < pal.length; k++) { const c = pal[k]; const e = (d[o] - c[0]) ** 2 + (d[o + 1] - c[1]) ** 2 * 1.2 + (d[o + 2] - c[2]) ** 2; if (e < bd) { bd = e; best = k; } }
+        const c = pal[down[best]];
+        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2];
+      }
+      smx.putImageData(im, 0, 0);
+      LW._refl = im;
+    }
+    const pudInk = new LW.FillBatch(), rip = new LW.FillBatch(), glint = new LW.FillBatch();
+    for (const pd of puddles) {
+      const { pl, pr } = pd;
+      const poly = pl.slice();
+      for (let k = pr.length - 2; k >= 0; k -= 2) poly.push(pr[k], pr[k + 1]);
+      const wp = LW.wobble(LW.resample(poly, 3), 0.3 + 1.2 * LW.smooth(yh, 3300, poly[1]), 0.05, pd.seed, true);
+      const path = new Path2D(); LW.polyPath(path, wp, true);
+      ctx.save(); ctx.clip(path);
+      // mirror about the horizon: native y' = 2*yh - y  ->  draw sm flipped
+      ctx.save();
+      ctx.translate(0, 2 * yh); ctx.scale(1, -1);
+      ctx.drawImage(sm, 0, ry0, SC.W, ry1 - ry0);
+      ctx.restore();
+      // engraved ripples over the reflection: dark lines, gap-broken, spacing grows toward the viewer
+      const y0 = Math.min(pl[1], pl[pl.length - 1]), y1 = Math.max(pl[1], pl[pl.length - 1]);
+      let xa = 1e9, xb = -1e9;
+      for (let k = 0; k < pl.length; k += 2) { xa = Math.min(xa, pl[k], pr[k]); xb = Math.max(xb, pl[k], pr[k]); }
+      const near = LW.smooth(yh, 3600, y0);
+      let yy = y0 + 0.5;
+      while (yy < y1) {
+        const step = 1.5 + 3.4 * LW.smooth(yh, 3700, yy);
+        let xx = xa - 4 + rng.range(0, 8);
+        const R = LW._refl;
+        const ys = Math.floor(((2 * yh - yy) - ry0) * S);
+        while (xx < xb + 4) {
+          const ww = rng.range(10, 60) * (0.4 + near);
+          const px = Math.max(0, Math.min(R.width - 1, Math.floor((xx + ww / 2) * S)));
+          const o = (Math.max(0, Math.min(R.height - 1, ys)) * R.width + px) * 4;
+          const lum = (R.data[o] * 0.3 + R.data[o + 1] * 0.59 + R.data[o + 2] * 0.11) / 255;
+          const col = lum > 0.3 ? '#0b141b' : rng.next() < 0.5 ? P.teal : '#24474f';
+          LW.ribbon(rip.p(col), [xx, yy, xx + ww * 0.5, yy + rng.range(-0.3, 0.3), xx + ww, yy], (t) => (0.45 + 1.15 * near) * LW.taper(t, 0.25, 0.25));
+          xx += ww + rng.range(2, 12) * (0.4 + near);
+        }
+        // a bright catch-light ripple where the slot is mirrored
+        const g = SC.glow((xa + xb) / 2, 2 * yh - yy);
+        if (g > 0.45 && rng.next() < 0.35) {
+          const gx = rng.range(xa, xb), gw = rng.range(4, 18) * (0.4 + near);
+          LW.ribbon(glint.p(g > 0.8 ? '#fff6dc' : P.straw), [gx, yy + step * 0.5, gx + gw, yy + step * 0.5], (t) => (0.4 + 0.6 * near) * LW.taper(t, 0.3, 0.3));
+        }
+        yy += step * rng.range(0.85, 1.15);
+      }
+      rip.flush(ctx); glint.flush(ctx);
+      ctx.restore();
+      // banks: heavy far-edge lip (the bank's shadow), thin broken near edge
+      const hgt = Math.max(1, y1 - y0);
+      LW.ribbonClosed(pudInk.p(P.ink), wp, (t, k, x, y) => (0.3 + 0.9 * near) * (0.25 + 2.2 * LW.smooth(y0 + hgt * 0.4, y0, y)));
+    }
     pudInk.flush(ctx);
+    LW.puddlePaths = puddles.map((pd) => { const q = new Path2D(); const poly = pd.pl.slice(); for (let k = pd.pr.length - 2; k >= 0; k -= 2) poly.push(pd.pr[k], pd.pr[k + 1]); LW.polyPath(q, poly, true); return q; });
+    const inWater = (x, y) => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(S, S); let r = false; for (const q of LW.puddlePaths) if (ctx.isPointInPath(q, x * S, y * S)) { r = true; break; } ctx.restore(); return r; };
     // walls of stalks either side of the slot, far to near
     const wall = new LW.FillBatch();
     for (let i = 0; i < Zs.length - 1; i++) {
@@ -173,8 +227,9 @@
         const Xa = SC.pathX(Za) + side * (SC.pathHalf(Za) + 0.03), Xb = SC.pathX(Zb) + side * (SC.pathHalf(Zb) + 0.03);
         const xa = SC.screenX(Xa, Za), xb = SC.screenX(Xb, Zb);
         const ga = SC.groundY(Xa, Za), gb = SC.groundY(Xb, Zb);
-        const ca = ga - (f * 0.8) / Za, cb = gb - (f * 0.8) / Zb;
-        const q = wall.p(Za > 60 ? '#1a2f3a' : Za > 9 ? '#15262f' : '#101d26');
+        const ha = 0.6 + 0.1 * LW.N1(Za * 1.7, side), hb = 0.6 + 0.1 * LW.N1(Zb * 1.7, side);
+        const ca = ga - (f * ha) / Za, cb = gb - (f * hb) / Zb;
+        const q = wall.p(Za > 60 ? '#172a35' : Za > 9 ? '#0f1c25' : '#0c161e');
         q.moveTo(xa, ga + 0.5); q.lineTo(xb, gb + 0.5); q.lineTo(xb, cb); q.lineTo(xa, ca); q.closePath();
       }
       if (i % 40 === 39) wall.flush(ctx);
@@ -199,6 +254,7 @@
         const pick = rng.next();
         const X = SC.pathX(Z) + (pick < 0.5 ? rng.range(-0.14, 0.14) : rng.sign() * rng.range(0.7, 0.86));
         const x = SC.screenX(X, Z), y = SC.groundY(X, Z) + rng.range(-0.5, 0.5) * sc * 0.02;
+        if (inWater(x, y) || inWater(x, y - 6)) continue;
         const h = rng.range(0.08, 0.2) * sc;
         const blades = rng.int(2, 4);
         for (let b = 0; b < blades; b++) {
@@ -274,15 +330,18 @@
       const X = SC.worldX(x, Zi);
       const dPath = Math.abs(X - SC.pathX(Zi)) - SC.pathHalf(Zi);
       const nearPath = dPath < 0.5;
-      nextStep = nearPath ? 0.6 : 1;
+      nextStep = nearPath ? 0.7 : 1;
+      const edge = nearPath && dPath < 0.14;
+      const sunWall = X > SC.pathX(Zi);
       if (inPath(X, Zi, 0.02)) continue;
       if (inTram(X, Zi)) continue;
       const g = SC.terrain(X, Zi);
       const pasture = beyondHedge(X, Zi);
-      const c = pasture ? 0.25 : CANOPY + 0.09 * LW.N3(X * 0.25, Zi * 0.25) + rng.range(-0.04, 0.04);
+      const c = pasture ? 0.25 : CANOPY + 0.09 * LW.N3(X * 0.25, Zi * 0.25) + (nearPath ? rng.range(-0.16, 0.08) + 0.08 * LW.N2(Zi * 2.3, X) : rng.range(-0.04, 0.04));
       const yb = yh + (f * (H - g - c)) / Zi;
       if (yb > 3920 + earPx) continue;
-      const lean = 0.22 * LW.N1(X * 0.04 + Zi * 0.02, Zi * 0.04) + 0.1 * rng.normal() + 0.08;
+      let lean = 0.22 * LW.N1(X * 0.04 + Zi * 0.02, Zi * 0.04) + 0.1 * rng.normal() + 0.08;
+      if (edge && rng.next() < 0.07) lean += rng.sign() * rng.range(0.4, 0.8); // a lodged stalk
       let v = fieldLight(x, yb, X, Zi) + rng.range(-0.06, 0.06);
       any = true;
       if (pasture) {
@@ -294,9 +353,14 @@
       if (lod === 0) {
         const h = earPx * rng.range(0.9, 1.3);
         const ri = rampIdx(v);
-        const col = ri <= 1 && rng.next() < 0.5 ? (rng.next() < 0.6 ? P.orange : P.rust) : RAMP[Math.max(1, ri)][1];
+        let col = ri <= 1 && rng.next() < 0.5 ? (rng.next() < 0.6 ? P.orange : P.rust) : RAMP[Math.max(1, ri)][1];
+        if (Zi > 140) col = rng.next() < 0.55 ? P.straw : rng.next() < 0.6 ? P.amber : P.orange;
         const w = Math.max(0.5, earPx * 0.13);
         LW.ribbon(B.tick.p(col), [x, yb, x + Math.sin(lean) * h * 0.5, yb - h * 0.5, x + Math.sin(lean * 1.2) * h, yb - h], (t) => w * LW.taper(t, 0.3, 0.25));
+        if (nearPath && dPath < 0.3) {
+          const ground = yh + (f * (H - g)) / Zi;
+          LW.ribbon(B.stem.p(edge ? (sunWall ? (rng.next() < 0.6 ? P.rust : P.amber) : (rng.next() < 0.2 ? P.rust : '#2b4f59')) : '#17303a'), [x, yb, x - Math.sin(lean) * (ground - yb) * 0.3, ground], (t) => Math.max(0.35, earPx * 0.06));
+        }
         if (earPx > 2.5 && rng.next() < 0.5) {
           // the shadow side of the ear: a dark sliver
           LW.ribbon(B.stem.p('#0f1d26'), [x + w * 1.4, yb + 1, x + w * 1.4 + Math.sin(lean) * h * 0.8, yb - h * 0.8], (t) => w * 0.6 * LW.taper(t, 0.3, 0.3));
@@ -309,13 +373,37 @@
         const w = earPx * 0.13;
         // stem
         const sl = nearPath ? (f * c) / Zi : Math.min(earPx * 3.2, (f * c) / Zi);
-        LW.ribbon(B.stem.p(nearPath ? (rng.next() < 0.35 ? (v > 0.55 ? P.rust : P.teal) : '#24434e') : v > 0.45 ? '#2a3f45' : '#132530'), [x, yb, x - ax * sl * 0.5 + rng.range(-1, 1), yb + sl * 0.5, x - ax * sl * 0.2, yb + sl], (t) => Math.max(0.35, w * 0.3));
+        const sp = [x, yb, x - ax * sl * 0.5 + rng.range(-1, 1), yb + sl * 0.5, x - ax * sl * 0.2, yb + sl];
+        if (nearPath) {
+          // wall of stalks: front stalks lit and outlined, deeper ones fall into shadow
+          const sw = Math.max(0.45, w * 0.32);
+          if (edge) {
+            LW.ribbon(B.stem.p(P.ink), sp, () => sw + 0.7);
+            LW.ribbon(B.stem.p(sunWall ? (rng.next() < 0.45 ? P.rust : rng.next() < 0.5 ? '#7a3a26' : '#2f5962') : (rng.next() < 0.5 ? '#21424b' : '#1a353e')), sp, () => sw);
+            if ((sunWall || v > 0.45) && rng.next() < (sunWall ? 0.85 : 0.4)) {
+              const sgn = SC.sun.x < x ? -1 : 1;
+              LW.ribbon(B.stem.p(sunWall ? (v > 0.5 ? P.straw : P.amber) : P.rust), [sp[0] + sgn * sw * 0.6, sp[1], sp[2] + sgn * sw * 0.6, sp[3]], (t) => sw * 0.5 * LW.taper(t, 0.05, sunWall ? 0.35 : 0.6));
+            }
+            // a leaf flag on some front stalks
+            if (rng.next() < 0.18) {
+              const lyy = yb + sl * rng.range(0.2, 0.6), lxx = x - ax * sl * 0.2, sd = rng.sign(), ll = earPx * rng.range(0.8, 1.8);
+              LW.ribbon(B.stem.p(P.ink), [lxx, lyy, lxx + sd * ll * 0.5, lyy - ll * 0.2, lxx + sd * ll, lyy + ll * rng.range(0, 0.5)], (t) => (w * 0.35 + 0.6) * LW.taper(t, 0.05, 0.9));
+              LW.ribbon(B.stem.p('#2c5560'), [lxx, lyy, lxx + sd * ll * 0.5, lyy - ll * 0.2, lxx + sd * ll, lyy + ll * rng.range(0, 0.5)], (t) => w * 0.35 * LW.taper(t, 0.05, 0.9));
+            }
+          } else {
+            LW.ribbon(B.stem.p(dPath < 0.3 ? '#1a3640' : '#122630'), sp, () => sw * 0.85);
+          }
+        } else LW.ribbon(B.stem.p(v > 0.45 ? '#2a3f45' : '#132530'), sp, (t) => Math.max(0.35, w * 0.3));
         // spindle
         const pts = [];
         for (let t = 0; t <= 1.0001; t += 0.25) { const ww = Math.sin(Math.PI * Math.pow(t, 0.8)) * w; pts.push(x + ax * h * t - ay * ww, yb + ay * h * t + ax * ww); }
         for (let t = 0.75; t > 0.0001; t -= 0.25) { const ww = Math.sin(Math.PI * Math.pow(t, 0.8)) * w; pts.push(x + ax * h * t + ay * ww, yb + ay * h * t - ax * ww); }
         LW.polyPath(B.ink, pts, true);
         LW.polyPath(B.fill.p(col), pts, true);
+        if (edge && (v > 0.4 || sunWall)) {
+          const rimc = v > 0.6 ? P.straw : P.amber;
+          LW.ribbon(B.awn.p(rimc), [x + ax * h * 0.15 - ay * w * 0.5, yb + ay * h * 0.15 + ax * w * 0.5, x + ax * h * 0.85 - ay * w * 0.35, yb + ay * h * 0.85 + ax * w * 0.35], (t) => w * 0.35 * LW.taper(t, 0.2, 0.2) + 0.2);
+        }
         const na = rng.int(2, 4);
         for (let k = 0; k < na; k++) {
           const s = 0.55 + 0.45 * (k / na);
@@ -332,7 +420,7 @@
         const wstem = Math.max(0.6, earPx * 0.05);
         const bow = rng.range(-1, 1) * earPx * 0.4;
         const stem = [x, yb, x - ax * sl * 0.15 + bow * 0.5, yb + sl * 0.35, x - ax * sl * 0.3 + bow, yb + sl * 0.7, x - ax * sl * 0.38 + bow, ground];
-        const ink = nearPath ? (v > 0.42 ? P.sea : P.teal) : v > 0.45 ? '#33474b' : '#122430';
+        const ink = edge ? (sunWall ? (rng.next() < 0.5 ? P.rust : '#2f5962') : (rng.next() < 0.5 ? '#26474f' : '#1d3a43')) : nearPath ? '#16303a' : v > 0.45 ? '#33474b' : '#122430';
         LW.ribbon(B.stem.p(P.ink), stem, (t) => wstem + 0.8);
         LW.ribbon(B.stem.p(ink), stem, (t) => wstem);
         if (rng.next() < (nearPath ? 0.22 : 0.5)) {
@@ -431,6 +519,34 @@
     }
     ctx.putImageData(img, 0, py0);
   }
+
+  // engraver's vignette: diagonal ink hatch thickening toward the frame edges and the bottom
+  LW.drawEdgeShade = function (ctx) {
+    const rng = new LW.RNG('edge-shade');
+    const fb = new LW.FillBatch();
+    const e = (x, y) => {
+      const side = Math.max(LW.smooth(600, 0, x), LW.smooth(1560, 2160, x));
+      const low = LW.smooth(3000, 3840, y) * 0.6;
+      return Math.min(1, side * LW.smooth(yh + 120, yh + 700, y) + low * (0.4 + 0.6 * side));
+    };
+    const ang = -1.05, ca = Math.cos(ang), sa = Math.sin(ang);
+    for (let k = -4000; k < 4000; k += 5.5) {
+      // line: p = o + s*(ca,sa), o on the perpendicular through (1080, 3000)
+      const ox = 1080 - sa * k, oy = 3000 + ca * k;
+      const pts = [];
+      for (let s = -2600; s <= 2600; s += 6) {
+        const x = ox + ca * s, y = oy + sa * s;
+        if (x < -10 || x > SC.W + 10 || y < yh + 40 || y > SC.H + 10) continue;
+        pts.push(x, y);
+      }
+      if (pts.length < 4) continue;
+      let run = [];
+      const flush = () => { if (run.length >= 4) LW.ribbon(fb.p('#081018'), run, (t, i, x, y) => Math.max(0, 2.3 * e(x, y) - 0.15) * LW.taper(t, 0.05, 0.05)); run = []; };
+      for (let i = 0; i < pts.length; i += 2) { if (e(pts[i], pts[i + 1]) > 0.1 && rng.next() > 0.015) run.push(pts[i], pts[i + 1]); else flush(); }
+      flush();
+    }
+    fb.flush(ctx);
+  };
 
   LW.drawField = function (ctx) {
     // base (shadowed canopy) fill

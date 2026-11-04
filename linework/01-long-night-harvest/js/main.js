@@ -34,6 +34,7 @@
     ['rings front', (c) => LW.drawRings(c, 'front')],
     ['land', (c) => LW.drawLand && LW.drawLand(c)],
     ['field', (c) => LW.drawField && LW.drawField(c)],
+    ['edge shade', (c) => LW.drawEdgeShade(c)],
     ['foreground', (c) => LW.drawForeground && LW.drawForeground(c)],
     ['print', (c) => LW.printPass && LW.printPass(c, S), true],
   ];

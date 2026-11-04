@@ -37,7 +37,7 @@
   // ---------------------------------------------------------------- rings
   function ringFillPath(t0, t1) {
     const path = new Path2D();
-    const bands = [[1.5, 1.94], [2.03, 2.235]];
+    const bands = [[1.235, 1.5], [1.5, 1.94], [2.03, 2.235]];
     for (const [a, b] of bands) {
       const pts = [];
       const n = 260;
@@ -53,6 +53,38 @@
     const t0 = front ? -0.012 : Math.PI - 0.012, t1 = front ? Math.PI + 0.012 : 2 * Math.PI + 0.012;
     ctx.fillStyle = '#0d1828';
     LW.offset(ctx, LW.REG.cool, () => ctx.fill(ringFillPath(t0 - 0.002, t1 + 0.002)));
+    // light-matched under-plate: wedges coloured one step below the strokes, so no dark stitches show in the glow
+    {
+      const sunv = [SC.sun.x - PL.x, SC.sun.y - PL.y], sl0 = Math.hypot(sunv[0], sunv[1]);
+      const under = new LW.FillBatch();
+      const NW = 420;
+      for (const [a, b] of [[1.235, 1.5], [1.5, 1.94], [2.03, 2.235]]) {
+        const cRing = a < 1.3;
+        for (let k = 0; k < NW; k++) {
+          const ta = t0 + ((t1 - t0) * k) / NW, tb = t0 + ((t1 - t0) * (k + 1.15)) / NW, tm = (ta + tb) / 2;
+          const qm = ringPoint(((a + b) / 2) * R, tm);
+          const mx = qm[0], my = qm[1], ml = Math.hypot(mx, my) || 1;
+          const towardSun = (mx * sunv[0] + my * sunv[1]) / (ml * sl0);
+          const g = SC.glow(PL.x + mx, PL.y + my);
+          const sh = planetShadowOnRing(qm);
+          const warm = (towardSun > 0.55 ? (towardSun - 0.55) * 1.6 : 0) + g * 0.9;
+          const v = (cRing ? 0.42 : 0.6) * (0.5 + 0.5 * Math.max(0, towardSun)) * sh;
+          let col = '#0d1828';
+          if (sh >= 0.3) {
+            if (warm > 0.55) col = v > 0.42 ? P.amber : P.orange;
+            else if (v > 0.4) col = P.sea;
+            else if (v > 0.25) col = P.teal;
+            else col = P.deep;
+          }
+          const p1 = ringPoint(a * R, ta), p2 = ringPoint(b * R, ta), p3 = ringPoint(b * R, tb), p4 = ringPoint(a * R, tb);
+          const q = under.p(col);
+          q.moveTo(PL.x + p1[0], PL.y + p1[1]); q.lineTo(PL.x + p2[0], PL.y + p2[1]); q.lineTo(PL.x + p3[0], PL.y + p3[1]); q.lineTo(PL.x + p4[0], PL.y + p4[1]); q.closePath();
+        }
+      }
+      ctx.save(); ctx.clip(ringFillPath(t0 - 0.002, t1 + 0.002));
+      under.flush(ctx);
+      ctx.restore();
+    }
     const rng = new LW.RNG('rings-' + half);
     const fill = new LW.FillBatch();
     const sun = [SC.sun.x - PL.x, SC.sun.y - PL.y];
@@ -64,7 +96,7 @@
       const dt = 2.4 / rho;
       const pts = [];
       for (let t = t0; t <= t1; t += dt) { const q = ringPoint(rho, t); pts.push(PL.x + q[0], PL.y + q[1]); }
-      LW.dashes(pts, rng, 60, 420, 1.5, 7, (sub) => {
+      LW.dashes(pts, rng, 260, 900, 0.6, 2.2, (sub) => {
         const n = sub.length >> 1, mi = (n >> 1) * 2;
         const mx = sub[mi] - PL.x, my = sub[mi + 1] - PL.y;
         // recover t for 3D tests
@@ -90,7 +122,7 @@
         const wseed = rng.next() * 50;
         LW.ribbon(fill.p(col), sub, (tt, i, x, y) => {
           const w = 0.35 + 1.25 * D0 * (sh < 0.3 ? 0.4 : 1) * (0.8 + 0.4 * LW.N2(x * 0.03 + wseed, y * 0.03));
-          return w * LW.taper(tt, 0.1, 0.1);
+          return w * LW.taper(tt, 0.03, 0.03);
         });
       });
     }
@@ -113,8 +145,10 @@
     if (s <= 0) return 1;
     const q = [p[0] + s * L[0], p[1] + s * L[1], p[2] + s * L[2]];
     const rr = Math.hypot(q[0], q[1], q[2]) / R;
-    const D = ringD(rr);
-    return 1 - 0.88 * Math.min(1, D * 1.35);
+    // smoothed density (no fine ringlets) so the shadow reads as clean bands, not ticks
+    const sm = LW.smooth;
+    const D = 0.22 * sm(1.22, 1.27, rr) * (1 - sm(1.48, 1.53, rr)) + 0.8 * sm(1.5, 1.55, rr) * (1 - sm(1.92, 1.96, rr)) + 0.62 * sm(2.02, 2.05, rr) * (1 - sm(2.21, 2.25, rr));
+    return 1 - 0.85 * Math.min(1, (D + 0.12 * ringD(rr)) * 1.15);
   }
   function sphere(sb, t) {
     const cb = Math.sqrt(Math.max(0, 1 - sb * sb));
@@ -127,7 +161,7 @@
   }
   function lightAt(p) {
     const lam = (p[0] * L[0] + p[1] * L[1] + p[2] * L[2]) / R;
-    const base = LW.smooth(-0.08, 0.75, lam);
+    const base = LW.smooth(-0.02, 0.6, lam);
     return base * ringShadowOnPlanet(p);
   }
   function bandMod(sb) {
@@ -150,36 +184,70 @@
 
   LW.drawPlanet = function (ctx) {
     // base disc
-    ctx.fillStyle = '#0e1a2a';
+    ctx.fillStyle = '#183641';
     ctx.beginPath(); ctx.arc(PL.x, PL.y, R + 0.5, 0, Math.PI * 2); ctx.fill();
+    // warm under-plate only in the most brightly lit zone, so dash gaps read as warm shadow rather than navy stitches
+    {
+      const S = LW.S;
+      const x0 = Math.floor((PL.x - R - 2) * S), y0 = Math.floor((PL.y - R - 2) * S), w = Math.ceil((2 * R + 4) * S), h = w;
+      const img = ctx.getImageData(x0, y0, w, h), d = img.data;
+      const c1 = LW.hex('#5e2a22'), c2 = LW.hex('#9c4529');
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+        const lx = (x0 + i + 0.5) / S - PL.x, ly = (y0 + j + 0.5) / S - PL.y;
+        const r2 = lx * lx + ly * ly;
+        if (r2 > (R - 1.5) * (R - 1.5)) continue;
+        const v = lightAt([lx, ly, Math.sqrt(R * R - r2)]) + 0.6 * SC.glow((x0 + i) / S, (y0 + j) / S);
+        if (v < 0.78) continue;
+        const c = v > 1.05 ? c2 : c1;
+        const o = (j * w + i) * 4;
+        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2];
+      }
+      ctx.putImageData(img, x0, y0);
+    }
+    const lats = [];
     const rng = new LW.RNG('planet');
     const fill = new LW.FillBatch();
-    const NL = 122;
+    const NL = 196;
     function emit(pts, sbForCol) {
-      LW.dashes(pts, rng, 90, 520, 1.5, 6, (sub) => {
-        const n = sub.length >> 1, mi = (n >> 1) * 2;
-        const lx = sub[mi] - PL.x, ly = sub[mi + 1] - PL.y;
-        const z = Math.sqrt(Math.max(0, R * R - lx * lx - ly * ly));
-        const v = lightAt([lx, ly, z]) * bandMod(sbForCol);
-        const col = planetInk(v, rng.next(), sbForCol);
+      LW.dashes(pts, rng, 140, 620, 0.8, 3, (sub) => {
+        const r = rng.next();
         const wseed = rng.next() * 40;
-        LW.ribbon(fill.p(col), sub, (tt, i, x, y) => {
-          const ax = x - PL.x, ay = y - PL.y;
-          const zz = Math.sqrt(Math.max(0, R * R - ax * ax - ay * ay));
-          const vv = lightAt([ax, ay, zz]) * bandMod(sbForCol);
-          const limb = LW.smooth(0, 0.25, zz / R);
-          const w = (0.45 + 2.75 * Math.pow(Math.max(0, vv), 0.85)) * (0.75 + 0.25 * limb) * (0.85 + 0.3 * LW.N2(x * 0.025 + wseed, y * 0.025));
-          return w * LW.taper(tt, 0.08, 0.08);
-        });
+        // split the dash wherever the light changes ink, so long strokes never carry the wrong colour
+        const n = sub.length >> 1;
+        const vals = new Float32Array(n), cols = new Array(n);
+        for (let i = 0; i < n; i++) {
+          const lx = sub[2 * i] - PL.x, ly = sub[2 * i + 1] - PL.y;
+          const z = Math.sqrt(Math.max(0, R * R - lx * lx - ly * ly));
+          vals[i] = lightAt([lx, ly, z]) * bandMod(sbForCol);
+          cols[i] = vals[i] < 0.07 ? null : planetInk(vals[i], r, sbForCol);
+        }
+        let s0 = 0;
+        for (let i = 1; i <= n; i++) {
+          if (i === n || cols[i] !== cols[s0]) {
+            if (cols[s0] && i - s0 >= 2) {
+              const part = sub.slice(2 * s0, 2 * Math.min(n, i + 1));
+              const first = s0 === 0, last = i >= n - 1;
+              LW.ribbon(fill.p(cols[s0]), part, (tt, k, x, y) => {
+                const ax = x - PL.x, ay = y - PL.y;
+                const zz = Math.sqrt(Math.max(0, R * R - ax * ax - ay * ay));
+                const vv = lightAt([ax, ay, zz]) * bandMod(sbForCol);
+                const limb = LW.smooth(0, 0.25, zz / R);
+                const w = (0.45 + 2.75 * Math.pow(Math.max(0, vv), 0.85)) * (0.75 + 0.25 * limb) * (0.85 + 0.3 * LW.N2(x * 0.025 + wseed, y * 0.025));
+                return w * LW.taper(tt, first ? 0.08 : 0.001, last ? 0.08 : 0.001);
+              });
+            }
+            s0 = i;
+          }
+        }
       });
     }
     for (let i = 0; i < NL; i++) {
-      const sb0 = -0.985 + (1.97 * (i + 0.5)) / NL;
+      const sb0 = Math.sin(-Math.PI / 2 + (Math.PI * (i + 0.5)) / NL);
       let run = [];
       const cb = Math.sqrt(1 - sb0 * sb0);
-      const dt = 2.2 / (R * cb);
+      const dt = Math.min(0.05, 2.2 / (R * cb));
       for (let t = 0; t <= Math.PI * 2 + dt; t += dt) {
-        let sb = sb0 + 0.012 * LW.N1(t * 1.1, sb0 * 2.6) + 0.002 * LW.N2(t * 3.2, sb0 * 9);
+        let sb = sb0 + 0.0045 * LW.N1(t * 0.9, sb0 * 2.2);
         // storm deflection
         let du = t - STORM.t; du = Math.atan2(Math.sin(du), Math.cos(du));
         const dv = sb - STORM.sb;
@@ -191,9 +259,9 @@
         }
         const p = sphere(sb, t);
         if (p[2] > 1) run.push(PL.x + p[0], PL.y + p[1]);
-        else if (run.length) { if (run.length > 6) emit(run, sb0); run = []; }
+        else if (run.length) { if (run.length > 6) { emit(run, sb0); lats.push(run); } run = []; }
       }
-      if (run.length > 6) emit(run, sb0);
+      if (run.length > 6) { emit(run, sb0); lats.push(run); }
     }
     // storm interior: concentric spiralling loops
     for (let j = 1; j <= 9; j++) {
@@ -208,7 +276,42 @@
       }
       if (pts.length > 6) emit(pts, STORM.sb + 0.04);
     }
+    // night: dark ink cross-hatching that thickens toward the far limb (and inside the ring shadow)
+    const night = new LW.FillBatch();
+    const shade = (x, y) => {
+      const ax = x - PL.x, ay = y - PL.y;
+      const zz = Math.sqrt(Math.max(0, R * R - ax * ax - ay * ay));
+      const p = [ax, ay, zz];
+      const lam = (p[0] * L[0] + p[1] * L[1] + p[2] * L[2]) / R;
+      const lit = LW.smooth(-0.02, 0.6, lam);
+      return 1 - LW.smooth(0.0, 0.22, lit + 0.08 * lam);
+    };
+    const hatchAlong = (pts, wmax, base, cut) => {
+      let run = [];
+      const flush = () => {
+        if (run.length >= 8) LW.ribbon(night.p('#0b1520'), run, (tt, i, x, y) => (base < 0 ? wmax * Math.pow(LW.smooth(cut, 1, shade(x, y)), 1.1) : base + wmax * Math.pow(shade(x, y), 1.4)) * LW.taper(tt, 0.06, 0.06));
+        run = [];
+      };
+      for (let i = 0; i < pts.length; i += 2) { if (shade(pts[i], pts[i + 1]) > cut) run.push(pts[i], pts[i + 1]); else flush(); }
+      flush();
+    };
+    // between-line latitude hatch: offset half a band so it falls in the gaps of the lit lines
+    for (const run of lats) hatchAlong(run, 3.6, 0.3, 0.12);
+    // meridians, only well into the night
+    const NM = 150;
+    for (let k = 0; k < NM; k++) {
+      const t = (k / NM) * Math.PI * 2;
+      const pts = [];
+      for (let bt = -1.555; bt <= 1.555; bt += 0.004) {
+        const sb = Math.sin(bt);
+        const p = sphere(sb, t);
+        if (p[2] > 1) pts.push(PL.x + p[0], PL.y + p[1]);
+        else if (pts.length) break;
+      }
+      if (pts.length > 8) hatchAlong(pts, 1.9, -1, 0.45);
+    }
     fill.flush(ctx, [P.deep, P.teal, P.sea, P.orange, P.amber, P.straw, P.cream]);
+    night.flush(ctx);
 
     // atmosphere: arcs hugging the lit limb
     const halo = new LW.FillBatch();
@@ -232,6 +335,18 @@
     }
     halo.flush(ctx, hcols.slice().reverse());
 
+    // ring-shine: a thin cool rim just inside the night limb
+    const shine = new LW.FillBatch();
+    for (const [inset, col, wmax] of [[4.5, '#2c5f66', 1.5], [9, '#1d3d49', 1.0]]) {
+      const pts = [];
+      for (let a = 0; a <= Math.PI * 2; a += 1.4 / R) pts.push(PL.x + Math.cos(a) * (R - inset), PL.y + Math.sin(a) * (R - inset));
+      LW.dashes(pts, rng, 120, 500, 6, 30, (sub) => LW.ribbon(shine.p(col), sub, (tt, i, x, y) => {
+        const a = Math.atan2(y - PL.y, x - PL.x);
+        const nl = Math.cos(a) * L[0] + Math.sin(a) * L[1];
+        return wmax * LW.smooth(-0.1, -0.5, nl) * LW.taper(tt, 0.15, 0.15);
+      }));
+    }
+    shine.flush(ctx, ['#1d3d49', '#2c5f66']);
     // limb ink: heavier on the shadow side
     const limb = [];
     for (let a = 0; a < Math.PI * 2; a += 1.4 / R) limb.push(PL.x + Math.cos(a) * R, PL.y + Math.sin(a) * R);

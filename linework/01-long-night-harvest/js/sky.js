@@ -50,8 +50,115 @@
     return Math.max(0, band * clumps * (1 - rift * LW.smooth(0.1, 0.9, t)));
   }
   LW.milky = milky;
+  function rift(x, y) {
+    const ax = 0, ay = 1180, bx = 2160, by = 120;
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy);
+    const t = ((x - ax) * dx + (y - ay) * dy) / (L * L);
+    const px = ax + dx * t, py = ay + dy * t;
+    let dist = Math.hypot(x - px, y - py) * Math.sign((x - px) * -dy + (y - py) * dx);
+    dist += 120 * LW.fbm(LW.N3, t * 3.2, 0.5, 3);
+    const w = 260 + 90 * LW.N1(t * 2.1, 3.3);
+    const r1 = LW.smooth(0.2, 0.03, Math.abs(dist / w + 0.15 * LW.N4(t * 5, 1.7)) - 0.05) * LW.smooth(0.1, 0.9, t);
+    // secondary lanes: filaments of dark dust
+    const fil = LW.smooth(0.55, 0.75, LW.fbm(LW.N2, x * 0.004 + 7, y * 0.004, 3) + 0.5) * Math.exp(-((dist / w) ** 2));
+    return Math.max(r1, fil * 0.8);
+  }
+
+  const WHORLS = [
+    { x: 1720, y: 330, r: 210, s: 1 },
+    { x: 600, y: 650, r: 170, s: -1 },
+    { x: 1180, y: 170, r: 115, s: 1 },
+  ];
+  function whorlW(x, y) {
+    let best = 0, bw = null;
+    for (const w of WHORLS) { const dx = (x - w.x) / w.r, dy = (y - w.y) / (w.r * 0.55); const d = Math.hypot(dx * 0.9 + dy * 0.44, dy * 0.9 - dx * 0.44); const k = 0.7 * Math.exp(-d * d * 1.2); if (k > best) { best = k; bw = w; } }
+    return [best, bw];
+  }
+  const BAND = (function () { const dx = 2160, dy = -1060, l = Math.hypot(dx, dy); return [dx / l, dy / l]; })();
+  function galaxyDir(x, y) {
+    let a = Math.atan2(BAND[1], BAND[0]) + 0.75 * LW.fbm(LW.N3, x * 0.0022, y * 0.0022, 3);
+    let gx = Math.cos(a), gy = Math.sin(a);
+    const [k, w] = whorlW(x, y);
+    if (w) {
+      const dx = x - w.x, dy = y - w.y, l = Math.hypot(dx, dy) || 1;
+      let tx = (-dy / l) * w.s + (dx / l) * 0.12, ty = (dx / l) * w.s + (dy / l) * 0.12;
+      if (tx * gx + ty * gy < 0 && k < 0.5) { tx = -tx; ty = -ty; }
+      gx = gx * (1 - k) + tx * k; gy = gy * (1 - k) + ty * k;
+    }
+    const f = LW.smooth(0.05, 0.6, SC.vortexFade(x, y));
+    if (f > 0) {
+      const d = skyDir(x, y);
+      let sx = d[0], sy = d[1];
+      if (sx * gx + sy * gy < 0) { sx = -sx; sy = -sy; }
+      gx = gx * (1 - f) + sx * f; gy = gy * (1 - f) + sy * f;
+    }
+    const l = Math.hypot(gx, gy) || 1;
+    return [gx / l, gy / l];
+  }
+
+  LW.drawGalaxy = function (ctx) {
+    const G = 5, gw = Math.ceil((SC.W + 80) / G) + 2, gh = Math.ceil(1600 / G) + 2;
+    const DX = new Float32Array(gw * gh), DY = new Float32Array(gw * gh), DOM = new Uint8Array(gw * gh), SEP = new Float32Array(gw * gh);
+    const inD0 = (x, y) => {
+      if (x < -20 || x > SC.W + 20 || y < -20 || y > 1500) return false;
+      if (SC.vortexFade(x, y) > 0.7) return false;
+      const dx = x - PL.x, dy = y - PL.y;
+      if (dx * dx + dy * dy < (PL.R * 1.15) ** 2) return false;
+      for (const w of WHORLS) if (Math.hypot(x - w.x, y - w.y) < w.r * 0.22) return false;
+      return milky(x, y) > 0.1 || whorlW(x, y)[0] > 0.12;
+    };
+    for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+      const x = -40 + i * G, y = -40 + j * G, o = j * gw + i;
+      const d = galaxyDir(x, y); DX[o] = d[0]; DY[o] = d[1];
+      DOM[o] = inD0(x, y) ? 1 : 0;
+      SEP[o] = 6.5 + 6 * (1 - Math.min(1, milky(x, y) + whorlW(x, y)[0]));
+    }
+    const gi = (x, y) => { const fx = (x + 40) / G, fy = (y + 40) / G; return [Math.max(0, Math.min(gw - 2, Math.floor(fx))), Math.max(0, Math.min(gh - 2, Math.floor(fy))), fx, fy]; };
+    const field = (x, y) => {
+      const [i, j, fx, fy] = gi(x, y); const u = Math.min(1, Math.max(0, fx - i)), v = Math.min(1, Math.max(0, fy - j));
+      const o = j * gw + i;
+      let ax = DX[o], ay = DY[o], bx = DX[o + 1], by = DY[o + 1], cx = DX[o + gw], cy = DY[o + gw], ex = DX[o + gw + 1], ey = DY[o + gw + 1];
+      if (ax * bx + ay * by < 0) { bx = -bx; by = -by; } if (ax * cx + ay * cy < 0) { cx = -cx; cy = -cy; } if (ax * ex + ay * ey < 0) { ex = -ex; ey = -ey; }
+      const gx = (ax * (1 - u) + bx * u) * (1 - v) + (cx * (1 - u) + ex * u) * v, gy = (ay * (1 - u) + by * u) * (1 - v) + (cy * (1 - u) + ey * u) * v;
+      const l = Math.hypot(gx, gy) || 1; return [gx / l, gy / l];
+    };
+    const inD = (x, y) => { if (x < -20 || x > SC.W + 20 || y < -20 || y > 1500) return false; const [i, j, fx, fy] = gi(x, y); return DOM[Math.round(fy) * gw + Math.round(fx)] === 1 || false; };
+    const sepF = (x, y) => { const [i, j] = gi(x, y); return SEP[j * gw + i]; };
+    void inD0;
+    const seeds = [];
+    for (let i = 0; i <= 40; i++) { const t = i / 40; seeds.push([2160 * t, 1180 - 1060 * t]); }
+    for (const w of WHORLS) seeds.push([w.x + w.r * 0.3, w.y]);
+    const lines = LW.streamlines({
+      field, inDomain: inD,
+      dsep: sepF,
+      bounds: [-40, -40, SC.W + 40, 1560], cell: 10, step: 2, dtest: 0.5, minLen: 16, seeds,
+    });
+    LW.log('galaxy streamlines: ' + lines.length);
+    const rng = new LW.RNG('galaxy');
+    const fill = new LW.FillBatch();
+    for (const Ls of lines) {
+      LW.dashes(Ls, rng, 30, 260, 3, 18, (sub) => {
+        const mi = ((sub.length >> 2) * 2);
+        const x = sub[mi], y = sub[mi + 1];
+        const m = milky(x, y), rf = rift(x, y), [wk] = whorlW(x, y);
+        const fade = 1 - SC.vortexFade(x, y);
+        let col, wm;
+        if (rf > 0.4) { col = '#05090f'; wm = 1.2 + 1.6 * rf; }
+        else {
+          const v = Math.max(m, wk * 0.8) + (rng.next() - 0.5) * 0.2;
+          if (v > 0.72) { col = '#5d8a8a'; wm = 1.0; }
+          else if (v > 0.5) { col = '#3d6670'; wm = 0.9; }
+          else if (v > 0.3) { col = '#284957'; wm = 0.75; }
+          else { col = '#1b3243'; wm = 0.6; }
+        }
+        LW.ribbon(fill.p(col), sub, (t) => wm * fade * LW.taper(t, 0.2, 0.2) + 0.1);
+      });
+    }
+    fill.flush(ctx, ['#1b3243', '#284957', '#3d6670', '#5d8a8a', '#05090f']);
+  };
 
   LW.drawStars = function (ctx) {
+    LW.drawGalaxy(ctx);
     const rng = new LW.RNG('stars');
     const fill = new LW.FillBatch();
     const glints = new LW.StrokeBatch();
@@ -62,7 +169,7 @@
         const jx = x + rng.next() * cell, jy = y + rng.next() * cell;
         const m = milky(jx, jy);
         const vf = SC.vortexFade(jx, jy);
-        const p = Math.min(0.95, m * m * 1.25) * (1 - vf * 0.95);
+        const p = Math.min(0.95, m * m * 1.25) * (1 - vf * 0.95) * (1 - 0.9 * rift(jx, jy));
         if (rng.next() < p) {
           const r = rng.range(0.45, 0.9);
           const col = rng.next() < 0.6 ? '#5d7f86' : rng.next() < 0.6 ? '#8fa9a4' : '#3b5966';
@@ -87,14 +194,16 @@
         let p = (base + 1.1 * m * m) * (1 - 0.88 * vf) * (1 - LW.smooth(0.12, 0.3, g));
         if (rng.next() > p) continue;
         const u = rng.next();
-        let r = 0.5 + Math.pow(u, 5) * 3.9 + (m > 0.5 ? -0.05 : 0.15);
+        const C = LW.smooth(0.05, 0.45, LW.fbm(LW.N1, jx * 0.0035 + 3, jy * 0.0035, 3));
+        let r = 0.5 + Math.pow(u, 5 + 4 * (1 - C)) * 4.2 + (m > 0.5 ? -0.05 : 0.15);
+        if (rift(jx, jy) > 0.5 && rng.next() < 0.6) continue;
         if (vf > 0.5) r *= 0.8;
         const ct = rng.next();
         let col = ct < 0.55 ? P.cream : ct < 0.8 ? P.mist : ct < 0.93 ? P.pale : P.straw;
         if (r < 1.0 && rng.next() < 0.5) col = '#9fb6b0';
         const q = fill.p(col);
         q.moveTo(jx + r, jy); q.arc(jx, jy, r, 0, 6.2832);
-        if (r > 4.0 && rng.next() < 0.22) {
+        if (r > 4.1 && rng.next() < 0.16) {
           const L = r * rng.range(3.5, 7);
           const a = rng.range(-0.15, 0.15);
           for (let k = 0; k < 4; k++) {
@@ -115,6 +224,17 @@
           }
         }
       }
+    }
+    // two tight open clusters
+    for (const [cx, cy, n, rad] of [[1530, 560, 9, 46], [780, 175, 7, 34]]) {
+      for (let i = 0; i < n; i++) {
+        const a = rng.range(0, 6.283), d = Math.sqrt(rng.next()) * rad;
+        const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * 0.8;
+        const r = rng.range(1.6, i < 3 ? 3.6 : 2.6);
+        const q = fill.p(i % 3 ? P.cream : P.mist); q.moveTo(x + r, y); q.arc(x, y, r, 0, 6.2832);
+        if (i < 3) for (let k = 0; k < 4; k++) { const ang = k * Math.PI / 2 + 0.1; LW.ribbon(fill.p(P.cream), [x, y, x + Math.cos(ang) * r * 4.5, y + Math.sin(ang) * r * 4.5], (t) => (1 - t) * r * 0.3 + 0.1); }
+      }
+      for (let i = 0; i < 40; i++) { const a = rng.range(0, 6.283), d = Math.sqrt(rng.next()) * rad * 1.6; const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * 0.8; const q = fill.p('#9fb6b0'); q.moveTo(x + 0.7, y); q.arc(x, y, 0.7, 0, 6.2832); }
     }
     fill.flush(ctx, ['#9fb6b0', P.pale, P.mist, P.straw, P.cream]);
     glints.flush(ctx);

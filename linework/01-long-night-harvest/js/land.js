@@ -258,75 +258,37 @@
   LW.drawFarHedge = function (ctx) {
     const rng = new LW.RNG('far-hedge');
     const Z = SC.farHedgeZ;
-    const blobs = [];
-    let x = -20;
     const gateX = SC.screenX(SC.pathX(Z), Z);
-    while (x < SC.W + 20) {
-      const gy = SC.groundY(SC.worldX(x, Z), Z);
-      if (Math.abs(x - gateX) < 14) { x += 28; continue; }
-      const roll = rng.next();
-      const tall = roll < 0.07, gap = roll > 0.96;
-      if (gap) { x += rng.range(10, 30); continue; }
-      const swell = 0.75 + 0.5 * (0.5 + 0.5 * LW.N1(x * 0.006, 3));
-      const r = (tall ? rng.range(12, 20) : rng.range(4.5, 10)) * swell;
-      const hgt = (tall ? rng.range(30, 50) : rng.range(10, 20)) * swell;
-      blobs.push({ x, y: gy - hgt + r, r, tall, gy });
-      if (tall) for (let k = 0; k < 3; k++) blobs.push({ x: x + rng.range(-r * 0.8, r * 0.8), y: gy - hgt * rng.range(0.35, 0.7), r: r * rng.range(0.45, 0.7), gy });
-      x += r * rng.range(0.6, 1.3);
-    }
-    const union = new Path2D();
+    const gyAt = (x) => SC.groundY(SC.worldX(x, Z), Z);
+    // dark base band so the hedge stands on the ground, no gaps of field showing through
     const base = [];
-    for (let xx = -20; xx <= SC.W + 20; xx += 4) base.push(xx, SC.groundY(SC.worldX(xx, Z), Z) - 6 + 2 * LW.N2(xx * 0.05, 1));
-    for (let xx = SC.W + 20; xx >= -20; xx -= 8) base.push(xx, SC.groundY(SC.worldX(xx, Z), Z) + 1.5);
-    LW.polyPath(union, base, true);
-    const shapes = [];
-    for (const b of blobs) {
-      const pts = LW.wobble(LW.scallop(b.x, b.y, b.r, rng, { bumpSize: 3.6, depth: 0.16, per: 4 }), 0.4, 0.2, b.x, true);
-      shapes.push(pts);
-      LW.polyPath(union, pts, true);
-    }
-    const trunks = new Path2D();
-    for (const b of blobs) if (b.tall) LW.ribbon(trunks, [b.x, b.gy, b.x + rng.range(-2, 2), b.y], (t) => 1.6 - t);
-    ctx.fillStyle = P.ink; ctx.fill(trunks);
-    ctx.strokeStyle = P.ink; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(union);
-    ctx.fillStyle = '#101b26'; ctx.fill(union);
-    // inner texture: tiny arcs
-    const tex = new LW.FillBatch();
-    for (const b of blobs) {
-      for (let k = 0; k < b.r * 0.5; k++) {
-        const a = rng.range(0, 6.28), d = rng.next() * b.r * 0.8;
-        const px = b.x + Math.cos(a) * d, py = b.y + Math.sin(a) * d;
-        const arc = [];
-        for (let t = 3.4; t <= 6.0; t += 0.4) arc.push(px + Math.cos(t) * 2.4, py + Math.sin(t) * 1.8);
-        LW.ribbon(tex.p('#1d3a46'), arc, () => 0.45);
+    for (let xx = -20; xx <= SC.W + 20; xx += 4) base.push(xx, gyAt(xx) - 7 + 2 * LW.N2(xx * 0.05, 1));
+    for (let xx = SC.W + 20; xx >= -20; xx -= 8) base.push(xx, gyAt(xx) + 1.5);
+    const bp = new Path2D(); LW.polyPath(bp, base, true);
+    ctx.fillStyle = '#0f1922'; ctx.fill(bp);
+    const opts = { seed: 'fh', ink: 0.8, bump: 0.3, markScale: 0.45, markDensity: 140, rimW: 1.5, fillCol: '#142a33', backCol: '#10202a', capCol: '#21454f' };
+    const trees = [];
+    let x = -16;
+    while (x < SC.W + 16) {
+      if (Math.abs(x - gateX) < 13) { x += 26; continue; }
+      const swell = 0.75 + 0.5 * (0.5 + 0.5 * LW.N1(x * 0.006, 3));
+      const nearFarm = Math.abs(x - 1062) < 260;
+      const tall = rng.next() < 0.045 && !nearFarm;
+      if (tall) {
+        const gy = gyAt(x);
+        const sc = rng.range(0.8, 1.2);
+        trees.push([x, gy, sc]);
+        x += 30 * sc;
+        continue;
       }
+      const r = rng.range(9, 14) * swell * (nearFarm ? 0.7 : 1);
+      LW.drawHedgeClump(ctx, x, gyAt(x) + 2, r, r * rng.range(1.9, 2.5), rng, opts);
+      x += r * rng.range(1.2, 1.8);
     }
-    tex.flush(ctx);
-    // rim only along the topmost silhouette, broken, warm near the sun
-    const rim = new LW.FillBatch();
-    const covered = (px, py) => { for (const b of blobs) if ((b.x - px) ** 2 + (b.y - py) ** 2 < (b.r * 0.92) ** 2) return true; return false; };
-    for (let si = 0; si < blobs.length; si++) {
-      const b = blobs[si], pts = shapes[si];
-      const g = SC.glow(b.x, SC.yh - 40);
-      if (rng.next() < 0.35) continue;
-      let run = [];
-      const flush = () => {
-        if (run.length >= 6) {
-          const col = g > 0.75 ? P.straw : g > 0.42 ? P.amber : g > 0.27 ? P.orange : '#3a6a6c';
-          LW.ribbon(rim.p(col), run, (t) => (0.35 + 0.9 * LW.smooth(0.2, 0.9, g)) * LW.taper(t, 0.25, 0.25));
-        }
-        run = [];
-      };
-      for (let i = 0; i < pts.length; i += 2) {
-        const nx = pts[i] - b.x, ny = pts[i + 1] - b.y, l = Math.hypot(nx, ny) || 1;
-        const sx = SC.sun.x - b.x;
-        const facing = -ny / l > 0.35 && (nx / l) * Math.sign(sx) > -0.2;
-        if (facing && !covered(pts[i] + (nx / l) * 4, pts[i + 1] + (ny / l) * 4)) run.push(pts[i] - (nx / l) * 1.3, pts[i + 1] - (ny / l) * 1.3);
-        else flush();
-      }
-      flush();
+    for (const [tx, gy, sc] of trees) {
+      const t = LW.makeTree('fh-tree-' + Math.round(tx), { bx: tx, by: gy, H: 84 * sc, spread: 62 * sc, trunkW: 5 * sc, clumpR: 10 * sc, roots: 0, limbs: 3, holes: 0.35, maxClumps: 40 });
+      LW.drawTree(ctx, t, Object.assign({}, opts, { seed: 'fht' + Math.round(tx), masses: 5, backFrac: 0.2, ink: 0.9 }));
     }
-    rim.flush(ctx);
   };
 
   // ---------------------------------------------------------------- main
