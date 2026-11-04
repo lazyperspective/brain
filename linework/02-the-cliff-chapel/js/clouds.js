@@ -10,7 +10,7 @@
 (function () {
   'use strict';
   const LW = window.LW, C = LW.C;
-  const TONES = ['#f0e6c8', '#e0d6b6', '#cdc9aa', '#b4b6a2'];
+  const TONES0 = ['#f0e6c8', '#e0d6b6', '#cdc9aa', '#b4b6a2'];
 
   function makeBillow(rnd, cx, cy, r, kind) {
     const n = Math.max(40, Math.ceil(r * 0.8));
@@ -115,6 +115,8 @@
 
   async function drawCloud(rnd, o) {
     const { billows, F, gradN } = generate(rnd, o);
+    const TONES = o.tones || TONES0;
+    LW.inkMix = o.inkMix || 0; // depth: each cloud's ink sits back in the air
     const base = o.base;
     const g = LW.fill, ink = LW.ink;
     const clip = new Path2D();
@@ -290,13 +292,15 @@
     await drawCloud(rnd, {
       masses: [[60, 2186, 170, 30], [300, 2184, 160, 40], [520, 2188, 150, 26], [760, 2183, 200, 38], [1020, 2188, 170, 28], [1250, 2186, 160, 30]],
       bbox: { x0: -150, y0: 2135, x1: 1450, y1: 2192 }, base: 2190, scale: 0.22, rBig: 120, rSmall: 60, inner: 160, children: false, innerProb: 0.4,
-      sp0: 2.0, spMax: 7, lw: 0.7, baseBand: 22, baseSp: 2.4, contrast: 0.85,
+      sp0: 2.2, spMax: 8, lw: 0.62, baseBand: 22, baseSp: 2.8, contrast: 0.75,
+      tones: ['#e1ddc8', '#d7d6c4', '#cdd1c2', '#c4ccbf'], inkMix: 0.6,
     });
     // a second, smaller cumulus far off to the right, behind the headland
     await drawCloud(rnd, {
       masses: [[1930, 1060, 230, 80], [1790, 1100, 150, 50], [2060, 1040, 160, 95], [1990, 960, 110, 70]],
       bbox: { x0: 1550, y0: 860, x1: 2300, y1: 1150 }, base: 1140, scale: 0.6, rBig: 130, rSmall: 55, inner: 150, innerProb: 0.5, children: false,
-      sp0: 2.1, spMax: 8, lw: 0.8, baseBand: 34, baseSp: 2.6, contrast: 0.9,
+      sp0: 2.4, spMax: 9.5, lw: 0.7, baseBand: 34, baseSp: 3.0, contrast: 0.8,
+      tones: ['#e3dec7', '#d8d6c2', '#cdd0bf', '#c2c9bb'], inkMix: 0.52,
     });
     // the towering cumulus over the sea: broad base, body, a tower leaning right, crown
     await drawCloud(rnd, {
@@ -305,7 +309,8 @@
         [560, 1530, 330, 250], [660, 1300, 260, 230], [600, 1110, 230, 170], [740, 1010, 190, 120], [560, 1290, 230, 190], [400, 1500, 200, 200],
       ],
       bbox: { x0: -120, y0: 860, x1: 1180, y1: 2140 }, base: 2128, scale: 1, rBig: 175, rSmall: 34, inner: 230, innerProb: 0.75,
-      sp0: 2.4, spMax: 10, lw: 1, baseBand: 95, contrast: 1.22,
+      sp0: 2.6, spMax: 11, lw: 1, baseBand: 95, contrast: 1.14,
+      tones: ['#ece3c7', '#dfd8b9', '#d0ceb3', '#bfc3b2'], inkMix: 0.22,
     });
   };
 })();

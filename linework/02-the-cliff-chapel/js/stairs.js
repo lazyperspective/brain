@@ -254,6 +254,10 @@
       return 0.12 + 0.62 * Math.pow(t, 1.4);
     };
     for (const p of order) {
+      // depth: each flight / landing sits one step further into the air the higher it is
+      const hMid = p.kind === 'flight' ? (p.f.h0 + p.f.h1) / 2 : p.l.h;
+      LW.hazeConst = 0.12 + 0.5 * LW.cliffDepth(hMid);
+      LW.inkMix = 0.48 * LW.cliffDepth(hMid);
       if (p.kind === 'flight') {
         const f = p.f;
         // risers (visible only on flights rising to the right)

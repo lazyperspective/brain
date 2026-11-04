@@ -159,9 +159,9 @@
   // where darkness(x,y) > rank(lineIndex) (so density follows value).
   // opts: spacing (min spacing at full dark), dark(x,y)->0..1, inside(x,y), wob, w(x,y,d)
   LW.hatchDither = function (pen, bb, angle, o) {
-    const sp = o.spacing;
     const ca = Math.cos(angle), sa = Math.sin(angle);
     const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+    const sp = o.spacing * (LW.spAt ? LW.spAt(cx, cy) : 1); // depth: sparser far away
     const R = Math.hypot(bb.x1 - bb.x0, bb.y1 - bb.y0) / 2 + 2;
     const n = Math.ceil((2 * R) / sp);
     const st = o.step || 3;
@@ -202,6 +202,8 @@
   // short random flecks (chisel marks / stipple-ish ticks) inside region
   LW.flecks = function (pen, bb, count, o) {
     const rnd = o.rng;
+    // depth: detail falloff (thin the marks without changing the rng sequence)
+    const keep = LW.detAt ? LW.detAt((bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2) : 1;
     for (let i = 0; i < count; i++) {
       const x = rnd.range(bb.x0, bb.x1), y = rnd.range(bb.y0, bb.y1);
       if (o.inside && !o.inside(x, y)) continue;
@@ -211,6 +213,7 @@
       const L = rnd.range(o.len[0], o.len[1]);
       const x1 = x + Math.cos(a) * L, y1 = y + Math.sin(a) * L;
       const bend = rnd.gauss() * L * 0.15;
+      if (keep < 1 && LW.rank(i % 64) > keep) continue;
       pen.line([[x, y], [(x + x1) / 2 - Math.sin(a) * bend, (y + y1) / 2 + Math.cos(a) * bend], [x1, y1]], o.w || 1.2, 0.45);
     }
   };
@@ -218,12 +221,15 @@
   // stipple dots
   LW.stipple = function (pen, bb, count, o) {
     const rnd = o.rng;
+    const keep = LW.detAt ? LW.detAt((bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2) : 1;
     for (let i = 0; i < count; i++) {
       const x = rnd.range(bb.x0, bb.x1), y = rnd.range(bb.y0, bb.y1);
       if (o.inside && !o.inside(x, y)) continue;
       const d = o.dark ? o.dark(x, y) : 1;
       if (rnd() > d) continue;
-      pen.dot(x, y, rnd.range(o.r[0], o.r[1]));
+      const r = rnd.range(o.r[0], o.r[1]);
+      if (keep < 1 && LW.rank(i % 64) > keep) continue;
+      pen.dot(x, y, r);
     }
   };
 })();

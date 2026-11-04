@@ -272,6 +272,7 @@
         dx /= l; dy /= l;
         const t = cum[i] / L;
         let ww = typeof w === 'number' ? w : typeof w === 'function' ? w(t, i) : w[i];
+        if (LW.wAt) ww *= LW.wAt(pts[i][0], pts[i][1]); // depth: line weight by plane
         if (tl > 0) {
           const e = Math.min(t, 1 - t) / tl;
           if (e < 1) ww *= minW + (1 - minW) * Math.sin(Math.min(1, e) * Math.PI * 0.5);
@@ -291,6 +292,7 @@
       this.line([[x0, y0], [(x0 + x1) / 2, (y0 + y1) / 2], [x1, y1]], w, taper);
     }
     dot(x, y, r) {
+      if (LW.wAt) r *= 0.5 + 0.5 * LW.wAt(x, y);
       this.p.moveTo(x + r, y);
       this.p.arc(x, y, r, 0, Math.PI * 2, true);
       this.n++;
@@ -307,6 +309,9 @@
     }
     draw(ctx = LW.ink, color = LW.C.ink, alpha = 1) {
       if (!this.n) return;
+      // depth: ink lifted toward the air colour, flats hazed, by the current plane
+      if (ctx === LW.ink && LW.inkMix > 0) color = LW.mixHex(color, LW.inkTo, LW.inkMix);
+      else if (ctx === LW.fill && LW.hazeConst > 0) color = LW.hz(color);
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = color;
@@ -447,6 +452,7 @@
     g.restore();
   };
   LW.flat = function (path, color, ctx = LW.fill) {
+    if (ctx === LW.fill && LW.hazeConst > 0) color = LW.hz(color);
     ctx.save();
     ctx.fillStyle = color;
     ctx.fill(path);
