@@ -37,6 +37,42 @@
       const lit = f < -0.3;
       OB.runs(lit ? Bl : Bd, ln, (i) => Math.max(0.5, ws[i] * 0.03 + 0.55) * (lit ? 0.9 : 1.2), (i) => OB.N(i * 0.11 + k * 3.7, k + o.seed) > (lit ? 0.05 : -0.5 + 0.45 * (1 - (f + 1) / 2)), 3);
     }
+    // bark plates: short transverse fissures between the long lines, a few pale plate edges
+    {
+      const step = Math.max(1, Math.round(4 / (OB.dist(pts[0], pts[Math.min(n - 1, 1)]) || 4)));
+      for (let i = 1; i < n - 1; i += step) {
+        const w = ws[i] * 0.5;
+        if (w < 3) continue;
+        const nf = Math.max(1, Math.round(w / 5));
+        for (let k = 0; k < nf; k++) {
+          if (OB.hash(i * 7 + k, o.seed + 11) < 0.45) continue;
+          const f = -0.85 + 1.7 * OB.hash(i + k * 13, o.seed + 5);
+          const lit = f < -0.35;
+          const g = 0.1 + 0.12 * OB.hash(k, i);
+          const t = Math.min(n - 1, i + 1);
+          const a = [pts[i][0] + nr[i][0] * sgn * w * f, pts[i][1] + nr[i][1] * sgn * w * f];
+          const b = [pts[t][0] + nr[t][0] * sgn * w * Math.min(0.95, f + g), pts[t][1] + nr[t][1] * sgn * w * Math.min(0.95, f + g)];
+          OB.ribbon(lit ? Bl : Bd, [a, b], [Math.max(0.5, w * 0.03 + 0.3), 0.2]);
+        }
+      }
+    }
+    // knots on old and dead wood
+    if (o.knots) {
+      for (let i = 4; i < n - 4; i += 3) {
+        if (OB.hash(i, o.seed + 21) > o.knots) continue;
+        const w = ws[i] * 0.5;
+        if (w < 2.5) continue;
+        const f = (OB.hash(i, o.seed + 22) - 0.5) * 1.2;
+        const c = [pts[i][0] + nr[i][0] * sgn * w * f, pts[i][1] + nr[i][1] * sgn * w * f];
+        const ang = Math.atan2(pts[i + 1][1] - pts[i - 1][1], pts[i + 1][0] - pts[i - 1][0]);
+        const kr = Math.min(w * 0.3, 9);
+        Bd.moveTo(c[0] + Math.cos(ang) * kr, c[1] + Math.sin(ang) * kr);
+        Bd.ellipse(c[0], c[1], kr, kr * 0.45, ang, 0, OB.TAU);
+        Bd.moveTo(c[0] + Math.cos(ang) * kr * 1.7, c[1] + Math.sin(ang) * kr * 1.7);
+        Bd.ellipse(c[0], c[1], kr * 1.7, kr * 0.85, ang, 0, OB.TAU);
+        Bd.ellipse(c[0], c[1], kr * 1.45, kr * 0.68, ang, OB.TAU, 0, true);
+      }
+    }
     for (let i = 2; i < n - 2; i += 2) {
       if (OB.hash(i, o.seed) < 0.5) continue;
       const w = ws[i] * 0.5;
@@ -69,6 +105,17 @@
       const br = r * (0.2 + 0.18 * R());
       core.moveTo(bx + br, by);
       core.ellipse(bx, by, br * 1.3, br * 0.75, (R() - 0.5) * 0.6, 0, OB.TAU);
+      // needle texture inside the pad, so the mass is never a flat fill
+      const ns = 5 + Math.floor(R() * 6);
+      for (let q = 0; q < ns; q++) {
+        const a = R() * OB.TAU, rr = Math.sqrt(R());
+        const sx = bx + Math.cos(a) * br * 1.1 * rr, sy = by + Math.sin(a) * br * 0.6 * rr;
+        const na = -Math.PI / 2 + o.wind * 0.4 + (R() - 0.5) * 2.4, nl = br * (0.35 + 0.4 * R());
+        const tgt = sy < by ? L.mid : L.dark;
+        tgt.moveTo(sx, sy);
+        tgt.lineTo(sx + Math.cos(na) * nl, sy + Math.sin(na) * nl * 0.7);
+      }
+      if (L.cones && R() < (o.cones || 0)) L.cones.push([bx + (R() - 0.5) * br, by + br * 0.7, r * 0.16]);
     }
     const nt = 5 + Math.floor(R() * 6);
     const tufts = [];
@@ -118,7 +165,7 @@
       const f = i / (n - 1);
       return w0 * (1 - (t.taper || 0.8) * Math.pow(f, 0.9)) * (1 + 0.14 * OB.N(i * 0.15, t.seed)) * (f < 0.06 ? 1.35 - f * 5 : 1);
     });
-    const woodOpt = (dead, w) => ({ fill: dead ? C.snag : t.wood || C.bark, hi: dead ? C.snagHi : t.woodHi || C.barkHi, olw: Math.max(1.1, w * 0.1), lines: dead ? 5 : 4, seed: t.seed + Math.round(w * 10), spiral: dead ? 1 : 0.3 });
+    const woodOpt = (dead, w) => ({ fill: dead ? C.snag : t.wood || C.bark, hi: dead ? C.snagHi : t.woodHi || C.barkHi, olw: Math.max(1.1, w * 0.1), lines: dead ? 8 : 4, seed: t.seed + Math.round(w * 10), spiral: dead ? 1 : 0.3, knots: dead ? 0.25 : 0 });
     const limbs = [], clusters = [];
     const nl = t.limbs || 7;
     const needle = t.needle || t.h * 0.022;
@@ -189,7 +236,7 @@
         drawWood(ctx, sm, sm.map((p, i) => L.w * (1 - 0.82 * (i / (sm.length - 1)))), woodOpt(L.dead, L.w));
       }
     }
-    drawWood(ctx, spine, ws, { fill: t.wood || C.bark, hi: t.woodHi || C.barkHi, olw: Math.max(1.6, w0 * 0.07), lines: t.barkLines || 11, seed: t.seed, spiral: t.spiral || 0.3 });
+    drawWood(ctx, spine, ws, { fill: t.wood || C.bark, hi: t.woodHi || C.barkHi, olw: Math.max(1.6, w0 * 0.07), lines: (t.barkLines || 11) + (t.dead === 1 ? 6 : 0), seed: t.seed, spiral: t.spiral || 0.3, knots: t.dead === 1 ? 0.3 : 0.06 });
     if (t.roots) {
       const P = new Path2D();
       for (let k = 0; k < t.roots; k++) {
@@ -206,11 +253,12 @@
       ctx.stroke(P);
     }
     clusters.sort((a, b) => a.y - b.y);
-    const opts = { wind, needle };
+    const opts = { wind, needle, cones: t.cones === undefined ? 0.05 : t.cones };
+    const cones = [];
     // foliage in a few passes so clusters overlap naturally
     const chunk = 6;
     for (let i = 0; i < clusters.length; i += chunk) {
-      const L = { core: new Path2D(), dark: new Path2D(), mid: new Path2D(), light: new Path2D() };
+      const L = { core: new Path2D(), dark: new Path2D(), mid: new Path2D(), light: new Path2D(), cones };
       for (const c of clusters.slice(i, i + chunk)) cluster(L, c, opts, R);
       ctx.fillStyle = css(t.padFill || C.pineFill);
       ctx.fill(L.core);
@@ -224,6 +272,23 @@
       ctx.strokeStyle = css(t.hiCol || C.pineHi);
       ctx.stroke(L.light);
     }
+    // cones hanging under the foliage: dark ovals with pale scale ticks
+    if (cones.length) {
+      const Pc = new Path2D(), Ps = new Path2D();
+      for (const [x, y, r] of cones) {
+        const rr = Math.max(2.2, r);
+        Pc.moveTo(x + rr * 0.6, y);
+        Pc.ellipse(x, y, rr * 0.6, rr, 0.25, 0, OB.TAU);
+        for (let k = -1; k <= 1; k++) OB.ribbon(Ps, [[x - rr * 0.4, y + k * rr * 0.45 - rr * 0.1], [x, y + k * rr * 0.45 + rr * 0.12], [x + rr * 0.4, y + k * rr * 0.45 - rr * 0.1]], [0.3, Math.max(0.5, rr * 0.12), 0.3]);
+      }
+      ctx.fillStyle = css(C.bark);
+      ctx.fill(Pc);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = css(C.ink);
+      ctx.stroke(Pc);
+      ctx.fillStyle = css(C.barkHi, 0.75);
+      ctx.fill(Ps);
+    }
   };
 
   OB.drawPine = OB.drawFlagPine;
@@ -231,7 +296,7 @@
     const C = OB.C;
     OB.drawFlagPine(ctx, S, Object.assign({
       wood: C.juniperWood, woodHi: C.juniperHi, padFill: C.junFill, midCol: C.junMid, hiCol: C.junHi,
-      thick: 0.1, limbs: 6, spread: 0.9, spiral: 1, barkLines: 9, dead: 0.25, needle: t.h * 0.03, clusterScale: 1.1,
+      thick: 0.1, limbs: 6, spread: 0.9, spiral: 1, barkLines: 9, dead: 0.25, needle: t.h * 0.03, clusterScale: 1.1, cones: 0,
     }, t));
   };
 })();

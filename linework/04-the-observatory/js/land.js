@@ -144,30 +144,132 @@
       OB.ribbon(B.get(sp.lineCss), L, ws);
     }
     B.fill(ctx);
+    // gullies: dark runnels falling from the notches in the ridge, shaded on their lee side
+    {
+      const R = OB.rng(sp.seed + 31);
+      const Pg = new Path2D(), Pt = new Path2D();
+      const starts = [];
+      for (let x = 20; x < W - 20; x += 3) {
+        const y = sky(x);
+        if (y > sky(x - 18) + 2 && y > sky(x + 18) + 2 && (!starts.length || x - starts[starts.length - 1] > 40)) starts.push(x);
+      }
+      for (let k = 0; k < 14; k++) starts.push(R() * W);
+      for (const sx of starts) {
+        let x = sx, y = sky(sx) + 3;
+        const L = (sp.bottom - y) * (0.25 + 0.5 * R());
+        const pts = [[x, y]];
+        let pa = Math.PI / 2;
+        for (let d = 0; d < L; d += 3) {
+          let a = angle(x, y);
+          if (Math.cos(a - pa) < 0) a += Math.PI;
+          a = a * 0.6 + pa * 0.4 + (R() - 0.5) * 0.3;
+          pa = a;
+          x += Math.cos(a) * 3; y += Math.sin(a) * 3;
+          if (!mask.inside(x, y)) break;
+          pts.push([x, y]);
+        }
+        if (pts.length < 5) continue;
+        const ww = lerp(sp.lw[0], sp.lw[1], 0.7) * 1.5;
+        OB.ink(Pg, pts, ww, { t0: 0.05, t1: 0.6, wn: 0.5, ph: sx });
+        for (let i = 2; i < pts.length - 2; i += 2) {
+          const q = pts[i], a = Math.atan2(pts[i + 1][1] - pts[i - 1][1], pts[i + 1][0] - pts[i - 1][0]);
+          const tl = (4 + 5 * R()) * (1 - i / pts.length) + 2;
+          OB.ribbon(Pt, [[q[0] + 1, q[1]], [q[0] + Math.cos(a + 0.9) * tl + 1, q[1] + Math.sin(a + 0.9) * tl]], [ww * 0.55, 0.15]);
+        }
+      }
+      ctx.fillStyle = sp.crestCss;
+      ctx.fill(Pg);
+      ctx.fillStyle = sp.lineCss;
+      ctx.fill(Pt);
+    }
+    // spurs: arêtes running down from each summit, with a few side ticks on the lee side
+    {
+      const R = OB.rng(sp.seed + 51);
+      const P = new Path2D();
+      for (const pk of sp.peaks) {
+        let tx = pk.x, ty = 1e9;
+        for (let x = pk.x - 60; x <= pk.x + 60; x += 3) { const y = sky(x); if (y < ty) { ty = y; tx = x; } }
+        if (tx < -40 || tx > W + 40) continue;
+        const ns = 2 + Math.floor(R() * 3);
+        for (let k = 0; k < ns; k++) {
+          const side = k % 2 ? 1 : -1;
+          let a = Math.PI / 2 + side * (0.45 + 0.5 * R());
+          let x = tx + side * (4 + 20 * R()), y = Math.max(sky(x) + 4, ty + 6);
+          const L = pk.h * (0.45 + 0.6 * R());
+          const pts = [[x, y]];
+          for (let d = 0; d < L; d += 3) {
+            a += (R() - 0.5) * 0.35 + (Math.PI / 2 - a) * 0.025;
+            x += Math.cos(a) * 3; y += Math.sin(a) * 3;
+            if (!mask.inside(x, y) || y < sky(x) + 2) break;
+            pts.push([x, y]);
+          }
+          if (pts.length < 5) continue;
+          const ww = lerp(sp.lw[0], sp.lw[1], 0.8) * 1.3;
+          OB.runs(P, pts, (i) => ww * (1 - 0.6 * i / pts.length), (i) => OB.N(i * 0.08 + k * 3, pk.x * 0.01) > -0.45, 3);
+          for (let i = 3; i < pts.length - 2; i += 3) {
+            const q = pts[i];
+            if (R() < 0.4) continue;
+            const ta = Math.PI / 2 + 0.3 * side, tl = (3 + 6 * R()) * (1 - i / pts.length) + 2;
+            OB.ribbon(P, [[q[0], q[1]], [q[0] + Math.cos(ta) * tl, q[1] + Math.sin(ta) * tl]], [ww * 0.6, 0.15]);
+          }
+        }
+      }
+      ctx.fillStyle = sp.lineCss;
+      ctx.fill(P);
+    }
+    // rock faces on the upper slopes: short broken strata dashes, denser in shade
+    {
+      const R = OB.rng(sp.seed + 41);
+      const P = new Path2D();
+      const nr = Math.round(W * 3);
+      for (let k = 0; k < nr; k++) {
+        const x = R() * W, y0 = sky(x);
+        const p = peakAt(sp, sky, x);
+        const y = y0 + 4 + R() * Math.max(10, (sp.base - y0) * 0.9 + 30);
+        if (!mask.inside(x, y)) continue;
+        const d = D(x, y);
+        if (R() > 0.15 + 0.85 * smooth(sp.dLit, sp.dShadow, d)) continue;
+        const L = 4 + 9 * R(), tilt = 0.25 * Math.sign(x - p.x) + (R() - 0.5) * 0.3;
+        OB.ribbon(P, [[x, y], [x + L * 0.5 * Math.cos(tilt), y + L * 0.5 * Math.sin(tilt)], [x + L * Math.cos(tilt), y + L * Math.sin(tilt)]], [0.3, lerp(sp.lw[0], sp.lw[1], 0.5) * 1.3, 0.2]);
+      }
+      ctx.fillStyle = sp.lineCss;
+      ctx.fill(P);
+    }
     // crest line
     const crest = OB.roughen(top, false, 1.2, 0.05, sp.seed, 4);
     const P = new Path2D();
     OB.ink(P, crest, sp.crestW, { t0: 0, t1: 0, wn: 0.45, ph: sp.seed });
     ctx.fillStyle = sp.crestCss;
     ctx.fill(P);
-    // tiny conifers on the nearer ranges
+    // forests: tiny tiered pines, clumped, thickening down the slopes, with a few pale tips
     if (sp.trees) {
       const R = OB.rng(sp.seed + 9);
-      const T = new Path2D();
+      const T = new Path2D(), Tl = new Path2D();
+      const items = [];
       for (let k = 0; k < sp.trees.n; k++) {
         const x = R() * W;
         const y0 = sky(x);
-        const y = y0 + 8 + R() * sp.trees.depth;
-        if (D(x, y) > 0.9 || N.fbm(x * 0.004, y * 0.004, 2) < 0.05) continue;
+        const y = y0 + (sp.trees.top || 8) + R() * sp.trees.depth;
+        if (!mask.inside(x, y) || N.fbm(x * 0.004, y * 0.004, 2) < (sp.trees.cut === undefined ? 0.05 : sp.trees.cut)) continue;
         const h = sp.trees.h * (0.6 + 0.6 * R()) * lerp(1, 1.4, (y - y0) / sp.trees.depth);
-        T.moveTo(x, y - h);
-        T.lineTo(x + h * 0.22, y);
-        T.lineTo(x - h * 0.22, y);
-        T.closePath();
+        items.push([x, y, h]);
+      }
+      items.sort((a, b) => a[1] - b[1]);
+      for (const [x, y, h] of items) {
+        OB.pineMark(T, x, y, h, R);
+        if (R() < 0.25) OB.ribbon(Tl, [[x - h * 0.02, y - h * 0.95], [x - h * 0.16, y - h * 0.6]], [0.2, Math.max(0.5, h * 0.05)]);
       }
       ctx.fillStyle = sp.crestCss;
       ctx.fill(T);
+      ctx.fillStyle = sp.lineCss;
+      ctx.fill(Tl);
     }
+  };
+  // a tiny conifer silhouette: a spire with three ragged tiers and a trunk stub
+  OB.pineMark = (P, x, y, h, R) => {
+    const j = () => (R() - 0.5) * h * 0.05;
+    const pts = [[x + j(), y - h], [x + h * 0.15 + j(), y - h * 0.66], [x + h * 0.06, y - h * 0.64], [x + h * 0.25 + j(), y - h * 0.33], [x + h * 0.08, y - h * 0.31], [x + h * 0.33 + j(), y - h * 0.05], [x + h * 0.05, y - h * 0.06], [x + h * 0.05, y + h * 0.08], [x - h * 0.05, y + h * 0.08], [x - h * 0.05, y - h * 0.06], [x - h * 0.31 + j(), y - h * 0.04], [x - h * 0.08, y - h * 0.31], [x - h * 0.24 + j(), y - h * 0.34], [x - h * 0.06, y - h * 0.64], [x - h * 0.14 + j(), y - h * 0.67]];
+    OB.path(pts, true, P);
   };
 
   // ------------------------------------------------------------------ mist bands
@@ -217,14 +319,36 @@
     ctx.save();
     ctx.clip(floor);
     OB.engrave(ctx, { bbox: [-30, V.y0 - 20, V.x1 + 40, V.y1], angle: 0.01, sp: 3.4, D: (x, y) => 0.35 + 0.35 * smooth(V.y0, V.y1, y) + 0.2 * N.fbm(x * 0.004, y * 0.02, 2), w: 1.1, levels: 8, col: css(C.rangeInk3, 0.85), wob: 0.8, seed: 63, step: 4 });
-    // hedgerows / field boundaries: short dark dashes
-    const Ph = new Path2D();
-    for (let k = 0; k < 90; k++) {
-      const x = R() * V.x1, y = V.y0 + 6 + R() * (V.y1 - V.y0 - 10);
-      const L = 10 + R() * 40;
-      OB.ink(Ph, [[x, y], [x + L, y + (R() - 0.5) * 3]], 1.4 + R(), { t0: 0.2, t1: 0.2 });
+    // field patchwork: strips of parcels, each worked in its own way (ploughed lines, rows of
+    // crops, orchards, rough pasture), bounded by hedgerows of dotted shrubs
+    const Ph = new Path2D(), Pfl = new Path2D(), Pdot = new Path2D();
+    for (let yA = V.y0 + 4; yA < V.y1;) {
+      const rh = lerp(6, 17, smooth(V.y0, V.y1, yA)) * (0.8 + 0.4 * R());
+      const yB = yA + rh;
+      for (let xA = -30 + R() * 20; xA < V.x1 + 40;) {
+        const pw = rh * (2.4 + 4.5 * R()), xB = xA + pw;
+        const kind = R(), sk = (R() - 0.5) * 0.5;
+        if (kind < 0.3) {
+          for (let yy = yA + 1.5; yy < yB - 1; yy += 1.9 + 0.6 * R()) OB.ribbon(Pfl, [[xA + 1.5, yy], [xB - 1.5, yy + sk]], [0.65, 0.65]);
+        } else if (kind < 0.52) {
+          const dir = R() < 0.5 ? 1 : -1;
+          for (let xx = xA + 2; xx < xB - 2; xx += 2.6) OB.ribbon(Pfl, [[xx, yB - 1], [Math.min(xB - 1, Math.max(xA + 1, xx + dir * rh * 0.5)), yA + 1]], [0.6, 0.5]);
+        } else if (kind < 0.68) {
+          for (let yy = yA + 2; yy < yB - 1; yy += 2.8) for (let xx = xA + 2 + (yy % 2); xx < xB - 1; xx += 3.4) OB.dot(Pdot, xx, yy, 0.7 + 0.4 * R());
+        } else {
+          const nd = Math.floor(pw * rh * 0.05);
+          for (let k = 0; k < nd; k++) OB.dot(Pdot, xA + R() * pw, yA + R() * rh, 0.4 + 0.4 * R());
+        }
+        if (R() < 0.7) for (let xx = xA; xx < xB; xx += 1.6 + R()) if (OB.hash(Math.round(xx * 3), Math.round(yB)) < 0.75) OB.dot(Ph, xx, yB + 0.8 * OB.N(xx * 0.2, yB), 0.9 + 0.7 * R());
+        if (R() < 0.45) for (let yy = yA; yy < yB; yy += 1.5) OB.dot(Ph, xB + 0.6 * OB.N(yy * 0.3, xB), yy, 0.8 + 0.5 * R());
+        xA = xB;
+      }
+      yA = yB;
     }
-    ctx.fillStyle = css(C.rangeInk3);
+    ctx.fillStyle = css(C.rangeInk3, 0.8);
+    ctx.fill(Pfl);
+    ctx.fill(Pdot);
+    ctx.fillStyle = css(C.ink);
     ctx.fill(Ph);
     // lake
     const lk = V.lake;
@@ -238,13 +362,18 @@
     ctx.save();
     ctx.clip(lake);
     OB.engrave(ctx, { bbox: [lk.x - lk.rx * 1.3, lk.y - lk.ry * 1.4, lk.x + lk.rx * 1.3, lk.y + lk.ry * 1.4], angle: 0, sp: 2.6, D: (x, y) => 0.25 + 0.4 * smooth(lk.y - lk.ry, lk.y + lk.ry, y), w: 1.0, levels: 8, col: css(C.waterLine, 0.85), wob: 0.5, seed: 64, step: 3 });
-    // sky glints on the water
-    const Pg = new Path2D();
-    for (let k = 0; k < 60; k++) {
-      const x = lk.x + (R() - 0.5) * lk.rx * 1.8, y = lk.y + (R() - 0.5) * lk.ry * 1.6;
-      OB.ink(Pg, [[x, y], [x + 4 + R() * 14, y]], 1.1, { t0: 0.3, t1: 0.3 });
+    // ripples: dark troughs and pale crests in short broken dashes, finer toward the far shore
+    const Pg = new Path2D(), Prd = new Path2D();
+    for (let k = 0; k < 420; k++) {
+      const x = lk.x + (R() - 0.5) * lk.rx * 2.1, y = lk.y + (R() - 0.5) * lk.ry * 2.1;
+      const f = smooth(lk.y - lk.ry, lk.y + lk.ry, y);
+      const L = (3 + R() * 10) * (0.6 + 0.8 * f);
+      if (R() < 0.4) OB.ink(Pg, [[x, y], [x + L * 0.5, y - 0.4], [x + L, y]], 0.6 + 0.5 * f, { t0: 0.3, t1: 0.3 });
+      else OB.ink(Prd, [[x, y], [x + L * 0.5, y + 0.5], [x + L, y]], 0.7 + 0.7 * f, { t0: 0.3, t1: 0.3 });
     }
-    ctx.fillStyle = css(C.trailCream, 0.55);
+    ctx.fillStyle = css(C.rangeInk3, 0.55);
+    ctx.fill(Prd);
+    ctx.fillStyle = css(C.trailCream, 0.42);
     ctx.fill(Pg);
     ctx.restore();
     ctx.lineWidth = 1.8;
@@ -271,47 +400,102 @@
     ctx.fillStyle = css(C.road, 0.85);
     ctx.fill(Pd);
     ctx.restore();
-    // village
+    // village: houses with a gable front, a dark side wall and a pale ridge, chimneys, warm
+    // windows; a church with a lit belfry and a spire; trees, lanes and a pier
     const houses = [];
-    for (let k = 0; k < V.n; k++) {
+    for (let k = 0; k < 56; k++) {
       const t = R();
       const x = V.vx0 + (V.vx1 - V.vx0) * t + (R() - 0.5) * 10;
-      const y = V.vy + Math.sin(t * 2.6) * 6 + (R() - 0.5) * 14 * (1 - Math.abs(t - 0.5));
-      houses.push({ x, y, w: 9 + R() * 9, h: 6 + R() * 5, roof: 4 + R() * 4, lit: R() });
+      const y = V.vy + Math.sin(t * 2.6) * 6 + (R() - 0.5) * 16 * (1 - Math.abs(t - 0.5));
+      if (Math.abs(x - (V.vx0 + (V.vx1 - V.vx0) * 0.45)) < 22 && y < V.vy + 4) continue;
+      houses.push({ x, y, w: 7 + R() * 9, h: 5 + R() * 5, roof: 3 + R() * 4, side: 2 + R() * 4, lit: R(), chim: R() < 0.4 });
     }
-    houses.push({ x: V.vx0 + (V.vx1 - V.vx0) * 0.45, y: V.vy - 2, w: 9, h: 26, roof: 12, lit: 0.95, tower: true });
     houses.sort((a, b) => a.y - b.y);
-    const Pb = new Path2D(), Pw = new Path2D(), Pref = new Path2D();
+    const ch = { x: V.vx0 + (V.vx1 - V.vx0) * 0.45, y: V.vy - 1 };
+    // lanes
+    {
+      const Pl = new Path2D();
+      for (let k = 0; k < 7; k++) {
+        const a = houses[Math.floor(R() * houses.length)], b = houses[Math.floor(R() * houses.length)];
+        if (Math.abs(a.x - b.x) > 140) continue;
+        OB.ink(Pl, OB.spline([[a.x, a.y + 1], [(a.x + b.x) / 2, Math.max(a.y, b.y) + 4 + R() * 4], [b.x, b.y + 1]], 3), 1.1, { t0: 0.1, t1: 0.1 });
+      }
+      OB.ink(Pl, [[ch.x + 30, V.vy + 6], [ch.x + 34, V.lake.y - V.lake.ry * 0.9 + 6]], 1.3, { t0: 0, t1: 0 });
+      ctx.fillStyle = css(C.road, 0.45);
+      ctx.fill(Pl);
+      // pier into the lake, with a moored boat
+      const px = ch.x + 34, py = V.lake.y - V.lake.ry * 0.9 + 6;
+      ctx.fillStyle = css(C.ink);
+      ctx.fillRect(px - 1, py, 2.2, 16);
+      for (let k = 0; k < 4; k++) ctx.fillRect(px - 2.5, py + 3 + k * 4, 5, 0.9);
+      ctx.beginPath();
+      ctx.moveTo(px + 4, py + 10); ctx.lineTo(px + 13, py + 10); ctx.lineTo(px + 11, py + 12.5); ctx.lineTo(px + 6, py + 12.5); ctx.closePath();
+      ctx.fill();
+    }
+    const Pb = new Path2D(), Ps = new Path2D(), Prf = new Path2D(), Pw = new Path2D(), Pref = new Path2D(), Prh = new Path2D(), Ptr = new Path2D();
+    const refl = (wx) => {
+      // a broken shimmer column, wider near the shore and fading out
+      const top = V.lake.y - V.lake.ry * 0.85;
+      for (let r = 0; r < 11; r++) {
+        if (R() < 0.25) continue;
+        const ww = (6 - r * 0.45) * (0.6 + 0.8 * R());
+        if (ww < 0.8) continue;
+        const cx = wx + 1 + (R() - 0.5) * 3, cy = top + r * 4 + R() * 2;
+        OB.ribbon(Pref, [[cx - ww, cy], [cx, cy + 0.2], [cx + ww, cy]], [0.2, 1.5, 0.2]);
+      }
+    };
+    for (let k = 0; k < 34; k++) {
+      const x = V.vx0 - 20 + R() * (V.vx1 - V.vx0 + 60), y = V.vy - 6 + R() * 18;
+      const r = 3 + R() * 4;
+      Ptr.moveTo(x + r, y);
+      Ptr.ellipse(x, y - r * 0.6, r, r * 0.8, 0, 0, OB.TAU);
+    }
+    ctx.fillStyle = css(C.ink);
+    ctx.fill(Ptr);
     for (const hs of houses) {
-      const { x, y, w, h, roof } = hs;
-      Pb.moveTo(x - w / 2, y);
-      Pb.lineTo(x - w / 2, y - h);
-      Pb.lineTo(x, y - h - roof);
-      Pb.lineTo(x + w / 2, y - h);
-      Pb.lineTo(x + w / 2, y);
-      Pb.closePath();
-      const nw = hs.tower ? 1 : hs.lit > 0.35 ? 1 + Math.floor(hs.lit * 2.4) : 0;
+      const { x, y, w, h, roof, side } = hs;
+      const xl = x - w / 2, xr = x + w / 2, sy = side * 0.35;
+      Pb.rect(xl, y - h, w, h);
+      OB.path([[xr, y], [xr, y - h], [xr + side, y - h - sy], [xr + side, y - sy]], true, Ps);
+      OB.path([[xl - 1, y - h + 0.5], [x, y - h - roof], [xr + 1, y - h + 0.5], [xr + side + 0.8, y - h - sy + 0.5], [x + side, y - h - roof - sy]], true, Prf);
+      OB.ribbon(Prh, [[x, y - h - roof], [x + side, y - h - roof - sy]], [0.8, 0.8]);
+      if (hs.chim) Prf.rect(x + side * 0.6 + w * 0.15, y - h - roof - sy - 3, 2, 4);
+      const nw = hs.lit > 0.3 ? 1 + Math.floor(hs.lit * 2.4) : 0;
       for (let k = 0; k < nw; k++) {
-        const wx = x - w / 2 + 2 + ((w - 5) * (k + 0.5)) / Math.max(1, nw) - 1, wy = y - h * (hs.tower ? 0.75 : 0.55);
-        Pw.rect(wx, wy, 2.2, 2.8);
-        if (y > V.lake.y - V.lake.ry - 30) {
-          // a broken shimmer column, wider near the shore and fading out
-          const top = V.lake.y - V.lake.ry * 0.85;
-          for (let r = 0; r < 7; r++) {
-            if (R() < 0.3) continue;
-            const ww = (5 - r * 0.55) * (0.6 + 0.8 * R());
-            if (ww < 0.8) continue;
-            Pref.ellipse(wx + 1 + (R() - 0.5) * 3, top + r * 5 + R() * 2, ww, 0.8, 0, 0, OB.TAU);
-          }
-        }
+        const wx = xl + 1.5 + ((w - 4) * (k + 0.5)) / nw - 1, wy = y - h * 0.62;
+        Pw.rect(wx, wy, 1.9, 2.5);
+        if (y > V.lake.y - V.lake.ry - 30 && R() < 0.9) refl(wx);
       }
     }
-    ctx.fillStyle = css(C.rangeInk3);
+    // church: nave, tower, belfry, spire, cross
+    {
+      const { x, y } = ch;
+      Pb.rect(x, y - 13, 26, 13);
+      OB.path([[x + 26, y], [x + 26, y - 13], [x + 31, y - 15], [x + 31, y - 2]], true, Ps);
+      OB.path([[x - 1, y - 12.5], [x + 3, y - 21], [x + 30, y - 22], [x + 32, y - 14.5]], true, Prf);
+      Pb.rect(x - 9, y - 34, 10, 34);
+      OB.path([[x + 1, y], [x + 1, y - 34], [x + 4, y - 35], [x + 4, y - 1]], true, Ps);
+      OB.path([[x - 10, y - 33.5], [x - 2.5, y - 56], [x + 2, y - 34], [x + 5, y - 35]], true, Prf);
+      OB.ribbon(Prf, [[x - 2.5, y - 56], [x - 2.5, y - 64]], [1, 1]);
+      OB.ribbon(Prf, [[x - 5, y - 61], [x, y - 61]], [0.9, 0.9]);
+      Pw.rect(x - 5.5, y - 29, 3, 5);
+      for (let k = 0; k < 3; k++) Pw.rect(x + 6 + k * 7, y - 9, 2, 4);
+      refl(x - 4);
+      refl(x + 13);
+    }
+    ctx.fillStyle = css(mix(C.rangeInk3, C.valleyFloor, 0.55));
     ctx.fill(Pb);
+    ctx.fillStyle = css(C.ink);
+    ctx.fill(Ps);
+    ctx.fillStyle = css(C.crevice);
+    ctx.fill(Prf);
+    ctx.fillStyle = css(C.road, 0.45);
+    ctx.fill(Prh);
     for (const hs of houses) if (hs.lit > 0.6) OB.glow(ctx, hs.x, hs.y - hs.h * 0.6, 14, C.amber, 0.18);
+    OB.glow(ctx, ch.x - 4, ch.y - 26, 18, C.amber, 0.22);
     ctx.fillStyle = css(C.amberHot);
     ctx.fill(Pw);
-    ctx.fillStyle = css(C.amber, 0.45);
+    ctx.fillStyle = css(C.amber, 0.75);
     ctx.fill(Pref);
   };
 
@@ -402,8 +586,9 @@
         cr.rect(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]);
         ctx.clip(cr);
         const blockD = (x, y) => Dc(x, y) + fdy[fi] * 0.12;
-        OB.engrave(ctx, { bbox: bb, angle: Math.PI / 2 + 0.06 + fang[fi], sp: sp * (0.9 + 0.25 * OB.hash(fi, ya)), D: blockD, w: lw * 1.25, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.35, seed: o.seed + ya + fi * 13, step: 4, fade: 0.22, warp: (u, v) => 2.5 * N(u * 0.008, v * 0.03) });
-        OB.engrave(ctx, { bbox: bb, angle: o.dip + 0.04 + fang[fi] * 0.5 + (OB.hash(fi, 3) < 0.4 ? 0.7 : 0), sp: sp * 1.15, D: (x, y) => blockD(x, y) - 0.55, thrRange: 0.45, w: lw, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.6, seed: o.seed + ya + fi * 13 + 1, step: 3 });
+        OB.engrave(ctx, { bbox: bb, angle: Math.PI / 2 + 0.06 + fang[fi], sp: sp * (0.9 + 0.25 * OB.hash(fi, ya)), D: blockD, w: lw * 1.25, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.35, seed: o.seed + ya + fi * 13, step: 4, fade: 0.22, warp: (u, v) => 2.5 * N(u * 0.008, v * 0.03), brk: 0.24 });
+        OB.engrave(ctx, { bbox: bb, angle: o.dip + 0.04 + fang[fi] * 0.5 + (OB.hash(fi, 3) < 0.4 ? 0.7 : 0), sp: sp * 1.15, D: (x, y) => blockD(x, y) - 0.5, thrRange: 0.45, w: lw, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.6, seed: o.seed + ya + fi * 13 + 1, step: 3, brk: 0.2 });
+        OB.engrave(ctx, { bbox: bb, angle: Math.PI / 2 + 0.85 + fang[fi], sp: sp * 1.3, D: (x, y) => blockD(x, y) - 0.72, thrRange: 0.28, w: lw * 0.9, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.6, seed: o.seed + ya + fi * 13 + 2, step: 3, brk: 0.22 });
         ctx.restore();
       }
     }
@@ -456,6 +641,59 @@
         }
       }
     });
+    // texture inside the beds: thin broken bedding lines, rain streaks hanging from the lips,
+    // pitting, hairline fractures and lichen on the lit rock
+    {
+      const Pb = new Path2D(), Pst = new Path2D(), Pp = new Path2D(), Pc = new Path2D(), Pli = new Path2D(), Pch = new Path2D();
+      const Rt = OB.rng(o.seed + 77);
+      for (let k = 0; k < bands.length - 1; k++) {
+        const b = bands[k], b2 = bands[k + 1];
+        for (const f of [0.34, 0.58, 0.8]) {
+          if (Rt() < 0.3) continue;
+          const pts = [];
+          for (let i = 0; i < nx; i++) pts.push([x0 + i * xs, lerp(b[i], b2[i], f + 0.04 * OB.N(i * 0.05, k + f * 9))]);
+          OB.runs(Pb, pts, (q) => lwAt(pts[q][1]) * 0.55, (q) => pts[q][1] > y0 - 10 && pts[q][1] < y1 + 10 && OB.N(q * 0.07 + f * 31, k * 1.9) > 0.05, 3);
+        }
+        for (let i = 0; i < nx; i++) {
+          if (Rt() > 0.16) continue;
+          const yA = b[i], h = b2[i] - yA;
+          if (yA < y0 - 20 || yA > y1 + 20 || h < 6) continue;
+          const lw = lwAt(yA), xx = x0 + i * xs + (Rt() - 0.5) * xs;
+          OB.flick(Pst, xx, yA + lw * 3.5, Math.PI / 2 + (Rt() - 0.5) * 0.12, h * (0.2 + 0.55 * Rt()), lw * (0.5 + 0.5 * Rt()));
+        }
+      }
+      for (let k = 0; k < 52000; k++) {
+        const x = x0 + Rt() * (x1 - x0), y = y0 + Rt() * (y1 - y0);
+        const d = Dc(x, y), lw = lwAt(y);
+        if (Rt() > (0.1 + 0.8 * d) * smooth(0.3, 0.7, OB.vnoise(x, y, 26 + lw * 12))) continue;
+        OB.dot(Pp, x, y, lw * (0.4 + 0.7 * Math.pow(Rt(), 2)));
+      }
+      for (let k = 0; k < 520; k++) {
+        const x = x0 + Rt() * (x1 - x0), y = y0 + Rt() * (y1 - y0), lw = lwAt(y);
+        OB.crack(Pc, x, y, Math.PI / 2 + (Rt() - 0.5) * 1.2 + (Rt() < 0.35 ? Math.PI / 2 : 0), o.bandH(y) * (0.5 + 1.2 * Rt()), lw * (0.7 + 0.4 * Rt()), Rt, 0, Pch);
+      }
+      for (let k = 0; k < 1500; k++) {
+        const x = x0 + Rt() * (x1 - x0), y = y0 + Rt() * (y1 - y0);
+        if (Dc(x, y) > 0.5) continue;
+        const lw = lwAt(y), rr = (2.5 + 5 * Rt()) * lw * 1.6;
+        const nd = Math.floor(rr * rr * 0.35) + 3;
+        for (let j = 0; j < nd; j++) {
+          const a = Rt() * OB.TAU, r = rr * Math.sqrt(Rt());
+          OB.dot(Pli, x + Math.cos(a) * r, y + Math.sin(a) * r * 0.6, (0.35 + 0.5 * Rt()) * Math.sqrt(lw));
+        }
+      }
+      ctx.fillStyle = css(C.ink, 0.85);
+      ctx.fill(Pb);
+      ctx.fill(Pst);
+      ctx.fillStyle = css(C.ink, 0.72);
+      ctx.fill(Pp);
+      ctx.fillStyle = css(C.ink);
+      ctx.fill(Pc);
+      ctx.fillStyle = css(C.rockHi, 0.32);
+      ctx.fill(Pch);
+      ctx.fillStyle = css(C.lichen, 0.42);
+      ctx.fill(Pli);
+    }
     B.fill(ctx);
     ctx.fillStyle = css(C.rockHi, 0.55);
     ctx.fill(Ph);
@@ -714,11 +952,35 @@
         }
       }
       Bs.fill(ctx);
+      // worn setts bedded in the tread where it is wide, with hairline cracks across the treads
+      {
+        const Pst = new Path2D(), Pc = new Path2D();
+        const Rw = OB.rng(74);
+        for (let i = 0; i < n; i++) {
+          const p = pp[i];
+          if (p.w < 50 || OB.hash(i, 41) > 0.11) continue;
+          const f = (OB.hash(i, 42) - 0.5) * 0.8;
+          const cx = p.x + p.nx * p.w * f, cy = p.y + p.ny * p.w * f;
+          const r = p.w * (0.05 + 0.07 * OB.hash(i, 43));
+          const poly = [];
+          const a0 = Rw() * 6;
+          for (let v = 0; v < 6; v++) { const a = a0 + (v / 6) * OB.TAU; poly.push([cx + Math.cos(a) * r * (0.75 + 0.4 * Rw()), cy + Math.sin(a) * r * 0.6 * (0.75 + 0.4 * Rw())]); }
+          OB.path(poly, true, Pst);
+          if (Rw() < 0.3) OB.crack(Pc, cx, cy, Math.atan2(p.ty, p.tx) + Math.PI / 2 + (Rw() - 0.5) * 0.5, p.w * 0.25, lerp(0.6, 1.4, depth(cy)), Rw, 1);
+        }
+        ctx.fillStyle = OB.css(C.pathHi, 0.16);
+        ctx.fill(Pst);
+        ctx.lineWidth = 1.1;
+        ctx.strokeStyle = OB.css(C.ink, 0.55);
+        ctx.stroke(Pst);
+        ctx.fillStyle = OB.css(C.ink, 0.6);
+        ctx.fill(Pc);
+      }
       // gravel stipple + pebbles
       const Pg = new Path2D(), Pp = new Path2D();
       for (let i = 0; i < n; i += 1) {
         const p = pp[i];
-        const cnt = p.w * 0.07;
+        const cnt = p.w * 0.11;
         for (let k = 0; k < cnt; k++) {
           if (R() > 0.5) continue;
           const f = (R() - 0.5) * 0.95;
@@ -795,12 +1057,26 @@
     const C = OB.C, s = L.s;
     const x = L.x, y = L.y;
     const P = new Path2D();
+    // footing stone
+    const base = [[x - 6 * s, y + 4 * s], [x - 5 * s, y - 2 * s], [x + 4.5 * s, y - 3 * s], [x + 6.5 * s, y + 4 * s]];
+    ctx.fillStyle = css(C.stoneTones[2][1]);
+    ctx.fill(OB.path(base));
+    ctx.lineWidth = 1.1 * s;
+    ctx.strokeStyle = css(C.ink);
+    ctx.stroke(OB.path(base));
     // post
     OB.ink(P, [[x, y + 2], [x + 0.6 * s, y - 20 * s], [x, y - 40 * s]], 3.2 * s, { t0: 0, t1: 0, wn: 0.2 });
-    // bracket arm
+    // bracket arm, brace and finial
     OB.ink(P, [[x, y - 38 * s], [x + 9 * s, y - 40 * s], [x + 12 * s, y - 36 * s]], 1.8 * s, { t0: 0, t1: 0, wn: 0.2 });
+    OB.ink(P, [[x + 0.3 * s, y - 31 * s], [x + 4 * s, y - 35 * s], [x + 7.5 * s, y - 39.3 * s]], 1.1 * s, { t0: 0, t1: 0 });
+    OB.dot(P, x, y - 41.5 * s, 2 * s);
     ctx.fillStyle = css(C.ink);
     ctx.fill(P);
+    // sky-lit edge on the post and the grain of its wood
+    const Ph = new Path2D();
+    OB.ink(Ph, [[x - 1 * s, y - 2 * s], [x - 0.5 * s, y - 38 * s]], 0.7 * s, { t0: 0.2, t1: 0.2 });
+    ctx.fillStyle = OB.warmCss(C.rockHi, x, y - 20 * s, 'path', 1, 0.55);
+    ctx.fill(Ph);
     const lx = x + 12 * s, ly = y - 26 * s;
     // glass box
     ctx.fillStyle = css(C.amber);

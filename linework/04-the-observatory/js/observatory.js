@@ -5,6 +5,7 @@
   const OB = window.OB;
   const { clamp, smooth, lerp, mix, css } = OB;
   const BR8 = [0, 4, 2, 6, 1, 5, 3, 7];
+  const H2 = (h) => OB.hex(h);
 
   OB.obsGeom = (S) => {
     const o = S.obs;
@@ -88,6 +89,12 @@
     // tooling: chisel pits and a few short strokes, so lit stones are never blank
     {
       const P = B.get(css(C.ink, 0.7));
+      const P2 = B.get(css(C.ink, 0.42));
+      const ng = Math.floor((qb - qa) * Rcyl * (yb - yt) * 0.03 * (0.6 + dm));
+      for (let k = 0; k < ng; k++) {
+        const q = o.ring(Rcyl, yt + 3 + (yb - yt - 6) * rng(), qa + (qb - qa) * rng());
+        OB.dot(P2, q[0], q[1], 0.35 + 0.45 * rng());
+      }
       const np = 3 + Math.floor(rng() * 5);
       for (let k = 0; k < np; k++) {
         const q = o.ring(Rcyl, yt + 4 + (yb - yt - 8) * rng(), qa + (qb - qa) * rng());
@@ -102,6 +109,25 @@
           const a = o.ring(Rcyl, yb - 3 - rng() * 4, pp), b = o.ring(Rcyl, yb - 3, pp + 0.02 + rng() * 0.03);
           OB.ink(P, [a, b], 0.9, { t0: 0.3, t1: 0.3 });
         }
+      }
+    }
+    // dressing: clusters of short diagonal chisel strokes, and chipped corners
+    {
+      const P = B.get(css(C.ink, 0.62));
+      const ng = 1 + Math.floor(rng() * 3);
+      for (let g = 0; g < ng; g++) {
+        const c = o.ring(Rcyl, yt + 4 + (yb - yt - 8) * rng(), qa + (qb - qa) * (0.1 + 0.8 * rng()));
+        const a = (rng() < 0.5 ? -0.8 : 0.8) + (rng() - 0.5) * 0.3, L = 2.5 + rng() * 3.5;
+        for (let k = 0; k < 3 + Math.floor(rng() * 4); k++) {
+          const x = c[0] + k * 1.7, y = c[1] + (rng() - 0.5) * 1.2;
+          OB.ribbon(P, [[x, y], [x + Math.cos(a) * L, y + Math.sin(a) * L]], [0.55, 0.15]);
+        }
+      }
+      const Pc = B.get(css(C.mortar));
+      for (const corner of [[qa, yt + 1.8], [qb, yt + 1.8], [qa, yb - 1.4], [qb, yb - 1.4]]) {
+        if (rng() > 0.28) continue;
+        const q = o.ring(Rcyl, corner[1], corner[0]), sx = corner[0] === qa ? 1 : -1, sy = corner[1] < (yt + yb) / 2 ? 1 : -1, r = 2 + rng() * 3;
+        OB.path([[q[0] - sx, q[1] - sy], [q[0] + sx * r, q[1] - sy], [q[0] - sx, q[1] + sy * r * 0.8]], true, Pc);
       }
     }
     // occasional chip / crack
@@ -140,6 +166,19 @@
     const o = S.obs, C = OB.C, R = OB.rng(91), N = OB.noise(92);
     const phiL = -1.15;
     const cylD = (p, off) => 0.6 - 0.46 * Math.cos(p - phiL) + off;
+    // mortar with grit in it: pale sand grains and dark voids, seen in the joints
+    const gritty = (path, bb) => {
+      const Rg = OB.rng(93), Pw = new Path2D(), Pk = new Path2D();
+      const n = Math.floor((bb[2] - bb[0]) * (bb[3] - bb[1]) * 0.05);
+      for (let k = 0; k < n; k++) OB.dot(Rg() < 0.5 ? Pw : Pk, bb[0] + Rg() * (bb[2] - bb[0]), bb[1] + Rg() * (bb[3] - bb[1]), 0.4 + 0.5 * Rg());
+      ctx.save();
+      ctx.clip(path);
+      ctx.fillStyle = css(C.stoneTones[2][1], 0.6);
+      ctx.fill(Pw);
+      ctx.fillStyle = css(C.crevice, 0.8);
+      ctx.fill(Pk);
+      ctx.restore();
+    };
 
     // ---------------------------------------------------------- terrace wall
     {
@@ -149,6 +188,7 @@
       for (let p = Math.PI / 2; p >= -Math.PI / 2; p -= 0.02) sil.push(o.ring(Rt, o.terraceBot, p));
       const path = OB.path(sil);
       OB.flatFill(ctx, path, css(C.mortar));
+      gritty(path, OB.bbox(sil));
       const B = makeStoneBatch();
       const ch = (o.terraceBot - o.terraceTop) / 3;
       for (let c = 0; c < 3; c++) {
@@ -230,6 +270,7 @@
       const path = OB.path(sil);
       // drum is drawn first, then the coping band is redrawn over its foot
       OB.flatFill(ctx, path, css(C.mortar));
+      gritty(path, OB.bbox(sil));
       const B = makeStoneBatch();
       const nc = o.courses;
       const ch = (o.terraceTop - o.drumTop) / nc;
@@ -536,6 +577,63 @@
         }
       }
       Br.fill(ctx);
+      // rivet rows along the seams, each a dark head with a sky-lit glint
+      {
+        const Rv = OB.rng(95);
+        const Pk = new Path2D(), Pw = new Path2D(), Pst = new Path2D(), Ppt = new Path2D(), Pdk = new Path2D(), Pdh = new Path2D();
+        const outSlit = (p, e) => { const u = Rm * Math.cos(e) * Math.sin(p - o.slitPhi); return !(Math.abs(u) < o.slitW + 4 && Math.cos(p - o.slitPhi) > 0); };
+        for (const e of [0.06, 0.3, 0.6, 0.9, 1.18]) {
+          for (let p = -1.52; p <= 1.52; p += 0.055 / Math.max(0.35, Math.cos(e))) {
+            if (!outSlit(p, e)) continue;
+            const q = o.domePt(p, e - 0.018);
+            const r = 1.05 * (0.6 + 0.4 * Math.cos(p));
+            OB.dot(Pk, q[0], q[1], r + 0.25);
+            if (p < 0.4) OB.dot(Pw, q[0] - 0.5, q[1] - 0.5, r * 0.45);
+            // rain streaks running down from some rivets
+            if (Rv() < 0.22 && e > 0.2) {
+              const pts = [];
+              const de = 0.04 + 0.12 * Rv();
+              for (let t = 0; t <= 1; t += 0.2) pts.push(o.domePt(p + (Rv() - 0.5) * 0.004, e - 0.03 - de * t));
+              OB.ink(Pst, pts, 0.7 + 0.5 * Rv(), { t0: 0.05, t1: 0.7, wn: 0.4, ph: p * 50 });
+            }
+          }
+        }
+        // patina: verdigris stipple gathering below the seams and toward the base
+        for (let k = 0; k < 9000; k++) {
+          const p = -1.55 + Rv() * 3.1, e = Rv() * 1.3;
+          if (!outSlit(p, e)) continue;
+          const q = o.domePt(p, e);
+          const nearSeam = [0.06, 0.3, 0.6, 0.9, 1.18].some((s0) => e < s0 && s0 - e < 0.07);
+          if (Rv() > (nearSeam ? 0.55 : 0.08) * smooth(0.35, 0.7, OB.vnoise(q[0], q[1], 12)) * (1 - 0.5 * e)) continue;
+          OB.dot(Ppt, q[0], q[1], 0.45 + 0.7 * Rv());
+        }
+        // dents: a dark crescent on the far side, a glint on the near
+        for (let k = 0; k < 16; k++) {
+          const p = -1.4 + Rv() * 2.6, e = 0.1 + Rv() * 1.0;
+          if (!outSlit(p, e)) continue;
+          const q = o.domePt(p, e), r = (4 + 6 * Rv()) * Math.max(0.4, Math.cos(p));
+          const a0 = -0.6 + (Rv() - 0.5) * 0.6;
+          Pdk.moveTo(q[0] + Math.cos(a0) * r, q[1] + Math.sin(a0) * r * 0.6);
+          Pdk.ellipse(q[0], q[1], r, r * 0.6, 0, a0, a0 + 2.2);
+          Pdh.moveTo(q[0] + Math.cos(a0 + Math.PI) * r * 0.8, q[1] + Math.sin(a0 + Math.PI) * r * 0.48);
+          Pdh.ellipse(q[0], q[1], r * 0.8, r * 0.48, 0, a0 + Math.PI, a0 + Math.PI + 1.8);
+        }
+        ctx.fillStyle = css(H2('#5f9a8c'), 0.42);
+        ctx.fill(Ppt);
+        ctx.fillStyle = css(C.ink, 0.65);
+        ctx.fill(Pst);
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = css(C.ink, 0.8);
+        ctx.stroke(Pdk);
+        ctx.lineWidth = 0.9;
+        ctx.strokeStyle = css(C.domeHi, 0.55);
+        ctx.stroke(Pdh);
+        ctx.fillStyle = css(C.ink);
+        ctx.fill(Pk);
+        ctx.fillStyle = css(C.domeHi, 0.75);
+        ctx.fill(Pw);
+      }
       ctx.restore();
       // sky rim light along the left limb
       const rim = [];
@@ -572,6 +670,16 @@
       }
       ctx.fillStyle = css(C.ember, 0.55);
       ctx.fill(Pi);
+      // a ladder against the far wall, and shelves of the interior in silhouette
+      {
+        const Pld = new Path2D();
+        const lx = b[0] + 26, ly0 = b[1] - 6, ly1 = OB.lerp(b[1], a[1], 0.55);
+        OB.ink(Pld, [[lx, ly0], [lx + 10, ly1]], 2, { t0: 0, t1: 0 });
+        OB.ink(Pld, [[lx + 13, ly0], [lx + 23, ly1]], 2, { t0: 0, t1: 0 });
+        for (let t = 0.08; t < 1; t += 0.11) OB.ink(Pld, [[lx + 10 * t, OB.lerp(ly0, ly1, t)], [lx + 13 + 10 * t, OB.lerp(ly0, ly1, t)]], 1.3, { t0: 0, t1: 0 });
+        ctx.fillStyle = css(C.ember, 0.6);
+        ctx.fill(Pld);
+      }
       const dir = [o.tel.dx, o.tel.dy];
       const nx = -dir[1], ny = dir[0];
       const P0 = o.tel.p0;
@@ -612,6 +720,26 @@
         }
         ctx.fillStyle = css(C.ink, 0.9);
         ctx.fill(Pl);
+        // finder scope riding on the tube, the focuser and eyepiece at the lower end, bolts on the bands
+        {
+          const Pd = new Path2D(), Pb2 = new Path2D();
+          const fo = T.w + 5;
+          const f0 = [P0[0] + dir[0] * T.len * 0.48 + nx * fo, P0[1] + dir[1] * T.len * 0.48 + ny * fo];
+          const f1 = [f0[0] + dir[0] * 34, f0[1] + dir[1] * 34];
+          OB.ribbon(Pd, [f0, f1], [6, 6]);
+          for (const t of [0.15, 0.75]) { const q = [f0[0] + dir[0] * 34 * t, f0[1] + dir[1] * 34 * t]; OB.ribbon(Pd, [q, [q[0] - nx * 5, q[1] - ny * 5]], [2, 2]); }
+          const e0 = [P0[0] + dir[0] * 8 - nx * T.w, P0[1] + dir[1] * 8 - ny * T.w];
+          OB.ribbon(Pd, [e0, [e0[0] - nx * 9, e0[1] - ny * 9]], [7, 6]);
+          OB.ribbon(Pd, [[e0[0] - nx * 9, e0[1] - ny * 9], [e0[0] - nx * 15 + dir[0] * 2, e0[1] - ny * 15 + dir[1] * 2]], [4, 4]);
+          ctx.fillStyle = css(C.telescope);
+          ctx.fill(Pd);
+          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = css(C.ink);
+          ctx.stroke(Pd);
+          for (const L of [T.len * 0.18, T.len * 0.42]) for (const f of [-0.7, 0, 0.7]) OB.dot(Pb2, P0[0] + dir[0] * (L + 2) + nx * T.w * f, P0[1] + dir[1] * (L + 2) + ny * T.w * f, 0.9);
+          ctx.fillStyle = css(C.amberHot, 0.8);
+          ctx.fill(Pb2);
+        }
         // rims: amber from the interior below on one side, cool sky light on the other
         const rimA = new Path2D(), rimB = new Path2D();
         const e1 = [P0[0] + nx * (T.w - 2), P0[1] + ny * (T.w - 2)], e2 = [P0[0] - nx * (T.w - 2), P0[1] - ny * (T.w - 2)];
@@ -664,6 +792,22 @@
       ctx.beginPath();
       ctx.arc(a[0] - 2.5, a[1] - 4.5, 2, 0, OB.TAU);
       ctx.fill();
+      // weathervane: compass arms, a ball, and an arrow turned into the wind
+      const V = new Path2D(), Vh = new Path2D();
+      const yA = a[1] - 44, yV = a[1] - 66;
+      OB.ink(V, [[a[0] + 0.8, a[1] - 58], [a[0] + 0.5, a[1] - 80]], 1.8, { t0: 0, t1: 0.2 });
+      OB.ink(V, [[a[0] - 16, yA], [a[0] + 16, yA]], 1.5, { t0: 0.05, t1: 0.05 });
+      OB.ink(V, [[a[0] - 6, yA + 3], [a[0] + 6, yA - 3]], 1.3, { t0: 0.05, t1: 0.05 });
+      for (const [dx, dy] of [[-16, 0], [16, 0], [-6, 3], [6, -3]]) OB.dot(V, a[0] + dx, yA + dy, 1.6);
+      OB.dot(V, a[0] + 0.6, yA - 7, 3.2);
+      V.moveTo(a[0] - 24, yV); V.lineTo(a[0] - 15, yV - 4.5); V.lineTo(a[0] - 16, yV - 1); V.lineTo(a[0] + 12, yV - 1); V.lineTo(a[0] + 12, yV + 1.2); V.lineTo(a[0] - 16, yV + 1.2); V.lineTo(a[0] - 15, yV + 4.5); V.closePath();
+      V.moveTo(a[0] + 8, yV); V.lineTo(a[0] + 22, yV - 9); V.lineTo(a[0] + 20, yV); V.lineTo(a[0] + 22, yV + 7); V.closePath();
+      ctx.fillStyle = css(C.ink);
+      ctx.fill(V);
+      OB.ink(Vh, [[a[0] - 14, yV - 1.6], [a[0] + 10, yV - 1.6]], 0.7, { t0: 0.1, t1: 0.3 });
+      OB.dot(Vh, a[0] - 0.6, yA - 8.4, 1);
+      ctx.fillStyle = css(mix(C.domeHi, C.amberHot, 0.35), 0.75);
+      ctx.fill(Vh);
     }
 
     // ---------------------------------------------------------- iron railing on the terrace and stair
@@ -689,6 +833,17 @@
         const major = Math.abs((p + 1.5) / 0.09 - Math.round((p + 1.5) / 0.09)) < 0.01 && Math.round((p + 1.5) / 0.09) % 3 === 0;
         OB.ink(B.get(col(a[0], a[1])), [a, b], major ? 3.2 : 1.7, { t0: 0, t1: 0 });
         if (major) { Pf.moveTo(b[0] + 3.4, b[1] - 2); Pf.arc(b[0], b[1] - 2, 3.4, 0, OB.TAU); }
+      }
+      // scrollwork: a small iron curl tucked under the top rail in each bay
+      for (let p = -1.455; p <= 1.45; p += 0.09) {
+        const vis = Math.cos(p);
+        if (vis < 0.15) continue;
+        const c = o.ring(Rt, yb - hRail + 8, p);
+        const r = 4.2 * vis;
+        const Ps2 = B.get(col(c[0], c[1]));
+        const sc = [];
+        for (let t = 0; t <= 1; t += 0.08) { const a = Math.PI * 0.5 + t * 5.2, rr = r * (1 - 0.55 * t); sc.push([c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr * 1.1]); }
+        OB.ribbon(Ps2, sc, sc.map((q, i) => 1.3 - 0.06 * i));
       }
       B.fill(ctx);
       ctx.fillStyle = css(C.ink);

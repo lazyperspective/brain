@@ -168,13 +168,13 @@
         lineCss: OB.css(H('#37566e'), 0.85), crestCss: OB.css(H('#2e4b62')), crestW: 1.8 },
       { seed: 102, base: 2420, bottom: 2800, rough: 30, peaks: pk([[60, 200, 230, 250, 1.25], [330, 250, 250, 260, 1.3], [560, 160, 190, 200, 1.1], [800, 240, 250, 230, 1.3], [1100, 210, 240, 240, 1.2], [1500, 260, 260, 260, 1.2], [1900, 230, 250, 250, 1.2]]),
         tones: T([[0.45, '#506f86'], [0.58, '#46647b'], [9, '#3c5970']]), dLit: 0.38, dShadow: 0.66, mistFade: 0.25, sepMin: 4.0, sepMax: 10, lw: [0.7, 1.3], blend: 170,
-        lineCss: OB.css(H('#264259'), 0.9), crestCss: OB.css(H('#1e364c')), crestW: 2.3 },
+        lineCss: OB.css(H('#264259'), 0.9), crestCss: OB.css(H('#1e364c')), crestW: 2.3, trees: { n: 1000, depth: 130, top: 20, h: 7.5, cut: 0.15 } },
       { seed: 103, base: 2560, bottom: 2900, rough: 32, peaks: pk([[-50, 200, 250, 240, 1.3], [250, 230, 240, 260, 1.35], [520, 170, 220, 230, 1.2], [760, 190, 230, 240, 1.2], [1100, 200, 250, 250, 1.2]]),
         tones: T([[0.45, '#3f5d73'], [0.58, '#365369'], [9, '#2e4a60']]), dLit: 0.4, dShadow: 0.7, mistFade: 0.2, sepMin: 3.6, sepMax: 9, lw: [0.8, 1.5], blend: 180,
-        lineCss: OB.css(H('#172b40'), 0.92), crestCss: OB.css(H('#13243a')), crestW: 2.8 },
+        lineCss: OB.css(H('#172b40'), 0.92), crestCss: OB.css(H('#13243a')), crestW: 2.8, trees: { n: 1500, depth: 120, top: 8, h: 10, cut: 0.1 } },
       { seed: 104, base: 2705, bottom: 2960, rough: 18, peaks: pk([[-80, 110, 240, 260, 1.1], [190, 150, 230, 250, 1.2], [430, 90, 200, 220, 1.1], [640, 130, 220, 230, 1.2], [900, 120, 240, 240, 1.1]]),
         tones: T([[0.45, '#2f4a5f'], [0.58, '#283f53'], [9, '#213749']]), dLit: 0.45, dShadow: 0.75, mistFade: 0.15, sepMin: 3.4, sepMax: 8, lw: [0.9, 1.6], blend: 140,
-        lineCss: OB.css(H('#0f1f31'), 0.95), crestCss: OB.css(H('#0c192a')), crestW: 3.0, trees: { n: 900, depth: 160, h: 13 } },
+        lineCss: OB.css(H('#0f1f31'), 0.95), crestCss: OB.css(H('#0c192a')), crestW: 3.0, trees: { n: 2400, depth: 170, h: 14 } },
     ];
     S.mists = [
       { seed: 111, top: 2205, amp: 24, bottom: 2430, fill: C.mistFill, alpha: 0.4, lineCol: C.mistLine, lineA: 0.55, lw: 1.2, sp: [16, 6] },

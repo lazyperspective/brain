@@ -4,6 +4,7 @@
 (function () {
   const OB = window.OB;
   const { clamp, smooth, mix, css, hex } = OB;
+  const H2 = (h) => OB.hex(h);
 
   OB.mwCoord = (S, x, y) => {
     const m = S.mw;
@@ -29,6 +30,17 @@
       const knots = Math.pow(clamp(N.fbm(x * 0.009 + 5, y * 0.009, 3) * 1.6), 2);
       return clamp(core * (0.5 + 0.65 * clump + 0.45 * knots) * (1 - 0.7 * rift));
     };
+    // dust: the rift plus filaments of dark lanes threading the band
+    S.mwDust = (x, y) => {
+      const [u, d] = OB.mwCoord(S, x, y);
+      const hw = S.mw.hw * (0.85 + 0.3 * (0.5 + 0.5 * N.fbm(u * 2.6, 0.5, 3)));
+      const core = Math.exp(-(d * d) / (hw * hw * 1.2));
+      const rd = d - hw * (0.1 + 0.25 * N.fbm(u * 4.0, 3.3, 3));
+      const rift = Math.exp(-(rd * rd) / Math.pow(hw * (0.1 + 0.08 * N(u * 9, 1.1)), 2)) * smooth(-0.25, 0.35, N.fbm(u * 5, 7.7, 3) + 0.15);
+      const fil = smooth(0.55, 0.8, 1 - Math.abs(N.fbm(u * 7 + 2.2, d * 0.006, 3)) * 2.2 + 0.4) * smooth(0.0, 0.4, N.fbm(x * 0.004 + 9, y * 0.004, 2) + 0.2);
+      return clamp(core * Math.max(rift, 0.75 * fil));
+    };
+    S.mwKnots = (x, y) => Math.pow(clamp(N.fbm(x * 0.009 + 5, y * 0.009, 3) * 1.6), 2);
   };
 
   OB.drawSky = (ctx, S) => {
@@ -49,6 +61,18 @@
     };
     S.skyTone = tone;
     OB.posterFill(ctx, skyPath, [0, 0, W, skyBot], tone, C.skyTones, { step: 8, dither: 0.02, noReg: true });
+    // a ruled engraver's tint over the night: fine dark lines, dry and broken
+    {
+      const Pr = new Path2D();
+      const Rr = OB.rng(13);
+      for (let y = 1.5, i = 0; y < skyBot; y += 4.1 + (Rr() - 0.5) * 0.8, i++) {
+        const line = [];
+        for (let x = -6; x <= W + 6; x += 6) line.push([x, y + 0.7 * N(x * 0.004, i * 0.37)]);
+        OB.runs(Pr, line, (k) => 0.55 + 0.25 * OB.vnoise(k * 6, i * 9, 40), (k) => OB.vnoise(k * 6 + i * 31, i * 17.3, 30) > 0.34, 3);
+      }
+      ctx.fillStyle = css(H2('#03060f'), 0.3);
+      ctx.fill(Pr);
+    }
 
     // ---- 2. star trails
     const baseL = 0.58;
@@ -69,7 +93,9 @@
       else if (temp < 0.05) { col = mix(C.trailGold, C.trailCream, 0.4); kind = 1; }
       else if (temp < 0.08) { col = mix(C.trailTeal, C.trailBlue, 0.45); kind = 2; }
       else col = mix(C.trailBlue, C.trailCream, R());
-      return { r, th, L, b, col, kind, w: 0.45 + 0.5 * b + 3.2 * b * b * b, a: 0.16 + 0.84 * Math.pow(b, 0.6) };
+      // twinkling stars leave dashed trails
+      const dash = R() < 0.15 ? 3 + Math.floor(R() * 6) : 0;
+      return { r, th, L, b, col, kind, dash, w: 0.45 + 0.5 * b + 3.2 * b * b * b, a: 0.16 + 0.84 * Math.pow(b, 0.6) };
     };
     for (let r = 5; r < 2500;) {
       r += r < 90 ? 2.6 + R() * 1.4 : 1.7 + R() * 2.3;
@@ -92,8 +118,34 @@
         th += L * (0.3 + R() * 1.0) + baseL * 0.12 * R();
       }
     }
+    // a few strong coloured trails: red giants, gold and blue-white stars
+    {
+      const cand = arcs.filter((a) => a.b > 0.55 && a.r > 120);
+      const pal = [C.trailOrange, C.trailGold, C.trailTeal, mix(C.trailOrange, C.trailGold, 0.5)];
+      for (let k = 0; k < 12 && cand.length; k++) {
+        const a = cand.splice(Math.floor(R() * cand.length), 1)[0];
+        a.col = mix(pal[k % pal.length], C.trailCream, 0.22); a.kind = 1; a.w *= 1.35; a.dash = 0;
+      }
+    }
+    // very fine, faint trails threading the gaps
+    {
+      for (let r = 20; r < 2500;) {
+        r += 1.3 + R() * 2.2;
+        let th = R() * OB.TAU;
+        const stop = th + OB.TAU;
+        while (th < stop) {
+          const L = baseL * (0.08 + 0.35 * Math.pow(R(), 1.5));
+          const mid = th + L / 2;
+          const mx = P.x + r * Math.cos(mid), my = P.y + r * Math.sin(mid);
+          if (mx > -50 && mx < W + 50 && my > -50 && my < skyBot && R() < Math.max(0, cov(mx, my)) * 0.9) {
+            arcs.push({ r, th, L, b: 0.02, col: mix(C.trailBlue, C.trailCream, R()), kind: 0, dash: 0, w: 0.32 + 0.14 * R(), a: 0.1 + 0.12 * R(), fine: true });
+          }
+          th += L * (0.5 + R() * 1.6) + baseL * 0.15 * R();
+        }
+      }
+    }
     // the pole star itself
-    arcs.push(Object.assign(mk(13, 2.2, 0.62, 1), { col: C.trailCream, kind: 3 }));
+    arcs.push(Object.assign(mk(13, 2.2, 0.62, 1), { col: C.trailCream, kind: 3, dash: 0 }));
     arcs.sort((a, b) => a.b - b.b);
     S.trailCount = arcs.length;
 
@@ -114,13 +166,18 @@
         if (wm > 0.02) { col = mix(col, C.amberHot, Math.min(1, wm * 1.4)); al = Math.min(1, al + wm * 0.5); }
         const q = (v) => Math.round(v / 6) * 6;
         const key = css([q(col[0]), q(col[1]), q(col[2])], Math.round(clamp(al) * 20) / 20);
-        OB.ink(B.get(key), pts, a.w * (1 + wm * 0.6), { t0: 0.2, t1: 0.35, wn: 0.35, ph, min: 0.1 });
+        if (a.dash) {
+          const ws = OB.inkWidths(pts, a.w * (1 + wm * 0.6), { t0: 0.2, t1: 0.35, wn: 0.35, ph, min: 0.1 });
+          const per = a.dash + 2, off = Math.floor(ph * 10) % per;
+          OB.runs(B.get(key), pts, (k) => ws[k] * 1.15, (k) => (k + off) % per < per * 0.62, 2);
+        } else OB.ink(B.get(key), pts, a.w * (1 + wm * 0.6), { t0: 0.2, t1: 0.35, wn: 0.35, ph, min: 0.1 });
         a.end = pts[0];
         a.mid = m;
       }
       B.fill(ctx);
     };
     const dim = arcs.filter((a) => a.b < 0.55), bright = arcs.filter((a) => a.b >= 0.55);
+    S.trailCount = arcs.length;
     drawArcs(dim);
 
     // ---- 3. Milky Way: stratified (blue-noise) stipple through the trails
@@ -153,7 +210,33 @@
           p.arc(px, py, rr, 0, OB.TAU);
         }
       }
+      // star clouds: knots of extra fine stipple inside the band
+      for (let k = 0; k < 90000; k++) {
+        const x = R() * W, y = R() * 2300;
+        const d = S.mwDensity(x, y);
+        if (d < 0.25 || R() > d * S.mwKnots(x, y) * 1.4) continue;
+        const p = B.get(R() < 0.6 ? cols[3] : cols[1]);
+        const rr = 0.35 + 0.35 * R();
+        p.moveTo(x + rr, y);
+        p.arc(x, y, rr, 0, OB.TAU);
+      }
       B.fill(ctx);
+      // dust lanes: dark stipple and short dark strokes laid along the band, eating the stars
+      const ang = Math.atan2(S.mw.by - S.mw.ay, S.mw.bx - S.mw.ax);
+      const Pd = new Path2D(), Ps = new Path2D();
+      for (let k = 0; k < 160000; k++) {
+        const x = R() * W, y = R() * 2300;
+        const du = S.mwDust(x, y);
+        if (du < 0.08 || R() > du * 1.2) continue;
+        if (R() < 0.12) {
+          const L = 5 + 16 * R(), a = ang + (R() - 0.5) * 0.25;
+          OB.ribbon(Ps, [[x, y], [x + Math.cos(a) * L * 0.5, y + Math.sin(a) * L * 0.5], [x + Math.cos(a) * L, y + Math.sin(a) * L]], [0.2, 0.7 + 0.9 * du, 0.2]);
+        } else OB.dot(Pd, x, y, 0.6 + 1.1 * R() * du);
+      }
+      ctx.fillStyle = OB.css(C.skyTones[1][1], 0.8);
+      ctx.fill(Pd);
+      ctx.fillStyle = OB.css(C.skyTones[0][1], 0.55);
+      ctx.fill(Ps);
     }
 
     drawArcs(bright);
@@ -217,6 +300,27 @@
     ctx.beginPath();
     ctx.arc(hx, hy, 4.2, 0, OB.TAU);
     ctx.fill();
+    // a fine persistent train: thin wavering threads beside and behind the streak, fading
+    {
+      const R2 = OB.rng(78);
+      const dx = m.x1 - m.x0, dy = m.y1 - m.y0, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+      for (let j = 0; j < 7; j++) {
+        const off = (j - 3) * 2.2 + (R2() - 0.5);
+        const pts = [];
+        for (let t = -0.35; t <= 0.85; t += 0.01) pts.push([m.x0 + dx * t + nx * (off * (0.4 + Math.max(0, -t) * 2.5) + 3 * OB.N(t * 6, j)), m.y0 + dy * t + ny * (off * (0.4 + Math.max(0, -t) * 2.5) + 3 * OB.N(t * 6, j))]);
+        const P2 = new Path2D();
+        OB.runs(P2, pts, (k) => 0.35 + 0.35 * (k / pts.length), (k) => OB.N(k * 0.25 + j * 3, j) > -0.2, 3);
+        ctx.fillStyle = css(j % 3 === 0 ? C.trailTeal : C.trailCream, 0.16 + 0.06 * (3 - Math.abs(j - 3)));
+        ctx.fill(P2);
+      }
+      const Pk = new Path2D();
+      for (let k = 0; k < 40; k++) {
+        const t = 0.2 + 0.75 * R2();
+        OB.dot(Pk, m.x0 + dx * t + nx * (R2() - 0.5) * 16 * (1 - t), m.y0 + dy * t + ny * (R2() - 0.5) * 16 * (1 - t), 0.4 + 0.7 * R2() * t);
+      }
+      ctx.fillStyle = css(C.trailCream, 0.6);
+      ctx.fill(Pk);
+    }
     // fragments
     const R = OB.rng(77);
     for (let k = 0; k < 7; k++) {

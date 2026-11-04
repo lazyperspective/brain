@@ -21,10 +21,18 @@
         let gr = (hash(x, y) - 0.5) * 9 + (vn(nx, ny, 2.6) - 0.5) * 10 + (vn(nx + 999, ny, 31) - 0.5) * 7;
         // paper shows through ink a little more in the lights
         gr *= 0.55 + lum / 255;
-        // ink starvation in dense darks: tiny pale pits
-        if (lum < 50) {
+        // plate tone: faint horizontal wiping streaks left on the plate
+        gr += (vn(nx * 0.07 + 333, ny * 1.1, 1.6) - 0.5) * 7 * (0.4 + lum / 255);
+        // ink starvation in dense darks: tiny pale pits (rarer in the mid tones)
+        if (lum < 90) {
           const k = vn(nx, ny + 777, 1.9);
-          if (k > 0.86) gr += (k - 0.86) * 160;
+          const th = lum < 50 ? 0.86 : 0.9;
+          if (k > th) gr += (k - th) * 160;
+        }
+        // stray ink specks: tiny dark flecks in the lights and mid tones
+        if (lum > 45) {
+          const k2 = vn(nx + 555, ny, 1.7);
+          if (k2 > 0.88) gr -= (k2 - 0.88) * 260;
         }
         const dx = x - cx, dy = y - cy;
         const ex = Math.abs(dx) / cx, ey = Math.abs(dy) / cy;

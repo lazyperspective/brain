@@ -452,7 +452,7 @@
         let on = false, ww = 0;
         if (x >= x0 - 3 && x <= x1 + 3 && y >= y0 - 3 && y <= y1 + 3 && (!o.inside || o.inside(x, y))) {
           const e = o.D(x, y) - thr + 0.06 * (OB.vnoise(u + ph * 50, v, 23) - 0.5);
-          if (e > 0) {
+          if (e > 0 && !(o.brk && OB.vnoise(u + ph * 91, i * 13.7, o.brkS || 11) < o.brk)) {
             on = true;
             ww = Math.max(wmin, w * Math.min(1, e / fade)) * (o.wAt ? o.wAt(x, y) : 1);
           }
