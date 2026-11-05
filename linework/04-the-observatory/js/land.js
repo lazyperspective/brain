@@ -934,19 +934,23 @@
         const nearTop = i > n - 40;
         if (steep < 0.5 && !nearTop) { acc = 0; continue; }
         acc += 3;
-        const gap = p.w * (nearTop ? 0.3 : 0.24) * (0.8 + 0.4 * OB.hash(i, 3));
+        // irregular rises, with the odd longer landing, as a path built by hand on a slope
+        const gap = p.w * (nearTop ? 0.3 : 0.24) * (0.55 + 1.0 * OB.hash(i, 3)) * (OB.hash(i, 9) < 0.14 ? 2.3 : 1);
         if (acc < gap) continue;
         acc = 0;
         const a = Le[i], b = Re[i];
         const key = OB.warmCss(C.ink, p.x, p.y, 'path', 1);
         const ln = OB.wline(a[0], a[1], b[0], b[1], 6, 0.9 + p.w * 0.006, i);
         OB.ink(Bs.get(key), ln, lerp(1.0, 3.6, depth(p.y)), { t0: 0.12, t1: 0.12, wn: 0.45, ph: i });
+        // the worn nose of each step catches the lantern-and-sky light just above its riser line
+        const lnH = ln.map((q) => [q[0], q[1] - p.w * 0.022]);
+        OB.ink(Bs.get(css(C.pathHi, 0.55)), lnH.slice(Math.floor(lnH.length * 0.1 * OB.hash(i, 5)), lnH.length - Math.floor(lnH.length * 0.2 * OB.hash(i, 6))), lerp(0.7, 2.0, depth(p.y)), { t0: 0.3, t1: 0.3, wn: 0.6, ph: i + 2 });
         const ln2 = ln.map((q) => [q[0], q[1] + p.w * 0.04]);
         OB.ink(Bs.get(css(C.ink, 0.45)), ln2, lerp(0.8, 2.6, depth(p.y)), { t0: 0.2, t1: 0.2, wn: 0.6, ph: i + 1 });
         // stone joints within the step
         const nj = Math.floor(p.w / 70) + 1;
         for (let k = 0; k < nj; k++) {
-          const t = (k + 0.3 + 0.4 * OB.hash(i, k)) / (nj + 0.2);
+          const t = (k + 0.15 + 0.7 * OB.hash(i, k)) / (nj + 0.2);
           const q = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
           OB.ink(Bs.get(key), [q, [q[0] + 1, q[1] + gap * 0.9]], lerp(0.8, 2.2, depth(p.y)), { t0: 0.2, t1: 0.2 });
         }

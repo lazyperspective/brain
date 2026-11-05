@@ -51,6 +51,12 @@
       const t1 = 0.25 + 0.25 * R(), t2 = 0.25 + 0.25 * R();
       base.splice(i, 1, [b[0] + (a[0] - b[0]) * t1, b[1] + (a[1] - b[1]) * t1], [b[0] + (c[0] - b[0]) * t2, b[1] + (c[1] - b[1]) * t2]);
     }
+    // weathered granite: corners rounded off (two Chaikin passes) before the edge is roughened
+    for (let it = 0; it < 2; it++) {
+      const nb = [];
+      for (let i = 0; i < base.length; i++) { const a = base[i], b = base[(i + 1) % base.length]; nb.push([a[0] * 0.78 + b[0] * 0.22, a[1] * 0.78 + b[1] * 0.22], [a[0] * 0.22 + b[0] * 0.78, a[1] * 0.22 + b[1] * 0.78]); }
+      base = nb;
+    }
     const out = OB.roughen(base, true, s * 0.012 + 0.5, 0.09, o.seed % 997, Math.max(3, s * 0.02));
     const outPath = OB.path(out);
     const bb = OB.bbox(out);
@@ -60,11 +66,11 @@
     const wk = OB.warm(cx, cy, tag);
     const tone = (d) => mix(OB.toneOf(o.tones, d), C.warmStone, Math.min(0.45, wk * 0.5));
     if (o.halo !== false) {
-      const k = 1 + (Math.max(gap, s * 0.02 + 2) * 2.2) / Math.max(10, Math.min(w, h) * 0.5);
+      const k = 1 + (Math.max(gap, s * 0.02 + 2) * (1.0 + 0.5 * R())) / Math.max(10, Math.min(w, h) * 0.5);
       ctx.fillStyle = css(C.crevice, 0.92);
       ctx.fill(OB.path(base.map((q) => [cx + (q[0] - cx) * k, cy + (q[1] - cy) * k + Math.max(gap, 3) * 0.6])));
-      ctx.fillStyle = css(C.crevice, 0.5);
-      ctx.fill(OB.path(base.map((q) => [q[0] + s * 0.035, q[1] + s * 0.06])));
+      ctx.fillStyle = css(C.crevice, 0.45);
+      ctx.fill(OB.path(base.map((q) => [q[0] + s * 0.02, q[1] + s * 0.04])));
     }
     // block planes: a sky-lit top cut off by a kinked lip, then front planes split by
     // fracture lines; the face turned to the light is pale, the one turned away is dark
@@ -212,6 +218,37 @@
       ctx.fill(Pl);
       ctx.fillStyle = css(C.ink, 0.55);
       ctx.fill(Pd);
+    }
+    // the block's roundness: broken contour lines wrapping the sky-lit top, nested in toward its crown
+    if (s > 50) {
+      const top = fd.find((f) => f.top);
+      if (top) {
+        const Pc = new Path2D();
+        const crown = [cx + (R() - 0.5) * w * 0.2, bb[1] + h * 0.18];
+        for (let m = 1; m <= 5; m++) {
+          const f = 1 - m * 0.15;
+          const ring = out.map((q) => [crown[0] + (q[0] - crown[0]) * f, crown[1] + (q[1] - crown[1]) * f]);
+          const runs = [];
+          let run = [];
+          ring.forEach((q, i) => { const keep = OB.N(i * 0.12 + m * 3.1, o.seed) > -0.15 && q[1] < cutY(q[0]) - 2; if (keep) run.push(q); else { if (run.length > 3) runs.push(run); run = []; } });
+          if (run.length > 3) runs.push(run);
+          for (const r of runs) OB.ink(Pc, r, lw * (0.55 + 0.1 * m), { t0: 0.25, t1: 0.25, wn: 0.5, ph: o.seed + m });
+        }
+        ctx.save(); ctx.clip(outPath); ctx.fillStyle = inkAt(cx, cy); ctx.fill(Pc); ctx.restore();
+      }
+      // the sky-lit rim along the upper silhouette
+      const Pr = new Path2D();
+      const rim = [];
+      let runR = [];
+      out.forEach((q, i) => {
+        const prev = out[(i - 1 + out.length) % out.length], next = out[(i + 1) % out.length];
+        const nx = (next[1] - prev[1]), ny = -(next[0] - prev[0]), l = Math.hypot(nx, ny) || 1;
+        const up = -(ny / l) * 0.9 - (nx / l) * 0.3;
+        if (up > 0.35) runR.push([q[0] + (q[0] - cx) * -0.012, q[1] + lw * 1.6]); else { if (runR.length > 3) rim.push(runR); runR = []; }
+      });
+      if (runR.length > 3) rim.push(runR);
+      for (const r of rim) OB.ink(Pr, r, lw * 1.1, { t0: 0.3, t1: 0.3, wn: 0.6, ph: o.seed + 9 });
+      ctx.save(); ctx.clip(outPath); ctx.fillStyle = css(C.rockHi, 0.55); ctx.fill(Pr); ctx.restore();
     }
     ctx.restore();
     OB.outline(ctx, out, lw * 1.6 * (o.olw || 1), inkAt, {});
