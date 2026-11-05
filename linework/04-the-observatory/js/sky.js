@@ -124,20 +124,8 @@
       const pal = [C.trailOrange, C.trailGold, C.trailTeal, mix(C.trailOrange, C.trailGold, 0.5)];
       for (let k = 0; k < 12 && cand.length; k++) {
         const a = cand.splice(Math.floor(R() * cand.length), 1)[0];
-        // the warm ones stay pale and fine so they never compete with the lit dome
-        const warmT = k % pal.length !== 2;
-        a.col = mix(pal[k % pal.length], C.trailCream, warmT ? 0.58 : 0.22); a.kind = 1; a.w *= warmT ? 1.0 : 1.35; a.dash = 0;
-        if (warmT) a.a *= 0.8;
+        a.col = mix(pal[k % pal.length], C.trailCream, 0.22); a.kind = 1; a.w *= 1.35; a.dash = 0;
       }
-    }
-    // twinkle dashes only on a handful of trails; the rest run solid (no road markings)
-    {
-      const Rd = OB.rng(91);
-      const dashed = arcs.filter((a) => a.dash);
-      const keep = new Set();
-      const pool = dashed.filter((a) => a.r > 260 && a.b > 0.08 && a.b < 0.5);
-      for (let k = 0; k < 7 && pool.length; k++) keep.add(pool.splice(Math.floor(Rd() * pool.length), 1)[0]);
-      for (const a of dashed) if (!keep.has(a)) a.dash = 0;
     }
     // very fine, faint trails threading the gaps
     {

@@ -92,9 +92,7 @@
       }
       const jag = N.ridged(x * 0.0055, 1.3, 5) - 0.62;
       const fine = N.ridged(x * 0.02, 4.1, 3) - 0.6;
-      // a third, short-wave octave cuts the crest into crags and notches
-      const crag = N.ridged(x * 0.055, 7.7, 2) - 0.6;
-      return sp.base - env - (0.32 * env + sp.rough) * 1.5 * jag - (0.1 * env + sp.rough * 0.45) * fine - (0.07 * env + 5) * crag;
+      return sp.base - env - (0.32 * env + sp.rough) * 1.5 * jag - (0.06 * env + sp.rough * 0.3) * fine;
     };
   };
   const peakAt = (sp, sky, x) => {
@@ -121,10 +119,6 @@
       const ptop = sp.base - p.h;
       const side = x - p.x + (y - ptop) * (0.3 + 0.25 * N(y * 0.004, p.x)) + 40 * N.fbm(x * 0.006, y * 0.006, 3);
       let d = side > 0 ? sp.dShadow : sp.dLit;
-      // arêtes and couloirs radiating from the summit: alternating lit and shaded facets
-      const ang = Math.atan2(Math.max(24, y - ptop), (x - p.x) * 0.9);
-      const fac = N(ang * 7.5 + p.x * 0.013, p.x * 0.01 + 3.3) + 0.45 * N(ang * 17 + p.x * 0.02, 7.1);
-      d += (side > 0 ? 0.16 : 0.22) * (smooth(-0.12, 0.18, fac) - 0.45) * (1 - 0.45 * smooth(sp.base - 60, sp.bottom, y));
       d += 0.1 * N.fbm(x * 0.005, y * 0.005, 3);
       d -= sp.mistFade * smooth(sp.base - 80, sp.bottom - 20, y);
       return clamp(d);
@@ -146,10 +140,8 @@
     for (const L of lines) {
       if (L.length < 3) continue;
       const m = L[L.length >> 1];
-      const dm = D(m[0], m[1]);
-      const ws = OB.inkWidths(L, lerp(sp.lw[0], sp.lw[1], dm) * (dm > (sp.dLit + sp.dShadow) / 2 ? 1.35 : 1), { t0: 0.25, t1: 0.35, wn: 0.3, ph: m[0] });
-      // hatching on the shaded facets is cut a step darker so the slopes model
-      OB.ribbon(B.get(dm > (sp.dLit + sp.dShadow) / 2 ? sp.crestCss : sp.lineCss), L, ws);
+      const ws = OB.inkWidths(L, lerp(sp.lw[0], sp.lw[1], D(m[0], m[1])), { t0: 0.25, t1: 0.35, wn: 0.3, ph: m[0] });
+      OB.ribbon(B.get(sp.lineCss), L, ws);
     }
     B.fill(ctx);
     // gullies: dark runnels falling from the notches in the ridge, shaded on their lee side
@@ -162,7 +154,6 @@
         if (y > sky(x - 18) + 2 && y > sky(x + 18) + 2 && (!starts.length || x - starts[starts.length - 1] > 40)) starts.push(x);
       }
       for (let k = 0; k < 14; k++) starts.push(R() * W);
-      { const R2 = OB.rng(sp.seed + 33); for (let k = 0; k < 22; k++) starts.push(R2() * W); }
       for (const sx of starts) {
         let x = sx, y = sky(sx) + 3;
         const L = (sp.bottom - y) * (0.25 + 0.5 * R());
@@ -535,27 +526,16 @@
     let cur = new Float32Array(nx);
     for (let i = 0; i < nx; i++) { const x = x0 + i * xs; cur[i] = y0 - 260 + (x - x0) * tilt + o.fold * N.fbm(x * 0.0016, 0.5, 3) + off(x) * o.bandH(y0); }
     bands.push(cur);
-    let prevHk = 0.6;
     for (let k = 0; k < 500; k++) {
       const nxt = new Float32Array(nx);
-      const u = R();
-      // varied beds: thin partings, ordinary courses and the odd massive bed
-      const hk = !o.vary ? 0.4 + 1.5 * Math.pow(u, 1.4) : u < 0.18 ? 0.3 + 1.2 * u : u > 0.84 ? 2.1 + 9 * (u - 0.84) : 0.6 + 1.3 * Math.pow((u - 0.18) / 0.66, 1.3);
+      const hk = 0.4 + 1.5 * Math.pow(R(), 1.4);
       let mn = Infinity;
       for (let i = 0; i < nx; i++) {
         const x = x0 + i * xs;
-        nxt[i] = cur[i] + o.bandH(cur[i]) * hk * (o.vary ? 1 + 0.08 * N(x * 0.0028, k * 1.7) : 1 + 0.22 * N(x * 0.0028, k * 1.7));
+        nxt[i] = cur[i] + o.bandH(cur[i]) * hk * (1 + 0.22 * N(x * 0.0028, k * 1.7));
         mn = Math.min(mn, nxt[i]);
       }
-      if (o.vary) {
-        // beds pinch and swell along their length: each boundary is nudged on its own (not
-        // carried down the stack), never by more than a third of the thinner neighbouring bed
-        const disp = new Float32Array(nx);
-        const lim = 0.33 * Math.min(hk, prevHk);
-        for (let i = 0; i < nx; i++) disp[i] = nxt[i] + o.bandH(nxt[i]) * lim * N(x0 * 0.001 + i * xs * 0.0065, k * 2.93 + 11);
-        bands.push(disp);
-      } else bands.push(nxt);
-      prevHk = hk;
+      bands.push(nxt);
       cur = nxt;
       if (mn > y1 + 20) break;
     }
@@ -574,42 +554,16 @@
       while (x < x1 + 50) { x += o.bandH(b[col(x)]) * (0.9 + 2.4 * R()); arr.push(x); }
       return arr;
     });
-    // master cracks: long vertical fissures through many beds, each with a shadowed side face
-    const mcr = [];
-    if (o.vary) {
-      const Rm = OB.rng(o.seed + 300);
-      const nm = Math.round((x1 - x0) / 95);
-      for (let q = 0; q < nm; q++) {
-        const xa = x0 + Rm() * (x1 - x0), ya = y0 + Rm() * (y1 - y0) * 0.85, len = 160 + Rm() * 520;
-        mcr.push({ xa, ya, yb: ya + len, sl: (Rm() - 0.5) * 0.12, w: 7 + o.bandH(ya) * (0.2 + 0.25 * Rm()) });
-      }
-    }
     const Dc = (x, y) => {
       const [k, t] = bandAt(x, y);
       let d = o.D(x, y);
       if (k >= 0) {
         d += (OB.hash(k, o.seed) - 0.5) * 0.18;
         if (t < 0.17) d -= 0.4 * (1 - t / 0.17) + 0.12;
-        else if (t > 0.7) d += 0.39 * smooth(0.7, 1, t);
+        else if (t > 0.7) d += 0.32 * smooth(0.7, 1, t);
         const J = joints[k];
         const sw = 6 + o.bandH(y) * 0.14;
-        let j = 0;
-        for (; j < J.length; j++) { const dx = x - J[j]; if (dx > 0 && dx < sw) { d += 0.26 * (1 - dx / sw) + 0.1; break; } if (dx < 0) break; }
-        if (o.vary && j < J.length) {
-          // blocks that step out of the face: a lit front, its side face in shadow at the right joint
-          const hb = OB.hash(k * 31 + j, o.seed + 5);
-          if (hb > 0.7) {
-            d -= 0.12;
-            const toR = J[j] - x;
-            if (toR >= 0 && toR < sw * 2.4) d += 0.42 * smooth(sw * 2.4, 0, toR);
-            if (t > 0.82) d += 0.2;
-          }
-        }
-      }
-      for (const m of mcr) {
-        if (y < m.ya || y > m.yb) continue;
-        const dx = x - (m.xa + (y - m.ya) * m.sl);
-        if (dx > 0 && dx < m.w) d += 0.36 * (1 - dx / m.w) + 0.08;
+        for (let j = 0; j < J.length; j++) { const dx = x - J[j]; if (dx > 0 && dx < sw) { d += 0.26 * (1 - dx / sw) + 0.1; break; } if (dx < 0) break; }
       }
       return clamp(d - 0.5 * OB.warm(x, y, o.tag));
     };
@@ -649,19 +603,6 @@
       }
       ctx.fillStyle = css(C.ink);
       ctx.fill(Pf);
-    }
-    if (mcr.length) {
-      const Pm = new Path2D(), Pml = new Path2D();
-      for (const m of mcr) {
-        const ln = OB.wline(m.xa, m.ya, m.xa + (m.yb - m.ya) * m.sl, m.yb, 6, 3.5, m.xa);
-        const lw = 1.6 + o.bandH(m.ya) / 30;
-        OB.ink(Pm, ln, lw, { t0: 0.15, t1: 0.25, wn: 0.6, ph: m.xa });
-        OB.runs(Pml, ln.map((q) => [q[0] - lw * 1.6, q[1]]), () => lw * 0.5, (q) => OB.N(q * 0.11, m.xa) > -0.1, 3);
-      }
-      ctx.fillStyle = css(C.ink);
-      ctx.fill(Pm);
-      ctx.fillStyle = css(C.rockHi, 0.45);
-      ctx.fill(Pml);
     }
     // ledge lips, highlights, joints
     const B = new OB.Batch();
@@ -967,30 +908,6 @@
     }
     ctx.save();
     ctx.clip(Pf);
-    // the tread is worn pale down the middle and darker toward its edges, never a flat ribbon
-    {
-      const Bt = new OB.Batch();
-      const ptAt = (k, f) => [pp[k].x + pp[k].nx * pp[k].w * f, pp[k].y + pp[k].ny * pp[k].w * f];
-      for (let i = 0; i < n - 1; i += 4) {
-        const j = Math.min(n - 1, i + 5);
-        const p = pp[i];
-        const wm = OB.warm(p.x, p.y, 'path');
-        const shade = css(mix(C.pathShade, C.pathWarm, Math.min(1, wm * 0.7)), 0.62);
-        const wear = css(mix(C.pathHi, C.amberHot, Math.min(1, wm * 0.9)), 0.2 + 0.1 * smooth(2000, 3600, p.y));
-        const L1 = [], L2 = [], R1 = [], R2 = [], M1 = [], M2 = [];
-        for (let k = i; k <= j; k++) {
-          const ew = 0.15 + 0.06 * N(k * 0.03, 4.4), ew2 = 0.15 + 0.06 * N(k * 0.03, 8.8);
-          const c = 0.06 * N(k * 0.012, 2.2), mw = 0.1 + 0.05 * N(k * 0.025, 6.1);
-          L1.push(ptAt(k, -0.55)); L2.push(ptAt(k, -0.5 + ew));
-          R1.push(ptAt(k, 0.55)); R2.push(ptAt(k, 0.5 - ew2));
-          M1.push(ptAt(k, c - mw)); M2.push(ptAt(k, c + mw));
-        }
-        OB.path(L1.concat(L2.reverse()), true, Bt.get(shade));
-        OB.path(R1.concat(R2.reverse()), true, Bt.get(shade));
-        OB.path(M1.concat(M2.reverse()), true, Bt.get(wear));
-      }
-      Bt.fill(ctx);
-    }
     {
       // lines along the path: ruts and edge shading
       const B = new OB.Batch();
@@ -1086,30 +1003,6 @@
       ctx.fill(Pg);
       ctx.fillStyle = css(C.pathHi, 0.45);
       ctx.fill(Pp);
-      // stones bedded in the tread: more toward the edges, each with a dark seat and a lit top
-      {
-        const Rs = OB.rng(75);
-        const Ps2 = new Path2D(), Ph2 = new Path2D();
-        for (let i = 0; i < n; i += 2) {
-          const p = pp[i];
-          if (Rs() > 0.3) { Rs(); Rs(); continue; }
-          const side = Rs() < 0.5 ? -1 : 1;
-          const f = side * (0.12 + 0.3 * Math.pow(Rs(), 0.6));
-          const cx = p.x + p.nx * p.w * f, cy = p.y + p.ny * p.w * f;
-          const r = p.w * (0.03 + 0.05 * Math.pow(Rs(), 2)) + 1.2;
-          const poly = [];
-          for (let v = 0; v < 6; v++) { const a = (v / 6) * OB.TAU + i; poly.push([cx + Math.cos(a) * r * (0.8 + 0.3 * OB.hash(i, v)), cy + Math.sin(a) * r * 0.6 * (0.8 + 0.3 * OB.hash(v, i))]); }
-          OB.path(poly, true, Ps2);
-          OB.ribbon(Ph2, [[cx - r * 0.7, cy - r * 0.1], [cx - r * 0.1, cy - r * 0.45], [cx + r * 0.55, cy - r * 0.3]], [0.2, Math.max(0.5, r * 0.18), 0.2]);
-        }
-        ctx.fillStyle = css(C.stoneTones[2][1]);
-        ctx.fill(Ps2);
-        ctx.lineWidth = 1.2;
-        ctx.strokeStyle = css(C.ink, 0.85);
-        ctx.stroke(Ps2);
-        ctx.fillStyle = css(C.pathHi, 0.6);
-        ctx.fill(Ph2);
-      }
       ctx.strokeStyle = css(C.ink, 0.8);
       ctx.lineWidth = 1.1;
       ctx.stroke(Pp);

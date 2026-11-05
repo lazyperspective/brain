@@ -69,8 +69,8 @@
       const k = 1 + (Math.max(gap, s * 0.02 + 2) * (1.0 + 0.5 * R())) / Math.max(10, Math.min(w, h) * 0.5);
       ctx.fillStyle = css(C.crevice, 0.92);
       ctx.fill(OB.path(base.map((q) => [cx + (q[0] - cx) * k, cy + (q[1] - cy) * k + Math.max(gap, 3) * 0.6])));
-      ctx.fillStyle = css(C.crevice, 0.58);
-      ctx.fill(OB.path(base.map((q) => [q[0] + s * 0.02, q[1] + s * 0.05])));
+      ctx.fillStyle = css(C.crevice, 0.45);
+      ctx.fill(OB.path(base.map((q) => [q[0] + s * 0.02, q[1] + s * 0.04])));
     }
     // block planes: a sky-lit top cut off by a kinked lip, then front planes split by
     // fracture lines; the face turned to the light is pale, the one turned away is dark
@@ -126,12 +126,9 @@
       ctx.save();
       ctx.clip(OB.path(f.F));
       const D = (x, y) => f.d + (f.top ? 0.15 * (y - bb[1]) / (h + 1) : 0.18 * ((y - cutY(x)) / (bb[3] - cutY(x) + 1) - 0.3)) - 0.45 * OB.warm(x, y, tag);
-      // wrap the form: domed arcs across the top, barrel-bowed strokes down the fronts
-      const hw2 = Math.hypot(w, h) / 2 + 2;
-      const wrap = !o.wrap ? undefined : f.top ? (u) => 0.45 * (u * u) / hw2 : (u, v) => 0.32 * ((u * u) / hw2) * clamp((v / hw2) * 2.2, -1, 1);
-      OB.engrave(ctx, { bbox: bb, angle: ang, sp: o.sp * (f.top ? 1.3 : 0.95 + 0.15 * R()), D, w: lw * 1.2, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.35, seed: o.seed * 7 + k, step: 3, fade: 0.25, brk: 0.22, warp: wrap });
-      if (f.d > 0.5) OB.engrave(ctx, { bbox: bb, angle: ang + 0.95 + (R() - 0.5) * 0.3, sp: o.sp * 1.1, D: (x, y) => D(x, y) - 0.5, thrRange: 0.45, w: lw, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.4, seed: o.seed * 7 + k + 100, step: 3, brk: 0.2, warp: wrap });
-      if (f.d > 0.7) OB.engrave(ctx, { bbox: bb, angle: ang - 0.8 + (R() - 0.5) * 0.3, sp: o.sp * 1.25, D: (x, y) => D(x, y) - 0.7, thrRange: 0.3, w: lw * 0.9, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.4, seed: o.seed * 7 + k + 200, step: 3, brk: 0.2, warp: wrap });
+      OB.engrave(ctx, { bbox: bb, angle: ang, sp: o.sp * (f.top ? 1.3 : 0.95 + 0.15 * R()), D, w: lw * 1.2, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.35, seed: o.seed * 7 + k, step: 3, fade: 0.25, brk: 0.22 });
+      if (f.d > 0.5) OB.engrave(ctx, { bbox: bb, angle: ang + 0.95 + (R() - 0.5) * 0.3, sp: o.sp * 1.1, D: (x, y) => D(x, y) - 0.5, thrRange: 0.45, w: lw, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.4, seed: o.seed * 7 + k + 100, step: 3, brk: 0.2 });
+      if (f.d > 0.7) OB.engrave(ctx, { bbox: bb, angle: ang - 0.8 + (R() - 0.5) * 0.3, sp: o.sp * 1.25, D: (x, y) => D(x, y) - 0.7, thrRange: 0.3, w: lw * 0.9, wmin: lw * 0.3, levels: 8, colAt: inkAt, wob: 0.4, seed: o.seed * 7 + k + 200, step: 3, brk: 0.2 });
       // granite grain: dark mica specks everywhere, pale feldspar specks on the lit planes
       if (s > 30) {
         const Pg = new Path2D(), Pw = new Path2D();
@@ -590,7 +587,7 @@
         OB.path(bots.map((q) => [q[0], q[1] - 2]).concat(sh.reverse()), true, shadows);
       }
     }
-    ctx.fillStyle = css(C.crevice, 0.68);
+    ctx.fillStyle = css(C.crevice, 0.55);
     ctx.fill(shadows);
     OB.drawCliff(ctx, face, [0, 1700, W, 3900], {
       D: (x, y) => clamp(M.D(x, y) + 0.05), dip: -0.06, fold: 20, seed: 57, tag: 'massif', tones: C.rockTones, olw: 2.2, grass: 0.14,
@@ -631,7 +628,7 @@
       OB.path(OB.roughen(ex, true, c.size * 0.035, 2.4 / c.size, nb++ % 997, Math.max(3, c.size * 0.03)), true, cf);
     }
     OB.drawCliff(ctx, cf, [0, 1640, W, 3900], {
-      D: (x, y) => clamp(M.D(x, y) + 0.04), dip: -0.08, fold: 9, seed: 47, tag: 'massif', tones: C.rockTones, olw: 2.6, grass: 0.12, vary: true,
+      D: (x, y) => clamp(M.D(x, y) + 0.04), dip: -0.08, fold: 26, seed: 47, tag: 'massif', tones: C.rockTones, olw: 2.6, grass: 0.12,
       bandH: (y) => lerp(24, 110, Math.pow(smooth(1680, 3900, y), 0.9)),
       strips: [[0, 2250, 2.6, 0.95], [2250, 2900, 3.3, 1.25], [2900, 4000, 4.4, 1.7]],
     });
@@ -738,37 +735,6 @@
         ctx.stroke(Pb);
         ctx.fillStyle = css(C.scree, 0.6);
         ctx.fill(Pbh);
-        // the joints are not empty: faint hatching, small lit stones and grass, kept the darkest areas
-        OB.engrave(ctx, { bbox: F.bbox, angle: F.side === 'L' ? -0.35 : 0.35, sp: 7.5, D: () => 0.62, w: 1.1, wmin: 0.4, levels: 4, col: css(mix(C.crevice, C.scree, 0.48)), wob: 0.8, seed: F.seed * 17 + 3, step: 4, brk: 0.35, inside: (x, y) => mask.inside(x, y) });
-        const Rg = OB.rng(F.seed * 53 + 9);
-        const Ps = new Path2D(), Psh = new Path2D(), Gd = new Path2D(), Gl = new Path2D();
-        for (let k = 0; k < 700; k++) {
-          const x = F.bbox[0] + Rg() * (F.bbox[2] - F.bbox[0]), y = F.bbox[1] + Rg() * (F.bbox[3] - F.bbox[1]);
-          const r = (3 + 8 * Math.pow(Rg(), 1.6)) * lerp(0.8, 1.6, smooth(2950, 3840, y));
-          const a0 = Rg() * 6, nv = 6;
-          if (!mask.inside(x, y)) continue;
-          const poly = [];
-          for (let v = 0; v < nv; v++) { const a = a0 + (v / nv) * OB.TAU; poly.push([x + Math.cos(a) * r * (0.75 + 0.4 * Rg()), y + Math.min(0.35, Math.sin(a) * 0.6) * r * (0.8 + 0.4 * Rg())]); }
-          OB.path(poly, true, Ps);
-          OB.ribbon(Psh, [[x - r * 0.75, y - r * 0.1], [x - r * 0.15, y - r * 0.42], [x + r * 0.55, y - r * 0.3]], [0.25, Math.max(0.6, r * 0.14), 0.25]);
-        }
-        for (let k = 0; k < 220; k++) {
-          const x = F.bbox[0] + Rg() * (F.bbox[2] - F.bbox[0]), y = F.bbox[1] + Rg() * (F.bbox[3] - F.bbox[1]);
-          const sz = lerp(14, 34, smooth(2950, 3840, y)) * (0.6 + 0.6 * Rg());
-          if (!mask.inside(x, y)) { Rg(); continue; }
-          OB.tuft(Gd, Gl, x, y, sz, (Rg() - 0.5) * 0.6, Rg, 0.25);
-        }
-        ctx.fillStyle = css(mix(C.crevice, H2('#28333e'), 0.7));
-        ctx.fill(Ps);
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = css(C.ink);
-        ctx.stroke(Ps);
-        ctx.fillStyle = css(C.scree, 0.68);
-        ctx.fill(Psh);
-        ctx.fillStyle = css(C.ink);
-        ctx.fill(Gd);
-        ctx.fillStyle = css(C.grassHi, 0.45);
-        ctx.fill(Gl);
       }
       const rocks = [];
       rocksIn.forEach((q, k) => {
@@ -783,7 +749,7 @@
           y = Math.min(y, q.y + q.r * sq * 0.6);
           poly.push([q.x + Math.cos(a) * q.r * (0.75 + 0.4 * R()), y]);
         }
-        const rp = OB.drawGranite(ctx, poly, { D: clamp(D(q.x, q.y) + 0.1 * R.norm()), size: q.r * 1.6, tones: C.fgTones, tag: 'fg', wrap: true, seed: 6000 + F.seed * 1000 + k, sp: lerp(3.8, 6.4, smooth(2900, 3840, q.y)), lw: lerp(1.4, 2.4, smooth(2900, 3840, q.y)), olw: 1.35, gap: 0, grain: 0.03, topF: flat < 0.25 ? 0.4 + 0.12 * R() : 0.14 + 0.16 * R() });
+        const rp = OB.drawGranite(ctx, poly, { D: clamp(D(q.x, q.y) + 0.1 * R.norm()), size: q.r * 1.6, tones: C.fgTones, tag: 'fg', seed: 6000 + F.seed * 1000 + k, sp: lerp(3.8, 6.4, smooth(2900, 3840, q.y)), lw: lerp(1.4, 2.4, smooth(2900, 3840, q.y)), olw: 1.35, gap: 0, grain: 0.03, topF: flat < 0.25 ? 0.4 + 0.12 * R() : 0.14 + 0.16 * R() });
         if (rp) rocks.push({ p: rp, size: q.r * 1.6, x: q.x, y: q.y });
       });
       // grass and flowers in the joints

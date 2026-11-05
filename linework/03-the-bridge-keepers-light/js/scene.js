@@ -123,7 +123,6 @@
     if (kind === 'soffit') k = 1.45;
     if (kind === 'tree') k = 0.9;
     if (kind === 'boat') k = 1.5;
-    if (kind === 'stone') k = 1.3; // raised cobbles catch more of the low firelight than the flat sand
     let v = (I + doorI + winI) * k;
     // light travelling across open water reaches the arch's underside and the bridge face
     if (kind === 'soffit' || kind === 'bridge') {

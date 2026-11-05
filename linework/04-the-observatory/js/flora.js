@@ -97,30 +97,21 @@
   // a cluster of needle tufts: a small dark core, then fans of short radiating strokes,
   // darker beneath and catching sky-light on top
   const cluster = (L, c, o, R) => {
-    // variation: some clusters thin and airy (sky through them), some heavy and dense
-    const v = c.v === undefined ? 0.5 : c.v;
-    const sparse = v < 0.34, dense = v > 0.72;
-    const { x, y } = c;
-    const r = c.r * (sparse ? 0.82 : dense ? 1.18 : 1);
-    const nul = new Path2D();
+    const { x, y, r } = c;
     const core = L.core;
     const nb = 3 + Math.floor(R() * 3);
     for (let k = 0; k < nb; k++) {
       const bx = x + (R() - 0.5) * r * 1.2 * (1 + 0.5 * o.wind), by = y + r * 0.15 + (R() - 0.5) * r * 0.35;
-      const br = r * (0.2 + 0.18 * R()) * (dense ? 1.2 : 1);
-      const rot = (R() - 0.5) * 0.6;
-      const padOn = !sparse || k === 0;
-      if (padOn) {
-        core.moveTo(bx + br, by);
-        core.ellipse(bx, by, br * 1.3, br * 0.75, rot, 0, OB.TAU);
-      }
+      const br = r * (0.2 + 0.18 * R());
+      core.moveTo(bx + br, by);
+      core.ellipse(bx, by, br * 1.3, br * 0.75, (R() - 0.5) * 0.6, 0, OB.TAU);
       // needle texture inside the pad, so the mass is never a flat fill
       const ns = 5 + Math.floor(R() * 6);
       for (let q = 0; q < ns; q++) {
         const a = R() * OB.TAU, rr = Math.sqrt(R());
         const sx = bx + Math.cos(a) * br * 1.1 * rr, sy = by + Math.sin(a) * br * 0.6 * rr;
         const na = -Math.PI / 2 + o.wind * 0.4 + (R() - 0.5) * 2.4, nl = br * (0.35 + 0.4 * R());
-        const tgt = !padOn ? nul : sy < by ? L.mid : L.dark;
+        const tgt = sy < by ? L.mid : L.dark;
         tgt.moveTo(sx, sy);
         tgt.lineTo(sx + Math.cos(na) * nl, sy + Math.sin(na) * nl * 0.7);
       }
@@ -133,12 +124,9 @@
       tufts.push([x + Math.cos(a) * r * 1.25 * rr + o.wind * r * 0.25, y + Math.sin(a) * r * 0.6 * rr]);
     }
     tufts.sort((a, b) => b[1] - a[1]);
-    let ti = 0;
     for (const [tx, ty] of tufts) {
       const rel = (ty - (y - r * 0.6)) / (r * 1.2);
-      // only the top of a cluster catches the sky, and not every cluster equally
-      let tgt = rel > 0.6 ? L.dark : rel > 0.3 ? (R() < 0.6 ? L.mid : L.dark) : R() < (dense ? 0.35 : 0.55) ? L.light : L.mid;
-      if (sparse && ti++ % 2 === 1) tgt = nul;
+      const tgt = rel > 0.6 ? L.dark : rel > 0.3 ? (R() < 0.6 ? L.mid : L.dark) : R() < 0.75 ? L.light : L.mid;
       const nn = 12 + Math.floor(R() * 9);
       const base = -Math.PI / 2 + o.wind * 0.35;
       for (let k = 0; k < nn; k++) {
@@ -264,7 +252,6 @@
       ctx.strokeStyle = css(C.ink);
       ctx.stroke(P);
     }
-    { const Rv = OB.rng(t.seed + 913); for (const c of clusters) c.v = Rv(); }
     clusters.sort((a, b) => a.y - b.y);
     const opts = { wind, needle, cones: t.cones === undefined ? 0.05 : t.cones };
     const cones = [];
