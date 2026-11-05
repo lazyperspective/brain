@@ -251,7 +251,7 @@
   (function () {
     const rng = new LW.RNG('eddies');
     const placed = [];
-    for (let it = 0; it < 6000 && STORMS.length < 19; it++) {
+    for (let it = 0; it < 6000 && STORMS.length < 13; it++) {
       const b = BOUNDS.length ? BOUNDS[Math.floor(rng.next() * BOUNDS.length)] : 0;
       const sbx = b + rng.range(-0.018, 0.018);
       if (Math.abs(sbx) > 0.9) continue;
@@ -265,7 +265,8 @@
       if (placed.some((q) => Math.hypot(q[0] - sx, q[1] - sy) < 70)) continue;
       const big = rng.next() < 0.25;
       const w = (big ? rng.range(34, 52) : rng.range(18, 32));
-      STORMS.push({ t, sb: sbx, rt: w / (R * cb), rs: (big ? 0.026 : 0.017) * cb, loops: big ? 4 : 3, col: (sbx > b ? -1 : 1) * 0.03 });
+      // eddies are sheared along the belt: long in longitude, thin in latitude, drawn as open swirls
+      STORMS.push({ t, sb: sbx, rt: 1.7 * w / (R * cb), rs: (big ? 0.022 : 0.014) * cb, loops: big ? 4 : 3, col: (sbx > b ? -1 : 1) * 0.03, a0: rng.range(0, Math.PI * 2), span: rng.range(3.4, 4.6), dir: rng.next() < 0.5 ? 1 : -1 });
       placed.push([sx, sy]);
     }
   })();
@@ -368,10 +369,12 @@
         const s = j / (nl + 0.6);
         const pts = [];
         const da = ST === STORM ? 0.035 : 0.09;
-        for (let a = 0; a <= Math.PI * 2 + 0.05; a += da) {
-          const sp = s * (1 - (ST === STORM ? 0.06 : 0.16) * a / 6.28);
-          const t = ST.t + Math.cos(a) * ST.rt * sp;
-          const sb = ST.sb + Math.sin(a) * ST.rs * sp;
+        const big = ST === STORM, aEnd = big ? Math.PI * 2 + 0.05 : ST.span - 0.5 * j;
+        for (let a = 0; a <= aEnd; a += da) {
+          const sp = s * (1 - (big ? 0.06 : 0.3) * a / 6.28);
+          const aa = big ? a : ST.a0 + ST.dir * (a + j * 0.7);
+          const t = ST.t + Math.cos(aa) * ST.rt * sp;
+          const sb = ST.sb + Math.sin(aa) * ST.rs * sp;
           const p = sphere(sb, t);
           if (p[2] > 1) pts.push(PL.x + p[0], PL.y + p[1]);
         }
