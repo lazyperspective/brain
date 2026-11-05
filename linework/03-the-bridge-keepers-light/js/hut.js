@@ -329,26 +329,56 @@
       return best;
     };
     const gDark = (x, y) => 0.5 + 0.38 * LW.smooth(2950, 3500, y) + 0.22 * LW.smooth(420, 0, x) + 0.06 * N.fbm(x / 120, y / 60, 2);
+    // firelight on the beach is stepped per cobble cell, so the light breaks along stones, not a stencil edge
+    const VC = 30, vx0 = gbb[0] - VC, vy0 = gbb[1] - VC;
+    const vnx = Math.ceil((gbb[2] - vx0) / VC) + 2, vny = Math.ceil((gbb[3] - vy0) / VC) + 2;
+    const VSX = new Float32Array(vnx * vny), VSY = new Float32Array(vnx * vny), VB = new Int8Array(vnx * vny);
+    {
+      const vr = new LW.RNG('beach-cells');
+      for (let j = 0; j < vny; j++) for (let i = 0; i < vnx; i++) {
+        const k = j * vnx + i;
+        VSX[k] = vx0 + (i + 0.1 + 0.8 * vr.next()) * VC;
+        VSY[k] = vy0 + (j + 0.1 + 0.8 * vr.next()) * VC * 0.8 + j * VC * 0.2;
+        VB[k] = LW.warmBand(LW.warm(VSX[k], VSY[k], 'rock') * 1.06, VSX[k], VSY[k], 0);
+      }
+    }
+    const bandAt = (x, y) => {
+      const ci = Math.floor((x - vx0) / VC), cj = Math.floor((y - vy0) / VC);
+      let best = -1, bd = 1e18;
+      for (let j = cj - 1; j <= cj + 1; j++) {
+        if (j < 0 || j >= vny) continue;
+        for (let i = ci - 1; i <= ci + 1; i++) {
+          if (i < 0 || i >= vnx) continue;
+          const k = j * vnx + i, dx = VSX[k] - x, dy = (VSY[k] - y) * 1.5;
+          const d = dx * dx + dy * dy;
+          if (d < bd) { bd = d; best = k; }
+        }
+      }
+      return best < 0 ? 0 : VB[best];
+    };
+    const bInk = (ink, x, y) => ink.col(LW.warmInkColor(bandAt(x, y), P.ink));
     LW.shadeFill(ctx, S, gp, gbb, (x, y, o) => {
       const sd = shoreDist(x, y);
-      let c = stoneFill(gDark(x, y), x, y, 'rock', [P.rock0, P.rock1, P.rock2, P.rock3, P.rock4]);
+      let c = LW.stepPick([P.rock0, P.rock1, P.rock2, P.rock3, P.rock4], LW.clamp(gDark(x, y), 0, 0.999), x, y, 0.03);
+      const bb = bandAt(x, y);
+      if (bb > 0) c = LW.warmFill[bb];
       if (sd < 26 + 8 * N.n2(x / 30, y / 30)) c = LW.mix(c, P.water2, 0.45); // wet sand lap
       o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
     });
     {
       const ink = new LW.Ink(711);
       ink.wobble = 0.8;
-      const field = (x, y) => shoreDist(x, y) + 34 * N.fbm(x / 260, y / 170, 3);
-      LW.contours({ bbox: gbb, step: 3, field, levelStep: 13 }, (pts, lev) => {
+      // tide lines: long, gently curving, widely spaced, following the shore
+      const field = (x, y) => shoreDist(x, y) + 22 * N.fbm(x / 340, y / 220, 2);
+      LW.contours({ bbox: gbb, step: 3, field, levelStep: 21 }, (pts, lev) => {
         ink.line(pts, (x, y) => {
           const wv = LW.warm(x, y, 'rock');
-          const rank = lev % 4 === 0 ? 0 : lev % 2 === 0 ? 1 : 2;
+          const rank = lev % 3 === 0 ? 0 : 1;
           const d = gDark(x, y) + 0.1 - 0.3 * Math.min(1, wv);
-          if (rank === 2 && d < 0.5) return -1;
-          if (rank === 1 && d < 0.32) return -1;
-          if (N.n2(x / 70, y / 26 + lev * 0.9) > 0.25) return -1;
-          return ink.st(inkAt(ink, x, y), 1.0 + d * 1.0);
-        }, { taper: 14 });
+          if (rank === 1 && d < 0.45) return -1;
+          if (N.n2(x / 190, y / 60 + lev * 0.9) > 0.3) return -1;
+          return ink.st(bInk(ink, x, y), 0.9 + d * 0.9);
+        }, { taper: 24 });
       });
       // sand stipple: dot density follows value
       {
@@ -359,7 +389,7 @@
           const d = gDark(x, y) - 0.35 * Math.min(1, LW.warm(x, y, 'rock'));
           if (sr.next() > 0.15 + d * 0.8) continue;
           const r = 0.7 + sr.next() * 1.0;
-          ink.fill([[x - r, y], [x, y - r * 0.8], [x + r, y], [x, y + r * 0.8]], LW.warmInkColor(LW.warmBand(LW.warm(x, y, 'rock'), x, y, 0), P.ink), 0);
+          ink.fill([[x - r, y], [x, y - r * 0.8], [x + r, y], [x, y + r * 0.8]], LW.warmInkColor(bandAt(x, y), P.ink), 0);
         }
       }
       // a second, finer grain of sand and grit, plus pale shell/quartz flecks
@@ -373,8 +403,8 @@
           if (!LW.pointInPoly(x, y, ground)) continue;
           const wv = LW.warm(x, y, 'rock');
           const d = gDark(x, y) - 0.35 * Math.min(1, wv);
-          if (u < 0.1 + d * 0.5) sdots.dot(x, y, 0.4 + r * 0.5, LW.rgb(LW.warmInkColor(LW.warmBand(wv, x, y, 0), P.ink)));
-          else if (u > 0.992) sdots.dot(x, y, 0.6 + r * 0.6, wv > 0.25 ? LW.rgb(P.warm5) : pale);
+          if (u < 0.1 + d * 0.5) sdots.dot(x, y, 0.4 + r * 0.5, LW.rgb(LW.warmInkColor(bandAt(x, y), P.ink)));
+          else if (u > 0.992) sdots.dot(x, y, 0.6 + r * 0.6, bandAt(x, y) >= 3 ? LW.rgb(P.warm5) : pale);
         }
       }
       ctx.save();
@@ -382,6 +412,10 @@
       ink.flush(ctx);
       sdots.flush(ctx);
       ctx.restore();
+      // a loose scatter of cobbles over the beach: each takes its own firelight step,
+      // so the light breaks across the stones in stepped bands
+      LW.drawStonePile(ctx, S, [[40, 2935], [560, 2935], [930, 2930], [960, 2990], [880, 3080], [800, 3180], [720, 3300], [620, 3400], [300, 3330], [40, 3200]],
+        { rMin: 6, rMax: 30, seed: 'beach-cobbles', dark: 0.42, persp: true, tries: 250, clip: true, kind: 'stone' });
       // grass tufts along the foot of the shelf and the back of the beach
       {
         const gr = new LW.RNG('grass');
@@ -1078,17 +1112,20 @@
     BOAT.at = at;
     // beam profile along the length (0 at bow point, wide amidships, transom at stern)
     BOAT.beam = (t) => (t < 0.58 ? 92 * Math.pow(Math.sin((Math.PI / 2) * (t / 0.58)), 0.7) : 92 * (1 - 0.3 * Math.pow((t - 0.58) / 0.42, 2))) + 2;
-    const near = [], far = [], keel = [];
+    const near = [], far = [], keel = [], wline = [];
     for (let i = 0; i <= 40; i++) {
       const t = i / 40;
       const b = BOAT.beam(t);
-      const sheer = 16 * Math.pow(1 - t, 3) + 8 * Math.pow(t, 4); // sheer line rises at bow and stern
+      const sheer = 24 * Math.pow(1 - t, 2.5) + 9 * Math.pow(t, 4); // sheer line sweeps up to the stem, a little at the transom
       near.push(at(t, b * 0.55, sheer + 12));
       far.push(at(t, -b * 0.45, sheer + 18));
-      keel.push(at(t, b * 0.3, -30 + 22 * Math.pow(Math.abs(t - 0.5) * 2, 3)));
+      // a rockered keel: deep amidships, rising hard to the stem, so the planking curves
+      keel.push(at(t, b * 0.3, -74 + 64 * Math.pow(Math.abs(t - 0.45) / 0.55, 2)));
+      wline.push(at(t, b * 0.5, -24 + 12 * Math.pow(Math.abs(t - 0.5) * 2, 3)));
     }
-    BOAT.near = near; BOAT.far = far; BOAT.keel = keel;
-    BOAT.hull = near.concat(keel.slice().reverse());
+    BOAT.near = near; BOAT.far = far; BOAT.keel = keel; BOAT.wline = wline;
+    // only the planking above the water is seen
+    BOAT.hull = near.concat(wline.slice().reverse());
     BOAT.inside = near.concat(far.slice().reverse());
     BOAT.bowRing = at(0.02, 2, 10);
     BOAT.waterY = (x) => bow[1] + (x - bow[0]) * (ay / ax) + 18;
@@ -1097,21 +1134,30 @@
     const ink = new LW.Ink(751);
     ink.wobble = 0.5;
     const B = BOAT;
-    // reflection: dark broken hull under the boat (on the water already drawn)
+    // reflection: the hull mirrored under the waterline, broken into horizontal dashes; the firelit
+    // gunwale shows as a row of orange dashes at the bottom of it, the cyan lick at the top
     {
       const rng = new LW.RNG('boatrefl');
-      const ri = ink.col(P.waterInkDeep);
-      for (let k = 0; k < 18; k++) {
-        const t0 = 0.05 + rng.next() * 0.15, t1 = 0.85 + rng.next() * 0.12;
-        const yy = 8 + k * 4.2 + rng.next() * 2;
+      const rh = ink.col(LW.mix(P.wood1, P.waterInkDeep, 0.45)), rh2 = ink.col(LW.mix(P.wood1, P.ink, 0.5)), rw = ink.col(P.warm3), rw2 = ink.col(P.warm4);
+      const sp = 3.4;
+      for (let k = 0; k < 15; k++) {
         const pts = [];
-        for (let i = 0; i <= 12; i++) {
-          const t = t0 + ((t1 - t0) * i) / 12;
-          const p = B.at(t, B.beam(t) * 0.3, -yy - 20);
-          pts.push([p[0] + (rng.next() - 0.5) * 3, p[1]]);
+        for (let i = 0; i <= 40; i++) {
+          const t = i / 40;
+          // height of the hull side above water at t, mirrored below the waterline
+          const h = B.near[i][1] - B.wline[i][1]; // negative: gunwale above
+          const depth = k * sp;
+          if (depth > -h + 2) continue;
+          const w = B.wline[i];
+          pts.push([w[0] + (rng.next() - 0.5) * 2.5, w[1] + depth + 4 + Math.sin(t * 9 + k) * 0.8]);
         }
-        const shrink = 1 - k / 22;
-        ink.line(pts.slice(Math.floor((1 - shrink) * 6), 13 - Math.floor((1 - shrink) * 4)), ink.st(ri, 2.6 - k * 0.08), { taper: 14 });
+        if (pts.length < 3) continue;
+        const last = k >= 9;
+        ink.line(pts, (x, y, i) => {
+          if (N.n2(i / 2.2 + k * 3.7, k * 1.9) > (last ? 0.15 : 0.32)) return -1;
+          if (last && LW.warm(x, y - 2 * (y - B.waterY(x)), 'boat') > 0.25) return ink.st(k % 2 ? rw : rw2, 2.4);
+          return ink.st(k % 3 === 0 ? rh2 : rh, 3.2 - k * 0.08);
+        }, { taper: 8, minScale: 0.3 });
       }
       ink.flush(ctx);
     }
@@ -1123,7 +1169,7 @@
         const pts = [];
         for (let i = 0; i <= 30; i++) {
           const t = 0.04 + i / 30 * 0.98;
-          const p = B.at(t, B.beam(t) * 0.42 + k * 9 + t * k * 6, -6 - k * 2.5);
+          const p = B.at(t, B.beam(t) * 0.5 + k * 9 + t * k * 6 + 22, -24 - k * 2.5);
           pts.push([p[0] + k * 5 * t, p[1] + Math.sin(i * 0.7 + k) * 1.5]);
         }
         ink.line(pts, (x, y, i) => {
@@ -1133,7 +1179,7 @@
       }
       // ripple rings where the bow and stern touch the water
       for (const [t, rr] of [[0.03, 26], [0.97, 34]]) {
-        const p = B.at(t, B.beam(t) * 0.3, -6);
+        const p = B.at(t, B.beam(t) * 0.5, -24);
         for (let k = 1; k <= 3; k++) {
           const ring = [];
           for (let a = -0.2; a <= Math.PI + 0.2; a += 0.06) ring.push([p[0] + Math.cos(a) * rr * k * 0.6, p[1] + Math.sin(a) * rr * k * 0.16]);
@@ -1164,9 +1210,10 @@
       for (let q = 0; q <= 8; q++) {
         const f = q / 8;
         const sv = -b * 0.45 + b * f;
-        pts.push(B.at(t + Math.sin(f * Math.PI) * 0.01, sv, 18 - Math.sin(f * Math.PI) * 10));
+        pts.push(B.at(t + Math.sin(f * Math.PI) * 0.018, sv, 18 - Math.sin(f * Math.PI) * 14));
       }
-      ink.line(pts, (x, y) => ink.st(inkAt(ink, x, y, 'boat'), 2.0), { taper: 4 });
+      ink.line(pts, (x, y) => ink.st(inkAt(ink, x, y, 'boat'), 1.5), { taper: 6 });
+      ink.line(pts.map((p) => [p[0] + 2.2, p[1] + 0.6]), (x, y, i) => (i < 1 || i > 6 ? -1 : ink.st(inkAt(ink, x, y, 'boat'), 0.7)), { taper: 4 });
     }
     // floor boards inside (lines along the length)
     for (let k = 1; k < 6; k++) {
@@ -1191,11 +1238,19 @@
       const a = B.at(t, b * 0.55, 22), c = B.at(t, -b * 0.45, 26);
       const a2 = B.at(t + 0.035, b * 0.55, 22), c2 = B.at(t + 0.035, -b * 0.45, 26);
       const q = [c, a, a2, c2];
+      // the seat's shadow on the floor boards
+      const sh = q.map((p) => [p[0] + 3, p[1] + 9]);
+      ctx.fillStyle = LW.rgb(LW.mix(P.wood1, P.ink, 0.55));
+      ctx.fill(LW.polyPath(sh));
       LW.shadeFill(ctx, S, LW.polyPath(q), LW.bbox(q, 2), (x, y, o) => {
-        const col = stoneFill(0.25, x, y, 'rock', [P.wood0, P.wood1, P.rock4]);
+        const col = stoneFill(0.45, x, y, 'boat', [P.wood0, P.wood1, LW.mix(P.wood1, P.ink, 0.4)]);
         o[0] = col[0]; o[1] = col[1]; o[2] = col[2];
       });
-      ink.line(q.concat([q[0]]), (x, y) => ink.st(inkAt(ink, x, y), 1.8), { taper: 0 });
+      for (const g of [0.3, 0.55, 0.78]) {
+        const g0 = [a[0] + (a2[0] - a[0]) * g, a[1] + (a2[1] - a[1]) * g], g1 = [c[0] + (c2[0] - c[0]) * g, c[1] + (c2[1] - c[1]) * g];
+        ink.line([g0, [(g0[0] + g1[0]) / 2, (g0[1] + g1[1]) / 2 + 0.8], g1], (x, y, i) => ink.st(inkAt(ink, x, y, 'boat'), 0.6), { taper: 6, wobble: 0.3 });
+      }
+      ink.line(q.concat([q[0]]), (x, y) => ink.st(inkAt(ink, x, y), 1.6), { taper: 0 });
     }
     // oar resting across
     {
@@ -1215,7 +1270,12 @@
     // hull outside with strakes following the form
     const hullP = LW.polyPath(B.hull);
     LW.shadeFill(ctx, S, hullP, LW.bbox(B.hull, 3), (x, y, o) => {
-      const c = stoneFill(0.42, x, y, 'boat', [LW.mix(P.rock1, P.wood0, 0.5), P.wood0, P.wood1, P.rock4]);
+      // the hull rounds under toward the keel: darker the lower it is on the side
+      const t = LW.clamp(((x - B.bow[0]) * ux + (y - B.bow[1]) * uy) / B.len, 0, 1);
+      const i = Math.round(t * 40);
+      const top = B.near[i][1], bot = B.keel[i][1];
+      const q = LW.clamp((y - top) / (bot - top || 1), 0, 1);
+      const c = stoneFill(0.3 + 0.75 * q, x, y, 'boat', [LW.mix(P.rock1, P.wood0, 0.5), P.wood0, P.wood1, P.rock4, LW.mix(P.rock4, P.ink, 0.5)]);
       o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
     });
     ctx.save();
@@ -1223,7 +1283,9 @@
     for (let k = 1; k <= 8; k++) {
       const f = k / 9;
       const pts = B.near.map((p, i) => [p[0] + (B.keel[i][0] - p[0]) * f, p[1] + (B.keel[i][1] - p[1]) * f]);
-      ink.line(pts, (x, y) => ink.st(inkAt(ink, x, y), k % 2 ? 1.0 : 1.6), { taper: 0 });
+      ink.line(pts, (x, y) => ink.st(inkAt(ink, x, y), 1.7), { taper: 0 });
+      // clinker lap: the lower edge of the plank above catches the light
+      ink.line(pts.map((p) => [p[0], p[1] - 2.2]), (x, y, i) => (N.n2(i / 4, k * 2.3) > 0.35 ? -1 : ink.st(LW.warm(x, y, 'boat') > 0.2 ? ink.col(P.warm4) : ink.col(LW.mix(P.rock0, P.wood0, 0.3)), 1.0)), { taper: 10 });
       // wood grain within the strake: fine wavering lines with the odd knot
       for (let gl = 1; gl <= 2; gl++) {
         const f2 = f - (gl / 3) / 9;
@@ -1240,7 +1302,7 @@
       // planking shadow hatch under each strake lap
       for (let i = 1; i < pts.length - 1; i += 1) {
         const p = pts[i];
-        ink.line([[p[0], p[1] + 1], [p[0] - 1.5, p[1] + 5]], (x, y) => ink.st(inkAt(ink, x, y), 0.9), { taper: 0, wobble: 0.2 });
+        ink.line([[p[0], p[1] + 1], [p[0] - 1.2, p[1] + 4]], (x, y) => ink.st(inkAt(ink, x, y), 0.7), { taper: 0, wobble: 0.2 });
       }
     }
     ink.flush(ctx);
@@ -1250,18 +1312,13 @@
     ink.line(B.near.map((p) => [p[0], p[1] + 3]), (x, y) => ink.st(LW.warm(x, y, 'boat') > 0.2 ? ink.col(P.warm4) : ink.col(P.rock0), 3.2), { taper: 20 });
     ink.line(B.near, (x, y) => ink.st(inkAt(ink, x, y, 'boat'), 3.6), { taper: 0 });
     ink.line(B.far, (x, y) => ink.st(inkAt(ink, x, y), 2.4), { taper: 0 });
-    ink.line(B.keel, ink.st(ink.col(P.ink), 3.6), { taper: 0 });
     const n = B.near.length - 1;
     ink.line([B.near[n], B.far[n]], ink.st(ink.col(P.ink), 3.0), { taper: 0 });
-    ink.line([B.near[n], B.keel[n]], ink.st(ink.col(P.ink), 3.0), { taper: 0 });
-    ink.line([B.near[0], B.keel[0]], ink.st(ink.col(P.ink), 3.0), { taper: 0 });
-    // waterline: wet dark band + bright cyan lick
-    const wl = [];
-    for (let i = 0; i <= 40; i++) {
-      const t = i / 40;
-      wl.push(B.at(t, B.beam(t) * 0.42, -4 + 8 * Math.pow(Math.abs(t - 0.5) * 2, 3)));
-    }
-    ink.line(wl, ink.st(ink.col(P.water4), 3.0), { taper: 30 });
+    ink.line([B.near[n], B.wline[n]], ink.st(ink.col(P.ink), 3.0), { taper: 0 });
+    ink.line([B.near[0], B.wline[0]], ink.st(ink.col(P.ink), 3.0), { taper: 0 });
+    // waterline: dark wet line + broken bright lick
+    ink.line(B.wline, ink.st(ink.col(P.ink), 2.6), { taper: 10 });
+    ink.line(B.wline.map((p) => [p[0], p[1] + 3]), (x, y, i) => (N2.n2(i / 3, 5.5) > 0.3 ? -1 : ink.st(ink.col(P.water4), 2.4)), { taper: 20 });
     ink.flush(ctx);
     // bow ring
     const [bx, by] = B.bowRing;

@@ -168,6 +168,14 @@
 
   // ---------------------------------------------------------------- draw
   const pal = [P.water0, P.water1, P.water2, P.water3, P.water4, P.water5];
+  // the body of the river is a quieter teal-blue; the screen-cyan is kept for the glint channel only
+  const H = LW.hex;
+  const palT = [H('#0e3b5a'), H('#165a7c'), H('#267ca0'), H('#3a98b8'), H('#58bad4'), H('#a8e2ee')];
+  // per ripple band value offsets: band edges break into engraved horizontal dashes, not blocks
+  const bandJit = (() => {
+    const r = new LW.RNG('band-jit');
+    return bands.ys.map(() => (r.next() - 0.5) * 0.11);
+  })();
   LW.drawWater = function (ctx, S) {
     const t0 = performance.now();
     const D = readBuf(R.dark), Wm = readBuf(R.warm);
@@ -197,9 +205,16 @@
         let v = waterBase(x, y) - dk * 0.62 * (1 - 0.32 * edge) + mg * 0.2 * (1 - 0.5 * edge);
         mg *= 1 - 0.55 * edge;
         v += (LW.hash2(px, py) - 0.5) * 0.04 + N.n2(x / 17, y / 9) * 0.03;
-        let c = pal[Math.floor(LW.clamp(v, 0, 0.999) * pal.length)];
+        v += bandJit[j] * (1 - 0.5 * edge) + N2.n2(x / (40 + (y - HZ) * 0.05), j * 1.37) * 0.05;
+        const vi = Math.floor(LW.clamp(v, 0, 0.999) * pal.length);
+        // narrow glint channel keeps the saturated cyan
+        const gch = moonGlitter(x, y);
+        let c = gch > 0.62 && vi >= 3 ? pal[vi] : palT[vi];
         const gate = N2.n2(x / (bands.fx[j] * (0.4 + (y - HZ) / 1400)) + bands.ph[j], j * 3.17) * 0.5 + 0.5;
-        const wb = LW.warmBand(wm * (0.75 + 0.75 * gate) * (1 - 0.5 * edge), x, y, 0.03);
+        // firelight reflections break into short dashes: thin lenses mid-band, with gaps along each band
+        const dashN = N.n2(x / (16 + (y - HZ) * 0.03) + bands.ph[j] * 3.1, j * 0.913);
+        const dash = LW.smooth(-0.2, 0.2, dashN);
+        const wb = LW.warmBand(wm * (0.75 + 0.75 * gate) * (1 - 0.85 * edge) * (0.3 + 0.7 * dash), x, y, 0.03);
         if (wb >= 2) c = LW.warmFill[Math.min(6, wb)];
         else if (wb === 1) c = LW.mix(c, P.warm2, 0.45);
         const k = (py * w + px) * 4;
@@ -259,7 +274,7 @@
     // current slicks: long, faint, broken streams converging on the far bend
     {
       const sr = new LW.RNG('slicks');
-      const cS = [ink.col(P.water4), ink.col(LW.mix(P.water3, P.water4, 0.5))];
+      const cS = [ink.col(palT[4]), ink.col(LW.mix(palT[3], palT[4], 0.5))];
       for (let k = 0; k < 26; k++) {
         const u = (sr.next() - 0.5) * 2; // across-channel coordinate at the bottom
         const pts = [];

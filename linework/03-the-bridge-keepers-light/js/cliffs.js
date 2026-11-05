@@ -119,6 +119,8 @@
       const wx = x + 90 * n.fbm(x / 400, y / 400, 2) * scale;
       return LW.smooth(0.12, 0.45, n2.fbm(wx / (210 * scale), y / (1400 * scale) + 3.3, 2));
     };
+    // where the moonlit ridge rim runs: the dark upper reaches of the near walls, broken into runs
+    const rimGate = (y) => (l.tier === 2 && (l.name === 'L0' || l.name === 'R0') ? LW.smooth(1500, 1150, y) * LW.smooth(-0.2, 0.15, n.fbm(y / 95, 2.2, 2)) : 0);
     const dark = new LW.Grid(l.bbox, res, (x, y) => {
       const e = 6;
       const gx = (FB.at(x + e, y) - FB.at(x - e, y)) / (2 * e);
@@ -139,7 +141,7 @@
         const t = y - yy;
         const len = (70 + 90 * (0.5 + 0.5 * n.n2(x / 180, ly))) * (l.tier === 2 ? 1 : l.tier === 1 ? 0.55 : 0.4);
         if (t > -12 && t < 0) d -= 0.22 * gate;
-        else if (t >= 0 && t < len) d += 0.32 * gate * Math.pow(1 - t / len, 1.6);
+        else if (t >= 0 && t < len) d += 0.38 * gate * Math.pow(1 - t / len, 1.6);
       }
       // gorge depth: lower = darker; far tiers lighter overall
       if (l.tier === 2) d += 0.2 * LW.smooth(900, 2600, y);
@@ -155,7 +157,8 @@
       }
       if (l.name === 'L0') {
         const ed = mask.edtAt(x, y);
-        const band = 4 + 16 * Math.max(0, n.fbm(y / 220, 4.5, 3) + 0.15);
+        let band = 4 + 16 * Math.max(0, n.fbm(y / 220, 4.5, 3) + 0.15);
+        band *= 1 - 0.55 * rimGate(y);
         if (ed < band && y < 1880) d = 1.02;
       }
       // the right wall's cast shadow falls diagonally across the lower left wall
@@ -170,13 +173,29 @@
       // print-like falloff into the top corners
       if (l.tier === 2) d += 0.26 * LW.smooth(900, 0, y) + 0.12 * LW.smooth(300, 0, Math.min(x, LW.W - x));
       // under-ledge shadow
-      if (l.name === 'L0' && y > 1860 && y < 2010 && x > 600) d += 0.3 * LW.smooth(2000, 1878, y);
+      if (l.name === 'L0' && y > 1860 && y < 2010 && x > 600) d += 0.36 * LW.smooth(2000, 1878, y);
       if (l.name === 'SC') d += 0.28;
       // grade the left wall darker toward the frame edges so the brightest rock sits by the bridge and hut
       if (l.name === 'L0') d += 0.22 * LW.smooth(1500, 150, y) + 0.2 * LW.smooth(520, 0, x);
       // the waterline is darker (wet rock)
       const by = baseY(x);
-      if (y < by) d += 0.12 * LW.smooth(by - 70, by - 8, y);
+      if (y < by) d += 0.17 * LW.smooth(by - 70, by - 8, y);
+      // depth: the shadow side of each form and the clefts sink about one value step; lit faces untouched
+      if (l.tier >= 1) d += 0.07 * LW.smooth(0.5, 0.82, d) * LW.smooth(950, 1300, y);
+      // the ridge rim catches the moon: a broken pale lip along the crest of the dark upper walls
+      const rg = rimGate(y);
+      if (rg > 0.02) {
+        const ed = mask.edtAt(x, y);
+        if (l.name === 'L0') {
+          const b0 = (4 + 16 * Math.max(0, n.fbm(y / 220, 4.5, 3) + 0.15)) * (1 - 0.55 * rg);
+          const rw = (16 + 40 * Math.max(0, n2.fbm(y / 150, 8.1, 3) + 0.25)) * rg;
+          if (ed >= b0 && ed < b0 + rw) d = Math.min(d, 0.3 + 0.55 * Math.pow((ed - b0) / rw, 1.3));
+        } else {
+          const rg2 = rg * LW.smooth(-0.05, 0.25, n2.fbm(y / 110, 3.7, 2));
+          const rw = (6 + 16 * Math.max(0, n.fbm(y / 130, 6.6, 3) + 0.3)) * rg2;
+          if (rg2 > 0.05 && ed > 3 && ed < 3 + rw) d = Math.min(d, 0.38 + 0.5 * (ed - 3) / rw);
+        }
+      }
       return LW.clamp(d, 0, 1.1);
     });
     // flow direction: down the face, hugging the silhouette, meandering
@@ -231,6 +250,22 @@
       return LW.smooth(34, 4, rimD + LW.lnoise.n2(x / 9, y / 9) * 7);
     } : null;
     const tilt = l.face[0] > 0 ? 0.15 : -0.15;
+    // rock rather than contour-map: fewer rounded lumps, straighter cell edges and facet hatch,
+    // long straight joints, and moon-caught block edges that keep structure alive in the darks
+    const mir = l.face[0] > 0 ? 1 : -1;
+    const moonCol = LW.mix(P.rock2, P.sky5, 0.3), moonCol2 = LW.mix(P.rock3, P.sky4, 0.25);
+    const rockLang = far ? {} : near ? {
+      lumpRatio: l.name === 'R0' ? 0.3 : 0.42,
+      warpFine: 2, warpBig: 10, facetWave: 0.45, fracWander: 0.3,
+      joints: { spacing: 160, angles: [Math.PI / 2 + 0.12 * mir, Math.PI / 2 - 1.05 * mir, 0.32 * mir], len: [50, 260], w: 1, lip: LW.mix(P.rock1, P.rock2, 0.5), gate: (x, y) => 0.7 * (1 - LW.smooth(0.8, 1.0, f.dark.at(x, y))) },
+      moonEdge: { col: moonCol, col2: moonCol2, w: 1.1, facetStep: 10, facetCol: LW.mix(P.rock3, P.sky4, 0.3), gate: (x, y) => (l.name === 'R0' ? 0.75 : 1) * LW.smooth(0.7, 1.0, f.dark.at(x, y)) },
+    } : {
+      lumpRatio: 0.5, warpFine: 3, facetWave: 0.6, fracWander: 0.4,
+      joints: { spacing: 150, angles: [Math.PI / 2 + 0.15 * mir, Math.PI / 2 - 1.0 * mir], len: [30, 160], w: 0.7, lip: LW.mix(P.far0, P.sky5, 0.3) },
+    };
+    if (near) texOpts.strata.amp = 8;
+    const lateInk = new LW.Ink(l.seed + 905);
+    lateInk.wobble = 0.7;
     LW.cellRock(ctx, S, {
       path: l.path, bbox: l.bbox, mask: f.mask, seed: l.name,
       dark: (x, y) => f.dark.at(x, y),
@@ -254,6 +289,8 @@
       black: near ? P.ink : far ? LW.mix(P.inkFar, P.ink, 0.5) : LW.mix(P.inkFar, P.ink, 0.6),
       rim, rimCol,
       ...texOpts,
+      ...rockLang,
+      lateInk,
     });
     const ink = new LW.Ink(l.seed + 900);
     ink.wobble = 0.9;
@@ -310,6 +347,7 @@
     ctx.save();
     ctx.clip(l.path);
     ink.flush(ctx);
+    lateInk.flush(ctx);
     ctx.restore();
     // plants on the mid/far ledges (drawn unclipped so fronds can overhang the lip)
     if (plants.length) {
@@ -603,6 +641,97 @@
       ctx.restore();
     }
   };
+  // ---------------------------------------------------------------- bushes on the ridge crests
+  /* dark scalloped shrubs rooted on the near walls' sky edges, silhouetted against the sky,
+     their moon-facing leaves picked out in pale flicks, a few bare twigs breaking the outline */
+  LW.drawRidgeBushes = function (ctx, S) {
+    const rng = new LW.RNG('ridge-bushes');
+    const N = new LW.Noise(4501);
+    const ink = new LW.Ink(4502);
+    ink.wobble = 0.35;
+    const dots = new LW.Dots();
+    const [mx, my] = LW.L.moon;
+    const cBody = LW.mix(P.tealDark, P.ink, 0.62), cBody2 = LW.mix(P.tealDark, P.ink, 0.35);
+    const cLeaf = LW.rgb(LW.mix(P.teal, P.far0, 0.45)), cLeaf2 = LW.rgb(LW.mix(P.teal, P.moonShade, 0.28));
+    const cInk = ink.col(P.ink), cTwigLit = ink.col(LW.mix(P.far0, P.teal, 0.3));
+    const sites = { L0: [[130, 100, 0.9], [430, 70, 0.8], [740, 110, 1.0], [1000, 64, 0.8], [1240, 52, 0.7]], R0: [[250, 84, 0.85], [620, 104, 1.0], [1060, 60, 0.75]] };
+    for (const name of ['L0', 'R0']) {
+      const l = LW.cliff(name);
+      const out = name === 'L0' ? 1 : -1;
+      for (const [ty, size, k] of sites[name]) {
+        // nearest silhouette point at that height
+        let best = null;
+        for (const p of l.edge) if (!best || Math.abs(p[1] - ty) < Math.abs(best[1] - ty)) best = p;
+        const bx = best[0] - out * size * 0.28, by = best[1];
+        const s = size;
+        // light direction toward the moon in the bush's frame
+        let lx = mx - bx, ly = my - by;
+        const ll = Math.hypot(lx, ly) || 1; lx /= ll; ly /= ll;
+        const nl = 4 + Math.floor(rng.next() * 4);
+        const lobes = [];
+        for (let i = 0; i < nl; i++) {
+          const u = (i / (nl - 1)) * 1.1 + (rng.next() - 0.5) * 0.25; // outward along the crest
+          const v = Math.sin(Math.PI * Math.min(1, u)) * 0.7 + rng.next() * 0.35; // up
+          lobes.push([bx + out * u * s * 0.75, by - v * s * 0.62 + s * 0.08, s * (0.24 + rng.next() * 0.2) * (1 - 0.25 * u) * k + s * 0.1]);
+        }
+        for (const [cx, cy, r] of lobes) {
+          const pts = [];
+          const m = 26;
+          for (let i = 0; i < m; i++) {
+            const a = (i / m) * Math.PI * 2;
+            const rr = r * (1 + 0.16 * Math.sin(a * 7 + cx) + 0.1 * N.n2(cx / 9 + Math.cos(a) * 1.5, cy / 9 + Math.sin(a) * 1.5));
+            pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.82]);
+          }
+          ink.fill(LW.chaikin(pts, 1, true), cBody, 0.3);
+          // the shadowed core of the lobe deepens a step
+          const core = pts.map((p) => [cx + (p[0] - cx) * 0.6 - lx * r * 0.22, cy + (p[1] - cy) * 0.6 - ly * r * 0.22]);
+          ink.fill(LW.chaikin(core, 1, true), LW.mix(cBody, P.ink, 0.6), 0.3);
+          // scalloped ink edge, heavier away from the moon
+          ink.line(LW.chaikin(pts, 1, true).concat([pts[0]]), (x, y) => {
+            const f = ((x - cx) * lx + (y - cy) * ly) / r;
+            return ink.st(cInk, 1.2 + 1.3 * Math.max(0, -f));
+          }, { taper: 0 });
+          // leaves catching the moon: pale flicks on the lit side of each lobe
+          const nf = Math.round(r * 1.3);
+          for (let i = 0; i < nf; i++) {
+            const a = Math.atan2(ly, lx) + (rng.next() - 0.5) * 2.2;
+            const rr = r * (0.45 + rng.next() * 0.55);
+            const px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr * 0.82;
+            dots.flick(px, py, a + (rng.next() - 0.5) * 1.2, 2.5 + rng.next() * 3.5, 1.3, rng.next() < 0.3 ? cLeaf2 : cLeaf);
+          }
+          // a few darker leaf flicks inside so the body is not a flat fill
+          for (let i = 0; i < r * 0.8; i++) {
+            const a = rng.next() * Math.PI * 2, rr = r * rng.next() * 0.8;
+            dots.flick(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.8, -Math.PI / 2 + (rng.next() - 0.5) * 2, 2 + rng.next() * 3, 1.1, LW.rgb(cBody2));
+          }
+        }
+        // bare twigs breaking the outline against the sky
+        const nt = 3 + Math.floor(rng.next() * 4);
+        for (let i = 0; i < nt; i++) {
+          const L0 = lobes[Math.floor(rng.next() * lobes.length)];
+          let a = -Math.PI / 2 + out * (0.2 + rng.next() * 1.1);
+          let x = L0[0] + Math.cos(a) * L0[2] * 0.7, y = L0[1] + Math.sin(a) * L0[2] * 0.6;
+          const pts = [[x, y]];
+          const len = s * (0.25 + rng.next() * 0.35);
+          for (let t = 0; t < len; t += 4) {
+            a += (rng.next() - 0.5) * 0.4;
+            x += Math.cos(a) * 4; y += Math.sin(a) * 4;
+            pts.push([x, y]);
+            if (rng.next() < 0.18) {
+              const b = a + (rng.next() < 0.5 ? 1 : -1) * (0.6 + rng.next() * 0.4);
+              const bl = 3 + rng.next() * 6;
+              ink.line([[x, y], [x + Math.cos(b) * bl, y + Math.sin(b) * bl]], ink.st(cInk, 0.9), { taper: bl * 0.7, minScale: 0.2 });
+            }
+          }
+          ink.line(pts, ink.st(cInk, 1.5), { taper: len * 0.7, minScale: 0.15 });
+          ink.line(pts.map((p) => [p[0] + lx * 1.2, p[1] + ly * 1.2]), (xx, yy, j) => (j < 2 || N.n2(j / 3, i * 3.3) > 0.2 ? -1 : ink.st(cTwigLit, 0.7)), { taper: 8, minScale: 0.2 });
+        }
+      }
+    }
+    ink.flush(ctx);
+    dots.flush(ctx);
+  };
+
   LW.drawBats = function (ctx, S) {
     const bats = [[1182, 1436, 13, 0.1], [1252, 1388, 9, -0.3], [1118, 1494, 8, 0.4], [1296, 1478, 7, 0.2], [1066, 1398, 6, -0.2], [1210, 1300, 6.5, 0.5]];
     ctx.save();

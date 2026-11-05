@@ -85,7 +85,7 @@
   // value of the bridge face (0 lit .. 1 dark) before firelight
   function faceDark(x, y) {
     let d = 0.42 + 0.1 * N.fbm(x / 300, y / 200, 2);
-    d += 0.22 * LW.smooth(2120, 2250, y); // wet, shadowed base
+    d += 0.28 * LW.smooth(2120, 2250, y); // wet, shadowed base
     d -= 0.06 * LW.smooth(2000, 1760, y);
     // under the string course
     const ty = topY(x) + PAR + STR;

@@ -22,9 +22,11 @@
     const mask = o.mask;
     const kind = o.kind || 'rock';
     const [Lx, Ly] = o.light || [0.6, -0.8];
+    const wf = o.warpFine === undefined ? 5 : o.warpFine;
+    const wb = o.warpBig === undefined ? 15 : o.warpBig;
     const warp = (x, y) => [
-      x + 15 * Nw.n2(x / 75, y / 75) + 5 * Nw2.n2(x / 21, y / 21),
-      y + 15 * Nw2.n2(x / 75 + 9, y / 75) + 5 * Nw.n2(x / 21 + 4, y / 21),
+      x + wb * Nw.n2(x / 75, y / 75) + wf * Nw2.n2(x / 21, y / 21),
+      y + wb * Nw2.n2(x / 75 + 9, y / 75) + wf * Nw.n2(x / 21 + 4, y / 21),
     ];
     // ---- seeds: variable-radius dart throwing in anisotropic space
     const sx = [], sy = [], sr = [];
@@ -224,6 +226,7 @@
     }
     // ---- hatching: lumps = concentric contours of edge distance; facets = own-direction parallels
     {
+      const fw = o.facetWave === undefined ? 1 : o.facetWave;
       const F = new Float32Array(nx * ny);
       for (let j = 0; j < ny; j++) {
         for (let i = 0; i < nx; i++) {
@@ -232,7 +235,7 @@
           if (c < 0) { F[k] = NaN; continue; }
           const x = bb[0] + i * g, y = bb[1] + j * g;
           if (type[c]) F[k] = ED[k] + 0.6 * Nw.n2(x / 9, y / 9);
-          else F[k] = x * dirx[c] + y * diry[c] + 8 * Nw2.n2(x / 60, y / 60) + 2.5 * Nw.n2(x / 17, y / 17) + c * 1.618;
+          else F[k] = x * dirx[c] + y * diry[c] + fw * (8 * Nw2.n2(x / 60, y / 60) + 2.5 * Nw.n2(x / 17, y / 17)) + c * 1.618;
         }
       }
       LW.contours({ bbox: bb, step: g, values: F, ids: ID, levelStep: step, levelOffset: 0.5 }, (pts, lev) => {
@@ -272,6 +275,106 @@
           return ink.st(colAt(x, y), w);
         }, { taper: 6 });
       });
+    }
+    // ---- moon-caught block edges: a thin pale line just inside the edges that face the light,
+    //      so the block structure still reads inside the deepest darks (white-line engraving)
+    const late = o.lateInk || ink; // drawn after the caller's black pocket fills
+    if (o.moonEdge) {
+      const me = o.moonEdge;
+      const ink = late;
+      const cMoon = ink.col(me.col);
+      const cMoon2 = ink.col(me.col2 || me.col);
+      const Nm = new LW.Noise(LW.hashStr('me' + o.seed));
+      LW.contours({ bbox: bb, step: g, values: ED.map((v, k) => (ID[k] < 0 ? NaN : v)), ids: null, levels: [me.inset || 3.2] }, (pts) => {
+        if (pts.length < 4) return;
+        ink.line(pts, (x, y) => {
+          const k = at(x, y);
+          const c = k >= 0 ? ID[k] : -1;
+          if (c < 0) return -1;
+          const f = facing(c, x, y);
+          const gt = me.gate(x, y);
+          if (gt <= 0.02) return -1;
+          if (f < 0.42 - 0.1 * gt) return -1;
+          if (Nm.n2(x / 34, y / 34) > 0.2 + 0.25 * gt) return -1;
+          if (kind !== 'far' && LW.warm(x, y, kind) > 0.15) return -1;
+          return ink.st(f > 0.62 && gt > 0.6 ? cMoon : cMoon2, (me.w || 1.2) * (0.6 + 0.5 * gt) * (0.7 + 0.5 * f));
+        }, { taper: 12, minScale: 0.15 });
+      });
+      // white-line hatch on the moon-facing facets inside the darks: flat planes, not lumps
+      if (me.facetStep) {
+        const FV = new Float32Array(nx * ny);
+        for (let j = 0; j < ny; j++) {
+          for (let i = 0; i < nx; i++) {
+            const k = j * nx + i;
+            const c = ID[k];
+            if (c < 0 || tone[c] > (me.facetTone === undefined ? 0.02 : me.facetTone)) { FV[k] = NaN; continue; }
+            const x = bb[0] + i * g, y = bb[1] + j * g;
+            FV[k] = x * dirx[c] + y * diry[c] + 1.5 * Nm.n2(x / 70, y / 70) + c * 2.71;
+          }
+        }
+        const cF = ink.col(me.facetCol || me.col2 || me.col);
+        LW.contours({ bbox: bb, step: g, values: FV, ids: ID, levelStep: me.facetStep, levelOffset: 0.5 }, (pts, lev) => {
+          ink.line(pts, (x, y) => {
+            const k = at(x, y);
+            const c = k >= 0 ? ID[k] : -1;
+            if (c < 0 || ED[k] < 3) return -1;
+            const gt = me.gate(x, y);
+            if (gt < 0.3) return -1;
+            // lines thin out away from the lit edge of the facet and break up
+            const f = facing(c, x, y);
+            if (f < -0.25 + 0.35 * (lev % 2)) return -1;
+            if (Nm.n2(x / 22 + lev * 0.7, y / 22) > 0.15 + 0.35 * gt) return -1;
+            if (kind !== 'far' && LW.warm(x, y, kind) > 0.15) return -1;
+            return ink.st(cF, (me.facetW || 0.85) * (0.75 + 0.4 * Math.max(0, f)));
+          }, { taper: 10, minScale: 0.2 });
+        });
+      }
+    }
+    // ---- joints: long, nearly straight fracture lines with occasional kinks crossing several blocks,
+    //      a black crack with a pale lip on the side that catches the light
+    if (o.joints) {
+      const J = o.joints;
+      const jr = new LW.RNG('joints-' + o.seed);
+      const area = (bb[2] - bb[0]) * (bb[3] - bb[1]);
+      const nJ = Math.round(area / (J.spacing * J.spacing));
+      const cLip = ink.col(J.lip || P.rock0);
+      for (let q = 0; q < nJ; q++) {
+        let x = bb[0] + jr.next() * (bb[2] - bb[0]), y = bb[1] + jr.next() * (bb[3] - bb[1]);
+        const r1 = jr.next(), r2 = jr.next(), r3 = jr.next();
+        if (!mask.in(x, y) || mask.edtAt(x, y) < 10) continue;
+        const gt = J.gate ? J.gate(x, y) : 1;
+        if (r3 > gt) continue;
+        let a = J.angles[Math.floor(r1 * J.angles.length)] + (r2 - 0.5) * 0.3;
+        if (jr.next() < 0.5) a += Math.PI;
+        const len = J.len[0] + Math.pow(jr.next(), 1.5) * (J.len[1] - J.len[0]);
+        const pts = [[x, y]];
+        for (let s = 0; s < len; s += 6) {
+          if (jr.next() < 0.06) a += (jr.next() < 0.5 ? 1 : -1) * (0.25 + jr.next() * 0.3);
+          else a += (jr.next() - 0.5) * 0.05;
+          x += Math.cos(a) * 6; y += Math.sin(a) * 6;
+          if (!mask.in(x, y) || mask.edtAt(x, y) < 6) break;
+          pts.push([x, y]);
+        }
+        if (pts.length < 5) continue;
+        const nx = -Math.sin(a), ny = Math.cos(a);
+        // the lip sits on the side facing the light
+        const sgn = nx * Lx + ny * Ly > 0 ? 1 : -1;
+        const wj = J.w || 1;
+        ink.line(pts, (xx, yy) => {
+          let d = o.dark(xx, yy);
+          if (kind !== 'far') d -= 0.4 * LW.clamp(LW.warm(xx, yy, kind), 0, 1);
+          if (d < 0.15) return -1;
+          return ink.st(colAt(xx, yy), wj * (1.0 + 1.5 * LW.clamp(d, 0, 1)));
+        }, { taper: 22, minScale: 0.15 });
+        const lip = pts.map((p) => [p[0] + nx * sgn * 2.6, p[1] + ny * sgn * 2.6]);
+        ink.line(lip, (xx, yy, i) => {
+          if (Nw2.n2(i / 5, q * 0.73) > 0.2) return -1;
+          if (kind !== 'far' && LW.warm(xx, yy, kind) > 0.15) return -1;
+          const dd = o.dark(xx, yy);
+          if (dd > 0.85 || dd < 0.12) return -1;
+          return ink.st(cLip, wj * 0.9);
+        }, { taper: 14, minScale: 0.2 });
+      }
     }
     const dots = new LW.Dots();
     if ((o.tex === undefined ? 1 : o.tex) > 0) LW.rockTexture(o, { ink, dots, ID, ED, nx, ny, g, bb, nC, sx, sy, sr, ay, type, dirx, diry, localDark, colAt, at, kind, w0, w1, step, baseInk, Nw2 });
@@ -345,8 +448,9 @@
           let a = a0 + Math.PI + (tr.next() - 0.5) * 1.2;
           const pts = [[x, y]];
           const maxL = sr[k] * (0.35 + tr.next() * 0.5);
+          const wand = o.fracWander === undefined ? 0.9 : o.fracWander;
           for (let s = 0; s < maxL; s += 3.5) {
-            a += (tr.next() - 0.5) * 0.9;
+            a += (tr.next() - 0.5) * wand;
             x += Math.cos(a) * 3.5; y += Math.sin(a) * 3.5;
             const kk = at(x, y);
             if (kk < 0 || ID[kk] !== id || ED[kk] < 1.5) break;

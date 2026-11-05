@@ -52,7 +52,7 @@
         t.fill(G.soffitPath);
       });
     }],
-    ['near', cliffStage(['R0', 'L0'])],
+    ['near', () => { cliffStage(['R0', 'L0'])(); LW.drawRidgeBushes(ctx, S); }],
     ['water', () => {
       // lantern light lying on the water and its long broken reflection
       const t = LW.refl.warm.x;

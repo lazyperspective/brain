@@ -190,13 +190,15 @@
       OB.flatFill(ctx, path, css(C.mortar));
       gritty(path, OB.bbox(sil));
       const B = makeStoneBatch();
-      const ch = (o.terraceBot - o.terraceTop) / 3;
+      // three courses of unequal height: a deep plinth course, a middle bed and a thin top bed
+      const tY = [o.terraceTop, o.terraceTop + 0.27 * (o.terraceBot - o.terraceTop), o.terraceTop + 0.6 * (o.terraceBot - o.terraceTop), o.terraceBot];
+      const tL = [0.8, 1.05, 1.3];
       for (let c = 0; c < 3; c++) {
         let p = -Math.PI / 2 - R() * 0.1;
         while (p < Math.PI / 2) {
-          const dp = (60 / Rt) * (0.7 + 0.8 * R());
+          const dp = (60 / Rt) * (0.7 + 0.8 * R()) * tL[c];
           const off = 0.1 * R.norm() + 0.05;
-          cylStone(ctx, o, B, Rt, p, p + dp, o.terraceTop + c * ch, o.terraceTop + (c + 1) * ch, (q) => cylD(q, off), R, 'terrace', 1.3);
+          cylStone(ctx, o, B, Rt, p, p + dp, tY[c], tY[c + 1], (q) => cylD(q, off), R, 'terrace', 1.3);
           p += dp;
         }
       }
@@ -273,13 +275,24 @@
       gritty(path, OB.bbox(sil));
       const B = makeStoneBatch();
       const nc = o.courses;
-      const ch = (o.terraceTop - o.drumTop) / nc;
+      // coursed rubble: beds of different heights (and stone lengths), each course arcing round
+      // the drum a little more toward the middle of the wall
+      const Rc = OB.rng(97);
+      const hs = [];
+      for (let c = 0; c < nc; c++) hs.push(Rc() < 0.22 ? 0.55 + 0.15 * Rc() : 0.8 + 0.75 * Math.pow(Rc(), 1.3));
+      const hsum = hs.reduce((a2, b2) => a2 + b2, 0);
+      const yAt = [o.drumTop];
+      for (let c = 0; c < nc; c++) yAt.push(yAt[c] + (hs[c] / hsum) * (o.terraceTop - o.drumTop));
+      const lenF = hs.map((h) => (0.75 + 0.35 * h) * (0.85 + 0.35 * Rc()));
       for (let c = 0; c < nc; c++) {
+        const ta = (yAt[c] - o.drumTop) / (o.terraceTop - o.drumTop);
+        const kk = o.k * (1 + 0.5 * Math.sin(Math.PI * ta));
+        const oc = Object.assign({}, o, { ring: (Rr, y, phi) => [o.cx + Rr * Math.sin(phi), y - Rr * kk * Math.cos(phi)] });
         let p = -Math.PI / 2 - R() * 0.12;
         while (p < Math.PI / 2) {
-          const dp = (46 / Rd) * (0.65 + 0.9 * R());
+          const dp = (46 / Rd) * (0.65 + 0.9 * R()) * lenF[c];
           const off = 0.09 * R.norm();
-          cylStone(ctx, o, B, Rd, p, p + dp, o.drumTop + c * ch, o.drumTop + (c + 1) * ch, (q) => cylD(q, off), R, 'drum', 1.15);
+          cylStone(ctx, oc, B, Rd, p, p + dp, yAt[c], yAt[c + 1], (q) => cylD(q, off), R, 'drum', 1.15);
           p += dp;
         }
       }
