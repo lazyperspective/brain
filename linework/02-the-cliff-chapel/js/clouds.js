@@ -21,6 +21,14 @@
       const ca = Math.cos(a), sa = Math.sin(a);
       let rr = r * (1 + 0.06 * LW.noise(ca * 1.3 + s1, sa * 1.3 + s2) + 0.02 * LW.noise(ca * 4 + s2, sa * 4 + s1));
       if (sa > 0) rr *= 1 - 0.1 * sa * sa;
+      // a cauliflower rim: rounded bumps meeting in small cusps, strongest on the sunward top, calmer underneath
+      if (r > 18) {
+        const kb = Math.max(5, Math.round(r / 17));
+        const ph = 0.9 * LW.noise(ca * 0.8 + s1 * 0.3, sa * 0.8);
+        const bump = Math.sqrt(Math.abs(Math.sin(a * kb / 2 + ph + s1)));
+        const top = 0.55 + 0.45 * Math.max(0, -sa * 0.8 - ca * 0.3);
+        rr *= 1 + 0.075 * top * (bump - 0.62);
+      }
       R.push(rr);
     }
     return { cx, cy, r, kind, R, n, seed: rnd() * 1000 };
@@ -278,11 +286,12 @@
       inside: (x, y) => mask.in(x, y) && y < base - 2,
       region: idAt,
       dir: dirAt,
-      sep: (x, y) => { const d = darkAt(x, y); return d < 0.26 ? 0 : sp0 + (o.spMax || 10) * Math.pow(1 - d, 1.5); },
+      // lines run into the lit body too, sparse and fine, so the whole cloud is engraved rather than left blank
+      sep: (x, y) => { const d = darkAt(x, y); return d < 0.08 ? 0 : sp0 + (o.spMax || 10) * 1.15 * Math.pow(1 - d, 1.35); },
       step: 2.0, minLen: 8, seedGrid: 12, cell: 5, test: 0.6,
     });
     const pen = new LW.Pen();
-    LW.drawLines(pen, lines, (x, y) => (0.35 + 1.5 * Math.pow(darkAt(x, y), 1.3)) * lwS, 0.35, 0.05);
+    LW.drawLines(pen, lines, (x, y) => (0.3 + 1.6 * Math.pow(darkAt(x, y), 1.3)) * lwS, 0.35, 0.05);
     pen.draw(ink, C.ink);
     // cross-hatching laid over the contour lines in the deepest folds
     if ((o.scale || 1) > 0.5) {

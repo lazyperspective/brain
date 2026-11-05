@@ -66,8 +66,8 @@
     // fallen olive leaves and a few pebbles on the paving
     {
       const lp = new LW.Pen(), lf = new LW.Pen();
-      for (let k = 0; k < 70; k++) {
-        const x = rnd.range(-3.5, 1.5), z = rnd.range(2.05, zP - 0.05);
+      for (let k = 0; k < 190; k++) {
+        const x = rnd.range(-5.5, 2.2), z = rnd.range(1.86, zP - 0.05);
         if (x > -0.2 + (zP - z) * 2.5) continue; // stay in front of the flight's first riser
         const p = Q(x, yF, z);
         const k2 = LW.cam.f / z;
@@ -83,6 +83,18 @@
         LW.flat(path, rnd() < 0.5 ? '#9a8a5a' : '#6f8f7e');
         LW.outline(lf, pts, 1.3, 0.8);
         lf.line([[p[0] - ca * L * 0.45, p[1] - sa * L * 0.45], [p[0] + ca * L * 0.45, p[1] + sa * L * 0.45]], 0.8, 0.3);
+      }
+      // pebbles and grit, and petals dropped from the geranium
+      const pr = LW.rng('pave-detail');
+      for (let k = 0; k < 140; k++) {
+        const x = pr.range(-5.5, 2.4), z = pr.range(1.86, zP - 0.04);
+        if (x > -0.2 + (zP - z) * 2.5) continue;
+        const p = Q(x, yF, z), k2 = LW.cam.f / z, r = 0.012 * k2 * pr.range(0.6, 1.6);
+        const pts = []; for (let m = 0; m < 9; m++) { const t = (m / 9) * LW.TAU; pts.push([p[0] + Math.cos(t) * r * pr.range(0.8, 1.2), p[1] + Math.sin(t) * r * 0.5 * pr.range(0.8, 1.2)]); }
+        const path = LW.polyPath(pts); LW.occlude(path);
+        LW.flat(path, pr.pick(['#b9a77e', '#8d7d5c', '#cbbd95', '#6f6450']));
+        LW.outline(lf, pts, 1.0, 0.8);
+        lf.line([[p[0] - r * 0.3, p[1] + r * 0.45], [p[0] + r * 0.9, p[1] + r * 0.4]], 1.2, 0.2); // its shadow
       }
       lf.draw(ink, C.ink);
       void lp;
@@ -776,33 +788,42 @@
         const th = -Math.PI * 0.92 + t * Math.PI * 1.84; // angle from the blade axis
         const k = (th / (Math.PI * 0.92) + 1) / 2 * lobes; // lobe coordinate
         const f = k - Math.floor(k);
-        const lobeR = 1 - Math.pow(Math.abs(2 * f - 1), 2.4); // broad lobes, narrow deep sinuses
+        const lobeR = Math.pow(1 - Math.abs(2 * f - 1), 0.75); // tapering lobes with open, rounded sinuses, as a fig leaf
         const li = Math.min(lobes - 1, Math.floor(k)), mid = (lobes - 1) / 2;
         const lobeLen = 1 - 0.22 * Math.abs(li - mid); // central lobe longest
-        const rr = ls * (0.42 + 0.58 * lobeR) * lobeLen * (1 - 0.2 * Math.abs(th) / Math.PI);
-        loc.push([ls * 0.15 + Math.cos(th) * rr, Math.sin(th) * rr * 0.9]);
+        const rr = ls * (0.36 + 0.74 * lobeR) * lobeLen * (1 - 0.25 * Math.abs(th) / Math.PI);
+        loc.push([ls * 0.15 + Math.cos(th) * rr * 1.08, Math.sin(th) * rr * 0.78]);
       }
       const ca = Math.cos(la), sa = Math.sin(la);
       const T = (u, v) => [lx + u * ca - v * sa, ly + u * sa + v * ca];
       const sp = loc.map(([u, v]) => T(u, v));
       const lp = LW.polyPath(sp);
       LW.occlude(lp);
-      LW.flat(lp, rnd() < 0.5 ? '#3f7262' : '#355f55');
+      LW.flat(lp, rnd() < 0.5 ? '#2f5a50' : '#2a5048');
       LW.clipDo(LW.fill, lp, () => {
         const half = [T(-ls, -ls * 1.2), T(ls * 1.5, -ls * 1.2), T(ls * 1.5, 0), T(-ls, 0)];
-        LW.flat(LW.polyPath(half), la > Math.PI / 2 && la < 1.5 * Math.PI ? '#6f9c86' : '#2a4d47');
+        LW.flat(LW.polyPath(half), la > Math.PI / 2 && la < 1.5 * Math.PI ? '#4a7867' : '#22403a');
       });
-      LW.outline(pen, sp, 2.0, 1.2);
+      LW.outline(pen, sp, 1.5, 1.2);
       // midrib and lobe veins
       const base = T(ls * 0.15, 0);
       for (let v = 0; v < lobes; v++) {
         const th = -Math.PI * 0.92 + ((v + 0.5) / lobes) * Math.PI * 1.84;
         const rr = ls * 0.8 * (1 - 0.25 * Math.abs(th) / Math.PI);
         pen.line([base, T(ls * 0.15 + Math.cos(th) * rr * 0.5, Math.sin(th) * rr * 0.45), T(ls * 0.15 + Math.cos(th) * rr, Math.sin(th) * rr * 0.9)], 1.3, 0.3);
+        // side veins off each main vein, the way a fig leaf is netted
+        for (let q = 1; q <= 3; q++) {
+          const f = q / 4, bx = ls * 0.15 + Math.cos(th) * rr * f, by = Math.sin(th) * rr * 0.9 * f;
+          for (const sd of [-1, 1]) {
+            const t2 = th + sd * 0.9;
+            pen.line([T(bx, by), T(bx + Math.cos(t2) * rr * 0.22, by + Math.sin(t2) * rr * 0.2)], 0.7, 0.4);
+          }
+        }
       }
       // shade strokes on the darker half
       const sb = LW.bbox(sp);
-      LW.hatchDither(pen, sb, la + 0.9, { spacing: 3.4, step: 2, wob: 0.3, seed: lx | 0, inside: (qx, qy) => LW.pointInPoly(qx, qy, sp) && ((qx - lx) * -sa + (qy - ly) * ca) > ls * 0.1, dark: () => 0.62, w: () => 0.9 });
+      LW.hatchDither(pen, sb, la + 0.9, { spacing: 3.4, step: 2, wob: 0.3, seed: lx | 0, inside: (qx, qy) => LW.pointInPoly(qx, qy, sp) && ((qx - lx) * -sa + (qy - ly) * ca) > ls * 0.1, dark: () => 0.78, w: () => 0.9 });
+      LW.hatchDither(pen, sb, la - 0.5, { spacing: 5.5, step: 2, wob: 0.3, seed: (lx | 0) + 7, inside: (qx, qy) => LW.pointInPoly(qx, qy, sp), dark: () => 0.4, w: () => 0.7 });
       pen.line([[lx - ca * ls * 0.25, ly - sa * ls * 0.25], base], 1.8, 0.2);
       pen.draw(LW.ink, LW.C.ink);
     }

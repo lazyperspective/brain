@@ -446,11 +446,15 @@
     // ---------------------------------------------------- trunk spine (screen space)
     const spineCtrl = [[150, 3150], [190, 2850], [245, 2560], [178, 2220], [118, 1920], [175, 1580], [258, 1330], [292, 1120], [318, 880], [345, 620], [350, 380], [338, 150], [362, -120]];
     const spine = LW.spline(spineCtrl, 3);
-    const trunkR = (t) => 212 + 120 * Math.exp(-t * 11) - 150 * Math.pow(t, 1.3) + 18 * Math.sin(t * 14);
+    // thins hard toward the crown, so the leader reads as a tapering limb lost in the canopy, not a sawn post
+    const trunkR = (t) => 212 + 120 * Math.exp(-t * 11) - 150 * Math.pow(t, 1.3) + 18 * Math.sin(t * 14) - 70 * LW.smooth(0.62, 1, t);
     const limbs = [
       { ctrl: [[312, 1300], [400, 920], [560, 660], [790, 450], [990, 320], [1150, 250], [1240, 225]], r0: 118, r1: 9, twist: 0.45 },
       { ctrl: [[250, 1270], [175, 900], [85, 660], [-20, 450], [-140, 320]], r0: 118, r1: 66, twist: 0.3 },
       { ctrl: [[318, 1430], [490, 1210], [700, 1080], [900, 1005], [1070, 965], [1200, 915]], r0: 70, r1: 7, twist: 0.6 },
+      // the leader forks below the crown: two smaller limbs climb up into the foliage
+      { ctrl: [[340, 640], [300, 470], [230, 320], [170, 190], [120, 60]], r0: 46, r1: 10, twist: 0.4 },
+      { ctrl: [[346, 600], [420, 450], [520, 330], [600, 230], [660, 140]], r0: 40, r1: 8, twist: 0.5 },
     ];
     const clumps = [];
     const twigs = [];
@@ -458,7 +462,7 @@
     for (let li = 0; li < limbs.length; li++) {
       const sp = limbSp[li];
       const l = limbs[li];
-      const nb = li === 1 ? 3 : li === 2 ? 6 : 5;
+      const nb = li === 1 ? 3 : li === 2 ? 6 : li > 2 ? 2 : 5;
       for (let k = 0; k < nb; k++) {
         const t = 0.3 + 0.62 * (k / nb) + rnd.range(-0.04, 0.04);
         const i = Math.floor(t * (sp.length - 1));
@@ -483,13 +487,14 @@
         }
       }
       const e = sp[sp.length - 1];
-      clumps.push([e[0], e[1], li === 0 ? 120 : li === 2 ? 100 : 170]);
+      clumps.push([e[0], e[1], li === 0 ? 120 : li === 2 ? 100 : li > 2 ? 140 : 170]);
     }
     for (let x = -80; x < 1100; x += rnd.range(100, 150)) {
       const y = rnd.range(-70, 110) + Math.max(0, (x - 700) * 0.22);
       clumps.push([x, y, rnd.range(130, 200)]);
     }
     for (let k = 0; k < 16; k++) clumps.push([rnd.range(-60, 900), rnd.range(140, 560), rnd.range(70, 130)]);
+    for (const [x, y, r] of [[300, 40, 150], [380, 150, 120], [250, 210, 110], [655, 160, 120], [610, 240, 85]]) clumps.push([x, y, r]);
     const ok = (c) => !(c[0] + c[2] * 0.6 > 1290 && c[1] > 280) && !(c[0] + c[2] * 0.6 > 1180 && c[1] > 560);
     const all = clumps.filter(ok);
     all.sort((a, b) => a[1] - b[1] + (b[2] - a[2]) * 0.3);
@@ -521,6 +526,12 @@
       // the canopy shades the top of the trunk: a cross-hatched band fading downward
       const sp = new LW.Pen();
       const bb = { x0: 0, y0: -20, x1: 700, y1: 520 };
+      // flat stepped shade plates under the hatch: the crown sits in the canopy's shadow
+      LW.clipDo(LW.fill, trunk.path, () => {
+        LW.fill.fillStyle = BARK_DEEP; LW.fill.globalAlpha = 0.55; LW.fill.fillRect(0, -50, 800, 430);
+        LW.fill.globalAlpha = 0.3; LW.fill.fillRect(0, 380, 800, 180);
+        LW.fill.globalAlpha = 1;
+      });
       LW.clipDo(LW.ink, trunk.path, () => {
         LW.hatchDither(sp, bb, 0.5, { spacing: 2.8, step: 3, wob: 0.6, seed: 5, dark: (x, y) => 0.97 * LW.smooth(520, 140, y + 40 * LW.noise(x * 0.01, 3)), w: (x, y, d) => 0.7 + 1.5 * d });
         LW.hatchDither(sp, bb, -0.7, { spacing: 4, step: 3, wob: 0.6, seed: 6, dark: (x, y) => 0.9 * LW.smooth(380, 100, y), w: () => 1.0 });
@@ -528,7 +539,7 @@
       });
     }
     await LW.tick();
-    for (const li of [1, 2, 0]) {
+    for (const li of [3, 4, 1, 2, 0]) {
       const l = limbs[li];
       tube(limbSp[li], (t) => LW.lerp(l.r0, l.r1, Math.pow(t, 0.6)) * (1 + 0.25 * Math.exp(-t * 12)) * (1 - 0.8 * LW.smooth(0.82, 1, t)) + 2, {
         rnd, twist: l.twist, strands: 3, amp: 0.06, seed: li * 3.3, lw: 1, minSp: 2.3, maxSp: 9, darkBias: 0.16, exclude: trunk, bark: 0.8,

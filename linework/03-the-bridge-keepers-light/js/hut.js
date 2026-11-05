@@ -669,101 +669,65 @@
     LW.log('hut ms', Math.round(performance.now() - t0));
   };
 
-  // chimney smoke: a drifting ribbon with curling engraved lines
-  // chimney smoke as an engraved plume: opaque billows with curling contour lines
+  // chimney smoke in white-line engraving: no fill, only fine pale strands that braid, twist and break up as the
+  // plume rises and drifts left across the dark cliff, like smoke cut into the block
   LW.drawSmoke = function (ctx, S) {
-    const rng = new LW.RNG('smoke3');
+    const rng = new LW.RNG('smoke4');
     const base = [487, 2126];
-    const n = 140;
+    const n = 220;
     const cl = [];
     for (let i = 0; i <= n; i++) {
       const t = i / n;
-      const rise = t * 760;
-      cl.push([base[0] - rise * 0.16 - 210 * t * t + 46 * Math.sin(t * 6.2) * t, base[1] - rise + 22 * Math.sin(t * 4 + 1) * t]);
+      const rise = t * 820;
+      cl.push([base[0] - rise * 0.1 - 230 * t * t + 70 * Math.sin(t * 8.5 - 0.6) * Math.min(1, t * 2.2), base[1] - rise + 26 * Math.sin(t * 5 + 1) * t]);
     }
-    const wAt = (t) => 14 + 200 * Math.pow(t, 1.05);
-    const ink = new LW.Ink(781);
-    ink.wobble = 0.6;
-    const cLit = LW.mix(P.rock0, P.sky5, 0.3), cShade = LW.mix(P.rock2, P.sky3, 0.45);
-    const iDark = ink.col(P.inkBlue), iMid = ink.col(LW.mix(P.inkBlue, P.rock1, 0.35)), iWarm = ink.col(P.warm3);
-    // thin rising column out of the chimney
-    for (let k = 0; k < 5; k++) {
-      const pts = [];
-      for (let i = 0; i <= 22; i++) {
-        const t = i / n;
-        const w = wAt(t) * 0.5;
-        pts.push([cl[i][0] + (k - 2) * w * 0.4 + Math.sin(i * 0.45 + k) * 2, cl[i][1]]);
+    const wAt = (t) => 8 + 230 * Math.pow(t, 0.9);
+    const ink = new LW.Ink(782);
+    ink.wobble = 0.5;
+    const pale = (a) => { const c = LW.mix(P.rock0, P.sky5, 0.25); return `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a.toFixed(2)})`; };
+    const warm = (a) => { const c = P.warm3; return `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a.toFixed(2)})`; };
+    const cols = [0.25, 0.4, 0.55, 0.72, 0.88].map((a) => ink.col(pale(a)));
+    const wcol = [ink.col(warm(0.55)), ink.col(warm(0.8))];
+    const K = 26;
+    for (let k = 0; k < K; k++) {
+      const off0 = (k / (K - 1) - 0.5) * 1.0 + (rng.next() - 0.5) * 0.15, ph = rng.next() * 6.28, fr = 5 + rng.next() * 5, sd = rng.next() * 40;
+      const t0 = rng.next() * 0.05, t1 = 0.7 + rng.next() * 0.3;
+      const pts = [], ts = [];
+      for (let i = Math.floor(t0 * n); i <= Math.floor(t1 * n); i++) {
+        const t = i / n, w = wAt(t);
+        const a = cl[Math.min(n, i + 1)], b = cl[Math.max(0, i - 1)];
+        let tx = a[0] - b[0], ty = a[1] - b[1];
+        const L = Math.hypot(tx, ty) || 1; tx /= L; ty /= L;
+        // strands converge at the pot, spread and twist about each other higher up
+        // the ribbon twists as one (all strands share the twist), so the plume pinches and swells like real smoke
+        const tw = Math.cos(1.1 + t * 7.2);
+        const o = w * (off0 * (0.12 + 0.88 * Math.abs(tw) * Math.min(1, t * 3)) + 0.06 * Math.sin(ph + t * fr) * t);
+        pts.push([cl[i][0] - ty * o, cl[i][1] + tx * o]);
+        ts.push(t);
       }
-      ink.line(pts, (x, y, i) => ink.st(i < 6 ? iWarm : iMid, 1.6), { taper: 18, minScale: 0.2 });
+      ink.line(pts, (x, y, i) => {
+        const t = ts[i];
+        // broken: the strand dissolves into dashes and gaps as it rises
+        if (t > 0.2 && N.n2(i / (16 - 8 * t), sd) > 0.62 - 0.55 * t) return -1;
+        if (t > 0.92) return -1;
+        if (t < 0.07) return ink.st(wcol[i % 2], 1.4);
+        const lv = Math.max(0, Math.min(4, Math.round(4.2 - t * 3.6 + N.n2(i / 9, sd + 3))));
+        return ink.st(cols[lv], 1.1 + 1.2 * (1 - t));
+      }, { taper: 20, minScale: 0.15 });
     }
-    // billows: overlapping lobes merged into one scalloped plume
-    const lobes = [];
-    for (let t = 0.13; t < 0.99; t += 0.025 + rng.next() * 0.045) {
-      const i = Math.floor(t * n);
-      const w = wAt(t);
-      const side = lobes.length % 2 ? 1 : -1;
-      const a = cl[Math.min(n, i + 1)], b = cl[Math.max(0, i - 1)];
-      let tx = a[0] - b[0], ty = a[1] - b[1];
-      const L = Math.hypot(tx, ty) || 1;
-      tx /= L; ty /= L;
-      const off = 0.12 + rng.next() * 0.2;
-      lobes.push({ x: cl[i][0] - ty * w * off * side, y: cl[i][1] + tx * w * off * side, r: w * (0.32 + rng.next() * 0.3), t, seed: rng.next() * 50 });
+    // a few curls where the draught rolls the plume over
+    for (let c = 0; c < 9; c++) {
+      const t = 0.25 + c * 0.075 + rng.next() * 0.04, i = Math.floor(t * n), w = wAt(t);
+      const cx = cl[i][0] + (rng.next() - 0.5) * w * 0.5, cy = cl[i][1] + (rng.next() - 0.5) * w * 0.3;
+      const r0 = w * (0.18 + rng.next() * 0.12), dir = c % 2 ? 1 : -1, sp = [];
+      for (let a = 0; a < Math.PI * 2.4; a += 0.07) { const r = r0 * (1 - a / (Math.PI * 3)); sp.push([cx + Math.cos(a * dir + c) * r, cy + Math.sin(a * dir + c) * r * 0.7]); }
+      ink.line(sp, (x, y, j) => (N.n2(j / 7, c * 9) > 0.4 ? -1 : ink.st(cols[Math.max(0, 3 - Math.round(t * 3))], 1.1)), { taper: 18, minScale: 0.1 });
     }
-    for (const lb of lobes) lb.pts = LW.blob(lb.x, lb.y, lb.r, lb.r * 0.84, lb.seed, 0.1, 56);
-    const solid = lobes.filter((lb) => lb.t < 0.8);
-    const inside = (x, y, self, set) => set.some((o) => o !== self && Math.pow((x - o.x) / (o.r * 0.97), 2) + Math.pow((y - o.y) / (o.r * 0.82), 2) < 1);
-    // one shadow-tone fill for the merged body, lit caps per billow
-    const body = new Path2D();
-    for (const lb of solid) { body.moveTo(lb.pts[0][0], lb.pts[0][1]); for (const p of lb.pts) body.lineTo(p[0], p[1]); body.closePath(); }
-    ctx.save();
-    ctx.translate(LW.PLATE_OFF[0], LW.PLATE_OFF[1]);
-    ctx.fillStyle = LW.rgb(LW.mix(P.rock3, P.sky2, 0.35));
-    ctx.fill(body);
-    ctx.clip(body);
-    for (const lb of solid.slice().reverse()) {
-      const path = LW.polyPath(lb.pts);
-      ctx.save();
-      ctx.translate(lb.x + lb.r * 0.24, lb.y - lb.r * 0.3);
-      ctx.scale(0.8, 0.72);
-      ctx.translate(-lb.x, -lb.y);
-      ctx.fillStyle = LW.rgb(LW.mix(P.rock2, P.sky4, 0.35));
-      ctx.fill(path);
-      ctx.restore();
-    }
-    ctx.restore();
-    for (const lb of lobes) {
-      const fade = lb.t >= 0.8;
-      // curling contour arcs on each billow's shadow side, hidden where a nearer billow overlaps
-      const nArcs = Math.max(2, Math.round(lb.r / 10));
-      for (let k = 1; k <= nArcs; k++) {
-        const f = 1 - k / (nArcs + 1);
-        const arc = lb.pts.map((p) => [lb.x + (p[0] - lb.x) * f - (1 - f) * lb.r * 0.2, lb.y + (p[1] - lb.y) * f + (1 - f) * lb.r * 0.28]);
-        arc.push(arc[0]);
-        ink.line(arc, (x, y) => {
-          const nx = (x - lb.x) / lb.r, ny = (y - lb.y) / lb.r;
-          if (nx * 0.55 - ny * 0.75 > -0.15 - (k % 2) * 0.2) return -1;
-          if (fade && k % 2) return -1;
-          if (inside(x, y, lb, lobes.filter((o) => o.t < lb.t))) return -1;
-          return ink.st(k % 3 ? iMid : iDark, 1.0 + 0.6 * (1 - f));
-        }, { taper: 12 });
-      }
-      // merged outline: only where this billow is the outer edge of the plume
-      ink.line(lb.pts.concat([lb.pts[0]]), (x, y, i) => {
-        if (inside(x, y, lb, fade ? lobes : solid)) return -1;
-        if (fade && N.n2(i / 6, lb.seed) > 0.05) return -1;
-        const nx = (x - lb.x) / lb.r, ny = (y - lb.y) / lb.r;
-        return ink.st(iDark, 1.1 + Math.max(0, ny * 0.8 - nx * 0.4) * 1.8);
-      }, { taper: 8 });
-    }
-    // a few curls
-    for (const lb of lobes.filter((_, i) => i % 4 === 1)) {
-      const sp = [];
-      const r0 = lb.r * 0.42, dir = lb.seed > 25 ? 1 : -1;
-      for (let a = 0; a < Math.PI * 2.1; a += 0.08) {
-        const r = r0 * (1 - a / (Math.PI * 2.7));
-        sp.push([lb.x - lb.r * 0.12 + Math.cos(a * dir + 2) * r, lb.y + lb.r * 0.12 + Math.sin(a * dir + 2) * r * 0.85]);
-      }
-      ink.line(sp, (x, y) => (inside(x, y, lb, lobes.filter((o) => o.t < lb.t)) ? -1 : ink.st(iDark, 1.4)), { taper: 24, minScale: 0.15 });
+    // a scatter of fine pale stipple where the plume thins out at the top
+    for (let k = 0; k < 900; k++) {
+      const t = 0.55 + Math.pow(rng.next(), 0.7) * 0.42, i = Math.floor(t * n), w = wAt(t);
+      const x = cl[i][0] + (rng.next() - 0.5) * w * 1.1, y = cl[i][1] + (rng.next() - 0.5) * w * 0.5;
+      ink.line([[x, y], [x + 1.4, y + 0.3]], ink.st(cols[rng.next() < 0.5 ? 0 : 1], 1.3), { taper: 0, wobble: 0 });
     }
     ink.flush(ctx);
   };

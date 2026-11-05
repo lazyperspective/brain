@@ -550,7 +550,23 @@
       const rel = [[-24, 9], [-29, -6], [-25, -22], [-17, -36], [-9, -47], [0, -50], [7, -43], [12, -34], [20, -24], [27, -9], [26, 4], [14, 11], [-6, 13]];
       const base = LW.resample(rel.concat([rel[0]]).map(([u, v]) => [cx + u * (w / 28), cy + v * (h / 48)]), 3.5);
       const sm = base.map((p, i) => [p[0] + 2.4 * N.n2(i * 0.45, 9) + 1.1 * N.n2(i * 1.7, 2), p[1] + 2.4 * N.n2(i * 0.45, 4) + 1.1 * N.n2(i * 1.7, 6)]);
-      ink.fill(sm, LW.mix(P.ink, [0, 0, 0], 0.3), 0.3);
+      // the opening: a dark recess with depth. Nested contours shrink toward a vanishing point up and to the back,
+      // the inner rings darker, a dim moonlit floor along the bottom lip
+      ink.fill(sm, LW.mix(P.ink, P.inkFar, 0.45), 0.3);
+      {
+        const vx = cx + 5, vy = cy - h * 0.42;
+        for (let k = 1; k <= 7; k++) {
+          const f = 1 - k * 0.12;
+          const ring = sm.map((p) => [vx + (p[0] - vx) * f, vy + (p[1] - vy) * f]);
+          ink.fill(ring, LW.mix(P.ink, [0, 0, 0], 0.08 * k), 0.15);
+          ink.line(ring.concat([ring[0]]), (x, y, i) => (N.n2(i / 4, k * 3.1) > 0.35 ? -1 : ink.st(ink.col(LW.mix(P.inkFar, P.far0, 0.35)), 0.8)), { taper: 4, minScale: 0.2 });
+        }
+        // the rock floor running in, faintly lit
+        for (let k = 0; k < 5; k++) {
+          const f = 0.95 - k * 0.15, yy = cy + 9 - k * 6;
+          ink.line([[vx + (cx - w * 0.6 - vx) * f, vy + (yy - vy) * f], [vx + (cx + w * 0.5 - vx) * f, vy + (yy + 2 - vy) * f]], ink.st(ink.col(LW.mix(P.far0, P.inkFar, 0.2 + k * 0.15)), 1.1 - k * 0.12), { taper: 6 });
+        }
+      }
       // overhanging brow: arcs of hatch above the opening
       const cl = ink.col(P.ink);
       // moonlight catching the upper-right lip, broken
