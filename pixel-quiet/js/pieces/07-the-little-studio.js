@@ -208,7 +208,7 @@
   const BAYX = 210;                                                 // the front bay (door) begins here
   const DOOR = { x0: 228, x1: 246, y0: 242, y1: 278, cx: 237 };
   const FAR_FEET = 296, NEAR_FEET = 386;
-  const BLUEX = 302;
+  const BLUEX = 280;
   const BDOOR = { x0: 314, x1: 332, y0: 252, y1: 288, cx: 323 };
   const BWIN = { x0: 308, x1: 352, y0: 190, y1: 228 };
   const POSTS = [62, 270, 334];                                     // lampposts on the near pavement
@@ -450,7 +450,7 @@
     }
     // the street running away: a road and its pavements, softly narrowing, fading into the haze
     for (let y = 236; y < 289; y++) {
-      const u = (y - 236) / 52, xl = lerp(276, 267, u), xr = lerp(290, 299, u);
+      const u = (y - 236) / 52, xl = lerp(268, 265, u), xr = lerp(275, 279, u);
       for (let xx = x0; xx < x1; xx++) {
         let c;
         if (xx >= xl && xx < xr) {
@@ -461,11 +461,11 @@
       }
     }
     // a few far street trees and a far lamp
-    for (const [tx, ty, r] of [[268, 232, 5], [297, 228, 6], [271, 220, 3.5]]) {
+    for (const [tx, ty, r] of [[267, 232, 4], [276, 226, 3.5]]) {
       vl(tx, ty, ty + r + 6, mixc(K.w1, K.n5, 0.5));
       ell(tx, ty, r, r * 0.9, null, (xx, yy, u, v) => px(xx, yy, mixc(v < -0.2 ? K.g2 : K.g1, K.n5, 0.45)));
     }
-    vl(292, 246, 262, K.n3); px(291, 245, K.n3); px(292, 245, K.n3); FARLAMP.push([291, 246]);
+    vl(272, 246, 262, K.n3); px(271, 245, K.n3); px(272, 245, K.n3); FARLAMP.push([271, 246]);
   }
   const DISTWIN = [], FARLAMP = [];
   function paintBlue() {                         // the other building: cool, tidy, no marks of any kind
@@ -478,12 +478,12 @@
     const rows = [[8, 40], [54, 86], [100, 132], [146, 178]];
     for (const [ya, yb] of rows) {
       hl(x0 + 4, x1 - 1, ya - 2, K.b3); hl(x0 + 4, x1 - 1, yb + 1, K.b1); hl(x0 + 4, x1 - 1, yb + 2, K.b0);
-      for (let y = ya; y <= yb; y++) for (let x = 308; x < x1; x++) {
-        if (x === 308 || x === 330 || x === 352) { px(x, y, K.b0); continue; }
+      for (let y = ya; y <= yb; y++) for (let x = x0 + 6; x < x1; x++) {
+        if ((x - (x0 + 6)) % 22 === 0) { px(x, y, K.b0); continue; }
         CR = GLS; px(x, y, sc(K.b0, 0.9 + 0.1 * ((y - ya) / (yb - ya)))); CR = EXT;
       }
       // a diagonal sheen
-      for (let k = 0; k < 2; k++) for (let y = ya; y <= yb; y++) { const xx = 312 + k * 22 + fl((yb - y) * 0.5); if (xx < x1 - 1 && xx !== 330) { T.E[(y * W + xx) * 3] = 26; T.E[(y * W + xx) * 3 + 1] = 30; T.E[(y * W + xx) * 3 + 2] = 36; } }
+      for (let k = 0; k < 3; k++) for (let y = ya; y <= yb; y++) { const xx = x0 + 10 + k * 22 + fl((yb - y) * 0.5); if (xx < x1 - 1 && (xx - (x0 + 6)) % 22 !== 0) { T.E[(y * W + xx) * 3] = 26; T.E[(y * W + xx) * 3 + 1] = 30; T.E[(y * W + xx) * 3 + 2] = 36; } }
     }
     // the lit window where they will sit (BLU interior)
     hl(x0 + 4, x1 - 1, BWIN.y0 - 3, K.b3); hl(x0 + 4, x1 - 1, BWIN.y1 + 1, K.b1); hl(x0 + 4, x1 - 1, BWIN.y1 + 2, K.b0);
@@ -509,6 +509,60 @@
     for (let y = 244; y < PL1 - 2; y++) { px(x0 + 4, y, K.b0); px(x0 + 5, y, K.b1); px(BDOOR.x0 - 1, y, K.b0); px(BDOOR.x1, y, K.b0); px(345 + 6, y, K.b0); }
     rect(x0, PL1 - 2, x1 - x0, 2, K.b0);
     // a tidy box hedge
+  }
+
+  /* ================================================================ lettering: a 5 x 9 pixel font (with descenders) */
+  const GLY = {
+    A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+    C: ['.###.', '#...#', '#....', '#....', '#....', '#...#', '.###.'],
+    I: ['.###.', '..#..', '..#..', '..#..', '..#..', '..#..', '.###.'],
+    O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+    T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+    a: ['.....', '.....', '.###.', '....#', '.####', '#...#', '.####'],
+    c: ['.....', '.....', '.###.', '#....', '#....', '#...#', '.###.'],
+    e: ['.....', '.....', '.###.', '#...#', '#####', '#....', '.###.'],
+    h: ['#....', '#....', '####.', '#...#', '#...#', '#...#', '#...#'],
+    i: ['..#..', '.....', '.##..', '..#..', '..#..', '..#..', '.###.'],
+    n: ['.....', '.....', '####.', '#...#', '#...#', '#...#', '#...#'],
+    o: ['.....', '.....', '.###.', '#...#', '#...#', '#...#', '.###.'],
+    p: ['.....', '.....', '####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
+    q: ['.....', '.....', '.####', '#...#', '#...#', '.####', '....#', '....#', '....#'],
+    r: ['.....', '.....', '#.##.', '##..#', '#....', '#....', '#....'],
+    s: ['.....', '.....', '.####', '#....', '.###.', '....#', '####.'],
+    t: ['.#...', '.#...', '####.', '.#...', '.#...', '.#..#', '..##.'],
+    u: ['.....', '.....', '#...#', '#...#', '#...#', '#..##', '.##.#'],
+    y: ['.....', '.....', '#...#', '#...#', '#...#', '.####', '....#', '....#', '.###.'],
+  };
+  const textW = (str, k) => (str.length * 6 - 1) * k;
+  function text(str, x, y, c, k, glow) {         // top-left at (x, y), scale k; glow: drawn as a lit pixel
+    let cx = x;
+    for (const ch of str) {
+      const g = GLY[ch];
+      if (g) g.forEach((row, ry) => { for (let rx = 0; rx < 5; rx++) if (row[rx] === '#') for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) (glow ? epx(cx + rx * k + b, y + ry * k + a, c, glow) : px(cx + rx * k + b, y + ry * k + a, c)); });
+      cx += 6 * k;
+    }
+  }
+  // the name signs: a lit board on posts on the studio's roof, a lit band at the top of the tower
+  function paintSigns() {
+    T = BG; CQ = 1;
+    {
+      const str = 'Anthropic', k = 2, tw = textW(str, k), x0 = RX - (tw >> 1) - 5, x1 = RX + (tw >> 1) + 5, y0 = 3, y1 = 27;
+      CR = EXT;
+      for (const px0 of [x0 + 12, x1 - 12]) { for (let y = y1; y < fl(roofY(px0)) + 2; y++) { px(px0, y, K.w0); px(px0 + 1, y, K.w1); } }
+      rect(x0 - 1, y0 - 1, x1 - x0 + 2, y1 - y0 + 2, K.w0);
+      rect(x0, y0, x1 - x0, y1 - y0, K.t0); hl(x0, x1 - 1, y0, K.t1); hl(x0, x1 - 1, y1 - 1, K.w0);
+      text(str, x0 + 5, y0 + 4, K.cw, k, 1);
+    }
+    {
+      const str = 'OpenAI', k = 2, tw = textW(str, k), x0 = BLUEX + 4, x1 = W, cx = (x0 + x1) >> 1, y0 = 10, y1 = 36;
+      CR = EXT;
+      rect(x0, y0, x1 - x0, y1 - y0, K.n1); hl(x0, x1 - 1, y0, K.b3); hl(x0, x1 - 1, y1 - 1, K.b0);
+      text(str, cx - (tw >> 1), y0 + 6, K.b5, k, 1);
+      // and the same, small, over the lobby canopy
+      const s2 = 'OpenAI', tw2 = textW(s2, 1);
+      text(s2, BDOOR.cx - (tw2 >> 1) + 12, 239 - 8, K.b5, 1, 0.95);
+    }
+    CQ = 2;
   }
   function paintStudioShell() {
     T = BG; CQ = 2;
@@ -734,8 +788,8 @@
     T = BG; CR = EXT; CQ = 2;
     // far pavement (with the zebra across the side street)
     sideTiles(0, PL1, W, 303, 9, 5, K.e3, K.e2, 111);
-    for (let y = PL1; y < 303; y++) for (let x = 266; x < 300; x++) {
-      const bar = ((x - 266) % 6) < 3;
+    for (let y = PL1; y < 303; y++) for (let x = 264; x < 282; x++) {
+      const bar = ((x - 264) % 6) < 3;
       px(x, y, bar ? sc(K.e4, 0.96 + 0.05 * ih(x, y, 112)) : sc(K.e0, 0.96 + 0.06 * ih(x, y, 113)));
     }
     // curbs and the road
@@ -831,7 +885,7 @@
   function paintAll() {
     RNG = mulberry32(7);
     for (const O of [BG, OV1, OV2]) { O.A.fill(0); O.E.fill(0); O.R.fill(0); O.Q.fill(2); if (O.M) O.M.fill(0); }
-    paintSky(); paintFarStreet(); paintBlue(); paintStudioShell(); paintUpper(); paintGround(); paintStreet(); paintBay();
+    paintSky(); paintFarStreet(); paintBlue(); paintStudioShell(); paintUpper(); paintGround(); paintStreet(); paintBay(); paintSigns();
     finishOverlay(OV1); finishOverlay(OV2);
     buildLights();
   }
@@ -1891,6 +1945,34 @@
     trk('person:' + name, () => lblit(S.x, S.y, reg, TRK ? visOf(S.layer) : undefined));
     clipAll();
   }
+  // name tags: a small dark label over each of the four, following them wherever they are visible
+  const NAMES = { p1: 'Cat', p2: 'Anthony', p3: 'Thariq', p4: 'Austin' };
+  function drawTags() {
+    T = WK; clipAll();
+    for (const n of ['p1', 'p2', 'p3', 'p4']) {
+      const S = POSES[n];
+      if (!S.vis) continue;
+      // the label fades with the light of the room they are in, and slides off the frame with them
+      const a = clamp(visOf(S.layer), 0, 1) * clamp((W + 2 - S.x) / 24, 0, 1) * clamp((S.x + 2) / 24, 0, 1);
+      if (a < 0.02) continue;
+      const str = NAMES[n], w = textW(str, 1) + 4, h = 11;
+      const lift = S.lie ? 14 : S.mode === 'sit' || S.mode === 'sitlow' ? 27 : 31;
+      let y0 = Math.round(S.y - lift - h + S.dy);
+      if (S.layer === 'blue') y0 = Math.max(y0, BWIN.y0 - h - 2);
+      const x0 = Math.round(S.x - w / 2); y0 = Math.max(1, y0);
+      const dark = (x, y) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const j = (y * W + x) * 3; for (let c = 0; c < 3; c++) { WK.A[j + c] *= 1 - 0.9 * a; WK.E[j + c] *= 1 - 0.9 * a; } };
+      for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { if ((y === y0 || y === y0 + h - 1) && (x === x0 || x === x0 + w - 1)) continue; dark(x, y); }
+      dark(Math.round(S.x), y0 + h); dark(Math.round(S.x), y0 + h + 1);
+      const edge = P[n].top;
+      for (let x = x0 + 1; x < x0 + w - 1; x++) eadd(x, y0 + h, edge[0] * 0.8 * a, edge[1] * 0.8 * a, edge[2] * 0.8 * a);
+      let cx = x0 + 2;
+      for (const ch of str) {
+        const g = GLY[ch];
+        if (g) g.forEach((row, ry) => { for (let rx = 0; rx < 5; rx++) if (row[rx] === '#') eadd(cx + rx, y0 + 1 + ry, K.cw[0] * a, K.cw[1] * a, K.cw[2] * a); });
+        cx += 6;
+      }
+    }
+  }
   function render(t) {
     t = mod(t, D);
     if (TRK) for (const k in TRK) TRK[k] = 0;
@@ -1938,6 +2020,7 @@
     if ((t >= 17.8 && t < 19.15) || (t > 29.75 && t < 30.8)) trk('hammock', () => drawHammock(t, true));   // unfurling from the hands
     trk('zs', () => drawZs(t));
     trk('bubble', () => drawBubble(t));
+    drawTags();
     drawLampsAndGlow(t);
     addPools(t);
     quantise();
