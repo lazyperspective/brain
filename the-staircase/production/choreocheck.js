@@ -1,45 +1,103 @@
 // Choreography check (Node, no browser): the constraints the story relies on, sampled over one loop at 120 Hz.
 //   node choreocheck.js
-//  - lead: the mini-me's built front stays ahead of its climber (>= 1.3 steps: the next foot only lands on solid stone)
-//  - ghost: the step being built is always blueprint before it is laid (>= 0.1 step margin); the ghost front never moves back
-//  - spacing: no team's people ever stand on another team's blueprint steps
-//  - pace: the mini-me never lays more than 2.8 steps a second (each block's flight stays readable)
-//  - periodicity: every quantity at t = D equals t = 0 plus exactly one lap
+//  - build in time: every block lands before Claude's foot starts its swing toward it (>= 0.25 s margin), except the
+//    deliberate just-in-time block, which must land after that swing starts (the foot is over thin air) and no later
+//    than the frame the foot comes down on it
+//  - one at a time: a block's materialisation never overlaps the previous block's (one clear focal build)
+//  - nobody stands on air: every planted foot (Claude, the three humans, the helper) is on a block that has landed and
+//    has not started to crumble
+//  - crumbling: the crumble front never moves back and stays behind every human
+//  - periodicity: over one loop Claude, every human, the build front, the crumble front and the camera rise exactly
+//    one module (12 blocks, 5.04 m); the antenna glow returns to its start value
 const fs = require('fs'), path = require('path');
 global.window = {};
 for (const f of ['core.js', 'stairs.js', 'choreo.js']) eval(fs.readFileSync(path.join(__dirname, '../js', f), 'utf8'));
-const S = window.STAIR, ST = S.stairs, CH = S.choreo, D = S.D, N = ST.N, L = ST.L;
-console.log(`staircase: N=${N} steps, lap path L=${L.toFixed(3)}, LAP=(${ST.LAP.x}, ${ST.LAP.y.toFixed(2)}, ${ST.LAP.z}), view elevation ${(Math.atan2(ST.LAP.y, Math.hypot(ST.LAP.x, ST.LAP.z)) * 180 / Math.PI).toFixed(1)} deg`);
-console.log(`retaut at c = ${CH.RETAUT.map((x) => x.toFixed(2)).join(', ')}`);
+const S = window.STAIR, U = S.U, ST = S.stairs, CH = S.choreo, C = CH.C, D = S.D, N = ST.N, HS = S.HS;
+const FPS = 30, dtF = 1 / FPS;
+const lines = [];
+const log = (s) => { lines.push(s); console.log(s); };
 let bad = 0;
+const fail = (s) => { bad++; log('FAIL ' + s); };
+log(`staircase: switchback module of N=${N} blocks (2 flights of ${ST.NF} + 4 corner steps), rise h=${ST.h} m, module rise H=${ST.H.toFixed(3)} m, path per module L=${ST.L.toFixed(3)} m`);
+
+// ---- build in time
+log('build timing (t = landing; swing = when the foot starts toward that block; contact = when it lands on it):');
+let minMargin = Infinity, jitInfo = null;
+for (let J = CH.J0 + 3; J < CH.J0 + 3 + N; J++) {
+  const tl = CH.landTime(J), tSw = CH.timeAtU(CH.swingStartU(J)), tCo = CH.timeAtU(CH.contactU(J));
+  const jit = CH.isJit(J);
+  const margin = tSw - tl;
+  if (!jit) { minMargin = Math.min(minMargin, margin); if (margin < 0.25) fail(`block ${J} lands ${tl.toFixed(3)} s, only ${margin.toFixed(3)} s before the swing`); }
+  else {
+    jitInfo = { J, tl, tSw, tCo };
+    if (tl > tCo + 1e-6) fail(`just-in-time block ${J} lands ${tl.toFixed(3)} after contact ${tCo.toFixed(3)}`);
+    if (tl < tSw) fail(`just-in-time block ${J} is not just in time (lands before the swing starts)`);
+  }
+  log(`  block ${String(J).padStart(2)} (${ST.stepRec(J).corner ? 'corner' : 'step  '})  lands ${U.wrap(tl, D).toFixed(2).padStart(5)}  swing ${U.wrap(tSw, D).toFixed(2).padStart(5)}  contact ${U.wrap(tCo, D).toFixed(2).padStart(5)}  ${jit ? 'JUST IN TIME: lands ' + ((tCo - tl) * 1000).toFixed(1) + ' ms before contact, ' + (tl - tSw).toFixed(2) + ' s after the foot left' : 'margin ' + margin.toFixed(2) + ' s'}`);
+}
+log(`min build margin (ordinary blocks): ${minMargin.toFixed(3)} s;  just-in-time block ${jitInfo.J}: lands at ${jitInfo.tl.toFixed(3)} s, foot contact at ${jitInfo.tCo.toFixed(3)} s (frame ${Math.round(jitInfo.tCo * FPS)}), the foot left ${(jitInfo.tl - jitInfo.tSw).toFixed(2)} s earlier`);
+for (let J = CH.J0 + 3; J < CH.J0 + 3 + N; J++) {
+  const gap = CH.landTime(J + 1) - CH.buildDur(J + 1) - CH.landTime(J);
+  if (gap < 0) fail(`block ${J + 1} starts forming before block ${J} has landed (${gap.toFixed(2)} s)`);
+}
+
+// ---- nobody stands on air (sampled at 120 Hz)
 const stat = {};
 const upd = (k, v, t) => { const s = stat[k] || (stat[k] = { min: Infinity, max: -Infinity, tmin: 0, tmax: 0 }); if (v < s.min) { s.min = v; s.tmin = t; } if (v > s.max) { s.max = v; s.tmax = t; } };
-let prevG = [null, null];
-for (let i = 0; i <= D * 120; i++) {
+const solid = (J, t) => CH.solidAt(J, t);
+const gaitFeet = (u) => { const m = u + 0.5, k = Math.floor(m), ph = m - k; return { planted: k, swingTo: k + 1, q: U.smooth(0.12, 0.88, ph) }; };
+let airCount = 0, prevCF = -Infinity;
+const air = (who, J, t) => { airCount++; if (airCount < 12) log(`  on air: ${who} needs block ${J} at t=${t.toFixed(3)} (lands ${CH.landTime(J).toFixed(2)}, crumbles ${CH.crumbleTime(J).toFixed(2)})`); };
+for (let i = 0; i < D * 120; i++) {
   const t = i / 120;
-  for (const team of [0, 1]) {
-    const sc = CH.climberS(t, team), uc = ST.uOfS(sc), B = CH.buildIdx(t, team), g = CH.ghostFront(t, team);
-    const s1 = CH.humanS(t, team, 0), s2 = CH.humanS(t, team, 1);
-    if (![sc, B, g, s1, s2].every(Number.isFinite)) { bad++; console.log('NaN at', t, team); }
-    upd('lead' + team, B - uc, t);
-    upd('ghostLen' + team, g - (Math.floor(B) + 1), t);
-    upd('h1gap' + team, sc - s1, t);
-    upd('h2gap' + team, s1 - s2, t);
-    if (prevG[team] !== null && g < prevG[team] - 1e-6) { bad++; console.log('ghost front moved back', t, team, prevG[team], g); }
-    prevG[team] = g;
-    // the other team's tail vs this team's ghost front (in this team's frame)
-    const other = 1 - team;
-    const tailO = ST.uOfS(CH.humanS(t, other, 1) - 0.78) + (team === 0 ? N : 0);
-    upd('tailClear' + team, tailO - g, t);
+  // Claude: the planted foot, and the swinging foot once it has come down (q >= 1 -> it is the planted one)
+  const u = CH.claudeU(t), g = gaitFeet(u);
+  if (!solid(g.planted, t)) air('Claude', g.planted, t);
+  upd('claudeLead', CH.builtIdx(t) - u, t);
+  // humans
+  for (let h = 0; h < 3; h++) {
+    const s = CH.humanS(t, h), m = CH.humanMode(t, h);
+    let need = [];
+    if (m === 'taut' || m === 'brace') need = [ST.stepAt(s + 0.36 + 0.15), ST.stepAt(s + 0.27 + 0.15)];
+    else if (m === 'sit' || m === 'fall') need = [ST.stepAt(s), ST.stepAt(s + 0.6 * HS)];
+    else { const gh = gaitFeet(ST.uOfS(s)); need = [gh.planted]; if (gh.q > 0.85) need.push(gh.swingTo); }
+    for (const J of need) if (!solid(J, t)) air(['researcher', 'evaluator', 'suit'][h], J, t);
+    upd('humanAboveCrumble', ST.uOfS(s) - CH.crumbleFront(t), t);
   }
-  for (const team of [0, 1]) upd('buildRate' + team, (CH.buildIdx(t + 1 / 30, team) - CH.buildIdx(t, team)) * 30, t);
-  // team separation (climbers, path units, A ahead of B by)
-  upd('sep', CH.climberS(t, 0) - CH.climberS(t, 1), t);
+  // helper (building): on the newest landed block
+  const inTrip = t >= C.turn && t < C.hopFwd1;
+  if (!inTrip) { const B = CH.builtIdx(t); if (!solid(B, t + 0.5)) air('helper', B, t); }
+  const cf = CH.crumbleFront(t);
+  if (cf < prevCF - 1e-9) fail(`crumble front moved back at ${t}`);
+  prevCF = cf;
+  upd('builtAhead', CH.builtIdx(t) - u, t);
 }
-for (const [k, v] of Object.entries(stat)) console.log(`${k.padEnd(11)} min ${v.min.toFixed(3)} @${v.tmin.toFixed(2)}  max ${v.max.toFixed(3)} @${v.tmax.toFixed(2)}`);
-const per = (f) => f(D) - f(0);
-for (const team of [0, 1]) {
-  console.log(`team ${team}: climber ${per((t) => CH.climberS(t, team)).toFixed(6)} (L ${L.toFixed(6)}), build ${per((t) => CH.buildIdx(t, team)).toFixed(6)} (N ${N}), h1 ${per((t) => CH.humanS(t, team, 0)).toFixed(6)}, h2 ${per((t) => CH.humanS(t, team, 1)).toFixed(6)}, ghost ${per((t) => CH.ghostFront(t, team)).toFixed(6)}`);
-}
-const ok = stat.lead0.min >= 1.3 && stat.lead1.min >= 1.3 && stat.ghostLen0.min >= 0.1 && stat.ghostLen1.min >= 0.1 && stat.tailClear0.min >= 0.95 && stat.tailClear1.min >= 0.95 && stat.buildRate0.max <= 2.8 && bad === 0;
-console.log(ok ? 'PASS' : 'CHECK');
+if (airCount) fail(`${airCount} samples with someone standing on air`);
+for (const [k, v] of Object.entries(stat)) log(`${k.padEnd(18)} min ${v.min.toFixed(3)} @${v.tmin.toFixed(2)}  max ${v.max.toFixed(3)} @${v.tmax.toFixed(2)}`);
+if (stat.humanAboveCrumble.min < 0.5) fail('a human gets within half a step of the crumble front');
+
+// ---- periodicity: exactly one module per loop
+const per = (f) => f(D - 1e-9) - f(0) + (f(D) - f(D - 1e-9));
+const near = (a, b, e = 1e-6) => Math.abs(a - b) < e;
+const cam0 = CH.camera(0), camD = CH.camera(D);
+const dCam = { x: camD.pos.x - cam0.pos.x, y: camD.pos.y - cam0.pos.y, z: camD.pos.z - cam0.pos.z }, dLook = { x: camD.look.x - cam0.look.x, y: camD.look.y - cam0.look.y, z: camD.look.z - cam0.look.z };
+const rows = [
+  ['Claude (blocks)', CH.claudeU(D) - CH.claudeU(0), N],
+  ['Claude (height m)', (CH.claudeU(D) - CH.claudeU(0)) * ST.h, ST.H],
+  ['researcher (path m)', CH.humanSU(D, 0) - CH.humanSU(0, 0), ST.L],
+  ['evaluator (path m)', CH.humanSU(D, 1) - CH.humanSU(0, 1), ST.L],
+  ['suit (path m)', CH.humanSU(D, 2) - CH.humanSU(0, 2), ST.L],
+  ['build front (blocks)', CH.builtIdx(D) - CH.builtIdx(0), N],
+  ['crumble front (blocks)', CH.crumbleFront(D) - CH.crumbleFront(0), N],
+  ['camera y (m)', dCam.y, ST.H], ['camera x (m)', dCam.x, 0], ['camera z (m)', dCam.z, 0],
+  ['camera look y (m)', dLook.y, ST.H], ['camera look x (m)', dLook.x, 0], ['camera look z (m)', dLook.z, 0],
+  ['antenna glow (t=D vs 0)', CH.upgradeGlow(D - 1e-9) - CH.upgradeGlow(0), 0],
+];
+log('one loop = one module:');
+for (const [k, v, want] of rows) { const ok = near(v, want, 1e-5); log(`  ${k.padEnd(26)} ${v.toFixed(6).padStart(11)}  (want ${want.toFixed(6)})  ${ok ? 'ok' : 'MISMATCH'}`); if (!ok) fail(k + ' does not rise exactly one module'); }
+// continuity across the wrap (positions just before D equal t=0 + one module)
+const e = 1e-7;
+const wrapRows = [['Claude u', CH.claudeU(D - e) + 0, CH.claudeU(0) + N], ['camera y', CH.camera(D - e).pos.y, cam0.pos.y + ST.H]];
+for (let h = 0; h < 3; h++) wrapRows.push(['human ' + h + ' s', CH.humanSU(D - e, h), CH.humanSU(0, h) + ST.L]);
+for (const [k, a, b] of wrapRows) if (Math.abs(a - b) > 1e-4) fail(`${k} jumps at the loop seam (${a} vs ${b})`);
+log(bad === 0 ? 'PASS' : 'CHECK');

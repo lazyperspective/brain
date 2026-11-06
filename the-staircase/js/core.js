@@ -1,12 +1,13 @@
-// THE STAIRCASE - core: config, deterministic math helpers. Every frame is a pure function of t (no Math.random).
+// THE STAIRCASE v2 - core: config, deterministic math helpers. Every frame is a pure function of t (no Math.random).
 (function () {
   const S = (window.STAIR = window.STAIR || {});
-  S.D = 20;            // loop length, seconds (one lap of the impossible staircase)
+  S.D = 20;            // loop length, seconds (the climb rises exactly one staircase module per loop)
   S.FPS = 30;
   S.W = 1080; S.H = 1350;   // output frame (4:5)
   S.SS = 2;                 // internal supersampling for the export render
-  S.CS = 1.22;              // character scale: AI climbers (their mini-mes are half that)
-  S.HS = 1.15;              // character scale: the humans
+  S.CS = 1.32;              // character scale: Claude
+  S.MS = 0.56;              // the helper, relative to Claude
+  S.HS = 1.1;               // character scale: the humans
 
   const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
   const sat = (x) => clamp(x, 0, 1);
@@ -67,5 +68,31 @@
     return f;
   }
 
-  S.U = { clamp, sat, lerp, smooth, s5, wrap, wrapS, bump, hash, hash2, easeOutBack, easeInOut, easeOut, easeIn, spring, wobble, angLerp, keys, skeys, profile };
+  // Periodic monotone cubic (Fritsch-Carlson) through keys [[t, v], ...] with t in [0, D): f(t + D) = f(t) + P.
+  // Monotone keys give a monotone curve (no overshoot), so a position never runs backwards between keys.
+  function pmono(tab, D, P) {
+    const n = tab.length;
+    const T = [], V = [];
+    for (let r = -1; r <= 1; r++) for (const [t, v] of tab) { T.push(t + r * D); V.push(v + r * P); }
+    const m = T.length, d = [], k = new Float64Array(m);
+    for (let i = 0; i < m - 1; i++) d.push((V[i + 1] - V[i]) / (T[i + 1] - T[i]));
+    for (let i = 1; i < m - 1; i++) k[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+    k[0] = d[0]; k[m - 1] = d[m - 2];
+    for (let i = 0; i < m - 1; i++) {
+      if (d[i] === 0) { k[i] = 0; k[i + 1] = 0; continue; }
+      const a = k[i] / d[i], b = k[i + 1] / d[i], s2 = a * a + b * b;
+      if (s2 > 9) { const tt = 3 / Math.sqrt(s2); k[i] = tt * a * d[i]; k[i + 1] = tt * b * d[i]; }
+    }
+    const f = (t) => {
+      const w = Math.floor(t / D), x = t - w * D;
+      let i = n - 1; while (T[i + 1] < x) i++;        // T[n - 1 .. 2n] covers [0, D)
+      while (T[i] > x) i--;
+      const h = T[i + 1] - T[i], u = (x - T[i]) / h, u2 = u * u, u3 = u2 * u;
+      return w * P + (2 * u3 - 3 * u2 + 1) * V[i] + (u3 - 2 * u2 + u) * h * k[i] + (-2 * u3 + 3 * u2) * V[i + 1] + (u3 - u2) * h * k[i + 1];
+    };
+    f.rate = (t, e = 1e-3) => (f(t + e) - f(t - e)) / (2 * e);
+    return f;
+  }
+
+  S.U = { pmono, clamp, sat, lerp, smooth, s5, wrap, wrapS, bump, hash, hash2, easeOutBack, easeInOut, easeOut, easeIn, spring, wobble, angLerp, keys, skeys, profile };
 })();

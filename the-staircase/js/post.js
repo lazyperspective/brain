@@ -1,4 +1,4 @@
-// THE STAIRCASE - the frame pipeline (all WebGL2, all deterministic):
+// THE STAIRCASE v2 - the frame pipeline (perspective or orthographic camera) (all WebGL2, all deterministic):
 //   1. normal + ID pass (depth texture) -> outlines, ambient occlusion, atmospheric depth
 //   2. colour pass (toon materials, PCF soft shadows), HDR half-float
 //   3. composite: sky (gradient, the glow above, circuit-constellations with pulses climbing them), screen-space
@@ -57,12 +57,13 @@ precision highp float;
 varying vec2 vUv;
 uniform sampler2D tColor, tNid, tDepth, tSky;
 uniform vec2 uPx;            // 1 / resolution
-uniform vec2 uView;          // frustum width, height (world units)
-uniform float uNear, uFar, uT, uD, uCamDist;
+uniform vec2 uView;          // orthographic: frustum width, height (world units); perspective: 2 tan(fov/2) * (aspect, 1)
+uniform float uNear, uFar, uT, uD, uCamDist, uPersp;
 uniform vec3 uInk;
 uniform float uLineW;
 
-float lin(float d){ return uNear + d * (uFar - uNear); }
+float lin(float d){ return uPersp > 0.5 ? uNear * uFar / (uFar - d * (uFar - uNear)) : uNear + d * (uFar - uNear); }
+vec3 viewPos(vec2 uv, float z){ return uPersp > 0.5 ? vec3((uv - 0.5) * uView * z, -z) : vec3((uv - 0.5) * uView, -z); }
 ${SKY}
 void main(){
   vec2 uv = vUv;
@@ -76,9 +77,9 @@ void main(){
   float ao = 0.0;
   if (bg < 0.5) {
     vec3 n = vec3(nid.xy * 2.0 - 1.0, 0.0); n.z = sqrt(max(0.0, 1.0 - dot(n.xy, n.xy)));
-    vec3 P = vec3((uv - 0.5) * uView, -z);
+    vec3 P = viewPos(uv, z);
     float R = 0.42;
-    vec2 rpx = vec2(R / uView.x, R / uView.y);
+    vec2 rpx = uPersp > 0.5 ? vec2(R / (uView.x * z), R / (uView.y * z)) : vec2(R / uView.x, R / uView.y);
     float a0 = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
     for (int i = 0; i < 14; i++) {
       float fi = float(i);
@@ -88,7 +89,7 @@ void main(){
       vec2 su = uv + o;
       float sd = texture2D(tDepth, su).r;
       if (sd > 0.9999) continue;
-      vec3 Q = vec3((su - 0.5) * uView, -lin(sd));
+      vec3 Q = viewPos(su, lin(sd));
       vec3 v = Q - P; float vl = length(v);
       float w = 1.0 - smoothstep(R * 0.6, R * 1.6, vl);
       ao += max(0.0, dot(n, v / max(vl, 1e-4)) - 0.12) * w;
@@ -240,7 +241,7 @@ void main(){
       this.mComp = mk(COMPOSITE, {
         tColor: { value: this.rtC.texture }, tNid: { value: this.rtN.texture }, tDepth: { value: dtex }, tSky: { value: this.sky },
         uPx: { value: new T3.Vector2(1 / w, 1 / h) }, uView: { value: new T3.Vector2(1, 1) }, uNear: { value: 0.1 }, uFar: { value: 100 },
-        uT: { value: 0 }, uD: { value: S.D }, uCamDist: { value: 50 }, uInk: { value: new T3.Color('#1c1433') }, uLineW: { value: 2.6 * SS },
+        uT: { value: 0 }, uD: { value: S.D }, uCamDist: { value: 50 }, uPersp: { value: 0 }, uInk: { value: new T3.Color('#1c1433') }, uLineW: { value: 2.6 * SS },
       });
       this.mSky = mk(SKYPASS, { tSky: { value: this.sky }, uT: { value: 0 }, uD: { value: S.D } });
       this.mBright = mk(BRIGHT, { tSrc: { value: this.rtK.texture }, uPx: { value: new T3.Vector2(1 / w, 1 / h) } });
@@ -271,7 +272,9 @@ void main(){
       scene.background = bgc;
       // 3. composite
       const u = this.mComp.uniforms;
-      u.uView.value.set(camera.right - camera.left, camera.top - camera.bottom); u.uNear.value = camera.near; u.uFar.value = camera.far;
+      if (camera.isPerspectiveCamera) { const th = Math.tan(camera.fov * Math.PI / 360); u.uView.value.set(2 * th * camera.aspect, 2 * th); u.uPersp.value = 1; }
+      else { u.uView.value.set(camera.right - camera.left, camera.top - camera.bottom); u.uPersp.value = 0; }
+      u.uNear.value = camera.near; u.uFar.value = camera.far;
       u.uT.value = t; u.uCamDist.value = camera.userData.dist;
       this.pass(this.mComp, this.rtK);
       // 4. bloom

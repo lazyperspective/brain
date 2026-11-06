@@ -1,15 +1,17 @@
-// THE STAIRCASE - renderer, camera, lights, and the staircase meshes (solid blocks, blueprint ghosts, build glow).
+// THE STAIRCASE v2 - renderer, the climbing camera, lights, and the staircase blocks (a pool of meshes re-used as the
+// build front moves up: each block can materialise (wireframe + dissolve-in), slam into place, stand, crack and fall
+// apart into four pieces).
 (function () {
   const S = window.STAIR, U = S.U, G = S.G, ST = S.stairs, T3 = THREE;
 
   const PAL = S.PAL = {
     stone: '#f2dfbf', stoneSide: '#e9cfa6', ink: '#1c1433',
     coral: '#ff7b63', coralDark: '#d9503f', coralBelly: '#ffd9c2', coralGlow: '#ffe7a3', screen: '#2a2140',
-    char: '#3b3f4d', charDark: '#2a2d38', mint: '#62f2c6', mintDeep: '#2fc79e',
-    ghost: '#8fe9ff', rope: '#f2c27a', gold: '#ffd36e',
+    ghost: '#8fe9ff', build: '#ffd27a', rope: '#f2c27a', gold: '#ffd36e',
   };
+  const KEY_DIR = new T3.Vector3(-0.45, 1.0, 0.55).normalize();
 
-  function setup(canvas, W, H, SS) {
+  function setup(canvas, W, H) {
     const renderer = new T3.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setPixelRatio(1);
     renderer.setSize(W, H, false);
@@ -19,84 +21,85 @@
     renderer.toneMapping = T3.NoToneMapping;
     const scene = new T3.Scene();
 
-    // ---- camera: orthographic, looking exactly along the lap displacement (that is the illusion)
-    const V = new T3.Vector3(ST.VIEW.x, ST.VIEW.y, ST.VIEW.z);
-    const camera = new T3.OrthographicCamera(-1, 1, 1, -1, 1, 280);
-    const target = new T3.Vector3(0, 0, 0);
-    const dist = 70;
-    camera.position.copy(target).addScaledVector(V, dist);
-    camera.up.set(0, 1, 0);
-    camera.lookAt(target);
-    camera.userData.dist = dist;
-    camera.updateMatrixWorld();
-    // frame the ring: project every step corner into camera space
-    const inv = camera.matrixWorldInverse;
-    let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
-    const p = new T3.Vector3();
-    for (const st of ST.steps) for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const dy of [0, -ST.T]) {
-      p.set(st.cx + sx * st.sx / 2, st.y + dy, st.cz + sz * st.sz / 2).applyMatrix4(inv);
-      mnx = Math.min(mnx, p.x); mxx = Math.max(mxx, p.x); mny = Math.min(mny, p.y); mxy = Math.max(mxy, p.y);
-    }
-    const ringW = mxx - mnx;
-    const fw = ringW / 0.94;                 // the ring spans ~80% of the frame width
-    const fh = fw * H / W;
-    const cx = (mnx + mxx) / 2, cy = (mny + mxy) / 2;
-    const yOff = -fh * 0.035;                // ring sits a touch below centre: the glow gets the top
-    camera.left = cx - fw / 2; camera.right = cx + fw / 2; camera.top = cy + fh / 2 - yOff; camera.bottom = cy - fh / 2 - yOff;
-    camera.updateProjectionMatrix();
-    camera.userData.ring = { mnx, mxx, mny, mxy, fw, fh };
+    // ---- camera: perspective, low and looking up at the climb; placed every frame by S.choreo.camera(t)
+    const camera = new T3.PerspectiveCamera(36, W / H, 0.5, 400);
+    camera.userData.dist = S.choreo.CAMP.dist;
 
-    // ---- lights
-    const keyDir = new T3.Vector3(-0.36, 1.0, 0.62).normalize();
+    // ---- lights (the key light and its shadow box travel with the camera's target)
     const key = new T3.DirectionalLight(new T3.Color('#fff0d8'), 2.5);
-    key.position.copy(keyDir).multiplyScalar(40);
-    key.target.position.set(0, 0, 0);
     key.castShadow = true;
     key.shadow.mapSize.set(4096, 4096);
-    const sc = key.shadow.camera; sc.left = -15; sc.right = 15; sc.top = 15; sc.bottom = -15; sc.near = 10; sc.far = 80;
-    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.025; key.shadow.radius = 3;
+    const sc = key.shadow.camera; sc.left = -8; sc.right = 8; sc.top = 8; sc.bottom = -8; sc.near = 5; sc.far = 70;
+    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02; key.shadow.radius = 3;
     scene.add(key, key.target);
     const hemi = new T3.HemisphereLight(new T3.Color('#9d8fe0'), new T3.Color('#6a4566'), 1.05);
     scene.add(hemi);
-    // light directions in view space for the toon rim
     G.LIGHT.key.copy(key.color).multiplyScalar(key.intensity);
+    const env = { renderer, scene, camera, key, hemi };
+    place(env, 0);
+    return env;
+  }
+  // put the camera and the key light where the choreography says, for time t (unwrapped t is fine)
+  function place(env, t) {
+    const { camera, key } = env;
+    const c = S.choreo.camera(t);
+    // a small bump when a block slams into place (deterministic; zero again long before the next one)
+    let shake = 0;
+    const CH = S.choreo, B = CH.builtIdx(t);
+    for (const J of [B, B - 1]) { const a = t - CH.landTime(J); if (a >= 0 && a < 0.6) shake += (CH.isJit(J) ? 0.05 : 0.03) * Math.exp(-a * 10) * Math.sin(a * 55); }
+    camera.position.set(c.pos.x, c.pos.y + shake, c.pos.z);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(c.look.x, c.look.y + shake * 0.6, c.look.z);
+    if (camera.fov !== c.fov) { camera.fov = c.fov; camera.updateProjectionMatrix(); }
+    camera.updateMatrixWorld();
+    const tg = new T3.Vector3(c.look.x, c.look.y - 0.4, c.look.z - 0.5);
+    key.target.position.copy(tg); key.position.copy(tg).addScaledVector(KEY_DIR, 30);
+    key.target.updateMatrixWorld(); key.updateMatrixWorld();
     const rimV = new T3.Vector3(0.15, 1, -0.2).normalize().transformDirection(camera.matrixWorldInverse);
     G.LIGHT.rimDirView.copy(rimV);
-    return { renderer, scene, camera, key, hemi, V };
+    env.camInfo = c;
   }
 
-  // ---- the staircase meshes
+  // ---- the staircase block pool: slot p holds blocks J with J = p (mod POOL); POOL = 2 modules
+  const POOL = 2 * ST.N;
   function buildStairs(scene) {
     const group = new T3.Group(); scene.add(group);
-    const blocks = [];
-    const ghostMatBase = (size) => new T3.ShaderMaterial({
-      transparent: true, depthWrite: false, side: T3.DoubleSide,
-      uniforms: { uSize: { value: new T3.Vector3().fromArray(size) }, uA: { value: 1 }, uCol: { value: new T3.Color(PAL.ghost) }, uT: { value: 0 } },
+    const ghostMat = (size) => new T3.ShaderMaterial({
+      transparent: true, depthWrite: false, side: T3.DoubleSide, blending: T3.AdditiveBlending,
+      uniforms: { uSize: { value: new T3.Vector3().fromArray(size) }, uA: { value: 1 }, uCol: { value: new T3.Color(PAL.build) }, uT: { value: 0 } },
       vertexShader: `varying vec3 vL; void main(){ vL = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
       fragmentShader: `varying vec3 vL; uniform vec3 uSize; uniform float uA; uniform vec3 uCol; uniform float uT;
-void main(){ vec3 hs = uSize * 0.5; vec3 q = abs(vL); vec3 e = smoothstep(hs - 0.07, hs - 0.025, q);
+void main(){ vec3 hs = uSize * 0.5; vec3 q = abs(vL); vec3 e = smoothstep(hs - 0.06, hs - 0.02, q);
   float edge = max(max(e.x * e.y, e.y * e.z), e.x * e.z);
-  vec3 g = abs(fract(vL * 4.0) - 0.5); float grid = (1.0 - smoothstep(0.0, 0.06, min(g.x, min(g.y, g.z)))) * 0.35;
-  float scan = 0.5 + 0.5 * sin(vL.y * 30.0 - uT * 6.2831853 * 0.5);
-  float a = (0.10 + grid * 0.5 + edge * 0.9) * uA;
-  gl_FragColor = vec4(pow(uCol, vec3(2.2)) * (0.5 + edge * 2.2 + grid * 0.6) * (0.85 + 0.15 * scan), a); }`,
+  vec3 g = abs(fract(vL * 5.0 + 0.5) - 0.5); float grid = (1.0 - smoothstep(0.0, 0.05, min(g.x, min(g.y, g.z)))) * 0.5;
+  float scan = 0.5 + 0.5 * sin(vL.y * 24.0 - uT * 40.0);
+  float a = (0.05 + grid * 0.35 + edge * 1.0) * uA;
+  gl_FragColor = vec4(pow(uCol, vec3(2.2)) * (0.6 + edge * 2.6 + grid * 0.8) * (0.8 + 0.2 * scan) * a, 1.0); }`,
     });
-    for (const st of ST.steps) {
-      const size = [st.sx, ST.T, st.sz];
+    const slots = [];
+    for (let p = 0; p < POOL; p++) {
+      const st = ST.steps[p % ST.N];
+      const size = [st.sx - 0.03, ST.T, st.sz - 0.03];
       const geo = G.roundedBox(size[0], size[1], size[2], 0.07);
-      const mat = G.toon({ color: PAL.stone, rim: 0.45, dissolve: true, trim: { size }, seed: st.j * 3.17, glowCol: PAL.gold });
+      const mat = G.toon({ color: PAL.stone, rim: 0.45, dissolve: true, trim: { size }, seed: p * 3.17, glowCol: PAL.gold, edgeCol: '#ffe9b0' });
       const mesh = new T3.Mesh(geo, mat);
-      mesh.position.set(st.cx, st.y - ST.T / 2, st.cz);
       G.reg(mesh, { dissolve: true });
       group.add(mesh);
-      const ghost = new T3.Mesh(geo, ghostMatBase(size));
-      ghost.position.copy(mesh.position);
+      const ghost = new T3.Mesh(G.roundedBox(size[0] + 0.02, size[1] + 0.02, size[2] + 0.02, 0.07), ghostMat(size));
       ghost.renderOrder = 5; ghost.visible = false;
       group.add(ghost);
-      blocks.push({ st, mesh, mat, ghost, home: mesh.position.clone() });
+      // crumble pieces: the block split 2 x 2 in plan
+      const pieces = [];
+      const pm = G.toon({ color: PAL.stone, rim: 0.45 });
+      for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) {
+        const pg = G.roundedBox(size[0] / 2 - 0.025, size[1] * (0.86 + 0.12 * ((a + b) % 2)), size[2] / 2 - 0.025, 0.06);
+        const m = new T3.Mesh(pg, pm); m.rotation.order = 'YXZ'; G.reg(m); m.visible = false; group.add(m);
+        pieces.push({ m, lx: (a - 0.5) * size[0] / 2, lz: (b - 0.5) * size[2] / 2, ly: -size[1] / 2 });
+      }
+      slots.push({ p, st, mesh, mat, ghost, pieces, size });
     }
-    return { group, blocks };
+    return { group, slots, POOL };
   }
 
-  S.scene = { setup, buildStairs };
+  S.scene = { setup, place, buildStairs, POOL };
 })();

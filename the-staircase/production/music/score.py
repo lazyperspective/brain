@@ -1,31 +1,30 @@
 #!/usr/bin/env python3
-"""THE STAIRCASE - the sound: a seamless 20.000 s loop. A playful clockwork score that climbs forever, plus foley
+"""THE STAIRCASE v2 - the sound: a seamless 20.000 s loop. A playful clockwork score that climbs forever, plus foley
 synced to the picture (events.json, written by events.js from the same choreography the renderer uses).
 
-The music is a Shepard construction, the ear's version of the Penrose stairs: every note is sounded in several octaves
-at once under a fixed bell-shaped loudness curve over pitch, so a line can keep stepping UP while the sound stays in
-place. Over one loop the clockwork melody climbs two full octaves (bar roots rise 1-1-1-2-1-1-1-2-2-2 scale degrees in
-D major, 14 degrees) and arrives exactly where it started. Instruments (FluidSynth, FluidR3_GM): marimba plucks on
-eighths, pizzicato bass, a music-box/celesta glint each bar, a soft string pad; plus synthesised clock ticks and a
-very quiet Shepard-Risset glissando underneath. When a rope is cut the plucks hiccup (a beat of rest) and the rope twangs.
+The music is a Shepard construction: every note is sounded in several octaves at once under a fixed bell-shaped
+loudness curve over pitch, so a line can keep stepping UP while the sound stays in place. Over one loop the clockwork
+melody climbs two full octaves and arrives exactly where it started - the ear's version of a climb that never ends,
+which now matches a real ascent (Claude rises one staircase module per loop). Instruments (FluidSynth, FluidR3_GM):
+marimba plucks on eighths, pizzicato bass, a music-box glint each bar, a soft string pad; synthesised clock ticks and a
+very quiet Shepard-Risset glissando underneath. When the rope is cut the plucks hiccup (a beat of rest).
 
-    t (s)   picture                                   sound
-    0.95    Pip's mini-me stops building, turns       a little bip
-    1.05    it hops back over Pip's head              a spring-up boing; a tap as it lands
-    1.8-2.2 snip, snip, SNIP                          two scissor shicks, then the snip and the rope's twang;
-                                                      the plucks rest for a beat; the rope end whooshes back
-    2.5     the researcher and the suit sit down hard two thuds and dust
-    5.2-6.0 the lasso spins                           whoosh-whoosh-whoosh
-    6.05    the throw; 6.75 the catch                 a whoosh up, a thwip and a ding
-    6.87    the rope snaps taut                       a low rope thrum
-    10.95-16.87  the same story for Kip's team        the same sounds, panned to where they happen
-    always  blocks laid by the mini-mes               a stony clonk (with a soft glow-in bloop just before)
-            climbers' footsteps, dragged heels        soft steps, shoe scuffs and rope creaks
-            steps dissolving into blueprint           a faint glassy shimmer
+    t (s)        picture                                         sound
+    always       a block materialises out of nothing            a rising crystalline shimmer with an electric buzz
+                 ... and slams into place                       a heavy stone slam: sub thump, crack, dust
+                 old blocks below crack and fall away           a stony crack, then a rumble and clatter falling away
+                 footsteps, dragged heels, the taut rope        soft steps, scuffs, rope creaks
+    4.6-6.2      the helper turns, hops back, snip-snip-SNIP    bip, boing, two shicks, the snip and the rope's twang
+    6.55-6.75    the humans sit down hard                       three thuds
+    7.2-8.45     antenna module out, new one in, two cranks     pop, sparkle, click, two ratchet zaps, a rising chime
+    9.0          Claude surges                                  a whoosh up
+    13.0-13.97   the beam fizzles; the block rises under the    a sputter; then the slam lands exactly on Claude's
+                 foot on the very last frame                    footfall, with a little relief chime
+    12.9-14.55   the lasso spins, flies, catches                whoosh-whoosh, a whoosh up, a thwip and a ding
+    14.75-15.07  the rope snaps taut, one stretch after another three low twangs
 
 Seamless by construction: everything is rendered over three cycles (60 s) with events placed in every cycle, the
-Shepard pitches identical every cycle (two octaves higher = the same set of sounding pitches), the reverb circular,
-noise tiled, and the middle cycle cut. FluidSynth renders the same three-cycle MIDI (its reverb and chorus off).
+Shepard pitches identical every cycle, the reverb circular, noise tiled, and the middle cycle cut.
 
     python3 score.py     (numpy, scipy, soundfile; fluidsynth + /usr/share/sounds/sf2/FluidR3_GM.sf2; ffmpeg)
 Writes score.wav (48 kHz / 24-bit / stereo, exactly 20.000 s) and verification.txt.
@@ -43,7 +42,7 @@ N = int(round(SR * D))
 CYC = 3
 NT = N * CYC
 TARGET_LUFS = -20.0
-CEIL_DB = -2.0
+CEIL_DB = -1.5
 BPM = 120.0
 BEAT = 60.0 / BPM               # 0.5 s; 40 beats = 10 bars of 4/4 per loop
 t_all = np.arange(NT) / SR
@@ -226,23 +225,151 @@ def ding(seed, gain):
     return x * gain
 
 
-TEAMPAN = lambda p: 0.7 * p
+def slam(seed, gain, big=1.0):
+    """a heavy stone block landing: a sub thump with a pitch drop, a woody-stony body, a crack, and a dust tail"""
+    n = int(0.9 * SR); tt = np.arange(n) / SR
+    f = 48 + 70 * np.exp(-tt / 0.025)
+    x = np.sin(2 * np.pi * np.cumsum(f) / SR) * env(n, 0.001, 0.16) * 1.1
+    x += (0.55 * np.sin(2 * np.pi * 131 * tt) + 0.35 * np.sin(2 * np.pi * 207 * tt) + 0.2 * np.sin(2 * np.pi * 349 * tt)) * env(n, 0.001, 0.07)
+    x += bp(rng(seed).standard_normal(n), 1200, 6000) * env(n, 0.0003, 0.01) * 0.9          # the crack
+    x += lp(rng(seed + 1).standard_normal(n), 2500) * env(n, 0.004, 0.09) * 0.45           # thud body
+    x += bp(rng(seed + 2).standard_normal(n), 2500, 9000) * np.minimum(1, tt / 0.03) * np.exp(-tt / 0.25) * 0.12  # dust
+    # a little bounce (the squash-bounce of the block)
+    k = int(0.11 * SR)
+    x[k:] += 0.25 * x[:n - k] * np.exp(-tt[:n - k] / 0.05)
+    return x * gain * big
+
+
+def form(seed, gain, dur):
+    """materialising: a shimmer that rises in pitch and density into the slam, over an electric buzz"""
+    n = int((dur + 0.05) * SR); tt = np.arange(n) / SR
+    u = np.clip(tt / dur, 0, 1)
+    r = rng(seed)
+    x = np.zeros(n)
+    for k, f0 in enumerate((1318.5, 1760.0, 2217.5, 2637.0, 3520.0)):
+        f = f0 * 2 ** (0.5 * u)
+        x += np.sin(2 * np.pi * np.cumsum(f) / SR + r.random() * 6) * (0.5 + 0.5 * np.sin(2 * np.pi * (9 + 3 * k) * tt)) / 5
+    buzz = np.sign(np.sin(2 * np.pi * 110 * 2 ** (0.4 * u) * tt)) * 0.15
+    x = x * 0.8 + lp(buzz, 1800) * 0.6
+    sh = np.sin(np.pi / 2 * u) ** 2 * (1 - np.clip((tt - dur) / 0.05, 0, 1))
+    return x * sh * gain
+
+
+def crack(seed, gain):
+    n = int(0.25 * SR); tt = np.arange(n) / SR
+    x = bp(rng(seed).standard_normal(n), 800, 5000) * env(n, 0.0005, 0.015)
+    x += bp(rng(seed + 1).standard_normal(n), 300, 1500) * env(n, 0.002, 0.05) * 0.5
+    return x * gain
+
+
+def crumble(seed, gain):
+    """the block breaks and its pieces fall away into the clouds: a rumble and a clatter that recede and darken"""
+    n = int(1.6 * SR); tt = np.arange(n) / SR
+    r = rng(seed)
+    x = lp(r.standard_normal(n), 400) * env(n, 0.01, 0.35) * 1.2
+    cl = np.zeros(n)
+    k = 0.0
+    while k < 1.2:
+        i = int(k * SR)
+        if i < n: cl[i] = (0.4 + 0.6 * r.random()) * np.exp(-k / 0.5)
+        k += 0.03 + 0.08 * r.random()
+    cl = bp(cl, 600, 3000, 2) * 8
+    out = x + cl
+    # recede: a darkening low-pass sweep
+    y = np.zeros(n); blk = 2400
+    for i in range(0, n, blk):
+        fc = 5000 * 2 ** (-4 * i / n)
+        seg = out[max(0, i - 4096):i + blk]
+        yy = lp(seg, max(fc, 200))
+        y[i:i + blk] = yy[-len(out[i:i + blk]):]
+    return y * gain
+
+
+def chime_up(seed, gain, notes=(76, 81, 85, 88, 93), step=0.065):
+    n = int(1.6 * SR); tt = np.arange(n) / SR
+    x = np.zeros(n)
+    for j, m in enumerate(notes):
+        i0 = int(j * step * SR); f = midi_hz(m); t2 = tt[:n - i0]
+        x[i0:] += (np.sin(2 * np.pi * f * t2) + 0.4 * np.sin(2 * np.pi * 2.01 * f * t2) + 0.15 * np.sin(2 * np.pi * 3.0 * f * t2)) * env(n - i0, 0.002, 0.35 + 0.1 * j)
+    return x * gain / len(notes) * 2
+
+
+def ratchet(seed, gain):
+    n = int(0.3 * SR); tt = np.arange(n) / SR
+    cl = np.zeros(n)
+    for j in range(6):
+        i = int((0.02 + j * 0.032) * SR)
+        cl[i] = 1.0
+    x = bp(cl, 2500, 7000, 2) * 10 + bp(rng(seed).standard_normal(n), 3000, 9000) * env(n, 0.001, 0.02) * 0.4
+    zap = np.sin(2 * np.pi * np.cumsum(2400 + 1800 * np.exp(-tt / 0.03)) / SR) * env(n, 0.001, 0.05) * 0.35
+    return (x + zap) * gain
+
+
+def pop(seed, gain):
+    n = int(0.2 * SR); tt = np.arange(n) / SR
+    f = 900 * np.exp(-tt / 0.03) + 300
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * env(n, 0.001, 0.04) * gain
+
+
+def sparkle(seed, gain):
+    n = int(0.7 * SR); tt = np.arange(n) / SR
+    r = rng(seed); x = np.zeros(n)
+    for j in range(9):
+        i0 = int(r.random() * 0.4 * SR); f = 2600 + 2400 * r.random(); t2 = tt[:n - i0]
+        x[i0:] += np.sin(2 * np.pi * f * t2) * env(n - i0, 0.001, 0.06)
+    return x * gain / 3
+
+
+def click(seed, gain):
+    n = int(0.08 * SR); tt = np.arange(n) / SR
+    return (bp(rng(seed).standard_normal(n), 1500, 6000) * env(n, 0.0003, 0.006) + np.sin(2 * np.pi * 1800 * tt) * env(n, 0.0005, 0.015) * 0.5) * gain
+
+
+def fizzle(seed, gain, dur):
+    n = int(dur * SR); tt = np.arange(n) / SR
+    r = rng(seed)
+    gate = (np.sin(2 * np.pi * 9 * tt + 3 * np.sin(2 * np.pi * 2.3 * tt)) > 0.2).astype(float)
+    gate = lp(gate, 200)
+    x = hp(r.standard_normal(n), 2000) * 0.5 + np.sign(np.sin(2 * np.pi * 150 * tt)) * 0.25
+    return x * gate * np.sin(np.pi * np.clip(tt / dur, 0, 1)) ** 0.5 * gain
+
+
+def creak(seed, gain):
+    n = int(0.35 * SR); tt = np.arange(n) / SR
+    r = rng(seed); cr = np.zeros(n); k = 0.0
+    while k < 0.3:
+        i = int(k * SR)
+        if i < n: cr[i] = 1.0
+        k += 0.009 + 0.006 * r.random() + 0.01 * k
+    cr = bp(cr, 280, 800, 2) * 7
+    return cr * np.sin(np.pi * np.clip(tt / 0.32, 0, 1)) * gain
+
+
 fx = np.zeros((2, NT))
 for k, e in enumerate(events):
-    ty, t0, pn, tm = e['type'], e['t'], TEAMPAN(e['pan']), e.get('team', 0)
+    ty, t0, pn = e['type'], e['t'], 0.75 * e['pan']
     sd = 1000 + k
-    if ty == 'lay':
-        place(fx, t0, pan2(clonk(sd, 0.26, 1.0 + 0.04 * ((e['step'] * 7) % 5 - 2)), pn))
-    elif ty == 'glowIn':
-        place(fx, t0, pan2(bloop(sd, 0.05, tm == 0), pn))
+    if ty == 'slam':
+        place(fx, t0, pan2(slam(sd, 0.62, 1.0 + 0.05 * ((e['step'] * 7) % 5 - 2) * 0), pn))
+    elif ty == 'jitSlam':
+        place(fx, t0, pan2(slam(sd, 0.85), pn))
+        place(fx, t0 + 0.06, pan2(chime_up(sd, 0.10, (81, 88)), pn))
+    elif ty == 'form':
+        place(fx, t0, pan2(form(sd, 0.10, e['dur']), pn))
+    elif ty == 'miniHop':
+        place(fx, t0, pan2(boing(sd, 0.035, True), pn))
+    elif ty == 'crack':
+        place(fx, t0, pan2(crack(sd, 0.22), pn))
+    elif ty == 'crumble':
+        place(fx, t0, pan2(crumble(sd, 0.32), pn))
     elif ty == 'climbStep':
-        place(fx, t0, pan2(step_tap(sd, 0.06 if tm == 0 else 0.05, tm == 1), pn))
+        place(fx, t0, pan2(step_tap(sd, 0.11 if e.get('heavy') else 0.08, False), pn))
     elif ty == 'dragHop':
-        place(fx, t0, pan2(scuff(sd, 0.06), pn))
+        place(fx, t0, pan2(scuff(sd, 0.07), pn))
+    elif ty == 'creak':
+        place(fx, t0, pan2(creak(sd, 0.05), pn))
     elif ty == 'runStep':
         place(fx, t0, pan2(step_tap(sd, 0.05, True), pn))
-    elif ty == 'dissolve':
-        place(fx, t0, pan2(shimmer(sd, 0.025), pn))
     elif ty == 'turn':
         place(fx, t0, pan2(bip(sd, 0.08), pn))
     elif ty == 'hopUp':
@@ -250,24 +377,43 @@ for k, e in enumerate(events):
     elif ty == 'hopLand':
         place(fx, t0, pan2(step_tap(sd, 0.12, True), pn))
     elif ty in ('snipOpen', 'snipHalf'):
-        place(fx, t0, pan2(shick(sd, 0.16), pn))
+        place(fx, t0, pan2(shick(sd, 0.18), pn))
     elif ty == 'snip':
-        place(fx, t0, pan2(shick(sd, 0.3), pn))
-        place(fx, t0 + 0.01, pan2(twang(sd, 0.75), pn))
+        place(fx, t0, pan2(shick(sd, 0.34), pn))
+        place(fx, t0 + 0.01, pan2(twang(sd, 0.8), pn))
     elif ty == 'whip':
         place(fx, t0 + 0.02, pan2(whoosh(sd, 0.42, 3200, 700, 0.22), pn - 0.1))
     elif ty == 'fall':
-        place(fx, t0, pan2(thud(sd, 0.6 if e.get('who', 0) == 0 else 0.5), pn))
+        place(fx, t0, pan2(thud(sd, [0.6, 0.5, 0.55][e.get('who', 0)]), pn))
+    elif ty == 'getup':
+        place(fx, t0, pan2(scuff(sd, 0.05), pn))
+    elif ty == 'pop':
+        place(fx, t0, pan2(pop(sd, 0.16), pn))
+        place(fx, t0 + 0.03, pan2(whoosh(sd, 0.5, 1800, 500, 0.08), pn + 0.2))
+    elif ty == 'show':
+        place(fx, t0, pan2(sparkle(sd, 0.10), pn))
+    elif ty == 'insert':
+        place(fx, t0, pan2(click(sd, 0.22), pn))
+    elif ty == 'crank':
+        place(fx, t0 - 0.18, pan2(ratchet(sd, 0.16), pn))
+    elif ty == 'upgrade':
+        place(fx, t0, pan2(chime_up(sd, 0.22), pn))
+        place(fx, t0, pan2(whoosh(sd, 0.7, 400, 3000, 0.06), pn))
+    elif ty == 'surge':
+        place(fx, t0, pan2(whoosh(sd, 0.55, 500, 2600, 0.16), pn))
+    elif ty == 'fizzle':
+        place(fx, t0, pan2(fizzle(sd, 0.05, e['dur']), pn))
     elif ty == 'spin':
-        place(fx, t0, pan2(spin_whoosh(sd, e['dur'], 2.3, 0.10), pn))
+        place(fx, t0, pan2(spin_whoosh(sd, e['dur'], 2.2, 0.10), pn))
     elif ty == 'throw':
-        place(fx, t0, pan2(whoosh(sd, 0.6, 600, 2400, 0.14), pn))
+        place(fx, t0, pan2(whoosh(sd, 0.45, 600, 2400, 0.14), pn))
     elif ty == 'catch':
         place(fx, t0, pan2(shick(sd, 0.10), pn))
         place(fx, t0 + 0.02, pan2(ding(sd, 0.06), pn))
     elif ty == 'taut':
-        place(fx, t0, pan2(twang(sd, 0.35, 73.4, 0.8), pn))
-        place(fx, t0, pan2(scuff(sd + 7, 0.12), pn))
+        w = e.get('who', 0)
+        place(fx, t0, pan2(twang(sd, [0.4, 0.3, 0.25][w], [73.4, 82.4, 98.0][w], 0.8), pn))
+        place(fx, t0, pan2(scuff(sd + 7, 0.1), pn))
 
 # ------------------------------------------------------------------ clock ticks (synth), quarter notes, tick-tock
 ticks = np.zeros((2, NT))
@@ -358,7 +504,7 @@ for bar in range(10):
     for d in (0, 2, 4):
         for mm, v in shep(deg_midi(r + d), 64, 9.0, 40, 8):
             NOTES.append((t_bar, STR, mm, v, 4 * BEAT * 1.02))
-# the catches: a little celesta arpeggio up
+# the catch: a little celesta arpeggio up
 for e in events:
     if e['type'] == 'catch':
         for j, d in enumerate((0, 2, 4, 7)):
@@ -433,7 +579,7 @@ def hall(x, seconds, seed, lpf):
     return y
 
 
-fx *= 0.4                                         # foley sits under the score
+fx *= 0.3                                         # foley sits under the score
 ticks *= 3.0
 dry = music * 0.75 + ticks + fx + gl
 wet = hall(music * 0.6 + fx * 0.35 + ticks * 0.3 + gl * 0.8, 2.2, 9, 4200)
@@ -500,13 +646,13 @@ sf.write(path, out.T, SR, subtype='PCM_24')
 # ------------------------------------------------------------------ verification
 back_, sr = sf.read(path, always_2d=True)
 back_ = back_.T
-lines = ['THE STAIRCASE - sound verification (measured on the written score.wav)', '']
+lines = ['THE STAIRCASE v2 - sound verification (measured on the written score.wav)', '']
 lines.append(f'duration: {back_.shape[1]} frames = {back_.shape[1] / sr:.6f} s at {sr} Hz, {back_.shape[0]} ch, PCM_24')
 cnt = {}
 for e in events:
     cnt[e['type']] = cnt.get(e['type'], 0) + 1
 lines.append('events placed (loop time): ' + ', '.join(f'{k} {v}' for k, v in sorted(cnt.items())))
-lines.append('story beats: ' + ', '.join(f"{e['type']} {e['t']:.2f}" for e in events if e['type'] in ('snip', 'fall', 'throw', 'catch', 'taut')))
+lines.append('story beats: ' + ', '.join(f"{e['type']} {e['t']:.2f}" for e in events if e['type'] in ('snip', 'fall', 'pop', 'crank', 'upgrade', 'surge', 'jitSlam', 'throw', 'catch', 'taut')))
 lines.append(f'music: Shepard clockwork, {BPM:.0f} bpm, 10 bars per loop, climbs 2 octaves per loop and returns to the identical sound; {len(NOTES)} note copies per cycle')
 lines.append(f'integrated loudness (internal BS.1770 meter, looped): {L2:.2f} LUFS; true peak {tp2:.2f} dBTP (4x oversampled)')
 lines.append('stem balance (dry, before limiting; LUFS of each stem alone, relative to the mix): ' + ', '.join(f'{k} {lufs(v[:, N:2 * N]) - L:+.1f} LU' for k, v in STEMS.items()))

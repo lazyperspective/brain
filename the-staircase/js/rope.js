@@ -1,7 +1,6 @@
-// THE STAIRCASE - ropes: chains of true catenaries between anchor points (climber's waist, each human's grip, a tail
-// lying on the steps), resampled into one smooth tube. Points that would sink into a tread are lifted onto it, so a
-// slack rope drapes over the step edges. Each ring of the tube carries its own path coordinate and is folded into the
-// physical lap by itself, so a rope can run straight across the hidden seam.
+// THE STAIRCASE v2 - ropes: chains of true catenaries between anchor points (Claude's waist, each human's grips, a
+// tail lying on the steps), resampled into one smooth tube. Points that would sink into a tread (of a block that
+// exists at that moment) are lifted onto it, so a slack rope drapes over the step edges.
 (function () {
   const S = window.STAIR, U = S.U, G = S.G, ST = S.stairs, T3 = THREE, PAL = S.PAL;
 
@@ -50,7 +49,7 @@
     }
     // anchors: [{x,y,z,s}] ; lens: arc length per span (>= chord, or null for chord*slack) ; J0,J1 step range for ground
     update(anchors, lens, J0, J1, opts = {}) {
-      const raw = this.raw, rawS = this.rawS, LAP = ST.LAP;
+      const raw = this.raw, rawS = this.rawS, ex = opts.exists;
       let n = 0;
       for (let k = 0; k < anchors.length - 1; k++) {
         const a = anchors[k], b = anchors[k + 1];
@@ -65,13 +64,13 @@
       // ground: lift points onto treads (with the rope radius)
       const r = this.radius;
       for (let i = 0; i < n; i++) {
-        const y0 = ST.treadAt(raw[i * 3], raw[i * 3 + 2], J0, J1);
+        const y0 = ST.treadAt(raw[i * 3], raw[i * 3 + 2], J0, J1, ex);
         if (y0 !== null && raw[i * 3 + 1] < y0 + r) raw[i * 3 + 1] = y0 + r;
       }
       // light smoothing (keeps draped corners round)
       for (let pass = 0; pass < 2; pass++) for (let i = 1; i < n - 1; i++) for (let c = 0; c < 3; c++) {
         const v = (raw[(i - 1) * 3 + c] + 2 * raw[i * 3 + c] + raw[(i + 1) * 3 + c]) / 4;
-        if (c === 1) { const y0 = ST.treadAt(raw[i * 3], raw[i * 3 + 2], J0, J1); raw[i * 3 + 1] = y0 !== null ? Math.max(v, y0 + r) : v; } else raw[i * 3 + c] = v;
+        if (c === 1) { const y0 = ST.treadAt(raw[i * 3], raw[i * 3 + 2], J0, J1, ex); raw[i * 3 + 1] = y0 !== null ? Math.max(v, y0 + r) : v; } else raw[i * 3 + c] = v;
       }
       // resample by arc length into the tube rings
       const cum = new Float32Array(n); for (let i = 1; i < n; i++) cum[i] = cum[i - 1] + Math.hypot(raw[i * 3] - raw[i * 3 - 3], raw[i * 3 + 1] - raw[i * 3 - 2], raw[i * 3 + 2] - raw[i * 3 - 1]);
@@ -82,13 +81,10 @@
         while (j < n - 2 && cum[j + 1] < d) j++;
         const u = cum[j + 1] > cum[j] ? (d - cum[j]) / (cum[j + 1] - cum[j]) : 0;
         for (let c = 0; c < 3; c++) this.P[i * 3 + c] = U.lerp(raw[j * 3 + c], raw[(j + 1) * 3 + c], u);
-        const sv = U.lerp(rawS[j], rawS[j + 1], u);
-        const k = ST.fold(sv);
-        this.SH[i * 3] = -k * LAP.x; this.SH[i * 3 + 1] = -k * LAP.y; this.SH[i * 3 + 2] = -k * LAP.z;
         const endTaper = Math.min(1, (i + 0.5) / 2.5, (this.rings - 0.5 - i) / 2.5);
         this.R[i] = r * (opts.thin ? opts.thin : 1) * (0.7 + 0.3 * endTaper);
       }
-      this.tube.update(this.P, this.R, this.SH);
+      this.tube.update(this.P, this.R);
       this.mat.map.repeat.set(Math.max(1, total * 7), 1);
       this.length = total;
       return total;
