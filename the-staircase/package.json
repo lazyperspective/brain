@@ -1,0 +1,11 @@
+{
+  "name": "the-staircase",
+  "private": true,
+  "description": "The Staircase: a seamless looping 2.5D animation (three.js, rendered with Playwright + ffmpeg).",
+  "scripts": {
+    "vendor": "node -e \"const fs=require('fs');const s=fs.readFileSync('node_modules/three/build/three.cjs','utf8');fs.writeFileSync('vendor/three.global.js','/* three.js r170 (npm three@0.170.0, build/three.cjs) wrapped as a classic script: window.THREE */\\n(function(){var exports={};\\n'+s+'\\nwindow.THREE=exports;})();\\n')\" && cp node_modules/three/LICENSE vendor/THREE-LICENSE"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  }
+}

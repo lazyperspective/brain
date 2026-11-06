@@ -1,0 +1,17 @@
+THE STAIRCASE - sound verification (measured on the written score.wav)
+
+duration: 960000 frames = 20.000000 s at 48000 Hz, 2 ch, PCM_24
+events placed (loop time): catch 2, climbStep 52, dissolve 52, dragHop 76, fall 4, getup 2, glowIn 52, hopLand 4, hopUp 4, lay 52, runStep 30, snip 2, snipHalf 2, snipOpen 2, spin 2, taut 2, throw 2, turn 2, whip 2
+story beats: snip 2.20, fall 2.52, fall 2.64, throw 6.05, catch 6.75, taut 6.87, snip 12.20, fall 12.52, fall 12.64, throw 16.05, catch 16.75, taut 16.87
+music: Shepard clockwork, 120 bpm, 10 bars per loop, climbs 2 octaves per loop and returns to the identical sound; 457 note copies per cycle
+integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -8.96 dBTP (4x oversampled)
+stem balance (dry, before limiting; LUFS of each stem alone, relative to the mix): music -3.0 LU, ticks -9.2 LU, fx -5.5 LU, gliss -13.5 LU
+seam step |x[0] - x[N-1]|: L 9.91e-04, R 5.51e-03; ordinary steps: median 4.26e-03, 99.9th pct 1.49e-01, max 4.06e-01
+click test (>6 kHz energy, 5 ms windows): window at the seam 0.3 dB; median -33.8 dB; max anywhere 3.1 dB; seam rank 16 of 3999 windows louder
+local click test: seam window 0.3 dB vs the surrounding 1 s: median -35.6 dB, max -0.6 dB
+continuity test: the looped seam (last 0.25 s + first 0.25 s) vs the same instant inside the continuous three-cycle render: max difference 5.79e-13 of full scale
+ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         0.5 LU | Peak:       -8.9 dBFS
+
+PASS  seamless loop: the seam is sample-identical to the continuous render, and its step is ordinary (the HF energy there is the downbeat tick)
+PASS  exactly 20.000 s
+PASS  loudness -20.00 LUFS (target -20.0)
