@@ -190,7 +190,8 @@
     // exact periodicity of the table ends (sampling error only): end = start + one module
     CAM.x[CAM_N] = CAM.x[0]; CAM.z[CAM_N] = CAM.z[0]; CAM.y[CAM_N] = CAM.y[0] + ST.H;
   })();
-  const CAMP = { dist: 13.5, below: 0.15, yaw: 0.0, fov: 34, lookUp: 0.6 };
+  // polish pass: pulled back ~14% (dist 13.5 -> 14.4, fov 34 -> 36.5) and turned a hair to the left
+  const CAMP = { dist: 14.4, below: 0.15, yaw: -0.05, fov: 36.5, lookUp: 0.6 };
   function camera(t) {
     const w = Math.floor(t / D), x = t - w * D, fi = (x / D) * CAM_N, i = Math.min(CAM_N - 1, Math.floor(fi)), f = fi - i;
     const tx = U.lerp(CAM.x[i], CAM.x[i + 1], f), ty = U.lerp(CAM.y[i], CAM.y[i + 1], f) + w * ST.H, tz = U.lerp(CAM.z[i], CAM.z[i + 1], f);

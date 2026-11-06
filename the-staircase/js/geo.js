@@ -44,7 +44,7 @@
       for (let i = 0; i < rings; i++) for (let j = 0; j <= radial; j++) { uv[(i * (radial + 1) + j) * 2] = i / (rings - 1); uv[(i * (radial + 1) + j) * 2 + 1] = j / radial; }
       for (let i = 0; i < rings - 1; i++) for (let j = 0; j < radial; j++) {
         const a = i * (radial + 1) + j, b = a + radial + 1;
-        idx.push(a, b, a + 1, b, b + 1, a + 1);
+        idx.push(a, a + 1, b, b, a + 1, b + 1);   // counter-clockwise seen from outside (front faces face out)
       }
       this.geo.setAttribute('position', new T3.BufferAttribute(this.pos, 3));
       this.geo.setAttribute('normal', new T3.BufferAttribute(this.nor, 3));
@@ -99,12 +99,16 @@
   }
 
   // ---- toon materials
-  const LIGHT = { key: new T3.Color(1, 1, 1), dirView: new T3.Vector3(0, 1, 0), rimDirView: new T3.Vector3(0, 1, 0) };
+  const LIGHT = { key: new T3.Color(1, 1, 1), dirView: new T3.Vector3(0, 1, 0), rimDirView: new T3.Vector3(0, 1, 0), feet: Array.from({ length: 16 }, () => new T3.Vector4(0, -1e4, 0, 0)) };
   const TOON_PARS = `
 varying vec3 vViewPosition;
 struct ToonMaterial { vec3 diffuseColor; };
 uniform vec3 uKeyCol;
-float toonRamp(float v) { return 0.58 * smoothstep(0.46, 0.52, v) + 0.42 * smoothstep(0.80, 0.86, v); }
+uniform float uBandK;   // band crispness: 0 = the original soft bands, 1 = clean narrow transitions
+float toonRamp(float v) {
+  float a = mix(0.03, 0.015, uBandK), b = mix(0.03, 0.016, uBandK);
+  return 0.58 * smoothstep(0.49 - a, 0.49 + a, v) + 0.42 * smoothstep(0.83 - b, 0.83 + b, v);
+}
 void RE_Direct_Toon( const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in ToonMaterial material, inout ReflectedLight reflectedLight ) {
   float v = dot(geometryNormal, directLight.direction) * 0.5 + 0.5;
   float sh = clamp(directLight.color.r / max(uKeyCol.r, 1e-4), 0.0, 1.0);
@@ -117,15 +121,15 @@ void RE_IndirectDiffuse_Toon( const in vec3 irradiance, const in vec3 geometryPo
 #define RE_Direct RE_Direct_Toon
 #define RE_IndirectDiffuse RE_IndirectDiffuse_Toon
 `;
-  const NOISE = `
-float hsh(vec3 p){ p = fract(p * 0.3183099 + vec3(0.11, 0.17, 0.13)); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float vnoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
-  return mix(mix(mix(hsh(i+vec3(0,0,0)),hsh(i+vec3(1,0,0)),f.x),mix(hsh(i+vec3(0,1,0)),hsh(i+vec3(1,1,0)),f.x),f.y),
-             mix(mix(hsh(i+vec3(0,0,1)),hsh(i+vec3(1,0,1)),f.x),mix(hsh(i+vec3(0,1,1)),hsh(i+vec3(1,1,1)),f.x),f.y),f.z); }
-float dnoise(vec3 p){ return 0.62*vnoise(p*6.0) + 0.38*vnoise(p*13.0+3.1); }
+  // the materialisation: a clean fill front sweeping up through the block (bottom -> top, a slight tilt), no noise
+  const FILL = `
+float fillF(vec3 p, vec3 size){ vec3 q = clamp(p / size + 0.5, 0.0, 1.0); return q.y * 0.86 + 0.07 + 0.08 * (q.x - 0.5) + 0.05 * (q.z - 0.5); }
+float fillLevel(float s){ return s * 1.14 - 0.07; }
 `;
-
-  // opts: color, emissive, emissiveI, rim (0..1), rimCol, dissolve (bool), trim {size:[w,h,d]}, flat (unlit amount)
+  // opts: color, emissive, emissiveI, rim (0..1), rimCol, dissolve (bool), trim {size:[w,h,d]}, flat (unlit amount),
+  //   crisp (0..1: clean narrow light bands + a crisp rim line instead of the broad fresnel glow; the cast uses 1),
+  //   shadeSat (chroma of the shadow side, 1 = as lit by the sky fill), shadeTint (multiplier on the shadow side),
+  //   form (the staircase blocks: distinct top / riser / side values, bevel highlight, contact shading under feet)
   function toon(opts) {
     const m = new T3.MeshToonMaterial({ color: new T3.Color(opts.color || '#ffffff') });
     if (opts.emissive) { m.emissive = new T3.Color(opts.emissive); m.emissiveIntensity = opts.emissiveI == null ? 1 : opts.emissiveI; }
@@ -139,75 +143,123 @@ float dnoise(vec3 p){ return 0.62*vnoise(p*6.0) + 0.38*vnoise(p*13.0+3.1); }
       uGlow: { value: 0 },
       uGlowCol: { value: new T3.Color(opts.glowCol || '#ffd27a') },
       uSize: { value: new T3.Vector3().fromArray(opts.trim ? opts.trim.size : [1, 1, 1]) },
-      uSeed: { value: opts.seed || 0 },
       uFlat: { value: opts.flat || 0 },
+      uBandK: { value: opts.crisp || 0 },
+      uCrisp: { value: opts.crisp || 0 },
+      uShadeSat: { value: opts.shadeSat == null ? 1 : opts.shadeSat },
+      uShadeTint: { value: new T3.Color().setRGB(...(opts.shadeTint || [1, 1, 1])) },
+      uFeet: { value: LIGHT.feet },
     };
-    const dis = !!opts.dissolve, trim = !!opts.trim;
+    const dis = !!opts.dissolve, trim = !!opts.trim, form = !!opts.form;
+    if (dis) m.side = T3.DoubleSide;      // the inside of a half-filled block shows as its glowing cross-section
     m.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, u);
       sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vLPos;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLPos = transformed;');
+        .replace('#include <common>', '#include <common>\nvarying vec3 vLPos; varying vec3 vWPos;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLPos = transformed;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <lights_toon_pars_fragment>', TOON_PARS)
         .replace('#include <common>', `#include <common>
-varying vec3 vLPos;
+varying vec3 vLPos; varying vec3 vWPos;
 uniform vec3 uRimDir; uniform float uRim; uniform vec3 uRimCol; uniform float uSolid; uniform vec3 uEdgeCol;
-uniform float uGlow; uniform vec3 uGlowCol; uniform vec3 uSize; uniform float uSeed; uniform float uFlat;
-${NOISE}`)
+uniform float uGlow; uniform vec3 uGlowCol; uniform vec3 uSize; uniform float uFlat; uniform float uCrisp;
+uniform float uShadeSat; uniform vec3 uShadeTint; uniform vec4 uFeet[16];
+${FILL}`)
         .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-  float dEdge = 0.0;
-  ${dis ? `float dn = dnoise(vLPos + uSeed); if (dn > uSolid * 1.08) discard; dEdge = (uSolid < 0.999) ? (1.0 - smoothstep(0.0, 0.07, uSolid * 1.08 - dn)) : 0.0;` : ''}`)
+  float dEdge = 0.0, dBelow = 0.0;
+  ${dis ? `float fl = fillLevel(uSolid), ff = fillF(vLPos, uSize); if (ff > fl) discard;
+  if (uSolid < 0.999) { dEdge = 1.0 - smoothstep(0.0, 0.035, fl - ff); dBelow = exp(-(fl - ff) * 9.0); }` : ''}`)
         .replace('vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;', `
+  vec3 indL = reflectedLight.indirectDiffuse;
   {
     vec3 nV = normalize(normal);
-    float fres = pow(1.0 - clamp(nV.z, 0.0, 1.0), 2.6);
-    float rimMask = smoothstep(-0.15, 0.6, dot(nV, uRimDir));
-    totalEmissiveRadiance += uRimCol * fres * rimMask * uRim * 0.9;
+    vec3 vV = normalize(vViewPosition);
+    float fr = 1.0 - clamp(dot(nV, vV), 0.0, 1.0);
+    float facing = dot(nV, uRimDir);
+    // rim: the original broad fresnel glow, or (crisp) a clean warm line on the edges that face the glow above plus a
+    // faint sheen
+    float soft = pow(1.0 - clamp(nV.z, 0.0, 1.0), 2.6) * smoothstep(-0.15, 0.6, facing) * 0.9;
+    float crisp = smoothstep(0.6, 0.67, fr) * smoothstep(0.05, 0.45, facing) * 0.85 + pow(fr, 3.0) * smoothstep(-0.2, 0.6, facing) * 0.18;
+    totalEmissiveRadiance += uRimCol * mix(soft, crisp, uCrisp) * uRim;
+    // the shadow side keeps its colour: chroma of the sky fill pushed back up, then tinted
+    float il = dot(indL, vec3(0.2126, 0.7152, 0.0722));
+    indL = max(mix(vec3(il), indL, uShadeSat), 0.0) * uShadeTint;
     ${trim ? `
     vec3 hs = uSize * 0.5; vec3 q = abs(vLPos);
     float top = smoothstep(hs.y - 0.075, hs.y - 0.035, vLPos.y);
     float side = max(smoothstep(hs.x - 0.075, hs.x - 0.03, q.x), smoothstep(hs.z - 0.075, hs.z - 0.03, q.z));
     float strip = top * side;
     totalEmissiveRadiance += uGlowCol * strip * uGlow;` : ''}
-    totalEmissiveRadiance += uEdgeCol * dEdge * 3.0;
+    ${form ? `
+    {
+      vec3 nW = inverseTransformDirection(nV, viewMatrix);
+      float upF = smoothstep(0.55, 0.92, nW.y);
+      // tops a touch warmer and lifted (they face the glow), risers as lit, the shadow sides a little cooler
+      reflectedLight.directDiffuse *= mix(vec3(1.0), vec3(1.06, 1.03, 0.97), upF);
+      indL *= mix(vec3(0.9, 0.94, 1.1), vec3(1.04, 1.0, 0.97), upF);
+      vec3 hs2 = uSize * 0.5; vec3 q2 = abs(vLPos);
+      // risers and sides darken a little toward their lower edge (light falls off under the tread above)
+      float vert = 1.0 - smoothstep(0.35, 0.7, abs(nW.y));
+      float grad = mix(0.84, 1.0, smoothstep(-hs2.y, hs2.y * 0.6, vLPos.y));
+      reflectedLight.directDiffuse *= mix(1.0, grad, vert);
+      indL *= mix(1.0, grad, vert);
+      // the rounded top edges catch the light: a thin highlight along the bevel
+      float bev = smoothstep(hs2.y - 0.07, hs2.y - 0.03, vLPos.y) * max(smoothstep(hs2.x - 0.07, hs2.x - 0.02, q2.x), smoothstep(hs2.z - 0.07, hs2.z - 0.02, q2.z));
+      float bevLit = bev * smoothstep(0.15, 0.6, nW.y) * (1.0 - smoothstep(0.85, 0.99, nW.y));
+      totalEmissiveRadiance += vec3(1.0, 0.86, 0.66) * bevLit * 0.16 * (0.4 + 0.6 * smoothstep(-0.2, 0.5, dot(nW, normalize(vec3(-0.3, 1.0, -0.6)))));
+      // soft contact shading where feet stand on a tread
+      float ao = 0.0;
+      for (int i = 0; i < 16; i++) {
+        vec4 f = uFeet[i];
+        if (f.w <= 0.0) continue;
+        vec2 d = vWPos.xz - f.xz;
+        float r = length(d * vec2(1.0, 1.0)) / f.w;
+        ao = max(ao, (1.0 - smoothstep(0.25, 1.0, r)) * (1.0 - smoothstep(0.0, 0.12, abs(vWPos.y - f.y))));
+      }
+      ao *= upF;
+      reflectedLight.directDiffuse *= 1.0 - 0.45 * ao;
+      indL *= mix(vec3(1.0), vec3(0.62, 0.56, 0.74), ao);
+    }` : ''}
+    totalEmissiveRadiance += uEdgeCol * (dEdge * 3.0 + dBelow * 0.45);
   }
-  vec3 outgoingLight = mix(reflectedLight.directDiffuse + reflectedLight.indirectDiffuse, diffuseColor.rgb, uFlat) + totalEmissiveRadiance;`);
+  vec3 outgoingLight = mix(reflectedLight.directDiffuse + indL, diffuseColor.rgb, uFlat) + totalEmissiveRadiance;
+  ${dis ? `if (!gl_FrontFacing) outgoingLight = uEdgeCol * 1.7;` : ''}`);
     };
-    m.customProgramCacheKey = () => 'toon' + (dis ? 'D' : '') + (trim ? 'T' : '');
+    m.customProgramCacheKey = () => 'toon2' + (dis ? 'D' : '') + (trim ? 'T' : '') + (form ? 'F' : '');
     return m;
   }
 
-  // normal + id material for the outline/AO pass (shares the dissolve uniforms of `src` when given)
+  // normal + id material for the outline/AO pass (shares the fill uniforms of `src` when given)
   function nidMaterial(src, opts = {}) {
     const id = NEXT_ID++;
     const su = src && src.userData.u;
     const dis = !!opts.dissolve;
     const m = new T3.ShaderMaterial({
-      uniforms: { uId: { value: (id % 250) + 3 }, uSolid: su ? su.uSolid : { value: 1 }, uSeed: su ? su.uSeed : { value: 0 }, uLine: { value: opts.line == null ? 1 : opts.line } },
+      uniforms: { uId: { value: (id % 250) + 3 }, uSolid: su ? su.uSolid : { value: 1 }, uSize: su ? su.uSize : { value: new T3.Vector3(1, 1, 1) }, uLine: { value: opts.line == null ? 1 : opts.line } },
       vertexShader: `varying vec3 vN; varying vec3 vLPos;
 void main(){ vLPos = position; vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: `varying vec3 vN; varying vec3 vLPos; uniform float uId; uniform float uSolid; uniform float uSeed; uniform float uLine;
-${NOISE}
-void main(){ ${dis ? 'if (dnoise(vLPos + uSeed) > uSolid * 1.08) discard;' : ''}
+      fragmentShader: `varying vec3 vN; varying vec3 vLPos; uniform float uId; uniform float uSolid; uniform vec3 uSize; uniform float uLine;
+${FILL}
+void main(){ ${dis ? 'if (fillF(vLPos, uSize) > fillLevel(uSolid)) discard;' : ''}
   vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
   gl_FragColor = vec4(n.xy * 0.5 + 0.5, uLine, uId / 255.0); }`,
-      side: opts.side || T3.FrontSide,
+      side: opts.side || (dis ? T3.DoubleSide : T3.FrontSide),
     });
     return m;
   }
 
-  // a depth material for shadows that dissolves with its owner
+  // a depth material for shadows that fills in with its owner
   function dissolveDepth(src) {
     const m = new T3.MeshDepthMaterial({ depthPacking: T3.RGBADepthPacking });
     const u = src.userData.u;
     m.onBeforeCompile = (sh) => {
-      sh.uniforms.uSolid = u.uSolid; sh.uniforms.uSeed = u.uSeed;
+      sh.uniforms.uSolid = u.uSolid; sh.uniforms.uSize = u.uSize;
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLPos;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLPos = transformed;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vLPos; uniform float uSolid; uniform float uSeed;\n' + NOISE)
-        .replace('void main() {', 'void main() {\n if (dnoise(vLPos + uSeed) > uSolid * 1.08) discard;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vLPos; uniform float uSolid; uniform vec3 uSize;\n' + FILL)
+        .replace('void main() {', 'void main() {\n if (fillF(vLPos, uSize) > fillLevel(uSolid)) discard;');
     };
-    m.customProgramCacheKey = () => 'disdepth';
+    m.customProgramCacheKey = () => 'filldepth';
     return m;
   }
 
@@ -220,5 +272,5 @@ void main(){ ${dis ? 'if (dnoise(vLPos + uSeed) > uSolid * 1.08) discard;' : ''}
     return mesh;
   }
 
-  S.G = { roundedBox, Tube, limbPoints, toon, nidMaterial, reg, LIGHT, NOISE };
+  S.G = { roundedBox, Tube, limbPoints, toon, nidMaterial, reg, LIGHT, FILL };
 })();

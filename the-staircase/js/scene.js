@@ -66,22 +66,24 @@
     const group = new T3.Group(); scene.add(group);
     const ghostMat = (size) => new T3.ShaderMaterial({
       transparent: true, depthWrite: false, side: T3.DoubleSide, blending: T3.AdditiveBlending,
-      uniforms: { uSize: { value: new T3.Vector3().fromArray(size) }, uA: { value: 1 }, uCol: { value: new T3.Color(PAL.build) }, uT: { value: 0 } },
+      uniforms: { uSize: { value: new T3.Vector3().fromArray(size) }, uA: { value: 1 }, uCol: { value: new T3.Color(PAL.build) }, uT: { value: 0 }, uSolid: { value: 0 } },
       vertexShader: `varying vec3 vL; void main(){ vL = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-      fragmentShader: `varying vec3 vL; uniform vec3 uSize; uniform float uA; uniform vec3 uCol; uniform float uT;
-void main(){ vec3 hs = uSize * 0.5; vec3 q = abs(vL); vec3 e = smoothstep(hs - 0.06, hs - 0.02, q);
+      // the wireframe the block fills into: crisp edges all round, the grid and haze only above the rising fill front
+      fragmentShader: `varying vec3 vL; uniform vec3 uSize; uniform float uA; uniform vec3 uCol; uniform float uT; uniform float uSolid;
+${G.FILL}
+void main(){ vec3 hs = uSize * 0.5; vec3 q = abs(vL); vec3 e = smoothstep(hs - 0.05, hs - 0.02, q);
   float edge = max(max(e.x * e.y, e.y * e.z), e.x * e.z);
-  vec3 g = abs(fract(vL * 5.0 + 0.5) - 0.5); float grid = (1.0 - smoothstep(0.0, 0.05, min(g.x, min(g.y, g.z)))) * 0.5;
-  float scan = 0.5 + 0.5 * sin(vL.y * 24.0 - uT * 40.0);
-  float a = (0.05 + grid * 0.35 + edge * 1.0) * uA;
-  gl_FragColor = vec4(pow(uCol, vec3(2.2)) * (0.6 + edge * 2.6 + grid * 0.8) * (0.8 + 0.2 * scan) * a, 1.0); }`,
+  vec3 g = abs(fract(vL * 5.0 + 0.5) - 0.5); float grid = (1.0 - smoothstep(0.0, 0.035, min(g.x, min(g.y, g.z)))) * 0.5;
+  float above = smoothstep(-0.01, 0.05, fillF(vL, uSize) - fillLevel(uSolid));
+  float a = (0.05 * above + grid * 0.35 * above + edge * (0.55 + 0.45 * above)) * uA;
+  gl_FragColor = vec4(pow(uCol, vec3(2.2)) * (0.6 + edge * 2.6 + grid * 0.8) * a, 1.0); }`,
     });
     const slots = [];
     for (let p = 0; p < POOL; p++) {
       const st = ST.steps[p % ST.N];
       const size = [st.sx - 0.03, ST.T, st.sz - 0.03];
       const geo = G.roundedBox(size[0], size[1], size[2], 0.07);
-      const mat = G.toon({ color: PAL.stone, rim: 0.45, dissolve: true, trim: { size }, seed: p * 3.17, glowCol: PAL.gold, edgeCol: '#ffe9b0' });
+      const mat = G.toon({ color: PAL.stone, rim: 0.45, dissolve: true, trim: { size }, form: true, glowCol: PAL.gold, edgeCol: '#ffe9b0' });
       const mesh = new T3.Mesh(geo, mat);
       G.reg(mesh, { dissolve: true });
       group.add(mesh);
@@ -90,7 +92,7 @@ void main(){ vec3 hs = uSize * 0.5; vec3 q = abs(vL); vec3 e = smoothstep(hs - 0
       group.add(ghost);
       // crumble pieces: the block split 2 x 2 in plan
       const pieces = [];
-      const pm = G.toon({ color: PAL.stone, rim: 0.45 });
+      const pm = G.toon({ color: PAL.stone, rim: 0.45, form: true });
       for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) {
         const pg = G.roundedBox(size[0] / 2 - 0.025, size[1] * (0.86 + 0.12 * ((a + b) % 2)), size[2] / 2 - 0.025, 0.06);
         const m = new T3.Mesh(pg, pm); m.rotation.order = 'YXZ'; G.reg(m); m.visible = false; group.add(m);

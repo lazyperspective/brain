@@ -4,13 +4,13 @@ duration: 960000 frames = 20.000000 s at 48000 Hz, 2 ch, PCM_24
 events placed (loop time): catch 1, climbStep 11, crack 12, crank 2, creak 7, crumble 12, dragHop 19, fall 3, fizzle 1, form 12, getup 3, hopLand 3, hopUp 3, insert 1, jitSlam 1, miniHop 11, pop 1, runStep 18, show 1, slam 11, snip 1, snipHalf 1, snipOpen 1, spin 1, surge 1, taut 3, throw 1, turn 1, upgrade 1, whip 1
 story beats: snip 6.20, fall 6.55, fall 6.65, fall 6.75, pop 7.20, crank 8.00, crank 8.40, upgrade 8.45, surge 9.00, jitSlam 13.97, throw 14.10, catch 14.55, taut 14.75, taut 14.91, taut 15.07
 music: Shepard clockwork, 120 bpm, 10 bars per loop, climbs 2 octaves per loop and returns to the identical sound; 457 note copies per cycle
-integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -6.71 dBTP (4x oversampled)
-stem balance (dry, before limiting; LUFS of each stem alone, relative to the mix): music -3.4 LU, ticks -9.7 LU, fx -3.1 LU, gliss -14.0 LU
-seam step |x[0] - x[N-1]|: L 3.08e-03, R 7.72e-03; ordinary steps: median 4.26e-03, 99.9th pct 1.60e-01, max 5.66e-01
-click test (>6 kHz energy, 5 ms windows): window at the seam 3.1 dB; median -29.8 dB; max anywhere 6.9 dB; seam rank 6 of 3999 windows louder
-local click test: seam window 3.1 dB vs the surrounding 1 s: median -32.0 dB, max -0.2 dB
-continuity test: the looped seam (last 0.25 s + first 0.25 s) vs the same instant inside the continuous three-cycle render: max difference 3.30e-13 of full scale
-ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         0.9 LU | Peak:       -6.7 dBFS
+integrated loudness (internal BS.1770 meter, looped): -20.00 LUFS; true peak -6.86 dBTP (4x oversampled)
+stem balance (dry, before limiting; LUFS of each stem alone, relative to the mix): music -3.4 LU, ticks -9.7 LU, fx -3.0 LU, gliss -14.0 LU
+seam step |x[0] - x[N-1]|: L 3.05e-03, R 7.79e-03; ordinary steps: median 4.27e-03, 99.9th pct 1.58e-01, max 5.49e-01
+click test (>6 kHz energy, 5 ms windows): window at the seam 3.2 dB; median -29.8 dB; max anywhere 6.3 dB; seam rank 4 of 3999 windows louder
+local click test: seam window 3.2 dB vs the surrounding 1 s: median -31.9 dB, max -0.1 dB
+continuity test: the looped seam (last 0.25 s + first 0.25 s) vs the same instant inside the continuous three-cycle render: max difference 3.52e-13 of full scale
+ffmpeg ebur128 (single pass, not looped): I:         -20.0 LUFS | LRA:         0.8 LU | Peak:       -6.8 dBFS
 
 PASS  seamless loop: the seam is sample-identical to the continuous render, and its step is ordinary (the HF energy there is the downbeat tick)
 PASS  exactly 20.000 s

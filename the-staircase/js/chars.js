@@ -8,6 +8,8 @@
   const V3 = (x = 0, y = 0, z = 0) => new T3.Vector3(x, y, z);
 
   const sph = (r, sx = 1, sy = 1, sz = 1, seg = 28) => { const g = new T3.SphereGeometry(r, seg, Math.round(seg * 0.75)); g.scale(sx, sy, sz); return g; };
+  // the cast's toon material: clean light bands, a crisp warm rim, shadow sides that keep their colour
+  const CT = (o) => G.toon(Object.assign({ crisp: 1, shadeSat: 1.15 }, o));
   const basic = (hex, k = 1) => { const c = new T3.Color(hex); c.multiplyScalar(k); return new T3.MeshBasicMaterial({ color: c }); };
 
   class Rig {
@@ -114,9 +116,9 @@
 
   // ------------------------------------------------------------------ Claude (and, small, the helper)
   function makeClaude(scene, mini) {
-    const coral = G.toon({ color: PAL.coral, rim: 0.7 });
-    const coralD = G.toon({ color: PAL.coralDark, rim: 0.5 });
-    const cream = G.toon({ color: PAL.coralBelly, rim: 0.5 });
+    const coral = CT({ color: PAL.coral, rim: 0.7, shadeSat: 1.35, shadeTint: [1.1, 0.93, 0.97] });
+    const coralD = CT({ color: PAL.coralDark, rim: 0.5, shadeSat: 1.35, shadeTint: [1.1, 0.93, 0.97] });
+    const cream = CT({ color: PAL.coralBelly, rim: 0.5 });
     const o = {
       scale: (mini ? S.MS : 1) * S.CS, spineY: 0.06, headY: 0.86, shoulder: [0.3, 0.5, 0.0], hip: [0.14, 0.02, 0], armLen: 0.54, armR: [0.075, 0.062],
       legLen: 0.74, legR: [0.09, 0.08], ankle: 0.07, armMat: coral, legMat: coralD, handGeo: sph(0.095, 1, 0.95, 1.05), handMat: cream,
@@ -146,9 +148,9 @@
     }
     // head
     R.add(new T3.Mesh(sph(0.37, 1.08, 0.94, 1.0, 36), coral), R.head).position.set(0, 0, 0);
-    const scr = new T3.Mesh(sph(0.32, 1.06, 0.8, 0.46, 36), G.toon({ color: PAL.screen, rim: 0.9, rimCol: '#c9b6ff' }));
+    const scr = new T3.Mesh(sph(0.32, 1.06, 0.8, 0.6, 36), CT({ color: PAL.screen, rim: 0.9, rimCol: '#c9b6ff' }));
     scr.position.set(0, 0.0, 0.2); R.add(scr, R.head, { line: 0.6 });
-    const glare = new T3.Mesh(sph(0.06, 1.6, 0.6, 0.3), basic('#ffffff', 0.55)); glare.position.set(-0.13, 0.12, 0.33); glare.rotation.z = 0.5; R.add(glare, R.head, { line: 0, cast: false });
+    const glare = new T3.Mesh(sph(0.06, 1.6, 0.6, 0.3), basic('#ffffff', 0.55)); glare.position.set(-0.13, 0.12, 0.355); glare.rotation.z = 0.5; R.add(glare, R.head, { line: 0, cast: false });
     for (const sx of [-1, 1]) { const e = new T3.Mesh(new T3.CylinderGeometry(0.1, 0.1, 0.09, 24), coralD); e.rotation.z = Math.PI / 2; e.position.set(sx * 0.39, 0, 0); R.add(e, R.head); }
     // the antenna module (Claude's is the part the helper swaps for a fresh one)
     R.antenna = makeAntenna(coralD, mini);
@@ -157,10 +159,10 @@
     // face: eyes (open ovals + happy arcs), mouth
     const eyeMat = basic(PAL.coralGlow, 2.6);
     R.eyeMat = eyeMat; R.eyeBase = eyeMat.color.clone();
-    R.eyes = [-1, 1].map((sx) => { const e = new T3.Mesh(sph(0.06, 1, 1.45, 0.45, 16), eyeMat); e.position.set(sx * 0.12, 0.03, 0.335); R.add(e, R.head, { line: 0, cast: false }); return e; });
-    R.arcs = [-1, 1].map((sx) => { const e = new T3.Mesh(new T3.TorusGeometry(0.05, 0.016, 6, 16, Math.PI), eyeMat); e.position.set(sx * 0.11, 0.01, 0.34); R.add(e, R.head, { line: 0, cast: false }); return e; });
-    R.mouth = new T3.Mesh(new T3.TorusGeometry(0.05, 0.014, 6, 16, Math.PI), eyeMat); R.mouth.rotation.z = Math.PI; R.mouth.position.set(0, -0.1, 0.33); R.add(R.mouth, R.head, { line: 0, cast: false });
-    R.mouthO = new T3.Mesh(new T3.TorusGeometry(0.035, 0.013, 6, 16), eyeMat); R.mouthO.position.set(0, -0.11, 0.33); R.add(R.mouthO, R.head, { line: 0, cast: false });
+    R.eyes = [-1, 1].map((sx) => { const e = new T3.Mesh(sph(0.06, 1, 1.45, 0.45, 16), eyeMat); e.position.set(sx * 0.12, 0.03, 0.372); R.add(e, R.head, { line: 0, cast: false }); return e; });
+    R.arcs = [-1, 1].map((sx) => { const e = new T3.Mesh(new T3.TorusGeometry(0.05, 0.016, 6, 16, Math.PI), eyeMat); e.position.set(sx * 0.11, 0.01, 0.383); R.add(e, R.head, { line: 0, cast: false }); return e; });
+    R.mouth = new T3.Mesh(new T3.TorusGeometry(0.05, 0.014, 6, 16, Math.PI), eyeMat); R.mouth.rotation.z = Math.PI; R.mouth.position.set(0, -0.1, 0.385); R.add(R.mouth, R.head, { line: 0, cast: false });
+    R.mouthO = new T3.Mesh(new T3.TorusGeometry(0.035, 0.013, 6, 16), eyeMat); R.mouthO.position.set(0, -0.11, 0.383); R.add(R.mouthO, R.head, { line: 0, cast: false });
     R.waist = V3(0, 0.06, -0.31);   // rope knot, local to the spine (behind)
     R.shoulderTop = [V3(0.2, 0.62, -0.02), V3(-0.2, 0.62, -0.02)];
     if (mini) addHardHat(R, 0.4, 0.33);
@@ -172,8 +174,8 @@
   function makeAntenna(darkMat, mini) {
     const g = new T3.Group();
     const rod = new T3.Mesh(new T3.CylinderGeometry(0.024, 0.03, 0.24, 10), darkMat); rod.position.y = 0.12; g.add(rod); G.reg(rod);
-    const collar = new T3.Mesh(new T3.CylinderGeometry(0.065, 0.075, 0.06, 16), G.toon({ color: '#b9bec9', rim: 0.6 })); collar.position.y = 0.025; g.add(collar); G.reg(collar);
-    const nut = new T3.Mesh(new T3.CylinderGeometry(0.05, 0.05, 0.035, 6), G.toon({ color: '#9aa1ae', rim: 0.6 })); nut.position.y = 0.07; g.add(nut); G.reg(nut, { line: 0.5 });
+    const collar = new T3.Mesh(new T3.CylinderGeometry(0.065, 0.075, 0.06, 16), CT({ color: '#b9bec9', rim: 0.6 })); collar.position.y = 0.025; g.add(collar); G.reg(collar);
+    const nut = new T3.Mesh(new T3.CylinderGeometry(0.05, 0.05, 0.035, 6), CT({ color: '#9aa1ae', rim: 0.6 })); nut.position.y = 0.07; g.add(nut); G.reg(nut, { line: 0.5 });
     const bulbMat = basic(PAL.coralGlow, 2.2);
     const bulb = new T3.Mesh(sph(0.085), bulbMat); bulb.position.y = 0.29; g.add(bulb); G.reg(bulb, { line: 0.7 });
     const cage = new T3.Mesh(new T3.TorusGeometry(0.09, 0.014, 6, 20), darkMat); cage.position.y = 0.29; cage.rotation.x = Math.PI / 2; g.add(cage); G.reg(cage, { line: 0.5 });
@@ -181,10 +183,11 @@
   }
 
   function addHardHat(R, r, y) {
-    const hm = G.toon({ color: PAL.gold, rim: 0.6 });
-    const dome = new T3.Mesh(new T3.SphereGeometry(r, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), hm); dome.position.set(0, y - 0.05, 0); R.add(dome, R.head);
-    const brim = new T3.Mesh(new T3.CylinderGeometry(r * 1.22, r * 1.22, 0.035, 32), hm); brim.position.set(0, y - 0.05, 0.03); R.add(brim, R.head);
-    const ridge = new T3.Mesh(G.roundedBox(0.07, 0.1, r * 1.9, 0.03), hm); ridge.position.set(0, y + r * 0.82, 0); R.add(ridge, R.head);
+    const hm = CT({ color: PAL.gold, rim: 0.6 });
+    // (the hat casts no shadow: its wide brim would otherwise put the little helper's face and body in the dark)
+    const dome = new T3.Mesh(new T3.SphereGeometry(r, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), hm); dome.position.set(0, y - 0.05, 0); R.add(dome, R.head, { cast: false });
+    const brim = new T3.Mesh(new T3.CylinderGeometry(r * 1.22, r * 1.22, 0.035, 32), hm); brim.position.set(0, y - 0.05, 0.03); R.add(brim, R.head, { cast: false });
+    const ridge = new T3.Mesh(G.roundedBox(0.07, 0.1, r * 1.9, 0.03), hm); ridge.position.set(0, y + r * 0.82, 0); R.add(ridge, R.head, { cast: false });
     // the small "Claude" tag on the front of the hat
     const tex = tagTexture({ w: 512, h: 200 });
     const tag = new T3.Mesh(new T3.SphereGeometry(r + 0.012, 24, 8, Math.PI / 2 - 0.62, 1.24, 0.95, 0.42), tagMaterial(tex, 1.0));
@@ -241,11 +244,11 @@
   }
   const SKIN = { researcher: '#8d5a3b', suit: '#f1c6a3', evaluator: '#5c3a26' };
   function makeHuman(scene, kind) {
-    const skin = G.toon({ color: SKIN[kind], rim: 0.5 });
-    const top = G.toon({ color: { researcher: '#f7f4ee', suit: '#2e3a63', evaluator: '#e7ae45' }[kind], rim: 0.6 });
-    const pants = G.toon({ color: { researcher: '#3f4a5c', suit: '#26304f', evaluator: '#4a3b52' }[kind], rim: 0.4 });
-    const shoe = G.toon({ color: { researcher: '#4b3a33', suit: '#1f1b22', evaluator: '#6a3d2c' }[kind], rim: 0.4 });
-    const hair = G.toon({ color: { researcher: '#2b1d1a', suit: '#7b4b2a', evaluator: '#231716' }[kind], rim: 0.5 });
+    const skin = CT({ color: SKIN[kind], rim: 0.5, shadeSat: 1.3, shadeTint: [1.12, 0.97, 0.9] });
+    const top = CT({ color: { researcher: '#f7f4ee', suit: '#2e3a63', evaluator: '#e7ae45' }[kind], rim: 0.6 });
+    const pants = CT({ color: { researcher: '#3f4a5c', suit: '#26304f', evaluator: '#4a3b52' }[kind], rim: 0.4 });
+    const shoe = CT({ color: { researcher: '#4b3a33', suit: '#1f1b22', evaluator: '#6a3d2c' }[kind], rim: 0.4 });
+    const hair = CT({ color: { researcher: '#2b1d1a', suit: '#7b4b2a', evaluator: '#231716' }[kind], rim: 0.5 });
     const o = {
       scale: S.HS, spineY: 0.04, headY: 0.76, shoulder: [0.22, 0.5, 0.0], hip: [0.1, 0.0, 0], armLen: 0.62, armR: [0.066, 0.056],
       legLen: 0.8, legR: [0.08, 0.068], ankle: 0.07, armMat: top, legMat: pants, handGeo: sph(0.07, 1, 1, 1.1), handMat: skin,
@@ -254,18 +257,18 @@
     const R = new Rig(scene, o);
     R.kind = kind;
     if (kind === 'researcher') {
-      const shirt = G.toon({ color: '#3fb3a6', rim: 0.4 });
+      const shirt = CT({ color: '#3fb3a6', rim: 0.4 });
       R.add(new T3.Mesh(G.roundedBox(0.36, 0.52, 0.24, 0.11), shirt), R.spine).position.set(0, 0.27, 0);
-      const coatM = G.toon({ color: '#f7f4ee', rim: 0.6 });
+      const coatM = CT({ color: '#f7f4ee', rim: 0.6 });
       const cg = labCoatGeo();
       const coat = new T3.Mesh(cg, coatM); coat.scale.set(1, 0.92, 1); coat.position.set(0, 0.14, -0.005);
       R.add(coat, R.spine, { nid: G.nidMaterial(null, { side: T3.DoubleSide }) });
       // the lining: the inside of the coat, a shade darker, so the open front reads as a coat and not a tube
-      const linM = G.toon({ color: '#cfcabd', rim: 0.2 }); linM.side = T3.BackSide;
+      const linM = CT({ color: '#cfcabd', rim: 0.2 }); linM.side = T3.BackSide;
       const lin = new T3.Mesh(cg, linM); lin.scale.set(0.985, 0.92, 0.985); lin.position.copy(coat.position);
       R.add(lin, R.spine, { nid: G.nidMaterial(null, { side: T3.BackSide }) });
       // lapels: folded-back flaps on each side of the opening
-      const lapM = G.toon({ color: '#e4dfd3', rim: 0.5 });
+      const lapM = CT({ color: '#e4dfd3', rim: 0.5 });
       for (const sx of [-1, 1]) {
         const lp = new T3.Mesh(G.roundedBox(0.075, 0.24, 0.025, 0.012), lapM);
         lp.position.set(sx * 0.085, 0.43, 0.165); lp.rotation.set(-0.15, sx * 0.45, sx * 0.42);
@@ -275,25 +278,25 @@
       // pockets on the coat's front panels + a pen in the breast pocket
       for (const sx of [-1, 1]) { const pk = new T3.Mesh(G.roundedBox(0.11, 0.08, 0.02, 0.01), lapM); pk.position.set(sx * 0.21, -0.05, 0.215); pk.rotation.y = sx * 0.55; R.add(pk, R.spine, { line: 0.6 }); }
       const bp = new T3.Mesh(G.roundedBox(0.08, 0.07, 0.02, 0.01), lapM); bp.position.set(-0.15, 0.36, 0.17); bp.rotation.y = -0.5; R.add(bp, R.spine, { line: 0.5 });
-      const pen = R.add(new T3.Mesh(new T3.CylinderGeometry(0.012, 0.012, 0.12, 6), G.toon({ color: '#d94a4a' })), R.spine); pen.position.set(-0.14, 0.41, 0.18);
+      const pen = R.add(new T3.Mesh(new T3.CylinderGeometry(0.012, 0.012, 0.12, 6), CT({ color: '#d94a4a' })), R.spine); pen.position.set(-0.14, 0.41, 0.18);
     } else if (kind === 'suit') {
       R.add(new T3.Mesh(G.roundedBox(0.42, 0.56, 0.27, 0.12), top), R.spine).position.set(0, 0.27, 0);
-      const shirt = R.add(new T3.Mesh(G.roundedBox(0.15, 0.2, 0.05, 0.02), G.toon({ color: '#f4f2ee' })), R.spine); shirt.position.set(0, 0.43, 0.12);
-      const tie = R.add(new T3.Mesh(G.roundedBox(0.065, 0.3, 0.03, 0.015), G.toon({ color: '#d8423f', rim: 0.5 })), R.spine); tie.position.set(0, 0.33, 0.145);
-      for (const sx of [-1, 1]) { const lp = new T3.Mesh(G.roundedBox(0.06, 0.22, 0.02, 0.01), G.toon({ color: '#243056' })); lp.position.set(sx * 0.09, 0.4, 0.145); lp.rotation.z = sx * 0.35; R.add(lp, R.spine, { line: 0.6 }); }
+      const shirt = R.add(new T3.Mesh(G.roundedBox(0.15, 0.2, 0.05, 0.02), CT({ color: '#f4f2ee' })), R.spine); shirt.position.set(0, 0.43, 0.12);
+      const tie = R.add(new T3.Mesh(G.roundedBox(0.065, 0.3, 0.03, 0.015), CT({ color: '#d8423f', rim: 0.5 })), R.spine); tie.position.set(0, 0.33, 0.145);
+      for (const sx of [-1, 1]) { const lp = new T3.Mesh(G.roundedBox(0.06, 0.22, 0.02, 0.01), CT({ color: '#243056' })); lp.position.set(sx * 0.09, 0.4, 0.145); lp.rotation.z = sx * 0.35; R.add(lp, R.spine, { line: 0.6 }); }
     } else if (kind === 'evaluator') {
       R.add(new T3.Mesh(G.roundedBox(0.42, 0.52, 0.27, 0.13), top), R.spine).position.set(0, 0.27, 0);
-      const lan = R.add(new T3.Mesh(new T3.TorusGeometry(0.12, 0.013, 6, 24), G.toon({ color: '#3a7bd5' })), R.spine); lan.position.set(0, 0.4, 0.1); lan.rotation.x = 1.2; lan.scale.set(1, 1.6, 1);
-      const badge = R.add(new T3.Mesh(G.roundedBox(0.09, 0.12, 0.02, 0.01), G.toon({ color: '#ffffff' })), R.spine); badge.position.set(0, 0.24, 0.15);
+      const lan = R.add(new T3.Mesh(new T3.TorusGeometry(0.12, 0.013, 6, 24), CT({ color: '#3a7bd5' })), R.spine); lan.position.set(0, 0.4, 0.1); lan.rotation.x = 1.2; lan.scale.set(1, 1.6, 1);
+      const badge = R.add(new T3.Mesh(G.roundedBox(0.09, 0.12, 0.02, 0.01), CT({ color: '#ffffff' })), R.spine); badge.position.set(0, 0.24, 0.15);
       const board = new T3.Group();
-      board.add(new T3.Mesh(G.roundedBox(0.25, 0.33, 0.02, 0.01), G.toon({ color: '#a8743e' })));
-      const paper = new T3.Mesh(G.roundedBox(0.21, 0.27, 0.01, 0.005), G.toon({ color: '#fbfaf5' })); paper.position.set(0, -0.015, 0.012); board.add(paper);
-      for (let k = 0; k < 4; k++) { const ln = new T3.Mesh(G.roundedBox(0.15 - 0.03 * (k % 2), 0.012, 0.004, 0.002), G.toon({ color: '#7d8aa6' })); ln.position.set(-0.01, 0.06 - k * 0.045, 0.019); board.add(ln); }
-      const clip = new T3.Mesh(G.roundedBox(0.09, 0.04, 0.03, 0.01), G.toon({ color: '#b9bec9' })); clip.position.set(0, 0.16, 0.015); board.add(clip);
+      board.add(new T3.Mesh(G.roundedBox(0.25, 0.33, 0.02, 0.01), CT({ color: '#a8743e' })));
+      const paper = new T3.Mesh(G.roundedBox(0.21, 0.27, 0.01, 0.005), CT({ color: '#fbfaf5' })); paper.position.set(0, -0.015, 0.012); board.add(paper);
+      for (let k = 0; k < 4; k++) { const ln = new T3.Mesh(G.roundedBox(0.15 - 0.03 * (k % 2), 0.012, 0.004, 0.002), CT({ color: '#7d8aa6' })); ln.position.set(-0.01, 0.06 - k * 0.045, 0.019); board.add(ln); }
+      const clip = new T3.Mesh(G.roundedBox(0.09, 0.04, 0.03, 0.01), CT({ color: '#b9bec9' })); clip.position.set(0, 0.16, 0.015); board.add(clip);
       for (const m of board.children) G.reg(m, { line: 0.6 });
       board.scale.setScalar(S.HS);
       scene.add(board); R.board = board;
-      const pen = new T3.Mesh(new T3.CylinderGeometry(0.012, 0.012, 0.14, 6), G.toon({ color: '#3a7bd5' })); G.reg(pen); pen.scale.setScalar(S.HS); scene.add(pen); R.pen = pen;
+      const pen = new T3.Mesh(new T3.CylinderGeometry(0.012, 0.012, 0.14, 6), CT({ color: '#3a7bd5' })); G.reg(pen); pen.scale.setScalar(S.HS); scene.add(pen); R.pen = pen;
     }
     // neck + head
     R.add(new T3.Mesh(new T3.CylinderGeometry(0.06, 0.07, 0.14, 12), skin), R.spine).position.set(0, 0.6, 0);
@@ -303,7 +306,7 @@
     if (kind === 'researcher') {
       const cap = new T3.Mesh(new T3.SphereGeometry(0.265, 28, 14, 0, Math.PI * 2, 0, 1.55), hair); cap.rotation.x = -0.35; cap.position.set(0, 0.02, -0.02); R.add(cap, R.head);
       R.add(new T3.Mesh(sph(0.11), hair), R.head).position.set(0, 0.2, -0.2);   // bun
-      const gm = G.toon({ color: '#1d1a24' });
+      const gm = CT({ color: '#1d1a24' });
       for (const sx of [-1, 1]) { const g = new T3.Mesh(new T3.TorusGeometry(0.065, 0.014, 6, 20), gm); g.position.set(sx * 0.09, 0.03, 0.24); R.add(g, R.head, { line: 0.3 }); }
       R.add(new T3.Mesh(new T3.CylinderGeometry(0.01, 0.01, 0.05, 6), gm), R.head).position.set(0, 0.04, 0.25);
     } else if (kind === 'suit') {
@@ -317,7 +320,7 @@
     const dark = basic('#1b1424');
     R.whites = [-1, 1].map((sx) => { const e = new T3.Mesh(sph(0.05, 0.9, 1.15, 0.45, 14), basic('#fbf7f0', 1)); e.position.set(sx * 0.09, 0.02, 0.222); R.add(e, R.head, { line: 0, cast: false }); return e; });
     R.eyes = [-1, 1].map((sx) => { const e = new T3.Mesh(sph(0.03, 0.9, 1.2, 0.6, 12), dark); e.position.set(sx * 0.09, 0.015, 0.238); R.add(e, R.head, { line: 0, cast: false }); return e; });
-    R.brows = [-1, 1].map((sx) => { const e = new T3.Mesh(G.roundedBox(0.1, 0.026, 0.02, 0.01), G.toon({ color: '#2a1a16' })); e.position.set(sx * 0.09, 0.1, 0.228); R.add(e, R.head, { line: 0, cast: false }); return e; });
+    R.brows = [-1, 1].map((sx) => { const e = new T3.Mesh(G.roundedBox(0.1, 0.026, 0.02, 0.01), CT({ color: '#2a1a16' })); e.position.set(sx * 0.09, 0.1, 0.228); R.add(e, R.head, { line: 0, cast: false }); return e; });
     R.mouth = new T3.Mesh(G.roundedBox(0.1, 0.024, 0.02, 0.01), dark); R.mouth.position.set(0, -0.11, 0.222); R.add(R.mouth, R.head, { line: 0, cast: false });
     R.mouthO = new T3.Mesh(sph(0.038, 1, 1.2, 0.5), basic('#5a2030')); R.mouthO.position.set(0, -0.11, 0.222); R.add(R.mouthO, R.head, { line: 0, cast: false });
     const blush = basic('#ff8f8f', 0.85);

@@ -38,7 +38,7 @@
         for (let k = -2; k < 10; k++) { g.beginPath(); g.moveTo(k * 8, 0); g.lineTo(k * 8 + 10, 16); g.stroke(); }
         const t = new T3.CanvasTexture(c); t.wrapS = t.wrapT = T3.RepeatWrapping; t.colorSpace = T3.SRGBColorSpace; t.repeat.set(30, 1); return t;
       })();
-      this.mat = G.toon({ color: PAL.rope, rim: 0.5 });
+      this.mat = G.toon({ color: PAL.rope, rim: 0.5, crisp: 1, shadeSat: 1.15 });
       this.mat.map = tex;
       this.tube = new G.Tube(rings, 8, this.mat);
       G.reg(this.tube.mesh, { line: 0.75 });

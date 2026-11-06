@@ -114,11 +114,18 @@ void main(){
       float jump = z - sz;
       float thr = 0.18 + 0.004 * max(0.0, sz - uCamDist);
       float w = nn.b;
-      if (jump > thr) { float e = w * smoothstep(thr, thr * 1.8, jump); if (e > edge) { edge = e; edgeZ = sz; } }
+      // full-width silhouettes for the near layers only; distant layers (islands, cloud banks, ghost stairs) get the
+      // half-width line from the inner ring below, so line weight falls off with depth
+      float nearK = 1.0 - smoothstep(uCamDist + 8.0, uCamDist + 30.0, sz);
+      if (jump > thr) { float e = w * smoothstep(thr, thr * 1.8, jump) * nearK; if (e > edge) { edge = e; edgeZ = sz; } }
       // touching objects of different id: a thinner contact line
       vec2 su2 = uv + dir * uPx * lw * 0.45;
       vec4 n2 = texture2D(tNid, su2);
       float sd2 = texture2D(tDepth, su2).r;
+      if (sd2 < 0.9999) {
+        float sz2 = lin(sd2), jump2 = z - sz2, thr2 = 0.18 + 0.004 * max(0.0, sz2 - uCamDist);
+        if (jump2 > thr2) { float e = n2.b * smoothstep(thr2, thr2 * 1.8, jump2); if (e > edge) { edge = e; edgeZ = sz2; } }
+      }
       if (sd2 < 0.9999 && abs(n2.a - idC) > 0.5 / 255.0 && lin(sd2) <= z + 0.02 && idC > 0.0) {
         float e2 = 0.85 * min(w, nid.b) * min(n2.b, 1.0);
         if (e2 > edge) { edge = e2; edgeZ = min(z, lin(sd2)); }
@@ -131,9 +138,9 @@ void main(){
   }
   // ---- atmospheric perspective: blend toward the sky by depth beyond the stairs
   float fz = max(0.0, (bg > 0.5 ? 1e4 : z) - uCamDist - 6.0);
-  float fog = 1.0 - exp(-fz * 0.02);
+  float fog = 1.0 - exp(-fz * 0.026);
   vec3 haze = sky * 0.92 + vec3(0.02, 0.025, 0.05);
-  vec3 c = bg > 0.5 ? col : mix(col, haze, clamp(fog, 0.0, 0.94));
+  vec3 c = bg > 0.5 ? col : mix(col, haze, clamp(fog, 0.0, 0.965));
   // ink lines fade with the depth of the object they belong to
   float fe = 1.0 - exp(-max(0.0, edgeZ - uCamDist - 6.0) * 0.05);
   vec3 ink = mix(uInk, haze * 0.75, clamp(fe, 0.0, 0.9));

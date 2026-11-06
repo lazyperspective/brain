@@ -4,7 +4,8 @@
 #   2. the sound: events.json from the same choreography, then music/score.py -> music/score.wav (seamless 20.000 s)
 #   3. render the silent loop through index.html?export with Playwright (render.js): 2160 x 2700 internally,
 #      box-filtered to 1080 x 1350, 30 fps, 600 frames, H.264 CRF 17
-#   4. mux: one loop (20.000 s) and two loops (40.000 s), H.264 High yuv420p + AAC 192k, faststart
+#   4. mux: one loop (20.000 s) and two loops (40.000 s), H.264 High yuv420p + AAC 256k (192k let the encoder overshoot
+#      a transient by ~3 dB), faststart
 #   5. check: streams, durations, frame counts, flashes, the video loop seam, loudness / true peak of the muxed audio
 #   6. stills (key moments) and a contact sheet into the-staircase-video/stills/
 #   7. production/verification.txt: everything above in one place
@@ -37,9 +38,9 @@ if [ "${SKIP_RENDER:-0}" != 1 ] || [ ! -f "$SILENT" ]; then
 fi
 
 ffmpeg -loglevel error -y -i "$SILENT" -i music/score.wav -map 0:v -map 1:a -c:v copy \
-  -c:a aac -b:a 192k -ar 48000 -t 20 -movflags +faststart "$OUT/the-staircase-4x5.mp4"
+  -c:a aac -b:a 256k -ar 48000 -t 20 -movflags +faststart "$OUT/the-staircase-4x5.mp4"
 ffmpeg -loglevel error -y -stream_loop 1 -i "$SILENT" -stream_loop 1 -i music/score.wav -map 0:v -map 1:a -c:v copy \
-  -c:a aac -b:a 192k -ar 48000 -t 40 -movflags +faststart "$OUT/the-staircase-4x5-2loops.mp4"
+  -c:a aac -b:a 256k -ar 48000 -t 40 -movflags +faststart "$OUT/the-staircase-4x5-2loops.mp4"
 
 {
   for f in "$OUT/the-staircase-4x5.mp4" "$OUT/the-staircase-4x5-2loops.mp4"; do
@@ -68,7 +69,7 @@ fi
 
 # ---- production/verification.txt
 {
-  echo "THE STAIRCASE v2 - verification (written by production/build.sh)"
+  echo "THE STAIRCASE v2 (polish pass: zoom-out, shading, clean block fill) - verification (written by production/build.sh)"
   echo
   echo "### choreography (choreocheck.js)"; cat "$SCRATCH/choreocheck.txt"; echo
   echo "### video streams, durations, loudness of the deliverables"; cat "$SCRATCH/streams.txt"; echo

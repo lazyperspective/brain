@@ -132,7 +132,7 @@
 
   function makeScissors() {
     const g = new T3.Group();
-    const steel = G.toon({ color: '#d9dee8', rim: 0.8 }), handle = G.toon({ color: '#e8473f', rim: 0.5 });
+    const steel = G.toon({ color: '#d9dee8', rim: 0.8, crisp: 1 }), handle = G.toon({ color: '#e8473f', rim: 0.5, crisp: 1, shadeSat: 1.2 });
     const mk = (sgn) => {
       const p = new T3.Group();
       const blade = new T3.Mesh(G.roundedBox(0.05, 0.02, 0.36, 0.01), steel); blade.position.set(0, 0, 0.17); p.add(blade);
@@ -145,10 +145,11 @@
     return { group: g, a, b };
   }
   function makeWrench() {
-    const g = new T3.Group(), steel = G.toon({ color: '#c9ced8', rim: 0.8 });
-    const handle = new T3.Mesh(G.roundedBox(0.05, 0.3, 0.025, 0.012), steel); handle.position.y = -0.15; g.add(handle);
-    const head = new T3.Mesh(new T3.TorusGeometry(0.055, 0.022, 8, 18, PI * 1.5), steel); head.rotation.z = PI * 0.75; head.position.y = 0.02; g.add(head);
-    const grip = new T3.Mesh(G.roundedBox(0.06, 0.12, 0.035, 0.015), G.toon({ color: '#e8473f' })); grip.position.y = -0.24; g.add(grip);
+    // a big cartoon spanner: chunky open jaw, a bold handle and a red grip, so its silhouette reads at a glance
+    const g = new T3.Group(), steel = G.toon({ color: '#d3d8e2', rim: 0.8, crisp: 1 });
+    const handle = new T3.Mesh(G.roundedBox(0.062, 0.3, 0.034, 0.016), steel); handle.position.y = -0.15; g.add(handle);
+    const head = new T3.Mesh(new T3.TorusGeometry(0.06, 0.03, 10, 20, PI * 1.45), steel); head.rotation.z = PI * 0.775; head.position.y = 0.035; g.add(head);
+    const grip = new T3.Mesh(G.roundedBox(0.078, 0.14, 0.05, 0.022), G.toon({ color: '#e8473f', crisp: 1, shadeSat: 1.2 })); grip.position.y = -0.255; g.add(grip);
     g.children.forEach((m) => G.reg(m, { line: 0.6 }));
     g.visible = false;
     return g;
@@ -192,6 +193,16 @@
     P.pitch = g.lean + 0.3 * strain + 0.4 * lurch - 0.4 * jolt - 0.15 * power + 0.25 * crouch + 0.32 * surge + 0.18 * jitLook - 0.1 * upg;
     P.roll = -sway * 1.2;
     P.squash = 1 - 0.08 * crouch + 0.05 * power;
+    // the upgrade: standing still, Claude turns on the spot part-way toward the camera (the feet shuffle round with
+    // it) so its face reads while the helper works on its head and the new module lights up; it turns back to the
+    // climb in the crouch before the surge
+    const turn = U.bump(t, C.hopUp1 + 0.05, C.glowUp + 0.12, 0.3);
+    if (turn > 0) {
+      const dy = U.wrapS(Math.atan2(cam.pos.x - P.x, cam.pos.z - P.z) - P.yaw, 2 * PI) * 0.5 * turn;
+      const c = Math.cos(dy), sn = Math.sin(dy);
+      P.yaw += dy;
+      for (const f of P.feet) { const rx = f.x - P.x, rz = f.z - P.z; f.x = P.x + rx * c + rz * sn; f.z = P.z - rx * sn + rz * c; f.yaw = (f.yaw || 0) + dy; }
+    }
     P.spine = { pitch: 0.08 * strain + 0.1 * jitLook, yaw: 0.12 * Math.sin(PI * u) * g.arm * (1 - upg) + camCheat(P, cam, 0.6, 0.55), roll: 0 };
     const lookBack = U.bump(t, 5.45, 6.15, 0.15) * 0.9 + U.bump(t, C.catch + 0.05, C.catch + 0.7, 0.15) * 1.0;
     const cheat = camCheat(P, cam, 0.45, 0.5) * (1 - lookBack);
@@ -340,9 +351,19 @@
       const ph = P.hands[1];
       P.pen = w > 0.05 ? { x: ph.x, y: ph.y + 0.02, z: ph.z, ry: P.yaw, rx: 0.6, rz: 0.3 } : { x: ph.x, y: -1e3, z: ph.z };
     }
+    // stagger on the tread: each human keeps a little toward one side of the stair, so the three faces do not line up
+    // behind each other (or behind the flight above) from the camera
+    const lat = HLAT[i];
+    if (lat) {
+      const pp = ST.pathXZ(s, {}), ox = -pp.tz * lat, oz = pp.tx * lat;
+      const mv = (q) => { if (q) { q.x += ox; q.z += oz; } };
+      P.x += ox; P.z += oz;
+      P.hands.forEach(mv); P.feet.forEach(mv); mv(P.board); if (P.pen && P.pen.y > -100) mv(P.pen);
+    }
     P.mode = mode; P.s = s;
     return P;
   }
+  const HLAT = S.HLAT = [0.3, 0.27, 0.3];
 
   // ---------------------------------------------------------------- the helper
   const MSC = S.MS * S.CS, MPEL = 0.5 * MSC;
@@ -366,20 +387,33 @@
     let pos, yaw, air = 0, mode = 'build', arm = 0, raise = 0, point = 0, onHead = 0;
     const st = { build: null, beam: 0, sc: { show: 0, open: 0 }, wrench: 0 };
     const tripA = C.turn, tripB = C.hopFwd1;
+    // keep the two silhouettes apart: when the helper's spot on block J is (nearly) in line with Claude as seen from the
+    // camera, it stands further across its own tread (never off it) until they separate. Continuous in time: Claude
+    // moves smoothly, the block does not, and the push fades to nothing as the two line up exactly (only ever in a hop)
+    const cy = CH.CAMP.yaw, crx = Math.cos(cy), crz = -Math.sin(cy);
+    const spot = (J) => {
+      const p = helperSpot(J), sx = (p.x - cl.x) * crx + (p.z - cl.z) * crz, asx = Math.abs(sx);
+      const want = Math.max(0, 1.05 - asx) * U.smooth(0, 0.25, asx) * Math.sign(sx);
+      if (Math.abs(want) < 1e-6) return p;
+      const ok = (k) => ST.inBlock(J, p.x + crx * k, p.z + crz * k, -0.08);
+      let k = want;
+      if (!ok(k)) { let lo = 0, hi = want; for (let it = 0; it < 30; it++) { const m = (lo + hi) / 2; if (ok(m)) lo = m; else hi = m; } k = lo; }
+      p.x += crx * k; p.z += crz * k;
+      return p;
+    };
     if (t < tripA || t >= tripB) {
       // standing on the newest block (hopping onto it right after it lands), building the next one
       const tl = CH.landTime(Bl);
       const q = U.smooth(tl + 0.08, tl + 0.42, t);
-      const a = helperSpot(Bl - 1), b = helperSpot(Bl);
+      const a = spot(Bl - 1), b = spot(Bl);
       if (t >= tripB && Bl === CH.builtIdx(tripB - 1e-3) && tl < C.turn) { pos = b; }
       else { pos = q < 1 ? hopArc(a, b, q, 0.55) : b; air = Math.sin(PI * q) * (q < 1 ? 1 : 0); }
       pos.s = b.s;
       const J = Bl + 1, tn = CH.landTime(J), dur = CH.buildDur(J), tau = t - tn;
-      const nb = ST.blockTop(J, {});
-      const toward = Math.atan2(nb.x - pos.x, nb.z - pos.z);
-      const toCam = Math.atan2(cam.pos.x - pos.x, cam.pos.z - pos.z);
-      yaw = U.angLerp(toward, toCam, 0.45);
-      if (q < 1 && q > 0) yaw = U.angLerp(heading(a.s), yaw, q);
+      // facing: between the block it builds next and the camera; across the hop it turns smoothly from the stance on
+      // the old block (facing the block it hops onto) to the stance on the new one (no snap at landing)
+      const stance = (p, Jn) => { const nb = ST.blockTop(Jn, {}); return U.angLerp(Math.atan2(nb.x - p.x, nb.z - p.z), Math.atan2(cam.pos.x - p.x, cam.pos.z - p.z), 0.45); };
+      yaw = q <= 0 ? stance(a, Bl) : q >= 1 ? stance(b, J) : U.angLerp(stance(a, Bl), stance(b, J), U.smooth(0, 1, q));
       raise = U.bump(tau, -dur - 0.12, -dur + 0.12, 0.08);
       point = U.bump(tau, -dur + 0.06, -0.02, 0.07);
       st.beam = U.bump(tau, -dur + 0.1, CH.isJit(J) ? -0.1 : -0.2, 0.05);
@@ -388,15 +422,22 @@
       if (CH.isJit(J)) { const fz = U.bump(t, C.fizzle, tn - dur - 0.02, 0.06); point = Math.max(point, fz); st.fizzle = fz; }
       // idle between blocks: glance back at Claude
       const idle = (1 - raise) * (1 - point) * (1 - air) * U.smooth(0.25, 0.5, t - tl) * U.smooth(0.0, 0.25, -dur - 0.2 - tau);
-      st.idle = idle;
-      if (t >= tripB) { yaw = U.angLerp(heading(pos.s) + PI, yaw, U.smooth(tripB, tripB + 0.1, t)); }
+      st.idle = idle * (CH.isJit(J) ? 1 - U.smooth(C.fizzle - 0.3, C.fizzle, t) : 1);   // eyes front before the fizzle
+      if (t >= tripB) { yaw = U.angLerp(heading(pos.s), yaw, U.smooth(tripB, tripB + 0.3, t)); }   // lands facing forward, then turns to work
     } else {
       mode = 'trip';
-      const front = helperSpot(CH.builtIdx(C.turn));
+      const Bt = CH.builtIdx(C.turn), front = spot(Bt);
       const knotAt = (tt) => { const sc = CH.claudeS(tt) - 0.75; const p = ST.onStair(sc, sideToCam(sc) * 0.42, {}); p.s = sc; return p; };
       const headTop = (local) => { const w = new T3.Vector3(local[0], local[1], local[2]); X.claude.head.localToWorld(w); return { x: w.x, y: w.y, z: w.z }; };
       const hdF = heading(front.s);
-      if (t < C.hopBack0) { pos = front; yaw = U.angLerp(hdF, hdF + PI, U.smooth(C.turn, C.hopBack0, t)); }
+      if (t < C.hopBack0) {
+        // finish the hop onto the newest block exactly as the build stance would, then turn round to look back
+        const tl = CH.landTime(Bt), q = U.smooth(tl + 0.08, tl + 0.42, t), a = spot(Bt - 1);
+        pos = q < 1 ? hopArc(a, front, q, 0.55) : front; pos.s = front.s; air = Math.sin(PI * q) * (q < 1 ? 1 : 0);
+        const stance = (p, Jn) => { const nb = ST.blockTop(Jn, {}); return U.angLerp(Math.atan2(nb.x - p.x, nb.z - p.z), Math.atan2(cam.pos.x - p.x, cam.pos.z - p.z), 0.45); };
+        const yb = q <= 0 ? stance(a, Bt) : q >= 1 ? stance(front, Bt + 1) : U.angLerp(stance(a, Bt), stance(front, Bt + 1), U.smooth(0, 1, q));
+        yaw = U.angLerp(yb, hdF + PI, U.smooth(C.turn, C.hopBack0, t));
+      }
       else if (t < C.hopBack1) {
         const q = U.smooth(C.hopBack0, C.hopBack1, t), e = knotAt(C.hopBack1);
         pos = hopArc(front, e, q, Math.max(cl.y + 1.3 * S.CS - Math.max(front.y, e.y), 1.0)); pos.s = U.lerp(front.s, e.s, q);
@@ -432,7 +473,7 @@
     P.squash = 1 - 0.18 * landSq + 0.1 * air;
     P.spine = { pitch: 0.2 * work, yaw: 0, roll: 0 };
     P.head = { pitch: -0.15 + 0.25 * point - 0.3 * raise + 0.3 * work, yaw: 0, roll: 0 };
-    if (st.idle) { P.head.yaw = 0.9 * st.idle * Math.sign(U.wrapS(Math.atan2(cl.x - P.x, cl.z - P.z) - yaw, 2 * PI)); }
+    if (st.idle) { P.head.yaw = 0.9 * st.idle * U.clamp(U.wrapS(Math.atan2(cl.x - P.x, cl.z - P.z) - yaw, 2 * PI) * 2.5, -1, 1); }
     const fl = xf(P, 0.16, -MPEL / MSC + 0.12 * air, 0.04 + 0.1 * air, null), fr = xf(P, -0.16, -MPEL / MSC + 0.12 * air, -0.02 + 0.08 * air, null);
     if (air < 0.01) { fl.y = pos.y; fr.y = pos.y; }
     fl.yaw = fr.yaw = yaw; fl.pitch = fr.pitch = 0.3 * air;
@@ -527,11 +568,12 @@
         }
       }
       sl.mesh.visible = solid > 0.002;
+      { const side = solid < 0.999 ? T3.DoubleSide : T3.FrontSide; sl.mat.side = side; sl.mesh.userData.nid.side = side; }
       sl.mesh.position.set(top.x + ox, top.y - ST.T / 2 * sy + oy + (1 - sy) * 0, top.z + oz);
       sl.mesh.scale.set(sx, sy, sx);
       u.uSolid.value = solid; u.uGlow.value = glow;
       sl.ghost.visible = ghost > 0.003;
-      if (sl.ghost.visible) { sl.ghost.position.set(top.x + ox, top.y - ST.T / 2 + oy, top.z); sl.ghost.rotation.set(0, ST.PHI, 0); sl.ghost.scale.set(sx, sx, sx); sl.ghost.material.uniforms.uA.value = ghost; sl.ghost.material.uniforms.uT.value = t; }
+      if (sl.ghost.visible) { sl.ghost.position.set(top.x + ox, top.y - ST.T / 2 + oy, top.z); sl.ghost.rotation.set(0, ST.PHI, 0); sl.ghost.scale.set(sx, sx, sx); sl.ghost.material.uniforms.uA.value = ghost; sl.ghost.material.uniforms.uT.value = t; sl.ghost.material.uniforms.uSolid.value = solid; }
     }
     return out;
   }
@@ -560,6 +602,15 @@
     applyHelperProps(X, t, MP, P, forming);
     applyRope(X, t, P, HP, waist);
     applyEffects(X, t, HP, MP, P, forming);
+    // contact shading on the treads: where each foot (and a sitting human's seat) meets a step
+    {
+      const FT = G.LIGHT.feet; let k = 0;
+      const put = (f, r) => { if (k < FT.length) FT[k++].set(f.x, f.y, f.z, r); };
+      P.feet.forEach((f) => put(f, 0.3));
+      MP.feet.forEach((f) => put(f, 0.17));
+      HP.forEach((hp) => { hp.feet.forEach((f) => put(f, 0.21)); if (hp.mode === 'sit' || hp.mode === 'getup') put({ x: hp.x, y: ST.stepY(ST.stepAt(hp.s)), z: hp.z }, 0.34); });
+      while (k < FT.length) FT[k++].set(0, -1e4, 0, 0);
+    }
     X.last = { P, HP, MP };
   }
 
@@ -619,8 +670,8 @@
     if (X.wrench.visible) {
       const h = MP.hands[1];
       X.wrench.position.set(h.x, h.y, h.z);
-      X.wrench.rotation.set(1.2, MP.yaw + (st.crank || 0) * 1.4, 0.3, 'YXZ');
-      X.wrench.scale.setScalar(S.CS * 1.1 * U.easeOutBack(st.wrench, 1.5));
+      X.wrench.rotation.set(0.3, MP.yaw + (st.crank || 0) * 1.1, -1.3, 'YXZ');   // handle out to the side, against the sky
+      X.wrench.scale.setScalar(S.CS * 2.1 * U.easeOutBack(st.wrench, 1.5));
     }
     // the new module in the raised hand, then into the socket
     const showNew = t >= C.pop + 0.12 && t < C.insert;
