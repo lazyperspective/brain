@@ -249,8 +249,24 @@ float sdQuad2(vec2 p, vec2 a, vec2 b, vec2 c, vec2 d){
   }
   return s * sqrt(dd);
 }
-float foreW(vec2 w){ return sdQuad2(w, vec2(0.12, -0.32), vec2(2.45, -0.78), vec2(2.05, 0.42), vec2(0.18, 0.22)) - 0.12; }
-float hindW(vec2 w){ return sdQuad2(w, vec2(0.10, 0.02), vec2(1.70, 0.38), vec2(1.20, 1.38), vec2(0.10, 0.95)) - 0.22; }
+float smax(float a, float b, float k){ return -smin(-a, -b, k); }
+// wings in their own frames: x along the leading edge (costa) from the root, y back toward the inner margin
+vec2 foreF(vec2 w){ vec2 c = normalize(vec2(1.0, -0.36)), n = vec2(-c.y, c.x); vec2 q = w - vec2(0.14, -0.18); return vec2(dot(q, c), dot(q, n)); }
+vec2 hindF(vec2 w){ vec2 c = normalize(vec2(1.0, 0.45)), n = vec2(-c.y, c.x); vec2 q = w - vec2(0.12, 0.05); return vec2(dot(q, c), dot(q, n)); }
+float foreW(vec2 w){
+  vec2 f = foreF(w);
+  const float L = 2.3, W = 1.42;
+  float u = f.x / L;
+  float costa = -0.07 * sin(PI * clamp(u, 0.0, 1.0)) - f.y;                  // slightly arched leading edge
+  float inner = f.y - W * pow(clamp(u, 0.0, 1.0), 0.55) * (1.0 - 0.15 * u);  // the inner margin widening outward
+  float termen = f.x - (L - 0.42 * f.y - 0.18 * f.y * f.y);                // the outer margin, slanted and convex
+  return smax(smax(costa, inner, 0.08), smax(termen, -f.x, 0.06), 0.14) * 0.8;
+}
+float hindW(vec2 w){
+  vec2 f = hindF(w);
+  float e = length((f - vec2(0.84, 0.06)) / vec2(0.9, 0.64)) - 1.0;
+  return smax(e * 0.7, -f.x, 0.1);
+}
 float mothSD(vec3 p, out float part){
   vec3 l = mothLocal(p);
   vec2 w = vec2(abs(l.x), l.z);
@@ -470,34 +486,37 @@ vec3 dialAlb(vec3 l){
 }
 vec3 wingAlb(vec3 l){
   vec2 w = vec2(abs(l.x), l.z);
-  float fore = foreW(w), hind = hindW(w);
-  bool isFore = fore < 0.0 && (hind > -0.0 || l.y > 0.0);
-  float r = length(w);
-  float an = atan(w.y, w.x);
-  vec3 base = vec3(0.34, 0.30, 0.25);
-  float v = 1.0;
-  if (fore < 0.02 && (fore <= hind || l.y - (0.16 + 0.05 * w.x) > 0.0)){
-    // transverse lines parallel to the outer margin, wavy
-    float m = -fore;
-    float wav = 0.04 * sin(an * 30.0 + r * 4.0);
-    v *= 1.0 + 1.1 * smoothstep(0.05, 0.0, abs(m - 0.26 + wav));          // pale subterminal line
-    v *= 1.0 + 0.9 * smoothstep(0.06, 0.0, abs(r - 1.05 + wav * 1.5));     // pale postmedian line
-    v *= 1.0 - 0.35 * smoothstep(0.08, 0.0, abs(r - 0.55 + wav));
-    v *= 1.0 + 0.8 * smoothstep(0.16, 0.12, length(w - vec2(1.25, -0.12))) * smoothstep(0.08, 0.11, length(w - vec2(1.25, -0.12))); // ringed stigma
-    v *= 1.0 - 0.2 * smoothstep(0.35, 0.0, m) * (0.5 + 0.5 * sin(an * 60.0));
-    v *= 1.0 - 0.6 * smoothstep(0.11, 0.06, length(w - vec2(1.25, -0.12)));      // discal spot
-    v *= 0.82 + 0.3 * smoothstep(0.0, 0.9, w.x) * (1.0 - smoothstep(0.4, 0.0, m));
-    v *= 1.0 - 0.25 * smoothstep(0.45, 0.2, abs(w.y + 0.45 - w.x * 0.1)) * smoothstep(0.8, 2.0, w.x);
-  } else {
-    float m = -hind;
-    v *= 0.85 + 0.15 * smoothstep(0.0, 0.5, m);
-    v *= 1.0 - 0.4 * smoothstep(0.05, 0.0, abs(m - 0.2 + 0.03 * sin(an * 24.0)));
+  float fore = foreW(w);
+  float sc = 0.9 + 0.2 * vnoise(vec3(w * 26.0, 3.0)) + 0.06 * vnoise(vec3(w * 70.0, 5.0));
+  if (fore < 0.004){
+    vec2 f = foreF(w);
+    float u = f.x / 2.3, v = clamp(f.y / 1.3, 0.0, 1.0);
+    vec3 base = vec3(0.37, 0.33, 0.28);
+    float am = 0.31 + 0.06 * v + 0.012 * sin(v * 25.0);
+    float pm = 0.66 - 0.10 * v + 0.02 * sin(v * 31.0 + 1.0) + 0.015 * abs(sin(v * 47.0));
+    float t = 1.0;
+    t *= mix(1.0, 0.78, smoothstep(am, am + 0.02, u) * smoothstep(pm + 0.02, pm, u));     // the darker median band
+    t *= 1.0 - 0.55 * smoothstep(0.022, 0.0, abs(u - am));
+    t *= 1.0 + 0.55 * smoothstep(0.03, 0.0, abs(u - am - 0.035));
+    t *= 1.0 - 0.6 * smoothstep(0.02, 0.0, abs(u - pm));
+    t *= 1.0 + 0.7 * smoothstep(0.035, 0.0, abs(u - pm - 0.04));
+    float st = 0.86 - 0.05 * v + 0.012 * sin(v * 40.0);
+    t *= 1.0 + 0.45 * smoothstep(0.025, 0.0, abs(u - st));
+    t *= 1.0 - 0.25 * smoothstep(st + 0.02, st + 0.08, u);                                  // darker outer border
+    vec2 ds = (f - vec2(0.5 * 2.3, 0.33 * 1.3)) / vec2(0.09, 0.13);
+    t *= 1.0 - 0.6 * smoothstep(1.0, 0.6, length(ds)) * smoothstep(0.2, 0.55, length(ds)); // ringed discal spot
+    float ang = atan(f.y, f.x);
+    t *= 1.0 - 0.10 * smoothstep(0.02, 0.0, abs(fract(ang * 3.2 + 0.1) - 0.5) * length(f)) * step(0.15, u); // veins
+    t *= 1.0 - 0.35 * smoothstep(-0.05, 0.0, fore) * step(0.5, fract(v * 9.0));            // chequered fringe
+    t *= 1.0 + 0.2 * smoothstep(0.12, 0.0, f.y + 0.07 * sin(PI * clamp(u, 0.0, 1.0)) ) * step(u, 0.9); // paler costa
+    return base * t * sc;
   }
-  v *= 0.9 + 0.2 * vnoise(vec3(w * 22.0, 3.0));
-  v *= 1.0 - 0.12 * smoothstep(0.03, 0.0, abs(fract(an * 4.5 + 0.2) - 0.5) * r);       // veins
-  return base * v;
+  vec2 g = hindF(w);
+  float r = length((g - vec2(0.0, 0.1)) / vec2(1.7, 1.2));
+  float t = 0.95 - 0.4 * smoothstep(0.02, 0.0, abs(r - 0.72 - 0.015 * sin(atan(g.y, g.x) * 20.0)));
+  t *= 0.85 + 0.15 * smoothstep(0.2, 0.7, r);
+  return vec3(0.40, 0.36, 0.30) * t * sc;
 }
-
 Mat material(float id, vec3 p, inout vec3 n){
   Mat m; m.alb = vec3(0.5); m.kind = 0.0; m.rough = 0.5; m.f0 = vec3(0.04); m.trans = 0.0; m.spec = 0.0;
   if (id == 1.0){
@@ -511,7 +530,7 @@ Mat material(float id, vec3 p, inout vec3 n){
   } else if (id == 4.0){
     m.alb = vec3(0.07, 0.12, 0.04) * (0.8 + 0.4 * vnoise(p * 3.0)); m.spec = 0.08; m.rough = 0.3; m.kind = 0.0;
   } else if (id == 5.0 || id == 12.0 || id == 11.0){
-    m.kind = 1.0; m.f0 = vec3(0.94, 0.92, 0.88); m.rough = id == 11.0 ? 0.12 : 0.05;
+    m.kind = 1.0; m.f0 = vec3(0.94, 0.92, 0.88); m.rough = id == 11.0 ? 0.1 : (id == 12.0 ? 0.0 : 0.02);
     if (id == 12.0){ // lid: engine-turned (guilloché) outside, polished inside
       vec3 l = lidLocal(watchLocal(p)) - vec3(0.0, 1.22, 0.0);
       if (l.y > 0.05){ float rr = length(l.xz); n = normalize(n + 0.12 * vec3(sin(rr * 60.0 + 3.0 * sin(atan(l.z, l.x) * 12.0)), 0.0, 0.0)); m.rough = 0.12; }
@@ -597,8 +616,11 @@ vec3 trace(vec3 ro, vec3 rd){
       float c = abs(dot(rd, cn));
       float F = 0.04 + 0.96 * pow(1.0 - c, 5.0);
       vec3 pc = ro + rd * tc;
-      if (rnd() < F){ rd = reflect(rd, cn); ro = pc + rd * 0.003; countEmit = true; }
-      else { ro = pc + rd * 0.003; }
+      // the crystal's reflection, taken deterministically (the window, or the dark room) instead of by a random pick
+      vec3 rr = reflect(rd, cn); float tl2; vec3 Le2;
+      L += thr * F * (hitLight(pc, rr, tl2, Le2) ? Le2 : envL(rr)) * (diffused ? 0.3 : 1.0);
+      thr *= 1.0 - F;
+      ro = pc + rd * 0.003;
       continue;
     }
     if (lh && tl < t){ if (countEmit) L += diffused ? min(thr * Le, vec3(0.8)) : thr * Le; break; }
@@ -808,14 +830,15 @@ in vec2 aPos; void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }`;
     const bu = bloomUniforms(opts.rings || RINGS);
     gl.uniform4fv(U('uRing'), bu.R); gl.uniform4fv(U('uPet'), bu.P); gl.uniform4fv(U('uPetB'), bu.B); gl.uniform1i(U('uRings'), bu.n);
     const tiles = [];
-    for (let y = 0; y < H; y += tile) for (let x = 0; x < W; x += tile) tiles.push([x, y]);
+    const rg = opts.region || [0, 0, W, H];  // GL pixel coords: x0, y0, x1, y1
+    for (let y = rg[1]; y < rg[3]; y += tile) for (let x = rg[0]; x < rg[2]; x += tile) tiles.push([x, y, Math.min(tile, rg[2] - x), Math.min(tile, rg[3] - y)]);
     const passes = Math.ceil(spp / per);
     const t0 = performance.now();
     for (let ps = 0; ps < passes; ps++) {
       gl.uniform1i(U('uSpp'), Math.min(per, spp - ps * per));
-      gl.uniform1i(U('uSampleBase'), ps * per);
-      for (const [x, y] of tiles) {
-        gl.scissor(x, y, tile, tile);
+      gl.uniform1i(U('uSampleBase'), (opts.base || 0) + ps * per);
+      for (const [x, y, tw, th] of tiles) {
+        gl.scissor(x, y, tw, th);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.finish();
         if (opts.yieldEvery) await new Promise((r) => setTimeout(r, 0));

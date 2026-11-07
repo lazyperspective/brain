@@ -170,8 +170,9 @@
     return x < tab[0][ix] === tab[0][ix] < tab[tab.length - 1][ix] ? tab[0][iy] : tab[tab.length - 1][iy];
   }
   // cliff body: the rock is shaded by fast hatching, parallel to the face, drawn as one zig-zag from behind the
-  // right bezel toward the face; brightest on the flank by the face, fading round the headland; ragged ends and
-  // faint bands (the beam's speed wanders) suggest strata
+  // right bezel toward the face: an even, deliberate fill all the way to the bezel; the form comes from the lean
+  // (following the face, straightening round the headland), a gentle fall-off away from the lit flank, a little more
+  // weight under the cap of turf, and ragged ledges along the waterline
   function cliffBody() {
     const s = [];
     s.push(line([[1.05, 0.05], [1.08, -0.2], [1.05, -0.35]], { hidden: true, b: 0.05 }));
@@ -179,7 +180,7 @@
     const lines = [];
     // lean follows the face near it and straightens round the headland; spacing opens out as the light fades
     const leanAt = (x) => lerp(0.27, 0.06, smooth(0.12, 0.8, x));
-    const spAt = (x) => lerp(0.0105, 0.024, smooth(0.15, 0.95, x));
+    const spAt = (x) => lerp(0.0108, 0.0135, smooth(0.15, 0.95, x));
     for (let xb = 1.03, i = 0; xb > 0.07; i++) {
       const lean = leanAt(xb), bow = 0.012 * smooth(0.1, 0.5, xb) * (1 - smooth(0.6, 1.0, xb));
       const yb = interp(WL, xb, 0, 1) + 0.022 + 0.014 * rn();
@@ -191,9 +192,9 @@
       let y1 = yt;
       while (y1 > y0 && X(y1) < interp(FACE, y1, 1, 0) + 0.013) y1 -= 0.003;
       // ledges: some lines stop short, leaving a ragged lower edge
-      if (rn() < 0.3) y0 += 0.02 + 0.08 * rn();
+      if (rn() < 0.25) y0 += 0.015 + 0.05 * rn();
       if (y1 - y0 > 0.03) lines.push([xb, y0, y1, X]);
-      xb -= spAt(xb) * (0.85 + 0.3 * rn());
+      xb -= spAt(xb) * (0.94 + 0.12 * rn());
     }
     lines.forEach(([xb, y0, y1, X], k) => {
       const seg = [];
@@ -201,9 +202,9 @@
       for (let m = 0; m <= n; m++) { const y = lerp(y0, y1, m / n); seg.push([X(y), y]); }
       if (k % 2) seg.reverse();
       const bx = X(lerp(y0, y1, 0.5));
-      const bright = 0.02 + 0.17 * Math.exp(-Math.max(0, bx - 0.16) / 0.3);
-      s.push(line(seg, { b: bright, tmin: 0.0, ta: 0.07, tb: 0.07, noCorner: true, jb: bright * 0.04,
-        prof: (f) => { const y = lerp(y0, y1, k % 2 ? 1 - f : f); return 0.5 + 0.5 * smooth(-0.35, 0.55, PH.vnoise(y * 24, xb * 7, 9)); } }));
+      const bright = 0.105 + 0.07 * Math.exp(-Math.max(0, bx - 0.16) / 0.32);
+      s.push(line(seg, { b: bright, tmin: 0.0, ta: 0.05, tb: 0.05, noCorner: true, jb: bright * 0.04,
+        prof: (f) => { const fu = k % 2 ? 1 - f : f; return 0.82 + 0.18 * smooth(0.45, 1.0, fu); } }));
     });
     return s;
   }

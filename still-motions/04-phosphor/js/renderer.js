@@ -27,13 +27,14 @@
     sigma: 2.25, // focused spot sigma at 4K (px)
     hstep: 0.55, // sample spacing along the path (px at 4K)
     jumpB: 0.014, // retrace brightness
+    retrace: 0.25, // all retraces are fast: scale of their brightness
     expo: 0.85,
     sat: 120, // phosphor saturation level
     halo: [0.26, 0.15, 0.09, 0.05, 0.022, 0.012], // glow pyramid weights (levels 1..6)
     glareFrom: 4, // levels >= this spill outside the glass (camera glare)
     tailA: 1.0, tailL: 0.05, headA: 2.6, headW: 0.0045, headRise: 0.007,
     phos: [0.17, 1.0, 0.36],
-    ringT: 4.0, ringK: 0.3,
+    ringT: 4.0, ringK: 0.2,
   };
 
   // ------------------------------------------------------------------ trace
@@ -109,7 +110,7 @@
       const ov = Math.min(7 * sc, 0.05 * L), ux = dx / L, uy = dy / L;
       const pts = [last, p, [p[0] + ux * ov, p[1] + uy * ov], [p[0] - ux * ov * 0.35, p[1] - uy * ov * 0.35], p];
       const save = last;
-      pushSeg(pts, { b: b == null ? P.jumpB : b, noCorner: true, prof: (f) => 1 + 3.0 * smooth(0.82, 1, f) * (L > 30 * sc ? 1 : 0) });
+      pushSeg(pts, { b: (b == null ? P.jumpB : b) * P.retrace, noCorner: true, prof: (f) => 1 + 1.5 * smooth(0.82, 1, f) * (L > 30 * sc ? 1 : 0) });
       last = p;
       return save;
     };
@@ -277,7 +278,7 @@
       const Lr = L[2], w = Lr.w, h = Lr.h, src = Lr.a;
       if (!this.ring) this.ring = new Float32Array(w * h);
       const ring = this.ring; ring.fill(0);
-      const r0 = (215 * sc) / 8, rw = (26 * sc) / 8, T = P.ringT;
+      const r0 = (120 * sc) / 8, rw = (105 * sc) / 8, T = P.ringT;
       const RR = Math.ceil(r0 + 3 * rw);
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         const v = src[y * w + x] / (sc * sc) - T;

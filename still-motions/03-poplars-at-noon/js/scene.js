@@ -664,6 +664,11 @@
     // the dark line under the bank where the reflection of the shaded bank lies
     const edge = sstep(bankH * 1.6 + 3, 0, depthBelow);
     col = mix3(col, [0.08, 0.14, 0.14], 0.6 * edge);
+    // wind ripples nearer to us: horizontal bands whose facets tilt up and catch more of the sky
+    const rf = R.fbm(x / 300, y / (7 + 9 * d), 221 + sd, 3), near = sstep(0.2, 0.7, d);
+    const rip = near * sstep(0.56, 0.78, rf), trough = near * sstep(0.42, 0.25, rf);
+    if (rip > 0) col = mix3(col, [0.62, 0.74, 0.92], 0.6 * rip);
+    if (trough > 0) col = mul3(col, 1 - 0.2 * trough);
     const L = lum(col);
     return { fam: L < 0.22 ? 'waterDark' : 'water', col, lit: clamp(L * 1.4, 0, 1), ang: 0.05 * (R.vnoise(x / 50, y / 20, 207) - 0.5), layer: 4, ch: 'water', water: 1, refl: L };
   }

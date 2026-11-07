@@ -74,7 +74,7 @@ void main(){
   vec2 P = (uv - 0.5) * vec2(74.0, 59.7);
   ivec2 tc = ivec2(gl_FragCoord.xy);
   // ---- the image: exposure -> density of the mercury-silver amalgam particles
-  float x = photoE(uv) * uExpo;
+  float x = photoE(0.5 + (uv - 0.5) * 1.1) * uExpo;                // the photograph sits slightly smaller on the plate
   float D = 1.0 - exp(-1.15 * pow(x, 1.35));
   D *= 1.0 - 0.10 * smoothstep(2.4, 7.0, x);                      // solarisation of the very brightest passages
   float n1 = h2(vec2(tc)) - 0.5, n2 = vn(P * 28.0) - 0.5, n3 = vn(P * 7.0) - 0.5;
@@ -125,7 +125,7 @@ void main(){
   float creep = s - 2.4 * fbm(P * 0.16 + 3.0) - 0.9 * fbm(P * 0.55 + 9.0) + 1.2;
   vec2 dirn = normalize(P + 1e-4);
   float thick = 0.22 + 0.14 * fbm(vec2(th * 2.2, 1.7)) + 0.09 * smoothstep(0.1, -0.9, dirn.x * 0.6 - dirn.y * 0.8);
-  float lam = 1.4 + 2.2 * fbm(vec2(th * 3.1, 5.3)) * fbm(P * 0.3 + 2.0) * 1.6;
+  float lam = 2.2 + 3.4 * fbm(vec2(th * 3.1, 5.3)) * fbm(P * 0.3 + 2.0) * 1.6;
   float T = thick * exp(-max(creep, 0.0) / lam);
   T += 0.035 + 0.04 * fbm(P * 0.12 + 20.0);                         // the faint overall film
   // ---- fingerprint, a partial thumb near the upper right edge: its sweat etched the tarnish in ridges
@@ -137,7 +137,7 @@ void main(){
     float m = smoothstep(1.0, 0.6, e) * smoothstep(-3.0, 2.0, q.x + q.y * 0.3) * 0.9;
     vec2 qw = q + 0.6 * vec2(vn(q * 0.35), vn(q * 0.35 + 5.0)) - vec2(0.0, 1.2);
     float ph = length(qw * vec2(1.0, 0.78)) / 0.47 + 0.8 * atan(qw.y, qw.x) / TAU;
-    float ridge = smoothstep(0.25, 0.75, 0.5 + 0.5 * sin(ph * TAU)) * smoothstep(0.15, 0.4, vn(q * 3.0));
+    float ridge = smoothstep(0.25, 0.75, 0.5 + 0.5 * sin(ph * TAU + 1.5 * vn(q * 1.3))) * smoothstep(0.25, 0.55, vn(q * 2.2)) * smoothstep(0.2, 0.6, vn(q * 0.6 + 4.0));
     T += m * 0.05 * ridge;
     X += m * 0.022 * ridge;
   }
@@ -148,7 +148,7 @@ void main(){
     float d = length((P - c) * vec2(1.0, 1.0 + 0.3 * h1(float(i) + 50.0)));
     if (i < 8){
       X -= 0.42 * smoothstep(r, r * 0.4, d);
-      T += 0.22 * smoothstep(r * 3.5, r * 1.2, d) * smoothstep(r * 0.6, r * 1.3, d);
+      T += 0.07 * smoothstep(r * 3.5, r * 1.2, d) * smoothstep(r * 0.6, r * 1.3, d);
       D *= 1.0 - 0.5 * smoothstep(r * 1.5, r * 0.7, d);
     } else {
       X += 0.45 * smoothstep(r * 0.5, r * 0.15, d);
@@ -519,13 +519,13 @@ vec3 package(vec3 ro, vec3 rd, mat3 toW, vec3 Vw, out float hitZ){
     float dEff = T * sqrt(1.0 - (1.0 - ci * ci) / (1.7 * 1.7));
     vec3 tint = texture(uFilm, vec2(dEff / 320.0, 0.5)).rgb;
     float tl = dot(tint, vec3(0.3, 0.55, 0.15));
-    tint = mix(vec3(tl), tint, 0.55);
+    tint = mix(vec3(tl), tint, 0.45);
     vec3 Ls = env(R, 0.0);
     float E = irr(Nw) * 0.95;
-    float cover = clamp(D * 0.96 + S * 0.6, 0.0, 1.0);
+    float cover = clamp(1.0 - pow(1.0 - D, 1.7) + S * 0.6, 0.0, 1.0);
     float spot = clamp(X * 2.0, 0.0, 1.0), haze = clamp(X * 2.0 - 1.0, 0.0, 1.0);
     vec3 spec = (1.0 - cover) * vec3(0.93, 0.915, 0.88) * tint * Ls;
-    vec3 diff = (D * 0.40 + S * 0.36) * E * mix(vec3(1.0), tint, 0.45) * vec3(1.0, 0.985, 0.955);
+    vec3 diff = (D * 0.46 + S * 0.36) * E * mix(vec3(1.0), tint, 0.45) * vec3(1.0, 0.985, 0.955);
     diff += 0.06 * E * pt.b * mix(vec3(0.5), tint, 1.0) * (1.0 - cover);   // the film itself, faintly seen in the dark
     platec = (spec + diff) * spot + haze * (0.55 * E + 0.2 * Ls);
     float edge = smoothstep(0.0, 0.5, -so);
