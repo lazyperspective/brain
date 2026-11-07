@@ -1,0 +1,25 @@
+What if Steve Jobs had ChatGPT in 1984? - verification (final build, round 6)
+File: /home/user/brain/mac-1984-video/mac-1984-4x3.mp4  (155M)
+Duration: 79.984000 s
+  stream|codec_name=h264|profile=High|width=1440|height=1080|pix_fmt=yuv420p|r_frame_rate=30/1|bit_rate=15998063|nb_frames=2397
+  stream|codec_name=aac|profile=LC|sample_rate=48000|channels=2|r_frame_rate=0/0|bit_rate=254470|nb_frames=3751
+  x264 preset slow, -tune animation, CRF 15, High profile, yuv420p, keyint 60, +faststart; AAC LC 256 kb/s 48 kHz stereo
+
+Loudness (ffmpeg ebur128, measured on the final AAC track inside the mp4):
+    I:         -16.0 LUFS
+    LRA:         8.0 LU
+    LRA low:   -23.0 LUFS
+    LRA high:  -15.0 LUFS
+    Peak:       -1.4 dBFS   (ebur128 peak=true: this is the true peak, dBTP)
+  targets: -16 LUFS integrated, true peak below -1 dBTP, LRA under ~12 LU -> PASS
+
+Flash check (production/flashcheck.js, WCAG 2.3.1-style general flash test, whole frame + 9 quarter-frame windows):
+  mac-1984-4x3.mp4: 2397 frames (79.90 s)
+  worst frame-to-frame change of a large-area mean luminance: 0.6034 (q00, t=12.80 s)
+  conservative count (any two >=0.10 transitions within 1 s, either direction): 1 (limit 3) at t=65.87 s (whole)
+  WCAG general flashes (pairs of opposing >=0.10 changes) in any 1 s: 1 (limit 3) at t=65.87 s (whole)
+  FLASH CHECK: PASS
+  note: the largest single step is the one-time grey-desktop -> white MacPaint screen change when MacPaint launches (~12.8 s); the cut to black is a single transition; no inversion repeats.
+
+Encoding: decoded 1-bit text crops inspected at 2x (no ringing/blocking on glyphs or stripes).
+Determinism: every frame is a pure function of t (seeded mulberry32/hash PRNG, no Math.random/Date); cues.json and the audio are generated from the same timeline.

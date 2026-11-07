@@ -66,6 +66,7 @@
   // =====================================================================================
   // LAYOUT
   const CHATW = { x: 150, y: 244, w: 358, h: 94 };
+  const CHAT0 = { x: 77, y: 132, w: 358, h: 94 };   // where the app first opens its window (before MacPaint)
   const CHAT_TEXT = { x: 155, y: 266, w: 330, lh: 14, lines: 5 };
   const ICON_DISK = [452, 26], ICON_CHAT = [212, 132], ICON_TRASH = [456, 288];
   const FINDER_MENUS = ['@', 'File', 'Edit', 'View', 'Special'];
@@ -82,7 +83,7 @@
   const cam = (t, dur, cx, cy, z, ease) => CAM.push({ t, dur, to: { cx, cy, z }, ease: ease || E.inOut });
 
   // ---- boot ----
-  T.power = 0.15; T.on = 0.32; T.happy = 0.95; T.welcome = 1.85; T.finder = 3.1;
+  T.power = 0.15; T.on = 0.32; T.happy = 0.95; T.welcome = 1.8; T.finder = 2.95;
   cue(T.power, 'power'); cue(T.on, 'boot'); cue(T.on + 0.05, 'crt');
   cue(T.happy - 0.35, 'floppy', { dur: T.finder - T.happy + 0.9, mode: 'boot', seed: 1 });
   T.icons = T.finder + 0.35; T.curOn = T.finder + 0.42;
@@ -94,7 +95,7 @@
   T.zoom = T.dbl + 0.05; T.appClear = T.zoom + 0.33;
   WATCH.push([T.dbl + 0.1, 0]); const wLaunch = WATCH.length - 1;
   cue(T.dbl + 0.15, 'floppy', { dur: 1.3, mode: 'launch', seed: 2 });
-  T.app = T.appClear + 1.0; WATCH[wLaunch][1] = T.app + 0.15;
+  T.app = T.appClear + 0.85; WATCH[wLaunch][1] = T.app + 0.15;
   T.chatWin = T.app + 0.12;
 
   // ---- greeting + first prompt ----
@@ -107,9 +108,9 @@
 
   // ---- ChatGPT thinks, opens MacPaint, draws ----
   T.think1 = S1.end + 0.1; WATCH.push([T.think1, T.think1 + 0.75]); cue(T.think1, 'floppy', { dur: 0.7, mode: 'think', seed: 3 });
-  const G2 = gptStream('Opening MacPaint...', T.think1 + 0.7, { seed: 4, dt: 0.035 });
+  const G2 = gptStream('Opening MacPaint...', T.think1 + 0.6, { seed: 4, dt: 0.03 });
   MSG.push({ who: 'ChatGPT', src: G2, show: G2.t0 });
-  T.paintLaunch = G2.end + 0.3; WATCH.push([T.paintLaunch, T.paintLaunch + 1.05]);
+  T.paintLaunch = G2.end + 0.25; WATCH.push([T.paintLaunch, T.paintLaunch + 1.05]);
   cue(T.paintLaunch, 'floppy', { dur: 1.1, mode: 'launch', seed: 5 });
   T.paint = T.paintLaunch + 0.55; T.paintReady = T.paint + 0.5;
   // AI cursor reappears (the AI drives it): starts from wherever the mouse was
@@ -133,15 +134,15 @@
   MSG.push({ who: 'Steve', src: S3, show: TR2.end + 0.05, human: true });
   HIDE.push([S3.first, 0]);
   D = PAINT.builder(S3.end + 0.3, curPos, { tool: TR2.toolAt(1e9), pat: TR2.patAt(1e9) });
-  D.speed(2.5); ART.thinner2(D); const TR3 = D.done(); DRAW.push(TR3); addTrack(TR3); HIDE[HIDE.length - 1][1] = S3.end + 0.3;
+  D.speed(3.0); ART.thinner2(D); const TR3 = D.done(); DRAW.push(TR3); addTrack(TR3); HIDE[HIDE.length - 1][1] = S3.end + 0.3;
   T.thin2 = S3.end + 0.3;
 
   // ---- remove everything ----
-  const S4 = steveTyper('Remove all the ports.{0.25} Remove the buttons.{0.35} Remove everything unnecessary.\n', TR3.end + 0.7, 10, 0.78);
+  const S4 = steveTyper('Remove all the ports.{0.25} Remove the buttons.{0.35} Remove everything unnecessary.\n', TR3.end + 0.7, 10, 0.72);
   MSG.push({ who: 'Steve', src: S4, show: TR3.end + 0.05, human: true });
   HIDE.push([S4.first, 0]);
   D = PAINT.builder(S4.end + 0.35, curPos, { tool: TR3.toolAt(1e9), pat: TR3.patAt(1e9) });
-  D.speed(2.1); ART.strip(D); const TR4 = D.done(); DRAW.push(TR4); addTrack(TR4); HIDE[HIDE.length - 1][1] = S4.end + 0.35;
+  D.speed(2.3); ART.strip(D); const TR4 = D.done(); DRAW.push(TR4); addTrack(TR4); HIDE[HIDE.length - 1][1] = S4.end + 0.35;
   seeks(S4.end + 0.3, TR4.end, 11);
   T.strip = S4.end + 0.35;
 
@@ -149,7 +150,7 @@
   const G4 = gptStream("Done. I've also designed its operating system, app ecosystem, and a wireless internet network.", TR4.end + 0.3, { seed: 6 });
   MSG.push({ who: 'ChatGPT', src: G4, show: G4.t0 });
   D = PAINT.builder(G4.end + 0.1, curPos, { tool: TR4.toolAt(1e9), pat: TR4.patAt(1e9) });
-  D.speed(3.4); ART.os(D); const TR5 = D.done(); DRAW.push(TR5); addTrack(TR5);
+  D.speed(4.0); ART.os(D); const TR5 = D.done(); DRAW.push(TR5); addTrack(TR5);
   seeks(G4.end, TR5.end, 12);
   T.os = G4.end + 0.1;
 
@@ -160,8 +161,8 @@
   T.think2 = S5.end + 0.1; WATCH.push([T.think2, T.think2 + 0.5]); cue(T.think2, 'floppy', { dur: 0.45, mode: 'think', seed: 13 });
   const G5 = gptStream('iPhone.', T.think2 + 0.55, { seed: 7, dt: 0.05 });
   MSG.push({ who: 'ChatGPT', src: G5, show: G5.t0 });
-  D = PAINT.builder(G5.end + 0.25, curPos, { tool: TR5.toolAt(1e9), pat: TR5.patAt(1e9) });
-  D.speed(1.4); ART.name(D); const TR6 = D.done(); DRAW.push(TR6); addTrack(TR6); HIDE[HIDE.length - 1][1] = G5.end + 0.25;
+  D = PAINT.builder(G5.end + 1.25, curPos, { tool: TR5.toolAt(1e9), pat: TR5.patAt(1e9) });
+  D.speed(1.4); ART.name(D); const TR6 = D.done(); DRAW.push(TR6); addTrack(TR6); HIDE[HIDE.length - 1][1] = G5.end + 1.25;
   T.name = G5.t0;
   const S6 = steveTyper('Excellent.{0.3} Build it.\n', TR6.end + 0.65, 14);
   MSG.push({ who: 'Steve', src: S6, show: G5.end + 0.1, human: true });
@@ -170,17 +171,17 @@
   // ---- build: manufacturing instructions, progress bar, the bomb ----
   T.think3 = S6.end + 0.1; WATCH.push([T.think3, 0]); const wBuild = WATCH.length - 1;
   const STEPS = MANUFACTURING;
-  const G6 = gptStream('Generating manufacturing instructions...\n' + STEPS.join('\n'), T.think3 + 0.35, { seed: 8, dt: 0.0075 });
+  const G6 = gptStream('Generating manufacturing instructions...\n' + STEPS.join('\n'), T.think3 + 0.35, { seed: 8, dt: 0.0056 });
   MSG.push({ who: 'ChatGPT', src: G6, show: G6.t0 });
   cue(T.think3, 'floppy', { dur: G6.end - T.think3 + 1.6, mode: 'grind', seed: 14 });
-  T.prog = G6.end + 0.15; T.prog99 = T.prog + 1.0; T.bomb = T.prog99 + 0.7;
+  T.prog = G6.end + 0.15; T.prog99 = T.prog + 0.95; T.bomb = T.prog99 + 0.6;
   WATCH[wBuild][1] = T.bomb;
   cue(T.bomb, 'beep');
   HIDE[HIDE.length - 1][1] = T.bomb + 1.35;
   // Steve reads, then clicks OK
   const OKB = { x: 330, y: 182, w: 60, h: 20 };
-  t = mv(T.bomb + 1.4, 0.75, OKB.x + 30, OKB.y + 11, { over: 0.05, arc: 0.06 });
-  T.ok = t + 0.35; click(T.ok); T.okUp = T.ok + 0.1;
+  t = mv(T.bomb + 1.25, 0.7, OKB.x + 30, OKB.y + 11, { over: 0.05, arc: 0.06 });
+  T.ok = t + 0.3; click(T.ok); T.okUp = T.ok + 0.1;
 
   // ---- "a better computer" ----
   const G7 = gptStream('Would you like me to design a better computer first?', T.okUp + 0.45, { seed: 9 });
@@ -195,7 +196,7 @@
 
   // ---- Steve quits, drags ChatGPT to the Trash, empties it ----
   const ML = MAC.menuLayout(PAINT.MENUS);
-  t = mv(T.pcDone + 0.7, 0.7, ML[1].tx + 10, 9, { over: 0.04, arc: -0.06 });
+  t = mv(T.pcDone + 1.3, 0.7, ML[1].tx + 10, 9, { over: 0.04, arc: -0.06 });
   T.fileDown = t + 0.15; cue(T.fileDown, 'mdown');
   const PG = MAC.menuGeom(PAINT.MENUS, 1, PFILE_ITEMS);
   const quitRow = PG.rows[PFILE_ITEMS.length - 1];
@@ -205,12 +206,12 @@
   WATCH.push([T.quit, 0]); const wQuit = WATCH.length - 1;
   cue(T.quit + 0.05, 'floppy', { dur: 1.05, mode: 'launch', seed: 17 });
   T.finder2 = T.quit + 0.8; WATCH[wQuit][1] = T.finder2 + 0.25;
-  t = mv(T.finder2 + 0.25, 0.65, ICON_CHAT[0] + 16, ICON_CHAT[1] + 12, { over: 0.05, arc: 0.07 });
+  t = mv(T.finder2 + 0.2, 0.6, ICON_CHAT[0] + 16, ICON_CHAT[1] + 12, { over: 0.05, arc: 0.07 });
   T.grab = t + 0.2; cue(T.grab, 'mdown');
   const grabOff = [ICON_CHAT[0] + 16 - ICON_CHAT[0], ICON_CHAT[1] + 12 - ICON_CHAT[1]];
   t = mv(T.grab + 0.1, 1.15, ICON_TRASH[0] + 16, ICON_TRASH[1] + 14, { over: 0.02, arc: -0.05 });
   T.drop = t + 0.25; cue(T.drop, 'mup');
-  t = mv(T.drop + 0.4, 0.7, MAC.menuLayout(FINDER_MENUS)[4].tx + 18, 9, { over: 0.04, arc: 0.06 });
+  t = mv(T.drop + 0.35, 0.6, MAC.menuLayout(FINDER_MENUS)[4].tx + 18, 9, { over: 0.04, arc: 0.06 });
   T.specDown = t + 0.15; cue(T.specDown, 'mdown');
   const SG = MAC.menuGeom(FINDER_MENUS, 4, SPECIAL_ITEMS);
   t = mv(T.specDown + 0.1, 0.35, MAC.menuLayout(FINDER_MENUS)[4].tx + 26, SG.y + SG.rows[1].y + 8, { over: 0, arc: 0.04 });
@@ -218,14 +219,14 @@
   T.empty = T.specUp + 0.2; cue(T.empty, 'floppy', { dur: 0.5, mode: 'think', seed: 19 });
   cue(T.empty + 0.12, 'crunch');
   T.black = T.empty + 0.42;
-  const DUR = T.black + 1.3;
+  const DUR = T.black + 1.05;
 
-  function seeks(t0, t1, seed) { const r = rng(seed); let tt = t0 + 0.3 + r() * 0.6; while (tt < t1 - 0.2) { cue(tt, 'floppy', { dur: 0.18 + r() * 0.3, mode: 'seek', seed: seed * 10 + Math.floor(tt * 10) }); tt += 1.1 + r() * 1.4; } }
+  function seeks(t0, t1, seed) { const r = rng(seed); let tt = t0 + 0.3 + r() * 0.6; while (tt < t1 - 0.2) { cue(tt, 'floppy', { dur: 0.25 + r() * 0.35, mode: 'seek', seed: seed * 10 + Math.floor(tt * 10) }); tt += 0.55 + r() * 0.8; } }
 
   // =====================================================================================
   // CAMERA (cx, cy in screen px; z = zoom relative to the 456x342 full-height view)
   {
-    const chatCam = [327, 260, 1.3];
+    const chatCam = [321, 260, 1.36];
     const drawCam = [150, 128, 1.45];
     cam(0, 0.01, 256, 171, 1.35);
     cam(T.happy - 0.2, 1.4, 256, 168, 1.6, E.smooth);
@@ -233,15 +234,15 @@
     cam(T.finder - 0.05, 0.9, 256, 171, 1.0);
     cam(T.curOn + 0.3, 1.2, 228, 150, 1.32);
     cam(T.zoom + 0.05, 0.6, 256, 171, 1.0);
-    cam(T.chatWin + 0.15, 0.9, chatCam[0], chatCam[1], 1.22);
-    cam(S1.first - 0.4, 2.6, chatCam[0], chatCam[1], chatCam[2], E.smooth);
+    cam(T.chatWin + 0.15, 0.9, 256, 180, 1.24);
+    cam(S1.first - 0.4, 2.2, 244, 181, 1.42, E.smooth);
     cam(T.paint - 0.1, 0.7, 256, 171, 1.0);
     cam(T.paintReady + 0.2, 1.2, drawCam[0], drawCam[1], drawCam[2]);
     cam(TR1.t0 + 3.2, 1.6, 168, 120, 1.7, E.smooth);
     cam(G3.t0 - 0.15, 0.75, chatCam[0], chatCam[1], chatCam[2]);
-    cam(T.thin1 - 0.25, 0.7, 238, 118, 2.0);
-    cam(S3.first - 0.6, 0.6, chatCam[0], chatCam[1], chatCam[2]);
-    cam(T.thin2 - 0.15, 0.5, 292, 112, 2.5);
+    cam(T.thin1 - 0.25, 0.7, 236, 112, 2.0);
+    cam(S3.first - 0.6, 0.6, 282, 300, 1.75);
+    cam(T.thin2 - 0.15, 0.5, 248, 104, 2.5);
     cam(S4.first - 0.7, 0.7, chatCam[0], chatCam[1], chatCam[2]);
     cam(T.strip - 0.2, 0.75, 186, 130, 1.55);
     cam(TR4.end - 0.6, 1.0, 196, 128, 1.75, E.smooth);
@@ -250,15 +251,17 @@
     cam(TR5.t0 + 1.6, 1.5, 200, 124, 2.15, E.smooth);
     cam(S5.first - 0.6, 0.7, chatCam[0], chatCam[1], chatCam[2]);
     cam(G5.t0 - 0.1, 0.5, 250, 300, 2.3);
-    cam(G5.end + 0.2, 0.6, 320, 70, 2.2);
+    cam(G5.end + 0.95, 0.5, 290, 160, 1.35);
+    cam(G5.end + 1.42, 0.6, 326, 76, 2.1);
     cam(S6.first - 0.45, 0.6, chatCam[0], chatCam[1], chatCam[2]);
     cam(G6.t0 + 0.6, 0.6, chatCam[0], chatCam[1], chatCam[2]);
     cam(T.prog - 0.15, 0.6, 256, 160, 1.45);
     cam(T.bomb - 0.05, 0.35, 256, 156, 1.36);
     cam(T.ok + 0.1, 0.7, chatCam[0], chatCam[1], chatCam[2]);
+    cam(G7.end + 0.35, 0.8, 282, 300, 1.7);
     cam(T.pc - 0.15, 0.8, 196, 120, 1.5);
-    cam(T.pc + 1.6, 2.4, 205, 116, 1.75, E.smooth);
-    cam(T.pcDone + 0.3, 0.8, 212, 160, 1.2);
+    cam(T.pc + 1.6, 2.2, 252, 146, 1.6, E.smooth);
+    cam(T.pcDone + 1.0, 0.8, 212, 160, 1.2);
     cam(T.quit, 0.8, 256, 171, 1.0);
     cam(T.finder2 + 0.4, 1.0, 300, 200, 1.18);
     cam(T.drop + 0.2, 0.8, 330, 171, 1.08);
@@ -295,7 +298,9 @@
     });
     return { lines, caret };
   }
-  function drawChat(ctx, t, active = true) {
+  function drawChat(ctx, t, active = true, W0 = CHATW) {
+    const dx = W0.x - CHATW.x, dy = W0.y - CHATW.y;
+    if (dx || dy) { ctx.save(); ctx.translate(dx, dy); }
     const c = MAC.window(ctx, { x: CHATW.x, y: CHATW.y, w: CHATW.w, h: CHATW.h, title: 'ChatGPT', active, scroll: { thumb: null }, grow: true });
     const { lines, caret } = transcriptLines(t);
     const N = CHAT_TEXT.lines, top = Math.max(0, lines.length - N);
@@ -317,6 +322,7 @@
       }
     }
     ctx.restore();
+    if (dx || dy) ctx.restore();
   }
   function finder(ctx, t, st) {
     MAC.desktop(ctx);
@@ -371,7 +377,7 @@
       MAC.desktop(ctx);
       if (t < T.app) { R(ctx, 0, 0, SW, 19, W); H(ctx, 0, 19, SW, B); }
       else MAC.menubar(ctx, CHAT_MENUS);
-      if (t >= T.chatWin) drawChat(ctx, t);
+      if (t >= T.chatWin) drawChat(ctx, t, true, CHAT0);
       if (t >= T.paintLaunch) { R(ctx, 0, 0, SW, 19, W); H(ctx, 0, 19, SW, B); }
     } else if (t < T.quit + 0.3) {
       // ---------- MacPaint (with the ChatGPT window floating over it) ----------

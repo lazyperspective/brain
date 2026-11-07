@@ -141,13 +141,14 @@
   }
   // dotted drag outline of an icon + its label (gray pattern, ink only)
   function iconOutline(ctx, bm, x, y, label) {
-    const m = bm.m; ctx.fillStyle = K.patStyle(ctx, 'gray', true);
+    const m = bm.m, pts = [];
     for (let j = 0; j < bm.h; j++) for (let i = 0; i < bm.w; i++) {
       const k = j * bm.w + i; if (!m[k]) continue;
       const edge = !(i > 0 && m[k - 1]) || !(i < bm.w - 1 && m[k + 1]) || !(j > 0 && m[k - bm.w]) || !(j < bm.h - 1 && m[k + bm.w]);
-      if (edge) ctx.fillRect(x + i, y + j, 1, 1);
+      if (edge) pts.push([x + i, y + j]);
     }
-    if (label) { const L = iconLabelRect(x, y, label); patFrame(ctx, L.x, L.y, L.w, L.h, 'gray'); }
+    K.xorPixels(ctx, pts);
+    if (label) { const L = iconLabelRect(x, y, label); K.xorFrame(ctx, L.x, L.y, L.w, L.h); }
   }
   // Finder zoom rects: a short train of gray outlines interpolating from rect a to rect b
   function zoomRects(ctx, a, b, u) {
@@ -156,7 +157,7 @@
       const s = (u * (N + 3) - k) / N; if (s < 0 || s > 1) continue;
       const e = 1 - Math.pow(1 - s, 1.6);
       const x = Math.round(a.x + (b.x - a.x) * e), y = Math.round(a.y + (b.y - a.y) * e), w = Math.round(a.w + (b.w - a.w) * e), h = Math.round(a.h + (b.h - a.h) * e);
-      patFrame(ctx, x, y, w, h, 'gray');
+      K.xorFrame(ctx, x, y, w, h);
     }
   }
   function cursor(ctx, kind, x, y) { const c = ICONS.CUR[kind] || ICONS.CUR.arrow; c.b.draw(ctx, x - c.hx, y - c.hy); }

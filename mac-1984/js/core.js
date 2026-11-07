@@ -97,6 +97,18 @@
   function frame(ctx, x, y, w, h, c = B) { H(ctx, x, y, w, c); H(ctx, x, y + h - 1, w, c); V(ctx, x, y, h, c); V(ctx, x + w - 1, y, h, c); }
   function P(ctx, x, y, w, h, name) { if (w <= 0 || h <= 0) return; ctx.fillStyle = patStyle(ctx, name); ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
   // gray (pattern) outline, e.g. zoom rects and drag outlines
+  // XOR a gray-pattern outline (what QuickDraw does for zoom rects and drag outlines): white pattern + 'difference'
+  let xorPat = null;
+  function xorStyle(ctx) {
+    if (!xorPat) { const c = document.createElement('canvas'); c.width = c.height = 2; const g = c.getContext('2d'); g.fillStyle = W; g.fillRect(0, 0, 1, 1); g.fillRect(1, 1, 1, 1); xorPat = c; }
+    return ctx.createPattern(xorPat, 'repeat');
+  }
+  function xorFrame(ctx, x, y, w, h) {
+    ctx.save(); ctx.globalCompositeOperation = 'difference'; ctx.fillStyle = xorStyle(ctx);
+    ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y + 1, 1, h - 2); ctx.fillRect(x + w - 1, y + 1, 1, h - 2);
+    ctx.restore();
+  }
+  function xorPixels(ctx, pts) { ctx.save(); ctx.globalCompositeOperation = 'difference'; ctx.fillStyle = xorStyle(ctx); for (const [x, y] of pts) ctx.fillRect(x, y, 1, 1); ctx.restore(); }
   function patFrame(ctx, x, y, w, h, name = 'gray') { ctx.fillStyle = patStyle(ctx, name, true); ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h); }
   // rounded rect rows (QuickDraw-like, integer, no AA) — returns per-row inset
   function rrInset(j, h, r) {
@@ -156,5 +168,5 @@
     }
   }
 
-  G.K = { hash, rng, clamp, lerp, sat, E, seg, B, W, PAT, pbit, patStyle, grayOut, R, H, V, frame, P, patFrame, rrInset, rrFill, rrFrame, Bm };
+  G.K = { hash, rng, clamp, lerp, sat, E, seg, B, W, PAT, pbit, patStyle, grayOut, R, H, V, frame, P, patFrame, xorFrame, xorPixels, rrInset, rrFill, rrFrame, Bm };
 })(window);

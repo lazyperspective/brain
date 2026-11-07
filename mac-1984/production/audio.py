@@ -125,7 +125,7 @@ def mouse(down, seed):
     r = np.random.default_rng(seed)
     d = 0.06; nz = noise(d, r) * env_exp(d, 0.0018 if down else 0.0013, 0.0002)
     x = reson(nz, 2300 + r.random() * 300, 7) * 0.9 + reson(nz, 4800 + r.random() * 400, 10) * 0.5 + reson(nz, 900, 4) * 0.35
-    x += np.sin(2 * np.pi * 260 * t_(d)) * env_exp(d, 0.006) * 0.25
+    x = x * 2.0 + np.sin(2 * np.pi * 260 * t_(d)) * env_exp(d, 0.006) * 0.12
     return norm(x, 0.5 if down else 0.32)
 
 def key(kind, seed):
@@ -138,14 +138,15 @@ def key(kind, seed):
     clack = reson(nz, 1300 + r.random() * 700, 3.5) + 0.6 * reson(nz, 2900 + r.random() * 900, 5)
     tt = t_(0.09)
     thock = np.sin(2 * np.pi * lowf * (1 + 0.35 * np.exp(-tt / 0.008)) * tt) * env_exp(0.09, 0.016, 0.0008)
-    ping = np.sin(2 * np.pi * (3300 + r.random() * 500) * t_(0.12)) * env_exp(0.12, 0.03, 0.0005) * 0.06
-    press = np.zeros(int(0.12 * SR)); press[:len(clack)] += clack * 0.85; press[:len(thock)] += thock * 1.25; press[:len(ping)] += ping
+    ping = np.sin(2 * np.pi * (2400 + r.random() * 2200) * t_(0.12)) * env_exp(0.12, 0.012 + r.random() * 0.012, 0.0005) * 0.035
+    tick = reson(nz, 4600 + r.random() * 1500, 6) * 0.35
+    press = np.zeros(int(0.12 * SR)); press[:len(clack)] += clack * 3.2 + tick * 2.2; press[:len(thock)] += thock * 0.42; press[:len(ping)] += ping
     if kind == 'space':
         rat = reson(noise(0.07, r) * env_exp(0.07, 0.016), 800, 3) * 0.55; press[:len(rat)] += rat
     out[:len(press)] += press
     off = int((0.075 + r.random() * 0.04) * SR)
     nz2 = noise(0.04, r) * env_exp(0.04, 0.003, 0.0003)
-    rel = reson(nz2, 1900 + r.random() * 600, 4) * 0.45 + np.sin(2 * np.pi * lowf * 1.3 * t_(0.04)) * env_exp(0.04, 0.008) * 0.3
+    rel = reson(nz2, 1900 + r.random() * 600, 4) * 1.3 + np.sin(2 * np.pi * lowf * 1.3 * t_(0.04)) * env_exp(0.04, 0.008) * 0.12
     out[off:off + len(rel)] += rel
     if kind == 'shift':   # the shift key went down a moment before
         pre = np.zeros_like(out); s2 = key('key', seed + 9999) * 0.55; k2 = int(0.0 * SR); pre[:len(s2)] = s2[:len(pre)]
@@ -168,7 +169,7 @@ def crt_on():
     return norm(th + bz, 0.5)
 
 # ------------------------------------------------------------------ the 400K floppy drive
-ZONES = [96.0, 104.0, 113.0, 123.0, 134.0]   # audible motor fundamental per speed zone (variable-speed drive)
+ZONES = [262.0, 286.0, 311.0, 338.0, 368.0]   # audible motor fundamental per speed zone (variable-speed drive)
 
 def step_tick(r):
     d = 0.018; nz = noise(d, r) * env_exp(d, 0.0016, 0.0002)
@@ -201,12 +202,13 @@ def floppy(t0, dur, mode, seed):
     amp = up * dn
     ph = 2 * np.pi * np.cumsum(f * (0.6 + 0.4 * up)) / SR
     motor = np.zeros(n)
-    for k, a in [(1, 1.0), (2, 0.7), (3, 0.45), (4, 0.35), (6, 0.22), (8, 0.18), (12, 0.08)]:
+    for k, a in [(1, 1.0), (2, 0.55), (3, 0.4), (4, 0.22), (5, 0.15), (7, 0.08)]:
         motor += a * np.sin(k * ph + k * 0.7)
-    motor = bp(motor, 80, 2400)
+    motor *= 1 + 0.35 * np.sin(ph / 2.7)    # rotational flutter
+    motor = bp(motor, 200, 3500)
     hiss = bp(noise(dur, r), 1500, 6000) * 0.05 * (0.6 + 0.4 * np.sin(ph / 3) ** 2)
-    rumble = lp(noise(dur, r), 160) * 0.35
-    body = (motor * 0.32 + hiss + rumble * 0.4) * amp
+    rumble = bp(noise(dur, r), 90, 400) * 0.25
+    body = hp(motor * 0.3 + hiss * 1.4 + rumble * 0.35, 110) * amp
     out = body.copy()
     # head-load clack at the start
     cl = noise(0.03, r) * env_exp(0.03, 0.003); cl = reson(cl, 1300, 5) * 0.8 + reson(cl, 600, 3) * 0.6
@@ -231,7 +233,7 @@ for c in CUES:
     elif s == 'mup': add(t, mouse(False, int(t * 1000) + 1), 0.95, 0.3)
     elif s == 'key':
         k = c.get('k', 'key'); sd = c.get('seed', 0)
-        add(t - (0.045 if k == 'shift' else 0), key(k, sd), 0.8, -0.12 + 0.18 * ((sd % 7) / 7 - 0.5))
+        add(t - (0.045 if k == 'shift' else 0), key(k, sd), 0.62, -0.12 + 0.18 * ((sd % 7) / 7 - 0.5))
     elif s == 'floppy':
         g = {'boot': 0.5, 'launch': 0.5, 'grind': 0.5, 'think': 0.42, 'seek': 0.32}.get(c.get('mode'), 0.45)
         add(t, floppy(t, c['dur'], c.get('mode', 'seek'), c.get('seed', 1)), g, 0.22)
@@ -251,7 +253,7 @@ L += Lr; Rr += Rrr
 
 # room tone: quiet room, the compact Mac's analog board buzz and the CRT's faint whine (no fan in a 128K)
 tt = np.arange(N) / SR
-room = lp(rng.standard_normal(N), 900, 2) * 0.012 + bp(rng.standard_normal(N), 2000, 7000) * 0.0025
+room = lp(rng.standard_normal(N), 700, 2) * 0.014 + bp(rng.standard_normal(N), 2000, 7000) * 0.0028
 on = np.clip((tt - (T_ON or 0.3)) / 0.4, 0, 1) * (tt < (T_BLACK or DUR)) if True else 1
 hum = (np.sin(2 * np.pi * 60 * tt) * 0.5 + np.sin(2 * np.pi * 120 * tt) * 0.3 + np.sin(2 * np.pi * 180 * tt) * 0.25 + np.sin(2 * np.pi * 360 * tt) * 0.12) * 0.0035
 whine = np.sin(2 * np.pi * 15570 * tt) * 0.0022
@@ -292,15 +294,20 @@ def level(st, target_db, max_up, max_down, win=1.5):
     k = np.stack([kweight(st[:, 0]), kweight(st[:, 1])], 1)
     p = np.maximum(uniform_filter1d(np.sum(k ** 2, 1), int(win * SR)), 1e-12)
     lv = 10 * np.log10(p + 1e-12)
-    g = np.clip(target_db - lv, -max_down, max_up) * 0.75
+    g = np.clip(target_db - lv, -max_down, max_up) * 0.85
     g = uniform_filter1d(g, int(0.8 * SR))
     return st * db(g)[:, None]
 
 st = st / (np.max(np.abs(st)) + 1e-9) * 0.5
 L0 = lufs(st)
-st = compress(st, L0 + 9, 3.0, 0.0008, 0.06)
+st = compress(st, L0 + 7, 4.0, 0.0005, 0.06)
 L0 = lufs(st)
-st = level(st, L0, 9.0, 4.0)
+st = level(st, L0 - 0.5, 13.0, 7.0, 2.5)
+# soft-clip only the rarest transient peaks (key/mouse clicks), 4x oversampled, to tame the crest factor
+c = np.percentile(np.abs(st), 99.97) * 1.1
+os4 = np.stack([signal.resample_poly(st[:, ch], 4, 1) for ch in range(2)], 1)
+os4 = c * np.tanh(os4 / c)
+st = np.stack([signal.resample_poly(os4[:, ch], 1, 4) for ch in range(2)], 1)[: len(st)]
 
 def true_peak(st):
     return max(np.max(np.abs(signal.resample_poly(st[:, c], 4, 1))) for c in range(2))
@@ -321,10 +328,10 @@ def limit(st, ceiling):
 target = -16.0
 for it in range(5):
     st = st * db(target - lufs(st))
-    if true_peak(st) > db(-1.6): st = limit(st, db(-1.8))
+    if true_peak(st) > db(-3.0): st = limit(st, db(-3.2))
     lv, tp = lufs(st), 20 * np.log10(true_peak(st))
     print(f'pass {it}: {lv:.2f} LUFS, true peak {tp:.2f} dBTP')
-    if abs(lv - target) < 0.1 and tp < -1.2: break
+    if abs(lv - target) < 0.1 and tp < -2.8: break
 from scipy.io import wavfile
 wavfile.write(out_path, SR, st.astype(np.float32))
 print('written', out_path, len(st) / SR, 's')

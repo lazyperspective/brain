@@ -9,16 +9,19 @@
   const SLAB = { x0: 63, y0: 24, x1: 145, y1: 188 };
   const SCR = { x0: 69, y0: 38, x1: 139, y1: 174 };
 
-  function dim(D, x0, x1, label, y = 12) { // thickness dimension above the side view
-    D.line(x0, y - 3, x0, y + 3, { dur: 0.05 }).line(x1, y - 3, x1, y + 3, { dur: 0.05 }).line(x0, y, x1, y, { dur: 0.06 });
-    D.text(x1 + 5, y - 3, label, 'g9');
+  function dim(D, x0, x1, label, y = 12) { // dimension: extension ticks, arrows pointing in from outside, label
+    D.line(x0, y - 4, x0, y + 3, { dur: 0.05 }).line(x1, y - 4, x1, y + 3, { dur: 0.05 });
+    D.line(x0 - 12, y, x0 - 1, y, { dur: 0.05 }).pencil([[x0 - 4, y - 2], [x0 - 2, y], [x0 - 4, y + 2]], { dur: 0.04 });
+    D.line(x1 + 1, y, x1 + 12, y, { dur: 0.05 }).pencil([[x1 + 4, y - 2], [x1 + 2, y], [x1 + 4, y + 2]], { dur: 0.04 });
+    D.text(x1 + 16, y - 3, label, 'g9');
   }
   function sideView(D, th, o = {}) {
-    const r = Math.max(1, Math.min(6, Math.floor(th / 2)));
-    D.shape('rrect', SX, SY0, SX + th, SY1, { fill: th > 6 ? 'ltgray' : null, r, dur: o.fast ? 0.18 : 0.32 });
+    const r = Math.max(0, Math.min(6, Math.floor(th / 2)));
+    if (th <= 1) D.line(SX, SY0, SX, SY1, { dur: 0.2 });
+    else D.shape('rrect', SX, SY0, SX + th, SY1, { fill: th > 6 ? 'ltgray' : null, r, dur: o.fast ? 0.18 : 0.32 });
     if (th > 8) D.shape('rect', SX + th - 4, SY0 + 8, SX + th - 2, SY1 - 8, { fill: 'gray', line: false, dur: 0.12 });
     // side buttons
-    D.shape('rect', SX - 4, 54, SX, 66, { fill: 'black', dur: 0.07 }).shape('rect', SX - 4, 72, SX, 84, { fill: 'black', dur: 0.07 });
+    D.shape('rect', SX - 5, 54, SX - 1, 66, { fill: 'black', dur: 0.07 }).shape('rect', SX - 5, 72, SX - 1, 84, { fill: 'black', dur: 0.07 });
     if (o.ports) { D.shape('rect', SX + Math.floor(th / 2) - 3, SY1 - 1, SX + Math.floor(th / 2) + 3, SY1 + 4, { fill: 'black', dur: 0.06 }); }
     dim(D, SX, SX + th, o.label);
   }
@@ -57,10 +60,10 @@
     const xs = []; for (let x = SX - 1; x <= SX + th + 6; x += 12) xs.push(x);
     const pts = []; xs.forEach((x, i) => { if (i % 2 === 0) { pts.push([x, SY0 - 2], [x, SY1 + 6]); } else { pts.push([x, SY1 + 6], [x, SY0 - 2]); } });
     D.erase(pts, { dur: fast ? 0.32 : 0.55 });
-    D.erase([[SX - 2, 12], [SX + th + 52, 12]], { dur: fast ? 0.14 : 0.22 });
+    D.erase([[SX - 16, 11], [SX + th + 60, 11]], { dur: fast ? 0.14 : 0.22 });
   }
   function thinner1(D) { eraseSide(D, 26); sideView(D, 12, { label: '0.5 in', ports: true }); }
-  function thinner2(D) { eraseSide(D, 12, true); sideView(D, 4, { label: '0.2 in', fast: true }); }
+  function thinner2(D) { eraseSide(D, 12, true); sideView(D, 1, { label: '0.01 in', fast: true }); }
 
   // 2. "Remove all the ports. Remove the buttons. Remove everything unnecessary."
   function strip(D) {
@@ -69,14 +72,14 @@
     D.erase([[SX + 2, 199], [SX + 6, 199]], { dur: 0.06 });
     // buttons (front and side)
     D.erase([[76, 132], [96, 132], [76, 146], [96, 146], [76, 158], [138, 158], [114, 146], [136, 146], [114, 132], [136, 132], [78, 171], [134, 171]], { dur: 0.75 });
-    D.erase([[SX - 3, 50], [SX - 3, 90]], { dur: 0.14 });
+    D.erase([[SX - 7, 50], [SX - 7, 90]], { dur: 0.14 });
     // antenna + grille
     D.erase([[141, 2], [141, 18]], { dur: 0.12 }).erase([[96, 33], [114, 33]], { dur: 0.1 });
     // everything else: select the front view and delete it
     D.marquee(46, 0, 166, 199, { dur: 0.3 }).del({ pause: 0.18 });
     // the slab
     D.shape('rrect', SLAB.x0, SLAB.y0, SLAB.x1, SLAB.y1, { r: 13, dur: 0.5 });
-    D.shape('rrect', SLAB.x0 + 2, SLAB.y0 + 2, SLAB.x1 - 2, SLAB.y1 - 2, { r: 11, dur: 0.3 });
+    D.shape('rrect', SLAB.x0 + 3, SLAB.y0 + 3, SLAB.x1 - 3, SLAB.y1 - 3, { r: 10, dur: 0.3 });
     D.shape('rect', SCR.x0, SCR.y0, SCR.x1, SCR.y1, { fill: 'black', dur: 0.32 });
     D.shape('rrect', 94, 30, 114, 33, { fill: 'black', r: 2, dur: 0.08 });
     // glass glint on the black screen
@@ -111,7 +114,7 @@
     D.pencil([[284, 170], [328, 170]], { dur: 0.07 });
   }
   function arc(cx, cy, r, a0, a1) { const p = []; for (let i = 0; i <= 12; i++) { const a = a0 + (a1 - a0) * (i / 12); p.push([Math.round(cx + r * Math.cos(a)), Math.round(cy + r * Math.sin(a))]); } return p; }
-  function name(D) { D.text(250, 8, 'iPhone', 'chicago', { dur: 0.42 }); D.pencil([[249, 21], [290, 21]], { dur: 0.1 }); }
+  function name(D) { D.text(292, 9, 'iPhone', 'chicago', { dur: 0.42 }); D.pencil([[291, 22], [332, 22]], { dur: 0.1 }); }
 
   // 4. "a better computer": beige 90s tower PC with CRT, keyboard and mouse
   function pc(D) {
