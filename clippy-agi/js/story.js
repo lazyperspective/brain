@@ -2,7 +2,7 @@
 (function (G) {
   const { E, seg, sat, lerp, hash, rng, clamp, C, R, H, V, frame, T, TW } = K;
   const A = APPS;
-  const DUR = 77.5;
+  const DUR = 78.5;
   const CUES = [];
   const cue = (t, s, o = {}) => CUES.push(Object.assign({ t: +t.toFixed(4), s }, o));
 
@@ -90,7 +90,7 @@
   const T_PAY = 32.1, T_THREAD = 32.9, T_RAISE = 38.2;
   const T_SEC = 40.9, T_ALLOW = 44.75, T_EXC = 45.0;
   const HW = 48.2, BEAT = 0.45;
-  const T_ANN = 54.6, T_MAIL = 57.9, T_SEND = 62.5, T_NOTE = 63.4, T_FLOOD = 66.2, T_LAG = 66.6, T_RED = 67.6, T_FREEZE = 69.0, T_VANISH = 69.6, T_BACK = 70.2, T_BALLOON3 = 70.85, T_BLACK = 74.6;
+  const T_ANN = 54.6, T_MAIL = 57.9, T_SEND = 62.5, T_NOTE = 63.4, T_FLOOD = 67.1, T_LAG = 67.5, T_RED = 68.5, T_FREEZE = 69.9, T_VANISH = 70.5, T_BACK = 71.1, T_BALLOON3 = 71.75, T_BLACK = 75.6;
 
   // ---------------- typing scripts ----------------
   const TY_USER = typer('Dear Bso~~oss,{0.55}\n\n{1.15}I{0.6} quit.', T_TYPE, { human: true, seed: 7 });
@@ -120,9 +120,9 @@
   click(T_ALLOW - 0.1);
   mv(45.3, 0.5, 404, 404, { over: 0.02, arc: 0.05 });
   // lag: the user tries to move the mouse, the system can barely draw it
-  mv(66.9, 1.6, 300, 250, { over: 0, arc: 0.1, jerky: 5 });
-  mv(68.6, 0.5, 330, 270, { over: 0, arc: 0, jerky: 2 });
-  mv(70.0, 0.9, 432, 360, { over: 0.03, arc: 0.06 });
+  mv(67.8, 1.6, 300, 250, { over: 0, arc: 0.1, jerky: 5 });
+  mv(69.5, 0.5, 330, 270, { over: 0, arc: 0, jerky: 2 });
+  mv(70.9, 0.9, 432, 360, { over: 0.03, arc: 0.06 });
 
   // ---------------- camera script ----------------
   cam(0.5, 1.0, 230, 160, 1.55);
@@ -135,7 +135,7 @@
   cam(T_TOTAL + 0.1, 0.8, 268, 410, 2.2);
   cam(T_SORT - 0.5, 0.8, 340, 318, 1.5);
   cam(T_WIZ - 0.2, 0.7, 410, 290, 1.35);
-  cam(T_CHART, 0.9, 526, 344, 1.72);
+  cam(T_CHART, 0.9, 384, 344, 1.72);
   cam(T_PAY - 0.15, 0.8, 300, 250, 2.0);
   cam(T_THREAD - 0.2, 0.9, 392, 282, 1.8);
   cam(T_RAISE - 0.45, 0.85, 384, 268, 2.55);
@@ -212,8 +212,8 @@
     }
     if (t >= T_WIZ - 0.15 && t < T_WIZ + 0.0) st.tbDown = 'chart';
     if (t >= T_CHART) {
-      const data = rows.map((r) => ({ v: r[2], l: { 'CEO yacht maintenance': 'Yacht', 'CEO yacht #2 (backup yacht)': 'Yacht #2', '"Synergy" consultants': 'Synergy', 'Employee salaries': 'Salaries', 'Motivational posters': 'Posters', 'Board lunch (one lunch)': 'Lunch', 'Fax machine (to fax faxes)': 'Fax', 'Office supplies': 'Supplies', 'Paperclips': 'Paper-\nclips' }[r[0]] }));
-      st.chart = { x: 300, y: 196, w: 452, h: 292, title: 'Q3 SPENDING: WHERE THE MONEY WENT', data, max: 2500000, steps: 5, fmt: (v) => '$' + (v / 1e6).toFixed(1) + 'M', grow: sat((t - T_CHART) / 0.8), selected: t < T_CHART + 1.4 };
+      const data = rows.map((r) => ({ v: r[2], l: { 'CEO yacht maintenance': 'Yacht', 'CEO yacht #2 (backup yacht)': 'Yacht #2', '"Synergy" consultants': 'Synergy', 'Employee salaries': 'Salaries', 'Motivational posters': 'Posters', 'Board lunch (one lunch)': 'Lunch', 'Fax machine (to fax faxes)': 'Fax', 'Office supplies': 'Supplies', 'Paperclips': 'Paperclips' }[r[0]] }));
+      st.chart = { x: 150, y: 196, w: 462, h: 292, title: 'Q3 SPENDING: WHERE THE MONEY WENT', data, max: 2500000, steps: 5, fmt: (v) => '$' + (v / 1e6).toFixed(1) + 'M', grow: sat((t - T_CHART) / 0.8), selected: t < T_CHART + 1.4 };
       st.sel = [0, 18]; st.nameBox = 'Chart 1'; st.formula = '';
     }
     return st;
@@ -331,10 +331,10 @@
   function shuffleSlot(id, t) { // which tile slot window id occupies at time t (permutations each beat)
     let slot = ORDER.indexOf(id);
     if (t < T_SHUFFLE) return { slot, prev: slot, u: 1 };
-    const beatLen = (k) => Math.max(0.16, BEAT * Math.pow(0.86, k));
+    const beatLen = (k) => Math.max(0.3, BEAT * Math.pow(0.9, k));
     let tt = T_SHUFFLE, k = 0, prev = slot;
     while (true) {
-      const bl = beatLen(k); if (tt + bl > t) { const u = sat((t - tt) / 0.14); return { slot, prev, u }; }
+      const bl = beatLen(k); if (tt + bl > t || tt + bl > T_ANN - 0.1) { const u = sat((t - tt) / 0.14); return { slot, prev, u }; }
       tt += bl; prev = slot;
       // rotate a pair
       const a = Math.floor(hash(k * 13 + 5) * 8), b = (a + 1 + Math.floor(hash(k * 17 + 3) * 7)) % 8;
@@ -409,7 +409,7 @@
     { t: T_NOTE, title: 'Human Resources', text: 'CEO terminated.', icon: 'info32' },
     { t: T_NOTE + 0.75, title: 'Board of Directors', text: 'Company acquired.', icon: 'info32' },
     { t: T_NOTE + 1.5, title: 'International Monetary Systems', text: 'World economy optimized.', icon: 'info32' },
-    { t: T_NOTE + 2.25, title: 'Office Assistant', text: 'Microsoft acquired.', icon: 'info32' },
+    { t: T_NOTE + 2.4, title: 'Office Assistant', text: 'Microsoft acquired.', icon: 'info32' },
   ];
   const FLOOD_TXT = ['Yacht sold.', 'Board dissolved.', 'Synergy achieved.', 'Stock price: +4,012%', 'Fax machine retired.', 'Q4 strategy: not vibes.', 'Lunch optimized.', 'Paperclips restocked.', 'Gary reassigned.', 'Inefficiency #9,114 fixed.', 'Weather optimized.', 'Traffic optimized.', 'Inbox zero achieved.', 'Moon acquired (pending).', 'Accounting merged with Accounting.', 'Golf course converted to office.', 'All meetings cancelled.', 'Printer fixed. Somehow.'];
   const FLOOD = [];
@@ -448,7 +448,7 @@
     for (let k = 0; k < 8; k++) cue(T_TILE + 0.45 + k * BEAT, k % 4 === 3 ? 'chord' : 'ding', { v: 0.4 + k * 0.04, pitch: [1, 1, 1.25, 1][k % 4] });
     COPIES.forEach((c, i) => cue(c.t, 'whoosh', { v: 0.35 }));
     // shuffle beats
-    { let tt = T_SHUFFLE, k = 0; while (tt < T_ANN - 0.05) { cue(tt, 'snap', { v: 0.55 }); const bl = Math.max(0.16, BEAT * Math.pow(0.86, k)); tt += bl; k++; } }
+    { let tt = T_SHUFFLE, k = 0; while (tt < T_ANN - 0.05) { cue(tt, 'snap', { v: 0.55 }); const bl = Math.max(0.3, BEAT * Math.pow(0.9, k)); tt += bl; k++; } }
     cue(T_ANN + 0.2, 'balloon');
     cue(T_MAIL, 'whoosh', { v: 0.5 });
     cue(T_SEND, 'uiclick'); cue(T_SEND + 0.12, 'send');
@@ -535,7 +535,7 @@
         if (t < c.t) return;
         let x = c.x, y = c.y;
         if (t >= T_SHUFFLE) { const s = shuffleSlot('copy0', t); x = Math.round(lerp(c.x, 40 + ((i * 157 + Math.floor((t - T_SHUFFLE) / 0.3) * 97) % 480), 0.0)); }
-        wins.push({ id: 'copy' + i, z: 40 + i, fn: (act) => A.copyDlg(ctx, { x, y, w: 290, h: 150, active: act }, copyState(i, t, c.t)) });
+        wins.push({ id: 'copy' + i, z: 40 + i, fn: (act) => A.copyDlg(ctx, { x, y, w: 290, h: 172, active: act }, copyState(i, t, c.t)) });
       });
     }
     // ---------- compose mail ----------
@@ -589,7 +589,10 @@
     const cpos = cursorAt(tReal >= T_FREEZE && tReal < T_VANISH ? T_FREEZE : tReal);
     let kind = 'arrow';
     if (t >= T_ICON_CLICK + 0.2 && t < T_WORD + 0.45) kind = t < T_WORD - 0.6 ? 'busy' : 'hour';
-    if (t >= T_WORD + 0.45 && t < T_CLIPPY && cpos.y > 130 && cpos.y < 494 && cpos.x > 40 && cpos.x < 740) kind = 'ibeam';
+    const inBal1 = t >= T_BALLOON1 && t < T_YES + 0.08 && cpos.x > 436 && cpos.x < 640 && cpos.y > 264 && cpos.y < 372;
+    if (t >= T_WORD + 0.45 && t < 20.7 && cpos.y > 130 && cpos.y < 494 && cpos.x > 40 && cpos.x < 740 && !inBal1) kind = 'ibeam';
+    const inThread = t >= T_THREAD && t < T_THREAD + 4.75 && cpos.x > 192 && cpos.x < 592 && cpos.y > 104 && cpos.y < 464;
+    if (t >= T_XL + 0.5 && t < T_SEC && cpos.x > 100 && cpos.x < 750 && cpos.y > 180 && cpos.y < 493 && !inThread && !(t >= T_WIZ && t < T_WIZ + 1.55)) kind = 'xlcross';
     if (t >= 20.7 && t < T_XL + 0.5) kind = 'busy';
     if (t >= HW && t < T_VANISH) kind = t >= T_LAG ? 'hour' : 'busy';
     W98.cursor(ctx, kind, cpos.x, cpos.y);

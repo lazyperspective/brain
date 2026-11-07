@@ -110,7 +110,7 @@
     panels.forEach((p, i) => {
       const pw = p.w || (x + w - 2 - px - 14);
       shallow(ctx, px, y + 2, pw, 18, null);
-      if (p.text) T(ctx, p.text, px + 3, y + 5, p.dim ? C.shadow : C.black, 'ui');
+      if (p.text) { ctx.save(); ctx.beginPath(); ctx.rect(px + 1, y + 2, pw - 2, 18); ctx.clip(); T(ctx, p.text, px + 3, y + 5, p.dim ? C.shadow : C.black, 'ui'); ctx.restore(); }
       px += pw + 2;
     });
     // size grip
@@ -228,6 +228,7 @@
     arrow: { hx: 0, hy: 0, rows: ['X', 'XX', 'X.X', 'X..X', 'X...X', 'X....X', 'X.....X', 'X......X', 'X.......X', 'X........X', 'X.....XXXXX', 'X..X..X', 'X.X X..X', 'XX  X..X', 'X    X..X', '     X..X', '      X..X', '      X..X', '       XX'] },
     hour: { hx: 6, hy: 10, rows: ['XXXXXXXXXXXXX', 'X...........X', 'XXXXXXXXXXXXX', ' X.........X', ' X.........X', ' X.X.X.X.X.X', '  X.X.X.X.X', '   X.X.X.X', '    X.X.X', '     X.X', '     X.X', '    X...X', '   X..X..X', '  X...X...X', ' X..X.X.X..X', ' X.X.X.X.X.X', ' X.........X', 'XXXXXXXXXXXXX', 'X...........X', 'XXXXXXXXXXXXX'] },
     ibeam: { hx: 3, hy: 8, rows: ['XXX XXX', '   X', '   X', '   X', '   X', '   X', '   X', '   X', '   X', '   X', '   X', '   X', '   X', '   X', '   X', 'XXX XXX'] },
+    xlcross: { hx: 7, hy: 7, rows: ['    XXXXXX', '    X....X', '    X....X', '    X....X', 'XXXXX....XXXXX', 'X............X', 'X............X', 'X............X', 'X............X', 'XXXXX....XXXXX', '    X....X', '    X....X', '    X....X', '    XXXXXX'] },
     hand: { hx: 5, hy: 0, rows: ['     XX', '    X..X', '    X..X', '    X..X', '    X..XXX', '    X..X..XXX', ' XX X..X..X..XX', 'X..XX........X.X', 'X...X..........X', ' X.............X', '  X............X', '  X...........X', '   X..........X', '   X.........X', '    X........X', '    X........X', '    XXXXXXXXXX'] },
   };
   function drawCur(ctx, c, x, y) {

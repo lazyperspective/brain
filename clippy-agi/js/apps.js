@@ -204,8 +204,10 @@
         if (k >= 1) T(ctx, d.over || '', bx + bww + 3, py + 2, C.red, 'sans13b');
       }
       // label (two short lines)
-      const ls = d.l.split('\n');
-      ls.forEach((l, j) => T(ctx, l, px + i * bw + Math.floor((bw - TW(l, 'sans11')) / 2), py + ph + 4 + j * 12, C.black, 'sans11'));
+      // crowded category labels are staggered on two rows, as the era's charting engine did
+      const l = d.l.replace('\n', ''), lw = TW(l, 'sans11');
+      const crowded = ch.data.some((dd) => TW(dd.l.replace('\n', ''), 'sans11') > bw - 2), stag = crowded ? (i % 2) * 13 : 0;
+      T(ctx, l, px + i * bw + Math.floor((bw - lw) / 2), py + ph + 4 + stag, C.black, 'sans11');
     });
     if (ch.selected) { const hs = (hx, hy) => R(ctx, hx - 2, hy - 2, 5, 5, C.black); hs(x, y); hs(x + w / 2, y); hs(x + w - 1, y); hs(x, y + h / 2); hs(x + w - 1, y + h / 2); hs(x, y + h - 1); hs(x + w / 2, y + h - 1); hs(x + w - 1, y + h - 1); }
   }
@@ -434,6 +436,7 @@
   // ================= FILE COPY =================
   function copyDlg(ctx, win, st) {
     const cl = W.window(ctx, { x: win.x, y: win.y, w: win.w, h: win.h, title: st.title || 'Copying...', active: win.active, dialog: true });
+    const btnY = cl.y + cl.h - 30;
     // two folders with a page flying between them
     const fx = cl.x + 18, fy = cl.y + 10;
     ICONS.docs32 ? null : null;
@@ -445,7 +448,7 @@
     T(ctx, st.from || "From 'COMPANY' to 'FIXED'", cl.x + 16, cl.y + 64);
     W.progress(ctx, cl.x + 16, cl.y + 82, cl.w - 32, 16, st.p || 0);
     T(ctx, st.left || '', cl.x + 16, cl.y + 102);
-    W.button(ctx, cl.x + cl.w - 91, cl.y + cl.h - 32, 75, 23, 'Cancel');
+    W.button(ctx, cl.x + cl.w - 91, btnY, 75, 23, 'Cancel');
     return cl;
   }
   function folderBig(ctx, x, y) {

@@ -127,7 +127,7 @@ def hdd(t0, dur, dens, gain=1.0, seed=0):
     r = np.random.default_rng(int(t0 * 1000) + seed)
     t = t0
     while t < t0 + dur:
-        add(mixL, t, hdd_seek(int(t * 10000) % 100000, 0.5 + r.random() * 0.5), gain * 0.16, pan=0.35)
+        add(mixL, t, hdd_seek(int(t * 10000) % 100000, 0.5 + r.random() * 0.5), gain * 0.24, pan=0.35)
         t += (0.012 + r.random() * 0.09) / max(0.2, dens)
 
 # ---------------------------------------------------------------- system sounds (own compositions; out of the PC speakers)
@@ -331,7 +331,7 @@ for c in CUES:
     elif s == 'chord':
         add(sysL, t, chord(c.get('pitch', 1.0)), 0.6 * v, sysbus=True)
     elif s == 'mail':
-        add(sysL, t, mail_chime(), 0.6 * v, sysbus=True)
+        add(sysL, t, mail_chime(), 0.42 * v, sysbus=True)
     elif s == 'tada':
         add(sysL, t, tada(), 0.5 * v, sysbus=True)
     elif s == 'pop':
@@ -343,11 +343,11 @@ for c in CUES:
     elif s == 'arrive':
         add(sysL, t, arrive(), 0.55 * v, sysbus=True)
     elif s == 'ctick':
-        add(sysL, t, tick(int(t * 1e4), 5200), 0.11 * v, sysbus=True, pan=-0.2)
+        add(sysL, t, tick(int(t * 1e4), 5200), 0.24 * v, sysbus=True, pan=-0.2)
     elif s == 'xtick':
-        add(sysL, t, tick(c.get('seed', 0) + 500, 2600, 0.02), 0.18 * v, sysbus=True)
+        add(sysL, t, tick(c.get('seed', 0) + 500, 2600, 0.02), 0.36 * v, sysbus=True)
     elif s == 'uiclick':
-        add(sysL, t, tick(int(t * 1e3), 3200, 0.02), 0.3 * v, sysbus=True)
+        add(sysL, t, tick(int(t * 1e3), 3200, 0.02), 0.42 * v, sysbus=True)
     elif s == 'shuffle':
         for k in range(10):
             add(sysL, t + k * 0.022, tick(900 + k, 2000 + k * 250, 0.015), 0.16, sysbus=True)
