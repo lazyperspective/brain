@@ -1,0 +1,61 @@
+@font-face { font-family: 'Inter'; src: url(../fonts/Inter-Regular.otf); font-weight: 400; }
+@font-face { font-family: 'Inter'; src: url(../fonts/Inter-Medium.otf); font-weight: 500; }
+@font-face { font-family: 'Inter'; src: url(../fonts/Inter-SemiBold.otf); font-weight: 600; }
+@font-face { font-family: 'Inter'; src: url(../fonts/Inter-Bold.otf); font-weight: 700; }
+@font-face { font-family: 'Inter Display'; src: url(../fonts/InterDisplay-Light.otf); font-weight: 300; }
+@font-face { font-family: 'Inter Display'; src: url(../fonts/InterDisplay-Regular.otf); font-weight: 400; }
+@font-face { font-family: 'Inter Display'; src: url(../fonts/InterDisplay-Medium.otf); font-weight: 500; }
+@font-face { font-family: 'Inter Display'; src: url(../fonts/InterDisplay-SemiBold.otf); font-weight: 600; }
+@font-face { font-family: 'Inter Display'; src: url(../fonts/InterDisplay-Bold.otf); font-weight: 700; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; width: 100%; height: 100%; overflow: hidden; }
+body { display: flex; align-items: center; justify-content: center; }
+body.export { display: block; }
+#screen {
+  position: relative; width: 360px; height: 640px; overflow: hidden; background: #000; color: #fff;
+  font-family: 'Inter', sans-serif; font-size: 17px; letter-spacing: -0.012em;
+  -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; font-feature-settings: 'cv05' 1, 'ss03' 0;
+  transform-origin: 0 0;
+}
+body:not(.export) #screen { transform: scale(var(--fit, 1)); transform-origin: center; }
+#hud { position: fixed; left: 8px; bottom: 8px; color: #888; font: 12px monospace; }
+.L { position: absolute; left: 0; top: 0; width: 360px; height: 640px; }
+.abs { position: absolute; }
+.disp { font-family: 'Inter Display', 'Inter', sans-serif; }
+.tnum { font-variant-numeric: tabular-nums; }
+.appicon { position: relative; overflow: hidden; flex: none; }
+.appicon svg { display: block; width: 100%; height: 100%; }
+svg { display: block; }
+.row { display: flex; align-items: center; }
+.col { display: flex; flex-direction: column; }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* materials (dark mode) */
+.mat-notif { background: rgba(38, 38, 40, 0.62); backdrop-filter: blur(22px) saturate(1.9); }
+.mat-banner { background: rgba(36, 36, 38, 0.78); backdrop-filter: blur(26px) saturate(1.8); }
+.mat-dock { background: rgba(70, 70, 76, 0.38); backdrop-filter: blur(28px) saturate(1.7); }
+.mat-bar { background: rgba(22, 22, 24, 0.80); backdrop-filter: blur(24px) saturate(1.8); }
+.mat-kbd { background: rgba(43, 43, 45, 0.94); backdrop-filter: blur(30px) saturate(1.6); }
+.mat-round { background: rgba(48, 48, 52, 0.55); backdrop-filter: blur(18px) saturate(1.6); }
+
+/* notifications */
+.notif { position: relative; border-radius: 21px; padding: 11px 13px 11px 11px; display: flex; gap: 10px; align-items: flex-start; }
+.notif .ttl { font-weight: 600; font-size: 14.5px; line-height: 18px; letter-spacing: -0.01em; color: #fff; }
+.notif .bd { font-size: 14.5px; line-height: 18.5px; color: rgba(255,255,255,0.92); letter-spacing: -0.008em; }
+.notif .tm { font-size: 12.5px; color: rgba(235,235,245,0.55); white-space: nowrap; margin-left: 6px; line-height: 18px; }
+
+/* keyboard */
+.kbd { position: absolute; left: 0; width: 360px; }
+.key { position: absolute; border-radius: 5.5px; background: #6b6b6e; color: #fff; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.42); font-size: 22px; font-weight: 400; letter-spacing: 0; }
+.key.sp { background: #47474a; font-size: 15.5px; }
+.key.dn { background: #9a9a9e; }
+.key.sp.dn { background: #6b6b6e; }
+.pop { position: absolute; background: #6b6b6e; border-radius: 9px; color: #fff; display: flex; align-items: flex-start; justify-content: center;
+  font-size: 36px; font-weight: 400; padding-top: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); z-index: 3; }
+
+/* chat */
+.bub { max-width: 262px; padding: 7px 12px 8px; border-radius: 18px; font-size: 16.5px; line-height: 21px; letter-spacing: -0.012em; }
+.bub.me { background: #0a84ff; color: #fff; align-self: flex-end; }
+.bub.them { background: #262628; color: #fff; align-self: flex-start; }

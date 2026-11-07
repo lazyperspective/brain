@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# contact.sh <video> <out.png> [fps] [cols]   dense contact sheet with timestamps
+set -e
+ffmpeg -loglevel error -y -i "$1" -vf "fps=${3:-1},scale=180:320:flags=area,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='%{pts\:hms}':x=4:y=4:fontsize=13:fontcolor=yellow:box=1:boxcolor=black@0.6,tile=${4:-13}x8:padding=4:margin=4" -frames:v 1 "$2"
