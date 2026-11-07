@@ -83,7 +83,8 @@
     const cls = o.banner ? 'mat-banner' : 'mat-notif';
     const press = o.press || 0;
     const ico = n.custom || appIcon(n.icon || n.app, 36, 'border-radius:8.5px');
-    return `<div class="notif ${cls}" style="width:${o.w || 344}px;${press ? `transform:scale(${f3(1 - 0.035 * press)});filter:brightness(${f3(1 + 0.25 * press)});` : ''}${o.style || ''}">
+    const al = o.alpha == null ? 1 : o.alpha;
+    return `<div class="notif ${cls}" style="width:${o.w || 344}px;${al < 1 ? `opacity:${f3(al)};` : ''}${press ? `transform:scale(${f3(1 - 0.035 * press)});filter:brightness(${f3(1 + 0.25 * press)});` : ''}${o.style || ''}">
       <div style="padding-top:1px">${ico}</div>
       <div style="flex:1;min-width:0">
         <div class="row" style="justify-content:space-between"><div class="ttl ell">${esc(n.title)}</div><div class="tm">${esc(n.time || 'now')}</div></div>
@@ -103,7 +104,7 @@
     let list = '';
     for (const it of o.notifs || []) {
       const k = it.k;
-      list += `<div data-grow="${f3(sat(k))}" style="overflow:visible"><div style="padding-bottom:8px;transform:translateY(${f3((1 - k) * 26)}px) scale(${f3(0.94 + 0.06 * sat(k))});opacity:${f3(sat(k * 1.6))};transform-origin:50% 100%">${U.notif(it.n, { press: it.press })}</div></div>`;
+      list += `<div data-grow="${f3(sat(k))}" style="overflow:visible"><div style="padding-bottom:8px;transform:translateY(${f3((1 - k) * 26)}px) scale(${f3(0.94 + 0.06 * sat(k))});transform-origin:50% 100%">${U.notif(it.n, { press: it.press, alpha: sat(k * 1.6) })}</div></div>`;
     }
     const bA = (o.buttonsAlpha == null ? 1 : o.buttonsAlpha) * (1 - aod);
     const btn = (x, g) => `<div class="abs mat-round" style="left:${x - 25}px;top:${574 - 25}px;width:50px;height:50px;border-radius:25px;display:flex;align-items:center;justify-content:center;opacity:${f3(bA)}"><div style="width:22px;height:22px">${g}</div></div>`;
@@ -370,7 +371,7 @@
     ? `<svg class="abs" style="right:-6px;bottom:0" width="17" height="21" viewBox="0 0 17 21"><path d="M0 0v14c0 4 3 7 6 7h11c-4-1-7-4-7.5-8.5L9.5 0z" fill="${col}"/></svg>`
     : `<svg class="abs" style="left:-6px;bottom:0" width="17" height="21" viewBox="0 0 17 21"><path d="M17 0v14c0 4-3 7-6 7H0c4-1 7-4 7.5-8.5L7.5 0z" fill="${col}"/></svg>`;
   // a message that grows in: k = spring progress
-  U.grow = (k, inner, o = {}) => `<div data-grow="${f3(clamp(k, 0, 1.2))}" style="overflow:visible;flex:none"><div style="transform:translateY(${f3((1 - k) * (o.dy || 14))}px) scale(${f3(lerp(o.s0 || 0.86, 1, clamp(k, 0, 1.1)))});opacity:${f3(sat(k * 2.2))};transform-origin:${o.origin || '50% 100%'}">${inner}</div></div>`;
+  U.grow = (k, inner, o = {}) => `<div data-grow="${f3(clamp(k, 0, 1.2))}" style="overflow:visible;flex:none;display:flex;flex-direction:column"><div style="display:flex;flex-direction:column;transform:translateY(${f3((1 - k) * (o.dy || 14))}px) scale(${f3(lerp(o.s0 || 0.86, 1, clamp(k, 0, 1.1)))});opacity:${f3(sat(k * 2.2))};transform-origin:${o.origin || '50% 100%'}">${inner}</div></div>`;
 
   // generic large-title nav bar (dark)
   U.navTitle = (title, o = {}) => `<div class="abs" style="left:16px;top:${o.top || 92}px;font-family:'Inter Display';font-weight:700;font-size:32px;letter-spacing:-0.02em;color:#fff">${title}</div>`;

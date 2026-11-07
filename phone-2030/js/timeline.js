@@ -73,7 +73,7 @@
   T.REPLY2A = T.SEND4 + 1.25;
   T.REPLY2B = T.REPLY2A + 1.45;
   // ---------------- 8. Agent Network ----------------
-  T.HOME2 = T.REPLY2B + 2.7;              // user swipes home
+  T.HOME2 = T.REPLY2B + 2.6;              // user swipes home
   T.NET_TAP = T.HOME2 + 1.45;             // after noticing the unfamiliar icon
   T.NET_OPEN = T.NET_TAP + 0.12;
   T.NET_ZOOM = T.NET_OPEN + 3.9;          // graph pulls back to reveal the swarm
@@ -92,11 +92,11 @@
   T.REPLY3 = T.DOTS3[3];
   T.CARD3 = T.REPLY3 + 0.65;
   // ---------------- 12. Do Not Disturb, 30 days ----------------
-  T.DND = T.REPLY3 + 2.75;
+  T.DND = T.REPLY3 + 2.6;
   T.DND_BANNER = T.DND + 1.5;
   // ---------------- 13. it locks itself ----------------
   T.LOCK = T.DND_BANNER + 2.7;
-  T.END = T.LOCK + 1.3;
+  T.END = T.LOCK + 1.1;
   T.DURATION = Math.round(T.END * 60) / 60;
 
   // ---------------- sound cues (the rest come from typers & story) ----------------

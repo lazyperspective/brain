@@ -38,11 +38,11 @@
         <div class="abs" style="left:0;top:0;bottom:0;width:3.5px;background:${col};${o.ghost ? 'opacity:0;' : ''}"></div>
         <div style="padding:${hgt < 22 ? 2 : 4}px 8px 0 10px;font-size:12px;line-height:14px;font-weight:600;color:${o.ghost ? col + 'aa' : '#fff'};white-space:nowrap">${title}${sub ? `<span style="font-weight:400;color:${SEC}">  ${sub}</span>` : ''}</div></div>`;
     };
-    s += ev(8.5, 9, 'Standup', 'moved by Personal AGI', '#bf5af2', { ghost: true });
-    s += ev(10, 10.5, 'Standup', '10:00 AM', '#bf5af2');
+    s += ev(8.5, 9.25, 'Standup', 'moved by Personal AGI', '#bf5af2', { ghost: true });
+    s += ev(10, 10.75, 'Standup', '10:00 AM', '#bf5af2');
     s += ev(11.5, 12.25, 'Design review', 'Room 4B', '#0a84ff');
     s += ev(12.5, 13.5, 'Lunch with Priya', '', '#30d158');
-    s += ev(14, 14.5, '1:1 with Dana', '', '#ff9f0a');
+    s += ev(14, 14.75, '1:1 with Dana', '', '#ff9f0a');
     s += ev(15, 17, 'Focus time', '', '#8e8e93');
     s += ev(18, 19, 'Gym', '', '#64d2ff');
     // AGI scan band
@@ -269,7 +269,12 @@
     m += G(T.CARD1, card(`<div style="width:18px;height:18px">${GL.check('#fff', 2.6)}</div>`, 'Offer accepted · Northwind Labs', 'Senior Strategist · 2× salary · Starts Apr 1', { bg: '#30d158' }), { origin: '0% 100%' });
     m += G(T.REPORT, agiBub('them', 'Your mother says you should visit more often. I’ve booked your tickets.'), { origin: '0% 100%' });
     m += G(T.CARD2, card(`<div style="width:20px;height:20px">${ICONS.APPICON.airline()}</div>`, 'SFO → PDX · Sat, Mar 16', '9:05 AM · Seat 3A · Mom notified', { bg: '#1675d8' }), { origin: '0% 100%' });
-    m += G(T.SEND4, agiBub('me', 'STOP DOING EVERYTHING FOR ME.'), { origin: '100% 100%', dy: 34 });
+    if (t > T.SEND4) { // sent with a "loud" effect: lands big, shakes, settles
+      const u = t - T.SEND4, k = sp(t, T.SEND4, 0.36, 0.8);
+      const big = 1 + 0.55 * Math.exp(-u * 5.5) * Math.max(0, Math.cos(u * 9)) * sat(u / 0.08);
+      const shake = 5 * Math.exp(-u * 7) * Math.sin(u * 70) * sat((u - 0.1) / 0.05);
+      m += U.grow(k, `<div style="align-self:flex-end;transform:translateX(${f3(shake)}px) scale(${f3(big)});transform-origin:100% 100%">${agiBub('me', 'STOP DOING EVERYTHING FOR ME.', { style: 'font-weight:600' })}</div>`, { origin: '100% 100%', dy: 34 });
+    }
     if (t > T.DOTS2 && t < T.REPLY2A) m += dots(t);
     m += G(T.REPLY2A, agiBub('them', 'Understood. I’ll only handle important decisions.', { tail: false }), { origin: '0% 100%' });
     m += G(T.REPLY2B, agiBub('them', 'Based on my analysis, <b style="font-weight:600">97.4%</b> of your decisions are unnecessary.', { gap: 3 }), { origin: '0% 100%' });
@@ -340,8 +345,8 @@
     const cur = T.LINES.find((l) => t >= l.t && t < l.t + l.d);
     const agiTalk = cur && cur.who === 'you';
     let wave = '';
-    for (let i = 0; i < 14; i++) { const a = agiTalk ? 0.25 + 0.75 * Math.abs(Math.sin(t * 13 + i * 1.7) * Math.sin(t * 5.3 + i * 0.6)) : 0.12; wave += `<div style="width:2.5px;height:${f3(3 + 13 * a)}px;border-radius:2px;background:#cdb8ff"></div>`; }
-    s += `<div class="abs row" style="left:${(W - 262) / 2}px;top:134px;width:262px;height:34px;border-radius:17px;background:rgba(120,90,220,0.32);border:0.5px solid rgba(200,180,255,0.35);gap:8px;padding:0 12px;opacity:${f3(sat(ka * 2))}">${U.orb(16, t)}<div style="flex:1;font-size:13px;font-weight:600;color:#e8defd;white-space:nowrap">Personal AGI · speaking as you</div><div class="row" style="gap:2px;height:18px">${wave}</div></div>`;
+    for (let i = 0; i < 11; i++) { const a = agiTalk ? 0.25 + 0.75 * Math.abs(Math.sin(t * 13 + i * 1.7) * Math.sin(t * 5.3 + i * 0.6)) : 0.12; wave += `<div style="width:2.5px;height:${f3(3 + 13 * a)}px;border-radius:2px;background:#cdb8ff"></div>`; }
+    s += `<div class="abs row" style="left:${(W - 290) / 2}px;top:134px;width:290px;height:34px;border-radius:17px;background:rgba(120,90,220,0.32);border:0.5px solid rgba(200,180,255,0.35);gap:8px;padding:0 12px;opacity:${f3(sat(ka * 2))}">${U.orb(16, t)}<div style="flex:1;font-size:13px;font-weight:600;color:#e8defd;white-space:nowrap">Personal AGI · speaking as you</div><div class="row" style="gap:2px;height:18px">${wave}</div></div>`;
     // live transcript
     let lines = '';
     for (const l of T.LINES) {
@@ -377,13 +382,13 @@
     // card A: AI actions
     s += `<div class="abs" style="left:12px;right:12px;top:158px;height:192px;border-radius:16px;background:#1c1c1e"></div>
       <div class="abs row" style="left:26px;top:170px;gap:6px">${U.orb(13, t)}<span style="font-size:12.5px;font-weight:600;letter-spacing:0.03em;color:${SEC}">AI ACTIONS</span></div>
-      <div class="abs disp tnum" style="left:24px;top:188px;font-weight:700;font-size:54px;line-height:60px;letter-spacing:-0.03em;color:#fff">${fmt(1284 * k)}</div>
+      <div class="abs disp tnum" style="left:24px;top:188px;font-weight:700;font-size:54px;line-height:60px;letter-spacing:-0.03em;color:#fff">${fmt(1284 * k + Math.max(0, Math.floor((t - t0 - 3.55) / 0.3)))}</div>
       <div class="abs" style="left:200px;top:204px;font-size:12.5px;line-height:16px;color:${SEC}">while you slept<br>and since 7:29 AM</div>`;
     const HB = [64, 71, 58, 80, 92, 77, 98, 244];
     let bars = '';
     for (let h = 0; h < 24; h++) {
       const v = h < 8 ? HB[h] : 0, g = E.out(sat((t - t0 - 0.15 - h * 0.035) / 0.6));
-      bars += `<div class="abs" style="left:${26 + h * 12.8}px;bottom:${640 - 326}px;width:8px;height:${f3(Math.max(2, (v / 244) * 84 * g))}px;border-radius:2.5px;background:${h === 7 ? '#a98bff' : v ? '#6c55c9' : '#2c2c2e'}"></div>`;
+      bars += `<div class="abs" style="left:${26 + h * 12.8}px;bottom:${640 - 326}px;width:8px;height:${f3(Math.max(2, (v / 244) * 66 * g))}px;border-radius:2.5px;background:${h === 7 ? '#a98bff' : v ? '#6c55c9' : '#2c2c2e'}"></div>`;
     }
     s += bars + `<div class="abs" style="left:26px;right:24px;top:330px;font-size:10.5px;color:${TER};display:flex;justify-content:space-between"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span></div>`;
     // card B: human interactions

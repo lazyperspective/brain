@@ -100,7 +100,10 @@ def glass(f, d, tau, bright=1.0, partials=((1, 1.0), (2.0, 0.22), (3.01, 0.12), 
 def marimba(f, d=0.5, tau=0.16):
     t = t_(d)
     x = np.sin(2 * np.pi * f * t) * np.exp(-t / tau) + 0.35 * np.sin(2 * np.pi * f * 3.93 * t) * np.exp(-t / (tau * 0.25))
-    x += 0.2 * np.sin(2 * np.pi * f * 10.6 * t) * np.exp(-t / 0.006)
+    if f * 10.6 < 15000:  # mallet click partial, kept well below Nyquist
+        x += 0.2 * np.sin(2 * np.pi * f * 10.6 * t) * np.exp(-t / 0.006)
+    else:
+        x += 0.12 * lp(noise(len(t) / SR) * np.exp(-t / 0.002), 9000)
     return fade(x, 0.001, 0.02)
 
 
@@ -346,7 +349,8 @@ def voice(dur, who, seed):
     out = bp(out, 300, 3400, 3)
     out = np.tanh(norm(out, 1.0) * 1.6) / 1.6
     out = lp(out, 2600, 2) * 0.8 + out * 0.2
-    return norm(out, 0.5)
+    out = lp(out, 3600, 4)
+    return norm(fade(out, 0.012, 0.04), 0.5)
 
 
 def netbed(d):
@@ -509,11 +513,11 @@ st = st * db(-16 - lufs(st))
 st = compress(st)
 for it in range(5):
     st = st * db(-16 - lufs(st))
-    if true_peak(st) > db(-1.4):
-        st = limit(st, db(-1.5))
+    if true_peak(st) > db(-1.9):
+        st = limit(st, db(-2.0))
     lv, tp = lufs(st), 20 * np.log10(true_peak(st))
     print(f'pass {it}: {lv:.2f} LUFS, true peak {tp:.2f} dBTP')
-    if abs(lv + 16) < 0.15 and tp < -1.2:
+    if abs(lv + 16) < 0.15 and tp < -1.7:
         break
 from scipy.io import wavfile
 wavfile.write(out_path, SR, st.astype(np.float32))

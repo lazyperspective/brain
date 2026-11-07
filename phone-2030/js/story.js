@@ -5,10 +5,11 @@
   const W = 360, H = 640;
 
   // ---------------- notifications ----------------
+  const avatar = (txt, bg, app) => `<div style="position:relative;width:36px;height:36px"><div style="width:36px;height:36px;border-radius:18px;background:${bg};display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;color:#fff">${txt}</div><div style="position:absolute;right:-3px;bottom:-3px;border-radius:5px;box-shadow:0 0 0 1.5px rgba(40,40,44,0.9)">${appIcon(app, 16, 'border-radius:4.5px')}</div></div>`;
   const N = {
     agi: { app: 'agi', title: 'Personal AGI', body: 'Good morning. You slept poorly, so I’ve moved your first meeting to 10 AM, adjusted your alarm, and ordered your usual coffee.' },
-    sam: { app: 'chat', title: 'Sam', body: 'Dinner tonight at 8?' },
-    dana: { app: 'mail', title: 'Dana Whitfield', bodyHtml: '<b style="font-weight:600">Q2 deck before noon</b><br>Hi Alex, I need the Q2 presentation in my inbox before noon. Thanks.' },
+    sam: { app: 'chat', title: 'Sam', body: 'Dinner tonight at 8?', custom: avatar('S', 'linear-gradient(160deg,#8fb8ff,#3f6fd8)', 'chat') },
+    dana: { app: 'mail', title: 'Dana Whitfield', custom: avatar('DW', 'linear-gradient(180deg,#a5a5ab,#6e6e74)', 'mail'), bodyHtml: '<b style="font-weight:600">Q2 deck before noon</b><br>Hi Alex, I need the Q2 presentation in my inbox before noon. Thanks.' },
     storm: [
       { app: 'airline', title: 'Skyward', body: 'Flight delayed. Rebooked automatically.' },
       { app: 'volt', title: 'Volt Energy', body: 'Electricity bill reduced by 30%.' },
@@ -146,7 +147,7 @@
       items.push({ n: Object.assign({ time: '1m ago' }, N.dana), k: 1 }, { n: Object.assign({ time: '1m ago' }, N.sam), k: 1 }, { n: Object.assign({ time: '2m ago' }, N.agi), k: 1 });
       for (const it of items) {
         const press = it.i === 4 && t > T.TAP_INT - 0.12 && t < T.AGI_OPEN + 0.1 ? 1 : 0;
-        list += `<div data-grow="${f3(sat(it.k))}" style="overflow:visible;flex:none"><div style="padding-bottom:8px;transform:translateY(${f3((1 - it.k) * -18)}px) scale(${f3(0.94 + 0.06 * sat(it.k))});opacity:${f3(sat(it.k * 1.8) * (it.i === 4 ? 1 : 1 - out))};transform-origin:50% 0%">${U.notif(it.n, { press })}</div></div>`;
+        list += `<div data-grow="${f3(sat(it.k))}" style="overflow:visible;flex:none"><div style="padding-bottom:8px;transform:translateY(${f3((1 - it.k) * -18)}px) scale(${f3(0.94 + 0.06 * sat(it.k))});transform-origin:50% 0%">${U.notif(it.n, { press, alpha: sat(it.k * 1.8) * (it.i === 4 ? 1 : 1 - out) })}</div></div>`;
       }
       const cl = clock(t);
       return `<div class="L" style="transform:translateY(${f3(y)}px);opacity:${f3(1 - out * 0.0)}">
@@ -163,8 +164,9 @@
   // ---------------- incoming / active call overlay ----------------
   function callLayer(t) {
     if (t < T.CALL_IN || t > T.CALL_GONE) return '';
-    const k = sp(t, T.CALL_IN, 0.34, 0.95), out = E.inOut(seg(t, T.CALL_GONE - 0.24, T.CALL_GONE));
-    return `<div class="L" style="opacity:${f3(sat(k * 2.6) * (1 - out))};transform:scale(${f3(lerp(1.06, 1, k) + out * 0.03)})">${A.call(t)}</div>`;
+    const k = sp(t, T.CALL_IN, 0.42, 1), out = E.inOut(seg(t, T.CALL_GONE - 0.38, T.CALL_GONE));
+    // full-screen incoming call drops in from the top; after hang-up it slides back up
+    return `<div class="L" style="transform:translateY(${f3(-H * (1 - k) - H * out)}px);box-shadow:0 10px 40px rgba(0,0,0,0.5)">${A.call(t)}</div>`;
   }
 
   // ---------------- banners ----------------
@@ -179,7 +181,7 @@
       if (t < b.a || t > b.gone + 0.02) continue;
       const k = sp(t, b.a, 0.5, 0.74);
       const press = b.tap && t > b.tap - 0.12 ? 1 : 0;
-      s += `<div class="abs" style="left:8px;top:${BANNER_R.y}px;transform-origin:50% -40px;transform:translateY(${f3(lerp(-46, 0, k))}px) scale(${f3(lerp(0.3, 1, k))});opacity:${f3(sat(k * 2.4))}">${U.notif(Object.assign({ time: 'now' }, b.n), { banner: 1, press, style: 'box-shadow:0 8px 30px rgba(0,0,0,0.45)' })}</div>`;
+      s += `<div class="abs" style="left:8px;top:${BANNER_R.y}px;transform-origin:50% -40px;transform:translateY(${f3(lerp(-46, 0, k))}px) scale(${f3(lerp(0.3, 1, k))})">${U.notif(Object.assign({ time: 'now' }, b.n), { banner: 1, press, alpha: sat(k * 2.4), style: 'position:absolute;left:0;top:0;box-shadow:0 8px 30px rgba(0,0,0,0.45)' })}</div>`;
     }
     return s;
   }

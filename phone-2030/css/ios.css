@@ -33,7 +33,7 @@ svg { display: block; }
 
 /* materials (dark mode) */
 .mat-notif { background: rgba(38, 38, 40, 0.62); backdrop-filter: blur(22px) saturate(1.9); }
-.mat-banner { background: rgba(36, 36, 38, 0.78); backdrop-filter: blur(26px) saturate(1.8); }
+.mat-banner { background: rgba(32, 32, 34, 0.93); backdrop-filter: blur(30px) saturate(1.8); }
 .mat-dock { background: rgba(70, 70, 76, 0.38); backdrop-filter: blur(28px) saturate(1.7); }
 .mat-bar { background: rgba(22, 22, 24, 0.80); backdrop-filter: blur(24px) saturate(1.8); }
 .mat-kbd { background: rgba(43, 43, 45, 0.94); backdrop-filter: blur(30px) saturate(1.6); }
