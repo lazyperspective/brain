@@ -364,7 +364,9 @@
     ];
     UP.forEach((q) => out.push(seaStroke(t, ...q)));
     // the horizon, a quiet line fading out toward the open sea
-    out.push(line(catmull([[0.12, YH], [-0.2, YH + 0.0004], [-0.6, YH], [-0.94, YH - 0.0004]], 30), { b: 0.42, tb: 0.5, tmin: 0.03, ta: 0.04 }));
+    out.push(line(catmull([[0.12, YH], [-0.2, YH + 0.0004], [-0.6, YH], [-1.06, YH - 0.0006]], 30), { b: 0.42, tb: 0.55, tmin: 0.03, ta: 0.04 }));
+    // retrace up behind the left bezel, so the beam comes in to the first gull level from the edge of the screen
+    out.push(line([[-1.06, YH], [-1.12, 0.2], [-1.08, 0.4]], { hidden: true, b: 0.0 }));
     return out;
   }
 

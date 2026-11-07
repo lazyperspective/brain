@@ -45,7 +45,7 @@
     cloud: { local: ['W', 'CER'], light: ['CYL', 'OR', 'ROSE'], shade: ['VIO', 'COB', 'UM', 'ROSE'], refl: ['CER', 'EM'], comp: ['CY', 'OR'], r: [0.66, 0.12, 0.12, 0.04, 0.06] },
     fartree: { local: ['COB', 'VIO', 'EM', 'CER', 'VIR'], light: ['CYL', 'OR', 'ROSE'], shade: ['UM', 'UMV'], refl: ['CER'], comp: ['OR', 'ROSE'], r: [0.7, 0.08, 0.1, 0.05, 0.07] },
     field: { local: ['YG', 'CYL', 'CY', 'EM', 'W'], light: ['CYL', 'OR', 'W'], shade: ['COB', 'VIO', 'CER', 'UM'], refl: ['CER', 'ROSE'], comp: ['VIO', 'ROSE'], r: [0.7, 0.1, 0.08, 0.05, 0.07] },
-    meadow: { local: ['YG', 'EM', 'CY', 'CYL', 'VIR'], light: ['CYL', 'CY'], shade: ['VIR', 'UM', 'VIO', 'DG', 'COB'], refl: ['CER', 'COB'], comp: ['VIO', 'ROSE', 'OR'], r: [0.74, 0.1, 0.09, 0.03, 0.04] },
+    meadow: { local: ['EM', 'YG', 'VIR', 'CY', 'CYL'], light: ['CYL', 'CY', 'YG', 'W'], shade: ['VIR', 'UM', 'VIO', 'DG', 'COB'], refl: ['CER', 'COB'], comp: ['VIO', 'ROSE', 'OR'], r: [0.68, 0.1, 0.1, 0.06, 0.06] },
     foliage: { local: ['YG', 'EM', 'VIR', 'DG', 'CYL'], light: ['CYL', 'CY', 'YG', 'OR'], shade: ['UM', 'UMV', 'DG', 'VIR', 'VIO', 'COB'], refl: ['CER', 'COB'], comp: ['OR', 'RB', 'ROSE', 'VIO'], r: [0.56, 0.14, 0.18, 0.07, 0.05] },
     trunk: { local: ['VIO', 'RB', 'UMV'], light: ['OR', 'CY'], shade: ['UM', 'DG'], refl: ['EM'], comp: ['OR'], r: [0.6, 0.15, 0.15, 0.05, 0.05] },
     towpath: { local: ['OR', 'CY', 'ROSE', 'W'], light: ['CYL', 'W', 'CY'], shade: ['VIO', 'COB', 'UM'], refl: ['EM', 'CER'], comp: ['CER', 'VIO'], r: [0.64, 0.14, 0.1, 0.05, 0.07] },

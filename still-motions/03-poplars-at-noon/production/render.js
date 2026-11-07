@@ -1,9 +1,9 @@
 // Render "Poplars at Noon" through its page (index.html?export, window.__piece) in the pre-installed Playwright
 // Chromium (WebGL2 on SwiftShader), over file://.
 //   node render.js stills <dir> 0,4.5,13 [half]   PNG frames: full master 2160x2700 (or 1080x1350 with "half")
-//   node render.js video <out.mp4> [workers]      H.264 High yuv420p 1080x1350 30 fps, one loop, silent; frames are
-//                                                 rendered at 2160x2700 and downscaled 2x in linear light on the GPU
-//                                                 ([1 3 3 1] kernel); CRF env (default 16); MASTER=1 near-lossless
+//   node render.js video <master.mkv> [workers]   lossless RGB master, 1080x1350 30 fps, one loop; frames are rendered at
+//                                                 2160x2700 and downscaled 2x in linear light on the GPU ([1 3 3 1] kernel)
+//   node render.js encode <master.mkv> <out.mp4>  delivery: H.264 High yuv420p CRF 16, faststart, silent, seam zones
 //   node render.js seam                           render-level seam check (exact frames, before video coding)
 //   node render.js determinism                    the same t rendered twice (and after other frames) is identical
 //   node render.js timing                         ms per frame
@@ -41,12 +41,22 @@ function writePng(file, r) {
 // frames up to meet it, so the step from the last frame back to the first is an ordinary step
 const ZONES = (n) => `zones=0,0,q=8/${n - 40},${n - 25},q=15/${n - 24},${n - 13},q=14/${n - 12},${n - 7},q=13/${n - 6},${n - 1},q=12`;
 function encoder(out, nframes, w, h) {
-  const master = !!process.env.MASTER;
+  // the render writes a lossless RGB master (libx264rgb, qp 0, one GOP); `encode` makes the delivery file from it
   return spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${w}x${h}`, '-r', String(FPS), '-i', '-',
-    '-c:v', 'libx264', '-profile:v', 'high', '-preset', master ? 'veryfast' : 'slow', '-tune', 'grain', '-crf', master ? '4' : String(process.env.CRF || 16),
-    '-x264-params', `keyint=${nframes}:min-keyint=${nframes}:scenecut=0${master ? '' : ':' + ZONES(nframes)}`,
-    '-pix_fmt', 'yuv420p', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
-    '-r', String(FPS), '-movflags', '+faststart', '-an', '-frames:v', String(nframes), out], { stdio: ['pipe', 'inherit', 'inherit'] });
+    '-c:v', 'libx264rgb', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'rgb24', '-r', String(FPS), '-an', '-frames:v', String(nframes), out], { stdio: ['pipe', 'inherit', 'inherit'] });
+}
+// delivery encode: H.264 High, yuv420p, CRF 16, one GOP (one keyframe, frame 0); x264 zones bring the last frames up
+// to the keyframe's quality so the step from the last frame back to the first is an ordinary step
+function deliver(master, out, extra) {
+  const n = +require('child_process').execFileSync('ffprobe', ['-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', master]).toString().trim();
+  const zones = process.env.ZONES || `zones=0,0,q=${process.env.Q0 || 8}/${n - 40},${n - 25},q=15/${n - 24},${n - 13},q=13/${n - 12},${n - 7},q=11/${n - 6},${n - 1},q=${process.env.QEND || 9}`;
+  const args = ['-loglevel', 'error', '-y', '-i', master, '-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
+    '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-tune', 'grain', '-crf', String(process.env.CRF || 16),
+    '-x264-params', `keyint=${n}:min-keyint=${n}:scenecut=0:${zones}${extra ? ':' + extra : ''}`,
+    '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
+    '-r', String(FPS), '-movflags', '+faststart', '-an', out];
+  require('child_process').execFileSync('ffmpeg', args, { stdio: 'inherit' });
+  console.log('encoded', out, `(${n} frames, ${zones}${extra ? ', ' + extra : ''})`);
 }
 const stat = (a, b) => { let s = 0, n4 = 0; for (let i = 0; i < a.length; i += 4) { const d = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])); s += d; if (d >= 4) n4++; } return [s / (a.length / 4), n4 / (a.length / 4)]; };
 
@@ -101,6 +111,9 @@ const stat = (a, b) => { let s = 0, n4 = 0; for (let i = 0; i < a.length; i += 4
     await done;
     const avg = ms.reduce((a, b) => a + b, 0) / ms.length;
     console.log(`${out}: ${N} frames, avg ${avg.toFixed(0)} ms/frame render, wall ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  } else if (mode === 'encode') {
+    // node render.js encode <master.mkv> <out.mp4>   (env CRF, Q0, QEND, ZONES, X264EXTRA)
+    deliver(out, arg, process.env.X264EXTRA);
   } else if (mode === 'seam') {
     const page = await openPage(browser);
     const D = await page.evaluate(() => window.__piece.duration);

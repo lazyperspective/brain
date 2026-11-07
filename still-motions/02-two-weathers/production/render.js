@@ -34,6 +34,11 @@ function toPng(rgb, w, h, file) {
 // one GOP (keyframe at frame 0 only); zones give frame 0 a high fixed quality and ramp the last 40 frames up to
 // meet it, so the encoded seam is an ordinary step (method from ink-courtyard/production/render.js)
 const ZONES = (n) => `zones=0,0,q=10/${n - 40},${n - 25},q=15/${n - 24},${n - 13},q=14/${n - 12},${n - 7},q=13/${n - 6},${n - 1},q=12`;
+// lossless master (FFV1, RGB) that the deliverables are encoded from
+function masterEncoder(out, w, h) {
+  return spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${w}x${h}`, '-r', String(FPS), '-i', '-',
+    '-c:v', 'ffv1', '-level', '3', '-pix_fmt', 'bgr0', out], { stdio: ['pipe', 'inherit', 'inherit'] });
+}
 function encoder(out, nframes, loopFrames, w, h) {
   const z = loopFrames === nframes ? ':' + ZONES(nframes) : '';
   return spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${w}x${h}`, '-r', String(FPS), '-i', '-',
@@ -67,7 +72,7 @@ function encoder(out, nframes, loopFrames, w, h) {
     const N = Math.round(D * FPS), W2 = 1080, H2 = 1350;
     for (const p of pages) await setOut(p, W2, H2, 1);
     // frames of one loop are rendered once and written loops times
-    const ffs = [encoder(out, N * loops, N * loops === N ? N : -1, W2, H2)];
+    const ffs = [/\.mkv$/.test(out) ? masterEncoder(out, W2, H2) : encoder(out, N * loops, N * loops === N ? N : -1, W2, H2)];
     if (process.env.ALSO2) ffs.push(encoder(process.env.ALSO2, 2 * N, -1, W2, H2));
     const done = ffs.map((ff) => new Promise((res) => ff.on('close', res)));
     const frames = [];
@@ -92,6 +97,14 @@ function encoder(out, nframes, loopFrames, w, h) {
     ffs.forEach((ff) => ff.stdin.end());
     await Promise.all(done);
     console.log(`wall ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  } else if (mode === 'encode') {
+    // node render.js encode <master.mkv> <out.mp4> [loops]
+    const loops = Math.max(1, parseInt(a4 || '1', 10)), N = Math.round(24 * FPS);
+    const ff = encoder(arg, N * loops, loops === 1 ? N : -1, 1080, 1350);
+    const src = spawn('ffmpeg', ['-loglevel', 'error', ...(loops > 1 ? ['-stream_loop', String(loops - 1)] : []), '-i', out, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    src.stdout.pipe(ff.stdin);
+    await new Promise((res) => ff.on('close', res));
+    console.log('encoded', arg);
   } else if (mode === 'seam') {
     const page = await openPage(browser);
     await setOut(page, 1080, 1350, 1);

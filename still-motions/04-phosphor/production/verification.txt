@@ -1,0 +1,39 @@
+Phosphor (04-phosphor) verification, 2026-11-07
+
+== deliverables
+04-phosphor-4k.png  4.4M
+04-phosphor-x.jpg  652K
+04-phosphor-4x5.mp4  3.5M
+04-phosphor-4x5-2loops.mp4  6.9M
+x.jpg (2160, 2700) subsampling 0 (0 = 4:4:4)
+stream|codec_name=h264|profile=High|width=1080|height=1350|pix_fmt=yuv420p|r_frame_rate=30/1|nb_read_frames=540
+format|nb_streams=1|duration=18.000000
+stream|codec_name=h264|profile=High|width=1080|height=1350|pix_fmt=yuv420p|r_frame_rate=30/1|nb_read_frames=1080
+format|nb_streams=1|duration=36.000000
+
+== seam (render level: exact frames before coding)
+render-level seam: step 539 -> 0 mean 0.143 (share >= 4 levels 0.79%); neighbouring steps 0.166 0.155 0.152 0.146
+frame at t = D vs frame at t = 0: mean abs diff 0.0000
+PASS  the loop closes: frame D is frame 0 and the seam is an ordinary step
+
+== seam (encoded one-loop MP4)
+../../../still-motions-output/04-phosphor/04-phosphor-4x5.mp4: 540 frames
+seam step (last frame -> first frame): 0.183
+ordinary steps: median 0.116, 95th pct 0.166, max 0.268; within 0.5 s of the seam: median 0.102, max 0.118
+NOTE  encoded seam step is 0.7x the largest ordinary step
+
+== flash
+../../../still-motions-output/04-phosphor/04-phosphor-4x5.mp4: 540 frames, mean relative luminance 0.0097
+worst frame-to-frame change of a large-area mean: 0.0005 (q12, frame 371)
+largest single swing between turning points: 0.0000 (undefined, frames undefined-undefined, NaN s)
+conservative count (any two >=0.10 transitions within 1 s, either direction): 0 (limit 3)
+WCAG general flashes (pairs of opposing >=0.10 changes) in any 1 s: 0 (limit 3)
+PASS
+
+== pop
+picture check: 540 frames, 36x45 blocks; isolated spikes >= 6 levels and >= 6x neighbours: 0; most isolated step 4.0x (25.3 levels, step 369)
+PASS  nothing pops in or out
+
+== determinism
+determinism: t = 0, 3.7, 11.25 rendered twice in one page (other frames in between, reverse order) and once in a fresh page: byte-identical
+PASS

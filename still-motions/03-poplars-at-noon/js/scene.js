@@ -584,10 +584,10 @@
       const ff = farFields(x, y, d);
       col = ff.col; lit = ff.lit; fam = 'field';
       const toMeadow = sstep(60, 135, y - YH);
-      if (toMeadow > 0) col = mix3(col, [0.66, 0.74, 0.38], toMeadow);
+      if (toMeadow > 0) col = mix3(col, [0.6, 0.68, 0.4], toMeadow);
     } else {
       const n1 = R.fbm(x / 220, y / 90, 101, 4), n2 = R.fbm(x / 45, y / 22, 103, 3);
-      const sun = [0.64, 0.72, 0.32], warm = [0.86, 0.8, 0.44], cool = [0.3, 0.48, 0.32];
+      const sun = [0.6, 0.7, 0.3], warm = [0.84, 0.78, 0.42], cool = [0.28, 0.46, 0.33];
       col = mix3(cool, sun, sstep(0.28, 0.62, n1));
       col = mix3(col, warm, 0.7 * sstep(0.5, 0.72, n2) * sstep(0.3, 0.6, n1));
       lit = 0.45 + 0.5 * sstep(0.28, 0.62, n1);

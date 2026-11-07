@@ -216,7 +216,7 @@
         const load = load0 * (1 - decay * un * un);
         let amt = load * sh * st * en * (0.5 + 0.62 * br);
         if (F) {
-          const d = this.fsd(F.F, x, y) + foff + 3 * grain[k];
+          const d = this.fsd(F.F, x, y) + foff + 3 * grain[k] + 11 * VN(NB, x / s / 9 + 70, y / s / 9) + 5 * VN(NB, x / s / 3.5, y / s / 3.5 + 40);
           amt *= 1 - sm(-ffi, ffo, d);
         }
         if (amt <= 0.004) continue;
@@ -616,7 +616,7 @@
       const cx = r(360, 1800), cy = EMB_Y(cx) + r(-0.4, 0.4) * EMB_H(cx);
       p.knife({ cx, cy, ang: r(-0.02, 0.02) + (p.rng() < 0.5 ? Math.PI : 0), L: r(260, 700), w: r(30, 60), thick: r(1.0, 2.4),
         col: p.pick([C.emberA, C.emberC, C.emberC, C.emberA, C.emberR]), col2: p.pick([C.emberB, C.emberR, C.emberR, C.oxE]), mix: r(0.3, 0.6),
-        run: r(0.4, 0.9), skip: r(0.3, 0.75), tilt: r(-0.9, 0.9), ridge: r(0.5, 1.1), lip: p.rng() < 0.4 ? r(0.3, 0.8) : 0, gloss: 0.8, bend: r(-3, 3), field: fld(EMB, r(14, 34), 16, 30) });
+        run: r(0.4, 0.9), skip: r(0.3, 0.75), tilt: r(-0.9, 0.9), ridge: r(0.5, 1.1), lip: p.rng() < 0.4 ? r(0.3, 0.8) : 0, gloss: 0.8, bend: r(-3, 3), field: fld(EMB, r(24, 50), 40, 40) });
     }
     // blue field, upper left: knife pulls; right of it, loaded brush
     passage(14, 660, 1700, 440, 160, 0.03, 0.1, (x, y, ang, c) => p.knife({ cx: x, cy: y, ang, L: r(380, 900), w: r(70, 170), thick: r(0.7, 1.4) + 1.2 * c,
