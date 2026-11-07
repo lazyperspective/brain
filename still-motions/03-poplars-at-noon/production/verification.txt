@@ -10,8 +10,8 @@ format|duration=40.000000
    encode: 600 frames; keyframe bit factor 40, last 240 frames ramped to 40; CRF 16; deadzone-inter=0:deadzone-intra=0
    faststart: moov before mdat
 == stills
-   03-poplars-at-noon-4k.png (2160, 2700) RGB 11.32 MB
-   03-poplars-at-noon-x.jpg (2160, 2700) RGB 4.24 MB  chroma subsampling 4:4:4, quality 94
+   03-poplars-at-noon-4k.png (2160, 2700) RGB 11.31 MB
+   03-poplars-at-noon-x.jpg (2160, 2700) RGB 4.25 MB  chroma subsampling 4:4:4, quality 94
 
 == determinism
 determinism: t=7.3 rendered twice in one page (other frames between): identical; in a fresh page (scene rebuilt from the seed): identical
@@ -19,48 +19,50 @@ PASS
 
 == seam, render level
 render-level seam (1080x1350 frames): frame t=D vs t=0 mean |diff| 0.0000 (pixels differing by >= 4 levels: 0.000%)
-step 599 -> 0 (the loop seam): mean 0.179; neighbouring steps 0.178 0.178 0.180 0.179
+step 599 -> 0 (the loop seam): mean 0.177; neighbouring steps 0.176 0.177 0.178 0.178
 PASS  the loop closes: frame D is frame 0 and the seam step is an ordinary step
 
 == seam, lossless master
-seam step (last frame -> first frame): 0.086
-ordinary steps: median 0.090, 95th pct 0.105, max 0.108; within 0.5 s of the seam: median 0.087, max 0.089
+seam step (last frame -> first frame): 0.085
+ordinary steps: median 0.090, 95th pct 0.106, max 0.108; within 0.5 s of the seam: median 0.085, max 0.087
 PASS  seam step is an ordinary step
 
 == seam, delivered MP4
 ../../../still-motions-output/03-poplars-at-noon/03-poplars-at-noon-4x5.mp4: 600 frames
-seam step (last frame -> first frame): 0.177
-ordinary steps: median 0.176, 95th pct 0.197, max 0.211; within 0.5 s of the seam: median 0.123, max 0.165
+seam step (last frame -> first frame): 0.174
+ordinary steps: median 0.175, 95th pct 0.199, max 0.210; within 0.5 s of the seam: median 0.121, max 0.153
 PASS  seam step is an ordinary step
 
 == seam, 2-loop MP4 (frame 1199 -> 0; the inner loop point 599 -> 600 is counted with the ordinary steps)
-seam step (last frame -> first frame): 0.177
-ordinary steps: median 0.176, 95th pct 0.197, max 0.211; within 0.5 s of the seam: median 0.123, max 0.165
+seam step (last frame -> first frame): 0.174
+ordinary steps: median 0.175, 95th pct 0.199, max 0.210; within 0.5 s of the seam: median 0.121, max 0.153
 PASS  seam step is an ordinary step
 
 == flash
-../../../still-motions-output/03-poplars-at-noon/03-poplars-at-noon-4x5.mp4: 600 frames, mean relative luminance 0.2918
-worst frame-to-frame change of a large-area mean: 0.0002 (q21, frame 336)
-largest single swing between turning points: 0.0146 (q21, frames 0-250, 8.33 s)
+../../../still-motions-output/03-poplars-at-noon/03-poplars-at-noon-4x5.mp4: 600 frames, mean relative luminance 0.2881
+worst frame-to-frame change of a large-area mean: 0.0002 (q22, frame 330)
+largest single swing between turning points: 0.0146 (q21, frames 0-257, 8.57 s)
 conservative count (any two >=0.10 transitions within 1 s, either direction): 0 (limit 3)
 WCAG general flashes (pairs of opposing >=0.10 changes) in any 1 s: 0 (limit 3)
 PASS
 
 == pops
 ../../../still-motions-output/03-poplars-at-noon/03-poplars-at-noon-4x5.mp4: 600 frames, 36x45 blocks
-whole frame: largest step / neighbouring steps 1.43 (step 599->0)
+whole frame: largest step / neighbouring steps 1.49 (step 599->0)
 blocks: isolated steps >= 3 grey levels and >= 1.5x both neighbours: 0; most isolated 0.00x (0 levels, step undefined)
 PASS  nothing pops
 
 == pops at finer floors (the motion is gentle enough that no 30x30 block ever changes by 3 grey levels in a frame)
 lossless master, floor 1.0 grey level:
-blocks: isolated steps >= 1 grey levels and >= 1.5x both neighbours: 0; most isolated 1.48x (1.11 levels, step 119)
+blocks: isolated steps >= 1 grey levels and >= 1.5x both neighbours: 0; most isolated 1.44x (1.00 levels, step 438)
 PASS  nothing pops
-delivered MP4, floor 1.0 grey level (blips of ~1.2 levels at <=1.72x are x264 coding noise; the master has none):
-blocks: isolated steps >= 1 grey levels and >= 1.5x both neighbours: 17; most isolated 1.72x (1.19 levels, step 1)
+delivered MP4, floor 1.0 grey level (any blips of ~1 level here are x264 coding noise, absent from the master):
+blocks: isolated steps >= 1 grey levels and >= 1.5x both neighbours: 16; most isolated 2.00x (1.00 levels, step 355)
 CHECK  pops found
 
 == notes
 seam: the loop is exactly periodic (frame D == frame 0). The delivered file is one GOP; the keyframe gets a large bit
 budget and the last 240 frames ramp up to meet it (bitrate-factor zones, AQ stays on), with x264 deadzones off and no
 grain tuning, so the end of the loop converges on the true frames and the 599 -> 0 step is an ordinary step.
+revision (round 8, after review): S-bend river with irregular banks (reeds, tufts, inlets), poplars on the curving
+towpath, clustered varied village, weeping willows with lit tops and cool shade, haystacks in divisionist light/shade.

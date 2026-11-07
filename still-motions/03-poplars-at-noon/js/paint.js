@@ -55,7 +55,9 @@
     wall: { local: ['W', 'ROSE', 'OR', 'CY', 'CER', 'VIO', 'COB'], light: ['CYL', 'W', 'OR'], shade: ['VIO', 'COB', 'CER'], refl: ['EM'], comp: ['CER', 'OR'], r: [0.72, 0.1, 0.12, 0.02, 0.04] },
     roof: { local: ['VER', 'OR', 'ROSE'], light: ['CY'], shade: ['VIO', 'UMV'], refl: ['RB'], comp: ['CER', 'COB'], r: [0.74, 0.08, 0.1, 0.03, 0.05] },
     slate: { local: ['COB', 'VIO', 'CER', 'UM'], light: ['ROSE', 'OR', 'W'], shade: ['UM', 'UMV'], refl: ['W'], comp: ['OR'], r: [0.74, 0.08, 0.1, 0.03, 0.05] },
-    hay: { local: ['CY', 'OR', 'CYL'], light: ['CYL', 'W'], shade: ['VIO', 'COB', 'UM', 'ROSE'], refl: ['VER', 'ROSE'], comp: ['VIO', 'CER'], r: [0.68, 0.1, 0.12, 0.04, 0.06] },
+    willow: { local: ['YG', 'EM', 'VIR', 'CER', 'CYL'], light: ['CYL', 'CY', 'OR'], shade: ['COB', 'VIO', 'UM', 'CER', 'VIR'], refl: ['CER', 'COB'], comp: ['OR', 'ROSE', 'VIO'], r: [0.56, 0.14, 0.16, 0.06, 0.08] },
+    hayShade: { local: ['VIO', 'COB', 'UMV', 'ROSE', 'CER'], light: ['OR', 'CY'], shade: ['UM', 'UMV'], refl: ['VER', 'ROSE'], comp: ['OR', 'CY'], r: [0.56, 0.1, 0.1, 0.1, 0.14] },
+    hay: { local: ['CY', 'OR', 'CYL', 'VER'], light: ['CYL', 'W', 'CY'], shade: ['VIO', 'ROSE', 'COB'], refl: ['VER', 'ROSE'], comp: ['VIO', 'CER', 'COB'], r: [0.6, 0.12, 0.1, 0.07, 0.11] },
     water: { local: ['CER', 'COB', 'W', 'EM', 'UM'], light: ['W', 'CYL'], shade: ['UM', 'VIR', 'UMV'], refl: ['EM', 'VIO'], comp: ['OR', 'ROSE'], r: [0.72, 0.05, 0.1, 0.07, 0.06] },
     waterDark: { local: ['DG', 'VIR', 'UM', 'UMV', 'EM'], light: ['EM', 'YG'], shade: ['UMV', 'UM', 'VIO'], refl: ['COB', 'CER'], comp: ['OR', 'RB', 'VER'], r: [0.6, 0.06, 0.14, 0.1, 0.1] },
     boat: { local: ['W', 'CER', 'OR', 'COB', 'UM', 'RB', 'VER', 'VIO'], light: ['CYL', 'W'], shade: ['VIO', 'COB'], refl: ['CER'], comp: ['OR'], r: [0.7, 0.1, 0.12, 0.03, 0.05] },
@@ -289,7 +291,7 @@
         const px = x + rng() * 10, py = y + rng() * 12;
         const p = S.willowAt(px, py, k);
         if (!p || p.part !== 'crown') continue;
-        const c = lin3(S.mix3(p.col, [0.03, 0.07, 0.09], 0.45));
+        const c = lin3(S.mix3(p.col, [0.12, 0.16, 0.26], 0.3));
         tu.push(swayParams(pseudo, { x: px, y: py, len: 30, wid: 13, ang: Math.PI / 2 + 0.4 * (rng() - 0.5), hamp: 0.5, seed: rng(), type: 6, c0: c, alpha: 0.92 }, 0.4));
       }
       const fn = (sp) => (x, y) => { const p = S.willowAt(x, y, k); if (!p) return null; p.z = 10.5; p.sp = p.z * sp; p.ch = 'tree'; return p; };
@@ -404,7 +406,7 @@
     const T = lin3(s.col);
     const A = z * z * 0.8;
     const e = choose(rng, s.fam, T, s.lit, s.x, s.y, A, s.ch || 'land', { accent: accent || 1 });
-    const elong = s.water ? 2.1 : s.fam === 'sky' || s.fam === 'cloud' ? 1.25 : s.grass ? 1.6 : 1.35;
+    const elong = s.water ? 2.1 : s.droop ? 2.2 : s.fam === 'sky' || s.fam === 'cloud' ? 1.25 : s.grass ? 1.6 : 1.35;
     const sz = z * (0.82 + 0.36 * rng());
     const d = { x: s.x, y: s.y, len: sz * Math.sqrt(elong), wid: sz / Math.sqrt(elong), ang: s.ang + 0.25 * (rng() - 0.5), hamp: 0.32 * sz, seed: rng(), type: 0, c0: e.lin, alpha: 1 };
     if (s.water) {

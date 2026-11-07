@@ -33,9 +33,23 @@
     return (v) => { let f = v - a; if (f < 0) f = 0; if (f > n - 1.001) f = n - 1.001; const i = f | 0, r = f - i; return t[i] + (t[i + 1] - t[i]) * r; };
   }
   // far (left) bank water line, y as a function of x
-  const yFB = tab(curve([[-300, 1810], [0, 1690], [250, 1606], [500, 1538], [750, 1474], [1000, 1414], [1200, 1369], [1350, 1338], [1480, 1319], [1600, 1309], [1760, 1304], [2500, 1300]]), -400, 2600);
+  // an S-bend: the far bank comes toward us on a broad swell (left of centre), then sweeps steeply away and flattens
+  // into the distance toward the village
+  const yFB = tab(curve([[-300, 1800], [0, 1690], [200, 1650], [380, 1640], [540, 1622], [680, 1574], [820, 1506], [960, 1442], [1090, 1398], [1220, 1366], [1350, 1340], [1480, 1321], [1600, 1310], [1760, 1304], [2500, 1300]]), -400, 2600);
   // near (right) bank water line, x as a function of y
-  const xNB = tab(curve([[1296, 1820], [1304, 1760], [1312, 1680], [1324, 1580], [1345, 1470], [1378, 1365], [1420, 1296], [1470, 1258], [1540, 1262], [1650, 1316], [1820, 1405], [2080, 1500], [2400, 1585], [2800, 1665]]), 1280, 2800);
+  // the near bank swells out into the river in the middle distance and falls back toward us
+  const xNB = tab(curve([[1296, 1820], [1304, 1760], [1312, 1680], [1324, 1580], [1345, 1470], [1378, 1372], [1420, 1318], [1480, 1300], [1560, 1318], [1680, 1380], [1840, 1430], [2000, 1420], [2180, 1440], [2400, 1530], [2800, 1640]]), 1280, 2800);
+  // natural bank edges: grass tufts leaning into the water, small inlets, never a ruled line
+  function edgeNoise(t, seed, amp) {
+    const roll = (R.fbm(t / 46, 1.7, seed, 3) - 0.5) * 1.8;
+    const tuft = Math.pow(R.vnoise(t / 11, 2.3, seed + 2), 4) * 2.2;
+    const inlet = -Math.pow(R.vnoise(t / 85, 3.1, seed + 4), 6) * 4.5;
+    return amp * (roll + tuft + inlet);
+  }
+  const yEdgeT = tab((x) => yFB(x) + edgeNoise(x, 171, 1.2 + 0.05 * Math.max(0, yFB(x) - YH)), -400, 2600);
+  const yEdge = (x) => yEdgeT(x);
+  const xEdgeT = tab((y) => xNB(y) - edgeNoise(y * 1.6, 181, 1.5 + 12 * Math.max(0, y - YH) / (H - YH)), 1280, 2800);
+  const xEdge = (y) => xEdgeT(y);
   const RIVER_TOP = 1303;
 
   function bank(x) {
@@ -53,11 +67,12 @@
       [1190, 5.3, 0.15, -0.01, 2.2, 0.64, 0.12], [1246, 5.0, 0.16, 0.004, 2.4, 0.66, 0.13], [1293, 5.5, 0.15, 0.0, 2.1, 0.6, 0.11],
       [1331, 5.1, 0.17, -0.006, 2.3, 0.66, 0.12],
     ];
+    const TOPS = [106, 458, 522, 733, 908, 896, 989, 1054, 1065, 1113]; // the receding rhythm of the crowns
     const rnd = R.mulberry32(77);
     spec.forEach((s, i) => {
       const g = bank(s[0]);
       const base = g.yb - g.bw - 0.72 * g.tw;
-      const h = s[1] * (base - YH);
+      const h = base - TOPS[i];
       TREES.push({ i, x: s[0], base, h, top: base - h, cb: base - s[6] * h, cw: s[2] * h, lean: s[3], pa: s[4], pb: s[5], seed: rnd() * 100, iseed: 31 + i * 7, wob: (rnd() - 0.5) * 0.014 * h, phase: rnd() });
     });
   }
@@ -170,24 +185,33 @@
       if (only !== undefined && k !== only) continue;
       const T = WILLOWS[k];
       if (y < T.top || y > T.base + 2 || Math.abs(x - T.x) > T.rx * 1.6 + 10) continue;
-      const n = (R.fbm(x / 26, y / 20, 311 + k, 3) - 0.5) * 0.5;
+      // a weeping willow: a domed head that falls in a curtain of hanging strands, feathery and broken at the edge
+      const below = sstep(T.cy - 0.2 * T.ry, T.cy + 0.9 * T.ry, y);
+      const strand = R.fbm(x / 5.5, y / 70, 331 + k, 3) - 0.5;
+      const n = (R.fbm(x / 22, y / 26, 311 + k, 3) - 0.5) * 0.45 + strand * (0.25 + 0.9 * below);
       let best = -1, lit = 0;
-      const dx0 = (x - T.x) / T.rx, dy0 = (y - T.cy) / T.ry;
+      const dx0 = (x - T.x) / T.rx, dy0 = (y - T.cy) / (T.ry * (y > T.cy ? 1.22 : 1));
       const d0 = 1 - (dx0 * dx0 + dy0 * dy0) + n;
-      if (d0 > best) { best = d0; lit = 0.45 + 0.4 * dx0 - 0.45 * dy0; }
+      let sw = Math.exp(6 * d0), sl = sw * (0.55 + 0.42 * dx0 - 0.5 * dy0);
+      best = d0;
       for (const L of T.lobes) {
-        const lx = (x - (T.x + L.dx)) / L.r, ly = (y - (T.cy + L.dy)) / (L.r * 0.9);
+        const lx = (x - (T.x + L.dx)) / L.r, ly = (y - (T.cy + L.dy)) / (L.r * (y > T.cy + L.dy ? 1.25 : 0.9));
         const d = 1 - (lx * lx + ly * ly) + n * 0.8;
-        if (d > best) { best = d; lit = 0.5 + 0.45 * lx - 0.5 * ly; }
+        if (d > best) best = d;
+        const w = Math.exp(6 * d); sw += w; sl += w * (0.58 + 0.42 * lx - 0.5 * ly); // soft blend: no seams between lobes
       }
-      if (best > 0) {
-        const cl = R.fbm(x / 14, y / 11, 317 + k, 3);
-        let light = clamp(lit + 0.9 * (cl - 0.5) - 0.25 * sstep(0.25, 0.0, best) * (dx0 < 0 ? 1 : 0), 0, 1);
-        light -= 0.3 * sstep(T.cy, T.cy + 0.3 * T.ry, y) * sstep(T.cy - 0.5 * T.ry, T.cy + 0.6 * T.ry, y);
+      lit = sl / sw;
+      // sky through the feathery outer foliage
+      const hole = best < 0.4 && R.fbm(x / 9, y / 16, 337 + k, 2) > 0.62;
+      if (best > 0 && !hole) {
+        const cl = R.fbm(x / 13, y / 17, 317 + k, 3);
+        let light = lit - 0.12 + 0.6 * (cl - 0.5) + 0.35 * strand - 0.2 * below - 0.18 * sstep(0.3, 0.0, best) * (dx0 < 0 ? 1 : 0);
         light = clamp(light, 0, 1);
-        const col = light < 0.5 ? mix3([0.04, 0.1, 0.12], [0.24, 0.36, 0.3], light / 0.5) : mix3([0.24, 0.36, 0.3], [0.72, 0.78, 0.5], (light - 0.5) / 0.5);
-        return { fam: 'foliage', col, lit: light, ang: PI / 2 + 0.6 * dx0 + 0.3 * (R.vnoise(x / 15, y / 15, 7) - 0.5), willow: k, part: 'crown', far: 0.15 };
+        const WS = [0.14, 0.2, 0.36], WM = [0.28, 0.42, 0.32], WL = [0.6, 0.7, 0.32], WH = [0.86, 0.84, 0.44];
+        const col = light < 0.4 ? mix3(WS, WM, light / 0.4) : light < 0.8 ? mix3(WM, WL, (light - 0.4) / 0.4) : mix3(WL, WH, (light - 0.8) / 0.2);
+        return { fam: 'willow', col, lit: light, ang: PI / 2 + 0.12 * dx0 + 0.15 * (R.vnoise(x / 15, y / 15, 7) - 0.5), willow: k, part: 'crown', far: 0.15, droop: 1 };
       }
+      if (best > 0) continue;
       // short thick trunk
       const r = (y - T.cb) / (T.base - T.cb);
       if (r >= 0 && r <= 1) {
@@ -204,8 +228,8 @@
   function willowShadow(x, y) {
     let sh = 0;
     for (const T of WILLOWS) {
-      const dx = (x - (T.x - 0.45 * T.rx)) / (1.25 * T.rx), dy = (y - (T.base - 0.03 * T.h)) / (0.1 * T.h);
-      sh = Math.max(sh, sstep(1.0, 0.5, dx * dx + dy * dy + 0.3 * (R.vnoise(x / 12, y / 8, 321) - 0.5)));
+      const dx = (x - (T.x - 0.45 * T.rx)) / (1.3 * T.rx), dy = (y - (T.base - 0.03 * T.h)) / (0.11 * T.h);
+      sh = Math.max(sh, sstep(1.05, 0.3, dx * dx + dy * dy + 0.35 * (R.vnoise(x / 12, y / 8, 321) - 0.5)));
     }
     return sh;
   }
@@ -327,25 +351,38 @@
     h += 18 * sstep(1430, 1500, x) * sstep(2090, 2020, x); // trees behind the village
     return YH + 3 - h;
   }
-  const HOUSES = [];
-  {
-    const rnd = R.mulberry32(5);
-    let x = 1462;
-    while (x < 2060) {
-      const w = 28 + 34 * rnd();
-      const back = rnd() < 0.4;
-      const gy = 1306 + (back ? -5 : 0) + 3 * rnd();
-      const wh = (back ? 16 : 22) + 14 * rnd();
-      const rh = 12 + 12 * rnd();
-      const wallC = [[0.98, 0.92, 0.8], [0.97, 0.84, 0.72], [0.99, 0.93, 0.7], [0.93, 0.88, 0.84]][(rnd() * 4) | 0];
-      HOUSES.push({ x0: x, x1: x + w, gy, wt: gy - wh, rt: gy - wh - rh, slate: rnd() < 0.3, side: rnd() < 0.7 ? 0.22 + 0.25 * rnd() : 0, tree: rnd() < 0.35, gable: rnd() < 0.35, wallC });
-      x += w * (0.55 + 0.6 * rnd());
-    }
-  }
+  // the village: houses clustered round the church at several depths (nearer = lower on the page and a little larger),
+  // varied in width, height and roof (hipped, gable end on, ridge on), some roofs turned from the sun, garden trees between
   const CH = { x0: 1556, x1: 1668, wt: 1262, rt: 1238, tx0: 1576, tx1: 1610, tt: 1172, st: 1082, gy: 1307 };
-  function villageAt(x, y) {
-    if (x < 1440 || x > 2080 || y < CH.st - 2 || y > 1312) return null;
-    // church tower and spire
+  const VIL = [];
+  {
+    const rnd = R.mulberry32(505);
+    const walls = [[0.98, 0.92, 0.8], [0.96, 0.82, 0.68], [0.99, 0.92, 0.7], [0.92, 0.88, 0.86], [0.94, 0.78, 0.66]];
+    const spread = () => (rnd() + rnd() + rnd() - 1.5) / 1.5; // -1..1, crowded toward 0
+    for (let i = 0; i < 46; i++) {
+      const wide = rnd() < 0.35;
+      let cx = 1630 + spread() * (wide ? 470 : 230);
+      cx = clamp(cx, 1462, 2075);
+      const gy = 1299 + 11 * rnd();
+      const sc = 0.62 + 0.042 * (gy - 1299);
+      if (Math.abs(cx - 1593) < 26 && gy > 1305) continue; // keep the foot of the tower clear
+      const w = (20 + 38 * rnd()) * sc, wh = (10 + 20 * rnd()) * sc * (rnd() < 0.15 ? 1.5 : 1) * (wide ? 0.8 : 1), rh = (7 + 16 * rnd()) * sc;
+      const r = rnd();
+      VIL.push({ kind: 'house', x0: cx - w / 2, x1: cx + w / 2, gy, wt: gy - wh, rt: gy - wh - rh,
+        roof: r < 0.42 ? 'hip' : r < 0.72 ? 'gable' : 'ridge', slate: rnd() < 0.28, roofShade: rnd() < 0.3,
+        side: rnd() < 0.75 ? 0.18 + 0.3 * rnd() : 0, wallC: walls[(rnd() * walls.length) | 0], win: rnd() < 0.6 });
+    }
+    for (let i = 0; i < 18; i++) {
+      const cx = clamp(1630 + spread() * (rnd() < 0.4 ? 480 : 260), 1455, 2080), gy = 1299 + 11 * rnd();
+      if (Math.abs(cx - 1593) < 30) continue;
+      const tall = rnd() < 0.3, r = (tall ? 4.5 + 2 * rnd() : 9 + 9 * rnd()) * (0.75 + 0.03 * (gy - 1299));
+      VIL.push({ kind: 'tree', cx, gy, rx: r, ry: tall ? r * (2.6 + 0.6 * rnd()) : r * (0.95 + 0.25 * rnd()), cy: gy - (tall ? r * 2.5 : r * 0.9), s: rnd() * 40 });
+    }
+    VIL.push({ kind: 'church', gy: CH.gy });
+    VIL.sort((a, b) => b.gy - a.gy); // nearest first
+  }
+  const hazeV = (c) => mix3(c, AIR, 0.05);
+  function churchAt(x, y) {
     if (x >= CH.tx0 - 1 && x <= CH.tx1 + 1 && y >= CH.st && y <= CH.gy) {
       const tc = (CH.tx0 + CH.tx1) / 2, half = (CH.tx1 - CH.tx0) / 2;
       if (y >= CH.tt) {
@@ -361,7 +398,6 @@
         return { fam: 'slate', col, lit, ang: PI / 2, layer: 3, ch: 'vil', fine: 1 };
       }
     }
-    // nave
     if (x >= CH.x0 && x <= CH.x1 && y >= CH.rt && y <= CH.gy) {
       if (y < CH.wt) {
         const f = (y - CH.rt) / (CH.wt - CH.rt);
@@ -369,35 +405,49 @@
       }
       return { fam: 'wall', col: x > CH.x1 - 22 ? [0.68, 0.66, 0.8] : [0.96, 0.9, 0.8], lit: 0.8, ang: 0, layer: 3, ch: 'vil', fine: 1 };
     }
-    for (let i = HOUSES.length - 1; i >= 0; i--) {
-      const h = HOUSES[i];
-      if (x < h.x0 - 1 || x > h.x1 + 1 || y < h.rt || y > h.gy) continue;
-      const w = h.x1 - h.x0, cx = (h.x0 + h.x1) / 2;
-      if (y < h.wt) { // pitched roof seen side-on: a trapezoid
-        const f = (y - h.rt) / (h.wt - h.rt);
-        const half = h.gable ? w * 0.52 * f : w * 0.5 * (0.55 + 0.47 * f);
-        if (Math.abs(x - cx) > half) continue;
-        if (h.gable && x < cx) { // gable end: the shaded slope
-          const col = h.slate ? [0.38, 0.4, 0.58] : [0.62, 0.3, 0.3];
-          return { fam: h.slate ? 'slate' : 'roof', col, lit: 0.3, ang: 0.5, layer: 3, ch: 'vil', fine: 1 };
-        }
-        const col = h.slate ? (f < 0.5 ? [0.6, 0.6, 0.72] : [0.44, 0.45, 0.6]) : (f < 0.5 ? [0.9, 0.5, 0.36] : [0.72, 0.36, 0.3]);
-        return { fam: h.slate ? 'slate' : 'roof', col, lit: f < 0.5 ? 0.8 : 0.4, ang: 0.05, layer: 3, ch: 'vil', fine: 1 };
+    return null;
+  }
+  function houseAt(h, x, y) {
+    const w = h.x1 - h.x0, cx = (h.x0 + h.x1) / 2;
+    if (x < h.x0 - 1 || x > h.x1 + 1 || y < h.rt || y > h.gy) return null;
+    const S = (fam, col, lit, ang) => ({ fam, col: hazeV(col), lit, ang, layer: 3, ch: 'vil', fine: 1 });
+    const tile = h.slate ? [[0.62, 0.62, 0.74], [0.4, 0.42, 0.6]] : [[0.92, 0.52, 0.36], [0.66, 0.32, 0.32]];
+    const rf = h.slate ? 'slate' : 'roof';
+    if (y < h.wt) {
+      const f = (y - h.rt) / (h.wt - h.rt); // 0 ridge .. 1 eaves
+      if (h.roof === 'gable') { // gable end toward us: a wall triangle edged with roof
+        const half = w * 0.5 * f;
+        if (Math.abs(x - cx) > half + 1.6) return null;
+        if (Math.abs(x - cx) > half - 2.2) return S(rf, x < cx ? tile[1] : tile[0], 0.5, x < cx ? -0.7 : 0.7);
+        const shade = x < h.x0 + h.side * w;
+        return S('wall', shade ? [0.58, 0.58, 0.8] : h.wallC, shade ? 0.2 : 0.85, PI / 2);
       }
-      const sideW = h.side * w;
-      const inShade = x < h.x0 + sideW;
-      const col = inShade ? [0.6, 0.6, 0.8] : h.wallC;
-      return { fam: 'wall', col, lit: inShade ? 0.2 : 0.85, ang: PI / 2, layer: 3, ch: 'vil', fine: 1 };
+      const half = h.roof === 'hip' ? w * 0.5 * (0.45 + 0.6 * f) : w * 0.5 * (0.88 + 0.14 * f);
+      if (Math.abs(x - cx) > half) return null;
+      const dark = h.roofShade || (h.roof === 'hip' && x < cx - 0.35 * half * (1 - f) - 0.25 * half);
+      const c = dark ? mix3(tile[1], [0.36, 0.3, 0.52], 0.35) : mix3(tile[0], tile[1], 0.6 * f);
+      return S(rf, c, dark ? 0.25 : 0.75, 0.05);
     }
-    // garden trees among the houses
-    for (const h of HOUSES) {
-      if (!h.tree) continue;
-      const cx = h.x1 - 4, cy = h.gy - 18, r = 15;
-      const dx = (x - cx) / r, dy = (y - cy) / (r * 1.1);
-      if (dx * dx + dy * dy < 1 + 0.3 * (R.vnoise(x / 5, y / 5, 61) - 0.5)) {
-        const lit = clamp(0.5 + 0.5 * dx - 0.4 * dy, 0, 1);
-        return { fam: 'fartree', col: mix3([0.22, 0.3, 0.36], [0.5, 0.6, 0.42], lit), lit, ang: PI / 2, layer: 3, ch: 'vil', fine: 1 };
-      }
+    const shade = x < h.x0 + h.side * w;
+    if (h.win && !shade && y > h.wt + 0.3 * (h.gy - h.wt) && y < h.wt + 0.6 * (h.gy - h.wt) && ((x - h.x0) % 11) > 7.5)
+      return S('slate', [0.36, 0.36, 0.52], 0.2, PI / 2); // a shuttered window
+    return S('wall', shade ? [0.58, 0.58, 0.8] : h.wallC, shade ? 0.2 : 0.85, PI / 2);
+  }
+  function vTreeAt(t, x, y) {
+    const dx = (x - t.cx) / t.rx, dy = (y - t.cy) / t.ry;
+    if (dx * dx + dy * dy > 1 + 0.35 * (R.vnoise(x / 4, y / 4, 61 + t.s) - 0.5)) {
+      // trunk
+      if (Math.abs(x - t.cx) < 1.4 && y > t.cy && y <= t.gy) return { fam: 'trunk', col: [0.3, 0.26, 0.36], lit: 0.3, ang: PI / 2, layer: 3, ch: 'vil', fine: 1 };
+      return null;
+    }
+    const lit = clamp(0.5 + 0.5 * dx - 0.45 * dy + 0.3 * (R.vnoise(x / 5, y / 5, 63) - 0.5), 0, 1);
+    return { fam: 'fartree', col: hazeV(mix3([0.18, 0.26, 0.38], [0.56, 0.64, 0.4], lit)), lit, ang: PI / 2, layer: 3, ch: 'vil', fine: 1 };
+  }
+  function villageAt(x, y) {
+    if (x < 1440 || x > 2100 || y < CH.st - 2 || y > 1312) return null;
+    for (const it of VIL) {
+      const r = it.kind === 'house' ? houseAt(it, x, y) : it.kind === 'tree' ? vTreeAt(it, x, y) : churchAt(x, y);
+      if (r) return r;
     }
     return null;
   }
@@ -460,13 +510,24 @@
   }
   function farBankAt(x, y) {
     const g = bank(x);
-    const yTow = g.yb - g.bw, yVer = yTow - g.tw, yTop = yVer - g.vw;
-    if (y < yTop || y > g.yb + 0.5) return null;
+    const yTow = g.yb - g.bw, yVer = yTow - g.tw, yTop = yVer - g.vw, ye = yEdge(x);
+    if (y < yTop || y > ye + 0.5) return null;
     const sh = treeShadow(x, y);
     let col, lit, fam;
     const n = R.fbm(x / 14, y / 6, 91, 3);
+    // clumps of reeds and rank grass at the water's edge, rising over the bank face
+    const clump = sstep(0.58, 0.72, R.fbm(x / 70, 4.2, 187, 2));
+    const reedH = clump * (5 + 0.12 * g.d) * (0.6 + 0.6 * R.vnoise(x / 6, 1.1, 189));
+    if (reedH > 2 && y > ye - reedH) {
+      const stalk = R.vnoise(x / 2.6, y / 30, 191);
+      const lit2 = clamp(0.25 + 0.6 * stalk + 0.3 * sstep(ye - 0.3 * reedH, ye - reedH, y), 0, 1);
+      let c = mix3([0.12, 0.2, 0.14], [0.66, 0.7, 0.34], lit2);
+      if (R.vnoise(x / 9, 7.7, 193) > 0.72) c = mix3(c, [0.72, 0.56, 0.32], 0.5); // a few dry, ochre blades
+      c = mix3(c, [0.06, 0.12, 0.18], 0.7 * sh);
+      return { fam: lit2 < 0.4 ? 'bank' : 'meadow', col: aerial(c, 0.45 * sstep(260, 30, g.d)), lit: lit2, ang: PI / 2 + 0.25 * (R.vnoise(x / 5, 3.3, 195) - 0.5), layer: 3, ch: 'land' };
+    }
     if (y >= yTow) { // grassy bank sloping to the water, lit from above, darker at its foot
-      const f = (y - yTow) / g.bw;
+      const f = clamp((y - yTow) / Math.max(1, ye - yTow), 0, 1);
       col = mix3([0.5, 0.62, 0.26], [0.14, 0.22, 0.14], sstep(0.3, 1.0, f));
       col = mix3(col, [0.62, 0.48, 0.32], 0.25 * (n > 0.6 ? 1 : 0));
       lit = 0.6 - 0.4 * f; fam = 'bank';
@@ -540,30 +601,33 @@
   }
 
   // haystacks in the meadow on the near side, right
-  const HAY = [
-    { x: 1606, y: 1396, w: 50, h: 44 }, { x: 1712, y: 1436, w: 84, h: 76 }, { x: 1562, y: 1486, w: 104, h: 94 },
+  const HAY = [ // shape: profile power (high = rounded loaf), fullness, lean
+    { x: 1606, y: 1396, w: 50, h: 44, pa: 1.9, pb: 0.5, lean: 0.04 }, { x: 1712, y: 1436, w: 88, h: 70, pa: 3.2, pb: 0.4, lean: -0.05 },
+    { x: 1562, y: 1486, w: 100, h: 100, pa: 1.35, pb: 0.68, lean: 0.06 },
   ];
   function hayAt(x, y) {
     for (let i = HAY.length - 1; i >= 0; i--) {
       const s = HAY[i];
       const v = (s.y - y) / s.h; // 0 ground .. 1 top
       if (v < -0.02 || v > 1.05) continue;
-      const prof = Math.pow(Math.max(0, 1 - Math.pow(Math.max(v, 0), 1.8)), 0.55) * (1 + 0.12 * Math.sin(v * 3.1));
-      const half = 0.5 * s.w * prof * (1 + 0.06 * (R.vnoise(y / 4, i, 97) - 0.5));
-      const u = (x - s.x) / Math.max(half, 0.1);
+      const prof = Math.pow(Math.max(0, 1 - Math.pow(Math.max(v, 0), s.pa)), s.pb) * (1 + 0.12 * Math.sin(v * 3.1));
+      const half = 0.5 * s.w * prof * (1 + 0.08 * (R.vnoise(y / 4, i, 97) - 0.5));
+      const u = (x - s.x - s.lean * s.w * v) / Math.max(half, 0.1);
       if (Math.abs(u) > 1) continue;
       const nz = Math.sqrt(Math.max(0, 1 - u * u));
-      const lit = clamp(0.25 + 0.75 * sstep(-0.35, 0.75, u * 0.9 + 0.35 * v + 0.15 * nz), 0, 1);
-      const col = mix3([0.36, 0.3, 0.55], [1.0, 0.84, 0.42], lit);
-      return withCloudShadow({ fam: 'hay', col, lit, ang: -0.6 * u + PI / 2 * 0.4, layer: 7, ch: 'obj', fine: 3 }, y);
+      // sun from the right and high: a warm lit flank, a cool violet-blue shade flank, the straw in loose streaks
+      const straw = R.fbm(x / 5 + u * 3, y / 14, 99 + i, 3) - 0.5;
+      let lit = clamp(0.18 + 0.82 * sstep(-0.4, 0.7, u * 0.95 + 0.4 * v + 0.12 * nz) + 0.3 * straw - 0.25 * sstep(0.12, 0.0, v), 0, 1);
+      const col = lit < 0.45 ? mix3([0.34, 0.32, 0.6], [0.62, 0.48, 0.52], lit / 0.45) : mix3([0.86, 0.6, 0.34], [1.0, 0.86, 0.44], (lit - 0.45) / 0.55);
+      return withCloudShadow({ fam: lit < 0.42 ? 'hayShade' : 'hay', col, lit, ang: PI / 2 - 1.1 * u * (1 - 0.5 * v), layer: 7, ch: 'obj', fine: 4 }, y);
     }
     return null;
   }
   function hayShadow(x, y) {
     let sh = 0;
     for (const s of HAY) {
-      const dx = (x - (s.x - 0.42 * s.w)) / (0.6 * s.w), dy = (y - (s.y - 0.06 * s.h)) / (0.16 * s.h + 2);
-      sh = Math.max(sh, sstep(1, 0.4, dx * dx + dy * dy));
+      const dx = (x - (s.x - 0.48 * s.w)) / (0.68 * s.w), dy = (y - (s.y - 0.05 * s.h)) / (0.17 * s.h + 2);
+      sh = Math.max(sh, sstep(1.05, 0.35, dx * dx + dy * dy + 0.3 * (R.vnoise(x / 6, y / 5, 341) - 0.5)));
     }
     return sh;
   }
@@ -595,7 +659,7 @@
       const tuft = R.fbm(x / (10 + 30 * d), y / (6 + 20 * d), 107, 3);
       if (tuft < 0.36) { const k = sstep(0.36, 0.22, tuft) * sstep(0.15, 0.5, d); col = mix3(col, [0.1, 0.22, 0.14], 0.7 * k); lit = mix(lit, 0.2, k); }
       // the bank drops to the water: a shadowed lip
-      const e = x - xNB(y);
+      const e = x - xEdge(y);
       const lip = 8 + 70 * d;
       if (e < lip) { const k = sstep(lip, 0, e); col = mix3(col, [0.16, 0.24, 0.16], 0.85 * k); lit = mix(lit, 0.2, k); }
       col = aerial(col, 0.38 * sstep(0.42, 0.03, d));
@@ -609,7 +673,7 @@
       if (fs > 0.5) fam = 'meadowShade';
     }
     const ws = willowShadow(x, y);
-    if (ws > 0) { col = mix3(col, [0.04, 0.1, 0.16], 0.88 * ws); lit = mix(lit, 0.08, ws); if (ws > 0.5) fam = 'meadowShade'; }
+    if (ws > 0) { col = mix3(col, mix3([0.1, 0.18, 0.3], [0.14, 0.26, 0.24], R.fbm(x / 20, y / 12, 323, 2)), 0.78 * ws); lit = mix(lit, 0.12, ws); if (ws > 0.5) fam = 'meadowShade'; }
     const hs = hayShadow(x, y);
     if (hs > 0) { col = mix3(col, [0.14, 0.16, 0.36], 0.85 * hs); lit = mix(lit, 0.1, hs); }
     const out = { fam, col, lit, ang: (d > 0.12 ? PI / 2 : 0) + 0.5 * (R.vnoise(x / 30, y / 30, 109) - 0.5) * sstep(0.1, 0.4, d), layer: 5, ch: 'land' };
@@ -620,7 +684,7 @@
   // wildflowers in the near meadow: poppies, ox-eye daisies, buttercups, a few cornflowers
   function flowerAt(x, y) {
     const d = (y - YH) / (H - YH);
-    if (d < 0.32 || y >= yFB(x) && x < xNB(y) + 30) return null;
+    if (d < 0.32 || y >= yFB(x) && x < xEdge(y) + 30) return null;
     const patch = R.fbm(x / 160, y / 90, 151, 3);
     const n = R.hash2(Math.floor(x / 3), Math.floor(y / 3), 153);
     const dens = sstep(0.5, 0.72, patch) * sstep(0.32, 0.55, d);
@@ -662,7 +726,7 @@
     const fres = 0.9 - 0.32 * sstep(0.05, 1.0, d);
     let col = mix3(body, mul3(refl, 0.92), fres);
     // the dark line under the bank where the reflection of the shaded bank lies
-    const edge = sstep(bankH * 1.6 + 3, 0, depthBelow);
+    const edge = sstep(bankH * 1.6 + 3, 0, y - yEdge(x));
     col = mix3(col, [0.08, 0.14, 0.14], 0.6 * edge);
     // wind ripples nearer to us: horizontal bands whose facets tilt up and catch more of the sky
     const rf = R.fbm(x / 300, y / (7 + 9 * d), 221 + sd, 3), near = sstep(0.2, 0.7, d);
@@ -684,10 +748,10 @@
       if (wd) return wd;
       if (y < YH) return skyAt(x, y);
     }
-    if (y >= yFB(x) && y >= RIVER_TOP) {
+    if (y >= yEdge(x) && y >= RIVER_TOP) {
       const hay = hayAt(x, y);
       if (hay) return hay;
-      if (x >= xNB(y) + 1.5 * (R.vnoise(x / 6, y / 6, 113) - 0.5) * (2 + 10 * (y - YH) / (H - YH)) || noWater) return rightLand(x, y);
+      if (x >= xEdge(y) + 1.5 * (R.vnoise(x / 6, y / 6, 113) - 0.5) * (2 + 6 * (y - YH) / (H - YH)) || noWater) return rightLand(x, y);
       if (!noWater) {
         const f = figureAt(x, y); if (f) return f;
         const b = boatAt(x, y); if (b) return b;
@@ -707,6 +771,7 @@
     if (s.fine === 2) return 2.9;
     if (s.fine === 1) return 3.7;
     if (s.fine === 3) return 4.6;
+    if (s.fine === 4) return 6.2;
     if (y < YH) return mix(11.5, 7.5, sstep(200, YH, y));
     const d = (y - YH) / (H - YH);
     let z = mix(5.2, 17, Math.pow(d, 0.72));
