@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>bake</title></head>
+<body><script src="../js/stilllife.js"></script>
+<script>
+// returns base64 of the latent image: actinic exposure (blue-violet weighted, as the iodized plate sees) and depth
+window.__bake = async (W, H, spp, per, tile, defs, extra) => {
+  const f = await StillLife.bake(W, H, spp, { ...extra, per, tile, defs, progress: (p, n, ms) => console.log(`pass ${p}/${n}`) });
+  // Uint16 pairs: actinic exposure as log2 (range 2^-14 .. 2^4), depth in 0.01 cm. Rows bottom-up, as WebGL reads.
+  const o = new Uint16Array(W * H * 2), N = W * H;
+  for (let i = 0; i < N; i++) {
+    const a = f[i * 4 + 3] || 1, r = f[i * 4] / a, g = f[i * 4 + 1] / a, b = f[i * 4 + 2] / a;
+    const e = Math.max(0.06 * r + 0.27 * g + 0.67 * b, 1e-7);
+    o[i * 2] = Math.round(Math.min(1, Math.max(0, (Math.log2(e) + 14) / 18)) * 65535);
+    o[i * 2 + 1] = Math.min(65535, Math.round(100 * f[N * 4 + i * 4] / (f[N * 4 + i * 4 + 1] || 1)));
+  }
+  const u8 = new Uint8Array(o.buffer); let s = '';
+  for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
+  return btoa(s);
+};
+</script></body></html>

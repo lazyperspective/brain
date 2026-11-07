@@ -1,0 +1,1 @@
+/dev/shm/sm05/photo-data.js
