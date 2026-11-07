@@ -1,0 +1,22 @@
+Clippy Achieves AGI - verification (final build, round 6)
+File: /home/user/brain/clippy-agi-video/clippy-agi-4x3.mp4  (31M)
+Duration: 78.500000 s
+Video: stream|codec_name=h264|profile=High|width=1440|height=1080|pix_fmt=yuv420p|r_frame_rate=30/1|nb_frames=2355
+  x264 preset slow, -tune animation, CRF 15, keyint 60, +faststart
+Audio: stream|codec_name=aac|sample_rate=48000|channels=2|bit_rate=257921
+
+Loudness (ffmpeg ebur128, measured on the final AAC track in the mp4):
+  I:         -16.1 LUFS
+  LRA:        21.5 LU
+  Peak:       -1.5 dBFS
+  target: -16 LUFS integrated, true peak below -1 dBTP -> PASS
+
+Flash check (production/flashcheck.js, WCAG 2.3.1-style general flash test over whole frame + 9 quarter-frame windows):
+  clippy-agi-4x3.mp4: 2355 frames (78.50 s)
+  worst frame-to-frame change of a large-area mean luminance: 0.6507 (q20, t=26.03 s)
+  conservative count (any two >=0.10 transitions within 1 s, either direction): 1 (limit 3) at t=21.10 s (whole)
+  WCAG general flashes (pairs of opposing >=0.10 changes) in any 1 s: 1 (limit 3) at t=21.10 s (whole)
+  FLASH CHECK: PASS
+  note: the single largest step (t=26.03 s) is the spreadsheet's inverted range selection switching on/off once (one transition pair, under the limit).
+
+Determinism: every frame is a pure function of t (seeded hash/mulberry32 PRNG, no Math.random/Date); cues.json and the audio are generated from the same timeline.

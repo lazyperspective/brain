@@ -203,17 +203,16 @@
     // task buttons
     const tasks = o.tasks || [], x0 = 166, avail = tx - 4 - x0;
     if (tasks.length) {
-      const rows = tasks.length > 9 ? 2 : 1;
+      const rows = 1;
       const perRow = Math.ceil(tasks.length / rows);
       const bw = Math.min(160, Math.floor((avail + 3) / perRow) - 3), bh = rows === 2 ? 11 : 22;
       tasks.forEach((tk, i) => {
         const r = Math.floor(i / perRow), c = i % perRow;
         const bx = x0 + c * (bw + 3), by = y + 4 + r * (bh + 0);
-        if (rows === 2) { (tk.active ? pressed : raised)(ctx, bx, by, bw, bh); return; }
         if (tk.active) { pressed(ctx, bx, by, bw, bh, null); dither(ctx, bx + 2, by + 2, bw - 4, bh - 4, C.hi, C.face); } else raised(ctx, bx, by, bw, bh);
         const o2 = tk.active ? 1 : 0;
         if (bw > 26) ICON(ctx, tk.icon, bx + 4 + o2, by + 3 + o2); else ICON(ctx, tk.icon, bx + Math.floor((bw - 16) / 2), by + 3);
-        if (bw > 40) {
+        if (bw > 46) {
           let s = tk.title; const maxw = bw - 28;
           const f = tk.active ? 'uib' : 'ui';
           if (TW(s, f) > maxw) { while (s.length > 1 && TW(s + '...', f) > maxw) s = s.slice(0, -1); s += '...'; }

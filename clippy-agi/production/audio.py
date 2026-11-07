@@ -85,7 +85,7 @@ def mouse_click(seed):
     out = np.zeros(int(0.16 * SR))
     for k, (off, g) in enumerate([(0.0, 1.0), (0.055 + r.random() * 0.02, 0.6)]):
         n = noise(0.03, r) * env_exp(0.03, 0.0016, 0.0002)
-        body = reson(n, 1800 + r.random() * 300, 6) * 0.8 + reson(n, 4200 + r.random() * 500, 9) * 0.6 + hp(n, 6000) * 0.25
+        body = reson(n, 1800 + r.random() * 300, 6) * 0.8 + reson(n, 4200 + r.random() * 500, 9) * 0.6 + lp(hp(n, 6000), 11000) * 0.08
         body += sine(320 + r.random() * 40, 0.03) * env_exp(0.03, 0.004) * 0.25
         i = int(off * SR)
         out[i:i + len(body)] += body * g
@@ -216,6 +216,11 @@ def arrive():
     out[i:i + len(sw)] += sw
     return norm(out, 0.65)
 
+def knock():
+    n = noise(0.08) * env_exp(0.08, 0.004, 0.0002)
+    x = reson(n, 950, 8) * 1.0 + reson(n, 2600, 12) * 0.6 + sine(180, 0.08) * env_exp(0.08, 0.012) * 0.6
+    return norm(x, 0.7)
+
 def tick(seed, f0=5500, d=0.012):
     r = np.random.default_rng(seed)
     n = noise(d, r) * env_exp(d, 0.0012, 0.0001)
@@ -309,7 +314,7 @@ def room_tone(n, end_t):
     spin2 = 0.15 * np.sin(2 * np.pi * np.cumsum(119.7 * spin_f) / SR)
     spin = np.where(t < end_t, spin, spin2)
     whine = np.where(t < end_t, whine, 0)
-    return fan * 0.03 * wind + spin * 0.014 * wind + whine * 0.024
+    return fan * 0.042 * wind + spin * 0.018 * wind + whine * 0.024
 
 # ---------------------------------------------------------------- render cues
 T_FREEZE = T_VANISH = None
@@ -343,7 +348,7 @@ for c in CUES:
     elif s == 'arrive':
         add(sysL, t, arrive(), 0.55 * v, sysbus=True)
     elif s == 'ctick':
-        add(sysL, t, tick(int(t * 1e4), 5200), 0.24 * v, sysbus=True, pan=-0.2)
+        add(sysL, t, tick(int(t * 1e4), 5200), 0.4 * v, sysbus=True, pan=-0.2)
     elif s == 'xtick':
         add(sysL, t, tick(c.get('seed', 0) + 500, 2600, 0.02), 0.36 * v, sysbus=True)
     elif s == 'uiclick':
@@ -360,13 +365,15 @@ for c in CUES:
     elif s == 'send':
         add(sysL, t, send(), 0.55 * v, sysbus=True)
     elif s == 'redeye':
-        add(sysL, t, redeye(), 0.4, sysbus=True)
+        add(sysL, t, redeye(), 0.28, sysbus=True)
+    elif s == 'tap':
+        add(sysL, t, knock(), 0.6 * v, sysbus=False)
     elif s == 'stutter':
         pass
     elif s == 'buzz':
         T_FREEZE, T_VANISH = t, t + c['dur']
     elif s == 'shutdown':
-        add(sysL, t + 0.15, shutdown(), 0.75, sysbus=True)
+        add(sysL, t + 0.15, shutdown(), 0.5, sysbus=True)
         T_BLACK = t
 
 # haywire HDD grind: dense, accelerating seeks
@@ -435,7 +442,7 @@ if T_FREEZE is not None:
         elif s == 'pop': x, g, sysb = pop(), 0.5 * v, True
         elif s == 'boing': x, g, sysb = boing(), 0.45 * v, True
         elif s == 'balloon': x, g, sysb = balloon_pop(), 0.5, True
-        elif s == 'shutdown': x, g, sysb = shutdown(), 0.75, True; t += 0.15
+        elif s == 'shutdown': x, g, sysb = shutdown(), 0.5, True; t += 0.15
         if x is None: continue
         if sysb:
             x = np.convolve(speaker(x), IR)[: len(x) + len(IR) - 1]

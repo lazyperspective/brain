@@ -129,7 +129,7 @@
   cam(2.55, 0.9, 400, 300, 1.0);
   cam(4.0, 1.1, 219, 205, 2.25);
   cam(T_CLIPPY - 0.55, 1.0, 566, 382, 2.0);
-  cam(T_CTYPE - 0.45, 0.95, 236, 214, 2.05);
+  cam(T_YES + 0.2, 1.0, 236, 214, 2.05);
   cam(20.55, 0.9, 400, 300, 1.0);
   cam(T_XLDATA - 0.1, 1.0, 336, 318, 1.54);
   cam(T_TOTAL + 0.1, 0.8, 268, 410, 2.2);
@@ -142,6 +142,7 @@
   cam(T_SEC - 0.1, 0.8, 400, 292, 2.1);
   cam(T_EXC - 0.05, 0.9, 618, 404, 2.55);
   cam(HW - 0.55, 0.65, 400, 300, 1.0);
+  cam(HW + 7 * BEAT + 0.3, T_ANN - 0.4 - (HW + 7 * BEAT + 0.3), 430, 300, 1.2, E.smooth); // slow push-in while the tiles race
   cam(T_ANN - 0.3, 0.7, 560, 408, 2.05);
   cam(T_MAIL - 0.1, 0.75, 392, 268, 1.8);
   cam(T_NOTE - 0.4, 0.7, 404, 270, 1.75);
@@ -297,7 +298,11 @@
       if (t > T_RAISE + 0.6 && t < T_RAISE + 1.6) { mix(CLIPPY.A.hop(t - T_RAISE - 0.6, 8, 0.38)); p.browL = p.browR = 3; p.lookX = -0.3; p.lookY = -0.2; }
     }
     if (t >= T_SEC && t < T_EXC) { p.lookX = -0.7; p.lookY = -0.5; p.browL = 0.5; p.browR = 0.5; }
-    if (t >= T_EXC && t < HW) { p.lookX = -0.15 * sat((t - T_EXC) / 0.3); p.lookY = 0.15; p.smile = sat((t - T_EXC - 0.15) / 0.35); p.browL = p.browR = -0.6 * p.smile; if (t > T_EXC + 0.5 && t < T_EXC + 0.85) mix(CLIPPY.A.hop(t - T_EXC - 0.5, 4, 0.25)); }
+    if (t >= HW - 1.15 && t < HW) { // knocks on the glass, the old attention-getter
+      const u = t - (HW - 1.15), g = E.inOut(sat(u / 0.3)) * (1 - E.inOut(sat((u - 0.8) / 0.3)));
+      const knock = [0.42, 0.62].reduce((a, k) => a + Math.max(0, 1 - Math.abs(u - k) / 0.06), 0);
+      p.s = CLIP.s * (1 + 0.22 * g + 0.035 * knock); p.lean = -0.5 * g; p.lookX = 0; p.lookY = 0.2 * g; p.smile = 0.6; p.browL = p.browR = 1.5 * g; p.blink = 0;
+    } else if (t >= T_EXC && t < HW) { p.lookX = -0.15 * sat((t - T_EXC) / 0.3); p.lookY = 0.15; p.smile = sat((t - T_EXC - 0.15) / 0.35); p.browL = p.browR = -0.6 * p.smile; if (t > T_EXC + 0.5 && t < T_EXC + 0.85) mix(CLIPPY.A.hop(t - T_EXC - 0.5, 4, 0.25)); }
     if (t >= HW && t < T_VANISH) { // haywire: eyes everywhere, same cheerful face
       const k = Math.floor(t * 4); p.lookX = -1 + 2 * hash(k * 3 + 1); p.lookY = -1 + 1.4 * hash(k * 7 + 2); p.browL = 1.5 + hash(k); p.browR = 1.5 + hash(k + 1);
       if (t >= T_ANN && t < T_ANN + 2.8) { p.lookX = -0.2; p.lookY = 0.1; p.browL = p.browR = 2.2; if (t < T_ANN + 0.5) mix(CLIPPY.A.hop(t - T_ANN, 7, 0.3)); }
@@ -334,10 +339,10 @@
     const beatLen = (k) => Math.max(0.3, BEAT * Math.pow(0.9, k));
     let tt = T_SHUFFLE, k = 0, prev = slot;
     while (true) {
-      const bl = beatLen(k); if (tt + bl > t || tt + bl > T_ANN - 0.1) { const u = sat((t - tt) / 0.14); return { slot, prev, u }; }
+      const bl = beatLen(k); if (tt + bl > t || tt + bl > T_ANN - 0.1) { return { slot, prev, u: 1 }; } // instant swap, no teal gaps
       tt += bl; prev = slot;
       // rotate a pair
-      const a = Math.floor(hash(k * 13 + 5) * 8), b = (a + 1 + Math.floor(hash(k * 17 + 3) * 7)) % 8;
+      const a = Math.floor(hash(k * 13 + 5) * 7), b = (a + 1 + Math.floor(hash(k * 17 + 3) * 6)) % 7; // never into the empty slot
       const ia = ORDER.indexOf(id);
       // apply permutation by swapping slots a and b for whoever holds them (track by simulating)
       if (slot === a) slot = b; else if (slot === b) slot = a;
@@ -441,6 +446,9 @@
     cue(T_RAISE + 0.6, 'boing', { v: 0.6 });
     cue(T_SEC, 'chord');
     cue(T_EXC + 0.4, 'balloon');
+    cue(HW - 1.15 + 0.42, 'tap'); cue(HW - 1.15 + 0.62, 'tap', { v: 0.9 });
+    for (let k = 0; k < 9; k++) cue(T_XLDATA + k * 1.1, 'hdd', { dur: 0.5, dens: 0.6 });
+    cue(T_FORM, 'hdd', { dur: 3.0, dens: 0.35 }); cue(T_CHART - 0.4, 'hdd', { dur: 0.8, dens: 0.9 }); cue(T_PAY - 0.2, 'hdd', { dur: 0.6, dens: 0.8 });
     // haywire
     HWIN.forEach((h, i) => { cue(h.in, 'whoosh', { v: 0.6 + i * 0.08, pan: (h.from[0] < 0 ? -0.6 : h.from[0] > 800 ? 0.6 : 0) }); cue(h.in + 0.02, 'hdd', { dur: 0.4, dens: 1.2 }); });
     cue(T_CASCADE, 'snap'); cue(T_TILE, 'snap', { v: 1.1 });
@@ -582,7 +590,7 @@
       const k = sat((t - T_BALLOON1) / 0.12);
       if (k > 0.5) balloon(ctx, { x: 440, y: 268, w: 196, lines: ["It looks like you're writing a", 'resignation letter.', '', 'Would you like some help?'], buttons: ['Yes', 'No'], tail: { x: 650, y: 398 }, down: t >= T_YES - 0.1 ? 0 : -1 }, t);
     }
-    if (t >= T_EXC + 0.4 && t < HW - 0.2) balloon(ctx, { x: 516, y: 338, w: 112, lines: ['Excellent choice.'], tail: { x: 648, y: 396 } }, t);
+    if (t >= T_EXC + 0.4 && t < HW - 1.15) balloon(ctx, { x: 516, y: 338, w: 112, lines: ['Excellent choice.'], tail: { x: 648, y: 396 } }, t);
     if (t >= T_ANN + 0.2 && t < T_ANN + 3.0) balloon(ctx, { x: 428, y: 318, w: 206, lines: ["I've identified 14,892", 'inefficiencies in your company.'], tail: { x: 648, y: 396 } }, t);
     if (t >= T_BALLOON3) balloon(ctx, { x: 466, y: 372, w: 186, lines: ['Would you like help with', 'anything else?'], tail: { x: 656, y: 446 } }, t);
     // ---------- cursor ----------

@@ -86,7 +86,7 @@
     const blink = sat(p.blink || 0);
     if (blink > 0) { ctx.fillStyle = '#c8c8c8'; ctx.fillRect(ex - rx - 1, ey - ry - 1, rx * 2 + 2, (ry * 2 + 2) * blink); ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ex - rx, ey - ry + ry * 2 * blink); ctx.lineTo(ex + rx, ey - ry + ry * 2 * blink); ctx.stroke(); }
     const sm = sat(p.smile || 0);
-    if (sm > 0) { ctx.fillStyle = '#d4d4d4'; ctx.beginPath(); ctx.ellipse(ex, ey + ry * 1.25, rx * 1.3, ry * (0.45 + 0.35 * sm), 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(ex, ey + ry * 1.25, rx * 1.3, ry * (0.45 + 0.35 * sm), 0, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
+    if (sm > 0) { const cy2 = ey + ry * 1.12, rr = ry * (0.25 + 0.6 * sm); ctx.fillStyle = '#9aa1b4'; ctx.beginPath(); ctx.ellipse(ex, cy2, rx * 1.02, rr, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(ex, cy2, rx * 1.02, rr, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke(); }
     ctx.restore();
     ctx.beginPath(); ctx.ellipse(ex, ey, rx, ry, 0, 0, Math.PI * 2); ctx.lineWidth = 1.3; ctx.strokeStyle = '#111'; ctx.stroke();
     if (red > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g2 = ctx.createRadialGradient(px, py, 0, px, py, 12); g2.addColorStop(0, `rgba(255,30,0,${0.35 * red})`); g2.addColorStop(1, 'rgba(255,0,0,0)'); ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
