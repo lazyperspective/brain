@@ -3,7 +3,7 @@
 //   node render.js stills <dir> 0,4.5,13 [half]   PNG frames: full master 2160x2700 (or 1080x1350 with "half")
 //   node render.js video <master.mkv> [workers]   lossless RGB master, 1080x1350 30 fps, one loop; frames are rendered at
 //                                                 2160x2700 and downscaled 2x in linear light on the GPU ([1 3 3 1] kernel)
-//   node render.js encode <master.mkv> <out.mp4>  delivery: H.264 High yuv420p CRF 16, faststart, silent, seam zones
+//   node render.js encode <master.mkv> <out.mp4>  delivery: H.264 High yuv420p CRF 16, faststart, silent, seam ramp
 //   node render.js seam                           render-level seam check (exact frames, before video coding)
 //   node render.js determinism                    the same t rendered twice (and after other frames) is identical
 //   node render.js timing                         ms per frame
@@ -52,15 +52,15 @@ function deliver(master, out, extra) {
   // The ordinary steps are small because neighbouring P-frames share their coding error; the seam pairs the last
   // frame's error with the keyframe's. So the keyframe gets a large bit budget, and over the last RAMP frames the
   // budget rises one frame at a time (bitrate-factor zones keep adaptive quantisation on, so there is no zone
-  // boundary that pulses the texture). With grain tuning's inter deadzone on, P-frames never correct small drift
-  // of the static paint texture, so the deadzones are set to 0: the end of the loop converges on the true frames.
-  const K = +(process.env.RAMP || 150), bmax = +(process.env.BMAX || 12), b0 = +(process.env.B0 || 12);
+  // boundary that pulses the texture). With an inter deadzone (and with -tune grain) P-frames never correct small
+  // drift of the static paint texture, so no tune and deadzones 0: the end of the loop converges on the true frames.
+  const K = +(process.env.RAMP || 240), bmax = +(process.env.BMAX || 40), b0 = +(process.env.B0 || 40);
   const zl = [`0,0,b=${b0}`];
   for (let i = 0; i < K; i++) zl.push(`${n - K + i},${n - K + i},b=${Math.pow(bmax, (i + 1) / K).toFixed(3)}`);
   const zones = process.env.ZONES || 'zones=' + zl.join('/');
   extra = ['deadzone-inter=0:deadzone-intra=0', extra].filter(Boolean).join(':');
   const args = ['-loglevel', 'error', '-y', '-i', master, '-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
-    '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', ...(process.env.TUNE === 'none' ? [] : ['-tune', process.env.TUNE || 'grain']), '-crf', String(process.env.CRF || 16),
+    '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', ...(process.env.TUNE ? ['-tune', process.env.TUNE] : []), '-crf', String(process.env.CRF || 16),
     '-x264-params', `keyint=${n}:min-keyint=${n}:scenecut=0:${zones}${extra ? ':' + extra : ''}`,
     '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
     '-r', String(FPS), '-movflags', '+faststart', '-an', out];
