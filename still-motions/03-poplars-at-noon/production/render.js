@@ -45,18 +45,27 @@ function encoder(out, nframes, w, h) {
   return spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${w}x${h}`, '-r', String(FPS), '-i', '-',
     '-c:v', 'libx264rgb', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'rgb24', '-r', String(FPS), '-an', '-frames:v', String(nframes), out], { stdio: ['pipe', 'inherit', 'inherit'] });
 }
-// delivery encode: H.264 High, yuv420p, CRF 16, one GOP (one keyframe, frame 0); x264 zones bring the last frames up
-// to the keyframe's quality so the step from the last frame back to the first is an ordinary step
+// delivery encode: H.264 High, yuv420p, CRF 16, one GOP (one keyframe, frame 0); x264 zones (after ink-courtyard) bring
+// the last frames up to the keyframe's quality so the step from the last frame back to the first is an ordinary step
 function deliver(master, out, extra) {
   const n = +require('child_process').execFileSync('ffprobe', ['-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', master]).toString().trim();
-  const zones = process.env.ZONES || `zones=0,0,q=${process.env.Q0 || 8}/${n - 40},${n - 25},q=15/${n - 24},${n - 13},q=13/${n - 12},${n - 7},q=11/${n - 6},${n - 1},q=${process.env.QEND || 9}`;
+  // The ordinary steps are small because neighbouring P-frames share their coding error; the seam pairs the last
+  // frame's error with the keyframe's. So the keyframe gets a large bit budget, and over the last RAMP frames the
+  // budget rises one frame at a time (bitrate-factor zones keep adaptive quantisation on, so there is no zone
+  // boundary that pulses the texture). With grain tuning's inter deadzone on, P-frames never correct small drift
+  // of the static paint texture, so the deadzones are set to 0: the end of the loop converges on the true frames.
+  const K = +(process.env.RAMP || 150), bmax = +(process.env.BMAX || 12), b0 = +(process.env.B0 || 12);
+  const zl = [`0,0,b=${b0}`];
+  for (let i = 0; i < K; i++) zl.push(`${n - K + i},${n - K + i},b=${Math.pow(bmax, (i + 1) / K).toFixed(3)}`);
+  const zones = process.env.ZONES || 'zones=' + zl.join('/');
+  extra = ['deadzone-inter=0:deadzone-intra=0', extra].filter(Boolean).join(':');
   const args = ['-loglevel', 'error', '-y', '-i', master, '-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
-    '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-tune', 'grain', '-crf', String(process.env.CRF || 16),
+    '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', ...(process.env.TUNE === 'none' ? [] : ['-tune', process.env.TUNE || 'grain']), '-crf', String(process.env.CRF || 16),
     '-x264-params', `keyint=${n}:min-keyint=${n}:scenecut=0:${zones}${extra ? ':' + extra : ''}`,
     '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
     '-r', String(FPS), '-movflags', '+faststart', '-an', out];
   require('child_process').execFileSync('ffmpeg', args, { stdio: 'inherit' });
-  console.log('encoded', out, `(${n} frames, ${zones}${extra ? ', ' + extra : ''})`);
+  console.log('encoded', out, `(${n} frames; keyframe bit factor ${b0}, last ${K} frames ramped to ${bmax}; CRF ${process.env.CRF || 16}; ${extra})`);
 }
 const stat = (a, b) => { let s = 0, n4 = 0; for (let i = 0; i < a.length; i += 4) { const d = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])); s += d; if (d >= 4) n4++; } return [s / (a.length / 4), n4 / (a.length / 4)]; };
 
