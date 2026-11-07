@@ -31,7 +31,7 @@
     sat: 120, // phosphor saturation level
     halo: [0.26, 0.15, 0.09, 0.05, 0.022, 0.012], // glow pyramid weights (levels 1..6)
     glareFrom: 4, // levels >= this spill outside the glass (camera glare)
-    tailA: 1.0, tailL: 0.05, headA: 6.0, headL: 0.0028,
+    tailA: 1.0, tailL: 0.05, headA: 2.6, headW: 0.0045, headRise: 0.007,
     phos: [0.17, 1.0, 0.36],
     ringT: 4.0, ringK: 0.3,
   };
@@ -235,10 +235,13 @@
     const sig0 = P.sigma * sc;
     const knorm = Math.sqrt(TAU) * sig0 * P.expo;
     for (let i = 0; i < tr.n; i++) {
-      let a = uh - tr.u[i]; if (a < 0) a += 1;
-      // the head and its fresh tail show where the beam lingers; where it races (fills, retraces) they are faint
+      // signed path-time from the head: > 0 behind it (already drawn), < 0 ahead
+      let a = uh - tr.u[i]; a -= Math.round(a);
+      // the head and its fresh tail show where the beam lingers; where it races (fills, retraces) they are faint.
+      // Seen through the camera the head is a soft glow that swells and fades over a few frames, never a hard front.
       const cm = smooth(0.06, 0.45, tr.ds[i]);
-      const comet = cm * (P.tailA * Math.exp(-a / P.tailL) + P.headA * Math.exp(-a / P.headL) * (a < 0.5 ? 1 : 0));
+      const rise = smooth(-P.headRise, P.headRise, a);
+      const comet = cm * (P.tailA * rise * Math.exp(-Math.max(0, a) / P.tailL) + P.headA * Math.exp(-(a * a) / (P.headW * P.headW)));
       const e = tr.es[i] * (1 + comet) * knorm;
       const x = tr.xs[i], y = tr.ys[i];
       const dx = x - cx, dy = y - cy, rho2 = (dx * dx + dy * dy) / (Rr * Rr);

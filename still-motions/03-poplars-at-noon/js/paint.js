@@ -50,6 +50,7 @@
     trunk: { local: ['VIO', 'RB', 'UMV'], light: ['OR', 'CY'], shade: ['UM', 'DG'], refl: ['EM'], comp: ['OR'], r: [0.6, 0.15, 0.15, 0.05, 0.05] },
     towpath: { local: ['OR', 'CY', 'ROSE', 'W'], light: ['CYL', 'W', 'CY'], shade: ['VIO', 'COB', 'UM'], refl: ['EM', 'CER'], comp: ['CER', 'VIO'], r: [0.64, 0.14, 0.1, 0.05, 0.07] },
     towpathShade: { local: ['VIO', 'COB', 'UM', 'UMV', 'CER'], light: ['OR', 'ROSE'], shade: ['UMV', 'UM'], refl: ['EM', 'VIR'], comp: ['OR', 'CY'], r: [0.66, 0.08, 0.12, 0.06, 0.08] },
+    meadowShade: { local: ['DG', 'VIR', 'UM', 'UMV', 'EM', 'COB'], light: ['EM', 'YG'], shade: ['UMV', 'UM', 'VIO'], refl: ['CER', 'COB'], comp: ['OR', 'RB', 'VER', 'ROSE'], r: [0.6, 0.08, 0.14, 0.08, 0.1] },
     bank: { local: ['EM', 'VIR', 'RB', 'OR', 'YG'], light: ['CY', 'YG'], shade: ['UM', 'VIO', 'DG'], refl: ['CER'], comp: ['ROSE', 'OR'], r: [0.66, 0.1, 0.13, 0.04, 0.07] },
     wall: { local: ['W', 'ROSE', 'OR', 'CY', 'CER', 'VIO', 'COB'], light: ['CYL', 'W', 'OR'], shade: ['VIO', 'COB', 'CER'], refl: ['EM'], comp: ['CER', 'OR'], r: [0.72, 0.1, 0.12, 0.02, 0.04] },
     roof: { local: ['VER', 'OR', 'ROSE'], light: ['CY'], shade: ['VIO', 'UMV'], refl: ['RB'], comp: ['CER', 'COB'], r: [0.74, 0.08, 0.1, 0.03, 0.05] },
@@ -195,15 +196,15 @@
 
     // 1. underpainting: broad thin strokes of a darker local tone so gaps between dabs never read as bare white
     const under = L(0);
-    for (let y = 0; y < H; y += 26) for (let x = 0; x < W; x += 26) {
-      const px = x + rng() * 26, py = y + rng() * 26;
+    for (let y = 0; y < H; y += 20) for (let x = 0; x < W; x += 20) {
+      const px = x + rng() * 20, py = y + rng() * 20;
       if (S.insideCrownBy(px, py) > 30) continue;
       const s = S.sceneAt(px, py);
       const c = lin3(s.col);
       const k = 0.55 + 0.35 * sstep(0.15, 0.7, S.lum(s.col));
       const big = py < YH ? 1 : 0.6 + 0.6 * (py - YH) / (H - YH);
       under.push({ x: px, y: py, len: 64 * big, wid: 26 * big, ang: (s.water ? 0 : py < YH ? (rng() < 0.5 ? -0.6 : 0.6) : 0.15 * (rng() - 0.5)), hamp: 0.6, seed: rng(), type: 5,
-        c0: [c[0] * k, c[1] * k, c[2] * k], alpha: 0.9 });
+        c0: [c[0] * k, c[1] * k, c[2] * k], alpha: 0.94 });
     }
 
     // 2. the scene's own dabs (everything but the poplars)
@@ -229,6 +230,23 @@
     // 3. second coat: sparser touches laid over the first, mostly accents of light and contrast
     const pts2 = scatter(rng, 0, 0, W, H, (x, y) => { const s = sample(x, y); if (s) s.sp *= 2.4; return s; }, 1.6);
     for (const s of pts2) { const d = dabFromSample(rng, s, 1.15); d.len *= 0.85; d.wid *= 0.85; slot(d, s, 1).push(d); }
+
+    // 3b. wildflowers, single touches of pure pigment on the near meadow
+    const fl = L(5);
+    const fpts = scatter(rng, S.B, S.YH + 300, W - S.B, H - S.B, (x, y) => {
+      const f = S.flowerAt(x, y);
+      if (!f) return null;
+      f.sp = 9 + 6 * (y - S.YH) / (H - S.YH);
+      return f;
+    }, 1.0);
+    for (const f of fpts) {
+      const z = (4 + 7 * (f.y - S.YH) / (H - S.YH)) * (0.8 + 0.4 * rng());
+      const list = ENTRIES[f.p];
+      const e = list[Math.min(list.length - 1, Math.round(rng() * 2 + (f.p === 'W' || f.p === 'CYL' ? 0 : 0)))];
+      let c = e.lin;
+      if (f.shade > 0.3) { if (rng() < 0.6) continue; c = c.map((v) => v * (0.12 + 0.2 * (1 - f.shade))); }
+      fl.push({ x: f.x, y: f.y, len: z * 1.05, wid: z * 0.95, ang: rng() * 3, hamp: 0.45 * z, seed: rng(), type: 0, c0: c, alpha: 1 });
+    }
 
     // 4. the poplars, far to near; each tree sways as one
     for (let k = S.TREES.length - 1; k >= 0; k--) {

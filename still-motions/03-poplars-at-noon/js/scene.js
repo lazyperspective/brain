@@ -337,7 +337,8 @@
       const gy = 1306 + (back ? -5 : 0) + 3 * rnd();
       const wh = (back ? 16 : 22) + 14 * rnd();
       const rh = 12 + 12 * rnd();
-      HOUSES.push({ x0: x, x1: x + w, gy, wt: gy - wh, rt: gy - wh - rh, slate: rnd() < 0.3, side: rnd() < 0.5 ? 0.25 + 0.2 * rnd() : 0, tree: rnd() < 0.35 });
+      const wallC = [[0.98, 0.92, 0.8], [0.97, 0.84, 0.72], [0.99, 0.93, 0.7], [0.93, 0.88, 0.84]][(rnd() * 4) | 0];
+      HOUSES.push({ x0: x, x1: x + w, gy, wt: gy - wh, rt: gy - wh - rh, slate: rnd() < 0.3, side: rnd() < 0.7 ? 0.22 + 0.25 * rnd() : 0, tree: rnd() < 0.35, gable: rnd() < 0.35, wallC });
       x += w * (0.55 + 0.6 * rnd());
     }
   }
@@ -374,14 +375,18 @@
       const w = h.x1 - h.x0, cx = (h.x0 + h.x1) / 2;
       if (y < h.wt) { // pitched roof seen side-on: a trapezoid
         const f = (y - h.rt) / (h.wt - h.rt);
-        const half = w * 0.5 * (0.55 + 0.47 * f);
+        const half = h.gable ? w * 0.52 * f : w * 0.5 * (0.55 + 0.47 * f);
         if (Math.abs(x - cx) > half) continue;
+        if (h.gable && x < cx) { // gable end: the shaded slope
+          const col = h.slate ? [0.38, 0.4, 0.58] : [0.62, 0.3, 0.3];
+          return { fam: h.slate ? 'slate' : 'roof', col, lit: 0.3, ang: 0.5, layer: 3, ch: 'vil', fine: 1 };
+        }
         const col = h.slate ? (f < 0.5 ? [0.6, 0.6, 0.72] : [0.44, 0.45, 0.6]) : (f < 0.5 ? [0.9, 0.5, 0.36] : [0.72, 0.36, 0.3]);
         return { fam: h.slate ? 'slate' : 'roof', col, lit: f < 0.5 ? 0.8 : 0.4, ang: 0.05, layer: 3, ch: 'vil', fine: 1 };
       }
       const sideW = h.side * w;
       const inShade = x < h.x0 + sideW;
-      const col = inShade ? [0.66, 0.64, 0.78] : [0.97, 0.9, 0.8];
+      const col = inShade ? [0.6, 0.6, 0.8] : h.wallC;
       return { fam: 'wall', col, lit: inShade ? 0.2 : 0.85, ang: PI / 2, layer: 3, ch: 'vil', fine: 1 };
     }
     // garden trees among the houses
@@ -425,6 +430,14 @@
   function shadowOf(col) { // the same ground under a passing cloud: lower, cooler, bluer
     return [col[0] * 0.66, col[1] * 0.72, col[2] * 0.86 + 0.06];
   }
+  // cloud shadows sweep the far land; their effect fades out toward the middle distance (no hard line)
+  const CS_FULL = YH + 140, CS_END = YH + 330;
+  function withCloudShadow(o, y) {
+    if (y >= CS_END) return o;
+    o.shadowable = 1;
+    o.col2 = mix3(o.col, shadowOf(o.col), sstep(CS_END, CS_FULL, y));
+    return o;
+  }
   function landBeyond(x, y) { // between the horizon and the far bank strip
     const d = (y - YH) / (H - YH);
     const ff = farFields(x, y, d);
@@ -443,9 +456,7 @@
     }
     const sh = treeShadow(x, y);
     if (sh > 0) { col = mix3(col, [0.12, 0.16, 0.3], sh * 0.75); lit = mix(lit, 0.15, sh); }
-    const out = { fam: 'field', col, lit, ang: 0.08 * (R.vnoise(x / 40, y / 40, 5) - 0.5), layer: 2, ch: 'land' };
-    if (y < YH + 135) { out.shadowable = 1; out.col2 = shadowOf(col); }
-    return out;
+    return withCloudShadow({ fam: 'field', col, lit, ang: 0.08 * (R.vnoise(x / 40, y / 40, 5) - 0.5), layer: 2, ch: 'land' }, y);
   }
   function farBankAt(x, y) {
     const g = bank(x);
@@ -544,7 +555,7 @@
       const nz = Math.sqrt(Math.max(0, 1 - u * u));
       const lit = clamp(0.25 + 0.75 * sstep(-0.35, 0.75, u * 0.9 + 0.35 * v + 0.15 * nz), 0, 1);
       const col = mix3([0.36, 0.3, 0.55], [1.0, 0.84, 0.42], lit);
-      return { fam: 'hay', col, lit, ang: -0.6 * u + PI / 2 * 0.4, layer: 7, ch: 'obj', fine: 3 };
+      return withCloudShadow({ fam: 'hay', col, lit, ang: -0.6 * u + PI / 2 * 0.4, layer: 7, ch: 'obj', fine: 3 }, y);
     }
     return null;
   }
@@ -568,6 +579,7 @@
   function rightLand(x, y) {
     const d = (y - YH) / (H - YH);
     let col, lit = 0.85, fam = 'meadow';
+    const out0 = {};
     if (y < YH + 135) {
       const ff = farFields(x, y, d);
       col = ff.col; lit = ff.lit; fam = 'field';
@@ -589,15 +601,34 @@
       col = aerial(col, 0.38 * sstep(0.42, 0.03, d));
     }
     const fs = foreShadow(x, y);
-    if (fs > 0) { col = mix3(col, [0.04, 0.12, 0.12], 0.86 * fs); lit = mix(lit, 0.08, fs); }
+    if (fs > 0) {
+      // shade under trees behind us: deep but alive, tufts catching sky light, darker hollows
+      const t2 = R.fbm(x / 26, y / 15, 141, 3), t3 = R.vnoise(x / 90, y / 50, 143);
+      const sc = mix3([0.03, 0.08, 0.14], [0.1, 0.24, 0.2], sstep(0.35, 0.7, t2));
+      col = mix3(col, mix3(sc, [0.08, 0.1, 0.22], 0.4 * t3), 0.88 * fs); lit = mix(lit, 0.06 + 0.2 * t2, fs);
+      if (fs > 0.5) fam = 'meadowShade';
+    }
     const ws = willowShadow(x, y);
-    if (ws > 0) { col = mix3(col, [0.04, 0.1, 0.14], 0.88 * ws); lit = mix(lit, 0.08, ws); }
+    if (ws > 0) { col = mix3(col, [0.04, 0.1, 0.16], 0.88 * ws); lit = mix(lit, 0.08, ws); if (ws > 0.5) fam = 'meadowShade'; }
     const hs = hayShadow(x, y);
     if (hs > 0) { col = mix3(col, [0.14, 0.16, 0.36], 0.85 * hs); lit = mix(lit, 0.1, hs); }
     const out = { fam, col, lit, ang: (d > 0.12 ? PI / 2 : 0) + 0.5 * (R.vnoise(x / 30, y / 30, 109) - 0.5) * sstep(0.1, 0.4, d), layer: 5, ch: 'land' };
-    if (y < YH + 135) { out.shadowable = 1; out.col2 = shadowOf(col); }
     if (d > 0.3) out.grass = 1;
-    return out;
+    return withCloudShadow(out, y);
+  }
+
+  // wildflowers in the near meadow: poppies, ox-eye daisies, buttercups, a few cornflowers
+  function flowerAt(x, y) {
+    const d = (y - YH) / (H - YH);
+    if (d < 0.32 || y >= yFB(x) && x < xNB(y) + 30) return null;
+    const patch = R.fbm(x / 160, y / 90, 151, 3);
+    const n = R.hash2(Math.floor(x / 3), Math.floor(y / 3), 153);
+    const dens = sstep(0.5, 0.72, patch) * sstep(0.32, 0.55, d);
+    if (n > 0.5 * dens) return null;
+    const kind = R.fbm(x / 70, y / 50, 157, 2);
+    const shade = Math.max(foreShadow(x, y), willowShadow(x, y));
+    const p = kind < 0.42 ? 'VER' : kind < 0.55 ? 'OR' : kind < 0.72 ? 'W' : kind < 0.88 ? 'CYL' : 'COB';
+    return { p, shade };
   }
 
   // ---------- water --------------------------------------------------------------------------------------------
@@ -678,5 +709,5 @@
     return z;
   }
 
-  G.SCENE = { W, H, B, YH, sceneAt, waterAt, poplarAt, willowAt, WILLOWS, insideCrownBy, TREES, CLOUDS, yFB, xNB, bank, dabSize, treeFar, crownGeom, FIG, BOAT, HAY, sstep, clamp, mix, mix3, lum, aerial };
+  G.SCENE = { W, H, B, YH, sceneAt, flowerAt, waterAt, poplarAt, willowAt, WILLOWS, insideCrownBy, TREES, CLOUDS, yFB, xNB, bank, dabSize, treeFar, crownGeom, FIG, BOAT, HAY, sstep, clamp, mix, mix3, lum, aerial };
 })(window);

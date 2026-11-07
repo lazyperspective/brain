@@ -140,8 +140,11 @@
     const mean = sum / (W * H);
     for (let k = 0; k < W * H; k++) { this.wdev[k] = (this.h[k] - mean) / amp; this.tooth[k] = clamp(this.wdev[k] * 1.6, -1, 1); }
     // pigment / film grain: lightly blurred white noise in [-1,1]
-    const g = this.grain, r = this.rng;
+    // grain has its own generator; the main one advances by the master's pixel count, so the composition is
+    // identical at any build resolution
+    const g = this.grain, r = mulberry32(77031);
     for (let k = 0; k < W * H; k++) g[k] = r() * 2 - 1;
+    for (let k = 0; k < 2160 * 2700; k++) this.rng();
     this.blur(g, 1, 1);
     let m = 0; for (let k = 0; k < W * H; k += 7) m += g[k] * g[k];
     m = Math.sqrt(m / (W * H / 7)); for (let k = 0; k < W * H; k++) g[k] = clamp(g[k] / (2.2 * m), -1, 1);
@@ -207,7 +210,7 @@
         const k = y * W + x;
         // ragged shoulders and ends
         const sh = 1 - sm(1 - edgeR - 0.25 * soft, 1 + 0.06 * tab(v > 0 ? e1 : e2, u * 1.3 + eo), av + 0.05 * tab(fl, u * 2 + eo));
-        const endN = 0.03 * tab(e1, v * 0.9 + eo);
+        const endN = 0.05 * tab(e1, v * 0.9 + eo) + 0.015 * tab(fl, v * 2.5 + eo);
         const st = sm(-0.02, 0.07, un + endN - 0.03 * av * av), en = sm(1.02, 0.86, un - endN + 0.07 * av * av);
         const br = tab(bt, v * bs * 0.6 + boff + u * 0.004) * (0.62 + 0.38 * (0.5 + 0.5 * VN(NB, u / 38 + boff, v / 2.6)));
         const load = load0 * (1 - decay * un * un);
@@ -286,7 +289,7 @@
         if (av > hwl + rw) continue;
         const k = y * W + x, k3 = k * 3, h0 = h[k];
         // ragged start and end lines
-        const st0 = 0.03 + slant0 * vn + 0.03 * (0.5 + 0.5 * tab(e2, v * 0.5 + eo + 900)) + 0.008 * tab(fl, v * 2.2 + eo + 400);
+        const st0 = 0.04 + slant0 * vn + 0.05 * (0.5 + 0.5 * tab(e2, v * 0.5 + eo + 900)) + 0.018 * tab(fl, v * 1.4 + eo + 400);
         const end0 = 0.95 + slant1 * vn + 0.04 * tab(e1, v * 0.6 + eo + 1700) + 0.01 * tab(fl, v * 3 + eo);
         const inStart = sm(st0 - 0.012, st0 + 0.012, un);
         if (inStart <= 0 || un > end0 + 0.05) continue;
@@ -457,7 +460,7 @@
     const DH = p.DH; // 2700
 
     // fields (design units) with irregular, softly wandering edges
-    const wob = (x, y, a, sd) => a * (0.65 * fbm(N1, x / 380 + sd, y / 380, 2, 2.1, 0.5) + 0.35 * fbm(N2, x / 90, y / 90 + sd, 2, 2.2, 0.5)) + 2.2 * vn(N2, x / 22 + sd, y / 22);
+    const wob = (x, y, a, sd) => a * (0.6 * fbm(N1, x / 380 + sd, y / 380, 2, 2.1, 0.5) + 0.4 * fbm(N2, x / 90, y / 90 + sd, 2, 2.2, 0.5)) + 0.3 * a * vn(N1, x / 34 + sd, y / 34 + 9) + 2.2 * vn(N2, x / 22 + sd, y / 22);
     const RED = p.makeField((x, y) => rrect(x, y, 152, 150, 2010, 1290, 46) + wob(x, y, 22, 3.1));
     const EMB_Y = (x) => 1398 + 6 * Math.sin(clamp((x - 200) / 1760, 0, 1) * 3.1 + 0.4);
     const EMB_H = (x) => 57 * (0.6 + 0.4 * Math.pow(Math.sin(Math.PI * clamp((x - 200) / 1760, 0, 1)), 0.45));

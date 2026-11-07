@@ -36,8 +36,9 @@ void main(){
     ang += 0.6*dx/iP.y;
     if (type > 5.5) thin = 1.0;
   } else if (type > 2.5 && type < 3.5) {     // far fields under a drifting cloud shadow
-    float u = pos.x/2160.0 - uPh;
-    float yy = (pos.y - 1290.0)/45.0;
+    float dz = max(pos.y - 1290.0, 0.0);
+    float u = (pos.x - 1080.0)/(2160.0*(1.0 + dz/420.0)) - uPh;   // nearer ground: shadows broader, a little faster
+    float yy = dz/(40.0*(1.0 + dz/110.0));                        // depth, compressed toward the horizon
     float f = 0.55*cos(TAU*u + 0.35*yy + 1.0) + 0.3*cos(TAU*2.0*u - 0.6*yy + 2.3) + 0.17*cos(TAU*3.0*u + 0.9*yy + 4.1) + 0.09*cos(TAU*5.0*u - yy + 0.7);
     float m = smoothstep(0.18 + iP.x - 0.16, 0.18 + iP.x + 0.16, f);
     col = mix(iC0.rgb, iC1.rgb, m);
