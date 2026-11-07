@@ -14,10 +14,16 @@ const FPS = 30;
 
 async function openPage(browser) {
   const page = await (await browser.newContext({ viewport: { width: 540, height: 675 }, deviceScaleFactor: 1 })).newPage();
-  page.on('pageerror', (e) => console.error('[pageerror]', e.message));
+  let err = null;
+  page.on('pageerror', (e) => { console.error('[pageerror]', e.message); err = err || e; });
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.error('[console]', m.text()); });
   await page.goto(PAGE);
-  await page.waitForFunction(() => window.__piece && window.__piece.isReady(), null, { timeout: 600000, polling: 250 });
+  const t0 = Date.now();
+  while (!(await page.evaluate(() => !!(window.__piece && window.__piece.isReady())))) {
+    if (err) throw new Error('page failed: ' + err.message);
+    if (Date.now() - t0 > 600000) throw new Error('page not ready after 10 min');
+    await new Promise((r) => setTimeout(r, 250));
+  }
   return page;
 }
 const grab = async (page, t, half, scale, crop) => {

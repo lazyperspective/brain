@@ -11,7 +11,8 @@ in vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
 
   const FS_SCENE = `#version 300 es
 precision highp float;
-uniform sampler2D tH, tG, tA, tM;
+uniform sampler2D tH, tG, tA, tM, tZ0, tZ1;
+uniform float uHzI, uHzF, uElD, uHzMax;   // horizon bracket index + fraction, light elevation (deg)
 uniform vec2 uMap, uRes;
 uniform vec3 uL, uKey, uAmb;
 uniform float uHS, uS, uExp;
@@ -35,19 +36,12 @@ void main(){
   alb *= vec3(1.0 - uBr.w * m.g, 1.0, 1.0 + uBr.w * m.g);
   alb *= 1.0 + uEm * m.b * vec3(1.0, 0.85, 0.5);
   float ao = g.z, gloss = g.w;
-  float h0 = texture(tH, uv).r;
-  // soft height-field shadow toward the light
-  vec2 d2 = normalize(uL.xy);
-  float tanEl = uL.z / length(uL.xy);
-  float sh = 1.0;
-  for (int i = 1; i <= 24; i++) {
-    float d = 0.55 * pow(float(i), 1.45);
-    vec2 q = uv + d2 * d * uS / uMap;
-    float hq = texture(tH, q).r;
-    float ray = h0 + d * tanEl / uHS;
-    float w = 0.05 * d + 0.12;
-    sh = min(sh, smoothstep(-w, w, (ray - hq) * uHS));
-  }
+  // soft height-field shadow from the precomputed horizon (interpolated between the two nearest light azimuths)
+  vec4 z0 = texture(tZ0, uv), z1 = texture(tZ1, uv);
+  float hz[6] = float[6](z0.r, z0.g, z0.b, z0.a, z1.r, z1.g);
+  int i0 = int(uHzI);
+  float hzA = mix(hz[i0], hz[min(i0 + 1, 5)], uHzF) * uHzMax;
+  float sh = smoothstep(hzA - 1.6, hzA + 2.4, uElD);
   vec3 L = normalize(uL);
   float ndl = max(dot(n, L), 0.0);
   // a broad, soft fall-off of the window light across the canvas
@@ -135,6 +129,9 @@ void main(){
     this.tG = tex(gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, toHalf(maps.grad), gl.LINEAR);
     this.tA = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, maps.albedo, gl.LINEAR);
     this.tM = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, maps.masks, gl.LINEAR);
+    const n4 = maps.W * maps.H * 4;
+    this.tZ0 = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, maps.hz.subarray(0, n4), gl.LINEAR);
+    this.tZ1 = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, maps.hz.subarray(n4, 2 * n4), gl.LINEAR);
     this.fbo = {};
   }
   Renderer.prototype.target = function (key, w, h, ifmt, fmt, type) {
@@ -157,12 +154,18 @@ void main(){
     gl.bindFramebuffer(gl.FRAMEBUFFER, S.f); gl.viewport(0, 0, sw, shh);
     gl.useProgram(this.pScene);
     const u = (n) => gl.getUniformLocation(this.pScene, n);
-    [['tH', this.tH], ['tG', this.tG], ['tA', this.tA], ['tM', this.tM]].forEach(([n, t], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(u(n), i); });
+    [['tH', this.tH], ['tG', this.tG], ['tA', this.tA], ['tM', this.tM], ['tZ0', this.tZ0], ['tZ1', this.tZ1]].forEach(([n, t], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(u(n), i); });
     gl.uniform2f(u('uMap'), m.W, m.H); gl.uniform2f(u('uRes'), sw, shh);
     gl.uniform3fv(u('uL'), P.L); gl.uniform3fv(u('uKey'), P.key); gl.uniform3fv(u('uAmb'), P.amb);
     gl.uniform1f(u('uHS'), P.hs); gl.uniform1f(u('uS'), m.s); gl.uniform1f(u('uExp'), P.exp);
     gl.uniform4fv(u('uBr'), P.br); gl.uniform1f(u('uEm'), P.em);
     gl.uniform3fv(u('uWin'), P.win); gl.uniform2fv(u('uWinC'), P.winC);
+    // light azimuth (deg, image coords) -> bracket in the horizon table
+    const az = Math.atan2(P.L[1], P.L[0]) * 180 / Math.PI, azs = m.hzAz, aw = ((az % 360) + 360) % 360;
+    let fi = (aw - azs[0]) / (azs[1] - azs[0]); fi = Math.max(0, Math.min(azs.length - 1.0001, fi));
+    gl.uniform1f(u('uHzI'), Math.floor(fi)); gl.uniform1f(u('uHzF'), fi - Math.floor(fi));
+    gl.uniform1f(u('uElD'), Math.asin(P.L[2] / Math.hypot(P.L[0], P.L[1], P.L[2])) * 180 / Math.PI);
+    gl.uniform1f(u('uHzMax'), TwoWeathersBuild.HZ_MAX);
     // drawn in bands so no single GPU command runs long (software GL has a watchdog)
     const band = this.band || shh;
     gl.enable(gl.SCISSOR_TEST);

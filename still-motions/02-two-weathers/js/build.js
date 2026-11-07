@@ -109,7 +109,7 @@
     const per = 5.4; // design px per thread
     const nT = 2048, thW = new Float32Array(nT), thF = new Float32Array(nT), thC = new Float32Array(nT), thD = new Float32Array(nT);
     for (let i = 0; i < nT; i++) { thW[i] = 0.72 + 0.28 * this.rng(); thF[i] = 0.7 + 0.3 * this.rng(); thC[i] = this.rng() * 2 - 1; thD[i] = this.rng() * 2 - 1; }
-    const linen = lin('#a99777'), amp = 0.5;
+    const linen = lin('#a99777'), amp = 0.36;
     let sum = 0;
     for (let y = 0; y < H; y++) {
       const dy = y / s;
@@ -133,7 +133,7 @@
         hh = hh * amp;
         this.h[k] = hh; sum += hh;
         // linen colour: per-thread tone, darker in the interstices
-        const shade = (0.8 + 0.2 * Math.min(1, hh / (0.55 * amp))) * (1 + tc);
+        const shade = (0.9 + 0.1 * Math.min(1, hh / (0.55 * amp))) * (1 + 0.4 * tc);
         this.col[k * 3] = linen[0] * shade; this.col[k * 3 + 1] = linen[1] * shade; this.col[k * 3 + 2] = linen[2] * shade * 0.97;
       }
     }
@@ -179,7 +179,7 @@
   P.brush = function (o) {
     const { W, H, s } = this, h = this.h, col = this.col, gl = this.gloss, tooth = this.tooth, grain = this.grain, wdev = this.wdev;
     const ca = Math.cos(o.ang), sa = Math.sin(o.ang), L = o.L, hw = o.w / 2;
-    const bt = this.bristles[o.bt === undefined ? Math.floor(this.rng() * 16) : o.bt], bs = o.bs || 1, boff = this.rng() * TL;
+    const bt = this.bristles[o.bt === undefined ? Math.floor(this.rng() * 16) : o.bt], bs = o.bs || 1, boff = this.rng() * TL, NB = this.N2[0];
     const e1 = this.lines[Math.floor(this.rng() * 24)], e2 = this.lines[Math.floor(this.rng() * 24)], eo = this.rng() * TL;
     const fl = this.fine[Math.floor(this.rng() * 8)], fb = this.bristles[Math.floor(this.rng() * 16)], fbo = this.rng() * TL;
     const curve = o.curve || 0, mixA = o.mix || 0, c1 = o.col, c2 = o.col2 || o.col, glaze = o.mode === 'glaze';
@@ -209,7 +209,7 @@
         const sh = 1 - sm(1 - edgeR - 0.25 * soft, 1 + 0.06 * tab(v > 0 ? e1 : e2, u * 1.3 + eo), av + 0.05 * tab(fl, u * 2 + eo));
         const endN = 0.03 * tab(e1, v * 0.9 + eo);
         const st = sm(-0.02, 0.07, un + endN - 0.03 * av * av), en = sm(1.02, 0.86, un - endN + 0.07 * av * av);
-        const br = tab(bt, v * bs * 0.6 + boff + u * 0.004);
+        const br = tab(bt, v * bs * 0.6 + boff + u * 0.004) * (0.62 + 0.38 * (0.5 + 0.5 * VN(NB, u / 38 + boff, v / 2.6)));
         const load = load0 * (1 - decay * un * un);
         let amt = load * sh * st * en * (0.5 + 0.62 * br);
         if (F) {
@@ -291,18 +291,19 @@
         const inStart = sm(st0 - 0.012, st0 + 0.012, un);
         if (inStart <= 0 || un > end0 + 0.05) continue;
         // the blade's level: flex along the drag, tilt across, fine scratches from pigment grit
-        const zk = base + thick * (1.0 - 0.32 * un + 0.3 * tab(ul, u * 0.25 + uo) + chat * tab(fl, u * 0.4 + fo + 5000) + 0.12 * tab(ul, v * 0.2 + uo + 4000)) + tilt * thick * 0.4 * vn
-          + 0.16 * tab(fl2, v * 1.6 + fo) + 0.05 * tab(fl, v * 7 + fo);
+        const zk = base + thick * (1.0 - 0.32 * un + 0.3 * tab(ul, u * 0.25 + uo) + chat * tab(fl, u * 0.4 + fo + 5000) + 0.22 * tab(ul, v * 0.2 + uo + 4000)) + tilt * thick * 0.55 * vn
+          + 0.2 * tab(fl2, v * 1.6 + fo) + 0.08 * tab(fl, v * 7 + fo) + 0.12 * thick * VN(NT, u / 26 + fo, v / 14) + 0.05 * VN(NT, u / 5 + 33, v / 4);
         // paint left on the blade: past `run` it gives out gradually, in streaks along the drag, staying longest
         // on the crests of the surface below (islands of paint on the tooth)
         const streak = 0.5 + 0.5 * (0.45 * tab(sk, v * 0.35 + so + u * 0.002) + 0.55 * tab(fl2, v * 0.9 + so + u * 0.004));
         const rem = sm(run - 0.3, run + 0.45, un);
         const fm = F ? 1 - sm(-F.fi, F.fo, this.fsd(F.F, x, y) + F.off) : 1;
-        const q = 1 - 1.15 * rem - 0.55 * skip - 1.3 * (1 - fm) + (0.85 + 0.9 * skip) * (streak - 0.5) + 0.16 * VN(NT, u / 34 + so, v / 3.2) + 0.07 * VN(NT, u / 11 + 50, v / 1.6) + 0.02 * grain[k];
-        const fill0 = sm(0.32, 0.58, q);
+        const q = 1 - 1.15 * rem - 0.55 * skip - 1.0 * (1 - fm) + (0.85 + 0.9 * skip) * (streak - 0.5) + 0.2 * VN(NT, u / 34 + so, v / 3.2) + 0.02 * grain[k];
+        const fill0 = sm(0.24, 0.66, q);
         const film = 0.4 * (1 - rem) * (1 - fill0) * fm; // a thin skin wiped on where the slab broke up
         const mcol = mixA ? sm(0.45, 0.8, tab(mb, v * 0.4 + mo + u * 0.006)) * mixA : 0;
-        const cr = c1[0] + (c2[0] - c1[0]) * mcol, cg = c1[1] + (c2[1] - c1[1]) * mcol, cb = c1[2] + (c2[2] - c1[2]) * mcol;
+        const vd = 1 + 0.1 * tab(ul, u * 0.3 + uo + 7000) + 0.07 * tab(fl2, v * 2.4 + fo + 900) - 0.1 * un;
+        const cr = (c1[0] + (c2[0] - c1[0]) * mcol) * vd, cg = (c1[1] + (c2[1] - c1[1]) * mcol) * vd, cb = (c1[2] + (c2[2] - c1[2]) * mcol) * vd;
         const lean = 0.5 + 0.5 * tilt * side;
         const rv = (0.35 + 0.65 * (0.5 + 0.5 * tab(e1, u * 0.45 + eo + side * 300))) * lean;
         let nh = h0, a = 0;
@@ -363,7 +364,7 @@
         // load along the stroke: a loaded start, then the bristles run dry one by one
         const load = (1 - 0.55 * un) * sm(-0.02, 0.05, un);
         const dryEnd = sm(0.55, 1.0, un);
-        const keep = sm(dryEnd * 0.9 - 0.1, dryEnd * 0.9 + 0.08, br + 0.12 * grain[k]);
+        const keep = sm(dryEnd * 0.9 - 0.14, dryEnd * 0.9 + 0.1, br);
         const cross = Math.sqrt(1 - av * av);
         const hgt = thick * load * Math.pow(cross, 0.6) * (0.3 + 0.7 * br) * keep;
         const blob = un < 0.12 ? thick * 0.6 * Math.exp(-(((un - 0.03) / 0.045) ** 2)) * cross : 0;
@@ -396,20 +397,20 @@
         let a = 0, hh = 0;
         if (d >= -8 && d <= L) {
           const sag = Math.exp(-Math.max(0, d) / 14) * 1.6 + (d < 0 ? 0 : 0);
-          const wl = (w0 * (1 - 0.6 * Math.max(0, d) / L) * (0.82 + 0.18 * tab(e, d * 1.8 + eo + 500)) * (1 + sag)) / 2;
+          const wl = (w0 * Math.pow(1 - 0.92 * Math.max(0, d) / L, 0.8) * (0.8 + 0.2 * tab(e, d * 1.8 + eo + 500)) * (1 + sag)) / 2;
           const q = (dx - xc(Math.max(0, d))) / wl;
           if (Math.abs(q) < 1) {
             const c = Math.sqrt(1 - q * q);
-            hh = o.thick * c; a = sm(0, 0.5, c) * (0.85 - 0.45 * Math.max(0, d) / L) * sm(-8, 4, d);
+            hh = o.thick * c * (1 - 0.5 * Math.max(0, d) / L); a = sm(0, 0.5, c) * (0.85 - 0.55 * Math.max(0, d) / L) * sm(-8, 4, d);
           }
         }
         const rb = w0 * 0.42, bx = (dx - xc(L)) / (rb * 1.05), by = (d - L) / (rb * 1.25);
         const r2 = bx * bx + by * by;
-        if (r2 < 1) { const c = Math.sqrt(1 - r2); hh = Math.max(hh, o.thick * 1.2 * c); a = Math.max(a, sm(0, 0.4, c) * 0.3); }
+        
         if (a <= 0) continue;
         const k = y * W + x, k3 = k * 3;
         h[k] += hh;
-        for (let c = 0; c < 3; c++) col[k3 + c] = col[k3 + c] * (1 + (o.glz[c] - 1) * a) * (1 - 0.22 * a) + o.col[c] * 0.22 * a;
+        for (let c = 0; c < 3; c++) col[k3 + c] = col[k3 + c] * (1 + (o.glz[c] - 1) * a) * (1 - 0.16 * a) + o.col[c] * 0.16 * a;
         gl[k] += (0.75 - gl[k]) * a;
       }
     }
@@ -419,6 +420,32 @@
   function rrect(x, y, x0, y0, x1, y1, r) {
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, qx = Math.abs(x - cx) - ((x1 - x0) / 2 - r), qy = Math.abs(y - cy) - ((y1 - y0) / 2 - r);
     return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+  }
+
+  const HZ_AZ = [184, 198, 212, 226, 240, 254], HZ_HS = 1.5, HZ_MAX = 40; // degrees; relief scale; horizon range (deg)
+  function horizonMap(h, W, H, s, azs, hs) {
+    const out = new Uint8Array(W * H * 8), NS = 18;
+    const dist = [], k = [];
+    for (let i = 1; i <= NS; i++) { const d = 0.6 * Math.pow(i, 1.42); dist.push(d * s); k.push(hs / d); }
+    for (let a = 0; a < azs.length; a++) {
+      const dx = Math.cos(azs[a] * Math.PI / 180), dy = Math.sin(azs[a] * Math.PI / 180), plane = a < 4 ? 0 : 1, ch = a % 4;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const h0 = h[y * W + x];
+        let best = 0;
+        for (let i = 0; i < NS; i++) {
+          let sx = x + dx * dist[i], sy = y + dy * dist[i];
+          if (sx < 0) sx = 0; else if (sx > W - 1.001) sx = W - 1.001;
+          if (sy < 0) sy = 0; else if (sy > H - 1.001) sy = H - 1.001;
+          const ix = sx | 0, iy = sy | 0, fx = sx - ix, fy = sy - iy, o = iy * W + ix;
+          const hv = h[o] + (h[o + 1] - h[o]) * fx + (h[o + W] - h[o]) * fy + (h[o] - h[o + 1] - h[o + W] + h[o + W + 1]) * fx * fy;
+          const t = (hv - h0) * k[i];
+          if (t > best) best = t;
+        }
+        const ang = Math.atan(best) * 180 / Math.PI;
+        out[(y * W + x) * 4 + ch + plane * W * H * 4] = Math.min(255, Math.round(ang / HZ_MAX * 255));
+      }
+    }
+    return out;
   }
 
   function buildPainting(W, H, seed, log) {
@@ -466,7 +493,7 @@
     // 1. stained ground: broad washes soaked into the linen, with tide lines at their drying edges
     for (let i = 0; i < 18; i++) {
       p.brush({ cx: r(-100, 2260), cy: r(-100, DH + 100), ang: r(-0.5, 0.5) + (i % 3 === 0 ? 1.4 : 0), L: r(1300, 2600), w: r(600, 1100), col: T.stain, col2: T.stainD, mix: 0.5,
-        mode: 'glaze', op: r(0.55, 0.85), load: 1, decay: 0.2, soft: 1.0, edgeR: 0.5, rim: 0.1, thick: 0.05, lev: 0.6, bs: 0.3 });
+        mode: 'glaze', op: r(0.55, 0.85), load: 1, decay: 0.2, soft: 1.0, edgeR: 0.5, rim: 0, thick: 0.05, lev: 0.6, bs: 0.3 });
     }
     for (let k = 0; k < W * H; k++) { // complete the soak, deeper in the interstices
       const d = (1 + 0.3 * clamp(-p.wdev[k], 0, 1.5)) * 0.8, t3 = k * 3;
@@ -476,8 +503,8 @@
     L('stain');
     // ground body: thin scumbled maroon passes, matte
     for (let i = 0; i < 80; i++) {
-      p.brush({ cx: r(0, 2160), cy: r(0, DH), ang: r(-0.35, 0.35) + (p.rng() < 0.15 ? Math.PI / 2 : 0), L: r(500, 1300), w: r(200, 400), col: p.pick([C.ground, C.groundW, C.groundD]), col2: C.groundD, mix: 0.5,
-        op: r(0.55, 0.85), load: r(0.9, 1.1), decay: 0.45, dry: 0.2, thick: 0.12, soft: 0.75, gloss: 0.08, gk: 0.5 });
+      p.brush({ cx: r(0, 2160), cy: r(0, DH), ang: r(-0.5, 0.5), L: r(500, 1300), w: r(200, 400), col: p.pick([C.ground, C.groundW, C.groundD]), col2: C.groundD, mix: 0.5,
+        op: r(0.55, 0.85), load: r(0.9, 1.1), decay: 0.45, dry: 0.1, thick: 0.12, soft: 1.0, edgeR: 0.4, bs: 0.35, gloss: 0.08, gk: 0.5 });
     }
     L('ground');
 
@@ -503,20 +530,28 @@
       const cy = r(160, 1280), dark = sm(700, 200, cy);
       p.brush({ cx: r(150, 2010), cy, ang: r(-0.2, 0.2) + (p.rng() < 0.15 ? r(-0.6, 0.6) : 0), L: r(450, 1100), w: r(160, 320), curve: r(-20, 20),
         col: p.rng() < dark * 0.6 ? C.oxD : p.pick(redBody), col2: p.pick(redBody), mix: 0.7,
-        op: r(0.35, 0.65), load: r(0.85, 1.1), decay: 0.5, dry: r(0.0, 0.3), soft: 0.6, thick: r(0.2, 0.45), field: fld(RED, r(4, 22), r(36, 56), r(36, 64)), gloss: 0.3, gk: 0.5 });
+        op: r(0.35, 0.65), load: r(0.85, 1.1), decay: 0.5, dry: r(0.0, 0.3), soft: 0.6, thick: r(0.2, 0.45), lev: 0.75, field: fld(RED, r(4, 22), r(36, 56), r(36, 64)), gloss: 0.3, gk: 0.5 });
     }
     const bluBody = [C.inkA, C.inkB, C.inkA, C.inkB, C.prus, C.inkA, C.bviolet];
     for (let i = 0; i < 210; i++) {
       const cy = r(1510, 2500);
       p.brush({ cx: r(150, 2010), cy, ang: r(-0.2, 0.2) + (p.rng() < 0.15 ? r(-0.6, 0.6) : 0), L: r(450, 1100), w: r(160, 320), curve: r(-20, 20),
         col: p.rng() < sm(1900, 2450, cy) * 0.6 ? C.inkD : p.pick(bluBody), col2: p.pick(bluBody), mix: 0.7,
-        op: r(0.35, 0.65), load: r(0.85, 1.1), decay: 0.5, dry: r(0.0, 0.3), soft: 0.6, thick: r(0.2, 0.45), field: fld(BLU, r(4, 22), r(36, 56), r(36, 64)), gloss: 0.3, gk: 0.5 });
+        op: r(0.35, 0.65), load: r(0.85, 1.1), decay: 0.5, dry: r(0.0, 0.3), soft: 0.6, thick: r(0.2, 0.45), lev: 0.75, field: fld(BLU, r(4, 22), r(36, 56), r(36, 64)), gloss: 0.3, gk: 0.5 });
     }
     for (let i = 0; i < 64; i++) {
       const cx = r(240, 1920);
       p.brush({ cx, cy: EMB_Y(cx) + r(-24, 24), ang: r(-0.07, 0.07), L: r(200, 520), w: r(50, 100), soft: 0.7,
         col: p.pick([C.emberA, C.emberC, C.emberR, C.emberC]), col2: C.emberB, mix: 0.6,
         op: r(0.4, 0.8), load: r(0.8, 1.05), decay: 0.5, dry: r(0.3, 0.7), thick: r(0.25, 0.5), field: fld(EMB, r(0, 16), 26, 36), gloss: 0.35, gk: 0.5 });
+    }
+    // cutting in the sides: short, near-vertical dry strokes at the left and right edges of each field
+    for (const [F, y0, y1, cols] of [[RED, 170, 1270, [C.oxA, C.oxB, C.oxC]], [BLU, 1530, 2490, [C.inkA, C.inkB, C.bviolet]]]) {
+      for (let i = 0; i < 36; i++) {
+        const left = i % 2 === 0, cx = left ? r(150, 260) : r(1900, 2012);
+        p.brush({ cx, cy: r(y0, y1), ang: Math.PI / 2 + r(-0.25, 0.25), L: r(160, 420), w: r(60, 130), col: p.pick(cols), col2: p.pick(cols), mix: 0.5,
+          op: r(0.3, 0.6), load: r(0.6, 0.95), decay: 0.6, dry: r(0.6, 1.2), soft: 0.5, thick: 0.2, lev: 0.5, field: fld(F, r(-4, 14), 26, 30), gloss: 0.25, gk: 0.4 });
+      }
     }
     L('body');
 
@@ -566,23 +601,23 @@
       }
     };
     const redK = [C.oxA, C.oxE, C.oxA, C.oxC, C.oxC], redK2 = [C.crimsonL, C.oxHi, C.oxD, C.oxE];
-    const bluK = [C.inkA, C.inkB, C.inkA, C.inkC, C.inkA], bluK2 = [C.bviolet, C.inkC, C.ultra, C.inkB];
+    const bluK = [C.inkA, C.inkB, C.inkA, C.inkB, C.inkA], bluK2 = [C.bviolet, C.inkC, C.ultra, C.inkB];
     // red field, right of centre above the band: knife pulls, mostly level
     passage(16, 1380, 1090, 480, 170, -0.03, 0.1, (x, y, ang, c) => p.knife({ cx: x, cy: y, ang, L: r(380, 900), w: r(70, 180), thick: r(0.7, 1.5) + 1.3 * c,
-      col: p.pick(redK), col2: p.pick(redK2), mix: r(0.3, 0.7), run: r(0.5, 1.0), skip: r(0.15, 0.6), tilt: r(-0.9, 0.9), ridge: r(0.5, 1.1), lip: p.rng() < 0.4 ? r(0.3, 0.8) : 0, gloss: 0.72, bend: r(-6, 6), field: fld(RED, r(40, 90), 30, 30) }));
+      col: p.pick(redK), col2: p.pick(redK2), mix: r(0.3, 0.7), run: r(0.5, 1.0), skip: r(0.15, 0.6), tilt: r(-0.9, 0.9), ridge: r(0.5, 1.1), lip: p.rng() < 0.4 ? r(0.3, 0.8) : 0, gloss: 0.72, bend: r(-6, 6), field: fld(RED, r(60, 120), 90, 70) }));
     // red field, left: loaded brush
-    passage(16, 640, 1060, 330, 170, -0.12, 0.3, (x, y, ang, c) => p.impasto({ cx: x, cy: y, ang, L: r(220, 480), w: r(40, 76), curve: r(-14, 14), thick: r(1.4, 2.4) + 1.4 * c,
+    passage(10, 720, 1080, 300, 150, -0.04, 0.1, (x, y, ang, c) => p.impasto({ cx: x, cy: y, ang, L: r(320, 620), w: r(40, 76), curve: r(-14, 14), thick: r(1.4, 2.4) + 1.4 * c,
       col: p.pick(redK), col2: p.pick(redK2), mix: 0.6, gloss: 0.62 }));
     // the ember band: long pulls of hot colour with unmixed streaks
     for (let i = 0; i < 16; i++) {
       const cx = r(360, 1800), cy = EMB_Y(cx) + r(-0.4, 0.4) * EMB_H(cx);
       p.knife({ cx, cy, ang: r(-0.02, 0.02) + (p.rng() < 0.5 ? Math.PI : 0), L: r(260, 700), w: r(30, 60), thick: r(1.0, 2.4),
-        col: p.pick([C.emberA, C.emberC, C.emberC, C.emberB, C.emberR]), col2: p.pick([C.emberY, C.emberR, C.emberR, C.oxE]), mix: r(0.35, 0.75),
+        col: p.pick([C.emberA, C.emberC, C.emberC, C.emberA, C.emberR]), col2: p.pick([C.emberB, C.emberR, C.emberR, C.oxE]), mix: r(0.3, 0.6),
         run: r(0.4, 0.9), skip: r(0.3, 0.75), tilt: r(-0.9, 0.9), ridge: r(0.5, 1.1), lip: p.rng() < 0.4 ? r(0.3, 0.8) : 0, gloss: 0.8, bend: r(-3, 3), field: fld(EMB, r(14, 34), 16, 30) });
     }
     // blue field, upper left: knife pulls; right of it, loaded brush
     passage(14, 660, 1700, 440, 160, 0.03, 0.1, (x, y, ang, c) => p.knife({ cx: x, cy: y, ang, L: r(380, 900), w: r(70, 170), thick: r(0.7, 1.4) + 1.2 * c,
-      col: p.pick(bluK), col2: p.pick(bluK2), mix: r(0.2, 0.5), run: r(0.5, 1.0), skip: r(0.25, 0.65), tilt: r(-0.9, 0.9), ridge: r(0.5, 1.1), lip: p.rng() < 0.4 ? r(0.3, 0.8) : 0, gloss: 0.72, bend: r(-6, 6), field: fld(BLU, r(40, 90), 30, 30) }));
+      col: p.pick(bluK), col2: p.pick(bluK2), mix: r(0.2, 0.5), run: r(0.5, 1.0), skip: r(0.25, 0.65), tilt: r(-0.9, 0.9), ridge: r(0.5, 1.1), lip: p.rng() < 0.4 ? r(0.3, 0.8) : 0, gloss: 0.72, bend: r(-6, 6), field: fld(BLU, r(60, 120), 90, 70) }));
     passage(12, 1450, 1720, 330, 150, 0.04, 0.25, (x, y, ang, c) => p.impasto({ cx: x, cy: y, ang, L: r(240, 520), w: r(40, 76), curve: r(-14, 14), thick: r(1.2, 2.2) + 1.2 * c,
       col: p.pick(bluK), col2: p.pick(bluK2), mix: 0.6, gloss: 0.6 }));
     L('impasto');
@@ -607,6 +642,11 @@
       p.brush({ cx, cy: EMB_Y(cx) + r(-22, 22), ang: r(-0.06, 0.06), L: r(200, 500), w: r(50, 90), col: p.pick([C.emberB, C.emberA]), col2: C.emberY, mix: 0.3,
         op: r(0.4, 0.8), load: r(0.45, 0.7), decay: 0.6, dry: 1.5, thick: 0.1, field: fld(EMB, r(4, 16), 12, 16), gloss: 0.4, gk: 0.3 });
     }
+    // veils: very large, very thin scumbles that give the fields an inner light
+    for (let i = 0; i < 7; i++) p.brush({ cx: r(500, 1650), cy: r(380, 900), ang: r(-0.12, 0.12), L: r(900, 1500), w: r(320, 520), col: p.pick([C.oxE, C.crimsonL, C.oxHi]), col2: C.oxE, mix: 0.3,
+      op: r(0.1, 0.2), load: r(0.7, 0.9), decay: 0.4, dry: 0.5, soft: 0.95, edgeR: 0.45, thick: 0.05, field: fld(RED, r(120, 220), 120, 80), gloss: 0.3, gk: 0.2 });
+    for (let i = 0; i < 6; i++) p.brush({ cx: r(500, 1650), cy: r(1950, 2350), ang: r(-0.12, 0.12), L: r(900, 1500), w: r(320, 520), col: p.pick([C.bviolet, C.ultra, C.inkC]), col2: C.bviolet, mix: 0.3,
+      op: r(0.1, 0.2), load: r(0.7, 0.9), decay: 0.4, dry: 0.5, soft: 0.95, edgeR: 0.45, thick: 0.05, field: fld(BLU, r(120, 220), 120, 80), gloss: 0.3, gk: 0.2 });
     // 7. final glazes that pool in the hollows of the relief
     const poolGlaze = (cx, cy, ang, Lh, w, Tc, op, F) => {
       p.brush({ cx, cy, ang, L: Lh, w, col: Tc, mode: 'glaze', op, soft: 0.9, edgeR: 0.35, dry: -1.4, load: 1.15, thick: 0.03, lev: 0, field: F, gloss: 0.6, gk: 0.5 });
@@ -627,6 +667,11 @@
     const out = { W, H, s: p.s };
     const albedo = new Uint8Array(W * H * 4), masks = new Uint8Array(W * H * 4), grad = new Float32Array(W * H * 4);
     const hb1 = Float32Array.from(p.h), hb2 = Float32Array.from(p.h);
+    // slopes from a lightly smoothed surface (1-2-1), so sub-pixel bumps do not flash
+    const hs = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const xm = Math.max(0, x - 1), xp = Math.min(W - 1, x + 1), o = y * W; hs[o + x] = 0.25 * p.h[o + xm] + 0.5 * p.h[o + x] + 0.25 * p.h[o + xp]; }
+    const hs2 = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) { const ym = Math.max(0, y - 1) * W, yp = Math.min(H - 1, y + 1) * W, o = y * W; for (let x = 0; x < W; x++) hs2[o + x] = 0.25 * hs[ym + x] + 0.5 * hs[o + x] + 0.25 * hs[yp + x]; }
     p.blur(hb1, Math.max(1, Math.round(3 * p.s)), 2); p.blur(hb2, Math.max(2, Math.round(14 * p.s)), 2);
     const enc = (c) => { c = c <= 0 ? 0 : c >= 1 ? 1 : c; return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055)); };
     const mot = (x, y) => fbm(N2, x / 7, y / 7, 2, 2.3, 0.5);
@@ -635,8 +680,8 @@
       const g = 1 + 0.05 * p.grain[k] + 0.035 * mot(x / p.s, y / p.s);
       albedo[k4] = enc(p.col[k3] * g); albedo[k4 + 1] = enc(p.col[k3 + 1] * g); albedo[k4 + 2] = enc(p.col[k3 + 2] * g); albedo[k4 + 3] = 255;
       const xm = Math.max(0, x - 1), xp = Math.min(W - 1, x + 1), ym = Math.max(0, y - 1), yp = Math.min(H - 1, y + 1);
-      grad[k4] = (p.h[y * W + xp] - p.h[y * W + xm]) / ((xp - xm) / p.s);
-      grad[k4 + 1] = (p.h[yp * W + x] - p.h[ym * W + x]) / ((yp - ym) / p.s);
+      grad[k4] = (hs2[y * W + xp] - hs2[y * W + xm]) / ((xp - xm) / p.s);
+      grad[k4 + 1] = (hs2[yp * W + x] - hs2[ym * W + x]) / ((yp - ym) / p.s);
       const cav = Math.max(0, hb1[k] - p.h[k]) * 0.55 + Math.max(0, hb2[k] - p.h[k]) * 0.18;
       grad[k4 + 2] = clamp(1 - cav, 0.35, 1);
       grad[k4 + 3] = clamp(p.gloss[k], 0, 1);
@@ -644,10 +689,15 @@
       masks[k4 + 3] = 255;
     }
     out.height = p.h; out.albedo = albedo; out.masks = masks; out.grad = grad;
+    // horizon map: for each of HZ_AZ (directions toward the light), the elevation of the highest point of the relief
+    // seen from this pixel, within ~60 design px. The shader interpolates between directions, so shadows lengthen
+    // and shorten smoothly as the light swings, without ray marching per frame.
+    out.hzAz = HZ_AZ; out.hz = horizonMap(p.h, W, H, p.s, HZ_AZ, HZ_HS);
+    L('horizon');
     L('maps');
     out.ms = performance.now() - t0;
     return out;
   }
 
-  root.TwoWeathersBuild = { buildPainting, Painter };
+  root.TwoWeathersBuild = { buildPainting, Painter, HZ_MAX };
 })(typeof window !== 'undefined' ? window : globalThis);

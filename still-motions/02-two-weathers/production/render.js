@@ -125,7 +125,7 @@ function encoder(out, nframes, loopFrames, w, h) {
     const page = await openPage(browser);
     console.log('build', (await page.evaluate(() => window.__piece.buildMs)).toFixed(0), 'ms');
     await setOut(page, 1080, 1350, 1);
-    for (const t of [0, 1, 2]) console.log('frame', (await grab(page, t)).ms.toFixed(0), 'ms');
+    for (const t of [0, 1, 2]) { const t0 = Date.now(); await grab(page, t); console.log('frame (render + readback)', Date.now() - t0, 'ms'); }
   } else console.log('usage: see header');
   await browser.close();
 })();

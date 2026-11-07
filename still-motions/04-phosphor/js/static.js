@@ -21,6 +21,12 @@
     const dith = (this.dith = new Float32Array(N));
     const lipF = (this.lipF = new Float32Array(N));
     const lipI = (this.lipI = new Int32Array(N));
+    // camera lens fall-off over the whole frame: the room's corners sink into deep darks
+    const fvig = (this.fvig = new Float32Array(N));
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const qx = (x + 0.5 - W * 0.5) / (W * 0.62), qy = (y + 0.5 - H * 0.43) / (H * 0.62), d = Math.sqrt(qx * qx + qy * qy);
+      fvig[y * W + x] = 1 - 0.6 * smooth(0.5, 1.3, d);
+    }
     const L6 = this.levels[5];
 
     // ---- geometry of the bezel (radii in px)
@@ -68,7 +74,7 @@
       // window: soft rounded rectangle, with a cross bar, rotated slightly
       const a = -0.12, ca = Math.cos(a), sa = Math.sin(a);
       const wx = (qu + 0.5) * ca - (qv + 0.66) * sa, wy = (qu + 0.5) * sa + (qv + 0.66) * ca;
-      const hx = 0.17, hy = 0.22, soft = 0.07;
+      const hx = 0.17, hy = 0.22, soft = 0.1;
       const box = smooth(hx + soft, hx - soft, Math.abs(wx)) * smooth(hy + soft, hy - soft, Math.abs(wy));
       const bars = 1 - 0.55 * Math.exp(-(wx * wx) / (2 * 0.012 * 0.012)) - 0.55 * Math.exp(-((wy + 0.03) * (wy + 0.03)) / (2 * 0.012 * 0.012));
       const win = box * bars * (0.75 + 0.25 * smooth(-0.3, 0.3, -wy));
@@ -116,19 +122,19 @@
           vign[i] = (1 - 0.32 * Math.pow(rho, 4)) * (1 - 0.06 * rho * rho);
           // phosphor grain: fine clumps
           const gn = vnoise(px / (1.3 * s), py / (1.3 * s), 3) * 0.6 + vnoise(px / (4.5 * s), py / (4.5 * s), 4) * 0.4;
-          grain[i] = 1 + 0.16 * gn;
+          grain[i] = 1 + 0.3 * gn;
           gcov[i] = gratAt(px, py, r) * m;
           // graticule lamps at 9 and 3 o'clock: warm edge light, strongest near the lamps
           const dl = Math.hypot(px - (cx - R), py - cy), dr = Math.hypot(px - (cx + R), py - cy);
           const edge = Math.exp(-dl / (330 * s)) + Math.exp(-dr / (330 * s)) + 0.10;
-          const ga = gcov[i] * edge * 0.010;
+          const ga = gcov[i] * edge * 0.018;
           // the perspex rim glows where the lamps feed it
-          const rimg = Math.exp(-Math.pow((r - (R - 4 * s)) / (3.0 * s), 2)) * (Math.exp(-dl / (160 * s)) + Math.exp(-dr / (160 * s))) * 0.03;
+          const rimg = Math.exp(-Math.pow((r - (R - 4 * s)) / (3.0 * s), 2)) * (Math.exp(-dl / (200 * s)) + Math.exp(-dr / (200 * s))) * 0.05;
           const rf = reflection(px, py, r);
           let sr = 0, sg = 0, sb = 0;
           sr += (ga + rimg) * AMBER[0]; sg += (ga + rimg) * AMBER[1]; sb += (ga + rimg) * AMBER[2];
-          const wv = rf.win * 0.0022, rv = rf.rim * 0.006 + rf.broad * 0.0006;
-          sr += wv * 0.6 + rv * 0.8; sg += wv * 0.78 + rv * 0.88; sb += wv * 1.0 + rv * 1.0;
+          const wv = rf.win * 0.0038, rv = rf.rim * 0.007 + rf.broad * 0.0007;
+          sr += wv * 0.5 + rv * 0.5; sg += wv * 0.8 + rv * 0.95; sb += wv * 0.9 + rv * 0.85;
           // dust and fine scratches on the glass catch a little light
           const bx = Math.floor(px / BIN), by = Math.floor(py / BIN);
           let du = 0;
@@ -162,7 +168,7 @@
             const ang = (1 - f) * 1.15; // normal tilt toward the centre
             nx = -ux * Math.sin(ang); ny = -uy * Math.sin(ang); nz = Math.cos(ang);
             const lt = 0.75 + 0.25 * vnoise(Math.atan2(dy, dx) * 60, f * 3, 33) + 0.15 * vnoise(Math.atan2(dy, dx) * 400, 0.5, 34);
-            alb = [0.03 * lt, 0.032 * lt, 0.035 * lt]; spec = 0.3; gloss = 30; mat = 'lip';
+            alb = [0.03 * lt, 0.032 * lt, 0.035 * lt]; spec = 0.1 * lt * lt; gloss = 30; mat = 'lip';
             lipF[i] = 0.4 * lt * Math.sin(ang) * (1 - f * 0.5) * om;
             const qx = cx + dx * (R * 0.8 / r), qy = cy + dy * (R * 0.8 / r);
             lipI[i] = Math.min(L6.h - 1, Math.max(0, Math.floor(qy / 64))) * L6.w + Math.min(L6.w - 1, Math.max(0, Math.floor(qx / 64)));
@@ -201,6 +207,27 @@
           nx = c1 * 0.07 + g1 * 0.035; ny = c2 * 0.07 + g2 * 0.035; nz = 1;
           const tone = 0.94 + 0.06 * vnoise(px / (140 * s), py / (140 * s), 45);
           alb = [0.20 * tone, 0.225 * tone, 0.245 * tone]; spec = 0.12; gloss = 14;
+          // the seam between the CRT plate and the controls plate: a dark groove, its lower lip catching the glow
+          {
+            const gy = 2232 * s, dyg = py - gy;
+            if (Math.abs(dyg) < 6 * s) {
+              const groove = Math.exp(-Math.pow(dyg / (1.6 * s), 2));
+              const lip = Math.exp(-Math.pow((dyg - 2.6 * s) / (0.9 * s), 2));
+              alb = alb.map((a) => a * (1 - 0.85 * groove));
+              ny -= lip * 0.9; nz = 1 - lip * 0.4; spec = lerp(spec, 0.5, lip); gloss = lerp(gloss, 40, lip);
+            }
+            // plate screws near the frame edges
+            for (const sx of [64 * s, W - 64 * s]) {
+              const dd = Math.hypot(px - sx, py - (gy + 44 * s));
+              if (dd < 15 * s) {
+                const f = dd / (13 * s), tilt = Math.min(1.2, Math.pow(f, 2) * 0.9);
+                nx = ((px - sx) / (dd + 1e-9)) * Math.sin(tilt); ny = ((py - gy - 44 * s) / (dd + 1e-9)) * Math.sin(tilt); nz = Math.cos(tilt);
+                alb = f > 1 ? [0.01, 0.01, 0.01] : [0.3, 0.3, 0.28]; spec = f > 1 ? 0 : 0.6; gloss = 40;
+                const along = -(px - sx) * Math.sin(0.7 + sx) + (py - gy - 44 * s) * Math.cos(0.7 + sx);
+                if (f <= 1 && Math.abs(along) < 2.4 * s && f < 0.85) { alb = [0.02, 0.02, 0.02]; spec = 0.02; }
+              }
+            }
+          }
           // wear: polished rings round the knobs (fingers), fine arc scratches from turning them, a few chips to
           // bare aluminium along the lower bezel edge and by the knobs
           for (const k of knobs) {
@@ -257,12 +284,13 @@
               const f = kd / kn.rt;
               const tilt = 0.08 * f + 1.25 * Math.pow(smooth(0.82, 1.0, f), 1.3);
               nx = ku * Math.sin(tilt); ny = kv * Math.sin(tilt); nz = Math.cos(tilt);
-              alb = [0.03, 0.028, 0.026]; spec = 0.7; gloss = 60; mat = 'knob';
+              alb = [0.03, 0.028, 0.026]; spec = 1.1; gloss = 60; mat = 'knob';
               if (f < 0.6) {
                 const ring = Math.sin(kd / (0.9 * s)) * 0.025 + vnoise(kd / (1.5 * s), pa * 3, 71) * 0.02;
                 nx += ku * ring; ny += kv * ring;
                 const brushed = 0.9 + 0.1 * Math.sin(kd / (2.2 * s) + vnoise(kd / (8 * s), 0, 72) * 3);
-                alb = [0.42 * brushed, 0.43 * brushed, 0.44 * brushed]; spec = 0.9; gloss = 80; mat = 'alu';
+                const sheen = 0.45 + 0.75 * Math.pow(Math.max(0, -kv * 0.8 + 0.2 * ku), 1.5) * (0.6 + 0.4 * f / 0.6);
+                alb = [0.42 * brushed * sheen, 0.43 * brushed * sheen, 0.44 * brushed * sheen]; spec = 0.9; gloss = 80; mat = 'alu';
                 if (f > 0.56) { alb = [0.02, 0.02, 0.02]; spec = 0.2; } // the seat of the insert
               }
               // pointer line engraved in the bakelite, filled with worn white paint
@@ -276,7 +304,7 @@
               const nfl = Math.round((TAU * kn.rk) / (7 * s));
               const fl = f > 0.55 ? Math.sin(pa * nfl) * 0.45 * smooth(0.55, 0.62, f) : 0;
               nx = ku * Math.sin(tilt) + tx * fl; ny = kv * Math.sin(tilt) + ty * fl; nz = Math.cos(tilt);
-              alb = [0.028, 0.026, 0.025]; spec = 0.55; gloss = 40; mat = 'knob';
+              alb = [0.028, 0.026, 0.025]; spec = 0.9; gloss = 40; mat = 'knob';
               if (f < 0.06) { alb = [0.006, 0.006, 0.006]; spec = 0.1; } // the step down from the cap
               z = kn.hk * (0.55 - 0.45 * f);
             }

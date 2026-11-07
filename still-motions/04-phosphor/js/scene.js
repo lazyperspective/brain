@@ -11,7 +11,7 @@
   const PH = window.PH;
   const { TAU, catmull, clamp, smooth, lerp } = PH;
   const D = 18; // loop length (s)
-  const LAP = 9; // the bright head (camera/refresh beat) laps the whole display list every 9 s
+  const LAP = 18; // the bright head (camera/refresh beat) laps the whole display list once per loop
   const YH = -0.03; // horizon
   const LAMP = [0.42, 0.523];
 
@@ -136,15 +136,16 @@
         for (let i = 0; i <= n; i++) {
           const s = 0.012 + (smax - 0.012) * Math.pow(i / n, 1.6);
           const X = XL + s * dx, Y = YL, Zd = ZL - s * dz;
-          ray.push([X / Zd, YH + Y / Zd, s]);
+          ray.push([X / Zd, YH + Y / Zd, s, smax]);
         }
         (k % 2 ? rev(ray) : ray).forEach((p) => pts.push(p));
       });
       const P = pts.map((p) => [p[0], p[1]]);
+      const smaxOf = pts.map((p) => p[3]);
       const sArr = pts.map((p) => p[2]);
       // over the land the beam passes behind the headland's skyline: let it fade there
       const occl = (p) => (p[0] < 0.17 ? 1 : smooth(0.0, 0.035, p[1] - interp(GROUND, Math.min(1.05, Math.max(0.212, p[0])), 0, 1) - 0.004));
-      fans.push(line(P, { b: 1, slot: 0.34, tmin: 1, noCorner: true, profPts: sArr.map((s, i) => Math.max(0.03, occl(P[i])) * Math.exp(-s / 1.7) * (0.25 + 0.75 * smooth(0, 0.08, s))) }));
+      fans.push(line(P, { b: 1, slot: 0.34, tmin: 1, noCorner: true, profPts: sArr.map((s, i) => Math.max(0.03, occl(P[i])) * Math.exp(-s / 1.7) * (0.25 + 0.75 * smooth(0, 0.08, s)) * (0.04 + 0.96 * smooth(smaxOf[i], smaxOf[i] * 0.45, s))) }));
     }
     // the lamp: the beam circles on the spot, dwelling (the brightest point of the drawing)
     const lamp = [];
@@ -201,7 +202,7 @@
       if (k % 2) seg.reverse();
       const bx = X(lerp(y0, y1, 0.5));
       const bright = 0.02 + 0.17 * Math.exp(-Math.max(0, bx - 0.16) / 0.3);
-      s.push(line(seg, { b: bright, tmin: 0.0, ta: 0.07, tb: 0.07, noCorner: true, jb: bright * 0.2,
+      s.push(line(seg, { b: bright, tmin: 0.0, ta: 0.07, tb: 0.07, noCorner: true, jb: bright * 0.04,
         prof: (f) => { const y = lerp(y0, y1, k % 2 ? 1 - f : f); return 0.5 + 0.5 * smooth(-0.35, 0.55, PH.vnoise(y * 24, xb * 7, 9)); } }));
     });
     return s;
@@ -237,9 +238,9 @@
       p1.push([ccx + rr * Math.cos(a) * (1 + 0.25 * curl) + 0.25 * R * curl * f, ccy + rr * Math.sin(a) * (1 - 0.15 * curl * f)]);
     }
     // W2: the steep face under the lip, down into the trough and on to the rocks
-    const fx = Math.min(xc + R * (1.05 + 0.35 * curl), 0.05), fy = Y0 + h * (0.55 - 0.15 * curl);
-    const tx = Math.min(fx + 0.025 + 0.4 * h, 0.058);
-    const w2 = catmull([[fx, fy], [fx + 0.004, Y0 + h * 0.3], [lerp(fx, tx, 0.5), Y0 + h * 0.05], [tx, Y0 - 0.004], [0.064, Y0 + 0.004]], 10);
+    // the face falls from under the lip in one concave sweep to the foot of the rocks
+    const fx = Math.min(xc + R * (1.05 + 0.35 * curl), 0.042), fy = Y0 + h * (0.55 - 0.15 * curl);
+    const w2 = catmull([[fx, fy], [lerp(fx, 0.064, 0.18), lerp(fy, Y0, 0.62)], [lerp(fx, 0.064, 0.6), Y0 - 0.003], [0.064, Y0 + 0.004]], 12);
     // spray: dwell points flung up the rocks after the impact, falling back into the foam
     const spray = [];
     const rr = PH.rng(77);
@@ -247,14 +248,14 @@
     for (let i = 0; i < NS; i++) {
       const v = 0.32 + 0.42 * rr(), ang = 1.45 + 0.7 * rr(), launch = 0.6 + 0.07 * rr();
       const bx = -0.02 + 0.08 * rr();
-      const rest = [-0.2 + 0.25 * (i / (NS - 1)), Y0 - 0.026 - 0.006 * rr()];
+      const rest = [bx - 0.03 - 0.12 * (i / (NS - 1)), Y0 - 0.026 - 0.006 * rr()];
       const g = 1.6;
       const tf = (2 * v * Math.sin(ang)) / g; // seconds in the air (lands back at water level)
       const age = (((ph - launch) % 1) + 1) % 1 * TB;
       let x, y;
       if (age < tf) {
         // leaves the foam at its rest point, launched from the impact
-        const k = smooth(0, 0.12, age);
+        const k = smooth(0, 0.3, age);
         const fx0 = lerp(rest[0], bx, k), fy0 = lerp(rest[1], Y0, k);
         x = fx0 + v * Math.cos(ang) * age * 0.55; y = fy0 + v * Math.sin(ang) * age - 0.5 * g * age * age;
         y = Math.max(y, Y0 - 0.03);
@@ -264,11 +265,13 @@
         const k = smooth(0, 0.6, (age - tf) / TB);
         x = lerp(lx, rest[0], k); y = lerp(ly, rest[1], k);
       }
-      spray.push([x, y]);
+      // a droplet in the air is a brief dwell (a bright point); back in the foam the beam smears it into a faint dash
+      const air = age < tf ? smooth(0, 0.3, age) * smooth(tf, tf - 0.3, age) : 0;
+      spray.push([x, y, air]);
     }
     // foam lace in front of the wave: an irregular cursive scribble, swelling after the impact
     const foam = [];
-    const fr = 0.003 + 0.010 * surge;
+    const fr = 0.0018 + 0.011 * surge;
     const rf = PH.rng(19);
     const lp = []; for (let k = 0; k < 24; k++) lp.push(0.5 + rf());
     for (let k = 0; k <= 220; k++) {
@@ -292,9 +295,9 @@
     for (const off of [0, Math.PI]) {
       let d = ap - (th + off);
       d = Math.atan2(Math.sin(d), Math.cos(d));
-      g = Math.max(g, Math.exp(-Math.pow(d / 0.1, 2)));
+      g = Math.max(g, Math.exp(-Math.pow(d / 0.12, 2)));
     }
-    return 2.6 * g * Math.exp(-dist / 7.0) * smooth(0.1, 0.6, dist);
+    return 4.0 * g * Math.exp(-dist / 9.0) * smooth(0.1, 0.6, dist);
   }
 
   // one sea stroke: a low, tapering crest line; nearer ones larger; undulations drift toward the cliff, and the
@@ -337,10 +340,10 @@
       // y, x0, x1, amp, wavelength, cycles, phase, b, hook, tilt
       [-0.545, 1.05, 0.26, 0.012, 0.75, 1, 0.4, 0.5, 0, 0.02],
       [-0.565, -0.04, -0.5, 0.013, 0.6, 1, 2.2, 0.46, 0, 0.025],
-      [-0.69, -0.8, -0.16, 0.022, 0.85, 1, 1.9, 0.56, 0, 0.03],
-      [-0.69, 0.05, 0.6, 0.02, 0.8, 1, 4.4, 0.58, 0, 0.02],
-      [-0.845, 0.46, -0.16, 0.026, 0.95, 1, 2.6, 0.62, 0, 0.035],
-      [-0.86, -0.3, -1.05, 0.024, 0.9, 1, 5.1, 0.6, 0, 0.03],
+      [-0.69, -0.8, -0.16, 0.028, 0.95, 1, 1.9, 0.56, 0, 0.03],
+      [-0.69, 0.05, 0.6, 0.026, 0.9, 1, 4.4, 0.58, 0, 0.02],
+      [-0.845, 0.46, -0.16, 0.034, 1.1, 1, 2.6, 0.62, 0, 0.035],
+      [-0.86, -0.3, -1.05, 0.03, 1.0, 1, 5.1, 0.6, 0, 0.03],
     ];
     FG.forEach((q) => out.push(seaStroke(t, ...q)));
     out.push(line([[-1.05, -0.88], [-1.1, -0.8], [-1.1, -0.335], [-1.05, -0.335]], { hidden: true, b: 0.0 }));
@@ -378,5 +381,5 @@
     return list;
   }
 
-  PH.scene = { D, LAP, YH, LAMP, build, TB };
+  PH.scene = { D, LAP, YH, LAMP, build, TB, DY: -0.075 };
 })();

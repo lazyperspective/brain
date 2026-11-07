@@ -3,7 +3,7 @@
 // Mean absolute pixel difference (0-255, RGB) on a 540 x 675 downscale, for every consecutive pair.
 const { execFileSync } = require('child_process');
 const W = 540, H = 675, file = process.argv[2];
-const raw = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', file, '-vf', `scale=${W}:${H}:flags=area`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1 << 31 });
+const raw = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', file, '-vf', `scale=${W}:${H}:flags=area`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 2 ** 31 });
 const S = W * H * 3, N = raw.length / S;
 const diff = (a, b) => { let s = 0; for (let i = 0; i < S; i++) s += Math.abs(raw[a * S + i] - raw[b * S + i]); return s / S; };
 const d = []; for (let f = 0; f < N - 1; f++) d.push(diff(f, f + 1));

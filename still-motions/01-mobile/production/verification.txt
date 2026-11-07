@@ -1,0 +1,52 @@
+Mobile (01-mobile) verification, 2026-11-07T16:50Z
+
+== deliverables
+01-mobile-4k.png  5604 KB
+01-mobile-x.jpg  1444 KB
+01-mobile-4x5.mp4  5128 KB
+01-mobile-4x5-2loops.mp4  10252 KB
+x.jpg: 2160,2700,yuvj444p (yuvj444p = 4:4:4)
+4k.png: 2160,2700,rgb24
+stream|codec_name=h264|profile=High|width=1080|height=1350|pix_fmt=yuv420p|r_frame_rate=30/1|nb_read_frames=600
+format|duration=20.000000
+video (streams)
+stream|codec_name=h264|profile=High|width=1080|height=1350|pix_fmt=yuv420p|r_frame_rate=30/1|nb_read_frames=1200
+format|duration=40.000000
+video (streams)
+
+== seam (render level, exact frames)
+render-level seam: frame(t=D) vs frame(0) mean abs diff 0.0000; step 599 -> 0 0.091; neighbouring steps 0.088 0.091 0.088 0.092
+PASS  frame D == frame 0 and the seam step is an ordinary step
+== seam (exact RGB master the delivery is encoded from)
+seam step (last frame -> first frame): 0.061
+ordinary steps: median 0.034, 95th pct 0.058, max 0.065; within 0.5 s of the seam: median 0.055, max 0.065
+PASS  seam step is an ordinary step
+== seam (encoded one-loop video)
+../../../still-motions-output/01-mobile/01-mobile-4x5.mp4: 600 frames
+seam step (last frame -> first frame): 0.098
+ordinary steps: median 0.054, 95th pct 0.080, max 0.136; within 0.5 s of the seam: median 0.069, max 0.096
+PASS  seam step is an ordinary step
+== seam (encoded two-loop video, decoded)
+seam step (last frame -> first frame): 0.098
+ordinary steps: median 0.054, 95th pct 0.080, max 0.136; within 0.5 s of the seam: median 0.069, max 0.096
+PASS  seam step is an ordinary step
+== flash (encoded video)
+../../../still-motions-output/01-mobile/01-mobile-4x5.mp4: 600 frames, mean relative luminance 0.7887
+worst frame-to-frame change of a large-area mean: 0.0005 (q01, frame 524)
+largest single swing between turning points: 0.0178 (q01, frames 488-579, 3.03 s)
+conservative count (any two >=0.10 transitions within 1 s, either direction): 0 (limit 3)
+WCAG general flashes (pairs of opposing >=0.10 changes) in any 1 s: 0 (limit 3)
+PASS
+== pops (encoded video)
+picture check: 600 frames, 36x45 blocks; isolated spikes >= 6 levels and >= 6x neighbours: 0; most isolated step 0.0x (0 levels, step undefined)
+PASS  nothing pops in or out
+== whole loop at render level (steps, pops, luminance)
+render-level whole loop (600 steps at 540x675): step median 0.041, max 0.079; most isolated step 1.07x its larger neighbour; pops (>1.5x both neighbours) 0
+largest frame-to-frame change of mean relative luminance (whole frame and 9 quarter windows): 0.00034 (flash threshold 0.10); frame N vs frame 0 max channel difference 0
+PASS
+== determinism
+t=0: max channel difference, same page and a second page: 0
+t=3.7: max channel difference, same page and a second page: 0
+t=11.2: max channel difference, same page and a second page: 0
+t=19.9: max channel difference, same page and a second page: 0
+PASS  identical pixels

@@ -28,19 +28,19 @@
     hstep: 0.55, // sample spacing along the path (px at 4K)
     jumpB: 0.014, // retrace brightness
     expo: 0.85,
-    sat: 40, // phosphor saturation level
+    sat: 120, // phosphor saturation level
     halo: [0.26, 0.15, 0.09, 0.05, 0.022, 0.012], // glow pyramid weights (levels 1..6)
     glareFrom: 4, // levels >= this spill outside the glass (camera glare)
     tailA: 1.0, tailL: 0.05, headA: 6.0, headL: 0.0028,
     phos: [0.17, 1.0, 0.36],
-    ringT: 4.0, ringK: 0.5,
+    ringT: 4.0, ringK: 0.3,
   };
 
   // ------------------------------------------------------------------ trace
   Renderer.prototype.trace = function (t) {
     const P = this.P, sc = this.s, R = this.R, cx = this.cx, cy = this.cy;
     const list = PH.scene.build(t);
-    const xs = [], ys = [], es = [];
+    const xs = [], ys = [], es = [], ds = []; // ds: energy per unit length (beam dwell)
     const h = P.hstep * sc;
     let last = null;
     const pushSeg = (pts, opt) => {
@@ -95,10 +95,12 @@
       let total = 0;
       for (let k = 0; k < m; k++) total += sw[k] * step;
       const scale = opt.slot != null ? (opt.slot * R) / Math.max(1e-9, total) : opt.b;
-      for (let k = 0; k < m; k++) { xs.push(sx[k]); ys.push(sy[k]); es.push(sw[k] * step * scale); }
+      for (let k = 0; k < m; k++) { xs.push(sx[k]); ys.push(sy[k]); es.push(sw[k] * step * scale); ds.push(sw[k] * scale); }
       last = pts[n - 1];
     };
-    const toPx = (p) => [cx + p[0] * R, cy - p[1] * R];
+    // the drawing sits a little low on the screen so the horizon falls clear of the graticule's centre axis
+    const DY = PH.scene.DY;
+    const toPx = (p) => [cx + p[0] * R, cy - (p[1] + DY) * R];
     const jumpTo = (p, b) => {
       if (!last) { last = p; return; }
       const dx = p[0] - last[0], dy = p[1] - last[1], L = Math.hypot(dx, dy);
@@ -118,8 +120,8 @@
           const c = toPx(d);
           jumpTo(c, 0.008);
           const pts = [];
-          const r = 1.6 * this.s;
-          for (let k = 0; k <= 12; k++) pts.push([c[0] + r * Math.cos((TAU * k) / 12), c[1] + r * Math.sin((TAU * k) / 12)]);
+          const r = 1.6 * this.s, air = d[2] == null ? 1 : d[2], ex = r + (1 - air) * 0.028 * this.R;
+          for (let k = 0; k <= 12; k++) pts.push([c[0] + ex * Math.cos((TAU * k) / 12), c[1] + r * Math.sin((TAU * k) / 12)]);
           pushSeg(pts, { slot: 0.0045, noCorner: true });
         }
         continue;
@@ -139,7 +141,7 @@
     for (let i = 0; i < n; i++) acc += es[i];
     let c = 0;
     for (let i = 0; i < n; i++) { u[i] = (c + es[i] * 0.5) / acc; c += es[i]; }
-    return { xs, ys, es, u, n, total: acc };
+    return { xs, ys, es, ds, u, n, total: acc };
   };
 
   // ------------------------------------------------------------------ splat
@@ -234,7 +236,9 @@
     const knorm = Math.sqrt(TAU) * sig0 * P.expo;
     for (let i = 0; i < tr.n; i++) {
       let a = uh - tr.u[i]; if (a < 0) a += 1;
-      const comet = P.tailA * Math.exp(-a / P.tailL) + P.headA * Math.exp(-a / P.headL) * (a < 0.5 ? 1 : 0);
+      // the head and its fresh tail show where the beam lingers; where it races (fills, retraces) they are faint
+      const cm = smooth(0.06, 0.45, tr.ds[i]);
+      const comet = cm * (P.tailA * Math.exp(-a / P.tailL) + P.headA * Math.exp(-a / P.headL) * (a < 0.5 ? 1 : 0));
       const e = tr.es[i] * (1 + comet) * knorm;
       const x = tr.xs[i], y = tr.ys[i];
       const dx = x - cx, dy = y - cy, rho2 = (dx * dx + dy * dy) / (Rr * Rr);
@@ -270,7 +274,7 @@
       const Lr = L[2], w = Lr.w, h = Lr.h, src = Lr.a;
       if (!this.ring) this.ring = new Float32Array(w * h);
       const ring = this.ring; ring.fill(0);
-      const r0 = (215 * sc) / 8, rw = (16 * sc) / 8, T = P.ringT;
+      const r0 = (215 * sc) / 8, rw = (26 * sc) / 8, T = P.ringT;
       const RR = Math.ceil(r0 + 3 * rw);
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         const v = src[y * w + x] / (sc * sc) - T;
@@ -335,7 +339,7 @@
     const gw = this.levels[P.glareFrom - 1].w, gh = this.levels[P.glareFrom - 1].h, gbuf = this.glare;
     const gscale = W / gw; // glare level texel size in px
     const pr = P.phos[0], pg = P.phos[1], pb = P.phos[2];
-    const stat = this.stat, lit = this.lit, mask = this.mask, gcov = this.gcov, vign = this.vign, dith = this.dith;
+    const fvig = this.fvig, stat = this.stat, lit = this.lit, mask = this.mask, gcov = this.gcov, vign = this.vign, dith = this.dith;
     const LUT = this.lut, LN = LUT.length - 1;
     const ll = this.lightLevel / this.refLight;
     const lipF = this.lipF, lipI = this.lipI, top = this.levels[5].acc;
@@ -367,6 +371,7 @@
         const lf = lipF[i];
         if (lf > 0) { const lv = top[lipI[i]] * lf; r += lv * pr; gg += lv * pg; b += lv * pb; }
         // highlight bleed: an over-exposed green spills into the other channels (white-green core)
+        const fv = fvig[i]; r *= fv; gg *= fv; b *= fv;
         const ex = gg - 0.75;
         if (ex > 0) { r += ex * 0.55; b += ex * 0.42; }
         const o = i * 4, dd = dith[i];

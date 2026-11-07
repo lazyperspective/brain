@@ -1,5 +1,7 @@
 // Render "Mobile" through its page (index.html?export, window.__piece) in the pre-installed Playwright Chromium.
 //   node render.js video <out.mp4> [pages=3]     one loop, 1080x1350, 30 fps, H.264 High yuv420p CRF 16 (seam zones)
+//                                                LOSSLESS=1: exact RGB master (libx264rgb qp 0) instead
+//   node render.js encode <master.mkv> <out.mp4>  delivery encode of a LOSSLESS master
 //                                                frames rendered at 2160x2700 and box-filtered in linear light
 //   node render.js stills <dir> <t,t,...> [s=1]   PNG frames: s=1 -> 1080x1350, s=2 -> 2160x2700 (from 4320x5400)
 //   node render.js seam                           render-level seam check on the exact frames (before video coding)
@@ -21,11 +23,14 @@ async function openPage(browser) {
 }
 const grab = (page, t, s, down) => page.evaluate(([t, s, down]) => { const r = window.__piece.renderAt(t, s, down); return { w: r.w, h: r.h, px: window.__piece.pixels(), ms: window.__piece.lastMs }; }, [t, s || 1, down || 2]);
 
-// One GOP (keyframe at frame 0 only); frame 0 coded at a high fixed quality and the last 40 frames ramped up to meet
-// it, so the step from the last frame back to the first is an ordinary step (see ink-courtyard/production/render.js).
-const ZONES = (n) => `zones=0,0,q=10/${n - 40},${n - 25},q=14/${n - 24},${n - 13},q=12/${n - 12},${n - 7},q=11/${n - 6},${n - 1},q=10`;
+// One GOP (keyframe at frame 0 only); frame 0 coded near-losslessly and the last 60 frames ramped up to meet it
+// (tuned on an exact RGB master: frame 0 q4, frames N-60..N-31 q8, N-30..N-1 q4), so the step from the last frame back to the first is an ordinary step (see ink-courtyard/production/render.js).
+const ZONES = (n) => process.env.ZONES ? process.env.ZONES.replace(/N(-?\d+)/g, (_, d) => String(n + +d)) : `zones=0,0,q=4/${n - 60},${n - 31},q=8/${n - 30},${n - 1},q=4`;
 function encoder(out, n, W, H) {
   const master = !!process.env.MASTER;
+  if (process.env.LOSSLESS) // exact RGB intermediate for re-encoding (render once, tune the delivery encode from it)
+    return spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-r', String(FPS), '-i', '-',
+      '-c:v', 'libx264rgb', '-qp', '0', '-preset', 'ultrafast', '-pix_fmt', 'rgb24', '-r', String(FPS), '-frames:v', String(n), out], { stdio: ['pipe', 'inherit', 'inherit'] });
   return spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-r', String(FPS), '-i', '-',
     '-c:v', 'libx264', '-profile:v', 'high', '-preset', master ? 'veryfast' : 'slow', ...(master ? [] : ['-tune', 'grain']), '-crf', master ? '4' : String(process.env.CRF || 16),
     '-x264-params', `keyint=${n}:min-keyint=${n}:scenecut=0` + (master ? '' : ':' + ZONES(n)),
@@ -92,6 +97,13 @@ const step = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math
       console.log(`t=${t}: max channel difference, same page ${'and'} a second page: ${d}`);
     }
     console.log(worst === 0 ? 'PASS  identical pixels' : 'FAIL');
+  } else if (mode === 'encode') {
+    // re-encode a near-lossless master (MASTER=1 video) with the delivery settings: node render.js encode <master> <out>
+    const N = 600, ff = encoder(arg, N, 1080, 1350), done = new Promise((r) => ff.on('close', r));
+    const dec = spawn('ffmpeg', ['-loglevel', 'error', '-i', out, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    dec.stdout.pipe(ff.stdin);
+    await done;
+    console.log('encoded', arg);
   } else if (mode === 'steps') {
     // Whole-loop check in memory (nothing written): every frame at 540x675 (rendered 1080x1350, box-filtered).
     // Frame-to-frame mean abs step (pop: a step > 1.5x both neighbours and above a floor), and the mean relative

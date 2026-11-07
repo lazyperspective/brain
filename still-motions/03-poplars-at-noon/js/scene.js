@@ -72,13 +72,25 @@
   }
   // crown half-width at height y on one side, with foliage clumps breaking the silhouette
   function crownHalf(T, s, side, prof) {
-    const k = T.h / 34;
+    const k = T.h / 30;
     const lump = R.fbm(s * k, side * 5.3 + T.seed, T.iseed, 3);
-    const tuft = Math.pow(R.vnoise(s * k * 1.7, side * 9.1 + T.seed, T.iseed + 3), 3);
-    return 0.5 * T.cw * prof * (0.8 + 0.36 * lump + 0.22 * tuft);
+    const tuft = Math.pow(R.vnoise(s * k * 1.9, side * 9.1 + T.seed, T.iseed + 3), 2.5);
+    return 0.5 * T.cw * prof * (0.76 + 0.36 * lump + 0.36 * tuft);
   }
-
-  const FOL = { deep: [0.03, 0.09, 0.08], shade: [0.07, 0.17, 0.12], mid: [0.2, 0.36, 0.15], lit: [0.52, 0.64, 0.2], hi: [0.82, 0.84, 0.38] };
+  // foliage masses: jittered clump centres (a cellular field); within its clump a point is lit toward the upper right
+  function clumpLight(T, x, y) {
+    const cw = 0.034 * T.h + 5, ch = 0.05 * T.h + 6;
+    const gx = x / cw, gy = y / ch, ix = Math.floor(gx), iy = Math.floor(gy);
+    let sw = 0, sl = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const cx = ix + i + 0.15 + 0.7 * R.hash2(ix + i, iy + j, T.iseed + 41), cy = iy + j + 0.15 + 0.7 * R.hash2(ix + i, iy + j, T.iseed + 43);
+      const dx = gx - cx, dy = (gy - cy) * 1.2, d = dx * dx + dy * dy;
+      const w = Math.exp(-d / 0.08);  // soft blend of neighbouring clumps: no facet edges
+      sw += w; sl += w * (0.5 + 0.4 * dx - 0.6 * dy - 0.6 * d);
+    }
+    return clamp(sl / Math.max(sw, 1e-9) + 0.25 * (R.vnoise(x / 9, y / 9, T.iseed + 47) - 0.5), 0, 1);
+  }
+  const FOL = { deep: [0.03, 0.08, 0.1], shade: [0.06, 0.15, 0.15], mid: [0.22, 0.37, 0.16], lit: [0.58, 0.66, 0.22], hi: [0.88, 0.85, 0.42] };
   function foliageColour(light) {
     if (light < 0.25) return mix3(FOL.deep, FOL.shade, light / 0.25);
     if (light < 0.5) return mix3(FOL.shade, FOL.mid, (light - 0.25) / 0.25);
@@ -105,12 +117,15 @@
           const side = x < g.xc ? -1 : 1;
           const hw = crownHalf(T, g.s, side, g.prof);
           const u = (x - g.xc) / Math.max(1, hw);
-          if (Math.abs(u) <= 1 && hw > 0.5) {
-            // light: the sun is high and to the right
+          // sky shows through the feathery outer foliage here and there
+          const hole = Math.abs(u) > 0.7 && R.fbm(x / (0.01 * T.h + 3), y / (0.016 * T.h + 3), T.iseed + 23, 2) > 0.7 - 0.3 * (Math.abs(u) - 0.7);
+          if (Math.abs(u) <= 1 && hw > 0.5 && !hole) {
+            // light: the sun is high and to the right; the foliage hangs in upward-sweeping masses, each lit on top
             const sideLit = sstep(-0.75, 0.85, u + 0.12);
-            const cl = R.fbm(x / (0.022 * T.h + 4), y / (0.016 * T.h + 3), T.iseed + 11, 3);
+            const cl = R.fbm(x / (0.02 * T.h + 4), y / (0.034 * T.h + 4), T.iseed + 11, 3);
+            const top = 0.6 * (clumpLight(T, x, y) - 0.45);
             const cl2 = R.vnoise(x / (0.05 * T.h + 6), y / (0.035 * T.h + 5), T.iseed + 19);
-            let light = 0.12 + 0.7 * sideLit + 1.05 * (cl - 0.5) + 0.35 * (cl2 - 0.5);
+            let light = 0.08 + 0.68 * sideLit + 0.75 * (cl - 0.5) + 0.3 * (cl2 - 0.5) + top * (0.35 + 0.65 * sideLit);
             light += 0.12 * sstep(0.45, 0.95, g.s) - 0.25 * sstep(0.18, 0.0, g.s); // top catches more, bottom tucks under
             light -= 0.22 * sstep(0.55, 1.0, -u); // the shadowed flank goes deepest at its edge
             light = clamp(light, 0, 1);
@@ -263,8 +278,8 @@
     const tdx = Math.max(0, Math.abs(x - 1593) - 18), tdy = Math.max(0, 1082 - y);
     const tower = Math.exp(-(tdx * tdx + tdy * tdy) / (2 * 34 * 34));
     const band = sstep(1150, 1265, y) * sstep(1400, 1500, x) * sstep(2120, 2030, x) * (y > YH ? 0 : 1);
-    const k = Math.max(0.55 * tower, 0.45 * band);
-    return mix3(c, [0.56, 0.7, 0.9], k);
+    const halo = Math.max(0.4 * tower, 0.42 * band);
+    return mix3(c, [0.56, 0.7, 0.9], halo);
   }
   function cloudField(x, y) {
     let best = 0, bi = -1, e = 0;
@@ -454,6 +469,7 @@
     if (sh > 0) {
       const dark = fam === 'towpath' ? [0.2, 0.18, 0.36] : [0.06, 0.12, 0.16];
       col = mix3(col, dark, sh * 0.88); lit = mix(lit, 0.1, sh);
+      if (fam === 'towpath' && sh > 0.45) fam = 'towpathShade';
     }
     // aerial perspective toward the far end of the row
     col = aerial(col, 0.45 * sstep(260, 30, g.d));
@@ -461,24 +477,28 @@
   }
 
   // the boat moored at the far bank, and the walker with a parasol on the towpath
-  const BOAT = { x: 640, y: 0, len: 118, ang: -0.1 };
-  BOAT.y = yFB(BOAT.x) + 9;
+  const BOAT = { x: 716, y: 0, len: 128, ang: -0.09 };
+  BOAT.y = yFB(BOAT.x) + 22;
   function boatAt(x, y) {
     const c = Math.cos(BOAT.ang), s = Math.sin(BOAT.ang);
     const dx = x - BOAT.x, dy = y - BOAT.y;
     const u = (dx * c + dy * s) / (BOAT.len / 2), v = -dx * s + dy * c; // v px, + downward
-    if (Math.abs(u) > 1.05) return null;
-    const sheer = -9 - 4 * u * u;           // gunwale rises to the ends
-    const keel = 4 * (1 - Math.pow(Math.abs(u), 2.2)) + 1; // waterline (hull in water below this)
-    if (v < sheer || v > keel) return null;
-    const pointed = Math.abs(u) > 0.92 && (v - sheer) / (keel - sheer) > 1.15 - (Math.abs(u) - 0.92) * 8;
-    if (pointed) return null;
-    const f = (v - sheer) / (keel - sheer);
+    const au = Math.abs(u);
+    if (au > 1.04) return null;
+    const g = -7 - 7 * u * u;                                   // near gunwale, rising to bow and stern
+    const w = 7 * (1 - Math.pow(au, 2.4)) + 1;                  // waterline
+    const top = g - 13 * Math.pow(Math.max(0, 1 - u * u), 0.75); // far gunwale: the open boat seen from a little above
+    if (v < top - 1.5 || v > w) return null;
+    if (au > 0.9 && v > g + (w - g) * (1 - (au - 0.9) * 7)) return null; // the stem rakes in
     let col, lit;
-    if (f < 0.18) { col = [0.2, 0.34, 0.62]; lit = 0.5; }            // blue gunwale strake
-    else if (u < -0.2 && f < 0.5) { col = [0.68, 0.38, 0.22]; lit = 0.5; } // interior visible at the stern
-    else { col = mix3([0.97, 0.94, 0.86], [0.56, 0.6, 0.74], sstep(0.4, 1.0, f)); lit = 0.9 - 0.6 * f; }
-    return { fam: 'boat', col, lit, ang: BOAT.ang, layer: 6, ch: 'obj', fine: 1 };
+    if (v < top + 2.2) { col = [0.22, 0.36, 0.66]; lit = 0.5; }                              // far gunwale rail
+    else if (v < g - 1.5) {                                                                // the inside: warm wood
+      const thwart = Math.abs(u - 0.32) < 0.05 || Math.abs(u + 0.28) < 0.05;
+      const f = (v - top) / Math.max(1, g - top);
+      col = thwart ? [0.5, 0.26, 0.16] : mix3([0.86, 0.52, 0.28], [0.58, 0.3, 0.2], f); lit = 0.6;
+    } else if (v < g + 2.2) { col = [0.2, 0.34, 0.66]; lit = 0.5; }                      // near gunwale strake, blue
+    else { const f = (v - g) / Math.max(1, w - g); col = mix3([0.98, 0.96, 0.9], [0.6, 0.63, 0.8], sstep(0.25, 1.0, f)); lit = 0.9 - 0.6 * f; }
+    return { fam: 'boat', col, lit, ang: BOAT.ang, layer: 6, ch: 'obj', fine: 2 };
   }
   const FIG = { x: 803, y: 0 };
   { const g = bank(FIG.x); FIG.y = g.yb - g.bw - 0.45 * g.tw; }
@@ -539,7 +559,7 @@
 
   // the shade of trees behind us falls across the near meadow, with sun flecks through the leaves
   function foreShadow(x, y) {
-    const edge = 2440 - 120 * sstep(1300, 2160, x) + 110 * (R.fbm(x / 160, 3, 131, 3) - 0.5) + 40 * (R.fbm(x / 45, 7, 133, 2) - 0.5);
+    const edge = 2470 - 170 * sstep(1500, 2160, x) + 150 * (R.fbm(x / 190, 3, 131, 3) - 0.5) + 70 * Math.pow(R.vnoise(x / 70, 5, 135), 2) + 34 * (R.fbm(x / 40, 7, 133, 2) - 0.5);
     let s = sstep(edge - 18, edge + 18, y);
     const fleck = R.fbm(x / 34, y / 22, 137, 3);
     s *= 1 - 0.95 * sstep(0.62, 0.7, fleck) * sstep(edge + 60, edge + 160, y);
@@ -555,7 +575,7 @@
       if (toMeadow > 0) col = mix3(col, [0.66, 0.74, 0.38], toMeadow);
     } else {
       const n1 = R.fbm(x / 220, y / 90, 101, 4), n2 = R.fbm(x / 45, y / 22, 103, 3);
-      const sun = [0.64, 0.74, 0.3], warm = [0.86, 0.8, 0.4], cool = [0.3, 0.5, 0.3];
+      const sun = [0.64, 0.72, 0.32], warm = [0.86, 0.8, 0.44], cool = [0.3, 0.48, 0.32];
       col = mix3(cool, sun, sstep(0.28, 0.62, n1));
       col = mix3(col, warm, 0.7 * sstep(0.5, 0.72, n2) * sstep(0.3, 0.6, n1));
       lit = 0.45 + 0.5 * sstep(0.28, 0.62, n1);
@@ -566,7 +586,7 @@
       const e = x - xNB(y);
       const lip = 8 + 70 * d;
       if (e < lip) { const k = sstep(lip, 0, e); col = mix3(col, [0.16, 0.24, 0.16], 0.85 * k); lit = mix(lit, 0.2, k); }
-      col = aerial(col, 0.32 * sstep(0.25, 0.03, d));
+      col = aerial(col, 0.38 * sstep(0.42, 0.03, d));
     }
     const fs = foreShadow(x, y);
     if (fs > 0) { col = mix3(col, [0.04, 0.12, 0.12], 0.86 * fs); lit = mix(lit, 0.08, fs); }
@@ -605,8 +625,8 @@
     const bankH = bank(x).bw;
     let refl = above(x + rx, y + ry, yb, bankH);
     // the boat and its reflection
-    const bm = boatAt(x, 2 * (BOAT.y + 4) - y);
-    if (bm && y > BOAT.y + 3) refl = mul3(bm.col, 0.8);
+    const bm = boatAt(x, 2 * (BOAT.y + 6) - y);
+    if (bm && y > BOAT.y + 5) refl = mul3(bm.col, 0.78);
     const body = mix3([0.12, 0.24, 0.24], [0.1, 0.2, 0.22], d);
     const fres = 0.9 - 0.32 * sstep(0.05, 1.0, d);
     let col = mix3(body, mul3(refl, 0.92), fres);

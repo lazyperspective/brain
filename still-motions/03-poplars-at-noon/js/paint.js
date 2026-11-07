@@ -40,15 +40,16 @@
   // local: the colour of the thing; light: what the sun adds; shade: the colour of its shadow;
   // refl: colour bounced in from neighbours (sky into water and shadows, grass into undersides); comp: contrast accent
   const RECIPES = {
-    sky: { local: ['CER', 'COB', 'W', 'UM'], light: ['CYL', 'ROSE', 'OR'], shade: ['UM', 'VIO'], refl: ['EM', 'ROSE'], comp: ['OR'], r: [0.86, 0.05, 0.03, 0.03, 0.04] },
+    sky: { local: ['CER', 'COB', 'W', 'UM'], light: ['CYL', 'ROSE', 'OR'], shade: ['UM', 'VIO'], refl: ['ROSE', 'VIO'], comp: ['OR'], r: [0.94, 0.025, 0.015, 0.01, 0.015] },
     skyLow: { local: ['W', 'CER', 'CYL', 'COB'], light: ['CYL', 'ROSE', 'OR', 'CY'], shade: ['VIO', 'CER'], refl: ['EM', 'ROSE'], comp: ['OR', 'ROSE'], r: [0.8, 0.07, 0.04, 0.04, 0.05] },
     cloud: { local: ['W', 'CER'], light: ['CYL', 'OR', 'ROSE'], shade: ['VIO', 'COB', 'UM', 'ROSE'], refl: ['CER', 'EM'], comp: ['CY', 'OR'], r: [0.66, 0.12, 0.12, 0.04, 0.06] },
     fartree: { local: ['COB', 'VIO', 'EM', 'CER', 'VIR'], light: ['CYL', 'OR', 'ROSE'], shade: ['UM', 'UMV'], refl: ['CER'], comp: ['OR', 'ROSE'], r: [0.7, 0.08, 0.1, 0.05, 0.07] },
     field: { local: ['YG', 'CYL', 'CY', 'EM', 'W'], light: ['CYL', 'OR', 'W'], shade: ['COB', 'VIO', 'CER', 'UM'], refl: ['CER', 'ROSE'], comp: ['VIO', 'ROSE'], r: [0.7, 0.1, 0.08, 0.05, 0.07] },
     meadow: { local: ['YG', 'EM', 'CY', 'CYL', 'VIR'], light: ['CYL', 'CY'], shade: ['VIR', 'UM', 'VIO', 'DG', 'COB'], refl: ['CER', 'COB'], comp: ['VIO', 'ROSE', 'OR'], r: [0.74, 0.1, 0.09, 0.03, 0.04] },
-    foliage: { local: ['YG', 'EM', 'VIR', 'DG', 'CYL'], light: ['CYL', 'CY', 'YG', 'OR'], shade: ['UM', 'UMV', 'DG', 'VIR', 'VIO', 'COB'], refl: ['CER', 'COB'], comp: ['OR', 'RB', 'ROSE', 'VIO'], r: [0.52, 0.14, 0.18, 0.07, 0.09] },
+    foliage: { local: ['YG', 'EM', 'VIR', 'DG', 'CYL'], light: ['CYL', 'CY', 'YG', 'OR'], shade: ['UM', 'UMV', 'DG', 'VIR', 'VIO', 'COB'], refl: ['CER', 'COB'], comp: ['OR', 'RB', 'ROSE', 'VIO'], r: [0.56, 0.14, 0.18, 0.07, 0.05] },
     trunk: { local: ['VIO', 'RB', 'UMV'], light: ['OR', 'CY'], shade: ['UM', 'DG'], refl: ['EM'], comp: ['OR'], r: [0.6, 0.15, 0.15, 0.05, 0.05] },
     towpath: { local: ['OR', 'CY', 'ROSE', 'W'], light: ['CYL', 'W', 'CY'], shade: ['VIO', 'COB', 'UM'], refl: ['EM', 'CER'], comp: ['CER', 'VIO'], r: [0.64, 0.14, 0.1, 0.05, 0.07] },
+    towpathShade: { local: ['VIO', 'COB', 'UM', 'UMV', 'CER'], light: ['OR', 'ROSE'], shade: ['UMV', 'UM'], refl: ['EM', 'VIR'], comp: ['OR', 'CY'], r: [0.66, 0.08, 0.12, 0.06, 0.08] },
     bank: { local: ['EM', 'VIR', 'RB', 'OR', 'YG'], light: ['CY', 'YG'], shade: ['UM', 'VIO', 'DG'], refl: ['CER'], comp: ['ROSE', 'OR'], r: [0.66, 0.1, 0.13, 0.04, 0.07] },
     wall: { local: ['W', 'ROSE', 'OR', 'CY', 'CER', 'VIO', 'COB'], light: ['CYL', 'W', 'OR'], shade: ['VIO', 'COB', 'CER'], refl: ['EM'], comp: ['CER', 'OR'], r: [0.72, 0.1, 0.12, 0.02, 0.04] },
     roof: { local: ['VER', 'OR', 'ROSE'], light: ['CY'], shade: ['VIO', 'UMV'], refl: ['RB'], comp: ['CER', 'COB'], r: [0.74, 0.08, 0.1, 0.03, 0.05] },
@@ -56,15 +57,16 @@
     hay: { local: ['CY', 'OR', 'CYL'], light: ['CYL', 'W'], shade: ['VIO', 'COB', 'UM', 'ROSE'], refl: ['VER', 'ROSE'], comp: ['VIO', 'CER'], r: [0.68, 0.1, 0.12, 0.04, 0.06] },
     water: { local: ['CER', 'COB', 'W', 'EM', 'UM'], light: ['W', 'CYL'], shade: ['UM', 'VIR', 'UMV'], refl: ['EM', 'VIO'], comp: ['OR', 'ROSE'], r: [0.72, 0.05, 0.1, 0.07, 0.06] },
     waterDark: { local: ['DG', 'VIR', 'UM', 'UMV', 'EM'], light: ['EM', 'YG'], shade: ['UMV', 'UM', 'VIO'], refl: ['COB', 'CER'], comp: ['OR', 'RB', 'VER'], r: [0.6, 0.06, 0.14, 0.1, 0.1] },
-    boat: { local: ['W', 'CER', 'OR', 'COB'], light: ['CYL', 'W'], shade: ['VIO', 'COB'], refl: ['CER'], comp: ['OR'], r: [0.7, 0.1, 0.12, 0.03, 0.05] },
+    boat: { local: ['W', 'CER', 'OR', 'COB', 'UM', 'RB', 'VER', 'VIO'], light: ['CYL', 'W'], shade: ['VIO', 'COB'], refl: ['CER'], comp: ['OR'], r: [0.7, 0.1, 0.12, 0.03, 0.05] },
     figure: { local: ['W', 'CER', 'OR', 'ROSE'], light: ['CYL', 'W'], shade: ['VIO', 'COB'], refl: ['CER'], comp: ['OR'], r: [0.72, 0.1, 0.12, 0.02, 0.04] },
     parasol: { local: ['VER', 'OR', 'ROSE'], light: ['CY', 'OR'], shade: ['ROSE', 'VIO'], refl: ['VER'], comp: ['CER'], r: [0.74, 0.1, 0.12, 0.02, 0.02] },
     any: { local: PNAMES, light: ['CYL', 'W'], shade: ['UM', 'VIO'], refl: ['CER'], comp: ['OR'], r: [1, 0, 0, 0, 0] },
   };
   RECIPES.fieldShade = RECIPES.field;
+  RECIPES.sky.maxC = 0.085; RECIPES.skyLow.maxC = 0.08; RECIPES.cloud.maxC = 0.07;
   RECIPES.sky.J = 0.014; RECIPES.skyLow.J = 0.012; RECIPES.water.J = 0.013; RECIPES.cloud.J = 0.011;
   const GROUPS = ['local', 'light', 'shade', 'refl', 'comp'];
-  const DARKS = ['DG', 'VIR', 'UM', 'UMV', 'VIO', 'RB', 'COB', 'EM'];
+  const DARKS = ['DG', 'VIR', 'UM', 'UMV', 'VIO', 'COB', 'EM', 'DG', 'UM'];
 
   // ---------- error diffusion grids ------------------------------------------------------------------------------
   const CELL = 9;
@@ -103,7 +105,7 @@
     // an accent must sit close in value to what it accents: contrast of hue, not of tone
     // darks are built from saturated deep pigments side by side (ultramarine, violet, viridian, red-brown)
     const dark = sstep(0.5, 0.28, Dl[0]);
-    if (gi > 0) pick(rec[GROUPS[gi]], 0.3, 0.004, (opts && opts.maxDL) || 0.085, chD * 1.1 + 0.035 + 0.3 * dark);
+    if (gi > 0) pick(rec[GROUPS[gi]], 0.3, 0.004, (opts && opts.maxDL) || 0.085, rec.maxC || chD * 1.1 + 0.035 + 0.3 * dark);
     if (!best) {
       if (dark > 0 && rng() < 0.55 * dark) pick(DARKS, 0.35, 0.006, 0.07);
       if (!best) pick(rec.local, 1.0 - 0.6 * dark, rec.J || 0.009, 9);
@@ -129,8 +131,8 @@
     const cand = [];
     for (let ty = y0; ty < y1; ty += TILE) for (let tx = x0; tx < x1; tx += TILE) {
       let sp = 1e9;
-      for (const [a, b] of [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1]]) {
-        const s = sampleFn(Math.min(x1 - 0.01, tx + a * TILE), Math.min(y1 - 0.01, ty + b * TILE));
+      for (let b = 0; b <= 4; b++) for (let a = 0; a <= 4; a++) {
+        const s = sampleFn(Math.min(x1 - 0.01, tx + a * TILE / 4), Math.min(y1 - 0.01, ty + b * TILE / 4));
         if (s) sp = Math.min(sp, s.sp);
       }
       if (sp > 1e8) {
@@ -160,7 +162,7 @@
       for (let j = Math.max(0, gy - reach); j <= Math.min(gh - 1, gy + reach) && ok; j++) {
         for (let k = Math.max(0, gx - reach); k <= Math.min(gw - 1, gx + reach); k++) {
           for (let q = head[j * gw + k]; q >= 0; q = next[q]) {
-            const dx = px[q] - x, dy = py[q] - y, m = 0.5 * (r + pr[q]);
+            const dx = px[q] - x, dy = py[q] - y, m = Math.min(r, pr[q]);
             if (dx * dx + dy * dy < m * m) { ok = false; break; }
           }
           if (!ok) break;
@@ -278,13 +280,13 @@
     }
 
     // 5. painted border of complementary dots
-    const border = L(90);
+    const bunder = L(89), border = L(90);
     const BW = S.B;
     const bpts = scatter(rng, 0, 0, W, H, (x, y) => {
       const e = Math.min(x, W - x, y, H - y);
       if (e >= BW) return null;
-      return { sp: 7.2, z: 8.5 };
-    }, 3.0);
+      return { sp: 6.0, z: 8.5 };
+    }, 3.4);
     for (const s of bpts) {
       const x = s.x, y = s.y;
       const dx = Math.min(x, W - x), dy = Math.min(y, H - y);
@@ -305,15 +307,16 @@
       const L0 = clamp(0.36 + 0.22 * (lab[0] - 0.45), 0.3, 0.5);
       let T = R.oklabToLin(L0, cc * Math.cos(hue), cc * Math.sin(hue)).map((v) => clamp(v, 0, 1));
       const deep = [0.025, 0.03, 0.16];
-      T = [mix(T[0], deep[0], 0.3), mix(T[1], deep[1], 0.3), mix(T[2], deep[2], 0.3)];
+      const kd = rng() < 0.55 ? 0.75 : 0.15;
+      T = [mix(T[0], deep[0], kd), mix(T[1], deep[1], kd), mix(T[2], deep[2], kd)];
       const e = choose(rng, 'any', T, 0.5, x, y, 70, 'border');
       border.push({ x, y, len: 10 * (0.85 + 0.3 * rng()), wid: 7.2 * (0.85 + 0.3 * rng()), ang: (horiz ? 0 : Math.PI / 2) + 0.35 * (rng() - 0.5), hamp: 2.6, seed: rng(), type: 0, c0: e.lin, alpha: 1 });
     }
     // a dark underlayer for the band, so it reads as one painted frame
     for (let y = 0; y < H; y += 20) for (let x = 0; x < W; x += 20) {
       const px = x + rng() * 20, py = y + rng() * 20;
-      if (Math.min(px, W - px, py, H - py) >= BW - 4) continue;
-      under.push({ x: px, y: py, len: 40, wid: 18, ang: rng() * 3, hamp: 0.5, seed: rng(), type: 5, c0: [0.03, 0.03, 0.09], alpha: 0.95 });
+      if (Math.min(px, W - px, py, H - py) >= BW - 6) continue;
+      bunder.push({ x: px, y: py, len: 40, wid: 18, ang: rng() * 3, hamp: 0.5, seed: rng(), type: 5, c0: [0.03, 0.03, 0.09], alpha: 0.95 });
     }
 
     // flatten in painting order; within a layer the order is random
@@ -390,9 +393,11 @@
       // a second state of the moving water: the reflection seen through a different ripple
       const s2 = S.waterAt(s.x, s.y, 1);
       const e2 = choose(rng, s2.fam, lin3(s2.col), s2.lit, s.x, s.y, A, 'water2', { accent: accent || 1 });
-      d.type = 1; d.c1 = e2.lin; d.k = 1 + Math.floor(rng() * 3);
+      // ripples: a slow wave drifting toward us (phase falls with y), broken up by a random part per dab
+      d.type = 1; d.c1 = e2.lin; d.k = 2;
       const bright = sstep(0.45, 0.8, s.refl);
-      d.p = [rng(), 0.55 + 0.45 * rng(), 1 + Math.floor(rng() * 3), rng()];
+      const wave = -s.y / 150 - s.x / 900 + 0.25 * R.fbm(s.x / 120, s.y / 40, 401, 2);
+      d.p = [wave + 0.35 * rng(), 0.55 + 0.45 * rng(), 1 + Math.floor(rng() * 3), rng()];
       d.q = [rng() < 0.07 + 0.08 * bright ? (0.35 + 0.5 * bright) * (0.6 + 0.4 * rng()) : 0, 0.6 + 1.6 * ((s.y - S.YH) / (S.H - S.YH)), 0, 0];
     } else if (s.shadowable) {
       const T2 = lin3(s.col2);
