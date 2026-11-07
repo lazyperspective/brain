@@ -162,7 +162,7 @@ function MobileCore() {
         L: A({ lt: 330, span: 740, yaw: 0.22, bow: 20, tilt: -0.01, Tn: 8, amp: 0.2,
           L: S({ kind: 'quarter', r0: 120, r1: 235, lt: 70, ink: 'T', yaw: 0.15, Tn: 5.5, amp: 0.42 }),
           R: A({ lt: 420, span: 500, yaw: -0.4, bow: 12, tilt: 0.015, Tn: 7, amp: 0.24,
-            L: S({ kind: 'bar', w: 440, h: 38, lt: 90, ink: 'T', yaw: -0.15, Tn: 4.6, amp: 0.36 }),
+            L: S({ kind: 'bar', w: 440, h: 38, lt: 90, ink: 'T', yaw: -0.15, Tn: 4.6, amp: 0.36, dz: -555, zf: 0.1 }),
             R: A({ lt: 330, span: 420, yaw: 0.7, bow: -8, Tn: 5.8, amp: 0.28,
               L: S({ kind: 'tri', side: 200, lt: 70, ink: 'PT', yaw: 0.25, Tn: 4.2, amp: 0.45 }),
               R: S({ kind: 'disc', r: 64, lt: 100, ink: 'PT', yaw: 0.3, Tn: 5, amp: 0.45 }),
@@ -298,6 +298,7 @@ function MobileCore() {
   const harm = (arr, t) => { let s = 0; for (let k = 0; k < HARM.length; k++) { const a = HARM[k] * W0 * t; s += arr[k][0] * Math.cos(a) - arr[k][1] * Math.sin(a); } return s; };
 
   // ------------------------------------------------------------------ kinematics -> 3D geometry for time t (null = rest)
+  const restZ = []; // rest depth of each hanging point (filled by the first, rest-pose call)
   function kinematics(t) {
     const out = { ends: [], hang: [], shapes: [], wires: [] };
     const sway = t == null ? 0 : harm(MOT.sway, t);
@@ -305,6 +306,7 @@ function MobileCore() {
     (function walk(n, att) {
       const hang = [att[0] + (n === SCENE.root ? sway : 0), att[1] + n.lt, att[2]];
       out.hang[n.id] = hang;
+      if (t == null && restZ[n.id] == null) restZ[n.id] = hang[2];
       out.wires.push({ pts: [att, hang], hw: THREAD_HW });
       const dyaw = t == null ? 0 : harm(MOT.yaw[n.id], t), dtilt = t == null ? 0 : harm(MOT.tilt[n.id], t);
       if (n.type === 'arm') {
@@ -330,7 +332,11 @@ function MobileCore() {
         out.ends[n.id] = ends;
         walk(n.L, ends[0]); walk(n.R, ends[1]);
       } else {
-        out.shapes.push({ n, hang, yaw: n.yaw + dyaw, roll: n.roll + dtilt });
+        // dz: a shape may hang from a short stiff wire stem bent back toward the wall (keeps the bar's shadow on it)
+        // (zf < 1: the stem lets the shape take only part of its hook's swing in depth)
+        let sh = hang;
+        if (n.dz) { const zr = restZ[n.id] == null ? hang[2] : restZ[n.id]; sh = [hang[0], hang[1], zr + (hang[2] - zr) * (n.zf == null ? 1 : n.zf) + n.dz]; }
+        out.shapes.push({ n, hang: sh, yaw: n.yaw + dyaw, roll: n.roll + dtilt });
       }
     })(SCENE.root, ceil);
     return out;
