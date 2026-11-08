@@ -138,7 +138,7 @@
     P.session = 2;
     const thin = { load: 0.62, opac: 0.62, imp: 0.08, rag: 0.4, bristle: 0.8, wash: true, pick: 0.15, reach: 1.4, dryK: 0.75, touch: 0.1 };
     // background
-    for (const [x, y] of scatter(34, (x, y) => regAt(x, y) === RG.BG || regAt(x, y) === RG.HAIR)) {
+    for (const [x, y] of scatter(46, (x, y) => regAt(x, y) === RG.BG || regAt(x, y) === RG.HAIR)) {
       const pts = trace(x, y, bgAng, 160 + rng.next() * 200, 6, null);
       S(pts, 34 + rng.next() * 26, 'loaded', Object.assign({}, thin, { col: jit(bgCol(x, y), 0.06) }));
     }
@@ -169,7 +169,7 @@
       return a;
     };
     for (const [x, y] of scatter(13, (x, y) => [RG.FACE, RG.NECK, RG.CHEST, RG.EAR, RG.LIP, RG.BROW, RG.EYE, RG.MOUST].includes(regAt(x, y)))) {
-      S(trace(x, y, faceAng, 25 + rng.next() * 30, 3, null), 16 + rng.next() * 8, 'loaded', Object.assign({}, thin, { col: jit(planCol(x, y), 0.05), opac: 0.55 }));
+      S(trace(x, y, faceAng, 45 + rng.next() * 45, 3, null), 18 + rng.next() * 8, 'loaded', Object.assign({}, thin, { col: jit(planCol(x, y), 0.05), opac: 0.55 }));
     }
     // collars
     for (const [x, y] of scatter(10, (x, y) => regAt(x, y) === RG.COLL_L || regAt(x, y) === RG.COLL_R)) {
@@ -237,7 +237,7 @@
     for (let pass = 0; pass < 3; pass++) {
       const sp = [13, 11, 10][pass];
       for (const [x, y] of scatter(sp, (x, y) => [RG.FACE, RG.LIP, RG.EYE, RG.BROW, RG.MOUST].includes(regAt(x, y)))) {
-        if (pass === 2 && rng.next() < 0.5) continue;
+        if (pass === 2 && rng.next() < 0.7) continue;
         const b0 = bandAt(x, y);
         let c = planCol(x, y);
         // broken colour: a few strokes of the neighbouring hue
@@ -249,7 +249,7 @@
         const w = [16, 12, 8][pass] + rng.next() * [6, 4, 3][pass];
         const free = rng.next() < 0.2;
         S(trace(x, y, faceAng, L, 2, (xx, yy, s) => s < 10 || free || (bandAt(xx, yy) === b0 && HEADREGS.includes(regAt(xx, yy))) || rng.next() < 0.04), w, pass === 2 ? 'both' : 'loaded',
-          Object.assign({}, body, { col: jit(c, 0.035), col2: jit(mix(c, C.white, 0.3), 0.02), mix2: 0.12, imp: [0.8, 0.9, 1.0][pass], pick: 0.3 }));
+          Object.assign({}, body, { col: jit(c, 0.035), col2: jit(mix(c, C.white, 0.3), 0.02), mix2: 0.12, imp: [0.8, 0.9, 1.0][pass], pick: 0.3, touch: 0.12, rag: 0.3, lift: 0.45 }));
       }
     }
     log && log('face');

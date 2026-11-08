@@ -14,12 +14,12 @@
     for (let i = 0; i < n; i++) { Ws[i] *= 0.35; D[i] = Hh[i] - Ws[i]; }
     const fresh = new Float32Array(n); // squeegee paint amount (for gloss)
     const TAU = 0.13;
-    const Dsm = D.slice(); P8.blur(Dsm, W, H, 1.5 * S, 1.5 * S);
-    const Deff = new Float32Array(n); for (let i = 0; i < n; i++) Deff[i] = 0.75 * Dsm[i] + 0.25 * D[i];
+    const Dsm = D.slice(); P8.blur(Dsm, W, H, 4 * S, 4 * S);
+    const Deff = new Float32Array(n); for (let i = 0; i < n; i++) Deff[i] = 0.85 * Dsm[i] + 0.15 * D[i];
 
     function palette(name) {
       const P = {
-        red: [[0.52, 0.035, 0.03], [0.30, 0.012, 0.035], [0.62, 0.12, 0.04], [0.04, 0.035, 0.06], [0.08, 0.16, 0.42], [0.8, 0.78, 0.74]],
+        red: [[0.60, 0.04, 0.03], [0.34, 0.012, 0.035], [0.74, 0.14, 0.04], [0.55, 0.03, 0.14], [0.62, 0.05, 0.035], [0.05, 0.04, 0.07], [0.10, 0.2, 0.5]],
         white: [[0.86, 0.85, 0.80], [0.80, 0.72, 0.18], [0.34, 0.58, 0.72], [0.9, 0.88, 0.84], [0.62, 0.62, 0.6], [0.75, 0.3, 0.42]],
         green: [[0.02, 0.10, 0.08], [0.82, 0.82, 0.78], [0.55, 0.05, 0.30], [0.05, 0.22, 0.30], [0.03, 0.03, 0.04], [0.85, 0.62, 0.12]],
         grey: [[0.7, 0.7, 0.68], [0.12, 0.12, 0.13], [0.45, 0.47, 0.5], [0.85, 0.82, 0.76]]
@@ -127,7 +127,7 @@
           }
           const gp = Lv - (Deff[i] + ws);
           // viscous fingering where contact is marginal: lacy, horizontally drawn-out skips
-          const fing = 0.55 + 0.45 * FB(u / 34, y / (5 * S), 3, p.seed + 71) + 0.25 * N(u / 7, y / (2.2 * S), p.seed + 72);
+          const fing = 0.12 + 1.25 * SM(-0.12, 0.22, FB(u / 70, y / (8 * S), 4, p.seed + 71) + 0.12 * N(u / 9, y / (2.5 * S), p.seed + 72));
           const reach = p.bead * A[j] / S * fing;
           if (gp > 0 && gp < reach) {
             // the moving bead shears the top of the wet layer along with it (drag / smear)
@@ -226,7 +226,7 @@
       gloss[i] = 0.35 + 0.65 * SM(0.0, 0.6, fresh[i]);
     }
     pt.gloss = gloss;
-    pt.fresh = fresh; pt._Ws = Ws; pt._D = D;
+    pt.fresh = fresh; pt._Ws = Ws; pt._D = D; pt._Cw = Cw; pt._Cd = Cd;
   };
 
   // the composition's pulls (2160-px units)
@@ -235,7 +235,7 @@
     { x0: -40, x1: 1900, y0: 300, Lb: 520, pal: 'red', load: 2400, bandMin: 50, bandMax: 240, streaks: 12, nicks: 18, endLift: 0.9, gap: 0.02, press: 0.25, tilt: 0.5,
       bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[620, 30, 1.5], [1350, 70, 0.9]], seed: 11, endRidge: true, blobs: 4, chatter: 27, edge: 16 },
     // upper band, pass 2: whites/lemon/cerulean, right -> left, lighter load, offset down
-    { x0: 2200, x1: 380, y0: 390, Lb: 460, pal: 'white', load: 900, bandMin: 40, bandMax: 200, streaks: 14, nicks: 24, endLift: 1.2, gap: 0.12, press: 0.45, tilt: 0.8,
+    { x0: 2200, x1: 380, y0: 390, Lb: 460, pal: 'white', load: 900, bandMin: 40, bandMax: 200, streaks: 14, nicks: 24, endLift: 1.2, gap: 0.42, press: 0.6, tilt: 0.8,
       bead: 0.0013, rate: 0.03, float: 0.0002, lifts: [[500, 40, 1.2], [1100, 25, 2.0]], seed: 12, endRidge: true, blobs: 3, chatter: 19, edge: 20 },
     // lower band: green/white/magenta, right -> left, thin load, mostly smear of the reflections
     { x0: 2200, x1: 520, y0: 1690, Lb: 380, pal: 'green', load: 1100, bandMin: 40, bandMax: 180, streaks: 12, nicks: 20, endLift: 1.0, gap: 0.04, press: 0.35, tilt: 0.6,

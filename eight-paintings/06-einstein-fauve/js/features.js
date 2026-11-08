@@ -31,9 +31,11 @@
       const mid = e.up.map((p, j) => lerp(p, e.lo[e.lo.length - 1 - j] || p, 0.5));
       S(wob(mid, 0.4), 11, 'both', o({ col: jit(near ? mix(C.pinkWhite, C.lilac, 0.35) : mix(C.lilac, C.mint, 0.4), 0.02), imp: 0.5, cap: 1 }));
       const ic = iris.c, r = iris.r;
-      S([[ic[0], ic[1] - r * 0.1], [ic[0], ic[1] + r * 0.1]], r * 2.0, 'loaded', o({ col: [0.22, 0.09, 0.15], imp: 0.6, pick: 0.05, rag: 0.06, touch: 0, lift: 0.05, cap: 1 }));
-      S([[ic[0] + r * 0.2, ic[1] + r * 0.45], [ic[0] + r * 0.5, ic[1] + r * 0.25]], r * 0.6, 'loaded', o({ col: near ? C.cadOrange : C.vermilion, imp: 0.4, opac: 0.75, load: 0.8, cap: 1 }));
-      S([[ic[0] - r * 0.05, ic[1]], [ic[0] + r * 0.05, ic[1]]], r * 1.0, 'loaded', o({ col: C.ink, imp: 0.4, pick: 0, rag: 0.05, cap: 1 }));
+      // iris: two loaded touches, umber-violet and ultramarine, a warm glint low in the iris
+      S([[ic[0] - r * 0.15, ic[1] - r * 0.1], [ic[0] + r * 0.15, ic[1] + r * 0.1]], r * 2.0, 'loaded', o({ col: [0.25, 0.10, 0.14], imp: 0.7, pick: 0.0, rag: 0.12, touch: 0, lift: 0.05, cap: 1, bristle: 0.4 }));
+      S([[ic[0] - r * 0.5, ic[1] - r * 0.55], [ic[0] + r * 0.4, ic[1] - r * 0.6]], r * 0.8, 'loaded', o({ col: C.ultramarine, imp: 0.5, pick: 0, opac: 0.9, cap: 1 }));
+      S([[ic[0] + r * 0.05, ic[1] + r * 0.55], [ic[0] + r * 0.5, ic[1] + r * 0.4]], r * 0.55, 'loaded', o({ col: near ? C.cadOrange : C.vermilion, imp: 0.5, opac: 0.85, load: 0.9, cap: 1, pick: 0 }));
+      S([[ic[0] - r * 0.05, ic[1]], [ic[0] + r * 0.05, ic[1] + r * 0.05]], r * 0.85, 'loaded', o({ col: C.ink, imp: 0.4, pick: 0, rag: 0.1, cap: 1 }));
       // upper lid skin over the top of the iris (the hooded look)
       const lid = hood.map((p, j) => lerp(p, e.up[Math.min(e.up.length - 1, Math.round(j / (hood.length - 1) * (e.up.length - 1)))], 0.5));
       S(wob(lid, 0.5), 7.5, 'both', o({ col: jit(near ? C.pink : C.lilac, 0.03), imp: 0.7 }));
@@ -112,7 +114,7 @@
     // underside of the nose: a dark warm plane that separates it from the moustache
     S(wob(G.Geom.open([F.T([426, 646]), F.T([450, 652]), F.T([470, 654]), F.T([492, 653]), F.T([516, 646])], 6), 0.5), 9, 'both', o({ col: [0.55, 0.1, 0.22], imp: 0.5 }));
     // the bulb of the tip: one big warm form, turned by a cooler underside and a hot light
-    S([[nt[0] - 4, nt[1] + 2], [nt[0] + 6, nt[1] + 3]], 40, 'loaded', o({ col: jit(mix(C.vermilion, C.rose, 0.5), 0.02), imp: 0.9, cap: 1, bristle: 0.5 }));
+    S([[nt[0] - 4, nt[1] + 2], [nt[0] + 6, nt[1] + 3]], 40, 'loaded', o({ col: jit(mix(C.vermilion, C.rose, 0.5), 0.02), imp: 0.9, cap: 1, bristle: 0.5, pick: 0, opac: 1 }));
     S([[nt[0] + 4, nt[1] + 12], [nt[0] + 18, nt[1] + 6]], 16, 'loaded', o({ col: jit(C.crimson, 0.02), imp: 0.7, cap: 1 }));
     S([[nt[0] - 14, nt[1] - 6], [nt[0] - 2, nt[1] - 8]], 18, 'loaded', o({ col: jit(C.cadOrange, 0.03), imp: 0.9, cap: 1 }));
     S([[nt[0] - 10, nt[1] - 10], [nt[0] - 4, nt[1] - 11]], 7, 'loaded', o({ col: C.pinkWhite, load: 1.4, imp: 1.8, opac: 1, cap: 1, rag: 0.08 }));

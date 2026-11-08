@@ -126,11 +126,19 @@
     const v1 = 1 - smooth(0.0, 0.22, Math.abs(N2.fbm(wx * (far ? 0.42 : 0.75) + 11.0, z * 0.16, 3)));
     const v2 = 1 - smooth(0.0, 0.14, Math.abs(N3.fbm(wx * 1.25 + 4.0, z * 0.4 + 2.0, 3)));
     const v3 = 1 - smooth(0.0, 0.09, Math.abs(N3.fbm(wx * 3.0 + 9.0, z * 1.1, 2)));
-    let P = (far ? Math.pow(Math.max(0, 1 - sN), 1.4) * 1.45 - 0.5 + 0.55 * v1 : 0.42 + 0.58 * Math.pow(clamp((1 - sN) / 0.6, 0, 1), 0.8) + 0.3 * (v1 - 0.5)) + 0.26 * v2 + 0.08 * v3 + 0.16 * N6.fbm(x * 1.1, z * 1.1, 3);
+    let P = (far ? Math.pow(Math.max(0, 1 - sN), 1.4) * 1.45 - 0.5 + 0.55 * v1 : 0.42 + 0.58 * Math.pow(clamp((1 - sN) / 0.85, 0, 1), 0.8) + 0.3 * (v1 - 0.5)) + 0.26 * v2 + 0.08 * v3 + 0.16 * N6.fbm(x * 1.1, z * 1.1, 3);
     let hs = rim - (rim - 0.295) * smooth(0, 1, P);
     // inner gorge
     const gz = sN * D;
     if (gz < 0.95) hs = Math.min(hs, gz < 0.06 ? 0 : 0.27 * Math.pow((gz - 0.06) / 0.89, far ? 1.0 : 0.75));
+    // side gorges: tributaries trench the platform on their way to the river
+    {
+      const trib = smooth(0.55, 0.95, v2) * smooth(0.45, 0.0, sN) * (far ? 1 : 0.7);
+      if (trib > 0) {
+        const depthT = 0.20 * trib * smooth(0.0, 0.05, sN);
+        hs = Math.min(hs, mix(hs, Math.max(0.03, 0.27 - depthT - 0.06 * sN), trib));
+      }
+    }
     if (sN > 1) hs = rim + 0.01 * (sN - 1);
     // the temples stand on the Tonto platform
     if (far || d > 0.4) hs = Math.max(hs, templeH(x, z) * smooth(0.025, 0.09, sN));
@@ -295,9 +303,9 @@
     const el = Math.max(0, dy);
     const cs = dx * SUN[0] + dy * SUN[1] + dz * SUN[2];
     const sunward = Math.pow(Math.max(0, cs), 3);
-    const zen = [0.07, 0.10, 0.20];
+    const zen = [0.10, 0.17, 0.26];
     const hor = [mix(0.50, 0.95, sunward), mix(0.40, 0.66, sunward), mix(0.40, 0.34, sunward)];
-    const t = Math.pow(1 - clamp(el, 0, 1), 5.0);
+    const t = Math.pow(1 - clamp(el, 0, 1), 3.2);
     let r = mix(zen[0], hor[0], t), g = mix(zen[1], hor[1], t), b = mix(zen[2], hor[2], t);
     const mie = Math.pow(Math.max(0, cs), 90) * 1.6 + Math.pow(Math.max(0, cs), 14) * 0.45;
     r += mie * 1.0; g += mie * 0.80; b += mie * 0.45;
@@ -388,7 +396,7 @@
       if (c < 18) {
         const a = -0.3 + rng() * Math.PI * 1.6, rr = 1.0 + 0.35 * rng();
         cx = 0.30 + Math.cos(a) * 0.19 * rr; cy = 0.215 + Math.sin(a) * 0.12 * rr;
-      } else { cx = 0.4 + rng() * 0.7; cy = 0.19 + rng() * 0.12; if (rng() < 0.5) continue; }
+      } else { cx = 0.4 + rng() * 0.7; cy = 0.19 + rng() * 0.12; if (rng() < 0.75) continue; }
       if (cy > 0.33 || cy < edgeY(cx) - 0.01 && c >= 18) continue;
       const n = 3 + Math.floor(rng() * 9), span = 0.02 + rng() * 0.05;
       for (let i = 0; i < n; i++) {
@@ -662,8 +670,8 @@
           alb = [alb[0] * av, alb[1] * av, alb[2] * av];
           // light
           const sunC = [1.75, 1.12, 0.62];
-          const skyAmb = [0.065, 0.075, 0.15];
-          const bounce = [0.16, 0.08, 0.045];
+          const skyAmb = fg ? [0.07, 0.07, 0.10] : [0.065, 0.075, 0.15];
+          const bounce = fg ? [0.12, 0.07, 0.045] : [0.16, 0.08, 0.045];
           const ao_e = Math.max(0.0004, t * 0.01);
           const ao = clamp(1 + (y - (H(x + ao_e, z) + H(x - ao_e, z) + H(x, z + ao_e) + H(x, z - ao_e)) * 0.25) / ao_e * 1.5, 0.4, 1);
           const hemi = 0.5 + 0.5 * ny;

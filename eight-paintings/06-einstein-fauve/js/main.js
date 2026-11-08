@@ -23,7 +23,7 @@
     let a = mk(50, 80, 750, 120, 40, 60); P.stroke(a[0], a[1], a[2], { col: [0.9, 0.3, 0.1], imp: 1 });
     a = mk(50, 220, 750, 240, 14, 120); P.stroke(a[0], a[1], a[2], { col: [0.95, 0.95, 0.9], imp: 1 });
     a = mk(100, 380, 700, 300, 60, 30); P.stroke(a[0], a[1], a[2], { col: [0.1, 0.3, 0.8], imp: 1 });
-    const out = G.lightSurface(P, { weaveAmp: 0.8, paintAmp: 2.0, gradScale: 0.65, diffuse: 0.6, specPow: 22, gloss: 0.16, shadowScale: 0.45 });
+    const out = G.lightSurface(P, { weaveAmp: 0.9, paintAmp: 2.6, gradScale: 0.7, diffuse: 0.62, specPow: 20, gloss: 0.2, shadowScale: 0.5 });
     cv.getContext('2d').putImageData(new ImageData(out, W, H), 0, 0); G.__done = true; msg.textContent = ''; return;
   }
   // Full painting. ?scale=1 renders the 2160 x 2700 master; smaller scales are quick proofs.
@@ -39,7 +39,7 @@
     const P = new G.Painter(W, H, scale, seed);
     log('canvas');
     G.paintPortrait(P, plan, seed, log);
-    const out = G.lightSurface(P, { weaveAmp: 0.8, paintAmp: 2.0, gradScale: 0.65, diffuse: 0.6, specPow: 22, gloss: 0.16, shadowScale: 0.45 });
+    const out = G.lightSurface(P, { weaveAmp: 0.9, paintAmp: 2.6, gradScale: 0.7, diffuse: 0.62, specPow: 20, gloss: 0.2, shadowScale: 0.5 });
     const img = new ImageData(out, W, H);
     cv.getContext('2d').putImageData(img, 0, 0);
     log('done');

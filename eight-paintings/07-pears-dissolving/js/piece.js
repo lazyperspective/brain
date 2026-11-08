@@ -215,7 +215,7 @@
       for (const [x, y] of cand) {
         if (!inB(x, y)) continue;
         const a = aAt(x, y);
-        const pr = smooth(0.12, 0.38, a) * (1 - smooth(0.70, 0.92, a));
+        const pr = smooth(0.06, 0.22, a) * (1 - smooth(0.32, 0.52, a));
         if (rnd() > pr) continue;
         const fc = facetCol(x, y);
         const t = samp(R3, x, y);
@@ -426,11 +426,11 @@
     function splitRect(r, depth) {
       const w = r.x1 - r.x0, h = r.y1 - r.y0;
       const ac = aAt((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
-      const minS = mix(36, 120, smooth(0.3, 1.0, ac)) * S;
+      const minS = mix(60, 150, smooth(0.5, 1.0, ac)) * S;
       const st = rectMean(r);
       const canH = h > minS * 2, canV = w > minS * 2;
       const big = w * h > Math.pow(mix(200, 520, ac) * S, 2);
-      const force = ac < 0.8 && (canH || canV);
+      const force = ac < 0.6 && (canH || canV);
       if ((!canH && !canV) || (depth > 2 && st.v < 0.002 && !big && !force)) { rects.push(Object.assign(r, { mean: st.m })); return; }
       let horiz = canH && (!canV || h * 1.25 > w || krnd() < 0.25);
       // choose cut maximising colour contrast across it
@@ -446,7 +446,7 @@
       if (horiz) { const c = r.y0 + h * bp; splitRect({ x0: r.x0, x1: r.x1, y0: r.y0, y1: c }, depth + 1); splitRect({ x0: r.x0, x1: r.x1, y0: c, y1: r.y1 }, depth + 1); }
       else { const c = r.x0 + w * bp; splitRect({ x0: r.x0, x1: c, y0: r.y0, y1: r.y1 }, depth + 1); splitRect({ x0: c, x1: r.x1, y0: r.y0, y1: r.y1 }, depth + 1); }
     }
-    splitRect({ x0: W * 0.34, x1: W + 6 * S, y0: -6 * S, y1: H + 6 * S }, 0);
+    splitRect({ x0: W * 0.5, x1: W + 6 * S, y0: -6 * S, y1: H + 6 * S }, 0);
     log('rects ' + rects.length);
 
     // ---- lay each field with the palette knife
@@ -552,6 +552,104 @@
         rag: 0.05, taper0: 0, taper1: 0, streak: len * 0.5, sfreq: 1.0, seed: (rr() * 1e9) | 0
       });
     }
+    // ---- faceting: forms become flat planes (fine facets, then coarse, bolder ones)
+    function makeVoronoi(sp, ang, ani, sd0, cheb) {
+      const cols = Math.ceil(W / sp) + 2, rows = Math.ceil(H / sp) + 2;
+      const seeds = new Float32Array(cols * rows * 2), rr = P.mulberry32(sd0);
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        seeds[(j * cols + i) * 2] = (i - 0.5 + 0.15 + 0.7 * rr()) * sp;
+        seeds[(j * cols + i) * 2 + 1] = (j - 0.5 + 0.15 + 0.7 * rr()) * sp;
+      }
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      function nearest(x, y) {
+        const ci = Math.floor(x / sp + 0.5), cj = Math.floor(y / sp + 0.5);
+        let best = 1e18, bi = 0;
+        for (let dj = -1; dj <= 2; dj++) for (let di = -1; di <= 2; di++) {
+          const ii = ci + di, jj = cj + dj;
+          if (ii < 0 || jj < 0 || ii >= cols || jj >= rows) continue;
+          const k = jj * cols + ii;
+          const dx = x - seeds[k * 2], dy = y - seeds[k * 2 + 1];
+          const u = dx * ca + dy * sa, v = -dx * sa + dy * ca;
+          const d = cheb ? Math.max(Math.abs(u) * ani, Math.abs(v)) : u * u * ani + v * v;
+          if (d < best) { best = d; bi = k; }
+        }
+        return bi;
+      }
+      return { nearest };
+    }
+    function facetStage(vor, lo, hi, fadeLo, fadeHi, boldness, name) {
+      const st = new Map();
+      for (let y = 0; y < H; y += 2) for (let x = (W * 0.25) | 0; x < W; x += 2) {
+        const i = y * W + x;
+        const key = vor.nearest(x + 0.5, y + 0.5) * 16 + ID[i];
+        let e = st.get(key);
+        if (!e) { e = { r: 0, g: 0, b: 0, n: 0, x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9, sx: 0, sy: 0, dir: 0 }; st.set(key, e); }
+        e.r += R2[i * 3]; e.g += R2[i * 3 + 1]; e.b += R2[i * 3 + 2]; e.n++; e.dir += DIR[i];
+        e.sx += x; e.sy += y;
+        if (x < e.x0) e.x0 = x; if (x > e.x1) e.x1 = x; if (y < e.y0) e.y0 = y; if (y > e.y1) e.y1 = y;
+      }
+      const keys = [...st.keys()];
+      shuffle(keys, krnd);
+      let n = 0;
+      for (const key of keys) {
+        const e = st.get(key);
+        if (e.n < 30 * S * S) continue;
+        const cx = e.sx / e.n, cy = e.sy / e.n;
+        const ac = aAt(cx, cy);
+        const pr = smooth(lo, hi, ac) * (1 - smooth(fadeLo, fadeHi, ac));
+        if (krnd() > pr) continue;
+        let m = [e.r / e.n, e.g / e.n, e.b / e.n];
+        // posterise the value, keep the hue, push chroma a little
+        const l = lum3(m), lq = Math.max(0.03, Math.round(l * 7) / 7 * 0.7 + l * 0.3);
+        m = m.map((v) => clamp(v * lq / Math.max(l, 1e-3), 0, 1));
+        const cls = ID[idx(cx, cy)];
+        const bold = boldness * smooth(lo, 1.0, ac);
+        if (bold > 0.05) {
+          const k1 = pickPal(rectClass({ x0: cx - 10 * S, x1: cx + 10 * S, y0: cy - 10 * S, y1: cy + 10 * S }), m, krnd);
+          const pc = pn[k1], lp = lum3(pc);
+          const pcv = pc.map((v) => clamp(v * lum3(m) / Math.max(lp, 1e-3), 0, 1)); // palette hue at facet value
+          m = mix3(m, pcv, bold * 0.6);
+        }
+        m = satv(m, 1.05 + 0.2 * bold, 1.0, 0.3);
+        const clip = (x, y) => {
+          const i = idx(x, y);
+          let c = 0;
+          if (vor.nearest(x - 0.25, y - 0.25) * 16 + ID[i] === key) c++;
+          if (vor.nearest(x + 0.25, y - 0.25) * 16 + ID[i] === key) c++;
+          if (vor.nearest(x - 0.25, y + 0.25) * 16 + ID[i] === key) c++;
+          if (vor.nearest(x + 0.25, y + 0.25) * 16 + ID[i] === key) c++;
+          return c * 0.25;
+        };
+        const bwid = e.x1 - e.x0 + 2, bhei = e.y1 - e.y0 + 2;
+        let th = cls === 3 ? (krnd() < 0.5 ? 1.15 : PI / 2) : cls === 1 ? 0.02 : (krnd() < 0.5 ? -0.55 : 0.75 + PI / 2 * (krnd() < 0.3 ? 1 : 0));
+        if (bold > 0.6) th = (bwid > bhei * 1.2 ? 0 : PI / 2) + (krnd() - 0.5) * 0.06;
+        const useKnife = bold > 0.6 && krnd() < 0.55;
+        const ux = Math.cos(th), uy = Math.sin(th), vx = -uy, vy = ux;
+        const corners = [[e.x0, e.y0], [e.x1, e.y0], [e.x0, e.y1], [e.x1, e.y1]];
+        let umin = 1e9, umax = -1e9, vmin = 1e9, vmax = -1e9;
+        for (const [x, y] of corners) { const u = x * ux + y * uy, v = x * vx + y * vy; umin = Math.min(umin, u); umax = Math.max(umax, u); vmin = Math.min(vmin, v); vmax = Math.max(vmax, v); }
+        const bw = clamp(Math.sqrt(bwid * bhei) * 0.42, 12 * S, (bold > 0.6 ? 130 : 70) * S);
+        const ns = Math.max(1, Math.ceil((vmax - vmin) / (bw * 0.7)));
+        for (let k = 0; k < ns; k++) {
+          const v = vmin + (k + 0.5) * (vmax - vmin) / ns;
+          const a0 = umin - 4 * S, a1 = umax + 4 * S;
+          const pts = [];
+          const rev = krnd() < 0.5;
+          for (let i2 = 0; i2 <= 6; i2++) { const t = rev ? 1 - i2 / 6 : i2 / 6; const u = a0 + (a1 - a0) * t; pts.push(u * ux + v * vx, u * uy + v * vy); }
+          if (useKnife) cv.stroke({ pts, w: bw * 1.2, col: jitterCol(m, 0.03), cjit: 0.2, alpha: 0.98, clip, knife: true, load: 1.25, run: (a1 - a0) * 2.5, dry: 0.03,
+            thick: 1.5, ridge: 0.45, bristle: 0, smear: 0.2, pick: 0.06, rag: 0.0, taper0: 0, taper1: 0, cap: 0.0, streak: (a1 - a0) * 0.5, sfreq: 1.0, seed: (krnd() * 1e9) | 0 });
+          else cv.stroke({ pts, w: bw * 1.15, col: jitterCol(m, 0.018), cjit: 0.15, alpha: 0.97, clip, load: 1.3, run: (a1 - a0) * 3, dry: 0.12,
+            thick: 0.55 + 0.6 * bold, ridge: 0.25, bristle: 0.45, bfreq: bw / (3.5 * S), smear: 0.12, pick: 0.1, rag: 0.0, taper0: 0, taper1: 0, cap: 0.2, seed: (krnd() * 1e9) | 0 });
+        }
+        n++;
+      }
+      log(name + ': ' + n);
+    }
+    facetStage(makeVoronoi(46 * S, -0.5, 0.45, seed + 101), 0.20, 0.38, 0.55, 0.72, 0.0, 'facets fine');
+    facetStage(makeVoronoi(105 * S, 0.0, 0.6, seed + 102), 0.40, 0.56, 0.70, 0.86, 0.45, 'facets coarse');
+    facetStage(makeVoronoi(190 * S, 0.0, 0.42, seed + 103, true), 0.62, 0.78, 2, 3, 1.0, 'fields');
+
+    // ---- bold flat fields from the image-guided split
     shuffle(rects, krnd);
     let nk = 0;
     for (const r of rects) {
@@ -560,132 +658,15 @@
       if (true) continue;
       const cls = rectClass(r);
       const k1 = pickPal(cls, r.mean, krnd), k2 = pickPal(cls, r.mean, krnd);
-      const bold = smooth(0.42, 0.88, ac);
-      const c = satv(mix3(r.mean, pn[k1], 0.25 + 0.65 * bold), 1.0 + 0.08 * bold, 1.0 + 0.05 * bold, 0.3);
-      const c2 = mix3(c, pn[k2], 0.3 + 0.45 * bold);
-      const sh = 1 - smooth(0.4, 0.75, ac);
-      const insx = (r.x1 - r.x0) * sh * 0.2 * krnd(), insy = (r.y1 - r.y0) * sh * 0.2 * krnd();
-      brushField(r.x0 + insx, r.y0 + insy, r.x1 - insx * krnd(), r.y1 - insy * krnd(), c, c2, krnd);
+      const c = satv(mix3(r.mean, pn[k1], 0.85), 1.12, 1.05, 0.3);
+      const c2 = mix3(c, pn[k2], 0.25);
+      const w = r.x1 - r.x0, h = r.y1 - r.y0;
+      if (w * h < Math.pow(150 * S, 2) && krnd() < 0.6) knifeSlab(r.x0, r.y0, r.x1, r.y1, c, c2, krnd);
+      else brushField(r.x0, r.y0, r.x1, r.y1, c, c2, krnd, { brush: { cjit: 0.18, dry: 0.15, rag: 0.12 } });
       nk++;
     }
-    log('brush fields: ' + nk);
-    // ---- designed planes: the far side of the table re-built as interlocking colour planes
-    const eL = edgeY(W * 0.6) / H, eRr = edgeY(W) / H;
-    const ey = (fx) => mix(eL, eRr, (fx - 0.6) / 0.4);
-    const wl = 0.585; // back of the table
-    function plane(polyF, c, c2, o) {
-      o = o || {};
-      if (!o.brushy) { o.knife = true; }
-      const poly = polyF.map(([fx, fy]) => [fx * W, fy * H]);
-      const clip = P.polyClip(poly, (o.edge == null ? 3 : o.edge) * S, (krnd() * 1e6) | 0, (o.soft || 1.2) * S);
-      const th = o.dir == null ? 0 : o.dir;
-      const ux = Math.cos(th), uy = Math.sin(th), vx = -uy, vy = ux;
-      let umin = 1e9, umax = -1e9, vmin = 1e9, vmax = -1e9;
-      for (const [x, y] of poly) { const u = x * ux + y * uy, v = x * vx + y * vy; umin = Math.min(umin, u); umax = Math.max(umax, u); vmin = Math.min(vmin, v); vmax = Math.max(vmax, v); }
-      const bw = (o.bw || 80) * S;
-      const n = Math.max(1, Math.ceil((vmax - vmin) / (bw * 0.68)));
-      for (let k = 0; k < n; k++) {
-        const v = vmin + (n === 1 ? (vmax - vmin) / 2 : bw * 0.3 + (vmax - vmin - bw * 0.6) * k / (n - 1)) + (krnd() - 0.5) * bw * 0.12;
-        const over = bw * 0.6;
-        let a0 = umin - over, a1 = umax + over;
-        if (o.knife && (a1 - a0) > 320 * S) { // break long pulls into overlapping drags
-          const segs = Math.ceil((a1 - a0) / (300 * S));
-          const seg = (a1 - a0) / segs;
-          for (let q2 = 0; q2 < segs; q2++) {
-            const b0 = a0 + seg * q2 - seg * 0.12 * krnd(), b1 = a0 + seg * (q2 + 1) + seg * 0.15 * krnd();
-            const pts2 = [];
-            const vv = v + (krnd() - 0.5) * bw * 0.18, tl = (krnd() - 0.5) * 0.05;
-            for (let i = 0; i <= 10; i++) { const u = b0 + (b1 - b0) * i / 10; const w2 = vv + tl * (u - (b0 + b1) / 2); pts2.push(u * ux + w2 * vx, u * uy + w2 * vy); }
-            if (krnd() < 0.5) { for (let i = 0; i < pts2.length / 2; i += 2) { const j = pts2.length - 2 - i; [pts2[i], pts2[j]] = [pts2[j], pts2[i]]; [pts2[i + 1], pts2[j + 1]] = [pts2[j + 1], pts2[i + 1]]; } }
-            const tone = mix3(c, c2 || c, krnd() * 0.4);
-            cv.stroke({ pts: pts2, w: bw * (0.9 + 0.2 * krnd()), col: jitterCol(tone, 0.035), col2: mix3(c, c2 || c, 0.6), alpha: 0.97, clip,
-              knife: true, square: true, bristle: 0.0, thick: mix(1.2, 1.9, krnd()), ridge: 0.5, dry: 0.03, load: 1.2, run: (b1 - b0) * 2.2, cjit: 0.35,
-              smear: 0.25, pick: 0.08, rag: 0.04, taper0: 0, taper1: 0, streak: (b1 - b0) * 0.5, sfreq: 1.0, seed: (krnd() * 1e9) | 0 });
-          }
-          continue;
-        }
-        const rev = krnd() < 0.5;
-        const pts = [];
-        const steps = Math.max(2, Math.ceil((a1 - a0) / (16 * S)));
-        const bow = (krnd() - 0.5) * bw * 0.15;
-        for (let i = 0; i <= steps; i++) {
-          const t = rev ? 1 - i / steps : i / steps;
-          const u = a0 + (a1 - a0) * t, vv = v + bow * Math.sin(t * PI);
-          pts.push(u * ux + vv * vx, u * uy + vv * vy);
-        }
-        const L = a1 - a0;
-        const base = o.knife
-          ? { knife: true, square: true, bristle: 0.0, thick: 1.5, ridge: 0.5, dry: 0.03, load: 1.2, run: L * 2.5, cjit: 0.35, smear: 0.2, pick: 0.08, rag: 0.04, taper0: 0, taper1: 0, streak: L * 0.5, sfreq: 1.0 }
-          : { bristle: 0.6, bfreq: bw / (4.5 * S), thick: 0.9, ridge: 0.3, dry: 0.25, load: 1.3, run: o.fadeLeft ? L * mix(0.38, 0.55, krnd()) : L * mix(0.9, 1.6, krnd()), cjit: 0.3, smear: 0.2, pick: 0.12, rag: 0.15, taper0: 0.05, taper1: 0.1, cap: 0.3, streak: L * 0.3, sfreq: 2.0 };
-        const tone = o.knife ? mix3(c, c2 || c, krnd() * 0.35) : c;
-        cv.stroke(Object.assign(base, { pts, w: bw * (0.92 + 0.16 * krnd()), col: jitterCol(tone, o.knife ? 0.035 : 0.02), col2: mix3(c, c2 || c, 0.55), alpha: 0.97, clip, seed: (krnd() * 1e9) | 0 }, o.brush || {}));
-      }
-    }
-    const D = (a, b) => satv(a, 1, 1, 0.3).map((v, i) => v * b);
-    const mode = (q && q.get('ab')) || 'planes';
-    if (mode === 'mosaic') {
-      // de Stael-like mosaic of knife slabs, three sizes, laid big to small
-      const layersM = [
-        { sp: 120, w: [120, 190], l: [150, 280], lo: 0.58, hi: 0.85, src: R4, bold: 1.0 },
-        { sp: 78, w: [62, 110], l: [90, 180], lo: 0.46, hi: 0.72, src: R3, bold: 0.8 },
-        { sp: 50, w: [32, 58], l: [50, 105], lo: 0.36, hi: 0.58, src: R3, bold: 0.55, fadeHi: [0.8, 0.98] },
-      ];
-      for (const Ly of layersM) {
-        const sp = Ly.sp * S, cand = [];
-        for (let gy = -sp / 2; gy < H + sp / 2; gy += sp) for (let gx = W * 0.35; gx < W + sp / 2; gx += sp) cand.push([gx + krnd() * sp, gy + krnd() * sp]);
-        shuffle(cand, krnd);
-        let n = 0;
-        for (const [x, y] of cand) {
-          const ac = aAt(x, y);
-          let pr = smooth(Ly.lo, Ly.hi, ac);
-          if (Ly.fadeHi) pr *= 1 - 0.6 * smooth(Ly.fadeHi[0], Ly.fadeHi[1], ac);
-          if (krnd() > pr) continue;
-          const m = samp(Ly.src, x, y);
-          const cls = rectClass({ x0: x - 15 * S, x1: x + 15 * S, y0: y - 15 * S, y1: y + 15 * S });
-          const k1 = pickPal(cls, m, krnd), k2 = pickPal(cls, m, krnd);
-          const bold = Ly.bold * smooth(0.35, 0.9, ac);
-          const c = satv(mix3(m, pn[k1], 0.3 + 0.6 * bold), 1.0 + 0.1 * bold, 1.0 + 0.06 * bold, 0.3);
-          const c2 = mix3(c, pn[k2], 0.5);
-          const vert = cls === 'pear' ? krnd() < 0.45 : cls === 'wall' ? krnd() < 0.3 : krnd() < 0.12;
-          const kw = mix(Ly.w[0], Ly.w[1], krnd()) * S, kl = mix(Ly.l[0], Ly.l[1], krnd()) * S;
-          const th = (vert ? PI / 2 : 0) + (krnd() - 0.5) * 0.12;
-          const ux = Math.cos(th), uy = Math.sin(th);
-          const sgn = krnd() < 0.5 ? 1 : -1;
-          const pts = [];
-          for (let i = 0; i <= 8; i++) { const t = (i / 8 - 0.5) * kl * sgn; pts.push(x + ux * t, y + uy * t); }
-          cv.stroke({
-            pts, w: kw, col: jitterCol(c, 0.02), col2: c2, cjit: 0.35, knife: true, square: true,
-            alpha: 0.98, load: 1.2, run: kl * mix(1.4, 3.0, krnd()), dry: 0.03, thick: mix(1.1, 1.9, krnd()),
-            ridge: 0.5, bristle: 0.0, smear: 0.35, pick: 0.12, rag: 0.05, taper0: 0, taper1: 0,
-            streak: kl * 0.55, sfreq: 1.1, seed: (krnd() * 1e9) | 0
-          });
-          n++;
-        }
-        log('mosaic layer ' + Ly.sp + ': ' + n);
-      }
-    } else {
-    // wall
-    plane([[0.70, -0.01], [1.01, -0.01], [1.01, 0.27], [0.72, 0.29]], pn.black, pn.wallDark, { dir: 1.25, bw: 110, brushy: true });
-    plane([[0.60, 0.02], [0.712, 0.012], [0.716, 0.20], [0.612, 0.212]], mix3(pn.wallDark, pn.black, 0.35), pn.umber, { dir: PI / 2, bw: 120, edge: 4 });
-    plane([[0.585, 0.212], [0.80, 0.20], [0.80, 0.30], [0.59, 0.31]], mix3(pn.wallDark, pn.olive, 0.4), pn.wallDark, { dir: 0, bw: 110, edge: 4 });
-    plane([[0.62, 0.30], [1.01, 0.28], [1.01, 0.47], [0.635, 0.49]], mix3(pn.wallLight, pn.olive, 0.4), pn.wallDark, { dir: 0, bw: 115 });
-    plane([[0.795, 0.165], [0.975, 0.155], [0.968, 0.238], [0.80, 0.246]], pn.slateDark, pn.slate, { bw: 130 });
-    // ledge
-    plane([[0.60, wl], [1.01, wl - 0.006], [1.01, eRr], [0.61, ey(0.61)]], pn.tableLit, pn.tableShadow, { dir: 0.0, bw: 95 });
-    plane([[0.62, ey(0.62) + 0.004], [1.01, eRr + 0.002], [1.01, 1.01], [0.635, 1.01]], pn.front, pn.umber, { dir: 0.0, bw: 120, brushy: true });
-    plane([[0.79, 0.835], [1.01, 0.825], [1.01, 1.01], [0.80, 1.01]], pn.black, pn.umber, { dir: -0.05, bw: 120 });
-    plane([[0.685, 0.775], [0.752, 0.772], [0.748, 0.975], [0.69, 0.98]], pn.umber, pn.red, { dir: PI / 2, bw: 75 });
-    // the pears, as planes
-    plane([[0.765, 0.372], [0.94, 0.382], [0.945, 0.548], [0.755, 0.54]], pn.ochre, pn.pearLit, { knife: true, bw: 150 });
-    plane([[0.905, 0.395], [1.01, 0.405], [1.01, 0.552], [0.912, 0.55]], mix3(pn.green, pn.pearShadow, 0.5), pn.green, { dir: PI / 2, bw: 80 });
-    plane([[0.66, 0.515], [0.86, 0.495], [0.875, 0.625], [0.675, 0.645]], pn.pearLit, pn.cream, { dir: 0.05, bw: 95 });
-    plane([[0.72, 0.52], [0.86, 0.505], [0.868, 0.60], [0.73, 0.612]], mix3(pn.pearLit, pn.ochre, 0.5), pn.cream, { knife: true, bw: 130 });
-    plane([[0.855, 0.505], [1.01, 0.52], [1.01, 0.66], [0.865, 0.648]], mix3(pn.ochre, pn.red, 0.35), pn.ochre, { dir: 0.1, bw: 90 });
-    plane([[0.655, 0.638], [1.01, 0.652], [1.01, 0.70], [0.675, 0.70]], mix3(pn.pearShadow, pn.olive, 0.4), pn.green, { dir: 0.0, bw: 70 });
-    plane([[0.75, 0.668], [0.858, 0.662], [0.866, 0.703], [0.758, 0.708]], pn.red, pn.ochre, { knife: true, bw: 120 });
-    plane([[0.735, 0.528], [0.80, 0.523], [0.803, 0.562], [0.738, 0.567]], pn.cream, pn.pearLit, { knife: true, bw: 90 });
-    }
-    log('planes laid');
+    log('fields: ' + nk);
+
 
     // ---- gesture
     function curve(ctrl, n) { // catmull-rom through control points (fractions of W,H)

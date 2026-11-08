@@ -171,8 +171,10 @@
   const upperY = (x) => (x <= BR.x0 ? J[1] - (x - J[0]) / 3 : x >= BR.x1 ? BR.y - (x - BR.x1) / 3 : BR.y);
   const lowerY = (x) => DECK - (VX0 - x) / 3; // from viaduct (VX0,DECK) up-left to J
   // gorge rims (x as a function of y)
-  const rimL = pwl([[244, 186], [262, 178], [290, 160], [314, 138], [332, VX0], [380, 110], [440, 98], [540, 86]]);
-  const rimR = pwl([[238, 250], [262, 270], [300, 302], [332, VX1], [380, 342], [460, 352], [540, 360]]);
+  const rimL0 = pwl([[244, 186], [262, 178], [290, 160], [314, 138], [332, VX0], [380, 110], [440, 98], [540, 86]]);
+  const rimR0 = pwl([[238, 250], [262, 270], [300, 302], [332, VX1], [380, 342], [460, 352], [540, 360]]);
+  const rimL = (y) => rimL0(y) + (fbm(y * 0.09, 1, 61, 3) - 0.5) * 7;
+  const rimR = (y) => rimR0(y) + (fbm(y * 0.09, 2, 63, 3) - 0.5) * 7;
   const bwL = pwl([[256, 187], [330, 182], [480, 168], [540, 160]]);
   const bwR = pwl([[256, 247], [330, 254], [480, 272], [540, 280]]);
   const skyLb = pwl([[0, 166], [22, 163], [40, 170], [64, 178], [92, 190], [120, 204], [148, 219], [170, 233], [186, 244]]);
@@ -322,11 +324,12 @@
         const rock = edgeL || edgeR || gully > 0.66 - d * 0.0035;
         let c;
         if (rock) c = lit ? (lv > 0.55 ? C.L4 : C.L3) : (lv > 0.5 ? C.L1 : C.B2);
+        else if (lit && x < 64 && d > 1) c = [C.L2, C.L3, C.L4][clamp(Math.round(lv * 2 + x / 40), 0, 2)];   // backlit near the sun
         else if (lit) c = LT[clamp(Math.round(lv * 4.2 + (d < 2 ? 0.8 : 0)), 0, 4)];
         else c = SH[clamp(Math.round(lv * 4.2 + (d < 1 ? 0.8 : 0)), 0, 4)];
         if (d === 0) c = lit || -g > 0 ? (x > 150 ? C.G0 : C.L6) : C.B5;
         P(x, y, c);
-        const hz = clamp((y - 168) / 60) * 0.85 + clamp((110 - x) / 220) * 0.3;
+        const hz = clamp((y - 168) / 60) * 0.85;
         veil(x, y, x < 160 ? C.L4 : C.L3, hz, 4, 0.6);
       }
     }
@@ -517,7 +520,7 @@
   const RK_DEEP = [C.K0, C.K1, C.B1, C.B2, C.B3];
   const RK_LIT = [C.G7, C.T2, C.T3, C.T4, C.T5];         // rock in warm light
   const RK_GOLD = [C.G6, C.G5, C.T4, C.L6, C.G0];
-  const rightWallLit = (x, y) => y < 262 + (x - 250) * 0.95 + (fbm(x * 0.1, y * 0.05, 91) - 0.5) * 8;
+  const rightWallLit = (x, y) => y < 292 + (x - 250) * 0.62 + (fbm(x * 0.1, y * 0.05, 91) - 0.5) * 8;
 
   function gorge() {
     // back wall (gorge head), in shadow below its lit lip
@@ -528,7 +531,7 @@
       (x, y) => (y > 400 ? RK_DEEP : RK_SH), 4, 8, 511);
     // right inner wall: faces the sun; lit until the left rim's cast shadow
     rockFill((x, y) => y >= 238 && x < rimR(y) && x > bwR(y) - 1, 240, 362, 238, 539,
-      (x, y) => (rightWallLit(x, y) ? (y < 262 + (x - 250) * 0.95 - 10 ? RK_GOLD : RK_LIT) : y > 420 ? RK_DEEP : RK_SH), 4, 7, 521);
+      (x, y) => (rightWallLit(x, y) ? (y < 292 + (x - 250) * 0.62 - 12 ? RK_GOLD : RK_LIT) : y > 420 ? RK_DEEP : RK_SH), 4, 7, 521);
     // ledges with clinging trees
     forest({ x0: 160, x1: 290, y0: 270, y1: 470, sx: 6, sy: 7, seed: 531,
       inside: (x, y) => x > bwL(y) + 2 && x < bwR(y) - 2 && Math.abs(x - 209) > 12 + (y - 270) * 0.05,
@@ -566,7 +569,7 @@
         const rel = (x - cx) / half;
         if (Math.abs(rel) > 1.05 + (vnoise(x * 0.5, y * 0.06, 71) - 0.5) * 0.5) continue;
         const streak = fbm(x * 0.55, y * 0.045 - x * 0.03, 73, 3);
-        let v = 0.3 + streak * 0.8 - Math.abs(rel) * 0.35 - t * 0.45;
+        let v = 0.32 + streak * 0.8 - Math.abs(rel) * 0.35 - t * 0.62;
         if (y < top + 3) v += 0.35;
         const c = rampAt(WF, v, x, y, 0);
         // edge strands break apart into droplets
@@ -891,16 +894,17 @@
     const top = (x) => Math.round(434 + 3 * Math.sin(x * 0.045 + 1) + 6 * (fbm(x * 0.03, 1, 851) - 0.5) + roll[clamp(x, 0, W - 1)] - Math.max(0, 7 - Math.abs(x - 226) / 18) + sideDrop(x));
     for (let x = 0; x < W; x++) {
       const t = top(x);
-      for (let y = t - 3; y < t; y++) if (bay2(x, y) < (y === t - 1 ? 0.7 : y === t - 2 ? 0.4 : 0.15)) P(x, y, C.B6);
+      for (let y = t - 3; y < t; y++) if (bay2(x, y) < (y === t - 1 ? 0.7 : y === t - 2 ? 0.4 : 0.15)) P(x, y, C.B5);
       for (let y = t; y < H; y++) {
-        let c = y === t ? (top(x - 1) >= t ? C.B8 : C.B7) : y < t + 3 ? C.B7 : C.B6;
+        let c = y === t ? (top(x - 1) >= t ? C.B8 : C.B7) : y < t + 2 ? C.B7 : y < t + 5 ? C.B6 : C.B5;
+        if (y >= t + 4 && y <= t + 5 && bay2(x, y) < 0.5) c = C.B6;
         // seams where one roll of mist overlaps the next
         if (y > t && y < t + 3 && (top(x - 1) < t - 2 || top(x + 1) < t - 2)) c = C.B6;
         P(x, y, c);
       }
     }
-    spruceRank(446, 7, 15, 6, 861, C.B5, C.B6, 0, [C.L2, C.L3]);
-    spruceRank(470, 9, 20, 7, 863, C.B4, C.B5, 0, [C.V2, C.L2]);
+    spruceRank(446, 7, 15, 6, 861, C.B4, C.B5, 0, [C.L2, C.L3]);
+    spruceRank(470, 9, 20, 7, 863, C.B3, C.B4, 0, [C.V2, C.L2]);
     spruceRank(500, 12, 26, 8, 865, C.B2, C.B3, 0, [C.V1, C.V2]);
     spruceRank(532, 14, 30, 9, 867, C.B1, C.B2, 0, [C.G7, C.V1]);
   }
@@ -1007,12 +1011,12 @@
     curF = F_PROT;
     const t = by - 17;
     // chimney (capuchon), smokebox
-    rect(ox + 2, t + 1, 4, 5, C.K1); vl(ox + 2, t + 1, t + 5, C.B4); P(ox + 3, t + 1, C.B3);
+    rect(ox + 2, t + 1, 4, 5, C.K1); vl(ox + 2, t + 1, t + 5, C.E4); P(ox + 3, t + 1, C.E3);
     hl(ox + 1, ox + 6, t, C.K0); hl(ox + 1, ox + 6, t + 1, C.K1); P(ox + 1, t, C.G2); P(ox + 2, t, C.G1); P(ox + 1, t + 1, C.G4);
-    rect(ox + 1, t + 6, 5, 6, C.K1); vl(ox + 1, t + 6, t + 11, C.B3); P(ox + 1, t + 6, C.B5);
+    rect(ox + 1, t + 6, 5, 6, C.K1); vl(ox + 1, t + 6, t + 11, C.E3); P(ox + 1, t + 6, C.E4);
     // boiler cylinder
-    rect(ox + 6, t + 6, 13, 5, C.B2);
-    hl(ox + 6, ox + 18, t + 6, C.B5); hl(ox + 6, ox + 18, t + 7, C.B4); hl(ox + 6, ox + 18, t + 10, C.K1);
+    rect(ox + 6, t + 6, 13, 5, C.E2);
+    hl(ox + 6, ox + 18, t + 6, C.E4); hl(ox + 6, ox + 18, t + 7, C.E4); hl(ox + 6, ox + 18, t + 10, C.K1);
     vl(ox + 9, t + 6, t + 10, C.G3); vl(ox + 14, t + 6, t + 10, C.G3); P(ox + 9, t + 6, C.G1); P(ox + 14, t + 6, C.G1);
     // brass dome & safety valves catching the sun
     hl(ox + 10, ox + 12, t + 4, C.G3); hl(ox + 10, ox + 12, t + 5, C.G4); P(ox + 11, t + 3, C.G2); P(ox + 10, t + 4, C.G1); P(ox + 10, t + 3, C.G0);
@@ -1020,34 +1024,32 @@
     // whistle steam
     P(ox + 17, t + 2, C.W); P(ox + 18, t + 1, C.B8);
     // side tank
-    rect(ox + 6, t + 8, 12, 4, C.B1); hl(ox + 6, ox + 17, t + 8, C.B4); vl(ox + 6, t + 8, t + 11, C.B3);
-    hl(ox + 7, ox + 16, t + 11, C.K0); P(ox + 7, t + 9, C.G2); hl(ox + 8, ox + 15, t + 9, C.B2);
+    rect(ox + 6, t + 8, 12, 4, C.E1); hl(ox + 6, ox + 17, t + 8, C.E4); vl(ox + 6, t + 8, t + 11, C.E3);
+    hl(ox + 7, ox + 16, t + 11, C.K0); P(ox + 7, t + 9, C.G2); hl(ox + 8, ox + 15, t + 9, C.E2);
     // cab
-    rect(ox + 19, t + 3, 7, 9, C.B2); hl(ox + 18, ox + 26, t + 2, C.K1); hl(ox + 18, ox + 26, t + 1, C.B4); P(ox + 18, t + 1, C.B6);
-    vl(ox + 19, t + 3, t + 11, C.B4);
+    rect(ox + 19, t + 3, 7, 9, C.E2); hl(ox + 18, ox + 26, t + 2, C.K1); hl(ox + 18, ox + 26, t + 1, C.E4); P(ox + 18, t + 1, C.B6);
+    vl(ox + 19, t + 3, t + 11, C.E4);
     rect(ox + 21, t + 4, 3, 3, C.G1); P(ox + 21, t + 4, C.G0); P(ox + 23, t + 6, C.G2);
     P(ox + 22, t + 4, C.K1); P(ox + 22, t + 5, C.L6); // driver's head in the firelit window
-    hl(ox + 19, ox + 25, t + 8, C.B3);
+    hl(ox + 19, ox + 25, t + 8, C.E3);
     // bunker
-    rect(ox + 26, t + 5, 2, 7, C.B1); hl(ox + 26, ox + 27, t + 5, C.K0); P(ox + 26, t + 4, C.B3);
+    rect(ox + 26, t + 5, 2, 7, C.E1); hl(ox + 26, ox + 27, t + 5, C.K0); P(ox + 26, t + 4, C.E3);
     // running plate, buffer beam, headlamp
-    hl(ox, ox + 27, t + 12, C.K0); hl(ox + 1, ox + 27, t + 13, C.B3);
+    hl(ox, ox + 27, t + 12, C.K0); hl(ox + 1, ox + 27, t + 13, C.E3);
     rect(ox, t + 11, 2, 3, C.R1); P(ox, t + 11, C.R2); P(ox, t + 12, C.R2);
     P(ox + 2, t + 9, C.G0); P(ox + 2, t + 10, C.G1);
+    // last sun along the top edges of boiler, tank and cab roof
+    hl(ox + 6, ox + 13, t + 6, C.G3); P(ox + 7, t + 6, C.G1); hl(ox + 7, ox + 12, t + 8, C.G4);
+    hl(ox + 18, ox + 23, t + 1, C.G3); P(ox + 18, t + 1, C.G1); P(ox + 2, t + 2, C.G4); P(ox + 1, t + 6, C.G3);
     // wheels & motion (mostly behind the parapet)
-    for (const wx of [7, 12, 17]) { rect(ox + wx, t + 14, 3, 3, C.R1); P(ox + wx + 1, t + 15, C.K0); P(ox + wx, t + 14, C.R2); }
-    hl(ox + 7, ox + 19, t + 15, C.T5);
-    rect(ox + 22, t + 14, 2, 2, C.R1);
-    // ashpan glow
-    hl(ox + 20, ox + 24, t + 14, C.G3);
-    // cylinder drain cocks hissing
-    P(ox - 1, t + 14, C.W); P(ox - 2, t + 13, C.B8); P(ox - 3, t + 14, C.B7); P(ox - 2, t + 15, C.B8);
+    // (wheels and motion are hidden behind the parapet; only the drain-cock steam shows)
+    P(ox - 1, t + 12, C.W); P(ox - 2, t + 11, C.B8); P(ox - 3, t + 12, C.B7); P(ox - 4, t + 11, C.B7);
     curF = F_NONE;
     return [ox + 3, t - 1];
   }
   function coach(ox, by, opts) {
     curF = F_PROT;
-    const t = by - 14, L = 21;
+    const t = by - 16, L = 21;
     // roof: clerestory-less arc, lit along the top
     hl(ox + 1, ox + L - 2, t, C.T4); hl(ox, ox + L - 1, t + 1, C.T2); hl(ox, ox + L - 1, t + 2, C.T1);
     P(ox + 1, t, C.T6); hl(ox + 2, ox + 8, t, C.T5);
@@ -1067,7 +1069,6 @@
     for (let p = 0; p < L; p += 5) vl(ox + p, t + 9, t + 11, C.G6);
     hl(ox, ox + L - 1, t + 12, C.K0);
     // bogies
-    rect(ox + 2, t + 13, 3, 2, C.K1); rect(ox + L - 5, t + 13, 3, 2, C.K1);
     // end balcony on the last coach, with the guard
     if (opts.balcony) {
       hl(ox + L, ox + L + 2, t + 8, C.K1); vl(ox + L + 2, t + 8, t + 12, C.K1); hl(ox + L, ox + L + 2, t + 10, C.K1);
@@ -1339,10 +1340,6 @@
     }
     const SPR = [C.K0, C.K0, C.K1, C.B1, C.B3];
     const LAR = [C.K0, C.K1, C.V1, C.G7, C.L1];
-    // spruce tips piercing the mist near the walls
-    curF = F_ORG;
-    for (const [x, y, h] of [[104, 438, 12], [116, 446, 9], [346, 444, 11], [334, 452, 8]])
-      bigSpruce(x, y, h, 1650 + x, [C.B3, C.B3, C.B4, C.B5, C.B6]);
     curF = F_ORG;
     bigSpruce(96, 548, 74, 1701, SPR);
     bigLarch(58, 552, 92, 1711, 0, LAR);

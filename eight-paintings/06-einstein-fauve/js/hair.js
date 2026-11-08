@@ -39,6 +39,8 @@
       for (let s = 0; s < 700; s += step) {
         const ra = Math.atan2(y - hc[1], x - hc[0]);
         dir += (k0 + k1 * Math.sin(s / lam + ph)) * step + 0.035 * wrap(ra + sweep(ra) - dir);
+        const dev = wrap(dir - (ra + sweep(ra)));
+        if (dev > 1.1) dir = ra + sweep(ra) + 1.1; else if (dev < -1.1) dir = ra + sweep(ra) - 1.1;
         x += Math.cos(dir) * step; y += Math.sin(dir) * step;
         pts.push([x, y]);
         const rr = Math.hypot(x - hc[0], y - hc[1]);
@@ -116,7 +118,7 @@
       }
     }
     // ---- lit crests: thick short loaded strokes on the upper-left of the mass
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 30; i++) {
       const a = pickA(); if (litF(a) < 0.45 && rng.next() < 0.7) continue;
       const path = lockPath(a, 0.2 + rng.next() * 0.4, -0.15, 1.2);
       if (!path || path.length < 8) continue;

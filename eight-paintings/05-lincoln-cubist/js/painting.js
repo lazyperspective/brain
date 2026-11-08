@@ -301,7 +301,7 @@
         const kx = across - 210 * k, ky = along - 520 * k;
         const knot = 1 / (1 + (kx * kx + ky * ky * 0.25) / (900 * k * k));
         const warp = (R.fbm(across / (90 * k), along / (600 * k), 71, 3) - 0.5) * 60 * k + knot * 40 * k * Math.sign(kx);
-        const cath = Math.hypot(across + warp * 0.6 - 190 * k, (along - 1380 * k) * 0.085);
+        const cath = Math.min(Math.hypot(across + warp * 0.5 - 170 * k, (along - 760 * k) * 0.32), Math.hypot(across + warp * 0.5 - 230 * k, (along - 1250 * k) * 0.3) + 14 * k);
         const ring = Math.sin((cath / (10 * k)) * Math.PI + R.vnoise(across / (40 * k), along / (300 * k), 72) * 2.2);
         const fine = R.vnoise(across / (1.6 * k), along / (60 * k), 73);
         let g = 0.5 + 0.5 * ring; g = Math.pow(g, 2.2) * 0.8 + fine * 0.25;

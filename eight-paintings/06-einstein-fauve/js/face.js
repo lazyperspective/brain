@@ -43,18 +43,18 @@
   F.lapelR = open(TT([[622, 880], [668, 990], [612, 1080], [535, 1170], [510, 1250]]), 8);
 
   // ---- eyes
-  function eye(inner, outer, upPeak, lowPeak) {
-    const up = open([inner, upPeak, outer], 8);
+  function eye(inner, outer, upPeak, lowPeak, upMid) {
+    const up = open(upMid ? [inner, upPeak, upMid, outer] : [inner, upPeak, outer], 8);
     const lo = open([outer, lowPeak, inner], 8);
     return { inner, outer, up, lo, almond: up.concat(lo.slice(1, -1)) };
   }
-  F.eyeL = eye(T([442, 533]), T([362, 543]), T([406, 516]), T([402, 549]));
-  F.eyeR = eye(T([520, 533]), T([608, 543]), T([554, 515]), T([564, 550]));
-  F.irisL = { c: T([412, 531]), r: 15 };
-  F.irisR = { c: T([563, 531]), r: 15.5 };
+  F.eyeL = eye(T([442, 534]), T([362, 544]), T([418, 523]), T([402, 547]), T([390, 526]));
+  F.eyeR = eye(T([520, 534]), T([608, 544]), T([546, 522]), T([564, 548]), T([576, 525]));
+  F.irisL = { c: T([413, 536]), r: 16.5 };
+  F.irisR = { c: T([561, 536]), r: 17 };
   // hooded upper-lid folds, drooping past the outer corners
-  F.hoodL = open(TT([[448, 519], [426, 508], [398, 506], [370, 516], [344, 548]]), 8);
-  F.hoodR = open(TT([[514, 519], [540, 506], [572, 505], [604, 516], [630, 550]]), 8);
+  F.hoodL = open(TT([[448, 521], [426, 512], [398, 512], [370, 521], [344, 550]]), 8);
+  F.hoodR = open(TT([[514, 521], [540, 510], [572, 510], [604, 521], [630, 552]]), 8);
   // bags under the eyes (two folds each)
   F.bagL1 = open(TT([[444, 548], [420, 560], [395, 563], [370, 552]]), 8);
   F.bagL2 = open(TT([[446, 566], [418, 583], [388, 584], [360, 568]]), 8);

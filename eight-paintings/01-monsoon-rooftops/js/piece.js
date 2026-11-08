@@ -944,26 +944,54 @@
     S.line(60, 478, 66, 488, C.k3); S.line(66, 488, 64, 500, C.k3); S.line(248, 470, 252, 481, C.k3);
     // ---- water tank on its brick stand (right)
     const tx0 = 352, tx1 = 440, tTop = 362, tBot = 458;
-    const TR = [C.k1, C.k2, C.k3, C.k4, C.k5, C.k6, C.h0, C.h1];
-    const tankLv = (u) => (u < 0.025 ? 7 : u < 0.06 ? 5 : u < 0.16 ? 4 : u < 0.36 ? 3 : u < 0.62 ? 2 : u < 0.86 ? 1 : 0);
+    // a moulded black plastic tank: cylinder shading, raised hoops, a wet sheen down the lit flank,
+    // warm sunset rim on its left edge, drips under every hoop, grime and a little moss at the foot
+    const TR = [C.k1, C.k2, C.k3, C.k4, C.k5, C.k6, C.k7, C.h0];
+    const tankLv = (u) => (u < 0.05 ? 5 : u < 0.13 ? 4 : u < 0.3 ? 3 : u < 0.55 ? 2 : u < 0.82 ? 1 : 0);
+    const hoopAt = (y) => (y - tTop - 7) % 13; // raised moulded hoops every 13 px
     for (let y = tTop; y <= tBot; y++) for (let x = tx0; x < W; x++) {
-      const u = (x - tx0) / (tx1 - tx0);
+      const u = (x - tx0) / (tx1 - tx0), yy = y - tTop;
       let lv = tankLv(u);
-      const rib = (y - tTop - 6) % 11;
-      if (y > tTop + 4 && rib === 0) lv = Math.min(7, lv + 1); // raised rib: lit top edge
-      if (y > tTop + 4 && rib === 1 && lv < 7) lv = Math.max(0, lv - 1); // and its shadow
+      const hp = hoopAt(y);
+      if (yy > 4 && yy < tBot - tTop - 2) {
+        if (hp === 0) lv = Math.min(7, lv + 3); // lit upper lip of the hoop
+        else if (hp === 1) lv = Math.min(7, lv + 1);
+        else if (hp === 3) lv = Math.max(0, lv - 1);
+        else if (hp === 2) lv = Math.max(0, lv - 1); // its underside in shade
+      }
+      // wet sheen: the bright gap mirrored in a broken vertical band on the curve
+      const sheen = Math.abs(u - 0.17) < 0.026 + 0.012 * Math.sin(yy * 0.7);
+      if (sheen && ih(x, yy >> 1, 91) < 0.85) lv = Math.min(7, lv + (hp <= 1 && yy > 4 ? 3 : 2));
+      if (u > 0.9) lv = Math.max(lv, 2); // cool bounce from the city on the far curve
+      // dust and dried rain runs below each hoop
+      if (u > 0.08 && hp > 2 && ih(x >> 1, Math.floor((yy - 7) / 13), 77) < 0.16 && hp < 3 + ih(x >> 1, 5, 78) * 9 && lv > 0) lv -= 1;
+      if (u > 0.3 && u < 0.88 && hp > 2 && ih(x, Math.floor((yy - 7) / 13), 79) < 0.07 && hp < 4 + ih(x, 6, 79) * 8) lv = Math.min(7, lv + 2); // pale limescale runs
       if (y > tBot - 3) lv = Math.max(0, lv - 1);
-      if (u > 0.1 && ih(x >> 1, 3, 77) < 0.12 && (y - tTop) > 20 + ih(x >> 1, 4, 77) * 40 && lv > 0) lv -= 1; // dust runs
       S.px(x, y, TR[lv]);
     }
-    // top: the domed lid seen from above, its far rim catching the sky
+    // sunset rim on the left edge, brightest on each hoop
+    for (let y = tTop + 1; y < tBot - 1; y++) { const hp = hoopAt(y); S.px(tx0, y, hp === 0 ? C.h4 : y < tTop + 30 ? C.o3 : C.o2); S.px(tx0 + 1, y, hp === 0 ? C.o3 : hp === 1 ? C.o1 : C.k5); }
+    // water beads on the lit flank and drips hanging under the hoops
+    for (let k = 0; k < 26; k++) { const x = tx0 + 3 + fl(ih(k, 1, 92) * 22), y = tTop + 9 + fl(ih(k, 2, 92) * 84); if (hoopAt(y) > 2) { S.px(x, y, C.k7); S.px(x, y + 1, C.k3); } }
+    for (let k = 0; k < 9; k++) { const x = tx0 + 4 + fl(ih(k, 3, 93) * 60), y0 = tTop + 7 + 13 * (1 + fl(ih(k, 4, 93) * 6)) + 3; const len = 2 + fl(ih(k, 5, 93) * 5); S.vline(x, y0, y0 + len, C.k1); if (x < tx0 + 30) S.px(x, y0 + len + 1, C.k6); }
+    // a sun-faded grime patch where an old sticker peeled away (no lettering), torn corners
+    S.sprite(tx0 + 34, tTop + 47, ['.44444.4.', '4555555.4', '455555554', '45555554.', '.4444.44.'], { '4': C.k4, '5': C.k5 });
+    // moss and a green stain at the foot where it always stays damp
+    for (let x = tx0 + 2; x < W; x++) { const h = fl(ih(x >> 1, 6, 94) * 4) + (x < tx0 + 40 ? 1 : 0); for (let j = 0; j < h; j++) S.px(x, tBot - j, j === h - 1 && x < tx0 + 30 ? C.g2 : C.g1); }
+    // top: the shoulder curving away, a threaded lid and a mushroom vent
     const tkx = (tx0 + tx1) / 2;
-    S.ellipse(tkx, tTop, (tx1 - tx0) / 2, 8, (x, y) => (y < tTop - 5 ? C.k6 : x < tkx - 20 ? C.k5 : C.k4));
-    S.ellipse(tkx + 2, tTop - 1, 15, 4, C.k2);
-    S.ellipse(tkx + 2, tTop - 2, 13, 3, (x) => (x < tkx - 4 ? C.k5 : C.k3));
-    S.hline(Math.round(tkx - 6), Math.round(tkx + 6), tTop - 5, C.k6);
-    for (let x = tx0 + 2; x < tx0 + 40; x++) { const k = (x - tx0) / ((tx1 - tx0) / 2) - 1; S.px(x, Math.round(tTop - Math.sqrt(Math.max(0, 1 - k * k)) * 8), x < tx0 + 22 ? C.h2 : C.h0); }
-    S.vline(tx0, tTop, tBot - 2, C.h1); S.vline(tx0 + 1, tTop + 2, tBot - 4, C.k7);
+    S.ellipse(tkx, tTop, (tx1 - tx0) / 2, 8, (x, y) => (y < tTop - 5 ? C.k6 : x < tkx - 24 ? C.k5 : x < tkx + 10 ? C.k4 : C.k3));
+    for (let x = tx0 + 2; x < tx0 + 44; x++) { const k = (x - tx0) / ((tx1 - tx0) / 2) - 1; S.px(x, Math.round(tTop - Math.sqrt(Math.max(0, 1 - k * k)) * 8), x < tx0 + 14 ? C.h3 : x < tx0 + 26 ? C.h1 : C.k7); }
+    S.ellipse(tkx + 2, tTop - 1, 15, 4, C.k1);
+    S.ellipse(tkx + 2, tTop - 2, 13, 3, (x) => (x < tkx - 6 ? C.k5 : C.k3));
+    for (let x = Math.round(tkx - 10); x <= tkx + 14; x += 3) S.px(x, tTop - 2, C.k2); // grip ridges on the lid
+    S.hline(Math.round(tkx - 7), Math.round(tkx + 3), tTop - 4, C.k6); S.px(Math.round(tkx - 8), tTop - 3, C.o1);
+    S.sprite(tx0 + 58, tTop - 13, ['.kkkk.', 'k6666k', '.kkkk.', '..33..', '..33..', '..33..'], { k: C.k2, '6': C.k5, '3': C.k3 }); // vent
+    S.px(tx0 + 58, tTop - 12, C.o1);
+    // the inlet pipe coming over the shoulder, held by a clamp
+    S.line(tx0 + 22, tTop - 4, tx0 + 22, tTop - 12, C.k2); S.line(tx0 + 23, tTop - 4, tx0 + 23, tTop - 12, C.k5);
+    S.hline(tx0 + 22, tx0 + 34, tTop - 13, C.k5); S.hline(tx0 + 22, tx0 + 34, tTop - 12, C.k2); S.px(tx0 + 22, tTop - 13, C.o1);
+    S.hline(tx0 + 21, tx0 + 24, tTop - 6, C.k6);
     // brick stand
     for (let y = tBot + 1; y < 524; y++) for (let x = tx0 + 6; x < W; x++) {
       const row = (y - tBot - 1) >> 2, off = (row & 1) * 4;
@@ -1125,11 +1153,14 @@
   function drawBougainvillea() {
     const r = mulberry32(31);
     const poleX = 100;
-    for (let y = 118; y < 470; y++) {
-      S.px(poleX, y, y > HY ? C.y0 : C.y1); S.px(poleX + 1, y, C.c1);
-      S.px(poleX - 1, y, y > HY ? C.c2 : C.h1);
-      if (y % 26 === 0) { S.hline(poleX - 1, poleX + 1, y, y > HY ? C.y1 : C.h3); S.px(poleX + 2, y, C.c0); }
+    for (let y = 111; y < 470; y++) {
+      // against the sky the pole is a dark stem with the sunset glancing off its sun side
+      if (y <= HY) { S.px(poleX - 1, y, C.c0); S.px(poleX, y, C.y0); S.px(poleX + 1, y, y < 150 ? C.o2 : C.o3); }
+      else { S.px(poleX, y, C.y0); S.px(poleX + 1, y, C.c1); S.px(poleX - 1, y, C.c2); }
+      if (y % 26 === 0) { S.hline(poleX - 1, poleX + 1, y, y > HY ? C.y1 : C.y1); S.px(poleX + 1, y, y > HY ? C.y2 : C.h4); S.px(poleX + 2, y, C.c0); }
     }
+    // the cut top of the bamboo, open and catching the light
+    S.hline(poleX - 1, poleX + 1, 110, C.y1); S.px(poleX + 1, 110, C.h4); S.px(poleX, 111, C.c0);
     // trunk stems twisting up out of an old paint drum behind the coping
     const capAt = (x) => 466 + Math.round((x - 216) * 0.012);
     const blobs = [[134, 456, 50, 12], [118, 448, 20, 14], [102, 424, 7, 26], [101, 398, 5, 16], [76, 462, 24, 8], [172, 464, 30, 7], [150, 476, 30, 7], [120, 475, 14, 7], [204, 466, 10, 4]];
@@ -1153,15 +1184,34 @@
 
   function drawNearLaundry() {
     // line from beyond the left edge to the bamboo pole; backlit cloth hanging across the horizon
-    const ax = -10, ay = 104, bx = 100, by = 124;
-    const lineY = (x) => ay + (by - ay) * ((x - ax) / (bx - ax)) + 22 * 4 * ((x - ax) / (bx - ax)) * (1 - (x - ax) / (bx - ax));
-    for (let x = 0; x <= bx; x++) S.px(x, Math.round(lineY(x)), C.k1);
+    // a galvanised pipe post on our roof at the left edge, the line tied off to its hook
+    const postX = 4, ax = 6, ay = 103, bx = 99, by = 118;
+    for (let y = 98; y < 523; y++) {
+      const sky = y <= HY;
+      S.px(postX - 1, y, sky ? C.k1 : C.k2);
+      S.px(postX, y, sky ? C.k4 : C.k4);
+      S.px(postX + 1, y, sky ? (y < 140 ? C.o1 : C.o2) : (y < 466 ? C.k6 : C.k5));
+      S.px(postX + 2, y, sky ? C.k2 : C.k3);
+      if ((y - 98) % 61 === 60) S.hline(postX - 1, postX + 2, y, C.k6); // pipe couplings
+    }
+    S.hline(postX - 2, postX + 3, 97, C.k5); S.hline(postX - 1, postX + 2, 96, C.k6); S.px(postX + 2, 96, C.o2); // cap
+    S.sprite(postX + 2, 100, ['hh.', '..h', '.hh'], { h: C.k7 }); // the hook
+    S.hline(postX - 1, postX + 2, 520, C.k1); S.hline(postX - 2, postX + 3, 521, C.k2); // its foot plate
+    const lineY = (x) => ay + (by - ay) * ((x - ax) / (bx - ax)) + 18 * 4 * ((x - ax) / (bx - ax)) * (1 - (x - ax) / (bx - ax));
+    for (let x = ax; x <= bx; x++) {
+      const y = Math.round(lineY(x)), p = P[S.get(x, y)] || [0, 0, 0];
+      const lum = p[0] * 0.3 + p[1] * 0.59 + p[2] * 0.11;
+      S.px(x, y, lum < 95 ? C.k7 : C.k2); // the wet cord, lighter than the cloud, darker than the glow
+    }
+    // knots: cord wrapped round the hook and round the bamboo
+    S.px(ax, ay, C.h1); S.px(ax + 1, ay, C.k7);
+    S.sprite(bx - 1, by - 1, ['ww.', 'www', '.w.'], { w: C.h2 }); S.px(bx + 1, by + 1, C.k6);
     const items = [
-      { x0: 0, w: 14, len: 52, col: 'w1', kind: 'kurta' },
-      { x0: 17, w: 32, len: 126, col: 'm2', kind: 'sari', border: 'y2' },
-      { x0: 52, w: 14, len: 24, col: 't3', kind: 'shirt' },
-      { x0: 69, w: 24, len: 100, col: 'o2', kind: 'sari', border: 'g3' },
-      { x0: 94, w: 5, len: 11, col: 'y2', kind: 'cloth' },
+      { x0: 10, w: 11, len: 46, col: 'w1', kind: 'kurta' },
+      { x0: 24, w: 28, len: 124, col: 'm2', kind: 'sari', border: 'y2' },
+      { x0: 55, w: 12, len: 24, col: 't3', kind: 'shirt' },
+      { x0: 70, w: 21, len: 98, col: 'o2', kind: 'sari', border: 'g3' },
+      { x0: 93, w: 4, len: 10, col: 'y2', kind: 'cloth' },
     ];
     const ramps = {
       w1: [C.k5, C.k7, C.h1, C.w0, C.w1], m2: [C.m0, C.m1, C.m2, C.m3, C.h3], t3: [C.t0, C.t1, C.t2, C.t3, C.l1],
@@ -1189,7 +1239,7 @@
           if (it.border && (j > len - 6 || i < 3)) c = ramps[it.border] ? ramps[it.border][clamp(Math.round(v * 4), 0, 4)] : (v > 0.5 ? C.h4 : C.y1);
           if (it.border && !ramps[it.border] && (j > len - 6 || i < 3)) c = v > 0.55 ? C.g4 : v > 0.3 ? C.g3 : C.g2;
           if (it.kind === 'sari' && (j % 9 === 4) && ((i + j) % 4 === 0) && j < len - 6) c = it.col === 'm2' ? C.y2 : C.y1; // zari buttis
-          if (it.kind === 'kurta' && j < 6 && (i < 6 || i > it.w - 7)) c = rp[0];
+          if (it.kind === 'kurta' && j < 6 && (i < 2 || i > it.w - 3)) c = rp[0];
           S.px(xx, y, c);
         }
       }
