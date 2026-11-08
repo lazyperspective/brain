@@ -61,3 +61,18 @@ Also check: no flashing hazards (no more than 3 large-area luminance flashes per
 
 ## Final report (short)
 Paths, per-shot description, how it's built, rounds with one line each, final scores, any palette extensions, known limitations.
+
+## Pass 2: more surreal, more detailed (applies to all three acts)
+The artist's direction: "Perfect what we have and make the visuals more surreal and more detailed." v1 is preserved in `/home/user/brain/starship-pixel-video/v1/`. Keep every cut time, every shot's content and camera idea, and the score's sync points (boom 30.1, ignition 53.45, catch clank 68.0, fade 86.8-89.8) exactly. The style bible still applies; you may extend the palette within the existing hue families, plus ONE new shared surreal family below.
+
+Shared surreal language (use all of it, consistently, so the three acts match):
+1. A giant pale ringed planet hangs low in the sky in every outdoor shot (huge, soft, ringed, partly translucent through haze), always in the same world direction (compass: over the sea, east, i.e. screen-right when looking out to sea; adapt per camera). Plus a smaller second moon.
+2. Skies are dreamlike: banded gradients with impossible hues (deep ultramarine to teal to apricot to rose), aurora-like veils of light in daytime, sculpted stylised clouds with crisp hand-pixelled rims.
+3. Water is a perfect mirror wherever possible (marsh channels, lagoon, sea near shore): it reflects the planet, sky bands and towers.
+4. Floating glints: slow drifting motes of light, and a few small floating rock islands / stones hovering far off over the sea (subtle, small, never cluttering).
+5. The ship and tower stay grounded and accurate (they are the anchor of reality); their materials get richer: reflections of the surreal sky on the stainless steel, more panel/weld/tile detail, more lattice detail.
+Surreal palette family (shared): #2b1b4a #4a2e6e #7a4b8f #b46a9a #e69bb0 #ffd2c2 #7fe0d0 #3fb4b0 #1f6e78.
+
+More detail: every shot should reward pausing on any frame: richer ground (marsh texture, mudflat patterns, surf foam, grass blades), richer structure (lattice members, cables, lights, pipes), richer sky (layers, glints), and more living motion (birds, motes, drifting islands, ripples). No clutter: keep a clear focal point and value structure.
+
+Process: save a pass-2 snapshot first (snapshots/p2_round0.png), then run the full improvement loop again (at least 4 rounds), scoring the same six items plus "surreal & cohesive with the shared language". Re-encode actN.mp4 at the same frame count and timing, update stills and contact sheet. Do NOT touch score.wav unless you're the Act 1 owner (Act 1 owner: the score timing must not change; you may enrich it with a subtle dreamy layer if it clearly helps, keeping loudness -14 LUFS and true peak below -1 dBTP).
