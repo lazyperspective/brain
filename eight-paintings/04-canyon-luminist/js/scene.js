@@ -112,9 +112,9 @@
       // the caprock sits off-centre: tiers set back unevenly
       const ru = Math.hypot(u - 0.12 * T[2] * Math.cos(i * 2.1), v - 0.1 * T[2] * Math.sin(i * 1.3)) / (T[2] * wob);
       const rc = mix(rr, ru, 0.6);
-      const cap = smooth(0.45 + w2, 0.42 + w2, rc);
-      const mid = smooth(0.7 + w3, 0.67 + w3, mix(rr, rc, 0.3));
-      const base = smooth(0.95 + w2 * 0.5, 0.91 + w2 * 0.5, rr);
+      const cap = smooth(0.46 + w2, 0.41 + w2, rc);
+      const mid = smooth(0.71 + w3, 0.66 + w3, mix(rr, rc, 0.3));
+      const base = smooth(0.96 + w2 * 0.5, 0.9 + w2 * 0.5, rr);
       const talus = clamp((1.35 - rr) / 0.45, 0, 1);
       const h = T[3] * (0.30 * cap + 0.27 * mid + 0.23 * base + 0.2 * talus * talus);
       if (h > best) best = h;
@@ -290,7 +290,7 @@
     const q = quality || 1;
     const t0 = performance.now();
     const g0 = makeGrid(-17, 17, -0.6, 24, Math.round(3000 * q), Math.round(2170 * q), (x, z) => canyonH(x, z, 1));
-    const g1 = makeGrid(-3.2, 3.2, -0.3, 5.6, Math.round(1500 * q), Math.round(1380 * q), (x, z) => canyonH(x, z, 2));
+    const g1 = makeGrid(-3.2, 3.2, -0.3, 5.6, Math.round(2300 * q), Math.round(2120 * q), (x, z) => canyonH(x, z, 2));
     const g2 = makeGrid(-0.7, 0.7, -0.05, 1.3, Math.round(1100 * q), Math.round(1060 * q), (x, z) => canyonH(x, z, 2));
     const g3 = makeGrid(FG.x0, FG.x1, FG.z0, FG.z1, Math.round(1500 * q), Math.round(1400 * q), fgH);
     GR = { g0, g1, g2, g3 };
