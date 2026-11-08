@@ -37,7 +37,7 @@
         const dx = (xx - x) / rx, dy = (yy - y) / ry, d = dx * dx + dy * dy + 0.25 * N(xx / (6 * S), yy / (6 * S), 41);
         if (d > 1) continue;
         const i = yy * W + xx, a = amt * (1 - d);
-        Cw.r[i] = mixKM(Cw.r[i], col[0], a / (Ws[i] + a)); Cw.g[i] = mixKM(Cw.g[i], col[1], a / (Ws[i] + a)); Cw.b[i] = mixKM(Cw.b[i], col[2], a / (Ws[i] + a));
+        Cw.r[i] += (col[0] - Cw.r[i]) * Math.min(1, a / (Ws[i] + a)); Cw.g[i] += (col[1] - Cw.g[i]) * Math.min(1, a / (Ws[i] + a)); Cw.b[i] += (col[2] - Cw.b[i]) * Math.min(1, a / (Ws[i] + a));
         Ws[i] += a; fresh[i] += a;
       }
     }
@@ -164,7 +164,7 @@
             const mu = (p.marble || 0.45) * SM(0.05, 0.5, wsPre) * SM(-0.15, 0.45, FB(u / 300, y / (4 * S), 3, p.seed + 111) + 0.15 * N(u / 60, y / (1.2 * S), p.seed + 112));
             const cr = mixKM(Lr[j], Cw.r[i], mu), cg = mixKM(Lg[j], Cw.g[i], mu), cb = mixKM(Lbb[j], Cw.b[i], mu);
             const t = te * dep / (ws * 0.1 + dep + 1e-6);
-            Cw.r[i] = mixKM(Cw.r[i], cr, t); Cw.g[i] = mixKM(Cw.g[i], cg, t); Cw.b[i] = mixKM(Cw.b[i], cb, t);
+            Cw.r[i] += (cr - Cw.r[i]) * t; Cw.g[i] += (cg - Cw.g[i]) * t; Cw.b[i] += (cb - Cw.b[i]) * t;
             const rb = (p.ripRidge || 0.5) * 4 * fing * (1 - fing) * te;
             if (P8.DBG && y === P8.DBG.y && (k % 25) === 0) P8.DBG.out.push([k, +Lv.toFixed(2), +Deff[i].toFixed(2), +ws.toFixed(2), +gp2.toFixed(2), +reach.toFixed(2), +fing.toFixed(2), +te.toFixed(2), +dep.toFixed(2), +A[j].toFixed(0), [Lr[j], Lg[j], Lbb[j]].map(v => +v.toFixed(2)).join('/')]);
             ws += dep + rb; A[j] -= dep + rb; fresh[i] += dep + rb;
@@ -183,7 +183,7 @@
               for (let dx = 0; dx < 4; dx++) {
                 const xx = x + dir * dx; if (xx < 0 || xx >= W) continue;
                 const i = y * W + xx, aa = a * (1 - q / 4);
-                Cw.r[i] = mixKM(Cw.r[i], Lr[j], aa / (Ws[i] + aa)); Cw.g[i] = mixKM(Cw.g[i], Lg[j], aa / (Ws[i] + aa)); Cw.b[i] = mixKM(Cw.b[i], Lbb[j], aa / (Ws[i] + aa));
+                Cw.r[i] += (Lr[j] - Cw.r[i]) * Math.min(1, aa / (Ws[i] + aa)); Cw.g[i] += (Lg[j] - Cw.g[i]) * Math.min(1, aa / (Ws[i] + aa)); Cw.b[i] += (Lbb[j] - Cw.b[i]) * Math.min(1, aa / (Ws[i] + aa));
                 Ws[i] += aa; fresh[i] += aa;
               }
             }
@@ -201,7 +201,7 @@
           for (let q = 0; q < wd + 2; q++) {
             const x = xr + dir * q; if (x < 0 || x >= W) continue;
             const i = y * W + x, a = amt * SM(wd + 1, wd * 0.3, q) / Math.max(1, wd * 0.5);
-            Cw.r[i] = mixKM(Cw.r[i], Lr[j], a / (Ws[i] * 0.3 + a + 1e-6)); Cw.g[i] = mixKM(Cw.g[i], Lg[j], a / (Ws[i] * 0.3 + a + 1e-6)); Cw.b[i] = mixKM(Cw.b[i], Lbb[j], a / (Ws[i] * 0.3 + a + 1e-6));
+            Cw.r[i] += (Lr[j] - Cw.r[i]) * Math.min(1, a / (Ws[i] * 0.3 + a + 1e-6)); Cw.g[i] += (Lg[j] - Cw.g[i]) * Math.min(1, a / (Ws[i] * 0.3 + a + 1e-6)); Cw.b[i] += (Lbb[j] - Cw.b[i]) * Math.min(1, a / (Ws[i] * 0.3 + a + 1e-6));
             Ws[i] += a; fresh[i] += a;
           }
         }
@@ -228,7 +228,7 @@
             const d = Math.abs(xx + 0.5 - x) / Math.max(0.5, w); if (d > 1) continue;
             const i = yy * W + xx, a = 1.2 * Math.sqrt(1 - d * d) * (0.9 + 0.8 * SM(0.9, 1, t));
             const tt = a / (Ws[i] * 0.2 + a);
-            Cw.r[i] = mixKM(Cw.r[i], col[0], tt); Cw.g[i] = mixKM(Cw.g[i], col[1], tt); Cw.b[i] = mixKM(Cw.b[i], col[2], tt);
+            Cw.r[i] += (col[0] - Cw.r[i]) * Math.min(1, tt); Cw.g[i] += (col[1] - Cw.g[i]) * Math.min(1, tt); Cw.b[i] += (col[2] - Cw.b[i]) * Math.min(1, tt);
             Ws[i] += a * 0.5; fresh[i] += a * 0.5;
           }
         }
