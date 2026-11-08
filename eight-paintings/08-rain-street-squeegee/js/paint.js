@@ -177,14 +177,14 @@
     // layer schedule: radius, threshold, max length (in radii), dir field, thickness, opacity, colour jitter, wetness
     const layers = [
       { R: 40, T: 0.0, L: 7, th: 0, thick: 0.05, op: 0.9, jit: 0.10, under: true, dry: 0.7 },
-      { R: 26, T: 0.03, L: 8, th: 0, thick: 0.16, op: 0.92, jit: 0.06, dry: 0.35 },
-      { R: 14, T: 0.035, L: 9, th: 0, thick: 0.25, op: 0.94, jit: 0.05, dry: 0.3 },
-      { R: 7.5, T: 0.035, L: 9, th: 1, thick: 0.25, op: 0.96, jit: 0.045, dry: 0.2 },
-      { R: 4.0, T: 0.03, L: 9, th: 1, thick: 0.2, op: 0.97, jit: 0.03, wet: 0.5, dry: 0.1, edge: 0.2 },
-      { R: 2.3, T: 0.04, L: 8, th: 2, thick: 0.1, op: 0.98, jit: 0.014, wet: 0.7, dry: 0.05, edge: 0.14 },
-      { R: 1.35, T: 0.05, L: 6, th: 2, thick: 0.08, op: 0.98, jit: 0.01, wet: 0.8, dry: 0.0, edge: 0.11 },
-      { R: 0.95, T: 0.06, L: 4, th: 2, thick: 0.06, op: 0.98, jit: 0.008, wet: 0.8, dry: 0.0, edge: 0.09 }
+      { R: 26, T: 0.03, L: 8, th: 0, thick: 0.22, op: 0.92, jit: 0.08, dry: 0.35, aj: 0.05 },
+      { R: 14, T: 0.035, L: 9, th: 0, thick: 0.32, op: 0.94, jit: 0.07, dry: 0.3, aj: 0.04 },
+      { R: 7.5, T: 0.045, L: 9, th: 1, thick: 0.32, op: 0.96, jit: 0.06, dry: 0.25, aj: 0.03 },
+      { R: 4.0, T: 0.06, L: 9, th: 1, thick: 0.24, op: 0.96, jit: 0.035, wet: 0.5, dry: 0.15, edge: 0.3, aj: 0.015 },
+      { R: 2.3, T: 0.075, L: 7, th: 2, thick: 0.14, op: 0.96, jit: 0.02, wet: 0.7, dry: 0.1, edge: 0.24 },
+      { R: 1.4, T: 0.1, L: 5, th: 2, thick: 0.1, op: 0.95, jit: 0.012, wet: 0.8, dry: 0.05 }
     ];
+
 
     for (let li = 0; li < layers.length; li++) {
       const Ly = layers[li];
@@ -247,12 +247,13 @@
         }
         if (pts.length === 1) pts.push([sx + 0.3, sy]);
         // colour: perceptual -> linear, with a painter's jitter in value/temperature
+        if (Ly.aj) { const aj = Ly.aj * (0.5 + 0.5 * (1 - Math.min(1, (cr + cg + cb) / 1.5))); const wt = (R() - 0.5) * aj; cr = Math.max(0, cr + wt + (R() - 0.5) * aj * 0.4); cg = Math.max(0, cg + (R() - 0.5) * aj * 0.4); cb = Math.max(0, cb - wt + (R() - 0.5) * aj * 0.4); }
         const jv = 1 + (R() - 0.5) * 2 * Ly.jit, jt = (R() - 0.5) * Ly.jit * 0.8;
         let lr = cr * cr * jv * (1 + jt), lg = cg * cg * jv, lb = cb * cb * jv * (1 - jt);
         const lum = 0.3 * lr + 0.59 * lg + 0.11 * lb;
         stroke(pts, {
           R: Rr * (0.85 + 0.3 * R()), col: [Math.min(0.98, lr), Math.min(0.98, lg), Math.min(0.98, lb)], op: Ly.op,
-          thick: Ly.thick * 0.4 * (0.45 + 0.8 * Math.sqrt(lum)), dry: Ly.dry * (0.6 + 0.8 * R()), ridge: Rr > 3 ? 0.25 : 0.1, wet: Ly.wet || 0,
+          thick: Ly.thick * 0.5 * (0.6 + 0.8 * Math.sqrt(lum)), dry: Ly.dry * (0.6 + 0.8 * R()), ridge: Rr > 3 ? 0.25 : 0.1, wet: Ly.wet || 0,
           tgt: Ly.edge ? tgt : null, pc: [cr, cg, cb], edgeT: Ly.edge || 0
         });
       }
@@ -284,6 +285,57 @@
     }
     // ------------------------------------------------------------ impasto lights: thick short dabs on the brightest passages
     const lh = sc.lumHDR;
+    // ------------------------------------------------------------ the figure: a few confident modelling strokes over the silhouette
+    {
+      const cam = sc.cam, F = sc.FIG, sF = cam.f / F.z;
+      const fx0 = Math.max(0, Math.floor(cam.xv + sF * (F.x - 0.75 - cam.cx))), fx1 = Math.min(W - 1, Math.ceil(cam.xv + sF * (F.x + 0.75 - cam.cx)));
+      const fy0 = Math.max(0, Math.floor(cam.yh - sF * (2.35 - cam.cy))), fy1 = Math.min(H - 1, Math.ceil(cam.yh - sF * (-0.02 - cam.cy)));
+      const fr = blurRef(1.6 * S), st = 3.2 * S;
+      for (let y = fy0; y < fy1; y += st) for (let x = fx0; x < fx1; x += st) {
+        const xx = x + (R() - 0.5) * st, yy = y + (R() - 0.5) * st, i = (yy | 0) * W + (xx | 0);
+        if (sc.ID[i] !== 7) continue;
+        const umb = yy < cam.yh - sF * (1.85 - cam.cy);
+        let a = umb ? Math.atan2(-0.35, 1) + (xx - (fx0 + fx1) / 2) / (sF * 0.6) * 0.6 : Math.PI / 2 + (R() - 0.5) * 0.25;
+        const ln = (umb ? 8 + R() * 10 : 10 + R() * 16) * S;
+        const pts = [[xx, yy]];
+        let px = xx, py = yy;
+        for (let s2 = 0; s2 < ln; s2 += 1.5 * S) {
+          const nx = px + Math.cos(a) * 1.5 * S, ny = py + Math.sin(a) * 1.5 * S;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H || sc.ID[(ny | 0) * W + (nx | 0)] !== 7) break;
+          px = nx; py = ny; pts.push([px, py]);
+        }
+        if (pts.length < 3) continue;
+        const c = [ref.r[i], ref.g[i], ref.b[i]];
+        const j2 = 1 + (R() - 0.5) * 0.3;
+        stroke(pts, { R: (umb ? 1.8 : 2.2) * S * (0.8 + 0.4 * R()), col: [c[0] * j2, c[1] * j2, c[2] * j2], op: 0.8, thick: 0.25, dry: 0.4, ridge: 0.3, wet: 0.5 });
+      }
+      // lit edges: rim light dragged in single loaded strokes
+      for (let k = 0; k < 900; k++) {
+        const xx = fx0 + R() * (fx1 - fx0), yy = fy0 + R() * (fy1 - fy0), i = (yy | 0) * W + (xx | 0);
+        if (sc.ID[i] !== 7 || Y[i] < 0.42) continue;
+        const a = sampleDir(TH[2], xx, yy), ln = (6 + R() * 12) * S;
+        const c = [ref.r[i], ref.g[i], ref.b[i]];
+        stroke([[xx, yy], [xx + Math.cos(a) * ln, yy + Math.sin(a) * ln]], { R: (0.9 + R() * 0.8) * S, col: [Math.min(0.95, c[0] * 1.1), Math.min(0.95, c[1] * 1.1), Math.min(0.95, c[2] * 1.1)], op: 0.8, thick: 0.35, dry: 0.3, ridge: 0.5, wet: 0.8 });
+      }
+    }
+    // ------------------------------------------------------------ rain: thin, quick strokes of pale paint, visible where the air is lit
+    {
+      const glow = lh.slice(); for (let i = 0; i < n; i++) glow[i] = Math.min(4, glow[i]); P8.blur(glow, W, H, 45 * S, 45 * S);
+      const NR = Math.round(11000 * S * S);
+      for (let k = 0; k < NR; k++) {
+        const x0 = R() * W, y0 = R() * H, i0 = (y0 | 0) * W + (x0 | 0);
+        const g = glow[i0];
+        if (g < 0.25 && R() < 0.94) continue;
+        const near = Math.pow(R(), 3);
+        const L = (14 + 30 * R() + 60 * near) * S, ang = 0.13 + 0.06 * (R() - 0.5);
+        const dx = Math.sin(ang), dy = Math.cos(ang), bend = (R() - 0.5) * 1.5 * S;
+        const pts = [[x0, y0], [x0 + dx * L * 0.5 + bend, y0 + dy * L * 0.5], [x0 + dx * L, y0 + dy * L]];
+        const k2 = Math.min(0.42, 0.05 + 0.25 * g) * (0.4 + 0.7 * R());
+        const base = [C.r[i0], C.g[i0], C.b[i0]];
+        const col = [base[0] + (0.62 - base[0]) * k2, base[1] + (0.66 - base[1]) * k2, base[2] + (0.74 - base[2]) * k2];
+        stroke(pts, { R: (0.75 + 0.5 * R() + 0.8 * near) * S, col: col, op: 0.4 + 0.3 * R(), thick: 0.1, dry: 0.8, ridge: 0.2, wet: 0.3 });
+      }
+    }
     const nI = Math.round(9000 * S * S);
     for (let k = 0; k < nI; k++) {
       const x0 = R() * W, y0 = R() * H, i0 = (y0 | 0) * W + (x0 | 0);

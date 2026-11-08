@@ -13,6 +13,7 @@
     const Cd = P8.copyImg(C), D = new Float32Array(n), Ws = pt.Hw.slice(), Cw = P8.copyImg(C);
     for (let i = 0; i < n; i++) { Ws[i] *= 0.15; D[i] = Hh[i] - Ws[i]; }
     const fresh = new Float32Array(n); // squeegee paint amount (for gloss)
+    const touched = new Float32Array(n); // where a blade dragged across
     const TAU = 0.06;
     const Dsm = D.slice(); P8.blur(Dsm, W, H, 4 * S, 4 * S);
     const Deff = new Float32Array(n); for (let i = 0; i < n; i++) Deff[i] = 0.85 * Dsm[i] + 0.15 * D[i];
@@ -20,9 +21,9 @@
     function palette(name) {
       const P = {
         red: [[0.60, 0.04, 0.03], [0.30, 0.012, 0.03], [0.74, 0.14, 0.04], [0.36, 0.02, 0.06], [0.62, 0.05, 0.035], [0.05, 0.035, 0.08], [0.08, 0.14, 0.34]],
-        white: [[0.86, 0.85, 0.80], [0.80, 0.72, 0.18], [0.34, 0.58, 0.72], [0.9, 0.88, 0.84], [0.62, 0.62, 0.6], [0.75, 0.3, 0.42]],
+        white: [[0.78, 0.76, 0.68], [0.80, 0.68, 0.2], [0.3, 0.52, 0.68], [0.62, 0.6, 0.58], [0.72, 0.36, 0.42], [0.45, 0.6, 0.62]],
         green: [[0.02, 0.10, 0.08], [0.82, 0.82, 0.78], [0.55, 0.05, 0.30], [0.05, 0.22, 0.30], [0.03, 0.03, 0.04], [0.85, 0.62, 0.12]],
-        pale: [[0.84, 0.84, 0.80], [0.34, 0.5, 0.62], [0.82, 0.74, 0.42], [0.62, 0.64, 0.64], [0.36, 0.52, 0.64], [0.84, 0.76, 0.46], [0.7, 0.42, 0.5], [0.2, 0.22, 0.26]],
+        pale: [[0.74, 0.74, 0.7], [0.3, 0.46, 0.6], [0.78, 0.68, 0.38], [0.5, 0.54, 0.56], [0.32, 0.48, 0.6], [0.66, 0.4, 0.46], [0.16, 0.2, 0.26], [0.2, 0.36, 0.34]],
         deep: [[0.015, 0.03, 0.08], [0.025, 0.045, 0.12], [0.01, 0.01, 0.013], [0.04, 0.06, 0.12], [0.015, 0.035, 0.1], [0.1, 0.04, 0.025], [0.3, 0.31, 0.33], [0.01, 0.012, 0.02]],
         ember: [[0.42, 0.03, 0.03], [0.6, 0.06, 0.03], [0.02, 0.02, 0.025], [0.8, 0.78, 0.72], [0.15, 0.02, 0.06], [0.05, 0.08, 0.2]],
         grey: [[0.7, 0.7, 0.68], [0.12, 0.12, 0.13], [0.45, 0.47, 0.5], [0.85, 0.82, 0.76]]
@@ -87,9 +88,9 @@
       for (let j = 0; j < Lb; j++) {
         const t = Math.abs(2 * j / (Lb - 1) - 1);
         bow[j] = p.endLift * Math.pow(t, 5);
-        nick[j] = 0.05 * N(j / (1.7 * S), p.seed % 97, 7) + 0.04 * N(j / (9 * S), 3, 8);
+        nick[j] = 0.04 * N(j / (7 * S), p.seed % 97, 7) + 0.04 * N(j / (19 * S), 3, 8);
       }
-      for (let k = 0; k < p.nicks; k++) { const j = (r() * Lb) | 0, w = 1 + ((r() * 3 * S) | 0), a = (r() < 0.5 ? -1 : 1) * (0.15 + 0.4 * r()); for (let q = j; q < Math.min(Lb, j + w); q++) nick[q] += a; }
+      for (let k = 0; k < Math.min(8, p.nicks); k++) { const j = (r() * Lb) | 0, w = Math.round((4 + r() * 6) * S), a = (r() < 0.5 ? -1 : 1) * (0.1 + 0.25 * r()); for (let q = j; q < Math.min(Lb, j + w); q++) nick[q] += a * Math.sin(Math.PI * (q - j + 0.5) / w); }
       // dabs placed in the path
       for (let k = 0; k < (p.blobs || 0); k++) {
         const bx = (Math.min(p.x0, p.x1) + r() * Math.abs(p.x1 - p.x0) * 0.85) * S, by = y0 + (0.05 + 0.9 * r()) * Lb;
@@ -107,8 +108,8 @@
         return { c: lf[0] * S, w: lf[1] * S, a: lf[2], skew: (r() - 0.5) * 0.5, sd: p.seed + 200 + q };
       });
       const drag = [];
-      for (let q = 0; q < (p.drags || 22); q++) {
-        const j0 = (r() * Lb) | 0, h = 1 + ((r() * 3 * S) | 0), k0 = (r() * Math.abs(xe - xs)) | 0, k1 = k0 + ((40 + Math.pow(r(), 2) * 700) * S | 0), f = r() < 0.4 ? 0.1 * r() : 0.35 + 0.4 * r();
+      for (let q = 0; q < (p.drags || 7); q++) {
+        const j0 = (r() * Lb) | 0, h = Math.round((4 + r() * 8) * S), k0 = (r() * Math.abs(xe - xs)) | 0, k1 = k0 + ((40 + Math.pow(r(), 2) * 700) * S | 0), f = r() < 0.4 ? 0.1 * r() : 0.35 + 0.4 * r();
         for (let jj = j0; jj < Math.min(Lb, j0 + h); jj++) { (drag[jj] = drag[jj] || []).push([k0, k1, f]); }
       }
       const HFj = function (j) { return P8.hashf(j, 5, p.seed); };
@@ -136,6 +137,7 @@
           if (j < jT || j > Lb - 1 - jB) continue;
           if (k > len - endJ[j]) continue;
           const i = y * W + x;
+          touched[i] = Math.max(touched[i], 1 - SM(0.6, 2.5, Math.max(0, (env[j] + g + bow[j] - Deff[i]))));
           let lift = 0;
           for (let q = 0; q < lifts.length; q++) {
             const lf = lifts[q], cc = lf.c + lf.skew * (j - Lb * 0.5) + 28 * S * N(j / (45 * S), q, lf.sd);
@@ -152,8 +154,8 @@
           }
           // viscous fingering / rips: lacy, horizontally drawn-out, more of them as the pull runs out
           const wu = u + 40 * N(u / 300, y / (60 * S), p.seed + 70);
-          const sf = 0.55 * FB(wu / 300, y / (16 * S), 4, p.seed + 71) + 0.3 * (0.35 - Math.abs(FB(wu / 420, y / (11 * S), 3, p.seed + 75))) + 0.32 * FB(wu / 600, y / (50 * S), 2, p.seed + 74) + 0.035 * N(wu / 70, y / (2.0 * S), p.seed + 72);
-          let fing = SM(-0.03, 0.03, thr - sf + 0.045 * N(u / 9, y / (1.3 * S), p.seed + 73) + 0.02 * N(u / 3, y / (0.7 * S), p.seed + 76));
+          const sf = 0.55 * FB(wu / 300, y / (16 * S), 4, p.seed + 71) + 0.3 * (0.35 - Math.abs(FB(wu / 420, y / (11 * S), 3, p.seed + 75))) + 0.32 * FB(wu / 600, y / (50 * S), 2, p.seed + 74) + 0.035 * N(wu / 70, y / (7 * S), p.seed + 72);
+          let fing = SM(-0.04, 0.04, thr - sf + 0.04 * N(u / 14, y / (5 * S), p.seed + 73) + 0.02 * N(u / 5, y / (3 * S), p.seed + 76));
           if (p.noRidge) fing *= SM(len - endJ[j], len - endJ[j] - 70 * S * (0.4 + 0.6 * HFj(j)), k);
           if (drag[j] !== undefined) { const dd = drag[j]; for (let q = 0; q < dd.length; q++) if (k >= dd[q][0] && k < dd[q][1]) fing *= dd[q][2]; }
           const reach = p.bead * A[j] / S;
@@ -170,12 +172,12 @@
             const gp2 = Math.max(0, Lv - (Deff[i] + ws));
             const gpR = Math.max(0, Lv - (D[i] + ws)); // fill the real (weave) valleys -> smooth skin
             const te = fing * SM(reach, reach * 0.45, gp2);
-            const tm = CL(0.7 + 0.5 * FB(u / 380, y / (1.8 * S), 3, p.seed + 101) + 0.15 * N(u / 90, y / (0.8 * S), p.seed + 102), 0.15, 1.4);
+            const tm = CL(0.7 + 0.55 * FB(u / 380, y / (7 * S), 3, p.seed + 101) + 0.2 * N(u / 120, y / (4 * S), p.seed + 102), 0.15, 1.5);
             const dep = Math.min((gpR * 0.97 + (p.skin || 0.2) * tm * 1.6) * te, A[j] * p.rate);
             // incomplete mixing of the bead with the paint it drags: marbled, striated
-            const mu = (p.marble || 0.45) * SM(0.05, 0.5, wsPre) * SM(-0.15, 0.45, FB(u / 300, y / (4 * S), 3, p.seed + 111) + 0.15 * N(u / 60, y / (1.2 * S), p.seed + 112));
+            const mu = (p.marble || 0.45) * SM(0.05, 0.5, wsPre) * SM(-0.2, 0.4, FB(u / 260, y / (14 * S), 3, p.seed + 111) + 0.15 * N(u / 70, y / (6 * S), p.seed + 112));
             const jj = CL(j + Math.round(7 * S * N(u / 140, j / (35 * S), p.seed + 121) + 2 * S * N(u / 30, j / (6 * S), p.seed + 122)), 0, Lb - 1);
-            const al = (p.alt || 0.7) * SM(0.05, 0.4, FB(u / 380, y / (55 * S), 3, p.seed + 141) + 0.12 * N(u / 90, y / (9 * S), p.seed + 142));
+            const al = (p.alt || 0.7) * SM(0.05, 0.4, FB(u / 380, y / (55 * S), 3, p.seed + 141) + 0.12 * N(u / 90, y / (16 * S), p.seed + 142));
             const lr0 = mixKM(Lr[jj], Ar[jj], al), lg0 = mixKM(Lg[jj], Ag[jj], al), lb0 = mixKM(Lbb[jj], Ab[jj], al);
             const cr = mixKM(lr0, Cw.r[i], mu), cg = mixKM(lg0, Cw.g[i], mu), cb = mixKM(lb0, Cw.b[i], mu);
             const mot = 1 + 0.07 * FB(u / 500, y / (30 * S), 3, p.seed + 131);
@@ -188,8 +190,10 @@
           Ws[i] = ws;
         }
         // paint bead flows a little along the blade
-        for (let j = 1; j < Lb - 1; j++) A[j] += 0.06 * (A[j - 1] + A[j + 1] - 2 * A[j]);
-        if ((k & 7) === 0) for (let j = 1; j < Lb - 1; j++) { Lr[j] += 0.02 * (Lr[j - 1] + Lr[j + 1] - 2 * Lr[j]); Lg[j] += 0.02 * (Lg[j - 1] + Lg[j + 1] - 2 * Lg[j]); Lbb[j] += 0.02 * (Lbb[j - 1] + Lbb[j + 1] - 2 * Lbb[j]); }
+        for (let it = 0; it < 2; it++) {
+          for (let j = 1; j < Lb - 1; j++) A[j] += 0.2 * (A[j - 1] + A[j + 1] - 2 * A[j]);
+          for (let j = 1; j < Lb - 1; j++) { Lr[j] += 0.12 * (Lr[j - 1] + Lr[j + 1] - 2 * Lr[j]); Lg[j] += 0.12 * (Lg[j - 1] + Lg[j + 1] - 2 * Lg[j]); Lbb[j] += 0.12 * (Lbb[j - 1] + Lbb[j + 1] - 2 * Lbb[j]); }
+        }
         // squeezed-out paint at the blade ends forms thin ridges along the band edges
         if (p.beads && (k & 3) === 0) {
           [[Math.min(Lb - 1, Math.ceil(jT)), -1], [Math.max(0, Math.floor(Lb - 1 - jB)), 1]].forEach(function (e) {
@@ -273,6 +277,28 @@
       log && log('pass ' + k);
     });
 
+    // the image under the pulls is dragged: horizontally smeared, softened and shifted toward the paint
+    {
+      P8.blur(touched, W, H, 3 * S, 2 * S);
+      const sm = P8.copyImg(Cd); P8.blurImg(sm, 16 * S, 2.6 * S);
+      const tint = P8.copyImg(Cw); P8.blurImg(tint, 40 * S, 10 * S);
+      for (let i = 0; i < n; i++) {
+        const t = touched[i]; if (t <= 0.001) continue;
+        const k = 0.85 * t, kt = 0.22 * t;
+        Cd.r[i] += (sm.r[i] * 0.9 + tint.r[i] * 0.1 - Cd.r[i]) * k; Cd.g[i] += (sm.g[i] * 0.9 + tint.g[i] * 0.1 - Cd.g[i]) * k; Cd.b[i] += (sm.b[i] * 0.9 + tint.b[i] * 0.1 - Cd.b[i]) * k;
+        Cd.r[i] = mixKM(Cd.r[i], tint.r[i], kt); Cd.g[i] = mixKM(Cd.g[i], tint.g[i], kt); Cd.b[i] = mixKM(Cd.b[i], tint.b[i], kt);
+      }
+      // wet paint flows a little: soften the pulled film across rows (no single-pixel streaks)
+      const msk = new Float32Array(n); for (let i = 0; i < n; i++) msk[i] = Math.min(1, fresh[i] * 3);
+      P8.blur(msk, W, H, 2 * S, 2 * S);
+      const cw2 = P8.copyImg(Cw); P8.blurImg(cw2, 2.2 * S, 1.6 * S);
+      const ws2 = Ws.slice(); P8.blur(ws2, W, H, 1.6 * S, 1.3 * S);
+      for (let i = 0; i < n; i++) {
+        const m = msk[i]; if (m <= 0.001) continue;
+        Cw.r[i] += (cw2.r[i] - Cw.r[i]) * m; Cw.g[i] += (cw2.g[i] - Cw.g[i]) * m; Cw.b[i] += (cw2.b[i] - Cw.b[i]) * m;
+        Ws[i] += (ws2[i] - Ws[i]) * m;
+      }
+    }
     // compose: visible = dry under-colour seen through the wet film
     const gloss = new Float32Array(n);
     for (let i = 0; i < n; i++) {
@@ -289,23 +315,22 @@
 
   // the composition's pulls (2160-px units)
   P8.PASSES = [
-    // top: deep blues / violet, off the top edge, ends mid-canvas
-    { x0: -60, x1: 2240, y0: -60, Lb: 300, pal: 'deep', load: 2400, bandMin: 60, bandMax: 220, streaks: 10, nicks: 18, endLift: 0.6, gap: 0.03, press: 0.2, tilt: 0.4,
-      bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[900, 40, 1.4]], seed: 21, cov: [0.86, 0.45], endRidge: false, blobs: 0, chatter: 25, edge: 18 },
-    // the big red pull right across
-    { x0: -60, x1: 2240, y0: 70, Lb: 640, pal: 'red', load: 2800, bandMin: 60, bandMax: 260, streaks: 12, nicks: 18, endLift: 0.9, gap: 0.02, press: 0.25, tilt: 0.5,
-      bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[640, 30, 1.5], [1420, 70, 0.9]], seed: 11, cov: [0.9, 0.68], endRidge: false, blobs: 0, chatter: 27, edge: 18 },
-    // whites / lemon / cerulean skimmed back from the right, ends with a ridge
-    { x0: 2240, x1: 640, y0: 360, Lb: 500, pal: 'white', load: 1500, bandMin: 50, bandMax: 220, streaks: 12, nicks: 24, endLift: 1.2, gap: 0.45, press: 0.3, tilt: 0.8, skin: 0.22,
-      bead: 0.0016, rate: 0.03, float: 0.00025, shear: 0.06, lifts: [[520, 40, 1.2], [1180, 25, 2.0]], seed: 12, cov: [0.62, 0.3], endRidge: true, blobs: 0, chatter: 19, edge: 22 },
-    // lower pull across the wet street: pale greys/whites, left -> right, ends with a ridge
-    { x0: -60, x1: 1760, y0: 1650, Lb: 400, pal: 'pale', load: 1700, bandMin: 50, bandMax: 220, streaks: 12, nicks: 20, endLift: 1.0, gap: 0.05, press: 0.3, tilt: 0.6,
-      bead: 0.0016, rate: 0.03, float: 0.0003, lifts: [[380, 50, 1.4], [1050, 30, 1.0]], seed: 13, cov: [0.95, 0.35], endRidge: true, blobs: 0, chatter: 31, edge: 18 },
+    // top: deep blues / violet, a narrow pull off the top edge, breaking up toward the right
+    { x0: -60, x1: 2240, y0: -50, Lb: 230, pal: 'deep', load: 2400, bandMin: 60, bandMax: 220, streaks: 10, nicks: 8, endLift: 0.6, gap: 0.03, press: 0.2, tilt: 0.4,
+      bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[900, 40, 1.4]], seed: 21, cov: [0.85, 0.3], endRidge: false, chatter: 25, edge: 18 },
+    // red pull, narrower, from the left; runs thin and ends with a raised ridge before the right-hand facades
+    { x0: -60, x1: 1640, y0: 255, Lb: 330, pal: 'red', load: 2600, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 0.9, gap: 0.02, press: 0.25, tilt: 0.5,
+      bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[640, 30, 1.5], [1180, 50, 0.9]], seed: 11, cov: [0.92, 0.42], endRidge: true, endJit: 50, chatter: 27, edge: 20 },
+    // pale lemon / cerulean / rose skimmed back from the right, partly over the red
+    { x0: 2240, x1: 640, y0: 470, Lb: 260, pal: 'white', load: 1500, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 1.2, gap: 0.3, press: 0.3, tilt: 0.8, skin: 0.22,
+      bead: 0.0016, rate: 0.03, float: 0.00025, shear: 0.06, lifts: [[520, 40, 1.2], [1100, 25, 2.0]], seed: 12, cov: [0.62, 0.22], endRidge: true, endJit: 40, chatter: 19, edge: 22 },
+    // lower pull across the wet street, left -> right, ends with a ridge
+    { x0: -60, x1: 1760, y0: 1650, Lb: 400, pal: 'pale', load: 1700, bandMin: 50, bandMax: 220, streaks: 10, nicks: 8, endLift: 1.0, gap: 0.05, press: 0.3, tilt: 0.6,
+      bead: 0.0016, rate: 0.03, float: 0.0003, lifts: [[380, 50, 1.4], [1050, 30, 1.0]], seed: 13, cov: [0.95, 0.35], endRidge: true, chatter: 31, edge: 18 },
     // a narrow late pull low on the canvas, from the right edge, running out of paint
-    { x0: 2240, x1: 860, y0: 2380, Lb: 210, pal: 'ember', load: 1500, bandMin: 30, bandMax: 120, streaks: 8, nicks: 14, endLift: 0.8, gap: 0.05, press: 0.3, tilt: 0.4,
+    { x0: 2240, x1: 860, y0: 2380, Lb: 210, pal: 'ember', load: 1500, bandMin: 30, bandMax: 120, streaks: 8, nicks: 8, endLift: 0.8, gap: 0.05, press: 0.3, tilt: 0.4,
       bead: 0.0016, rate: 0.03, float: 0.0003, lifts: [[520, 30, 1.2]], seed: 17, cov: [0.85, 0.12], endRidge: true, noRidge: true, endJit: 140, chatter: 29, edge: 26, alt: 0.5 },
-    { drips: [705, 120, 2100, 9] },
-    
+    { drips: [590, 120, 1600, 7] },
     { drips: [2046, 80, 1700, 5] }
   ];
 })();

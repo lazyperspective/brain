@@ -179,12 +179,12 @@
     let tDom = 0;
     if (far || d > 0.4) {
       const th = templeH(x, z) * smooth(0.025, 0.09, sN);
-      if (th > hs) { tDom = smooth(0.0, 0.03, th - hs); hs = th; }
+      if (th > hs) { tDom = smooth(0.0, 0.012, th - hs); hs = th; }
     }
     if (detail > 0) {
       hs += 0.012 * N5.fbm(x * 2.0, z * 2.0, 3) + 0.003 * detail * N5.fbm(x * 9, z * 9, 2);
     }
-    let h = mix(terrace(hs), hs, tDom * 0.85);
+    let h = mix(terrace(hs), hs, tDom);
     if (hs < 0.04) h = Math.min(h, hs * 0.9);
     if (detail > 1) h += 0.0012 * N6.fbm(x * 70, z * 70, 3);
     return h;
@@ -290,7 +290,7 @@
     const q = quality || 1;
     const t0 = performance.now();
     const g0 = makeGrid(-17, 17, -0.6, 24, Math.round(3000 * q), Math.round(2170 * q), (x, z) => canyonH(x, z, 1));
-    const g1 = makeGrid(-3.2, 3.2, -0.3, 5.6, Math.round(2300 * q), Math.round(2120 * q), (x, z) => canyonH(x, z, 2));
+    const g1 = makeGrid(-3.2, 3.2, -0.3, 5.6, Math.round(1800 * q), Math.round(1660 * q), (x, z) => canyonH(x, z, 2));
     const g2 = makeGrid(-0.7, 0.7, -0.05, 1.3, Math.round(1100 * q), Math.round(1060 * q), (x, z) => canyonH(x, z, 2));
     const g3 = makeGrid(FG.x0, FG.x1, FG.z0, FG.z1, Math.round(1500 * q), Math.round(1400 * q), fgH);
     GR = { g0, g1, g2, g3 };
@@ -618,7 +618,7 @@
         return (a + b) * 0.5;
       }
       lastT = t; lastD = dh;
-      t += Math.max(0.0012 * t + 0.00004, dh * 0.45);
+      t += Math.max(0.0004 * t + 0.00004, dh * 0.3);
       if (t > tmax) return -1;
     }
     return -1;

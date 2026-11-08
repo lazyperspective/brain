@@ -1027,7 +1027,7 @@
       const glow = new Float32Array(n);
       for (let i = 0; i < n; i++) glow[i] = 0.3 * (b2.r[i] + b2.g[i] + b2.b[i]) + 0.6 * (b3.r[i] + b3.g[i] + b3.b[i]) + 0.04 * (Ld.r[i] + Ld.g[i] + Ld.b[i]);
       const rr2 = P8.rng(seed + 9);
-      const NR = Math.round(24000 * S * S);
+      const NR = 0; // rain is painted as strokes in paint.js
       for (let k = 0; k < NR; k++) {
         const x0 = rr2() * W, y0 = rr2() * H;
         const near = Math.pow(rr2(), 3); // a few big near drops
