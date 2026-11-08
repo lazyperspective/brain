@@ -76,7 +76,7 @@ const SHOT6A = (function () {
     }
   })();
   // dream-sky rings around the sun: apricot glow, a rose halo, pale, a thin teal ring, deepening blue
-  const RAD = [[0, SKY[9]], [30, SUR[5]], [36, SKY[9]], [52, SUR[4]], [55, SKY[9]], [92, SKY[8]], [140, SKY[7]], [178, TEAL[2]], [183, SKY[7]], [226, SKY[6]], [300, SKY[5]], [400, SKY[4]], [520, SKY[3]]];
+  const RAD = [[0, SKY[9]], [30, SUR[5]], [36, SKY[9]], [52, SUR[4]], [55, SKY[9]], [92, SKY[8]], [140, SKY[7]], [226, SKY[6]], [300, SKY[5]], [400, SKY[4]], [520, SKY[3]]];
   function radial(dd, x, y) {
     for (let i = RAD.length - 1; i >= 0; i--) {
       if (dd >= RAD[i][0]) {
@@ -194,10 +194,10 @@ const SHOT6A = (function () {
     MASK.fill(0);
     // the ringed planet hangs in the east above the low sun, its small moon high on the left
     const bgx = Math.round(sx - 298), bgy = Math.round(sy - 194);
-    auroraVeil(tau, { x0: -10, x1: 260, base: 58 + bgy, amp: 8, f1: 0.024, s1: 0.4, f2: 0.06, s2: 0.3, h: 52, strength: 0.5, map: TEALTINT });
-    drawPlanet({ cx: 452 + bgx, cy: 6 + bgy, r: 66, rot: -0.35, tilt: 0.24, light: [-0.55, 0.8],
-      bands: [SKY[9], SKY[9], SUR[5], SKY[9], SKY[8], SKY[9], SUR[5], SKY[8], SKY[9]], fade: (y) => clamp((150 - y + bgy) / 60, 0.3, 1) });
-    drawPlanet({ cx: 46 + bgx, cy: 30 + bgy, r: 7, rot: 0, tilt: 0.01, light: [0.8, 0.5], bands: [SKY[9], SUR[5], SKY[9]] });
+    silkVeil(tau, -10, W, 70 + bgy, 16, -bgx);
+    silkVeil(tau + 7, 140, W, 122 + bgy, 10, -bgx);
+    planetA3(452 + bgx, 8 + bgy, 62, { tilt: -0.3, light: [-0.45, 0.65] });
+    moon2(46 + bgx, 30 + bgy, 5, 1);
     sunAndRays(tau, sx, sy);
     const [px0, py0] = posAt(tau);
     const ix = Math.floor(px0), iy = Math.floor(py0);

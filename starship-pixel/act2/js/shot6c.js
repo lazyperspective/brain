@@ -236,9 +236,9 @@ const SHOT6C = (function () {
 
   // fair-weather cumulus
   // sculpted clouds: crisp apricot rims on the sun side (upper left), a rose line underneath
-  const CLOUD_L = rimCloud(makePuffCloud(4711, 96, 28, { n: 16, rmin: 4, rmax: 11, tower: 0.6, cols: [SUR[4], SKY[8], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], SUR[5], SUR[3]);
-  const CLOUD_S = [rimCloud(makePuffCloud(4712, 40, 12, { n: 8, rmin: 3, rmax: 5, tower: 0.4, cols: [SUR[4], SKY[8], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], SUR[5], SUR[4]),
-                   rimCloud(makePuffCloud(4713, 54, 14, { n: 9, rmin: 3, rmax: 6, tower: 0.4, cols: [SUR[4], SKY[8], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], SUR[5], SUR[4])];
+  const CLOUD_L = rimCloud(makePuffCloud(4711, 96, 28, { n: 16, rmin: 4, rmax: 11, tower: 0.6, cols: [SUR[4], SUR[5], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], WARM[6], SUR[4]);
+  const CLOUD_S = [rimCloud(makePuffCloud(4712, 40, 12, { n: 8, rmin: 3, rmax: 5, tower: 0.4, cols: [SUR[4], SUR[5], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], WARM[6], SUR[4]),
+                   rimCloud(makePuffCloud(4713, 54, 14, { n: 9, rmin: 3, rmax: 6, tower: 0.4, cols: [SUR[4], SUR[5], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], WARM[6], SUR[4])];
   const ROCKS = [makeRock(9101, 9), makeRock(9102, 6), makeRock(9103, 5)].map(r => { for (let i = 0; i < r.data.length; i++) if (r.data[i] !== TRANSP) r.data[i] = UP[UP[r.data[i]]]; return r; });   // aerial perspective
   const SKYBUF = new Uint8Array(W * H);
 
@@ -358,7 +358,7 @@ const SHOT6C = (function () {
   }
 
   // dreamlike banded sky: ultramarine -> blue -> teal -> pale -> apricot -> rose belt -> haze
-  const BANDS = [[1.45, SKY[4]], [1.1, SKY[5]], [0.8, SKY[6]], [0.62, SKY[7]], [0.55, TEAL[2]], [0.47, SKY[8]], [0.26, SUR[5]], [0.1, SKY[9]], [0.028, SUR[4]], [0, SKY[9]]];
+  const BANDS = [[1.45, SKY[4]], [1.1, SKY[5]], [0.8, SKY[6]], [0.62, SKY[7]], [0.47, SKY[8]], [0.26, SUR[5]], [0.1, SKY[9]], [0.028, SUR[4]], [0, SKY[9]]];
   function skyColor(dh, x, yw) {
     for (let i = 0; i < BANDS.length - 1; i++) {
       const [h0, c0] = BANDS[i], [h1, c1] = BANDS[i + 1];
@@ -380,9 +380,9 @@ const SHOT6C = (function () {
       for (let x = 0; x < W; x++) FB[y * W + x] = skyColor(dh + (x / W) * 0.03, x, y + ty);
     }
     MASK.fill(0);
-    // aurora veils high in the daytime sky
-    auroraVeil(tau, { x0: -20, x1: 300, base: 70 - ty, amp: 9, f1: 0.021, s1: 0.35, f2: 0.05, s2: 0.25, h: 46, strength: 0.55, map: TEALTINT });
-    auroraVeil(tau, { x0: 220, x1: 500, base: 52 - ty, amp: 7, f1: 0.026, s1: 0.3, f2: 0.043, s2: 0.2, h: 34, strength: 0.45, map: ROSETINT });
+    // iridescent silk threads of light across the day sky
+    silkVeil(tau, 0, W, 52 - ty, 14, -Math.round(p * D.cloud));
+    silkVeil(tau + 5, 0, W, 96 - ty, 9, -Math.round(p * D.cloud));
     // high cirrus veils drifting slowly
     const cirOff = Math.round(tau * 1.5 + p * D.cloud);
     for (let y = 0; y < hzS - 40; y++) for (let x = 0; x < W; x++) {
@@ -393,10 +393,8 @@ const SHOT6C = (function () {
     }
     // the giant ringed planet low over the sea (east), and its small companion moon
     const pOff = -Math.round(p * 3);
-    drawPlanet({ cx: 404 + pOff, cy: 152 - ty, r: 54, rot: -0.22, tilt: 0.2, light: [-0.7, -0.5],
-      bands: [SKY[9], SKY[9], SUR[5], SKY[9], SKY[8], SKY[9], SUR[5], SKY[8], SKY[9]],
-      fade: (y) => clamp((hzS - 8 - y) / 60, 0.2, 1), clipY: hzS });
-    drawPlanet({ cx: 96 + pOff, cy: 34 - ty, r: 6, rot: 0, tilt: 0.01, light: [-0.8, -0.3], bands: [SKY[9], SUR[5], SKY[9]], fade: () => 1 });
+    planetA3(404 + pOff, 154 - ty, 56, { tilt: -0.3, light: [-0.6, -0.5], hazeY: hzS - 2, hazeLen: 44, clipY: hzS });
+    moon2(96 + pOff, 34 - ty, 5, -1);
     // clouds
     const cOff = -Math.round(p * D.cloud);
     blit(CLOUD_L, 4 + cOff - Math.round(tau * 0.6), 136 - ty);
@@ -406,7 +404,7 @@ const SHOT6C = (function () {
     // floating stone islands far out over the sea, bobbing slowly
     const rOff = -Math.round(p * 9);
     const RP = [[376, 205, 0], [452, 193, 1], [424, 214, 2]];
-    for (const [rx, ry, k] of RP) blit(ROCKS[k], rx + rOff, Math.round(ry - ty + Math.sin(tau * (0.5 + k * 0.17) + k * 2) * 1.2));
+    for (const [rx, ry, k] of RP) islandA3(rx + rOff, Math.round(ry - ty + Math.sin(tau * (0.5 + k * 0.17) + k * 2) * 1.2), [9, 6, 5][k], 300 + k);
 
     // ship
     const spr = shipSprite(tau);

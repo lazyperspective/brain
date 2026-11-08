@@ -50,11 +50,11 @@ const SHOT6B = (function () {
   const CLOUDS = [];
   (function () {
     const rnd = mulberry32(606);
-    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 0, x: rnd() * 520 - 40, y: i * 122 + rnd() * 30, spr: rimCloud(makePuffCloud(100 + i, 64 + Math.floor(rnd() * 30), 38, { n: 14, rmin: 6, rmax: 13, tower: 0.9, cols: [SKY[7], SKY[8], SKY[8], SKY[8]], t1: 0.35, t2: 0.55 }), [1, -1], SKY[9], SUR[4]) });
-    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 1, x: rnd() * 520 - 60, y: i * 142 + rnd() * 40, spr: rimCloud(makePuffCloud(200 + i, 90 + Math.floor(rnd() * 50), 60, { n: 16, rmin: 7, rmax: 17, cols: [SUR[4], SKY[8], SKY[9], SKY[9]] }), [1, -1], SUR[5], SUR[3]) });
+    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 0, x: rnd() * 520 - 40, y: i * 122 + rnd() * 30, spr: rimCloud(makePuffCloud(100 + i, 64 + Math.floor(rnd() * 30), 38, { n: 14, rmin: 6, rmax: 13, tower: 0.9, cols: [SUR[4], SUR[5], SKY[8], SKY[9]], t1: 0.35, t2: 0.55 }), [1, -1], WARM[6], SUR[4]) });
+    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 1, x: rnd() * 520 - 60, y: i * 142 + rnd() * 40, spr: rimCloud(makePuffCloud(200 + i, 90 + Math.floor(rnd() * 50), 60, { n: 16, rmin: 7, rmax: 17, cols: [SUR[4], SUR[5], SKY[9], SKY[9]] }), [1, -1], WARM[6], SUR[4]) });
   })();
   // banded dream sky: ultramarine at the top, blue, a teal seam, pale, apricot low down
-  const BANDS = [[0, SKY[4]], [38, SKY[5]], [92, SKY[6]], [150, SKY[7]], [176, TEAL[2]], [183, SKY[7]], [215, SKY[8]], [262, SUR[5]], [400, SUR[5]]];
+  const BANDS = [[0, SKY[4]], [38, SKY[5]], [92, SKY[6]], [150, SKY[7]], [215, SKY[8]], [262, SUR[5]], [400, SUR[5]]];
   function band(yy, x, y) {
     for (let i = BANDS.length - 2; i >= 0; i--) if (yy >= BANDS[i][0]) {
       const span = BANDS[i + 1][0] - BANDS[i][0], f = (yy - BANDS[i][0]) / span, seam = Math.min(6, span * 0.3) / span;
@@ -70,11 +70,9 @@ const SHOT6B = (function () {
       FB[y * W + x] = band(yy, x, y);
     }
     MASK.fill(0);
-    auroraVeil(tau, { x0: 120, x1: 500, base: 66, amp: 8, f1: 0.022, s1: 0.45, f2: 0.05, s2: 0.3, h: 50, strength: 0.5, map: TEALTINT });
-    // the planet, vast and close to the eastern horizon below the ship
-    drawPlanet({ cx: 420, cy: 262, r: 96, rot: -0.3, tilt: 0.22, light: [0.6, -0.7],
-      bands: [SKY[9], SKY[9], SUR[5], SKY[9], SKY[8], SKY[9], SUR[5], SKY[8], SKY[9]], fade: (y) => clamp((300 - y) / 110, 0.35, 1) });
-    drawPlanet({ cx: 70, cy: 214, r: 8, rot: 0, tilt: 0.01, light: [0.7, -0.5], bands: [SKY[9], SUR[5], SKY[9]] });
+    silkVeil(tau, 0, W, 58, 14, 0);
+    planetA3(424, 252, 70, { tilt: -0.3, light: [0.45, -0.6], hazeY: 330, hazeLen: 120 });
+    moon2(70, 214, 5, 1);
     for (const c of CLOUDS) {
       const speed = c.layer ? 13 : 5.5, span = c.layer ? 570 : 488;
       let y = c.y - tau * speed; y = ((y % span) + span) % span - 60;

@@ -121,38 +121,59 @@ const ACT1 = (() => {
   }
 
   // ======================= PASS 2: SHARED SURREAL LANGUAGE =======================
-  // giant pale ringed planet (always east, over the sea). cov(x,y) -> 0..1 opacity (haze); light = angle toward the sun
+  // giant pale ringed planet (always east, over the sea) - same design as Act 3's surreal.js:
+  // lavender/blue/peach banded body, cream main ring with a teal inner band, rose outer bands, dark gaps,
+  // near ring arc in front of the body, haze fade toward the horizon. light = angle toward the sun (screen).
+  const U = R.sur.concat([teal[2], teal[1], teal[0]]);
+  const P_BODY = [U[2], U[3], sky[6], sky[8], sky[9]], P_BODYW = [U[2], U[3], U[4], U[5], warm[0]];
+  const P_DARKER = new Map([[sky[6], sky[5]], [sky[8], sky[7]], [sky[9], sky[8]], [U[2], U[1]], [U[3], U[2]], [U[4], U[3]], [U[5], U[4]], [warm[0], U[5]]]);
   function drawPlanet(T, cx, cy, Rp, o = {}) {
-    const tilt = o.tilt ?? -0.3, ry = o.ry ?? 0.21, la = o.light ?? Math.PI, cov = o.cov || (() => o.alpha ?? 0.9);
-    const ca = Math.cos(tilt), sa = Math.sin(tilt), lx = Math.cos(la), ly = Math.sin(la);
-    const LIT = [sky[9], sur[5], sky[8], warm[0], sky[9], sur[5]], SHD = [sky[7], sur[5], sky[6], sur[4], sky[7], sky[8]];
-    const ext = Rp * 2.35, x0 = Math.floor(cx - ext), x1 = Math.ceil(cx + ext), y0 = Math.floor(cy - ext * 0.6), y1 = Math.ceil(cy + ext * 0.6);
-    for (let y = Math.max(0, y0); y <= Math.min(T.h - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(T.w - 1, x1); x++) {
-      const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.hypot(dx, dy) / Rp;
-      const u = dx * ca + dy * sa, v = (-dx * sa + dy * ca);
-      const rr = Math.hypot(u, v / ry) / Rp, front = v > 0;
-      let ring = 0;
-      if (rr > 1.28 && rr < 1.56) ring = rr < 1.33 ? sur[4] : sur[5];
-      else if (rr > 1.61 && rr < 1.96) ring = (rr > 1.78 && rr < 1.81) ? sky[7] : sky[8];
-      else if (rr > 2.0 && rr < 2.06) ring = sur[4];
-      else if (rr > 2.1 && rr < 2.24) ring = ((x + y) & 1) ? sky[8] : 0;
-      let c = 0;
-      if (d <= 1 && !(ring && front)) {
-        const lat = v / Rp, band = Math.floor((lat + 1) * 5.5 + 0.35 * Math.sin(u / Rp * 3.1 + lat * 4));
-        const nz = Math.sqrt(Math.max(0, 1 - d * d)), lit = (dx / Rp) * lx + (dy / Rp) * ly + nz * 0.35;
-        const ring_sh = front === false && rr > 1.28 && rr < 1.96 && lat < 0 && lat > -0.5 ? 1 : 0; // ring shadow across the disc
-        c = q4(clamp((lit + 0.15) * 1.6, 0, 1)) > thr(x, y) ? LIT[((band % 6) + 6) % 6] : SHD[((band % 6) + 6) % 6];
-        if (ring_sh && Math.abs(lat + 0.28) < 0.05) c = sur[4];
-        if (d > 0.93 && lit > 0.15) c = warm[0]; // crisp lit limb
-      } else if (ring) c = ring;
+    const tilt = o.tilt ?? -0.3, flat = o.ry ?? 0.24, cov = o.cov || (() => o.alpha ?? 0.92);
+    const ct = Math.cos(tilt), st = Math.sin(tilt);
+    let lx = Math.cos(o.light ?? Math.PI * 1.2), ly = Math.sin(o.light ?? Math.PI * 1.2); const lz = 0.62, ln = Math.hypot(lx, ly, lz); lx /= ln; ly /= ln; const lzn = lz / ln;
+    const ext = 2.3 * Rp, y0 = Math.max(0, Math.floor(cy - ext)), y1 = Math.min(T.h - 1, Math.ceil(cy + ext)), x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(T.w - 1, Math.ceil(cx + ext));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const dx = x + 0.5 - cx, dy = y + 0.5 - cy, rx = dx * ct + dy * st, ry = -dx * st + dy * ct;
+      const d2 = dx * dx + dy * dy, inBody = d2 <= Rp * Rp, rr = Math.sqrt(rx * rx + (ry / flat) * (ry / flat)) / Rp;
+      const inRing = rr >= 1.36 && rr <= 2.28 && !(rr > 1.83 && rr < 1.89) && !(rr > 2.12 && rr < 2.15), front = ry > 0;
+      let c = 0, la = cov(x, y);
+      if (inRing && (front || !inBody)) {
+        if (rr < 1.55) { c = U[6]; la *= 0.7; } else if (rr < 1.83) c = (rr > 1.64 && rr < 1.72) ? U[5] : warm[0];
+        else if (rr < 1.95) c = U[3]; else if (rr < 2.12) c = U[4]; else { c = U[6]; la *= 0.6; }
+        if (!front) c = c === warm[0] ? U[5] : c === U[5] ? U[4] : c === U[4] ? U[3] : c === U[6] ? U[7] : c;
+        if (!front && rx * lx < 0 && Math.abs(ry * ct) < Rp * 0.9 && Math.abs(rx) < Rp * 1.1) c = U[3];
+      } else if (inBody) {
+        const nz = Math.sqrt(Math.max(0, 1 - d2 / (Rp * Rp))), sh = (dx / Rp) * lx + (dy / Rp) * ly + nz * lzn;
+        const lat = ry / Rp + 0.06 * Math.sin(rx / Rp * 5.0), band = Math.floor((lat + 1) * 4.5);
+        const boff = [0.0, 0.3, -0.2, 0.25, -0.3, 0.15, 0.35, -0.1, 0.2, -0.25, 0.1, 0.3, -0.1, 0.2][((band % 14) + 14) % 14];
+        let v = 1.3 + sh * 2.4 + boff; if (d2 > (Rp - 1.2) * (Rp - 1.2) && sh > 0.2) v = 4.2;
+        c = rampc((((band % 3) + 3) % 3) === 1 ? P_BODYW : P_BODY, v, x, y, 0.6);
+        if (Math.abs(ry + Rp * 0.12) < 1.0 && sh > -0.2) c = P_DARKER.get(c) || c;
+      }
       if (!c) continue;
-      if (q4(cov(x, y)) <= thr(x, y)) continue;
+      if (la < 0.999 && q4(la) <= thr(x, y)) continue;
       T.d[y * T.w + x] = c;
     }
   }
-  function drawMoon(T, cx, cy, r, la = 0, cov = 1) {
-    disc(T, cx, cy, r, (x, y, d) => { if (q4(cov) <= thr(x, y)) return 0; const dx = (x + 0.5 - cx) / r, dy = (y + 0.5 - cy) / r; const lit = dx * Math.cos(la) + dy * Math.sin(la);
-      return lit > 0.25 ? (d > r - 1 ? warm[0] : sky[9]) : lit > -0.2 ? sur[5] : sky[7]; });
+  // the second moon: a small teal crescent (as Act 3)
+  function drawMoon(T, cx, cy, r, la = Math.PI, cov = 1) {
+    const ldx = Math.cos(la);
+    disc(T, cx, cy, r, (x, y) => { if (cov < 1 && q4(cov) <= thr(x, y)) return 0; const dx = x + 0.5 - cx, dy = y + 0.5 - cy, k = (dx * ldx - dy * 0.35) / r; return k > 0.35 ? sky[9] : k > -0.15 ? U[6] : U[7]; });
+  }
+  // iridescent "silk" threads of light by day (as Act 3's veil): drawn per frame, only over sky colours
+  const SKYSET = new Set([...sky, ...R.sur, ...teal, warm[0], warm[1], warm[2]]);
+  function veil(t, x0, x1, y0, amp, ox = 0, oy = 0) {
+    const cols = [U[6], sky[9], U[5], U[6]];
+    for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
+      const wx = x - Math.round(ox), dens = 0.5 + 0.5 * Math.sin(wx * 0.013 + t * 0.21); if (dens < 0.25) continue;
+      const yb = y0 + oy + amp * Math.sin(wx * 0.009 + 0.7) + 3 * Math.sin(wx * 0.031 + t * 0.3);
+      for (let k = 0; k < cols.length; k++) {
+        if (thr(wx + k * 2, k) > (dens - 0.25) / 0.6) continue;
+        const y = Math.round(yb + k * 2); if (y < 0 || y >= H) continue;
+        if (!SKYSET.has(S.d[y * W + x])) continue;
+        S.d[y * W + x] = cols[k];
+      }
+    }
   }
   // aurora-like daylight veils: folded curtains, teal lower edge -> rose crowns, 25-50% ordered coverage
   function bakeAurora(w, h, o = {}) {
@@ -181,22 +202,20 @@ const ACT1 = (() => {
       if (tw > 0.85 && hash(k, 5, seed) > 0.6) { pset(S, x - 1, y, cols[(k + 1) % cols.length]); pset(S, x + 1, y, cols[(k + 1) % cols.length]); pset(S, x, y - 1, cols[(k + 1) % cols.length]); pset(S, x, y + 1, cols[(k + 1) % cols.length]); }
     }
   }
-  // small floating rock island sprite (grass cap, violet stone underside, hanging roots)
+  // small floating rock island sprite (as Act 3: peach crest, rose grass, lavender/violet hanging rock)
   function makeIsland(seed, w) {
-    const rnd = PX.mulberry(seed), h = Math.round(w * 1.1) + 4, I = surf(w + 2, h);
-    const cx = (w + 1) / 2, capY = 3;
-    for (let x = 0; x < w + 2; x++) {
-      const u = (x - cx) / (w / 2); if (Math.abs(u) > 1) continue;
-      const top = capY - Math.round(Math.sqrt(1 - u * u) * 1.5), depth = Math.round((1 - Math.abs(u) ** 1.3) * (h - 6) * (0.75 + 0.25 * rnd()));
-      for (let y = top; y <= capY + depth; y++) {
-        let c;
-        if (y <= capY) c = y === top ? marsh[5] : (u < -0.2 ? marsh[4] : marsh[3]);
-        else { const f = (y - capY) / Math.max(1, depth); c = u < -0.35 ? (f < 0.4 ? marsh[2] : sur[2]) : (f < 0.25 ? steel[3] : f < 0.6 ? sur[1] : sur[0]); if (u < -0.6 && f < 0.7) c = sur[3]; }
+    const hw = w / 2, depth = w * 0.9, I = surf(w + 4, Math.ceil(depth) + 6), cx = hw + 2, cy = 3;
+    for (let x = Math.round(cx - hw); x <= Math.round(cx + hw); x++) {
+      const f = (x + 0.5 - cx) / hw, bot = cy + depth * Math.pow(Math.max(0, 1 - Math.abs(f)), 1.4) * (0.75 + 0.25 * hash(x, 2, seed));
+      const top = cy - (hash(x, 1, seed) > 0.6 ? 1 : 0);
+      for (let y = Math.round(top); y <= Math.round(bot); y++) {
+        let c = f > 0.15 ? U[2] : U[3];
+        if (y === Math.round(top)) c = U[5]; else if (y === Math.round(top) + 1) c = U[3];
+        if (y === Math.round(bot) && f < -0.2) c = U[3];
         pset(I, x, y, c);
       }
-      if (rnd() < 0.25 && Math.abs(u) < 0.8) { const L = 2 + Math.floor(rnd() * 4), y2 = capY + depth + 1; for (let k = 0; k < L; k++) if ((k & 1) === 0 || k < 2) pset(I, x, y2 + k, sur[1]); }
     }
-    if (w > 9) { const tx = Math.round(cx + (rnd() - 0.5) * w * 0.4); pset(I, tx, capY - 2, marsh[2]); pset(I, tx, capY - 3, marsh[3]); pset(I, tx - 1, capY - 3, marsh[3]); pset(I, tx + 1, capY - 3, marsh[4]); pset(I, tx, capY - 4, marsh[4]); }
+    pset(I, Math.round(cx - hw) + 1, cy - 1, U[3]); pset(I, Math.round(cx + hw * 0.2), cy - 2, U[3]); pset(I, Math.round(cx + hw * 0.2), cy - 1, U[3]);
     return I;
   }
   function drawIsland(I, x, y, t, ph, cov = 1) { const bob = Math.round(Math.sin(t * 0.6 + ph) * 1.2); blit(S, I, x, y + bob, cov < 1 ? ((px, py) => q4(cov) > thr(px, py)) : null); }
@@ -237,7 +256,6 @@ const ACT1 = (() => {
         for (let k = 0; k < n; k++) wps.push({ x: gx + k * 9 + (rnd() - 0.5) * 8, y: gy + k * 3.5 + (rnd() - 0.5) * 3, r: 1.2 + rnd() * 1.3, w: 1, ax: 9 + rnd() * 6 });
       }
       wisp = bakeBubbles(LW, LH, wps, [sky[5], sky[5], sky[6], sky[6]], { hx: 0, hy: -0.6 });
-      aur = bakeAurora(LW, LH, { y0: 60, len: 80, seed: 3, k: 0.85 });
     }
     function render(t) {
       blit(S, skyS, 0, 0);
@@ -246,9 +264,9 @@ const ACT1 = (() => {
       const bx = Math.round(-M + 1.6 * t), by = Math.round(-M - 4.4 * t);
       const cx = Math.round(-M + 2.2 * t), cy = Math.round(-M - 5.8 * t);
       // far things first: the ringed planet low in the east (bottom-right), a small moon, daylight aurora veils
-      drawPlanet(S, Math.round(424 + 0.6 * t), Math.round(240 - 2.4 * t), 78, { tilt: 0.5, ry: 0.24, light: -2.4, cov: (x, y) => 0.75 + 0.25 * clamp((y - 150) / 60, 0, 1) });
+      veil(t, 0, W - 1, 70, 16, -0.8 * t, -2.8 * t); veil(t + 9, 0, W - 1, 150, 12, -0.8 * t, -2.8 * t);
+      drawPlanet(S, Math.round(424 + 0.6 * t), Math.round(240 - 2.4 * t), 70, { tilt: 0.5, ry: 0.24, light: -2.4, cov: (x, y) => 0.75 + 0.25 * clamp((y - 150) / 60, 0, 1) });
       drawMoon(S, Math.round(338 + 0.6 * t), Math.round(36 - 2.4 * t), 5, -2.6, 0.95);
-      blit(S, aur, Math.round(-M + 0.8 * t), Math.round(-M - 2.8 * t));
       blit(S, wisp, wx, wy);
       // contrail (lives in the high wisp layer), jet flies to lower-left at 7 px/s relative to air
       const ox = wx + M, oy = wy + M;
@@ -486,9 +504,8 @@ const ACT1 = (() => {
         skyS.d[y * W + x] = rampc(DREAM, v, x, y, 0.45);
       }
       // the ringed planet, low and huge behind the right arm, softened by haze; a small moon high left
-      drawPlanet(skyS, 432, 238, 84, { tilt: 0.42, ry: 0.23, light: Math.PI * 1.05, cov: (x, y) => 0.75 + 0.25 * clamp((y - 200) / 40, 0, 1) });
+      drawPlanet(skyS, 430, 240, 66, { tilt: 0.42, ry: 0.23, light: Math.PI * 1.05, cov: (x, y) => 0.75 + 0.25 * clamp((y - 200) / 40, 0, 1) });
       drawMoon(skyS, 62, 44, 6, Math.PI * 1.1, 0.95);
-      aur = bakeAurora(W + 60, H, { y0: 6, len: 64, seed: 11, k: 0.75 });
       // sculpted cloud bank low left with crisp rims, wisps high right
       const rnd = PX.mulberry(33), wps = [], cps = [];
       for (let g = 0; g < 12; g++) { const gx = 220 + rnd() * 280, gy = rnd() * 200, n = 3 + Math.floor(rnd() * 5); for (let k = 0; k < n; k++) wps.push({ x: gx + k * 10 + (rnd() - 0.5) * 6, y: gy - k * 2.2, r: 1 + rnd() * 1.4, w: 1, ax: 8 + rnd() * 7 }); }
@@ -508,7 +525,7 @@ const ACT1 = (() => {
     function lamp(p, c, on = true) { const x = Math.round(p[0]), y = Math.round(p[1]); if (!on) { pset(S, x, y, steel[3]); return; } pset(S, x, y, c); pset(S, x - 1, y, warm[4]); pset(S, x + 1, y, warm[4]); pset(S, x, y - 1, warm[3]); }
     function render(t, T) {
       blit(S, skyS, 0, 0);
-      blit(S, aur, -30 + Math.round(t * 3), 0);
+      veil(t, 0, W - 1, 40, 14, t * 3); veil(t + 5, 0, W - 1, 112, 10, t * 3);
       blit(S, wisp, -Math.round(t * 2.5), 0);
       motes(t, 10, 33, 0, 0, W, H, [warm[0], teal[2], sur[5]]);
       blit(S, towerS, 0, 0);
@@ -678,9 +695,8 @@ const ACT1 = (() => {
       for (let b = 0; b < 6; b++) { const bx = rnd() * (W + 20), by = hy - 12 - rnd() * 26, len = 50 + rnd() * 110; for (let i = 0; i < len / 9; i++) { const u = i / (len / 9), e = Math.sin(u * Math.PI); ps.push({ x: bx - len / 2 + u * len, y: by - e * 2 + (rnd() - 0.5) * 2, r: 1.2 + e * 2.2 + rnd(), w: 1, ax: 4 + rnd() * 2 }); } }
       const B = bakeBubbles(W + 20, H, ps, [sky[6], sky[7], sky[8], warm[1]], { hx: 0, hy: -0.8 });
       // the ringed planet over the sea (east = screen right), hazed toward the horizon; moon; aurora
-      drawPlanet(skyS, 410, Math.round(hy - 44), 66, { tilt: 0.35, ry: 0.22, light: Math.PI * 0.95, cov: (x, y) => 0.35 + 0.55 * clamp((hy - 6 - y) / 70, 0, 1) });
+      drawPlanet(skyS, 412, Math.round(hy - 40), 60, { tilt: 0.35, ry: 0.22, light: Math.PI * 0.95, cov: (x, y) => 0.35 + 0.55 * clamp((hy - 6 - y) / 70, 0, 1) });
       drawMoon(skyS, 300, 26, 5, Math.PI, 0.95);
-      blit(skyS, bakeAurora(W + 20, H, { y0: 8, len: 46, seed: 5, k: 0.7 }), 0, 0);
       blit(skyS, halo(B, [[sky[7], 0.5], [sky[8], 0.25]]), 0, 0); blit(skyS, B, 0, 0);
       ground = bakeGround(cam0, goldPal(SUN, { mirror: mirrorFrom(skyS, 0, 0, hy) }), { w: W + 20, h: H, ox: 10 }); bankPass(ground); SP4 = surfPrep(ground, cam0);
       isl = [makeIsland(401, 13), makeIsland(402, 8), makeIsland(403, 5)];
@@ -693,7 +709,7 @@ const ACT1 = (() => {
     function render(t) {
       const u = clamp(t / DUR, 0, 1), e = ease(u);
       const dg = Math.round(-4 * e), dt = Math.round(-15 * e);
-      blit(S, skyS, -10 + Math.round(-2 * e), 0); blit(S, ground, -10 + dg, 0);
+      blit(S, skyS, -10 + Math.round(-2 * e), 0); veil(t + 3, 0, W - 1, 28, 9, -2 * e); blit(S, ground, -10 + dg, 0);
       surfDraw(ground, SP4, -10 + dg, 0, t + 15); ripples(ground, -10 + dg, 0, t, 60, 62);
       // floating rock islands hovering far off over the sea
       drawIsland(isl[0], 392 + dg, Math.round(hy) - 30, t, 0, 0.9); drawIsland(isl[1], 440 + dg, Math.round(hy) - 17, t, 2, 0.8); drawIsland(isl[2], 352 + dg, Math.round(hy) - 12, t, 4, 0.75);
@@ -725,8 +741,7 @@ const ACT1 = (() => {
       }
       const env = (x, y) => clamp((fbm(x / 60, y / 45, 501, 4) * 2.2 - 0.78), 0, 1);
       const puffs = streetPuffs(LW, LH, 502, 0.5, 12, 8, (x, y) => { const e = env(x, y); return e < 0.7 ? 0 : (e - 0.6) / 0.6; }, 3, 6);
-      blit(skyL, bakeAurora(LW, LH, { y0: 70, len: 70, seed: 7, k: 0.8 }), 0, 0);
-      drawPlanet(skyL, LM + 430, 30, 64, { tilt: 0.45, ry: 0.24, light: -2.6, alpha: 1 }); // the planet, glimpsed through the window
+      drawPlanet(skyL, LM + 430, 30, 56, { tilt: 0.45, ry: 0.24, light: -2.6, alpha: 1 }); // the planet, glimpsed through the window
       drawMoon(skyL, LM + 150, 120, 4, -2.4, 0.95);
       const cl = bakeBubbles(LW, LH, puffs, [sur[5], sky[7], sky[8], sky[9]], { hl: 0.5 }); rims(cl, warm[0], 0);
       { const rnd = PX.mulberry(503), wps = []; for (let g = 0; g < 22; g++) { const gx = rnd() * LW, gy = rnd() * LH, n = 3 + Math.floor(rnd() * 3); for (let k = 0; k < n; k++) wps.push({ x: gx + k * 8, y: gy - k * 3, r: 1 + rnd(), w: 1, ax: 7 + rnd() * 5 }); }
@@ -829,7 +844,7 @@ const ACT1 = (() => {
       const P = pan(t);
       const LW = W + LM * 2;
       const ringX = -LM + Math.round(P), ringY = Math.round(-0.18 * P);
-      blit(S, skyL, -LM + Math.round(0.25 * P) + Math.round(t * 1.2), Math.round(-0.05 * P));
+      blit(S, skyL, -LM + Math.round(0.25 * P) + Math.round(t * 1.2), Math.round(-0.05 * P)); veil(t, 0, W - 1, 105, 14, 0.25 * P); veil(t + 7, 0, W - 1, 165, 10, 0.25 * P);
       const ix = IX + ringX + LM, iy = IY + ringY;
       blit(S, towerL, -LM / 2 + Math.round(0.55 * P), Math.round(-0.1 * P), (x, y) => Math.hypot(x + 0.5 - ix, y + 0.5 - iy) < RI + 2);
       // gulls gliding across the opening (seen from below), between tower and sky
@@ -901,9 +916,8 @@ const ACT1 = (() => {
         blit(skyL, B, 0, 0);
       };
       // the ringed planet low over the sea (east = right), hazed near the horizon; a small moon; aurora veils high up
-      drawPlanet(skyL, GM + 496, TOP + 70, 70, { tilt: 0.33, ry: 0.22, light: Math.PI * 0.97, cov: (x, y) => 0.3 + 0.6 * clamp((TOP + HZ - 8 - y) / 90, 0, 1) });
+      drawPlanet(skyL, GM + 438, TOP + 62, 54, { tilt: 0.33, ry: 0.22, light: Math.PI * 0.97, cov: (x, y) => 0.3 + 0.6 * clamp((TOP + HZ - 8 - y) / 90, 0, 1) });
       drawMoon(skyL, GM + 372, TOP - 40, 5, Math.PI, 0.95);
-      blit(skyL, bakeAurora(LW, LH, { y0: TOP - 330, len: 110, seed: 9, k: 0.65 }), 0, 0);
       bank(110, 76, 190, 7, 601); bank(255, 80, 120, 4, 602); bank(410, 74, 150, 8, 603); bank(30, 88, 80, 3, 604); bank(470, 90, 70, 4, 605); bank(360, 92, 100, 3, 606);
       // high cirrus (seen after the tilt): soft brushed wisps in groups
       { const rnd = PX.mulberry(607), wps = [];
@@ -940,7 +954,7 @@ const ACT1 = (() => {
     }
     function render(t, T) {
       const sy = scroll(t), sx = scrollX(t);
-      blit(S, skyL, -GM + sx, -TOP + sy);
+      blit(S, skyL, -GM + sx, -TOP + sy); veil(T, 0, W - 1, sy + 40, 8, sx); veil(T + 4, 0, W - 1, sy - 250, 16, sx); veil(T + 8, 0, W - 1, sy - 330, 12, sx);
       if (sy < H) {
         blit(S, groundL, -GM + sx, sy);
         surfDraw(groundL, SP, -GM + sx, sy, T); ripples(groundL, -GM + sx, sy, T, 70, 61);

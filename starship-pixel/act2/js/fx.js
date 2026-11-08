@@ -235,3 +235,97 @@ function rimCloud(spr, sunDir, rimCol, shadeCol) {
   }
   return spr;
 }
+
+// ---- Act-3-matched surreal kit (ported from act3/surreal.js so all acts share one design) ----
+const SU = [SUR[0], SUR[1], SUR[2], SUR[3], SUR[4], SUR[5], TEAL[2], TEAL[1], TEAL[0]];   // shared family, Act 3 order
+const pickD = (list, v, x, y) => rampDither(list, v, x, y);
+function putA(x, y, c, a) { if (a >= 0.999 || bayer(x, y) < a) px(x, y, c); }
+// giant pale ringed planet: wavy lavender/blue/peach bands, cream main ring with a rose stripe,
+// teal inner/outer veils, a dark gap, near arc in front of the body; haze toward the horizon.
+function planetA3(cx, cy, R, opt) {
+  opt = opt || {};
+  const BODY = [SU[2], SU[3], SKY[6], SKY[8], SKY[9]];
+  const BODYW = [SU[2], SU[3], SU[4], SU[5], WARM[6]];
+  const tilt = opt.tilt === undefined ? -0.3 : opt.tilt, flat = opt.flat || 0.24;
+  const ct = Math.cos(tilt), st = Math.sin(tilt);
+  const alpha = opt.alpha === undefined ? 0.92 : opt.alpha;
+  let [lx, ly] = opt.light || [-0.6, -0.5]; const lz = 0.62, ln = Math.hypot(lx, ly, lz); lx /= ln; ly /= ln;
+  const lzn = lz / ln, ext = 2.3 * R;
+  const y0 = Math.max(0, Math.floor(cy - ext)), y1 = Math.min(opt.clipY === undefined ? H - 1 : opt.clipY - 1, Math.ceil(cy + ext));
+  const x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(W - 1, Math.ceil(cx + ext));
+  for (let y = y0; y <= y1; y++) {
+    let a = alpha;
+    if (opt.hazeY !== undefined) a *= clamp((opt.hazeY - y) / (opt.hazeLen || 30), 0, 1);
+    if (a <= 0) continue;
+    for (let x = x0; x <= x1; x++) {
+      if (MASK[y * W + x]) continue;
+      const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+      const rx = dx * ct + dy * st, ry = -dx * st + dy * ct;
+      const d2 = dx * dx + dy * dy, inBody = d2 <= R * R;
+      const rr = Math.sqrt(rx * rx + (ry / flat) * (ry / flat)) / R;
+      const inRing = rr >= 1.36 && rr <= 2.28 && !(rr > 1.83 && rr < 1.89) && !(rr > 2.12 && rr < 2.15);
+      const front = ry > 0;
+      let c = -1, la = a;
+      if (inRing && (front || !inBody)) {
+        if (rr < 1.55) { c = SU[6]; la *= 0.7; }
+        else if (rr < 1.83) c = (rr > 1.64 && rr < 1.72) ? SU[5] : WARM[6];
+        else if (rr < 1.95) c = SU[3];
+        else if (rr < 2.12) c = SU[4];
+        else { c = SU[6]; la *= 0.6; }
+        if (!front) c = c === WARM[6] ? SU[5] : c === SU[5] ? SU[4] : c === SU[4] ? SU[3] : c === SU[6] ? SU[7] : c;
+        if (!front && rx * lx < 0 && Math.abs(ry * ct) < R * 0.9 && Math.abs(rx) < R * 1.1) c = SU[3];
+      } else if (inBody) {
+        const nz = Math.sqrt(Math.max(0, 1 - d2 / (R * R)));
+        const sh = (dx / R) * lx + (dy / R) * ly + nz * lzn;
+        const lat = ry / R + 0.06 * Math.sin(rx / R * 5.0);
+        const band = Math.floor((lat + 1) * 4.5);
+        const boff = [0.0, 0.3, -0.2, 0.25, -0.3, 0.15, 0.35, -0.1, 0.2, -0.25, 0.1, 0.3, -0.1, 0.2][((band % 14) + 14) % 14];
+        let v = 1.3 + sh * 2.4 + boff;
+        if (d2 > (R - 1.2) * (R - 1.2) && sh > 0.2) v = 4.2;
+        c = pickD((((band % 3) + 3) % 3) === 1 ? BODYW : BODY, v, x, y);
+        if (Math.abs(ry + R * 0.12) < 1.0 && sh > -0.2) c = DOWN[c];
+      }
+      if (c < 0) continue;
+      putA(x, y, c, la);
+    }
+  }
+}
+// small second moon: a teal crescent
+function moon2(cx, cy, r, lightDx) {
+  disc(cx, cy, r, (x, y) => {
+    const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+    const k = (dx * lightDx - dy * 0.35) / r;
+    px(x, y, k > 0.35 ? SKY[9] : k > -0.15 ? SU[6] : SU[7]);
+  });
+}
+// iridescent silk threads of light curving across the day sky
+function silkVeil(t, x0, x1, y0, amp, ox) {
+  const cols = [SU[6], SKY[9], SU[5], SU[6]];
+  for (let x = x0; x <= x1; x++) {
+    const wx = x - Math.round(ox || 0);
+    const dd = 0.5 + 0.5 * Math.sin(wx * 0.013 + t * 0.21);
+    if (dd < 0.25) continue;
+    const yb = y0 + amp * Math.sin(wx * 0.009 + 0.7) + 3 * Math.sin(wx * 0.031 + t * 0.3);
+    for (let k = 0; k < cols.length; k++) {
+      if (bayer(wx + k * 2, k) > (dd - 0.25) / 0.6) continue;
+      const y = Math.round(yb + k * 2);
+      if (y < 0 || y >= H || MASK[y * W + x]) continue;
+      px(x, y, cols[k]);
+    }
+  }
+}
+// floating rock island in the Act 3 style: peach crust, rose grass, violet hanging rock
+function islandA3(cx, cy, w, seed) {
+  const hw = w / 2, depth = w * 0.9, ri = Math.round;
+  for (let x = ri(cx - hw); x <= ri(cx + hw); x++) {
+    const f = (x + 0.5 - cx) / hw;
+    const bot = cy + depth * Math.pow(Math.max(0, 1 - Math.abs(f)), 1.4) * (0.75 + 0.25 * hash2(x - ri(cx), 2, seed));
+    const top = cy - (hash2(x - ri(cx), 1, seed) > 0.6 ? 1 : 0);
+    for (let y = ri(top); y <= ri(bot); y++) {
+      let c = f > 0.15 ? SU[2] : SU[3];
+      if (y === ri(top)) c = SU[5]; else if (y === ri(top) + 1) c = SU[3];
+      px(x, y, c);
+    }
+  }
+  px(ri(cx + hw * 0.2), ri(cy) - 1, SU[6]); px(ri(cx + hw * 0.2), ri(cy) - 2, SU[6]);   // a teal sprig
+}
