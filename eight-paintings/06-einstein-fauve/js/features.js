@@ -110,25 +110,6 @@
     S(wob(offset(F.noseShadowSide, 6, 2), 0.8), 6, 'taper', o({ col: jit(C.turquoise, 0.03), imp: 0.7 }));
     S(wob(F.noseRidge, 0.5), 6.5, 'both', o({ col: jit(C.lemonWhite, 0.02), imp: 1.3, load: 1.2 }));
     S(wob(F.noseNearSide, 0.6), 3.4, 'both', o({ col: jit(C.cadOrange, 0.03), imp: 0.7 }));
-    const nt = F.noseTip.c;
-    // underside of the nose: a dark warm plane that separates it from the moustache
-    S(wob(G.Geom.open([F.T([426, 646]), F.T([450, 652]), F.T([470, 654]), F.T([492, 653]), F.T([516, 646])], 6), 0.5), 9, 'both', o({ col: [0.55, 0.1, 0.22], imp: 0.5 }));
-    // the bulb of the tip: one big warm form, turned by a cooler underside and a hot light
-    S([[nt[0] - 4, nt[1] + 2], [nt[0] + 6, nt[1] + 3]], 40, 'loaded', o({ col: jit(mix(C.vermilion, C.rose, 0.5), 0.02), imp: 0.9, cap: 1, bristle: 0.5, pick: 0, opac: 1 }));
-    S([[nt[0] + 4, nt[1] + 12], [nt[0] + 18, nt[1] + 6]], 16, 'loaded', o({ col: jit(C.crimson, 0.02), imp: 0.7, cap: 1 }));
-    S([[nt[0] - 14, nt[1] - 6], [nt[0] - 2, nt[1] - 8]], 18, 'loaded', o({ col: jit(C.cadOrange, 0.03), imp: 0.9, cap: 1 }));
-    S([[nt[0] - 10, nt[1] - 10], [nt[0] - 4, nt[1] - 11]], 7, 'loaded', o({ col: C.pinkWhite, load: 1.4, imp: 1.8, opac: 1, cap: 1, rag: 0.08 }));
-    // alae
-    for (const [al, near] of [[F.alaL, 1], [F.alaR, 0]]) {
-      const c = al.c, r = al.r;
-      S([[c[0] - 4, c[1] - 2], [c[0] + 4, c[1] + 1]], r * 1.3, 'loaded', o({ col: jit(near ? C.cadOrange : mix(C.violet, C.rose, 0.4), 0.03), imp: 0.8, cap: 1 }));
-      const arc = []; for (let t = 0; t <= 1.0001; t += 0.1) { const a = near ? Math.PI * (0.95 + t * 0.75) : Math.PI * (0.05 - t * 0.75); arc.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r * 0.9]); }
-      S(wob(arc, 0.5), 4, 'both', o({ col: jit(near ? C.crimson : C.ultramarine, 0.02), imp: 0.6 }));
-    }
-    // nostrils: solid soft darks, not lines
-    const nL = F.T([450, 651]), nR = F.T([491, 652]);
-    S([[nL[0] - 5, nL[1] + 1], [nL[0] + 5, nL[1] - 1]], 8, 'loaded', o({ col: [0.30, 0.04, 0.12], imp: 0.4, pick: 0.05, cap: 1, bristle: 0.2, rag: 0.08 }));
-    S([[nR[0] - 6, nR[1] - 1], [nR[0] + 6, nR[1] + 1]], 8, 'loaded', o({ col: C.ink, imp: 0.4, pick: 0.05, cap: 1, bristle: 0.2, rag: 0.08 }));
     // nasolabial folds
     S(wob(F.nlL, 0.8), 4.5, 'both', o({ col: jit(C.crimson, 0.02), imp: 0.6 }));
     S(wob(offset(F.nlL, -6, -1), 0.8), 4.5, 'both', o({ col: jit(C.cadYellow, 0.03), imp: 1.0 }));
@@ -162,6 +143,25 @@
         S(pts, w, layer === 2 ? 'both' : 'taper', o({ col: jit(col, 0.03), col2: jit(mix(col, C.white, 0.35), 0.02), mix2: 0.2, imp: layer === 2 ? 1.4 : 0.95, pick: 0.3, bristle: 0.7, lift: 0.4 }));
       }
     }
+    const nt = F.noseTip.c;
+    // underside of the nose: a dark warm plane that separates it from the moustache
+    S(wob(G.Geom.open([F.T([426, 646]), F.T([450, 652]), F.T([470, 654]), F.T([492, 653]), F.T([516, 646])], 6), 0.5), 9, 'both', o({ col: [0.55, 0.1, 0.22], imp: 0.5 }));
+    // the bulb of the tip: one big warm form, turned by a cooler underside and a hot light
+    S([[nt[0] - 4, nt[1] + 2], [nt[0] + 6, nt[1] + 3]], 40, 'loaded', o({ col: jit(mix(C.vermilion, C.rose, 0.5), 0.02), imp: 0.9, cap: 1, bristle: 0.5, pick: 0, opac: 1 }));
+    S([[nt[0] + 4, nt[1] + 12], [nt[0] + 18, nt[1] + 6]], 16, 'loaded', o({ col: jit(C.crimson, 0.02), imp: 0.7, cap: 1 }));
+    S([[nt[0] - 14, nt[1] - 6], [nt[0] - 2, nt[1] - 8]], 18, 'loaded', o({ col: jit(C.cadOrange, 0.03), imp: 0.9, cap: 1 }));
+    S([[nt[0] - 10, nt[1] - 10], [nt[0] - 4, nt[1] - 11]], 7, 'loaded', o({ col: C.pinkWhite, load: 1.4, imp: 1.8, opac: 1, cap: 1, rag: 0.08 }));
+    // alae
+    for (const [al, near] of [[F.alaL, 1], [F.alaR, 0]]) {
+      const c = al.c, r = al.r;
+      S([[c[0] - 4, c[1] - 2], [c[0] + 4, c[1] + 1]], r * 1.3, 'loaded', o({ col: jit(near ? C.cadOrange : mix(C.violet, C.rose, 0.4), 0.03), imp: 0.8, cap: 1 }));
+      const arc = []; for (let t = 0; t <= 1.0001; t += 0.1) { const a = near ? Math.PI * (0.95 + t * 0.75) : Math.PI * (0.05 - t * 0.75); arc.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r * 0.9]); }
+      S(wob(arc, 0.5), 4, 'both', o({ col: jit(near ? C.crimson : C.ultramarine, 0.02), imp: 0.6 }));
+    }
+    // nostrils: solid soft darks, not lines
+    const nL = F.T([450, 651]), nR = F.T([491, 652]);
+    S([[nL[0] - 5, nL[1] + 1], [nL[0] + 5, nL[1] - 1]], 8, 'loaded', o({ col: [0.30, 0.04, 0.12], imp: 0.4, pick: 0.05, cap: 1, bristle: 0.2, rag: 0.08 }));
+    S([[nR[0] - 6, nR[1] - 1], [nR[0] + 6, nR[1] + 1]], 8, 'loaded', o({ col: C.ink, imp: 0.4, pick: 0.05, cap: 1, bristle: 0.2, rag: 0.08 }));
     // ---------- mouth: lower lip under the moustache's edge, the right corner lifting: the half-smile
     S(wob([F.T([424, 739]), F.T([452, 743]), F.T([480, 744]), F.T([510, 741]), F.T([540, 730]), F.T([552, 722])], 0.5), 5, 'loaded', o({ col: C.ink, imp: 0.5, pick: 0.05 }));
     for (let i = 0; i < 4; i++) {

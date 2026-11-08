@@ -472,7 +472,7 @@
     function pickPal(cls, m, rr) {
       const lm = lum3(m), tab = classPal[cls];
       let tot = 0; const arr = [];
-      for (const k in tab) { const c = pn[k]; const wgt = tab[k] * Math.exp(-Math.abs(lum3(c) - lm) / 0.11); arr.push([k, wgt]); tot += wgt; }
+      for (const k in tab) { const c = pn[k]; const wgt = tab[k] * Math.exp(-Math.abs(lum3(c) - lm) / 0.14); arr.push([k, wgt]); tot += wgt; }
       let u = rr() * tot;
       for (const [k, wgt] of arr) { u -= wgt; if (u <= 0) return k; }
       return arr[0][0];
@@ -577,11 +577,20 @@
       }
       return { nearest };
     }
+    function makeBricks(sd0) {
+      const rr = P.mulberry32(sd0);
+      const rows = []; let y = -40 * S;
+      while (y < H + 40 * S) { const h = mix(70, 230, rr() * rr()) * S + 30 * S; rows.push({ y0: y, tilt: (rr() - 0.5) * 0.05, xs: [] }); y += h; }
+      rows.push({ y0: 1e9, tilt: 0, xs: [] });
+      for (const r of rows) { let x = W * 0.3 - rr() * 200 * S; while (x < W + 50 * S) { r.xs.push(x); x += mix(110, 420, rr()) * S; } r.xs.push(1e9); }
+      const rowAt = (x, y) => { let k = 0; while (k < rows.length - 1 && y >= rows[k + 1].y0 + rows[k + 1].tilt * (x - W * 0.7)) k++; return k; };
+      return { nearest(x, y) { const k = rowAt(x, y); const xs = rows[k].xs; let c = 0; while (c < xs.length - 1 && x >= xs[c + 1]) c++; return k * 64 + c; }, noId: true };
+    }
     function facetStage(vor, lo, hi, fadeLo, fadeHi, boldness, name) {
       const st = new Map();
       for (let y = 0; y < H; y += 2) for (let x = (W * 0.25) | 0; x < W; x += 2) {
         const i = y * W + x;
-        const key = vor.nearest(x + 0.5, y + 0.5) * 16 + ID[i];
+        const key = vor.nearest(x + 0.5, y + 0.5) * 16 + (vor.noId ? 0 : ID[i]);
         let e = st.get(key);
         if (!e) { e = { r: 0, g: 0, b: 0, n: 0, x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9, sx: 0, sy: 0, dir: 0 }; st.set(key, e); }
         e.r += R2[i * 3]; e.g += R2[i * 3 + 1]; e.b += R2[i * 3 + 2]; e.n++; e.dir += DIR[i];
@@ -604,20 +613,21 @@
         m = m.map((v) => clamp(v * lq / Math.max(l, 1e-3), 0, 1));
         const cls = ID[idx(cx, cy)];
         const bold = boldness * smooth(lo, 1.0, ac);
+        if (bold > 0.6) { const dv = (krnd() - 0.5) * 0.10; m = m.map((v) => clamp(v * (1 + dv * 2.5), 0, 1)); }
         if (bold > 0.05) {
           const k1 = pickPal(rectClass({ x0: cx - 10 * S, x1: cx + 10 * S, y0: cy - 10 * S, y1: cy + 10 * S }), m, krnd);
           const pc = pn[k1], lp = lum3(pc);
           const pcv = pc.map((v) => clamp(v * lum3(m) / Math.max(lp, 1e-3), 0, 1)); // palette hue at facet value
-          m = mix3(m, pcv, bold * 0.6);
+          m = mix3(m, bold > 0.6 ? mix3(pcv, pc, 0.35) : pcv, bold * 0.75);
         }
         m = satv(m, 1.05 + 0.2 * bold, 1.0, 0.3);
         const clip = (x, y) => {
           const i = idx(x, y);
           let c = 0;
-          if (vor.nearest(x - 0.25, y - 0.25) * 16 + ID[i] === key) c++;
-          if (vor.nearest(x + 0.25, y - 0.25) * 16 + ID[i] === key) c++;
-          if (vor.nearest(x - 0.25, y + 0.25) * 16 + ID[i] === key) c++;
-          if (vor.nearest(x + 0.25, y + 0.25) * 16 + ID[i] === key) c++;
+          if (vor.nearest(x - 0.25, y - 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
+          if (vor.nearest(x + 0.25, y - 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
+          if (vor.nearest(x - 0.25, y + 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
+          if (vor.nearest(x + 0.25, y + 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
           return c * 0.25;
         };
         const bwid = e.x1 - e.x0 + 2, bhei = e.y1 - e.y0 + 2;
@@ -647,7 +657,7 @@
     }
     facetStage(makeVoronoi(46 * S, -0.5, 0.45, seed + 101), 0.20, 0.38, 0.55, 0.72, 0.0, 'facets fine');
     facetStage(makeVoronoi(105 * S, 0.0, 0.6, seed + 102), 0.40, 0.56, 0.70, 0.86, 0.45, 'facets coarse');
-    facetStage(makeVoronoi(190 * S, 0.0, 0.42, seed + 103, true), 0.62, 0.78, 2, 3, 1.0, 'fields');
+    facetStage(makeBricks(seed + 103), 0.60, 0.76, 2, 3, 1.0, 'fields');
 
     // ---- bold flat fields from the image-guided split
     shuffle(rects, krnd);

@@ -133,7 +133,7 @@
     if (gz < 0.95) hs = Math.min(hs, gz < 0.06 ? 0 : 0.27 * Math.pow((gz - 0.06) / 0.89, far ? 1.0 : 0.75));
     // side gorges: tributaries trench the platform on their way to the river
     {
-      const trib = smooth(0.55, 0.95, v2) * smooth(0.45, 0.0, sN) * (far ? 1 : 0.7);
+      const trib = 0;
       if (trib > 0) {
         const depthT = 0.20 * trib * smooth(0.0, 0.05, sN);
         hs = Math.min(hs, mix(hs, Math.max(0.03, 0.27 - depthT - 0.06 * sN), trib));
@@ -752,7 +752,7 @@
     }
     const bl1 = G.CORE.blurPlane(bright, RW, RH, 3, RW * 0.012, 3);
     const bl2 = G.CORE.blurPlane(bright, RW, RH, 3, RW * 0.05, 3);
-    for (let k = 0; k < N * 3; k++) col[k] += bl1[k] * 0.35 + bl2[k] * 0.45;
+    for (let k = 0; k < N * 3; k++) col[k] += bl1[k] * 0.3 + bl2[k] * 0.22;
     // tone map (filmic shoulder, keeps darks rich) + grade: richer chroma, cool shadows, warm lights
     const SAT = 1.28;
     for (let k = 0; k < N; k++) {

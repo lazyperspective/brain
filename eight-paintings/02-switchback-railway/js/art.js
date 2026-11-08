@@ -612,7 +612,7 @@
     return fbm(x * 0.022, y * 0.04, L ? 1801 : 1811, 3) + clamp(1 - (y - sk) / 18) * 0.32 + (L && x < 60 && y > 275 && y < 312 ? 0.3 : 0) > 0.6;
   };
   const GRASS_LIT = [C.G6, C.G5, C.G4, C.G3, C.G2, C.G1];
-  const GRASS_SH = [C.K1, C.K1, C.V1, C.G7, C.V2, C.L1];
+  const GRASS_SH = [C.K0, C.K1, C.K1, C.V1, C.B1, C.B2];
   const FLOOR_LIT = [C.E0, C.G7, C.E1, C.G6];
   const FLOOR_SH = [C.K0, C.K1, C.E0, C.V1];
 
@@ -1339,7 +1339,7 @@
       P(x, y, n > 0.6 ? C.V1 : n > 0.42 ? C.K1 : C.K0);
     }
     const SPR = [C.K0, C.K0, C.K1, C.B1, C.B3];
-    const LAR = [C.K0, C.K1, C.V1, C.G7, C.L1];
+    const LAR = [C.K0, C.K1, C.V1, C.V1, C.V2];
     curF = F_ORG;
     bigSpruce(96, 548, 74, 1701, SPR);
     bigLarch(58, 552, 92, 1711, 0, LAR);
@@ -1470,7 +1470,16 @@
         const cnt = {};
         let best = n[0], bc = 0;
         for (const v of n) { cnt[v] = (cnt[v] || 0) + 1; if (cnt[v] > bc) { bc = cnt[v]; best = v; } }
-        if (bc >= 3) buf[k] = best;
+        if (bc >= 3) { buf[k] = best; continue; }
+        // a pixel unlike all eight neighbours is noise, not a cluster: fold it into its surroundings
+        const n8 = [src[k - W - 1], src[k - W + 1], src[k + W - 1], src[k + W + 1]];
+        let alone = true;
+        for (const v of n8) if (v === c) alone = false;
+        if (!alone) continue;
+        const all = n.concat(n8), cnt8 = {};
+        let b8 = all[0], c8 = 0;
+        for (const v of all) { cnt8[v] = (cnt8[v] || 0) + 1; if (cnt8[v] > c8) { c8 = cnt8[v]; b8 = v; } }
+        if (c8 >= 3) buf[k] = b8;
       }
     }
   }

@@ -124,7 +124,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     dir = normalize(vec2(1., 0.10 * (fbm(q * vec2(3., 6.), 3) - .5)));
     size = mat > .5 ? 0.9 : 1.35;
     float ma; vec3 mc = moonCol(p, ma);
-    if (ma > 0.) { c = mix(c, mc, ma); mat = 2.; size = 0.18; dir = normalize(p - MOON).yx * vec2(-1., 1.); follow = 0.6; cross = 0.; }
+    if (ma > 0.) { c = mix(c, c * 1.12 + vec3(.012), ma * 0.6); }
     if (Y > tl) {
       // far woods: soft, a little lighter than the near marsh, veiled in mist toward their feet
       float k = smoothstep(tl, tl + 0.004, Y);
@@ -161,7 +161,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     if (wd < mudW) {
       // wet mud bank: catches the sky
       float mk = smoothstep(mudW, mudW * 0.4, wd);
-      vec3 mud = mix(vec3(.24,.205,.155), rq * .6, 0.5) * (0.55 + 0.45 * exp(-d / .3)) * (0.8 + 0.4 * fbm(vec2(X * 80., Y * 300.), 3));
+      vec3 mud = mix(c, rq * .8, 0.45) * (0.85 + 0.3 * fbm(vec2(X * 80., Y * 300.), 3));
       c = mix(c, mud, mk);
       if (mk > .5) { mat = 7.; size = 0.25 + 0.4 * d; follow = 0.6; }
     }
@@ -172,13 +172,13 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       refl = mix(refl, refl * 0.62, cl * 0.6);
       refl *= mix(0.95, 0.56, pow(d, 0.6));
       float rl = smoothstep(0.55, 0.95, noise1(Y * 2700. / (2.5 + 10. * d) + 4. * vnoise(vec2(X * 30., Y * 50.))));
-      refl *= 0.90 + 0.22 * rl;
+      refl *= 0.95 + 0.10 * rl * fbm(vec2(X * 25., Y * 80.), 3) * 2.;
       refl = mix(refl, refl * vec3(.96, .97, 1.02), d);
       float grassRef = 0.6 + 0.4 * noise1(X * 2160. / (2. + 5. * d) + 3.);
       float side = X > cx ? 1. : 0.;
       float cut = smoothstep(0.35, 0.6, vnoise(vec2(d * 14., side * 7. + 1.)));
       float bankDark = smoothstep(-0.003 - 0.055 * d * grassRef, 0., wd) * (abs(X - cx) > hw + 0.01 ? 0.75 : 1.) * (0.25 + 0.75 * cut);
-      refl = mix(refl, refl * 0.35, bankDark * 0.85);
+      refl = mix(refl, refl * 0.45, bankDark * 0.6);
       float rip = fbm(vec2(X * 30., Y * 520.), 3);
       refl *= 0.94 + 0.12 * rip;
       float gl2 = smoothstep(.62, .82, fbm(vec2(X * 70. / (d + .2), Y * 1100.), 3)) * exp(-d / 0.3) * (1. - bankDark);
@@ -268,12 +268,12 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
   }
   // ---------------------------------------------------------------- the moored skiff, its reflection, its line and stake
   {
-    float db = 0.355;
-    vec2 sc = vec2(creekX(db) - creekHW(db) * 0.30, YH + db * (1. - YH));
+    float db = 0.56;
+    vec2 sc = vec2(creekX(db) - creekHW(db) * 0.05, YH + db * (1. - YH));
     float ang = -0.07;
     vec2 rp = (p - sc * vec2(2160., 2700.));
     rp = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * rp;
-    float L = 150.;
+    float L = 165.;
     float u = rp.x / L;
     float sheer = -25. - 22. * pow(max(u, 0.), 2.2) - 6. * pow(max(-u, 0.), 2.);
     float bottom = 8. - 6. * u * u;
@@ -295,7 +295,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     }
     // mooring line from the bow to a stake in the water
     vec2 bowP = sc * vec2(2160., 2700.) + vec2(L * 0.98, -44.);
-    vec2 sp = bowP + vec2(60., -40.);
+    vec2 sp = bowP + vec2(-30., -70.);
     float sx = p.x - sp.x + (p.y - sp.y) * 0.07;
     float stake = (1. - smoothstep(2.2, 3.8, abs(sx))) * step(sp.y - 175., p.y) * step(p.y, sp.y + 4.);
     float rstake = (1. - smoothstep(2.0, 4.5, abs(sx - 2.5 * sin(p.y * 0.18)))) * step(sp.y + 4., p.y) * step(p.y, sp.y + 140.) * (1. - (p.y - sp.y) / 140.);
@@ -374,21 +374,13 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     { name: 'rigger', R: [2.2, 4.5], len: [2, 9], spacing: 0.85, thr: 0.06, alpha: 0.95, thick: 0.36, tol: 0.045, smear: 0.15, dry: 0.5, fid: 0.35, jitV: 0.03, jitH: 0.02, lumThick: 0.7, ridge: 0.45 },
     // 9. last touches in thick paint: the moon, the core of the afterglow, glints on the water, the gunwale
     { name: 'accents', ridge: 0.6, furrow: 0.5, generate({ rng, add, maps: M }) {
-      // the sky closed up around the moon, in short strokes that turn with it
-      for (let k = 0; k < 90; k++) {
-        const a = rng() * 6.2832, rr = R.mix(MOONR + 9, MOONR + 46, Math.sqrt(rng()));
-        const x = MOON[0] + Math.cos(a) * rr, y = MOON[1] + Math.sin(a) * rr;
-        const c = M.colour(x, y);
-        const pts = []; const span = R.mix(0.2, 0.5, rng());
-        for (let j = 0; j <= 4; j++) { const b = a - span / 2 + span * j / 4; pts.push([MOON[0] + Math.cos(b) * rr, MOON[1] + Math.sin(b) * rr]); }
-        add({ pts, r: R.mix(4, 8, rng()), col: c.map((v) => v * (1 + 0.04 * rng.gauss())), alpha: 0.85, thick: 0.25, dry: 0.5, load: 1.2, fid: 0.5, smear: 0.2 });
-      }
-      // moon: two loaded strokes following the lit limb
+      // moon: the old moon's faint disc, then two loaded strokes following the lit limb
       const th0 = Math.atan2(0.78, 0.62);
+      { const c = M.colour(MOON[0] - 10, MOON[1] - 10); add({ pts: [[MOON[0] - 12, MOON[1] - 6], [MOON[0] + 8, MOON[1] - 2]], r: MOONR * 0.62, col: c.map((v) => v * 1.06 + 0.004), alpha: 0.5, thick: 0.15, dry: 0.4, load: 1.1, fid: 0, smear: 0.4 }); }
       for (const [rr, span, w, col] of [[MOONR - 4.5, 1.25, 4.6, [0.86, 0.78, 0.55]], [MOONR - 3.2, 0.95, 3.0, [0.93, 0.87, 0.66]]]) {
         const pts = [];
         for (let k = 0; k <= 14; k++) { const a = th0 - span + 2 * span * k / 14; pts.push([MOON[0] + Math.cos(a) * rr, MOON[1] + Math.sin(a) * rr]); }
-        add({ pts, r: w, col, alpha: 0.95, thick: 2.2, dry: 0.35, load: 1.4, fid: 0.25 });
+        add({ pts, r: w, col, alpha: 0.95, thick: 2.2, dry: 0.3, load: 1.45, fid: 0 });
       }
       // afterglow core: horizontal loaded strokes, broken by the drag of the brush
       for (let k = 0; k < 70; k++) {

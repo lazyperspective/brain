@@ -298,10 +298,10 @@
         const dx = x - wp[0][0], dy = y - wp[0][1];
         const along = dx * ca + dy * sa, across = -dx * sa + dy * ca;
         // grain: stretched, warped rings, with a knot
-        const kx = across - 210 * k, ky = along - 520 * k;
+        const kx = -across - 250 * k, ky = along - 420 * k;
         const knot = 1 / (1 + (kx * kx + ky * ky * 0.25) / (900 * k * k));
         const warp = (R.fbm(across / (90 * k), along / (600 * k), 71, 3) - 0.5) * 60 * k + knot * 40 * k * Math.sign(kx);
-        const cath = Math.min(Math.hypot(across + warp * 0.5 - 170 * k, (along - 760 * k) * 0.32), Math.hypot(across + warp * 0.5 - 230 * k, (along - 1250 * k) * 0.3) + 14 * k);
+        const cath = Math.min(Math.hypot(-across + warp * 0.5 - 170 * k, (along - 760 * k) * 0.32), Math.hypot(-across + warp * 0.5 - 230 * k, (along - 1250 * k) * 0.3) + 14 * k);
         const ring = Math.sin((cath / (10 * k)) * Math.PI + R.vnoise(across / (40 * k), along / (300 * k), 72) * 2.2);
         const fine = R.vnoise(across / (1.6 * k), along / (60 * k), 73);
         let g = 0.5 + 0.5 * ring; g = Math.pow(g, 2.2) * 0.8 + fine * 0.25;
@@ -318,7 +318,7 @@
     }
     // combed streaks along the grain
     const r = R.rng(4242);
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 12; i++) {
       const t = r(), sx = wp[0][0] + (wp[1][0] - wp[0][0]) * t, sy = wp[0][1] + (wp[1][1] - wp[0][1]) * t;
       const L = Math.hypot(wp[3][0] - wp[0][0], wp[3][1] - wp[0][1]);
       const n = 10, pts = [];
@@ -329,7 +329,7 @@
       }
       const rid = plan.regs.findIndex((rg) => rg && rg.kind === 'wood');
       const lut = new Uint8Array(65536); plan.regs.forEach((rg, id) => { if (rg && rg.kind === 'wood') lut[id] = 1; });
-      P.stroke({ pts, w: (14 + r() * 22) * k, c: r() < 0.6 ? wd : wdd, c2: wl, mixAmt: 1, load: 0.5, fade: 0.5, op: 0.85, hs: 0.08, seed: 7000 + i, clip: lut, rough: 2.2, bristle: 3.5 * k, blob: 0, lip: 0, scrape: 0.1 });
+      P.stroke({ pts, w: (14 + r() * 22) * k, c: r() < 0.6 ? wd : wdd, c2: wl, mixAmt: 1, load: 0.45, fade: 0.5, op: 0.4, hs: 0.08, seed: 7000 + i, clip: lut, rough: 2.2, bristle: 3.5 * k, blob: 0, lip: 0, scrape: 0.1 });
     }
   }
 

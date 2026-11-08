@@ -94,6 +94,8 @@
       const lifts = (p.lifts || []).map(function (lf, q) {
         return { c: lf[0] * S, w: lf[1] * S, a: lf[2], skew: (r() - 0.5) * 0.5, sd: p.seed + 200 + q };
       });
+      const endJ = new Float32Array(Lb);
+      for (let j = 0; j < Lb; j++) endJ[j] = p.endRidge ? Math.max(0, (p.endJit || 60) * S * (0.5 + 0.5 * FB(j / (110 * S), 3.3, 3, p.seed + 81)) + 8 * S * N(j / (6 * S), 1, p.seed + 82)) : 0;
       const env = new Float32Array(Lb), Dcol = new Float32Array(Lb);
       const kb = p.stiff || 0.05;
       const yTop = y0;
@@ -106,10 +108,13 @@
         m = -1e9; for (let j = Lb - 1; j >= 0; j--) { m = Math.max(m - kb, Dcol[j]); env[j] = Math.max(env[j], m); }
         const g = gap[k], tl = tilt[k];
         const u = k / S;
+        const cov = CL(p.cov[0] + (p.cov[1] - p.cov[0]) * k / len + 0.22 * FB(u / 320, 9.1, 3, p.seed + 91), 0, 1);
+        const thr = -0.42 + 0.84 * cov;
         const jT = Math.max(0, (p.edge || 14) * S * (0.35 + 0.65 * FB(u / 70, 1.5, 3, p.seed + 61))), jB = Math.max(0, (p.edge || 14) * S * (0.35 + 0.65 * FB(u / 70, 7.5, 3, p.seed + 62)));
         for (let j = 0; j < Lb; j++) {
           const y = yTop + j; if (y < 0 || y >= H) continue;
           if (j < jT || j > Lb - 1 - jB) continue;
+          if (k > len - endJ[j]) continue;
           const i = y * W + x;
           let lift = 0;
           for (let q = 0; q < lifts.length; q++) {
@@ -119,27 +124,28 @@
           const Lv = env[j] + g + bow[j] + nick[j] + tl * (j / Lb - 0.5) + p.float * A[j] / S + Math.max(0, lift);
           let ws = Ws[i];
           const top = Deff[i] + ws;
-          if (top > Lv && ws > 0) {
+          if (top > Lv && ws > 0) { // scrape wet paint standing above the blade into the load
             const rm = Math.min(ws, (top - Lv) * 0.93);
             const t = rm / (A[j] + rm + 1e-6);
             Lr[j] = mixKM(Lr[j], Cw.r[i], t); Lg[j] = mixKM(Lg[j], Cw.g[i], t); Lbb[j] = mixKM(Lbb[j], Cw.b[i], t);
             A[j] += rm; ws -= rm;
           }
+          // viscous fingering / rips: lacy, horizontally drawn-out, more of them as the pull runs out
+          const sf = FB(u / 150, y / (20 * S), 4, p.seed + 71) + 0.1 * N(u / 22, y / (4 * S), p.seed + 72) + 0.05 * N(u / 6, y / (1.5 * S), p.seed + 73);
+          const fing = CL((thr - sf) / 0.035, 0, 1);
+          const reach = p.bead * A[j] / S;
           const gp = Lv - (Deff[i] + ws);
-          // viscous fingering where contact is marginal: lacy, horizontally drawn-out skips
-          const fing = 0.12 + 1.25 * SM(-0.12, 0.22, FB(u / 70, y / (8 * S), 4, p.seed + 71) + 0.12 * N(u / 9, y / (2.5 * S), p.seed + 72));
-          const reach = p.bead * A[j] / S * fing;
-          if (gp > 0 && gp < reach) {
-            // the moving bead shears the top of the wet layer along with it (drag / smear)
-            if (ws > 0) {
+          if (gp < reach && A[j] > 0) {
+            if (ws > 0) { // the moving bead shears the top of the wet layer along (drag / smear)
               const sh = ws * (p.shear || 0.35);
               const t0 = sh / (A[j] + sh + 1e-6);
               Lr[j] = mixKM(Lr[j], Cw.r[i], t0); Lg[j] = mixKM(Lg[j], Cw.g[i], t0); Lbb[j] = mixKM(Lbb[j], Cw.b[i], t0);
               A[j] += sh; ws -= sh;
             }
-            const gp2 = Lv - (Deff[i] + ws);
-            const dep = Math.min(gp2 * 0.92, A[j] * p.rate);
-            const t = dep / (ws * 0.12 + dep + 1e-6);
+            const gp2 = Math.max(0, Lv - (Deff[i] + ws));
+            const te = fing * SM(reach, reach * 0.45, gp2);
+            const dep = Math.min((gp2 * 0.92 + (p.skin || 0.12)) * te, A[j] * p.rate);
+            const t = te * dep / (ws * 0.12 + dep + 1e-6);
             Cw.r[i] = mixKM(Cw.r[i], Lr[j], t); Cw.g[i] = mixKM(Cw.g[i], Lg[j], t); Cw.b[i] = mixKM(Cw.b[i], Lbb[j], t);
             ws += dep; A[j] -= dep; fresh[i] += dep;
           }
@@ -171,8 +177,9 @@
           const y = yTop + j; if (y < 0 || y >= H) continue;
           const amt = A[j] * 0.08 * (0.6 + 0.8 * Math.max(0, N(j / (14 * S), 9, 31)));
           const wd = (4 + 10 * Math.max(0, N(j / (30 * S), 2, 32)) + 3 * N(j / (4 * S), 3, 33)) * S;
+          const xr = Math.round(xe - dir * endJ[j]);
           for (let q = 0; q < wd + 2; q++) {
-            const x = xe + dir * q; if (x < 0 || x >= W) continue;
+            const x = xr + dir * q; if (x < 0 || x >= W) continue;
             const i = y * W + x, a = amt * SM(wd + 1, wd * 0.3, q) / Math.max(1, wd * 0.5);
             Cw.r[i] = mixKM(Cw.r[i], Lr[j], a / (Ws[i] * 0.3 + a + 1e-6)); Cw.g[i] = mixKM(Cw.g[i], Lg[j], a / (Ws[i] * 0.3 + a + 1e-6)); Cw.b[i] = mixKM(Cw.b[i], Lbb[j], a / (Ws[i] * 0.3 + a + 1e-6));
             Ws[i] += a; fresh[i] += a;
@@ -233,13 +240,13 @@
   P8.PASSES = [
     // upper band, pass 1: reds/alizarin/black, left -> right, heavy load
     { x0: -40, x1: 1900, y0: 300, Lb: 520, pal: 'red', load: 2400, bandMin: 50, bandMax: 240, streaks: 12, nicks: 18, endLift: 0.9, gap: 0.02, press: 0.25, tilt: 0.5,
-      bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[620, 30, 1.5], [1350, 70, 0.9]], seed: 11, endRidge: true, blobs: 4, chatter: 27, edge: 16 },
+      bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[620, 30, 1.5], [1350, 70, 0.9]], seed: 11, cov: [1.0, 0.62], endRidge: true, blobs: 4, chatter: 27, edge: 16 },
     // upper band, pass 2: whites/lemon/cerulean, right -> left, lighter load, offset down
-    { x0: 2200, x1: 380, y0: 390, Lb: 460, pal: 'white', load: 900, bandMin: 40, bandMax: 200, streaks: 14, nicks: 24, endLift: 1.2, gap: 0.42, press: 0.6, tilt: 0.8,
-      bead: 0.0013, rate: 0.03, float: 0.0002, lifts: [[500, 40, 1.2], [1100, 25, 2.0]], seed: 12, endRidge: true, blobs: 3, chatter: 19, edge: 20 },
+    { x0: 2200, x1: 380, y0: 390, Lb: 460, pal: 'white', load: 1200, bandMin: 40, bandMax: 200, streaks: 14, nicks: 24, endLift: 1.2, gap: 0.15, press: 0.3, tilt: 0.8,
+      bead: 0.0013, rate: 0.03, float: 0.0002, lifts: [[500, 40, 1.2], [1100, 25, 2.0]], seed: 12, cov: [0.62, 0.22], endRidge: true, blobs: 3, chatter: 19, edge: 20 },
     // lower band: green/white/magenta, right -> left, thin load, mostly smear of the reflections
     { x0: 2200, x1: 520, y0: 1690, Lb: 380, pal: 'green', load: 1100, bandMin: 40, bandMax: 180, streaks: 12, nicks: 20, endLift: 1.0, gap: 0.04, press: 0.35, tilt: 0.6,
-      bead: 0.0015, rate: 0.03, float: 0.0003, lifts: [[300, 50, 1.4], [900, 30, 1.0]], seed: 13, endRidge: true, blobs: 2, chatter: 31, edge: 16 },
+      bead: 0.0015, rate: 0.03, float: 0.0003, lifts: [[300, 50, 1.4], [900, 30, 1.0]], seed: 13, cov: [0.9, 0.3], endRidge: true, blobs: 2, chatter: 31, edge: 16 },
     { drips: [818, 200, 1880, 16] },
     { drips: [2068, 560, 2150, 9] }
   ];
