@@ -135,11 +135,11 @@
     }
     // bristles
     const rng = R.rng((s.seed || 1) * 7919 + 13);
-    const nb = Math.max(5, Math.min(90, Math.round((2 * r) / (s.bristle || 1.25))));
+    const nb = Math.max(5, Math.min(90, Math.round((2 * r) / (s.bristle || Math.max(0.9, 2.0 * this.k)))));
     const bri = new Float32Array(nb + 2), str = new Float32Array(nb + 2), pk = new Float32Array(nb + 2), tail = new Float32Array(nb + 2);
     let prev = rng(), prevS = rng();
     for (let i = 0; i < nb + 2; i++) {
-      prev = prev * 0.45 + rng() * 0.55; bri[i] = prev;
+      prev = prev * 0.45 + rng() * 0.55; bri[i] = nb < 12 ? 0.55 + 0.45 * prev : prev;
       prevS = prevS * 0.55 + rng() * 0.45; str[i] = prevS;
       pk[i] = rng(); tail[i] = rng();
     }
@@ -148,11 +148,11 @@
     const op = s.op === undefined ? 1 : s.op, hs = s.hs === undefined ? 1 : s.hs;
     const pickup = s.pickup || 0, drag = s.drag === undefined ? r * 0.8 : s.drag;
     const rough = s.rough === undefined ? 1 : s.rough;
-    const wetness = s.wetness === undefined ? 1 : s.wetness, scrape = s.scrape === undefined ? 0.35 : s.scrape;
+    const wetness = s.wetness === undefined ? 1 : s.wetness, scrape = s.scrape === undefined ? 0.75 : s.scrape;
     const wanderA = 0.035 + 0.05 * rng(), wanderF = (0.6 + rng()) / Math.max(4, r), wanderP = rng() * 6.28;
     const clip = s.clip, clipIds = this.clipIds, cw = this.clipW;
     const clipLut = clip && typeof clip === 'object';
-    const blob = s.blob === undefined ? 0.6 : s.blob, lip = s.lip === undefined ? 0.7 : s.lip;
+    const blob = s.blob === undefined ? 0.15 : s.blob, lip = s.lip === undefined ? 0.25 : s.lip;
     const taper = s.taper || 0;
     const seed = s.seed | 0;
     let touched = 0;
@@ -164,7 +164,7 @@
         const t = u / L;
         let rE = r;
         if (round || taper) {
-          const tp = round ? Math.max(taper, 0.55) : taper;
+          const tp = round ? (s.taper === undefined ? 0.55 : s.taper) : taper;
           rE = r * (1 - tp * (1 - sstep(-0.05, 0.22, t)) * 0.6) * (1 - tp * (1 - sstep(1.05, 0.62, t)) * 0.75);
         } else rE = r * (1 - 0.1 * clamp(t, 0, 1));
         const s1 = v / rE;
@@ -216,12 +216,14 @@
         const p3 = p * 3;
         col[p3] += (cr - col[p3]) * cov; col[p3 + 1] += (cg - col[p3 + 1]) * cov; col[p3 + 2] += (cb - col[p3 + 2]) * cov;
         // height: striated deposit, edge ridges, landing blob, lifting lip
-        const ridge = 0.72 + 0.55 * sstep(0.55, 0.97, as);
-        let dep = hs * Math.pow(P, 1.2) * (0.45 + 0.55 * b) * ridge;
+        const ridge = 0.8 + 0.5 * sstep(0.6, 0.97, as);
+        const pf = load > 0 ? P / load : 0;
+        const endsF = sstep(-0.4 * rE, 0.9 * rE, u) * sstep(-0.2 * rE, 0.6 * rE, L - u + (tl - 0.5) * rE);
+        let dep = hs * Math.pow(load, 0.8) * (0.5 + 0.5 * pf) * (0.72 + 0.28 * b) * ridge * endsF;
         if (blob > 0) dep += hs * blob * load * Math.exp(-((u / (0.55 * rE)) ** 2)) * 0.7 * (0.6 + 0.4 * b);
         if (lip > 0) dep += hs * lip * P * Math.exp(-(((L - u) / (0.4 * rE)) ** 2)) * (0.5 + 0.5 * b);
         dep *= shapeCov * contact * clipM;
-        hgt[p] = hOld * (1 - scrape * cov * wet[p]) + dep * (op < 1 ? 0.6 + 0.4 * op : 1);
+        hgt[p] = hOld * (1 - scrape * cov * endsF * (0.3 + 0.7 * wet[p])) + dep * (op < 1 ? 0.6 + 0.4 * op : 1);
         const wn = cov * wetness;
         if (wn > wet[p]) wet[p] = wn;
         touched++;
@@ -239,7 +241,7 @@
     const k = this.k;
     const HS = (o.heightScale || 2.2) , WS = (o.weaveScale || 0.9);
     const S = new Float32Array(N);
-    for (let i = 0; i < N; i++) { const hh = h[i]; S[i] = hh * HS + wv[i] * WS / (1 + hh * 3.5); }
+    for (let i = 0; i < N; i++) { const hh = h[i]; S[i] = hh * HS + wv[i] * WS / (1 + hh * 12); }
     // blurred surface for occlusion (box blur x2)
     const Bl = new Float32Array(N), T = new Float32Array(N);
     const rad = Math.max(2, Math.round(5 * k));

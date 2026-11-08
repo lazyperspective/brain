@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pears, Dissolving</title>
+<style>
+  html,body{margin:0;background:#0d0b09;color:#8a7f70;font:12px/1.4 Georgia,serif}
+  #wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+  canvas{max-width:96vw;max-height:96vh;width:auto;height:auto;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+  #status{position:fixed;left:12px;bottom:10px;opacity:.7}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="status">painting…</div>
+<script src="js/engine.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/piece.js"></script>
+<script src="js/test.js"></script>
+<script>
+(function(){
+  const q = new URLSearchParams(location.search);
+  const scale = parseFloat(q.get('scale') || '1');
+  const view = q.get('view') || 'paint';
+  const W = view === 'test' ? 1200 : Math.round(2160*scale), H = view === 'test' ? 800 : Math.round(2700*scale);
+  const cv = document.getElementById('c'); cv.width = W; cv.height = H;
+  const st = document.getElementById('status');
+  window.__done = false;
+  setTimeout(function(){
+    const t0 = performance.now();
+    try {
+    const rgba = view === 'test' ? window.StrokeTest(W, H, q) : window.Piece07.render(W, H, scale, view, q);
+    const ctx = cv.getContext('2d');
+    ctx.putImageData(new ImageData(rgba, W, H), 0, 0);
+    window.__ms = performance.now() - t0;
+    } catch (e) { console.log('ERROR ' + e.message + ' ' + e.stack); }
+    st.textContent = '';
+    window.__done = true;
+  }, 30);
+})();
+</script>
+</body>
+</html>

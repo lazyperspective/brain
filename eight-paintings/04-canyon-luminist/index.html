@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canyon, Golden Hour</title>
+<style>
+  html, body { margin: 0; background: #14110e; color: #8a7d6a; font: 13px/1.4 Georgia, serif; }
+  #wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  canvas { max-width: 96vw; max-height: 96vh; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #status { position: fixed; left: 12px; bottom: 10px; opacity: .7; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="status">painting…</div>
+<script src="js/core.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/paint.js"></script>
+<script src="js/motifs.js"></script>
+<script src="js/finish.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
