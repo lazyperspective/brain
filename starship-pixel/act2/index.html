@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starship Catch — Act 2</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050608; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { width: min(100vw, 177.78vh); height: auto; image-rendering: pixelated; display: block; }
+  #hud { position: fixed; left: 8px; bottom: 6px; color: #828c99; font: 12px monospace; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="hud"></div>
+<script src="js/core.js"></script>
+<script src="js/ship.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/shot6a.js"></script>
+<script src="js/shot6b.js"></script>
+<script src="js/shot6c.js"></script>
+<script src="js/main.js"></script>
+<script>
+(function () {
+  const cv = document.getElementById('c'), cx = cv.getContext('2d');
+  const small = document.createElement('canvas'); small.width = W; small.height = H;
+  const sx = small.getContext('2d'), img = sx.createImageData(W, H);
+  cx.imageSmoothingEnabled = false;
+  function present(t) {
+    renderAt(t);
+    fbToRGBA(img.data);
+    sx.putImageData(img, 0, 0);
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(small, 0, 0, W * 4, H * 4);
+  }
+  const q = new URLSearchParams(location.search);
+  if (q.has('export')) {
+    window.__act = {
+      start: ACT_START, end: ACT_END,
+      isReady: () => true,
+      renderAt: (t) => { present(t); return true; },
+      // native 480x270 RGB as base64 (export scales it x4 nearest-neighbour, identical to the canvas)
+      nativeRGB: (t) => {
+        renderAt(t);
+        let s = '';
+        const chunk = [];
+        for (let i = 0; i < W * H; i++) { const p = PAL[FB[i]]; chunk.push(p[0], p[1], p[2]); if (chunk.length >= 30000) { s += String.fromCharCode.apply(null, chunk); chunk.length = 0; } }
+        s += String.fromCharCode.apply(null, chunk);
+        return btoa(s);
+      },
+      canvasRGB: () => { const d = cx.getImageData(0, 0, 1920, 1080).data; let s = ''; const ch = []; for (let i = 0; i < d.length; i += 4) { ch.push(d[i], d[i + 1], d[i + 2]); if (ch.length >= 30000) { s += String.fromCharCode.apply(null, ch); ch.length = 0; } } s += String.fromCharCode.apply(null, ch); return btoa(s); },
+    };
+    present(ACT_START);
+    return;
+  }
+  const hud = document.getElementById('hud');
+  if (q.has('t')) { const t = parseFloat(q.get('t')); present(t); hud.textContent = 't = ' + t.toFixed(2); return; }
+  let t0 = null;
+  function loop(now) {
+    if (t0 === null) t0 = now;
+    const t = ACT_START + ((now - t0) / 1000) % (ACT_END - ACT_START);
+    present(Math.floor(t * 30) / 30);
+    hud.textContent = 't = ' + t.toFixed(2);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

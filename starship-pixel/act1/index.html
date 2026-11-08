@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starship Catch Act 1</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { position: absolute; inset: 0; margin: auto; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; image-rendering: pixelated; background: #000; }
+  #hud { position: absolute; left: 8px; bottom: 6px; font: 12px monospace; color: #86b0d8; opacity: .7; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="hud"></div>
+<script src="px.js"></script>
+<script src="act1.js"></script>
+<script>
+(() => {
+  const big = document.getElementById('c'), bctx = big.getContext('2d');
+  const nat = document.createElement('canvas'); nat.width = PX.W; nat.height = PX.H;
+  const nctx = nat.getContext('2d'); const img = nctx.createImageData(PX.W, PX.H);
+  const u8 = new Uint8ClampedArray(PX.screen.d.buffer);
+  ACT1.init();
+  function renderAt(t) {
+    ACT1.render(t);
+    img.data.set(u8); nctx.putImageData(img, 0, 0);
+    bctx.imageSmoothingEnabled = false; bctx.drawImage(nat, 0, 0, 1920, 1080);
+  }
+  // raw native RGBA as base64 (used by the exporter; scaled x4 nearest-neighbour in ffmpeg)
+  function nativeB64(t) {
+    renderAt(t); let s = ''; const CH = 0x8000;
+    for (let i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+    return btoa(s);
+  }
+  const q = new URLSearchParams(location.search);
+  if (q.has('export')) {
+    window.__act = { renderAt, start: ACT1.start, end: ACT1.end, isReady: () => true, nativeB64,
+      nativePNG: t => { renderAt(t); return nat.toDataURL('image/png'); }, bigPNG: t => { renderAt(t); return big.toDataURL('image/png'); } };
+    renderAt(ACT1.start); return;
+  }
+  if (q.has('t')) { renderAt(+q.get('t')); document.getElementById('hud').textContent = 't=' + q.get('t'); return; }
+  // live playback (wall clock only drives which t to show; every frame is a pure function of t)
+  const audio = new Audio('../../starship-pixel-video/score.wav'); let t0 = null, playing = false;
+  function start() { if (playing) return; playing = true; audio.currentTime = 0; audio.play().catch(() => {}); t0 = performance.now(); }
+  big.addEventListener('click', start); start();
+  function loop(now) {
+    const t = ((now - t0) / 1000) % (ACT1.end - ACT1.start) + ACT1.start;
+    if (t < 0.05 && audio.currentTime > 1) { audio.currentTime = 0; }
+    renderAt(Math.floor(t * 30) / 30);
+    document.getElementById('hud').textContent = 't=' + t.toFixed(2) + '  (click to restart with sound)';
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

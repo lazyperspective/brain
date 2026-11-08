@@ -1,0 +1,3 @@
+#!/bin/bash
+# render review frames at 2x for viewing: rv.sh t1 t2 ...
+cd /home/user/brain/starship-pixel/act3 && node snap.js /home/user/brain/starship-pixel-video/act3/review "$@" | while read f; do ffmpeg -nostdin -v error -y -i "$f" -vf scale=960:540:flags=neighbor "${f%.png}_2x.png"; done
