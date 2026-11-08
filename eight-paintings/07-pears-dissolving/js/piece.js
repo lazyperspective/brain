@@ -773,16 +773,16 @@
         const kk = keys[(krnd() * keys.length) | 0], k2 = keys[(krnd() * keys.length) | 0];
         const c = satv(pn[kk], 1.1, 1.03, 0.3);
         cv.stroke({
-          pts, w, col: jitterCol(c, 0.03), col2: mix3(c, pn[k2], 0.6), cjit: 0.55, alpha: 0.97, wmod: 0.35,
+          pts, w, col: jitterCol(c, 0.03), col2: mix3(c, pn[k2], 0.6), cjit: 0.55, alpha: 0.97, wmod: 0.22,
           load: mix(1.3, 1.8, krnd()), run: len * mix(0.7, 1.4, krnd()), dry: o.dry == null ? 0.2 : o.dry, thick: mix(0.6, 1.2, krnd()),
-          bristle: 0.5, bfreq: Math.max(8, w / (3.2 * S)), ridge: 0.15, smear: 0.35, pick: 0.2, rag: 0.25, taper0: 0.08, taper1: 0.35, cap: 0.4,
+          bristle: 0.5, bfreq: Math.max(8, w / (3.2 * S)), ridge: 0.15, smear: 0.35, pick: 0.2, rag: 0.25, taper0: 0.22, taper1: 0.35, cap: 0.4,
           streak: 260 * S, sfreq: 2.5, seed: (krnd() * 1e9) | 0
         });
       }
     }
     // the ledge and its shadow, re-made as gesture
     gestureField(0.90, 0.89, 0.10, 0.08, 14, ['black', 'umber', 'front', 'tableShadow', 'black', 'umber'], { base: -0.3, w: [90, 170], len: [300, 650] });
-    gestureField(0.89, 0.81, 0.10, 0.04, 4, ['tableLit', 'ochre', 'linenShadow'], { base: 0.05, w: [60, 110], len: [250, 520], dry: 0.4 });
+    gestureField(0.89, 0.81, 0.10, 0.04, 4, ['tableLit', 'ochre', 'cream'], { base: 0.05, w: [60, 110], len: [250, 520], dry: 0.4 });
     gestureField(0.93, 0.92, 0.05, 0.04, 1, ['red'], { base: -0.6, w: [70, 90], len: [220, 300] });
     // linen white carried along the ledge, broad and broken
     G1([[0.70, eR - 0.018], [0.80, eR - 0.03], [0.91, eR - 0.02], [1.04, eR - 0.03]], 96, pn.linen, pn.cream, { load: 1.2, thick: 0.9, ridge: 0.15, dry: 0.45, bristle: 0.7, wmod: 0.3, run: 520 * S, taper0: 0.05, taper1: 0.5 });

@@ -583,7 +583,7 @@
   }
 
   // ---------------------------------------------------------------- render study
-  let BEAM_K = 0.0;
+  let BEAM_K = 0.55;
   function render(RW, RH, opts) {
     if (opts && opts.beamK != null) BEAM_K = opts.beamK;
     opts = opts || {};
@@ -618,7 +618,7 @@
           [r, g, b] = s.c;
           mat[k] = 0; depth[k] = 1e9; cloud[k] = s.d;
           const cs = dx * SUN[0] + dy * SUN[1] + dz * SUN[2];
-          occl[k] = (1 - s.d) * Math.exp(-(1 - cs) / 0.0025);
+          occl[k] = Math.pow(1 - s.d, 2) * Math.exp(-(1 - cs) / 0.012);
           // strokes in sky: follow cloud contours; resolved later from structure, default horizontal
           ang[k] = 0; angW[k] = 0.25;
         } else {
@@ -722,25 +722,30 @@
     const sp = project(SUN[0] * 100, CAM.y + SUN[1] * 100, SUN[2] * 100);
     const sunPx = [((sp[0] + 1) / 2) * RW, ((1 - sp[1]) / 2) * RH];
     const beams = new Float32Array(N);
-    const NS = 48;
+    const NS = 72;
+    let bmax = 1e-6;
     for (let py = 0; py < RH; py++) {
       for (let px = 0; px < RW; px++) {
         const k = py * RW + px;
-        let acc = 0, w = 1, wsum = 0;
+        let acc = 0;
         const vx = (sunPx[0] - px) / NS, vy = (sunPx[1] - py) / NS;
-        for (let i = 0; i < NS; i++) {
-          const sx = Math.round(px + vx * i * 0.9), sy = Math.round(py + vy * i * 0.9);
-          if (sx >= 0 && sx < RW && sy >= 0 && sy < RH) acc += occl[sy * RW + sx] * w;
-          wsum += w; w *= 0.985;
+        for (let i = 1; i <= NS; i++) {
+          const sx = Math.round(px + vx * i), sy = Math.round(py + vy * i);
+          if (sx >= 0 && sx < RW && sy >= 0 && sy < RH) acc += occl[sy * RW + sx];
         }
-        beams[k] = acc / wsum;
+        beams[k] = acc / NS;
+        if (beams[k] > bmax) bmax = beams[k];
       }
     }
+    // shafts: keep the structure (light vs. shadow rays), not just a glow
+    const bblur = G.CORE.blurPlane(beams, RW, RH, 1, RW * 0.03, 2);
     for (let k = 0; k < N; k++) {
       const dpt = depth[k];
-      const air = mat[k] === 0 ? 0.55 : mat[k] === 3 ? 0.0 : clamp(1 - Math.exp(-dpt * 0.5), 0, 1);
-      const bb = beams[k] * BEAM_K * air;
-      col[k * 3] += bb * 1.0; col[k * 3 + 1] += bb * 0.78; col[k * 3 + 2] += bb * 0.45;
+      const air = mat[k] === 0 ? 0.45 : mat[k] === 3 ? 0.0 : clamp(1 - Math.exp(-dpt * 0.3), 0, 1);
+      const b = beams[k] / bmax, bl = bblur[k] / bmax;
+      const shaft = clamp(b - 0.55 * bl, 0, 1) + 0.25 * b;
+      const bb = shaft * BEAM_K * air;
+      col[k * 3] += bb * 1.0; col[k * 3 + 1] += bb * 0.76; col[k * 3 + 2] += bb * 0.46;
     }
     // halation: the glow around the light spreads softly, as in a luminist sky
     const bright = new Float32Array(N * 3);

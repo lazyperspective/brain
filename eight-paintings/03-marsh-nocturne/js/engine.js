@@ -204,7 +204,7 @@ void main(){
   float shade = max(mix(1., dif, u_kd), 0.2);
   vec3 H = normalize(L + vec3(0., 0., 1.));
   float sp = pow(max(dot(n, H), 0.), u_shin) - pow(H.z, u_shin);
-  sp = max(sp, 0.) * u_ks;
+  sp = max(sp, 0.) * u_ks * smoothstep(0.04, 0.5, ph);
   vec3 c = alb * shade;
   c = c * u_varnish;
   c *= 1. - cr * 0.35;
