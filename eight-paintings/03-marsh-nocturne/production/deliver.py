@@ -26,7 +26,7 @@ print('jpg quality', q, '%.2f MB' % (os.path.getsize(p) / 1e6))
 CROPS = {
     'focal-afterglow-and-cedars': (1000, 1350, 1000, 800),
     'darkest-foreground-marsh': (0, 2100, 900, 600),
-    'busiest-skiff-and-creek': (950, 1800, 900, 700),
+    'busiest-skiff-and-creek': (1000, 1950, 900, 700),
     'corner-top-left-sky-and-moon': (0, 0, 1000, 800),
 }
 for k, (x, y, w, h) in CROPS.items():

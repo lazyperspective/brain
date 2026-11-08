@@ -29,7 +29,7 @@
         const diff = 1 + 0.6 * (Math.max(0, ndl) / Lz - 1);
         const ndh = Math.max(0, nx * hx + ny * hy + nz * hz);
         const g = gloss ? gloss[i] : 0.5;
-        const sp = Math.max(0, Math.pow(ndh, shin) - spec0) * (0.035 + 0.1 * g * g);
+        const sp = Math.max(0, Math.pow(ndh, shin) - spec0) * (0.03 + 0.06 * g * g);
         const cav = CL((HL[i] - blurH[i]) * 0.3, -0.2, 0.08);
         const ao = 1 + cav;
         out.r[i] = C.r[i] * diff * ao + sp; out.g[i] = C.g[i] * diff * ao + sp * 0.98; out.b[i] = C.b[i] * diff * ao + sp * 0.95;
