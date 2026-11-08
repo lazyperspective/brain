@@ -140,8 +140,8 @@
           touched[i] = Math.max(touched[i], 1 - SM(0.6, 2.5, Math.max(0, (env[j] + g + bow[j] - Deff[i]))));
           let lift = 0;
           for (let q = 0; q < lifts.length; q++) {
-            const lf = lifts[q], cc = lf.c + lf.skew * (j - Lb * 0.5) + 28 * S * N(j / (45 * S), q, lf.sd);
-            const t = Math.abs(k - cc) / lf.w; if (t < 1.4) lift += lf.a * SM(1.3, 0.75, t) * (0.6 + 0.6 * N(j / (90 * S), q + 7, lf.sd));
+            const lf = lifts[q], cc = lf.c + lf.skew * (j - Lb * 0.5) + 30 * S * FB(j / (60 * S), q, 4, lf.sd) + 10 * S * N(j / (9 * S), q + 3, lf.sd);
+            const t = Math.abs(k - cc) / lf.w; if (t < 1.4) lift += 0.6 * lf.a * SM(1.3, 0.6, t) * Math.max(0, 0.5 + 0.8 * FB(j / (50 * S), q + 7, 3, lf.sd));
           }
           const Lv = env[j] + g + bow[j] + nick[j] + tl * (j / Lb - 0.5) + p.float * A[j] / S + Math.max(0, lift);
           let ws = Ws[i];
@@ -323,8 +323,8 @@
     { x0: -60, x1: 1640, y0: 255, Lb: 330, pal: 'red', load: 2600, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 0.9, gap: 0.02, press: 0.25, tilt: 0.5,
       bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[640, 30, 1.5], [1180, 50, 0.9]], seed: 11, cov: [0.92, 0.5], endRidge: true, endJit: 150, chatter: 27, edge: 20 },
     // pale lemon / cerulean / rose skimmed back from the right, partly over the red
-    { x0: 2240, x1: 980, y0: 470, Lb: 280, pal: 'white', load: 1700, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 1.2, gap: 0.3, press: 0.3, tilt: 0.8, skin: 0.22,
-      bead: 0.0016, rate: 0.03, float: 0.00025, shear: 0.06, lifts: [[520, 40, 1.2], [1100, 25, 2.0]], seed: 12, cov: [0.8, 0.45], endRidge: true, endJit: 90, chatter: 19, edge: 22 },
+    { x0: 2240, x1: 980, y0: 470, Lb: 280, pal: 'white', load: 1900, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 1.2, gap: 0.12, press: 0.3, tilt: 0.8, skin: 0.22,
+      bead: 0.0016, rate: 0.03, float: 0.00025, shear: 0.06, lifts: [[700, 60, 0.5]], seed: 12, cov: [0.95, 0.68], endRidge: true, endJit: 90, veil: 0.2, chatter: 19, edge: 22 },
     // lower pull across the wet street, left -> right, ends with a ridge
     { x0: -60, x1: 1760, y0: 1650, Lb: 400, pal: 'pale', load: 1700, bandMin: 50, bandMax: 220, streaks: 10, nicks: 8, endLift: 1.0, gap: 0.05, press: 0.3, tilt: 0.6,
       bead: 0.0016, rate: 0.03, float: 0.0003, lifts: [[380, 50, 1.4], [1050, 30, 1.0]], seed: 13, cov: [0.97, 0.55], endRidge: true, endJit: 90, chatter: 31, edge: 18 },
