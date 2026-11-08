@@ -249,7 +249,7 @@
             // edge-aware: paint stays on its own plane (crisp silhouettes)
             const dd = depth[(y0 + (y - y0)) * W + x];
             const rel = Math.abs(dd - o.edgeD) / o.edgeD;
-            a *= 1 - smooth(0.06, 0.16, rel);
+            a *= 1 - smooth(0.03, 0.08, rel);
           }
           if (a <= 0.003) continue;
           const A = a * op;

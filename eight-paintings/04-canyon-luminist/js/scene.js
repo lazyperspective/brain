@@ -67,7 +67,7 @@
       if (hs < top || i === STRATA.length - 1) {
         const f = clamp((hs - bot) / (top - bot), 0, 1);
         const k = STRATA[i][1];
-        const w = mix(0.9, 0.018, k), c = 0.55;
+        const w = mix(0.9, 0.05, k), c = 0.55;
         const g = smooth(c - w / 2, c + w / 2, f) * 0.975 + f * 0.025;
         return bot + (top - bot) * mix(f, g, k);
       }
@@ -176,11 +176,15 @@
     }
     if (sN > 1) hs = rim + 0.01 * (sN - 1);
     // the temples stand on the Tonto platform
-    if (far || d > 0.4) hs = Math.max(hs, templeH(x, z) * smooth(0.025, 0.09, sN));
-    if (detail > 0) {
-      hs += 0.012 * N5.fbm(x * 2.0, z * 2.0, 3) + 0.006 * detail * N5.fbm(x * 9, z * 9, 3);
+    let tDom = 0;
+    if (far || d > 0.4) {
+      const th = templeH(x, z) * smooth(0.025, 0.09, sN);
+      if (th > hs) { tDom = smooth(0.0, 0.03, th - hs); hs = th; }
     }
-    let h = terrace(hs);
+    if (detail > 0) {
+      hs += 0.012 * N5.fbm(x * 2.0, z * 2.0, 3) + 0.003 * detail * N5.fbm(x * 9, z * 9, 2);
+    }
+    let h = mix(terrace(hs), hs, tDom * 0.85);
     if (hs < 0.04) h = Math.min(h, hs * 0.9);
     if (detail > 1) h += 0.0012 * N6.fbm(x * 70, z * 70, 3);
     return h;
@@ -729,9 +733,9 @@
           let nx = n[0] + bx * (1 - Math.abs(n[1]) * 0.3), ny = n[1], nz = n[2] + bz;
           const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
           let water = false;
-          if (!fg && y < 0.012) {
+          if (!fg && y < 0.022) {
             const dr = Math.abs(z - riverZ(x));
-            if (dr < 0.12 || y < 0.0) water = true;
+            if (dr < 0.16 || y < 0.0) water = true;
           }
           const so = Math.max(fg ? 0.00008 : 0.0025, t * 0.0015);
           const sh = shadow(x + n[0] * so, y + n[1] * so, z + n[2] * so);

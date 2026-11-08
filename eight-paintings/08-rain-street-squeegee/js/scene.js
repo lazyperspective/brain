@@ -357,7 +357,8 @@
           } else if (h >= 3.2 && h < 3.95 && !pil) {
             if (b.fascia) {
               const fc = b.fasciaCol, vv = (h - 3.2) / 0.75;
-              const I = 1.1 * (0.8 + 0.2 * Math.sin(vv * 3.1)) * (0.92 + 0.08 * N(z * 2, 0, 3));
+              const tz = ((z - b.z0) / 0.85) % 1;
+              const I = 1.0 * (0.62 + 0.38 * Math.sin(vv * 3.1)) * (0.8 + 0.3 * Math.exp(-(tz - 0.5) * (tz - 0.5) * 18)) * (0.88 + 0.12 * FB(z * 1.5, vv * 2, 3, 3)) * (1 - 0.25 * SM(0.6, 1.0, Math.abs(vv - 0.5) * 2));
               er += fc[0] * I; eg += fc[1] * I; eb += fc[2] * I; alb0 = alb1 = alb2 = 0.0;
             } else { alb0 *= 0.5; alb1 *= 0.5; alb2 *= 0.5; }
           } else if (h < bot) { alb0 *= 0.7; alb1 *= 0.7; alb2 *= 0.7; }

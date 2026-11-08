@@ -113,7 +113,7 @@
       }
       const HFj = function (j) { return P8.hashf(j, 5, p.seed); };
       const endJ = new Float32Array(Lb);
-      for (let j = 0; j < Lb; j++) endJ[j] = p.endRidge ? Math.max(0, (p.endJit || 22) * S * (0.5 + 0.9 * FB(j / (160 * S), 3.3, 3, p.seed + 81)) + 1.5 * S * N(j / (9 * S), 1, p.seed + 82)) : 0;
+      for (let j = 0; j < Lb; j++) endJ[j] = p.endRidge ? Math.max(0, (p.endJit || 22) * S * (0.5 + 0.9 * FB(j / (160 * S), 3.3, 3, p.seed + 81)) + 1.6 * S * FB(j / (23 * S), 1.3, 3, p.seed + 82)) : 0;
       const env = new Float32Array(Lb), Dcol = new Float32Array(Lb);
       const kb = p.stiff || 0.16;
       const yTop0 = y0; let yLast = y0;
@@ -212,7 +212,7 @@
       if (p.endRidge && !p.noRidge && xe >= 0 && xe < W) {
         for (let j = 0; j < Lb; j++) {
           const y = yLast + j; if (y < 0 || y >= H) continue;
-          const wd = Math.max(5 * S, (16 + 26 * FB(j / (70 * S), 9.2, 3, p.seed + 31) + 5 * N(j / (7 * S), 3, p.seed + 33)) * S);
+          const wd = Math.max(5 * S, (16 + 26 * FB(j / (70 * S), 9.2, 3, p.seed + 31) + 4 * FB(j / (19 * S), 3.7, 3, p.seed + 33)) * S);
           const hgt = CL(A[j] / S * 0.0035, 0.5, 3.2) * (0.7 + 0.5 * Math.max(0, N(j / (16 * S), 5, p.seed + 34)));
           const xr = Math.round(xe - dir * endJ[j]);
           for (let q = -Math.round(wd * 0.3); q < wd + 2; q++) {

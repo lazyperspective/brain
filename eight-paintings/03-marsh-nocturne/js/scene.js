@@ -13,28 +13,75 @@ const float MOONR = 30.;
 vec3 lin(vec3 c){ return pow(max(c, 0.), vec3(2.2)); }
 float lum(vec3 c){ return dot(c, vec3(.2126,.7152,.0722)); }
 
-// ---- the creek: centre line and half width (fractions of width) at depth d (0 horizon, 1 bottom edge)
-float creekX(float d){ return 0.55 + (0.010 + 0.34*d) * sin(1.25/(d + 0.13) - 1.25); }
-float creekHW(float d){ return (0.004 + 0.15 * pow(d, 1.25)) * (0.45 + 1.1 * vnoise(vec2(1.25 / (d + 0.13) * 1.4, 2.5))) + 0.06 * exp(-d / 0.022); }
-// signed distance-ish to open water (negative inside): creek plus a wide pool under the glow
+// ---- the creek: a meandering S through the marsh. Centre line (fraction of width) at depth d (0 horizon, 1 bottom)
+float creekX(float d){
+  float P[8] = float[8](0.555, 0.50, 0.425, 0.455, 0.60, 0.665, 0.585, 0.475);
+  float t = clamp(d, 0., 1.) * 7.; int i = int(min(floor(t), 6.)); float f = t - float(i);
+  float p0 = P[max(i - 1, 0)], p1 = P[i], p2 = P[i + 1], p3 = P[min(i + 2, 7)];
+  float x = 0.5 * ((2. * p1) + (-p0 + p2) * f + (2. * p0 - 5. * p1 + 4. * p2 - p3) * f * f + (-p0 + 3. * p1 - 3. * p2 + p3) * f * f * f);
+  // far meanders, compressed by perspective
+  float z = 1. / (d + 0.05);
+  return x + (d + 0.03) * 0.55 * sin(z * 0.85 + 0.6) * smoothstep(0.38, 0.06, d);
+}
+float creekHW(float d){
+  return (0.0035 + 0.12 * pow(d, 1.2)) * (0.55 + 0.9 * vnoise(vec2(d * 9., 2.5))) + 0.06 * exp(-d / 0.022);
+}
+float creekSlope(float d){ // dX/dY in pixels
+  float dd = 0.01;
+  return (creekX(min(d + dd, 1.)) - creekX(max(d - dd, 0.))) * 2160. / ((min(d + dd, 1.) - max(d - dd, 0.)) * (1. - YH) * 2700.);
+}
+// signed distance-ish to open water (negative inside): creek, a lagoon under the glow, a side channel
 float waterD(float X, float Y, float d){
   float cx = creekX(d), hw = creekHW(d);
-  float edgeN = (fbm(vec2(Y * 260., X * 3.), 4) - .5) * (0.003 + 0.022 * d);
-  float wc = abs(X - cx) - hw - edgeN;
-  // the lagoon under the glow: a long horizontal sheet, straight far shore, ragged near shore and ends
-  float lx0 = 0.44 + 0.03 * (fbm(vec2(Y * 400., 2.), 3) - .5), lx1 = 0.80 + 0.05 * (fbm(vec2(Y * 300., 6.), 3) - .5);
+  float sl = creekSlope(d);
+  float edgeN = (fbm(vec2(Y * 260., X * 3.), 4) - .5) * (0.003 + 0.02 * d);
+  float wc = abs(X - cx) - hw * sqrt(1. + 0.6 * sl * sl) - edgeN;
+  // the lagoon: a long sheet under the glow, deepening under the cedars on its far shore
+  float lx0 = 0.44 + 0.03 * (fbm(vec2(Y * 400., 2.), 3) - .5), lx1 = 0.945 + 0.02 * (fbm(vec2(Y * 300., 6.), 3) - .5);
   float top = YH + 0.0035;
-  float bot = YH + 0.0105 + 0.007 * fbm(vec2(X * 14., 3.), 4) + 0.004 * sin(X * 40.);
+  float bot = YH + 0.0105 + 0.007 * fbm(vec2(X * 14., 3.), 4) + 0.004 * sin(X * 40.)
+            + 0.026 * smoothstep(0.74, 0.77, X) * (1. - smoothstep(0.935, 0.95, X)) * (0.75 + 0.5 * fbm(vec2(X * 60., 9.), 4));
   float wb = max(max(top - Y, Y - bot) * 2.5, max(lx0 - X, X - lx1) * 0.4);
-  // a spit of reeds across it
-  if (X > 0.66 && X < 0.75) wb = max(wb, -(abs(Y - (YH + 0.006 + 0.002 * sin(X * 30.))) - 0.0008) * 2.5);
+  if (X > 0.62 && X < 0.69) wb = max(wb, -(abs(Y - (YH + 0.006 + 0.002 * sin(X * 30.))) - 0.0008) * 2.5);
   // a side channel winding off to the left toward the pannes
-  float cx3 = creekX(0.30);
-  float tx = clamp((X - 0.16) / (cx3 - 0.16), 0., 1.);
-  float tY = YH + (1. - YH) * (0.135 + 0.165 * pow(tx, 1.6) + 0.012 * sin(tx * 9.));
+  float cx3 = creekX(0.25);
+  float tx = clamp((X - 0.12) / (cx3 - 0.12), 0., 1.);
+  float tY = YH + (1. - YH) * (0.11 + 0.14 * pow(tx, 1.6) + 0.012 * sin(tx * 9.));
   float tw = (abs(Y - tY) * 2700. / 2160. - (0.0010 + 0.0028 * tx) * (0.6 + 0.8 * vnoise(vec2(X * 40., 1.)))) * 1.5;
-  tw = X < 0.16 || X > cx3 ? 1. : tw;
+  tw = X < 0.12 || X > cx3 ? 1. : tw;
   return min(min(wc, wb), tw);
+}
+// ---- the cedars on the lagoon's far shore (also used, mirrored, for their reflections)
+float cedarTree(int i, float X, float Y, bool mirror, out vec3 cc, out vec2 cdir){
+  float fi = float(i);
+  float bx = i == 0 ? 0.805 : i == 1 ? 0.842 : i == 2 ? 0.872 : 0.925;
+  float by = YH + 0.0042 + 0.0006 * fi;
+  float ht = (i == 0 ? 0.118 : i == 1 ? 0.088 : i == 2 ? 0.104 : 0.058) * 0.92;
+  float wd2 = ht * (i == 1 ? 0.30 : 0.24);
+  float t = mirror ? (Y - by) / ht : (by - Y) / ht;
+  cc = vec3(0.); cdir = vec2(0., 1.);
+  if (t <= -0.01 || t >= 0.995) return 0.;
+  float tt = clamp(t, 0., 1.);
+  float prof = wd2 * pow(sin(3.1416 * clamp(tt * 0.75 + 0.25, 0., 1.)), 0.55) * (1. - 0.35 * tt);
+  prof *= 0.62 + 0.75 * fbm(vec2(tt * ht * 2700. / 55., fi * 3.), 4);
+  float lean = 0.05 * ht * tt * tt;
+  float sx = (X - bx - lean) * 2160. / 2700.;
+  prof *= 0.85 + 0.3 * smoothstep(-1., 1., sign(sx)) * fbm(vec2(tt * 9., fi + 20.), 3);
+  float ax = abs(sx);
+  vec2 fp = vec2(sx * 2700., (by - tt * ht) * 2700.);
+  float clump = fbm(fp / 34. + fi * 13., 4) - .5;
+  float fringe = fbm(fp / 7. + fi * 5., 3) - .5;
+  float rr = ax / max(prof, 1e-5) + 0.55 * clump + 0.30 * fringe;
+  float tr = (1. - smoothstep(0.86, 1.0, rr)) * smoothstep(-0.01, 0.05, t);
+  cc = vec3(.08,.078,.064);
+  float lit = smoothstep(.1, .45, clump + 0.25 * sx / max(prof, 1e-4)) * (0.4 + 0.6 * tt);
+  cc = mix(cc, vec3(.15,.14,.10), lit * .55);
+  cc *= 0.85 + 0.3 * smoothstep(-.2, .3, fringe);
+  float mst = exp(-max(t, 0.) / 0.15) * 0.65;
+  cc = mix(cc, vec3(.42,.40,.37), mst);
+  float a = 6.2832 * fbm(fp / 40. + 3., 3);
+  cdir = normalize(vec2(cos(a), sin(a)) + vec2(0., 0.6));
+  return tr * (1. - 0.3 * exp(-max(t, 0.) / 0.06));
 }
 // ---- sky
 vec3 skyCol(vec2 q, vec2 p, out float cloud){
@@ -156,35 +203,45 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     c = mix(c, rq * vec3(1.05,1.0,.92), pan * .9);
     // the creek
     float cx = creekX(d), hw = creekHW(d);
-    float mudW = 0.0014 + 0.010 * d;
+    float mudW = 0.0016 + 0.009 * d;
     float wd = waterD(X, Y, d);
+    float slope = creekSlope(d);
     if (wd < mudW) {
-      // wet mud bank: catches the sky
-      float mk = smoothstep(mudW, mudW * 0.4, wd);
-      vec3 mud = mix(c, rq * .8, 0.45 * smoothstep(0.03, 0.14, d) * (1. - 0.7 * smoothstep(0.45, 0.95, d))) * (0.85 + 0.3 * fbm(vec2(X * 80., Y * 300.), 3));
-      c = mix(c, mud, mk);
-      float slope = (creekX(min(d + 0.01, 1.)) - creekX(max(d - 0.01, 0.))) / 0.02;
-      if (mk > .5) { mat = 7.; size = 0.25 + 0.4 * d; follow = 0.6; dir = normalize(vec2(slope * 2160., (1. - YH) * 2700.)); }
+      // soft wet mud banks, holding a little of the sky, with a glint at the water's lip
+      float mk = smoothstep(mudW, mudW * 0.3, wd);
+      vec3 mud = mix(c * 1.05, rq * .7, 0.35 * (1. - 0.6 * smoothstep(0.45, 0.95, d))) * (0.85 + 0.3 * fbm(vec2(X * 80., Y * 300.), 3));
+      c = mix(c, mud, mk * 0.85);
+      float lip = (1. - smoothstep(0., mudW * 0.35, abs(wd))) * smoothstep(.45, .75, fbm(vec2(X * 60., Y * 400.), 3));
+      c += vec3(.16,.12,.07) * lip * 0.55 * exp(-d / 0.5) * exp(-pow((X - .6) / .3, 2.));
+      if (mk > .5) { mat = 7.; size = 0.25 + 0.4 * d; follow = 0.5; dir = normalize(vec2(slope, 1.)); }
     }
     if (wd < 0.) {
-      // water: the sky reflected, darker toward us, with the dark of the banks at its edges
+      // water: the sky mirrored (olive and violet), darker and deeper toward us
       vec2 rqp = vec2(X, YH - (Y - YH) * 0.97);
       float cl; vec3 refl = skyCol(rqp, vec2(rqp.x * 2160., rqp.y * 2700.), cl);
-      refl = mix(refl, refl * 0.48, cl * 0.85);
-      refl *= mix(0.95, 0.56, pow(d, 0.6));
+      refl = mix(refl, refl * 0.5, cl * 0.85);
+      refl *= mix(0.95, 0.40, pow(d, 0.6));
+      refl = mix(refl, refl * vec3(.94, .96, 1.05), smoothstep(.3, 1., d));
+      // the afterglow laid down the water as a broken column of light
+      float colX = exp(-pow((X - 0.60) / (0.035 + 0.05 * d), 2.));
+      float streak = smoothstep(0.42, 0.78, fbm(vec2(X * 30. / (d + 0.15), Y * 2700. / (2.5 + 7. * d)), 3));
+      refl += vec3(.30,.22,.10) * colX * streak * exp(-d / 0.5) * 0.7;
+      // calm reaches mirror, ruffled ones go dull
+      float ruff = smoothstep(.48, .72, fbm(vec2(X * 7., Y * 2700. / (25. + 80. * d)) + 11., 4));
+      refl = mix(refl, refl * vec3(.62,.62,.66) + vec3(.008), ruff * 0.5);
       float rl = smoothstep(0.55, 0.95, noise1(Y * 2700. / (2.5 + 10. * d) + 4. * vnoise(vec2(X * 30., Y * 50.))));
-      refl *= 0.95 + 0.10 * rl * fbm(vec2(X * 25., Y * 80.), 3) * 2.;
-      refl = mix(refl, refl * vec3(.96, .97, 1.02), d);
-      float grassRef = 0.6 + 0.4 * noise1(X * 2160. / (2. + 5. * d) + 3.);
-      float side = X > cx ? 1. : 0.;
-      float cut = smoothstep(0.35, 0.6, vnoise(vec2(d * 14., side * 7. + 1.)));
-      float bankDark = smoothstep(-0.003 - 0.055 * d * grassRef, 0., wd) * (abs(X - cx) > hw + 0.01 ? 0.75 : 1.) * (0.25 + 0.75 * cut);
-      refl = mix(refl, refl * 0.45, bankDark * 0.6);
-      float rip = fbm(vec2(X * 30., Y * 520.), 3);
-      refl *= 0.94 + 0.12 * rip;
-      float gl2 = smoothstep(.62, .82, fbm(vec2(X * 70. / (d + .2), Y * 1100.), 3)) * exp(-d / 0.3) * (1. - bankDark);
-      refl += vec3(.20,.15,.07) * gl2 * 0.5 * exp(-pow((X - .58) / .2, 2.));
-      c = refl; mat = 6.; size = 0.4 + 0.8 * d; dir = vec2(1., 0.); follow = 0.55; imp = 0.8;
+      refl *= 0.96 + 0.08 * rl;
+      // reflected banks: the dark of the far bank's grasses, broken into blades
+      float grassRef = 0.5 + 0.5 * noise1(X * 2160. / (2. + 4. * d) + 3.);
+      float bankDark = smoothstep(-0.0025 - 0.04 * d * grassRef, 0., wd);
+      refl = mix(refl, refl * 0.42, bankDark * mix(0.8, 0.55, smoothstep(0.1, 0.5, d)));
+      // the cedars hanging upside down in the lagoon
+      for (int i = 0; i < 4; i++){
+        vec3 rc; vec2 rd; float rt = cedarTree(i, X + 0.0015 * sin(Y * 900.), Y, true, rc, rd);
+        rt *= 0.65 + 0.35 * smoothstep(.3, .6, fbm(vec2(X * 300., Y * 2700. / 3.), 2));
+        refl = mix(refl, rc * 0.7 + refl * 0.12, rt * 0.8);
+      }
+      c = refl; mat = 6.; size = 0.4 + 0.8 * d; dir = vec2(1., 0.); follow = 0.45; imp = 0.8;
     }
     // mist lying on the marsh and on the water
     float mz = exp(-pow((Y - (YH + 0.012)) / 0.022, 2.)) * 0.62;
@@ -193,136 +250,150 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     float mist = clamp(mz + mist2 + mist3, 0., .8);
     mistAmt = mist;
     vec3 mistCol = mix(vec3(.42,.41,.42), vec3(.60,.55,.46), exp(-pow((X - .58) / .25, 2.)));
-    c = mix(c, mistCol, mist * (0.6 + 0.4 * (1. - d)) * (wd < 0. && d < 0.08 ? 0.2 : 1.));
+    c = mix(c, mistCol, mist * (0.6 + 0.4 * (1. - d)) * (wd < 0. && d < 0.12 ? 0.2 : 1.));
     if (mist > .35 && mat == 5.) { cross = 1.; follow = 0.1; }
-    // salt-hay stacks on the left, standing out of the mist on a low rise
-    for (int i = 0; i < 3; i++){
+    // salt-hay stacks raised on staddles: peaked, uneven, one standing in the mist, warm on the side of the glow
+    for (int i = 0; i < 4; i++){
       float fi = float(i);
-      vec2 hb = vec2(i == 0 ? 0.118 : i == 1 ? 0.205 : 0.31, YH + (i == 0 ? 0.026 : i == 1 ? 0.017 : 0.011));
-      float hwid = i == 0 ? 0.026 : i == 1 ? 0.019 : 0.012;
-      float hh = hwid * 1.3 * 2160. / 2700.;
-      float ty = (hb.y - Y) / hh;                // 0 base .. 1 top
-      float prof = hwid * sqrt(max(1. - pow(clamp(ty, 0., 1.), 2.4), 0.)) * (1.04 - 0.1 * ty);
-      prof *= 1. + 0.08 * (fbm(vec2(Y * 900., fi * 4.), 3) - .5);
-      float ax = abs(X - hb.x - 0.0012 * sin(ty * 3.));
-      float sh = (1. - smoothstep(prof * 0.9, prof * 1.02, ax)) * step(-0.02, ty) * step(ty, 1.02);
-      sh *= 1. - smoothstep(-0.02, 0.0, -ty) * 0.;
-      // shadow beneath, on the staddles
-      float pool = (1. - smoothstep(0.7, 1.2, length(vec2((X - hb.x) / (hwid * 1.25), (Y - hb.y - 0.0015) / 0.0028))));
-      c = mix(c, c * 0.5, pool * 0.75);
+      vec2 hb = i == 0 ? vec2(0.088, YH + 0.036) : i == 1 ? vec2(0.205, YH + 0.022) : i == 2 ? vec2(0.247, YH + 0.0175) : vec2(0.385, YH + 0.0085);
+      float hwid = i == 0 ? 0.031 : i == 1 ? 0.019 : i == 2 ? 0.0135 : 0.0085;
+      float hh = hwid * (i == 1 ? 2.1 : i == 2 ? 1.7 : 1.85) * 2160. / 2700.;
+      float stad = hh * 0.13;                    // the staddle lifts the stack off the wet ground
+      float base = hb.y - stad;
+      float ty = (base - Y) / hh;
+      float lean = (i == 1 ? 0.12 : i == 2 ? -0.08 : 0.04) * hwid;
+      float prof = hwid * pow(max(1. - ty, 0.), 0.85) * (0.9 + 0.9 * ty * (1. - ty)) * (1. + 0.07 * (fbm(vec2(Y * 900., fi * 4.), 3) - .5));
+      float axc = X - hb.x - lean * ty;
+      float sh = (1. - smoothstep(prof * 0.88, prof * 1.02, abs(axc))) * step(-0.01, ty) * step(ty, 1.0);
+      // a little twisted top-knot
+      float knot = (1. - smoothstep(hwid * 0.05, hwid * 0.10, abs(axc))) * step(0.95, ty) * step(ty, 1.10);
+      sh = max(sh, knot);
+      // staddle posts and the dark gap beneath
+      float under = step(base, Y) * step(Y, hb.y) * (1. - smoothstep(hwid * 0.75, hwid * 0.85, abs(X - hb.x)));
+      float posts = under * (1. - smoothstep(0.12, 0.3, abs(fract((X - hb.x) / (hwid * 0.6) + 0.5) - 0.5) * 2.2));
+      c = mix(c, c * 0.7, under * 0.5);
+      c = mix(c, c * 0.45, posts * 0.6);
+      float pool = (1. - smoothstep(0.7, 1.2, length(vec2((X - hb.x) / (hwid * 1.3), (Y - hb.y - 0.0012) / 0.0022))));
+      c = mix(c, c * 0.6, pool * 0.6);
       if (sh > 0.) {
-        float side = (X - hb.x) / max(prof, 1e-4);
-        vec3 hc = mix(vec3(.10,.085,.062), vec3(.25,.19,.12), smoothstep(-0.1, 0.95, side) * (0.5 + 0.5 * ty) * .75);
+        float side = axc / max(prof, 1e-4);
+        vec3 hc = mix(vec3(.10,.083,.060), vec3(.20,.155,.10), smoothstep(-0.4, 0.9, side) * 0.6);
         hc *= 0.85 + 0.3 * fbm(vec2(X * 140., Y * 70.), 3);
-        hc = mix(hc, vec3(.33,.315,.30), 0.45 * exp(-ty / 0.18));
-        c = mix(c, hc, sh); if (sh > .5) { mat = 9.; size = 0.3; dir = normalize(vec2(side * 0.5, 1.)); follow = 0.6; cross = 0.; imp = 0.8; }
+        // warm edge light from the afterglow on the right flank
+        hc = mix(hc, vec3(.46,.35,.19), smoothstep(0.55, 0.97, side) * (0.35 + 0.65 * ty) * 0.6);
+        float misted = i == 2 ? 0.62 : i == 3 ? 0.55 : 0.25;
+        hc = mix(hc, mistCol, misted * exp(-ty / (i >= 2 ? 0.6 : 0.2)));
+        c = mix(c, hc, sh);
+        if (sh > .5) { mat = 9.; size = i == 3 ? 0.18 : 0.28; dir = normalize(vec2(side * 0.5, 1.)); follow = 0.6; cross = 0.; imp = 0.8; }
       }
     }
-    // foreground: tall grass at the near banks, dark against the water
-    if (d > 0.55) {
-      // tufts of spartina: short upright blades, dark against the water, a few tips catching the last light
-      float gy = Y * 2700. / (50. + 90. * d);
+    // grasses breaking the edges of the creek in the middle distance
+    if (d > 0.15 && abs(wd) < 0.004 + 0.02 * d) {
+      float gy = Y * 2700. / (14. + 60. * d);
+      float gx = X * 2160. / (2.5 + 3. * d);
+      float blade = smoothstep(0.62, 0.8, vnoise(vec2(gx, gy))) * (1. - smoothstep(0., 0.004 + 0.02 * d, abs(wd)));
+      c = mix(c, c * 0.45, blade * 0.7);
+    }
+    // the near marsh: dark and quiet, but alive: clumps of spartina with tips in the last light, pools holding the sky
+    if (d > 0.42) {
+      float fz = smoothstep(0.42, 0.75, d);
+      // warm darks drifting between umber and olive
+      float hue = fbm(vec2(X * 3., Y * 6.) + 21., 4);
+      c = mix(c, c * mix(vec3(1.10, .98, .80), vec3(.92, 1.0, .95), hue), fz * 0.8);
+      // pools
+      vec2 pp = vec2(X * 7., (Y - YH) * 2700. / 2160. * 7. * 4.5);
+      float pn2 = fbm(pp + 50., 4);
+      float pool2 = smoothstep(.70, .74, pn2) * fz * step(0.004, wd);
+      vec3 prq = skyCol(vec2(X, YH - (Y - YH) * 0.6), p, cloud) * 0.42;
+      float prim = smoothstep(.66, .70, pn2) * (1. - pool2) * fz * step(0.004, wd);
+      c = mix(c, c * 0.7, prim);
+      c = mix(c, prq * vec3(1.0, .97, 1.02), pool2 * 0.9);
+      if (pool2 > .5) { mat = 11.; size = 0.35; dir = vec2(1., 0.); follow = 0.6; cross = 1.; }
+      // spartina clumps
+      float clumpM = smoothstep(.45, .68, fbm(vec2(X * 9., Y * 22.) + 7., 4)) * fz * (1. - pool2);
+      float gy = Y * 2700. / (40. + 70. * d);
       float lean = 0.35 * (vnoise(vec2(X * 8., gy * 0.2)) - .5);
       float gx = (X * 2160. + (Y * 2700.) * lean) / (4. + 2. * d);
-      float blade = smoothstep(0.60, 0.78, vnoise(vec2(gx, gy)));
-      float grassZone = smoothstep(0.62, 0.95, d) * smoothstep(-0.02, 0.03, wd + 0.03);
-      c = mix(c, vec3(.045,.042,.03), blade * grassZone * 0.85);
-      float tip = smoothstep(0.80, 0.92, vnoise(vec2(gx * 1.3 + 9., gy * 1.2))) * smoothstep(0.5, 0.9, fbm(vec2(X * 6., Y * 30.), 3)) * grassZone;
-      c = mix(c, vec3(.17,.15,.11), tip * 0.5);
-      float bladeX = gx;
-      if (grassZone > .4) { dir = normalize(vec2(lean, 1.)); mat = 10.; size = 0.55; follow = 0.05; }
+      float bl = vnoise(vec2(gx, gy));
+      float blade = smoothstep(0.58, 0.76, bl) * clumpM;
+      c = mix(c, c * 0.42, blade * 0.8);
+      // tips catching the last light (from the glow, so warmer toward the right)
+      float tipZ = smoothstep(0.80, 0.93, vnoise(vec2(gx * 1.3 + 9., gy * 1.4))) * clumpM;
+      vec3 tipC = mix(vec3(.22,.19,.13), vec3(.30,.24,.14), smoothstep(.2, .8, X));
+      c = mix(c, tipC, tipZ * 0.55 * (0.5 + 0.5 * fz));
+      if (clumpM > .35 && pool2 < .5) { dir = normalize(vec2(lean, 1.)); mat = 10.; size = 0.5; follow = 0.05; }
     }
   }
-  // ---------------------------------------------------------------- cedars on the right: dense, ragged, wind-shaped
+  // ---------------------------------------------------------------- cedars on the far shore of the lagoon
   for (int i = 0; i < 4; i++){
-    float fi = float(i);
-    float bx = i == 0 ? 0.805 : i == 1 ? 0.842 : i == 2 ? 0.872 : 0.925;
-    float by = YH + (i == 3 ? 0.010 : 0.014 + 0.003 * fi);
-    float ht = i == 0 ? 0.118 : i == 1 ? 0.088 : i == 2 ? 0.104 : 0.058;
-    float wd2 = ht * (i == 1 ? 0.30 : 0.24);
-    float t = (by - Y) / ht;
-    if (t > -0.01 && t < 0.995) {
-      float tt = clamp(t, 0., 1.);
-      float prof = wd2 * pow(sin(3.1416 * clamp(tt * 0.75 + 0.25, 0., 1.)), 0.55) * (1. - 0.35 * tt);
-      prof *= 0.62 + 0.75 * fbm(vec2(tt * ht * 2700. / 55., fi * 3.), 4);
-      float lean = 0.05 * ht * tt * tt;
-      float sx = (X - bx - lean) * 2160. / 2700.;
-      prof *= 0.85 + 0.3 * smoothstep(-1., 1., sign(sx)) * fbm(vec2(tt * 9., fi + 20.), 3);
-      float ax = abs(sx);
-      // foliage in clumps, with a feathered fringe
-      vec2 fp = vec2(sx * 2700., Y * 2700.);
-      float clump = fbm(fp / 34. + fi * 13., 4) - .5;
-      float fringe = fbm(fp / 7. + fi * 5., 3) - .5;
-      float rr = ax / max(prof, 1e-5) + 0.55 * clump + 0.30 * fringe;
-      float tr = 1. - smoothstep(0.86, 1.0, rr);
-      tr *= smoothstep(-0.01, 0.05, t);
-      if (tr > 0.) {
-        vec3 cc = vec3(.08,.078,.064);
-        float lit = smoothstep(.1, .45, clump + 0.25 * sx / max(prof, 1e-4)) * (0.4 + 0.6 * tt);
-        cc = mix(cc, vec3(.15,.14,.10), lit * .55);
-        cc *= 0.85 + 0.3 * smoothstep(-.2, .3, fringe);
-        float mst = exp(-max(t, 0.) / 0.17) * 0.7;
-        cc = mix(cc, vec3(.40,.385,.37), mst);
-        c = mix(c, cc, tr * (1. - 0.35 * exp(-max(t, 0.) / 0.06)));
-        float a = 6.2832 * fbm(fp / 40. + 3., 3);
-        if (tr > .5) { mat = 4.; size = 0.26; dir = normalize(vec2(cos(a), sin(a)) + vec2(0., 0.6)); follow = 0.3; cross = 0.; imp = 0.6; }
-      }
-    }
+    vec3 cc; vec2 cd; float tr = cedarTree(i, X, Y, false, cc, cd);
+    if (tr > 0.) { c = mix(c, cc, tr); if (tr > .5) { mat = 4.; size = 0.26; dir = cd; follow = 0.3; cross = 0.; imp = 0.6; } }
   }
-  // ---------------------------------------------------------------- the moored skiff, its reflection, its line and stake
+  // ---------------------------------------------------------------- the skiff, moored across the current
   {
-    float db = 0.56;
-    vec2 sc = vec2(creekX(db) - creekHW(db) * 0.05, YH + db * (1. - YH));
-    float ang = -0.07;
-    vec2 rp = (p - sc * vec2(2160., 2700.));
-    rp = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * rp;
-    float L = 165.;
-    float u = rp.x / L;
-    float sheer = -30. - 26. * pow(max(u, 0.), 2.2) - 7. * pow(max(-u, 0.), 2.);
-    float bottom = 8. - 6. * u * u;
-    float stern = -0.94, bow = 1.0 - 0.10 * smoothstep(-24., 6., rp.y);
-    float endT = smoothstep(stern - 0.01, stern + 0.01, u) * (1. - smoothstep(bow - 0.02, bow, u));
-    float hull = smoothstep(sheer - 1., sheer + 1., rp.y) * (1. - smoothstep(bottom - 1., bottom + 1., rp.y)) * endT;
-    float ry = 2. * 8. - rp.y;
-    float rh = smoothstep(sheer - 6., sheer + 6., ry) * (1. - smoothstep(bottom - 4., bottom + 4., ry)) * endT * smoothstep(-1.05, -0.7, u) * (1. - smoothstep(0.75, 1.05, u));
-    rh *= 0.5 + 0.5 * smoothstep(.3, .6, fbm(vec2(p.x * 0.03, p.y * 0.5), 2));
-    if (rh > 0. && rp.y > 8.) { c = mix(c, c * 0.42, rh * 0.75); }
-    if (hull > 0.) {
-      vec3 hc = vec3(.07,.062,.052);
-      float gun = 1. - smoothstep(0., 4., rp.y - sheer);
-      hc = mix(hc, vec3(.30,.27,.21), gun * .45 * smoothstep(-0.8, 0.7, u));
-      float strake = (1. - smoothstep(0., 1.5, abs(rp.y - mix(sheer, bottom, 0.45)))) * 0.12;
-      hc = mix(hc, vec3(.16,.14,.11), strake);
-      c = mix(c, hc, hull);
-      if (hull > .5) { mat = 8.; size = 0.12; dir = vec2(cos(ang), -sin(ang)); follow = 0.8; cross = 0.; imp = 0.6; }
+    // a hull seen obliquely from a little above: stern S (nearer, right) to bow B (further, left)
+    float db = 0.655;
+    vec2 ctr = vec2((creekX(db) - creekHW(db) * 0.15) * 2160., (YH + db * (1. - YH)) * 2700.);
+    vec2 S = ctr + vec2(150., 34.), A = vec2(-305., -62.);
+    float al = (p.x - S.x) / A.x;              // 0 stern .. 1 bow
+    float u = al * 2. - 1.;
+    float y0 = S.y + al * A.y;                 // waterline on the keel line
+    float bow = pow(max(u, 0.), 2.3), st = pow(max(-u, 0.), 3.);
+    float beam = 21. * max(1. - bow, 0.) * (1. - 0.3 * st);     // half beam, foreshortened
+    float shr = 24. + 15. * u * u + 12. * bow;                  // freeboard, rising to the bow
+    float nWL = y0 + beam, nG = nWL - shr, fG = y0 - beam - shr;
+    float inside = step(0., al) * step(al, 1.);
+    float endS = smoothstep(-0.003, 0.012, al), endB = 1. - smoothstep(0.985, 1.0, al);
+    float side = smoothstep(nG - 0.8, nG + 0.8, p.y) * (1. - smoothstep(nWL - 1.2, nWL + 1.2, p.y)) * endS * endB * inside;
+    float inner = smoothstep(fG - 0.8, fG + 0.8, p.y) * (1. - smoothstep(nG - 0.6, nG + 0.6, p.y)) * endS * endB * inside * step(1.5, beam);
+    // soft reflection beneath the near side, wavering
+    float wv = 3. * sin(p.y * 0.35 + p.x * 0.02);
+    float alr = (p.x + wv - S.x) / A.x;
+    float y0r = S.y + alr * A.y;
+    float ur = alr * 2. - 1.;
+    float bowr = pow(max(ur, 0.), 2.3);
+    float nWLr = y0r + 21. * max(1. - bowr, 0.);
+    float shrr = 24. + 15. * ur * ur + 12. * bowr;
+    float rf = step(0., alr) * step(alr, 1.) * smoothstep(nWLr - 1., nWLr + 2., p.y) * (1. - smoothstep(nWLr + shrr * 0.6, nWLr + shrr * 1.0, p.y));
+    rf *= 0.6 + 0.4 * smoothstep(.3, .6, fbm(vec2(p.x * 0.04, p.y * 0.45), 2));
+    if (rf > 0.) c = mix(c, c * 0.38, rf * 0.8);
+    vec2 adir = normalize(A);
+    if (inner > 0.) {
+      // the inside: the far side's planking takes a little sky, the bottom boards are dark; two thwarts
+      float k = (p.y - fG) / max(nG - fG, 1.);
+      vec3 ic = mix(vec3(.17,.145,.11), vec3(.085,.075,.06), smoothstep(0.15, 0.75, k));
+      float thw = max(1. - smoothstep(0.02, 0.035, abs(u - 0.18)), 1. - smoothstep(0.02, 0.035, abs(u + 0.42)));
+      float thwY = smoothstep(0.25, 0.35, k) * (1. - smoothstep(0.7, 0.8, k));
+      ic = mix(ic, vec3(.25,.215,.16), thw * thwY * 0.85);
+      float fgun = 1. - smoothstep(0., 2.2, p.y - fG);
+      ic = mix(ic, vec3(.34,.29,.21), fgun * 0.7);
+      c = mix(c, ic, inner);
+      if (inner > .5) { mat = 8.; size = 0.1; dir = adir; follow = 0.8; cross = 0.; imp = 0.7; }
     }
-    // seen a little from above: the inside of the boat between the near and the far gunwale
-    float inner = 10. * max(0., 1. - pow(u / 0.93, 2.));
-    float farTop = sheer - inner;
-    float interior = smoothstep(farTop - 1., farTop + 1., rp.y) * (1. - smoothstep(sheer - 0.5, sheer + 0.5, rp.y)) * endT * step(0.5, inner);
-    if (interior > 0.) {
-      vec3 ic = mix(vec3(.095,.083,.066), vec3(.15,.13,.10), smoothstep(-0.9, 0.9, u) * smoothstep(farTop, sheer, rp.y));
-      float thw = (1. - smoothstep(0.02, 0.035, abs(u - 0.12))) + (1. - smoothstep(0.02, 0.035, abs(u + 0.48)));
-      ic = mix(ic, vec3(.075,.065,.055), clamp(thw, 0., 1.) * 0.8);
-      float farG = 1. - smoothstep(0., 2.0, rp.y - farTop);
-      ic = mix(ic, vec3(.30,.26,.195), farG * 0.55 * smoothstep(-0.7, 0.5, u));
-      c = mix(c, ic, interior);
-      if (interior > .5) { mat = 8.; size = 0.12; dir = vec2(cos(ang), -sin(ang)); follow = 0.8; cross = 0.; imp = 0.7; }
+    if (side > 0.) {
+      // the near side: dark planking, a lighter top strake, the sheer line catching the last light
+      float k = (p.y - nG) / max(nWL - nG, 1.);
+      vec3 hc = mix(vec3(.12,.10,.08), vec3(.065,.058,.05), smoothstep(0.15, 0.5, k));
+      float gun = 1. - smoothstep(0., 2.6, p.y - nG);
+      hc = mix(hc, vec3(.40,.33,.22), gun * (0.45 + 0.35 * smoothstep(-0.6, 0.9, u)));
+      float seam = (1. - smoothstep(0., 1.2, abs(k - 0.42))) * 0.25;
+      hc = mix(hc, vec3(.14,.12,.095), seam);
+      c = mix(c, hc, side);
+      if (side > .5) { mat = 8.; size = 0.1; dir = adir; follow = 0.8; cross = 0.; imp = 0.6; }
     }
-    // mooring line from the bow to a stake in the water
-    vec2 bowP = sc * vec2(2160., 2700.) + vec2(L * 0.98, -44.);
-    vec2 sp = bowP + vec2(-30., -70.);
-    float sx = p.x - sp.x + (p.y - sp.y) * 0.07;
-    float stake = (1. - smoothstep(1.6, 3.4, abs(sx))) * step(sp.y - 175., p.y) * step(p.y, sp.y + 4.);
-    float rstake = (1. - smoothstep(2.0, 4.5, abs(sx - 2.5 * sin(p.y * 0.18)))) * step(sp.y + 4., p.y) * step(p.y, sp.y + 140.) * (1. - (p.y - sp.y) / 140.);
-    c = mix(c, c * 0.4, rstake * 0.7);
-    vec2 lp = sp + vec2(0., -120.);
+    // the painter (mooring line) from the bow to a stake upstream
+    vec2 bowP = S + A + vec2(4., -shr * 0. - 36.);
+    vec2 sp = bowP + vec2(-95., -30.);
+    float sx = p.x - sp.x + (p.y - sp.y) * 0.06;
+    float stake = (1. - smoothstep(1.5, 3.2, abs(sx))) * step(sp.y - 150., p.y) * step(p.y, sp.y + 4.);
+    float rstake = (1. - smoothstep(1.8, 4.2, abs(sx - 2.5 * sin(p.y * 0.18)))) * step(sp.y + 4., p.y) * step(p.y, sp.y + 110.) * (1. - (p.y - sp.y) / 110.);
+    c = mix(c, c * 0.45, rstake * 0.6);
+    vec2 lp = sp + vec2(0., -95.);
     float tl2 = clamp((p.x - bowP.x) / (lp.x - bowP.x), 0., 1.);
-    float ly = mix(bowP.y, lp.y, tl2) + 22. * sin(3.1416 * tl2);
-    float line = (1. - smoothstep(0.6, 1.6, abs(p.y - ly))) * step(bowP.x, p.x) * step(p.x, lp.x);
-    c = mix(c, vec3(.10,.09,.075), line * 0.8);
-    vec3 stc = mix(vec3(.11,.10,.085), vec3(.22,.19,.15), smoothstep(-1., 2.5, sx) * 0.6);
-    stc = mix(stc, c, 0.25 * smoothstep(sp.y - 175., sp.y - 60., p.y) * 0.);
+    float ly = mix(bowP.y, lp.y, tl2) + 16. * sin(3.1416 * tl2);
+    float line = (1. - smoothstep(0.5, 1.4, abs(p.y - ly))) * step(lp.x, p.x) * step(p.x, bowP.x);
+    c = mix(c, vec3(.11,.10,.08), line * 0.7);
+    vec3 stc = mix(vec3(.11,.10,.085), vec3(.24,.20,.15), smoothstep(-1., 2.5, sx) * 0.6);
     if (stake > 0.) { c = mix(c, stc, stake * 0.92); mat = 8.; size = 0.1; dir = vec2(0., 1.); follow = 0.9; cross = 0.; }
   }
   imp *= 0.45 + 1.6 * sqrt(lum(c));
@@ -457,7 +528,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     edgeRef: 0.004,
     layers,
     // painting order within a layer, by material: sky, clouds, far woods, land, water, mud, grass, hay, cedars, skiff, moon
-    order: { 0: 0, 1: 1, 3: 2, 5: 3, 6: 4, 7: 5, 10: 6, 9: 7, 4: 8, 8: 9, 2: 10 },
+    order: { 0: 0, 1: 1, 3: 2, 5: 3, 6: 4, 11: 4, 7: 5, 10: 6, 9: 7, 4: 8, 8: 9, 2: 10 },
     finish: { light: [-0.55, 0.5, 0.68], hk: 0.55, wk: 0.16, tau: 0.12, kd: 0.45, ks: 0.05, shin: 24, varnish: [1.0, 0.975, 0.91], crack: 0.0, crackScale: 55 },
     finishGLSL: 'vec3 finishColour(vec3 c, vec2 uv){ return c; }',
   };

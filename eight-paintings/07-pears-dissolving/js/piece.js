@@ -247,7 +247,8 @@
         c = satv(c, (pid >= 6 && pid <= 8) ? 0.88 : 1.0 + 0.08 * k, 1.0 + 0.1 * k, 0.32);
         if (pid === 1 && rnd() < 0.45) continue;
         const base = pid === 1 ? 0.06 + 0.5 * (rnd() - 0.5)
-          : (pid >= 6 && pid <= 8 || pid >= 11) ? (rnd() < 0.6 ? dirAt(x, y) + 0.3 * (rnd() - 0.5) : -0.62 + 0.3 * (rnd() - 0.5))
+          : (pid === 7 || pid >= 11) ? (rnd() < 0.55 ? -0.25 + 0.35 * (rnd() - 0.5) : -0.62 + 0.3 * (rnd() - 0.5))
+          : (pid >= 6 && pid <= 8) ? (rnd() < 0.6 ? dirAt(x, y) + 0.3 * (rnd() - 0.5) : -0.62 + 0.3 * (rnd() - 0.5))
           : -0.62 + 0.35 * (rnd() - 0.5) + (rnd() < 0.18 ? PI / 2 : 0);
         const ux = Math.cos(base), uy = Math.sin(base);
         const nx = -uy, ny = ux;
@@ -261,9 +262,9 @@
           const cc = jitterCol(c, 0.05);
           cv.stroke({
             pts: [cx - ux * l2 / 2, cy - uy * l2 / 2, cx, cy, cx + ux * l2 / 2, cy + uy * l2 / 2],
-            w, col: cc, alpha: 0.96, thick: 0.45, bristle: 0.35, load: 1.1, run: (pid === 1 ? 90 : 400) * S,
-            taper0: 0.05, taper1: pid === 1 ? 0.4 : 0.1, cap: pid === 1 ? 0.5 : 0.15, smear: pid === 1 ? 0.35 : 0.12, pick: pid === 1 ? 0.35 : 0.12, rag: pid === 1 ? 0.3 : 0.12, ridge: 0.5,
-            dry: pid === 1 ? 0.45 : 0.25, seed: (rnd() * 1e9) | 0
+            w, col: cc, alpha: 0.96, thick: pid === 1 ? 0.28 : 0.45, bristle: 0.35, load: 1.1, run: (pid === 1 ? 90 : 400) * S,
+            taper0: 0.05, taper1: pid === 1 ? 0.4 : 0.1, cap: pid === 1 ? 0.3 : 0.15, smear: pid === 1 ? 0.35 : 0.12, pick: pid === 1 ? 0.35 : 0.12, rag: pid === 1 ? 0.3 : 0.12, ridge: pid === 1 ? 0.1 : 0.5,
+            dry: pid === 1 ? 0.45 : 0.25, flatten: pid === 1 ? 0.95 : 0.8, seed: (rnd() * 1e9) | 0
           });
         }
         n++;
