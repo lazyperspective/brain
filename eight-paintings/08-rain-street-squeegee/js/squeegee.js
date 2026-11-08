@@ -114,7 +114,7 @@
       }
       const HFj = function (j) { return P8.hashf(j, 5, p.seed); };
       const endJ = new Float32Array(Lb);
-      for (let j = 0; j < Lb; j++) endJ[j] = p.endRidge ? Math.max(0, (p.endJit || 22) * S * (0.5 + 0.9 * FB(j / (160 * S), 3.3, 3, p.seed + 81)) + 1.6 * S * FB(j / (23 * S), 1.3, 3, p.seed + 82)) : 0;
+      for (let j = 0; j < Lb; j++) endJ[j] = p.endRidge ? Math.max(0, (p.endJit || 22) * S * (0.5 + 0.7 * FB(j / (210 * S), 3.3, 3, p.seed + 81)) + 0.35 * (p.endJit || 22) * S * FB(j / (38 * S), 1.3, 4, p.seed + 82) + 2.5 * S * N(j / (6 * S), 2.2, p.seed + 83)) : 0;
       const env = new Float32Array(Lb), Dcol = new Float32Array(Lb);
       const kb = p.stiff || 0.16;
       const yTop0 = y0; let yLast = y0;
@@ -154,7 +154,7 @@
           }
           // viscous fingering / rips: lacy, horizontally drawn-out, more of them as the pull runs out
           const wu = u + 40 * N(u / 300, y / (60 * S), p.seed + 70);
-          const sf = 0.55 * FB(wu / 300, y / (16 * S), 4, p.seed + 71) + 0.3 * (0.35 - Math.abs(FB(wu / 420, y / (11 * S), 3, p.seed + 75))) + 0.32 * FB(wu / 600, y / (50 * S), 2, p.seed + 74) + 0.035 * N(wu / 70, y / (7 * S), p.seed + 72);
+          const sf = 0.55 * FB(wu / 320, y / (28 * S), 4, p.seed + 71) + 0.3 * (0.35 - Math.abs(FB(wu / 460, y / (20 * S), 3, p.seed + 75))) + 0.32 * FB(wu / 650, y / (70 * S), 2, p.seed + 74) + 0.035 * N(wu / 70, y / (7 * S), p.seed + 72);
           const veil = p.veil === undefined ? 0.1 : p.veil;
           let fing = veil * SM(-0.35, -0.05, thr - sf) + (1 - veil) * SM(-0.04, 0.04, thr - sf + 0.04 * N(u / 14, y / (5 * S), p.seed + 73) + 0.02 * N(u / 5, y / (3 * S), p.seed + 76));
           if (p.noRidge) fing *= SM(len - endJ[j], len - endJ[j] - 70 * S * (0.4 + 0.6 * HFj(j)), k);
@@ -217,8 +217,8 @@
       if (p.endRidge && !p.noRidge && xe >= 0 && xe < W) {
         for (let j = 0; j < Lb; j++) {
           const y = yLast + j; if (y < 0 || y >= H) continue;
-          const wd = Math.max(5 * S, (16 + 26 * FB(j / (70 * S), 9.2, 3, p.seed + 31) + 4 * FB(j / (19 * S), 3.7, 3, p.seed + 33)) * S);
-          const hgt = CL(A[j] / S * 0.0035, 0.5, 3.2) * (0.7 + 0.5 * Math.max(0, N(j / (16 * S), 5, p.seed + 34)));
+          const wd = Math.max(8 * S, (28 + 30 * FB(j / (60 * S), 9.2, 3, p.seed + 31) + 8 * FB(j / (14 * S), 3.7, 3, p.seed + 33)) * S);
+          const hgt = CL(A[j] / S * 0.0022, 0.4, 2.0) * (0.7 + 0.5 * Math.max(0, N(j / (16 * S), 5, p.seed + 34)));
           const xr = Math.round(xe - dir * endJ[j]);
           for (let q = -Math.round(wd * 0.3); q < wd + 2; q++) {
             const x = xr + dir * q; if (x < 0 || x >= W) continue;
@@ -323,7 +323,7 @@
     { x0: -60, x1: 1640, y0: 255, Lb: 330, pal: 'red', load: 2600, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 0.9, gap: 0.02, press: 0.25, tilt: 0.5,
       bead: 0.0016, rate: 0.03, float: 0.00035, lifts: [[640, 30, 1.5], [1180, 50, 0.9]], seed: 11, cov: [0.92, 0.5], endRidge: true, endJit: 150, chatter: 27, edge: 20 },
     // pale lemon / cerulean / rose skimmed back from the right, partly over the red
-    { x0: 2240, x1: 640, y0: 470, Lb: 260, pal: 'white', load: 1500, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 1.2, gap: 0.3, press: 0.3, tilt: 0.8, skin: 0.22,
+    { x0: 2240, x1: 980, y0: 470, Lb: 280, pal: 'white', load: 1700, bandMin: 50, bandMax: 200, streaks: 10, nicks: 8, endLift: 1.2, gap: 0.3, press: 0.3, tilt: 0.8, skin: 0.22,
       bead: 0.0016, rate: 0.03, float: 0.00025, shear: 0.06, lifts: [[520, 40, 1.2], [1100, 25, 2.0]], seed: 12, cov: [0.8, 0.45], endRidge: true, endJit: 90, chatter: 19, edge: 22 },
     // lower pull across the wet street, left -> right, ends with a ridge
     { x0: -60, x1: 1760, y0: 1650, Lb: 400, pal: 'pale', load: 1700, bandMin: 50, bandMax: 220, streaks: 10, nicks: 8, endLift: 1.0, gap: 0.05, press: 0.3, tilt: 0.6,
