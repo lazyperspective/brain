@@ -178,8 +178,8 @@
     const j1 = Math.abs(N5.fbm(x * 38 + 0.4 * N6.n2(z * 90, 1), z * 22, 3));
     top -= 0.0006 * (1 - smooth(0.0, 0.035, j1)) * smooth(0.0, 0.0015, e);
     // strata steps near the edge
-    const st1 = 0.0042 + 0.0016 * N3.fbm(x * 120, z * 120, 3);
-    const st2 = 0.0016 + 0.0008 * N4.fbm(x * 140 + 5, z * 140, 3);
+    const st1 = 0.0042 + 0.0014 * N3.fbm(x * 60, z * 60, 3);
+    const st2 = 0.0016 + 0.0007 * N4.fbm(x * 70 + 5, z * 70, 3);
     top -= 0.0016 * smooth(st1 + 0.0002, st1 - 0.0002, e) + 0.0014 * smooth(st2 + 0.0002, st2 - 0.0002, e);
     let hr;
     if (e > 0) hr = top - 0.0004 * (1 - smooth(0, 0.0005, e));
