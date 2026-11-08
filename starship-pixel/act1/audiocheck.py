@@ -14,7 +14,7 @@ F, T, Z = signal.stft(m, sr, nperseg=2048, noverlap=2048 - hop)
 mag = np.abs(Z); flux = np.maximum(0, np.diff(np.log1p(mag * 50), axis=1)).sum(axis=0); tt = T[1:]
 flux = (flux - np.median(flux)) / (np.std(flux) + 1e-9)
 ev = [('cut shot2', 4.338), ('cut shot3', 12.146), ('cut shot4', 15.115), ('cut shot5', 18.919), ('cut act2 + boom', 30.1), ('2nd boom', 30.44),
-      ('engine ignition', 55.0), ('cut shot7', 60.3), ('cut shot8', 65.8), ('catch clank', 68.5), ('cut shot9', 71.2), ('cut shot10', 78.6)]
+      ('engine ignition', 53.45), ('cut shot7', 60.3), ('cut shot8', 65.8), ('catch clank', 68.0), ('cut shot9', 71.2), ('cut shot10', 78.6)]
 for name, t in ev:
     w = (tt > t - 0.12) & (tt < t + 0.12); k = np.argmax(np.where(w, flux, -1e9))
     print(f'  {name:18s} {t:7.3f} s -> strongest onset {tt[k]:7.3f} s ({(tt[k]-t)*1000:+5.0f} ms), strength {flux[k]:5.1f} sd')

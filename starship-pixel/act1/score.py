@@ -23,6 +23,8 @@ BEATS = [7, 12, 5, 6, 18, 48, 9, 8, 12, 16]
 def bt(sec, beat):
     """absolute time of beat `beat` (float ok) in section `sec`"""
     a, b = CUTS[sec], CUTS[sec + 1]
+    if sec == 7:  # the catch: 4 quick beats rushing in (65.8-68.0), 4 broad beats after the clamp at 68.0
+        return a + 0.55 * beat if beat <= 4 else 68.0 + 0.8 * (beat - 4)
     if sec == 9:  # ending: gentle ritardando
         x = beat / BEATS[sec]
         return a + (b - a) * (0.8 * x + 0.2 * x * x)
@@ -258,13 +260,13 @@ mel(6, 0, [('E5', 1.5), ('F#5', 1.5), ('G5', 1.5), ('A5', 1.5), ('B5', 1.5), ('C
 for k in range(18): d_snare(bt(6, 5 + k * 4 / 18), 0.05 + 0.25 * (k / 18) ** 2)
 cymbal_swell(CUTS[7], 2.0, 0.3)
 # --- H: 65.8-71.2 the catch: broad swell, choir; clank at beat 4 (68.5 s), resolve begins
-i_pad(bt(7, 0), blen(7) * 4, [n('G2'), n('D3'), n('B3'), n('F#4'), n('A4')], vel=0.15, a=0.15, r=0.4, cut=3200, bright=1)
-i_choir(bt(7, 0), blen(7) * 4, [n('B3'), n('D4'), n('F#4')], vel=0.07, a=0.6)
-i_pad(bt(7, 4), blen(7) * 4.2, [n('D3'), n('A3'), n('D4'), n('F#4'), n('A4'), n('E5')], vel=0.17, a=0.05, r=1.2, cut=3500, bright=1)
-i_choir(bt(7, 4), blen(7) * 4.5, [n('A3'), n('D4'), n('F#4'), n('A4')], vel=0.09, a=0.2, r=2.0)
+i_pad(bt(7, 0), 2.2, [n('G2'), n('D3'), n('B3'), n('F#4'), n('A4')], vel=0.15, a=0.15, r=0.4, cut=3200, bright=1)
+i_choir(bt(7, 0), 2.2, [n('B3'), n('D4'), n('F#4')], vel=0.07, a=0.6)
+i_pad(bt(7, 4), 3.35, [n('D3'), n('A3'), n('D4'), n('F#4'), n('A4'), n('E5')], vel=0.17, a=0.05, r=1.2, cut=3500, bright=1)
+i_choir(bt(7, 4), 3.6, [n('A3'), n('D4'), n('F#4'), n('A4')], vel=0.09, a=0.2, r=2.0)
 d_timp(bt(7, 0), n('G1'), 0.5); d_timp(bt(7, 4), n('D2'), 0.6); crash(bt(7, 4), 0.25); d_kick(bt(7, 4), 0.55)
 mel(7, 0, [('D5', 1), ('E5', 1), ('F#5', 1), ('G5', 1), ('A5', 4)], vel=0.14, duty=0.25, octave_double=True, vib=0.01)
-i_tri(bt(7, 0), blen(7) * 4, n('G1'), 0.35); i_tri(bt(7, 4), blen(7) * 4, n('D2'), 0.4)
+i_tri(bt(7, 0), 2.2, n('G1'), 0.35); i_tri(bt(7, 4), 3.2, n('D2'), 0.4)
 arp(7, 4, 4, [n('D5'), n('F#5'), n('A5'), n('D6'), n('E6')], step=0.25, vel=0.05, duty=0.125, pan=0.5, pattern=[0, 1, 2, 3, 4, 3, 2, 1])
 # --- I: 71.2-78.6 triumphant resolve (3 bars)
 I_prog = [(0, [n('D3'), n('A3'), n('D4'), n('F#4'), n('A4')], n('D2')), (4, [n('G3'), n('B3'), n('D4'), n('G4'), n('E5')], n('G2')), (8, [n('A3'), n('D4'), n('E4'), n('A4'), n('C#5')], n('A2'))]
@@ -363,8 +365,8 @@ def boom(t, vel=1.0, pan=0.0):
 boom(30.10, 0.5, -0.1); boom(30.44, 0.4, 0.15)
 
 # Raptor landing burn 55-66 s: chip-noise roar, crackle, sub; ignition burst at 55.0
-t0, t1 = 54.9, 67.6; ns = int((t1 - t0) * SR); tt = np.arange(ns) / SR; at = t0 + tt
-lev = np.interp(at, [54.9, 55.0, 55.25, 56.5, 60.2, 60.35, 64.5, 66.0, 67.0, 67.6], [0, 0.0, 1.0, 0.65, 0.75, 0.95, 1.0, 0.9, 0.2, 0.0])
+t0, t1 = 53.35, 67.6; ns = int((t1 - t0) * SR); tt = np.arange(ns) / SR; at = t0 + tt
+lev = np.interp(at, [53.35, 53.45, 53.6, 54.6, 55.6, 57.0, 60.2, 60.35, 64.5, 66.0, 67.0, 67.6], [0, 0.0, 0.3, 0.42, 0.62, 0.7, 0.78, 0.95, 1.0, 0.9, 0.2, 0.0])
 roar = lp(chipnoise(ns, 2600 + 900 * lev), 1400, 2) * 0.8 + lp(chipnoise(ns, 700), 400, 2) * 0.9
 crackle = np.zeros(ns); idx = rng.choice(ns, size=int((t1 - t0) * 70), replace=False); crackle[idx] = rng.choice([-1, 1], size=len(idx)) * rng.random(len(idx))
 crackle = bp(np.convolve(crackle, np.exp(-np.arange(400) / 60), 'same'), 300, 3500) * 2.5
@@ -395,7 +397,7 @@ if '--buses' in sys.argv:
     sys.exit()
 # music automation: calm sky -> tension -> catch -> resolve
 tt = np.arange(N) / SR
-auto = np.interp(tt, [0, 4.3, 12.1, 15.1, 18.9, 29.0, 30.1, 33.0, 45.0, 55.0, 60.3, 65.8, 68.5, 71.2, 78.6, 92],
+auto = np.interp(tt, [0, 4.3, 12.1, 15.1, 18.9, 29.0, 30.1, 33.0, 45.0, 55.0, 60.3, 65.8, 68.0, 71.2, 78.6, 92],
                      [0.5, 0.55, 0.6, 0.66, 0.66, 0.72, 0.85, 0.75, 0.8, 0.9, 0.95, 1.0, 1.08, 1.05, 1.0, 0.9])
 mix = (MUS + apply_verb(VERB, ir_m) * 0.55) * auto + SFX * 1.0 + apply_verb(SFXV, ir_s) * 0.5
 # fade at the end: film fades to black ~88 s
