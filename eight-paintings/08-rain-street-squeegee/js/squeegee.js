@@ -14,7 +14,7 @@
     for (let i = 0; i < n; i++) { Ws[i] *= 0.15; D[i] = Hh[i] - Ws[i]; }
     const fresh = new Float32Array(n); // squeegee paint amount (for gloss)
     const touched = new Float32Array(n); // where a blade dragged across
-    const TAU = 0.06;
+    const TAU = 0.22;
     const Dsm = D.slice(); P8.blur(Dsm, W, H, 4 * S, 4 * S);
     const Deff = new Float32Array(n); for (let i = 0; i < n; i++) Deff[i] = 0.85 * Dsm[i] + 0.15 * D[i];
 
@@ -131,7 +131,7 @@
         const u = k / S;
         const cov = CL(p.cov[0] + (p.cov[1] - p.cov[0]) * k / len + 0.22 * FB(u / 320, 9.1, 3, p.seed + 91), 0, 1);
         const thr = -0.42 + 0.84 * cov + (p.endRidge ? 0.45 * SM(len - 260 * S, len - 30 * S, k) : 0);
-        const jT = Math.max(0, (p.edge || 14) * S * (0.5 + 1.2 * FB(u / 110, 1.5, 4, p.seed + 61))), jB = Math.max(0, (p.edge || 14) * S * (0.5 + 1.2 * FB(u / 110, 7.5, 4, p.seed + 62)));
+        const jT = Math.max(0, (p.edge || 14) * S * (0.6 + 1.1 * FB(u / 170, 1.5, 2, p.seed + 61) + 0.12 * N(u / 25, 2.5, p.seed + 63))), jB = Math.max(0, (p.edge || 14) * S * (0.6 + 1.1 * FB(u / 170, 7.5, 2, p.seed + 62) + 0.12 * N(u / 25, 8.5, p.seed + 64)));
         for (let j = 0; j < Lb; j++) {
           const y = yTop + j; if (y < 0 || y >= H) continue;
           if (j < jT || j > Lb - 1 - jB) continue;
@@ -155,7 +155,8 @@
           // viscous fingering / rips: lacy, horizontally drawn-out, more of them as the pull runs out
           const wu = u + 40 * N(u / 300, y / (60 * S), p.seed + 70);
           const sf = 0.55 * FB(wu / 300, y / (16 * S), 4, p.seed + 71) + 0.3 * (0.35 - Math.abs(FB(wu / 420, y / (11 * S), 3, p.seed + 75))) + 0.32 * FB(wu / 600, y / (50 * S), 2, p.seed + 74) + 0.035 * N(wu / 70, y / (7 * S), p.seed + 72);
-          let fing = SM(-0.04, 0.04, thr - sf + 0.04 * N(u / 14, y / (5 * S), p.seed + 73) + 0.02 * N(u / 5, y / (3 * S), p.seed + 76));
+          const veil = p.veil === undefined ? 0.28 : p.veil;
+          let fing = veil * SM(-0.35, -0.05, thr - sf) + (1 - veil) * SM(-0.04, 0.04, thr - sf + 0.04 * N(u / 14, y / (5 * S), p.seed + 73) + 0.02 * N(u / 5, y / (3 * S), p.seed + 76));
           if (p.noRidge) fing *= SM(len - endJ[j], len - endJ[j] - 70 * S * (0.4 + 0.6 * HFj(j)), k);
           if (drag[j] !== undefined) { const dd = drag[j]; for (let q = 0; q < dd.length; q++) if (k >= dd[q][0] && k < dd[q][1]) fing *= dd[q][2]; }
           const reach = p.bead * A[j] / S;
@@ -172,10 +173,10 @@
             const gp2 = Math.max(0, Lv - (Deff[i] + ws));
             const gpR = Math.max(0, Lv - (D[i] + ws)); // fill the real (weave) valleys -> smooth skin
             const te = fing * SM(reach, reach * 0.45, gp2);
-            const tm = CL(0.7 + 0.55 * FB(u / 380, y / (7 * S), 3, p.seed + 101) + 0.2 * N(u / 120, y / (4 * S), p.seed + 102), 0.15, 1.5);
+            const tm = CL(0.75 + 0.75 * FB(u / 420, y / (9 * S), 3, p.seed + 101) + 0.25 * N(u / 160, y / (4.5 * S), p.seed + 102), 0.1, 1.8);
             const dep = Math.min((gpR * 0.97 + (p.skin || 0.2) * tm * 1.6) * te, A[j] * p.rate);
             // incomplete mixing of the bead with the paint it drags: marbled, striated
-            const mu = (p.marble || 0.45) * SM(0.05, 0.5, wsPre) * SM(-0.2, 0.4, FB(u / 260, y / (14 * S), 3, p.seed + 111) + 0.15 * N(u / 70, y / (6 * S), p.seed + 112));
+            const mu = (p.marble || 0.5) * (0.35 + 0.65 * SM(0.05, 0.5, wsPre)) * SM(-0.2, 0.4, FB(u / 260, y / (14 * S), 3, p.seed + 111) + 0.15 * N(u / 70, y / (6 * S), p.seed + 112));
             const jj = CL(j + Math.round(7 * S * N(u / 140, j / (35 * S), p.seed + 121) + 2 * S * N(u / 30, j / (6 * S), p.seed + 122)), 0, Lb - 1);
             const al = (p.alt || 0.7) * SM(0.05, 0.4, FB(u / 380, y / (55 * S), 3, p.seed + 141) + 0.12 * N(u / 90, y / (16 * S), p.seed + 142));
             const lr0 = mixKM(Lr[jj], Ar[jj], al), lg0 = mixKM(Lg[jj], Ag[jj], al), lb0 = mixKM(Lbb[jj], Ab[jj], al);

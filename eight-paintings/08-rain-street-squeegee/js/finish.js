@@ -14,8 +14,8 @@
     const shin = 38, spec0 = Math.pow(hz, shin);
     const HL = new Float32Array(n);
     const fr = new Float32Array(n);
-    if (pt.fresh) { for (let i = 0; i < n; i++) fr[i] = Math.min(4, pt.fresh[i]); P8.blur(fr, W, H, 1.6 * S, 1.6 * S); }
-    for (let i = 0; i < n; i++) HL[i] = Hh[i] + 1.8 * fr[i];
+    if (pt.fresh) { for (let i = 0; i < n; i++) fr[i] = Math.min(4, pt.fresh[i]); P8.blur(fr, W, H, 3 * S, 2.2 * S); }
+    for (let i = 0; i < n; i++) HL[i] = Hh[i] + 1.1 * fr[i];
     const blurH = HL.slice(); P8.blur(blurH, W, H, 3 * S, 3 * S);
     const gloss = pt.gloss || null;
     for (let y = 0; y < H; y++) {

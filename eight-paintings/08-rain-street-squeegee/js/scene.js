@@ -1006,7 +1006,7 @@
         if (z < 9) {
           const nearK = SM(9, 3, z);
           const gl = HF(x, y, 777);
-          if (gl > 0.994) { const a = nearK * (0.006 + 0.5 * (LmB.r[i] + LmB.g[i] + LmB.b[i])) * (gl - 0.994) * 150; Ld.r[i] += a * 0.9; Ld.g[i] += a * 0.92; Ld.b[i] += a; }
+          if (gl > 2) { const a = nearK * (0.006 + 0.5 * (LmB.r[i] + LmB.g[i] + LmB.b[i])) * (gl - 0.994) * 150; Ld.r[i] += a * 0.9; Ld.g[i] += a * 0.92; Ld.b[i] += a; }
         }
       }
     }
