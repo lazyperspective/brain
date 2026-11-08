@@ -99,7 +99,7 @@ void main(){
                    + texture(u_prevH, (gl_FragCoord.xy + vec2(ho, -ho)*0.7) / u_res).r + texture(u_prevH, (gl_FragCoord.xy - vec2(ho, -ho)*0.7) / u_res).r);
   float relief = clamp((hb - hn) * 4.0 + 0.5, 0., 1.); // 1 on local peaks, 0 in valleys
   float grain = vnoise(gl_FragCoord.xy * 0.31 / u_scale + seed) * 0.6 + vnoise(gl_FragCoord.xy * 0.09 / u_scale - seed) * 0.4;
-  float s = mix(bB, clamp((tooth * 0.3 + grain * 0.6) * (1. - clamp(hb*2.,0.,0.6)) + relief * 0.4, 0., 1.), u_tooth);
+  float s = mix(bB, clamp(tooth * 0.3 + grain * 0.6 + (relief - 0.5) * 0.5, 0., 1.), u_tooth);
   float keep = smoothstep(1. - L - 0.14, 1. - L + 0.14, s);
   vec2 tc = gl_FragCoord.xy / u_res;
   if (u_kind < 0.5 || u_kind > 1.5) {
@@ -656,7 +656,7 @@ void main(){
       const thick = (L.thick || 0.3) * imp * (L.lumThick ? R.mix(1 - L.lumThick, 1 + L.lumThick, R.clamp(Math.sqrt(lum) * 1.6 - 0.3, 0, 1)) : 1);
       this.addStroke({
         pts, r, col: c, col2: c2, alpha: (L.alpha || 0.9) * R.mix(0.85, 1.0, rng()), thick,
-        load: (L.load || 1.25) * R.mix(0.85, 1.15, rng()), fid: L.fid || 0, smear: (L.smear || 0) * (soft ? 1 : 0.35), dry: (L.dry != null ? L.dry : 0.6) * (soft ? 1 : 0.35),
+        load: (L.load || 1.25) * R.mix(0.85, 1.15, rng()) * (soft ? 1 : 1.2), fid: L.fid || 0, smear: (L.smear || 0) * (soft ? 1 : 0.35), dry: (L.dry != null ? L.dry : 0.6) * (soft ? 1 : 0.35),
         mix: L.mix != null ? L.mix : 0.35, seed: rng() * 100,
       });
       count++;

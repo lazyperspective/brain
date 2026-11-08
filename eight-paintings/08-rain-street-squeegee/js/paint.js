@@ -243,7 +243,7 @@
         const lum = 0.3 * lr + 0.59 * lg + 0.11 * lb;
         stroke(pts, {
           R: Rr * (0.85 + 0.3 * R()), col: [Math.min(0.98, lr), Math.min(0.98, lg), Math.min(0.98, lb)], op: Ly.op,
-          thick: Ly.thick * (0.5 + 1.4 * Math.sqrt(lum)), dry: Ly.dry * (0.6 + 0.8 * R()), ridge: Rr > 3 ? 0.25 : 0.1, wet: Ly.wet || 0
+          thick: Ly.thick * 0.4 * (0.45 + 0.8 * Math.sqrt(lum)), dry: Ly.dry * (0.6 + 0.8 * R()), ridge: Rr > 3 ? 0.25 : 0.1, wet: Ly.wet || 0
         });
       }
       updateTooth();
@@ -282,7 +282,7 @@
       const pts = [[x, y], [x + Math.cos(a) * ln, y + Math.sin(a) * ln]];
       const c = [ref.r[i], ref.g[i], ref.b[i]];
       const boost = Math.min(1.0, 0.94 / Math.max(c[0], c[1], c[2]));
-      stroke(pts, { R: (1.2 + R() * 1.8) * S, col: [c[0] * boost, c[1] * boost, c[2] * boost], op: 0.95, thick: 0.7 + 0.9 * Math.min(1, (lh[i] - 1.4) / 3), dry: 0.15, ridge: 0.6, wet: 1 });
+      stroke(pts, { R: (1.2 + R() * 1.8) * S, col: [c[0] * boost, c[1] * boost, c[2] * boost], op: 0.95, thick: 0.6 + 0.7 * Math.min(1, (lh[i] - 1.4) / 3), dry: 0.15, ridge: 0.6, wet: 1 });
     }
     log && log('impasto');
     return { C: C, Hh: Hh, Hw: Hw, weave: weave, S: S, toothMap: toothMap };

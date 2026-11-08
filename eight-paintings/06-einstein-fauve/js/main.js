@@ -40,7 +40,8 @@
     const P = new G.Painter(W, H, scale, seed);
     log('canvas');
     G.paintPortrait(P, plan, seed, log);
-    const out = G.lightSurface(P, { weaveAmp: 0.9, paintAmp: 2.6, gradScale: 0.7, diffuse: 0.62, specPow: 20, gloss: 0.2, shadowScale: 0.5 });
+    const out = q.has('flat') ? (() => { const o = new Uint8ClampedArray(W * H * 4); for (let i = 0; i < W * H; i++) { o[i * 4] = P.R[i] * 255; o[i * 4 + 1] = P.Gc[i] * 255; o[i * 4 + 2] = P.B[i] * 255; o[i * 4 + 3] = 255; } return o; })()
+      : G.lightSurface(P, { weaveAmp: 0.9, paintAmp: 2.6, gradScale: 0.7, diffuse: 0.62, specPow: 20, gloss: 0.2, shadowScale: 0.5 });
     const img = new ImageData(out, W, H);
     cv.getContext('2d').putImageData(img, 0, 0);
     log('done');

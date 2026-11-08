@@ -71,17 +71,26 @@
       list.forEach(([x, y, rid], i) => {
         const rg = regs[rid];
         const r2 = R.rng(o.seed * 100003 + i);
+        const cell = rg && rg.cell;
+        const headish = rg && rg.fig && rg.kind !== 'cloth' && rg.kind !== 'hat' && rg.kind !== 'hatlight';
+        const mode = !cell || headish || o.stage === 'feat' ? 'normal' : cell.mode;
+        if (mode === 'scumble' && o.stage === 'body' && r2() < 0.3) return;
+        if (mode === 'scumble' && o.stage === 'fine') return;
+        const kW = mode === 'loaded' ? 1.3 : 1, kL = mode === 'loaded' ? 1.35 : mode === 'scumble' ? (o.stage === 'block' ? 0.88 : 0.5) : 1;
+        const kH = mode === 'loaded' ? 1.9 : mode === 'scumble' ? 0.3 : 1, kO = mode === 'scumble' ? (o.stage === 'block' ? 0.92 : 0.85) : 1;
+        const kS = cell && !headish && o.stage !== 'feat' ? cell.sz : 1;
+        const crossA = cell && cell.cross && !headish && (i & 1) ? 0.55 : 0;
         let c = tAt(x, y);
         if (o.colour) c = o.colour(c, rg, r2);
         const vv = (o.vary || 0.05) * (rg && rg.fig ? 1 : 0.6);
         const cA = vary(c, vv, r2), cB = vary(c, vv * 1.6, r2);
-        const ang = ((rg.hatch + (r2() - 0.5) * (o.angJ || 24)) * Math.PI) / 180;
-        const len = (o.len[0] + r2() * (o.len[1] - o.len[0])) * k;
-        const w = (o.w[0] + r2() * (o.w[1] - o.w[0])) * k;
-        const clip = r2() < (o.clipP === undefined ? 0.85 : o.clipP) * (rg && rg.shape && /^hollow/.test(rg.shape.name) ? 0.5 : 1) ? rid : 0;
+        const ang = ((rg.hatch + (r2() - 0.5) * (o.angJ || 24)) * Math.PI) / 180 + crossA;
+        const len = (o.len[0] + r2() * (o.len[1] - o.len[0])) * k * kS * (mode === 'loaded' ? 1.2 : mode === 'scumble' ? 2.1 : 1);
+        const w = (o.w[0] + r2() * (o.w[1] - o.w[0])) * k * Math.sqrt(kS) * kW * (mode === 'scumble' ? 0.8 : 1);
+        const clip = mode === 'scumble' || r2() < (o.clipP === undefined ? 0.85 : o.clipP) * (rg && rg.shape && /^hollow/.test(rg.shape.name) ? 0.5 : 1) ? rid : 0;
         P.stroke({ pts: PU.bentPts(x, y, ang, len, (r2() - 0.5) * (o.bend || 0.3), w), w, c: cA, c2: cB, mixAmt: 0.7,
-          load: o.load * (0.85 + 0.3 * r2()), fade: o.fade || 0.55, op: o.op || 1, hs: o.hs * (0.75 + 0.7 * Math.sqrt(R.lum(cA))), pickup: o.pickup || 0.3, seed: o.seed * 7777 + i,
-          clip, rough: o.rough || 1, blob: o.blob, lip: o.lip, brush: o.brush, scrape: o.scrape });
+          load: o.load * kL * (0.85 + 0.3 * r2()), fade: mode === 'scumble' ? 0.85 : o.fade || 0.55, op: (o.op || 1) * kO, hs: o.hs * kH * (0.75 + 0.7 * Math.sqrt(R.lum(cA))), pickup: o.pickup || 0.3, seed: o.seed * 7777 + i,
+          clip, rough: mode === 'scumble' ? 1.6 : o.rough || 1, blob: o.blob, lip: o.lip, brush: o.brush, scrape: o.scrape });
       });
     }
     const notCollage = (rg) => rg && rg.kind !== 'news' && rg.kind !== 'wood';
@@ -96,19 +105,21 @@
       return R.mix3(c, n, 0.4);
     };
     // 3. lean block-in
-    layer({ sp: 40, w: [60, 84], len: [90, 170], load: 0.9, fade: 0.45, op: 0.95, hs: 0.12, pickup: 0.35, seed: 1, clipP: 0.55, vary: 0.07, rough: 1.4, blob: 0.1, lip: 0.1,
+    layer({ stage: 'block', sp: 40, w: [60, 84], len: [90, 170], load: 0.9, fade: 0.45, op: 0.95, hs: 0.12, pickup: 0.35, seed: 1, clipP: 0.55, vary: 0.07, rough: 1.4, blob: 0.1, lip: 0.1,
       colour: (c) => R.mul3(c, 0.93) });
     P.dry(0.4);
     // 4. body of the planes: hatched, clipped to their facets, colour broken across the cuts
-    layer({ sp: 26, w: [24, 40], len: [60, 130], load: 1.0, fade: 0.55, hs: 0.42, pickup: 0.35, seed: 2, clipP: 0.86, vary: 0.11, filter: notCollage, colour: broken });
+    layer({ stage: 'body', sp: 26, w: [24, 40], len: [60, 130], load: 1.0, fade: 0.55, hs: 0.42, pickup: 0.35, seed: 2, clipP: 0.86, vary: 0.11, filter: notCollage, colour: broken });
     P.dry(0.5);
-    layer({ sp: 17, w: [13, 22], len: [34, 80], load: 0.95, fade: 0.5, hs: 0.36, pickup: 0.3, seed: 3, clipP: 0.92, vary: 0.06,
+    layer({ stage: 'fine', sp: 17, w: [13, 22], len: [34, 80], load: 0.95, fade: 0.5, hs: 0.36, pickup: 0.3, seed: 3, clipP: 0.92, vary: 0.06,
       filter: (rg) => rg && rg.fig, colour: broken });
     P.dry(0.4);
     // 5. collage: pasted newsprint and painted wood grain
     collage(P, plan, W, H, k, tAt);
+    overpaint(P, plan, W, H, k, regAt);
+    dripsAndWipes(P, plan, W, H, k, tAt, regAt);
     // 6. the features, small and clipped
-    layer({ sp: 8, w: [6, 11], len: [14, 34], load: 0.9, fade: 0.45, hs: 0.3, pickup: 0.25, seed: 4, clipP: 1, vary: 0.04, angJ: 10,
+    layer({ stage: 'feat', sp: 8, w: [6, 11], len: [14, 34], load: 0.9, fade: 0.45, hs: 0.3, pickup: 0.25, seed: 4, clipP: 1, vary: 0.04, angJ: 10,
       filter: (rg) => rg && rg.shape && rg.shape.feat });
     // 6b. hair and beard: long flowing strokes, lighter strands, the silhouette left ragged
     hairPass(P, plan, W, H, k, tAt, regAt);
@@ -121,6 +132,7 @@
     soften(P, plan, W, H, k, tAt);
     // 8. lines: the scaffold of the cuts and the drawing of the head, in dark paint and in light
     lines(P, plan, W, H, k);
+    openContours(P, plan, W, H, k);
     ageLines(P, k);
     // 9. the last loaded lights
     lights(P, plan, W, H, k, tAt, regAt);
@@ -158,10 +170,12 @@
   }
 
   function stipple(P, plan, W, H, k) {
-    const poly = [[1700, 2140], [2160, 2040], [2160, 2700], [1780, 2700]];
+    const poly = [[1500, 2000], [2160, 1900], [2160, 2700], [1560, 2700]];
     const r = R.rng(3737), regs = plan.regs, ids = plan.ids, gw = plan.gw;
-    const lut = new Uint8Array(65536); regs.forEach((rg, id) => { if (rg && rg.kind === 'bg') lut[id] = 1; });
-    const pal = [R.hex('#6f7c88'), R.hex('#4a5560'), R.hex('#9a7b55'), R.hex('#2a2828'), R.hex('#c9b48a'), R.hex('#dcd2bc')];
+    // one plane only: the dots stop at its cuts
+    const home = regs[ids[2 * Math.floor(2400 * k) * gw + 2 * Math.floor(1990 * k)]];
+    const lut = new Uint8Array(65536); regs.forEach((rg, id) => { if (rg && rg.kind === 'bg' && home && rg.cell === home.cell) lut[id] = 1; });
+    const pal = [R.hex('#6f7a82'), R.hex('#4a5058'), R.hex('#8f7552'), R.hex('#2a2828'), R.hex('#b9a57e'), R.hex('#cfc4ac')];
     const sp = 19;
     let i = 0;
     for (let y = 1940; y < 2720; y += sp * 0.87) for (let x = 1620 + ((Math.round(y / (sp * 0.87)) & 1) ? sp / 2 : 0); x < 2180; x += sp) {
@@ -170,7 +184,7 @@
       const X = px * k, Y = py * k;
       if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
       if (!lut[ids[2 * (Y | 0) * gw + 2 * (X | 0)]]) continue;
-      const c = pal[Math.floor(r() * (r() < 0.6 ? 3 : pal.length))];
+      const c = pal[Math.floor(r() * (r() < 0.75 ? 4 : pal.length))];
       const a = r() * 6.28, w = (12 + r() * 5) * k;
       P.stroke({ pts: [[X - Math.cos(a) * 2 * k, Y - Math.sin(a) * 2 * k], [X + Math.cos(a) * 2 * k, Y + Math.sin(a) * 2 * k]], w, c, c2: R.mul3(c, 0.9), load: 1.2, fade: 0.2, hs: 0.7, pickup: 0.2, seed: 120000 + i++, brush: 'round', taper: 0, clip: lut, blob: 0.5, lip: 0.3, rough: 0.8 });
     }
@@ -193,6 +207,7 @@
     cand.forEach(([x, y, e], i) => {
       const rid = regAt(x, y), rg = plan.regs[rid];
       if (!rg || rg.kind === 'news' || rg.kind === 'wood') return;
+      if (rg.cell.mode === 'scumble' && !(rg.fig && rg.kind !== 'cloth' && rg.kind !== 'hat' && rg.kind !== 'hatlight')) return;
       const c = tAt(x, y);
       const ang = ((rg.hatch + (r() - 0.5) * 16) * Math.PI) / 180;
       const w = (8 + r() * 6) * k;
@@ -202,135 +217,154 @@
 
   function collage(P, plan, W, H, k, tAt) {
     const col = P.col, h = P.h, wv = P.weave, ids = plan.ids, gw = plan.gw, regs = plan.regs;
-    // newsprint: yellowed paper, fibres, columns of illegible print, a cut edge that stands off the canvas
-    const news = plan.news, poly = news.poly.map((p) => [p[0] * k, p[1] * k]);
-    const paper = R.hex('#d7ccb0');
-    const ux = [poly[1][0] - poly[0][0], poly[1][1] - poly[0][1]], uy = [poly[3][0] - poly[0][0], poly[3][1] - poly[0][1]];
-    const lu = Math.hypot(ux[0], ux[1]), lv = Math.hypot(uy[0], uy[1]);
-    const ex = [ux[0] / lu, ux[1] / lu], ey = [uy[0] / lv, uy[1] / lv];
-    const cols = 3, gutter = 26 * k, lineH = 15 * k, xH = 8 * k;
-    const colW = (lu - 2 * 40 * k - (cols - 1) * gutter) / cols;
-    const word = (ci, li, wx) => R.hash2(ci * 131 + li, Math.floor(wx / (6 * k)), 41);
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (const p of poly) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
-    for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(H - 1, Math.ceil(y1)); y++) {
-      for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, Math.ceil(x1)); x++) {
-        const gi = 2 * y * gw + 2 * x;
-        let inN = 0;
-        for (const o of [0, 1, gw, gw + 1]) { const rg = regs[ids[gi + o]]; if (rg && rg.kind === 'news') inN++; }
-        if (!inN) continue;
-        const a = inN / 4;
-        // paper coordinates (u along the columns, v down)
-        const dx = x - poly[0][0], dy = y - poly[0][1];
-        // bilinear-ish: project onto edges of the (nearly rectangular) sheet
-        const u = dx * ex[0] + dy * ex[1], v = dx * ey[0] + dy * ey[1];
-        let ink = 0;
-        const top = 120 * k;
-        // a glyph-like mark: letter boxes with counters, stems, ascenders and descenders, words and spaces; never a
-        // real letter, so nothing can be read
-        const glyph = (gx, gy, cw, xh, seedA, seedB) => {
-          const li2 = Math.floor(gx / cw), fx = gx / cw - li2;
-          const hs = R.hash2(seedA, li2, seedB);
-          if (hs < 0.16) return 0; // space
-          const wfr = 0.55 + 0.32 * R.hash2(seedA, li2, seedB + 1);
-          if (fx > wfr) return 0;
-          const lx = fx / wfr;
-          const asc = hs > 0.74, desc = hs < 0.24;
-          const stem = lx < 0.3;
-          if (gy < 0) return asc && stem && gy > -0.45 ? 1 : 0;
-          if (gy > 1) return desc && stem && gy < 1.4 ? 1 : 0;
-          if (hs > 0.55 && hs < 0.68 && lx > 0.32 && lx < 0.72 && gy > 0.3 && gy < 0.7) return 0; // counter
-          if (hs >= 0.24 && hs < 0.33 && lx > 0.35 && gy < 0.45) return 0; // open shape
-          return 1;
-        };
-        if (v > 40 * k && v < 104 * k && u > 40 * k && u < lu - 40 * k) {
-          // headline: heavy smudged blocks, too blurred by the paint to be letters
-          const hx = u - 40 * k, cell = Math.floor(hx / (115 * k)), fx = hx / (115 * k) - cell;
-          const on = fx < 0.55 + 0.35 * R.hash2(cell, 6, 7);
-          const yy = (v - 52 * k) / (40 * k);
-          const er = R.fbm(u / (6 * k), v / (6 * k), 91, 3);
-          if (on && yy > 0.08 && yy < 0.92 && er > 0.36) ink = 0.62 * (0.55 + 0.45 * er);
-          if (Math.abs(v - 110 * k) < 1.4 * k) ink = 0.7;
-        } else if (v > top && u > 40 * k && u < lu - 40 * k) {
-          const cu = u - 40 * k, ci = Math.floor(cu / (colW + gutter)), cx = cu - ci * (colW + gutter);
-          if (cx < colW) {
-            const li = Math.floor((v - top) / lineH), ly = (v - top) - li * lineH;
-            const para = R.hash2(ci, Math.floor(li / 9), 9) < 0.18 && li % 9 === 8;
-            const lineEnd = li % 9 === 7 ? colW * (0.3 + 0.5 * R.hash2(ci, li, 13)) : colW;
-            if (!para && cx < lineEnd) {
-              const g = glyph(cx, (ly - (lineH - xH) / 2) / xH, 6.4 * k, xH, ci * 977 + li, 21);
-              if (g) ink = 0.8;
-            }
-          } else if (Math.abs(cx - colW - gutter / 2) < 0.8 * k) ink = 0.5;
+    const kindCov = (x, y, kind) => { const gi = 2 * y * gw + 2 * x; let n = 0; for (const o of [0, 1, gw, gw + 1]) { const rg = regs[ids[gi + o]]; if (rg && rg.kind === kind) n++; } return n / 4; };
+    const paper = R.hex('#d3c7a8'), ink3 = R.hex('#1e1c1a'), stainC = R.hex('#b39462'), edgeC = R.hex('#86704c');
+    // a glyph-like mark: letter boxes with counters, stems, ascenders and descenders, words and spaces; never a
+    // real letter, so nothing can be read
+    const glyph = (gx, gy, cw, seedA, seedB) => {
+      const li2 = Math.floor(gx / cw), fx = gx / cw - li2;
+      const hs = R.hash2(seedA, li2, seedB);
+      if (hs < 0.16) return 0;
+      const wfr = 0.55 + 0.32 * R.hash2(seedA, li2, seedB + 1);
+      if (fx > wfr) return 0;
+      const lx = fx / wfr, stem = lx < 0.3;
+      if (gy < 0) return hs > 0.74 && stem && gy > -0.45 ? 1 : 0;
+      if (gy > 1) return hs < 0.24 && stem && gy < 1.4 ? 1 : 0;
+      if (hs > 0.55 && hs < 0.68 && lx > 0.32 && lx < 0.72 && gy > 0.3 && gy < 0.7) return 0;
+      if (hs >= 0.24 && hs < 0.33 && lx > 0.35 && gy < 0.45) return 0;
+      return 1;
+    };
+    for (const piece of plan.newsPieces) {
+      const poly = piece.poly.map((p) => [p[0] * k, p[1] * k]), fr = piece.frame.map((p) => [p[0] * k, p[1] * k]);
+      const ux = [fr[1][0] - fr[0][0], fr[1][1] - fr[0][1]], uy = [fr[3][0] - fr[0][0], fr[3][1] - fr[0][1]];
+      const lu = Math.hypot(ux[0], ux[1]);
+      const ex = [ux[0] / lu, ux[1] / lu], ey = [uy[0] / Math.hypot(uy[0], uy[1]), uy[1] / Math.hypot(uy[0], uy[1])];
+      const cols = 3, gutter = 26 * k, lineH = 15 * k, xH = 8 * k, top = 120 * k;
+      const colW = (lu - 2 * 40 * k - (cols - 1) * gutter) / cols;
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const p of poly) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+      for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(H - 1, Math.ceil(y1)); y++) {
+        for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, Math.ceil(x1)); x++) {
+          if (!G.V.inside(poly, x + 0.5, y + 0.5)) continue;
+          const a = kindCov(x, y, 'news');
+          if (!a) continue;
+          const dx = x - fr[0][0], dy = y - fr[0][1];
+          const u = dx * ex[0] + dy * ex[1], v = dx * ey[0] + dy * ey[1];
+          let ink = 0;
+          if (v > 40 * k && v < 104 * k && u > 40 * k && u < lu - 40 * k) {
+            const hx = u - 40 * k, cell = Math.floor(hx / (115 * k)), fx = hx / (115 * k) - cell;
+            const on = fx < 0.55 + 0.35 * R.hash2(cell, 6, 7);
+            const yy = (v - 52 * k) / (40 * k), er = R.fbm(u / (6 * k), v / (6 * k), 91, 3);
+            if (on && yy > 0.08 && yy < 0.92 && er > 0.36) ink = 0.62 * (0.55 + 0.45 * er);
+          } else if (v > top && u > 40 * k && u < lu - 40 * k) {
+            const cu = u - 40 * k, ci = Math.floor(cu / (colW + gutter)), cx = cu - ci * (colW + gutter);
+            if (cx < colW) {
+              const li = Math.floor((v - top) / lineH), ly = (v - top) - li * lineH;
+              const para = R.hash2(ci, Math.floor(li / 9), 9) < 0.18 && li % 9 === 8;
+              const lineEnd = li % 9 === 7 ? colW * (0.3 + 0.5 * R.hash2(ci, li, 13)) : colW;
+              if (!para && cx < lineEnd && glyph(cx, (ly - (lineH - xH) / 2) / xH, 6.4 * k, ci * 977 + li, 21)) ink = 0.8;
+            } else if (Math.abs(cx - colW - gutter / 2) < 0.8 * k) ink = 0.5;
+          }
+          // age: tide-mark stains, foxing, browned cut edges, ink faded where the paper yellowed
+          const dE = G.V.distPoly(poly, x + 0.5, y + 0.5, true);
+          const st = R.fbm(x / (110 * k), y / (110 * k), 333, 4), stain = R.sstep(0.5, 0.72, st);
+          const fox = R.vnoise(x / (5 * k), y / (5 * k), 334) > 0.93 ? 0.25 : 0;
+          ink *= (0.72 + 0.28 * R.vnoise(x / (1.5 * k), y / (1.5 * k), 61)) * (1 - 0.35 * stain);
+          const t = tAt(x, y), lt = R.lum(t) / 0.6;
+          const fib = 0.94 + 0.08 * R.fbm(x / (5 * k), y / (40 * k), 33, 3) + (R.hash2(x, y, 4) - 0.5) * 0.03;
+          const sh = clamp(0.62 + 0.45 * lt, 0.55, 1.12) * fib;
+          let pc = R.mix3(paper, stainC, 0.42 * stain + fox);
+          pc = R.mix3(pc, edgeC, 0.5 * Math.exp(-dE / (16 * k)));
+          const p3 = (y * W + x) * 3;
+          for (let c = 0; c < 3; c++) {
+            const v0 = pc[c] * sh, v1 = v0 + (ink3[c] - v0) * clamp(ink, 0, 1);
+            col[p3 + c] += (v1 - col[p3 + c]) * a;
+          }
+          const p = y * W + x;
+          h[p] = h[p] * (1 - a) + a * (0.1 + 0.05 * R.vnoise(x / (60 * k), y / (60 * k), 3) + 0.09 * Math.exp(-dE / (2.5 * k)));
+          wv[p] = wv[p] * (1 - a * 0.85) + a * 0.85 * 0.35;
+          P.wet[p] *= 1 - a;
         }
-        ink *= 0.72 + 0.28 * R.vnoise(x / (1.5 * k), y / (1.5 * k), 61);
-        // paper colour shaded like the plane it sits in
-        const t = tAt(x, y), lt = R.lum(t) / 0.6;
-        const fib = 0.94 + 0.08 * R.fbm(x / (5 * k), y / (40 * k), 33, 3) + (R.hash2(x, y, 4) - 0.5) * 0.03;
-        const sh = clamp(0.62 + 0.45 * lt, 0.55, 1.15) * fib;
-        const ink3 = R.hex('#1e1c1a');
-        const p3 = (y * W + x) * 3;
-        for (let c = 0; c < 3; c++) {
-          const v0 = paper[c] * sh, v1 = v0 + (ink3[c] - v0) * clamp(ink, 0, 1);
-          col[p3 + c] += (v1 - col[p3 + c]) * a;
-        }
-        // paper is flat: it hides the weave, and its cut edge stands a little proud
-        const p = y * W + x;
-        h[p] = h[p] * (1 - a) + a * (0.1 + 0.05 * R.vnoise(x / (60 * k), y / (60 * k), 3));
-        wv[p] = wv[p] * (1 - a * 0.85) + a * 0.85 * 0.35;
-        P.wet[p] *= 1 - a;
       }
     }
-    // wood: a painted faux-bois, laid in flat and combed
-    const wood = plan.wood, wp = wood.poly.map((p) => [p[0] * k, p[1] * k]);
-    const wl = R.hex('#b08552'), wd = R.hex('#6e4a2b'), wdd = R.hex('#4a3020');
-    x0 = Infinity; x1 = -Infinity; y0 = Infinity; y1 = -Infinity;
+    // wood: faux-bois as the decorators did it and Braque learned it, a flat muted ochre ground dragged through with
+    // a steel comb in passes; the comb wobbles, swirls round a knot, and each pass sits a little off the last
+    const wood = plan.wood, wp = wood.poly.map((p) => [p[0] * k, p[1] * k]), wf = wood.frame.map((p) => [p[0] * k, p[1] * k]);
+    const wl = R.hex('#ab9168'), wd = R.hex('#6f5a3e'), wdd = R.hex('#4e3f2c');
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (const p of wp) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
-    const ang = Math.atan2(wp[3][1] - wp[0][1], wp[3][0] - wp[0][0]);
+    const ang = Math.atan2(wf[3][1] - wf[0][1], wf[3][0] - wf[0][0]);
     const ca = Math.cos(ang), sa = Math.sin(ang);
+    const passW = 104 * k, tooth = 7.5 * k;
+    const knot = [175 * k, 470 * k];
     for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(H - 1, Math.ceil(y1)); y++) {
       for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, Math.ceil(x1)); x++) {
-        const gi = 2 * y * gw + 2 * x;
-        let inW = 0;
-        for (const o of [0, 1, gw, gw + 1]) { const rg = regs[ids[gi + o]]; if (rg && rg.kind === 'wood') inW++; }
-        if (!inW) continue;
-        const a = inW / 4;
-        const dx = x - wp[0][0], dy = y - wp[0][1];
-        const along = dx * ca + dy * sa, across = -dx * sa + dy * ca;
-        // grain: stretched, warped rings, with a knot
-        const kx = -across - 250 * k, ky = along - 420 * k;
-        const knot = 1 / (1 + (kx * kx + ky * ky * 0.25) / (900 * k * k));
-        const warp = (R.fbm(across / (90 * k), along / (600 * k), 71, 3) - 0.5) * 60 * k + knot * 40 * k * Math.sign(kx);
-        const acr = -across + warp * 0.5 - 175 * k, Rr = (70 + 30 * R.vnoise(along / (400 * k), 0.5, 75)) * k;
-        const cath = (acr * acr) / (2 * Rr) - along * 0.22;
-        const ring = Math.sin((cath / (20 * k)) * Math.PI + R.vnoise(across / (40 * k), along / (300 * k), 72) * 2.2);
-        const fine = R.vnoise(across / (1.6 * k), along / (60 * k), 73);
-        let g = 0.5 + 0.5 * ring; g = Math.pow(g, 2.6) * 0.62 + fine * 0.3;
+        const a = kindCov(x, y, 'wood');
+        if (!a) continue;
+        const dx = x - wf[0][0], dy = y - wf[0][1];
+        const along = dx * ca + dy * sa, acr = dx * sa - dy * ca;
+        const pass = Math.floor(acr / passW);
+        const ph = R.hash2(pass, 1, 81) * 6.28, amp = (8 + 10 * R.hash2(pass, 2, 81)) * k;
+        let off = Math.sin(along / (170 * k) + ph) * amp + (R.vnoise(along / (90 * k), pass, 82) - 0.5) * 10 * k;
+        const kx = acr - knot[0], ky = (along - knot[1]) * 0.45, kr = Math.hypot(kx, ky);
+        off += Math.sign(kx || 1) * 34 * k * Math.exp(-(kr * kr) / (3600 * k * k));
+        const ringK = kr < 60 * k ? Math.sin(kr / (6 * k) * Math.PI) : -1;
+        const q = (acr + off + R.hash2(pass, 3, 81) * tooth) / tooth, fq = q - Math.floor(q);
+        const brk = R.vnoise(along / (26 * k), Math.floor(q) * 1.7, 83);
+        let line = (fq < 0.36 ? 1 : 0) * R.sstep(0.22, 0.4, brk);
+        
+        const edgeGap = Math.abs(acr - (pass + 0.5) * passW) > passW * 0.47 ? 0.4 : 1;
         const t = tAt(x, y), lt = R.lum(t) / R.lum(wood.col);
-        const base = R.mix3(wl, wd, clamp(g, 0, 1));
-        const c3 = R.mix3(base, wdd, knot * 0.5);
-        const sh = clamp(0.7 + 0.3 * lt, 0.6, 1.15);
+        const base = R.mix3(wl, R.hex('#9a8058'), R.fbm(along / (300 * k), acr / (80 * k), 84, 3));
+        const lc = R.mix3(wd, wdd, R.hash2(Math.floor(q), pass, 85));
+        const c3 = R.mix3(base, lc, 0.75 * line * edgeGap);
+        const sh = clamp(0.72 + 0.3 * lt, 0.62, 1.12);
         const p3 = (y * W + x) * 3;
         for (let c = 0; c < 3; c++) col[p3 + c] += (c3[c] * sh - col[p3 + c]) * a;
         const p = y * W + x;
-        h[p] = h[p] * (1 - a) + a * (0.16 + 0.05 * fine);
+        h[p] = h[p] * (1 - a) + a * (0.18 + 0.07 * (1 - line) * edgeGap);
         P.wet[p] *= 1 - a * 0.5;
       }
     }
-    // combed streaks along the grain
-    const r = R.rng(4242);
-    for (let i = 0; i < 12; i++) {
-      const t = r(), sx = wp[0][0] + (wp[1][0] - wp[0][0]) * t, sy = wp[0][1] + (wp[1][1] - wp[0][1]) * t;
-      const L = Math.hypot(wp[3][0] - wp[0][0], wp[3][1] - wp[0][1]);
-      const n = 10, pts = [];
-      const s0 = r() * 0.3, s1 = 0.6 + r() * 0.4;
-      for (let j = 0; j <= n; j++) {
-        const f = s0 + (s1 - s0) * (j / n);
-        pts.push([sx + Math.cos(ang) * L * f + Math.sin(f * 9 + i) * 6 * k, sy + Math.sin(ang) * L * f]);
-      }
-      const rid = plan.regs.findIndex((rg) => rg && rg.kind === 'wood');
-      const lut = new Uint8Array(65536); plan.regs.forEach((rg, id) => { if (rg && rg.kind === 'wood') lut[id] = 1; });
-      P.stroke({ pts, w: (14 + r() * 22) * k, c: r() < 0.6 ? wd : wdd, c2: wl, mixAmt: 1, load: 0.45, fade: 0.5, op: 0.4, hs: 0.08, seed: 7000 + i, clip: lut, rough: 2.2, bristle: 3.5 * k, blob: 0, lip: 0, scrape: 0.1 });
+  }
+
+  // collage is painted into: scumbles of the neighbouring ground drag across parts of the paper and the wood
+  function overpaint(P, plan, W, H, k, regAt) {
+    const r = R.rng(7171), regs = plan.regs;
+    const lut = new Uint8Array(65536); regs.forEach((rg, id) => { if (rg && (rg.kind === 'news' || rg.kind === 'wood' || rg.kind === 'bg')) lut[id] = 1; });
+    const sp = 34 * k;
+    let i = 0;
+    for (let y = 0; y < H; y += sp) for (let x = 0; x < W; x += sp) {
+      const px = x + r() * sp, py = y + r() * sp, rg = regs[regAt(Math.min(W - 1, px), Math.min(H - 1, py))];
+      if (!rg || (rg.kind !== 'news' && rg.kind !== 'wood')) continue;
+      if (!(rg.cell.open || rg.cell.mode === 'scumble') || r() < 0.72) continue;
+      const c = R.mul3(plan.cellBg(rg.cell, px / k, py / k), 0.9 + 0.2 * r());
+      const a = (rg.cell.hatch * Math.PI) / 180 + (r() - 0.5) * 0.2, w = (22 + r() * 22) * k;
+      P.stroke({ pts: PU.bentPts(px, py, a, (140 + r() * 160) * k, (r() - 0.5) * 0.4, w), w, c, c2: R.mul3(c, 0.9), load: 0.45 + r() * 0.4, fade: 0.75, op: 0.55 + r() * 0.35, hs: 0.2, pickup: 0.3,
+        seed: 150000 + i++, clip: lut, rough: 1.5, blob: 0.05, lip: 0.15 });
+    }
+  }
+
+  // turps runs from thin planes, and a few rag wipes that take the paint back toward the ground
+  function dripsAndWipes(P, plan, W, H, k, tAt, regAt) {
+    const r = R.rng(9393), regs = plan.regs;
+    const impr = R.hex('#b29a74');
+    const wipes = [[300, 2380, -0.35], [1880, 520, 0.5], [620, 1500, 1.25], [1640, 2560, -0.2]];
+    wipes.forEach(([x, y, a], i) => {
+      const X = x * k, Y = y * k, c = R.mix3(tAt(X, Y), impr, 0.55);
+      P.stroke({ pts: PU.bentPts(X, Y, a, (260 + r() * 140) * k, (r() - 0.5) * 0.6, 120 * k), w: (90 + r() * 40) * k, c, c2: impr, mixAmt: 1, load: 0.35, fade: 0.8, op: 0.55, hs: 0.0, pickup: 0.85, drag: 40 * k,
+        seed: 160000 + i, rough: 2.8, blob: 0, lip: 0, scrape: 0.95, bristle: 6 * k });
+    });
+    let made = 0, tries = 0;
+    while (made < 11 && tries++ < 4000) {
+      const x = r() * W, y = (0.08 + r() * 0.8) * H, rg = regs[regAt(x, y)];
+      if (!rg || rg.kind !== 'bg' || rg.cell.mode !== 'scumble') continue;
+      const c = R.mul3(tAt(x, y), 0.8 + r() * 0.3), len = (50 + r() * 190) * k, pts = [];
+      for (let j = 0; j <= 8; j++) pts.push([x + Math.sin(j * 0.9 + made) * 1.5 * k, y + (len * j) / 8]);
+      P.stroke({ pts, w: (3.5 + r() * 3) * k, c, load: 1.0, fade: 0.25, op: 0.75, hs: 0.3, pickup: 0.1, seed: 170000 + made, brush: 'round', taper: 0.25, blob: 0, lip: 0.9, rough: 0.6 });
+      const e = pts[8];
+      P.stroke({ pts: [[e[0], e[1] - 3 * k], [e[0], e[1] + 3 * k]], w: (7 + r() * 3) * k, c, load: 1.1, fade: 0.1, op: 0.8, hs: 0.5, seed: 171000 + made, brush: 'round', taper: 0, blob: 0.4, lip: 0.2 });
+      made++;
     }
   }
 
@@ -365,6 +399,37 @@
         if (s.name === 'noseProfile' && j > n * 0.6) continue;
         const sl = []; for (let q = 0; q <= Math.min(seg, n - 1); q++) sl.push(pts[(j + q) % n]);
         line(sl, s.name.startsWith('eye') ? 3.5 : 5 + r() * 2, dark, 0.95, 30000 + j + s.name.length * 999, 0.85);
+      }
+    }
+  }
+
+  // contours that do not close: stretches of the silhouettes redrawn a little off their edge, overshooting
+  function openContours(P, plan, W, H, k) {
+    const r = R.rng(2424);
+    const dark = R.hex('#1d1a18'), light = R.hex('#ddd3bd');
+    const names = ['hairBack', 'crownL', 'crownR', 'brim', 'hatTop', 'coatL', 'coatR', 'collar', 'lapelL', 'lapelR'];
+    for (const s of plan.shapes) {
+      if (!names.includes(s.name)) continue;
+      const pts = s.poly, n = pts.length;
+      let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= n; cy /= n;
+      // walk the outline and cut it into stretches of ~120-260 px
+      let j = 0, made = 0;
+      while (j < n - 1) {
+        let L = 0, e = j; const want = 120 + r() * 140;
+        while (e < n - 1 && L < want) { L += Math.hypot(pts[e + 1][0] - pts[e][0], pts[e + 1][1] - pts[e][1]); e++; }
+        const a = pts[j], b = pts[e];
+        j = e + 1 + Math.floor(r() * 3);
+        if (r() < 0.5 || L < 60) continue;
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        let ox = mx - cx, oy = my - cy; const ol = Math.hypot(ox, oy) || 1; ox /= ol; oy /= ol;
+        const d = (r() < 0.85 ? 1 : -1) * (10 + r() * 24);
+        const ux = b[0] - a[0], uy = b[1] - a[1], e0 = 0.1 + r() * 0.25, e1 = 0.1 + r() * 0.25;
+        const p0 = [(a[0] - ux * e0 + ox * d) * k, (a[1] - uy * e0 + oy * d) * k], p1 = [(b[0] + ux * e1 + ox * d) * k, (b[1] + uy * e1 + oy * d) * k];
+        const pts2 = []; for (let q = 0; q <= 4; q++) pts2.push([p0[0] + (p1[0] - p0[0]) * q / 4, p0[1] + (p1[1] - p0[1]) * q / 4]);
+        const isL = r() < 0.2;
+        P.stroke({ pts: pts2, w: (isL ? 6 : 5 + r() * 3) * k, c: isL ? light : dark, c2: isL ? R.hex('#c4b896') : R.hex('#2e2a26'), load: 0.9, fade: 0.5, op: isL ? 0.6 : 0.75,
+          hs: 0.25, pickup: 0.25, seed: 180000 + j + s.name.length * 1000, brush: 'round', taper: 0.6, rough: 1.4, blob: 0.1, lip: 0.2 });
+        if (++made > 3) break;
       }
     }
   }
@@ -452,6 +517,8 @@
         const ox = x - nx * side * 18 * k, oy = y - ny * side * 18 * k;
         if (ox < 0 || oy < 0 || ox >= W || oy >= H) continue;
         const k1 = headK(sx, sy), k2 = headK(ox, oy);
+        const colK = (xx, yy) => { const rg = plan.regs[plan.ids[2 * (yy | 0) * plan.gw + 2 * (xx | 0)]]; return rg && (rg.kind === 'news' || rg.kind === 'wood'); };
+        if (colK(sx, sy) || colK(ox, oy)) continue;
         if ((k1 || k2) && !(k1 === 'skin' && k2 === 'skin')) continue;
         const c = tAt(sx, sy);
         const a = Math.atan2(ny, nx) * (side > 0 ? 1 : -1) + (r() - 0.5) * 0.7 + (side < 0 ? Math.PI : 0);
@@ -461,5 +528,5 @@
     });
   }
 
-  G.PAINTING = { paint, light: { heightScale: 2.2, weaveScale: 0.9 } };
+  G.PAINTING = { paint, light: { heightScale: 2.2, weaveScale: 0.55 } };
 })(typeof window !== 'undefined' ? window : globalThis);

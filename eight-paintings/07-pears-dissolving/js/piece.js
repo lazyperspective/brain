@@ -215,21 +215,22 @@
       for (const [x, y] of cand) {
         if (!inB(x, y)) continue;
         const a = aAt(x, y);
-        const pr = smooth(0.06, 0.22, a) * (1 - smooth(0.32, 0.52, a));
+        const pidc = ID[idx(x, y)];
+        const pr = (pidc === 3 || pidc === 1) ? smooth(0.06, 0.22, a) * (1 - smooth(0.62, 0.8, a)) : smooth(0.06, 0.22, a) * (1 - smooth(0.32, 0.52, a));
         if (rnd() > pr) continue;
         const fc = facetCol(x, y);
         const t = samp(R3, x, y);
         const k = smooth(0.15, 0.45, a);
         let c = [mix(t[0], fc[0], k), mix(t[1], fc[1], k), mix(t[2], fc[2], k)];
         const pid = ID[idx(x, y)];
-        const shift = pid === 3 ? [[0.17, 0.18, 0.19], [0.12, 0.08, 0.05], [0.22, 0.19, 0.12], [0.07, 0.06, 0.05], [0.2, 0.2, 0.13]]
+        const shift = pid === 3 ? [[0.16, 0.15, 0.14], [0.14, 0.10, 0.065], [0.19, 0.165, 0.115], [0.15, 0.14, 0.11]]
           : (pid >= 6 && pid <= 8) ? [[0.78, 0.6, 0.18], [0.5, 0.52, 0.16], [0.62, 0.25, 0.1], [0.85, 0.72, 0.4]]
           : pid === 1 ? [[0.45, 0.33, 0.2], [0.3, 0.2, 0.12], [0.5, 0.42, 0.3]] : null;
         if (shift) {
           const sc = shift[(rnd() * shift.length) | 0];
           const lc = lumOf(c, 0), ls = lumOf(sc, 0);
           const scl = [sc[0] * lc / ls, sc[1] * lc / ls, sc[2] * lc / ls]; // keep the value, change the hue
-          const f = 0.45 * k;
+          const f = (pid === 3 ? 0.3 : 0.45) * k;
           c = [mix(c[0], scl[0], f), mix(c[1], scl[1], f), mix(c[2], scl[2], f)].map((v) => clamp(v, 0, 1));
         }
         c = satv(c, 1.0 + 0.2 * k, 1.0 + 0.08 * k, 0.32);
@@ -237,7 +238,8 @@
         const ux = Math.cos(base), uy = Math.sin(base);
         const nx = -uy, ny = ux;
         const m = 3 + ((rnd() * 3) | 0);
-        const w = (17 + 9 * rnd()) * S, len = (40 + 30 * rnd()) * S;
+        const flatS = (pid === 3 || pid === 1) ? 1.5 : 1;
+        const w = (17 + 9 * rnd()) * S * flatS, len = (40 + 30 * rnd()) * S * flatS;
         for (let s = 0; s < m; s++) {
           const off = (s - (m - 1) / 2) * w * 0.82;
           const cx = x + nx * off + (rnd() - 0.5) * 4 * S, cy = y + ny * off + (rnd() - 0.5) * 4 * S;
@@ -310,10 +312,10 @@
         const t = samp(R1, x, y);
         const l = lumOf(t, 0);
         const lb = lumOf(samp(R3, x, y, tmp2), 0);
-        const i0 = idx(x, y), e6 = 7 * S;
+        const i0 = idx(x, y), e6 = 15 * S;
         if (DIR[i0] < 0.45 && ID[i0] !== 5) continue;
         if (ID[idx(x - e6, y)] !== ID[i0] || ID[idx(x + e6, y)] !== ID[i0] || ID[idx(x, y - e6)] !== ID[i0] || ID[idx(x, y + e6)] !== ID[i0]) continue;
-        if (l < 0.6 || (l - lb < 0.04 && l < 0.86) || rnd() > smooth(0.6, 0.85, l) * 0.6) continue;
+        if (l < 0.6 || l - lb < 0.035 || rnd() > smooth(0.6, 0.85, l) * 0.6) continue;
         const c = [clamp(t[0] * 1.04 + 0.02, 0, 1), clamp(t[1] * 1.04 + 0.02, 0, 1), clamp(t[2] * 1.02 + 0.015, 0, 1)];
         const w = (6 + 6 * rnd()) * S;
         const pts = P.traceSpine(x, y, dirAt, w * (2 + 3 * rnd()), Math.max(1, w * 0.3), rnd, {
@@ -339,6 +341,12 @@
       const i = y * W + x;
       return smooth(0.30, 0.08, L2[i]) * (1 - smooth(0.35, 0.65, A[i]));
     }, 0.42, seed + 40);
+    cv.glazeField([0.62, 0.52, 0.42], (x, y) => {
+      const xn = x / W, yn = y / H;
+      const top = smooth(0.62, 0.0, yn) * (0.55 + 0.45 * smooth(0.55, 0.0, xn));
+      const low = smooth(0.86, 1.0, yn) * 0.6;
+      return (top + low) * (1 - smooth(0.45, 0.7, A[y * W + x])) * (ID[y * W + x] === 3 || ID[y * W + x] === 1 ? 1 : 0.3);
+    }, 0.55, seed + 41);
     log('glaze');
 
     // ---------------------------------------------------------- 9 abstraction
@@ -388,7 +396,7 @@
     pn.cream = [0.90, 0.86, 0.74];
     pn.slateDark = satv(pn.slate, 0.8, 1.0, 0.3).map((v) => v * 0.55);
     pn.olive = [0.17, 0.16, 0.09];
-    pn.ochre = satv(pn.pearLit, 1.15, 1.0, 0.4);
+    pn.ochre = satv(pn.pearLit, 1.02, 0.97, 0.4);
     pn.green = satv(mix3(pn.pearMid, [0.42, 0.45, 0.14], 0.5), 1.1, 1.0, 0.3);
     pn.red = satv(mix3(pn.leaf, [0.55, 0.16, 0.06], 0.5), 1.2, 1.0, 0.3);
     function mix3(a, b, t) { return [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
@@ -422,7 +430,7 @@
 
     // ---- k-d split into colour fields, guided by the image (cuts snap to strong edges)
     const rects = [];
-    const krnd = P.mulberry32(seed + 77);
+    let krnd = P.mulberry32(seed + 77);
     function splitRect(r, depth) {
       const w = r.x1 - r.x0, h = r.y1 - r.y0;
       const ac = aAt((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
@@ -622,7 +630,7 @@
         if (krnd() > pr) continue;
         let m = [e.r / e.n, e.g / e.n, e.b / e.n];
         // posterise the value, keep the hue, push chroma a little
-        const l = lum3(m), lq = Math.max(0.03, Math.round(l * 7) / 7 * 0.7 + l * 0.3);
+        const l = lum3(m), lq = l < 0.22 ? l * 0.92 : Math.max(0.03, Math.round(l * 7) / 7 * 0.7 + l * 0.3);
         m = m.map((v) => clamp(v * lq / Math.max(l, 1e-3), 0, 1));
         const cls = ID[idx(cx, cy)];
         const bold = boldness * smooth(lo, 1.0, ac);
@@ -633,9 +641,11 @@
           const pcv = pc.map((v) => clamp(v * lum3(m) / Math.max(lp, 1e-3), 0, 1)); // palette hue at facet value
           m = mix3(m, bold > 0.6 ? mix3(pcv, pc, 0.35) : pcv, bold * 0.75);
         }
-        m = satv(m, 1.05 + 0.2 * bold, 1.0, 0.3);
-        const clip = (x, y) => {
-          const i = idx(x, y);
+        m = satv(m, 1.0 + 0.1 * bold, 1.0, 0.3);
+        const ej = 5 * S;
+        const clip = (x0c, y0c) => {
+          const x = x0c + ej * (vnoise(x0c / (17 * S), y0c / (17 * S), 71) - 0.5) * 2, y = y0c + ej * (vnoise(x0c / (17 * S), y0c / (17 * S), 72) - 0.5) * 2;
+          const i = idx(x0c, y0c);
           let c = 0;
           if (keyAt(x - 0.25, y - 0.25) === key) c++;
           if (keyAt(x + 0.25, y - 0.25) === key) c++;
@@ -659,17 +669,20 @@
           const pts = [];
           const rev = krnd() < 0.5;
           for (let i2 = 0; i2 <= 6; i2++) { const t = rev ? 1 - i2 / 6 : i2 / 6; const u = a0 + (a1 - a0) * t; pts.push(u * ux + v * vx, u * uy + v * vy); }
+          const mt = k % 2 ? m : m.map((v, ch) => clamp(v * (1 + (krnd() - 0.5) * 0.07) + (ch === 2 ? -0.006 : 0.005), 0, 1));
           if (useKnife) cv.stroke({ pts, w: bw * 1.2, col: jitterCol(m, 0.03), cjit: 0.2, alpha: 0.98, clip, knife: true, load: 1.25, run: (a1 - a0) * 2.5, dry: 0.03,
             thick: 1.5, ridge: 0.45, bristle: 0, smear: 0.2, pick: 0.06, rag: 0.0, taper0: 0, taper1: 0, cap: 0.0, streak: (a1 - a0) * 0.5, sfreq: 1.0, seed: (krnd() * 1e9) | 0 });
-          else cv.stroke({ pts, w: bw * 1.15, col: jitterCol(m, 0.018), cjit: 0.15, alpha: 0.97, clip, load: 1.3, run: (a1 - a0) * 3, dry: 0.12,
+          else cv.stroke({ pts, w: bw * 1.15, col: jitterCol(mt, 0.016), cjit: 0.15, alpha: 0.97, clip, load: 1.3, run: (a1 - a0) * 3, dry: 0.12,
             thick: 0.55 + 0.6 * bold, ridge: 0.25, bristle: 0.45, bfreq: bw / (3.5 * S), smear: 0.12, pick: 0.1, rag: 0.0, taper0: 0, taper1: 0, cap: 0.2, seed: (krnd() * 1e9) | 0 });
         }
         n++;
       }
       log(name + ': ' + n);
     }
-    facetStage(makeVoronoi(40 * S, -0.5, 0.45, seed + 101), 0.20, 0.38, 0.55, 0.72, 0.0, 'facets fine', null, 9);
-    facetStage(makeVoronoi(60 * S, 0.0, 0.6, seed + 102), 0.40, 0.56, 0.68, 0.84, 0.45, 'facets coarse', null, 6);
+    krnd = P.mulberry32(seed + 201);
+    facetStage(makeVoronoi(40 * S, -0.5, 0.45, seed + 101), 0.20, 0.38, 0.55, 0.72, 0.0, 'facets fine', [4, 5, 6, 7, 8, 9, 10, 11, 12], 9);
+    krnd = P.mulberry32(seed + 202);
+    facetStage(makeVoronoi(60 * S, 0.0, 0.6, seed + 102), 0.40, 0.56, 0.68, 0.84, 0.45, 'facets coarse', [5, 6, 7, 8, 9, 10, 11, 12], 6);
 
     // ---- large calm planes (the geometric fields), hand-cut edges, flat brush
     const eL = edgeY(W * 0.6) / H, eRr = edgeY(W) / H;
@@ -688,7 +701,7 @@
       for (let k = 0; k < n; k++) {
         const v = vmin + (k + 0.5) * (vmax - vmin) / n + (krnd() - 0.5) * bw * 0.1;
         // break long pulls into overlapping drags of slightly different tone
-        const a0 = umin - bw * 0.3, a1 = umax + bw * 0.3, segs = Math.max(1, Math.round((a1 - a0) / ((o.seg || 360) * S)));
+        const a0 = umin - bw * 0.3, a1 = umax + bw * 0.3, segs = o.knife ? Math.max(1, Math.round((a1 - a0) / ((o.seg || 360) * S))) : 1;
         for (let q2 = 0; q2 < segs; q2++) {
           const b0 = a0 + (a1 - a0) * q2 / segs - (q2 ? 40 * S * krnd() : 0), b1 = a0 + (a1 - a0) * (q2 + 1) / segs + (q2 < segs - 1 ? 40 * S * krnd() : 0);
           const pts = []; const rev = krnd() < 0.5; const tl = (krnd() - 0.5) * 0.03;
@@ -701,12 +714,11 @@
         }
       }
     }
+    krnd = P.mulberry32(seed + 203);
     // wall: a deep field, a cool band, the lit wall, a pale counterweight to the linen
     plane([[0.60, -0.01], [1.01, -0.01], [1.01, 0.315], [0.735, 0.335]], mix3(pn.black, pn.umber, 0.3), pn.wallDark, { dir: 1.22, bw: 105, edge: 5 });
     plane([[0.745, 0.318], [1.01, 0.300], [1.01, 0.378], [0.752, 0.392]], pn.slateDark, pn.slate, { knife: true, bw: 120 });
     plane([[0.70, 0.395], [1.01, 0.372], [1.01, 0.47], [0.725, 0.49]], mix3(pn.wallLight, pn.olive, 0.45), pn.wallDark, { bw: 100 });
-    plane([[0.845, 0.085], [0.935, 0.08], [0.932, 0.255], [0.85, 0.26]], mix3(pn.cream, pn.linenShadow, 0.35), pn.cream, { dir: PI / 2, bw: 90, knife: true });
-    plane([[0.935, 0.11], [1.01, 0.105], [1.01, 0.20], [0.938, 0.205]], mix3(pn.red, pn.umber, 0.55), pn.umber, { bw: 90, knife: true });
     // ledge and front
     plane([[0.74, wl + 0.004], [1.01, wl - 0.002], [1.01, eRr], [0.755, ey(0.755)]], pn.tableLit, pn.tableShadow, { bw: 90, vary: 0.5 });
     plane([[0.70, ey(0.70) + 0.004], [1.01, eRr + 0.003], [1.01, 1.01], [0.76, 1.01]], mix3(pn.front, pn.umber, 0.3), pn.front, { bw: 125, edge: 5 });
@@ -714,6 +726,7 @@
     plane([[0.745, 0.80], [0.805, 0.796], [0.80, 0.975], [0.75, 0.98]], mix3(pn.umber, pn.red, 0.25), pn.umber, { dir: PI / 2, bw: 60, knife: true });
     log('planes');
     // the far pears re-asserted over the planes as bold facets
+    krnd = P.mulberry32(seed + 204);
     facetStage(makeVoronoi(70 * S, 0.3, 0.5, seed + 104), 0.55, 0.72, 2, 3, 1.0, 'pear facets', [6, 7, 8, 11, 12], 4);
 
     // ---- bold flat fields from the image-guided split
@@ -759,6 +772,7 @@
         streak: 220 * S, sfreq: 2.2, rag: 0.3, seed: (krnd() * 1e9) | 0
       }, o || {}));
     };
+    krnd = P.mulberry32(seed + 205);
     // gestural fields: loaded brushes following a loose flow, pressure varying
     function gestureField(cx, cy, rx, ry, n, keys, o) {
       o = o || {};
@@ -769,27 +783,25 @@
         const fl = (px, py) => base + (o.swirl || 2.2) * (fbm(px / (520 * S), py / (520 * S), sd0 % 7 + 50, 2) - 0.5);
         const len = mix(o.len ? o.len[0] : 260, o.len ? o.len[1] : 700, krnd()) * S;
         const w = mix(o.w ? o.w[0] : 50, o.w ? o.w[1] : 130, krnd()) * S;
-        const pts = P.traceSpine(x, y, fl, len, Math.max(2, w * 0.25), krnd, { inertia: 0.75 });
+        const pts = P.traceSpine(x, y, fl, len, Math.max(2, w * 0.25), krnd, { inertia: 0.8, flip: o.flip == null ? false : o.flip });
         const kk = keys[(krnd() * keys.length) | 0], k2 = keys[(krnd() * keys.length) | 0];
         const c = satv(pn[kk], 1.1, 1.03, 0.3);
         cv.stroke({
           pts, w, col: jitterCol(c, 0.03), col2: mix3(c, pn[k2], 0.6), cjit: 0.55, alpha: 0.97, wmod: 0.22,
-          load: mix(1.3, 1.8, krnd()), run: len * mix(0.7, 1.4, krnd()), dry: o.dry == null ? 0.2 : o.dry, thick: mix(0.6, 1.2, krnd()),
+          load: mix(1.3, 1.7, krnd()), run: len * mix(0.45, 0.8, krnd()), dry: o.dry == null ? 0.2 : o.dry, thick: mix(0.6, 1.2, krnd()),
           bristle: 0.5, bfreq: Math.max(8, w / (3.2 * S)), ridge: 0.15, smear: 0.35, pick: 0.2, rag: 0.25, taper0: 0.22, taper1: 0.35, cap: 0.4,
           streak: 260 * S, sfreq: 2.5, seed: (krnd() * 1e9) | 0
         });
       }
     }
-    // the ledge and its shadow, re-made as gesture
-    gestureField(0.90, 0.89, 0.10, 0.08, 14, ['black', 'umber', 'front', 'tableShadow', 'black', 'umber'], { base: -0.3, w: [90, 170], len: [300, 650] });
-    gestureField(0.89, 0.81, 0.10, 0.04, 4, ['tableLit', 'ochre', 'cream'], { base: 0.05, w: [60, 110], len: [250, 520], dry: 0.4 });
-    gestureField(0.93, 0.92, 0.05, 0.04, 1, ['red'], { base: -0.6, w: [70, 90], len: [220, 300] });
+    // the ledge and its shadow, re-made as gesture: a few big strokes falling to the right, like the knife
+    gestureField(0.70, 0.83, 0.05, 0.06, 7, ['black', 'umber', 'front', 'black'], { base: 0.38, swirl: 0.9, w: [120, 200], len: [520, 820] });
+    gestureField(0.72, 0.80, 0.04, 0.02, 2, ['tableLit', 'ochre'], { base: 0.2, swirl: 0.7, w: [80, 120], len: [480, 700], dry: 0.3 });
+    gestureField(0.84, 0.93, 0.03, 0.02, 1, ['red'], { base: 0.3, swirl: 0.5, w: [80, 100], len: [300, 400] });
     // linen white carried along the ledge, broad and broken
-    G1([[0.70, eR - 0.018], [0.80, eR - 0.03], [0.91, eR - 0.02], [1.04, eR - 0.03]], 96, pn.linen, pn.cream, { load: 1.2, thick: 0.9, ridge: 0.15, dry: 0.45, bristle: 0.7, wmod: 0.3, run: 520 * S, taper0: 0.05, taper1: 0.5 });
-    // light, dry scumbles dragged across the dark upper field
-    gestureField(0.86, 0.17, 0.08, 0.1, 3, ['wallLight', 'cream', 'slate'], { base: 1.0, swirl: 1.2, w: [80, 150], len: [300, 600], dry: 0.85 });
+    G1([[0.70, eR - 0.018], [0.80, eR - 0.03], [0.91, eR - 0.02], [1.04, eR - 0.03]], 110, pn.linen, pn.cream, { load: 1.25, thick: 0.9, ridge: 0.15, dry: 0.45, bristle: 0.7, wmod: 0.25, run: 600 * S, taper0: 0.15, taper1: 0.5 });
     // leaf red, one loaded touch with the knife
-    knifeSlab(0.835 * W, (eR - 0.095) * H, 0.905 * W, (eR - 0.06) * H, satv(pn.red, 1.15, 1.0, 0.3), pn.ochre, krnd);
+    G1([[0.83, eR - 0.105], [0.865, eR - 0.085], [0.905, eR - 0.058]], 62, [0.50, 0.13, 0.055], pn.red, { load: 1.6, thick: 1.6, ridge: 0.3, dry: 0.15, bristle: 0.35, taper0: 0.1, taper1: 0.5, run: 300 * S, cap: 0.3 });
     log('gestures');
 
     // ---- the drawing survives: a broken calligraphic contour of the far pears

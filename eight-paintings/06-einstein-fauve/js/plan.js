@@ -63,7 +63,7 @@
     ln(F.chinCrease, 6, -3); ln(F.jowlL, 7, -3); ln(F.jowlR, 7, -3);
     const head = { c: F.T([462, 560]), rxL: 200, rxR: 262, ry: 330 };
     const neckC = F.T([500, 860]);
-    for (let y = 230; y < 1010; y++) {
+    for (let y = 230; y < 1110; y++) {
       for (let x = 240; x < 780; x++) {
         const i = y * PW + x; const r = reg[i];
         if (!(r === RG.FACE || r === RG.EAR || r === RG.NECK || r === RG.MOUST || r === RG.BROW || r === RG.EYE || r === RG.LIP || r === RG.CHEST)) continue;
@@ -92,7 +92,7 @@
     const rad = 6;
     for (let pass = 0; pass < 4; pass++) {
       const src = pass ? Hb.slice() : Hh, dst = Hb;
-      for (let y = 230; y < 1010; y++) for (let x = 240; x < 780; x++) {
+      for (let y = 230; y < 1110; y++) for (let x = 240; x < 780; x++) {
         const i = y * PW + x; if (!src[i]) { dst[i] = 0; continue; }
         let s = 0, n = 0;
         for (let k = -rad; k <= rad; k++) {
@@ -108,41 +108,66 @@
     const col = new Float32Array(PW * PH * 3);
     const band = new Uint8Array(PW * PH);
     const nz = G.Noise(991);
+    const jawY = new Float32Array(PW);
+    for (let x = 0; x < PW; x++) { for (let y = 1000; y > 600; y--) { const rr = reg[y * PW + x]; if (rr === RG.FACE || rr === RG.LIP) { jawY[x] = y; break; } } }
     const cheekL = F.T([372, 618]), cheekR = F.T([622, 625]), noseT = F.T([468, 622]);
-    for (let y = 231; y < 1009; y++) for (let x = 241; x < 779; x++) {
+    for (let y = 231; y < 1109; y++) for (let x = 241; x < 779; x++) {
       const i = y * PW + x; if (!Hb[i]) continue;
       const hx = (Hb[i + 1] && Hb[i - 1]) ? (Hb[i + 1] - Hb[i - 1]) * 0.5 : 0;
       const hy = (Hb[i + PW] && Hb[i - PW]) ? (Hb[i + PW] - Hb[i - PW]) * 0.5 : 0;
       const nl = 1 / Math.hypot(hx, hy, 1);
       let l = (-hx * L[0] - hy * L[1] + L[2]) * nl;
       l += 0.02 * nz.fbm(x / 90, y / 90, 2);
-      lum[i] = l;
       const r = reg[i];
+      const isNeck = r === RG.NECK || r === RG.CHEST;
       let c, bd;
+      if (!isNeck) {
+        // the turn: the far side of the head falls decisively into shadow
+        const u = (x - 470) / 215;
+        l -= 0.30 * smooth(0.25, 0.95, u);
+        // forehead: three temperature planes, lemon -> cadmium -> orange/vermilion -> a cool green turning edge
+        const fw = smooth(505, 465, y);
+        if (fw > 0) {
+          const fu = (x - 340) / 330 + 0.05 * nz.fbm(x / 45, y / 30, 2) + 0.08 * smooth(440, 330, y);
+          let lf = fu < 0.44 ? 0.86 : fu < 0.73 ? 0.63 : fu < 0.84 ? 0.52 : 0.4;
+          if (Math.hypot((x - 398) / 52, (y - 412) / 38) + 0.25 * nz.fbm(x / 25, y / 25, 2) < 1) lf = 0.94;
+          lf += (l - 0.85) * 0.25;
+          l = l + (lf - l) * fw;
+        }
+      }
+      lum[i] = l;
       const lowF = smooth(560, 720, y); // lower face runs warmer
-      if (l > 0.93 && x > 345) { c = mix(C.lemonWhite, C.pinkWhite, lowF); bd = 5; }
-      else if (l > 0.83) { c = mix(C.lemon, C.cadYellow, lowF); bd = 4; }
-      else if (l > 0.65) { c = mix(C.cadYellow, C.cadOrange, 0.25 + 0.75 * lowF); bd = 3; }
-      else if (l > 0.55) { c = mix(C.vermilion, C.rose, 0.3); bd = 2; }
-      else if (l > 0.36) { c = mix(C.emerald, C.viridian, 0.45); bd = 1; }
-      else { c = mix(C.viridian, C.ultramarine, 0.35); bd = 0; }
+      if (l > 0.92 && x > 345) { c = mix(C.lemonWhite, C.pinkWhite, lowF); bd = 5; }
+      else if (l > 0.82) { c = mix(C.lemon, C.cadYellow, lowF); bd = 4; }
+      else if (l > 0.69) { c = mix(C.cadYellow, C.cadOrange, 0.15 + 0.5 * lowF); bd = 3; }
+      else if (l > 0.58) { c = mix(C.cadOrange, C.vermilion, 0.2 + 0.3 * lowF); bd = 6; }
+      else if (l > 0.47) { c = mix(C.vermilion, C.rose, 0.3); bd = 2; }
+      else if (l > 0.33) { c = mix(C.emerald, C.viridian, 0.4); bd = 1; }
+      else { c = mix(C.viridian, C.ultramarine, 0.4); bd = 0; }
       // local colour: hot cheeks, nose, ears; shadow side cools
       const dc1 = Math.hypot(x - cheekL[0], y - cheekL[1]), dc2 = Math.hypot(x - cheekR[0], y - cheekR[1]);
-      if (bd >= 2 && bd <= 4) { const t = Math.max(0, 1 - dc1 / 70); c = mix(c, bd >= 3 ? C.vermilion : C.rose, t * 0.75); }
+      if ((bd >= 2 && bd <= 4) || bd === 6) { const t = Math.max(0, 1 - dc1 / 70); c = mix(c, bd >= 3 ? C.vermilion : C.rose, t * 0.7); }
       if (bd >= 2) { const t = Math.max(0, 1 - Math.hypot(x - noseT[0], y - noseT[1]) / 30); c = mix(c, C.rose, t * 0.5); }
-      if (bd <= 1) { const t = Math.max(0, 1 - dc2 / 55); c = mix(c, C.violet, t * 0.55); }
-      if (bd <= 1 && r !== RG.NECK && r !== RG.CHEST) { const t = smooth(630, 720, y); c = mix(c, bd === 0 ? mix(C.crimson, C.rose, 0.45) : mix(C.rose, C.cadOrange, 0.4), t * 0.92); }
-      if (r === RG.EAR) { c = bd >= 3 ? C.cadOrange : (bd >= 2 ? C.vermilion : C.crimson); }
-      if (r === RG.NECK || r === RG.CHEST) {
-        if (r === RG.NECK && y < 846 + (x - 400) * 0.12) { c = x > 470 ? mix(C.violet, C.crimson, 0.4) : mix(C.cobalt, C.violet, 0.5); bd = 0; }
-        else if (bd <= 1) { c = C.cobalt; } else if (bd <= 3) { c = C.vermilion; } else c = C.cadOrange;
+      if (bd <= 1) { const t = Math.max(0, 1 - dc2 / 55); c = mix(c, C.violet, t * 0.5); }
+      if (bd <= 1 && !isNeck) { const t = smooth(640, 730, y); c = mix(c, bd === 0 ? mix(C.violet, C.crimson, 0.4) : mix(C.crimson, C.rose, 0.5), t * 0.85); }
+      if (r === RG.EAR) { c = bd >= 3 ? C.cadOrange : (bd >= 2 || bd === 6 ? C.vermilion : C.crimson); }
+      if (isNeck) {
+        // neck as a cylinder lit from the left, with the jaw's cool shadow wrapped under it
+        const t = (x - 405) / 190 + 0.07 * nz.fbm(x / 30, y / 45, 2) + 0.05 * (y - 900) / 100 * (x < 490 ? -1 : 1);
+        const jy = jawY[x] || 820;
+        const sh = r === RG.NECK && y < jy + 40 + 8 * Math.sin(x / 23);
+        if (sh) { c = t < 0.45 ? mix(C.violet, C.ultramarine, 0.3 + 0.4 * t) : mix(C.ultramarine, C.viridian, 0.5 * (t - 0.45) / 0.55); bd = 0; }
+        else if (t < 0.42) { c = mix(C.cadYellow, C.cadOrange, 0.55); bd = 6; }
+        else if (t < 0.64) { c = mix(C.vermilion, C.rose, 0.3); bd = 2; }
+        else { c = mix(C.emerald, C.cobalt, 0.35); bd = 1; }
+        if (r === RG.CHEST && !sh) { if (t > 0.25 && t < 0.62) { c = mix(C.pink, C.cadOrange, 0.5); bd = 3; } }
       }
       col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
       band[i] = bd;
     }
     // form-following direction for face strokes: along the height contours (perpendicular to slope)
     const ang = new Float32Array(PW * PH);
-    for (let y = 231; y < 1009; y++) for (let x = 241; x < 779; x++) {
+    for (let y = 231; y < 1109; y++) for (let x = 241; x < 779; x++) {
       const i = y * PW + x; if (!Hb[i]) continue;
       const hx = (Hb[i + 2] || Hb[i]) - (Hb[i - 2] || Hb[i]);
       const hy = (Hb[i + 2 * PW] || Hb[i]) - (Hb[i - 2 * PW] || Hb[i]);
@@ -155,7 +180,7 @@
       const R = 14;
       for (let pass = 0; pass < 2; pass++) {
         const sx = vx.slice(), sy = vy.slice();
-        for (let y = 231; y < 1009; y++) for (let x = 241; x < 779; x++) {
+        for (let y = 231; y < 1109; y++) for (let x = 241; x < 779; x++) {
           const i = y * PW + x; if (!Hb[i]) continue;
           let ax = 0, ay = 0;
           for (let k = -R; k <= R; k += 2) { const j = pass ? i + k * PW : i + k; if (Hb[j]) { ax += sx[j]; ay += sy[j]; } }

@@ -71,7 +71,7 @@
       const sAng = gAng + Math.PI / 2;
       const sw = coh * Math.min(1, tr * 4000);
       let vx = Math.cos(2 * sAng) * sw, vy = Math.sin(2 * sAng) * sw;
-      const hw = angW[k] * 1.6;
+      const hw = angW[k] * (mat[k] === 0 ? 1.6 : 4.0);
       vx += Math.cos(2 * ang[k]) * hw; vy += Math.sin(2 * ang[k]) * hw;
       if (mat[k] === 0) { vx += 0.35; } // sky: gentle horizontal bias
       V[k * 2] = vx; V[k * 2 + 1] = vy;

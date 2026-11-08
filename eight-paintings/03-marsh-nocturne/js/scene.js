@@ -238,7 +238,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     float ht = i == 0 ? 0.118 : i == 1 ? 0.088 : i == 2 ? 0.104 : 0.058;
     float wd2 = ht * (i == 1 ? 0.30 : 0.24);
     float t = (by - Y) / ht;
-    if (t > -0.01 && t < 1.08) {
+    if (t > -0.01 && t < 0.995) {
       float tt = clamp(t, 0., 1.);
       float prof = wd2 * pow(sin(3.1416 * clamp(tt * 0.75 + 0.25, 0., 1.)), 0.55) * (1. - 0.35 * tt);
       prof *= 0.62 + 0.75 * fbm(vec2(tt * ht * 2700. / 55., fi * 3.), 4);
@@ -326,6 +326,8 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
   const DW = 2160, DH = 2700, YH = 0.632 * DH, MOON = [560, 520], MOONR = 30;
   const matAt = (M, x, y) => Math.round(M.B[M.idx(x, y) * 4 + 3]);
   const lumAt = (M, x, y) => { const c = M.colour(x, y); return lum(c); };
+  // does a brush of radius r at (x,y) touch a protected shape (cedars, stacks, skiff)?
+  const clipped = (M, x, y, r) => { for (const [ox, oy] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) { const j = M.idx(x + ox, y + oy); if (M.C[j * 4 + 2] < 0.5) return true; } return false; };
 
   const layers = [
     // 1. imprimatura: a transparent raw-umber toning rubbed over the white ground
@@ -404,9 +406,11 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
         const x = DW * (0.6 + 0.16 * rng.gauss()), y = YH - R.mix(8, 150, Math.pow(rng(), 1.6));
         if (x < 0 || x > DW || matAt(M, x, y) !== 0) continue;
         const c = M.colour(x, y); if (lum(c) < 0.28) continue;
-        const L = R.mix(40, 160, rng());
-        const pts = [[x, y], [x + L * 0.5, y + 2 * rng.gauss()], [x + L, y + 3 * rng.gauss()]];
-        add({ pts, r: R.mix(3, 7, rng()), col: c.map((v) => v * 1.07), alpha: 0.8, thick: 0.9, dry: 0.85, load: 1.0, fid: 0.4 });
+        const L = R.mix(40, 160, rng()), rr = R.mix(3, 7, rng());
+        const pts = [[x, y]];
+        for (let j = 1; j <= 6; j++) { const px = x + L * j / 6, py = y + 2 * rng.gauss(); if (clipped(M, px, py, rr * 2.2)) break; pts.push([px, py]); }
+        if (pts.length < 2 || clipped(M, x - rr * 1.5, y, rr * 2.2)) continue;
+        add({ pts, r: rr, col: c.map((v) => v * 1.07), alpha: 0.8, thick: 0.9, dry: 0.85, load: 1.0, fid: 0.4 });
       }
       // glints on the water
       for (let k = 0; k < 900; k++) {
@@ -416,8 +420,10 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
         const d = (y - YH) / (DH - YH);
         if (l < 0.10 || rng() > l * 2.5 * Math.exp(-d / 0.35)) continue;
         const L = R.mix(10, 50, rng()) * (0.4 + 1.5 * d);
+        const gr = R.mix(1.4, 3.2, rng()) * (0.6 + d);
+        if (clipped(M, x + L, y, gr * 2) || clipped(M, x, y, gr * 2)) continue;
         const pts = [[x, y], [x + L, y + rng.gauss()]];
-        add({ pts, r: R.mix(1.4, 3.2, rng()) * (0.6 + d), col: c.map((v) => v * 1.18 + 0.01), alpha: 0.75, thick: 0.7, dry: 0.9, load: 1.0, fid: 0.3 });
+        add({ pts, r: gr, col: c.map((v) => v * 1.18 + 0.01), alpha: 0.75, thick: 0.7, dry: 0.9, load: 1.0, fid: 0.3 });
       }
     } },
   ];

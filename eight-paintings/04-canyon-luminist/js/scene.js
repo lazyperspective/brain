@@ -37,7 +37,7 @@
     const u = SUN_SCREEN[0] * 2 - 1, v = 1 - SUN_SCREEN[1] * 2;
     return camRay(u, v);
   })();
-  const LIGHT = norm3([-0.85, 0.22, 0.50]);
+  const LIGHT = norm3([-0.92, 0.24, 0.30]);
 
   // ---------------------------------------------------------------- terrain
   const RIM_NEAR = 1.0, RIM_FAR = 1.075, MAXH = 1.16;
@@ -67,8 +67,8 @@
       if (hs < top || i === STRATA.length - 1) {
         const f = clamp((hs - bot) / (top - bot), 0, 1);
         const k = STRATA[i][1];
-        const w = mix(0.9, 0.12, k), c = 0.55;
-        const g = smooth(c - w / 2, c + w / 2, f) * 0.93 + f * 0.07;
+        const w = mix(0.9, 0.06, k), c = 0.55;
+        const g = smooth(c - w / 2, c + w / 2, f) * 0.95 + f * 0.05;
         return bot + (top - bot) * mix(f, g, k);
       }
       bot = top;
@@ -402,7 +402,7 @@
       for (let i = 0; i < n; i++) {
         const fx = cx + (rng() - 0.5) * span * 2, fy = cy + (rng() - 0.5) * span * 0.45;
         const r = pw(0.005, 0.03, 2.0) * (1.3 - fy * 1.4);
-        P.push({ x: fx, y: fy, r, asp: 0.42 + 0.25 * rng(), z: 0.5 + rng() * 0.3, k: 0.75, deck: 0.25, relief: 1 });
+        P.push({ x: fx, y: fy, r: r * 1.3, asp: 0.2 + 0.18 * rng(), z: 0.5 + rng() * 0.3, k: 0.6, deck: 0.25, relief: 0.55 });
       }
     }
     // long thin bars low over the far rim
@@ -467,7 +467,7 @@
     let r = base[0], g = base[1], b = base[2];
     const cs = dx * SUN[0] + dy * SUN[1] + dz * SUN[2];
     const d = SKY.D[k];
-    const op = smooth(0.0, 0.35, d);
+    const op = smooth(0.0, 0.55, d);
     const s = sunDisk(dx, dy, dz) * (1 - op * 0.97);
     r += s; g += s * 0.9; b += s * 0.66;
     if (op <= 0.001) return { c: [r, g, b], d: 0 };
@@ -496,8 +496,8 @@
     let cr = mix(darkC[0], litC[0], lit), cg = mix(darkC[1], litC[1], lit), cb = mix(darkC[2], litC[2], lit);
     // thin, backlit edges glow (silver lining)
     const fwd = Math.pow(Math.max(0, cs), 30) * 4.0 + Math.pow(Math.max(0, cs), 6) * 0.5;
-    const thin = 1 - smooth(0.0, 0.5, d);
-    cr += thin * fwd * 1.4; cg += thin * fwd * 1.1; cb += thin * fwd * 0.65;
+    const thin = 1 - smooth(0.0, 1.3, d);
+    cr += thin * fwd * 0.8; cg += thin * fwd * 0.62; cb += thin * fwd * 0.36;
     r = mix(r, cr, op); g = mix(g, cg, op); b = mix(b, cb, op);
     return { c: [r, g, b], d: op };
   }
@@ -583,7 +583,7 @@
   }
 
   // ---------------------------------------------------------------- render study
-  let BEAM_K = 0.55;
+  let BEAM_K = 0.26;
   function render(RW, RH, opts) {
     if (opts && opts.beamK != null) BEAM_K = opts.beamK;
     opts = opts || {};
@@ -646,9 +646,16 @@
           const sh = shadow(x, y, z);
           // cloud shadows drifting over the canyon (patches of sun)
           const cs1 = N1.fbm(x * 0.32 + 7.0, z * 0.45 + 1.0, 4);
-          const zb = -0.5 * smooth(1.2, 1.7, z) * smooth(4.4, 3.9, z) + 0.22 * smooth(4.3, 4.8, z) * smooth(9.0, 7.5, z) - 0.35 * smooth(1.3, 0.9, z);
+          const zb = -0.5 * smooth(1.2, 1.7, z) * smooth(4.4, 3.9, z) + 0.22 * smooth(4.3, 4.8, z) * smooth(9.0, 7.5, z) + 0.25 * smooth(1.3, 0.9, z);
           let cshadow = smooth(-0.08, 0.12, cs1 + zb + 0.02);
-          if (fg) cshadow = 0.35 + 0.65 * smooth(-0.0005, 0.0025, (x - 0.004) - 0.5 * (z - 0.06)) * smooth(0.0, 0.004, 0.072 - z);
+          if (fg) {
+            // the foreground lies in the shadow of the storm; only the brink catches the sun
+            const zTip = 0.080 - 0.20 * Math.max(0, x - 0.004);
+            const xL = 0.0028 + 0.06 * Math.max(0, z - 0.05);
+            const brink = Math.max(smooth(0.0065, 0.002, zTip - z), smooth(0.0035, 0.0008, x - xL));
+            const leftS = x < -0.008 ? smooth(0.004, 0.001, (-0.0125 - 0.30 * Math.max(0, z - 0.042)) - x) : 0;
+            cshadow = 0.08 + 0.92 * Math.max(brink * (x > -0.004 ? 1 : 0), leftS * 0.8);
+          }
           const ndl = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
           const sunAmt = ndl * sh * (0.12 + 0.88 * cshadow);
           sunlit[k] = sunAmt;
@@ -665,7 +672,18 @@
           // desert varnish streaks on cliffs + albedo variation
           const vs = N3.fbm(x * 40 + z * 40, y * 6, 3);
           const steep = 1 - Math.abs(ny);
-          const av = 1 + 0.18 * N4.fbm(x * 9, z * 9 + y * 20, 3) - 0.25 * steep * smooth(0.1, 0.5, vs);
+          let av = 1 + 0.18 * N4.fbm(x * 9, z * 9 + y * 20, 3) - 0.25 * steep * smooth(0.1, 0.5, vs);
+          if (!fg) {
+            // bedding planes: thin horizontal partings and ledges, filtered by pixel footprint
+            const yb = y + 0.002 * N5.n2(x * 6, z * 6);
+            const b1 = yb * 150, f1b = b1 - Math.floor(b1);
+            const b2 = yb * 38, f2b = b2 - Math.floor(b2);
+            const w1 = smooth(0.0035, 0.0012, e), w2 = smooth(0.012, 0.004, e);
+            const lay = Math.floor(b2);
+            const layTone = ((lay * 2654435761) >>> 0) / 4294967296 - 0.5;
+            av *= 1 - w1 * 0.16 * smooth(0.82, 0.97, f1b) * (0.4 + 0.6 * steep)
+                  + w2 * (0.12 * layTone - 0.12 * smooth(0.9, 0.99, f2b) * steep + 0.08 * smooth(0.06, 0.0, f2b) * steep);
+          }
           alb = [alb[0] * av, alb[1] * av, alb[2] * av];
           // light
           const sunC = [1.75, 1.12, 0.62];
@@ -674,9 +692,12 @@
           const ao_e = Math.max(0.0004, t * 0.01);
           const ao = clamp(1 + (y - (H(x + ao_e, z) + H(x - ao_e, z) + H(x, z + ao_e) + H(x, z - ao_e)) * 0.25) / ao_e * 1.5, 0.4, 1);
           const hemi = 0.5 + 0.5 * ny;
-          let lr = sunC[0] * sunAmt + (skyAmb[0] * hemi + bounce[0] * (1 - hemi) * 0.9) * ao;
-          let lg = sunC[1] * sunAmt + (skyAmb[1] * hemi + bounce[1] * (1 - hemi) * 0.9) * ao;
-          let lb = sunC[2] * sunAmt + (skyAmb[2] * hemi + bounce[2] * (1 - hemi) * 0.9) * ao;
+          // the deep chasm right below is starved of light: cooler, darker shadows
+          const deep = fg ? 0 : smooth(1.8, 0.6, t) * smooth(0.75, 0.35, y);
+          const ka = 1 - 0.45 * deep, kb = 1 - 0.7 * deep;
+          let lr = sunC[0] * sunAmt + (skyAmb[0] * hemi * ka + bounce[0] * (1 - hemi) * 0.9 * kb) * ao;
+          let lg = sunC[1] * sunAmt + (skyAmb[1] * hemi * ka + bounce[1] * (1 - hemi) * 0.9 * kb) * ao;
+          let lb = sunC[2] * sunAmt + (skyAmb[2] * hemi * (ka + 0.25 * deep) + bounce[2] * (1 - hemi) * 0.9 * kb) * ao;
           r = alb[0] * lr; g = alb[1] * lg; b = alb[2] * lb;
           if (water) {
             // reflect the sky at grazing incidence, ripple-broken
@@ -696,7 +717,9 @@
           const hz = hazeColor(dx, dy, dz);
           const dens = fg ? 0 : 1 - Math.exp(-dist * 0.05);
           // haze is thicker low in the canyon (pooling air)
-          const pool = 0;
+          // drifting mist low in the chasm, luminous where the beams cross it
+          const mn = N2.fbm(x * 2.2 + 3.0, z * 3.0 + y * 4.0, 4);
+          const pool = fg ? 0 : smooth(0.6, 0.2, y) * smooth(0.25, 0.9, t) * smooth(4.5, 2.5, t) * clamp(0.1 + 0.9 * smooth(0.05, 0.4, mn), 0, 1) * 0.3;
           const fa = clamp(dens + pool, 0, 0.92);
           r = mix(r, hz[0], fa); g = mix(g, hz[1], fa); b = mix(b, hz[2], fa);
           depth[k] = t;
@@ -737,15 +760,33 @@
         if (beams[k] > bmax) bmax = beams[k];
       }
     }
-    // shafts: keep the structure (light vs. shadow rays), not just a glow
-    const bblur = G.CORE.blurPlane(beams, RW, RH, 1, RW * 0.03, 2);
-    for (let k = 0; k < N; k++) {
-      const dpt = depth[k];
-      const air = mat[k] === 0 ? 0.45 : mat[k] === 3 ? 0.0 : clamp(1 - Math.exp(-dpt * 0.3), 0, 1);
-      const b = beams[k] / bmax, bl = bblur[k] / bmax;
-      const shaft = clamp(b - 0.55 * bl, 0, 1) + 0.25 * b;
-      const bb = shaft * BEAM_K * air;
-      col[k * 3] += bb * 1.0; col[k * 3 + 1] += bb * 0.76; col[k * 3 + 2] += bb * 0.46;
+    // sunbeams through the break, designed as a painter places them: a fan of shafts with soft
+    // edges and fine striations, strongest in the deep air of the canyon, gated by the clouds
+    const RAYS = [[58, 6, 0.7], [76, 10, 1.0], [99, 6, 0.65], [117, 9, 0.8]];
+    const NR = makeNoise(SEED + 99);
+    for (let py = 0; py < RH; py++) {
+      for (let px = 0; px < RW; px++) {
+        const k = py * RW + px;
+        const dx = px - sunPx[0], dy = py - sunPx[1];
+        const r = Math.hypot(dx, dy) / RW;
+        if (dy <= 0 || r < 0.03) continue;
+        const th = Math.atan2(dy, dx) * 180 / Math.PI;
+        let b = 0;
+        for (let i = 0; i < RAYS.length; i++) {
+          const [c, w, a] = RAYS[i];
+          const d = Math.abs(th - c) / w;
+          b += a * (1 - smooth(0.2, 1.0, d));
+        }
+        b *= clamp(0.8 + 0.5 * NR.fbm(th * 0.15, r * 0.8, 3), 0, 1.3);
+        const fall = smooth(0.05, 0.25, r) * Math.exp(-r * 1.6);
+        const dpt = depth[k];
+        const air = mat[k] === 0 ? 0.55 * (1 - cloud[k]) : mat[k] === 3 ? 0.0 : clamp(1 - Math.exp(-dpt * 0.28), 0, 1);
+        const bb = b * fall * BEAM_K * air;
+        col[k * 3] += bb * 1.0; col[k * 3 + 1] += bb * 0.74; col[k * 3 + 2] += bb * 0.42;
+        // the air between the shafts is a shade cooler
+        const sh = (1 - clamp(b, 0, 1)) * fall * air * 0.08;
+        col[k * 3] *= 1 - sh; col[k * 3 + 1] *= 1 - sh * 0.9; col[k * 3 + 2] *= 1 - sh * 0.6;
+      }
     }
     // halation: the glow around the light spreads softly, as in a luminist sky
     const bright = new Float32Array(N * 3);

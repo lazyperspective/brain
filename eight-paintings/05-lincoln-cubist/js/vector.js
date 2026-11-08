@@ -53,7 +53,7 @@
       const row = r * gw;
       for (let h = 0; h + 1 < hits.length; h += 2) {
         const c0 = Math.max(0, Math.ceil(hits[h] - 0.5)), c1 = Math.min(gw - 1, Math.floor(hits[h + 1] - 0.5));
-        for (let c = c0; c <= c1; c++) ids[row + c] = v;
+        if (v < 0) { for (let c = c0; c <= c1; c++) ids[row + c] |= -v; } else for (let c = c0; c <= c1; c++) ids[row + c] = v;
       }
     }
   }

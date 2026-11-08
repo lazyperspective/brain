@@ -145,17 +145,16 @@
     // trunk and main limbs (fractions of width/height; radii as fraction of width)
     const rootX = px(0.872), rootY = py(0.94);
     const trunk = addLimb([[0.872, 0.94], [0.862, 0.90], [0.846, 0.86], [0.836, 0.825], [0.822, 0.792]], 0.034, 0.02, 'live', 0, { trunk: true });
-    const armL = addLimb([[0.826, 0.80], [0.79, 0.772], [0.745, 0.757], [0.70, 0.736], [0.655, 0.722], [0.615, 0.712]], 0.0155, 0.0035, 'live', 1);
-    const up = addLimb([[0.824, 0.796], [0.812, 0.745], [0.80, 0.70], [0.807, 0.655], [0.795, 0.612]], 0.014, 0.003, 'live', 1);
+    const armL = addLimb([[0.826, 0.80], [0.79, 0.772], [0.745, 0.757], [0.70, 0.736], [0.655, 0.722], [0.612, 0.70]], 0.0155, 0.0022, 'dead', 1);
+    const up = addLimb([[0.824, 0.796], [0.815, 0.755], [0.796, 0.715], [0.79, 0.67], [0.772, 0.632]], 0.0135, 0.0018, 'dead', 1);
     const snag = addLimb([[0.836, 0.81], [0.858, 0.762], [0.872, 0.718], [0.893, 0.68], [0.905, 0.648]], 0.0105, 0.0016, 'dead', 1);
-    const armR = addLimb([[0.832, 0.79], [0.866, 0.768], [0.905, 0.752], [0.95, 0.748], [0.985, 0.752]], 0.0095, 0.0025, 'live', 1);
+    const armR = addLimb([[0.832, 0.79], [0.866, 0.772], [0.90, 0.762], [0.935, 0.748], [0.965, 0.728]], 0.0105, 0.003, 'live', 1);
     const low = addLimb([[0.853, 0.875], [0.825, 0.868], [0.80, 0.874], [0.78, 0.884]], 0.007, 0.0015, 'dead', 2);
-    // foliage masses: big, flattened pads at the ends and along the upper sides of the live limbs
-    for (const [fx, fy, r] of [[0.625, 0.703, 66], [0.672, 0.718, 58], [0.722, 0.735, 54], [0.77, 0.752, 40],
-      [0.795, 0.605, 64], [0.825, 0.64, 52], [0.772, 0.655, 46], [0.80, 0.69, 38],
-      [0.955, 0.735, 60], [0.91, 0.737, 46], [0.985, 0.745, 40]]) masses.push({ x: px(fx), y: py(fy), r: r * S * 1.45 });
-    twigs(armL, 7, 70 * S, null);
-    twigs(up, 6, 60 * S, null);
+    // the one living strip carries a dense, ragged crown to the right; a smaller tuft lower down
+    for (const [fx, fy, r] of [[0.948, 0.716, 58], [0.975, 0.705, 50], [0.918, 0.73, 46], [0.958, 0.738, 44], [0.99, 0.726, 40],
+      [0.93, 0.70, 36], [0.885, 0.752, 30]]) masses.push({ x: px(fx), y: py(fy), r: r * S * 1.3 });
+    twigs(armL, 6, 80 * S, null);
+    twigs(up, 5, 70 * S, null);
     twigs(armR, 4, 55 * S, null);
     twigs(snag, 4, 70 * S, null);
 
@@ -186,7 +185,7 @@
       const r0 = rad[0];
       // body
       const wid = rad.map((r) => r / r0);
-      stroke(pts, r0, dead ? [0.17, 0.155, 0.15] : [0.085, 0.065, 0.05],
+      stroke(pts, r0, dead ? [0.15, 0.13, 0.125] : [0.085, 0.065, 0.05],
         Object.assign(opt({ opacity: 1, soft: 0.12, bristleContrast: 0.3, thick: 0.7, dry: 0.05 }), { widths: wid }));
       // fibres
       const nf = Math.max(2, Math.min(26, Math.round(r0 / (2.6 * S))));
@@ -199,7 +198,7 @@
           if (run.length >= 4) {
             const v = runV / cnt;
             let c;
-            if (dead) c = [mix(0.16, 1.0, Math.pow(v, 2.2)), mix(0.15, 0.9, Math.pow(v, 2.2)), mix(0.15, 0.74, Math.pow(v, 2.2))];
+            if (dead) c = [mix(0.15, 1.0, Math.pow(v, 2.0)), mix(0.13, 0.84, Math.pow(v, 2.0)), mix(0.13, 0.60, Math.pow(v, 2.0))];
             else c = [mix(0.07, 0.86, Math.pow(v, 2.4)), mix(0.055, 0.60, Math.pow(v, 2.4)), mix(0.045, 0.36, Math.pow(v, 2.4))];
             const j = 0.85 + rng() * 0.3; c = [c[0] * j, c[1] * j, c[2] * j];
             const fw = Math.max(0.55 * S, r0 * 0.07);
@@ -240,11 +239,11 @@
       const seed = rng() * 100;
       for (let i = 0; i < nd; i++) {
         const a = rng() * Math.PI * 2, rr = Math.pow(rng(), 0.6);
-        const ox = Math.cos(a) * rr * R * 1.3, oy = Math.sin(a) * rr * R * 0.6 - rr * rr * R * 0.12;
+        const ox = Math.cos(a) * rr * R * 1.1, oy = Math.sin(a) * rr * R * 0.78 - rr * rr * R * 0.1;
         const edge = NZ.fbm((cx + ox) / (30 * S) + seed, (cy + oy) / (30 * S), 4);
         if (rr > 0.72 + 0.55 * edge) continue;
         const x = cx + ox, y = cy + oy;
-        const facing = (Math.cos(a) * lx * 1.3 + Math.sin(a) * ly * 0.6) / 1.43;
+        const facing = (Math.cos(a) * lx * 1.1 + Math.sin(a) * ly * 0.78) / 1.35;
         const v = clamp(facing * rr * 1.25, -1, 1);
         let c;
         if (v > 0.62) { const q = (v - 0.62) / 0.38; c = [mix(0.28, 0.84, q), mix(0.28, 0.66, q), mix(0.14, 0.30, q)]; }

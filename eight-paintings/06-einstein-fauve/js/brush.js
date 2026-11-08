@@ -35,6 +35,8 @@
   // xs, ys, ws: arrays in px (ws = full width).  o: options.
   Painter.prototype.stroke = function (xs, ys, ws, o) {
     const n = xs.length; if (n < 2) return;
+    for (let i = 0; i < n; i++) if (!(xs[i] === xs[i] && ys[i] === ys[i] && ws[i] === ws[i])) { if (!this.nanWarned) { console.log('NaN stroke skipped', JSON.stringify(o.col)); this.nanWarned = 1; } return; }
+    if (!(o.col[0] === o.col[0] && o.col[1] === o.col[1] && o.col[2] === o.col[2])) { console.log('NaN colour', xs[0], ys[0]); return; }
     const W = this.W, H = this.H, R = this.R, Gc = this.Gc, B = this.B, Ht = this.Ht, Wet = this.Wet, Vis = this.Vis, tooth = this.grip;
     const rng = this.rng, nz = this.nz, sc = this.sc;
     const sid = ++this.sid, ses = this.session;

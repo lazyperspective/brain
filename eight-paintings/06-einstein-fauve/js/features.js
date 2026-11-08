@@ -89,20 +89,20 @@
     // ---------- forehead wrinkles: a dark line with a lit ridge above, colour by plane
     for (let wi = 0; wi < F.wrinkles.length; wi++) {
       const w = F.wrinkles[wi];
-      // each line is found in two or three gestures, broken where the brush lifted
-      let t = rng.next() * 0.12;
-      while (t < 0.92) {
-        const len = 0.18 + rng.next() * 0.3; const t1 = Math.min(1, t + len);
-        if (rng.next() > 0.15) {
+      // each furrow is a few broken, loaded touches: a coloured shadow under a lit ridge
+      let t = rng.next() * 0.1;
+      while (t < 0.9) {
+        const t1 = Math.min(1, t + 0.1 + rng.next() * 0.17);
+        if (rng.next() > 0.2) {
           const dy = rng.gauss() * 2.5;
           const pl = offset(sub(w, t, t1), 0, dy); const mid = pl[pl.length >> 1];
           const bd = plan.band[(mid[1] | 0) * plan.PW + (mid[0] | 0)];
-          const dark = bd >= 3 ? rng.pick([C.vermilion, C.rose, C.crimson]) : bd === 2 ? C.crimson : rng.pick([C.viridian, C.ultramarine]);
-          const light = bd >= 3 ? rng.pick([C.lemonWhite, C.lemon]) : bd === 2 ? C.cadYellow : C.emeraldLt;
-          S(wob(pl, 1.6, 0.08), 2.4 + rng.next() * 2.2, 'both', o({ col: jit(dark, 0.03), imp: 0.6 }));
-          if (rng.next() < 0.8) S(wob(offset(pl, rng.gauss() * 4, -5 - rng.next() * 2), 1.6, 0.08), 3.5 + rng.next() * 2.5, 'both', o({ col: jit(light, 0.03), imp: 1.1, load: 1.1 }));
+          const dark = bd === 4 || bd === 5 ? rng.pick([C.cadOrange, C.rose, C.vermilion]) : bd === 3 || bd === 6 ? rng.pick([C.vermilion, C.crimson]) : bd === 2 ? rng.pick([C.crimson, C.violet]) : rng.pick([C.ultramarine, C.viridian, C.violet]);
+          const light = bd >= 4 ? C.lemonWhite : bd === 3 || bd === 6 ? C.lemon : bd === 2 ? C.cadOrange : C.emeraldLt;
+          S(wob(pl, 1.4, 0.08), 5 + rng.next() * 3.5, 'both', o({ col: jit(dark, 0.03), imp: 0.8, bristle: 0.8, rag: 0.3 }));
+          if (rng.next() < 0.75) S(wob(offset(pl, rng.gauss() * 5, -7 - rng.next() * 2), 1.4, 0.08), 5 + rng.next() * 3, 'both', o({ col: jit(light, 0.03), imp: 1.3, load: 1.2, rag: 0.3 }));
         }
-        t = t1 + 0.02 + rng.next() * 0.08;
+        t = t1 + 0.04 + rng.next() * 0.1;
       }
     }
     // ---------- nose: lit ridge, green shadow plane, rosy tip, dark nostrils
@@ -203,7 +203,7 @@
     ct(sub(F.noseNearSide, 0.3, 1), 3.5, C.crimson);
     for (const cl of [F.collarL, F.collarR]) ct(cl.slice(0, Math.floor(cl.length * 0.6)), 8, C.ultramarine);
     ct(F.jacket.slice(0, Math.floor(F.jacket.length * 0.3)), 12, C.ink);
-    ct(F.jacket.slice(Math.floor(F.jacket.length * 0.62), Math.floor(F.jacket.length * 0.94)), 12, C.ink);
+    ct(F.jacket.slice(Math.floor(F.jacket.length * 0.55), Math.floor(F.jacket.length * 0.77)), 12, C.ink);
       // ---------- last loaded lights: thick, single touches where the light hits hardest
     const dab = (pts, w, col, imp) => S(pts.map((p) => F.T(p)), w, 'loaded', o({ col: jit(col, 0.02), load: 1.35, imp: imp || 1.7, pick: 0.12, cap: 1, lift: 0.4 }));
     dab([[392, 395], [430, 388], [462, 392]], 11, C.lemonWhite);

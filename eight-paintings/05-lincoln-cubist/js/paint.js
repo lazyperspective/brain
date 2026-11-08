@@ -31,14 +31,14 @@
   // plain-weave canvas: warp and weft threads with slubs and wander, over/under alternation
   Painter.prototype.makeWeave = function (period, seed) {
     const W = this.W, H = this.H, wv = this.weave, P = period;
-    const thrW = new Float32Array(Math.ceil(W / P) + 8), thrH = new Float32Array(Math.ceil(H / P) + 8);
+    const thrW = new Float32Array(Math.ceil(W / P) + 16), thrH = new Float32Array(Math.ceil(H / P) + 16);
     const rr = R.rng(seed);
-    for (let i = 0; i < thrW.length; i++) thrW[i] = 0.72 + 0.4 * rr();
-    for (let i = 0; i < thrH.length; i++) thrH[i] = 0.72 + 0.4 * rr();
+    for (let i = 0; i < thrW.length; i++) thrW[i] = 0.6 + 0.55 * rr();
+    for (let i = 0; i < thrH.length; i++) thrH[i] = 0.6 + 0.55 * rr();
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        const wx = x + (R.vnoise(x * 0.01, y * 0.0035, seed + 1) - 0.5) * P * 1.6;
-        const wy = y + (R.vnoise(x * 0.0035, y * 0.01, seed + 2) - 0.5) * P * 1.6;
+        const wx = x + (R.vnoise(x * 0.01, y * 0.0035, seed + 1) - 0.5) * P * 1.6 + (R.vnoise(x / (P * 2.7), y / (P * 9), seed + 5) - 0.5) * P * 0.7;
+        const wy = y + (R.vnoise(x * 0.0035, y * 0.01, seed + 2) - 0.5) * P * 1.6 + (R.vnoise(x / (P * 9), y / (P * 2.7), seed + 6) - 0.5) * P * 0.7;
         const fx = wx / P + 4, fy = wy / P + 4;
         const i = Math.floor(fx), j = Math.floor(fy), ax = fx - i, ay = fy - j;
         const tw = thrW[i] * (0.85 + 0.3 * R.vnoise(i * 3.1, y / (P * 3.5), seed + 3));

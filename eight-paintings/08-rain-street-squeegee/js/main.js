@@ -17,6 +17,7 @@
     }
     ctx.putImageData(d, 0, 0);
   }
+  if (q.get('dbgy')) P8.DBG = { y: parseInt(q.get('dbgy'), 10), out: [] };
   const sc = P8.buildScene(W, H, SEED); log('scene');
   window.__scene = sc;
   if (stage === 'ref') { show(sc.ref); }

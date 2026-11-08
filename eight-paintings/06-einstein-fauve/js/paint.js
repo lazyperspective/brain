@@ -158,7 +158,7 @@
     for (const [x, y] of scatter(22, (x, y) => regAt(x, y) === RG.HAIR)) {
       const a = Math.atan2(y - hc[1], x - hc[0]);
       const shade = 0.5 + 0.5 * Math.cos(a - 3.6); // lit toward upper-left
-      const c = rng.next() < 0.35 ? mix(C.cerulean, C.violet, rng.next()) : mix(C.skyWhite, C.lemonWhite, shade);
+      const c = rng.next() < 0.55 ? mix(C.cobalt, C.violet, rng.next()) : mix(C.lilac, shade > 0.5 ? C.pink : C.cerulean, 0.4);
       S(trace(x, y, () => a + 0.3 * nz.n2(x / 50, y / 50), 40 + rng.next() * 50, 5, null, a), 18 + rng.next() * 12, 'loaded', Object.assign({}, thin, { col: jit(c, 0.05) }));
     }
     // face and neck from the plan
@@ -167,7 +167,7 @@
       const rr = regAt(x, y);
       if (y < 470 && rr === RG.FACE) a = 0.15 * Math.sin(a) + 0.08 * nz.n2(x / 40, y / 40); // forehead: horizontal sweeps
       else if (y > 700 && (rr === RG.FACE || rr === RG.LIP)) a = Math.atan2(y - 600, x - 485) + Math.PI / 2 + 0.15 * nz.n2(x / 50, y / 50); // chin and jaw: strokes cup the lower face
-      else if (rr === RG.NECK || rr === RG.CHEST) a = (x < 495 ? 0.35 : -0.35) + 0.25 * nz.n2(x / 40, y / 40); // neck: wraps around
+      else if (rr === RG.NECK || rr === RG.CHEST) a = (plan.band[(y | 0) * plan.PW + (x | 0)] === 0 && rr === RG.NECK ? 0.15 * (x < 495 ? 1 : -1) : Math.PI / 2 + (x < 495 ? -0.38 : 0.38)) + 0.2 * nz.n2(x / 40, y / 40); // neck: tendons down, jaw shadow across
       return a;
     };
     for (const [x, y] of scatter(13, (x, y) => [RG.FACE, RG.NECK, RG.CHEST, RG.EAR, RG.LIP, RG.BROW, RG.EYE, RG.MOUST].includes(regAt(x, y)))) {
@@ -183,20 +183,61 @@
     // ======== 3. loaded alla-prima body ========
     P.session = 3;
     const body = { load: 1.0, opac: 0.96, imp: 0.9, rag: 0.22, bristle: 0.6, pick: 0.22, reach: 1.3, dryK: 0.55, touch: 0.35, endPile: 0.5 };
-    // --- background: long sweeping loaded strokes of varied width, then a few short accents
-    for (let pass = 0; pass < 2; pass++) {
-      const sp = pass ? 34 : 30;
-      for (const [x, y] of scatter(sp, (x, y) => regAt(x, y) === RG.BG || (pass === 0 && regAt(x, y) === RG.HAIR && rng.next() < 0.3))) {
-        if (pass === 1 && rng.next() < 0.35) continue;
-        let c = bgCol(x + rng.gauss() * 25, y + rng.gauss() * 25);
-        const r = rng.next();
-        if (x < split(y)) { if (r < 0.10) c = C.cobalt; else if (r < 0.16) c = C.turquoise; else if (r < 0.2) c = C.emeraldLt; else if (r < 0.23) c = C.sap; }
-        else { if (r < 0.10) c = C.cadOrange; else if (r < 0.15) c = C.crimson; else if (r < 0.19) c = C.rose; else if (r < 0.21) c = C.cadYellow; }
-        const big = rng.next() < 0.35;
-        const L = pass ? 50 + rng.next() * 90 : (big ? 220 + rng.next() * 220 : 110 + rng.next() * 150);
-        const w = pass ? 10 + rng.next() * 12 : (big ? 26 + rng.next() * 18 : 16 + rng.next() * 14);
-        S(trace(x, y, bgAng, L, 5, (xx, yy, s) => s < 40 || regAt(xx, yy) === RG.BG || regAt(xx, yy) === RG.HAIR), w, pass ? 'both' : 'loaded',
-          Object.assign({}, body, { col: jit(c, 0.05), col2: jit(mix(c, rng.pick([C.white, C.cadYellow, C.ultramarine, C.rose]), 0.35), 0.03), mix2: 0.2, imp: 0.7, reach: big ? 2.0 : 1.4, lift: 0.35, touch: 0.18 }));
+    // --- background: worked in patches of different handling, as a painter moves around the canvas
+    const inBG = (xx, yy) => { const r0 = regAt(xx, yy); return r0 === RG.BG || r0 === RG.HAIR; };
+    const accent = (x, y) => {
+      const r = rng.next();
+      if (x < split(y)) return r < 0.2 ? C.cobalt : r < 0.32 ? C.turquoise : r < 0.42 ? C.emeraldLt : r < 0.48 ? C.sap : r < 0.52 ? C.ultramarine : null;
+      return r < 0.2 ? C.cadOrange : r < 0.3 ? C.crimson : r < 0.38 ? C.rose : r < 0.43 ? C.cadYellow : r < 0.46 ? C.violet : null;
+    };
+    // first a covering pass: broad strokes of mixed length and width with the field
+    for (const [x, y] of scatter(36, inBG)) {
+      let c = bgCol(x + rng.gauss() * 25, y + rng.gauss() * 25);
+      const a = accent(x, y); if (a && rng.next() < 0.35) c = a;
+      const big = rng.next() < 0.4;
+      S(trace(x, y, bgAng, big ? 160 + rng.next() * 200 : 60 + rng.next() * 110, 5, (xx, yy, s) => s < 30 || inBG(xx, yy)), big ? 26 + rng.next() * 20 : 14 + rng.next() * 14, 'loaded',
+        Object.assign({}, body, { col: jit(c, 0.05), col2: jit(mix(c, rng.pick([C.white, C.cadYellow, C.ultramarine, C.rose]), 0.35), 0.03), mix2: 0.2, imp: 0.65, reach: big ? 2.0 : 1.3, lift: 0.35, touch: 0.15 }));
+    }
+    const patches = scatter(80, inBG);
+    for (const [px, py] of patches) {
+      const m = rng.next();
+      const base = accent(px, py) || bgCol(px + rng.gauss() * 20, py + rng.gauss() * 20);
+      const pc = () => jit(rng.next() < 0.18 ? (accent(px, py) || base) : base, 0.045);
+      const dir0 = bgAng(px, py);
+      const R = 55 + rng.next() * 95;
+      const within = () => { const a = rng.next() * 6.283, rr = Math.sqrt(rng.next()) * R; return [px + Math.cos(a) * rr, py + Math.sin(a) * rr]; };
+      if (m < 0.08) { // thin turpsy scrub, canvas grinning through
+        const n = 3 + rng.int(0, 4);
+        for (let i = 0; i < n; i++) {
+          const [x, y] = within(); const d = dir0 + rng.gauss() * 0.9;
+          S(trace(x, y, () => d, 60 + rng.next() * 100, 6, inBG, d), 32 + rng.next() * 26, 'loaded',
+            Object.assign({}, body, { col: pc(), load: 0.5, opac: 0.7, wash: true, dryK: 0.9, imp: 0.08, bristle: 0.9, rag: 0.45, reach: 0.6 }));
+        }
+      } else if (m < 0.5) { // a run of parallel strokes, one loading
+        const d = dir0 + rng.gauss() * 0.45; const w = 9 + rng.next() * 14; const L = 45 + rng.next() * 90;
+        const n = 4 + rng.int(0, 8); const nx = -Math.sin(d), ny = Math.cos(d);
+        const ld = 0.85 + rng.next() * 0.45;
+        for (let i = 0; i < n; i++) {
+          const off = (i - n / 2) * w * (0.8 + rng.next() * 0.6);
+          const x = px + nx * off + Math.cos(d) * rng.gauss() * 12, y = py + ny * off + Math.sin(d) * rng.gauss() * 12;
+          const dd = d + rng.gauss() * 0.07;
+          S(trace(x, y, (xx, yy) => dd + 0.15 * nz.n2(xx / 90, yy / 90), L * (0.75 + rng.next() * 0.5), 4, inBG, dd), w * (0.85 + rng.next() * 0.3), rng.next() < 0.5 ? 'loaded' : 'both',
+            Object.assign({}, body, { col: pc(), col2: jit(mix(base, C.white, 0.3), 0.03), mix2: 0.15, load: ld, imp: 0.6 + ld * 0.4, lift: 0.4, touch: 0.2 }));
+        }
+      } else if (m < 0.86) { // long sweeps with the field
+        const n = 1 + rng.int(0, 2);
+        for (let i = 0; i < n; i++) {
+          const [x, y] = within();
+          S(trace(x, y, bgAng, 200 + rng.next() * 220, 5, inBG), 24 + rng.next() * 24, 'loaded',
+            Object.assign({}, body, { col: pc(), col2: jit(mix(base, rng.pick([C.white, C.cadYellow, C.ultramarine]), 0.35), 0.03), mix2: 0.22, imp: 0.75, reach: 2.2, lift: 0.35, touch: 0.15 }));
+        }
+      } else { // thick short dabs, broken directions
+        const n = 3 + rng.int(0, 4);
+        for (let i = 0; i < n; i++) {
+          const [x, y] = within(); const d = dir0 + rng.gauss() * 0.6;
+          S(trace(x, y, () => d, 28 + rng.next() * 30, 3, inBG, d), 13 + rng.next() * 10, 'loaded',
+            Object.assign({}, body, { col: pc(), load: 1.3, imp: 1.5, touch: 0.4, endPile: 0.6, lift: 0.2 }));
+        }
       }
     }
     log && log('background');
@@ -229,10 +270,20 @@
       S(trace(x, y, () => ca, 34 + rng.next() * 34, 3, (xx, yy, s) => s < 10 || regAt(xx, yy) === regAt(x, y), ca), 11 + rng.next() * 6, 'loaded',
         Object.assign({}, body, { col: jit(c, 0.03), lift: 0.4 }));
     }
+    // cast shadows: the jaw and head throw cool colour onto the collar, deepest on the far side
+    {
+      const shL = G.Geom.open([F.T([470, 1040]), F.T([452, 975]), F.T([420, 932]), F.T([398, 880])], 8);
+      const shR = G.Geom.open([F.T([508, 1040]), F.T([532, 978]), F.T([575, 934]), F.T([604, 880]), F.T([636, 925])], 8);
+      for (let i = 0; i < 3; i++) {
+        S(shL.map((p) => [p[0] - 6 - i * 6 + rng.gauss() * 1.5, p[1] + rng.gauss() * 1.5]), 10 + rng.next() * 4, 'both', Object.assign({}, body, { col: jit(i ? C.lilac : C.violet, 0.03), opac: 0.85, imp: 0.7 }));
+        S(shR.map((p) => [p[0] + 7 + i * 8 + rng.gauss() * 1.5, p[1] + rng.gauss() * 1.5]), 14 + rng.next() * 5, 'both', Object.assign({}, body, { col: jit(i < 2 ? C.ultramarine : C.cobalt, 0.03), opac: 0.9, imp: 0.7 }));
+      }
+    }
     // --- neck, chest, ears from the plan
     for (const [x, y] of scatter(7, (x, y) => [RG.NECK, RG.CHEST, RG.EAR].includes(regAt(x, y)))) {
       const r0 = regAt(x, y);
-      S(trace(x, y, faceAng, 14 + rng.next() * 22, 2.5, (xx, yy, s) => s < 6 || regAt(xx, yy) === r0), 8 + rng.next() * 6, 'loaded',
+      const b0 = bandAt(x, y);
+      S(trace(x, y, faceAng, 22 + rng.next() * 30, 2.5, (xx, yy, s) => regAt(xx, yy) === r0 && (s < 8 || bandAt(xx, yy) === b0 || rng.next() < 0.12)), 10 + rng.next() * 7, 'loaded',
         Object.assign({}, body, { col: jit(planCol(x, y), 0.05), imp: 0.8 }));
     }
     log && log('neck');

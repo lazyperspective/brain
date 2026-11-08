@@ -401,6 +401,7 @@ vec3 glassPath(vec3 ro, vec3 rd, out float hitOpaque){
       pos = hp + rdir*0.0006; dir = rdir; continue;
     }
     acc += thr*F*envRoom(rdir)*(it==0?1.0:0.6);
+    acc += thr*vec3(1.0,0.95,0.85)*(2.2*pow(max(dot(rdir, LDIR),0.0), 300.0) + 0.35*pow(max(dot(rdir, LDIR),0.0), 30.0))*(it<2?1.0:0.4);
     thr *= (1.0-F);
     pos = hp + tdir*0.0006; dir = tdir;
     // exited the glass entirely?

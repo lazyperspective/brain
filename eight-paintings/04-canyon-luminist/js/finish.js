@@ -45,7 +45,7 @@
     const hsm = blurPlane(Hh, W, H, 1, 1.0 * S + 0.3, 2);
     for (let k = 0; k < N; k++) {
       const thin = 1 - smooth(0.25, 1.6, Th[k]);
-      hs[k] = hsm[k] * 0.9 + wv[k] * (0.06 + 0.5 * thin) * 0.8;
+      hs[k] = hsm[k] * 0.9 + wv[k] * (0.05 + 0.28 * thin) * 0.8;
     }
     // raking light from the upper left
     const L = [-0.55, -0.62, 0.56];
