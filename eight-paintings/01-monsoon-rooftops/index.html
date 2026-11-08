@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monsoon Rooftops</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #08070d; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; max-width: 100vw; max-height: 100vh; aspect-ratio: 4 / 5; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c" width="432" height="540"></canvas>
+<script src="js/engine.js"></script>
+<script src="js/piece.js"></script>
+<script>
+  (function () {
+    const S = window.PIECE.render();
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+    ctx.putImageData(new ImageData(S.toRGBA(), S.W, S.H), 0, 0);
+    // full-size master: exact integer nearest-neighbour upscale (x5 -> 2160 x 2700)
+    window.exportMaster = function () {
+      const k = 5, big = document.createElement('canvas');
+      big.width = S.W * k; big.height = S.H * k;
+      const b = big.getContext('2d');
+      b.imageSmoothingEnabled = false;
+      b.drawImage(cv, 0, 0, big.width, big.height);
+      return { master: big.toDataURL('image/png'), native: cv.toDataURL('image/png'), colours: window.PIECE.stats(S) };
+    };
+    window.__done = true;
+  })();
+</script>
+</body>
+</html>
