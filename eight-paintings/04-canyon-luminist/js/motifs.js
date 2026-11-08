@@ -28,7 +28,7 @@
       const isFG = (x, y) => P.mat[clamp(y | 0, 0, H - 1) * W + clamp(x | 0, 0, W - 1)] === 3;
       const lum = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
       // cracks
-      for (let i = 0, made = 0; i < 4000 && made < 18; i++) {
+      for (let i = 0, made = 0; i < 4000 && made < 0; i++) {
         let x = rng() * W, y = py(0.8 + rng() * 0.2);
         if (!isFG(x, y)) continue;
         made++;
@@ -76,82 +76,107 @@
     }
 
     // ---------------------------------------------------------------- juniper
+    // The tree is drawn like a painter would: a designed skeleton (trunk and main limbs placed in
+    // picture space), wobbled and twisted; twigs and foliage grown from it. Bark is painted as
+    // fibres spiralling round each limb, lit on the side facing the low sun; foliage as dense
+    // olive masses with a backlit golden rim.
     {
     const rng = makeRng(8080);
-    // Skeleton: limbs as polylines with per-point radius. Bark: fibres spiralling around each
-    // limb, lit on the side that faces the low sun. Foliage: dense olive sprays, backlit edges.
     const limbs = [];
-    const clumps = [];
-    function foliageMass(x, y, base) {
-      const k = 3 + (rng() * 4 | 0);
-      for (let i = 0; i < k; i++) {
-        clumps.push({ x: x + (rng() - 0.5) * base * 2.6, y: y - rng() * base * 0.7 + base * 0.1, r: base * (0.6 + rng() * 0.6) });
-      }
-    }
-    function grow(x, y, ang, len, r0, depth, kind, curl) {
-      const nseg = Math.max(4, Math.round(len / (9 * S)));
-      const pts = [x, y], rad = [r0];
-      let a = ang, turn = 0;
-      const taper = kind === 'dead' ? 0.22 : 0.5;
-      for (let i = 1; i <= nseg; i++) {
-        turn = turn * 0.7 + (rng() - 0.5) * 0.5;
-        a += turn * 0.45 + curl;
-        x += Math.cos(a) * len / nseg; y += Math.sin(a) * len / nseg;
-        pts.push(x, y);
-        const t = i / nseg;
-        rad.push(r0 * mix(1, taper, Math.pow(t, 0.9)) * (1 + 0.1 * Math.sin(i * 1.9 + depth)));
-      }
-      limbs.push({ pts, rad, kind, depth });
-      const terminal = depth >= 2 || len < 130 * S;
-      if (!terminal) {
-        for (let c = 0; c < 2; c++) {
-          const q = Math.max(2, Math.round(nseg * (0.55 + 0.4 * rng())));
-          const side = c === 0 ? -1 : 1;
-          const na = a + side * (0.45 + rng() * 0.5);
-          const ck = kind === 'dead' ? 'dead' : (rng() < 0.3 ? 'dead' : 'live');
-          grow(pts[q * 2], pts[q * 2 + 1], na, len * (0.55 + rng() * 0.2), rad[q] * (0.62 + rng() * 0.12), depth + 1, ck, curl * 0.6);
+    const masses = [];
+    function spline(ctrl, step) {
+      // Catmull-Rom through picture-space control points (fractions), sampled every `step` px
+      const P2 = ctrl.map(([fx, fy]) => [fx * W, fy * H]);
+      const out = [];
+      for (let i = 0; i < P2.length - 1; i++) {
+        const p0 = P2[Math.max(0, i - 1)], p1 = P2[i], p2 = P2[i + 1], p3 = P2[Math.min(P2.length - 1, i + 2)];
+        const segL = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+        const n = Math.max(2, Math.round(segL / step));
+        for (let k = 0; k < n; k++) {
+          const t = k / n, t2 = t * t, t3 = t2 * t;
+          const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+          out.push(f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1]));
         }
       }
-      if (kind === 'live') foliageMass(x, y, (terminal ? 42 : 52) * S);
+      const last = P2[P2.length - 1]; out.push(last[0], last[1]);
+      return out;
     }
-    const rootX = px(0.865), rootY = py(0.935);
-    {
-      // the trunk: massive, writhing, leaning out toward the chasm
-      const pts = [rootX, rootY], rad = [80 * S];
-      let x = rootX, y = rootY, a = -Math.PI / 2 - 0.42;
-      for (let i = 1; i <= 26; i++) {
-        a += Math.sin(i * 0.45) * 0.09 - 0.006;
-        x += Math.cos(a) * 12 * S; y += Math.sin(a) * 12 * S;
-        pts.push(x, y); rad.push(80 * S * mix(1, 0.58, i / 26) * (1 + 0.1 * Math.sin(i * 1.1)));
+    function addLimb(ctrl, r0, r1, kind, depth, opts) {
+      const pts = spline(ctrl, 7 * S);
+      const n = pts.length / 2;
+      // gnarl: displace sideways with low-frequency noise proportional to thickness
+      const seed = rng() * 50;
+      for (let i = 1; i < n; i++) {
+        const ax = pts[Math.max(0, i - 1) * 2], ay = pts[Math.max(0, i - 1) * 2 + 1];
+        const bx = pts[Math.min(n - 1, i + 1) * 2], by = pts[Math.min(n - 1, i + 1) * 2 + 1];
+        const l = Math.hypot(bx - ax, by - ay) || 1;
+        const w = NZ.n2(i * 0.18 + seed, seed) * (r0 * 0.5 + 6 * S) * Math.min(1, i / 6);
+        pts[i * 2] += (-(by - ay) / l) * w; pts[i * 2 + 1] += ((bx - ax) / l) * w;
       }
-      limbs.push({ pts, rad, kind: 'live', depth: 0, trunk: true });
-      grow(x, y, -Math.PI + 0.55, 320 * S, 40 * S, 1, 'live', 0.012);      // arm over the abyss
-      grow(x, y, -Math.PI / 2 - 0.62, 300 * S, 30 * S, 1, 'dead', -0.005); // bleached, up and left
-      grow(x + 6 * S, y, -Math.PI / 2 - 0.05, 270 * S, 34 * S, 1, 'live', 0.01); // up
-      grow(pts[34], pts[35], -0.45, 190 * S, 21 * S, 1, 'dead', -0.02);     // snag to the right
+      const rad = [];
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1);
+        rad.push(mix(r0, r1, Math.pow(t, 0.85)) * W * (1 + 0.12 * NZ.n2(i * 0.3 + seed, 3.3)));
+      }
+      const L = Object.assign({ pts, rad, kind, depth }, opts || {});
+      limbs.push(L);
+      return L;
     }
+    function twigs(L, count, lenPx, toward) {
+      const n = L.pts.length / 2;
+      for (let c = 0; c < count; c++) {
+        const q = Math.round(n * (0.3 + 0.65 * rng()));
+        const x0 = L.pts[q * 2], y0 = L.pts[q * 2 + 1];
+        const tx = toward ? toward[0] * W : x0, ty = toward ? toward[1] * H : y0 - lenPx;
+        let a = Math.atan2(ty - y0, tx - x0) + (rng() - 0.5) * 1.3;
+        const ctrl = [[x0 / W, y0 / H]];
+        let x = x0, y = y0;
+        const segs = 3;
+        for (let k = 0; k < segs; k++) {
+          a += (rng() - 0.5) * 0.8;
+          x += Math.cos(a) * lenPx / segs * (0.7 + rng() * 0.6); y += Math.sin(a) * lenPx / segs * (0.7 + rng() * 0.6);
+          ctrl.push([x / W, y / H]);
+        }
+        const r0 = Math.max(1.4 * S, L.rad[q] * 0.45) / W;
+        addLimb(ctrl, r0, r0 * 0.3, L.kind === 'dead' || rng() < 0.15 ? 'dead' : 'live', L.depth + 1);
+        if (L.kind !== 'dead') masses.push({ x, y, r: (34 + rng() * 30) * S });
+      }
+    }
+    // trunk and main limbs (fractions of width/height; radii as fraction of width)
+    const rootX = px(0.872), rootY = py(0.94);
+    const trunk = addLimb([[0.872, 0.94], [0.862, 0.90], [0.846, 0.86], [0.836, 0.825], [0.822, 0.792]], 0.034, 0.02, 'live', 0, { trunk: true });
+    const armL = addLimb([[0.826, 0.80], [0.79, 0.772], [0.745, 0.757], [0.70, 0.736], [0.655, 0.722], [0.615, 0.712]], 0.0155, 0.0035, 'live', 1);
+    const up = addLimb([[0.824, 0.796], [0.812, 0.745], [0.80, 0.70], [0.807, 0.655], [0.795, 0.612]], 0.014, 0.003, 'live', 1);
+    const snag = addLimb([[0.836, 0.81], [0.858, 0.762], [0.872, 0.718], [0.893, 0.68], [0.905, 0.648]], 0.0105, 0.0016, 'dead', 1);
+    const armR = addLimb([[0.832, 0.79], [0.866, 0.768], [0.905, 0.752], [0.95, 0.748], [0.985, 0.752]], 0.0095, 0.0025, 'live', 1);
+    const low = addLimb([[0.853, 0.875], [0.825, 0.868], [0.80, 0.874], [0.78, 0.884]], 0.007, 0.0015, 'dead', 2);
+    // foliage masses: big, flattened pads at the ends and along the upper sides of the live limbs
+    for (const [fx, fy, r] of [[0.625, 0.703, 66], [0.672, 0.718, 58], [0.722, 0.735, 54], [0.77, 0.752, 40],
+      [0.795, 0.605, 64], [0.825, 0.64, 52], [0.772, 0.655, 46], [0.80, 0.69, 38],
+      [0.955, 0.735, 60], [0.91, 0.737, 46], [0.985, 0.745, 40]]) masses.push({ x: px(fx), y: py(fy), r: r * S * 1.45 });
+    twigs(armL, 7, 70 * S, null);
+    twigs(up, 6, 60 * S, null);
+    twigs(armR, 4, 55 * S, null);
+    twigs(snag, 4, 70 * S, null);
 
     // the tree's shadow falls toward us and to the right across the ledge (a cool glaze)
     for (let i = 0; i < 220; i++) {
       const t = rng();
-      const x = rootX + (10 + 460 * t) * S + (rng() - 0.5) * 50 * S * t;
-      const y = rootY + (4 + 120 * t) * S + (rng() - 0.5) * 70 * S * (0.25 + t);
+      const x = rootX + (10 + 380 * t) * S + (rng() - 0.5) * 50 * S * t;
+      const y = rootY + (4 + 110 * t) * S + (rng() - 0.5) * 60 * S * (0.25 + t);
       if (y > H || x > W || P.mat[(clamp(y | 0, 0, H - 1)) * W + clamp(x | 0, 0, W - 1)] !== 3) continue;
       const c = sampleC(x, y);
       stroke([x - 26 * S, y - 9 * S, x + 26 * S, y + 9 * S], (8 + rng() * 12) * S, [c[0] * 0.6, c[1] * 0.6, c[2] * 0.72],
         opt({ opacity: 0.22, soft: 0.85, bristleContrast: 0.15, thick: 0.05 }));
     }
-
     // roots gripping the rock
     for (let i = 0; i < 7; i++) {
       const dir = i % 2 ? 1 : -1;
-      const pts = [rootX + dir * (20 + rng() * 25) * S, rootY - 8 * S], rad = [24 * S];
-      let x = pts[0], y = pts[1], a = (dir > 0 ? 0.25 : Math.PI - 0.25) + (rng() - 0.5) * 0.5;
-      for (let k = 1; k <= 12; k++) {
-        a += (rng() - 0.5) * 0.35; x += Math.cos(a) * 11 * S; y += Math.sin(a) * 4 * S + 2.4 * S;
-        pts.push(x, y); rad.push(24 * S * (1 - k / 13) + 1.5 * S);
-      }
-      limbs.push({ pts, rad, kind: 'live', depth: 1, root: true });
+      const x0 = rootX + dir * (24 + rng() * 30) * S, y0 = rootY - 10 * S;
+      const ctrl = [[x0 / W, y0 / H]];
+      let x = x0, y = y0, a = (dir > 0 ? 0.3 : Math.PI - 0.3) + (rng() - 0.5) * 0.5;
+      for (let k = 0; k < 4; k++) { a += (rng() - 0.5) * 0.5; x += Math.cos(a) * 34 * S; y += Math.sin(a) * 10 * S + 7 * S; ctrl.push([x / W, y / H]); }
+      addLimb(ctrl, (12 + rng() * 10) * S / W, 1.5 * S / W, 'live', 1, { root: true });
     }
 
     function paintLimb(L) {
@@ -161,7 +186,7 @@
       const r0 = rad[0];
       // body
       const wid = rad.map((r) => r / r0);
-      stroke(pts, r0, dead ? [0.28, 0.26, 0.25] : [0.085, 0.065, 0.05],
+      stroke(pts, r0, dead ? [0.17, 0.155, 0.15] : [0.085, 0.065, 0.05],
         Object.assign(opt({ opacity: 1, soft: 0.12, bristleContrast: 0.3, thick: 0.7, dry: 0.05 }), { widths: wid }));
       // fibres
       const nf = Math.max(2, Math.min(26, Math.round(r0 / (2.6 * S))));
@@ -174,7 +199,7 @@
           if (run.length >= 4) {
             const v = runV / cnt;
             let c;
-            if (dead) c = [mix(0.26, 1.0, Math.pow(v, 1.6)), mix(0.24, 0.9, Math.pow(v, 1.6)), mix(0.24, 0.74, Math.pow(v, 1.6))];
+            if (dead) c = [mix(0.16, 1.0, Math.pow(v, 2.2)), mix(0.15, 0.9, Math.pow(v, 2.2)), mix(0.15, 0.74, Math.pow(v, 2.2))];
             else c = [mix(0.07, 0.86, Math.pow(v, 2.4)), mix(0.055, 0.60, Math.pow(v, 2.4)), mix(0.045, 0.36, Math.pow(v, 2.4))];
             const j = 0.85 + rng() * 0.3; c = [c[0] * j, c[1] * j, c[2] * j];
             const fw = Math.max(0.55 * S, r0 * 0.07);
@@ -207,8 +232,8 @@
     for (const L of limbs) if (!L.trunk) paintLimb(L);
 
     // foliage: dense olive sprays, backlit gold at edges facing the sun
-    clumps.sort((a, b) => a.y - b.y);
-    for (const cl of clumps) {
+    masses.sort((a, b) => a.y - b.y);
+    for (const cl of masses) {
       const R = cl.r, cx = cl.x, cy = cl.y;
       const [lx, ly] = lightDir(cx, cy);
       const nd = Math.round((R * R) / (5.5 * S * S));

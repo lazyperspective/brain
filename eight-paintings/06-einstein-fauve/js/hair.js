@@ -124,15 +124,15 @@
       if (!path || path.length < 8) continue;
       const s0 = Math.floor(path.length * (0.2 + rng.next() * 0.3));
       const pl = path.slice(s0, Math.min(path.length, s0 + 12 + rng.int(0, 14)));
-      S(pl, 5 + rng.next() * 6, 'taper', Object.assign({}, base, { col: jit(litF(a) > 0.5 ? C.lemonWhite : C.white, 0.02), load: 1.35, imp: 1.5, pick: 0.1 }));
+      S(pl, 5 + rng.next() * 6, 'taper', Object.assign({}, base, { col: jit(litF(a) > 0.5 ? C.lemonWhite : C.white, 0.02), load: 1.2, imp: 1.0, pick: 0.1, endPile: 0, touch: 0.15 }));
     }
     // ---- flyaway wisps: thin and dry, out over the background
-    for (let i = 0; i < 140; i++) {
+    for (let i = 0; i < 110; i++) {
       const a = A0 - 0.05 + rng.next() * (A1 - A0 + 0.1);
       const path = lockPath(a, 0.45 + rng.next() * 0.45, 0.03 + rng.next() * 0.1, 0.5 + rng.next() * 0.6);
       if (!path) continue;
       const col = jit(hairCol(a, 2, path[0][0], path[0][1]), 0.02);
-      S(path, 2.0 + rng.next() * 2.6, 'taper', Object.assign({}, base, { col, load: 0.8, opac: 0.92, imp: 0.35, reach: 2.6, dryK: 0.7, bristle: 0.9, rag: 0.3 }));
+      S(path, 2.0 + rng.next() * 2.6, 'taper', Object.assign({}, base, { col, load: 0.62, opac: 0.9, imp: 0.35, reach: 0.5, dryK: 0.85, bristle: 0.9, rag: 0.3, lift: 0.6 }));
     }
     // ---- crown: sparse strands swept back from the high forehead, scalp warmth between
     for (let i = 0; i < 110; i++) {
@@ -146,7 +146,7 @@
       for (let s = 0; s < 40 + rng.next() * 80; s += 3) { d += 0.08 * nz.n2(cs + s / 40, 3); px += Math.cos(d) * 3; py += Math.sin(d) * 3; pts.push([px, py]); }
       const r = rng.next();
       const col = r < 0.12 ? C.pink : r < 0.2 ? C.cadYellow : hairCol(a, 2, x, y);
-      S(pts, 2.5 + rng.next() * 4, 'taper', Object.assign({}, base, { col: jit(col, 0.03), imp: 0.8 }));
+      S(pts, 2.5 + rng.next() * 4, 'taper', Object.assign({}, base, { col: jit(col, 0.03), imp: 0.6, endPile: 0, touch: 0.1 }));
     }
   };
 })(window);

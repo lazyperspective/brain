@@ -204,5 +204,15 @@
     for (const cl of [F.collarL, F.collarR]) ct(cl.slice(0, Math.floor(cl.length * 0.6)), 8, C.ultramarine);
     ct(F.jacket.slice(0, Math.floor(F.jacket.length * 0.3)), 12, C.ink);
     ct(F.jacket.slice(Math.floor(F.jacket.length * 0.62), Math.floor(F.jacket.length * 0.94)), 12, C.ink);
+      // ---------- last loaded lights: thick, single touches where the light hits hardest
+    const dab = (pts, w, col, imp) => S(pts.map((p) => F.T(p)), w, 'loaded', o({ col: jit(col, 0.02), load: 1.35, imp: imp || 1.7, pick: 0.12, cap: 1, lift: 0.4 }));
+    dab([[392, 395], [430, 388], [462, 392]], 11, C.lemonWhite);
+    dab([[372, 425], [400, 421]], 9, C.pinkWhite);
+    dab([[420, 330], [452, 322], [480, 324]], 10, C.lemonWhite);
+    dab([[340, 588], [352, 610], [358, 632]], 10, C.lemon);
+    dab([[372, 572], [392, 568]], 8, C.pinkWhite);
+    dab([[478, 520], [476, 548]], 6, C.lemonWhite, 1.9);
+    dab([[540, 572], [566, 576]], 7, C.lemon);
+    dab([[464, 800], [488, 796]], 9, C.lemon);
   };
 })(window);

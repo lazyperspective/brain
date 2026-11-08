@@ -13,7 +13,7 @@
     const Cd = P8.copyImg(C), D = new Float32Array(n), Ws = pt.Hw.slice(), Cw = P8.copyImg(C);
     for (let i = 0; i < n; i++) { Ws[i] *= 0.35; D[i] = Hh[i] - Ws[i]; }
     const fresh = new Float32Array(n); // squeegee paint amount (for gloss)
-    const TAU = 0.13;
+    const TAU = 0.07;
     const Dsm = D.slice(); P8.blur(Dsm, W, H, 4 * S, 4 * S);
     const Deff = new Float32Array(n); for (let i = 0; i < n; i++) Deff[i] = 0.85 * Dsm[i] + 0.15 * D[i];
 
@@ -139,8 +139,8 @@
           }
           // viscous fingering / rips: lacy, horizontally drawn-out, more of them as the pull runs out
           const wu = u + 40 * N(u / 300, y / (60 * S), p.seed + 70);
-          const sf = 0.75 * FB(wu / 170, y / (18 * S), 4, p.seed + 71) + 0.35 * FB(wu / 420, y / (45 * S), 2, p.seed + 74) + 0.07 * N(wu / 24, y / (3 * S), p.seed + 72);
-          let fing = SM(-0.05, 0.05, thr - sf) * (0.7 + 0.3 * SM(-0.3, 0.3, N(u / 26, y / (1.1 * S), p.seed + 73)));
+          const sf = 0.75 * FB(wu / 190, y / (13 * S), 4, p.seed + 71) + 0.35 * FB(wu / 480, y / (40 * S), 2, p.seed + 74) + 0.08 * N(wu / 30, y / (2.4 * S), p.seed + 72);
+          let fing = SM(-0.025, 0.03, thr - sf) * (0.8 + 0.2 * SM(-0.3, 0.3, N(u / 26, y / (1.1 * S), p.seed + 73)));
           if (drag[j] !== undefined) { const dd = drag[j]; for (let q = 0; q < dd.length; q++) if (k >= dd[q][0] && k < dd[q][1]) fing *= dd[q][2]; }
           const reach = p.bead * A[j] / S;
           const gp = Lv - (Deff[i] + ws);
@@ -155,9 +155,12 @@
             const gpR = Math.max(0, Lv - (D[i] + ws)); // fill the real (weave) valleys -> smooth skin
             const te = fing * SM(reach, reach * 0.45, gp2);
             const tm = CL(0.6 + 0.5 * FB(u / 70, y / (2.6 * S), 3, p.seed + 101) + 0.22 * N(u / 15, y / (0.9 * S), p.seed + 102), 0.12, 1.4);
-            const dep = Math.min((gpR * 0.92 * tm + (p.skin || 0.12) * tm) * te, A[j] * p.rate);
-            const t = te * dep / (ws * 0.12 + dep + 1e-6);
-            Cw.r[i] = mixKM(Cw.r[i], Lr[j], t); Cw.g[i] = mixKM(Cw.g[i], Lg[j], t); Cw.b[i] = mixKM(Cw.b[i], Lbb[j], t);
+            const dep = Math.min((gpR * 0.95 + (p.skin || 0.12) * tm * 1.6) * te, A[j] * p.rate);
+            // incomplete mixing of the bead with the paint it drags: marbled, striated
+            const mu = (p.marble || 0.45) * SM(-0.15, 0.45, FB(u / 90, y / (3.2 * S), 3, p.seed + 111) + 0.25 * N(u / 20, y / (1.0 * S), p.seed + 112));
+            const cr = mixKM(Lr[j], Cw.r[i], mu), cg = mixKM(Lg[j], Cw.g[i], mu), cb = mixKM(Lbb[j], Cw.b[i], mu);
+            const t = te * dep / (ws * 0.1 + dep + 1e-6);
+            Cw.r[i] = mixKM(Cw.r[i], cr, t); Cw.g[i] = mixKM(Cw.g[i], cg, t); Cw.b[i] = mixKM(Cw.b[i], cb, t);
             ws += dep; A[j] -= dep; fresh[i] += dep;
           }
           Ws[i] = ws;
