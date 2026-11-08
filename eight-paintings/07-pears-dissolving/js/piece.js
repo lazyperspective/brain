@@ -789,7 +789,7 @@
         cv.stroke({ pts, w: (150 + 40 * k) * S, col: cols[k], col2: pn.umber, cjit: 0.15, knife: true, square: true, clip, alpha: 0.97, load: 1.15, run: 900 * S, dry: 0.03, thick: 1.5, ridge: 0.5, bristle: 0, smear: 0.3, pick: 0.1, rag: 0.05, taper0: 0, taper1: 0, streak: 400 * S, sfreq: 1, seed: 300 + k });
       });
     }
-    if (!(q && q.get("noslate"))) plane([[0.745, 0.318], [1.01, 0.300], [1.01, 0.378], [0.752, 0.392]], pn.slateDark, pn.slate, { knife: true, bw: 120 });
+    plane([[0.745, 0.318], [1.01, 0.300], [1.01, 0.378], [0.752, 0.392]], pn.slateDark, pn.slate, { knife: true, bw: 120 });
     plane([[0.70, 0.395], [1.01, 0.372], [1.01, 0.47], [0.725, 0.49]], mix3(pn.olive, pn.green, 0.3), pn.wallDark, { bw: 100 });
     // ledge and front
     plane([[0.74, wl + 0.004], [1.01, wl - 0.002], [1.01, eRr], [0.755, ey(0.755)]], satv(pn.tableLit, 1.15, 1.02, 0.3), pn.tableShadow, { bw: 90, vary: 0.4 });

@@ -387,149 +387,136 @@
   }
 
   // ---------------------------------------------------------------- painted cloud masses
-  // Clouds are built the way a painter constructs them: overlapping rounded billows arranged
-  // into designed masses (storm deck, broken fragments around the sun, low bars over the rim).
-  // Each billow is a soft dome; the combined dome surface is lit from the low sun.
-  function makePuffs() {
-    const rng = makeRng(SEED + 77);
-    const P = [];
-    const edgeY = (fx) => 0.105 + 0.15 * fx + 0.03 * N5.fbm(fx * 3.5, 1.5, 3);
-    const inHole = (fx, fy) => {
-      const hx = (fx - 0.30) / 0.19, hy = (fy - 0.215) / 0.12;
-      return hx * hx + hy * hy;
-    };
-    const pw = (a, b, e) => a + (b - a) * Math.pow(rng(), e);
-    // storm deck: broad masses
-    for (let i = 0; i < 260; i++) {
-      const fx = rng() * 1.3 - 0.15;
-      const ey = edgeY(fx);
-      const fy = -0.1 + rng() * (ey + 0.06);
-      if (fy > ey - 0.02) continue;
-      const hh = inHole(fx, fy);
-      if (hh < 1.15) continue;
-      const r = pw(0.045, 0.14, 2.2) * (1.15 - fy * 1.5);
-      P.push({ x: fx, y: fy, r, asp: 0.5 + 0.2 * rng(), z: rng() * 0.3, k: 1.0, deck: 1, relief: 0.35 });
+  // Built as a landscape painter blocks in a storm sky: a few large masses (the deck, its
+  // hanging lobes, a lit bank low on the right) with soft, horizontally dragged edges, thin
+  // veils and wisps in the clear. Lighting is computed on the whole mass: light that reaches
+  // through from the sun (screen-space transmittance), lit flanks facing the sun, luminous
+  // rims, warm undersides lit from the glowing canyon below.
+  const LOBES = [
+    // cx, cy, rx, ry, strength : big heads hanging from the deck's lower margin
+    [0.55, 0.20, 0.10, 0.075, 1.0], [0.69, 0.245, 0.11, 0.085, 1.0], [0.85, 0.28, 0.12, 0.09, 1.0],
+    [1.00, 0.30, 0.10, 0.08, 1.0], [0.03, 0.15, 0.13, 0.07, 0.9], [0.17, 0.115, 0.09, 0.06, 0.85],
+    [0.40, 0.13, 0.08, 0.06, 0.8],
+  ];
+  function edgeYf(fx) { return 0.105 + 0.15 * fx + 0.03 * N5.fbm(fx * 3.5, 1.5, 3); }
+  function cloudDensity(fx, fy) {
+    // warp coordinates: horizontal drag
+    const wx = fx + 0.035 * N1.fbm(fx * 3.0, fy * 7.0, 3);
+    const wy = fy + 0.018 * N2.fbm(fx * 3.0 + 7, fy * 7.0, 3);
+    const edge = edgeYf(wx) + 0.035 * N3.fbm(wx * 7.0, 2.2, 3);
+    let d = smooth(edge + 0.025, edge - 0.06, wy);
+    for (let i = 0; i < LOBES.length; i++) {
+      const L = LOBES[i];
+      const ux = (wx - L[0]) / L[2], uy = (wy - L[1]) / L[3];
+      const r = Math.sqrt(ux * ux + uy * uy);
+      if (r > 1.8) continue;
+      const v = smooth(1.15, 0.55, r + 0.35 * N4.fbm(wx * 9 + i * 3.1, wy * 16, 4));
+      d = Math.max(d, v * L[4]);
     }
-    // lumpy, hanging underside along the deck edge
-    for (let i = 0; i < 520; i++) {
-      const fx = rng() * 1.3 - 0.15;
-      const fy = edgeY(fx) - 0.035 + rng() * 0.05 + (rng() < 0.15 ? rng() * 0.03 : 0);
-      const hh = inHole(fx, fy);
-      if (hh < 1.0 && rng() > 0.25 * hh * hh) continue;
-      const r = pw(0.006, 0.045, 2.6);
-      P.push({ x: fx, y: fy, r, asp: 0.55 + 0.25 * rng(), z: 0.3 + rng() * 0.3, k: 0.9, deck: 0.75, relief: 1 });
+    // the break around the sun
+    const hx = (wx - 0.30) / 0.2, hy = (wy - 0.205) / 0.125;
+    const hole = smooth(1.25, 0.7, Math.sqrt(hx * hx + hy * hy) + 0.25 * N6.fbm(wx * 6, wy * 9, 3));
+    d *= 1 - hole;
+    // a sunlit bank low on the right, above the far rim
+    {
+      const ux = (wx - 0.80) / 0.2, uy = (wy - 0.335) / 0.028;
+      const r = Math.sqrt(ux * ux + uy * uy);
+      d = Math.max(d, 0.75 * smooth(1.2, 0.5, r + 0.45 * N3.fbm(wx * 10, wy * 30, 4)));
     }
-    // broken, sunlit fragments in clusters, ringing the break and drifting in mid sky
-    for (let c = 0; c < 34; c++) {
-      let cx, cy;
-      if (c < 18) {
-        const a = -0.3 + rng() * Math.PI * 1.6, rr = 1.0 + 0.35 * rng();
-        cx = 0.30 + Math.cos(a) * 0.19 * rr; cy = 0.215 + Math.sin(a) * 0.12 * rr;
-      } else { cx = 0.4 + rng() * 0.7; cy = 0.19 + rng() * 0.12; if (rng() < 0.75) continue; }
-      if (cy > 0.33 || cy < edgeY(cx) - 0.01 && c >= 18) continue;
-      const n = 3 + Math.floor(rng() * 9), span = 0.02 + rng() * 0.05;
-      for (let i = 0; i < n; i++) {
-        const fx = cx + (rng() - 0.5) * span * 2, fy = cy + (rng() - 0.5) * span * 0.45;
-        const r = pw(0.005, 0.03, 2.0) * (1.3 - fy * 1.4);
-        P.push({ x: fx, y: fy, r: r * 1.3, asp: 0.2 + 0.18 * rng(), z: 0.5 + rng() * 0.3, k: 0.6, deck: 0.25, relief: 0.55 });
-      }
-    }
-    // long thin bars low over the far rim
-    for (let c = 0; c < 22; c++) {
-      const cx = rng() * 1.2 - 0.1, cy = 0.31 + rng() * 0.06;
-      const n = 3 + Math.floor(rng() * 6), len = 0.04 + rng() * 0.12, tilt = (rng() - 0.5) * 0.02;
-      for (let i = 0; i < n; i++) {
-        const t = (i / Math.max(1, n - 1) - 0.5) * len;
-        const r = 0.012 + 0.03 * rng() * (1 - Math.abs(t) / len);
-        P.push({ x: cx + t, y: cy + t * tilt + (rng() - 0.5) * 0.004, r, asp: 0.1 + 0.08 * rng(), z: 0.7, k: 0.5, deck: 0.1, relief: 0.6 });
-      }
-    }
-    return P;
+    // ragged edges: break the boundary at several scales, dragged sideways
+    const br = N5.fbm(wx * 10, wy * 26, 5);
+    d = smooth(0.18, 0.75, d + 0.32 * br * (1 - d * 0.5) - 0.05);
+    // veils and wisps in the clear, stretched by the wind
+    const vw = smooth(0.22, 0.6, N6.fbm(wx * 2.6 + 3, wy * 24, 5)) * smooth(0.19, 0.24, fy) * smooth(0.385, 0.33, fy);
+    return { d, veil: vw * 0.55 };
   }
 
   function buildSky(RW, RH) {
     const t0 = performance.now();
-    const puffs = makePuffs();
     const N = RW * RH;
-    const Hc = new Float32Array(N), D = new Float32Array(N), DK = new Float32Array(N);
-    // bin puffs
-    const B = 48, bx = Math.ceil(RW / B), by = Math.ceil(RH / B);
-    const bins = Array.from({ length: bx * by }, () => []);
-    puffs.forEach((p, idx) => {
-      const cx = p.x * RW, cy = p.y * RH, rx = p.r * RW * 1.35, ry = rx * p.asp;
-      const i0 = Math.max(0, Math.floor((cx - rx) / B)), i1 = Math.min(bx - 1, Math.floor((cx + rx) / B));
-      const j0 = Math.max(0, Math.floor((cy - ry) / B)), j1 = Math.min(by - 1, Math.floor((cy + ry) / B));
-      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) bins[j * bx + i].push(idx);
-    });
-    const horizonY = 0.381 * RH;
-    for (let y = 0; y < Math.min(RH, Math.ceil(horizonY + 4)); y++) {
-      for (let x = 0; x < RW; x++) {
-        const k = y * RW + x;
-        const list = bins[Math.floor(y / B) * bx + Math.floor(x / B)];
-        let hmax = 0, dsum = 0, dk = 0;
-        for (let q = 0; q < list.length; q++) {
-          const p = puffs[list[q]];
-          const rx = p.r * RW, ry = rx * p.asp;
-          const ux = (x - p.x * RW) / rx, uy = (y - p.y * RH) / ry;
-          let dd = ux * ux + uy * uy;
-          if (dd > 1.9) continue;
-          // fractal edge: noise at the billow's own scale
-          const en = N6.fbm(x / (rx * 0.6) + list[q] * 3.1, y / (ry * 0.75), 4);
-          let rq = Math.sqrt(dd) + 0.2 * en;
-          if (rq >= 1) continue;
-          const dome = Math.sqrt(1 - rq * rq);
-          const h = p.z + dome * p.r * 9 * p.relief;
-          if (h > hmax) hmax = h;
-          const w = dome * p.k;
-          dsum += w;
-          dk += w * p.deck;
-        }
-        Hc[k] = hmax; D[k] = dsum; DK[k] = dsum > 0 ? dk / dsum : 0;
-      }
+    const D = new Float32Array(N), V = new Float32Array(N);
+    const hY = Math.min(RH, Math.ceil(0.39 * RH));
+    for (let y = 0; y < hY; y++) for (let x = 0; x < RW; x++) {
+      const c = cloudDensity(x / RW, y / RH);
+      D[y * RW + x] = c.d; V[y * RW + x] = c.veil;
     }
-    console.log('sky puffs', puffs.length, Math.round(performance.now() - t0), 'ms');
-    return { Hc, D, DK };
+    const Db = G.CORE.blurPlane(D, RW, RH, 1, RW * 0.01, 2);
+    const Dbb = G.CORE.blurPlane(D, RW, RH, 1, RW * 0.03, 2);
+    // transmittance toward the sun through the cloud layer (in picture space)
+    const sunX = SUN_SCREEN[0] * RW, sunY = SUN_SCREEN[1] * RH;
+    const T = new Float32Array(N);
+    const step = RW * 0.012;
+    for (let y = 0; y < hY; y++) for (let x = 0; x < RW; x++) {
+      let lx = sunX - x, ly = sunY - y;
+      const ll = Math.hypot(lx, ly) + 1e-6; lx /= ll; ly /= ll;
+      let occ = 0;
+      const ns = Math.min(14, Math.floor(ll / step));
+      for (let i = 1; i <= ns; i++) {
+        const sx = Math.round(x + lx * step * i), sy = Math.round(y + ly * step * i);
+        if (sx < 0 || sy < 0 || sx >= RW || sy >= RH) break;
+        occ += Db[sy * RW + sx];
+      }
+      T[y * RW + x] = Math.exp(-occ * 0.42);
+    }
+    console.log('sky masses', Math.round(performance.now() - t0), 'ms');
+    return { D, V, Db, Dbb, T };
   }
 
   function shadeSky(RW, RH, SKY, k, x, y, dx, dy, dz) {
     const base = skyBase(dx, dy, dz);
     let r = base[0], g = base[1], b = base[2];
     const cs = dx * SUN[0] + dy * SUN[1] + dz * SUN[2];
-    const d = SKY.D[k];
-    const op = smooth(0.0, 0.8, d);
-    const s = sunDisk(dx, dy, dz) * (1 - op * 0.97);
-    r += s; g += s * 0.9; b += s * 0.66;
-    if (op <= 0.001) return { c: [r, g, b], d: 0 };
-    // surface normal of the billow field
-    const xm = Math.max(0, x - 1), xp = Math.min(RW - 1, x + 1), ym = Math.max(0, y - 1), yp = Math.min(RH - 1, y + 1);
-    const hx = (SKY.Hc[y * RW + xp] - SKY.Hc[y * RW + xm]) * 0.5;
-    const hy = (SKY.Hc[yp * RW + x] - SKY.Hc[ym * RW + x]) * 0.5;
-    let nx = -hx * RW / 7, ny = -hy * RW / 7, nz = 1;
-    const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
-    // light comes from the sun's position on the picture plane, low and from behind the clouds
+    const d = SKY.D[k], veil = SKY.V[k];
     const sunX = SUN_SCREEN[0] * RW, sunY = SUN_SCREEN[1] * RH;
     let lx = sunX - x, ly = sunY - y;
     const ldist = Math.hypot(lx, ly) / RW;
     const ll = Math.hypot(lx, ly) + 1e-6; lx /= ll; ly /= ll;
-    const lz = 0.25;
-    const lnorm = Math.hypot(1, lz);
-    const ndl = (nx * lx + ny * ly + nz * lz) / lnorm;
-    const warm = Math.exp(-ldist / 0.22);
-    const deck = SKY.DK[k];
-    // how much direct light reaches this billow: the deck interior is starved, fragments are lit
-    const thick = smooth(0.4, 2.4, d);
-    const reach = clamp((1 - deck * 0.85) * 0.65 + warm * 1.1, 0, 1) * (1 - 0.7 * thick * deck);
-    let lit = clamp(ndl * 0.85 + 0.25, 0, 1) * reach;
-    // thin edges are translucent: they glow with transmitted light instead of darkening
-    const thinE = 1 - smooth(0.0, 0.9, d);
-    lit = Math.max(lit, thinE * clamp(0.3 + warm, 0, 1) * (1 - deck * 0.6) * 0.35 * clamp(0.4 + ndl, 0, 1));
-    const litC = [mix(0.95, 1.9, warm), mix(0.50, 1.25, warm), mix(0.40, 0.62, warm)];
-    const darkC = [mix(0.035, 0.22, warm * 0.8), mix(0.037, 0.13, warm * 0.8), mix(0.06, 0.12, warm * 0.8)];
+    const warm = Math.exp(-ldist / 0.25);
+    const op = clamp(d * 1.05, 0, 1);
+    const s = sunDisk(dx, dy, dz) * (1 - op * 0.97);
+    r += s; g += s * 0.9; b += s * 0.66;
+    // veils: thin golden haze strands, brightest near the sun
+    if (veil > 0.001) {
+      const vl = veil * (1 - op);
+      r = mix(r, mix(0.75, 1.35, warm), vl * 0.6); g = mix(g, mix(0.55, 1.0, warm), vl * 0.6); b = mix(b, mix(0.48, 0.6, warm), vl * 0.6);
+    }
+    if (op <= 0.001) return { c: [r, g, b], d: 0 };
+    // gradient of the blurred mass: which flank faces the sun, which is the underside
+    const xm = Math.max(0, x - 2), xp = Math.min(RW - 1, x + 2), ym = Math.max(0, y - 2), yp = Math.min(RH - 1, y + 2);
+    const gx = (SKY.Db[y * RW + xp] - SKY.Db[y * RW + xm]), gy = (SKY.Db[yp * RW + x] - SKY.Db[ym * RW + x]);
+    const gl = Math.hypot(gx, gy) + 1e-6;
+    const facing = clamp(-(gx * lx + gy * ly) / gl, -1, 1) * clamp(gl * RW * 0.08, 0, 1);
+    const under = clamp(-gy / gl, 0, 1) * clamp(gl * RW * 0.08, 0, 1); // density falls off downward: lower edge
+    const T = SKY.T[k];
+    const thick = SKY.Dbb[k];
+    const xm2 = Math.max(0, x - 6), xp2 = Math.min(RW - 1, x + 6), ym2 = Math.max(0, y - 6), yp2 = Math.min(RH - 1, y + 6);
+    const Gx = SKY.Dbb[y * RW + xp2] - SKY.Dbb[y * RW + xm2], Gy = SKY.Dbb[yp2 * RW + x] - SKY.Dbb[ym2 * RW + x];
+    const Gl = Math.hypot(Gx, Gy) + 1e-6;
+    const bigFacing = clamp(-(Gx * lx + Gy * ly) / Gl, -1, 1) * clamp(Gl * RW * 0.02, 0, 1);
+    // light reaching this part of the mass
+    let lit = T * (0.5 + 0.25 * facing + 0.3 * bigFacing) + 0.06;
+    lit *= 1 - 0.55 * smooth(0.5, 1.0, thick) * (1 - warm);
+    lit = clamp(lit, 0, 1);
+    const litC = [mix(0.80, 1.75, warm), mix(0.48, 1.18, warm), mix(0.40, 0.62, warm)];
+    const darkC = [0.055, 0.05, 0.068];
     let cr = mix(darkC[0], litC[0], lit), cg = mix(darkC[1], litC[1], lit), cb = mix(darkC[2], litC[2], lit);
-    // thin, backlit edges glow (silver lining)
-    const fwd = Math.pow(Math.max(0, cs), 30) * 4.0 + Math.pow(Math.max(0, cs), 6) * 0.5;
-    const thin = (1 - smooth(0.0, 1.3, d)) * clamp(0.3 + 0.7 * ndl, 0, 1);
-    cr += thin * fwd * 0.55; cg += thin * fwd * 0.42; cb += thin * fwd * 0.24;
+    // warm reflected glow on the undersides, from the sunlit canyon below
+    const low = smooth(0.08, 0.32, y / RH);
+    const ug = under * (0.35 + 0.65 * low) * (1 - 0.5 * lit);
+    cr += ug * 0.30; cg += ug * 0.15; cb += ug * 0.08;
+    // luminous rims: the sun-facing margins near the light, broad and soft
+    const band = smooth(0.05, 0.3, SKY.Db[k]) * (1 - smooth(0.35, 0.8, SKY.Db[k]));
+    const rim = band * clamp(0.25 + facing, 0, 1) * T;
+    const fwd = Math.pow(Math.max(0, cs), 16) * 1.6 + Math.pow(Math.max(0, cs), 4) * 0.35;
+    cr += rim * fwd * 1.0; cg += rim * fwd * 0.78; cb += rim * fwd * 0.42;
+    // form within the masses: large soft lumps lit on the side toward the sun
+    const fx0 = x / RW, fy0 = y / RH, e2 = 0.012;
+    const F = (u, v) => N3.fbm(u * 3.2, v * 5.5, 3) + 0.3 * N4.fbm(u * 8, v * 13, 2);
+    const f0 = F(fx0, fy0);
+    const fd = (F(fx0 + lx * e2, fy0 + ly * e2) - f0) / e2;
+    const form = clamp(fd * 0.06, -1, 1);
+    const fm = 1 + form * (0.35 + 0.45 * lit) + 0.12 * f0;
+    cr *= fm; cg *= fm; cb *= fm;
     r = mix(r, cr, op); g = mix(g, cg, op); b = mix(b, cb, op);
     return { c: [r, g, b], d: op };
   }

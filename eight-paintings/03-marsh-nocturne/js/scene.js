@@ -90,7 +90,7 @@ vec3 skyCol(vec2 q, vec2 p, out float cloud){
   c = mix(c, c * vec3(.86,.85,.88), veil * .7);
   // the moon: a thin crescent, lit toward the vanished sun, with a soft halo
   float d = length(p - MOON);
-  float halo = exp(-d / 150.) * 0.05 + exp(-d / 46.) * 0.07;
+  float halo = exp(-d / 170.) * 0.07 + exp(-d / 50.) * 0.09;
   c += vec3(.75,.72,.62) * halo;
   return c;
 }
@@ -161,9 +161,10 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     if (wd < mudW) {
       // wet mud bank: catches the sky
       float mk = smoothstep(mudW, mudW * 0.4, wd);
-      vec3 mud = mix(c, rq * .8, 0.45 * smoothstep(0.03, 0.14, d)) * (0.85 + 0.3 * fbm(vec2(X * 80., Y * 300.), 3));
+      vec3 mud = mix(c, rq * .8, 0.45 * smoothstep(0.03, 0.14, d) * (1. - 0.7 * smoothstep(0.45, 0.95, d))) * (0.85 + 0.3 * fbm(vec2(X * 80., Y * 300.), 3));
       c = mix(c, mud, mk);
-      if (mk > .5) { mat = 7.; size = 0.25 + 0.4 * d; follow = 0.6; }
+      float slope = (creekX(min(d + 0.01, 1.)) - creekX(max(d - 0.01, 0.))) / 0.02;
+      if (mk > .5) { mat = 7.; size = 0.25 + 0.4 * d; follow = 0.6; dir = normalize(vec2(slope * 2160., (1. - YH) * 2700.)); }
     }
     if (wd < 0.) {
       // water: the sky reflected, darker toward us, with the dark of the banks at its edges
@@ -407,14 +408,14 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       const th0 = Math.atan2(0.78, 0.62);
       { const c = M.colour(MOON[0] - 10, MOON[1] - 10); add({ pts: [[MOON[0] - 12, MOON[1] - 6], [MOON[0] + 8, MOON[1] - 2]], r: MOONR * 0.62, col: c.map((v) => v * 1.06 + 0.004), alpha: 0.5, thick: 0.15, dry: 0.4, load: 1.1, fid: 0, smear: 0.4 }); }
       const maxT = MOONR * 0.36;
-      for (let k = 0; k < 6; k++) {
-        const dep = 1.4 + k * 1.75; // depth inside the limb
+      for (let k = 0; k < 9; k++) {
+        const dep = 1.3 + k * 1.2; // depth inside the limb
         if (dep >= maxT) break;
         const span = 1.55 * Math.acos(Math.min(1, dep / maxT)) + 0.05;
         const rr = MOONR - dep, pts = [];
         for (let j = 0; j <= 16; j++) { const a = th0 - span + 2 * span * j / 16; pts.push([MOON[0] + Math.cos(a) * rr, MOON[1] + Math.sin(a) * rr]); }
-        const col = k < 2 ? [0.93, 0.87, 0.66] : [0.86, 0.79, 0.57];
-        add({ pts, r: 1.9 + 0.25 * k, col, alpha: 0.95, thick: 1.6 + 0.2 * k, dry: 0.15, load: 1.5, fid: 0 });
+        const col = k < 3 ? [0.93, 0.87, 0.66] : [0.86, 0.79, 0.57];
+        add({ pts, r: 1.9 + 0.15 * k, col, alpha: 0.95, thick: 1.6 + 0.12 * k, dry: 0.0, load: 1.6, fid: 0 });
       }
       // afterglow core: horizontal loaded strokes, broken by the drag of the brush
       for (let k = 0; k < 70; k++) {

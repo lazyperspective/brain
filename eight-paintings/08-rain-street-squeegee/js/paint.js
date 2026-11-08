@@ -34,7 +34,7 @@
         const slx = 1 + 0.3 * N(y / (26 * S), iu * 1.7, 7), sly = 1 + 0.3 * N(x / (26 * S), iv * 1.7, 8);
         const warp = ax * ax * (over ? 0.6 + 0.4 * Math.sin(Math.PI * fv) : 0.45) * thX[(iu + 4) % thX.length] * slx;
         const weft = ay * ay * (!over ? 0.6 + 0.4 * Math.sin(Math.PI * fu) : 0.45) * thY[(iv + 4) % thY.length] * sly;
-        weave[y * W + x] = 0.55 * (Math.max(warp, weft) + 0.1 * N(x / (2 * S), y / (2 * S), 9)) * (0.75 + 0.5 * FB(x / (60 * S), y / (60 * S), 2, 10));
+        weave[y * W + x] = 0.32 * (Math.max(warp, weft) + 0.1 * N(x / (2 * S), y / (2 * S), 9)) * (0.75 + 0.5 * FB(x / (60 * S), y / (60 * S), 2, 10));
       }
     }
     P8.blur(weave, W, H, 0.6 * S, 0.6 * S); // gesso softens the weave
