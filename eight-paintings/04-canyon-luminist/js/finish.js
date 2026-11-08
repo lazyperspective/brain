@@ -45,7 +45,7 @@
     const hsm = blurPlane(Hh, W, H, 1, 1.0 * S + 0.3, 2);
     for (let k = 0; k < N; k++) {
       const thin = 1 - smooth(0.25, 1.6, Th[k]);
-      hs[k] = hsm[k] * 0.9 + wv[k] * (0.05 + 0.28 * thin) * 0.8;
+      hs[k] = hsm[k] * 0.9 + wv[k] * (0.03 + 0.17 * thin) * 0.8;
     }
     // raking light from the upper left
     const L = [-0.55, -0.62, 0.56];
@@ -68,7 +68,7 @@
         const spec = Math.pow(ndh, 60) * 0.10 * smooth(0.2, 1.2, Hh[k]);
         // paint sinks into the weave valleys where the film is thin
         const thin = 1 - smooth(0.2, 1.4, Th[k]);
-        const valley = 1 - (1 - wv[k]) * 0.035 * thin;
+        const valley = 1 - (1 - wv[k]) * 0.02 * thin;
         for (let c = 0; c < 3; c++) {
           let v = C[k * 3 + c] * shade * valley + spec;
           out[k * 3 + c] = v;

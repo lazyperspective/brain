@@ -79,8 +79,9 @@ float clothH(vec2 q){
   float x=q.x, z=q.y;
   float h = 0.013;
   float rz = z - 0.45*x;
-  h += 0.055*smoothstep(0.30,0.0,abs(rz-0.95-0.12*sin(x*2.1+0.4)))*(0.6+0.4*sin(x*2.3+1.0));
-  h += 0.035*smoothstep(0.22,0.0,abs(rz-0.35-0.10*sin(x*3.0)))*(0.5+0.5*sin(x*1.7+2.0));
+  h += 0.11*smoothstep(0.30,0.0,abs(rz-0.95-0.12*sin(x*2.1+0.4)))*(0.6+0.4*sin(x*2.3+1.0));
+  h += 0.060*smoothstep(0.22,0.0,abs(rz-0.35-0.10*sin(x*3.0)))*(0.5+0.5*sin(x*1.7+2.0));
+  h += 0.040*smoothstep(0.16,0.0,abs(rz-1.55-0.08*sin(x*4.0)))*(0.5+0.5*sin(x*2.9));
   h += 0.020*smoothstep(0.12,0.0,abs(x+0.75-0.1*z))*smoothstep(-0.2,0.6,z);
   h += 0.010*sin(x*5.1+z*2.3)*sin(z*4.4-x*1.2);
   h += 0.018*smoothstep(0.18,0.0,abs(x+1.75+0.12*z));
@@ -100,7 +101,7 @@ float sdCloth(vec3 p){
   float hang = 0.05 + 0.70*pow(max(1.0 - xn*xn, 0.0), 1.6)*(1.0 - 0.25*max(xn,0.0)) + 0.035*sin(p.x*9.0+1.0)*smoothstep(0.0,0.4,1.0-abs(xn));
   float down = smoothstep(0.02, -0.55, p.y);
   float xc = (p.x + 1.30)/(0.35 + 0.65*(1.0+p.y));
-  float f = down*(0.050*sin(xc*6.1+1.1) + 0.028*sin(xc*13.0+0.4) + 0.02*sin(xc*3.0+2.0)) + 0.008*sin(p.x*17.0);
+  float f = down*(0.085*sin(xc*6.1+1.1) + 0.040*sin(xc*13.0+0.4) + 0.03*sin(xc*3.0+2.0)) + 0.012*sin(p.x*17.0) + 0.02*smoothstep(-0.05,-0.3,p.y)*sin(p.x*4.3+0.7);
   float sheet = abs(p.z - (ZF + 0.016 + 0.045*down + f)) - 0.007;
   float hy = max(-(p.y + hang), p.y - 0.012);
   float hx = p.x - xr - 0.06*p.y;
@@ -271,7 +272,7 @@ vec3 shadeOpaque(vec3 p, vec3 rd, float id, vec3 n, out float direct, vec3 reflC
     alb = vec3(0.085,0.068,0.045)*(0.75+0.5*g);
   } else if (id < 4.5) { // linen
     float g = fbm3(p*8.0);
-    alb = vec3(0.86,0.84,0.77)*(0.95+0.08*g);
+    alb = vec3(0.80,0.78,0.72)*(0.95+0.08*g);
     wrap = 0.35; specK = 0.04; specP = 8.0;
   } else if (id < 8.5) { // pears
     vec3 q; vec3 bd;

@@ -58,7 +58,7 @@
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const xn = x / W, yn = y / H;
       const id = ID[y * W + x];
-      const bias = id === 3 ? 0.07 : id === 6 ? -0.03 : (id === 9 || id === 10) ? -0.06 : id === 4 ? -0.1 : 0;
+      const bias = id === 3 ? 0.07 : id === 6 ? -0.03 : (id === 9 || id === 10) ? -0.16 : id === 4 ? -0.1 : 0;
       let t = (xn - 0.37 + 0.10 * (yn - 0.55) + 0.14 * (fbm(xn * 2.6, yn * 2.6, 31, 3) - 0.5) + bias) / 0.52;
       A[y * W + x] = clamp(t, 0, 1);
     }
@@ -86,7 +86,7 @@
         if (id === 4) {
           const yy = i / W;
           if (yy > clothEdgeY) return PI / 2 + 0.25 * (fbm(x / (200 * S), y / (200 * S), 9, 2) - 0.5);
-          return OR.coh[i] > 0.6 ? OR.ang[i] : 0.22 + 0.5 * (fbm(x / (300 * S), y / (300 * S), 8, 2) - 0.5);
+          return 0.22 + 0.6 * (fbm(x / (300 * S), y / (300 * S), 8, 2) - 0.5);
         }
         return 0.75 + 1.1 * (fbm(x / (420 * S), y / (420 * S), 5, 3) - 0.5);
       }
@@ -137,6 +137,7 @@
           }
         });
         if (pts.length < 4) pts.push(x + 1, y);
+        if (o.keepId && pts.length < Math.max(4, Math.ceil(w * 1.3 / Math.max(1, w * 0.3)) * 2)) continue; // no stubs at edges
         const st = Object.assign({ pts, w, col: c, seed: (rnd() * 1e9) | 0 }, o.brush);
         if (o.brushFn) Object.assign(st, o.brushFn(x, y, a, c));
         cv.stroke(st);
@@ -207,7 +208,7 @@
 
     // Cezanne-like constructive patches: groups of parallel flat strokes in a facet colour
     {
-      const sp = 34 * S;
+      const sp = 44 * S;
       const cand = [];
       for (let gy = 0; gy < H; gy += sp) for (let gx = W * 0.3; gx < W; gx += sp) cand.push([gx + rnd() * sp, gy + rnd() * sp]);
       shuffle(cand, rnd);
@@ -234,7 +235,7 @@
           c = [mix(c[0], scl[0], f), mix(c[1], scl[1], f), mix(c[2], scl[2], f)].map((v) => clamp(v, 0, 1));
         }
         c = satv(c, 1.0 + 0.2 * k, 1.0 + 0.08 * k, 0.32);
-        const base = -0.62 + 0.35 * (rnd() - 0.5) + (rnd() < 0.18 ? PI / 2 : 0);
+        const base = pid === 1 ? 0.04 + 0.2 * (rnd() - 0.5) : -0.62 + 0.35 * (rnd() - 0.5) + (rnd() < 0.18 ? PI / 2 : 0);
         const ux = Math.cos(base), uy = Math.sin(base);
         const nx = -uy, ny = ux;
         const m = 3 + ((rnd() * 3) | 0);
@@ -271,8 +272,15 @@
     });
     layer({
       name: 'fine', src: R0, spacing: 3, w: 4, len: 5, stopDiff: 0.06, jit: 0.012, err: 0.08, keepId: true,
-      prob: realP(0.05, 0.2),
+      prob: (a, x, y) => ID[idx(x, y)] === 4 ? 0 : 1 - smooth(0.05, 0.2, a),
       brush: { alpha: 0.95, dry: 0.12, thick: 0.25, bristle: 0.35, load: 1.0, run: 60 * S, smear: 0.15, pick: 0.15 }
+    });
+
+    // ---------------------------------------------------------- 6a the linen: folds modelled in thick, buttery whites
+    layer({
+      name: 'linen', src: R1, spacing: 7, w: 15, len: 5, stopDiff: 0.05, jit: 0.012, err: 0.014, keepId: true, wander: 0.5,
+      prob: (a, x, y) => ID[idx(x, y)] === 4 ? 1 - smooth(0.2, 0.4, a) : 0,
+      brush: { alpha: 0.88, dry: 0.15, thick: 0.45, bristle: 0.45, load: 1.1, run: 90 * S, smear: 0.3, pick: 0.4, cjit: 0.3, flatten: 0.9 }
     });
 
     // ---------------------------------------------------------- 6b the glass: crisp verticals, rim and glints
@@ -298,6 +306,29 @@
         n++;
       }
       log('glints ' + n);
+    }
+
+    // ---------------------------------------------------------- 6c glass rim and glints, pear highlight (thick touches)
+    {
+      const PR = (() => { const RO = [-0.12, 1.45, 6.4], TA = [-0.10, 0.66, 0.0], FOVT = 0.336;
+        const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
+        const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+        const f = nrm(sub(TA, RO)), r = nrm(cr(f, [0, 1, 0])), u = cr(r, f);
+        return (p) => { const v = sub(p, RO); const z = dot(v, f); return [W / 2 + dot(v, r) / (z * FOVT) * H / 2, H / 2 - dot(v, u) / (z * FOVT) * H / 2]; }; })();
+      const gr = P.mulberry32(seed + 66);
+      const ring = (y, r, a0, a1, n) => { const pts = []; for (let i = 0; i <= n; i++) { const t = a0 + (a1 - a0) * i / n; pts.push(...PR([-1.12 + Math.cos(t) * r, y, -0.42 + Math.sin(t) * r])); } return pts; };
+      const hi = (pts, w, c, al, th) => cv.stroke({ pts, w: w * S, col: c, alpha: al, dry: 0.25, load: 1.1, run: 400 * S, thick: th, bristle: 0.4, smear: 0.05, pick: 0.15, taper0: 0.5, taper1: 0.6, seed: (gr() * 1e9) | 0 });
+      // rim: front lip catches the window, back lip faint
+      hi(ring(1.16, 0.388, 0.45, 2.75, 30), 3.2, [0.80, 0.79, 0.74], 0.8, 0.6);
+      hi(ring(1.16, 0.37, 3.6, 5.5, 30), 2.4, [0.55, 0.54, 0.50], 0.6, 0.3);
+      // water surface ellipse, lit on the far side
+      hi(ring(0.66, 0.35, 3.7, 5.3, 24), 2.6, [0.62, 0.62, 0.56], 0.55, 0.3);
+      // two hard glints on the left flank of the glass, and one at the base
+      for (const [yy, ang, ln] of [[0.95, 2.62, 0.22], [0.42, 2.66, 0.12], [0.16, 2.5, 0.04]]) {
+        const a = PR([-1.12 + Math.cos(ang) * 0.39, yy, -0.42 + Math.sin(ang) * 0.39]), b = PR([-1.12 + Math.cos(ang) * 0.39, yy - ln, -0.42 + Math.sin(ang) * 0.39]);
+        hi([a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, b[0], b[1]], 7, [0.93, 0.92, 0.86], 0.9, 1.4);
+      }
     }
 
     // ---------------------------------------------------------- 7 impasto lights
@@ -335,6 +366,37 @@
       colFn: (t) => [clamp(t[0] * 1.05 + 0.025, 0, 1), clamp(t[1] * 1.05 + 0.022, 0, 1), clamp(t[2] * 1.04 + 0.015, 0, 1)],
       brush: { alpha: 0.75, dry: 0.95, load: 0.55, run: 60 * S, thick: 0.15, bristle: 0.7, smear: 0.1, pick: 0.1, flatten: 0.2 }
     });
+
+    // ---------------------------------------------------------- 7c the lit front edge of the ledge
+    {
+      const ER = (() => { const RO = [-0.12, 1.45, 6.4], TA = [-0.10, 0.66, 0.0], FOVT = 0.336;
+        const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
+        const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+        const f = nrm(sub(TA, RO)), r = nrm(cr(f, [0, 1, 0])), u = cr(r, f);
+        return (p) => { const v = sub(p, RO); const z = dot(v, f); return [W / 2 + dot(v, r) / (z * FOVT) * H / 2, H / 2 - dot(v, u) / (z * FOVT) * H / 2]; }; })();
+      let xw = 0;
+      const erand = P.mulberry32(seed + 55);
+      while (xw < W * 0.78) {
+        const len = (120 + 260 * erand()) * S;
+        const p0 = ER([-4 + 8 * (xw / W), 0.004, 1.004]);
+        const pts = [];
+        for (let i = 0; i <= 10; i++) {
+          const xx = xw + len * i / 10;
+          const a0 = ER([-3, 0.004, 1.004]), a1 = ER([3, 0.004, 1.004]);
+          const yy = a0[1] + (a1[1] - a0[1]) * (xx - a0[0]) / (a1[0] - a0[0]) - 1.5 * S;
+          pts.push(xx, yy + (erand() - 0.5) * 0.8 * S);
+        }
+        const i0 = idx(xw + len / 2, pts[11]);
+        if (ID[i0] !== 4 && ID[i0] !== 10 && ID[i0] !== 9) {
+          const t = samp(R1, xw + len / 2, pts[11] - 6 * S);
+          const c = [clamp(t[0] * 1.35 + 0.05, 0, 1), clamp(t[1] * 1.33 + 0.045, 0, 1), clamp(t[2] * 1.28 + 0.035, 0, 1)];
+          const aa = 1 - smooth(0.35, 0.6, aAt(xw + len / 2, pts[11]));
+          if (aa > 0.05) cv.stroke({ pts, w: (4 + 3 * erand()) * S, col: c, alpha: 0.85 * aa, dry: 0.45, load: 1.0, run: len * 0.8, thick: 0.6, bristle: 0.5, smear: 0.1, pick: 0.2, taper0: 0.3, taper1: 0.5, seed: (erand() * 1e9) | 0 });
+        }
+        xw += len * (0.7 + 0.5 * erand());
+      }
+    }
 
     // ---------------------------------------------------------- 8 glazes in the shadows (seeing zone)
     cv.glazeField([0.70, 0.58, 0.44], (x, y) => {
@@ -398,7 +460,7 @@
     pn.olive = [0.17, 0.16, 0.09];
     pn.ochre = satv(pn.pearLit, 1.02, 0.97, 0.4);
     pn.green = satv(mix3(pn.pearMid, [0.42, 0.45, 0.14], 0.5), 1.1, 1.0, 0.3);
-    pn.red = satv(mix3(pn.leaf, [0.55, 0.16, 0.06], 0.5), 1.2, 1.0, 0.3);
+    pn.red = satv(mix3(pn.leaf, [0.50, 0.13, 0.06], 0.6), 1.1, 0.95, 0.3);
     function mix3(a, b, t) { return [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
     const palette = Object.keys(pn).map((k) => ({ k, c: pn[k] }));
     log('palette ' + palette.map((p) => p.k + ':' + p.c.map((v) => v.toFixed(2)).join(',')).join(' | '));
@@ -472,7 +534,7 @@
     }
     const classPal = {
       wall: { black: 3, umber: 2.2, wallDark: 3, wallLight: 1.2, slateDark: 1.4, olive: 0.9 },
-      pear: { ochre: 3, pearLit: 2, pearMid: 2, green: 1.6, red: 0.9, cream: 0.7, pearShadow: 1.2 },
+      pear: { ochre: 3, pearLit: 2, pearMid: 2, green: 1.8, red: 0.35, cream: 0.7, pearShadow: 1.4 },
       table: { tableLit: 3, ochre: 1, umber: 1, tableShadow: 2, cream: 0.4, slate: 0.4 },
       front: { front: 3, black: 2, umber: 2, red: 0.5, tableShadow: 1 },
       leaf: { red: 3, ochre: 1.2, pearShadow: 0.6 },
@@ -641,7 +703,7 @@
           const pcv = pc.map((v) => clamp(v * lum3(m) / Math.max(lp, 1e-3), 0, 1)); // palette hue at facet value
           m = mix3(m, bold > 0.6 ? mix3(pcv, pc, 0.35) : pcv, bold * 0.75);
         }
-        m = satv(m, 1.0 + 0.1 * bold, 1.0, 0.3);
+        m = satv(m, 1.0 + 0.1 * bold, 1.0 + 0.35 * Math.max(0, bold - 0.6), 0.42);
         const ej = 5 * S;
         const clip = (x0c, y0c) => {
           const x = x0c + ej * (vnoise(x0c / (17 * S), y0c / (17 * S), 71) - 0.5) * 2, y = y0c + ej * (vnoise(x0c / (17 * S), y0c / (17 * S), 72) - 0.5) * 2;
@@ -672,8 +734,8 @@
           const mt = k % 2 ? m : m.map((v, ch) => clamp(v * (1 + (krnd() - 0.5) * 0.07) + (ch === 2 ? -0.006 : 0.005), 0, 1));
           if (useKnife) cv.stroke({ pts, w: bw * 1.2, col: jitterCol(m, 0.03), cjit: 0.2, alpha: 0.98, clip, knife: true, load: 1.25, run: (a1 - a0) * 2.5, dry: 0.03,
             thick: 1.5, ridge: 0.45, bristle: 0, smear: 0.2, pick: 0.06, rag: 0.0, taper0: 0, taper1: 0, cap: 0.0, streak: (a1 - a0) * 0.5, sfreq: 1.0, seed: (krnd() * 1e9) | 0 });
-          else cv.stroke({ pts, w: bw * 1.15, col: jitterCol(mt, 0.016), cjit: 0.15, alpha: 0.97, clip, load: 1.3, run: (a1 - a0) * 3, dry: 0.12,
-            thick: 0.55 + 0.6 * bold, ridge: 0.25, bristle: 0.45, bfreq: bw / (3.5 * S), smear: 0.12, pick: 0.1, rag: 0.0, taper0: 0, taper1: 0, cap: 0.2, seed: (krnd() * 1e9) | 0 });
+          else cv.stroke({ pts, w: bw * 1.15, col: jitterCol(mt, 0.016), cjit: 0.08, alpha: 0.97, clip, load: 1.3, run: (a1 - a0) * 3, dry: 0.12,
+            thick: 0.7 + 0.6 * bold, ridge: 0.2, bristle: 0.3, bfreq: bw / (6 * S), smear: 0.12, pick: 0.1, rag: 0.0, taper0: 0, taper1: 0, cap: 0.2, seed: (krnd() * 1e9) | 0 });
         }
         n++;
       }
@@ -716,18 +778,28 @@
     }
     krnd = P.mulberry32(seed + 203);
     // wall: a deep field, a cool band, the lit wall, a pale counterweight to the linen
-    plane([[0.60, -0.01], [1.01, -0.01], [1.01, 0.315], [0.735, 0.335]], mix3(pn.black, pn.umber, 0.3), pn.wallDark, { dir: 1.22, bw: 105, edge: 5 });
-    plane([[0.745, 0.318], [1.01, 0.300], [1.01, 0.378], [0.752, 0.392]], pn.slateDark, pn.slate, { knife: true, bw: 120 });
-    plane([[0.70, 0.395], [1.01, 0.372], [1.01, 0.47], [0.725, 0.49]], mix3(pn.wallLight, pn.olive, 0.45), pn.wallDark, { bw: 100 });
+    const darkPoly = [[0.60, -0.01], [1.01, -0.01], [1.01, 0.315], [0.735, 0.335]];
+    plane(darkPoly, mix3(pn.black, pn.umber, 0.3), pn.wallDark, { dir: 1.22, bw: 150, edge: 5, vary: 0.15, brush: { bristle: 0.35, cjit: 0.1 } });
+    {
+      const clip = P.polyClip(darkPoly.map(([a, b]) => [a * W, b * H]), 5 * S, 4242, 1.1 * S);
+      const drags = [[[0.705, -0.02], [0.86, 0.33]], [[0.86, -0.02], [1.02, 0.30]]];
+      const cols = [mix3(pn.black, pn.slateDark, 0.35), [0.07, 0.048, 0.034]];
+      drags.forEach(([a, b], k) => {
+        const pts = []; for (let i = 0; i <= 10; i++) pts.push(mix(a[0], b[0], i / 10) * W, mix(a[1], b[1], i / 10) * H);
+        cv.stroke({ pts, w: (150 + 40 * k) * S, col: cols[k], col2: pn.umber, cjit: 0.15, knife: true, square: true, clip, alpha: 0.97, load: 1.15, run: 900 * S, dry: 0.03, thick: 1.5, ridge: 0.5, bristle: 0, smear: 0.3, pick: 0.1, rag: 0.05, taper0: 0, taper1: 0, streak: 400 * S, sfreq: 1, seed: 300 + k });
+      });
+    }
+    if (!(q && q.get("noslate"))) plane([[0.745, 0.318], [1.01, 0.300], [1.01, 0.378], [0.752, 0.392]], pn.slateDark, pn.slate, { knife: true, bw: 120 });
+    plane([[0.70, 0.395], [1.01, 0.372], [1.01, 0.47], [0.725, 0.49]], mix3(pn.olive, pn.green, 0.3), pn.wallDark, { bw: 100 });
     // ledge and front
-    plane([[0.74, wl + 0.004], [1.01, wl - 0.002], [1.01, eRr], [0.755, ey(0.755)]], pn.tableLit, pn.tableShadow, { bw: 90, vary: 0.5 });
+    plane([[0.74, wl + 0.004], [1.01, wl - 0.002], [1.01, eRr], [0.755, ey(0.755)]], satv(pn.tableLit, 1.15, 1.02, 0.3), pn.tableShadow, { bw: 90, vary: 0.4 });
     plane([[0.70, ey(0.70) + 0.004], [1.01, eRr + 0.003], [1.01, 1.01], [0.76, 1.01]], mix3(pn.front, pn.umber, 0.3), pn.front, { bw: 125, edge: 5 });
     plane([[0.82, 0.838], [1.01, 0.828], [1.01, 1.01], [0.83, 1.01]], pn.black, pn.umber, { bw: 120, knife: true });
     plane([[0.745, 0.80], [0.805, 0.796], [0.80, 0.975], [0.75, 0.98]], mix3(pn.umber, pn.red, 0.25), pn.umber, { dir: PI / 2, bw: 60, knife: true });
     log('planes');
     // the far pears re-asserted over the planes as bold facets
     krnd = P.mulberry32(seed + 204);
-    facetStage(makeVoronoi(70 * S, 0.3, 0.5, seed + 104), 0.55, 0.72, 2, 3, 1.0, 'pear facets', [6, 7, 8, 11, 12], 4);
+    facetStage(makeVoronoi(70 * S, 0.3, 0.5, seed + 104), 0.55, 0.72, 2, 3, 1.0, 'pear facets', [6, 7, 8, 11], 4);
 
     // ---- bold flat fields from the image-guided split
     shuffle(rects, krnd);
@@ -772,6 +844,24 @@
         streak: 220 * S, sfreq: 2.2, rag: 0.3, seed: (krnd() * 1e9) | 0
       }, o || {}));
     };
+    // the drawing survives: a broken, brushy dark contour on the shadow side of the lying pear
+    {
+      let sx = 0, sy = 0, n = 0;
+      for (let i = 0; i < N; i += 3) if (ID[i] === 7) { sx += i % W; sy += (i / W) | 0; n++; }
+      if (n) {
+        const cx = sx / n, cy = sy / n, ct = [];
+        for (let k = 0; k <= 90; k++) {
+          const th = k / 90 * PI * 2; let rr = 0;
+          for (let r = 0; r < 700 * S; r += 2 * S) { const px = cx + Math.cos(th) * r, py = cy + Math.sin(th) * r; if (inB(px, py) && ID[idx(px, py)] === 7) rr = r; }
+          ct.push([cx + Math.cos(th) * (rr + 3 * S), cy + Math.sin(th) * (rr + 3 * S)]);
+        }
+        const cr = P.mulberry32(seed + 88);
+        for (const [k0, k1] of [[20, 37], [41, 58]]) {
+          const pts = []; for (let k = k0; k <= k1; k++) pts.push(ct[k][0], ct[k][1]);
+          cv.stroke({ pts, w: 13 * S, col: [0.09, 0.075, 0.04], col2: pn.olive, cjit: 0.4, alpha: 0.9, load: 1.2, run: 260 * S, dry: 0.35, thick: 0.8, bristle: 0.55, bfreq: 5, wmod: 0.3, smear: 0.2, pick: 0.15, rag: 0.3, taper0: 0.4, taper1: 0.6, seed: (cr() * 1e9) | 0 });
+        }
+      }
+    }
     krnd = P.mulberry32(seed + 205);
     // gestural fields: loaded brushes following a loose flow, pressure varying
     function gestureField(cx, cy, rx, ry, n, keys, o) {
@@ -789,7 +879,7 @@
         cv.stroke({
           pts, w, col: jitterCol(c, 0.03), col2: mix3(c, pn[k2], 0.6), cjit: 0.55, alpha: 0.97, wmod: 0.22,
           load: mix(1.3, 1.7, krnd()), run: len * mix(0.45, 0.8, krnd()), dry: o.dry == null ? 0.2 : o.dry, thick: mix(0.6, 1.2, krnd()),
-          bristle: 0.5, bfreq: Math.max(8, w / (3.2 * S)), ridge: 0.15, smear: 0.35, pick: 0.2, rag: 0.25, taper0: 0.22, taper1: 0.35, cap: 0.4,
+          bristle: 0.5, bfreq: Math.max(8, w / (3.2 * S)), ridge: 0.15, smear: 0.35, pick: 0.2, rag: 0.25, taper0: 0.22, taper1: 0.35, cap: 0.4, flatten: 0.97,
           streak: 260 * S, sfreq: 2.5, seed: (krnd() * 1e9) | 0
         });
       }
@@ -801,7 +891,7 @@
     // linen white carried along the ledge, broad and broken
     G1([[0.70, eR - 0.018], [0.80, eR - 0.03], [0.91, eR - 0.02], [1.04, eR - 0.03]], 110, pn.linen, pn.cream, { load: 1.25, thick: 0.9, ridge: 0.15, dry: 0.45, bristle: 0.7, wmod: 0.25, run: 600 * S, taper0: 0.15, taper1: 0.5 });
     // leaf red, one loaded touch with the knife
-    G1([[0.83, eR - 0.105], [0.865, eR - 0.085], [0.905, eR - 0.058]], 62, [0.50, 0.13, 0.055], pn.red, { load: 1.6, thick: 1.6, ridge: 0.3, dry: 0.15, bristle: 0.35, taper0: 0.1, taper1: 0.5, run: 300 * S, cap: 0.3 });
+
     log('gestures');
 
     // ---- the drawing survives: a broken calligraphic contour of the far pears
@@ -818,6 +908,8 @@
       return pts;
     }
     log('abstraction done');
+    // a last thin, uneven warm glaze over everything, so the two halves are one painting
+    cv.glazeField([0.93, 0.86, 0.76], () => 1, 0.16, seed + 99);
     const rgba = cv.finish({ relief: 1.5, weaveAmp: 0.14, spec: 0.05 });
     log('finish');
     if (view === 'flat') {

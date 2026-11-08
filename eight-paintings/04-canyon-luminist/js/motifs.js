@@ -22,6 +22,17 @@
     }
     const opt = (o) => Object.assign({ opacity: 0.95, soft: 0.3, bristleDensity: 0.9, bristleContrast: 0.35, dry: 0.3, thick: 0.5, pickup: 0.05 }, o);
 
+    // ---------------------------------------------------------------- the sun: a disc of loaded paint
+    {
+      const sx = sunX, sy = sunY, R0 = 21 * S;
+      // the disc: overlapping dabs of pale, lightly loaded paint (no hard rim)
+      for (let i = 0; i < 9; i++) {
+        const a = rng() * Math.PI * 2, rr = Math.sqrt(rng()) * R0 * 0.38;
+        stroke([sx + Math.cos(a) * rr, sy + Math.sin(a) * rr], R0 * (0.55 + 0.1 * rng()), [1.0, 0.985, 0.93],
+          opt({ opacity: 0.85, soft: 0.6, bristleContrast: 0.0, thick: 0.45, dry: 0 }));
+      }
+    }
+
     // ---------------------------------------------------------------- the ledge, up close
     // cracks with a lit lip, scattered stones, lichen: the crisp foreground detail
     {
@@ -48,6 +59,74 @@
         const lip = pts.map((v, j) => (j % 2 ? v - w * 1.8 : v));
         stroke(lip, w * 0.6, [Math.min(1, c[0] * 1.35 + 0.05), Math.min(1, c[1] * 1.3 + 0.04), Math.min(1, c[2] * 1.2 + 0.02)],
           opt({ opacity: 0.55, soft: 0.5, thick: 0.9, dry: 0.7 }));
+      }
+      // broad tonal variation: soft glazes so the rock surface is never one flat tone
+      for (let i = 0, made = 0; i < 3000 && made < 70; i++) {
+        const x = rng() * W, y = py(0.8 + rng() * 0.2);
+        if (!isFG(x, y)) continue;
+        made++;
+        const c = sampleC(x, y);
+        const k = 0.86 + rng() * 0.26, warm = (rng() - 0.5) * 0.06;
+        const L = (40 + rng() * 120) * S, a = (rng() - 0.5) * 0.4;
+        stroke([x, y, x + Math.cos(a) * L, y + Math.sin(a) * L * 0.4], (12 + rng() * 22) * S, [c[0] * k + warm, c[1] * k, c[2] * k - warm],
+          opt({ opacity: 0.28, soft: 0.85, bristleContrast: 0.5, thick: 0.3, dry: 0.6 }));
+      }
+      // joints and cracks: irregular, tapering, with a lit lip on the sun side
+      for (let i = 0, made = 0; i < 4000 && made < 0; i++) {
+        let x = rng() * W, y = py(0.81 + rng() * 0.19);
+        if (!isFG(x, y)) continue;
+        const pts = [x, y];
+        let a = (rng() < 0.5 ? 0 : Math.PI) + (rng() - 0.5) * 0.5;
+        const n = 6 + (rng() * 12 | 0);
+        for (let k = 0; k < n; k++) {
+          a += (rng() - 0.5) * 0.7;
+          x += Math.cos(a) * 13 * S; y += Math.sin(a) * 4.5 * S;
+          if (!isFG(x, y)) break;
+          pts.push(x, y);
+        }
+        if (pts.length < 8) continue;
+        made++;
+        const np = pts.length / 2;
+        const wid = []; for (let k = 0; k < np; k++) wid.push(0.35 + 0.9 * Math.sin(Math.PI * k / (np - 1)) * (0.7 + 0.5 * rng()));
+        const c = sampleC(pts[0], pts[1]);
+        const w = (1.4 + rng() * 1.8) * S;
+        stroke(pts, w, [c[0] * 0.28, c[1] * 0.25, c[2] * 0.26], Object.assign(opt({ opacity: 0.85, soft: 0.35, thick: 0.15, dry: 0.4 }), { widths: wid }));
+        const lip = pts.map((v, j) => (j % 2 ? v - w * 1.6 : v - w * 0.4));
+        stroke(lip, w * 0.55, [Math.min(1, c[0] * 1.3 + 0.05), Math.min(1, c[1] * 1.25 + 0.04), Math.min(1, c[2] * 1.15 + 0.02)],
+          Object.assign(opt({ opacity: 0.5, soft: 0.5, thick: 0.9, dry: 0.7 }), { widths: wid }));
+      }
+      // a few boulders resting on the ledge, each with its cast shadow
+      for (let i = 0, made = 0; i < 4000 && made < 0; i++) {
+        const x = px(0.6 + rng() * 0.4), y = py(0.82 + rng() * 0.16);
+        if (!isFG(x, y) || !isFG(x + 30 * S, y + 20 * S) || !isFG(x - 30 * S, y)) continue;
+        if (Math.hypot(x - px(0.872), (y - py(0.94)) * 1.5) < 120 * S) continue;
+        made++;
+        const r = (14 + rng() * 24) * S;
+        const c = sampleC(x, y);
+        stroke([x + r * 0.3, y + r * 0.35, x + r * 2.2, y + r * 0.7], r * 0.55, [c[0] * 0.42, c[1] * 0.4, c[2] * 0.46], opt({ opacity: 0.55, soft: 0.8, thick: 0.05 }));
+        for (let q = 0; q < 7; q++) {
+          const ox = (rng() - 0.5) * r * 0.9, oy = (rng() - 0.5) * r * 0.5;
+          const up = -oy / r + 0.2;
+          const v = clamp(0.5 + up - ox / r * 0.6, 0, 1);
+          const col = [mix(c[0] * 0.45, Math.min(1, c[0] * 1.4 + 0.08), v), mix(c[1] * 0.42, Math.min(1, c[1] * 1.32 + 0.06), v), mix(c[2] * 0.45, Math.min(1, c[2] * 1.15 + 0.03), v)];
+          stroke([x + ox - r * 0.25, y + oy, x + ox + r * 0.25, y + oy + r * 0.05], r * (0.25 + 0.25 * rng()), col, opt({ opacity: 0.9, soft: 0.35, thick: 0.6 + v, dry: 0.4 }));
+        }
+        stroke([x - r * 0.55, y + r * 0.42, x + r * 0.6, y + r * 0.46], r * 0.12, [c[0] * 0.25, c[1] * 0.22, c[2] * 0.24], opt({ opacity: 0.8, soft: 0.5, thick: 0.1 }));
+      }
+      // low desert shrubs: grey-green, dark at the base, backlit at the rim
+      for (let i = 0, made = 0; i < 4000 && made < 10; i++) {
+        const x = px(0.58 + rng() * 0.42), y = py(0.81 + rng() * 0.17);
+        if (!isFG(x, y)) continue;
+        made++;
+        const r = (10 + rng() * 18) * S;
+        const [lx, ly] = lightDir(x, y);
+        for (let q = 0; q < r * r / (3 * S * S); q++) {
+          const a = rng() * Math.PI * 2, rr = Math.sqrt(rng());
+          const ox = Math.cos(a) * rr * r * 1.2, oy = Math.sin(a) * rr * r * 0.7 - r * 0.3;
+          const f = clamp((Math.cos(a) * lx + Math.sin(a) * ly) * rr, -1, 1);
+          const col = f > 0.62 ? [0.58, 0.52, 0.30] : f > 0.05 ? [0.22, 0.23, 0.15] : [0.085, 0.095, 0.065];
+          stroke([x + ox, y + oy, x + ox + (rng() - 0.5) * 4 * S, y + oy - 3 * S], (1.0 + rng() * 1.6) * S, col, opt({ opacity: 0.9, soft: 0.45, thick: f > 0.62 ? 1.2 : 0.5, dry: 0.6 }));
+        }
       }
       // stones and pebbles
       for (let i = 0, made = 0; i < 6000 && made < 170; i++) {
@@ -148,11 +227,11 @@
     const armL = addLimb([[0.826, 0.80], [0.79, 0.772], [0.745, 0.757], [0.70, 0.736], [0.655, 0.722], [0.612, 0.70]], 0.0155, 0.0022, 'dead', 1);
     const up = addLimb([[0.824, 0.796], [0.815, 0.755], [0.796, 0.715], [0.79, 0.67], [0.772, 0.632]], 0.0135, 0.0018, 'dead', 1);
     const snag = addLimb([[0.836, 0.81], [0.858, 0.762], [0.872, 0.718], [0.893, 0.68], [0.905, 0.648]], 0.0105, 0.0016, 'dead', 1);
-    const armR = addLimb([[0.832, 0.79], [0.866, 0.772], [0.90, 0.762], [0.935, 0.748], [0.965, 0.728]], 0.0105, 0.003, 'live', 1);
+    const armR = addLimb([[0.832, 0.79], [0.862, 0.768], [0.89, 0.752], [0.915, 0.735], [0.935, 0.712]], 0.0105, 0.003, 'live', 1);
     const low = addLimb([[0.853, 0.875], [0.825, 0.868], [0.80, 0.874], [0.78, 0.884]], 0.007, 0.0015, 'dead', 2);
     // the one living strip carries a dense, ragged crown to the right; a smaller tuft lower down
-    for (const [fx, fy, r] of [[0.948, 0.716, 58], [0.975, 0.705, 50], [0.918, 0.73, 46], [0.958, 0.738, 44], [0.99, 0.726, 40],
-      [0.93, 0.70, 36], [0.885, 0.752, 30]]) masses.push({ x: px(fx), y: py(fy), r: r * S * 1.3 });
+    for (const [fx, fy, r] of [[0.922, 0.702, 58], [0.948, 0.690, 50], [0.895, 0.716, 46], [0.935, 0.722, 44], [0.958, 0.708, 36],
+      [0.905, 0.688, 36], [0.868, 0.742, 30]]) masses.push({ x: px(fx), y: py(fy), r: r * S * 1.3 });
     twigs(armL, 6, 80 * S, null);
     twigs(up, 5, 70 * S, null);
     twigs(armR, 4, 55 * S, null);
@@ -192,15 +271,16 @@
       const twist = (L.root ? 0.004 : 0.011) / S * (dead ? 1.3 : 1);
       for (let f = 0; f < nf; f++) {
         const phi0 = (f / nf) * Math.PI * 2 + rng() * 0.4;
+        const fwm = 0.7 + rng() * 0.6;
         let run = [], runW = [], runV = 0, cnt = 0;
         let s = 0;
         const flush = () => {
           if (run.length >= 4) {
             const v = runV / cnt;
             let c;
-            if (dead) c = [mix(0.15, 1.0, Math.pow(v, 2.0)), mix(0.13, 0.84, Math.pow(v, 2.0)), mix(0.13, 0.60, Math.pow(v, 2.0))];
-            else c = [mix(0.07, 0.86, Math.pow(v, 2.4)), mix(0.055, 0.60, Math.pow(v, 2.4)), mix(0.045, 0.36, Math.pow(v, 2.4))];
-            const j = 0.85 + rng() * 0.3; c = [c[0] * j, c[1] * j, c[2] * j];
+            if (dead) c = [mix(0.12, 0.98, Math.pow(v, 2.4)), mix(0.11, 0.82, Math.pow(v, 2.4)), mix(0.11, 0.60, Math.pow(v, 2.4))];
+            else c = [mix(0.06, 0.80, Math.pow(v, 2.8)), mix(0.048, 0.56, Math.pow(v, 2.8)), mix(0.04, 0.34, Math.pow(v, 2.8))];
+            const j = 0.75 + rng() * 0.5; c = [c[0] * j, c[1] * j, c[2] * j];
             const fw = Math.max(0.55 * S, r0 * 0.07);
             stroke(run, fw, c, Object.assign(opt({ opacity: 0.9, soft: 0.35, bristleContrast: 0.4, thick: 0.35 + 1.2 * v * v, dry: 0.5 }), { widths: runW.map((w) => w / fw) }));
           }
@@ -220,8 +300,9 @@
           const sideL = nx * lx + ny * ly; // >0: +normal side faces the sun
           const v = clamp(0.5 + 0.5 * Math.sin(phi) * Math.sign(sideL) * Math.min(1, Math.abs(sideL) * 2.5 + 0.3), 0, 1) * (0.6 + 0.4 * front);
           run.push(pts[i * 2] + nx * off, pts[i * 2 + 1] + ny * off);
-          runW.push(Math.max(0.55 * S, rad[i] * 0.07) * (0.6 + 0.6 * front));
+          runW.push(Math.max(0.55 * S, rad[i] * 0.07) * (0.6 + 0.6 * front) * fwm);
           runV += v; cnt++;
+          if (run.length > 8 && rng() < 0.12) flush();
         }
         flush();
       }
@@ -271,7 +352,8 @@
         const nearRoot = Math.hypot(x - rootX, (y - rootY) * 2) < 180 * S;
         if (!brink && !(nearRoot && rng() < 0.3)) continue;
         placed++;
-        const nb = 6 + (rng() * 14 | 0), hgt = (10 + rng() * 22) * S;
+        const depthK = clamp((y / H - 0.79) / 0.16, 0, 1); // nearer the bottom = closer = larger
+        const nb = 6 + (rng() * 12 | 0), hgt = (5 + rng() * 7 + depthK * 12) * S;
         for (let b = 0; b < nb; b++) {
           const ang = -Math.PI / 2 + (rng() - 0.5) * 1.3;
           const hh = hgt * (0.5 + rng() * 0.6);
@@ -315,7 +397,7 @@
     }
 
     // ---------------------------------------------------------------- ravens over the chasm
-    const birds = [[0.375, 0.512, 15, 0.1], [0.43, 0.493, 11, -0.15], [0.335, 0.545, 9, 0.25], [0.21, 0.61, 24, -0.05], [0.47, 0.525, 7, 0.3]];
+    const birds = [[0.375, 0.512, 15, 0.1], [0.43, 0.493, 11, -0.15], [0.335, 0.545, 9, 0.25], [0.255, 0.455, 22, -0.05], [0.47, 0.525, 7, 0.3]];
     for (const [bx0, by0, sz, tilt] of birds) {
       const x = px(bx0), y = py(by0), s = sz * S;
       const c = sampleC(x, y);

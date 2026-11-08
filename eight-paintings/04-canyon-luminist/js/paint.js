@@ -131,7 +131,7 @@
       else if (m === 3) minR[k] = 1.1;
       else {
         const d = depth[k];
-        minR[k] = d < 1.2 ? 1.4 : d < 3 ? 1.9 : d < 6 ? 2.5 : 3.2;
+        minR[k] = d < 1.2 ? 1.3 : d < 3 ? 1.6 : d < 6 ? 1.8 : 2.2;
       }
     }
 
@@ -317,10 +317,10 @@
       { R: 19, sig: 8, op: 0.8, thr: 0.022, steps: 7, soft: 0.4, bc: 0.5, thick: 0.45 },
       { R: 12, sig: 4.5, op: 0.82, thr: 0.025, steps: 7, soft: 0.35, bc: 0.55, thick: 0.5 },
       { R: 7.5, sig: 2.2, op: 0.85, thr: 0.028, steps: 7, soft: 0.3, bc: 0.55, thick: 0.55 },
-      { R: 4.6, sig: 1.0, op: 0.88, thr: 0.03, steps: 6, soft: 0.3, bc: 0.5, thick: 0.6 },
-      { R: 3.0, sig: 0, op: 0.9, thr: 0.032, steps: 5, soft: 0.3, bc: 0.45, thick: 0.6 },
-      { R: 1.9, sig: 0, op: 0.92, thr: 0.035, steps: 4, soft: 0.3, bc: 0.35, thick: 0.55 },
-      { R: 1.25, sig: 0, op: 0.95, thr: 0.04, steps: 3, soft: 0.35, bc: 0.25, thick: 0.5 },
+      { R: 4.6, sig: 1.0, op: 0.88, thr: 0.024, steps: 6, soft: 0.3, bc: 0.5, thick: 0.6 },
+      { R: 3.0, sig: 0, op: 0.9, thr: 0.024, steps: 5, soft: 0.3, bc: 0.45, thick: 0.6 },
+      { R: 1.9, sig: 0, op: 0.92, thr: 0.026, steps: 4, soft: 0.3, bc: 0.35, thick: 0.55 },
+      { R: 1.25, sig: 0, op: 0.95, thr: 0.03, steps: 3, soft: 0.35, bc: 0.25, thick: 0.5 },
     ];
     const maxPass = stage === 'under' ? 1 : PASSES.length;
     for (let pi = 0; pi < maxPass; pi++) {
@@ -366,17 +366,17 @@
           const l = lumOf(r, g, b);
           r = mix(l, r, 0.55) * 0.92 + 0.04; g = mix(l, g, 0.55) * 0.9 + 0.015; b = mix(l, b, 0.55) * 0.85;
         }
-        const jit = m === 0 ? 0.008 : m === 3 ? 0.05 : 0.03;
+        const jit = m === 0 ? 0.008 : m === 3 ? 0.05 : depth[k0] > 3 ? 0.016 : 0.03;
         const col = jitterColor(r, g, b, jit, rng);
         const sky = m === 0;
         const fine = P.R < 10;
         const steps = sky ? P.steps + 6 : P.steps;
-        const pts = trace(sx, sy, R, steps, refI, col, fine, sky ? 0.25 : 0, sky ? 0.035 : 0.06);
+        const pts = trace(sx, sy, R, steps, refI, col, fine, sky ? 0.25 : 0, sky ? 0.035 : 0.045);
         // paint load and impasto: highlights get loaded paint
         const lum = lumOf(col[0], col[1], col[2]);
         const lit = sun[k0];
         let thick = P.thick;
-        if (sky) thick *= 0.2 + 1.2 * smooth(0.88, 1.0, lum);
+        if (sky) thick *= 0.18 + 0.9 * smooth(0.95, 1.02, lum);
         else if (m === 3) thick *= 0.8 + 1.4 * smooth(0.45, 0.8, lum) + lit * 0.6;
         else thick *= 0.45 + 1.0 * smooth(0.55, 0.85, lum) * (depth[k0] < 4 ? 1 : 0.5);
         stroke(pts, R * (0.85 + rng() * 0.3), col, {
@@ -393,6 +393,40 @@
       console.log('pass', pi, 'R', R.toFixed(1), 'strokes', made, Math.round(performance.now() - t0), 'ms');
     }
     console.log('strokes total', strokesTotal);
+    // badger-blending: soften the brushwork along the stroke direction in the sky and the far
+    // distance (the hidden brushwork of the Luminists); the foreground keeps its crisp touch
+    if (stage !== 'noblend') {
+      const L = Math.max(2, Math.round(7 * S));
+      const out = new Float32Array(N * 3), outH = new Float32Array(N);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const k = y * W + x;
+          const m = mat[k];
+          const str = m === 0 ? 0.75 : m === 3 ? 0 : 0.35 * smooth(2.5, 6, depth[k]);
+          if (str <= 0.01) { out[k * 3] = C[k * 3]; out[k * 3 + 1] = C[k * 3 + 1]; out[k * 3 + 2] = C[k * 3 + 2]; outH[k] = Hh[k]; continue; }
+          let sr = 0, sg = 0, sb = 0, sh = 0, sw = 0;
+          for (const dir of [1, -1]) {
+            let px2 = x + 0.5, py2 = y + 0.5;
+            for (let i = 0; i <= L; i++) {
+              if (i > 0 || dir === 1) {
+                const xi = px2 | 0, yi = py2 | 0;
+                if (xi < 0 || yi < 0 || xi >= W || yi >= H) break;
+                const kk = yi * W + xi;
+                if ((mat[kk] === 0) !== (m === 0)) break; // never blend across the horizon
+                const w = 1 - i / (L + 1);
+                sr += C[kk * 3] * w; sg += C[kk * 3 + 1] * w; sb += C[kk * 3 + 2] * w; sh += Hh[kk] * w; sw += w;
+              }
+              const a = dirAt(px2, py2, true);
+              px2 += Math.cos(a) * dir; py2 += Math.sin(a) * dir;
+            }
+          }
+          out[k * 3] = mix(C[k * 3], sr / sw, str); out[k * 3 + 1] = mix(C[k * 3 + 1], sg / sw, str); out[k * 3 + 2] = mix(C[k * 3 + 2], sb / sw, str);
+          outH[k] = mix(Hh[k], sh / sw, str * 0.8);
+        }
+      }
+      C.set(out); Hh.set(outH);
+      console.log('blend', Math.round(performance.now() - t0), 'ms');
+    }
     return { C, Hh, Th, mat, depth, sun, ref, W, H, S, stroke, rng, study };
   }
 

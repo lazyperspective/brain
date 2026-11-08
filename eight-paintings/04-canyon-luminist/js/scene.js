@@ -126,11 +126,20 @@
     const v1 = 1 - smooth(0.0, 0.22, Math.abs(N2.fbm(wx * (far ? 0.42 : 0.75) + 11.0, z * 0.16, 3)));
     const v2 = 1 - smooth(0.0, 0.14, Math.abs(N3.fbm(wx * 1.25 + 4.0, z * 0.4 + 2.0, 3)));
     const v3 = 1 - smooth(0.0, 0.09, Math.abs(N3.fbm(wx * 3.0 + 9.0, z * 1.1, 2)));
-    let P = (far ? Math.pow(Math.max(0, 1 - sN), 1.4) * 1.45 - 0.5 + 0.55 * v1 : 0.42 + 0.58 * Math.pow(clamp((1 - sN) / 0.85, 0, 1), 0.8) + 0.3 * (v1 - 0.5)) + 0.26 * v2 + 0.08 * v3 + 0.16 * N6.fbm(x * 1.1, z * 1.1, 3);
+    let P;
+    if (far) P = Math.pow(Math.max(0, 1 - sN), 1.4) * 1.45 - 0.5 + 0.55 * v1 + 0.26 * v2 + 0.08 * v3 + 0.16 * N6.fbm(x * 1.1, z * 1.1, 3);
+    else {
+      // near side: narrow, sharp-crested spurs standing out of deep amphitheatres
+      const sp = Math.abs(N2.fbm(wx * 1.1 + 11.0, z * 0.5, 3));
+      const crest = smooth(0.12, 0.38, sp);
+      const sp2 = smooth(0.1, 0.3, Math.abs(N3.fbm(wx * 2.6 + 4.0, z * 0.9 + 2.0, 2)));
+      P = 0.5 + 0.55 * Math.pow(clamp((1 - sN) / 0.85, 0, 1), 0.8) + 0.42 * (1 - crest) - 0.35 * crest + 0.12 * (1 - sp2) + 0.1 * N6.fbm(x * 1.6, z * 1.6, 3) - 0.1;
+      P = Math.max(P, 0.4 + 0.08 * N5.fbm(x * 3, z * 3, 2));
+    }
     let hs = rim - (rim - 0.295) * smooth(0, 1, P);
     // inner gorge
     const gz = sN * D;
-    if (gz < 0.95) hs = Math.min(hs, gz < 0.06 ? 0 : 0.27 * Math.pow((gz - 0.06) / 0.89, far ? 1.0 : 0.75));
+    if (gz < 0.95) hs = Math.min(hs, gz < 0.085 ? 0 : 0.27 * Math.pow((gz - 0.085) / 0.865, far ? 1.0 : 0.75));
     // side gorges: tributaries trench the platform on their way to the river
     {
       const trib = 0;
@@ -161,7 +170,7 @@
   function blocks(x, z, su, sw, rot, seed) {
     const c = Math.cos(rot), s = Math.sin(rot);
     const u = x * c + z * s, w = -x * s + z * c;
-    const uu = u / su + 0.35 * N1.n2(w * 160 + seed, 0.5), ww = w / sw + 0.35 * N2.n2(u * 160 + seed, 2.5);
+    const uu = u / su + 0.14 * N1.n2(w * 160 + seed, 0.5), ww = w / sw + 0.14 * N2.n2(u * 160 + seed, 2.5);
     const iu = Math.floor(uu), iw = Math.floor(ww);
     const fu = uu - iu, fw = ww - iw;
     const dj = Math.min(Math.min(fu, 1 - fu) * su, Math.min(fw, 1 - fw) * sw);
@@ -173,21 +182,32 @@
     const zTip = 0.080 - 0.20 * Math.max(0, x - 0.004) + 0.0035 * N2.fbm(x * 90, 1.2, 4);
     const e = Math.min(x - xL, (zTip - z) * 1.2);
     let top = 1.0 - 0.10 * Math.max(0, z - 0.035) - 0.03 * Math.max(0, x - 0.02);
-    top += 0.0005 * N4.fbm(x * 70, z * 70, 4) + 0.00012 * N3.fbm(x * 420, z * 420, 3);
+    top += 0.0009 * N4.fbm(x * 70, z * 70, 4) + 0.00016 * N3.fbm(x * 420, z * 420, 3);
+    {
+      // weathered slabs: jointed blocks, each slightly tilted, edges rounded
+      const B = blocks(x, z, 0.0095, 0.0068, 0.38, 11);
+      const edgeR = smooth(0.0, 0.00022, B.dj);
+      top += ((B.id - 0.5) * 0.0007 + (B.id2 - 0.5) * 0.0003) * edgeR - 0.0003 * (1 - edgeR);
+    }
     // sparse joints
     const j1 = Math.abs(N5.fbm(x * 38 + 0.4 * N6.n2(z * 90, 1), z * 22, 3));
     top -= 0.0006 * (1 - smooth(0.0, 0.035, j1)) * smooth(0.0, 0.0015, e);
     // strata steps near the edge
-    const st1 = 0.0042 + 0.0014 * N3.fbm(x * 60, z * 60, 3);
-    const st2 = 0.0016 + 0.0007 * N4.fbm(x * 70 + 5, z * 70, 3);
-    top -= 0.0016 * smooth(st1 + 0.0002, st1 - 0.0002, e) + 0.0014 * smooth(st2 + 0.0002, st2 - 0.0002, e);
+    const st1 = 0.0042 + 0.0008 * N3.fbm(x * 60, z * 60, 3);
+    const st2 = 0.0016 + 0.0004 * N4.fbm(x * 70 + 5, z * 70, 3);
+    top -= 0.0011 * smooth(st1 + 0.0003, st1 - 0.0003, e) + 0.0009 * smooth(st2 + 0.0003, st2 - 0.0003, e);
     let hr;
     if (e > 0) hr = top - 0.0004 * (1 - smooth(0, 0.0005, e));
-    else hr = top - 0.0004 + e * 14 - 0.0008 * N6.fbm(x * 300, z * 300, 2);
+    else hr = top - 0.0004 + e * 14 - 0.0003 * N6.fbm(x * 300, z * 300, 2);
     // left shoulder: a rounded rock mass, lower
     const xS = -0.0125 - 0.30 * Math.max(0, z - 0.042) + 0.003 * N4.fbm(z * 80, 7.7, 4);
     const eS = xS - x;
     let topS = 0.989 - 0.22 * Math.max(0, z - 0.035) + 0.0016 * N6.fbm(x * 70, z * 70, 4) + 0.0003 * N2.fbm(x * 380, z * 380, 3);
+    {
+      const B2 = blocks(x, z, 0.0085, 0.006, -0.25, 29);
+      const edgeR = smooth(0.0, 0.0009, B2.dj);
+      topS += ((B2.id - 0.5) * 0.0013 + (B2.id2 - 0.5) * 0.0006) * edgeR - 0.0006 * (1 - edgeR);
+    }
     const sS = 0.0035 + 0.0015 * N5.fbm(x * 110, z * 110, 3);
     topS -= 0.0022 * smooth(sS + 0.0003, sS - 0.0003, eS);
     topS -= 0.0018 * (1 - smooth(0, 0.004, eS)) * (1 - smooth(0, 0.004, eS));
@@ -227,7 +247,7 @@
   function buildGrids(quality) {
     const q = quality || 1;
     const t0 = performance.now();
-    const g0 = makeGrid(-17, 17, -0.6, 24, Math.round(1600 * q), Math.round(1160 * q), (x, z) => canyonH(x, z, 1));
+    const g0 = makeGrid(-17, 17, -0.6, 24, Math.round(3000 * q), Math.round(2170 * q), (x, z) => canyonH(x, z, 1));
     const g1 = makeGrid(-3.2, 3.2, -0.3, 5.6, Math.round(1500 * q), Math.round(1380 * q), (x, z) => canyonH(x, z, 2));
     const g2 = makeGrid(-0.7, 0.7, -0.05, 1.3, Math.round(1100 * q), Math.round(1060 * q), (x, z) => canyonH(x, z, 2));
     const g3 = makeGrid(FG.x0, FG.x1, FG.z0, FG.z1, Math.round(1500 * q), Math.round(1400 * q), fgH);
@@ -303,12 +323,21 @@
     const el = Math.max(0, dy);
     const cs = dx * SUN[0] + dy * SUN[1] + dz * SUN[2];
     const sunward = Math.pow(Math.max(0, cs), 3);
-    const zen = [0.10, 0.17, 0.26];
-    const hor = [mix(0.50, 0.95, sunward), mix(0.40, 0.66, sunward), mix(0.40, 0.34, sunward)];
+    const zen = [0.09, 0.16, 0.30];
+    // horizon: rose-violet away from the sun, deep gold toward it
+    const hor = [mix(0.46, 0.82, sunward), mix(0.34, 0.52, sunward), mix(0.38, 0.24, sunward)];
     const t = Math.pow(1 - clamp(el, 0, 1), 3.2);
     let r = mix(zen[0], hor[0], t), g = mix(zen[1], hor[1], t), b = mix(zen[2], hor[2], t);
-    const mie = Math.pow(Math.max(0, cs), 90) * 1.6 + Math.pow(Math.max(0, cs), 14) * 0.45;
-    r += mie * 1.0; g += mie * 0.80; b += mie * 0.45;
+    // halo: white-gold core, saturated gold, then a wide amber glow
+    const c90 = Math.pow(Math.max(0, cs), 400), c30 = Math.pow(Math.max(0, cs), 60), c8 = Math.pow(Math.max(0, cs), 10);
+    r += c90 * 0.9 + c30 * 0.62 + c8 * 0.30;
+    g += c90 * 0.72 + c30 * 0.42 + c8 * 0.17;
+    b += c90 * 0.32 + c30 * 0.14 + c8 * 0.05;
+    // faint high streaks of cirrus catching the light across the clear
+    const sc = screenOf(dx, dy, dz);
+    const ci = N5.fbm(sc[0] * 3.0, sc[1] * 26.0 + 0.4 * N6.n2(sc[0] * 4, sc[1] * 4), 4);
+    const cir = smooth(0.12, 0.45, ci) * smooth(0.12, 0.2, sc[1]) * smooth(0.37, 0.3, sc[1]);
+    r += cir * (0.10 + 0.25 * c8); g += cir * (0.07 + 0.16 * c8); b += cir * (0.05 + 0.05 * c8);
     return [r, g, b];
   }
   function sunDisk(dx, dy, dz) {
@@ -467,7 +496,7 @@
     let r = base[0], g = base[1], b = base[2];
     const cs = dx * SUN[0] + dy * SUN[1] + dz * SUN[2];
     const d = SKY.D[k];
-    const op = smooth(0.0, 0.55, d);
+    const op = smooth(0.0, 0.8, d);
     const s = sunDisk(dx, dy, dz) * (1 - op * 0.97);
     r += s; g += s * 0.9; b += s * 0.66;
     if (op <= 0.001) return { c: [r, g, b], d: 0 };
@@ -490,14 +519,17 @@
     // how much direct light reaches this billow: the deck interior is starved, fragments are lit
     const thick = smooth(0.4, 2.4, d);
     const reach = clamp((1 - deck * 0.85) * 0.65 + warm * 1.1, 0, 1) * (1 - 0.7 * thick * deck);
-    const lit = clamp(ndl * 0.85 + 0.25, 0, 1) * reach;
+    let lit = clamp(ndl * 0.85 + 0.25, 0, 1) * reach;
+    // thin edges are translucent: they glow with transmitted light instead of darkening
+    const thinE = 1 - smooth(0.0, 0.9, d);
+    lit = Math.max(lit, thinE * clamp(0.3 + warm, 0, 1) * (1 - deck * 0.6) * 0.35 * clamp(0.4 + ndl, 0, 1));
     const litC = [mix(0.95, 1.9, warm), mix(0.50, 1.25, warm), mix(0.40, 0.62, warm)];
     const darkC = [mix(0.035, 0.22, warm * 0.8), mix(0.037, 0.13, warm * 0.8), mix(0.06, 0.12, warm * 0.8)];
     let cr = mix(darkC[0], litC[0], lit), cg = mix(darkC[1], litC[1], lit), cb = mix(darkC[2], litC[2], lit);
     // thin, backlit edges glow (silver lining)
     const fwd = Math.pow(Math.max(0, cs), 30) * 4.0 + Math.pow(Math.max(0, cs), 6) * 0.5;
-    const thin = 1 - smooth(0.0, 1.3, d);
-    cr += thin * fwd * 0.8; cg += thin * fwd * 0.62; cb += thin * fwd * 0.36;
+    const thin = (1 - smooth(0.0, 1.3, d)) * clamp(0.3 + 0.7 * ndl, 0, 1);
+    cr += thin * fwd * 0.55; cg += thin * fwd * 0.42; cb += thin * fwd * 0.24;
     r = mix(r, cr, op); g = mix(g, cg, op); b = mix(b, cb, op);
     return { c: [r, g, b], d: op };
   }
@@ -583,7 +615,7 @@
   }
 
   // ---------------------------------------------------------------- render study
-  let BEAM_K = 0.26;
+  let BEAM_K = 0.22;
   function render(RW, RH, opts) {
     if (opts && opts.beamK != null) BEAM_K = opts.beamK;
     opts = opts || {};
@@ -624,7 +656,12 @@
         } else {
           const x = dx * t, y = CAM.y + dy * t, z = dz * t;
           const fg = isFG(x, z, y);
-          const e = Math.max(0.00004, t * px2rad * 1.2);
+          let e = Math.max(0.00004, t * px2rad * 1.2);
+          if (!fg) {
+            // never resolve normals finer than the heightfield grid (avoids faceted columns on cliffs)
+            const cell = inside(GR.g2, x, z, 0.0) > 0 ? GR.g2.dx : inside(GR.g1, x, z, 0.0) > 0 ? GR.g1.dx : GR.g0.dx;
+            e = Math.max(e, cell * 0.9);
+          }
           const n = normalAt(x, z, e);
           // bump detail: fine rock texture, frequency limited by pixel footprint
           const fq = 1 / Math.max(e * 3, 1e-6);
@@ -646,7 +683,7 @@
           const sh = shadow(x, y, z);
           // cloud shadows drifting over the canyon (patches of sun)
           const cs1 = N1.fbm(x * 0.32 + 7.0, z * 0.45 + 1.0, 4);
-          const zb = -0.5 * smooth(1.2, 1.7, z) * smooth(4.4, 3.9, z) + 0.22 * smooth(4.3, 4.8, z) * smooth(9.0, 7.5, z) + 0.25 * smooth(1.3, 0.9, z);
+          const zb = -0.5 * smooth(1.2, 1.6, z) * smooth(2.2, 1.9, z) - 0.5 * smooth(3.0, 3.3, z) * smooth(4.4, 3.9, z) + 0.22 * smooth(4.3, 4.8, z) * smooth(9.0, 7.5, z) + 0.25 * smooth(1.3, 0.9, z) + 0.3 * smooth(1.9, 2.2, z) * smooth(3.3, 3.0, z);
           let cshadow = smooth(-0.08, 0.12, cs1 + zb + 0.02);
           if (fg) {
             // the foreground lies in the shadow of the storm; only the brink catches the sun
@@ -654,7 +691,8 @@
             const xL = 0.0028 + 0.06 * Math.max(0, z - 0.05);
             const brink = Math.max(smooth(0.0065, 0.002, zTip - z), smooth(0.0035, 0.0008, x - xL));
             const leftS = x < -0.008 ? smooth(0.004, 0.001, (-0.0125 - 0.30 * Math.max(0, z - 0.042)) - x) : 0;
-            cshadow = 0.08 + 0.92 * Math.max(brink * (x > -0.004 ? 1 : 0), leftS * 0.8);
+            cshadow = (x > -0.004 ? 0.42 : 0.1) + (x > -0.004 ? 0.58 : 0.9) * Math.max(brink * (x > -0.004 ? 1 : 0), leftS * 0.8);
+            cshadow *= 0.55 + 0.45 * smooth(0.045, 0.062, z);
           }
           const ndl = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
           const sunAmt = ndl * sh * (0.12 + 0.88 * cshadow);
@@ -665,14 +703,19 @@
             const lv = N2.fbm(x * 160, z * 160, 4), sp = N3.fbm(x * 900, z * 900, 2);
             const lich = smooth(0.25, 0.4, N4.fbm(x * 260 + 9, z * 260, 3));
             const lichO = smooth(0.35, 0.45, N5.fbm(x * 520 + 2, z * 520, 3));
-            alb = [0.33 + 0.07 * lv + 0.03 * sp, 0.27 + 0.055 * lv + 0.025 * sp, 0.21 + 0.035 * lv + 0.02 * sp];
+            alb = [0.36 + 0.07 * lv + 0.03 * sp, 0.26 + 0.055 * lv + 0.025 * sp, 0.20 + 0.035 * lv + 0.02 * sp];
             alb = [mix(alb[0], 0.42, lich * 0.5), mix(alb[1], 0.42, lich * 0.5), mix(alb[2], 0.33, lich * 0.5)];
             alb = [mix(alb[0], 0.56, lichO * 0.6), mix(alb[1], 0.33, lichO * 0.6), mix(alb[2], 0.14, lichO * 0.6)];
           }
           // desert varnish streaks on cliffs + albedo variation
           const vs = N3.fbm(x * 40 + z * 40, y * 6, 3);
           const steep = 1 - Math.abs(ny);
-          let av = 1 + 0.18 * N4.fbm(x * 9, z * 9 + y * 20, 3) - 0.25 * steep * smooth(0.1, 0.5, vs);
+          let av = 1 + 0.18 * N4.fbm(x * 9, z * 9 + y * 20, 3) - 0.12 * steep * smooth(0.1, 0.5, vs);
+          if (!fg && ny > 0.8 && y < 0.5) {
+            // drainage rills etched into the platforms
+            const gq = Math.abs(N4.fbm(x * 7 + 0.5 * N5.n2(x * 20, z * 20), z * 9, 3));
+            av *= 1 - 0.14 * smooth(0.05, 0.0, gq) * smooth(0.01, 0.003, e) * smooth(0.8, 0.95, ny);
+          }
           if (!fg) {
             // bedding planes: thin horizontal partings and ledges, filtered by pixel footprint
             const yb = y + 0.002 * N5.n2(x * 6, z * 6);
@@ -715,13 +758,19 @@
           // aerial perspective
           const dist = t;
           const hz = hazeColor(dx, dy, dz);
-          const dens = fg ? 0 : 1 - Math.exp(-dist * 0.05);
+          const dens = fg ? 0 : 1 - Math.exp(-dist * 0.042);
           // haze is thicker low in the canyon (pooling air)
           // drifting mist low in the chasm, luminous where the beams cross it
           const mn = N2.fbm(x * 2.2 + 3.0, z * 3.0 + y * 4.0, 4);
-          const pool = fg ? 0 : smooth(0.6, 0.2, y) * smooth(0.25, 0.9, t) * smooth(4.5, 2.5, t) * clamp(0.1 + 0.9 * smooth(0.05, 0.4, mn), 0, 1) * 0.3;
-          const fa = clamp(dens + pool, 0, 0.92);
+          const pool = fg ? 0 : smooth(0.6, 0.25, y) * smooth(0.25, 0.9, t) * smooth(4.5, 2.5, t) * clamp(smooth(0.1, 0.45, mn), 0, 1) * (0.32 - 0.14 * smooth(2.2, 1.2, t));
+          const fa = clamp(dens, 0, 0.92);
           r = mix(r, hz[0], fa); g = mix(g, hz[1], fa); b = mix(b, hz[2], fa);
+          if (pool > 0) {
+            // mist in the shadowed depths is a cool grey-violet; where the sun reaches it, it glows
+            const ml = 0.25 + 0.75 * cshadow;
+            const mr = mix(0.20, hz[0], ml), mg = mix(0.18, hz[1], ml), mb = mix(0.24, hz[2], ml);
+            r = mix(r, mr, pool); g = mix(g, mg, pool); b = mix(b, mb, pool);
+          }
           depth[k] = t;
           // stroke direction: horizontal contour of the surface projected to screen
           let tx = -n[2], tz = n[0];
@@ -797,7 +846,7 @@
     }
     const bl1 = G.CORE.blurPlane(bright, RW, RH, 3, RW * 0.012, 3);
     const bl2 = G.CORE.blurPlane(bright, RW, RH, 3, RW * 0.05, 3);
-    for (let k = 0; k < N * 3; k++) col[k] += bl1[k] * 0.3 + bl2[k] * 0.22;
+    for (let k = 0; k < N * 3; k++) col[k] += bl1[k] * 0.18 + bl2[k] * 0.16;
     // tone map (filmic shoulder, keeps darks rich) + grade: richer chroma, cool shadows, warm lights
     const SAT = 1.28;
     for (let k = 0; k < N; k++) {

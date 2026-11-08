@@ -215,11 +215,19 @@
             let d, sv;
             if (t < 0) {
               if (first) { if (square) continue; const e = -t / capA * hwA; d = Math.sqrt(e * e + lat * lat); sv = t; }
-              else { d = Math.sqrt(t * t + lat * lat); sv = cum[i]; }
+              else {
+                const qx = x + 0.5, qy = y + 0.5;
+                if ((qx - p0x) * d0x + (qy - p0y) * d0y < 0 || (qx - p1x) * d1x + (qy - p1y) * d1y > 0) continue;
+                d = Math.sqrt(t * t + lat * lat); sv = cum[i];
+              }
             } else if (t > sl) {
               const tt = t - sl;
               if (last) { if (square) continue; const e = tt / capB * hwB; d = Math.sqrt(e * e + lat * lat); sv = cum[i + 1] + tt; }
-              else { d = Math.sqrt(tt * tt + lat * lat); sv = cum[i + 1]; }
+              else {
+                const qx = x + 0.5, qy = y + 0.5;
+                if ((qx - p0x) * d0x + (qy - p0y) * d0y < 0 || (qx - p1x) * d1x + (qy - p1y) * d1y > 0) continue;
+                d = Math.sqrt(tt * tt + lat * lat); sv = cum[i + 1];
+              }
             } else { d = lat < 0 ? -lat : lat; sv = cum[i] + t; }
             if (d < sd[idx]) { sd[idx] = d; ss[idx] = sv; su[idx] = lat; }
           }
@@ -374,7 +382,7 @@
           const o3 = i * 3, o4 = i * 4;
           const dith = (hash2(x, y, 77) - 0.5) / 255;
           const lum = 0.3 * col[o3] + 0.59 * col[o3 + 1] + 0.11 * col[o3 + 2];
-          const spk = sp * (0.35 + 0.65 * Math.min(1, lum * 2.5));
+          const spk = sp * (0.6 + 0.4 * Math.min(1, lum * 2.5));
           out[o4] = (clamp(col[o3] * f + spk + dith, 0, 1) * 255 + 0.5) | 0;
           out[o4 + 1] = (clamp(col[o3 + 1] * f + spk * 0.98 + dith, 0, 1) * 255 + 0.5) | 0;
           out[o4 + 2] = (clamp(col[o3 + 2] * f + spk * 0.94 + dith, 0, 1) * 255 + 0.5) | 0;

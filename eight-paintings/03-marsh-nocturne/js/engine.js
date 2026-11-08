@@ -598,8 +598,14 @@ void main(){
     };
     const seeds = [];
     const nx = Math.ceil(DW / cell) + 1, ny = Math.ceil(DH / cell) + 1;
+    const sizeAt = (x, y) => (L.useSize === false ? 1 : Math.max(0.05, M.B[M.idx(R.clamp(x, 0, DW - 1), R.clamp(y, 0, DH - 1)) * 4 + 2] || 1));
     for (let gy = 0; gy < ny; gy++) for (let gx = 0; gx < nx; gx++) {
-      for (let rep = 0; rep < (L.density || 1); rep++) {
+      // where the brush must be small (small shapes), lay proportionally more strokes in this cell
+      let sMin = 9;
+      for (let k = 0; k < 9; k++) sMin = Math.min(sMin, sizeAt((gx + (k % 3) / 2) * cell - cell * 0.5, (gy + Math.floor(k / 3) / 2) * cell - cell * 0.5));
+      const sRef = Math.min(1, sMin);
+      const reps = Math.min(60, Math.round((L.density || 1) / (sRef * sRef)));
+      for (let rep = 0; rep < reps; rep++) {
         let bx = (gx + rng()) * cell - cell * 0.5, by = (gy + rng()) * cell - cell * 0.5;
         if (errMap) {
           let best = -1;
@@ -611,6 +617,7 @@ void main(){
           if (best < L.thr * (0.7 + 0.6 * rng())) continue;
         }
         const x = R.clamp(bx, 0, DW - 1), y = R.clamp(by, 0, DH - 1);
+        if (reps > 1) { const sz = Math.min(1, sizeAt(x, y)); if (rng() > (sRef * sRef) / (sz * sz)) continue; }
         seeds.push([x, y, rng()]);
       }
     }
@@ -633,7 +640,8 @@ void main(){
       let r = R.mix(L.R[0], L.R[1], rng()) * (L.useSize === false ? 1 : sizeMul);
       let r2 = r;
       { const d0 = M.dir(x, y); let tries = 0; while (tries < 3 && this.blocked(x, y, d0[0], d0[1], r2, mat)) { r2 *= 0.55; tries++; } }
-      if (r2 < Math.max(0.6, (L.minR || 0))) continue;
+      if (r2 < 0.6) r2 = Math.max(r2, 1.3);
+      if (r2 < (L.minR || 0)) continue;
       r = r2;
       const Cp = M.percep(x, y);
       const Lmax = r * R.mix(L.len[0], L.len[1], rng());

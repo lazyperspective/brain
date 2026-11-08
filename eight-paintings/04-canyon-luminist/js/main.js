@@ -26,7 +26,7 @@
 
   function run() {
     const t0 = performance.now();
-    const studyScale = parseFloat(qs.get('study') || '0.5');
+    const studyScale = parseFloat(qs.get('study') || '1');
     const RW = Math.round(W * studyScale), RH = Math.round(H * studyScale);
     const study = window.SCENE.render(RW, RH, { gridQ: parseFloat(qs.get('gridq') || '1') });
     window.__study = study;

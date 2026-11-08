@@ -15,7 +15,7 @@ float lum(vec3 c){ return dot(c, vec3(.2126,.7152,.0722)); }
 
 // ---- the creek: centre line and half width (fractions of width) at depth d (0 horizon, 1 bottom edge)
 float creekX(float d){ return 0.55 + (0.010 + 0.34*d) * sin(1.25/(d + 0.13) - 1.25); }
-float creekHW(float d){ return (0.004 + 0.15 * pow(d, 1.25)) * (0.45 + 1.1 * vnoise(vec2(1.25 / (d + 0.13) * 1.4, 2.5))); }
+float creekHW(float d){ return (0.004 + 0.15 * pow(d, 1.25)) * (0.45 + 1.1 * vnoise(vec2(1.25 / (d + 0.13) * 1.4, 2.5))) + 0.06 * exp(-d / 0.022); }
 // signed distance-ish to open water (negative inside): creek plus a wide pool under the glow
 float waterD(float X, float Y, float d){
   float cx = creekX(d), hw = creekHW(d);
@@ -145,7 +145,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     land *= 0.80 + 0.32 * band + 0.10 * (band2 - .5);
     // last light on the tops of the grass toward the glow (warm olive-ochre), fading into the foreground
     float warm = smoothstep(.45, .7, band) * exp(-d / .45) * exp(-pow((X - .58) / .35, 2.));
-    land = mix(land, land * vec3(1.25, 1.12, .82), warm * .7);
+    land = mix(land, land * vec3(1.32, 1.16, .80), warm * .9);
     c = land; mat = 5.; size = 0.45 + 0.8 * d; dir = vec2(1., 0.04 * (band - .5)); follow = 0.35; cross = 1.;
     imp = 0.6;
     // salt pannes: small pools in the middle distance holding the sky
@@ -153,7 +153,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     float pan = smoothstep(.70, .76, pn) * smoothstep(.06, .12, d) * (1. - smoothstep(.3, .42, d));
     c = mix(c, c * 1.35 + vec3(.02,.015,.0), smoothstep(.66, .71, pn) * smoothstep(.06, .12, d) * (1. - smoothstep(.3, .42, d)) * (1. - pan) * .6);
     vec3 rq = skyCol(vec2(X, YH - (Y - YH) * 0.9), p, cloud) * 0.7;
-    c = mix(c, rq * vec3(.95,.92,.88), pan * .85);
+    c = mix(c, rq * vec3(1.05,1.0,.92), pan * .9);
     // the creek
     float cx = creekX(d), hw = creekHW(d);
     float mudW = 0.0014 + 0.010 * d;
@@ -161,7 +161,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     if (wd < mudW) {
       // wet mud bank: catches the sky
       float mk = smoothstep(mudW, mudW * 0.4, wd);
-      vec3 mud = mix(c, rq * .8, 0.45) * (0.85 + 0.3 * fbm(vec2(X * 80., Y * 300.), 3));
+      vec3 mud = mix(c, rq * .8, 0.45 * smoothstep(0.03, 0.14, d)) * (0.85 + 0.3 * fbm(vec2(X * 80., Y * 300.), 3));
       c = mix(c, mud, mk);
       if (mk > .5) { mat = 7.; size = 0.25 + 0.4 * d; follow = 0.6; }
     }
@@ -169,7 +169,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       // water: the sky reflected, darker toward us, with the dark of the banks at its edges
       vec2 rqp = vec2(X, YH - (Y - YH) * 0.97);
       float cl; vec3 refl = skyCol(rqp, vec2(rqp.x * 2160., rqp.y * 2700.), cl);
-      refl = mix(refl, refl * 0.62, cl * 0.6);
+      refl = mix(refl, refl * 0.48, cl * 0.85);
       refl *= mix(0.95, 0.56, pow(d, 0.6));
       float rl = smoothstep(0.55, 0.95, noise1(Y * 2700. / (2.5 + 10. * d) + 4. * vnoise(vec2(X * 30., Y * 50.))));
       refl *= 0.95 + 0.10 * rl * fbm(vec2(X * 25., Y * 80.), 3) * 2.;
@@ -275,7 +275,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     rp = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * rp;
     float L = 165.;
     float u = rp.x / L;
-    float sheer = -25. - 22. * pow(max(u, 0.), 2.2) - 6. * pow(max(-u, 0.), 2.);
+    float sheer = -30. - 26. * pow(max(u, 0.), 2.2) - 7. * pow(max(-u, 0.), 2.);
     float bottom = 8. - 6. * u * u;
     float stern = -0.94, bow = 1.0 - 0.10 * smoothstep(-24., 6., rp.y);
     float endT = smoothstep(stern - 0.01, stern + 0.01, u) * (1. - smoothstep(bow - 0.02, bow, u));
@@ -293,11 +293,24 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       c = mix(c, hc, hull);
       if (hull > .5) { mat = 8.; size = 0.12; dir = vec2(cos(ang), -sin(ang)); follow = 0.8; cross = 0.; imp = 0.6; }
     }
+    // seen a little from above: the inside of the boat between the near and the far gunwale
+    float inner = 10. * max(0., 1. - pow(u / 0.93, 2.));
+    float farTop = sheer - inner;
+    float interior = smoothstep(farTop - 1., farTop + 1., rp.y) * (1. - smoothstep(sheer - 0.5, sheer + 0.5, rp.y)) * endT * step(0.5, inner);
+    if (interior > 0.) {
+      vec3 ic = mix(vec3(.095,.083,.066), vec3(.15,.13,.10), smoothstep(-0.9, 0.9, u) * smoothstep(farTop, sheer, rp.y));
+      float thw = (1. - smoothstep(0.02, 0.035, abs(u - 0.12))) + (1. - smoothstep(0.02, 0.035, abs(u + 0.48)));
+      ic = mix(ic, vec3(.075,.065,.055), clamp(thw, 0., 1.) * 0.8);
+      float farG = 1. - smoothstep(0., 2.0, rp.y - farTop);
+      ic = mix(ic, vec3(.30,.26,.195), farG * 0.55 * smoothstep(-0.7, 0.5, u));
+      c = mix(c, ic, interior);
+      if (interior > .5) { mat = 8.; size = 0.12; dir = vec2(cos(ang), -sin(ang)); follow = 0.8; cross = 0.; imp = 0.7; }
+    }
     // mooring line from the bow to a stake in the water
     vec2 bowP = sc * vec2(2160., 2700.) + vec2(L * 0.98, -44.);
     vec2 sp = bowP + vec2(-30., -70.);
     float sx = p.x - sp.x + (p.y - sp.y) * 0.07;
-    float stake = (1. - smoothstep(2.2, 3.8, abs(sx))) * step(sp.y - 175., p.y) * step(p.y, sp.y + 4.);
+    float stake = (1. - smoothstep(1.6, 3.4, abs(sx))) * step(sp.y - 175., p.y) * step(p.y, sp.y + 4.);
     float rstake = (1. - smoothstep(2.0, 4.5, abs(sx - 2.5 * sin(p.y * 0.18)))) * step(sp.y + 4., p.y) * step(p.y, sp.y + 140.) * (1. - (p.y - sp.y) / 140.);
     c = mix(c, c * 0.4, rstake * 0.7);
     vec2 lp = sp + vec2(0., -120.);
@@ -305,7 +318,9 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     float ly = mix(bowP.y, lp.y, tl2) + 22. * sin(3.1416 * tl2);
     float line = (1. - smoothstep(0.6, 1.6, abs(p.y - ly))) * step(bowP.x, p.x) * step(p.x, lp.x);
     c = mix(c, vec3(.10,.09,.075), line * 0.8);
-    if (stake > 0.) { c = mix(c, vec3(.065,.056,.048), stake); mat = 8.; size = 0.1; dir = vec2(0., 1.); follow = 0.9; cross = 0.; }
+    vec3 stc = mix(vec3(.11,.10,.085), vec3(.22,.19,.15), smoothstep(-1., 2.5, sx) * 0.6);
+    stc = mix(stc, c, 0.25 * smoothstep(sp.y - 175., sp.y - 60., p.y) * 0.);
+    if (stake > 0.) { c = mix(c, stc, stake * 0.92); mat = 8.; size = 0.1; dir = vec2(0., 1.); follow = 0.9; cross = 0.; }
   }
   imp *= 0.45 + 1.6 * sqrt(lum(c));
   if (mat == 2.) imp = 3.0;
@@ -331,11 +346,11 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
 
   const layers = [
     // 1. imprimatura: a transparent raw-umber toning rubbed over the white ground
-    { name: 'imprimatura', kind: 'glaze', R: [150, 260], len: [3, 7], spacing: 0.9, alpha: 0.85, thick: 0.02, tol: 9, cross: true, useSize: false,
-      angJit: 0.5, colour: (c, x, y, m, rng) => [0.13 + 0.02 * rng.gauss(), 0.095 + 0.015 * rng.gauss(), 0.055 + 0.01 * rng.gauss()], dry: 0.2, load: 1.2, pool: 0.8 },
+    { name: 'imprimatura', kind: 'glaze', R: [150, 260], len: [3, 7], spacing: 0.8, alpha: 0.55, thick: 0.02, tol: 9, cross: true, useSize: false,
+      angJit: 0.5, colour: (c, x, y, m, rng) => [0.72 + 0.06 * rng.gauss(), 0.66 + 0.05 * rng.gauss(), 0.58 + 0.05 * rng.gauss()], dry: 0.2, load: 1.2, pool: 0.8 },
     // 2. dead colouring in umber: the value structure, scrubbed thin
     { name: 'dead-colouring', R: [42, 80], len: [2, 6], spacing: 0.85, alpha: 0.82, thick: 0.08, tol: 0.10, smear: 0.3, dry: 0.9, load: 1.05,
-      colour: (c) => umber(c), jitV: 0.08, jitH: 0.0, tooth: 0.55, angJit: 0.25, mix: 0.3, ridge: 0.1, furrow: 0.7 },
+      colour: (c) => umber(c), jitV: 0.08, jitH: 0.0, tooth: 0.25, angJit: 0.25, mix: 0.3, ridge: 0.1, furrow: 0.7 },
     // 3. lay-in of colour, big brushes, wet into wet
     { name: 'lay-in', R: [30, 56], len: [2.5, 8], spacing: 0.8, alpha: 0.9, thick: 0.2, tol: 0.07, smear: 0.4, dry: 0.55, fid: 0.12, jitV: 0.06, jitH: 0.035, lumThick: 0.5, ridge: 0.25 },
     // 4. body: medium brushes where the lay-in is not enough
@@ -421,7 +436,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
         if (l < 0.10 || rng() > l * 2.5 * Math.exp(-d / 0.35)) continue;
         const L = R.mix(10, 50, rng()) * (0.4 + 1.5 * d);
         const gr = R.mix(1.4, 3.2, rng()) * (0.6 + d);
-        if (clipped(M, x + L, y, gr * 2) || clipped(M, x, y, gr * 2)) continue;
+        { let bad = false; for (let j = 0; j <= 6; j++) if (clipped(M, x + L * j / 6, y, gr * 2)) bad = true; if (bad) continue; }
         const pts = [[x, y], [x + L, y + rng.gauss()]];
         add({ pts, r: gr, col: c.map((v) => v * 1.18 + 0.01), alpha: 0.75, thick: 0.7, dry: 0.9, load: 1.0, fid: 0.3 });
       }
@@ -431,7 +446,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
   G.SCENE = {
     seed: 'marsh-nocturne-1',
     planGLSL: PLAN,
-    primer: [0.70, 0.66, 0.57],
+    primer: [0.20, 0.155, 0.10], // the white ground already toned with a thin raw-umber imprimatura
     weavePitch: 4.2,
     planRes: 0.5,
     edgeRef: 0.004,

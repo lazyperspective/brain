@@ -183,9 +183,116 @@
       return core;
     }
 
+    // ---------------------------------------------------------------- interior mapping for shop windows (parallax-correct rooms)
+    let inRefl = 0;
+    const RT = [0, 0, 0];
+    function glassRefl(side, z, h, dx, dy, dz, out) {
+      // reflection of the street in the glass: trace the mirrored ray once (no deeper recursion)
+      if (inRefl) { out[0] = 0.02; out[1] = 0.02; out[2] = 0.025; return; }
+      inRefl = 1;
+      const sx = hit.x, sh = hit.h, sz = hit.z, st = hit.t, sid = hit.id;
+      const r = trace(side < 0 ? XL + 0.01 : XR - 0.01, h, z, -dx, dy, dz, true, out);
+      if (r === 2) { out[0] = 0.015; out[1] = 0.014; out[2] = 0.016; }
+      hit.x = sx; hit.h = sh; hit.z = sz; hit.t = st; hit.id = sid;
+      inRefl = 0;
+    }
+    function interior(b, side, z, h, dx, dy, dz, out) {
+      const inx = Math.abs(dx) + 1e-6, sd = b.seed & 4095;
+      const Dp = 3.6 + 2.4 * HF(1, 2, sd);
+      const sc = b.shopCol, I0 = b.shopI;
+      const zA = b.z0 + 0.3, zB = b.z1 - 0.3;
+      let t = Dp / inx, kind = 0;
+      if (dy < 0) { const tf = (h - 0.06) / -dy; if (tf < t) { t = tf; kind = 1; } }
+      else if (dy > 0) { const tc = (3.0 - h) / dy; if (tc < t) { t = tc; kind = 2; } }
+      const ts = (zB - z) / dz; if (ts > 0 && ts < t) { t = ts; kind = 3; }
+      let r = 0, g = 0, bl = 0;
+      // free-standing contents on planes at fixed depths (front to back)
+      const st = b.stype;
+      const planes = st === 0 ? [1.4, 2.7] : st === 1 ? [0.9, 1.9, 2.8] : [1.0, 2.1];
+      for (let q = 0; q < planes.length; q++) {
+        const tm = planes[q] / inx; if (tm >= t) break;
+        const zm = z + dz * tm, hm = h + dy * tm;
+        if (zm < zA || zm > zB) continue;
+        const cz = Math.floor((zm - zA) / 1.25), cu = (zm - zA) / 1.25 - cz, ch = P8.hash2(cz, q + 11, sd) / 4294967296;
+        let hitObj = false, oc = null;
+        if (st === 0) { // shelving units: rows of goods
+          if (hm < 1.65 && cu > 0.08 && cu < 0.92 && ch < 0.8) {
+            hitObj = true;
+            const row = Math.floor(hm / 0.32), rf = hm / 0.32 - row;
+            if (rf < 0.1 || hm > 1.6) oc = [0.25, 0.25, 0.27];
+            else {
+              const pk = P8.hash2(Math.floor(zm * 9), row + q * 7, sd) / 4294967296;
+              const pc = [[0.9, 0.3, 0.2], [0.3, 0.45, 0.9], [0.95, 0.85, 0.4], [0.4, 0.8, 0.45], [0.9, 0.9, 0.85], [0.8, 0.4, 0.7], [0.95, 0.6, 0.2]][(pk * 7) | 0];
+              const sh = 0.55 + 0.45 * SM(0.1, 0.6, rf);
+              oc = [pc[0] * sh * 0.7, pc[1] * sh * 0.7, pc[2] * sh * 0.7];
+            }
+          }
+        } else if (st === 1) { // cafe: tables, seated people, pendant lamps
+          if (q === 1) { // pendant lamps
+            const lu = cu - 0.5, lh = hm - 2.25;
+            const dd = lu * lu * 1.56 / 0.016 + lh * lh / 0.02;
+            if (dd < 1) { r += sc[0] * 7; g += sc[1] * 6; bl += sc[2] * 4.5; out[0] = r; out[1] = g; out[2] = bl; return; }
+            if (Math.abs(lu) < 0.008 && hm > 2.3) { hitObj = true; oc = [0.02, 0.02, 0.02]; }
+          } else {
+            if (Math.abs(hm - 0.76) < 0.025 && cu > 0.15 && cu < 0.75) { hitObj = true; oc = [0.35, 0.22, 0.12]; }
+            else if (hm < 0.75 && Math.abs(cu - 0.45) < 0.02) { hitObj = true; oc = [0.03, 0.02, 0.015]; }
+            else if (ch < 0.65) {
+              const pc = 0.25 + 0.35 * ch, hx = (cu - pc) * 1.25;
+              const hd = Math.hypot(hx / 0.095, (hm - 1.22) / 0.12), bd = Math.hypot(hx / 0.2, (hm - 0.93) / 0.24);
+              if (hd < 1 || (bd < 1 && hm > 0.72)) { hitObj = true; oc = [0.04 + 0.05 * ch, 0.028, 0.022]; }
+            }
+          }
+        } else { // boutique: clothes rails and mannequins
+          if (q === 0 && hm > 0.95 && hm < 1.78 && cu > 0.1 && cu < 0.9) {
+            const gi = Math.floor(zm / 0.13), gh = P8.hash2(gi, 5, sd) / 4294967296;
+            if (hm > 1.78 - (0.4 + 0.35 * gh) && ((zm / 0.13) % 1) < 0.8) { hitObj = true; const gc = [[0.15, 0.15, 0.2], [0.6, 0.15, 0.12], [0.85, 0.8, 0.7], [0.2, 0.3, 0.25], [0.1, 0.1, 0.1], [0.75, 0.6, 0.45]][(gh * 6) | 0]; oc = gc; }
+          } else if (q === 1 && ch < 0.5) {
+            const hx = (cu - 0.5) * 1.25;
+            if ((Math.abs(hx) < 0.07 + 0.06 * Math.exp(-(hm - 1.35) * (hm - 1.35) * 6) && hm < 1.75 && hm > 0.3) || Math.hypot(hx / 0.08, (hm - 1.85) / 0.1) < 1) { hitObj = true; oc = [0.75, 0.72, 0.68]; }
+          }
+        }
+        if (hitObj) {
+          const lit = I0 * (0.6 + 0.5 * SM(0, 2.2, hm));
+          out[0] = oc[0] * sc[0] * lit; out[1] = oc[1] * sc[1] * lit; out[2] = oc[2] * sc[2] * lit; return;
+        }
+      }
+      const d = inx * t, zz = z + dz * t, hh = h + dy * t;
+      const fall = 1 - 0.12 * d / Dp;
+      if (kind === 0 || kind === 3) { // walls
+        let w = (kind === 0 ? 0.55 : 0.42) * (0.75 + 0.35 * SM(0, 2.8, hh));
+        if (st === 0 && kind === 0 && hh > 0.3 && hh < 2.2) { // wall shelving
+          const row = Math.floor(hh / 0.3), rf = hh / 0.3 - row;
+          const pk = P8.hash2(Math.floor(zz * 8), row, sd + 3) / 4294967296;
+          w *= rf < 0.1 ? 0.5 : 0.35 + 0.6 * pk;
+          const pc = [[1, 0.6, 0.5], [0.6, 0.7, 1], [1, 1, 0.7], [0.7, 1, 0.75]][(pk * 4) | 0];
+          r = sc[0] * pc[0]; g = sc[1] * pc[1]; bl = sc[2] * pc[2];
+        } else if (st === 1 && kind === 0) {
+          if (hh < 1.05) { w *= 0.25; } // bar counter
+          else if (hh < 1.12) w *= 1.5;
+          else if (hh > 1.4 && hh < 1.95 && ((zz * 0.55) % 1) < 0.35) w *= 0.45; // pictures
+          else if (hh > 1.25 && hh < 1.35) { const bt = P8.hash2(Math.floor(zz * 14), 2, sd) / 4294967296; w *= bt < 0.6 ? 1.6 : 0.6; } // bottles
+          r = sc[0]; g = sc[1] * 0.92; bl = sc[2] * 0.85;
+        } else { r = sc[0]; g = sc[1]; bl = sc[2]; }
+        w *= fall * I0;
+        r *= w; g *= w; bl *= w;
+      } else if (kind === 1) { // floor, with soft reflections of the lights
+        const refl = 0.25 + 0.2 * Math.max(0, Math.sin(zz * 2.5)) ;
+        const w = I0 * 0.22 * refl * fall;
+        r = sc[0] * w; g = sc[1] * w; bl = sc[2] * w;
+      } else { // ceiling and its lights
+        const dd2 = inx * t;
+        let w = I0 * 0.32;
+        if (st === 0) { const fu = (zz * 0.8) % 1; if (Math.abs(fu - 0.5) < 0.04) w = 6; }
+        else if (st === 3) { const a2 = ((zz * 0.9) % 1) - 0.5, b2 = ((dd2 * 0.9) % 1) - 0.5; if (a2 * a2 + b2 * b2 < 0.01) w = 7; }
+        else w *= 0.6;
+        r = sc[0] * w; g = sc[1] * w; bl = sc[2] * w;
+      }
+      out[0] = r; out[1] = g; out[2] = bl;
+    }
+
     // ---------------------------------------------------------------- facade shading
     const E = [0, 0, 0];
-    function facade(sd, z, h, dx, dz, out) {
+    function facade(sd, z, h, dx, dy, dz, out) {
       const b = bldAt(sd, z);
       const side = sd.side;
       const xw = side * 7 * -1 === 0 ? 0 : (side < 0 ? XL : XR);
@@ -220,54 +327,13 @@
                 alb0 = a; alb1 = a * 0.98; alb2 = a * 1.02;
               } else {
                 isGlass = true;
-                I = b.shopI * (0.45 + 0.75 * vv);
-                if (b.stype === 0) { // shelves of goods
-                  const sv = (h - 0.55) / 0.36, si = Math.floor(sv), sf = sv - si;
-                  if (h > 0.55 && h < 2.35) {
-                    if (sf < 0.09) I *= 0.35;
-                    else {
-                      const pk = P8.hash2(Math.floor(z * 11 + si * 3.3), si, b.seed) / 4294967296;
-                      const pc = [[1, 0.4, 0.3], [0.4, 0.6, 1], [1, 0.9, 0.5], [0.5, 1, 0.6], [1, 1, 1], [0.9, 0.5, 0.8]][(pk * 6) | 0];
-                      const k = 0.35 + 0.6 * pk * SM(0.1, 0.4, sf);
-                      er += sc[0] * I * k * pc[0] * 0.8; eg += sc[1] * I * k * pc[1] * 0.8; eb += sc[2] * I * k * pc[2] * 0.8;
-                      I *= 0.25;
-                    }
-                  }
-                  const tube = Math.exp(-((vv - 0.93) * (vv - 0.93)) * 2500) * 4;
-                  I += tube;
-                } else if (b.stype === 1) { // cafe: pendants, tables, seated people
-                  I *= 0.5;
-                  const pu = ((zz + 0.4) / 1.3) % 1, pv = h - 2.45;
-                  const pend = Math.exp(-((pu - 0.5) * (pu - 0.5) * 30 + pv * pv * 60));
-                  I += pend * 5 + 0.5 * Math.exp(-pv * pv * 3);
-                  const ci = Math.floor(zz / 1.15), cu = zz / 1.15 - ci, ch = P8.hash2(ci, 3, b.seed) / 4294967296;
-                  let dk = 0;
-                  if (Math.abs(h - 0.76) < 0.025 && cu > 0.18 && cu < 0.72) dk = 1;
-                  if (h < 0.76 && Math.abs(cu - 0.45) < 0.025) dk = 1;
-                  if (h > 0.45 && h < 0.98 && Math.abs(cu - 0.12) < 0.02) dk = 1;
-                  if (ch < 0.6) {
-                    const pc = 0.3 + 0.3 * ch;
-                    const hx = (cu - pc) * 1.15, hd = Math.hypot(hx / 0.1, (h - 1.22) / 0.125), sd = Math.hypot(hx / 0.21, (h - 0.93) / 0.2);
-                    if (hd < 1 || (sd < 1 && h > 0.8)) dk = 1;
-                  }
-                  if (dk) I *= 0.1;
-                  const pic = ((zz * 0.7) % 1) > 0.3 && ((zz * 0.7) % 1) < 0.55 && h > 1.7 && h < 2.1;
-                  if (pic) I *= 0.45;
-                } else { // boutique: clothes rail with hanging garments
-                  I *= 1.2;
-                  if (h > 0.95 && h < 1.75) {
-                    const gi = Math.floor(zz / 0.16), gh = P8.hash2(gi, 5, b.seed) / 4294967296;
-                    const len = 0.45 + 0.35 * gh;
-                    if (h > 1.75 - len && ((zz / 0.16) % 1) < 0.85) {
-                      const gc = [[0.15, 0.15, 0.2], [0.6, 0.15, 0.12], [0.85, 0.8, 0.7], [0.2, 0.3, 0.25], [0.1, 0.1, 0.1]][(gh * 5) | 0];
-                      er += sc[0] * I * gc[0] * 0.7; eg += sc[1] * I * gc[1] * 0.7; eb += sc[2] * I * gc[2] * 0.7; I *= 0.15;
-                    }
-                  }
-                  if (Math.abs(h - 1.78) < 0.015) I *= 0.2;
-                }
-                // glass: faint street reflection + dimmer at the bottom
-                I *= 0.8 + 0.2 * SM(0, 0.3, vv);
-                er += sc[0] * I + 0.006; eg += sc[1] * I + 0.006; eb += sc[2] * I + 0.009;
+                const IN = [0, 0, 0];
+                interior(b, side, z, h, dx, dy, dz, IN);
+                const cosI = Math.abs(dx) / Math.sqrt(dx * dx + dy * dy + dz * dz);
+                const Fg = 0.05 + 0.95 * Math.pow(1 - cosI, 5);
+                glassRefl(side, z, h, dx, dy, dz, RT);
+                const fog2 = 0.85 + 0.15 * N(z * 3, h * 3, 99); // smeared, rain-wet glass
+                er += (IN[0] * (1 - Fg) + RT[0] * Fg) * fog2; eg += (IN[1] * (1 - Fg) + RT[1] * Fg) * fog2; eb += (IN[2] * (1 - Fg) + RT[2] * Fg) * fog2;
                 alb0 = alb1 = alb2 = 0.01;
               }
             } else if (inner && mull) { alb0 = alb1 = alb2 = 0.03; }
@@ -423,7 +489,7 @@
       }
       hit.t = tBest; hit.x = ox + dx * tBest; hit.h = oy + dy * tBest; hit.z = oz + dz * tBest;
       if (kind === 0) { sky(dx, dy, dz, out); hit.id = 0; out[0] = out[0] * 0.75 + fogCol[0] * 0.3; out[1] = out[1] * 0.75 + fogCol[1] * 0.3; out[2] = out[2] * 0.75 + fogCol[2] * 0.3; return 0; }
-      if (kind === 1 || kind === 2) { facade(kind === 1 ? LEFT : RIGHT, hit.z, hit.h, dx, dz, out); hit.id = kind; }
+      if (kind === 1 || kind === 2) { facade(kind === 1 ? LEFT : RIGHT, hit.z, hit.h, dx, dy, dz, out); hit.id = kind; }
       else if (kind === 3) {
         const q = qBest, u = (hit.x - q.x0) / (q.x1 - q.x0), v = (hit.h - q.h0) / (q.h1 - q.h0);
         const fr = u < 0.07 || u > 0.93 || v < 0.05 || v > 0.95;
@@ -510,6 +576,7 @@
         (mir ? ctxM : ctxD).drawImage(tmpC, 0, 0);
       });
     }
+    const extraSprites = [];
     const emit = []; // HDR emitters {x,h,z,r,c,I,glare}
     function em(x, h, z, r, c, I, glare) { emit.push({ x: x, h: h, z: z, r: r, c: c, I: I, glare: glare || 0 }); }
     function poly(ctx, pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); }
@@ -600,132 +667,178 @@
       const P = mir ? projM : proj;
       const x0 = TR.x0, x1 = TR.x1, z0 = TR.z0, z1 = TR.z1;
       const rt = P8.rng(seed + 77);
-      function quad(xa, ha, za, xb, hb, zb, col, a) { // side quad on plane x=xa, from (ha,za) to (hb,zb)
+      function quad(xa, ha, za, xb, hb, zb, col, a) {
         const p = [P(xa, ha, za), P(xa, ha, zb), P(xa, hb, zb), P(xa, hb, za)];
         ctx.fillStyle = rgbs(col, a); poly(ctx, p); ctx.fill();
       }
+      function gquad(ha, hb, za, zb, c0, c1) { // vertical gradient on the side plane
+        const p = [P(x0, ha, za), P(x0, ha, zb), P(x0, hb, zb), P(x0, hb, za)];
+        const g = ctx.createLinearGradient(0, p[0][1], 0, p[3][1]);
+        g.addColorStop(0, rgbs(c0)); g.addColorStop(1, rgbs(c1));
+        ctx.fillStyle = g; poly(ctx, p); ctx.fill();
+      }
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // ground shadow under the tram
       ctx.fillStyle = 'rgba(0,0,0,0.85)'; poly(ctx, [P(x0 - 0.05, 0.0, z0), P(x1, 0.0, z0), P(x1, 0.0, z1), P(x0 - 0.05, 0.0, z1)]); ctx.fill();
-      // side bands
-      quad(x0, 0.38, z0, x0, 1.02, z1, [0.04, 0.006, 0.005]);
-      quad(x0, 1.02, z0, x0, 1.16, z1, [0.065, 0.055, 0.042]);
-      quad(x0, 1.16, z0, x0, 2.56, z1, [0.07, 0.065, 0.06]);
-      quad(x0, 2.56, z0, x0, 3.12, z1, [0.05, 0.043, 0.034]);
-      quad(x0, 3.12, z0, x0, 3.36, z1, [0.03, 0.03, 0.03]);
-      quad(x0, 1.11, z0, x0, 1.135, z1, [0.25, 0.22, 0.17]); // wet highlight line
-      quad(x0, 0.38, z0, x0, 0.48, z1, [0.03, 0.01, 0.01]);
-      // windows and doors
+      gquad(0.38, 1.02, z0, z1, [0.012, 0.002, 0.002], [0.05, 0.008, 0.007]);
+      gquad(1.02, 1.16, z0, z1, [0.05, 0.043, 0.034], [0.08, 0.07, 0.055]);
+      quad(x0, 1.16, z0, x0, 2.56, z1, [0.03, 0.028, 0.026]);
+      gquad(2.56, 3.12, z0, z1, [0.07, 0.06, 0.046], [0.035, 0.03, 0.025]);
+      quad(x0, 3.12, z0, x0, 3.36, z1, [0.02, 0.02, 0.022]);
+      quad(x0, 1.11, z0, x0, 1.13, z1, [0.3, 0.26, 0.2]);
+      quad(x0, 0.95, z0, x0, 0.97, z1, [0.12, 0.05, 0.04]);
+      quad(x0, 0.38, z0, x0, 0.47, z1, [0.006, 0.003, 0.003]);
+      // long reflections of street lamps along the wet body
+      for (let q = 0; q < 5; q++) { const zz = z0 + 3 + q * 5.5; quad(x0, 0.55, zz, x0, 0.62, zz + 1.6, [0.28, 0.12, 0.07], 0.8); quad(x0, 2.75, zz + 1, x0, 2.8, zz + 2.4, [0.3, 0.22, 0.15], 0.7); }
       let zc = z0 + 0.9, k = 0;
       while (zc < z1 - 1.2) {
         const door = (k % 4 === 1);
         const len = door ? 1.3 : 1.55;
         const ha = door ? 0.55 : 1.2, hb = 2.5;
-        const warm = [0.95, 0.78, 0.52];
-        const I = 0.82 + 0.15 * rt();
-        quad(x0, ha, zc, x0, hb, zc + len, [warm[0] * I, warm[1] * I, warm[2] * I]);
-        quad(x0, hb - 0.12, zc, x0, hb - 0.02, zc + len, [1, 0.95, 0.85]); // ceiling strip
-        // far-side windows seen through: darker band low
-        quad(x0, ha, zc, x0, ha + 0.18, zc + len, [0.35, 0.27, 0.18], 0.6);
-        // passengers: heads and shoulders
-        const np = (rt() * 2.6) | 0;
+        const I = 0.75 + 0.2 * rt();
+        gquad(ha, hb, zc, zc + len, [0.42 * I, 0.3 * I, 0.17 * I], [0.95 * I, 0.8 * I, 0.56 * I]);
+        quad(x0, hb - 0.1, zc, x0, hb - 0.03, zc + len, [1, 0.95, 0.82]);
+        quad(x0, 2.05, zc, x0, 2.08, zc + len, [0.2, 0.17, 0.12], 0.8); // handrail
+        if (!door) quad(x0, 1.2, zc, x0, 1.42, zc + len, [0.16, 0.1, 0.06], 0.75); // seat backs
+        const np = (rt() * 2.8) | 0;
         for (let j = 0; j < np; j++) {
-          const pz = zc + 0.25 + rt() * (len - 0.5), ph = door ? 1.5 + rt() * 0.2 : 1.42 + rt() * 0.1;
+          const pz = zc + 0.25 + rt() * (len - 0.5), ph = door ? 1.52 + rt() * 0.18 : 1.43 + rt() * 0.1;
           const c = P(x0, ph, pz), sc = f / pz;
-          ctx.fillStyle = rgbs([0.05, 0.035, 0.03], 0.92);
+          ctx.fillStyle = rgbs([0.03, 0.02, 0.018], 0.95);
           ctx.beginPath(); ctx.ellipse(c[0], c[1], 0.075 * sc * 0.55, 0.1 * sc, 0, 0, 7); ctx.fill();
-          const sh = P(x0, ph - 0.28, pz);
-          ctx.beginPath(); ctx.ellipse(sh[0], sh[1], 0.2 * sc * 0.5, 0.2 * sc, 0, 0, 7); ctx.fill();
+          const sh = P(x0, ph - 0.3, pz);
+          ctx.beginPath(); ctx.ellipse(sh[0], sh[1], 0.21 * sc * 0.5, 0.22 * sc, 0, 0, 7); ctx.fill();
         }
-        // pillar
-        zc += len; quad(x0, 1.16, zc, x0, 2.56, zc + 0.22, [0.06, 0.05, 0.045]); zc += 0.22; k++;
+        // vertical grab pole
+        const gp1 = P(x0, 1.2, zc + len * 0.5), gp2 = P(x0, 2.45, zc + len * 0.5);
+        ctx.strokeStyle = rgbs([0.5, 0.4, 0.25], 0.6); ctx.lineWidth = Math.max(0.8, f * 0.03 / (zc + len * 0.5));
+        ctx.beginPath(); ctx.moveTo(gp1[0], gp1[1]); ctx.lineTo(gp2[0], gp2[1]); ctx.stroke();
+        zc += len; quad(x0, 1.16, zc, x0, 2.56, zc + 0.22, [0.025, 0.022, 0.02]); zc += 0.22; k++;
       }
-      // roof equipment + pantograph
-      ctx.fillStyle = rgbs([0.03, 0.03, 0.035]);
+      // window glass sheen (reflection band of the opposite shops)
+      quad(x0, 1.9, z0, x0, 2.15, z1, [0.6, 0.55, 0.5], 0.08);
+      ctx.fillStyle = rgbs([0.015, 0.015, 0.018]);
       poly(ctx, [P(x0 + 0.3, 3.36, z0 + 4), P(x0 + 0.3, 3.36, z0 + 11), P(x0 + 0.3, 3.7, z0 + 11), P(x0 + 0.3, 3.7, z0 + 4.5)]); ctx.fill();
-      ctx.strokeStyle = rgbs([0.03, 0.03, 0.035]); ctx.lineWidth = Math.max(1, f * 0.05 / (z0 + 14));
+      ctx.strokeStyle = rgbs([0.02, 0.02, 0.025]); ctx.lineWidth = Math.max(1, f * 0.05 / (z0 + 14));
       const pa = P(1.6, 3.7, z0 + 13), pb = P(1.6, 4.9, z0 + 14.5), pc = P(1.6, 5.9, z0 + 13.2);
       ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.lineTo(pc[0], pc[1]); ctx.stroke();
       ctx.restore();
       // rear face (billboard at z0)
       const g = ctx.createLinearGradient(0, 0.4, 0, 3.3);
-      g.addColorStop(0, rgbs([0.018, 0.003, 0.003])); g.addColorStop(0.25, rgbs([0.04, 0.006, 0.005])); g.addColorStop(0.3, rgbs([0.06, 0.05, 0.038])); g.addColorStop(1, rgbs([0.04, 0.034, 0.026]));
+      g.addColorStop(0, rgbs([0.012, 0.002, 0.002])); g.addColorStop(0.22, rgbs([0.045, 0.007, 0.006])); g.addColorStop(0.26, rgbs([0.07, 0.06, 0.045])); g.addColorStop(1, rgbs([0.045, 0.04, 0.032]));
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(x0, 0.38); ctx.lineTo(x1, 0.38); ctx.lineTo(x1, 3.0); ctx.quadraticCurveTo(x1 - 0.05, 3.36, x1 - 0.5, 3.38); ctx.lineTo(x0 + 0.5, 3.38); ctx.quadraticCurveTo(x0 + 0.05, 3.36, x0, 3.0); ctx.closePath(); ctx.fill();
-      const wg = ctx.createLinearGradient(0, 1.25, 0, 2.6);
-      wg.addColorStop(0, rgbs([0.4, 0.29, 0.17])); wg.addColorStop(1, rgbs([0.85, 0.7, 0.48]));
-      ctx.fillStyle = wg; poly(ctx, [[x0 + 0.18, 1.25], [x1 - 0.18, 1.25], [x1 - 0.22, 2.62], [x0 + 0.22, 2.62]]); ctx.fill();
-      // aisle perspective inside: darker centre stripe and a couple of standing passengers
-      ctx.fillStyle = rgbs([0.2, 0.14, 0.09], 0.7); poly(ctx, [[x0 + 0.95, 1.25], [x1 - 0.95, 1.25], [x1 - 1.08, 1.9], [x0 + 1.08, 1.9]]); ctx.fill();
-      ctx.fillStyle = rgbs([0.04, 0.03, 0.025]);
-      ctx.beginPath(); ctx.ellipse(x0 + 0.75, 1.98, 0.09, 0.115, 0, 0, 7); ctx.fill();
-      poly(ctx, [[x0 + 0.55, 1.25], [x0 + 0.95, 1.25], [x0 + 0.9, 1.82], [x0 + 0.6, 1.82]]); ctx.fill();
-      ctx.fillStyle = rgbs([0.7, 0.45, 0.12]); ctx.fillRect(x0 + 0.55, 2.78, x1 - x0 - 1.1, 0.3);
-      ctx.fillStyle = rgbs([0.02, 0.012, 0.01]); ctx.fillRect(x0 - 0.02, 0.25, x1 - x0 + 0.04, 0.2);
-      ctx.fillStyle = rgbs([0.45, 0.03, 0.02]); ctx.fillRect(x0 + 0.12, 0.62, 0.28, 0.22); ctx.fillRect(x1 - 0.4, 0.62, 0.28, 0.22);
-      ctx.fillStyle = rgbs([0.15, 0.13, 0.1], 0.6); ctx.fillRect(x0, 1.02, x1 - x0, 0.03);
+      // rear windscreen: interior perspective down the aisle
+      const wx0 = x0 + 0.2, wx1 = x1 - 0.2, wh0 = 1.22, wh1 = 2.62;
+      const wg = ctx.createLinearGradient(0, wh0, 0, wh1);
+      wg.addColorStop(0, rgbs([0.3, 0.21, 0.12])); wg.addColorStop(0.6, rgbs([0.7, 0.56, 0.36])); wg.addColorStop(1, rgbs([0.86, 0.72, 0.5]));
+      ctx.fillStyle = wg; poly(ctx, [[wx0, wh0], [wx1, wh0], [wx1 - 0.04, wh1], [wx0 + 0.04, wh1]]); ctx.fill();
+      const cxm = (x0 + x1) / 2;
+      ctx.fillStyle = rgbs([0.95, 0.88, 0.7]); poly(ctx, [[wx0 + 0.15, wh1 - 0.05], [wx1 - 0.15, wh1 - 0.05], [cxm + 0.12, 2.15], [cxm - 0.12, 2.15]]); ctx.fill(); // ceiling light lines converging
+      ctx.fillStyle = rgbs([0.5, 0.36, 0.2]); poly(ctx, [[cxm - 0.35, wh0], [cxm + 0.35, wh0], [cxm + 0.12, 1.75], [cxm - 0.12, 1.75]]); ctx.fill(); // aisle floor
+      ctx.fillStyle = rgbs([0.1, 0.06, 0.035]);
+      poly(ctx, [[wx0, wh0], [cxm - 0.38, wh0], [cxm - 0.14, 1.72], [wx0 + 0.25, 1.72]]); ctx.fill(); // seats left
+      poly(ctx, [[cxm + 0.38, wh0], [wx1, wh0], [wx1 - 0.25, 1.72], [cxm + 0.14, 1.72]]); ctx.fill(); // seats right
+      ctx.fillStyle = rgbs([0.02, 0.015, 0.012]);
+      ctx.beginPath(); ctx.ellipse(cxm - 0.42, 1.98, 0.09, 0.115, 0, 0, 7); ctx.fill();
+      poly(ctx, [[cxm - 0.62, wh0], [cxm - 0.22, wh0], [cxm - 0.27, 1.84], [cxm - 0.57, 1.84]]); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cxm + 0.2, 1.85, 0.05, 0.065, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = rgbs([0.05, 0.04, 0.03]); ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(cxm, wh0); ctx.lineTo(cxm, wh1); ctx.stroke(); // centre pillar
+      ctx.strokeStyle = rgbs([0.02, 0.02, 0.02]); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(wx0 + 0.1, wh0 + 0.05); ctx.lineTo(wx0 + 0.6, wh0 + 0.55); ctx.stroke(); // wiper
+      ctx.fillStyle = rgbs([0.55, 0.32, 0.08]); ctx.fillRect(x0 + 0.55, 2.78, x1 - x0 - 1.1, 0.3);
+      ctx.fillStyle = rgbs([0.85, 0.55, 0.15], 0.6); ctx.fillRect(x0 + 0.62, 2.88, x1 - x0 - 1.24, 0.1);
+      ctx.fillStyle = rgbs([0.006, 0.004, 0.004]); ctx.fillRect(x0 - 0.02, 0.25, x1 - x0 + 0.04, 0.2);
+      ctx.fillStyle = rgbs([0.25, 0.22, 0.18], 0.7); ctx.fillRect(x0, 0.44, x1 - x0, 0.02);
+      ctx.fillStyle = rgbs([0.35, 0.02, 0.015]); ctx.fillRect(x0 + 0.1, 0.6, 0.32, 0.24); ctx.fillRect(x1 - 0.42, 0.6, 0.32, 0.24);
+      ctx.fillStyle = rgbs([0.5, 0.35, 0.1]); ctx.fillRect(x0 + 0.1, 0.86, 0.32, 0.06); ctx.fillRect(x1 - 0.42, 0.86, 0.32, 0.06);
+      ctx.fillStyle = rgbs([0.25, 0.22, 0.18], 0.7); ctx.fillRect(x0, 1.03, x1 - x0, 0.025);
     }
-    em(TR.x0 + 0.26, 0.73, TR.z0 - 0.05, 0.1, [1.0, 0.06, 0.03], 10, 1);
-    em(TR.x1 - 0.26, 0.73, TR.z0 - 0.05, 0.1, [1.0, 0.06, 0.03], 10, 1);
+    em(TR.x0 + 0.26, 0.72, TR.z0 - 0.05, 0.1, [1.0, 0.06, 0.03], 10, 1);
+    em(TR.x1 - 0.26, 0.72, TR.z0 - 0.05, 0.1, [1.0, 0.06, 0.03], 10, 1);
     em(CAR.x, 1.52, CAR.z + 1.2, 0.12, [1.0, 0.82, 0.45], 3, 0.5);
 
-    // the figure with a translucent crimson umbrella, walking right across the crossing
-    const FIG = { x: -2.3, z: 7.4 };
+    // the figure: a woman in a long coat with a translucent crimson umbrella, walking right across the crossing
+    const FIG = { x: -2.25, z: 6.7 };
     function figure(ctx, mir) {
-      const X = FIG.x;
-      ctx.save(); ctx.translate(X, 0);
-      const dark = rgbs([0.006, 0.0055, 0.006]), coat = rgbs([0.011, 0.009, 0.009]);
+      ctx.save(); ctx.translate(FIG.x, 0);
+      const dark = rgbs([0.004, 0.0035, 0.004]), coat = rgbs([0.009, 0.0075, 0.0075]), coatL = rgbs([0.03, 0.022, 0.018]);
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      // legs
-      ctx.strokeStyle = dark; ctx.lineWidth = 0.13;
-      ctx.beginPath(); ctx.moveTo(-0.05, 0.9); ctx.quadraticCurveTo(-0.14, 0.45, -0.28, 0.09); ctx.stroke();
-      ctx.lineWidth = 0.135;
-      ctx.beginPath(); ctx.moveTo(0.04, 0.9); ctx.quadraticCurveTo(0.12, 0.5, 0.2, 0.08); ctx.stroke();
+      function lim(pts, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); }
+      // back leg (heel raised), front leg
+      lim([[-0.04, 0.9], [-0.1, 0.49], [-0.25, 0.13]], 0.12, dark);
+      lim([[0.05, 0.9], [0.14, 0.5], [0.2, 0.09]], 0.125, dark);
       ctx.fillStyle = dark;
-      poly(ctx, [[-0.36, 0.0], [-0.2, 0.0], [-0.2, 0.1], [-0.33, 0.12]]); ctx.fill();
-      poly(ctx, [[0.13, 0.02], [0.33, 0.0], [0.33, 0.07], [0.15, 0.12]]); ctx.fill();
-      // coat
-      ctx.fillStyle = coat;
-      ctx.beginPath(); ctx.moveTo(-0.15, 1.46); ctx.quadraticCurveTo(-0.2, 1.1, -0.3, 0.56); ctx.lineTo(-0.05, 0.6); ctx.lineTo(0.24, 0.6);
-      ctx.quadraticCurveTo(0.2, 1.0, 0.15, 1.3); ctx.quadraticCurveTo(0.13, 1.47, 0.0, 1.5); ctx.closePath(); ctx.fill();
-      // head + collar
-      ctx.beginPath(); ctx.ellipse(0.02, 1.6, 0.085, 0.11, 0.1, 0, 7); ctx.fill();
-      // arm and shaft
-      ctx.strokeStyle = coat; ctx.lineWidth = 0.1;
-      ctx.beginPath(); ctx.moveTo(0.06, 1.42); ctx.quadraticCurveTo(0.18, 1.3, 0.14, 1.24); ctx.stroke();
-      ctx.strokeStyle = rgbs([0.05, 0.04, 0.03]); ctx.lineWidth = 0.022;
-      ctx.beginPath(); ctx.moveTo(0.14, 1.22); ctx.lineTo(0.08, 2.08); ctx.stroke();
-      // umbrella canopy (tilted forward); crimson, glowing where backlit
-      ctx.save(); ctx.translate(0.08, 1.95); ctx.rotate(mir ? 0.12 : -0.12);
-      const g = ctx.createRadialGradient(-0.15, -0.05, 0.05, 0, 0, 0.62);
-      g.addColorStop(0, rgbs([0.42, 0.03, 0.04])); g.addColorStop(0.5, rgbs([0.16, 0.012, 0.018])); g.addColorStop(1, rgbs([0.035, 0.004, 0.007]));
+      poly(ctx, [[-0.36, 0.03], [-0.22, 0.09], [-0.2, 0.17], [-0.3, 0.14]]); ctx.fill();
+      poly(ctx, [[0.14, 0.02], [0.33, 0.0], [0.34, 0.06], [0.17, 0.13]]); ctx.fill();
+      // swinging back arm
+      lim([[-0.06, 1.4], [-0.14, 1.12], [-0.2, 0.92]], 0.085, coat);
+      // coat: dark, a touch lighter toward the backlit edge
+      { const cg = ctx.createLinearGradient(-0.25, 0, 0.24, 0); cg.addColorStop(0, rgbs([0.012, 0.009, 0.008])); cg.addColorStop(0.6, rgbs([0.007, 0.006, 0.006])); cg.addColorStop(1, rgbs([0.02, 0.017, 0.015])); ctx.fillStyle = cg; }
+      ctx.beginPath(); ctx.moveTo(-0.12, 1.47);
+      ctx.bezierCurveTo(-0.17, 1.25, -0.16, 1.05, -0.2, 0.86); ctx.lineTo(-0.25, 0.55);
+      ctx.quadraticCurveTo(-0.02, 0.6, 0.23, 0.6); ctx.lineTo(0.17, 0.92);
+      ctx.bezierCurveTo(0.15, 1.05, 0.15, 1.2, 0.14, 1.33); ctx.quadraticCurveTo(0.12, 1.47, 0.0, 1.5); ctx.closePath(); ctx.fill();
+      // coat folds / belt, faintly lit
+      ctx.filter = 'blur(' + (0.8 * S).toFixed(2) + 'px)';
+      ctx.strokeStyle = coatL; ctx.lineWidth = 0.014;
+      ctx.beginPath(); ctx.moveTo(-0.17, 1.02); ctx.lineTo(0.16, 1.03); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0.02, 1.0); ctx.quadraticCurveTo(0.0, 0.8, 0.05, 0.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-0.12, 0.98); ctx.quadraticCurveTo(-0.15, 0.78, -0.2, 0.58); ctx.stroke();
+      ctx.filter = 'none';
+      // scarf (muted ochre, lit by the shop windows)
+      { const sg = ctx.createLinearGradient(-0.1, 0, 0.1, 0); sg.addColorStop(0, rgbs([0.14, 0.08, 0.03])); sg.addColorStop(1, rgbs([0.04, 0.022, 0.01])); ctx.fillStyle = sg; }
+      poly(ctx, [[-0.09, 1.5], [0.1, 1.49], [0.08, 1.42], [-0.08, 1.42]]); ctx.fill();
+      poly(ctx, [[-0.08, 1.45], [-0.03, 1.44], [-0.1, 1.2], [-0.15, 1.22]]); ctx.fill();
+      // head
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(0.03, 1.6, 0.085, 0.108, 0.15, 0, 7); ctx.fill();
+      ctx.strokeStyle = rgbs([0.2, 0.12, 0.08], 0.6); ctx.lineWidth = 0.012; ctx.beginPath(); ctx.ellipse(0.03, 1.6, 0.08, 0.104, 0.15, Math.PI * 0.55, Math.PI * 1.25); ctx.stroke();
+      // umbrella arm and shaft
+      lim([[0.02, 1.43], [0.09, 1.2], [0.15, 1.31]], 0.085, coat);
+      ctx.strokeStyle = rgbs([0.03, 0.025, 0.02]); ctx.lineWidth = 0.02;
+      ctx.beginPath(); ctx.moveTo(0.15, 1.28); ctx.lineTo(0.09, 2.08); ctx.stroke();
+      ctx.fillStyle = rgbs([0.04, 0.03, 0.025]); ctx.beginPath(); ctx.ellipse(0.15, 1.3, 0.035, 0.03, 0, 0, 7); ctx.fill();
+      // canopy, tilted into the walk, translucent crimson glowing where the headlights shine through
+      ctx.save(); ctx.translate(0.09, 1.97); ctx.rotate(mir ? 0.1 : -0.1);
+      const g = ctx.createRadialGradient(-0.12, 0.02, 0.03, 0, 0.05, 0.62);
+      g.addColorStop(0, rgbs([0.5, 0.04, 0.05])); g.addColorStop(0.45, rgbs([0.2, 0.014, 0.02])); g.addColorStop(1, rgbs([0.04, 0.004, 0.008]));
       ctx.fillStyle = g;
-      ctx.beginPath(); ctx.moveTo(-0.56, -0.06);
-      ctx.bezierCurveTo(-0.45, 0.2, -0.2, 0.25, 0.0, 0.25); ctx.bezierCurveTo(0.2, 0.25, 0.45, 0.2, 0.56, -0.06);
-      // scalloped rim
-      for (let k = 0; k < 6; k++) { const xa = 0.56 - (k + 1) * (1.12 / 6), xm = xa + 1.12 / 12; ctx.quadraticCurveTo(xm, -0.02, xa, -0.07); }
+      ctx.beginPath(); ctx.moveTo(-0.57, -0.07);
+      ctx.bezierCurveTo(-0.47, 0.2, -0.22, 0.26, 0.0, 0.26); ctx.bezierCurveTo(0.22, 0.26, 0.47, 0.2, 0.57, -0.07);
+      for (let kk = 0; kk < 7; kk++) { const xa = 0.57 - (kk + 1) * (1.14 / 7), xm = xa + 1.14 / 14; ctx.quadraticCurveTo(xm, -0.025, xa, -0.08); }
       ctx.closePath(); ctx.fill();
-      // ribs
-      ctx.strokeStyle = rgbs([0.05, 0.005, 0.01], 0.8); ctx.lineWidth = 0.012;
-      for (let k = 0; k <= 6; k++) { const xa = -0.56 + k * 1.12 / 6; ctx.beginPath(); ctx.moveTo(0, 0.25); ctx.quadraticCurveTo(xa * 0.75, 0.2, xa, -0.065); ctx.stroke(); }
-      // wet rim highlight along the top
-      ctx.strokeStyle = rgbs([0.85, 0.45, 0.4], mir ? 0.3 : 0.7); ctx.lineWidth = 0.018;
-      ctx.beginPath(); ctx.moveTo(-0.5, 0.02); ctx.bezierCurveTo(-0.4, 0.2, -0.2, 0.245, 0.02, 0.245); ctx.stroke();
-      ctx.strokeStyle = rgbs([0.08, 0.06, 0.06]); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(0, 0.25); ctx.lineTo(0, 0.31); ctx.stroke();
+      for (let kk = 0; kk < 7; kk++) { // alternate panel shading
+        const xa = -0.57 + kk * 1.14 / 7, xb = xa + 1.14 / 7;
+        ctx.fillStyle = kk % 2 ? 'rgba(0,0,0,0.18)' : 'rgba(255,120,120,0.04)';
+        ctx.beginPath(); ctx.moveTo(0, 0.26); ctx.quadraticCurveTo(xa * 0.78, 0.21, xa, -0.075); ctx.lineTo(xb, -0.075); ctx.quadraticCurveTo(xb * 0.78, 0.21, 0, 0.26); ctx.fill();
+      }
+      ctx.strokeStyle = rgbs([0.03, 0.003, 0.006], 0.6); ctx.lineWidth = 0.009;
+      for (let kk = 0; kk <= 7; kk++) { const xa = -0.57 + kk * 1.14 / 7; ctx.beginPath(); ctx.moveTo(0, 0.26); ctx.quadraticCurveTo(xa * 0.78, 0.21, xa, -0.075); ctx.stroke(); }
+      ctx.strokeStyle = rgbs([0.9, 0.55, 0.5], mir ? 0.3 : 0.75); ctx.lineWidth = 0.016;
+      ctx.beginPath(); ctx.moveTo(-0.52, 0.02); ctx.bezierCurveTo(-0.42, 0.2, -0.2, 0.255, 0.04, 0.255); ctx.stroke();
+      ctx.strokeStyle = rgbs([0.5, 0.3, 0.3], 0.5); ctx.lineWidth = 0.01;
+      ctx.beginPath(); ctx.moveTo(0.1, 0.25); ctx.bezierCurveTo(0.3, 0.22, 0.46, 0.15, 0.54, -0.02); ctx.stroke();
+      ctx.strokeStyle = rgbs([0.05, 0.04, 0.04]); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(0, 0.26); ctx.lineTo(0, 0.32); ctx.stroke();
+      // drops falling from the rim
+      ctx.strokeStyle = rgbs([0.7, 0.6, 0.6], 0.55); ctx.lineWidth = 0.006;
+      for (let kk = 0; kk < 7; kk++) { const xa = -0.57 + (kk + 0.5) * 1.14 / 7 + 0.03; ctx.beginPath(); ctx.moveTo(xa, -0.1 - (kk % 3) * 0.08); ctx.lineTo(xa - 0.004, -0.16 - (kk % 3) * 0.08); ctx.stroke(); }
       ctx.restore();
-      // warm rim light on the coat from the shop windows (left)
-      ctx.strokeStyle = rgbs([0.55, 0.35, 0.18], 0.55); ctx.lineWidth = 0.022;
-      ctx.beginPath(); ctx.moveTo(-0.15, 1.44); ctx.quadraticCurveTo(-0.2, 1.1, -0.29, 0.6); ctx.stroke();
-      ctx.lineWidth = 0.016; ctx.beginPath(); ctx.moveTo(-0.06, 0.88); ctx.quadraticCurveTo(-0.14, 0.45, -0.27, 0.12); ctx.stroke();
+      // backlight rim on the coat (headlights behind) + warm rim from the shops on the left (soft)
+      ctx.filter = 'blur(' + (1.6 * S).toFixed(2) + 'px)';
+      ctx.strokeStyle = rgbs([0.9, 0.8, 0.65], mir ? 0.15 : 0.4); ctx.lineWidth = 0.016;
+      ctx.beginPath(); ctx.moveTo(0.14, 1.33); ctx.bezierCurveTo(0.15, 1.2, 0.15, 1.05, 0.17, 0.92); ctx.lineTo(0.23, 0.6); ctx.stroke();
+      ctx.strokeStyle = rgbs([0.6, 0.38, 0.18], mir ? 0.1 : 0.2); ctx.lineWidth = 0.02;
+      ctx.beginPath(); ctx.moveTo(-0.12, 1.47); ctx.bezierCurveTo(-0.17, 1.25, -0.16, 1.05, -0.2, 0.86); ctx.lineTo(-0.25, 0.56); ctx.stroke();
+      ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(-0.08, 0.88); ctx.lineTo(-0.13, 0.49); ctx.lineTo(-0.27, 0.15); ctx.stroke();
+      ctx.filter = 'none';
       ctx.restore();
     }
 
-    // draw order: far to near
+    // draw order: far to near; the figure is composited after the emitters so it occludes their glare
     sprite(1, function (ctx, mir) { wires(ctx, mir); }, true);
     const far = [];
     lampsR.forEach(function (z) { far.push([z, lampR(z)]); });
     lampsL.forEach(function (z) { far.push([z, lampL(z)]); });
-    far.push([TRAM.z, tram], [CAR.z, car], [TR.z0, tramNear], [SIG.z, signal], [FIG.z, figure]);
+    far.push([TRAM.z, tram], [CAR.z, car], [TR.z0, tramNear], [SIG.z, signal]);
+    extraSprites.forEach(function (e) { far.push(e); });
     far.sort(function (a, b) { return b[0] - a[0]; });
     far.forEach(function (e) { sprite(e[0], e[1]); });
 
@@ -735,17 +848,14 @@
       for (let i = 0; i < n; i++) {
         const a = d[i * 4 + 3] / 255; if (a === 0) continue;
         if (onlyGround && !(ID[i] === 4 || ID[i] === 5)) continue;
-        // canvas holds premultiplied-then-unpremultiplied colour; treat as straight
         dst.r[i] = dst.r[i] * (1 - a) + lut[d[i * 4]] * a;
         dst.g[i] = dst.g[i] * (1 - a) + lut[d[i * 4 + 1]] * a;
         dst.b[i] = dst.b[i] * (1 - a) + lut[d[i * 4 + 2]] * a;
         if (!onlyGround && a > 0.5) ID[i] = 7;
       }
     }
-    // record sprite coverage for direction hints
     compositeCanvas(cvD, Ld, false);
     compositeCanvas(cvM, Lm, true);
-
     // HDR emitters (direct and mirrored)
     function splat(dst, sx, sy, rad, c, I, glare, onlyGround) {
       const R0 = Math.max(rad, 0.7 * S), gR = R0 * (6 + 10 * glare);
@@ -766,6 +876,14 @@
       splat(Ld, a[0], a[1], r, e.c, e.I * T, e.glare, false);
       splat(Lm, am[0], am[1], r, e.c, e.I * T, e.glare, true);
     });
+
+    // near sprites (the figure) over the glare
+    ctxD.clearRect(0, 0, W, H); ctxM.clearRect(0, 0, W, H);
+    sprite(FIG.z, figure);
+    const figMask = new Float32Array(n);
+    { const d = ctxD.getImageData(0, 0, W, H).data; for (let i = 0; i < n; i++) figMask[i] = d[i * 4 + 3] / 255; }
+    compositeCanvas(cvD, Ld, false);
+    compositeCanvas(cvM, Lm, true);
 
     // ---------------------------------------------------------------- reflections: rough (streaked, vertically smeared) vs puddle (sharp, rippled)
     const LmS = P8.copyImg(Lm);
@@ -807,6 +925,12 @@
         if (Rail[i] > 0) { const m = 1.1 * (0.5 + 0.5 * SM(-0.2, 0.4, N(Zd[i] * 0.8, 0, 511))); rr0 = LmA.r[i] * m + 0.006; rg = LmA.g[i] * m + 0.006; rb = LmA.b[i] * m + 0.008; }
         const F = Rail[i] > 0 ? 0.6 : Fw[i];
         Ld.r[i] += F * rr0; Ld.g[i] += F * rg; Ld.b[i] += F * rb;
+        // near field: wet aggregate glints and raindrop rings catching the light
+        if (z < 9) {
+          const nearK = SM(9, 3, z);
+          const gl = HF(x, y, 777);
+          if (gl > 0.994) { const a = nearK * (0.006 + 0.5 * (LmB.r[i] + LmB.g[i] + LmB.b[i])) * (gl - 0.994) * 150; Ld.r[i] += a * 0.9; Ld.g[i] += a * 0.92; Ld.b[i] += a; }
+        }
       }
     }
 
@@ -815,9 +939,37 @@
     for (let i = 0; i < n; i++) { br.r[i] = Math.max(0, Ld.r[i] - 0.9); br.g[i] = Math.max(0, Ld.g[i] - 0.9); br.b[i] = Math.max(0, Ld.b[i] - 0.9); }
     const b1 = P8.blurImg(P8.copyImg(br), 6 * S, 6 * S), b2 = P8.blurImg(P8.copyImg(br), 24 * S, 24 * S), b3 = P8.blurImg(br, 80 * S, 80 * S);
     for (let i = 0; i < n; i++) {
-      Ld.r[i] += 0.22 * b1.r[i] + 0.12 * b2.r[i] + 0.07 * b3.r[i];
-      Ld.g[i] += 0.22 * b1.g[i] + 0.12 * b2.g[i] + 0.07 * b3.g[i];
-      Ld.b[i] += 0.22 * b1.b[i] + 0.12 * b2.b[i] + 0.07 * b3.b[i];
+      const fm = 1 - 0.7 * figMask[i];
+      Ld.r[i] += (0.22 * b1.r[i] + 0.12 * b2.r[i] + 0.07 * b3.r[i]) * fm;
+      Ld.g[i] += (0.22 * b1.g[i] + 0.12 * b2.g[i] + 0.07 * b3.g[i]) * fm;
+      Ld.b[i] += (0.22 * b1.b[i] + 0.12 * b2.b[i] + 0.07 * b3.b[i]) * fm;
+    }
+
+    // ---------------------------------------------------------------- rain: fine slanted streaks, visible where lit (in front of lights / glows)
+    {
+      const glow = new Float32Array(n);
+      for (let i = 0; i < n; i++) glow[i] = 0.3 * (b2.r[i] + b2.g[i] + b2.b[i]) + 0.6 * (b3.r[i] + b3.g[i] + b3.b[i]) + 0.04 * (Ld.r[i] + Ld.g[i] + Ld.b[i]);
+      const rr2 = P8.rng(seed + 9);
+      const NR = Math.round(34000 * S * S);
+      for (let k = 0; k < NR; k++) {
+        const x0 = rr2() * W, y0 = rr2() * H;
+        const near = Math.pow(rr2(), 3); // a few big near drops
+        const L = (9 + 26 * rr2() + 60 * near) * S, ang = 0.13 + 0.05 * (rr2() - 0.5);
+        const dx = Math.sin(ang), dy = Math.cos(ang);
+        const g0 = glow[(Math.min(H - 1, y0 | 0)) * W + (x0 | 0)];
+        if (g0 < 0.03 && rr2() < 0.93) continue;
+        const I = Math.min(0.5, 0.05 + 0.25 * g0) * (0.5 + 0.8 * rr2()) * (near > 0.3 ? 0.5 : 1);
+        const steps = Math.ceil(L);
+        for (let s2 = 0; s2 < steps; s2++) {
+          const t = s2 / steps, px = x0 + dx * s2, py = y0 + dy * s2;
+          const ix = px | 0, iy = py | 0; if (ix < 0 || iy < 0 || ix >= W - 1 || iy >= H) break;
+          const fx = px - ix, a = I * Math.sin(Math.PI * t);
+          const i = iy * W + ix;
+          const cr = 0.85, cg = 0.88, cb = 1.0;
+          Ld.r[i] += a * (1 - fx) * cr; Ld.g[i] += a * (1 - fx) * cg; Ld.b[i] += a * (1 - fx) * cb;
+          Ld.r[i + 1] += a * fx * cr; Ld.g[i + 1] += a * fx * cg; Ld.b[i + 1] += a * fx * cb;
+        }
+      }
     }
 
     // ---------------------------------------------------------------- tone map to paint reflectance

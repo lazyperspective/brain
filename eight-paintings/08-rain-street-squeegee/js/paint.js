@@ -17,16 +17,24 @@
     const thX = new Float32Array(Math.ceil(W / p) + 8), thY = new Float32Array(Math.ceil(H / p) + 8);
     for (let i = 0; i < thX.length; i++) thX[i] = 0.75 + 0.35 * R() + (R() < 0.06 ? 0.45 : 0);
     for (let i = 0; i < thY.length; i++) thY[i] = 0.75 + 0.35 * R() + (R() < 0.06 ? 0.45 : 0);
+    // irregular thread spacing: map pixel -> thread coordinate
+    function threadMap(L) {
+      const m = new Float32Array(L); let pos = 0, i = 0, nxt = p * (0.8 + 0.45 * R());
+      for (let x = 0; x < L; x++) { while (x >= pos + nxt) { pos += nxt; i++; nxt = p * (0.8 + 0.45 * R()); } m[x] = i + (x - pos) / nxt; }
+      return m;
+    }
+    const UX = threadMap(W), VY = threadMap(H);
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        const u = x / p + 0.22 * N(y / (90 * S), x / (400 * S), 3) + 0.08 * N(x / (13 * S), y / (31 * S), 4);
-        const v = y / p + 0.22 * N(x / (90 * S), y / (400 * S), 5) + 0.08 * N(y / (13 * S), x / (31 * S), 6);
+        const u = UX[x] + 0.3 * N(y / (70 * S), x / (300 * S), 3) + 0.1 * N(x / (11 * S), y / (23 * S), 4);
+        const v = VY[y] + 0.3 * N(x / (70 * S), y / (300 * S), 5) + 0.1 * N(y / (11 * S), x / (23 * S), 6);
         const iu = Math.floor(u), iv = Math.floor(v), fu = u - iu, fv = v - iv;
         const over = ((iu + iv) & 1) === 0;
         const ax = Math.cos(Math.PI * (fu - 0.5)), ay = Math.cos(Math.PI * (fv - 0.5));
-        const warp = ax * ax * (over ? 0.6 + 0.4 * Math.sin(Math.PI * fv) : 0.45) * thX[(iu + 4) % thX.length];
-        const weft = ay * ay * (!over ? 0.6 + 0.4 * Math.sin(Math.PI * fu) : 0.45) * thY[(iv + 4) % thY.length];
-        weave[y * W + x] = Math.max(warp, weft) + 0.06 * N(x / (2 * S), y / (2 * S), 9);
+        const slx = 1 + 0.3 * N(y / (26 * S), iu * 1.7, 7), sly = 1 + 0.3 * N(x / (26 * S), iv * 1.7, 8);
+        const warp = ax * ax * (over ? 0.6 + 0.4 * Math.sin(Math.PI * fv) : 0.45) * thX[(iu + 4) % thX.length] * slx;
+        const weft = ay * ay * (!over ? 0.6 + 0.4 * Math.sin(Math.PI * fu) : 0.45) * thY[(iv + 4) % thY.length] * sly;
+        weave[y * W + x] = 0.55 * (Math.max(warp, weft) + 0.1 * N(x / (2 * S), y / (2 * S), 9)) * (0.75 + 0.5 * FB(x / (60 * S), y / (60 * S), 2, 10));
       }
     }
     P8.blur(weave, W, H, 0.6 * S, 0.6 * S); // gesso softens the weave
@@ -139,14 +147,15 @@
           const i = y * W + x;
           const m = load * bristle[bq] * edge;
           const tooth = toothMap[i];
-          let a = CL((m - tooth * 0.55 * (0.4 + dry)) * 2.6, 0, 1) * op;
+          let a = CL((m - tooth * 0.55 * (0.2 + dry)) * 2.6, 0, 1) * op;
+          if (o.tgt) { const dr = Math.abs(o.tgt.r[i] - o.pc[0]) + Math.abs(o.tgt.g[i] - o.pc[1]) + Math.abs(o.tgt.b[i] - o.pc[2]); a *= SM(o.edgeT * 2.2, o.edgeT, dr); }
           if (a <= 0.002) continue;
           if (glaze) {
             const pool = 0.65 + 0.7 * tooth; const g = a * pool;
             C.r[i] *= 1 - g + g * glaze[0]; C.g[i] *= 1 - g + g * glaze[1]; C.b[i] *= 1 - g + g * glaze[2];
             continue;
           }
-          const sv = 1 + (bristleH[bq] - 0.75) * 0.06 * (big ? 1 : 0);
+          const sv = 1 + (bristleH[bq] - 0.75) * 0.13 * (big ? 1 : 0);
           C.r[i] += (cr * sv - C.r[i]) * a; C.g[i] += (cg * sv - C.g[i]) * a; C.b[i] += (cb * sv - C.b[i]) * a;
           const rg = 1 + ridge * Math.exp(-((au - 0.8) * (au - 0.8)) / 0.012);
           const dh = thick * m * bristleH[bq] * rg * (0.75 + 0.6 * tooth);
@@ -168,13 +177,13 @@
     // layer schedule: radius, threshold, max length (in radii), dir field, thickness, opacity, colour jitter, wetness
     const layers = [
       { R: 40, T: 0.0, L: 7, th: 0, thick: 0.05, op: 0.9, jit: 0.10, under: true, dry: 0.7 },
-      { R: 26, T: 0.03, L: 8, th: 0, thick: 0.07, op: 0.92, jit: 0.06, dry: 0.35 },
-      { R: 14, T: 0.035, L: 9, th: 0, thick: 0.08, op: 0.94, jit: 0.045, dry: 0.3 },
-      { R: 7.5, T: 0.035, L: 9, th: 1, thick: 0.09, op: 0.96, jit: 0.03, dry: 0.2 },
-      { R: 4.0, T: 0.03, L: 9, th: 1, thick: 0.1, op: 0.97, jit: 0.02, wet: 0.5, dry: 0.1 },
-      { R: 2.3, T: 0.03, L: 8, th: 2, thick: 0.1, op: 0.98, jit: 0.014, wet: 0.7, dry: 0.05 },
-      { R: 1.35, T: 0.03, L: 6, th: 2, thick: 0.08, op: 0.98, jit: 0.01, wet: 0.8, dry: 0.0 },
-      { R: 0.95, T: 0.035, L: 4, th: 2, thick: 0.06, op: 0.98, jit: 0.008, wet: 0.8, dry: 0.0 }
+      { R: 26, T: 0.03, L: 8, th: 0, thick: 0.16, op: 0.92, jit: 0.06, dry: 0.35 },
+      { R: 14, T: 0.035, L: 9, th: 0, thick: 0.18, op: 0.94, jit: 0.045, dry: 0.3 },
+      { R: 7.5, T: 0.035, L: 9, th: 1, thick: 0.18, op: 0.96, jit: 0.03, dry: 0.2 },
+      { R: 4.0, T: 0.03, L: 9, th: 1, thick: 0.1, op: 0.97, jit: 0.02, wet: 0.5, dry: 0.1, edge: 0.2 },
+      { R: 2.3, T: 0.04, L: 8, th: 2, thick: 0.1, op: 0.98, jit: 0.014, wet: 0.7, dry: 0.05, edge: 0.14 },
+      { R: 1.35, T: 0.05, L: 6, th: 2, thick: 0.08, op: 0.98, jit: 0.01, wet: 0.8, dry: 0.0, edge: 0.11 },
+      { R: 0.95, T: 0.06, L: 4, th: 2, thick: 0.06, op: 0.98, jit: 0.008, wet: 0.8, dry: 0.0, edge: 0.09 }
     ];
 
     for (let li = 0; li < layers.length; li++) {
@@ -243,7 +252,8 @@
         const lum = 0.3 * lr + 0.59 * lg + 0.11 * lb;
         stroke(pts, {
           R: Rr * (0.85 + 0.3 * R()), col: [Math.min(0.98, lr), Math.min(0.98, lg), Math.min(0.98, lb)], op: Ly.op,
-          thick: Ly.thick * 0.4 * (0.45 + 0.8 * Math.sqrt(lum)), dry: Ly.dry * (0.6 + 0.8 * R()), ridge: Rr > 3 ? 0.25 : 0.1, wet: Ly.wet || 0
+          thick: Ly.thick * 0.4 * (0.45 + 0.8 * Math.sqrt(lum)), dry: Ly.dry * (0.6 + 0.8 * R()), ridge: Rr > 3 ? 0.25 : 0.1, wet: Ly.wet || 0,
+          tgt: Ly.edge ? tgt : null, pc: [cr, cg, cb], edgeT: Ly.edge || 0
         });
       }
       updateTooth();
@@ -282,7 +292,7 @@
       const pts = [[x, y], [x + Math.cos(a) * ln, y + Math.sin(a) * ln]];
       const c = [ref.r[i], ref.g[i], ref.b[i]];
       const boost = Math.min(1.0, 0.94 / Math.max(c[0], c[1], c[2]));
-      stroke(pts, { R: (1.2 + R() * 1.8) * S, col: [c[0] * boost, c[1] * boost, c[2] * boost], op: 0.95, thick: 0.6 + 0.7 * Math.min(1, (lh[i] - 1.4) / 3), dry: 0.15, ridge: 0.6, wet: 1 });
+      stroke(pts, { R: (1.2 + R() * 1.8) * S, col: [c[0] * boost, c[1] * boost, c[2] * boost], op: 0.95, thick: 1.2 + 1.6 * Math.min(1, (lh[i] - 1.4) / 3), dry: 0.15, ridge: 0.8, wet: 1 });
     }
     log && log('impasto');
     return { C: C, Hh: Hh, Hw: Hw, weave: weave, S: S, toothMap: toothMap };
