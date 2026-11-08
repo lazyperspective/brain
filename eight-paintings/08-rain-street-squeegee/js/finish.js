@@ -7,7 +7,7 @@
     opt = opt || {};
     const S = W / 2160, n = W * H, Hh = pt.Hh, C = pt.C;
     const out = P8.img(W, H);
-    const k = (opt.k || 0.35) * S; // height -> slope scale (heights are authored in 2160-px units)
+    const k = (opt.k || 1.2) * S; // height -> slope scale (heights are authored in 2160-px units)
     const az = -2.25, el = 0.52; // light from upper left, low (raking)
     const Lx = Math.cos(el) * Math.cos(az), Ly = Math.cos(el) * Math.sin(az), Lz = Math.sin(el);
     let hx = Lx, hy = Ly, hz = Lz + 1; const hl = Math.hypot(hx, hy, hz); hx /= hl; hy /= hl; hz /= hl;

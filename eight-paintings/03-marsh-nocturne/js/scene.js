@@ -41,7 +41,7 @@ vec3 skyCol(vec2 q, vec2 p, out float cloud){
   float e = clamp((YH - q.y) / YH, 0., 1.);
   float x = q.x;
   // vertical ramp: muted gold at the horizon, olive, grey, smoky violet into the night
-  vec3 c0 = vec3(.84,.69,.43), c1 = vec3(.72,.61,.43), c2 = vec3(.50,.47,.39), c3 = vec3(.34,.33,.32), c4 = vec3(.245,.23,.265), c5 = vec3(.165,.155,.19);
+  vec3 c0 = vec3(.88,.72,.45), c1 = vec3(.75,.63,.44), c2 = vec3(.50,.47,.39), c3 = vec3(.34,.33,.32), c4 = vec3(.245,.23,.265), c5 = vec3(.165,.155,.19);
   vec3 c = mix(c0, c1, smoothstep(0., .06, e));
   c = mix(c, c2, smoothstep(.04, .22, e));
   c = mix(c, c3, smoothstep(.16, .44, e));
@@ -137,7 +137,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     // ---------------------------------------------------------------- the marsh
     float d = (Y - YH) / (1. - YH);
     float z = 1. / (d + 0.05);
-    vec3 nearC = vec3(.105,.095,.068), farC = vec3(.31,.285,.235);
+    vec3 nearC = vec3(.125,.112,.082), farC = vec3(.31,.285,.235);
     vec3 land = mix(farC, nearC, pow(smoothstep(0., 1., d), 0.55));
     // bands of spartina and salt hay, compressed by perspective
     float band = fbm(vec2(X * 5. * (0.3 + 0.7 * z * .08) , z * 1.6), 5);
@@ -184,7 +184,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       refl *= 0.94 + 0.12 * rip;
       float gl2 = smoothstep(.62, .82, fbm(vec2(X * 70. / (d + .2), Y * 1100.), 3)) * exp(-d / 0.3) * (1. - bankDark);
       refl += vec3(.20,.15,.07) * gl2 * 0.5 * exp(-pow((X - .58) / .2, 2.));
-      c = refl; mat = 6.; size = 0.4 + 0.8 * d; dir = vec2(1., 0.); follow = 0.2; imp = 0.8;
+      c = refl; mat = 6.; size = 0.4 + 0.8 * d; dir = vec2(1., 0.); follow = 0.55; imp = 0.8;
     }
     // mist lying on the marsh and on the water
     float mz = exp(-pow((Y - (YH + 0.012)) / 0.022, 2.)) * 0.62;
@@ -220,15 +220,17 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     }
     // foreground: tall grass at the near banks, dark against the water
     if (d > 0.55) {
-      float bladeX = X * 2160. / (3. + 4. * (1. - d));
-      float bh = 0.03 + 0.09 * vnoise(vec2(bladeX * 0.05, 3.)) * smoothstep(0.003, 0.02, abs(X - cx) - hw + 0.02);
-      float tops = 1. - (1. - d) / (0.45);
-      float blade = smoothstep(0.55, 0.75, noise1(bladeX + 0.6 * sin(Y * 40.))) ;
+      // tufts of spartina: short upright blades, dark against the water, a few tips catching the last light
+      float gy = Y * 2700. / (50. + 90. * d);
+      float lean = 0.35 * (vnoise(vec2(X * 8., gy * 0.2)) - .5);
+      float gx = (X * 2160. + (Y * 2700.) * lean) / (4. + 2. * d);
+      float blade = smoothstep(0.60, 0.78, vnoise(vec2(gx, gy)));
       float grassZone = smoothstep(0.62, 0.95, d) * smoothstep(-0.02, 0.03, wd + 0.03);
       c = mix(c, vec3(.045,.042,.03), blade * grassZone * 0.85);
-      float tip = smoothstep(0.8, 0.95, noise1(bladeX * 1.7 + 9.)) * smoothstep(0.5, 0.9, fbm(vec2(X * 6., Y * 30.), 3)) * grassZone;
+      float tip = smoothstep(0.80, 0.92, vnoise(vec2(gx * 1.3 + 9., gy * 1.2))) * smoothstep(0.5, 0.9, fbm(vec2(X * 6., Y * 30.), 3)) * grassZone;
       c = mix(c, vec3(.17,.15,.11), tip * 0.5);
-      if (grassZone > .4) { dir = normalize(vec2(0.15 * (vnoise(vec2(bladeX * .1, 1.)) - .5), 1.)); mat = 10.; size = 0.55; follow = 0.4; }
+      float bladeX = gx;
+      if (grassZone > .4) { dir = normalize(vec2(lean, 1.)); mat = 10.; size = 0.55; follow = 0.05; }
     }
   }
   // ---------------------------------------------------------------- cedars on the right: dense, ragged, wind-shaped
@@ -362,10 +364,10 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     { name: 'glaze-veils', kind: 'glaze', pool: 0.7, generate({ rng, add }) {
       for (let y = YH + 120; y < DH + 60; y += 55) for (let x = -100; x < DW + 100; x += 140 + 80 * rng()) {
         const d = (y - YH) / (DH - YH);
-        const a = 0.28 * R.sstep(0.3, 1.0, d);
+        const a = 0.22 * R.sstep(0.3, 1.0, d);
         if (a < 0.02) continue;
         const L = R.mix(250, 500, rng()), yy = y + 25 * rng.gauss(), dy = 0.04 * rng.gauss();
-        add({ pts: [[x, yy], [x + L * 0.5, yy + L * dy * 0.5], [x + L, yy + L * dy]], r: R.mix(60, 110, rng()), col: [0.50 + 0.04 * rng.gauss(), 0.40 + 0.03 * rng.gauss(), 0.24 + 0.02 * rng.gauss()], alpha: a * R.mix(0.7, 1, rng()), thick: 0.0, dry: 0.3, load: 1.3 });
+        add({ pts: [[x, yy], [x + L * 0.5, yy + L * dy * 0.5], [x + L, yy + L * dy]], r: R.mix(60, 110, rng()), col: [0.56 + 0.04 * rng.gauss(), 0.48 + 0.03 * rng.gauss(), 0.36 + 0.02 * rng.gauss()], alpha: a * R.mix(0.7, 1, rng()), thick: 0.0, dry: 0.3, load: 1.3 });
       }
       for (let y = -60; y < DH * 0.38; y += 60) for (let x = -100; x < DW + 100; x += 160 + 80 * rng()) {
         const a = 0.28 * (1 - R.sstep(0, DH * 0.38, y)) * (0.6 + 0.4 * Math.abs(x / DW - 0.55) * 2);
@@ -407,15 +409,17 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       // moon: the old moon's faint disc, then two loaded strokes following the lit limb
       const th0 = Math.atan2(0.78, 0.62);
       { const c = M.colour(MOON[0] - 10, MOON[1] - 10); add({ pts: [[MOON[0] - 12, MOON[1] - 6], [MOON[0] + 8, MOON[1] - 2]], r: MOONR * 0.62, col: c.map((v) => v * 1.06 + 0.004), alpha: 0.5, thick: 0.15, dry: 0.4, load: 1.1, fid: 0, smear: 0.4 }); }
-      const maxT = MOONR * 0.36;
-      for (let k = 0; k < 9; k++) {
-        const dep = 1.3 + k * 1.2; // depth inside the limb
-        if (dep >= maxT) break;
-        const span = 1.55 * Math.acos(Math.min(1, dep / maxT)) + 0.05;
-        const rr = MOONR - dep, pts = [];
-        for (let j = 0; j <= 16; j++) { const a = th0 - span + 2 * span * j / 16; pts.push([MOON[0] + Math.cos(a) * rr, MOON[1] + Math.sin(a) * rr]); }
-        const col = k < 3 ? [0.93, 0.87, 0.66] : [0.86, 0.79, 0.57];
-        add({ pts, r: 1.9 + 0.15 * k, col, alpha: 0.95, thick: 1.6 + 0.12 * k, dry: 0.0, load: 1.6, fid: 0 });
+      // the lit lens between the moon's limb and the shadow circle, filled with thin strokes that run horn to horn
+      const off = [-0.62 * MOONR * 0.36, -0.78 * MOONR * 0.36], R2 = MOONR * 1.02;
+      const tIn = (th) => { const ux = Math.cos(th), uy = Math.sin(th); const b = ux * off[0] + uy * off[1]; const disc = b * b - (off[0] * off[0] + off[1] * off[1]) + R2 * R2; return disc < 0 ? 0 : b + Math.sqrt(disc); };
+      const ths = [];
+      for (let k = 0; k <= 720; k++) { const th = th0 - Math.PI + 2 * Math.PI * k / 720; if (tIn(th) < MOONR - 0.4) ths.push(th); }
+      for (let k = 0; k < 8; k++) {
+        const sIn = 0.06 + 0.86 * k / 7;
+        const pts = [];
+        for (let j = 0; j < ths.length; j += 6) { const th = ths[j], rr = MOONR + sIn * (tIn(th) - MOONR) - 0.6; pts.push([MOON[0] + Math.cos(th) * rr, MOON[1] + Math.sin(th) * rr]); }
+        const col = k < 3 ? [0.94, 0.88, 0.67] : k < 6 ? [0.90, 0.83, 0.61] : [0.82, 0.75, 0.54];
+        add({ pts, r: 1.5 + (k === 0 ? 0.3 : 0), col, alpha: 0.95, thick: 1.8, dry: 0.0, load: 1.6, fid: 0 });
       }
       // afterglow core: horizontal loaded strokes, broken by the drag of the brush
       for (let k = 0; k < 70; k++) {
@@ -454,7 +458,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     layers,
     // painting order within a layer, by material: sky, clouds, far woods, land, water, mud, grass, hay, cedars, skiff, moon
     order: { 0: 0, 1: 1, 3: 2, 5: 3, 6: 4, 7: 5, 10: 6, 9: 7, 4: 8, 8: 9, 2: 10 },
-    finish: { light: [-0.55, 0.5, 0.68], hk: 0.55, wk: 0.16, tau: 0.12, kd: 0.45, ks: 0.05, shin: 24, varnish: [1.0, 0.975, 0.91], crack: 0.0, crackScale: 70 },
+    finish: { light: [-0.55, 0.5, 0.68], hk: 0.55, wk: 0.16, tau: 0.12, kd: 0.45, ks: 0.05, shin: 24, varnish: [1.0, 0.975, 0.91], crack: 0.0, crackScale: 55 },
     finishGLSL: 'vec3 finishColour(vec3 c, vec2 uv){ return c; }',
   };
 })(typeof window !== 'undefined' ? window : globalThis);

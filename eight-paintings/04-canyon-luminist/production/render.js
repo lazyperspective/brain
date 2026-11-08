@@ -6,7 +6,7 @@ const fs = require('fs'), path = require('path');
   const browser = await chromium.launch();
   const page = await browser.newPage();
   page.on('console', (m) => console.log('[page]', m.text()));
-  page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+  page.on('pageerror', (e) => { console.log('[pageerror]', e.message); process.exit(1); });
   await page.goto('file://' + path.resolve(__dirname, '..', 'index.html') + (q ? '?' + q : ''));
   await page.waitForFunction(() => window.__done === true, null, { timeout: 1800000, polling: 1000 });
   const r = await page.evaluate(() => window.exportMaster());

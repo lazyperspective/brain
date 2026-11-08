@@ -114,7 +114,7 @@
         stroke([x - r * 0.55, y + r * 0.42, x + r * 0.6, y + r * 0.46], r * 0.12, [c[0] * 0.25, c[1] * 0.22, c[2] * 0.24], opt({ opacity: 0.8, soft: 0.5, thick: 0.1 }));
       }
       // low desert shrubs: grey-green, dark at the base, backlit at the rim
-      for (let i = 0, made = 0; i < 4000 && made < 10; i++) {
+      for (let i = 0, made = 0; i < 4000 && made < 0; i++) {
         const x = px(0.58 + rng() * 0.42), y = py(0.81 + rng() * 0.17);
         if (!isFG(x, y)) continue;
         made++;
@@ -232,6 +232,13 @@
     // the one living strip carries a dense, ragged crown to the right; a smaller tuft lower down
     for (const [fx, fy, r] of [[0.922, 0.702, 58], [0.948, 0.690, 50], [0.895, 0.716, 46], [0.935, 0.722, 44], [0.958, 0.708, 36],
       [0.905, 0.688, 36], [0.868, 0.742, 30]]) masses.push({ x: px(fx), y: py(fy), r: r * S * 1.3 });
+    // broken-off stubs along the trunk and main limbs
+    for (const [L, t, ang, len] of [[trunk, 0.45, -0.4, 50], [trunk, 0.7, Math.PI + 0.3, 40], [armL, 0.35, -1.9, 45], [up, 0.5, -0.2, 35], [armL, 0.65, -1.4, 30]]) {
+      const q = Math.round((L.pts.length / 2 - 1) * t);
+      const x0 = L.pts[q * 2], y0 = L.pts[q * 2 + 1];
+      const x1 = x0 + Math.cos(ang) * len * S, y1 = y0 + Math.sin(ang) * len * S;
+      addLimb([[x0 / W, y0 / H], [(x0 + x1) / 2 / W, (y0 + y1) / 2 / H + 0.002], [x1 / W, y1 / H]], L.rad[q] * 0.42 / W, L.rad[q] * 0.3 / W, 'dead', 2);
+    }
     twigs(armL, 6, 80 * S, null);
     twigs(up, 5, 70 * S, null);
     twigs(armR, 4, 55 * S, null);
@@ -262,80 +269,131 @@
       const n = pts.length / 2;
       const dead = L.kind === 'dead';
       const r0 = rad[0];
-      // body
       const wid = rad.map((r) => r / r0);
-      stroke(pts, r0, dead ? [0.15, 0.13, 0.125] : [0.085, 0.065, 0.05],
-        Object.assign(opt({ opacity: 1, soft: 0.12, bristleContrast: 0.3, thick: 0.7, dry: 0.05 }), { widths: wid }));
-      // fibres
-      const nf = Math.max(2, Math.min(26, Math.round(r0 / (2.6 * S))));
-      const twist = (L.root ? 0.004 : 0.011) / S * (dead ? 1.3 : 1);
-      for (let f = 0; f < nf; f++) {
-        const phi0 = (f / nf) * Math.PI * 2 + rng() * 0.4;
-        const fwm = 0.7 + rng() * 0.6;
-        let run = [], runW = [], runV = 0, cnt = 0;
-        let s = 0;
+      // palettes: shadowed bark, warm bounce from the rock, light-struck rim
+      const shC = dead ? [0.16, 0.14, 0.135] : [0.075, 0.055, 0.042];
+      const bnC = dead ? [0.36, 0.30, 0.26] : [0.20, 0.12, 0.075];
+      const ltC = dead ? [0.98, 0.86, 0.64] : [0.90, 0.62, 0.34];
+      stroke(pts, r0, shC, Object.assign(opt({ opacity: 1, soft: 0.15, bristleContrast: 0.25, thick: 0.7, dry: 0.05 }), { widths: wid }));
+      // normals along the limb
+      const NX = new Float32Array(n), NY = new Float32Array(n), SL = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        const ax = pts[Math.max(0, i - 1) * 2], ay = pts[Math.max(0, i - 1) * 2 + 1];
+        const bx = pts[Math.min(n - 1, i + 1) * 2], by = pts[Math.min(n - 1, i + 1) * 2 + 1];
+        const l = Math.hypot(bx - ax, by - ay) || 1;
+        NX[i] = -(by - ay) / l; NY[i] = (bx - ax) / l;
+        const [lx, ly] = lightDir(pts[i * 2], pts[i * 2 + 1]);
+        SL[i] = NX[i] * lx + NY[i] * ly;
+      }
+      // cylinder modelling: longitudinal bands across the limb, backlit (light from behind)
+      const nb = Math.max(3, Math.min(14, Math.round(r0 / (3.2 * S))));
+      for (let bI = 0; bI < nb; bI++) {
+        const t = ((bI + 0.5) / nb) * 2 - 1; // -1..1 across
+        const st = Math.sin(Math.asin(clamp(t, -0.99, 0.99)));
+        let run = [], runW = [], vs = 0, cnt = 0;
         const flush = () => {
           if (run.length >= 4) {
-            const v = runV / cnt;
-            let c;
-            if (dead) c = [mix(0.12, 0.98, Math.pow(v, 2.4)), mix(0.11, 0.82, Math.pow(v, 2.4)), mix(0.11, 0.60, Math.pow(v, 2.4))];
-            else c = [mix(0.06, 0.80, Math.pow(v, 2.8)), mix(0.048, 0.56, Math.pow(v, 2.8)), mix(0.04, 0.34, Math.pow(v, 2.8))];
-            const j = 0.75 + rng() * 0.5; c = [c[0] * j, c[1] * j, c[2] * j];
-            const fw = Math.max(0.55 * S, r0 * 0.07);
-            stroke(run, fw, c, Object.assign(opt({ opacity: 0.9, soft: 0.35, bristleContrast: 0.4, thick: 0.35 + 1.2 * v * v, dry: 0.5 }), { widths: runW.map((w) => w / fw) }));
+            const v = vs / cnt;
+            const lit = clamp(v, 0, 1), bnc = clamp(-v, 0, 1);
+            let c = [mix(shC[0], ltC[0], lit), mix(shC[1], ltC[1], lit), mix(shC[2], ltC[2], lit)];
+            c = [mix(c[0], bnC[0], bnc * 0.7), mix(c[1], bnC[1], bnc * 0.7), mix(c[2], bnC[2], bnc * 0.7)];
+            const j = 0.85 + rng() * 0.3; c = [c[0] * j, c[1] * j, c[2] * j];
+            const bw = Math.max(0.7 * S, r0 / nb * 1.15);
+            stroke(run, bw, c, Object.assign(opt({ opacity: 0.85, soft: 0.5, bristleContrast: 0.55, thick: 0.4 + 1.6 * lit * lit, dry: 0.55 }), { widths: runW.map((w) => w / bw) }));
           }
-          run = []; runW = []; runV = 0; cnt = 0;
+          run = []; runW = []; vs = 0; cnt = 0;
         };
         for (let i = 0; i < n; i++) {
-          const ax = pts[Math.max(0, i - 1) * 2], ay = pts[Math.max(0, i - 1) * 2 + 1];
-          const bx = pts[Math.min(n - 1, i + 1) * 2], by = pts[Math.min(n - 1, i + 1) * 2 + 1];
-          const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1;
-          const nx = -dy / l, ny = dx / l;
-          if (i > 0) s += Math.hypot(pts[i * 2] - pts[i * 2 - 2], pts[i * 2 + 1] - pts[i * 2 - 1]);
-          const phi = phi0 + twist * s + 0.25 * Math.sin(s * 0.05 / S + f);
-          const front = Math.cos(phi);
-          if (front < 0.05) { flush(); continue; }
-          const off = Math.sin(phi) * rad[i] * 0.92;
-          const [lx, ly] = lightDir(pts[i * 2], pts[i * 2 + 1]);
-          const sideL = nx * lx + ny * ly; // >0: +normal side faces the sun
-          const v = clamp(0.5 + 0.5 * Math.sin(phi) * Math.sign(sideL) * Math.min(1, Math.abs(sideL) * 2.5 + 0.3), 0, 1) * (0.6 + 0.4 * front);
-          run.push(pts[i * 2] + nx * off, pts[i * 2 + 1] + ny * off);
-          runW.push(Math.max(0.55 * S, rad[i] * 0.07) * (0.6 + 0.6 * front) * fwm);
-          runV += v; cnt++;
-          if (run.length > 8 && rng() < 0.12) flush();
+          const wob = 0.12 * Math.sin(i * 0.6 + bI * 1.7);
+          const off = (t + wob / nb) * rad[i] * 0.9;
+          const side = Math.sign(SL[i]) || 1;
+          // backlit: only the margin turned toward the sun is lit; the opposite margin gets bounce
+          const facing = st * side * Math.min(1, Math.abs(SL[i]) * 2 + 0.25);
+          const v = facing > 0 ? smooth(0.45, 0.95, facing) : -smooth(0.5, 1.0, -facing) * 0.8;
+          run.push(pts[i * 2] + NX[i] * off, pts[i * 2 + 1] + NY[i] * off);
+          runW.push(Math.max(0.7 * S, rad[i] / nb * 1.15));
+          vs += v; cnt++;
+          if (run.length > 6 && rng() < 0.1) { flush(); }
         }
         flush();
+      }
+      // twisted bark: dark grooves spiralling round the limb
+      const nf = Math.max(1, Math.min(16, Math.round(r0 / (4.5 * S))));
+      const twist = (L.root ? 0.004 : 0.012) / S;
+      for (let f = 0; f < nf; f++) {
+        const phi0 = (f / nf) * Math.PI * 2 + rng() * 0.6;
+        let run = [], s = 0;
+        const flush = () => {
+          if (run.length >= 6) stroke(run, Math.max(0.5 * S, r0 * 0.035), [shC[0] * 0.6, shC[1] * 0.6, shC[2] * 0.6], opt({ opacity: 0.7, soft: 0.4, bristleContrast: 0.5, thick: 0.2, dry: 0.6 }));
+          run = [];
+        };
+        for (let i = 0; i < n; i++) {
+          if (i > 0) s += Math.hypot(pts[i * 2] - pts[i * 2 - 2], pts[i * 2 + 1] - pts[i * 2 - 1]);
+          const phi = phi0 + twist * s;
+          if (Math.cos(phi) < 0.15) { flush(); continue; }
+          const off = Math.sin(phi) * rad[i] * 0.88;
+          run.push(pts[i * 2] + NX[i] * off, pts[i * 2 + 1] + NY[i] * off);
+          if (run.length > 10 && rng() < 0.08) flush();
+        }
+        flush();
+      }
+      // a broken, splintered end on thick dead limbs
+      if (dead && L.depth <= 1 && rad[n - 1] > 2.5 * S) {
+        const ex = pts[n * 2 - 2], ey = pts[n * 2 - 1];
+        stroke([ex, ey], rad[n - 1] * 1.1, [0.85, 0.75, 0.58], opt({ opacity: 0.8, soft: 0.5, thick: 1.0 }));
       }
     }
     // far, thin limbs first; trunk and roots last
     limbs.sort((a, b) => b.depth - a.depth || (a.trunk ? 1 : 0) - (b.trunk ? 1 : 0));
     for (const L of limbs) if (!L.trunk) paintLimb(L);
 
-    // foliage: dense olive sprays, backlit gold at edges facing the sun
+    // foliage: juniper sprays built from irregular tufts; dark olive cores, sky-lit tops,
+    // a light-struck rim where the low sun comes through from behind, ragged sprigs at the edges
     masses.sort((a, b) => a.y - b.y);
     for (const cl of masses) {
       const R = cl.r, cx = cl.x, cy = cl.y;
       const [lx, ly] = lightDir(cx, cy);
-      const nd = Math.round((R * R) / (5.5 * S * S));
-      const seed = rng() * 100;
-      for (let i = 0; i < nd; i++) {
-        const a = rng() * Math.PI * 2, rr = Math.pow(rng(), 0.6);
-        const ox = Math.cos(a) * rr * R * 1.1, oy = Math.sin(a) * rr * R * 0.78 - rr * rr * R * 0.1;
-        const edge = NZ.fbm((cx + ox) / (30 * S) + seed, (cy + oy) / (30 * S), 4);
-        if (rr > 0.72 + 0.55 * edge) continue;
-        const x = cx + ox, y = cy + oy;
-        const facing = (Math.cos(a) * lx * 1.1 + Math.sin(a) * ly * 0.78) / 1.35;
-        const v = clamp(facing * rr * 1.25, -1, 1);
-        let c;
-        if (v > 0.62) { const q = (v - 0.62) / 0.38; c = [mix(0.28, 0.84, q), mix(0.28, 0.66, q), mix(0.14, 0.30, q)]; }
-        else if (v > 0.15) c = [0.12, 0.135, 0.085];
-        else c = [0.05, 0.06, 0.045];
-        const j = 0.85 + rng() * 0.3; c = [c[0] * j, c[1] * j, c[2] * j];
-        // sprays point outward and a little upward
-        const sa = a * 0.7 - Math.PI / 2 * 0.3 + (rng() - 0.5) * 0.8;
-        const Ls = (4 + rng() * 9) * S;
-        stroke([x, y, x + Math.cos(sa) * Ls, y + Math.sin(sa) * Ls * 0.7], (1.1 + rng() * 2.0) * S, c,
-          opt({ opacity: 0.9, soft: 0.45, bristleContrast: 0.35, thick: v > 0.5 ? 1.3 : 0.45, dry: 0.6 }));
+      const nt = 4 + (rng() * 5 | 0);
+      const tufts = [];
+      for (let t = 0; t < nt; t++) {
+        const a = rng() * Math.PI * 2, q = Math.sqrt(rng()) * 0.75;
+        tufts.push([cx + Math.cos(a) * q * R * 1.15, cy + Math.sin(a) * q * R * 0.55, R * (0.35 + 0.35 * rng()), 0.45 + 0.25 * rng()]);
+      }
+      tufts.sort((a, b) => a[1] - b[1]);
+      for (const [tx, ty, tr, asp] of tufts) {
+        const nd = Math.round((tr * tr * asp) / (2.2 * S * S));
+        const seed = rng() * 100;
+        for (let i = 0; i < nd; i++) {
+          const a = rng() * Math.PI * 2, rr = Math.pow(rng(), 0.55);
+          const ox = Math.cos(a) * rr * tr, oy = Math.sin(a) * rr * tr * asp;
+          const edge = NZ.fbm((tx + ox) / (12 * S) + seed, (ty + oy) / (12 * S), 3);
+          if (rr > 0.78 + 0.45 * edge) continue;
+          const x = tx + ox, y = ty + oy;
+          // tuft-local facing + whole-mass facing; tops catch sky light
+          const fT = (Math.cos(a) * lx + Math.sin(a) * ly) * rr;
+          const fM = ((x - cx) * lx + (y - cy) * ly) / (R * 1.1);
+          const f = 0.55 * fT + 0.65 * fM;
+          const top = clamp(-Math.sin(a) * rr, 0, 1);
+          let c;
+          if (f > 0.55) { const q = smooth(0.55, 1.0, f); c = [mix(0.32, 0.92, q), mix(0.30, 0.70, q), mix(0.12, 0.30, q)]; }
+          else c = [mix(0.05, 0.13, top * 0.8 + 0.2 * (f + 1) / 2), mix(0.06, 0.15, top * 0.8 + 0.2 * (f + 1) / 2), mix(0.045, 0.10, top * 0.8)];
+          const j = 0.8 + rng() * 0.4; c = [c[0] * j, c[1] * j * (0.95 + 0.1 * rng()), c[2] * j];
+          // a scale-leaf spray: a short curved flick, splaying outward
+          const sa = Math.atan2(oy, ox) * 0.6 - 0.5 + (rng() - 0.5) * 1.2;
+          const Ls = (2.5 + rng() * 6) * S;
+          const mx = x + Math.cos(sa) * Ls * 0.5 + (rng() - 0.5) * 1.5 * S, my = y + Math.sin(sa) * Ls * 0.4;
+          stroke([x, y, mx, my, x + Math.cos(sa + 0.3) * Ls, y + Math.sin(sa + 0.3) * Ls * 0.7], (0.8 + rng() * 1.5) * S, c,
+            Object.assign(opt({ opacity: 0.9, soft: 0.5, bristleContrast: 0.4, thick: f > 0.55 ? 1.4 : 0.45, dry: 0.65 }), { widths: [1, 0.8, 0.3] }));
+        }
+        // ragged sprigs at the tuft's silhouette, lit when they face the sun
+        for (let i = 0; i < Math.round(tr / (2.5 * S)); i++) {
+          const a = rng() * Math.PI * 2;
+          const x = tx + Math.cos(a) * tr * 0.95, y = ty + Math.sin(a) * tr * asp * 0.95;
+          const f = Math.cos(a) * lx + Math.sin(a) * ly;
+          const c = f > 0.4 ? [0.85, 0.66, 0.32] : [0.07, 0.08, 0.055];
+          const L2 = (3 + rng() * 6) * S;
+          stroke([x, y, x + Math.cos(a) * L2, y + Math.sin(a) * L2 * 0.8], 0.6 * S, c, Object.assign(opt({ opacity: 0.85, soft: 0.5, thick: f > 0.4 ? 1.1 : 0.3, dry: 0.7 }), { widths: [1, 0.4] }));
+        }
       }
     }
     // the trunk and roots are painted over the lower foliage
@@ -345,7 +403,7 @@
     {
       const isFG = (x, y) => P.mat[clamp(y | 0, 0, H - 1) * W + clamp(x | 0, 0, W - 1)] === 3;
       let placed = 0;
-      for (let tries = 0; tries < 9000 && placed < 70; tries++) {
+      for (let tries = 0; tries < 9000 && placed < 34; tries++) {
         const x = px(0.55 + rng() * 0.45), y = py(0.78 + rng() * 0.2);
         if (!isFG(x, y)) continue;
         const brink = !isFG(x, y - 10 * S) || !isFG(x - 14 * S, y);
@@ -361,8 +419,8 @@
           const ex = bx + Math.cos(ang) * hh, ey = y + Math.sin(ang) * hh;
           const mx = (bx + ex) / 2 + (rng() - 0.5) * 4 * S, my = (y + ey) / 2;
           const lit = rng() < 0.55;
-          const c = lit ? [0.88 + rng() * 0.1, 0.70 + rng() * 0.1, 0.40 + rng() * 0.08] : [0.30, 0.25, 0.14];
-          stroke([bx, y, mx, my, ex, ey], 0.75 * S, c, Object.assign(opt({ opacity: 0.85, soft: 0.4, thick: lit ? 1.0 : 0.4, dry: 0.7 }), { widths: [1.2, 0.9, 0.35] }));
+          const c = lit ? [0.78 + rng() * 0.1, 0.60 + rng() * 0.1, 0.34 + rng() * 0.08] : [0.26, 0.21, 0.12];
+          stroke([bx, y, mx, my, ex, ey], 0.6 * S, c, Object.assign(opt({ opacity: 0.6, soft: 0.4, thick: lit ? 1.0 : 0.4, dry: 0.7 }), { widths: [1.2, 0.9, 0.35] }));
         }
       }
     }

@@ -22,8 +22,9 @@
         red: [[0.60, 0.04, 0.03], [0.30, 0.012, 0.03], [0.74, 0.14, 0.04], [0.36, 0.02, 0.06], [0.62, 0.05, 0.035], [0.04, 0.035, 0.05], [0.08, 0.14, 0.34]],
         white: [[0.86, 0.85, 0.80], [0.80, 0.72, 0.18], [0.34, 0.58, 0.72], [0.9, 0.88, 0.84], [0.62, 0.62, 0.6], [0.75, 0.3, 0.42]],
         green: [[0.02, 0.10, 0.08], [0.82, 0.82, 0.78], [0.55, 0.05, 0.30], [0.05, 0.22, 0.30], [0.03, 0.03, 0.04], [0.85, 0.62, 0.12]],
-        pale: [[0.84, 0.84, 0.80], [0.66, 0.70, 0.72], [0.36, 0.56, 0.68], [0.86, 0.80, 0.42], [0.88, 0.86, 0.82], [0.72, 0.52, 0.56], [0.22, 0.25, 0.3]],
+        pale: [[0.84, 0.84, 0.80], [0.34, 0.5, 0.62], [0.82, 0.74, 0.42], [0.62, 0.64, 0.64], [0.36, 0.52, 0.64], [0.84, 0.76, 0.46], [0.7, 0.42, 0.5], [0.2, 0.22, 0.26]],
         deep: [[0.015, 0.03, 0.08], [0.025, 0.045, 0.12], [0.01, 0.01, 0.013], [0.04, 0.06, 0.12], [0.015, 0.035, 0.1], [0.1, 0.04, 0.025], [0.3, 0.31, 0.33], [0.01, 0.012, 0.02]],
+        ember: [[0.42, 0.03, 0.03], [0.6, 0.06, 0.03], [0.02, 0.02, 0.025], [0.8, 0.78, 0.72], [0.15, 0.02, 0.06], [0.05, 0.08, 0.2]],
         grey: [[0.7, 0.7, 0.68], [0.12, 0.12, 0.13], [0.45, 0.47, 0.5], [0.85, 0.82, 0.76]]
       };
       return P[name];
@@ -110,6 +111,7 @@
         const j0 = (r() * Lb) | 0, h = 1 + ((r() * 3 * S) | 0), k0 = (r() * Math.abs(xe - xs)) | 0, k1 = k0 + ((40 + Math.pow(r(), 2) * 700) * S | 0), f = r() < 0.4 ? 0.1 * r() : 0.35 + 0.4 * r();
         for (let jj = j0; jj < Math.min(Lb, j0 + h); jj++) { (drag[jj] = drag[jj] || []).push([k0, k1, f]); }
       }
+      const HFj = function (j) { return P8.hashf(j, 5, p.seed); };
       const endJ = new Float32Array(Lb);
       for (let j = 0; j < Lb; j++) endJ[j] = p.endRidge ? Math.max(0, (p.endJit || 22) * S * (0.5 + 0.9 * FB(j / (160 * S), 3.3, 3, p.seed + 81)) + 1.5 * S * N(j / (9 * S), 1, p.seed + 82)) : 0;
       const env = new Float32Array(Lb), Dcol = new Float32Array(Lb);
@@ -152,6 +154,7 @@
           const wu = u + 40 * N(u / 300, y / (60 * S), p.seed + 70);
           const sf = 0.55 * FB(wu / 300, y / (16 * S), 4, p.seed + 71) + 0.3 * (0.35 - Math.abs(FB(wu / 420, y / (11 * S), 3, p.seed + 75))) + 0.32 * FB(wu / 600, y / (50 * S), 2, p.seed + 74) + 0.035 * N(wu / 70, y / (2.0 * S), p.seed + 72);
           let fing = SM(-0.03, 0.03, thr - sf + 0.045 * N(u / 9, y / (1.3 * S), p.seed + 73) + 0.02 * N(u / 3, y / (0.7 * S), p.seed + 76));
+          if (p.noRidge) fing *= SM(len - endJ[j], len - endJ[j] - 70 * S * (0.4 + 0.6 * HFj(j)), k);
           if (drag[j] !== undefined) { const dd = drag[j]; for (let q = 0; q < dd.length; q++) if (k >= dd[q][0] && k < dd[q][1]) fing *= dd[q][2]; }
           const reach = p.bead * A[j] / S;
           const gp = Lv - (Deff[i] + ws);
@@ -206,7 +209,7 @@
         }
       }
       // end of the pull: the blade lifts and leaves the remaining bead as a ragged ridge of mixed paint
-      if (p.endRidge && xe >= 0 && xe < W) {
+      if (p.endRidge && !p.noRidge && xe >= 0 && xe < W) {
         for (let j = 0; j < Lb; j++) {
           const y = yLast + j; if (y < 0 || y >= H) continue;
           const wd = Math.max(5 * S, (16 + 26 * FB(j / (70 * S), 9.2, 3, p.seed + 31) + 5 * N(j / (7 * S), 3, p.seed + 33)) * S);
@@ -239,7 +242,7 @@
         const i0 = CL(y | 0, 0, H - 1) * W + CL(x | 0, 0, W - 1);
         if (fresh[i0] < 0.4) continue;
         const col = [Cw.r[i0], Cw.g[i0], Cw.b[i0]];
-        const L = (18 + Math.pow(r(), 2.4) * 150) * S, w0 = (2.8 + r() * 3.2) * S;
+        const L = (16 + Math.pow(r(), 2.4) * 95) * S, w0 = (3.2 + r() * 3.4) * S;
         let vx = 0;
         for (let s = 0; s < L; s += 0.5) {
           const t = s / L;
@@ -298,6 +301,9 @@
     // lower pull across the wet street: pale greys/whites, left -> right, ends with a ridge
     { x0: -60, x1: 1760, y0: 1650, Lb: 400, pal: 'pale', load: 1700, bandMin: 50, bandMax: 220, streaks: 12, nicks: 20, endLift: 1.0, gap: 0.05, press: 0.3, tilt: 0.6,
       bead: 0.0016, rate: 0.03, float: 0.0003, lifts: [[380, 50, 1.4], [1050, 30, 1.0]], seed: 13, cov: [0.95, 0.35], endRidge: true, blobs: 0, chatter: 31, edge: 18 },
+    // a narrow late pull low on the canvas, from the right edge, running out of paint
+    { x0: 2240, x1: 860, y0: 2380, Lb: 210, pal: 'ember', load: 1500, bandMin: 30, bandMax: 120, streaks: 8, nicks: 14, endLift: 0.8, gap: 0.05, press: 0.3, tilt: 0.4,
+      bead: 0.0016, rate: 0.03, float: 0.0003, lifts: [[520, 30, 1.2]], seed: 17, cov: [0.85, 0.12], endRidge: true, noRidge: true, endJit: 140, chatter: 29, edge: 26, alt: 0.5 },
     { drips: [705, 120, 2100, 9] },
     
     { drips: [2046, 80, 1700, 5] }

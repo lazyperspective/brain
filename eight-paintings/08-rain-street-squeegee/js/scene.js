@@ -236,10 +236,26 @@
           } else {
             if (Math.abs(hm - 0.76) < 0.025 && cu > 0.15 && cu < 0.75) { hitObj = true; oc = [0.35, 0.22, 0.12]; }
             else if (hm < 0.75 && Math.abs(cu - 0.45) < 0.02) { hitObj = true; oc = [0.03, 0.02, 0.015]; }
-            else if (ch < 0.65) {
-              const pc = 0.25 + 0.35 * ch, hx = (cu - pc) * 1.25;
-              const hd = Math.hypot(hx / 0.095, (hm - 1.22) / 0.12), bd = Math.hypot(hx / 0.2, (hm - 0.93) / 0.24);
-              if (hd < 1 || (bd < 1 && hm > 0.72)) { hitObj = true; oc = [0.04 + 0.05 * ch, 0.028, 0.022]; }
+            else if (ch < 0.7) {
+              const c2 = P8.hash2(cz, q + 31, sd) / 4294967296, c3 = P8.hash2(cz, q + 47, sd) / 4294967296;
+              const pc = 0.22 + 0.4 * ch, lean = (c2 - 0.5) * 0.08, hx = (cu - pc) * 1.25;
+              const hs2 = 0.85 + 0.3 * c3, hy = 1.2 + 0.08 * c2;
+              const hxx = hx - lean;
+              const hd = Math.hypot(hxx / (0.088 * hs2), (hm - hy) / (0.112 * hs2));
+              const sw = 0.17 + 0.08 * c3, bd = Math.hypot((hx - lean * 0.4) / sw, (hm - 0.93) / 0.26);
+              const neck = Math.abs(hxx) < 0.04 && hm > hy - 0.16 && hm < hy;
+              if (hd < 1 || neck || (bd < 1 && hm > 0.7)) {
+                hitObj = true;
+                if (hd < 1 || neck) {
+                  const hair = hm > hy - 0.01 + 0.04 * (c2 - 0.5) || (c3 > 0.6 && hxx * (c2 - 0.5) > 0);
+                  const lit = 0.5 + 0.5 * SM(-0.6, 0.8, -hxx / 0.09);
+                  oc = hair ? [0.05 + 0.08 * c3, 0.035 + 0.04 * c3, 0.025] : [0.32 * lit + 0.05, 0.2 * lit + 0.03, 0.14 * lit + 0.02];
+                } else {
+                  const cl = [[0.28, 0.06, 0.05], [0.06, 0.08, 0.16], [0.3, 0.24, 0.12], [0.1, 0.1, 0.1], [0.42, 0.4, 0.36], [0.12, 0.2, 0.14]][(c2 * 6) | 0];
+                  const sh2 = 0.6 + 0.4 * SM(0.7, 1.15, hm);
+                  oc = [cl[0] * sh2, cl[1] * sh2, cl[2] * sh2];
+                }
+              }
             }
           }
         } else { // boutique: clothes rails and mannequins
@@ -404,7 +420,7 @@
         // aggregate: small stones, faded by pixel footprint
         const fp = f / dist; // px per metre
         const ag1 = N(x * 70, z * 70, 3), ag2 = N(x * 160, z * 160, 4);
-        a += CL(fp / 900, 0, 1) * (0.022 * SM(0.25, 0.6, ag1) - 0.01 * SM(0.2, 0.6, -ag1)) + CL(fp / 1800, 0, 1) * 0.012 * ag2;
+        a += CL(fp / 900, 0, 1) * (0.03 * SM(0.25, 0.6, ag1) - 0.012 * SM(0.2, 0.6, -ag1)) + CL(fp / 1800, 0, 1) * 0.016 * ag2;
         let ar = a, ag = a, ab = a * 1.06;
         let wet = 0.62 + 0.25 * FB(x * 0.5, z * 0.3, 3, 21);
         // puddles
@@ -539,9 +555,9 @@
           const F = 0.02 + 0.98 * Math.pow(1 - cosI, 5);
           const wetF = G.puddle > 0 ? F * (G.wet * (1 - G.puddle) + G.puddle) : F * G.wet;
           const dimW = 1 - 0.35 * G.wet - 0.4 * G.puddle;
-          out[0] = ar * dimW * (E[0] + 0.02) * (1 - wetF);
-          out[1] = ag * dimW * (E[1] + 0.02) * (1 - wetF);
-          out[2] = ab * dimW * (E[2] + 0.024) * (1 - wetF);
+          out[0] = ar * dimW * (E[0] + 0.035) * (1 - wetF);
+          out[1] = ag * dimW * (E[1] + 0.033) * (1 - wetF);
+          out[2] = ab * dimW * (E[2] + 0.04) * (1 - wetF);
           fog(out, gt);
           // mirror ray
           if (!curbFace) {
@@ -727,25 +743,69 @@
       g.addColorStop(0, rgbs([0.012, 0.002, 0.002])); g.addColorStop(0.22, rgbs([0.045, 0.007, 0.006])); g.addColorStop(0.26, rgbs([0.07, 0.06, 0.045])); g.addColorStop(1, rgbs([0.045, 0.04, 0.032]));
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(x0, 0.38); ctx.lineTo(x1, 0.38); ctx.lineTo(x1, 3.0); ctx.quadraticCurveTo(x1 - 0.05, 3.36, x1 - 0.5, 3.38); ctx.lineTo(x0 + 0.5, 3.38); ctx.quadraticCurveTo(x0 + 0.05, 3.36, x0, 3.0); ctx.closePath(); ctx.fill();
-      // rear windscreen: interior perspective down the aisle
-      const wx0 = x0 + 0.2, wx1 = x1 - 0.2, wh0 = 1.22, wh1 = 2.62;
+      // rear windscreen: looking down the lit aisle through wet glass
+      const wx0 = x0 + 0.2, wx1 = x1 - 0.2, wh0 = 1.22, wh1 = 2.62, cxm = (x0 + x1) / 2;
       const wg = ctx.createLinearGradient(0, wh0, 0, wh1);
-      wg.addColorStop(0, rgbs([0.3, 0.21, 0.12])); wg.addColorStop(0.6, rgbs([0.7, 0.56, 0.36])); wg.addColorStop(1, rgbs([0.86, 0.72, 0.5]));
+      wg.addColorStop(0, rgbs([0.12, 0.08, 0.045])); wg.addColorStop(0.55, rgbs([0.36, 0.27, 0.16])); wg.addColorStop(1, rgbs([0.5, 0.4, 0.26]));
       ctx.fillStyle = wg; poly(ctx, [[wx0, wh0], [wx1, wh0], [wx1 - 0.04, wh1], [wx0 + 0.04, wh1]]); ctx.fill();
-      const cxm = (x0 + x1) / 2;
-      ctx.fillStyle = rgbs([0.95, 0.88, 0.7]); poly(ctx, [[wx0 + 0.15, wh1 - 0.05], [wx1 - 0.15, wh1 - 0.05], [cxm + 0.12, 2.15], [cxm - 0.12, 2.15]]); ctx.fill(); // ceiling light lines converging
-      ctx.fillStyle = rgbs([0.5, 0.36, 0.2]); poly(ctx, [[cxm - 0.35, wh0], [cxm + 0.35, wh0], [cxm + 0.12, 1.75], [cxm - 0.12, 1.75]]); ctx.fill(); // aisle floor
-      ctx.fillStyle = rgbs([0.1, 0.06, 0.035]);
-      poly(ctx, [[wx0, wh0], [cxm - 0.38, wh0], [cxm - 0.14, 1.72], [wx0 + 0.25, 1.72]]); ctx.fill(); // seats left
-      poly(ctx, [[cxm + 0.38, wh0], [wx1, wh0], [wx1 - 0.25, 1.72], [cxm + 0.14, 1.72]]); ctx.fill(); // seats right
-      ctx.fillStyle = rgbs([0.02, 0.015, 0.012]);
-      ctx.beginPath(); ctx.ellipse(cxm - 0.42, 1.98, 0.09, 0.115, 0, 0, 7); ctx.fill();
-      poly(ctx, [[cxm - 0.62, wh0], [cxm - 0.22, wh0], [cxm - 0.27, 1.84], [cxm - 0.57, 1.84]]); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cxm + 0.2, 1.85, 0.05, 0.065, 0, 0, 7); ctx.fill();
-      ctx.strokeStyle = rgbs([0.05, 0.04, 0.03]); ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(cxm, wh0); ctx.lineTo(cxm, wh1); ctx.stroke(); // centre pillar
+      ctx.save(); ctx.beginPath(); ctx.moveTo(wx0, wh0); ctx.lineTo(wx1, wh0); ctx.lineTo(wx1 - 0.04, wh1); ctx.lineTo(wx0 + 0.04, wh1); ctx.closePath(); ctx.clip();
+      ctx.filter = 'blur(' + (0.7 * S).toFixed(2) + 'px)';
+      // ceiling, light strips converging to the far end
+      ctx.fillStyle = rgbs([0.55, 0.47, 0.33]); poly(ctx, [[wx0, wh1], [wx1, wh1], [cxm + 0.16, 2.12], [cxm - 0.16, 2.12]]); ctx.fill();
+      ctx.strokeStyle = rgbs([1.0, 0.93, 0.76]); ctx.lineWidth = 0.035;
+      ctx.beginPath(); ctx.moveTo(wx0 + 0.3, wh1 - 0.04); ctx.lineTo(cxm - 0.08, 2.14); ctx.moveTo(wx1 - 0.3, wh1 - 0.04); ctx.lineTo(cxm + 0.08, 2.14); ctx.stroke();
+      // far end window (dark street beyond) and side windows as dark bands with lights
+      ctx.fillStyle = rgbs([0.05, 0.045, 0.05]); ctx.fillRect(cxm - 0.16, 1.62, 0.32, 0.5);
+      ctx.fillStyle = rgbs([0.08, 0.06, 0.05], 0.8); poly(ctx, [[wx0, 2.3], [cxm - 0.16, 2.08], [cxm - 0.16, 1.66], [wx0, 1.5]]); ctx.fill();
+      poly(ctx, [[wx1, 2.3], [cxm + 0.16, 2.08], [cxm + 0.16, 1.66], [wx1, 1.5]]); ctx.fill();
+      // floor and seat rows receding
+      ctx.fillStyle = rgbs([0.3, 0.22, 0.13]); poly(ctx, [[cxm - 0.38, wh0], [cxm + 0.38, wh0], [cxm + 0.15, 1.62], [cxm - 0.15, 1.62]]); ctx.fill();
+      for (let q = 0; q < 6; q++) {
+        const t0 = q / 6, t1 = (q + 0.6) / 6;
+        const lerp = function (a, b, t) { return a + (b - a) * t; };
+        [[-1, wx0], [1, wx1]].forEach(function (sd) {
+          const xa = lerp(sd[1], cxm + sd[0] * 0.2, t0), xb = lerp(sd[1], cxm + sd[0] * 0.2, t1);
+          const xi = lerp(cxm + sd[0] * 0.38, cxm + sd[0] * 0.16, t0), xj = lerp(cxm + sd[0] * 0.38, cxm + sd[0] * 0.16, t1);
+          const ya = lerp(wh0, 1.62, t0), yb = lerp(wh0, 1.62, t1), hgt = lerp(0.35, 0.12, t0);
+          ctx.fillStyle = rgbs([0.16 - q * 0.015, 0.1 - q * 0.01, 0.06 - q * 0.006]);
+          poly(ctx, [[xa, ya], [xi, ya], [xj, yb + hgt * 0.6], [xb, yb + hgt]]); ctx.fill();
+        });
+      }
+      // passengers: soft, varied silhouettes catching the ceiling light
+      const pr = P8.rng(seed + 991);
+      [[-0.45, 1.25, 1.0], [0.38, 1.3, 0.8], [-0.12, 1.55, 0.45], [0.15, 1.6, 0.38], [0.52, 1.5, 0.5]].forEach(function (q) {
+        const px = cxm + q[0], py = q[1], sc2 = q[2];
+        const cc = [[0.05, 0.03, 0.025], [0.12, 0.05, 0.04], [0.04, 0.05, 0.08], [0.1, 0.08, 0.05]][(pr() * 4) | 0];
+        ctx.fillStyle = rgbs(cc);
+        ctx.beginPath(); ctx.moveTo(px - 0.2 * sc2, py); ctx.quadraticCurveTo(px - 0.22 * sc2, py + 0.42 * sc2, px - 0.08 * sc2, py + 0.5 * sc2);
+        ctx.lineTo(px + 0.08 * sc2, py + 0.5 * sc2); ctx.quadraticCurveTo(px + 0.22 * sc2, py + 0.42 * sc2, px + 0.2 * sc2, py); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = rgbs([0.06, 0.04, 0.03]);
+        ctx.beginPath(); ctx.ellipse(px + (pr() - 0.5) * 0.03 * sc2, py + 0.6 * sc2, 0.075 * sc2 * (0.9 + 0.2 * pr()), 0.095 * sc2, (pr() - 0.5) * 0.4, 0, 7); ctx.fill();
+        ctx.strokeStyle = rgbs([0.6, 0.45, 0.28], 0.5); ctx.lineWidth = 0.015 * sc2;
+        ctx.beginPath(); ctx.ellipse(px, py + 0.6 * sc2, 0.075 * sc2, 0.095 * sc2, 0, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      });
+      // a standing passenger holding the strap, near the glass
+      ctx.fillStyle = rgbs([0.025, 0.018, 0.016]);
+      ctx.beginPath(); ctx.moveTo(cxm - 0.62, wh0); ctx.lineTo(cxm - 0.66, 1.72); ctx.quadraticCurveTo(cxm - 0.5, 1.86, cxm - 0.34, 1.74); ctx.lineTo(cxm - 0.3, wh0); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cxm - 0.48, 1.95, 0.085, 0.11, 0.1, 0, 7); ctx.fill();
+      ctx.strokeStyle = rgbs([0.025, 0.018, 0.016]); ctx.lineWidth = 0.05; ctx.beginPath(); ctx.moveTo(cxm - 0.38, 1.82); ctx.quadraticCurveTo(cxm - 0.3, 2.05, cxm - 0.34, 2.28); ctx.stroke();
+      ctx.strokeStyle = rgbs([0.7, 0.55, 0.35], 0.4); ctx.lineWidth = 0.018; ctx.beginPath(); ctx.ellipse(cxm - 0.48, 1.95, 0.085, 0.11, 0.1, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+      ctx.filter = 'none';
+      // the wet glass: a diagonal reflection band and beads of rain
+      const rg2 = ctx.createLinearGradient(wx0, wh1, wx1, wh0);
+      rg2.addColorStop(0.0, 'rgba(255,255,255,0)'); rg2.addColorStop(0.35, 'rgba(200,210,230,0.10)'); rg2.addColorStop(0.42, 'rgba(200,210,230,0.02)'); rg2.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = rg2; ctx.fillRect(wx0, wh0, wx1 - wx0, wh1 - wh0);
+      for (let q = 0; q < 70; q++) {
+        const dx2 = wx0 + pr() * (wx1 - wx0), dy2 = wh0 + pr() * (wh1 - wh0), rr3 = 0.008 + 0.014 * pr();
+        ctx.fillStyle = 'rgba(10,8,8,0.35)'; ctx.beginPath(); ctx.ellipse(dx2, dy2, rr3, rr3 * 1.2, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,240,220,0.45)'; ctx.beginPath(); ctx.ellipse(dx2 - rr3 * 0.3, dy2 + rr3 * 0.4, rr3 * 0.35, rr3 * 0.35, 0, 0, 7); ctx.fill();
+        if (pr() < 0.25) { ctx.strokeStyle = 'rgba(20,15,12,0.3)'; ctx.lineWidth = rr3 * 0.8; ctx.beginPath(); ctx.moveTo(dx2, dy2); ctx.lineTo(dx2 + 0.005, dy2 - 0.08 - 0.15 * pr()); ctx.stroke(); }
+      }
+      ctx.restore();
       ctx.strokeStyle = rgbs([0.02, 0.02, 0.02]); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(wx0 + 0.1, wh0 + 0.05); ctx.lineTo(wx0 + 0.6, wh0 + 0.55); ctx.stroke(); // wiper
-      ctx.fillStyle = rgbs([0.55, 0.32, 0.08]); ctx.fillRect(x0 + 0.55, 2.78, x1 - x0 - 1.1, 0.3);
-      ctx.fillStyle = rgbs([0.85, 0.55, 0.15], 0.6); ctx.fillRect(x0 + 0.62, 2.88, x1 - x0 - 1.24, 0.1);
+      ctx.strokeStyle = rgbs([0.04, 0.035, 0.03]); ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(cxm, wh0); ctx.lineTo(cxm, wh1); ctx.stroke(); // centre pillar
+      ctx.fillStyle = rgbs([0.02, 0.015, 0.01]); ctx.fillRect(x0 + 0.55, 2.78, x1 - x0 - 1.1, 0.3);
+      ctx.fillStyle = rgbs([0.6, 0.32, 0.06], 0.85); ctx.fillRect(x0 + 0.62, 2.84, x1 - x0 - 1.24, 0.18);
       ctx.fillStyle = rgbs([0.006, 0.004, 0.004]); ctx.fillRect(x0 - 0.02, 0.25, x1 - x0 + 0.04, 0.2);
       ctx.fillStyle = rgbs([0.25, 0.22, 0.18], 0.7); ctx.fillRect(x0, 0.44, x1 - x0, 0.02);
       ctx.fillStyle = rgbs([0.35, 0.02, 0.015]); ctx.fillRect(x0 + 0.1, 0.6, 0.32, 0.24); ctx.fillRect(x1 - 0.42, 0.6, 0.32, 0.24);
@@ -764,8 +824,13 @@
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       function lim(pts, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); }
       // back leg (heel raised), front leg
-      lim([[-0.04, 0.9], [-0.1, 0.49], [-0.25, 0.13]], 0.12, dark);
-      lim([[0.05, 0.9], [0.14, 0.5], [0.2, 0.09]], 0.125, dark);
+      lim([[-0.04, 0.9], [-0.1, 0.5]], 0.125, dark); lim([[-0.1, 0.5], [-0.25, 0.14]], 0.095, dark);
+      lim([[0.05, 0.9], [0.13, 0.5]], 0.13, dark); lim([[0.13, 0.5], [0.19, 0.1]], 0.1, dark);
+      // faint sheen on the wet trousers from the light behind
+      ctx.filter = 'blur(' + (0.8 * S).toFixed(2) + 'px)';
+      lim([[0.19, 0.86], [0.2, 0.5], [0.245, 0.12]], 0.01, rgbs([0.5, 0.45, 0.4], mir ? 0.1 : 0.3));
+      lim([[-0.06, 0.6], [-0.1, 0.49], [-0.19, 0.24]], 0.01, rgbs([0.5, 0.45, 0.4], mir ? 0.08 : 0.22));
+      ctx.filter = 'none';
       ctx.fillStyle = dark;
       poly(ctx, [[-0.36, 0.03], [-0.22, 0.09], [-0.2, 0.17], [-0.3, 0.14]]); ctx.fill();
       poly(ctx, [[0.14, 0.02], [0.33, 0.0], [0.34, 0.06], [0.17, 0.13]]); ctx.fill();
@@ -789,8 +854,19 @@
       poly(ctx, [[-0.09, 1.5], [0.1, 1.49], [0.08, 1.42], [-0.08, 1.42]]); ctx.fill();
       poly(ctx, [[-0.08, 1.45], [-0.03, 1.44], [-0.1, 1.2], [-0.15, 1.22]]); ctx.fill();
       // head
-      ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(0.03, 1.6, 0.085, 0.108, 0.15, 0, 7); ctx.fill();
-      ctx.strokeStyle = rgbs([0.2, 0.12, 0.08], 0.6); ctx.lineWidth = 0.012; ctx.beginPath(); ctx.ellipse(0.03, 1.6, 0.08, 0.104, 0.15, Math.PI * 0.55, Math.PI * 1.25); ctx.stroke();
+      // neck, raised collar, head turned slightly toward us, hair gathered in a low knot
+      ctx.fillStyle = dark; ctx.fillRect(0.0, 1.46, 0.06, 0.08);
+      poly(ctx, [[-0.1, 1.44], [0.11, 1.45], [0.1, 1.55], [0.05, 1.5], [-0.04, 1.5], [-0.09, 1.56]]); ctx.fill();
+      ctx.fillStyle = rgbs([0.012, 0.009, 0.008]); ctx.beginPath(); ctx.ellipse(0.035, 1.61, 0.078, 0.102, 0.12, 0, 7); ctx.fill();
+      ctx.fillStyle = rgbs([0.02, 0.012, 0.008]);
+      ctx.beginPath(); ctx.ellipse(0.015, 1.635, 0.085, 0.092, 0.25, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-0.055, 1.585, 0.045, 0.04, 0.3, 0, 7); ctx.fill();
+      ctx.filter = 'blur(' + (0.9 * S).toFixed(2) + 'px)';
+      ctx.strokeStyle = rgbs([0.5, 0.32, 0.2], mir ? 0.15 : 0.45); ctx.lineWidth = 0.012;
+      ctx.beginPath(); ctx.ellipse(0.015, 1.635, 0.083, 0.09, 0.25, Math.PI * 0.6, Math.PI * 1.2); ctx.stroke();
+      ctx.strokeStyle = rgbs([0.85, 0.75, 0.6], mir ? 0.12 : 0.35); ctx.lineWidth = 0.01;
+      ctx.beginPath(); ctx.ellipse(0.035, 1.61, 0.078, 0.102, 0.12, -Math.PI * 0.35, Math.PI * 0.15); ctx.stroke();
+      ctx.filter = 'none';
       // umbrella arm and shaft
       lim([[0.02, 1.43], [0.09, 1.2], [0.15, 1.31]], 0.085, coat);
       ctx.strokeStyle = rgbs([0.03, 0.025, 0.02]); ctx.lineWidth = 0.02;
@@ -950,7 +1026,7 @@
       const glow = new Float32Array(n);
       for (let i = 0; i < n; i++) glow[i] = 0.3 * (b2.r[i] + b2.g[i] + b2.b[i]) + 0.6 * (b3.r[i] + b3.g[i] + b3.b[i]) + 0.04 * (Ld.r[i] + Ld.g[i] + Ld.b[i]);
       const rr2 = P8.rng(seed + 9);
-      const NR = Math.round(34000 * S * S);
+      const NR = Math.round(24000 * S * S);
       for (let k = 0; k < NR; k++) {
         const x0 = rr2() * W, y0 = rr2() * H;
         const near = Math.pow(rr2(), 3); // a few big near drops
@@ -958,7 +1034,7 @@
         const dx = Math.sin(ang), dy = Math.cos(ang);
         const g0 = glow[(Math.min(H - 1, y0 | 0)) * W + (x0 | 0)];
         if (g0 < 0.03 && rr2() < 0.93) continue;
-        const I = Math.min(0.5, 0.05 + 0.25 * g0) * (0.5 + 0.8 * rr2()) * (near > 0.3 ? 0.5 : 1);
+        const I = Math.min(0.4, 0.03 + 0.22 * g0) * (0.4 + 0.8 * rr2()) * (near > 0.3 ? 0.45 : 1);
         const steps = Math.ceil(L);
         for (let s2 = 0; s2 < steps; s2++) {
           const t = s2 / steps, px = x0 + dx * s2, py = y0 + dy * s2;

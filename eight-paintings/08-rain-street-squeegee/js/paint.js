@@ -34,7 +34,7 @@
         const slx = 1 + 0.3 * N(y / (26 * S), iu * 1.7, 7), sly = 1 + 0.3 * N(x / (26 * S), iv * 1.7, 8);
         const warp = ax * ax * (over ? 0.6 + 0.4 * Math.sin(Math.PI * fv) : 0.45) * thX[(iu + 4) % thX.length] * slx;
         const weft = ay * ay * (!over ? 0.6 + 0.4 * Math.sin(Math.PI * fu) : 0.45) * thY[(iv + 4) % thY.length] * sly;
-        weave[y * W + x] = 0.32 * (Math.max(warp, weft) + 0.1 * N(x / (2 * S), y / (2 * S), 9)) * (0.75 + 0.5 * FB(x / (60 * S), y / (60 * S), 2, 10));
+        weave[y * W + x] = 0.15 * (Math.max(warp, weft) + 0.1 * N(x / (2 * S), y / (2 * S), 9)) * (0.75 + 0.5 * FB(x / (60 * S), y / (60 * S), 2, 10));
       }
     }
     P8.blur(weave, W, H, 0.6 * S, 0.6 * S); // gesso softens the weave
@@ -178,9 +178,9 @@
     const layers = [
       { R: 40, T: 0.0, L: 7, th: 0, thick: 0.05, op: 0.9, jit: 0.10, under: true, dry: 0.7 },
       { R: 26, T: 0.03, L: 8, th: 0, thick: 0.16, op: 0.92, jit: 0.06, dry: 0.35 },
-      { R: 14, T: 0.035, L: 9, th: 0, thick: 0.18, op: 0.94, jit: 0.045, dry: 0.3 },
-      { R: 7.5, T: 0.035, L: 9, th: 1, thick: 0.18, op: 0.96, jit: 0.03, dry: 0.2 },
-      { R: 4.0, T: 0.03, L: 9, th: 1, thick: 0.1, op: 0.97, jit: 0.02, wet: 0.5, dry: 0.1, edge: 0.2 },
+      { R: 14, T: 0.035, L: 9, th: 0, thick: 0.25, op: 0.94, jit: 0.05, dry: 0.3 },
+      { R: 7.5, T: 0.035, L: 9, th: 1, thick: 0.25, op: 0.96, jit: 0.045, dry: 0.2 },
+      { R: 4.0, T: 0.03, L: 9, th: 1, thick: 0.2, op: 0.97, jit: 0.03, wet: 0.5, dry: 0.1, edge: 0.2 },
       { R: 2.3, T: 0.04, L: 8, th: 2, thick: 0.1, op: 0.98, jit: 0.014, wet: 0.7, dry: 0.05, edge: 0.14 },
       { R: 1.35, T: 0.05, L: 6, th: 2, thick: 0.08, op: 0.98, jit: 0.01, wet: 0.8, dry: 0.0, edge: 0.11 },
       { R: 0.95, T: 0.06, L: 4, th: 2, thick: 0.06, op: 0.98, jit: 0.008, wet: 0.8, dry: 0.0, edge: 0.09 }
@@ -260,17 +260,17 @@
       log && log('layer R=' + Ly.R + ' strokes ' + nc);
 
       // transparent glazes over the darks after the mid layers: deepen and enrich (ultramarine / alizarin / umber)
-      if (li === 3) {
-        const gl = [[0.72, 0.74, 0.92], [0.86, 0.66, 0.70], [0.82, 0.74, 0.66]];
-        const nG = Math.round(2600 * S * S * 1.0);
+      if (li === 3 || li === layers.length - 1) {
+        const gl = [[0.62, 0.68, 0.98], [0.9, 0.55, 0.62], [0.85, 0.7, 0.55], [0.6, 0.85, 0.8]];
+        const nG = Math.round(5200 * S * S);
         for (let k = 0; k < nG; k++) {
           const x = R() * W, y = R() * H, i = (y | 0) * W + (x | 0);
           const v = lumP(refP.r[i], refP.g[i], refP.b[i]);
           if (v > 0.32) continue;
           const a = sampleDir(TH[0], x, y), ln = (40 + R() * 80) * S;
           const pts = [[x, y], [x + Math.cos(a) * ln * 0.5, y + Math.sin(a) * ln * 0.5], [x + Math.cos(a) * ln, y + Math.sin(a) * ln]];
-          const gsel = gl[(R() * 3) | 0];
-          stroke(pts, { R: (18 + R() * 22) * S, col: [0, 0, 0], op: 0.28 * (1 - v / 0.32), thick: 0, glaze: gsel });
+          const gsel = gl[(R() * 4) | 0];
+          stroke(pts, { R: (14 + R() * 22) * S, col: [0, 0, 0], op: 0.42 * (1 - v / 0.32), thick: 0, glaze: gsel, dry: 0.5 });
         }
         log && log('glazes');
       }
@@ -279,20 +279,31 @@
     {
       const paintH = new Float32Array(n), wetH = Hw.slice();
       for (let i = 0; i < n; i++) paintH[i] = Hh[i] - weave[i];
-      P8.blur(paintH, W, H, 1.1 * S, 1.1 * S); P8.blur(wetH, W, H, 1.1 * S, 1.1 * S);
+      P8.blur(paintH, W, H, 0.55 * S, 0.55 * S); P8.blur(wetH, W, H, 1.1 * S, 1.1 * S);
       for (let i = 0; i < n; i++) { Hh[i] = weave[i] + paintH[i]; Hw[i] = wetH[i]; }
     }
     // ------------------------------------------------------------ impasto lights: thick short dabs on the brightest passages
     const lh = sc.lumHDR;
-    const nI = Math.round(26000 * S * S);
+    const nI = Math.round(9000 * S * S);
     for (let k = 0; k < nI; k++) {
-      const x = R() * W, y = R() * H, i = (y | 0) * W + (x | 0);
-      if (lh[i] < 1.4) continue;
-      const a = sampleDir(TH[2], x, y), ln = (2 + R() * 7) * S;
-      const pts = [[x, y], [x + Math.cos(a) * ln, y + Math.sin(a) * ln]];
-      const c = [ref.r[i], ref.g[i], ref.b[i]];
+      const x0 = R() * W, y0 = R() * H, i0 = (y0 | 0) * W + (x0 | 0);
+      if (lh[i0] < 1.5) continue;
+      // follow the bright structure (a neon tube, a lamp's rim, a glint) with one loaded stroke
+      const pts = [[x0, y0]];
+      let x = x0, y = y0, pdx = 0, pdy = 0;
+      const Lmax = (5 + 16 * R()) * S, st = Math.max(0.8, 1.2 * S);
+      for (let s2 = 0; s2 < Lmax; s2 += st) {
+        let a = sampleDir(TH[2], x, y), dx = Math.cos(a), dy = Math.sin(a);
+        if (pdx * dx + pdy * dy < 0) { dx = -dx; dy = -dy; }
+        const nx = x + dx * st, ny = y + dy * st;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) break;
+        if (lh[(ny | 0) * W + (nx | 0)] < 1.1) break;
+        x = nx; y = ny; pdx = dx; pdy = dy; pts.push([x, y]);
+      }
+      if (pts.length === 1) pts.push([x0 + 0.4, y0 + 0.4]);
+      const c = [ref.r[i0], ref.g[i0], ref.b[i0]];
       const boost = Math.min(1.0, 0.94 / Math.max(c[0], c[1], c[2]));
-      stroke(pts, { R: (1.2 + R() * 1.8) * S, col: [c[0] * boost, c[1] * boost, c[2] * boost], op: 0.95, thick: 1.2 + 1.6 * Math.min(1, (lh[i] - 1.4) / 3), dry: 0.15, ridge: 0.8, wet: 1 });
+      stroke(pts, { R: (0.9 + R() * 1.1) * S, col: [c[0] * boost, c[1] * boost, c[2] * boost], op: 0.9, thick: 0.35 + 0.45 * Math.min(1, (lh[i0] - 1.5) / 3), dry: 0.25, ridge: 0.5, wet: 1 });
     }
     log && log('impasto');
     return { C: C, Hh: Hh, Hw: Hw, weave: weave, S: S, toothMap: toothMap };

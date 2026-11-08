@@ -645,7 +645,8 @@ void main(){
       r = r2;
       const Cp = M.percep(x, y);
       const Lmax = r * R.mix(L.len[0], L.len[1], rng());
-      const pts = this.trace(rng, x, y, r, Lmax, L.tol != null ? L.tol : 0.08, Cp, { minLen: r * (L.minLenK || 0.6), cross: L.cross || (L.cross !== false && M.C[i * 4 + 2] > 0.5), angJit: L.angJit || 0.12, maxTurn: L.maxTurn, stepK: L.stepK, dirFn: L.dirFn });
+      const stiff = M.C[i * 4 + 1] < 0.1;
+      const pts = this.trace(rng, x, y, r, Lmax, L.tol != null ? L.tol : 0.08, Cp, { minLen: r * (L.minLenK || 0.6), cross: L.cross || (L.cross !== false && M.C[i * 4 + 2] > 0.5), angJit: L.angJit || 0.12, maxTurn: stiff ? 0.06 : L.maxTurn, stepK: L.stepK, dirFn: L.dirFn });
       // colour: the plan colour along the first part of the stroke (a loaded brush), varied by hand
       let c = [0, 0, 0]; const nS = Math.min(pts.length, 3);
       for (let k = 0; k < nS; k++) { const q = M.colour(pts[k][0], pts[k][1]); c[0] += q[0] / nS; c[1] += q[1] / nS; c[2] += q[2] / nS; }

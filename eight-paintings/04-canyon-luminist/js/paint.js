@@ -245,6 +245,12 @@
           a *= mix(1, bris, o.bristleContrast);
           // ends taper a little
           a *= smooth(-R * 0.9, R * 0.2, s) * smooth(-R * 0.9, R * 0.3, L - s);
+          if (o.edgeD) {
+            // edge-aware: paint stays on its own plane (crisp silhouettes)
+            const dd = depth[(y0 + (y - y0)) * W + x];
+            const rel = Math.abs(dd - o.edgeD) / o.edgeD;
+            a *= 1 - smooth(0.06, 0.16, rel);
+          }
           if (a <= 0.003) continue;
           const A = a * op;
           const gi = ((y0 + 0) + (y - y0)) * W + x;
@@ -387,6 +393,7 @@
           dry: sky ? 0.25 : 0.45,
           thick,
           pickup: sky ? 0.25 : 0.12,
+          edgeD: !sky && m !== 3 ? depth[k0] : 0,
         });
         made++;
       }
@@ -413,6 +420,7 @@
                 if (xi < 0 || yi < 0 || xi >= W || yi >= H) break;
                 const kk = yi * W + xi;
                 if ((mat[kk] === 0) !== (m === 0)) break; // never blend across the horizon
+                if (m !== 0 && Math.abs(depth[kk] - depth[k]) > 0.12 * depth[k]) break; // nor across a silhouette
                 const w = 1 - i / (L + 1);
                 sr += C[kk * 3] * w; sg += C[kk * 3 + 1] * w; sb += C[kk * 3 + 2] * w; sh += Hh[kk] * w; sw += w;
               }

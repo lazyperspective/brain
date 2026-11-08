@@ -123,6 +123,7 @@
       const knife = !!o.knife;
       const square = !!o.square;
       const clip = o.clip || null;
+      const loadFn = o.loadFn || null;
       const mode = o.mode || 0; // 0 paint, 1 glaze (multiply), 2 scrape
       const seed = (o.seed || 1) | 0;
       const alpha0 = o.alpha == null ? 1 : o.alpha;
@@ -265,6 +266,7 @@
           // when the brush runs dry the breakup follows the bristles, not a grid
           const bb = vnoise(bu * 0.9, s / (w * 0.8 + 3), seed + 17);
           let P = ld * (1 - bristle * (1 - b)) * (0.75 + 0.5 * bb);
+          if (loadFn) { P *= loadFn(x + 0.5, y + 0.5); if (P <= 0.001) continue; }
           if (knife) {
             // knife skips: elongated holes along drag
             const sk = vnoise(s / streakLen, (u + 1) * 3.5, seed + 21);
@@ -490,6 +492,7 @@
   function polyClip(poly, edgeNoise, seed, soft) {
     const n = poly.length;
     soft = soft || 1.0;
+    if (typeof soft !== 'function' && soft <= 0) soft = 1.0;
     return function (x, y) {
       let inside = false, dmin = 1e9;
       for (let i = 0, j = n - 1; i < n; j = i++) {
@@ -501,8 +504,10 @@
         const d = dx * dx + dy * dy; if (d < dmin) dmin = d;
       }
       let sd = Math.sqrt(dmin) * (inside ? 1 : -1);
-      sd += edgeNoise * ((vnoise(x / 23, y / 23, seed) - 0.5) * 2 + 0.4 * (vnoise(x / 4.3, y / 4.3, seed + 1) - 0.5));
-      return clamp(sd / soft + 0.5, 0, 1);
+      const sf = typeof soft === 'function' ? soft(x, y) : soft;
+      const en = edgeNoise * (typeof soft === 'function' ? 1 + sf / 12 : 1);
+      sd += en * ((vnoise(x / 23, y / 23, seed) - 0.5) * 2 + 0.4 * (vnoise(x / 4.3, y / 4.3, seed + 1) - 0.5));
+      return clamp(sd / sf + 0.5, 0, 1);
     };
   }
 

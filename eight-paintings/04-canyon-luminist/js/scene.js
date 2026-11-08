@@ -67,8 +67,8 @@
       if (hs < top || i === STRATA.length - 1) {
         const f = clamp((hs - bot) / (top - bot), 0, 1);
         const k = STRATA[i][1];
-        const w = mix(0.9, 0.06, k), c = 0.55;
-        const g = smooth(c - w / 2, c + w / 2, f) * 0.95 + f * 0.05;
+        const w = mix(0.9, 0.018, k), c = 0.55;
+        const g = smooth(c - w / 2, c + w / 2, f) * 0.975 + f * 0.025;
         return bot + (top - bot) * mix(f, g, k);
       }
       bot = top;
@@ -86,8 +86,9 @@
     [1.8, 4.0, 0.32, 0.52, -0.5, 1.2],
     [-4.6, 9.6, 1.1, 0.99, 0.2, 1.5],
     [5.6, 11.2, 1.2, 1.0, 0.1, 1.4],
-    [-0.62, 1.25, 0.26, 0.62, 0.4, 1.4],
-    [0.75, 1.55, 0.3, 0.55, -0.3, 1.3],
+    [-0.52, 2.05, 0.24, 0.66, 0.3, 1.5],
+    [0.36, 2.28, 0.12, 0.6, -0.4, 1.3],
+    [0.68, 1.6, 0.2, 0.7, -0.2, 1.4],
   ];
   function templeH(x, z) {
     let best = 0;
@@ -98,13 +99,24 @@
       const c = Math.cos(T[4]), s = Math.sin(T[4]);
       const u = (dx * c + dz * s) / T[5], v = -dx * s + dz * c;
       const a = Math.atan2(v, u);
-      const r = Math.hypot(u, v);
-      const wob = 1 + 0.28 * N4.fbm(Math.cos(a) * 1.3 + i * 7.1, Math.sin(a) * 1.3 + i * 3.3, 3)
-        + 0.10 * N5.fbm(x * 6 + i, z * 6, 2);
+      // angular plan: blend of ellipse and rounded box, with buttresses and re-entrant bays
+      const rb = Math.pow(Math.pow(Math.abs(u), 4) + Math.pow(Math.abs(v), 4), 0.25);
+      const r = mix(Math.hypot(u, v), rb, 0.9);
+      const bays = 0.16 * Math.abs(N3.fbm(Math.cos(a) * 2.6 + i * 2.3, Math.sin(a) * 2.6, 3)) * 2 - 0.12;
+      const flutes = 0.05 * N5.fbm(a * 8 + i * 1.7, i, 3);
+      const wob = 1 + 0.16 * N4.fbm(Math.cos(a) * 1.3 + i * 7.1, Math.sin(a) * 1.3 + i * 3.3, 3) + bays + flutes;
       const rr = r / (T[2] * wob);
-      // stepped pyramid profile; terrace() adds the strata cliffs
-      const p = clamp(1 - Math.pow(Math.max(0, rr - 0.25) / 0.95, 1.1), 0, 1);
-      const h = T[3] * Math.pow(p, 0.75);
+      // architecture: flat caprock, vertical cliff bands, benches and a talus skirt
+      const w2 = 0.11 * N6.fbm(Math.cos(a) * 2.2 + i, Math.sin(a) * 2.2, 4);
+      const w3 = 0.13 * N2.fbm(Math.cos(a) * 1.6 + i * 5, Math.sin(a) * 1.6, 3);
+      // the caprock sits off-centre: tiers set back unevenly
+      const ru = Math.hypot(u - 0.12 * T[2] * Math.cos(i * 2.1), v - 0.1 * T[2] * Math.sin(i * 1.3)) / (T[2] * wob);
+      const rc = mix(rr, ru, 0.6);
+      const cap = smooth(0.45 + w2, 0.42 + w2, rc);
+      const mid = smooth(0.7 + w3, 0.67 + w3, mix(rr, rc, 0.3));
+      const base = smooth(0.95 + w2 * 0.5, 0.91 + w2 * 0.5, rr);
+      const talus = clamp((1.35 - rr) / 0.45, 0, 1);
+      const h = T[3] * (0.30 * cap + 0.27 * mid + 0.23 * base + 0.2 * talus * talus);
       if (h > best) best = h;
     }
     return best;
@@ -133,8 +145,9 @@
       const sp = Math.abs(N2.fbm(wx * 1.1 + 11.0, z * 0.5, 3));
       const crest = smooth(0.12, 0.38, sp);
       const sp2 = smooth(0.1, 0.3, Math.abs(N3.fbm(wx * 2.6 + 4.0, z * 0.9 + 2.0, 2)));
-      P = 0.5 + 0.55 * Math.pow(clamp((1 - sN) / 0.85, 0, 1), 0.8) + 0.42 * (1 - crest) - 0.35 * crest + 0.12 * (1 - sp2) + 0.1 * N6.fbm(x * 1.6, z * 1.6, 3) - 0.1;
-      P = Math.max(P, 0.4 + 0.08 * N5.fbm(x * 3, z * 3, 2));
+      const wall = Math.pow(smooth(0.8 - 0.14 * (1 - crest), 0.985, sN), 2.5); // 0 on the platform, 1 up the near wall
+      P = 1.05 - wall * (0.75 + 0.25 * crest - 0.2 * (1 - sp2)) + 0.25 * smooth(0.85, 1.0, sN) * 0 + 0.06 * N6.fbm(x * 1.6, z * 1.6, 3);
+      P = mix(P, 1.1, 0);
     }
     let hs = rim - (rim - 0.295) * smooth(0, 1, P);
     // inner gorge
@@ -142,11 +155,24 @@
     if (gz < 0.95) hs = Math.min(hs, gz < 0.085 ? 0 : 0.27 * Math.pow((gz - 0.085) / 0.865, far ? 1.0 : 0.75));
     // side gorges: tributaries trench the platform on their way to the river
     {
-      const trib = 0;
+      const trib = smooth(0.55, 0.95, v2) * smooth(0.6, 0.05, sN) * (far ? 0.8 : 1.0);
       if (trib > 0) {
         const depthT = 0.20 * trib * smooth(0.0, 0.05, sN);
         hs = Math.min(hs, mix(hs, Math.max(0.03, 0.27 - depthT - 0.06 * sN), trib));
       }
+    }
+    if (!far) {
+      // the near platform: low flat-topped mesas and ridges receding, and a side gorge with
+      // a creek winding out to the river
+      const ms = N4.fbm(x * 1.6 + 2.0, z * 1.1 + 5.0, 4);
+      const mesa = smooth(0.18, 0.22, ms) * (0.43 + 0.08 * smooth(0.3, 0.5, ms)) * smooth(0.3, 0.6, z) * smooth(2.9, 2.4, z);
+      hs = Math.max(hs, mesa * smooth(0.0, 0.05, 1 - sN - 0.05) + (1 - smooth(0.0, 0.05, 1 - sN - 0.05)) * hs * 0);
+      hs = Math.max(hs, mesa);
+      const xt = -0.02 + 0.10 * Math.sin(z * 2.1 + 0.5) + 0.06 * Math.sin(z * 4.7) + 0.16 * smooth(1.4, 2.8, z);
+      const dt = Math.abs(x - xt) + 0.006 * N2.fbm(z * 20, x * 20, 2);
+      const gorge = 0.30 * smooth(0.012, 0.11, dt) - 0.004;
+      const tz = smooth(0.35, 0.6, z);
+      hs = Math.min(hs, mix(hs, Math.max(-0.004, gorge), tz));
     }
     if (sN > 1) hs = rim + 0.01 * (sN - 1);
     // the temples stand on the Tonto platform
@@ -174,7 +200,7 @@
     const iu = Math.floor(uu), iw = Math.floor(ww);
     const fu = uu - iu, fw = ww - iw;
     const dj = Math.min(Math.min(fu, 1 - fu) * su, Math.min(fw, 1 - fw) * sw);
-    return { id: hash2(iu + seed, iw), id2: hash2(iw - 7 + seed, iu + 3), dj };
+    return { id: hash2(iu + seed, iw), id2: hash2(iw - 7 + seed, iu + 3), dj, fu, fw };
   }
   function fgH(x, z) {
     // right ledge: a limestone outcrop stepping down in strata toward its edge
@@ -184,14 +210,16 @@
     let top = 1.0 - 0.10 * Math.max(0, z - 0.035) - 0.03 * Math.max(0, x - 0.02);
     top += 0.0009 * N4.fbm(x * 70, z * 70, 4) + 0.00016 * N3.fbm(x * 420, z * 420, 3);
     {
-      // weathered slabs: jointed blocks, each slightly tilted, edges rounded
+      // fractured blocks: each slab tilted its own way (planes catch or lose the light);
+      // joints open and close irregularly, some barely there
       const B = blocks(x, z, 0.0095, 0.0068, 0.38, 11);
-      const edgeR = smooth(0.0, 0.00022, B.dj);
-      top += ((B.id - 0.5) * 0.0007 + (B.id2 - 0.5) * 0.0003) * edgeR - 0.0003 * (1 - edgeR);
+      const tilt = ((B.fu - 0.5) * (B.id - 0.5) + (B.fw - 0.5) * (B.id2 - 0.5)) * 0.0016;
+      const open = 0.00005 + 0.00026 * smooth(0.35, 0.8, N5.fbm(x * 260, z * 260, 3) * 0.5 + 0.5) * (B.id > 0.25 ? 1 : 0.3);
+      const edgeR = smooth(0.0, open, B.dj);
+      top += ((B.id - 0.5) * 0.0007 + (B.id2 - 0.5) * 0.0003 + tilt) * edgeR - 0.00035 * (1 - edgeR) * (open / 0.0003);
+      // chipped, rounded block margins
+      top -= 0.00025 * (1 - smooth(0.0, 0.0009, B.dj)) * smooth(0.0, 0.5, N6.fbm(x * 700, z * 700, 2) + 0.2);
     }
-    // sparse joints
-    const j1 = Math.abs(N5.fbm(x * 38 + 0.4 * N6.n2(z * 90, 1), z * 22, 3));
-    top -= 0.0006 * (1 - smooth(0.0, 0.035, j1)) * smooth(0.0, 0.0015, e);
     // strata steps near the edge
     const st1 = 0.0042 + 0.0008 * N3.fbm(x * 60, z * 60, 3);
     const st2 = 0.0016 + 0.0004 * N4.fbm(x * 70 + 5, z * 70, 3);
@@ -204,14 +232,24 @@
     const eS = xS - x;
     let topS = 0.989 - 0.22 * Math.max(0, z - 0.035) + 0.0016 * N6.fbm(x * 70, z * 70, 4) + 0.0003 * N2.fbm(x * 380, z * 380, 3);
     {
-      const B2 = blocks(x, z, 0.0085, 0.006, -0.25, 29);
-      const edgeR = smooth(0.0, 0.0009, B2.dj);
-      topS += ((B2.id - 0.5) * 0.0013 + (B2.id2 - 0.5) * 0.0006) * edgeR - 0.0006 * (1 - edgeR);
+      const B2 = blocks(x, z, 0.0075, 0.0055, -0.25, 29);
+      const tilt = ((B2.fu - 0.5) * (B2.id - 0.5) + (B2.fw - 0.5) * (B2.id2 - 0.5)) * 0.0022;
+      const open = 0.00006 + 0.0003 * smooth(0.3, 0.8, N5.fbm(x * 220 + 3, z * 220, 3) * 0.5 + 0.5);
+      const edgeR = smooth(0.0, open, B2.dj);
+      topS += ((B2.id - 0.5) * 0.0013 + (B2.id2 - 0.5) * 0.0006 + tilt) * edgeR - 0.0005 * (1 - edgeR);
     }
     const sS = 0.0035 + 0.0015 * N5.fbm(x * 110, z * 110, 3);
     topS -= 0.0022 * smooth(sS + 0.0003, sS - 0.0003, eS);
     topS -= 0.0018 * (1 - smooth(0, 0.004, eS)) * (1 - smooth(0, 0.004, eS));
-    const hs = eS > 0 ? topS : topS + eS * 14;
+    let hs;
+    if (eS > 0) hs = topS;
+    else {
+      // the shoulder's face: stepped beds, overhangs and vertical fractures
+      const de = -eS;
+      const st = de / 0.0019 + 0.6 * N5.fbm(x * 160, z * 160, 3);
+      const fr = Math.abs(N2.fbm(x * 90 + z * 60, 4.4, 3));
+      hs = topS - (Math.floor(st) + smooth(0.75, 1.0, st - Math.floor(st))) * 0.0026 - de * 6 - 0.002 * smooth(0.04, 0.0, fr);
+    }
     return Math.max(hr, hs);
   }
 
@@ -441,6 +479,33 @@
       D[y * RW + x] = c.d; V[y * RW + x] = c.veil;
     }
     const Db = G.CORE.blurPlane(D, RW, RH, 1, RW * 0.01, 2);
+    // big rounded heads modelled inside the masses (relief field for the lighting)
+    const rng = makeRng(SEED + 313);
+    const HF = new Float32Array(N);
+    const heads = [];
+    for (let i = 0; i < 70; i++) {
+      const fx = rng() * 1.2 - 0.1;
+      const ey = edgeYf(fx);
+      const fy = ey - 0.02 - Math.pow(rng(), 1.5) * 0.16;
+      const r = (0.025 + 0.06 * Math.pow(rng(), 1.3)) * (1 + 1.5 * Math.max(0, 0.12 - fy));
+      heads.push([fx * RW, fy * RH, r * RW, 0.55 + 0.25 * rng()]);
+    }
+    for (const L of LOBES) for (let i = 0; i < 6; i++) {
+      const a = rng() * Math.PI * 2, q = Math.sqrt(rng()) * 0.7;
+      heads.push([(L[0] + Math.cos(a) * L[2] * q) * RW, (L[1] + Math.sin(a) * L[3] * q) * RH, (0.25 + 0.3 * rng()) * L[2] * RW, 0.6 + 0.3 * rng()]);
+    }
+    for (const [hx, hy, hr, asp] of heads) {
+      const x0 = Math.max(0, Math.floor(hx - hr * 2)), x1 = Math.min(RW - 1, Math.ceil(hx + hr * 2));
+      const y0 = Math.max(0, Math.floor(hy - hr * asp * 2)), y1 = Math.min(hY - 1, Math.ceil(hy + hr * asp * 2));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const u = (x - hx) / hr, v = (y - hy) / (hr * asp);
+        const q = u * u + v * v;
+        if (q < 4) { const k = y * RW + x; HF[k] += Math.exp(-q * 1.2) * hr / RW * 3; }
+      }
+    }
+    for (let k = 0; k < N; k++) HF[k] = HF[k] * smooth(0.2, 0.7, D[k]) + Db[k] * 0.12;
+    const HFb = G.CORE.blurPlane(HF, RW, RH, 1, RW * 0.008, 2);
+    for (let k = 0; k < N; k++) HFb[k] += 0.02 * N3.fbm((k % RW) / RW * 7, Math.floor(k / RW) / RH * 11, 4);
     const Dbb = G.CORE.blurPlane(D, RW, RH, 1, RW * 0.03, 2);
     // transmittance toward the sun through the cloud layer (in picture space)
     const sunX = SUN_SCREEN[0] * RW, sunY = SUN_SCREEN[1] * RH;
@@ -459,7 +524,7 @@
       T[y * RW + x] = Math.exp(-occ * 0.42);
     }
     console.log('sky masses', Math.round(performance.now() - t0), 'ms');
-    return { D, V, Db, Dbb, T };
+    return { D, V, Db, Dbb, T, HFb };
   }
 
   function shadeSky(RW, RH, SKY, k, x, y, dx, dy, dz) {
@@ -472,7 +537,7 @@
     const ldist = Math.hypot(lx, ly) / RW;
     const ll = Math.hypot(lx, ly) + 1e-6; lx /= ll; ly /= ll;
     const warm = Math.exp(-ldist / 0.25);
-    const op = clamp(d * 1.05, 0, 1);
+    const op = clamp(d * 1.25, 0, 1);
     const s = sunDisk(dx, dy, dz) * (1 - op * 0.97);
     r += s; g += s * 0.9; b += s * 0.66;
     // veils: thin golden haze strands, brightest near the sun
@@ -490,32 +555,33 @@
     const T = SKY.T[k];
     const thick = SKY.Dbb[k];
     const xm2 = Math.max(0, x - 6), xp2 = Math.min(RW - 1, x + 6), ym2 = Math.max(0, y - 6), yp2 = Math.min(RH - 1, y + 6);
-    const Gx = SKY.Dbb[y * RW + xp2] - SKY.Dbb[y * RW + xm2], Gy = SKY.Dbb[yp2 * RW + x] - SKY.Dbb[ym2 * RW + x];
-    const Gl = Math.hypot(Gx, Gy) + 1e-6;
-    const bigFacing = clamp(-(Gx * lx + Gy * ly) / Gl, -1, 1) * clamp(Gl * RW * 0.02, 0, 1);
+    const Gx = (SKY.HFb[y * RW + xp2] - SKY.HFb[y * RW + xm2]) * RW / 24, Gy = (SKY.HFb[yp2 * RW + x] - SKY.HFb[ym2 * RW + x]) * RW / 24;
+    // relief normal of the heads, light from the sun's direction a little in front of the clouds
+    const nl3 = Math.hypot(Gx, Gy, 1);
+    const bigFacing = clamp(((-Gx * lx - Gy * ly) * 0.9 + 0.25) / nl3 - 0.25, -1, 1) * 1.6;
     // light reaching this part of the mass
-    let lit = T * (0.5 + 0.25 * facing + 0.3 * bigFacing) + 0.06;
+    let lit = T * (0.5 + 0.1 * facing + 0.3 * bigFacing) + (0.06 + 0.24 * warm) * clamp(bigFacing, -0.5, 1) + 0.05 + 0.12 * smooth(0.12, 0.32, y / RH);
     lit *= 1 - 0.55 * smooth(0.5, 1.0, thick) * (1 - warm);
     lit = clamp(lit, 0, 1);
-    const litC = [mix(0.80, 1.75, warm), mix(0.48, 1.18, warm), mix(0.40, 0.62, warm)];
-    const darkC = [0.055, 0.05, 0.068];
+    const litC = [mix(0.95, 1.8, warm), mix(0.56, 1.2, warm), mix(0.40, 0.6, warm)];
+    const darkC = [0.045, 0.04, 0.055];
     let cr = mix(darkC[0], litC[0], lit), cg = mix(darkC[1], litC[1], lit), cb = mix(darkC[2], litC[2], lit);
     // warm reflected glow on the undersides, from the sunlit canyon below
     const low = smooth(0.08, 0.32, y / RH);
     const ug = under * (0.35 + 0.65 * low) * (1 - 0.5 * lit);
     cr += ug * 0.30; cg += ug * 0.15; cb += ug * 0.08;
     // luminous rims: the sun-facing margins near the light, broad and soft
-    const band = smooth(0.05, 0.3, SKY.Db[k]) * (1 - smooth(0.35, 0.8, SKY.Db[k]));
-    const rim = band * clamp(0.25 + facing, 0, 1) * T;
-    const fwd = Math.pow(Math.max(0, cs), 16) * 1.6 + Math.pow(Math.max(0, cs), 4) * 0.35;
-    cr += rim * fwd * 1.0; cg += rim * fwd * 0.78; cb += rim * fwd * 0.42;
+    const band = smooth(0.03, 0.25, SKY.Db[k]) * (1 - smooth(0.3, 0.9, SKY.Db[k]));
+    const rim = band * clamp(facing, 0, 1) * clamp(bigFacing + 0.3, 0, 1) * T * clamp(0.4 + 1.1 * N2.fbm(x / RW * 9, y / RH * 14, 3), 0, 1.3);
+    const fwd = Math.pow(Math.max(0, cs), 22) * 1.3 + Math.pow(Math.max(0, cs), 6) * 0.12;
+    cr += rim * fwd * 0.9; cg += rim * fwd * 0.62; cb += rim * fwd * 0.28;
     // form within the masses: large soft lumps lit on the side toward the sun
     const fx0 = x / RW, fy0 = y / RH, e2 = 0.012;
     const F = (u, v) => N3.fbm(u * 3.2, v * 5.5, 3) + 0.3 * N4.fbm(u * 8, v * 13, 2);
     const f0 = F(fx0, fy0);
     const fd = (F(fx0 + lx * e2, fy0 + ly * e2) - f0) / e2;
     const form = clamp(fd * 0.06, -1, 1);
-    const fm = 1 + form * (0.35 + 0.45 * lit) + 0.12 * f0;
+    const fm = 1 + form * (0.12 + 0.18 * lit) + 0.06 * f0;
     cr *= fm; cg *= fm; cb *= fm;
     r = mix(r, cr, op); g = mix(g, cg, op); b = mix(b, cb, op);
     return { c: [r, g, b], d: op };
@@ -602,7 +668,7 @@
   }
 
   // ---------------------------------------------------------------- render study
-  let BEAM_K = 0.22;
+  let BEAM_K = 0.18;
   function render(RW, RH, opts) {
     if (opts && opts.beamK != null) BEAM_K = opts.beamK;
     opts = opts || {};
@@ -665,9 +731,10 @@
           let water = false;
           if (!fg && y < 0.012) {
             const dr = Math.abs(z - riverZ(x));
-            if (dr < 0.12) water = true;
+            if (dr < 0.12 || y < 0.0) water = true;
           }
-          const sh = shadow(x, y, z);
+          const so = Math.max(fg ? 0.00008 : 0.0025, t * 0.0015);
+          const sh = shadow(x + n[0] * so, y + n[1] * so, z + n[2] * so);
           // cloud shadows drifting over the canyon (patches of sun)
           const cs1 = N1.fbm(x * 0.32 + 7.0, z * 0.45 + 1.0, 4);
           const zb = -0.5 * smooth(1.2, 1.6, z) * smooth(2.2, 1.9, z) - 0.5 * smooth(3.0, 3.3, z) * smooth(4.4, 3.9, z) + 0.22 * smooth(4.3, 4.8, z) * smooth(9.0, 7.5, z) + 0.25 * smooth(1.3, 0.9, z) + 0.3 * smooth(1.9, 2.2, z) * smooth(3.3, 3.0, z);
@@ -693,11 +760,22 @@
             alb = [0.36 + 0.07 * lv + 0.03 * sp, 0.26 + 0.055 * lv + 0.025 * sp, 0.20 + 0.035 * lv + 0.02 * sp];
             alb = [mix(alb[0], 0.42, lich * 0.5), mix(alb[1], 0.42, lich * 0.5), mix(alb[2], 0.33, lich * 0.5)];
             alb = [mix(alb[0], 0.56, lichO * 0.6), mix(alb[1], 0.33, lichO * 0.6), mix(alb[2], 0.14, lichO * 0.6)];
+            {
+              // desert varnish: dark streaks running down the steeper faces
+              const stp = 1 - Math.abs(n[1]);
+              const vv = smooth(0.0, 0.5, N3.fbm((x + z) * 1400, y * 120, 4)) * smooth(0.15, 0.5, stp);
+              alb = [alb[0] * (1 - 0.55 * vv), alb[1] * (1 - 0.58 * vv), alb[2] * (1 - 0.5 * vv)];
+              // pale bleached crusts on the tops, iron-red stains
+              const crust = smooth(0.3, 0.6, N6.fbm(x * 340 + 1, z * 340, 3)) * smooth(0.6, 0.9, n[1]);
+              alb = [mix(alb[0], 0.52, crust * 0.35), mix(alb[1], 0.44, crust * 0.35), mix(alb[2], 0.34, crust * 0.35)];
+              const iron = smooth(0.35, 0.6, N1.fbm(x * 210 + 5, z * 210 + y * 300, 3));
+              alb = [mix(alb[0], 0.45, iron * 0.3), mix(alb[1], 0.2, iron * 0.3), mix(alb[2], 0.11, iron * 0.3)];
+            }
           }
           // desert varnish streaks on cliffs + albedo variation
           const vs = N3.fbm(x * 40 + z * 40, y * 6, 3);
           const steep = 1 - Math.abs(ny);
-          let av = 1 + 0.18 * N4.fbm(x * 9, z * 9 + y * 20, 3) - 0.12 * steep * smooth(0.1, 0.5, vs);
+          let av = 1 + 0.18 * N4.fbm(x * 9, z * 9 + y * 20, 3) - 0.07 * steep * smooth(-0.2, 0.5, N3.fbm((x + z) * 25, y * 9, 2));
           if (!fg && ny > 0.8 && y < 0.5) {
             // drainage rills etched into the platforms
             const gq = Math.abs(N4.fbm(x * 7 + 0.5 * N5.n2(x * 20, z * 20), z * 9, 3));
@@ -712,7 +790,7 @@
             const lay = Math.floor(b2);
             const layTone = ((lay * 2654435761) >>> 0) / 4294967296 - 0.5;
             av *= 1 - w1 * 0.16 * smooth(0.82, 0.97, f1b) * (0.4 + 0.6 * steep)
-                  + w2 * (0.12 * layTone - 0.12 * smooth(0.9, 0.99, f2b) * steep + 0.08 * smooth(0.06, 0.0, f2b) * steep);
+                  + w2 * (0.2 * layTone - 0.18 * smooth(0.88, 0.99, f2b) * steep + 0.12 * smooth(0.08, 0.0, f2b) * steep);
           }
           alb = [alb[0] * av, alb[1] * av, alb[2] * av];
           // light
@@ -721,13 +799,14 @@
           const bounce = fg ? [0.13, 0.075, 0.045] : [0.12, 0.06, 0.035];
           const ao_e = Math.max(0.0004, t * 0.01);
           const ao = clamp(1 + (y - (H(x + ao_e, z) + H(x - ao_e, z) + H(x, z + ao_e) + H(x, z - ao_e)) * 0.25) / ao_e * 1.5, 0.4, 1);
+          const aoF = mix(ao, 0.8 + 0.2 * ao, smooth(0.5, 0.85, 1 - Math.abs(n[1])));
           const hemi = 0.5 + 0.5 * ny;
           // the deep chasm right below is starved of light: cooler, darker shadows
           const deep = fg ? 0 : smooth(1.8, 0.6, t) * smooth(0.75, 0.35, y);
           const ka = 1 - 0.45 * deep, kb = 1 - 0.7 * deep;
-          let lr = sunC[0] * sunAmt + (skyAmb[0] * hemi * ka + bounce[0] * (1 - hemi) * 0.9 * kb) * ao;
-          let lg = sunC[1] * sunAmt + (skyAmb[1] * hemi * ka + bounce[1] * (1 - hemi) * 0.9 * kb) * ao;
-          let lb = sunC[2] * sunAmt + (skyAmb[2] * hemi * (ka + 0.25 * deep) + bounce[2] * (1 - hemi) * 0.9 * kb) * ao;
+          let lr = sunC[0] * sunAmt + (skyAmb[0] * hemi * ka + bounce[0] * (1 - hemi) * 0.9 * kb) * aoF;
+          let lg = sunC[1] * sunAmt + (skyAmb[1] * hemi * ka + bounce[1] * (1 - hemi) * 0.9 * kb) * aoF;
+          let lb = sunC[2] * sunAmt + (skyAmb[2] * hemi * (ka + 0.25 * deep) + bounce[2] * (1 - hemi) * 0.9 * kb) * aoF;
           r = alb[0] * lr; g = alb[1] * lg; b = alb[2] * lb;
           if (water) {
             // reflect the sky at grazing incidence, ripple-broken
@@ -745,7 +824,7 @@
           // aerial perspective
           const dist = t;
           const hz = hazeColor(dx, dy, dz);
-          const dens = fg ? 0 : 1 - Math.exp(-dist * 0.042);
+          const dens = fg ? 0 : 1 - Math.exp(-dist * 0.032);
           // haze is thicker low in the canyon (pooling air)
           // drifting mist low in the chasm, luminous where the beams cross it
           const mn = N2.fbm(x * 2.2 + 3.0, z * 3.0 + y * 4.0, 4);
