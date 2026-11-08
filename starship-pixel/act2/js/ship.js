@@ -146,7 +146,7 @@ function renderShip(o) {
   const bigM = new Uint8Array(Wn * Hn);
   for (let j = 0; j < Hn; j++) {
     for (let i = 0; i < Wn; i++) {
-      const X = (i + 0.5 - half) / s, Y = -(j + 0.5 - half) / s;
+      const X = (i + 0.5 - half - (o.subx || 0) * ss) / s, Y = -(j + 0.5 - half - (o.suby || 0) * ss) / s;
       const hit = castShip(X, Y, F, flaps);
       if (hit) {
         big[j * Wn + i] = o.shade(hit, i, j, ctx);
@@ -306,13 +306,16 @@ function makeShader(env) {
     // weld rings on the barrel
     if (env.ringPx && hit.mat === 1 && hit.u < SHIP.L - SHIP.Ln && s >= 8) {
       const ringU = 0.4; const fu = hit.u / ringU;
-      if (fu - Math.floor(fu) < 1.0 / (ringU * s) && (Math.floor(fu) % (env.ringEvery || 1)) === 0) v -= env.ringDark || 0.75;
+      if (fu - Math.floor(fu) < 1.0 / (ringU * s) && (Math.floor(fu) % (env.ringEvery || 1)) === 0) { v -= env.ringDark || 0.75; hit.weld = true; }
     }
     if (hit.mat !== 1) v -= env.flapDark || 0;
     if (env.streak && hit.mat === 1) { const ap = Math.abs(hit.phi); if (ap > env.streak[0] && ap < env.streak[1]) return env.streak[2]; }
     if (rs > env.specHot) return env.specCol;
     if (rim > env.rimHot) return WARM[env.rimCol[2] + 1] ?? WARM[6];
     if (rim > env.rimWarm) return WARM[env.rimCol[2]];
+    if (env.raceway && hit.mat === 1) { const ap = Math.abs(hit.phi); if (Math.abs(ap - env.raceway) < 0.6 / s) return ST[3]; if (Math.abs(ap - env.raceway + 0.9 / s) < 0.5 / s) return ST[8]; }
+    if (env.ports && hit.mat === 1) for (const [pu, pp] of env.ports) if (Math.abs(hit.u - pu) < 1.2 / s && Math.abs(Math.abs(hit.phi) - pp) < 1.0 / s) return ST[2];
+    if (env.chromeFn) { const c = env.chromeFn(rh, rs, v, hit); return hit.weld ? DOWN[c] : c; }
     if (env.chrome) return env.chrome[clamp(Math.round(v), 0, env.chrome.length - 1)];
     return ST[clamp(Math.round(v), 2, 8)];
   };

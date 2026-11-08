@@ -39,7 +39,7 @@ const doStills = args.includes('--stills');
     await new Promise(r => ff.on('close', r));
     console.log('wrote', mp4);
     // contact sheet: one frame per second (t = 60.8, 61.8, ... 91.8 relative to film time), 8x4 grid of native frames
-    const sheet = round ? path.join(OUT, 'snapshots', `round${round}.png`) : path.join(OUT, 'contact_sheet.png');
+    const sheet = round ? path.join(OUT, 'snapshots', `${String(round).startsWith('p2') ? round : 'round' + round}.png`) : path.join(OUT, 'contact_sheet.png');
     fs.mkdirSync(path.dirname(sheet), { recursive: true });
     execFileSync('ffmpeg', ['-v', 'error', '-y', '-ss', '0.5', '-i', mp4, '-vf', 'fps=1,scale=480:270:flags=neighbor,tile=8x4', '-frames:v', '1', sheet]);
     if (round) fs.copyFileSync(sheet, path.join(OUT, 'contact_sheet.png'));

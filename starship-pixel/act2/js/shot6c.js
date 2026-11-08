@@ -85,33 +85,55 @@ const SHOT6C = (function () {
     for (let x = TOWER_A + 52; x < TOWER_A + 60; x++) { lset(site, x, 249, ST[7]); lset(site, x, 250, ST[7]); lset(site, x, 251, ST[5]); }
     const mark = (x, y) => { const j = y - site.y0; if (x >= 0 && x < site.w && j >= 0 && j < 95) objMask[j * 540 + x] = 1; };
     const sp = (x, y, c) => { lset(site, x, y, c); mark(x, y); };
-    // lattice tower: 5 px wide, X-braced, lit from the left (sun behind the camera-left)
+    // lattice tower (Act-3 style): 7 px wide, open X-bracing every 6 rows, sky-lit left legs,
+    // top platform with crane, truss chopsticks with lightening holes and support cables.
     function tower(x0, top, base, armsY, armsLen, cap) {
       for (let y = top; y <= base; y++) {
-        const r = (y - top) % 4;
-        sp(x0, y, ST[7]); sp(x0 + 4, y, ST[4]);
-        if (r === 0) { sp(x0 + 1, y, ST[6]); sp(x0 + 2, y, ST[6]); sp(x0 + 3, y, ST[5]); }
-        else if (r === 2) sp(x0 + 2, y, ST[5]);
-        else { sp(x0 + 1, y, ST[6]); sp(x0 + 3, y, ST[5]); }
+        const r = (y - top) % 6;
+        sp(x0, y, ST[8]); sp(x0 + 1, y, ST[6]); sp(x0 + 6, y, ST[4]);
+        if (r === 0) for (let x = x0 + 2; x < x0 + 6; x++) sp(x, y, x < x0 + 4 ? ST[7] : ST[5]);
+        else if (r === 1 || r === 5) { sp(x0 + 2, y, ST[6]); sp(x0 + 5, y, ST[5]); }
+        else if (r === 2 || r === 4) { sp(x0 + 3, y, ST[6]); sp(x0 + 4, y, ST[5]); }
+        else { sp(x0 + 3, y, ST[6]); sp(x0 + 4, y, ST[6]); }
+        // service elevator rail on the shadow side
+        if ((y - top) % 2 === 0) sp(x0 + 7, y, ST[3]);
       }
-      // top cap + rod
-      for (let x = x0 - 1; x <= x0 + 5; x++) { sp(x, top - 1, x < x0 + 2 ? ST[8] : ST[6]); sp(x, top, ST[4]); }
-      sp(x0 + 2, top - 2, ST[6]); sp(x0 + 2, top - 3, ST[6]); if (cap) sp(x0 + 2, top - 4, ST[5]);
-      // carriage + chopsticks
-      for (let y = armsY - 1; y <= armsY + 3; y++) for (let x = x0 - 1; x <= x0 + 5; x++) sp(x, y, x === x0 - 1 ? ST[7] : (y === armsY - 1 ? ST[7] : ST[4]));
+      // top platform + crane + rods
+      for (let y = top - 3; y < top; y++) for (let x = x0 - 1; x <= x0 + 8; x++) sp(x, y, y === top - 3 ? ST[8] : (x < x0 + 3 ? ST[7] : (x === x0 + 8 ? ST[3] : ST[5])));
+      for (let x = x0; x <= x0 + 7; x += 2) sp(x, top - 4, ST[5]);            // railing
+      if (cap) { for (let y = top - 9; y < top - 3; y++) sp(x0 + 2, y, ST[6]); for (let x = x0 + 2; x <= x0 + 9; x++) sp(x, top - 8, ST[6]); sp(x0 + 9, top - 7, ST[4]); }
+      sp(x0 + 6, top - 5, ST[6]); sp(x0 + 6, top - 6, ST[5]);
+      // carriage block
+      for (let y = armsY - 2; y <= armsY + 4; y++) for (let x = x0 - 1; x <= x0 + 8; x++)
+        sp(x, y, y === armsY - 2 ? ST[8] : (x === x0 - 1 ? ST[7] : (x === x0 + 8 ? ST[3] : ((x + y) % 3 === 0 ? ST[4] : ST[5]))));
+      // truss arms: top chord, bottom chord, verticals with open holes between
       for (let k = 1; k <= armsLen; k++) {
-        sp(x0 + 5 + k, armsY, ST[7]);
-        sp(x0 + 5 + k, armsY + 2, k < armsLen ? ST[5] : ST[6]);
-        if (k < armsLen - 1) sp(x0 + 5 + k, armsY + 1, ST[3]);
+        const x = x0 + 8 + k;
+        sp(x, armsY, ST[8]);
+        sp(x, armsY + 3, k < armsLen ? ST[5] : ST[6]);
+        if (k % 2 === 0) { sp(x, armsY + 1, ST[6]); sp(x, armsY + 2, ST[5]); }
+        else if (k < armsLen) sp(x, armsY + 2 - (k % 4 === 1 ? 1 : 0), ST[4]);
       }
-      // launch mount at the base
-      for (let y = base - 5; y <= base; y++) for (let x = x0 + 6; x <= x0 + 13; x++) {
-        const leg = (x === x0 + 6 || x === x0 + 13 || y === base - 5 || (y === base - 4 && x > x0 + 6 && x < x0 + 13));
-        if (leg) sp(x, y, x === x0 + 6 ? ST[7] : (y === base - 5 ? ST[6] : ST[4]));
+      sp(x0 + 8 + armsLen, armsY + 1, ST[7]); sp(x0 + 8 + armsLen, armsY + 2, ST[6]);   // arm tip pads
+      // support cable from the platform to the arm tips
+      const cx0 = x0 + 7, cy0 = top - 2, cx1 = x0 + 8 + armsLen, cy1 = armsY - 1;
+      const n = Math.max(Math.abs(cx1 - cx0), Math.abs(cy1 - cy0));
+      for (let i = 1; i < n; i++) { const xx = Math.round(cx0 + (cx1 - cx0) * i / n), yy = Math.round(cy0 + (cy1 - cy0) * i / n); if (lget(site, xx, yy) === TRANSP) sp(xx, yy, ST[5]); }
+      // launch mount: table on six legs with a lit deck, flame trench shadow
+      for (let y = base - 7; y <= base; y++) for (let x = x0 + 9; x <= x0 + 21; x++) {
+        const ly = y - (base - 7), lx = x - (x0 + 9);
+        let c = null;
+        if (ly === 0) c = ST[8]; else if (ly === 1) c = ST[5];
+        else if (ly === 2) c = lx % 3 === 0 ? ST[6] : ST[3];
+        else if (lx === 0 || lx === 12 || lx === 4 || lx === 8) c = lx === 0 ? ST[7] : ST[4];
+        else if (ly >= 6) c = DK[2];
+        if (c !== null) sp(x, y, c);
       }
     }
-    tower(TOWER_A, 220, 254, 224, 10, true);
-    tower(TOWER_B, 217, 254, 236, 7, false);
+    tower(TOWER_A, 216, 254, 222, 12, true);
+    tower(TOWER_B, 213, 254, 234, 8, false);
+    // pipes along the ground between the pads and the tank farm
+    for (let x = TOWER_A + 22; x < TOWER_B; x++) { sp(x, 252, ST[6]); if (x % 5 === 0) sp(x, 251, ST[4]); }
     // small structures: hangar sheds, water tower
     for (let y = 247; y < 252; y++) for (let x = TOWER_A - 30; x < TOWER_A - 22; x++) sp(x, y, y === 247 ? ST[7] : ST[5]);
     for (let y = 240; y < 252; y++) { sp(TOWER_B - 10, y, ST[6]); sp(TOWER_B - 9, y, ST[4]); }
@@ -213,9 +235,12 @@ const SHOT6C = (function () {
   })();
 
   // fair-weather cumulus
-  const CLOUD_L = makePuffCloud(4711, 96, 26, { n: 14, rmin: 4, rmax: 10, tower: 0.5, cols: [SKY[7], SKY[7], SKY[8], SKY[9]] });
-  const CLOUD_S = [makePuffCloud(4712, 40, 12, { n: 8, rmin: 3, rmax: 5, tower: 0.4, cols: [SKY[7], SKY[8], SKY[8], SKY[9]] }),
-                   makePuffCloud(4713, 54, 14, { n: 9, rmin: 3, rmax: 6, tower: 0.4, cols: [SKY[7], SKY[8], SKY[8], SKY[9]] })];
+  // sculpted clouds: crisp apricot rims on the sun side (upper left), a rose line underneath
+  const CLOUD_L = rimCloud(makePuffCloud(4711, 96, 28, { n: 16, rmin: 4, rmax: 11, tower: 0.6, cols: [SUR[4], SKY[8], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], SUR[5], SUR[3]);
+  const CLOUD_S = [rimCloud(makePuffCloud(4712, 40, 12, { n: 8, rmin: 3, rmax: 5, tower: 0.4, cols: [SUR[4], SKY[8], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], SUR[5], SUR[4]),
+                   rimCloud(makePuffCloud(4713, 54, 14, { n: 9, rmin: 3, rmax: 6, tower: 0.4, cols: [SUR[4], SKY[8], SKY[9], SKY[9]], light: [-0.55, -0.55, 0.62] }), [-1, -1], SUR[5], SUR[4])];
+  const ROCKS = [makeRock(9101, 9), makeRock(9102, 6), makeRock(9103, 5)].map(r => { for (let i = 0; i < r.data.length; i++) if (r.data[i] !== TRANSP) r.data[i] = UP[UP[r.data[i]]]; return r; });   // aerial perspective
+  const SKYBUF = new Uint8Array(W * H);
 
   function drawLayer(L, ox, oy) {
     for (let j = 0; j < L.h; j++) {
@@ -245,7 +270,7 @@ const SHOT6C = (function () {
     tileFn: () => 1,
   });
   function shipSprite(tau) { return spriteAt(Math.round(shipTheta(tau))); }
-  function spriteAt(th) { return cachedShip('6cm|' + th, () => miniShip(th, 15)); }
+  function spriteAt(th) { return cachedShip('6cm|' + th, () => miniShip(th, 18, { hw: 1.3, nose: 4.2 })); }
 
   function flame(tau, spr, bx, by) {
     if (tau < IGN) return;
@@ -332,38 +357,58 @@ const SHOT6C = (function () {
     }
   }
 
+  // dreamlike banded sky: ultramarine -> blue -> teal -> pale -> apricot -> rose belt -> haze
+  const BANDS = [[1.45, SKY[4]], [1.1, SKY[5]], [0.8, SKY[6]], [0.62, SKY[7]], [0.55, TEAL[2]], [0.47, SKY[8]], [0.26, SUR[5]], [0.1, SKY[9]], [0.028, SUR[4]], [0, SKY[9]]];
+  function skyColor(dh, x, yw) {
+    for (let i = 0; i < BANDS.length - 1; i++) {
+      const [h0, c0] = BANDS[i], [h1, c1] = BANDS[i + 1];
+      if (dh >= h1) {
+        const f = (dh - h1) / (h0 - h1);                 // 1 at upper colour .. 0 at lower
+        const fz = clamp((f - 0.5) * 4 + 0.5, 0, 1);     // short dithered seam between bands
+        return fz > bayer(x, yw) ? c0 : c1;
+      }
+    }
+    return BANDS[BANDS.length - 1][1];
+  }
+
   function draw(t) {
     const tau = t - T0;
     const p = pan(tau), ty = Math.round(tilt(tau));
-    // sky: pale, hazing to near-white at the horizon
     const hzS = HZ - ty;
     for (let y = 0; y < H; y++) {
-      const dh = (hzS - y) / 150;     // 0 at horizon, 1 high up
-      const v = 9.0 - 1.85 * Math.pow(clamp(dh, 0, 1.4), 0.7);
-      for (let x = 0; x < W; x++) FB[y * W + x] = rampDither(SKY, v + (x / W) * 0.15, x, y + ty, 12);
+      const dh = (hzS - y) / 160;
+      for (let x = 0; x < W; x++) FB[y * W + x] = skyColor(dh + (x / W) * 0.03, x, y + ty);
     }
-    // a thin band of warm morning haze lying on the sea horizon
-    for (let k = 1; k <= 7; k++) {
-      const y = hzS - k; if (y < 0 || y >= H) continue;
-      const d = 0.62 - k * 0.085;
-      for (let x = 0; x < W; x++) if (FB[y * W + x] === SKY[9] && dens(x, y + ty, d)) FB[y * W + x] = WARM[6];
-    }
-    // high cirrus veils drifting slowly, brightened through ordered densities
+    MASK.fill(0);
+    // aurora veils high in the daytime sky
+    auroraVeil(tau, { x0: -20, x1: 300, base: 70 - ty, amp: 9, f1: 0.021, s1: 0.35, f2: 0.05, s2: 0.25, h: 46, strength: 0.55, map: TEALTINT });
+    auroraVeil(tau, { x0: 220, x1: 500, base: 52 - ty, amp: 7, f1: 0.026, s1: 0.3, f2: 0.043, s2: 0.2, h: 34, strength: 0.45, map: ROSETINT });
+    // high cirrus veils drifting slowly
     const cirOff = Math.round(tau * 1.5 + p * D.cloud);
     for (let y = 0; y < hzS - 40; y++) for (let x = 0; x < W; x++) {
       const X = x + cirOff, Y = y + ty;
       const sweep = Y - X * 0.12;
       const c = fbm(X / 190, sweep / 11, 131, 3) * 0.75 + vnoise(X / 26, sweep / 3.5, 137) * 0.35;
-      if (c > 0.8) { if (dens(X, Y, c > 0.87 ? 0.5 : 0.25)) mapPx(x, y, UP); }
+      if (c > 0.82) { if (dens(X, Y, c > 0.88 ? 0.5 : 0.25)) mapPx(x, y, UP); }
     }
+    // the giant ringed planet low over the sea (east), and its small companion moon
+    const pOff = -Math.round(p * 3);
+    drawPlanet({ cx: 404 + pOff, cy: 152 - ty, r: 54, rot: -0.22, tilt: 0.2, light: [-0.7, -0.5],
+      bands: [SKY[9], SKY[9], SUR[5], SKY[9], SKY[8], SKY[9], SUR[5], SKY[8], SKY[9]],
+      fade: (y) => clamp((hzS - 8 - y) / 60, 0.2, 1), clipY: hzS });
+    drawPlanet({ cx: 96 + pOff, cy: 34 - ty, r: 6, rot: 0, tilt: 0.01, light: [-0.8, -0.3], bands: [SKY[9], SUR[5], SKY[9]], fade: () => 1 });
     // clouds
     const cOff = -Math.round(p * D.cloud);
-    blit(CLOUD_L, 4 + cOff - Math.round(tau * 0.6), 138 - ty);
+    blit(CLOUD_L, 4 + cOff - Math.round(tau * 0.6), 136 - ty);
     blit(CLOUD_S[0], 300 + cOff - Math.round(tau * 0.4), 206 - ty);
-    blit(CLOUD_S[1], 410 + cOff - Math.round(tau * 0.4), 199 - ty);
+    blit(CLOUD_S[1], 420 + cOff - Math.round(tau * 0.4), 200 - ty);
     blit(CLOUD_S[0], 140 + cOff - Math.round(tau * 0.5), 210 - ty);
+    // floating stone islands far out over the sea, bobbing slowly
+    const rOff = -Math.round(p * 9);
+    const RP = [[376, 205, 0], [452, 193, 1], [424, 214, 2]];
+    for (const [rx, ry, k] of RP) blit(ROCKS[k], rx + rOff, Math.round(ry - ty + Math.sin(tau * (0.5 + k * 0.17) + k * 2) * 1.2));
 
-    // ship (behind nothing: it is high above the horizon)
+    // ship
     const spr = shipSprite(tau);
     const sx = Math.round(shipX(tau)), sy = Math.round(shipY(tau));
     const bx = sx - Math.round(spr.ox), by = sy - Math.round(spr.oy);
@@ -371,58 +416,85 @@ const SHOT6C = (function () {
     ignitionFx(tau, camX, camY);
     ignitionBloom(tau, bx, by, spr);
     flame(tau, spr, bx, by);
-    blit(spr, bx, by);
+    blit(spr, bx, by, true);
     rcs(tau, bx, by, spr);
-
     pelicans(tau, ty);
+    lightMotes(tau, 18, 77, [0, 20, W, hzS - 6], [WARM[6], TEAL[2], SUR[5]]);
+    SKYBUF.set(FB);
+
     // ground layers
     const oSea = -Math.round(p * D.sea), oSite = -Math.round(p * D.site), oLag = -Math.round(p * D.lagoon), oB = -Math.round(p * D.build);
-    drawLayer(sea, oSea - 20, ty);
-    // surf: three breaker lines rolling to the beach
-    for (let k = 0; k < 2; k++) {
-      const ph = ((tau * 0.2 + k / 2) % 1);
-      const yw = Math.round(HZ + 11 + ph * 5) - ty;
+    // sea: a near-perfect mirror of the sky bands, planet and islands, with swell lines
+    for (let wy = HZ; wy < 244; wy++) {
+      const y = wy - ty; if (y < 0 || y >= H) continue;
+      const d = wy - HZ;
+      const rip = d > 2 ? Math.round(Math.sin(wy * 1.9 + tau * 1.7) * (0.4 + d * 0.06)) : 0;
+      const sy2 = 2 * hzS - y - 1;
+      for (let x = 0; x < W; x++) {
+        const sx2 = clamp(x + rip, 0, W - 1);
+        let c = sy2 >= 0 ? (d < 4 ? SKYBUF[sy2 * W + sx2] : REFL[SKYBUF[sy2 * W + sx2]]) : SKY[5];
+        const wx = x - oSea;
+        const sw = Math.sin(wx / (7 + d * 2.5) + d * 2.1 + tau * 0.3) + Math.sin(d * 3.7);
+        if (d === 0) c = WA[3];
+        else if (d > 3 && sw > 1.75) c = DOWN[c];
+        else if (d > 1 && ((wy + Math.floor(tau * 1.5)) % 2 === 0 || d > 9)) c = WATERTINT[c];   // ripple rows carry the sea's own blue
+        FB[y * W + x] = c;
+      }
+    }
+    // surf: breaker lines with foam that rolls in and sinks into the sand
+    for (let k = 0; k < 3; k++) {
+      const ph = ((tau * 0.2 + k / 3) % 1);
+      const yw = Math.round(HZ + 9 + ph * 7) - ty;
       for (let x = 0; x < W; x++) {
         const wx = x - oSea;
-        const on = vnoise(wx / 12, k * 7 + Math.floor(tau * 0.2 + k / 2) * 13, 444) > 0.42 + ph * 0.35;
-        if (on) px(x, yw, ph < 0.6 ? SKY[9] : SKY[8]);
+        const on = vnoise(wx / 12, k * 7 + Math.floor(tau * 0.2 + k / 3) * 13, 444) > 0.4 + ph * 0.35;
+        if (on) { px(x, yw, ph < 0.6 ? SKY[9] : SKY[8]); if (ph > 0.3 && hash2(wx, k, 9) < 0.35) px(x, yw + 1, SKY[8]); }
       }
     }
     drawLayer(site, oSite - 30, ty);
-    // aviation lights on the tower tops (slow blink)
-    if ((tau % 1.6) < 0.35) { px(TOWER_A + 2 + oSite - 30, 220 - 4 - ty, WARM[2]); }
-    if (((tau + 0.8) % 1.6) < 0.35) { px(TOWER_B + 2 + oSite - 30, 217 - 4 - ty, WARM[2]); }
-    // lagoon water with tower reflections
+    // foam lace along the waterline
+    for (let x = 0; x < W; x++) { const wx = x - oSea; if (vnoise(wx / 4, tau * 0.8, 455) > 0.55) px(x, 243 - ty, SKY[9]); }
+    // aviation + mount lights
+    if ((tau % 1.6) < 0.35) px(TOWER_A + 2 + oSite - 30, 216 - 10 - ty, WARM[2]);
+    if (((tau + 0.8) % 1.6) < 0.35) px(TOWER_B + 2 + oSite - 30, 213 - 6 - ty, WARM[2]);
+    if (((tau + 0.4) % 2.2) < 1.6) { px(TOWER_A + 12 + oSite - 30, 249 - ty, WARM[4]); px(TOWER_B + 16 + oSite - 30, 249 - ty, WARM[4]); }
+    // lagoon: mirror of everything above (sky, planet, ship), towers mirrored about their base
     const lx = oLag - 50;
     for (let j = 0; j < lagoon.h; j++) {
       const wy = lagoon.y0 + j, y = wy - ty; if (y < 0 || y >= H) continue;
       const rip = Math.round(Math.sin(wy * 1.3 + tau * 2.2) * 0.8);
+      const sy2 = clamp(2 * hzS - y - 1, 0, H - 1);
       for (let i = 0; i < lagoon.w; i++) {
         const m = lagoon.data[j * lagoon.w + i]; if (m === TRANSP) continue;
         const x = i + lx; if (x < 0 || x >= W) continue;
         if (m !== 1) { FB[y * W + x] = m; continue; }
-        // sky reflection: lighter further away
-        const dd = wy - HZ;
-        let c = rampDither([WA[3], WA[4], SKY[8], SKY[9]], 2.3 - dd / 40, i, wy, 2.5);
-        // shoreline darkening (1px under land edge)
-        if (j > 0 && lagoon.data[(j - 1) * lagoon.w + i] !== 1) c = WA[3];
-        // reflections of the towers
+        let c = REFL[SKYBUF[sy2 * W + clamp(x + rip, 0, W - 1)]];
+        if (j > 0 && lagoon.data[(j - 1) * lagoon.w + i] !== 1) c = MA[5];      // wet mud lip
+        else if (j > 1 && lagoon.data[(j - 2) * lagoon.w + i] !== 1) c = DOWN[c];
         const sxl = x - (oSite - 30) + rip, syw = 2 * MIRROR - wy;
         const sj = syw - site.y0;
-        if (sxl >= 0 && sxl < 540 && sj >= 0 && sj < 95 && objMask[sj * 540 + sxl]) c = WA[2];
-        // ripple glints
-        const g = hash2(i, j, Math.floor(tau * 3 + i * 0.37));
-        if (g > 0.996) c = SKY[9];
+        if (sxl >= 0 && sxl < 540 && sj >= 0 && sj < 95 && objMask[sj * 540 + sxl]) c = DOWN[site.data[sj * site.w + sxl]];
+        else if ((wy + Math.floor(tau * 1.2)) % 4 === 0 && hash2(i >> 3, wy, 33) < 0.6) c = WATERTINT[c];   // breeze ripples
+        if (hash2(i, j, Math.floor(tau * 3 + i * 0.37)) > 0.997) c = WARM[6];
         FB[y * W + x] = c;
       }
     }
     // sparkles on the sea
     for (let k = 0; k < 14; k++) {
       const life = Math.floor(tau * 2.2 + k * 0.37);
-      const gx = Math.floor(hash2(k, life, 5) * W), gy = HZ + 2 + Math.floor(hash2(k, life, 6) * 9) - ty;
-      if (((tau * 2.2 + k * 0.37) % 1) < 0.4) px(gx, gy, SKY[9]);
+      const gx = Math.floor(hash2(k, life, 5) * W), gy = HZ + 2 + Math.floor(hash2(k, life, 6) * 12) - ty;
+      if (((tau * 2.2 + k * 0.37) % 1) < 0.4) px(gx, gy, WARM[6]);
     }
     drawLayer(build, oB - 60, ty);
+    // foreground grass blades along the bottom edge, swaying in the sea breeze
+    for (let x = 0; x < W; x++) {
+      const wx = x - oB;
+      const hgt = Math.floor(hash2(wx, 3, 61) * 7);
+      if (hgt < 2 || FB[(H - 1) * W + x] === DK[2] || FB[(H - 1) * W + x] === DK[1] || FB[(H - 1) * W + x] === DK[0]) continue;
+      const sway = Math.sin(tau * 1.6 + wx * 0.15) > 0.6 ? 1 : 0;
+      const c = hash2(wx, 4, 61) < 0.5 ? MA[3] : MA[4];
+      for (let k = 0; k < hgt; k++) px(x + (k > hgt / 2 ? sway : 0), H - 1 - k, k === hgt - 1 ? MA[5] : c);
+    }
   }
   return { T0, T1, draw, sprite: spriteAt };
 })();

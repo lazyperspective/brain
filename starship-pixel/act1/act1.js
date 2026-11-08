@@ -1,9 +1,9 @@
 // act1.js — Starship Catch, pixel-art recreation. Act 1: shots 1-5 (t = 0.0 - 30.1 s)
 'use strict';
 const ACT1 = (() => {
-  const { W, H, R, rampc, dith2, thr, q4, clamp, sstep, lerp, hash, vnoise, fbm, surf, screen: S, pset, pget, fill, rect, blit, line, linef, poly, disc, ring, deorphan } = PX;
+  const { W, H, R, rampc, dith2, thr, q4, clamp, sstep, lerp, hash, vnoise, fbm, surf, screen: S, pset, pget, fill, rect, blit, line, lineP, linef, poly, disc, ring, deorphan } = PX;
   const CUTS = [0, 4.338, 12.146, 15.115, 18.919, 30.1];
-  const sky = R.sky, warm = R.warm, steel = R.steel, marsh = R.marsh, water = R.water, dark = R.dark;
+  const sky = R.sky, warm = R.warm, steel = R.steel, marsh = R.marsh, water = R.water, dark = R.dark, sur = R.sur, teal = R.teal;
   const ease = t => t * t * (3 - 2 * t);
 
   // ---- cloud baking: metaball puffs -> 4-tone pixel clouds lit from above ----
@@ -110,7 +110,7 @@ const ACT1 = (() => {
   // ---- brighten a screen region along each colour's own ramp (glare / bloom), ordered-dithered
   const BR = new Map();
   (function () {
-    const chains = [sky.concat([warm[0]]), marsh.concat([warm[1], warm[0]]), water.concat([sky[9], warm[0]]), steel.slice(0, 8).concat([steel[8], warm[0]]), dark.concat([steel[2], steel[3]]), R.warmUp];
+    const chains = [R.sur.concat([warm[0]]), R.teal.concat([sky[9], warm[0]]), sky.concat([warm[0]]), marsh.concat([warm[1], warm[0]]), water.concat([sky[9], warm[0]]), steel.slice(0, 8).concat([steel[8], warm[0]]), dark.concat([steel[2], steel[3]]), R.warmUp];
     for (const ch of chains) ch.forEach((c, i) => { if (!BR.has(c)) BR.set(c, { ch, i }); });
   })();
   function bloom(fn) { // fn(x,y) -> boost in ramp steps
@@ -120,15 +120,101 @@ const ACT1 = (() => {
     }
   }
 
+  // ======================= PASS 2: SHARED SURREAL LANGUAGE =======================
+  // giant pale ringed planet (always east, over the sea). cov(x,y) -> 0..1 opacity (haze); light = angle toward the sun
+  function drawPlanet(T, cx, cy, Rp, o = {}) {
+    const tilt = o.tilt ?? -0.3, ry = o.ry ?? 0.21, la = o.light ?? Math.PI, cov = o.cov || (() => o.alpha ?? 0.9);
+    const ca = Math.cos(tilt), sa = Math.sin(tilt), lx = Math.cos(la), ly = Math.sin(la);
+    const LIT = [sky[9], sur[5], sky[8], warm[0], sky[9], sur[5]], SHD = [sky[7], sur[5], sky[6], sur[4], sky[7], sky[8]];
+    const ext = Rp * 2.35, x0 = Math.floor(cx - ext), x1 = Math.ceil(cx + ext), y0 = Math.floor(cy - ext * 0.6), y1 = Math.ceil(cy + ext * 0.6);
+    for (let y = Math.max(0, y0); y <= Math.min(T.h - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(T.w - 1, x1); x++) {
+      const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.hypot(dx, dy) / Rp;
+      const u = dx * ca + dy * sa, v = (-dx * sa + dy * ca);
+      const rr = Math.hypot(u, v / ry) / Rp, front = v > 0;
+      let ring = 0;
+      if (rr > 1.28 && rr < 1.56) ring = rr < 1.33 ? sur[4] : sur[5];
+      else if (rr > 1.61 && rr < 1.96) ring = (rr > 1.78 && rr < 1.81) ? sky[7] : sky[8];
+      else if (rr > 2.0 && rr < 2.06) ring = sur[4];
+      else if (rr > 2.1 && rr < 2.24) ring = ((x + y) & 1) ? sky[8] : 0;
+      let c = 0;
+      if (d <= 1 && !(ring && front)) {
+        const lat = v / Rp, band = Math.floor((lat + 1) * 5.5 + 0.35 * Math.sin(u / Rp * 3.1 + lat * 4));
+        const nz = Math.sqrt(Math.max(0, 1 - d * d)), lit = (dx / Rp) * lx + (dy / Rp) * ly + nz * 0.35;
+        const ring_sh = front === false && rr > 1.28 && rr < 1.96 && lat < 0 && lat > -0.5 ? 1 : 0; // ring shadow across the disc
+        c = q4(clamp((lit + 0.15) * 1.6, 0, 1)) > thr(x, y) ? LIT[((band % 6) + 6) % 6] : SHD[((band % 6) + 6) % 6];
+        if (ring_sh && Math.abs(lat + 0.28) < 0.05) c = sur[4];
+        if (d > 0.93 && lit > 0.15) c = warm[0]; // crisp lit limb
+      } else if (ring) c = ring;
+      if (!c) continue;
+      if (q4(cov(x, y)) <= thr(x, y)) continue;
+      T.d[y * T.w + x] = c;
+    }
+  }
+  function drawMoon(T, cx, cy, r, la = 0, cov = 1) {
+    disc(T, cx, cy, r, (x, y, d) => { if (q4(cov) <= thr(x, y)) return 0; const dx = (x + 0.5 - cx) / r, dy = (y + 0.5 - cy) / r; const lit = dx * Math.cos(la) + dy * Math.sin(la);
+      return lit > 0.25 ? (d > r - 1 ? warm[0] : sky[9]) : lit > -0.2 ? sur[5] : sky[7]; });
+  }
+  // aurora-like daylight veils: folded curtains, teal lower edge -> rose crowns, 25-50% ordered coverage
+  function bakeAurora(w, h, o = {}) {
+    const A = surf(w, h), y0 = o.y0 ?? 20, len = o.len ?? 60, seed = o.seed ?? 1, k = o.k ?? 1;
+    for (let x = 0; x < w; x++) {
+      const fold = 0.55 + 0.45 * Math.sin(x / 31 + Math.sin(x / 67 + seed) * 2.2);
+      const top = y0 + 18 * Math.sin(x / 73 + seed) + 5 * Math.sin(x / 19 + seed * 2), L = len * (0.7 + 0.3 * fold);
+      const ray = 0.7 + 0.3 * Math.sin(x * 0.9 + seed) * Math.sin(x * 0.37);
+      for (let y = Math.max(0, Math.floor(top)); y < Math.min(h, top + L); y++) {
+        const f = (y - top) / L, inten = fold * ray * (f < 0.85 ? Math.min(1, f * 3) : (1 - f) / 0.15) * k;
+        const c = f > 0.84 ? teal[2] : f > 0.5 ? teal[1] : f > 0.22 ? sur[4] : sur[3];
+        if (q4(clamp(inten * (f > 0.84 ? 0.75 : 0.5), 0, 0.75)) > thr(x, y)) A.d[y * w + x] = c;
+      }
+    }
+    return A;
+  }
+  // drifting motes of light (pure function of t), twinkling; region [x0,y0,x1,y1]
+  function motes(t, n, seed, x0, y0, x1, y1, cols, keep) {
+    for (let k = 0; k < n; k++) {
+      const bx = x0 + hash(k, 1, seed) * (x1 - x0), by = y0 + hash(k, 2, seed) * (y1 - y0), sp = 1.5 + hash(k, 3, seed) * 3;
+      const x = Math.round(bx + Math.sin(t * 0.35 + k) * 6 + t * sp * 0.6), y = Math.round(by + Math.cos(t * 0.27 + k * 1.7) * 4 - t * sp * 0.4);
+      if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+      if (keep && !keep(S.d[y * W + x])) continue;
+      const tw = Math.sin(t * (1.3 + hash(k, 4, seed) * 2) + k * 2.1); if (tw < -0.2) continue;
+      const c = cols[k % cols.length]; pset(S, x, y, c);
+      if (tw > 0.85 && hash(k, 5, seed) > 0.6) { pset(S, x - 1, y, cols[(k + 1) % cols.length]); pset(S, x + 1, y, cols[(k + 1) % cols.length]); pset(S, x, y - 1, cols[(k + 1) % cols.length]); pset(S, x, y + 1, cols[(k + 1) % cols.length]); }
+    }
+  }
+  // small floating rock island sprite (grass cap, violet stone underside, hanging roots)
+  function makeIsland(seed, w) {
+    const rnd = PX.mulberry(seed), h = Math.round(w * 1.1) + 4, I = surf(w + 2, h);
+    const cx = (w + 1) / 2, capY = 3;
+    for (let x = 0; x < w + 2; x++) {
+      const u = (x - cx) / (w / 2); if (Math.abs(u) > 1) continue;
+      const top = capY - Math.round(Math.sqrt(1 - u * u) * 1.5), depth = Math.round((1 - Math.abs(u) ** 1.3) * (h - 6) * (0.75 + 0.25 * rnd()));
+      for (let y = top; y <= capY + depth; y++) {
+        let c;
+        if (y <= capY) c = y === top ? marsh[5] : (u < -0.2 ? marsh[4] : marsh[3]);
+        else { const f = (y - capY) / Math.max(1, depth); c = u < -0.35 ? (f < 0.4 ? marsh[2] : sur[2]) : (f < 0.25 ? steel[3] : f < 0.6 ? sur[1] : sur[0]); if (u < -0.6 && f < 0.7) c = sur[3]; }
+        pset(I, x, y, c);
+      }
+      if (rnd() < 0.25 && Math.abs(u) < 0.8) { const L = 2 + Math.floor(rnd() * 4), y2 = capY + depth + 1; for (let k = 0; k < L; k++) if ((k & 1) === 0 || k < 2) pset(I, x, y2 + k, sur[1]); }
+    }
+    if (w > 9) { const tx = Math.round(cx + (rnd() - 0.5) * w * 0.4); pset(I, tx, capY - 2, marsh[2]); pset(I, tx, capY - 3, marsh[3]); pset(I, tx - 1, capY - 3, marsh[3]); pset(I, tx + 1, capY - 3, marsh[4]); pset(I, tx, capY - 4, marsh[4]); }
+    return I;
+  }
+  function drawIsland(I, x, y, t, ph, cov = 1) { const bob = Math.round(Math.sin(t * 0.6 + ph) * 1.2); blit(S, I, x, y + bob, cov < 1 ? ((px, py) => q4(cov) > thr(px, py)) : null); }
+  // crisp hand-pixelled rims on a cloud surface: sunlit top edge and rose underside edge
+  function rims(Sf, top, under) { const w = Sf.w, h = Sf.h, src = Sf.d.slice(); for (let y = 1; y < h - 1; y++) for (let x = 0; x < w; x++) { const i = y * w + x; if (!src[i]) continue; if (!src[i - w] && top) Sf.d[i] = top; else if (!src[i + w] && under) Sf.d[i] = under; } }
+  // a "dream" sky ramp: deep ultramarine -> teal -> apricot -> rose (banded, impossible hues)
+  const DREAM = [sur[0], sky[1], sky[2], sky[3], sky[4], sky[5], teal[1], teal[2], sur[5], warm[1], warm[2], sur[4]];
+
   // ======================= SHOT 1 : blue sky, contrail =======================
   const S1 = (() => {
-    let skyS, cloudA, cloudB, wisp; const M = 48;
+    let skyS, cloudA, cloudB, wisp, aur; const M = 48;
     const ax = 205, ay = 176; // contrail anchor (screen at t=0), slope -2/3
     function init() {
       skyS = surf(W, H);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const u = clamp(((W - x) / W) * 0.55 + (y / H) * 0.85, 0, 1.4) / 1.4;
-        skyS.d[y * W + x] = rampc(sky, 2.75 + 2.2 * u, x, y, 0.45);
+        let v = 1.7 + 3.6 * u; const corner = clamp(1 - Math.hypot(x / W, (H - y) / H * 1.2) / 0.6, 0, 1); v += corner * 5.2; // apricot-rose glow low in one corner
+        skyS.d[y * W + x] = rampc(DREAM, v, x, y, 0.45);
       }
       const LW = W + 2 * M, LH = H + 2 * M;
       // clear lane around the contrail, clouds heavier bottom/left
@@ -137,12 +223,12 @@ const ACT1 = (() => {
         const a = ((sx - 300) * 0.83 - (sy - 90) * 0.55) / 230, b = ((sx - 300) * 0.55 + (sy - 90) * 0.83) / 70;
         return sstep(0.55, 1.35, Math.sqrt(a * a + b * b));
       };
-      const env = (x, y) => clamp(mask(x, y) * (fbm(x / 85, y / 55, 21, 4) * 2.1 - 0.72), 0, 1);
+      const env = (x, y) => clamp(mask(x, y) * (fbm(x / 85, y / 55, 21, 4) * 2.1 - 0.72) * sstep(70, 135, Math.hypot(x - M - 430, (y - M - 245) * 1.4)), 0, 1);
       const puffs = streetPuffs(LW, LH, 101, 0.62, 6, 4.5, (x, y) => { const e = env(x, y); return e < 0.34 ? 0 : clamp((e - 0.26) / 0.5, 0, 1); }, 1.8, 4.2)
         .concat(streetPuffs(LW, LH, 102, 0.62, 14, 9, (x, y) => { const e = env(x, y); return e < 0.62 ? 0 : clamp((e - 0.5) / 0.5, 0, 1); }, 3.5, 6.5));
       // streaky fibres threading through the patches (mackerel / cirrocumulus texture)
       { const rnd = PX.mulberry(103); for (let i = 0; i < 1500; i++) { const x = rnd() * LW, y = rnd() * LH, e = env(x, y); if (e < 0.3 || rnd() > e) continue; puffs.push({ x, y, r: 0.9 + rnd() * 0.9, w: 1, ax: 5 + rnd() * 5 }); } }
-      cloudA = bakeBubbles(LW, LH, puffs, [sky[6], sky[7], sky[8], sky[9]], { hl: 0.45, sh: 0.0 });
+      cloudA = bakeBubbles(LW, LH, puffs, [sur[5], sky[7], sky[8], sky[9]], { hl: 0.45, sh: 0.1 }); rims(cloudA, warm[0], 0);
       cloudB = halo(cloudA, [[sky[6], 1], [sky[6], 0.5], [sky[5], 0.5], [sky[5], 0.25], [sky[5], 0.25]]);
       // high cirrus: long flattened, low-contrast wisps
       const rnd = PX.mulberry(77); const wps = [];
@@ -151,6 +237,7 @@ const ACT1 = (() => {
         for (let k = 0; k < n; k++) wps.push({ x: gx + k * 9 + (rnd() - 0.5) * 8, y: gy + k * 3.5 + (rnd() - 0.5) * 3, r: 1.2 + rnd() * 1.3, w: 1, ax: 9 + rnd() * 6 });
       }
       wisp = bakeBubbles(LW, LH, wps, [sky[5], sky[5], sky[6], sky[6]], { hx: 0, hy: -0.6 });
+      aur = bakeAurora(LW, LH, { y0: 60, len: 80, seed: 3, k: 0.85 });
     }
     function render(t) {
       blit(S, skyS, 0, 0);
@@ -158,6 +245,10 @@ const ACT1 = (() => {
       const wx = Math.round(-M + 1.0 * t), wy = Math.round(-M - 3.2 * t);
       const bx = Math.round(-M + 1.6 * t), by = Math.round(-M - 4.4 * t);
       const cx = Math.round(-M + 2.2 * t), cy = Math.round(-M - 5.8 * t);
+      // far things first: the ringed planet low in the east (bottom-right), a small moon, daylight aurora veils
+      drawPlanet(S, Math.round(424 + 0.6 * t), Math.round(240 - 2.4 * t), 78, { tilt: 0.5, ry: 0.24, light: -2.4, cov: (x, y) => 0.75 + 0.25 * clamp((y - 150) / 60, 0, 1) });
+      drawMoon(S, Math.round(338 + 0.6 * t), Math.round(36 - 2.4 * t), 5, -2.6, 0.95);
+      blit(S, aur, Math.round(-M + 0.8 * t), Math.round(-M - 2.8 * t));
       blit(S, wisp, wx, wy);
       // contrail (lives in the high wisp layer), jet flies to lower-left at 7 px/s relative to air
       const ox = wx + M, oy = wy + M;
@@ -193,6 +284,7 @@ const ACT1 = (() => {
       pset(S, jx, jy, steel[8]); pset(S, jx + 1, jy - 1, steel[7]); pset(S, jx - 1, jy, steel[6]);
       pset(S, jx + 1, jy, steel[5]); pset(S, jx, jy - 1, steel[6]); pset(S, jx, jy + 1, steel[5]);
       if ((t % 1.1) < 0.07) pset(S, jx - 1, jy + 1, warm[0]); // anti-collision strobe
+      motes(t, 14, 41, 0, 0, W, H, [warm[0], teal[2], sur[5]]);
       // a small flock crossing low and late, much closer than the jet
       if (t > 2.3) for (let b = 0; b < 6; b++) {
         const tb = t - 2.3 - b * 0.06, bx = Math.round(-12 + tb * 60 + (b % 3) * 7 - b * 2), by = Math.round(236 - tb * 20 + ((b * 5) % 9) + Math.sin(tb * 3 + b) * 1.5);
@@ -311,6 +403,7 @@ const ACT1 = (() => {
       if (pr.k === 'b') {
         const A = cam.proj(pr.a), B = cam.proj(pr.b); if (A[2] < 0.5 || B[2] < 0.5) continue;
         items.push({ pr, A, B, z: (A[2] + B[2]) / 2 });
+        if (sty.gussets && pr.w >= 0.4 && pr.tone === 0 && !pr.arm) for (const [E, P3] of [[A, pr.a], [B, pr.b]]) items.push({ g: 1, E, z: E[2] - 0.6, sz: Math.max(1, Math.round(1.1 * cam.f / E[2])) });
       } else {
         const ps = pr.p.map(p => cam.proj(p)); if (ps.some(p => p[2] < 0.5)) continue;
         // back-face cull via screen winding
@@ -326,17 +419,23 @@ const ACT1 = (() => {
     // screen light direction
     const c0 = cam.proj(vadd(cam.pos, vmul(cam.fwd, 50))), c1 = cam.proj(vadd(vadd(cam.pos, vmul(cam.fwd, 50)), vmul(Ls, 5)));
     let lsx = c1[0] - c0[0], lsy = c1[1] - c0[1]; const ll = Math.hypot(lsx, lsy) || 1; lsx /= ll; lsy /= ll;
+    const camDir = cam.fwd;
     for (const it of items) {
+      if (it.g) { // gusset plate at a joint: tiny lit square with a shadowed corner
+        const x = Math.round(it.E[0]), y = Math.round(it.E[1]), sz = Math.min(3, it.sz);
+        if (sz >= 2) { rect(T, x - 1, y - 1, sz, sz, col(sty.base + 1.2, it.z)); pset(T, x - 1, y - 1, col(sty.base + 2.6, it.z)); pset(T, x - 2 + sz, y - 2 + sz, col(sty.base - 1.2, it.z)); }
+        continue;
+      }
       const pr = it.pr;
       if (pr.k === 'b') {
         const [ax, ay] = it.A, [bx, by] = it.B; let dx = bx - ax, dy = by - ay; const len = Math.hypot(dx, dy) || 1;
         const nx = -dy / len, ny = dx / len; const side = nx * lsx + ny * lsy >= 0 ? 1 : -1;
         const dir3 = vnorm(vsub(pr.b, pr.a)); const lam = Math.sqrt(Math.max(0, 1 - vdot(dir3, Ls) ** 2));
-        const base = sty.base + pr.tone + (lam - 0.5) * (sty.lamK ?? 1.5) + (pr.n ? vdot(pr.n, Ls) * (sty.faceK ?? 0) : 0);
+        const base = sty.base + pr.tone + (lam - 0.5) * (sty.lamK ?? 1.5) + (pr.n ? vdot(pr.n, Ls) * (sty.faceK ?? 0) - (vdot(pr.n, camDir) > 0.2 ? (sty.backDark ?? 0) : 0) : 0);
         const tpx = pr.w * cam.f / it.z * (sty.wk ?? 1);
         const cMid = col(base, it.z), cLit = col(base + (sty.litUp ?? 2), it.z), cDk = col(base - (sty.dkDn ?? 1.5), it.z);
         if (tpx < 1.6) {
-          line(T, ax, ay, bx, by, lam > 0.75 && sty.thinLit ? cLit : cMid);
+          lineP(T, ax, ay, bx, by, lam > 0.75 && sty.thinLit ? cLit : cMid);
         } else if (tpx < 2.7) {
           // two px: lit row + shade row along minor axis
           const steep = Math.abs(dy) > Math.abs(dx);
@@ -354,6 +453,11 @@ const ACT1 = (() => {
         const lam = vdot(nrm, Ls);
         const idx = sty.base + pr.tone + (lam > 0 ? lam : lam * (sty.amb ?? 0.35)) * (sty.quadK ?? 2.5);
         const ps = it.ps;
+        if (sty.chrome && pr.ribs >= 9) { // polished cladding mirrors the dream sky: rose band up top, dark horizon line, teal below
+          const ys = ps.map(p => p[1]), y0 = Math.min(...ys), y1 = Math.max(...ys), base = col(idx, it.z);
+          poly(T, ps.map(p => [p[0], p[1]]), (x, y) => { const f = (y + 0.5 - y0) / Math.max(1, y1 - y0) + (x % 7 === 0 ? 0.02 : 0);
+            return sty.chrome(f, x, y, base, idx); });
+        } else
         poly(T, ps.map(p => [p[0], p[1]]), col(idx, it.z));
         if (pr.ribs) { // vertical cladding ribs
           for (let k = 1; k < pr.ribs; k++) { const u = k / pr.ribs; const a = [lerp(ps[0][0], ps[1][0], u), lerp(ps[0][1], ps[1][1], u)], b = [lerp(ps[3][0], ps[2][0], u), lerp(ps[3][1], ps[2][1], u)]; line(T, a[0], a[1], b[0], b[1], col(idx + (pr.ribTone ?? -1), it.z)); }
@@ -364,31 +468,57 @@ const ACT1 = (() => {
   }
 
   // ======================= SHOT 3 : low angle on the tower top, arms opening =======================
+  // chrome: polished cladding mirrors the dream sky (peach crown band, dark horizon line, teal below)
+  const CHROME = (f, x, y, base) => f < 0.2 ? (((x + y) & 1) ? sur[5] : base) : f < 0.24 ? sur[4] : f < 0.52 ? base : f < 0.57 ? steel[3] : f > 0.78 ? (((x + y) & 1) ? teal[2] : base) : base;
   const S3 = (() => {
-    let skyS, wisp; const TMP = surf(W, H);
-    const STY3 = { ramp: steel, base: 4.1, L: V(-0.85, 0.3, 0.42), fog: [6.5, 110, 170, 0.35], lamK: 1.2, faceK: 2.5, litUp: 2.6, dkDn: 1.8, quadK: 3.4, wk: 0.95, amb: 0.5 };
+    let skyS, wisp, towerS, aur; const TMP = surf(W, H);
+    const STY3 = { ramp: steel, base: 4.1, L: V(-0.85, 0.3, 0.42), fog: [6.5, 110, 170, 0.35], lamK: 1.2, faceK: 2.5, litUp: 2.6, dkDn: 1.8, quadK: 3.4, wk: 0.95, amb: 0.5, gussets: 1, backDark: 0.7, chrome: CHROME };
     const CAM = { pos: V(-16, -58, 96), tgt: V(0, -7, 0), f: 720 };
+    let cam;
     function init() {
+      cam = PX.camera(CAM.pos, CAM.tgt, CAM.f, 240, 135);
       skyS = surf(W, H);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const d = Math.hypot((x + 260) / 1.6, (y - 520)) / 820;
-        let c = rampc(sky, 8.3 - 2.7 * clamp(d, 0, 1), x, y, 0.9);
-        const ds = Math.hypot(x + 40, (y - 300) * 1.3) / 260; // low sun off-frame, bottom-left
-        if (ds < 1) c = rampc([c, sky[9], warm[0]], (1 - ds) ** 1.6 * 2.2, x, y, 0.7);
-        skyS.d[y * W + x] = c;
+        let v = 7.4 - 5.4 * clamp(d, 0, 1);
+        const ds = Math.hypot(x + 40, (y - 300) * 1.3) / 280; // low sun off-frame, bottom-left: apricot -> rose glow
+        if (ds < 1) v += (1 - ds) ** 1.5 * 3.6;
+        skyS.d[y * W + x] = rampc(DREAM, v, x, y, 0.45);
       }
-      const rnd = PX.mulberry(33), wps = [];
-      for (let g = 0; g < 14; g++) { const gx = 200 + rnd() * 300, gy = rnd() * 250, n = 3 + Math.floor(rnd() * 5); for (let k = 0; k < n; k++) wps.push({ x: gx + k * 10 + (rnd() - 0.5) * 6, y: gy - k * 2.2, r: 1 + rnd() * 1.4, w: 1, ax: 8 + rnd() * 7 }); }
+      // the ringed planet, low and huge behind the right arm, softened by haze; a small moon high left
+      drawPlanet(skyS, 432, 238, 84, { tilt: 0.42, ry: 0.23, light: Math.PI * 1.05, cov: (x, y) => 0.75 + 0.25 * clamp((y - 200) / 40, 0, 1) });
+      drawMoon(skyS, 62, 44, 6, Math.PI * 1.1, 0.95);
+      aur = bakeAurora(W + 60, H, { y0: 6, len: 64, seed: 11, k: 0.75 });
+      // sculpted cloud bank low left with crisp rims, wisps high right
+      const rnd = PX.mulberry(33), wps = [], cps = [];
+      for (let g = 0; g < 12; g++) { const gx = 220 + rnd() * 280, gy = rnd() * 200, n = 3 + Math.floor(rnd() * 5); for (let k = 0; k < n; k++) wps.push({ x: gx + k * 10 + (rnd() - 0.5) * 6, y: gy - k * 2.2, r: 1 + rnd() * 1.4, w: 1, ax: 8 + rnd() * 7 }); }
       wisp = bakeBubbles(W + 40, H, wps, [sky[6], sky[7], sky[7], sky[8]], { hx: 0, hy: -0.6 });
+      for (let k = 0; k < 26; k++) { const u = k / 25; cps.push({ x: -10 + u * 170 + rnd() * 8, y: 252 - Math.sin(u * Math.PI) * 26 + rnd() * 6, r: 6 + Math.sin(u * Math.PI) * 9 + rnd() * 3, w: 1, ax: 1.4 }); }
+      const cb = bakeBubbles(W, H, cps, [sur[4], sur[5], warm[1], warm[0]], { hx: -0.55, hy: -0.6, hl: 0.5 }); rims(cb, warm[0], sur[3]);
+      blit(skyS, cb, 0, 0);
+      // static tower (camera is locked off): baked once, hand-finished
+      towerS = surf(W, H);
+      const m = towerModel({ carY: -19, armL: 0.9, armR: 0.55 });
+      draw3D(towerS, cam, m.P.filter(p => !p.arm), STY3); selOut(towerS, -1, -1); warmRim(towerS, -1);
+      // hoist cables from the crown down to the carriage, a service pipe up the front-left leg, amber lamps
+      for (const sx of [-1, 1]) { const a = cam.proj(V(sx * 5.0, 0.5, 5.2)), b = cam.proj(V(sx * 5.4, -10, 5.7)); lineP(towerS, a[0], a[1], b[0], b[1], steel[2]); }
+      { const a = cam.proj(V(-4.2, -60, 4.9)), b = cam.proj(V(-4.2, 0, 4.9)); lineP(towerS, a[0] + 2, a[1], b[0] + 2, b[1], steel[6]);
+        for (let yy = -58; yy < 0; yy += 6) { const p = cam.proj(V(-4.2, yy, 4.9)); pset(towerS, Math.round(p[0]) + 1, Math.round(p[1]), steel[3]); } }
     }
+    function lamp(p, c, on = true) { const x = Math.round(p[0]), y = Math.round(p[1]); if (!on) { pset(S, x, y, steel[3]); return; } pset(S, x, y, c); pset(S, x - 1, y, warm[4]); pset(S, x + 1, y, warm[4]); pset(S, x, y - 1, warm[3]); }
     function render(t, T) {
       blit(S, skyS, 0, 0);
+      blit(S, aur, -30 + Math.round(t * 3), 0);
       blit(S, wisp, -Math.round(t * 2.5), 0);
+      motes(t, 10, 33, 0, 0, W, H, [warm[0], teal[2], sur[5]]);
+      blit(S, towerS, 0, 0);
       const u = ease(clamp(t / 2.97, 0, 1));
       const m = towerModel({ carY: -19, armL: lerp(0.9, 1.2, u), armR: lerp(0.55, 0.9, u) });
-      const cam = PX.camera(CAM.pos, CAM.tgt, CAM.f, 240, 135);
-      TMP.d.fill(0); draw3D(TMP, cam, m.P, STY3); selOut(TMP, -1, -1); warmRim(TMP, -1); blit(S, TMP, 0, 0);
-      { const b = cam.proj(V(-3.6, 10.7, -3.6)); const on = (T % 1.3) < 0.55; pset(S, Math.round(b[0]), Math.round(b[1]), on ? warm[4] : steel[3]); if (on) pset(S, Math.round(b[0]), Math.round(b[1]) - 1, warm[2]); } // aviation beacon
+      TMP.d.fill(0); draw3D(TMP, cam, m.P.filter(p => p.arm), STY3); selOut(TMP, -1, -1); warmRim(TMP, -1); blit(S, TMP, 0, 0);
+      // lamps: arm tips (steady amber), crown corners, blinking beacon on the mast
+      for (const [side, AA] of [[-1, m.AL], [1, m.AR]]) { const tip = AA[AA.length - 1].to; lamp(cam.proj(tip), warm[1]); }
+      lamp(cam.proj(V(-5.4, 7.5, 5.4)), warm[1]); lamp(cam.proj(V(5.4, 7.5, 5.4)), warm[1]);
+      lamp(cam.proj(V(-3.6, 10.7, -3.6)), warm[0], (T % 1.3) < 0.55);
       { const gx = Math.round(470 - t * 52), gy = Math.round(60 + t * 9 + Math.sin(t * 2.2) * 2), fl = Math.floor(t * 7) & 1; // a gull drifting through
         pset(S, gx, gy, steel[2]); pset(S, gx + 1, gy, steel[2]); pset(S, gx - 1, gy - fl, steel[3]); pset(S, gx + 2, gy - fl, steel[3]); pset(S, gx - 2, gy + 1 - 2 * fl, steel[4]); pset(S, gx + 3, gy + 1 - 2 * fl, steel[4]); }
     }
@@ -402,7 +532,7 @@ const ACT1 = (() => {
   function terrain(X, Z, lod, fp = 1) {
     // fp = pixel footprint in metres (keeps thin features >= 1 px at distance)
     const shore = 150 + Z * -0.18 + (Z < 0 ? Z * Z * 0.0006 : 0) + (fbm(Z / 900, 3.3, 61, 3) - 0.5) * 120;
-    if (X > shore + 40) return { k: 'sea', v: fbm(X / 60, Z / 200, 62, lod) };
+    if (X > shore + 40) return { k: 'sea', v: fbm(X / 60, Z / 200, 62, lod), sd: X - shore - 40 };
     if (X > shore) return { k: 'beach', v: (X - shore) / 40 };
     if (X > shore - 70) return { k: 'dune', v: fbm(X / 25, Z / 25, 63, lod) };
     if (Math.abs(X - 20) < 70 && Math.abs(Z + 40) < 90) return { k: 'pad', v: ((Math.abs(X - 20) < 66 && Math.abs(Z + 40) < 86) ? 0.6 : 0.3) };
@@ -431,7 +561,7 @@ const ACT1 = (() => {
       const lod = tt < 800 ? 4 : tt < 2500 ? 3 : tt < 6000 ? 2 : 1;
       const fp = tt / cam.f / Math.max(0.02, -dir[1]);
       const tr = terrain(X, Z, lod, fp);
-      const I = { dist: tt, dir, X, Z, fp }; G.d[y * w + x] = pal(tr.k, tr.v, x, y, I);
+      const I = { dist: tt, dir, X, Z, fp, sd: tr.sd }; G.d[y * w + x] = pal(tr.k, tr.v, x, y, I);
       G.K[y * w + x] = KIND[I.k || tr.k]; G.D[y * w + x] = tt;
     }
     if (!opts.noClean) deorphan(G);
@@ -446,7 +576,12 @@ const ACT1 = (() => {
         const far = clamp(I.dist / 9000, 0, 1);
         const az = Math.atan2(I.dir[0], -I.dir[2]) - sunAz;
         const g = clamp(1 - Math.abs(az) / (0.025 + 0.05 * (1 - far)), 0, 1) * clamp((I.dist - 900) / 2500, 0, 1); // glitter path below the sun
-        if (k === 'sea') { const b = 1.5 + v * 1.2 + far * 2.2; return res(k, g > 0.4 ? (v > 0.5 ? warm[0] : warm[1]) : rampc(water, b, x, y, 0.5)); }
+        const M = o.mirror ? (yy) => o.mirror(x, yy ?? y) : null;
+        if (k === 'sea') { // calm mirror near the shore, broken reflections farther out
+          if (M) { const c = M(); if (c) { // calm mirror near shore; farther out long horizontal ripple streaks break the reflection
+            if (I.sd > 300 && (y % 3 === 0)) return res(k, far > 0.3 ? water[3] : water[2]);
+            return res(k, c); } }
+          const b = 1.5 + v * 1.2 + far * 2.2; return res(k, g > 0.4 ? (v > 0.5 ? warm[0] : warm[1]) : rampc(water, b, x, y, 0.5)); }
         if (k === 'beach') return res(k, v < 0.22 ? water[4] : (v < 0.5 ? marsh[6] : marsh[5]));
         if (k === 'dune') return res(k, rampc(marsh, 2.4 + v * 2.6 + far * 1.2, x, y, 0.5));
         if (k === 'pad') return res(k, v > 0.5 ? marsh[6] : steel[6]);
@@ -457,11 +592,12 @@ const ACT1 = (() => {
           const bay = d > 5200 && Math.abs(L + 120) < (d - 5200) * 0.35 + fbm(d / 300, L / 200, 9, 2) * 300;
           if (Math.abs(L - wig) < wd || bay) k = 'water';
         }
+        if (k === 'water' && M) { const c = M(); if (c) return res(k, c); }
         if (k === 'water') { if (g > 0.25) return res(k, g > 0.6 ? warm[0] : warm[1]); const ri = hash(Math.floor(I.X / 40), Math.floor(I.Z / 9), 5) > 0.93; return res(k, ri ? sky[9] : rampc(sky, 7.3 + far * 1.8 + clamp(1 - Math.abs(az) / 0.5, 0, 1) * 0.8, x, y, 0.5)); }
         const rim = clamp(1 - Math.abs(az) / 0.6, 0, 1) * far; // sun-side haze glows
         if (I.fp < 20) { // mudflats and wet sheens break up the marsh
           const n3 = fbm(I.X / 260, I.Z / 340, 89, 3), n4 = fbm(I.X / 60, I.Z / 90, 90, 2);
-          if (n3 > 0.66 && n4 > 0.42) return res('water', n4 > 0.62 ? (g > 0.2 ? warm[1] : sky[8]) : rampc(marsh, 4.2 + n4 * 2 + far, x, y, 0.5));
+          if (n3 > 0.66 && n4 > 0.42) { if (n4 > 0.62 && M) { const c = M(); if (c) return res('water', c); } return res('water', n4 > 0.62 ? (g > 0.2 ? warm[1] : sky[8]) : rampc(marsh, 4.2 + n4 * 2 + far, x, y, 0.5)); }
           if (n3 > 0.62) return res(k, rampc(marsh, 3.2 + n4 * 2.2 + far, x, y, 0.5));
         }
         let tuft = 0; if (I.fp < 12) { const n2 = fbm(I.X / 14, I.Z / 34, 88, 2); tuft = n2 > 0.64 ? 1.3 : n2 < 0.36 ? -0.7 : 0; }
@@ -469,6 +605,21 @@ const ACT1 = (() => {
         if (far > 0.36) c = rampc([c, marsh[4], marsh[5], marsh[6], warm[1]], (far - 0.36) * 7 + rim * 1.5, x, y, 0.6);
         return res(k, c);
     };
+  }
+  // perfect-mirror sampler: sky surface pixel at the mirrored row, one half-step darker along its own ramp
+  function mirrorFrom(Sky, ox, oy, hz) {
+    return (x, y) => { const sx = x + ox, sy = Math.round(2 * hz - y) + oy; if (sx < 0 || sy < 0 || sx >= Sky.w || sy >= Sky.h) return 0; const c = Sky.d[sy * Sky.w + sx]; if (!c) return 0;
+      const e = BR.get(c); return e ? e.ch[Math.max(0, e.i - 1)] : c; };
+  }
+  // living ripples: short bright dashes that come and go on mirror water (G drawn at screen offset ox, oy)
+  function ripples(G, ox, oy, t, n, seed) {
+    const fr = Math.floor(t * 4);
+    for (let k = 0; k < n; k++) {
+      const gx = Math.floor(hash(k, fr + k % 3, seed) * G.w), gy = Math.floor(hash(k, fr + k % 3, seed + 1) * G.h);
+      if (G.K[gy * G.w + gx] !== KIND.water && G.K[gy * G.w + gx] !== KIND.sea) continue;
+      const L = 2 + (k % 3), X = gx + ox, Y = gy + oy; if (Y < 0 || Y >= H) continue;
+      for (let i = 0; i < L; i++) if (X + i >= 0 && X + i < W && G.K[gy * G.w + gx + i] === G.K[gy * G.w + gx]) S.d[Y * W + X + i] = i === 1 ? sky[9] : sky[8];
+    }
   }
   function bankPass(G) { // dark lip on the far bank, bright lip on the near bank of rivers
     const w = G.w, h = G.h, src = G.d.slice();
@@ -504,20 +655,21 @@ const ACT1 = (() => {
   // ======================= SHOT 4 : high angle, tower top over marsh and sea =======================
   const S4 = (() => {
     const DUR = CUTS[4] - CUTS[3];
-    let skyS, ground, towerL, cam0, sunP, hy, SP4; const TMP4 = surf(W, H);
+    let skyS, ground, towerL, cam0, sunP, hy, SP4, isl; const TMP4 = surf(W, H);
     const SUN = PX.norm(V(-0.33, 0.075, -0.94)); // toward the low sun (left, behind the tower)
-    const STY = { ramp: steel, base: 4.4, L: SUN, fog: [6.5, 40, 160, 0.5], lamK: 1.2, faceK: 1.6, litUp: 2.6, dkDn: 1.6, quadK: 3.2, amb: 0.15 };
+    const STY = { ramp: steel, base: 4.4, L: SUN, fog: [6.5, 40, 160, 0.5], lamK: 1.2, faceK: 1.6, litUp: 2.6, dkDn: 1.6, quadK: 3.2, amb: 0.15, gussets: 1, backDark: 0.6, chrome: CHROME };
     function mkCam() { return PX.camera(V(-10, 0.3, 26), V(0, -1.3, 0), 250, 240, 135); }
     function init() {
       cam0 = mkCam(); hy = horizonY(cam0);
       sunP = cam0.proj(vadd(cam0.pos, vmul(SUN, 1e5)));
       skyS = surf(W + 20, H);
       for (let y = 0; y < H; y++) for (let x = 0; x < W + 20; x++) {
-        const hz = hy - y; let v = clamp(8.7 - hz / 70, 5.6, 9);
-        let c = rampc(sky, v, x, y, 0.55);
+        const hz = hy - y; // dream bands: rose/apricot at the horizon -> peach -> aqua -> teal -> ultramarine overhead
+        let v = clamp(10.6 - hz / 16, 1.5, 11);
+        let c = rampc(DREAM, v, x, y, 0.45);
         const ds = Math.hypot((x - sunP[0]) * 0.8, y - sunP[1]);
-        const warmth = clamp(1 - ds / 120, 0, 1) ** 1.5 * 2.4 + clamp(1 - hz / 40, 0, 1) ** 1.3 * 1.4 * clamp(1 - Math.abs(x - sunP[0]) / 380, 0, 1);
-        if (warmth > 0.12) c = rampc([c, sky[9], warm[0], warm[1], warm[2]], Math.min(3.6, warmth * 1.3), x, y, 0.55);
+        const warmth = clamp(1 - ds / 110, 0, 1) ** 1.5 * 2.6;
+        if (warmth > 0.12) c = rampc([c, sur[5], warm[0], warm[1]], Math.min(3, warmth * 1.3), x, y, 0.55);
         if (ds < 8) c = ds < 6 ? warm[0] : sky[9];
         skyS.d[y * (W + 20) + x] = c;
       }
@@ -525,8 +677,13 @@ const ACT1 = (() => {
       const ps = []; const rnd = PX.mulberry(410);
       for (let b = 0; b < 6; b++) { const bx = rnd() * (W + 20), by = hy - 12 - rnd() * 26, len = 50 + rnd() * 110; for (let i = 0; i < len / 9; i++) { const u = i / (len / 9), e = Math.sin(u * Math.PI); ps.push({ x: bx - len / 2 + u * len, y: by - e * 2 + (rnd() - 0.5) * 2, r: 1.2 + e * 2.2 + rnd(), w: 1, ax: 4 + rnd() * 2 }); } }
       const B = bakeBubbles(W + 20, H, ps, [sky[6], sky[7], sky[8], warm[1]], { hx: 0, hy: -0.8 });
+      // the ringed planet over the sea (east = screen right), hazed toward the horizon; moon; aurora
+      drawPlanet(skyS, 410, Math.round(hy - 44), 66, { tilt: 0.35, ry: 0.22, light: Math.PI * 0.95, cov: (x, y) => 0.35 + 0.55 * clamp((hy - 6 - y) / 70, 0, 1) });
+      drawMoon(skyS, 300, 26, 5, Math.PI, 0.95);
+      blit(skyS, bakeAurora(W + 20, H, { y0: 8, len: 46, seed: 5, k: 0.7 }), 0, 0);
       blit(skyS, halo(B, [[sky[7], 0.5], [sky[8], 0.25]]), 0, 0); blit(skyS, B, 0, 0);
-      ground = bakeGround(cam0, goldPal(SUN), { w: W + 20, h: H, ox: 10 }); bankPass(ground); SP4 = surfPrep(ground, cam0);
+      ground = bakeGround(cam0, goldPal(SUN, { mirror: mirrorFrom(skyS, 0, 0, hy) }), { w: W + 20, h: H, ox: 10 }); bankPass(ground); SP4 = surfPrep(ground, cam0);
+      isl = [makeIsland(401, 13), makeIsland(402, 8), makeIsland(403, 5)];
       towerL = surf(W + 20, H);
       const m = towerModel({ carY: -14, armL: 1.15, armR: 1.35, bottom: -140, noPads: true });
       const c2 = mkCam(); c2.cx += 10; draw3D(towerL, c2, m.P.filter(p => !p.arm), STY); selOut(towerL, -1, 0, { up: 2, dn: 1 });
@@ -537,7 +694,10 @@ const ACT1 = (() => {
       const u = clamp(t / DUR, 0, 1), e = ease(u);
       const dg = Math.round(-4 * e), dt = Math.round(-15 * e);
       blit(S, skyS, -10 + Math.round(-2 * e), 0); blit(S, ground, -10 + dg, 0);
-      surfDraw(ground, SP4, -10 + dg, 0, t + 15);
+      surfDraw(ground, SP4, -10 + dg, 0, t + 15); ripples(ground, -10 + dg, 0, t, 60, 62);
+      // floating rock islands hovering far off over the sea
+      drawIsland(isl[0], 392 + dg, Math.round(hy) - 30, t, 0, 0.9); drawIsland(isl[1], 440 + dg, Math.round(hy) - 17, t, 2, 0.8); drawIsland(isl[2], 352 + dg, Math.round(hy) - 12, t, 4, 0.75);
+      motes(t, 12, 44, 0, 0, W, H, [warm[0], teal[2], sur[5]]);
       // a gull riding the updraft past the tower
       { const gx = Math.round(330 - t * 22), gy = Math.round(118 + Math.sin(t * 1.3) * 3), fl = Math.floor(t * 6) & 1;
         pset(S, gx, gy, steel[7]); pset(S, gx + 1, gy, steel[7]); pset(S, gx - 1, gy - fl, steel[8]); pset(S, gx + 2, gy - fl, steel[8]); pset(S, gx - 2, gy - 2 * fl + 1, steel[5]); pset(S, gx + 3, gy - 2 * fl + 1, steel[5]); }
@@ -561,12 +721,14 @@ const ACT1 = (() => {
       skyL = surf(LW, LH);
       for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
         const d = Math.hypot(x - LM - 200, y - 200) / 330;
-        skyL.d[y * LW + x] = rampc(sky, 6.6 - 2.6 * clamp(d, 0, 1), x, y, 0.5);
+        skyL.d[y * LW + x] = rampc(DREAM, 6.7 - 4.8 * clamp(d, 0, 1), x, y, 0.45);
       }
       const env = (x, y) => clamp((fbm(x / 60, y / 45, 501, 4) * 2.2 - 0.78), 0, 1);
-      const puffs = streetPuffs(LW, LH, 502, 0.5, 10, 7, (x, y) => { const e = env(x, y); return e < 0.6 ? 0 : (e - 0.5) / 0.6; }, 3, 6);
-      const cl = bakeBubbles(LW, LH, puffs, [sky[6], sky[7], sky[8], sky[9]]);
-      blit(skyL, halo(cl, [[sky[6], 1], [sky[6], 0.5], [sky[5], 0.25]]), 0, 0); blit(skyL, cl, 0, 0);
+      const puffs = streetPuffs(LW, LH, 502, 0.5, 12, 8, (x, y) => { const e = env(x, y); return e < 0.7 ? 0 : (e - 0.6) / 0.6; }, 3, 6);
+      blit(skyL, bakeAurora(LW, LH, { y0: 70, len: 70, seed: 7, k: 0.8 }), 0, 0);
+      drawPlanet(skyL, LM + 430, 30, 64, { tilt: 0.45, ry: 0.24, light: -2.6, alpha: 1 }); // the planet, glimpsed through the window
+      drawMoon(skyL, LM + 150, 120, 4, -2.4, 0.95);
+      const cl = bakeBubbles(LW, LH, puffs, [sur[5], sky[7], sky[8], sky[9]], { hl: 0.5 }); rims(cl, warm[0], 0);
       { const rnd = PX.mulberry(503), wps = []; for (let g = 0; g < 22; g++) { const gx = rnd() * LW, gy = rnd() * LH, n = 3 + Math.floor(rnd() * 3); for (let k = 0; k < n; k++) wps.push({ x: gx + k * 8, y: gy - k * 3, r: 1 + rnd(), w: 1, ax: 7 + rnd() * 5 }); }
         blit(skyL, bakeBubbles(LW, LH, wps, [sky[6], sky[6], sky[7], sky[7]], { hx: 0, hy: -0.6 }), 0, 0); }
       // ---- tower seen from below (3D), baked
@@ -596,7 +758,9 @@ const ACT1 = (() => {
           if (rr > 0.55) idx -= 0.8; // outer bevel darker
           if (segf < 0.09) idx = 1.4; // seam
           c = rampc(steel, idx, x, y, 0.4);
-          if (dI < RI + 1.5) c = lightA < -0.2 ? warm[2] : lightA < 0.3 ? marsh[5] : steel[5]; // lit lip
+          if (segf > 0.42 && segf < 0.58 && rr > 0.55 && rr < 0.75) c = ((y & 1) ? steel[1] : steel[5]); // bolt heads
+          if (rr > 0.18 && rr < 0.26 && segf > 0.15 && segf < 0.85 && lightA < -0.1) c = (seg % 3 === 0) ? teal[1] : (seg % 3 === 1 ? sur[3] : c); // the dream sky mirrored in the polished wall
+          if (dI < RI + 1.5) c = lightA < -0.2 ? warm[2] : lightA < 0.3 ? sur[5] : teal[2]; // lit lip
           if (dO > RO - 1.2) c = steel[3];
         } else {
           // dark ceiling with a vignette and big structural planes
@@ -612,6 +776,9 @@ const ACT1 = (() => {
         }
         ceil.d[y * LW + x] = c;
       }
+      // cable runs and a pipe across the ceiling (detail)
+      for (let k = 0; k < 3; k++) { const yA = 20 + k * 9, yB = 250 + k * 6; linef(ceil, LM - 60, yA, LM + 120 + k * 10, yB, (x, y) => { const i = y * LW + x; return (ceil.d[i] === dark[1] || ceil.d[i] === dark[0] || ceil.d[i] === dark[2]) ? (k === 1 ? dark[2] : steel[1]) : 0; }); }
+      for (let x = 0; x < LW; x++) { const y = Math.round(8 + x * 0.05 + 6 * Math.sin(x / 90)); for (let k = 0; k < 3; k++) { const i = (y + k) * LW + x; if (ceil.d[i] === dark[1] || ceil.d[i] === dark[0] || ceil.d[i] === dark[2]) ceil.d[i] = k === 0 ? steel[2] : k === 1 ? dark[2] : dark[0]; } if (x % 23 === 0) { pset(ceil, x, y, steel[3]); pset(ceil, x, y + 1, steel[2]); pset(ceil, x, y + 2, steel[1]); } }
       // soft light shaft falling from the window across the dark ceiling
       for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
         const i = y * LW + x, c = ceil.d[i]; if (c !== dark[1] && c !== dark[0] && c !== dark[2]) continue;
@@ -683,7 +850,7 @@ const ACT1 = (() => {
         const x = Math.round(px0 + Math.sin(t * 0.4 + k) * 6 + t * 1.5 + ringX + LM * 0), y = Math.round(py0 + ((t * (2 + hash(k, 3, 91) * 3) + k * 13) % 40) - 20 + ringY);
         const tw = hash(k, Math.floor(t * 3), 92); if (tw < 0.35) continue;
         const under = S.d[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)];
-        if (under === dark[0] || under === dark[1] || under === dark[2]) pset(S, x, y, tw > 0.8 ? warm[1] : warm[3]);
+        if (under === dark[0] || under === dark[1] || under === dark[2]) pset(S, x, y, tw > 0.8 ? warm[1] : (k % 3 === 0 ? teal[1] : k % 3 === 1 ? sur[4] : warm[3]));
       }
       blit(S, pipe, -LM + Math.round(1.35 * P), Math.round(-0.1 * P));
       blit(S, panel, -LM + Math.round(1.25 * P), Math.round(0.22 * P));
@@ -695,7 +862,7 @@ const ACT1 = (() => {
   const S5 = (() => {
     const DUR = CUTS[5] - CUTS[4];
     const HZ = 104, SUNX = 322, SUNY = 30, TOP = 560, GM = 30; // horizon row, sun (world px), sky above screen top, ground margin
-    let skyL, groundL, glare, cam, sunDir, towers = [], SP;
+    let skyL, groundL, glare, cam, sunDir, towers = [], SP, isl;
     function scroll(t) { // camera tilt -> content moves down (px)
       const drift = -5 * Math.min(t, 3.2) / 3.2;
       const u = clamp((t - 3.0) / 4.4, 0, 1); const k = u * u * (3 - 2 * u);
@@ -712,11 +879,13 @@ const ACT1 = (() => {
       skyL = surf(LW, LH);
       for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
         const wy = y - TOP, wx = x - GM, hz = HZ - wy;
-        let v = clamp(8.75 - hz / 95 - (wx - 240) * 0.0018 * clamp(hz / 300, 0, 1), 4.2, 9);
-        let c = rampc(sky, v, x, y, hz > 120 ? 1.0 : 0.55);
+        // dream bands: rose/apricot on the horizon, peach, aqua, teal, then calm blue high up (matches Act 2's bright sky)
+        let v = hz < 160 ? 10.9 - hz / 40 : 6.9 - (hz - 160) / 150 - (wx - 240) * 0.0012 * clamp(hz / 300, 0, 1);
+        v = clamp(v, 4.2, 11);
+        let c = rampc(DREAM, v, x, y, hz > 200 ? 0.9 : 0.45);
         const ds = Math.hypot((wx - SUNX) * 0.8, wy - SUNY);
-        const warmth = clamp(1 - ds / 170, 0, 1) ** 1.5 * 2.4 + clamp(1 - hz / 60, 0, 1) ** 1.3 * 1.9;
-        if (warmth > 0.12) c = rampc([c, sky[9], warm[0], warm[1], warm[2]], Math.min(3.6, warmth * 1.3), x, y, 0.55);
+        const warmth = clamp(1 - ds / 160, 0, 1) ** 1.5 * 2.6;
+        if (warmth > 0.12) c = rampc([c, sur[5], warm[0], warm[1]], Math.min(3, warmth * 1.3), x, y, 0.55);
         skyL.d[y * LW + x] = c;
       }
       // sun: disc + crisp halo rings
@@ -728,9 +897,13 @@ const ACT1 = (() => {
       const bank = (cx, cyw, len, th, seed) => {
         const ps = []; const rnd = PX.mulberry(seed);
         for (let i = 0; i < len / 7; i++) { const u = i / (len / 7); const e = Math.sin(u * Math.PI) ** 0.7; ps.push({ x: cx - len / 2 + u * len + (rnd() - 0.5) * 6, y: cyw + TOP + (rnd() - 0.5) * 2 - e * th * 0.4, r: 1.5 + e * th * (0.6 + rnd() * 0.5), w: 1, ax: 2.6 }); }
-        const B = bakeBubbles(LW, LH, ps.map(p => ({ ...p, x: p.x + GM })), [sky[6], sky[7], warm[1], warm[0]], { hx: (cx - SUNX) > 0 ? -0.2 : 0.2, hy: -0.75 });
+        const B = bakeBubbles(LW, LH, ps.map(p => ({ ...p, x: p.x + GM })), [sur[4], sur[5], warm[1], warm[0]], { hx: (cx - SUNX) > 0 ? -0.2 : 0.2, hy: -0.75 }); rims(B, warm[0], sur[3]);
         blit(skyL, B, 0, 0);
       };
+      // the ringed planet low over the sea (east = right), hazed near the horizon; a small moon; aurora veils high up
+      drawPlanet(skyL, GM + 496, TOP + 70, 70, { tilt: 0.33, ry: 0.22, light: Math.PI * 0.97, cov: (x, y) => 0.3 + 0.6 * clamp((TOP + HZ - 8 - y) / 90, 0, 1) });
+      drawMoon(skyL, GM + 372, TOP - 40, 5, Math.PI, 0.95);
+      blit(skyL, bakeAurora(LW, LH, { y0: TOP - 330, len: 110, seed: 9, k: 0.65 }), 0, 0);
       bank(110, 76, 190, 7, 601); bank(255, 80, 120, 4, 602); bank(410, 74, 150, 8, 603); bank(30, 88, 80, 3, 604); bank(470, 90, 70, 4, 605); bank(360, 92, 100, 3, 606);
       // high cirrus (seen after the tilt): soft brushed wisps in groups
       { const rnd = PX.mulberry(607), wps = [];
@@ -738,7 +911,8 @@ const ACT1 = (() => {
         const Wp = bakeBubbles(LW, LH, wps, [sky[6], sky[6], sky[7], sky[8]], { hx: 0.3, hy: 0.6 });
         blit(skyL, halo(Wp, [[sky[6], 0.5], [sky[6], 0.25]]), 0, 0); blit(skyL, Wp, 0, 0); }
       // ---- ground
-      groundL = bakeGround(cam, goldPal(sunDir), { w: LW, h: H + 10, ox: GM });
+      groundL = bakeGround(cam, goldPal(sunDir, { mirror: mirrorFrom(skyL, 0, TOP, HZ) }), { w: LW, h: H + 10, ox: GM });
+      isl = [makeIsland(501, 12), makeIsland(502, 7), makeIsland(503, 9), makeIsland(504, 5)];
       bankPass(groundL);
       SP = surfPrep(groundL, cam);
       // towers (backlit) with long shadows toward the camera
@@ -769,7 +943,7 @@ const ACT1 = (() => {
       blit(S, skyL, -GM + sx, -TOP + sy);
       if (sy < H) {
         blit(S, groundL, -GM + sx, sy);
-        surfDraw(groundL, SP, -GM + sx, sy, T);
+        surfDraw(groundL, SP, -GM + sx, sy, T); ripples(groundL, -GM + sx, sy, T, 70, 61);
         // glitter on water under the sun
         const fr = Math.floor(T * 10);
         for (let k = 0; k < 90; k++) {
@@ -778,8 +952,13 @@ const ACT1 = (() => {
           const kd = groundL.K[gy * (W + 2 * GM) + gx + GM];
           if ((kd === KIND.water || kd === KIND.sea) && Math.abs(gx - SUNX) < 6 + (gy - HZ) * 0.35) S.d[Y * W + X] = warm[0];
         }
-        for (const Tw of towers) drawTower(Tw, sx, sy);
+        for (const Tw of towers) { drawTower(Tw, sx, sy); // mirrored in any water below
+          const x0 = Tw.x - GM + sx, yb = Tw.y + sy;
+          for (let k = 0; k <= Tw.h + 3; k++) for (let dx = -1; dx <= 1; dx++) { const gx = Tw.x + dx, gy = Tw.y + k + 1, X = x0 + dx, Y = yb + k + 1; if (Y < 0 || Y >= H || gy >= H + 10) continue;
+            if (groundL.K[gy * (W + 2 * GM) + gx] === KIND.water && ((k + dx) & 1 || k < Tw.h * 0.5)) S.d[Y * W + X] = k > Tw.h ? sur[1] : (dx === 1 && k > Tw.h * 0.6 ? sur[2] : steel[2]); } }
+        drawIsland(isl[0], 408 + sx, 76 + sy, T, 0, 0.9); drawIsland(isl[1], 452 + sx, 86 + sy, T, 1.7, 0.8); drawIsland(isl[2], 372 + sx, 88 + sy, T, 3.1, 0.85); drawIsland(isl[3], 440 + sx, 60 + sy, T, 4.4, 0.7);
       }
+      motes(T, 16, 55, 0, 0, W, H, [warm[0], teal[2], sur[5]]);
       // birds crossing the glow (living detail)
       if (t < 6) for (let b = 0; b < 5; b++) {
         const bx = Math.round(120 + b * 9 + (b % 2) * 4 + t * 16 + sx * 0.3), by = Math.round(58 + (b % 3) * 5 - b * 2 - t * 2 + sy * 0.9);
@@ -819,7 +998,7 @@ const ACT1 = (() => {
           } }
         // body (stainless, tiles dark underneath), nose to the right
         rect(S, x - 3, y, 9, 2, steel[3]); rect(S, x - 2, y, 7, 1, steel[6]); pset(S, x + 5, y, steel[7]); pset(S, x + 6, y + 1, steel[4]);
-        rect(S, x - 3, y + 2, 8, 1, steel[1]); pset(S, x + 3, y, warm[0]);
+        rect(S, x - 3, y + 2, 8, 1, steel[1]); pset(S, x + 3, y, warm[0]); pset(S, x, y + 1, teal[1]); pset(S, x + 1, y + 1, sur[4]); // stainless mirrors the dream sky
         pset(S, x - 4, y - 1, steel[2]); pset(S, x - 3, y - 1, steel[3]); pset(S, x + 5, y - 1, steel[2]); pset(S, x + 6, y - 2, steel[3]); // flaps
       }
     }

@@ -14,8 +14,20 @@ const SHOT6A = (function () {
     skyHor: 6.3, skyZen: 4.4, gndHor: 3.6, gndNad: 2.4, steelSun: 0,
     tileBase: 0.3, tileFill: 2.6, tileSheen: 0.8, tileSun: 0, tilePx: 5, tileLight: 0.025, tileDarkP: 0.0, tileSeam: 1.6, tileMin: 1,
     rimMin: 0.05, rimGraze: 0.55, rimLow: 0.1, rimWarm: 0.22, rimHot: 0.34, rimCol: [1, 2, 3],
-    specHot: 0.995, specCol: ST[8], streak: [2.12, 2.24, ST[8]], ringPx: true, flapDark: 0.3, ringEvery: 2, ringDark: 0.6, tileJag: 3.2,
+    specHot: 0.995, specCol: ST[8], streak: [2.12, 2.24, ST[8]], ringPx: true, flapDark: 0.3, ringEvery: 1, ringDark: 0.6, tileJag: 3.2,
     chrome: [ST[2], ST[2], ST[3], ST[4], ST[5], ST[6], ST[7], ST[8], ST[8]],
+    // stainless mirrors the dream sky: rose belt and apricot near the horizon, pale teal higher up
+    chromeFn: (rh, rs, v, hit) => {
+      if (v < 2.6) return ST[3];
+      if (rh < -0.15) return ST[4];
+      if (rh < 0.02) return SUR[3];
+      if (rh < 0.14) return SUR[4];
+      if (rh < 0.3) return SUR[5];
+      if (rh < 0.5) return ST[7];
+      if (rh < 0.62) return TEAL[2];
+      return ST[6];
+    },
+    raceway: 2.62, ports: [[9.2, 2.0], [2.6, 2.05], [6.0, 2.1]],
     // screen-space banding for the dark belly: lit top, core shadow, warm bounce near the bottom
     tileFn: (n, hit) => {
       const ny = n[1];
@@ -28,17 +40,19 @@ const SHOT6A = (function () {
 
   function flapAngles(tau) {
     // slow, deliberate flap trim (quantised to half degrees so frames re-use sprites)
-    const aft = Math.round((2.5 * Math.sin(tau * 2 * Math.PI / 3.4)) * 2) / 2;
-    const fwd = Math.round((3.5 * Math.sin(tau * 2 * Math.PI / 2.6 + 1.1)) * 2) / 2;
+    const aft = 2.5 * Math.sin(tau * 2 * Math.PI / 3.4);
+    const fwd = 3.5 * Math.sin(tau * 2 * Math.PI / 2.6 + 1.1);
     return [aft, fwd];
   }
-  // slow pitch drift (nose easing down a touch), quantised to quarter degrees
-  const pitch = (tau) => 8;   // held rigid: re-rasterising a 236-px hull for tiny pitch changes shimmers
-  function ship(tau) {
+  // the camera breathes in on the ship: slow push (scale), nose easing down, sub-pixel drift.
+  // The hull is re-rasterised every frame at its exact sub-pixel offset, so it glides instead of
+  // stepping; all texture lives in hull coordinates and travels with it.
+  const scaleAt = (tau) => 21.0 + 1.3 * smooth(tau / 8.9);
+  const pitch = (tau) => 8.6 - 1.2 * smooth(tau / 8.9) + 0.25 * Math.sin(tau * 0.9);
+  const posAt = (tau) => [SHIPX + 4.5 * smooth(tau / 8.9) + 0.6 * Math.sin(tau * 0.7), SHIPY + 0.8 * Math.sin(tau * 1.1 + 0.4)];
+  function ship(tau, subx, suby) {
     const [aft, fwd] = flapAngles(tau);
-    const th = pitch(tau);
-    const key = `6a|${aft}|${fwd}|${th}`;
-    return cachedShip(key, () => renderShip({ scale: 21.5, theta: th * deg, elev: ELEV, yaw: 0,
+    return renderShip({ scale: scaleAt(tau), theta: pitch(tau) * deg, elev: ELEV, yaw: 0, subx, suby,
       aftDefl: [aft * deg, -aft * 0.6 * deg], fwdDefl: [fwd * deg, -fwd * deg], shade,
       edges: [
         { dir: [0, -1], mats: [1, 5, 6], cols: [ST[8], ST[7]] },
@@ -46,7 +60,7 @@ const SHOT6A = (function () {
         { dir: [0, 1], mats: [3, 4], cols: [ST[0]], over: [1, 2] },
         { dir: [0, 1], mats: [2, 3, 4], cols: [WARM[4], WARM[2]] },
         { dir: [1, 0], mats: [2], cols: [WARM[3], WARM[1]] },
-      ] }));
+      ] });
   }
 
   // precomputed haze + cirrus textures (background drifts with the sun by whole pixels)
@@ -61,6 +75,19 @@ const SHOT6A = (function () {
       CIR[Y * TW + X] = c > 0.9 ? 2 : c > 0.83 ? 1 : 0;
     }
   })();
+  // dream-sky rings around the sun: apricot glow, a rose halo, pale, a thin teal ring, deepening blue
+  const RAD = [[0, SKY[9]], [30, SUR[5]], [36, SKY[9]], [52, SUR[4]], [55, SKY[9]], [92, SKY[8]], [140, SKY[7]], [178, TEAL[2]], [183, SKY[7]], [226, SKY[6]], [300, SKY[5]], [400, SKY[4]], [520, SKY[3]]];
+  function radial(dd, x, y) {
+    for (let i = RAD.length - 1; i >= 0; i--) {
+      if (dd >= RAD[i][0]) {
+        if (i === RAD.length - 1) return RAD[i][1];
+        const span = RAD[i + 1][0] - RAD[i][0], f = (dd - RAD[i][0]) / span;
+        const seam = Math.min(5, span * 0.3) / span;
+        return f > 1 - seam && ((f - (1 - seam)) / seam) > bayer(x, y) ? RAD[i + 1][1] : RAD[i][1];
+      }
+    }
+    return RAD[0][1];
+  }
   function sky(tau, sx, sy) {
     const ox = Math.round(sx - 298), oy = Math.round(sy - 194);
     for (let y = 0; y < H; y++) {
@@ -70,8 +97,8 @@ const SHOT6A = (function () {
         const dx = x + 0.5 - sx, dy = y + 0.5 - sy;
         const d = Math.sqrt(dx * dx + dy * dy);
         const corner = Math.max(0, (300 - x - y) / 300);
-        const v = 9.15 - 2.7 * Math.pow(d / 340, 0.9) - 0.75 * corner + 0.5 * HAZE[Y * TW + X];
-        let c = rampDither(SKY, Math.max(5.2, v), x, y, 3.0);
+        const dd = d * (1 + 0.45 * corner) - Math.min(26, d * 0.12) * HAZE[Y * TW + X];
+        let c = radial(dd, x, y);
         const ci = CIR[Y * TW + X];
         if (ci && dens(x, y, ci === 2 ? 0.5 : 0.25)) c = UP[c];
         FB[y * W + x] = c;
@@ -92,8 +119,8 @@ const SHOT6A = (function () {
     p = at(1.66); flareDisc(p[0], p[1], 50, 0.32 * vis, 0.75 * vis, 2);
     p = at(1.78); flareDisc(p[0], p[1], 6, 0.6 * vis, 0.9 * vis, 1);
     p = at(1.9); flareDisc(p[0], p[1], 3, 0.9 * vis, 1, 1);
-    p = at(2.35); flareHex(p[0], p[1], 24, 0.3, 0.1 * vis, 0.35 * vis);
-    p = at(2.95); flareRing(p[0], p[1], 66, 3, 0.18 * vis);
+    p = at(2.35); flareHex(p[0], p[1], 24, 0.3, 0.1 * vis, 0.45 * vis, TEALTINT);
+    p = at(2.95); flareRing(p[0], p[1], 66, 3, 0.3 * vis, ROSETINT);
     // big ice-halo arc around the sun
     flareRing(sx, sy, 128, 2, 0.22 * vis);
   }
@@ -164,9 +191,18 @@ const SHOT6A = (function () {
     const tau = t - T0;
     const [sx, sy] = sunPos(tau);
     sky(tau, sx, sy);
+    MASK.fill(0);
+    // the ringed planet hangs in the east above the low sun, its small moon high on the left
+    const bgx = Math.round(sx - 298), bgy = Math.round(sy - 194);
+    auroraVeil(tau, { x0: -10, x1: 260, base: 58 + bgy, amp: 8, f1: 0.024, s1: 0.4, f2: 0.06, s2: 0.3, h: 52, strength: 0.5, map: TEALTINT });
+    drawPlanet({ cx: 452 + bgx, cy: 6 + bgy, r: 66, rot: -0.35, tilt: 0.24, light: [-0.55, 0.8],
+      bands: [SKY[9], SKY[9], SUR[5], SKY[9], SKY[8], SKY[9], SUR[5], SKY[8], SKY[9]], fade: (y) => clamp((150 - y + bgy) / 60, 0.3, 1) });
+    drawPlanet({ cx: 46 + bgx, cy: 30 + bgy, r: 7, rot: 0, tilt: 0.01, light: [0.8, 0.5], bands: [SKY[9], SUR[5], SKY[9]] });
     sunAndRays(tau, sx, sy);
-    const s = ship(tau);
-    const bx = SHIPX - s.ox + Math.round(0.55 * tau), by = SHIPY - s.oy + (Math.sin(tau * 1.3) > 0.55 ? 1 : 0);
+    const [px0, py0] = posAt(tau);
+    const ix = Math.floor(px0), iy = Math.floor(py0);
+    const s = ship(tau, px0 - ix, py0 - iy);
+    const bx = ix - s.ox, by = iy - s.oy;
     wisps(tau, s, bx, by);
     MASK.fill(0);
     blit(s, bx, by, true);
@@ -182,6 +218,7 @@ const SHOT6A = (function () {
     }
     flare(tau, sx, sy);
     motes(tau);
+    lightMotes(tau, 16, 31, [0, 0, W, H], [WARM[6], TEAL[2], SUR[5]]);
   }
   return { T0, T1, draw };
 })();

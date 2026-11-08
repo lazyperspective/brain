@@ -12,12 +12,13 @@
     marsh: ['#1c2416', '#2c3a22', '#44542f', '#66733f', '#8c8a55', '#b3a571', '#d6c99a'],
     sea:   ['#163042', '#24506a', '#3b7894', '#6aa3bb', '#a9d0dd'],
     dark:  ['#050608', '#0f1216', '#1a1e24'],
+    sur:   ['#2b1b4a', '#4a2e6e', '#7a4b8f', '#b46a9a', '#e69bb0', '#ffd2c2', '#7fe0d0', '#3fb4b0', '#1f6e78'], // shared surreal family (pass 2)
     black: ['#000000'], // extension (dark-structure family): pure black for the final fade
   };
   const PAL = [];
   const R = {};
   for (const k in RAMPS) { R[k] = RAMPS[k].map(h => { PAL.push(h); return PAL.length - 1; }); }
-  const S = R.sky, Wm = R.warm, T = R.steel, M = R.marsh, A = R.sea, D = R.dark, K = R.black[0];
+  const S = R.sky, Wm = R.warm, T = R.steel, M = R.marsh, A = R.sea, D = R.dark, K = R.black[0], U = R.sur;
   const RGB = PAL.map(h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
   const LUM = RGB.map(([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b);
 
@@ -27,7 +28,7 @@
   const FAM = [];
   for (const k in R) for (const i of R[k]) FAM[i] = k;
   const ALLOW = { sky: ['sky', 'sea', 'dark', 'black'], sea: ['sea', 'sky', 'dark', 'black'], steel: ['steel', 'dark', 'black'],
-    marsh: ['marsh', 'dark', 'black'], warm: ['warm', 'steel', 'dark', 'black'], dark: ['dark', 'black'], black: ['black'] };
+    marsh: ['marsh', 'dark', 'black'], sur: ['sur', 'sky', 'dark', 'black'], warm: ['warm', 'steel', 'dark', 'black'], dark: ['dark', 'black'], black: ['black'] };
   for (let i = 0; i < PAL.length; i++) {
     const allow = (FAM[i] === 'warm' && R.warm.indexOf(i) >= 4) ? ['steel', 'dark', 'black'] : ALLOW[FAM[i]];
     const [r, g, b] = RGB[i], tr = r * 0.8, tg = g * 0.8, tb = b * 0.8;
@@ -208,7 +209,7 @@
   }
 
   G.PX = {
-    W, H, PAL, RGB, LUM, R, S, Wm, T, M, A, D, K, DARKER, buf, bth, BAY, mulberry, hash, vnoise, vnoise2, fbm2,
+    W, H, PAL, RGB, LUM, R, S, Wm, T, M, A, D, K, U, DARKER, buf, bth, BAY, mulberry, hash, vnoise, vnoise2, fbm2,
     P, Pr, Pd, get, clear, rect, rectD, hl, vl, line, lineD, poly, polyD, disc, ring, pick, darkN, fadeBlack,
     toRGBA, toRGB, clamp, lerp, smooth, spline, ri,
   };

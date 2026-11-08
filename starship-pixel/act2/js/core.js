@@ -11,6 +11,9 @@ const RAMPS_HEX = {
   marsh: ['#1c2416', '#2c3a22', '#44542f', '#66733f', '#8c8a55', '#b3a571', '#d6c99a'],
   water: ['#163042', '#24506a', '#3b7894', '#6aa3bb', '#a9d0dd'],
   dark:  ['#050608', '#0f1216', '#1a1e24'],
+  // Pass 2 shared surreal family (split into its two hue runs)
+  sur:   ['#2b1b4a', '#4a2e6e', '#7a4b8f', '#b46a9a', '#e69bb0', '#ffd2c2'],
+  teal:  ['#1f6e78', '#3fb4b0', '#7fe0d0'],
 };
 const PAL = [];            // index -> [r,g,b]
 const PALHEX = [];
@@ -25,7 +28,7 @@ for (const name of Object.keys(RAMPS_HEX)) {
 const NC = PAL.length;     // 41
 const TRANSP = 255;
 // convenient names
-const SKY = R.sky, WARM = R.warm, ST = R.steel, MA = R.marsh, WA = R.water, DK = R.dark;
+const SKY = R.sky, WARM = R.warm, ST = R.steel, MA = R.marsh, WA = R.water, DK = R.dark, SUR = R.sur, TEAL = R.teal;
 
 // brighten / darken maps within a ramp (used by lens flares, ghosts, reflections)
 const UP = new Uint8Array(NC), DOWN = new Uint8Array(NC);
@@ -40,6 +43,18 @@ UP[SKY[9]] = WARM[6];      // brightest sky blooms into warm white
 UP[DK[2]] = ST[2];
 UP[WA[4]] = SKY[8];
 UP[MA[6]] = WARM[5];
+UP[SUR[5]] = WARM[6];
+UP[TEAL[2]] = SKY[9];
+function lum(i) { const [r, g, b] = PAL[i]; return 0.3 * r + 0.59 * g + 0.11 * b; }
+function tintMap(family, bias) {
+  const m = new Uint8Array(NC);
+  for (let i = 0; i < NC; i++) {
+    let best = family[0], bd = 1e9;
+    for (const f of family) { const d = Math.abs(lum(f) - lum(i) - (bias || 0)); if (d < bd) { bd = d; best = f; } }
+    m[i] = best;
+  }
+  return m;
+}
 // warm tint: map a colour to a warm colour of similar value (for sun-side flare tinting)
 const WARMTINT = new Uint8Array(NC);
 (function () {
@@ -56,6 +71,13 @@ const WARMTINT = new Uint8Array(NC);
     WARMTINT[i] = best;
   }
 })();
+
+const TEALTINT = tintMap([TEAL[0], TEAL[1], TEAL[2], SKY[9]], 6);
+const ROSETINT = tintMap([SUR[2], SUR[3], SUR[4], SUR[5], WARM[6]], 6);
+const WATERTINT = tintMap([WA[1], WA[2], WA[3], WA[4], SKY[8]], -4);
+// mirror tint for reflections in water: one step darker, nudged toward the water hues
+const REFL = new Uint8Array(NC);
+for (let i = 0; i < NC; i++) REFL[i] = DOWN[i];
 
 // ---- Ordered dithering ----
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];

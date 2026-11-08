@@ -2,39 +2,47 @@
 // horizon; slow sideways drift of the camera (scene slides right), pelicans skim the water.
 (function () {
   'use strict';
-  const { W, H, S, Wm, T, M, A, D, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, hash, vnoise, fbm2,
+  const { W, H, S, Wm, T, M, A, D, U, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, hash, vnoise, fbm2,
     clamp, lerp, smooth, spline, ri, get, DARKER } = PX;
   window.SHOTS = window.SHOTS || {};
 
-  const HZ = 255; // sea horizon row
-  const skyRamp = [S[6], S[7], T[7], S[8], T[8], S[9]];
+  const HZ = 232; // sea horizon row (raised in pass 2 to give a mirror sea)
+  // banded dream sky: pale blue overhead through mint-white and apricot to rose on the horizon
+  const skyRamp = [S[6], S[7], S[8], S[9], U[5], Wm[5], U[4]];
   function sky(t, ox) {
-    const so = ox * 0.15; // distant clouds barely move
-    for (let y = 0; y < HZ; y++) for (let x = 0; x < W; x++) {
-      let v = 0.75 + 4.1 * Math.pow(y / HZ, 0.8);
-      // low soft cloud banks resting on the horizon haze
-      const cb = fbm2((x - so * 1.5) * 0.012, y * 0.05, 91, 3);
-      if (y > 200 && cb > 0.55) v += (cb - 0.55) * 4 * smooth(200, 235, y) * smooth(256, 244, y);
-      const wx = x - so - (t - 71.2) * 1.2;
-      const n = fbm2(wx * 0.006, y * 0.11, 61, 3);
-      if (y < 200 && n > 0.64) v += (n - 0.64) * 6 * smooth(200, 60, y);
-      let c = pick(skyRamp, v, ri(x - so), y);
-      // warm late-light haze lying along the horizon
-      if (y > 222 && (c === S[9] || c === T[8]) && 0.38 * smooth(222, 252, y) > bth(ri(x - so), y)) c = Wm[5];
-      buf[y * W + x] = c;
+    const so = ox * 0.05;
+    for (let y = 0; y < HZ; y++) {
+      const v0 = 0.9 + 5.9 * Math.pow(y / HZ, 2.0);
+      for (let x = 0; x < W; x++) {
+        const wx = x - so;
+        let v = v0 + 0.25 * Math.sin(wx * 0.012 + y * 0.03);
+        // posterised bands with short dithered seams
+        const i = Math.floor(v), f = v - i;
+        v = i + clamp((f - 0.3) / 0.4, 0, 1);
+        buf[y * W + x] = pick(skyRamp, v, ri(wx), y);
+      }
+    }
+  }
+  const CLOUDS = [[70, 74, 64, 3, 0.32], [205, 34, 48, 7, 0.22], [452, 58, 76, 11, 0.4], [330, 96, 34, 5, 0.28], [-20, 112, 40, 9, 0.36]];
+  function skyLife(t, ox) {
+    const dt = t - 71.2;
+    SUR.veil(t, 0, W - 1, 40, 14, ox * 0.1, c => c === S[6] || c === S[7] || c === S[8]);
+    SUR.veil(t + 40, 0, W - 1, 128, 10, ox * 0.12, c => c === S[8] || c === S[9]);
+    SUR.moon2(ri(122 + ox * 0.05), 18, 5.5, -1);
+    SUR.planet(398 + ox * 0.08, 192, 56, { tilt: -0.3, flat: 0.23, alpha: 1, hazeY: HZ + 6, hazeLen: 22, clipY: HZ, light: [-0.7, -0.45] });
+    for (const [cx, cy, w, seed, par] of CLOUDS) SUR.cloud(ri(cx + ox * par + dt * 1.5), cy, w, seed, null, 0);
+  }
+  const ISLES = [[78, 208, 17, 3], [462, 196, 11, 8], [404, 223, 7, 5], [134, 220, 7, 2]];
+  function isles(t, ox) {
+    for (let i = 0; i < ISLES.length; i++) {
+      const [x, y, w, sd] = ISLES[i];
+      const bob = Math.sin(t * 0.55 + i * 1.9) * 1.2;
+      SUR.island(ri(x + ox * 0.15), ri(y + bob), w, sd, { top: Wm[6], grass: U[6], rock: U[2], dark: U[1] });
     }
   }
   function sea(t, ox) {
-    const so = ox * 0.4;
-    for (let y = HZ; y < H; y++) for (let x = 0; x < W; x++) {
-      const g = y - HZ;
-      let c = g === 0 ? S[8] : pick([A[2], A[3], A[4]], 1.6 - g * 0.09, x, y);
-      const wx = x - so;
-      const r = hash(Math.floor((wx + (t - 71.2) * (2 + g)) / (4 + g)), y, 3);
-      if (g > 1 && r > 0.86) c = g > 7 ? A[3] : A[4];
-      if (g > 0 && r > 0.975 && hash(ri(wx), y, Math.floor(t * 4)) > 0.5) c = S[9];
-      buf[y * W + x] = c;
-    }
+    SUR.mirror(t, HZ, H - 1, 0, W - 1, { ripple: 0.8, squash: 1, tint: (c, x, y, d) => (d > 4 && ((x + y) & 1) && bth(x, y) < d / 90) ? DARKER[c] : c });
+    hl(0, W - 1, HZ, S[9]);
   }
 
   // ---- tower (side view, sunlit from the front-left) ----
@@ -194,6 +202,9 @@
         } else {
           let v = steelV(u) + (k < SLN ? 0.4 * (1 - k / SLN) : 0);
           c = pick(T, v, x, 0);
+          // the dream sky mirrored in the stainless: teal at the limb, apricot-rose low on the body
+          if (u > -0.86 && u < -0.7 && ((x + k) & 1)) c = U[6];
+          if (u > -0.42 && u < -0.08 && k > SL * 0.5 && bth(x, k) < (k - SL * 0.5) / (SL * 0.5) * 0.7) c = k > SL * 0.8 ? U[4] : U[5];
           if (x === xl) c = T[4];
         }
         if (k >= SL - 3) c = k === SL - 1 ? T[2] : T[3];
@@ -231,7 +242,7 @@
   const BIRD = [['X...X', '.X.X.', '..X..'], ['.....', 'XX.XX', '..X..'], ['.....', '.XXX.', 'X.X.X']];
   function pelicans(t) {
     const dt = t - 71.2;
-    const groups = [[490, 236, 24, 4], [560, 222, 30, 3]];
+    const groups = [[490, 224, 24, 4], [560, 212, 30, 3]];
     for (let g = 0; g < groups.length; g++) {
       const [x0, y0, vx, n] = groups[g];
       for (let i = 0; i < n; i++) {
@@ -259,16 +270,30 @@
     if (g2 > 0.02) star(o[0] + SX - 6, o[1] + STIP + 6, g2);
   }
 
+  // warm work lamps on the tower and a slow beacon on the crown
+  function lamps(o, t) {
+    const X = x => x + o[0], Y = y => y + o[1];
+    for (const [x, y] of [[180, 69], [233, 69], [178, 134], [219, 164], [178, 194]]) { P(X(x), Y(y), Wm[4]); P(X(x), Y(y) - 1, Wm[6]); }
+    const on = ((t - 71.2) % 1.5) < 0.35;
+    P(X(224), Y(38), on ? Wm[3] : Wm[1]); if (on) { P(X(223), Y(38), Wm[2]); P(X(225), Y(38), Wm[2]); P(X(224), Y(37), Wm[5]); }
+  }
+
   window.SHOTS.shot9 = function (t) {
-    const p = smooth(71.2, 78.6, t) * 0.55 + (t - 71.2) / 7.4 * 0.45;
-    const o = [ri(p * 22), ri(p * 5)];
-    sky(t, o[0]);
-    sea(t, o[0]);
+    // steady drift (pass 2: faster, so the layers glide instead of stepping)
+    const p = (t - 71.2) / 7.4;
+    const of = [p * 40, p * 6];
+    const o = [ri(of[0]), ri(of[1])];
+    sky(t, of[0]);
+    skyLife(t, of[0]);
+    isles(t, of[0]);
     pelicans(t);
+    sea(t, of[0]);
+    SUR.motes(t, 22, 31, 0, 0, W, HZ - 10, 4, -2, [Wm[6], U[6], U[5]], c => c !== T[8]);
     tower(o);
     qdArm(o);
     ship(o, t);
     arms(o, t);
     glints(o, t);
+    lamps(o, t);
   };
 })();

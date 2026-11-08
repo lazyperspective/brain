@@ -14,6 +14,16 @@ const SHOT6B = (function () {
     rimMin: 0.4, rimGraze: 0.7, rimLow: 9, rimWarm: 9, rimHot: 9, rimCol: [1, 2, 3],
     specHot: 0.93, specCol: ST[8], flapDark: 0.5, tileJag: 3.2,
     chrome: [ST[2], ST[2], ST[3], ST[4], ST[5], ST[6], ST[7], ST[8], ST[8]],
+    chromeFn: (rh, rs, v, hit) => {
+      if (v < 3.2) return ST[3];
+      if (rh < -0.1) return ST[4];
+      if (rh < 0.06) return SUR[4];
+      if (rh < 0.22) return SUR[5];
+      if (rh < 0.45) return ST[7];
+      if (rh < 0.56) return TEAL[2];
+      return ST[6];
+    },
+    raceway: 2.62, ringPx: true, ringEvery: 1, ringDark: 0.6,
     tileFn: (n, hit) => {
       let v = 0.75 + 2.7 * Math.max(0, dot3(n, SUN)) + 0.6 * n[1] + 0.4 * n[0];
       if (hit.mat !== 1) v += 0.6;
@@ -22,36 +32,49 @@ const SHOT6B = (function () {
   });
 
   const theta = (tau) => keyed([[0, 48], [2.5, 42], [5.5, 32], [8.2, 27]], tau);
-  function ship(tau) {
-    const th = Math.round(theta(tau) * 4) / 4;   // quarter-degree steps
-    const aft = Math.round(3 * Math.sin(tau * 2 * Math.PI / 2.9) * 2) / 2;
-    const fwd = Math.round(4 * Math.sin(tau * 2 * Math.PI / 2.2 + 0.7) * 2) / 2;
-    const key = `6b|${th}|${aft}|${fwd}`;
-    return cachedShip(key, () => renderShip({ scale: 8.2, theta: th * deg, elev: ELEV, yaw: 0,
+  // re-rasterised every frame at its exact sub-pixel position: glides, rotates, trims its flaps
+  function ship(tau, subx, suby) {
+    const aft = 3 * Math.sin(tau * 2 * Math.PI / 2.9);
+    const fwd = 4 * Math.sin(tau * 2 * Math.PI / 2.2 + 0.7);
+    return renderShip({ scale: 8.2, theta: theta(tau) * deg, elev: ELEV, yaw: 0, subx, suby,
       aftDefl: [aft * deg, -aft * deg * 0.7], fwdDefl: [fwd * deg, -fwd * deg], shade,
       edges: [
         { dir: [1, -1], mats: [1, 5, 6], cols: [ST[8]] },
         { dir: [0, -1], mats: [2, 3, 4], cols: [ST[5]] },
         { dir: [-1, 1], mats: [2, 3, 4], cols: [ST[0]] },
         { dir: [1, 1], mats: [2], cols: [ST[3]] },
-      ] }));
+      ] });
   }
 
   // cumulus field rising past the falling ship (two parallax layers)
   const CLOUDS = [];
   (function () {
     const rnd = mulberry32(606);
-    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 0, x: rnd() * 520 - 40, y: i * 122 + rnd() * 30, spr: makePuffCloud(100 + i, 64 + Math.floor(rnd() * 30), 38, { n: 14, rmin: 6, rmax: 13, tower: 0.9, cols: [SKY[7], SKY[8], SKY[8], SKY[8]], t1: 0.35, t2: 0.55 }) });
-    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 1, x: rnd() * 520 - 60, y: i * 142 + rnd() * 40, spr: makePuffCloud(200 + i, 90 + Math.floor(rnd() * 50), 60, { n: 16, rmin: 7, rmax: 17 }) });
+    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 0, x: rnd() * 520 - 40, y: i * 122 + rnd() * 30, spr: rimCloud(makePuffCloud(100 + i, 64 + Math.floor(rnd() * 30), 38, { n: 14, rmin: 6, rmax: 13, tower: 0.9, cols: [SKY[7], SKY[8], SKY[8], SKY[8]], t1: 0.35, t2: 0.55 }), [1, -1], SKY[9], SUR[4]) });
+    for (let i = 0; i < 4; i++) CLOUDS.push({ layer: 1, x: rnd() * 520 - 60, y: i * 142 + rnd() * 40, spr: rimCloud(makePuffCloud(200 + i, 90 + Math.floor(rnd() * 50), 60, { n: 16, rmin: 7, rmax: 17, cols: [SUR[4], SKY[8], SKY[9], SKY[9]] }), [1, -1], SUR[5], SUR[3]) });
   })();
-  function sky(tau) {
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      // pale blue, lighter toward the hazy upper-left where the flare lives
-      let v = 7.2 + 0.55 * smooth(tau / 8.2) - 0.7 * (x * 0.6 + y) / (W * 0.6 + H) + 0.7 * Math.max(0, 1 - Math.hypot(x - 60, y + 30) / 300);
-      const f1 = fbm(x / 150, (y + Math.round(tau * 3)) / 60, 41, 3);
-      v += clamp((f1 - 0.5) * 1.6, -0.08, 0.3);
-      FB[y * W + x] = rampDither(SKY, clamp(v, 5.8, 8.9), x, y, 6);
+  // banded dream sky: ultramarine at the top, blue, a teal seam, pale, apricot low down
+  const BANDS = [[0, SKY[4]], [38, SKY[5]], [92, SKY[6]], [150, SKY[7]], [176, TEAL[2]], [183, SKY[7]], [215, SKY[8]], [262, SUR[5]], [400, SUR[5]]];
+  function band(yy, x, y) {
+    for (let i = BANDS.length - 2; i >= 0; i--) if (yy >= BANDS[i][0]) {
+      const span = BANDS[i + 1][0] - BANDS[i][0], f = (yy - BANDS[i][0]) / span, seam = Math.min(6, span * 0.3) / span;
+      return f > 1 - seam && ((f - (1 - seam)) / seam) > bayer(x, y) ? BANDS[i + 1][1] : BANDS[i][1];
     }
+    return BANDS[0][1];
+  }
+  function sky(tau) {
+    const lift = 26 * smooth(tau / 8.2);           // the pale bands rise as the shot goes on
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const f1 = fbm(x / 150, (y + Math.round(tau * 3)) / 60, 41, 3) - 0.5;
+      const yy = y + lift - (x - 240) * 0.18 + f1 * 22;
+      FB[y * W + x] = band(yy, x, y);
+    }
+    MASK.fill(0);
+    auroraVeil(tau, { x0: 120, x1: 500, base: 66, amp: 8, f1: 0.022, s1: 0.45, f2: 0.05, s2: 0.3, h: 50, strength: 0.5, map: TEALTINT });
+    // the planet, vast and close to the eastern horizon below the ship
+    drawPlanet({ cx: 420, cy: 262, r: 96, rot: -0.3, tilt: 0.22, light: [0.6, -0.7],
+      bands: [SKY[9], SKY[9], SUR[5], SKY[9], SKY[8], SKY[9], SUR[5], SKY[8], SKY[9]], fade: (y) => clamp((300 - y) / 110, 0.35, 1) });
+    drawPlanet({ cx: 70, cy: 214, r: 8, rot: 0, tilt: 0.01, light: [0.7, -0.5], bands: [SKY[9], SUR[5], SKY[9]] });
     for (const c of CLOUDS) {
       const speed = c.layer ? 13 : 5.5, span = c.layer ? 570 : 488;
       let y = c.y - tau * speed; y = ((y % span) + span) % span - 60;
@@ -90,13 +113,15 @@ const SHOT6B = (function () {
     const tau = t - T0;
     sky(tau);
     flareRemnant(tau);
-    const s = ship(tau);
-    const cx = Math.round(keyed([[0, 236], [4, 242], [8.2, 246]], tau) + Math.sin(tau * 0.9) * 2);
-    const cy = Math.round(keyed([[0, 150], [4, 144], [8.2, 141]], tau) + Math.sin(tau * 1.3 + 1) * 1.5);
-    const bx = cx - Math.round(s.ox), by = cy - Math.round(s.oy);
+    const cxf = keyed([[0, 236], [4, 242], [8.2, 246]], tau) + Math.sin(tau * 0.9) * 2;
+    const cyf = keyed([[0, 150], [4, 144], [8.2, 141]], tau) + Math.sin(tau * 1.3 + 1) * 1.5;
+    const ix = Math.floor(cxf), iy = Math.floor(cyf);
+    const s = ship(tau, cxf - ix, cyf - iy);
+    const bx = ix - s.ox, by = iy - s.oy;
     wisps(tau, s, bx, by);
     MASK.fill(0);
     blit(s, bx, by, true);
+    lightMotes(tau, 14, 47, [0, 0, W, H], [WARM[6], TEAL[2], SUR[5]]);
     for (let k = 0; k < 12; k++) {
       const sp = 150 + hash2(k, 1, 13) * 120, per = (H + 40) / sp;
       const q = tau + hash2(k, 2, 13) * per, cyc = Math.floor(q / per), ph = (q % per) / per;

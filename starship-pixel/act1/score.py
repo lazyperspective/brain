@@ -402,7 +402,7 @@ auto = np.interp(tt, [0, 4.3, 12.1, 15.1, 18.9, 29.0, 30.1, 33.0, 45.0, 55.0, 60
 mix = (MUS + apply_verb(VERB, ir_m) * 0.55) * auto + SFX * 1.0 + apply_verb(SFXV, ir_s) * 0.5
 # fade at the end: film fades to black ~88 s
 tt = np.arange(N) / SR
-mix *= np.clip((91.2 - tt) / 3.2, 0, 1) ** 1.5
+mix *= np.clip((89.8 - tt) / 3.0, 0, 1) ** 1.5  # film fades to black 86.8-89.8 s
 mix = hp(mix, 25, 2)
 
 def measure(x):

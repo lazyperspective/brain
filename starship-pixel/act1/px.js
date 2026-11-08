@@ -10,6 +10,9 @@ const PX = (() => {
     marsh: ['#1c2416', '#2c3a22', '#44542f', '#66733f', '#8c8a55', '#b3a571', '#d6c99a'],
     water: ['#163042', '#24506a', '#3b7894', '#6aa3bb', '#a9d0dd'],
     dark: ['#050608', '#0f1216', '#1a1e24'],
+    // pass 2: shared surreal family (dusk violet -> rose -> peach, and teal)
+    sur: ['#2b1b4a', '#4a2e6e', '#7a4b8f', '#b46a9a', '#e69bb0', '#ffd2c2'],
+    teal: ['#1f6e78', '#3fb4b0', '#7fe0d0'],
   };
   const R = {};
   for (const k in RAMPS_HEX) R[k] = RAMPS_HEX[k].map(hex);
@@ -64,6 +67,18 @@ const PX = (() => {
     const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
     for (;;) { pset(T, x0, y0, c); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
   }
+  // pixel-perfect line: Bresenham with L-shaped elbow pixels removed (cleaner diagonals, no doubled corners)
+  function lineP(T, x0, y0, x1, y1, c) {
+    x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy; const P = [];
+    for (;;) { P.push(x0, y0); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+    const n = P.length / 2; let skip = -1;
+    for (let i = 0; i < n; i++) {
+      if (i > 0 && i < n - 1 && i - 1 !== skip) { const ax = P[2 * i - 2], ay = P[2 * i - 1], bx = P[2 * i + 2], by = P[2 * i + 3], cx = P[2 * i], cy = P[2 * i + 1];
+        if ((ax === cx || ay === cy) && (bx === cx || by === cy) && ax !== bx && ay !== by) { skip = i; continue; } }
+      pset(T, P[2 * i], P[2 * i + 1], c);
+    }
+  }
   // line with per-pixel colour callback
   function linef(T, x0, y0, x1, y1, fn) {
     x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
@@ -115,6 +130,6 @@ const PX = (() => {
     return { pos, fwd, right, up, f, cx, cy, proj(p) { const d = sub(p, pos); const z = dot(d, fwd); return [this.cx + f * dot(d, right) / z, this.cy - f * dot(d, up) / z, z]; } };
   }
 
-  return { W, H, R, ALL, hex, thr, q4, clamp, sstep, lerp, rampc, dith2, mulberry, hash, vnoise, fbm, surf, screen, pset, pget, fill, rect, blit, line, linef, poly, disc, ring, deorphan, v3, add, sub, mul, dot, cross, norm, camera };
+  return { W, H, R, ALL, hex, thr, q4, clamp, sstep, lerp, rampc, dith2, mulberry, hash, vnoise, fbm, surf, screen, pset, pget, fill, rect, blit, line, lineP, linef, poly, disc, ring, deorphan, v3, add, sub, mul, dot, cross, norm, camera };
 })();
 if (typeof module !== 'undefined') module.exports = PX;

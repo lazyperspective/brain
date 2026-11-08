@@ -76,6 +76,6 @@ function png(file, rgb, w, h, scale) {
   };
   if (has('--sheet')) await sheet(path.join(OUT, 'contact_sheet.png'));
   const si = args.indexOf('--snapshot');
-  if (si >= 0) await sheet(path.join(OUT, 'snapshots', `round${args[si + 1]}.png`));
+  if (si >= 0) await sheet(path.join(OUT, 'snapshots', `${/^\d+$/.test(args[si + 1]) ? 'round' : ''}${args[si + 1]}.png`));
   await browser.close();
 })();

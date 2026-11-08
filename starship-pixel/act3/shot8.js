@@ -3,7 +3,7 @@
 // the ship settles with friction sparks, and the sun glints off the nose.
 (function () {
   'use strict';
-  const { W, H, S, Wm, T, M, A, D, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, hash, vnoise, fbm2,
+  const { W, H, S, Wm, T, M, A, D, U, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, hash, vnoise, fbm2,
     clamp, lerp, smooth, spline, ri, get, DARKER } = PX;
   window.SHOTS = window.SHOTS || {};
 
@@ -60,31 +60,68 @@
 
   // ---- background: sky + far coast below the horizon ----
   const HZ = 214;
+  // dream sky: ultramarine overhead banding through blue and teal to an apricot horizon
+  const RAMP = [U[0], S[1], S[2], S[3], S[4], U[8], U[7], U[6], U[5]];
+  const SKYC = new Set(RAMP.concat([S[5], S[6], S[0]]));
+  const WATER = new Uint8Array(W * H); // 1 = sea, 2 = marsh channel (mirror surfaces)
   function background(t, sh) {
+    WATER.fill(0);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const [wx, wy] = inv(x - sh[0], y - sh[1]);
       if (wy < HZ) {
         const fy = clamp(wy / HZ, 0, 1);
-        let v = 2.3 + 5.4 * Math.pow(fy, 1.8) + 0.9 * clamp(wx / 480, 0, 1) * fy * fy;
+        let v = 1.2 + 7.2 * Math.pow(fy, 1.7) + 0.5 * clamp(wx / 480, 0, 1) * fy;
         v -= 0.6 * clamp(((x - 240) * (x - 240) + (y - 135) * (y - 135)) / 80000 - 0.4, 0, 1) * (1 - fy); // lens falloff in the corners
-        buf[i] = pick(S, Math.min(v, 8.3), x, y);
+        const i0 = Math.floor(v), f0 = v - i0;
+        v = i0 + clamp((f0 - 0.25) / 0.5, 0, 1);
+        buf[i] = pick(RAMP, Math.min(v, 8), x, y);
       } else {
         const g = wy - HZ;
         let c;
-        if (g < 1.2) c = S[8];
-        else if (g < 9) {
-          c = pick(A, 3.6 - g * 0.18, x, y);
-          const gl = hash(ri(wx / 3), ri(wy), Math.floor(t * 6 + wx * 0.07));
-          if (gl > 0.93) c = A[4];
-          if (gl > 0.985) c = S[9];
-        } else if (g < 12) c = pick([M[5], M[6]], 1 - (g - 9) / 3 * 0.8, x, y);
+        if (g < 1.2) c = Wm[6];
+        else if (g < 9) { c = A[3]; WATER[i] = 1; }
+        else if (g < 10.5) c = S[9];                       // a thin line of surf foam
+        else if (g < 13) c = pick([M[5], M[6]], 1 - (g - 10.5) / 2.5 * 0.8, x, y);
         else {
           const n = fbm2(wx * 0.018, wy * 0.16, 33, 3);
-          c = n > 0.66 ? A[2] : n > 0.62 ? A[3] : pick([M[3], M[4], M[5], M[6]], 0.6 + n * 2.6 - (g - 12) * 0.02, x, y);
+          if (n > 0.62) { c = A[2]; WATER[i] = 2; }
+          else {
+            c = pick([M[2], M[3], M[4], M[5], M[6]], 0.8 + n * 3.2 - (g - 13) * 0.02, x, y);
+            // mudflat ripple patterns
+            if (n > 0.57 && ((ri(wx * 0.5 + wy * 2) & 3) === 0)) c = M[6];
+          }
         }
         buf[i] = c;
       }
+    }
+  }
+  // sky life: the ringed planet low over the sea (left = east here), veils, a second moon, islands
+  function skyLife(t, sh) {
+    SUR.aurora(t, 0, W - 1, 58 + sh[1], 40, 1.0, sh[0], 0, c => SKYC.has(c));
+    SUR.veil(t, 0, W - 1, 112 + sh[1], 8, sh[0], c => SKYC.has(c));
+    SUR.planet(92 + sh[0], 150 + sh[1], 62, { tilt: 0.22, flat: 0.22, alpha: 1, hazeY: 214 + sh[1], hazeLen: 26, light: [0.6, -0.6] });
+    SUR.moon2(176 + sh[0], 36 + sh[1], 4.5, 1);
+    SUR.island(ri(28 + sh[0] + Math.sin(t * 0.5) * 1.2), 192 + sh[1], 8, 4, { top: U[5], grass: U[4], rock: U[3], dark: U[2] });
+    SUR.island(ri(180 + sh[0]), ri(186 + sh[1] + Math.sin(t * 0.6 + 1) * 1.2), 6, 7, { top: U[5], grass: U[4], rock: U[3], dark: U[2] });
+  }
+  // mirror surfaces: reflect the sky (and planet) straight back up in world space
+  function water(t, sh) {
+    const src = buf.slice();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, wt = WATER[i];
+      if (!wt) continue;
+      const [wx, wy] = inv(x - sh[0], y - sh[1]);
+      const g = wy - HZ;
+      const ry = HZ - g * (wt === 1 ? 2.6 : 1.4) - 1;
+      const rip = Math.sin(wy * 1.7 + t * 2.2) * (wt === 1 ? 0.6 : 1.2);
+      const p = fwd(wx + rip, ry);
+      const sx = clamp(ri(p[0] + sh[0]), 0, W - 1), sy = clamp(ri(p[1] + sh[1]), 0, H - 1);
+      let c = src[sy * W + sx];
+      if (wt === 2 && bth(x, y) < 0.25) c = DARKER[c];
+      const gl = hash(ri(wx / 3), ri(wy), Math.floor(t * 5 + wx * 0.07));
+      if (wt === 1 && gl > 0.975) c = Wm[6];
+      buf[i] = c;
     }
   }
 
@@ -179,7 +216,8 @@
         if (s < 1) v -= (1 - s) * 0.6;
         c = pick(T, v, x, y);
         // blue sky in the left limb
-        if (u > -0.9 && u < -0.76) c = pick(S, 5.2 + (u + 0.9) * 8 + (s < 1.4 ? 0.8 : 0), x, y);
+        if (u > -0.9 && u < -0.76) c = pick([S[3], S[4], U[7], U[6]], (u + 0.9) * 18 + (s < 1.4 ? 0.8 : 0), x, y);
+        if (u > 0.22 && u < 0.3 && s > 1.1 && bth(x, y) < 0.45) c = U[5];
         // golden reflection of the sunlit land lower down
         const wI = smooth(-0.36, -0.25, u) * (1 - smooth(0.03, 0.13, u)) * smooth(140, 250, y) * (s > 1.2 ? 1 : 0);
         if (wI > 0.05) { const wv = 2.6 + wI * 2.6 + 0.4 * Math.sin((wy - tip) * 0.03); if (wI * 1.4 > bth(x, y)) c = pick(Wm, wv, x, y); }
@@ -370,6 +408,9 @@
     const sh = shake(t);
     const G = shipGeom(t);
     background(t, sh);
+    skyLife(t, sh);
+    water(t, sh);
+    SUR.motes(t, 18, 55, 0, 0, W, 200, 5, -3, [Wm[6], U[6], U[5]], c => SKYC.has(c));
     leftStructure(t, sh, G.cf);
     shipBody(t, sh, G);
     shipDetails(t, sh, G);

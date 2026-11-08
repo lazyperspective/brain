@@ -3,7 +3,7 @@
 // dithered palette-step fade to black (~86.8-89.6) and black to the end.
 (function () {
   'use strict';
-  const { W, H, S, Wm, T, M, A, D, K, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, hash, vnoise, fbm2,
+  const { W, H, S, Wm, T, M, A, D, K, U, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, hash, vnoise, fbm2,
     clamp, lerp, smooth, spline, ri, get, DARKER, fadeBlack } = PX;
   window.SHOTS = window.SHOTS || {};
 
@@ -12,32 +12,38 @@
   function drift(t) {
     const a = clamp((t - 78.6) / (92 - 78.6), 0, 1);
     const e = a * 0.75 + smooth(0, 1, a) * 0.25;
-    return [e * 15, e * 30];
+    return [e * 20, e * 40];
   }
 
-  // ---- sky with cirrus hooks and the moon ----
+  // ---- dream sky: ultramarine overhead, teal toward the planet, an apricot glow at its crown ----
+  const RAMP = [U[0], S[1], S[2], S[3], S[4], U[8], U[7], U[5]];
+  const SKYC = new Set(RAMP.concat([S[0], S[5], S[6]]));
   function sky(t, o) {
-    const dusk = 1.7 * smooth(81.5, 89, t);
+    const dusk = 2.2 * smooth(81.5, 89, t);
     const ox = o[0] * 0.85, oy = o[1] * 0.85;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const wx = x - ox, wy = y - oy;
-      let v = 2.3 + 2.6 * (wy / H) + 1.0 * (wx / W) - dusk;
+      let v = 1.1 + 3.4 * (wy / H) + 2.1 * (wx / W) - dusk;
+      const i0 = Math.floor(v), f0 = v - i0;
+      v = i0 + clamp((f0 - 0.25) / 0.5, 0, 1);  // banded, with dithered seams
       // cirrus: long combed streaks curling at the ends
       const u = wx * 0.8 - wy * 0.6 + (t - 78.6) * 1.5, w = wx * 0.6 + wy * 0.8 + 14 * Math.sin(u * 0.012);
       const n = fbm2(u * 0.008, w * 0.07, 71, 3);
       const m = smooth(0.45, 0.85, vnoise(u * 0.004 + 3, 8)) * (0.7 + 0.3 * smooth(80, 0, y));
-      if (n > 0.6) v += m * Math.min(1.5, (n - 0.6) * 7) * (1 - dusk * 0.25);
-      buf[y * W + x] = pick(S, v, ri(wx), ri(wy));
+      if (n > 0.6) v += m * Math.min(1.2, (n - 0.6) * 6) * (1 - dusk * 0.2);
+      buf[y * W + x] = pick(RAMP, v, ri(wx), ri(wy));
     }
-    // moon: a faint waxing gibbous, cool and translucent
-    const mx = ri(250 - 9 + ox), my = ri(69 - 18 + oy), r = 5.5;
-    const ml = 1 - 0.35 * smooth(84, 89, t);
-    disc(mx, my, r, 0, (x, y, dx, dy) => {
-      const lit = dx * 0.55 + dy * 0.25 > -r * 0.6;
-      const maria = hash(ri(dx + 9), ri(dy + 9), 51) > 0.72 || (dx > 0 && dy > 0 && dx + dy < 4);
-      if (!lit) { Pd(x, y, S[5], 0.5 * ml, 0, 0); return; }
-      P(x, y, maria ? S[6] : (dx * dx + dy * dy > (r - 1.2) * (r - 1.2) ? S[6] : S[7]));
-    });
+    // aurora curtains over the upper sky, a silk veil lower down
+    SUR.aurora(t, 0, W - 1, 70 + oy, 46, 1.0, ox, 0, c => SKYC.has(c));
+    SUR.veil(t, 0, W - 1, 150 + oy, 12, ox, c => SKYC.has(c));
+    // the giant ringed planet rising from the lower right, its far ring arching across the sky
+    SUR.planet(470 + ox, 336 + oy, 118, { tilt: 0.42, flat: 0.2, alpha: 1, light: [-0.35, -0.8] });
+    // second moon
+    SUR.moon2(ri(241 + ox), ri(51 + oy), 5.5, -1, 1 - 0.3 * smooth(84, 89, t));
+    // two small floating islands drifting near the planet's crown
+    SUR.island(ri(372 + ox + Math.sin(t * 0.5) * 1.2), ri(214 + oy), 9, 4, { top: U[5], grass: U[4], rock: U[2], dark: U[1] });
+    SUR.island(ri(420 + ox), ri(188 + oy + Math.sin(t * 0.6 + 2) * 1.2), 6, 6, { top: U[5], grass: U[4], rock: U[2], dark: U[1] });
+    SUR.motes(t, 24, 77, 0, 0, W, H, 3, -3, [Wm[6], U[6], U[5]], c => SKYC.has(c));
   }
   // first stars in the deepening dusk
   function stars(t, o) {
@@ -46,7 +52,7 @@
     for (let i = 0; i < 26; i++) {
       const x = ri(hash(i, 1, 81) * 480 + o[0] * 0.85), y = ri(hash(i, 2, 81) * 120 + o[1] * 0.85);
       if (hash(i, 3, 81) > a) continue;
-      if (get(x, y) > S[3] && get(x, y) <= S[9]) continue; // only in the darkest sky
+      { const g = get(x, y); if (!(g === U[0] || g === S[0] || g === S[1] || g === S[2])) continue; } // only in the darkest sky
       const tw = Math.sin(t * (2 + hash(i, 4, 81) * 3) + i);
       P(x, y, tw > 0.3 ? S[8] : S[6]);
     }
@@ -227,7 +233,8 @@
           const v = u < -0.88 ? 5.0 : u < -0.7 ? 6.6 : u < -0.42 ? 8.0 : u < -0.22 ? 7.2 : 6.2;
           c = pick(T, v + 0.3 * Math.sin(k * 0.12), X(x), Y(y));
           if (u < -0.42 && u > -0.7 && k > 30 && k < 80) c = Wm[6];
-          if (u < -0.92) c = S[5];
+          if (u < -0.92) c = U[6];
+          if (u > -0.22 && u < 0.02 && k > 60 && bth(X(x), Y(y)) < 0.5) c = U[5];
         }
         if (k < 5) c = k < 2 ? T[2] : T[3];
         P(X(x), Y(y), c);
@@ -262,6 +269,7 @@
     qd(oi);
     ship(oi, t);
     arms(oi);
+    for (const h of [0.25, 0.45, 0.65, 0.85]) { const p = fpt(0, 0, h, oi); P(ri(p[0]) + 1, ri(p[1]) + 1, Wm[4]); P(ri(p[0]) + 1, ri(p[1]), Wm[6]); }
     if (t >= FADE0) fadeBlack(clamp((t - FADE0) / (FADE1 - FADE0), 0, 1), 11);
   };
 })();

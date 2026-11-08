@@ -2,7 +2,7 @@
 // the ship descending vertically on its landing burn into the open arms.
 (function () {
   'use strict';
-  const { W, H, S, Wm, T, M, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, mulberry, hash, vnoise,
+  const { W, H, S, Wm, T, M, U, buf, P, Pd, rect, hl, vl, line, poly, disc, ring, pick, bth, mulberry, hash, vnoise,
     clamp, lerp, smooth, spline, ri, get } = PX;
   window.SHOTS = window.SHOTS || {};
 
@@ -13,23 +13,26 @@
 
   // ---------- sky ----------
   // warm-white core around the sun falling off to cool pale grey at the edges
-  const skyRamp = [Wm[6], S[9], T[8], S[8], T[7]];
+  // banded: white-gold glare, peach, pale blue, rose at the far edges
+  const skyRamp = [Wm[6], S[9], U[5], S[8], U[4]];
+  const SKYC = new Set([Wm[6], S[9], U[5], S[8], U[4], T[8], T[7]]);
   function sky(t) {
     const drift = (t - 60.3) * 2.0;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const dx = x - SUN[0], dy = (y - SUN[1]) * 1.15;
         const d = Math.sqrt(dx * dx + dy * dy);
-        let v = d < 34 ? 0.3 * d / 34 : 0.3 + 3.9 * (1 - Math.exp(-(d - 34) / 150));
+        let v = d < 34 ? 0.3 * d / 34 : 0.3 + 4.1 * (1 - Math.exp(-(d - 34) / 170));
         if (d > 26 && d < 70) v += 0.6 * Math.sin((d - 26) / 44 * Math.PI) * 0.0; // keep monotone
         // long combed cirrus: elongated noise along a gentle diagonal
         const u = x * 0.95 + y * 0.31 + drift, w = -x * 0.31 + y * 0.95 + 9 * Math.sin(u * 0.009);
         const n = PX.fbm2(u * 0.0105, w * 0.085, 21, 3);
         const m = smooth(60, 200, d);
-        if (n > 0.6) v -= m * Math.min(1.1, (n - 0.6) * 6);
+        if (n > 0.6) v -= m * Math.min(0.8, (n - 0.6) * 5);
         else if (n < 0.36) v += m * 0.35;
         // bright haze settling over the dunes
         if (y > 200) v -= (y - 200) / 70 * 1.1;
+        { const i0 = Math.floor(v), f0 = v - i0; v = i0 + clamp((f0 - 0.25) / 0.5, 0, 1); }
         buf[y * W + x] = pick(skyRamp, v, x, y);
       }
     }
@@ -149,7 +152,7 @@
   }
 
   // ---------- ship ----------
-  const tipY = spline([[60.3, -70], [61.0, -38], [62.0, -8], [63.0, 8], [64.0, 17], [65.0, 22], [65.8, 24]]);
+  const tipY = spline([[60.3, -70], [61.0, -40], [62.0, -14], [63.0, 3], [64.0, 13], [65.0, 20], [65.8, 25]]);
   const L = 66, RR = 8, LN = 18;
   const prof = s => Math.pow(1 - Math.pow(1 - clamp(s, 0, 1), 2), 0.55);
   function ship(t) {
@@ -165,6 +168,7 @@
         if (k < LN * 0.42) c = u > 0.3 ? T[6] : T[4];                  // tiled nose cap
         if (x === xl) c = T[3];
         if (x === xr) c = T[8];
+        if (x === xr - 1 && k > LN * 0.5 && (k & 1)) c = U[5]; // the peach sky caught on the steel
         if (k === L - 1) c = T[3];
         buf[y * W + x] = c;
       }
@@ -196,10 +200,9 @@
       const hw = q < 0.15 ? lerp(3.0, 4.2, q / 0.15) : lerp(4.2, 0.8, (q - 0.15) / 0.85);
       for (let x = ri(CX - hw); x <= ri(CX + hw) - 1; x++) {
         const e = Math.abs(x + 0.5 - CX) / hw;
-        let c = q < 0.35 ? (e < 0.6 ? Wm[6] : Wm[5]) : q < 0.7 ? (e < 0.5 ? Wm[5] : Wm[4]) : Wm[3];
+        let c = q < 0.35 ? (e < 0.5 ? Wm[6] : e < 0.8 ? Wm[4] : Wm[3]) : q < 0.7 ? (e < 0.45 ? Wm[5] : Wm[3]) : Wm[2];
         if (q > 0.7) { Pd(x, y, c, 1 - (q - 0.7) / 0.3, 0, 0); continue; }
         P(x, y, c);
-        if (q < 0.7 && (x === ri(CX - hw) || x === ri(CX + hw) - 1) && e > 0.75) P(x, y, Wm[3]);
       }
       if (k === 5 || k === 10 || k === 15) { P(CX - 2, y, Wm[6]); P(CX - 1, y, Wm[6]); P(CX, y, Wm[6]); P(CX + 1, y, Wm[6]); }
     }
@@ -375,7 +378,11 @@
 
   window.SHOTS.shot7 = function (t) {
     sky(t);
+    // the ringed planet low in the east (screen right here), pale through the dune haze
+    SUR.planet(418, 196, 64, { tilt: -0.28, flat: 0.22, alpha: 1, hazeY: 236, hazeLen: 70, light: [-0.75, -0.55] });
+    SUR.moon2(96, 34, 4.5, 1);
     sun(t);
+    SUR.motes(t, 16, 13, 0, 0, W, 200, 4, -2, [Wm[4], U[6], U[4]], c => SKYC.has(c));
     towerLattice();
     qdArm();
     carriage();
@@ -383,6 +390,9 @@
     const len = plume(t, yb);
     arms(t);
     shimmer(t, CX - 9, CX + 8, yb + len - 2, yb + len + 26);
+    // warm work lamps on the tower, a slow beacon on the arm tops
+    for (const y of [117, 145, 173]) { P(X0, y, Wm[4]); P(X1, y, Wm[4]); }
+    if (((t - 60.3) % 1.4) < 0.3) { P(225, AT - 3, Wm[3]); P(256, AT - 3, Wm[3]); }
     birds(t);
     grass(t);
     motes(t);
