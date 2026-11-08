@@ -23,7 +23,7 @@ const SHOT6B = (function () {
       if (rh < 0.56) return TEAL[2];
       return ST[6];
     },
-    raceway: 2.62, ringPx: true, ringEvery: 1, ringDark: 0.6,
+    raceway: 2.62, ringPx: true, ringEvery: 3, ringDark: 0.6,
     tileFn: (n, hit) => {
       let v = 0.75 + 2.7 * Math.max(0, dot3(n, SUN)) + 0.6 * n[1] + 0.4 * n[0];
       if (hit.mat !== 1) v += 0.6;
