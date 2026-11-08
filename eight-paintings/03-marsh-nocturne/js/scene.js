@@ -41,7 +41,7 @@ vec3 skyCol(vec2 q, vec2 p, out float cloud){
   float e = clamp((YH - q.y) / YH, 0., 1.);
   float x = q.x;
   // vertical ramp: muted gold at the horizon, olive, grey, smoky violet into the night
-  vec3 c0 = vec3(.84,.69,.43), c1 = vec3(.72,.61,.43), c2 = vec3(.50,.47,.39), c3 = vec3(.34,.33,.32), c4 = vec3(.235,.22,.255), c5 = vec3(.15,.14,.175);
+  vec3 c0 = vec3(.84,.69,.43), c1 = vec3(.72,.61,.43), c2 = vec3(.50,.47,.39), c3 = vec3(.34,.33,.32), c4 = vec3(.245,.23,.265), c5 = vec3(.165,.155,.19);
   vec3 c = mix(c0, c1, smoothstep(0., .06, e));
   c = mix(c, c2, smoothstep(.04, .22, e));
   c = mix(c, c3, smoothstep(.16, .44, e));
@@ -281,9 +281,9 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
     float endT = smoothstep(stern - 0.01, stern + 0.01, u) * (1. - smoothstep(bow - 0.02, bow, u));
     float hull = smoothstep(sheer - 1., sheer + 1., rp.y) * (1. - smoothstep(bottom - 1., bottom + 1., rp.y)) * endT;
     float ry = 2. * 8. - rp.y;
-    float rh = smoothstep(sheer - 2., sheer + 2., ry) * (1. - smoothstep(bottom - 2., bottom + 2., ry)) * endT;
+    float rh = smoothstep(sheer - 6., sheer + 6., ry) * (1. - smoothstep(bottom - 4., bottom + 4., ry)) * endT * smoothstep(-1.05, -0.7, u) * (1. - smoothstep(0.75, 1.05, u));
     rh *= 0.5 + 0.5 * smoothstep(.3, .6, fbm(vec2(p.x * 0.03, p.y * 0.5), 2));
-    if (rh > 0. && rp.y > 8.) { c = mix(c, c * 0.32, rh * 0.85); }
+    if (rh > 0. && rp.y > 8.) { c = mix(c, c * 0.42, rh * 0.75); }
     if (hull > 0.) {
       vec3 hc = vec3(.07,.062,.052);
       float gun = 1. - smoothstep(0., 4., rp.y - sheer);
@@ -367,7 +367,19 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
         const mc = [c[0] * 1.10 + 0.012, c[1] * 1.08 + 0.011, c[2] * 1.06 + 0.012];
         const L = R.mix(60, 220, rng()) * (0.5 + d), dy = 0.015 * rng.gauss();
         const r = R.mix(10, 26, rng()) * (0.5 + 1.2 * d);
-        add({ pts: [[xx, yy], [xx + L * 0.5, yy + L * dy * 0.5], [xx + L, yy + L * dy]], r, col: mc, alpha: R.mix(0.25, 0.5, rng()) * Math.min(1, mist * 1.6), thick: 0.12, dry: 0.9, load: 0.95, smear: 0.3, mix: 0.1 });
+        if (x < -50) continue;
+        // stop short of anything standing out of the mist (cedars, stacks, the skiff)
+        const pts = [[xx, yy]];
+        for (let k = 1; k <= 8; k++) {
+          const px = xx + L * k / 8, py = yy + L * dy * k / 8;
+          let ok = true;
+          for (const o of [-1.1, 0, 1.1]) { const j = M.idx(px, py + o * r); if (M.C[j * 4 + 2] < 0.5) ok = false; }
+          if (!ok) break;
+          pts.push([px, py]);
+        }
+        if (pts.length < 3) continue;
+        { const j0 = M.idx(xx, yy - r * 1.1), j1 = M.idx(xx, yy + r * 1.1); if (M.C[j0 * 4 + 2] < 0.5 || M.C[j1 * 4 + 2] < 0.5) continue; }
+        add({ pts, r, col: mc, alpha: R.mix(0.25, 0.5, rng()) * Math.min(1, mist * 1.6), thick: 0.12, dry: 0.9, load: 0.95, smear: 0.3, mix: 0.1 });
       }
     } },
     // 8. rigger: the finest touches
@@ -377,10 +389,15 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       // moon: the old moon's faint disc, then two loaded strokes following the lit limb
       const th0 = Math.atan2(0.78, 0.62);
       { const c = M.colour(MOON[0] - 10, MOON[1] - 10); add({ pts: [[MOON[0] - 12, MOON[1] - 6], [MOON[0] + 8, MOON[1] - 2]], r: MOONR * 0.62, col: c.map((v) => v * 1.06 + 0.004), alpha: 0.5, thick: 0.15, dry: 0.4, load: 1.1, fid: 0, smear: 0.4 }); }
-      for (const [rr, span, w, col] of [[MOONR - 4.5, 1.25, 4.6, [0.86, 0.78, 0.55]], [MOONR - 3.2, 0.95, 3.0, [0.93, 0.87, 0.66]]]) {
-        const pts = [];
-        for (let k = 0; k <= 14; k++) { const a = th0 - span + 2 * span * k / 14; pts.push([MOON[0] + Math.cos(a) * rr, MOON[1] + Math.sin(a) * rr]); }
-        add({ pts, r: w, col, alpha: 0.95, thick: 2.2, dry: 0.3, load: 1.45, fid: 0 });
+      const maxT = MOONR * 0.36;
+      for (let k = 0; k < 6; k++) {
+        const dep = 1.4 + k * 1.75; // depth inside the limb
+        if (dep >= maxT) break;
+        const span = 1.55 * Math.acos(Math.min(1, dep / maxT)) + 0.05;
+        const rr = MOONR - dep, pts = [];
+        for (let j = 0; j <= 16; j++) { const a = th0 - span + 2 * span * j / 16; pts.push([MOON[0] + Math.cos(a) * rr, MOON[1] + Math.sin(a) * rr]); }
+        const col = k < 2 ? [0.93, 0.87, 0.66] : [0.86, 0.79, 0.57];
+        add({ pts, r: 1.9 + 0.25 * k, col, alpha: 0.95, thick: 1.6 + 0.2 * k, dry: 0.15, load: 1.5, fid: 0 });
       }
       // afterglow core: horizontal loaded strokes, broken by the drag of the brush
       for (let k = 0; k < 70; k++) {

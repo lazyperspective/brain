@@ -99,7 +99,7 @@ void main(){
                    + texture(u_prevH, (gl_FragCoord.xy + vec2(ho, -ho)*0.7) / u_res).r + texture(u_prevH, (gl_FragCoord.xy - vec2(ho, -ho)*0.7) / u_res).r);
   float relief = clamp((hb - hn) * 4.0 + 0.5, 0., 1.); // 1 on local peaks, 0 in valleys
   float grain = vnoise(gl_FragCoord.xy * 0.31 / u_scale + seed) * 0.6 + vnoise(gl_FragCoord.xy * 0.09 / u_scale - seed) * 0.4;
-  float s = mix(bB, clamp((tooth * 0.45 + grain * 0.45) * (1. - clamp(hb*2.,0.,0.6)) + relief * 0.4, 0., 1.), u_tooth);
+  float s = mix(bB, clamp((tooth * 0.3 + grain * 0.6) * (1. - clamp(hb*2.,0.,0.6)) + relief * 0.4, 0., 1.), u_tooth);
   float keep = smoothstep(1. - L - 0.14, 1. - L + 0.14, s);
   vec2 tc = gl_FragCoord.xy / u_res;
   if (u_kind < 0.5 || u_kind > 1.5) {

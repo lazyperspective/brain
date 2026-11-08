@@ -22,61 +22,113 @@
     }
     const opt = (o) => Object.assign({ opacity: 0.95, soft: 0.3, bristleDensity: 0.9, bristleContrast: 0.35, dry: 0.3, thick: 0.5, pickup: 0.05 }, o);
 
+    // ---------------------------------------------------------------- the ledge, up close
+    // cracks with a lit lip, scattered stones, lichen: the crisp foreground detail
+    {
+      const isFG = (x, y) => P.mat[clamp(y | 0, 0, H - 1) * W + clamp(x | 0, 0, W - 1)] === 3;
+      const lum = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+      // cracks
+      for (let i = 0, made = 0; i < 4000 && made < 18; i++) {
+        let x = rng() * W, y = py(0.8 + rng() * 0.2);
+        if (!isFG(x, y)) continue;
+        made++;
+        const pts = [x, y];
+        let a = (rng() - 0.5) * 0.35;
+        const n = 5 + (rng() * 14 | 0);
+        for (let k = 0; k < n; k++) {
+          a += (rng() - 0.5) * 0.3;
+          x += Math.cos(a) * 16 * S; y += Math.sin(a) * 5 * S;
+          if (!isFG(x, y)) break;
+          pts.push(x, y);
+        }
+        if (pts.length < 6) continue;
+        const c = sampleC(pts[0], pts[1]);
+        const w = (0.8 + rng() * 1.4) * S;
+        stroke(pts, w, [c[0] * 0.32, c[1] * 0.3, c[2] * 0.3], opt({ opacity: 0.85, soft: 0.4, thick: 0.2, dry: 0.5 }));
+        const lip = pts.map((v, j) => (j % 2 ? v - w * 1.8 : v));
+        stroke(lip, w * 0.6, [Math.min(1, c[0] * 1.35 + 0.05), Math.min(1, c[1] * 1.3 + 0.04), Math.min(1, c[2] * 1.2 + 0.02)],
+          opt({ opacity: 0.55, soft: 0.5, thick: 0.9, dry: 0.7 }));
+      }
+      // stones and pebbles
+      for (let i = 0, made = 0; i < 6000 && made < 170; i++) {
+        const x = rng() * W, y = py(0.79 + rng() * 0.21);
+        if (!isFG(x, y) || !isFG(x, y + 8 * S)) continue;
+        made++;
+        const r = (2 + Math.pow(rng(), 2.5) * 11) * S * (0.6 + 0.6 * (y / H - 0.79) / 0.21);
+        const c = sampleC(x, y);
+        const tone = 0.8 + rng() * 0.45;
+        stroke([x + r * 0.5, y + r * 0.45, x + r * 1.6, y + r * 0.6], r * 0.7, [c[0] * 0.45, c[1] * 0.43, c[2] * 0.45], opt({ opacity: 0.5, soft: 0.7, thick: 0.05 }));
+        stroke([x - r * 0.3, y, x + r * 0.3, y + r * 0.1], r * 0.75, [c[0] * tone * 0.85, c[1] * tone * 0.82, c[2] * tone * 0.8], opt({ opacity: 0.95, soft: 0.35, thick: 0.9 }));
+        stroke([x - r * 0.45, y - r * 0.35, x, y - r * 0.45], r * 0.32, [Math.min(1, c[0] * 1.45 + 0.06), Math.min(1, c[1] * 1.35 + 0.05), Math.min(1, c[2] * 1.2 + 0.03)], opt({ opacity: 0.8, soft: 0.45, thick: 1.4 }));
+      }
+      // lichen
+      for (let i = 0, made = 0; i < 6000 && made < 260; i++) {
+        const x = rng() * W, y = py(0.79 + rng() * 0.21);
+        if (!isFG(x, y)) continue;
+        made++;
+        const c = sampleC(x, y);
+        const l = lum(c);
+        const kind = rng();
+        const col = kind < 0.45 ? [0.62 * (0.6 + l), 0.34 * (0.6 + l), 0.12 * (0.6 + l)] : kind < 0.8 ? [0.50 * (0.5 + l), 0.52 * (0.5 + l), 0.42 * (0.5 + l)] : [c[0] * 0.5, c[1] * 0.5, c[2] * 0.5];
+        const r = (1 + rng() * 3) * S;
+        stroke([x, y, x + (rng() - 0.5) * 6 * S, y + (rng() - 0.5) * 2 * S], r, col, opt({ opacity: 0.6, soft: 0.6, thick: 0.4, dry: 0.8 }));
+      }
+    }
+
     // ---------------------------------------------------------------- juniper
+    {
+    const rng = makeRng(8080);
     // Skeleton: limbs as polylines with per-point radius. Bark: fibres spiralling around each
     // limb, lit on the side that faces the low sun. Foliage: dense olive sprays, backlit edges.
     const limbs = [];
     const clumps = [];
+    function foliageMass(x, y, base) {
+      const k = 3 + (rng() * 4 | 0);
+      for (let i = 0; i < k; i++) {
+        clumps.push({ x: x + (rng() - 0.5) * base * 2.6, y: y - rng() * base * 0.7 + base * 0.1, r: base * (0.6 + rng() * 0.6) });
+      }
+    }
     function grow(x, y, ang, len, r0, depth, kind, curl) {
-      const nseg = Math.max(4, Math.round(len / (10 * S)));
+      const nseg = Math.max(4, Math.round(len / (9 * S)));
       const pts = [x, y], rad = [r0];
-      let a = ang;
-      const taper = kind === 'dead' ? 0.18 : 0.45;
+      let a = ang, turn = 0;
+      const taper = kind === 'dead' ? 0.22 : 0.5;
       for (let i = 1; i <= nseg; i++) {
-        a += (NZ.n2(i * 0.35 + depth * 7.3 + x * 0.01, y * 0.01) * 0.5 + curl) * (14 / nseg) * 0.6;
+        turn = turn * 0.7 + (rng() - 0.5) * 0.5;
+        a += turn * 0.45 + curl;
         x += Math.cos(a) * len / nseg; y += Math.sin(a) * len / nseg;
         pts.push(x, y);
         const t = i / nseg;
-        rad.push(r0 * mix(1, taper, Math.pow(t, 0.8)) * (1 + 0.12 * Math.sin(i * 1.7 + depth)));
+        rad.push(r0 * mix(1, taper, Math.pow(t, 0.9)) * (1 + 0.1 * Math.sin(i * 1.9 + depth)));
       }
       limbs.push({ pts, rad, kind, depth });
-      if (kind === 'dead') {
-        if (depth < 3 && len > 90 * S) {
-          const q = Math.round(nseg * (0.5 + 0.3 * rng()));
-          grow(pts[q * 2], pts[q * 2 + 1], a + (rng() < 0.5 ? -1 : 1) * (0.5 + 0.4 * rng()), len * 0.45, rad[q] * 0.6, depth + 1, 'dead', curl);
+      const terminal = depth >= 2 || len < 130 * S;
+      if (!terminal) {
+        for (let c = 0; c < 2; c++) {
+          const q = Math.max(2, Math.round(nseg * (0.55 + 0.4 * rng())));
+          const side = c === 0 ? -1 : 1;
+          const na = a + side * (0.45 + rng() * 0.5);
+          const ck = kind === 'dead' ? 'dead' : (rng() < 0.3 ? 'dead' : 'live');
+          grow(pts[q * 2], pts[q * 2 + 1], na, len * (0.55 + rng() * 0.2), rad[q] * (0.62 + rng() * 0.12), depth + 1, ck, curl * 0.6);
         }
-        return;
       }
-      if (depth >= 3 || len < 60 * S) {
-        clumps.push({ x, y: y - 6 * S, r: (42 + rng() * 40) * S, depth });
-        return;
-      }
-      const nk = 2 + (rng() < 0.45 ? 1 : 0);
-      for (let c = 0; c < nk; c++) {
-        const q = Math.max(2, Math.round(nseg * (0.45 + 0.5 * rng())));
-        const side = c % 2 === 0 ? -1 : 1;
-        const na = a + side * (0.4 + rng() * 0.55) - 0.25 * Math.sin(a + Math.PI / 2);
-        grow(pts[q * 2], pts[q * 2 + 1], na, len * (0.48 + rng() * 0.22), rad[q] * (0.55 + rng() * 0.15), depth + 1, rng() < 0.1 ? 'dead' : 'live', curl * 0.7);
-      }
-      const q = Math.round(nseg * (0.6 + 0.3 * rng()));
-      clumps.push({ x: pts[q * 2], y: pts[q * 2 + 1] - 12 * S, r: (40 + rng() * 40) * S, depth });
+      if (kind === 'live') foliageMass(x, y, (terminal ? 42 : 52) * S);
     }
-    const rootX = px(0.80), rootY = py(0.925);
+    const rootX = px(0.865), rootY = py(0.935);
     {
-      // the trunk: short, massive, writhing
-      const pts = [rootX, rootY], rad = [66 * S];
-      let x = rootX, y = rootY, a = -Math.PI / 2 - 0.3;
+      // the trunk: massive, writhing, leaning out toward the chasm
+      const pts = [rootX, rootY], rad = [80 * S];
+      let x = rootX, y = rootY, a = -Math.PI / 2 - 0.42;
       for (let i = 1; i <= 26; i++) {
-        a += Math.sin(i * 0.55) * 0.08 - 0.012;
-        x += Math.cos(a) * 11 * S; y += Math.sin(a) * 11 * S;
-        pts.push(x, y); rad.push(66 * S * mix(1, 0.62, i / 26) * (1 + 0.08 * Math.sin(i * 1.3)));
+        a += Math.sin(i * 0.45) * 0.09 - 0.006;
+        x += Math.cos(a) * 12 * S; y += Math.sin(a) * 12 * S;
+        pts.push(x, y); rad.push(80 * S * mix(1, 0.58, i / 26) * (1 + 0.1 * Math.sin(i * 1.1)));
       }
       limbs.push({ pts, rad, kind: 'live', depth: 0, trunk: true });
-      grow(x, y, -Math.PI + 0.45, 380 * S, 32 * S, 1, 'live', 0.05);     // long arm over the abyss
-      grow(x, y, -Math.PI / 2 - 0.42, 290 * S, 30 * S, 1, 'live', -0.02); // up and left
-      grow(x + 8 * S, y, -Math.PI / 2 + 0.3, 250 * S, 27 * S, 1, 'live', 0.03); // up and right
-      grow(pts[40], pts[41], -Math.PI + 0.75, 420 * S, 15 * S, 1, 'dead', -0.035); // bleached snag reaching up and out
-      grow(pts[20], pts[21], -0.45, 200 * S, 18 * S, 2, 'live', 0.04);
+      grow(x, y, -Math.PI + 0.55, 320 * S, 40 * S, 1, 'live', 0.012);      // arm over the abyss
+      grow(x, y, -Math.PI / 2 - 0.62, 300 * S, 30 * S, 1, 'dead', -0.005); // bleached, up and left
+      grow(x + 6 * S, y, -Math.PI / 2 - 0.05, 270 * S, 34 * S, 1, 'live', 0.01); // up
+      grow(pts[34], pts[35], -0.45, 190 * S, 21 * S, 1, 'dead', -0.02);     // snag to the right
     }
 
     // the tree's shadow falls toward us and to the right across the ledge (a cool glaze)
@@ -109,7 +161,7 @@
       const r0 = rad[0];
       // body
       const wid = rad.map((r) => r / r0);
-      stroke(pts, r0, dead ? [0.20, 0.19, 0.19] : [0.085, 0.065, 0.05],
+      stroke(pts, r0, dead ? [0.28, 0.26, 0.25] : [0.085, 0.065, 0.05],
         Object.assign(opt({ opacity: 1, soft: 0.12, bristleContrast: 0.3, thick: 0.7, dry: 0.05 }), { widths: wid }));
       // fibres
       const nf = Math.max(2, Math.min(26, Math.round(r0 / (2.6 * S))));
@@ -122,7 +174,7 @@
           if (run.length >= 4) {
             const v = runV / cnt;
             let c;
-            if (dead) c = [mix(0.22, 0.95, v * v), mix(0.21, 0.86, v * v), mix(0.21, 0.70, v * v)];
+            if (dead) c = [mix(0.26, 1.0, Math.pow(v, 1.6)), mix(0.24, 0.9, Math.pow(v, 1.6)), mix(0.24, 0.74, Math.pow(v, 1.6))];
             else c = [mix(0.07, 0.86, Math.pow(v, 2.4)), mix(0.055, 0.60, Math.pow(v, 2.4)), mix(0.045, 0.36, Math.pow(v, 2.4))];
             const j = 0.85 + rng() * 0.3; c = [c[0] * j, c[1] * j, c[2] * j];
             const fw = Math.max(0.55 * S, r0 * 0.07);
@@ -170,9 +222,9 @@
         const facing = (Math.cos(a) * lx * 1.3 + Math.sin(a) * ly * 0.6) / 1.43;
         const v = clamp(facing * rr * 1.25, -1, 1);
         let c;
-        if (v > 0.5) { const q = (v - 0.5) / 0.5; c = [mix(0.30, 0.86, q), mix(0.30, 0.68, q), mix(0.15, 0.30, q)]; }
-        else if (v > 0.0) c = [0.15, 0.165, 0.10];
-        else c = [0.06, 0.07, 0.05];
+        if (v > 0.62) { const q = (v - 0.62) / 0.38; c = [mix(0.28, 0.84, q), mix(0.28, 0.66, q), mix(0.14, 0.30, q)]; }
+        else if (v > 0.15) c = [0.12, 0.135, 0.085];
+        else c = [0.05, 0.06, 0.045];
         const j = 0.85 + rng() * 0.3; c = [c[0] * j, c[1] * j, c[2] * j];
         // sprays point outward and a little upward
         const sa = a * 0.7 - Math.PI / 2 * 0.3 + (rng() - 0.5) * 0.8;
@@ -209,6 +261,7 @@
       }
     }
 
+    }
     // ---------------------------------------------------------------- figure at the brink
     {
       const fx = px(0.598), fy = py(0.811); // feet

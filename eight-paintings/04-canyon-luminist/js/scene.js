@@ -78,8 +78,8 @@
 
   // monumental temples (buttes) placed by design: x, z, radius, top, elongation angle, aspect
   const TEMPLES = [
-    [0.50, 4.9, 0.62, 0.80, 0.35, 1.5],
-    [-0.45, 6.2, 0.40, 0.66, -0.2, 1.2],
+    [0.12, 4.9, 0.62, 0.80, 0.35, 1.5],
+    [-0.85, 6.2, 0.40, 0.66, -0.2, 1.2],
     [-2.3, 7.2, 0.85, 0.92, 0.6, 1.4],
     [2.9, 9.0, 1.0, 0.97, -0.3, 1.6],
     [-1.35, 3.7, 0.30, 0.47, 0.2, 1.3],
@@ -475,8 +475,7 @@
     const xm = Math.max(0, x - 1), xp = Math.min(RW - 1, x + 1), ym = Math.max(0, y - 1), yp = Math.min(RH - 1, y + 1);
     const hx = (SKY.Hc[y * RW + xp] - SKY.Hc[y * RW + xm]) * 0.5;
     const hy = (SKY.Hc[yp * RW + x] - SKY.Hc[ym * RW + x]) * 0.5;
-    const sc = 0.02 * RW / 1080;
-    let nx = -hx / sc, ny = -hy / sc, nz = 1;
+    let nx = -hx * RW / 7, ny = -hy * RW / 7, nz = 1;
     const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
     // light comes from the sun's position on the picture plane, low and from behind the clouds
     const sunX = SUN_SCREEN[0] * RW, sunY = SUN_SCREEN[1] * RH;
@@ -647,7 +646,7 @@
           const sh = shadow(x, y, z);
           // cloud shadows drifting over the canyon (patches of sun)
           const cs1 = N1.fbm(x * 0.32 + 7.0, z * 0.45 + 1.0, 4);
-          const zb = z < 2.9 ? -0.45 * smooth(2.9, 2.2, z) : 0.22 * smooth(3.6, 4.3, z) * smooth(9.0, 7.5, z);
+          const zb = -0.5 * smooth(1.2, 1.7, z) * smooth(4.4, 3.9, z) + 0.22 * smooth(4.3, 4.8, z) * smooth(9.0, 7.5, z) - 0.35 * smooth(1.3, 0.9, z);
           let cshadow = smooth(-0.08, 0.12, cs1 + zb + 0.02);
           if (fg) cshadow = 0.35 + 0.65 * smooth(-0.0005, 0.0025, (x - 0.004) - 0.5 * (z - 0.06)) * smooth(0.0, 0.004, 0.072 - z);
           const ndl = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
@@ -670,8 +669,8 @@
           alb = [alb[0] * av, alb[1] * av, alb[2] * av];
           // light
           const sunC = [1.75, 1.12, 0.62];
-          const skyAmb = fg ? [0.07, 0.07, 0.10] : [0.065, 0.075, 0.15];
-          const bounce = fg ? [0.12, 0.07, 0.045] : [0.16, 0.08, 0.045];
+          const skyAmb = fg ? [0.075, 0.065, 0.07] : [0.045, 0.055, 0.115];
+          const bounce = fg ? [0.13, 0.075, 0.045] : [0.12, 0.06, 0.035];
           const ao_e = Math.max(0.0004, t * 0.01);
           const ao = clamp(1 + (y - (H(x + ao_e, z) + H(x - ao_e, z) + H(x, z + ao_e) + H(x, z - ao_e)) * 0.25) / ao_e * 1.5, 0.4, 1);
           const hemi = 0.5 + 0.5 * ny;
@@ -766,7 +765,7 @@
       const l = 0.3 * r + 0.59 * g + 0.11 * b;
       r = l + (r - l) * SAT; g = l + (g - l) * SAT; b = l + (b - l) * SAT;
       const sh = 1 - smooth(0.05, 0.4, l), hi = smooth(0.45, 0.9, l);
-      r += -0.012 * sh + 0.02 * hi; g += -0.004 * sh + 0.008 * hi; b += 0.02 * sh - 0.02 * hi;
+      r *= 1 - 0.06 * sh + 0.04 * hi; g *= 1 - 0.02 * sh + 0.01 * hi; b *= 1 + 0.10 * sh - 0.06 * hi;
       col[o] = Math.pow(clamp(r, 0, 1), 1 / 2.2);
       col[o + 1] = Math.pow(clamp(g, 0, 1), 1 / 2.2);
       col[o + 2] = Math.pow(clamp(b, 0, 1), 1 / 2.2);

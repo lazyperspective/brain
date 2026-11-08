@@ -145,8 +145,9 @@
     // jacket
     const jackAng = (x, y) => { const t = Math.min(1, Math.max(0, (y - 880) / 300)); const sl = x < 500 ? -0.42 : 0.42; return sl * (1 - t) + (x < 500 ? 1.25 : 1.9) * t + 0.6 * nz.n2(x / 160, y / 160); };
     function jackCol(x, y) {
-      let c = mix(C.ultramarine, C.prussian, 0.35 + 0.3 * nz.fbm(x / 160, y / 160, 2));
-      if (x > 520) c = mix(c, C.violet, 0.25);
+      let c = mix(C.ultramarine, C.prussian, 0.5 + 0.35 * nz.fbm(x / 160, y / 160, 2));
+      c = mix(c, C.ink, Math.max(0, Math.min(0.45, (y - 1000) / 500)));
+      if (x > 520) c = mix(c, C.violet, 0.2);
       return c;
     }
     for (const [x, y] of scatter(30, (x, y) => regAt(x, y) === RG.JACKET)) {
@@ -165,6 +166,7 @@
       const i = (y | 0) * plan.PW + (x | 0); let a = plan.ang[i];
       const rr = regAt(x, y);
       if (y < 470 && rr === RG.FACE) a = 0.15 * Math.sin(a) + 0.08 * nz.n2(x / 40, y / 40); // forehead: horizontal sweeps
+      else if (y > 700 && (rr === RG.FACE || rr === RG.LIP)) a = Math.atan2(y - 600, x - 485) + Math.PI / 2 + 0.15 * nz.n2(x / 50, y / 50); // chin and jaw: strokes cup the lower face
       else if (rr === RG.NECK || rr === RG.CHEST) a = (x < 495 ? 0.35 : -0.35) + 0.25 * nz.n2(x / 40, y / 40); // neck: wraps around
       return a;
     };
@@ -194,7 +196,7 @@
         const L = pass ? 50 + rng.next() * 90 : (big ? 220 + rng.next() * 220 : 110 + rng.next() * 150);
         const w = pass ? 10 + rng.next() * 12 : (big ? 26 + rng.next() * 18 : 16 + rng.next() * 14);
         S(trace(x, y, bgAng, L, 5, (xx, yy, s) => s < 40 || regAt(xx, yy) === RG.BG || regAt(xx, yy) === RG.HAIR), w, pass ? 'both' : 'loaded',
-          Object.assign({}, body, { col: jit(c, 0.05), col2: jit(mix(c, rng.pick([C.white, C.cadYellow, C.ultramarine, C.rose]), 0.35), 0.03), mix2: 0.2, imp: 0.7, reach: big ? 2.0 : 1.4, lift: 0.35 }));
+          Object.assign({}, body, { col: jit(c, 0.05), col2: jit(mix(c, rng.pick([C.white, C.cadYellow, C.ultramarine, C.rose]), 0.35), 0.03), mix2: 0.2, imp: 0.7, reach: big ? 2.0 : 1.4, lift: 0.35, touch: 0.18 }));
       }
     }
     log && log('background');
@@ -206,7 +208,7 @@
         const lit = Math.max(0, 1 - Math.abs(y - (920 + Math.abs(x - 500) * 0.28)) / 70) * (x < 500 ? 1 : 0.55);
         if (r < 0.08 + lit * 0.55) c = mix(C.cobalt, C.cerulean, rng.next() * 0.6);
         else if (r < 0.2) c = mix(C.violet, C.ultramarine, rng.next() * 0.5);
-        else if (r < 0.38) c = C.ink;
+        else if (r < 0.38 + Math.max(0, (y - 1000) / 250) * 0.22) c = rng.next() < 0.6 ? C.ink : C.prussian;
         const cross = rng.next() < 0.15;
         const ang = cross ? (x2, y2) => jackAng(x2, y2) + 1.2 : jackAng;
         const L = cross ? 30 + rng.next() * 50 : 70 + rng.next() * 170;
@@ -220,11 +222,12 @@
     for (const pl of [F.lapelL, F.lapelR]) S(wobbly(pl.map((p) => [p[0] + (p[0] < 500 ? -8 : 8), p[1] - 4]), 1.5), 5, 'taper', Object.assign({}, body, { col: C.cobalt, load: 0.8 }));
     log && log('jacket');
     // --- collars & chest
-    for (const [x, y] of scatter(7, (x, y) => regAt(x, y) === RG.COLL_L || regAt(x, y) === RG.COLL_R)) {
+    for (const [x, y] of scatter(11, (x, y) => regAt(x, y) === RG.COLL_L || regAt(x, y) === RG.COLL_R)) {
       const L = regAt(x, y) === RG.COLL_L;
       const c = rng.next() < 0.25 ? (L ? C.lemon : C.cerulean) : (L ? C.warmWhite : mix(C.skyWhite, C.lilac, 0.3));
-      S(trace(x, y, () => (L ? 2.05 : 1.05) + 0.2 * rng.gauss(), 18 + rng.next() * 20, 3, (xx, yy, s) => s < 8 || regAt(xx, yy) === regAt(x, y)), 7 + rng.next() * 5, 'loaded',
-        Object.assign({}, body, { col: jit(c, 0.03) }));
+      const ca = (L ? 2.0 : 1.12) + 0.15 * rng.gauss();
+      S(trace(x, y, () => ca, 34 + rng.next() * 34, 3, (xx, yy, s) => s < 10 || regAt(xx, yy) === regAt(x, y), ca), 11 + rng.next() * 6, 'loaded',
+        Object.assign({}, body, { col: jit(c, 0.03), lift: 0.4 }));
     }
     // --- neck, chest, ears from the plan
     for (const [x, y] of scatter(7, (x, y) => [RG.NECK, RG.CHEST, RG.EAR].includes(regAt(x, y)))) {
@@ -248,7 +251,7 @@
         const L = [40, 30, 20][pass] + rng.next() * [50, 30, 20][pass];
         const w = [16, 12, 8][pass] + rng.next() * [6, 4, 3][pass];
         const free = rng.next() < 0.2;
-        S(trace(x, y, faceAng, L, 2, (xx, yy, s) => s < 10 || free || (bandAt(xx, yy) === b0 && HEADREGS.includes(regAt(xx, yy))) || rng.next() < 0.04), w, pass === 2 ? 'both' : 'loaded',
+        S(trace(x, y, faceAng, L, 2, (xx, yy, s) => HEADREGS.includes(regAt(xx, yy)) && (s < 10 || free || bandAt(xx, yy) === b0 || rng.next() < 0.04)), w, pass === 2 ? 'both' : 'loaded',
           Object.assign({}, body, { col: jit(c, 0.035), col2: jit(mix(c, C.white, 0.3), 0.02), mix2: 0.12, imp: [0.8, 0.9, 1.0][pass], pick: 0.3, touch: 0.12, rag: 0.3, lift: 0.45 }));
       }
     }

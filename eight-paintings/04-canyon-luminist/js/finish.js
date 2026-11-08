@@ -42,10 +42,10 @@
     const wv = weave(W, H, S);
     // combined surface height (in px units for normals)
     const hs = new Float32Array(N);
-    const hsm = blurPlane(Hh, W, H, 1, 0.8 * S + 0.3, 1);
+    const hsm = blurPlane(Hh, W, H, 1, 1.0 * S + 0.3, 2);
     for (let k = 0; k < N; k++) {
       const thin = 1 - smooth(0.25, 1.6, Th[k]);
-      hs[k] = hsm[k] * 1.2 + wv[k] * (0.25 + 0.75 * thin) * 0.9;
+      hs[k] = hsm[k] * 0.9 + wv[k] * (0.06 + 0.5 * thin) * 0.8;
     }
     // raking light from the upper left
     const L = [-0.55, -0.62, 0.56];
@@ -63,12 +63,12 @@
         let nx = -gx, ny = -gy, nz = 1;
         const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
         const ndl = nx * L[0] + ny * L[1] + nz * L[2];
-        const shade = 1 + (ndl - L[2]) * 0.55;
+        const shade = 1 + (ndl - L[2]) * 0.38;
         const ndh = Math.max(0, nx * Hv[0] + ny * Hv[1] + nz * Hv[2]);
         const spec = Math.pow(ndh, 60) * 0.10 * smooth(0.2, 1.2, Hh[k]);
         // paint sinks into the weave valleys where the film is thin
         const thin = 1 - smooth(0.2, 1.4, Th[k]);
-        const valley = 1 - (1 - wv[k]) * 0.07 * thin;
+        const valley = 1 - (1 - wv[k]) * 0.035 * thin;
         for (let c = 0; c < 3; c++) {
           let v = C[k * 3 + c] * shade * valley + spec;
           out[k * 3 + c] = v;

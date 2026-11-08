@@ -41,7 +41,7 @@
     // collage planes (behind the figure)
     const news = { name: 'news', kind: 'news', poly: [[50, 150], [600, 60], [700, 800], [130, 880]], col: R.hex('#cfc4a8'), dir: 8 };
     const wood = { name: 'wood', kind: 'wood', poly: [[1720, 840], [2070, 790], [2130, 1980], [1790, 2040]], col: R.hex('#a77b4a'), col2: R.hex('#7a5532'), g: [1720, 840, 2100, 1980], dir: 94 };
-    const red = { name: 'redplane', kind: 'red', poly: [[110, 1700], [320, 1650], [350, 2160], [140, 2210]], col: R.hex('#6e463c'), col2: R.hex('#553229'), g: [110, 1660, 350, 2200], dir: 70 };
+    const red = { name: 'redplane', kind: 'red', poly: [[80, 1740], [320, 1620], [390, 2110], [150, 2240]], col: R.hex('#6e463c'), col2: R.hex('#553229'), g: [110, 1660, 350, 2200], dir: 70 };
     const all = [news, wood, red].concat(shapes);
     const gw = 2 * W, gh = 2 * H, K = 2 * k;
     const fid = new Uint16Array(gw * gh);
@@ -147,7 +147,11 @@
         }
         if (s && (s.kind === 'cloth' || s.kind === 'hat') && cp.tint && !noCells) col = cp.tint === 1 ? R.mix3(col, SLATE, 0.38) : R.mix3(col, R.hex('#3a2e28'), 0.3);
         const tone = s ? (fig0 ? 1 : cp.tone) : cp.tone;
-        const m = shade * tone;
+        // the oval of light: the periphery sinks a little, so the head carries the picture
+        const ve = Math.hypot((x - 1080) / 1150, (y - 1180) / 1450);
+        // light from the upper left: the far side of the head turns into shadow
+        const vig = lv0 === 2 ? 1 - 0.16 * R.sstep(CX - 60, CX + 420, x) : 1 - 0.26 * R.sstep(0.5, 1.2, ve);
+        const m = shade * tone * vig;
         const rk = key * 1024 + f;
         let rid = regMap.get(rk);
         if (rid === undefined) {

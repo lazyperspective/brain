@@ -138,18 +138,20 @@
         if (layer === 0) col = r < 0.35 ? C.violet : r < 0.6 ? C.cobalt : r < 0.8 ? C.lilac : C.crimson;
         else if (layer === 1) col = depth > 0.6 ? (r < 0.5 ? C.lilac : r < 0.8 ? C.cerulean : C.skyWhite) : lit ? (r < 0.5 ? C.warmWhite : r < 0.75 ? C.lemonWhite : C.pinkWhite) : (r < 0.5 ? C.skyWhite : r < 0.8 ? C.lilac : C.mint);
         else col = depth < 0.5 ? (lit ? C.white : C.skyWhite) : C.lilac;
-        const pts = K.trace(x0, y0, mAng, (layer === 2 ? 14 : 22) + rng.next() * 20, 2.5, (xx, yy, s) => s < 6 || inM(xx, yy) || (yy > y0 && rng.next() < 0.5), mAng(x0, y0));
+        let outS = -1; const extra = layer === 2 ? 0 : (rng.next() < 0.35 ? 4 + rng.next() * 14 : rng.next() * 4);
+        const pts = K.trace(x0, y0, mAng, (layer === 2 ? 14 : 22) + rng.next() * 26, 2.5, (xx, yy, s) => { if (s < 6 || inM(xx, yy)) return true; if (yy < y0) return false; if (outS < 0) outS = s; return s - outS < extra; }, mAng(x0, y0));
         const w = layer === 0 ? 13 + rng.next() * 6 : layer === 1 ? 9 + rng.next() * 6 : 4.5 + rng.next() * 3;
-        S(pts, w, layer === 2 ? 'both' : 'taper', o({ col: jit(col, 0.03), col2: jit(mix(col, C.white, 0.35), 0.02), mix2: 0.2, imp: layer === 2 ? 1.4 : 0.95, pick: 0.3, bristle: 0.7, lift: 0.4 }));
+        S(pts, w, layer === 2 ? 'both' : 'taper', o({ col: jit(col, 0.03), col2: jit(mix(col, C.white, 0.35), 0.02), mix2: 0.2, imp: layer === 2 ? 1.4 : 0.95, pick: 0.3, bristle: 0.45, lift: 0.4 }));
       }
     }
     const nt = F.noseTip.c;
     // underside of the nose: a dark warm plane that separates it from the moustache
     S(wob(G.Geom.open([F.T([426, 646]), F.T([450, 652]), F.T([470, 654]), F.T([492, 653]), F.T([516, 646])], 6), 0.5), 9, 'both', o({ col: [0.55, 0.1, 0.22], imp: 0.5 }));
     // the bulb of the tip: one big warm form, turned by a cooler underside and a hot light
-    S([[nt[0] - 4, nt[1] + 2], [nt[0] + 6, nt[1] + 3]], 40, 'loaded', o({ col: jit(mix(C.vermilion, C.rose, 0.5), 0.02), imp: 0.9, cap: 1, bristle: 0.5, pick: 0, opac: 1 }));
-    S([[nt[0] + 4, nt[1] + 12], [nt[0] + 18, nt[1] + 6]], 16, 'loaded', o({ col: jit(C.crimson, 0.02), imp: 0.7, cap: 1 }));
-    S([[nt[0] - 14, nt[1] - 6], [nt[0] - 2, nt[1] - 8]], 18, 'loaded', o({ col: jit(C.cadOrange, 0.03), imp: 0.9, cap: 1 }));
+    const arcP = (dy, bow, sx) => { const out = []; for (let t = -1; t <= 1.0001; t += 0.2) out.push([nt[0] + t * sx, nt[1] + dy - bow * (1 - t * t)]); return out; };
+    S(arcP(-6, 8, 20), 15, 'both', o({ col: jit(C.cadOrange, 0.02), imp: 0.9, pick: 0.05 }));
+    S(arcP(5, -6, 23), 15, 'both', o({ col: jit(mix(C.vermilion, C.rose, 0.5), 0.02), imp: 0.9, pick: 0.05 }));
+    S(arcP(14, -8, 19), 10, 'both', o({ col: jit(C.crimson, 0.02), imp: 0.7, pick: 0.05 }));
     S([[nt[0] - 10, nt[1] - 10], [nt[0] - 4, nt[1] - 11]], 7, 'loaded', o({ col: C.pinkWhite, load: 1.4, imp: 1.8, opac: 1, cap: 1, rag: 0.08 }));
     // alae
     for (const [al, near] of [[F.alaL, 1], [F.alaR, 0]]) {
@@ -163,14 +165,15 @@
     S([[nL[0] - 5, nL[1] + 1], [nL[0] + 5, nL[1] - 1]], 8, 'loaded', o({ col: [0.30, 0.04, 0.12], imp: 0.4, pick: 0.05, cap: 1, bristle: 0.2, rag: 0.08 }));
     S([[nR[0] - 6, nR[1] - 1], [nR[0] + 6, nR[1] + 1]], 8, 'loaded', o({ col: C.ink, imp: 0.4, pick: 0.05, cap: 1, bristle: 0.2, rag: 0.08 }));
     // ---------- mouth: lower lip under the moustache's edge, the right corner lifting: the half-smile
-    S(wob([F.T([424, 739]), F.T([452, 743]), F.T([480, 744]), F.T([510, 741]), F.T([540, 730]), F.T([552, 722])], 0.5), 5, 'loaded', o({ col: C.ink, imp: 0.5, pick: 0.05 }));
-    for (let i = 0; i < 4; i++) {
-      const y = 747 + i * 4.2;
-      const pl = [F.T([434 + i * 3, y]), F.T([480, y + 1.5]), F.T([526 - i * 4, y - 6 + i * 0.8])];
-      S(wob(pl, 0.5), 6.5, 'loaded', o({ col: jit(i === 0 ? C.crimson : i < 3 ? mix(C.crimson, C.rose, 0.5) : C.rose, 0.03), imp: 0.8, cap: 1 }));
+    S(wob([F.T([424, 744]), F.T([452, 748]), F.T([480, 749]), F.T([510, 746]), F.T([540, 735]), F.T([552, 727])], 0.5), 5, 'loaded', o({ col: C.ink, imp: 0.5, pick: 0.05 }));
+    for (let i = 0; i < 5; i++) {
+      const y = 748 + i * 4.4;
+      const pl = [F.T([436 + i * 3, y]), F.T([480, y + 1.5]), F.T([524 - i * 4, y - 6 + i * 0.8])];
+      S(wob(pl, 0.5), 6.5, 'loaded', o({ col: jit(i === 0 ? [0.45, 0.04, 0.16] : i < 3 ? C.crimson : mix(C.crimson, C.rose, 0.5), 0.02), imp: 0.8, cap: 1, pick: 0.05 }));
     }
-    S(wob([F.T([452, 754]), F.T([476, 756]), F.T([500, 752])], 0.4), 4, 'both', o({ col: C.pink, imp: 1.4, load: 1.25 }));
-    S(wob([F.T([440, 768]), F.T([478, 772]), F.T([516, 764])], 0.5), 5, 'both', o({ col: C.violet, imp: 0.5, opac: 0.85 }));
+    S(wob([F.T([452, 760]), F.T([476, 762]), F.T([500, 759])], 0.4), 5, 'both', o({ col: C.pink, imp: 1.4, load: 1.25, pick: 0 }));
+    S(wob([F.T([438, 774]), F.T([478, 779]), F.T([518, 771])], 0.5), 7, 'both', o({ col: C.violet, imp: 0.5, opac: 0.9 }));
+    S(wob([F.T([446, 786]), F.T([482, 792]), F.T([520, 784])], 0.6), 12, 'both', o({ col: C.cadYellow, imp: 1.0, opac: 0.9 }));
     // smile: crease lifting from the right corner into the cheek, a small dimple on the left
     S(wob([F.T([546, 726]), F.T([560, 716]), F.T([566, 700])], 0.4), 3.5, 'taper', o({ col: C.crimson, imp: 0.5 }));
     S(wob([F.T([552, 732]), F.T([568, 722]), F.T([574, 704])], 0.4), 4, 'taper', o({ col: C.cadOrange, imp: 1.0 }));
@@ -183,5 +186,23 @@
       const ex = p[0] + Math.cos(dir) * L * 0.85, ey = p[1] + Math.sin(dir) * L * 0.85;
       S([[ex, ey], [ex + Math.cos(dir) * 14, ey + Math.sin(dir) * 14]], 3.5 + rng.next() * 3, 'taper', o({ col: jit(rng.pick([C.lilac, C.cerulean, C.violet, C.skyWhite]), 0.03), imp: 0.8 }));
     }
+      // ---------- restated contours: broken ultramarine lines, found and lost (session 4)
+    P.session = 4;
+    const ct = (pl, w, col) => {
+      let t = rng.next() * 0.08;
+      while (t < 0.95) {
+        const t1 = Math.min(1, t + 0.15 + rng.next() * 0.3);
+        if (rng.next() > 0.22) S(wob(sub(pl, t, t1), 1.2, 0.06), w * (0.75 + rng.next() * 0.5), 'both', o({ col: jit(col, 0.03), imp: 0.9, load: 1.1, pick: 0.15, rag: 0.25 }));
+        t = t1 + 0.03 + rng.next() * 0.1;
+      }
+    };
+    const fc = F.face, n8 = 8;
+    ct(fc.slice(1 * n8, 9 * n8 + 1), 10, C.ultramarine);          // near cheek, jaw, chin
+    ct(fc.slice(9 * n8, 15 * n8 + 1), 9, C.prussian);          // far jaw into the ear
+    ct(F.earR.slice(2, F.earR.length - 6), 7, C.ultramarine);
+    ct(sub(F.noseNearSide, 0.3, 1), 3.5, C.crimson);
+    for (const cl of [F.collarL, F.collarR]) ct(cl.slice(0, Math.floor(cl.length * 0.6)), 8, C.ultramarine);
+    ct(F.jacket.slice(0, Math.floor(F.jacket.length * 0.3)), 12, C.ink);
+    ct(F.jacket.slice(Math.floor(F.jacket.length * 0.62), Math.floor(F.jacket.length * 0.94)), 12, C.ink);
   };
 })(window);

@@ -301,10 +301,11 @@
         const kx = -across - 250 * k, ky = along - 420 * k;
         const knot = 1 / (1 + (kx * kx + ky * ky * 0.25) / (900 * k * k));
         const warp = (R.fbm(across / (90 * k), along / (600 * k), 71, 3) - 0.5) * 60 * k + knot * 40 * k * Math.sign(kx);
-        const cath = Math.min(Math.hypot(-across + warp * 0.5 - 170 * k, (along - 760 * k) * 0.32), Math.hypot(-across + warp * 0.5 - 230 * k, (along - 1250 * k) * 0.3) + 14 * k);
-        const ring = Math.sin((cath / (10 * k)) * Math.PI + R.vnoise(across / (40 * k), along / (300 * k), 72) * 2.2);
+        const acr = -across + warp * 0.5 - 175 * k, Rr = (70 + 30 * R.vnoise(along / (400 * k), 0.5, 75)) * k;
+        const cath = (acr * acr) / (2 * Rr) - along * 0.22;
+        const ring = Math.sin((cath / (20 * k)) * Math.PI + R.vnoise(across / (40 * k), along / (300 * k), 72) * 2.2);
         const fine = R.vnoise(across / (1.6 * k), along / (60 * k), 73);
-        let g = 0.5 + 0.5 * ring; g = Math.pow(g, 2.2) * 0.8 + fine * 0.25;
+        let g = 0.5 + 0.5 * ring; g = Math.pow(g, 2.6) * 0.62 + fine * 0.3;
         const t = tAt(x, y), lt = R.lum(t) / R.lum(wood.col);
         const base = R.mix3(wl, wd, clamp(g, 0, 1));
         const c3 = R.mix3(base, wdd, knot * 0.5);
@@ -339,17 +340,17 @@
     const dark = R.hex('#1d1a18'), light = R.hex('#ece4d0');
     const line = (pts, w, c, load, seed, op) => P.stroke({ pts, w: w * k, c, c2: R.mul3(c, 0.85), load, fade: 0.55, op: op || 0.95, hs: 0.3, pickup: 0.2, seed, rough: 1.2, brush: 'round', blob: 0.2, lip: 0.3, taper: 0.5 });
     plan.LINES.forEach((l, i) => {
-      const n = 2 + Math.floor(r() * 2);
+      const n = 1 + Math.floor(r() * 2);
       for (let j = 0; j < n; j++) {
-        const t0 = r(), len = 0.08 + r() * 0.12, t1 = Math.min(1, t0 + len);
+        const t0 = r(), len = 0.14 + r() * 0.16, t1 = Math.min(1, t0 + len);
         const pts = [];
         for (let q = 0; q <= 6; q++) { const t = t0 + (t1 - t0) * (q / 6); pts.push([(l.a[0] + (l.b[0] - l.a[0]) * t) * k + (r() - 0.5) * 1.5 * k, (l.a[1] + (l.b[1] - l.a[1]) * t) * k + (r() - 0.5) * 1.5 * k]); }
-        const isLight = r() < 0.12;
+        const isLight = false;
         // keep heavy lines off the face
         if (pts.some((p) => { const rg = plan.regs[plan.ids[2 * Math.min(H - 1, Math.max(0, p[1] | 0)) * plan.gw + 2 * Math.min(W - 1, Math.max(0, p[0] | 0))]]; return !rg || rg.kind !== 'bg'; })) continue;
         if (false && pts.some((p) => plan.figPix[(Math.min(H - 1, Math.max(0, p[1] | 0))) * W + Math.min(W - 1, Math.max(0, p[0] | 0))])) continue;
         if (isLight) P.stroke({ pts, w: (12 + r() * 8) * k, c: light, c2: R.hex('#cdbf9f'), load: 0.42, fade: 0.6, op: 0.7, hs: 0.15, pickup: 0.4, seed: 20000 + i * 10 + j, rough: 2, blob: 0, lip: 0 });
-        else line(pts, 8 + r() * 6, dark, 0.75, 20000 + i * 10 + j, 0.9);
+        else line(pts, 7 + r() * 4, dark, 0.9, 20000 + i * 10 + j, 0.7);
       }
     });
     // contour drawing of the head
@@ -417,6 +418,14 @@
         P.stroke({ pts: PU.bentPts(x, y, ang, (40 + r() * 60) * k, (r() - 0.5) * 0.4, w), w, c: lc, c2: R.mix3(lc, c, 0.5), load: 1.3, fade: 0.8, hs: 0.8, pickup: 0.6, seed: 90000 + made + name.length * 1000, clip: r() < 0.5 ? rid : 0, blob: 0.3, lip: 0.4, rough: 1.6 });
         made++;
       }
+    }
+    // a catchlight in each eye, high on the iris, toward the light
+    for (const [nm, dx, dy] of [['irisL', -8, -6], ['irisR', -8, -6]]) {
+      const ir = plan.shapes.find((q) => q.name === nm);
+      if (!ir) continue;
+      let cx = 0, cy = 0; for (const p of ir.poly) { cx += p[0]; cy += p[1]; } cx /= ir.poly.length; cy /= ir.poly.length;
+      const X = (cx + dx) * k, Y = (cy + dy) * k;
+      P.stroke({ pts: [[X - 1.5 * k, Y], [X + 1.5 * k, Y]], w: 7 * k, c: R.hex('#e9e2d2'), load: 1.0, fade: 0.1, hs: 0.4, pickup: 0.1, seed: 777 + nm.length, brush: 'round', taper: 0, blob: 0.2, lip: 0.1, op: 0.85 });
     }
     // the mole: one dark round touch
     const m = plan.shapes.find((q) => q.name === 'mole');

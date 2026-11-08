@@ -575,7 +575,7 @@
         }
         return bi;
       }
-      return { nearest };
+      return { nearest, sp };
     }
     function makeBricks(sd0) {
       const rr = P.mulberry32(sd0);
@@ -586,11 +586,23 @@
       const rowAt = (x, y) => { let k = 0; while (k < rows.length - 1 && y >= rows[k + 1].y0 + rows[k + 1].tilt * (x - W * 0.7)) k++; return k; };
       return { nearest(x, y) { const k = rowAt(x, y); const xs = rows[k].xs; let c = 0; while (c < xs.length - 1 && x >= xs[c + 1]) c++; return k * 64 + c; }, noId: true };
     }
-    function facetStage(vor, lo, hi, fadeLo, fadeHi, boldness, name) {
+    function facetStage(vor, lo, hi, fadeLo, fadeHi, boldness, name, idFilter, bands) {
+      if (bands) { // group cells into planes of light: cells sharing a value band merge
+        const cl = new Map();
+        for (let y = 0; y < H; y += 3) for (let x = (W * 0.25) | 0; x < W; x += 3) {
+          const i = y * W + x; const k = vor.nearest(x + 0.5, y + 0.5) * 16 + ID[i];
+          let e = cl.get(k); if (!e) { e = [0, 0]; cl.set(k, e); } e[0] += L2[i]; e[1]++;
+        }
+        const band = new Map();
+        for (const [k, e] of cl) band.set(k, Math.min(bands - 1, Math.floor(Math.pow(e[0] / e[1], 0.8) * bands * 1.5)));
+        const base = vor, coarse = makeVoronoi(vor.sp * 3.4, 0.4, 0.7, vor.sp | 0);
+        vor = { nearest(x, y) { return base.nearest(x, y); }, keyOf(x, y) { const i = idx(x, y); const k = base.nearest(x, y) * 16 + ID[i]; const b = band.get(k); return ((b == null ? 0 : b) * 65536 + coarse.nearest(x, y)) * 16 + ID[i]; } };
+      }
+      const keyAt = (x, y) => vor.keyOf ? vor.keyOf(x, y) : vor.nearest(x, y) * 16 + (vor.noId ? 0 : ID[idx(x, y)]);
       const st = new Map();
       for (let y = 0; y < H; y += 2) for (let x = (W * 0.25) | 0; x < W; x += 2) {
         const i = y * W + x;
-        const key = vor.nearest(x + 0.5, y + 0.5) * 16 + (vor.noId ? 0 : ID[i]);
+        const key = keyAt(x + 0.5, y + 0.5);
         let e = st.get(key);
         if (!e) { e = { r: 0, g: 0, b: 0, n: 0, x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9, sx: 0, sy: 0, dir: 0 }; st.set(key, e); }
         e.r += R2[i * 3]; e.g += R2[i * 3 + 1]; e.b += R2[i * 3 + 2]; e.n++; e.dir += DIR[i];
@@ -603,6 +615,7 @@
       for (const key of keys) {
         const e = st.get(key);
         if (e.n < 30 * S * S) continue;
+        if (idFilter && !idFilter.includes(key % 16)) continue;
         const cx = e.sx / e.n, cy = e.sy / e.n;
         const ac = aAt(cx, cy);
         const pr = smooth(lo, hi, ac) * (1 - smooth(fadeLo, fadeHi, ac));
@@ -624,10 +637,10 @@
         const clip = (x, y) => {
           const i = idx(x, y);
           let c = 0;
-          if (vor.nearest(x - 0.25, y - 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
-          if (vor.nearest(x + 0.25, y - 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
-          if (vor.nearest(x - 0.25, y + 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
-          if (vor.nearest(x + 0.25, y + 0.25) * 16 + (vor.noId ? 0 : ID[i]) === key) c++;
+          if (keyAt(x - 0.25, y - 0.25) === key) c++;
+          if (keyAt(x + 0.25, y - 0.25) === key) c++;
+          if (keyAt(x - 0.25, y + 0.25) === key) c++;
+          if (keyAt(x + 0.25, y + 0.25) === key) c++;
           return c * 0.25;
         };
         const bwid = e.x1 - e.x0 + 2, bhei = e.y1 - e.y0 + 2;
@@ -655,9 +668,53 @@
       }
       log(name + ': ' + n);
     }
-    facetStage(makeVoronoi(46 * S, -0.5, 0.45, seed + 101), 0.20, 0.38, 0.55, 0.72, 0.0, 'facets fine');
-    facetStage(makeVoronoi(105 * S, 0.0, 0.6, seed + 102), 0.40, 0.56, 0.70, 0.86, 0.45, 'facets coarse');
-    facetStage(makeBricks(seed + 103), 0.60, 0.76, 2, 3, 1.0, 'fields');
+    facetStage(makeVoronoi(40 * S, -0.5, 0.45, seed + 101), 0.20, 0.38, 0.55, 0.72, 0.0, 'facets fine', null, 9);
+    facetStage(makeVoronoi(60 * S, 0.0, 0.6, seed + 102), 0.40, 0.56, 0.68, 0.84, 0.45, 'facets coarse', null, 6);
+
+    // ---- large calm planes (the geometric fields), hand-cut edges, flat brush
+    const eL = edgeY(W * 0.6) / H, eRr = edgeY(W) / H;
+    const ey = (fx) => mix(eL, eRr, (fx - 0.6) / 0.4);
+    const wl = 0.585;
+    function plane(polyF, c, c2, o) {
+      o = o || {};
+      const poly = polyF.map(([fx, fy]) => [fx * W, fy * H]);
+      const clip = P.polyClip(poly, (o.edge == null ? 3 : o.edge) * S, (krnd() * 1e6) | 0, 1.1 * S);
+      const th = o.dir || 0;
+      const ux = Math.cos(th), uy = Math.sin(th), vx = -uy, vy = ux;
+      let umin = 1e9, umax = -1e9, vmin = 1e9, vmax = -1e9;
+      for (const [x, y] of poly) { const u = x * ux + y * uy, v = x * vx + y * vy; umin = Math.min(umin, u); umax = Math.max(umax, u); vmin = Math.min(vmin, v); vmax = Math.max(vmax, v); }
+      const bw = (o.bw || 90) * S;
+      const n = Math.max(1, Math.ceil((vmax - vmin) / (bw * 0.7)));
+      for (let k = 0; k < n; k++) {
+        const v = vmin + (k + 0.5) * (vmax - vmin) / n + (krnd() - 0.5) * bw * 0.1;
+        // break long pulls into overlapping drags of slightly different tone
+        const a0 = umin - bw * 0.3, a1 = umax + bw * 0.3, segs = Math.max(1, Math.round((a1 - a0) / ((o.seg || 360) * S)));
+        for (let q2 = 0; q2 < segs; q2++) {
+          const b0 = a0 + (a1 - a0) * q2 / segs - (q2 ? 40 * S * krnd() : 0), b1 = a0 + (a1 - a0) * (q2 + 1) / segs + (q2 < segs - 1 ? 40 * S * krnd() : 0);
+          const pts = []; const rev = krnd() < 0.5; const tl = (krnd() - 0.5) * 0.03;
+          for (let i = 0; i <= 8; i++) { const t = rev ? 1 - i / 8 : i / 8; const u = b0 + (b1 - b0) * t; const vv = v + tl * (u - (b0 + b1) / 2); pts.push(u * ux + vv * vx, u * uy + vv * vy); }
+          const tone = mix3(c, c2 || c, krnd() * (o.vary == null ? 0.35 : o.vary));
+          if (o.knife) cv.stroke({ pts, w: bw * 1.2, col: jitterCol(tone, 0.02), cjit: 0.18, alpha: 0.98, clip, knife: true, load: 1.25, run: (b1 - b0) * 2.5, dry: 0.03,
+            thick: 1.5, ridge: 0.45, bristle: 0, smear: 0.2, pick: 0.06, rag: 0.0, taper0: 0, taper1: 0, cap: 0.0, streak: (b1 - b0) * 0.5, sfreq: 1.0, seed: (krnd() * 1e9) | 0 });
+          else cv.stroke(Object.assign({ pts, w: bw * 1.15, col: jitterCol(tone, 0.018), cjit: 0.18, alpha: 0.97, clip, load: 1.3, run: (b1 - b0) * 2.2, dry: 0.15,
+            thick: 0.85, ridge: 0.25, bristle: 0.5, bfreq: bw / (3.8 * S), smear: 0.15, pick: 0.1, rag: 0.0, taper0: 0, taper1: 0, cap: 0.2, seed: (krnd() * 1e9) | 0 }, o.brush || {}));
+        }
+      }
+    }
+    // wall: a deep field, a cool band, the lit wall, a pale counterweight to the linen
+    plane([[0.60, -0.01], [1.01, -0.01], [1.01, 0.315], [0.735, 0.335]], mix3(pn.black, pn.umber, 0.3), pn.wallDark, { dir: 1.22, bw: 105, edge: 5 });
+    plane([[0.745, 0.318], [1.01, 0.300], [1.01, 0.378], [0.752, 0.392]], pn.slateDark, pn.slate, { knife: true, bw: 120 });
+    plane([[0.70, 0.395], [1.01, 0.372], [1.01, 0.47], [0.725, 0.49]], mix3(pn.wallLight, pn.olive, 0.45), pn.wallDark, { bw: 100 });
+    plane([[0.845, 0.085], [0.935, 0.08], [0.932, 0.255], [0.85, 0.26]], mix3(pn.cream, pn.linenShadow, 0.35), pn.cream, { dir: PI / 2, bw: 90, knife: true });
+    plane([[0.935, 0.11], [1.01, 0.105], [1.01, 0.20], [0.938, 0.205]], mix3(pn.red, pn.umber, 0.55), pn.umber, { bw: 90, knife: true });
+    // ledge and front
+    plane([[0.74, wl + 0.004], [1.01, wl - 0.002], [1.01, eRr], [0.755, ey(0.755)]], pn.tableLit, pn.tableShadow, { bw: 90, vary: 0.5 });
+    plane([[0.70, ey(0.70) + 0.004], [1.01, eRr + 0.003], [1.01, 1.01], [0.76, 1.01]], mix3(pn.front, pn.umber, 0.3), pn.front, { bw: 125, edge: 5 });
+    plane([[0.82, 0.838], [1.01, 0.828], [1.01, 1.01], [0.83, 1.01]], pn.black, pn.umber, { bw: 120, knife: true });
+    plane([[0.745, 0.80], [0.805, 0.796], [0.80, 0.975], [0.75, 0.98]], mix3(pn.umber, pn.red, 0.25), pn.umber, { dir: PI / 2, bw: 60, knife: true });
+    log('planes');
+    // the far pears re-asserted over the planes as bold facets
+    facetStage(makeVoronoi(70 * S, 0.3, 0.5, seed + 104), 0.55, 0.72, 2, 3, 1.0, 'pear facets', [6, 7, 8, 11, 12], 4);
 
     // ---- bold flat fields from the image-guided split
     shuffle(rects, krnd);
@@ -702,12 +759,36 @@
         streak: 220 * S, sfreq: 2.2, rag: 0.3, seed: (krnd() * 1e9) | 0
       }, o || {}));
     };
-    // linen white carried along the ledge from the left
-    G1([[0.64, eR - 0.022], [0.78, eR - 0.03], [0.91, eR - 0.019], [1.04, eR - 0.027]], 78, pn.linen, pn.cream, { load: 1.45, thick: 1.9, run: 1300 * S });
-    // the knife, as one dark diagonal
-    G1([[0.71, eR + 0.03], [0.84, eR + 0.11], [0.99, eR + 0.20]], 46, pn.black, pn.handle, { load: 1.4, thick: 1.2, taper1: 0.55, run: 900 * S });
-    // leaf red, a short loaded touch
-    G1([[0.855, eR - 0.085], [0.895, eR - 0.075]], 66, pn.red, pn.ochre, { load: 1.7, thick: 2.0, taper0: 0.05, taper1: 0.2, cap: 0.3 });
+    // gestural fields: loaded brushes following a loose flow, pressure varying
+    function gestureField(cx, cy, rx, ry, n, keys, o) {
+      o = o || {};
+      for (let k = 0; k < n; k++) {
+        let x = (cx + (krnd() - 0.5) * 2 * rx) * W, y = (cy + (krnd() - 0.5) * 2 * ry) * H;
+        const base = o.base == null ? 0 : o.base;
+        const sd0 = (krnd() * 1000) | 0;
+        const fl = (px, py) => base + (o.swirl || 2.2) * (fbm(px / (520 * S), py / (520 * S), sd0 % 7 + 50, 2) - 0.5);
+        const len = mix(o.len ? o.len[0] : 260, o.len ? o.len[1] : 700, krnd()) * S;
+        const w = mix(o.w ? o.w[0] : 50, o.w ? o.w[1] : 130, krnd()) * S;
+        const pts = P.traceSpine(x, y, fl, len, Math.max(2, w * 0.25), krnd, { inertia: 0.75 });
+        const kk = keys[(krnd() * keys.length) | 0], k2 = keys[(krnd() * keys.length) | 0];
+        const c = satv(pn[kk], 1.1, 1.03, 0.3);
+        cv.stroke({
+          pts, w, col: jitterCol(c, 0.03), col2: mix3(c, pn[k2], 0.6), cjit: 0.55, alpha: 0.97, wmod: 0.35,
+          load: mix(1.0, 1.5, krnd()), run: len * mix(0.45, 1.1, krnd()), dry: o.dry == null ? 0.35 : o.dry, thick: mix(0.6, 1.2, krnd()),
+          bristle: 0.7, bfreq: Math.max(8, w / (3.2 * S)), ridge: 0.15, smear: 0.35, pick: 0.2, rag: 0.3, taper0: 0.1, taper1: 0.45, cap: 0.4,
+          streak: 260 * S, sfreq: 2.5, seed: (krnd() * 1e9) | 0
+        });
+      }
+    }
+    // the ledge and its shadow, re-made as gesture
+    gestureField(0.90, 0.88, 0.09, 0.08, 9, ['black', 'umber', 'front', 'tableShadow', 'red'], { base: -0.25, w: [60, 140], len: [300, 700] });
+    gestureField(0.88, 0.80, 0.10, 0.04, 4, ['tableLit', 'ochre', 'cream'], { base: 0.05, w: [40, 90], len: [250, 520], dry: 0.5 });
+    // linen white carried along the ledge, broad and broken
+    G1([[0.70, eR - 0.018], [0.80, eR - 0.03], [0.91, eR - 0.02], [1.04, eR - 0.03]], 96, pn.linen, pn.cream, { load: 1.2, thick: 0.9, ridge: 0.15, dry: 0.45, bristle: 0.7, wmod: 0.3, run: 520 * S, taper0: 0.05, taper1: 0.5 });
+    // light, dry scumbles dragged across the dark upper field
+    gestureField(0.86, 0.17, 0.08, 0.1, 3, ['wallLight', 'cream', 'slate'], { base: 1.0, swirl: 1.2, w: [80, 150], len: [300, 600], dry: 0.85 });
+    // leaf red, one loaded touch with the knife
+    knifeSlab(0.835 * W, (eR - 0.095) * H, 0.905 * W, (eR - 0.06) * H, satv(pn.red, 1.15, 1.0, 0.3), pn.ochre, krnd);
     log('gestures');
 
     // ---- the drawing survives: a broken calligraphic contour of the far pears
@@ -722,14 +803,6 @@
         pts.push([cx + Math.cos(th) * rr, cy + Math.sin(th) * rr]);
       }
       return pts;
-    }
-    // ---- sgraffito: knife-edge scratches back to the red-brown ground
-    for (let k = 0; k < 9; k++) {
-      const y = H * (0.08 + 0.85 * krnd()), x0 = W * (0.62 + 0.2 * krnd()), len = W * (0.12 + 0.25 * krnd());
-      const ang = (krnd() < 0.7 ? 0 : 0.5) * (krnd() - 0.5) + (krnd() - 0.5) * 0.08;
-      const pts = [x0, y, x0 + Math.cos(ang) * len * 0.5, y + Math.sin(ang) * len * 0.5 + (krnd() - 0.5) * 6 * S, x0 + Math.cos(ang) * len, y + Math.sin(ang) * len];
-      if (aAt(x0, y) < 0.7) continue;
-      cv.stroke({ pts, w: (2.2 + 2 * krnd()) * S, col: [0, 0, 0], mode: 2, alpha: 0.85, load: 1, bristle: 0.4, rag: 0.4, taper0: 0.3, taper1: 0.6, seed: (krnd() * 1e9) | 0 });
     }
     log('abstraction done');
     const rgba = cv.finish({ relief: 1.5, weaveAmp: 0.14, spec: 0.05 });

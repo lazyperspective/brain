@@ -560,7 +560,7 @@
   function waterfall() {
     curF = F_PROT;
     const WF = [C.B4, C.B5, C.B6, C.B7, C.B8, C.W];
-    const top = 268, bot = 452;
+    const top = 268, bot = 468;
     for (let y = top; y < bot; y++) {
       const t = (y - top) / (bot - top);
       const cx = BR.cx + 1 + Math.sin(y * 0.03) * 0.8;
@@ -569,7 +569,7 @@
         const rel = (x - cx) / half;
         if (Math.abs(rel) > 1.05 + (vnoise(x * 0.5, y * 0.06, 71) - 0.5) * 0.5) continue;
         const streak = fbm(x * 0.55, y * 0.045 - x * 0.03, 73, 3);
-        let v = 0.32 + streak * 0.8 - Math.abs(rel) * 0.35 - t * 0.62;
+        let v = 0.32 + streak * 0.8 - Math.abs(rel) * 0.35 - t * 0.62 + (t > 0.9 ? (t - 0.9) * 3 : 0);
         if (y < top + 3) v += 0.35;
         const c = rampAt(WF, v, x, y, 0);
         // edge strands break apart into droplets
@@ -580,11 +580,6 @@
     // lip catching the last light under the bridge arch
     hl(BR.cx - 5, BR.cx + 6, top, C.G0); hl(BR.cx - 3, BR.cx + 4, top + 1, C.B8);
     curF = F_NONE;
-    // spray cloud at the plunge, swallowed by the gorge mist
-    for (let y = 400; y < 500; y++) for (let x = 150; x < 280; x++) {
-      const d = Math.hypot((x - BR.cx) / 26, (y - 440) / 22);
-      veil(x, y, C.B7, clamp(1.1 - d) * 1.2 * (0.75 + 0.5 * fbm(x * 0.08, y * 0.08, 79)), 3, 0.5);
-    }
   }
 
   /* ----------------------------------------------- left & right mountain masses */
@@ -652,12 +647,12 @@
     crg(372, 190, 8, 4, 624); crg(420, 186, 7, 4, 625); crg(268, 232, 6, 4, 626); crg(318, 212, 5, 3, 628);
     // forests
     forest({ x0: 0, x1: 190, y0: 168, y1: 540, sx: 3, sy: 3, seed: 701,
-      inside: (x, y) => inLeft(x, y) && y > skyL(Math.min(x | 0, 186)) + 2 && !nearTrack(x, y, 6) && y < 470,
+      inside: (x, y) => inLeft(x, y) && y > skyL(Math.min(x | 0, 186)) + 2 && !nearTrack(x, y, 6) && y < 540,
       dens: (x, y) => (isMeadow(x | 0, y | 0, true) ? 0.05 : 0.92),
       h: (x, y) => 5 + (y - 170) / 24, lit: litLeft,
       species: (x, y) => { const sp = pickSpecies(x, y, 712); return !litLeft(x, y) && sp !== 0 && hash2(x | 0, y | 0, 713) < 0.55 ? 0 : sp; } });
     forest({ x0: 250, x1: W, y0: 160, y1: 540, sx: 3, sy: 3, seed: 731,
-      inside: (x, y) => inRight(x, y) && y > skyR(x | 0) + 2 && !nearTrack(x, y, 6) && !(x > 326 && y > 286 && y < 346) && !(x > 382 && x < 422 && y > 188 && y < 210) && !(x > 362 && x < 382 && y > 205 && y < 222) && y < 470,
+      inside: (x, y) => inRight(x, y) && y > skyR(x | 0) + 2 && !nearTrack(x, y, 6) && !(x > 326 && y > 286 && y < 346) && !(x > 382 && x < 422 && y > 188 && y < 210) && !(x > 362 && x < 382 && y > 205 && y < 222) && y < 540,
       dens: (x, y) => (isMeadow(x | 0, y | 0, false) ? 0.05 : 0.92),
       h: (x, y) => 5 + (y - 165) / 24, lit: litRight,
       species: (x, y) => { const sp = pickSpecies(x, y, 742); return !litRight(x, y) && sp !== 0 && hash2(x | 0, y | 0, 743) < 0.55 ? 0 : sp; } });
@@ -818,19 +813,120 @@
   }
 
   /* ---------------------------------------------------- gorge depth & mist */
+  // the gorge floor far below: a plunge pool churning white, a river running out toward us
+  // between wet boulders, scree banks under the inner walls
+  const POOL = [211, 470];
+  const bankL = (y) => 196 - (y - 466) * 0.8 + (fbm(y * 0.08, 1, 805, 2) - 0.5) * 8;
+  const bankR = (y) => 228 + (y - 466) * 1.0 + (fbm(y * 0.08, 2, 805, 2) - 0.5) * 8;
+  const footY = (x) => Math.round(452 + 40 * Math.pow(clamp(1 - Math.abs(x - 212) / 118), 0.8) + (fbm(x * 0.07, 3, 805, 2) - 0.5) * 4);
+  const inWater = (x, y) => y >= 462 && x > bankL(y) && x < bankR(y) || ((x - POOL[0]) / 22) ** 2 + ((y - POOL[1]) / 8) ** 2 < 1;
+  function boulder(cx, cy, r, wet, seed) {
+    for (let j = -Math.ceil(r); j <= Math.ceil(r * 0.7); j++) for (let i = -Math.ceil(r + 1); i <= Math.ceil(r + 1); i++) {
+      const e = (i / (r + 0.6)) ** 2 + (j / (r * 0.75)) ** 2;
+      if (e > 1 + (hash2(cx + i, cy + j, seed) - 0.5) * 0.4) continue;
+      const l = -i / (r + 1) * 0.6 - j / r * 0.8;
+      let c = l > 0.55 ? (wet ? C.B5 : C.B4) : l > 0.1 ? C.B3 : l > -0.4 ? C.B2 : C.K1;
+      if (e > 0.75 && j > 0) c = C.K0;
+      P(cx + i, cy + j, c);
+    }
+    if (wet) { P(cx - Math.round(r * 0.4), cy - Math.round(r * 0.5), C.B7); if (r > 2.5) P(cx - Math.round(r * 0.4) + 1, cy - Math.round(r * 0.5), C.B6); }
+    else if (hash2(cx, cy, seed + 2) < 0.5) P(cx - Math.round(r * 0.5), cy - Math.round(r * 0.6), C.L1);   // warm sky in the rim
+  }
   function depths() {
-    // the gorge floor: dark stream with a few cold glints, boulders
     curF = F_ORG;
-    for (let y = 470; y < H; y++) for (let x = Math.round(bwL(y)); x <= Math.round(bwR(y)); x++) {
-      const n = fbm(x * 0.1, y * 0.2, 801, 3);
-      P(x, y, n > 0.62 ? C.B3 : n > 0.48 ? C.B2 : C.B1);
+    // scree and wet rock of the floor
+    for (let y = 452; y < H; y++) for (let x = Math.round(bwL(y)) - 30; x <= Math.round(bwR(y)) + 30; x++) {
+      if (x < rimL(y) + 2 || x > rimR(y) - 2) continue;
+      const n = fbm(x * 0.12, y * 0.2, 801, 3);
+      P(x, y, n > 0.64 ? C.B3 : n > 0.5 ? C.B2 : n > 0.36 ? C.B1 : C.K1);
     }
+    // water: dark river, flow streaks diverging toward us, foam downstream of rocks
     curF = F_PROT;
-    for (let i = 0; i < 26; i++) {
-      const y = 476 + ((hash2(i, 1, 803) * 60) | 0), cx = 205 + (hash2(i, 2, 803) - 0.5) * 50;
-      hl(Math.round(cx), Math.round(cx + 1 + hash2(i, 3, 803) * 4), y, i % 3 ? C.B5 : C.B7);
+    for (let y = 460; y < H; y++) for (let x = 150; x < 300; x++) {
+      if (!inWater(x, y)) continue;
+      const dp = Math.hypot((x - POOL[0]) / 22, (y - POOL[1]) / 9);
+      const u = (x - (bankL(y) + bankR(y)) / 2) / Math.max(4, (bankR(y) - bankL(y)) / 2);
+      const flow = fbm(x * 0.35 - u * 2, y * 0.07, 811, 3);
+      let c = flow > 0.62 ? C.B3 : flow > 0.5 ? C.B2 : C.B1;
+      // churning white water around the plunge
+      const churn = clamp(1.25 - dp) + (fbm(x * 0.3, y * 0.3, 813, 2) - 0.5) * 0.7;
+      if (churn > 0.8) c = C.W;
+      else if (churn > 0.6) c = C.B8;
+      else if (churn > 0.42) c = C.B7;
+      else if (churn > 0.28) c = C.B5;
+      // rapids: streaks of foam
+      else if (flow > 0.7 && y > 486) c = C.B6;
+      else if (flow > 0.66) c = C.B4;
+      // a little warm sky caught on calm water near the banks
+      if (c === C.B2 && Math.abs(u) > 0.7 && hash2(x, y >> 1, 819) < 0.08) c = C.L2;
+      P(x, y, c);
+      if (Math.abs(u) > 0.92) P(x, y, C.B4);   // wet margin
     }
+    // boulders: dry on the scree, wet and foamed in the river
+    curF = F_PROT;
+    for (let i = 0; i < 30; i++) {
+      const y = Math.round(458 + hash2(i, 1, 821) * 82), x = Math.round(150 + hash2(i, 2, 821) * 140);
+      if (x < rimL(y) + 4 || x > rimR(y) - 4) continue;
+      const r = 2 + hash2(i, 3, 821) * (2 + (y - 458) / 16);
+      const wet = inWater(x, y);
+      if (wet && Math.hypot((x - POOL[0]) / 22, (y - POOL[1]) / 9) < 1.1) continue;
+      boulder(x, y, r, wet, 823 + i);
+      if (wet) for (let k = -Math.round(r); k <= Math.round(r); k++) {   // foam collar at the waterline
+        const fx = x + k, fy = y + Math.round(r * 0.7) + 1;
+        if (inWater(fx, fy) && hash2(i, k, 825) < 0.75) P(fx, fy, Math.abs(k) < r * 0.5 ? C.B8 : C.B6);
+      }
+    }
+    // spray rising from the plunge, broken and drifting
     curF = F_NONE;
+    for (let y = 420; y < 480; y++) for (let x = 170; x < 255; x++) {
+      const d = Math.hypot((x - POOL[0]) / (16 + (POOL[1] - y) * 0.5), (y - POOL[1] + 10) / 20);
+      const n = fbm(x * 0.09, y * 0.12, 829, 3);
+      veil(x, y, d < 0.5 ? C.B8 : C.B7, clamp(1 - d) * clamp(n * 2 - 0.5) * 1.1, 3, 0.6);
+    }
+  }
+  // soft, broken layers of mist drifting across the gorge: separate wisps of varying length and
+  // thickness, overlapping (denser) in the hollow, each with a sky-lit upper rim and dithered edges
+  // mist only ever pulls a pixel toward the cool blues (never into stray violets or tans)
+  const BLUES = new Uint8Array(NP).fill(1);
+  [C.K0, C.K1, C.B1, C.B2, C.B3, C.B4, C.B5, C.B6, C.B7, C.B8].forEach((i) => { BLUES[i] = 0; });
+  const blueCache = new Map();
+  function mistVeil(x, y, target, t) {
+    if (x < 0 || y < 0 || x >= W || y >= H || t <= 0) return;
+    const lv = dq(clamp(t) * 3, x, y, 0.7);
+    if (lv <= 0) return;
+    const k = y * W + x;
+    if (flag[k] === F_PROT && t < 0.5) return;
+    const key = buf[k] * 1000 + target * 10 + lv;
+    let v = blueCache.get(key);
+    if (v === undefined) {
+      const a = RGB[buf[k]], b = RGB[target], q = lv / 3;
+      v = nearest(lerp(a[0], b[0], q), lerp(a[1], b[1], q), lerp(a[2], b[2], q), BLUES);
+      blueCache.set(key, v);
+    }
+    buf[k] = v;
+  }
+  function mistDrift(yc, th, xa, xb, seed, n, amt, lo, hi, lm) {
+    for (let w = 0; w < n; w++) {
+      const cx = xa + (xb - xa) * (w + 0.5 + (hash2(w, 1, seed) - 0.5) * 0.9) / n;
+      const len = (10 + hash2(w, 2, seed) * 42 * (0.5 + 0.5 * clamp(1 - Math.abs(cx - 214) / 180))) * (lm || 1);
+      const cy = yc + (hash2(w, 3, seed) - 0.5) * th * 5;
+      const t = th * (0.45 + 0.7 * hash2(w, 4, seed));
+      const tilt = (hash2(w, 5, seed) - 0.5) * 0.08;
+      for (let x = Math.round(cx - len); x <= Math.round(cx + len); x++) {
+        const u = (x - cx) / len;
+        if (Math.abs(u) >= 1 || x < 0 || x >= W) continue;
+        const env = Math.sqrt(1 - u * u);
+        const up = t * env * (0.55 + 0.6 * fbm(x * 0.09, w, seed + 7, 2));        // bumpy upper edge
+        const dn = t * env * (0.35 + 0.4 * fbm(x * 0.06, w, seed + 9, 2));        // flatter, thinner base
+        const my = cy + tilt * (x - cx) + 1.5 * Math.sin(x * 0.08 + w);
+        for (let y = Math.floor(my - up); y <= Math.ceil(my + dn); y++) {
+          const e = y < my ? (my - y) / up : (y - my) / dn;
+          if (e > 1) continue;
+          const lv = amt * (0.6 + 0.8 * hash2(w, 6, seed)) * (e > 0.7 ? 0.5 : 1) * (0.6 + 0.4 * env);
+          mistVeil(x, y, my - y > up - 1.2 ? hi : lo, lv);
+        }
+      }
+    }
   }
   // a sea of mist filling the gorge: rolling layers, each lit along its crest by the sky,
   // the piers sinking into it through a dithered seam
@@ -932,6 +1028,7 @@
           if (y > crown && (y >= spring ? Math.abs(dx) < hw : dx * dx + (y - spring) ** 2 < r * r)) { inStruct = false; archK = k; break; }
         }
         if (!inStruct) continue;
+        if (y > footY(x) + 1) continue;
         // abutments only extend down into the rock
         if ((x < VX0 + 2 && y > DECK + 30) || (x > VX1 - 2 && y > DECK + 26)) continue;
         const lit = y < shadowY(x);
@@ -952,6 +1049,15 @@
         }
         P(x, y, c);
       }
+    }
+    // pier plinths standing on rubble and in the white water
+    for (let k = 0; k < n - 1; k++) {
+      const pc = Math.round(arches[k] + r + pier / 2), fy = footY(pc);
+      const bat = Math.max(0, Math.floor((fy - spring) / 14)), hw = pier / 2 + bat + 1;
+      hl(pc - hw, pc + hw, fy - 2, C.B3); hl(pc - hw, pc + hw, fy - 1, C.B2); hl(pc - hw, pc + hw, fy, C.K1);
+      P(pc - hw, fy - 2, C.B4);
+      for (let b = 0; b < 5; b++) boulder(pc - hw - 1 + Math.round(hash2(k, b, 931) * (hw * 2 + 2)), fy + 1 + Math.round(hash2(k, b + 9, 931) * 2), 1.4 + hash2(k, b + 5, 931) * 1.8, inWater(pc, fy + 2), 933 + k * 7 + b);
+      if (inWater(pc, fy + 2)) for (const i of [-hw - 2, -hw - 1, hw + 1, hw + 2]) P(pc + i, fy + 1, Math.abs(i) > hw + 1 ? C.B6 : C.B8);
     }
     // voussoirs and the shadowed intrados of each arch
     for (const ax of arches) {
@@ -1311,7 +1417,7 @@
       clump(cxp, cyp, 1.5 + hash2(b, 4, seed) * 1.5, lit(cyp) ? [C.G5, C.G3, C.G2, C.G1, C.G0] : [C.K1, C.V1, C.G7, C.V2, C.L2], seed + b * 7);
     }
   }
-  function bigSpruce(x, yb, h, seed, ramp) {
+  function bigSpruce(x, yb, h, seed, ramp, rim) {
     const top = yb - h, tl = Math.round(5 + h / 18);
     for (let j = 0; j < h; j++) {
       const y = top + j, prog = j / h;
@@ -1323,30 +1429,72 @@
         let k = rel < -0.55 ? 3 : rel < 0.25 ? 2 : 1;
         if (tp > 0.8) k = Math.max(0, k - 1);
         if (tp < 0.2 && rel < -0.2 && hash2(i, j, seed + 3) < 0.6) k = 4;
-        P(x + i, y, ramp[k]);
+        // needle texture: branch strokes descending outward through each tier
+        const hh = hash2(i, j, seed + 11);
+        if (k === 2 && hh < 0.14 && ((i + j) & 1)) k = 3;
+        else if (k === 1 && hh < 0.1) k = 2;
+        else if (k === 3 && hh < 0.08) k = 4;
+        let c = ramp[k];
+        // sky rim on the sunward (west) edge of each tier, warmer near the top
+        if (rim && i === -half && tp < 0.75 && hash2(j, 5, seed) < 0.8) c = prog < 0.45 ? rim[1] : rim[0];
+        if (rim && i === -half + 1 && tp < 0.3 && prog < 0.5 && hash2(j, 6, seed) < 0.5) c = rim[0];
+        // drooping needle tips under each tier
+        P(x + i, y, c);
+        if (tp > 0.85 && Math.abs(i) > half - 3 && hash2(i, j, seed + 7) < 0.4) P(x + i, y + 1, ramp[0]);
       }
     }
+    vl(x, yb - Math.round(h * 0.08), yb, C.G7);
   }
   function foreground() {
-    // the near slope in deep evening shadow frames the lit middle distance
+    // a rocky ledge at our feet in cool shadow, its top edges catching the warm western sky
+    const lt = (x) => x > 236 ? 1e9 : Math.round(494 + Math.pow(x / 236, 1.7) * 50 + (fbm(x * 0.06, 1, 1201, 3) - 0.5) * 10 - (x > 60 && x < 120 ? 6 * Math.sin((x - 60) / 60 * Math.PI) : 0));
+    const rt = (x) => x < 318 ? 1e9 : Math.round(544 - Math.pow((x - 318) / 114, 1.2) * 46 + (fbm(x * 0.06, 2, 1203, 3) - 0.5) * 10);
+    const top = (x) => Math.min(lt(x), rt(x));
+    // vertical face: tall fractured slabs in deep shadow
+    const FACE = [C.K0, C.K0, C.K1, C.B1, C.B2];
+    rockFill((x, y) => y >= top(x) + 5, 0, W - 1, 440, H - 1, () => FACE, 6, 10, 1207);
+    // the ledge's flat top catches the whole sky: cool, with warm notes from the west
     curF = F_ORG;
-    const gl = (x) => 492 + x * 0.45 + (fbm(x * 0.06, 1, 1201) - 0.5) * 8;
-    const gr = (x) => 506 + (W - x) * 0.5 + (fbm(x * 0.06, 2, 1203) - 0.5) * 8;
-    for (let y = 470; y < H; y++) for (let x = 0; x < W; x++) {
-      const inL = x < 110 && y > gl(x), inR = x > 322 && y > gr(x);
-      if (!inL && !inR) continue;
-      const n = fbm(x * 0.09, y * 0.12, 1205, 3);
-      P(x, y, n > 0.6 ? C.V1 : n > 0.42 ? C.K1 : C.K0);
+    for (let x = 0; x < W; x++) {
+      const t = top(x);
+      if (t >= H) continue;
+      for (let y = t; y < Math.min(H, t + 5); y++) {
+        const n = fbm(x * 0.15, y * 0.4, 1213, 2);
+        let c = n > 0.62 ? C.B4 : n > 0.42 ? C.B3 : C.B2;
+        if (y === t + 4) c = C.K1;                                   // lip shadow
+        else if (y === t + 3 && hash2(x, y, 1215) < 0.5) c = C.B1;
+        if (y < t + 3 && hash2(x >> 1, y, 1217) < 0.07) c = C.L1;     // a touch of warm sky
+        P(x, y, c);
+      }
     }
-    const SPR = [C.K0, C.K0, C.K1, C.B1, C.B3];
-    const LAR = [C.K0, C.K1, C.V1, C.V1, C.V2];
+    curF = F_PROT;
+    for (let x = 0; x < W; x++) {
+      const t = top(x);
+      if (t >= H) continue;
+      const west = top(x - 1) > t || top(x - 1) === t && hash2(x, 1, 1209) < 0.5;
+      P(x, t, west ? C.L2 : C.B5); if (west && hash2(x, 2, 1209) < 0.5) P(x, t + 1, C.V2);
+      // dry grass tufts and bilberry along the edge
+      const g = hash2(x, 3, 1209);
+      if (g < 0.22) { const hgt = 2 + ((hash2(x, 4, 1209) * 4) | 0); for (let j = 1; j <= hgt; j++) P(x + (j > 2 && g < 0.1 ? -1 : 0), t - j, j === hgt ? C.G5 : j > hgt - 2 ? C.G6 : C.G7); }
+      else if (g > 0.93) { P(x, t - 1, C.R1); P(x + 1, t - 1, C.G6); P(x, t - 2, C.G5); if (g > 0.97) P(x + 1, t - 2, C.R2); }
+    }
+    // lichen and cracks on the slabs
+    for (let i = 0; i < 90; i++) {
+      const x = Math.round(hash2(i, 1, 1211) * W), y = Math.round(470 + hash2(i, 2, 1211) * 70);
+      if (y < top(x) + 3) continue;
+      if (i % 3) { P(x, y, C.E2); P(x + 1, y, C.E3); } else line(x, y, x + 2 + (i % 4), y + 3, C.K0);
+    }
     curF = F_ORG;
-    bigSpruce(96, 548, 74, 1701, SPR);
-    bigLarch(58, 552, 92, 1711, 0, LAR);
-    bigSpruce(16, 556, 118, 1703, SPR);
-    bigBirch(82, 548, 58, 1721, 0, 0.6);
-    bigLarch(396, 552, 64, 1713, 0, LAR);
-    bigSpruce(424, 556, 96, 1707, SPR);
+    const SPR = [C.K0, C.K0, C.K1, C.B1, C.B3];
+    const RIM = [C.B3, C.L2];
+    const LAR = [C.K0, C.K1, C.K1, C.V1, C.G7];
+    bigSpruce(140, lt(140) + 2, 64, 1705, SPR, RIM);
+    bigBirch(104, lt(104) + 1, 84, 1721, 0, 0.7);
+    bigLarch(70, lt(70) + 2, 128, 1711, 0, LAR);
+    bigSpruce(20, lt(20) + 3, 182, 1703, SPR, RIM);
+    bigSpruce(376, rt(376) + 2, 104, 1709, SPR, RIM);
+    bigLarch(400, rt(400) + 2, 92, 1713, 0, LAR);
+    bigSpruce(424, rt(424) + 3, 176, 1707, SPR, RIM);
     curF = F_NONE;
   }
 
@@ -1496,9 +1644,13 @@
     tracks();
     upperBridge();
     depths();
-    lowerMist();
+    mistDrift(414, 8, 70, 380, 841, 9, 0.42, C.B6, C.B7);
+    mistDrift(462, 7, 130, 310, 843, 7, 0.4, C.B6, C.B7);
     viaduct();
-    mistSea();
+    mistDrift(440, 8, 50, 400, 845, 8, 0.38, C.B5, C.B7);
+    mistDrift(500, 6, 110, 330, 847, 6, 0.32, C.B5, C.B6);
+    // a heavier bank lying in the hollow over the pool and the lower slopes, veiling the pier feet
+    mistDrift(474, 10, 20, 420, 849, 7, 0.55, C.B6, C.B7, 1.5);
     extras();
     station();
     trainAndSteam();

@@ -146,8 +146,10 @@
       const sfreq = o.sfreq || (knife ? 1.6 : bfreq * 0.27);
 
       // width profile
+      const wmod = o.wmod || 0;
       const hwAt = (s) => {
         let f = 1;
+        if (wmod) f *= 1 + wmod * (vnoise1(s / (w * 1.6 + 2), seed + 61) - 0.5) * 2;
         if (t0 > 0) f *= 1 - t0 * (1 - smooth(0, Math.min(L * 0.4, w * 0.9), s));
         if (t1 > 0) f *= 1 - t1 * (1 - smooth(L, L - Math.min(L * 0.5, w * 1.6), s));
         return hw0 * f;

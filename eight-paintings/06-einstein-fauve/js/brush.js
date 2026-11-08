@@ -52,7 +52,7 @@
     const sK = new Float32Array(n);
     for (let i = 1; i < n; i++) sK[i] = sK[i - 1] + Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
     const Ltot = sK[n - 1];
-    const reach = (o.reach != null ? o.reach : 1.2) * Math.max(wMax * 6, 150 * sc);
+    const reach = (o.reach != null ? o.reach : 1.2) * Math.max(wMax * 6, 380 * sc);
     // bristles
     const nb = Math.max(4, Math.min(150, Math.round(wMax / (1.25 * sc))));
     const P = this.binP, D = this.binD, Gg = this.binG, cR = this.cR, cG = this.cG, cB = this.cB;
@@ -83,7 +83,7 @@
     const liftInv = 1 / Math.max(1, Ltot * lift);
     const endPile = o.endPile != null ? o.endPile : 0.4;
     const touchL = Math.max(2, wMax * 0.5);
-    const capF = o.cap != null ? o.cap : 0.55 + 0.45 * rng.next(), capMax = o.cap != null ? 1e9 : 14 * sc;
+    const capF = o.cap != null ? o.cap : 0.55 + 0.45 * rng.next(), capMax = o.cap != null ? 1e9 : 30 * sc;
     for (let k = 0; k < n - 1; k++) {
       const ax = xs[k], ay = ys[k], bx = xs[k + 1], by = ys[k + 1];
       const dx = bx - ax, dy = by - ay; const len = Math.hypot(dx, dy); if (len < 1e-3) continue;
