@@ -182,6 +182,12 @@ for b0, notes in B_ch:
     i_tri(bt(1, b0), blen(1) * 1.9, notes[0], 0.28); i_tri(bt(1, b0 + 2), blen(1) * 1.9, notes[0] + (7 if b0 != 8 else 5), 0.22)
     arp(1, b0, 4, [x + 24 for x in notes[1:]], step=0.5 if b0 == 0 else 0.25, vel=0.045 + 0.01 * b0 / 4, pan=0.35, pattern=[0, 2, 1, 3, 2, 4, 3, 1])
 d_timp(bt(1, 0), n('B1'), 0.35)
+# entering the structure: soft deep impact with a long metallic tail
+def impact(t, vel=0.3):
+    ns = int(3.0 * SR); tt = np.arange(ns) / SR
+    x = np.sin(2 * np.pi * np.cumsum(38 + 50 * np.exp(-tt * 10)) / SR) * np.exp(-tt * 3) + lp(chipnoise(ns, 5000), 700) * np.exp(-tt * 18) * 0.4
+    add(MUS, t, x * vel, 0); add(VERB, t, x * vel, 0, 0.9)
+impact(CUTS[1], 0.32)
 # --- C: 12.146-15.115 arms open: Em - F#sus4 - F#, driving 8ths, clank hits on beats
 i_pad(bt(2, 0), blen(2) * 3, chord(n('E3'), 'min9')[1:], vel=0.07, a=0.4, r=0.6, cut=1700, bright=0.5)
 i_pad(bt(2, 3), blen(2) * 2.1, [n('F#3'), n('B3'), n('C#4'), n('A#4')], vel=0.08, a=0.2, r=0.8, cut=2000, bright=0.6)
@@ -197,6 +203,9 @@ i_tri(bt(3, 0), blen(3) * 2.9, n('G2'), 0.3); i_tri(bt(3, 3), blen(3) * 2.9, n('
 crash(bt(3, 0), 0.12, -0.3); d_timp(bt(3, 0), n('G1'), 0.4)
 mel(3, 0, [('B4', 1), ('D5', 0.5), ('F#5', 1.5), ('E5', 1), ('C#5', 0.5), ('A4', 1.5)], vel=0.1, duty=0.5)
 arp(3, 0, 6, [n('D5'), n('F#5'), n('A5'), n('C#6')], step=0.5, vel=0.035, duty=0.125, pan=0.5, pattern=[0, 2, 1, 3])
+cymbal_swell(CUTS[4], 1.8, 0.14)
+for k, m in enumerate([n('D4'), n('F#4'), n('A4'), n('D5'), n('E5'), n('F#5'), n('A5'), n('D6')]):  # harp-like glissando into the golden shot
+    i_pulse(MUS, CUTS[4] - 0.42 + k * 0.06, 0.5, m, 0.04, 0.125, -0.5 + k / 7, 0.7, a=0.002, d=0.35, s=0.0, r=0.5)
 # --- E: 18.919-30.1 golden hour theme (4 bars + 2 beat lift into the booms)
 E = [(0, n('D3'), 'maj9'), (4, n('A2'), 'sus2'), (8, n('B2'), 'min7'), (12, n('G2'), 'maj7')]
 for b0, r0, kd in E:

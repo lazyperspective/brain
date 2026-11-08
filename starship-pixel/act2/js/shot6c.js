@@ -290,7 +290,7 @@ const SHOT6C = (function () {
     for (let y = 0; y < H; y++) {
       const dh = (hzS - y) / 150;     // 0 at horizon, 1 high up
       const v = 9.0 - 1.85 * Math.pow(clamp(dh, 0, 1.4), 0.7);
-      for (let x = 0; x < W; x++) FB[y * W + x] = rampDither(SKY, v + (x / W) * 0.15, x, y + ty, 7);
+      for (let x = 0; x < W; x++) FB[y * W + x] = rampDither(SKY, v + (x / W) * 0.15, x, y + ty, 12);
     }
     // a thin band of warm morning haze lying on the sea horizon
     for (let k = 1; k <= 7; k++) {

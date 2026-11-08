@@ -15,7 +15,7 @@ const SHOT6B = (function () {
     specHot: 0.93, specCol: ST[8], flapDark: 0.5, tileJag: 3.2,
     chrome: [ST[2], ST[2], ST[3], ST[4], ST[5], ST[6], ST[7], ST[8], ST[8]],
     tileFn: (n, hit) => {
-      let v = 1.0 + 2.0 * Math.max(0, dot3(n, SUN)) + 0.5 * n[1] + 0.4 * n[0];
+      let v = 0.75 + 2.7 * Math.max(0, dot3(n, SUN)) + 0.6 * n[1] + 0.4 * n[0];
       if (hit.mat !== 1) v += 0.6;
       return v;
     },
@@ -50,7 +50,7 @@ const SHOT6B = (function () {
       let v = 7.2 + 0.55 * smooth(tau / 8.2) - 0.7 * (x * 0.6 + y) / (W * 0.6 + H) + 0.7 * Math.max(0, 1 - Math.hypot(x - 60, y + 30) / 300);
       const f1 = fbm(x / 150, (y + Math.round(tau * 3)) / 60, 41, 3);
       v += clamp((f1 - 0.5) * 1.6, -0.08, 0.3);
-      FB[y * W + x] = rampDither(SKY, clamp(v, 5.8, 8.9), x, y, 4);
+      FB[y * W + x] = rampDither(SKY, clamp(v, 5.8, 8.9), x, y, 6);
     }
     for (const c of CLOUDS) {
       const speed = c.layer ? 13 : 5.5, span = c.layer ? 570 : 488;

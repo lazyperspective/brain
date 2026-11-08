@@ -167,7 +167,7 @@ const ACT1 = (() => {
         const wob = age > 12 ? Math.round((vnoise(x / 40, 7, 9) - 0.5) * Math.min(2.4, (age - 12) / 6)) : 0;
         if (age < 3.2) { // twin engine trails
           pset(S, X, Y, sky[9]); if (age > 0.9) pset(S, X, Y - 2, age < 2 ? sky[8] : sky[9]);
-          if (age > 2.2 && ((X + Y) & 1)) pset(S, X, Y - 1, sky[8]);
+          if (age > 2.6) pset(S, X, Y - 1, sky[8]);
         } else if (age < 9) {
           pset(S, X, Y, sky[9]); pset(S, X, Y - 1, sky[9]); pset(S, X, Y - 2, sky[8]);
           if (age > 6 && ((X + Y) & 1)) pset(S, X, Y + 1, sky[7]);
@@ -187,8 +187,16 @@ const ACT1 = (() => {
       blit(S, cloudA, cx, cy);
       // the jet: tiny glinting airliner at the head
       const jx = xh + ox, jy = yAt(xh) + oy;
-      pset(S, jx, jy, warm[0]); pset(S, jx + 1, jy - 1, steel[7]); pset(S, jx - 1, jy, steel[6]);
+      pset(S, jx, jy, steel[8]); pset(S, jx + 1, jy - 1, steel[7]); pset(S, jx - 1, jy, steel[6]);
       pset(S, jx + 1, jy, steel[5]); pset(S, jx, jy - 1, steel[6]); pset(S, jx, jy + 1, steel[5]);
+      if ((t % 1.1) < 0.07) pset(S, jx - 1, jy + 1, warm[0]); // anti-collision strobe
+      // a small flock crossing low and late, much closer than the jet
+      if (t > 2.3) for (let b = 0; b < 6; b++) {
+        const tb = t - 2.3 - b * 0.06, bx = Math.round(-12 + tb * 60 + (b % 3) * 7 - b * 2), by = Math.round(236 - tb * 20 + ((b * 5) % 9) + Math.sin(tb * 3 + b) * 1.5);
+        const fl = Math.floor(t * 9 + b * 1.3) & 1;
+        pset(S, bx, by, sky[1]); pset(S, bx + 1, by, sky[1]); pset(S, bx - 1, by - fl, sky[2]); pset(S, bx + 2, by - fl, sky[2]);
+        if (!fl) { pset(S, bx - 2, by + 1, sky[3]); pset(S, bx + 3, by + 1, sky[3]); } else { pset(S, bx - 2, by - 2, sky[3]); pset(S, bx + 3, by - 2, sky[3]); }
+      }
     }
     return { init, render };
   })();
@@ -370,13 +378,16 @@ const ACT1 = (() => {
       for (let g = 0; g < 14; g++) { const gx = 200 + rnd() * 300, gy = rnd() * 250, n = 3 + Math.floor(rnd() * 5); for (let k = 0; k < n; k++) wps.push({ x: gx + k * 10 + (rnd() - 0.5) * 6, y: gy - k * 2.2, r: 1 + rnd() * 1.4, w: 1, ax: 8 + rnd() * 7 }); }
       wisp = bakeBubbles(W + 40, H, wps, [sky[6], sky[7], sky[7], sky[8]], { hx: 0, hy: -0.6 });
     }
-    function render(t) {
+    function render(t, T) {
       blit(S, skyS, 0, 0);
       blit(S, wisp, -Math.round(t * 2.5), 0);
       const u = ease(clamp(t / 2.97, 0, 1));
       const m = towerModel({ carY: -19, armL: lerp(0.9, 1.2, u), armR: lerp(0.55, 0.9, u) });
       const cam = PX.camera(CAM.pos, CAM.tgt, CAM.f, 240, 135);
       TMP.d.fill(0); draw3D(TMP, cam, m.P, STY3); selOut(TMP, -1, -1); blit(S, TMP, 0, 0);
+      { const b = cam.proj(V(-3.6, 10.7, -3.6)); const on = (T % 1.3) < 0.55; pset(S, Math.round(b[0]), Math.round(b[1]), on ? warm[4] : steel[3]); if (on) pset(S, Math.round(b[0]), Math.round(b[1]) - 1, warm[2]); } // aviation beacon
+      { const gx = Math.round(470 - t * 52), gy = Math.round(60 + t * 9 + Math.sin(t * 2.2) * 2), fl = Math.floor(t * 7) & 1; // a gull drifting through
+        pset(S, gx, gy, steel[2]); pset(S, gx + 1, gy, steel[2]); pset(S, gx - 1, gy - fl, steel[3]); pset(S, gx + 2, gy - fl, steel[3]); pset(S, gx - 2, gy + 1 - 2 * fl, steel[4]); pset(S, gx + 3, gy + 1 - 2 * fl, steel[4]); }
     }
     return { init, render };
   })();
@@ -593,6 +604,13 @@ const ACT1 = (() => {
         }
         ceil.d[y * LW + x] = c;
       }
+      // soft light shaft falling from the window across the dark ceiling
+      for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
+        const i = y * LW + x, c = ceil.d[i]; if (c !== dark[1] && c !== dark[0] && c !== dark[2]) continue;
+        const sx = x - LM; const u = (sx - 330) * 0.55 + y * 0.83, v = -(sx - 330) * 0.83 + y * 0.55; // along/ across beam
+        if (u < 0 || u > 230) continue; const wdt = 18 + u * 0.22; const a = Math.abs(v + 10) / wdt; if (a > 1) continue;
+        const cov = (1 - a) * (1 - u / 230) * 0.6; if (q4(cov) > thr(x, y)) ceil.d[i] = c === dark[0] ? dark[1] : dark[2];
+      }
       // ---- bronze bolted panel (lit by low sun) + shadowed wall top right
       panel = surf(LW, LH);
       const pShape = [[372 + LM, 72], [480 + LM + 60, 40], [480 + LM + 60, LH], [300 + LM, LH], [318 + LM, 210]];
@@ -708,7 +726,7 @@ const ACT1 = (() => {
       bank(110, 76, 190, 7, 601); bank(255, 80, 120, 4, 602); bank(410, 74, 150, 8, 603); bank(30, 88, 80, 3, 604); bank(470, 90, 70, 4, 605); bank(360, 92, 100, 3, 606);
       // high cirrus (seen after the tilt): soft brushed wisps in groups
       { const rnd = PX.mulberry(607), wps = [];
-        for (let g = 0; g < 26; g++) { const gx = rnd() ** 1.6 * LW, gy = TOP - 480 + rnd() * 340, n = 4 + Math.floor(rnd() * 6), dx = 8 + rnd() * 4, dy = -3 - rnd() * 2; for (let k = 0; k < n; k++) wps.push({ x: gx + k * dx + (rnd() - 0.5) * 6, y: gy + k * dy + (rnd() - 0.5) * 2, r: 1.2 + rnd() * 1.6, w: 1, ax: 7 + rnd() * 8 }); }
+        for (let g = 0; g < 16; g++) { const gx = rnd() ** 1.8 * LW * 0.85, gy = TOP - 470 + rnd() ** 1.4 * 300, n = 4 + Math.floor(rnd() * 6), dx = 8 + rnd() * 4, dy = -3 - rnd() * 2; for (let k = 0; k < n; k++) wps.push({ x: gx + k * dx + (rnd() - 0.5) * 6, y: gy + k * dy + (rnd() - 0.5) * 2, r: 1.2 + rnd() * 1.6, w: 1, ax: 7 + rnd() * 8 }); }
         const Wp = bakeBubbles(LW, LH, wps, [sky[6], sky[6], sky[7], sky[8]], { hx: 0.3, hy: 0.6 });
         blit(skyL, halo(Wp, [[sky[6], 0.5], [sky[6], 0.25]]), 0, 0); blit(skyL, Wp, 0, 0); }
       // ---- ground
@@ -781,7 +799,7 @@ const ACT1 = (() => {
       // ----- glare blooming as the camera crosses the sun: every colour climbs its own ramp (slow, no flashing)
       const gl = clamp(1 - Math.abs(t - 4.9) / 2.6, 0, 1); const g2 = gl * gl * (3 - 2 * gl);
       const base = 0.35 * clamp(1 - Math.abs(t - 4.9) / 4, 0, 1);
-      if (g2 > 0 || base > 0) bloom((x, y) => { const d = Math.hypot(x - sunX, (y - sunY) * 1.1); return g2 * 2.7 * clamp(1.15 - d / 300, 0, 1) ** 1.3 + base * clamp(1 - d / 260, 0, 1); });
+      if (g2 > 0 || base > 0) bloom((x, y) => { const d = Math.hypot(x - sunX, (y - sunY) * 1.1); return g2 * 2.1 * clamp(1.1 - d / 320, 0, 1) ** 1.8 + base * clamp(1 - d / 260, 0, 1); });
       // ----- the ship, tiny and high, belly-flopping, twin vapour trails from the flap tips (from 26.25 s)
       if (T > 26.25) {
         const k = T - 26.25; const x = 266 + Math.round(k * 1.6), y = Math.round(-6 + k * 17);
