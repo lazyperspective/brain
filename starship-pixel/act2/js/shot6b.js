@@ -4,7 +4,7 @@
 const SHOT6B = (function () {
   const T0 = 39.0, T1 = 47.2;
   const deg = Math.PI / 180;
-  const ELEV = 0.42;
+  const ELEV = 0.66;
   const SUN = norm3([0.55, 0.6, 0.58]);
 
   const shade = makeShader({
@@ -69,8 +69,8 @@ const SHOT6B = (function () {
   }
 
   function wisps(tau, spr, bx, by) {
-    const tips = [[shipProject(spr, 0.6, 1.9 * Math.cos(-SHIP.aftPhi), 1.9 * Math.sin(-SHIP.aftPhi)), 0],
-                  [shipProject(spr, 8.4, 1.55 * Math.cos(-SHIP.fwdPhi), 1.55 * Math.sin(-SHIP.fwdPhi)), 1]];
+    const tips = [[shipProject(spr, 0.5, 2.3 * Math.cos(-SHIP.aftPhi), 2.3 * Math.sin(-SHIP.aftPhi)), 0],
+                  [shipProject(spr, 8.1, 1.78 * Math.cos(-SHIP.fwdPhi), 1.78 * Math.sin(-SHIP.fwdPhi)), 1]];
     for (const [tp, k] of tips) {
       const x0 = bx + tp[0], y0 = by + tp[1];
       const len = k ? 22 : 34;

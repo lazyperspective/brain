@@ -7,15 +7,17 @@
 
 const SHIP = {
   L: 11.0,          // length in radii (50 m / 4.5 m)
-  Ln: 2.9,          // ogive nose length
-  tileHalf: 1.55,   // tile coverage half-angle around the belly (rad, ~93 deg)
-  // aft flaps: polygon in (u, rho) [u from engine end, rho from axis], azimuth from belly
-  aftPoly: [[0.10, 0.9], [3.05, 0.9], [2.15, 1.95], [0.10, 1.95]],
-  aftPhi: 2.0,
-  // forward flaps on the nose cone, mounted further leeward
-  fwdPoly: [[8.05, 0.75], [9.75, 0.35], [9.2, 1.35], [8.35, 1.62], [8.05, 1.62]],
-  fwdPhi: 2.25,
+  Ln: 3.6,          // ogive nose length
+  tileHalf: 1.3,    // tile coverage half-angle around the belly (rad)
+  // aft flaps: big trapezoid fins at the tail; polygon in (u, rho) [u from engine end, rho from axis]
+  aftPoly: [[0.05, 0.9], [3.1, 0.9], [1.25, 2.4], [0.05, 2.4]],
+  aftPhi: Math.PI / 2,
+  // forward flaps: small swept canards just behind the nose
+  fwdPoly: [[7.85, 0.5], [9.55, 0.5], [8.3, 1.85], [7.9, 1.85]],
+  fwdPhi: Math.PI / 2,
   plate: 0.075,     // half thickness
+  blackFlaps: true, // flaps are tiled on both faces
+  noseCap: 0.5,     // dark tiled nose tip (radii from the tip)
 };
 
 function shipRadius(u) {
@@ -23,7 +25,7 @@ function shipRadius(u) {
   if (u < 0 || u > L) return -1;
   if (u <= Lb) return 1;
   const s = (u - Lb) / SHIP.Ln;
-  return Math.pow(Math.max(0, 1 - Math.pow(s, 2.15)), 0.52);
+  return Math.pow(Math.max(0, 1 - Math.pow(s, 1.75)), 0.6);
 }
 function shipRadiusD(u) { const e = 1e-3; return (shipRadius(Math.min(SHIP.L, u + e)) - shipRadius(Math.max(0, u - e))) / (2 * e); }
 
@@ -262,7 +264,8 @@ function makeShader(env) {
     const s = ctx.scale;
     let tile;
     if (hit.mat === 1) tile = Math.abs(hit.phi) < SHIP.tileHalf;
-    else tile = hit.windward;
+    else tile = SHIP.blackFlaps ? true : hit.windward;
+    if (hit.mat === 1 && SHIP.noseCap && hit.u > SHIP.L - SHIP.noseCap) tile = true;
     // reflection of view vector (0,0,1)
     const r = [2 * n[2] * n[0], 2 * n[2] * n[1], 2 * n[2] * n[2] - 1];
     const rh = dot3(r, up), rs = dot3(r, sun);

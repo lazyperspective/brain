@@ -139,27 +139,77 @@ const SHOT6C = (function () {
   })();
 
   (function genBuildings() {
-    // [x, width, top] in build-layer coordinates
-    const B = [[72, 21, 242, 1], [99, 25, 242, 1], [140, 54, 241, 0], [20, 14, 246, 0]];
-    for (const [x0, w, top, ribs] of B) {
+    // Mega bays: corrugated steel cladding, sky-lit roof edge and left face, roll-up doors,
+    // rooftop plant and railings, rain streaks. Still dark enough to frame the shot.
+    const B = [
+      { x0: 72, w: 21, top: 242, kind: 'bay' },
+      { x0: 99, w: 25, top: 241, kind: 'bay' },
+      { x0: 140, w: 54, top: 241, kind: 'wide' },
+      { x0: 20, w: 14, top: 246, kind: 'small' },
+    ];
+    for (const bd of B) {
+      const { x0, w, top, kind } = bd;
       for (let y = top; y < 300; y++) for (let x = x0; x < x0 + w; x++) {
-        let c = DK[2];
-        if (y === top) c = ST[5];
-        else if (y === top + 1) c = ST[3];
-        else if (x === x0) c = ST[4];
-        else if (x === x0 + 1) c = ST[2];
-        else if (ribs && (x - x0) % 4 === 0) c = DK[1];
-        else if (!ribs && (y - top) % 6 === 0 && y < top + 30) c = ST[1];
+        const lx = x - x0, ly = y - top;
+        // corrugation: rib / groove every 3 px
+        const rib = lx % 3;
+        let k = rib === 0 ? 2 : rib === 1 ? 1 : 0;               // 0 groove .. 2 rib crest
+        // skylight on the upper wall fades down in two clean bands
+        if (ly < 5) k += 2; else if (ly < 12) k += 1;
+        let c = [DK[1], DK[2], ST[1], ST[2], ST[3]][clamp(k, 0, 4)];
+        // horizontal panel joints
+        if (ly > 3 && ly % 11 === 0) c = DK[1];
+        // rain streaks hanging from the roof line
+        const st = hash2(x, 0, 1201 + x0);
+        if (rib !== 0 && st < 0.13 && ly > 2 && ly < 6 + st * 60) c = DK[0];
+        // one re-clad lighter panel
+        if (kind === 'bay' && lx >= 6 && lx < 12 && ly >= 12 && ly < 22 && rib === 0) c = ST[3];
+        // edges: sky-lit left corner, roof edge, shadowed right corner
+        if (lx === 0) c = ly < 12 ? ST[5] : ST[4];
+        else if (lx === 1) c = ST[2];
+        if (lx === w - 1) c = DK[0];
+        if (ly === 0) c = lx < 2 ? ST[7] : ST[6];
+        else if (ly === 1) c = ST[3];
         lset(build, x, y, c);
       }
-      // roof clutter
-      lset(build, x0 + 3, top - 1, ST[4]); lset(build, x0 + 4, top - 1, ST[4]);
+      // roof parapet railing (dotted) and plant
+      for (let x = x0 + 1; x < x0 + w - 1; x += 2) lset(build, x, top - 1, ST[4]);
+      const units = kind === 'wide' ? [[6, 4, 2], [18, 6, 3], [36, 3, 2]] : [[3, 4, 2], [w - 7, 3, 3]];
+      for (const [ux, uw, uh] of units) for (let y = top - uh; y < top; y++) for (let x = x0 + ux; x < x0 + ux + uw; x++)
+        lset(build, x, y, y === top - uh ? ST[6] : (x === x0 + ux ? ST[4] : ST[2]));
+      // doors
+      if (kind === 'bay') {
+        const dx = x0 + 4, dw = w - 8, dy = top + 30;
+        for (let y = dy; y < 300; y++) for (let x = dx; x < dx + dw; x++) {
+          let c = (y - dy) % 3 === 0 ? ST[1] : DK[0];               // roll-up door slats
+          if (x === dx || x === dx + dw - 1) c = ST[3];              // door frame
+          if (y === dy) c = ST[4];
+          lset(build, x, y, c);
+        }
+        // small personnel door + lit lamp above it
+        lset(build, x0 + 2, top + 33, WARM[4]);
+      }
+      if (kind === 'small') {
+        for (let y = top + 6; y < top + 9; y++) for (let x = x0 + 3; x < x0 + 11; x++) lset(build, x, y, (x & 1) ? SKY[4] : SKY[3]);  // window band
+      }
     }
-    // the tall door of the wide bay
-    for (let y = 252; y < 300; y++) for (let x = 156; x < 174; x++) lset(build, x, y, (x - 156) % 3 === 0 ? ST[2] : ST[1]);
+    // the tall high-bay door on the wide building
+    const dx = 155, dw = 22, dy = 250;
+    for (let y = dy; y < 300; y++) for (let x = dx; x < dx + dw; x++) {
+      let c = (x - dx) % 4 === 0 ? ST[2] : DK[0];
+      if ((y - dy) % 8 === 0) c = ST[1];
+      if (x === dx || x === dx + dw - 1) c = ST[4];
+      if (y === dy) c = ST[5];
+      lset(build, x, y, c);
+    }
+    // high-level window strip on the wide building, reflecting the sky
+    for (let x = 144; x < 192; x++) if (x < dx - 1 || x > dx + dw) { lset(build, x, 246, (x % 3 === 0) ? DK[1] : SKY[5]); lset(build, x, 247, (x % 3 === 0) ? DK[1] : SKY[3]); }
     // a light pole
     for (let y = 228; y < 300; y++) lset(build, 131, y, y < 230 ? ST[6] : ST[3]);
     lset(build, 130, 228, ST[6]); lset(build, 132, 228, ST[6]);
+    // rooftop crane mast on the second bay
+    for (let y = 231; y < 241; y++) lset(build, 118, y, y === 231 ? ST[6] : ST[4]);
+    for (let x = 112; x < 121; x++) lset(build, x, 232, ST[4]);
   })();
 
   // fair-weather cumulus

@@ -64,8 +64,9 @@ const ACT1 = (() => {
         const dx = (x + 0.5 - p.x) / rx, dy = (y + 0.5 - p.y) / ry, d = dx * dx + dy * dy; if (d > 1) continue;
         const ex = dx - hx, ey = dy - hy, dl = Math.sqrt(ex * ex + ey * ey);
         let c;
+        const hl = o.hl ?? 0.62;
         if (p.r < 2.6) c = dl < 0.9 ? lv[2] : lv[1];
-        else if (dl < 0.62) c = lv[3]; else if (dl < 1.05) c = lv[2]; else if (dy > 0.2) c = lv[0]; else c = lv[1];
+        else if (dl < hl) c = lv[3]; else if (dl < 1.05) c = lv[2]; else if (dy > (o.sh ?? 0.2)) c = lv[0]; else c = lv[1];
         O.d[y * w + x] = c;
       }
     }
@@ -139,7 +140,7 @@ const ACT1 = (() => {
         .concat(streetPuffs(LW, LH, 102, 0.62, 14, 9, (x, y) => { const e = env(x, y); return e < 0.55 ? 0 : clamp((e - 0.45) / 0.5, 0, 1); }, 4, 7.5));
       // streaky fibres threading through the patches (mackerel / cirrocumulus texture)
       { const rnd = PX.mulberry(103); for (let i = 0; i < 900; i++) { const x = rnd() * LW, y = rnd() * LH, e = env(x, y); if (e < 0.3 || rnd() > e) continue; puffs.push({ x, y, r: 0.9 + rnd() * 0.9, w: 1, ax: 5 + rnd() * 5 }); } }
-      cloudA = bakeBubbles(LW, LH, puffs, [sky[6], sky[7], sky[8], sky[9]]);
+      cloudA = bakeBubbles(LW, LH, puffs, [sky[6], sky[7], sky[8], sky[9]], { hl: 0.45, sh: 0.0 });
       cloudB = halo(cloudA, [[sky[6], 1], [sky[6], 0.5], [sky[5], 0.5], [sky[5], 0.25], [sky[5], 0.25]]);
       // high cirrus: long flattened, low-contrast wisps
       const rnd = PX.mulberry(77); const wps = [];
@@ -247,7 +248,7 @@ const ACT1 = (() => {
     quad([C(-cw, cb, cw), C(cw, cb, cw), C(cw, cb, -cw), C(-cw, cb, -cw)], -1, 0);  // underside
     // dark louvred band around the top of the crown + a mid seam
     { const a2 = [[-cw, -cw], [cw, -cw], [cw, cw], [-cw, cw]], e = 0.06;
-      for (let f = 0; f < 4; f++) { const [x1, z1] = a2[(f + 1) % 4], [x2, z2] = a2[f]; const ox = (x1 + x2) / (2 * cw) * e, oz = (z1 + z2) / (2 * cw) * e;
+      for (let f = 0; f < 4; f++) { const [x1, z1] = a2[(f + 1) % 4], [x2, z2] = a2[f]; const ox = (x1 + x2) / (2 * cw) * e * 0.3, oz = (z1 + z2) / (2 * cw) * e * 0.3;
         quad([V(x1 + ox, ct, z1 + oz), V(x2 + ox, ct, z2 + oz), V(x2 + ox, ct - 1.6, z2 + oz), V(x1 + ox, ct - 1.6, z1 + oz)], -1.6, 14, 1); P[P.length - 1].zb = -0.3;
         beam(V(x1 * 1.01, cb + 3.4, z1 * 1.01), V(x2 * 1.01, cb + 3.4, z2 * 1.01), 0.18, -1); } }
     // crown bands (top and bottom trim)
@@ -456,6 +457,11 @@ const ACT1 = (() => {
         }
         if (k === 'water') { if (g > 0.25) return res(k, g > 0.6 ? warm[0] : warm[1]); const ri = hash(Math.floor(I.X / 40), Math.floor(I.Z / 9), 5) > 0.93; return res(k, ri ? sky[9] : rampc(sky, 7.3 + far * 1.8 + clamp(1 - Math.abs(az) / 0.5, 0, 1) * 0.8, x, y, 0.5)); }
         const rim = clamp(1 - Math.abs(az) / 0.6, 0, 1) * far; // sun-side haze glows
+        if (I.fp < 20) { // mudflats and wet sheens break up the marsh
+          const n3 = fbm(I.X / 260, I.Z / 340, 89, 3), n4 = fbm(I.X / 60, I.Z / 90, 90, 2);
+          if (n3 > 0.66 && n4 > 0.42) return res('water', n4 > 0.62 ? (g > 0.2 ? warm[1] : sky[8]) : rampc(marsh, 4.2 + n4 * 2 + far, x, y, 0.5));
+          if (n3 > 0.62) return res(k, rampc(marsh, 3.2 + n4 * 2.2 + far, x, y, 0.5));
+        }
         let tuft = 0; if (I.fp < 12) { const n2 = fbm(I.X / 14, I.Z / 34, 88, 2); tuft = n2 > 0.64 ? 1.3 : n2 < 0.36 ? -0.7 : 0; }
         let c = rampc(marsh, 0.9 + v * 2.0 + far * 2.6 + rim * 1.2 + tuft, x, y, 0.5);
         if (far > 0.36) c = rampc([c, marsh[4], marsh[5], marsh[6], warm[1]], (far - 0.36) * 7 + rim * 1.5, x, y, 0.6);
@@ -749,7 +755,7 @@ const ACT1 = (() => {
       const x = T.x + sx - GM, y = T.y + sy, h = T.h;
       for (let yy = y - h; yy <= y; yy++) {
         const k = (yy - y) & 3;
-        pset(S, x - 1, yy, steel[2]); pset(S, x, yy, k === 0 ? steel[1] : steel[3]); pset(S, x + 1, yy, yy < y - h * 0.55 ? warm[3] : steel[4]);
+        pset(S, x - 1, yy, steel[2]); pset(S, x, yy, k === 0 ? steel[1] : steel[3]); pset(S, x + 1, yy, yy < y - h * 0.78 ? warm[2] : yy < y - h * 0.6 ? (k & 1 ? warm[3] : steel[5]) : steel[4]);
       }
       rect(S, x - 2, y - h - 3, 5, 4, steel[3]); rect(S, x - 2, y - h - 3, 5, 1, steel[5]); pset(S, x + 2, y - h - 3, warm[1]); pset(S, x + 2, y - h - 2, warm[2]);
       const ay = y - Math.round(h * 0.4);

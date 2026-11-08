@@ -3,7 +3,7 @@
 const SHOT6A = (function () {
   const T0 = 30.1, T1 = 39.0;
   const deg = Math.PI / 180;
-  const ELEV = 0.24;
+  const ELEV = 0.66;
   // sun drifts down-right and slips out of frame (as in the reference)
   const sunPos = (tau) => [298 + 0.7 * tau + 0.2 * tau * tau, 194 + 4.0 * tau + 0.62 * tau * tau];
   const SHIPX = 218, SHIPY = 136;
@@ -126,8 +126,8 @@ const SHOT6A = (function () {
 
   // condensation wisps peeling off the flap tips, streaming upward (relative wind from below)
   function wisps(tau, spr, bx, by) {
-    const tips = [[shipProject(spr, 0.6, 1.9 * Math.cos(-SHIP.aftPhi), 1.9 * Math.sin(-SHIP.aftPhi)), 0],
-                  [shipProject(spr, 8.4, 1.55 * Math.cos(-SHIP.fwdPhi), 1.55 * Math.sin(-SHIP.fwdPhi)), 1]];
+    const tips = [[shipProject(spr, 0.5, 2.3 * Math.cos(-SHIP.aftPhi), 2.3 * Math.sin(-SHIP.aftPhi)), 0],
+                  [shipProject(spr, 8.1, 1.78 * Math.cos(-SHIP.fwdPhi), 1.78 * Math.sin(-SHIP.fwdPhi)), 1]];
     for (const [tp, k] of tips) {
       const x0 = bx + tp[0], y0 = by + tp[1];
       const len = k ? 30 : 46;

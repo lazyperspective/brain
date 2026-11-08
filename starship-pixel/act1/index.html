@@ -43,10 +43,12 @@
   // live playback (wall clock only drives which t to show; every frame is a pure function of t)
   const audio = new Audio('../../starship-pixel-video/score.wav'); let t0 = null, playing = false;
   function start() { if (playing) return; playing = true; audio.currentTime = 0; audio.play().catch(() => {}); t0 = performance.now(); }
-  big.addEventListener('click', start); start();
+  big.addEventListener('click', () => { playing = false; start(); }); start();
+  let lastT = 0;
   function loop(now) {
     const t = ((now - t0) / 1000) % (ACT1.end - ACT1.start) + ACT1.start;
-    if (t < 0.05 && audio.currentTime > 1) { audio.currentTime = 0; }
+    if (t < lastT) { audio.currentTime = 0; audio.play().catch(() => {}); } // loop the act with its part of the score
+    lastT = t;
     renderAt(Math.floor(t * 30) / 30);
     document.getElementById('hud').textContent = 't=' + t.toFixed(2) + '  (click to restart with sound)';
     requestAnimationFrame(loop);
