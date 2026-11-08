@@ -102,13 +102,13 @@
       // angular plan: blend of ellipse and rounded box, with buttresses and re-entrant bays
       const rb = Math.pow(Math.pow(Math.abs(u), 4) + Math.pow(Math.abs(v), 4), 0.25);
       const r = mix(Math.hypot(u, v), rb, 0.9);
-      const bays = 0.16 * Math.abs(N3.fbm(Math.cos(a) * 2.6 + i * 2.3, Math.sin(a) * 2.6, 3)) * 2 - 0.12;
-      const flutes = 0.05 * N5.fbm(a * 8 + i * 1.7, i, 3);
+      const bays = 0.16 * N3.fbm(Math.cos(a) * 2.2 + i * 2.3, Math.sin(a) * 2.2, 2);
+      const flutes = 0.04 * N5.fbm(Math.cos(a) * 4.0 + i * 1.7, Math.sin(a) * 4.0 + i, 2);
       const wob = 1 + 0.16 * N4.fbm(Math.cos(a) * 1.3 + i * 7.1, Math.sin(a) * 1.3 + i * 3.3, 3) + bays + flutes;
       const rr = r / (T[2] * wob);
       // architecture: flat caprock, vertical cliff bands, benches and a talus skirt
-      const w2 = 0.11 * N6.fbm(Math.cos(a) * 2.2 + i, Math.sin(a) * 2.2, 4);
-      const w3 = 0.13 * N2.fbm(Math.cos(a) * 1.6 + i * 5, Math.sin(a) * 1.6, 3);
+      const w2 = 0.09 * N6.fbm(Math.cos(a) * 2.2 + i, Math.sin(a) * 2.2, 2);
+      const w3 = 0.11 * N2.fbm(Math.cos(a) * 1.6 + i * 5, Math.sin(a) * 1.6, 2);
       // the caprock sits off-centre: tiers set back unevenly
       const ru = Math.hypot(u - 0.12 * T[2] * Math.cos(i * 2.1), v - 0.1 * T[2] * Math.sin(i * 1.3)) / (T[2] * wob);
       const rc = mix(rr, ru, 0.6);

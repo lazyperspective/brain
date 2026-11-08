@@ -15,7 +15,7 @@ float lum(vec3 c){ return dot(c, vec3(.2126,.7152,.0722)); }
 
 // ---- the creek: a meandering S through the marsh. Centre line (fraction of width) at depth d (0 horizon, 1 bottom)
 float creekX(float d){
-  float P[8] = float[8](0.555, 0.50, 0.425, 0.455, 0.60, 0.665, 0.585, 0.475);
+  float P[8] = float[8](0.555, 0.51, 0.37, 0.52, 0.64, 0.66, 0.575, 0.47);
   float t = clamp(d, 0., 1.) * 7.; int i = int(min(floor(t), 6.)); float f = t - float(i);
   float p0 = P[max(i - 1, 0)], p1 = P[i], p2 = P[i + 1], p3 = P[min(i + 2, 7)];
   float x = 0.5 * ((2. * p1) + (-p0 + p2) * f + (2. * p0 - 5. * p1 + 4. * p2 - p3) * f * f + (-p0 + 3. * p1 - 3. * p2 + p3) * f * f * f);
@@ -40,7 +40,7 @@ float waterD(float X, float Y, float d){
   float lx0 = 0.44 + 0.03 * (fbm(vec2(Y * 400., 2.), 3) - .5), lx1 = 0.945 + 0.02 * (fbm(vec2(Y * 300., 6.), 3) - .5);
   float top = YH + 0.0035;
   float bot = YH + 0.0105 + 0.007 * fbm(vec2(X * 14., 3.), 4) + 0.004 * sin(X * 40.)
-            + 0.026 * smoothstep(0.74, 0.77, X) * (1. - smoothstep(0.935, 0.95, X)) * (0.75 + 0.5 * fbm(vec2(X * 60., 9.), 4));
+            + 0.009 * smoothstep(0.74, 0.77, X) * (1. - smoothstep(0.93, 0.95, X)) * (0.6 + 0.8 * fbm(vec2(X * 80., 9.), 4));
   float wb = max(max(top - Y, Y - bot) * 2.5, max(lx0 - X, X - lx1) * 0.4);
   if (X > 0.62 && X < 0.69) wb = max(wb, -(abs(Y - (YH + 0.006 + 0.002 * sin(X * 30.))) - 0.0008) * 2.5);
   // a side channel winding off to the left toward the pannes
@@ -234,7 +234,8 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       // reflected banks: the dark of the far bank's grasses, broken into blades
       float grassRef = 0.5 + 0.5 * noise1(X * 2160. / (2. + 4. * d) + 3.);
       float bankDark = smoothstep(-0.0025 - 0.04 * d * grassRef, 0., wd);
-      refl = mix(refl, refl * 0.42, bankDark * mix(0.8, 0.55, smoothstep(0.1, 0.5, d)));
+      float cut = 0.35 + 0.65 * smoothstep(0.3, 0.65, vnoise(vec2(d * 18., (X > cx ? 7. : 1.))));
+      refl = mix(refl, refl * 0.45, bankDark * cut * mix(0.75, 0.55, smoothstep(0.1, 0.5, d)));
       // the cedars hanging upside down in the lagoon
       for (int i = 0; i < 4; i++){
         vec3 rc; vec2 rd; float rt = cedarTree(i, X + 0.0015 * sin(Y * 900.), Y, true, rc, rd);
@@ -258,7 +259,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       vec2 hb = i == 0 ? vec2(0.088, YH + 0.036) : i == 1 ? vec2(0.205, YH + 0.022) : i == 2 ? vec2(0.247, YH + 0.0175) : vec2(0.385, YH + 0.0085);
       float hwid = i == 0 ? 0.031 : i == 1 ? 0.019 : i == 2 ? 0.0135 : 0.0085;
       float hh = hwid * (i == 1 ? 2.1 : i == 2 ? 1.7 : 1.85) * 2160. / 2700.;
-      float stad = hh * 0.13;                    // the staddle lifts the stack off the wet ground
+      float stad = hh * 0.07;                    // the staddle lifts the stack off the wet ground
       float base = hb.y - stad;
       float ty = (base - Y) / hh;
       float lean = (i == 1 ? 0.12 : i == 2 ? -0.08 : 0.04) * hwid;
@@ -310,7 +311,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       c = mix(c, prq * vec3(1.0, .97, 1.02), pool2 * 0.9);
       if (pool2 > .5) { mat = 11.; size = 0.35; dir = vec2(1., 0.); follow = 0.6; cross = 1.; }
       // spartina clumps
-      float clumpM = smoothstep(.45, .68, fbm(vec2(X * 9., Y * 22.) + 7., 4)) * fz * (1. - pool2);
+      float clumpM = smoothstep(.45, .68, fbm(vec2(X * 9., Y * 22.) + 7., 4)) * fz * (1. - pool2) * smoothstep(-0.001, 0.004, wd);
       float gy = Y * 2700. / (40. + 70. * d);
       float lean = 0.35 * (vnoise(vec2(X * 8., gy * 0.2)) - .5);
       float gx = (X * 2160. + (Y * 2700.) * lean) / (4. + 2. * d);
@@ -364,7 +365,7 @@ void plan(vec2 p, out vec4 o0, out vec4 o1, out vec4 o2){
       vec3 ic = mix(vec3(.17,.145,.11), vec3(.085,.075,.06), smoothstep(0.15, 0.75, k));
       float thw = max(1. - smoothstep(0.02, 0.035, abs(u - 0.18)), 1. - smoothstep(0.02, 0.035, abs(u + 0.42)));
       float thwY = smoothstep(0.25, 0.35, k) * (1. - smoothstep(0.7, 0.8, k));
-      ic = mix(ic, vec3(.25,.215,.16), thw * thwY * 0.85);
+      ic = mix(ic, vec3(.19,.165,.125), thw * thwY * 0.7);
       float fgun = 1. - smoothstep(0., 2.2, p.y - fG);
       ic = mix(ic, vec3(.34,.29,.21), fgun * 0.7);
       c = mix(c, ic, inner);
