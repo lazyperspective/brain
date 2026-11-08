@@ -105,6 +105,8 @@ const ACT1 = (() => {
     }
   }
 
+  // low-sun warm rim: brightest silhouette pixels facing the sun turn cream
+  function warmRim(Sf, ax) { const w = Sf.w, h = Sf.h, src = Sf.d.slice(); for (let y = 0; y < h; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; if (src[i] === steel[8] && !src[i + ax] && ((x + y) % 3 !== 0)) Sf.d[i] = warm[0]; } }
   // ---- brighten a screen region along each colour's own ramp (glare / bloom), ordered-dithered
   const BR = new Map();
   (function () {
@@ -136,10 +138,10 @@ const ACT1 = (() => {
         return sstep(0.55, 1.35, Math.sqrt(a * a + b * b));
       };
       const env = (x, y) => clamp(mask(x, y) * (fbm(x / 85, y / 55, 21, 4) * 2.1 - 0.72), 0, 1);
-      const puffs = streetPuffs(LW, LH, 101, 0.62, 7, 5, (x, y) => { const e = env(x, y); return e < 0.34 ? 0 : clamp((e - 0.26) / 0.5, 0, 1); }, 2.2, 5.2)
-        .concat(streetPuffs(LW, LH, 102, 0.62, 14, 9, (x, y) => { const e = env(x, y); return e < 0.55 ? 0 : clamp((e - 0.45) / 0.5, 0, 1); }, 4, 7.5));
+      const puffs = streetPuffs(LW, LH, 101, 0.62, 6, 4.5, (x, y) => { const e = env(x, y); return e < 0.34 ? 0 : clamp((e - 0.26) / 0.5, 0, 1); }, 1.8, 4.2)
+        .concat(streetPuffs(LW, LH, 102, 0.62, 14, 9, (x, y) => { const e = env(x, y); return e < 0.62 ? 0 : clamp((e - 0.5) / 0.5, 0, 1); }, 3.5, 6.5));
       // streaky fibres threading through the patches (mackerel / cirrocumulus texture)
-      { const rnd = PX.mulberry(103); for (let i = 0; i < 900; i++) { const x = rnd() * LW, y = rnd() * LH, e = env(x, y); if (e < 0.3 || rnd() > e) continue; puffs.push({ x, y, r: 0.9 + rnd() * 0.9, w: 1, ax: 5 + rnd() * 5 }); } }
+      { const rnd = PX.mulberry(103); for (let i = 0; i < 1500; i++) { const x = rnd() * LW, y = rnd() * LH, e = env(x, y); if (e < 0.3 || rnd() > e) continue; puffs.push({ x, y, r: 0.9 + rnd() * 0.9, w: 1, ax: 5 + rnd() * 5 }); } }
       cloudA = bakeBubbles(LW, LH, puffs, [sky[6], sky[7], sky[8], sky[9]], { hl: 0.45, sh: 0.0 });
       cloudB = halo(cloudA, [[sky[6], 1], [sky[6], 0.5], [sky[5], 0.5], [sky[5], 0.25], [sky[5], 0.25]]);
       // high cirrus: long flattened, low-contrast wisps
@@ -385,7 +387,7 @@ const ACT1 = (() => {
       const u = ease(clamp(t / 2.97, 0, 1));
       const m = towerModel({ carY: -19, armL: lerp(0.9, 1.2, u), armR: lerp(0.55, 0.9, u) });
       const cam = PX.camera(CAM.pos, CAM.tgt, CAM.f, 240, 135);
-      TMP.d.fill(0); draw3D(TMP, cam, m.P, STY3); selOut(TMP, -1, -1); blit(S, TMP, 0, 0);
+      TMP.d.fill(0); draw3D(TMP, cam, m.P, STY3); selOut(TMP, -1, -1); warmRim(TMP, -1); blit(S, TMP, 0, 0);
       { const b = cam.proj(V(-3.6, 10.7, -3.6)); const on = (T % 1.3) < 0.55; pset(S, Math.round(b[0]), Math.round(b[1]), on ? warm[4] : steel[3]); if (on) pset(S, Math.round(b[0]), Math.round(b[1]) - 1, warm[2]); } // aviation beacon
       { const gx = Math.round(470 - t * 52), gy = Math.round(60 + t * 9 + Math.sin(t * 2.2) * 2), fl = Math.floor(t * 7) & 1; // a gull drifting through
         pset(S, gx, gy, steel[2]); pset(S, gx + 1, gy, steel[2]); pset(S, gx - 1, gy - fl, steel[3]); pset(S, gx + 2, gy - fl, steel[3]); pset(S, gx - 2, gy + 1 - 2 * fl, steel[4]); pset(S, gx + 3, gy + 1 - 2 * fl, steel[4]); }
