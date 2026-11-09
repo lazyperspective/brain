@@ -23,7 +23,7 @@ async function openPage(browser, k4) {
   return page;
 }
 const grab = (page, t, px) => page.evaluate(([t, px]) => { window.__piece.renderAt(t); return { px: px ? window.__piece.pixels() : null, ms: window.__piece.lastMs }; }, [t, px]);
-const dims = (page) => page.evaluate(() => [window.__piece.width, window.__piece.height, window.__piece.duration, window.__piece.buildMs]);
+const dims = (page) => page.evaluate(() => [window.__piece.native[0], window.__piece.native[1], window.__piece.duration, window.__piece.buildMs]);
 
 // A single GOP keeps static texture from pulsing at keyframes, but then the only keyframe is frame 0, which at CRF
 // gets less fidelity than the P-frames build up: the step from the last frame back to frame 0 stands out. Zones:
@@ -31,13 +31,13 @@ const dims = (page) => page.evaluate(() => [window.__piece.width, window.__piece
 const ZONES = (n) => `zones=0,0,q=10/${n - 40},${n - 25},q=16/${n - 24},${n - 13},q=15/${n - 12},${n - 7},q=14/${n - 6},${n - 1},q=13`;
 function encoder(out, nframes, W, H) {
   return spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-r', String(FPS), '-i', '-',
-    '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', String(process.env.CRF || 16),
+    '-vf', 'scale=iw*4:ih*4:flags=neighbor', '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', String(process.env.CRF || 16),
     '-x264-params', `keyint=${nframes}:min-keyint=${nframes}:scenecut=0:${ZONES(nframes)}`,
     '-pix_fmt', 'yuv420p', '-r', String(FPS), '-an', '-movflags', '+faststart', '-frames:v', String(nframes), out], { stdio: ['pipe', 'inherit', 'inherit'] });
 }
-function savePng(rgb, W, H, p) {
+function savePng(rgb, W, H, p, scale) {
   return new Promise((res, rej) => {
-    const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-i', '-', '-frames:v', '1', p], { stdio: ['pipe', 'inherit', 'inherit'] });
+    const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-i', '-', '-vf', `scale=iw*${scale}:ih*${scale}:flags=neighbor`, '-frames:v', '1', p], { stdio: ['pipe', 'inherit', 'inherit'] });
     ff.on('close', (c) => (c ? rej(new Error('ffmpeg ' + c)) : res()));
     ff.stdin.end(rgb);
   });
@@ -48,14 +48,14 @@ function savePng(rgb, W, H, p) {
   const browser = await chromium.launch();
   const t0 = Date.now();
   if (mode === 'stills') {
-    const page = await openPage(browser, arg2 === '4k');
+    const page = await openPage(browser, false);
     const [W, H, , bms] = await dims(page);
     console.log(`build ${bms.toFixed(0)} ms at ${W}x${H}`);
     fs.mkdirSync(out, { recursive: true });
     for (const t of String(arg || '0').split(',').map(Number)) {
       const r = await grab(page, t, true);
       const p = path.join(out, 'frame-' + t.toFixed(2).padStart(5, '0') + '.png');
-      await savePng(Buffer.from(r.px, 'base64'), W, H, p);
+      await savePng(Buffer.from(r.px, 'base64'), W, H, p, arg2 === '4k' ? 8 : arg2 === '1x' ? 1 : 4);
       console.log(p, r.ms.toFixed(0) + ' ms');
     }
   } else if (mode === 'timing') {
@@ -84,17 +84,24 @@ function savePng(rgb, W, H, p) {
     await done;
     console.log(`wall time ${((Date.now() - t0) / 1000).toFixed(0)} s with ${workers} workers`);
   } else if (mode === 'seam') {
+    // render-level seam check on the exact native frames: the frame at t = D must be the frame at t = 0, and the step
+    // from the last frame back to the first must be an ordinary step. The wet roof's shimmer advances every 4th
+    // frame, so steps alternate between "within a block" and "across a block boundary" (479 -> 0 is a boundary):
+    // the seam is compared with all steps and with the boundary steps.
     const page = await openPage(browser, false);
     const [, , D] = await dims(page);
-    const N = Math.round(D * FPS), fr = {};
-    for (const f of [N - 3, N - 2, N - 1, N, 0, 1, 2]) fr[f] = Buffer.from((await grab(page, f / FPS, true)).px, 'base64');
-    const st = (a, b) => { let s = 0, n4 = 0; for (let i = 0; i < a.length; i += 3) { const d = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])); s += d; if (d >= 4) n4++; } return [s / (a.length / 3), n4 / (a.length / 3)]; };
-    const ord = [[N - 3, N - 2], [N - 2, N - 1], [0, 1], [1, 2]].map(([a, b]) => st(fr[a], fr[b])), seam = st(fr[N - 1], fr[0]);
-    const same = Buffer.compare(fr[N], fr[0]) === 0;
-    const mx = Math.max(...ord.map((o) => o[0]));
-    console.log(`frame at t = D (${D} s) identical to frame at t = 0: ${same ? 'yes, byte for byte' : 'NO'}`);
-    console.log(`render-level seam: step ${N - 1} -> 0 mean ${seam[0].toFixed(3)} (share >= 4 levels ${(seam[1] * 100).toFixed(2)}%); neighbouring steps ${ord.map((o) => o[0].toFixed(3)).join(' ')}`);
-    console.log(seam[0] <= mx * 1.25 && same ? 'PASS  the loop closes' : 'CHECK seam');
+    const N = Math.round(D * FPS);
+    const st = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+    const first = Buffer.from((await grab(page, 0, true)).px, 'base64');
+    let prev = first; const steps = [];
+    for (let f = 1; f <= N; f++) { const cur = Buffer.from((await grab(page, f / FPS, true)).px, 'base64'); steps.push([f - 1, st(prev, cur)]); if (f === N) { const same = Buffer.compare(cur, first) === 0; console.log(`frame at t = D (${D} s) identical to frame at t = 0: ${same ? 'yes, byte for byte' : 'NO'}`); } prev = cur; }
+    const seam = steps[N - 1][1];
+    const all = steps.slice(0, N - 1).map((x) => x[1]).sort((a, b) => a - b), bnd = steps.slice(0, N - 1).filter((x) => (x[0] + 1) % 4 === 0).map((x) => x[1]).sort((a, b) => a - b);
+    const q = (arr, p) => arr[Math.floor(p * (arr.length - 1))];
+    console.log(`render-level seam step ${N - 1} -> 0 (= ${N - 1} -> ${N}): mean abs difference ${seam.toFixed(3)} (0-255 per channel)`);
+    console.log(`all ${all.length} other steps: median ${q(all, 0.5).toFixed(3)}, 95th pct ${q(all, 0.95).toFixed(3)}, max ${all[all.length - 1].toFixed(3)}`);
+    console.log(`the ${bnd.length} other block-boundary steps: median ${q(bnd, 0.5).toFixed(3)}, 95th pct ${q(bnd, 0.95).toFixed(3)}, max ${bnd[bnd.length - 1].toFixed(3)}`);
+    console.log(seam <= q(bnd, 0.95) ? 'PASS  the seam step is an ordinary (block-boundary) step' : 'CHECK seam step stands out');
   } else if (mode === 'determinism') {
     const ts = [0, 2.6, 7.1, 10.4, 13.3];
     const a = await openPage(browser, false), b = await openPage(browser, false);

@@ -1,0 +1,64 @@
+VERIFICATION - 'Flicker' (pixel version), neon-sign
+generated 2026-11-09T11:38Z by production/ (render.js, seamcheck.js, flashcheck.js, popcheck.js)
+
+== deliverables (ffprobe)
+neon-sign-16x9.mp4 (5.1M)
+stream|codec_name=h264|profile=High|width=1920|height=1080|pix_fmt=yuv420p|r_frame_rate=30/1|nb_read_frames=480
+format|duration=16.000000
+neon-sign-16x9-3loops.mp4 (16M)
+stream|codec_name=h264|profile=High|width=1920|height=1080|pix_fmt=yuv420p|r_frame_rate=30/1|nb_read_frames=1440
+format|duration=48.000000
+neon-sign-16x9-sound.mp4 (5.5M)
+stream|codec_name=h264|profile=High|width=1920|height=1080|pix_fmt=yuv420p|r_frame_rate=30/1|nb_read_frames=480
+stream|codec_name=aac|profile=LC|sample_rate=48000|channels=2|r_frame_rate=0/0|nb_read_frames=750
+format|duration=16.000000
+neon-sign-4k.png (3840, 2160) RGB 0.26 MB 
+neon-sign-x.jpg (3840, 2160) RGB 0.21 MB jpeg 4:4:4 (subsampling 0), quality 95
+
+== loop seam, render level (exact native frames, before video coding)
+frame at t = D (16 s) identical to frame at t = 0: yes, byte for byte
+render-level seam step 479 -> 0 (= 479 -> 480): mean abs difference 1.056 (0-255 per channel)
+all 479 other steps: median 0.752, 95th pct 1.155, max 1.718
+the 119 other block-boundary steps: median 1.031, 95th pct 1.254, max 1.610
+PASS  the seam step is an ordinary (block-boundary) step
+
+== loop seam, encoded (one GOP, keyframe at frame 0 only; x264 zones raise frame 0 and ramp the last 40 frames)
+/home/user/brain/neon-sign-video/neon-sign-16x9.mp4: 480 frames
+seam step (last frame -> first frame): 1.231
+ordinary steps: median 0.889, 95th pct 1.383, max 2.047; within 0.5 s of the seam: max 1.227
+PASS  seam step is an ordinary step
+
+== photosensitivity (WCAG 2.3.1-style general flash test on the delivered one-loop mp4)
+/home/user/brain/neon-sign-video/neon-sign-16x9.mp4: 480 frames at 30 fps; luminance as linear relative luminance 0..1
+whole frame  mean 0.0198 range 0.0092-0.0251; largest swing 0.0159 (frames 316-353, 1.23 s); worst frame step 0.0031 (frame 338); transitions >= 0.10: 0; flashes in any 1 s: 0 (limit 3)
+sign region  mean 0.0676 range 0.0127-0.0948; largest swing 0.0718 (frames 315-344, 0.97 s); worst frame step 0.0161 (frame 338); transitions >= 0.10: 0; flashes in any 1 s: 0 (limit 3)
+             margin test at half the threshold (swings >= 0.05): 2 transitions, 1 opposing pairs in any 1 s
+quarter windows not listed had no transition >= 0.10.
+PASS  no window exceeds 3 flashes in any second
+
+== pops and pixel-art compliance (native frames)
+frames checked: 480 (+ the frame at t = D)
+palette: 46 of 49 colours used; pixels outside the palette: 0
+largest one-frame tile change outside the sign/glow/mirror/roof tiles: 0.0201 (tile 107, frame 119)
+tile steps > 0.01 outside those tiles: 6 [[119,107,0.0201],[188,132,0.0192],[242,130,0.0105],[371,107,0.0193],[425,132,0.0192],[458,130,0.0105]]
+seam: tile means at t = D equal those at t = 0: yes
+4K still neon-sign-4k.png: 129600 blocks of 8x8, non-uniform blocks: 0
+PASS
+   note: the 6 tile steps listed are the three scheduled room-light switches (room 0 on/off at 3.9/12.3 s =
+   frames 119/371, room 1 off/on at 6.2/14.1 s = frames 188/425, room 2 on/off at 8.0/15.2 s = frames 242/458);
+   nothing else outside the sign, its glow, its mirror and the wet roof changes by more than 0.01 in a frame.
+
+== determinism (two fresh pages, and re-render after rendering another t)
+t=0: two pages identical, re-render after another t identical
+t=2.6: two pages identical, re-render after another t identical
+t=7.1: two pages identical, re-render after another t identical
+t=10.4: two pages identical, re-render after another t identical
+t=13.3: two pages identical, re-render after another t identical
+PASS  deterministic
+
+== sound (neon-sign-16x9-sound.mp4, delivered AAC)
+    I:         -18.0 LUFS
+    LRA:         2.9 LU
+    Peak:      -10.7 dBFS
+   the track is built circularly (FFT-shaped noise, 120 Hz harmonics with whole cycles in 16 s, crackle bursts
+   wrapped with modulo indexing), so sample 768000 runs into sample 0; AAC encoder priming is the only seam risk.

@@ -42,9 +42,9 @@
   // Height 1, width 1.3, in emblem units. The almond: x = W a cos(th), y = H a sin(th) |sin(th)|^0.32 (pointed corners).
   function emblem() {
     const W = 0.63, Hh = 0.44, cx = 0.65, cy = 0.5;
-    const th0 = Math.PI, th1 = -Math.PI * 1.72, k = Math.log(1 / 0.6) / (2 * Math.PI);
+    const th0 = Math.PI, th1 = -Math.PI * (NS.EYE_TURN || 1.72), k = Math.log(1 / 0.6) / (2 * Math.PI);
     const pt = (th, a) => { const s = Math.sin(th); return [cx + W * a * Math.cos(th), cy + Hh * a * s * Math.pow(Math.abs(s), 0.32)]; };
-    const half = (th) => 0.058 * (1 - 0.18 * (th0 - th) / (th0 - th1));
+    const half = (th) => (NS.EYE_HALF || 0.058) * (1 - 0.18 * (th0 - th) / (th0 - th1));
     const turns = [[], []], tubes = [[], []];
     const N = 120;
     let prev = null;
@@ -62,10 +62,11 @@
     }
     tubes[1].unshift(tubes[0][tubes[0].length - 1]);
     // pupil: a disc set a little up and toward the inner corner, "looking"
-    const pc = [cx + 0.035, cy + 0.03], pr = 0.105, disc = [];
+    const pc = [cx + 0.035, cy + 0.03], pr = NS.EYE_PUPIL || 0.105, disc = [];
     for (let i = 0; i < 28; i++) { const a = (i / 28) * Math.PI * 2; disc.push([pc[0] + pr * Math.cos(a), pc[1] + pr * Math.sin(a)]); }
     turns[1].push(disc);
-    return { w: 1.3, outer: { polys: turns[0], tubes: [tubes[0]] }, inner: { polys: turns[1], tubes: [tubes[1], [[pc[0] - 0.05, pc[1]], [pc[0] + 0.05, pc[1]]]] } };
+    NS.EYE_PUPIL_C = pc;
+    return { w: 1.3, outer: { polys: turns[0], tubes: [tubes[0]] }, inner: { polys: turns[1], tubes: NS.EYE_NO_PUPIL_TUBE ? [tubes[1]] : [tubes[1], [[pc[0] - 0.05, pc[1]], [pc[0] + 0.05, pc[1]]]] } };
   }
 
   // Lay the sign out on its plane (metres). Cap height capH, baseline y0, centred on x = xc.
