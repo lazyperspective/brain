@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flicker</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #030406; overflow: hidden; }
+    body { display: flex; align-items: center; justify-content: center; }
+    canvas { display: block; }
+    #msg { position: fixed; left: 16px; bottom: 12px; color: #4b5560; font: 12px/1.4 system-ui, sans-serif; }
+    body.ready #msg { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="art" aria-label="Night, after rain. A giant green rooftop sign on a hotel tower, its steel frame and catwalk lit by its glow, halo in the low cloud, a glass tower reflecting it; one letter and part of the emblem sputter, and once a loop the whole sign browns out and surges back."></canvas>
+  <div id="msg">building the city&hellip;</div>
+  <script src="js/util.js"></script>
+  <script src="js/glyphs.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/flicker.js"></script>
+  <script src="js/emission.js"></script>
+  <script src="js/shaders.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
