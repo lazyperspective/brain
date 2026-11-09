@@ -19,5 +19,8 @@ ffmpeg -loglevel error -y -stream_loop 2 -i "$OUT/neon-sign-16x9.mp4" -c copy -m
 python3 sound.py
 ffmpeg -loglevel error -y -i "$OUT/neon-sign-16x9.mp4" -i music.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -ar 48000 -t 16 -movflags +faststart "$OUT/neon-sign-16x9-sound.mp4"
 node render.js stills "$OUT/stills" 1.0,2.9,5.1,7.2,9.9,10.4,11.36,13.3
+( cd "$OUT/stills" && mv -f frame-01.00.png 01.00-steady.png && mv -f frame-02.90.png 02.90-V-stutter.png && mv -f frame-05.10.png 05.10-I-drops-out.png \
+  && mv -f frame-07.20.png 07.20-eye-flutters.png && mv -f frame-09.90.png 09.90-brownout-sag.png && mv -f frame-10.40.png 10.40-brownout-low.png \
+  && mv -f frame-11.36.png 11.36-surge-V-dead.png && mv -f frame-13.30.png 13.30-V-dropout.png )
 node sheet.js sheet "$OUT/contact-sheet.png" 12
 rm -rf "$TMP"

@@ -35,9 +35,28 @@
     const rain = []; { const r = NS.mulberry32(2024);
       const layers = [[-4, 4.5, 2, n[4], 210], [-6, 6.75, 3, n[5], 140], [-9, 9, 4, n[6], 75]];
       layers.forEach(([vx, vy, len, col, cnt], L) => { for (let i = 0; i < cnt; i++) rain.push({ x0: r() * W, y0: r() * H, vx, vy, len, col, L }); }); }
-    // ---- puddle ring sites (on puddle pixels), each on its own beat
+    // ---- rain-drop rings: sprite frames of flat pixel ellipses growing over 8 frames, at sites well inside puddles
+    const ringSprites = [[[0, 0]], [[-1, 0], [1, 0], [0, -1], [0, 1]]];
+    for (let r = 2; r <= 6; r++) { const pts = new Set(); for (let k = 0; k < 64; k++) { const an = k / 64 * 2 * Math.PI; pts.add(Math.round(Math.cos(an) * r * 1.6) + ',' + Math.round(Math.sin(an) * r * 0.45)); } ringSprites.push([...pts].map((q) => q.split(',').map(Number))); }
     const rings = []; { const r = NS.mulberry32(77); let tries = 0;
-      while (rings.length < 46 && tries++ < 5000) { const x = (r() * W) | 0, y = 218 + ((r() * 50) | 0); if (B.kind[y * W + x] !== K.PUDDLE) continue; rings.push({ x, y, n: 5 + ((r() * 6) | 0), ph: r(), rmax: 3 + ((r() * 4) | 0) }); } }
+      while (rings.length < 16 && tries++ < 20000) {
+        const x = (r() * W) | 0, y = 220 + ((r() * 48) | 0), p = y * W + x;
+        if (B.pud[p] < 0 || y - B.pudTop[p] < 2) continue;
+        let ok = true; for (let d = -10; d <= 10 && ok; d++) for (let e = -3; e <= 3; e++) { const q = (y + e) * W + x + d; if (q < 0 || q >= N || B.pud[q] !== B.pud[p]) { ok = false; break; } }
+        if (!ok || rings.some((o) => Math.abs(o.x - x) < 12 && Math.abs(o.y - y) < 4)) continue;
+        rings.push({ x, y, n: 9 + ((r() * 7) | 0), ph: r() });
+      } }
+    // ---- the halo: a rounded-rectangle ellipse hugging the sign, strongest just above the letters
+    const [SBX0, SBY0, SBX1, SBY1] = B.signBox, HCX = (SBX0 + SBX1) / 2, HHW = (SBX1 - SBX0) / 2 - 6, HCY = SBY0 + 9, HHH = 6;
+    const haloR = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const dx = Math.max(0, Math.abs(x + 0.5 - HCX) - HHW) / 64, yy = y + 0.5 - HCY;
+      const dy = Math.max(0, Math.abs(yy) - HHH) / (yy < 0 ? 46 : 30);
+      haloR[y * W + x] = Math.sqrt(dx * dx + dy * dy);
+    }
+    const srcW = B.srcA.map((a0, k) => a0), wsum = new Float32Array(W), wk = B.srcX.map((cx) => { const f = new Float32Array(W); for (let x = 0; x < W; x++) f[x] = Math.exp(-Math.pow((x - cx) / 48, 2)); return f; });
+    for (let x = 0; x < W; x++) for (let k = 0; k < 8; k++) wsum[x] += srcW[k] * wk[k][x];
+    const Lb = new Float32Array(W), aTot = srcW.reduce((p, q) => p + q, 0);
     // ---- bugs: a few around the work bulb and along the bottom of the letters (integer frequencies: they loop)
     const bugs = [[B.bulb[0], B.bulb[1], 5, 3, 7, 5, 0.1], [B.bulb[0], B.bulb[1] - 1, 4, 4, 9, 6, 0.6], [B.bulb[0] + 1, B.bulb[1], 7, 3, 5, 8, 0.33],
       [215, 80, 30, 6, 2, 3, 0.2], [290, 78, 26, 7, 3, 2, 0.7], [170, 82, 22, 5, 2, 5, 0.45]];
@@ -64,6 +83,8 @@
       GF.fill(0);
       for (let k = 0; k < 8; k++) { const gk = B.glow[k], gf = B.glowFar[k], bk = bs[k]; if (bk > 0.001) for (let i = 0; i < N; i++) { G[i] += bk * gk[i]; GF[i] += bk * gf[i]; } }
       const o1 = Math.floor(t / D * 240) % 240, o2 = Math.floor(t / D * 480) % 240;
+      let Bavg = 0; for (let k = 0; k < 8; k++) Bavg += bs[k] * srcW[k] / aTot;
+      for (let x = 0; x < W; x++) { let v = 0; for (let k = 0; k < 8; k++) v += bs[k] * srcW[k] * wk[k][x]; Lb[x] = v / wsum[x]; }
       // pass 1
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const i = y * W + x, kd = B.kind[i];
@@ -77,30 +98,41 @@
             mist = (mv - 0.47) * 6.0 * env;
           }
           if (kd === K.SKY) {
-            const mf = Math.max(0, Math.min(1.8, 0.35 + mist * 0.55));
-            const L = G[i] * look.halo + GF[i] * look.far * mf;
-            const band = Math.floor(L + (BY[i] - 0.5) * 0.45);
-            if (band >= 1) col = g[Math.min(4, band + 1)];
+            // halo: four concentric bands (g1..g4) of a soft rounded ellipse, scaled by the letters' brightness
+            // around this column; tight Bayer seams; lit wisps of mist drifting through it lift a band
+            const hr = haloR[i];
+            let L = hr < 1 ? 3.25 * Math.pow(1 - hr, 1.8) * Lb[x] : 0;
+            const wv = (y + 1.6 * Math.sin((x + o2) * 2 * Math.PI / 80)) / 6, wfr = wv - Math.floor(wv);
+            const wisp = L > 1.0 && L < 2.9 && wfr < 0.2 && mistB[y * 240 + ((x + o2) % 240)] > 0.5 ? 1 : 0;
+            const band = Math.floor(L + (BY[i] - 0.5) * 0.35);
+            if (band >= 1) col = g[Math.min(3, band + wisp)];
             else {
               col = B.sky[i];
-              // low cloud: whole dithered layers drifting left to right across the top of the sky
+              // low cloud deck: whole dithered layers drifting; underlit green above the sign
               if (y < 120) {
                 const cv = cloudF[y * 240 + ((x - o1 + 480) % 240)], env = y < 70 ? 1 : (120 - y) / 50;
                 const cb = Math.floor((cv - 0.52) * 7 * env + (BY[i] - 0.5) * 0.9);
-                if (cb >= 1) col = step(col, Math.min(2, cb));
+                if (cb >= 1) {
+                  const ux = (x - HCX) / (HHW + 30), uy = (y - 12) / 22, under = Math.max(0, 1 - ux * ux - uy * uy) * Bavg * 1.8;
+                  col = cb >= 2 && hr > 1.7 && Math.floor(under + (BY[i] - 0.5) * 0.35) >= 1 ? g[1] : step(col, Math.min(2, cb));
+                }
               }
-              const mb = Math.floor(mist + (BY[i] - 0.5) * 0.9); if (mb >= 1) col = step(col, 1);
+              const mb = Math.floor(mist + (BY[i] - 0.5) * 0.9); if (mb >= 1 && hr > 1.35) col = step(col, 1);
             }
           } else if (kd === K.SPILL) {
             if (B.lvl[i] > 0) {
-              const L = G[i] * look.spill * B.lvl[i] + (mist > 0 && B.lvl[i] === 1 ? mist * 0.3 * Math.min(1, G[i]) : 0);
-              const band = Math.floor(L + (BY[i] - 0.5) * 0.9);
-              if (band >= 1) col = g[Math.min(6, Math.max(gpos[col], 1) + band)];
+              let L = G[i] * look.spill * B.lvl[i] + (mist > 0 && B.lvl[i] === 1 ? mist * 0.3 * Math.min(1, G[i]) : 0);
+              if (B.hotel[i]) L = Math.max(L, Bavg * 1.25 * Math.exp(-(y - 102) / 11) * Math.min(1.3, B.lvl[i] * 0.45));
+              const band = Math.floor(L + (BY[i] - 0.5) * 0.5);
+              if (band >= 1) col = g[Math.min(5, Math.max(gpos[col], B.hotel[i] ? 0 : 1) + band)];
             }
           } else {
             const band = Math.floor(G[i] * look.rim * B.lvl[i] + 0.35);
             if (band >= 1) col = g[Math.min(8, 1 + band)];
           }
+        } else if (kd === K.BRIM) {
+          const band = Math.floor(Bavg * B.lvl[i] / 2.2 + 0.3);
+          if (band >= 1) col = g[Math.min(6, 1 + band)];
         } else if (kd === K.FACE) col = signCol(B.src[i], B.lvl[i], bs[B.src[i]], i);
         out[i] = col;
       }
@@ -127,54 +159,56 @@
       for (let i = 0; i < N; i++) {
         const m = B.gmap[i]; if (m < 0) continue;
         const sc = out[m], kd = B.kind[m];
-        if (kd === K.FACE) { const p = gpos[sc] - 3; if (p >= 1) out[i] = g[Math.min(4, p)]; }
-        else if (PAL.of[sc][0] === 'green' && gpos[sc] >= 2) out[i] = g[gpos[sc] - 1];
+        if (kd === K.FACE) { const p = gpos[sc] - 4; if (p >= 1) out[i] = g[Math.min(3, p)]; }
+        else if (PAL.of[sc][0] === 'green' && gpos[sc] >= 3) out[i] = g[gpos[sc] - 2];
       }
-      // the wet roof: a dithered band of green light under the sign, the sign's light as runs of horizontal dashes,
-      // and puddles that mirror only what is bright (lit rooms, the green) as scanline runs over a dark water ramp
-      for (let y = 215; y < H; y++) {
-        const depth = (y - 211) / 59, sh = Math.floor(NS.hash2(y, fr >> 2) * 6), mirrorY = 2 * 211 - y;
-        const jit = Math.round(Math.sin(y * 1.7 + t / D * 2 * Math.PI * 3) * 1.2);
+      // the roof: water in the puddles. Each puddle's far edge is a crisp rim (green where the sign's light reaches
+      // it); a band of sky just under the rim; below it the reflection, mirrored and squashed 3.4:1 from the parapet
+      // up through the letters and their halo, broken by a dark water line every third row and a one-pixel shimmer;
+      // lit windows come back as short amber vertical streaks.
+      // lit windows above: one streak per window, at the middle of each run of lit columns
+      const amberCol = new Uint8Array(W), litCol = new Uint8Array(W);
+      for (let x = 0; x < W; x++) for (let y = 140; y < 210; y++) if (PAL.of[out[y * W + x]][0] === 'amber' && PAL.of[out[y * W + x]][1] >= 3) { litCol[x] = 1; break; }
+      for (let x = 0; x < W; ) { if (!litCol[x]) { x++; continue; } let e = x; while (e + 1 < W && litCol[e + 1]) e++; amberCol[(x + e) >> 1] = 1; x = e + 1; }
+      // the letters' silhouette per column (any lit face pixel in the column), for the squashed mirror image
+      const letterCol = new Uint8Array(W);
+      for (let x = SBX0; x <= SBX1; x++) { let best = 0; for (let y = SBY0; y <= SBY1; y++) { const q = y * W + x; if (B.kind[q] === K.FACE) best = Math.max(best, gpos[out[q]]); } letterCol[x] = best; }
+      const wave = Math.floor(t / D * 32) % 4;
+      for (let y = 217; y < H; y++) {
+        const jit = Math.round(Math.sin(y * 1.3 + t / D * 2 * Math.PI * 4) * 0.8);
         for (let x = 0; x < W; x++) {
-          const i = y * W + x, kd = B.kind[i];
-          if (kd !== K.WET && kd !== K.PUDDLE) continue;
-          // the pool of light widens toward us: sample the column profile pulled in toward the sign's centre
-          const xs = Math.max(0, Math.min(W - 1, Math.round(240 + (x - 240) / (1 + 0.55 * depth))));
-          let light = 0; for (let k = 0; k < 8; k++) light += bs[k] * B.col[k][xs];
-          let col = out[i];
-          // the glow on the wet roof: concentric-ish bands, wider and softer toward us
-          const Lg = light * look.roofGlow * (0.7 + 0.6 * depth);
-          const gb = Math.floor(Lg + (BY[i] - 0.5) * 0.45);
-          if (gb >= 1) col = g[Math.min(2, gb)];
-          if (kd === K.PUDDLE) {
-            const edge = B.kind[i - W] !== K.PUDDLE;
-            col = edge ? n[4] : ((y & 1) ? n[0] : n[1]);
-            if (gb >= 1) col = edge ? g[Math.min(4, gb + 2)] : ((y & 1) ? n[0] : g[Math.min(3, gb + 1)]);
-            if ((y & 1) === 0 && mirrorY >= 0) {
-              const sx = Math.min(W - 1, Math.max(0, x + jit)), sc = out[mirrorY * W + sx], fam = PAL.of[sc][0];
-              const run = NS.hash2(Math.floor((x + sh) / (3 + (y % 4))), y + 400) < 0.85;
-              if (run && (fam === 'amber' || fam === 'cyan' || fam === 'magenta' || (fam === 'green' && PAL.of[sc][1] >= 2))) col = step(sc, -1);
-            }
-          }
-          const runLen = 3 + ((y * 7) % 6), cell = Math.floor((x + sh) / runLen);
-          const dash = (y & 1) === 0 && NS.hash2(cell, y) < (kd === K.PUDDLE ? 0.5 : 0.08 + 0.12 * depth);
-          if (dash) {
-            const L = light * look.roof * (kd === K.PUDDLE ? 1.5 : 1) * (0.55 + 0.45 * depth);
-            const band = Math.floor(L + (BY[i] - 0.5) * 0.8);
-            if (band >= 1) col = g[Math.min(kd === K.PUDDLE ? 5 : 3, band + (kd === K.PUDDLE ? 1 : 0))];
-          }
+          const i = y * W + x;
+          if (B.kind[i] !== K.PUDDLE) continue;
+          const ry = y - B.pudTop[i], sx = Math.min(W - 1, Math.max(0, x + jit));
+          const lb = sx > SBX0 - 30 && sx < SBX1 + 30 ? Lb[sx] : 0;
+          let col = n[1];
+          const LR = 7;                                                                // rows of the squashed letter image
+          const lip = B.kind[i + W] !== K.PUDDLE || B.kind[i - 1] !== K.PUDDLE || B.kind[i + 1] !== K.PUDDLE;
+          if (ry === 0) col = lb * Bavg > 0.55 ? g[3] : n[5];                         // the far edge, catching the light
+          else if (lip && ry > 2) { out[i] = n[2]; continue; }                         // the near lip: a clean outline
+          else if (ry <= 2) col = n[0];                                                // parapet and facade: dark
+          else if (ry < 3 + LR && lb > 0) {                                            // the letters, mirrored and squashed
+            const sy = Math.round(SBY1 - (ry - 3) * (SBY1 - SBY0) / (LR - 1)), q = sy * W + sx;
+            col = n[0];
+            if (B.kind[q] === K.FACE && gpos[out[q]] >= 4) col = g[Math.min(5, gpos[out[q]] - 2)];
+            else if (PAL.of[out[q]][0] === 'green' && gpos[out[q]] >= 2) col = g[Math.max(1, gpos[out[q]] - 2)];
+          } else if (lb > 0) {                                                         // the halo: broad bands fading toward us
+            const L = lb * (2.4 - (ry - 3 - LR) * 0.4);
+            const band = Math.floor(L + (BY[i] - 0.5) * 0.35);
+            col = band >= 1 ? g[Math.min(2, band)] : n[0];
+          } else col = ry < 5 ? n[2] : (ry < 7 ? n[1] : n[0]);                        // sky in the puddles away from the sign
+          if (ry > 2 && (ry + wave) % 5 === 4) col = step(col, -1);                   // a darker water line, slowly travelling
+          if (amberCol[x] && (x % 3 === 0) && ry >= 1 && ry <= 3) col = ry === 1 ? a[4] : ry === 2 ? a[3] : a[1];
           out[i] = col;
         }
       }
-      // puddle rings
+      // rain-drop rings on the puddles: sprite frames, two native frames each
       rings.forEach((r) => {
-        const per = D / r.n, age = ((t / per + r.ph) % 1) * per;
-        if (age > 0.7) return;
-        const rad = 1 + age / 0.7 * r.rmax, col = age < 0.35 ? n[5] : n[4];
-        for (let k = 0; k < 24; k++) {
-          const an = k / 24 * Math.PI * 2, x = Math.round(r.x + Math.cos(an) * rad * 2.2), y = Math.round(r.y + Math.sin(an) * rad * 0.55);
-          if (x < 0 || x >= W || y < 0 || y >= H) continue; const i = y * W + x; if (B.kind[i] === K.PUDDLE) out[i] = col;
-        }
+        const per = D / r.n, f = Math.floor(((t / per + r.ph) % 1) * per * 30 / 2);
+        if (f >= ringSprites.length) return;
+        const under = r.x > SBX0 && r.x < SBX1 ? Bavg : 0;
+        const col = f < 2 ? n[7] : f < 4 ? (under > 0.6 ? g[4] : n[6]) : (under > 0.6 ? g[3] : n[5]);
+        ringSprites[f].forEach(([dx, dy]) => { const x = r.x + dx, y = r.y + dy, i = y * W + x; if (x >= 0 && x < W && y >= 0 && y < H && B.kind[i] === K.PUDDLE && y > B.pudTop[i]) out[i] = col; });
       });
       // rain
       rain.forEach((d) => {

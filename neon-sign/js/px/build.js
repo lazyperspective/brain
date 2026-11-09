@@ -9,7 +9,8 @@
 // plus per-source glow fields (halo) and column profiles (the light streak on the wet roof).
 (function () {
   const NS = window.NS || (window.NS = {});
-  const K = NS.K = { SKY: 0, SOLID: 1, FACE: 2, GLASS: 3, PUDDLE: 4, WET: 5, RIM: 6, SPILL: 7 };
+  const K = NS.K = { SKY: 0, SOLID: 1, FACE: 2, GLASS: 3, PUDDLE: 4, WET: 5, RIM: 6, SPILL: 7, BRIM: 8 };
+  // BRIM: rim light that follows the whole sign's brightness (objects too far from any one letter for the glow field)
   const W = 480, H = 270, N = W * H;
   const F = 513.6, CX = 240, CY = 190.35;
 
@@ -173,18 +174,38 @@
         for (let y = y0; y < y0 + h; y++) put(x0 + (w >> 1), y, b[0]);      // mullion
         return { lit: false };
       }
-      // lit room: curtains drawn to the sides, sheer between with folds, a lamp pool
-      const tone = r(), cl = 1 + ((r() * 2) | 0), cr = 1 + ((r() * 2) | 0), lampX = x0 + cl + ((r() * (w - cl - cr)) | 0);
-      const blue = tone > 0.9;
+      // lit rooms, five kinds: curtains and sheer with a lamp pool; a blind half down; a lamp shade in silhouette
+      // against the sheer; a plant's leaves against a warm wall; a television's blue
+      const tone = r(), kindR = r(), cl = 1 + ((r() * 2) | 0), cr = 1 + ((r() * 2) | 0), lampX = x0 + cl + ((r() * (w - cl - cr)) | 0);
+      const blue = tone > 0.9, hot = tone < 0.5;
+      const wall = hot ? a[4] : a[3], fold = hot ? a[3] : a[2];
       for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
-        let col = blue ? c[1] : (tone < 0.5 ? a[4] : a[3]);
-        if (!blue && (x - x0) % 2 === 1) col = tone < 0.5 ? a[3] : a[2];                    // sheer folds
-        if (!blue && Math.abs(x - lampX) <= 0 && y >= y0 + h - 4) col = a[6];               // lamp
-        else if (!blue && Math.abs(x - lampX) <= 1 && y >= y0 + h - 5) col = a[5];
-        if (x < x0 + cl || x >= x0 + w - cr) col = blue ? c[0] : a[1];                     // curtain panels
+        const lx = x - x0, ly = y - y0;
+        let col = blue ? c[1] : wall;
+        if (blue) { if (lx < cl || lx >= w - cr) col = c[0]; if (ly >= h - 3 && Math.abs(x - lampX) <= 1) col = c[2]; }
+        else if (kindR < 0.4) {                                           // curtains, sheer, lamp
+          if (lx % 2 === 1) col = fold;
+          if (x === lampX && ly >= h - 4) col = a[6]; else if (Math.abs(x - lampX) <= 1 && ly >= h - 5) col = a[5];
+          if (lx < cl || lx >= w - cr) col = a[1];
+        } else if (kindR < 0.6) {                                         // blind half down
+          if (ly < (h >> 1)) col = ly % 2 ? a[2] : a[1];
+          else if (x === lampX && ly >= h - 3) col = a[6];
+        } else if (kindR < 0.8) {                                         // lamp shade silhouette
+          if (lx % 2 === 1) col = fold;
+          const sx = x0 + (w >> 1) - 1;
+          if (ly >= h - 6 && ly <= h - 4 && x >= sx - (ly - (h - 6)) && x <= sx + 2 + (ly - (h - 6))) col = b[1];
+          if (ly > h - 4 && (x === sx || x === sx + 1)) col = b[0];
+          if (ly === h - 7 && x >= sx && x <= sx + 1) col = a[6];
+          if (lx < 1 || lx >= w - 1) col = a[1];
+        } else {                                                          // plant against a warm wall
+          if (ly >= h - 5 && ((lx + ly) % 3 !== 0) && lx < 4 && lx + (h - ly) < 7) col = b[0];
+          if (ly >= h - 2 && lx < 3) col = b[1];
+          if (lx >= w - 2) col = a[2];
+          if (x === x0 + w - 3 && ly < 3) col = a[5];
+        }
         put(x, y, col);
       }
-      for (let y = y0; y < y0 + h; y++) put(x0 + (w >> 1), y, blue ? c[0] : a[1]);
+      if (!(kindR >= 0.6 && kindR < 0.8)) for (let y = y0; y < y0 + h; y++) put(x0 + (w >> 1), y, blue ? c[0] : a[1]);
       return { lit: true };
     };
     const crownFloors = [[117, 8], [130, 8]];
@@ -228,14 +249,17 @@
       for (let y = 144; y <= 216; y++) { put(bx, y, b[2], K.SPILL, 1); put(bx + 1, y, k % 2 ? b[2] : b[3], K.SPILL, 1); }
     }
     for (const y of [162, 179, 196, 213]) for (let x = HX0; x <= HX1; x++) if (B.idx[y * W + x] === b[1]) put(x, y, b[2], K.SPILL, 1);
-    // street glow climbing the lower facade: amber bands, dithered seams
-    for (let y = 190; y <= 216; y++) for (let x = HX0; x <= HX1; x++) {
+    // the lower facade cools and darkens toward the bottom (a dithered gradient into the night ramp); the hotel's
+    // masonry is flagged so the frame pass can lay the sign's spill on the top floors, falling off downward
+    const coolOf = new Map([[b[1], n[1]], [b[2], n[2]], [b[3], n[3]], [b[4], n[4]]]);
+    for (let y = 168; y <= 216; y++) for (let x = HX0; x <= HX1; x++) {
       const p = y * W + x, i = B.idx[p];
-      if (i !== b[1] && i !== b[2] && i !== b[3]) continue;
-      const v = (y - 186) / 12;
-      const band = Math.floor(v + (B4(x, y) - 0.5) * 0.8);
-      if (band >= 1) B.idx[p] = band >= 2 ? a[1] : (i === b[3] ? a[1] : a[0]);
+      if (!coolOf.has(i)) continue;
+      const v = (y - 189) / 5;                       // one tight 5-row Bayer seam, cool below it
+      if (v > B4(x, y)) B.idx[p] = coolOf.get(i);
     }
+    B.hotel = new Uint8Array(N);
+    for (let y = 88; y <= 216; y++) for (let x = 81; x <= 399; x++) { const p = y * W + x; if (B.kind[p] === K.SPILL || B.kind[p] === K.RIM) B.hotel[p] = 1; }
 
     // ================================================================ rooftop structures behind and beside the sign
     const S = NS.SIGN || { Zs: 106 };
@@ -297,6 +321,10 @@
         del.forEach((p) => set.delete(p)); add.forEach((p) => set.add(p));
       }
     });
+    // the sign's extent and each source's centre and size (for the halo's shape and its local brightness)
+    { let x0 = W, x1 = 0, y0 = H, y1 = 0; B.srcX = []; B.srcA = [];
+      B.faceMasks.forEach((set) => { let sx = 0; set.forEach((p) => { const x = p % W, y = (p / W) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); sx += x; }); B.srcX.push(sx / set.size); B.srcA.push(set.size); });
+      B.signBox = [x0, y0, x1, y1]; }
     // returns: one dark pixel under every bottom edge (the lightbox seen from below), and the trim cap
     B.faceMasks.forEach((set) => set.forEach((p) => { if (!set.has(p + W)) { put((p + W) % W, ((p + W) / W) | 0, s[0]); put((p + 2 * W) % W, ((p + 2 * W) / W) | 0, s[0], K.RIM, 1); } }));
     B.faceMasks.forEach((set, k) => {
@@ -378,9 +406,9 @@
       put(x, y, col, k, spand ? 1 : 0);
       if (k === K.GLASS && !spand) {
         // mirror: reflect the camera in the plane x = 27.5 and follow the ray to the sign plane (z = 106)
-        const jit = (NS.mulberry32(Math.floor(pz) * 977 + fi * 131)() - 0.5) * 2.2;
+        const pr = NS.mulberry32(Math.floor(pz / 2) * 977 + fi * 131), jit = Math.round((pr() - 0.5) * 4), jy = Math.round((pr() - 0.5) * 2);
         const qx = 55 - 27.5 * 106 / z, qy = yy * 106 / z;
-        const sx = Math.round(CX + ks * qx + jit), sy = Math.round(CY - ks * qy + jit * 0.5);
+        const sx = Math.round(CX + ks * qx) + jit, sy = Math.round(CY - ks * qy) + jy;
         if (sx >= 0 && sx < W && sy >= 0 && sy < H) B.gmap[y * W + x] = sy * W + sx;
       }
     }
@@ -394,18 +422,24 @@
     { const r = NS.mulberry32(77); for (let x = 6; x < 206; x += 11) { const lit = r() < 0.35; rect(x, 203, x + 3, 208, lit ? a[2] : n[1]); if (lit) { put(x + 1, 207, a[3]); put(x + 2, 207, a[3]); } put(x + 4, 203, b[0]); } }
     rect(60, 176, 90, 195, n[1], K.SPILL, 1); for (let x = 60; x <= 90; x++) put(x, 175, n[3], K.RIM, 2); rect(70, 182, 75, 195, n[0]);
     rect(197, 174, 200, 195, n[1]); rect(196, 172, 201, 173, n[2], K.RIM, 2);
-    { const cx = 128, r = 13, top = 129, bot = 162;
-      for (const lx of [118, 125, 131, 138]) for (let y = bot + 1; y <= 195; y++) put(lx, y, n[0]);
-      for (const [y0, y1] of [[166, 194], [194, 166]]) line(118, y0, 138, y1, n[0]);
-      rect(114, bot + 1, 142, bot + 2, n[0]);
+    { const cx = 120, r = 11, top = 133, bot = 162;
+      // stand: four legs and cross braces, the lower legs catching the street's amber
+      for (const lx of [111, 117, 123, 129]) for (let y = bot + 2; y <= 195; y++) put(lx, y, y > 186 ? a[1] : n[0]);
+      for (const [y0, y1] of [[167, 193], [193, 167]]) line(111, y0, 129, y1, n[0]);
+      rect(107, bot + 1, 133, bot + 1, n[2]); rect(107, bot + 2, 133, bot + 2, n[0]);
       for (let y = top; y <= bot; y++) for (let x = cx - r; x <= cx + r; x++) {
-        let col = ((x - cx + 40) % 3 === 0) ? n[0] : n[1];
-        if ((y - top) % 7 === 6) col = n[0];
         const u = (x - cx) / r;
-        put(x, y, col, u > 0.6 ? K.RIM : K.SPILL, u > 0.6 ? 1 : 1);
+        let col = ((x - cx + 40) % 3 === 0) ? n[1] : n[2];          // staves
+        if (u < -0.55) col = n[1];                                   // the shadow side
+        if ((y - top) % 6 === 5) col = u < -0.55 ? n[2] : n[3];      // steel hoops
+        if (u > 0.8) put(x, y, col, K.BRIM, u > 0.95 ? 5 : 3);       // rim on the sign side
+        else put(x, y, col, K.SPILL, 1);
       }
-      for (let y = 119; y < top; y++) { const w = Math.round((y - 119) / (top - 119) * (r + 1)); for (let x = cx - w; x <= cx + w; x++) put(x, y, n[1], K.RIM, y < 123 ? 2 : 1); }
-      put(cx, 118, n[2], K.RIM, 2);
+      for (let y = bot - 3; y <= bot; y++) put(cx - r, y, a[1]);     // amber from below on the shadow edge
+      put(cx - r + 1, bot, a[1]);
+      for (let y = 123; y < top; y++) { const w = Math.round((y - 123) / (top - 123) * (r + 1)); for (let x = cx - w; x <= cx + w; x++) { const rim = x >= cx + w - 1; put(x, y, rim ? n[3] : n[2], rim ? K.BRIM : K.SPILL, rim ? 4 : 1); } }
+      for (let x = cx - r - 1; x <= cx + r + 1; x++) put(x, top, n[3], x > cx ? K.BRIM : K.SOLID, 3);
+      put(cx, 122, n[3], K.BRIM, 4);
     }
     // right block: a strip of roof with HVAC boxes and a tall vent pipe
     rect(281, 209, 479, 216, b[0], K.SPILL, 1); for (let x = 281; x <= 479; x++) put(x, 208, n[3], K.RIM, 1);
@@ -414,27 +448,57 @@
     rect(426, 155, 428, 207, n[1]); rect(424, 152, 430, 154, n[2], K.RIM, 2); for (let y = 156; y <= 206; y++) put(428, y, n[3], K.RIM, 1);
 
     // ================================================================ our roof in the foreground
-    for (let x = 0; x < W; x++) { put(x, 211, n[5], K.RIM, 1); put(x, 212, n[3]); put(x, 213, n[2]); put(x, 214, n[1]); }
-    const puddles = [[64, 232, 46, 4.5], [206, 224, 64, 3.5], [292, 247, 92, 8], [440, 236, 52, 6], [132, 259, 58, 6.5], [392, 222, 30, 2.8], [30, 252, 36, 5], [230, 265, 70, 6]];
-    for (let y = 215; y < H; y++) for (let x = 0; x < W; x++) {
-      let pud = false;
-      for (const [px, py, rx, ry] of puddles) {
-        const wob = Math.sin(x * 0.21 + py) * 0.12 + Math.sin(x * 0.07 + px) * 0.1;
-        const dx = (x + 0.5 - px) / rx, dy = (y + 0.5 - py) / ry;
-        if (Math.pow(Math.abs(dx), 2.4) + Math.pow(Math.abs(dy), 2.0) < 1 + wob) { pud = true; break; }
+    // a low parapet at the far edge with a coping highlight that takes the sign's light
+    for (let x = 0; x < W; x++) {
+      put(x, 211, n[5], K.BRIM, 4); put(x, 212, n[2]); put(x, 213, n[3]); put(x, 214, n[3]); put(x, 215, n[1]); put(x, 216, n[0]);
+      if (x % 9 === 0) put(x, 213, n[2]); if (x % 9 === 4) put(x, 214, n[2]);   // block joints
+    }
+    // tar membrane: base, perspective lap seams converging on the vanishing point, cross seams, tar patches, gravel
+    for (let y = 217; y < H; y++) for (let x = 0; x < W; x++) put(x, y, n[1], K.WET);
+    const VY = CY, seamX = [-4.5, -1.5, 1.5, 4.5];
+    for (let y = 217; y < H; y++) seamX.forEach((X) => { const x = Math.round(CX + X * (y - VY) / 1.6); put(x, y, n[2], K.WET); put(x + 1, y, n[0], K.WET); });
+    [12, 15, 19, 24].forEach((z) => { const y = Math.round(VY + F * 1.6 / z); for (let x = 0; x < W; x++) { put(x, y, n[2], K.WET); put(x, y + 1, n[0], K.WET); } });
+    const patches = [[118, 226, 12, 2.5], [372, 230, 10, 2], [446, 245, 14, 3], [20, 248, 11, 3]];
+    patches.forEach(([px, py, rx, ry]) => { for (let y = py - ry; y <= py + ry; y++) for (let x = px - rx; x <= px + rx; x++) { const d = Math.pow((x - px) / rx, 2) + Math.pow((y - py) / ry, 2); if (d < 1) put(x, y, d > 0.7 && y < py ? n[2] : n[0], K.WET); } });
+    { const r = NS.mulberry32(4242);
+      for (let y = 219; y < H; y += 3) for (let x = 2; x < W - 2; x += 5) {
+        if (r() > 0.14 + 0.16 * (y - 219) / 50) continue;
+        const gx = x + ((r() * 4) | 0), gy = y + ((r() * 2) | 0), p = gy * W + gx;
+        if (gy >= H || B.idx[p] !== n[1]) continue;
+        put(gx, gy, n[2], K.WET); if (r() < 0.5) put(gx + 1, gy, n[2], K.WET); if (r() < 0.25) put(gx, gy - 1, n[3], K.WET);
+      } }
+    // puddles: four deliberate shapes (unions of flat ellipses), cleaned, with a soaked dark margin
+    const PUD = [
+      [[250, 245, 96, 13], [176, 240, 44, 7], [330, 251, 50, 10]],
+      [[80, 229, 38, 6], [56, 232, 18, 4]],
+      [[400, 259, 56, 9], [446, 263, 22, 5]],
+      [[150, 265, 26, 4.5]],
+    ];
+    B.pud = new Int8Array(N).fill(-1); B.pudTop = new Int16Array(N);
+    PUD.forEach((shape, id) => {
+      for (let y = 217; y < H; y++) for (let x = 0; x < W; x++) {
+        for (const [px, py, rx, ry] of shape) { const d = Math.pow((x + 0.5 - px) / rx, 2) + Math.pow((y + 0.5 - py) / ry, 2); if (d < 1) { B.pud[y * W + x] = id; break; } }
       }
-      const tex = n[1];
-      if (pud) put(x, y, n[0], K.PUDDLE); else put(x, y, tex, K.WET);
+    });
+    for (let pass = 0; pass < 2; pass++) for (let y = 218; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const p = y * W + x, me = B.pud[p] >= 0;
+      const nb = [p - 1, p + 1, p - W, p + W].filter((q) => (B.pud[q] >= 0) === me).length;
+      if (nb <= 1) B.pud[p] = me ? -1 : Math.max(B.pud[p - 1], B.pud[p + 1], B.pud[p - W], B.pud[p + W]);
     }
-    // clean puddle outlines: no lone pixels either way
-    for (let y = 216; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-      const p = y * W + x, me = B.kind[p] === K.PUDDLE;
-      const nb = [p - 1, p + 1, p - W, p + W].filter((q) => (B.kind[q] === K.PUDDLE) === me).length;
-      if (nb <= 1) { B.kind[p] = me ? K.WET : K.PUDDLE; B.idx[p] = me ? n[1] : n[0]; }
+    for (let y = 217; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = y * W + x;
+      if (B.pud[p] >= 0) { let t0 = y; while (t0 > 217 && B.pud[(t0 - 1) * W + x] === B.pud[p]) t0--; B.pudTop[p] = t0; put(x, y, n[0], K.PUDDLE); }
+      else if ([p - 1, p + 1, p - W, p + W, p - 2, p + 2].some((q) => q >= 0 && q < N && B.pud[q] >= 0)) put(x, y, n[0], K.WET);  // soaked margin
     }
-    // gooseneck vent on our roof
-    rect(44, 222, 47, 238, n[0]); rect(44, 218, 52, 221, n[0]); put(52, 222, n[0]); put(52, 223, n[0]);
-    for (let y = 222; y <= 238; y++) put(47, y, n[3]); for (let x = 45; x <= 51; x++) put(x, 218, n[4]);
+    // grounding objects: the gooseneck vent (left), a roof hatch (right), a drain at the big puddle's edge
+    rect(44, 222, 47, 239, n[0]); rect(44, 218, 53, 221, n[0]); rect(52, 222, 53, 224, n[0]);
+    for (let y = 222; y <= 239; y++) { put(44, y, n[3]); put(45, y, n[2]); }
+    for (let x = 44; x <= 53; x++) put(x, 218, n[4]); put(53, 224, n[2]);
+    for (let x = 42; x <= 49; x++) put(x, 240, n[0]);
+    rect(402, 227, 452, 229, n[3]); for (let x = 402; x <= 452; x++) put(x, 226, n[5], K.BRIM, 3);   // hatch lid, lit far edge
+    rect(403, 230, 451, 236, n[2]); for (let x = 403; x <= 451; x += 6) for (let y = 231; y <= 235; y++) put(x, y, n[1]);
+    rect(402, 237, 453, 237, n[0]); put(427, 233, n[6]); put(428, 233, n[5]);
+    rect(120, 252, 126, 253, n[0]); put(121, 252, n[3]); put(123, 252, n[3]); put(125, 252, n[3]);
 
     // ================================================================ glow fields (one per light source) and roof columns
     const blur = (src, rx, ry) => { // three box passes each way

@@ -23,7 +23,7 @@ const path = require('path'), { execFileSync } = require('child_process');
     const expected = new Uint8Array(NT);
     for (let ty = 0; ty < 10; ty++) for (let tx = 0; tx < 20; tx++) {
       const x0 = tx * TW, y0 = ty * TH, x1 = x0 + TW - 1, y1 = y0 + TH - 1;
-      if ((y0 <= 112 && x1 >= 95 && x0 <= 395) || x1 >= 397 || y1 >= 211) expected[ty * 20 + tx] = 1;
+      if ((y0 <= 112 && x1 >= 40 && x0 <= 440) || (y0 <= 140 && x1 >= 75 && x0 <= 405) || x1 >= 397 || y1 >= 211) expected[ty * 20 + tx] = 1;
     }
     const roomTiles = [[60, 0], [131, 0], [102, 1], [32, 2]].map(([id]) => id);
     const frames = []; let used = new Set(), outOfPalette = 0;
