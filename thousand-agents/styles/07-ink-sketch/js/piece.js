@@ -123,17 +123,23 @@ function ink2(c, pts, o) {
 }
 
 /* ------------------------------------------------------------ paint layer */
-function begin() { lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalAlpha = 1; lx.globalCompositeOperation = 'source-over'; lx.clearRect(0, 0, W, H); }
+let BOX = [0, 0, W, H];
+function begin(box) { // box: the only region this layer touches (keeps the blur/texture passes cheap)
+  BOX = box ? [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), 0, 0] : [0, 0, W, H];
+  if (box) { BOX[2] = Math.min(W, Math.ceil(box[0] + box[2])) - BOX[0]; BOX[3] = Math.min(H, Math.ceil(box[1] + box[3])) - BOX[1]; }
+  lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalAlpha = 1; lx.globalCompositeOperation = 'source-over'; lx.filter = 'none';
+  lx.save(); lx.beginPath(); lx.rect(BOX[0], BOX[1], Math.max(1, BOX[2]), Math.max(1, BOX[3])); lx.clip(); lx.clearRect(0, 0, W, H);
+}
 function finish(o) {
   o = o || {};
   lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalCompositeOperation = 'destination-out';
   if (o.mottle) { lx.globalAlpha = o.mottle; lx.drawImage(mottle, o.mx || 0, o.my || 0, W * 1.3, H * 1.3); }
   if (o.grain) { lx.globalAlpha = o.grain; lx.drawImage(grain, 0, 0); }
-  lx.globalAlpha = 1; lx.globalCompositeOperation = 'source-over';
-  const t = o.target || ctx;
+  lx.globalAlpha = 1; lx.globalCompositeOperation = 'source-over'; lx.restore();
+  const t = o.target || ctx, B = BOX; if (B[2] < 2 || B[3] < 2) return;
   t.save(); t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = o.op || 'source-over';
-  if (o.halo) { t.filter = 'blur(' + (o.haloR || 7) + 'px)'; t.globalAlpha = o.halo; t.drawImage(layer, o.dx || 0, o.dy || 0); t.filter = 'none'; }
-  t.globalAlpha = o.alpha == null ? 1 : o.alpha; t.drawImage(layer, o.dx || 0, o.dy || 0);
+  if (o.halo) { t.filter = 'blur(' + (o.haloR || 7) + 'px)'; t.globalAlpha = o.halo; t.drawImage(layer, B[0], B[1], B[2], B[3], B[0] + (o.dx || 0), B[1] + (o.dy || 0), B[2], B[3]); t.filter = 'none'; }
+  t.globalAlpha = o.alpha == null ? 1 : o.alpha; t.drawImage(layer, B[0], B[1], B[2], B[3], B[0] + (o.dx || 0), B[1] + (o.dy || 0), B[2], B[3]);
   t.restore();
 }
 
@@ -260,6 +266,7 @@ function drawHero(t, b, bw, open) {
   const p = pose(t), gx = p.x, gy = GROUND - p.lift;
   const w = BW * p.sx, hh = BH * p.sy, lg = LEG * p.sy, yb = -lg, yt = yb - hh, cy = (yb + yt) / 2;
   const foot = -lg * 0.32 * p.air;
+  const HB = [gx - 250, gy - 330, 500, 400];
   const T = c => { c.setTransform(1, 0, 0, 1, gx, gy); c.rotate(p.lean); };
   const legU = (x, far) => { const hw = far ? 18 : 20, bt = foot - (far ? 5 : 0), sw = (far ? -1 : 1) * 7 * p.air * (x < 0 ? -1 : 1), top = yb - 10;
     return [[x - hw, top], [x - hw + sw * 0.4, bt - 10], [x - hw + 4 + sw, bt - 2], [x - hw + 10 + sw, bt], [x + hw - 10 + sw, bt], [x + hw - 4 + sw, bt - 2], [x + hw + sw * 0.4, bt - 10], [x + hw, top]]; };
@@ -268,12 +275,12 @@ function drawHero(t, b, bw, open) {
   const ra = capsule(w / 2 - 12 - 8 * p.arm, lerp(cy + 8, yt + 36, p.arm), lerp(0.25 - 0.7 * p.air, -1.02, p.arm), lerp(46, 62, p.arm), 19);
 
   // --- a loose watercolour wash first, wetter and wider than the drawing
-  begin(); T(lx);
+  begin(HB); T(lx);
   const under = rrectPts(7, cy + 12, w + 26, hh + 30, 50);
   blob(lx, under, 190 + bw, 9, 120, C.coral); rim(lx, under, 190 + bw, 9, 120, C.light, 0.5, 5);
   finish({ alpha: 0.2, mottle: 0.8, mx: -gx * 0.1 - 200, my: -300, grain: 0.4, halo: 0.5, haloR: 9 });
   // --- limbs: paint, then ink
-  begin(); T(lx);
+  begin(HB); T(lx);
   for (const [L, far] of legs) blob(lx, L, 200 + bw + (far ? 3 : 0), 1.6, 40, far ? '#8a4330' : C.coral);
   blob(lx, la, 210 + bw, 1.6, 40, C.shade); blob(lx, ra, 212 + bw, 1.6, 40, C.coral);
   lx.save(); lx.globalCompositeOperation = 'source-atop';
@@ -287,7 +294,7 @@ function drawHero(t, b, bw, open) {
 
   // --- body: gouache, slightly off-register, bleeding past the line
   const body = rrectPts(0, cy, w, hh, 36);
-  begin(); T(lx);
+  begin(HB); T(lx);
   blob(lx, body, 240 + bw, 4.5, 90, C.coral);
   rim(lx, body, 240 + bw, 4.5, 90, C.shade, 0.45, 12);
   const band = [[-w / 2 - 5, yb - hh * 0.3], [-w * 0.2, yb - hh * 0.25], [w * 0.15, yb - hh * 0.3], [w / 2 + 5, yb - hh * 0.26], [w / 2 + 4, yb - 12], [w / 2 - 22, yb + 5], [0, yb + 6], [-w / 2 + 22, yb + 5], [-w / 2 - 4, yb - 12]];
@@ -374,7 +381,7 @@ function render(t) {
   ink(ctx, [[330, GROUND + 3], [700, GROUND + 1], [1180, GROUND + 4], [1590, GROUND + 2]], { seed: 100 + bw, w: 2, wob: 2.4, col: C.lilac, alpha: 0.24 });
 
   // shadows
-  begin();
+  begin([0, GROUND - 20, W, 60]);
   const shw = 150 * (1 - 0.4 * P0.lift / 122);
   blob(lx, ellipsePts(P0.x, GROUND + 9, shw, 13, 18), 110 + bw, 3, 50, '#04030d', 0.75);
   blob(lx, ellipsePts((FX0 + FX1) / 2 + 8, GROUND + 9, 150, 12, 18), 112 + bw, 3, 50, '#04030d', 0.7 * ss(0.15, 0.5, t));
@@ -388,7 +395,7 @@ function render(t) {
   const front = [[FX0 + sh, fy], [FX1 + sh, fy], [FX1, FY1], [FX0, FY1]];
   const wr = ss(0.1, 0.55, t);
   if (wr > 0) {
-    begin();
+    begin([FX0 - 80, FY0 - 80, FX1 - FX0 + 190, FY1 - FY0 + 150]);
     lx.save(); lx.beginPath(); lx.rect(FX0 - 60, FY0 - 60, (FX1 - FX0 + 120) * wr * 1.05, 300); lx.clip();
     const bk = resample(back.concat([back[0]]), 22); bk.pop();
     blob(lx, bk, 130 + bw, 7, 110, 'rgb(66,54,146)'); rim(lx, bk, 130 + bw, 7, 110, 'rgb(150,132,240)', 0.55, 7);
@@ -402,7 +409,7 @@ function render(t) {
 
   // warm light inside
   if (open > 0.01) {
-    begin();
+    begin([MOUTH[0] - 440, 0, 880, GROUND + 70]);
     const g = clamp(open, 0, 1.1), cx = MOUTH[0], cyy = MOUTH[1];
     const gg = clamp(g, 0, 1);
     // soft bloom first (blurred), then two loose plumes of wash with tide lines, then the hot mouth
@@ -423,7 +430,7 @@ function render(t) {
 
   // folder front panel
   if (wr > 0) {
-    begin();
+    begin([FX0 - 80, FY0 - 80, FX1 - FX0 + 190, FY1 - FY0 + 150]);
     lx.save(); lx.beginPath(); lx.rect(FX0 - 60, FY0 - 60, (FX1 - FX0 + 120) * wr * 1.05, 300); lx.clip();
     const fr = resample(front.concat([front[0]]), 20); fr.pop();
     blob(lx, fr, 160 + bw, 5, 90, 'rgb(86,72,176)'); rim(lx, fr, 160 + bw, 5, 90, 'rgb(170,150,250)', 0.6, 6);

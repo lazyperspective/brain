@@ -72,7 +72,7 @@
     [[0, 1, 0], [1, 0, 0], [0, 0, 1]], [[0, -1, 0], [1, 0, 0], [0, 0, 1]],
     [[0, 0, 1], [1, 0, 0], [0, 1, 0]], [[0, 0, -1], [1, 0, 0], [0, 1, 0]],
   ];
-  const AOV = [0.36, 0.60, 0.82, 1.0];
+  const AOV = [0.26, 0.50, 0.76, 1.0];
   const QP = new Float32Array(12), QA = new Float32Array(4), QU = [0, 0, 1, 0, 0, 1, 1, 1];
   function nrm(m, n) {
     const x = m[0] * n[0] + m[4] * n[1] + m[8] * n[2], y = m[1] * n[0] + m[5] * n[1] + m[9] * n[2], z = m[2] * n[0] + m[6] * n[1] + m[10] * n[2], l = Math.hypot(x, y, z) || 1;
@@ -124,16 +124,16 @@
   /* ------------------------------------------------------------------ the hero: the coral block of the Fable Saga, in cubes
      body 20 x 12 x 12 voxels with softened edges, four 3x3 leg stubs (the back pair in shade), two arm nubs,
      2x3 black eyes with a white glint voxel, a recessed mouth only when it calls. */
-  const HNX = 30, HNY = 22, HNZ = 12, HBX = 5, HBY = 4, BW = 20, BH = 12, BD = 12;
+  const HNX = 30, HNY = 22, HNZ = 12, HBX = 5, HBY = 4, BW = 20, BH = 12, BD = 10;
   const HG = { nx: HNX, ny: HNY, nz: HNZ, v: new Uint8Array(HNX * HNY * HNZ), ox: HBX + BW / 2, oy: 0, oz: BD / 2, seed: 7,
-    pal: [null, [...C.coral, 0], [...C.shade, 0], [...C.coral.map((c, i) => lerp(c, C.light[i], 0.55)), 0], [0.004, 0.003, 0.004, 0, 0], [1, 1, 1, 0.55, 0], [...C.dark, 0, 0.05], [0.012, 0.004, 0.004, 0, 0]] };
+    pal: [null, [...C.coral, 0], [...C.shade, 0], [...C.coral.map((c, i) => lerp(c, C.light[i], 0.55)), 0], [0.004, 0.003, 0.004, 0, 0], [1, 1, 1, 0.12, 0], [...C.dark, 0, 0.05], [0.012, 0.004, 0.004, 0, 0]] };
   function buildHero(st) {
     const v = HG.v; v.fill(0);
     const set = (x, y, z, c) => { if (x >= 0 && y >= 0 && z >= 0 && x < HNX && y < HNY && z < HNZ) v[(z * HNY + y) * HNX + x] = c; };
     const box = (x0, y0, z0, w, h, d, c) => { for (let z = 0; z < d; z++) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) set(x0 + x, y0 + y, z0 + z, c); };
     for (let z = 0; z < BD; z++) for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) {
       const dx = Math.max(0, 2 - Math.min(x, BW - 1 - x)), dy = Math.max(0, 2 - Math.min(y, BH - 1 - y)), dz = Math.max(0, 2 - Math.min(z, BD - 1 - z));
-      if (dx * dx + dy * dy + dz * dz > 5.5) continue;
+      if ((dx === 2) + (dy === 2) + (dz === 2) >= 2) continue;
       set(HBX + x, HBY + y, z, y === 0 ? 2 : y === BH - 1 ? 3 : 1);
     }
     // legs
@@ -145,12 +145,12 @@
       if (c === 1) box(HBX + lx, HBY, lz, 3, 2, 3, 1); box(HBX + lx, HBY, lz, 3, 1, 3, 2);
     }
     // arms: the left one a plain nub; the right one (folder side) can rise
-    box(HBX - 3, HBY + 5, 4, 3, 3, 4, 2);
+    box(HBX - 3, HBY + 5, 3, 3, 3, 4, 2);
     const R = HBX + BW;
-    if (!st.arm) box(R, HBY + 5, 4, 3, 3, 4, 1);
+    if (!st.arm) box(R, HBY + 5, 3, 3, 3, 4, 1);
     else {
-      box(R, HBY + 6, 4, 2, 3, 4, 1); box(R + 1, HBY + 8, 4, 2, 3, 4, 1);
-      if (st.arm > 1) { box(R + 2, HBY + 10, 4, 2, 3, 4, 1); box(R + 2, HBY + 12, 4, 2, 1, 4, 3); } else box(R + 1, HBY + 10, 4, 2, 1, 4, 3);
+      box(R, HBY + 6, 3, 2, 3, 4, 1); box(R + 1, HBY + 8, 3, 2, 3, 4, 1);
+      if (st.arm > 1) { box(R + 2, HBY + 10, 3, 2, 3, 4, 1); box(R + 2, HBY + 12, 3, 2, 1, 4, 3); } else box(R + 1, HBY + 10, 3, 2, 1, 4, 3);
     }
     // face (on the +z side)
     const fz = BD - 1, lk = st.look || 0, lu = st.lookUp || 0;
@@ -224,7 +224,7 @@
       if (y < top) { set(x, y, 0, y === top - 1 ? 2 : 1); set(x, y, 1, y === top - 1 ? 2 : 1); }
     }
     for (let x = 0; x < FNX; x++) for (let z = 2; z < 5; z++) set(x, 0, z, 1);
-    for (let x = 1; x < FNX - 1; x++) for (let z = 2; z < 5; z++) for (let y = 1; y < 3; y++) set(x, y, z, 3);
+    for (let x = 1; x < FNX - 1; x++) for (let z = 2; z < 5; z++) for (let y = 1; y < 4; y++) set(x, y, z, 3);
     for (let x = 0; x < FNX; x++) for (let y = 0; y < 14; y++) for (let z = 0; z < 2; z++) FFfull[(z * 14 + y) * FNX + x] = y === 13 ? 2 : (y === 9 && x >= 3 && x < 10 && z === 1) ? 2 : 1;
   })();
   const FOLD_YAW = 6 * D2R;
@@ -265,11 +265,11 @@
     const r = (s) => hash(i, s), g = (s) => (hash(i, s) + hash(i, s + 50) + hash(i, s + 90) - 1.5) * 1.15;
     const pick = r(9);
     AG.push({
-      b: T_POUR + 0.86 * Math.pow((i + 0.5) / NAG, 1 / 1.7),
+      b: T_POUR + 0.86 * Math.pow((i + 0.5) / NAG, 1 / 1.35),
       x: (r(1) - 0.5) * 18, z: (r(2) - 0.5) * 2.0,
-      vx: g(3) * 21 + (r(1) - 0.5) * 12, vy: 66 + r(4) * 58, vz: Math.max(-6, g(5) * 12 + 5),
+      vx: g(3) * 9 + (r(1) - 0.5) * 54, vy: 74 + r(4) * 56, vz: Math.max(-6, g(5) * 12 + 5),
       ax: [r(10) - 0.5, r(11) - 0.5, r(12) - 0.5], w: 5 + r(13) * 9, ph: r(14) * TAU,
-      col: pick < 0.55 ? C.light : pick < 0.83 ? C.coral : C.cream, e: 1.15 + r(15) * 1.0, s: 0.95 + r(16) * 0.3,
+      col: pick < 0.5 ? C.light : pick < 0.88 ? C.coral : C.cream, e: 0.95 + r(15) * 0.75, s: 0.95 + r(16) * 0.3,
     });
   }
   const GRAV = 150;
@@ -309,26 +309,24 @@
     const glow = sstep(T_OPEN - 0.02, T_OPEN + 0.4, t);
     const pulse = glow * (1 + 0.06 * Math.sin((t - T_OPEN) * 9));
     const warmCol = [lerp(C.vdeep[0], 1.0, glow), lerp(C.vdeep[1], 0.72, glow), lerp(C.vdeep[2], 0.46, glow)];
-    const fcol = C.violet.map((c, i) => lerp(c, C.vdim[i], 0.5)), ftrim = C.violet.map((c, i) => lerp(c, C.lilac[i], 0.55));
+    const fcol = C.violet.map((c, i) => lerp(c, C.vdim[i], 0.62)), ftrim = C.violet.map((c, i) => lerp(c, C.lilac[i], 0.55));
     FB.pal = [null, [...fcol, 0], [...ftrim, 0], [...warmCol, 2.3 * pulse, 0.05]];
     FF.pal = [null, [...fcol.map((c) => c * 1.18), 0], [...ftrim, 0]];
     const FM = mChain(mRotY(FOLD_YAW));
     drawFolderPart(FB, FBfull, FM, t, 3, true);
     const ko = c01((t - T_OPEN) / 0.36), back = 1 + 2.2 * Math.pow(ko - 1, 3) + 1.2 * Math.pow(ko - 1, 2);
-    const open = 36 * D2R * (ko <= 0 ? 0 : back) + (t > T_OPEN ? 0.012 * Math.sin((t - T_OPEN) * 7) * glow : 0);
+    const open = 50 * D2R * (ko <= 0 ? 0 : back) + (t > T_OPEN ? 0.012 * Math.sin((t - T_OPEN) * 7) * glow : 0);
     const FFM = mChain(FM, mTrans(0, 0, 1.5), mRotX(open));
     drawFolderPart(FF, FFfull, FFM, t, 5, open < 0.02);
 
-    // label: "0 ITEMS", which turns into the agent counter
-    const lx = -13.5, lz = 13.5;
-    const out = sstep(T_OPEN + 0.02, T_OPEN + 0.14, t);
-    if (out < 1) label('0 ITEMS', lx, lz, (k, i, j) => {
-      const a = 0.26 + (k * 4 + i) * 0.007 + j * 0.006; const s = sstep(a, a + 0.09, t);
-      return [s * (1 + 0.25 * Math.sin(PI * s)) * (1 - out), C.lilac, 0.22];
-    });
-    if (t > T_OPEN + 0.1) {
-      const n = agentCount(t), str = 'AGENTS ' + String(n).padStart(4, '0'), inn = sstep(T_OPEN + 0.1, T_OPEN + 0.22, t);
-      label(str, lx, lz, (k) => [inn, k < 6 ? C.lilac : C.light, k < 6 ? 0.22 : 1.1]);
+    // label: "0 ITEMS" laid on the floor; the number becomes the count of agents and lights up
+    {
+      const n = agentCount(t), str = String(n).padStart(3, ' ') + ' ITEMS', hot = sstep(T_POUR - 0.02, T_POUR + 0.12, t);
+      const dcol = C.lilac.map((c, i) => lerp(c, C.light[i], hot));
+      label(str, -21.5, 15.5, (k, i, j) => {
+        const a = 0.26 + (k * 4 + i) * 0.006 + j * 0.006, s = k < 2 ? 1 : sstep(a, a + 0.09, t);
+        return [s * (1 + 0.25 * Math.sin(PI * s)), k < 3 ? dcol : C.lilac, k < 3 ? lerp(0.22, 1.05, hot) : 0.22];
+      });
     }
     for (let i = 0; i < STRAY.length; i++) {
       const s = STRAY[i];
@@ -428,7 +426,7 @@
     float boxAO(vec2 p, vec4 c, vec3 b, float k){
       vec2 d = p-c.xy; vec2 l = vec2(c.z*d.x - c.w*d.y, c.w*d.x + c.z*d.y);
       float dist = length(max(abs(l)-b.xy, 0.));
-      return 1. - k*exp(-dist/3.2)*exp(-b.z/6.);
+      return 1. - k*exp(-dist/4.6)*exp(-b.z/6.);
     }
     void main(){
       vec3 N = normalize(vN); float ao = vM.x, e = vM.y; vec3 alb = vC;
@@ -442,7 +440,7 @@
         float groove = mix(smoothstep(0.0, 0.035+w, d), 0.9, clamp(w*4.,0.,1.));
         float var = mix(h1(id), 0.5, clamp(w*3.,0.,1.));
         alb = vec3(0.0150, 0.0105, 0.0460)*(0.74+0.52*var)*mix(0.45, 1., groove);
-        ao = boxAO(vP.xz, uHero, uHeroB, 0.62) * boxAO(vP.xz, vec4(uFold.xy, uFold.z, uFold.w), vec3(12.5, 3.6, 0.), 0.6);
+        ao = boxAO(vP.xz, uHero, uHeroB, 0.74) * boxAO(vP.xz, vec4(uFold.xy, uFold.z, uFold.w), vec3(12.5, 3.6, 0.), 0.72);
         e = 0.;
       } else {
         float d = min(min(vM.z,1.-vM.z), min(vM.w,1.-vM.w));
@@ -458,8 +456,8 @@
       float wn = max(dot(N, wd/wl), 0.);
       vec3 warm = vec3(1.0, 0.58, 0.32)*uWarm.w*(wn*0.85+0.15)/(1. + wl*wl/420.);
       vec3 wd2 = vec3(uWarm.x, 30., uWarm.z+3.) - vP; float wl2 = length(wd2);
-      warm += vec3(1.0, 0.62, 0.38)*uPour*0.8*max(dot(N, wd2/wl2), 0.)/(1. + wl2*wl2/1500.);
-      vec3 walb = isFloor ? mix(alb, vec3(dot(alb, vec3(.3,.5,.2)))*2.2, 0.75) : alb;
+      warm += vec3(1.0, 0.62, 0.38)*uPour*1.1*max(dot(N, wd2/wl2), 0.)/(1. + wl2*wl2/1500.);
+      vec3 walb = isFloor ? mix(alb, vec3(dot(alb, vec3(.3,.5,.2)))*2.2, 0.75) : mix(alb, vec3(dot(alb, vec3(.3,.5,.2)))*1.5, 0.5);
       vec3 col = alb*(key + amb + fill) + walb*warm*mix(0.6,1.,ao);
       if (e > 0.) col += vC*e*(0.62 + 0.38*(N.y*0.6 + N.z*0.3 + 0.4));
       o = vec4(col, 1.);
@@ -468,7 +466,7 @@
   const DOF_COMMON = `
     uniform sampler2D uCol, uDep; uniform vec4 uCam; /* near, far, focus, k */ uniform vec2 uPx;
     float linz(float d){ return 2.*uCam.x*uCam.y/(uCam.y+uCam.x - (d*2.-1.)*(uCam.y-uCam.x)); }
-    float coc(float z){ return clamp(uCam.w*max(abs(z-uCam.z)-7., 0.)/z, 0., 26.); }`;
+    float coc(float z){ return clamp(uCam.w*max(abs(z-uCam.z)-9., 0.)/z, 0., 22.); }`;
   // half-resolution scatter-as-gather blur on a golden-angle spiral; alpha carries the blur that landed on the pixel
   const P_DOF = prog(VS_FS, `in vec2 vUV; out vec4 o;` + DOF_COMMON + `
     void main(){
@@ -476,7 +474,7 @@
       vec3 col = texture(uCol, vUV).rgb; float tot = 1., cs = c0;
       float rad = 0.9, a = fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))))*6.2831853;
       for (int i=0;i<140;i++){
-        if (rad > 26.) break;
+        if (rad > 22.) break;
         vec2 tc = vUV + vec2(cos(a), sin(a))*uPx*rad;
         vec3 sc = texture(uCol, tc).rgb; float sz = linz(texture(uDep, tc).r), ss = coc(sz);
         if (sz > z0) ss = min(ss, c0*2.);
@@ -494,7 +492,7 @@
     void main(){
       vec3 sharp = texture(uCol, vUV).rgb; vec4 b = texture(uBlur, vUV);
       float c = max(coc(linz(texture(uDep, vUV).r)), b.a);
-      o = vec4(mix(sharp, b.rgb, smoothstep(0.6, 2.6, c)), 1.);
+      o = vec4(mix(sharp, b.rgb, smoothstep(1.0, 3.2, c)), 1.);
     }`);
   const P_BRIGHT = prog(VS_FS, `in vec2 vUV; out vec4 o; uniform sampler2D uCol; uniform vec2 uPx;
     vec3 br(vec2 uv){ vec3 c = min(texture(uCol, uv).rgb, vec3(6.)); float l = max(c.r, max(c.g, c.b)); return c*smoothstep(0.75, 1.5, l); }
@@ -533,7 +531,7 @@
     const tg = [lerp(-15, -7, e), lerp(9, 19, sstep(1.9, 3.0, t) * 0.8 + e * 0.2), 3];
     const eye = [tg[0] + dist * Math.sin(az) * Math.cos(pit), tg[1] + dist * Math.sin(pit), tg[2] + dist * Math.cos(az) * Math.cos(pit)];
     const fw = [tg[0] - eye[0], tg[1] - eye[1], tg[2] - eye[2]].map((x) => x / dist);
-    const fp = [-10, 7, 6], focus = (fp[0] - eye[0]) * fw[0] + (fp[1] - eye[1]) * fw[1] + (fp[2] - eye[2]) * fw[2];
+    const fp = [-10, 6, 10], focus = (fp[0] - eye[0]) * fw[0] + (fp[1] - eye[1]) * fw[1] + (fp[2] - eye[2]) * fw[2];
     return { eye, vp: mMul(mPersp(FOV, W / H, NEAR, FAR), mLook(eye, tg, [0, 1, 0])), focus };
   }
   function bindTex(unit, t, loc) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, unit); }
@@ -559,9 +557,9 @@
     const u = P_SCENE.u; gl.useProgram(P_SCENE.p);
     gl.uniformMatrix4fv(u.uVP, false, cam.vp); gl.uniformMatrix4fv(u.uLVP, false, LVP);
     gl.uniform3fv(u.uL, LDIR); gl.uniform3fv(u.uEye, cam.eye);
-    gl.uniform4f(u.uHero, st.x, st.z, Math.cos(st.yaw), Math.sin(st.yaw)); gl.uniform3f(u.uHeroB, 10, 6, st.y);
+    gl.uniform4f(u.uHero, st.x, st.z, Math.cos(st.yaw), Math.sin(st.yaw)); gl.uniform3f(u.uHeroB, 10, 5, st.y);
     gl.uniform4f(u.uFold, 0, 0, Math.cos(FOLD_YAW), Math.sin(FOLD_YAW));
-    gl.uniform4f(u.uWarm, 0, 7, 1.5, sc.glow * 1.5); gl.uniform1f(u.uPour, sc.pour);
+    gl.uniform4f(u.uWarm, 0, 7, 1.5, sc.glow * 1.25); gl.uniform1f(u.uPour, sc.pour);
     bindTex(0, shadowT.depth, u.uShadow);
     gl.drawArrays(gl.TRIANGLES, 0, sc.nAll);
     if (msT.ok) {

@@ -273,8 +273,8 @@
         break;
       }
     }
-    if (land > -5) { var dt = t - land; s.sy *= 1 - (0.10 + 0.32 * amp) * Math.exp(-dt * 13) * Math.cos(dt * 24); }
-    s.yaw = keys([0, 0.50, 1.10, 0.56, 1.42, 1.22, 1.54, 1.22, 1.68, -0.42, 1.80, -0.42, 1.93, 0.42, 2.25, 0.42, 2.5, 0.70, 3, 0.74], t);
+    if (land > -5) { var dt = t - land; s.sy *= 1 - (0.06 + 0.20 * amp) * Math.exp(-dt * 13) * Math.cos(dt * 24); }
+    s.yaw = keys([0, 0.50, 1.10, 0.56, 1.42, 1.02, 1.54, 1.02, 1.68, -0.42, 1.80, -0.42, 1.93, 0.42, 2.25, 0.42, 2.5, 0.70, 3, 0.74], t);
     s.pitch = keys([0, 0, 1.2, 0, 1.42, 0.07, 1.56, 0.07, 1.68, -0.02, 1.93, 0, 2.02, -0.14, 2.3, -0.10, 2.6, -0.30, 3, -0.34], t);
     s.roll = 0.10 * ss(1.56, 1.68, t) * (1 - ss(1.80, 1.93, t)); // curious head tilt on the glance
     var b = Math.abs(t - 1.755) < 0.075 ? 1 - Math.abs(t - 1.755) / 0.075 : 0;
@@ -438,7 +438,7 @@
     var cell = 0.054, k = ss(0.10, 0.5, t), i;
     if (k <= 0) return;
     B.push();
-    B.mul(mTrans(FOLDER[0] - 0.05, 0, FOLDER[2] + 1.22)); B.mul(mRotY(-0.12)); B.mul(mRotX(-1.0));
+    B.mul(mTrans(FOLDER[0] - 0.05, 0, FOLDER[2] + 1.55)); B.mul(mRotY(-0.12)); B.mul(mRotX(-1.0));
     var w = LABEL.w * cell, dim = 1 - 0.45 * ss(2.1, 2.6, t);
     for (i = 0; i < LABEL.cells.length; i++) {
       var c = LABEL.cells[i];
@@ -555,7 +555,7 @@
     '      shd+=texture(uSh, vec3(vS.xy+vec2(cos(th),sin(th))*r, vS.z-bias)); }',
     '    shd/=16.; }',
     '  vec3 rel=vW-vec3(0.,0.,0.); float sd=length(rel-uKeyDir*dot(rel,uKeyDir));',
-    '  float spot=1.-smoothstep(3.6,10.5,sd); spot=spot*spot*.94+.06;',
+    '  float spot=1.-smoothstep(2.6,8.5,sd); spot=spot*spot*.94+.06;',
     '  vec3 key=uKeyCol*ndl*shd*spot;',
     '  vec3 rim=uRimCol*pow(max(dot(N,uRimDir),0.),1.2);',
     '  vec3 amb=mix(vec3(0.055,0.035,0.070),vec3(0.105,0.110,0.250),N.y*.5+.5);',

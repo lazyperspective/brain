@@ -385,8 +385,8 @@ if (EXPORT) {
       return btoa(s);
     },
   };
-  render(0);
   ready = true;
+  requestAnimationFrame(() => render(0));
 } else if (FROZEN !== null) {
   const fit = () => { sizeCanvas(W, H, true); render(FROZEN); };
   addEventListener('resize', fit); fit();

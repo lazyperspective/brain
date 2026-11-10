@@ -17,7 +17,8 @@ async function open(w, ss) {
   const page = await browser.newPage({ viewport: { width: Math.min(w, 1920), height: Math.min(h, 1080) } });
   page.on('console', m => { if (m.type() === 'error') console.error('[page]', m.text()); });
   page.on('pageerror', e => console.error('[pageerror]', e.message));
-  await page.goto('file://' + SRC + '?export&w=' + w + '&ss=' + ss);
+  await page.goto('file://' + SRC + '?export&w=' + w + '&ss=' + ss, { timeout: 0 });
+  page.setDefaultTimeout(0);
   await page.waitForFunction(() => window.__piece && window.__piece.isReady(), null, { timeout: 600000 });
   return { browser, page, w, h };
 }
