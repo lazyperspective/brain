@@ -78,7 +78,7 @@ function stateAt(t) {
   S.hScale = [sxz, sy, sxz];
   S.hLean = lean;
   S.hPitch = -0.07 * pulse(1.25, 1.4, 1.5, 1.62, t) - 0.05 * smooth(1.8, 1.92, t) * (1 - smooth(1.95, 2.05, t))
-           + 0.10 * pulse(1.95, 2.05, 2.2, 2.3, t) + 0.17 * smooth(2.2, 2.6, t);
+           + 0.10 * pulse(1.95, 2.05, 2.2, 2.3, t) + 0.2 * smooth(2.2, 2.6, t);
 
   // yaw (+ = facing the folder side) and eyes
   let yaw = 0.62;                                           // travelling: 3/4 view

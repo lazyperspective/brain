@@ -69,7 +69,7 @@ vec3 heroLocal(vec3 p){
   c = cos(uHLean); s = sin(uHLean);
   p = vec3(c*p.x - s*p.y, s*p.x + c*p.y, p.z);
   c = cos(uHPitch); s = sin(uHPitch); p.y -= 0.25;
-  p = vec3(p.x, c*p.y + s*p.z + 0.25, -s*p.y + c*p.z);
+  p = vec3(p.x, c*p.y - s*p.z + 0.25, s*p.y + c*p.z);
   return p/uHScale;
 }
 vec3 eyeC(float sx){ return vec3(sx*0.2 + uLook.x*0.055, 0.6 + uLook.y*0.055, 0.3); }
@@ -250,7 +250,7 @@ void main(){
     sheen = 0.03; gloss = 8.0;
   } else if(mat < 1.5){
     vec3 q = heroLocal(p);
-    n = bumpN(p, n, mat, 0.0105);
+    n = bumpN(p, n, mat, 0.014);
     float v = vnoise(q*5.0+3.0);
     alb = mix(CORAL, CLIGHT, 0.14*v)*vec3(0.93,0.78,0.72);
     alb = mix(alb, CSHADE, 0.55*smoothstep(0.34, 0.02, q.y)*0.6);   // legs / belly a touch deeper
@@ -395,9 +395,9 @@ out vec4 outColor;
 void main(){
   float r2 = dot(vUv,vUv);
   if(uGlowPass > 0.5){
-    float a = exp(-r2*5.5)*0.04 + exp(-r2*26.0)*0.035;
+    float a = exp(-r2*5.5)*0.02 + exp(-r2*26.0)*0.03;
     a *= smoothstep(1.0, 0.7, r2);
-    outColor = vec4(vec3(1.0,0.50,0.27)*a, 1.0);
+    outColor = vec4(vec3(1.0,0.40,0.17)*a, 1.0);
     return;
   }
   if(r2 > 1.0) discard;

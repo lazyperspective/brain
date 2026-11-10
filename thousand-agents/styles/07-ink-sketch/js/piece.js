@@ -420,18 +420,18 @@ function render(t) {
     const gg = clamp(g, 0, 1);
     // soft bloom first (blurred), then two loose plumes of wash with tide lines, then the hot mouth
     const glow = (x, y, rx, ry, col, al) => { if (rx < 1 || ry < 1) return; lx.save(); lx.translate(x, y); lx.scale(rx, ry);
-      const gr = lx.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, col); gr.addColorStop(0.45, col + '99'); gr.addColorStop(1, col + '00');
+      const gr = lx.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, col); gr.addColorStop(0.5, col + 'b0'); gr.addColorStop(1, col + '00');
       lx.globalAlpha = al; lx.fillStyle = gr; lx.beginPath(); lx.arc(0, 0, 1, 0, TAU); lx.fill(); lx.restore(); };
     const wv = 1 + 0.02 * Math.sin(t * 6);
-    glow(cx + 4, cyy - 130 * g, 330 * g * wv, 380 * g * wv, C.shade, 0.6 * gg);
-    glow(cx, cyy - 50 * g, 215 * g, 215 * g, C.coral, 0.62 * gg);
-    glow(cx, fy - 14, 130, 62 * g, C.hot, 0.85 * gg);
+    glow(cx + 4, cyy - 120 * g, 290 * g * wv, 350 * g * wv, C.shade, 0.78 * gg);
+    glow(cx, cyy - 40 * g, 180 * g, 190 * g, C.coral, 0.9 * gg);
+    glow(cx, cyy + 14, 150, 95 * g, C.hot, gg);
     const P1 = ellipsePts(cx + 14, cyy - 150 * g, 205 * g, 265 * g, 26), P2 = ellipsePts(cx - 6, cyy - 62 * g, 118 * g, 132 * g, 20);
     blob(lx, P1, 152 + bw, 34 * g, 170, C.shade, 0.2 * gg); rim(lx, P1, 152 + bw, 34 * g, 170, C.light, 0.16, 5);
     blob(lx, P2, 154 + bw, 20 * g, 120, C.coral, 0.26 * gg); rim(lx, P2, 154 + bw, 20 * g, 120, C.hot, 0.2, 4);
     const inner = resample([[FX0 + 10, FY0 + TABH + 10], [FX1 - 10, FY0 + TABH + 10], [FX1 + sh - 5, fy], [FX0 + sh + 5, fy], [FX0 + 10, FY0 + TABH + 10]], 18); inner.pop();
     blob(lx, inner, 158 + bw, 3, 60, C.light, 0.75 * gg);
-    finish({ op: 'screen', mottle: 0.5, mx: -420, my: -260, grain: 0.25 });
+    finish({ op: 'screen', mottle: 0.32, mx: -420, my: -260, grain: 0.2 });
   }
 
   const count = drawAgents(t, b);
