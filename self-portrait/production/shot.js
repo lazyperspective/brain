@@ -19,7 +19,7 @@ if (require.main === module) (async () => {
   const browser = await chromium.launch(); const page = await browser.newPage();
   page.on('pageerror', e => { console.error('PAGEERROR', e.message, e.stack); });
   page.on('console', m => { if (m.type() === 'error') console.error('CONSOLE', m.text()); });
-  await page.goto('file://' + path.resolve(__dirname, '..', 'index.html') + '?export');
+  await page.goto('file://' + path.resolve(__dirname, '..', 'index.html') + '?export' + (opt('cut') ? '&cut=' + opt('cut') : ''));
   await page.waitForFunction('window.__piece && window.__piece.isReady()', null, { timeout: 30000 });
   const [cx, cy, cw, ch] = crop, rows = Math.ceil(ts.length / cols), gap = ts.length > 1 ? 4 : 0;
   const OW = cols * cw * S + (cols - 1) * gap, OH = rows * ch * S + (rows - 1) * gap, o = Buffer.alloc(OW * OH * 4, 40);

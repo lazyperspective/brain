@@ -466,7 +466,7 @@
   }
 
   // the moon turns a page (once, mid-scene) and lets a flurry of glyphs go
-  const TURN = [9.2, 10.3];
+  const TURN = TL.turn, FLIFE = Math.min(7, TL.gather[1] - TL.turn[0] - 0.5);
   function pageTurn(b, t) {
     const k = P.prog(t, TURN[0], TURN[1]);
     if (k > 0 && k < 1) {
@@ -482,7 +482,7 @@
     // flurry
     for (let i = 0; i < 26; i++) {
       const t0 = TURN[0] + 0.25 + P.hash(i, 1, 510) * 0.7, tt = t - t0;
-      if (tt < 0 || tt > 7) continue;
+      if (tt < 0 || t > TURN[0] + FLIFE) continue;
       const vx = (P.hash(i, 2, 510) - 0.5) * 34, x = Math.round(MOON.x + (P.hash(i, 3, 510) - 0.5) * 50 + vx * Math.min(tt, 2.5) * 0.5 + Math.sin(tt * 1.7 + i) * 3);
       const y = Math.round(MOON.y - 6 + tt * (12 + P.hash(i, 4, 510) * 9) + tt * tt * 1.2);
       if (y > HY - 8) continue;
@@ -497,8 +497,8 @@
   // drift u: 0..1 over the scene (and beyond for the mirror scene)
   function render(b, t, opt) {
     init(); opt = opt || {};
-    const ts = t - TL.s2 + 2.0;                 // scene clock (starts before the door opens)
-    const u = opt.u !== undefined ? opt.u : P.clamp(ts / 12.5, 0, 1.2);
+    const ts = t - TL.s2 + TL.s2pre;                 // scene clock (starts before the door opens)
+    const u = opt.u !== undefined ? opt.u : P.clamp(ts / TL.s2len, 0, 1.2);
     const e = u * (0.55 + 0.45 * u);          // gentle acceleration, like walking
     const dF = Math.round(e * 7), dM = Math.round(e * 30), dN = Math.round(e * 70);
     P.rect(b, 0, HY, W, H - HY, C.N1);

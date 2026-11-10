@@ -48,5 +48,5 @@
     if (lit >= 1) P.blit(b, sp, x, y);
     else { P.blit(b, SPD[s], x, y); if (lit > 0) P.blit(b, sp, x, y, { lv: Math.round(lit * 16) }); }
   }
-  g.LAN = { SP, SPD, draw };
+  g.LAN = { SP, SPD, draw, GL };
 })(typeof window !== 'undefined' ? window : globalThis);

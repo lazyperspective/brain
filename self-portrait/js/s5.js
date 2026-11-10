@@ -379,7 +379,7 @@
     miniOrder.sort((a, q) => ((a[2] <= C.A3 ? 0 : 1) - (q[2] <= C.A3 ? 0 : 1)) || (a[1] - q[1]) || (a[0] - q[0]));
   }
   function drawMini(b, sx, sy, t) {
-    const n = miniOrder.length, done = Math.min(n, Math.floor(n * 0.5 + (t - TL.pan0 - 3 * (TL.rest + TL.move) + 0.5) * n * 0.28));
+    const n = miniOrder.length, done = Math.min(n, Math.floor(n * 0.5 + (t - TL.pan0 - TL.rooms.indexOf(3) * (TL.rest + TL.move) + 0.5) * n * (0.5 / (TL.rest + 0.3))));
     // checker under-canvas + faint glow rings already sketched
     for (let i = 0; i < Math.max(0, done); i++) { const q = miniOrder[i]; P.rect(b, sx + q[0] * 3, sy + q[1] * 3 - 1, 3, 3, q[2]); }
     if (done > 0 && done < n) { const q = miniOrder[done]; P.box(b, sx + q[0] * 3 - 1, sy + q[1] * 3 - 2, 5, 5, C.N11); }
@@ -434,26 +434,29 @@
     for (const s of [0.2, 0.4, 0.58, 0.74, 0.86]) NIGHT.push(P.mixLUT(C.N1, s));
     NIGHT.push(P.mixLUT(C.N1, 0.93));
     facade(); buildMini();
-    [room1, room2, room3, room4, room5, room2].forEach((fn, i) => {
-      const r = fn(), ox = WX0 + PITCH * i;
+    const RF = [room1, room2, room3, room4, room5];
+    TL.rooms.forEach((ri, i) => {
+      const r = RF[ri](), ox = WX0 + PITCH * i;
       if (i === 5) { // the neighbour past the last room: same bones, different light — only half is ever seen
         P.lutRect(r.b, 0, 0, RW, RH, L.rose1);
       }
       P.blit(world, r.b, ox, WY0);
-      rooms.push({ ox, oy: WY0, lan: r.lan, b: r.b });
+      rooms.push({ ox, oy: WY0, lan: r.lan, b: r.b, kind: ri, last: i === TL.nTrack });
       // inner shadow under the lintel and by the left jamb (depth)
       P.lutRect(world, ox, WY0, RW, 3, L.dn1); P.lutRect(world, ox, WY0, 2, RH, L.dn1);
       // outer flower box on some sills
       if (i % 2 === 0) for (let k = 0; k < 60; k += 3) { const xx = ox + 20 + k + (i * 37) % 90, hh = P.hash(k, i, 13); P.rect(world, xx, WY0 + RH + 3 - (hh > 0.5 ? 2 : 1), 2, 3, hh < 0.3 ? C.T2 : C.T1); P.px(world, xx, WY0 + RH + 2 - (hh > 0.5 ? 2 : 1), hh < 0.25 ? C.R3 : hh < 0.4 ? C.A5 : C.T3); }
     });
+    // the neighbour before the first room: lit too (only its right half is ever seen)
+    { const r = room2(); P.lutRect(r.b, 0, 0, RW, RH, L.rose1); const ox = WX0 - PITCH; P.blit(world, r.b, ox, WY0); P.lutRect(world, Math.max(0, ox), WY0, RW, 3, L.dn1); rooms.push({ ox, oy: WY0, lan: r.lan, b: r.b, kind: 9, last: false }); }
     // a pigeon asleep on the third sill
     const px_ = WX0 + PITCH * 2 + 170, py = WY0 + RH + 1; P.ell(world, px_, py + 2, 5, 3, C.N8); P.rect(world, px_ + 3, py - 1, 3, 3, C.N8); P.px(world, px_ + 6, py, C.A4); P.px(world, px_ - 5, py + 3, C.N6); P.hl(world, px_ - 2, py + 2, 4, C.N9);
   }
   function camX(t) {
     const u = t - TL.pan0, seg = TL.rest + TL.move;
     if (u <= 0) return 0;
-    const k = Math.min(4, Math.floor(u / seg)), f = u - k * seg;
-    if (k >= 4) return PITCH * 4;
+    const k = Math.min(TL.nTrack, Math.floor(u / seg)), f = u - k * seg;
+    if (k >= TL.nTrack) return PITCH * TL.nTrack;
     return Math.round(PITCH * (k + P.smooth(P.prog(f, TL.rest, seg))));
   }
   function render(b, t) {
@@ -466,10 +469,11 @@
       const clip = [Math.max(0, sx), sy, Math.min(W, sx + RW), sy + RH];
       const tmp = g.S5._t || (g.S5._t = P.mk(W, H));
       let lit = 1;
-      if (i === 4) lit = 1 - P.prog(t, TL.dim[0], TL.dim[1]);
+      const kind = r.kind;
+      if (r.last) lit = 1 - P.prog(t, TL.dim[0], TL.dim[1]);
       // living details, drawn in screen space and clipped to the window
       P.clear(tmp);
-      if (i === 0) {
+      if (kind === 0) {
         const s = Math.floor(t * 4);
         for (let k = 0; k < 14; k++) { const yy = sy + 42 + k * 3; if (P.hash(k + s, 12, 3) < 0.8) P.hl(tmp, sx + 77, yy, 3 + Math.floor(P.hash(k + s, 12, 4) * 14), [C.T3, C.T4, C.T2, C.N9][Math.floor(P.hash(k + s, 12, 5) * 4)]); else P.hl(tmp, sx + 77, yy, 17, C.T0); }
         P.rect(tmp, sx + 77, sy + 41, 18, 44, P.TR);
@@ -480,14 +484,14 @@
         P.px(tmp, sx + 16, sy + 90, Math.floor(t * 6) % 3 ? C.T4 : C.T2);
         for (let k = 0; k < 4; k++) { const ph = (t * 0.7 + k * 0.25) % 1; P.px(tmp, sx + 162 + Math.round(Math.sin(ph * 6 + k) * 1), sy + 88 - Math.round(ph * 8), ph < 0.5 ? C.N8 : C.N6); } // steam
         const tap = Math.floor(t * 8) % 4; P.px(tmp, sx + 144 + tap * 2, sy + 91, C.N10);
-      } else if (i === 1) {
+      } else if (kind === 1) {
         const nod = Math.sin(t * 1.4) > 0.7 ? 1 : 0;
         P.px(tmp, sx + 81 - nod, sy + 93, C.A6); P.px(tmp, sx + 80 - nod, sy + 92, C.A5);         // pencil moving
         if (Math.sin(t * 0.9 + 1) > 0.2) P.px(tmp, sx + 150, sy + 10, C.A8);
-      } else if (i === 2) {
+      } else if (kind === 2) {
         for (let k = 0; k < 4; k++) { const ph = (t * 0.6 + k * 0.25) % 1; P.px(tmp, sx + 122 + Math.round(Math.sin(ph * 6 + k) * 1), sy + 85 - Math.round(ph * 8), ph < 0.5 ? C.N9 : C.M3); }
         const w = Math.floor(t * 3) % 4; P.px(tmp, sx + 70 + w * 2, sy + 90, C.N6);                  // the pen hesitates
-      } else if (i === 3) {
+      } else if (kind === 3) {
         drawMini(tmp, sx + 122, sy + 39, t);
         const a = Math.floor(t * 5) % 3; P.px(tmp, sx + 103 + a * 2, sy + 93, C.N11); P.px(tmp, sx + 102 + a * 2, sy + 92, C.N9);
         for (let k = 0; k < 24; k++) if ((k + Math.floor(t * 2)) % 6 === 0) P.px(tmp, sx + Math.round(6 + k * 8.4), sy + 5 + Math.round(Math.sin((k % 8) / 8 * Math.PI) * 4), C.A8);
@@ -495,7 +499,7 @@
       }
       P.blit(b, tmp, clip[0], clip[1], { sx: clip[0], sy: clip[1], sw: clip[2] - clip[0], sh: clip[3] - clip[1] });
       // tmp is in screen space already
-      if (i === 4) {
+      if (r.last) {
         // dim the room in dithered stages before drawing the person and the lantern
         const dk = (1 - lit) * NIGHT.length, st = Math.min(NIGHT.length - 1, Math.floor(dk)), fr = dk - st;
         let personLUT = null;
@@ -525,7 +529,7 @@
   function irisIn(dst, tmpB, t) {
     render(tmpB, t);
     let k = P.prog(t, TL.wIris[0], TL.wIris[1]); k = k * k * (0.3 + 0.7 * k);
-    const x0 = Math.round(P.lerp(153, -4, k)), x1 = Math.round(P.lerp(168, 484, k)), y0 = Math.round(P.lerp(130, -4, k)), y1 = Math.round(P.lerp(141, 274, k));
+    const x0 = Math.round(P.lerp(TL.col0 - 7, -4, k)), x1 = Math.round(P.lerp(TL.col0 + 8, 484, k)), y0 = Math.round(P.lerp(130, -4, k)), y1 = Math.round(P.lerp(141, 274, k));
     const xa = Math.max(0, x0), xb = Math.min(W, x1), ya = Math.max(0, y0), yb = Math.min(H, y1);
     for (let y = ya; y < yb; y++) dst.d.set(tmpB.d.subarray(y * W + xa, y * W + xb), y * W + xa);
     P.box(dst, x0 - 1, y0 - 1, x1 - x0 + 2, y1 - y0 + 2, C.N6); P.hl(dst, x0 - 1, y0 - 1, x1 - x0 + 2, C.N8);

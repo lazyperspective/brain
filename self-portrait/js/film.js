@@ -18,7 +18,7 @@
     }
   }
   function frame(t) {
-    t = ((t % TL.D) + TL.D) % TL.D;
+    t = (((t + TL.OFF) % TL.D) + TL.D) % TL.D;   // film time -> linear story time
     const S1 = g.S1, S2 = g.S2, S3 = g.S3, S4 = g.S4, S5 = g.S5;
     if (t < TL.door[1]) {                       // 1. cursor -> doorway
       S1.render(A, t);
@@ -75,6 +75,7 @@
     if (q.has('export')) { renderAt(0); return; }
     if (q.has('t')) { renderAt(parseFloat(q.get('t'))); return; }
     const t0 = performance.now();
+    cv.addEventListener('click', () => {}, false);
     (function loop() { renderAt(((performance.now() - t0) / 1000) % TL.D); requestAnimationFrame(loop); })();
   }
   g.FILM = { frame, boot };

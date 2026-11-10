@@ -106,9 +106,9 @@
         const dx = x - pc.x, dy = y - pc.y, inside = dx * dx + dy * dy < pc.r * pc.r;
         if (Math.sin(th) < 0 && inside) continue;
         if (y >= WY) continue;
-        const c = k === 1 ? (a % 9 < 6 ? C.N8 : C.N6) : (a % 7 < 4 ? C.V2 : C.N5);
+        const c = k === 1 ? (a % 9 < 7 ? C.N10 : C.N7) : (a % 7 < 5 ? C.V3 : C.N6);
         if (k === 2 && a % 3 === 0) continue;
-        P.px(sky, x, y, inside ? (k === 1 ? C.R4 : C.R2) : c);
+        P.px(sky, x, y, inside ? (k === 1 ? C.R5 : C.R3) : c); if (k === 1 && !inside && a % 9 < 7) P.px(sky, x, y + 1, C.N6);
       }
     }
     // small teal moon with a crescent
@@ -154,26 +154,28 @@
       x += w + r.i(0, 10);
     }
   }
+  const midG = [];
   function buildMid() {
     mid = P.mk(W + 40, H);
-    const o = { wall: C.N4, sh: C.N3, hi: C.N6, hi2: C.N5, dark: C.N2, l0: C.A3, l1: C.A4, l2: C.A7, ww: 2, wh: 3, px: 4, py: 6, lit: 0.62, tog: tog.mid, togp: 0.10 };
+    for (let k = 0; k < 3; k++) midG.push(P.mk(W + 40, H));
+    const o = { wall: C.N4, sh: C.N3, hi: C.N6, hi2: C.N5, dark: C.N2, l0: C.A3, l1: C.A4, l2: C.A7, ww: 2, wh: 3, px: 4, py: 6, lit: 0.62, togp: TL.life > 1 ? 0.2 : 0.10 };
     const oD = Object.assign({}, o, { wall: C.N3, sh: C.N2, hi: C.N5, hi2: C.N4 });
-    const T = (x, y, w, h, extra) => tower(mid, x, y, w, h, Object.assign({}, o, extra));
-    // left: a tall floater and a pile of blocks stacked at odd angles
-    T(26, 52, 40, 100, { seed: 1, float: 22, roof: 0 });
-    tower(mid, 2, 96, 22, 70, Object.assign({}, oD, { seed: 2, float: 14, roof: 2 }));
-    T(88, 128, 44, 42, { seed: 3, float: 16, shear: 0, roof: 3 });
-    T(96, 92, 34, 36, { seed: 4, shear: -0.22, roof: 3 });
-    T(84, 58, 30, 34, { seed: 5, shear: 0.2, roof: 4 });
-    T(108, 30, 20, 28, { seed: 6, shear: -0.14, roof: 0 });
+    const T = (gi, x, y, w, h, extra, dk) => { const before = tog.mid.length; tower(midG[gi], x, y, w, h, Object.assign({}, dk ? oD : o, { tog: tog.mid }, extra)); for (let k = before; k < tog.mid.length; k++) tog.mid[k].g = gi; };
+    // left: a tall floater and a pile of blocks stacked at odd angles (each group bobs on its own)
+    T(0, 2, 96, 22, 70, { seed: 2, float: 14, roof: 2 }, true);
+    T(0, 26, 52, 40, 100, { seed: 1, float: 22, roof: 0 });
+    T(1, 88, 128, 44, 42, { seed: 3, float: 16, shear: 0, roof: 3 });
+    T(1, 96, 92, 34, 36, { seed: 4, shear: -0.22, roof: 3 });
+    T(1, 84, 58, 30, 34, { seed: 5, shear: 0.2, roof: 4 });
+    T(1, 108, 30, 20, 28, { seed: 6, shear: -0.14, roof: 0 });
     // right: floaters in front of the planet
-    T(292, 44, 36, 112, { seed: 7, float: 26, roof: 1 });
-    T(346, 118, 50, 50, { seed: 8, float: 18, roof: 3 });
-    T(356, 84, 36, 34, { seed: 9, shear: 0.26, roof: 3 });
-    T(350, 54, 30, 30, { seed: 10, shear: -0.2, roof: 2 });
-    T(432, 36, 42, 118, { seed: 11, float: 24, roof: 0 });
-    tower(mid, 404, 100, 24, 62, Object.assign({}, oD, { seed: 12, float: 12, roof: 4 }));
-    T(478, 70, 30, 90, { seed: 13, float: 16, roof: 1 });
+    T(2, 292, 44, 36, 112, { seed: 7, float: 26, roof: 1 });
+    T(0, 346, 118, 50, 50, { seed: 8, float: 18, roof: 3 });
+    T(0, 356, 84, 36, 34, { seed: 9, shear: 0.26, roof: 3 });
+    T(0, 350, 54, 30, 30, { seed: 10, shear: -0.2, roof: 2 });
+    T(1, 404, 100, 24, 62, { seed: 12, float: 12, roof: 4 }, true);
+    T(1, 432, 36, 42, 118, { seed: 11, float: 24, roof: 0 });
+    T(2, 478, 70, 30, 90, { seed: 13, float: 16, roof: 1 });
     // a little upside-down tower, because the city has two horizons
     const tmp = P.mk(60, 120); tower(tmp, 10, 30, 22, 50, Object.assign({}, oD, { seed: 14, roof: 0, tog: null }));
     P.blit(mid, tmp, 200 - 60, -18, { fy: true });
@@ -189,7 +191,7 @@
         if (i % 12 === 6) { P.vl(mid, x, y - 4, 4, C.A1); }         // hangers up to a second, fainter cable
       }
       for (let i = 0; i <= n; i += 2) { const f = i / n; P.px(mid, Math.round(P.lerp(x0, x1, f)), Math.round(P.lerp(y0, y1, f) + Math.sin(f * Math.PI) * (sag - 5) - 4 + 0.5), C.A2); }
-      beads.push({ pts, sp: 14 + (seed % 7), ph: seed * 1.7, n: 2 + (seed % 2) });
+      beads.push({ pts, sp: (14 + (seed % 7)) * (TL.life > 1 ? 1.5 : 1), ph: seed * 1.7, n: (2 + (seed % 2)) * (TL.life > 1 ? 2 : 1) });
     };
     bridge(66, 92, 150, 76, 10, 1); bridge(128, 44, 150, 34, 3, 2);
     bridge(270, 60, 292, 66, 4, 3); bridge(328, 82, 357, 96, 8, 4); bridge(396, 126, 432, 110, 7, 5);
@@ -288,7 +290,7 @@
     }
     // the row we will visit: hint at what is inside
     const vy = 135 - 5;
-    P.rect(hero, 160 + 2, vy + 2, 5, 4, C.N2); P.px(hero, 163, vy + 3, C.T4); P.px(hero, 165, vy + 4, C.T3); P.px(hero, 164, vy + 5, C.R3);
+    const c0 = TL.col0; P.rect(hero, c0 + 2, vy + 2, 5, 4, C.N2); P.px(hero, c0 + 3, vy + 3, C.T4); P.px(hero, c0 + 5, vy + 4, C.T3); P.px(hero, c0 + 4, vy + 5, C.R3);
     P.rect(hero, 220 + 1, vy + 2, 5, 4, C.N2); P.px(hero, 222, vy + 3, C.A6); P.px(hero, 223, vy + 4, C.A4);
   }
 
@@ -323,14 +325,18 @@
     // stars twinkle (tiny)
     for (let i = 0; i < 26; i++) { const x = Math.floor(P.hash(i, 1, 60) * W), y = Math.floor(P.hash(i, 2, 60) * 120) + 8; if (b.d[y * W + x] <= C.N3 && Math.sin(t * (1 + P.hash(i, 3, 60) * 2) + i) > 0.6) b.d[y * W + x] = C.N10; }
     P.layer(b, far, dFar, 0);
-    for (const q of tog.far) { const ph = ((t + q.t0) % q.per) / q.per; if (ph > q.duty) P.rect(b, q.x + dFar, q.y, q.w, q.h, q.dark); }
+    for (const q of tog.far) { const ph = ((t * (TL.life > 1 ? 2.2 : 1) + q.t0) % q.per) / q.per; if (ph > q.duty) P.rect(b, q.x + dFar, q.y, q.w, q.h, q.dark); }
+    const bob = [0, 1, 2].map(k => Math.round(Math.sin(t * (0.9 + k * 0.23) + k * 2.1) * 1.6));
+    for (let k = 0; k < 3; k++) P.layer(b, midG[k], dMid, bob[k]);
     P.layer(b, mid, dMid, 0);
-    for (const q of tog.mid) { const ph = ((t + q.t0) % q.per) / q.per; if (ph > q.duty) P.rect(b, q.x + dMid, q.y, q.w, q.h, q.dark); }
+    const tsp = TL.life > 1 ? 2.2 : 1;
+    for (const q of tog.mid) { const ph = ((t * tsp + q.t0) % q.per) / q.per; if (ph > q.duty) P.rect(b, q.x + dMid, q.y + bob[q.g], q.w, q.h, q.dark); }
     // people of light crossing the bridges
     for (const br of beads) for (let k = 0; k < br.n; k++) {
       const n = br.pts.length; if (n < 6) continue;
       const pos = ((t * br.sp + br.ph * 9 + k * n / br.n) % (2 * n) + 2 * n) % (2 * n), idx = Math.floor(pos < n ? pos : 2 * n - 1 - pos);
-      const p = br.pts[P.clamp(idx, 0, n - 1)]; P.px(b, p[0] + dMid, p[1], C.A8); P.px(b, p[0] + dMid, p[1] - 1, C.A6);
+      const p = br.pts[P.clamp(idx, 0, n - 1)]; P.px(b, p[0] + dMid, p[1], C.A8); P.px(b, p[0] + dMid, p[1] - 1, C.A7);
+      const p2 = br.pts[P.clamp(idx + (pos < n ? -2 : 2), 0, n - 1)]; P.px(b, p2[0] + dMid, p2[1], C.A6);
     }
     // a slow airship-lantern and its string of small ones
     const ax = Math.round(520 - ((tt * 5 + 150) % 620)), ay = 70 + Math.round(Math.sin(tt * 0.5) * 2);

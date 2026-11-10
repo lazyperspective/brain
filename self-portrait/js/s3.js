@@ -173,10 +173,10 @@
       if (q[2]) return;
       if (p.miss && p.miss(q[0], q[1], r)) { const a = r.r(0, 6.28), d = r.r(6, 22); q[0] += Math.cos(a) * d; q[1] += Math.sin(a) * d; q[2] = 1; }
     });
-    return pts.map(q => [Math.round(FC.x + q[0] * 1.18), Math.round(FC.y + q[1] * 1.18), q[2]]);
+    return pts.map(q => [Math.round(FC.x + q[0] * TL.faceScale), Math.round(FC.y + 2 * (TL.faceScale - 1.18) * 20 + q[1] * TL.faceScale), q[2]]);
   }
   function buildFaces() {
-    faces = [
+    const all = [
       face({ a: 20, b: 23, jaw: 0.22, ex: 8, ey: 1, er: 4, eo: 3, nl: 5, mw: 5, my: 13, mc: 2, hair: 'cap', sh: 16, miss: (x, y, r) => r() < 0.12 }, 11),          // a child
       face({ a: 21, b: 33, jaw: 0.5, ex: 8, ey: 6, er: 4, eo: 1, nl: 13, mw: 8, my: 21, mc: -1, hair: 'long', lines: true, sh: 26, bt: 2, miss: (x, y, r) => x > 6 && y > 4 && r() < 0.7 }, 12),   // someone old
       face({ a: 27, b: 28, jaw: 0.3, ex: 11, ey: 4, er: 5, eo: 2, nl: 9, mw: 11, my: 17, mc: 3, hair: 'curl', sh: 30, gl: 1, miss: (x, y, r) => y < -18 && x < 0 && r() < 0.6 }, 13),            // broad, laughing
@@ -184,16 +184,18 @@
       face({ a: 25, b: 30, jaw: 0.36, ex: 10, ey: 3, er: 5, eo: 1, nl: 10, mw: 9, my: 18, mc: -2, hair: 'none', lines: true, sh: 30, bt: -3, miss: (x, y, r) => y > 12 && r() < 0.55 }, 15),       // bald, stern, dissolving chin
       face({ a: 22, b: 27, jaw: 0.4, ex: 9, ey: 3, er: 4, eo: 2, nl: 8, mw: 7, my: 16, mc: 1, hair: 'long', sh: 24, miss: (x, y, r) => r() < 0.34 }, 16)                                         // nobody in particular
     ];
+    faces = TL.faceOrder.map(k => all[k]);
+    if (TL.name !== 'v1') faces[0] = face({ a: 26, b: 30, jaw: 0.34, ex: 10, ey: 5, er: 5, eo: 2, nl: 8, mw: 10, my: 13, mc: 3, hair: 'curl', sh: 30, gl: 1 }, 13);   // frame 0: fully arrived
   }
   function buildParts() {
     const r = P.rng(4242); parts = []; let i = 0;
     for (const [name, n] of GROUPS) for (let j = 0; j < n; j++, i++) {
       const rk = S2.pickRamp(r()), rp = P.RAMP[rk];
       let kind, c, c2;
-      if (name === 'out') { kind = 3; c = r.chance(0.35) ? C.A5 : C.A4; }
-      else if (name === 'eyeL' || name === 'eyeR') { kind = 1; c = j < 5 ? C.A7 : C.A5; }
-      else if (name === 'mouth') { kind = 1; c = C.A6; }
-      else if (name === 'nose' || name === 'browL' || name === 'browR') { kind = 1; c = C.A5; }
+      if (name === 'out') { kind = 3; c = TL.name === 'v1' ? (r.chance(0.35) ? C.A5 : C.A4) : (r.chance(0.4) ? C.A6 : C.A5); }
+      else if (name === 'eyeL' || name === 'eyeR') { kind = 1; c = j < 5 ? (TL.name === 'v1' ? C.A7 : C.A8) : (TL.name === 'v1' ? C.A5 : C.A6); }
+      else if (name === 'mouth') { kind = 1; c = TL.name === 'v1' ? C.A6 : C.A7; }
+      else if (name === 'nose' || name === 'browL' || name === 'browR') { kind = 1; c = TL.name === 'v1' ? C.A5 : C.A6; }
       else if (name === 'lines') { kind = 1; c = C.A3; }
       else if (name === 'hair') { kind = 3; c = rk === 'A' ? (r.chance(0.5) ? C.A3 : C.A4) : rp[3]; }
       else if (name === 'neck') { kind = 2; c = C.A3; }
@@ -209,23 +211,23 @@
     const wob = (amp) => [Math.round(Math.sin(t * 2.3 + p.ph) * amp), Math.round(Math.cos(t * 1.9 + p.ph2) * amp)];
     if (t < TL.faces[0]) {
       const a = P.ease(P.prog(t, TL.gather[0] + p.h * 0.5, TL.faces[0] - 0.1 + p.h2 * 0.1));
-      const sy = p.sy + (t - 15) * 9, f = faces[0][p.i], w = wob(1.5);
+      const sy = p.sy + (t - TL.gather[0] + 0.6) * 9, f = faces[0][p.i], w = wob(P.lerp(1.5, f[2] ? 2.5 : 1.2, a));
       const sw = Math.sin(a * Math.PI) * (p.h3 - 0.5) * 40;
       return [Math.round(P.lerp(p.sx, f[0], a) + sw) + w[0], Math.round(P.lerp(sy, f[1], a)) + w[1], a, f[2]];
     }
     if (t < TL.collapse[0]) {
-      const u = (t - TL.faces[0]) / FD, k = Math.min(5, Math.floor(u)), fr = u - k;
+      const u = (t - TL.faces[0]) / FD + TL.faceShift, k = Math.min(5, Math.floor(u)), fr = u - k;
       const B = faces[k][p.i], w = wob(B[2] ? 2.5 : 1.2);
       if (k === 0) return [B[0] + w[0], B[1] + w[1], 1, B[2]];
       const A = faces[k - 1][p.i];
       const a = P.smooth(P.prog(fr, p.h * 0.12, 0.42 + p.h * 0.12));
-      const sw = Math.sin(a * Math.PI) * (p.h3 - 0.5) * 16;
-      return [Math.round(P.lerp(A[0], B[0], a) + sw) + w[0], Math.round(P.lerp(A[1], B[1], a) - Math.sin(a * Math.PI) * 3) + w[1], 1, a > 0.5 ? B[2] : A[2]];
+      const sw = Math.sin(a * Math.PI) * (p.h3 - 0.5) * TL.swirl;
+      return [Math.round(P.lerp(A[0], B[0], a) + sw) + w[0], Math.round(P.lerp(A[1], B[1], a) - Math.sin(a * Math.PI) * (3 + (TL.swirl - 16) * (p.h2 - 0.3) * 0.8)) + w[1], 1, a > 0.5 ? B[2] : A[2]];
     }
     // collapse: a soft fall, lower pieces first
     const F = faces[5][p.i];
     const delay = p.h * 0.3 + P.sat((FC.y + 40 - F[1]) / 90) * 0.35;
-    const tt = Math.max(0, t - TL.collapse[0] - delay);
+    const tt = Math.max(0, (t - TL.collapse[0]) * 1.1 / (TL.collapse[1] - TL.collapse[0]) - delay);
     const x = F[0] + (F[0] - CX) * 0.35 * Math.min(tt, 0.9) + Math.sin(tt * 5 + p.ph) * 1.5 * Math.min(1, tt * 2);
     let y = F[1] + 95 * tt * tt + 6 * tt;
     const landed = y >= p.land;
@@ -233,7 +235,7 @@
     if (t < TL.lantern[0] || p.keep) return [Math.round(x), Math.round(y), 1, 0, landed];
     // rise into the lantern
     const lx = F[0] + (F[0] - CX) * 0.35 * 0.9;
-    const a = P.ease(P.prog(t, TL.lantern[0] + p.h2 * 0.45, TL.lantern[0] + 0.5 + p.h2 * 0.45));
+    const a = P.ease(P.prog((t - TL.lantern[0]) / (TL.lantern[1] - TL.lantern[0]), p.h2 * 0.45, 0.5 + p.h2 * 0.45));
     if (a >= 1) return null;
     if (a <= 0) return [Math.round(lx), p.land, 1, 0, true];
     const sw = Math.sin(a * Math.PI) * (p.h3 - 0.5) * 30;
@@ -251,7 +253,7 @@
     if (p.kind === 1) {
       if (loose) { P.px(b, x, y, C.A3); return; }
       if (p.name === 'lines') { P.px(b, x, y, p.c); P.px(b, x + 1, y, p.c); return; }
-      P.rect(b, x, y, 2, 2, p.c); P.px(b, x + 1, y + 1, p.c === C.A7 ? C.A5 : C.A4);
+      P.rect(b, x, y, 2, 2, p.c); P.px(b, x + 1, y + 1, p.c >= C.A7 ? C.A5 : C.A4);
     } else if (p.kind === 2) P.glyph(b, p.g2, x - 1, y - 1, loose ? C.A3 : p.c);
     else P.glyph(b, p.g3, x - 1, y - 2, loose ? L.dn1[p.c] : p.c);
   }
@@ -264,7 +266,7 @@
   function regress(b, t) {
     const n = 12, V2 = { x: 213, y: 78 };
     for (let i = n; i >= 1; i--) {
-      const a = P.prog(t, TL.regress[0] + (i - 1) * 0.1, TL.regress[0] + (i - 1) * 0.1 + 0.3);
+      const rs = (TL.regress[1] - TL.regress[0]) / 1.3, a = P.prog(t, TL.regress[0] + (i - 1) * 0.1 * rs, TL.regress[0] + ((i - 1) * 0.1 + 0.3) * rs);
       if (a <= 0) continue;
       const k = 1 - Math.pow(0.775, i), bend = Math.sin(k * Math.PI) * 7;
       const x = P.lerp(LPOS.x, V2.x, k) - bend * 0.6, y = P.lerp(LPOS.y, V2.y, k) - bend;
@@ -275,13 +277,13 @@
   }
   function render(b, t) {
     init();
-    const u = 1.22 + (t - TL.s23[0]) * 0.016;
+    const u = 1.22 + (t - TL.s23[0]) * TL.s3rate;
     S2.render(b, t, { u, noNear: true, dimLayers: true, moonDx: 44, moonDy: -4 });
     P.layer(b, mirRef, 0, 0);
     // glass
     P.layer(b, glass, 0, 0);
     if (t >= TL.regress[0]) regress(b, t);
-    const lit = P.prog(t, TL.lantern[0] + 0.35, TL.lantern[1]);
+    const lit = P.prog(t, P.lerp(TL.lantern[0], TL.lantern[1], 0.35), TL.lantern[1]);
     const lp = lanternPos(t);
     P.layer(b, mir, 0, 0);
     // light of the lantern on the frame and the floor (bands)

@@ -11,7 +11,9 @@
     '011100010001110', '111010010010010', '101101101101111', '101101101101010', '101101111111101', '101101010101101',
     '101101010010010', '111001010100111', '010110010010111', '111001111100111', '111001111001111', '101101111001001',
     '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111', '010010010010010',
-    '111101111101101', '100100100100100', '001001001001001', '111100100100100', '111001001001111', '111100100100111'];
+    '111101111101101', '100100100100100', '001001001001001', '111100100100100', '111001001001111', '111100100100111',
+    '111101111100100', '111101111001001', '100100111101111', '001001111101111', '111101110101101', '001001001101111', '111100101101111', '100100111101101',
+    '111101101101101', '101101101111010', '111101111101000', '000111101101111', '000111100100111', '111100111100100', '111100111100111', '101101111101000'];
   const BL = new Set(LATIN35);
   LATIN35.forEach(s => { let m = ''; for (let y = 0; y < 5; y++) m += s.substr(y * 3, 3).split('').reverse().join(''); BL.add(m); });
 
@@ -127,6 +129,35 @@
     return b;
   }
 
+  // lookalike filter for the larger sets:
+  //  (a) reduce to 3x5 three ways and compare with the Latin/digit pixel font (and its mirror);
+  //  (b) reject "stems + plain bars" constructions (E F L T H I, gamma-like) and plain box outlines (O C U D 0).
+  function latinish(b, w, h) {
+    const X = w - 1, Y = h - 1, cs = [[0], [], [X]], rs = [[0], [], [], [], [Y]];
+    for (let x = 1; x < X; x++) cs[1].push(x);
+    const q = Math.floor((h - 2) / 3);
+    for (let y = 1; y < Y; y++) rs[y - 1 < q ? 1 : y - 1 < h - 2 - q ? 2 : 3].push(y);
+    const mk3 = (mode) => { let k = ''; for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) { let n = 0, tot = 0; for (const y of rs[r]) for (const x of cs[c]) { n += b[y * w + x]; tot++; } k += (mode === 0 ? n > 0 : mode === 1 ? n * 2 >= tot : n === tot) ? '1' : '0'; } return k; };
+    for (let m = 0; m < 3; m++) if (BL.has(mk3(m))) return true;
+    // stems + bars
+    const full = []; for (let x = 0; x < w; x++) { let n = 0; for (let y = 0; y < h; y++) n += b[y * w + x]; if (n >= h - 1) full.push(x); }
+    if (full.length >= 1 && full.length <= 2) {
+      let ok = true, bars = 0;
+      for (let y = 0; y < h && ok; y++) {
+        let run = 0, any = false, x = 0;
+        const row = []; for (x = 0; x < w; x++) row.push(b[y * w + x] && full.indexOf(x) < 0 ? 1 : 0);
+        for (x = 0; x < w; x++) if (row[x]) { any = true; if (!((x > 0 && (row[x - 1] || full.indexOf(x - 1) >= 0)) || (x < X && (row[x + 1] || full.indexOf(x + 1) >= 0)))) ok = false; }
+        if (any) { bars++; for (x = 0; x < w; x++) if (row[x]) run++; if (run < 2 && full.length === 1) { /* a lone tick next to the stem still reads as a serif */ } }
+      }
+      if (ok && bars <= 3) return true;
+    }
+    // box outline only
+    let x0 = w, x1 = -1, y0 = h, y1 = -1, inner = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (b[y * w + x]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    for (let y = y0 + 1; y < y1; y++) for (let x = x0 + 1; x < x1; x++) inner += b[y * w + x];
+    if (inner === 0) return true;
+    return false;
+  }
   function make(w, h, perFam, seed) {
     const r = P.rng(seed), out = [], seen = new Set();
     for (let fam = 0; fam < 8; fam++) {
@@ -137,6 +168,7 @@
         if (n < w * h * 0.26 || n > w * h * 0.62) continue;
         if (seen.has(key)) continue;
         if (w === 3 && h === 5 && BL.has(key)) continue;
+        if (w > 3 && latinish(b, w, h)) continue;
         // need ink in at least 3 of 4 quadrant-ish rows/cols so nothing reads as a bare bar
         let cols = 0, rows = 0;
         for (let x = 0; x < w; x++) { let c = 0; for (let y = 0; y < h; y++) c += b[y * w + x]; if (c) cols++; }

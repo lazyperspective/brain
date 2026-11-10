@@ -1,4 +1,5 @@
-// sound.js — original soundtrack, synthesized from the film's timeline (48 kHz stereo, loopable).
+// sound.js — soundtrack for the 24 s cut (v2), synthesized from the film's timeline (48 kHz stereo, loopable).
+// (sound_v1.js is the score of the original 46 s cut.)
 // node sound.js out.wav [gainDb]
 // Hum + soft key ticks + a small chiptune-meets-pad score. Everything is rendered on a
 // circular buffer (events and reverb tails wrap), so the file loops without a seam.
@@ -92,96 +93,102 @@ const cyc = f => Math.round(f * D) / D;
 for (let i = 0; i < N; i++) {
   const t = i / SR;
   const swell = 0.75 + 0.25 * Math.sin(2 * Math.PI * (3 / D) * t - 1.2);
-  const h = (Math.sin(2 * Math.PI * cyc(55) * t) * 0.5 + Math.sin(2 * Math.PI * cyc(110.3) * t) * 0.22 + Math.sin(2 * Math.PI * cyc(164.9) * t) * 0.07 * (1 + Math.sin(2 * Math.PI * (5 / D) * t))) * swell * 0.085;
+  const h = (Math.sin(2 * Math.PI * cyc(55) * t) * 0.5 + Math.sin(2 * Math.PI * cyc(110.3) * t) * 0.22 + Math.sin(2 * Math.PI * cyc(164.9) * t) * 0.07 * (1 + Math.sin(2 * Math.PI * (5 / D) * t))) * swell * 0.045;
   Ld[i] += h * (1 + 0.1 * Math.sin(2 * Math.PI * (7 / D) * t)); Rd[i] += h * (1 - 0.1 * Math.sin(2 * Math.PI * (7 / D) * t));
 }
 
-// --- score -------------------------------------------------------------------------------------
+// --- score (film time; F(lin) converts a linear timeline cue to film seconds) -------------------
+const F = TL.film;
 const NOTE = { C: 0, 'C#': 1, D: 2, Eb: 3, E: 4, F: 5, 'F#': 6, G: 7, Ab: 8, A: 9, Bb: 10, B: 11 };
 const n = (s) => { const m = s.match(/^([A-G][b#]?)(\d)$/); return 12 * (+m[2] + 1) + NOTE[m[1]]; };
-const HOME = n('A5');   // the one note: the cursor's voice
-// 1. cursor: one soft ping per blink (the blink-on moments), a real key at the keystroke
-const blinkOns = []; for (let k = 0; k < D + 1; k++) { const t = k - 0.1; if (t >= -0.2) blinkOns.push(t); }
-blinkOns.forEach(t => {
-  const tt = ((t % D) + D) % D;
-  if (tt < TL.key - 0.4) { ping(tt, HOME, 0.28, 0.045, 0, 0.8); tick(tt, 0.02, 0, 0.7); }
-  if (tt >= TL.curOn - 0.05) { ping(tt, HOME, 0.28, 0.045, 0, 0.8); tick(tt, 0.02, 0, 0.7); }
-});
-tick(TL.key, 0.22, 0, 1); thud(TL.key + 0.004, 0.12);
-// the slit of light: a rising fifth, then the door opens on the first chord
-ping(TL.slit[0], n('D5'), 0.5, 0.05, -0.2); ping(TL.slit[0] + 0.3, n('A5'), 0.6, 0.05, 0.2); ping(TL.part[0], n('D6'), 0.9, 0.04, 0);
+const HOME = n('A5');
+const STEP = 0.25;
+const chord = (t0, notes, vol, spread, duty, cut) => notes.forEach((p, j) => pluck(t0 + j * spread, n(p), 0.42, vol, j % 2 ? 0.5 : -0.5, duty || 0.25, 0.6, cut || 2400));
 
-const STEP = 0.3125;
-// chord book: [start, dur, bass, pad notes, arp notes]
-const LIB = [
-  [5.2, 2.5, 'D2', ['D3', 'A3', 'F4', 'E4'], ['D4', 'A4', 'E5', 'F5', 'A5', 'F5', 'E5', 'A4']],
-  [7.7, 2.5, 'Bb1', ['Bb2', 'F3', 'D4', 'A4'], ['Bb3', 'F4', 'A4', 'D5', 'F5', 'D5', 'A4', 'F4']],
-  [10.2, 2.5, 'F2', ['F3', 'C4', 'A4', 'G4'], ['F4', 'A4', 'C5', 'G5', 'A5', 'G5', 'C5', 'A4']],
-  [12.7, 2.5, 'C2', ['C3', 'G3', 'E4', 'D4'], ['C4', 'G4', 'D5', 'E5', 'G5', 'E5', 'D5', 'G4']]
-];
-LIB.forEach(([t0, dur, bass, pn, an], ci) => {
-  pn.forEach((p, k) => pad(t0 - 0.3, n(p), dur + 0.2, 0.07, (k - 1.5) * 0.3, { cut: 620 + ci * 60 }));
-  an.forEach((p, k) => pluck(t0 + k * STEP, n(p), 0.5, 0.04 + 0.012 * Math.min(ci, 2), k % 2 ? 0.45 : -0.45, 0.25, 0.55, 2200));
-  // glyph-snow: tiny high chimes, off the grid
-  for (let k = 0; k < 3; k++) ping(t0 + rnd() * dur, n(an[Math.floor(rnd() * an.length)]) + 12, 0.25, 0.012, rnd() * 1.6 - 0.8, 1);
-});
-// the moon turns a page: a soft paper swish and a spill of chimes
-(function swish(t0, dur, vol) {
-  const n = Math.round(dur * SR), i0 = Math.round(t0 * SR); let lp = 0, hp = 0;
-  for (let i = 0; i < n; i++) { const tt = i / n, x = rnd() * 2 - 1; lp += 0.35 * (x - lp); hp += 0.02 * (lp - hp); const env = Math.sin(Math.PI * tt) ** 2 * vol, v = (lp - hp) * env; add(i0 + i, v * (1 - tt * 0.6), v * (0.4 + tt * 0.6), 0.5); }
-})(9.2, 1.0, 0.05);
-for (let k = 0; k < 9; k++) ping(9.55 + k * 0.11 + rnd() * 0.04, n(['A5', 'G5', 'E5', 'D5', 'C5', 'A5', 'F5', 'D5', 'A4'][k]) + 12, 0.3, 0.02, rnd() * 1.4 - 0.7, 1);
-// 3. the mirror: the harmony cannot decide; pitch wavers; each new face is a broken chord
+// 0.0 — THE HOOK: the first face lands on a full D-minor-9 strike (this is also where the library run resolves)
+tri(0, n('D2'), 0.9, 0.12); tri(0, n('D3'), 0.5, 0.05);
+chord(0, ['D4', 'A4', 'F5', 'E5', 'A5'], 0.075, 0.012, 0.25, 3200);
+ping(0, n('A5'), 0.7, 0.07, 0.15, 0.7); ping(0.01, n('D6'), 0.6, 0.045, -0.15, 0.8);
+['D3', 'A3', 'F4', 'E4'].forEach((p, k) => pad(-0.12, n(p), 0.75, 0.07, (k - 1.5) * 0.3, { atk: 0.1, rel: 0.5, cut: 900, waver: 0.003 }));
+tick(0, 0.05, 0, 0.8);
+// faces: an accent on every new face, harmony that cannot decide, pitch wavering more each time
 const FACE = [
   ['G2', ['G3', 'D4', 'A4', 'Bb4']], ['A2', ['A3', 'E4', 'G4', 'D5']], ['Bb2', ['Bb3', 'F4', 'A4', 'E5']],
-  ['E2', ['E3', 'Bb3', 'D4', 'G4']], ['F2', ['F3', 'C4', 'Eb4', 'A4']], ['A2', ['A3', 'E4', 'G4', 'C#5']]
+  ['E2', ['E3', 'Bb3', 'D4', 'G4']], ['A2', ['A3', 'E4', 'G4', 'C#5']]
 ];
-pad(15.0, n('D3'), 2.1, 0.06, 0, { cut: 560, waver: 0.004 }); pad(15.0, n('A3'), 2.1, 0.05, 0.3, { cut: 560, waver: 0.004 }); pad(15.0, n('E4'), 2.1, 0.04, -0.3, { cut: 560, waver: 0.005 });
-for (let k = 0; k < 6; k++) pluck(15.3 + k * STEP, n(['D4', 'E4', 'A4', 'D5', 'E5', 'A5'][k]), 0.4, 0.03, k % 2 ? 0.4 : -0.4, 0.125, 0.7, 1800);
-const FDUR = (TL.faces[1] - TL.faces[0]) / 6;
 FACE.forEach(([bass, pn], k) => {
-  const t0 = TL.faces[0] + k * FDUR;
-  pn.forEach((p, j) => pad(t0 - 0.15, n(p), FDUR - 0.1, 0.06, (j - 1.5) * 0.35, { atk: 0.35, rel: 0.7, cut: 600, waver: 0.006 + k * 0.0015, wrate: 3.6 + j * 0.5 }));
-  pn.forEach((p, j) => pluck(t0 + 0.02 + j * 0.09, n(p) + 12, 0.35, 0.034, j % 2 ? 0.5 : -0.5, 0.125, 0.7, 2000));
-  if (k % 2) pluck(t0 + FDUR * 0.62, n(pn[2]) + 12, 0.3, 0.02, 0, 0.125, 0.8, 1600);
+  const t0 = 0.5 * (k + 1);
+  tri(t0, n(bass), 0.4, 0.085);
+  pn.forEach((p, j) => pad(t0 - 0.06, n(p), 0.42, 0.07, (j - 1.5) * 0.35, { atk: 0.08, rel: 0.35, cut: 760, waver: 0.006 + k * 0.002, wrate: 4 + j * 0.6 }));
+  chord(t0, pn.map(p => p.replace(/\d/, d => String(+d + 1))), 0.05, 0.035, 0.125, 2600);
+  pluck(t0 + 0.25, n(pn[3]) + 12, 0.2, 0.026, k % 2 ? 0.6 : -0.6, 0.125, 0.8, 2000);            // the swarm between faces
+  pluck(t0 + 0.375, n(pn[1]) + 12, 0.2, 0.02, k % 2 ? -0.6 : 0.6, 0.125, 0.8, 1800);
 });
+pluck(0.25, n('E5'), 0.2, 0.026, 0.5, 0.125, 0.8, 2000); pluck(0.375, n('F5'), 0.2, 0.022, -0.5, 0.125, 0.8, 1800);
 // collapse: the notes fall
-['A5', 'G5', 'E5', 'D5', 'C5', 'A4', 'G4', 'E4', 'D4', 'A3'].forEach((p, k) => pluck(TL.collapse[0] + 0.05 + k * 0.1, n(p), 0.3, 0.032 - k * 0.0015, (k % 3 - 1) * 0.5, 0.125, 0.8, 1700 - k * 60));
-pad(TL.collapse[0], n('D2'), 1.4, 0.07, 0, { atk: 0.5, rel: 1.0, cut: 380 });
-// the lantern: one warm tone and its fifth, then the reflections answer, receding
-pad(TL.lantern[0] + 0.2, n('D3'), 2.4, 0.075, 0, { atk: 0.9, rel: 1.2, cut: 760 }); pad(TL.lantern[0] + 0.2, n('A3'), 2.4, 0.06, 0.2, { atk: 1.0, rel: 1.2, cut: 760 }); pad(TL.lantern[0] + 0.5, n('F#4'), 2.1, 0.05, -0.2, { atk: 1.0, rel: 1.2, cut: 820 });
-ping(TL.lantern[0] + 0.55, n('A4'), 0.9, 0.07, 0, 0.7);
-for (let k = 0; k < 11; k++) ping(TL.regress[0] + k * 0.105, n('A5') + [0, 2, 5, 7, 9, 12, 14, 17, 19, 21, 24][k] - 12, 0.3, 0.035 * Math.pow(0.86, k), (k % 2 ? 1 : -1) * Math.min(0.8, 0.1 * k), 0.9);
-// 4. the city blooms
+const c0 = F(TL.collapse[0]), cd = TL.collapse[1] - TL.collapse[0];
+['A5', 'G5', 'E5', 'D5', 'C5', 'A4', 'G4', 'E4', 'D4', 'A3'].forEach((p, k) => pluck(c0 + 0.03 + k * cd / 11, n(p), 0.26, 0.04 - k * 0.002, (k % 3 - 1) * 0.5, 0.125, 0.8, 1900 - k * 70));
+pad(c0, n('D2'), cd + 0.2, 0.09, 0, { atk: 0.3, rel: 0.8, cut: 400 });
+// the lantern: one warm tone and its fifth; then the reflections answer, receding
+const l0 = F(TL.lantern[0]);
+pad(l0 + 0.1, n('D3'), 1.7, 0.09, 0, { atk: 0.5, rel: 0.9, cut: 800 }); pad(l0 + 0.1, n('A3'), 1.7, 0.075, 0.2, { atk: 0.55, rel: 0.9, cut: 800 }); pad(l0 + 0.25, n('F#4'), 1.5, 0.06, -0.2, { atk: 0.55, rel: 0.9, cut: 860 });
+ping(l0 + 0.3, n('A4'), 0.8, 0.08, 0, 0.7);
+const r0 = F(TL.regress[0]), rd = TL.regress[1] - TL.regress[0];
+for (let k = 0; k < 12; k++) ping(r0 + k * rd / 13, n('A4') + [0, 2, 5, 7, 9, 12, 14, 17, 19, 21, 24, 26][k], 0.26, 0.042 * Math.pow(0.88, k), (k % 2 ? 1 : -1) * Math.min(0.8, 0.1 * k), 0.9);
+// a swell into the city, then the bloom on the bar line at 6.0
+['Bb2', 'F3', 'C4', 'D4'].forEach((p, k) => pad(F(TL.glassCity[0]), n(p), 6.0 - F(TL.glassCity[0]), 0.05, (k - 1.5) * 0.3, { atk: 0.8, rel: 0.3, cut: 700 }));
 const CITY = [
-  [26.0, 'Bb1', ['Bb2', 'F3', 'D4', 'A4', 'C5'], ['Bb3', 'D4', 'F4', 'A4', 'C5', 'D5', 'F5', 'A5']],
-  [28.5, 'F1', ['F2', 'C3', 'A3', 'E4', 'G4'], ['F3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5', 'E5']],
-  [31.0, 'C2', ['C3', 'G3', 'E4', 'D4', 'G4'], ['C4', 'E4', 'G4', 'D5', 'E5', 'G5', 'D5', 'G4']],
-  [33.5, 'D2', ['D3', 'A3', 'F4', 'E4', 'A4'], ['D4', 'F4', 'A4', 'E5', 'F5', 'A5', 'E5', 'A4']],
-  [36.0, 'Bb1', ['Bb2', 'F3', 'D4', 'A4'], ['Bb3', 'F4', 'A4', 'D5', 'F5', 'D5', 'A4', 'F4']],
-  [38.5, 'C2', ['C3', 'G3', 'E4', 'D4'], ['C4', 'G4', 'D5', 'E5', 'G5', 'E5', 'D5', 'G4']]
+  [6.0, 'Bb1', ['Bb2', 'F3', 'D4', 'A4', 'C5'], ['Bb3', 'D4', 'F4', 'A4', 'C5', 'D5', 'F5', 'A5']],
+  [8.0, 'F1', ['F2', 'C3', 'A3', 'E4', 'G4'], ['F3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5', 'E5']],
+  [10.0, 'C2', ['C3', 'G3', 'E4', 'D4', 'G4'], ['C4', 'E4', 'G4', 'D5', 'E5', 'G5', 'D5', 'G4']],
+  [12.0, 'D2', ['D3', 'A3', 'F4', 'E4', 'A4'], ['D4', 'F4', 'A4', 'E5', 'F5', 'A5', 'E5', 'A4']],
+  [14.0, 'Bb1', ['Bb2', 'F3', 'D4', 'A4'], ['Bb3', 'F4', 'A4', 'D5', 'F5', 'D5', 'A4', 'F4']]
 ];
+const tClose = F(TL.lapClose);
 CITY.forEach(([t0, bass, pn, an], ci) => {
-  const wide = ci < 2, vol = ci < 2 ? 1 : ci < 4 ? 0.8 : ci === 4 ? 0.62 : 0.42;
-  pn.forEach((p, k) => pad(t0 - 0.35, n(p), 2.7, 0.07 * vol, (k - 2) * 0.28, { cut: wide ? 1100 : 800, atk: ci === 0 ? 1.0 : 0.6 }));
-  tri(t0, n(bass) + 12, 2.3, 0.09 * vol); if (wide) tri(t0 + 1.25, n(bass) + 19, 1.0, 0.05);
+  const wide = ci < 1, vol = ci === 0 ? 1 : ci < 4 ? 0.82 : 0.6;
+  pn.forEach((p, k) => pad(t0 - 0.2, n(p), 2.0, 0.075 * vol, (k - 2) * 0.28, { cut: wide ? 1200 : 850, atk: 0.3, rel: 0.7 }));
+  tri(t0, n(bass) + 12, 1.8, 0.1 * vol); if (ci < 2) tri(t0 + 1.0, n(bass) + 19, 0.8, 0.055);
   an.forEach((p, k) => {
-    if (ci === 5 && k > 4) return;                               // the arpeggio starts to leave
-    pluck(t0 + k * STEP, n(p), 0.5, 0.05 * vol, k % 2 ? 0.5 : -0.5, 0.25, 0.5, wide ? 3000 : 2300);
-    if (wide) pluck(t0 + k * STEP + STEP / 2, n(p) + 12, 0.3, 0.022, k % 2 ? -0.6 : 0.6, 0.125, 0.7, 3200);
+    const tt = t0 + k * STEP; if (tt > tClose - 0.3) return;
+    pluck(tt, n(p), 0.4, 0.055 * vol, k % 2 ? 0.5 : -0.5, 0.25, 0.5, wide ? 3200 : 2400);
+    if (ci < 2) pluck(tt + STEP / 2, n(p) + 12, 0.24, 0.024, k % 2 ? -0.6 : 0.6, 0.125, 0.7, 3200);
   });
-  // a small tune over the top (triangle-ish ping), one phrase per chord
-  const mel = [['A5', 0], ['C6', 0.625], ['D6', 0.9375], ['F5', 1.5625]][ci % 4];
-  if (ci < 5) { ping(t0 + 0.02, n(an[4]) + 12, 0.5, 0.03 * vol, 0.1); ping(t0 + 1.27, n(an[2]) + 12, 0.45, 0.024 * vol, -0.1); }
+  if (ci < 4) { ping(t0 + 0.01, n(an[4]) + 12, 0.45, 0.034 * vol, 0.1); ping(t0 + 1.0, n(an[2]) + 12, 0.4, 0.026 * vol, -0.1); }
 });
-// rooms: typing in room 1 and room 5 (very soft), pencil, pen
-for (let t = TL.pan0 + 0.1; t < TL.pan0 + TL.rest; t += 0.125) if (rnd() < 0.7) tick(t + rnd() * 0.03, 0.016, 0.3, 1.2);
-for (let t = TL.arrive5 + 0.1; t < TL.lapClose - 0.5; t += 0.11) if (rnd() < 0.75) tick(t + rnd() * 0.03, 0.02, 0.1, 1.1);
-thud(TL.lapClose + 0.1, 0.1);                                    // the laptop closes
-// 5. thinning to one note
-pad(40.9, n('D3'), 1.6, 0.05, 0, { atk: 0.4, rel: 1.6, cut: 520 }); pad(40.9, n('A3'), 1.6, 0.04, 0, { atk: 0.4, rel: 1.6, cut: 520 });
-ping(TL.dim[0], n('A4'), 1.4, 0.05, 0, 0.8); ping(TL.dim[0] + 0.6, n('E5'), 1.2, 0.035, 0.2, 0.8);
-ping(TL.dim[1] - 0.1, HOME, 1.6, 0.04, 0, 0.9);                   // the last note is the cursor's note
+chord(6.0, ['Bb4', 'D5', 'F5', 'A5', 'C6'], 0.05, 0.03, 0.25, 3400); ping(6.0, n('D6'), 0.8, 0.05, 0, 0.8);
+// rooms: soft typing in the first room and the last; the laptop closes
+for (let t = F(TL.pan0) + 0.05; t < F(TL.pan0) + TL.rest; t += 0.11) if (rnd() < 0.7) tick(t + rnd() * 0.03, 0.016, 0.3, 1.2);
+for (let t = F(TL.arrive5) - 0.2; t < tClose - 0.45; t += 0.1) if (rnd() < 0.8) tick(t + rnd() * 0.03, 0.02, 0.1, 1.1);
+thud(tClose + 0.08, 0.11);
+// lights out: thin to one note
+const d0 = F(TL.dim[0]), d1 = F(TL.dim[1]);
+pad(tClose, n('C3'), d1 - tClose - 0.2, 0.055, 0, { atk: 0.3, rel: 1.0, cut: 520 }); pad(tClose, n('G3'), d1 - tClose - 0.2, 0.045, 0.2, { atk: 0.3, rel: 1.0, cut: 520 }); pad(tClose + 0.2, n('D4'), d1 - tClose - 0.5, 0.035, -0.2, { atk: 0.3, rel: 1.0, cut: 520 });
+ping(d0, n('E5'), 1.0, 0.045, 0.2, 0.8); ping(d0 + 0.45, n('A4'), 1.1, 0.05, -0.1, 0.8);
+ping(d1, HOME, 1.3, 0.05, 0, 0.9);                       // the one note
+// the cursor: a ping on each blink-on; a real key; the slit; the door
+const cur = F(TL.curOn);
+[0, 0.7, 1.4].forEach(dt => { ping(cur + dt, HOME, 0.25, 0.05, 0, 0.8); tick(cur + dt, 0.022, 0, 0.7); });
+const key = F(TL.key);
+tick(key, 0.24, 0, 1); thud(key + 0.004, 0.13);
+ping(F(TL.slit[0]), n('A4'), 0.4, 0.05, -0.2); ping(F(TL.slit[0]) + 0.2, n('E5'), 0.4, 0.05, 0.2); ping(F(TL.part[0]), n('A5'), 0.6, 0.05, 0);
+// the library: a rising run over a dominant pedal that resolves exactly at the loop point
+const lib0 = F(TL.door[0]) + 0.25, libN = 24 - lib0;
+const SCALE = ['A2', 'C#3', 'E3', 'G3', 'A3', 'Bb3', 'C#4', 'D4', 'E4', 'G4', 'A4', 'Bb4', 'C#5', 'D5', 'E5', 'G5', 'A5', 'Bb5', 'C#6', 'E6'];
+const steps = Math.floor(libN / 0.125);
+for (let k = 0; k < steps; k++) {
+  const f = k / (steps - 1), idx = Math.min(SCALE.length - 1, Math.floor(Math.pow(f, 0.9) * (SCALE.length - 4)) + (k % 3 === 2 ? 2 : k % 3));
+  pluck(24 - (steps - k) * 0.125, n(SCALE[idx]), 0.2 + 0.15 * (1 - f), 0.022 + 0.04 * f * f, k % 2 ? 0.5 : -0.5, k % 4 === 0 ? 0.25 : 0.125, 0.6, 1600 + 1800 * f);
+}
+['A2', 'E3', 'G3', 'D4', 'C#4'].forEach((p, k) => pad(lib0, n(p), libN - 0.25, 0.03 + 0.012 * k, (k - 2) * 0.3, { atk: libN * 0.85, rel: 0.2, cut: 900, waver: k === 4 ? 0.004 : 0 }));
+for (let k = 0; k < 4; k++) tri(24 - 2.0 + k * 0.5, n('A1') + 12, 0.42, 0.05 + 0.02 * k);
+// the moon turns a page: a soft paper swish and a spill of chimes; chimes thicken as the glyphs gather
+(function swish(t0, dur, vol) {
+  const nn = Math.round(dur * SR), i0 = Math.round(t0 * SR); let lp = 0, hp = 0;
+  for (let i = 0; i < nn; i++) { const tt = i / nn, x = rnd() * 2 - 1; lp += 0.35 * (x - lp); hp += 0.02 * (lp - hp); const env = Math.sin(Math.PI * tt) ** 2 * vol, v = (lp - hp) * env; add(i0 + i, v * (1 - tt * 0.6), v * (0.4 + tt * 0.6), 0.5); }
+})(F(TL.turn[0]), TL.turn[1] - TL.turn[0], 0.06);
+for (let k = 0; k < 7; k++) ping(F(TL.turn[0]) + 0.3 + k * 0.09 + rnd() * 0.03, n(['A5', 'G5', 'E5', 'D5', 'C#5', 'A5', 'E5'][k]) + 12, 0.25, 0.02, rnd() * 1.4 - 0.7, 1);
+for (let k = 0; k < 14; k++) { const f = k / 13; ping(F(TL.gather[0]) + Math.pow(f, 0.7) * (TL.gather[1] - TL.gather[0] - 0.08), n(['E5', 'A5', 'C#6', 'E6'][k % 4]) + (k > 9 ? 12 : 0), 0.18, 0.012 + 0.016 * f, (k % 2 ? 1 : -1) * 0.6, 1); }
 
 // --- reverb (4 combs + 2 all-passes per side), run twice around the loop so tails wrap ----------
 function reverb(inp, delays, apd) {
@@ -205,7 +212,7 @@ const revL = reverb(Lw, [1687, 1931, 2053, 2251], [347, 113]), revR = reverb(Rw,
 const gainDb = parseFloat(process.argv[3] || '0'), gain = Math.pow(10, gainDb / 20);
 const out = Buffer.alloc(44 + N * 4);
 let peak = 0;
-const soft = x => Math.tanh(x * 1.0);     // gentle saturation as a safety limiter
+const soft = x => 0.84 * Math.tanh(x / 0.84);     // gentle saturation as a safety limiter (ceiling about -1.5 dBFS)
 for (let i = 0; i < N; i++) {
   const l = soft((Ld[i] + revL[i] * 0.9) * gain), r = soft((Rd[i] + revR[i] * 0.9) * gain);
   peak = Math.max(peak, Math.abs(l), Math.abs(r));

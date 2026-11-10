@@ -1,49 +1,60 @@
-SELF-PORTRAIT — verification  (2026-11-10)
-frames: 1380 @ 30 fps = 46.000 s, native 480x270, x4 nearest -> 1920x1080
+SELF-PORTRAIT — verification, cut v2 (24 s, cold open on the mirror)  (2026-11-10)
+frames: 720 @ 30 fps = 24.000 s, native 480x270, x4 nearest -> 1920x1080
 
-[PASS] determinism: two independent renders, per-frame SHA-1 identical — 1380/1380 frames identical
+[PASS] determinism: two independent renders, per-frame SHA-1 identical — 720/720 frames identical
 
-SEAM (raw frames)
-[PASS] last frame equals first frame (raw) — sha 719aa2db6746 vs 719aa2db6746
-  mean |dY| per step, last 6 steps before seam: 0.00000 0.00000 0.00000 0.00025 0.00000 0.00000
-  step across the seam (frame 1379 -> frame 0): 0.00000 (identical frames)
-  first 6 steps after seam: 0.00000 0.00000 0.00000 0.00000 0.00000 0.00000
-[PASS] step across the seam is ordinary (not larger than neighbouring steps) — seam step 0; largest step within 1 s either side 0.01759 (the cursor blink)
+SEAM (raw frames) — the film now loops through a moving shot, so the test is continuity, not identity
+  renderAt(D) === renderAt(0) by construction (time is taken modulo D; all scene clocks are continuous through the loop point)
+  mean |dY| per step, last 8 steps before the seam: 0.00822 0.00816 0.00754 0.02323 0.00719 0.00539 0.00400 0.00225
+  step across the seam (frame 719 -> frame 0): 0.00148
+  first 8 steps after the seam: 0.00176 0.00123 0.00159 0.00148 0.00144 0.01755 0.00163 0.00195
+[PASS] step across the seam is ordinary (not larger than the largest neighbouring step x1.5) — seam 0.00148 vs neighbours max 0.02323
 
 SEAM (encoded H.264, decoded back)
-[PASS] encoded last frame equals first frame — mean |dY| = 0.000000 (0..1 scale)
-  2-loop file, steps around the seam (frames 1377..1382): 0.000000 0.000000 0.000000 0.000000 0.000000
-[PASS] encoded step across the seam is ordinary — seam step 0.000000
-  stream|codec_name=h264|profile=High|width=1920|height=1080|pix_fmt=yuv420p|r_frame_rate=30/1|bit_rate=1280451|nb_frames=1380
-  stream|codec_name=aac|profile=LC|sample_rate=48000|channels=2|r_frame_rate=0/0|bit_rate=256035|nb_frames=2158
-[PASS] exactly one loop in the deliverable — 1380 frames
+  2-loop file, steps around the seam (frames 717..722): 0.004093 0.002398 0.001712 0.001837 0.001296
+[PASS] encoded step across the seam is ordinary — seam step 0.001712
+  stream|codec_name=h264|profile=High|width=1920|height=1080|pix_fmt=yuv420p|r_frame_rate=30/1|bit_rate=1821680|nb_frames=720
+  stream|codec_name=aac|profile=LC|sample_rate=48000|channels=2|r_frame_rate=0/0|bit_rate=257475|nb_frames=1126
+[PASS] exactly one loop in the deliverable — 720 frames
 
 FLASH CHECK (large-area luminance steps: >=10% relative-luminance change over >=20% of the frame)
-  largest single-frame area brightening by >=10%: 12.24% of frame (frame 1185, t=39.50s); darkening: 12.85%
+  largest single-frame area brightening by >=10%: 10.07% of frame (frame 605, t=20.17s); darkening: 9.66%
   large-area luminance steps in whole film: 0
 [PASS] at most 3 large-area flashes in any one second — max 0 in any 1 s window
-  largest swing of whole-frame mean luminance inside any 1 s: 12.47%
-[PASS] face flicker (17.2-22.4 s) is small-area and soft — inside the mirror glass, max area changing >=10% luminance in one frame: 1.27% of the frame
+  largest swing of whole-frame mean luminance inside any 1 s: 12.57%
+  faces + collapse (0.00-3.90 s): largest whole-frame area changing >=10% luminance in one frame: 8.25%
+[PASS] face morphs are small-area and soft — inside the mirror glass, max area changing >=10% luminance in one frame: 1.36% of the frame
 
 POP CHECK (single-frame discontinuities)
   one-frame excursions (frame jumps and returns): 0
-  six largest steps: t=39.33s 0.0642, t=39.40s 0.0638, t=39.37s 0.0635, t=39.43s 0.0630, t=39.47s 0.0624, t=37.43s 0.0617
-  (the largest steps are the whip-pans between rooms and the 1 px parallax steps of whole layers: motion, not pops)
+  six largest steps: t=14.33s 0.0537, t=14.37s 0.0535, t=14.53s 0.0534, t=14.50s 0.0534, t=14.40s 0.0534, t=14.47s 0.0534
+  (the largest steps are the eased pans between rooms: motion, not pops)
 [PASS] no pops
-[PASS] no frozen stretches inside the scenes (animation on 2s/3s at most) — longest run of identical frames between 5.5 s and 43 s: 1 frames
+[PASS] no frozen stretches in the scenes (animation on 2s/3s at most) — longest run of identical frames outside the black beat: 1 frames
+[PASS] the black beat is short — pure black with the cursor between blinks: 7 identical frames (0.23 s)
+
+PACING
+  beats (film s): 0.00 face 1 | 0.25 face 2 | 0.75 face 3 | 1.25 face 4 | 1.75 face 5 | 2.25 face 6 | 3.00 collapse | 3.90 lantern | 4.50 reflections recede | 5.10 glass opens on city | 5.60 through the mirror | 6.40 city wide | 7.70 into a window | 8.40 room 1 (debugging) | 9.55 pan | 10.60 room 2 (letter) | 11.75 pan | 12.80 room 3 (artist) | 13.95 pan | 15.00 room 4 (ending) | 15.50 laptop closes | 15.90 lantern dims | 16.90 back to the city | 17.60 cursor in the dark window | 18.20 black opens | 18.75 black + cursor | 19.05 keystroke | 19.10 slit | 19.50 doorway | 19.75 through the door | 20.30 library | 20.65 page turn | 21.45 flurry falls | 22.50 dissolve to mirror | 22.60 glyphs gather
+[PASS] a new beat at least every 1.5 s — longest gap between beats 1.40 s
+  longest near-still stretch (<0.4% of pixels changing per frame): 1.17 s ending at 9.57 s
+[PASS] no shot holds still longer than 2 s
+  room-track pan (1.05 s for 244 px), camera step per frame in px: 0 1 2 3 5 5 7 8 8 9 10 10 11 11 12 11 12 11 12 11 11 11 10 9 9 8 7 6 6 4 2 2 0 0
+[PASS] pan eases in and out (steps rise to one peak and fall, starting and ending at 0-2 px) — peak 12 px/frame (v1 peaked at 21)
+  rooms rest 1.15 s each; black-only time 0.35 s
 
 STILLS (3840x2160 PNG, x8 nearest)
-[PASS] scene1.png: 3840x2160, 5 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
-[PASS] scene2.png: 3840x2160, 34 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
-[PASS] scene3.png: 3840x2160, 34 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
-[PASS] scene4.png: 3840x2160, 35 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
-[PASS] scene5.png: 3840x2160, 36 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
+[PASS] scene1.png: 3840x2160, 34 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
+[PASS] scene2.png: 3840x2160, 37 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
+[PASS] scene3.png: 3840x2160, 45 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
+[PASS] scene4.png: 3840x2160, 37 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
+[PASS] scene5.png: 3840x2160, 33 colours (<=56), every 8x8 block uniform — 0 non-uniform blocks
 [PASS] poster.jpg 3840x2160, 4:4:4 — 3840,2160,yuvj444p
   master palette: 46 colours shared by all scenes (see js/px.js)
+  glyph sets after the Latin/digit lookalike filter: 7x9 288, 5x7 320, 3x5 147
 
 LOUDNESS (ffmpeg ebur128, final mp4)
-[PASS] integrated loudness about -16 LUFS — -16 LUFS, LRA 6.4 LU
-[PASS] true peak below -1 dBTP — -3 dBTP
-[PASS] audio loop seam: sample step at the wrap is ordinary — wrap step 0.01987 vs max in-body step 0.13080
+[PASS] integrated loudness about -16 LUFS — -16 LUFS, LRA 5.9 LU
+[PASS] true peak below -1 dBTP — -2 dBTP
+[PASS] audio loop seam: sample step at the wrap is ordinary — wrap step 0.01270 vs max in-body step 0.19885
 
 ALL CHECKS PASSED
