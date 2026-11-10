@@ -235,57 +235,57 @@
      Before the hit it bows and cracks from (ui, vi); after it, it is a burst of shards (radial wedges in rings), each carrying
      its piece of the world, flung out from the blow and up with it. front: draw only the shards coming at the camera. */
   const d5PaneSh = {};
-  function d5PaneSet(P) {
-    if (d5PaneSh[P.seed]) return d5PaneSh[P.seed];
+  function d5PaneSet(Q) {
+    if (d5PaneSh[Q.seed]) return d5PaneSh[Q.seed];
     const N = 13, RG = [0, 0.16, 0.42, 1], A = [], out = [];
-    for (let k = 0; k <= N; k++) A.push((k + (k < N ? (ih(k, P.seed, 9770) - 0.5) * 0.5 : 0)) / N * TAU - PI / 2);
-    const bd = (a) => { const c = Math.cos(a), s = Math.sin(a), tx = c > 1e-6 ? (1 - P.ui) / c : c < -1e-6 ? -P.ui / c : 1e9, ty = s > 1e-6 ? (1 - P.vi) / s : s < -1e-6 ? -P.vi / s : 1e9; return Math.min(tx, ty); };
-    const pt = (a, r) => { const b = bd(a); return [P.ui + Math.cos(a) * r * b, P.vi + Math.sin(a) * r * b]; };
-    const cor = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([u, v]) => [u, v, Math.atan2(v - P.vi, u - P.ui)]);
+    for (let k = 0; k <= N; k++) A.push((k + (k < N ? (ih(k, Q.seed, 9770) - 0.5) * 0.5 : 0)) / N * TAU - PI / 2);
+    const bd = (a) => { const c = Math.cos(a), s = Math.sin(a), tx = c > 1e-6 ? (1 - Q.ui) / c : c < -1e-6 ? -Q.ui / c : 1e9, ty = s > 1e-6 ? (1 - Q.vi) / s : s < -1e-6 ? -Q.vi / s : 1e9; return Math.min(tx, ty); };
+    const pt = (a, r) => { const b = bd(a); return [Q.ui + Math.cos(a) * r * b, Q.vi + Math.sin(a) * r * b]; };
+    const cor = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([u, v]) => [u, v, Math.atan2(v - Q.vi, u - Q.ui)]);
     for (let k = 0; k < N; k++) for (let j = 0; j < 3; j++) {
       const a0 = A[k], a1 = A[k + 1], rj = RG[j] * (j ? 0.85 + 0.3 * ih(k, j, 9771) : 1), rn = j + 1 === 3 ? 1 : RG[j + 1] * (0.85 + 0.3 * ih(k, j + 1, 9771));
-      const poly = []; if (j === 0) poly.push([P.ui, P.vi]); else poly.push(pt(a0, rj));
+      const poly = []; if (j === 0) poly.push([Q.ui, Q.vi]); else poly.push(pt(a0, rj));
       poly.push(pt(a0, rn));
       if (j + 1 === 3) for (const [u, v, ca] of cor) { let d = ca - a0; d = ((d % TAU) + TAU) % TAU; let dd = a1 - a0; dd = ((dd % TAU) + TAU) % TAU; if (d > 0 && d < dd) poly.push([u, v]); }
       poly.push(pt(a1, rn)); if (j > 0) poly.push(pt(a1, rj));
       let cu = 0, cv = 0; for (const [u, v] of poly) { cu += u / poly.length; cv += v / poly.length; }
       out.push({ poly, cu, cv, ring: j, k, sp: 0.6 + ih(k, j, 9772) * 0.8, rot: (ih(k, j, 9773) - 0.5) * 9, grow: ih(k, j, 9774) < 0.3 ? 1.6 : 0, front: ih(k, j, 9775) < 0.3 });
     }
-    return (d5PaneSh[P.seed] = out);
+    return (d5PaneSh[Q.seed] = out);
   }
-  function d5PaneQ(P, u, v) { // uv → world
-    const hw = P.w / 2, fx = hw * 0.78, x = lerp(lerp(-fx, fx, u), lerp(-hw, hw, u), v), y = lerp(-P.dh, P.dh, v) + Math.sin(u * PI) * (P.bow || 0), c = Math.cos(P.tilt), s = Math.sin(P.tilt);
-    return [P.wx + x * c - y * s, P.wy + x * s + y * c];
+  function d5PaneQ(Q, u, v) { // uv → world
+    const hw = Q.w / 2, fx = hw * 0.78, x = lerp(lerp(-fx, fx, u), lerp(-hw, hw, u), v), y = lerp(-Q.dh, Q.dh, v) + Math.sin(u * PI) * (Q.bow || 0), c = Math.cos(Q.tilt), s = Math.sin(Q.tilt);
+    return [Q.wx + x * c - y * s, Q.wy + x * s + y * c];
   }
-  function d5Pane(t, V, P, front) {
-    const g = t - P.hit, Wv = wview(P.view), z = V.z;
-    const ax0 = (wx, wy) => [240 + (wx - P.wx) * z * 0.9, 135 + (wy - P.wy) * z * 0.9];
+  function d5Pane(t, V, Q, front) {
+    const g = t - Q.hit, Wv = wview(Q.view), z = V.z;
+    const ax0 = (wx, wy) => [240 + (wx - Q.wx) * z * 0.9, 135 + (wy - Q.wy) * z * 0.9];
     if (g < 0) {
       if (front) return;
-      const pts = [[0, 0], [0.25, 0], [0.5, 0], [0.75, 0], [1, 0], [1, 1], [0.75, 1], [0.5, 1], [0.25, 1], [0, 1]].map(([u, v]) => { const [wx, wy] = d5PaneQ(P, u, v); return [vX(V, wx), vY(V, wy)]; });
+      const pts = [[0, 0], [0.25, 0], [0.5, 0], [0.75, 0], [1, 0], [1, 1], [0.75, 1], [0.5, 1], [0.25, 1], [0, 1]].map(([u, v]) => { const [wx, wy] = d5PaneQ(Q, u, v); return [vX(V, wx), vY(V, wy)]; });
       if (pts.every((q) => q[1] > H - LB + 4) || pts.every((q) => q[1] < LB - 4)) return;
-      h5Shard(pts, Wv, 240, 135, t, { th: 5 * z, seed: P.seed });
+      h5Shard(pts, Wv, 240, 135, t, { th: 5 * z, seed: Q.seed });
       // the light of that world on this one
-      const [cx, cy] = d5PaneQ(P, 0.5, 0.5); light(vX(V, cx), vY(V, cy), 160 * z, P.lc || L_COLD, 0.25);
-      if (g > -0.14) { const u = 1 + g / 0.14, sh = d5PaneSet(P), [ix, iy] = d5PaneQ(P, P.ui, P.vi); for (const s of sh) { if (s.ring > fl(u * 3)) continue; for (let i = 0; i < s.poly.length; i++) { const a = s.poly[i], b = s.poly[(i + 1) % s.poly.length], [wa, wb] = d5PaneQ(P, a[0], a[1]), [wc, wd] = d5PaneQ(P, b[0], b[1]); lineP(vX(V, wa), vY(V, wb), vX(V, wc), vY(V, wd), s.ring < 1 ? 22 : 135); } } sparkle(vX(V, ix), vY(V, iy), 4 + 8 * u, 22, 135); light(vX(V, ix), vY(V, iy), 60, L_WH, 0.5 * u); }
+      const [cx, cy] = d5PaneQ(Q, 0.5, 0.5); light(vX(V, cx), vY(V, cy), 160 * z, Q.lc || L_COLD, 0.25);
+      if (g > -0.14) { const u = 1 + g / 0.14, sh = d5PaneSet(Q), [ix, iy] = d5PaneQ(Q, Q.ui, Q.vi); for (const s of sh) { if (s.ring > fl(u * 3)) continue; for (let i = 0; i < s.poly.length; i++) { const a = s.poly[i], b = s.poly[(i + 1) % s.poly.length], [wa, wb] = d5PaneQ(Q, a[0], a[1]), [wc, wd] = d5PaneQ(Q, b[0], b[1]); lineP(vX(V, wa), vY(V, wb), vX(V, wc), vY(V, wd), s.ring < 1 ? 22 : 135); } } sparkle(vX(V, ix), vY(V, iy), 4 + 8 * u, 22, 135); light(vX(V, ix), vY(V, iy), 60, L_WH, 0.5 * u); }
       return;
     }
     if (g > 1.4) return;
-    const sh = d5PaneSet(P), [iwx, iwy] = d5PaneQ(P, P.ui, P.vi);
+    const sh = d5PaneSet(Q), [iwx, iwy] = d5PaneQ(Q, Q.ui, Q.vi);
     for (const s of sh) {
       if (!!front !== s.front) continue;
-      const [cwx, cwy] = d5PaneQ(P, s.cu, s.cv), dx = cwx - iwx, dy = cwy - iwy, dl = Math.hypot(dx, dy) || 1, sp = (s.ring === 0 ? 520 : s.ring === 1 ? 380 : 260) * s.sp;
+      const [cwx, cwy] = d5PaneQ(Q, s.cu, s.cv), dx = cwx - iwx, dy = cwy - iwy, dl = Math.hypot(dx, dy) || 1, sp = (s.ring === 0 ? 520 : s.ring === 1 ? 380 : 260) * s.sp;
       const e = 1 - Math.exp(-g * 3.2), ox = dx / dl * sp * e / 3.2 * 1.4, oy = dy / dl * sp * e / 3.2 * 0.8 - (s.ring === 0 ? 700 : s.ring === 1 ? 420 : 160) * e / 3.2 + 180 * g * g;
       const rot = s.rot * g, sc = Math.max(0.05, (1 + s.grow * g * 1.6) * (1 - Math.max(0, g - 0.8) * 1.4)), c = Math.cos(rot), sn = Math.sin(rot);
       const scx = vX(V, cwx + ox), scy = vY(V, cwy + oy);
       if (scy < LB - 120 || scy > H - LB + 120 || scx < -160 || scx > W + 160) continue;
-      const pts = s.poly.map(([u, v]) => { const [wx, wy] = d5PaneQ(P, u, v), lx = (wx - cwx) * z * sc, ly = (wy - cwy) * z * sc; return [scx + lx * c - ly * sn, scy + lx * sn + ly * c]; });
+      const pts = s.poly.map(([u, v]) => { const [wx, wy] = d5PaneQ(Q, u, v), lx = (wx - cwx) * z * sc, ly = (wy - cwy) * z * sc; return [scx + lx * c - ly * sn, scy + lx * sn + ly * c]; });
       const [ax, ay] = ax0(cwx, cwy);
-      h5Shard(pts, Wv, ax, ay, t, { th: 3 * z * sc, seed: s.k * 3 + s.ring + P.seed, glint: s.ring === 2 && s.k % 3 === 0 });
+      h5Shard(pts, Wv, ax, ay, t, { th: 3 * z * sc, seed: s.k * 3 + s.ring + Q.seed, glint: s.ring === 2 && s.k % 3 === 0 });
     }
     if (!front) {
       // glass dust thrown with them
-      for (let k = 0; k < 50; k++) { const a = -PI / 2 + (ih(k, 1, 9776 + P.seed) - 0.5) * 3.4, v = 120 + ih(k, 2, 9776 + P.seed) * 420, x = vX(V, iwx) + Math.cos(a) * v * g * z, y = vY(V, iwy) + (Math.sin(a) * v * g + 260 * g * g) * z; if (g < 0.9 && bay(k, fl(t * 30)) < 1 - g) { P(x, y, k % 4 ? 135 : 22); if (k % 5 === 0) P(x + 1, y, 136); } }
+      for (let k = 0; k < 50; k++) { const a = -PI / 2 + (ih(k, 1, 9776 + Q.seed) - 0.5) * 3.4, v = 120 + ih(k, 2, 9776 + Q.seed) * 420, x = vX(V, iwx) + Math.cos(a) * v * g * z, y = vY(V, iwy) + (Math.sin(a) * v * g + 260 * g * g) * z; if (g < 0.9 && bay(k, fl(t * 30)) < 1 - g) { P(x, y, k % 4 ? 135 : 22); if (k % 5 === 0) P(x + 1, y, 136); } }
       if (g < 0.35) { const u = g / 0.35; shockRing(vX(V, iwx), vY(V, iwy), 10 + u * 300 * z, 4 + u * 70 * z, 3, [22, 135, 136], 1 - u); }
     }
   }

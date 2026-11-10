@@ -15,3 +15,4 @@ Anything marked **(visible everywhere)** changes the look of existing calls in e
 | r2.2 | z_frame.js | **(visible everywhere)** Colour fringing (`GD.ca`) now blends the shifted red and blue channels 55/45 with the original instead of replacing them. Replacing them turned textured big-pixel sprites into checkerboards of pure green and magenta. |
 | r2.2 | g_worlds.js | `w5Dawn(..., o)` takes `o.sunR` (sun size scale, default 1). |
 | r2.4 | f_kit.js | `h5F`: no afterimages when the fighter is drawn at a scale of 5 or more (`S·z ≥ 5`). At that size the dithered ghosts turn into big checkerboards. |
+| r2.5 | f_kit.js | **(visible everywhere)** `hvoid` wings (Hollow Nova): all three feather ranks are filled with void, the rims are white fire, and the feathers are 2.4× wider, so the wing reads as a solid mass. |

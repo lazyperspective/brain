@@ -61,8 +61,8 @@
   function nCath(t, fire) { w5Cath(t, 0, 0, { fire }); }
   function nScene(t) {
     const HS = [[14.0, 0.1], [15.0, 0.134], [16.2, 0.134]], [tt, fz] = h5Clock(t, HS, 0.1, 2.6), frz = fz ? 1.6 : 0;
-    const zb = lerp(1.75, 1, eio(clip01(14.25, 14.9, t))), kk = kick(t, [[14.0, 2, -PI / 2], [15.0, 2.6, 2.6], [16.2, 2.4, PI]]);
-    const V = { x: lerp(240, 200, eio(clip01(14.25, 14.9, t))) - kk[2], y: lerp(132, 135, eio(clip01(14.25, 14.9, t))) - kk[3], z: zb * (1 + kk[0]) };
+    const zb = lerp(1.32, 1, eio(clip01(14.25, 14.9, t))), kk = kick(t, [[14.0, 2, -PI / 2], [15.0, 2.6, 2.6], [16.2, 2.4, PI]]);
+    const V = { x: lerp(232, 200, eio(clip01(14.25, 14.9, t))) - kk[2], y: lerp(122, 135, eio(clip01(14.25, 14.9, t))) - kk[3], z: zb * (1 + kk[0]) };
     const fire = lerp(1, 0.22, eoc(clip01(14.0, 14.5, t))), sg = t - 15.0;
     H5PX = 0; H5PY = 0;
     if (sg < 0) { nCath(t, fire); z5Cam(V.z, 0, V.x, V.y, 240, 135); }
@@ -119,10 +119,10 @@
     { t: 17.34, x: 174, y: 140, eyes: 'wide', a: 0.1 },
     { t: 17.4, x: 184, y: 148, a: 0.5, sq: 0.3, wl: 1, vib: 0, e: 'l' },
     { t: 17.4001, wl: 0, mouth: 2, eyes: 'closed', cr: 0.6 },
-    { t: 17.64, x: 214, y: 176, a: 1.9, sq: 0, e: 'o' },
-    { t: 18.0, x: 252, y: SLY - 22, a: 6.38, sq: 0.4, sw: 0.4, e: 'i' },
+    { t: 17.64, x: 214, y: 176, a: 0.9, sq: -0.15, noAfter: true, e: 'o' },
+    { t: 18.0, x: 252, y: SLY - 21, a: 0.1, sq: 0.48, sw: 0.4, e: 'i' },
     { t: 18.0001, a: 0.1 },
-    { t: 18.1, x: 262, y: SLY - 46, a: 0.5, sq: -0.05, e: 'o' },
+    { t: 18.1, x: 262, y: SLY - 46, a: 0.5, sq: -0.05, noAfter: false, e: 'o' },
     { t: 18.2, x: 270, y: SLY - 19, a: 0.12, sq: 0.34, e: 'i' },
     { t: 18.34, x: 270, y: SLY - 24, a: -0.05, sq: 0.1, vib: 0.5, eyes: 'narrow', mouth: 1, spread: 0.7 },
     { t: 18.4, x: 272, y: SLY - 18, a: 0.12, sq: 0.36, eyes: 'closed', mouth: 2, cr: 0.85, vib: 0, e: 'l' },
@@ -145,7 +145,7 @@
   const mView = (t) => {
     const kk = kick(t, [[16.3, 1.6, PI], [17.4, 2.2, 1.2], [18.0, 1.2, PI / 2], [18.4, 2.4, PI / 2]]), p = h5Trk(mH, Math.max(t, 17.4));
     const a = eio(clip01(16.42, 16.9, t)), b = eio(clip01(17.45, 18.0, t));
-    return { x: lerp(lerp(240, lerp(176, 150, clip01(16.9, 17.3, t)), a), 250, b) - kk[2], y: lerp(lerp(128, lerp(132, 106, clip01(16.9, 17.3, t)), a), lerp(282, 290, clip01(18.0, 18.4, t)), b) - kk[3], z: lerp(lerp(1, 2.0, a), 1.55, b) * (1 + kk[0]), r: kk[1] };
+    return { x: lerp(lerp(240, lerp(176, 150, clip01(16.9, 17.3, t)), a), 250, b) - kk[2], y: lerp(lerp(128, lerp(132, 106, clip01(16.9, 17.3, t)), a), lerp(296, 300, clip01(18.0, 18.4, t)), b) - kk[3], z: lerp(lerp(1, 2.0, a), 1.38, b) * (1 + kk[0]), r: kk[1] };
   };
   function mBg(t, V) {
     w5Night(t, V.x * 0.25, V.y * 0.25, {});
@@ -183,8 +183,8 @@
     const HR = h5F(mH, tt, { frz, rim: [-0.6, -0.6, 20], dmg: D4 }, V);
     // light bleeding from the stump of the wing
     if (wg > 0 && t < 18.4) for (let k = 0; k < 14; k++) { const age = frac(ih(k, 1, 9431) + t * 1.8) * 0.5, p = h5Trk(mH, tt - age), x = vX(V, p.x - 8) + (ih(k, 2, 9431) - 0.5) * 12, y = vY(V, p.y - 14) + (ih(k, 3, 9431) - 0.5) * 10 - age * 30; if (bay(fl(x), fl(y)) < 1 - age * 2) { P(x, y, k % 2 ? 22 : 109); P(x, y - 1, 105); } }
-    if (wg >= 0) h5Blow(vX(V, 160), vY(V, 128), wg, 2.4, 1.0, [22, 109, 105], 9432, 1, [72, 73, 74, 104, 107, 109, 110], L_WARM);
-    let g = t - 18.0; if (g >= 0 && g < 0.6) { h5Heavy(vX(V, 252), vY(V, SLY), g, 1.3, -PI / 2, [22, 135, 136], 9433, 0, null, L_COLD); rocks(vX(V, 252), vY(V, SLY), g, 10, 140, 3, [137, 136, 135, 22], 9434, 200, -PI / 2, 2); }
+    if (wg >= 0) (wg < 0.45 ? h5Blow : h5Heavy)(vX(V, 160), vY(V, 128), wg, 2.4, 1.0, [22, 109, 105], 9432, 1, [72, 73, 74, 104, 107, 109, 110], L_WARM);
+    let g = t - 18.0; if (g >= 0 && g < 0.6) { h5Heavy(vX(V, 252), vY(V, SLY), g, 1.0, -PI / 2, [22, 135, 136], 9433, 0, null, L_COLD); rocks(vX(V, 252), vY(V, SLY), g, 5, 140, 3, [137, 136, 135, 22], 9434, 200, -PI / 2, 2); }
     g = t - 18.4; if (g >= 0) { h5Blow(vX(V, 262), vY(V, SLY - 20), g, 2.6, PI / 2, [22, 109, 74], 9435, 1, [72, 73, 74, 104, 107], L_WARM); }
     if (V.r) z5Cam(1, V.r, 240, 135);
   }
@@ -301,37 +301,43 @@
     w5Night(t, 80, 40, { noShards: true });
     const C = 9, cg = clip01(21.94, 22.3, t), curl = t < 21.86 ? 0.35 * eoc(clip01(21.5, 21.8, t)) : 0.35 + 0.65 * eob(clip01(21.86, 21.99, t));
     const sh = t > 21.86 ? 2.2 * Math.max(0.3, 1 - (t - 21.95) * 2) : 0.6, jx = Math.round(z5Sh(t, 1) * sh), jy = Math.round(z5Sh(t, 2) * sh), push = 4 * eoc(clip01(21.5, 22.3, t));
-    const ox = -fl(push * 2) + jx, oy = jy;
+    const ox = -fl(push * 2) + jx + Math.round(z5Sh(t * 1.7, 4) * 0.8), oy = jy + Math.round(z5Sh(t * 1.9, 5) * 0.8);
     // the slab's glow from below
     for (let y = H - LB - 30; y < H - LB; y++) for (let x = 0; x < W; x++) if (bay(x, y) < (y - (H - LB - 30)) / 40) P(x, y, 133);
     light(240, H - LB, 220, L_WARM, 0.25);
-    const BX = 286 + ox, cell = (i, j, c) => rectF(BX + i * C + ox * 0, 60 + j * C + oy, C, C, c);
+    const BX = 286 + ox, bladeX = BX + 2.2 * C;
+    // a pixel of the hero's skin, shaded: lit from the blade on its right (rim), turned away on its left, its texture kept
+    const skin5 = (i, j, edgeT, edgeB, k) => { const d = (BX + i * C) - bladeX, rim = d > -3 * C ? 2 : d > -6 * C ? 1 : 0, n = ((i * 7 + j * 3) % 9 === 0); if (j === edgeT) return rim ? 37 : 35; if (j === edgeB) return 36; if (rim === 2) return n ? 35 : 37; return n ? 36 : k; };
+    const cell = (i, j, c) => { const x = BX + i * C, y = 60 + j * C + oy; rectF(x, y, C, C, c); if (c === 35 || c === 37) { rectF(x, y + C - 2, C, 2, 36); if (c === 37) rectF(x, y, C, 1, 22); } else if (c === 36) rectF(x, y + C - 1, C, 1, 38); };
     // the body: its corner, from the left edge of the frame (its eye at the top), cracked through
     const shade = (i, j, top, bot) => (j === top ? 37 : j >= bot - 1 ? 36 : (i + j) % 5 === 0 ? 36 : 35);
-    for (let j = -4; j < 18; j++) for (let i = -40; i < -18; i++) cell(i, j, i === -19 ? 36 : shade(i, j, -4, 18));
+    for (let j = -4; j < 18; j++) for (let i = -40; i < -18; i++) cell(i, j, i === -19 ? 37 : i < -36 ? 36 : shade(i, j, -4, 18));
     for (let j = -4; j < 18; j++) rectF(BX - 18 * C, 60 + j * C + oy, 3, C, 22);                    // its outline
     { const e = t > 21.62 && t < 21.7 ? 1 : 3; cell(-25, 0, 0); cell(-24, 0, 0); if (e > 1) { cell(-25, 1, 0); cell(-24, 1, 0); cell(-25, 2, 0); cell(-24, 2, 0); cell(-24, 0, 22); } cell(-23, -1, 0); cell(-24, -2, 0); }   // the eye, angry
     // the arm, reaching right to the blade (at x of cell 0); the hand: a block that splits into two prongs that close
     const AJ = 8;
-    for (let j = AJ; j < AJ + 4; j++) for (let i = -18; i < -1; i++) cell(i, j, j === AJ ? 37 : j === AJ + 3 ? 36 : (i * 7 + j) % 9 === 0 ? 36 : 35);
+    for (let j = AJ; j < AJ + 4; j++) for (let i = -18; i < -1; i++) cell(i, j, skin5(i, j, AJ, AJ + 3, j === AJ + 2 ? 36 : 35));
     for (let i = -18; i < -1; i++) { rectF(BX + i * C, 60 + AJ * C - 3 + oy, C, 3, 22); rectF(BX + i * C, 60 + (AJ + 4) * C + oy, C, 3, 22); }
     // the black blade, behind the fingers
     const ba = PI / 2 + 0.16, bx0 = BX + 2 * C + 30 * Math.cos(ba) * -8, by0 = LB - 30;
     bigBlade(BX + 2.2 * C - Math.cos(ba) * 200 + ox * 0.3, 60 + (AJ + 2) * C - Math.sin(ba) * 200, ba, 520, 15, t, { form: 'void', flare: 0.5, noHilt: true, cracks: cg * 2.4 });
     // the palm, behind: the end of the arm
-    for (let j = AJ - 1; j < AJ + 5; j++) for (let i = -2; i < 1; i++) cell(i, j, j === AJ - 1 ? 37 : j === AJ + 4 ? 36 : 35);
+    for (let j = AJ - 1; j < AJ + 5; j++) for (let i = -2; i < 1; i++) cell(i, j, skin5(i, j, AJ - 1, AJ + 4, 35));
     // white cracks running up and down the blade from the grip
     if (cg > 0) for (let k = 0; k < 10; k++) { const sd = k & 1 ? 1 : -1; let x = BX + 2.2 * C + (ih(k, 1, 9471) - 0.5) * 18, y = 60 + (AJ + 2) * C; for (let q = 0; q < 10 * cg; q++) { const nx = x + (ih(k, q, 9473) - 0.5) * 12 + sd * 2, ny = y + sd * (9 + ih(k, q, 9472) * 12); lineP(x, y, nx, ny, 22); if (q % 2 === 0) lineP(x + 1, y, nx + 1, ny, 140); x = nx; y = ny; } }
     // the fingers: two prongs from the palm, opening up and down, then closing across the front of the blade
     const open = 1 - curl, reach = fl(1 + 4 * curl);
     for (const [j0, sd] of [[AJ - 1, -1], [AJ + 3, 1]]) {
       const lift = Math.round(open * 3) * sd;
-      for (let q = 0; q < reach; q++) for (let jj = 0; jj < 2; jj++) { const j = j0 + jj + lift + (q > 2 ? -sd * Math.round(curl) : 0); cell(1 + q, j, jj === (sd < 0 ? 0 : 1) ? (sd < 0 ? 37 : 36) : 35); }
+      for (let q = 0; q < reach; q++) for (let jj = 0; jj < 2; jj++) { const j = j0 + jj + lift + (q > 2 ? -sd * Math.round(curl) : 0); cell(1 + q, j, jj === (sd < 0 ? 0 : 1) ? (sd < 0 ? 37 : 36) : 37); }
       rectF(BX + (1 + reach) * C, 60 + (j0 + lift + (reach > 3 ? -sd * Math.round(curl) : 0)) * C + oy, 3, 2 * C, 22);
     }
     // light leaking from the cracks in the hand and arm; brighter as it grips
     const crk = [[-14, AJ + 1, 5], [-9, AJ, 4], [-5, AJ + 2, 4], [-1, AJ, 5], [-22, 3, 6], [-28, 10, 7], [-33, 5, 5]];
-    for (const [i, j, L] of crk) { let x = BX + i * C + 4, y = 60 + j * C + oy; for (let q = 0; q < L; q++) { const nx = x + 7 + (ih(i, q, 9474) - 0.5) * 8, ny = y + (ih(j, q, 9475) - 0.5) * 12; thick(x, y, nx, ny, 2, q % 3 === 0 && cg > 0.2 ? 22 : 107); x = nx; y = ny; } light(BX + i * C, 60 + j * C, 26, L_WARM, 0.25 + 0.4 * cg); }
+    crk.push([-12, AJ + 3, 4], [-7, AJ + 1, 3], [-30, -2, 6], [-26, 14, 6], [-37, 8, 4]);
+    const flick = 0.75 + 0.25 * Math.sin(t * 37) * Math.sin(t * 13);
+    for (const [i, j, L] of crk) { let x = BX + i * C + 4, y = 60 + j * C + oy; for (let q = 0; q < L; q++) { const nx = x + 7 + (ih(i, q, 9474) - 0.5) * 8, ny = y + (ih(j, q, 9475) - 0.5) * 12; thick(x - 1, y - 1, nx - 1, ny - 1, 4, 102); thick(x, y, nx, ny, 2, q % 3 === 0 && cg > 0.2 ? 22 : 107); x = nx; y = ny; } light(BX + i * C, 60 + j * C, 34, L_WARM, (0.3 + 0.45 * cg) * flick); }
+    light(bladeX, 60 + (AJ + 2) * C, 120, L_MAG, 0.35); light(bladeX - 30, 60 + (AJ + 2) * C, 60, L_WH, 0.25 + 0.3 * cg);
     // sparks of void spat from the grip; the shake
     for (let k = 0; k < 18 * (0.3 + cg); k++) { const u = frac(ih(k, 1, 9476) + t * 2.4), a = (ih(k, 2, 9476) - 0.5) * 2.4 + (k & 1 ? 0 : PI), v = 40 + ih(k, 3, 9476) * 90, x = BX + 2 * C + Math.cos(a) * v * u, y = 60 + (AJ + 2) * C + Math.sin(a) * v * u + 40 * u * u; if (bay(fl(x), fl(y)) < 1 - u) lineP(x, y, x - Math.cos(a) * 4, y - Math.sin(a) * 4, k % 3 ? 74 : 22); }
     // the fourth spark

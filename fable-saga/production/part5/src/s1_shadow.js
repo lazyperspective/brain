@@ -73,7 +73,7 @@
   for (let k = 10; k < aE.length; k++) delete aE[k].arm;
   // the camera: a slow push on the two of them; at 3.0 a crash-in to the blade coming out of its chest (held), then a whip
   // back out to a follow-shot of the blitz, and a pull back for the slam
-  const ECU = [306, 120, 2.15];
+  const ECU = [286, 120, 1.62];
   const view = (t) => {
     const kk = kick(t, [[3.0, 1.4, 0], [3.6, 1.6, PI], [4.0, 1.6, -1.2], [4.4, 1.6, 0.6], [4.8, 1.7, 0], [5.4, 2.6, PI / 2]]);
     let x, y, z;
@@ -94,7 +94,7 @@
     if (t >= 3.0) {
       const hits = BLOW.map(([h, x, y, d, R]) => [vX(V, x), vY(V, y), t < h ? 0 : Math.min(R, (t - h) * 700) + (t - h) * 12]);
       glassAct(hits);
-      if (t > 4.0) { const W1 = wview('ocean'), W2 = wview('city'), W3 = wview('ink'); glassWindows((q) => (q % 7 === 2 ? W1 : q % 7 === 5 ? W2 : q % 11 === 3 ? W3 : null), (q) => GACT[q] > 0.99 ? (clip01(4.0 + (q % 5) * 0.2, 4.6 + (q % 5) * 0.2, t) > 0.5 ? 1 : 0) : 0, 0, 0); }
+      { const PANES = [[3.6, 252, 120, 'ocean'], [4.0, 120, 122, 'city'], [4.4, 176, 42, 'ink'], [4.8, 332, 104, 'cath']], pick = []; for (const [h, x, y, w] of PANES) { if (t < h + 0.05) continue; let b = 0, bd = 1e9; for (let q = 0; q < GN; q++) { const d = Math.hypot(GSX[q] - vX(V, x), GSY[q] - vY(V, y)); if (d < bd) { bd = d; b = q; } } pick.push([b, wview(w), h]); } const recent = pick.slice(-2); glassWindows((q) => { for (const p of recent) if (p[0] === q) return p[1]; return null; }, (q) => { for (const p of recent) if (p[0] === q) return clip01(p[2] + 0.04, p[2] + 0.2, t); return 0; }, 0, 0); }
       glassCracks(hits);
     }
   }
