@@ -33,6 +33,7 @@ function fbm(x, y, o, s) { let a = 0, w = 0.5, t = 0; for (let i = 0; i < o; i++
 const mk = (w, hh) => { const c = document.createElement('canvas'); c.width = w; c.height = hh; return c; };
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const layer = mk(W, H), lx = layer.getContext('2d');
+const small = mk(W / 2, H / 2), sx2 = small.getContext('2d');
 let paper, mottle, grain, ready = false;
 
 /* ------------------------------------------------------------ geometry helpers */
@@ -138,7 +139,12 @@ function finish(o) {
   lx.globalAlpha = 1; lx.globalCompositeOperation = 'source-over'; lx.restore();
   const t = o.target || ctx, B = BOX; if (B[2] < 2 || B[3] < 2) return;
   t.save(); t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = o.op || 'source-over';
-  if (o.halo) { t.filter = 'blur(' + (o.haloR || 7) + 'px)'; t.globalAlpha = o.halo; t.drawImage(layer, B[0], B[1], B[2], B[3], B[0] + (o.dx || 0), B[1] + (o.dy || 0), B[2], B[3]); t.filter = 'none'; }
+  if (o.halo) { // wet bleed: a cheap blur by down- and up-sampling (no ctx.filter, so it plays live)
+    const k = Math.max(2, Math.round((o.haloR || 7) * 0.75)), sw = Math.ceil(B[2] / k), shh = Math.ceil(B[3] / k);
+    sx2.setTransform(1, 0, 0, 1, 0, 0); sx2.clearRect(0, 0, sw + 2, shh + 2); sx2.imageSmoothingQuality = 'high';
+    sx2.drawImage(layer, B[0], B[1], sw * k, shh * k, 0, 0, sw, shh);
+    t.imageSmoothingQuality = 'high'; t.globalAlpha = o.halo;
+    t.drawImage(small, 0, 0, sw, shh, B[0] + (o.dx || 0), B[1] + (o.dy || 0), sw * k, shh * k); }
   t.globalAlpha = o.alpha == null ? 1 : o.alpha; t.drawImage(layer, B[0], B[1], B[2], B[3], B[0] + (o.dx || 0), B[1] + (o.dy || 0), B[2], B[3]);
   t.restore();
 }
@@ -413,16 +419,16 @@ function render(t) {
     const g = clamp(open, 0, 1.1), cx = MOUTH[0], cyy = MOUTH[1];
     const gg = clamp(g, 0, 1);
     // soft bloom first (blurred), then two loose plumes of wash with tide lines, then the hot mouth
-    lx.filter = 'blur(38px)';
-    blob(lx, ellipsePts(cx + 4, cyy - 130 * g, 250 * g, 300 * g, 20), 150 + bw, 20, 200, C.shade, 0.5 * gg);
-    blob(lx, ellipsePts(cx, cyy - 50 * g, 150 * g, 150 * g, 16), 151 + bw, 10, 200, C.coral, 0.6 * gg);
-    lx.filter = 'none';
+    const K = 14; sx2.setTransform(1 / K, 0, 0, 1 / K, 0, 0); sx2.clearRect(0, 0, W, H);
+    blob(sx2, ellipsePts(cx + 4, cyy - 130 * g, 250 * g, 300 * g, 20), 150 + bw, 20, 200, C.shade, 0.5 * gg);
+    blob(sx2, ellipsePts(cx, cyy - 50 * g, 150 * g, 150 * g, 16), 151 + bw, 10, 200, C.coral, 0.6 * gg);
+    blob(sx2, ellipsePts(cx, fy - 14, 95, 40 * g, 14), 159 + bw, 4, 60, C.hot, 0.8 * gg);
+    lx.imageSmoothingQuality = 'high'; lx.drawImage(small, 0, 0, Math.ceil(W / K), Math.ceil(H / K), 0, 0, Math.ceil(W / K) * K, Math.ceil(H / K) * K);
     const P1 = ellipsePts(cx + 14, cyy - 150 * g, 205 * g, 265 * g, 26), P2 = ellipsePts(cx - 6, cyy - 62 * g, 118 * g, 132 * g, 20);
     blob(lx, P1, 152 + bw, 34 * g, 170, C.shade, 0.2 * gg); rim(lx, P1, 152 + bw, 34 * g, 170, C.light, 0.16, 5);
     blob(lx, P2, 154 + bw, 20 * g, 120, C.coral, 0.26 * gg); rim(lx, P2, 154 + bw, 20 * g, 120, C.hot, 0.2, 4);
     const inner = resample([[FX0 + 10, FY0 + TABH + 10], [FX1 - 10, FY0 + TABH + 10], [FX1 + sh - 5, fy], [FX0 + sh + 5, fy], [FX0 + 10, FY0 + TABH + 10]], 18); inner.pop();
     blob(lx, inner, 158 + bw, 3, 60, C.light, 0.75 * gg);
-    lx.filter = 'blur(10px)'; blob(lx, ellipsePts(cx, fy - 10, 80, 26 * g, 14), 159 + bw, 4, 60, C.hot, 0.9 * gg); lx.filter = 'none';
     finish({ op: 'screen', mottle: 0.5, mx: -420, my: -260, grain: 0.25 });
   }
 

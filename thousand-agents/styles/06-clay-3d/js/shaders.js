@@ -72,7 +72,7 @@ vec3 heroLocal(vec3 p){
   p = vec3(p.x, c*p.y + s*p.z + 0.25, -s*p.y + c*p.z);
   return p/uHScale;
 }
-vec3 eyeC(float sx){ return vec3(sx*0.2 + uLook.x*0.055, 0.6 + uLook.y*0.04, 0.3); }
+vec3 eyeC(float sx){ return vec3(sx*0.2 + uLook.x*0.055, 0.6 + uLook.y*0.055, 0.3); }
 vec3 eyeR(){ return vec3(0.058, 0.066*(1.0-0.9*uBlink), 0.05); }
 const vec3 MOUTH_C = vec3(0.0, 0.405, 0.33);
 float mouthD(vec3 q){
@@ -100,7 +100,7 @@ vec2 hero(vec3 q){
     if(m < 0.012) mat = 3.0;
   }
   vec3 er = eyeR();
-  vec3 e = vec3(abs(q.x - uLook.x*0.055) - 0.2, q.y - 0.6 - uLook.y*0.04, q.z - 0.3);
+  vec3 e = vec3(abs(q.x - uLook.x*0.055) - 0.2, q.y - 0.6 - uLook.y*0.055, q.z - 0.3);
   float eye = (length(e/er)-1.0)*min(er.y, er.z);
   if(eye < body){ body = eye; mat = 2.0; }
   return vec2(body, mat);
@@ -137,8 +137,8 @@ float backdrop(vec3 p){
 }
 
 float gHS, gFS; // min scales
-vec2 map(vec3 p){
-  vec2 res = vec2(backdrop(p), 0.0);
+vec2 mapO(vec3 p, float lim){
+  vec2 res = vec2(lim, 0.0);
   vec3 hc = uHPos + vec3(0.0,0.5,0.0);
   float bd = length(p-hc) - 1.0;
   if(bd < res.x){
@@ -156,6 +156,8 @@ vec2 map(vec3 p){
   return res;
 }
 
+vec2 map(vec3 p){ return mapO(p, backdrop(p)); }
+
 vec3 calcNormal(vec3 p){
   const vec2 e = vec2(1.0,-1.0)*0.0012;
   return normalize(e.xyy*map(p+e.xyy).x + e.yyx*map(p+e.yyx).x + e.yxy*map(p+e.yxy).x + e.xxx*map(p+e.xxx).x);
@@ -165,9 +167,9 @@ float softShadow(vec3 ro, vec3 rd, float tmax, float k, int steps){
   float res = 1.0, t = 0.03;
   for(int i=0;i<40;i++){
     if(i >= steps) break;
-    float h = map(ro+rd*t).x;
+    float h = mapO(ro+rd*t, 4.0).x;
     res = min(res, k*h/t);
-    t += clamp(h, 0.03, 0.35);
+    t += clamp(h, 0.03, 1.2);
     if(res < 0.004 || t > tmax) break;
   }
   res = clamp(res, 0.0, 1.0);
@@ -187,10 +189,10 @@ float calcAO(vec3 p, vec3 n){
 float clayH(vec3 q){
   float n = vnoise(q*2.3 + 7.0);
   float mask = smoothstep(0.50, 0.72, vnoise(q*1.7 + 31.0));
-  float ridges = sin(n*58.0);
+  float ridges = sin(n*64.0);
   float dents = vnoise(q*9.0);
   float grain = vnoise(q*70.0);
-  return ridges*mask*0.11 + dents*1.1 + grain*0.07;
+  return ridges*mask*0.2 + dents*1.1 + grain*0.07;
 }
 vec3 bumpN(vec3 p, vec3 n, float mat, float amt){
   const float e = 0.004;
@@ -221,12 +223,17 @@ void main(){
   vec3 rd = normalize(uv.x*uTanH*(uRes.x/uRes.y)*uCu + uv.y*uTanH*uCv + uCw);
   vec3 ro = uRo;
 
+  float tF = rd.y < -1e-4 ? -ro.y/rd.y : 200.0;     // floor is analytic; only the toys are marched
+  float tMax = min(tF, 60.0);
   float t = 0.5; vec2 h = vec2(0.0);
-  for(int i=0;i<110;i++){
-    h = map(ro+rd*t);
-    if(h.x < 0.0006*t || t > 60.0) break;
+  bool hit = false;
+  for(int i=0;i<96;i++){
+    h = mapO(ro+rd*t, 8.0);
+    if(h.x < 0.0006*t){ hit = true; break; }
     t += h.x*0.9;
+    if(t > tMax) break;
   }
+  if(!hit){ t = min(tF, 200.0); h = vec2(0.0); }
   vec3 p = ro+rd*t;
   float mat = h.y;
   vec3 n = mat < 0.5 ? vec3(0.0,1.0,0.0) : calcNormal(p);
@@ -245,7 +252,7 @@ void main(){
     vec3 q = heroLocal(p);
     n = bumpN(p, n, mat, 0.0105);
     float v = vnoise(q*5.0+3.0);
-    alb = mix(CORAL, CLIGHT, 0.16*v)*vec3(1.0,0.9,0.86);
+    alb = mix(CORAL, CLIGHT, 0.14*v)*vec3(0.93,0.78,0.72);
     alb = mix(alb, CSHADE, 0.55*smoothstep(0.34, 0.02, q.y)*0.6);   // legs / belly a touch deeper
     alb *= 0.93 + 0.1*vnoise(q*60.0);
     sss = 1.0;
@@ -334,7 +341,7 @@ void main(){
       vec3 q = folderLocal(p);
       vec3 f = flapLocal(q);
       float inner = max(smoothstep(-0.05,-0.03,q.z)*step(f.z,-0.045), smoothstep(-0.03,-0.048,f.z)*step(-0.03,q.z));
-      col = mix(col, WARM*(0.5 + 1.7*smoothstep(0.85, 0.05, q.y)) + col*0.3, inner*uGlow*0.9);
+      col = mix(col, vec3(1.0,0.42,0.16)*(0.42 + 0.75*smoothstep(0.9, 0.05, q.y)) + col*0.12, inner*uGlow*0.92);
     }
   }
   if(uFountI > 0.001){
@@ -388,7 +395,7 @@ out vec4 outColor;
 void main(){
   float r2 = dot(vUv,vUv);
   if(uGlowPass > 0.5){
-    float a = exp(-r2*5.5)*0.04 + exp(-r2*26.0)*0.06;
+    float a = exp(-r2*5.5)*0.04 + exp(-r2*26.0)*0.035;
     a *= smoothstep(1.0, 0.7, r2);
     outColor = vec4(vec3(1.0,0.50,0.27)*a, 1.0);
     return;
