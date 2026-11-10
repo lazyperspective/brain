@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """THE HOLLOW - Fable Saga part V - score and sound design (40.000 s).
 
-Self-contained: numpy only (no scipy, no soundfont, no samples). Everything is synthesized here:
-wavetable string/brass/choir ensembles, additive piano/celesta/harp/bells, NES-style chip voices
+Orchestra as in part IV: the orchestral parts (strings, brass, solo horn, choir, piano, celesta, glockenspiel,
+harp, timpani) are written as MIDI per (segment, stem), note-ons sent early by part IV's attack compensation
+(LAT per FluidR3 program), and rendered with fluidsynth + FluidR3_GM; score.mid holds the score as composed.
+If fluidsynth or the soundfont is missing (or HOLLOW_SYNTH_ONLY=1) the built-in numpy orchestra (wavetable
+string/brass/choir ensembles, additive piano/celesta/harp) renders the same notes instead.
+Hybrid layer, synthesized in numpy and layered on top: NES-style chip voices
 (band-limited pulse and 4-bit triangle, LFSR noise, 60 Hz stepped envelopes), orchestral percussion,
 hybrid layer (sub booms, sub drops, braams, risers, reverse cymbals) and the sound design (glass sky,
 light/void blades, whooshes, worlds, wing, pin, snap, catch, the horizon). Then FFT hall reverb,
@@ -2716,17 +2720,26 @@ Critique-and-improve rounds (all measured on the master)
      stem table now honours the cuts; builds stop 12 ms before their HIT; caption at 2.2 given room.
   5  zero-phase analysis filters pre-echoed the giant 34.0 transient (-27 ms) -> causal minimum-phase filters;
      bass cleared before 36.5 and the last 0.1 s before 34.0 -> 45/45, worst 11 ms.
+  6  re-orchestrated for fluidsynth + FluidR3 (part IV's pipeline). Patch attacks measured (time to half amplitude
+     e.g. strings 77 ms, choir aahs 227 ms, trumpets 10 ms, timpani 8 ms) and matched part IV's LAT table
+     (~0.7 x), so it was kept. FluidR3 stems level-matched to the synthesized stems they replace (gains 2.5-7.6).
+     First render 44/45 (31.0 +55 ms: the soundfont strings' slower swell, under the grind still fading) and
+     29.4 louder than both climaxes -> pre-snap segment closes just before 31.0, 29.4 / 10.6 HITs and the 29.4
+     shatter/clash trimmed -> 45/45, 34.0 and 23.0 back on top. The synthesized-orchestra master is kept as
+     score_synth_v1.wav next to score.wav.
 
 Honest limitations
-  - Everything is synthesized in numpy (fluidsynth, the FluidR3 soundfont, scipy and soundfile are not installed
-    here and no samples were downloaded), so the orchestra is wavetable/additive modelling: it will sound more
-    synthetic than part IV's soundfont render. Continuity with part IV is in the themes, keys and orchestration.
-  - Brass attack scoop is approximated in amplitude, not pitch; strings have no legato transitions.
+  - FluidR3 is a GM soundfont: no real articulations (short notes are shortened sustains, sfz is velocity),
+    swells are CC11 ramps and glissandi pitch-bend on their own channels; no legato transitions.
+  - The two climaxes win the loudness ranking by small margins (34.0 by 0.6 LU over 29.4 at 100 ms; 23.0 by
+    0.2 LU over 29.4 at 400 ms); the limiter caps all HIT peaks at the same ceiling.
   - 2.2 caption sits inside the crescendo to the 3.0 HIT: music is ducked 3.5 dB, but total level still rises
     about 1 LU across the caption.
   - 15.0 and 18.4 jump only +0.9 / +1.7 LU over the previous second because a HIT landed ~1 s before each.
   - LRA 6 LU: dense trailer-style dynamics outside the quiet beat and Act V.
-  - The onset detector is this script's own (numpy) implementation; no MIDI file is exported.
+  - The onset detector is this script's own (numpy) implementation.
+  - score.mid: the orchestral score as composed (cue-exact times, no attack compensation); the chip voices and
+    the synthesized percussion / sound design are audio-only and not in it.
 """
 
 
