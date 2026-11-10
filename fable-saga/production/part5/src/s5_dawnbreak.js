@@ -37,16 +37,17 @@
   }
   // a range: ridge from fbm, filled black, its ridge and nested contours glowing (warm toward the sun, violet and teal away),
   // hatching on the slopes that face away from the light; ruins stand on the far one
-  function d5Range(t, V, hy, p, base, amp, scale, seed, cool, warm, hatch, towers) {
+  function d5Range(t, V, hy, p, base, amp, scale, seed, cool, warm, hatch, towers, tone) {
     const zf = 1 + (V.z - 1) * p, top = LB; let py = null, pyk = [null, null, null];
     const hs = new Float32Array(W);
     for (let x = 0; x < W; x++) { const wx = (x - 240) / zf + 240 + (V.x - 240) * p, f = fbm(wx, seed, scale, 4, seed); hs[x] = (base + amp * Math.max(0, f - 0.32) * 2.6) * zf; }
     for (let x = 0; x < W; x++) {
       const hgt = hs[x], y = Math.round(hy - hgt); if (y >= hy) { py = null; continue; }
-      for (let yy = Math.max(top, y); yy < hy; yy++) BUF[yy * W + x] = 0;
+      for (let yy = Math.max(top, y); yy < hy; yy++) BUF[yy * W + x] = bay(x, yy) < tone * (1 - (hy - yy) / (hgt + 8) * 0.5) ? d5Col(x, yy, 139, 9) : 0;
       const sl = x ? hs[x] - hs[x - 1] : 0, lit = (x < D5.sx ? -sl : sl) > 0.02;
       const c0 = d5Col(x, y, lit ? cool[0] : cool[1], lit ? warm[0] : warm[1]);
       if (py !== null) for (let yy = Math.min(y, py); yy <= Math.max(y, py); yy++) if (yy >= top) P(x, yy, c0); py = y;
+      if (y + 1 < hy) P(x, y + 1, d5Col(x, y, cool[1], warm[1]));
       // nested contours: the same ridge, lower, dimmer, dashed
       for (let k = 0; k < 3; k++) { const yk = Math.round(hy - hgt * (0.74 - k * 0.22)); if (yk >= hy - 1 || yk < top) continue; const on = (fl((x + (V.x * p) * zf) / (3 + k * 2)) % (k + 2)) !== 0; if (on) P(x, yk, d5Col(x, yk, cool[2 + Math.min(k, 1)], warm[2 + Math.min(k, 1)])); }
       // hatching on the side away from the light
@@ -68,7 +69,7 @@
     D5.hy = hy; D5.sx = sx;
     for (let x = 0; x < W; x++) { const d = (x - sx) / 200; D5WR[x] = Math.exp(-d * d) * 0.96; }
     // the sky: black at the zenith, deep indigo to the horizon, burning plum and wine toward the sun
-    const NR = [0, 0, 138, 138, 139, 139, 3, 4], WRr = [0, 0, 138, 9, 9, 10, 10, 11];
+    const NR = [0, 0, 0, 138, 138, 139, 139, 3], WRr = [0, 0, 0, 138, 9, 9, 10, 10];
     for (let y = top; y < bot; y++) {
       const row = y * W, d = hy - y;
       if (d < 0) { const k = -d; for (let x = 0; x < W; x++) BUF[row + x] = k < 18 && bay(x, y) < (1 - k / 18) * 0.55 ? (bay(x + 1, y + 2) < D5WR[x] ? 9 : 138) : 0; continue; }
@@ -85,11 +86,21 @@
           const gx = x / 4, i = Math.min(119, fl(gx)), fx = gx - i, q = j * 121 + i;
           const n = (NEB[q] * (1 - fx) + NEB[q + 1] * fx) * (1 - fy) + (NEB[q + 121] * (1 - fx) + NEB[q + 122] * fx) * fy;
           if (n < 0.5) continue;
-          const lv = (n - 0.5) * 22, fr = frac(lv);
-          if (fr < 0.09) BUF[y * W + x] = n > 0.66 ? d5Col(x, y, 127, 131) : n > 0.58 ? d5Col(x, y, 6, 133) : d5Col(x, y, 5, 10);
-          else if (n > 0.6 && bay(x, y) < (n - 0.6) * 1.6) BUF[y * W + x] = d5Col(x, y, 139, 9);
+          const lv = (n - 0.5) * 16, fr = frac(lv);
+          if (fr < 0.08 && ((x + y) & 1)) BUF[y * W + x] = n > 0.68 ? d5Col(x, y, 127, 131) : n > 0.6 ? d5Col(x, y, 6, 133) : d5Col(x, y, 5, 10);
+          else if (n > 0.6 && bay(x, y) < (n - 0.6) * 1.4) BUF[y * W + x] = d5Col(x, y, 139, 9);
         }
       }
+    }
+    // an aurora drawn in vertical strokes: a curtain of first light over the night side, gold where it nears the sun
+    if (hy > top + 40) {
+      const p = 0.1, zf = 1 + (z - 1) * p;
+      for (let x = 0; x < W; x += 2) {
+        const wx = (x - 240) / zf + 240 + (V.x - 240) * p, yc = hy - (118 + Math.sin(wx * 0.011 + t * 0.25) * 26 + Math.sin(wx * 0.033 - t * 0.4) * 9) * zf, n = vn(wx * 0.9, t * 0.6, 22, 9741), L = (14 + 46 * n * n) * zf, br = vn(wx * 0.5, -t * 0.8, 9, 9742);
+        if (br < 0.3) continue;
+        for (let q = 0; q < L; q++) { const y = yc + q, u = q / L; if (y < top || y > hy - 30) continue; if (bay(x, fl(y)) > (1 - u) * (br - 0.2) * 1.5) continue; P(x, y, u < 0.15 ? d5Col(x, y, 129, 141) : u < 0.45 ? d5Col(x, y, 128, 110) : u < 0.75 ? d5Col(x, y, 6, 12) : d5Col(x, y, 5, 10)); }
+      }
+      light(d5Lx(V, 120, 0.1), hy - 110, 160, L_COLD, 0.12);
     }
     // stars
     for (let k = 0; k < 230; k++) {
@@ -132,8 +143,8 @@
     }
     // far ranges with ruins; the near range
     if (hy > top - 4 && hy < bot + 120) {
-      d5Range(t, V, hy, 0.12, 6, 74, 150, 9730, [57, 6, 5, 139], [141, 110, 13, 10], 139, true);
-      d5Range(t, V, hy, 0.3, 2, 40, 110, 9731, [129, 128, 126, 125], [22, 140, 110, 12], 138, false);
+      d5Range(t, V, hy, 0.12, 6, 74, 150, 9730, [57, 6, 5, 139], [141, 110, 13, 10], 139, true, 0.3);
+      d5Range(t, V, hy, 0.3, 2, 40, 110, 9731, [129, 128, 126, 125], [22, 140, 110, 12], 138, false, 0.12);
       // heat haze: the rows over the line shiver, and broken bands of heat hang in them
       for (let y = Math.max(top, hy - 18); y < hy - 1; y++) { const sh = Math.round(Math.sin(y * 1.7 + t * 9) * 1.4 * (1 - (hy - y) / 18) + Math.sin(y * 0.6 - t * 5) * 0.6), row = y * W; if (!sh) continue; if (sh > 0) for (let x = W - 1; x >= sh; x--) BUF[row + x] = BUF[row + x - sh]; else for (let x = 0; x < W + sh; x++) BUF[row + x] = BUF[row + x - sh]; }
       for (let k = 0; k < 5; k++) { const y = hy - 4 - k * (2 + k), c = [110, 14, 13, 12, 10][k]; for (let x = 0; x < W; x++) { const n = vn(x * 0.06 + k * 5, t * (1.5 + k * 0.4), 1, 9732 + k); if (n > 0.55 - D5WR[x] * 0.15 && bay(x, y) < (n - 0.5) * 3) P(x, y + Math.sin(x * 0.04 + t * 3 + k) * 0.8, c); } }
@@ -197,11 +208,28 @@
   const d5Held = (t, hits) => { for (const [h, d] of hits) if (t >= h && t < h + d) return true; return false; };
   const d5On = (t, h) => Math.round(t * 30) === Math.round(h * 30);
   // a heavy blow at (x, y) for hit time h held for hold: the effect is held with the clock, the one ink frame on the hit frame
+  function d5Heavy(x, y, g, pw, dir, cols, seed, imp, keep, lcol) {
+    if (g < 0 || g > 1.2) return;
+    if (g < 0.5) {
+      shockRing(x, y, 8 + g * 380 * pw, 5 + g * 210 * pw, 2 + pw, [22, cols[1], cols[2]], 1 - g / 0.5);
+      if (pw >= 2) shockRing(x, y, 4 + g * 240 * pw, 3 + g * 80 * pw, 2, [cols[1], cols[2], cols[2]], 1 - g / 0.45);
+      burst(x, y, g / 0.3, 60 * pw, 12 + 4 * pw, ih(fl(x), fl(y), seed) * TAU, [cols[0], cols[1]], 3);
+    }
+    for (let k = 0; k < 14 + 8 * pw; k++) {
+      const a = dir === undefined ? ih(k, 1, seed) * TAU : dir + (ih(k, 1, seed) - 0.5) * 1.3, v = (100 + ih(k, 2, seed) * 300) * Math.sqrt(pw), px = x + Math.cos(a) * v * g, py = y + Math.sin(a) * v * g + 120 * g * g;
+      if (g < 0.6) lineP(px, py, px - Math.cos(a) * (6 + pw * 4), py - Math.sin(a) * (6 + pw * 4), g < 0.15 ? cols[0] : cols[1]);
+    }
+    light(x, y, 26 * pw * Math.max(0, 1 - g * 3), L_WH, 0.5);
+    light(x, y, 56 * pw * Math.max(0, 1 - g * 1.8), lcol || L_WARM, 0.32);
+    if (g < 0.14) GD.ca = Math.max(GD.ca, 2 * pw * (1 - g / 0.14));
+    shk(Math.min(4.2, 1.8 * pw) * Math.max(0, 1 - g * 2.5));
+    if (imp) h5Impact(x, y, imp === 2 ? 1 : 0, keep);
+  }
   function d5Hit(x, y, t, h, hold, pw, dir, cols, seed, imp, keep, lcol) {
     const g = t < h ? -1 : t < h + hold ? 0.012 : t - h - hold * 0.7;
     if (g < 0 || g > 1.2) return;
-    h5Heavy(x, y, g, pw, dir, cols, seed, d5On(t, h) ? imp : 0, keep, lcol);
-    if (t >= h && t < h + hold) { shk(3 + pw * 2); GD.ca = Math.max(GD.ca, 1.5 + pw); }
+    d5Heavy(x, y, g, pw, dir, cols, seed, d5On(t, h) ? imp : 0, keep, lcol);
+    if (t >= h && t < h + hold) { shk(0.6 + pw * 0.5); GD.ca = Math.max(GD.ca, 1.2 + pw * 0.6); }
   }
   // Dawnbreak: the duel kit's fighter, plus its own light: a two-sided rim, the four sparks orbiting the halo, embers off its
   // dawn side and star-dust off its night side
@@ -226,6 +254,7 @@
     const E = h5F(keys, tt, { frz: o.frz }, V); if (!E) return E;
     const p = E.p, S = E.S, t = T_NOW;
     z5Rim(p.flip ? 1 : -1, -0.3, 72, Math.max(1, S * 0.5));
+    if (p.form === 'hollow') z5Rim(p.flip ? -1 : 1, -0.4, 75, Math.max(1, S * 0.45), 73);
     if (p.eyeC === false) { const e = h5Loc(p, E.x, E.y, S, 7.5, -2); for (let k = 0; k < 5; k++) { const a = -PI / 2 + (k - 2) * 0.7 + (p.flip ? PI : 0) * 0, L = (3 + ih(k, 1, 9765) * 4) * S; lineF(e[0], e[1], e[0] + Math.cos(a) * L, e[1] + Math.sin(a) * L, (x, y, u) => { if (SMASK[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)] && u > 0.15) P(x, y, u < 0.5 ? 107 : 104); }); } light(e[0], e[1], 12 * S, L_CRIM, 0.6); for (let k = 0; k < 6; k++) { const u = frac(ih(k, 1, 9766) + t * 1.4); P(e[0] + (ih(k, 2, 9766) - 0.5) * 3 * S, e[1] + u * 9 * S, k & 1 ? 104 : 102); } }
     if (p.cut > 0) { const a = h5Loc(p, E.x, E.y, S, -16, 1.5 + p.cut * 0), b = h5Loc(p, E.x, E.y, S, 16, -1.5); lineF(a[0], a[1], b[0], b[1], (x, y) => { if (SMASK[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)]) { P(x, y, fl(t * 20 + x) % 3 ? 22 : 75); P(x, y + 1, 74); } }); light((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 20 * S, L_MAG, 0.4); }
     if (p.stump) { const s = E.hand; for (let k = 0; k < 10; k++) { const u = frac(ih(k, 1, 9767) + t * 1.8); if (bay(k, fl(t * 30)) < 1 - u) { P(s[0] + (ih(k, 2, 9767) - 0.5) * 2 * S + u * 4 * S * (p.flip ? -1 : 1), s[1] + u * 10 * S + Math.sin(u * 6 + k) * 2, k % 4 ? 0 : 74); } } }
@@ -270,13 +299,13 @@
       if (g > -0.14) { const u = 1 + g / 0.14, sh = d5PaneSet(Q), [ix, iy] = d5PaneQ(Q, Q.ui, Q.vi); for (const s of sh) { if (s.ring > fl(u * 3)) continue; for (let i = 0; i < s.poly.length; i++) { const a = s.poly[i], b = s.poly[(i + 1) % s.poly.length], [wa, wb] = d5PaneQ(Q, a[0], a[1]), [wc, wd] = d5PaneQ(Q, b[0], b[1]); lineP(vX(V, wa), vY(V, wb), vX(V, wc), vY(V, wd), s.ring < 1 ? 22 : 135); } } sparkle(vX(V, ix), vY(V, iy), 4 + 8 * u, 22, 135); light(vX(V, ix), vY(V, iy), 60, L_WH, 0.5 * u); }
       return;
     }
-    if (g > 1.4) return;
+    if (g > 1.0) return;
     const sh = d5PaneSet(Q), [iwx, iwy] = d5PaneQ(Q, Q.ui, Q.vi);
     for (const s of sh) {
       if (!!front !== s.front) continue;
       const [cwx, cwy] = d5PaneQ(Q, s.cu, s.cv), dx = cwx - iwx, dy = cwy - iwy, dl = Math.hypot(dx, dy) || 1, sp = (s.ring === 0 ? 520 : s.ring === 1 ? 380 : 260) * s.sp;
-      const e = 1 - Math.exp(-g * 3.2), ox = dx / dl * sp * e / 3.2 * 1.4, oy = dy / dl * sp * e / 3.2 * 0.8 - (s.ring === 0 ? 700 : s.ring === 1 ? 420 : 160) * e / 3.2 + 180 * g * g;
-      const rot = s.rot * g, sc = Math.max(0.05, (1 + s.grow * g * 1.6) * (1 - Math.max(0, g - 0.8) * 1.4)), c = Math.cos(rot), sn = Math.sin(rot);
+      const e = 1 - Math.exp(-g * 3.2), gone = clip01(0.55, 1.0, g), ox = dx / dl * sp * e / 3.2 * 1.4, oy = dy / dl * sp * e / 3.2 * 0.8 - (s.ring === 0 ? 1500 : s.ring === 1 ? 1150 : 820) * e / 3.2 - 380 * g + 120 * g * g;
+      const rot = s.rot * g, sc = Math.max(0.05, (1 + s.grow * g * 1.6) * (1 - gone)), c = Math.cos(rot), sn = Math.sin(rot);
       const scx = vX(V, cwx + ox), scy = vY(V, cwy + oy);
       if (scy < LB - 120 || scy > H - LB + 120 || scx < -160 || scx > W + 160) continue;
       const pts = s.poly.map(([u, v]) => { const [wx, wy] = d5PaneQ(Q, u, v), lx = (wx - cwx) * z * sc, ly = (wy - cwy) * z * sc; return [scx + lx * c - ly * sn, scy + lx * sn + ly * c]; });
@@ -289,19 +318,19 @@
       if (g < 0.35) { const u = g / 0.35; shockRing(vX(V, iwx), vY(V, iwy), 10 + u * 300 * z, 4 + u * 70 * z, 3, [22, 135, 136], 1 - u); }
     }
   }
-  WORLDS.d5line = Object.assign(() => d5World(1.0, V0, {}), { paint: d5World, fore: d5Fore, stop: d5Stop, held: d5Held, hit: d5Hit, hero: d5Hero, hol: d5Hol, horizon: d5Horizon, on: d5On, D5 });
+  WORLDS.d5line = Object.assign(() => d5World(1.0, V0, {}), { paint: d5World, fore: d5Fore, stop: d5Stop, held: d5Held, hit: d5Hit, heavy: d5Heavy, hero: d5Hero, hol: d5Hol, horizon: d5Horizon, on: d5On, D5 });
 
   /* ---------------------------------------------------------------- 23.0–24.5: the form */
   const PH = [276, 181], HILT = [224, 70], TIP = [262, 216], PSL = 210, SHO = [245, 152];
   const tH = TR([
-    { t: 23.0, x: 276, y: 176, S: 3, form: 'dawn', sw: 0.5, swl: 3, a: 0.04, sq: 0.16, arm2: [-2.25, 10, 1], eyes: 'glow', spread: 0, ring: 0, ringR: 0.3, cr: 1, aur: 2.4, nobob: true, legs: [1, 0, 0, 1] },
-    { t: 23.14, y: 171, sq: -0.24, aur: 3.2, ring: 0.5, ringR: 0.8, e: 'o' },
+    { t: 23.0, x: 276, y: 176, S: 3, form: 'dawn', sw: 0.5, swl: 3, a: 0.04, sq: 0.16, arm2: [-2.25, 10, 1], eyes: 'glow', spread: 0, ring: 0, ringR: 0.3, cr: 1, aur: 0.7, nobob: true, legs: [1, 0, 0, 1] },
+    { t: 23.14, y: 171, sq: -0.24, aur: 0.8, ring: 0.5, ringR: 0.8, e: 'o' },
     { t: 23.45, y: 170, sq: 0, spread: 0.25, ring: 0.8, ringR: 0.95, cr: 0.8 },
     { t: 23.62, arm2: null, y: 166, spread: 0.5, sw: 0.9, legs: null, nobob: false },
-    { t: 23.95, x: 266, y: 136, a: -0.06, spread: 1.4, ring: 1, ringR: 1.15, cr: 0.25, sw: -0.4, aur: 1.4, e: 'o' },
+    { t: 23.95, x: 266, y: 136, a: -0.06, spread: 1.4, ring: 1, ringR: 1.15, cr: 0.25, sw: -0.4, aur: 0.8, e: 'o' },
     { t: 24.05, sw: -1.25, swl: 3 },
     { t: 24.38, swl: 30, sw: -1.4, ringR: 1, spread: 1.1 },
-    { t: 24.5, x: 262, y: 132, sw: -0.7, cr: 0, a: 0, spread: 1, aur: 1 },
+    { t: 24.5, x: 262, y: 132, sw: -0.7, cr: 0, a: 0, spread: 1, aur: 0.5 },
   ]);
   const tE = TR([
     { t: 23.0, x: 173, y: 72, S: 3, form: 'hnova', nosw: true, arm: 0.5, a: 0.14, eyes: 'wide', spread: 1, flap: 0.14 },
@@ -310,20 +339,21 @@
     { t: 23.5, x: 10, y: 10, a: -2.4, alpha: 0, hide: true },
   ]);
   const tE2 = TR([   // the shadow pours itself back together, over there
-    { t: 24.0, x: 392, y: 104, S: 3, form: 'hnova', sw: -1.6, a: 0.1, flip: true, eyes: 'narrow', spread: 0, alpha: 0, aur: 0, glow: 0, sq: -0.3 },
-    { t: 24.32, alpha: 1, spread: 1, aur: 1, glow: 1, sq: 0.15, a: -0.15, e: 'o' },
-    { t: 24.5, x: 386, y: 110, sq: 0, sw: -2.0, a: 0 },
+    { t: 24.0, x: 452, y: 104, S: 2.6, form: 'hnova', sw: -1.6, a: 0.1, flip: true, eyes: 'narrow', spread: 0, aur: 0, glow: 0, sq: -0.3, ws: 0.72, hide: true },
+    { t: 24.2, hide: false, sq: -0.3, spread: 0.2 },
+    { t: 24.34, spread: 1, aur: 1, glow: 1, sq: 0.15, a: -0.15, e: 'o' },
+    { t: 24.5, x: 440, y: 110, sq: 0, sw: -2.0, a: 0 },
   ]);
   function tView(t) {
-    const kk = kick(t, [[23.0, 3.2, -PI / 2], [23.62, 1.2, 0]]), u = eio(clip01(23.03, 23.55, t)), v = eio(clip01(23.55, 24.4, t));
-    return { x: lerp(lerp(250, 262, u), 290, v) - kk[2], y: lerp(lerp(140, 150, u), 124, v) - kk[3], z: lerp(lerp(1, 1.16, u), 0.86, v) * (1 + kk[0] * 0.6), r: kk[1] };
+    const kk = kick(t, [[23.0, 1.5, -PI / 2], [23.62, 1.2, 0]]), u = eio(clip01(23.03, 23.55, t)), v = eio(clip01(23.55, 24.4, t));
+    return { x: lerp(lerp(250, 256, u), 290, v) - kk[2], y: lerp(lerp(140, 138, u), 124, v) - kk[3], z: lerp(lerp(1, 1.3, u), 0.86, v) * (1 + kk[0] * 0.6), r: kk[1] };
   }
   // the old picture, redrawn as light: within R the new world, a band of the old one traced in line, beyond it the old
   function tSweep(t, V, R, cx, cy) {
     H5NEW.set(BUF); const nl = LIGHTS.length; WORLDS.pin(); LIGHTS.length = nl; H5OLD.set(BUF);
     for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x, d = Math.hypot(x - cx, (y - cy) * 1.25) + (vn(x, y, 9, 9780) - 0.5) * 16;
-      if (d < R) { BUF[i] = H5NEW[i]; continue; }
+      if (d < R || (x - 163) * (x - 163) + (y - 67) * (y - 67) < 3600 * clip01(23.0, 23.07, t)) { BUF[i] = H5NEW[i]; continue; }
       if (d < R + 4) { BUF[i] = d < R + 1.5 ? 22 : bay(x, y) < 0.6 ? 140 : 141; continue; }
       if (d < R + 40) { const a = LUMP5[H5OLD[i]], b = LUMP5[H5OLD[i + 1]], c = LUMP5[H5OLD[i + W]], e = Math.abs(a - b) + Math.abs(a - c), f = (d - R) / 40; BUF[i] = e > 26 ? (f < 0.4 ? 141 : x < cx ? 56 : 110) : f > 0.7 && bay(x, y) < (f - 0.7) * 3 ? H5OLD[i] : (a > 120 && bay(x, y) < 0.25 ? 139 : 0); continue; }
       BUF[i] = H5OLD[i];
@@ -334,22 +364,30 @@
   shot(23.0, 24.5, (lt, t) => {
     const HS = [[23.0, 0.1]], V = tView(t), tt = d5Stop(t, HS), g = t - 23.0;
     H5PX = V.x * 0.3; H5PY = V.y * 0.3;
-    d5World(t, V, { burn: eoc(clip01(23.0, 23.6, t)) });
+    d5World(t, V, { burn: eoc(clip01(23.0, 23.6, t)), sunX: 372 });
     const hx0 = vX(V, PH[0]), hy0 = vY(V, PH[1] - 14);
     if (g < 0.72) tSweep(t, V, 18 + 620 * Math.pow(g / 0.72, 1.35), hx0, hy0);
     // the slab, now a drawing of itself; it breaks as the hero leaves it
     { const br = clip01(23.62, 24.3, t), pts = slabPts(vX(V, 110), vX(V, 410), vY(V, PSL), 0, 50 * V.z, 31);
       for (const sd of [-1, 1]) { const ox = sd * 40 * eoc(br) * V.z, oy = 60 * br * br * V.z, rot = sd * 0.25 * br; const cxp = vX(V, 260), cyp = vY(V, PSL); const q = pts.filter((p) => (p[0] - cxp) * sd >= -2).concat([[cxp + sd * 2, cyp + 50 * V.z * 0.8]]).map(([x, y]) => { const lx = x - cxp, ly = y - cyp; return [cxp + lx * Math.cos(rot) - ly * Math.sin(rot) + ox, cyp + lx * Math.sin(rot) + ly * Math.cos(rot) + oy]; });
-        if (g > 0.15) { polyF(q, (x, y) => ((x + y) % 4 === 0 ? 139 : 0)); for (let i = 0, j = q.length - 1; i < q.length; j = i++) lineP(q[j][0], q[j][1], q[i][0], q[i][1], q[j][1] < cyp + 2 && q[i][1] < cyp + 2 ? 22 : 135); } }
+        if (g >= 0) { polyF(q, (x, y) => ((x + y) % 4 === 0 ? 139 : 0)); for (let i = 0, j = q.length - 1; i < q.length; j = i++) lineP(q[j][0], q[j][1], q[i][0], q[i][1], q[j][1] < cyp + 2 && q[i][1] < cyp + 2 ? 22 : 135); } }
       if (br > 0) rocks(vX(V, 260), vY(V, PSL), t - 23.62, 14, 120, 3 * V.z, [137, 136, 135, 22], 9782, 200, PI / 2, 2.4);
     }
     const HR0 = h5Pose(tH, tt), shx = vX(V, SHO[0]), shy = vY(V, SHO[1] - (176 - HR0.y));
+    // the burst that throws the Hollow off it
+    d5Hit(hx0, hy0, t, 23.0, 0.1, 2.2, undefined, [22, 140, 56], 9789, 1, [140, 141, 56, 57, 73, 74, 104], L_GOLD);
+    const E = h5F(tE, tt, {}, V);
+    if (E) h5Ash(tE, tt, V, 30, -60, -40, [0, 78, 20, 0, 22, 77]);
+    // and pouring itself back together on the far side
+    if (t > 23.8) { ashStreams(t, vX(V, 452), vY(V, 104), 160, clip01(23.8, 24.2, t) * (1 - clip01(24.25, 24.5, t)), 9790); d5Hol(tE2, tt, V); const g2 = t - 24.2; if (g2 >= 0 && g2 < 0.35) { shockRing(vX(V, 452), vY(V, 104), 6 + g2 * 260, 4 + g2 * 160, 3, [22, 74, 72], 1 - g2 / 0.35); light(vX(V, 452), vY(V, 104), 60, L_MAG, 0.6 * (1 - g2 / 0.35)); } }
+    // the hero
+    const HR = d5Hero(tH, tt, V, { frz: d5Held(t, HS) ? 2 : 0 });
     // the pinning blade: its black runs down into the hero; it cracks with light, empties from the hilt down, and crumbles
     const hx = vX(V, HILT[0]), hy = vY(V, HILT[1]), ba = Math.atan2(shy - hy, shx - hx), bl = Math.hypot(shx - hx, shy - hy) + 22 * V.z;
     const drain = clip01(23.0, 23.5, t), crum = clip01(23.47, 23.8, t);
     if (crum < 1) {
       const s0 = eic(drain) * 0.7 * bl;
-      if (crum <= 0) { bigBlade(hx + Math.cos(ba) * s0, hy + Math.sin(ba) * s0, ba, bl - s0, 5 * V.z * (1 - 0.3 * drain), t, { form: 'void', flare: 0.4, cracks: 0.6 + drain * 3.2, noHilt: s0 > 4 });
+      if (crum <= 0) { bigBlade(hx + Math.cos(ba) * s0, hy + Math.sin(ba) * s0, ba, bl - s0, 7.5 * V.z * (1 - 0.3 * drain), t, { form: 'void', flare: 0.4, cracks: 0.6 + drain * 3.2, noHilt: s0 > 4 }); for (let q = 0; q < 5; q++) { const f = (q + 0.5) / 5, along = lerp(s0, bl, f); light(hx + Math.cos(ba) * along, hy + Math.sin(ba) * along, 34 * V.z, L_MAG, 0.35 * (1 - drain * 0.5)); }
         for (let k = 0; k < 6; k++) { let x = shx, y = shy, d = 0; const reach = (bl - s0) * clip01(0, 0.4, g) * (0.5 + ih(k, 1, 9783) * 0.5); while (d < reach) { const st = 6 + ih(k, fl(d), 9784) * 8, off = (ih(k, fl(d) + 1, 9785) - 0.5) * 6 * V.z, nx = shx - Math.cos(ba) * (d + st) - Math.sin(ba) * off, ny = shy - Math.sin(ba) * (d + st) + Math.cos(ba) * off; lineP(x, y, nx, ny, 22); x = nx; y = ny; d += st; } }
         for (let k = 0; k < 60; k++) { const u = frac(ih(k, 1, 9786) + t * (1.6 + ih(k, 2, 9786))), along = lerp(s0, bl - 10 * V.z, u), q = (ih(k, 3, 9786) - 0.5) * 9 * V.z, px = hx + Math.cos(ba) * along - Math.sin(ba) * q * (1 - u), py = hy + Math.sin(ba) * along + Math.cos(ba) * q * (1 - u); lineP(px, py, px - Math.cos(ba) * 5 * V.z, py - Math.sin(ba) * 5 * V.z, k % 4 === 0 ? 74 : k % 4 === 1 ? 77 : 0); }
       } else {
@@ -358,16 +396,6 @@
           const x = lerp(px0, shx - 8 * V.z, e) + Math.cos(a) * rr, y = lerp(py0, shy, e) + Math.sin(a) * rr, r = (3 + ih(k, 1, 9787) * 3) * V.z * (1 - e * 0.8); const pts = shardPts(x, y, r * 1.4, r, a * 2 + k, 90 + k, 5); polyF(pts, (X, Y) => (bay(X, Y) < 0.15 ? 77 : 0)); for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) lineP(pts[j][0], pts[j][1], pts[i][0], pts[i][1], k % 3 ? 74 : 22); }
       }
     }
-    // the burst that throws the Hollow off it
-    if (g < 0.8) { shockRing(hx0, hy0, 10 + g * 760, 8 + g * 480, 4, [22, 140, 56], 1 - g / 0.8); shockRing(hx0, hy0, 6 + g * 420, 4 + g * 270, 2, [22, 57, 6], 1 - g / 0.6); }
-    for (let k = 0; k < 40 && g < 0.7; k++) { const a = ih(k, 1, 9788) * TAU, v = (160 + ih(k, 2, 9788) * 420) * V.z, r0 = 20 * V.z, x = hx0 + Math.cos(a) * (r0 + v * g), y = hy0 + Math.sin(a) * (r0 + v * g) * 0.8; lineP(x, y, x - Math.cos(a) * 14, y - Math.sin(a) * 11, Math.cos(a) > 0 ? (k & 1 ? 141 : 22) : (k & 1 ? 56 : 57)); }
-    d5Hit(hx0, hy0, t, 23.0, 0.1, 3, undefined, [22, 140, 56], 9789, 1, [140, 141, 56, 57, 73, 74, 104], L_GOLD);
-    const E = h5F(tE, tt, {}, V);
-    if (E) h5Ash(tE, tt, V, 30, -60, -40, [0, 78, 20, 0, 22, 77]);
-    // and pouring itself back together on the far side
-    if (t > 23.8) { ashStreams(t, vX(V, 392), vY(V, 104), 160, clip01(23.8, 24.3, t) * (1 - clip01(24.35, 24.5, t)), 9790); d5Hol(tE2, tt, V); }
-    // the hero
-    const HR = d5Hero(tH, tt, V, { frz: d5Held(t, HS) ? 2 : 0 });
     if (t < 23.62) { light(shx, shy, 40 * V.z, L_DARK, 0.4 * (1 - drain)); sparkle(shx, shy, 4 + 3 * Math.sin(t * 30), 22, 140); }
     // the new blade gathers out of light and dark into the hilt
     if (t > 23.95 && t < 24.45) { const u = clip01(23.95, 24.4, t); for (let k = 0; k < 40; k++) { const f = frac(ih(k, 1, 9791) + t * 2.4), a = ih(k, 2, 9791) * TAU, r = 40 * (1 - f) * V.z; P(HR.tip[0] + Math.cos(a) * r, HR.tip[1] + Math.sin(a) * r, k & 1 ? 22 : 57); if (k % 3 === 0) P(HR.hand[0] + Math.cos(a) * r * 0.6, HR.hand[1] + Math.sin(a) * r * 0.6, k & 2 ? 141 : 56); } light(HR.tip[0], HR.tip[1], 40, L_WH, 0.7 * (1 - u * 0.5)); sparkle(HR.tip[0], HR.tip[1], 6 * (1 - u) + 2, 22, 140); }
@@ -379,74 +407,74 @@
   /* ---------------------------------------------------------------- 24.5–27.0: the counter-attack, cut on each impact */
   const S2 = 2.4;
   const cH = TR([
-    { t: 24.5, x: 210, y: 134, S: S2, form: 'dawn', sw: -0.7, swl: 30, a: 0, sq: 0, flip: false, eyes: 'glow', spread: 1 },
-    { t: 24.62, x: 214, y: 140, sq: 0.25, sw: -0.4 },
-    { t: 24.8, x: 222, y: 166, sq: 0.48, a: 0.16, sw: 1.5, spread: 0.5, e: 'o' },             // under its sweep
-    { t: 24.94, x: 226, y: 164, sq: 0.52, a: 0.1, sw: 1.7 },
-    { t: 25.0, x: 246, y: 136, sw: -1.75, sq: -0.28, a: -0.2, spread: 1.2, e: EQ },          // 1: a rising cut across the mask
-    { t: 25.1, x: 252, y: 124, sw: -2.3, a: -0.25, sq: 0, e: 'o' },
-    { t: 25.28, x: 266, y: 82, sw: -2.95, a: -0.12, sq: 0.18, spread: 1.4 },
-    { t: 25.4, x: 274, y: 104, sw: 1.05, a: 0.3, sq: -0.22, e: EQ },                          // 2: the chop on the blade arm
-    { t: 25.5, x: 278, y: 114, sw: 1.6, a: 0.34, sq: 0.22, e: 'o' },
-    { t: 25.58, x: 292, y: 84, a: 1.6, sw: -0.6, sq: -0.1, e: 'i' },
-    { t: 25.7, x: 350, y: 84, a: 5.2, sw: 0.9, sq: 0, e: 'l' },                               // 3: vaulting it, through its wing
-    { t: 25.7001, a: -1.08 },
-    { t: 25.8, x: 386, y: 104, a: -0.2, sq: 0.12, e: 'o' },
-    { t: 25.8001, flip: true, a: 0.2, sw: 0.5 },
-    { t: 25.93, x: 414, y: 118, a: 0.1, sw: 0.25, sq: 0.3, reach: 0 },
-    { t: 26.0, x: 396, y: 124, sw: 0.02, reach: 6, sq: -0.28, a: -0.05, e: EQ },              // 4: the thrust into the crimson eye
-    { t: 26.06, x: 398, y: 122, reach: 3, sw: -0.15, sq: 0, e: 'o' },
-    { t: 26.2, x: 376, y: 120, a: 7.5, lk: 1, sq: -0.15, sw: -1.4, reach: 0, e: 'i' },        // 5: the spinning kick
+    { t: 24.5, x: 214, y: 134, S: S2, form: 'dawn', sw: -0.7, swl: 30, a: 0, sq: 0, flip: false, eyes: 'glow', spread: 1, aur: 0.45, ws: 0.7 },
+    { t: 24.62, x: 212, y: 140, sq: 0.25, sw: -0.4 },
+    { t: 24.8, x: 204, y: 170, sq: 0.48, a: 0.16, sw: 1.5, spread: 0.5, e: 'o' },             // under its sweep
+    { t: 24.94, x: 208, y: 166, sq: 0.52, a: 0.1, sw: 1.7 },
+    { t: 25.0, x: 222, y: 138, sw: -1.75, sq: -0.28, a: -0.2, spread: 1.2, e: EQ },          // 1: a rising cut across the mask
+    { t: 25.1, x: 228, y: 126, sw: -2.3, a: -0.25, sq: 0, e: 'o' },
+    { t: 25.28, x: 238, y: 62, sw: -2.95, a: -0.12, sq: 0.18, spread: 1.4 },
+    { t: 25.4, x: 252, y: 90, sw: 1.05, a: 0.3, sq: -0.22, e: EQ },                          // 2: the chop on the blade arm
+    { t: 25.5, x: 256, y: 100, sw: 1.6, a: 0.34, sq: 0.22, e: 'o' },
+    { t: 25.58, x: 286, y: 50, a: 1.6, sw: 0.2, sq: -0.1, e: 'i' },
+    { t: 25.7, x: 372, y: 42, a: 6.68, sw: 0.9, sq: 0, e: 'l' },                              // 3: vaulting it, through its wing
+    { t: 25.7001, a: 0.4 },
+    { t: 25.8, x: 414, y: 90, a: 0.1, sq: 0.12, e: 'o' },
+    { t: 25.8001, flip: true, a: -0.1, sw: 0.5 },
+    { t: 25.93, x: 472, y: 118, a: 0.1, sw: 0.25, sq: 0.3, reach: 0 },
+    { t: 26.0, x: 452, y: 124, sw: 0.02, reach: 6, sq: -0.28, a: -0.05, e: EQ },              // 4: the thrust into the crimson eye
+    { t: 26.06, x: 450, y: 122, reach: 3, sw: -0.15, sq: 0, e: 'o' },
+    { t: 26.2, x: 398, y: 118, a: 7.5, lk: 1, sq: -0.15, sw: -1.4, reach: 0, e: 'i' },        // 5: the spinning kick
     { t: 26.2001, a: 1.22 },
-    { t: 26.28, x: 384, y: 118, a: 0.5, lk: 0.3, sq: 0.1, e: 'o' },
-    { t: 26.35, x: 396, y: 120, a: 0, lk: 0, sw: 0.3, sq: 0.38 },
-    { t: 26.4, x: 300, y: 136, sw: 0.12, sq: -0.42, reach: 4, e: 'l' },                       // 6: through it
-    { t: 26.47, x: 196, y: 142, sw: 0.4, sq: -0.1, reach: 0, e: 'o' },
-    { t: 26.62, x: 172, y: 146, sw: 0.7, sq: 0.1 },
+    { t: 26.28, x: 404, y: 116, a: 0.5, lk: 0.3, sq: 0.1, e: 'o' },
+    { t: 26.35, x: 414, y: 120, a: 0, lk: 0, sw: 0.3, sq: 0.38 },
+    { t: 26.4, x: 318, y: 136, sw: 0.12, sq: -0.42, reach: 4, e: 'l' },                       // 6: through it
+    { t: 26.47, x: 176, y: 144, sw: 0.4, sq: -0.1, reach: 0, e: 'o' },
+    { t: 26.62, x: 156, y: 150, sw: 0.7, sq: 0.1 },
     { t: 26.6201, flip: false, sw: 1.2 },
-    { t: 26.8, x: 236, y: 182, sq: 0.45, sw: 1.7, a: -0.08, arm2: [2.7, 6, 1], spread: 0.7 },
-    { t: 26.96, x: 244, y: 186, sq: 0.56, sw: 1.8, a: -0.12 },
-    { t: 27.0, x: 260, y: 158, sq: -0.36, a: 0.12, sw: 1.2, arm2: [-1.72, 12, 1], spread: 1.3, e: EQ },   // the uppercut
+    { t: 26.8, x: 250, y: 190, sq: 0.45, sw: 1.7, a: -0.08, arm2: [2.7, 6, 1], spread: 0.7 },
+    { t: 26.96, x: 256, y: 192, sq: 0.56, sw: 1.8, a: -0.12 },
+    { t: 27.0, x: 262, y: 160, sq: -0.36, a: 0.12, sw: 1.2, arm2: [-1.72, 12, 1], spread: 1.3, e: EQ },   // the uppercut
     { t: 27.12, x: 262, y: 120, sq: -0.1, e: 'o' },
-  ], { 25.28: 26, 25.7: 50, 26.4: -10, 26.8: -22 });
+  ], { 25.28: 26, 25.7: 40, 26.4: -10, 26.8: -22 });
   const cE = TR([
-    { t: 24.5, x: 386, y: 110, S: S2, form: 'hnova', sw: -2.0, a: 0, flip: true, eyes: 'narrow', spread: 1, chip: 0 },
-    { t: 24.64, x: 352, y: 112, sw: -2.4, a: -0.2, sq: -0.12 },
-    { t: 24.8, x: 288, y: 124, sw: 0.2, a: 0.25, sq: 0.1, e: EQ },                             // its sweep, over the hero
-    { t: 24.95, x: 296, y: 126, sw: 0.9, a: 0.1, sq: 0, e: 'o' },
-    { t: 25.0, x: 298, y: 126, eyes: 'wide' },
-    { t: 25.1, x: 318, y: 116, a: 0.5, chip: 1, sq: 0.12, e: 'o' },                            // head snapped back
-    { t: 25.3, x: 316, y: 122, a: 0.08, sw: -1.7, sq: 0 },                                     // raises its blade again
-    { t: 25.4, x: 314, y: 126, sw: -1.2, a: 0.02 },
+    { t: 24.5, x: 430, y: 110, S: S2, form: 'hnova', sw: -2.0, a: 0, flip: true, eyes: 'narrow', spread: 1, chip: 0, aur: 0.5, ws: 0.55 },
+    { t: 24.64, x: 356, y: 112, sw: -2.4, a: -0.2, sq: -0.12 },
+    { t: 24.8, x: 300, y: 122, sw: 0.1, a: 0.2, sq: 0.1, e: EQ },                              // its sweep, over the hero
+    { t: 24.95, x: 314, y: 124, sw: 0.8, a: 0.1, sq: 0, e: 'o' },
+    { t: 25.0, x: 318, y: 124, eyes: 'wide' },
+    { t: 25.1, x: 340, y: 112, a: 0.5, chip: 1, sq: 0.12, e: 'o' },                            // head snapped back
+    { t: 25.3, x: 338, y: 120, a: 0.08, sw: -1.7, sq: 0 },                                     // raises its blade again
+    { t: 25.4, x: 336, y: 126, sw: -1.2, a: 0.02 },
     { t: 25.4001, nosw: true, reach: -3, stump: 1 },
-    { t: 25.5, x: 320, y: 140, a: -0.3, sq: 0.26, e: 'o' },                                    // the arm gone, driven down
-    { t: 25.7, x: 324, y: 132, a: 0.06, sq: 0 },
+    { t: 25.5, x: 342, y: 140, a: -0.3, sq: 0.26, e: 'o' },                                    // the arm gone, driven down
+    { t: 25.7, x: 344, y: 132, a: 0.06, sq: 0 },
     { t: 25.7001, wl: 0 },
-    { t: 25.8, x: 316, y: 140, a: -0.34, sq: 0.14, e: 'o' },
-    { t: 25.9, x: 320, y: 130, a: 0, sq: 0 },
+    { t: 25.8, x: 336, y: 140, a: -0.34, sq: 0.14, e: 'o' },
+    { t: 25.9, x: 340, y: 130, a: 0, sq: 0 },
     { t: 25.9001, flip: false, eyes: 'wide' },                                                  // turns to face it
-    { t: 26.0, x: 322, y: 128 },
+    { t: 26.0, x: 340, y: 128 },
     { t: 26.0001, eyeC: false, eyes: 'narrow' },
-    { t: 26.08, x: 308, y: 124, a: -0.42, sq: 0.1, e: 'o' },
-    { t: 26.2, x: 318, y: 128, a: -0.1 },
-    { t: 26.28, x: 284, y: 138, a: 0.6, sq: 0.4, aur: 0.4, e: 'o' },                            // folded by the kick
-    { t: 26.4, x: 262, y: 138, a: 0.3, sq: 0.15 },
+    { t: 26.08, x: 330, y: 124, a: -0.42, sq: 0.1, e: 'o' },
+    { t: 26.2, x: 340, y: 128, a: -0.1 },
+    { t: 26.28, x: 300, y: 140, a: 0.6, sq: 0.4, aur: 0.3, e: 'o' },                            // folded by the kick
+    { t: 26.4, x: 276, y: 140, a: 0.3, sq: 0.15 },
     { t: 26.4001, form: 'hollow', spread: 0, cut: 1, eyes: 'wide' },
-    { t: 26.6, x: 256, y: 128, a: -0.45, sq: 0.1, e: 'o' },
-    { t: 26.95, x: 246, y: 120, a: 0.25, sq: 0 },
-    { t: 27.0, x: 244, y: 118, a: 0.1, sq: 0.42, e: 'l' },
-    { t: 27.25, x: 244, y: -140, a: -3, sq: -0.2, e: 'o' },
+    { t: 26.6, x: 262, y: 128, a: -0.45, sq: 0.1, e: 'o' },
+    { t: 26.95, x: 240, y: 114, a: 0.25, sq: 0 },
+    { t: 27.0, x: 236, y: 112, a: 0.1, sq: 0.42, e: 'l' },
+    { t: 27.25, x: 240, y: -120, a: -3, sq: -0.2, e: 'o' },
   ]);
   const CH = [[25.0, 0.067], [25.4, 0.1], [25.7, 0.1], [26.0, 0.134], [26.2, 0.134], [26.4, 0.167], [27.0, 0.134]];
   // the cameras: one set-up per strike
   const CAMS = [
-    [24.5, (t) => ({ x: 296, y: 132, z: lerp(1.0, 1.12, eio(clip01(24.5, 25.0, t))), r: 0 })],
-    [25.0, (t) => ({ x: lerp(272, 288, clip01(25.0, 25.4, t)), y: 120, z: 1.5, r: -0.05 })],
-    [25.4, (t) => ({ x: 300, y: lerp(116, 124, clip01(25.4, 25.7, t)), z: 1.75, r: 0.09 })],
-    [25.7, (t) => ({ x: lerp(344, 352, clip01(25.7, 26.0, t)), y: 108, z: 1.0, r: -0.03 })],
-    [26.0, (t) => ({ x: lerp(340, 334, clip01(26.0, 26.2, t)), y: 120, z: 2.5, r: 0.05 })],
-    [26.2, (t) => ({ x: lerp(330, 318, clip01(26.2, 26.4, t)), y: 126, z: 1.45, r: -0.12 })],
-    [26.4, (t) => ({ x: lerp(250, 246, clip01(26.4, 27.0, t)), y: lerp(136, 146, eio(clip01(26.6, 27.0, t))), z: lerp(1.0, 1.28, eio(clip01(26.55, 27.0, t))), r: 0 })],
+    [24.5, (t) => ({ x: lerp(286, 272, eio(clip01(24.5, 25.0, t))), y: 134, z: lerp(0.98, 1.06, eio(clip01(24.5, 25.0, t))), r: 0 })],
+    [25.0, (t) => ({ x: lerp(280, 296, clip01(25.0, 25.4, t)), y: 116, z: 1.15, r: -0.05 })],
+    [25.4, (t) => ({ x: 312, y: lerp(108, 118, clip01(25.4, 25.7, t)), z: 1.08, r: 0.09 })],
+    [25.7, (t) => ({ x: lerp(366, 380, clip01(25.7, 26.0, t)), y: 102, z: 0.95, r: -0.03 })],
+    [26.0, (t) => ({ x: lerp(364, 358, clip01(26.0, 26.2, t)), y: 122, z: 2.4, r: 0.05 })],
+    [26.2, (t) => ({ x: lerp(362, 340, clip01(26.2, 26.4, t)), y: 126, z: 1.08, r: -0.12 })],
+    [26.4, (t) => ({ x: lerp(272, 250, eio(clip01(26.4, 27.0, t))), y: lerp(136, 146, eio(clip01(26.6, 27.0, t))), z: lerp(0.95, 1.18, eio(clip01(26.55, 27.0, t))), r: 0 })],
   ];
   const CKD = [[25.0, 1.4, -0.6], [25.4, 1.6, 1.3], [25.7, 1.4, 0.8], [26.0, 1.8, PI], [26.2, 1.8, PI + 0.2], [26.4, 2.0, PI], [27.0, 2.8, -PI / 2]];
   function cView(t) {
@@ -460,29 +488,29 @@
     d5World(t, V, {});
     const pe = h5Pose(cE, tt);
     // 3: the wing it lost, falling, burning out
-    let g = tt - 25.7; if (g >= 0 && g < 1.3) { const wx = vX(V, 346 + 40 * g), wy = vY(V, 112 - 30 * g + 160 * g * g); h5Wing(wx, wy, S2 * 0.55 * V.z, t, 1, 0.05, 1, 'void', g * 3 + 0.4, 0, 0, clip01(0.25, 1.2, g) * 0.95); }
+    let g = tt - 25.7; if (g >= 0 && g < 1.3) { const wx = vX(V, 372 + 40 * g), wy = vY(V, 112 - 30 * g + 160 * g * g); h5Wing(wx, wy, S2 * 0.55 * V.z, t, 1, 0.05, 1, 'void', g * 3 + 0.4, 0, 0, clip01(0.25, 1.2, g) * 0.95); }
     // 2: the arm it lost, and its blade, spinning away
-    g = tt - 25.4; if (g >= 0 && g < 1.2) { const ax = vX(V, 286 - 40 * g), ay = vY(V, 128 + 60 * g + 200 * g * g), aa = 2.2 + g * 9, L = 6 * S2 * V.z; capsF(ax, ay, ax + Math.cos(aa) * L, ay + Math.sin(aa) * L, 2.2 * V.z, 2.2 * V.z, (u, d) => (d > 0.7 ? 22 : 134)); bigBlade(ax + Math.cos(aa) * L, ay + Math.sin(aa) * L, aa + 0.5, 64 * V.z, 3.2 * V.z, t, { form: 'void', flare: 0.4 * (1 - g), cracks: g * 2 }); h5Void(t); }
+    g = tt - 25.4; if (g >= 0 && g < 1.2) { const ax = vX(V, 300 - 40 * g), ay = vY(V, 128 + 60 * g + 200 * g * g), aa = 2.2 + g * 9, L = 6 * S2 * V.z; capsF(ax, ay, ax + Math.cos(aa) * L, ay + Math.sin(aa) * L, 2.2 * V.z, 2.2 * V.z, (u, d) => (d > 0.7 ? 22 : 134)); bigBlade(ax + Math.cos(aa) * L, ay + Math.sin(aa) * L, aa + 0.5, 64 * V.z, 3.2 * V.z, t, { form: 'void', flare: 0.4 * (1 - g), cracks: g * 2 }); h5Void(t); }
     const E = d5Hol(cE, tt, V, { frz });
     if (E) h5Ash(cE, tt, V, t > 26.4 ? 46 : 16, t > 26.4 ? -70 : 20, -40, [0, 78, 20, 0, 22, 77]);
     const HR = d5Hero(cH, tt, V, { frz });
     // the strikes
     const at = (wx, wy) => [vX(V, wx), vY(V, wy)];
-    { const [x, y] = at(280, 116); d5Hit(x, y, t, 25.0, 0.067, 1.1, -0.6, [22, 140, 56], 9800, 1, [140, 141, 64, 65, 73, 104], L_GOLD); g = tt - 25.0;
+    { const [x, y] = at(290, 112); d5Hit(x, y, t, 25.0, 0.067, 1.1, -0.6, [22, 140, 56], 9800, 1, [140, 141, 64, 65, 73, 104], L_GOLD); g = tt - 25.0;
       if (g > 0 && g < 1) { rocks(x, y, g, 12, 220, 2.6 * V.z, [66, 65, 64, 22], 9801, 220, -0.7, 1.4); const mx = x + 140 * g * V.z, my = y - 120 * g * V.z + 200 * g * g * V.z; z5MaskShard(mx, my, 0.3 * V.z, g * 12, 0, [0, 0], t); } }
-    { const [x, y] = at(288, 128); d5Hit(x, y, t, 25.4, 0.1, 1.3, 1.3, [22, 74, 72], 9802, 0, null, L_MAG); g = tt - 25.4; if (g > 0 && g < 0.7) for (let k = 0; k < 24; k++) { const a = 1.3 + (ih(k, 1, 9803) - 0.5) * 1.6, v = (80 + ih(k, 2, 9803) * 240) * V.z, px = x + Math.cos(a) * v * g, py = y + Math.sin(a) * v * g + 160 * g * g; if (bay(k, fl(t * 30)) < 1 - g) rectF(px, py, 2, 2, k % 3 ? 0 : 74); } }
-    { const [x, y] = at(338, 108); d5Hit(x, y, t, 25.7, 0.1, 1.2, 0.8, [22, 140, 56], 9804, 1, [140, 141, 56, 57, 73, 74], L_GOLD); g = tt - 25.7;
+    { const [x, y] = at(302, 126); d5Hit(x, y, t, 25.4, 0.1, 1.3, 1.3, [22, 74, 72], 9802, 0, null, L_MAG); g = tt - 25.4; if (g > 0 && g < 0.7) for (let k = 0; k < 24; k++) { const a = 1.3 + (ih(k, 1, 9803) - 0.5) * 1.6, v = (80 + ih(k, 2, 9803) * 240) * V.z, px = x + Math.cos(a) * v * g, py = y + Math.sin(a) * v * g + 160 * g * g; if (bay(k, fl(t * 30)) < 1 - g) rectF(px, py, 2, 2, k % 3 ? 0 : 74); } }
+    { const [x, y] = at(368, 100); d5Hit(x, y, t, 25.7, 0.1, 1.2, 0.8, [22, 140, 56], 9804, 1, [140, 141, 56, 57, 73, 74], L_GOLD); g = tt - 25.7;
       if (g > 0 && g < 0.9) for (let q = 0; q < 16; q++) { const a = ih(q, 1, 9805) * TAU, r = (30 + ih(q, 2, 9805) * 110) * g * V.z, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r + 120 * g * g * V.z; z5Kite(px, py, a + g * 6, 8 * V.z * (1 - g), 2.2, q % 3 ? 0 : 78); } }
     { const eye = E ? h5Loc(pe, E.x, E.y, E.S, 7.5, -2) : at(338, 124); d5Hit(eye[0], eye[1], t, 26.0, 0.134, 1.5, PI, [22, 104, 102], 9806, 1, [104, 107, 103, 102, 22], L_CRIM); g = tt - 26.0;
       if (g > 0 && g < 0.6) { rocks(eye[0] - 8 * V.z, eye[1], g, 14, 300, 2.2 * V.z, [102, 104, 107, 22], 9807, 240, PI, 1.2); for (let q = 0; q < 20; q++) { const a = PI + (ih(q, 1, 9808) - 0.5) * 1.4, v = 120 + ih(q, 2, 9808) * 340, px = eye[0] + Math.cos(a) * v * g * V.z, py = eye[1] + Math.sin(a) * v * g * V.z + 100 * g * g; lineP(px, py, px - Math.cos(a) * 8, py - Math.sin(a) * 8, q % 3 ? 104 : 107); } } }
-    { const [x, y] = at(304, 132); d5Hit(x, y, t, 26.2, 0.134, 1.5, PI + 0.2, [22, 56, 57], 9809, 0, null, L_VIO); g = tt - 26.2;
+    { const [x, y] = at(354, 132); d5Hit(x, y, t, 26.2, 0.134, 1.2, PI + 0.2, [57, 56, 6], 9809, 0, null, L_VIO); g = tt - 26.2;
       if (g > 0 && g < 0.8) { const ox = x - 24 * V.z; for (let q = 0; q < 12; q++) { const a = PI + 0.2 + (ih(q, 1, 9810) - 0.5) * 1.5, v = (90 + ih(q, 2, 9810) * 200) * V.z, px = ox + Math.cos(a) * v * g, py = y + Math.sin(a) * v * g + 140 * g * g, r = (2 + ih(q, 3, 9810) * 4) * V.z * (1 - g * 0.7), pts = shardPts(px, py, r * 1.3, r, g * 8 + q, 70 + q, 5); polyF(pts, () => 134); for (let i = 0, j = 4; i < 5; j = i++) lineP(pts[j][0], pts[j][1], pts[i][0], pts[i][1], q % 2 ? 22 : 72); } h5Void(t); } }
-    { const [x, y] = at(262, 136); d5Hit(x, y, t, 26.4, 0.167, 1.8, PI, [22, 140, 74], 9811, 1, [22, 140, 141, 74], L_WH); g = t - 26.4;
-      if (g >= 0 && g < 0.45) { const u = g / 0.45, L = 260 * (1 - u * 0.4); thick(x - L, y + 4, x + L, y - 4, u < 0.35 ? 3 : 1, 22); lineP(x - L * 0.9, y + 6, x + L * 0.9, y - 2, u < 0.5 ? 140 : 141); light(x, y, 160 * (1 - u), L_WH, 0.6); }
-      g = tt - 26.4; if (g > 0.05 && g < 1) for (let k = 0; k < 40; k++) { const a = PI + (ih(k, 1, 9812) - 0.5) * 0.9, v = (60 + ih(k, 2, 9812) * 200) * V.z, px = x + Math.cos(a) * v * g + (ih(k, 3, 9812) - 0.5) * 30, py = y + Math.sin(a) * v * g - 40 * g * g + (ih(k, 4, 9812) - 0.5) * 30; if (bay(k, fl(t * 30)) < 1 - g) P(px, py, k % 3 ? 22 : k % 2 ? 74 : 20); } }
+    { const [x, y] = at(276, 138); d5Hit(x, y, t, 26.4, 0.167, 1.3, PI, [22, 140, 74], 9811, 1, [22, 140, 141, 74], L_GOLD); g = t - 26.4;
+      if (g >= 0 && g < 0.45) { const u = g / 0.45, L = 260 * (1 - u * 0.4); thick(x - L, y + 4, x + L, y - 4, u < 0.35 ? 2 : 1, 22); lineP(x - L * 0.9, y + 6, x + L * 0.9, y - 2, u < 0.5 ? 140 : 141); }
+      g = tt - 26.4; if (g > 0.05 && g < 1) for (let k = 0; k < 26; k++) { const a = PI + (ih(k, 1, 9812) - 0.5) * 0.9, v = (60 + ih(k, 2, 9812) * 200) * V.z, px = x + Math.cos(a) * v * g + (ih(k, 3, 9812) - 0.5) * 30, py = y + Math.sin(a) * v * g - 40 * g * g + (ih(k, 4, 9812) - 0.5) * 30; if (bay(k, fl(t * 30)) < 1 - g) P(px, py, k % 3 ? 20 : k % 2 ? 74 : 22); } }
     // the uppercut's wind-up: light gathers at its fist
     if (t > 26.7 && HR) { const u = clip01(26.7, 27, t), f2 = h5Loc(HR.p, HR.x, HR.y, HR.S, -12 + Math.cos(2.7) * 7, -1 + Math.sin(2.7) * 7); for (let k = 0; k < 20; k++) { const f = frac(ih(k, 1, 9813) + t * 3), a = ih(k, 2, 9813) * TAU; P(f2[0] + Math.cos(a) * 34 * (1 - f) * V.z, f2[1] + Math.sin(a) * 20 * (1 - f) * V.z, k & 1 ? 22 : 56); } light(f2[0], f2[1], 70 * u, L_GOLD, 0.6 * u); sparkle(f2[0], f2[1], 2 + 5 * u, 22, 140); }
-    { const [x, y] = at(246, 140); d5Hit(x, y, t, 27.0, 0.134, 2.6, -PI / 2, [22, 140, 56], 9814, 2, [140, 141, 56, 57, 73, 74], L_GOLD); }
+    { const [x, y] = at(232, 126); d5Hit(x, y, t, 27.0, 0.134, 2.6, -PI / 2, [22, 140, 56], 9814, 2, [140, 141, 56, 57, 73, 74], L_GOLD); }
     d5Fore(t, V, { amt: 1 });
     if (V.r) z5Cam(1, V.r, 240, 135);
   });
@@ -490,40 +518,42 @@
   /* ---------------------------------------------------------------- 27.0–29.4: the uppercut, and up through three worlds */
   const S3 = 2.6;
   const PANES = [
-    { wx: 248, wy: -330, w: 470, dh: 30, tilt: 0.06, view: 'city', hit: 27.6, ui: 0.5, vi: 0.6, seed: 1, bow: 6, lc: L_COLD },
-    { wx: 232, wy: -880, w: 560, dh: 46, tilt: -0.08, view: 'ink', hit: 28.2, ui: 0.48, vi: 0.55, seed: 2, bow: -8, lc: L_WH },
-    { wx: 244, wy: -1480, w: 500, dh: 36, tilt: 0.1, view: 'ocean', hit: 28.8, ui: 0.52, vi: 0.6, seed: 3, bow: 10, lc: L_COLD },
+    { wx: 248, wy: -372, w: 620, dh: 64, tilt: 0.07, view: 'city', hit: 27.6, ui: 0.5, vi: 0.86, seed: 1, bow: 8, lc: L_COLD },
+    { wx: 232, wy: -944, w: 660, dh: 84, tilt: -0.09, view: 'ink', hit: 28.2, ui: 0.48, vi: 0.86, seed: 2, bow: -10, lc: L_WH },
+    { wx: 244, wy: -1530, w: 640, dh: 70, tilt: 0.11, view: 'ocean', hit: 28.8, ui: 0.52, vi: 0.86, seed: 3, bow: 12, lc: L_COLD },
   ];
   const uE = TR([
-    { t: 27.0, x: 244, y: 118, S: S3, form: 'hollow', nosw: true, reach: -3, stump: 1, a: 0.1, sq: 0.42, chip: 1, eyeC: false, wl: 0, cut: 1, eyes: 'wide', flip: false, spread: 0 },
-    { t: 27.25, x: 246, y: -110, a: -3.2, sq: -0.2, e: 'o' },
-    { t: 27.56, x: 240, y: -300, a: -6.0, sq: 0.1, e: 'l' },
-    { t: 27.6, x: 240, y: -318, a: -6.3, sq: 0.36, e: 'l' },
-    { t: 27.76, x: 236, y: -560, a: -7.6, sq: -0.2, e: 'o' },
-    { t: 28.16, x: 228, y: -860, a: -9.4, sq: 0.1, e: 'l' },
-    { t: 28.2, x: 228, y: -872, a: -9.5, sq: 0.4, e: 'l' },
-    { t: 28.36, x: 238, y: -1120, a: -11, sq: -0.2, e: 'o' },
-    { t: 28.76, x: 244, y: -1456, a: -12.4, sq: 0.1, e: 'l' },
-    { t: 28.8, x: 244, y: -1472, a: -12.57, sq: 0.42, e: 'l' },
-    { t: 28.98, x: 300, y: -1720, a: -14.4, sq: -0.2, e: 'o' },
+    { t: 27.0, x: 236, y: 112, S: S3, form: 'hollow', nosw: true, reach: -3, stump: 1, a: 0.1, sq: 0.42, chip: 1, eyeC: false, wl: 0, cut: 1, eyes: 'wide', flip: false, spread: 0 },
+    { t: 27.25, x: 242, y: -150, a: -2.4, sq: -0.2, e: 'o' },
+    { t: 27.5, x: 238, y: -290, a: -4.4, sq: 0.1 },
+    { t: 27.6, x: 238, y: -305, a: -4.7, sq: 0.36, e: 'l' },
+    { t: 27.76, x: 234, y: -560, a: -6.0, sq: -0.2, e: 'o' },
+    { t: 28.0, x: 232, y: -760, a: -7.0, sq: 0 },
+    { t: 28.16, x: 228, y: -850, a: -7.6, sq: 0.1, e: 'l' },
+    { t: 28.2, x: 228, y: -863, a: -7.7, sq: 0.4, e: 'l' },
+    { t: 28.36, x: 238, y: -1110, a: -9.0, sq: -0.2, e: 'o' },
+    { t: 28.6, x: 242, y: -1380, a: -10.0, sq: 0 },
+    { t: 28.76, x: 244, y: -1450, a: -10.6, sq: 0.1, e: 'l' },
+    { t: 28.8, x: 244, y: -1459, a: -10.7, sq: 0.42, e: 'l' },
+    { t: 28.98, x: 300, y: -1720, a: -12.0, sq: -0.2, e: 'o' },
     { t: 29.12, x: 336, y: -1790, a: -12.57 - 0.3, sq: 0, spread: 0.2, flip: true, form: 'hnova', reach: -3 },
     { t: 29.3, x: 344, y: -1800, a: 0.2 - 12.57, sq: 0.2, spread: 1, reach: 0, stump: 0 },
     { t: 29.4, x: 340, y: -1796, a: -0.25 - 12.57, sq: -0.2, e: EQ },
   ]);
   const uH = TR([
-    { t: 27.0, x: 260, y: 158, S: S3, form: 'dawn', sw: 1.2, swl: 30, sq: -0.36, a: 0.12, flip: false, arm2: [-1.72, 12, 1], spread: 1.3 },
-    { t: 27.14, x: 262, y: 96, sq: -0.1, e: 'o' },
-    { t: 27.4, x: 254, y: -170, arm2: [2.6, 6, 1], sq: 0.2, spread: 1.4, e: 'io' },          // gathers
-    { t: 27.57, x: 248, y: -262, arm2: [-1.6, 9, 1], sq: -0.3, a: -0.08, e: 'i' },            // 1: a straight rising punch
-    { t: 27.6, x: 246, y: -272, arm2: [-1.57, 13, 1], e: 'l' },
-    { t: 27.76, x: 250, y: -420, arm2: [-1.9, 8, 1], sq: 0, a: 0, e: 'o' },
-    { t: 28.0, x: 270, y: -700, a: 1.6, sq: 0.25, arm2: null, e: 'i' },                         // 2: over, and both feet
-    { t: 28.17, x: 236, y: -810, a: 3.1, sq: 0.3, lk: 0.2, e: 'l' },
-    { t: 28.2, x: 232, y: -822, a: 3.14, lk: 1, sq: -0.32, e: 'l' },
-    { t: 28.36, x: 232, y: -980, a: 6.0, lk: 0, sq: 0, e: 'o' },
+    { t: 27.0, x: 262, y: 160, S: S3, form: 'dawn', sw: 1.2, swl: 30, sq: -0.36, a: 0.12, flip: false, arm2: [-1.72, 12, 1], spread: 1.3, aur: 0.45 },
+    { t: 27.2, x: 258, y: 20, sq: -0.1, e: 'o' },
+    { t: 27.45, x: 250, y: -150, arm2: [2.6, 6, 1], sq: 0.28, spread: 1.4 },                  // gathers
+    { t: 27.57, x: 244, y: -238, arm2: [-1.6, 9, 1], sq: -0.3, a: -0.08, e: 'i' },            // 1: a straight rising punch
+    { t: 27.6, x: 242, y: -250, arm2: [-1.57, 13, 1], e: 'l' },
+    { t: 27.76, x: 248, y: -430, arm2: [-1.9, 8, 1], sq: 0, a: 0, e: 'o' },
+    { t: 27.95, x: 262, y: -620, a: 1.6, sq: 0.25, arm2: null, e: 'i' },                       // 2: over, and both feet
+    { t: 28.17, x: 234, y: -795, a: 3.1, sq: 0.3, lk: 0.2, e: 'l' },
+    { t: 28.2, x: 230, y: -806, a: 3.14, lk: 1, sq: -0.32, e: 'l' },
+    { t: 28.36, x: 234, y: -1010, a: 6.0, lk: 0, sq: 0, e: 'o' },
     { t: 28.3601, a: -0.28 },
-    { t: 28.62, x: 220, y: -1300, sq: 0.32, a: 0.3, spread: 0.15, sw: 1.6, e: 'i' },           // 3: wings shut, the whole body
-    { t: 28.8, x: 236, y: -1414, a: 0.0, sq: -0.42, spread: 0.1, e: 'l' },
+    { t: 28.6, x: 226, y: -1240, sq: 0.32, a: 0.3, spread: 0.15, sw: 1.6, e: 'i' },            // 3: wings shut, the whole body
+    { t: 28.8, x: 240, y: -1417, a: 0.0, sq: -0.42, spread: 0.1, e: 'l' },
     { t: 28.96, x: 218, y: -1640, a: -0.2, sq: 0, spread: 1.3, e: 'o' },
     { t: 29.12, x: 160, y: -1786, a: 0, spread: 1.1, sw: -1.6 },
     { t: 29.3, x: 150, y: -1800, a: -0.25, sq: 0.2, sw: -2.4 },
@@ -531,17 +561,17 @@
   ]);
   const UH = [[27.0, 0.134], [27.6, 0.1], [28.2, 0.1], [28.8, 0.1]];
   function uView(t) {
-    const pe = h5Trk(uE, t), ph = h5Trk(uH, t), kk = kick(t, [[27.0, 2.6, -PI / 2], [27.6, 1.8, -PI / 2], [28.2, 1.8, -PI / 2], [28.8, 2, -PI / 2]]);
+    const ts = d5Stop(t, UH), pe = h5Trk(uE, ts), ph = h5Trk(uH, ts), kk = kick(t, [[27.0, 2.6, -PI / 2], [27.6, 1.8, -PI / 2], [28.2, 1.8, -PI / 2], [28.8, 2, -PI / 2]]);
     const top = eio(clip01(28.86, 29.36, t)), sep = Math.abs(pe.y - ph.y);
-    const my = (pe.y + ph.y) / 2 + 10, mx = (pe.x + ph.x) / 2;
+    const my = (pe.y + ph.y) / 2 + 4, mx = (pe.x + ph.x) / 2;
     const roll = t < 27.6 ? 0.05 : t < 28.2 ? -0.07 : t < 28.8 ? 0.08 : lerp(0.04, 0, top);
-    return { x: lerp(lerp(246, mx, 0.3), 248, top) - kk[2], y: (t < 27.12 ? lerp(140, my, eio(clip01(27.0, 27.12, t))) : lerp(my, -1830, top)) - kk[3], z: lerp(clamp(170 / (sep + 70), 0.8, 1.25), 0.78, top) * (1 + kk[0] * 0.7), r: roll + kk[1] };
+    return { x: lerp(lerp(246, mx, 0.3), 248, top) - kk[2], y: (t < 27.12 ? lerp(140, my, eio(clip01(27.0, 27.12, t))) : lerp(my, -1830, top)) - kk[3], z: lerp(clamp(150 / (sep + 70), 0.8, 1.0), 0.78, top) * (1 + kk[0] * 0.7), r: roll + kk[1] };
   }
   shot(27.0, 29.4, (lt, t) => {
     const V = uView(t), tt = d5Stop(t, UH), frz = d5Held(t, UH) ? 1.6 : 0;
     H5PX = V.x * 0.3; H5PY = V.y * 0.05;
     const top = eio(clip01(28.86, 29.36, t));
-    d5World(t, V, { hz: lerp(200, -1690, top) + 0 * t });
+    d5World(t, V, { hz: lerp(200, -752, top) });
     // the climb: the line-world streaming past
     if (t > 27.08 && top < 1) for (let k = 0; k < 46; k++) { const x = ih(k, 1, 9820) * W, sp = 600 + ih(k, 2, 9820) * 900, y = ((ih(k, 3, 9820) * 420 + (t - 27) * sp) % 420) - 80, L = (24 + ih(k, 4, 9820) * 80) * (1 - top); for (let q = 0; q < L; q++) if (bay(fl(x), fl(y + q)) < 0.6 - q / L * 0.5) P(x, y + q, k % 5 === 0 ? 141 : k % 5 === 1 ? 56 : k % 5 === 2 ? 128 : 5); }
     for (const Pn of PANES) d5Pane(t, V, Pn, false);
