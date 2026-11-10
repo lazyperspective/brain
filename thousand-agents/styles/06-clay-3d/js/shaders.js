@@ -330,6 +330,7 @@ void main(){
 
   // warm light from inside the folder + the fountain above it
   vec3 WARM = vec3(1.0,0.58,0.3);
+  float innerK = 0.0; vec3 innerC = vec3(0.0);
   if(uGlow > 0.001){
     vec3 lp = uFPos + vec3(0.0,0.34,0.02)*uFScale;
     vec3 Lv = lp - p; float d2 = dot(Lv,Lv); Lv *= inversesqrt(d2);
@@ -341,7 +342,7 @@ void main(){
       vec3 q = folderLocal(p);
       vec3 f = flapLocal(q);
       float inner = max(smoothstep(-0.05,-0.03,q.z)*step(f.z,-0.045), smoothstep(-0.03,-0.048,f.z)*step(-0.03,q.z));
-      col = mix(col, vec3(1.0,0.42,0.16)*(0.42 + 0.75*smoothstep(0.9, 0.05, q.y)) + col*0.12, inner*uGlow*0.92);
+      innerK = inner*uGlow*0.92; innerC = mix(vec3(1.0,0.40,0.15)*0.5, vec3(1.0,0.72,0.38)*1.25, smoothstep(0.75, 0.05, q.y));
     }
   }
   if(uFountI > 0.001){
@@ -351,6 +352,7 @@ void main(){
     col += alb*WARM*uFountI*(mat > 3.5 ? 2.6 : 4.6)*nl*s2/(1.0+0.3*d2);
     col += WARM*uFountI*0.5*sheen*pow(max(dot(n,normalize(Lv+V)),0.0), gloss)*s2;
   }
+  col = mix(col, innerC + col*0.1, innerK);
   col += emis;
 
   // depth haze into the backdrop
