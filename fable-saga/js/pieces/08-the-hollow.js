@@ -2562,9 +2562,9 @@
   })();
   // cracks spreading from blows: hits = [[x, y, radius now]...]; a shard is cracked once any blow's radius has reached it
   const GACT = new Float32Array(GN);
+  function glassAct(hits) { GACT.fill(0); for (const [hx, hy, r] of hits) if (r > 0) for (let q = 0; q < GN; q++) { const d = Math.hypot(GSX[q] - hx, GSY[q] - hy); if (d < r) GACT[q] = Math.max(GACT[q], Math.min(1, (r - d) / 30)); } }
   function glassCracks(hits, c0, c1) {
-    GACT.fill(0);
-    for (const [hx, hy, r] of hits) if (r > 0) for (let q = 0; q < GN; q++) { const d = Math.hypot(GSX[q] - hx, GSY[q] - hy); if (d < r) GACT[q] = Math.max(GACT[q], Math.min(1, (r - d) / 30)); }
+    glassAct(hits);
     for (let y = LB; y < H - LB - 1; y++) for (let x = 0; x < W - 1; x++) {
       const i = y * W + x; if (!GEDGE[i]) continue;
       const a = Math.max(GACT[GCELL[i]], GACT[GCELL[i + 1]], GACT[GCELL[i + W]]); if (a <= 0 || (a < 1 && bay(x, y) > a)) continue;
@@ -2995,13 +2995,14 @@
     w5Dawn(t, t * 6 + (V.x - 240) * 0.3, HZ, SUN[0], SUN[1]);
     if (t >= 3.0) {
       const hits = BLOW.map(([h, x, y, d, R]) => [vX(V, x), vY(V, y), t < h ? 0 : Math.min(R, (t - h) * 700) + (t - h) * 12]);
+      glassAct(hits);
       if (t > 4.0) { const W1 = wview('ocean'), W2 = wview('city'), W3 = wview('ink'); glassWindows((q) => (q % 7 === 2 ? W1 : q % 7 === 5 ? W2 : q % 11 === 3 ? W3 : null), (q) => GACT[q] > 0.99 ? clip01(4.0 + (q % 5) * 0.2, 5.3, t) * 0.8 : 0, 0, 0); }
       glassCracks(hits);
-      if (t > 4.0) glassCracks(hits);
     }
   }
   function a1Scene(t) {
     const V = view(t), tt = h5Stop(t, HITS), frz = h5Frz(t, HITS) ? 1.5 : 0;
+    H5PX = 0; H5PY = 0;
     a1Sky(t, V);
     // the ash of both brothers, from every edge, into the shadow
     const drain = clip01(0.9, 1.7, t), px = vX(V, PUD[0]), py = vY(V, PUD[1]);
@@ -3025,8 +3026,8 @@
       else E = h5F(aE, tt, base, V);
       // the blade: it draws itself out of the ash in its hand, and it is this that goes through the hero
       if (t > 1.95 && tt < 3.37) {
-        const g = eoc(clip01(1.95, 2.5, t)), ang = lerp(0.9, 0, eio(clip01(2.3, 2.9, t))) + pe.ang, len = 118 * g * V.z, hx = E.hand[0] + Math.cos(ang) * 4 * V.z, hy = E.hand[1] + Math.sin(ang) * 4 * V.z;
-        bigBlade(hx, hy, ang, len, 3.2 * V.z, t, { form: 'void', grow: g < 1 ? 0.999 : 1, flare: 0.5 });
+        const g = eoc(clip01(1.95, 2.5, t)), ang = lerp(0.9, 0, eio(clip01(2.3, 2.9, t))) + pe.ang, len = lerp(80, 122, clip01(2.96, 3.0, t)) * g * V.z, hx = E.hand[0] + Math.cos(ang) * 4 * V.z, hy = E.hand[1] + Math.sin(ang) * 4 * V.z;
+        bigBlade(hx, hy, ang, len, 4.2 * V.z, t, { form: 'void', grow: g < 1 ? 0.999 : 1, flare: 0.5 });
         if (g < 1) for (let k = 0; k < 16; k++) { const u = frac(ih(k, 1, 9107) + t * 2), a2 = ih(k, 2, 9107) * TAU; P(hx + Math.cos(ang) * len + Math.cos(a2) * 22 * (1 - u), hy + Math.sin(ang) * len + Math.sin(a2) * 22 * (1 - u), k % 3 ? 121 : 72); }
         E.tip = [hx + Math.cos(ang) * len, hy + Math.sin(ang) * len];
       }
@@ -3038,7 +3039,7 @@
     // the four sparks that stayed with it: knocked away when the blade lands
     const sg = t - 3.0;
     for (let pass = 0; pass < 2; pass++) {
-      if (pass) { const HR = h5F(aH, tt, { form: 'plain', frz, rim: [1, -0.4, 60] }, V); if (t > 3.0) { for (let k = 0; k < 10; k++) { const u = frac(ih(k, 1, 9108) + t * 1.3), a2 = ih(k, 2, 9108) * TAU; if (bay(k, fl(t * 30)) < 1 - u) P(HR.x + Math.cos(a2) * 30 * u * V.z + (ih(k, 3, 9108) - 0.5) * 30, HR.y + Math.sin(a2) * 20 * u + 30 * u * u, u < 0.4 ? 22 : 59); } light(HR.x, HR.y, 50, L_GOLD, 0.25); } }
+      if (pass) { const HR = h5F(aH, tt, { form: 'plain', frz, rim: [1, -0.4, 60] }, V); if (E && E.tip && tt >= 3.0 && tt < 3.34) { const ex = HR.x + 36 * V.z, L2 = E.tip[0] - ex; if (L2 > 4) { bigBlade(ex, E.tip[1], 0, L2, 4.2 * V.z, t, { form: 'void', flare: 0.7, noHilt: true }); for (let k = 0; k < 8; k++) { const u = frac(ih(k, 1, 9109) + t * 2.2); P(ex + ih(k, 2, 9109) * L2, E.tip[1] + 4 + u * 26, u < 0.4 ? 22 : 59); } sparkle(ex, E.tip[1], 5, 22, 59); } } if (t > 3.0) { for (let k = 0; k < 10; k++) { const u = frac(ih(k, 1, 9108) + t * 1.3), a2 = ih(k, 2, 9108) * TAU; if (bay(k, fl(t * 30)) < 1 - u) P(HR.x + Math.cos(a2) * 30 * u * V.z + (ih(k, 3, 9108) - 0.5) * 30, HR.y + Math.sin(a2) * 20 * u + 30 * u * u, u < 0.4 ? 22 : 59); } light(HR.x, HR.y, 50, L_GOLD, 0.25); } }
       for (let k = 0; k < 4; k++) {
         const a = t * 0.75 + k * TAU / 4, zz = Math.sin(a); if ((zz > 0) !== !!pass) continue;
         let x = hx0 + Math.cos(a) * 62 * V.z, y = hy0 - 10 + zz * 22 * V.z + Math.sin(t * 2 + k) * 3, al = 1;
@@ -3050,11 +3051,12 @@
     }
     // the blows
     for (let k = 0; k < BLOW.length; k++) { const [h, x, y, d] = BLOW[k], g = t - h; if (g < 0 || g > 1) continue; if (k === 0) h5Heavy(vX(V, x), vY(V, y), g, 2.2, 0, [22, 59, 58], 9110, 2, [72, 73, 74, 104, 107], L_GOLD); else { h5Heavy(vX(V, x), vY(V, y), g, 1.3, d, [22, 74, 72], 9111 + k, 0, null, L_MAG); if (g < 0.034) { GD.flash = 0.35; GD.fc = [1, 0.85, 0.95]; } } }
+    if (t >= 5.4) h5Heavy(vX(V, 346), vY(V, 92), t - 5.4, 2.6, PI / 2, [22, 74, 72], 9119, 1, [72, 73, 74, 104, 107], L_MAG);
     if (t > 3.0 && t < 3.3) { const g = t - 3.0; rocks(vX(V, 300), vY(V, 112), g, 12, 240, 4, [137, 136, 135, 22], 9120, 200, 0, 1.6); }
     if (V.r) z5Cam(1, V.r, 240, 135);
     return V;
   }
-  shot(0, 5.4, (lt, t) => { a1Scene(t); if (t < 0.25) { GD.flash = 0.25 * (1 - t / 0.25); GD.fc = [1, 0.9, 0.75]; } });
+  shot(0, 5.4334, (lt, t) => { a1Scene(t); if (t < 0.25) { GD.flash = 0.25 * (1 - t / 0.25); GD.fc = [1, 0.9, 0.75]; } });
   CAPS.push([2.2, 3.5, 's', 'HOLLOW', 'YOU LEFT A SHADOW.']);
   // (kept for the breach: the sky as it was when the floor went)
   WORLDS.a1 = () => { const V = { x: 240, y: 124, z: 0.8, r: 0 }; a1Sky(5.4, V); };
@@ -3197,6 +3199,7 @@
     const HR = h5F(bH, tt, { frz, rim: t < 7.5 ? [0.6, -0.8, 119] : undefined }, V);
     // the broken hilt spits light; then the light gathers
     if (t > 6.7 && t < 7.5) { const g = clip01(7.15, 7.5, t); for (let k = 0; k < 10 + 24 * g; k++) { const u = frac(ih(k, 1, 9230) + t * (1.6 + g * 2)), a = ih(k, 2, 9230) * TAU, r = g > 0 ? (1 - u) * 60 * V.z : u * 22 * V.z; if (bay(k, fl(t * 30)) < 0.9) { const px = HR.tip[0] + Math.cos(a) * r, py = HR.tip[1] + Math.sin(a) * r * (g > 0 ? 1 : 0.6) - (g > 0 ? 0 : u * 10); P(px, py, k % 3 ? 59 : 22); if (g > 0) P(px + Math.cos(a) * 2, py + Math.sin(a) * 2, 58); } } light(HR.tip[0], HR.tip[1], 26 + 60 * g, L_GOLD, 0.5 + 0.4 * g); }
+    if (ng >= 0 && ng < 0.03) h5Impact(HR.x, HR.y, 0, [108, 109, 110, 73, 74, 104]);
     if (ng >= 0 && ng < 0.45) { shockRing(HR.x, HR.y, 12 + ng * 620, 8 + ng * 420, 4, [22, 109, 110], 1 - ng / 0.45); rocks(HR.x, HR.y + 30, ng, 10, 260, 3, [137, 136, 135, 22], 9231, 120); }
     // hero trail of sparks while it burns
     if (t > 7.5) for (let k = 0; k < 14; k++) { const age = frac(ih(k, 1, 9232) + t * 1.4) * 0.6, p = h5Trk(bH, tt - age), x = vX(V, p.x) + (ih(k, 2, 9232) - 0.5) * 50 * V.z, y = vY(V, p.y) + (ih(k, 3, 9232) - 0.3) * 30 * V.z - age * 40; if (bay(fl(x), fl(y)) < 1 - age / 0.6) P(x, y, k % 3 ? 109 : 22); }
@@ -3214,7 +3217,7 @@
     if (t > 11.2) { const u = eic(clip01(11.2, 11.6, t)), px = lerp(W + 30, 150, u), Wi = wview('ink'); polyF([[px, LB], [px + 5, LB], [px + 26, 150], [px + 64, H - LB], [px + 59, H - LB], [px + 21, 150]], () => 22); polyF([[px + 5, LB], [W, LB], [W, H - LB], [px + 64, H - LB], [px + 26, 150]], (x, y) => (bay(x, y) < 0.22 * u ? Wi[y * W + x] : -1)); light(px, 135, 120, L_WH, 0.5 * u); }
     if (V.r) z5Cam(1, V.r, 240, 135);
   }
-  shot(5.4, 11.6, (lt, t) => { b2Scene(t); });
+  shot(5.4334, 11.6, (lt, t) => { b2Scene(t); });
   CAPS.push([6.6, 7.45, 's', 'HERO', 'NOT YOU TOO.'], [7.5, 8.45, 'x', '', 'ZENITH NOVA!', 58]);
   WORLDS.lock = () => { const V = b2View(11.6); b2Bg(11.6, V); };
   }
@@ -3255,7 +3258,7 @@
   function inkSplat(x, y, g, n, v, seed) { if (g < 0 || g > 0.7) return; for (let k = 0; k < n; k++) { const a = ih(k, 1, seed) * TAU, sp = v * (0.3 + ih(k, 2, seed)), px = x + Math.cos(a) * sp * g * (1 - g * 0.5), py = y + Math.sin(a) * sp * g * (1 - g * 0.5) + 160 * g * g, r = (1 + ih(k, 3, seed) * 3.2) * (1 - g * 0.9); discF(px, py, r, 0); if (k % 3 === 0) lineP(px, py, px - Math.cos(a) * 9 * (1 - g), py - Math.sin(a) * 9 * (1 - g), 0); } }
   shot(11.6, 12.6, (lt, t) => {
     const HS = [[11.6, 0.067], [12.12, 0.067]], V = iView(t), tt = h5Stop(t, HS), frz = h5Frz(t, HS) ? 1.4 : 0;
-    GD.bloom = 0; GD.con = 0.1; GD.vig = 0.22;
+    GD.bloom = 0; GD.con = 0.1; GD.vig = 0.22; H5PX = 0; H5PY = 0;
     iBg(t, V);
     h5Shatter(WORLDS.lock, t - 11.6, 230, 130, { v: 420, dur: 0.5, grav: 60, delay: 0.0005 });
     inkSplat(vX(V, 180), vY(V, 132), t - 11.6, 26, 330, 9310);
@@ -3450,7 +3453,7 @@
     if (bg >= 0) h5Heavy(HR ? HR.x + 30 : 150, HR ? HR.y : 126, bg, 2.8, PI, [22, 109, 74], 9415, 2, [72, 73, 74, 104, 107, 109, 110], L_WARM);
     if (kk[1]) z5Cam(1, kk[1], 240, 135);
   }
-  shot(14.0, 16.2, (lt, t) => nScene(t));
+  shot(14.0, 16.2334, (lt, t) => nScene(t));
   CAPS.push([14.0, 14.9, 'x', 'inv', 'NOVA.', 208]);
 
   /* ---------------------------------------------------------------- 16.2–18.4: through the moon; the wing; pinned */
@@ -3492,7 +3495,7 @@
   const mView = (t) => {
     const kk = kick(t, [[16.3, 1.6, PI], [17.4, 2.2, 1.2], [18.0, 1.2, PI / 2], [18.4, 2.4, PI / 2]]), p = h5Trk(mH, Math.max(t, 17.4));
     const a = eio(clip01(16.9, 17.3, t)), b = eio(clip01(17.45, 18.0, t));
-    return { x: lerp(lerp(240, 162, a), 250, b) - kk[2], y: lerp(lerp(128, 116, a), lerp(260, 286, clip01(18.0, 18.4, t)), b) - kk[3], z: lerp(lerp(1, 1.5, a), 1.4, b) * (1 + kk[0]), r: kk[1] };
+    return { x: lerp(lerp(240, 162, a), 250, b) - kk[2], y: lerp(lerp(128, 116, a), lerp(292, 300, clip01(18.0, 18.4, t)), b) - kk[3], z: lerp(lerp(1, 1.5, a), 1.4, b) * (1 + kk[0]), r: kk[1] };
   };
   function mBg(t, V) {
     w5Night(t, V.x * 0.25, V.y * 0.25, {});
@@ -3535,7 +3538,7 @@
     g = t - 18.4; if (g >= 0) { h5Heavy(vX(V, 262), vY(V, SLY - 20), g, 2.6, PI / 2, [22, 109, 74], 9435, 1, [72, 73, 74, 104, 107], L_WARM); }
     if (V.r) z5Cam(1, V.r, 240, 135);
   }
-  shot(16.2, 18.4, (lt, t) => mScene(t));
+  shot(16.2334, 18.4334, (lt, t) => mScene(t));
 
   /* ---------------------------------------------------------------- the pin (18.4–19.2, 20.0–21.5, 22.3–23.0) */
   const PH = [276, 181], HILT = [224, 70], TIP = [262, 216], PSL = 210, SPK = [20.4, 20.9, 21.4, 21.9];
@@ -3575,7 +3578,7 @@
     }
     return { H: HR, E, hx, hy, ba, bl };
   }
-  shot(18.4, 19.2, (lt, t) => {
+  shot(18.4334, 19.2, (lt, t) => {
     const kk = kick(t, [[18.4, 2, PI / 2]]), u = eio(clip01(18.5, 19.2, t)), V = { x: lerp(250, 222, u) - kk[2], y: lerp(146, 118, u) - kk[3], z: lerp(1.0, 1.16, u) * (1 + kk[0]) };
     pinScene(t, V, { flick: 1 - clip01(18.4, 18.95, t), shake: 2.5 * (1 - clip01(18.4, 18.8, t)), eyes: 'closed', mouth: t < 18.7 ? 2 : 0 });
     const g = t - 18.4; if (g < 0.5) { GD.ca = Math.max(GD.ca, 3 * (1 - g / 0.5)); rocks(vX(V, TIP[0]), vY(V, PSL), g, 12, 200, 3.5, [137, 136, 135, 22], 9450, 240, -PI / 2, 2.4); }
@@ -4033,7 +4036,7 @@
   const HEALT = new Float32Array(GN); { const ord = []; for (let q = 0; q < GN; q++) ord.push([Math.hypot(GSX[q] - 352, (GSY[q] - 160) * 1.4) + ih(q, 1, 9620) * 60, q]); ord.sort((a, b) => a[0] - b[0]); ord.forEach(([, q], k) => { HEALT[q] = 34.95 + k / GN * 1.35; }); }
   const EFX = 316, EFY = 140, HLAND = [236, 163];
   function vScene(t) {
-    const g = t - 34.0, V = { x: 226, y: 132, z: 1 };
+    const g = t - 34.0, V = { x: 226, y: 132, z: 1 }; H5PX = 68; H5PY = 0;
     if (g < 0.1) {                                                                     // the held frame: one white line on black
       BUF.fill(0); for (let x = 0; x < W; x++) { P(x, YC - 1, 22); P(x, YC, 22); P(x, YC + 1, 22); if (bay(x, YC - 2) < 0.5) P(x, YC - 2, 140); if (bay(x, YC + 2) < 0.5) P(x, YC + 2, 140); }
       GD.bloom = 0.5; GD.vig = 0; return;
@@ -4061,7 +4064,7 @@
     // what is left of the mask, falling, its eye going out
     if (t > 34.5 && t < 36.45) { const f = clip01(34.5, 36.45, t), mx = ex + slide * 0.6 + 14 * Math.sin(f * 5), my = lerp(ey - 6, 196, f * f); z5MaskShard(mx, my, 0.62 * (1 - 0.4 * f), 0.4 + f * 2.2, Math.max(0, 1 - f * 1.5), [0, 0], t); if (f < 0.66) light(mx, my, 26, L_MAG, 0.5 * (1 - f * 1.5)); }
     // what is left of the rest: it shrinks, flattens, and falls back to the cloud as a shadow
-    { const f = eio(clip01(34.9, 36.45, t)); if (t > 34.6) { const bx = lerp(ex, HLAND[0] - 44, f), by = lerp(ey + 12, 207, f * f), rx = lerp(26, 30, f) * (0.4 + 0.6 * clip01(34.6, 35.1, t)), ry = lerp(14, 4, eoc(f)); for (let y = fl(by - ry); y <= by + ry; y++) for (let x = fl(bx - rx); x <= bx + rx; x++) { const dx = (x - bx) / rx, dy = (y - by) / ry, d = dx * dx + dy * dy + (vn(x + t * 9, y, 4, 9622) - 0.5) * 0.5 * (1 - f); if (d < 1) P(x, y, d > 0.8 ? (bay(x, y) < 0.5 ? 2 : 63) : f > 0.8 ? 63 : 134); } } }
+    { const f = eio(clip01(34.9, 36.45, t)); if (t > 34.6) { const bx = lerp(ex, HLAND[0] - 44, f), by = lerp(ey + 12, 207, f * f), rx = lerp(15, 30, f * f) * (0.4 + 0.6 * clip01(34.6, 35.1, t)), ry = lerp(9, 4, eoc(f)); for (let y = fl(by - ry); y <= by + ry; y++) for (let x = fl(bx - rx); x <= bx + rx; x++) { const dx = (x - bx) / rx, dy = (y - by) / ry, d = dx * dx + dy * dy + (vn(x + t * 9, y, 4, 9622) - 0.5) * 0.5 * (1 - f); if (d < 1) P(x, y, d > 0.8 ? (bay(x, y) < 0.5 ? 2 : 63) : f > 0.8 ? 63 : 134); } } }
     // the hero: the stroke finished, it sinks toward the cloud
     const f = eio(clip01(34.6, 36.5, t));
     const hK = TR([{ t: 0, x: lerp(84, HLAND[0], f), y: lerp(156, HLAND[1] - 6, f) + Math.sin(t * 2) * 1.5, S: lerp(S2, 3, f), form: 'dawn', nosw: true, arm: 0.3, a: lerp(0.4, 0, eoc(clip01(34.1, 35.0, t))), sq: 0, spread: 1, arm2: t < 34.6 ? [1.9, 12, 1] : null, flap: 0.2 }, { t: 100, x: 0, y: 0 }]);
@@ -4075,6 +4078,7 @@
   /* ---------------------------------------------------------------- 36.5–40.0: dawn */
   shot(36.5, 40.0, (lt, t) => {
     const V = { x: 240, y: 135 + 4 * eio(clip01(36.5, 40, t)), z: 1 + 0.04 * eio(clip01(36.5, 40, t)) };
+    H5PX = 68; H5PY = 0;
     w5Dawn(t, t * 6, 180, 352, 160);
     // the shadow, lying still at its feet
     const sx = vX(V, HLAND[0] - 44), sy = vY(V, 207);

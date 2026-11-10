@@ -34,7 +34,7 @@
   function inkSplat(x, y, g, n, v, seed) { if (g < 0 || g > 0.7) return; for (let k = 0; k < n; k++) { const a = ih(k, 1, seed) * TAU, sp = v * (0.3 + ih(k, 2, seed)), px = x + Math.cos(a) * sp * g * (1 - g * 0.5), py = y + Math.sin(a) * sp * g * (1 - g * 0.5) + 160 * g * g, r = (1 + ih(k, 3, seed) * 3.2) * (1 - g * 0.9); discF(px, py, r, 0); if (k % 3 === 0) lineP(px, py, px - Math.cos(a) * 9 * (1 - g), py - Math.sin(a) * 9 * (1 - g), 0); } }
   shot(11.6, 12.6, (lt, t) => {
     const HS = [[11.6, 0.067], [12.12, 0.067]], V = iView(t), tt = h5Stop(t, HS), frz = h5Frz(t, HS) ? 1.4 : 0;
-    GD.bloom = 0; GD.con = 0.1; GD.vig = 0.22;
+    GD.bloom = 0; GD.con = 0.1; GD.vig = 0.22; H5PX = 0; H5PY = 0;
     iBg(t, V);
     h5Shatter(WORLDS.lock, t - 11.6, 230, 130, { v: 420, dur: 0.5, grav: 60, delay: 0.0005 });
     inkSplat(vX(V, 180), vY(V, 132), t - 11.6, 26, 330, 9310);

@@ -1,31 +1,31 @@
 THE HOLLOW (Fable Saga part V): verification
 video: codec_name=h264, profile=High, width=1920, height=1080, pix_fmt=yuv420p, r_frame_rate=30/1, nb_read_frames=1200, duration=40.000000
-determinism: 11 frames rendered in order, in reverse and after a seek: DIFFER
-render: 28.9 ms/frame average over 1200 frames (node, one core)
-flash check 0-40 s (mean-luminance jump > 60/255 between frames): 2 events; worst in any one second: 1 (limit 3): PASS
-  10.60 (flash, 1 frame), 29.40 (flash, 1 frame)
+determinism: 11 frames rendered in order, in reverse and after a seek: identical
+render: 27.3 ms/frame average over 1200 frames (node, one core)
+flash check 0-40 s (mean-luminance jump > 60/255 between frames): 3 events; worst in any one second: 1 (limit 3): PASS
+  10.60 (flash, 1 frame), 16.20 (flash, 1 frame), 29.40 (flash, 1 frame)
 cue alignment (HIT time -> frame its impact lands on; the frame index is round(t*30)):
-    3.0 s -> frame   90  (luminance 88 -> 132 -> 90)
-    3.6 s -> frame  108  (luminance 95 -> 123 -> 122)
+    3.0 s -> frame   90  (luminance 88 -> 133 -> 89)
+    3.6 s -> frame  108  (luminance 94 -> 123 -> 122)
     4.0 s -> frame  120  (luminance 95 -> 124 -> 123)
     4.4 s -> frame  132  (luminance 102 -> 126 -> 127)
-    4.8 s -> frame  144  (luminance 96 -> 125 -> 122)
-    5.4 s -> frame  162  (luminance 90 -> 87 -> 86)
-    7.5 s -> frame  225  (luminance 40 -> 68 -> 76)
-    8.2 s -> frame  246  (luminance 51 -> 56 -> 55)
-    8.8 s -> frame  264  (luminance 49 -> 57 -> 56)
+    4.8 s -> frame  144  (luminance 95 -> 123 -> 123)
+    5.4 s -> frame  162  (luminance 90 -> 51 -> 89)
+    7.5 s -> frame  225  (luminance 39 -> 42 -> 76)
+    8.2 s -> frame  246  (luminance 50 -> 55 -> 54)
+    8.8 s -> frame  264  (luminance 49 -> 57 -> 55)
     9.3 s -> frame  279  (luminance 52 -> 47 -> 47)
     9.7 s -> frame  291  (luminance 49 -> 55 -> 54)
    10.0 s -> frame  300  (luminance 46 -> 52 -> 50)
-   10.6 s -> frame  318  (luminance 45 -> 168 -> 79)
+   10.6 s -> frame  318  (luminance 45 -> 169 -> 79)
    11.6 s -> frame  348  (luminance 78 -> 30 -> 37)
    12.6 s -> frame  378  (luminance 155 -> 166 -> 166)
    13.4 s -> frame  402  (luminance 36 -> 36 -> 47)
    14.0 s -> frame  420  (luminance 35 -> 54 -> 69)
    15.0 s -> frame  450  (luminance 32 -> 26 -> 62)
-   16.2 s -> frame  486  (luminance 35 -> 34 -> 36)
+   16.2 s -> frame  486  (luminance 35 -> 166 -> 58)
    17.4 s -> frame  522  (luminance 47 -> 36 -> 57)
-   18.4 s -> frame  552  (luminance 30 -> 39 -> 39)
+   18.4 s -> frame  552  (luminance 34 -> 17 -> 36)
    23.0 s -> frame  690  (luminance 37 -> 57 -> 77)
    25.0 s -> frame  750  (luminance 40 -> 45 -> 45)
    25.4 s -> frame  762  (luminance 39 -> 47 -> 47)
@@ -42,3 +42,4 @@ cue alignment (HIT time -> frame its impact lands on; the frame index is round(t
    32.0 s -> frame  960  (luminance 44 -> 33 -> 55)
    34.0 s -> frame 1020  (luminance 27 -> 5 -> 5)
 captions: 2.2 HOLLOW: YOU LEFT A SHADOW. | 6.6 HERO: NOT YOU TOO. | 7.5 ZENITH NOVA! | 14.0 NOVA. | 19.2 HOLLOW: I AM EVERYTHING YOU SPENT. | 21.6 HERO: THEN I'LL SPEND MORE. | 23.0 DAWNBREAK!! | 33.0 FURTHER!! | 35.4 HOLLOW: ...I ONLY... FOLLOWED YOU. | 37.5 title FABLE 5.5 / PART V · THE HOLLOW | 38.8 the shadow blinks
+mux: the-hollow.mp4 = the-hollow-silent.mp4 (video copied) + score.wav as found at 11:08:23, AAC 256k

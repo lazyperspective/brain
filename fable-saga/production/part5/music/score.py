@@ -23,7 +23,8 @@ becomes the hero's new home: a key the theme has never been played in); FURTHER 
 
     python3 score.py
 """
-import os, sys, wave, subprocess, time
+import os, sys, wave, subprocess, time, struct, shutil
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +37,7 @@ RNG = np.random.default_rng(5150)
 # render segments: each one is cut at its boundary. (time, fade, mode): 'end' = the fade is complete at the
 # boundary (breaths, the silence after the Horizon Cut); 'start' = the fade starts at the boundary (the new HIT
 # lands while everything before it is cut away: the snap, the catch)
-CUTS = [(6.85, 0.35, 'end'), (19.15, 0.45, 'end'), (31.0, 0.025, 'start'), (32.0, 0.02, 'start'),
+CUTS = [(6.85, 0.35, 'end'), (19.15, 0.45, 'end'), (31.0, 0.015, 'end'), (32.0, 0.02, 'start'),
         (34.1, 0.012, 'end')]
 SEGB = [0.0] + [c[0] for c in CUTS] + [DUR]
 SILENT = [(34.1, 34.6)]                      # digital silence after the Horizon Cut
@@ -1789,7 +1790,7 @@ def act2():
     sfx('riser', 10.6, 0.8, 0.8, lead=0.8)
     perc('rcym', 10.6, 0.8, 0.9, 3, lead=0.8)
     # 10.6 HIT: blade lock; every shard shatters; strings strain to 11.6
-    hit(10.6, 'Bb', 'M', 1.05, hold=0.9, braam='Bb1', crash_k=0)
+    hit(10.6, 'Bb', 'M', 1.05, hold=0.9, braam='Bb1', crash_k=0, lev=0.75)
     sfx('glass_shatter', 10.6, 1.15, 1.6)
     sfx('clash', 10.6, 1.2, 'light', lead=0.12)
     sfx('lock', 10.6, 0.98, 0.9)
@@ -1957,9 +1958,9 @@ def act4():
     sfx('riser', 29.4, 1.0, 1.0, lead=1.0)
     perc('rcym', 29.4, 1.0, 1.1, 1, lead=1.0)
     # 29.4 HIT: two world-length swords cross: Eb major (hero) over D minor (Hollow)
-    hit(29.4, 'D', 'm', 1.0, hold=0.7, braam='D1', extra=['Eb4', 'G4', 'Bb4'], crash_k=2)
-    sfx('glass_shatter', 29.4, 1.0, 2.0, 1.3, 1.0)
-    sfx('clash', 29.4, 1.3, 'light', lead=0.12)
+    hit(29.4, 'D', 'm', 1.0, hold=0.7, braam='D1', extra=['Eb4', 'G4', 'Bb4'], crash_k=2, lev=0.7)
+    sfx('glass_shatter', 29.4, 0.65, 2.0, 1.3, 1.0)
+    sfx('clash', 29.4, 0.85, 'light', lead=0.12)
     # grinding crescendo to 31.0
     with level(0.55):
         sfx('lock', 29.5, 1.5, 1.1, rise=3.0, cracks=1.0)
@@ -2105,9 +2106,12 @@ def render_event(kind, a, kw):
 def render_all():
     bufs = {}
     t0 = time.time()
+    midi = {}
     for anchor, start, stem, kind, a, kw in EV:
         kw = dict(kw)
         g = kw.pop('g', 1.0)
+        if FLUID and to_midi(kind, a, kw, g, start, seg_of(anchor), stem, midi):
+            continue
         y = render_event(kind, a, kw)
         if g != 1.0 and y is not None:
             y = y * g
@@ -2124,8 +2128,247 @@ def render_all():
         ln = min(len(y) - j0, NS - i0)
         if ln > 0:
             bufs[key][i0:i0 + ln] += y[j0:j0 + ln]
-    print(f'rendered {len(EV)} events in {time.time() - t0:.1f} s')
+    print(f'synthesized hybrid layer ({len(EV)} events) in {time.time() - t0:.1f} s')
+    if FLUID:
+        render_fluid(midi, bufs)
+        write_score_mid(os.path.join(HERE, 'score.mid'))
+        print(f'fluidsynth orchestra: {sum(len(v) for v in midi.values())} notes in {len(midi)} stem renders; '
+              f'{time.time() - t0:.1f} s')
     return bufs
+
+
+# =========================================================================== FluidSynth orchestra (part IV's pipeline)
+SF2 = '/usr/share/sounds/sf2/FluidR3_GM.sf2'
+FLUID = os.path.exists(SF2) and shutil.which('fluidsynth') is not None and not os.environ.get('HOLLOW_SYNTH_ONLY')
+TMP = os.path.join(HERE, '_render_tmp')
+MIDI_INST = {'vln', 'vla', 'vc', 'cb', 'pizz', 'harp', 'hn', 'tpt', 'tbn', 'tuba', 'shn', 'choir', 'piano', 'celesta',
+             'glock'}
+# attack compensation (part IV): time-to-half-amplitude of each FluidR3 patch * ~0.7; note-ons go this much early
+LAT = {48: .055, 49: .10, 44: .06, 45: .035, 43: .05, 60: .038, 56: .008, 57: .034, 58: .037, 52: .15, 53: .055,
+       47: 0., 46: 0., 8: 0., 9: 0., 0: 0.}
+MIDI_NAMES = {48: 'strings', 49: 'slow strings (flautando)', 44: 'tremolo strings', 45: 'pizzicato', 43: 'contrabass',
+              46: 'harp', 60: 'horns', 56: 'trumpets', 57: 'trombones', 58: 'tuba', 52: 'choir aahs', 53: 'voice oohs',
+              0: 'piano', 8: 'celesta', 9: 'glockenspiel', 47: 'timpani'}
+# FluidR3 stems are matched to the loudness of the synthesized stems they replace (measured once, see NOTES)
+FLUID_GAIN = {'str': 2.77, 'brass': 2.47, 'solo': 4.49, 'choir': 2.67, 'keys': 5.38, 'perc': 7.63}
+
+
+def midi_prog(inst, kw):
+    if inst in ('vln', 'vla', 'vc', 'cb'):
+        if kw.get('harm'):
+            return 49
+        if kw.get('trem'):
+            return 44
+        return 43 if inst == 'cb' else 48
+    if inst == 'choir':
+        return 52 if kw.get('vowel', 'a') == 'a' else 53
+    return {'pizz': 45, 'harp': 46, 'hn': 60, 'shn': 60, 'tpt': 56, 'tbn': 57, 'tuba': 58, 'piano': 0,
+            'celesta': 8, 'glock': 9}[inst]
+
+
+def to_midi(kind, a, kw, g, start, seg, stem, midi):
+    """route orchestral notes and timpani to the MIDI orchestra; returns True if taken"""
+    if kind == 'note' and a[0] in MIDI_INST:
+        inst, p, d, v = a
+        prog = midi_prog(inst, kw)
+        art = kw.get('art', 'sus')
+        swell = art == 'swell'
+        vel = int(np.clip(round(v * np.sqrt(g) * (1.08 if art == 'sfz' else 1.0)), 1, 127))
+        if art == 'short':
+            d = min(d, 0.12)
+        nolat = swell or (inst == 'shn')
+        bend = kw.get('bend')
+        n_ = dict(prog=prog, p=P(p), t=start, d=d, v=vel, pan=INST[inst]['pan'], lat=0.0 if nolat else LAT[prog],
+                  bend=bend, swell=swell, inst=inst)
+        midi.setdefault((seg, stem), []).append(n_)
+        return True
+    if kind == 'timp':
+        p = P(a[0])
+        vel = a[1] if len(a) > 1 else 1.0
+        pan = a[2] if len(a) > 2 else -0.2
+        choke = a[3] if len(a) > 3 else None
+        v = int(np.clip(round((30 + 97 * vel) * np.sqrt(g)), 1, 127))
+        midi.setdefault((seg, 'perc'), []).append(dict(prog=47, p=p, t=start, d=(choke * 2.5 if choke else 1.6), v=v,
+                                                       pan=pan, lat=0.0, bend=None, swell=False, inst='timp'))
+        return True
+    return False
+
+
+PPQ = 960
+TEMPO_US = 400000            # 150 bpm, 1 tick = 0.4 / 960 s
+
+
+def sec2tick(t):
+    return int(round(max(0.0, t) / (TEMPO_US / 1e6) * PPQ))
+
+
+def vlq(n):
+    b = [n & 0x7f]
+    n >>= 7
+    while n:
+        b.append((n & 0x7f) | 0x80)
+        n >>= 7
+    return bytes(reversed(b))
+
+
+def midi_events(notes):
+    """(time, order, bytes) for one stem render. Each (program, pan) gets a channel; every swell or
+    glissando chord gets its own channel (CC11 / pitch-bend are per channel) which is recycled after it rings out."""
+    ev = []
+    chans = [c for c in range(16) if c != 9]
+    base, groups, busy = {}, {}, {}
+
+    def setup(ch, prog, pan, t):
+        t = max(0.0, t)
+        for b in ([0xC0 | ch, prog], [0xB0 | ch, 7, 100], [0xB0 | ch, 10, int(np.clip(64 + 63 * pan, 0, 127))],
+                  [0xB0 | ch, 11, 127], [0xB0 | ch, 101, 0], [0xB0 | ch, 100, 0], [0xB0 | ch, 6, 24],
+                  [0xB0 | ch, 38, 0], [0xB0 | ch, 101, 127], [0xB0 | ch, 100, 127], [0xE0 | ch, 0, 64]):
+            ev.append((t, 0, bytes(b)))
+
+    def alloc(t, until):
+        for c in chans:
+            if busy.get(c, -1.0) < t - 0.1:
+                busy[c] = until
+                return c
+        raise RuntimeError('out of MIDI channels at %.2f' % t)
+
+    shifted = []
+    for n_ in sorted(notes, key=lambda n_: n_['t']):
+        t0 = max(0.0, n_['t'] - n_['lat'])
+        t1 = n_['t'] + max(0.03, n_['d'])
+        special = n_['swell'] or bool(n_['bend'])
+        if not special:
+            key = (n_['prog'], n_['pan'])
+            if key not in base:
+                base[key] = alloc(t0, 1e9)
+                setup(base[key], n_['prog'], n_['pan'], 0.0)
+            ch = base[key]
+        else:
+            key = (n_['prog'], n_['pan'], round(n_['t'], 3), round(n_['d'], 3), n_['swell'],
+                   tuple(map(tuple, n_['bend'] or ())))
+            if key not in groups:
+                ch = alloc(t0, t1 + 2.5)
+                groups[key] = ch
+                setup(ch, n_['prog'], n_['pan'], t0 - 0.03)
+                if n_['swell']:
+                    for j in range(25):
+                        u = j / 24
+                        ev.append((t0 + u * n_['d'], 2, bytes([0xB0 | ch, 11, int(18 + 109 * u ** 1.6)])))
+                    ev.append((t1 + 2.4, 2, bytes([0xB0 | ch, 11, 127])))
+                if n_['bend']:
+                    bt = [b[0] for b in n_['bend']]
+                    bv = [b[1] for b in n_['bend']]
+                    for tb in np.arange(0, max(bt) + 0.011, 0.01):
+                        val = int(np.clip(8192 + np.interp(tb, bt, bv) / 24 * 8192, 0, 16383))
+                        ev.append((n_['t'] + tb, 2, bytes([0xE0 | ch, val & 0x7f, val >> 7])))
+            ch = groups[key]
+        shifted.append([ch, n_['p'], t0, t1, n_['v']])
+    shifted.sort(key=lambda n_: (n_[0], n_[1], n_[2]))
+    for i in range(len(shifted) - 1):     # same pitch on one channel: end the earlier note before the next
+        a_, b_ = shifted[i], shifted[i + 1]
+        if a_[0] == b_[0] and a_[1] == b_[1] and a_[3] > b_[2] - 0.002:
+            a_[3] = max(a_[2] + 0.01, b_[2] - 0.002)
+    for ch, p, t0, t1, v in shifted:
+        if 0 <= p <= 127:
+            ev.append((t1, 1, bytes([0x80 | ch, p, 0])))
+            ev.append((t0, 3, bytes([0x90 | ch, p, v])))
+    return ev
+
+
+def write_midi_track(path, ev, t_end, name=b'The Hollow'):
+    ev = sorted(ev, key=lambda e: (sec2tick(e[0]), e[1]))
+    tr = bytearray(b'\x00\xff\x03' + vlq(len(name)) + name)
+    tr += b'\x00\xff\x51\x03' + TEMPO_US.to_bytes(3, 'big') + b'\x00\xff\x58\x04\x04\x02\x18\x08'
+    last = 0
+    end_tick = sec2tick(t_end)
+    for t, _, data in ev:
+        tk = min(sec2tick(t), end_tick)
+        tr += vlq(tk - last) + data
+        last = tk
+    tr += vlq(max(0, end_tick - last)) + b'\xff\x2f\x00'
+    with open(path, 'wb') as f:
+        f.write(b'MThd' + struct.pack('>IHHH', 6, 0, 1, PPQ) + b'MTrk' + struct.pack('>I', len(tr)) + bytes(tr))
+
+
+def render_midi(mid, wav):
+    import soundfile as sf
+    subprocess.run(['fluidsynth', '-ni', '-q', '-R', '0', '-C', '0', '-r', str(SR), '-g', '0.35',
+                    '-o', 'synth.polyphony=1024', '-O', 'float', '-T', 'wav', '-F', wav, SF2, mid],
+                   check=True, capture_output=True)
+    x, sr = sf.read(wav, dtype='float64', always_2d=True)
+    assert sr == SR
+    os.remove(wav)
+    os.remove(mid)
+    y = np.zeros((NS, 2))
+    m = min(NS, len(x))
+    y[:m] = x[:m]
+    return y
+
+
+def render_fluid(midi, bufs):
+    os.makedirs(TMP, exist_ok=True)
+
+    def job(item):
+        (seg, stem), notes = item
+        ev = midi_events(notes)
+        t_end = min(DUR, max(n_['t'] + n_['d'] for n_ in notes) + 3.0)
+        mid = os.path.join(TMP, f'{stem}{seg}.mid')
+        write_midi_track(mid, ev, t_end)
+        return (seg, stem), render_midi(mid, os.path.join(TMP, f'{stem}{seg}.wav'))
+    try:
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            for key, y in ex.map(job, sorted(midi.items())):
+                y = y * FLUID_GAIN.get(key[1], 1.0)
+                bufs[key] = bufs[key] + y if key in bufs else y
+    finally:
+        if os.path.isdir(TMP) and not os.listdir(TMP):
+            os.rmdir(TMP)
+
+
+EXPORT_CH = {48: 0, 49: 1, 44: 2, 45: 3, 43: 4, 46: 5, 60: 6, 56: 7, 57: 8, 58: 10, 52: 11, 53: 12, 0: 13, 47: 14,
+             8: 15, 9: 15}
+
+
+def write_score_mid(path):
+    """score.mid: the orchestral score as composed (cue-exact note-on times, no attack compensation),
+    one track per instrument family; celesta and glockenspiel share channel 16 by program change."""
+    tracks = {}
+    for anchor, start, stem, kind, a, kw in EV:
+        if kind == 'note' and a[0] in MIDI_INST:
+            inst, p, d, v = a
+            prog = midi_prog(inst, kw)
+            vel = int(np.clip(round(v * np.sqrt(kw.get('g', 1.0))), 1, 127))
+            tracks.setdefault(prog, []).append((start, P(p), d, vel))
+        elif kind == 'timp':
+            vel = int(np.clip(round((30 + 97 * (a[1] if len(a) > 1 else 1.0)) * np.sqrt(kw.get('g', 1.0))), 1, 127))
+            tracks.setdefault(47, []).append((start, P(a[0]), 1.0, vel))
+    chunks = []
+    t0 = bytearray(b'\x00\xff\x03' + vlq(10) + b'The Hollow')
+    t0 += b'\x00\xff\x51\x03' + TEMPO_US.to_bytes(3, 'big') + b'\x00\xff\x58\x04\x04\x02\x18\x08'
+    t0 += vlq(sec2tick(DUR)) + b'\xff\x2f\x00'
+    chunks.append(t0)
+    for prog in sorted(tracks):
+        ch = EXPORT_CH[prog]
+        ev = [(0.0, 0, bytes([0xC0 | ch, prog]))]
+        for t, p, d, v in tracks[prog]:
+            if prog in (8, 9):
+                ev.append((t, 0, bytes([0xC0 | ch, prog])))
+            ev.append((t, 3, bytes([0x90 | ch, p, v])))
+            ev.append((t + max(0.03, d), 1, bytes([0x80 | ch, p, 0])))
+        ev.sort(key=lambda e: (sec2tick(e[0]), e[1]))
+        nm = MIDI_NAMES[prog].encode()
+        tr = bytearray(b'\x00\xff\x03' + vlq(len(nm)) + nm)
+        last = 0
+        for t, _, data in ev:
+            tk = sec2tick(t)
+            tr += vlq(tk - last) + data
+            last = tk
+        tr += b'\x00\xff\x2f\x00'
+        chunks.append(tr)
+    with open(path, 'wb') as f:
+        f.write(b'MThd' + struct.pack('>IHHH', 6, 1, len(chunks), PPQ))
+        for tr in chunks:
+            f.write(b'MTrk' + struct.pack('>I', len(tr)) + bytes(tr))
 
 
 # =========================================================================== reverb, mix, master

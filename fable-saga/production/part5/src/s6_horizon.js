@@ -125,7 +125,7 @@
   const HEALT = new Float32Array(GN); { const ord = []; for (let q = 0; q < GN; q++) ord.push([Math.hypot(GSX[q] - 352, (GSY[q] - 160) * 1.4) + ih(q, 1, 9620) * 60, q]); ord.sort((a, b) => a[0] - b[0]); ord.forEach(([, q], k) => { HEALT[q] = 34.95 + k / GN * 1.35; }); }
   const EFX = 316, EFY = 140, HLAND = [236, 163];
   function vScene(t) {
-    const g = t - 34.0, V = { x: 226, y: 132, z: 1 };
+    const g = t - 34.0, V = { x: 226, y: 132, z: 1 }; H5PX = 68; H5PY = 0;
     if (g < 0.1) {                                                                     // the held frame: one white line on black
       BUF.fill(0); for (let x = 0; x < W; x++) { P(x, YC - 1, 22); P(x, YC, 22); P(x, YC + 1, 22); if (bay(x, YC - 2) < 0.5) P(x, YC - 2, 140); if (bay(x, YC + 2) < 0.5) P(x, YC + 2, 140); }
       GD.bloom = 0.5; GD.vig = 0; return;
@@ -153,7 +153,7 @@
     // what is left of the mask, falling, its eye going out
     if (t > 34.5 && t < 36.45) { const f = clip01(34.5, 36.45, t), mx = ex + slide * 0.6 + 14 * Math.sin(f * 5), my = lerp(ey - 6, 196, f * f); z5MaskShard(mx, my, 0.62 * (1 - 0.4 * f), 0.4 + f * 2.2, Math.max(0, 1 - f * 1.5), [0, 0], t); if (f < 0.66) light(mx, my, 26, L_MAG, 0.5 * (1 - f * 1.5)); }
     // what is left of the rest: it shrinks, flattens, and falls back to the cloud as a shadow
-    { const f = eio(clip01(34.9, 36.45, t)); if (t > 34.6) { const bx = lerp(ex, HLAND[0] - 44, f), by = lerp(ey + 12, 207, f * f), rx = lerp(26, 30, f) * (0.4 + 0.6 * clip01(34.6, 35.1, t)), ry = lerp(14, 4, eoc(f)); for (let y = fl(by - ry); y <= by + ry; y++) for (let x = fl(bx - rx); x <= bx + rx; x++) { const dx = (x - bx) / rx, dy = (y - by) / ry, d = dx * dx + dy * dy + (vn(x + t * 9, y, 4, 9622) - 0.5) * 0.5 * (1 - f); if (d < 1) P(x, y, d > 0.8 ? (bay(x, y) < 0.5 ? 2 : 63) : f > 0.8 ? 63 : 134); } } }
+    { const f = eio(clip01(34.9, 36.45, t)); if (t > 34.6) { const bx = lerp(ex, HLAND[0] - 44, f), by = lerp(ey + 12, 207, f * f), rx = lerp(15, 30, f * f) * (0.4 + 0.6 * clip01(34.6, 35.1, t)), ry = lerp(9, 4, eoc(f)); for (let y = fl(by - ry); y <= by + ry; y++) for (let x = fl(bx - rx); x <= bx + rx; x++) { const dx = (x - bx) / rx, dy = (y - by) / ry, d = dx * dx + dy * dy + (vn(x + t * 9, y, 4, 9622) - 0.5) * 0.5 * (1 - f); if (d < 1) P(x, y, d > 0.8 ? (bay(x, y) < 0.5 ? 2 : 63) : f > 0.8 ? 63 : 134); } } }
     // the hero: the stroke finished, it sinks toward the cloud
     const f = eio(clip01(34.6, 36.5, t));
     const hK = TR([{ t: 0, x: lerp(84, HLAND[0], f), y: lerp(156, HLAND[1] - 6, f) + Math.sin(t * 2) * 1.5, S: lerp(S2, 3, f), form: 'dawn', nosw: true, arm: 0.3, a: lerp(0.4, 0, eoc(clip01(34.1, 35.0, t))), sq: 0, spread: 1, arm2: t < 34.6 ? [1.9, 12, 1] : null, flap: 0.2 }, { t: 100, x: 0, y: 0 }]);
@@ -167,6 +167,7 @@
   /* ---------------------------------------------------------------- 36.5–40.0: dawn */
   shot(36.5, 40.0, (lt, t) => {
     const V = { x: 240, y: 135 + 4 * eio(clip01(36.5, 40, t)), z: 1 + 0.04 * eio(clip01(36.5, 40, t)) };
+    H5PX = 68; H5PY = 0;
     w5Dawn(t, t * 6, 180, 352, 160);
     // the shadow, lying still at its feet
     const sx = vX(V, HLAND[0] - 44), sy = vY(V, 207);
