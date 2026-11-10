@@ -13,7 +13,7 @@ function initPaint(W, H, seed) {
 }
 
 // scratch for densified path
-let PX = new Float32Array(8192), PY = new Float32Array(8192);
+let PX = new Float32Array(8192), PY = new Float32Array(8192), PU = new Float32Array(8192);
 const MAXB = 160;
 const bOff = new Float32Array(MAXB), bLoad = new Float32Array(MAXB), bDry = new Float32Array(MAXB);
 const bR = new Float32Array(MAXB), bG = new Float32Array(MAXB), bB = new Float32Array(MAXB);
@@ -24,7 +24,7 @@ function densify(pts, step) {
   const n = pts.length / 2;
   let cnt = 0;
   if (n === 1) { PX[0] = pts[0]; PY[0] = pts[1]; return 1; }
-  const ensure = (c) => { if (c >= PX.length) { const a = new Float32Array(PX.length * 2); a.set(PX); PX = a; const b = new Float32Array(PY.length * 2); b.set(PY); PY = b; } };
+  const ensure = (c) => { if (c >= PX.length) { const a = new Float32Array(PX.length * 2); a.set(PX); PX = a; const b = new Float32Array(PY.length * 2); b.set(PY); PY = b; const u = new Float32Array(PU.length * 2); u.set(PU); PU = u; } };
   for (let i = 0; i < n - 1; i++) {
     const p0x = pts[2 * Math.max(i - 1, 0)], p0y = pts[2 * Math.max(i - 1, 0) + 1];
     const p1x = pts[2 * i], p1y = pts[2 * i + 1];
@@ -37,11 +37,12 @@ function densify(pts, step) {
       ensure(cnt);
       PX[cnt] = 0.5 * ((2 * p1x) + (-p0x + p2x) * t + (2 * p0x - 5 * p1x + 4 * p2x - p3x) * t2 + (-p0x + 3 * p1x - 3 * p2x + p3x) * t3);
       PY[cnt] = 0.5 * ((2 * p1y) + (-p0y + p2y) * t + (2 * p0y - 5 * p1y + 4 * p2y - p3y) * t2 + (-p0y + 3 * p1y - 3 * p2y + p3y) * t3);
+      PU[cnt] = i + t;
       cnt++;
     }
   }
   ensure(cnt);
-  PX[cnt] = pts[2 * (n - 1)]; PY[cnt] = pts[2 * (n - 1) + 1]; cnt++;
+  PX[cnt] = pts[2 * (n - 1)]; PY[cnt] = pts[2 * (n - 1) + 1]; PU[cnt] = n - 1; cnt++;
   return cnt;
 }
 
@@ -55,7 +56,8 @@ function stroke(pts, o) {
   let L = 0;
   for (let i = 1; i < cnt; i++) L += Math.hypot(PX[i] - PX[i - 1], PY[i] - PY[i - 1]);
   const w0 = o.w0 !== undefined ? o.w0 : o.w, w1 = o.w1 !== undefined ? o.w1 : o.w;
-  const wmax = Math.max(w0, w1);
+  let wmax = Math.max(w0, w1);
+  const WA = o.widths; if (WA) { wmax = 0; for (let i = 0; i < WA.length; i++) if (WA[i] > wmax) wmax = WA[i]; }
   const nb = clamp(Math.round(wmax * 1.05) + 1, 2, MAXB);
   const knife = !!o.knife;
   const streak = o.streak !== undefined ? o.streak : 0.5;
@@ -67,28 +69,30 @@ function stroke(pts, o) {
   const col = o.color, col2 = o.color2, mixAmt = o.mix !== undefined ? o.mix : 0.35;
   const clip = o.clip;
   const noProfile = !!o.noProfile;
-  // bristle setup with clumping
-  let prev = rng.next(), prev2 = rng.next();
-  const clumpLen = Math.max(1, Math.round(nb / 9));
-  let clumpV = rng.next(), cc = 0;
+  // bristle setup: two-scale clumps (coarse hair bundles + finer groups) so marks read as bristle tracks, not a comb
+  const thickK = thick * (0.72 + 0.7 * rng.next());
+  const spacing = wmax / Math.max(1, nb - 1);
+  const cl1 = Math.max(1, Math.round(rng.range(9, 26) / Math.max(0.6, spacing)));
+  const cl2 = Math.max(1, Math.round(rng.range(3.5, 8) / Math.max(0.6, spacing)));
+  let cv1 = rng.next(), cv2 = rng.next(), c1 = 0, c2 = 0;
   for (let i = 0; i < nb; i++) {
     const u = nb > 1 ? i / (nb - 1) : 0.5;
-    bOff[i] = (u - 0.5) + (rng.next() - 0.5) * 0.35 / nb;
+    bOff[i] = (u - 0.5) + (rng.next() - 0.5) * 0.3 / nb;
     const r = rng.next();
-    if (cc-- <= 0) { clumpV = rng.next(); cc = clumpLen + rng.int(0, clumpLen); }
-    let ld = knife ? 1 : 1 - streak * (0.55 * (1 - clumpV) + 0.45 * (1 - r));
-    // edges carry less
+    if (c1-- <= 0) { cv1 = rng.next(); c1 = cl1 + rng.int(0, cl1); }
+    if (c2-- <= 0) { cv2 = rng.next(); c2 = cl2 + rng.int(0, cl2); }
+    let ld = knife ? 1 : 1 - streak * (0.5 * (1 - cv1) + 0.38 * (1 - cv2) + 0.12 * (1 - r));
     const e = Math.abs(u - 0.5) * 2;
-    if (!knife) ld *= 1 - 0.35 * smooth(0.7, 1.0, e);
+    if (!knife) ld *= 1 - 0.18 * smooth(0.8, 1.0, e);
     bLoad[i] = ld;
-    bDry[i] = knife ? 0 : rng.next() * dry;
-    let m = (col2 && !knife) ? (clumpV * 0.6 + r * 0.4 < mixAmt ? 1 : 0) : 0;
-    if (col2 && !knife) m = clamp((clumpV - (1 - mixAmt)) * 4 + 0.5 * (r - 0.5), 0, 1);
-    const j = (rng.next() - 0.5) * 2 * cj;
+    bDry[i] = knife ? 0 : (0.5 * cv2 + 0.5 * r) * dry;
+    let m = 0;
+    if (col2 && !knife) m = clamp((cv1 - (1 - mixAmt)) * 4 + 0.6 * (cv2 - 0.5), 0, 1);
+    const j = (cv2 - 0.5) * 2 * cj + (r - 0.5) * cj * 0.5;
     const cr = col[0], cg = col[1], cb = col[2];
     if (col2) { bR[i] = lerp(cr, col2[0], m) + j; bG[i] = lerp(cg, col2[1], m) + j * 0.95; bB[i] = lerp(cb, col2[2], m) + j * 0.9; }
     else { bR[i] = cr + j; bG[i] = cg + j * 0.95; bB[i] = cb + j * 0.9; }
-    bHt[i] = thick * (0.45 + 0.55 * ld) * ((i === 0 || i === nb - 1) ? 1.35 : 1);
+    bHt[i] = thickK * (0.35 + 0.65 * ld) * ((i === 0 || i === nb - 1) ? 1.4 : 1);
   }
   const phase = rng.next() * 6.28;
   let tx = 1, ty = 0;
@@ -105,6 +109,7 @@ function stroke(pts, o) {
     if (dl > 1e-5) { tx = dx / dl; ty = dy / dl; }
     const nx = -ty, ny = tx;
     let wd = w0 + (w1 - w0) * t;
+    if (WA) { const u = PU[k]; const ui = Math.min(WA.length - 2, Math.floor(u)); const uf = u - ui; wd = WA[ui] + (WA[ui + 1] - WA[ui]) * uf; }
     let press = 1;
     if (!noProfile) {
       const land = smooth(0, 0.07, t);

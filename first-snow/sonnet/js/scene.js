@@ -4,11 +4,11 @@
 const REG = { SKY: 0, RIDGE: 1, GROUND: 2, HOUSE: 3, SMOKE: 4 };
 
 const SKY_STOPS = [
-  [0.00, [16, 18, 62]], [0.22, [30, 38, 100]], [0.48, [54, 70, 144]],
-  [0.72, [98, 114, 178]], [0.90, [166, 166, 206]], [1.00, [214, 194, 210]],
+  [0.00, [16, 16, 56]], [0.20, [30, 32, 92]], [0.42, [44, 62, 128]], [0.60, [62, 96, 150]],
+  [0.78, [112, 130, 184]], [0.90, [168, 170, 208]], [1.00, [216, 196, 208]],
 ];
 const GROUND_STOPS = [ // by depth Z (m)
-  [2.0, [40, 46, 108]], [5, [58, 68, 138]], [11, [90, 104, 172]], [24, [138, 148, 202]], [55, [176, 178, 218]], [200, [196, 192, 222]],
+  [2.0, [84, 84, 146]], [5, [102, 106, 168]], [11, [138, 144, 204]], [24, [178, 182, 226]], [55, [204, 202, 234]], [200, [210, 204, 232]],
 ];
 function stops(tbl, v) {
   if (v <= tbl[0][0]) return tbl[0][1];
@@ -51,12 +51,17 @@ function buildReference(W, H, trees) {
         const warp = noise.n2(wx * 0.6 + 3.1, wy * 0.8) * 0.9;
         const n1 = noise.fbm(wx + warp, wy * 1.7 + 0.5 * warp, 4, 2.0, 0.5);
         const n1b = noise.fbm(wx + warp, wy * 1.7 + 0.5 * warp + 0.04, 4, 2.0, 0.5);
-        const cloud = smooth(-0.08, 0.38, n1);
+        const cloud = smooth(-0.12, 0.34, n1);
+        const big = noise2.fbm(dx / 900 + 7.7, dy / 330 + 1.3, 3, 2.0, 0.5);
+        const bigC = smooth(-0.05, 0.3, big);
         const rim = clamp((n1b - n1) * 38, -1, 1); // vertical gradient -> underlit edges
         const upper = 1 - smooth(0.0, 0.9, t) * 0.4;
         // darker, violet-grey cloud masses
-        const dark = cloud * upper * 0.5;
-        r = r * (1 - dark * 0.55) + 22 * dark; g = g * (1 - dark * 0.62) + 8 * dark; b = b * (1 - dark * 0.35) + 46 * dark;
+        const dark = Math.min(1, (cloud * 0.6 + bigC * 0.55)) * upper * 0.9;
+        r = r * (1 - dark * 0.5) + 26 * dark; g = g * (1 - dark * 0.6) + 10 * dark; b = b * (1 - dark * 0.3) + 52 * dark;
+        // pale breaks in the overcast catch the last light
+        const brk = smooth(0.3, 0.62, -big) * (1 - cloud) * smooth(0.1, 0.6, t);
+        r += 34 * brk; g += 36 * brk; b += 30 * brk;
         // lit undersides toward the horizon glow
         const lit = Math.max(0, rim) * smooth(0.25, 0.85, t) * cloud * 0.8;
         r += 70 * lit; g += 54 * lit; b += 30 * lit;
@@ -76,10 +81,11 @@ function buildReference(W, H, trees) {
         // drift relief (perspective-correct)
         const fa = Math.exp(-Z / 80);
         const hh = (X0, Z0) => {
-          let v = 0.55 * noise.n2(X0 * 0.30 + 5, Z0 * 0.16) + 0.3 * noise.n2(X0 * 0.8 + 11, Z0 * 0.45) + 0.12 * noise2.n2(X0 * 2.2, Z0 * 1.3);
+          const fh = Math.exp(-Z0 / 20);
+          let v = 0.55 * noise.n2(X0 * 0.30 + 5, Z0 * 0.16) + 0.3 * fh * noise.n2(X0 * 0.8 + 11, Z0 * 0.45) + 0.12 * fh * noise2.n2(X0 * 2.2, Z0 * 1.3);
           // lane depressions (tracks)
           const ax = Math.abs(X0 - 0.2);
-          v -= 0.16 * Math.exp(-Math.pow((ax - 0.95) / 0.25, 2));
+          v -= 0.3 * Math.exp(-Math.pow((ax - 0.95) / 0.2, 2));
           return v;
         };
         const e = 0.12;
@@ -87,11 +93,14 @@ function buildReference(W, H, trees) {
         const sz = (hz - h0) / e, sx = (hx - h0) / e;
         let sh = clamp(0.5 - 0.55 * sz - 0.18 * sx, 0, 1);
         sh = 0.5 + (sh - 0.5) * (0.35 + 0.65 * fa);
-        const lr = c[0] * 1.3 + 14, lg = c[1] * 1.27 + 14, lb = c[2] * 1.12 + 10;
-        const sr = c[0] * 0.62, sg = c[1] * 0.6, sb = c[2] * 0.84 + 4;
+        const lr = c[0] * 1.28 + 22, lg = c[1] * 1.22 + 14, lb = c[2] * 1.1 + 8;
+        const sr = c[0] * 0.62, sg = c[1] * 0.6, sb = c[2] * 0.86 + 6;
         r = sr + (lr - sr) * sh; g = sg + (lg - sg) * sh; b = sb + (lb - sb) * sh;
+        // luminous lane: snow facing the glow reads lighter and pinker
+        const lane = Math.exp(-Math.pow((X - 0.3) / 3.0, 2)) * smooth(5, 28, Z);
+        r += (232 - r) * lane * 0.22; g += (200 - g) * lane * 0.14; b += (238 - b) * lane * 0.1;
         // finer sparkle variation
-        const fv = noise2.n2(X * 4.2, Z * 2.6) * 0.04 * fa;
+        const fv = noise2.n2(X * 4.2, Z * 2.6) * 0.04 * Math.exp(-Z / 16);
         r *= 1 + fv; g *= 1 + fv; b *= 1 + fv;
       }
       d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
@@ -115,6 +124,38 @@ function buildReference(W, H, trees) {
     ctx.restore();
   }
 
+  // ---- backlit shadow bands: trees throw long soft shadows toward the viewer, converging on the glow ----
+  {
+    const sc = document.createElement('canvas'); sc.width = W; sc.height = H;
+    const s2 = sc.getContext('2d'); s2.scale(K, K);
+    const yOf = (Z) => YH + CAM.H * CAM.F / Z, xOf = (X, Z) => CAM.VPX + X * CAM.F / Z;
+    const band = (X, Z0, hw, a, len, hw1) => {
+      const z1 = Math.max(1.8, Z0 - len);
+      if (z1 >= Z0 - 0.3) return;
+      const n = 10;
+      s2.beginPath();
+      for (let k = 0; k <= n; k++) { const Z = Z0 + (z1 - Z0) * k / n; const w = hw + (hw1 - hw) * k / n; const x = xOf(X - w, Z), y = yOf(Z); if (k === 0) s2.moveTo(x, y); else s2.lineTo(x, y); }
+      for (let k = n; k >= 0; k--) { const Z = Z0 + (z1 - Z0) * k / n; const w = hw + (hw1 - hw) * k / n; s2.lineTo(xOf(X + w, Z), yOf(Z)); }
+      s2.closePath();
+      const g = s2.createLinearGradient(0, yOf(Z0), 0, yOf(z1));
+      g.addColorStop(0, `rgba(30,28,104,${a})`); g.addColorStop(0.6, `rgba(34,32,112,${a * 0.55})`); g.addColorStop(1, 'rgba(36,36,118,0)');
+      s2.fillStyle = g; s2.fill();
+    };
+    for (const t of trees) {
+      if (t.Z > 95) continue;
+      const fade = Math.exp(-t.Z / 60);
+      const sp = t.spread / 2.2;
+      band(t.X, t.Z, 0.17, 0.62 * fade + 0.1, 8 + t.Z * 0.28, 0.5);
+      band(t.X, t.Z, 1.0 * sp, 0.2 * fade + 0.03, 12 + t.Z * 0.45, 2.1 * sp);
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath(); ctx.rect(0, YH * K, W, H - YH * K); ctx.clip();
+    ctx.filter = `blur(${2.2 * K}px)`;
+    ctx.drawImage(sc, 0, 0);
+    ctx.restore();
+  }
+
   // ---- window light on the snow (screen blend, hue shifts orange -> rose -> violet) ----
   {
     const ground = ctx.getImageData(0, Math.floor(YH * K), W, H - Math.floor(YH * K));
@@ -131,6 +172,7 @@ function buildReference(W, H, trees) {
         const sw = 34 + below * 0.7;
         const ex2 = (dx - winX) / sw;
         a += 0.55 * Math.exp(-ex2 * ex2) * Math.exp(-below / 95) * (dy >= hy0 - 6 ? 1 : 0);
+        { const exL = (dx - winX) / 560, eyL = (dy - hy0) / 170; a += 0.34 * Math.exp(-(exL * exL + eyL * eyL)) * (dy >= hy0 - 8 ? 1 : 0.3); }
         a = Math.min(1, a) * 0.95;
         if (a < 0.003) continue;
         const o = (yy * W + x) * 4;
@@ -263,7 +305,6 @@ function drawHouse(ref) {
       c.fillStyle = gr; c.beginPath(); c.arc(x, y, rad, 0, 6.3); c.fill();
     }
   };
-  polys(ctx, (c) => smoke(c, false));
   // region map for the house
   polys(rctx, (c) => {
     c.fillStyle = `rgb(${REG.HOUSE * 40},0,0)`;
@@ -273,7 +314,6 @@ function drawHouse(ref) {
     c.fillRect(X(1.45), Y(5.7), 1.05 * s, 2.5 * s);
     poly(c, [[X(-3.6), Y(wallTop - 0.15)], [X(-2.5), Y(ridge)], [X(2.9), Y(ridge)], [X(3.7), Y(wallTop - 0.15)]]); c.fill();
     c.beginPath(); c.ellipse(X(-1), Y(0.05), 4.6 * s, 0.32 * s, 0, 0, 6.3); c.fill();
-    smoke(c, true);
   });
 }
 

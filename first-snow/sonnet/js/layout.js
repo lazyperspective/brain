@@ -1,8 +1,8 @@
 'use strict';
 // ---------- camera, orchard layout and gnarled apple-tree skeletons ----------
 // Design space is 1080 x 1350 ("D" units); K scales to pixels (K = 2 for the 4K output).
-const CAM = { YH: 612, VPX: 650, F: 760, H: 1.9 };
-const HOUSE = { X: 1.7, Z: 40 };
+const CAM = { YH: 650, VPX: 650, F: 800, H: 1.9 };
+const HOUSE = { X: 1.7, Z: 36 };
 
 function proj(X, Y, Z) {
   const s = CAM.F / Z;
@@ -18,9 +18,9 @@ function buildTrees(seed) {
   add(3.35, 6.3, { hero: 2, trunkH: 1.05, spread: 2.45, lean: 0.14, leanAz: 0.4, apples: 6 });
   // inner rows beside the aisle
   let z = 9.0;
-  while (z < 44) { add(-3.45 + r.range(-0.35, 0.35), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(0, 3) : 0 }); z += r.range(4.3, 5.0); }
+  while (z < 44) { add((z > 25 ? -4.3 : -3.45) + r.range(-0.3, 0.3), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(0, 3) : 0, spread: z > 25 ? 1.7 : undefined }); z += r.range(4.3, 5.0); }
   z = 10.6;
-  while (z < 34.5) { add(3.55 + r.range(-0.35, 0.35), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(0, 3) : 0 }); z += r.range(4.3, 5.0); }
+  while (z < 34.5) { add((z > 25 ? 4.4 : 3.55) + r.range(-0.3, 0.3), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(0, 3) : 0, spread: z > 25 ? 1.7 : undefined }); z += r.range(4.3, 5.0); }
   z = 49;
   while (z < 110) { add(-3.4 + r.range(-0.3, 0.3), z + r.range(-0.8, 0.8), {}); add(3.5 + r.range(-0.3, 0.3), z + 3 + r.range(-0.8, 0.8), {}); z += r.range(5, 6.4); }
   // outer rows
@@ -53,7 +53,7 @@ function genTree(t) {
   const maxOrder = Zc < 14 ? 5 : Zc < 30 ? 4 : Zc < 60 ? 3 : 2;
   const minR = Zc < 14 ? 0.0045 : Zc < 30 ? 0.007 : Zc < 60 ? 0.01 : 0.02;
   const dens = Zc < 14 ? 1 : Zc < 30 ? 0.85 : 0.7;
-  const pSp = [0.0, 0.62, 0.66, 0.6, 0.5, 0.4];
+  const pSp = [0.0, 0.7, 0.85, 0.8, 0.65, 0.5];
   function grow(pos, dir, len, r0, r1, order, gnarl, up) {
     const n = Math.max(2, Math.round(len / step));
     const ds = len / n;
@@ -67,6 +67,11 @@ function genTree(t) {
       const r = (r0 + (r1 - r0) * Math.pow(tt, 0.85)) * (1 + 0.1 * Math.sin(i * 1.9 + ph));
       pts.push({ x, y, z, r: Math.max(r, minR) });
       if (i === n) break;
+      if (Zc < HOUSE.Z + 2 && i > 0) { // keep the farmhouse window clear of near branches
+        const Zp = Math.max(1.4, Zc + z), s0 = CAM.F / Zp;
+        const sx = CAM.VPX + (t.X + x) * s0, sy = CAM.YH + (CAM.H - y) * s0;
+        if (sx > 560 && sx < 810 && sy > 500 && sy < 745 && Zp < HOUSE.Z - 2) break;
+      }
       d[0] += rng.gauss() * gnarl + tw[0] + bend; d[1] += rng.gauss() * gnarl * 0.8 + up * (0.02 + 0.05 * tt); d[2] += rng.gauss() * gnarl + tw[2];
       if (y < 0.7 && d[1] < 0) d[1] = -d[1] * 0.5 + 0.1;
       norm3(d);
@@ -81,7 +86,7 @@ function genTree(t) {
         const c = [d[0] * ca + (u[0] * Math.cos(ph2) + v[0] * Math.sin(ph2)) * sa,
                    d[1] * ca + (u[1] * Math.cos(ph2) + v[1] * Math.sin(ph2)) * sa,
                    d[2] * ca + (u[2] * Math.cos(ph2) + v[2] * Math.sin(ph2)) * sa];
-        c[1] += (order <= 2 ? 0.28 : 0.15);
+        c[1] += (order <= 2 ? 0.2 : 0.1);
         if (c[1] < -0.2) c[1] = -c[1] * 0.6;
         norm3(c);
         const lenC = len * rng.range(0.3, 0.62) * (order === 1 ? 1.1 : 1) * (1 - 0.1 * order);
@@ -116,12 +121,12 @@ function genTree(t) {
   const az0 = rng.range(0, 6.283);
   for (let i = 0; i < nl; i++) {
     const a = az0 + i * 6.283 / nl + rng.range(-0.4, 0.4);
-    const el = rng.range(0.55, 1.1); // angle from vertical
+    const el = rng.range(0.8, 1.4); // angle from vertical
     const dir = [Math.sin(el) * Math.cos(a), Math.cos(el) * 0.9 + 0.1, Math.sin(el) * Math.sin(a)];
     const fy = trunkTop[1] - rng.range(0, 0.25);
     const len = t.spread * rng.range(0.95, 1.4);
     const rr = r0 * rng.range(0.55, 0.72);
-    grow([trunkTop[0], fy, trunkTop[2]], dir, len, rr, Math.max(minR * 2, rr * 0.28), 1, 0.12, 0.9);
+    grow([trunkTop[0], fy, trunkTop[2]], dir, len, rr, Math.max(minR * 2, rr * 0.28), 1, 0.17, 0.9);
   }
   // a couple of upright water sprouts from the trunk top
   const ns = Zc < 30 ? 2 : 1;

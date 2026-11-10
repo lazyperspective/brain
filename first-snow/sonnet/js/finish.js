@@ -24,11 +24,14 @@ function finishImage(opts) {
   const p = 3.7 * K;
   const wA = opts.weaveAmp, kw = opts.weaveHide, hs = opts.heightScale;
   const HT = P.HT;
+  // soften bristle-scale micro-grooves a little so relief reads as paint ridges, not engraving
+  const HS = new Float32Array(N), tmpb = new Float32Array(N);
+  blurInto(HT, HS, tmpb, W, H, 0.85 * K);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const wv = weaveHeight(x, y, p, noise) - 0.5;
-      S[i] = wv * wA * Math.exp(-HT[i] * kw) + HT[i] * hs;
+      S[i] = wv * wA * Math.exp(-HT[i] * kw) + (0.35 * HT[i] + 0.65 * HS[i]) * hs;
     }
   }
   const out = new Uint8ClampedArray(N * 4);
@@ -56,7 +59,8 @@ function finishImage(opts) {
       // subtle vignette
       const vx = (x - cx) / (W * 0.62), vy = (y - cy) / (H * 0.62);
       const vg = 1 - opts.vignette * smooth(0.35, 1.25, Math.sqrt(vx * vx + vy * vy));
-      r *= vg; g *= vg; b *= vg;
+      { const vv = 1 - vg; r *= 1 - vv * 1.0; g *= 1 - vv * 1.0; b *= 1 - vv * 0.62; }
+      { const sc3 = (v) => { v = v < 0 ? 0 : v > 1 ? 1 : v; const t = v * v * (3 - 2 * v); return v + 0.32 * (t - v); }; r = sc3(r); g = sc3(g); b = sc3(b); }
       // dither
       const hsh = ((Math.imul(i, 2654435761) >>> 8) & 255) / 255 - 0.5;
       const o = i * 4;

@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>First Snow, Orchard</title>
+<style>
+  html, body { margin: 0; background: #0b0b10; }
+  canvas { display: block; margin: 0 auto; height: 100vh; width: auto; max-width: 100vw; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="js/engine.js"></script>
+<script src="js/scene.js"></script>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const S = parseFloat(q.get('s') || '1');
+  const stage = parseInt(q.get('stage') || '99', 10);
+  const cv = document.getElementById('c');
+  initEngine(S);
+  cv.width = E.W; cv.height = E.H;
+  setTimeout(function () {
+    paintScene(stage);
+    finish(cv.getContext('2d'));
+    window.__strokes = E.count;
+    window.__done = true;
+  }, 30);
+})();
+</script>
+</body>
+</html>

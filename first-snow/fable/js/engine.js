@@ -96,12 +96,14 @@ function stroke(P, o) {
   const S = E.S, W = E.W, H = E.H;
   const n = P.length >> 1; if (n < 2) return;
   const X = new Float32Array(n), Y = new Float32Array(n), L = new Float32Array(n);
+  const tf = E.tf, tk = tf ? tf.k : 1;
   for (let i = 0; i < n; i++) {
-    X[i] = P[2 * i] * S; Y[i] = P[2 * i + 1] * S;
+    if (tf) { X[i] = (tf.cx + (P[2 * i] - tf.cx) * tk) * S; Y[i] = (tf.cy + (P[2 * i + 1] - tf.cy) * tk) * S; }
+    else { X[i] = P[2 * i] * S; Y[i] = P[2 * i + 1] * S; }
     if (i) L[i] = L[i - 1] + Math.hypot(X[i] - X[i - 1], Y[i] - Y[i - 1]);
   }
   const total = L[n - 1]; if (total < 0.3) return;
-  const hwMax = Math.max(0.3, o.w * S * 0.5);
+  const hwMax = Math.max(0.3, o.w * tk * S * 0.5);
   const prof = typeof o.prof === 'function' ? o.prof : PROFS[o.prof || 'flat'];
   const hwv = new Float32Array(n);
   let hwTop = 0;
@@ -116,7 +118,7 @@ function stroke(P, o) {
   const wk = o.wk === undefined ? 0.3 : o.wk;
   const soft = Math.max(0.02, o.soft === undefined ? 0.25 : o.soft);
   const rag = o.rag === undefined ? 0.3 : o.rag;
-  const lj = o.lj === undefined ? 0.14 : o.lj;
+  const lj = o.lj === undefined ? 0.26 : o.lj;
   const flat = o.flat === undefined ? 0.8 : o.flat;
   const ridge = o.ridge === undefined ? 0.6 : o.ridge;
   const ibs = 1 / ((o.bs || 2.3) * S);
@@ -158,7 +160,8 @@ function stroke(P, o) {
         let un = u / total; un = un < 0 ? 0 : un > 1 ? 1 : un;
         const v = dist / hw;
         const bc = d * ibs;
-        const n1 = vn(bc + offA, u * lf + offB);
+        let n1 = vn(bc + offA, u * lf + offB);
+        n1 = n1 * n1 * (3 - 2 * n1);
         // edge
         let ev = (v + (n1 - 0.5) * rag - s0) / soft; ev = ev < 0 ? 0 : ev > 1 ? 1 : ev;
         const edge = 1 - ev * ev * (3 - 2 * ev);
@@ -218,7 +221,7 @@ function finish(ctx) {
   const eh = E.ht, ew = E.weave;
   for (let i = 0; i < N; i++) {
     const h = eh[i];
-    hh[i] = h * 2.6 + (ew[i] - 0.5) * 0.85 * Math.exp(-h * 2.2);
+    hh[i] = h * 5.5 + (ew[i] - 0.5) * 1.15 * Math.exp(-h * 1.6);
   }
   // light blur of relief
   const tmp = new Float32Array(N);
@@ -231,7 +234,7 @@ function finish(ctx) {
     hh[i] = (tmp[ym] + 2 * tmp[i] + tmp[yp]) * 0.25;
   }
   const img = ctx.createImageData(W, H), D = img.data;
-  const lx = -0.56, ly = -0.83, K = 0.34 / Math.max(S, 0.25);
+  const lx = -0.56, ly = -0.83, K = 0.42 / Math.max(S, 0.25);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x;
     const xm = x > 0 ? i - 1 : i, xp = x < W - 1 ? i + 1 : i, ym = y > 0 ? i - W : i, yp = y < H - 1 ? i + W : i;
