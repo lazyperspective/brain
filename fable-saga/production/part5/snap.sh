@@ -1,5 +1,5 @@
 # snap.sh NAME t1,t2,... : build, render stills into $SNAP/NAME and contact sheets $SNAP/NAME_s_*.png (6 per sheet)
-cd "$(dirname "$0")"; SNAP=${SNAP:-/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/u3}
+cd "$(dirname "$0")"; SNAP=${SNAP:-/tmp/claude-0/-home-user-brain/f1f7475c-3827-5141-bc67-2671553b043a/scratchpad/p5}
 OUT=$SNAP/build.js bash build.sh > /dev/null || exit 1
 D=$SNAP/$1; mkdir -p $D && node render.js "$D/t%t.png" $2 $SNAP/build.js > /dev/null || exit 1
 files=($(ls $D/t*.png | sort)); n=${#files[@]}; k=0

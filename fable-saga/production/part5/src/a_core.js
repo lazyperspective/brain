@@ -1,5 +1,5 @@
   /* ================================================================ constants & helpers */
-  const W = 480, H = 270, NP = W * H, D = 180;
+  const W = 480, H = 270, NP = W * H, D = 40;
   const TAU = Math.PI * 2, PI = Math.PI, fl = Math.floor;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, u) => a + (b - a) * u;
@@ -54,6 +54,14 @@
     '1e1412', '3a2622', 'ff4a30',                                                                 // 111-113 last light (charred, ember)
     '03090f', '071623', '0e2a3c', '1c4a62', '3e7c96', 'a6dcea',                                   // 114-119 the ocean under the clouds
     '2a2224', '4a3e3c', '74645e', 'a8968c',                                                       // 120-123 ash and broken rock
+    // part V
+    '061014', '0c2026', '15363c', '235658', '3f8a7a', '86ceb0',                                   // 124-129 the folded city (teal night)
+    'ff6f7d', 'ffa68a', 'c2456e', '7a2d6a',                                                       // 130-133 dawn rose, peach, deep rose, plum
+    '040308',                                                                                     // 134 the Hollow's inside (a marker: stars are painted into it on screen)
+    'c8ecff', '7fb8e0', '3c6c9c',                                                                 // 135-137 glass
+    '0a0916', '1a1838',                                                                           // 138-139 dawnbreak night
+    'fff2c8', 'ffd070',                                                                           // 140-141 dawn fire
+    'e9e2d2', 'cfc6b2', '2a2622',                                                                 // 142-144 paper shade, paper dark, warm ink
   ];
   const PAL = PAL_HEX.map((h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]);
   const NPAL = PAL.length;
@@ -195,17 +203,20 @@
   }
   function spRect(x, y, w, h, c, k) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) sp(x + i, y + j, c, k); }
   // the sword, rasterised at an angle about the hand: u along the blade, v across
-  function spSword(px, py, ang, cols) {
+  function spSword(px, py, ang, cols, st, len) {
+    len = len || 30; const ST = st || '';
     const ca = Math.cos(ang), sa = Math.sin(ang);
-    for (let dy = -34; dy <= 34; dy++) for (let dx = -34; dx <= 34; dx++) {
+    const RG = Math.max(34, len + 4);
+    for (let dy = -RG; dy <= RG; dy++) for (let dx = -RG; dx <= RG; dx++) {
       const fx = dx + 0.5, fy = dy + 0.5, u = fx * ca + fy * sa, v = -fx * sa + fy * ca, av = Math.abs(v);
       let c = -1;
-      if (u >= -6 && u < -4.5 && av <= 1.4) c = 58;                          // pommel
-      else if (u >= -4.5 && u < 0.5 && av <= 1.0) c = 38;                    // grip
-      else if (u >= 0.5 && u < 2.5 && av <= 4.2) c = av > 3.2 ? 51 : 58;     // guard
-      else if (u >= 2.5 && u < 30) {
-        const tw = u > 25 ? (30 - u) * 0.36 : 1.8;
-        if (av <= tw) c = cols ? (v < -0.6 ? 22 : cols[fl(frac(u * 0.08) * cols.length)]) : (v < -0.7 ? 22 : u < 5 ? 33 : 34);
+      if (u >= -6 && u < -4.5 && av <= 1.4) c = ST === 'void' ? 73 : 58;                          // pommel
+      else if (u >= -4.5 && u < 0.5 && av <= 1.0) c = ST === 'void' ? 78 : 38;                    // grip
+      else if (u >= 0.5 && u < 2.5 && av <= 4.2) c = ST === 'void' ? (av > 3.2 ? 74 : 72) : ST === 'dawn' ? (v < 0 ? 22 : 56) : av > 3.2 ? 51 : 58;     // guard
+      else if (u >= 2.5 && u < len) {
+        let tw = u > len - 5 ? (len - u) * 0.36 : 1.8;
+        if (ST === 'stub') tw = u > len - 3 ? (ih(fl(u * 2), 3, 951) < 0.5 ? 1.8 : 0.6) * (v < 0 ? 1 : 0.4) : 1.8;   // a broken, jagged end
+        if (av <= tw) c = ST === 'void' ? (v < -0.6 ? 74 : 134) : ST === 'dawn' ? (v < 0 ? 22 : v < 0.7 ? 138 : 134) : cols ? (v < -0.6 ? 22 : cols[fl(frac(u * 0.08) * cols.length)]) : (v < -0.7 ? 22 : u < 5 ? 33 : 34);
       }
       if (c >= 0) sp(px + dx, py + dy, c, 2);
     }
@@ -222,7 +233,7 @@
     for (let q = 0; q < 4; q++) { u = clamp(u + du * (0.1 + ih(k, q, 932) * 0.12) + (ih(k, q, 933) - 0.5) * 0.16, 0, 1); v = clamp(v + dv * (0.12 + ih(k, q, 934) * 0.14) + (ih(k, q, 935) - 0.5) * 0.2, 0, 1); p.push([u, v]); }
     CRACKS.push({ p, at, w });
   }
-  const FORMS = { storm: [90, 89, 91, 91], grey: [94, 93, 95, 92], zenith: [60, 59, 22, 22], nova: [108, 110, 22, 105], lastlight: [111, 96, 113, 104], infinite: [60, 85, 22, 22] };
+  const FORMS = { hollow: [134, 134, 134, 72], hollownova: [134, 0, 134, 22], dawnbreak: [140, 141, 22, 59], storm: [90, 89, 91, 91], grey: [94, 93, 95, 92], zenith: [60, 59, 22, 22], nova: [108, 110, 22, 105], lastlight: [111, 96, 113, 104], infinite: [60, 85, 22, 22] };
   function buildSprite(o) {
     SPR.fill(0); SPK.fill(0); LBB[0] = 1e9; LBB[1] = 1e9; LBB[2] = -1e9; LBB[3] = -1e9;
     const sq = o.sq || 0, bw = Math.round(26 * (1 + sq * 0.5) / 2) * 2, bh = Math.max(10, Math.round(16 * (1 - sq * 0.4)));
@@ -255,12 +266,40 @@
         const grow = clamp((crk - C.at) / 0.25, 0, 1), n = Math.max(2, Math.ceil(C.p.length * grow));
         for (let q = 0; q + 1 < n; q++) { const [ua, va] = C.p[q], [ub, vb] = C.p[q + 1]; for (let m = 0; m <= 6; m++) { const u = lerp(ua, ub, m / 6), v = lerp(va, vb, m / 6), px = x0 + u * (bw - 1), py = y0 + v * (bh - 1); sp(px, py, q === 0 ? lc2 : lc, 1); if (C.w && m % 2 === 0) sp(px + 1, py, lc2, 1); } }
       }
-    }    // arms
+    }
+    // part V. The Hollow: the hero's block cut out of the picture (its inside is painted on screen, after the stamp), a cracked
+    // half-mask of porcelain over the back half of its face. Dawnbreak: night on the back half, dawn fire on the sword side.
+    const HOL = o.form === 'hollow' || o.form === 'hollownova', DBK = o.form === 'dawnbreak';
+    if (o.form === 'hollownova') for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) { const e = Math.min(i, j, bw - 1 - i, bh - 1 - j) + (ih(i, j + fl(tf * 14), 961) < 0.3 ? 1 : 0); if (e < 1) sp(x0 + i, y0 + j, 22, 1); else if (e < 2 && ((i + j + fl(tf * 10)) & 1)) sp(x0 + i, y0 + j, 20, 1); }
+    if (DBK) for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
+      const edge = bw * 0.46 + Math.sin(j * 0.9 + tf * 7) * 1.3 + Math.sin(j * 0.37 - tf * 4) * 1.2, d = i - edge;
+      if (d < -1) sp(x0 + i, y0 + j, j === 0 ? 139 : 134, 1);
+      else if (d < 0.6) sp(x0 + i, y0 + j, 22, 1);
+      else { const u = (i - edge) / (bw - edge), v = (j + 0.5) / bh - 0.5, r = Math.sqrt(u * u * 0.5 + v * v * 1.6) + Math.sin(j * 1.3 + tf * 9) * 0.03; sp(x0 + i, y0 + j, r < 0.3 ? 22 : r < 0.45 ? 140 : r < 0.62 ? 141 : 110, 1); }
+    }
+    if (DBK) for (let k = 0; k < 4; k++) { const lc = k < 2 ? 139 : 141; for (let j = 0; j < Math.max(1, lh - lift[k]); j++) spRect(lx[k] + Math.round(shx * (j + 1) / lh), y1 + j, 4, 1, k < 2 ? (j === 0 ? 134 : lc) : (j < 2 ? 140 : lc), 1); }
+    if (HOL && o.mask !== false) {
+      const chip = o.maskChip || 0, mw = Math.round(bw * 0.52), mh = Math.round(bh * 0.78);
+      for (let j = 1; j < mh; j++) for (let i = 1; i < mw; i++) {
+        const jag = Math.round(Math.sin(j * 1.9) * 1.2 + (ih(j, 2, 962) - 0.5) * 2.2), lim = mw - 2 + jag - (j > mh - 4 ? (j - mh + 4) * 2 : 0);
+        if (i > lim) continue;
+        if (j > mh - 3 && i < 3 + (j - mh + 3)) continue;                                       // a chipped corner
+        if (chip > 0 && (i + j * 0.8 > mw + mh * 0.2 - chip * 9 && j < mh * 0.5 + chip * 3)) continue;   // the cheek broken away
+        if (chip > 0.6 && i < 2 + chip * 3 && j < 3 + chip * 3) continue;
+        let c = j < 2 ? 64 : i < 2 ? 65 : j > mh - 3 ? 66 : i >= lim - 1 ? 66 : (i + j) % 7 === 0 ? 65 : 64;
+        if (Math.abs(i - (mw * 0.55 - j * 0.35 + (ih(j, 3, 962) - 0.5) * 1.5)) < 0.6 && j < mh * 0.62) c = 68;   // the crack down to the eye
+        if (chip > 0.3 && Math.abs(j - (mh * 0.72 - i * 0.3)) < 0.6 && i > 3) c = 68;
+        sp(x0 + i, y0 + j, c, 1);
+      }
+    }
+    // arms
     const ay = y0 + Math.round(bh * 0.34), ah = Math.max(3, Math.round(bh * 0.32)), ar = Math.round(o.reach || 0);
-    const hasSw = o.sword !== undefined && o.sword !== null, armA = hasSw ? clamp(o.sword * 0.45, -1.1, 0.9) : 0;
+    const hasSw = o.sword !== undefined && o.sword !== null, armA = o.armA !== undefined ? o.armA : hasSw ? clamp(o.sword * 0.45, -1.1, 0.9) : 0;
     const limbS = (sx, sy, a, len, c) => { const ca = Math.cos(a), sa = Math.sin(a); for (let q = 0; q <= len; q += 0.5) for (let v = -ah / 2 + 0.25; v < ah / 2; v += 0.5) sp(sx + ca * q - sa * v, sy + sa * q + ca * v, c, 1); };
     const shY = ay + ah / 2 - 0.5;
-    limbS(x0 + 1, shY, PI - armA * 0.6, 4.5, N ? body : dark); limbS(x0 + bw - 1, shY, armA, 3.5 + ar, body);
+    const A2 = o.arm2 || null, bodyR = DBK ? 140 : body, bodyL = DBK ? 139 : HOL ? body : N ? body : dark;
+    limbS(x0 + 1, shY, A2 ? A2[0] : PI - armA * 0.6, A2 ? A2[1] : 4.5, bodyL); limbS(x0 + bw - 1, shY, armA, 3.5 + ar, bodyR);
+    if (A2 && A2[2]) { const hx2 = x0 + 1 + Math.cos(A2[0]) * (A2[1] + 1), hy2 = shY + Math.sin(A2[0]) * (A2[1] + 1); for (let jj = -2; jj <= 2; jj++) for (let ii = -2; ii <= 2; ii++) if (Math.abs(ii) + Math.abs(jj) < 4) sp(hx2 + ii, hy2 + jj, bodyL, 1); }
     const handX = x0 + bw - 1 + Math.cos(armA) * (3 + ar), handY = shY + Math.sin(armA) * (3 + ar);
     if (N) { // claws, and a jagged crown
       for (const s of [-1, 1]) { const ax = s < 0 ? x0 - 5 : x0 + bw + 4 + ar; sp(ax, ay, body, 1); sp(ax + s, ay - 1, 42, 1); sp(ax, ay + ah - 1, body, 1); sp(ax + s, ay + ah, 42, 1); }
@@ -279,16 +318,28 @@
       spRect(ex, ey, 2, 3, EC, 1);
       if (e === 'angry' || N) { const inner = side < 0 ? ex + 1 : ex; sp(inner + side * -1, ey - 1, N ? 42 : 0, 1); sp(inner + side * -1 + (side < 0 ? 1 : -1), ey - 2, N ? 42 : 0, 1); sp(ex + (side < 0 ? 0 : 1), ey, body, 1); }
     };
-    eye(ex0, -1); eye(ex1, 1);
+    if (HOL) {
+      // one magenta eye in the mask (the Unmaker's), one crimson eye burning in the void (the Sunderer's)
+      const op = e === 'closed' ? 0 : e === 'narrow' ? 1 : e === 'wide' ? 3 : 2, fk = fl(tf * 12);
+      if (op) { const h = op === 1 ? 1 : op === 3 ? 4 : 3, yy = ey + (op === 1 ? 1 : op === 3 ? -1 : 0);
+        if (o.eyeM !== false) { spRect(ex0 - 1, yy - 1, 4, h + 2, 69, 1); spRect(ex0, yy, 2, h, 73, 1); sp(ex0 + (fk % 5 === 0 ? 1 : 0), yy, 75, 1); }
+        if (o.eyeC !== false) { spRect(ex1, yy, 2, h, 104, 1); sp(ex1 + 1, yy, 107, 1); if (op > 1) { sp(ex1 + (fk & 1), yy - 1, 103, 1); sp(ex1 + 1 - (fk & 1), yy - 2, 102, 1); } }
+        else { sp(ex1, yy + 1, 102, 1); sp(ex1 + 1, yy + 2, 101, 1); sp(ex1 - 1 + (fk % 3), yy + 3 + (fk % 2), 103, 1); } }
+    } else if (DBK) {
+      const h = e === 'narrow' ? 2 : 3, yy = ey + (e === 'narrow' ? 1 : 0);
+      if (e === 'closed') { spRect(ex0, ey + 2, 2, 1, 57, 1); spRect(ex1, ey + 2, 2, 1, 0, 1); }
+      else { spRect(ex0 - 1, yy - 1, 4, h + 2, 56, 1); spRect(ex0, yy, 2, h, 22, 1); spRect(ex1 - 1, yy - 1, 4, h + 2, 105, 1); spRect(ex1, yy, 2, h, 0, 1); sp(ex1 + 1, yy, 22, 1); }
+    } else { eye(ex0, -1); eye(ex1, 1); }
     if (o.mouth) { const mw = o.mouth > 1 ? 8 : 4, mh = o.mouth > 1 ? 4 : 2; spRect(-mw / 2, ey + 5, mw, mh, N ? 42 : 0, 1); if (N) for (let i = -mw / 2; i < mw / 2; i += 2) sp(i, ey + 5, 39, 1); else if (o.mouth > 1) spRect(-mw / 2 + 1, ey + 5 + mh - 1, mw - 2, 1, 36, 1); }
     // sword on the right arm nub
-    if (hasSw) spSword(handX, handY, o.sword, o.swordCols || null);
+    if (hasSw) spSword(handX, handY, o.sword, o.swordCols || null, o.swordSt || (HOL ? 'void' : DBK ? 'dawn' : ''), o.swordLen);
     // outline
     const oc = o.outline !== undefined ? o.outline : N ? 42 : F ? F[3] : 22, prism = o.form === 'zenith' || o.form === 'infinite', pf = fl(T_NOW * 12);
     const src = SPR.slice();
     for (let y = 1; y < SH - 1; y++) for (let x = 1; x < SW - 1; x++) {
       const i = y * SW + x; if (src[i]) continue;
-      if (src[i - 1] || src[i + 1] || src[i - SW] || src[i + SW]) { SPR[i] = (SPK[i - 1] === 2 || SPK[i + 1] === 2 || SPK[i - SW] === 2 || SPK[i + SW] === 2 ? (N ? 42 : 1) : prism ? 81 + ((((x + y) >> 1) + pf) % 7) : oc) + 1; SPK[i] = 4; }
+      if (src[i - 1] || src[i + 1] || src[i - SW] || src[i + SW]) { const nsw = SPK[i - 1] === 2 || SPK[i + 1] === 2 || SPK[i - SW] === 2 || SPK[i + SW] === 2;
+        SPR[i] = (nsw ? (o.swordOut !== undefined ? o.swordOut : HOL ? 72 : DBK ? 59 : N ? 42 : 1) : prism ? 81 + ((((x + y) >> 1) + pf) % 7) : o.form === 'hollow' ? (x - SOX < 0 ? 72 : 102) : DBK ? (x - SOX < -1 ? 56 : 59) : oc) + 1; SPK[i] = 4; }
     }
     LBB[0]--; LBB[1]--; LBB[2]++; LBB[3]++;
     return { bw, bh, hand: [handX, handY + 0.5], top: y0, bottom: y1 + lh };
@@ -316,6 +367,7 @@
       const c = SPR[iy * SW + ix];
       if (!c) continue;
       if (opt.alpha !== undefined && bay(X, Y) > opt.alpha) continue;
+      if (opt.clipY !== undefined && Y > opt.clipY) continue;
       const i = Y * W + X;
       BUF[i] = opt.color !== undefined ? opt.color : opt.white ? (SPK[iy * SW + ix] === 4 ? 59 : 22) : c - 1;
       if (!opt.noMask) {
@@ -458,7 +510,8 @@
       if (d > lim) continue;
       const f = d / lim;
       if (f > 0.82 && bay(x, y) < 0.45) continue;
-      BUF[i] = f < 0.25 ? cols[3] : f < 0.55 ? cols[2] : f < 0.82 ? cols[1] : cols[0];
+      const cc = opt.cols2 && (x < opt.splitX) ? opt.cols2 : cols;
+      BUF[i] = f < 0.25 ? cc[3] : f < 0.55 ? cc[2] : f < 0.82 ? cc[1] : cc[0];
     }
     // sparks streaming up off the flames
     const n = opt.sparks === undefined ? 16 : opt.sparks;

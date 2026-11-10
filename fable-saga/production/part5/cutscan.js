@@ -2,7 +2,7 @@
 // histogram; a cut, or a flash, changes it). One-frame flashes (the histogram returns next frame) are reported apart.
 const fs = require('fs'), path = require('path');
 global.window = { PIECES: [] }; eval(fs.readFileSync(path.resolve(process.argv[2]), 'utf8'));
-const E = window.__sunderer_core, { BUF, W, H } = E, t0 = +process.argv[3], t1 = +process.argv[4];
+const E = window.__hollow_core, { BUF, W, H } = E, t0 = +process.argv[3], t1 = +process.argv[4];
 const hist = () => { const h = new Float32Array(256); let n = 0; for (let y = 30; y < H - 30; y += 2) for (let x = 0; x < W; x += 2) { h[BUF[y * W + x]]++; n++; } for (let i = 0; i < 256; i++) h[i] /= n; return h; };
 const d = (a, b) => { let s = 0; for (let i = 0; i < 256; i++) s += Math.abs(a[i] - b[i]); return s / 2; };
 const HS = [];

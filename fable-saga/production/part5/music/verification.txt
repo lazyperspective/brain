@@ -1,0 +1,184 @@
+THE HOLLOW - Fable Saga part V - score verification (measured on the written 24-bit master)
+
+File: /home/user/brain/fable-saga-video/part5/score.wav
+  1920000 frames = 40.000 s, 48000 Hz, 2 ch, 24-bit PCM
+Loudness (internal BS.1770-4 meter): -13.97 LUFS integrated, true peak -1.40 dBTP (4x)
+ffmpeg ebur128: I:         -14.0 LUFS | LRA:         6.0 LU | Peak:       -1.2 dBFS
+Sample peak -1.40 dBFS; samples at/above -0.01 dBFS: 0; DC offset L -6.62e-05 R -6.47e-05
+Stereo L/R correlation (whole file): +0.63
+
+Hit alignment (onset detection on the master; tolerance +-33.3 ms = 1 frame at 30 fps)
+  detector: causal minimum-phase band filters (no pre-echo), analytic (Hilbert) envelope,
+  10 ms energy, 1 ms hop, 15 ms rise.
+  multi (HITs, stabs, stingers) = sum of positive rises in <150 Hz, 150 Hz-2 kHz and 2-10 kHz (>= 9 dB):
+  a real impact rises in all three at once, a beat null between low tones only in one. The onset is
+  timed in the band that rose most (first 1 ms frame clearing its pre-rise level by 3 dB).
+  full = 150 Hz-5 kHz band, rise >= 3 dB (soft pitched entries: the piano sparks);
+  low = <150 Hz band, rise >= 4 dB (the soft 36.5 chord: piano, harp and timpani E2).
+  The strongest onset within 80 ms of the cue is taken.
+  OK  cue   0.00  start (frame 0)        multi measured   0.000  delta   +0.0 ms  rise  99.0 dB
+  OK  cue   1.60  stinger eyes           multi measured   1.601  delta   +1.0 ms  rise  30.0 dB
+  OK  cue   3.00  HIT impale             multi measured   3.004  delta   +4.0 ms  rise  24.2 dB
+  OK  cue   3.60  stab blitz 1           multi measured   3.606  delta   +6.0 ms  rise  18.8 dB
+  OK  cue   4.00  stab blitz 2           multi measured   4.006  delta   +6.0 ms  rise  16.3 dB
+  OK  cue   4.40  stab blitz 3           multi measured   4.403  delta   +3.0 ms  rise  22.9 dB
+  OK  cue   4.80  stab blitz 4           multi measured   4.804  delta   +4.0 ms  rise  29.3 dB
+  OK  cue   5.40  HIT slam/shatter       multi measured   5.403  delta   +3.0 ms  rise  19.0 dB
+  OK  cue   7.50  HIT ZENITH NOVA        multi measured   7.501  delta   +1.0 ms  rise  51.0 dB
+  OK  cue   8.20  stab clash 1           multi measured   8.195  delta   -5.0 ms  rise  24.2 dB
+  OK  cue   8.80  stab clash 2           multi measured   8.796  delta   -4.0 ms  rise  20.8 dB
+  OK  cue   9.30  stab clash 3           multi measured   9.304  delta   +4.0 ms  rise  24.2 dB
+  OK  cue   9.70  stab clash 4           multi measured   9.702  delta   +2.0 ms  rise  35.9 dB
+  OK  cue  10.00  stab clash 5           multi measured  10.004  delta   +4.0 ms  rise  24.5 dB
+  OK  cue  10.60  HIT blade lock         multi measured  10.601  delta   +1.0 ms  rise  42.0 dB
+  OK  cue  11.60  stab breach ink        multi measured  11.602  delta   +2.0 ms  rise  19.0 dB
+  OK  cue  12.60  stab breach city       multi measured  12.599  delta   -1.0 ms  rise  25.6 dB
+  OK  cue  13.40  stab breach sun        multi measured  13.396  delta   -4.0 ms  rise  29.4 dB
+  OK  cue  14.00  HIT Hollow NOVA        multi measured  14.003  delta   +3.0 ms  rise  33.1 dB
+  OK  cue  15.00  HIT world cut          multi measured  14.999  delta   -1.0 ms  rise  19.8 dB
+  OK  cue  16.20  HIT moon               multi measured  16.204  delta   +4.0 ms  rise  21.4 dB
+  OK  cue  17.40  HIT wing               multi measured  17.405  delta   +5.0 ms  rise  26.2 dB
+  OK  cue  18.40  HIT pin                multi measured  18.402  delta   +2.0 ms  rise  24.7 dB
+  OK  cue  20.40  piano spark 1          full measured  20.404  delta   +4.0 ms  rise   8.5 dB
+  OK  cue  20.90  piano spark 2          full measured  20.908  delta   +8.0 ms  rise   3.9 dB
+  OK  cue  21.40  piano spark 3          full measured  21.404  delta   +4.0 ms  rise   7.5 dB
+  OK  cue  21.90  piano spark 4          full measured  21.908  delta   +8.0 ms  rise   4.4 dB
+  OK  cue  23.00  HIT DAWNBREAK          multi measured  23.001  delta   +1.0 ms  rise  11.3 dB
+  OK  cue  25.00  stab counter 1         multi measured  25.002  delta   +2.0 ms  rise  18.1 dB
+  OK  cue  25.40  stab counter 2         multi measured  25.405  delta   +5.0 ms  rise  22.7 dB
+  OK  cue  25.70  stab counter 3         multi measured  25.696  delta   -4.0 ms  rise  18.5 dB
+  OK  cue  26.00  stab counter 4         multi measured  25.998  delta   -2.0 ms  rise  20.3 dB
+  OK  cue  26.20  stab counter 5         multi measured  26.201  delta   +1.0 ms  rise   9.4 dB
+  OK  cue  26.40  stab counter 6         multi measured  26.405  delta   +5.0 ms  rise  13.5 dB
+  OK  cue  27.00  HIT uppercut           multi measured  27.001  delta   +1.0 ms  rise  26.6 dB
+  OK  cue  27.60  stab chase 1           multi measured  27.603  delta   +3.0 ms  rise  14.4 dB
+  OK  cue  28.20  stab chase 2           multi measured  28.202  delta   +2.0 ms  rise  20.6 dB
+  OK  cue  28.80  stab chase 3           multi measured  28.799  delta   -1.0 ms  rise  25.7 dB
+  OK  cue  29.40  HIT swords cross       multi measured  29.400  delta   +0.0 ms  rise  35.5 dB
+  OK  cue  31.00  HIT blade snap         multi measured  31.005  delta   +5.0 ms  rise  20.2 dB
+  OK  cue  32.00  HIT bare-hand catch    multi measured  31.998  delta   -2.0 ms  rise  38.2 dB
+  OK  cue  33.00  FURTHER key change     multi measured  33.004  delta   +4.0 ms  rise  25.8 dB
+  OK  cue  34.00  HIT HORIZON CUT        multi measured  34.001  delta   +1.0 ms  rise  11.8 dB
+  OK  cue  36.50  warm chord + horn      low  measured  36.511  delta  +11.0 ms  rise  12.0 dB
+  OK  cue  38.80  dark stinger           multi measured  38.804  delta   +4.0 ms  rise  16.2 dB
+  45 cues, 45 within one frame; worst |delta| = 11.0 ms
+
+Loudness curve (K-weighted loudness of each section, LUFS; peak dBFS)
+    0.0-  1.6  I   hook: pulse+motif      -16.8     -5.1  ###########################
+    1.6-  3.0  I   eyes, build            -16.3     -4.1  ############################
+    3.0-  5.4  I   impale + blitz         -13.7     -1.6  ##############################
+    5.4-  6.8  I   shatter, fall          -14.2     -1.6  #############################
+    6.8-  7.5  I   held breath            -15.6     -2.8  ############################
+    7.5- 10.6  II  duel ostinato          -13.4     -1.4  ##############################
+   10.6- 11.6  II  blade lock             -12.6     -1.9  ###############################
+   11.6- 14.0  II  three worlds           -13.8     -1.6  ##############################
+   14.0- 18.4  III NOVA + 4 HITs          -13.6     -1.4  ##############################
+   18.4- 20.0  III pin, collapse          -17.8     -1.5  ##########################
+   20.0- 22.0  III QUIET: sparks          -26.7    -15.2  ###################
+   22.0- 23.0  III rising tremolo         -18.9     -6.0  #########################
+   23.0- 25.0  IV  DAWNBREAK theme        -12.3     -1.4  ###############################
+   25.0- 27.0  IV  counter-attack         -12.8     -1.7  ##############################
+   27.0- 29.4  IV  chase up               -12.6     -1.4  ###############################
+   29.4- 31.0  IV  swords cross           -12.9     -1.8  ##############################
+   31.0- 32.0  IV  snap, drop             -14.8     -1.4  #############################
+   32.0- 33.0  IV  catch                  -15.9     -1.4  ############################
+   33.0- 34.0  IV  FURTHER run            -12.9     -1.6  ##############################
+   34.0- 34.1  IV  HORIZON CUT             -9.2     -1.4  #################################
+   34.6- 36.5  V   ash, low strings       -24.2    -11.6  #####################
+   36.5- 38.8  V   dawn, solo horn        -17.3     -7.7  ###########################
+   38.8- 39.8  V   stinger, ring out      -22.3     -9.4  #######################
+
+HIT power: loudness of the first 100 ms and 400 ms (momentary) after each HIT, vs the 1 s before
+    3.0  100 ms  -11.6   400 ms  -13.6   before  -16.9   jump  +5.3 LU
+    5.4  100 ms  -10.7   400 ms  -11.6   before  -13.3   jump  +2.6 LU
+    7.5  100 ms  -11.1   400 ms  -13.0   before  -17.6   jump  +6.5 LU
+   10.6  100 ms   -9.8   400 ms  -11.5   before  -13.3   jump  +3.5 LU
+   14.0  100 ms  -10.1   400 ms  -11.6   before  -13.4   jump  +3.4 LU
+   15.0  100 ms  -12.1   400 ms  -13.3   before  -12.9   jump  +0.9 LU
+   16.2  100 ms   -9.6   400 ms  -12.0   before  -14.8   jump  +5.2 LU
+   17.4  100 ms   -9.9   400 ms  -11.9   before  -15.0   jump  +5.1 LU
+   18.4  100 ms  -11.1   400 ms  -12.5   before  -12.9   jump  +1.7 LU
+   23.0  100 ms  -10.7   400 ms  -10.8   before  -19.7   jump  +8.9 LU
+   27.0  100 ms  -10.5   400 ms  -12.1   before  -12.7   jump  +2.2 LU
+   29.4  100 ms  -10.0   400 ms  -11.3   before  -13.0   jump  +2.9 LU
+   31.0  100 ms  -11.4   400 ms  -12.9   before  -14.0   jump  +2.6 LU
+   32.0  100 ms  -11.1   400 ms  -13.6   before  -14.7   jump  +3.5 LU
+   34.0  100 ms   -9.2   400 ms  -15.2   before  -13.1   jump  +3.9 LU
+  ranking by 100 ms loudness: 34.0, 16.2, 10.6, 17.4, 29.4, 14.0
+  ranking by 400 ms loudness: 23.0, 29.4, 10.6, 5.4, 14.0, 17.4
+  loudest 400 ms windows anywhere start at: 22.95, 23.00, 23.05, 23.10, 29.15, 29.20, 29.25, 29.30, 29.35, 33.65, 33.70, 33.75
+
+Spectrum balance (share of energy per band, whole file / HIT windows 0-0.4 s)
+     20-   60 Hz sub             12.0 %    20.1 %
+     60-  150 Hz multi           20.2 %    21.0 %
+    150-  400 Hz low-mid (mud)   10.6 %     9.2 %
+    400- 1500 Hz mid             34.4 %    28.1 %
+   1500- 5000 Hz presence        16.1 %    14.1 %
+   5000-20000 Hz air              6.3 %     7.0 %
+
+Silence check 34.10-34.60 (after the Horizon Cut): peak -inf (digital zero) dBFS
+Silence check 39.80-40.00 (end): peak -inf (digital zero) dBFS
+Quiet check 18.90-20.30 (collapse/cold note): -27.8 LUFS, peak -11.2 dBFS (-13.8 LU vs integrated)
+Quiet check 20.30-22.00 (the quiet: piano sparks): -26.5 LUFS, peak -15.2 dBFS (-12.6 LU vs integrated)
+Quiet check 6.85-7.20 (held breath): -21.7 LUFS, peak -9.0 dBFS (-7.7 LU vs integrated)
+
+Caption room (K-weighted loudness 0-1.2 s after caption vs 1 s before; music stems ducked -3.5 dB)
+    2.2  during  -15.0   before  -15.9
+    6.6  during  -15.1   before  -14.4
+   19.2  during  -28.8   before  -14.3
+   21.6  during  -23.5   before  -25.8
+   35.4  during  -21.8   before  -34.7
+
+Stem balance (K-weighted LUFS of each dry stem per section, after the segment cuts, at master gain, pre-limiter)
+  section                       str  brass   solo  choir   keys   chip   perc  synth    sfx    sub
+  I   hook: pulse+motif       -16.9  -31.2 -200.7  -23.1  -21.8  -32.9  -20.6  -42.2  -81.7  -33.6
+  I   eyes, build             -19.6  -20.7 -200.7  -34.6  -26.0  -35.8  -17.6  -36.1  -26.5  -32.1
+  I   impale + blitz          -17.0  -15.6 -200.7  -26.3  -32.9  -37.1  -13.5  -32.2  -18.2  -26.9
+  I   shatter, fall           -15.1  -15.9 -200.7  -23.0  -19.1  -24.5  -14.8  -28.6  -13.5  -22.5
+  II  duel ostinato           -16.3  -15.2 -200.7  -20.8 -200.7  -27.1  -15.9  -48.4  -15.3  -28.2
+  II  blade lock              -13.5  -13.5 -200.7  -21.6 -200.7 -176.0  -15.3  -25.5  -11.3  -28.1
+  II  three worlds            -17.8  -16.5 -200.7  -27.5  -23.4  -31.2  -15.2  -33.6  -15.1  -28.7
+  III NOVA + 4 HITs           -15.1  -14.5 -200.7  -20.9  -33.8  -37.6  -14.4  -29.5  -17.7  -26.9
+  III pin, collapse           -19.5  -17.9 -200.7  -24.3  -33.4 -200.1  -16.2  -31.5  -22.4  -24.7
+  III QUIET: sparks           -33.5 -200.7 -200.7 -200.7  -30.3 -200.7  -61.1 -200.7  -37.0 -200.7
+  III rising tremolo          -26.6  -30.8 -200.7  -30.0  -36.2  -25.1  -22.0  -63.3  -28.5  -44.3
+  IV  DAWNBREAK theme         -12.8  -11.8 -200.7  -17.1  -26.1  -22.7  -12.8  -22.8  -15.0  -27.7
+  IV  counter-attack          -14.7  -12.8 -200.7  -23.2  -29.1  -23.0  -17.3  -42.8  -14.8  -27.0
+  IV  chase up                -14.3  -14.1 -200.7  -19.2  -35.0  -21.8  -13.2  -70.8  -15.8  -26.9
+  IV  swords cross            -16.2  -13.8 -200.7  -19.6 -200.7 -200.6  -13.9  -28.1  -13.4  -30.6
+  IV  snap, drop              -15.0  -16.6 -200.7  -45.1 -200.7 -200.7  -14.9  -60.2  -18.9  -27.7
+  IV  catch                   -16.7  -16.5 -200.7 -200.7 -200.7  -83.9  -20.0 -200.7  -21.8  -28.6
+  IV  FURTHER run             -13.6  -16.6 -200.7  -25.4  -19.3  -19.5  -15.2  -61.6  -26.2  -31.7
+  V   ash, low strings        -27.4 -200.7 -150.7 -200.7  -71.5 -200.7  -68.6 -200.7  -27.4 -200.7
+  V   dawn, solo horn         -20.8 -200.7  -16.8  -27.1  -22.7 -200.7  -33.9 -200.7  -29.4  -67.4
+  V   stinger, ring out       -21.3 -200.7  -34.8  -27.7  -32.2 -200.7  -46.0 -200.7  -25.7  -42.1
+
+I cannot listen. Every judgment above is measured, not heard; the numbers stand in for ears:
+  section loudness curve (is the quiet really quiet, are 23.0 / 34.0 the peaks), HIT power and jump, spectrum
+  balance per band (mud 150-400 Hz, presence), stem balance, DC, clipping, true peak, silence windows, caption room.
+
+Critique-and-improve rounds (all measured on the master)
+  1  first render: 33/45 cues in tolerance, LRA 5.3 LU, quiet beat -20 LUFS, held breath -16.8 LUFS, 48 % of energy
+     below 150 Hz, 8 % presence. -> beds/builds put under the HITs (level contexts), segment cuts for the held
+     breath (6.85) and the collapse (19.15), sub/pulse stems down, presence/air EQ, gentler bus glue.
+  2  39/45. The early onsets were ripple of a 15 ms RMS on 30 Hz boom tails -> analytic envelope. The late ones
+     were real low attacks just after HITs (lock growl, gated rip, roll strokes) -> lock starts on the HIT, rip
+     high-passed, rolls stop 80 ms before the HIT, stabs get a tight kick and choked timpani.
+  3  41/45: beat nulls between overlapping low tones -> low end cleaned (shorter braams and boom tails, choked
+     ostinato timpani) and a multi-band onset function. HIT hierarchy: ordinary HITs -1.7 dB, 23.0 / 34.0 full
+     with less sub (headroom to mids) -> 34.0 loudest in 100 ms, 23.0 loudest in 400 ms.
+  4  chip layer was 15-25 dB under the strings -> +7 dB; solo horn under the strings at 36.5 -> horn leads;
+     stem table now honours the cuts; builds stop 12 ms before their HIT; caption at 2.2 given room.
+  5  zero-phase analysis filters pre-echoed the giant 34.0 transient (-27 ms) -> causal minimum-phase filters;
+     bass cleared before 36.5 and the last 0.1 s before 34.0 -> 45/45, worst 11 ms.
+
+Honest limitations
+  - Everything is synthesized in numpy (fluidsynth, the FluidR3 soundfont, scipy and soundfile are not installed
+    here and no samples were downloaded), so the orchestra is wavetable/additive modelling: it will sound more
+    synthetic than part IV's soundfont render. Continuity with part IV is in the themes, keys and orchestration.
+  - Brass attack scoop is approximated in amplitude, not pitch; strings have no legato transitions.
+  - 2.2 caption sits inside the crescendo to the 3.0 HIT: music is ducked 3.5 dB, but total level still rises
+    about 1 LU across the caption.
+  - 15.0 and 18.4 jump only +0.9 / +1.7 LU over the previous second because a HIT landed ~1 s before each.
+  - LRA 6 LU: dense trailer-style dynamics outside the quiet beat and Act V.
+  - The onset detector is this script's own (numpy) implementation; no MIDI file is exported.

@@ -72,6 +72,7 @@
      far part shifted by o.snapOff [dx, dy]), cracks 0..1, flare 0..1 (light spilling round it). Returns the tip [x, y]. */
   const BLADE_COLS = {
     gold: [58, 59, 60, 22], nova: [110, 109, 108, 22], lastlight: [102, 104, 107, 22], infinite: null, steel: [33, 34, 21, 22],
+    void: [22, 74, 0, 0], dawn: [22, 140, 22, 22],
   };
   function bigBlade(hx, hy, a, len, w, t, o) {
     o = o || {};
@@ -79,12 +80,13 @@
     const L = len * grow, tipK = 0.86;
     // the guard and grip at the hand
     const gw = w * 1.7, gx = -uy, gy = ux;
-    capsF(hx - gx * gw, hy - gy * gw, hx + gx * gw, hy + gy * gw, Math.max(1.5, w * 0.28), Math.max(1.5, w * 0.28), (u, d) => d > 0.7 ? 51 : 58);
-    capsF(hx - ux * w * 1.4, hy - uy * w * 1.4, hx, hy, Math.max(1.2, w * 0.2), Math.max(1.2, w * 0.2), () => 38);
+    const VD = form === 'void', DW = form === 'dawn';
+    if (!o.noHilt) { capsF(hx - gx * gw, hy - gy * gw, hx + gx * gw, hy + gy * gw, Math.max(1.5, w * 0.28), Math.max(1.5, w * 0.28), (u, d) => VD ? (d > 0.7 ? 74 : 72) : DW ? (u < 0.5 ? 22 : 56) : d > 0.7 ? 51 : 58);
+    capsF(hx - ux * w * 1.4, hy - uy * w * 1.4, hx, hy, Math.max(1.2, w * 0.2), Math.max(1.2, w * 0.2), () => VD ? 78 : 38); }
     // the blade, clipped to the frame
     const reach = Math.min(L, 2000), tx = hx + ux * reach, ty = hy + uy * reach;
     const pad = w * 3 + 4, x0 = Math.max(0, fl(Math.min(hx, tx) - pad)), x1 = Math.min(W - 1, Math.ceil(Math.max(hx, tx) + pad)), y0 = Math.max(LB, fl(Math.min(hy, ty) - pad)), y1 = Math.min(H - LB - 1, Math.ceil(Math.max(hy, ty) + pad));
-    const snap = o.snap, so = o.snapOff || [0, 0], flare = o.flare === undefined ? 0.6 : o.flare, Tg = form === 'nova' ? T_NOVA : form === 'lastlight' ? T_EMBER : form === 'infinite' ? T_WH : T_GOLD;
+    const snap = o.snap, so = o.snapOff || [0, 0], flare = o.flare === undefined ? 0.6 : o.flare, Tg = VD ? T_MAG : DW ? T_WH : form === 'nova' ? T_NOVA : form === 'lastlight' ? T_EMBER : form === 'infinite' ? T_WH : T_GOLD;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       let px = x + 0.5 - hx, py = y + 0.5 - hy;
       let along = px * ux + py * uy;
@@ -100,10 +102,12 @@
       const e = ad / Math.max(0.5, half);
       let c;
       if (form === 'infinite') { const k = ((fl(along / 9 - t * 30) % 7) + 7) % 7; c = e < 0.35 ? 22 : e < 0.6 ? 60 : PRISM_C[k]; }
+      else if (VD) c = e > 0.86 ? 22 : e > 0.72 ? (bay(x, y) < 0.5 + 0.4 * Math.sin(along * 0.2 - t * 20) ? 74 : 72) : ih(x, y, 1123) < 0.012 ? 57 : (vn(along - t * 60, across * 2, 9, 1124) > 0.66 ? 77 : 0);
+      else if (DW) c = across < -half * 0.08 ? (e > 0.8 ? 141 : e > 0.45 ? 140 : 22) : across < half * 0.1 ? 22 : e > 0.84 ? 56 : ih(x, y, 1125) < 0.02 ? 57 : 138;
       else c = e < 0.3 ? cols[3] : e < 0.55 ? cols[2] : e < 0.82 ? cols[1] : cols[0];
       // energy racing out along it while it grows, and the fuller the blade the brighter its spine
       if (grow < 1 || o.surge) { const ph = frac(along / (w * 7) - t * 6); if (ph < 0.12 && e < 0.8) c = 22; }
-      if (o.cracks > 0 && ih(fl(along / 6), fl(across / 3), 1121) < o.cracks * 0.15 && e > 0.2) c = form === 'lastlight' ? 22 : 96;
+      if (o.cracks > 0 && ih(fl(along / 6), fl(across / 3), 1121) < o.cracks * 0.15 && e > 0.2) c = form === 'lastlight' || VD ? 22 : 96;
       if (f > 0.97 && grow < 1) c = 22;
       BUF[y * W + x] = c;
     }
