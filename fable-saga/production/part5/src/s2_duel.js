@@ -6,8 +6,9 @@
      under them in half), 10.0 (thrust past thrust), and at 10.6 the blades lock and every shard round them bursts. */
   {
   const SLAB = [[150, 260, 170, 26, 1, 'dawn'], [330, 430, 120, 22, 2, 'a1'], [300, 560, 190, 30, 3, 'dawn'], [545, 635, 176, 20, 4, 'ink'], [600, 700, 120, 24, 5, 'dawn'], [690, 820, 200, 28, 6, 'city'], [760, 850, 150, 22, 7, 'dawn'], [1000, 1085, 150, 22, 8, 'a1']];
-  const HITS = [[7.5, 0.1], [8.2, 0.067], [8.8, 0.067], [9.3, 0.067], [9.7, 0.067], [10.0, 0.05], [10.6, 0.12]];
+  const HITS = [[7.5, 0.1], [8.2, 0.1], [8.8, 0.1], [9.3, 0.1], [9.7, 0.1], [10.0, 0.067], [10.6, 0.167]];
   const CL = [[8.2, 305, 107, -0.6], [8.8, 462, 114, -1.2], [9.3, 624, 96, 2.6], [9.7, 749, 192, 0.5], [10.0, 774, 192, 0]];
+  const D2 = (t) => t < 7.5 ? 0 : clamp(0.06 * ((t >= 8.2) + (t >= 8.8) + (t >= 9.3) + (t >= 9.7) + (t >= 10.0)) + 0.12 * (t >= 10.6), 0, 1);
   const bH = TR([
     { t: 5.4, x: 250, y: -70, a: 0.6, sw: 0.5, S: 2, eyes: 'closed', mouth: 2, cr: 1, form: 'plain' },
     { t: 5.78, x: 264, y: 60, a: 3.6, e: 'l' },
@@ -46,8 +47,8 @@
     { t: 10.27, x: 805, y: 126, sq: 0.3, sw: -2.4, a: 0 },
     { t: 10.42, x: 802, y: 128, sq: 0.34, sw: -2.6 },
     { t: 10.6, x: 864, y: 130, sw: -0.8, sq: -0.12, e: EQ },
-    { t: 10.8, x: 892, y: 130, sw: -1.25, sq: 0.05, vib: 0.7, mouth: 1, e: 'o' },
-    { t: 11.05, x: 897, y: 130 }, { t: 11.25, x: 884, y: 131 }, { t: 11.45, x: 899, y: 129 }, { t: 11.7, x: 894, y: 130 },
+    { t: 10.8, x: 888, y: 130, sw: -1.25, sq: 0.05, vib: 0.7, mouth: 1, eyes: 'angry', e: 'o' },
+    { t: 11.05, x: 892, y: 130 }, { t: 11.25, x: 881, y: 131 }, { t: 11.45, x: 894, y: 129 }, { t: 11.7, x: 889, y: 130 },
   ], { 8.46: 26, 9.3: 30, 9.7: 36, 10.27: 40 });
   const bE = TR([
     { t: 5.4, x: 420, y: -80, flip: true, sw: 0.4, S: 2, form: 'hollow', eyes: 'narrow', hide: true },
@@ -80,15 +81,19 @@
     { t: 10.27, x: 1040, y: 122, a: 0, sq: 0.3, sw: -2.4 },
     { t: 10.42, x: 1043, y: 124, sq: 0.34, sw: -2.6 },
     { t: 10.6, x: 982, y: 130, sw: -0.8, sq: -0.12, e: EQ },
-    { t: 10.8, x: 954, y: 130, sw: -1.25, sq: 0.05, vib: 0.7, eyes: 'wide', e: 'o' },
-    { t: 11.05, x: 959, y: 130 }, { t: 11.25, x: 946, y: 131 }, { t: 11.45, x: 961, y: 129 }, { t: 11.7, x: 956, y: 130 },
+    { t: 10.8, x: 958, y: 130, sw: -1.25, sq: 0.05, vib: 0.7, eyes: 'wide', e: 'o' },
+    { t: 11.05, x: 963, y: 130 }, { t: 11.25, x: 951, y: 131 }, { t: 11.45, x: 965, y: 129 }, { t: 11.7, x: 960, y: 130 },
   ], { 8.04: -10, 9.1: 46, 9.54: 30, 10.27: 44 });
-  const CAMK = [[5.4, 240, 135, 1], [6.1, 250, 150, 1.1], [6.6, 292, 130, 1.5], [7.44, 288, 128, 1.56], [7.5, 250, 130, 1.8], [7.95, 300, 128, 1.2], [8.2, 306, 124, 1.28], [8.8, 462, 138, 1.22], [9.3, 616, 112, 1.28], [9.7, 746, 162, 1.22], [10.0, 774, 172, 1.3], [10.42, 922, 132, 1.1], [10.6, 923, 126, 1.25], [10.76, 923, 122, 2.1], [11.6, 925, 120, 2.3]];
+  const CAMK = [[5.4, 240, 135, 1], [6.1, 250, 150, 1.1], [6.6, 292, 130, 1.5], [7.44, 288, 128, 1.56], [7.5, 250, 130, 1.8], [7.95, 300, 128, 1.2], [8.2, 306, 124, 1.28], [8.8, 462, 138, 1.22], [9.3, 616, 112, 1.28], [9.7, 746, 162, 1.22], [10.0, 774, 172, 1.3], [10.42, 922, 132, 1.5], [10.6, 923, 126, 1.6], [10.8, 923, 120, 2.2], [10.98, 923, 116, 3.1], [11.45, 924, 116, 3.35], [11.6, 924, 118, 2.4]];
   function b2View(t) {
+    const AF = h5Frame(bH, bE, t, { fill: 330, pad: 90, zmin: 1.4, zmax: 1.8, oy: -8 }), wa = sstep(7.8, 8.0, t) * (1 - sstep(10.36, 10.56, t));
+    const C = b2Cam(t); return { x: lerp(C.x, AF.x - (C.kx || 0), wa), y: lerp(C.y, AF.y - (C.ky || 0), wa), z: lerp(C.z, AF.z * (1 + (C.kz || 0)), wa), r: C.r };
+  }
+  function b2Cam(t) {
     let k = 0; while (k < CAMK.length - 2 && CAMK[k + 1][0] <= t) k++;
     const A = CAMK[k], B = CAMK[k + 1], u = (k === 3 || k === 12 ? eoc : eio)(clip01(A[0], B[0], t));
     const kk = kick(t, [[7.5, 2, -PI / 2], [8.2, 1, -0.6], [8.8, 1.1, -1.3], [9.3, 1.1, 2.8], [9.7, 1.3, 0.6], [10.0, 0.9, 0], [10.6, 2.6, 0]]);
-    return { x: lerp(A[1], B[1], u) - kk[2], y: lerp(A[2], B[2], u) - kk[3], z: lerp(A[3], B[3], u) * (1 + kk[0]), r: kk[1] };
+    return { x: lerp(A[1], B[1], u) - kk[2], y: lerp(A[2], B[2], u) - kk[3], z: lerp(A[3], B[3], u) * (1 + kk[0]), r: kk[1], kx: kk[2], ky: kk[3], kz: kk[0] };
   }
   const fall = (t) => 210 * (t - 5.4) + 170 * (1 - Math.exp(-(t - 5.4) * 3));
   function b2Bg(t, V) {
@@ -121,7 +126,7 @@
     }
   }
   function b2Scene(t) {
-    const V = b2View(t), tt = h5Stop(t, HITS), frz = h5Frz(t, HITS) ? 1.5 : 0;
+    const V = b2View(t), [tt, fz] = h5Clock(t, HITS, 0.1, 2.4), frz = fz ? 1.5 : 0;
     H5PX = V.x * 0.4; H5PY = fall(t) * 0.1;
     b2Bg(t, V);
     b2Dec(t, V, false);
@@ -132,7 +137,7 @@
     if (ng >= 0 && ng < 0.62) { const hx = vX(V, 234), hy = vY(V, 134), a = ng < 0.3 ? 1 : 1 - (ng - 0.3) / 0.32; z5Sunburst(hx, hy, 16, t * 0.5, 18 * V.z, (90 + 260 * eoc(ng / 0.4)) * a + 30, 0.11 * a, [110, 109, 108, 105, 109, 110, 104]); light(hx, hy, 340 * a, L_WARM, 0.75 * a); }
     const E = h5F(bE, tt, { form: 'hollow', frz, rim: t > 7.5 && t < 8.6 ? [-1, 0.2, 105] : undefined }, V);
     if (E) h5Ash(bE, tt, V, 16, 18, -34);
-    const HR = h5F(bH, tt, { frz, rim: t < 7.5 ? [0.6, -0.8, 119] : undefined }, V);
+    const HR = h5F(bH, tt, { frz, rim: t < 7.5 ? [0.6, -0.8, 119] : undefined, dmg: D2 }, V);
     // the broken hilt spits light; then the light gathers
     if (t > 6.7 && t < 7.5) { const g = clip01(7.15, 7.5, t); for (let k = 0; k < 10 + 24 * g; k++) { const u = frac(ih(k, 1, 9230) + t * (1.6 + g * 2)), a = ih(k, 2, 9230) * TAU, r = g > 0 ? (1 - u) * 60 * V.z : u * 22 * V.z; if (bay(k, fl(t * 30)) < 0.9) { const px = HR.tip[0] + Math.cos(a) * r, py = HR.tip[1] + Math.sin(a) * r * (g > 0 ? 1 : 0.6) - (g > 0 ? 0 : u * 10); P(px, py, k % 3 ? 59 : 22); if (g > 0) P(px + Math.cos(a) * 2, py + Math.sin(a) * 2, 58); } } light(HR.tip[0], HR.tip[1], 26 + 60 * g, L_GOLD, 0.5 + 0.4 * g); }
     if (ng >= 0 && ng < 0.03) h5Impact(HR.x, HR.y, 0, [108, 109, 110, 73, 74, 104]);
@@ -140,12 +145,12 @@
     // hero trail of sparks while it burns
     if (t > 7.5) for (let k = 0; k < 14; k++) { const age = frac(ih(k, 1, 9232) + t * 1.4) * 0.6, p = h5Trk(bH, tt - age), x = vX(V, p.x) + (ih(k, 2, 9232) - 0.5) * 50 * V.z, y = vY(V, p.y) + (ih(k, 3, 9232) - 0.3) * 30 * V.z - age * 40; if (bay(fl(x), fl(y)) < 1 - age / 0.6) P(x, y, k % 3 ? 109 : 22); }
     // clashes
-    for (let k = 0; k < CL.length; k++) { const [h, x, y, d] = CL[k], g = t - h; if (g < 0 || g > 0.6) continue; h5Clash(vX(V, x), vY(V, y), g, k === 2 ? 0.9 : 1.15, d, 109, 74, 9240 + k); if (k === 2 && g < 0.25) shockRing(vX(V, x), vY(V, y), 6 + g * 300, 6 + g * 300, 3, [22, 74, 72], 1 - g / 0.25); }
+    for (let k = 0; k < CL.length; k++) { const [h, x, y, d] = CL[k], g = t - h; if (g < 0 || g > 0.6) continue; h5Clash(vX(V, x), vY(V, y), g, k === 2 ? 0.9 : 1.15, d, 109, 74, 9240 + k); h5Spray(vX(V, x), vY(V, y), g, 0.8, d + (k & 1 ? 0.4 : -0.4), [22, 109], 9260 + k, ['dawn', 'ink', 'city']); if (k === 2 && g < 0.25) shockRing(vX(V, x), vY(V, y), 6 + g * 300, 6 + g * 300, 3, [22, 74, 72], 1 - g / 0.25); }
     // the lock: every shard bursts, the edges grind
     const lg = t - 10.6;
     if (lg >= 0) {
       const cx = vX(V, 923), cy = vY(V, lg < 0.2 ? lerp(100, 116, lg / 0.2) : 116 + z5Sh(t, 1) * 1.5);
-      h5Heavy(cx, cy, lg, 2.6, undefined, [22, 109, 74], 9250, 2, [72, 73, 74, 104, 107, 109, 110], L_WARM);
+      h5Blow(cx, cy, lg, 2.6, undefined, [22, 109, 74], 9250, 2, [72, 73, 74, 104, 107, 109, 110], L_WARM);
       if (lg > 0.05) { for (let k = 0; k < 34; k++) { const u = frac(ih(k, 1, 9251) + t * (2.2 + ih(k, 2, 9251) * 2)), sd = k & 1 ? 1 : -1, a = -PI / 2 + sd * (0.2 + ih(k, 3, 9251) * 1.3), v = (30 + ih(k, 4, 9251) * 90) * V.z * 0.5, px = cx + Math.cos(a) * v * u, py = cy + Math.sin(a) * v * u + 60 * u * u; if (bay(fl(px), fl(py)) < 1.1 - u) lineP(px, py, px - Math.cos(a) * 3, py - Math.sin(a) * 3 + 2, k % 3 === 0 ? 22 : sd > 0 ? 74 : 109); } sparkle(cx, cy, 4 + 3 * Math.sin(t * 40), 22, 140); light(cx, cy, 70 + 10 * Math.sin(t * 31), L_WH, 0.6); shk(1.2); }
     }
     b2Dec(t, V, true);

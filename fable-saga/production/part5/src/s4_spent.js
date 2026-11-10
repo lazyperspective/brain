@@ -27,6 +27,7 @@
     }
   }
   /* ---------------------------------------------------------------- 14.0–16.2: NOVA., and the world cut in half */
+  const D4 = (t) => clamp(0.42 + 0.1 * (t >= 15) + 0.15 * (t >= 16.2) + 0.2 * (t >= 17.4) + 0.13 * (t >= 18.4), 0, 1);
   const FL = 204;
   const nE = TR([
     { t: 14.0, x: 240, y: 160, S: 2.2, flip: true, form: 'hnova', nosw: true, arm: -0.4, sq: -0.26, spread: 0.1, aur: 2.4, eyes: 'wide', a: 0 },
@@ -59,7 +60,7 @@
   const CUT = [210, 120, -0.897, 0.443];                    // the line the world is cut along: a point, a direction
   function nCath(t, fire) { w5Cath(t, 0, 0, { fire }); }
   function nScene(t) {
-    const HS = [[15.0, 0.12], [16.2, 0.1]], tt = h5Stop(t, HS), frz = h5Frz(t, HS) ? 1.6 : 0;
+    const HS = [[14.0, 0.1], [15.0, 0.134], [16.2, 0.134]], [tt, fz] = h5Clock(t, HS, 0.1, 2.6), frz = fz ? 1.6 : 0;
     const zb = lerp(1.75, 1, eio(clip01(14.25, 14.9, t))), kk = kick(t, [[14.0, 2, -PI / 2], [15.0, 2.6, 2.6], [16.2, 2.4, PI]]);
     const V = { x: lerp(240, 200, eio(clip01(14.25, 14.9, t))) - kk[2], y: lerp(132, 135, eio(clip01(14.25, 14.9, t))) - kk[3], z: zb * (1 + kk[0]) };
     const fire = lerp(1, 0.22, eoc(clip01(14.0, 14.5, t))), sg = t - 15.0;
@@ -82,7 +83,7 @@
     const E0 = h5Pose(nE, tt), ex = vX(V, E0.x), ey = vY(V, E0.y);
     blackStar(ex, ey - 4 * V.z, 26 * V.z * eob(clip01(14.0, 14.35, t)), t, 1);
     // the hero, braced in the wind of it
-    const HR = h5F(nH, tt, { frz, rim: [1, -0.2, 20] }, V);
+    const HR = h5F(nH, tt, { frz, rim: [1, -0.2, 20], dmg: D4 }, V);
     if (t < 15) for (let k = 0; k < 30; k++) { const u = frac(ih(k, 1, 9411) + t * 2.2), a = PI + (ih(k, 2, 9411) - 0.5) * 1.6, r = 30 + u * 260; if (bay(k, fl(t * 30)) < 1 - u) P(ex + Math.cos(a) * r, ey + Math.sin(a) * r * 0.6, k % 3 ? 20 : 22); }
     // the blade
     const ba = bladeA(t), bl = bladeL(t) * V.z, bw = lerp(3, 8, clip01(14.0, 14.9, t)) * V.z;
@@ -97,9 +98,9 @@
     }
     h5Ash(nE, tt, V, 18, 30, -40, [0, 78, 20, 0, 22, 77]);
     if (t < 14.5) { const g = t - 14.0; h5Heavy(ex, ey, g, 2.2, undefined, [22, 20, 62], 9413, 1, [73, 74, 104, 107], L_COLD); }
-    if (sg >= 0) { const [lx, ly, ux, uy] = CUT; h5Heavy(lx + ux * 60, ly + uy * 60, sg, 3, Math.atan2(uy, ux), [22, 20, 74], 9414, 1, [72, 73, 74, 104, 107], L_COLD); if (sg < 0.4) for (let k = -6; k <= 6; k++) { const px = lx + ux * k * 60, py = ly + uy * k * 60; if (bay(k + 8, 3) < 1 - sg * 2.5) sparkle(px, py, 10 * (1 - sg / 0.4), 22, 20); } }
+    if (sg >= 0) { const [lx, ly, ux, uy] = CUT; h5Blow(lx + ux * 60, ly + uy * 60, sg, 3, Math.atan2(uy, ux), [22, 20, 74], 9414, 1, [72, 73, 74, 104, 107], L_COLD, ['cath', 'night', 'dawn']); if (sg < 0.4) for (let k = -6; k <= 6; k++) { const px = lx + ux * k * 60, py = ly + uy * k * 60; if (bay(k + 8, 3) < 1 - sg * 2.5) sparkle(px, py, 10 * (1 - sg / 0.4), 22, 20); } }
     const bg = t - 16.2;
-    if (bg >= 0) h5Heavy(HR ? HR.x + 30 : 150, HR ? HR.y : 126, bg, 2.8, PI, [22, 109, 74], 9415, 2, [72, 73, 74, 104, 107, 109, 110], L_WARM);
+    if (bg >= 0) h5Blow(HR ? HR.x + 30 : 150, HR ? HR.y : 126, bg, 2.8, PI, [22, 109, 74], 9415, 2, [72, 73, 74, 104, 107, 109, 110], L_WARM);
     if (kk[1]) z5Cam(1, kk[1], 240, 135);
   }
   shot(14.0, 16.2334, (lt, t) => nScene(t));
@@ -116,7 +117,7 @@
     { t: 16.98, x: 172, y: 140, a: 0, sw: -0.7, eyes: 'glow', mouth: 1, cr: 0.45 },
     { t: 17.28, x: 174, y: 141, vib: 0.5 },
     { t: 17.34, x: 174, y: 140, eyes: 'wide', a: 0.1 },
-    { t: 17.4, x: 180, y: 146, a: 0.22, sq: 0.16, wl: 1, vib: 0, e: 'l' },
+    { t: 17.4, x: 184, y: 148, a: 0.5, sq: 0.3, wl: 1, vib: 0, e: 'l' },
     { t: 17.4001, wl: 0, mouth: 2, eyes: 'closed', cr: 0.6 },
     { t: 17.64, x: 214, y: 176, a: 1.9, sq: 0, e: 'o' },
     { t: 18.0, x: 252, y: SLY - 22, a: 6.38, sq: 0.4, sw: 0.4, e: 'i' },
@@ -143,8 +144,8 @@
   const mBladeL = (t) => t < 17.5 ? 420 : lerp(420, 62, eio(clip01(17.5, 18.1, t)));
   const mView = (t) => {
     const kk = kick(t, [[16.3, 1.6, PI], [17.4, 2.2, 1.2], [18.0, 1.2, PI / 2], [18.4, 2.4, PI / 2]]), p = h5Trk(mH, Math.max(t, 17.4));
-    const a = eio(clip01(16.9, 17.3, t)), b = eio(clip01(17.45, 18.0, t));
-    return { x: lerp(lerp(240, 162, a), 250, b) - kk[2], y: lerp(lerp(128, 116, a), lerp(292, 300, clip01(18.0, 18.4, t)), b) - kk[3], z: lerp(lerp(1, 1.5, a), 1.4, b) * (1 + kk[0]), r: kk[1] };
+    const a = eio(clip01(16.42, 16.9, t)), b = eio(clip01(17.45, 18.0, t));
+    return { x: lerp(lerp(240, lerp(176, 150, clip01(16.9, 17.3, t)), a), 250, b) - kk[2], y: lerp(lerp(128, lerp(132, 106, clip01(16.9, 17.3, t)), a), lerp(282, 290, clip01(18.0, 18.4, t)), b) - kk[3], z: lerp(lerp(1, 2.0, a), 1.55, b) * (1 + kk[0]), r: kk[1] };
   };
   function mBg(t, V) {
     w5Night(t, V.x * 0.25, V.y * 0.25, {});
@@ -162,7 +163,7 @@
     h5Shard(slabPts(vX(V, 150), vX(V, 372), vY(V, SLY), 0, 44 * V.z, 31), 'dawn', 250, 120, t, { th: 4, seed: 31 });
   }
   function mScene(t) {
-    const HS = [[16.3, 0.05], [17.4, 0.12], [18.0, 0.05], [18.4, 0.12]], V = mView(t), tt = h5Stop(t, HS), frz = h5Frz(t, HS) ? 1.6 : 0;
+    const HS = [[16.3, 0.134], [17.4, 0.167], [18.0, 0.067], [18.4, 0.167]], V = mView(t), [tt, fz] = h5Clock(t, HS, 0.1, 2.8), frz = fz ? 1.6 : 0;
     H5PX = V.x * 0.3; H5PY = V.y * 0.3;
     mBg(t, V);
     // the sweep that sent it, passing
@@ -179,12 +180,12 @@
       bigBlade(bh[0], bh[1], ba, mBladeL(t) * V.z, lerp(6, 3.4, clip01(17.5, 18.1, t)) * V.z, t, { form: 'void', flare: 0.6 });
       h5Ash(mE, tt, V, 14, 20, -40, [0, 78, 20, 0, 22, 77]);
     }
-    const HR = h5F(mH, tt, { frz, rim: [-0.6, -0.6, 20] }, V);
+    const HR = h5F(mH, tt, { frz, rim: [-0.6, -0.6, 20], dmg: D4 }, V);
     // light bleeding from the stump of the wing
     if (wg > 0 && t < 18.4) for (let k = 0; k < 14; k++) { const age = frac(ih(k, 1, 9431) + t * 1.8) * 0.5, p = h5Trk(mH, tt - age), x = vX(V, p.x - 8) + (ih(k, 2, 9431) - 0.5) * 12, y = vY(V, p.y - 14) + (ih(k, 3, 9431) - 0.5) * 10 - age * 30; if (bay(fl(x), fl(y)) < 1 - age * 2) { P(x, y, k % 2 ? 22 : 109); P(x, y - 1, 105); } }
-    if (wg >= 0) h5Heavy(vX(V, 160), vY(V, 128), wg, 2.4, 1.0, [22, 109, 105], 9432, 1, [72, 73, 74, 104, 107, 109, 110], L_WARM);
+    if (wg >= 0) h5Blow(vX(V, 160), vY(V, 128), wg, 2.4, 1.0, [22, 109, 105], 9432, 1, [72, 73, 74, 104, 107, 109, 110], L_WARM);
     let g = t - 18.0; if (g >= 0 && g < 0.6) { h5Heavy(vX(V, 252), vY(V, SLY), g, 1.3, -PI / 2, [22, 135, 136], 9433, 0, null, L_COLD); rocks(vX(V, 252), vY(V, SLY), g, 10, 140, 3, [137, 136, 135, 22], 9434, 200, -PI / 2, 2); }
-    g = t - 18.4; if (g >= 0) { h5Heavy(vX(V, 262), vY(V, SLY - 20), g, 2.6, PI / 2, [22, 109, 74], 9435, 1, [72, 73, 74, 104, 107], L_WARM); }
+    g = t - 18.4; if (g >= 0) { h5Blow(vX(V, 262), vY(V, SLY - 20), g, 2.6, PI / 2, [22, 109, 74], 9435, 1, [72, 73, 74, 104, 107], L_WARM); }
     if (V.r) z5Cam(1, V.r, 240, 135);
   }
   shot(16.2334, 18.4334, (lt, t) => mScene(t));
@@ -214,7 +215,7 @@
     if (drain > 0) for (let k = 0; k < 40 * drain; k++) { const u = frac(ih(k, 1, 9442) + t * (1.2 + ih(k, 2, 9442))), q = (ih(k, 3, 9442) - 0.5) * 8 * z, px = hx + Math.cos(ba) * bl * u - Math.sin(ba) * q, py = hy + Math.sin(ba) * bl * u + Math.cos(ba) * q; lineP(px, py, px - Math.cos(ba) * 6 * z, py - Math.sin(ba) * 6 * z, k % 3 ? 22 : 74); }
     // the hero
     const flick = o.flick !== undefined && o.flick > 0 && (fl(t * 22) % 3 !== 0 || o.flick > 0.7), lit = o.lit || 0;
-    const hK = TR([{ t: 0, x: PH[0] + z5Sh(t, 3) * sh, y: PH[1] - 5 * up + z5Sh(t, 5) * sh * 0.6 + Math.sin(t * 1.5) * 0.5, S: 3, form: flick ? 'nova' : 'plain', sw: 0.5 + 0.1 * Math.sin(t * 0.7), a: 0.3 - 0.26 * up, sq: 0.34 - 0.2 * up + Math.sin(t * 1.5) * 0.025, cr: flick ? 0.6 : 1, eyes: o.eyes || 'closed', mouth: o.mouth || 0, spread: 0, aur: o.flick || 0, glow: o.flick || 0, dim: flick ? 0 : Math.max(0, 0.42 - lit * 0.42), nobob: true, arm2: o.grip ? [-2.25 + 0.2 * (1 - o.grip), 4 + 6 * o.grip, 1] : null, legs: up > 0.5 ? [1, 0, 0, 1] : [5, 4, 5, 5] }, { t: 100, x: PH[0], y: PH[1] }]);
+    const hK = TR([{ t: 0, x: PH[0] + z5Sh(t, 3) * sh, y: PH[1] - 5 * up + z5Sh(t, 5) * sh * 0.6 + Math.sin(t * 1.5) * 0.5, S: 3, form: flick ? 'nova' : 'plain', swst: 'stub', swl: 9, sw: 0.5 + 0.1 * Math.sin(t * 0.7), a: 0.3 - 0.26 * up, sq: 0.34 - 0.2 * up + Math.sin(t * 1.5) * 0.025, cr: flick ? 0.6 : 1, eyes: o.eyes || 'closed', mouth: o.mouth || 0, spread: 0, aur: o.flick || 0, glow: o.flick || 0, dim: flick ? 0 : Math.max(0, 0.42 - lit * 0.42), nobob: true, arm2: o.grip ? [-2.25 + 0.2 * (1 - o.grip), 4 + 6 * o.grip, 1] : null, legs: up > 0.5 ? [1, 0, 0, 1] : [5, 4, 5, 5] }, { t: 100, x: PH[0], y: PH[1] }]);
     const HR = h5F(hK, t, { rim: lit > 0.05 ? [0.5, -0.8, 60] : undefined, noLight: !flick }, V);
     // where the blade goes in
     { const wx = vX(V, PH[0] - 31), wy = vY(V, PH[1] - 24 - 5 * up); sparkle(wx, wy, 3 + Math.sin(t * 9) * 1.2, flick ? 22 : 107, 103); light(wx, wy, 26, L_CRIM, 0.5); for (let k = 0; k < 5; k++) { const u2 = frac(ih(k, 1, 9443) + t * 0.9); if (bay(k, fl(t * 30)) < 1 - u2) P(wx + (ih(k, 2, 9443) - 0.5) * 8, wy + u2 * 16, k & 1 ? 107 : 103); } }
@@ -294,32 +295,49 @@
     const d = 0.3 - 0.16 * litAt(t); GD.mul = [1 - d, 1 - d, 1 - d * 0.6]; GD.sat = 0.86 + 0.2 * litAt(t); GD.vig = 0.5;
     if (t < 20.3) GD.fade = 1 - t + 20.0 > 0.7 ? 0 : 0;
   });
-  // the hand, close: it closes on the black blade
+  // the hand, close: the hero's own pixels, seen from an inch away. The arm reaches across from its body; the end of it
+  // opens and closes round the black blade; the broken hilt is still in the other hand, at the bottom of the frame
   shot(21.5, 22.3, (lt, t) => {
     w5Night(t, 80, 40, { noShards: true });
-    const ang = 0.98, ca = Math.cos(ang), sa = Math.sin(ang), cx = 236, cy = 138, curl = t < 21.86 ? 0.5 * eoc(clip01(21.5, 21.78, t)) : 0.5 + 0.5 * eob(clip01(21.86, 22.0, t)), sh = t > 21.86 ? 1.6 * Math.max(0.25, 1 - (t - 21.9) * 2) : 0.5;
-    const jx = z5Sh(t, 1) * sh, jy = z5Sh(t, 2) * sh;
-    const Lc = (u, v) => [cx + jx + u * ca - v * sa, cy + jy + u * sa + v * ca];           // blade-aligned coords → screen (u along the blade)
-    const quad = (u0, v0, u1, v1, fn) => polyF([Lc(u0, v0), Lc(u1, v0), Lc(u1, v1), Lc(u0, v1)], fn);
-    const skin = (x, y, lit) => { const n = vn(x, y, 7, 9470); return lit > 0.6 ? 37 : lit > 0.2 ? (bay(x, y) < (lit - 0.2) * 2.5 ? 37 : 35) : lit > -0.3 ? 35 : bay(x, y) < 0.5 + n * 0.3 ? 36 : 35; };
-    // the forearm and palm, behind the blade
-    quad(-26, 34, 26, 190, (x, y) => { const p = (x - cx) * ca + (y - cy) * sa; return Math.abs(p) > 24 ? 38 : skin(x, y, -p / 30); });
-    quad(-40, -6, 40, 44, (x, y) => { const p = (x - cx) * ca + (y - cy) * sa, q = -(x - cx) * sa + (y - cy) * ca; return Math.abs(p) > 38 || q > 42 ? 38 : skin(x, y, -p / 46 - q / 80); });
-    for (let k = 0; k < 3; k++) { const u0 = -38 + k * 26, ext = (1 - curl) * 40 + 6; quad(u0, -14 - ext, u0 + 24, -6, (x, y) => { const p = (x - cx) * ca + (y - cy) * sa, q = -(x - cx) * sa + (y - cy) * ca; return p < u0 + 2 || p > u0 + 22 || q < -12 - ext ? 38 : skin(x, y, 0.3 - (p - u0) / 30); }); }
-    // the blade
-    const [bx, by] = Lc(-340, 0);
-    bigBlade(bx + jx * 0.3, by + jy * 0.3, ang, 760, 13, t, { form: 'void', flare: 0.5, noHilt: true });
-    const cg = clip01(21.94, 22.3, t);
-    if (cg > 0) for (let k = 0; k < 9; k++) { const sd = k & 1 ? 1 : -1; let u = sd * 30, v = (ih(k, 1, 9471) - 0.5) * 18; for (let q = 0; q < 12 * cg; q++) { const nu = u + sd * (8 + ih(k, q, 9472) * 10), nv = clamp(v + (ih(k, q, 9473) - 0.5) * 9, -11, 11), a = Lc(u, v), b = Lc(nu, nv); lineP(a[0], a[1], b[0], b[1], 22); if (q % 3 === 0) lineP(a[0], a[1] + 1, b[0], b[1] + 1, 140); u = nu; v = nv; } }
-    // the fingers, closing over it; the thumb under
-    for (let k = 0; k < 3; k++) { const u0 = -38 + k * 26, dn = -15 + curl * 34 + (k === 1 ? 2 : 0); quad(u0, -17, u0 + 24, dn, (x, y) => { const p = (x - cx - jx) * ca + (y - cy - jy) * sa, q = -(x - cx - jx) * sa + (y - cy - jy) * ca; return p < u0 + 2 || p > u0 + 22 || q < -15 || q > dn - 2 ? 38 : skin(x, y, 0.9 - (q + 15) / 16 - (p - u0) / 40); }); }
-    quad(-58, 4, -36, 10 + curl * 16, (x, y) => { const p = (x - cx - jx) * ca + (y - cy - jy) * sa, q = -(x - cx - jx) * sa + (y - cy - jy) * ca; return p < -56 || q > 8 + curl * 16 || q < 6 ? 38 : skin(x, y, 0.2); });
-    // cracks of light in the hand
-    for (let k = 0; k < 6; k++) { let [x, y] = Lc(-30 + k * 12, 12 + (k % 3) * 9); for (let q = 0; q < 4; q++) { const nx = x + (ih(k, q, 9474) - 0.5) * 12 + 2, ny = y + 6 + ih(k, q, 9475) * 6; lineP(x, y, nx, ny, q < 1 ? 107 : cg > 0.2 ? 22 : 103); x = nx; y = ny; } }
+    const C = 9, cg = clip01(21.94, 22.3, t), curl = t < 21.86 ? 0.35 * eoc(clip01(21.5, 21.8, t)) : 0.35 + 0.65 * eob(clip01(21.86, 21.99, t));
+    const sh = t > 21.86 ? 2.2 * Math.max(0.3, 1 - (t - 21.95) * 2) : 0.6, jx = Math.round(z5Sh(t, 1) * sh), jy = Math.round(z5Sh(t, 2) * sh), push = 4 * eoc(clip01(21.5, 22.3, t));
+    const ox = -fl(push * 2) + jx, oy = jy;
+    // the slab's glow from below
+    for (let y = H - LB - 30; y < H - LB; y++) for (let x = 0; x < W; x++) if (bay(x, y) < (y - (H - LB - 30)) / 40) P(x, y, 133);
+    light(240, H - LB, 220, L_WARM, 0.25);
+    const BX = 286 + ox, cell = (i, j, c) => rectF(BX + i * C + ox * 0, 60 + j * C + oy, C, C, c);
+    // the body: its corner, from the left edge of the frame (its eye at the top), cracked through
+    const shade = (i, j, top, bot) => (j === top ? 37 : j >= bot - 1 ? 36 : (i + j) % 5 === 0 ? 36 : 35);
+    for (let j = -4; j < 18; j++) for (let i = -40; i < -18; i++) cell(i, j, i === -19 ? 36 : shade(i, j, -4, 18));
+    for (let j = -4; j < 18; j++) rectF(BX - 18 * C, 60 + j * C + oy, 3, C, 22);                    // its outline
+    { const e = t > 21.62 && t < 21.7 ? 1 : 3; cell(-25, 0, 0); cell(-24, 0, 0); if (e > 1) { cell(-25, 1, 0); cell(-24, 1, 0); cell(-25, 2, 0); cell(-24, 2, 0); cell(-24, 0, 22); } cell(-23, -1, 0); cell(-24, -2, 0); }   // the eye, angry
+    // the arm, reaching right to the blade (at x of cell 0); the hand: a block that splits into two prongs that close
+    const AJ = 8;
+    for (let j = AJ; j < AJ + 4; j++) for (let i = -18; i < -1; i++) cell(i, j, j === AJ ? 37 : j === AJ + 3 ? 36 : (i * 7 + j) % 9 === 0 ? 36 : 35);
+    for (let i = -18; i < -1; i++) { rectF(BX + i * C, 60 + AJ * C - 3 + oy, C, 3, 22); rectF(BX + i * C, 60 + (AJ + 4) * C + oy, C, 3, 22); }
+    // the black blade, behind the fingers
+    const ba = PI / 2 + 0.16, bx0 = BX + 2 * C + 30 * Math.cos(ba) * -8, by0 = LB - 30;
+    bigBlade(BX + 2.2 * C - Math.cos(ba) * 200 + ox * 0.3, 60 + (AJ + 2) * C - Math.sin(ba) * 200, ba, 520, 15, t, { form: 'void', flare: 0.5, noHilt: true, cracks: cg * 2.4 });
+    // the palm, behind: the end of the arm
+    for (let j = AJ - 1; j < AJ + 5; j++) for (let i = -2; i < 1; i++) cell(i, j, j === AJ - 1 ? 37 : j === AJ + 4 ? 36 : 35);
+    // white cracks running up and down the blade from the grip
+    if (cg > 0) for (let k = 0; k < 10; k++) { const sd = k & 1 ? 1 : -1; let x = BX + 2.2 * C + (ih(k, 1, 9471) - 0.5) * 18, y = 60 + (AJ + 2) * C; for (let q = 0; q < 10 * cg; q++) { const nx = x + (ih(k, q, 9473) - 0.5) * 12 + sd * 2, ny = y + sd * (9 + ih(k, q, 9472) * 12); lineP(x, y, nx, ny, 22); if (q % 2 === 0) lineP(x + 1, y, nx + 1, ny, 140); x = nx; y = ny; } }
+    // the fingers: two prongs from the palm, opening up and down, then closing across the front of the blade
+    const open = 1 - curl, reach = fl(1 + 4 * curl);
+    for (const [j0, sd] of [[AJ - 1, -1], [AJ + 3, 1]]) {
+      const lift = Math.round(open * 3) * sd;
+      for (let q = 0; q < reach; q++) for (let jj = 0; jj < 2; jj++) { const j = j0 + jj + lift + (q > 2 ? -sd * Math.round(curl) : 0); cell(1 + q, j, jj === (sd < 0 ? 0 : 1) ? (sd < 0 ? 37 : 36) : 35); }
+      rectF(BX + (1 + reach) * C, 60 + (j0 + lift + (reach > 3 ? -sd * Math.round(curl) : 0)) * C + oy, 3, 2 * C, 22);
+    }
+    // light leaking from the cracks in the hand and arm; brighter as it grips
+    const crk = [[-14, AJ + 1, 5], [-9, AJ, 4], [-5, AJ + 2, 4], [-1, AJ, 5], [-22, 3, 6], [-28, 10, 7], [-33, 5, 5]];
+    for (const [i, j, L] of crk) { let x = BX + i * C + 4, y = 60 + j * C + oy; for (let q = 0; q < L; q++) { const nx = x + 7 + (ih(i, q, 9474) - 0.5) * 8, ny = y + (ih(j, q, 9475) - 0.5) * 12; thick(x, y, nx, ny, 2, q % 3 === 0 && cg > 0.2 ? 22 : 107); x = nx; y = ny; } light(BX + i * C, 60 + j * C, 26, L_WARM, 0.25 + 0.4 * cg); }
+    // sparks of void spat from the grip; the shake
+    for (let k = 0; k < 18 * (0.3 + cg); k++) { const u = frac(ih(k, 1, 9476) + t * 2.4), a = (ih(k, 2, 9476) - 0.5) * 2.4 + (k & 1 ? 0 : PI), v = 40 + ih(k, 3, 9476) * 90, x = BX + 2 * C + Math.cos(a) * v * u, y = 60 + (AJ + 2) * C + Math.sin(a) * v * u + 40 * u * u; if (bay(fl(x), fl(y)) < 1 - u) lineP(x, y, x - Math.cos(a) * 4, y - Math.sin(a) * 4, k % 3 ? 74 : 22); }
     // the fourth spark
-    { const g = t - 21.9, [sx, sy] = Lc(-4, -4); if (g < 0) { const u = 1 + g / 0.4, e = eio(clamp(u, 0, 1)), x = sx - 170 * (1 - e), y = sy - 90 * (1 - e) + Math.sin(u * 6) * 8 * (1 - u); light(x, y, 40, L_VIO, 0.7); discF(x, y, 6, 63); discF(x, y, 4.6, ORB[3][1]); discF(x - 1.4, y - 1.4, 2.4, ORB[3][2]); P(x - 2, y - 2, 22); for (let q = 1; q < 9; q++) { const e2 = eio(clamp(u - q * 0.03, 0, 1)); if (bay(q, fl(t * 30)) < 1 - q / 9) rectF(sx - 170 * (1 - e2), sy - 90 * (1 - e2), 2, 2, ORB[3][q < 4 ? 2 : 1]); } } else { shockRing(sx, sy, 6 + g * 260, 6 + g * 200, 3, [22, ORB[3][2], ORB[3][1]], 1 - g / 0.4); light(sx, sy, 150 * Math.max(0.3, 1 - g * 1.5), L_VIO, 0.8 * Math.max(0.25, 1 - g * 2)); light(sx, sy + 10, 70, L_GOLD, 0.5 * cg); if (g < 0.1) GD.ca = 2 * (1 - g / 0.1); } }
-    for (let k = 0; k < 20; k++) { const u = frac(ih(k, 1, 9476) + t * 0.2), x = W + 10 - u * (W + 30), y = LB + ih(k, 2, 9476) * (H - 2 * LB); P(x, y, k % 2 ? 121 : 120); }
-    GD.vig = 0.55;
+    { const g = t - 21.9, sx = BX + 2 * C, sy = 60 + (AJ + 1) * C; if (g < 0) { const u = 1 + g / 0.4, e = eio(clamp(u, 0, 1)), x = sx + 170 * (1 - e), y = sy - 90 * (1 - e) + Math.sin(u * 6) * 8 * (1 - u); light(x, y, 40, L_VIO, 0.7); discF(x, y, 7, 63); discF(x, y, 5.6, ORB[3][1]); discF(x - 1.6, y - 1.6, 2.8, ORB[3][2]); P(x - 2, y - 2, 22); for (let q = 1; q < 9; q++) { const e2 = eio(clamp(u - q * 0.03, 0, 1)); if (bay(q, fl(t * 30)) < 1 - q / 9) rectF(sx + 170 * (1 - e2), sy - 90 * (1 - e2), 2, 2, ORB[3][q < 4 ? 2 : 1]); } } else { shockRing(sx, sy, 6 + g * 260, 6 + g * 200, 3, [22, ORB[3][2], ORB[3][1]], 1 - g / 0.4); light(sx, sy, 150 * Math.max(0.3, 1 - g * 1.5), L_VIO, 0.8 * Math.max(0.25, 1 - g * 2)); light(sx, sy + 10, 90, L_GOLD, 0.6 * cg); if (g < 0.1) GD.ca = 2 * (1 - g / 0.1); } }
+    for (let k = 0; k < 26; k++) { const u = frac(ih(k, 1, 9477) + t * 0.25), x = W + 10 - u * (W + 30), y = LB + ih(k, 2, 9477) * (H - 2 * LB), big = k % 4 === 0; rectF(x, y, big ? 3 : 1, big ? 2 : 1, k % 2 ? 121 : 120); }
+    GD.vig = 0.55; shk(sh * 0.5);
   });
   CAPS.push([21.6, 22.9, 's', 'HERO', "THEN I'LL SPEND MORE."]);
   shot(22.3, 23.0, (lt, t) => {

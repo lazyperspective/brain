@@ -29,11 +29,11 @@
     { t: 12.3201, a: 0 },
     { t: 12.7, x: 582, y: 128, vib: 0.6, e: 'i' },
   ]);
-  const iView = (t) => { const kk = kick(t, [[11.6, 1.6, 0], [12.12, 1, -0.8]]), run = t > 12.3 ? (h5Trk(iH, t).x - 208) : 0; return { x: 240 + run - kk[2], y: 138 - kk[3], z: 1.3 * (1 + kk[0]), r: kk[1] }; };
+  const iView = (t) => { const kk = kick(t, [[11.6, 1.6, 0], [12.12, 1.3, -0.8]]), AF = h5Frame(iH, iE, Math.min(t, 12.3), { fill: 330, pad: 80, zmin: 1.5, zmax: 1.95, oy: -6 }), run = t > 12.3 ? (h5Trk(iH, t).x - 208) : 0; return { x: AF.x + run - kk[2], y: AF.y - kk[3], z: AF.z * (1 + kk[0]), r: kk[1] }; };
   const iBg = (t, V) => { w5Ink(t, (t - 11.6) * 60 + (V.x - 240) * 0.8, 0, {}); if (t > 12.3) { const u = clip01(12.3, 12.6, t); for (let k = 0; k < 30 * u; k++) { const y = LB + ih(k, 1, 9301) * (H - 2 * LB), x0 = ih(k, fl(t * 30), 9302) * W, L = 40 + ih(k, 3, 9301) * 160; lineF(x0, y, x0 + L, y, (X, Y, f) => { if (bay(X, Y) < 0.9 - Math.abs(f - 0.5) * 1.6) P(X, Y, 0); }); } } };
   function inkSplat(x, y, g, n, v, seed) { if (g < 0 || g > 0.7) return; for (let k = 0; k < n; k++) { const a = ih(k, 1, seed) * TAU, sp = v * (0.3 + ih(k, 2, seed)), px = x + Math.cos(a) * sp * g * (1 - g * 0.5), py = y + Math.sin(a) * sp * g * (1 - g * 0.5) + 160 * g * g, r = (1 + ih(k, 3, seed) * 3.2) * (1 - g * 0.9); discF(px, py, r, 0); if (k % 3 === 0) lineP(px, py, px - Math.cos(a) * 9 * (1 - g), py - Math.sin(a) * 9 * (1 - g), 0); } }
   shot(11.6, 12.6, (lt, t) => {
-    const HS = [[11.6, 0.067], [12.12, 0.067]], V = iView(t), tt = h5Stop(t, HS), frz = h5Frz(t, HS) ? 1.4 : 0;
+    const HS = [[11.6, 0.1], [12.12, 0.1]], V = iView(t), [tt, fz] = h5Clock(t, HS, 0.1, 2.2), frz = fz ? 1.4 : 0;
     GD.bloom = 0; GD.con = 0.1; GD.vig = 0.22; H5PX = 0; H5PY = 0;
     iBg(t, V);
     h5Shatter(WORLDS.lock, t - 11.6, 230, 130, { v: 420, dur: 0.5, grav: 60, delay: 0.0005 });
@@ -62,23 +62,24 @@
     cHk.push({ t: 13.6, x: 420, y: 96 }); cEk.push({ t: 13.6, x: 422, y: 84 });
   }
   const cH = TR(cHk), cE = TR(cEk);
-  const cView = (t) => { const p = h5Trk(cH, t), kk = kick(t, [[12.6, 1.4, 0.4], [12.95, 0.8, -PI / 2], [13.18, 0.9, -PI / 2]]); return { x: clamp(p.x + 46, 240, 420) - kk[2], y: 135 - kk[3], z: 1, r: kk[1] * 0.6 }; };
+  const cView = (t) => { const p = h5Trk(cH, t), kk = kick(t, [[12.6, 1.4, 0.4], [12.95, 1.1, -PI / 2], [13.18, 1.2, -PI / 2]]), u = eio(clip01(12.6, 12.8, t)); return { x: lerp(240, clamp(p.x + 44, 240, 420), u) - kk[2], y: lerp(135, (yA(p.x) + yB(p.x)) / 2 - 4, u) - kk[3], z: lerp(1.05, 1.36, u) * (1 + kk[0]), r: kk[1] * 0.6 }; };
   function cBg(t, V) {
     const ox = V.x - 240, oy = V.y - 135;
     w5City(t, ox * 0.9 + (t - 12.6) * 40, oy, {});
     // where the two flights meet: the dead sun, waiting
-    const bx = vX(V, 432), by = vY(V, 92), r = 20 + 22 * eic(clip01(12.6, 13.4, t));
+    const bx = vX(V, 432), by = vY(V, 92), r = (20 + 22 * eic(clip01(12.6, 13.4, t))) * V.z;
     blackSun(bx, by, r, t, 1);
-    w5Flight(-40 - ox, 262 - oy, 420 - ox, 124 - oy, 10, [126, 125, 129], false, t, 3, true);
-    w5Flight(-80 - ox, -4 - oy, 430 - ox, yB(430) - oy, 10, [126, 125, 129], true, t, 4, true);
+    w5Flight(vX(V, -40), vY(V, 262), vX(V, 420), vY(V, 124), 10 * V.z, [126, 125, 129], false, t, 3, true);
+    w5Flight(vX(V, -80), vY(V, -4), vX(V, 430), vY(V, yB(430)), 10 * V.z, [126, 125, 129], true, t, 4, true);
+    for (let x = 0; x < W; x++) { const wx = (x - 240) / V.z + V.x; if (wx > 420) continue; const ya = vY(V, yA(wx)), yb = vY(V, yB(wx)); tintP(x, ya - 1, T_CYAN, 0.5); tintP(x, ya, T_CYAN, 0.6); tintP(x, yb, T_MAG, 0.35); tintP(x, yb + 1, T_MAG, 0.3); }
   }
   shot(12.6, 13.4, (lt, t) => {
-    const HS = [[12.95, 0.05], [13.18, 0.05]], V = cView(t), tt = h5Stop(t, HS), frz = h5Frz(t, HS) ? 1.2 : 0;
+    const HS = [[12.95, 0.1], [13.18, 0.1]], V = cView(t), [tt, fz] = h5Clock(t, HS, 0.1, 2), frz = fz ? 1.2 : 0;
     H5PX = V.x * 0.4; H5PY = 0;
     cBg(t, V);
     GD.bloom = 0; const gg = clip01(12.6, 12.75, t); GD.bloom = 0.3 * gg;
     h5Shatter(WORLDS.inkEnd, t - 12.6, 250, 130, { v: 420, dur: 0.45, grav: 80, delay: 0.0005 });
-    const E = h5F(cE, tt, { frz, rim: [0, 1, 141] }, V), HR = h5F(cH, tt, { frz }, V);
+    const E = h5F(cE, tt, { frz, rim: [0, 1, 74], halo: 73 }, V), HR = h5F(cH, tt, { frz, dmg: (tq) => 0.36 }, V);
     h5Ash(cE, tt, V, 12, -60, 10);
     for (const [h, sd] of [[12.95, 9320], [13.18, 9321]]) { const g = t - h; if (g < 0 || g > 0.5) continue; const p = h5Trk(cH, h), cx = vX(V, p.x + 44), cy = vY(V, (yA(p.x) + yB(p.x)) / 2 + 4); h5Clash(cx, cy, g, 1.1, 0, 109, 74, sd); }
     for (let k = 0; k < 8; k++) { const u = frac(ih(k, 1, 9322) + t * 2.5); if (HR && bay(k, fl(t * 30)) < 1 - u) P(HR.x - 20 - u * 40, HR.y + 26 - u * 8 + (k % 3), k % 2 ? 128 : 15); }
@@ -109,18 +110,19 @@
     { t: 13.93, x: 318, y: FL - 31, sq: 0.1, a: 0.1, sw: 0.5, e: 'o' },
     { t: 14.0, x: 322, y: FL - 31, sq: 0, a: 0, sw: 0.6 },
   ]);
-  const kView = (t) => { const kk = kick(t, [[13.4, 1.4, 0], [13.66, 0.7, -1], [13.77, 1.2, 0]]); return { x: 240 - kk[2], y: 135 - kk[3], z: 1 + kk[0], r: kk[1] }; };
+  for (const K0 of [kH, kE]) for (const k of K0) { k.x = 240 + (k.x - 240) * 1.12; k.y = FL - (FL - k.y) * 1.318; k.S = 2.9; }
+  const kView = (t) => { const kk = kick(t, [[13.4, 1.4, 0], [13.66, 1.0, -1], [13.77, 1.8, 0]]); return { x: 240 - kk[2], y: 135 - kk[3], z: 1 + kk[0], r: kk[1] }; };
   shot(13.4, 14.0, (lt, t) => {
-    const HS = [[13.66, 0.034], [13.77, 0.067]], V = kView(t), tt = h5Stop(t, HS), frz = h5Frz(t, HS) ? 1.3 : 0;
+    const HS = [[13.66, 0.067], [13.77, 0.1]], V = kView(t), [tt, fz] = h5Clock(t, HS, 0.1, 2.4), frz = fz ? 1.3 : 0;
     H5PX = 0; H5PY = 0;
     w5Cath(t, (V.x - 240) * 2, 0, {});
     h5Shatter(WORLDS.cityEnd, t - 13.4, 240, 120, { v: 420, dur: 0.42, grav: 100, delay: 0.0005 });
     // their reflections in the floor, and the dust of the skid
-    const E = h5F(kE, tt, { frz, rim: [0, -1, 103] }, V), HR = h5F(kH, tt, { frz, rim: [1, -0.3, 105] }, V);
+    const E = h5F(kE, tt, { frz, rim: [0, -1, 103] }, V), HR = h5F(kH, tt, { frz, rim: [1, -0.3, 105], dmg: (tq) => 0.4 }, V);
     h5Ash(kE, tt, V, 12, 30, -30);
     for (const F of [E, HR]) if (F && t < 13.66) for (let k = 0; k < 10; k++) { const u = frac(ih(k, 1, 9330) + t * 4); if (bay(k, fl(t * 30)) < 1 - u) P(F.x + (F === HR ? 1 : -1) * (20 + u * 30) + (ih(k, 2, 9330) - 0.5) * 8, vY(V, FL) - u * 10, k % 2 ? 105 : 103); }
-    let g = t - 13.66; if (g >= 0 && g < 0.5) h5Clash(vX(V, 196), vY(V, FL - 44), g, 0.8, -1.2, 109, 74, 9331);
-    g = t - 13.77; if (g >= 0 && g < 0.6) { h5Heavy(vX(V, 214), vY(V, FL - 26), g, 1.2, 0, [22, 109, 105], 9332, 0, null, L_WARM); }
+    let g = t - 13.66; if (g >= 0 && g < 0.5) h5Clash(vX(V, 191), vY(V, FL - 58), g, 1.0, -1.2, 109, 74, 9331);
+    g = t - 13.77; if (g >= 0 && g < 0.6) { h5Blow(vX(V, 211), vY(V, FL - 34), g, 1.4, 0, [22, 109, 105], 9332, 0, null, L_WARM, ['cath', 'city', 'ink']); }
     if (V.r) z5Cam(1, V.r, 240, 135);
   });
   }

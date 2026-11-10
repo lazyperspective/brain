@@ -95,7 +95,7 @@
     const ca = GD.ca;
     if (ca > 0.3) {
       for (let i = 0; i < NP; i++) { CAT[i * 2] = RGBF[i * 3]; CAT[i * 2 + 1] = RGBF[i * 3 + 2]; }
-      for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) { const sh = Math.round(ca * (x - W / 2) / (W / 2)), sv = Math.round(ca * 0.5 * (y - H / 2) / (H / 2)); if (!sh && !sv) continue; const xa = clamp(x - sh, 0, W - 1), xb = clamp(x + sh, 0, W - 1), ya = clamp(y - sv, LB, H - LB - 1), yb = clamp(y + sv, LB, H - LB - 1), j = (y * W + x) * 3; RGBF[j] = CAT[(ya * W + xa) * 2]; RGBF[j + 2] = CAT[(yb * W + xb) * 2 + 1]; }
+      for (let y = LB; y < H - LB; y++) for (let x = 0; x < W; x++) { const sh = Math.round(ca * (x - W / 2) / (W / 2)), sv = Math.round(ca * 0.5 * (y - H / 2) / (H / 2)); if (!sh && !sv) continue; const xa = clamp(x - sh, 0, W - 1), xb = clamp(x + sh, 0, W - 1), ya = clamp(y - sv, LB, H - LB - 1), yb = clamp(y + sv, LB, H - LB - 1), j = (y * W + x) * 3; RGBF[j] = RGBF[j] * 0.45 + CAT[(ya * W + xa) * 2] * 0.55; RGBF[j + 2] = RGBF[j + 2] * 0.45 + CAT[(yb * W + xb) * 2 + 1] * 0.55; }
     }
     // curve, saturation, flash, fade, vignette
     const con = GD.con, sat = GD.sat, fl_ = Math.min(0.9, GD.flash), fc = GD.fc, fade = 1 - clamp(GD.fade, 0, 1), mul = GD.mul, vg = GD.vig;

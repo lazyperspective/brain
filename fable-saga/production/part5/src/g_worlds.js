@@ -14,8 +14,9 @@
       const y0 = LB + 16 + ih(k, 1, 8002) * 86, L = 70 + ih(k, 2, 8002) * 150, x0 = ((ih(k, 3, 8002) * 760 - ox * (0.12 + 0.1 * ih(k, 4, 8002)) - t * 2) % 760 + 760) % 760 - 180, th = 2 + fl(ih(k, 5, 8002) * 3);
       for (let q = 0; q < th; q++) for (let x = 0; x < L; x++) { const u = x / L, e = Math.sin(u * PI), yy = y0 + q + Math.sin(x * 0.05 + k) * 2; if (bay(fl(x0 + x), fl(yy)) < e * (0.75 - q * 0.12) * (0.5 + 0.5 * vn(x0 + x + ox * 0.1, k * 9, 14, 8003))) P(x0 + x, yy, q === th - 1 ? (y0 > LB + 70 ? 131 : 130) : y0 > LB + 60 ? 132 : 133); }
     }
-    light(sunX, sunY, 200, L_WARM, 0.5);
-    discF(sunX, sunY, 22, 15); discF(sunX, sunY, 18, 16); discF(sunX - 4, sunY - 4, 9, 22);
+    const sk = o.sunR || 1;
+    light(sunX, sunY, 200 * sk, L_WARM, 0.5);
+    discF(sunX, sunY, 22 * sk, 15); discF(sunX, sunY, 18 * sk, 16); discF(sunX - 4 * sk, sunY - 4 * sk, 9 * sk, 22);
     z5GodRays(sunX, sunY, 7, t * 0.15, T_WARM, 0.42, 380);
     cloudBank(hz + 8, 22, 80, 5051, ox * 0.5, CLOUD_SUN, false);
     if (!o.noNear) cloudBank(hz + 44, 30, 60, 5052, ox, CLOUD_NEAR, false);
@@ -55,12 +56,15 @@
             if (strata) c = onLit ? LIT[0] : INK;
             if (Math.abs(f) > 0.9) c = INK;
             if (v > 0.9 && onLit && bay(x, y) < 0.5) c = 127;                                 // wet tips catching what light there is
+            if (layer > 0 && ((v > 0.93 && Math.abs(f) < 0.7) || (onLit && ih(x, y, 8115 + fl(t * 2)) < 0.025 * layer) || (Math.abs(f - Math.sin(v * 9 + k) * 0.35) < 0.07 && v > 0.45 && bay(x, y) < 0.6))) c = v > 0.96 ? 129 : 128;   // bioluminescence
             BUF[y * W + x] = c;
           }
         }
         for (let q = 0; q < 5; q++) { const mx = bx + (ih(k, q, 8105 + layer) - 0.5) * bw * 2.2, my = by + 1 + Math.sin(t * 0.8 + q + k) * 1.5; cloudPuff(mx, my, (5 + q) * sc, [115, 116, 117, 118], 8106 + k * 7 + q); }
       }
     }
+    // the glowing tips of the teeth, lamps for the grade (in the turned-over picture)
+    for (let layer = 1; layer < 3; layer++) { const n = 8 - layer * 2, par = 0.25 + layer * 0.45, sc = 0.55 + layer * 0.6, vp = 0.12 + layer * 0.22; for (let k = 0; k < n; k++) { const bx = ((ih(k, layer, 8102) * 660 - ox * par) % 660 + 660) % 660 - 90, bh = (60 + ih(k, 3, 8102 + layer) * 110) * sc, by = hz + 5 + layer * 16 + oy * vp, ty = top + bot - 1 - (by - bh), lean = (ih(k, 4, 8102 + layer) - 0.5) * 0.22; light(bx + lean * bh, ty, 26 * sc, [0.35, 1, 0.85], 0.32 + 0.12 * Math.sin(t * 2 + k)); } }
     // turn it over
     for (let y = 0; y < (bot - top) >> 1; y++) { const a = (top + y) * W, b = (bot - 1 - y) * W; for (let x = 0; x < W; x++) { const c = BUF[a + x]; BUF[a + x] = BUF[b + x]; BUF[b + x] = c; } }
     // far below: a second sea, of mist; and far off in the dark, teeth the size of mountains
@@ -74,6 +78,10 @@
     for (let k = 0; k < 44; k++) { const dp = 0.3 + ih(k, 1, 8114) * 0.9, x = ((ih(k, 2, 8114) * 560 - ox * dp * 0.6) % 560 + 560) % 560 - 40, y = bot - frac(ih(k, 3, 8114) + oy * dp / 260) * (bot - top + 40) + 20, L = (5 + ih(k, 4, 8114) * 18) * dp; for (let q = 0; q < L; q++) if (bay(fl(x), fl(y + q)) < 0.55 - q / L * 0.4) P(x, y + q, dp > 0.8 ? 116 : 115); }
     // water letting go of the teeth, falling away into the dark below
     for (let k = 0; k < 26; k++) { const x = ((ih(k, 1, 8107) * 560 - ox * (0.3 + 0.5 * ih(k, 2, 8107))) % 560 + 560) % 560 - 40, u = frac(ih(k, 3, 8107) + t * (0.5 + ih(k, 4, 8107) * 0.5)), y = HZs + 20 + u * u * 190 - oy * 0.2 % 40, L = 3 + u * 9; for (let q = 0; q < L; q++) if (bay(fl(x), fl(y - q)) < 0.7 - q / L * 0.5) P(x, y - q, q < 2 ? 118 : 117); }
+    // light down the abyss: soft shafts from the sea-sky; lines of glowing foam on the mist below; drifting motes
+    z5GodRays(LX, top, 9, t * 0.05, T_CYAN, 0.16, 330);
+    for (let k = 0; k < 7; k++) { const y0 = bot - 50 + k * 7 + Math.max(0, 30 - oy * 0.05) * 0.5, sp = 10 + k * 6; for (let x = 0; x < W; x++) { const wx = x + ox * (0.2 + k * 0.05) + t * sp, n = vn(wx, k * 13, 22 + k * 4, 8116); if (n < 0.58) continue; const y = y0 + Math.sin(wx * 0.06 + t * 1.3 + k) * (1.5 + k * 0.4); if (y < bot && bay(x, fl(y)) < (n - 0.58) * 4) P(x, y, n > 0.72 ? 129 : 128); } }
+    for (let k = 0; k < 34; k++) { const dp = 0.4 + ih(k, 1, 8117) * 0.8, x = ((ih(k, 2, 8117) * 560 - ox * dp * 0.5 + Math.sin(t * 0.7 + k) * 8) % 560 + 560) % 560 - 40, y = HZs + 30 + ih(k, 3, 8117) * (bot - HZs - 40) + Math.sin(t * 0.9 + k * 1.3) * 5 - oy * dp * 0.04 % 30, tw = 0.5 + 0.5 * Math.sin(t * 3 + k); P(x, y, tw > 0.5 ? 129 : 128); if (dp > 0.9) { P(x + 1, y, 128); P(x, y + 1, 128); } if (k % 4 === 0) light(x, y, 12 * dp, [0.35, 1, 0.85], 0.25 * tw); }
     // the breach: the hole in the sea-sky they fell through, dawn pouring down it
     if (o.hole) {
       const [hx, a] = o.hole, hy = top + 12, Wd = wview('dawn');
@@ -120,7 +128,7 @@
     for (let q = 0; q < h; q += 9) R(x, y0 + q, w, 1, cols[1]);
     const cap = dir < 0 ? y0 : y0 + h, cw = fl(w * 0.6), ch = 4 + (k % 3) * 3;
     R(x + (w - cw) / 2, dir < 0 ? cap - ch : cap, cw, ch, cols[0]); R(x + w / 2 - 1, dir < 0 ? cap - ch - 7 : cap + ch, 1, 7, cols[1]);
-    for (let wy = 3; wy < h - 4; wy += 5) for (let wx = 2; wx < w - sh - 2; wx += 4) { const r = ih(k * 31 + wx, wy, 8301); if (r < 0.34) { const fk = r < 0.03 && fl(t * 6 + k) % 3 === 0; if (!fk) { R(x + wx, y0 + wy, 2, 3, r < 0.12 ? win[1] : win[0]); if (r < 0.06) PP(x + wx, y0 + wy, win[2]); } } }
+    for (let wy = 3; wy < h - 4; wy += 5) for (let wx = 2; wx < w - sh - 2; wx += 4) { const r = ih(k * 31 + wx, wy, 8301) * 0.72; if (r < 0.34) { const fk = r < 0.03 && fl(t * 6 + k) % 3 === 0; if (!fk) { R(x + wx, y0 + wy, 2, 3, r < 0.12 ? win[1] : win[0]); if (r < 0.06) PP(x + wx, y0 + wy, win[2]); } } }
     // a stair zigzagging up its face
     if (k % 2 === 0 && w > 16) for (let q = 0; q < h - 6; q++) { const z = fl(q / 8), f = (q % 8) / 8, xx = x + 2 + (z & 1 ? 1 - f : f) * (w - sh - 5); PP(xx, y0 + (dir < 0 ? h - 2 - q : q + 1), cols[2]); }
   }
@@ -130,10 +138,10 @@
     for (let s = 0; s < n; s++) {
       const x = x0 + dx * s, y = y0 + dy * s, xa = Math.min(x, x + dx), w = Math.abs(dx) + 1, hgt = Math.abs(dy);
       rectF(xa, under ? y - thk - hgt : y, w, thk + hgt + 1, cols[0]);
-      rectF(xa, under ? y : y, w, 1, under ? cols[1] : cols[2]);
+      rectF(xa, under ? y : y, w, 1, under ? cols[2] : cols[2]); if (!under) rectF(xa, y + 1, w, 1, cols[1]);
       if (dy * u < 0) rectF(dx > 0 ? x + dx : x, Math.min(y, y + dy), 1, hgt, cols[1]);
       if (s % 3 === 0) { const px = x + dx / 2; lineP(px, y - u, px, y - u * 9, cols[1]); }
-      if (lamp && s % 9 === 4) { const px = x + dx / 2, py = y - u * 11; P(px, py, 22); P(px - 1, py, 15); P(px + 1, py, 15); P(px, py + u, 15); light(px, py, 22, L_WARM, 0.5); }
+      if (lamp && s % 5 === 2) { const px = x + dx / 2, py = y - u * 11; P(px, py, 22); P(px - 1, py, 15); P(px + 1, py, 15); P(px, py + u, 15); light(px, py, 30, L_WARM, 0.6); }
     }
     lineP(x0, y0 - u * 9, x1, y1 - u * 9, cols[1]);
   }

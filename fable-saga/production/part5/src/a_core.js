@@ -260,7 +260,7 @@
     const crk = Math.max(o.cracks || 0, o.form === 'lastlight' ? 0.85 : 0);
     if (crk > 0) {
       // cracks: jagged seams from the edges inward, more of them (and longer) as crk grows; light pours out of them
-      const lc = F ? (o.form === 'lastlight' ? (fl(tf * 20) % 3 ? 107 : 22) : 22) : 107, lc2 = o.form === 'lastlight' ? 104 : F ? F[2] : 103;
+      const NC = o.form === 'nova', lc = NC ? (fl(tf * 16) % 4 ? 101 : 104) : F ? (o.form === 'lastlight' ? (fl(tf * 20) % 3 ? 107 : 22) : 22) : 107, lc2 = NC ? 103 : o.form === 'lastlight' ? 104 : F ? F[2] : 103;
       for (let k = 0; k < CRACKS.length; k++) {
         const C = CRACKS[k]; if (C.at > crk) continue;
         const grow = clamp((crk - C.at) / 0.25, 0, 1), n = Math.max(2, Math.ceil(C.p.length * grow));

@@ -28,6 +28,43 @@
     p.wa = (p.flip ? PI - (p.sw || 0) : (p.sw || 0)) + p.ang;
     return p;
   }
+  // the hero bleeding light: sparks seeping from its cracks and falling, more the worse it is hurt
+  function h5Bleed(x, y, S, t, amt, cols) {
+    const n = fl(4 + 18 * amt);
+    for (let k = 0; k < n; k++) {
+      const age = frac(ih(k, 1, 7321) + t * (0.8 + ih(k, 2, 7321) * 0.7)), px = x + (ih(k, 3, 7321) - 0.5) * 22 * S + Math.sin(age * 6 + k) * 2, py = y + (ih(k, 4, 7321) - 0.6) * 12 * S + age * age * 40 * S * 0.3;
+      if (bay(fl(px), fl(py)) > (1 - age) * (0.6 + 0.6 * amt)) continue;
+      P(px, py, cols[age < 0.3 ? 2 : age < 0.6 ? 0 : 1]); if (age < 0.4 && k % 3 === 0) P(px, py - 1, cols[1]);
+    }
+    if (amt > 0.3) light(x, y, 20 * S, L_WARM, 0.12 * amt * (0.5 + 0.5 * Math.sin(t * 23)));
+  }
+  // the hit-stop clock in one call: [track time, frozen]; while frozen the picture shakes
+  function h5Clock(t, hits, d, shake) { const fz = h5Frz(t, hits, d || 0.1); if (fz) shk(shake === undefined ? 2.4 : shake); return [h5Stop(t, hits, d || 0.1), fz]; }
+  // a camera that frames two fighters: the midpoint of their bodies over the last 0.25 s, the zoom from how far apart they
+  // are (fill: the screen px their separation plus pad should take), clamped to [zmin, zmax]. Pure function of t.
+  function h5Frame(A, B, t, o) {
+    o = o || {}; let sx = 0, sy = 0, sz = 0; const N = 6;
+    for (let k = 0; k < N; k++) {
+      const tt = t - k * 0.05, a = h5Trk(A, tt), b = h5Trk(B, tt), d = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y) * 1.7);
+      sx += (a.x + b.x) / 2; sy += (a.y + b.y) / 2; sz += clamp((o.fill || 300) / (d + (o.pad || 90)), o.zmin || 1, o.zmax || 2.2);
+    }
+    return { x: sx / N + (o.ox || 0), y: sy / N + (o.oy || 0), z: sz / N };
+  }
+  // a heavy blow: h5Heavy, plus a spray of glass (each piece carrying a view of another world) and debris thrown along dir
+  function h5Blow(x, y, g, pw, dir, cols, seed, imp, keep, lcol, views) { h5Heavy(x, y, g, pw, dir, cols, seed, imp, keep, lcol); h5Spray(x, y, g, pw, dir, cols, seed, views); }
+  // the spray part of h5Blow alone: refracting glass and debris thrown along dir (undefined: every way)
+  function h5Spray(x, y, g, pw, dir, cols, seed, views) {
+    if (g < 0 || g > 1.1) return;
+    views = views || ['dawn', 'ocean', 'city', 'ink'];
+    const d0 = dir === undefined ? -PI / 2 : dir, n = fl(6 + 5 * pw);
+    for (let k = 0; k < n; k++) {
+      const a = d0 + (ih(k, 1, seed + 17) - 0.5) * (dir === undefined ? TAU : 1.3), v = (140 + ih(k, 2, seed + 17) * 300) * Math.sqrt(pw), px = x + Math.cos(a) * v * g, py = y + Math.sin(a) * v * g + 150 * g * g, r = (3 + ih(k, 3, seed + 17) * 6) * Math.sqrt(pw) * (1 - g * 0.6);
+      if (px < -30 || px > W + 30 || py < -30 || py > H + 30 || r < 1.2) continue;
+      h5Shard(shardPts(px, py, r * 1.5, r, g * (5 + k) + k, 90 + k + seed % 50, 4 + (k % 3)), views[k % views.length], 60 + k * 41 % 360, 60 + k * 23 % 150, T_NOW, { seed: k, glint: k % 3 === 0 });
+    }
+    rocks(x, y, g, fl(8 + 6 * pw), 220 * Math.sqrt(pw), 2.4, [137, 136, 135, 22], seed + 23, 200, d0, dir === undefined ? 6.3 : 1.2);
+    for (let k = 0; k < 14 * pw; k++) { const a = d0 + (ih(k, 4, seed + 17) - 0.5) * 0.9, v = 300 + ih(k, 5, seed + 17) * 400, px = x + Math.cos(a) * v * g, py = y + Math.sin(a) * v * g; if (g < 0.35 && bay(fl(px), fl(py)) < 1 - g / 0.35) lineP(px, py, px - Math.cos(a) * 10, py - Math.sin(a) * 10, k % 2 ? 22 : cols ? cols[1] : 59); }
+  }
   // hit-stop that does not move the cues: the clock holds for d after each hit, then runs fast until it has caught up
   function h5Stop(t, hits, d) {
     let o = t;
@@ -44,6 +81,7 @@
     nova: { f: [(j, sh) => [110, 105, 109, 110, 104, 109, 105][(j + sh) % 7], () => 109, () => 108], rim: [22, 140, 22], spine: 22 },
     void: { f: [(j, sh) => ((j + sh) % 5 === 0 ? 77 : 0), () => 77, () => 78], rim: [22, 20, 74], spine: 72 },
     hollow: { f: [() => 0, () => 76, () => 77], rim: [72, 71, 102], spine: 71 },
+    hvoid: { f: [() => 134, () => 134, () => 0], rim: [22, 22, 20], spine: 20, stars: true, fire: true, wide: 1.8 },
     light: { f: [(j, sh) => [140, 141, 140, 22][(j + sh) % 4], () => 140, () => 22], rim: [22, 141, 141], spine: 22 },
     night: { f: [() => 4, () => 5, () => 6], rim: [56, 56, 57], spine: 57, stars: true },
     ink: { f: [() => 64, () => 64, () => 64], rim: [0, 0, 0], spine: 0 },
@@ -61,11 +99,12 @@
     for (const [N, len, rank] of RANKS) for (let j = N - 1; j >= 0; j--) {
       const u = (j + 0.6) / N, lx = ax * Lw * u, ly = ay * Lw * u - Math.sin(u * PI) * 5 * s, [bx, by] = R(lx, ly);
       const bu = z5Beat(t - 0.12 * u) * amp, fr = lerp(PI / 2 - 0.12, -0.15 - bu * 1.5 + sweep * 0.8, Math.pow(u, 1.25)) - (1 - spr) * 0.5, fa = (sd > 0 ? fr : PI - fr) + (rot || 0);
-      const L = s * (15 + 30 * u) * len * (0.45 + 0.55 * spr), w = s * (4.4 - rank * 0.8);
+      const L = s * (15 + 30 * u) * len * (0.45 + 0.55 * spr), w = s * (4.4 - rank * 0.8) * (W_.wide || 1);
       if (burn && ih(j, rank, 7301) < burn) continue;
       h5Kite(bx - Math.cos(fa) * 1.2, by - Math.sin(fa) * 1.2, fa, L + 2.4, w + 1.1, W_.rim[rank]);
       h5Kite(bx, by, fa, L, w, W_.f[rank](j, sh));
       if (rank === 0) lineP(bx, by, bx + Math.cos(fa) * L * 0.8, by + Math.sin(fa) * L * 0.8, W_.spine);
+      if (W_.fire && rank === 0) { const tx = bx + Math.cos(fa) * L, ty = by + Math.sin(fa) * L, fh = (3 + 5 * vn(j * 3, t * 6, 1, 7305)) * s; for (let q = 0; q < fh; q++) if (bay(fl(tx), fl(ty - q)) < 1 - q / fh) P(tx + Math.sin(q * 0.7 + t * 9 + j) * 0.8, ty - q, q < fh * 0.4 ? 22 : 20); }
       if (W_.stars && rank < 2) for (let q = 0; q < 2; q++) { const f = 0.25 + ih(j, q + rank * 3, 7302) * 0.6; if (frac(ih(j, q, 7303) + t * 0.7) < 0.7) P(bx + Math.cos(fa) * L * f, by + Math.sin(fa) * L * f, q ? 57 : 22); }
       if (burn && ih(j, rank, 7304) < burn * 1.6) { const tx = bx + Math.cos(fa) * L, ty = by + Math.sin(fa) * L; P(tx, ty, 105); P(tx, ty - 1 - frac(t * 5 + j) * 5, 103); }
     }
@@ -129,7 +168,7 @@
     plain: { ghost: [37, 35, 36], smear: [58, 59, 60, 22], eyes: 'normal', swst: 'stub', swl: 9 },
     nova: { sprite: 'nova', eyes: 'glow', wL: 'nova', wR: 'nova', fly: true, aura: [104, 110, 109, 108], auraR: 3, ghost: [22, 109, 110], smear: [110, 109, 108, 22], swc: NOVA_SW, lc: L_WARM, lr: 30, la: 0.32, rimc: 104 },
     hollow: { sprite: 'hollow', eyes: 'narrow', void: true, cold: true, ghost: [78, 72, 102], smear: [78, 0, 0, 74], eyeL: true },
-    hnova: { sprite: 'hollownova', eyes: 'narrow', void: true, cold: true, wL: 'void', wR: 'void', fly: true, aura: [62, 20, 22, 0], auraR: 4.2, ghost: [22, 0, 78], smear: [77, 0, 20, 22], eyeL: true, lc: L_COLD, lr: 24, la: 0.3, drink: 0.3 },
+    hnova: { sprite: 'hollownova', eyes: 'narrow', void: true, cold: true, wL: 'hvoid', wR: 'hvoid', ws: 1.35, fly: true, aura: [62, 20, 22, 0], auraR: 3.0, ghost: [22, 0, 78], smear: [77, 0, 20, 22], eyeL: true, lc: L_COLD, lr: 24, la: 0.3, drink: 0.3 },
     dawn: { sprite: 'dawnbreak', eyes: 'glow', void: true, wL: 'night', wR: 'light', fly: true, aura: [110, 141, 140, 22], aura2: [4, 6, 56, 57], auraR: 3, ghost: [22, 56, 141], smear: [141, 140, 22, 22, 139, 138, 138, 56], lc: L_GOLD, lr: 30, la: 0.2, ring: true },
   };
   // the sunrise ring behind Dawnbreak's head: a thin circle of first light, brightest at its top, with a few long rays
@@ -150,15 +189,16 @@
     const idle = 1 - clamp(p.sp / 220, 0, 1), spread = p.spread === undefined ? (FM.wL ? 1 : 0) : p.spread, winged = !!FM.wL && spread > 0.02;
     const wt = tt * 1.6, fa = p.flap === undefined ? 0.26 : p.flap, bob = (winged ? z5Bob(wt, S, fa) : Math.sin(tt * (FM.cold ? 1.4 : 2.3) + (FM.cold ? 2 : 0)) * 0.5 * S) * idle * (p.nobob ? 0 : 1);
     const x = vX(V, p.x) + jx, y = vY(V, p.y) + jy + bob, ang = p.ang, flip = !!p.flip;
-    const gl = p.glow === undefined ? 1 : p.glow;
+    const dmg = base.dmg ? base.dmg(T_NOW) : 0;
+    const gl = (p.glow === undefined ? 1 : p.glow) * (dmg > 0.35 && ih(fl(T_NOW * 30), 7, 7311) < dmg * 0.35 ? 0.35 : 1);
     if (FM.drink && !base.noLight) light(x, y, 46 * S, L_DARK, FM.drink * gl);
     if (FM.ring && !ink) h5SunRing(x - Math.sin(ang) * 3 * S, y - Math.cos(ang) * 3 * S, 15 * S * (p.ringR === undefined ? 1 : p.ringR), t, gl * (p.ring === undefined ? 1 : p.ring));
     if (winged) {
       const wl = p.wl === undefined ? 1 : p.wl, wr = p.wr === undefined ? 1 : p.wr, sL = ink ? (FM.void && form !== 'dawn' ? 'inkd' : 'ink') : FM.wL, sR = ink ? (FM.void && form !== 'dawn' ? 'inkd' : 'ink') : FM.wR;
-      h5Wings(x - Math.sin(ang) * 6 * S, y - Math.cos(ang) * 6 * S, S * 0.55 * (p.ws || 1), wt, spread, fa, flip ? sR : sL, flip ? sL : sR, ang, p.vx * z, p.vy * z, flip ? wr : wl, flip ? wl : wr);
+      h5Wings(x - Math.sin(ang) * 6 * S, y - Math.cos(ang) * 6 * S, S * 0.55 * (p.ws || 1) * (base.ws || FM.ws || 1), wt, spread, fa, flip ? sR : sL, flip ? sL : sR, ang, p.vx * z, p.vy * z, flip ? wr : wl, flip ? wl : wr);
     }
     const after = [];
-    if (p.sp > 280 && !p.noAfter) for (let k = 1; k <= 3; k++) { const a = h5Trk(keys, tt - k * 0.03); after.push([vX(V, a.x), vY(V, a.y), ink ? (FM.void ? 0 : 143) : FM.ghost[k - 1], 0.62 - k * 0.14]); }
+    if (p.sp > 280 && !p.noAfter && S < 5) for (let k = 1; k <= 3; k++) { const a = h5Trk(keys, tt - k * 0.03); after.push([vX(V, a.x), vY(V, a.y), ink ? (FM.void ? 0 : 143) : FM.ghost[k - 1], 0.62 - k * 0.14]); }
     const lvx = (p.svx * Math.cos(ang) + (p.vy || 0) * Math.sin(ang) * 0.3) * (flip ? -1 : 1), legSh = clamp(-lvx / (60 * (S / z)), -3, 3) + Math.sin(tt * 4.2) * 0.7 * idle * (FM.cold ? 0.3 : 1);
     let legs = [0, 1, 2, 3].map((k) => Math.max(0, Math.sin(tt * 6.5 + k * 1.6)) * 1.2 * idle * (FM.cold ? 0.25 : 1) + ((p.sq || 0) > 0.15 ? 1 : 0));
     if (p.run) { const s = Math.sin(tt * 30); legs = [Math.max(0, s) * 3, Math.max(0, -s) * 3, Math.max(0, -s) * 3, Math.max(0, s) * 3]; }
@@ -166,12 +206,14 @@
     if (p.legs) legs = p.legs;
     const hasSw = !p.nosw && typeof p.sw === 'number';
     const o = { who: 'hero', form: FM.sprite, eyes: p.eyes || FM.eyes, mouth: p.mouth, sword: hasSw ? p.sw : undefined, swordCols: FM.swc ? FM.swc(t) : undefined, swordSt: p.swst || FM.swst, swordLen: p.swl || FM.swl,
-      sq: (p.sq || 0) + Math.sin(tt * (FM.cold ? 1.9 : 3.1)) * 0.04 * idle, reach: (p.reach || 0), legs, legSh, fly: FM.fly, cracks: p.cr, arm2: p.arm2, armA: p.arm, maskChip: p.chip, eyeC: p.eyeC, eyeM: p.eyeM, mask: p.mask };
+      sq: (p.sq || 0) + Math.sin(tt * (FM.cold ? 1.9 : 3.1)) * 0.04 * idle, reach: (p.reach || 0), legs, legSh, fly: FM.fly, cracks: Math.max(p.cr || 0, form === 'nova' ? dmg : 0), arm2: p.arm2, armA: p.arm, maskChip: p.chip, eyeC: p.eyeC, eyeM: p.eyeM, mask: p.mask };
     if (ink) { o.outline = FM.void ? 0 : 0; o.swordOut = 0; }
     const res = actor(o, x, y, S, ang, flip, { still: true, after, st: p.st, sd: p.sd, white: p.white, alpha: p.alpha, clipY: p.clipY });
     if (FM.void || form === 'dawn') h5Void(t, ink && form !== 'dawn');
     if (ink) h5InkSprite();
     if (p.dim) h5Tint(T_DARK, p.dim);
+    if (base.halo !== undefined) z5Rim(0, 0, null, 0, base.halo);
+    if (dmg > 0.05 && !ink) h5Bleed(x, y, S, t, dmg, form === 'nova' ? [109, 105, 22] : [107, 103, 104]);
     if (base.rim && !ink) z5Rim(base.rim[0], base.rim[1], base.rim[2] === undefined ? FM.rimc : base.rim[2], Math.max(1, S * 0.9));
     const aur = p.aur === undefined ? 1 : p.aur;
     if (FM.aura && aur > 0.02 && !ink) aura(t, FM.aura2 && flip ? FM.aura2 : FM.aura, FM.auraR * S * aur, { sparks: 10, cols2: FM.aura2 ? (flip ? FM.aura : FM.aura2) : undefined, splitX: x });
