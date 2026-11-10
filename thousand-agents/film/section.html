@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>1000 Agents — one section</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #05040c; overflow: hidden; }
+  canvas { display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 100vw; max-height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="shared.js"></script>
+<script>
+  /* section.html?s=<slot>[&export][&t=T][&ss=N]: renders one section of the film in FILM time.
+     Without export or t it plays its span in a loop. */
+  (function () {
+    var Q = new URLSearchParams(location.search), slot = Q.get('s') || '07-ink-sketch';
+    var files = slot === '06-clay-3d' ? ['js/shaders.js', 'js/piece.js'] : ['js/piece.js'];
+    for (var i = 0; i < files.length; i++) document.write('<script src="styles/' + slot + '/' + files[i] + '"><\/script>');
+  })();
+</script>
+<script>
+  (function () {
+    'use strict';
+    var Q = new URLSearchParams(location.search), slot = Q.get('s') || '07-ink-sketch';
+    var cv = document.getElementById('c');
+    var opts = { ss: Q.has('ss') ? parseFloat(Q.get('ss')) : null, export: Q.has('export'), scale: Q.has('scale') ? parseFloat(Q.get('scale')) : 1 };
+    var inst = FILM.factories[slot](cv, opts);
+    var g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height;
+    var gx = g.getContext('2d', { willReadFrequently: true });
+    window.__piece = {
+      slot: slot, span: FILM.span(slot),
+      renderAt: function (T) { inst.renderAt(T); },
+      isReady: function () { return inst.isReady(); },
+      // raw RGBA of the last frame, base64 (top-down)
+      grab: function () {
+        gx.globalCompositeOperation = 'copy'; gx.drawImage(cv, 0, 0);
+        var d = gx.getImageData(0, 0, g.width, g.height).data, s = '', CH = 0x8000;
+        for (var i = 0; i < d.length; i += CH) s += String.fromCharCode.apply(null, d.subarray(i, i + CH));
+        return btoa(s);
+      },
+      info: inst.info || null,
+    };
+    if (Q.has('export')) return;
+    var sp = FILM.span(slot);
+    if (Q.has('t')) { inst.renderAt(parseFloat(Q.get('t'))); return; }
+    var t0 = null;
+    function tick(now) { if (t0 === null) t0 = now; var T = sp[0] + ((now - t0) / 1000) % (sp[1] - sp[0]); inst.renderAt(Math.floor(T * 30) / 30); requestAnimationFrame(tick); }
+    requestAnimationFrame(tick);
+  })();
+</script>
+</body>
+</html>
