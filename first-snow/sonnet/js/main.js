@@ -63,9 +63,10 @@ async function main() {
       y0: CAM.YH - 4, scaleY: (dy) => clamp(0.18 + 1.0 * (dy - CAM.YH) / (1350 - CAM.YH), 0.16, 1.2), flow: groundFlow,
       lenF: [0, 0, 6, 0, 0], tol: [0, 0, 0.16, 0, 0], layerRange: { 2: [0, 4] }, errT: [0, 0.06, 0.07, 0.08, 0.09],
       style: (rg, l, lum) => ({ thick: 0.75 + 2.2 * smooth(0.42, 0.85, lum), streak: 0.5, dry: 0.22, pick: 0.05, alpha: 0.96, cj: 0.03, mix: 0.5, useC2: true }),
-      vj: 0.06, tj: 0.05, accent: 0.16, accentCols: [[0.6, 0.45, 0.65], [0.32, 0.5, 0.68], [0.55, 0.5, 0.66], [0.7, 0.6, 0.74]], log: true,
+      vj: 0.08, tj: 0.05, accent: 0.18, accentCols: [[0.6, 0.45, 0.65], [0.32, 0.5, 0.68], [0.55, 0.5, 0.66], [0.7, 0.6, 0.74]], log: true,
     }));
     LOG('ground done');
+    paintGroundScumble();
     for (const t of trees) { if (t.Z > HOUSE.Z) { await paintTree(t); } }
     LOG('far trees done');
     // house

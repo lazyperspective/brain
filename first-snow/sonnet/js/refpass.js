@@ -45,7 +45,7 @@ async function refPass(ref, rd, cfg) {
       if (!(cfg.allowReg & (1 << rg))) continue;
       const lr = cfg.layerRange[rg];
       if (!lr || l < lr[0] || l > lr[1]) continue;
-      const w = wl * scl * (cfg.regScale ? cfg.regScale[rg] || 1 : 1);
+      const w = wl * scl * (cfg.regScale ? cfg.regScale[rg] || 1 : 1) * rng.range(0.72, 1.35);
       if (w < 1.2 * K) continue;
       // error test
       if (l > cfg.firstLayer) {
@@ -63,7 +63,7 @@ async function refPass(ref, rd, cfg) {
       // trace the path both ways
       const st = cfg.style(rg, l, 0);
       const ds = Math.max(2, w * 0.5);
-      const maxSteps = Math.max(2, Math.round((w * cfg.lenF[rg]) / ds));
+      const maxSteps = Math.max(2, Math.round((w * cfg.lenF[rg] * rng.range(0.6, 1.4)) / ds));
       const c0r = BR[iy * W + ix], c0g = BG[iy * W + ix], c0b = BB[iy * W + ix];
       const tol = cfg.tol[rg];
       const trace = (dir0) => {

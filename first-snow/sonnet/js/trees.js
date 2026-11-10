@@ -205,7 +205,7 @@ async function paintTree(t, ctxo) {
       i = j + rng.int(0, w > 8 * KK * 0.5 ? 1 : 4);
     }
     // snow caught in forks
-    if (p.order >= 1 && p.order <= 3 && rng.next() < 0.55) {
+    if (p.order >= 1 && p.order <= 3 && rng.next() < 0.3) {
       const w0 = Math.min(p.w[0], 34 * KK * 0.5);
       if (w0 > 2.2 * KK * 0.5 && inCanvas(p.px, 1, 40)) {
         const a0 = rng.range(-0.35, 0.35), L0 = Math.max(3, w0 * 2.4);
@@ -617,5 +617,23 @@ function paintSkyScumble() {
     const L = rng.range(240, 700) * KK * 0.5, a = rng.range(-0.08, 0.08);
     const pts = [x, y, x + Math.cos(a) * L * 0.5, y + Math.sin(a) * L * 0.5 + rng.range(-8, 8), x + Math.cos(a) * L, y + Math.sin(a) * L];
     stroke(pts, { w: rng.range(30, 90) * KK * 0.5, color: c, color2: [c[0] * 0.9, c[1] * 0.9, c[2]], mix: 0.4, alpha: rng.range(0.28, 0.55), streak: 0.85, dry: 0.75, thick: 0.9, pick: 0.1, cj: 0.03, clip, rng });
+  }
+}
+
+
+// ---------- dry-brush scumbles over the snow: broken, toothy marks that break up the sweeps and add relief ----------
+function paintGroundScumble() {
+  const rng = new RNG(99991);
+  const rd = window.__rd;
+  const clip = { map: rd.reg, allow: 1 << REG.GROUND };
+  const yTop = CAM.YH * KK + 8;
+  // tiny crystalline specks lying on the surface
+  for (let i = 0; i < 1300; i++) {
+    const v = Math.pow(rng.next(), 0.6);
+    const y = yTop + v * (H - yTop), x = rng.range(0, W);
+    const dd = (y / KK - CAM.YH) / (1350 - CAM.YH);
+    const r = (0.7 + 1.6 * dd) * KK * 0.5 * rng.range(0.7, 1.3);
+    const cold = rng.next() < 0.7;
+    dab(x, y, r, cold ? c255(176, 188, 240) : c255(70, 70, 140), { alpha: cold ? 0.45 : 0.4, thick: 0.1, hard: 0.5, ex: 1.5, ang: rng.range(0, 3.14), rng, grain: 0.3, clip });
   }
 }
