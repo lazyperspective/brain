@@ -308,9 +308,9 @@
     // folder
     const glow = sstep(T_OPEN - 0.02, T_OPEN + 0.4, t);
     const pulse = glow * (1 + 0.06 * Math.sin((t - T_OPEN) * 9));
-    const warmCol = [lerp(C.vdeep[0], 1.0, glow), lerp(C.vdeep[1], 0.72, glow), lerp(C.vdeep[2], 0.46, glow)];
+    const warmCol = [lerp(C.vdeep[0], 1.0, glow), lerp(C.vdeep[1], 0.60, glow), lerp(C.vdeep[2], 0.30, glow)];
     const fcol = C.violet.map((c, i) => lerp(c, C.vdim[i], 0.62)), ftrim = C.violet.map((c, i) => lerp(c, C.lilac[i], 0.55));
-    FB.pal = [null, [...fcol, 0], [...ftrim, 0], [...warmCol, 2.3 * pulse, 0.05]];
+    FB.pal = [null, [...fcol, 0], [...ftrim, 0], [...warmCol, 1.05 * pulse, 0.05]];
     FF.pal = [null, [...fcol.map((c) => c * 1.18), 0], [...ftrim, 0]];
     const FM = mChain(mRotY(FOLD_YAW));
     drawFolderPart(FB, FBfull, FM, t, 3, true);
@@ -431,7 +431,7 @@
     void main(){
       vec3 N = normalize(vN); float ao = vM.x, e = vM.y; vec3 alb = vC;
       bool isFloor = e < -0.5;
-      float pool = 1. - smoothstep(30., 150., length(vP.xz - vec2(-8., 2.)));
+      float pool = 1. - smoothstep(22., 132., length(vP.xz - vec2(-8., 2.)));
       float gloss = 0.;
       if (isFloor) {
         vec2 q = vP.xz/4.; vec2 id = floor(q), f = fract(q);
@@ -439,7 +439,7 @@
         float d = min(min(f.x,1.-f.x), min(f.y,1.-f.y));
         float groove = mix(smoothstep(0.0, 0.035+w, d), 0.9, clamp(w*4.,0.,1.));
         float var = mix(h1(id), 0.5, clamp(w*3.,0.,1.));
-        alb = vec3(0.0150, 0.0105, 0.0460)*(0.74+0.52*var)*mix(0.45, 1., groove);
+        alb = vec3(0.0132, 0.0092, 0.0420)*(0.74+0.52*var)*mix(0.45, 1., groove);
         ao = boxAO(vP.xz, uHero, uHeroB, 0.74) * boxAO(vP.xz, vec4(uFold.xy, uFold.z, uFold.w), vec3(12.5, 3.6, 0.), 0.72);
         e = 0.;
       } else {

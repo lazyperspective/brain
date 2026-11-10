@@ -419,11 +419,13 @@ function render(t) {
     const g = clamp(open, 0, 1.1), cx = MOUTH[0], cyy = MOUTH[1];
     const gg = clamp(g, 0, 1);
     // soft bloom first (blurred), then two loose plumes of wash with tide lines, then the hot mouth
-    const K = 14; sx2.setTransform(1 / K, 0, 0, 1 / K, 0, 0); sx2.clearRect(0, 0, W, H);
-    blob(sx2, ellipsePts(cx + 4, cyy - 130 * g, 250 * g, 300 * g, 20), 150 + bw, 20, 200, C.shade, 0.5 * gg);
-    blob(sx2, ellipsePts(cx, cyy - 50 * g, 150 * g, 150 * g, 16), 151 + bw, 10, 200, C.coral, 0.6 * gg);
-    blob(sx2, ellipsePts(cx, fy - 14, 95, 40 * g, 14), 159 + bw, 4, 60, C.hot, 0.8 * gg);
-    lx.imageSmoothingQuality = 'high'; lx.drawImage(small, 0, 0, Math.ceil(W / K), Math.ceil(H / K), 0, 0, Math.ceil(W / K) * K, Math.ceil(H / K) * K);
+    const glow = (x, y, rx, ry, col, al) => { if (rx < 1 || ry < 1) return; lx.save(); lx.translate(x, y); lx.scale(rx, ry);
+      const gr = lx.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, col); gr.addColorStop(0.45, col + '99'); gr.addColorStop(1, col + '00');
+      lx.globalAlpha = al; lx.fillStyle = gr; lx.beginPath(); lx.arc(0, 0, 1, 0, TAU); lx.fill(); lx.restore(); };
+    const wv = 1 + 0.02 * Math.sin(t * 6);
+    glow(cx + 4, cyy - 130 * g, 330 * g * wv, 380 * g * wv, C.shade, 0.6 * gg);
+    glow(cx, cyy - 50 * g, 215 * g, 215 * g, C.coral, 0.62 * gg);
+    glow(cx, fy - 14, 130, 62 * g, C.hot, 0.85 * gg);
     const P1 = ellipsePts(cx + 14, cyy - 150 * g, 205 * g, 265 * g, 26), P2 = ellipsePts(cx - 6, cyy - 62 * g, 118 * g, 132 * g, 20);
     blob(lx, P1, 152 + bw, 34 * g, 170, C.shade, 0.2 * gg); rim(lx, P1, 152 + bw, 34 * g, 170, C.light, 0.16, 5);
     blob(lx, P2, 154 + bw, 20 * g, 120, C.coral, 0.26 * gg); rim(lx, P2, 154 + bw, 20 * g, 120, C.hot, 0.2, 4);
