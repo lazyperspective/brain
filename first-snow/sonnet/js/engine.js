@@ -114,7 +114,11 @@ function stroke(pts, o) {
     if (!noProfile) {
       const land = smooth(0, 0.07, t);
       const lift = smooth(0.78, 1.0, t);
-      wd *= (0.62 + 0.38 * land) * (1 - 0.35 * lift);
+      const rc = Math.max(1.5, 0.42 * wd);
+      const sF = s, sT = L - s;
+      const capS = sF < rc ? Math.sqrt(Math.max(0, 1 - Math.pow(1 - sF / rc, 2))) : 1;
+      const capE = sT < rc ? Math.sqrt(Math.max(0, 1 - Math.pow(1 - sT / rc, 2))) : 1;
+      wd *= Math.max(0.3, capS * capE) * (1 - 0.2 * lift);
       press = (0.55 + 0.45 * land) * (1 - 0.5 * lift);
     }
     const wob = 0.9 + 0.1 * Math.sin(s * 0.043 + phase);

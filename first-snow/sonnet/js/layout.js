@@ -14,13 +14,13 @@ function buildTrees(seed) {
   const trees = [];
   const add = (X, Z, o) => trees.push(Object.assign({ X, Z, seed: r.int(1, 1e9) }, o));
   // hero trees that frame the picture
-  add(-2.75, 3.9, { hero: 1, trunkH: 1.25, spread: 2.6, lean: 0.10, leanAz: 2.6, apples: 9 });
+  add(-2.75, 3.9, { hero: 1, trunkH: 1.25, spread: 2.6, lean: 0.10, leanAz: 2.6, apples: 6 });
   add(3.35, 6.3, { hero: 2, trunkH: 1.05, spread: 2.45, lean: 0.14, leanAz: 0.4, apples: 6 });
   // inner rows beside the aisle
   let z = 9.0;
-  while (z < 44) { add((z > 25 ? -4.3 : -3.45) + r.range(-0.3, 0.3), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(0, 3) : 0, spread: z > 25 ? 1.7 : undefined }); z += r.range(4.3, 5.0); }
+  while (z < 44) { add((z > 25 ? -4.3 : -3.45) + r.range(-0.3, 0.3), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(1, 3) : 0, spread: z > 25 ? 1.7 : undefined }); z += r.range(4.3, 5.0); }
   z = 10.6;
-  while (z < 34.5) { add((z > 25 ? 4.4 : 3.55) + r.range(-0.3, 0.3), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(0, 3) : 0, spread: z > 25 ? 1.7 : undefined }); z += r.range(4.3, 5.0); }
+  while (z < 34.5) { add((z > 25 ? 4.4 : 3.55) + r.range(-0.3, 0.3), z + r.range(-0.5, 0.5), { apples: z < 22 ? r.int(1, 3) : 0, spread: z > 25 ? 1.7 : undefined }); z += r.range(4.3, 5.0); }
   z = 49;
   while (z < 110) { add(-3.4 + r.range(-0.3, 0.3), z + r.range(-0.8, 0.8), {}); add(3.5 + r.range(-0.3, 0.3), z + 3 + r.range(-0.8, 0.8), {}); z += r.range(5, 6.4); }
   // outer rows

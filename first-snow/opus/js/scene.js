@@ -165,7 +165,7 @@ function buildScene(W, H, seed) {
       const sx = cam.cx + cam.f * X / Z;
       const ppm = cam.f / Z;
       if (sx < -3.4 * ppm || sx > W + 3.4 * ppm) continue;
-      if (Z < 8.5 && off < 0) continue;   // hero stands here
+      if (Z < 8.0 && off < 0) continue;   // hero stands here
       if (Z < 9.5 && off > 0) continue;
       // keep the window clear
       const crownY = proj(X, 2.9, Z)[1];
@@ -174,7 +174,7 @@ function buildScene(W, H, seed) {
       trees.push({ X, Z, hero: false, sc: 0.85 + 0.3 * rng() });
     }
   }
-  trees.push({ X: -2.05, Z: 5.4, hero: true, sc: 1 });
+  trees.push({ X: -1.75, Z: 4.4, hero: true, sc: 1 });
 
   for (const T of trees) {
     const ppm = cam.f / T.Z;
@@ -189,7 +189,7 @@ function buildScene(W, H, seed) {
           { a: 2.35, len: 2.6, r: 0.11 },
           { a: 1.85, len: 3.2, r: 0.105 },
           { a: 1.3, len: 3.5, r: 0.1 },
-          { a: 2.9, len: 1.5, r: 0.07 },
+          { a: 2.55, len: 1.5, r: 0.07 },
           { a: 0.8, len: 1.4, r: 0.06 },
         ],
       };
@@ -269,9 +269,9 @@ function buildScene(W, H, seed) {
   }
 
   // tall dried weeds in the near foreground (goldenrod / wild carrot stalks)
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 22; i++) {
     const Z = 3.7 + 3.5 * rng();
-    const sx = rng() < 0.75 ? W * (0.62 + 0.4 * rng()) : W * (0.3 + 0.2 * rng());
+    const sx = rng() < 0.65 ? W * (0.62 + 0.4 * rng()) : W * (0.12 + 0.3 * rng());
     const X = (sx - cam.cx) * Z / cam.f;
     if (Math.abs(X - pathX(Z)) < 0.7) continue;
     const g = { X, Z, stalks: [] };
@@ -323,9 +323,12 @@ function buildScene(W, H, seed) {
     else c = mixc(c2, c3, smooth(0.82, 1.0, t));
     const g = Math.exp(-Math.pow((x / W - 0.18) / 0.38, 2)) * Math.pow(smooth(0.5, 1.0, t), 2);
     c[0] += 0.07 * g; c[1] += 0.04 * g; c[2] += 0.035 * g;
-    const n = fbm(x / (650 * S), y / (200 * S), 4, seed + 1);
+    const gr = Math.exp(-Math.pow((x / W - 0.85) / 0.3, 2)) * Math.pow(smooth(0.6, 1.0, t), 2);
+    c[0] -= 0.025 * gr; c[1] += 0.02 * gr; c[2] -= 0.02 * gr;
+    const n = fbm(x / (750 * S) + 0.3 * fbm(x / (400 * S), y / (300 * S), 2, seed + 7), y / (170 * S), 5, seed + 1);
     const n2 = fbm(x / (300 * S) + 5, y / (150 * S), 3, seed + 2);
-    const m = 0.88 + 0.24 * n;
+    const bank = smooth(0.42, 0.62, n) * (1 - smooth(0.6, 0.95, t));
+    const m = 0.84 + 0.3 * n + 0.1 * bank;
     c[0] *= m; c[1] *= m; c[2] *= m + 0.03 * (n2 - 0.5);
     c[0] += 0.03 * (n2 - 0.5);
     const n3 = fbm(x / (110 * S), y / (40 * S), 2, seed + 4) - 0.5;
@@ -363,6 +366,25 @@ function buildScene(W, H, seed) {
     return I;
   };
 
+  const crests = [
+    { y0: 1990, A: 45, lam: 300, ph: 0.4, D: 110, x0: 700, x1: 1900 },
+    { y0: 2300, A: 60, lam: 380, ph: 2.1, D: 150, x0: 150, x1: 1250 },
+    { y0: 2520, A: 55, lam: 330, ph: 4.0, D: 160, x0: 1150, x1: 2160 },
+  ].map(c => ({ ...c, y0: c.y0 * S, A: c.A * S, lam: c.lam * S, D: c.D * S, x0: c.x0 * S, x1: c.x1 * S }));
+  const crestAt = (x, y) => {
+    let shade = 0;
+    for (const c of crests) {
+      const fade = smooth(c.x0, c.x0 + 260 * S, x) * (1 - smooth(c.x1 - 260 * S, c.x1, x));
+      if (fade <= 0) continue;
+      const cy = c.y0 + c.A * Math.sin(x / c.lam + c.ph) + 0.5 * c.A * Math.sin(x / (c.lam * 0.43) + c.ph * 2) + 18 * S * (fbm(x / (60 * S), c.ph, 2, seed + 51) - 0.5);
+      const d = y - cy;
+      if (d > 0 && d < c.D) shade -= fade * 0.24 * Math.pow(1 - d / c.D, 1.6);
+      else if (d <= 0 && d > -50 * S) shade += fade * 0.16 * (1 + d / (50 * S));
+    }
+    return shade;
+  };
+  const shD = [0.42 / Math.hypot(0.42, 1), -1 / Math.hypot(0.42, 1)];
+  const nearTrees = trees.filter(t => t.Z < 22).map(t => ({ X: t.X, Z: t.Z, r: t.hero ? 0.22 : 0.15, k: t.hero ? 0.7 : 0.45 }));
   const ridge = new Float32Array(W);
   for (let x = 0; x < W; x++) ridge[x] = cam.yh - S * (14 + 46 * fbm(x / (800 * S), 1.7, 3, seed + 9));
 
@@ -425,7 +447,7 @@ function buildScene(W, H, seed) {
         const L = [-0.45, 0.75, 0.48];
         const dif = nx * L[0] + ny * L[1] + nz * L[2];
         const sh = 0.5 + 0.6 * dif;
-        const near = [0.25, 0.31, 0.57], far = [0.52, 0.55, 0.73];
+        const near = [0.27, 0.33, 0.51], far = [0.52, 0.55, 0.71];
         let c = mixc(near, far, ff);
         c = [c[0] * sh, c[1] * sh, c[2] * sh];
         // horizon glow catch on far snow
@@ -434,10 +456,26 @@ function buildScene(W, H, seed) {
         // foreground deepens toward the bottom edge
         const fg = smooth(16, 3.6, z);
         c = [c[0] * (1 - 0.3 * fg) + 0.015 * fg, c[1] * (1 - 0.33 * fg), c[2] * (1 - 0.2 * fg)];
+        {
+          const cs = crestAt(x, y);
+          if (cs !== 0) c = cs < 0 ? [c[0] * (1 + cs * 0.9), c[1] * (1 + cs), c[2] * (1 + cs * 0.55)] : [c[0] * (1 + cs), c[1] * (1 + cs), c[2] * (1 + cs * 0.7)];
+        }
+        {
+          let sh2 = 0;
+          for (const T of nearTrees) {
+            const px = X - T.X, pz = z - T.Z;
+            const along = px * shD[0] + pz * shD[1];
+            if (along <= 0 || along > 10) continue;
+            const perp = Math.abs(-px * shD[1] + pz * shD[0]);
+            const wd = T.r * 1.3 + along * 0.09;
+            sh2 = Math.max(sh2, T.k * Math.exp(-((perp / wd) ** 2)) * (1 - along / 10) ** 1.3 * smooth(0, 0.6, along));
+          }
+          if (sh2 > 0.002) c = [c[0] * (1 - 0.32 * sh2), c[1] * (1 - 0.3 * sh2), c[2] * (1 - 0.17 * sh2)];
+        }
         // trodden path: slightly darker, rougher
         if (trough > 0.05) {
           const rough = vnoise(X / 0.18, z / 0.3, seed + 24);
-          const k = trough * (0.1 + 0.08 * rough);
+          const k = trough * (0.05 + 0.08 * rough) * (0.4 + 0.6 * smooth(4, 14, z));
           c = [c[0] * (1 - k), c[1] * (1 - k), c[2] * (1 - k * 0.6)];
         }
         // warm spill
@@ -455,7 +493,7 @@ function buildScene(W, H, seed) {
         put(i, c);
         const lum = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
         let ang = (fbm(x / (300 * S), y / (90 * S), 2, seed + 25) - 0.5) * 0.45;
-        if (trough > 0.4) {
+        if (trough > 0.4 && z > 10) {
           const z2 = z + 1; const p1 = proj(pathX(z), 0, z), p2 = proj(pathX(z2), 0, z2);
           ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
         }
@@ -557,22 +595,22 @@ function buildScene(W, H, seed) {
     const r = ap.r, k = fogT(ap.Z);
     const f = (c) => mixc(c, HAZE, k * 0.8);
     line2(ap.ax, ap.ay, ap.x + r * 0.1, ap.y - r * 0.85, Math.max(1, r * 0.13), f([0.12, 0.08, 0.07]), 1, 0);
-    ellipse2(ap.x, ap.y, r, r * 0.93, f([0.34, 0.035, 0.06]), 1, Math.PI / 2, 0.3);
+    ellipse2(ap.x, ap.y, r, r * 0.93, f([0.30, 0.045, 0.06]), 1, Math.PI / 2, 0.3);
     ellipse2(ap.x + r * 0.22, ap.y + r * 0.2, r * 0.72, r * 0.65, f([0.22, 0.02, 0.06]), 0.8, null);
-    ellipse2(ap.x - r * 0.25, ap.y - r * 0.28, r * 0.55, r * 0.42, f([0.52, 0.09, 0.11]), 0.8, null);
-    ellipse2(ap.x - r * 0.38, ap.y - r * 0.45, r * 0.22, r * 0.16, f([0.70, 0.52, 0.66]), 0.8, null);
+    ellipse2(ap.x - r * 0.25, ap.y - r * 0.28, r * 0.55, r * 0.42, f([0.44, 0.08, 0.09]), 0.8, null);
+    ellipse2(ap.x - r * 0.38, ap.y - r * 0.45, r * 0.18, r * 0.13, f([0.50, 0.38, 0.52]), 0.7, null);
     if (ap.snow) ellipse2(ap.x - r * 0.05, ap.y - r * 0.82, r * 0.55, r * 0.22, f([0.82, 0.85, 0.97]), 1, 0, 1);
   }
 
   function drawGrass(g) {
     const ppm = cam.f / g.Z;
     const b = proj(g.X, 0, g.Z);
-    const base = fogc([0.30, 0.22, 0.17], g.Z), light = fogc([0.58, 0.46, 0.32], g.Z);
+    const base = fogc([0.22, 0.17, 0.15], g.Z), light = fogc([0.40, 0.33, 0.27], g.Z);
     for (const st of g.stalks) {
       const x0 = b[0] + st.dx * ppm, y0 = b[1] + 0.01 * ppm;
       const hpx = st.h * ppm;
       let x = x0, y = y0, a = -Math.PI / 2 + st.lean;
-      const n = 6, w = Math.max(0.6, 0.0045 * ppm);
+      const n = 6, w = Math.max(0.6, (st.tall ? 0.0065 : 0.0045) * ppm);
       st.pts = [[x, y]]; st.w = w; st.col = st.light ? light : base; st.Z = g.Z;
       for (let i = 0; i < n; i++) {
         a += st.curve / n;
@@ -583,13 +621,16 @@ function buildScene(W, H, seed) {
       st.tipx = x; st.tipy = y;
       if (st.tall) {
         // a little umbel of dried rays, cupped, with snow sitting in it
-        const nr = 5 + Math.floor(hash2(x | 0, y | 0, 5) * 5);
-        const hr = 0.05 * ppm;
+        const hs = (k) => hash2((x * 7) | 0, (y * 3 + k * 13) | 0, 5);
+        const nr = 3 + Math.floor(hs(0) * 5);
+        const hr = (0.025 + 0.035 * hs(1)) * ppm;
+        const tilt = (hs(2) - 0.5) * 0.9, spread = 1.2 + 1.2 * hs(3);
         for (let k = 0; k < nr; k++) {
-          const aa = -Math.PI / 2 + (k / (nr - 1) - 0.5) * 2.2;
-          const ex = x + Math.cos(aa) * hr, ey = y + Math.sin(aa) * hr * 0.8 - hr * 0.3;
-          line2(x, y, ex, ey, Math.max(0.7, w * 0.5), base, 1, 0.1);
-          ellipse2(ex, ey, w * 0.9, w * 0.9, fogc([0.16, 0.11, 0.10], g.Z), 1, null);
+          const aa = -Math.PI / 2 + tilt + (k / Math.max(1, nr - 1) - 0.5) * spread + (hs(k + 4) - 0.5) * 0.4;
+          const L = hr * (0.5 + 0.7 * hs(k + 20));
+          const ex = x + Math.cos(aa) * L, ey = y + Math.sin(aa) * L * 0.8;
+          line2(x, y, ex, ey, Math.max(0.7, w * 0.45), base, 0.9, 0.1);
+          if (hs(k + 40) < 0.6) ellipse2(ex, ey, w * (0.5 + 0.6 * hs(k + 50)), w * (0.6 + 0.6 * hs(k + 60)), fogc([0.15, 0.11, 0.10], g.Z), 0.9, null);
         }
         if (st.snow && hash2(x | 0, y | 0, 9) < 0.45) ellipse2(x + (hash2(x | 0, 1, 9) - 0.5) * hr * 0.4, y - hr * 0.55, hr * (0.35 + 0.25 * hash2(x | 0, 2, 9)), hr * 0.2, fogc([0.74, 0.77, 0.92], g.Z, 0.5), 0.95, 0, 1);
         st.head = { x, y, hr };
@@ -741,7 +782,7 @@ function buildScene(W, H, seed) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const x = window_.x, y = window_.y;
     let g = ctx.createRadialGradient(x, y, window_.w * 0.3, x, y, 520 * S);
-    g.addColorStop(0, 'rgba(255,150,70,0.20)'); g.addColorStop(0.3, 'rgba(200,100,60,0.06)'); g.addColorStop(1, 'rgba(120,70,80,0)');
+    g.addColorStop(0, 'rgba(255,150,70,0.26)'); g.addColorStop(0.3, 'rgba(200,100,60,0.08)'); g.addColorStop(1, 'rgba(120,70,80,0)');
     ctx.fillStyle = g; ctx.fillRect(x - 520 * S, y - 520 * S, 1040 * S, 1040 * S);
     g = ctx.createRadialGradient(x, y, window_.w * 0.2, x, y, 120 * S);
     g.addColorStop(0, 'rgba(255,170,90,0.42)'); g.addColorStop(0.45, 'rgba(255,120,50,0.12)'); g.addColorStop(1, 'rgba(255,110,40,0)');
@@ -784,7 +825,7 @@ function buildScene(W, H, seed) {
         const p = proj(X, 0, ZZ), ppm = cam.f / ZZ, fsh = cam.e / ZZ;
         const gi = (Math.min(H - 1, Math.round(p[1])) * W + Math.round(clamp(p[0], 0, W - 1))) * 4;
         const g = [D[gi] / 255, D[gi + 1] / 255, D[gi + 2] / 255];
-        const al = 0.25 + 0.4 * fill;
+        const al = Math.min(1, (0.38 + 0.42 * fill) * (1 + smooth(14, 4, ZZ) * 0.4));
         const wob = (fr() - 0.5) * 0.3;
         ellipse2(p[0] + wob * 0.03 * ppm, p[1] - 0.12 * ppm * fsh, 0.06 * ppm, 0.035 * ppm * fsh, [g[0] * 1.12, g[1] * 1.12, g[2] * 1.06], al * 0.9, 0, 0.8);
         ellipse2(p[0], p[1], 0.055 * ppm, 0.13 * ppm * fsh, [g[0] * 0.78, g[1] * 0.8, g[2] * 0.9], al, 0, 0.2);
@@ -802,5 +843,6 @@ function buildScene(W, H, seed) {
     tgt[i * 3] = cd[i * 4] / 255; tgt[i * 3 + 1] = cd[i * 4 + 1] / 255; tgt[i * 3 + 2] = cd[i * 4 + 2] / 255;
     aux[i * 3] = (ad[i * 4] - 128) / 127; aux[i * 3 + 1] = (ad[i * 4 + 1] - 128) / 127; aux[i * 3 + 2] = ad[i * 4 + 2] / 255;
   }
-  return { W, H, S, cam, proj, tgt, aux, trees, apples, grasses, window: window_, smoke, house, fallen, sceneCanvas: cC, posts };
+  const crestY = (c, x) => c.y0 + c.A * Math.sin(x / c.lam + c.ph) + 0.5 * c.A * Math.sin(x / (c.lam * 0.43) + c.ph * 2) + 18 * S * (fbm(x / (60 * S), c.ph, 2, seed + 51) - 0.5);
+  return { crests, crestY, W, H, S, cam, proj, tgt, aux, trees, apples, grasses, window: window_, smoke, house, fallen, sceneCanvas: cC, posts };
 }

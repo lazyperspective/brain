@@ -9,7 +9,7 @@ const path = require('path');
   const browser = await chromium.launch();
   const page = await browser.newPage();
   page.on('console', (m) => console.log('page:', m.text()));
-  page.on('pageerror', (e) => console.log('PAGE ERROR:', e.message));
+  page.on('pageerror', (e) => { console.log('PAGE ERROR:', e.message); process.exit(1); });
   await page.goto('file://' + path.resolve(__dirname, 'index.html') + '?scale=' + scale, { timeout: 0 });
   await page.waitForFunction(() => window.__done === true, null, { timeout: 0, polling: 1000 });
   const png = await page.evaluate(() => document.getElementById('c').toDataURL('image/png'));

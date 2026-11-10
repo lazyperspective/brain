@@ -126,6 +126,7 @@ async function refPass(ref, rd, cfg) {
       // painterly colour variation: value + temperature
       const vj = rng.gauss() * (cfg.vj || 0.03), tj = rng.gauss() * (cfg.tj || 0.02);
       col = [col[0] * (1 + vj) + tj, col[1] * (1 + vj), col[2] * (1 + vj) - tj];
+      if (cfg.accent && rng.next() < cfg.accent) { const ac = cfg.accentCols[Math.floor(rng.next() * cfg.accentCols.length)]; const am = rng.range(0.12, 0.3); col = [col[0] + (ac[0] - col[0]) * am, col[1] + (ac[1] - col[1]) * am, col[2] + (ac[2] - col[2]) * am]; }
       const col2 = ce[0] !== cs[0] ? [(ce[0] + cm[0]) / 2 + tj * 0.5, (ce[1] + cm[1]) / 2, (ce[2] + cm[2]) / 2 - tj * 0.5] : null;
       const so = cfg.style(rg, l, lum);
       const clip = cfg.clipAllow ? { map: reg, allow: cfg.clipAllow } : null;

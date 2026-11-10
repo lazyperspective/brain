@@ -49,7 +49,7 @@ function inCanvas(arr, n, m) {
 async function paintTree(t, ctxo) {
   const rng = new RNG(t.seed ^ 0x5bd1e995);
   const B = genTree(t);
-  const hz = hazeAmt(t.Z);
+  const hz = hazeAmt(t.Z) * 0.78;
   const near = t.Z < 16;
   const woodBase = [c255(30, 21, 40), c255(40, 27, 42), c255(24, 17, 36)];
   if (t.Z > 5 && t.Z < 80) paintShadows(t, B, rng);
@@ -119,8 +119,9 @@ async function paintTree(t, ctxo) {
         const side = ((wp[0] - p.px[2 * mi]) * nrm.nx[mi] + (wp[1] - p.px[2 * mi + 1]) * nrm.ny[mi]) > 0 ? 1 : -1;
         const sg = new Array(p.n).fill(side);
         const pts = offsetPath(p.px, p.w, nrm, 0.62, p.n, 0, p.n - 1, sg);
-        const ww = p.w.map(v => Math.max(1.0, v * 0.17));
-        stroke(pts, { widths: ww, color: c255(226, 150, 96), color2: c255(190, 104, 96), mix: 0.35, alpha: Math.min(0.5, 0.7 * wk), streak: 0.4, dry: 0.3, thick: 0.3, pick: 0.0, cj: 0.03, rng });
+        const wf0 = p.order === 0 ? 0.0 : 0.17;
+        if (wf0 > 0) { const ww = p.w.map(v => Math.max(1.0, v * wf0));
+        stroke(pts, { widths: ww, color: c255(226, 150, 96), color2: c255(190, 104, 96), mix: 0.35, alpha: Math.min(0.5, 0.7 * wk), streak: 0.4, dry: 0.3, thick: 0.3, pick: 0.0, cj: 0.03, rng }); }
       }
     }
     // register for snow
@@ -153,8 +154,9 @@ async function paintTree(t, ctxo) {
     let i = 0;
     while (i < m - 3) {
       const w = ww[i];
-      if (acc[i] < 0.3 || rng.next() > 0.3 + 0.7 * acc[i]) { i += rng.int(1, 3); continue; }
-      const runLen = clamp(Math.round(rng.range(2.5, 9) * Math.max(w, 5 * KK * 0.5) / step), 4, 60);
+      if (acc[i] < 0.3 || rng.next() > (acc[i] > 0.75 && w > 6 * KK * 0.5 ? 0.97 : 0.3 + 0.7 * acc[i])) { i += rng.int(1, 3); continue; }
+      const thickBoost = w > 8 * KK * 0.5 ? 2.2 : 1;
+      const runLen = clamp(Math.round(rng.range(2.5, 9) * thickBoost * Math.max(w, 5 * KK * 0.5) / step), 4, 90);
       let j = i + 1;
       while (j < m - 1 && acc[j] > 0.3 && (j - i) < runLen) j++;
       if (j - i >= 3) {
@@ -178,14 +180,14 @@ async function paintTree(t, ctxo) {
         const c1 = mixc(tone < 0.6 ? snowLit : snowMid, WS, wk * 0.55);
         stroke(pts, { widths: wd, color: c1, color2: mixc(tone < 0.6 ? snowMid : snowShade, c255(214, 130, 120), wk * 0.4), mix: 0.3, alpha: 0.98, streak: 0.32, dry: 0.08, thick: th * (0.6 + 0.8 * acc[i]), pick: 0.0, cj: 0.03, rng });
         // sculpted snow mass: shadowed underside, bright crown
-        if (near && wloc > 9 * KK * 0.5 && rng.next() < 0.4) {
+        if (false) {
           const ka = Math.floor(pts.length / 4);
           const pm = [pts[2 * ka], pts[2 * ka + 1], pts[2 * ka + 2], pts[2 * ka + 3]];
           const mx = pm[2] - pm[0], my = pm[3] - pm[1], ml = Math.hypot(mx, my) || 1;
           const ox = nx[Math.min(j, i + ka * stp)] * wloc * 0.3, oy = ny[Math.min(j, i + ka * stp)] * wloc * 0.3;
           const q0 = [pm[0] - mx / ml * wloc * 0.8 + ox, pm[1] - my / ml * wloc * 0.8 + oy, (pm[0] + pm[2]) / 2 + ox, (pm[1] + pm[3]) / 2 + oy, pm[2] + mx / ml * wloc * 0.8 + ox, pm[3] + my / ml * wloc * 0.8 + oy];
-          stroke(q0, { widths: [wloc * 0.5, wloc * 1.25, wloc * 0.5], color: snowMid, color2: snowShade, mix: 0.5, alpha: 0.99, streak: 0.12, dry: 0.0, thick: 1.0, pick: 0.0, cj: 0.03, rng });
-          stroke(q0.map((v, q) => q % 2 ? v - wloc * 0.16 : v), { widths: [wloc * 0.3, wloc * 0.8, wloc * 0.3], color: snowLit, color2: snowHi, mix: 0.4, alpha: 0.99, streak: 0.12, dry: 0.0, thick: 1.4, pick: 0.0, cj: 0.02, rng });
+          stroke(q0, { widths: [wloc * 0.4, wloc * 0.95, wloc * 0.4], color: snowMid, color2: snowShade, mix: 0.5, alpha: 0.99, streak: 0.12, dry: 0.0, thick: 1.0, pick: 0.0, cj: 0.03, rng });
+          stroke(q0.map((v, q) => q % 2 ? v - wloc * 0.16 : v), { widths: [wloc * 0.25, wloc * 0.6, wloc * 0.25], color: snowLit, color2: snowHi, mix: 0.4, alpha: 0.99, streak: 0.12, dry: 0.0, thick: 1.4, pick: 0.0, cj: 0.02, rng });
         }
         // crown highlight on only some rolls
         if (wloc > 4 * KK * 0.5 && rng.next() < 0.5) {
@@ -200,11 +202,11 @@ async function paintTree(t, ctxo) {
           stroke(p3, { widths: w3, color: snowShade, alpha: 0.6, streak: 0.5, dry: 0.4, thick: 0.15, pick: 0.0, cj: 0.02, rng });
         }
       }
-      i = j + rng.int(0, 4);
+      i = j + rng.int(0, w > 8 * KK * 0.5 ? 1 : 4);
     }
     // snow caught in forks
     if (p.order >= 1 && p.order <= 3 && rng.next() < 0.55) {
-      const w0 = p.w[0];
+      const w0 = Math.min(p.w[0], 34 * KK * 0.5);
       if (w0 > 2.2 * KK * 0.5 && inCanvas(p.px, 1, 40)) {
         const a0 = rng.range(-0.35, 0.35), L0 = Math.max(3, w0 * 2.4);
         const cx = p.px[0], cy = p.px[1] - w0 * 0.55;
@@ -229,7 +231,7 @@ async function paintTree(t, ctxo) {
     }
   }
   // --- tufts of dead grass and a drift ring at the base (near trees only) ---
-  if (t.Z < 34) {
+  if (t.Z < 24) {
     const s = CAM.F / t.Z;
     const bx = (CAM.VPX + t.X * s) * KK, by = (CAM.YH + CAM.H * s) * KK;
     paintBase(bx, by, s * KK, hz, rng, t);
@@ -238,40 +240,55 @@ async function paintTree(t, ctxo) {
 
 function paintApple(x, y, r, hz, rng, fallen) {
   const hazeC = c255(HAZE[0], HAZE[1], HAZE[2]);
-  const base = mixc(c255(96, 14, 30), hazeC, hz * 0.5);
-  const mid = mixc(c255(168, 30, 38), hazeC, hz * 0.45);
-  const hi = mixc(c255(226, 98, 72), hazeC, hz * 0.4);
-  const ang = rng.range(-0.4, 0.4);
+  const base = mixc(c255(88, 12, 28), hazeC, hz * 0.5);
+  const mid = mixc(c255(158, 26, 36), hazeC, hz * 0.45);
+  const hi = mixc(c255(214, 88, 66), hazeC, hz * 0.4);
+  const ang = rng.range(-0.5, 0.5);
+  if (fallen) { dab(x + r * 0.15, y + r * 0.7, r * 1.25, c255(22, 24, 70), { alpha: 0.5, thick: 0.02, hard: 0.2, ex: 2.0, rng, grain: 0.3 }); }
   if (!fallen) stroke([x + r * 0.05, y - r * 0.9, x + r * 0.25, y - r * 1.6, x + r * 0.15, y - r * 2.3], { w: Math.max(1.2, r * 0.16), color: c255(34, 24, 30), alpha: 0.95, streak: 0.2, dry: 0.1, thick: 0.15, noProfile: true, rng });
-  dab(x, y, r, base, { alpha: 1, thick: 0.4, hard: 0.9, ex: 1.08, ang, rng, grain: 0.1 });
-  dab(x - r * 0.14, y - r * 0.12, r * 0.76, mid, { alpha: 0.9, thick: 0.6, hard: 0.45, ex: 1.05, ang, rng, grain: 0.25 });
-  dab(x - r * 0.34, y - r * 0.36, r * 0.34, hi, { alpha: 0.8, thick: 0.9, hard: 0.3, rng, grain: 0.3 });
-  dab(x + r * 0.05, y + r * 0.82, r * 0.16, c255(26, 12, 20), { alpha: 0.7, thick: 0.1, hard: 0.5, rng, grain: 0.2 });
-  // cool rim bounce on the shadow side
-  dab(x + r * 0.6, y + r * 0.35, r * 0.28, mixc(c255(80, 44, 120), hazeC, hz * 0.4), { alpha: 0.4, thick: 0.1, hard: 0.2, rng, grain: 0.3 });
-  if (rng.next() < (fallen ? 0.85 : 0.55)) {
-    dab(x - r * 0.05, y - r * 0.8, r * 0.64, mixc(c255(224, 232, 254), hazeC, hz * 0.7), { alpha: 0.97, thick: 1.0, hard: 0.5, ex: 1.35, ang: ang * 0.5, rng, grain: 0.25 });
+  // slightly lopsided body from two overlapping dabs, then a few broken touches of light
+  dab(x, y, r, base, { alpha: 1, thick: 0.4, hard: 0.9, ex: 1.1, ang, rng, grain: 0.18 });
+  dab(x + r * rng.range(-0.12, 0.12), y + r * 0.08, r * 0.92, base, { alpha: 0.95, thick: 0.4, hard: 0.85, ex: 1.0, ang: ang + 1.2, rng, grain: 0.18 });
+  dab(x - r * 0.12, y - r * 0.1, r * 0.72, mid, { alpha: 0.85, thick: 0.6, hard: 0.35, ex: 1.1, ang, rng, grain: 0.35 });
+  dab(x - r * 0.34, y - r * 0.34, r * 0.26, hi, { alpha: fallen ? 0.3 : 0.62, thick: 0.5, hard: 0.2, ex: 1.4, ang: -0.6, rng, grain: 0.4 });
+  dab(x + r * 0.05, y + r * 0.84, r * 0.15, c255(26, 12, 20), { alpha: 0.7, thick: 0.1, hard: 0.5, rng, grain: 0.2 });
+  dab(x + r * 0.58, y + r * 0.34, r * 0.28, mixc(c255(80, 44, 120), hazeC, hz * 0.4), { alpha: 0.4, thick: 0.1, hard: 0.2, rng, grain: 0.3 });
+  if (rng.next() < (fallen ? 0.8 : 0.35)) {
+    dab(x - r * 0.05, y - r * 0.78, r * 0.6, mixc(c255(222, 230, 254), hazeC, hz * 0.7), { alpha: 0.97, thick: 0.8, hard: 0.4, ex: 1.35, ang: ang * 0.5, rng, grain: 0.35 });
   }
 }
 
 function paintBase(bx, by, s, hz, rng, t) {
   const hazeC = c255(HAZE[0], HAZE[1], HAZE[2]);
-  const rad = 0.5 * s;
-  // soft snow drift around the trunk
-  for (let k = 0; k < 6; k++) {
-    const ox = rng.range(-1, 1) * 0.55 * s, oy = rng.range(-0.1, 0.12) * s * 0.35;
-    stroke([bx + ox - 0.4 * s, by + oy, bx + ox, by + oy - 0.02 * s, bx + ox + 0.4 * s, by + oy + 0.01 * s], { w: 0.09 * s * (0.7 + rng.next()), color: mixc(c255(190, 200, 240), hazeC, hz * 0.7), color2: mixc(c255(120, 130, 200), hazeC, hz * 0.6), mix: 0.3, alpha: 0.85, streak: 0.5, dry: 0.35, thick: 0.5, pick: 0.01, rng });
+  const U = KK * 0.5;
+  const tw = 0.5 * s * 0.5; // approx trunk half-width in px
+  const rd = window.__rd;
+  const clip = { map: rd.reg, allow: 1 << REG.GROUND };
+  // deep contact shadow
+  dab(bx, by + 0.02 * s, tw * 1.9, mixc(c255(16, 14, 44), hazeC, hz * 0.6), { alpha: 0.55, thick: 0.02, hard: 0.1, ex: 2.6, rng, grain: 0.3, clip });
+  // roots flaring into the snow
+  const nr = rng.int(3, 5);
+  for (let k = 0; k < nr; k++) {
+    const sg = (k / (nr - 1)) * 2 - 1 + rng.range(-0.15, 0.15);
+    const x0 = bx + sg * tw * 0.8, L = rng.range(0.18, 0.36) * s;
+    stroke([x0, by - 0.05 * s, x0 + sg * L * 0.55, by + 0.004 * s, x0 + sg * L, by + 0.02 * s * rng.range(0.5, 1.2)], { w0: Math.max(2, 0.07 * s * rng.range(0.7, 1.1)), w1: 1.2, color: mixc(c255(26, 18, 36), hazeC, hz), alpha: 0.95, streak: 0.4, dry: 0.2, thick: 0.3, noProfile: true, rng });
+  }
+  // snow banked against the trunk: short soft arcs that hug the roots, picking up the ground colour
+  for (let k = 0; k < 4; k++) {
+    const sg = rng.range(-1, 1);
+    const x0 = bx + sg * tw * 1.1, y0 = by + rng.range(0.0, 0.05) * s;
+    const Lh = rng.range(0.1, 0.22) * s;
+    stroke([x0 - Lh, y0 + 0.01 * s, x0, y0 - 0.012 * s, x0 + Lh, y0 + 0.012 * s], { w: Math.max(2, 0.035 * s * rng.range(0.7, 1.2)), color: mixc(c255(164, 176, 232), hazeC, hz * 0.7), color2: mixc(c255(104, 114, 190), hazeC, hz * 0.6), mix: 0.4, alpha: 0.75, streak: 0.5, dry: 0.3, thick: 0.6, pick: 0.2, rng });
   }
   // dead grass tufts
-  const n = Math.round(Math.min(26, 5 + 5 * s / 100));
+  const n = Math.round(Math.min(16, 4 + 4 * s / 100));
   for (let k = 0; k < n; k++) {
-    const ox = rng.range(-1.0, 1.0) * 0.55 * s, oy = rng.range(-0.02, 0.05) * s * 0.3;
-    const h = rng.range(0.12, 0.38) * s * 0.5, lean = rng.range(-0.6, 0.6) * h;
-    const cc = rng.next() < 0.6 ? mixc(c255(58, 42, 62), hazeC, hz * 0.7) : mixc(c255(138, 118, 112), hazeC, hz * 0.6);
+    const ox = rng.range(-1.0, 1.0) * 0.6 * s, oy = rng.range(-0.01, 0.05) * s * 0.3;
+    const h = rng.range(0.12, 0.34) * s * 0.5, lean = rng.range(-0.6, 0.6) * h;
+    const cc = rng.next() < 0.6 ? mixc(c255(52, 38, 60), hazeC, hz * 0.7) : mixc(c255(128, 108, 112), hazeC, hz * 0.6);
     stroke([bx + ox, by + oy, bx + ox + lean * 0.4, by + oy - h * 0.55, bx + ox + lean, by + oy - h], { w0: Math.max(1.2, 0.012 * s), w1: 1.0, color: cc, alpha: 0.9, streak: 0.2, dry: 0.1, thick: 0.2, noProfile: true, rng });
   }
 }
-
 
 // ---------- smoke: straight column, scumbled low-alpha strokes ----------
 function paintSmoke() {
@@ -279,7 +296,7 @@ function paintSmoke() {
   const hg = houseGeom();
   const sx = (hg.x + 2.0 * hg.s), sy = (hg.y - 5.8 * hg.s);
   const top = sy - 270;
-  const px = (t) => sx + 5 * Math.sin(t * 2.6 + 0.4) + 2.2 * Math.sin(t * 8.5);
+  const px = (t) => sx + 7 * Math.sin(t * 2.4 + 0.4) + 3 * Math.sin(t * 7.5) * t;
   for (let layer = 0; layer < 3; layer++) {
     const n = 46;
     for (let i = 0; i < n; i++) {
@@ -292,8 +309,8 @@ function paintSmoke() {
         pts.push((px(t) + 0) * KK + lat + rng.range(-0.15, 0.15) * rad, (sy + (top - sy) * t) * KK);
       }
       const warm = 1 - smooth(0, 0.5, t0);
-      const col = mixc(c255(122, 126, 178), c255(176, 164, 190), warm * 0.8);
-      const a = (0.3 + 0.14 * (1 - t0)) * (layer === 0 ? 1.1 : 0.75) * (1 - 0.6 * smooth(0.5, 1, t0));
+      const col = mixc(c255(150, 154, 204), c255(196, 180, 204), warm * 0.8);
+      const a = (0.5 + 0.2 * (1 - t0)) * (layer === 0 ? 1.1 : 0.8) * (1 - 0.85 * smooth(0.45, 1.0, (t0 + t1) / 2));
       stroke(pts, { w: rad * rng.range(0.7, 1.2), color: col, color2: c255(150, 150, 200), mix: 0.4, alpha: a, streak: 0.7, dry: 0.5, thick: 0.12, pick: 0.2, cj: 0.03, rng });
     }
   }
@@ -344,7 +361,22 @@ async function paintForeground(trees) {
   for (let i = 0; i < 4; i++) {
     const Z = rng.range(3.2, 12), X = (rng.next() < 0.5 ? -1 : 1) * rng.range(1.5, 4.2);
     const [x, y, s] = gp(X, Z);
-    paintApple(x, y, 0.045 * s, hazeAmt(Z) * 0.8, rng, true);
+    paintApple(x, y, 0.036 * s, hazeAmt(Z) * 0.8, rng, true);
+  }
+  // a single trail of footprints walking up the lane toward the lit window, half filled by new snow
+  {
+    let Z = 3.2, side = -1;
+    while (Z < 24) {
+      const X = -0.55 + side * 0.13 + 0.06 * Math.sin(Z * 0.4);
+      const [x, y, s] = gp(X, Z);
+      const ang = Math.atan2(CAM.YH * KK - y, CAM.VPX * KK - x);
+      const r = 0.055 * s, ca = Math.cos(ang), sa = Math.sin(ang);
+      dab(x + ca * r * 0.25, y + sa * r * 0.25, r, mixc(c255(36, 40, 108), hazeC, hazeAmt(Z) * 0.5), { alpha: 0.7, thick: 0.02, hard: 0.35, ex: 2.5, ang, rng, grain: 0.35, clip });
+      dab(x - ca * r * 0.7, y - sa * r * 0.7, r * 0.6, mixc(c255(214, 208, 244), hazeC, hazeAmt(Z) * 0.4), { alpha: 0.45, thick: 0.4, hard: 0.2, ex: 2.2, ang, rng, grain: 0.4, clip });
+      // fresh snow drifting back into the print
+      dab(x - ca * r * 0.2, y - sa * r * 0.2, r * 0.7, mixc(c255(150, 156, 214), hazeC, hazeAmt(Z) * 0.4), { alpha: 0.3, thick: 0.2, hard: 0.0, ex: 2.0, ang, rng, grain: 0.5, clip });
+      Z += 0.8 * (1 + Z / 22); side = -side;
+    }
   }
   // animal tracks crossing the lane
   {
@@ -374,8 +406,9 @@ function paintGlints(rng) {
     const wk = warmK(x, y);
     const r = Math.max(0.7, 0.011 * s * (0.6 + rng.next()));
     const warm = rng.next() < 0.35 + 0.5 * wk;
-    const col = warm ? mixc(c255(255, 226, 190), c255(255, 190, 150), rng.next()) : c255(226, 234, 255);
-    dab(x, y, r, col, { alpha: 0.35 + 0.5 * rng.next(), thick: 0.8, hard: 0.5, ex: 1.6, ang: 0, rng, grain: 0.3 });
+    if (!warm) continue;
+    const col = mixc(c255(255, 226, 190), c255(255, 190, 150), rng.next());
+    dab(x, y, r, col, { alpha: 0.3 + 0.45 * rng.next(), thick: 0.25, hard: 0.5, ex: 1.6, ang: 0, rng, grain: 0.3 });
   }
 }
 
@@ -403,7 +436,7 @@ async function paintSnowfall() {
     const col = mixc(mixc(c255(196, 208, 244), c255(240, 244, 255), f.b), c255(255, 206, 150), dw * 0.85);
     const soft = near > 0.55;
     const ang = 1.5 + (rng.next() - 0.5) * 0.5;
-    dab(f.x, f.y, f.r, col, { alpha: soft ? 0.32 + 0.3 * f.b : 0.45 + 0.4 * f.b, thick: 0.25 + 0.5 * near, hard: soft ? 0.05 : 0.35, ex: 1.2 + near * 0.5, ang, rng, grain: 0.35 });
+    dab(f.x, f.y, f.r, col, { alpha: soft ? 0.32 + 0.3 * f.b : 0.45 + 0.4 * f.b, thick: 0.04 + 0.12 * near, hard: soft ? 0.05 : 0.35, ex: 1.2 + near * 0.5, ang, rng, grain: 0.35 });
     if ((++c & 255) === 0) await tick();
   }
 }
@@ -427,17 +460,34 @@ function paintThick(p, nrm, upS, hz, hazeC, rng) {
   // faint warm bounce on the far side
   sub(0.66, 0.14, mixc(c255(92, 54, 62), hazeC, hz), null, 0.4, 0.6, 0.2);
   // cracks and ridges
-  const nc = Math.min(12, 4 + Math.floor(p.w[0] / (14 * U)));
+  const nc = Math.min(8, 2 + Math.floor(p.w[0] / (30 * U)));
   for (let k = 0; k < nc; k++) {
     const a = rng.int(0, Math.max(0, n - 3)), b = Math.min(n - 1, a + rng.int(Math.max(1, Math.floor(n * 0.4)), n));
     if (b - a < 1) continue;
     const u = rng.range(-0.8, 0.8);
-    const pts = offsetPath(p.px, p.w, nrm, u, n, a, b, upS);
-    for (let q = 0; q < pts.length; q++) pts[q] += rng.range(-0.5, 0.5) * p.w[a] * 0.03;
-    const wf = rng.range(0.02, 0.06);
+    const pts = [];
+    const twist = rng.range(0.1, 0.35) * (rng.next() < 0.5 ? -1 : 1), tph = rng.range(0, 6.28);
+    for (let i = a; i <= b; i++) {
+      const uu = clamp(u + twist * Math.sin((i - a) / Math.max(1, b - a) * Math.PI * 1.4 + tph), -0.92, 0.92);
+      pts.push(p.px[2 * i] + nrm.nx[i] * upS[i] * uu * p.w[i] * 0.5 + rng.range(-0.5, 0.5) * p.w[a] * 0.02, p.px[2 * i + 1] + nrm.ny[i] * upS[i] * uu * p.w[i] * 0.5 + rng.range(-0.5, 0.5) * p.w[a] * 0.02);
+    }
+    const wf = rng.range(0.012, 0.035);
     const ww = p.w.slice(a, b + 1).map(v => Math.max(1.2, v * wf));
-    const dark = rng.next() < 0.7;
-    stroke(pts, { widths: ww, color: dark ? mixc(c255(10, 6, 16), hazeC, hz * 0.8) : mixc(c255(84, 72, 100), hazeC, hz), alpha: dark ? 0.9 : 0.5, streak: 0.3, dry: 0.2, thick: dark ? 0.1 : 0.4, pick: 0.0, cj: 0.01, rng });
+    const dark = rng.next() < 0.55;
+    stroke(pts, { widths: ww, color: dark ? mixc(c255(12, 8, 20), hazeC, hz * 0.8) : mixc(c255(84, 72, 100), hazeC, hz), alpha: dark ? 0.6 : 0.45, streak: 0.3, dry: 0.2, thick: dark ? 0.1 : 0.4, pick: 0.0, cj: 0.01, rng });
+  }
+  // burls and a hollow: swollen knots with a lit upper lip and a dark cavity
+  if (p.w[0] > 70 * KK * 0.5) {
+    const nb2 = rng.int(3, 5);
+    for (let k = 0; k < nb2; k++) {
+      const i = rng.int(1, Math.max(1, n - 2));
+      const rr = p.w[i] * rng.range(0.07, 0.15);
+      const ox = nrm.nx[i] * rng.range(-0.55, 0.55) * p.w[i], oy = nrm.ny[i] * rng.range(-0.55, 0.55) * p.w[i];
+      const cx = p.px[2 * i] + ox, cy = p.px[2 * i + 1] + oy;
+      dab(cx, cy, rr * 1.15, mixc(c255(52, 40, 66), hazeC, hz), { alpha: 0.9, thick: 0.7, hard: 0.6, ex: 1.3, ang: 1.5, rng, grain: 0.35 });
+      dab(cx - rr * 0.15, cy - rr * 0.35, rr * 0.7, mixc(c255(98, 100, 160), hazeC, hz), { alpha: 0.55, thick: 0.9, hard: 0.3, ex: 1.6, ang: 1.5, rng, grain: 0.4 });
+      dab(cx + rr * 0.1, cy + rr * 0.15, rr * 0.55, mixc(c255(8, 5, 14), hazeC, hz * 0.5), { alpha: 0.85, thick: 0.2, hard: 0.5, ex: 1.4, ang: 1.5, rng, grain: 0.3 });
+    }
   }
   // lichen patches
   const nl = rng.int(2, 5);
@@ -450,7 +500,7 @@ function paintThick(p, nrm, upS, hz, hazeC, rng) {
 
 // long soft shadows of the crown thrown toward the viewer (backlit by the horizon glow)
 function paintShadows(t, B, rng) {
-  const tanE = 0.27;
+  const tanE = 0.42;
   const rd = window.__rd;
   const clip = { map: rd.reg, allow: 1 << REG.GROUND };
   const shade = mixc(c255(40, 44, 118), c255(HAZE[0], HAZE[1], HAZE[2]), hazeAmt(t.Z) * 0.55);
@@ -462,10 +512,10 @@ function paintShadows(t, B, rng) {
       if (Zs < 2.0) break;
       const s = CAM.F / Zs;
       pts.push((CAM.VPX + (t.X + q.x) * s) * KK, (CAM.YH + CAM.H * s) * KK);
-      ws.push(Math.max(1.0, (2 * q.r + 0.014 * q.y) * s * KK));
+      ws.push(Math.max(1.0, (2 * q.r + 0.02 * q.y) * s * KK));
     }
     if (pts.length < 6) continue;
-    const al = (b.order <= 1 ? 0.5 : b.order <= 2 ? 0.42 : 0.34);
+    const al = (b.order <= 1 ? 0.62 : b.order <= 2 ? 0.5 : 0.4);
     stroke(pts, { widths: ws, color: shade, alpha: al, streak: 0.5, dry: 0.4, thick: 0.02, pick: 0.15, cj: 0.02, clip, noProfile: true, rng });
   }
 }
@@ -513,10 +563,59 @@ function paintHouseDetail() {
     const r = (3.0 - i * 0.5) * s * KK;
     dab(wcx, wcy, r, c255(236, 130, 60), { alpha: 0.12 + 0.05 * i, thick: 0.05, hard: 0.0, ex: 1.0, rng, grain: 0.4, clip });
   }
-  // dark window with a cold glint
-  stroke([X(-2.3), Y(2.15), X(-1.5), Y(2.15)], { w: 0.3 * s * KK, color: c255(22, 24, 62), alpha: 0.95, streak: 0.2, dry: 0.1, thick: 0.2, clip, rng });
-  stroke([X(-2.3), Y(1.6), X(-1.5), Y(1.5)], { w: 0.3 * s * KK, color: c255(18, 20, 52), alpha: 0.95, streak: 0.2, dry: 0.1, thick: 0.2, clip, rng });
-  stroke([X(-2.2), Y(2.0), X(-1.6), Y(1.7)], { w: 0.08 * s * KK, color: c255(86, 100, 168), alpha: 0.6, streak: 0.2, dry: 0.1, thick: 0.2, clip, rng });
   // snow lying on the sill and the door step
   stroke([X(1.0), Y(0.1), X(1.6), Y(0.05), X(2.2), Y(0.1)], { w: 0.2 * s * KK, color: c255(190, 200, 240), alpha: 0.9, streak: 0.4, dry: 0.2, thick: 0.6, rng });
+}
+
+
+// ---------- palette-knife drags of lit snow: flat planes with ridged edges ----------
+function paintKnifeSnow() {
+  const rng = new RNG(2024);
+  const rd = window.__rd;
+  const clip = { map: rd.reg, allow: 1 << REG.GROUND };
+  const gp = (X, Z) => { const s = CAM.F / Z; return [(CAM.VPX + X * s) * KK, (CAM.YH + CAM.H * s) * KK, s * KK]; };
+  let made = 0, tries = 0;
+  while (made < 70 && tries < 800) {
+    tries++;
+    const Z0 = 2.4 + Math.pow(rng.next(), 1.5) * 26, X = rng.range(-8, 8);
+    const radial = rng.next() < 0.55;
+    const pts = [];
+    let wpx;
+    if (radial) {
+      const L = rng.range(1.5, 5) * (1 + Z0 / 14);
+      for (let k = 0; k <= 4; k++) { const [x, y, s] = gp(X + Math.sin(k * 1.1 + X) * 0.12, Z0 + L * k / 4); pts.push(x, y); }
+    } else {
+      const L = rng.range(1.5, 4.5);
+      for (let k = 0; k <= 4; k++) { const [x, y, s] = gp(X + L * k / 4, Z0 + Math.sin(k * 0.9 + X) * 0.08); pts.push(x, y); }
+    }
+    const s0 = gp(X, Z0)[2];
+    wpx = rng.range(0.22, 0.6) * s0;
+    const mx = clamp(Math.round(pts[4]), 0, W - 1), my = clamp(Math.round(pts[5]), 0, H - 1);
+    const ii = my * W + mx;
+    const lum = 0.3 * rd.R[ii] + 0.55 * rd.G[ii] + 0.15 * rd.B[ii];
+    if (lum < 0.4 || wpx < 4 * KK * 0.5) continue;
+    const c = [rd.R[ii], rd.G[ii], rd.B[ii]];
+    const col = [Math.min(1, c[0] * 1.1 + 0.05), Math.min(1, c[1] * 1.08 + 0.04), Math.min(1, c[2] * 1.04 + 0.03)];
+    const col2 = [Math.min(1, c[0] * 0.92), Math.min(1, c[1] * 0.92), Math.min(1, c[2] * 1.0)];
+    stroke(pts, { w: wpx, color: col, color2: col2, mix: 0.3, alpha: 0.93, knife: true, thick: 1.5, pick: 0.05, cj: 0.015, clip, rng });
+    made++;
+  }
+}
+
+
+// ---------- dry-brush scumbles of cooler light across the sky: thick, ragged, catching the surface ----------
+function paintSkyScumble() {
+  const rng = new RNG(1717);
+  const rd = window.__rd;
+  const clip = { map: rd.reg, allow: 1 << REG.SKY };
+  const hz = CAM.YH * KK;
+  for (let i = 0; i < 90; i++) {
+    const x = rng.range(-100, W + 100), y = rng.range(0, hz * 0.95);
+    const ii = clamp(Math.round(y), 0, H - 1) * W + clamp(Math.round(x), 0, W - 1);
+    const lift = 1.1 + 0.18 * rng.next();
+    const c = [Math.min(1, rd.R[ii] * lift + 0.02), Math.min(1, rd.G[ii] * lift + 0.02), Math.min(1, rd.B[ii] * lift + 0.04)];
+    const L = rng.range(240, 700) * KK * 0.5, a = rng.range(-0.08, 0.08);
+    const pts = [x, y, x + Math.cos(a) * L * 0.5, y + Math.sin(a) * L * 0.5 + rng.range(-8, 8), x + Math.cos(a) * L, y + Math.sin(a) * L];
+    stroke(pts, { w: rng.range(30, 90) * KK * 0.5, color: c, color2: [c[0] * 0.9, c[1] * 0.9, c[2]], mix: 0.4, alpha: rng.range(0.28, 0.55), streak: 0.85, dry: 0.75, thick: 0.9, pick: 0.1, cj: 0.03, clip, rng });
+  }
 }

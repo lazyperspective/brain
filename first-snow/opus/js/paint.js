@@ -43,13 +43,13 @@ class Painter {
       col[i * 3] = c[0] * k; col[i * 3 + 1] = c[1] * k; col[i * 3 + 2] = c[2] * k;
     }
   }
-  bristles(NB, dry, rag, bj, full) {
+  bristles(NB, dry, rag, bj, full, uni) {
     const rng = this.rng, bA = this.bA, bE = this.bE, bC = this.bC;
     let clump = rng() * 6;
     for (let k = 0; k <= NB + 1; k++) {
       const edgeF = Math.abs(k / NB - 0.5) * 2;
       clump += 0.6 + rng() * 0.8;
-      bA[k] = (0.55 + 0.45 * rng()) * (0.78 + 0.22 * Math.sin(clump)) * (1 - rag * 0.5 * edgeF * edgeF * rng());
+      bA[k] = uni ? 1 : (0.55 + 0.45 * rng()) * (0.78 + 0.22 * Math.sin(clump)) * (1 - rag * 0.5 * edgeF * edgeF * rng());
       bE[k] = full ? 2 : 1 - dry * 0.55 * rng() - rag * 0.12 * edgeF * rng() - 0.04 * rng();
       bC[k] = (rng() - 0.5) * bj + 0.3 * bj * Math.sin(clump * 1.7);
     }
@@ -101,7 +101,7 @@ class Painter {
     }
     const NB = Math.min(70, Math.max(5, Math.round(maxw * 0.7)));
     const dry = s.dry || 0, bj = s.bj == null ? 0.1 : s.bj, rag = s.rag == null ? 0.4 : s.rag;
-    this.bristles(NB, dry, rag, bj, s.full);
+    this.bristles(NB, dry, rag, bj, s.full, s.uni);
     const bA = this.bA, bE = this.bE, bC = this.bC;
     const cr = s.r, cg = s.g, cb = s.b, alpha = s.alpha, thick = s.thick || 0, lev = Math.min(0.7, thick * 0.9);
     let mr = cr, mg = cg, mb = cb;
@@ -162,7 +162,7 @@ class Painter {
     const NB = Math.min(70, Math.max(5, Math.round(w * 0.7)));
     const bA = this.bA, bE = this.bE, bC = this.bC;
     const dry = s.dry || 0, bj = s.bj == null ? 0.1 : s.bj, rag = s.rag == null ? 0.5 : s.rag;
-    this.bristles(NB, dry, rag, bj, s.full);
+    this.bristles(NB, dry, rag, bj, s.full, s.uni);
     const cr = s.r, cg = s.g, cb = s.b;
     let mr = cr, mg = cg, mb = cb;
     const smear = s.smear || 0;
@@ -305,7 +305,7 @@ function finishPainting(P, outCtx, opt) {
   const Hh = [L[0], L[1], L[2] + 1]; const hl = Math.hypot(...Hh); Hh[0] /= hl; Hh[1] /= hl; Hh[2] /= hl;
   const base = Math.pow(Hh[2], opt.specPow);
   const img = outCtx.createImageData(W, H), D = img.data;
-  const g = 1 / S;
+  const g = S;
   const drng = PRNG(99);
   const cx = W * 0.6, cy = H * 0.42, vr = Math.hypot(W, H) * 0.62;
   for (let y = 0; y < H; y++) {

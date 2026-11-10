@@ -8,10 +8,10 @@ function treeChains(T) {
   return [...map.values()];
 }
 
-function offsetPath(segs, fn) {
+function offsetPath(segs, fn, from) {
   // vertices along a chain; fn(seg, nx, ny, end) -> {x,y,w} where (nx,ny) is the unit normal
   const pts = [];
-  for (let i = 0; i <= segs.length; i++) {
+  for (let i = from || 0; i <= segs.length; i++) {
     const a = segs[Math.max(0, i - 1)], b = segs[Math.min(segs.length - 1, i)];
     let dx = (a.sx1 - a.sx0) + (b.sx1 - b.sx0), dy = (a.sy1 - a.sy0) + (b.sy1 - b.sy0);
     const l = Math.hypot(dx, dy) + 1e-9; dx /= l; dy /= l;
@@ -64,7 +64,26 @@ function paintTrees(P, scene, seed) {
           if (nx * Lx + ny * Ly < 0) { nx = -nx; ny = -ny; }
           const fac = clamp(nx * Lx + ny * Ly, 0, 1);
           return { x: x + nx * r * 0.5, y: y + ny * r * 0.5, w: r * (0.45 + 0.5 * fac) };
-        });
+        }, isTrunk ? 1 : 0);
+        // core shadow and a whisper of reflected snow-light on the far flank
+        const core = offsetPath(ch, (s, x, y, r, nx, ny) => {
+          if (nx * Lx + ny * Ly > 0) { nx = -nx; ny = -ny; }
+          return { x: x + nx * r * 0.45, y: y + ny * r * 0.45, w: r * 0.55 };
+        }, isTrunk ? 1 : 0);
+        for (const pc of pieces(core, rng, Math.max(10 * S, wAvg * 2), Math.max(30 * S, wAvg * 6))) {
+          const c = ch[0].bark, dk = 0.55 + 0.2 * rng();
+          P.strokePath(pc, { r: c[0] * dk, g: c[1] * dk, b: c[2] * dk * 1.05, alpha: 0.6, thick: 0.05, dry: 0.3, smear: 0.1, bj: 0.1, rag: 0.5, edge: Math.max(edge, 0.5), capStart: true, capEnd: true });
+        }
+        if (rAvg > 5) {
+          const refl = offsetPath(ch, (s, x, y, r, nx, ny) => {
+            if (nx * Lx + ny * Ly > 0) { nx = -nx; ny = -ny; }
+            return { x: x + nx * r * 0.82, y: y + ny * r * 0.82, w: r * 0.14 };
+          }, isTrunk ? 1 : 0);
+          for (const pc of pieces(refl, rng, 15 * S, 60 * S)) {
+            if (rng() < 0.4) continue;
+            P.strokePath(pc, { r: 0.17, g: 0.19, b: 0.33, alpha: 0.5, thick: 0.1, dry: 0.5, rag: 0.6, edge: 0.5, capStart: true, capEnd: true });
+          }
+        }
         for (const pc of pieces(lit, rng, Math.max(6 * S, wAvg * 1.2), Math.max(16 * S, wAvg * 4))) {
           if (rng() < 0.3) continue;
           const l = ch[0].lit, vj = 0.85 + 0.3 * rng();
@@ -77,7 +96,7 @@ function paintTrees(P, scene, seed) {
             if (nx * T.rimDir < 0) { nx = -nx; ny = -ny; }
             const k = T.rim * clamp(1 - s.y0 / 3.2, 0, 1) * Math.abs(nx);
             return { x: x + nx * r * 0.62, y: y + ny * r * 0.62, w: r * 0.5 * Math.min(1, k * 2.5) };
-          });
+          }, isTrunk ? 1 : 0);
           P.strokePath(rim, { r: 0.95, g: 0.56, b: 0.27, alpha: 0.85, thick: 0.35, dry: 0.3, smear: 0.1, edge, capStart: true, capEnd: true });
         }
       }
@@ -87,7 +106,7 @@ function paintTrees(P, scene, seed) {
         for (let k = 0; k < nf; k++) {
           const off = (rng() - 0.5) * 1.6, wf = 0.06 + 0.12 * rng();
           const dark = rng() < 0.65;
-          const f = offsetPath(ch, (s, x, y, r, nx, ny) => ({ x: x + nx * r * off, y: y + ny * r * off, w: Math.max(1.4 * S, r * wf) }));
+          const f = offsetPath(ch, (s, x, y, r, nx, ny) => ({ x: x + nx * r * off, y: y + ny * r * off, w: Math.max(1.4 * S, r * wf) }), isTrunk ? 1 : 0);
           for (const pc of pieces(f, rng, 8 * S, 45 * S)) {
             if (rng() < 0.35) continue;
             const c = dark ? ch[0].bark : ch[0].lit, dk = dark ? 0.5 + 0.3 * rng() : 0.75 + 0.2 * rng();
@@ -128,7 +147,7 @@ function paintTrees(P, scene, seed) {
       const tr = (T.hero ? 0.2 : 0.15) * T.ppm, c = T.moundCol;
       for (let k = 0; k < 6; k++) {
         const ox = (rng() - 0.5) * tr * 2.4;
-        P.stroke({ x: T.bx + ox, y: T.by + tr * (0.1 + 0.15 * rng()), a: (rng() - 0.5) * 0.3, L: tr * (1.2 + rng()), w: tr * (0.3 + 0.25 * rng()),
+        P.stroke({ x: T.bx + ox, y: T.by + tr * (0.15 + 0.3 * rng()), a: (rng() - 0.5) * 0.3, L: tr * (1.4 + rng()), w: tr * (0.4 + 0.3 * rng()),
           r: c[0] * (0.97 + 0.08 * rng()), g: c[1] * (0.97 + 0.08 * rng()), b: c[2], alpha: 0.95, thick: 0.9, dry: 0.1, smear: 0.25, taper: 0.5, bend: 0.3 });
       }
     }
@@ -144,17 +163,13 @@ function paintApples(P, scene, seed) {
     const f = (c) => mixc(c, [0.40, 0.42, 0.58], k);
     const st = f([0.12, 0.08, 0.07]);
     P.stroke({ x: (ap.ax + ap.x) / 2, y: (ap.ay + ap.y - r) / 2, a: Math.atan2(ap.y - r - ap.ay, ap.x - ap.ax), L: Math.hypot(ap.x - ap.ax, ap.y - r - ap.ay) + 2, w: Math.max(1.5, r * 0.14), r: st[0], g: st[1], b: st[2], alpha: 0.95, thick: 0.2, taper: 0.5 });
-    // body: curved strokes wrapping the form
-    const body = f([0.40, 0.035, 0.065]), dark = f([0.18, 0.015, 0.05]), mid = f([0.62, 0.10, 0.11]);
-    for (let i = 0; i < 4; i++) {
-      const yy = ap.y + (i - 1.5) * r * 0.45;
-      const hw = Math.sqrt(Math.max(0.1, 1 - ((yy - ap.y) / r) ** 2)) * r;
-      P.stroke({ x: ap.x, y: yy, a: (rng() - 0.5) * 0.3, L: hw * 1.7, w: r * 0.62, r: body[0], g: body[1], b: body[2], alpha: 0.97, thick: 0.6, bend: 0.25, dry: 0.05, taper: 0.3, bj: 0.1 });
-    }
-    P.stroke({ x: ap.x + r * 0.32, y: ap.y + r * 0.3, a: -0.9, L: r * 1.3, w: r * 0.6, r: dark[0], g: dark[1], b: dark[2], alpha: 0.8, thick: 0.4, bend: -0.3, taper: 0.5 });
-    P.stroke({ x: ap.x - r * 0.28, y: ap.y - r * 0.25, a: -0.6, L: r * 1.0, w: r * 0.5, r: mid[0], g: mid[1], b: mid[2], alpha: 0.85, thick: 0.8, bend: 0.2, taper: 0.4 });
-    const hi = f([0.74, 0.56, 0.70]);
-    P.stroke({ x: ap.x - r * 0.42, y: ap.y - r * 0.42, a: -0.7, L: r * 0.45, w: r * 0.24, r: hi[0], g: hi[1], b: hi[2], alpha: 0.9, thick: 1.4, taper: 0.5 });
+    // body: a loaded round dab, then turned with a shadow crescent and a cool sky-light
+    const body = f([0.30, 0.05, 0.065]), dark = f([0.13, 0.025, 0.045]), mid = f([0.45, 0.09, 0.085]);
+    P.stroke({ x: ap.x, y: ap.y, a: 1.4 + (rng() - 0.5) * 0.4, L: r * 0.25, w: r * 1.95, r: body[0], g: body[1], b: body[2], alpha: 0.98, thick: 0.7, taper: 0, full: true, rag: 0.15, bj: 0.12 });
+    P.stroke({ x: ap.x + r * 0.35, y: ap.y + r * 0.3, a: -0.75, L: r * 0.9, w: r * 0.55, r: dark[0], g: dark[1], b: dark[2], alpha: 0.75, thick: 0.4, bend: -0.45, taper: 0.6, edge: 0.6 });
+    P.stroke({ x: ap.x - r * 0.25, y: ap.y - r * 0.2, a: -0.8, L: r * 0.7, w: r * 0.55, r: mid[0], g: mid[1], b: mid[2], alpha: 0.7, thick: 0.6, bend: 0.3, taper: 0.5, edge: 0.5 });
+    const hi = f([0.50, 0.40, 0.56]);
+    P.stroke({ x: ap.x - r * 0.45, y: ap.y - r * 0.35, a: -1.1, L: r * 0.35, w: r * 0.16, r: hi[0], g: hi[1], b: hi[2], alpha: 0.8, thick: 1.2, taper: 0.5, bend: 0.3 });
     if (ap.snow) {
       const sc = f([0.84, 0.87, 0.98]);
       P.stroke({ x: ap.x - r * 0.05, y: ap.y - r * 0.86, a: 0.05, L: r * 1.1, w: r * 0.42, r: sc[0], g: sc[1], b: sc[2], alpha: 0.97, thick: 2.0, taper: 0.4, bend: 0.2 });
@@ -163,9 +178,10 @@ function paintApples(P, scene, seed) {
   // fallen apple
   {
     const r = F.r;
-    P.stroke({ x: F.x, y: F.y, a: 0.1, L: r * 1.6, w: r * 1.3, r: 0.30, g: 0.03, b: 0.06, alpha: 0.95, thick: 0.6, bend: 0.2, taper: 0.3 });
-    P.stroke({ x: F.x - r * 0.3, y: F.y - r * 0.3, a: -0.4, L: r * 0.6, w: r * 0.35, r: 0.55, g: 0.30, b: 0.42, alpha: 0.85, thick: 1.0, taper: 0.5 });
-    P.stroke({ x: F.x + r * 0.1, y: F.y + r * 0.62, a: 0.02, L: r * 3.2, w: r * 0.75, r: 0.40, g: 0.44, b: 0.68, alpha: 0.95, thick: 1.0, taper: 0.5, bend: -0.1 });
+    P.stroke({ x: F.x, y: F.y, a: 0.1, L: r * 1.6, w: r * 1.3, r: 0.24, g: 0.035, b: 0.06, alpha: 0.95, thick: 0.6, bend: 0.2, taper: 0.3 });
+    P.stroke({ x: F.x - r * 0.3, y: F.y - r * 0.3, a: -0.4, L: r * 0.5, w: r * 0.3, r: 0.42, g: 0.26, b: 0.38, alpha: 0.85, thick: 1.0, taper: 0.5 });
+    const j = ((Math.round(F.y + r) * P.W) + Math.round(F.x)) * 3, t = scene.tgt;
+    P.stroke({ x: F.x + r * 0.1, y: F.y + r * 0.55, a: 0.02, L: r * 2.6, w: r * 0.7, r: t[j] * 1.04, g: t[j + 1] * 1.04, b: t[j + 2] * 1.02, alpha: 0.95, thick: 0.8, taper: 0.5, bend: -0.15, smear: 0.2 });
   }
 }
 
@@ -193,6 +209,7 @@ function paintSnowfall(P, scene, seed) {
   const n = Math.round(1900 * S * S);
   for (let i = 0; i < n; i++) {
     const x = rng() * W, y = rng() * H * 0.97;
+    if (y < H * 0.18 && rng() < 0.45) continue;
     const q = rng();
     const big = q > 0.94;
     const rad = (big ? 4 + 9 * rng() : 1.1 + 3.4 * q * q) * S;
@@ -203,8 +220,40 @@ function paintSnowfall(P, scene, seed) {
     const bg = 0.3 * scene.tgt[j] + 0.59 * scene.tgt[j + 1] + 0.11 * scene.tgt[j + 2];
     let c = mixc([0.80, 0.83, 0.95], [1.0, 0.80, 0.58], warm);
     const al = (big ? 0.35 + 0.25 * rng() : 0.55 + 0.4 * rng()) * (1 - 0.6 * smooth(0.45, 0.7, bg));
-    P.stroke({ x, y, a: Math.PI / 2 + (rng() - 0.5) * 0.8, L: rad * (0.9 + 0.5 * rng()), w: rad * 2, r: c[0], g: c[1], b: c[2],
-      alpha: al, thick: big ? 0.05 : 0.3 + 0.5 * rng(), edge: big ? 0.9 : 0.5, taper: 0.1, rag: 0.15, bj: 0.02, dry: 0, full: true });
+    P.stroke({ x, y, a: Math.PI / 2 + (rng() - 0.5) * 0.8, L: rad * (big ? 0.3 : 0.4 + 0.5 * rng()), w: rad * 2, r: c[0], g: c[1], b: c[2],
+      alpha: al, thick: big ? 0.05 : 0.3 + 0.5 * rng(), edge: big ? 0.95 : 0.55, taper: 0.1, rag: 0, bj: big ? 0 : 0.03, dry: 0, full: true, uni: big });
+  }
+}
+
+function paintSnowSurface(P, scene, seed) {
+  // the near snow, re-stated with loaded, broken horizontal strokes and crisp drift crests
+  const rng = PRNG(seed);
+  const W = P.W, H = P.H, S = P.S, t = scene.tgt, aux = scene.aux;
+  const y0 = 1420 * S;
+  const n = Math.round(3200 * S * S);
+  for (let i = 0; i < n; i++) {
+    const y = y0 + (H - y0) * Math.sqrt(rng()), x = rng() * W;
+    const j = ((y | 0) * W + (x | 0)) * 3;
+    const depth = (y - y0) / (H - y0);
+    const w = (10 + 28 * depth) * S * (0.7 + 0.6 * rng());
+    const a = 0.5 * Math.atan2(aux[j + 1], aux[j]) + (rng() - 0.5) * 0.25;
+    const vj = 1 + (rng() - 0.5) * 0.16, tj = (rng() - 0.5) * 0.05;
+    const lum = 0.3 * t[j] + 0.59 * t[j + 1] + 0.11 * t[j + 2];
+    P.stroke({ x, y, a, L: w * (2.5 + 3 * rng()), w, r: t[j] * vj + tj, g: t[j + 1] * vj, b: t[j + 2] * vj - tj * 0.6,
+      alpha: 0.55 + 0.3 * rng(), thick: 0.35 + 0.9 * lum, dry: 0.5, smear: 0.3, bj: 0.14, rag: 0.6, bend: (rng() - 0.5) * 0.3,
+      mask: 0.85, tgt: t, m0: 0.1, m1: 0.25 });
+  }
+  for (const c of scene.crests) {
+    for (let x = c.x0 + 120 * S; x < c.x1 - 120 * S; x += (18 + 20 * rng()) * S) {
+      const y = scene.crestY(c, x), y2 = scene.crestY(c, x + 30 * S);
+      const a = Math.atan2(y2 - y, 30 * S);
+      const yy = y - (5 + 4 * rng()) * S;
+      const j = ((Math.round(yy) * W) + Math.round(x)) * 3;
+      if (j < 0 || j >= t.length) continue;
+      const k = 1.08 + 0.08 * rng();
+      P.stroke({ x, y: yy, a, L: (40 + 50 * rng()) * S, w: (7 + 7 * rng()) * S, r: t[j] * k, g: t[j + 1] * k, b: t[j + 2] * k * 0.98,
+        alpha: 0.75, thick: 1.0 + 0.6 * rng(), dry: 0.3, smear: 0.15, bj: 0.08, rag: 0.5, taper: 0.6, mask: 0.8, tgt: t, m0: 0.15, m1: 0.35 });
+    }
   }
 }
 
@@ -235,6 +284,7 @@ function render(scale) {
     const n = paintLayer(P, scene, tB, aB, o);
     log(`layer ${li} strokes ${n}`);
   });
+  paintSnowSurface(P, scene, SEED + 299); log('snow surface');
   paintTrees(P, scene, SEED + 300); log('trees');
   paintGrasses(P, scene, SEED + 301); log('grasses');
   paintApples(P, scene, SEED + 302); log('apples');

@@ -8,7 +8,7 @@ const SKY_STOPS = [
   [0.78, [112, 130, 184]], [0.90, [168, 170, 208]], [1.00, [216, 196, 208]],
 ];
 const GROUND_STOPS = [ // by depth Z (m)
-  [2.0, [84, 84, 146]], [5, [102, 106, 168]], [11, [138, 144, 204]], [24, [178, 182, 226]], [55, [204, 202, 234]], [200, [210, 204, 232]],
+  [2.0, [96, 96, 158]], [5, [106, 110, 172]], [11, [138, 144, 204]], [24, [178, 182, 226]], [55, [204, 202, 234]], [200, [210, 204, 232]],
 ];
 function stops(tbl, v) {
   if (v <= tbl[0][0]) return tbl[0][1];
@@ -51,20 +51,20 @@ function buildReference(W, H, trees) {
         const warp = noise.n2(wx * 0.6 + 3.1, wy * 0.8) * 0.9;
         const n1 = noise.fbm(wx + warp, wy * 1.7 + 0.5 * warp, 4, 2.0, 0.5);
         const n1b = noise.fbm(wx + warp, wy * 1.7 + 0.5 * warp + 0.04, 4, 2.0, 0.5);
-        const cloud = smooth(-0.12, 0.34, n1);
+        const cloud = smooth(-0.24, 0.26, n1);
         const big = noise2.fbm(dx / 900 + 7.7, dy / 330 + 1.3, 3, 2.0, 0.5);
         const bigC = smooth(-0.05, 0.3, big);
-        const rim = clamp((n1b - n1) * 38, -1, 1); // vertical gradient -> underlit edges
+        const rim = clamp((n1b - n1) * 62, -1, 1); // vertical gradient -> underlit edges
         const upper = 1 - smooth(0.0, 0.9, t) * 0.4;
         // darker, violet-grey cloud masses
-        const dark = Math.min(1, (cloud * 0.6 + bigC * 0.55)) * upper * 0.9;
+        const dark = Math.min(1, (cloud * 0.7 + bigC * 0.6)) * upper * 1.0;
         r = r * (1 - dark * 0.5) + 26 * dark; g = g * (1 - dark * 0.6) + 10 * dark; b = b * (1 - dark * 0.3) + 52 * dark;
         // pale breaks in the overcast catch the last light
         const brk = smooth(0.3, 0.62, -big) * (1 - cloud) * smooth(0.1, 0.6, t);
         r += 34 * brk; g += 36 * brk; b += 30 * brk;
         // lit undersides toward the horizon glow
-        const lit = Math.max(0, rim) * smooth(0.25, 0.85, t) * cloud * 0.8;
-        r += 70 * lit; g += 54 * lit; b += 30 * lit;
+        const lit = Math.max(0, rim) * smooth(0.2, 0.85, t) * cloud * 0.75;
+        r += 80 * lit; g += 62 * lit; b += 48 * lit;
         // thin streaky haze
         const st = noise2.n2(dx / 700, dy / 22) * 0.5 + noise2.n2(dx / 260, dy / 9) * 0.5;
         const sk = st * 7 * (0.4 + t);
@@ -82,7 +82,7 @@ function buildReference(W, H, trees) {
         const fa = Math.exp(-Z / 80);
         const hh = (X0, Z0) => {
           const fh = Math.exp(-Z0 / 20);
-          let v = 0.55 * noise.n2(X0 * 0.30 + 5, Z0 * 0.16) + 0.3 * fh * noise.n2(X0 * 0.8 + 11, Z0 * 0.45) + 0.12 * fh * noise2.n2(X0 * 2.2, Z0 * 1.3);
+          let v = (0.55 + 0.7 * Math.exp(-Z0 / 9)) * noise.n2(X0 * 0.30 + 5 + Z0 * 0.14, Z0 * 0.16 - X0 * 0.09) + 0.3 * fh * noise.n2(X0 * 0.8 + 11, Z0 * 0.45) + 0.12 * fh * noise2.n2(X0 * 2.2, Z0 * 1.3);
           // lane depressions (tracks)
           const ax = Math.abs(X0 - 0.2);
           v -= 0.3 * Math.exp(-Math.pow((ax - 0.95) / 0.2, 2));
@@ -91,11 +91,13 @@ function buildReference(W, H, trees) {
         const e = 0.12;
         const h0 = hh(X, Z), hz = hh(X, Z + e), hx = hh(X + e, Z);
         const sz = (hz - h0) / e, sx = (hx - h0) / e;
-        let sh = clamp(0.5 - 0.55 * sz - 0.18 * sx, 0, 1);
+        const gz = 0.55 + 0.9 * Math.exp(-Z / 8);
+        let sh = clamp(0.5 - gz * sz - 0.18 * sx * (gz / 0.55), 0, 1);
         sh = 0.5 + (sh - 0.5) * (0.35 + 0.65 * fa);
         const lr = c[0] * 1.28 + 22, lg = c[1] * 1.22 + 14, lb = c[2] * 1.1 + 8;
         const sr = c[0] * 0.62, sg = c[1] * 0.6, sb = c[2] * 0.86 + 6;
         r = sr + (lr - sr) * sh; g = sg + (lg - sg) * sh; b = sb + (lb - sb) * sh;
+        { const hs = noise2.n2(X * 0.14 + 20, Z * 0.09) + 0.5 * noise.n2(X * 0.35, Z * 0.2 + 3); const fh2 = Math.exp(-Z / 40); r += 16 * hs * fh2; b -= 12 * hs * fh2; g += 5 * hs * fh2; }
         // luminous lane: snow facing the glow reads lighter and pinker
         const lane = Math.exp(-Math.pow((X - 0.3) / 3.0, 2)) * smooth(5, 28, Z);
         r += (232 - r) * lane * 0.22; g += (200 - g) * lane * 0.14; b += (238 - b) * lane * 0.1;
@@ -129,16 +131,17 @@ function buildReference(W, H, trees) {
     const sc = document.createElement('canvas'); sc.width = W; sc.height = H;
     const s2 = sc.getContext('2d'); s2.scale(K, K);
     const yOf = (Z) => YH + CAM.H * CAM.F / Z, xOf = (X, Z) => CAM.VPX + X * CAM.F / Z;
-    const band = (X, Z0, hw, a, len, hw1) => {
+    const band = (X, Z00, hw, a, len, hw1, delay) => {
+      const Z0 = Z00 - (delay || 0);
       const z1 = Math.max(1.8, Z0 - len);
-      if (z1 >= Z0 - 0.3) return;
+      if (z1 >= Z0 - 0.3 || Z0 < 2) return;
       const n = 10;
       s2.beginPath();
       for (let k = 0; k <= n; k++) { const Z = Z0 + (z1 - Z0) * k / n; const w = hw + (hw1 - hw) * k / n; const x = xOf(X - w, Z), y = yOf(Z); if (k === 0) s2.moveTo(x, y); else s2.lineTo(x, y); }
       for (let k = n; k >= 0; k--) { const Z = Z0 + (z1 - Z0) * k / n; const w = hw + (hw1 - hw) * k / n; s2.lineTo(xOf(X + w, Z), yOf(Z)); }
       s2.closePath();
       const g = s2.createLinearGradient(0, yOf(Z0), 0, yOf(z1));
-      g.addColorStop(0, `rgba(30,28,104,${a})`); g.addColorStop(0.6, `rgba(34,32,112,${a * 0.55})`); g.addColorStop(1, 'rgba(36,36,118,0)');
+      g.addColorStop(0, `rgba(30,28,104,${(delay || 0) > 0 ? 0 : a})`); g.addColorStop(0.14, `rgba(30,28,104,${a})`); g.addColorStop(0.6, `rgba(34,32,112,${a * 0.55})`); g.addColorStop(1, 'rgba(36,36,118,0)');
       s2.fillStyle = g; s2.fill();
     };
     for (const t of trees) {
@@ -146,7 +149,7 @@ function buildReference(W, H, trees) {
       const fade = Math.exp(-t.Z / 60);
       const sp = t.spread / 2.2;
       band(t.X, t.Z, 0.17, 0.62 * fade + 0.1, 8 + t.Z * 0.28, 0.5);
-      band(t.X, t.Z, 1.0 * sp, 0.2 * fade + 0.03, 12 + t.Z * 0.45, 2.1 * sp);
+      band(t.X, t.Z, 1.0 * sp, 0.2 * fade + 0.03, 12 + t.Z * 0.45, 2.1 * sp, 2.5);
     }
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -154,6 +157,35 @@ function buildReference(W, H, trees) {
     ctx.filter = `blur(${2.2 * K}px)`;
     ctx.drawImage(sc, 0, 0);
     ctx.restore();
+  }
+
+  // ---- wheel ruts leading up the lane to the house ----
+  {
+    const yOf = (Z) => YH + CAM.H * CAM.F / Z, xOf = (X, Z) => CAM.VPX + X * CAM.F / Z;
+    const ruts = [[-0.95, 0.3], [0.95, 2.1]];
+    for (const [X0, ph] of ruts) {
+      const pts = [];
+      for (let k = 0; k <= 70; k++) { const Z = 1.9 + (HOUSE.Z - 2 - 1.9) * Math.pow(k / 70, 1.6); pts.push([Z, X0 + 0.5 * Math.sin(0.13 * Z + ph) * (1 - Z / 60)]); }
+      const poly = (hw) => {
+        ctx.beginPath();
+        pts.forEach(([Z, Xc], i) => { const x = xOf(Xc - hw, Z), y = yOf(Z); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+        for (let i = pts.length - 1; i >= 0; i--) { const [Z, Xc] = pts[i]; ctx.lineTo(xOf(Xc + hw, Z), yOf(Z)); }
+        ctx.closePath();
+      };
+      ctx.save(); ctx.filter = `blur(${2.4 * K}px)`;
+      const g = ctx.createLinearGradient(0, yOf(1.9), 0, yOf(HOUSE.Z));
+      g.addColorStop(0, 'rgba(36,40,112,0.62)'); g.addColorStop(0.7, 'rgba(60,64,132,0.4)'); g.addColorStop(1, 'rgba(90,90,150,0.12)');
+      ctx.fillStyle = g; poly(0.2); ctx.fill();
+      // lit rims on the ridges either side
+      for (const sg of [-1, 1]) {
+        ctx.beginPath();
+        pts.forEach(([Z, Xc], i) => { const x = xOf(Xc + sg * 0.34, Z), y = yOf(Z); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+        const g2 = ctx.createLinearGradient(0, yOf(1.9), 0, yOf(HOUSE.Z));
+        g2.addColorStop(0, 'rgba(176,170,230,0.22)'); g2.addColorStop(1, 'rgba(250,214,214,0.28)');
+        ctx.strokeStyle = g2; ctx.lineWidth = 5; ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   // ---- window light on the snow (screen blend, hue shifts orange -> rose -> violet) ----

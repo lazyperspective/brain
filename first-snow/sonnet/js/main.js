@@ -13,11 +13,13 @@ function skyFlow(x, y, reg) {
 }
 function groundFlow(x, y, reg, r) {
   const n = FLOWN.n2(x / 190 + 9, y / 60) * 0.3;
-  const wr = smooth(60, 330, y - CAM.YH) * (r < 0.5 ? 1 : 0);
-  // horizontal sweep vs. radial strokes converging on the glow
-  let hx = Math.cos(n), hy = Math.sin(n);
+  const wr = smooth(40, 420, y - CAM.YH);
+  const hx = Math.cos(n), hy = Math.sin(n);
   const rx = CAM.VPX - x, ry = CAM.YH - y; const rl = Math.hypot(rx, ry) || 1;
-  const ux = rx / rl, uy = ry / rl;
+  // radial toward the glow, with a fraction of strokes laid obliquely so the surface reads as one flowing sweep, not a plaid
+  let ra = Math.atan2(ry, rx);
+  if (r > 0.5) ra += (r > 0.8 ? 0.38 : -0.38) * (0.6 + 0.4 * FLOWN.n2(x / 140, y / 140));
+  const ux = Math.cos(ra), uy = Math.sin(ra);
   let fx = hx * (1 - wr) + ux * wr, fy = hy * (1 - wr) + uy * wr;
   if (hx * ux + hy * uy < 0) { fx = hx * (1 - wr) - ux * wr; fy = hy * (1 - wr) - uy * wr; }
   return Math.atan2(fy, fx);
@@ -49,9 +51,9 @@ async function main() {
     await refPass(ref, rd, Object.assign({}, common, {
       layers: [118, 66, 36, 19], allowReg: (1 << REG.SKY) | (1 << REG.RIDGE),
       scaleY: null, flow: skyFlow, lenF: [7, 5, 2, 6, 10], tol: [0.16, 0.12, 0.1, 0.1, 0.1],
-      layerRange: { 0: [0, 3], 1: [1, 3], 4: [2, 3] }, errT: [0, 0.05, 0.04, 0.03], regScale: { 1: 0.45 },
+      layerRange: { 0: [0, 3], 1: [1, 3], 4: [2, 3] }, errT: [0, 0.06, 0.08, 0.1], regScale: { 1: 0.45 },
       style: (rg, l, lum) => ({ alpha: 0.9, thick: 0.22 + 0.08 * l, streak: 0.75, dry: 0.5, pick: 0.03, cj: 0.03, mix: 0.45, useC2: true }),
-      vj: 0.07, tj: 0.04, log: true,
+      vj: 0.07, tj: 0.04, accent: 0.14, accentCols: [[0.3, 0.55, 0.68], [0.55, 0.4, 0.7], [0.75, 0.55, 0.65]], log: true,
     }));
     LOG('sky done');
     // ground
@@ -59,9 +61,9 @@ async function main() {
       rng: new RNG(777),
       layers: [130, 76, 44, 24, 13], allowReg: (1 << REG.GROUND), clipAllow: (1 << REG.GROUND),
       y0: CAM.YH - 4, scaleY: (dy) => clamp(0.18 + 1.0 * (dy - CAM.YH) / (1350 - CAM.YH), 0.16, 1.2), flow: groundFlow,
-      lenF: [0, 0, 6, 0, 0], tol: [0, 0, 0.16, 0, 0], layerRange: { 2: [0, 4] }, errT: [0, 0.06, 0.055, 0.05, 0.045],
-      style: (rg, l, lum) => ({ thick: 0.4 + 2.2 * smooth(0.42, 0.85, lum), streak: 0.5, dry: 0.22, pick: 0.05, alpha: 0.96, cj: 0.03, mix: 0.5, useC2: true }),
-      vj: 0.06, tj: 0.05, log: true,
+      lenF: [0, 0, 6, 0, 0], tol: [0, 0, 0.16, 0, 0], layerRange: { 2: [0, 4] }, errT: [0, 0.06, 0.07, 0.08, 0.09],
+      style: (rg, l, lum) => ({ thick: 0.75 + 2.2 * smooth(0.42, 0.85, lum), streak: 0.5, dry: 0.22, pick: 0.05, alpha: 0.96, cj: 0.03, mix: 0.5, useC2: true }),
+      vj: 0.06, tj: 0.05, accent: 0.16, accentCols: [[0.6, 0.45, 0.65], [0.32, 0.5, 0.68], [0.55, 0.5, 0.66], [0.7, 0.6, 0.74]], log: true,
     }));
     LOG('ground done');
     for (const t of trees) { if (t.Z > HOUSE.Z) { await paintTree(t); } }
@@ -80,13 +82,14 @@ async function main() {
     for (const t of trees) { if (t.Z <= HOUSE.Z) { await paintTree(t); if ((++tc & 3) === 0) await tick(); } }
     LOG('near trees done');
     paintSmoke();
+    paintSkyScumble();
     paintBloom();
     await paintForeground(trees);
     await paintSnowfall();
     LOG('details done', window.__shc);
   }
   LOG('finishing');
-  const out = finishImage({ weaveAmp: 0.18, weaveHide: 4.5, heightScale: 1.0, normalStrength: 2.6, diffuse: 1.1, spec: 0.14, vignette: 0.22 });
+  const out = finishImage({ warp: [1.5, 0.6], weaveAmp: 0.18, weaveHide: 4.5, heightScale: 1.0, normalStrength: 2.6, diffuse: 1.1, spec: 0.14, vignette: 0.22 });
   const cv = document.getElementById('c');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
