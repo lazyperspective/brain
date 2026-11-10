@@ -104,9 +104,9 @@ function stateAt(t) {
 
   // ---- folder: pops up squishy, then opens
   const tp = t + 0.075;                                     // already a small blob at frame 0
-  const pop = 1 - Math.exp(-tp * 10) * Math.cos(tp * 14);
+  const pop = 1 - Math.exp(-tp * 6.5) * Math.cos(tp * 11.5);
   let fs = clamp(pop, 0, 1.3) * 0.985 + 0.015;
-  let fsy = 1 + 0.22 * Math.exp(-tp * 7) * Math.sin(tp * 19);
+  let fsy = 1 + 0.2 * Math.exp(-tp * 6) * Math.sin(tp * 16);
   const to = t - T_OPEN;
   fsy -= 0.10 * pulse(1.98, 2.08, 2.09, 2.13, t);           // gathers itself
   let open = -0.11;                                         // closed: flap rests against the back

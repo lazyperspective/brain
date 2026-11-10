@@ -165,7 +165,7 @@
   var CORAL = srgb(0xd97757), SHADE = srgb(0xa8553b), LIGHT = srgb(0xf2a585), DARK = srgb(0x6e2a1a);
   var LILAC = srgb(0x7d70d6), LILAC_D = srgb(0x4a3f9c), LILAC_HI = srgb(0xa79df0);
   var INK = [0.004, 0.003, 0.006];
-  var GROUND = [0.0105, 0.0088, 0.034];
+  var GROUND = [0.0088, 0.0080, 0.036];
   var STONE = [0.020, 0.017, 0.056];
 
   // ------------------------------------------------------------ 3x5 glyphs (variable width)
@@ -274,7 +274,7 @@
       }
     }
     if (land > -5) { var dt = t - land; s.sy *= 1 - (0.10 + 0.32 * amp) * Math.exp(-dt * 13) * Math.cos(dt * 24); }
-    s.yaw = keys([0, 0.92, 1.17, 0.92, 1.42, 1.22, 1.54, 1.22, 1.68, -0.42, 1.80, -0.42, 1.93, 0.42, 2.25, 0.42, 2.5, 0.70, 3, 0.74], t);
+    s.yaw = keys([0, 0.50, 1.10, 0.56, 1.42, 1.22, 1.54, 1.22, 1.68, -0.42, 1.80, -0.42, 1.93, 0.42, 2.25, 0.42, 2.5, 0.70, 3, 0.74], t);
     s.pitch = keys([0, 0, 1.2, 0, 1.42, 0.07, 1.56, 0.07, 1.68, -0.02, 1.93, 0, 2.02, -0.14, 2.3, -0.10, 2.6, -0.30, 3, -0.34], t);
     s.roll = 0.10 * ss(1.56, 1.68, t) * (1 - ss(1.80, 1.93, t)); // curious head tilt on the glance
     var b = Math.abs(t - 1.755) < 0.075 ? 1 - Math.abs(t - 1.755) / 0.075 : 0;
@@ -289,7 +289,7 @@
   function folderState(t) {
     var open = outBack(ss(2.07, 2.42, t));
     return {
-      scale: 0.42 + 0.58 * outBack(ss(-0.06, 0.46, t)),
+      scale: 0.55 + 0.45 * outBack(ss(-0.06, 0.46, t)),
       drop: 0.5 * (1 - ss(-0.06, 0.34, t)),
       open: 0.50 * open,
       light: ss(2.08, 2.55, t),
@@ -316,7 +316,7 @@
         ang: 0.03 + 0.40 * Math.pow(rnd(), 0.85), az: rnd() * 6.2832, sp: 6.9 + 4.3 * rnd(),
         ox: (rnd() - 0.5) * 1.1, oz: (rnd() - 0.5) * 0.12,
         p1: rnd() * 6.2832, p2: rnd() * 6.2832, w: 0.5 + rnd(), spin: (rnd() - 0.5) * 16,
-        len: 0.17 + 0.13 * rnd(), rad: 0.034 + 0.02 * rnd(), tone: rnd(), tw: rnd() * 6.2832
+        len: 0.15 + 0.12 * rnd(), rad: 0.030 + 0.017 * rnd(), tone: rnd(), tw: rnd() * 6.2832
       });
     }
   })();
@@ -560,13 +560,13 @@
     '  vec3 rim=uRimCol*pow(max(dot(N,uRimDir),0.),1.2);',
     '  vec3 amb=mix(vec3(0.055,0.035,0.070),vec3(0.105,0.110,0.250),N.y*.5+.5);',
     '  vec3 pd=uPtPos-vW; float r2=dot(pd,pd);',
-    '  vec3 pt=uPtCol*max(dot(N,pd*inversesqrt(r2)),0.)/(1.+r2*.22);',
+    '  vec3 pt=uPtCol*max(dot(N,pd*inversesqrt(r2)),0.)*min(1./(1.+r2*.22), mix(.32,1.,kind));',
     '  float ao=1.;',
     '  if(kind>.5){ for(int i=0;i<2;i++){ vec2 q=vW.xz-uOccA[i].xy; float c=uOccB[i].x, s=uOccB[i].y;',
     '      q=vec2(c*q.x-s*q.y, s*q.x+c*q.y); float d=length(max(abs(q)-uOccA[i].zw,0.));',
     '      float rr=uOccB[i].w; ao*=1.-uOccB[i].z*exp(-d*d/(rr*rr)); } }',
     '  vec3 c=vC*(amb*ao*mix(1.,.55,kind) + key*mix(1.,ao,.6) + rim*ao*mix(1.,.3,kind) + pt*mix(1.,ao,.5));',
-    '  float facet=.62+.38*max(dot(N,normalize(vec3(-.35,.8,.5))),0.);',
+    '  float facet=.62+.38*max(dot(N,normalize(vec3(.35,.8,.5))),0.);',
     '  c+=vC*emis*facet;',
     '  vec3 v=vW-uCam; float dist=length(v);',
     '  float f=1.-exp(-pow(max(dist-9.5,0.)*.062,1.5));',
@@ -660,7 +660,7 @@
   gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-  var KEY_DIR = vNorm([-0.50, 0.80, 0.52]), RIM_DIR = vNorm([0.72, 0.30, -0.62]);
+  var KEY_DIR = vNorm([0.46, 0.80, 0.56]), RIM_DIR = vNorm([-0.74, 0.30, -0.60]);
   var LVP = mMul(mOrtho(-9, 9, -9, 9, 1, 50), mLook([KEY_DIR[0] * 25, KEY_DIR[1] * 25, KEY_DIR[2] * 25], [0, 0, 0], [0, 1, 0]));
 
   function hudText(str, x, y, px, col, alpha) {

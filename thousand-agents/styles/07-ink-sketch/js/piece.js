@@ -229,7 +229,7 @@ function text(c, str, x, y, s, o, reveal) {
 /* ------------------------------------------------------------ the hero */
 const HOPS = [[-0.12, 0.30, -150, 230, 122], [0.34, 0.72, 230, 530, 104], [0.76, 1.12, 530, CHX, 82], [1.95, 2.22, CHX, CHX, 60]];
 function kf(K, t) { if (t <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (t < K[i][0]) return lerp(K[i - 1][1], K[i][1], ss(K[i - 1][0], K[i][0], t)); return K[K.length - 1][1]; }
-const EX = [[0, 7], [1.15, 7], [1.3, 11], [1.5, 11], [1.58, -11], [1.68, -11], [1.76, 9], [1.92, 10], [1.98, 3], [2.25, 8], [2.5, 10], [3, 10]];
+const EX = [[0, 7], [1.15, 7], [1.3, 14], [1.5, 14], [1.58, -16], [1.68, -16], [1.76, 9], [1.92, 10], [1.98, 3], [2.25, 8], [2.5, 10], [3, 10]];
 const EY = [[0, 0], [1.15, 0], [1.3, 3], [1.5, 3], [1.58, 0], [1.68, 0], [1.76, -5], [1.92, 2], [1.98, -3], [2.25, -7], [2.5, -10], [3, -11]];
 function pose(t) {
   let x = HOPS[0][2], lift = 0, sy = 1, lean = 0, air = 0, land = 0;
@@ -267,6 +267,11 @@ function drawHero(t, b, bw, open) {
   const la = capsule(-w / 2 + 12, cy + 8, Math.PI - 0.25 + 0.7 * p.air * (1 - p.arm), 46, 19);
   const ra = capsule(w / 2 - 12 - 8 * p.arm, lerp(cy + 8, yt + 36, p.arm), lerp(0.25 - 0.7 * p.air, -1.02, p.arm), lerp(46, 62, p.arm), 19);
 
+  // --- a loose watercolour wash first, wetter and wider than the drawing
+  begin(); T(lx);
+  const under = rrectPts(7, cy + 12, w + 26, hh + 30, 50);
+  blob(lx, under, 190 + bw, 9, 120, C.coral); rim(lx, under, 190 + bw, 9, 120, C.light, 0.5, 5);
+  finish({ alpha: 0.2, mottle: 0.8, mx: -gx * 0.1 - 200, my: -300, grain: 0.4, halo: 0.5, haloR: 9 });
   // --- limbs: paint, then ink
   begin(); T(lx);
   for (const [L, far] of legs) blob(lx, L, 200 + bw + (far ? 3 : 0), 1.6, 40, far ? '#8a4330' : C.coral);
@@ -439,8 +444,8 @@ function render(t) {
   const hero = drawHero(t, b, bw, clamp(open, 0, 1));
 
   // landing ticks
-  for (let i = 0; i < HOPS.length; i++) { const dt = t - HOPS[i][1]; if (dt < 0 || dt > 0.24) continue; const u = dt / 0.24, x = HOPS[i][3];
-    for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { const x0 = x + s * (150 + k * 22 + u * 30), y0 = GROUND - 6 - k * 13 - u * 10;
+  for (let i = 0; i < HOPS.length; i++) { const dt = t - HOPS[i][1]; if (dt < 0 || dt > 0.17) continue; const u = dt / 0.17, x = HOPS[i][3];
+    for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { const x0 = x + s * (138 + k * 20 + u * 26), y0 = GROUND - 6 - k * 13 - u * 10;
       ink(ctx, [[x0, y0], [x0 + s * (16 - 10 * u), y0 - 9 + 5 * u]], { seed: 400 + i * 9 + k + b, w: 2.4 * (1 - u * 0.5), wob: 0.8, col: C.ink, alpha: 0.7 }); } }
 
   // the call: three flicks of gouache off the raised arm

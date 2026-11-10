@@ -126,7 +126,7 @@
      2x3 black eyes with a white glint voxel, a recessed mouth only when it calls. */
   const HNX = 30, HNY = 22, HNZ = 12, HBX = 5, HBY = 4, BW = 20, BH = 12, BD = 12;
   const HG = { nx: HNX, ny: HNY, nz: HNZ, v: new Uint8Array(HNX * HNY * HNZ), ox: HBX + BW / 2, oy: 0, oz: BD / 2, seed: 7,
-    pal: [null, [...C.coral, 0], [...C.shade, 0], [...C.light, 0], [0.004, 0.003, 0.004, 0, 0], [1, 1, 1, 0.55, 0], [...C.dark, 0, 0.05], [0.012, 0.004, 0.004, 0, 0]] };
+    pal: [null, [...C.coral, 0], [...C.shade, 0], [...C.coral.map((c, i) => lerp(c, C.light[i], 0.55)), 0], [0.004, 0.003, 0.004, 0, 0], [1, 1, 1, 0.55, 0], [...C.dark, 0, 0.05], [0.012, 0.004, 0.004, 0, 0]] };
   function buildHero(st) {
     const v = HG.v; v.fill(0);
     const set = (x, y, z, c) => { if (x >= 0 && y >= 0 && z >= 0 && x < HNX && y < HNY && z < HNZ) v[(z * HNY + y) * HNX + x] = c; };
@@ -155,12 +155,12 @@
     // face (on the +z side)
     const fz = BD - 1, lk = st.look || 0, lu = st.lookUp || 0;
     for (const [ex, side] of [[3, -1], [BW - 5, 1]]) {
-      const x0 = HBX + ex + lk, y0 = HBY + 8 + lu;
+      const x0 = HBX + ex + lk, y0 = HBY + 6 + lu;
       if (st.eyes === 'closed') box(x0, y0, fz, 2, 1, 1, 6);
       else { box(x0, y0, fz, 2, 3, 1, 4); set(x0 + (side < 0 ? 0 : 1), y0 + 2, fz, 5); }
     }
     if (st.mouth) {
-      const mw = st.mouth > 1 ? 6 : 4, mh = st.mouth > 1 ? 3 : 2, x0 = HBX + BW / 2 - mw / 2, y0 = HBY + 6 - mh;
+      const mw = st.mouth > 1 ? 6 : 4, mh = st.mouth > 1 ? 3 : 2, x0 = HBX + BW / 2 - mw / 2, y0 = HBY + 5 - mh;
       box(x0, y0 + (st.mouth > 1 ? 0 : 0), fz, mw, mh, 1, 0); box(x0, y0, fz - 1, mw, mh, 1, 7); box(x0 + 1, y0, fz - 1, mw - 2, 1, 1, 6);
     }
   }
@@ -266,10 +266,10 @@
     const pick = r(9);
     AG.push({
       b: T_POUR + 0.86 * Math.pow((i + 0.5) / NAG, 1 / 1.7),
-      x: (r(1) - 0.5) * 17, z: (r(2) - 0.5) * 2.2,
-      vx: g(3) * 15, vy: 58 + r(4) * 46, vz: g(5) * 11 + 5,
+      x: (r(1) - 0.5) * 18, z: (r(2) - 0.5) * 2.0,
+      vx: g(3) * 21 + (r(1) - 0.5) * 12, vy: 66 + r(4) * 58, vz: Math.max(-6, g(5) * 12 + 5),
       ax: [r(10) - 0.5, r(11) - 0.5, r(12) - 0.5], w: 5 + r(13) * 9, ph: r(14) * TAU,
-      col: pick < 0.55 ? C.light : pick < 0.83 ? C.coral : C.cream, e: 1.5 + r(15) * 1.5, s: 0.92 + r(16) * 0.3,
+      col: pick < 0.55 ? C.light : pick < 0.83 ? C.coral : C.cream, e: 1.15 + r(15) * 1.0, s: 0.95 + r(16) * 0.3,
     });
   }
   const GRAV = 150;
@@ -277,7 +277,7 @@
   function drawAgents(t, FM) {
     for (const a of AG) {
       let tl = t - a.b; if (tl <= 0) continue;
-      const y0 = 3.5, yg = a.s * 0.5;
+      const y0 = 4.5, yg = a.s * 0.5;
       let x = a.x + a.vx * tl, z = a.z + a.vz * tl, y, vy = a.vy, rest = false;
       // ballistic arcs with two damped bounces, then rest
       const d0 = y0 - yg; let T = (vy + Math.sqrt(vy * vy + 2 * GRAV * d0)) / GRAV;
@@ -309,8 +309,9 @@
     const glow = sstep(T_OPEN - 0.02, T_OPEN + 0.4, t);
     const pulse = glow * (1 + 0.06 * Math.sin((t - T_OPEN) * 9));
     const warmCol = [lerp(C.vdeep[0], 1.0, glow), lerp(C.vdeep[1], 0.72, glow), lerp(C.vdeep[2], 0.46, glow)];
-    FB.pal = [null, [...C.violet, 0], [...C.lilac, 0], [...warmCol, 3.2 * pulse, 0.05]];
-    FF.pal = [null, [C.violet[0] * 1.12, C.violet[1] * 1.12, C.violet[2] * 1.12, 0], [...C.lilac, 0]];
+    const fcol = C.violet.map((c, i) => lerp(c, C.vdim[i], 0.5)), ftrim = C.violet.map((c, i) => lerp(c, C.lilac[i], 0.55));
+    FB.pal = [null, [...fcol, 0], [...ftrim, 0], [...warmCol, 2.3 * pulse, 0.05]];
+    FF.pal = [null, [...fcol.map((c) => c * 1.18), 0], [...ftrim, 0]];
     const FM = mChain(mRotY(FOLD_YAW));
     drawFolderPart(FB, FBfull, FM, t, 3, true);
     const ko = c01((t - T_OPEN) / 0.36), back = 1 + 2.2 * Math.pow(ko - 1, 3) + 1.2 * Math.pow(ko - 1, 2);
@@ -319,7 +320,7 @@
     drawFolderPart(FF, FFfull, FFM, t, 5, open < 0.02);
 
     // label: "0 ITEMS", which turns into the agent counter
-    const lx = -13.5, lz = 16.5;
+    const lx = -13.5, lz = 13.5;
     const out = sstep(T_OPEN + 0.02, T_OPEN + 0.14, t);
     if (out < 1) label('0 ITEMS', lx, lz, (k, i, j) => {
       const a = 0.26 + (k * 4 + i) * 0.007 + j * 0.006; const s = sstep(a, a + 0.09, t);
@@ -440,7 +441,7 @@
         float d = min(min(f.x,1.-f.x), min(f.y,1.-f.y));
         float groove = mix(smoothstep(0.0, 0.035+w, d), 0.9, clamp(w*4.,0.,1.));
         float var = mix(h1(id), 0.5, clamp(w*3.,0.,1.));
-        alb = vec3(0.0135, 0.0100, 0.0420)*(0.74+0.52*var)*mix(0.45, 1., groove);
+        alb = vec3(0.0150, 0.0105, 0.0460)*(0.74+0.52*var)*mix(0.45, 1., groove);
         ao = boxAO(vP.xz, uHero, uHeroB, 0.62) * boxAO(vP.xz, vec4(uFold.xy, uFold.z, uFold.w), vec3(12.5, 3.6, 0.), 0.6);
         e = 0.;
       } else {
@@ -450,14 +451,14 @@
       float sh = shadow(vP, N);
       float ndl = max(dot(N, uL), 0.);
       vec3 key = vec3(1.0, 0.94, 0.86)*1.18*ndl*sh*mix(0.72, 1., ao)*(0.25+0.75*pool);
-      vec3 amb = mix(vec3(0.040, 0.034, 0.085), vec3(0.20, 0.19, 0.36), N.y*.5+.5)*ao*ao*(0.3+0.7*pool);
+      vec3 amb = mix(vec3(0.040, 0.034, 0.085), vec3(0.20, 0.19, 0.36), N.y*.5+.5)*ao*ao*(0.3+0.7*pool)*(isFloor ? 0.6 : 1.);
       vec3 fill = vec3(0.26, 0.22, 0.52)*0.30*max(dot(N, normalize(vec3(-0.85, 0.25, 0.2))), 0.)*ao;
       // the warm light of the open folder and of the fountain above it
       vec3 wd = uWarm.xyz - vP; float wl = length(wd);
       float wn = max(dot(N, wd/wl), 0.);
       vec3 warm = vec3(1.0, 0.58, 0.32)*uWarm.w*(wn*0.85+0.15)/(1. + wl*wl/420.);
       vec3 wd2 = vec3(uWarm.x, 30., uWarm.z+3.) - vP; float wl2 = length(wd2);
-      warm += vec3(1.0, 0.62, 0.38)*uPour*1.5*max(dot(N, wd2/wl2), 0.)/(1. + wl2*wl2/1500.);
+      warm += vec3(1.0, 0.62, 0.38)*uPour*0.8*max(dot(N, wd2/wl2), 0.)/(1. + wl2*wl2/1500.);
       vec3 walb = isFloor ? mix(alb, vec3(dot(alb, vec3(.3,.5,.2)))*2.2, 0.75) : alb;
       vec3 col = alb*(key + amb + fill) + walb*warm*mix(0.6,1.,ao);
       if (e > 0.) col += vC*e*(0.62 + 0.38*(N.y*0.6 + N.z*0.3 + 0.4));
@@ -467,7 +468,7 @@
   const DOF_COMMON = `
     uniform sampler2D uCol, uDep; uniform vec4 uCam; /* near, far, focus, k */ uniform vec2 uPx;
     float linz(float d){ return 2.*uCam.x*uCam.y/(uCam.y+uCam.x - (d*2.-1.)*(uCam.y-uCam.x)); }
-    float coc(float z){ return clamp(uCam.w*max(abs(z-uCam.z)-5., 0.)/z, 0., 26.); }`;
+    float coc(float z){ return clamp(uCam.w*max(abs(z-uCam.z)-7., 0.)/z, 0., 26.); }`;
   // half-resolution scatter-as-gather blur on a golden-angle spiral; alpha carries the blur that landed on the pixel
   const P_DOF = prog(VS_FS, `in vec2 vUV; out vec4 o;` + DOF_COMMON + `
     void main(){
@@ -510,7 +511,7 @@
     void main(){
       vec3 c = texture(uCol, vUV).rgb;
       vec3 bloom = texture(uB0, vUV).rgb*0.34 + texture(uB1, vUV).rgb*0.30 + texture(uB2, vUV).rgb*0.26 + texture(uB3, vUV).rgb*0.22;
-      c += bloom*0.55;
+      c += bloom*0.40;
       vec2 q = vUV-0.5; q.x *= 1.3; float vig = 1. - 0.55*smoothstep(0.25, 0.95, length(q));
       c *= vig;
       c = tone(c*1.04);
@@ -520,19 +521,19 @@
       o = vec4(c, 1.);
     }`);
 
-  const LDIR = (() => { const v = [0.36, 0.9, 0.66], l = Math.hypot(...v); return v.map((x) => x / l); })();
+  const LDIR = (() => { const v = [0.62, 0.85, 0.45], l = Math.hypot(...v); return v.map((x) => x / l); })();
   const LVP = (() => {
-    const c = [-18, 0, -2], e = [c[0] + LDIR[0] * 220, c[1] + LDIR[1] * 220, c[2] + LDIR[2] * 220];
+    const c = [-24, 0, -6], e = [c[0] + LDIR[0] * 220, c[1] + LDIR[1] * 220, c[2] + LDIR[2] * 220];
     return mMul(mOrtho(-105, 105, -78, 78, 60, 380), mLook(e, c, [0, 1, 0]));
   })();
   const NEAR = 30, FAR = 1400, FOV = 23 * D2R;
   function camera(t) {
     const k = t / DUR, e = k * k * (3 - 2 * k) * 0.35 + k * 0.65;
-    const az = lerp(15, 25, e) * D2R, pit = lerp(25.5, 23.5, e) * D2R, dist = lerp(196, 181, e);
-    const tg = [lerp(-13, -6, e), lerp(9.5, 15.5, sstep(1.9, 3.0, t) * 0.8 + e * 0.2), 3];
+    const az = lerp(15, 25, e) * D2R, pit = lerp(25.5, 23.5, e) * D2R, dist = lerp(268, 246, e);
+    const tg = [lerp(-15, -7, e), lerp(9, 19, sstep(1.9, 3.0, t) * 0.8 + e * 0.2), 3];
     const eye = [tg[0] + dist * Math.sin(az) * Math.cos(pit), tg[1] + dist * Math.sin(pit), tg[2] + dist * Math.cos(az) * Math.cos(pit)];
     const fw = [tg[0] - eye[0], tg[1] - eye[1], tg[2] - eye[2]].map((x) => x / dist);
-    const fp = [-10, 7, 4], focus = (fp[0] - eye[0]) * fw[0] + (fp[1] - eye[1]) * fw[1] + (fp[2] - eye[2]) * fw[2];
+    const fp = [-10, 7, 6], focus = (fp[0] - eye[0]) * fw[0] + (fp[1] - eye[1]) * fw[1] + (fp[2] - eye[2]) * fw[2];
     return { eye, vp: mMul(mPersp(FOV, W / H, NEAR, FAR), mLook(eye, tg, [0, 1, 0])), focus };
   }
   function bindTex(unit, t, loc) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, unit); }
@@ -560,7 +561,7 @@
     gl.uniform3fv(u.uL, LDIR); gl.uniform3fv(u.uEye, cam.eye);
     gl.uniform4f(u.uHero, st.x, st.z, Math.cos(st.yaw), Math.sin(st.yaw)); gl.uniform3f(u.uHeroB, 10, 6, st.y);
     gl.uniform4f(u.uFold, 0, 0, Math.cos(FOLD_YAW), Math.sin(FOLD_YAW));
-    gl.uniform4f(u.uWarm, 0, 7, 1.5, sc.glow * 2.3); gl.uniform1f(u.uPour, sc.pour);
+    gl.uniform4f(u.uWarm, 0, 7, 1.5, sc.glow * 1.5); gl.uniform1f(u.uPour, sc.pour);
     bindTex(0, shadowT.depth, u.uShadow);
     gl.drawArrays(gl.TRIANGLES, 0, sc.nAll);
     if (msT.ok) {
@@ -569,7 +570,7 @@
     }
     gl.disable(gl.DEPTH_TEST);
     // depth of field
-    const camU = [NEAR, FAR, cam.focus, 74];
+    const camU = [NEAR, FAR, cam.focus, 100];
     pass(P_DOF, halfT, (q) => { bindTex(0, sceneT.color, q.uCol); bindTex(1, sceneT.depth, q.uDep); gl.uniform4fv(q.uCam, camU); gl.uniform2f(q.uPx, 1 / W, 1 / H); });
     pass(P_FILL, half2T, (q) => { bindTex(0, halfT.color, q.uCol); gl.uniform2f(q.uPx, 1 / W, 1 / H); });
     pass(P_COMP, compT, (q) => { bindTex(0, sceneT.color, q.uCol); bindTex(1, sceneT.depth, q.uDep); bindTex(2, half2T.color, q.uBlur); gl.uniform4fv(q.uCam, camU); gl.uniform2f(q.uPx, 1 / W, 1 / H); });

@@ -69,7 +69,7 @@ vec3 heroLocal(vec3 p){
   c = cos(uHLean); s = sin(uHLean);
   p = vec3(c*p.x - s*p.y, s*p.x + c*p.y, p.z);
   c = cos(uHPitch); s = sin(uHPitch); p.y -= 0.25;
-  p = vec3(p.x, c*p.y - s*p.z + 0.25, s*p.y + c*p.z);
+  p = vec3(p.x, c*p.y + s*p.z + 0.25, -s*p.y + c*p.z);
   return p/uHScale;
 }
 vec3 eyeC(float sx){ return vec3(sx*0.2 + uLook.x*0.055, 0.6 + uLook.y*0.04, 0.3); }
@@ -286,7 +286,7 @@ void main(){
   // ---- lights
   vec3 L1 = normalize(vec3(-0.5, 0.85, 0.55));
   vec3 kcol = vec3(1.0,0.93,0.84)*2.15;
-  float pool = smoothstep(mat < 0.5 ? 7.5 : 13.0, 0.8, length(p.xz - vec2(0.0,0.3)));
+  float pool = smoothstep(mat < 0.5 ? 10.5 : 13.0, 0.8, length(p.xz - vec2(0.0,0.3)));
   pool *= pool;
   float sh = softShadow(p+ng*0.004, L1, 7.0, 6.5, 30);
   float ndl = dot(n, L1);
@@ -334,21 +334,21 @@ void main(){
       vec3 q = folderLocal(p);
       vec3 f = flapLocal(q);
       float inner = max(smoothstep(-0.05,-0.03,q.z)*step(f.z,-0.045), smoothstep(-0.03,-0.048,f.z)*step(-0.03,q.z));
-      col += WARM*uGlow*inner*(0.45 + 1.5*smoothstep(0.85, 0.05, q.y));
+      col = mix(col, WARM*(0.5 + 1.7*smoothstep(0.85, 0.05, q.y)) + col*0.3, inner*uGlow*0.9);
     }
   }
   if(uFountI > 0.001){
     vec3 Lv = uFount - p; float d2 = dot(Lv,Lv); float d = sqrt(d2); Lv /= d;
     float nl = clamp((dot(n,Lv)+0.25*sss)/(1.0+0.25*sss), 0.0, 1.0);
     float s2 = softShadow(p+ng*0.004, Lv, d, 5.0, 18);
-    col += alb*WARM*uFountI*8.5*nl*s2/(1.0+0.75*d2);
+    col += alb*WARM*uFountI*(mat > 3.5 ? 2.6 : 4.6)*nl*s2/(1.0+0.3*d2);
     col += WARM*uFountI*0.5*sheen*pow(max(dot(n,normalize(Lv+V)),0.0), gloss)*s2;
   }
   col += emis;
 
   // depth haze into the backdrop
-  vec3 bg = lin(vec3(0.026,0.018,0.058)) + lin(vec3(0.115,0.07,0.21))*exp(-22.0*(rd.y-0.01)*(rd.y-0.01) - 2.2*rd.x*rd.x);
-  col = mix(col, bg, 1.0-exp(-0.00009*t*t*t));
+  vec3 bg = lin(vec3(0.026,0.018,0.058)) + lin(vec3(0.10,0.062,0.19))*exp(-9.0*(rd.y+0.02)*(rd.y+0.02) - 1.6*rd.x*rd.x);
+  col = mix(col, bg, 1.0-exp(-0.000018*t*t*t*t));
 
   col = tonemap(col);
   col = pow(col, vec3(1.0/2.2));

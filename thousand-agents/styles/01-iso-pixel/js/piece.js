@@ -5,7 +5,7 @@
 (() => {
   'use strict';
   const W = 384, H = 216, SCALE = 5, DUR = 3, N_OUT = 250;
-  const OX = 190, OY = 138;                         // where the world origin sits on screen
+  const OX = 190, OY = 142;                         // where the world origin sits on screen
   const PI = Math.PI, TAU = PI * 2, fl = Math.floor;
 
   /* ------------------------------------------------------------------ maths */
@@ -174,7 +174,7 @@
     let x = HERO_X, z = 0;
     if (t < T_ARR1) {
       const p = (t - T_ARR0) / (T_ARR1 - T_ARR0) * HOPS, i = fl(p), f = p - i, GND = 0.22, a = c01((f - GND) / (1 - GND));
-      x = lerp(HERO_FROM, HERO_X, (i + a) / HOPS); z = 18 * 4 * a * (1 - a);
+      x = lerp(HERO_FROM, HERO_X, (i + a) / HOPS); z = 15 * 4 * a * (1 - a);
       if (f < GND) o.sq = 0.3 * Math.sin(PI * f / GND); else { o.sq = -0.14 * Math.sin(PI * a); const l = a < 0.5 ? 2 : 1; o.legs = [1, l, l, 2]; }
       o.look = [1, 0];
     } else {
@@ -186,7 +186,7 @@
       const cr = seg(1.84, 1.93, t) * (1 - seg(1.93, 1.97, t)); o.sq += 0.24 * cr;
       const a = seg(1.95, 2.27, t); if (a > 0 && a < 1) { z = 15 * 4 * a * (1 - a); o.sq -= 0.13 * Math.sin(PI * a); o.legs = [1, 2, 2, 1]; }
       const ld = t - 2.27; if (ld >= 0) o.sq += 0.2 * Math.exp(-ld * 14) * Math.cos(ld * 26);
-      o.armA = 1.15 * eo(seg(1.9, 2.02, t)) * (1 - eio(seg(2.5, 2.74, t))); o.reach = 2.6 * seg(1.9, 2.02, t) * (1 - seg(2.5, 2.74, t));
+      o.armA = 1.3 * eo(seg(1.9, 2.02, t)) * (1 - eio(seg(2.5, 2.74, t))); o.reach = 4 * seg(1.9, 2.02, t) * (1 - seg(2.5, 2.74, t));
       if (t >= 1.95 && t < 2.24) o.mouth = 2; else if (t >= 2.24 && t < 2.34) o.mouth = 1;
       if (t >= 2.3) o.look = [1, 1];                                           // watches them pour out
       if (t >= 2.62 && t < 2.7) o.eyes = 'closed';
@@ -240,8 +240,8 @@
   function agentPos(a, age, out) {
     if (age < a.T) { out[0] = a.x0 + a.vx * age; out[1] = a.y0 + a.vy * age; out[2] = a.z0 + a.vz * age - GRAV / 2 * age * age; return true; }
     const w = age - a.T, k = 1 - Math.exp(-w * 9);                              // lands, finds its feet, walks off along a grid axis
-    out[0] = a.x0 + a.vx * a.T + a.wx * a.sp * (w - (1 - Math.exp(-w * 9)) / 9) + a.vx * 0 ; out[1] = a.y0 + a.vy * a.T + a.wy * a.sp * (w - k / 9);
-    out[2] = Math.abs(Math.sin(w * 15 + a.ph * 0)) * 2.2 * Math.exp(-w * 2.5) + Math.abs(Math.sin(w * 11)) * 1.1 * k;
+    out[0] = a.x0 + a.vx * a.T + a.wx * a.sp * (w - (1 - Math.exp(-w * 9)) / 9); out[1] = a.y0 + a.vy * a.T + a.wy * a.sp * (w - k / 9);
+    out[2] = Math.abs(Math.sin(w * 15 + a.ph)) * 2.2 * Math.exp(-w * 2.5) + Math.abs(Math.sin(w * 11)) * 1.1 * k;
     return false;
   }
   const agentsOut = (t) => t <= T_OPEN + 0.04 ? 0 : Math.min(N_OUT, fl(N_OUT * Math.pow((t - T_OPEN - 0.04) / (DUR - T_OPEN - 0.04), 1.55) + 0.5));
@@ -290,10 +290,8 @@
     for (let i = 0; i < nOut; i++) {
       const a = AG[i]; agentPos(a, t - a.tb, P);
       const sx = Math.round(prx(P[0], P[1])), fy = Math.round(pry(P[0], P[1], 0)), zz = Math.round(P[2]);
-      const p = fy * W + sx;
       if (sx >= 0 && sx < W - 1 && fy >= 0 && fy < H) { const k = 1 - 0.5 * (1 - c01(P[2] / 150)); mul(sx, fy, k); mul(sx + 1, fy, k); }   // its shadow
       rput(sx, fy + zz + 1, C.coral, P[0] + P[1] - P[2], 0.34 * (1 - P[2] / 70)); rput(sx + 1, fy + zz + 1, C.cord, P[0] + P[1] - P[2], 0.34 * (1 - P[2] / 70));
-      void p;
     }
     for (let p = 0; p < W * H; p++) { const a = RA[p]; if (a > 0) { const i = p * 3; BUF[i] += (RB[i] - BUF[i]) * a; BUF[i + 1] += (RB[i + 1] - BUF[i + 1]) * a; BUF[i + 2] += (RB[i + 2] - BUF[i + 2]) * a; } }
 
