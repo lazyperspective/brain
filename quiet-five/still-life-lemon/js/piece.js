@@ -60,7 +60,7 @@
         // uneven aged varnish / grime: a slow mottle over the whole picture
         const xx = (i % W) / W, yy = ((i / W) | 0) / H;
         const mot = 1 + 0.045 * MOT.fbm2(xx * 5, yy * 5, 4) - 0.05 * (Math.pow(Math.abs(xx - 0.5) * 2, 3) + Math.pow(Math.abs(yy - 0.5) * 2, 3));
-        mul[i] = mot * pt.relief[i] * (1 - 0.2 * cr * (0.3 + 0.7 * light));
+        mul[i] = mot * pt.relief[i] * (1 - cr * (0.08 - 0.06 * light));
         // varnish sheen on raised paint + dirt-free crack edges catching light in the darks
         // thin darks: the canvas weave and crack edges catch a little light through the varnish
         const wv = pt.weave[i];
@@ -69,7 +69,7 @@
       }
       // canvas-only multiplier (cracks) for things painted per frame on the same canvas
       const cmul = new Float32Array(N);
-      for (let i = 0; i < N; i++) cmul[i] = 1 - 0.2 * pt.crack[i] * 0.8;
+      for (let i = 0; i < N; i++) cmul[i] = 1 - 0.04 * pt.crack[i];
       Q.canvasMul = cmul;
       // static dither pattern (fixed => no temporal noise)
       dith = new Float32Array(N);
@@ -125,7 +125,7 @@
       if (Q.bubbleDraw) Q.bubbleDraw(out, t, f, pt, W, H);
     }
 
-    const VAR = [0.99, 0.95, 0.85]; // aged varnish
+    const VAR = [0.99, 0.965, 0.9]; // aged varnish
     // returns RGBA at internal res (outScale 1) or downsampled by 2 (outScale 0.5)
     P.renderRGBA = function (t, outScale) {
       outScale = outScale || 1;

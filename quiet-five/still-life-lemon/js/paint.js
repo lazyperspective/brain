@@ -264,12 +264,12 @@
         case ID.APRON: return [20, 30, 6, 0.5];
         case ID.TOP: return [12, 24, 7, 0.5];
         case ID.FRONT: case ID.NOSE: return [8, 14, 7, 0.45];
-        case ID.PLATE: return [8, 16, 5, 0.5];
-        case ID.GLASS: return [4, 8, 4, 0.32];
-        case ID.LEMON: return [8, 16, 3.2, 0.5];
-        case 21: return [4, 8, 2.5, 0.4];
-        case 22: return [8, 16, 3.2, 0.55];
-        case ID.HANDLE: return [7, 13, 4, 0.5];
+        case ID.PLATE: return [12, 24, 5, 0.36];
+        case ID.GLASS: return [4, 9, 4, 0.3];
+        case ID.LEMON: return [10, 20, 3.0, 0.32];
+        case 21: return [6, 11, 2.4, 0.42];
+        case 22: return [12, 22, 3.0, 0.55];
+        case ID.HANDLE: return [10, 18, 4, 0.5];
         case ID.BLADE: case ID.BOLSTER: return [4, 7, 4, 0.45];
         default: return [10, 20, 5, 0.5];
       }
@@ -302,7 +302,7 @@
         if (pass === 0 && kid !== ID.WALL && kid !== ID.APRON && kid !== ID.TOP && rnd() < 0.3) continue;
         // area check: is this location still worth a stroke at this brush size? (min density)
         if (R * 2 < spacing * 0.5 && rnd() < 0.5) continue;
-        const opBoost = (kid === ID.LEMON || kid === 22 || kid === ID.PLATE || kid === ID.HANDLE) ? 1.45 : 1;
+        const opBoost = (kid === 22 || kid === ID.HANDLE) ? 1.45 : 1;
         strokes.push({ x, y, R, kid, pass, len: R * b[2] * (0.6 + 0.8 * rnd()), op: Math.min(0.85, b[3] * opBoost * (0.8 + 0.4 * rnd())), seed: (rnd() * 1e9) | 0 });
       }
     }
@@ -367,8 +367,9 @@
       const cm = [1 + vj * (r1 + 0.4 * r2), 1 + vj * (r1 * 0.9 + 0.3 * r3), 1 + vj * (r1 * 0.8 - 0.5 * r2)];
       for (let c = 0; c < NCH; c++) col[c] *= cm[c % 3];
       const lumC = lumOf(col, 0);
-      const streak = kid === ID.WALL || kid === ID.APRON ? 0.34 : kid === ID.TOP ? 0.24 : kid === ID.GLASS ? 0.08 : 0.26;
-      const thick = (0.05 + 0.55 * Math.pow(Q.clamp(lumC / 0.9, 0, 1), 1.5)) * (0.6 + 0.4 * Q.clamp(R / (12 * sc), 0, 1.5));
+      const lightK = Q.smooth(0.015, 0.25, lumC);           // 0 = glazed dark, 1 = body-colour light
+      const streak = (kid === ID.WALL || kid === ID.APRON ? 0.30 : kid === ID.TOP ? 0.2 : kid === ID.GLASS ? 0.06 : 0.2) * (0.25 + 0.75 * lightK);
+      const thick = (0.04 + 0.95 * Math.pow(Q.clamp(lumC / 0.8, 0, 1), 1.3)) * (0.6 + 0.4 * Q.clamp(R / (12 * sc), 0, 1.5));
       // rasterize: for each segment, pixels within R
       let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
       for (let k = 0; k < n; k++) { minx = min(minx, pathX[k]); maxx = max(maxx, pathX[k]); miny = min(miny, pathY[k]); maxy = max(maxy, pathY[k]); }
@@ -378,7 +379,7 @@
       const cum = new Float32Array(n);
       for (let k = 1; k < n; k++) cum[k] = cum[k - 1] + Math.hypot(pathX[k] - pathX[k - 1], pathY[k] - pathY[k - 1]);
       const totalL = cum[n - 1] || 1;
-      const bristleF = 1.0 / max(1.2 * sc, R * 0.16); // bristle spacing
+      const bristleF = 1.0 / max(2.0 * sc, R * 0.3); // bristle spacing (coarse: no micro-noise)
       // per-stroke bristle tables across the width (streaks run the length of the stroke)
       for (let k = 0; k < 128; k++) {
         const bq = ((k / 127) * 2 - 1) * R * bristleF + (st0.seed % 97);
@@ -427,7 +428,7 @@
         const vm = 1 + streak * (bri - 0.8);
         for (let c = 0; c < NCH; c++) canvas[o + c] += (col[c] * vm - canvas[o + c]) * a;
         // relief: ridges along bristles + pushed-up edge
-        const ridge = 0.6 + 0.4 * bri + 0.35 * exp(-((d - 0.82) * (d - 0.82)) / 0.012);
+        const ridge = 0.75 + 0.2 * bri + (0.25 + 0.6 * lightK) * exp(-((d - 0.84) * (d - 0.84)) / 0.010) + 0.35 * lightK * Q.smooth(0.12, 0.0, along);
         const h = thick * ridge * (1 - 0.5 * dry);
         paintH[i] += (h - paintH[i]) * min(1, a * 1.2);
       }
@@ -435,46 +436,72 @@
     }
     log('strokes painted ' + painted);
 
-    // 4. impasto in the highlights: thick little touches of lead white along the form
+    // 4. impasto: a handful of deliberate lead-white touches on the brightest lights (dot, dash or curl)
     const spec = new Float32Array(N);
-    for (let i = 0; i < N; i++) { const o = i * NCH; spec[i] = 0.3 * (canvas[o + 6] + canvas[o + 9]) + 0.6 * (canvas[o + 7] + canvas[o + 10]) + 0.1 * (canvas[o + 8] + canvas[o + 11]); }
-    const dabs = [];
-    const dsp = 4 * sc;
-    for (let gy = 0; gy < H; gy += dsp) for (let gx = 0; gx < W; gx += dsp) {
-      const x = gx + rnd() * dsp, y = gy + rnd() * dsp;
-      if (x >= W || y >= H) continue;
-      const i = (y | 0) * W + (x | 0);
-      const l = lum[i] + spec[i] * 0.5;
-      const hi = Q.smooth(0.10, 0.55, spec[i] + 0.22 * lum[i]);
-      if (hi <= 0.02 || rnd() > hi * 1.4) continue;
-      const gk = id[i] === ID.GLASS ? 0.55 : 1;
-      dabs.push({ x, y, R: gk * (2.2 + 3.2 * rnd()) * sc * (0.7 + 0.6 * hi), hi: hi * gk, seed: (rnd() * 1e9) | 0, l });
+    for (let i = 0; i < N; i++) { const o = i * NCH; spec[i] = 0.3 * (canvas[o + 6] + canvas[o + 9]) + 0.6 * (canvas[o + 7] + canvas[o + 10]) + 0.1 * (canvas[o + 8] + canvas[o + 11]) + 0.15 * lum[i]; }
+    const specB = new Float32Array(spec); boxBlur1(specB, W, H, max(1, Math.round(3 * sc)), 1);
+    const cand = [];
+    const step = max(2, Math.round(3 * sc));
+    for (let y = 8; y < H - 8; y += step) for (let x = 8; x < W - 8; x += step) {
+      const i = y * W + x; const k = id[i];
+      if (k === ID.WALL || k === ID.APRON || k === ID.TOP || k === ID.FRONT || k === 0) continue;
+      cand.push([specB[i], x, y]);
     }
-    for (let s = 0; s < dabs.length; s++) {
-      const dd = dabs[s];
+    cand.sort((a, b) => b[0] - a[0]);
+    const dabs = [];
+    const minD = 70 * sc;
+    for (const c of cand) {
+      if (dabs.length >= 10) break;
+      if (dabs.some((d) => Math.hypot(d.x - c[1], d.y - c[2]) < minD)) continue;
+      dabs.push({ x: c[1], y: c[2], hi: 1, seed: (rnd() * 1e9) | 0, kind: dabs.length % 3 });
+    }
+    for (const dd of dabs) {
       const i0 = (dd.y | 0) * W + (dd.x | 0);
       const kid = id[i0];
-      if (kid === ID.WALL || kid === ID.APRON || kid === 0) continue;
       const d = dirAt(dd.x, dd.y, i0, 0);
-      const len = dd.R * (1.5 + 2 * Q.hash2i(dd.seed, 4, 4));
+      // shape: 0 = dot, 1 = dash along the form, 2 = small curl
+      const R = (dd.kind === 0 ? 4.2 : 3.2) * sc, len = dd.kind === 0 ? R * 1.2 : dd.kind === 1 ? R * 4.5 : R * 3.5;
       sample(canvas, W, H, dd.x, dd.y, tmp);
-      // the dab carries a bit more of the highlight than its surroundings
-      const x0 = max(0, floor(dd.x - len - dd.R)), x1 = min(W - 1, Math.ceil(dd.x + len + dd.R));
-      const y0 = max(0, floor(dd.y - len - dd.R)), y1 = min(H - 1, Math.ceil(dd.y + len + dd.R));
+      // lead white: pull the colour toward neutral, slightly brighter
+      for (let L = 0; L < 4; L++) { const a = (tmp[L * 3] + tmp[L * 3 + 1] + tmp[L * 3 + 2]) / 3; for (let c = 0; c < 3; c++) tmp[L * 3 + c] = (tmp[L * 3 + c] * 0.55 + a * 0.45) * 1.12; }
+      const ext = len + R + 2;
+      const x0 = max(0, floor(dd.x - ext)), x1 = min(W - 1, Math.ceil(dd.x + ext));
+      const y0 = max(0, floor(dd.y - ext)), y1 = min(H - 1, Math.ceil(dd.y + ext));
       for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
         const rx = xx - dd.x, ry = yy - dd.y;
-        const al = rx * d[0] + ry * d[1], ac = -rx * d[1] + ry * d[0];
-        const q = (al / len) * (al / len) + (ac / dd.R) * (ac / dd.R);
+        let al = rx * d[0] + ry * d[1], ac = -rx * d[1] + ry * d[0];
+        if (dd.kind === 2) ac -= 0.35 * (al * al) / len; // bend into a curl
+        const q = (al / len) * (al / len) + (ac / R) * (ac / R);
         if (q >= 1) continue;
         const i = yy * W + xx;
         if (id[i] !== kid) continue;
         const prof = 1 - q;
-        const bri = 0.6 + 0.4 * NP.n2(ac / (1.1 * sc) + (dd.seed % 50), al * 0.05);
-        const a = Q.clamp(prof * 1.6, 0, 1) * 0.55 * dd.hi;
+        const a = Q.clamp(prof * 2.2, 0, 1) * 0.9;
         const o = i * NCH;
-        for (let c = 0; c < NCH; c++) canvas[o + c] += (tmp[c] * 1.04 - canvas[o + c]) * a;
-        const h = (1.6 + 1.6 * dd.hi) * (0.4 + 0.6 * prof) * bri;
-        if (h > paintH[i]) paintH[i] += (h - paintH[i]) * Q.clamp(prof * 2, 0, 1);
+        for (let c = 0; c < NCH; c++) canvas[o + c] += (tmp[c] - canvas[o + c]) * a;
+        const h = 3.2 * Math.sqrt(prof) * (0.85 + 0.15 * NP.n2(ac / (1.5 * sc), al / (3 * sc)));
+        if (h > paintH[i]) paintH[i] = h;
+      }
+    }
+    // 4b. lost and found edges: contours dissolve where both sides are in shadow, stay crisp in the light
+    {
+      const edge = new Float32Array(N);
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x, k = id[i];
+        if (id[i + 1] !== k || id[i - 1] !== k || id[i + W] !== k || id[i - W] !== k) edge[i] = 1;
+      }
+      const rE = max(2, Math.round(6 * sc));
+      boxBlur1(edge, W, H, rE, 2);
+      const lumC2 = new Float32Array(N); for (let i = 0; i < N; i++) lumC2[i] = lumOf(canvas, i);
+      const lumL = new Float32Array(lumC2); boxBlur1(lumL, W, H, rE * 2, 2);
+      const blurC = new Float32Array(canvas); boxBlur(blurC, W, H, max(2, Math.round(5 * sc)), 2);
+      for (let i = 0; i < N; i++) {
+        if (edge[i] <= 0.01) continue;
+        const dark = 1 - Q.smooth(0.012, 0.09, max(lumL[i], lumC2[i] * 0.7));
+        const w = Q.clamp(edge[i] * 3.5, 0, 1) * dark * 0.9;
+        if (w <= 0.01) continue;
+        const o = i * NCH;
+        for (let c = 0; c < NCH; c++) canvas[o + c] += (blurC[o + c] - canvas[o + c]) * w;
       }
     }
     log('impasto dabs ' + dabs.length);

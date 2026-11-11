@@ -12,7 +12,7 @@
   const S = Q.SCENE;
   const sqrt = Math.sqrt, min = Math.min, max = Math.max, abs = Math.abs, floor = Math.floor, PI = Math.PI;
   const NPL = Q.makeNoise(5150);
-  const WIDTH = 1.45;
+  const WIDTH = 1.75;
   const NS = 560, NW = 11;
   const P = (Q.PEEL = { built: false });
 
@@ -69,9 +69,9 @@
     pts.push(onPlate(A0.p[0] - 1.1, A0.p[2] + 6.2, 0.13)); nh.push([-0.05, 1, 0.05]);
     // rim
     const rimAng = Math.atan2(A0.p[2] + 7.6 - pl.z, A0.p[0] - 1.3 - pl.x);
-    const rimP = (r, lift) => { const x = pl.x + Math.cos(rimAng) * r, z = pl.z + Math.sin(rimAng) * r; return [x, Q.plateTop(r) + lift, z]; };
-    pts.push(rimP(9.1, 0.13)); nh.push([0, 1, 0.1]);
-    pts.push(rimP(10.15, 0.2)); nh.push([0, 1, 0.3]);
+    const rimP = (r0, lift) => { const r = r0 * pl.R / 10.5; const x = pl.x + Math.cos(rimAng) * r, z = pl.z + Math.sin(rimAng) * r; return [x, Q.plateTop(r) + lift, z]; };
+    pts.push(rimP(9.1, 0.22)); nh.push([0, 1, 0.1]);
+    pts.push(rimP(10.15, 0.3)); nh.push([0, 1, 0.3]);
     const edge = rimP(10.95, 0.0);
     pts.push([edge[0], edge[1] + 0.12, edge[2]]); nh.push(norm([0.1, 0.9, 0.7]));
     pts.push([edge[0] - 0.03, edge[1] - 0.2, edge[2] + 0.42]); nh.push(norm([0.15, 0.45, 1]));
@@ -79,19 +79,19 @@
     pts.push(H); nh.push([0.3, 0.05, 1]);
     const iHang = pts.length - 1;
     // corkscrew below the hang point
-    const turns = 1.9, pitch = 2.25;
-    const rho0 = 1.2, rho1 = 0.88;
+    const turns = 1.75, pitch = 2.7;
+    const rho0 = 1.35, rho1 = 0.95;
     const Ax = H[0] - rho0 * 0.15, Az = H[2] - rho0 * 0.9;
     const nh0 = 16;
     for (let k = 1; k <= nh0 * turns; k++) {
       const f = k / (nh0 * turns);
       const ph = PI / 2 - 0.25 + f * turns * 2 * PI;
-      const rho = rho0 + (rho1 - rho0) * f;
-      const y = H[1] - 0.55 - pitch * turns * (f + 0.08 * f * f) - 0.1;
+      const rho = (rho0 + (rho1 - rho0) * f) * (1 + 0.12 * Math.sin(f * 9.3 + 1.0) + 0.06 * Math.sin(f * 17 + 2.0));
+      const y = H[1] - 0.65 - pitch * turns * (1.25 * f - 0.25 * f * f) - 0.1;
       // the helix axis drifts a little (gravity, uneven peel)
-      const ax = Ax + 0.25 * Math.sin(f * 2.1), az = Az + 0.18 * f;
+      const ax = Ax + 0.35 * Math.sin(f * 2.4) + 0.2 * f, az = Az + 0.3 * f - 0.15 * Math.sin(f * 3.1);
       pts.push([ax + rho * Math.cos(ph), y, az + rho * Math.sin(ph)]);
-      const bank = 0.35 * Math.sin(f * 7.0 + 0.5); // the strip tilts, showing its pith now and then
+      const bank = 0.55 * Math.sin(f * 6.2 + 0.5) + 0.2 * Math.sin(f * 13 + 1.0); // the strip tilts, showing its pith now and then
       nh.push([Math.cos(ph), bank, Math.sin(ph)]);
     }
     // sample the spline uniformly in arc length
@@ -124,7 +124,7 @@
     P.C = C; P.T = T; P.N = Nn; P.B = B; P.S = Sarr; P.total = total; P.sHang = sHang; P.H = H;
     P.iHang = Sarr.findIndex((s) => s >= sHang);
     // width profile: emerges from the lemon, tapers to a rounded tip
-    P.halfW = Sarr.map((s) => (WIDTH / 2) * (0.55 + 0.45 * Q.smooth(0.0, 1.2, s)) * (0.2 + 0.8 * Q.smooth(total, total - 2.4, s)) * (0.9 + 0.1 * Math.sin(s * 1.1) + 0.04 * Math.sin(s * 3.7)));
+    P.halfW = Sarr.map((s) => (WIDTH / 2) * (0.55 + 0.45 * Q.smooth(0.0, 1.2, s)) * (0.15 + 0.85 * Math.pow(Q.smooth(total, total - 4.0, s), 0.7)) * (0.86 + 0.1 * Math.sin(s * 0.9 + 0.4) + 0.06 * Math.sin(s * 2.3) + 0.04 * NPL.n2(s * 1.7, 3.3)));
     P.built = true;
   }
 
@@ -412,11 +412,11 @@
     if (nx * vx + ny * vy + nz * vz < 0) { nx = -nx; ny = -ny; nz = -nz; rind = false; }
     // painted texture in the ribbon's own parameter space (moves with it)
     const bri = 0.9 + 0.12 * NPL.n2(w * 6.5 + s * 0.35, s * 0.45) + 0.06 * NPL.n2(w * 17 + 3.1, s * 1.3);
-    const edge = Q.smooth(0.72, 0.97, abs(w)); // the cut edge shows white pith
+    const edge = Q.smooth(0.8, 0.96, w * (rind ? 1 : -1)) * 0.85 + Q.smooth(0.88, 0.99, abs(w)) * 0.15; // the knife-cut edge shows the thick white pith
     let ar, ag, ab, wrap, rough, spk;
     const mott = NPL.n2(s * 1.4, w * 1.1 + 5);
     if (rind) {
-      ar = 0.76 + 0.06 * mott; ag = 0.50 + 0.05 * mott; ab = 0.045; wrap = 0.18; rough = 0.22; spk = 1.8;
+      ar = 0.74 + 0.06 * mott; ag = 0.49 + 0.05 * mott; ab = 0.055; wrap = 0.1; rough = 0.16; spk = 2.2;
     } else {
       ar = 0.80; ag = 0.72; ab = 0.47; wrap = 0.45; rough = 0.45; spk = 0.3;
     }
@@ -440,13 +440,16 @@
     g += (ag * diff + tr[1] * trans * ag) * Ein * lc[1] * fid;
     b += (ab * diff + tr[2] * trans * ab) * Ein * lc[2] * fid;
     // ambient & dim bounce (the inside of the curl sees less of the room)
-    const inner = rind ? 1 : 0.55;
+    const inner = rind ? 0.8 : 0.4;
     const skyw = (0.55 + 0.45 * ny) * inner;
     r += ar * AMB[0] * skyw; g += ag * AMB[1] * skyw; b += ab * AMB[2] * skyw;
     // speculars (two flame positions, mixed like the static layers)
     if (sh > 0.01) {
-      const pr = 0.12 * NPL.n3(x * 15, y * 15, z * 15);
-      const snx = nx + pr * (rind ? 1 : 0.3), sny = ny + pr * 0.5, snz = nz - pr * (rind ? 1 : 0.3);
+      // pitted rind: glands in the rest pose so the texture travels with the peel
+      const rx0 = VX[va * 3] * w0 + VX[vb * 3] * w1 + VX[vc * 3] * w2, ry0 = VX[va * 3 + 1] * w0 + VX[vb * 3 + 1] * w1 + VX[vc * 3 + 1] * w2, rz0 = VX[va * 3 + 2] * w0 + VX[vb * 3 + 2] * w1 + VX[vc * 3 + 2] * w2;
+      const PO = rind ? Q.pores(rx0, ry0, rz0) : null;
+      const pk = rind ? 0.55 : 0;
+      const snx = nx + (PO ? PO[0] * pk : 0), sny = ny + (PO ? PO[1] * pk : 0), snz = nz + (PO ? PO[2] * pk : 0);
       const sl = Math.hypot(snx, sny, snz);
       const sa = Q.specTerm(snx / sl, sny / sl, snz / sl, vx, vy, vz, Lt.A, x, y, z, rough) * (1 - fl.m);
       const sb = Q.specTerm(snx / sl, sny / sl, snz / sl, vx, vy, vz, Lt.B, x, y, z, rough) * fl.m;

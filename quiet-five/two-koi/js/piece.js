@@ -80,11 +80,11 @@
     },
     { // the tancho koi: a lighter load, one vermilion crown
       name: 'tancho', L: 268, W: 0.126, s0: 0.5, beats: 10, beatPh: 1.9, lat: (s) => 11 * Math.sin(TAU * s / PATH.P + 0.9), finL: 0.25, finW: 0.078, flankOff: 0.40, flankW: 0.66,
-      flank: { ink: 1.30, inkEnd: 0.80, press: 0.35, load: 0.13, streak: 0.95, entry: 1.2, dry0: 0.38, dry1: 1.0, dryMax: 0.55, bristles: 21, fray: 0.12, bloom: 0.5, wet: 1.2, halo: 0.34, rim: 0.65, seed: 21 },
+      flank: { ink: 1.45, inkEnd: 0.85, press: 0.35, load: 0.20, streak: 0.95, entry: 1.2, dry0: 0.38, dry1: 1.0, dryMax: 0.55, bristles: 21, fray: 0.12, bloom: 0.5, wet: 1.2, halo: 0.34, rim: 0.65, seed: 21 },
       tail: { ink: 1.05, inkEnd: 0.45, press: 0.15, load: 0.25, streak: 0.85, entry: 0.3, dry0: 0.12, dry1: 0.9, dryMax: 0.62, bristles: 13, fray: 0.30, bloom: 0.3, wet: 0.9, halo: 0.25, rim: 0.45, seed: 25 },
       fin: { ink: 0.70, inkEnd: 0.42, press: 0.0, load: 0.25, streak: 0.9, fadeIn: 0.22, entry: 0.0, dry0: 0.45, dry1: 1.0, dryMax: 0.45, bristles: 11, fray: 0.22, bloom: 0.5, wet: 1.2, halo: 0.32, rim: 0.6, seed: 23 },
       accent: { ink: 1.9, inkEnd: 0.9, press: 0.3, streak: 0.4, dry0: 0.45, dry1: 1.0, dryMax: 0.45, bristles: 5, fray: 0.25, wet: 0.5, halo: 0.10, rim: 0.15, seed: 27 },
-      tailFlicks: [[-0.31, 0.42, 0.048], [0.02, 0.29, 0.038], [0.29, 0.40, 0.046]], gillW: 0.0052, dorsW: 0.008,
+      tailFlicks: [[-0.31, 0.42, 0.048], [0.02, 0.29, 0.038], [0.29, 0.40, 0.046]], gillW: 0, dorsW: 0.008,
       eyes: { ink: 2.6, s: 0.072, v: 0.70, r: 0.0072 },
       patch: { ink: 1.35, s: 0.150, v: 0.022, r: 0.084, rim: 0.55, ph: [0.7, 2.1, 4.0] },
       shadow: 0.30,
@@ -371,9 +371,9 @@
       st: { ink: 2.3, inkEnd: 1.5, press: 0.3, streak: 0.5, dry0: 0.55, dry1: 1.0, dryMax: 0.4, bristles: 4, fray: 0.12, wet: 0.45, halo: 0.12, rim: 0.2, seed: 64 }, mask: [0, 0, 0, 1] });
     // a darker accent along part of one lobe's margin
     const acc = [];
-    for (let i = 0; i <= 40; i++) { const a = -1.0 + 0.78 * i / 40; const r = leafR(a) - 2.2; acc.push(W([r * Math.sin(a), r * Math.cos(a)])); }
-    draws.push({ kind: 0, rib: ribbon(acc, (u) => 1.5 * Math.pow(Math.sin(Math.PI * clamp(u * 0.92 + 0.04, 0, 1)), 0.5) + 0.1, 8, 3, 3),
-      st: { ink: 2.0, inkEnd: 1.2, press: 0.2, streak: 0.6, dry0: 0.35, dry1: 1.0, dryMax: 0.55, bristles: 5, fray: 0.2, wet: 0.5, halo: 0.12, rim: 0.2, seed: 66 }, mask: [0, 0, 0, 1] });
+    for (let i = 0; i <= 40; i++) { const a = -0.98 + 0.62 * i / 40; const r = leafR(a) - 3.2; acc.push(W([r * Math.sin(a), r * Math.cos(a)])); }
+    draws.push({ kind: 0, rib: ribbon(acc, (u) => 1.05 * Math.pow(Math.sin(Math.PI * clamp(u * 0.92 + 0.04, 0, 1)), 0.7) + 0.1, 8, 3, 3),
+      st: { ink: 1.45, inkEnd: 0.8, press: 0.2, streak: 0.6, dry0: 0.35, dry1: 1.0, dryMax: 0.55, bristles: 5, fray: 0.2, wet: 0.5, halo: 0.12, rim: 0.2, seed: 66 }, mask: [0, 0, 0, 1] });
   }
   function rings(t) {
     const out = [];
@@ -585,7 +585,7 @@
         float cov = 1.0 - smoothstep(-uAA, uAA, dE);
         float an = (a + 3.2) ;
         float v1 = vnoise(vec2(an * 60.0, r * 0.035), sd + 9u);
-        float v2 = vnoise(vec2(an * 150.0, r * 0.08), sd + 19u);
+        float v2 = vnoise(vec2(an * 110.0, r * 0.05), sd + 19u);
         float v3 = vnoise(vec2(an * 330.0, r * 0.2), sd + 21u);
         float vv = 0.5 * v1 + 0.32 * v2 + 0.18 * v3;
         float lobe = a < 0.0 ? 1.0 : 0.86;

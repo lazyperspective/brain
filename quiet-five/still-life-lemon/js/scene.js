@@ -14,13 +14,13 @@
   // ------------------------------------------------------------------ scene description (cm)
   const S = (Q.SCENE = {
     E: [0, 20.5, 84], T: [-0.2, 6.9, -9], fovY: (21.6 * PI) / 180,
-    L: { P: [-70, 86, 18], R: 2.2, I: 21000, col: [1.0, 0.79, 0.55], dA: [-0.9, -1.2, 0.4], dB: [1.0, 1.3, -0.5] },
+    L: { P: [-58, 86, 45], R: 2.2, I: 21000, col: [1.0, 0.86, 0.68], dA: [-0.9, -1.2, 0.4], dB: [1.0, 1.3, -0.5] },
     tab: { zBack: -64, slabT: 4.0, nose: 1.0, inset: 14 },
     wallZ: -64,
-    plate: { x: 1.9, z: -4.3, R: 10.5 },
-    lemon: { C: [1.6, 3.15, -5.0], ax: [-0.82, 0.16, 0.55], A: 4.25, R: 2.9, uc: 3.0 },
-    knife: { O: [-9.0, 0.72, -0.4], dir: [0.17, -0.985] },
-    glass: { x: -9.3, z: -21.0, gs: 1.18 },
+    plate: { x: 1.2, z: -3.0, R: 9.8 },
+    lemon: { C: [-0.1, 3.15, -4.3], ax: [-0.82, 0.16, 0.55], A: 4.25, R: 2.9, uc: 3.0 },
+    knife: { tip: [3.0, 0.47, -1.5], dir: [0.47, 0.88], pitch: 10.5, blade: 8.6, handle: 6.2 },
+    glass: { x: -5.6, z: -24.5, gs: 1.0 },
     amb: [0.020, 0.018, 0.015],
   });
   const ID = (Q.ID = { NONE: 0, WALL: 1, TOP: 2, NOSE: 3, FRONT: 4, APRON: 5, PLATE: 6, LEMON: 7, BLADE: 8, BOLSTER: 9, HANDLE: 10, GLASS: 11, PEEL: 12 });
@@ -74,11 +74,30 @@
 
   // peel boundary on the lemon: u position (along axis) where the remaining rind ends, as a function of angle
   function peelBoundary(phi) {
-    return 1.25 + 0.75 * Math.sin(phi * 1.0 + 2.3) + 0.18 * Math.sin(phi * 3.0 + 1.1) + 0.06 * Math.sin(phi * 7.0);
+    return 1.35 + 1.0 * Math.cos(phi - 0.5) + 0.16 * Math.sin(phi * 3.0 + 1.1) + 0.06 * Math.sin(phi * 7.0);
   }
   Q.peelBoundary = peelBoundary;
 
-  const RIND_T = 0.2;
+  const RIND_T = 0.3;
+  // oil-gland pits of the rind: cellular dimples (returns tilt vector into PORE, strength in PORE[3])
+  const PORE = [0, 0, 0, 0];
+  Q.pores = function (x, y, z) { pores(x, y, z); return PORE; };
+  function pores(x, y, z) {
+    const cs = 0.105;
+    const fx = x / cs, fy = y / cs, fz = z / cs;
+    const ix = Math.floor(fx), iy = Math.floor(fy), iz = Math.floor(fz);
+    let bd = 1e9, bx = 0, by = 0, bz = 0, br = 0.4;
+    for (let k = -1; k <= 1; k++) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const cx = ix + i, cy = iy + j, cz = iz + k;
+      const px = cx + Q.hash3i(cx, cy, cz, 1), py = cy + Q.hash3i(cx, cy, cz, 2), pz = cz + Q.hash3i(cx, cy, cz, 3);
+      const dx = fx - px, dy = fy - py, dz = fz - pz; const d = dx * dx + dy * dy + dz * dz;
+      if (d < bd) { bd = d; bx = dx; by = dy; bz = dz; br = 0.28 + 0.22 * Q.hash3i(cx, cy, cz, 4); }
+    }
+    const d = sqrt(bd);
+    const inside = 1 - Q.smooth(br * 0.4, br, d);
+    const k = inside * Q.smooth(0, br * 0.5, d) / max(d, 1e-4);
+    PORE[0] = -bx * k; PORE[1] = -by * k; PORE[2] = -bz * k; PORE[3] = inside;
+  }
   // signed distance of the intact (unpeeled) lemon body in lemon-local coords
   function lemonBody(u, v, w, x, y, z) {
     const A = S.lemon.A, R = S.lemon.R;
@@ -120,7 +139,7 @@
   Q.sdLemon = sdLemon;
 
   // ------------------------------------------------------------------ pewter plate (solid of revolution)
-  function plateTop(r) {
+  function plateTop0(r) {
     let h;
     if (r < 5.0) h = 0.40 + 0.02 * (r / 5.0);
     else if (r < 8.0) h = 0.42 + 1.02 * Q.smooth(5.0, 8.0, r);
@@ -129,16 +148,22 @@
     h += 0.15 * exp(-q * q);
     return h;
   }
+  function plateTop(r) { return plateTop0(r * 10.5 / S.plate.R); }
   Q.plateTop = plateTop;
   function smax(a, b, k) { const h = Q.clamp(0.5 - (0.5 * (b - a)) / k, 0, 1); return b + (a - b) * h + k * h * (1 - h); }
   function sdPlate(x, y, z) {
     const px = x - S.plate.x, pz = z - S.plate.z;
-    const r = sqrt(px * px + pz * pz);
-    const top = plateTop(r);
-    const bot = r < 5.2 ? 0 : top - 0.32;
+    let r = sqrt(px * px + pz * pz);
+    // hand-beaten pewter: not a perfect circle, a few soft dents
+    const th = Math.atan2(pz, px);
+    const Rm = S.plate.R * (1 + 0.007 * Math.sin(2 * th + 0.4) + 0.004 * Math.sin(3 * th + 1.3) + 0.002 * Math.sin(7 * th));
+    r *= S.plate.R / Rm;
+    const dent = 0.035 * NZ.n2(px * 0.35 + 3.1, pz * 0.35) + 0.015 * NZ.n2(px * 1.1, pz * 1.1 + 5);
+    const top = plateTop(r) + dent;
+    const bot = r < 5.2 * S.plate.R / 10.5 ? 0 : top - 0.32;
     let d = smax(y - top, bot - y, 0.05);
     d = smax(d, r - S.plate.R, 0.12);
-    return d * 0.82;
+    return d * 0.8;
   }
   Q.sdPlate = sdPlate;
 
@@ -146,13 +171,14 @@
   const KN = {};
   (function () {
     const k = S.knife;
-    const tipLen = 12.2;
-    const pitch = Math.asin((k.O[1] - 0.012) / tipLen);
+    const p = (k.pitch * PI) / 180;
     const hd = norm3([k.dir[0], 0, k.dir[1]]);
-    const xa = norm3([hd[0] * Math.cos(pitch), -Math.sin(pitch), hd[2] * Math.cos(pitch)]);
+    const u = [hd[0] * Math.cos(p), Math.sin(p), hd[2] * Math.cos(p)]; // from tip toward the handle
+    const xa = [-u[0], -u[1], -u[2]];
     const za = norm3(cross(xa, [0, 1, 0]));
     const ya = cross(za, xa);
-    KN.x = xa; KN.y = ya; KN.z = za; KN.len = tipLen;
+    KN.x = xa; KN.y = ya; KN.z = za; KN.len = k.blade; KN.hl = k.handle;
+    k.O = [k.tip[0] + u[0] * k.blade, k.tip[1] + u[1] * k.blade, k.tip[2] + u[2] * k.blade];
   })();
   Q.KNIFE_FRAME = KN;
   const KTMP = { part: 0, lx: 0, ly: 0, lz: 0, frac: 0 };
@@ -177,8 +203,8 @@
     const dB2 = max(abs(lx + 0.62) - 0.07, rho - 0.80);
     const dBol = min(dB1, dB2) - 0.02;
     // handle (slightly oval bone)
-    const xc = Q.clamp(lx, -8.6, -0.65);
-    const tt = (-xc - 0.65) / 7.95;
+    const xc = Q.clamp(lx, -KN.hl, -0.65);
+    const tt = (-xc - 0.65) / (KN.hl - 0.65);
     const rh = 0.72 + 0.24 * pow(tt, 0.8) - 0.05 * tt * tt * tt * tt;
     const lzz = lz * 0.93;
     const dH = sqrt((lx - xc) * (lx - xc) + ly * ly + lzz * lzz) - rh;
@@ -197,8 +223,9 @@
     OBJS.push({ id: ID.LEMON, sdf: sdLemon, c: S.lemon.C, r: 5.4 });
     OBJS.push({ id: ID.PLATE, sdf: sdPlate, c: [S.plate.x, 0.9, S.plate.z], r: S.plate.R + 0.3 });
     const k = S.knife;
-    const mid = [k.O[0] + KN.x[0] * 2.5, k.O[1] + KN.x[1] * 2.5, k.O[2] + KN.x[2] * 2.5];
-    OBJS.push({ id: ID.BLADE, sdf: sdKnife, c: mid, r: 12.8 });
+    const off = (k.blade - k.handle) / 2;
+    const mid = [k.O[0] + KN.x[0] * off, k.O[1] + KN.x[1] * off, k.O[2] + KN.x[2] * off];
+    OBJS.push({ id: ID.BLADE, sdf: sdKnife, c: mid, r: (k.blade + k.handle) / 2 + 1.4 });
   }
   buildObjects();
   Q.OBJS = OBJS;
@@ -603,27 +630,28 @@
   }
 
   // ------------------------------------------------------------------ materials
-  const MAT = { alb: [0, 0, 0], f0: [0, 0, 0], rough: 0.5, wrap: 0, gloss: 0, glossRough: 0, spec: 0, sss: [0, 0, 0], tang: [1, 0, 0], kind: 0 };
+  const MAT = { sheen: 0, alb: [0, 0, 0], f0: [0, 0, 0], rough: 0.5, wrap: 0, gloss: 0, glossRough: 0, spec: 0, sss: [0, 0, 0], tang: [1, 0, 0], kind: 0 };
   Q.MAT = MAT;
   const TMP3 = [0, 0, 0], TMP3b = [0, 0, 0];
 
   function wallMask(x, y) {
-    // the pool of candle light on the wall — brighter right of centre, falling away to the corners
-    const dx = (x - 3) / 36, dy = (y - 18) / 26;
-    const g = exp(-(dx * dx + dy * dy) * 1.25);
+    // the candle's light on the wall: a soft glow behind the objects, left of centre, fading to the upper right
+    const dx = (x + 3) / 30, dy = (y - 15) / 22;
+    const g = exp(-(dx * dx + dy * dy) * 1.1);
+    const ramp = Q.clamp(1 - 0.012 * (x + 0.6 * (y - 15)), 0.25, 1.4);
     const n = 0.85 + 0.3 * NW.fbm2(x * 0.03, y * 0.03, 3);
-    return (0.035 + 0.9 * g) * n;
+    return (0.05 + 1.25 * g) * ramp * n;
   }
   Q.wallMask = wallMask;
 
   function material(id, x, y, z, nrm, vdir) {
     const m = MAT;
-    m.wrap = 0; m.gloss = 0; m.spec = 0; m.sss[0] = m.sss[1] = m.sss[2] = 0; m.kind = id; m.f0[0] = m.f0[1] = m.f0[2] = 0.04; m.rough = 0.5; m.glossRough = 0.3;
+    m.wrap = 0; m.gloss = 0; m.spec = 0; m.sheen = 0; m.sss[0] = m.sss[1] = m.sss[2] = 0; m.kind = id; m.f0[0] = m.f0[1] = m.f0[2] = 0.04; m.rough = 0.5; m.glossRough = 0.3;
     switch (id) {
       case ID.WALL: {
         const n1 = NW.fbm2(x * 0.06, y * 0.06, 4), n2 = NW.fbm2(x * 0.5 + 40, y * 0.5, 3), n3 = NW.fbm2(x * 0.16 + 9, y * 0.2, 3);
         const k = 1 + 0.3 * n1 + 0.08 * n2 + 0.16 * n3;
-        m.alb[0] = 0.070 * k; m.alb[1] = 0.062 * k * (1 + 0.04 * n2); m.alb[2] = 0.044 * k;
+        m.alb[0] = 0.085 * k; m.alb[1] = 0.083 * k * (1 + 0.04 * n2); m.alb[2] = 0.064 * k;
         m.spec = 0; m.rough = 0.9; m.tang[0] = 1; m.tang[1] = 0; m.tang[2] = 0;
         break;
       }
@@ -636,7 +664,7 @@
         const pores = NZ.n2(x * 1.4, gy * 14);
         const broad = NZ.fbm2(x * 0.03, gy * 0.05, 3);
         let k = 0.82 + 0.16 * ring * ring + 0.06 * pores + 0.25 * broad;
-        const dk = id === ID.APRON ? 0.7 : id === ID.FRONT ? 0.42 : 1.0;
+        const dk = id === ID.APRON ? 0.7 : id === ID.FRONT ? 0.26 : 1.0;
         m.alb[0] = 0.040 * k * dk; m.alb[1] = 0.027 * k * dk; m.alb[2] = 0.017 * k * dk;
         m.rough = 0.28; m.f0[0] = m.f0[1] = m.f0[2] = 0.05; m.spec = 0.8; m.gloss = id === ID.TOP ? 0.8 : 0.0; m.glossRough = 0.16;
         m.tang[0] = 1; m.tang[1] = 0; m.tang[2] = 0;
@@ -647,9 +675,9 @@
         const tarn = Q.clamp(0.45 + 1.1 * NZ.fbm2(px * 0.16 + 7, pz * 0.16, 4) + 0.3 * NZ.n2(px * 0.9, pz * 0.9), 0, 1);
         const lathe = 0.5 + 0.5 * Math.sin(r * 23 + NZ.n2(r * 0.7, 3.3) * 4);
         const k = 1 - 0.45 * tarn - 0.06 * lathe;
-        m.f0[0] = 0.66 * k; m.f0[1] = 0.66 * k; m.f0[2] = 0.56 * k;
-        m.alb[0] = 0.03 + 0.05 * tarn; m.alb[1] = 0.032 + 0.05 * tarn; m.alb[2] = 0.026 + 0.04 * tarn;
-        m.rough = 0.17 + 0.2 * tarn; m.glossRough = m.rough; m.gloss = 1; m.spec = 1;
+        m.f0[0] = 0.60 * k; m.f0[1] = 0.63 * k; m.f0[2] = 0.63 * k;
+        m.alb[0] = 0.025 + 0.04 * tarn; m.alb[1] = 0.027 + 0.042 * tarn; m.alb[2] = 0.027 + 0.04 * tarn;
+        m.rough = 0.13 + 0.12 * tarn; m.glossRough = 0.2 + 0.1 * tarn; m.gloss = 1.5; m.spec = 1; m.sheen = 0.8;
         // tangent: around the plate
         m.tang[0] = -pz / r; m.tang[1] = 0; m.tang[2] = px / r;
         // bump: lathe rings and small dents
@@ -677,18 +705,19 @@
           const fseg = sa - Math.floor(sa);
           const memb = Math.exp(-Math.pow((Math.min(fseg, 1 - fseg)) / 0.05, 2));
           const ves = 0.5 + 0.5 * NL.n2(rho * 9, sa * 7.5) * 1.2;
-          const core = 1 - Q.smooth(0.22, 0.42, rho);
+          const core = 1 - Q.smooth(0.18, 0.36, rho);
           const pith = Q.smooth(RIND_T + 0.08, RIND_T + 0.23, -ring + RIND_T * 0) ; // unused
           const outer = Q.smooth(0.10, 0.30, ring - RIND_T * pm);
           // outer = 0 at the rim ring (pith), 1 in flesh
           const fl = outer * (1 - core);
           const pithW = 1 - fl;
           const fk = 0.70 + 0.35 * ves - 0.25 * memb;
-          m.alb[0] = (0.72 * fk) * fl + 0.74 * pithW + 0.12 * memb * fl;
-          m.alb[1] = (0.47 * fk) * fl + 0.67 * pithW + 0.12 * memb * fl;
-          m.alb[2] = (0.04 * fk) * fl + 0.44 * pithW + 0.10 * memb * fl;
+          const segv = 0.9 + 0.2 * Q.hash2i(Math.floor(sa), 3, 9);
+          m.alb[0] = (0.70 * fk * segv) * fl + 0.80 * pithW + 0.16 * memb * fl;
+          m.alb[1] = (0.50 * fk * segv) * fl + 0.74 * pithW + 0.18 * memb * fl;
+          m.alb[2] = (0.07 * fk) * fl + 0.50 * pithW + 0.16 * memb * fl;
           m.wrap = 0.5; m.rough = 0.08 + 0.1 * pithW; m.spec = 1.0 * fl + 0.2 * pithW; m.f0[0] = m.f0[1] = m.f0[2] = 0.03;
-          m.sss[0] = 0.30 * fl; m.sss[1] = 0.19 * fl; m.sss[2] = 0.015 * fl;
+          m.sss[0] = 0.42 * fl; m.sss[1] = 0.28 * fl; m.sss[2] = 0.03 * fl;
           // wet juice: bumpy normals from vesicles
           const bx = NL.n3(x * 13, y * 13, z * 13), by = NL.n3(x * 13 + 5, y * 13, z * 13), bz = NL.n3(x * 13, y * 13 + 9, z * 13);
           nrm[0] += 0.35 * bx * fl; nrm[1] += 0.35 * by * fl; nrm[2] += 0.35 * bz * fl;
@@ -712,15 +741,22 @@
           m.alb[1] = gy * isRind + 0.715 * pith * (1 - isRind);
           m.alb[2] = by * isRind + 0.44 * pith * (1 - isRind);
           m.wrap = 0.32 * isRind + 0.6 * (1 - isRind);
-          m.rough = 0.30 * isRind + 0.45 * (1 - isRind);
-          m.spec = 1.0 * isRind + 0.35 * (1 - isRind);
+          m.rough = 0.24 * isRind + 0.45 * (1 - isRind);
+          m.spec = 1.7 * isRind + 0.35 * (1 - isRind);
           m.f0[0] = m.f0[1] = m.f0[2] = 0.04;
           m.sss[0] = 0.10 * isRind + 0.16 * (1 - isRind); m.sss[1] = 0.055 * isRind + 0.12 * (1 - isRind); m.sss[2] = 0.004 * isRind + 0.05 * (1 - isRind);
-          // pores
-          const f = 15;
-          const bx = NL.n3(x * f, y * f, z * f), by2 = NL.n3(x * f + 11, y * f, z * f), bz = NL.n3(x * f, y * f + 13, z * f);
-          const amp = 0.17 * isRind + 0.05 * (1 - isRind);
-          nrm[0] += amp * bx; nrm[1] += amp * by2; nrm[2] += amp * bz;
+          // pitted rind: oil-gland dimples catch tiny highlights; pith only a soft fibrous ripple
+          if (isRind > 0) {
+            pores(x, y, z);
+            const a = 0.55 * isRind;
+            nrm[0] += a * PORE[0]; nrm[1] += a * PORE[1]; nrm[2] += a * PORE[2];
+            const fb = 0.05 * NL.n3(x * 7, y * 7, z * 7);
+            nrm[0] += fb; nrm[2] -= fb;
+            m.alb[0] *= 1 - 0.08 * PORE[3]; m.alb[1] *= 1 - 0.1 * PORE[3];
+          }
+          const pa = 0.05 * (1 - isRind);
+          nrm[0] += pa * NL.n3(x * 9, y * 9, z * 9); nrm[1] += pa * NL.n3(x * 9 + 3, y * 9, z * 9);
+          m.sheen = 0.9 * isRind;
           m.kind = isRind > 0.5 ? ID.LEMON : 101; // 101 = pith
         }
         break;
@@ -749,7 +785,7 @@
       case ID.HANDLE: {
         const lx = KTMP.lx, ang = Math.atan2(KTMP.lz, KTMP.ly);
         const stri = NZ.n2(lx * 0.25, ang * 6.0) * 0.6 + NZ.n2(lx * 0.08, ang * 18) * 0.4;
-        const ageing = Q.smooth(-4, -8.6, lx);
+        const ageing = Q.smooth(-3, -KN.hl, lx);
         const k = 0.9 + 0.12 * stri;
         m.alb[0] = 0.64 * k; m.alb[1] = (0.565 - 0.04 * ageing) * k; m.alb[2] = (0.41 - 0.07 * ageing) * k;
         m.wrap = 0.3; m.rough = 0.26; m.spec = 0.9; m.f0[0] = m.f0[1] = m.f0[2] = 0.04;
@@ -858,6 +894,15 @@
           const F = fresnel(vh, m.f0[c]);
           acc[6 + k * 3 + c] += tr_(c, tr, tg, tb) * s * F * lc[c] * SH3[c];
         }
+      }
+    }
+    // broad waxy / dull-metal sheen lobe
+    if (m.sheen > 0 && sh > 0.001) {
+      for (let k = 0; k < 2; k++) {
+        const Lp = k === 0 ? LPA : LPB;
+        const s = specTerm(gnx + (nx - gnx) * 0.3, gny + (ny - gny) * 0.3, gnz + (nz - gnz) * 0.3, vx, vy, vz, Lp, x, y, z, 0.5) * m.sheen * sh;
+        if (s <= 0) continue;
+        for (let c = 0; c < 3; c++) acc[6 + k * 3 + c] += tr_(c, tr, tg, tb) * s * (id === ID.LEMON ? 0.16 : 0.06) * lc[c] * SH3[c];
       }
     }
     // glossy reflections of the scene
@@ -990,13 +1035,13 @@
           const E = (S.L.I / (dl * dl)) * spot(px, py, pz) * lip * facing;
           for (let c = 0; c < 3; c++) acc[3 + c] += (c === 0 ? tr : c === 1 ? tg : tb) * E * 0.07 * S.L.col[c];
         }
-        const rough = part === 2 ? 0.04 : part === 4 ? 0.06 : lip > 0.5 ? 0.12 : 0.025;
+        const rough = part === 2 ? 0.04 : part === 4 ? 0.06 : lip > 0.5 ? 0.12 : 0.04;
         let shf = spot(px, py, pz);
         if (part === 2) shf *= 0.85; // light reaching meniscus partially through glass
         for (let k = 0; k < 2; k++) {
           const s = specTerm(nx, ny, nz, vx, vy, vz, k === 0 ? LPA : LPB, px, py, pz, rough);
           if (s <= 0) continue;
-          const Fs = part === 2 ? 0.06 : 0.09;
+          const Fs = part === 2 ? 0.08 : part === 1 ? 0.22 : 0.12;
           for (let c = 0; c < 3; c++) acc[6 + k * 3 + c] += (c === 0 ? tr : c === 1 ? tg : tb) * s * Fs * lc[c] * shf;
         }
         // reflection branch
