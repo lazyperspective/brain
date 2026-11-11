@@ -25,7 +25,7 @@
   /* The one closed path both koi follow (arc-length parametrised).      */
   /* ------------------------------------------------------------------ */
   const PATH = (function () {
-    const cx = 470, cy = 735, rot = -0.88;
+    const cx = 470, cy = 682, rot = -0.88;
     const cr = Math.cos(rot), sr = Math.sin(rot);
     const raw = (th) => {
       const x = 286 * Math.cos(th) + 26 * Math.cos(2 * th) + 10 * Math.sin(3 * th);
@@ -68,19 +68,25 @@
   /* Koi                                                                 */
   /* ------------------------------------------------------------------ */
   const FISH = [
-    { // the sumi koi: deep ink
-      name: 'sumi', L: 296, W: 0.132, s0: 0, beats: 9, beatPh: 0.3, lat: () => 0, finL: 0.25, finW: 0.082,
-      body: { ink: 3.9, inkEnd: 1.6, press: 0.45, center: 0.35, side: 0.30, streak: 0.30, dry0: 0.55, dry1: 0.97, dryMax: 0.44, bristles: 27, fray: 0.10, fork: 0.07, bloom: 0.25, wet: 1.0, halo: 0.30, rim: 0.20, seed: 11 },
-      fin: { ink: 1.25, inkEnd: 0.75, press: 0.35, center: 0.0, side: 0.45, streak: 0.55, fadeIn: 0.25, dry0: 0.40, dry1: 1.0, dryMax: 0.36, bristles: 11, fray: 0.12, fork: 0, bloom: 0.5, wet: 1.0, halo: 0.30, rim: 0.25, seed: 13 },
-      eyes: null, patch: null,
+    { // the sumi koi: deep ink, side-loaded strokes
+      name: 'sumi', L: 296, W: 0.132, s0: 0, beats: 9, beatPh: 0.3, lat: () => 0, finL: 0.25, finW: 0.080, flankOff: 0.40, flankW: 0.66,
+      flank: { ink: 3.6, inkEnd: 1.9, press: 0.45, load: 0.52, streak: 0.85, entry: 1.0, dry0: 0.42, dry1: 1.0, dryMax: 0.50, bristles: 22, fray: 0.12, bloom: 0.35, wet: 1.0, halo: 0.30, rim: 0.30, seed: 11 },
+      tail: { ink: 2.7, inkEnd: 1.1, press: 0.2, load: 0.30, streak: 0.8, entry: 0.3, dry0: 0.12, dry1: 0.9, dryMax: 0.60, bristles: 14, fray: 0.30, bloom: 0.2, wet: 0.8, halo: 0.22, rim: 0.25, seed: 15 },
+      fin: { ink: 1.55, inkEnd: 0.95, press: 0.0, load: 0.25, streak: 0.85, fadeIn: 0.22, entry: 0.0, dry0: 0.45, dry1: 1.0, dryMax: 0.48, bristles: 12, fray: 0.22, bloom: 0.4, wet: 1.0, halo: 0.28, rim: 0.35, seed: 13 },
+      accent: { ink: 5.2, inkEnd: 3.0, press: 0.3, streak: 0.4, dry0: 0.45, dry1: 1.0, dryMax: 0.45, bristles: 5, fray: 0.25, wet: 0.45, halo: 0.10, rim: 0.10, seed: 17 },
+      tailFlicks: [[-0.30, 0.42, 0.050], [0.03, 0.30, 0.040], [0.30, 0.40, 0.048]], gillW: 0, dorsW: 0.013,
+      eyes: { ink: 4.2, s: 0.072, v: 0.72, r: 0.0068 }, patch: null,
       shadow: 0.42,
     },
-    { // the tancho koi: pale ink with one vermilion crown
-      name: 'tancho', L: 268, W: 0.126, s0: 0.5, beats: 10, beatPh: 1.9, lat: (s) => 11 * Math.sin(TAU * s / PATH.P + 0.9), finL: 0.25, finW: 0.080,
-      body: { ink: 0.95, inkEnd: 0.62, press: 0.30, center: -0.30, side: 0.34, streak: 0.34, dry0: 0.55, dry1: 0.97, dryMax: 0.42, bristles: 25, fray: 0.10, fork: 0.07, bloom: 0.45, wet: 1.2, halo: 0.36, rim: 0.55, seed: 21 },
-      fin: { ink: 0.55, inkEnd: 0.36, press: 0.3, center: 0.0, side: 0.45, streak: 0.55, fadeIn: 0.25, dry0: 0.4, dry1: 1.0, dryMax: 0.33, bristles: 10, fray: 0.12, fork: 0, bloom: 0.7, wet: 1.2, halo: 0.35, rim: 0.45, seed: 23 },
-      eyes: { ink: 1.7, s: 0.072, v: 0.70, r: 0.0072 },
-      patch: { ink: 1.25, s: 0.150, v: 0.0, r: 0.080, rim: 0.55, ph: [0.7, 2.1, 4.0] },
+    { // the tancho koi: a lighter load, one vermilion crown
+      name: 'tancho', L: 268, W: 0.126, s0: 0.5, beats: 10, beatPh: 1.9, lat: (s) => 11 * Math.sin(TAU * s / PATH.P + 0.9), finL: 0.25, finW: 0.078, flankOff: 0.40, flankW: 0.66,
+      flank: { ink: 1.30, inkEnd: 0.80, press: 0.35, load: 0.13, streak: 0.95, entry: 1.2, dry0: 0.38, dry1: 1.0, dryMax: 0.55, bristles: 21, fray: 0.12, bloom: 0.5, wet: 1.2, halo: 0.34, rim: 0.65, seed: 21 },
+      tail: { ink: 1.05, inkEnd: 0.45, press: 0.15, load: 0.25, streak: 0.85, entry: 0.3, dry0: 0.12, dry1: 0.9, dryMax: 0.62, bristles: 13, fray: 0.30, bloom: 0.3, wet: 0.9, halo: 0.25, rim: 0.45, seed: 25 },
+      fin: { ink: 0.70, inkEnd: 0.42, press: 0.0, load: 0.25, streak: 0.9, fadeIn: 0.22, entry: 0.0, dry0: 0.45, dry1: 1.0, dryMax: 0.45, bristles: 11, fray: 0.22, bloom: 0.5, wet: 1.2, halo: 0.32, rim: 0.6, seed: 23 },
+      accent: { ink: 1.9, inkEnd: 0.9, press: 0.3, streak: 0.4, dry0: 0.45, dry1: 1.0, dryMax: 0.45, bristles: 5, fray: 0.25, wet: 0.5, halo: 0.10, rim: 0.15, seed: 27 },
+      tailFlicks: [[-0.31, 0.42, 0.048], [0.02, 0.29, 0.038], [0.29, 0.40, 0.046]], gillW: 0.0052, dorsW: 0.008,
+      eyes: { ink: 2.6, s: 0.072, v: 0.70, r: 0.0072 },
+      patch: { ink: 1.35, s: 0.150, v: 0.022, r: 0.084, rim: 0.55, ph: [0.7, 2.1, 4.0] },
       shadow: 0.30,
     },
   ];
@@ -175,20 +181,65 @@
   }
   function angDiff(a, b) { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d; }
 
+  function normals(pts) {
+    const n = pts.length, out = [];
+    for (let i = 0; i < n; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+      const tg = norm(b[0] - a[0], b[1] - a[1]);
+      out.push([-tg[1], tg[0]]);
+    }
+    return out;
+  }
+  function bez(p0, p1, p2, n) {
+    const o = [];
+    for (let i = 0; i <= n; i++) { const u = i / n, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u; o.push([a * p0[0] + b * p1[0] + c * p2[0], a * p0[1] + b * p1[1] + c * p2[1]]); }
+    return o;
+  }
+
   function buildFish(f, t, draws) {
     const L = f.L, W = f.W * L;
     const step = 2.0;
     const total = L * TAIL_END;
     const spine = [];
     for (let sg = 0; sg <= total + 1e-6; sg += step) spine.push(spinePt(f, t, sg));
+    const nrm = normals(spine);
+    const hwB = (xi) => W * fishHW(xi);
+    // a point in fish coordinates: sigma along the spine, lat across it
+    const at = (sigma, lat) => {
+      const k = clamp(sigma / step, 0, spine.length - 1.001), i = Math.floor(k), fr = k - i;
+      const p = [spine[i][0] + (spine[i + 1][0] - spine[i][0]) * fr, spine[i][1] + (spine[i + 1][1] - spine[i][1]) * fr];
+      const nn = norm(nrm[i][0] + (nrm[i + 1][0] - nrm[i][0]) * fr, nrm[i][1] + (nrm[i + 1][1] - nrm[i][1]) * fr);
+      return [p[0] + nn[0] * lat, p[1] + nn[1] * lat];
+    };
+
+    // silhouette for the shadow on the pond bed, and the head frame for eyes / vermilion
     const fn = (u) => W * fishHW(u * TAIL_END);
-    const body = ribbon(spine, fn, 12, 16, 8);
+    const bodyShadow = ribbon(spine, fn, 24, 20, 20);
     const headN = Math.ceil(0.36 * L / step) + 1;
     const head = ribbon(spine.slice(0, headN), (u) => fn(u * (headN - 1) * step / total), 11, 8, 2);
     head.len = total;
-    const bodyShadow = ribbon(spine, fn, 24, 20, 20);
 
-    // pectoral fins
+    // two side-loaded flank strokes, nose to peduncle; their wet seam is the spine
+    const nB = Math.round(1.0 * L / step) + 1;
+    const flanks = [];
+    for (const side of [1, -1]) {
+      const pts = [];
+      for (let i = 0; i < nB; i++) { const xi = (i * step) / L; pts.push(at(i * step, side * f.flankOff * hwB(xi) * smooth(0.0, 0.26, xi))); }
+      const r = ribbon(pts, (u) => (f.flankW + (1 - f.flankW) * (1 - smooth(0.0, 0.26, u))) * hwB(u) + 0.4, 12, 8, 6);
+      flanks.push({ r, side });
+    }
+
+    // tail: three fast flicks from the peduncle, riding the body wave
+    const flicks = [];
+    const s0 = 0.84 * L;
+    for (const [th, len, w] of f.tailFlicks) {
+      const Lk = len * L, pts = [];
+      for (let sg = 0; sg <= Lk + 1e-6; sg += step) pts.push(at(s0 + sg, Math.tan(th) * sg * (1 + 0.25 * sg / Lk)));
+      const Wt = w * L;
+      flicks.push(ribbon(pts, (u) => Wt * (0.22 + 0.78 * Math.sin(0.5 * Math.PI * Math.min(1, u / 0.5))) * (1 - 0.55 * smooth(0.55, 1.0, u)), 12, 6, 8));
+    }
+
+    // pectoral fins: one pressed stroke each
     const fins = [];
     const sf = 0.25 * L;
     const pa = spinePt(f, t, sf), pb = spinePt(f, t, sf + 4), pc = spinePt(f, t, sf - 4);
@@ -196,7 +247,7 @@
     const bn = [-bdir[1], bdir[0]];
     const qa = spinePt(f, t, sf - 30);
     const curv = angDiff(Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), Math.atan2(pa[1] - qa[1], pa[0] - qa[0]));
-    const hwF = W * fishHW(sf / L);
+    const hwF = hwB(sf / L);
     const Lf = f.finL * L, Wf = f.finW * L;
     for (const side of [1, -1]) {
       const flap = 0.13 * Math.sin(TAU * 5 * t / LOOP + f.beatPh + (side > 0 ? 0 : 1.1));
@@ -205,15 +256,33 @@
       const h0 = Math.atan2(bdir[1], bdir[0]) - ang;
       const start = [pa[0] + bn[0] * side * -0.92 * hwF, pa[1] + bn[1] * side * -0.92 * hwF];
       const pts = walk(start, h0, Lf, (u) => side * 0.6 / Lf, 2.0);
-      const ffn = (u) => Wf * (0.06 + 0.94 * Math.sin(0.5 * Math.PI * Math.min(1, u / 0.8))) * Math.sqrt(Math.max(0, 1 - Math.pow(smooth(0.68, 1.0, u), 2)));
-      fins.push(ribbon(pts, ffn, 12, 4, 6));
+      const ffn = (u) => Wf * (0.08 + 0.92 * Math.sin(0.5 * Math.PI * Math.min(1, u / 0.74))) * Math.sqrt(Math.max(0, 1 - Math.pow(smooth(0.66, 1.0, u), 2)));
+      fins.push({ r: ribbon(pts, ffn, 12, 4, 6), side });
+    }
+
+    // calligraphic accents: gill lines, a dorsal flick
+    const accents = [];
+    for (const side of [1, -1]) {
+      const h = hwB(0.2);
+      const h2 = hwB(0.25);
+      if (!f.gillW) continue;
+      const pts = bez(at(0.215 * L, side * 0.45 * h2), at(0.292 * L, side * 0.66 * h2), at(0.262 * L, side * 0.93 * h2), 24);
+      accents.push(ribbon(pts, (u) => f.gillW * L * Math.pow(Math.sin(Math.PI * clamp(u * 0.9 + 0.08, 0, 1)), 0.6) + 0.2, 8, 3, 3));
+    }
+    {
+      const pts = [];
+      for (let sg = 0.34 * L; sg <= 0.60 * L; sg += step) pts.push(at(sg, 0.05 * hwB(sg / L)));
+      accents.push(ribbon(pts, (u) => f.dorsW * L * Math.pow(Math.sin(Math.PI * clamp(u * 0.92 + 0.05, 0, 1)), 0.5) * (1 - 0.35 * u) + 0.2, 8, 3, 3));
     }
 
     const so = [15, 21];
+    const R = [1, 0, 0, 0];
     draws.push({ kind: 1, rib: bodyShadow, st: { ink: f.shadow, blur: 12, seed: 3 }, mask: [0, 0, 1, 0], off: so });
-    for (let i = 0; i < 2; i++) draws.push({ kind: 0, rib: fins[i], st: Object.assign({}, f.fin, { seed: f.fin.seed + i * 50 }), mask: [1, 0, 0, 0] });
-    draws.push({ kind: 0, rib: body, st: f.body, mask: [1, 0, 0, 0] });
-    if (f.eyes) draws.push({ kind: 3, rib: head, st: { ink: f.eyes.ink, wet: 0.5, seed: 31 }, p0: [f.eyes.s * L, f.eyes.v * W * fishHW(f.eyes.s), f.eyes.r * L, 0.3], mask: [1, 0, 0, 0] });
+    fins.forEach((fi, i) => draws.push({ kind: 0, rib: fi.r, st: Object.assign({}, f.fin, { seed: f.fin.seed + i * 50, loadDir: -fi.side }), mask: R }));
+    flicks.forEach((r, i) => draws.push({ kind: 0, rib: r, st: Object.assign({}, f.tail, { seed: f.tail.seed + i * 37, loadDir: i === 1 ? 1 : (i === 0 ? 1 : -1) }), mask: R }));
+    flanks.forEach((fl, i) => draws.push({ kind: 0, rib: fl.r, st: Object.assign({}, f.flank, { seed: f.flank.seed + i * 29, loadDir: -fl.side }), mask: R }));
+    accents.forEach((r, i) => draws.push({ kind: 0, rib: r, st: Object.assign({}, f.accent, { seed: f.accent.seed + i * 13 }), mask: R }));
+    if (f.eyes) draws.push({ kind: 3, rib: head, st: { ink: f.eyes.ink, wet: 0.45, seed: 31 }, p0: [f.eyes.s * L, f.eyes.v * W * fishHW(f.eyes.s), f.eyes.r * L, 0.3], mask: R });
     if (f.patch) draws.push({ kind: 2, rib: head, st: { ink: f.patch.ink, wet: 1.0, seed: 41 }, p0: [f.patch.s * L, f.patch.v * L, f.patch.r * L, f.patch.rim], p1: f.patch.ph.concat([0]), mask: [0, 1, 0, 0] });
   }
 
@@ -223,7 +292,7 @@
   const LEAF = { c: [0, 0], S: 74, rot0: 2.55, off: 42 };
   (function placeLeaf() {
     const p = PATH.at(PATH.P * 0.015);
-    const out = Math.sign(p.nx * (p.x - 470) + p.ny * (p.y - 735)) || 1;
+    const out = Math.sign(p.nx * (p.x - 470) + p.ny * (p.y - 682)) || 1;
     LEAF.c = [p.x + p.nx * out * LEAF.off, p.y + p.ny * out * LEAF.off];
   })();
   const EVENTS = [];
@@ -282,7 +351,29 @@
     };
     const so = 1 + ls.bob;
     draws.push({ kind: 5, rib: mk([0, 0]), st: { ink: 0.34, blur: 9.0, seed: 61 }, p0: [S, 1.08, 0.62 * S, 0.30], off: [11 * so, 15 * so], mask: [0, 0, 1, 0] });
-    draws.push({ kind: 4, rib: mk([0, 0]), st: { ink: 0.95, wet: 0.6, rim: 0.75, dryMax: 0.22, halo: 0.22, seed: 62 }, p0: [S, 1.08, 0.62 * S, 0.30], p1: [1.9, 0, 0, 0], mask: [0, 0, 0, 1] });
+    draws.push({ kind: 4, rib: mk([0, 0]), st: { ink: 0.95, wet: 0.6, rim: 0.75, dryMax: 0.22, halo: 0.22, seed: 62 }, p0: [S, 1.08, 0.62 * S, 0.30], p1: [0.0, 0, 0, 0], mask: [0, 0, 0, 1] });
+    leafStrokes(ls, sx, sy, draws);
+  }
+  function leafR(a) {
+    const S = LEAF.S, amax = 1.08;
+    let R = S * (0.93 + 0.028 * Math.sin(a * 7 + 1.3) + 0.016 * Math.sin(a * 19 + 0.4) + 0.008 * Math.sin(a * 41 + 2.0));
+    R -= S * 0.30 * Math.exp(-Math.pow(a / 0.075, 2)) * (1 + 0.2 * Math.sin(a * 3));
+    R *= 1 - 0.14 * Math.pow(Math.abs(a) / amax, 4);
+    return R;
+  }
+  function leafStrokes(ls, sx, sy, draws) {
+    const S = LEAF.S, c = Math.cos(ls.r), s = Math.sin(ls.r);
+    const W = (q) => { const lx = q[0] * sx, ly = q[1] * sy; return [ls.x + c * lx - s * ly, ls.y + s * lx + c * ly]; };
+    // stem: one thin line, pressed where it meets the blade, lifting at the end
+    const Ls = 0.64 * S, cc = 0.30, stem = [];
+    for (let i = 0; i <= 30; i++) { const tt = -0.06 + 1.06 * i / 30; stem.push(W([cc * Ls * tt * Math.max(tt, 0), -tt * Ls])); }
+    draws.push({ kind: 0, rib: ribbon(stem, (u) => 1.7 * (1 - 0.6 * u) * (0.6 + 0.4 * Math.min(1, u / 0.1)) + 0.15, 8, 3, 3),
+      st: { ink: 2.3, inkEnd: 1.5, press: 0.3, streak: 0.5, dry0: 0.55, dry1: 1.0, dryMax: 0.4, bristles: 4, fray: 0.12, wet: 0.45, halo: 0.12, rim: 0.2, seed: 64 }, mask: [0, 0, 0, 1] });
+    // a darker accent along part of one lobe's margin
+    const acc = [];
+    for (let i = 0; i <= 40; i++) { const a = -1.0 + 0.78 * i / 40; const r = leafR(a) - 2.2; acc.push(W([r * Math.sin(a), r * Math.cos(a)])); }
+    draws.push({ kind: 0, rib: ribbon(acc, (u) => 1.5 * Math.pow(Math.sin(Math.PI * clamp(u * 0.92 + 0.04, 0, 1)), 0.5) + 0.1, 8, 3, 3),
+      st: { ink: 2.0, inkEnd: 1.2, press: 0.2, streak: 0.6, dry0: 0.35, dry1: 1.0, dryMax: 0.55, bristles: 5, fray: 0.2, wet: 0.5, halo: 0.12, rim: 0.2, seed: 66 }, mask: [0, 0, 0, 1] });
   }
   function rings(t) {
     const out = [];
@@ -339,6 +430,7 @@
     float pool = smoothstep(0.35, 0.65, f);
     return 1.0 + amt * (0.6 * (pool - 0.5) + 0.28 * tide);
   }
+  float streakEntry(vec2 q, uint s){ return vnoise(q * 0.12, s + 91u); }
   vec3 toLin(vec3 c){ return mix(c/12.92, pow((c+0.055)/1.055, vec3(2.4)), step(0.04045, c)); }
   vec3 toSrgb(vec3 c){ c = max(c, 0.0); return mix(c*12.92, 1.055*pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
   `;
@@ -394,7 +486,7 @@
   precision highp float; precision highp int;
   in vec4 vS; out vec4 o;
   uniform int uKind; uniform vec4 uMask;
-  uniform float uLen, uInk, uInkEnd, uPress, uDry0, uDry1, uDryMax, uBristles, uFray, uFork, uStreak, uFadeIn, uBloom, uWet, uHalo, uRim, uCenter, uSide, uSeed, uAA, uBlur;
+  uniform float uLen, uInk, uInkEnd, uPress, uDry0, uDry1, uDryMax, uBristles, uFray, uFork, uStreak, uFadeIn, uBloom, uLoad, uLoadDir, uEntry, uWet, uHalo, uRim, uCenter, uSide, uSeed, uAA, uBlur;
   uniform vec4 uP0, uP1;
   ${NOISE}
   void main(){
@@ -410,7 +502,9 @@
       float en = fbm(q * 0.15, sd + 7u);
       float en2 = vnoise(q * 0.85, sd + 17u);
       float dry = uDryMax * smoothstep(uDry0, uDry1, u);
-      float wv = 0.35 + 1.0 * vnoise(vec2(s * 0.011, 3.0 + float(sd)), sd + 61u);
+      float uu = s / uLen;
+      float entry = uEntry * exp(-max(uu, 0.0) / 0.07);
+      float wv = (0.35 + 1.0 * vnoise(vec2(s * 0.011, 3.0 + float(sd)), sd + 61u)) * (1.0 + entry);
       float wet = uWet * wv * (1.0 - 0.85 * dry);
       float dE = d - wet * (1.7 * (en - 0.5) + 0.22 * (en2 - 0.5) + 1.1 * fib) - dry * 1.6 * (en - 0.5);
       float cov = 1.0 - smoothstep(-uAA, uAA, dE);
@@ -429,9 +523,11 @@
       ink *= 1.0 + uPress * exp(-max(u, 0.0) / 0.06);
       if (uFadeIn > 0.0) ink *= 0.25 + 0.75 * smoothstep(0.0, uFadeIn, u);
       float tone = clamp(1.0 - uCenter * vn * vn + uSide * vn, 0.15, 2.5);
-      float rim = uRim * exp(-max(-dE, 0.0) / 1.7) * (1.0 - dry);
-      float streak = mix(1.0 - uStreak * 0.5 + uStreak * br, 0.80 + 0.40 * br, smoothstep(0.0, 0.3, dry));
-      float core = ink * tone * streak * (1.0 + rim) * cov * dryMask * fray * bloom(q, sd, uBloom);
+      if (uLoad > 0.0) { float tl = clamp(0.5 + 0.5 * uLoadDir * vn + 0.12 * (b2 - 0.5), 0.0, 1.0); tone = mix(uLoad, 1.0, pow(tl, 1.35)); }
+      float rim = uRim * (1.0 + 1.5 * entry) * exp(-max(-dE, 0.0) / 1.7) * (1.0 - dry);
+      float brs = smoothstep(0.18, 0.82, br);
+      float streak = mix(1.0 - uStreak * 0.5 + uStreak * brs, 0.80 + 0.40 * br, smoothstep(0.0, 0.3, dry)) * (1.0 - 0.6 * entry * (1.0 - streakEntry(q, sd)));
+      float core = ink * tone * streak * (1.0 + rim) * cov * dryMask * fray * bloom(q, sd, uBloom * (1.0 + 1.2 * entry));
       float halo = uHalo * ink * (1.0 - cov) * exp(-max(dE, 0.0) / (1.3 + 3.0 * wet)) * (0.65 + 0.3 * en2 + 0.5 * fib) * wv * (1.0 - dry) * fray * (1.0 - smoothstep(6.0, 10.0, dE));
       D = core + halo;
     } else if (uKind == 1) {
@@ -493,11 +589,14 @@
         float v3 = vnoise(vec2(an * 330.0, r * 0.2), sd + 21u);
         float vv = 0.5 * v1 + 0.32 * v2 + 0.18 * v3;
         float lobe = a < 0.0 ? 1.0 : 0.86;
+        float rr = r / R;
         float rim = uRim * exp(-max(-dE, 0.0) / 1.9);
-        float dry = uDryMax * smoothstep(0.55, 1.02, r / R);
-        float dm = smoothstep(dry - 0.07, dry + 0.07, vv);
-        float split = 1.0 - 0.6 * exp(-pow(a * r / 1.1, 2.0)) * smoothstep(0.22 * S, 0.45 * S, r);
-        float tone = (0.80 + 0.36 * vv) * lobe * split * (0.62 + 0.55 * smoothstep(0.15 * S, 0.9 * R, r));
+        float grain = vnoise(lq * 1.35, sd + 71u);
+        float dry = 0.62 * (1.0 - smoothstep(0.08, 0.62, rr)) + uDryMax * smoothstep(0.9, 1.03, rr);
+        float dm = smoothstep(dry - 0.07, dry + 0.07, 0.8 * vv + 0.2 * grain);
+        float split = 1.0 - 0.75 * exp(-pow(a * r / 1.4, 2.0)) * smoothstep(0.18 * S, 0.40 * S, r);
+        float marg = pow(smoothstep(0.12, 1.0, rr), 1.25);
+        float tone = mix(0.26, 1.2, marg) * (0.55 + 0.9 * smoothstep(0.2, 0.8, vv)) * lobe * split;
         float Db = uInk * tone * (1.0 + rim) * cov * dm * bloom(lq, sd, 0.4);
         float halo = uHalo * uInk * (1.0 - cov) * exp(-max(dE, 0.0) / 2.2) * (0.3 + 1.2 * fib);
         float covs = 1.0 - smoothstep(-uAA, uAA, ds - uWet * 0.9 * (fib - 0.2));
@@ -534,14 +633,18 @@
       disp += dv / r * dh;
       // a pale wash where the ring lifts: wavering, with a soft dried edge
       vec2 dir = dv / r;
-      float brk = vnoise(dir * 3.2 + vec2(rg.z * 0.004, 5.0), 77u);
-      float wob = vnoise(dir * 7.0 + 11.0, 78u) - 0.5;
-      float xw = x + 6.0 * wob;
-      float wid = 7.0 + 0.035 * rg.z;
-      float band = exp(-pow(xw / wid, 2.0));
-      float edge = exp(-pow((xw - 0.9 * wid) / 1.5, 2.0));
-      float inner = exp(-pow((xw + 2.6 * wid) / (0.8 * wid), 2.0));
-      ringD += A * smoothstep(0.12, 0.7, brk) * (band + 0.55 * edge + 0.3 * inner);
+      float brk = vnoise(dir * 2.4 + vec2(5.0, 9.0), 77u);
+      float brk2 = vnoise(dir * 2.1 + vec2(1.0, 3.0), 79u);
+      float wob = vnoise(dir * 5.0 + 11.0, 78u) - 0.5;
+      float xw = x + 5.0 * wob;
+      float wid = 2.2 + 0.010 * rg.z;
+      float arc1 = smoothstep(0.40, 0.58, brk) * (1.0 - smoothstep(0.0, 0.15, (brk - 0.85)));
+      float arc2 = smoothstep(0.50, 0.66, brk2);
+      float streakA = vnoise(vec2(xw * 1.1 + 40.0, brk * 6.0), 80u);
+      float c1 = exp(-pow(xw / wid, 2.0)) * (0.45 + 0.9 * streakA);
+      float c2 = exp(-pow((xw + 15.0 + 3.0 * wob) / (0.8 * wid), 2.0));
+      float pale = exp(-pow((xw + 5.0) / (4.0 * wid), 2.0));
+      ringD += A * (arc1 * (c1 + 0.18 * pale) + 0.45 * arc2 * c2);
     }
     vec2 dpx = vec2(disp.x, -disp.y) * uScale * 14.0;
     vec4 inkU = texture(uInk, (fc + dpx) / uRes);
@@ -549,11 +652,13 @@
     vec4 inkL = texelFetch(uInk, ivec2(fc), 0);
     float ab = paper.a;
     float fibr = texelFetch(uAux, ivec2(fc), 0).r;
-    float Dw = (inkU.r + inkS.b) * ab + ringD * 0.24 * (0.6 + 0.8 * fibr) * ab;
+    float Dw = (inkU.r + inkS.b) * ab + ringD * 0.55 * (0.6 + 0.8 * fibr) * ab;
     float Dv = inkU.g * mix(1.0, ab, 0.6);
     float Dl = inkL.a * mix(1.0, ab, 0.7);
     // under the water: fish, their shadows, the ring
-    vec3 under = paper.rgb * exp(-(Dw * uKB + Dv * uKV));
+    // vermilion is an opaque mineral pigment: where it is dense it sits on top of the grey
+    float vc = smoothstep(0.25, 1.1, Dv);
+    vec3 under = paper.rgb * exp(-(Dw * (1.0 - 0.72 * vc) * uKB + Dv * uKV));
     // the leaf floats on top and hides what passes beneath it (painted over a reserve)
     float lc = smoothstep(0.04, 0.42, inkL.a);
     vec3 leaf = paper.rgb * exp(-(Dl + 0.10 * Dw) * uKB - 0.10 * Dv * uKV);
@@ -706,7 +811,7 @@
         gl.uniform1f(U.uLen, d.rib.len);
         gl.uniform1f(U.uInk, st.ink); gl.uniform1f(U.uInkEnd, st.inkEnd != null ? st.inkEnd : st.ink);
         gl.uniform1f(U.uPress, st.press || 0); gl.uniform1f(U.uDry0, st.dry0 || 0); gl.uniform1f(U.uDry1, st.dry1 || 1);
-        gl.uniform1f(U.uDryMax, st.dryMax || 0); gl.uniform1f(U.uBristles, st.bristles || 12); gl.uniform1f(U.uFray, st.fray || 0); gl.uniform1f(U.uFork, st.fork || 0); gl.uniform1f(U.uStreak, st.streak != null ? st.streak : 0.28); gl.uniform1f(U.uFadeIn, st.fadeIn || 0); gl.uniform1f(U.uBloom, st.bloom || 0);
+        gl.uniform1f(U.uDryMax, st.dryMax || 0); gl.uniform1f(U.uBristles, st.bristles || 12); gl.uniform1f(U.uFray, st.fray || 0); gl.uniform1f(U.uFork, st.fork || 0); gl.uniform1f(U.uStreak, st.streak != null ? st.streak : 0.28); gl.uniform1f(U.uFadeIn, st.fadeIn || 0); gl.uniform1f(U.uBloom, st.bloom || 0); gl.uniform1f(U.uLoad, st.load || 0); gl.uniform1f(U.uLoadDir, st.loadDir || 1); gl.uniform1f(U.uEntry, st.entry || 0);
         gl.uniform1f(U.uWet, st.wet || 0); gl.uniform1f(U.uHalo, st.halo || 0); gl.uniform1f(U.uRim, st.rim || 0);
         gl.uniform1f(U.uCenter, st.center || 0); gl.uniform1f(U.uSide, st.side || 0); gl.uniform1f(U.uSeed, st.seed || 1);
         gl.uniform1f(U.uBlur, st.blur || 1);
