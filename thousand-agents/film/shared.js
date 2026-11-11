@@ -102,18 +102,17 @@
     [9.10, 9.46, 0.62, 0.31, 0.16],            // and walks back
     [9.52, 9.88, 0.31, 0.00, 0.16],
     [14.86, 15.16, 0, 0, 0.22],                // MODULES: the last one clicks
-    [17.70, 18.08, 0, -0.38, 0.20],            // KERNEL: steps back as it grows
-    [20.70, 21.10, -0.38, 0, 0.26],            //         and returns
+    [18.62, 19.00, 0, -0.38, 0.20],            // KERNEL: steps back as it grows
+    [20.95, 21.33, -0.38, 0, 0.26],            //         and returns
     [24.62, 24.96, 0, 0, 0.46],                // ALIVE: hops in delight at the pulse
     [25.02, 25.30, 0, 0, 0.26],
     [30.86, 31.18, 0, 0, 0.30],                // BOOT: the bar completes
-    [36.66, 37.02, 0, 0.62, 0.34],             // DESKTOP: hops over to the login panel
-    [37.10, 37.46, 0.62, 1.12, 0.26],
+    [36.62, 37.12, 0, 1.12, 0.62],             // DESKTOP: one big hop up onto the login plinth
   ];
   F.HOPS = HOPS;
   const LOOK_X = [[0, 0.6], [1.38, 0.6], [1.5, 1], [1.8, 1], [1.88, -1], [2.12, -1], [2.2, 0.9], [2.5, 0.8], [3.0, 0.7], [4.3, 0.55], [4.6, 0.35],
     [5.6, 0.4], [6.0, 0.8], [7.0, 0.9], [8.0, 0.6], [9.0, 0.7], [9.9, 0.4],
-    [11.1, 0.6], [11.6, 0.9], [12.4, 0.6], [13.2, 0.9], [14.0, 0.5], [14.8, 0.8], [15.4, 0.4],
+    [11.1, 0.6], [12.0, 0.9], [12.7, 0.6], [13.4, 0.9], [14.1, 0.5], [14.8, 0.8], [15.4, 0.4],
     [16.6, 0.7], [18.5, 0.8], [20.5, 0.6], [21.4, 0.4],
     [22.6, 0.7], [24.0, 0.8], [25.6, 0.6], [26.4, 0.4],
     [27.6, 0.7], [29.0, 0.9], [31.4, 0.4],
@@ -236,8 +235,8 @@
      mask(k, p, x, y) -> 0..1, how much of the INCOMING style shows at screen point (x, y) at progress p (0..1).
      waveAgents(k, p) -> [{x, y, r, a, vx, vy, hot}] the lights that carry the front (drawn additively on top). */
   const BX = F.BUILD.x, BY = 520;              // the build's centre on screen (bloom / spiral origin)
-  F.KERNEL = [1215, 500];
-  F.SCREEN = { x: 1225, y: 455, w: 520, h: 300 };   // where the boot screen sits at the end of BOOT
+  F.KERNEL = [1295, 545];
+  F.SCREEN = { x: 1245, y: 372, w: 540, h: 310 };   // where the boot screen sits at the end of BOOT
   const smooth01 = (e0, e1, x) => { const u = sat((x - e0) / (e1 - e0)); return u * u * (3 - 2 * u); };
   F.mask = function (k, p, x, y) {
     const kind = F.X[k].kind;
@@ -257,7 +256,7 @@
     if (kind === 'blocks') {                   // a voxel bloom from the kernel: square cells switch on
       const cell = 36, cx = Math.floor(x / cell), cy = Math.floor(y / cell);
       const mx = (cx + 0.5) * cell - F.KERNEL[0], my = (cy + 0.5) * cell - F.KERNEL[1];
-      const d = Math.max(Math.abs(mx), Math.abs(my) * 1.35) + 220 * hash(cx * 131 + cy, 61);
+      const d = Math.max(Math.abs(mx), Math.abs(my) * 1.35) + 140 * hash(cx * 131 + cy, 61);
       const R = eo(p) * 2050 - 60, fade = 90;
       return smooth01(R + fade, R - fade, d);
     }
@@ -279,11 +278,11 @@
     const kind = F.X[k].kind, out = [];
     const env = ss(0, 0.12, p) * (1 - ss(0.86, 1, p));
     if (env <= 0) return out;
-    const N = 420;
+    const N = kind === 'sweep' ? 620 : 460;
     for (let i = 0; i < N; i++) {
       const r1 = hash(i, 101 + k), r2 = hash(i, 202 + k), r3 = hash(i, 303 + k), r4 = hash(i, 404 + k);
       const rad = 1.6 + 2.6 * r3 * r3, hot = r4;
-      let x, y, vx, vy, a = env * (0.55 + 0.45 * r2);
+      let x, y, vx, vy, a = env * (0.55 + 0.45 * r2) * (kind === 'bloom' && p < 0.34 ? 0.55 : 1);
       if (kind === 'sweep') {
         const lane = Math.floor(r1 * 22), ly = 90 + lane * 44 + (r2 - 0.5) * 16;
         const e = eio(p), f = lerp(-260, 2200, e) + 90 * (vn1(ly / 70, 31) - 0.5) + 70 * Math.sin(ly / 47 + 1.3) * vn1(ly / 160, 32);
@@ -295,7 +294,7 @@
         const an = r1 * TAU, q = sat((p - 0.3) / 0.7);
         if (p < 0.34) {                        // converging
           const c = eio(p / 0.34), R0 = 380 + 620 * r2;
-          const R = lerp(R0, 18 + 30 * r4, c), w = an + 1.4 * c;
+          const R = lerp(R0, 70 + 110 * r4, c), w = an + 1.4 * c;
           x = BX + Math.cos(w) * R; y = BY + Math.sin(w) * R * 0.8; vx = -Math.cos(w); vy = -Math.sin(w);
         } else {
           const R = eo(q) * 2300 - 40, d = R / (1 + 0.12 * (vn1(an * 3 + 10, 51) - 0.5)) + 10 + 120 * r4 - 30;

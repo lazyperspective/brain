@@ -1,15 +1,15 @@
-/* 1000 Agents — first 3 seconds, hand-drawn ink + gouache on dark indigo paper.
-   Pure Canvas 2D. Every frame is a pure function of t (hash noise only). */
-(function () {
+/* 1000 Agents — the film, section 1 of 7: THE IDEA (0.0–5.0 s, rendered 0.0–5.4 s), ink + gouache on dark indigo paper.
+   Extended from the 3 s style preview. Pure Canvas 2D. Every frame is a pure function of film time T (hash noise only). */
+FILM.define('07-ink-sketch', function (canvasArg, opts) {
 'use strict';
-const W = 1920, H = 1080, DUR = 3, FPS = 30, TAU = Math.PI * 2;
+const W = 1920, H = 1080, FPS = 30, TAU = Math.PI * 2;
+const FM = FILM.m, A = FILM.ANCHOR;
 const C = { coral: '#d97757', shade: '#a8553b', light: '#f2a585', dark: '#6e2a1a', hot: '#ffd9b0',
             ink: '#efe6ff', lilac: '#a99aef', eye: '#120a16' };
-const GROUND = 706;
-const FX0 = 1000, FX1 = 1262, FY0 = 512, TABH = 26, TABW = 98, FY1 = GROUND, FYF = FY0 + TABH + 20;
-const MOUTH = [1136, 566];
-const BW = 250, BH = 150, LEG = 54, CHX = 790;
-
+const GROUND = A.gy;
+const FX0 = FILM.BUILD.x - 131, FX1 = FILM.BUILD.x + 131, FY0 = GROUND - 194, TABH = 26, TABW = 98, FY1 = GROUND, FYF = FY0 + TABH + 20;
+const MOUTH = [FX0 + 136, FY0 + 54];
+const BW = 250, BH = 150, LEG = 54;
 /* ------------------------------------------------------------ maths */
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, u) => a + (b - a) * u;
@@ -31,7 +31,7 @@ function fbm(x, y, o, s) { let a = 0, w = 0.5, t = 0; for (let i = 0; i < o; i++
 
 /* ------------------------------------------------------------ canvases */
 const mk = (w, hh) => { const c = document.createElement('canvas'); c.width = w; c.height = hh; return c; };
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const cv = canvasArg, ctx = cv.getContext('2d');
 const layer = mk(W, H), lx = layer.getContext('2d');
 const small = mk(W / 2, H / 2), sx2 = small.getContext('2d');
 let paper, mottle, grain, ready = false;
@@ -129,6 +129,7 @@ function begin(box) { // box: the only region this layer touches (keeps the blur
   BOX = box ? [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), 0, 0] : [0, 0, W, H];
   if (box) { BOX[2] = Math.min(W, Math.ceil(box[0] + box[2])) - BOX[0]; BOX[3] = Math.min(H, Math.ceil(box[1] + box[3])) - BOX[1]; }
   lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalAlpha = 1; lx.globalCompositeOperation = 'source-over'; lx.filter = 'none';
+  lx.clearRect(0, 0, W, H);                     // the whole layer: the halo pass reads a little past the box
   lx.save(); lx.beginPath(); lx.rect(BOX[0], BOX[1], Math.max(1, BOX[2]), Math.max(1, BOX[3])); lx.clip(); lx.clearRect(0, 0, W, H);
 }
 function finish(o) {
@@ -238,26 +239,14 @@ function text(c, str, x, y, s, o, reveal) {
   }
 }
 
-/* ------------------------------------------------------------ the hero */
-const HOPS = [[-0.12, 0.30, -150, 230, 122], [0.34, 0.72, 230, 530, 104], [0.76, 1.12, 530, CHX, 82], [1.95, 2.22, CHX, CHX, 60]];
-function kf(K, t) { if (t <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (t < K[i][0]) return lerp(K[i - 1][1], K[i][1], ss(K[i - 1][0], K[i][0], t)); return K[K.length - 1][1]; }
-const EX = [[0, 7], [1.15, 7], [1.3, 14], [1.5, 14], [1.58, -16], [1.68, -16], [1.76, 9], [1.92, 10], [1.98, 3], [2.25, 8], [2.5, 10], [3, 10]];
-const EY = [[0, 0], [1.15, 0], [1.3, 3], [1.5, 3], [1.58, 0], [1.68, 0], [1.76, -5], [1.92, 2], [1.98, -3], [2.25, -7], [2.5, -10], [3, -11]];
-function pose(t) {
-  let x = HOPS[0][2], lift = 0, sy = 1, lean = 0, air = 0, land = 0;
-  for (let i = 0; i < HOPS.length; i++) {
-    const [a, b, x0, x1, hh] = HOPS[i];
-    if (t >= a && t < b) { const u = (t - a) / (b - a); x = lerp(x0, x1, u); lift = 4 * hh * u * (1 - u); air = Math.sin(Math.PI * u);
-      sy += 0.1 * air * (u < 0.5 ? 1 : 0.5); lean += (x1 !== x0 ? 0.085 : -0.03) * Math.cos(Math.PI * u); }
-    else if (t >= b) { x = x1; const dt = t - b; sy -= 0.17 * Math.exp(-dt * 15) * Math.cos(dt * 30); land = Math.max(land, 1 - dt / 0.22); }
-  }
-  sy -= 0.1 * ss(1.86, 1.94, t) * (1 - ss(1.94, 1.97, t));                 // anticipation before the call
-  sy += 0.012 * Math.sin(t * 8.5) * ss(1.2, 1.3, t);                       // breathing
-  lean += 0.035 * ss(1.25, 1.4, t) * (1 - ss(1.5, 1.6, t)) - 0.03 * ss(1.55, 1.62, t) * (1 - ss(1.68, 1.78, t));
-  const blink = Math.max(1 - Math.abs(t - 1.85) / 0.055, 1 - Math.abs(t - 2.72) / 0.05, 0);
-  const mouth = ss(1.94, 2.0, t) * (1 - ss(2.3, 2.42, t));
-  const arm = ss(1.92, 2.03, t) * (1 - 0.25 * ss(2.5, 2.9, t)) + 0.06 * Math.sin(t * 11) * ss(2.2, 2.4, t);
-  return { x, lift, sy, sx: 1 + (1 - sy) * 0.75, lean, air, land, blink: clamp(blink * 1.6, 0, 1), mouth, arm, ex: kf(EX, t), ey: kf(EY, t) };
+/* ------------------------------------------------------------ the hero: the shared performance, drawn in ink and gouache */
+function pose(T) {
+  const s = FILM.heroAt(T);
+  let land = 0;
+  for (const hp of FILM.HOPS) { const dt = T - hp[1]; if (dt >= 0 && dt < 0.22) land = Math.max(land, 1 - dt / 0.22); }
+  const sy = 1 - s.sq * 0.9;
+  return { x: A.x + s.dx * BW, lift: s.lift * 190, sy, sx: 1 + (1 - sy) * 0.75, lean: s.lean, air: s.air, land,
+    blink: s.blink, mouth: s.mouth, arm: Math.max(s.arm, s.point * 0.6), ex: s.look[0] * 12, ey: -s.look[1] * 9 };
 }
 function capsule(ax, ay, ang, len, hw, closed) {
   const dx = Math.cos(ang), dy = Math.sin(ang), o = [];
@@ -268,25 +257,23 @@ function capsule(ax, ay, ang, len, hw, closed) {
   if (closed) o.push([ax - dx * hw, ay - dy * hw]);
   return o;
 }
-function drawHero(t, b, bw, open) {
-  const p = pose(t), gx = p.x, gy = GROUND - p.lift;
+function drawHero(T, b, bw, open) {
+  const p = pose(T), gx = p.x, gy = GROUND - p.lift;
   const w = BW * p.sx, hh = BH * p.sy, lg = LEG * p.sy, yb = -lg, yt = yb - hh, cy = (yb + yt) / 2;
   const foot = -lg * 0.32 * p.air;
   const HB = [gx - 250, gy - 330, 500, 400];
-  const T = c => { c.setTransform(1, 0, 0, 1, gx, gy); c.rotate(p.lean); };
+  const Tf = c => { c.setTransform(1, 0, 0, 1, gx, gy); c.rotate(p.lean); };
   const legU = (x, far) => { const hw = far ? 18 : 20, bt = foot - (far ? 5 : 0), sw = (far ? -1 : 1) * 7 * p.air * (x < 0 ? -1 : 1), top = yb - 10;
     return [[x - hw, top], [x - hw + sw * 0.4, bt - 10], [x - hw + 4 + sw, bt - 2], [x - hw + 10 + sw, bt], [x + hw - 10 + sw, bt], [x + hw - 4 + sw, bt - 2], [x + hw + sw * 0.4, bt - 10], [x + hw, top]]; };
   const legs = [[-36, 1], [38, 1], [-90, 0], [90, 0]].map(l => [legU(l[0] * p.sx, l[1]), l[1]]);
   const la = capsule(-w / 2 + 12, cy + 8, Math.PI - 0.25 + 0.7 * p.air * (1 - p.arm), 46, 19);
   const ra = capsule(w / 2 - 12 - 8 * p.arm, lerp(cy + 8, yt + 36, p.arm), lerp(0.25 - 0.7 * p.air, -1.02, p.arm), lerp(46, 62, p.arm), 19);
 
-  // --- a loose watercolour wash first, wetter and wider than the drawing
-  begin(HB); T(lx);
+  begin(HB); Tf(lx);
   const under = rrectPts(7, cy + 12, w + 26, hh + 30, 50);
   blob(lx, under, 190 + bw, 9, 120, C.coral); rim(lx, under, 190 + bw, 9, 120, C.light, 0.5, 5);
   finish({ alpha: 0.2, mottle: 0.8, mx: -gx * 0.1 - 200, my: -300, grain: 0.4, halo: 0.5, haloR: 9 });
-  // --- limbs: paint, then ink
-  begin(HB); T(lx);
+  begin(HB); Tf(lx);
   for (const [L, far] of legs) blob(lx, L, 200 + bw + (far ? 3 : 0), 1.6, 40, far ? '#8a4330' : C.coral);
   blob(lx, la, 210 + bw, 1.6, 40, C.shade); blob(lx, ra, 212 + bw, 1.6, 40, C.coral);
   lx.save(); lx.globalCompositeOperation = 'source-atop';
@@ -294,13 +281,12 @@ function drawHero(t, b, bw, open) {
   for (const [L, far] of legs) if (!far) ink(lx, [[L[1][0] + 6, L[1][1] - 6], [L[3][0], L[3][1] - 5], [L[4][0] + 4, L[4][1] - 5]], { seed: 216 + bw, w: 9, col: C.shade, alpha: 0.55, wob: 1 });
   lx.restore();
   finish({ mottle: 0.12, mx: -gx * 0.15, grain: 0.22, dx: 2, dy: 3, halo: 0.3, haloR: 5 });
-  T(ctx);
+  Tf(ctx);
   for (const [L, far] of legs) ink2(ctx, L, { seed: 220 + b * 7 + (far ? 1 : 0) + Math.round(L[0][0]), w: far ? 2.6 : 3.4, wob: 1.5, alpha: far ? 0.8 : 1 });
   ink2(ctx, la, { seed: 230 + b * 7, w: 3.2, wob: 1.5 }); ink2(ctx, ra, { seed: 233 + b * 7, w: 3.4, wob: 1.5 });
 
-  // --- body: gouache, slightly off-register, bleeding past the line
   const body = rrectPts(0, cy, w, hh, 36);
-  begin(HB); T(lx);
+  begin(HB); Tf(lx);
   blob(lx, body, 240 + bw, 4.5, 90, C.coral);
   rim(lx, body, 240 + bw, 4.5, 90, C.shade, 0.45, 12);
   const band = [[-w / 2 - 5, yb - hh * 0.3], [-w * 0.2, yb - hh * 0.25], [w * 0.15, yb - hh * 0.3], [w / 2 + 5, yb - hh * 0.26], [w / 2 + 4, yb - 12], [w / 2 - 22, yb + 5], [0, yb + 6], [-w / 2 + 22, yb + 5], [-w / 2 - 4, yb - 12]];
@@ -310,10 +296,9 @@ function drawHero(t, b, bw, open) {
   ink(lx, [[-w / 2 + 16, yt + 40], [-w / 2 + 15, yt + 78]], { seed: 248 + bw, w: 8, col: C.light, alpha: 0.4, wob: 2 });
   if (open > 0.02) ink(lx, [[w / 2 - 13, yt + 34], [w / 2 - 11, cy + 10], [w / 2 - 14, yb - 22]], { seed: 249 + bw, w: 12, col: C.hot, alpha: 0.62 * open, wob: 2 });
   finish({ mottle: 0.12, mx: -gx * 0.15 - 90, my: -40, grain: 0.22, dx: 3, dy: 2, halo: 0.32, haloR: 6 });
-  T(ctx);
+  Tf(ctx);
   ink2(ctx, body.concat(body.slice(0, 5)), { seed: 250 + b * 7, w: 3.8, wob: 2.1 });
 
-  // --- face
   const ecy = yt + hh * 0.36 + p.ey, eh = 14 * (1 - p.blink * 0.86);
   for (const sx of [-1, 1]) {
     const ex = sx * 56 * p.sx + p.ex;
@@ -334,36 +319,45 @@ function drawHero(t, b, bw, open) {
   return { p, tip: (() => { const q = ra[5], cs = Math.cos(p.lean), sn = Math.sin(p.lean); return [gx + q[0] * cs - q[1] * sn, gy + q[0] * sn + q[1] * cs]; })() };
 }
 
-/* ------------------------------------------------------------ agents: flicked gouache that finds its purpose */
-const LANES = [-0.88, -0.52, -0.17, 0.19, 0.54, 0.9], NPOOL = 1000;
-const tEmit = i => 2.12 + 0.88 * Math.pow((i + 1) / 250, 0.78);
+/* ------------------------------------------------------------ agents: flicked gouache that organises into lanes
+   Each agent leaves the folder on a damped ballistic flick, then eases into one of six lanes: long gently waving streams
+   that run left to right across the sheet, two abreast (they will carry the first transition across the frame). */
+const NL = 6;
+const laneY = (j, x) => 214 + j * 52 + 26 * Math.sin(x / 330 + j * 1.3) + 10 * Math.sin(x / 120 + j * 2.1);
 const ACOL = [C.coral, C.coral, C.coral, C.light, C.light, C.shade, C.hot, C.coral, C.light, C.hot];
 function agentPos(i, a) {
-  const lane = i % LANES.length, th = LANES[lane];
+  const lane = i % NL, th = (lane / (NL - 1) - 0.5) * 1.6;
   const a0 = th * 0.5 + (h(i, 602) - 0.5) * 0.52, sp = 1000 + h(i, 603) * 900, k = 3.3, g = 950;
   const e = (1 - Math.exp(-k * a)) / k;
   const bx = MOUTH[0] + (h(i, 606) - 0.5) * 70 + Math.sin(a0) * sp * e;
   const by = MOUTH[1] - Math.cos(a0) * sp * e + g * (a / k - e / k);
-  // the lane: a curling stream the agents fall into, two abreast
-  const ang = th * (0.72 + 0.42 * a), R = 170 + 300 * a, side = ((i / LANES.length | 0) % 2 ? 1 : -1) * 6;
-  const lxp = MOUTH[0] + Math.sin(ang) * R + Math.cos(ang) * side, lyp = MOUTH[1] - 20 - Math.cos(ang) * R + Math.sin(ang) * side;
-  const m = ss(0.3, 0.72, a);
-  return [lerp(bx, lxp, m), lerp(by, lyp, m), m];
+  // the lane: joins near where its flick peaks, then runs right; wraps round off-screen
+  const v = 430 + 110 * (lane % 3) + 70 * h(i, 607), aj = 0.42;
+  const xj = MOUTH[0] + Math.sin(a0) * sp * (1 - Math.exp(-k * aj)) / k - 160 + 120 * h(i, 608);
+  let xl = xj + v * (a - aj);
+  const m = ss(0.22, 0.8, a);
+  if (m >= 1) xl = ((xl + 140) % 2200 + 2200) % 2200 - 140;
+  const side = ((i / NL | 0) % 2 ? 1 : -1) * 7;
+  const yl = laneY(lane, xl) + side;
+  return [lerp(bx, xl, m), lerp(by, yl, m), m];
 }
-function drawAgents(t, b) {
+function drawAgents(T, b) {
   let n = 0;
-  for (let i = 0; i < NPOOL; i++) {
-    const te = tEmit(i); if (te > t) break; n++;
-    const a = t - te, P = agentPos(i, a), Q = agentPos(i, Math.max(0, a - 0.012));
-    let ux = P[0] - Q[0], uy = P[1] - Q[1]; const d = Math.hypot(ux, uy), sp = d / 0.012; if (d > 1e-6) { ux /= d; uy /= d; } else { ux = 0; uy = -1; }
+  const N = FILM.agentsOut(T);
+  for (let i = 0; i < N; i++) {
+    const te = FILM.emitT(i); if (te > T) break; n++;
+    const a = T - te, P = agentPos(i, a), Q = agentPos(i, Math.max(0, a - 0.012));
+    let ux = P[0] - Q[0], uy = P[1] - Q[1]; const d = Math.hypot(ux, uy), sp = d / 0.012;
+    if (d > 1e-6 && d < 400) { ux /= d; uy /= d; } else { ux = 1; uy = 0; }
     const big = h(i, 611), m = P[2], dot = h(i, 612) < 0.28;
-    const r = lerp(1.5 + big * big * big * 4.6, 2.5, m * 0.8) * (0.9 + 0.2 * h(i, 620 + b)) * ss(0, 0.05, a + 0.02);
-    const L = dot ? 0 : lerp(clamp(sp * 0.034, 0, 46) * (0.6 + 0.8 * h(i, 613)), 13, m);
+    const r = lerp(1.5 + big * big * big * 4.6, 2.6, m * 0.8) * (0.9 + 0.2 * h(i, 620 + b)) * ss(0, 0.05, a + 0.02);
+    const L = dot ? 0 : lerp(clamp(sp * 0.034, 0, 46) * (0.6 + 0.8 * h(i, 613)), 12, m);
     const x = P[0] + (h(i, 630 + b) - 0.5) * 1.6, y = P[1] + (h(i, 640 + b) - 0.5) * 1.6;
+    if (x < -60 || x > W + 60) continue;
     ctx.fillStyle = a < 0.07 ? C.hot : ACOL[Math.floor(h(i, 614) * ACOL.length)];
     ctx.globalAlpha = 0.96;
     ctx.beginPath(); ctx.ellipse(x, y, r, r * (0.84 + 0.16 * h(i, 615)), Math.atan2(uy, ux), 0, TAU); ctx.fill();
-    if (L > r) { const tw = lerp(0.25, 0.8, m) * r; // flick: tapering tail; in the lane: an even dash
+    if (L > r) { const tw = lerp(0.25, 0.8, m) * r;
       ctx.beginPath(); ctx.moveTo(x - uy * r * 0.92, y + ux * r * 0.92); ctx.lineTo(x - ux * L - uy * tw, y - uy * L + ux * tw);
       ctx.lineTo(x - ux * L + uy * tw, y - uy * L - ux * tw); ctx.lineTo(x + uy * r * 0.92, y - ux * r * 0.92); ctx.fill();
       if (m > 0.3) { ctx.beginPath(); ctx.arc(x - ux * L, y - uy * L, tw, 0, TAU); ctx.fill(); } }
@@ -373,33 +367,33 @@ function drawAgents(t, b) {
   return n;
 }
 
-/* ------------------------------------------------------------ one frame */
-function render(t) {
+/* ------------------------------------------------------------ one frame (film time) */
+const T_OPEN = FILM.T_OPEN;
+function render(T) {
   if (!ready) build();
-  t = clamp(t, 0, DUR);
-  const f = Math.floor(t * FPS + 1e-6), b = Math.floor(f * 2 / 5), bw = Math.floor(f / 4);
+  const f = Math.floor(T * FPS + 1e-6), b = Math.floor(f * 2 / 5), bw = Math.floor(f / 4);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
   ctx.drawImage(paper, 0, 0);
-  const open = backOut((t - 2.08) / 0.34) * (t > 2.08 ? 1 : 0);
-  const P0 = pose(t);
+  const open = backOut((T - (T_OPEN - 0.06)) / 0.4) * (T > T_OPEN - 0.06 ? 1 : 0);
+  const P0 = pose(T);
 
-  // ground: one loose pencil-ish line
-  ink(ctx, [[330, GROUND + 3], [700, GROUND + 1], [1180, GROUND + 4], [1590, GROUND + 2]], { seed: 100 + bw, w: 2, wob: 2.4, col: C.lilac, alpha: 0.24 });
+  // ground: one loose pencil line, drawn on in the first moments
+  ink(ctx, [[330, GROUND + 3], [700, GROUND + 1], [1180, GROUND + 4], [1590, GROUND + 2]], { seed: 100 + bw, w: 2, wob: 2.4, col: C.lilac, alpha: 0.24, to: ss(0.0, 0.7, T + 0.1) });
 
   // shadows
   begin([0, GROUND - 20, W, 60]);
-  const shw = 150 * (1 - 0.4 * P0.lift / 122);
+  const shw = 150 * (1 - 0.4 * clamp(P0.lift / 122, 0, 1));
   blob(lx, ellipsePts(P0.x, GROUND + 9, shw, 13, 18), 110 + bw, 3, 50, '#04030d', 0.75);
-  blob(lx, ellipsePts((FX0 + FX1) / 2 + 8, GROUND + 9, 150, 12, 18), 112 + bw, 3, 50, '#04030d', 0.7 * ss(0.15, 0.5, t));
+  blob(lx, ellipsePts((FX0 + FX1) / 2 + 8, GROUND + 9, 150, 12, 18), 112 + bw, 3, 50, '#04030d', 0.7 * ss(0.3, 0.9, T));
   finish({ mottle: 0.35, grain: 0.3, halo: 0.4, haloR: 5 });
   for (let i = 0; i < 7; i++) { const x = P0.x - shw * 0.7 + i * shw * 0.22;
     ink(ctx, [[x, GROUND + 15], [x + 13, GROUND + 5]], { seed: 120 + i + b * 3, w: 1.6, wob: 1, col: C.lilac, alpha: 0.3 }); }
 
-  // folder: wash first, then the quick ink sketch on top
-  const fy = FYF + open * 62, sh = open * 26, dr = t / 0.5;
+  // folder: sketched stroke by stroke from the very first frame, wash after
+  const fy = FYF + open * 62, sh = open * 26, dr = (T + 0.22) / 1.05;
   const back = [[FX0, FY1], [FX0, FY0 + 5], [FX0 + 7, FY0], [FX0 + TABW, FY0], [FX0 + TABW + 20, FY0 + TABH], [FX1, FY0 + TABH], [FX1, FY1]];
   const front = [[FX0 + sh, fy], [FX1 + sh, fy], [FX1, FY1], [FX0, FY1]];
-  const wr = ss(0.1, 0.55, t);
+  const wr = ss(0.35, 1.05, T);
   if (wr > 0) {
     begin([FX0 - 80, FY0 - 80, FX1 - FX0 + 190, FY1 - FY0 + 150]);
     lx.save(); lx.beginPath(); lx.rect(FX0 - 60, FY0 - 60, (FX1 - FX0 + 120) * wr * 1.05, 300); lx.clip();
@@ -409,24 +403,30 @@ function render(t) {
     finish({ alpha: 0.42, mottle: 0.8, mx: -200, my: -200, grain: 0.4, dx: -5, dy: 4, halo: 0.3, haloR: 8 });
   }
   const FI = (pts, seed, a0, a1, o) => ink2(ctx, pts, Object.assign({ seed: seed + b * 7, w: 3, wob: 1.9, col: C.lilac, to: clamp((dr - a0) / (a1 - a0), 0, 1) }, o || {}));
-  FI([[FX0 - 2, FY1 + 9], back[1], back[2], back[3], back[4], [FX1 + 12, FY0 + TABH - 1]], 140, 0, 0.55);
-  FI([[FX1 + 1, FY0 + TABH - 9], [FX1 - 1, FY1 + 8]], 143, 0.5, 0.72);
-  FI([[FX1 + 10, FY1], [FX0 - 11, FY1 + 1]], 146, 0.66, 0.9);
+  // the pen's tip: a bright dot where the stroke is being laid down
+  const tipOf = (pts, u) => { const Pp = resample(pts, 4); return Pp[Math.min(Pp.length - 1, Math.floor(u * (Pp.length - 1)))]; };
+  const strokes = [[[[FX0 - 2, FY1 + 9], back[1], back[2], back[3], back[4], [FX1 + 12, FY0 + TABH - 1]], 140, 0, 0.55], [[[FX1 + 1, FY0 + TABH - 9], [FX1 - 1, FY1 + 8]], 143, 0.5, 0.72], [[[FX1 + 10, FY1], [FX0 - 11, FY1 + 1]], 146, 0.66, 0.9]];
+  for (const [pts, seed, a0, a1] of strokes) {
+    FI(pts, seed, a0, a1);
+    const u = (dr - a0) / (a1 - a0);
+    if (u > 0 && u < 1) { const q = tipOf(pts, u); ctx.fillStyle = '#fff4ff'; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(q[0], q[1], 3.2, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(q[0], q[1], 9, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
+  }
 
   // warm light inside
   if (open > 0.01) {
     begin([MOUTH[0] - 440, 0, 880, GROUND + 70]);
     const g = clamp(open, 0, 1.1), cx = MOUTH[0], cyy = MOUTH[1];
     const gg = clamp(g, 0, 1);
-    // soft bloom first (blurred), then two loose plumes of wash with tide lines, then the hot mouth
     const glow = (x, y, rx, ry, col, al) => { if (rx < 1 || ry < 1) return; lx.save(); lx.translate(x, y); lx.scale(rx, ry);
       const gr = lx.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, col); gr.addColorStop(0.5, col + 'b0'); gr.addColorStop(1, col + '00');
       lx.globalAlpha = al; lx.fillStyle = gr; lx.beginPath(); lx.arc(0, 0, 1, 0, TAU); lx.fill(); lx.restore(); };
-    const wv = 1 + 0.02 * Math.sin(t * 6);
-    glow(cx + 4, cyy - 120 * g, 290 * g * wv, 350 * g * wv, C.shade, 0.78 * gg);
+    const wv = 1 + 0.02 * Math.sin(T * 6);
+    // the plume settles a little once the lanes have formed
+    const settle = 1 - 0.3 * ss(3.8, 4.8, T);
+    glow(cx + 4, cyy - 120 * g, 290 * g * wv, 350 * g * wv * settle, C.shade, 0.78 * gg * settle);
     glow(cx, cyy - 40 * g, 180 * g, 190 * g, C.coral, 0.9 * gg);
     glow(cx, cyy + 14, 150, 95 * g, C.hot, gg);
-    const P1 = ellipsePts(cx + 14, cyy - 150 * g, 205 * g, 265 * g, 26), P2 = ellipsePts(cx - 6, cyy - 62 * g, 118 * g, 132 * g, 20);
+    const P1 = ellipsePts(cx + 14, cyy - 150 * g, 205 * g, 265 * g * settle, 26), P2 = ellipsePts(cx - 6, cyy - 62 * g, 118 * g, 132 * g, 20);
     blob(lx, P1, 152 + bw, 34 * g, 170, C.shade, 0.2 * gg); rim(lx, P1, 152 + bw, 34 * g, 170, C.light, 0.16, 5);
     blob(lx, P2, 154 + bw, 20 * g, 120, C.coral, 0.26 * gg); rim(lx, P2, 154 + bw, 20 * g, 120, C.hot, 0.2, 4);
     const inner = resample([[FX0 + 10, FY0 + TABH + 10], [FX1 - 10, FY0 + TABH + 10], [FX1 + sh - 5, fy], [FX0 + sh + 5, fy], [FX0 + 10, FY0 + TABH + 10]], 18); inner.pop();
@@ -434,7 +434,14 @@ function render(t) {
     finish({ op: 'screen', mottle: 0.32, mx: -420, my: -260, grain: 0.2 });
   }
 
-  const count = drawAgents(t, b);
+  // lane guides: faint pencil lines the swarm settles onto
+  const lg = ss(3.4, 4.3, T);
+  if (lg > 0) for (let j = 0; j < NL; j++) {
+    const pts = []; for (let x = 120; x <= 1800; x += 60) pts.push([x, laneY(j, x)]);
+    ink(ctx, pts, { seed: 700 + j * 11 + bw, w: 1.3, wob: 1.4, col: C.lilac, alpha: 0.13 * lg, to: lg });
+  }
+
+  drawAgents(T, b);
 
   // folder front panel
   if (wr > 0) {
@@ -452,38 +459,26 @@ function render(t) {
       { seed: 180 + i + b * 3, w: 1.7, wob: 1, col: C.lilac, alpha: 0.55, to: clamp((dr - 0.8 - i * 0.03) / 0.12, 0, 1) }); }
 
   // "0 ITEMS", hand-lettered under the folder
-  const ta = 1 - ss(2.15, 2.5, t);
-  if (ta > 0) text(ctx, '0 ITEMS', 1046, 736, 4.4, { seed: 300 + b * 7, w: 2.4, wob: 0.9, col: C.lilac, alpha: 0.85 * ta }, clamp((t - 0.22) / 0.33, 0, 1));
+  const ta = 1 - ss(2.95, 3.35, T);
+  if (ta > 0) text(ctx, '0 ITEMS', FX0 + 46, GROUND + 30, 4.4, { seed: 300 + b * 7, w: 2.4, wob: 0.9, col: C.lilac, alpha: 0.85 * ta }, clamp((T - 0.55) / 0.45, 0, 1));
 
-  // hero
-  const hero = drawHero(t, b, bw, clamp(open, 0, 1));
+  const hero = drawHero(T, b, bw, clamp(open, 0, 1));
 
   // landing ticks
-  for (let i = 0; i < HOPS.length; i++) { const dt = t - HOPS[i][1]; if (dt < 0 || dt > 0.17) continue; const u = dt / 0.17, x = HOPS[i][3];
+  for (const hp of FILM.HOPS) { const dt = T - hp[1]; if (dt < 0 || dt > 0.17 || hp[4] < 0.3) continue; const u = dt / 0.17, x = A.x + hp[3] * BW;
     for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { const x0 = x + s * (138 + k * 20 + u * 26), y0 = GROUND - 6 - k * 13 - u * 10;
-      ink(ctx, [[x0, y0], [x0 + s * (16 - 10 * u), y0 - 9 + 5 * u]], { seed: 400 + i * 9 + k + b, w: 2.4 * (1 - u * 0.5), wob: 0.8, col: C.ink, alpha: 0.7 }); } }
+      ink(ctx, [[x0, y0], [x0 + s * (16 - 10 * u), y0 - 9 + 5 * u]], { seed: 400 + k + b + Math.round(hp[1] * 10), w: 2.4 * (1 - u * 0.5), wob: 0.8, col: C.ink, alpha: 0.7 }); } }
 
   // the call: three flicks of gouache off the raised arm
-  const cu = (t - 1.97) / 0.4;
+  const cu = (T - 2.62) / 0.4;
   if (cu > 0 && cu < 1) for (let k = 0; k < 3; k++) { const a = -1.5 + k * 0.48, r0 = 18 + 40 * ss(0, 1, cu), l = 34 * Math.sin(Math.PI * Math.min(1, cu * 1.15));
     ink(ctx, [[hero.tip[0] + Math.cos(a) * r0, hero.tip[1] + Math.sin(a) * r0], [hero.tip[0] + Math.cos(a) * (r0 + l), hero.tip[1] + Math.sin(a) * (r0 + l)]],
       { seed: 420 + k + b * 3, w: 5.5, wob: 0.8, col: k === 1 ? C.hot : C.light }); }
-
-  // counter, like a note in the margin
-  if (t > 2.1) {
-    const r = clamp((t - 2.1) / 0.25, 0, 1);
-    text(ctx, 'AGENTS', 96, 84, 4.2, { seed: 320 + b * 7, w: 2.3, wob: 0.9, col: C.lilac, alpha: 0.85 }, r);
-    text(ctx, ('0000' + count).slice(-4), 96 + 7.1 * 5.7 * 4.2, 84, 4.2, { seed: 340 + b * 7, w: 2.6, wob: 0.9, col: C.light }, clamp((t - 2.2) / 0.15, 0, 1));
-    ink(ctx, [[94, 122], [190, 124], [352, 121]], { seed: 350 + bw, w: 1.6, wob: 1.6, col: C.lilac, alpha: 0.4, to: r });
-  }
 
   // paper tooth shows through everything
   ctx.globalAlpha = 0.13; ctx.drawImage(grain, 0, 0); ctx.globalAlpha = 1;
 }
 
-/* ------------------------------------------------------------ player */
-const q = new URLSearchParams(location.search);
-if (q.has('export')) { build(); render(0); window.__piece = { renderAt: render, duration: DUR, isReady: () => ready }; }
-else if (q.has('t')) { render(parseFloat(q.get('t')) || 0); }
-else { let t0 = null; const tick = ts => { if (t0 === null) t0 = ts; render(((ts - t0) / 1000) % DUR); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
-})();
+build();
+return { renderAt: render, isReady: () => ready };
+});

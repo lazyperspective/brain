@@ -1,0 +1,51 @@
+{
+ "07-ink-sketch": {
+  "frames": 163,
+  "workers": 1,
+  "ss": null,
+  "wallSeconds": 67,
+  "secondsPerFramePerWorker": 0.4
+ },
+ "01-iso-pixel": {
+  "frames": 190,
+  "workers": 1,
+  "ss": null,
+  "wallSeconds": 64,
+  "secondsPerFramePerWorker": 0.33
+ },
+ "02-paper-cut": {
+  "frames": 190,
+  "workers": 1,
+  "ss": null,
+  "wallSeconds": 83,
+  "secondsPerFramePerWorker": 0.43
+ },
+ "05-vector-wireframe": {
+  "frames": 205,
+  "workers": 1,
+  "ss": null,
+  "wallSeconds": 93,
+  "secondsPerFramePerWorker": 0.45
+ },
+ "04-voxel": {
+  "frames": 175,
+  "workers": 1,
+  "ss": null,
+  "wallSeconds": 655,
+  "secondsPerFramePerWorker": 3.74
+ },
+ "03-low-poly-3d": {
+  "frames": 175,
+  "workers": 1,
+  "ss": "2",
+  "wallSeconds": 520,
+  "secondsPerFramePerWorker": 2.97
+ },
+ "06-clay-3d": {
+  "frames": 252,
+  "workers": 1,
+  "ss": "1.5",
+  "wallSeconds": 4874,
+  "secondsPerFramePerWorker": 19.34
+ }
+}

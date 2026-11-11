@@ -1,9 +1,13 @@
-/* 1000 agents — the first 3 seconds as a voxel miniature.
-   Hand-written WebGL2: voxel meshing with per-vertex ambient occlusion, a PCSS soft shadow map, HDR, a depth-of-field
-   (tilt-shift) gather blur, bloom and a filmic finish. Every frame is a pure function of t. No libraries, no assets. */
-(() => {
+/* 1000 Agents — the film, section 5 of 7: KERNEL, alive (22.0–27.0 s, rendered 21.6–27.4 s), as a voxel miniature.
+   Extended from the 3 s style preview. Hand-written WebGL2: voxel meshing with per-vertex ambient occlusion, a PCSS soft
+   shadow map, HDR, tilt-shift depth of field, bloom and a filmic finish. The wire kernel fills with matter: voxels lock in
+   along its edges first, then its faces, into a faceted glowing core on a dark tabletop. At 24.5 s the PULSE: one soft ring
+   of warm light rolls out across the table, the core's cubes ripple outward and back, and the hero, lit warm, hops in delight.
+   The projection carries a lens shift that pins the hero's anchor to the film's anchor. */
+FILM.define('04-voxel', function (canvasArg, opts) {
   'use strict';
-  const W = 1920, H = 1080, DUR = 3;
+  const SCL = (opts && opts.scale) || 1, W = Math.round(1920 * SCL), H = Math.round(1080 * SCL);
+  const D2R = Math.PI / 180, FMm = FILM.m, AN = FILM.ANCHOR;
   const PI = Math.PI, TAU = PI * 2;
   const c01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
   const lerp = (a, b, k) => a + (b - a) * k;
@@ -164,187 +168,14 @@
       box(x0, y0 + (st.mouth > 1 ? 0 : 0), fz, mw, mh, 1, 0); box(x0, y0, fz - 1, mw, mh, 1, 7); box(x0 + 1, y0, fz - 1, mw - 2, 1, 1, 6);
     }
   }
-
-  /* the hero's performance, all a function of t */
-  const HERO_FROM = [-84, -40], HERO_AT = [-28, 5];
-  const HOP0 = -0.09, HOPD = 0.335, NHOP = 4, T_LAND = HOP0 + HOPD * NHOP;      // 1.25
-  const T_SIG = 1.95;
-  function keyed(keys, t) {
-    if (t <= keys[0][0]) return keys[0][1];
-    for (let i = 0; i + 1 < keys.length; i++) if (t < keys[i + 1][0]) return lerp(keys[i][1], keys[i + 1][1], sstep(keys[i][0], keys[i + 1][0], t));
-    return keys[keys.length - 1][1];
-  }
-  const D2R = PI / 180;
-  const YAW = [[0, 46], [1.02, 46], [1.3, 24], [1.36, 24], [1.52, 50], [1.62, 50], [1.74, -6], [1.82, -6], [1.94, 26], [2.3, 26], [2.5, 40], [3, 44]];
-  function heroAt(t) {
-    const st = { x: 0, y: 0, z: 0, yaw: keyed(YAW, t) * D2R, pitch: 0, sq: 0, tuck: 0, eyes: 'open', look: 0, lookUp: 0, mouth: 0, arm: 0 };
-    if (t < T_LAND) {
-      const ph = (t - HOP0) / HOPD, k = Math.floor(ph), f = ph - k, AIR = 0.76, u = c01(f / AIR);
-      const s = (k + sstep(0, 1, u) * 0.35 + u * 0.65) / NHOP;
-      st.x = lerp(HERO_FROM[0], HERO_AT[0], s); st.z = lerp(HERO_FROM[1], HERO_AT[1], s);
-      st.y = 4 * 7.5 * u * (1 - u);
-      st.pitch = -0.16 * (1 - 2 * u) * (u < 1 ? 1 : 0);
-      st.sq = f < AIR ? -0.07 * Math.sin(PI * u) : 0.15 * Math.sin(PI * (f - AIR) / (1 - AIR));
-      st.tuck = u > 0.12 && u < 0.88 ? 1 : 0;
-    } else {
-      st.x = HERO_AT[0]; st.z = HERO_AT[1];
-      const tl = t - T_LAND; st.sq = 0.15 * Math.exp(-tl * 9) * Math.cos(tl * 19) + 0.012 * Math.sin(t * 5.2);
-      // the signal: crouch, hop, arm up, call
-      const a0 = T_SIG - 0.09, a1 = T_SIG + 0.27;
-      if (t > a0 && t < T_SIG) st.sq += 0.13 * Math.sin(PI * 0.5 * (t - a0) / (T_SIG - a0));
-      if (t >= T_SIG && t < a1) { const u = (t - T_SIG) / (a1 - T_SIG); st.y = 4 * 6.5 * u * (1 - u); st.sq -= 0.07 * Math.sin(PI * u); st.tuck = u > 0.12 && u < 0.88 ? 1 : 0; st.pitch = 0.1 * Math.sin(PI * u); }
-      if (t >= a1) { const tl2 = t - a1; st.sq += 0.14 * Math.exp(-tl2 * 9) * Math.cos(tl2 * 19); }
-    }
-    // eyes
-    if (t > 1.36 && t < 1.64) st.look = 1;
-    if (t > 1.68 && t < 1.86) st.look = -1;
-    if ((t > 1.865 && t < 1.93) || (t > 0.62 && t < 0.68)) st.eyes = 'closed';
-    if (t > 2.36) { st.look = 1; st.lookUp = 1; }
-    if (t > 2.74 && t < 2.80) st.eyes = 'closed';
-    // arm and mouth
-    if (t > T_SIG - 0.04) st.arm = 1;
-    if (t > T_SIG + 0.02 && t < 2.78) st.arm = 2;
-    if (t > T_SIG + 0.01 && t < 2.42) st.mouth = 2; else if (t >= 2.42 && t < 2.56) st.mouth = 1;
-    return st;
-  }
   function heroMatrix(st) {
     const sy = 1 - st.sq, sxz = 1 + st.sq * 0.5;
     return mChain(mTrans(st.x, st.y, st.z), mRotY(st.yaw), mTrans(0, 4, 0), mRotX(st.pitch), mTrans(0, -4, 0), mScale(sxz, sy, sxz));
   }
-
-  /* ------------------------------------------------------------------ the folder: a back plate with a tab, a hinged front plate, a core that lights up */
-  const FNX = 24, FNY = 18, FNZ = 5;
-  const FB = { nx: FNX, ny: FNY, nz: FNZ, v: new Uint8Array(FNX * FNY * FNZ), ox: 12, oy: 0, oz: 3.5, seed: 21, pal: null };
-  const FF = { nx: FNX, ny: 14, nz: 2, v: new Uint8Array(FNX * 14 * 2), ox: 12, oy: 0, oz: 0, seed: 33, pal: null };
-  const FBfull = new Uint8Array(FNX * FNY * FNZ), FFfull = new Uint8Array(FNX * 14 * 2);
-  (function () {
-    const set = (x, y, z, c) => { FBfull[(z * FNY + y) * FNX + x] = c; };
-    for (let x = 0; x < FNX; x++) for (let y = 0; y < FNY; y++) {
-      const top = x < 9 ? 18 : x === 9 ? 17 : 16;
-      if (y < top) { set(x, y, 0, y === top - 1 ? 2 : 1); set(x, y, 1, y === top - 1 ? 2 : 1); }
-    }
-    for (let x = 0; x < FNX; x++) for (let z = 2; z < 5; z++) set(x, 0, z, 1);
-    for (let x = 1; x < FNX - 1; x++) for (let z = 2; z < 5; z++) for (let y = 1; y < 4; y++) set(x, y, z, 3);
-    for (let x = 0; x < FNX; x++) for (let y = 0; y < 14; y++) for (let z = 0; z < 2; z++) FFfull[(z * 14 + y) * FNX + x] = y === 13 ? 2 : (y === 9 && x >= 3 && x < 10 && z === 1) ? 2 : 1;
-  })();
-  const FOLD_YAW = 6 * D2R;
-  const arrive = (x, y, z, s) => 0.05 + 0.33 * (y / 18) + 0.11 * hash3(x, y, z, s);
-  const FALL = 0.17;
-  function drawFolderPart(g, full, m, t, seed, floorSolid) {
-    const { nx, ny, nz } = g; let any = false;
-    for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
-      const i = (z * ny + y) * nx + x, c = full[i]; g.v[i] = 0; if (!c) continue;
-      const a = arrive(x, y, z, seed);
-      if (t >= a) { g.v[i] = c; continue; }
-      const k = (t - (a - FALL)) / FALL; if (k <= 0) continue;
-      const e = 1 - Math.pow(1 - k, 3), p = g.pal[c], s = 0.25 + 0.75 * e;
-      cube(mChain(m, mTrans(x + 0.5 - g.ox, y + 0.5 - g.oy + (1 - e) * 11, z + 0.5 - g.oz), mScale(s, s, s)), p, p[3] + (1 - e) * 0.5, false);
-      any = true;
-    }
-    meshGrid(g, m, floorSolid);
-    return any;
-  }
-
-  /* ------------------------------------------------------------------ voxel lettering laid flat on the floor */
-  const GL = { A: '25755', E: '74647', G: '34553', I: '72227', M: '57755', N: '65555', S: '34216', T: '72222',
-    0: '75557', 1: '26227', 2: '61247', 3: '61216', 4: '55711', 5: '74616', 6: '34757', 7: '71222', 8: '75757', 9: '75716', ' ': '00000' };
-  function label(s, x0, z0, fn) {           // fn(k, i, j) -> [scale, col, emissive] or null
-    for (let k = 0; k < s.length; k++) {
-      const g = GL[s[k]]; for (let j = 0; j < 5; j++) { const row = +g[j]; for (let i = 0; i < 3; i++) if (row & (4 >> i)) {
-        const r = fn(k, i, j); if (!r || r[0] <= 0.01) continue;
-        const sc = r[0];
-        cube(mChain(mTrans(x0 + k * 4 + i + 0.5, 0.32 * sc, z0 + j + 0.5), mScale(sc * 0.94, 0.64 * sc, sc * 0.94)), r[1], r[2], true);
-      } }
-    }
-  }
-
-  /* ------------------------------------------------------------------ the agents: single glowing cubes, a fountain out of the folder */
-  const NAG = 250, T_OPEN = 2.1, T_POUR = 2.16;
-  const AG = [];
-  for (let i = 0; i < NAG; i++) {
-    const r = (s) => hash(i, s), g = (s) => (hash(i, s) + hash(i, s + 50) + hash(i, s + 90) - 1.5) * 1.15;
-    const pick = r(9);
-    AG.push({
-      b: T_POUR + 0.86 * Math.pow((i + 0.5) / NAG, 1 / 1.35),
-      x: (r(1) - 0.5) * 18, z: (r(2) - 0.5) * 2.0,
-      vx: g(3) * 9 + (r(1) - 0.5) * 54, vy: 74 + r(4) * 56, vz: Math.max(-6, g(5) * 12 + 5),
-      ax: [r(10) - 0.5, r(11) - 0.5, r(12) - 0.5], w: 5 + r(13) * 9, ph: r(14) * TAU,
-      col: pick < 0.5 ? C.light : pick < 0.88 ? C.coral : C.cream, e: 0.95 + r(15) * 0.75, s: 0.95 + r(16) * 0.3,
-    });
-  }
-  const GRAV = 150;
-  function agentCount(t) { let n = 0; for (const a of AG) if (a.b <= t) n++; return n; }
-  function drawAgents(t, FM) {
-    for (const a of AG) {
-      let tl = t - a.b; if (tl <= 0) continue;
-      const y0 = 4.5, yg = a.s * 0.5;
-      let x = a.x + a.vx * tl, z = a.z + a.vz * tl, y, vy = a.vy, rest = false;
-      // ballistic arcs with two damped bounces, then rest
-      const d0 = y0 - yg; let T = (vy + Math.sqrt(vy * vy + 2 * GRAV * d0)) / GRAV;
-      if (tl < T) y = y0 + vy * tl - 0.5 * GRAV * tl * tl;
-      else {
-        let tt = tl - T, v = (GRAV * T - vy) * 0.34; y = yg;
-        for (let k = 0; k < 2; k++) { const Tb = 2 * v / GRAV; if (tt < Tb) { y = yg + v * tt - 0.5 * GRAV * tt * tt; tt = -1; break; } tt -= Tb; v *= 0.4; }
-        if (tt >= 0) rest = true;
-      }
-      const p = [FM[0] * x + FM[8] * z + FM[12], y, FM[2] * x + FM[10] * z + FM[14]];
-      const sc = a.s * sstep(0, 0.07, tl);
-      const rot = rest ? mIdent() : mRotAxis(a.ax[0], a.ax[1], a.ax[2], a.ph + a.w * tl);
-      cube(mChain(mTrans(p[0], p[1], p[2]), rot, mScale(sc, sc, sc)), a.col, a.e, false);
-    }
-  }
-
-  /* a few spare cubes lying about, mostly far from the plane of focus */
-  const STRAY = [[-58, 46, 1.6, 0.4, 0], [34, 60, 2.2, 1.1, 1], [58, -26, 1.4, 0.7, 0], [-30, -74, 2.0, 0.2, 1], [22, -58, 1.5, 0.9, 0], [-96, -8, 1.8, 1.3, 0], [70, 22, 1.2, 0.5, 1], [-12, 74, 1.5, 0.8, 0], [88, -70, 2.4, 0.1, 1], [-70, -110, 2.4, 0.6, 1], [10, -120, 2.0, 0.3, 0]];
-
-  /* ------------------------------------------------------------------ the frame's geometry */
-  function buildScene(t) {
-    on = 0;
-    const st = heroAt(t);
-    buildHero(st);
-    const HM = heroMatrix(st);
-    meshGrid(HG, HM, false);
-
-    // folder
-    const glow = sstep(T_OPEN - 0.02, T_OPEN + 0.4, t);
-    const pulse = glow * (1 + 0.06 * Math.sin((t - T_OPEN) * 9));
-    const warmCol = [lerp(C.vdeep[0], 1.0, glow), lerp(C.vdeep[1], 0.60, glow), lerp(C.vdeep[2], 0.30, glow)];
-    const fcol = C.violet.map((c, i) => lerp(c, C.vdim[i], 0.62)), ftrim = C.violet.map((c, i) => lerp(c, C.lilac[i], 0.55));
-    FB.pal = [null, [...fcol, 0], [...ftrim, 0], [...warmCol, 1.05 * pulse, 0.05]];
-    FF.pal = [null, [...fcol.map((c) => c * 1.18), 0], [...ftrim, 0]];
-    const FM = mChain(mRotY(FOLD_YAW));
-    drawFolderPart(FB, FBfull, FM, t, 3, true);
-    const ko = c01((t - T_OPEN) / 0.36), back = 1 + 2.2 * Math.pow(ko - 1, 3) + 1.2 * Math.pow(ko - 1, 2);
-    const open = 50 * D2R * (ko <= 0 ? 0 : back) + (t > T_OPEN ? 0.012 * Math.sin((t - T_OPEN) * 7) * glow : 0);
-    const FFM = mChain(FM, mTrans(0, 0, 1.5), mRotX(open));
-    drawFolderPart(FF, FFfull, FFM, t, 5, open < 0.02);
-
-    // label: "0 ITEMS" laid on the floor; the number becomes the count of agents and lights up
-    {
-      const n = agentCount(t), str = String(n).padStart(3, ' ') + ' ITEMS', hot = sstep(T_POUR - 0.02, T_POUR + 0.12, t);
-      const dcol = C.lilac.map((c, i) => lerp(c, C.light[i], hot));
-      label(str, -21.5, 15.5, (k, i, j) => {
-        const a = 0.26 + (k * 4 + i) * 0.006 + j * 0.006, s = k < 2 ? 1 : sstep(a, a + 0.09, t);
-        return [s * (1 + 0.25 * Math.sin(PI * s)), k < 3 ? dcol : C.lilac, k < 3 ? lerp(0.22, 1.05, hot) : 0.22];
-      });
-    }
-    for (let i = 0; i < STRAY.length; i++) {
-      const s = STRAY[i];
-      cube(mChain(mTrans(s[0], s[2] / 2, s[1]), mRotY(s[3]), mScale(s[2], s[2], s[2])), s[4] ? C.violet : C.vdim, s[4] ? 0.16 : 0, true);
-    }
-    const nShadow = on / STRIDE;
-    drawAgents(t, FM);
-    // floor
-    const F = 1400, fc = [0, 0, 0], I = mIdent();
-    vert(I, -F, 0, -F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, F, 0, -F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, F, 0, F, 0, 1, 0, fc, 1, -1, 0, 0);
-    vert(I, -F, 0, -F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, F, 0, F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, -F, 0, F, 0, 1, 0, fc, 1, -1, 0, 0);
-    return { st, nShadow, nAll: on / STRIDE, glow: pulse, pour: sstep(T_POUR, 3.0, t) };
-  }
-
   /* ------------------------------------------------------------------ WebGL */
-  const canvas = document.getElementById('c');
+  const canvas = canvasArg; canvas.width = W; canvas.height = H;
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
-  if (!gl) { document.body.textContent = 'WebGL2 is needed'; return; }
+  if (!gl) return { renderAt() {}, isReady: () => true };
   const HDR = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
   gl.getExtension('OES_texture_float_linear');
   function prog(vs, fs) {
@@ -406,7 +237,7 @@
     void main(){ vP=aP; vN=aN; vC=aC; vM=aM; gl_Position = uVP*vec4(aP,1.); }`, `
     in vec3 vP, vN, vC; in vec4 vM; out vec4 o;
     uniform mat4 uLVP; uniform sampler2D uShadow; uniform vec3 uL, uEye;
-    uniform vec4 uHero; uniform vec3 uHeroB; uniform vec4 uFold; uniform vec4 uWarm; uniform float uPour;
+    uniform vec4 uHero; uniform vec3 uHeroB; uniform vec4 uFold; uniform vec4 uWarm; uniform float uPour; uniform vec4 uPulse;
     float h1(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }
     float ign(vec2 p){ return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715)))); }
     float shadow(vec3 wp, vec3 N){
@@ -431,7 +262,7 @@
     void main(){
       vec3 N = normalize(vN); float ao = vM.x, e = vM.y; vec3 alb = vC;
       bool isFloor = e < -0.5;
-      float pool = 1. - smoothstep(22., 132., length(vP.xz - vec2(-8., 2.)));
+      float pool = 1. - smoothstep(30., 175., length(vP.xz - vec2(-12., -2.)));
       float gloss = 0.;
       if (isFloor) {
         vec2 q = vP.xz/4.; vec2 id = floor(q), f = fract(q);
@@ -440,7 +271,7 @@
         float groove = mix(smoothstep(0.0, 0.035+w, d), 0.9, clamp(w*4.,0.,1.));
         float var = mix(h1(id), 0.5, clamp(w*3.,0.,1.));
         alb = vec3(0.0132, 0.0092, 0.0420)*(0.74+0.52*var)*mix(0.45, 1., groove);
-        ao = boxAO(vP.xz, uHero, uHeroB, 0.74) * boxAO(vP.xz, vec4(uFold.xy, uFold.z, uFold.w), vec3(12.5, 3.6, 0.), 0.72);
+        ao = boxAO(vP.xz, uHero, uHeroB, 0.74) * boxAO(vP.xz, vec4(uFold.xy, uFold.z, uFold.w), vec3(8.5, 8.5, 0.), 0.72);
         e = 0.;
       } else {
         float d = min(min(vM.z,1.-vM.z), min(vM.w,1.-vM.w));
@@ -460,6 +291,8 @@
       vec3 walb = isFloor ? mix(alb, vec3(dot(alb, vec3(.3,.5,.2)))*2.2, 0.75) : mix(alb, vec3(dot(alb, vec3(.3,.5,.2)))*1.5, 0.5);
       vec3 col = alb*(key + amb + fill) + walb*warm*mix(0.6,1.,ao);
       if (e > 0.) col += vC*e*(0.62 + 0.38*(N.y*0.6 + N.z*0.3 + 0.4));
+      float pd = length(vP.xz - uPulse.xy); float ring = exp(-pow((pd - uPulse.z)/10., 2.))*uPulse.w;
+      col += vec3(1.0, 0.52, 0.30)*ring*(isFloor ? 0.55 : 0.3);
       o = vec4(col, 1.);
     }`);
   const VS_FS = `out vec2 vUV; void main(){ vec2 p = vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); vUV = p; gl_Position = vec4(p*2.-1., 0., 1.); }`;
@@ -509,30 +342,128 @@
     void main(){
       vec3 c = texture(uCol, vUV).rgb;
       vec3 bloom = texture(uB0, vUV).rgb*0.34 + texture(uB1, vUV).rgb*0.30 + texture(uB2, vUV).rgb*0.26 + texture(uB3, vUV).rgb*0.22;
-      c += bloom*0.40;
+      c += bloom*0.26;
       vec2 q = vUV-0.5; q.x *= 1.3; float vig = 1. - 0.55*smoothstep(0.25, 0.95, length(q));
       c *= vig;
-      c = tone(c*1.04);
+      c = tone(c*0.95);
       float l = dot(c, vec3(.2126,.7152,.0722)); c = max(mix(vec3(l), c, 1.12), 0.);
       c = mix(c*12.92, 1.055*pow(c, vec3(1./2.4))-0.055, step(0.0031308, c));
       c += (h(gl_FragCoord.xy + uSeed*vec2(37.,17.)) + h(gl_FragCoord.yx*1.37 + uSeed*vec2(11.,71.)) - 1.)*(1.6/255.);
       o = vec4(c, 1.);
     }`);
 
+  /* ------------------------------------------------------------------ the hero: the shared performance in voxels */
+  const HX = -30, HZ = 4;
+  function heroAt(T) {
+    const s = FILM.heroAt(T);
+    const st = { x: HX + s.dx * 20, y: s.lift * 12 * 1.55, z: HZ, yaw: (24 + 22 * s.turn) * D2R, pitch: -0.1 * s.lean - 0.05 * s.look[1], sq: s.sq * 0.95,
+      tuck: s.air > 0.3 ? 1 : 0, eyes: s.blink > 0.5 ? 'closed' : 'open', look: Math.max(-1, Math.min(1, Math.round(s.look[0] * 1.2))), lookUp: s.look[1] > 0.38 ? 1 : 0,
+      mouth: s.mouth > 0.5 ? 2 : s.mouth > 0.15 ? 1 : 0, arm: s.arm > 0.6 ? 2 : (s.arm > 0.2 || s.point > 0.3) ? 1 : 0 };
+    return st;
+  }
+
+  /* ------------------------------------------------------------------ the core: a faceted voxel icosahedron */
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const FN = (() => { const o = []; for (const s1 of [-1, 1]) for (const s2 of [-1, 1]) for (const s3 of [-1, 1]) o.push([s1, s2, s3]);
+    for (const [a, b] of [[0, 1], [1, 2], [2, 0]]) for (const s1 of [-1, 1]) for (const s2 of [-1, 1]) { const v = [0, 0, 0]; v[a] = s1 / PHI; v[b] = s2 * PHI; o.push(v); }
+    return o.map((v) => { const l = Math.hypot(...v); return v.map((x) => x / l); }); })();
+  const CR = 12.5, CN = 27, CO = 13;                           // radius, grid size, grid offset
+  const KC = [4, CR + 0.5, -6];                                // core centre (world)
+  const CG = { nx: CN, ny: CN, nz: CN, v: new Uint8Array(CN * CN * CN), ox: CO, oy: CO, oz: CO, seed: 41, pal: null };
+  const CORE = [];                                            // per voxel: index, appear time, edge-ness, radius, surface
+  (function () {
+    for (let z = 0; z < CN; z++) for (let y = 0; y < CN; y++) for (let x = 0; x < CN; x++) {
+      const p = [x - CO, y - CO, z - CO];
+      let m1 = -1e9, m2 = -1e9;
+      for (const n of FN) { const d = p[0] * n[0] + p[1] * n[1] + p[2] * n[2]; if (d > m1) { m2 = m1; m1 = d; } else if (d > m2) m2 = d; }
+      const r = Math.max(m1, 0.93 * Math.hypot(...p));
+      if (r > CR * 0.9) continue;
+      const edge = Math.min(1, (m1 - m2) / 3.2);                 // 0 on an edge of the solid, 1 on a face
+      CORE.push({ i: (z * CN + y) * CN + x, p, t: 21.45 + 1.25 * edge + 0.25 * hash3(x, y, z, 5) + 0.35 * (1 - r / (CR * 0.9)), edge, r, win: hash3(x, y, z, 9) < 0.12 });
+    }
+  })();
+  const PULSE = 24.5;
+  function pulseBump(T, dist) { const x = T - PULSE - dist / 70; return x > 0 && x < 0.55 ? Math.sin(Math.PI * x / 0.55) : 0; }
+
+  /* ------------------------------------------------------------------ the agents: 1000 glowing cubes circling the core in four low rings */
+  const AGV = FILM.AG.map((g) => ({ ring: g.i % 4, a0: g.r[0] * TAU, w: (0.32 + 0.12 * g.r[1]) * (g.i % 4 === 1 ? -1 : 1), dr: (g.r[2] - 0.5) * 3, dy: (g.r[3] - 0.5) * 2,
+    s: 0.62 + 0.38 * g.r[4], col: g.r[5] < 0.45 ? C.light : g.r[5] < 0.85 ? C.coral : C.cream, e: 0.3 + 0.38 * g.r[6], ax: [g.r[7] - 0.5, g.r[1] - 0.5, g.r[2] - 0.5] }));
+  function drawAgents(T) {
+    for (let i = 0; i < FILM.N; i++) {
+      const g = AGV[i], R0 = 16.5 + 2.4 * g.ring + g.dr * 0.6, th = g.a0 + g.w * (T - 22);
+      const R = R0 + 4.5 * pulseBump(T, R0);
+      const y = 3.5 + 2.8 * g.ring + g.dy + 1.2 * Math.sin(th * 2 + g.ring) + 2.5 * pulseBump(T, R0);
+      const p = [KC[0] + Math.cos(th) * R, y, KC[2] + Math.sin(th) * R * 0.86];
+      cube(mChain(mTrans(p[0], p[1], p[2]), mRotAxis(g.ax[0], g.ax[1], g.ax[2], g.a0 + T * 2.5), mScale(g.s, g.s, g.s)), g.col, g.e * (1 + 0.6 * pulseBump(T, R0)), false);
+    }
+  }
+
+  /* ------------------------------------------------------------------ the frame's geometry */
+  const STRAY = [[-78, 46, 1.6, 0.4, 0], [44, 60, 2.2, 1.1, 1], [68, -36, 1.4, 0.7, 0], [-40, -84, 2.0, 0.2, 1], [-106, -18, 1.8, 1.3, 0], [80, 32, 1.2, 0.5, 1], [-70, -120, 2.4, 0.6, 1], [30, -130, 2.0, 0.3, 0]];
+  function buildScene(T) {
+    on = 0;
+    const st = heroAt(T);
+    buildHero(st);
+    const HM = heroMatrix(st);
+    meshGrid(HG, HM, false);
+    // the core
+    const alive = FMm.ss(PULSE - 0.05, PULSE + 0.6, T), ripple = T > PULSE - 0.05 && T < PULSE + 0.9;
+    const lilac = C.lilac.map((c, i) => lerp(c, C.violet[i], 0.35)), deep = C.violet.map((c, i) => lerp(c, C.vdim[i], 0.5));
+    const warmWin = [1.0, 0.55, 0.3];
+    CG.pal = [null, [...lilac, 0.10], [...deep, 0.04], [...C.lilac, 0.28], [...warmWin, 0.35 + 1.1 * alive]];
+    const CM = mTrans(KC[0], KC[1], KC[2]);
+    CG.v.fill(0);
+    for (const c of CORE) {
+      if (T < c.t - 0.2) continue;
+      const col = c.win ? 4 : c.edge < 0.25 ? 3 : (c.p[0] + c.p[1] + c.p[2]) & 1 ? 1 : 2;
+      if (T >= c.t && !ripple) { CG.v[c.i] = col; continue; }
+      // arriving (or rippling): a free cube
+      const k = c01((T - (c.t - 0.2)) / 0.2), e = 1 - Math.pow(1 - k, 3), pal = CG.pal[col];
+      if (ripple && T >= c.t) {
+        if (c.r < CR * 0.9 - 1.6) continue;                     // only the skin ripples
+        const b = 1.6 * pulseBump(T, c.r * 0.5), n = c.p.map((v) => v / Math.max(1, c.r));
+        cube(mChain(CM, mTrans(c.p[0] + n[0] * b, c.p[1] + n[1] * b, c.p[2] + n[2] * b)), pal, pal[3] + 0.18 * b, false);
+        continue;
+      }
+      const s = 0.3 + 0.7 * e;
+      cube(mChain(CM, mTrans(c.p[0], c.p[1] + (1 - e) * 6, c.p[2]), mScale(s, s, s)), pal, pal[3] + (1 - e) * 0.9, false);
+    }
+    meshGrid(CG, CM, false);
+    for (let i = 0; i < STRAY.length; i++) {
+      const s = STRAY[i];
+      cube(mChain(mTrans(s[0], s[2] / 2, s[1]), mRotY(s[3]), mScale(s[2], s[2], s[2])), s[4] ? C.violet : C.vdim, s[4] ? 0.16 : 0, true);
+    }
+    const nShadow = on / STRIDE;
+    drawAgents(T);
+    const F = 1400, fc = [0, 0, 0], I = mIdent();
+    vert(I, -F, 0, -F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, F, 0, -F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, F, 0, F, 0, 1, 0, fc, 1, -1, 0, 0);
+    vert(I, -F, 0, -F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, F, 0, F, 0, 1, 0, fc, 1, -1, 0, 0); vert(I, -F, 0, F, 0, 1, 0, fc, 1, -1, 0, 0);
+    const built = FMm.ss(21.6, 23.0, T), pk = Math.max(0, pulseBump(T, 0));
+    return { st, nShadow, nAll: on / STRIDE, glow: 0.3 * built + 0.45 * alive + 0.45 * pk, pulse: T - PULSE };
+  }
+
   const LDIR = (() => { const v = [0.62, 0.85, 0.45], l = Math.hypot(...v); return v.map((x) => x / l); })();
   const LVP = (() => {
-    const c = [-24, 0, -6], e = [c[0] + LDIR[0] * 220, c[1] + LDIR[1] * 220, c[2] + LDIR[2] * 220];
-    return mMul(mOrtho(-105, 105, -78, 78, 60, 380), mLook(e, c, [0, 1, 0]));
+    const c = [-12, 0, -4], e = [c[0] + LDIR[0] * 220, c[1] + LDIR[1] * 220, c[2] + LDIR[2] * 220];
+    return mMul(mOrtho(-90, 90, -70, 70, 60, 380), mLook(e, c, [0, 1, 0]));
   })();
   const NEAR = 30, FAR = 1400, FOV = 23 * D2R;
-  function camera(t) {
-    const k = t / DUR, e = k * k * (3 - 2 * k) * 0.35 + k * 0.65;
-    const az = lerp(15, 25, e) * D2R, pit = lerp(25.5, 23.5, e) * D2R, dist = lerp(268, 246, e);
-    const tg = [lerp(-15, -7, e), lerp(9, 19, sstep(1.9, 3.0, t) * 0.8 + e * 0.2), 3];
+  function camera(T) {
+    const u = FMm.sat((T - 22) / 5), sw = Math.sin(Math.PI * u);
+    const az = (20 + 9 * sw) * D2R, pit = (22.5 - 2.5 * sw) * D2R, dist = 250 - 18 * sw;
+    const tg = [-8 + 4 * sw, 11 + 2 * sw, 0];
     const eye = [tg[0] + dist * Math.sin(az) * Math.cos(pit), tg[1] + dist * Math.sin(pit), tg[2] + dist * Math.cos(az) * Math.cos(pit)];
     const fw = [tg[0] - eye[0], tg[1] - eye[1], tg[2] - eye[2]].map((x) => x / dist);
-    const fp = [-10, 6, 10], focus = (fp[0] - eye[0]) * fw[0] + (fp[1] - eye[1]) * fw[1] + (fp[2] - eye[2]) * fw[2];
-    return { eye, vp: mMul(mPersp(FOV, W / H, NEAR, FAR), mLook(eye, tg, [0, 1, 0])), focus };
+    const fp = [-12, 8, 0], focus = (fp[0] - eye[0]) * fw[0] + (fp[1] - eye[1]) * fw[1] + (fp[2] - eye[2]) * fw[2];
+    let vp = mMul(mPersp(FOV, W / H, NEAR, FAR), mLook(eye, tg, [0, 1, 0]));
+    // the anchor fit: scale and shift in clip space so the hero's feet sit on the anchor at the anchor height
+    const pr = (p) => { const x = vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12], y = vp[1] * p[0] + vp[5] * p[1] + vp[9] * p[2] + vp[13], w = vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15]; return [x / w, y / w]; };
+    const pf = pr([HX + 1.6, 0, HZ + 3.65]), pt = pr([HX + 1.6, 16, HZ - 2]);
+    const k = (AN.h / 1080 * 2) / (pt[1] - pf[1]);
+    const tx = (AN.x / 1920 * 2 - 1) - pf[0] * k, ty = (1 - AN.gy / 1080 * 2) - pf[1] * k;
+    const fit = mIdent(); fit[0] = k; fit[5] = k; fit[12] = tx; fit[13] = ty;
+    vp = mMul(fit, vp);
+    return { eye, vp, focus, k };
   }
   function bindTex(unit, t, loc) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, unit); }
   function pass(P, tgt, setup) {
@@ -540,26 +471,25 @@
     gl.useProgram(P.p); setup(P.u); gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
-  function renderAt(t) {
-    t = Math.max(0, Math.min(DUR, t));
-    const sc = buildScene(t), cam = camera(t), st = sc.st;
+  function renderAt(T) {
+    const sc = buildScene(T), cam = camera(T), st = sc.st;
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, OUT.subarray(0, on), gl.DYNAMIC_DRAW);
     gl.bindVertexArray(vao); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
-    // shadow map
     gl.bindFramebuffer(gl.FRAMEBUFFER, shadowT.fb); gl.viewport(0, 0, SM, SM); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(P_SHADOW.p); gl.uniformMatrix4fv(P_SHADOW.u.uLVP, false, LVP);
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 2);
     gl.drawArrays(gl.TRIANGLES, 0, sc.nShadow);
     gl.disable(gl.POLYGON_OFFSET_FILL);
-    // scene
     gl.bindFramebuffer(gl.FRAMEBUFFER, msT.ok ? msT.fb : sceneT.fb); gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const u = P_SCENE.u; gl.useProgram(P_SCENE.p);
     gl.uniformMatrix4fv(u.uVP, false, cam.vp); gl.uniformMatrix4fv(u.uLVP, false, LVP);
     gl.uniform3fv(u.uL, LDIR); gl.uniform3fv(u.uEye, cam.eye);
     gl.uniform4f(u.uHero, st.x, st.z, Math.cos(st.yaw), Math.sin(st.yaw)); gl.uniform3f(u.uHeroB, 10, 5, st.y);
-    gl.uniform4f(u.uFold, 0, 0, Math.cos(FOLD_YAW), Math.sin(FOLD_YAW));
-    gl.uniform4f(u.uWarm, 0, 7, 1.5, sc.glow * 1.25); gl.uniform1f(u.uPour, sc.pour);
+    gl.uniform4f(u.uFold, KC[0], KC[2], 1, 0);
+    gl.uniform4f(u.uWarm, KC[0], KC[1] - 2, KC[2] + 4, sc.glow * 1.25); gl.uniform1f(u.uPour, 0);
+    const pr = sc.pulse, pa = pr > 0 && pr < 2.2 ? Math.pow(1 - pr / 2.2, 1.6) * FMm.ss(0, 0.12, pr) : 0;
+    if (u.uPulse) gl.uniform4f(u.uPulse, KC[0], KC[2], 6 + pr * 62, pa);
     bindTex(0, shadowT.depth, u.uShadow);
     gl.drawArrays(gl.TRIANGLES, 0, sc.nAll);
     if (msT.ok) {
@@ -567,12 +497,10 @@
       gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, gl.NEAREST);
     }
     gl.disable(gl.DEPTH_TEST);
-    // depth of field
-    const camU = [NEAR, FAR, cam.focus, 100];
+    const camU = [NEAR, FAR, cam.focus, 100 * cam.k * SCL];
     pass(P_DOF, halfT, (q) => { bindTex(0, sceneT.color, q.uCol); bindTex(1, sceneT.depth, q.uDep); gl.uniform4fv(q.uCam, camU); gl.uniform2f(q.uPx, 1 / W, 1 / H); });
     pass(P_FILL, half2T, (q) => { bindTex(0, halfT.color, q.uCol); gl.uniform2f(q.uPx, 1 / W, 1 / H); });
     pass(P_COMP, compT, (q) => { bindTex(0, sceneT.color, q.uCol); bindTex(1, sceneT.depth, q.uDep); bindTex(2, half2T.color, q.uBlur); gl.uniform4fv(q.uCam, camU); gl.uniform2f(q.uPx, 1 / W, 1 / H); });
-    // bloom
     pass(P_BRIGHT, bl[0].a, (q) => { bindTex(0, compT.color, q.uCol); gl.uniform2f(q.uPx, 1 / W, 1 / H); });
     for (let i = 0; i < bl.length; i++) {
       const b = bl[i];
@@ -582,17 +510,8 @@
         pass(P_BLUR, b.a, (q) => { bindTex(0, b.b.color, q.uCol); gl.uniform2f(q.uDir, 0, 1 / b.a.h); });
       }
     }
-    pass(P_FINAL, null, (q) => { bindTex(0, compT.color, q.uCol); bindTex(1, bl[0].a.color, q.uB0); bindTex(2, bl[1].a.color, q.uB1); bindTex(3, bl[2].a.color, q.uB2); bindTex(4, bl[3].a.color, q.uB3); gl.uniform1f(q.uSeed, Math.round(t * 30) % 64); });
+    pass(P_FINAL, null, (q) => { bindTex(0, compT.color, q.uCol); bindTex(1, bl[0].a.color, q.uB0); bindTex(2, bl[1].a.color, q.uB1); bindTex(3, bl[2].a.color, q.uB2); bindTex(4, bl[3].a.color, q.uB3); gl.uniform1f(q.uSeed, Math.round(T * 30) % 64); });
+    gl.finish();
   }
-
-  /* ------------------------------------------------------------------ run */
-  const qs = new URLSearchParams(location.search);
-  window.__piece = { renderAt, duration: DUR, isReady: () => true, info: { HDR, SAMPLES, ms: msT.ok } };
-  if (qs.has('export')) { renderAt(0); }
-  else if (qs.has('t')) { renderAt(parseFloat(qs.get('t')) || 0); }
-  else {
-    let t0 = null;
-    const tick = (now) => { if (t0 === null) t0 = now; renderAt(((now - t0) / 1000) % DUR); requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-  }
-})();
+  return { renderAt, isReady: () => true, info: { HDR, SAMPLES, ms: msT.ok } };
+});

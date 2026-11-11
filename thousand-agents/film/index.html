@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>1000 Agents</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #05040c; overflow: hidden; }
+  #view { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(100vw, 177.78vh); height: min(56.25vw, 100vh); display: block; cursor: pointer; }
+  #bar { position: absolute; left: 0; bottom: 0; height: 2px; background: #6c64bd; opacity: 0.55; width: 0; }
+  #hint { position: absolute; right: 12px; bottom: 8px; font: 11px monospace; color: #4d4799; user-select: none; }
+</style>
+</head>
+<body>
+<canvas id="view" width="1920" height="1080"></canvas>
+<div id="bar"></div>
+<div id="hint">click: pause &middot; arrows: scrub</div>
+<script src="shared.js"></script>
+<script src="styles/07-ink-sketch/js/piece.js"></script>
+<script src="styles/01-iso-pixel/js/piece.js"></script>
+<script src="styles/02-paper-cut/js/piece.js"></script>
+<script src="styles/05-vector-wireframe/js/piece.js"></script>
+<script src="styles/04-voxel/js/piece.js"></script>
+<script src="styles/03-low-poly-3d/js/piece.js"></script>
+<script src="styles/06-clay-3d/js/shaders.js"></script>
+<script src="styles/06-clay-3d/js/piece.js"></script>
+<script>
+/* The live film: every section renders into its own canvas; on a transition both are rendered and the incoming one is
+   composited through the same agent-wave mask the video uses (evaluated at low resolution), then the wave's lights and
+   the single HUD are drawn on top. The heavy 3D sections render at reduced resolution here. The video is the reference. */
+(function () {
+  'use strict';
+  var view = document.getElementById('view'), vx = view.getContext('2d'), bar = document.getElementById('bar');
+  var W = 1920, H = 1080;
+  var LIVE_OPTS = { '04-voxel': { scale: 0.5 }, '03-low-poly-3d': { ss: 1 }, '06-clay-3d': { ss: 0.5 } };
+  var inst = {}, failed = {};
+  function section(slot) {
+    if (inst[slot] || failed[slot]) return inst[slot];
+    try {
+      var c = document.createElement('canvas'); c.width = W; c.height = H;
+      var o = LIVE_OPTS[slot] || {};
+      var s = FILM.factories[slot](c, { scale: o.scale || 1, ss: o.ss || null, export: false });
+      inst[slot] = { canvas: c, s: s };
+    } catch (e) { failed[slot] = true; console.warn('section ' + slot + ' unavailable:', e && e.message); }
+    return inst[slot];
+  }
+  function draw(slot, T) {
+    var it = section(slot); if (!it) return null;
+    try { it.s.renderAt(T); } catch (e) { console.warn(slot, e && e.message); return null; }
+    return it.canvas;
+  }
+  // the mask, at 1/8 resolution, smoothed when scaled up
+  var MW = 240, MH = 135, mk = document.createElement('canvas'); mk.width = MW; mk.height = MH;
+  var mx = mk.getContext('2d'), mimg = mx.createImageData(MW, MH);
+  var tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H; var tx = tmp.getContext('2d');
+  function buildMask(k, p) {
+    var d = mimg.data;
+    for (var y = 0; y < MH; y++) for (var x = 0; x < MW; x++) { var m = FILM.mask(k, p, x * 8 + 4, y * 8 + 4), i = (y * MW + x) * 4; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = Math.round(m * 255); }
+    mx.putImageData(mimg, 0, 0);
+  }
+  function lights(k, p) {
+    var L = FILM.waveAgents(k, p), C = FILM.C;
+    vx.save(); vx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < L.length; i++) {
+      var g = L[i]; if (g.a <= 0.01) continue;
+      var R = g.r * 4.2, gr = vx.createRadialGradient(g.x, g.y, 0, g.x, g.y, R);
+      gr.addColorStop(0, 'rgba(255,226,207,' + (0.85 * g.a) + ')'); gr.addColorStop(0.24, 'rgba(242,165,133,' + (0.35 * g.a) + ')'); gr.addColorStop(1, 'rgba(217,119,87,0)');
+      vx.fillStyle = gr; vx.fillRect(g.x - R, g.y - R, 2 * R, 2 * R);
+      vx.strokeStyle = 'rgba(217,119,87,' + (0.25 * g.a) + ')'; vx.lineWidth = g.r; vx.beginPath(); vx.moveTo(g.x, g.y); vx.lineTo(g.x - g.vx * g.r * 7, g.y - g.vy * g.r * 7); vx.stroke();
+    }
+    vx.restore();
+  }
+  function hud(T) {
+    FILM.hud(T, function (x, y, w, h, rgb, a) { vx.fillStyle = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + a + ')'; vx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); });
+  }
+  function frame(T) {
+    var at = FILM.at(T);
+    vx.globalCompositeOperation = 'source-over'; vx.globalAlpha = 1;
+    var a = draw(at.from, T);
+    vx.fillStyle = '#05040c'; vx.fillRect(0, 0, W, H);
+    if (a) vx.drawImage(a, 0, 0, W, H);
+    if (at.to) {
+      var b = draw(at.to, T);
+      if (b) {
+        buildMask(at.k, at.p);
+        tx.globalCompositeOperation = 'copy'; tx.drawImage(b, 0, 0, W, H);
+        tx.globalCompositeOperation = 'destination-in'; tx.imageSmoothingEnabled = true; tx.drawImage(mk, 0, 0, W, H);
+        vx.drawImage(tmp, 0, 0);
+      }
+      lights(at.k, at.p);
+    }
+    hud(T);
+    bar.style.width = (T / FILM.DUR * 100) + '%';
+  }
+  // clock: plays in real time, snapping to the 30 fps frame grid; click pauses, arrows scrub
+  var paused = false, offset = 0, last = null, T = 0;
+  view.addEventListener('click', function () { paused = !paused; });
+  addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') offset += 1; else if (e.key === 'ArrowLeft') offset -= 1; else if (e.key === ' ') paused = !paused; });
+  var Q = new URLSearchParams(location.search);
+  if (Q.has('t')) { paused = true; T = parseFloat(Q.get('t')) || 0; }
+  function tick(now) {
+    if (last !== null && !paused) T += Math.min(0.1, (now - last) / 1000);
+    last = now;
+    T += offset; offset = 0;
+    T = ((T % FILM.DUR) + FILM.DUR) % FILM.DUR;
+    try { frame(Math.floor(T * 30) / 30); } catch (e) { console.warn(e && e.message); }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

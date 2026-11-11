@@ -1,24 +1,23 @@
-/* 1000 Agents — the first 3 seconds as a glowing 3D vector wireframe.
-   Canvas 2D only: every mark is a 3D line segment, projected by hand, tested against the scene's solids for
-   hidden-line dimming, drawn additively and bloomed. Each frame is a pure function of t. */
-(function () {
+/* 1000 Agents — the film, section 4 of 7: KERNEL as a blueprint (16.0–22.0 s, rendered 15.6–22.4 s), glowing 3D vector wireframe.
+   Extended from the 3 s style preview. Canvas 2D only: every mark is a 3D line segment, projected by hand, tested for hidden
+   lines, drawn additively and bloomed. The five modules lift off the floor, orbit, and dock one by one into a nested wire
+   polyhedron (tetrahedron, cube, octahedron, dodecahedron, icosahedron); while it assembles it is drawn x-ray, and when it
+   locks its hidden lines resolve. The hero, in thick bright coral with solid eyes, steps back as it grows.
+   The projection carries a "lens shift" that keeps the hero's anchor on the film's anchor point at the film's anchor size. */
+FILM.define('05-vector-wireframe', function (canvas, opts) {
   'use strict';
-  const W = 1920, H = 1080, DUR = 3;
-  const params = new URLSearchParams(location.search);
-  const canvas = document.getElementById('c');
+  const W = 1920, H = 1080;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
-  const L = mk(W, H), lx = L.getContext('2d');            // the sharp line layer
-  const G2 = mk(W / 2, H / 2), g2 = G2.getContext('2d');  // tight phosphor halo
-  const G4 = mk(W / 4, H / 4), g4 = G4.getContext('2d');  // wide bloom
-
-  /* ---------------------------------------------------------------- palette */
+  const L = mk(W, H), lx = L.getContext('2d');
+  const G2 = mk(W / 2, H / 2), g2 = G2.getContext('2d');
+  const G4 = mk(W / 4, H / 4), g4 = G4.getContext('2d');
+  const A = FILM.ANCHOR, FMm = FILM.m;
   const COL = {
-    coral: [217, 119, 87], light: [242, 165, 133], shade: [168, 85, 59], cream: [255, 226, 200],
-    lilac: [146, 128, 242], lilacHi: [190, 178, 255], lilacDim: [96, 84, 190],
+    coral: [217, 119, 87], light: [242, 165, 133], shade: [168, 85, 59], cream: [255, 226, 200], hero: [246, 150, 112],
+    lilac: [146, 128, 242], lilacHi: [190, 178, 255], lilacDim: [96, 84, 190], teal: [95, 214, 196],
   };
-
   /* ---------------------------------------------------------------- maths */
   const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
   const sat = (x) => clamp(x, 0, 1);
@@ -54,20 +53,25 @@
   const xfP = (x, p) => add(mapply(x.m, p), x.o);
   const xfCompose = (p, c) => xf(mmul(p.m, c.m), add(mapply(p.m, c.o), p.o));
 
-  /* ---------------------------------------------------------------- camera: a slow orbit with a gentle push-in */
-  let E, cR, cU, cF, FOC;
+  /* ---------------------------------------------------------------- camera: a slow orbit that rests on the same view at both ends,
+     plus the anchor fit (a screen-space scale and shift that pins the hero's anchor to the film's anchor) */
+  let E, cR, cU, cF, FOC, FIT = { k: 1, ox: 0, oy: 0 };
   const camTarget = [0, 0, 0];
-  function setCam(t) {
-    const p = t / DUR;
-    const az = lerp(-17, 13, p) * RAD, el = lerp(12.5, 15, p) * RAD, d = lerp(20.0, 18.3, p);
-    const rise = ss(1.9, 3.0, t);
-    camTarget[0] = 0.55; camTarget[1] = lerp(2.05, 3.0, rise); camTarget[2] = 0;
+  const HOME = [-1.95, 0.25];
+  function setCam(T) {
+    const u = FMm.sat((T - 16.0) / 6.0), sw = Math.sin(Math.PI * u);
+    const az = (-15 + 14 * sw) * RAD, el = (12.5 + 4.5 * sw) * RAD, d = 19.5 - 1.2 * sw;
+    camTarget[0] = 1.1; camTarget[1] = 2.0 + 0.5 * sw; camTarget[2] = -0.2;
     E = [camTarget[0] + d * Math.sin(az) * Math.cos(el), camTarget[1] + d * Math.sin(el), camTarget[2] + d * Math.cos(az) * Math.cos(el)];
     cF = norm(sub(camTarget, E)); cR = norm(cross(cF, [0, 1, 0])); cU = cross(cR, cF);
     FOC = (H / 2) / Math.tan(15.5 * RAD);
+    FIT = { k: 1, ox: 0, oy: 0 };
+    const pf = scr(toCam([HOME[0], 0, HOME[1] + 0.5])), pt = scr(toCam([HOME[0], BY1, HOME[1] + 0.5]));
+    const k = A.h / Math.max(1, pf[1] - pt[1]);
+    FIT = { k, ox: A.x - pf[0] * k, oy: A.gy - pf[1] * k };
   }
   const toCam = (p) => { const v = sub(p, E); return [dot(v, cR), dot(v, cU), dot(v, cF)]; };
-  const scr = (c) => [W / 2 + c[0] / c[2] * FOC, H / 2 - c[1] / c[2] * FOC];
+  const scr = (c) => [(W / 2 + c[0] / c[2] * FOC) * FIT.k + FIT.ox, (H / 2 - c[1] / c[2] * FOC) * FIT.k + FIT.oy];
   const project = (p) => scr(toCam(p));
 
   /* ---------------------------------------------------------------- hidden-line solids: oriented boxes */
@@ -192,9 +196,9 @@
   }
 
   /* ---------------------------------------------------------------- the floor: a receding perspective grid */
-  const GC = [0.75, 0, 0];                                // the grid's centre of attention
+  const GC = [1.6, 0, -0.5];                                // the grid's centre of attention
   function drawGrid(t) {
-    const reach = 4.5 + 38 * (1 - Math.pow(1 - sat(t / 0.9), 2.2));       // the grid sweeps outward from the folder
+    const reach = 42.5;       // the grid sweeps outward from the folder
     const N = 26;
     const aAt = (x, z) => {
       const d = Math.hypot(x - GC[0], (z - GC[2]) * 1.0);
@@ -207,7 +211,7 @@
           const a0 = dir ? [i + 1, 0, j] : [j, 0, i], b0 = dir ? [i + 1, 0, j + 1] : [j + 1, 0, i];
           if (dir && i === N) continue;
           const mx = (a0[0] + b0[0]) / 2, mz = (a0[2] + b0[2]) / 2;
-          const a = aAt(mx, mz) * (major && !dir || (dir && ((i + 1) % 4) === 0) ? 0.5 : 0.24);
+          const a = aAt(mx, mz) * (major && !dir || (dir && ((i + 1) % 4) === 0) ? 0.62 : 0.32);
           if (a < 0.012) continue;
           const nearObj = mx > -11 && mx < 6.5 && mz > -9 && mz < 4;
           line3(a0, b0, { c: 'lilac', w: 1, a, occ: nearObj, hid: 0.3, step: 0.2 });
@@ -235,49 +239,6 @@
   })();
   const TANG = [[BW, BY1 - BR], [BW - BR, BY1], [-BW + BR, BY1], [-BW, BY1 - BR], [-BW, BY0 + BR], [-BW + BR, BY0], [BW - BR, BY0], [BW, BY0 + BR]];
   const LEGS = [[-0.9, 0.47], [0.9, 0.47], [-0.9, -0.47], [0.9, -0.47]];
-  const T_SIGNAL = 1.95;
-  const HOME = [-1.95, 0.25];
-  function hop(t, t0, t1, h) {                            // one hop: returns {p: travel 0..1, y, sq}
-    const f = sat((t - t0) / (t1 - t0));
-    const g0 = 0.16, g1 = 0.86;                           // crouch, air, land
-    const a = sat((f - g0) / (g1 - g0));
-    let sq = 1;
-    if (f < g0) sq = 1 - 0.16 * Math.sin(Math.PI * f / g0 * 0.5 + 0) * (f / g0);
-    else if (f > g1) sq = 1 - 0.2 * Math.sin(Math.PI * (f - g1) / (1 - g1));
-    else sq = 1 + 0.1 * Math.sin(Math.PI * a) - 0.16 * (1 - sat(a * 6));
-    return { p: a - Math.sin(a * 6.28318) * 0.04, y: h * 4 * a * (1 - a), sq, air: a > 0 && a < 1 ? Math.sin(Math.PI * a) : 0 };
-  }
-  function heroAt(t) {
-    const s = { x: HOME[0], y: 0, z: HOME[1], sq: 1, air: 0 };
-    const T0 = 0.04, T1 = 1.25, NH = 4, X0 = -10.6;
-    if (t < T1) {
-      const u = sat((t - T0) / (T1 - T0)) * NH, k = Math.min(NH - 1, Math.floor(u));
-      const hs = [1.25, 1.2, 1.05, 0.8];
-      const h = hop(u - k, 0, 1, hs[k]);
-      // hops shorten as it arrives
-      const stops = [0, 0.3, 0.57, 0.81, 1];
-      const p = lerp(stops[k], stops[k + 1], h.p);
-      s.x = lerp(X0, HOME[0], p); s.y = h.y; s.sq = h.sq; s.air = h.air;
-      s.z = HOME[1] + (1 - p) * 0.9;
-    } else if (t > T_SIGNAL - 0.11 && t < T_SIGNAL + 0.33) {
-      const h = hop(t, T_SIGNAL - 0.11, T_SIGNAL + 0.33, 0.85); s.y = h.y; s.sq = h.sq; s.air = h.air;
-    } else if (t > 2.52 && t < 2.86) {
-      const h = hop(t, 2.52, 2.86, 0.32); s.y = h.y; s.sq = lerp(1, h.sq, 0.6); s.air = h.air;
-    } else if (t >= T1 && t < T1 + 0.2) {
-      const f = (t - T1) / 0.2; s.sq = 1 + 0.05 * Math.sin(f * Math.PI * 2) * (1 - f);       // settle
-    }
-    s.sq += 0.012 * Math.sin(t * 5.2 + 1);                // breathing
-    s.yaw = keys(t, [[0, 44], [1.0, 44], [1.3, 60], [1.47, 60], [1.6, -22], [1.72, -22], [1.86, 30], [2.25, 30], [2.6, 44], [3, 46]]) * RAD;
-    s.pitch = keys(t, [[1.2, 0], [1.34, 3], [1.5, 0], [2.2, 0], [2.6, -6], [3, -7]]) * RAD;
-    s.gx = keys(t, [[1.15, 0], [1.3, 0.08], [1.47, 0.08], [1.58, -0.08], [1.72, -0.08], [1.86, 0.05], [3, 0.05]]);
-    s.gy = keys(t, [[2.2, 0], [2.5, 0.07], [3, 0.07]]);
-    const bl = (c, w) => 1 - Math.max(0, 1 - Math.abs(t - c) / w);
-    s.eye = Math.min(bl(1.8, 0.07), bl(0.72, 0.06), bl(2.74, 0.06));
-    s.eye = s.eye * s.eye;
-    s.mouth = keys(t, [[1.92, 0], [1.99, 1], [2.3, 1], [2.44, 0]]);
-    s.arm = keys(t, [[1.86, 0], [1.98, 1], [2.36, 1], [2.62, 0.3], [3, 0.22]]);
-    return s;
-  }
   function heroXf(s) {
     const k = 1 / Math.sqrt(s.sq);
     return xf(mmul(rotY(s.yaw), mmul(rotX(s.pitch), scl(k, s.sq, k))), [s.x, s.y, s.z]);
@@ -305,12 +266,12 @@
     const hx = heroXf(s);
     const P = (x, y, z) => xfP(hx, [x, y, z]);
     const hid = ghost ? 0 : 0.2;
-    const main = { c: 'coral', w: ghost ? 1.2 : 2.5, a: am, occ: true, hid, dots: !ghost };
-    const thin = { c: 'coral', w: ghost ? 1 : 1.9, a: am * 0.95, occ: true, hid, dots: !ghost };
+    const main = { c: 'hero', w: ghost ? 1.2 : 3.6, a: am, occ: true, hid, dots: !ghost };
+    const thin = { c: 'hero', w: ghost ? 1 : 2.7, a: am * 0.95, occ: true, hid, dots: !ghost };
     // body: front and back profiles, and the tangent lines that join them
     for (const z of [BD, -BD]) for (let i = 0; i < PROFILE.length; i++) {
       const a = PROFILE[i], b = PROFILE[(i + 1) % PROFILE.length];
-      const st = (i % 6 === 5) ? main : { c: 'coral', w: main.w, a: am, occ: true, hid, step: 0.05 };   // arcs: no dwell dots
+      const st = (i % 6 === 5) ? main : { c: 'hero', w: main.w, a: am, occ: true, hid, step: 0.05 };   // arcs: no dwell dots
       line3(P(a[0], a[1], z), P(b[0], b[1], z), st);
     }
     if (ghost) return;
@@ -369,198 +330,191 @@
     }
   }
 
-  /* ---------------------------------------------------------------- the folder: a wireframe object standing on the grid */
-  const FX = xf(rotY(-9 * RAD), [3.05, 0, -0.15]);
-  const FW = 1.55, FH = 1.86, FB = 2.0, FT = 2.3;         // half-width, cover height, back height, tab height
-  const ZB0 = -0.3, ZB1 = -0.2, ZC = 0.26;                // back board slab, cover hinge
-  const BACK = [[-FW, 0], [-FW, FT], [-0.42, FT], [-0.16, FB], [FW, FB], [FW, 0]];
-  const T_OPEN = 2.1;
-  function folderOpen(t) {                                // 0..1 with a small overshoot
-    const f = sat((t - T_OPEN) / 0.42);
-    return f <= 0 ? 0 : 1 - Math.pow(1 - f, 3) + 0.1 * Math.sin(f * Math.PI) * (1 - f);
+  // the shared performance in this world: world units, the body is 2.6 wide
+  function heroAt(T) {
+    const h = FILM.heroAt(T);
+    const s = { x: HOME[0] + h.dx * 2.6, y: h.lift * 1.75, z: HOME[1], sq: 1 - h.sq * 0.85, air: h.air };
+    s.yaw = (18 + 22 * h.turn) * RAD;
+    s.pitch = (-h.look[1] * 6 + h.lean * 20) * RAD;
+    s.gx = h.look[0] * 0.08; s.gy = h.look[1] * 0.07;
+    s.eye = 1 - h.blink; s.eye = s.eye * s.eye;
+    s.mouth = h.mouth; s.arm = Math.max(h.arm, h.point * 0.7);
+    return s;
   }
-  function coverXf(t) { return xfCompose(FX, xf(rotX(folderOpen(t) * 52 * RAD), [0, 0, ZC])); }
-  function folderOccluders(t) {
-    const e = 0.012;
-    occluder(FX, [-FW + e, e, ZB0 + e], [FW - e, FB - e, ZB1 - e]);
-    occluder(FX, [-FW + e, FB - 0.05, ZB0 + e], [-0.42, FT - e, ZB1 - e]);
-    occluder(coverXf(t), [-FW + e, e, -0.05 + e], [FW - e, FH - e, 0.05 - e]);
-    occluder(FX, [-FW + e, 0.0, ZB1], [FW - e, 0.05, ZC]);
-  }
-  function drawFolder(t) {
-    let idx = 0;
-    const rev = () => sat((t + 0.02 - idx++ * 0.0105) / 0.2);        // each edge is traced in by the beam, one after another
-    const warm = folderOpen(t);
-    const st = (w, a) => ({ c: 'lilac', w, a, occ: true, hid: 0.22, dots: true, rev: rev() });
-    const F = (x, y, z) => xfP(FX, [x, y, z]);
-    // back board with its tab: two outlines and the edges between them
-    for (const z of [ZB1, ZB0]) for (let i = 0; i < BACK.length; i++) {
-      const a = BACK[i], b = BACK[(i + 1) % BACK.length];
-      line3(F(a[0], a[1], z), F(b[0], b[1], z), st(z === ZB1 ? 2 : 1.5, 0.95));
+
+  /* ---------------------------------------------------------------- the kernel: five nested shells */
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  function polyhedron(kind) {
+    let V = [];
+    const P = (a) => { for (const v of a) V.push(v); };
+    const perms = (x, y, z) => [[x, y, z], [y, z, x], [z, x, y]];
+    const signs = (v) => { const o = []; for (const sx of v[0] ? [-1, 1] : [1]) for (const sy of v[1] ? [-1, 1] : [1]) for (const sz of v[2] ? [-1, 1] : [1]) o.push([v[0] * sx, v[1] * sy, v[2] * sz]); return o; };
+    if (kind === 'tetra') P([[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]]);
+    if (kind === 'cube') P(signs([1, 1, 1]));
+    if (kind === 'octa') { for (const p of perms(1, 0, 0)) P(signs(p)); }
+    if (kind === 'icosa') { for (const p of perms(0, 1, PHI)) P(signs(p)); }
+    if (kind === 'dodeca') { P(signs([1, 1, 1])); for (const p of perms(0, 1 / PHI, PHI)) P(signs(p)); }
+    V = V.map((v) => norm(v));
+    let dmin = 1e9;
+    for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) dmin = Math.min(dmin, Math.hypot(...sub(V[i], V[j])));
+    const E2 = [];
+    for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) if (Math.hypot(...sub(V[i], V[j])) < dmin * 1.01) E2.push([i, j]);
+    // face normals: candidate directions (duals in both orientations), kept when at least three vertices lie on the plane
+    const C2 = [];
+    for (const t of [[1, 0, 0], [1, 1, 1], [0, 1, PHI], [0, PHI, 1], [0, 1 / PHI, PHI], [0, PHI, 1 / PHI]]) for (const p of perms(t[0], t[1], t[2])) for (const v of signs(p)) C2.push(norm(v));
+    const N = [];
+    for (const n of C2) {
+      let mx = -1e9; for (const v of V) mx = Math.max(mx, dot(v, n));
+      let c = 0; for (const v of V) if (Math.abs(dot(v, n) - mx) < 1e-4) c++;
+      if (c >= 3 && !N.some((q) => dot(q, n) > 0.9999)) N.push(n);
     }
-    for (const q of BACK) line3(F(q[0], q[1], ZB0), F(q[0], q[1], ZB1), st(1.5, 0.9));
-    // floor of the folder and the cover (hinged along the bottom front edge)
-    line3(F(-FW, 0, ZB1), F(-FW, 0, ZC), st(1.5, 0.9));
-    line3(F(FW, 0, ZB1), F(FW, 0, ZC), st(1.5, 0.9));
-    const cx = coverXf(t);
-    const cp = boxPts([-FW, 0, -0.05], [FW, FH, 0.05]).map((q) => xfP(cx, q));
-    for (let i = 0; i < 12; i++) line3(cp[BOXE[i][0]], cp[BOXE[i][1]], st(i >= 4 && i < 8 ? 2.1 : 1.5, 0.98));
-    // a label line on the cover, like a filing tab strip
-    line3(xfP(cx, [-FW + 0.2, FH - 0.28, 0.052]), xfP(cx, [-FW + 1.15, FH - 0.28, 0.052]), st(1.3, 0.6));
-    // the gussets: from the back board to the cover's top corners (they fan out when it opens)
-    for (const sx of [-1, 1]) line3(F(sx * FW, FH, ZB1), xfP(cx, [sx * FW, FH, -0.05]), st(1.4, 0.85));
-    // "0 ITEMS", standing on the floor in front
-    const u = 0.068, tw = textW('0 ITEMS') * u, lr = sat((t - 0.2) / 0.3);
-    text('0 ITEMS', (a, b, k) => {
-      const r = sat(lr * 30 - k * 0.55);
-      line3(F(-tw / 2 + a[0] * u, 0.1 + a[1] * u, 2.05), F(-tw / 2 + b[0] * u, 0.1 + b[1] * u, 2.05), { c: 'lilac', w: 1.7, a: 0.9, occ: false, rev: r });
-    });
-    if (warm > 0) {
-      // the warm light inside: the mouth of the folder glows coral, and thin shafts stand in it
-      const ct = [xfP(cx, [-FW, FH, -0.05]), xfP(cx, [FW, FH, -0.05])], bt = [F(-FW, FH, ZB1), F(FW, FH, ZB1)];
-      const ws = { c: 'coral', w: 2, a: 0.9 * warm, occ: false };
-      line3(ct[0], ct[1], ws); line3(bt[0], bt[1], ws); line3(ct[0], bt[0], ws); line3(ct[1], bt[1], ws);
-      const n = 13;
-      for (let i = 0; i < n; i++) {                       // hatching on the inside of the back board, brightest at the bottom
-        const y = 0.12 + (FH - 0.2) * i / (n - 1);
-        line3(F(-FW + 0.08, y, ZB1 + 0.01), F(FW - 0.08, y, ZB1 + 0.01), { c: 'coral', w: 1.2, a: warm * lerp(0.75, 0.16, i / (n - 1)), occ: true, hid: 0.5 });
+    const EF = E2.map(([i, j]) => {
+      const f = [];
+      for (let k = 0; k < N.length; k++) {
+        let mx = -1e9; for (const v of V) mx = Math.max(mx, dot(v, N[k]));
+        if (Math.abs(dot(V[i], N[k]) - mx) < 1e-4 && Math.abs(dot(V[j], N[k]) - mx) < 1e-4) f.push([N[k], mx]);
       }
-    }
+      return f;
+    });
+    return { V, E: E2, EF };
   }
-  const MOUTH = () => xfP(FX, [0, FH * 0.8, 0.1]);
-
-  /* ---------------------------------------------------------------- the agents: short bright streaks, a fountain */
-  const NA = 248, AG = [];
-  (function () {
-    const r = mulberry(0xA6E57);
-    const gauss = () => (r() + r() + r() + r() - 2) * 1.2;
-    for (let i = 0; i < NA; i++) {
-      const u = (i + r() * 0.9) / NA;
-      AG.push({
-        te: T_OPEN + 0.05 + 0.86 * Math.pow(u, 0.72),     // emission accelerates: a trickle, then a rush
-        o: [(r() * 2 - 1) * 1.15, FH * 0.55 + r() * 0.3, -0.1 + r() * 0.5],
-        v: [gauss() * 2.25, 6.0 + r() * 4.4 + (r() < 0.12 ? 1.0 : 0), gauss() * 1.6 + 0.5],
-        c: ['coral', 'coral', 'light', 'light', 'cream'][Math.floor(r() * 5)],
-        len: 0.032 + r() * 0.024, w: r() < 0.25 ? 2.6 : 2,
-      });
-    }
-    AG.sort((a, b) => a.te - b.te);
-  })();
-  const GRAV = 9.2;
-  function agentPos(a, tau) {
-    const d = 1 - Math.exp(-tau * 0.55);                  // a little drag so the crown of the fountain spreads softly
-    const k = d / 0.55;
-    return xfP(FX, [a.o[0] + a.v[0] * k, a.o[1] + a.v[1] * tau - 0.5 * GRAV * tau * tau, a.o[2] + a.v[2] * k]);
+  const SHELLS = [
+    { kind: 'tetra', r: 0.42 }, { kind: 'cube', r: 0.70 }, { kind: 'octa', r: 0.98 }, { kind: 'dodeca', r: 1.24 }, { kind: 'icosa', r: 1.55 },
+  ].map((s, k) => Object.assign(s, polyhedron(s.kind), { k }));
+  const KC = [3.05, 1.85, -0.45];                              // the kernel's centre (world)
+  const T_LOCK = 20.85;
+  const DOCK = [18.55, 19.0, 19.45, 19.9, 20.35];
+  function shellRot(k, T) {
+    const lock = FMm.ss(T_LOCK - 0.35, T_LOCK + 0.25, T);
+    const free = mmul(rotY(T * (0.5 + 0.23 * k) * (k % 2 ? -1 : 1) + k), rotX(0.4 + 0.3 * Math.sin(T * 0.7 + k)));
+    const rest = mmul(rotY((T - T_LOCK) * 0.32 + 0.3), rotX(0.36));
+    return lock >= 1 ? rest : lock <= 0 ? free : blendRot(free, rest, lock);
   }
-  function agentCount(t) { let n = 0; for (let i = 0; i < NA; i++) if (AG[i].te <= t) n++; return n; }
-  function drawAgents(t) {
-    for (let i = 0; i < NA; i++) {
-      const a = AG[i], tau = t - a.te;
-      if (tau <= 0) continue;
-      const born = sat(tau / 0.05);
-      const p0 = agentPos(a, tau), p1 = agentPos(a, Math.max(0, tau - a.len)), p2 = agentPos(a, Math.max(0, tau - a.len * 2.3));
-      line3(p1, p0, { c: a.c, w: a.w, a: 1 * born, occ: false });
-      line3(p2, p1, { c: 'coral', w: 1.2, a: 0.3 * born, occ: false });          // persistence: the beam's afterglow
-      const q = project(p0); dot2(q[0], q[1], 'cream', a.w * 0.72, born);
-    }
+  function blendRot(a, b, u) {                                 // a cheap blend: lerp the matrices and re-orthonormalise
+    const m = a.map((v, i) => lerp(v, b[i], u));
+    const x = norm([m[0], m[3], m[6]]), y0 = [m[1], m[4], m[7]], z = norm(cross(x, y0)), y = cross(z, x);
+    return [x[0], y[0], z[0], x[1], y[1], z[1], x[2], y[2], z[2]];
   }
-
-  /* ---------------------------------------------------------------- the signal: a ring from the raised arm */
-  function drawSignal(t) {
-    const p = (t - (T_SIGNAL + 0.01)) / 0.5;
-    if (p <= 0 || p >= 1) return;
-    const s = heroAt(T_SIGNAL + 0.05), tip = xfP(armXf(heroXf(s), s, 1), [0.5, 0.05, 0]);
-    const e = 1 - Math.pow(1 - p, 2.4), R = 0.2 + 1.5 * e, a = Math.pow(1 - p, 1.3), n = 56;
-    for (let i = 0; i < n; i++) {
-      const u = i / n * 6.28318, v = (i + 1) / n * 6.28318;
-      const A = add(tip, add([cR[0] * Math.cos(u) * R, cR[1] * Math.cos(u) * R, cR[2] * Math.cos(u) * R], [cU[0] * Math.sin(u) * R, cU[1] * Math.sin(u) * R, cU[2] * Math.sin(u) * R]));
-      const B = add(tip, add([cR[0] * Math.cos(v) * R, cR[1] * Math.cos(v) * R, cR[2] * Math.cos(v) * R], [cU[0] * Math.sin(v) * R, cU[1] * Math.sin(v) * R, cU[2] * Math.sin(v) * R]));
-      line3(A, B, { c: 'coral', w: 1.8, a: a * 0.95, occ: false });
-    }
-    for (let k = 0; k < 3; k++) {                         // three small ticks, flung toward the folder
-      const ang = (62 - k * 26) * RAD, r0 = 0.45 + e * 0.5, r1 = r0 + 0.3;
-      const d = add([cR[0] * Math.cos(ang), cR[1] * Math.cos(ang), cR[2] * Math.cos(ang)], [cU[0] * Math.sin(ang), cU[1] * Math.sin(ang), cU[2] * Math.sin(ang)]);
-      line3(add(tip, [d[0] * r0, d[1] * r0, d[2] * r0]), add(tip, [d[0] * r1, d[1] * r1, d[2] * r1]), { c: 'cream', w: 2, a: a, occ: false });
+  function drawShell(k, T) {
+    const sh = SHELLS[k], t0 = DOCK[k] + 0.22;
+    const rev = sat((T - t0) / 0.55);
+    if (rev <= 0) return;
+    const R = shellRot(k, T), lock = FMm.ss(T_LOCK - 0.1, T_LOCK + 0.5, T);
+    const grow = 1 + 0.06 * Math.exp(-Math.max(0, T - t0 - 0.55) * 6) * Math.sin(Math.max(0, T - t0 - 0.55) * 20);
+    const r = sh.r * grow * (1 + 0.04 * lock);
+    const Pw = sh.V.map((v) => add(KC, mapply(R, [v[0] * r, v[1] * r, v[2] * r])));
+    const hidA = lerp(0.55, 0.1, lock);
+    const col = k === 0 ? 'light' : (k === 4 ? 'lilacHi' : 'lilac');
+    for (let e = 0; e < sh.E.length; e++) {
+      const [i, j] = sh.E[e];
+      // visible if either neighbouring face looks toward the eye
+      let vis = false;
+      for (const [n, h] of sh.EF[e]) { const nw = mapply(R, n), fp = add(KC, [nw[0] * h * r, nw[1] * h * r, nw[2] * h * r]); if (dot(nw, sub(E, fp)) > 0) { vis = true; break; } }
+      const er = sat(rev * 1.6 - e / sh.E.length * 0.6);
+      const w = (vis ? 1.9 : 1.1) + (k === 4 ? 0.3 : 0), a = vis ? 0.95 : hidA;
+      line3(Pw[i], Pw[j], { c: col, w, a, occ: false, rev: er, dots: vis && lock > 0.5 });
     }
   }
 
-  /* ---------------------------------------------------------------- interface: the counter, and blueprint registration marks */
-  function drawHud(t) {
-    const m = 58, l = 22, a = 0.3;
-    for (const [x, y, dx, dy] of [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]) {
-      seg2(x, y, x + dx * l, y, 'lilac', 1, a); seg2(x, y, x, y + dy * l, 'lilac', 1, a);
-    }
-    const n = agentCount(t);
-    if (t >= T_OPEN) {
-      const u = 4.4, x0 = m + 34, y0 = m + 44, f = sat((t - T_OPEN) / 0.18);
-      const s = 'AGENTS ' + String(n).padStart(4, '0');
-      text(s, (p, q, k) => {
-        const num = p[0] >= 7 * ADV - 0.1;
-        if (k / 60 > f * 1.2) return;
-        seg2(x0 + p[0] * u, y0 - p[1] * u, x0 + q[0] * u, y0 - q[1] * u, num ? 'light' : 'lilac', 1.8, num ? 1 : 0.9);
-      });
+  /* ---------------------------------------------------------------- the modules: five wire boxes, each labelled by its shape */
+  const MODS = [
+    { p: [1.08, 0.70, 0.0], shape: 'circle' }, { p: [3.38, 0.70, 0.0], shape: 'triangle' }, { p: [5.67, 0.70, 0.0], shape: 'square' },
+    { p: [2.23, 2.26, -0.05], shape: 'hex' }, { p: [4.53, 2.26, -0.05], shape: 'bars' },
+  ];
+  const MH = [1.03, 0.69, 0.6];
+  const ORBIT_R = 2.75, ORBIT_TILT = mmul(rotX(0.32), rotZ(-0.12));
+  function modState(k, T) {
+    const m = MODS[k], tl = 16.65 + 0.22 * k, lift = FMm.eio((T - tl) / 1.1);
+    const th = k / 5 * 6.28318 + (T - 16.65) * 0.62;
+    const orb = add(KC, mapply(ORBIT_TILT, [Math.cos(th) * ORBIT_R, 0.15 * Math.sin(th * 2), Math.sin(th) * ORBIT_R]));
+    let p = [lerp(m.p[0], orb[0], lift), lerp(m.p[1], orb[1], lift) + 0.9 * Math.sin(Math.PI * lift), lerp(m.p[2], orb[2], lift)];
+    let s = lerp(1, 0.62, lift), a = 1;
+    const dk = sat((T - DOCK[k]) / 0.5), de = FMm.eio(dk);
+    if (dk > 0) { p = [lerp(p[0], KC[0], de), lerp(p[1], KC[1], de), lerp(p[2], KC[2], de)]; s *= lerp(1, 0.25, de); a = 1 - FMm.ss(0.55, 1, dk); }
+    const rot = mmul(rotY(lift * (th * 0.5 + 0.3)), rotX(lift * 0.25 * Math.sin(th)));
+    return { p, s, a, rot, lift };
+  }
+  function shapePts(kind) {
+    const o = [], n = 18;
+    if (kind === 'circle') for (let i = 0; i <= n; i++) o.push([Math.cos(i / n * 6.28318), Math.sin(i / n * 6.28318)]);
+    else if (kind === 'triangle') o.push([0, 1.1], [1.05, -0.75], [-1.05, -0.75], [0, 1.1]);
+    else if (kind === 'square') o.push([-0.85, -0.85], [0.85, -0.85], [0.85, 0.85], [-0.85, 0.85], [-0.85, -0.85]);
+    else if (kind === 'hex') for (let i = 0; i <= 6; i++) { const a = i / 6 * 6.28318 + Math.PI / 6; o.push([Math.cos(a), Math.sin(a)]); }
+    else o.push([-1, 0.6], [1, 0.6], null, [-1, 0], [0.6, 0], null, [-1, -0.6], [0.2, -0.6]);
+    return o;
+  }
+  function drawModule(k, T) {
+    const st = modState(k, T);
+    if (st.a <= 0.01) return;
+    const x = xf(mmul(st.rot, scl(st.s, st.s, st.s)), st.p);
+    const stl = { c: 'lilac', w: 1.8, a: 0.9 * st.a, occ: true, hid: 0.25, dots: true };
+    box3(x, [-MH[0], -MH[1], -MH[2]], MH, stl);
+    // the inner sheets: two inset outlines on the front, like the paper layers
+    for (let q = 1; q <= 2; q++) { const e = 0.12 * q; poly3([[-MH[0] + e, -MH[1] + e, MH[2]], [MH[0] - e, -MH[1] + e, MH[2]], [MH[0] - e, MH[1] - e - 0.1, MH[2]], [-MH[0] + e, MH[1] - e - 0.1, MH[2]]], { c: 'lilacDim', w: 1.2, a: 0.7 * st.a, occ: true, hid: 0 }, true, x); }
+    // its label shape, top right of the front face
+    const sp = shapePts(MODS[k].shape), sc = 0.17, cx = MH[0] - 0.33, cy = MH[1] - 0.3;
+    for (let i = 0; i + 1 < sp.length; i++) { if (!sp[i] || !sp[i + 1]) continue; line3(xfP(x, [cx + sp[i][0] * sc, cy + sp[i][1] * sc, MH[2] + 0.01]), xfP(x, [cx + sp[i + 1][0] * sc, cy + sp[i + 1][1] * sc, MH[2] + 0.01]), { c: 'teal', w: 1.5, a: 0.85 * st.a, occ: true, hid: 0 }); }
+  }
+  function moduleOccluders(T) {
+    for (let k = 0; k < 5; k++) { const st = modState(k, T); if (st.a < 0.5) continue; const x = xf(mmul(st.rot, scl(st.s, st.s, st.s)), st.p); const b = inset([-MH[0], -MH[1], -MH[2]], MH, 0.012); occluder(x, b[0], b[1]); }
+  }
+
+  /* ---------------------------------------------------------------- the agents: 1000 streaks on three tilted orbits round the kernel */
+  const RINGS = [mmul(rotX(0.22), rotZ(0.12)), mmul(rotX(-0.3), rotZ(-0.2)), mmul(rotX(0.5), rotZ(0.35))];
+  const AGW = FILM.AG.map((g) => ({ ring: g.i % 3, a0: g.r[0] * 6.28318, w: (0.55 + 0.25 * g.r[1]) * (g.i % 2 ? 1 : 1), dr: (g.r[2] - 0.5) * 0.5, dy: (g.r[3] - 0.5) * 0.22,
+    c: ['coral', 'coral', 'light', 'light', 'cream'][Math.floor(g.r[4] * 5)], len: 0.04 + 0.03 * g.r[5] }));
+  function agentP(i, T) {
+    const g = AGW[i], lock = FMm.ss(T_LOCK, T_LOCK + 1.0, T);
+    const R = 2.65 + 0.36 * g.ring + g.dr * 0.7 - 0.3 * lock, th = g.a0 + g.w * (T - 16) * (g.ring === 1 ? -1 : 1);
+    return add(add(KC, [0, 0.55, 0]), mapply(RINGS[g.ring], [Math.cos(th) * R, g.dy, Math.sin(th) * R]));
+  }
+  function drawAgents(T) {
+    for (let i = 0; i < FILM.N; i++) {
+      const g = AGW[i], p0 = agentP(i, T), p1 = agentP(i, T - g.len), p2 = agentP(i, T - g.len * 2.4);
+      line3(p1, p0, { c: g.c, w: 1.7, a: 0.62, occ: false });
+      line3(p2, p1, { c: 'coral', w: 1.1, a: 0.2, occ: false });
     }
   }
 
   /* ---------------------------------------------------------------- one frame */
-  function render(t) {
-    t = clamp(t, 0, DUR);
-    setCam(t);
+  function render(T) {
+    setCam(T);
     SEG = new Map(); DOTS = []; OCC = [];
-    const hs = heroAt(t);
-    heroOccluders(hs); folderOccluders(t);
-    drawGrid(t);
+    const hs = heroAt(T);
+    heroOccluders(hs); moduleOccluders(T);
+    drawGrid(99);
     heroShadow(hs);
-    drawFolder(t);
-    for (let k = 4; k >= 1; k--) {                        // phosphor persistence: the hero's last few frames linger
-      const tg = t - k * 0.03;
-      if (tg > 0) drawHero(heroAt(tg), 0.26 * Math.pow(0.6, k - 1), true);
-    }
+    for (let k = 0; k < 5; k++) drawModule(k, T);
+    for (let k = 0; k < 5; k++) drawShell(k, T);
+    drawAgents(T);
+    for (let k = 3; k >= 1; k--) { const tg = T - k * 0.03; drawHero(heroAt(tg), 0.22 * Math.pow(0.6, k - 1), true); }
     drawHero(hs, 1, false);
-    drawSignal(t);
-    drawAgents(t);
-    drawHud(t);
 
-    // ---- the line layer (additive)
-    lx.globalCompositeOperation = 'source-over';
-    lx.clearRect(0, 0, W, H);
-    lx.globalCompositeOperation = 'lighter';
+    lx.globalCompositeOperation = 'source-over'; lx.clearRect(0, 0, W, H); lx.globalCompositeOperation = 'lighter';
     lx.lineCap = 'round'; lx.lineJoin = 'round';
     for (const [key, b] of SEG) {
       const k = key.split('|'), c = COL[k[0]];
-      lx.strokeStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + Math.min(1, k[2] / 32) + ')';
-      lx.lineWidth = +k[1];
-      lx.beginPath();
-      for (let i = 0; i < b.length; i += 4) { lx.moveTo(b[i], b[i + 1]); lx.lineTo(b[i + 2], b[i + 3]); }
-      lx.stroke();
+      lx.strokeStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + Math.min(1, k[2] / 32) + ')'; lx.lineWidth = +k[1];
+      lx.beginPath(); for (let i = 0; i < b.length; i += 4) { lx.moveTo(b[i], b[i + 1]); lx.lineTo(b[i + 2], b[i + 3]); } lx.stroke();
     }
     for (let i = 0; i < DOTS.length; i += 5) {
-      const c = COL[DOTS[i + 2]];
-      lx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + Math.min(1, DOTS[i + 4]) + ')';
+      const c = COL[DOTS[i + 2]]; lx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + Math.min(1, DOTS[i + 4]) + ')';
       lx.beginPath(); lx.arc(DOTS[i], DOTS[i + 1], DOTS[i + 3], 0, 6.28318); lx.fill();
     }
-
-    // ---- composite: deep background, warm light, bloom, lines
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
-    const hz = project([camTarget[0], 0, -60]);
-    let g = ctx.createRadialGradient(W * 0.52, hz[1] + 330, 0, W * 0.52, hz[1] + 330, 1250);
-    g.addColorStop(0, '#0d0a26'); g.addColorStop(0.45, '#070617'); g.addColorStop(1, '#020208');
+    let g = ctx.createRadialGradient(W * 0.55, 600, 0, W * 0.55, 600, 1250);
+    g.addColorStop(0, '#1d1748'); g.addColorStop(0.5, '#110e2e'); g.addColorStop(1, '#070614');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
-    const warm = folderOpen(t);
-    if (warm > 0) {
-      const q = project(MOUTH()), fl = ss(T_OPEN, 3, t);
-      g = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], 430);
-      g.addColorStop(0, 'rgba(217,119,87,' + 0.3 * warm + ')'); g.addColorStop(0.3, 'rgba(190,90,62,' + 0.12 * warm + ')'); g.addColorStop(1, 'rgba(120,50,40,0)');
-      ctx.fillStyle = g; ctx.fillRect(q[0] - 430, q[1] - 430, 860, 860);
-      g = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], 90);
-      g.addColorStop(0, 'rgba(255,200,160,' + 0.42 * warm + ')'); g.addColorStop(1, 'rgba(217,119,87,0)');
-      ctx.fillStyle = g; ctx.fillRect(q[0] - 90, q[1] - 90, 180, 180);
-      // the fountain's own haze
-      const q2 = project(add(MOUTH(), [0, 2.6, 0]));
-      g = ctx.createRadialGradient(q2[0], q2[1], 0, q2[0], q2[1], 380);
-      g.addColorStop(0, 'rgba(217,119,87,' + 0.1 * fl + ')'); g.addColorStop(1, 'rgba(217,119,87,0)');
-      ctx.fillStyle = g; ctx.fillRect(q2[0] - 380, q2[1] - 380, 760, 760);
+    // the kernel's light: lilac while it assembles, warming at the centre once it locks
+    const kq = project(KC), built = FMm.ss(18.6, 20.6, T), lock = FMm.ss(T_LOCK - 0.1, T_LOCK + 0.8, T);
+    g = ctx.createRadialGradient(kq[0], kq[1], 0, kq[0], kq[1], 420);
+    g.addColorStop(0, 'rgba(120,104,230,' + (0.10 + 0.12 * built) + ')'); g.addColorStop(1, 'rgba(60,50,140,0)');
+    ctx.fillStyle = g; ctx.fillRect(kq[0] - 420, kq[1] - 420, 840, 840);
+    if (lock > 0) {
+      g = ctx.createRadialGradient(kq[0], kq[1], 0, kq[0], kq[1], 150);
+      g.addColorStop(0, 'rgba(242,165,133,' + 0.32 * lock + ')'); g.addColorStop(1, 'rgba(217,119,87,0)');
+      ctx.fillStyle = g; ctx.fillRect(kq[0] - 150, kq[1] - 150, 300, 300);
     }
     g4.globalCompositeOperation = 'copy'; g4.filter = 'blur(7px)'; g4.drawImage(L, 0, 0, W / 4, H / 4); g4.filter = 'none';
     g2.globalCompositeOperation = 'copy'; g2.filter = 'blur(2.6px)'; g2.drawImage(L, 0, 0, W / 2, H / 2); g2.filter = 'none';
@@ -568,21 +522,10 @@
     ctx.globalAlpha = 0.85; ctx.drawImage(G4, 0, 0, W, H);
     ctx.globalAlpha = 0.75; ctx.drawImage(G2, 0, 0, W, H);
     ctx.globalAlpha = 1; ctx.drawImage(L, 0, 0);
-    // vignette
     ctx.globalCompositeOperation = 'source-over';
     g = ctx.createRadialGradient(W / 2, H / 2, 420, W / 2, H / 2, 1180);
-    g.addColorStop(0, 'rgba(2,2,8,0)'); g.addColorStop(1, 'rgba(2,2,8,0.72)');
+    g.addColorStop(0, 'rgba(2,2,8,0)'); g.addColorStop(1, 'rgba(2,2,8,0.42)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
-
-  /* ---------------------------------------------------------------- playback */
-  if (params.has('export')) {
-    window.__piece = { renderAt: render, duration: DUR, isReady: () => true };
-    render(0);
-  } else if (params.has('t')) {
-    render(parseFloat(params.get('t')) || 0);
-  } else {
-    const loop = (now) => { render((now / 1000) % DUR); requestAnimationFrame(loop); };
-    requestAnimationFrame(loop);
-  }
-})();
+  return { renderAt: render, isReady: () => true };
+});

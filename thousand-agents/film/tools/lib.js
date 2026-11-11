@@ -19,10 +19,11 @@ async function openSection(slot, opts) {
   const b = await browser();
   const page = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
   page.setDefaultTimeout(0);
-  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.error('[' + slot + ']', m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' || (m.type() === 'warning' && !/GPU stall|GL Driver/.test(m.text()))) console.error('[' + slot + ']', m.text()); });
   page.on('pageerror', (e) => console.error('[' + slot + ' pageerror]', e.message));
   let url = 'file://' + path.join(FILM_DIR, 'section.html') + '?s=' + slot + '&export';
   if (opts.ss) url += '&ss=' + opts.ss;
+  if (opts.w) url += '&w=' + opts.w;
   await page.goto(url, { timeout: 0 });
   await page.waitForFunction(() => window.__piece && window.__piece.isReady(), null, { timeout: 0, polling: 200 });
   return {

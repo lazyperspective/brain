@@ -26,8 +26,11 @@
     'use strict';
     var Q = new URLSearchParams(location.search), slot = Q.get('s') || '07-ink-sketch';
     var cv = document.getElementById('c');
+    if (Q.has('w')) { cv.width = parseInt(Q.get('w'), 10); cv.height = Math.round(cv.width * 9 / 16); }
     var opts = { ss: Q.has('ss') ? parseFloat(Q.get('ss')) : null, export: Q.has('export'), scale: Q.has('scale') ? parseFloat(Q.get('scale')) : 1 };
     var inst = FILM.factories[slot](cv, opts);
+    // warm the renderer up (canvas backends settle after their first draws), so every exported frame is rendered in the same state
+    if (opts.export) { var sp0 = FILM.span(slot); inst.renderAt(sp0[0]); inst.renderAt(sp0[1]); }
     var g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height;
     var gx = g.getContext('2d', { willReadFrequently: true });
     window.__piece = {

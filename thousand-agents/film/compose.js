@@ -117,14 +117,14 @@ function source(slot) { return SRC[slot] || (SRC[slot] = LIVE.has(slot) ? liveSo
 function closeSources(keep) { for (const s of Object.keys(SRC)) if (!keep || !keep.includes(s)) { SRC[s].close(); delete SRC[s]; } }
 async function composeFrame(f) {
   const T = f / 30, at = F.at(T);
-  const a = Buffer.from(await source(at.from).get(f)); applyLUT(a, lutFor(at.from));
+  const ab = Buffer.from(await source(at.from).get(f)), a = new Uint8ClampedArray(ab.buffer, ab.byteOffset, ab.length); applyLUT(a, lutFor(at.from));
   if (at.to) {
-    const b = Buffer.from(await source(at.to).get(f)); applyLUT(b, lutFor(at.to));
+    const bb = Buffer.from(await source(at.to).get(f)), b = new Uint8ClampedArray(bb.buffer, bb.byteOffset, bb.length); applyLUT(b, lutFor(at.to));
     buildMask(at.k, at.p); blendMasked(a, b);
     drawWave(a, at.k, at.p);
   }
   drawHUD(a, T);
-  return a;
+  return ab;
 }
 
 /* ------------------------------------------------------------------ stats for verification: luminance, flashes */
@@ -166,6 +166,7 @@ async function video(out) {
   }
   await enc.end(); closeSources();
   fs.writeFileSync(path.join(L.FILM_DIR, 'stats.json'), JSON.stringify(stats));
+  fs.writeFileSync(path.join(L.FILM_DIR, 'compose-time.txt'), F.FRAMES + ' frames composited and encoded in ' + ((Date.now() - t0) / 1000).toFixed(0) + ' s\n');
   console.log('wrote', out, ((Date.now() - t0) / 1000).toFixed(0) + 's');
 }
 
@@ -202,6 +203,14 @@ async function main() {
   if (a[0] === 'video') await video(a[1] || path.join(L.OUT_DIR, 'thousand-agents-16x9.mp4'));
   else if (a[0] === 'review') await review(a[1] || '0');
   else if (a[0] === 'frames') await frameList(a[1].split(',').map(Number), a[2]);
+  else if (a[0] === 'strips') {                       // only some transitions' strips: strips 1,2,3 <outdir>
+    for (const k of a[1].split(',').map((v) => +v - 1)) {
+      const x = F.X[k], bufs = [];
+      for (let f = Math.round((x.t - 0.5) * 30); f <= Math.round((x.t + 0.5) * 30); f += 2) bufs.push(await composeFrame(f));
+      closeSources(); L.ensureDir(a[2]);
+      await L.tile(bufs, path.join(a[2], 'strip-' + (k + 1) + '.png'), 4, 640);
+    }
+  }
   await L.closeBrowser();
 }
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });

@@ -1,19 +1,12 @@
-/* 1000 agents - first 3 seconds - low-poly flat-shaded 3D.
-   Hand-written WebGL2 renderer: no libraries, no assets.
-   Every frame is a pure function of t (seeded PRNG only).
-   ?t=1.5 freezes, ?export exposes window.__piece, ?ss=N sets supersampling. */
-(function () {
+/* 1000 Agents — the film, section 6 of 7: BOOT (27.0–32.0 s, rendered 26.6–32.4 s), low-poly flat-shaded 3D.
+   Extended from the 3 s style preview. Hand-written WebGL2 renderer, supersampled. The kernel's core sinks into a faceted
+   machine; a screen slab rises from the stage; terse abstract boot marks tick by (lilac dashes, teal ticks) and a progress bar
+   fills while the camera turns and dollies until it is nearly head-on with the screen. Four streams of agents run into the
+   machine's ports along the stage floor. The projection carries a lens shift that pins the hero's anchor to the film's anchor. */
+FILM.define('03-low-poly-3d', function (canvasArg, opts) {
   'use strict';
-
-  var DURATION = 3.0;
   var W = 1920, H = 1080;
-  var qs = (typeof location !== 'undefined' && location.search) || '';
-  var EXPORT = /[?&]export\b/.test(qs);
-  var mT = /[?&]t=([0-9.]+)/.exec(qs);
-  var FREEZE = mT ? parseFloat(mT[1]) : null;
-  var mS = /[?&]ss=([0-9]+)/.exec(qs);
-  var SS = mS ? Math.max(1, Math.min(4, parseInt(mS[1], 10))) : (EXPORT ? 3 : 2);
-
+  var SS = (opts && opts.ss) ? Math.max(1, Math.min(4, Math.round(opts.ss))) : ((opts && opts.export) ? 2 : 1);
   // ------------------------------------------------------------ utilities
   function mulberry(seed) {
     var a = seed >>> 0;
@@ -168,30 +161,6 @@
   var GROUND = [0.0088, 0.0080, 0.036];
   var STONE = [0.020, 0.017, 0.056];
 
-  // ------------------------------------------------------------ 3x5 glyphs (variable width)
-  var GLYPH = {
-    '0': ['111', '101', '101', '101', '111'], '1': ['010', '110', '010', '010', '111'],
-    '2': ['111', '001', '111', '100', '111'], '3': ['111', '001', '111', '001', '111'],
-    '4': ['101', '101', '111', '001', '001'], '5': ['111', '100', '111', '001', '111'],
-    '6': ['111', '100', '111', '101', '111'], '7': ['111', '001', '001', '001', '001'],
-    '8': ['111', '101', '111', '101', '111'], '9': ['111', '101', '111', '001', '111'],
-    'A': ['111', '101', '111', '101', '101'], 'G': ['111', '100', '101', '101', '111'],
-    'E': ['111', '100', '110', '100', '111'], 'N': ['1001', '1101', '1011', '1001', '1001'],
-    'T': ['111', '010', '010', '010', '010'], 'S': ['111', '100', '111', '001', '111'],
-    'I': ['111', '010', '010', '010', '111'], 'M': ['10001', '11011', '10101', '10001', '10001'],
-    ' ': ['00', '00', '00', '00', '00']
-  };
-  function textCells(str) { // -> {cells:[[x,y]], w}
-    var cells = [], x = 0;
-    for (var i = 0; i < str.length; i++) {
-      var g = GLYPH[str[i]] || GLYPH[' '];
-      for (var r = 0; r < 5; r++) for (var c = 0; c < g[r].length; c++) if (g[r][c] === '1') cells.push([x + c, r]);
-      x += g[0].length + 1;
-    }
-    return { cells: cells, w: x - 1 };
-  }
-  var LABEL = textCells('0 ITEMS');
-
   // ------------------------------------------------------------ static scenery: rocks (casters) then ground
   var FOLDER = [1.25, 0, 0];
   var staticB = new Builder(16000), staticCasters = 0;
@@ -207,7 +176,7 @@
     for (i = 0; i < 12; i++) for (j = i + 1; j < 12; j++) for (k = j + 1; k < 12; k++) {
       if (Math.abs(d2(iv[i], iv[j]) - 4) < 0.01 && Math.abs(d2(iv[j], iv[k]) - 4) < 0.01 && Math.abs(d2(iv[i], iv[k]) - 4) < 0.01) faces.push([i, j, k]);
     }
-    var rocks = [[-4.3, -3.6, 0.40], [4.6, -2.9, 0.58], [5.2, 1.5, 0.20], [-5.6, 2.1, 0.18], [3.3, 3.0, 0.13], [8.0, -6.0, 0.9], [-8.5, -7.0, 1.1]];
+    var rocks = [[-4.6, -3.8, 0.36], [5.6, 2.2, 0.18], [-6.2, 2.6, 0.16], [8.0, -6.0, 0.9], [-8.5, -7.0, 1.1]];
     for (var r = 0; r < rocks.length; r++) {
       var R = rocks[r], pv = [];
       for (i = 0; i < 12; i++) {
@@ -245,96 +214,10 @@
       }
     }
   })();
-
-  // ------------------------------------------------------------ timeline
-  var HOPS = [ // t0, t1, from xz, to xz, height
-    [-0.14, 0.30, [-5.9, -1.15], [-4.25, -0.62], 0.62],
-    [0.37, 0.75, [-4.25, -0.62], [-2.75, -0.16], 0.56],
-    [0.82, 1.17, [-2.75, -0.16], [-1.45, 0.22], 0.44],
-    [1.95, 2.21, [-1.45, 0.22], [-1.45, 0.22], 0.34],
-    [2.56, 2.76, [-1.45, 0.22], [-1.52, 0.26], 0.16]
-  ];
-  function heroState(t) {
-    var s = { x: -1.45, y: 0, z: 0.22, sy: 1, air: 0 }, i, land = -9, amp = 0;
-    for (i = 0; i < HOPS.length; i++) {
-      var h = HOPS[i];
-      if (t >= h[1]) { s.x = h[3][0]; s.z = h[3][1]; land = h[1]; amp = h[4]; }
-      else if (t >= h[0]) {
-        var u = (t - h[0]) / (h[1] - h[0]);
-        s.x = lerp(h[2][0], h[3][0], u); s.z = lerp(h[2][1], h[3][1], u);
-        s.y = 4 * h[4] * u * (1 - u); s.air = Math.sin(Math.PI * u);
-        s.sy = 1 + 0.13 * s.air * (h[4] / 0.6);
-        land = -9; break;
-      } else {
-        // anticipation crouch before the next take-off
-        var pre = ss(h[0] - 0.07, h[0], t);
-        if (pre > 0) s.sy *= 1 - 0.10 * pre;
-        if (i === 0) { s.x = h[2][0]; s.z = h[2][1]; }
-        break;
-      }
-    }
-    if (land > -5) { var dt = t - land; s.sy *= 1 - (0.06 + 0.20 * amp) * Math.exp(-dt * 13) * Math.cos(dt * 24); }
-    s.yaw = keys([0, 0.50, 1.10, 0.56, 1.42, 1.02, 1.54, 1.02, 1.68, -0.42, 1.80, -0.42, 1.93, 0.42, 2.25, 0.42, 2.5, 0.70, 3, 0.74], t);
-    s.pitch = keys([0, 0, 1.2, 0, 1.42, 0.07, 1.56, 0.07, 1.68, -0.02, 1.93, 0, 2.02, -0.14, 2.3, -0.10, 2.6, -0.30, 3, -0.34], t);
-    s.roll = 0.10 * ss(1.56, 1.68, t) * (1 - ss(1.80, 1.93, t)); // curious head tilt on the glance
-    var b = Math.abs(t - 1.755) < 0.075 ? 1 - Math.abs(t - 1.755) / 0.075 : 0;
-    var b2 = Math.abs(t - 0.56) < 0.06 ? 1 - Math.abs(t - 0.56) / 0.06 : 0;
-    s.eye = 1 - 0.92 * Math.min(1, Math.max(b, b2) * 1.6);
-    s.eyeShift = keys([0, 0.02, 1.2, 0.02, 1.4, 0.035, 1.56, 0.035, 1.68, -0.035, 1.82, -0.035, 1.93, 0.02, 2.5, 0.02, 2.7, 0.0, 3, 0.0], t);
-    s.eyeUp = keys([0, 0, 2.3, 0, 2.6, 0.03, 3, 0.03], t);
-    s.arm = ss(1.92, 2.03, t) * (1 - 0.55 * ss(2.5, 2.8, t));
-    s.mouth = ss(1.95, 2.01, t) * (1 - ss(2.34, 2.48, t));
-    return s;
-  }
-  function folderState(t) {
-    var open = outBack(ss(2.07, 2.42, t));
-    return {
-      scale: 0.55 + 0.45 * outBack(ss(-0.06, 0.46, t)),
-      drop: 0.5 * (1 - ss(-0.06, 0.34, t)),
-      open: 0.50 * open,
-      light: ss(2.08, 2.55, t),
-      pop: 0.07 * Math.exp(-Math.max(0, t - 2.08) * 9) * (t > 2.08 ? 1 : 0)
-    };
-  }
-  function camState(t) {
-    var az = lerp(-0.30, 0.22, t / 3 * 0.75 + 0.25 * ss(0, 3, t));
-    var el = lerp(0.21, 0.17, ss(0, 3, t));
-    var dist = 14.2 - 2.2 * ss(-0.4, 2.0, t) + 2.5 * ss(2.0, 3.25, t);
-    var tgt = [lerp(-0.5, 0.25, ss(0, 2.2, t)), 0.90 + 1.55 * ss(2.02, 3.2, t), 0];
-    var eye = [tgt[0] + dist * Math.sin(az) * Math.cos(el), tgt[1] + dist * Math.sin(el), tgt[2] + dist * Math.cos(az) * Math.cos(el)];
-    return { eye: eye, tgt: tgt, fov: 30 * Math.PI / 180 };
-  }
-
-  // ------------------------------------------------------------ agents
-  var N_AT_3 = 244, EMIT_T0 = 2.1, EMIT_P = 1.55, MAX_AGENTS = 1000;
-  var AG = [];
-  (function () {
-    var rnd = mulberry(90210);
-    for (var i = 0; i < MAX_AGENTS; i++) {
-      AG.push({
-        birth: EMIT_T0 + 0.9 * Math.pow((i + 0.5) / N_AT_3, 1 / EMIT_P),
-        ang: 0.03 + 0.40 * Math.pow(rnd(), 0.85), az: rnd() * 6.2832, sp: 6.9 + 4.3 * rnd(),
-        ox: (rnd() - 0.5) * 1.1, oz: (rnd() - 0.5) * 0.12,
-        p1: rnd() * 6.2832, p2: rnd() * 6.2832, w: 0.5 + rnd(), spin: (rnd() - 0.5) * 16,
-        len: 0.15 + 0.12 * rnd(), rad: 0.030 + 0.017 * rnd(), tone: rnd(), tw: rnd() * 6.2832
-      });
-    }
-  })();
-  function agentCount(t) { return t <= EMIT_T0 ? 0 : Math.min(MAX_AGENTS, Math.floor(N_AT_3 * Math.pow((t - EMIT_T0) / 0.9, EMIT_P) + 1e-6)); }
-  function agentPos(g, a) {
-    var k = 1.45, tr = g.sp * (1 - Math.exp(-k * a)) / k, sa = Math.sin(g.ang);
-    var wob = 0.22 * g.w * a * a;
-    return [
-      FOLDER[0] + g.ox * (1 - 0.3 * a) + tr * sa * Math.cos(g.az) * 1.15 + Math.sin(a * 5.2 + g.p1) * wob,
-      0.55 + tr * Math.cos(g.ang) - 1.5 * a * a,
-      FOLDER[2] + 0.05 + g.oz + tr * sa * Math.sin(g.az) * 0.8 + Math.cos(a * 4.4 + g.p2) * wob
-    ];
-  }
-
   // ------------------------------------------------------------ dynamic scene
-  var dynB = new Builder(9000), dynCasters = 0;
+  var dynB = new Builder(16000), dynCasters = 0;
   var GSTR = 10; // pos3 uv2 mode1 col3 pad
-  var glowA = new Float32Array(1400 * 6 * GSTR), glowN = 0;
+  var glowA = new Float32Array(3000 * 6 * GSTR), glowN = 0;
   function glowQuad(p0, p1, p2, p3, mode, col, uv) {
     var P = [p0, p1, p2, p0, p2, p3], U = [uv[0], uv[1], uv[2], uv[0], uv[2], uv[3]], o = glowN * GSTR;
     for (var i = 0; i < 6; i++) {
@@ -395,96 +278,145 @@
     }
     B.pop();
   }
-
-  function buildFolder(B, f, t) {
-    var FW = 0.88, BHt = 1.30, FH = 1.06, TH = 0.045, ZB = -0.19, ZF = 0.19;
-    B.push();
-    B.mul(mTrans(FOLDER[0], f.drop, FOLDER[2])); B.mul(mRotY(-0.12));
-    B.mul(mScale(f.scale * (1 + f.pop), f.scale * (1 - f.pop * 0.6), f.scale * (1 + f.pop)));
-    var warm = f.light;
-    var inner = mixc(LILAC_D, [1.0, 0.62, 0.30], 0.55 * warm);
-    // back panel
-    B.box(0, BHt / 2 - 0.09, ZB, FW, BHt / 2 - 0.09, TH, LILAC_D, 0);
-    // tab on the back panel (trapezoid prism)
-    var ty0 = BHt - 0.18, ty1 = BHt, tp = [[-FW, ty0], [-0.12, ty0], [-0.30, ty1], [-FW + 0.06, ty1]];
-    var a = [], b = [], i;
-    for (i = 0; i < 4; i++) { a.push([tp[i][0], tp[i][1], ZB - TH]); b.push([tp[i][0], tp[i][1], ZB + TH]); }
-    var tc = [-0.6, ty0 + 0.09, ZB];
-    B.poly(a, LILAC_D, 0, 0, tc); B.poly(b, LILAC_D, 0, 0, tc);
-    for (i = 0; i < 4; i++) B.poly([a[i], a[(i + 1) % 4], b[(i + 1) % 4], b[i]], LILAC_D, 0, 0, tc);
-    // floor + glowing bed inside
-    B.box(0, 0.03, 0, FW, 0.03, ZF - ZB > 0 ? 0.2 : 0.2, LILAC_D, 0);
-    if (warm > 0.01) B.box(0, 0.075, 0, FW - 0.08, 0.012, 0.14, [1.0, 0.66, 0.34], 1.7 * warm);
-    // side gussets (follow the flap)
-    var ca = Math.cos(f.open), sa = Math.sin(f.open);
-    for (i = -1; i <= 1; i += 2) {
-      var x0 = i * (FW - 0.02), x1 = i * FW;
-      var q = [[0, ZB], [0, ZF], [FH * ca, ZF + FH * sa], [FH, ZB]];
-      var p0 = [], p1 = [];
-      for (var k = 0; k < 4; k++) { p0.push([x0, q[k][0], q[k][1]]); p1.push([x1, q[k][0], q[k][1]]); }
-      B.poly(p0, inner, 0.10 * warm, 0, [x1 + i, 0.5, 0]);
-      B.poly(p1, LILAC_D, 0.04, 0, [x0 - i, 0.5, 0]);
-    }
-    // front flap, hinged at the bottom
-    B.push();
-    B.mul(mTrans(0, 0, ZF)); B.mul(mRotX(f.open));
-    B.box(0, FH / 2, 0, FW, FH / 2, TH, LILAC, 0);
-    B.box(0, FH - 0.05, TH + 0.004, FW, 0.05, 0.006, LILAC_HI, 0.04);
-    B.pop();
-    B.pop();
+  // ------------------------------------------------------------ the film's BOOT: hero, machine, screen, agents
+  var A = FILM.ANCHOR, FM = FILM.m;
+  var HX = -1.45, HZ = 0.22;
+  function heroState(T) {
+    var h = FILM.heroAt(T);
+    var s = { x: HX + h.dx * 1.44, y: h.lift * 0.92 * 1.45, z: HZ, sy: 1 - h.sq * 0.9, air: h.air };
+    s.yaw = 0.30 + 0.35 * h.turn;
+    s.pitch = -h.look[1] * 0.14 - h.lean * 0.4;
+    s.roll = 0;
+    s.eye = 1 - 0.92 * h.blink;
+    s.eyeShift = h.look[0] * 0.035; s.eyeUp = h.look[1] * 0.03;
+    s.arm = Math.max(h.arm, h.point * 0.6); s.mouth = h.mouth;
+    return s;
+  }
+  // the camera turns from a three-quarter view to almost head-on with the screen, dollying in; the anchor fit holds the hero
+  function camState(T) {
+    var u = FM.ss(27.0, 32.0, T) * 0.75 + FM.sat((T - 27) / 5) * 0.25;
+    var az = lerp(-0.36, -0.05, u), el = lerp(0.2, 0.12, u), dist = lerp(13.4, 11.2, u);
+    var tgt = [lerp(0.55, 0.95, u), lerp(1.0, 1.35, u), 0];
+    var eye = [tgt[0] + dist * Math.sin(az) * Math.cos(el), tgt[1] + dist * Math.sin(el), tgt[2] + dist * Math.cos(az) * Math.cos(el)];
+    return { eye: eye, tgt: tgt, fov: 30 * Math.PI / 180 };
+  }
+  function anchorFit(VP) {
+    function pr(p) { var x = VP[0] * p[0] + VP[4] * p[1] + VP[8] * p[2] + VP[12], y = VP[1] * p[0] + VP[5] * p[1] + VP[9] * p[2] + VP[13], w = VP[3] * p[0] + VP[7] * p[1] + VP[11] * p[2] + VP[15]; return [x / w, y / w]; }
+    var pf = pr([HX, 0, HZ + 0.23]), pt = pr([HX, 1.17, HZ + 0.23]);
+    var k = (A.h / 1080 * 2) / (pt[1] - pf[1]);
+    var tx = (A.x / 1920 * 2 - 1) - pf[0] * k, ty = (1 - A.gy / 1080 * 2) - pf[1] * k;
+    var f = mIdent(); f[0] = k; f[5] = k; f[12] = tx; f[13] = ty;
+    return mMul(f, VP);
   }
 
-  function buildLabel(B, t) {
-    var cell = 0.054, k = ss(0.10, 0.5, t), i;
-    if (k <= 0) return;
-    B.push();
-    B.mul(mTrans(FOLDER[0] - 0.05, 0, FOLDER[2] + 1.55)); B.mul(mRotY(-0.12)); B.mul(mRotX(-1.0));
-    var w = LABEL.w * cell, dim = 1 - 0.45 * ss(2.1, 2.6, t);
-    for (i = 0; i < LABEL.cells.length; i++) {
-      var c = LABEL.cells[i];
-      var rise = outBack(ss(0, 1, k * 1.6 - c[0] / LABEL.w * 0.6));
-      if (rise <= 0.01) continue;
-      B.box(-w / 2 + (c[0] + 0.5) * cell, (4.5 - c[1]) * cell + 0.03, 0.02 * rise, cell * 0.46, cell * 0.46, 0.02 * rise, LILAC_HI, 0.8 * dim * rise);
+  var MACH = [1.15, 0, -0.15];                                 // the machine's base centre
+  var SCR = { x: 1.3, z: -1.05, w: 1.75, h: 1.02, th: 0.11, y: 1.95 };   // screen slab: centre x, z, half w, half h, half thickness, rest height
+  var T_SINK = [27.25, 28.05], T_RISE = [27.55, 28.45], T_BAR = [27.8, 31.5];
+  var BOOT_ROWS = 8;
+  function bootRow(k) { return { t: 28.25 + k * 0.36, n: 2 + Math.floor(FM.hash(k, 77) * 3), lens: [0, 1, 2, 3].map(function (j) { return 0.18 + 0.42 * FM.hash(k * 7 + j, 78); }) }; }
+  // the core: a faceted icosahedron, lilac with warm seams, that sinks into the machine
+  var ICO = (function () {
+    var ph = (1 + Math.sqrt(5)) / 2, v = [], f = [], i, j, k;
+    for (i = 0; i < 3; i++) for (var s1 = -1; s1 <= 1; s1 += 2) for (var s2 = -1; s2 <= 1; s2 += 2) { var p = [0, 0, 0]; p[(i + 1) % 3] = s1; p[(i + 2) % 3] = s2 * ph; v.push(vNorm(p)); }
+    function d2(a, b) { var d = vSub(a, b); return vDot(d, d); }
+    var e2 = d2(v[0], v[1]); for (i = 0; i < 12; i++) for (j = 0; j < 12; j++) if (i !== j) e2 = Math.min(e2, d2(v[i], v[j]));
+    for (i = 0; i < 12; i++) for (j = i + 1; j < 12; j++) for (k = j + 1; k < 12; k++) if (Math.abs(d2(v[i], v[j]) - e2) < 1e-3 && Math.abs(d2(v[j], v[k]) - e2) < 1e-3 && Math.abs(d2(v[i], v[k]) - e2) < 1e-3) f.push([i, j, k]);
+    return { v: v, f: f };
+  })();
+  function buildMachine(B, T) {
+    // base: a chamfered block with a lit slot on top
+    B.chamfer([MACH[0], 0.36, MACH[2]], [0.95, 0.36, 0.62], 0.1, LILAC_D, 0, mixc(LILAC_D, LILAC, 0.35));
+    B.chamfer([MACH[0], 0.74, MACH[2]], [0.55, 0.04, 0.36], 0.03, [0.03, 0.02, 0.07], 0.0);
+    var live = FM.ss(27.9, 28.4, T);
+    B.box(MACH[0], 0.786, MACH[2], 0.42, 0.006, 0.26, [1.0, 0.6, 0.32], 0.25 + 0.55 * live);
+    // little feet and vents
+    for (var i = -1; i <= 1; i += 2) B.chamfer([MACH[0] + i * 0.7, 0.05, MACH[2] + 0.5], [0.16, 0.05, 0.1], 0.02, LILAC_D, 0);
+    for (var v = 0; v < 4; v++) B.box(MACH[0] - 0.45 + v * 0.3, 0.38, MACH[2] + 0.625, 0.1, 0.11, 0.008, [0.03, 0.02, 0.07], 0.35 * live);
+    // the core, sinking in
+    var sink = FM.eio(FM.sat((T - T_SINK[0]) / (T_SINK[1] - T_SINK[0])));
+    if (sink < 1) {
+      var r = 0.62 * (1 - 0.25 * sink), cy = lerp(0.74 + 0.66, 0.1, sink), rot = T * 0.4;
+      B.push(); B.mul(mTrans(MACH[0], cy, MACH[2])); B.mul(mRotY(rot)); B.mul(mRotX(0.36));
+      for (var f = 0; f < ICO.f.length; f++) {
+        var F = ICO.f[f], seam = FM.hash(f, 5) < 0.3;
+        var col = seam ? mixc(LILAC, [1.0, 0.6, 0.35], 0.6) : (f % 2 ? LILAC : LILAC_HI);
+        B.poly([ICO.v[F[0]].map(function (x) { return x * r; }), ICO.v[F[1]].map(function (x) { return x * r; }), ICO.v[F[2]].map(function (x) { return x * r; })], col, seam ? 0.9 : 0.12, 0, [0, 0, 0]);
+      }
+      B.pop();
     }
-    B.pop();
   }
+  function screenY(T) { var u = FM.sat((T - T_RISE[0]) / (T_RISE[1] - T_RISE[0])); return lerp(-SCR.h - 0.3, SCR.y, outBack(u)); }
+  function buildScreen(B, T) {
+    var y = screenY(T);
+    if (y < -SCR.h - 0.25) return;
+    var fz = SCR.z + SCR.th;
+    // the slab and its stand
+    B.chamfer([SCR.x, y, SCR.z], [SCR.w, SCR.h, SCR.th], 0.07, mixc(LILAC_D, [0.02, 0.015, 0.05], 0.35), 0, mixc(LILAC_D, LILAC, 0.3));
+    B.chamfer([SCR.x, Math.min(y - SCR.h, 0.6) / 2 + 0.02, SCR.z - 0.05], [0.16, Math.max(0.02, (y - SCR.h) / 2 + 0.02), 0.07], 0.02, LILAC_D, 0);
+    // the glass: a deep indigo inset that lights up
+    var on = FM.ss(28.0, 28.35, T);
+    B.box(SCR.x, y, fz + 0.004, SCR.w - 0.1, SCR.h - 0.1, 0.004, [0.012, 0.010, 0.04], 0.6 * on);
+    if (on <= 0) return;
+    // boot marks: short lilac dashes, each row signed off with a teal tick
+    var x0 = SCR.x - SCR.w + 0.32, ytop = y + SCR.h - 0.26, rowH = 0.17, z = fz + 0.012;
+    for (var k = 0; k < BOOT_ROWS; k++) {
+      var R = bootRow(k); if (T < R.t) break;
+      var yy = ytop - k * rowH, xx = x0, a = FM.ss(R.t, R.t + 0.12, T);
+      for (var j = 0; j < R.n; j++) {
+        var len = R.lens[j] * a;
+        if (len > 0.005) B.box(xx + len / 2, yy, z, len / 2, 0.022, 0.003, j === 0 ? LILAC_HI : LILAC, 0.9 + (j === 0 ? 0.4 : 0));
+        xx += R.lens[j] + 0.07;
+      }
+      var ok = FM.ss(R.t + 0.2, R.t + 0.3, T);
+      if (ok > 0) {                                           // the tick: two short strokes
+        var tx = SCR.x + SCR.w - 0.42, s = ok;
+        B.push(); B.mul(mTrans(tx, yy, z)); B.mul(mRotZ(-0.8)); B.box(-0.01, 0.0, 0, 0.035 * s, 0.014, 0.003, TEAL, 1.6); B.pop();
+        B.push(); B.mul(mTrans(tx + 0.05, yy + 0.03, z)); B.mul(mRotZ(0.9)); B.box(0.0, 0.0, 0, 0.07 * s, 0.014, 0.003, TEAL, 1.6); B.pop();
+      }
+    }
+    // the progress bar along the bottom
+    var bu = FM.sat((T - T_BAR[0]) / (T_BAR[1] - T_BAR[0])), be = bu < 1 ? 1 - Math.pow(1 - bu, 1.6) * (1 - 0.15 * Math.sin(bu * 9)) : 1;
+    var bw = (SCR.w - 0.32) * 2, by = y - SCR.h + 0.2;
+    B.box(SCR.x, by, z - 0.002, bw / 2, 0.035, 0.002, [0.05, 0.04, 0.14], 0.5);
+    if (be > 0.002) B.box(SCR.x - bw / 2 + bw * be / 2, by, z, bw * be / 2, 0.03, 0.003, bu >= 1 ? TEAL : mixc(CORAL, LIGHT, 0.4), bu >= 1 ? 1.4 : 1.2);
+  }
+  var TEAL = srgb(0x5fd6c4);
 
-  function buildAgents(B, t, cam) {
-    var n = agentCount(t), i, cr = cam.right, cu = cam.up;
-    for (i = 0; i < n; i++) {
-      var g = AG[i], a = t - g.birth;
-      if (a <= 0) continue;
-      var p = agentPos(g, a), q = agentPos(g, a + 0.012), d = vNorm(vSub(q, p));
-      var grow = ss(0, 0.07, a), len = g.len * grow, rad = g.rad * grow;
-      var u = vNorm(vCross(d, [0.3, 0.1, 0.9])), v = vCross(d, u), sp = a * g.spin + g.p1;
-      var tip = [p[0] + d[0] * len * 0.68, p[1] + d[1] * len * 0.68, p[2] + d[2] * len * 0.68];
-      var tail = [p[0] - d[0] * len * 0.32, p[1] - d[1] * len * 0.32, p[2] - d[2] * len * 0.32];
+  // the agents: four streams along the stage floor that run into the machine's ports, plus a slow halo of them round the screen
+  var LANES = [
+    [[-9, 0.05, 4.5], [-4, 0.05, 2.6], [-0.2, 0.05, 1.3], [MACH[0] - 0.95, 0.12, MACH[2] + 0.2]],
+    [[9.5, 0.05, 5.0], [6.5, 0.05, 2.4], [3.6, 0.05, 0.9], [MACH[0] + 0.95, 0.12, MACH[2] + 0.2]],
+    [[-7, 0.05, -6.5], [-3, 0.05, -3.2], [0.2, 0.05, -1.4], [MACH[0] - 0.7, 0.12, MACH[2] - 0.6]],
+    [[10, 0.05, -5.5], [6, 0.05, -3.4], [3.6, 0.05, -1.6], [MACH[0] + 0.7, 0.12, MACH[2] - 0.6]],
+  ];
+  function bez(P, u) {
+    var a = 1 - u; return [a * a * a * P[0][0] + 3 * a * a * u * P[1][0] + 3 * a * u * u * P[2][0] + u * u * u * P[3][0],
+      a * a * a * P[0][1] + 3 * a * a * u * P[1][1] + 3 * a * u * u * P[2][1] + u * u * u * P[3][1],
+      a * a * a * P[0][2] + 3 * a * a * u * P[1][2] + 3 * a * u * u * P[2][2] + u * u * u * P[3][2]];
+  }
+  var AGL = FILM.AG.map(function (g) { return { lane: g.i % 4, ph: g.r[0], sp: 0.085 + 0.03 * g.r[1], off: [(g.r[2] - 0.5) * 0.5, (g.r[3] - 0.5) * 0.5], len: 0.1 + 0.07 * g.r[4], rad: 0.02 + 0.012 * g.r[5], tone: g.r[6], tw: g.r[7] * 6.28 }; });
+  function agentP(i, T) {
+    var g = AGL[i], u = FM.frac(g.ph + g.sp * (T - 27)), q = bez(LANES[g.lane], u), fade = Math.pow(u, 0.6);
+    return [q[0] + g.off[0] * (1 - fade * 0.9), q[1] + 0.06 * Math.abs(Math.sin(T * 9 + g.tw)), q[2] + g.off[1] * (1 - fade * 0.9), u];
+  }
+  function buildAgents(B, T, cam) {
+    var cr = cam.right, cu = cam.up;
+    for (var i = 0; i < FILM.N; i++) {
+      var g = AGL[i], p = agentP(i, T), q = agentP(i, T + 0.02);
+      if (q[3] < p[3]) continue;                               // wrapping round: skip a frame's worth
+      var d = vNorm(vSub(q, p)), grow = FM.ss(0, 0.04, p[3]) * (1 - FM.ss(0.96, 1, p[3])), len = g.len * grow, rad = g.rad * grow;
+      if (grow <= 0.01) continue;
+      var u = vNorm(vCross(d, [0.3, 0.9, 0.1])), v = vCross(d, u);
+      var tip = [p[0] + d[0] * len * 0.68, p[1] + d[1] * len * 0.68, p[2] + d[2] * len * 0.68], tail = [p[0] - d[0] * len * 0.32, p[1] - d[1] * len * 0.32, p[2] - d[2] * len * 0.32];
       var ring = [];
-      for (var k = 0; k < 3; k++) {
-        var an = sp + k * 2.0944, c = Math.cos(an) * rad, s = Math.sin(an) * rad;
-        ring.push([p[0] + u[0] * c + v[0] * s, p[1] + u[1] * c + v[1] * s, p[2] + u[2] * c + v[2] * s]);
-      }
-      var tw = 0.85 + 0.15 * Math.sin(a * 17 + g.tw);
+      for (var k = 0; k < 3; k++) { var an = T * 8 + g.tw + k * 2.0944, c = Math.cos(an) * rad, s = Math.sin(an) * rad; ring.push([p[0] + u[0] * c + v[0] * s, p[1] + u[1] * c + v[1] * s, p[2] + u[2] * c + v[2] * s]); }
+      var tw = 0.85 + 0.15 * Math.sin(T * 17 + g.tw);
       var col = g.tone < 0.5 ? mixc(CORAL, LIGHT, g.tone * 2) : mixc(LIGHT, [1.0, 0.80, 0.50], (g.tone - 0.5) * 2);
-      var em = (1.35 + 1.25 * g.tone) * tw;
-      for (k = 0; k < 3; k++) {
-        B.polyW([tip, ring[k], ring[(k + 1) % 3]], col, em, 0, p);
-        B.polyW([tail, ring[k], ring[(k + 1) % 3]], col, em * 0.7, 0, p);
-      }
-      // soft halo + streak (additive)
-      var hc = [col[0] * 0.30 * tw, col[1] * 0.22 * tw, col[2] * 0.16 * tw];
-      halo(p, 0.19 * grow + 0.03, hc, cr, cu);
-      var back = agentPos(g, Math.max(0, a - 0.075));
-      var side = vNorm(vCross(vSub(p, back), cam.fwd)), wd = 0.03;
-      glowQuad(
-        [p[0] - side[0] * wd, p[1] - side[1] * wd, p[2] - side[2] * wd],
-        [p[0] + side[0] * wd, p[1] + side[1] * wd, p[2] + side[2] * wd],
-        [back[0] + side[0] * wd, back[1] + side[1] * wd, back[2] + side[2] * wd],
-        [back[0] - side[0] * wd, back[1] - side[1] * wd, back[2] - side[2] * wd],
-        1, [col[0] * 0.75, col[1] * 0.6, col[2] * 0.5], [[-1, 0], [1, 0], [1, 1], [-1, 1]]);
+      var em = (0.6 + 0.5 * g.tone) * tw;
+      for (k = 0; k < 3; k++) { B.polyW([tip, ring[k], ring[(k + 1) % 3]], col, em, 0, [p[0], p[1], p[2]]); B.polyW([tail, ring[k], ring[(k + 1) % 3]], col, em * 0.7, 0, [p[0], p[1], p[2]]); }
+      halo([p[0], p[1], p[2]], 0.12 * grow + 0.02, [col[0] * 0.13 * tw, col[1] * 0.095 * tw, col[2] * 0.07 * tw], cr, cu);
     }
   }
-
   var MOTES = [];
   (function () {
     var rnd = mulberry(4242);
@@ -498,12 +430,11 @@
       halo(p, m[5] * 1.6, [0.05 * b, 0.045 * b, 0.13 * b], cam.right, cam.up);
     }
   }
-
   // ------------------------------------------------------------ GL
-  var canvas = document.getElementById('c');
+  var canvas = canvasArg;
   canvas.width = W; canvas.height = H;
   var gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
-  if (!gl) { document.body.innerHTML = '<p style="color:#9a8fe8;font-family:monospace">WebGL2 is required.</p>'; return; }
+  if (!gl) return { renderAt: function () {}, isReady: function () { return true; } };
   var floatOK = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
   var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   while (SS > 1 && W * SS > maxTex) SS--;
@@ -597,6 +528,7 @@
     'void main(){ ivec2 b=ivec2(gl_FragCoord.xy)*uSS; vec3 c=vec3(0.);',
     '  for(int j=0;j<uSS;j++) for(int i=0;i<uSS;i++) c+=tone(texelFetch(uT,b+ivec2(i,j),0).rgb);',
     '  c/=float(uSS*uSS);',
+    '  float lu=dot(c,vec3(.2126,.7152,.0722)); c=max(mix(vec3(lu),c,1.0),0.);',
     '  vec2 q=(gl_FragCoord.xy/uRes-.5)*vec2(1.,.82); c*=1.-.9*dot(q,q);',
     '  c=pow(max(c,0.),vec3(1./2.2));',
     '  c+=(hash(gl_FragCoord.xy)+hash(gl_FragCoord.yx+17.3)-1.)/255.;',
@@ -677,36 +609,28 @@
     }
     return cx;
   }
-
-  function renderAt(t) {
-    t = clamp(t, 0, DURATION);
-    var cs = camState(t), hero = heroState(t), fol = folderState(t);
+  function renderAt(T) {
+    var cs = camState(T), hero = heroState(T);
     var fwd = vNorm(vSub(cs.tgt, cs.eye)), right = vNorm(vCross(fwd, [0, 1, 0])), up = vCross(right, fwd);
     var cam = { fwd: fwd, right: right, up: up };
-    var VP = mMul(mPersp(cs.fov, W / H, 0.5, 200), mLook(cs.eye, cs.tgt, [0, 1, 0]));
+    var VP0 = mMul(mPersp(cs.fov, W / H, 0.5, 200), mLook(cs.eye, cs.tgt, [0, 1, 0]));
+    var VP = anchorFit(VP0), fitK = VP[0] / VP0[0];
 
-    // build dynamic geometry
     dynB.reset(); glowN = 0;
-    buildHero(dynB, hero); buildFolder(dynB, fol, t);
+    buildHero(dynB, hero); buildMachine(dynB, T); buildScreen(dynB, T);
     dynCasters = dynB.n;
-    buildLabel(dynB, t);
-    buildAgents(dynB, t, cam);
-    buildMotes(t, cam);
-    // folder glow: warm bloom at the mouth and a soft shaft
-    if (fol.light > 0.01) {
-      var L = fol.light, fc = [FOLDER[0], 0.75, FOLDER[2] + 0.1];
-      halo(fc, 2.4, [0.30 * L, 0.125 * L, 0.05 * L], right, up);
-      halo([fc[0], 1.1, fc[2]], 0.9, [0.26 * L, 0.12 * L, 0.05 * L], right, up);
-      var hw0 = 0.75, hw1 = 2.1, hh = 5.2, rx = right[0], rz = right[2], rl = Math.sqrt(rx * rx + rz * rz); rx /= rl; rz /= rl;
-      glowQuad([fc[0] - rx * hw0, 0.6, fc[2] - rz * hw0], [fc[0] + rx * hw0, 0.6, fc[2] + rz * hw0],
-        [fc[0] + rx * hw1, 0.6 + hh, fc[2] + rz * hw1], [fc[0] - rx * hw1, 0.6 + hh, fc[2] - rz * hw1],
-        2, [0.13 * L, 0.058 * L, 0.024 * L], [[-1, 0], [1, 0], [1, 1], [-1, 1]]);
-    }
+    buildAgents(dynB, T, cam);
+    buildMotes(T, cam);
+    // the machine's slot glows once the core is in; the screen casts a cool light
+    var live = FM.ss(27.9, 28.4, T), L = 0.35 + 0.65 * live;
+    var fc = [MACH[0], 0.85, MACH[2]];
+    halo(fc, 1.6, [0.20 * L, 0.085 * L, 0.035 * L], right, up);
+    var on = FM.ss(28.0, 28.35, T), sy = screenY(T);
+    if (on > 0) halo([SCR.x, sy, SCR.z + 0.3], 2.6, [0.035 * on, 0.03 * on, 0.09 * on], right, up);
     gl.bindBuffer(gl.ARRAY_BUFFER, bufDyn); gl.bufferSubData(gl.ARRAY_BUFFER, 0, dynB.a.subarray(0, dynB.n * STRIDE));
     gl.bindBuffer(gl.ARRAY_BUFFER, bufGlow); gl.bufferSubData(gl.ARRAY_BUFFER, 0, glowA.subarray(0, glowN * GSTR));
 
     gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
-    // shadow pass
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbSh); gl.viewport(0, 0, SHADOW, SHADOW);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 2);
@@ -715,11 +639,10 @@
     gl.bindVertexArray(vaoDyn); gl.drawArrays(gl.TRIANGLES, 0, dynCasters);
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
-    // scene pass (supersampled, linear HDR)
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbScene); gl.viewport(0, 0, FW, FH);
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.disable(gl.DEPTH_TEST);
-    var th = Math.tan(cs.fov / 2), asp = W / H;
+    var th = Math.tan(cs.fov / 2) / fitK, asp = W / H;
     gl.useProgram(pSky.p);
     gl.uniform3fv(pSky.u.uF, fwd); gl.uniform3f(pSky.u.uR, right[0] * th * asp, right[1] * th * asp, right[2] * th * asp);
     gl.uniform3f(pSky.u.uU, up[0] * th, up[1] * th, up[2] * th);
@@ -727,58 +650,28 @@
     gl.enable(gl.DEPTH_TEST);
     var u = pScene.u; gl.useProgram(pScene.p);
     gl.uniformMatrix4fv(u.uVP, false, VP); gl.uniformMatrix4fv(u.uLVP, false, LVP);
-    gl.uniform3fv(u.uCam, cs.eye); gl.uniform3fv(u.uKeyDir, KEY_DIR); gl.uniform3f(u.uKeyCol, 2.35, 1.92, 1.50);
+    gl.uniform3fv(u.uCam, cs.eye); gl.uniform3fv(u.uKeyDir, KEY_DIR); gl.uniform3f(u.uKeyCol, 1.92, 1.57, 1.24);
     gl.uniform3fv(u.uRimDir, RIM_DIR); gl.uniform3f(u.uRimCol, 0.42, 0.52, 1.25);
-    gl.uniform3f(u.uPtPos, FOLDER[0], 0.95, FOLDER[2] + 0.12);
-    var pl = fol.light * (0.94 + 0.06 * Math.sin(t * 31));
-    gl.uniform3f(u.uPtCol, 4.6 * pl, 2.1 * pl, 0.85 * pl);
+    gl.uniform3f(u.uPtPos, MACH[0], 1.0, MACH[2] + 0.2);
+    gl.uniform3f(u.uPtCol, 3.2 * L, 1.45 * L, 0.6 * L);
     gl.uniform1f(u.uShTex, 7.0 / SHADOW);
     var hs = clamp(1 - hero.y / 0.9, 0, 1);
-    gl.uniform4fv(u.uOccA, [hero.x, hero.z, 0.56, 0.30, FOLDER[0], FOLDER[2], 0.86 * fol.scale, 0.21 * fol.scale]);
-    gl.uniform4fv(u.uOccB, [Math.cos(hero.yaw), Math.sin(hero.yaw), 0.80 * hs, 0.34 + hero.y * 0.5,
-      Math.cos(-0.12), Math.sin(-0.12), 0.85 * clamp(1 - fol.drop / 0.4, 0, 1), 0.30]);
+    gl.uniform4fv(u.uOccA, [hero.x, hero.z, 0.56, 0.30, MACH[0], MACH[2], 0.95, 0.62]);
+    gl.uniform4fv(u.uOccB, [Math.cos(hero.yaw), Math.sin(hero.yaw), 0.80 * hs, 0.34 + hero.y * 0.5, 1, 0, 0.85, 0.30]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texSh); gl.uniform1i(u.uSh, 0);
     gl.bindVertexArray(vaoStatic); gl.drawArrays(gl.TRIANGLES, 0, staticB.n);
     gl.bindVertexArray(vaoDyn); gl.drawArrays(gl.TRIANGLES, 0, dynB.n);
-    // additive glows
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.depthMask(false);
     gl.useProgram(pGlow.p); gl.uniformMatrix4fv(pGlow.u.uVP, false, VP);
     gl.bindVertexArray(vaoGlow); gl.drawArrays(gl.TRIANGLES, 0, glowN);
     gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
 
-    // resolve: box downsample, tone, vignette, dither
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
     gl.useProgram(pPost.p); gl.bindTexture(gl.TEXTURE_2D, texScene); gl.uniform1i(pPost.u.uT, 0);
     gl.uniform1i(pPost.u.uSS, SS); gl.uniform2f(pPost.u.uRes, W, H);
     gl.bindVertexArray(vaoQuad); gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-    // HUD counter
-    var n = agentCount(t);
-    if (t > EMIT_T0) {
-      hudN = 0;
-      var al = ss(EMIT_T0, EMIT_T0 + 0.2, t), px = 4;
-      var x = hudText('AGENTS ', 64, 58, px, [0.52, 0.48, 0.90], al * 0.9);
-      hudText(('0000' + n).slice(-4), x, 58, px, [0.95, 0.65, 0.52], al);
-      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      gl.useProgram(pHud.p); gl.uniform2f(pHud.u.uRes, W, H);
-      gl.bindBuffer(gl.ARRAY_BUFFER, bufHud); gl.bufferSubData(gl.ARRAY_BUFFER, 0, hudA.subarray(0, hudN * 6));
-      gl.bindVertexArray(vaoHud); gl.drawArrays(gl.TRIANGLES, 0, hudN);
-      gl.disable(gl.BLEND);
-    }
     gl.bindVertexArray(null);
+    gl.finish();
   }
-
-  var ready = false;
-  try { renderAt(FREEZE !== null ? FREEZE : 0); ready = true; } catch (e) { console.error(e); throw e; }
-  window.__piece = { renderAt: function (t) { renderAt(t); gl.finish(); }, duration: DURATION, isReady: function () { return ready; }, agentCount: agentCount };
-
-  if (!EXPORT && FREEZE === null) {
-    var t0 = null;
-    var frame = function (now) {
-      if (t0 === null) t0 = now;
-      renderAt(((now - t0) / 1000) % DURATION);
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-  }
-})();
+  return { renderAt: renderAt, isReady: function () { return true; } };
+});
