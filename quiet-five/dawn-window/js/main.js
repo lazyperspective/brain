@@ -27,26 +27,40 @@
     // the glass of water is painted over the finished background (it refracts the painted window)
     let glassInfo = null;
     if (DW.glassStatic) glassInfo = DW.glassStatic(S, P, pnt.Hh);
+    // a breath of halation: the bright window bleeds very slightly into the darks around it
+    {
+      const ds2 = DW.downsample(P, Wpx, Hpx, 3, 4);
+      const hi = ds2.data;
+      for (let i = 0; i < hi.length; i++) hi[i] = Math.max(0, hi[i] - 0.12);
+      const bl = DW.boxBlur(hi, ds2.w, ds2.h, 3, Math.max(2, Math.round(ds2.w * 0.012)), 3);
+      const o = [0, 0, 0];
+      for (let j = 0; j < Hpx; j++) for (let i = 0; i < Wpx; i++) {
+        DW.bilinear(bl, ds2.w, ds2.h, 3, i / 4, j / 4, o);
+        const q = (j * Wpx + i) * 3;
+        P[q] += o[0] * 0.10; P[q + 1] += o[1] * 0.09; P[q + 2] += o[2] * 0.10;
+      }
+    }
     const t3 = performance.now();
     // surface: canvas weave shows where paint is thin; impasto where it is thick
     const weave = DW.canvasWeave(Wpx, Hpx);
     const Htot = new Float32Array(N);
     const Hc = new Float32Array(N);
     const sc = Wpx / 2160;
+    const wv = DW.smooth(0.3, 0.9, sc); // the weave fades out when the canvas is painted too small to hold it
     for (let i = 0; i < N; i++) {
       const h = pnt.Hh[i];
       const thin = 1 - DW.smooth(0.05, 0.55, h);
-      Hc[i] = weave[i] * 0.2;
-      Htot[i] = weave[i] * (0.06 + 0.22 * thin) + h * 2.0;
+      Hc[i] = weave[i] * 0.2 * wv;
+      Htot[i] = weave[i] * wv * (0.03 + 0.25 * thin * thin) + h * 2.2;
     }
-    const shadeBg = DW.reliefShade(Htot, Wpx, Hpx, 0.9 / sc);
-    const shadeCanvas = DW.reliefShade(Hc, Wpx, Hpx, 0.9 / sc);
+    const shadeBg = DW.reliefShade(Htot, Wpx, Hpx, 0.9 * sc);
+    const shadeCanvas = DW.reliefShade(Hc, Wpx, Hpx, 0.9 * sc);
     // amplitude of the relief: stronger in the darks (the weave reads through thin dark paint)
     const amp = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       const l = 0.3 * P[i * 3] + 0.6 * P[i * 3 + 1] + 0.1 * P[i * 3 + 2];
       const lp = Math.sqrt(l);
-      amp[i] = 0.45 + 1.1 * (1 - DW.smooth(0.06, 0.45, lp));
+      amp[i] = 0.45 + 1.1 * (1 - DW.smooth(0.06, 0.45, lp)) + 0.55 * DW.smooth(0.35, 0.8, pnt.Hh[i]);
     }
     const t4 = performance.now();
     // wide-blurred background: the light that reaches the back of the curtain

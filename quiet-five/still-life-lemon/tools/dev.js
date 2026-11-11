@@ -53,7 +53,7 @@ if (mode === 'raw') {
     for (let i = 0; i < W * H; i++) { const id = st.id[i]; r2[i * 4] = (id * 53) % 255; r2[i * 4 + 1] = (id * 97) % 255; r2[i * 4 + 2] = (id * 151) % 255; r2[i * 4 + 3] = 255; }
     writePng(r2, W, H, out.replace('.png', '-ids.png'));
   }
-} else {
+} else if (mode === 'final') {
   const piece = Q.makePiece({ W, H });
   piece.initSync((m) => console.log(m, Date.now() - t0));
   console.log('init', Date.now() - t0);
@@ -61,3 +61,16 @@ if (mode === 'raw') {
   writePng(rgba, piece.outW, piece.outH, out);
 }
 console.log('done', Date.now() - t0, 'ms');
+// strip mode: node tools/dev.js strip <W> <out.png> <x,y,w,h> <t1,t2,...>
+if (mode === 'strip') {
+  const piece = Q.makePiece({ W, H });
+  piece.initSync();
+  const [cx, cy, cw, ch] = process.argv[5].split(',').map(Number);
+  const ts = process.argv[6].split(',').map(Number);
+  const strip = new Uint8ClampedArray(cw * ts.length * ch * 4);
+  ts.forEach((tt, k) => {
+    const rgba = piece.renderRGBA(tt);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) for (let c = 0; c < 4; c++) strip[(y * cw * ts.length + k * cw + x) * 4 + c] = rgba[((y + cy) * W + x + cx) * 4 + c];
+  });
+  writePng(strip, cw * ts.length, ch, process.argv[4]);
+}

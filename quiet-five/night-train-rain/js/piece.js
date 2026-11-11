@@ -32,8 +32,8 @@ const DOM = 0.9, DOM0 = -0.05;          // wrap domain for moving layers
 const SHIFT = [0, 1, 2];
 const HORIZON = 0.535;
 const SODIUM = [1.0, 0.36, 0.055];
-const WARM = [1.0, 0.50, 0.17];
-const CREAM = [1.0, 0.64, 0.32];
+const WARM = [1.0, 0.46, 0.14];
+const CREAM = [1.0, 0.57, 0.25];
 const EMBER = [1.0, 0.34, 0.07];
 const CYAN = [0.0, 0.78, 1.0];
 
@@ -158,6 +158,16 @@ function simulate() {
       const b = { id: slots.length, x, y, r, sweeps: [] };
       gridAdd(b); slots.push(b); placed++;
     }
+  }
+  // water gathers along the seal at the bottom and the left of the glass
+  for (let tries = 0, placed = 0; placed < 140 && tries < 6000; tries++) {
+    const along = R();
+    let x, y;
+    if (along < 0.75) { x = 0.17 + R() * 0.66; y = 0.958 - 0.004 - Math.pow(R(), 2) * 0.03; }
+    else { x = 0.072 + 0.003 + Math.pow(R(), 2) * 0.025; y = 0.05 + R() * 0.8; }
+    const r = 0.0012 * Math.pow(0.0075 / 0.0012, Math.pow(R(), 1.3));
+    if (!free(x, y, r)) continue;
+    const b = { id: slots.length, x, y, r, sweeps: [] }; gridAdd(b); slots.push(b); placed++;
   }
   for (const [k, a] of grid) grid.set(k, a.filter(b => !b.phantom));
 
@@ -594,7 +604,7 @@ void main(){
   vec3 bg = C*T + scat*(1.0 - T)*1.05 + veil*m;
   // micro droplets in the mist: darker lens bodies with tiny back-lit glints
   float mc = mb.g*m, mg = mb.b*m;
-  bg = mix(bg, bg*0.55 + scat*0.25, mc*0.55) + scat*mg*2.4 + veil*mg*7.0;
+  bg = mix(bg, bg*0.6 + scat*0.25, mc*0.5) + scat*mg*2.4 + veil*mg*16.0 + veil*mc*1.5;
   // water drops
   vec4 w0 = texture(uW0, vUV); vec4 w1 = texture(uW1, vUV);
   float a = w0.a;
@@ -604,7 +614,7 @@ void main(){
     float rim = w0.z/a, hl = w1.x/a, ur = w1.y/a;
     vec3 wc = refr*0.96*(1.0 - 0.88*rim) + vec3(0.0016,0.0021,0.0036)*rim*(1.0+2.0*rim) + hl*vec3(0.86,0.92,1.0);
     // the thinnest outer edge picks up a little of the glow behind it
-    wc += scat*0.25*smoothstep(0.9, 1.0, ur);
+    wc += scat*0.10*smoothstep(0.94, 1.0, ur);
     bg = mix(bg, wc, a);
   }
   // the carriage window frame (inside, in front of everything)
@@ -625,8 +635,14 @@ void main(){
     } else {
       float s2 = sd - gw;
       float shade = mix(1.25, 0.55, smoothstep(0.0, 1.0, p.y));
-      fc = vec3(0.0034, 0.0036, 0.0048) * shade;
-      fc *= 0.86 + 0.20*fbm(p*vec2(420.0, 420.0), 81) + 0.06*vn(p*vec2(8.0, 40.0), 82);
+      fc = vec3(0.0026, 0.0028, 0.0038) * shade;
+      // painted steel: orange-peel grain, a few greasy smudges, a soft sheen from the ceiling light
+      float peel = fbm(p*vec2(700.0), 81);
+      float smudge = smoothstep(0.45, 0.8, fbm(p*vec2(9.0, 14.0) + vec2(2.0, 5.0), 83));
+      fc *= 0.80 + 0.32*peel + 0.18*smudge + 0.08*vn(p*vec2(6.0, 30.0), 82);
+      fc *= 0.94 + 0.12*vn(gl_FragCoord.xy*0.5, 84);
+      float sheen = exp(-pow((s2 - 0.022)/0.018, 2.0)) * (0.6 + 0.4*smudge);
+      fc += vec3(0.0016, 0.0018, 0.0024) * sheen * shade;
       float bev = exp(-pow((s2 - 0.0035)/0.0016, 2.0));
       fc += vec3(0.010,0.0105,0.013)*bev*shade + pick*0.05*bev;
       fc += pick*0.03*exp(-s2/0.02);
@@ -913,7 +929,7 @@ function boxPass(t, sharp, reg, pxu) {
   const p = P.box; gl.useProgram(p); setReg(p, reg);
   gl.uniform1f(p.u.uBx, bx); gl.uniform1f(p.u.uBv, BOX.V); gl.uniform1f(p.u.uShut, 1 / 120);
   gl.uniform1f(p.u.uBlur, sharp ? 1.0 * pxu : 9.0 * PX); gl.uniform1f(p.u.uWBlur, sharp ? 1.0 * pxu : 1.3 * PX);
-  gl.uniform1f(p.u.uWinI, sharp ? 2.2 : 1.35);
+  gl.uniform1f(p.u.uWinI, sharp ? 2.2 : 1.55);
   gl.uniform4f(p.u.uBox, BOX.W, BOX.TOP, BOX.BOT, 0); gl.uniform4f(p.u.uWinR, BOX.WX, BOX.WY, BOX.WW, BOX.WH);
   bindT(p, 'uWin', winTex, 0);
   gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);

@@ -55,7 +55,7 @@ function ffpng(buf, w, h, file) {
     const loops = Math.max(1, parseInt(a1 || '1', 10));
     const N = 300;
     const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '1080x1350', '-r', '30', '-i', '-',
-      '-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
+      '-vf', 'scale=out_color_matrix=bt709:out_range=tv:flags=bicubic+accurate_rnd+full_chroma_int,format=yuv420p',
       '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-crf', '14', '-tune', 'grain',
       '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
       '-r', '30', '-an', '-movflags', '+faststart', '-frames:v', String(N * loops), out], { stdio: ['pipe', 'inherit', 'inherit'] });

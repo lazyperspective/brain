@@ -282,7 +282,7 @@
     };
     const so = 1 + ls.bob;
     draws.push({ kind: 5, rib: mk([0, 0]), st: { ink: 0.34, blur: 9.0, seed: 61 }, p0: [S, 1.08, 0.62 * S, 0.30], off: [11 * so, 15 * so], mask: [0, 0, 1, 0] });
-    draws.push({ kind: 4, rib: mk([0, 0]), st: { ink: 0.95, wet: 0.6, rim: 0.75, dryMax: 0.22, halo: 0.22, seed: 62 }, p0: [S, 1.08, 0.62 * S, 0.30], p1: [2.3, 0, 0, 0], mask: [0, 0, 0, 1] });
+    draws.push({ kind: 4, rib: mk([0, 0]), st: { ink: 0.95, wet: 0.6, rim: 0.75, dryMax: 0.22, halo: 0.22, seed: 62 }, p0: [S, 1.08, 0.62 * S, 0.30], p1: [1.9, 0, 0, 0], mask: [0, 0, 0, 1] });
   }
   function rings(t) {
     const out = [];
@@ -469,7 +469,7 @@
       R *= 1.0 - 0.14 * pow(abs(a) / amax, 4.0);
       float dOut = r - R;
       float dSide = (abs(a) - amax * (1.0 - 0.05 * smoothstep(0.0, 0.3 * S, r) + 0.035 * sin(r * 0.11 + sign(a) * 1.7) + 0.02 * sin(r * 0.31 + sign(a)))) * r;
-      float dB = length(max(vec2(dOut, dSide) + 2.5, 0.0)) + min(max(dOut, dSide) + 2.5, 0.0) - 2.5;
+      float dB = length(max(vec2(dOut, dSide) + 6.0, 0.0)) + min(max(dOut, dSide) + 6.0, 0.0) - 6.0;
       // stem
       float Ls = uP0.z, cc = uP0.w;
       float tt = clamp(-lp.y / Ls, 0.0, 1.0);
@@ -485,7 +485,7 @@
         vec2 lq = lp + 300.0;
         float fib = fibers(lq, sd);
         float en = fbm(lq * 0.25, sd + 5u);
-        float dE = dB - uWet * (2.0 * fib + 1.3 * (en - 0.5));
+        float dE = dB - uWet * (0.8 * fib + 1.5 * (en - 0.5));
         float cov = 1.0 - smoothstep(-uAA, uAA, dE);
         float an = (a + 3.2) ;
         float v1 = vnoise(vec2(an * 60.0, r * 0.035), sd + 9u);
@@ -497,11 +497,11 @@
         float dry = uDryMax * smoothstep(0.55, 1.02, r / R);
         float dm = smoothstep(dry - 0.07, dry + 0.07, vv);
         float split = 1.0 - 0.6 * exp(-pow(a * r / 1.1, 2.0)) * smoothstep(0.22 * S, 0.45 * S, r);
-        float tone = (0.82 + 0.34 * vv) * lobe * split * (1.0 + 0.45 * smoothstep(0.45 * S, 0.0, r));
+        float tone = (0.80 + 0.36 * vv) * lobe * split * (0.62 + 0.55 * smoothstep(0.15 * S, 0.9 * R, r));
         float Db = uInk * tone * (1.0 + rim) * cov * dm * bloom(lq, sd, 0.4);
         float halo = uHalo * uInk * (1.0 - cov) * exp(-max(dE, 0.0) / 2.2) * (0.3 + 1.2 * fib);
         float covs = 1.0 - smoothstep(-uAA, uAA, ds - uWet * 0.9 * (fib - 0.2));
-        float Ds = uP1.x * covs * (1.0 + 0.6 * exp(-tt / 0.08)) * (0.85 + 0.3 * vnoise(vec2(lp.x * 0.8, lp.y * 0.06), sd + 2u));
+        float Ds = uP1.x * covs * (1.0 + 0.2 * exp(-tt / 0.1)) * (1.0 - 0.45 * smoothstep(-0.02 * S, 0.08 * S, lp.y)) * (0.85 + 0.3 * vnoise(vec2(lp.x * 0.8, lp.y * 0.06), sd + 2u));
         D = Db + halo + Ds;
       }
     }

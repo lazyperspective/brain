@@ -13,14 +13,14 @@
 
   // ------------------------------------------------------------------ scene description (cm)
   const S = (Q.SCENE = {
-    E: [0, 20.5, 84], T: [-0.5, 7.6, -9], fovY: (23.8 * PI) / 180,
-    L: { P: [-72, 64, 20], R: 2.2, I: 16500, col: [1.0, 0.79, 0.55], dA: [-0.9, -1.2, 0.4], dB: [1.0, 1.3, -0.5] },
+    E: [0, 20.5, 84], T: [-0.2, 6.9, -9], fovY: (21.6 * PI) / 180,
+    L: { P: [-70, 86, 18], R: 2.2, I: 21000, col: [1.0, 0.79, 0.55], dA: [-0.9, -1.2, 0.4], dB: [1.0, 1.3, -0.5] },
     tab: { zBack: -64, slabT: 4.0, nose: 1.0, inset: 14 },
     wallZ: -64,
-    plate: { x: 2.6, z: -4.3, R: 10.5 },
-    lemon: { C: [2.3, 3.15, -5.0], ax: [-0.82, 0.16, 0.55], A: 4.25, R: 2.9, uc: 3.0 },
-    knife: { O: [-9.6, 0.72, -0.6], dir: [0.16, -0.99] },
-    glass: { x: -10.8, z: -19.5, gs: 1.18 },
+    plate: { x: 1.9, z: -4.3, R: 10.5 },
+    lemon: { C: [1.6, 3.15, -5.0], ax: [-0.82, 0.16, 0.55], A: 4.25, R: 2.9, uc: 3.0 },
+    knife: { O: [-9.0, 0.72, -0.4], dir: [0.17, -0.985] },
+    glass: { x: -9.3, z: -21.0, gs: 1.18 },
     amb: [0.020, 0.018, 0.015],
   });
   const ID = (Q.ID = { NONE: 0, WALL: 1, TOP: 2, NOSE: 3, FRONT: 4, APRON: 5, PLATE: 6, LEMON: 7, BLADE: 8, BOLSTER: 9, HANDLE: 10, GLASS: 11, PEEL: 12 });
@@ -612,7 +612,7 @@
     const dx = (x - 3) / 36, dy = (y - 18) / 26;
     const g = exp(-(dx * dx + dy * dy) * 1.25);
     const n = 0.85 + 0.3 * NW.fbm2(x * 0.03, y * 0.03, 3);
-    return (0.03 + 0.55 * g) * n;
+    return (0.035 + 0.9 * g) * n;
   }
   Q.wallMask = wallMask;
 
@@ -621,8 +621,8 @@
     m.wrap = 0; m.gloss = 0; m.spec = 0; m.sss[0] = m.sss[1] = m.sss[2] = 0; m.kind = id; m.f0[0] = m.f0[1] = m.f0[2] = 0.04; m.rough = 0.5; m.glossRough = 0.3;
     switch (id) {
       case ID.WALL: {
-        const n1 = NW.fbm2(x * 0.06, y * 0.06, 4), n2 = NW.fbm2(x * 0.5 + 40, y * 0.5, 3);
-        const k = 1 + 0.22 * n1 + 0.06 * n2;
+        const n1 = NW.fbm2(x * 0.06, y * 0.06, 4), n2 = NW.fbm2(x * 0.5 + 40, y * 0.5, 3), n3 = NW.fbm2(x * 0.16 + 9, y * 0.2, 3);
+        const k = 1 + 0.3 * n1 + 0.08 * n2 + 0.16 * n3;
         m.alb[0] = 0.070 * k; m.alb[1] = 0.062 * k * (1 + 0.04 * n2); m.alb[2] = 0.044 * k;
         m.spec = 0; m.rough = 0.9; m.tang[0] = 1; m.tang[1] = 0; m.tang[2] = 0;
         break;
@@ -636,7 +636,7 @@
         const pores = NZ.n2(x * 1.4, gy * 14);
         const broad = NZ.fbm2(x * 0.03, gy * 0.05, 3);
         let k = 0.82 + 0.16 * ring * ring + 0.06 * pores + 0.25 * broad;
-        const dk = id === ID.APRON ? 0.7 : id === ID.FRONT ? 0.62 : 1.0;
+        const dk = id === ID.APRON ? 0.7 : id === ID.FRONT ? 0.42 : 1.0;
         m.alb[0] = 0.040 * k * dk; m.alb[1] = 0.027 * k * dk; m.alb[2] = 0.017 * k * dk;
         m.rough = 0.28; m.f0[0] = m.f0[1] = m.f0[2] = 0.05; m.spec = 0.8; m.gloss = id === ID.TOP ? 0.8 : 0.0; m.glossRough = 0.16;
         m.tang[0] = 1; m.tang[1] = 0; m.tang[2] = 0;
@@ -644,12 +644,12 @@
       }
       case ID.PLATE: {
         const px = x - S.plate.x, pz = z - S.plate.z; const r = sqrt(px * px + pz * pz) || 1;
-        const tarn = Q.clamp(0.45 + 0.75 * NZ.fbm2(px * 0.16 + 7, pz * 0.16, 4) + 0.25 * NZ.n2(px * 0.9, pz * 0.9), 0, 1);
+        const tarn = Q.clamp(0.45 + 1.1 * NZ.fbm2(px * 0.16 + 7, pz * 0.16, 4) + 0.3 * NZ.n2(px * 0.9, pz * 0.9), 0, 1);
         const lathe = 0.5 + 0.5 * Math.sin(r * 23 + NZ.n2(r * 0.7, 3.3) * 4);
         const k = 1 - 0.45 * tarn - 0.06 * lathe;
-        m.f0[0] = 0.62 * k; m.f0[1] = 0.61 * k; m.f0[2] = 0.50 * k;
-        m.alb[0] = 0.025 + 0.04 * tarn; m.alb[1] = 0.026 + 0.042 * tarn; m.alb[2] = 0.020 + 0.032 * tarn;
-        m.rough = 0.11 + 0.17 * tarn; m.glossRough = m.rough; m.gloss = 1; m.spec = 1;
+        m.f0[0] = 0.66 * k; m.f0[1] = 0.66 * k; m.f0[2] = 0.56 * k;
+        m.alb[0] = 0.03 + 0.05 * tarn; m.alb[1] = 0.032 + 0.05 * tarn; m.alb[2] = 0.026 + 0.04 * tarn;
+        m.rough = 0.17 + 0.2 * tarn; m.glossRough = m.rough; m.gloss = 1; m.spec = 1;
         // tangent: around the plate
         m.tang[0] = -pz / r; m.tang[1] = 0; m.tang[2] = px / r;
         // bump: lathe rings and small dents
@@ -839,6 +839,11 @@
       acc[c] += tr_(c, tr, tg, tb) * m.alb[c] * amb[c] * skyw * ao;
       acc[3 + c] += tr_(c, tr, tg, tb) * m.alb[c] * bounce * ao * 0.030 * [1.0, 0.62, 0.34][c];
     }
+    // the recessed apron gets a little light back from the room and floor
+    if (id === ID.APRON) {
+      const k = 0.05 * (0.45 + 0.55 * Q.smooth(22, -18, x)) * (0.7 + 0.3 * Q.smooth(-30, -6, y));
+      for (let c = 0; c < 3; c++) acc[3 + c] += tr_(c, tr, tg, tb) * m.alb[c] * k * lc[c];
+    }
     // speculars from the flame (two flame positions)
     if (m.spec > 0 && sh > 0.001) {
       const nv = max(nx * vx + ny * vy + nz * vz, 0.001);
@@ -916,9 +921,9 @@
   }
 
   // light emerging through wine: in-scattering + absorption bookkeeping
-  const WINE_SIG = [0.006, 0.015, 0.12];
-  const WINE_SCAT = [0.0045, 0.0036, 0.0016];
-  const GLASS_T = [0.945, 0.965, 0.90];
+  const WINE_SIG = [0.003, 0.016, 0.10];
+  const WINE_SCAT = [0.0025, 0.0019, 0.0008];
+  const GLASS_T = [0.95, 0.962, 0.915];
 
   // full trace — adds radiance into acc
   function traceInto(ox, oy, oz, dx, dy, dz, tr, tg, tb, depth, acc, flags, allowGlass) {
@@ -976,7 +981,16 @@
         // speculars of the flame on the glass/wine interface
         const vx = -dx, vy = -dy, vz = -dz;
         const lc = S.L.col;
-        const rough = part === 2 ? 0.04 : part === 4 ? 0.06 : 0.025;
+        // the thickened lip of the bowl catches the flame as a thin bright line
+        const lip = part === 1 ? Q.smooth(GL.yRim - 0.22, GL.yRim - 0.02, py) : 0;
+        if (lip > 0) {
+          let lx = LP[0] - px, ly = LP[1] - py, lz = LP[2] - pz; const dl = sqrt(lx * lx + ly * ly + lz * lz); lx /= dl; ly /= dl; lz /= dl;
+          const fc = max(0, GH.nx * lx + GH.nz * lz + 0.15);
+          const facing = fc * fc * (0.6 + 0.4 * NZ.n2(px * 3.1, pz * 3.1));
+          const E = (S.L.I / (dl * dl)) * spot(px, py, pz) * lip * facing;
+          for (let c = 0; c < 3; c++) acc[3 + c] += (c === 0 ? tr : c === 1 ? tg : tb) * E * 0.16 * S.L.col[c];
+        }
+        const rough = part === 2 ? 0.04 : part === 4 ? 0.06 : lip > 0.5 ? 0.12 : 0.025;
         let shf = spot(px, py, pz);
         if (part === 2) shf *= 0.85; // light reaching meniscus partially through glass
         for (let k = 0; k < 2; k++) {

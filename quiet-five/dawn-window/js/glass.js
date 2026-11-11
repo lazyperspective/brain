@@ -377,7 +377,7 @@
         const vis = 1 - gl.mask[p];
         // light on the painted board: modulate by the paint itself so the strokes show through
         const base = 0.3 * st.P[p * 3] + 0.6 * st.P[p * 3 + 1] + 0.1 * st.P[p * 3 + 2];
-        const k = I * vis * (0.11 + 0.65 * base);
+        const k = I * vis * (0.14 + 0.85 * base);
         F[p * 3] += k * tint[0]; F[p * 3 + 1] += k * tint[1]; F[p * 3 + 2] += k * tint[2];
         st.shade[p] = st.shade[p] * (1 - 0.5 * Math.min(1, I * 0.3)) + 0.0;
       }
@@ -426,7 +426,7 @@
     const { Wpx } = st, F = st.frame, px = 1 / Wpx;
     const S0 = LY.star;
     const b = DW.starLevel(t);
-    const rc = 0.00125, hal = 0.0045;
+    const rc = 0.00145, hal = 0.0048;
     const i0 = Math.floor((S0.x - 0.012) * Wpx), i1 = Math.ceil((S0.x + 0.012) * Wpx);
     const j0 = Math.floor((S0.y - 0.012) * Wpx), j1 = Math.ceil((S0.y + 0.012) * Wpx);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {

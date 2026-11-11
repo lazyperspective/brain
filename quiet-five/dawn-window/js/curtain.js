@@ -279,6 +279,7 @@
             layers += 1.5 * clamp((0.028 - sm) * lenPx + 0.5, 0, 1);
             const uPx = um * (xr - xl) * Wpx * 2.1;
             if (uPx < sideHemPx) layers += 2;
+            else if ((1 - um) * (xr - xl) * Wpx * 2.1 < sideHemPx) layers += 2;
             const dep = arc * cov * layers;
             if (dep > 0) {
               const ti = clamp((um * (NU - 1)) | 0, 0, NU - 1), tj = clamp((sm * (NS - 1)) | 0, 0, NS - 1);
@@ -391,7 +392,7 @@
     }
     // relief of the paint on the cloth (raking light), blended over the background relief by coverage
     const sh = st.shade, shC = st.shadeCanvas;
-    const gain = 0.9 / (Wpx / 2160);
+    const gain = 0.9 * (Wpx / 2160); // per-pixel height steps grow as pixels get bigger
     const lx = -0.5, ly = -0.62, lz = 0.6, Ln = Math.hypot(lx, ly, lz);
     for (let j = Math.max(1, j0); j <= Math.min(Hpx - 2, j1); j++) {
       for (let i = Math.max(1, bx0); i <= Math.min(Wpx - 2, bx1); i++) {

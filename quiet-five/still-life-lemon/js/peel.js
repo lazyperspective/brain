@@ -58,40 +58,40 @@
       const v = dot(d, target); if (v > best) { best = v; phi0 = phi; }
     }
     const A0 = lemonPoint(Q.peelBoundary(phi0) - 0.12, phi0);
-    const A1 = lemonPoint(Q.peelBoundary(phi0 - 0.22) - 0.12, phi0 - 0.22);
-    const pts = [], nh = [];
+        const pts = [], nh = [];
     const pl = S.plate;
     const onPlate = (x, z, lift) => { const r = Math.hypot(x - pl.x, z - pl.z); return [x, Q.plateTop(r) + lift, z]; };
-    pts.push(A1.p); nh.push(A1.n);
+    // leaves the lemon low on its front, half-twists under it and lies rind-up across the plate
     pts.push(A0.p); nh.push(A0.n);
-    pts.push(onPlate(A0.p[0] - 0.15, A0.p[2] + 1.1, 0.16)); nh.push(norm([A0.n[0] * 0.4, -1, A0.n[2] * 0.4]));
-    pts.push(onPlate(A0.p[0] - 0.35, A0.p[2] + 2.3, 0.13)); nh.push([0.05, -1, 0.1]);
-    pts.push(onPlate(A0.p[0] - 0.75, A0.p[2] + 4.3, 0.12)); nh.push([0.1, -1, 0.0]);
-    pts.push(onPlate(A0.p[0] - 1.05, A0.p[2] + 6.2, 0.12)); nh.push([0.05, -1, -0.1]);
+    pts.push(onPlate(A0.p[0] - 0.1, A0.p[2] + 1.15, 0.2)); nh.push(norm([A0.n[0], 0.2, A0.n[2]]));
+    pts.push(onPlate(A0.p[0] - 0.35, A0.p[2] + 2.4, 0.14)); nh.push([0.15, 1, 0.25]);
+    pts.push(onPlate(A0.p[0] - 0.8, A0.p[2] + 4.3, 0.13)); nh.push([0.05, 1, 0.1]);
+    pts.push(onPlate(A0.p[0] - 1.1, A0.p[2] + 6.2, 0.13)); nh.push([-0.05, 1, 0.05]);
     // rim
-    const rimAng = Math.atan2(A0.p[2] + 7.6 - pl.z, A0.p[0] - 1.25 - pl.x);
+    const rimAng = Math.atan2(A0.p[2] + 7.6 - pl.z, A0.p[0] - 1.3 - pl.x);
     const rimP = (r, lift) => { const x = pl.x + Math.cos(rimAng) * r, z = pl.z + Math.sin(rimAng) * r; return [x, Q.plateTop(r) + lift, z]; };
-    pts.push(rimP(9.1, 0.12)); nh.push([0, -1, -0.15]);
-    pts.push(rimP(10.15, 0.14)); nh.push([0, -1, -0.4]);
-    const edge = rimP(10.62, 0.02);
-    pts.push([edge[0], edge[1] - 0.05, edge[2]]); nh.push(norm([0, -0.6, -1]));
-    const H = [edge[0] - 0.05, edge[1] - 0.75, edge[2] + 0.22];
-    pts.push(H); nh.push([0.15, -0.1, -1]);
+    pts.push(rimP(9.1, 0.13)); nh.push([0, 1, 0.1]);
+    pts.push(rimP(10.15, 0.2)); nh.push([0, 1, 0.3]);
+    const edge = rimP(10.95, 0.0);
+    pts.push([edge[0], edge[1] + 0.12, edge[2]]); nh.push(norm([0.1, 0.8, 1]));
+    const H = [edge[0] - 0.05, edge[1] - 0.6, edge[2] + 0.45];
+    pts.push(H); nh.push([0.3, 0.05, 1]);
     const iHang = pts.length - 1;
     // corkscrew below the hang point
-    const turns = 1.85, pitch = 2.35;
-    const rho0 = 1.32, rho1 = 0.95;
-    const Ax = H[0] - rho0 * 0.2, Az = H[2] + rho0 * 0.15;
+    const turns = 1.9, pitch = 2.25;
+    const rho0 = 1.2, rho1 = 0.88;
+    const Ax = H[0] - rho0 * 0.15, Az = H[2] - rho0 * 0.9;
     const nh0 = 16;
     for (let k = 1; k <= nh0 * turns; k++) {
       const f = k / (nh0 * turns);
-      const ph = -0.35 + f * turns * 2 * PI;
+      const ph = PI / 2 - 0.25 + f * turns * 2 * PI;
       const rho = rho0 + (rho1 - rho0) * f;
       const y = H[1] - 0.55 - pitch * turns * (f + 0.08 * f * f) - 0.1;
       // the helix axis drifts a little (gravity, uneven peel)
       const ax = Ax + 0.25 * Math.sin(f * 2.1), az = Az + 0.18 * f;
       pts.push([ax + rho * Math.cos(ph), y, az + rho * Math.sin(ph)]);
-      nh.push([Math.cos(ph), 0.12, Math.sin(ph)]);
+      const bank = 0.35 * Math.sin(f * 7.0 + 0.5); // the strip tilts, showing its pith now and then
+      nh.push([Math.cos(ph), bank, Math.sin(ph)]);
     }
     // sample the spline uniformly in arc length
     const dense = 4000;
@@ -123,7 +123,7 @@
     P.C = C; P.T = T; P.N = Nn; P.B = B; P.S = Sarr; P.total = total; P.sHang = sHang; P.H = H;
     P.iHang = Sarr.findIndex((s) => s >= sHang);
     // width profile: emerges from the lemon, tapers to a rounded tip
-    P.halfW = Sarr.map((s) => (WIDTH / 2) * Q.smooth(0.0, 0.9, s) * (0.25 + 0.75 * Q.smooth(total, total - 2.2, s)) * (0.92 + 0.08 * Math.sin(s * 1.3)));
+    P.halfW = Sarr.map((s) => (WIDTH / 2) * (0.55 + 0.45 * Q.smooth(0.0, 1.2, s)) * (0.2 + 0.8 * Q.smooth(total, total - 2.4, s)) * (0.9 + 0.1 * Math.sin(s * 1.1) + 0.04 * Math.sin(s * 3.7)));
     P.built = true;
   }
 
@@ -300,7 +300,7 @@
   }
 
   // ---------------------------------------------------------------- per-frame draw
-  const AMB = [0.020, 0.018, 0.015];
+  const AMB = [0.034, 0.030, 0.022];
   Q.peelDraw = function (out, t, fl, pt, W, H) {
     if (!P.built || !VX) return;
     posePeel(t);
@@ -345,7 +345,7 @@
         const bi = (py * ss + sy - oy) * bw + (px * ss + sx - ox);
         const tr = RB.tri[bi];
         if (tr < 0) continue;
-        if (RB.z[bi] > dstat - 0.04) continue; // behind the static scene (lemon, plate)
+        if (!G.NODEPTH && RB.z[bi] > dstat + 0.3) continue; // behind the static scene (lemon, plate)
         shadeSample(tr, RB.b1[bi], RB.b2[bi], fl, L, lc, I);
         r += SHD[0]; g += SHD[1]; b += SHD[2]; cov++;
       }
@@ -406,14 +406,14 @@
     if (nx * vx + ny * vy + nz * vz < 0) { nx = -nx; ny = -ny; nz = -nz; rind = false; }
     // painted texture in the ribbon's own parameter space (moves with it)
     const seg = floor(s / 1.05 + 0.4 * NPL.n2(s * 0.3, 1.7));
-    const bri = 0.9 + 0.1 * NPL.n2(w * 6.5 + seg * 13.7, s * 0.6) + 0.05 * NPL.n2(w * 17 + seg * 3.1, s * 2.0);
+    const bri = 0.9 + 0.13 * NPL.n2(w * 6.5 + seg * 13.7, s * 0.6) + 0.07 * NPL.n2(w * 17 + seg * 3.1, s * 2.0);
     const edge = Q.smooth(0.72, 0.97, abs(w)); // the cut edge shows white pith
     let ar, ag, ab, wrap, rough, spk;
     const mott = NPL.n2(s * 1.4, w * 1.1 + 5);
     if (rind) {
-      ar = 0.80 + 0.06 * mott; ag = 0.52 + 0.05 * mott; ab = 0.035; wrap = 0.35; rough = 0.30; spk = 1.0;
+      ar = 0.82 + 0.06 * mott; ag = 0.54 + 0.05 * mott; ab = 0.04; wrap = 0.4; rough = 0.24; spk = 1.6;
     } else {
-      ar = 0.80; ag = 0.735; ab = 0.50; wrap = 0.6; rough = 0.5; spk = 0.25;
+      ar = 0.84; ag = 0.77; ab = 0.53; wrap = 0.65; rough = 0.45; spk = 0.3;
     }
     ar += (0.80 - ar) * edge; ag += (0.735 - ag) * edge; ab += (0.50 - ab) * edge;
     ar *= bri; ag *= bri; ab *= bri;
@@ -451,7 +451,7 @@
   }
 
   // ---------------------------------------------------------------- the bubble
-  const BUB = { rmax: 0.095, tRel: 5.6 };
+  const BUB = { rmax: 0.13, tRel: 5.6 };
   (function () {
     const GL = S.glass;
     const ex = S.E[0] - GL.x, ez = S.E[2] - GL.z; const el = Math.hypot(ex, ez);
@@ -507,17 +507,17 @@
           const rr = d / max(R, 0.5);
           // inside: darker, refracted wine; rim: silvery total internal reflection
           const rim = Q.smooth(0.55, 0.95, rr);
-          const dark = 0.78;
-          const rimL = 0.010 * Ein * rim * fl.id;
+          const dark = 0.7;
+          const rimL = 0.035 * Ein * rim * fl.id;
           out[q] = out[q] * (1 - cov) + cov * (out[q] * dark + rimL * 1.0);
           out[q + 1] = out[q + 1] * (1 - cov) + cov * (out[q + 1] * dark + rimL * 0.92);
           out[q + 2] = out[q + 2] * (1 - cov) + cov * (out[q + 2] * dark + rimL * 0.70);
         }
         // specular dot (lead white touch), and a faint warm transmitted spot opposite
-        const hd = Math.hypot(x - hx, y - hy) / max(R * 0.3, 0.7);
-        const hs = Math.exp(-hd * hd * 1.6) * bb.a * fl.is * 0.06 * Ein;
+        const hd = Math.hypot(x - hx, y - hy) / max(R * 0.28, 0.9);
+        const hs = Math.exp(-hd * hd * 1.6) * bb.a * fl.is * 0.5 * Ein;
         const td = Math.hypot(x - (cx + R * 0.35), y - (cy + R * 0.4)) / max(R * 0.35, 0.7);
-        const ts = Math.exp(-td * td * 2) * bb.a * fl.id * 0.012 * Ein;
+        const ts = Math.exp(-td * td * 2) * bb.a * fl.id * 0.05 * Ein;
         out[q] += hs + ts; out[q + 1] += hs * 0.97 + ts * 0.8; out[q + 2] += hs * 0.9 + ts * 0.4;
       }
       void sc;

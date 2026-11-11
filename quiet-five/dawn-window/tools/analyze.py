@@ -56,7 +56,7 @@ for y in range(0, H - B, 16):
             best = (m, x, y)
 _, bx, by = best
 dec = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', os.path.join(out, 'loop-4x5.mp4'), '-frames:v', '1',
-                      '-vf', 'scale=in_color_matrix=bt709:in_range=tv,format=rgb24', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
+                      '-vf', 'scale=in_color_matrix=bt709:in_range=tv:flags=bicubic+accurate_rnd+full_chroma_int,format=rgb24', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
                      capture_output=True).stdout
 d0 = np.frombuffer(dec, dtype=np.uint8).reshape(H, W, 3).astype(np.float32)
 before = f0[by:by + B, bx:bx + B].reshape(-1, 3).mean(0)

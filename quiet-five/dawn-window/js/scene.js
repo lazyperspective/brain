@@ -221,13 +221,23 @@
           const f = clamp(glow * top * (0.85 + 0.3 * n), 0, 1.2);
           c[0] = mix(wallB[0], wallA[0], f); c[1] = mix(wallB[1], wallA[1], f); c[2] = mix(wallB[2], wallA[2], f);
           // strokes curve around the window light (isophotes), loosened by noise
-          ang = Math.atan2(dy, dx) + Math.PI / 2 + (fbm(x * 4, y * 4, 12, 3) - 0.5) * 1.6;
-          if (y > LY.noseY1) {
-            reg = R.LOWWALL;
-            // shadow under the sill nose, then the dark lower wall
-            const sh = 1 - 0.55 * Math.exp(-(y - LY.noseY1) / 0.03);
-            const fall = 1 - 0.35 * smooth(LY.noseY1, 1.25, y);
+          // loose, mostly upright strokes on the wall; near the opening they turn to follow its edge
+          {
+            const ddx = Math.max(LY.wx0 - x, x - LY.wx1, 0), ddy = Math.max(LY.wy0 - y, y - LY.noseY1, 0);
+            const near = Math.exp(-Math.hypot(ddx, ddy) / 0.05);
+            const edgeAng = ddx > ddy ? Math.PI / 2 : 0;
+            ang = mix(Math.PI / 2 + 0.25, edgeAng, near) + (fbm(x * 4, y * 4, 12, 3) - 0.5) * 1.3;
+          }
+          {
+            // shadow under the sill nose (only under the board), then the dark lower wall; the floor in front
+            // of the window is lit, and a little of that comes back up onto the lower wall
+            const under = smooth(LY.earX0 - 0.03, LY.earX0 + 0.01, x) * (1 - smooth(LY.earX1 - 0.01, LY.earX1 + 0.03, x));
+            const sh = y > LY.noseY1 ? 1 - 0.55 * Math.exp(-(y - LY.noseY1) / 0.03) * under : 1;
+            const fall = 1 - 0.18 * smooth(LY.noseY1 - 0.06, LY.noseY1 + 0.04, y) + 0.5 * smooth(LY.noseY1 + 0.05, 1.25, y) * Math.exp(-((x - 0.52) * (x - 0.52)) / 0.12);
             c[0] *= sh * fall; c[1] *= sh * fall; c[2] *= sh * fall;
+          }
+          if (y > LY.noseY1 + 0.004 && x > LY.earX0 - 0.01 && x < LY.earX1 + 0.01) {
+            reg = R.LOWWALL;
             ang = 0.25 + (fbm(x * 3, y * 6, 13, 3) - 0.5) * 1.2;
           }
         }
@@ -404,7 +414,7 @@
             }
             if (a > 0) {
               const v = (y - LY.rodY) / (LY.rodR * 2);
-              const lit = Math.max(0, v) * 0.6; // underside picks up the window light
+              const lit = Math.min(0.6, Math.max(0, v) * 0.6) * (y > LY.rodY + LY.rodR * 1.2 ? 0.25 : 1); // underside picks up the window light
               const base = DW.srgb(18, 18, 25), hl = DW.srgb(70, 66, 80);
               for (let k = 0; k < 3; k++) c[k] = mix(c[k], mix(base[k], hl[k], lit), a);
               if (a > 0.5) { reg = R.ROD; ang = 0; kp = 0.6; }

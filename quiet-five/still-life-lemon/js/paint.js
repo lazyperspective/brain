@@ -145,7 +145,7 @@
     const tmp = new Float32Array(NCH);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const ox = 3.2 * sc * NP.fbm2(x / W * 11, y / H * 11, 3), oy = 3.2 * sc * NP.fbm2(x / W * 11 + 50, y / H * 11, 3);
+      const ox = 5.0 * sc * NP.fbm2(x / W * 13, y / H * 13, 3), oy = 5.0 * sc * NP.fbm2(x / W * 13 + 50, y / H * 13, 3);
       sample(src, W, H, x + ox, y + oy, tmp);
       warped.set(tmp, i * NCH);
       const xs = min(max(Math.round(x + ox), 0), W - 1), ys = min(max(Math.round(y + oy), 0), H - 1);
@@ -160,12 +160,14 @@
 
     // 2. soften: lose edges in the darks, keep them in the lights
     // first: stray bright pixels in the background (antialiased glints) are clamped so no stroke drags them
-    {
+    for (let iter = 0; iter < 4; iter++) {
       const lw = new Float32Array(lum);
       boxBlur1(lw, W, H, max(2, Math.round(10 * sc)), 2);
       for (let i = 0; i < N; i++) {
-        if ((id[i] === ID.WALL || id[i] === ID.APRON) && lum[i] > 1.3 * lw[i] + 0.0005) {
-          const k = (1.3 * lw[i] + 0.0005) / lum[i];
+        const kk = id[i];
+        const lim = kk === ID.WALL || kk === ID.APRON ? 1.3 : kk === ID.TOP || kk === ID.FRONT || kk === ID.NOSE ? 1.7 : 0;
+        if (lim && lum[i] > lim * lw[i] + 0.0005) {
+          const k = (lim * lw[i] + 0.0005) / lum[i];
           const o = i * NCH; for (let c = 0; c < NCH; c++) warped[o + c] *= k;
           lum[i] *= k;
         }
@@ -173,8 +175,20 @@
     }
     const soft = new Float32Array(warped);
     boxBlur(soft, W, H, max(1, Math.round(2.5 * sc)), 2);
-    const wide = new Float32Array(warped);
+    // background blur that does not pull light in from the objects (masked, normalised)
+    const wide = new Float32Array(N * NCH);
+    const bgMask = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const k = id[i]; const m = k === ID.WALL || k === ID.APRON || k === 0 ? 1 : 0;
+      bgMask[i] = m; if (m) { const o = i * NCH; for (let c = 0; c < NCH; c++) wide[o + c] = warped[o + c]; }
+    }
     boxBlur(wide, W, H, max(2, Math.round(9 * sc)), 2);
+    boxBlur1(bgMask, W, H, max(2, Math.round(9 * sc)), 2);
+    for (let i = 0; i < N; i++) {
+      const o = i * NCH;
+      if (bgMask[i] > 0.02) { const k = 1 / bgMask[i]; for (let c = 0; c < NCH; c++) wide[o + c] *= k; }
+      else for (let c = 0; c < NCH; c++) wide[o + c] = warped[o + c];
+    }
     log('blur');
     const lumWide = new Float32Array(N);
     for (let i = 0; i < N; i++) lumWide[i] = lumOf(wide, i);
@@ -314,14 +328,20 @@
       }
       if (nUsed === 0) { sample(wide, W, H, st0.x, st0.y, tmp); for (let c = 0; c < NCH; c++) col[c] = tmp[c]; nUsed = 1; }
       for (let c = 0; c < NCH; c++) col[c] /= nUsed;
+      // the brush is loaded with the colour where it starts: part start colour, part dragged mix
+      if (R <= 8 * sc || kid === ID.TOP) {
+        sample(base, W, H, st0.x, st0.y, tmp);
+        const ks = kid === ID.GLASS ? 0.3 : 0.5;
+        for (let c = 0; c < NCH; c++) col[c] = col[c] * (1 - ks) + tmp[c] * ks;
+      }
       // subtle broken colour
       const r1 = Q.hash2i(st0.seed, 1, 9) - 0.5, r2 = Q.hash2i(st0.seed, 2, 9) - 0.5, r3 = Q.hash2i(st0.seed, 3, 9) - 0.5;
-      const vj = kid === ID.WALL || kid === ID.APRON ? 0.16 : kid === ID.TOP ? 0.09 : 0.06;
+      const vj = kid === ID.WALL || kid === ID.APRON ? 0.16 : kid === ID.TOP ? 0.1 : 0.085;
       const cm = [1 + vj * (r1 + 0.4 * r2), 1 + vj * (r1 * 0.9 + 0.3 * r3), 1 + vj * (r1 * 0.8 - 0.5 * r2)];
       for (let c = 0; c < NCH; c++) col[c] *= cm[c % 3];
       const lumC = lumOf(col, 0);
-      const streak = kid === ID.WALL || kid === ID.APRON ? 0.24 : kid === ID.TOP ? 0.18 : kid === ID.GLASS ? 0.07 : 0.17;
-      const thick = (0.12 + 0.9 * Math.pow(Q.clamp(lumC / 0.9, 0, 1), 0.6)) * (0.6 + 0.4 * Q.clamp(R / (12 * sc), 0, 1.5));
+      const streak = kid === ID.WALL || kid === ID.APRON ? 0.26 : kid === ID.TOP ? 0.24 : kid === ID.GLASS ? 0.08 : 0.26;
+      const thick = (0.05 + 0.55 * Math.pow(Q.clamp(lumC / 0.9, 0, 1), 1.5)) * (0.6 + 0.4 * Q.clamp(R / (12 * sc), 0, 1.5));
       // rasterize: for each segment, pixels within R
       let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
       for (let k = 0; k < n; k++) { minx = min(minx, pathX[k]); maxx = max(maxx, pathX[k]); miny = min(miny, pathY[k]); maxy = max(maxy, pathY[k]); }
@@ -406,6 +426,7 @@
       const dd = dabs[s];
       const i0 = (dd.y | 0) * W + (dd.x | 0);
       const kid = id[i0];
+      if (kid === ID.WALL || kid === ID.APRON || kid === 0) continue;
       const d = dirAt(dd.x, dd.y, i0, 0);
       const len = dd.R * (1.5 + 2 * Q.hash2i(dd.seed, 4, 4));
       sample(canvas, W, H, dd.x, dd.y, tmp);
@@ -441,14 +462,14 @@
       const cr = cracks(X, Y);
       crackM[i] = cr[0];
       weaveA[i] = weave(X, Y) * thin;
-      height[i] = weave(X, Y) * 0.9 * thin + paintH[i] * 0.85 + cr[1] * 0.35 - cr[0] * 0.5;
+      height[i] = weave(X, Y) * 0.7 * thin + paintH[i] * 0.85 + cr[1] * 0.35 - cr[0] * 0.5;
     }
     log('surface');
     // relief lighting from upper left (the room light on the canvas)
     const relief = new Float32Array(N), gloss = new Float32Array(N);
     const lx = -0.42, ly = -0.55, lz = 0.72; // light dir in screen space (y down)
     const hx = lx, hy = ly, hz = lz + 1; const hl = sqrt(hx * hx + hy * hy + hz * hz);
-    const kH = 2.0 / sc; // height units -> slope
+    const kH = 1.0 / sc; // height units -> slope
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const xl = x > 0 ? i - 1 : i, xr = x < W - 1 ? i + 1 : i, yu = y > 0 ? i - W : i, yd = y < H - 1 ? i + W : i;

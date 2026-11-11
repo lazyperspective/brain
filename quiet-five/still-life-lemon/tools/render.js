@@ -44,7 +44,7 @@ function lumaRegion(buf, w, x0, y0, rw, rh, ch = 4) {
     const ts = Date.now();
     const still = await grab(STILL_T, 1);
     savePng(still, 2160, 2700, path.join(OUT, 'still-4k.png'));
-    ff(['-i', path.join(OUT, 'still-4k.png'), '-q:v', '2', '-qmin', '2', '-qmax', '3', path.join(OUT, 'still-x.jpg')]);
+    execFileSync('python3', ['-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], "JPEG", quality=94, subsampling=0, optimize=True)', path.join(OUT, 'still-4k.png'), path.join(OUT, 'still-x.jpg')]);
     console.log('still', ((Date.now() - ts) / 1000).toFixed(1), 's');
     // crops (100%): focal point, darkest area, busiest texture, a corner
     const crops = { 'focal-lemon': [1050, 1500, 900, 900], 'darkest-apron': [1250, 2150, 900, 550], 'busiest-glass-prunts': [200, 1300, 800, 900], 'corner-top-left': [0, 0, 800, 800] };
@@ -54,7 +54,7 @@ function lumaRegion(buf, w, x0, y0, rw, rh, ch = 4) {
   if (mode === 'all' || mode === 'video') {
     const tv = Date.now();
     const enc = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', '1080x1350', '-r', String(FPS), '-i', '-',
-      '-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
+      '-vf', 'scale=out_color_matrix=bt709:out_range=tv:flags=accurate_rnd+full_chroma_int+bitexact,format=yuv420p',
       '-c:v', 'libx264', '-preset', 'slow', '-crf', '14', '-profile:v', 'high', '-tune', 'film', '-x264-params', 'aq-mode=3',
       '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
       '-movflags', '+faststart', '-an', path.join(OUT, 'loop-4x5.mp4')], { stdio: ['pipe', 'inherit', 'inherit'] });
@@ -90,7 +90,7 @@ function lumaRegion(buf, w, x0, y0, rw, rh, ch = 4) {
     // darkest region before/after encode (64x64 window search on frame 0)
     let best = { v: 1e9, x: 0, y: 0 };
     for (let y = 0; y + 64 <= 1350; y += 16) for (let x = 0; x + 64 <= 1080; x += 16) { const v = lumaRegion(frame0, 1080, x, y, 64, 64); if (v < best.v) best = { v, x, y }; }
-    const dec = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', path.join(OUT, 'loop-4x5.mp4'), '-frames:v', '1', '-vf', 'scale=in_color_matrix=bt709:in_range=tv,format=rgb24', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 30 });
+    const dec = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', path.join(OUT, 'loop-4x5.mp4'), '-frames:v', '1', '-vf', 'scale=in_color_matrix=bt709:in_range=tv:flags=accurate_rnd+full_chroma_int,format=rgb24', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 30 });
     const after = lumaRegion(dec, 1080, best.x, best.y, 64, 64, 3);
     // a mid-dark region too (the wall above the objects)
     const wallB = lumaRegion(frame0, 1080, 700, 150, 128, 128), wallA = lumaRegion(dec, 1080, 700, 150, 128, 128, 3);

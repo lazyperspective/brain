@@ -60,7 +60,7 @@
         // varnish sheen on raised paint + dirt-free crack edges catching light in the darks
         // thin darks: the canvas weave and crack edges catch a little light through the varnish
         const wv = pt.weave[i];
-        const g = pt.gloss[i] * 0.05 + cr * 0.0009 * (1 - light) + (1 - light) * (wv * wv * 0.0014 + 0.0003);
+        const g = pt.gloss[i] * 0.05 + cr * 0.0012 * (1 - light) + (1 - light) * (wv * wv * 0.0032 + 0.0009);
         add[i * 3] = g * 1.0; add[i * 3 + 1] = g * 0.93; add[i * 3 + 2] = g * 0.80;
       }
       // canvas-only multiplier (cracks) for things painted per frame on the same canvas
@@ -121,7 +121,7 @@
       if (Q.bubbleDraw) Q.bubbleDraw(out, t, f, pt, W, H);
     }
 
-    const VAR = [0.985, 0.955, 0.875]; // aged varnish
+    const VAR = [0.99, 0.95, 0.85]; // aged varnish
     // returns RGBA at internal res (outScale 1) or downsampled by 2 (outScale 0.5)
     P.renderRGBA = function (t, outScale) {
       outScale = outScale || 1;

@@ -9,8 +9,8 @@
 
   // region -> brush scale and character
   const REG = [];
-  REG[R.WALL] = { s: 1.35, asp: 3.2, curl: 0.18, op: 0.80, jit: 0.07, hue: 0.05 };
-  REG[R.LOWWALL] = { s: 1.5, asp: 3.0, curl: 0.2, op: 0.80, jit: 0.08, hue: 0.06 };
+  REG[R.WALL] = { s: 1.35, asp: 3.2, curl: 0.18, op: 0.80, jit: 0.13, hue: 0.11 };
+  REG[R.LOWWALL] = { s: 1.5, asp: 3.0, curl: 0.2, op: 0.80, jit: 0.14, hue: 0.12 };
   REG[R.ROD] = { s: 0.22, asp: 6, curl: 0.0, op: 0.7, jit: 0.02 };
   REG[R.REVL] = { s: 0.75, asp: 3.5, curl: 0.08, op: 0.85, jit: 0.045, hue: 0.04, iso: 1 };
   REG[R.REVR] = { s: 0.75, asp: 3.5, curl: 0.08, op: 0.85, jit: 0.045, hue: 0.04, iso: 1 };
