@@ -13,7 +13,7 @@
   const sqrt = Math.sqrt, min = Math.min, max = Math.max, abs = Math.abs, floor = Math.floor, PI = Math.PI;
   const NPL = Q.makeNoise(5150);
   const WIDTH = 1.45;
-  const NS = 520, NW = 7;
+  const NS = 560, NW = 11;
   const P = (Q.PEEL = { built: false });
 
   function v3(x, y, z) { return [x, y, z]; }
@@ -416,9 +416,9 @@
     let ar, ag, ab, wrap, rough, spk;
     const mott = NPL.n2(s * 1.4, w * 1.1 + 5);
     if (rind) {
-      ar = 0.82 + 0.06 * mott; ag = 0.54 + 0.05 * mott; ab = 0.04; wrap = 0.4; rough = 0.24; spk = 1.6;
+      ar = 0.76 + 0.06 * mott; ag = 0.50 + 0.05 * mott; ab = 0.045; wrap = 0.18; rough = 0.22; spk = 1.8;
     } else {
-      ar = 0.84; ag = 0.77; ab = 0.53; wrap = 0.65; rough = 0.45; spk = 0.3;
+      ar = 0.80; ag = 0.72; ab = 0.47; wrap = 0.45; rough = 0.45; spk = 0.3;
     }
     ar += (0.80 - ar) * edge; ag += (0.735 - ag) * edge; ab += (0.50 - ab) * edge;
     ar *= bri; ag *= bri; ab *= bri;
@@ -439,8 +439,9 @@
     r += (ar * diff + tr[0] * trans * ar) * Ein * lc[0] * fid;
     g += (ag * diff + tr[1] * trans * ag) * Ein * lc[1] * fid;
     b += (ab * diff + tr[2] * trans * ab) * Ein * lc[2] * fid;
-    // ambient & dim bounce
-    const skyw = 0.55 + 0.45 * ny;
+    // ambient & dim bounce (the inside of the curl sees less of the room)
+    const inner = rind ? 1 : 0.55;
+    const skyw = (0.55 + 0.45 * ny) * inner;
     r += ar * AMB[0] * skyw; g += ag * AMB[1] * skyw; b += ab * AMB[2] * skyw;
     // speculars (two flame positions, mixed like the static layers)
     if (sh > 0.01) {

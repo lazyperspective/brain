@@ -177,14 +177,28 @@
     const soft = new Float32Array(N * NCH);
     {
       const rS = max(1, Math.round(2.5 * sc));
-      const present = new Set(); for (let i = 0; i < N; i++) present.add(id[i]);
-      const num = new Float32Array(N * NCH), den = new Float32Array(N);
-      for (const k of present) {
-        num.fill(0); den.fill(0);
-        let y0 = H, y1 = -1;
-        for (let i = 0; i < N; i++) if (id[i] === k) { den[i] = 1; const o = i * NCH; for (let c = 0; c < NCH; c++) num[o + c] = warped[o + c]; const yy = (i / W) | 0; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy; }
-        boxBlur(num, W, H, rS, 2); boxBlur1(den, W, H, rS, 2);
-        for (let i = 0; i < N; i++) if (id[i] === k) { const o = i * NCH; const d = 1 / max(den[i], 1e-3); for (let c = 0; c < NCH; c++) soft[o + c] = num[o + c] * d; }
+      const bb = new Map();
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const k = id[y * W + x]; let b = bb.get(k);
+        if (!b) { b = [x, y, x, y]; bb.set(k, b); }
+        if (x < b[0]) b[0] = x; if (x > b[2]) b[2] = x; if (y < b[1]) b[1] = y; if (y > b[3]) b[3] = y;
+      }
+      const pad = rS * 3;
+      for (const [k, b] of bb) {
+        const x0 = max(0, b[0] - pad), y0 = max(0, b[1] - pad), x1 = min(W - 1, b[2] + pad), y1 = min(H - 1, b[3] + pad);
+        const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+        const num = new Float32Array(bw * bh * NCH), den = new Float32Array(bw * bh);
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const i = y * W + x; if (id[i] !== k) continue;
+          const j = (y - y0) * bw + (x - x0); den[j] = 1;
+          for (let c = 0; c < NCH; c++) num[j * NCH + c] = warped[i * NCH + c];
+        }
+        boxBlur(num, bw, bh, rS, 2); boxBlur1(den, bw, bh, rS, 2);
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const i = y * W + x; if (id[i] !== k) continue;
+          const j = (y - y0) * bw + (x - x0); const d = 1 / max(den[j], 1e-3);
+          for (let c = 0; c < NCH; c++) soft[i * NCH + c] = num[j * NCH + c] * d;
+        }
       }
     }
     // background blur that does not pull light in from the objects (masked, normalised)
