@@ -34,12 +34,13 @@
   S.clear = { a: -88, r: 10 };
   S.village = { a: -128, r: 10.4 };
   S.mine = { a: -160, r: 10.2 };
-  S.cliffTop = { a: 173, r: 10.4 };
-  S.clones = { a: 165, r: 8.6 };
-  S.notes = { a: 148, r: 11.0 };
-  S.scroll = { a: 128, r: 10.6 };
+  S.cliffTop = { a: 165, r: 10.0 };
+  S.clones = { a: 153, r: 8.8 };
+  S.crowd = { a: 165, r: 13.2 };
+  S.notes = { a: 141, r: 10.5 };
+  S.scroll = { a: 120, r: 10.8 };
   S.peg = { a: 177, r: 13.9 };
-  var FLATS = [S.think, S.key, S.clear, S.village, S.mine, S.cliffTop, S.clones, S.notes, S.scroll, S.peg];
+  var FLATS = [S.think, S.key, S.clear, S.village, S.mine, S.cliffTop, S.clones, S.notes, S.scroll, S.peg, S.crowd];
   FLATS.forEach(function (s) { s.p = [s.r * Math.sin(s.a * D2R), 0, -s.r * Math.cos(s.a * D2R)]; });
 
   function flatMask(x, z) {
@@ -66,7 +67,7 @@
     var s = S.key, c = [s.r * Math.sin(s.a * D2R), 0.55, -s.r * Math.cos(s.a * D2R)];
     var t = [Math.cos(s.a * D2R), 0, Math.sin(s.a * D2R)];          // tangent (clockwise direction)
     var rd = [Math.sin(s.a * D2R), 0, -Math.cos(s.a * D2R)];        // radial outward
-    return { c: c, t: t, rd: rd, half: 3.0, top: 0.55 + 0.95, gap: 2.2, legend: 'K' };
+    return { c: c, t: t, rd: rd, half: 3.0, depth: 1.85, top: 0.55 + 0.95, gap: 2.2, legend: 'K' };
   })();
   // world position on the key from (u along the crossing direction = counter-clockwise, v radial) relative to the key centre
   W.keyP = function (u, v, y) { var K = W.KEY; return [K.c[0] - K.t[0] * u + K.rd[0] * v, y == null ? K.top : y, K.c[2] - K.t[2] * u + K.rd[2] * v]; };
@@ -96,9 +97,9 @@
       var col;
       if (n > 0.6) col = n2 < 0.5 ? C.sage : C.sage2;
       else if (n > 0.53) col = n2 < 0.5 ? C.teal : C.teal2;
-      else col = n2 < 0.33 ? C.sand : n2 < 0.66 ? C.cream : C.sand2;
-      if (hi && n < 0.4) col = FG.col.mix(col, C.lilacHi, 0.35);
-      var tint = 0.93 + 0.12 * n2;
+      else col = FG.col.mix(C.sand, C.cream, 0.25 + 0.5 * n2);
+      if (hi && n < 0.4) col = FG.col.mix(col, C.lilacHi, 0.3);
+      var tint = 0.96 + 0.06 * n2;
       return FG.col.mul(col, tint);
     }
     // top surface, sector by sector (each sector evaluates its own segment height so steps stay crisp)
@@ -191,7 +192,7 @@
     // the keycap row on MEDIUM: J, K (cracked), L, set into the ground along the radius
     var K = W.KEY;
     function keycap(v0, legend, cracked) {
-      var c = V.mad(K.c, K.rd, v0), hw = K.half, ht = K.top - K.c[1];
+      var c = V.mad(K.c, K.rd, v0), hw = K.half, hd = K.depth, ht = K.top - K.c[1];
       var X = [-K.t[0], 0, -K.t[2]], Z = K.rd;
       B.push(M.basis(X, [0, 1, 0], Z, [c[0], K.c[1] - 0.25, c[2]]));
       var top = ht + 0.25;
@@ -200,28 +201,33 @@
         var b = 0.25, tp = 0.22;
         var xs0 = u0 <= -hw + 1e-6 ? -hw : u0, xs1 = u1 >= hw - 1e-6 ? hw : u1;
         var xt0 = u0 <= -hw + 1e-6 ? -hw + tp : u0, xt1 = u1 >= hw - 1e-6 ? hw - tp : u1;
-        var bot = [[xs0, 0, -hw], [xs1, 0, -hw], [xs1, 0, hw], [xs0, 0, hw]];
-        var tpq = [[xt0, top, -hw + tp], [xt1, top, -hw + tp], [xt1, top, hw - tp], [xt0, top, hw - tp]];
+        var bot = [[xs0, 0, -hd], [xs1, 0, -hd], [xs1, 0, hd], [xs0, 0, hd]];
+        var tpq = [[xt0, top, -hd + tp], [xt1, top, -hd + tp], [xt1, top, hd - tp], [xt0, top, hd - tp]];
         var ctr = [(xs0 + xs1) / 2, top / 2, 0];
         B.poly(tpq, C.key, 0, 0, ctr);
         for (var q = 0; q < 4; q++) { var r = (q + 1) % 4; B.poly([bot[q], bot[r], tpq[r], tpq[q]], (q === 0 || q === 2) ? C.keyS : C.keyS, 0, 0, ctr); }
         // dished top rim
-        B.poly([[xt0 + 0.05, top + 0.004, -hw + tp + 0.05], [xt1 - 0.05, top + 0.004, -hw + tp + 0.05], [xt1 - 0.05, top + 0.004, -hw + tp + 0.2], [xt0 + 0.05, top + 0.004, -hw + tp + 0.2]], FG.col.mix(C.key, C.keyS, 0.3), 0, 0, [0, -5, 0]);
+        B.poly([[xt0 + 0.05, top + 0.004, -hd + tp + 0.05], [xt1 - 0.05, top + 0.004, -hd + tp + 0.05], [xt1 - 0.05, top + 0.004, -hd + tp + 0.2], [xt0 + 0.05, top + 0.004, -hd + tp + 0.2]], FG.col.mix(C.key, C.keyS, 0.3), 0, 0, [0, -5, 0]);
       }
       if (!cracked) capHalf(-hw, hw);
       else {
-        var g = K.gap / 2;
+        // a deep pit in the middle of the key: halves either side, a strip of key at each end
+        var g = K.gap / 2, tp = 0.22, zi = hd - 0.62, fl = top * 0.45;
         capHalf(-hw, -g); capHalf(g, hw);
-        // the abyss: dark bands deepening toward the bottom of the crack (unlit), then the jagged walls
-        B.poly([[-g, top * 0.62, -hw], [g, top * 0.62, -hw], [g, top * 0.62, hw], [-g, top * 0.62, hw]], [0.05, 0.03, 0.09], 0, 2, [0, top, 0]);
-        B.poly([[-g, top * 0.62, hw], [g, top * 0.62, hw], [g, top + 0.25, hw], [-g, top + 0.25, hw]], [0.10, 0.07, 0.16], 0, 2, [0, top, 0]);
-        B.poly([[-g, top * 0.62, -hw], [g, top * 0.62, -hw], [g, top + 0.25, -hw], [-g, top + 0.25, -hw]], [0.10, 0.07, 0.16], 0, 2, [0, top, 0]);
-        // jagged canyon walls inside the crack and a dark floor far below
-        for (var zz = -hw + 0.25; zz < hw - 0.25; zz += 0.5) {
+        for (var se = -1; se <= 1; se += 2) {
+          var zo = se * hd, zt = se * (hd - tp), zin = se * zi, cc = [0, top / 2, se * (hd - 0.3)];
+          B.poly([[-g, top, zt], [g, top, zt], [g, top, zin], [-g, top, zin]], C.key, 0, 0, [0, -5, se * (hd - 0.3)]);
+          B.poly([[-g, 0, zo], [g, 0, zo], [g, top, zt], [-g, top, zt]], C.keyS, 0, 0, [0, top / 2, 0]);
+          B.poly([[-g, top, zin], [g, top, zin], [g, fl, zin], [-g, fl, zin]], C.keyD, 0, 0, [0, top / 2, se * hd * 2]);
+        }
+        // the abyss: a dark floor and walls darkening with depth
+        B.poly([[-g, fl, -zi], [g, fl, -zi], [g, fl, zi], [-g, fl, zi]], [0.035, 0.022, 0.07], 0, 2, [0, top, 0]);
+        for (var zz = -zi; zz < zi - 1e-6; zz += zi / 3) {
+          var z2 = Math.min(zi, zz + zi / 3);
           for (var sd = -1; sd <= 1; sd += 2) {
-            var jx = sd * (g - 0.05 + 0.1 * m.hash(Math.round(zz * 10), sd + 5));
-            B.poly([[sd * g, top, zz], [sd * g, top, zz + 0.5], [jx, top * 0.5, zz + 0.5], [jx, top * 0.5, zz]], C.keyD, 0, 0, [0, top / 2, 0]);
-            B.poly([[jx, top * 0.5, zz], [jx, top * 0.5, zz + 0.5], [sd * g, top * 0.6, zz + 0.5], [sd * g, top * 0.6, zz]], FG.col.mix(C.rockD, C.rockDD, 0.6), 0, 0, [0, top / 2, 0]);
+            var jx = sd * (g - 0.04 - 0.1 * m.hash(Math.round(zz * 10), sd + 5));
+            B.poly([[sd * g, top, zz], [sd * g, top, z2], [jx, top * 0.55, z2], [jx, top * 0.55, zz]], C.keyD, 0, 0, [0, top / 2, 0]);
+            B.poly([[jx, top * 0.55, zz], [jx, top * 0.55, z2], [sd * g, fl, z2], [sd * g, fl, zz]], FG.col.mix(C.rockD, C.rockDD, 0.7), 0, 0, [0, top / 2, 0]);
           }
         }
       }
@@ -315,8 +321,8 @@
   /* ---------------------------------------------------------------- floating labels and sky letters (dynamic) */
   // the dial's labels: giant faceted letters floating just beyond the rim, which slowly turn to face the viewer
   W.LABELS = W.SEG.map(function (s) {
-    var a = (s.a0 + s.a1) / 2, r = 19.2;
-    var p = [r * Math.sin(a * D2R), s.h + 3.6, -r * Math.cos(a * D2R)];
+    var a = (s.a0 + s.a1) / 2, r = 23.5;
+    var p = [r * Math.sin(a * D2R), s.h + 5.2, -r * Math.cos(a * D2R)];
     return { word: s.name, p: p, a: a };
   });
   W.buildLabels = function (B, t, eye) {
@@ -326,9 +332,9 @@
       var bob = Math.sin(t * 0.5 + i * 1.7) * 0.18 * (1 - 0.6 * gather), rock = Math.sin(t * 0.37 + i) * 0.04;
       var near = L.word === 'LOW' || L.word === 'MAX', top = L.word === 'HIGH';
       // at the end they gather into a gauge's scale, arching over the far rim: LOW left .. HIGH on top .. MAX right
-      var ARCH = { LOW: [-37, 2.3], MEDIUM: [-19.5, 4.35], HIGH: [0, 5.25], XHIGH: [19.5, 4.35], MAX: [37, 2.3] }[L.word];
+      var ARCH = { LOW: [-37, 1.75], MEDIUM: [-19.5, 3.7], HIGH: [0, 4.55], XHIGH: [19.5, 3.7], MAX: [37, 1.75] }[L.word];
       var a0 = L.a, a1 = ARCH[0], aa = m.lerp(a0, a1, gather), a = aa * D2R;
-      var r = m.lerp(19.2, 21.0, gather);
+      var r = m.lerp(23.5, 21.0, gather);
       var p = [r * Math.sin(a), m.lerp(L.p[1], ARCH[1], gather), -r * Math.cos(a)];
       var yaw = Math.atan2(e2[0] - p[0], e2[2] - p[2]);
       var pit = Math.atan2(e2[1] - p[1], Math.hypot(e2[0] - p[0], e2[2] - p[2]));
@@ -358,8 +364,8 @@
   (function () {
     var r = m.mulberry(8123);
     for (var i = 0; i < 16; i++) {
-      var a = r() * 360, d = 22 + r() * 30, y = i < 7 ? -9 - r() * 7 : -2 + r() * 12;
-      var puffs = [], np = 4 + Math.floor(r() * 4), sz = 1.6 + r() * 2.2;
+      var a = r() * 360, d = 26 + r() * 30, y = i < 9 ? -8 - r() * 8 : -3 + r() * 8;
+      var puffs = [], np = 4 + Math.floor(r() * 4), sz = 1.1 + r() * 1.5;
       for (var k = 0; k < np; k++) puffs.push([(k - np / 2) * sz * 0.75 + (r() - 0.5) * sz * 0.4, (r() - 0.3) * sz * 0.35, (r() - 0.5) * sz * 0.6, sz * (0.55 + r() * 0.5)]);
       CLOUDS.push({ p: [d * Math.sin(a * D2R), y, -d * Math.cos(a * D2R)], puffs: puffs, sp: 0.12 + r() * 0.15, ph: r() * 6.28, rot: r() * 6.28 });
     }
@@ -371,7 +377,7 @@
       B.push(M.mul(M.trans(p[0], p[1], p[2]), M.rotY(Cl.rot)));
       Cl.puffs.forEach(function (q, k) {
         B.push(M.mul(M.trans(q[0], q[1], q[2]), M.scale(1, 0.72, 1)));
-        B.ico(1, q[3], null, 0.3, 0, 0.12, 700 + i * 10 + k, W.cloudCol);
+        B.ico(1, q[3], null, 0.2, 3, 0.12, 700 + i * 10 + k, W.cloudCol);
         B.pop();
       });
       B.pop();

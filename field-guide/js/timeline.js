@@ -29,7 +29,7 @@
   E.handDown = f(4.5); E.knobClicks = [f(4.83), f(4.93), f(5.03)]; E.deflate = f(5.07); E.hiSay2 = f(5.33); E.beamHop = f(5.4);
   E.cloudZip = f(5.75); E.flyIn = f(6.22); E.flyOut = f(6.6);
   // 3: plank
-  E.planks = [f(6.97), f(7.15), f(7.33), f(7.51), f(7.69), f(7.87)]; E.stopShort = f(8.07); E.turnAsk = f(8.13); E.scratch = f(8.3);
+  E.planks = [f(7.0), f(7.2), f(7.4), f(7.6), f(7.8)]; E.stopShort = f(8.02); E.turnAsk = f(8.13); E.scratch = f(8.3);
   E.toss = f(9.2); E.lastPlank = f(9.5); E.cross = f(9.62); E.hopDown = f(10.2);
   // 4: thumbs
   E.thumbDown = f(10.62); E.thumbStop = f(11.25); E.huh = [f(11.5), f(11.7)]; E.thumbUp = f(11.95); E.banner = f(12.0); E.bannerSet = f(12.38);
@@ -47,7 +47,7 @@
   E.kaching = [f(23.55), f(23.87), f(24.2), f(24.55)];
   E.bubblePops = [f(25.12), f(25.2), f(25.27), f(25.35), f(25.42), f(25.5), f(25.57)];
   // 8: notes
-  E.snow = f(26.45); E.slaps = [f(27.05), f(27.3), f(27.52), f(27.72), f(27.9), f(28.05), f(28.18), f(28.3), f(28.42), f(28.52), f(28.62)];
+  E.snow = f(26.45); E.slaps = [f(27.05), f(27.3), f(27.52), f(27.72), f(27.9), f(28.05), f(28.18), f(28.3), f(28.4), f(28.48), f(28.55), f(28.6), f(28.65), f(28.7), f(28.75), f(28.8), f(28.84), f(28.88), f(28.92)];
   E.paw = f(28.95); E.blinkAsk = f(29.08); E.gust = f(29.75); E.cleanNote = f(30.15); E.relief = f(30.3);
   // 9: report
   E.offer = f(31.05); E.unroll = f(31.6); E.river = f(31.9); E.spin = f(32.55); E.spinEnd = f(33.35); E.collapse = f(33.55); E.card = f(33.9);
@@ -58,7 +58,7 @@
   /* ---------------------------------------------------------------- captions
      obs: top (documentary observation); tip: bottom HANDLER'S TIP card. {thumb} is drawn as an icon. */
   TL.CAPS = [
-    { kind: 'obs', n: 1, t0: f(0.72), t1: f(3.05), text: 'It thinks before every reply.\nEven ‘hi’.' },
+    { kind: 'obs', n: 1, t0: f(0.72), t1: f(3.05), text: 'It thinks before almost every reply.\nEven ‘hi’.' },
     { kind: 'obs', n: 2, t0: f(3.3), t1: f(5.25), text: 'Telling it not to think\ndoesn’t work.' },
     { kind: 'tip', n: 2, t0: f(4.85), t1: f(6.55), text: 'Lower the effort instead.' },
     { kind: 'obs', n: 3, t0: f(7.15), t1: f(9.4), text: 'Sometimes it stops\none plank short.' },
@@ -85,7 +85,7 @@
     { t0: E.hiSay2, t1: f(6.05), text: 'hi!', who: 'hero' },
     { t0: E.pops[0], t1: E.pops[1] - 0.05, text: 'still digging!', who: 'pop' },
     { t0: E.pops[1], t1: E.pops[2] - 0.05, text: 'found a bug!', who: 'pop' },
-    { t0: E.pops[2], t1: f(22.95), text: 'almost there!', who: 'pop' },
+    { t0: E.pops[2], t1: f(22.5), text: 'almost there!', who: 'pop' },
     { t0: E.blinkAsk, t1: f(29.95), text: 'may I blink?', who: 'hero', small: true }
   ];
 
@@ -99,7 +99,7 @@
   q(E.cloudIn, 'inflate', 0.7);
   q(E.hiSay, 'tiny', 0.7);
   E.signHits.forEach(function (t, i) { q(t, 'stake', 1 - i * 0.2, i); });
-  q(E.cloudDouble, 'inflate2', 0.85);
+  q(E.cloudDouble, 'inflate2', 0.7);
   q(E.handDown, 'whooshDown', 0.5);
   E.knobClicks.forEach(function (t, i) { q(t, 'click', 0.75, i); });
   q(E.deflate, 'squeak', 0.9);
@@ -132,10 +132,10 @@
   E.taps.forEach(function (t, i) { q(t, 'tap', 0.85, i); });
   E.pops.forEach(function (t, i) { q(t, 'popup', 0.8, i); });
   q(E.crane, 'riser', 0.6);
-  q(E.burst, 'burst', 0.8);
+  q(E.burst, 'burst', 0.65);
   q(E.plop, 'plop', 0.5);
-  E.cloneWaves.forEach(function (w) { w.forEach(function (t, i) { q(t, 'clone', 0.55, i); }); });
-  E.kaching.forEach(function (t, i) { q(t, 'kaching', 0.8, i); });
+  E.cloneWaves.forEach(function (w) { w.forEach(function (t, i) { q(t, 'clone', 0.42, i); }); });
+  E.kaching.forEach(function (t, i) { q(t, 'kaching', 0.6, i); });
   E.bubblePops.forEach(function (t, i) { q(t, 'bubble', 0.7, i); });
   q(E.snow, 'flutter', 0.4);
   E.slaps.forEach(function (t, i) { q(t, 'slap', 0.65, i); });

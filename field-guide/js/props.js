@@ -112,7 +112,7 @@
       // deflating: puffs sag and wrinkle
       var sag = df * 0.25 * (py < 0 ? 1 : 0.4);
       B.push(M.mul(M.trans(px * s, (py - sag) * s, pz * s), M.mul(M.rotZ(t * 0.3 * (i & 1 ? 1 : -1) + i), M.scale(1 + df * 0.15, 1 - df * 0.35, 1))));
-      B.ico(1, r * s, null, 0.2, 0, 0.1, 900 + i, function (k, n) { var u = n[1] * 0.5 + 0.5; return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.55), C.white, u * 0.8); });
+      B.ico(1, r * s, null, 0.12, 3, 0.1, 900 + i, function (k, n) { var u = n[1] * 0.5 + 0.5; return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.55), C.white, u * 0.8); });
       B.pop();
     }
     // gears in front
@@ -139,7 +139,7 @@
         var pu = o.puffs[j]; if (pu <= 0) continue;
         var w = (j + 1) / 4, pp = V.lerp(o.head, V.mad(o.c, U, -0.75 * s), w);
         B.push(M.trans(pp[0], pp[1], pp[2]));
-        B.ico(1, (0.09 + j * 0.06) * pu * Math.max(0.6, s), null, 0.06, 0, 0.1, 950 + j, function () { return FG.col.mix(C.cream, C.white, 0.5); });
+        B.ico(1, (0.09 + j * 0.06) * pu * Math.max(0.6, s), null, 0.06, 3, 0.1, 950 + j, function () { return FG.col.mix(C.cream, C.white, 0.5); });
         B.pop();
       }
     }
@@ -156,28 +156,25 @@
   };
 
   /* ---------------------------------------------------------------- the mini effort dial set into the ground (giant-hand-sized) */
-  P.knob = function (B, T, p, yaw, ang, light) {
+  P.knob = function (B, T, p, yaw, a, light) {
     var Mb = M.mul(P.basisY(p, yaw), M.scale(0.68, 0.68, 0.68));
     B.push(Mb);
-    // a dial plate (a shallow faceted disc) with an arc of ticks
-    B.cyl(16, 0.95, 0.9, 0, 0.08, C.violetD, 0, C.violet);
+    B.cyl(16, 0.98, 0.94, 0, 0.08, C.violetD, 0, C.violet);
     for (var i = 0; i <= 8; i++) {
-      var a = (-135 + i * 33.75) * Math.PI / 180;
-      B.push(M.mul(M.rotY(-a), M.trans(0, 0.09, -0.78)));
-      B.chamfer([0, 0, 0], [0.035, 0.02, i % 4 === 0 ? 0.1 : 0.06], 0.01, i === 0 ? C.sage : i === 8 ? C.coral : C.cream, 0.15);
+      var ta = (-64 + i * 16) * Math.PI / 180;
+      B.push(M.mul(M.rotY(ta), M.trans(0, 0.09, 0.82)));
+      B.chamfer([0, 0, 0], [0.035, 0.02, i % 4 === 0 ? 0.1 : 0.06], 0.01, i === 0 ? C.coral : i === 8 ? C.sage : C.cream, 0.15);
       B.pop();
     }
-    // the knob
-    B.push(M.rotY(-ang));
-    B.cyl(12, 0.42, 0.38, 0.08, 0.42, C.lilac, 0.02, C.lilacHi);
-    B.chamfer([0, 0.44, -0.2], [0.05, 0.03, 0.2], 0.015, C.cream, 0.3);
+    B.push(M.rotY(a * Math.PI / 180));
+    B.cyl(12, 0.44, 0.4, 0.08, 0.46, C.lilac, 0.02, C.lilacHi);
+    B.chamfer([0, 0.48, 0.2], [0.05, 0.03, 0.22], 0.015, C.cream, 0.35);
     B.pop();
     B.pop();
-    // LOW / HIGH legends lying on the plate, tilted up to read
-    var lowP = M.mul(Mb, M.mul(M.mul(M.rotY(0.95), M.trans(0, 0.12, 0.62)), M.rotX(-1.15)));
-    var highP = M.mul(Mb, M.mul(M.mul(M.rotY(-0.95), M.trans(0, 0.12, 0.62)), M.rotX(-1.15)));
-    T.quadM('low', lowP, [0, 0, 0], 0.2, CREAM_T, light || 1);
-    T.quadM('high', highP, [0, 0, 0], 0.2, CREAM_T, light || 1);
+    var hiP = M.mul(Mb, M.mul(M.mul(M.rotY(-62 * Math.PI / 180), M.trans(0, 0.1, 0.62)), M.rotX(-1.25)));
+    var loP = M.mul(Mb, M.mul(M.mul(M.rotY(62 * Math.PI / 180), M.trans(0, 0.1, 0.62)), M.rotX(-1.25)));
+    T.quadM('high', M.mul(hiP, M.rotZ(-0.5)), [0, 0, 0], 0.22, CREAM_T, light || 1);
+    T.quadM('low', M.mul(loP, M.rotZ(0.5)), [0, 0, 0], 0.22, CREAM_T, light || 1);
   };
 
   /* ---------------------------------------------------------------- the user's giant hand (a lilac glove with a cream cuff) */
@@ -196,7 +193,7 @@
       B.chamfer([0, -0.62, -0.02], [0.4, 0.2, 0.3], 0.08, L2, 0);
       B.chamfer([0, -0.95, -0.02], [0.5, 0.18, 0.38], 0.1, C.cream, 0.02, C.white);
       // a collar of cloud where the wrist would be: the hand comes out of the sky
-      for (var cpf = 0; cpf < 7; cpf++) { var ca = cpf / 7 * m.TAU; B.push(M.trans(Math.cos(ca) * 0.55, -1.2 + Math.sin(cpf * 2.1) * 0.08, Math.sin(ca) * 0.45)); B.ico(1, 0.34 + 0.06 * (cpf % 3), null, 0.3, 0, 0.12, 980 + cpf, function (k, n) { return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.55), C.white, (n[1] * 0.5 + 0.5) * 0.8); }); B.pop(); }
+      for (var cpf = 0; cpf < 7; cpf++) { var ca = cpf / 7 * m.TAU; B.push(M.trans(Math.cos(ca) * 0.55, -1.2 + Math.sin(cpf * 2.1) * 0.08, Math.sin(ca) * 0.45)); B.ico(1, 0.34 + 0.06 * (cpf % 3), null, 0.15, 3, 0.12, 980 + cpf, function (k, n) { return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.55), C.white, (n[1] * 0.5 + 0.5) * 0.8); }); B.pop(); }
     } else if (pose === 'grip') {
       // palm flat above, fingers hanging down round the knob, curling in by k (0 open .. 1 closed)
       B.chamfer([0, 0.28, 0], [0.5, 0.18, 0.5], 0.12, L, 0, LT);
@@ -204,11 +201,11 @@
         var a = (f === 4 ? Math.PI : (-0.55 + f * 0.37)) + Math.PI / 2, rr = 0.42 - 0.08 * (k || 0);
         B.push(M.mul(M.trans(Math.cos(a) * rr, 0.15, Math.sin(a) * rr), M.rotY(-a)));
         B.push(M.rotZ(0.25 * (k || 0)));
-        B.chamfer([0, -0.28, 0], [0.11, 0.3, 0.11], 0.05, f % 2 ? L : L2, 0, LT);
+        B.chamfer([0, -0.3, 0], [0.12, 0.34, 0.12], 0.05, f % 2 ? L : L2, 0, LT);
         B.pop(); B.pop();
       }
       B.chamfer([0, 0.62, 0], [0.42, 0.2, 0.42], 0.1, C.cream, 0.02, C.white);
-      B.cyl(10, 0.34, 0.38, 0.75, 3.5, L2, 0);
+      for (var cq = 0; cq < 6; cq++) { var cb = cq / 6 * m.TAU; B.push(M.trans(Math.cos(cb) * 0.42, 1.25 + Math.sin(cq * 1.7) * 0.08, Math.sin(cb) * 0.42)); B.ico(1, 0.24 + 0.04 * (cq % 3), null, 0.15, 3, 0.12, 990 + cq, function (k, n) { return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.55), C.white, (n[1] * 0.5 + 0.5) * 0.8); }); B.pop(); }
     }
     B.pop();
   };
@@ -238,7 +235,7 @@
     B.cyl(5, 0.022, 0.022, -0.35, 0.05, C.woodD);
     B.chamfer([0, h / 2 + 0.05, 0], [w / 2, h / 2, 0.02], 0.02, C.paper, 0.05, C.white);
     B.pop();
-    T.quadM(id, M.mul(Mb, M.trans(0, h / 2 + 0.05, 0.022)), [0, 0, 0], h * 0.86, INK_T, light || 1);
+    T.quadM(id, M.mul(Mb, M.trans(0, h / 2 + 0.05, 0.022)), [0, 0, 0], h * 0.8, INK_T, light || 1);
   };
 
   /* ---------------------------------------------------------------- the banner from the sky */
@@ -258,7 +255,7 @@
     }
     if (unf > 0.9) B.chamfer([0, -hh, 0.02], [w / 2 + 0.05, 0.05, 0.05], 0.02, C.goldD, 0.05, C.gold);
     B.pop();
-    if (unf > 0.6) T.quadM('banner', M.mul(Mb, M.trans(0, -hh / 2, 0.09)), [0, 0, 0], hh * 0.78, CREAM_T, light || 1.05, m.ss(0.6, 0.95, unf));
+    if (unf > 0.6) T.quadM('banner', M.mul(Mb, M.trans(0, -hh / 2, 0.09)), [0, 0, 0], hh * 0.62, CREAM_T, light || 1.05, m.ss(0.6, 0.95, unf));
   };
 
   /* ---------------------------------------------------------------- houses, flags, paint, the token meter, the crown */
@@ -282,6 +279,7 @@
   };
   P.flag = function (B, T, Mb, id, k, t, light) {
     if (k <= 0.01) return;
+    Mb = M.mul(Mb, M.scale(1.45, 1.45, 1.45));
     B.push(Mb);
     B.push(M.scale(1, k, 1));
     B.cyl(5, 0.02, 0.018, 0, 0.62, C.cream, 0.05);
@@ -330,11 +328,22 @@
     }
     if (sign) {
       // a little lilac placard on a stick rising from the crown
-      B.cyl(4, 0.018, 0.018, 0.1, 0.62, C.cream, 0.05);
-      B.chamfer([0, 0.84, 0], [0.5, 0.22, 0.02], 0.02, C.violet, 0.03, C.lilac);
+      B.cyl(4, 0.018, 0.018, 0.1, 0.68, C.cream, 0.05);
+      B.chamfer([0, 0.95, 0], [0.66, 0.29, 0.02], 0.02, C.violet, 0.03, C.lilac);
     }
     B.pop();
-    if (sign) T.quadM('crown', M.mul(Mb, M.trans(0, 0.84, 0.024)), [0, 0, 0], 0.34, CREAM_T, light || 1.05);
+    if (sign) T.quadM('crown', M.mul(Mb, M.trans(0, 0.95, 0.024)), [0, 0, 0], 0.46, CREAM_T, light || 1.05);
+  };
+
+  // the "YOU OWN THIS CODEBASE" placard on a stick from the crown; the card swivels to face the viewer
+  P.placard = function (B, T, crownM, eye, light) {
+    var base = M.xf(crownM, [0, 0.1, 0]), top = M.xf(crownM, [0, 0.72, 0]);
+    var d = V.sub(top, base), L = V.len(d);
+    B.push(M.basis([1, 0, 0], V.norm(d), [0, 0, 1], base)); B.cyl(4, 0.018, 0.018, 0, L, C.cream, 0.05); B.pop();
+    var c = V.add(top, [0, 0.27, 0]), yw = Math.atan2(eye[0] - c[0], eye[2] - c[2]);
+    var Mb = M.mul(M.trans(c[0], c[1], c[2]), M.rotY(yw));
+    B.push(Mb); B.chamfer([0, 0, 0], [0.66, 0.29, 0.025], 0.02, C.violet, 0.03, C.lilac); B.pop();
+    T.quadM('crown', M.mul(Mb, M.trans(0, 0, 0.03)), [0, 0, 0], 0.46, CREAM_T, light || 1.05);
   };
 
   /* ---------------------------------------------------------------- tumbleweed, cricket */
@@ -405,6 +414,6 @@
     for (var i = 0; i < 4; i++) B.box(0, 0.22 - i * 0.16, 0.013, 0.56, 0.006, 0.002, FG.col.srgb(0xb9c9ec), 0.15);
     B.box(0, 0.33, 0.013, 0.58, 0.008, 0.002, C.coral, 0.2);
     B.pop();
-    if (k > 0.6) T.quadM('card', M.mul(Mb, M.trans(0, -0.02, 0.016)), [0, 0, 0], 0.68 * k, INK_T, light || 1.05, m.ss(0.6, 0.95, k));
+    if (k > 0.6) T.quadM('card', M.mul(Mb, M.trans(0, -0.02, 0.016)), [0, 0, 0], 0.52 * k, INK_T, light || 1.05, m.ss(0.6, 0.95, k));
   };
 })(typeof window !== 'undefined' ? window : globalThis);

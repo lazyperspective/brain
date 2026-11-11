@@ -128,6 +128,13 @@
       var sitFold = P.sit * (sz < 0 ? 1 : 0.4);
       var foot = [sx * (lx + P.splay * 0.06), Math.max(0.0, lift) + sitFold * 0.02, sz * lz + swing - sz * sitFold * 0.0];
       if (sz < 0 && P.sit > 0) { foot[2] -= 0.16 * P.sit; foot[1] = Math.min(foot[1], hipL[1] - 0.05); }
+      if (P.legFollow) {
+        // legs hang from the body (dives, popping out of holes) instead of reaching for the ground
+        var dW = M.xd(Bm, [0, -1, 0]), dL = V.norm(M.xd(Rinv, dW));
+        var fb = V.mad(hipL, dL, LEG * 0.95);
+        fb = V.mad(fb, V.norm(M.xd(Rinv, M.xd(Bm, [0, 0, 1]))), swing);
+        foot = V.lerp(foot, fb, P.legFollow);
+      }
       var dir = V.sub(foot, hipL), len = V.len(dir);
       B.push(R);
       limb(B, hipL, dir, Math.max(len, 0.05), 0.118, sz > 0 ? C.coral : C.shade, sz > 0 ? C.coral : C.shade);

@@ -26,16 +26,16 @@
   S.clear = frame(-88, 10);
   S.village = frame(-128, 10.4);
   S.mine = frame(-160, 10.2);
-  S.top = frame(173, 10.4);
-  S.clones = frame(165, 8.6);
-  S.notes = frame(148, 11.0);
-  S.scroll = frame(128, 10.6);
+  S.top = frame(165, 10.0);
+  S.clones = frame(153, 8.8);
+  S.notes = frame(141, 10.5);
+  S.scroll = frame(120, 10.8);
   FG.SITES = S; FG.siteAt = at;
 
   // the key: u along the crossing direction (counter-clockwise), v outward
   var KEY = W.KEY;
   function keyP(u, v, y) { return [KEY.c[0] - KEY.t[0] * u + KEY.rd[0] * v, y == null ? KEY.top : y, KEY.c[2] - KEY.t[2] * u + KEY.rd[2] * v]; }
-  var PL = { n: 7, w: 0.29, len: 1.3 };
+  var PL = { n: 6, w: 0.34, len: 1.3 };
   PL.u = function (k) { return -KEY.gap / 2 + KEY.gap / PL.n * (k + 0.5); };
   var CCW_KEY = [-KEY.t[0], 0, -KEY.t[2]];
 
@@ -83,9 +83,9 @@
   /* ================================================================ BEATS 1-2: the "hi" and the effort dial */
   var B1 = {};
   B1.hero = at(S.think, 0, -0.15);
-  B1.hiP = at(S.think, 1.55, -1.35);
-  B1.signP = at(S.think, 0.65, 1.3);
-  B1.knobP = at(S.think, -1.45, -0.72);
+  B1.hiP = at(S.think, 1.35, -1.55);
+  B1.signP = at(S.think, 0.75, 1.25);
+  B1.knobP = at(S.think, -0.45, 1.2);
   B1.cloudC = function (t) { return V.add(B1.hero, [S.think.o[0] * 0.1, 2.45, S.think.o[2] * 0.1]); };
   function hiLetters(B, t) {
     // the giant "hi" falls from the sky and thuds down; a squash and a little settle
@@ -100,18 +100,18 @@
   function cloudState(t) {
     // scale, churn, gears, ?s, deflate amount, extra position offset (the balloon zip)
     var s = 0, gears = 0, qs = 0, churn = 0.4, df = 0, spin = 1, off = [0, 0, 0];
-    if (t >= E.cloudIn) s = 0.66 * m.spring(t - E.cloudIn, 2.6, 0.32);
+    if (t >= E.cloudIn) s = 0.56 * m.spring(t - E.cloudIn, 2.6, 0.32);
     if (t >= E.cloudIn + 0.1) { gears = m.clamp((t - E.cloudIn - 0.1) / 0.25 * 3, 0, 3); qs = t > E.cloudIn + 0.3 ? 2 : t > E.cloudIn + 0.2 ? 1 : 0; churn = 0.6; }
-    if (t >= E.cloudDouble) { s = 0.66 + 0.42 * m.spring(t - E.cloudDouble, 3.2, 0.3); gears = 5; qs = 4; churn = 1.4; spin = 2.4; }
+    if (t >= E.cloudDouble) { s = 0.56 + 0.4 * m.spring(t - E.cloudDouble, 3.2, 0.3); gears = 5; qs = 4; churn = 1.4; spin = 2.4; }
     if (t >= E.deflate) {
       var u = t - E.deflate;
-      s = 1.08 - 0.42 * m.eo(u / 0.4) + 0.06 * m.wob(u, 7, 4);
+      s = 0.96 - 0.36 * m.eo(u / 0.4) + 0.06 * m.wob(u, 7, 4);
       df = m.clamp(u / 0.4, 0, 1); gears = Math.max(0, 5 - u * 14); qs = u < 0.12 ? 4 : 0; churn = 0.5; spin = 0.6;
     }
     if (t >= E.cloudZip) {
       // the half-deflated cloud zips off like a balloon losing air, straight at the lens
       var z = (t - E.cloudZip);
-      s = Math.max(0.5, 0.66 - z * 0.25) * (1 - m.ss(6.62, 6.8, t));
+      s = Math.max(0.45, 0.6 - z * 0.25) * (1 - m.ss(6.62, 6.8, t));
       off = V.sub(FG.cloudZipAt(t), B1.cloudC(t));
     }
     return { s: s, gears: gears, qs: qs, churn: churn, df: df, spin: spin, off: off };
@@ -138,7 +138,7 @@
     if (t >= E.sit && t < E.hiSay2 + 0.4) {
       Pz.sit = sitK; Pz.lean = 0.2 * sitK; Pz.tilt = 0.08 * sitK;
       // the Thinker: right paw to the chin, left paw on the knee
-      Pz.arms[1] = { el: m.lerp(-0.5, 0.42, sitK), az: m.lerp(0.15, 1.28, sitK), len: m.lerp(1, 0.9, sitK) };
+      Pz.arms[1] = { el: m.lerp(-0.5, 0.3, sitK), az: m.lerp(0.15, 2.0, sitK), len: m.lerp(1, 1.9, sitK) };
       Pz.arms[0] = { el: m.lerp(-0.5, -0.35, sitK), az: m.lerp(0.15, 0.95, sitK), len: 1 };
       Pz.eyes.shape = 'open'; Pz.brow = 0.55 * sitK;
       Pz.eyes.look = [-0.45, 0.55];
@@ -213,8 +213,8 @@
       sh.forEach(function (hh, i) { if (t > hh) P.dust(B, B1.signP, t - hh, 0.55 - i * 0.1, 7, 30 + i); });
     }
     // the mini dial knob in the ground, turned HIGH -> LOW by the user's giant glove
-    var kc = E.knobClicks, ang = 1.05;
-    if (t > kc[0] - 0.05) ang = 1.05 - 2.1 * m.ss(kc[0] - 0.05, kc[2] + 0.04, t);
+    var kc = E.knobClicks, ang = -60;
+    if (t > kc[0] - 0.05) { ang = -60 + 120 * m.ss(kc[0] - 0.05, kc[2] + 0.04, t); }
     var kyaw = yawToward(B1.knobP, at(S.think, -5, 0.6));
     P.knob(B, T, B1.knobP, kyaw, ang, 1.0);
     // dust from the "hi" landing
@@ -225,7 +225,7 @@
       var down = m.eo((t - hd) / 0.3), up = m.ei((t - gEnd) / 0.4);
       var gy = B1.knobP[1] + 0.02 + 4.5 * (1 - down) + 5 * up;
       var grip = m.ss(kc[0] - 0.12, kc[0], t) * (1 - m.ss(gEnd - 0.1, gEnd + 0.05, t));
-      var gm = M.mul(M.mul(M.trans(B1.knobP[0], gy, B1.knobP[2]), M.rotY(kyaw - (ang - 1.05) - 0.3)), M.scale(0.72, 0.72, 0.72));
+      var gm = M.mul(M.mul(M.trans(B1.knobP[0], gy, B1.knobP[2]), M.rotY(kyaw + (ang + 60) * D2R)), M.scale(0.85, 0.85, 0.85));
       P.glove(B, gm, 'grip', grip);
     }
     // the thought cloud
@@ -234,23 +234,23 @@
       var cc = V.add(B1.cloudC(t), cs.off);
       var puffs = E.cloudPuff.map(function (pt) { return t < pt ? 0 : m.spring(t - pt, 4, 0.35) * (t > E.cloudZip ? Math.max(0, 1 - (t - E.cloudZip) * 3) : 1); });
       var head = V.add(B1.hero, [0, 1.4, 0]);
-      if (cs.s > 0.01 || puffs[0] > 0) P.thought(B, { c: cc, s: cs.s, t: t, churn: cs.churn, gears: cs.gears, qs: cs.qs, spin: cs.spin, cam: ctx.C, head: head, puffs: puffs, deflate: cs.df });
+      if (cs.s > 0.01 || puffs[0] > 0) ctx.thoughtArgs = { c: cc, s: cs.s, t: t, churn: cs.churn, gears: cs.gears, qs: cs.qs, spin: cs.spin, cam: ctx.C, head: head, puffs: puffs, deflate: cs.df };
       ctx.cloudC = cc; ctx.cloudS = cs.s;
     }
   }
 
   /* ================================================================ BEAT 3: the plank bridge */
   var B3 = {};
-  B3.start = keyP(-1.85, 0.05);
-  function plankLand(k) { return k < 6 ? E.planks[k] : E.lastPlank; }
+  B3.start = keyP(-1.58, 0.05);
+  function plankLand(k) { return k < 5 ? E.planks[k] : E.lastPlank; }
   function heroB3(t) {
     var camP = FG.cameraAt(t).eye;
     var faceU = yawDir(CCW_KEY);
     var Pz = base(B3.start, faceU, t);
-    var u = -1.85;
+    var u = -1.58;
     // advance with each plank: a small hop forward after it lands
-    for (var k = 0; k < 6; k++) {
-      var tl = E.planks[k], target = PL.u(k) - 0.55;
+    for (var k = 0; k < 5; k++) {
+      var tl = E.planks[k], target = PL.u(k) - (k === 4 ? 0.85 : 0.55);
       if (t > tl + 0.02) {
         var hu = m.sat((t - tl - 0.02) / 0.12);
         u = Math.max(u, m.lerp(u, target, hu));
@@ -319,7 +319,7 @@
         var u = (t - E.toss) / 0.5, p = V.add(hand, [-1.4 * u * KEY.t[0], 1.8 * u - 3 * u * u + 0.05, -1.4 * u * KEY.t[2]]);
         Mb = M.mul(M.mul(M.trans(p[0], p[1], p[2]), M.rotY(u * 9)), M.rotZ(u * 5));
       }
-      P.handSign(B, T, Mb, 'ask', 0.84, 0.5, 1.05);
+      P.handSign(B, T, Mb, 'ask', 1.02, 0.52, 1.05);
     }
     return { hero: h, pose: hP };
   }
@@ -329,9 +329,9 @@
     ctx.T.quad('keyK', keyP(-2.05, 1.35, KEY.top + 0.006), [KEY.t[0], 0, KEY.t[2]], [KEY.rd[0], 0, KEY.rd[2]], 1.05, FG.col.srgb(0x8f84b8), 1.0);
     // a small pile of planks at the start; planks fly from it and slap into the gap
     var pile = keyP(-2.5, -0.55);
-    var used = 0; for (var k = 0; k < 7; k++) if (t > plankLand(k) - 0.16) used++;
-    for (var i = 0; i < 7 - used; i++) P.plank(B, M.mul(M.trans(pile[0], pile[1] + 0.05 + i * 0.09, pile[2]), M.rotY(yawDir(CCW_KEY) + 0.1 * (i % 2))), PL.len, PL.w, i);
-    for (k = 0; k < 7; k++) {
+    var used = 0; for (var k = 0; k < 6; k++) if (t > plankLand(k) - 0.16) used++;
+    for (var i = 0; i < 6 - used; i++) P.plank(B, M.mul(M.trans(pile[0], pile[1] + 0.05 + i * 0.09, pile[2]), M.rotY(yawDir(CCW_KEY) + 0.1 * (i % 2))), PL.len, PL.w, i);
+    for (k = 0; k < 6; k++) {
       var tl = plankLand(k), fly = 0.16;
       if (t < tl - fly) continue;
       var dst = keyP(PL.u(k), 0, KEY.top - 0.045), u = m.sat((t - (tl - fly)) / fly);
@@ -339,9 +339,9 @@
       var bounce = t > tl ? 0.06 * Math.exp(-(t - tl) * 18) * Math.cos((t - tl) * 40) : 0;
       var rot = (1 - u) * 2.5;
       p[1] += bounce;
-      if (k === 6 && t < tl - fly + 0.0001) continue;
+      if (k === 5 && t < tl - fly + 0.0001) continue;
       P.plank(B, M.mul(M.mul(M.trans(p[0], p[1], p[2]), M.rotY(yawDir(CCW_KEY) + Math.PI / 2)), M.rotX(rot)), PL.len, PL.w, k);
-      if (t > tl) P.dust(B, V.add(dst, [0, -0.2, 0]), t - tl, k === 6 ? 0.7 : 0.35, 6, 50 + k, FG.col.mix(C.key, C.cream, 0.5));
+      if (t > tl) P.dust(B, V.add(dst, [0, -0.2, 0]), t - tl, k === 5 ? 0.7 : 0.35, 6, 50 + k, FG.col.mix(C.key, C.cream, 0.5));
     }
   }
 
@@ -459,8 +459,8 @@
       lookAt(Pz, at(S.village, 1.3, t < 14.8 ? -1.3 : 1.0, 0.5));
     }
     // merge: push the right front house into the middle one
-    if (t >= 14.8) {
-      var pth = [[14.8, spot0], [E.merge, at(S.village, 0.15, 1.95)], [E.mergeDone, at(S.village, 0.15, 1.5)]];
+    if (t >= 14.95) {
+      var pth = [[14.95, spot0], [E.merge, at(S.village, 0.15, 1.95)], [E.mergeDone, at(S.village, 0.15, 1.5)]];
       var wd = walk(Pz, t, pth, 5);
       Pz.yaw = tq(Pz, t < E.merge ? yawDir(V.norm(V.sub(pth[1][1], spot0))) : yawDir(V.mul(S.village.tw, -1)), camP, 0.3);
       if (t >= E.merge) { var push = m.ss(E.merge, E.merge + 0.08, t); Pz.arms[0] = { el: 0.1, az: 1.3 * push, len: 1.15 }; Pz.arms[1] = { el: 0.1, az: 1.3 * push, len: 1.15 }; Pz.lean = 0.3 * push; Pz.mouth = { shape: 'flat', amt: 0.8 }; }
@@ -477,10 +477,10 @@
     }
     // paint the front-left house (nobody asked)
     if (t >= E.flags[5] + 0.03) {
-      var pp = at(S.village, -0.1, -1.3);
+      var pp = at(S.village, 0.35, -2.25);
       walk(Pz, t, [[E.flags[5] + 0.03, at(S.village, B5.flags[5][0] - 0.42, B5.flags[5][1] + 0.12)], [E.paint - 0.02, pp]], 8);
       if (t > E.paint - 0.02) {
-        Pz.yaw = yawDir(S.village.o) + 0.0;
+        Pz.yaw = tq(Pz, yawDir(S.village.tw), camP, 0.45);
         var sw = Math.sin((t - E.paint) * Math.PI / 0.18);
         Pz.arms[1] = { el: 0.6 + 0.5 * sw, az: 0.9, len: 1.1 }; Pz.arms[0] = { el: 0.3 - 0.4 * sw, az: 0.9, len: 1.1 };
         Pz.tilt = 0.1 * sw;
@@ -489,7 +489,7 @@
     // proud, then dash to the mine
     if (t >= E.paintDone + 0.05) {
       var pr = at(S.village, -0.55, -0.3);
-      walk(Pz, t, [[E.paintDone + 0.05, at(S.village, -0.1, -1.3)], [E.proud, pr]], 5);
+      walk(Pz, t, [[E.paintDone + 0.05, at(S.village, 0.35, -2.25)], [E.proud, pr]], 5);
       Pz.yaw = yawToward(pr, camP) - 0.1; Pz.eyes.shape = 'happy'; Pz.brow = 0; Pz.mouth = { shape: 'beam', amt: 1 }; Pz.lean = -0.06;
       var dust = m.pulse(E.proud, E.proud + 0.05, E.proud + 0.3, E.proud + 0.38, t);
       Pz.arms[0] = { el: 0.1 + 0.25 * Math.sin(t * 30) * dust, az: 1.2 * dust, len: 1 }; Pz.arms[1] = { el: 0.1 - 0.25 * Math.sin(t * 30) * dust, az: 1.2 * dust, len: 1 };
@@ -550,7 +550,7 @@
       var bounce = t > E.crown ? 0.1 * Math.exp(-(t - E.crown) * 9) * Math.abs(Math.sin((t - E.crown) * 20)) : 0;
       var cm = M.mul(h.bm, M.mul(M.trans(0.05, HERO.BH - 0.02 + yoff + bounce, -0.02), M.rotZ(0.12)));
       var cam = FG.cameraAt(t);
-      if (t < 18.0) P.crown(B, T, cm, true, 1.05);
+      if (t < 18.0) { P.crown(B, T, cm, false, 1.05); P.placard(B, T, cm, FG.cameraAt(t).eye, 1.05); }
     }
     return { hero: h, pose: hP };
   }
@@ -569,11 +569,11 @@
       Pz.p = V.lerp(from, hole, Math.min(1, u * 1.5)); Pz.p[1] += Math.sin(Math.min(1, u * 1.4) * Math.PI) * 0.55 - Math.max(0, u - 0.55) * 4.0;
       Pz.lean = Math.min(1.5, u * 2.6); Pz.sq = -0.25 * Math.sin(u * Math.PI);
       Pz.arms[0] = { el: 1.3, az: 1.2, len: 1.1 }; Pz.arms[1] = { el: 1.3, az: 1.2, len: 1.1 };
-      Pz.eyes.shape = 'squint'; Pz.mouth = { shape: 'beam', amt: 1 };
+      Pz.eyes.shape = 'squint'; Pz.mouth = { shape: 'beam', amt: 1 }; Pz.legFollow = 1;
       return Pz;
     }
     // head pops out of the hole (three times)
-    Pz.p = [hole[0], hole[1] - 3, hole[2]];
+    Pz.p = [hole[0], hole[1] - 3, hole[2]]; Pz.legFollow = 1;
     Pz.yaw = yawToward(hole, camP) - 0.1;
     for (var i = 0; i < 3; i++) {
       var tp = E.pops[i], up = m.spring(t - tp, 3.6, 0.42) * (1 - m.ss(tp + 0.42, tp + 0.56, t));
@@ -674,7 +674,7 @@
   /* ================================================================ BEAT 7: clones */
   var B7 = {};
   B7.crate = at(S.clones, 0.55, -0.05);
-  B7.home = at(S.clones, -0.75, 1.15);
+  B7.home = at(S.clones, 0.15, 1.35);
   B7.spots = (function () {
     // arcs behind the crate (outward), facing it; the last wave stands on the shoulders of the first ones
     var out = [], ca = 0.55, cb = -0.05, D = Math.PI / 180;
@@ -687,6 +687,9 @@
   })();
   B7.cloneT = (function () { var o = []; E.cloneWaves.forEach(function (w) { w.forEach(function (tt) { o.push(tt); }); }); return o; })();
   B7.popped = [13, 10, 8, 12, 7, 11, 9];      // the outer wave turns into soap bubbles (in this order)
+  // where the seven survivors end up: a little crowd on the rim beside the end-stop peg
+  B7.final = {};
+  [[0, 163, 13.7], [1, 166.5, 13.75], [2, 160, 13.5], [3, 164.5, 12.55], [4, 169.6, 13.65], [5, 168, 12.6], [6, 161.5, 12.45]].forEach(function (q) { B7.final[q[0]] = W.pol(q[1], q[2], 0); });
   function clonePose(i, t) {
     var sp = B7.spots[i], t0 = B7.cloneT[i];
     var target = sp.on != null ? null : at(S.clones, sp.a, sp.b);
@@ -700,11 +703,19 @@
     lookAt(Pz, V.add(B7.crate, [0, 0.25, 0]));
     Pz.arms[1] = { el: 0.45 + 0.08 * Math.sin(t * 3 + i), az: 1.15, len: 1.05 };
     Pz.lean = 0.18 + 0.05 * Math.sin(t * 2 + i);
+    var home = B7.final[i];
+    if (home && t > 25.95) {
+      var t0w = 25.95 + (i % 4) * 0.09, t1w = t0w + 0.95;
+      var u = m.sat((t - t0w) / (t1w - t0w)), from = p.slice(), to = groundAt(home);
+      Pz.p = V.lerp(from, to, m.eio(u));
+      if (u > 0 && u < 1) { Pz.p[1] += Math.abs(Math.sin(u * Math.PI * 5)) * 0.18; Pz.yaw = yawToward(from, to); Pz.lean = 0.12; }
+      else if (u >= 1) { Pz.yaw = yawToward(to, [0, 0, 26]); Pz.lean = 0; Pz.arms[1] = { el: -0.5, az: 0.15, len: 1 }; Pz.eyes.shape = 'open'; Pz.brow = 0; }
+    }
     if (t > 36.4) {
       // the survivors wave at the camera in the final shot
-      var cam = FG.cameraAt(t).eye; Pz.yaw = angLerp(Pz.yaw, yawToward(p, cam), m.ss(36.4, 36.9, t));
+      var cam = FG.cameraAt(t).eye; Pz.yaw = angLerp(Pz.yaw, yawToward(Pz.p, cam), m.ss(36.4, 36.9, t));
       Pz.eyes.shape = 'happy'; Pz.brow = 0; Pz.lean = 0;
-      Pz.arms[1] = { el: 1.25, az: 0.35 + 0.35 * Math.sin(t * 9 + i * 1.3), len: 1.05 }; Pz.mouth = { shape: 'beam', amt: 1 };
+      Pz.arms[1] = { el: 0.85 + 0.3 * Math.sin(t * 9 + i * 1.3), az: 0.3, len: 1.8 }; Pz.mouth = { shape: 'beam', amt: 1 };
     }
     return Pz;
   }
@@ -753,7 +764,7 @@
       return Pz;
     }
     // spawns clones: each wave it squashes and a copy pops out of it
-    Pz.yaw = tq(Pz, yawToward(B7.home, B7.crate), camP, 0.62);
+    Pz.yaw = tq(Pz, yawToward(B7.home, B7.crate), camP, 0.5);
     Pz.eyes.shape = 'open'; lookAt(Pz, V.add(B7.crate, [0, 0.3, 0]));
     B7.cloneT.forEach(function (ct) { var k = m.pulse(ct - 0.06, ct - 0.02, ct, ct + 0.1, t); Pz.sq += 0.22 * k; Pz.arms[0].el = Math.max(Pz.arms[0].el, -0.5 + 1.2 * k); Pz.arms[1].el = Math.max(Pz.arms[1].el, -0.5 + 1.2 * k); });
     Pz.mouth = { shape: 'smile', amt: 0.8 };
@@ -766,7 +777,7 @@
     if (t > 26.15) {
       var dest = at(S.notes, -0.1, 0.1);
       var wd = walk(Pz, t, [[26.15, B7.home], [26.95, dest]], 3.4);
-      if (wd) Pz.yaw = tq(Pz, yawDir(wd), camP, 0.4); else Pz.yaw = yawToward(dest, camP) - 0.25;
+      if (wd) Pz.yaw = tq(Pz, yawDir(wd), camP, 0.6); else Pz.yaw = yawToward(dest, camP) - 0.25;
       Pz.eyes.shape = 'open'; Pz.mouth = { shape: 'smile', amt: 0.6 };
     }
     return Pz;
@@ -790,7 +801,7 @@
     var appear = m.spring(t - (E.kaching[0] - 0.25), 2.5, 0.4);
     if (t < E.kaching[0] - 0.25) return;
     if (t > 27.6) return;
-    var rp = at(S.clones, 3.4, 1.2, 3.0 + 0.12 * Math.sin(t * 1.5));
+    var rp = at(S.clones, 3.4, 2.3, 1.85 + 0.12 * Math.sin(t * 1.5));
     rp[1] += 6 * (1 - Math.min(1, appear)) + 8 * m.ei((t - 26.3) / 1.2);
     var drawer = 0, id = 'reg0', n = 0;
     E.kaching.forEach(function (k, i) { if (t >= k) { n = i + 1; drawer = Math.max(drawer, Math.exp(-(t - k) * 6)); } });
@@ -823,7 +834,10 @@
     { x: 0.55, y: 0.3, f: 'front', id: 'n4', r: 0.35 }, { x: -0.58, y: 0.33, f: 'front', id: 'n5', r: -0.3 },
     { x: 0.0, y: 0.05, f: 'side+', id: 'n6', r: 0.1 }, { x: 0.0, y: 0.05, f: 'side-', id: 'n7', r: -0.1 },
     { x: 0.35, y: 0.4, f: 'top', id: 'n8', r: -0.5 }, { x: -0.4, y: 0.38, f: 'top', id: 'n9', r: 0.7 },
-    { x: 0.0, y: 0.36, f: 'front', id: null, r: 0.0, wide: 1 }
+    { x: 0.62, y: 0.2, f: 'side+', id: null, r: 0.4 },
+    { x: -0.62, y: -0.05, f: 'front', id: null, r: 0.5 }, { x: 0.62, y: -0.02, f: 'front', id: null, r: -0.45 }, { x: 0.0, y: -0.25, f: 'side-', id: null, r: 0.3 },
+    { x: 0.0, y: -0.2, f: 'side+', id: null, r: -0.3 }, { x: 0.0, y: 0.15, f: 'top', id: null, r: 1.2 }, { x: -0.3, y: 0.42, f: 'front', id: null, r: -0.25 },
+    { x: 0.32, y: 0.43, f: 'front', id: null, r: 0.2 }, { x: 0.0, y: 0.3, f: 'top', id: null, r: -1.0 }
   ];
   function noteMatrix(Bm, s, peel, i) {
     var M0;
@@ -841,6 +855,7 @@
     var camP = FG.cameraAt(t).eye;
     if (t < 26.95) return heroB7(t);
     var Pz = base(B8.spot, yawToward(B8.spot, camP) - 0.3, t);
+    if (t < 27.25) Pz.yaw = angLerp(heroB7(26.94).yaw, Pz.yaw, m.ss(26.95, 27.22, t));
     var n = 0; E.slaps.forEach(function (st) { if (t > st) n++; });
     var stiff = Math.min(1, n / 10);
     Pz.sq *= 1 - stiff;
@@ -891,7 +906,7 @@
         var w0 = V.add(w1, [0.9 * (i % 2 ? 1 : -1), 1.4, 0.6]), wp = V.lerp(w0, w1, u);
         Mn = M.mul(M.trans(wp[0] - w1[0], wp[1] - w1[1], wp[2] - w1[2]), M.mul(M1, M.rotZ((1 - u) * 3)));
       } else Mn = noteMatrix(h.bm, s, peel, i);
-      var sc = s.big || (s.wide ? 1.0 : 1.0);
+      var sc = s.big || (s.id ? 1.0 : 0.95);
       if (s.wide) Mn = M.mul(Mn, M.scale(2.6, 0.55, 1)); else Mn = M.mul(Mn, M.scale(sc, sc, sc));
       var col = (i % 4 === 3) ? C.noteL : C.note;
       if (s.wide) col = C.note;
@@ -910,7 +925,7 @@
     return { hero: h, pose: hP };
   }
   // the snow of sticky notes (falls 26.45 .. 30.0, in front of the camera)
-  var SNOW = (function () { var r = m.mulberry(3131), o = []; for (var i = 0; i < 70; i++) o.push({ a: (r() - 0.5) * 7, b: (r() - 0.5) * 7, h0: 3 + r() * 6, sp: 0.9 + r() * 0.8, ph: r() * 6.28, t0: r() * 1.8, col: r() < 0.2 ? 1 : 0, s: 0.7 + r() * 0.5 }); return o; })();
+  var SNOW = (function () { var r = m.mulberry(3131), o = []; for (var i = 0; i < 90; i++) o.push({ a: (r() - 0.5) * 7, b: (r() - 0.5) * 6, h0: 1.6 + r() * 3.6, sp: 0.55 + r() * 0.5, ph: r() * 6.28, t0: r() * 1.8, col: r() < 0.2 ? 1 : 0, s: 0.7 + r() * 0.5 }); return o; })();
   function buildSnow(ctx) {
     var t = ctx.t, B = ctx.B;
     if (t < E.snow || t > 31.5) return;
@@ -922,7 +937,7 @@
       var gust = t > E.gust ? (t - E.gust) * (t - E.gust) * 6 : 0;
       var p = [base0[0] + Math.sin(tt * 2 + n.ph) * 0.3 + gust * 1.5, base0[1] + y + 0.1, base0[2] + Math.cos(tt * 1.7 + n.ph) * 0.3 + gust * 0.8];
       var k = n.s * Math.min(1, fade + (y > 0.5 ? 0 : 1) * 0) * 0.9;
-      if (k < 0.05) return;
+      if (k < 0.05 || V.dist(p, ctx.cam.eye) < 2.2) return;
       B.push(M.mul(M.mul(M.trans(p[0], p[1], p[2]), M.rotY(tt * 2 + n.ph)), M.mul(M.rotX(Math.sin(tt * 3 + n.ph) * 0.9), M.scale(k, k, k))));
       P.note(B, M.ident(), n.col ? C.noteL : C.note, 0.03);
       B.pop();
@@ -938,7 +953,7 @@
     if (t < 31.12) return heroB8(t);
     var Pz = base(B9.spot, yawToward(B9.spot, camP), t);
     walk(Pz, t, [[31.12, B9.spot], [31.55, B9.offer]], 3.0);
-    Pz.yaw = yawToward(Pz.p, camP);
+    Pz.yaw = angLerp(heroB8(31.11).yaw, yawToward(Pz.p, camP), m.ss(31.12, 31.35, t));
     // holds the scroll out toward the camera, proud
     var off = m.ss(E.offer, E.offer + 0.2, t);
     Pz.arms[0] = { el: m.lerp(-0.5, 0.35, off), az: m.lerp(0.15, 1.35, off), len: 1.1 }; Pz.arms[1] = { el: m.lerp(-0.5, 0.35, off), az: m.lerp(0.15, 1.35, off), len: 1.1 };
@@ -958,9 +973,10 @@
       // three hops up onto the hub, the top of the dial
       var P0 = B9.offer, P3 = [PEG[0], PEG[1] + W.PEG_H, PEG[2]];
       var dir = V.norm([P3[0] - P0[0], 0, P3[2] - P0[2]]);
-      var L3 = V.len([P3[0] - P0[0], 0, P3[2] - P0[2]]);
-      var p1 = groundAt(V.mad(P0, dir, L3 * 0.36)), p2 = groundAt(V.mad(P0, dir, L3 * 0.7));
-      Pz.yaw = angLerp(Pz.yaw, yawDir(dir), m.ss(E.hops[0] - 0.25, E.hops[0] - 0.05, t));
+      var p1 = groundAt(W.pol(141, 11.2, 0)), p2 = groundAt(W.pol(170, 11.0, 0));
+      var y1 = yawToward(P0, p1), y2 = yawToward(p1, p2), y3 = yawToward(p2, P3);
+      var yh = angLerp(angLerp(y1, y2, m.ss(E.hops[1] - 0.16, E.hops[1], t)), y3, m.ss(E.hops[2] - 0.16, E.hops[2], t));
+      Pz.yaw = angLerp(Pz.yaw, tq(Pz, yh, camP, 0.3), m.ss(E.hops[0] - 0.25, E.hops[0] - 0.05, t));
       Pz.arms[0] = { el: -0.3, az: 0.2, len: 1 }; Pz.arms[1] = { el: -0.3, az: 0.2, len: 1 };
       Pz.eyes.shape = 'open'; Pz.mouth = { shape: 'smile', amt: 0.8 };
       if (t < E.hops[1] - 0.12) hop(Pz, t, E.hops[0], E.hops[0] + 0.38, 0.75, P0, p1);
@@ -995,7 +1011,7 @@
     if (ext > 0.001) {
       var pts = B9.riverPath(), n = pts.length, L = (n - 1) * ext;
       var start = V.add(hand, [0, -0.05, 0]);
-      var half = 0.62;
+      var half = 0.85;
       var prevL = null, prevR = null;
       for (var i = 0; i < n; i++) {
         var fi = Math.min(i, L), i0 = Math.floor(fi), fu = fi - i0;
@@ -1015,16 +1031,16 @@
       // jargon and symbols flowing along it
       if (t > E.river - 0.1 && t < E.collapse + 0.15) {
         var flow = (t - E.river) * 0.55, aK = m.ss(E.river - 0.1, E.river + 0.1, t) * (1 - m.ss(E.collapse, E.collapse + 0.15, t));
-        for (var j = 0; j < 14; j++) {
-          var pos = ((((j / 14 + flow) % 1) + 1) % 1) * (n - 1) * 0.92 + 0.6, k0 = Math.max(0, Math.floor(pos)), ku = pos - k0;
+        for (var j = 0; j < 26; j++) {
+          var pos = ((((j / 26 + flow) % 1) + 1) % 1) * (n - 1) * 0.92 + 0.6, k0 = Math.max(0, Math.floor(pos)), ku = pos - k0;
           if (pos > L) continue;
           var q = V.lerp(pts[Math.min(k0, n - 1)], pts[Math.min(k0 + 1, n - 1)], ku);
           var dd = V.norm(V.sub(pts[Math.min(k0 + 1, n - 1)], pts[Math.max(k0, 0)])), sd = V.norm(V.cross([0, 1, 0], dd));
-          var off = ((j * 7) % 5 - 2) * 0.17;
+          var off = ((j * 7) % 5 - 2) * 0.2;
           q = V.add(V.mad(q, sd, off), [0, 0.04 + Math.sin(t * 7 - pos * 0.9) * 0.06, 0]);
           var id = j % 3 === 2 ? 'sym' + (j % 4) : 'j' + (j % 8);
           var r = sd, up = V.norm(V.add(V.mul(dd, -0.9), [0, 0.6, 0]));
-          var hgt = id.charAt(0) === 's' ? 0.32 : 0.15;
+          var hgt = id.charAt(0) === 's' ? 0.36 : 0.17;
           T.quad(id, q, r, up, hgt, id.charAt(0) === 's' ? C.violet : VIOLET_T, 1.0, aK);
         }
       }
@@ -1032,8 +1048,8 @@
     // the clean index card
     if (t > E.card - 0.05) {
       var k2 = m.spring(t - E.card + 0.05, 3.5, 0.45) * (1 - m.ss(E.hops[0] - 0.2, E.hops[0], t));
-      var cp = V.add(hand, [0, 0.16, 0.0]); cp = V.mad(cp, V.norm(V.sub(cam.eye, cp)), 0.18);
-      P.card(B, T, M.mul(M.mul(M.trans(cp[0], cp[1], cp[2]), M.rotY(rollYaw)), M.scale(0.82, 0.82, 0.82)), 1.08, k2);
+      var cp = M.xf(h.bm, [0, -0.36, HERO.BD + 0.3]);
+      P.card(B, T, M.mul(M.mul(M.trans(cp[0], cp[1], cp[2]), M.rotY(yawToward(cp, cam.eye))), M.mul(M.rotX(-0.12), M.scale(0.8, 0.8, 0.8))), 1.08, k2);
     }
     return { hero: h, pose: hP };
   }
@@ -1053,7 +1069,8 @@
     Pz.eyes.shape = 'open'; lookAt(Pz, camP); Pz.mouth = { shape: 'smile', amt: 0.9 };
     var w = m.ss(E.wave, E.wave + 0.2, t);
     if (w > 0) {
-      Pz.arms[1] = { el: m.lerp(-0.5, 1.25, w), az: 0.3 + 0.38 * Math.sin((t - E.wave) * 9.5) * (t < 38.75 ? 1 : 0.5 + 0.5 * Math.cos(Math.min(1, (t - 38.75) / 0.4) * Math.PI)), len: 1.08 };
+      var wv = Math.sin((t - E.wave) * 9.5) * (t < 38.75 ? 1 : 0.5 + 0.5 * Math.cos(Math.min(1, (t - 38.75) / 0.4) * Math.PI));
+      Pz.arms[1] = { el: m.lerp(-0.5, 0.92 + 0.3 * wv, w), az: 0.3, len: m.lerp(1, 2.3, w) };
       if (t > 38.9) Pz.arms[1].az = 0.3 + 0.38 * Math.sin((38.75 - E.wave) * 9.5) * 0;
       Pz.mouth = { shape: 'beam', amt: w }; Pz.tilt = 0.08 * w;
     }
@@ -1112,6 +1129,8 @@
     buildBanner(ctx);
     buildSnow(ctx);
     var nCast = B.n;
+    // non-casters: the thought cloud (it would throw a heavy blot of shadow), floating labels, sky letters, clouds
+    if (ctx.thoughtArgs) P.thought(B, ctx.thoughtArgs);
     // non-casters: floating labels, sky letters, clouds
     W.buildLabels(B, t, cam.eye);
     W.buildSkyLetters(B, t);

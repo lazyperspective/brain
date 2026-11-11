@@ -166,7 +166,7 @@
     cx.save(); cx.globalAlpha = 0.9 * a;
     [-1, 1].forEach(function (s) {
       cx.save();
-      cx.translate(W / 2 + s * 215 * k, 640 * k); cx.scale(sc, sc); cx.rotate(-(t - E.spin) * 13);
+      cx.translate(W / 2 + s * 215 * k, 790 * k); cx.scale(sc, sc); cx.rotate(-(t - E.spin) * 13);
       cx.fillStyle = 'rgba(255,247,238,0.92)'; cx.beginPath(); cx.arc(0, 0, 175 * k, 0, m.TAU); cx.fill();
       cx.lineWidth = 7 * k; cx.strokeStyle = COL.ink; cx.stroke();
       cx.lineCap = 'round'; cx.lineWidth = 15 * k; cx.strokeStyle = COL.violet;
@@ -191,9 +191,9 @@
     var dy = (1 - m.eo((t - E.title) / 0.5)) * 18 * k;
     cx.globalAlpha = a;
     cx.font = Math.round(128 * k) + 'px FGDisplayBlack'; cx.letterSpacing = Math.round(2 * k) + 'px';
-    cx.fillStyle = COL.cream; cx.fillText('FABLE 5.2', W / 2, 205 * k + dy);
+    cx.fillStyle = COL.cream; cx.fillText('FABLE 5.2', W / 2, 188 * k + dy);
     cx.font = Math.round(46 * k) + 'px FGDisplayXB'; cx.letterSpacing = Math.round(9 * k) + 'px';
-    cx.fillStyle = COL.peach; cx.fillText('— A FIELD GUIDE —', W / 2, 272 * k + dy);
+    cx.fillStyle = COL.peach; cx.fillText('— A FIELD GUIDE —', W / 2, 250 * k + dy);
     cx.letterSpacing = '0px';
     cx.globalAlpha = b;
     cx.font = Math.round(38 * k) + 'px FGSemi'; cx.fillStyle = COL.cream;
