@@ -9,22 +9,20 @@
 
   var W = FG.W = {};
   W.R = 16;            // top surface radius
-  W.HUB = 3.0;         // hub radius
-  W.HUB_TOP = 3.7;     // hub top height
-  W.SEG = [            // name, from, to (deg), height
-    { name: 'LOW', a0: -150, a1: -90, h: 0.0 },
-    { name: 'MEDIUM', a0: -90, a1: -30, h: 0.55 },
-    { name: 'HIGH', a0: -30, a1: 30, h: 1.1 },
-    { name: 'XHIGH', a0: 30, a1: 90, h: 1.75 },
-    { name: 'MAX', a0: 90, a1: 150, h: 2.4 }
+  W.HUB = 2.3;         // hub radius
+  W.HUB_TOP = 2.95;    // hub top height
+  W.SEG = [            // name, from, to (deg), height; MAX drops back to LOW at the cliff (due south)
+    { name: 'LOW', a0: -180, a1: -108, h: 0.0 },
+    { name: 'MEDIUM', a0: -108, a1: -36, h: 0.55 },
+    { name: 'HIGH', a0: -36, a1: 36, h: 1.1 },
+    { name: 'XHIGH', a0: 36, a1: 108, h: 1.75 },
+    { name: 'MAX', a0: 108, a1: 180, h: 2.4 }
   ];
-  W.STOP_H = 2.4;      // the stop zone past MAX (150..210) stays at MAX height; the cliff is at -150
   function normA(a) { while (a > 180) a -= 360; while (a <= -180) a += 360; return a; }
   W.segH = function (a) {
     a = normA(a);
-    if (a > 150 || a <= -150) return W.STOP_H;
     for (var i = 0; i < W.SEG.length; i++) if (a > W.SEG[i].a0 && a <= W.SEG[i].a1) return W.SEG[i].h;
-    return 0;
+    return W.SEG[4].h;
   };
   W.pol = function (a, r, h) { return [r * Math.sin(a * D2R), h == null ? W.ground(a, r) : h, -r * Math.cos(a * D2R)]; };
   W.angleOf = function (x, z) { return Math.atan2(x, -z) / D2R; };
@@ -32,15 +30,16 @@
   /* ---------------------------------------------------------------- sites (where the beats happen) */
   var S = W.S = {};
   S.think = { a: 0, r: 10 };
-  S.key = { a: -42, r: 10.4 };
-  S.clear = { a: -66, r: 10 };
-  S.village = { a: -106, r: 10.4 };
-  S.mine = { a: -137, r: 10.2 };
-  S.cliffTop = { a: -157, r: 10.4 };
-  S.clones = { a: -176, r: 10.4 };
-  S.notes = { a: 141, r: 10.2 };
-  S.scroll = { a: 113, r: 10.4 };
-  var FLATS = [S.think, S.key, S.clear, S.village, S.mine, S.cliffTop, S.clones, S.notes, S.scroll];
+  S.key = { a: -60, r: 10.2 };
+  S.clear = { a: -88, r: 10 };
+  S.village = { a: -128, r: 10.4 };
+  S.mine = { a: -160, r: 10.2 };
+  S.cliffTop = { a: 173, r: 10.4 };
+  S.clones = { a: 165, r: 8.6 };
+  S.notes = { a: 148, r: 11.0 };
+  S.scroll = { a: 128, r: 10.6 };
+  S.peg = { a: 177, r: 13.9 };
+  var FLATS = [S.think, S.key, S.clear, S.village, S.mine, S.cliffTop, S.clones, S.notes, S.scroll, S.peg];
   FLATS.forEach(function (s) { s.p = [s.r * Math.sin(s.a * D2R), 0, -s.r * Math.cos(s.a * D2R)]; });
 
   function flatMask(x, z) {
@@ -59,12 +58,15 @@
   W.ground = function (a, r) { var x = r * Math.sin(a * D2R), z = -r * Math.cos(a * D2R); return W.segH(a) + W.noiseH(x, z); };
   W.groundXZ = function (x, z) { return W.segH(W.angleOf(x, z)) + W.noiseH(x, z); };
 
+  /* ---------------------------------------------------------------- the dial's end-stop peg, at the top of MAX by the cliff */
+  W.PEG_A = 177; W.PEG_R = 13.9; W.PEG_H = 0.62;
+  W.PEG = [W.PEG_R * Math.sin(W.PEG_A * D2R), 0, -W.PEG_R * Math.cos(W.PEG_A * D2R)];
   /* ---------------------------------------------------------------- the keycap with the canyon (MEDIUM) */
   W.KEY = (function () {
     var s = S.key, c = [s.r * Math.sin(s.a * D2R), 0.55, -s.r * Math.cos(s.a * D2R)];
     var t = [Math.cos(s.a * D2R), 0, Math.sin(s.a * D2R)];          // tangent (clockwise direction)
     var rd = [Math.sin(s.a * D2R), 0, -Math.cos(s.a * D2R)];        // radial outward
-    return { c: c, t: t, rd: rd, half: 2.3, top: 0.55 + 0.95, gap: 0.82, legend: 'K' };
+    return { c: c, t: t, rd: rd, half: 3.0, top: 0.55 + 0.95, gap: 2.2, legend: 'K' };
   })();
   // world position on the key from (u along the crossing direction = counter-clockwise, v radial) relative to the key centre
   W.keyP = function (u, v, y) { var K = W.KEY; return [K.c[0] - K.t[0] * u + K.rd[0] * v, y == null ? K.top : y, K.c[2] - K.t[2] * u + K.rd[2] * v]; };
@@ -72,18 +74,24 @@
   /* ---------------------------------------------------------------- static build */
   W.buildStatic = function (B) {
     var rnd = m.mulberry(9177);
-    var RINGS = [2.5, 3.3, 4.2, 5.2, 6.3, 7.4, 8.5, 9.6, 10.7, 11.8, 12.9, 14.0, 15.0, 15.6, 16.0];
+    var RINGS = [2.0, 2.8, 3.6, 4.4, 5.2, 6.3, 7.4, 8.5, 9.6, 10.7, 11.8, 12.9, 14.0, 15.0, 15.6, 16.0];
     var NS = 120, DA = 360 / NS;
-    function jr(i, j) { if (j === 0 || j === RINGS.length - 1) return 0; return (m.hash(i * 31 + 7, j * 17 + 3) - 0.5) * 0.42; }
-    function ja(i, j) { var a = -180 + i * DA; if (Math.abs(normA(a)) % 30 < 0.01 || j === RINGS.length - 1) return 0; return (m.hash(i * 13 + 5, j * 29 + 1) - 0.5) * DA * 0.5; }
+    function jr(i, j) { i = i % NS; if (j === 0 || j === RINGS.length - 1) return 0; return (m.hash(i * 31 + 7, j * 17 + 3) - 0.5) * 0.42; }
+    function ja(i, j) { i = i % NS; if (i % 12 === 0 || j === RINGS.length - 1) return 0; return (m.hash(i * 13 + 5, j * 29 + 1) - 0.5) * DA * 0.5; }
     function vtx(i, j, side) {
       var a = -180 + i * DA + ja(i, j), r = RINGS[j] + jr(i, j);
       var x = r * Math.sin(a * D2R), z = -r * Math.cos(a * D2R);
       var segA = a + side * 0.01;
       return [x, W.segH(segA) + W.noiseH(x, z), z];
     }
+    var ARC = [FG.col.srgb(0xd3c9f6), FG.col.srgb(0xbcb0f0), FG.col.srgb(0xa597e6), FG.col.srgb(0x8b7dda), FG.col.srgb(0x6f61c8)];
     function terrCol(x, z, a, h, ny) {
       var n = m.vn2(x * 0.33 + 7, z * 0.33 - 2, 21), n2 = m.hash(Math.floor(x * 7.1) * 911 + Math.floor(z * 7.3), 5);
+      if (Math.hypot(x, z) > 14.75) {
+        // the gauge arc round the rim: pale lilac at LOW deepening to violet at MAX
+        var sa = normA(a), si = sa <= -108 ? 0 : sa <= -36 ? 1 : sa <= 36 ? 2 : sa <= 108 ? 3 : 4;
+        return FG.col.mul(ARC[si], 0.95 + 0.1 * n2);
+      }
       var seg = W.segH(a), hi = seg >= 1.7;
       var col;
       if (n > 0.6) col = n2 < 0.5 ? C.sage : C.sage2;
@@ -105,14 +113,14 @@
       }
     }
     // step walls at segment boundaries and the cliff
-    var walls = [-150, -90, -30, 30, 90];
+    var walls = [-108, -36, 36, 108, 180];
     walls.forEach(function (wa) {
       var i = Math.round((wa + 180) / DA);
       for (var j = 0; j < RINGS.length - 1; j++) {
         var a0 = vtx(i, j, -1), b0 = vtx(i, j + 1, -1), a1 = vtx(i, j, 1), b1 = vtx(i, j + 1, 1);
         var hiSide = a0[1] > a1[1];
         var top0 = hiSide ? a0 : a1, top1 = hiSide ? b0 : b1, bot0 = hiSide ? a1 : a0, bot1 = hiSide ? b1 : b0;
-        var cliff = wa === -150;
+        var cliff = wa === 180;
         var n = (j * 7 + 3) % 5, col = cliff ? (n < 2 ? C.sand2 : n < 4 ? C.sandD : C.clay) : (n < 3 ? C.sand2 : C.sandD);
         var out = hiSide ? -1 : 1, aw = wa * D2R, tdir = [Math.cos(aw) * out, 0, Math.sin(aw) * out];
         var ctr = [(top0[0] + bot1[0]) / 2 - tdir[0], (top0[1] + bot0[1]) / 2, (top0[2] + bot1[2]) / 2 - tdir[2]];
@@ -141,7 +149,8 @@
       var a0 = -180 + i * DA, a1 = a0 + DA;
       var t0 = rimTop(a0 + 0.01), t1 = rimTop(a1 - 0.01);
       var b0 = [t0[0] * 1.0, -0.35, t0[2]], b1 = [t1[0], -0.35, t1[2]];
-      var wc = (i % 3 === 0) ? C.sand2 : (i % 3 === 1 ? C.sandD : FG.col.mix(C.sand2, C.clay, 0.4));
+      var sa0 = normA(a0 + DA / 2), si0 = sa0 <= -108 ? 0 : sa0 <= -36 ? 1 : sa0 <= 36 ? 2 : sa0 <= 108 ? 3 : 4;
+      var wc = FG.col.mul(ARC[si0], (i % 2) ? 0.82 : 0.74);
       B.polyW([b0, b1, t1, t0], wc, 0, 0, [0, -2, 0]);
     }
     // close the cliff/steps on the outer wall: handled by the per-sector wall above (each sector's own heights)
@@ -161,17 +170,17 @@
       var aa0 = i / HN * Math.PI * 2, aa1 = (i + 1) / HN * Math.PI * 2, rr = (i & 1) ? W.HUB : W.HUB - 0.09;
       var q0 = [Math.cos(aa0) * rr, -0.4, Math.sin(aa0) * rr], q1 = [Math.cos(aa1) * rr, -0.4, Math.sin(aa1) * rr];
       var q2 = [q1[0], W.HUB_TOP - 0.22, q1[2]], q3 = [q0[0], W.HUB_TOP - 0.22, q0[2]];
-      B.polyW([q0, q1, q2, q3], (i & 1) ? C.violet : FG.col.mix(C.violet, C.violetD, 0.5), 0, 0, [0, 1, 0]);
+      B.polyW([q0, q1, q2, q3], (i & 1) ? C.lilac2 : FG.col.mix(C.lilac2, C.violet, 0.6), 0.04, 0, [0, 1, 0]);
       var r2 = W.HUB - 0.28, q4 = [Math.cos(aa1) * r2, W.HUB_TOP, Math.sin(aa1) * r2], q5 = [Math.cos(aa0) * r2, W.HUB_TOP, Math.sin(aa0) * r2];
       B.polyW([q3, q2, q4, q5], C.lilac2, 0, 0, [0, 0, 0]);
     }
     var topP = []; for (i = 0; i < HN; i++) { var aa = i / HN * Math.PI * 2; topP.push([Math.cos(aa) * (W.HUB - 0.28), W.HUB_TOP, Math.sin(aa) * (W.HUB - 0.28)]); }
     B.polyW(topP, C.lilac, 0, 0, [0, 0, 0]);
-    B.chamfer([0, W.HUB_TOP + 0.06, -1.55], [0.17, 0.07, 0.95], 0.05, C.cream, 0.05, C.white);
+    B.chamfer([0, W.HUB_TOP + 0.06, -1.3], [0.15, 0.07, 0.75], 0.05, C.cream, 0.05, C.white);
     B.chamfer([0, W.HUB_TOP + 0.04, 0], [0.42, 0.05, 0.42], 0.08, C.lilacHi, 0);
     // dial ticks on the rim (cream), larger at segment centres
-    for (var ta = -150; ta <= 150; ta += 6) {
-      var major = (ta + 120) % 60 === 0, edge = (ta + 150) % 60 === 0;
+    for (var ta = -174; ta <= 174; ta += 6) {
+      var major = (ta + 144) % 72 === 0, edge = (ta + 180) % 72 === 0 && ta !== 180;
       var rt = 15.35, p = W.pol(ta, rt);
       B.push(M.mul(M.trans(p[0], p[1], p[2]), M.rotY(-ta * D2R)));
       if (major) B.chamfer([0, 0.12, 0], [0.16, 0.16, 0.42], 0.05, C.cream, 0.04, C.white);
@@ -203,21 +212,23 @@
       else {
         var g = K.gap / 2;
         capHalf(-hw, -g); capHalf(g, hw);
+        // the abyss: dark bands deepening toward the bottom of the crack (unlit), then the jagged walls
+        B.poly([[-g, top * 0.62, -hw], [g, top * 0.62, -hw], [g, top * 0.62, hw], [-g, top * 0.62, hw]], [0.05, 0.03, 0.09], 0, 2, [0, top, 0]);
+        B.poly([[-g, top * 0.62, hw], [g, top * 0.62, hw], [g, top + 0.25, hw], [-g, top + 0.25, hw]], [0.10, 0.07, 0.16], 0, 2, [0, top, 0]);
+        B.poly([[-g, top * 0.62, -hw], [g, top * 0.62, -hw], [g, top + 0.25, -hw], [-g, top + 0.25, -hw]], [0.10, 0.07, 0.16], 0, 2, [0, top, 0]);
         // jagged canyon walls inside the crack and a dark floor far below
         for (var zz = -hw + 0.25; zz < hw - 0.25; zz += 0.5) {
           for (var sd = -1; sd <= 1; sd += 2) {
             var jx = sd * (g - 0.05 + 0.1 * m.hash(Math.round(zz * 10), sd + 5));
             B.poly([[sd * g, top, zz], [sd * g, top, zz + 0.5], [jx, top * 0.5, zz + 0.5], [jx, top * 0.5, zz]], C.keyD, 0, 0, [0, top / 2, 0]);
-            B.poly([[jx, top * 0.5, zz], [jx, top * 0.5, zz + 0.5], [sd * g, -0.6, zz + 0.5], [sd * g, -0.6, zz]], FG.col.mix(C.keyD, C.rockD, 0.5), 0, 0, [0, top / 2, 0]);
+            B.poly([[jx, top * 0.5, zz], [jx, top * 0.5, zz + 0.5], [sd * g, top * 0.6, zz + 0.5], [sd * g, top * 0.6, zz]], FG.col.mix(C.rockD, C.rockDD, 0.6), 0, 0, [0, top / 2, 0]);
           }
         }
       }
       B.pop();
       return { c: c, top: K.c[1] - 0.25 + top };
     }
-    keycap(-2 * K.half - 0.28, 'J', false);
     keycap(0, 'K', true);
-    keycap(2 * K.half + 0.28, 'L', false);
     // a dark crack continuing out of the key into the ground (the canyon), as a sunken strip
     // the mine: a timber frame over a dark hole, a lantern on a post (the glow is dynamic)
     var mp = W.pol(S.mine.a, S.mine.r), mf = V.norm([-mp[0], 0, -mp[2]]);
@@ -239,6 +250,12 @@
     B.push(M.basis(side, [0, 1, 0], mf, [beamC[0], mp[1] + 1.24, beamC[2]]));
     B.chamfer([0, 0, 0], [0.98, 0.07, 0.08], 0.02, C.woodD, 0, C.wood);
     B.pop();
+    // the end-stop peg (where the dial stops turning): a gold-capped cream post at the rim of MAX
+    W.PEG[1] = W.groundXZ(W.PEG[0], W.PEG[2]);
+    B.push(M.trans(W.PEG[0], W.PEG[1] - 0.25, W.PEG[2]));
+    B.cyl(10, 0.78, 0.72, 0, W.PEG_H + 0.25 - 0.08, C.cream, 0.03, C.cream);
+    B.cyl(10, 0.74, 0.7, W.PEG_H + 0.25 - 0.1, W.PEG_H + 0.25, C.goldD, 0.06, C.gold);
+    B.pop();
     // the hole on the cliff top (where it comes back out)
     var ct = W.pol(S.cliffTop.a, S.cliffTop.r);
     W.TOPHOLE = { p: ct, hole: [ct[0], ct[1] + 0.012, ct[2]] };
@@ -250,7 +267,17 @@
     }
     // scattery: little trees and rocks (LOW/MEDIUM/HIGH), crystal spires (XHIGH/MAX)
     var placed = 0;
-    for (var tries = 0; tries < 520 && placed < 64; tries++) {
+    // keep the camera's path (and its line of sight) clear of trees and rocks
+    var CS = [];
+    if (FG.cameraAt) for (var ct = 0; ct <= 40; ct += 0.1) { var cc = FG.cameraAt(ct); CS.push([cc.eye[0], cc.eye[2], cc.tgt[0], cc.tgt[2]]); }
+    function nearCam(x, z) {
+      for (var q = 0; q < CS.length; q++) {
+        var c = CS[q], dx = c[2] - c[0], dz = c[3] - c[1], l2 = dx * dx + dz * dz || 1, u = m.clamp(((x - c[0]) * dx + (z - c[1]) * dz) / l2, 0, 1);
+        if (Math.hypot(x - (c[0] + dx * u), z - (c[1] + dz * u)) < 1.4) return true;
+      }
+      return false;
+    }
+    for (var tries = 0; tries < 700 && placed < 64; tries++) {
       var ra = rnd() * 360 - 180, rr2 = 4.6 + rnd() * 10.6;
       var x = rr2 * Math.sin(ra * D2R), z = -rr2 * Math.cos(ra * D2R);
       if (flatMask(x, z) < 0.98) continue;
@@ -259,6 +286,7 @@
       var nearWall = walls.some(function (wa) { return Math.abs(normA(ra - wa)) < 3.5; });
       if (nearWall) continue;
       if (Math.abs(rr2 - 10.2) < 1.6 && rnd() < 0.85) continue;
+      if (nearCam(x, z)) continue;
       var y = W.groundXZ(x, z), segh = W.segH(ra);
       B.push(M.mul(M.trans(x, y, z), M.rotY(rnd() * 6.28)));
       if (segh >= 1.7) {
@@ -285,21 +313,27 @@
   };
 
   /* ---------------------------------------------------------------- floating labels and sky letters (dynamic) */
+  // the dial's labels: giant faceted letters floating just beyond the rim, which slowly turn to face the viewer
   W.LABELS = W.SEG.map(function (s) {
-    var a = (s.a0 + s.a1) / 2, r = 19.0;
-    var p = [r * Math.sin(a * D2R), s.h + 3.4, -r * Math.cos(a * D2R)];
-    var face = V.norm([0 - p[0], 0, 23 - p[2]]);           // turn toward the closing camera, south of the hub
-    var face2 = V.norm([-p[0], 0, -p[2]]);
-    var f = V.norm(V.lerp(face, face2, 0.25));
-    return { word: s.name, p: p, f: f, a: a };
+    var a = (s.a0 + s.a1) / 2, r = 19.2;
+    var p = [r * Math.sin(a * D2R), s.h + 3.6, -r * Math.cos(a * D2R)];
+    return { word: s.name, p: p, a: a };
   });
-  W.buildLabels = function (B, t) {
+  W.buildLabels = function (B, t, eye) {
+    var e2 = FG.cameraAt ? FG.cameraAt(Math.max(0, t - 0.6)).eye : eye;
+    var gather = m.ss(35.4, 38.3, t);
     W.LABELS.forEach(function (L, i) {
-      var bob = Math.sin(t * 0.5 + i * 1.7) * 0.18, rock = Math.sin(t * 0.37 + i) * 0.04;
-      var X = V.norm(V.cross([0, 1, 0], L.f));
-      B.push(M.mul(M.basis(V.mul(X, -1), [0, 1, 0], V.mul(L.f, -1), [L.p[0], L.p[1] + bob, L.p[2]]), M.rotZ(rock)));
-      B.mul(M.rotY(Math.PI));
-      FG.blockWord(B, L.word, 0.3, { col: C.cream, colTop: C.white, th: 1.2, dep: 1.3, gap: 1.6, emis: 0.06 });
+      var bob = Math.sin(t * 0.5 + i * 1.7) * 0.18 * (1 - 0.6 * gather), rock = Math.sin(t * 0.37 + i) * 0.04;
+      var near = L.word === 'LOW' || L.word === 'MAX', top = L.word === 'HIGH';
+      // at the end they gather into a gauge's scale, arching over the far rim: LOW left .. HIGH on top .. MAX right
+      var ARCH = { LOW: [-37, 2.3], MEDIUM: [-19.5, 4.35], HIGH: [0, 5.25], XHIGH: [19.5, 4.35], MAX: [37, 2.3] }[L.word];
+      var a0 = L.a, a1 = ARCH[0], aa = m.lerp(a0, a1, gather), a = aa * D2R;
+      var r = m.lerp(19.2, 21.0, gather);
+      var p = [r * Math.sin(a), m.lerp(L.p[1], ARCH[1], gather), -r * Math.cos(a)];
+      var yaw = Math.atan2(e2[0] - p[0], e2[2] - p[2]);
+      var pit = Math.atan2(e2[1] - p[1], Math.hypot(e2[0] - p[0], e2[2] - p[2]));
+      B.push(M.mul(M.mul(M.trans(p[0], p[1] + bob, p[2]), M.rotY(yaw)), M.mul(M.rotZ(rock), M.rotX(-0.12 - 0.6 * pit * gather))));
+      FG.blockWord(B, L.word, m.lerp(0.32, 0.235, gather), { col: C.cream, colTop: C.white, th: 1.25, dep: 1.3, gap: 1.6, emis: 0.08 });
       B.pop();
     });
   };
@@ -330,14 +364,14 @@
       CLOUDS.push({ p: [d * Math.sin(a * D2R), y, -d * Math.cos(a * D2R)], puffs: puffs, sp: 0.12 + r() * 0.15, ph: r() * 6.28, rot: r() * 6.28 });
     }
   })();
-  W.cloudCol = function (k, n) { var u = n[1] * 0.5 + 0.5; return FG.col.mix(FG.col.mix(C.lilac, C.cream, 0.55), C.white, u * 0.6); };
+  W.cloudCol = function (k, n) { var u = n[1] * 0.5 + 0.5; return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.5), C.white, u * 0.7); };
   W.buildClouds = function (B, t) {
     CLOUDS.forEach(function (Cl, i) {
       var p = [Cl.p[0] + Math.cos(Cl.ph) * t * Cl.sp, Cl.p[1] + Math.sin(t * 0.3 + Cl.ph) * 0.25, Cl.p[2] + Math.sin(Cl.ph) * t * Cl.sp];
       B.push(M.mul(M.trans(p[0], p[1], p[2]), M.rotY(Cl.rot)));
       Cl.puffs.forEach(function (q, k) {
         B.push(M.mul(M.trans(q[0], q[1], q[2]), M.scale(1, 0.72, 1)));
-        B.ico(1, q[3], null, 0.0, 0, 0.12, 700 + i * 10 + k, W.cloudCol);
+        B.ico(1, q[3], null, 0.3, 0, 0.12, 700 + i * 10 + k, W.cloudCol);
         B.pop();
       });
       B.pop();

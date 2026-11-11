@@ -272,7 +272,7 @@
   Renderer.prototype.render = function (F) {
     var gl = this.gl, W = this.W, H = this.H, FW = this.FW, FH = this.FH, S = FG.STRIDE;
     var C = this.camera(F.cam);
-    var L = FG.LIGHT_DIR;
+    var L = F.light || FG.LIGHT_DIR;
     // shadow frustum: centred on F.shadowC with radius F.shadowR, snapped to texels to keep edges still
     var R = F.shadowR || 10, SH = this.SHADOW;
     var lview = M.look([0, 0, 0], V.mul(L, -1), [0, 1, 0]);

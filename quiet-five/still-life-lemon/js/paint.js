@@ -230,11 +230,14 @@
       else if (kid === ID.TOP || kid === ID.FRONT) { wW = 0.25 * dark; }
       else if (kid === ID.GLASS) { wS = 0.25 + 0.5 * dark; }
       else if (kid === 21) { wS = 0.25; }
+      else if (kid === ID.LEMON) { wS = 0.08 + 0.5 * dark; }
+      else if (kid === ID.PLATE) { wS = 0.2 + 0.5 * dark; }
       const o = i * NCH;
       for (let c = 0; c < NCH; c++) {
         const v0 = base[o + c], v1 = soft[o + c], v2 = wide[o + c];
         const a = v0 + (v1 - v0) * wS;
         base[o + c] = a + (v2 - a) * wW;
+        soft[o + c] = v0 - v1; // keep the fine detail (high-pass) for the last touches
       }
     }
     log('soften');
@@ -436,6 +439,15 @@
     }
     log('strokes painted ' + painted);
 
+    // 3b. the painter's last fine touches: put back the small detail the brush smoothed away
+    //     (pitted rind, juice sacs, blurred reflections in the pewter) — high-pass of the underpainting
+    for (let i = 0; i < N; i++) {
+      const k = id[i];
+      const g = k === ID.LEMON ? 1.1 : k === 21 ? 0.8 : k === ID.PLATE ? 0.7 : k === ID.HANDLE ? 0.5 : 0;
+      if (!g) continue;
+      const o = i * NCH;
+      for (let c = 0; c < NCH; c++) canvas[o + c] = max(0, canvas[o + c] + g * soft[o + c]);
+    }
     // 4. impasto: a handful of deliberate lead-white touches on the brightest lights (dot, dash or curl)
     const spec = new Float32Array(N);
     for (let i = 0; i < N; i++) { const o = i * NCH; spec[i] = 0.3 * (canvas[o + 6] + canvas[o + 9]) + 0.6 * (canvas[o + 7] + canvas[o + 10]) + 0.1 * (canvas[o + 8] + canvas[o + 11]) + 0.15 * lum[i]; }
@@ -460,7 +472,7 @@
       const kid = id[i0];
       const d = dirAt(dd.x, dd.y, i0, 0);
       // shape: 0 = dot, 1 = dash along the form, 2 = small curl
-      const R = (dd.kind === 0 ? 4.2 : 3.2) * sc, len = dd.kind === 0 ? R * 1.2 : dd.kind === 1 ? R * 4.5 : R * 3.5;
+      const R = (dd.kind === 0 ? 4.6 : 4.0) * sc, len = dd.kind === 0 ? R * 1.3 : dd.kind === 1 ? R * 2.4 : R * 2.2;
       sample(canvas, W, H, dd.x, dd.y, tmp);
       // lead white: pull the colour toward neutral, slightly brighter
       for (let L = 0; L < 4; L++) { const a = (tmp[L * 3] + tmp[L * 3 + 1] + tmp[L * 3 + 2]) / 3; for (let c = 0; c < 3; c++) tmp[L * 3 + c] = (tmp[L * 3 + c] * 0.55 + a * 0.45) * 1.12; }

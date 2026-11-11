@@ -57,7 +57,9 @@
     q: { lines: ['?'], px: 140, font: 'FGDisplayBlack' },
     chirp: { lines: ['chirp'], px: 50, font: 'FGDisplayXB' },
     dollar: { lines: ['$'], px: 120, font: 'FGDisplayBlack' },
-    mine: { lines: ['MINE'], px: 56, font: 'FGDisplayBlack' }
+    mine: { lines: ['MINE'], px: 56, font: 'FGDisplayBlack' },
+    keyK: { lines: ['K'], px: 150, font: 'FGDisplayXB' },
+    braces: { lines: ['{ }'], px: 110, font: 'FGDisplayBlack' }
   };
 
   /* ---------------------------------------------------------------- small helpers */
@@ -110,7 +112,7 @@
       // deflating: puffs sag and wrinkle
       var sag = df * 0.25 * (py < 0 ? 1 : 0.4);
       B.push(M.mul(M.trans(px * s, (py - sag) * s, pz * s), M.mul(M.rotZ(t * 0.3 * (i & 1 ? 1 : -1) + i), M.scale(1 + df * 0.15, 1 - df * 0.35, 1))));
-      B.ico(1, r * s, null, 0.08, 0, 0.1, 900 + i, function (k, n) { var u = n[1] * 0.5 + 0.5; return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.6), C.white, u * 0.75); });
+      B.ico(1, r * s, null, 0.2, 0, 0.1, 900 + i, function (k, n) { var u = n[1] * 0.5 + 0.5; return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.55), C.white, u * 0.8); });
       B.pop();
     }
     // gears in front
@@ -147,15 +149,15 @@
   P.sign = function (B, T, p, yaw, sink, tilt, light) {
     var Mb = M.mul(M.mul(P.basisY(p, yaw), M.trans(0, -sink, 0)), M.rotZ(tilt || 0));
     B.push(Mb);
-    B.cyl(6, 0.075, 0.07, -0.9, 1.25, C.wood, 0, C.woodL);
-    B.chamfer([0, 1.75, 0], [1.08, 0.66, 0.08], 0.06, C.violet, 0.02, C.lilac);
+    B.cyl(6, 0.065, 0.06, -0.9, 1.1, C.wood, 0, C.woodL);
+    B.chamfer([0, 1.52, 0], [0.82, 0.52, 0.07], 0.05, C.violet, 0.02, C.lilac);
     B.pop();
-    T.quadM('sign', M.mul(Mb, M.trans(0, 1.73, 0.085)), [0, 0, 0], 1.12, CREAM_T, light || 1.0);
+    T.quadM('sign', M.mul(Mb, M.trans(0, 1.5, 0.075)), [0, 0, 0], 0.88, CREAM_T, light || 1.0);
   };
 
   /* ---------------------------------------------------------------- the mini effort dial set into the ground (giant-hand-sized) */
   P.knob = function (B, T, p, yaw, ang, light) {
-    var Mb = P.basisY(p, yaw);
+    var Mb = M.mul(P.basisY(p, yaw), M.scale(0.68, 0.68, 0.68));
     B.push(Mb);
     // a dial plate (a shallow faceted disc) with an arc of ticks
     B.cyl(16, 0.95, 0.9, 0, 0.08, C.violetD, 0, C.violet);
@@ -193,7 +195,8 @@
       B.pop();
       B.chamfer([0, -0.62, -0.02], [0.4, 0.2, 0.3], 0.08, L2, 0);
       B.chamfer([0, -0.95, -0.02], [0.5, 0.18, 0.38], 0.1, C.cream, 0.02, C.white);
-      B.cyl(10, 0.36, 0.42, -3.2, -1.1, L2, 0);
+      // a collar of cloud where the wrist would be: the hand comes out of the sky
+      for (var cpf = 0; cpf < 7; cpf++) { var ca = cpf / 7 * m.TAU; B.push(M.trans(Math.cos(ca) * 0.55, -1.2 + Math.sin(cpf * 2.1) * 0.08, Math.sin(ca) * 0.45)); B.ico(1, 0.34 + 0.06 * (cpf % 3), null, 0.3, 0, 0.12, 980 + cpf, function (k, n) { return FG.col.mix(FG.col.mix(C.lilacHi, C.cream, 0.55), C.white, (n[1] * 0.5 + 0.5) * 0.8); }); B.pop(); }
     } else if (pose === 'grip') {
       // palm flat above, fingers hanging down round the knob, curling in by k (0 open .. 1 closed)
       B.chamfer([0, 0.28, 0], [0.5, 0.18, 0.5], 0.12, L, 0, LT);
@@ -293,8 +296,8 @@
   P.meter = function (B, T, Mb, u, t, light) {
     // a post with a round gauge: a gold needle sweeps up; a digital readout below
     B.push(Mb);
-    B.cyl(6, 0.05, 0.05, 0, 1.5, C.woodD);
-    B.push(M.trans(0, 1.75, 0));
+    B.cyl(6, 0.05, 0.05, 0, 2.3, C.woodD);
+    B.push(M.trans(0, 2.55, 0));
     B.push(M.rotX(Math.PI / 2)); B.cyl(14, 0.42, 0.42, -0.05, 0.05, C.cream, 0.02, C.white); B.cyl(14, 0.46, 0.46, -0.04, 0.04, C.goldD); B.pop();
     // band: green -> gold -> coral arc ticks
     for (var i = 0; i <= 10; i++) {
@@ -309,11 +312,11 @@
     B.pop();
     B.cyl(8, 0.05, 0.05, 0.06, 0.1, C.dark);
     B.pop();
-    B.chamfer([0, 1.12, 0], [0.42, 0.14, 0.05], 0.03, C.violetD, 0);
+    B.chamfer([0, 1.92, 0], [0.42, 0.14, 0.05], 0.03, C.violetD, 0);
     B.pop();
     var id = u < 0.2 ? 'tok0' : u < 0.45 ? 'tok1' : u < 0.7 ? 'tok2' : u < 0.9 ? 'tok3' : 'tokpct';
-    T.quadM('tokens', M.mul(Mb, M.trans(0, 1.56, 0.07)), [0, 0, 0], 0.09, INK_T, light || 1);
-    T.quadM(id, M.mul(Mb, M.trans(0, 1.12, 0.055)), [0, 0, 0], 0.2, C.goldHi, 1.3);
+    T.quadM('tokens', M.mul(Mb, M.trans(0, 2.36, 0.07)), [0, 0, 0], 0.09, INK_T, light || 1);
+    T.quadM(id, M.mul(Mb, M.trans(0, 1.92, 0.055)), [0, 0, 0], 0.2, C.goldHi, 1.3);
   };
   P.crown = function (B, T, Mb, sign, light) {
     B.push(Mb);
@@ -349,7 +352,7 @@
 
   /* ---------------------------------------------------------------- clones' magnifying glass, the work crate, the register */
   P.magnifier = function (B, Mb) {
-    B.push(Mb);
+    B.push(M.mul(Mb, M.scale(1.7, 1.7, 1.7)));
     B.cyl(5, 0.022, 0.022, -0.18, 0.0, C.woodD);
     B.push(M.mul(M.trans(0, 0.13, 0), M.rotX(Math.PI / 2)));
     for (var i = 0; i < 10; i++) { var a = i / 10 * m.TAU; B.push(M.mul(M.rotY(a), M.trans(0.11, 0, 0))); B.box(0, 0, 0, 0.022, 0.025, 0.04, C.goldD, 0.05, C.gold); B.pop(); }
@@ -366,14 +369,14 @@
   P.register = function (B, T, Mb, drawer, id, light) {
     B.push(Mb);
     B.chamfer([0, 0, 0], [0.9, 0.55, 0.62], 0.1, C.gold, 0.06, C.goldHi);
-    B.chamfer([0, 0.7, -0.15], [0.62, 0.26, 0.12], 0.06, C.goldD, 0.04, C.gold);
-    B.box(0, 0.7, -0.02, 0.5, 0.17, 0.01, C.violetD, 0.25);
+    B.chamfer([0, 0.7, -0.15], [0.68, 0.28, 0.12], 0.06, C.goldD, 0.04, C.gold);
+    B.box(0, 0.7, -0.02, 0.58, 0.2, 0.01, C.violetD, 0.25);
     // keys
     for (var i = 0; i < 4; i++) for (var j = 0; j < 2; j++) B.chamfer([-0.45 + i * 0.3, 0.6, 0.18 + j * 0.2], [0.1, 0.06, 0.07], 0.03, C.cream, 0.04);
     // the drawer
     B.chamfer([0, -0.62, 0.3 + 0.45 * drawer], [0.82, 0.12, 0.5], 0.04, C.goldD, 0.05, C.gold);
     B.pop();
-    T.quadM(id, M.mul(Mb, M.trans(0, 0.7, -0.005)), [0, 0, 0], 0.3, C.goldHi, 1.6);
+    T.quadM(id, M.mul(Mb, M.trans(0, 0.7, -0.005)), [0, 0, 0], 0.42, C.goldHi, 1.6);
   };
 
   /* ---------------------------------------------------------------- sticky notes */
