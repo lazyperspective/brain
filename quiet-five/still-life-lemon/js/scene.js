@@ -921,7 +921,7 @@
   }
 
   // light emerging through wine: in-scattering + absorption bookkeeping
-  const WINE_SIG = [0.003, 0.016, 0.10];
+  const WINE_SIG = [0.003, 0.024, 0.11];
   const WINE_SCAT = [0.0025, 0.0019, 0.0008];
   const GLASS_T = [0.95, 0.962, 0.915];
 
@@ -962,7 +962,7 @@
         const ndl = GH.nx * lx + GH.ny * ly + GH.nz * lz;
         const g = Math.pow(max(0, ndl), 2.5) * (0.4 + 0.6 * max(0, dx * lx + dy * ly + dz * lz));
         const E = (S.L.I / (dl * dl)) * spot(px, py, pz);
-        acc[3] += tr * g * E * 0.030; acc[4] += tg * g * E * 0.022; acc[5] += tb * g * E * 0.008;
+        acc[3] += tr * g * E * 0.042; acc[4] += tg * g * E * 0.028; acc[5] += tb * g * E * 0.008;
       }
       if (hitG) {
         if (recordG) { Gbuf.id = ID.GLASS; Gbuf.tx = 0; Gbuf.ty = 1; Gbuf.tz = 0; Gbuf.x = ox + dx * GH.t; Gbuf.y = oy + dy * GH.t; Gbuf.z = oz + dz * GH.t; Gbuf.nx = GH.nx; Gbuf.ny = GH.ny; Gbuf.nz = GH.nz; Gbuf.glassFront = GH.part; recordG = false; }
