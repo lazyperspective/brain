@@ -73,8 +73,9 @@
     pts.push(rimP(9.1, 0.13)); nh.push([0, 1, 0.1]);
     pts.push(rimP(10.15, 0.2)); nh.push([0, 1, 0.3]);
     const edge = rimP(10.95, 0.0);
-    pts.push([edge[0], edge[1] + 0.12, edge[2]]); nh.push(norm([0.1, 0.8, 1]));
-    const H = [edge[0] - 0.05, edge[1] - 0.6, edge[2] + 0.45];
+    pts.push([edge[0], edge[1] + 0.12, edge[2]]); nh.push(norm([0.1, 0.9, 0.7]));
+    pts.push([edge[0] - 0.03, edge[1] - 0.2, edge[2] + 0.42]); nh.push(norm([0.15, 0.45, 1]));
+    const H = [edge[0] - 0.06, edge[1] - 0.75, edge[2] + 0.55];
     pts.push(H); nh.push([0.3, 0.05, 1]);
     const iHang = pts.length - 1;
     // corkscrew below the hang point
@@ -231,7 +232,7 @@
   const PJ = [0, 0, 0];
   let SX, SY, SZ; // projected (supersampled) vertex coords
   // light-space shadow map
-  const SM = { n: 384, z: null };
+  const SM = { n: 640, z: null };
   function buildShadowMap() {
     const L = Q.LIGHT.P;
     const nv = NS * NW;
@@ -274,7 +275,7 @@
       const w0 = ((x1 - px) * (y2 - py) - (x2 - px) * (y1 - py)) / area;
       const w1 = ((x2 - px) * (y0 - py) - (x0 - px) * (y2 - py)) / area;
       const w2 = 1 - w0 - w1;
-      if (w0 < -0.08 || w1 < -0.08 || w2 < -0.08) continue;
+      if (w0 < -0.03 || w1 < -0.03 || w2 < -0.03) continue;
       const z = w0 * z0 + w1 * z1 + w2 * z2;
       const i = y * n + x;
       if (z < buf[i]) buf[i] = z;
@@ -289,12 +290,17 @@
     const n = SM.n;
     const sx = ((xc / SM.ext) * 0.5 + 0.5) * (n - 1), sy = ((yc / SM.ext) * 0.5 + 0.5) * (n - 1);
     const d = Math.hypot(dx, dy, dz);
+    // tent-filtered PCF (smooth, no stair steps)
     let lit = 0, cnt = 0;
-    for (let oy = -2; oy <= 2; oy++) for (let ox = -2; ox <= 2; ox++) {
-      const ix = Math.round(sx) + ox, iy = Math.round(sy) + oy;
-      cnt++;
-      if (ix < 0 || iy < 0 || ix >= n || iy >= n) { lit++; continue; }
-      if (SM.z[iy * n + ix] > d - 0.45) lit++;
+    const bx = floor(sx), by = floor(sy);
+    for (let oy = -3; oy <= 3; oy++) for (let ox = -3; ox <= 3; ox++) {
+      const ix = bx + ox, iy = by + oy;
+      const wx = max(0, 3.2 - abs(ix - sx)), wy = max(0, 3.2 - abs(iy - sy));
+      const w = wx * wy;
+      if (w <= 0) continue;
+      cnt += w;
+      if (ix < 0 || iy < 0 || ix >= n || iy >= n) { lit += w; continue; }
+      if (SM.z[iy * n + ix] > d - 0.45) lit += w;
     }
     return lit / cnt;
   }
@@ -306,7 +312,7 @@
     posePeel(t);
     buildShadowMap();
     const nv = NS * NW;
-    const ss = 2; // supersampling
+    const ss = W > 1500 ? 2 : 1; // supersampling (export 4K: 2x2; live 1080: 1x)
     const SW = W * ss, SH = H * ss;
     if (!SX || SX.length < nv) { SX = new Float32Array(nv); SY = new Float32Array(nv); SZ = new Float32Array(nv); }
     let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
@@ -405,8 +411,7 @@
     let rind = true;
     if (nx * vx + ny * vy + nz * vz < 0) { nx = -nx; ny = -ny; nz = -nz; rind = false; }
     // painted texture in the ribbon's own parameter space (moves with it)
-    const seg = floor(s / 1.05 + 0.4 * NPL.n2(s * 0.3, 1.7));
-    const bri = 0.9 + 0.13 * NPL.n2(w * 6.5 + seg * 13.7, s * 0.6) + 0.07 * NPL.n2(w * 17 + seg * 3.1, s * 2.0);
+    const bri = 0.9 + 0.12 * NPL.n2(w * 6.5 + s * 0.35, s * 0.45) + 0.06 * NPL.n2(w * 17 + 3.1, s * 1.3);
     const edge = Q.smooth(0.72, 0.97, abs(w)); // the cut edge shows white pith
     let ar, ag, ab, wrap, rough, spk;
     const mott = NPL.n2(s * 1.4, w * 1.1 + 5);

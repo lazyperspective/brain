@@ -182,7 +182,7 @@
     const spine = [];
     for (let sg = 0; sg <= total + 1e-6; sg += step) spine.push(spinePt(f, t, sg));
     const fn = (u) => W * fishHW(u * TAIL_END);
-    const body = ribbon(spine, fn, 12, 8, 8);
+    const body = ribbon(spine, fn, 12, 16, 8);
     const headN = Math.ceil(0.36 * L / step) + 1;
     const head = ribbon(spine.slice(0, headN), (u) => fn(u * (headN - 1) * step / total), 11, 8, 2);
     head.len = total;
@@ -371,7 +371,7 @@
     // the light on the sheet: very gentle fall-off from upper left
     vec2 lq = (p - vec2(250.0, 180.0)) / vec2(1500.0, 1700.0);
     lum *= 1.012 - 0.03 * dot(lq, lq);
-    vec3 base = toLin(vec3(0.936, 0.902, 0.835));
+    vec3 base = toLin(vec3(0.940, 0.910, 0.850));
     vec3 col = base * lum;
     col *= vec3(1.0, 1.0 - 0.004 * mott, 1.0 - 0.016 * mott - 0.01 * cloud);
     col = mix(col, col * vec3(0.92, 0.82, 0.66), clamp(fk * 0.6, 0.0, 1.0));
@@ -432,7 +432,7 @@
       float rim = uRim * exp(-max(-dE, 0.0) / 1.7) * (1.0 - dry);
       float streak = mix(1.0 - uStreak * 0.5 + uStreak * br, 0.80 + 0.40 * br, smoothstep(0.0, 0.3, dry));
       float core = ink * tone * streak * (1.0 + rim) * cov * dryMask * fray * bloom(q, sd, uBloom);
-      float halo = uHalo * ink * (1.0 - cov) * exp(-max(dE, 0.0) / (1.3 + 3.0 * wet)) * (0.65 + 0.3 * en2 + 0.5 * fib) * wv * (1.0 - dry) * fray;
+      float halo = uHalo * ink * (1.0 - cov) * exp(-max(dE, 0.0) / (1.3 + 3.0 * wet)) * (0.65 + 0.3 * en2 + 0.5 * fib) * wv * (1.0 - dry) * fray * (1.0 - smoothstep(6.0, 10.0, dE));
       D = core + halo;
     } else if (uKind == 1) {
       float u = s / uLen;
@@ -442,7 +442,7 @@
     } else if (uKind == 2) {
       vec2 pq = vec2(s - uP0.x, v - uP0.y);
       float r = length(pq); float a = atan(pq.y, pq.x);
-      float R = uP0.z * (1.0 + 0.085 * sin(3.0 * a + uP1.x) + 0.05 * sin(5.0 * a + uP1.y) + 0.028 * sin(8.0 * a + uP1.z));
+      float R = uP0.z * (1.0 + 0.07 * sin(2.0 * a + uP1.x) + 0.06 * sin(3.0 * a + uP1.y) + 0.025 * sin(5.0 * a + uP1.z) + 0.012 * sin(9.0 * a + 1.0));
       float fib = fibers(q * 1.1, sd);
       float en = fbm(q * 0.3, sd + 5u);
       float dE = r - R - uWet * (0.9 * fib + 1.6 * (en - 0.5));
@@ -549,9 +549,15 @@
     vec4 inkL = texelFetch(uInk, ivec2(fc), 0);
     float ab = paper.a;
     float fibr = texelFetch(uAux, ivec2(fc), 0).r;
-    float Db = (inkU.r + inkS.b) * ab + inkL.a * mix(1.0, ab, 0.7) + ringD * 0.24 * (0.6 + 0.8 * fibr) * ab;
+    float Dw = (inkU.r + inkS.b) * ab + ringD * 0.24 * (0.6 + 0.8 * fibr) * ab;
     float Dv = inkU.g * mix(1.0, ab, 0.6);
-    vec3 col = paper.rgb * exp(-(Db * uKB + Dv * uKV));
+    float Dl = inkL.a * mix(1.0, ab, 0.7);
+    // under the water: fish, their shadows, the ring
+    vec3 under = paper.rgb * exp(-(Dw * uKB + Dv * uKV));
+    // the leaf floats on top and hides what passes beneath it (painted over a reserve)
+    float lc = smoothstep(0.04, 0.42, inkL.a);
+    vec3 leaf = paper.rgb * exp(-(Dl + 0.10 * Dw) * uKB - 0.10 * Dv * uKV);
+    vec3 col = mix(under * exp(-Dl * uKB), leaf, lc);
     o = vec4(col, 1.0);
   }`;
 

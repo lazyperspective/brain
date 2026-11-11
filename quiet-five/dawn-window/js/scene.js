@@ -13,7 +13,7 @@
     // wall-face opening
     wx0: 0.16, wx1: 0.84, wy0: 0.10 + OY, wyS: 0.96 + OY,
     k: 0.82, // frame plane = VP + k * (wall face - VP)
-    rodY: 0.07 + OY, rodX0: 0.118, rodX1: 0.905, rodR: 0.0042,
+    rodY: 0.07 + OY, rodX0: 0.118, rodX1: 0.888, rodR: 0.0042,
     noseY0: 0.968 + OY, noseY1: 0.993 + OY, earX0: 0.122, earX1: 0.878,
     glass: { x: 0.466, yb: 0.968 + DY, rb: 0.0415, rt: 0.0458, yt: 0.806 + DY, yw: 0.853 + DY },
     star: { x: 0.5995, y: 0.352 + DY },
@@ -38,12 +38,12 @@
     [LY.fx0, LY.iy1, LY.fx1, LY.fy1, 'h', 0.034, 0],
     // left sash
     [LY.ix0, LY.iy0, LY.ix0 + ST, LY.iy1, 'v', 0.024, 1],
-    [LY.mx - ST, LY.iy0, LY.mx - 0.0006, LY.iy1, 'v', 0.024, 1],
+    [LY.mx - ST, LY.iy0, LY.mx, LY.iy1, 'v', 0.024, 1],
     [LY.ix0, LY.iy0, LY.mx, LY.iy0 + ST, 'h', 0.024, 1],
     [LY.ix0, LY.iy1 - BR, LY.mx, LY.iy1, 'h', 0.024, 1],
     [LY.ix0, LY.gy - GB, LY.mx, LY.gy + GB, 'h', 0.018, 1],
     // right sash
-    [LY.mx + 0.0006, LY.iy0, LY.mx + ST, LY.iy1, 'v', 0.024, 1],
+    [LY.mx, LY.iy0, LY.mx + ST, LY.iy1, 'v', 0.024, 1],
     [LY.ix1 - ST, LY.iy0, LY.ix1, LY.iy1, 'v', 0.024, 1],
     [LY.mx, LY.iy0, LY.ix1, LY.iy0 + ST, 'h', 0.024, 1],
     [LY.mx, LY.iy1 - BR, LY.ix1, LY.iy1, 'h', 0.024, 1],
@@ -135,17 +135,19 @@
       out[0] = mix(out[0], out[0] * 1.35 + 0.05, a); out[1] = mix(out[1], out[1] * 1.12 + 0.02, a); out[2] = mix(out[2], out[2] * 0.98, a);
     }
     // distant hills: a soft, rolling line just under the horizon, sinking into the valley mist
-    const hillTop = -0.002 + 0.016 * (fbm(x * 3.2, 1.7, 33, 4) - 0.5) - 0.004 * Math.sin(x * 6 + 1) + 0.006 * (fbm(x * 14, 2.7, 34, 3) - 0.5);
-    const hb = smooth(hillTop - 0.0035, hillTop + 0.0025, h);
+    const hillTop = -0.002 + 0.03 * (fbm(x * 3.2, 1.7, 33, 4) - 0.5) - 0.006 * Math.sin(x * 7 + 1) + 0.008 * (fbm(x * 14, 2.7, 34, 3) - 0.5);
+    // the hills are only a thickening of the haze: a soft, uneven edge
+    const soft = 0.004 + 0.006 * fbm(x * 9, 4.4, 35, 2);
+    const hb = smooth(hillTop - soft * 1.6, hillTop + soft * 0.6, h);
     if (hb > 0) {
       const d = h - hillTop;
       mistGrad(Math.max(0, d - 0.012) * 0.95, tmp3);
       const band = 0.94 + 0.12 * fbm(x * 5, h * 70, 51, 4);
-      const hc0 = DW.s2l(150), hc1 = DW.s2l(120), hc2 = DW.s2l(142);
+      const hc0 = DW.s2l(160), hc1 = DW.s2l(128), hc2 = DW.s2l(148);
       const m = smooth(0.0, 0.045, d);
       let r = mix(hc0, tmp3[0] * band, m), g = mix(hc1, tmp3[1] * band, m), b = mix(hc2, tmp3[2] * band, m);
       // belts of trees standing in the mist, darker and crisper as they come nearer
-      const belts = [[0.040, 0.18, 0.0016, 81], [0.078, 0.30, 0.0012, 82], [0.118, 0.44, 0.0009, 83]];
+      const belts = [[0.040, 0.16, 0.0045, 81], [0.078, 0.27, 0.0035, 82], [0.118, 0.40, 0.0025, 83]];
       for (const [hb0, dark, soft, sd] of belts) {
         const top = hb0 + 0.010 * (fbm(x * 9, 1.0, sd, 3) - 0.5) + 0.006 * (fbm(x * 55, 2.0, sd + 9, 3) - 0.5);
         const reach = smooth(0.25, 0.6, fbm(x * 4 + 3, 7.0, sd + 4, 3));
@@ -165,7 +167,23 @@
         const nearRidge = Math.exp(-Math.max(0, y - nr.top) / 0.006);
         const v = (0.75 + 0.5 * nearRidge) * course;
         cr = DW.s2l(46 * v); cg = DW.s2l(42 * v); cb = DW.s2l(62 * v);
-      } else if (nr.k === 2) { cr = DW.s2l(19); cg = DW.s2l(17); cb = DW.s2l(28); }
+        // the ridge tiles catch the rose of the sky
+        const rl = Math.exp(-Math.max(0, y - nr.top) / 0.0011) * (0.6 + 0.4 * vnoise(x * 200, 3, 63));
+        cr = mix(cr, DW.s2l(150), rl * 0.75); cg = mix(cg, DW.s2l(112), rl * 0.75); cb = mix(cb, DW.s2l(128), rl * 0.75);
+      } else if (nr.k === 2) {
+        cr = DW.s2l(19); cg = DW.s2l(17); cb = DW.s2l(28);
+        // someone else is awake: one small window, lamplit, across the valley
+        const wx0 = 0.2855, wx1 = 0.2965, wy0 = 0.8915 + DY, wy1 = 0.9035 + DY;
+        const inside = smooth(wx0 - 0.0006, wx0 + 0.0006, x) * (1 - smooth(wx1 - 0.0006, wx1 + 0.0006, x)) * smooth(wy0 - 0.0006, wy0 + 0.0006, y) * (1 - smooth(wy1 - 0.0006, wy1 + 0.0006, y));
+        const bar = 1 - 0.75 * Math.exp(-Math.pow((x - (wx0 + wx1) / 2) / 0.0005, 2)) - 0.6 * Math.exp(-Math.pow((y - (wy0 + wy1) / 2 + 0.001) / 0.0005, 2));
+        const glowW = 0.85 + 0.15 * (1 - Math.abs(x - 0.291) / 0.006);
+        if (inside > 0) {
+          cr = mix(cr, DW.s2l(150) * glowW * bar, inside); cg = mix(cg, DW.s2l(92) * glowW * bar, inside); cb = mix(cb, DW.s2l(44) * glowW * bar, inside);
+        }
+        const hd = Math.hypot(x - 0.291, (y - 0.8975 - DY) * 0.9);
+        const halo = Math.exp(-hd / 0.006) * 0.012 * (1 - inside);
+        cr += halo * 1.0; cg += halo * 0.55; cb += halo * 0.2;
+      }
       else { const v = 0.8 + 0.4 * fbm(x * 90, y * 90, 62, 3); cr = DW.s2l(24 * v); cg = DW.s2l(21 * v); cb = DW.s2l(33 * v); }
       // a veil of morning haze between us and the houses
       const haze = 0.12;
@@ -209,8 +227,9 @@
         const p = j * Wpx + i;
         let reg = R.WALL, ang = 0, kp = 0;
         // hand-drawn wobble for architectural edges
-        const wob = (vnoise(x * 90, y * 90, 5) - 0.5) * 0.0011 + (vnoise(x * 13, y * 13, 6) - 0.5) * 0.0012;
-        const xw = x + wob, yw = y + (vnoise(x * 80 + 9, y * 80, 8) - 0.5) * 0.0011;
+        // edges drawn with a loaded brush: they waver a little along their length
+        const wob = (vnoise(x * 34, y * 34, 5) - 0.5) * 0.0026 + (vnoise(x * 120, y * 120, 6) - 0.5) * 0.0009;
+        const xw = x + wob, yw = y + (vnoise(x * 30 + 9, y * 30, 8) - 0.5) * 0.0024 + (vnoise(x * 110, y * 110, 7) - 0.5) * 0.0008;
 
         // ===== wall face (default) =====
         {
@@ -259,7 +278,7 @@
             // jambs
             reg = dx < 0 ? R.REVL : R.REVR;
             const v = clamp((y - LY.fy0) / (LY.fy1 - LY.fy0), 0, 1);
-            const near = [0, 0, 0], far = DW.srgb(40, 41, 58);
+            const near = [0, 0, 0], far = DW.srgb(33, 35, 51);
             const nTop = DW.srgb(98, 100, 132), nBot = DW.srgb(168, 142, 150);
             const vv = smooth(0.1, 0.95, v);
             for (let k = 0; k < 3; k++) near[k] = mix(nTop[k], nBot[k], vv);
@@ -271,7 +290,7 @@
             c[0] *= shf; c[1] *= shf; c[2] *= shf;
           } else if (dy < 0) {
             reg = R.SOFFIT;
-            const near = DW.srgb(132, 110, 124), far = DW.srgb(38, 38, 54);
+            const near = DW.srgb(132, 110, 124), far = DW.srgb(33, 35, 51);
             const fq = Math.pow(q, 0.6);
             const side = 1 - 0.25 * smooth(0.55, 0.8, x);
             for (let k = 0; k < 3; k++) c[k] = mix(near[k] * side, far[k], fq) * (0.94 + 0.12 * nz);
@@ -351,6 +370,12 @@
             for (let k = 0; k < 3; k++) c[k] = mix(c[k], hl[k], edgeL);
             const nz = fbm(x * 25, y * 25, 18, 3);
             c[0] *= 0.95 + 0.1 * nz; c[1] *= 0.95 + 0.1 * nz; c[2] *= 0.95 + 0.1 * nz;
+            // the joint where the two casements meet
+            if (M[6] === 1 && M[4] === 'v') {
+              const dj = Math.abs(xw - LY.mx) / 0.0009;
+              const jk = 1 - 0.45 * Math.exp(-dj * dj);
+              c[0] *= jk; c[1] *= jk; c[2] *= jk;
+            }
             ang = M[4] === 'v' ? Math.PI / 2 : 0;
             ang += (vnoise(x * 40, y * 40, 19) - 0.5) * 0.12;
             kp = 0.35 * edgeL;
@@ -409,7 +434,7 @@
               a = Math.max(a, cover(d, px));
             }
             // bracket under the rod
-            for (const bx of [0.14, 0.88]) {
+            for (const bx of [0.14, 0.866]) {
               if (Math.abs(x - bx) < 0.0035 && y > LY.rodY && y < LY.rodY + 0.016) a = Math.max(a, 1);
             }
             if (a > 0) {

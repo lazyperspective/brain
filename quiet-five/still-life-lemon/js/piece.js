@@ -4,6 +4,7 @@
   'use strict';
   const Q = G.Q;
   const LOOP = (Q.LOOP = 10.0);
+  const MOT = Q.makeNoise(8080);
   const sqrt = Math.sqrt, min = Math.min, max = Math.max;
 
   // candle: periodic irregular flicker (integer harmonics of the loop => seamless)
@@ -14,8 +15,8 @@
     const ph = (((t / LOOP) % 1) + 1) % 1;
     const a = nA(ph), b = nB(ph), m = nM(ph);
     return {
-      id: 1 + 0.042 * a,                       // diffuse light
-      is: 1 + 0.13 * (0.78 * a + 0.62 * b),    // speculars breathe more (flame size)
+      id: 1 + 0.05 * a,                       // diffuse light
+      is: 1 + 0.16 * (0.78 * a + 0.62 * b),    // speculars breathe more (flame size)
       m: 0.5 + 0.5 * Math.tanh(1.1 * m),       // flame sway between positions a and b
     };
   };
@@ -56,7 +57,10 @@
         const l = pt.lum[i];
         const light = Q.smooth(0.01, 0.25, l);
         const cr = pt.crack[i];
-        mul[i] = pt.relief[i] * (1 - 0.2 * cr * (0.3 + 0.7 * light));
+        // uneven aged varnish / grime: a slow mottle over the whole picture
+        const xx = (i % W) / W, yy = ((i / W) | 0) / H;
+        const mot = 1 + 0.045 * MOT.fbm2(xx * 5, yy * 5, 4) - 0.05 * (Math.pow(Math.abs(xx - 0.5) * 2, 3) + Math.pow(Math.abs(yy - 0.5) * 2, 3));
+        mul[i] = mot * pt.relief[i] * (1 - 0.2 * cr * (0.3 + 0.7 * light));
         // varnish sheen on raised paint + dirt-free crack edges catching light in the darks
         // thin darks: the canvas weave and crack edges catch a little light through the varnish
         const wv = pt.weave[i];

@@ -47,7 +47,7 @@ function lumaRegion(buf, w, x0, y0, rw, rh, ch = 4) {
     execFileSync('python3', ['-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], "JPEG", quality=94, subsampling=0, optimize=True)', path.join(OUT, 'still-4k.png'), path.join(OUT, 'still-x.jpg')]);
     console.log('still', ((Date.now() - ts) / 1000).toFixed(1), 's');
     // crops (100%): focal point, darkest area, busiest texture, a corner
-    const crops = { 'focal-lemon': [1050, 1500, 900, 900], 'darkest-apron': [1250, 2150, 900, 550], 'busiest-glass-prunts': [200, 1300, 800, 900], 'corner-top-left': [0, 0, 800, 800] };
+    const crops = { 'focal-lemon': [880, 1400, 900, 900], 'darkest-area': [500, 2120, 900, 580], 'busiest-glass-prunts': [150, 1100, 800, 900], 'corner-top-left': [0, 0, 800, 800] };
     for (const [name, [x, y, w, h]] of Object.entries(crops)) ff(['-i', path.join(OUT, 'still-4k.png'), '-vf', `crop=${w}:${h}:${x}:${y}`, path.join(OUT, 'crops', name + '.png')]);
     log.push(`still: t=${STILL_T}s rendered natively at 2160x2700`);
   }

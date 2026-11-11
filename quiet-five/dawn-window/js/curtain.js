@@ -15,7 +15,7 @@
     yTop: LY.rodY + 0.0085,
     yHem: 0.983 + (window.DW.LY.OY - 0.035),
     xl0: 0.600, xl1: 0.630,
-    xr0: 0.905, xr1: 0.93,
+    xr0: 0.884, xr1: 0.903,
     Np: 10,
     camD: 1.3, // camera distance (canvas widths) for perspective of depth offsets
   };
@@ -95,7 +95,7 @@
     const rnd = DW.rng(9091);
     // brush: long vertical strokes in material space, scumbled light and dark
     for (let k = 0; k < 2600; k++) {
-      const u0 = rnd(), s0 = rnd() * 1.1 - 0.05, ls = 0.06 + 0.3 * rnd() * rnd(), wu = 0.0018 + 0.006 * rnd();
+      const u0 = rnd(), s0 = rnd() * 1.1 - 0.1, ls = 0.15 + 0.45 * rnd() * rnd(), wu = 0.0018 + 0.006 * rnd();
       const v = (rnd() - 0.5) * 2, op = 0.25 + 0.5 * rnd();
       const tilt = (rnd() - 0.5) * 0.02;
       const NB = 9, br = [];
@@ -153,6 +153,18 @@
     for (let j = 0; j < NS; j++) for (let i = 0; i < NU; i++) {
       slub[j * NU + i] += (DW.fbm(i / NU * 9, j / NS * 30, 333, 3) - 0.5) * 0.35;
     }
+    // the pleats themselves: irregular widths and depths, two tight gathers, one pleat that twists
+    {
+      const r3 = DW.rng(4242);
+      const Np = C.Np, w = [], d = [];
+      for (let k = 0; k < Np; k++) { w.push(0.7 + 0.75 * r3()); d.push(0.55 + 0.9 * r3()); }
+      for (const g of [2, 7]) { w[g] *= 0.55; w[g + 1] *= 0.6; d[g] = 1.45; d[g + 1] = 1.3; }
+      w[0] *= 1.25; // the leading pleat hangs a little open
+      const tot = w.reduce((a, b) => a + b, 0);
+      const P = [0];
+      for (let k = 0; k < Np; k++) P.push(P[k] + w[k] / tot);
+      C.pleatP = P; C.pleatW = w.map((v) => v / tot); C.pleatD = d; C.twistK = 5;
+    }
     // fold character: depth and a slow wander of each fold's phase down the length (static fields over (phase, s))
     const TU = 640, TS = 256;
     const tDepth = new Float32Array(TU * TS), tPsi = new Float32Array(TU * TS);
@@ -168,13 +180,13 @@
     let nStroke = 0;
     {
       const r2 = DW.rng(7717);
-      const cols = 70, rows = 11;
+      const cols = 88, rows = 6;
       const list = [];
       for (let a = 0; a < cols; a++) for (let b = 0; b < rows + 1; b++) list.push([(a + r2()) / cols, (b + r2() - 0.6) / rows]);
       for (let k = list.length - 1; k > 0; k--) { const j = Math.floor(r2() * (k + 1)); const t2 = list[k]; list[k] = list[j]; list[j] = t2; }
       for (const [u0, s0] of list) {
         const id = nStroke++;
-        const wu = (0.5 + 0.9 * r2()) / cols, ls = (0.8 + 1.6 * r2()) / rows, tilt = (r2() - 0.5) * 0.04;
+        const wu = (0.5 + 1.0 * r2()) / cols, ls = (1.0 + 1.8 * r2()) / rows, tilt = (r2() - 0.5) * 0.03;
         const i0 = Math.max(0, Math.floor((u0 - wu) * NU)), i1 = Math.min(NU - 1, Math.ceil((u0 + wu) * NU));
         const j0 = Math.max(0, Math.floor(s0 * NS)), j1 = Math.min(NS - 1, Math.ceil((s0 + ls) * NS));
         for (let j = j0; j <= j1; j++) {
@@ -223,9 +235,7 @@
     const detail = !!st.detail;
     const wPeriodU = Math.PI * (0.31 * Wpx * 2.1) / 3.4, wPeriodS = Math.PI * lenPx / 3.4;
     let bx0 = Wpx, bx1 = 0;
-    const phw0 = 0.7, phw1 = 0.35, phw2 = 0.15;
-    const warpPhase = (ph) => ph + phw0 * Math.sin(0.41 * ph + 1.3) + phw1 * Math.sin(0.93 * ph + 0.2) + phw2 * Math.sin(1.71 * ph + 2.0);
-    const wEnd = warpPhase(Phi) - warpPhase(0);
+    const pP = C.pleatP, pWd = C.pleatW, pD = C.pleatD, Np = C.Np, twistK = C.twistK;
     for (let j = j0; j <= j1; j++) {
       const y = (j + 0.5) * px;
       const s0 = clamp((y - C.yTop) / len, 0, 1.06);
@@ -237,6 +247,9 @@
       const beta = mix(1.12, 0.78, smooth(0, 0.55, s0)) * (1 - 0.26 * clamp(bil, 0, 1.5)) * (1 + 0.3 * Math.exp(-s0 / 0.025));
       const tRow = Math.min(TS - 1, Math.max(0, Math.min(1, s0) * (TS - 1))) | 0;
       const psi = 0.55 * Math.sin(2.3 * s0 + 0.4) + o.travel;
+      // one pleat turns over on itself as it falls; the draft pushes a soft diagonal fold across the lower cloth
+      const twist = 2.4 * smooth(0.2, 0.85, s0) + 0.5 * o.travel;
+      const diagA = 0.009 * (0.45 + 0.55 * clamp(bil, 0, 1.6));
       const pW = (xr - xl) / C.Np;
       const amp = (pW / (2 * Math.PI)) * beta;
       const zA = pW * beta * 0.45;
@@ -250,17 +263,27 @@
       for (let i = xa; i <= xb + 1; i++) { D[i] = 0; Dl[i] = 0; Dm[i] = 0; Dn[i] = 0; Zf[i] = -1e9; }
       let pxPrev = 0, pzPrev = 0, have = false, uPrev = 0;
       let rowAny = false;
+      let pk = 0;
       for (let k = 0; k <= nS; k++) {
-        const ph = (k / nS) * Phi;
         const u = k / nS;
-        const pw = warpPhase(ph);
-        const un = (pw - warpPhase(0)) / wEnd;
+        while (pk < Np - 1 && u > pP[pk + 1]) pk++;
+        const fr = (u - pP[pk]) / pWd[pk];
+        const pw = 2 * Math.PI * (pk + fr);
+        const un = u;
         const ti0 = (u * (TU - 1)) | 0;
-        const ang = pw + psi + tPsi[tRow * TU + ti0] * (0.35 + 0.65 * Math.min(1, s0 * 1.5));
-        const depthVar = tDepth[tRow * TU + ti0];
-        const xx = xl + (xr - xl) * un - amp * depthVar * Math.sin(ang);
+        // pleat depth blends smoothly from one pleat to the next
+        const kn = fr < 0.5 ? Math.max(0, pk - 1) : Math.min(Np - 1, pk + 1);
+        const bw = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.abs(fr - 0.5) * 2));
+        const pd = pD[pk] + (pD[kn] - pD[pk]) * 0.5 * bw;
+        const tw = pk === twistK ? twist * Math.sin(Math.PI * fr) : 0;
+        const ang = pw + psi + tw + tPsi[tRow * TU + ti0] * (0.35 + 0.65 * Math.min(1, s0 * 1.5));
+        const depthVar = tDepth[tRow * TU + ti0] * pd;
+        // local pleat width sets the fold amplitude
+        const ampL = amp * pWd[pk] * Np;
+        const xx = xl + (xr - xl) * un - ampL * depthVar * Math.sin(ang);
         const bzu = bz * (1 - 0.55 * u);
-        const zz = zA * depthVar * Math.cos(ang) + bzu;
+        const dd = ((s0 - 0.48) - (u - 0.04) * 0.72) / 0.07;
+        const zz = zA * pWd[pk] * Np * depthVar * Math.cos(ang) + bzu + diagA * Math.exp(-dd * dd) * smooth(0.0, 0.1, u) * (1 - smooth(0.7, 0.95, u));
         // perspective of depth: nearer cloth sits lower on the screen and a touch wider
         const xs = (xx + (xx - 0.5) * zz / C.camD) * Wpx;
         const zs = zz * Wpx;
@@ -353,9 +376,13 @@
         const wl = 0.3 * wb[0] + 0.6 * wb[1] + 0.1 * wb[2];
         const E0 = 0.0045 + 0.10 * wl, E1 = 0.0048 + 0.10 * wl, E2 = 0.0064 + 0.11 * wl;
         const g = 1.3;
-        const c0 = B0 * Tdir + wb[0] * linT[0] * diff * g + E0 * linR[0] * Rf * (1 + 0.1 * mm);
-        const c1 = B1 * Tdir + wb[1] * linT[1] * diff * g + E1 * linR[1] * Rf * (1 + 0.1 * mm);
-        const c2 = B2 * Tdir + wb[2] * linT[2] * diff * g + E2 * linR[2] * Rf * (1 + 0.1 * mm);
+        // where the linen is a single layer the rose of the dawn glows through, warmer
+        const thin = Math.exp(-(De - 1) * 1.6);
+        const wr = 1 + 0.16 * thin, wgc = 1 + 0.02 * thin, wbc = 1 - 0.1 * thin;
+        const Td = Tdir * (1 + 0.2 * thin);
+        const c0 = B0 * Td + wb[0] * linT[0] * diff * g * wr + E0 * linR[0] * Rf * (1 + 0.1 * mm);
+        const c1 = B1 * Td + wb[1] * linT[1] * diff * g * wgc + E1 * linR[1] * Rf * (1 + 0.1 * mm);
+        const c2 = B2 * Td + wb[2] * linT[2] * diff * g * wbc + E2 * linR[2] * Rf * (1 + 0.1 * mm);
         F[q3] = B0 + (c0 - B0) * alpha;
         F[q3 + 1] = B1 + (c1 - B1) * alpha;
         F[q3 + 2] = B2 + (c2 - B2) * alpha;
@@ -418,23 +445,28 @@
     const { Wpx } = st, F = st.frame, px = 1 / Wpx;
     const o = rowState(0, t, {});
     const xl = C.xl0 + o.swing, xr = C.xr0 + 0.22 * o.swing;
-    const ringR = 0.0068, thick = 0.0011;
-    const base = DW.srgb(20, 20, 27), hl = DW.srgb(62, 60, 74);
+    const base = DW.srgb(20, 20, 27), hl = DW.srgb(66, 63, 78);
+    const r4 = DW.rng(515);
     for (let k = 0; k < C.Np; k++) {
-      const cx = xl + (xr - xl) * ((k + 0.5 + 0.28 * Math.sin(k * 2.1 + 0.4)) / C.Np);
-      const cy = LY.rodY;
+      // each ring sits over its pleat; they differ a little in size, tilt and how much light they catch
+      const rs = 0.85 + 0.3 * r4(), tilt = 0.32 + 0.25 * r4(), shine = 0.4 + 0.6 * r4(), slip = (r4() - 0.5) * 0.25;
+      const cx = xl + (xr - xl) * (C.pleatP[k] + C.pleatW[k] * (0.5 + slip));
+      const ringR = 0.0066 * rs, thick = 0.0011 * (0.85 + 0.3 * r4());
+      const cy = LY.rodY + 0.0008 * (r4() - 0.5);
+      const rot = (r4() - 0.5) * 0.25;
       const i0 = Math.floor((cx - ringR - 0.003) * Wpx), i1 = Math.ceil((cx + ringR + 0.003) * Wpx);
       const j0 = Math.floor((cy - ringR - 0.003) * Wpx), j1 = Math.ceil((cy + ringR + 0.003) * Wpx);
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
         const x = (i + 0.5) * px, y = (j + 0.5) * px;
-        // a ring seen nearly edge-on: a thin ellipse around the rod
-        const ex = (x - cx) / (ringR * 0.42), ey = (y - cy) / ringR;
+        const dx0 = x - cx, dy0 = y - cy;
+        const dx = dx0 * Math.cos(rot) + dy0 * Math.sin(rot), dy = -dx0 * Math.sin(rot) + dy0 * Math.cos(rot);
+        const ex = dx / (ringR * tilt), ey = dy / ringR;
         const r = Math.hypot(ex, ey);
-        const d = Math.abs(r - 1) * ringR * 0.6;
-        const a = clamp(0.5 - (d - thick * 0.5) / px, 0, 1) * (y > cy - ringR * 0.2 || Math.abs(ex) > 0.2 ? 1 : 1);
+        const d = Math.abs(r - 1) * ringR * tilt * 1.2;
+        const a = clamp(0.5 - (d - thick * 0.5) / px, 0, 1);
         if (a <= 0) continue;
         const p = (j * Wpx + i) * 3;
-        const lit = clamp((y - cy) / ringR, 0, 1) * 0.7;
+        const lit = clamp(dy / ringR, 0, 1) * 0.75 * shine;
         for (let c = 0; c < 3; c++) F[p + c] = F[p + c] * (1 - a) + mix(base[c], hl[c], lit) * a;
       }
     }

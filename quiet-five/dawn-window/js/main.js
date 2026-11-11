@@ -9,6 +9,13 @@
   const DW = window.DW;
   const L = 10; // loop length, seconds
   DW.L = L;
+  // framing: the scene is painted on a slightly larger canvas and the picture is the window-centred crop of it
+  // (zoom about a point high in the wall: trims the headroom and the dead wall under the sill)
+  const ZOOM = 1.12, PIVOT_Y = 0.537;
+  DW.frameFor = function (outW) {
+    const W = Math.round((outW * ZOOM) / 2) * 2;
+    return { Wint: W, x0: Math.round((W - outW) / 2), y0: Math.round(PIVOT_Y * (W - outW)), w: outW, h: Math.round(outW * 1.25) };
+  };
 
   const qs = new URLSearchParams(location.search);
   const EXPORT = qs.has('export');
@@ -21,6 +28,7 @@
     const S = DW.buildReference(Wpx);
     const t1 = performance.now();
     const pnt = DW.paint(S, 4471);
+    pnt.strokes += DW.paintAccents(S, pnt.P, pnt.Hh, 991);
     const t2 = performance.now();
     const { Hpx, N } = S;
     const P = pnt.P;
@@ -113,19 +121,21 @@
     const x = v * 4096, i = x | 0, f = x - i;
     return LUT[i] + (LUT[i + 1] - LUT[i]) * f;
   }
-  DW.encode = function (F, Wpx, Hpx, down) {
+  // crop: {x0, y0, w, h} region of the internal canvas that is the picture
+  DW.encode = function (F, Wpx, Hpx, down, crop) {
     if (!LUT) buildLUT();
+    const c = crop || { x0: 0, y0: 0, w: Wpx, h: Hpx };
     const f = down ? 2 : 1;
-    const w = Wpx / f | 0, h = Hpx / f | 0;
+    const w = c.w / f | 0, h = c.h / f | 0;
     const out = new Uint8Array(w * h * 3);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         let r, g, b;
         if (f === 1) {
-          const q = (y * Wpx + x) * 3;
+          const q = ((y + c.y0) * Wpx + x + c.x0) * 3;
           r = F[q]; g = F[q + 1]; b = F[q + 2];
         } else {
-          const q0 = ((2 * y) * Wpx + 2 * x) * 3, q1 = q0 + Wpx * 3;
+          const q0 = ((2 * y + c.y0) * Wpx + 2 * x + c.x0) * 3, q1 = q0 + Wpx * 3;
           r = (F[q0] + F[q0 + 3] + F[q1] + F[q1 + 3]) * 0.25;
           g = (F[q0 + 1] + F[q0 + 4] + F[q1 + 1] + F[q1 + 4]) * 0.25;
           b = (F[q0 + 2] + F[q0 + 5] + F[q1 + 2] + F[q1 + 5]) * 0.25;
@@ -168,14 +178,14 @@
       duration: L,
       ready: false,
       lastMs: 0,
-      build() { if (!st) { st = DW.build(res); st.detail = DETAIL; } this.ready = true; return st.buildMs; },
+      build() { if (!st) { const fr = DW.frameFor(res); st = DW.build(fr.Wint); st.crop = fr; st.detail = DETAIL; } this.ready = true; return st.buildMs; },
       // opts.size: output width (1080 or 2160). Same t -> same pixels.
       renderAt(t, opts) {
         if (!st) this.build();
         const size = (opts && opts.size) || 1080;
         const a = performance.now();
         const F = DW.renderFrame(st, t);
-        last = DW.encode(F, st.Wpx, st.Hpx, size < st.Wpx);
+        last = DW.encode(F, st.Wpx, st.Hpx, size < st.crop.w, st.crop);
         this.lastMs = performance.now() - a;
         if (!opts || !opts.noBlit) blit(canvas, last);
         return { w: last.w, h: last.h, ms: this.lastMs };
@@ -189,10 +199,12 @@
     // plays smoothly at 30 fps from the cache.
     const want = Math.min(1080, Math.max(540, Math.round(Math.min(innerWidth, innerHeight * 0.8) * (devicePixelRatio || 1) / 2) * 2));
     setTimeout(() => {
-      const st = DW.build(want);
+      const fr = DW.frameFor(want);
+      const st = DW.build(fr.Wint);
+      st.crop = fr;
       if (wait) wait.remove();
       if (TFREEZE !== null) {
-        blit(canvas, DW.encode(DW.renderFrame(st, TFREEZE), st.Wpx, st.Hpx, false));
+        blit(canvas, DW.encode(DW.renderFrame(st, TFREEZE), st.Wpx, st.Hpx, false, st.crop));
         return;
       }
       const NF = Math.round(L * 30);
@@ -207,7 +219,7 @@
         let f = now;
         for (let k = 0; k < NF && cache[f]; k++) f = (f + 1) % NF;
         if (cache[f]) return;
-        blit(canvas, DW.encode(DW.renderFrame(st, f / 30), st.Wpx, st.Hpx, false));
+        blit(canvas, DW.encode(DW.renderFrame(st, f / 30), st.Wpx, st.Hpx, false, st.crop));
         cache[f] = 'pending';
         canvas.toBlob((b) => {
           createImageBitmap(b).then((bm) => { cache[f] = bm; made++; });

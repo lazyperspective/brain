@@ -12,9 +12,9 @@
   REG[R.WALL] = { s: 1.35, asp: 3.2, curl: 0.18, op: 0.80, jit: 0.13, hue: 0.11 };
   REG[R.LOWWALL] = { s: 1.5, asp: 3.0, curl: 0.2, op: 0.80, jit: 0.14, hue: 0.12 };
   REG[R.ROD] = { s: 0.22, asp: 6, curl: 0.0, op: 0.7, jit: 0.02 };
-  REG[R.REVL] = { s: 0.75, asp: 3.5, curl: 0.08, op: 0.85, jit: 0.045, hue: 0.04, iso: 1 };
-  REG[R.REVR] = { s: 0.75, asp: 3.5, curl: 0.08, op: 0.85, jit: 0.045, hue: 0.04, iso: 1 };
-  REG[R.SOFFIT] = { s: 0.75, asp: 3.5, curl: 0.08, op: 0.85, jit: 0.045, hue: 0.045, iso: 1 };
+  REG[R.REVL] = { s: 0.95, asp: 4.2, curl: 0.12, op: 0.8, jit: 0.07, hue: 0.09, iso: 1 };
+  REG[R.REVR] = { s: 0.95, asp: 4.2, curl: 0.12, op: 0.8, jit: 0.07, hue: 0.09, iso: 1 };
+  REG[R.SOFFIT] = { s: 0.95, asp: 4.2, curl: 0.12, op: 0.8, jit: 0.07, hue: 0.09, iso: 1 };
   REG[R.SILL] = { s: 0.6, asp: 4.5, curl: 0.04, op: 0.85, jit: 0.035, hue: 0.03 };
   REG[R.NOSE] = { s: 0.35, asp: 7, curl: 0.0, op: 0.8, jit: 0.02 };
   REG[R.FRAME] = { s: 0.33, asp: 6, curl: 0.02, op: 0.85, jit: 0.04, hue: 0.03 };
@@ -24,6 +24,68 @@
   REG[R.DARKOUT] = { s: 0.4, asp: 4, curl: 0.05, op: 0.85, jit: 0.03 };
 
   function perc(v) { return Math.sqrt(v < 0 ? 0 : v); } // cheap perceptual-ish transfer for comparisons
+
+  // rasterise one brush stroke into the paint (P) and paint height (Hh)
+  //   allow: optional Uint8Array lookup of regions the stroke may touch (null = any)
+  let ridgeK = 1.5;
+  function rasterStroke(P, Hh, refP, Wpx, Hpx, cx, cy, ca, sa, hl, hw, curl, col0, col1, col2, cP0, cP1, cP2, thick, isig, op, dry, pick, bristle, allow, region) {
+    const NB = bristle.length;
+    const ex = Math.abs(ca) * hl + Math.abs(sa) * hw + Math.abs(curl) * hl + 2;
+    const ey = Math.abs(sa) * hl + Math.abs(ca) * hw + Math.abs(curl) * hl + 2;
+    const x0 = Math.max(0, (cx - ex) | 0), x1 = Math.min(Wpx - 1, (cx + ex) | 0);
+    const y0 = Math.max(0, (cy - ey) | 0), y1 = Math.min(Hpx - 1, (cy + ey) | 0);
+    const ihl = 1 / hl, ihw = 1 / hw;
+    for (let py = y0; py <= y1; py++) {
+      const dy = py + 0.5 - cy;
+      let p = py * Wpx + x0;
+      for (let px = x0; px <= x1; px++, p++) {
+        if (allow && !allow[region[p]]) continue;
+        const dx = px + 0.5 - cx;
+        const a = dx * ca + dy * sa;
+        const ta = a * ihl;
+        if (ta <= -1 || ta >= 1) continue;
+        const bb = (-dx * sa + dy * ca) - curl * a * a * ihl;
+        const s01 = (ta + 1) * 0.5;
+        const wf = 1 - 0.3 * s01 * s01; // narrower as the brush lifts
+        const tb = bb * ihw / wf;
+        if (tb <= -1 || tb >= 1) continue;
+        // ends: loaded start, feathered lift-off
+        const endA = ta < -0.8 ? (ta + 1) * 5 : ta > 0.55 ? (1 - ta) / 0.45 : 1;
+        const atb = tb < 0 ? -tb : tb;
+        const side = atb < 0.72 ? 1 : (1 - atb) / 0.28;
+        // bristles across the width
+        const bf = (tb * 0.5 + 0.5) * (NB - 1);
+        const bi = bf | 0, bfr = bf - bi;
+        const bd = bristle[bi] + (bristle[bi < NB - 1 ? bi + 1 : bi] - bristle[bi]) * bfr;
+        // dry brush: thin bristles run out of paint first, towards the end of the stroke
+        const th = dry * s01 * s01 * 1.4;
+        let bc = (bd - th) * 4;
+        bc = bc < 0 ? 0 : bc > 1 ? 1 : bc;
+        const cov = endA * side * bc;
+        if (cov <= 0.002) continue;
+        // edge awareness: the brush stops at a change of colour, wanders across similar tones
+        const q = p * 3;
+        const d0 = refP[q] - cP0, d1 = refP[q + 1] - cP1, d2 = refP[q + 2] - cP2;
+        const e = (d0 * d0 + d1 * d1 + d2 * d2) * isig;
+        const wE = 1 / (1 + e + 0.5 * e * e);
+        const al = op * cov * wE;
+        if (al <= 0.002) continue;
+        // wet pickup of the paint underneath, increasing along the stroke; bristle striation in value
+        const m = pick * s01;
+        const str = 1 + 0.07 * (bd - 0.75);
+        const u0 = P[q], u1 = P[q + 1], u2 = P[q + 2];
+        const c0 = (col0 + (u0 - col0) * m) * str, c1 = (col1 + (u1 - col1) * m) * str, c2 = (col2 + (u2 - col2) * m) * str;
+        P[q] = u0 + (c0 - u0) * al;
+        P[q + 1] = u1 + (c1 - u1) * al;
+        P[q + 2] = u2 + (c2 - u2) * al;
+        // paint height: ridges along bristles, a little build-up at the stroke sides
+        const ridge = atb > 0.6 ? (atb - 0.6) * ridgeK : 0;
+        const hNew = thick * (0.55 + 0.45 * bd + ridge) * (1 - 0.35 * s01);
+        Hh[p] = Hh[p] * (1 - al * 0.55) + hNew * al * 0.75;
+      }
+    }
+  }
+  DW.rasterStroke = rasterStroke;
 
   DW.paint = function (S, seed) {
     const { Wpx, Hpx, N, ref, region, dir, keep } = S;
@@ -54,6 +116,7 @@
     ];
     const NB = 18;
     const bristle = new Float32Array(NB);
+    DW._paintCtx = { refP, rnd };
     let strokes = 0;
 
     for (let pi = 0; pi < passes.length; pi++) {
@@ -90,11 +153,11 @@
         // tiny brushes are not used on the big quiet surfaces
         if (pi === 3 && rs > 0.9) continue;
         const r1 = rnd(), r2 = rnd(), r3 = rnd(), r4 = rnd(), r5 = rnd();
-        const hw = Math.max(0.8, wNom * Math.min(rs, pi === 0 ? 1.6 : 1.25) * (0.7 + 0.6 * r1) * 0.5);
+        const hw = Math.max(0.8, wNom * Math.min(rs, pi === 0 ? 1.6 : 1.25) * (0.5 + 1.0 * r1 * r1 + 0.1) * 0.5);
         const hl = hw * rp.asp * (0.7 + 0.6 * r2);
         let ang = dir[p0] + (r3 - 0.5) * 0.22;
         // on the reveals most strokes run across the fall of light (along the isophotes), some with it
-        if (rp.iso && rnd() < 0.65) ang += Math.PI / 2 + (rnd() - 0.5) * 0.3;
+        if (rp.iso && rnd() < 0.9) ang += Math.PI / 2 + (rnd() - 0.5) * 0.55;
         const ca = Math.cos(ang), sa = Math.sin(ang);
         const curl = (r4 - 0.5) * 2 * rp.curl;
         // colour: the light study averaged along the brush path (same surface only), jittered like hand-mixed paint
@@ -115,7 +178,8 @@
         const col0 = s0 * (1 + j0 + jr + hj), col1 = s1 * (1 + j0 + hj * 0.15), col2 = s2 * (1 + j0 + jb - hj);
         const cP0 = perc(s0), cP1 = perc(s1), cP2 = perc(s2);
         const lumP = 0.3 * cP0 + 0.55 * cP1 + 0.15 * cP2;
-        const thick = 0.12 + 0.95 * smooth(0.42, 0.9, lumP);
+        let thick = 0.12 + 0.95 * smooth(0.42, 0.9, lumP);
+        if (reg === R.FRAME || reg === R.FSIDE) thick = Math.max(thick, 0.32 + 0.2 * rnd());
         const isig = 1 / (pass.sig * pass.sig);
         const op = pass.op * rp.op;
         const dry = pass.dry * (0.6 + 0.8 * r5);
@@ -124,60 +188,7 @@
           const v = rnd();
           bristle[b] = v < 0.1 ? 0.15 + 0.2 * rnd() : 0.55 + 0.45 * v;
         }
-        // raster the stroke
-        const ex = Math.abs(ca) * hl + Math.abs(sa) * hw + Math.abs(curl) * hl + 2;
-        const ey = Math.abs(sa) * hl + Math.abs(ca) * hw + Math.abs(curl) * hl + 2;
-        const x0 = Math.max(0, (cx - ex) | 0), x1 = Math.min(Wpx - 1, (cx + ex) | 0);
-        const y0 = Math.max(0, (cy - ey) | 0), y1 = Math.min(Hpx - 1, (cy + ey) | 0);
-        const ihl = 1 / hl, ihw = 1 / hw;
-        for (let py = y0; py <= y1; py++) {
-          const dy = py + 0.5 - cy;
-          let p = py * Wpx + x0;
-          for (let px = x0; px <= x1; px++, p++) {
-            const dx = px + 0.5 - cx;
-            const a = dx * ca + dy * sa;
-            const ta = a * ihl;
-            if (ta <= -1 || ta >= 1) continue;
-            const bb = (-dx * sa + dy * ca) - curl * a * a * ihl;
-            const s01 = (ta + 1) * 0.5;
-            const wf = 1 - 0.3 * s01 * s01; // narrower as the brush lifts
-            const tb = bb * ihw / wf;
-            if (tb <= -1 || tb >= 1) continue;
-            // ends: loaded start, feathered lift-off
-            const endA = ta < -0.8 ? (ta + 1) * 5 : ta > 0.55 ? (1 - ta) / 0.45 : 1;
-            const atb = tb < 0 ? -tb : tb;
-            const side = atb < 0.72 ? 1 : (1 - atb) / 0.28;
-            // bristles across the width
-            const bf = (tb * 0.5 + 0.5) * (NB - 1);
-            const bi = bf | 0, bfr = bf - bi;
-            const bd = bristle[bi] + (bristle[bi < NB - 1 ? bi + 1 : bi] - bristle[bi]) * bfr;
-            // dry brush: thin bristles run out of paint first, towards the end of the stroke
-            const th = dry * s01 * s01 * 1.4;
-            let bc = (bd - th) * 4;
-            bc = bc < 0 ? 0 : bc > 1 ? 1 : bc;
-            let cov = endA * side * bc;
-            if (cov <= 0.002) continue;
-            // edge awareness: the brush stops at a change of colour, wanders across similar tones
-            const q = p * 3;
-            const d0 = refP[q] - cP0, d1 = refP[q + 1] - cP1, d2 = refP[q + 2] - cP2;
-            const e = (d0 * d0 + d1 * d1 + d2 * d2) * isig;
-            const wE = 1 / (1 + e + 0.5 * e * e);
-            const al = op * cov * wE;
-            if (al <= 0.002) continue;
-            // wet pickup of the paint underneath, increasing along the stroke; bristle striation in value
-            const m = pick * s01;
-            const str = 1 + 0.07 * (bd - 0.75);
-            const u0 = P[q], u1 = P[q + 1], u2 = P[q + 2];
-            const c0 = (col0 + (u0 - col0) * m) * str, c1 = (col1 + (u1 - col1) * m) * str, c2 = (col2 + (u2 - col2) * m) * str;
-            P[q] = u0 + (c0 - u0) * al;
-            P[q + 1] = u1 + (c1 - u1) * al;
-            P[q + 2] = u2 + (c2 - u2) * al;
-            // paint height: ridges along bristles, a little build-up at the stroke sides
-            const ridge = atb > 0.6 ? (atb - 0.6) * 1.5 : 0;
-            const hNew = thick * (0.55 + 0.45 * bd + ridge) * (1 - 0.35 * s01);
-            Hh[p] = Hh[p] * (1 - al * 0.55) + hNew * al * 0.75;
-          }
-        }
+        rasterStroke(P, Hh, refP, Wpx, Hpx, cx, cy, ca, sa, hl, hw, curl, col0, col1, col2, cP0, cP1, cP2, thick, isig, op, dry, pick, bristle, null, region);
         strokes++;
       }
     }
@@ -192,6 +203,113 @@
       }
     }
     return { P, Hh, strokes };
+  };
+
+
+  // ---------- accents: the decisive, loaded strokes a painter puts in last ----------
+  DW.paintAccents = function (S, P, Hh, seed) {
+    const { Wpx, Hpx, ref, region } = S;
+    const LY = DW.LY;
+    const refP = DW._paintCtx.refP;
+    const rnd = DW.rng(seed || 991);
+    const NB = 18, br = new Float32Array(NB);
+    const allowOf = (list) => { const a = new Uint8Array(32); for (const r of list) a[r] = 1; return a; };
+    const refAt = (x, y) => {
+      const i = clamp((x * Wpx) | 0, 0, Wpx - 1), j = clamp((y * Wpx) | 0, 0, Hpx - 1), q = (j * Wpx + i) * 3;
+      return [ref[q], ref[q + 1], ref[q + 2], region[j * Wpx + i]];
+    };
+    let n = 0;
+    ridgeK = 0.5;
+    function stroke(x, y, ang, len, wid, col, o) {
+      for (let b = 0; b < NB; b++) { const v = rnd(); br[b] = v < 0.12 ? 0.12 + 0.2 * rnd() : 0.55 + 0.45 * v; }
+      const sig = o.sig || 0.2;
+      rasterStroke(P, Hh, refP, Wpx, Hpx, x * Wpx, y * Wpx, Math.cos(ang), Math.sin(ang), len * 0.5 * Wpx, Math.max(0.7, wid * 0.5 * Wpx),
+        (o.curl || 0) * (rnd() - 0.5) * 2, col[0], col[1], col[2], Math.sqrt(col[0]), Math.sqrt(col[1]), Math.sqrt(col[2]),
+        o.thick || 1, 1 / (sig * sig), o.op || 0.8, o.dry || 0.5, o.pick || 0.15, br, o.allow || null, region);
+      n++;
+    }
+    const tint = (c, k, h) => [c[0] * k * (1 + h), c[1] * k * (1 + h * 0.15), c[2] * k * (1 - h)];
+
+    // 1. the lit edge of the sill board: three overlapping confident strokes of thick light paint
+    {
+      const allow = allowOf([R.NOSE, R.SILL]);
+      const xs = [[0.135, 0.42], [0.39, 0.66], [0.62, 0.872]];
+      for (const [a, b] of xs) {
+        const y = LY.noseY0 + 0.0011 + (rnd() - 0.5) * 0.0006;
+        const c = refAt((a + b) / 2, LY.noseY0 + 0.0011);
+        stroke((a + b) / 2, y, (rnd() - 0.5) * 0.004, b - a, 0.0036, tint(c, 1.22, 0.02), { thick: 1.4, op: 0.92, dry: 0.55, pick: 0.08, sig: 0.3, allow, curl: 0.01 });
+      }
+    }
+    // 2. the moulded edges of the casement catching the dawn: broken, loaded strokes along the members
+    {
+      const allow = allowOf([R.FRAME]);
+      const lit = allowOf([R.SKY, R.GLOW, R.DARKOUT, R.FSIDE]);
+      for (const M of LY.members) {
+        const vert = M[4] === 'v';
+        const edges = vert ? [[M[0], -1], [M[2], 1]] : [[M[1], -1], [M[3], 1]];
+        const a0 = vert ? M[1] : M[0], a1 = vert ? M[3] : M[2];
+        for (const [e, sgn] of edges) {
+          let t = a0 + rnd() * 0.02;
+          while (t < a1 - 0.01) {
+            const len = 0.025 + 0.07 * rnd();
+            const mid = Math.min(a1 - 0.005, t + len / 2);
+            const ox = vert ? e + sgn * 0.004 : mid, oy = vert ? mid : e + sgn * 0.004;
+            const out = refAt(ox, oy);
+            if (lit[out[3]] && rnd() < 0.8) {
+              const ix = vert ? e - sgn * 0.0017 : mid, iy = vert ? mid : e - sgn * 0.0017;
+              const c = refAt(ix, iy);
+              if (c[3] === R.FRAME) stroke(ix, iy, (vert ? Math.PI / 2 : 0) + (rnd() - 0.5) * 0.01, len, 0.0021 + 0.001 * rnd(), tint(c, 1.1 + 0.08 * rnd(), (rnd() - 0.5) * 0.06), { thick: 1.1, op: 0.75, dry: 0.65, sig: 0.3, allow });
+            }
+            t += len + rnd() * 0.02;
+          }
+        }
+        // a long ridge of paint dragged down the middle of each stile
+        if (vert && rnd() < 0.9) {
+          const L0 = M[3] - M[1], cx = (M[0] + M[2]) / 2 + (rnd() - 0.5) * (M[2] - M[0]) * 0.4;
+          const len = L0 * (0.3 + 0.4 * rnd()), cy = M[1] + len / 2 + rnd() * (L0 - len);
+          const c = refAt(cx, cy);
+          stroke(cx, cy, Math.PI / 2 + (rnd() - 0.5) * 0.01, len, (M[2] - M[0]) * 0.55, tint(c, 1.03, (rnd() - 0.5) * 0.05), { thick: 0.7, op: 0.32, dry: 0.7, sig: 0.15, allow });
+        }
+      }
+    }
+    // 3. a few loaded strokes on the lit reveals: warm and cool flecks, laid along the plane
+    {
+      const allow = allowOf([R.REVL, R.REVR, R.SOFFIT]);
+      for (let k = 0; k < 110; k++) {
+        const x = 0.14 + rnd() * 0.72, y = 0.12 + rnd() * 0.9;
+        const c = refAt(x, y);
+        if (!allow[c[3]]) continue;
+        const ang = c[3] === R.SOFFIT ? (rnd() - 0.5) * 0.5 : Math.PI / 2 + (rnd() - 0.5) * 0.5;
+        stroke(x, y, ang, 0.02 + 0.06 * rnd(), 0.003 + 0.008 * rnd(), tint(c, 1.02 + 0.14 * rnd(), (rnd() - 0.5) * 0.16), { thick: 0.5 + 0.5 * rnd(), op: 0.35 + 0.3 * rnd(), dry: 0.75, pick: 0.3, sig: 0.12, allow, curl: 0.15 });
+      }
+    }
+    // 4. the distance: long horizontal scumbles that drag one band of mist into the next
+    {
+      const allow = allowOf([R.GLOW]);
+      const P0 = LY.pane;
+      for (let k = 0; k < 1100; k++) {
+        const x = P0.x0 + rnd() * (P0.x1 - P0.x0);
+        const y = LY.VP.y - 0.09 + rnd() * (P0.y1 - LY.VP.y + 0.09);
+        const c = refAt(x, y);
+        if (!allow[c[3]]) continue;
+        const cb = refAt(x + (rnd() - 0.5) * 0.04, y + (rnd() - 0.5) * 0.012);
+        const below = y > LY.VP.y;
+        stroke(x, y, (rnd() - 0.5) * 0.03, 0.02 + 0.09 * rnd(), 0.0015 + 0.004 * rnd(), tint(cb, 0.97 + 0.08 * rnd(), (rnd() - 0.5) * 0.06),
+          { thick: below ? 0.5 : 0.9, op: 0.25 + 0.3 * rnd(), dry: 0.85, pick: 0.35, sig: 0.25, allow, curl: 0.04 });
+      }
+    }
+    // 5. slates suggested on the roof slopes
+    {
+      const allow = allowOf([R.DARKOUT]);
+      for (let k = 0; k < 900; k++) {
+        const x = 0.25 + rnd() * 0.5, y = 0.84 + rnd() * 0.1;
+        const c = refAt(x, y);
+        if (!allow[c[3]] || c[0] > c[2] * 1.2) continue;
+        stroke(x, y, (rnd() - 0.5) * 0.06, 0.004 + 0.012 * rnd(), 0.0008 + 0.0008 * rnd(), tint(c, 1.25 + 0.3 * rnd(), (rnd() - 0.5) * 0.1), { thick: 0.5, op: 0.45, dry: 0.6, sig: 0.06, allow });
+      }
+    }
+    ridgeK = 1.5;
+    return n;
   };
 
   // ---------- canvas weave (height, 0..1) ----------

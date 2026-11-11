@@ -105,7 +105,7 @@
             for (let k = 0; k < 3; k++) col[k] = mix(col[k] * 0.9, smp[k] * 1.05, fr);
             // meniscus lines: front and back edge of the surface ellipse catch the light
             const dF = Math.abs(y - yWFront) / px, dB = Math.abs(y - yWBack) / px;
-            const lineF = Math.exp(-dF * dF / 2.2) * 0.7, lineB = Math.exp(-dB * dB / 1.6) * 0.45;
+            const lineF = Math.exp(-dF * dF / 2.2) * 0.95, lineB = Math.exp(-dB * dB / 1.6) * 0.6;
             const lum = 0.3 * smp[0] + 0.6 * smp[1] + 0.1 * smp[2];
             const add = (lineF + lineB) * (0.12 + lum * 0.6);
             col[0] += add * 1.05; col[1] += add; col[2] += add * 0.98;
@@ -159,8 +159,10 @@
               const back = ey < 0 ? 1 : 0.55;
               const lft = 1 + 0.6 * smooth(0.2, -0.9, ex);
               const a = Math.exp(-dpx * dpx / 1.4) * back * lft;
-              col[0] += a * 0.30; col[1] += a * 0.27; col[2] += a * 0.27;
-              h = Math.max(h, a * 0.9);
+              // and one small spark where the rim catches the brightest sky
+              const spark = Math.exp(-dpx * dpx / 2.2) * Math.exp(-((ex + 0.6) * (ex + 0.6)) / 0.008) * (ey < 0 ? 1 : 0.3);
+              col[0] += a * 0.30 + spark * 0.75; col[1] += a * 0.27 + spark * 0.68; col[2] += a * 0.27 + spark * 0.62;
+              h = Math.max(h, a * 0.9 + spark * 1.2);
             }
           }
           // ---- one painted highlight down the left of the glass (window light caught in the wall) ----
@@ -269,6 +271,7 @@
     const Lx = 0.66, Lz = 0.75, Ln = Math.hypot(Lx, Lz);
     const ldx = Lx / Ln, ldz = Lz / Ln; // light travel direction on the sill (X right, Z toward viewer)
     const bdx = ldz, bdz = -ldx; // across the beam
+    const traceSet = (NW) => {
     const NB = 900, rays = [];
     for (let bi = 0; bi < NB; bi++) {
       const b = -0.995 + (1.99 * (bi + 0.5)) / NB;
@@ -295,9 +298,14 @@
         mx: toX((b + x2) / 2, (z1 + z2) / 2), mz: toZ((b + x2) / 2, (z1 + z2) / 2), c: s, w: T,
       });
     }
+    return rays;
+    };
+    // red, green and blue are bent by slightly different amounts: the caustic's edges split a little
+    const raySets = [traceSet(1.3295), traceSet(1.3330), traceSet(1.3385)];
+    const rays = raySets[1];
     // caustic grid in sill coordinates (radii): X in [-2.5, 5.5], Z in [-1.5, 6.5]
     const CW = 280, CH = 280;
-    st.water = { shapes, rays, CW, CH, X0: -2.5, Z0: -1.5, SPAN: 8, grid: new Float32Array(CW * CH), tmp: new Float32Array(CW * CH),
+    st.water = { shapes, rays, raySets, grids: [new Float32Array(CW * CH), new Float32Array(CW * CH), new Float32Array(CW * CH)], CW, CH, X0: -2.5, Z0: -1.5, SPAN: 8, grid: new Float32Array(CW * CH), tmp: new Float32Array(CW * CH),
       gx: new Float32Array(GN * GN), gz: new Float32Array(GN * GN) };
   };
 
@@ -321,36 +329,41 @@
       return [gx[j * GN + i], gz[j * GN + i]];
     };
     // ---- caustic: splat rays entering at every height of the water column ----
-    const grid = W.grid; grid.fill(0);
     const CW = W.CW, CH = W.CH, sc = CW / W.SPAN;
     const cotE = 1.0 / Math.tan(0.62); // elevation of the brightest sky light
     const hw = (G.yb - BASEH - G.yw) / (G.rb * 1.0) * 0.55; // water column height in radii (foreshortened)
     const NH = 110;
     const KR = 0.55; // how strongly the trembling surface steers the light
-    for (let r = 0; r < W.rays.length; r++) {
-      const R = W.rays[r];
-      const s = slopeAt(R.mx, R.mz);
-      for (let hi = 0; hi < NH; hi++) {
-        const h = ((hi + DW.hash2(r, hi, 5)) / NH) * hw;
-        const l = 1.15 + h * cotE * 1.5;
-        if (l <= R.c) continue;
-        const go = l - R.c;
-        // rays nearer the surface feel its tilt more
-        const near = 0.25 + 0.75 * (hi / NH);
-        const X = R.ex + R.dx * go + KR * go * s[0] * near;
-        const Z = R.ez + R.dz * go + KR * go * s[1] * near;
-        const gxp = (X - W.X0) * sc, gzp = (Z - W.Z0) * sc;
-        const ix = gxp | 0, iz = gzp | 0;
-        if (ix < 0 || iz < 0 || ix >= CW - 1 || iz >= CH - 1) continue;
-        const fx = gxp - ix, fz = gzp - iz;
-        const w = R.w;
-        const q = iz * CW + ix;
-        grid[q] += w * (1 - fx) * (1 - fz); grid[q + 1] += w * fx * (1 - fz);
-        grid[q + CW] += w * (1 - fx) * fz; grid[q + CW + 1] += w * fx * fz;
+    const crisp = [], spill = [];
+    for (let ch = 0; ch < 3; ch++) {
+      const grid = W.grids[ch]; grid.fill(0);
+      const rays = W.raySets[ch];
+      for (let r = 0; r < rays.length; r++) {
+        const R = rays[r];
+        const s = slopeAt(R.mx, R.mz);
+        for (let hi = 0; hi < NH; hi++) {
+          const h = ((hi + DW.hash2(r, hi, 5)) / NH) * hw;
+          const l = 1.15 + h * cotE * 1.5;
+          if (l <= R.c) continue;
+          const go = l - R.c;
+          // rays nearer the surface feel its tilt more
+          const near = 0.25 + 0.75 * (hi / NH);
+          const X = R.ex + R.dx * go + KR * go * s[0] * near;
+          const Z = R.ez + R.dz * go + KR * go * s[1] * near;
+          const gxp = (X - W.X0) * sc, gzp = (Z - W.Z0) * sc;
+          const ix = gxp | 0, iz = gzp | 0;
+          if (ix < 0 || iz < 0 || ix >= CW - 1 || iz >= CH - 1) continue;
+          const fx = gxp - ix, fz = gzp - iz;
+          const w = R.w;
+          const q = iz * CW + ix;
+          grid[q] += w * (1 - fx) * (1 - fz); grid[q + 1] += w * fx * (1 - fz);
+          grid[q + CW] += w * (1 - fx) * fz; grid[q + CW + 1] += w * fx * fz;
+        }
       }
+      // a crisp core (the sky is a broad source, so only lightly softened) and a soft spill around it
+      crisp.push(DW.boxBlur(grid, CW, CH, 1, 1, 2));
+      spill.push(DW.boxBlur(grid, CW, CH, 1, 5, 2));
     }
-    // soften (the sky is a broad source): two box passes
-    const blurred = DW.boxBlur(grid, CW, CH, 1, 2, 2);
     // normalise to "times the unobstructed light"
     const norm = 1 / ((W.rays.length / 2) * (NH / hw) / (cotE * 1.5) / (sc * sc));
     // ---- composite onto the sill ----
@@ -359,8 +372,8 @@
     const yb = G.yb, eb = ell(G.yb);
     const X0px = Math.floor((G.x + W.X0 * G.rb) * Wpx), X1px = Math.ceil((G.x + (W.X0 + W.SPAN) * G.rb) * Wpx);
     const Y0px = Math.floor((yb + W.Z0 * G.rb * eb) * Wpx), Y1px = Math.min(Hpx - 1, Math.ceil((yb + (W.Z0 + W.SPAN) * G.rb * eb) * Wpx));
-    const tint = [1.0, 0.78, 0.60];
-    const cs = [0];
+    const tint = [1.0, 0.80, 0.62];
+    const cs = [0], cs2 = [0];
     for (let j = Y0px; j <= Y1px; j++) {
       const y = (j + 0.5) * px;
       const Z = (y - yb) / (G.rb * eb);
@@ -369,17 +382,22 @@
         if (reg[p] !== DW.R.SILL) continue;
         const x = (i + 0.5) * px;
         const X = (x - G.x) / G.rb;
-        DW.bilinear(blurred, CW, CH, 1, (X - W.X0) * sc, (Z - W.Z0) * sc, cs);
-        let I = cs[0] * norm;
-        if (I < 0.02) continue;
-        // highlight roll-off, like paint reaching white
-        I = 1.5 * (1 - Math.exp(-I / 1.5));
         const vis = 1 - gl.mask[p];
+        if (vis <= 0) continue;
         // light on the painted board: modulate by the paint itself so the strokes show through
         const base = 0.3 * st.P[p * 3] + 0.6 * st.P[p * 3 + 1] + 0.1 * st.P[p * 3 + 2];
-        const k = I * vis * (0.14 + 0.85 * base);
-        F[p * 3] += k * tint[0]; F[p * 3 + 1] += k * tint[1]; F[p * 3 + 2] += k * tint[2];
-        st.shade[p] = st.shade[p] * (1 - 0.5 * Math.min(1, I * 0.3)) + 0.0;
+        let Imax = 0;
+        for (let ch = 0; ch < 3; ch++) {
+          DW.bilinear(crisp[ch], CW, CH, 1, (X - W.X0) * sc, (Z - W.Z0) * sc, cs);
+          DW.bilinear(spill[ch], CW, CH, 1, (X - W.X0) * sc, (Z - W.Z0) * sc, cs2);
+          let I = (0.9 * cs[0] + 0.45 * cs2[0]) * norm;
+          if (I < 0.015) continue;
+          // highlight roll-off, like paint reaching white
+          I = 1.7 * (1 - Math.exp(-I / 1.7));
+          Imax = Math.max(Imax, I);
+          F[p * 3 + ch] += I * vis * (0.16 + 0.95 * base) * tint[ch];
+        }
+        st.shade[p] = st.shade[p] * (1 - 0.5 * Math.min(1, Imax * 0.3));
       }
     }
     // ---- water surface glimmer: reflections tilt with the slope ----

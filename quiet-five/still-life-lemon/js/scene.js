@@ -709,8 +709,8 @@
           const ry = 0.80 + 0.12 * mott, gy = 0.52 + 0.08 * mott + 0.05 * green, by = 0.035 + 0.01 * green;
           const pith = 0.88 + 0.08 * NL.n3(x * 4, y * 4, z * 4);
           m.alb[0] = ry * isRind + 0.80 * pith * (1 - isRind);
-          m.alb[1] = gy * isRind + 0.735 * pith * (1 - isRind);
-          m.alb[2] = by * isRind + 0.50 * pith * (1 - isRind);
+          m.alb[1] = gy * isRind + 0.715 * pith * (1 - isRind);
+          m.alb[2] = by * isRind + 0.44 * pith * (1 - isRind);
           m.wrap = 0.32 * isRind + 0.6 * (1 - isRind);
           m.rough = 0.30 * isRind + 0.45 * (1 - isRind);
           m.spec = 1.0 * isRind + 0.35 * (1 - isRind);
@@ -988,7 +988,7 @@
           const fc = max(0, GH.nx * lx + GH.nz * lz + 0.15);
           const facing = fc * fc * (0.6 + 0.4 * NZ.n2(px * 3.1, pz * 3.1));
           const E = (S.L.I / (dl * dl)) * spot(px, py, pz) * lip * facing;
-          for (let c = 0; c < 3; c++) acc[3 + c] += (c === 0 ? tr : c === 1 ? tg : tb) * E * 0.16 * S.L.col[c];
+          for (let c = 0; c < 3; c++) acc[3 + c] += (c === 0 ? tr : c === 1 ? tg : tb) * E * 0.07 * S.L.col[c];
         }
         const rough = part === 2 ? 0.04 : part === 4 ? 0.06 : lip > 0.5 ? 0.12 : 0.025;
         let shf = spot(px, py, pz);

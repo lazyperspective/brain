@@ -276,7 +276,8 @@
         if (pass === 0 && kid !== ID.WALL && kid !== ID.APRON && kid !== ID.TOP && rnd() < 0.3) continue;
         // area check: is this location still worth a stroke at this brush size? (min density)
         if (R * 2 < spacing * 0.5 && rnd() < 0.5) continue;
-        strokes.push({ x, y, R, kid, pass, len: R * b[2] * (0.6 + 0.8 * rnd()), op: b[3] * (0.8 + 0.4 * rnd()), seed: (rnd() * 1e9) | 0 });
+        const opBoost = (kid === ID.LEMON || kid === 22 || kid === ID.PLATE || kid === ID.HANDLE) ? 1.45 : 1;
+        strokes.push({ x, y, R, kid, pass, len: R * b[2] * (0.6 + 0.8 * rnd()), op: Math.min(0.85, b[3] * opBoost * (0.8 + 0.4 * rnd())), seed: (rnd() * 1e9) | 0 });
       }
     }
     log('strokes planned ' + strokes.length);
@@ -331,16 +332,16 @@
       // the brush is loaded with the colour where it starts: part start colour, part dragged mix
       if (R <= 8 * sc || kid === ID.TOP) {
         sample(base, W, H, st0.x, st0.y, tmp);
-        const ks = kid === ID.GLASS ? 0.3 : 0.5;
+        const ks = kid === ID.GLASS ? 0.3 : 0.68;
         for (let c = 0; c < NCH; c++) col[c] = col[c] * (1 - ks) + tmp[c] * ks;
       }
       // subtle broken colour
       const r1 = Q.hash2i(st0.seed, 1, 9) - 0.5, r2 = Q.hash2i(st0.seed, 2, 9) - 0.5, r3 = Q.hash2i(st0.seed, 3, 9) - 0.5;
-      const vj = kid === ID.WALL || kid === ID.APRON ? 0.16 : kid === ID.TOP ? 0.1 : 0.085;
+      const vj = kid === ID.WALL || kid === ID.APRON ? 0.28 : kid === ID.TOP ? 0.12 : 0.085;
       const cm = [1 + vj * (r1 + 0.4 * r2), 1 + vj * (r1 * 0.9 + 0.3 * r3), 1 + vj * (r1 * 0.8 - 0.5 * r2)];
       for (let c = 0; c < NCH; c++) col[c] *= cm[c % 3];
       const lumC = lumOf(col, 0);
-      const streak = kid === ID.WALL || kid === ID.APRON ? 0.26 : kid === ID.TOP ? 0.24 : kid === ID.GLASS ? 0.08 : 0.26;
+      const streak = kid === ID.WALL || kid === ID.APRON ? 0.34 : kid === ID.TOP ? 0.24 : kid === ID.GLASS ? 0.08 : 0.26;
       const thick = (0.05 + 0.55 * Math.pow(Q.clamp(lumC / 0.9, 0, 1), 1.5)) * (0.6 + 0.4 * Q.clamp(R / (12 * sc), 0, 1.5));
       // rasterize: for each segment, pixels within R
       let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
@@ -420,7 +421,8 @@
       const l = lum[i] + spec[i] * 0.5;
       const hi = Q.smooth(0.10, 0.55, spec[i] + 0.22 * lum[i]);
       if (hi <= 0.02 || rnd() > hi * 1.4) continue;
-      dabs.push({ x, y, R: (2.2 + 3.2 * rnd()) * sc * (0.7 + 0.6 * hi), hi, seed: (rnd() * 1e9) | 0, l });
+      const gk = id[i] === ID.GLASS ? 0.55 : 1;
+      dabs.push({ x, y, R: gk * (2.2 + 3.2 * rnd()) * sc * (0.7 + 0.6 * hi), hi: hi * gk, seed: (rnd() * 1e9) | 0, l });
     }
     for (let s = 0; s < dabs.length; s++) {
       const dd = dabs[s];
