@@ -72,8 +72,14 @@ function buildCity() {
     for (let i = 0; i < b.n; i++) for (let j = 0; j < b.m; j++) {
       if (R() < 0.45) continue;
       const c = mix3(tint < 0.5 ? WARM : CREAM, EMBER, R() * 0.6);
-      const q = R(); L1.push({ x: b.x + i * sx + (R() - 0.5) * 0.004, y: y0 + j * sy, R: 0.023 + R() * 0.007, col: c, I: 0.05 + 0.36 * q * q, len: 0, fade: 1 });
+      const q = R(); L1.push({ x: b.x + i * sx + (R() - 0.5) * 0.004, y: y0 + j * sy, R: 0.019 + R() * 0.014, col: c, I: 0.05 + 0.36 * q * q, len: 0, fade: 1 });
     }
+  }
+  // a few cool fluorescent windows and different sizes, so it reads as a city and not a pattern
+  const FLUO = [0.80, 0.90, 1.0], PALE = [1.0, 0.86, 0.66];
+  for (let i = 0; i < 9; i++) {
+    const cool = i < 4;
+    L1.push({ x: DOM0 + (i + R() * 0.8) / 9 * DOM, y: HORIZON - 0.06 + R() * 0.075, R: 0.015 + R() * 0.02, col: cool ? FLUO : PALE, I: cool ? 0.035 + R() * 0.05 : 0.06 + R() * 0.10, len: 0, fade: 1, sharpW: 0.0014 });
   }
   // the dense fabric of small windows: faint as bokeh, but each a bright point for the drop lenses
   for (let i = 0; i < 150; i++) {
@@ -89,11 +95,16 @@ function buildCity() {
   const lampX = [0.07, 0.52];
   for (let i = 0; i < lampX.length; i++) {
     const x = lampX[i] + (R() - 0.5) * 0.03;
-    L2.push({ x, y: 0.285 + (R() - 0.5) * 0.01, R: 0.036, col: SODIUM, I: 0.72, len: 0, fade: 1 });
+    L2.push({ x, y: 0.285 + (R() - 0.5) * 0.01, R: 0.036, col: SODIUM, I: 0.72, len: 0, fade: 1, sharpW: 0.0095 });
     reflColumn(L2, x, 0.705, 0.20, 0.10, SODIUM, R);
   }
+  // two cars' tail lights on the road below, small red discs
+  for (const [x, y] of [[0.16, 0.612], [0.69, 0.618]]) {
+    L2.push({ x, y, R: 0.015, col: [1.0, 0.035, 0.02], I: 0.22, len: 0, fade: 1, sharpW: 0.0011 });
+    L2.push({ x: x + 0.019, y: y + 0.001, R: 0.015, col: [1.0, 0.035, 0.02], I: 0.18, len: 0, fade: 1, sharpW: 0.0011 });
+  }
   // a lower, dimmer lamp further along the road
-  L2.push({ x: 0.30, y: 0.395, R: 0.031, col: mix3(SODIUM, EMBER, 0.5), I: 0.30, len: 0, fade: 1 });
+  L2.push({ x: 0.30, y: 0.395, R: 0.031, col: mix3(SODIUM, EMBER, 0.5), I: 0.30, len: 0, fade: 1, sharpW: 0.0075 });
   reflColumn(L2, 0.30, 0.665, 0.13, 0.05, SODIUM, R);
   // the wet ground mirrors the window lights, dimmer and broken
   const GY = HORIZON + 0.05;
@@ -106,7 +117,7 @@ function buildCity() {
 }
 
 // ------------------------------------------------------------------ the passing signal box (the "flash")
-const BOX = { W: 0.18, TOP: 0.448, BOT: 0.74, WX: 0.04, WY: 0.484, WW: 0.10, WH: 0.083, V: -0.45, TC: 7.25 };
+const BOX = { W: 0.20, TOP: 0.44, BOT: 0.66, WX: 0.05, WY: 0.484, WW: 0.10, WH: 0.083, V: -0.45, TC: 7.25 };
 function boxLeft(t) { return 0.4 - BOX.W * 0.5 + BOX.V * (t - BOX.TC); }
 
 // ------------------------------------------------------------------ rain simulation
@@ -148,6 +159,12 @@ function simulate() {
   const free = (x, y, r) => { let ok = true; near(x, y, r + 0.02, b => { if (ok && Math.hypot(b.x - x, b.y - y) < (b.r + r) * 1.25 + 0.0012) ok = false; }); return ok; };
   for (const s of seeds) gridAdd({ x: s.x, y: Math.max(s.y, 0), r: 0.017, phantom: true });
   const slots = [];
+  for (let tries = 0, placed = 0; placed < 9 && tries < 4000; tries++) {
+    const x = 0.12 + R() * 0.68, y = 0.05 + R() * 0.28;
+    const r = 0.0068 + R() * 0.0048;
+    if (!free(x, y, r * 2.2)) continue;
+    const b = { id: slots.length, x, y, r, sweeps: [] }; gridAdd(b); slots.push(b); placed++;
+  }
   for (const c of classes) {
     let placed = 0, tries = 0;
     while (placed < c.n && tries < c.n * 40) {
@@ -424,31 +441,25 @@ in vec2 vP; out vec4 o;
 uniform float uBx, uBv, uShut, uBlur, uWBlur, uWinI; uniform sampler2D uWin;
 uniform vec4 uBox; uniform vec4 uWinR; // box (W, top, -, -), window (x off, y, w, h)
 vec4 boxAt(vec2 p, float bx){
+  // the facade is just a little more night: a soft dark mass, as out of focus as everything else,
+  // the same colour as the dark ground, so only the lit window reads
   float x0 = bx, x1 = bx + uBox.x;
-  float ax = smoothstep(x0-uBlur, x0+uBlur, p.x) * smoothstep(x1+uBlur, x1-uBlur, p.x);
-  float cx = abs(p.x - (x0 + x1)*0.5);
-  float roofY = uBox.y + max(cx - 0.012, 0.0)*0.42 + 0.004*smoothstep(0.012, 0.0, cx);
-  float ay = smoothstep(roofY-uBlur, roofY+uBlur, p.y) * smoothstep(uBox.z + 0.03, uBox.z - 0.03, p.y);
-  // eaves overhang slightly past the walls
-  float eave = smoothstep(x0-0.008-uBlur, x0-0.008+uBlur, p.x) * smoothstep(x1+0.008+uBlur, x1+0.008-uBlur, p.x) * smoothstep(roofY-uBlur, roofY+uBlur, p.y) * smoothstep(roofY+0.006+uBlur, roofY+0.006-uBlur, p.y);
-  ax = max(ax, eave);
-  float a = ax*ay;
-  float u = (p.x - x0)/uBox.x;
-  float brick = smoothstep(0.08, 0.0, abs(fract(p.y/0.0105) - 0.5) - 0.42);
-  vec3 wall = vec3(0.0042,0.0027,0.0017) * (0.8 + 0.4*vn(vec2(u*9.0, p.y*30.0), 51)) * (1.0 + 0.10*brick) * (1.15 - 0.75*smoothstep(0.43, 0.95, p.y)) * (0.8 + 0.4*u);
-  // roof edge catching the sky glow
-  wall += vec3(0.008,0.0048,0.0024) * exp(-pow((p.y - roofY - 0.003)/0.003, 2.0));
-  // the light that falls out of the window onto the wall below it
-  vec2 wc = vec2(x0 + uWinR.x + uWinR.z*0.5, uWinR.y + uWinR.w);
-  wall += vec3(0.05,0.022,0.007) * exp(-pow((p.x-wc.x)/(uWinR.z*0.55),2.0)) * smoothstep(wc.y-0.002, wc.y+0.004, p.y) * exp(-(p.y-wc.y)/0.03) * 0.5;
+  float sx = 0.03, sy = 0.035;
+  float ax = smoothstep(x0 - sx, x0 + sx, p.x) * smoothstep(x1 + sx, x1 - sx, p.x);
+  float top = uWinR.y - 0.05, bot = uWinR.y + uWinR.w + 0.05;
+  float ay = smoothstep(top - sy, top + sy, p.y) * smoothstep(bot + sy, bot - sy, p.y);
+  float a = ax*ay*0.88;
+  vec3 col = vec3(0.0013, 0.0015, 0.0030);
   vec2 wp = (p - vec2(x0 + uWinR.x, uWinR.y))/uWinR.zw;
-  vec3 col = wall;
   float ew = uWBlur/uWinR.z, eh = uWBlur/uWinR.w;
   float wa = smoothstep(-ew, ew, wp.x)*smoothstep(1.0+ew, 1.0-ew, wp.x)*smoothstep(-eh, eh, wp.y)*smoothstep(1.0+eh, 1.0-eh, wp.y);
-  if(wa > 0.0){ vec3 w = texture(uWin, vec2(clamp(wp.x,0.0,1.0), 1.0-clamp(wp.y,0.0,1.0))).rgb; w = pow(w, vec3(2.2))*uWinI; col = mix(col, w, wa); }
+  if(wa > 0.0){
+    vec3 w = texture(uWin, vec2(clamp(wp.x,0.0,1.0), 1.0-clamp(wp.y,0.0,1.0)), uWBlur > 0.002 ? 0.6 : 0.0).rgb; w = pow(w, vec3(2.2))*uWinI;
+    col = mix(col, w, wa); a = mix(a, 1.0, wa);
+  }
   return vec4(col*a, a);
 }
-void main(){ vec4 acc = vec4(0.0); for(int i=0;i<6;i++){ float s = (float(i)/5.0-0.5)*uShut; acc += boxAt(vP, uBx + uBv*s); } o = acc/6.0; }`;
+void main(){ vec4 acc = vec4(0.0); for(int i=0;i<10;i++){ float s = (float(i)/9.0-0.5)*uShut; acc += boxAt(vP, uBx + uBv*s); } o = acc/10.0; }`;
 
 const FS_COPY = `#version 300 es
 precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uT; void main(){ o = texture(uT, vUV); }`;
@@ -553,7 +564,11 @@ in vec2 vP; out vec4 o; uniform sampler2D uPatch; uniform float uPx;
 void main(){
   vec2 p = vP;
   float lf = fbm(p*vec2(4.0, 3.0), 101);
-  float d = mix(0.62, 1.0, smoothstep(0.25, 0.75, lf));
+  float d = mix(0.55, 1.0, smoothstep(0.25, 0.75, lf));
+  float mf = fbm(p*vec2(11.0, 7.0) + vec2(5.0, 1.0), 103);
+  d *= mix(0.72, 1.12, smoothstep(0.3, 0.75, mf));
+  d *= 1.0 + 0.12*smoothstep(0.35, 0.0, p.y);   // the mist is a little heavier high on the glass
+  d = min(d, 1.0);
   float pt = texture(uPatch, vec2(p.x/0.8, 1.0-p.y)).r;
   d *= mix(0.05, 1.0, pt);
   // micro droplets: jittered grid, three overlapping scales
@@ -885,6 +900,8 @@ function fillLights(list, t, sharp, reg, out, off) {
   for (const l of list) {
     const lay = l.layer;
     let xs = [l.x];
+    if (l.boxOff !== undefined) xs = [boxLeft(t) + l.boxOff];
+    else if (lay === 0) xs = [l.x + SWAY(t)];
     if (lay) {
       const s = SHIFT[lay];
       let x = l.x - s * DOM * t / L;
@@ -910,6 +927,10 @@ function fillLights(list, t, sharp, reg, out, off) {
 }
 city.L0.forEach(l => l.layer = 0); city.L1.forEach(l => l.layer = 1); city.L2.forEach(l => l.layer = 2);
 
+// the very far layer is not pinned: a slight periodic drift as the line curves (a few px, closes on itself)
+function SWAY(t) { return -0.0026 * Math.sin(2 * Math.PI * t / L) - 0.0008 * Math.sin(4 * Math.PI * t / L + 0.7); }
+const boxRefl = [];
+(function () { const rng = mulberry32(5151); reflColumn(boxRefl, 0, 0.615, 0.16, 0.10, [1.0, 0.52, 0.18], () => rng()); boxRefl.forEach(l => { l.boxOff = BOX.WX + BOX.WW * 0.5 + (l.x - 0); l.x = 0; }); })();
 function bokehPass(list, t, sharp, reg, pxu) {
   const p = P.bokeh; gl.useProgram(p);
   setReg(p, reg);
@@ -925,10 +946,10 @@ function bokehPass(list, t, sharp, reg, pxu) {
 
 function boxPass(t, sharp, reg, pxu) {
   const bx = boxLeft(t);
-  if (bx + BOX.W < reg[0] - 0.02 || bx > reg[0] + reg[2] + 0.02) return;
+  if (bx + BOX.W < reg[0] - 0.06 || bx > reg[0] + reg[2] + 0.06) return;
   const p = P.box; gl.useProgram(p); setReg(p, reg);
-  gl.uniform1f(p.u.uBx, bx); gl.uniform1f(p.u.uBv, BOX.V); gl.uniform1f(p.u.uShut, 1 / 120);
-  gl.uniform1f(p.u.uBlur, sharp ? 1.0 * pxu : 9.0 * PX); gl.uniform1f(p.u.uWBlur, sharp ? 1.0 * pxu : 1.3 * PX);
+  gl.uniform1f(p.u.uBx, bx); gl.uniform1f(p.u.uBv, BOX.V); gl.uniform1f(p.u.uShut, 1 / 90);
+  gl.uniform1f(p.u.uBlur, sharp ? 1.0 * pxu : 9.0 * PX); gl.uniform1f(p.u.uWBlur, sharp ? 1.0 * pxu : 2.4 * PX);
   gl.uniform1f(p.u.uWinI, sharp ? 2.2 : 1.55);
   gl.uniform4f(p.u.uBox, BOX.W, BOX.TOP, BOX.BOT, 0); gl.uniform4f(p.u.uWinR, BOX.WX, BOX.WY, BOX.WW, BOX.WH);
   bindT(p, 'uWin', winTex, 0);
@@ -961,29 +982,29 @@ function copyTo(src) { const p = P.copy; gl.useProgram(p); setReg(p, REG_F); bin
 (function buildStatic() {
   gl.disable(gl.BLEND);
   target(FB.Cst); gl.useProgram(P.sky); setReg(P.sky, REG_F); gl.uniform1f(P.sky.u.uHz, HORIZON); drawFS();
-  bokehPass(city.L0, 0, false, REG_F, PX);
   target(FB.Sst); gl.useProgram(P.sky); setReg(P.sky, SREG); gl.uniform1f(P.sky.u.uHz, HORIZON); drawFS();
-  bokehPass(city.L0, 0, true, SREG, SREG[3] / SH);
   target(FB.mist); gl.useProgram(P.mist); setReg(P.mist, REG_F); gl.uniform1f(P.mist.u.uPx, PX); bindT(P.mist, 'uPatch', patchTex, 0); drawFS();
 })();
-const moving = city.L1.concat(city.L2);
+const moving = city.L0.concat(city.L1, city.L2);
 
 // drops at time t
+// a fresh drop swells over two or three frames as it spreads on impact, then settles with a small wobble
+function swell(t0) {
+  const SW = 0.085, x = Math.min(1, t0 / SW);
+  const e = 1 - Math.pow(1 - x, 2.2);
+  const w = t0 > SW ? 0.08 * Math.exp(-(t0 - SW) / 0.07) * Math.sin((t0 - SW) * 45) : 0;
+  return e * (1 + w);
+}
 function landScale(tau, grows, h) {
-  // a fresh drop spreads on impact, overshoots and settles
   if (tau < 0) return 0;
-  let s;
   if (grows) {
     const g1 = 0.35 + h * 0.4, g2 = g1 + 0.3 + h * 0.5;
     const base = tau < g1 ? 0.55 : tau < g2 ? 0.8 : 1.0;
     const t0 = tau < g1 ? tau : tau < g2 ? tau - g1 : tau - g2;
     const prev = tau < g1 ? 0 : tau < g2 ? 0.55 : 0.8;
-    const k = Math.min(1, t0 / 0.035);
-    s = (prev + (base - prev) * k) * (1 + 0.12 * Math.exp(-t0 / 0.06) * Math.cos(t0 * 60) * k);
-    return s;
+    return prev + (base - prev) * swell(t0);
   }
-  const k = Math.min(1, tau / 0.035);
-  return k * (1 + 0.14 * Math.exp(-tau / 0.06) * Math.cos(tau * 60) * k);
+  return swell(tau);
 }
 function inIv(t, a, b) { if (t >= a && t < b) return t - a; if (t + L >= a && t + L < b) return t + L - a; if (t - L >= a && t - L < b) return t - L - a; return -1; }
 function fillDrops(t) {
@@ -1013,7 +1034,7 @@ function fillDrops(t) {
         const big = b.r > 0.0034;
         const sag = big ? b.r * (0.18 + 0.25 * b.h2) : 0;
         put(b.x, b.y + sag * 0.3, r, sag, 0, -1, big ? 0.78 : 1,
-          big ? 0.02 + 0.06 * b.h : 0.015 * b.h, b.h2 * 6.283, big ? 0.04 * b.h3 : 0, b.h3 * 6.283, SPAN * (0.9 + 0.2 * b.h2));
+          big ? 0.02 + 0.06 * b.h : 0.015 * b.h, b.h2 * 6.283, big ? 0.04 * b.h3 : 0, b.h3 * 6.283, clamp(0.30 + 40 * (b.r - 0.004), 0.30, 0.60) * (0.92 + 0.16 * b.h2));
       }
     }
     for (const [s0, ru] of b.abs) { const age = inIv(t, s0, s0 + ABS_T); if (age >= 0) absorbAnim(b.x, b.y, b.r, age, ru, b.h); }
@@ -1061,6 +1082,7 @@ function renderAt(t, opts) {
   target(FB.C); copyTo(T.Cst);
   bokehPass(moving, t, false, REG_F, PX);
   boxPass(t, false, REG_F, PX);
+  bokehPass(boxRefl, t, false, REG_F, PX);
   if (PROF) { gl.finish(); PROF.push(performance.now()); }
   // 3. scattered light for the mist
   target(FB.q1); gl.useProgram(P.down); setReg(P.down, REG_F); bindT(P.down, 'uT', T.C, 0); gl.uniform2f(P.down.u.uTexel, 1 / WPX, 1 / HPX); gl.uniform1f(P.down.u.uK, 1.0); drawFS();
@@ -1073,6 +1095,7 @@ function renderAt(t, opts) {
   target(FB.S); copyTo(T.Sst);
   bokehPass(moving, t, true, SREG, SREG[3] / SH);
   boxPass(t, true, SREG, SREG[3] / SH);
+  bokehPass(boxRefl, t, true, SREG, SREG[3] / SH);
   buildMips(T.S);
   if (PROF) { gl.finish(); PROF.push(performance.now()); }
   // 5. water

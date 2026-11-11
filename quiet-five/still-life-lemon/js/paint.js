@@ -173,8 +173,20 @@
         }
       }
     }
-    const soft = new Float32Array(warped);
-    boxBlur(soft, W, H, max(1, Math.round(2.5 * sc)), 2);
+    // per-object softening (normalised within each object so no light bleeds across contours)
+    const soft = new Float32Array(N * NCH);
+    {
+      const rS = max(1, Math.round(2.5 * sc));
+      const present = new Set(); for (let i = 0; i < N; i++) present.add(id[i]);
+      const num = new Float32Array(N * NCH), den = new Float32Array(N);
+      for (const k of present) {
+        num.fill(0); den.fill(0);
+        let y0 = H, y1 = -1;
+        for (let i = 0; i < N; i++) if (id[i] === k) { den[i] = 1; const o = i * NCH; for (let c = 0; c < NCH; c++) num[o + c] = warped[o + c]; const yy = (i / W) | 0; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy; }
+        boxBlur(num, W, H, rS, 2); boxBlur1(den, W, H, rS, 2);
+        for (let i = 0; i < N; i++) if (id[i] === k) { const o = i * NCH; const d = 1 / max(den[i], 1e-3); for (let c = 0; c < NCH; c++) soft[o + c] = num[o + c] * d; }
+      }
+    }
     // background blur that does not pull light in from the objects (masked, normalised)
     const wide = new Float32Array(N * NCH);
     const bgMask = new Float32Array(N);
