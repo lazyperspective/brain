@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Keeper's Last Night</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #04060b; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
+           width: min(100vw, calc(100vh * 0.8)); height: auto; aspect-ratio: 4 / 5; }
+  body.export canvas { width: auto; height: auto; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1350"></canvas>
+<script>if (location.search.indexOf('export') >= 0) document.body.className = 'export';</script>
+<script src="js/piece.js"></script>
+</body>
+</html>
