@@ -161,12 +161,42 @@
       tDepth[j * TU + i] = 0.5 + 1.0 * DW.fbm(ph * 0.22, sv * 1.7, 501, 3);
       tPsi[j * TU + i] = (DW.fbm(ph * 0.11 + 7, sv * 1.25, 502, 3) - 0.5) * 2.6 + (DW.fbm(ph * 0.4 + 2, sv * 3.0, 503, 2) - 0.5) * 0.7;
     }
+    // painted strokes on the cloth: each material texel belongs to one brush stroke (long, along the folds);
+    // per frame the colour under each stroke is averaged and pulled together, so the linen is laid in as strokes
+    const idMap = new Int32Array(NU * NS).fill(-1);
+    const idW = new Float32Array(NU * NS);
+    let nStroke = 0;
+    {
+      const r2 = DW.rng(7717);
+      const cols = 70, rows = 11;
+      const list = [];
+      for (let a = 0; a < cols; a++) for (let b = 0; b < rows + 1; b++) list.push([(a + r2()) / cols, (b + r2() - 0.6) / rows]);
+      for (let k = list.length - 1; k > 0; k--) { const j = Math.floor(r2() * (k + 1)); const t2 = list[k]; list[k] = list[j]; list[j] = t2; }
+      for (const [u0, s0] of list) {
+        const id = nStroke++;
+        const wu = (0.5 + 0.9 * r2()) / cols, ls = (0.8 + 1.6 * r2()) / rows, tilt = (r2() - 0.5) * 0.04;
+        const i0 = Math.max(0, Math.floor((u0 - wu) * NU)), i1 = Math.min(NU - 1, Math.ceil((u0 + wu) * NU));
+        const j0 = Math.max(0, Math.floor(s0 * NS)), j1 = Math.min(NS - 1, Math.ceil((s0 + ls) * NS));
+        for (let j = j0; j <= j1; j++) {
+          const ss = (j / NS - s0) / ls;
+          const uc = u0 + tilt * ss + 0.004 * Math.sin(ss * 6 + id);
+          const ww = wu * (1 - 0.35 * ss * ss) * (ss < 0.08 ? 0.6 + 5 * ss : 1);
+          const endW = Math.min(1, ss / 0.18) * Math.min(1, (1 - ss) / 0.3);
+          for (let i = i0; i <= i1; i++) {
+            const d = Math.abs(i / NU - uc) / (ww * 0.5);
+            if (d < 1) { idMap[j * NU + i] = id; idW[j * NU + i] = endW * (1 - d * d * 0.6); }
+          }
+        }
+      }
+    }
     // per-pixel scratch for one frame (bounding box rows)
     const W = st.Wpx;
     st.curt = {
       NU, NS, brush, slub, TU, TS, tDepth, tPsi,
       D: new Float32Array(W + 2), Dl: new Float32Array(W + 2), Dm: new Float32Array(W + 2), Dn: new Float32Array(W + 2),
       hc: new Float32Array(st.N), alpha: new Float32Array(st.N), touched: [],
+      idMap, idW, nStroke, sid: new Int32Array(st.N).fill(-1), acc: new Float64Array(nStroke * 4),
+      wq: new Float32Array(st.N), Zf: new Float32Array(W + 2), Uf: new Float32Array(W + 2), Sf: new Float32Array(W + 2),
     };
   };
 
@@ -177,7 +207,9 @@
     const cu = st.curt, { Wpx, Hpx } = st;
     const F = st.frame, px = 1 / Wpx;
     const { NU, NS, brush, slub, TU, TS, tDepth, tPsi } = cu;
-    const D = cu.D, Dl = cu.Dl, Dm = cu.Dm, Dn = cu.Dn;
+    const D = cu.D, Dl = cu.Dl, Dm = cu.Dm, Dn = cu.Dn, Zf = cu.Zf, Uf = cu.Uf, Sf = cu.Sf;
+    const idMap = cu.idMap, sid = cu.sid, acc = cu.acc;
+    acc.fill(0);
     const wide = st.wide;
     const len = C.yHem - C.yTop;
     const lenPx = len * Wpx;
@@ -188,6 +220,8 @@
     const hc = cu.hc, alphaA = cu.alpha;
     const j0 = Math.max(0, Math.floor((C.yTop - 0.004) * Wpx)), j1 = Math.min(Hpx - 1, Math.ceil((C.yHem + 0.03) * Wpx));
     const sideHemPx = 13 * (Wpx / 2160);
+    const detail = !!st.detail;
+    const wPeriodU = Math.PI * (0.31 * Wpx * 2.1) / 3.4, wPeriodS = Math.PI * lenPx / 3.4;
     let bx0 = Wpx, bx1 = 0;
     const phw0 = 0.7, phw1 = 0.35, phw2 = 0.15;
     const warpPhase = (ph) => ph + phw0 * Math.sin(0.41 * ph + 1.3) + phw1 * Math.sin(0.93 * ph + 0.2) + phw2 * Math.sin(1.71 * ph + 2.0);
@@ -213,7 +247,7 @@
       const nS = Math.ceil((xr - xl) * Wpx * 3.4);
       // clear accumulators over this row's span
       const xa = Math.max(0, Math.floor((xl - 0.03) * Wpx)), xb = Math.min(Wpx - 1, Math.ceil((xr + 0.03) * Wpx));
-      for (let i = xa; i <= xb + 1; i++) { D[i] = 0; Dl[i] = 0; Dm[i] = 0; Dn[i] = 0; }
+      for (let i = xa; i <= xb + 1; i++) { D[i] = 0; Dl[i] = 0; Dm[i] = 0; Dn[i] = 0; Zf[i] = -1e9; }
       let pxPrev = 0, pzPrev = 0, have = false, uPrev = 0;
       let rowAny = false;
       for (let k = 0; k <= nS; k++) {
@@ -236,7 +270,8 @@
           // material coordinates of this segment
           const um = (u + uPrev) * 0.5;
           const zm = zz;
-          const sm = (y - C.yTop + lift - persp * zm) / len;
+          // the hem is not quite level: linen hangs a little long here, short there
+          const sm = (y - C.yTop + lift - persp * zm) / len + 0.0035 * (DW.noise1(um * 23, 41) - 0.5) * Math.min(1, s0 * 1.2) + 0.002 * Math.sin(um * 9 + 1);
           if (sm > -0.002 && sm < 1.0 + 2 / lenPx) {
             // hem anti-aliasing and layer count (hems and heading tape are folded double/triple)
             let cov = clamp((1 - sm) * lenPx + 0.5, 0, 1) * clamp(sm * lenPx + 0.5, 0, 1);
@@ -248,7 +283,12 @@
             if (dep > 0) {
               const ti = clamp((um * (NU - 1)) | 0, 0, NU - 1), tj = clamp((sm * (NS - 1)) | 0, 0, NS - 1);
               const q = tj * NU + ti;
-              const lnO = LN_O + slub[q] * 0.55;
+              let lnO = LN_O + slub[q] * 0.55;
+              if (detail) {
+                // the open weave itself (only for the native 4K still; too fine for the 1080 video)
+                const cu1 = Math.cos(um * wPeriodU), cs1 = Math.cos(sm * wPeriodS);
+                lnO -= 0.22 * (cu1 * cu1 + cs1 * cs1);
+              }
               const m = brush[q];
               const face = arc > 1e-6 ? Math.abs(dxp) / arc : 1;
               // deposit over the pixels the segment spans (box filter)
@@ -257,7 +297,10 @@
               const span = b - a;
               if (span < 1e-6) {
                 const i = a | 0;
-                if (i >= 0 && i < Wpx) { D[i] += dep; Dl[i] += dep * lnO; Dm[i] += dep * m; Dn[i] += dep * face; }
+                if (i >= 0 && i < Wpx) {
+                  D[i] += dep; Dl[i] += dep * lnO; Dm[i] += dep * m; Dn[i] += dep * face;
+                  if (zs > Zf[i]) { Zf[i] = zs; Uf[i] = um; Sf[i] = sm; }
+                }
               } else {
                 const ia = a | 0, ib = b | 0;
                 for (let i = ia; i <= ib; i++) {
@@ -266,6 +309,7 @@
                   if (hi <= lo) continue;
                   const w = dep * (hi - lo) / span;
                   D[i] += w; Dl[i] += w * lnO; Dm[i] += w * m; Dn[i] += w * face;
+                  if (zs > Zf[i]) { Zf[i] = zs; Uf[i] = um; Sf[i] = sm; }
                 }
               }
               rowAny = true;
@@ -306,8 +350,8 @@
         const B0 = F[q3], B1 = F[q3 + 1], B2 = F[q3 + 2];
         // room light on the front of the cloth: a little of the window's light come back off the walls
         const wl = 0.3 * wb[0] + 0.6 * wb[1] + 0.1 * wb[2];
-        const E0 = 0.0035 + 0.07 * wl, E1 = 0.0038 + 0.072 * wl, E2 = 0.0052 + 0.08 * wl;
-        const g = 1.15;
+        const E0 = 0.0045 + 0.10 * wl, E1 = 0.0048 + 0.10 * wl, E2 = 0.0064 + 0.11 * wl;
+        const g = 1.3;
         const c0 = B0 * Tdir + wb[0] * linT[0] * diff * g + E0 * linR[0] * Rf * (1 + 0.1 * mm);
         const c1 = B1 * Tdir + wb[1] * linT[1] * diff * g + E1 * linR[1] * Rf * (1 + 0.1 * mm);
         const c2 = B2 * Tdir + wb[2] * linT[2] * diff * g + E2 * linR[2] * Rf * (1 + 0.1 * mm);
@@ -317,8 +361,32 @@
         // paint height on the cloth: strokes along the folds
         hc[p] = (0.35 + 0.25 * mm + 0.08 * Math.min(3, De)) * alpha;
         alphaA[p] = alpha;
+        if (Zf[i] > -1e8) {
+          const ti = clamp((Uf[i] * (NU - 1)) | 0, 0, NU - 1), tj = clamp((Sf[i] * (NS - 1)) | 0, 0, NS - 1);
+          const id = idMap[tj * NU + ti];
+          sid[p] = id;
+          cu.wq[p] = cu.idW[tj * NU + ti];
+          if (id >= 0) { const a4 = id * 4; acc[a4] += F[q3] * alpha; acc[a4 + 1] += F[q3 + 1] * alpha; acc[a4 + 2] += F[q3 + 2] * alpha; acc[a4 + 3] += alpha; }
+        }
         if (i < bx0) bx0 = i;
         if (i > bx1) bx1 = i;
+      }
+    }
+    // lay the linen in as strokes: pull each pixel toward the mean colour of the stroke it lies in
+    const SQ = 0.5;
+    for (let j = j0; j <= j1; j++) {
+      for (let i = bx0; i <= bx1; i++) {
+        const p = j * Wpx + i;
+        const id = sid[p];
+        if (id < 0) continue;
+        const a4 = id * 4, n = acc[a4 + 3];
+        if (n > 0.5) {
+          const w = SQ * alphaA[p] * (0.35 + 0.65 * cu.wq[p]), q3 = p * 3;
+          F[q3] += (acc[a4] / n - F[q3]) * w;
+          F[q3 + 1] += (acc[a4 + 1] / n - F[q3 + 1]) * w;
+          F[q3 + 2] += (acc[a4 + 2] / n - F[q3 + 2]) * w;
+        }
+        sid[p] = -1;
       }
     }
     // relief of the paint on the cloth (raking light), blended over the background relief by coverage

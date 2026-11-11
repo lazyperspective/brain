@@ -17,7 +17,7 @@ function ffpng(buf, w, h, file) {
 
 (async () => {
   const res = parseInt((mode === 'video' ? a2 : mode === 'rawframes' ? a3 : a3) || '2160', 10);
-  const PAGE = 'file://' + path.resolve(__dirname, '../index.html') + '?export&res=' + res;
+  const PAGE = 'file://' + path.resolve(__dirname, '../index.html') + '?export&res=' + res + (process.env.DETAIL ? '&detail' : '');
   const browser = await chromium.launch();
   const page = await (await browser.newContext({ viewport: { width: 1080, height: 1350 } })).newPage();
   page.on('pageerror', (e) => console.error('[pageerror]', e.message));
@@ -61,19 +61,19 @@ function ffpng(buf, w, h, file) {
       '-r', '30', '-an', '-movflags', '+faststart', '-frames:v', String(N * loops), out], { stdio: ['pipe', 'inherit', 'inherit'] });
     const ms = [];
     const t0 = Date.now();
-    const raw = fs.openSync(out + '.raw', 'w'); // keep the exact rgb frames for verification
+    const RAW = process.env.RAW || out + '.raw';
+    const raw = fs.openSync(RAW, 'w'); // keep the exact rgb frames for verification
     for (let f = 0; f < N; f++) {
       const r = await grab(f / 30, 1080);
       ms.push(r.ms);
       fs.writeSync(raw, r.buf);
-      for (let l = 0; l < loops; l++) {} // frames are repeated below
       if (!ff.stdin.write(r.buf)) await new Promise((res) => ff.stdin.once('drain', res));
       if (f % 30 === 0) console.log('frame', f, '/', N, ((Date.now() - t0) / 1000).toFixed(0) + 's', r.ms.toFixed(0) + 'ms');
     }
     fs.closeSync(raw);
     // further loops come from the saved raw frames (identical pixels)
     for (let l = 1; l < loops; l++) {
-      const fd = fs.openSync(out + '.raw', 'r');
+      const fd = fs.openSync(RAW, 'r');
       const fb = Buffer.alloc(1080 * 1350 * 3);
       for (let f = 0; f < N; f++) {
         fs.readSync(fd, fb, 0, fb.length, f * fb.length);

@@ -13,7 +13,7 @@
 
   // ------------------------------------------------------------------ scene description (cm)
   const S = (Q.SCENE = {
-    E: [0, 20.5, 84], T: [0, 9.0, -9], fovY: (27 * PI) / 180,
+    E: [0, 20.5, 84], T: [-0.5, 7.6, -9], fovY: (23.8 * PI) / 180,
     L: { P: [-72, 64, 20], R: 2.2, I: 16500, col: [1.0, 0.79, 0.55], dA: [-0.9, -1.2, 0.4], dB: [1.0, 1.3, -0.5] },
     tab: { zBack: -64, slabT: 4.0, nose: 1.0, inset: 14 },
     wallZ: -64,
@@ -496,7 +496,7 @@
     let lx = x - LP[0], ly = y - LP[1], lz = z - LP[2];
     const l = sqrt(lx * lx + ly * ly + lz * lz);
     const c = (lx * SPOT[0] + ly * SPOT[1] + lz * SPOT[2]) / l;
-    return 0.12 + 0.88 * Q.smooth(Math.cos((36 * PI) / 180), Math.cos((12 * PI) / 180), c);
+    return 0.07 + 0.93 * Q.smooth(Math.cos((30 * PI) / 180), Math.cos((9 * PI) / 180), c);
   }
   Q.spot = spot;
   function softShadow(px, py, pz, skipId) {
@@ -612,7 +612,7 @@
     const dx = (x - 3) / 36, dy = (y - 18) / 26;
     const g = exp(-(dx * dx + dy * dy) * 1.25);
     const n = 0.85 + 0.3 * NW.fbm2(x * 0.03, y * 0.03, 3);
-    return (0.06 + 0.85 * g) * n;
+    return (0.03 + 0.55 * g) * n;
   }
   Q.wallMask = wallMask;
 
@@ -636,9 +636,9 @@
         const pores = NZ.n2(x * 1.4, gy * 14);
         const broad = NZ.fbm2(x * 0.03, gy * 0.05, 3);
         let k = 0.82 + 0.16 * ring * ring + 0.06 * pores + 0.25 * broad;
-        const dk = id === ID.APRON ? 0.55 : id === ID.FRONT ? 0.55 : 1.0;
-        m.alb[0] = 0.056 * k * dk; m.alb[1] = 0.041 * k * dk; m.alb[2] = 0.028 * k * dk;
-        m.rough = 0.32; m.f0[0] = m.f0[1] = m.f0[2] = 0.045; m.spec = 0.65; m.gloss = id === ID.TOP ? 0.55 : 0.0; m.glossRough = 0.22;
+        const dk = id === ID.APRON ? 0.7 : id === ID.FRONT ? 0.62 : 1.0;
+        m.alb[0] = 0.040 * k * dk; m.alb[1] = 0.027 * k * dk; m.alb[2] = 0.017 * k * dk;
+        m.rough = 0.28; m.f0[0] = m.f0[1] = m.f0[2] = 0.05; m.spec = 0.8; m.gloss = id === ID.TOP ? 0.8 : 0.0; m.glossRough = 0.16;
         m.tang[0] = 1; m.tang[1] = 0; m.tang[2] = 0;
         break;
       }
@@ -646,10 +646,10 @@
         const px = x - S.plate.x, pz = z - S.plate.z; const r = sqrt(px * px + pz * pz) || 1;
         const tarn = Q.clamp(0.45 + 0.75 * NZ.fbm2(px * 0.16 + 7, pz * 0.16, 4) + 0.25 * NZ.n2(px * 0.9, pz * 0.9), 0, 1);
         const lathe = 0.5 + 0.5 * Math.sin(r * 23 + NZ.n2(r * 0.7, 3.3) * 4);
-        const k = 1 - 0.38 * tarn - 0.06 * lathe;
-        m.f0[0] = 0.50 * k; m.f0[1] = 0.515 * k; m.f0[2] = 0.47 * k;
-        m.alb[0] = 0.035 + 0.05 * tarn; m.alb[1] = 0.036 + 0.052 * tarn; m.alb[2] = 0.032 + 0.044 * tarn;
-        m.rough = 0.16 + 0.16 * tarn; m.glossRough = m.rough; m.gloss = 1; m.spec = 1;
+        const k = 1 - 0.45 * tarn - 0.06 * lathe;
+        m.f0[0] = 0.62 * k; m.f0[1] = 0.61 * k; m.f0[2] = 0.50 * k;
+        m.alb[0] = 0.025 + 0.04 * tarn; m.alb[1] = 0.026 + 0.042 * tarn; m.alb[2] = 0.020 + 0.032 * tarn;
+        m.rough = 0.11 + 0.17 * tarn; m.glossRough = m.rough; m.gloss = 1; m.spec = 1;
         // tangent: around the plate
         m.tang[0] = -pz / r; m.tang[1] = 0; m.tang[2] = px / r;
         // bump: lathe rings and small dents
@@ -916,9 +916,9 @@
   }
 
   // light emerging through wine: in-scattering + absorption bookkeeping
-  const WINE_SIG = [0.010, 0.020, 0.10];
-  const WINE_SCAT = [0.006, 0.0052, 0.0026];
-  const GLASS_T = [0.93, 0.965, 0.87];
+  const WINE_SIG = [0.006, 0.015, 0.12];
+  const WINE_SCAT = [0.0045, 0.0036, 0.0016];
+  const GLASS_T = [0.945, 0.965, 0.90];
 
   // full trace — adds radiance into acc
   function traceInto(ox, oy, oz, dx, dy, dz, tr, tg, tb, depth, acc, flags, allowGlass) {
@@ -957,7 +957,7 @@
         const ndl = GH.nx * lx + GH.ny * ly + GH.nz * lz;
         const g = Math.pow(max(0, ndl), 2.5) * (0.4 + 0.6 * max(0, dx * lx + dy * ly + dz * lz));
         const E = (S.L.I / (dl * dl)) * spot(px, py, pz);
-        acc[3] += tr * g * E * 0.050; acc[4] += tg * g * E * 0.040; acc[5] += tb * g * E * 0.016;
+        acc[3] += tr * g * E * 0.030; acc[4] += tg * g * E * 0.022; acc[5] += tb * g * E * 0.008;
       }
       if (hitG) {
         if (recordG) { Gbuf.id = ID.GLASS; Gbuf.tx = 0; Gbuf.ty = 1; Gbuf.tz = 0; Gbuf.x = ox + dx * GH.t; Gbuf.y = oy + dy * GH.t; Gbuf.z = oz + dz * GH.t; Gbuf.nx = GH.nx; Gbuf.ny = GH.ny; Gbuf.nz = GH.nz; Gbuf.glassFront = GH.part; recordG = false; }
@@ -1033,7 +1033,7 @@
       // escaped: the dim, candle-lit room behind the painter
       if (depth > 0) {
         const up = Q.clamp(0.5 + 0.5 * dy, 0, 1), front = Q.clamp(0.5 + 0.5 * dz, 0, 1);
-        const e = 0.012 + 0.03 * front * (0.5 + 0.5 * up);
+        const e = 0.006 + 0.022 * front * (0.4 + 0.6 * up);
         acc[3] += tr * e * 1.0; acc[4] += tg * e * 0.78; acc[5] += tb * e * 0.55;
       }
       return;

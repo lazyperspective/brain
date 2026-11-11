@@ -78,11 +78,11 @@
   }
 
   // ---------------------------------------------------------------- camera / world
-  const CX = 108, HY = 170, F = 772, CAMH = 8;
+  const CX = 108, HY = 180, F = 772, CAMH = 8, DY = 10;
   const ZL = 386;                       // lighthouse distance (m)
   const TOWER_X = 140;                  // screen x of tower axis
   const XL = (TOWER_X - CX) * ZL / F;   // world x of tower
-  const LAMP_SY = 66;
+  const LAMP_SY = 66 + DY;
   const LAMP_Y = CAMH + (HY - LAMP_SY) * ZL / F; // ~40 m
   const ZSPR = 367;                     // depth assigned to rock/buildings sprite (front face)
   const P = [XL, LAMP_Y, ZL];           // lamp position
@@ -128,7 +128,7 @@
     let x = -10;
     while (x < W + 10) {
       const rx = 6 + r() * 14, ry = 1.6 + r() * 2.2;
-      const y = 140 + r() * 14 + (x > 120 ? -4 : 0);
+      const y = 146 + r() * 16 + (x > 120 ? -4 : 0);
       puffs.push({ x: x + rx, y, rx, ry, kind: 2, depthF: 1, base: y + ry * 0.4 });
       x += rx * 2 + 4 + r() * 22;
     }
@@ -275,7 +275,7 @@
     [181, 187], [186, 191], [190, 196], [192, 200],
   ];
   const COTT = { x0: 99, x1: 124, wallTop: 147, base: 158, roofTop: 138 };
-  const WIN = { x: 106, y: 150, w: 4, h: 5 };
+  const WIN = { x: 104, y: 150, w: 7, h: 6 };
   const TOWER = { base: 156, top: 80, hwB: 8.6, hwT: 6.2 };
 
   function buildSprite() {
@@ -313,6 +313,11 @@
     for (const [sx, sy, len] of [[83, 179, 3], [92, 177, 2], [160, 176, 2], [72, 186, 2], [176, 186, 3], [100, 181, 2]]) {
       for (let k = 0; k < len; k++) if (rock[sy * W + sx + k]) put(sx + k, sy, k === 0 ? 3 : 2, 1);
     }
+    // wet glints on the rock top and along the waterline
+    for (const [x, y, c] of [[97, 161, 5], [98, 161, 4], [104, 160, 4], [133, 157, 5], [134, 157, 4], [152, 158, 4], [88, 170, 4], [89, 170, 3],
+                              [80, 180, 4], [81, 180, 3], [92, 184, 4], [93, 184, 3], [94, 184, 3], [167, 179, 3], [172, 183, 3], [173, 183, 2], [110, 186, 3], [111, 186, 4], [150, 187, 3], [151, 187, 3]]) {
+      if (rock[y * W + x]) put(x, y, c, 1);
+    }
     // ---- cottage: whitewashed front wall, shadowed gable end, slate roof, stone chimney
     const ct = COTT;
     for (let y = 148; y <= 157; y++) for (let x = 100; x <= 123; x++) {
@@ -340,21 +345,43 @@
     for (let y = WIN.y - 1; y <= WIN.y + WIN.h; y++) for (let x = WIN.x - 1; x <= WIN.x + WIN.w; x++) put(x, y, 11, 3);
     for (let x = WIN.x - 1; x <= WIN.x + WIN.w; x++) put(x, WIN.y + WIN.h, 5, 3); // sill
 
-    // ---- lighthouse tower
+    // ---- lighthouse tower: a tapered cylinder lit from the gap (left), core shadow, cold reflected edge
     const tw = TOWER;
+    const twr = mulberry32(31);
+    // value across the shaft: lit flank, core shadow, a cold reflected edge
+    const TP = [[-1, 5.2], [-0.86, 6.7], [-0.6, 7.6], [-0.3, 7.05], [0, 6.0], [0.25, 5.0], [0.5, 4.0], [0.68, 3.0], [0.82, 3.0], [0.9, 4.1], [0.96, 3.4], [1, 2.6]];
+    const towerV = (u, f) => {
+      let k = 0;
+      while (k < TP.length - 2 && u > TP[k + 1][0]) k++;
+      const [u0, v0] = TP[k], [u1, v1] = TP[k + 1];
+      const v = v0 + (v1 - v0) * clamp((u - u0) / (u1 - u0), 0, 1);
+      return v + 0.3 * (1 - f) - 0.6 * f * f;
+    };
     for (let y = tw.top; y <= tw.base; y++) {
       const f = (y - tw.top) / (tw.base - tw.top);
       const hw = tw.hwT + (tw.hwB - tw.hwT) * f;
       for (let x = Math.floor(TOWER_X - hw); x <= Math.ceil(TOWER_X + hw); x++) {
         const u = (x + 0.5 - TOWER_X) / hw;
         if (Math.abs(u) > 1) continue;
-        const nz = -Math.sqrt(1 - u * u);
-        // light from the gap (upper left, slightly front)
-        const s = -u * 0.72 + -nz * 0.55;
-        let c = s > 0.78 ? 7 : s > 0.5 ? 6 : s > 0.12 ? 5 : s > -0.25 ? 4 : 3;
-        if (u > 0.93) c = 2;
-        if (u < -0.93) c = 5;
-        put(x, y, c, 2);
+        // band seams get a one-pixel checker, the rest stays solid
+        put(x, y, clamp(qd(towerV(u, f), x, y, 5), 2, 8), 2);
+      }
+    }
+    // weathering: damp streaks running down from the gallery and the windows, a few lit wet patches
+    const drip = (x, y0, len) => { for (let k = 0; k < len; k++) { const i = (y0 + k) * W + x; if (sprKind[i] === 2) spr[i] = Math.max(2, spr[i] - 1); } };
+    for (const [dx, y0, len] of [[-4, 81, 6], [-1, 81, 3], [2, 82, 5], [5, 81, 4], [-3, 97, 4], [0, 115, 3], [-5, 120, 5], [3, 128, 4], [-2, 136, 3], [4, 142, 5], [-6, 147, 4]]) drip(TOWER_X + dx, y0, len);
+    for (const [dx, y] of [[-6, 90], [-5, 104], [-6, 125], [-4, 140], [-5, 151], [-3, 110]]) {
+      for (let k = 0; k < 2; k++) { const i = (y + k) * W + TOWER_X + dx; if (sprKind[i] === 2) spr[i] = Math.min(8, spr[i] + 1); }
+    }
+    // the lantern's warm light reaching down on the shadow side of the upper shaft
+    for (let y = tw.top + 1; y <= tw.top + 6; y++) {
+      const f = (y - tw.top) / (tw.base - tw.top), hw = tw.hwT + (tw.hwB - tw.hwT) * f;
+      for (let x = Math.floor(TOWER_X - hw); x <= Math.ceil(TOWER_X + hw); x++) {
+        const u = (x + 0.5 - TOWER_X) / hw;
+        const i = y * W + x;
+        if (sprKind[i] !== 2 || Math.abs(u) > 1) continue;
+        const k = (y - tw.top) / 6;
+        if (u > 0.55 && y === tw.top + 1 && (x & 1)) spr[i] = 11;
       }
     }
     // a plinth where the tower meets the rock
@@ -362,14 +389,14 @@
     // door & slit windows
     for (let y = tw.base - 8; y < tw.base - 1; y++) for (let x = TOWER_X - 2; x <= TOWER_X; x++) put(x, y, y === tw.base - 8 ? 2 : 1, 2);
     put(TOWER_X - 3, tw.base - 8, 3, 2); put(TOWER_X + 1, tw.base - 8, 3, 2);
-    for (const [wy, wx] of [[134, -1], [114, 0], [96, -1]]) { put(TOWER_X + wx, wy, 1, 2); put(TOWER_X + wx, wy + 1, 1, 2); put(TOWER_X + wx, wy + 2, 2, 2); }
+    for (const [wy, wx] of [[134, -1], [114, 0], [96, -1]]) { put(TOWER_X + wx, wy - 1, 4, 2); put(TOWER_X + wx, wy, 1, 2); put(TOWER_X + wx, wy + 1, 1, 2); put(TOWER_X + wx, wy + 2, 3, 2); }
     // corbelled gallery
     const gy = tw.top;
     for (let k = 0; k < 3; k++) {
       const hw = tw.hwT + 1 + k;
       for (let x = Math.round(TOWER_X - hw); x <= Math.round(TOWER_X + hw); x++) {
         const u = (x + 0.5 - TOWER_X) / hw;
-        put(x, gy - k, k === 2 ? (u < -0.2 ? 6 : u < 0.5 ? 5 : 3) : (u < -0.3 ? 4 : u < 0.4 ? 3 : 2), 2);
+        put(x, gy - k, k === 2 ? (u < -0.2 ? 6 : u < 0.35 ? 12 : 3) : (u < -0.3 ? 4 : u < 0.4 ? 3 : 2), 2);
       }
     }
     // gallery deck and railing
@@ -377,6 +404,12 @@
     for (let x = TOWER_X - 10; x <= TOWER_X + 10; x++) put(x, deck, x < TOWER_X - 3 ? 7 : x < TOWER_X + 4 ? 6 : 4, 2);
     for (let x = TOWER_X - 10; x <= TOWER_X + 10; x++) put(x, deck - 4, 3, 2);
     for (let x = TOWER_X - 10; x <= TOWER_X + 10; x += 2) for (let y = deck - 3; y < deck; y++) put(x, y, 2, 2);
+    // the whole island sits DY rows lower so the horizon sits on the lower third
+    for (let y = H - 1; y >= 0; y--) for (let x = 0; x < W; x++) {
+      const i = y * W + x, j = (y - DY) * W + x;
+      spr[i] = y - DY >= 0 ? spr[j] : 255;
+      sprKind[i] = y - DY >= 0 ? sprKind[j] : 0;
+    }
   }
   // lantern geometry
   const LAN = { cx: TOWER_X, y0: 66 - 5, y1: 66 + 5, hw: 5 };
@@ -389,17 +422,14 @@
   (function () {
     // [harmonic n, direction deg (0 = toward camera, + = toward right), amplitude, phase, sharpness]
     const spec = [
-      [2, 14, 2.0, 0.3, 3.4],
-      [2, -31, 0.8, 2.1, 1.8],
-      [1, 4, 2.0, 4.0, 1.6],
-      [3, 36, 0.32, 1.2, 1.6],
-      [3, -14, 0.28, 5.1, 1.5],
-      [4, 58, 0.14, 0.7, 1.3],
-      [4, -6, 0.13, 2.6, 1.3],
-      [5, 24, 0.075, 3.9, 1.1],
-      [5, -45, 0.06, 1.7, 1.0],
-      [6, -40, 0.04, 0.2, 1.0],
-      [7, 12, 0.028, 4.4, 1.0],
+      [2, 12, 1.9, 0.3, 3.0],     // the main swell: crests stacked toward the viewer
+      [2, -38, 0.55, 2.1, 1.6],   // a cross swell: crest heights vary along each ridge
+      [1, 4, 0.9, 4.0, 1.4],      // the long heave
+      [3, 30, 0.14, 1.2, 1.3],
+      [3, -20, 0.12, 5.1, 1.3],
+      [4, 50, 0.06, 0.7, 1.2],
+      [4, -10, 0.06, 2.6, 1.2],
+      [5, 20, 0.035, 3.9, 1.0],
     ];
     for (const [n, deg, A, ph, p] of spec) {
       const w = W0 * n, k = w * w / G, a = deg * Math.PI / 180;
@@ -455,7 +485,7 @@
   const glowI = new Float32Array(W * H);
   const hb = [0, 0, 0, 0, 0];
 
-  const BEAM_TILT = 0.068, SIGH = 0.036, SIGV = 0.07;
+  const BEAM_TILT = 0.01, SIGH = 0.036, SIGV = 0.042, SIGV2 = 0.15, SKIRT = 0.08, EXT = 320;
   function beamDir(phi) {
     const tilt = BEAM_TILT;
     return [Math.cos(phi) * Math.cos(tilt), -Math.sin(tilt), Math.sin(phi) * Math.cos(tilt)];
@@ -485,7 +515,8 @@
           const surge = Math.pow(0.5 + 0.5 * Math.cos(ph - 0.6), 3);
           surf = (1 - (e - 1) / 0.9);
           surf = surf * surf * (0.35 + 0.65 * surge);
-          h += surf * 3.4 * (0.25 + 0.75 * surge) * (0.8 + 0.4 * noise(X * 0.6, z * 0.4 + t * 0.0));
+          const plume = Math.max(0, 0.55 + noise(X * 0.9, z * 0.3) + 0.6 * noise(X * 2.3 + 7, z * 0.7));
+          h += surf * 3.8 * (0.2 + 0.8 * surge) * plume;
         }
         const sy = HY + F * (CAMH - h) / z;
         const yTop = Math.ceil(sy - 0.5);
@@ -504,49 +535,50 @@
           const gx = -0.42, gy = 0.38, gz = 0.82;
           const gd = Math.max(0, rxv * gx + ryv * gy + rzv * gz);
           skyv += 2.4 * Math.pow(gd, 10);
-          // stylised value: troughs dark, faces toward us dark, backs and crests catch the sky
-          const hn = h / 3.0;
-          const slz = clamp(-hb[4] * 4 - (hz - hb[4]) * 0.35, -0.85, 1.3);
-          const slx = clamp(hb[3] * 3 + (hx - hb[3]) * 0.3, -1, 1);
-          let v = 1.85 + 1.25 * hn + 1.15 * slz + 0.35 * slx;
-          v = v * (1 - fr * 0.4) + skyv * fr * 0.4;
-          // fine chop on the near water: small waves catching the sky
-          const chop = clamp(-(hz - hb[4]) * 3.0 + (hx - hb[3]) * 1.2, -1, 1);
-          v += 0.75 * chop * smooth(260, 90, z);
-          if (v < 1.3) v = Math.max(v, 1.3 - 0.35 + 0.9 * chop * smooth(300, 80, z));   // troughs keep a faint chop pattern
-          v += 0.75 * smooth(300, 3000, z);
-          v += 1.6 * Math.pow(gd, 6) * smooth(60, 300, z);
-          // ---- foam: whitecaps spilling down the forward face of the main swell, lace on its back
-          const W1 = WAVES[0], W2 = WAVES[1];
+          // ---- designed value: every swell is one shape, toned by where we are on it
+          const W1 = WAVES[0], W2 = WAVES[1], W3 = WAVES[2];
           const th1 = W1.k * (W1.dx * X + W1.dz * z) - W1.w * t + W1.ph;
           const th2 = W2.k * (W2.dx * X + W2.dz * z) - W2.w * t + W2.ph;
-          const tw1 = Math.atan2(Math.sin(th1), Math.cos(th1));
-          const u1 = th1 / TWO_PI, u2 = th2 / TWO_PI;
-          const n1 = noise(u1 * 11, u2 * 11, 11, 11), n2 = noise(u1 * 27 + 5, u2 * 27 + 1, 27, 27);
-          const lace = 1 - Math.abs(n1 + 0.45 * n2) * 4.2;          // ridged: a network of thin lines
-          // lateral coordinate along the crest; break-up noise differs for every crest (periodic in phase)
-          const sL = -W1.dz * X + W1.dx * z;
-          const crestNo = u1 * 1;                                        // crest index (phase cycles)
-          const nb = noise(crestNo * 3, sL * 0.11, 3, 0) + 0.5 * noise(crestNo * 3 + 1.7, sL * 0.31, 3, 0);
-          const lodF = clamp(1.4 - lod * 4.0, 0, 1);
-          const crestStr = smooth(0.1, 0.65, hn);
-          // white cap right at the break, spilling down the forward face
-          let cap = Math.exp(-Math.pow((tw1 - 0.08) / 0.13, 2)) * crestStr * (0.95 + 1.6 * nb);
-          // foam streaks lying along the face, parallel to the crest, each broken up differently
-          let streak = 0;
-          const SB = [[0.42, 0.07, 0.9], [0.78, 0.06, 0.75], [1.2, 0.08, 0.6], [-0.55, 0.06, 0.55]];
-          for (let j = 0; j < SB.length; j++) {
-            const [c0, wd, amp] = SB[j];
-            const on = noise(crestNo * 5 + j * 7.3, sL * (0.07 + j * 0.03) + j * 3.1, 5, 0);
-            streak += Math.exp(-Math.pow((tw1 - c0) / wd, 2)) * amp * smooth(0.0, 0.18, on);
+          const th3 = W3.k * (W3.dx * X + W3.dz * z) - W3.w * t + W3.ph;
+          const tw1 = Math.atan2(Math.sin(th1), Math.cos(th1));   // 0 = crest, + = forward face (toward us), - = back slope
+          const chf = 0.5 + 0.5 * Math.cos(th2);                   // how tall this stretch of the ridge is
+          const heave = 0.5 + 0.5 * Math.cos(th3);
+          let tone;
+          if (tw1 >= 0) {
+            // lip, then the steep forward face darkening into the trough
+            tone = tw1 < 0.2 ? 4.2 : 1.05 + 2.9 * Math.exp(-(tw1 - 0.2) / 0.5);
+          } else {
+            // back slope rising to the crest, catching the cold light of the gap
+            tone = 1.05 + 2.75 * Math.pow(smooth(-2.7, 0, tw1), 1.4);
           }
-          streak *= (0.35 + 0.65 * smooth(-1.0, 0.2, hn)) * lodF * 1.3;
-          let foam = cap + streak;
-          foam += surf * (1.0 + 1.4 * smooth(-0.2, 0.4, nb + 0.3 * Math.sin(X * 1.7)));
-          foam *= smooth(2200, 700, z);
-          seaLace = lodF * smooth(0.7, 0.92, lace) * smooth(-2.8, -0.8, tw1) * smooth(0.3, -0.4, tw1);
-          seaNbv = nb;
-          const crest = (hn > 0.5 && slz > -0.1 && z < 1500) ? 1 : 0;
+          tone += 0.55 * (chf - 0.5) + 0.3 * (heave - 0.5);
+          tone += 0.35 * smooth(170, 20, x) * smooth(-2.2, -0.2, tw1);  // back slopes on the left face the gap
+          // distance: bands compress, contrast drops into the horizon haze
+          const far = smooth(160, 1400, z);
+          tone = tone * (1 - far) + (2.75 + 0.3 * (tone - 2.5)) * far;
+          let v = tone;
+          // ---- foam, by energy
+          const u1 = th1 / TWO_PI, u2 = th2 / TWO_PI;
+          const sL = -W1.dz * X + W1.dx * z;                    // coordinate along the ridge
+          const crestNo = u1;                                    // which ridge (periodic in phase)
+          const E = chf * 0.7 + heave * 0.3;                     // crest energy
+          const lodF = clamp(1.4 - lod * 3.0, 0, 1);
+          const segN = noise(crestNo * 3, sL * 0.05, 3, 0) + 0.5 * noise(crestNo * 3 + 1.7, sL * 0.16, 3, 0);
+          const brk = smooth(0.35, 0.75, E) * smooth(-0.25, 0.15, segN);   // this stretch is breaking
+          const lip = Math.exp(-Math.pow((tw1 - 0.06) / 0.13, 2));
+          const tailN = noise(crestNo * 5 + 2.2, sL * 0.42, 5, 0);
+          const tail = tw1 > 0.1 ? Math.exp(-(tw1 - 0.1) / 0.6) * smooth(0.0, 0.3, tailN) : 0;
+          const n1 = noise(u1 * 11, u2 * 11, 11, 11), n2 = noise(u1 * 27 + 5, u2 * 27 + 1, 27, 27);
+          const lace = 1 - Math.abs(n1 + 0.45 * n2) * 3.6;            // ridged network
+          const behind = tw1 < 0 ? smooth(-1.5, -0.05, tw1) : 0;
+          let foam = brk * (1.5 * lip + 1.5 * tail * lodF + 1.1 * behind * smooth(0.4, 0.8, lace) * lodF);
+          // a lace of old foam drifting down the face below a breaking stretch, joined to its tails
+          if (tw1 > 0.25) foam += brk * 1.05 * Math.exp(-(tw1 - 0.25) / 0.6) * smooth(0.5, 0.85, lace) * lodF * smooth(160, 80, z);
+          foam += lip * 0.62 * smooth(0.3, 0.7, E) * (1 - lodF * 0.5) * smooth(900, 300, z);  // thin lit lip on most ridges
+          foam += surf * (1.2 + 1.2 * smooth(-0.2, 0.3, segN + 0.4 * Math.sin(X * 1.3)));
+          foam *= smooth(1300, 450, z);
+          seaNbv = segN;
+          const crest = 0;
           // ---- beam footprint on the water (crests flash)
           const dxL = X - P[0], dyL = h - P[1], dzL = z - P[2];
           const hd = Math.hypot(dxL, dzL);
@@ -599,41 +631,78 @@
       }
     }
   }
+  // connected-component cleanup: islands smaller than minSize take the commonest colour around them
+  const ccLabel = new Int32Array(W * H), ccQueue = new Int32Array(W * H);
+  function killIslands(buf, mask, y0, minSize, keepBigger) {
+    ccLabel.fill(0, y0 * W);
+    const cnt = new Uint16Array(16);
+    let lab = 0;
+    for (let i0 = y0 * W; i0 < W * H; i0++) {
+      if (!mask[i0] || ccLabel[i0]) continue;
+      lab++;
+      const c = buf[i0];
+      let qh = 0, qt = 0;
+      ccQueue[qt++] = i0; ccLabel[i0] = lab;
+      while (qh < qt) {
+        const i = ccQueue[qh++], x = i % W;
+        const nb4 = [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W >= y0 * W ? i - W : -1, i + W < W * H ? i + W : -1];
+        for (const j of nb4) {
+          if (j < 0 || !mask[j] || ccLabel[j] || buf[j] !== c) continue;
+          ccLabel[j] = lab; ccQueue[qt++] = j;
+        }
+      }
+      if (qt >= minSize || (keepBigger && c >= keepBigger)) continue;
+      // repaint the island with the commonest bordering colour
+      cnt.fill(0);
+      for (let k = 0; k < qt; k++) {
+        const i = ccQueue[k], x = i % W;
+        for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
+          if (j < y0 * W || j >= W * H || !mask[j] || buf[j] === c) continue;
+          cnt[buf[j]]++;
+        }
+      }
+      let best = c, bc = 0;
+      for (let k = 0; k < 16; k++) if (cnt[k] > bc) { bc = cnt[k]; best = k; }
+      for (let k = 0; k < qt; k++) buf[ccQueue[k]] = best;
+    }
+  }
   function quantiseSea() {
     const y0 = HY - 30;
-    // depth-aware smoothing of the value field so band edges follow the swells, not the sampling grid
+    // light depth-aware smoothing so band edges follow the ridges, not the sampling grid
     const sv = seaVs;
     for (let y = y0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
       if (!isSea[i]) continue;
       let acc = 0, facc = 0, wsum = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || xx >= W || yy < y0 || yy >= H) continue;
         const j = yy * W + xx;
         if (!isSea[j]) continue;
         const r = seaZ[j] / seaZ[i];
-        if (r > 1.08 || r < 0.926) continue;
-        const w = (dy === 0 ? 2 : 1) * (dx === 0 ? 2 : Math.abs(dx) === 1 ? 1.5 : 1);
+        if (r > 1.06 || r < 0.943) continue;
+        const w = (dy === 0 ? 2 : 1) * (dx === 0 ? 2 : 1);
         acc += seaV[j] * w; facc += seaF[j] * w; wsum += w;
       }
       sv[i] = acc / wsum;
-      seaFs[i] = 0.55 * facc / wsum + 0.45 * seaF[i];
+      seaFs[i] = 0.5 * facc / wsum + 0.5 * seaF[i];
     }
     for (let y = y0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
       if (!isSea[i]) continue;
       const v = sv[i];
-      let q = v < 1.3 ? 1 : v < 2.1 ? 2 : v < 3.0 ? 3 : v < 3.9 ? 4 : 5;
-      if (seaL[i] > 0.5) q = Math.min(q + 1, 5);
-      seaIdx[i] = q;
+      seaIdx[i] = v < 1.75 ? 1 : v < 2.45 ? 2 : v < 3.15 ? 3 : v < 3.85 ? 4 : 5;
     }
-    modeFilter(seaIdx, isSea, y0, 2, 2);
-    // crest lines: where a near wave top occludes farther water, light its lip
+    modeFilter(seaIdx, isSea, y0, 1, 2);
+    killIslands(seaIdx, isSea, y0, 7, 0);
+    // crest lines: where a ridge hides the water behind it, its lip is drawn as one crisp line
     for (let y = y0 + 1; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
       if (!isSea[i] || !isSea[i - W]) continue;
-      if (seaZ[i - W] > seaZ[i] * 1.12 && seaZ[i] < 900 && seaNb[i] > -0.12) seaIdx[i] = Math.max(seaIdx[i] + 1, seaZ[i] < 300 && seaNb[i] > 0.1 ? 5 : 4);
+      if (seaZ[i - W] > seaZ[i] * 1.1 && seaZ[i] < 1400) {
+        seaIdx[i] = seaZ[i] < 260 ? 6 : 5;
+        if (y + 1 < H && isSea[i + W] && seaZ[i] < 200 && seaIdx[i + W] < 4) seaIdx[i + W] = 4;
+      }
     }
     // foam
     seaFoam.fill(0);
@@ -641,20 +710,25 @@
       const i = y * W + x;
       if (!isSea[i]) continue;
       const f = seaFs[i];
-      seaFoam[i] = f > 1.15 ? 3 : f > 0.8 ? 2 : f > 0.5 ? 1 : 0;
+      seaFoam[i] = f > 1.2 ? 3 : f > 0.82 ? 2 : f > 0.5 ? 1 : 0;
     }
-    modeFilter(seaFoam, isSea, y0, 2, 2);
+    modeFilter(seaFoam, isSea, y0, 1, 2);
+    killIslands(seaFoam, isSea, y0, 5, 0);
     for (let y = y0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const fl = seaFoam[i];
       if (!isSea[i] || !fl) continue;
       let c = fl === 1 ? 7 : fl === 2 ? 8 : 9;
-      // foam has volume: lit along its top edge, shadowed underneath
+      // foam has volume: bright along its top edge, shadowed on its underside
       const above = y > y0 ? seaFoam[i - W] : 0, below = y + 1 < H ? seaFoam[i + W] : 0;
       if (!above && fl >= 2) c = Math.min(10, c + 1);
       else if (!below && c > 7) c -= 1;
-      if (seaZ[i] > 900) c = Math.min(c, 7);
-      if (fl === 3 && seaSurf[i] > 0.45 && seaNb[i] > 0.15) c = 10;
+      // surf is white water: bright crown, grey underside
+      if (seaSurf[i] > 0.25) c = !above ? 10 : !below ? 8 : 9;
+      // taper the ends of thin foam runs so lips read as drawn strokes, not bars
+      const lf = x > 0 ? seaFoam[i - 1] : 0, rf = x < W - 1 ? seaFoam[i + 1] : 0;
+      if ((!lf || !rf) && !(above && below) && c > 7) c -= 1;
+      if (seaZ[i] > 1000) c = Math.min(c, 8);
       seaIdx[i] = c;
     }
   }
@@ -675,7 +749,7 @@
         const ehx0 = A[2] / hl0, ehz0 = -A[0] / hl0;
         const qx = px - sC * A[0], qy = py - sC * A[1], qz = pz - sC * A[2];
         const qh = qx * ehx0 + qz * ehz0, qv = Math.sqrt(Math.max(0, qx * qx + qy * qy + qz * qz - qh * qh));
-        const wh = SIGH * sC + W0B, wv = SIGV * sC + W0B;
+        const wh = SIGH * sC + W0B, wv = SIGV2 * sC + W0B;
         camIn = Math.exp(-qh * qh / (wh * wh) - qv * qv / (wv * wv)) > 0.004;
       }
     }
@@ -703,10 +777,13 @@
         let I = 0;
         // integration window around the closest approach
         const sc = Math.max(1, (e - b * d) / den);
-        const wid = SIGV * sc + W0B;
+        const wid = SIGV2 * sc + W0B;
         let half = 4.5 * wid / Math.max(sinA, 0.02);
         let u0 = Math.max(0, uc - half), u1 = Math.min(umax, uc + half);
         let N = 28;
+        // rain scatters forward: a beam aimed away from us is dimmer than one aimed at us (Henyey-Greenstein, g = 0.35)
+        const cth = -(dx * A[0] + dy * A[1] + dz * A[2]);
+        const phase = Math.min(2.1, 0.8775 / Math.pow(1.1225 - 0.7 * cth, 1.5) / 0.738);
         if (camIn) { u0 = 0; u1 = Math.min(umax, ZL * 1.6); N = 56; }   // viewer inside the fan: the whole near air glows
         if (u1 > u0) {
           const du = (u1 - u0) / N;
@@ -717,8 +794,10 @@
             if (s <= 0) continue;
             const qx = px - s * A[0], qy = py - s * A[1], qz = pz - s * A[2];
             const qh = qx * ehx + qz * ehz, qv = qx * evx + qy * evy + qz * evz;
-            const wh = SIGH * s + W0B, wv = SIGV * s + W0B;
-            I += Math.exp(-qh * qh / (wh * wh) - qv * qv / (wv * wv)) / (wh * wv) * du;
+            const wh = SIGH * s + W0B, wv = SIGV * s + W0B, wv2 = SIGV2 * s + W0B;
+            const gh = Math.exp(-qh * qh / (wh * wh));
+            // a tight core plus the lens's faint vertical skirt; rain extinguishes the far beam
+            I += gh * (Math.exp(-qv * qv / (wv * wv)) / (wh * wv) + SKIRT * Math.exp(-qv * qv / (wv2 * wv2)) / (wh * wv2)) * Math.exp(-s / EXT) * phase * du;
           }
         }
         // omni glow of the lantern scattered by rain haze (analytic 1/r^2 line integral)
@@ -757,7 +836,7 @@
   }
 
   // ---------------------------------------------------------------- frame
-  const WALK_T = 1.15, WALK_D = 0.9; // the keeper passes the window while the beam faces away
+  const WALK_T = 1.2, WALK_D = 0.75; // the keeper passes the window while the beam faces away
   const DBG = { noBeam: false };
   function renderFrame(t) {
     t = ((t % LOOP) + LOOP) % LOOP;
@@ -771,8 +850,8 @@
     let dAz = Math.atan2(pcz, pcx) - Math.atan2(A[2], A[0]);
     dAz = Math.atan2(Math.sin(dAz), Math.cos(dAz));
     const dEl = Math.atan2(pcy, Math.hypot(pcx, pcz)) - Math.asin(A[1]);
-    const glare = Math.exp(-Math.pow(dAz / 0.06, 2) - Math.pow(dEl / 0.11, 2));
-    const nearLit = Math.exp(-Math.pow(dAz / 0.09, 2) - Math.pow(dEl / 0.14, 2));
+    const glare = Math.exp(-Math.pow(dAz / 0.06, 2) - Math.pow(dEl / 0.16, 2));
+    const nearLit = Math.exp(-Math.pow(dAz / 0.09, 2) - Math.pow(dEl / 0.2, 2));
     frameGlare = glare;
 
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -784,32 +863,29 @@
       else c = sky[i];
       out[i] = c;
     }
-    // ---- window (with the keeper passing)
-    const wt = (t - WALK_T) / WALK_D; // 0..1 during the pass
-    let winLight = 1;
+    // ---- window, and the keeper walking past it (a dark figure crossing the lit room)
+    const wt = (t - WALK_T) / WALK_D;
+    const walking = wt > 0 && wt < 1;
+    const fx = -2.5 + wt * (WIN.w + 5);              // figure centre in window pixels
+    let covered = 0;
     for (let yy = 0; yy < WIN.h; yy++) for (let xx = 0; xx < WIN.w; xx++) {
-      const x = WIN.x + xx, y = WIN.y + yy;
-      let c = yy < 2 ? 14 : 13;
-      if (xx === 1 && yy === 2) c = 15; // lamp inside
-      if (yy === 2 || xx === 2) c = 12;  // glazing bars (warm, lit from within)
-      if (wt > 0 && wt < 1) {
-        // a figure 2px wide crossing left to right, head on top rows
-        const fx = -2.5 + wt * (WIN.w + 4);
-        const dxf = xx + 0.5 - fx;
-        if (Math.abs(dxf) < 1.05 && yy >= 1) c = 11;
-        if (Math.abs(dxf) < 0.6 && yy === 0) c = 11;
+      const x = WIN.x + xx, y = WIN.y + yy + DY;
+      let c = yy < 3 ? 14 : 13;
+      if (xx === 5 && yy === 3) c = 15;              // the lamp on the table
+      if (walking) {
+        const d = Math.abs(xx + 0.5 - fx);
+        const fig = yy <= 1 ? d < 1.0 : yy === 2 ? d < 1.55 : d < 2.0;   // head, shoulders, body
+        if (fig) { c = 11; covered++; }
       }
+      if (xx === 3 || yy === 3) c = c === 11 ? 11 : 12; // glazing bars
       out[y * W + x] = c;
     }
-    if (wt > 0 && wt < 1) winLight = 1 - 0.65 * Math.sin(Math.PI * clamp((wt - 0.1) / 0.8, 0, 1));
-    // window light spill on the ground in front of the cottage
-    for (let y = COTT.base; y < COTT.base + 4; y++) for (let x = WIN.x - 7; x < WIN.x + WIN.w + 8; x++) {
-      const i = y * W + x;
+    const winLight = 1 - covered / (WIN.w * WIN.h) * 1.4;
+    // a thin line of light on the ground below the sill
+    for (let x = WIN.x - 1; x <= WIN.x + WIN.w; x++) {
+      const i = (COTT.base + DY) * W + x;
       if (sprKind[i] !== 1 || (isSea[i] && seaZ[i] < ZSPR)) continue;
-      const dy = (y - COTT.base) / 4, dx = (x + 0.5 - (WIN.x + WIN.w / 2)) / (2.2 + 3 * dy);
-      const v = winLight * Math.exp(-dx * dx) * (1 - dy) * 1.25;
-      const lv = qd(v, x, y, 1.6);
-      if (lv >= 1 && y === COTT.base) out[i] = 11;
+      if (winLight > 0.5 && ((x + COTT.base) & 1) === 0) out[i] = 11;
     }
     // ---- lantern
     lanMask.fill(0);
@@ -844,7 +920,7 @@
     if (glare > 0.2) {
       const g = (glare - 0.2) / 0.8;
       const lh = Math.round(2 + 26 * g), lv = Math.round(1 + 15 * g);
-      const cx0 = TOWER_X, cy0 = 66;
+      const cx0 = TOWER_X, cy0 = LAMP_SY;
       const spike = (dx, dy, len) => {
         for (let k = 1; k <= len; k++) {
           const x = cx0 + dx * k, y = cy0 + dy * k;
@@ -901,7 +977,7 @@
     for (let x = cx - 10; x <= cx + 10; x++) put2(x, deck, x < cx - 3 ? 7 : x < cx + 4 ? 6 : 4);
   }
   const lanMask = new Uint8Array(W * H);
-  function put2(x, y, c) { if (x >= 0 && x < W && y >= 0 && y < H) { out[y * W + x] = c; lanMask[y * W + x] = 1; } }
+  function put2(x, y, c) { y += DY; if (x >= 0 && x < W && y >= 0 && y < H) { out[y * W + x] = c; lanMask[y * W + x] = 1; } }
 
   // ---------------------------------------------------------------- init & output
   buildSky();

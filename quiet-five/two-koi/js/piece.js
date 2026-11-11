@@ -183,6 +183,9 @@
     for (let sg = 0; sg <= total + 1e-6; sg += step) spine.push(spinePt(f, t, sg));
     const fn = (u) => W * fishHW(u * TAIL_END);
     const body = ribbon(spine, fn, 12, 8, 8);
+    const headN = Math.ceil(0.36 * L / step) + 1;
+    const head = ribbon(spine.slice(0, headN), (u) => fn(u * (headN - 1) * step / total), 11, 8, 2);
+    head.len = total;
     const bodyShadow = ribbon(spine, fn, 24, 20, 20);
 
     // pectoral fins
@@ -210,8 +213,8 @@
     draws.push({ kind: 1, rib: bodyShadow, st: { ink: f.shadow, blur: 12, seed: 3 }, mask: [0, 0, 1, 0], off: so });
     for (let i = 0; i < 2; i++) draws.push({ kind: 0, rib: fins[i], st: Object.assign({}, f.fin, { seed: f.fin.seed + i * 50 }), mask: [1, 0, 0, 0] });
     draws.push({ kind: 0, rib: body, st: f.body, mask: [1, 0, 0, 0] });
-    if (f.eyes) draws.push({ kind: 3, rib: body, st: { ink: f.eyes.ink, wet: 0.5, seed: 31 }, p0: [f.eyes.s * L, f.eyes.v * W * fishHW(f.eyes.s), f.eyes.r * L, 0.3], mask: [1, 0, 0, 0] });
-    if (f.patch) draws.push({ kind: 2, rib: body, st: { ink: f.patch.ink, wet: 1.0, seed: 41 }, p0: [f.patch.s * L, f.patch.v * L, f.patch.r * L, f.patch.rim], p1: f.patch.ph.concat([0]), mask: [0, 1, 0, 0] });
+    if (f.eyes) draws.push({ kind: 3, rib: head, st: { ink: f.eyes.ink, wet: 0.5, seed: 31 }, p0: [f.eyes.s * L, f.eyes.v * W * fishHW(f.eyes.s), f.eyes.r * L, 0.3], mask: [1, 0, 0, 0] });
+    if (f.patch) draws.push({ kind: 2, rib: head, st: { ink: f.patch.ink, wet: 1.0, seed: 41 }, p0: [f.patch.s * L, f.patch.v * L, f.patch.r * L, f.patch.rim], p1: f.patch.ph.concat([0]), mask: [0, 1, 0, 0] });
   }
 
   /* ------------------------------------------------------------------ */
@@ -345,12 +348,13 @@
 
   const FS_PAPER = `#version 300 es
   precision highp float; precision highp int;
-  uniform sampler2D uFib; uniform vec2 uRes; uniform float uScale;
+  uniform sampler2D uFib; uniform vec2 uRes; uniform float uScale; uniform int uMode;
   out vec4 o;
   ${NOISE}
   void main(){
     vec2 fc = gl_FragCoord.xy;
     vec2 p = vec2(fc.x, uRes.y - fc.y) / uScale;
+    if (uMode == 1) { o = vec4(fbm(p * 0.9, 31u), 0.0, 0.0, 1.0); return; }
     vec4 fb = texelFetch(uFib, ivec2(fc), 0);
     // soft neighbourhood of fibres (paper formation follows them)
     float fl = fb.r, fk = fb.g;
@@ -506,7 +510,7 @@
 
   const FS_COMP = `#version 300 es
   precision highp float; precision highp int;
-  uniform sampler2D uInk, uPaper; uniform vec2 uRes; uniform float uScale;
+  uniform sampler2D uInk, uPaper, uAux; uniform vec2 uRes; uniform float uScale;
   uniform vec4 uRing[8]; uniform int uNR;
   uniform vec3 uKB, uKV;
   out vec4 o;
@@ -521,6 +525,7 @@
       vec4 rg = uRing[i];
       vec2 dv = p - rg.xy; float r = length(dv) + 1e-3;
       float x = r - rg.z;
+      if (abs(x) > 4.0 * (24.0 + 0.04 * rg.z) + 40.0) continue;
       float lam = 30.0, w = 24.0 + 0.04 * rg.z;
       float env = exp(-x * x / (w * w));
       float ph = 6.2831853 * x / lam;
@@ -543,7 +548,7 @@
     vec4 inkS = texture(uInk, (fc + dpx * 1.8) / uRes);
     vec4 inkL = texelFetch(uInk, ivec2(fc), 0);
     float ab = paper.a;
-    float fibr = fbm(p * 0.9, 31u);
+    float fibr = texelFetch(uAux, ivec2(fc), 0).r;
     float Db = (inkU.r + inkS.b) * ab + inkL.a * mix(1.0, ab, 0.7) + ringD * 0.24 * (0.6 + 0.8 * fibr) * ab;
     float Dv = inkU.g * mix(1.0, ab, 0.6);
     vec3 col = paper.rgb * exp(-(Db * uKB + Dv * uKV));
@@ -636,6 +641,7 @@
     const dyn = gl.createBuffer();
 
     const paperT = tex(gl, W, H, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.NEAREST), paperF = fbo(gl, paperT);
+    const auxT = tex(gl, W, H, gl.R16F, gl.RED, gl.HALF_FLOAT, gl.NEAREST), auxF = fbo(gl, auxT);
     const inkT = tex(gl, W, H, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR), inkF = fbo(gl, inkT);
     const compT = tex(gl, W, H, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.NEAREST), compF = fbo(gl, compT);
 
@@ -657,6 +663,9 @@
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, ft);
       gl.uniform1i(progPaper.u.uFib, 0); gl.uniform2f(progPaper.u.uRes, W, H); gl.uniform1f(progPaper.u.uScale, scale);
       gl.disable(gl.BLEND);
+      gl.uniform1i(progPaper.u.uMode, 0);
+      fullscreen();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, auxF); gl.uniform1i(progPaper.u.uMode, 1);
       fullscreen();
       gl.deleteTexture(ft);
     }
@@ -664,7 +673,8 @@
     const K_BLACK = [1.035, 1.0, 0.955];
     const K_VERM = [0.06, 1.70, 2.30];
 
-    function render(t, toCanvas) {
+    function render(t, prof) {
+      const T0 = prof ? performance.now() : 0;
       t = ((t % LOOP) + LOOP) % LOOP;
       const draws = [];
       for (const f of FISH) buildFish(f, t, draws);
@@ -679,6 +689,7 @@
       gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, dyn);
       gl.enableVertexAttribArray(0); gl.enableVertexAttribArray(1);
       for (const d of draws) {
+        if (window.__skip === 'ink') break;
         const st = d.st;
         gl.bufferData(gl.ARRAY_BUFFER, d.rib.data, gl.STREAM_DRAW);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 24, 0);
@@ -697,18 +708,21 @@
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, d.rib.count);
       }
       gl.disable(gl.BLEND);
+      if (prof) { gl.finish(); prof.ink = performance.now() - T0; }
       // composite
       gl.bindFramebuffer(gl.FRAMEBUFFER, compF); gl.viewport(0, 0, W, H);
       gl.useProgram(progComp.p);
       const C = progComp.u;
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, inkT); gl.uniform1i(C.uInk, 0);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, paperT); gl.uniform1i(C.uPaper, 1);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, auxT); gl.uniform1i(C.uAux, 2); gl.activeTexture(gl.TEXTURE0);
       gl.uniform2f(C.uRes, W, H); gl.uniform1f(C.uScale, scale);
       const rs = rings(t);
       const rv = new Float32Array(32); rs.forEach((r, i) => rv.set(r, i * 4));
       gl.uniform4fv(C.uRing, rv); gl.uniform1i(C.uNR, rs.length);
       gl.uniform3fv(C.uKB, K_BLACK); gl.uniform3fv(C.uKV, K_VERM);
       fullscreen();
+      if (prof) { gl.finish(); prof.comp = performance.now() - T0 - prof.ink; }
       // final: downsample + encode to the canvas
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, outW, outH);
       gl.useProgram(progFinal.p);
@@ -741,6 +755,7 @@
       LOOP, FPS: 30, events: EVENTS,
       init(opts) { opts = opts || {}; R = Renderer(canvas, opts.width || 1080, opts.height || 1350, opts.ss || 1); return true; },
       renderAt(t, opts) { if (!R) this.init(opts); R.render(t); R.gl.finish(); return true; },
+      profile(t) { const p = {}; const a = performance.now(); R.render(t, p); R.gl.finish(); p.total = performance.now() - a; const b = performance.now(); this.pixels(); p.read = performance.now() - b; return p; },
       pixels() { return b64(R.readRGBA()); },
     };
   } else {

@@ -109,7 +109,7 @@
       if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
     }
     const e = (sqrt(d2) - sqrt(d1)) * cell; // ~ pixel distance to the cell border
-    let c = exp(-(e * e) / (2 * 0.6 * 0.6));
+    let c = exp(-(e * e) / (2 * 0.45 * 0.45));
     // fine secondary network, only in patches
     const cell2 = 13;
     const u2 = (wx + 300) / cell2, v2 = (wy - 120) / cell2;
@@ -159,6 +159,18 @@
     for (let i = 0; i < N; i++) lum[i] = lumOf(warped, i);
 
     // 2. soften: lose edges in the darks, keep them in the lights
+    // first: stray bright pixels in the background (antialiased glints) are clamped so no stroke drags them
+    {
+      const lw = new Float32Array(lum);
+      boxBlur1(lw, W, H, max(2, Math.round(10 * sc)), 2);
+      for (let i = 0; i < N; i++) {
+        if ((id[i] === ID.WALL || id[i] === ID.APRON) && lum[i] > 1.3 * lw[i] + 0.0005) {
+          const k = (1.3 * lw[i] + 0.0005) / lum[i];
+          const o = i * NCH; for (let c = 0; c < NCH; c++) warped[o + c] *= k;
+          lum[i] *= k;
+        }
+      }
+    }
     const soft = new Float32Array(warped);
     boxBlur(soft, W, H, max(1, Math.round(2.5 * sc)), 2);
     const wide = new Float32Array(warped);
@@ -208,17 +220,17 @@
     // classes: brush radius ranges in 4K px
     const brushFor = (kid) => {
       switch (kid) {
-        case ID.WALL: return [30, 44, 7.5, 0.55];      // rMin, rMax, lengthFactor, opacity
-        case ID.APRON: return [18, 28, 6, 0.5];
-        case ID.TOP: return [9, 16, 7, 0.5];
-        case ID.FRONT: case ID.NOSE: return [6, 10, 7, 0.45];
-        case ID.PLATE: return [5, 9, 5, 0.45];
-        case ID.GLASS: return [3.5, 6, 4, 0.30];
-        case ID.LEMON: return [4, 7, 3.2, 0.45];
-        case 21: return [2.5, 4, 2.5, 0.35];
-        case 22: return [4, 7, 3.2, 0.5];
-        case ID.HANDLE: return [4, 7, 4, 0.45];
-        case ID.BLADE: case ID.BOLSTER: return [3, 5, 4, 0.4];
+        case ID.WALL: return [30, 46, 7.5, 0.55];      // rMin, rMax, lengthFactor, opacity
+        case ID.APRON: return [20, 30, 6, 0.5];
+        case ID.TOP: return [12, 24, 7, 0.5];
+        case ID.FRONT: case ID.NOSE: return [8, 14, 7, 0.45];
+        case ID.PLATE: return [8, 16, 5, 0.5];
+        case ID.GLASS: return [4, 8, 4, 0.32];
+        case ID.LEMON: return [8, 16, 3.2, 0.5];
+        case 21: return [4, 8, 2.5, 0.4];
+        case 22: return [8, 16, 3.2, 0.55];
+        case ID.HANDLE: return [7, 13, 4, 0.5];
+        case ID.BLADE: case ID.BOLSTER: return [4, 7, 4, 0.45];
         default: return [10, 20, 5, 0.5];
       }
     };
@@ -294,16 +306,21 @@
       if (n < 2) { pathX[1] = st0.x + 0.5; pathY[1] = st0.y; n = 2; }
       // stroke colour: average of the source along the path
       col.fill(0);
-      const srcBuf = (kid === ID.WALL || kid === ID.APRON) ? wide : base;
-      for (let k = 0; k < n; k++) { sample(srcBuf, W, H, pathX[k], pathY[k], tmp); for (let c = 0; c < NCH; c++) col[c] += tmp[c]; }
-      for (let c = 0; c < NCH; c++) col[c] /= n;
+      let nUsed = 0;
+      for (let k = 0; k < n; k++) {
+        const ii = (pathY[k] | 0) * W + (pathX[k] | 0);
+        if (R > 8 * sc && lum[ii] > 1.5 * lumWide[ii] + 0.001) continue; // ignore stray highlights
+        sample(base, W, H, pathX[k], pathY[k], tmp); for (let c = 0; c < NCH; c++) col[c] += tmp[c]; nUsed++;
+      }
+      if (nUsed === 0) { sample(wide, W, H, st0.x, st0.y, tmp); for (let c = 0; c < NCH; c++) col[c] = tmp[c]; nUsed = 1; }
+      for (let c = 0; c < NCH; c++) col[c] /= nUsed;
       // subtle broken colour
       const r1 = Q.hash2i(st0.seed, 1, 9) - 0.5, r2 = Q.hash2i(st0.seed, 2, 9) - 0.5, r3 = Q.hash2i(st0.seed, 3, 9) - 0.5;
       const vj = kid === ID.WALL || kid === ID.APRON ? 0.16 : kid === ID.TOP ? 0.09 : 0.06;
       const cm = [1 + vj * (r1 + 0.4 * r2), 1 + vj * (r1 * 0.9 + 0.3 * r3), 1 + vj * (r1 * 0.8 - 0.5 * r2)];
       for (let c = 0; c < NCH; c++) col[c] *= cm[c % 3];
       const lumC = lumOf(col, 0);
-      const streak = kid === ID.WALL || kid === ID.APRON ? 0.22 : kid === ID.TOP ? 0.16 : kid === ID.GLASS ? 0.06 : 0.12;
+      const streak = kid === ID.WALL || kid === ID.APRON ? 0.24 : kid === ID.TOP ? 0.18 : kid === ID.GLASS ? 0.07 : 0.17;
       const thick = (0.12 + 0.9 * Math.pow(Q.clamp(lumC / 0.9, 0, 1), 0.6)) * (0.6 + 0.4 * Q.clamp(R / (12 * sc), 0, 1.5));
       // rasterize: for each segment, pixels within R
       let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
@@ -381,7 +398,7 @@
       if (x >= W || y >= H) continue;
       const i = (y | 0) * W + (x | 0);
       const l = lum[i] + spec[i] * 0.5;
-      const hi = Q.smooth(0.35, 1.3, spec[i] * 0.5 + 0.35 * lum[i]);
+      const hi = Q.smooth(0.10, 0.55, spec[i] + 0.22 * lum[i]);
       if (hi <= 0.02 || rnd() > hi * 1.4) continue;
       dabs.push({ x, y, R: (2.2 + 3.2 * rnd()) * sc * (0.7 + 0.6 * hi), hi, seed: (rnd() * 1e9) | 0, l });
     }

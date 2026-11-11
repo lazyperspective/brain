@@ -24,7 +24,7 @@
   const LUTN = 8192, LUTMAX = 24;
   const LUT = new Float32Array(LUTN + 1);
   (function () {
-    const exposure = 0.62, w = 4.0;
+    const exposure = 1.0, w = 4.0;
     for (let i = 0; i <= LUTN; i++) {
       const s = i / LUTN; const x = s * s * LUTMAX * exposure;
       let y = (x * (1 + x / (w * w))) / (1 + x);
@@ -56,13 +56,17 @@
         const l = pt.lum[i];
         const light = Q.smooth(0.01, 0.25, l);
         const cr = pt.crack[i];
-        mul[i] = pt.relief[i] * (1 - 0.32 * cr * (0.25 + 0.75 * light));
+        mul[i] = pt.relief[i] * (1 - 0.2 * cr * (0.3 + 0.7 * light));
         // varnish sheen on raised paint + dirt-free crack edges catching light in the darks
         // thin darks: the canvas weave and crack edges catch a little light through the varnish
         const wv = pt.weave[i];
         const g = pt.gloss[i] * 0.05 + cr * 0.0009 * (1 - light) + (1 - light) * (wv * wv * 0.0014 + 0.0003);
         add[i * 3] = g * 1.0; add[i * 3 + 1] = g * 0.93; add[i * 3 + 2] = g * 0.80;
       }
+      // canvas-only multiplier (cracks) for things painted per frame on the same canvas
+      const cmul = new Float32Array(N);
+      for (let i = 0; i < N; i++) cmul[i] = 1 - 0.2 * pt.crack[i] * 0.8;
+      Q.canvasMul = cmul;
       // static dither pattern (fixed => no temporal noise)
       dith = new Float32Array(N);
       for (let i = 0; i < N; i++) dith[i] = (Q.hash2i(i % W, (i / W) | 0, 5) + Q.hash2i(i % W, (i / W) | 0, 6) - 1) / 255;

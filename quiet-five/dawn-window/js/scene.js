@@ -109,7 +109,7 @@
         if (at > a) { a = at; k = 3; }
       }
     }
-    return { a, k };
+    return { a, k, top: k === 1 ? (x < 0.45 ? 0.839 : x < 0.585 ? 0.861 : 0.843) + DY : 0 };
   }
   function roofline(x) {
     // approximate top edge, used only to label regions
@@ -136,12 +136,12 @@
     }
     // distant hills: a soft, rolling line just under the horizon, sinking into the valley mist
     const hillTop = -0.002 + 0.016 * (fbm(x * 3.2, 1.7, 33, 4) - 0.5) - 0.004 * Math.sin(x * 6 + 1) + 0.006 * (fbm(x * 14, 2.7, 34, 3) - 0.5);
-    const hb = smooth(hillTop - 0.0012, hillTop + 0.0012, h);
+    const hb = smooth(hillTop - 0.0035, hillTop + 0.0025, h);
     if (hb > 0) {
       const d = h - hillTop;
       mistGrad(Math.max(0, d - 0.012) * 0.95, tmp3);
       const band = 0.94 + 0.12 * fbm(x * 5, h * 70, 51, 4);
-      const hc0 = DW.s2l(126), hc1 = DW.s2l(103), hc2 = DW.s2l(130);
+      const hc0 = DW.s2l(150), hc1 = DW.s2l(120), hc2 = DW.s2l(142);
       const m = smooth(0.0, 0.045, d);
       let r = mix(hc0, tmp3[0] * band, m), g = mix(hc1, tmp3[1] * band, m), b = mix(hc2, tmp3[2] * band, m);
       // belts of trees standing in the mist, darker and crisper as they come nearer
@@ -160,12 +160,16 @@
     if (nr.a > 0) {
       let cr, cg, cb;
       if (nr.k === 1) {
-        // slate roof slope: catches a little of the sky; faint courses
-        const course = 0.85 + 0.15 * Math.sin((y - DY) * 2600) * (0.5 + 0.5 * vnoise(x * 300, y * 40, 61));
-        cr = DW.s2l(34 * course); cg = DW.s2l(31 * course); cb = DW.s2l(48 * course);
-      } else if (nr.k === 2) { cr = DW.s2l(17); cg = DW.s2l(15); cb = DW.s2l(25); }
-      else { const v = 0.8 + 0.4 * fbm(x * 90, y * 90, 62, 3); cr = DW.s2l(20 * v); cg = DW.s2l(18 * v); cb = DW.s2l(29 * v); }
-      out[0] = mix(out[0], cr, nr.a); out[1] = mix(out[1], cg, nr.a); out[2] = mix(out[2], cb, nr.a);
+        // slate roof slope: wet slates mirror the pale sky, brightest just under the ridge; faint courses
+        const course = 0.88 + 0.12 * Math.sin((y - DY) * 2600) * (0.5 + 0.5 * vnoise(x * 300, y * 40, 61));
+        const nearRidge = Math.exp(-Math.max(0, y - nr.top) / 0.006);
+        const v = (0.75 + 0.5 * nearRidge) * course;
+        cr = DW.s2l(46 * v); cg = DW.s2l(42 * v); cb = DW.s2l(62 * v);
+      } else if (nr.k === 2) { cr = DW.s2l(19); cg = DW.s2l(17); cb = DW.s2l(28); }
+      else { const v = 0.8 + 0.4 * fbm(x * 90, y * 90, 62, 3); cr = DW.s2l(24 * v); cg = DW.s2l(21 * v); cb = DW.s2l(33 * v); }
+      // a veil of morning haze between us and the houses
+      const haze = 0.12;
+      out[0] = mix(out[0], mix(cr, out[0], haze), nr.a); out[1] = mix(out[1], mix(cg, out[1], haze), nr.a); out[2] = mix(out[2], mix(cb, out[2], haze), nr.a);
     }
     return out;
   }
@@ -285,7 +289,7 @@
           const along = sx * 0.40 + sy * 0.92, across = sx * 0.92 - sy * 0.40;
           let gsh = 0;
           if (along > -0.9) gsh = Math.exp(-across * across / 0.55) * smooth(-0.9, -0.2, along) * Math.exp(-Math.max(0, along) / 2.6);
-          const shadow = 1 - 0.5 * gsh;
+          const shadow = 1 - 0.62 * gsh;
           const f = cut * ears * shadow;
           c[0] *= f; c[1] *= f; c[2] *= f * 1.02;
           ang = (fbm(x * 6, y * 6, 17, 3) - 0.5) * 0.35;

@@ -37,6 +37,14 @@ const CREAM = [1.0, 0.64, 0.32];
 const EMBER = [1.0, 0.34, 0.07];
 const CYAN = [0.0, 0.78, 1.0];
 
+// a reflection on wet asphalt, broken by ripples: a column of overlapping discs fading downwards
+function reflColumn(list, x, y0, len, I, col, R) {
+  const n = 18;
+  for (let k = 0; k < n; k++) {
+    const f = k / (n - 1);
+    list.push({ x: x + (R() - 0.5) * 0.010, y: y0 + f * len + (R() - 0.5) * 0.008, R: 0.021 + R() * 0.006, col, I: I * 0.5 * Math.pow(1 - f * 0.9, 1.6) * (0.35 + 0.9 * R() * R()), len: 0, fade: 0.12, refl: true, sharpW: 0.0011 });
+  }
+}
 function buildCity() {
   const rng = mulberry32(90210);
   const R = () => rng();
@@ -82,11 +90,18 @@ function buildCity() {
   for (let i = 0; i < lampX.length; i++) {
     const x = lampX[i] + (R() - 0.5) * 0.03;
     L2.push({ x, y: 0.285 + (R() - 0.5) * 0.01, R: 0.036, col: SODIUM, I: 0.72, len: 0, fade: 1 });
-    L2.push({ x, y: 0.70, R: 0.027, col: SODIUM, I: 0.11, len: 0.19, fade: 0.0, refl: true });
+    reflColumn(L2, x, 0.705, 0.20, 0.10, SODIUM, R);
   }
   // a lower, dimmer lamp further along the road
   L2.push({ x: 0.30, y: 0.395, R: 0.031, col: mix3(SODIUM, EMBER, 0.5), I: 0.30, len: 0, fade: 1 });
-  L2.push({ x: 0.30, y: 0.66, R: 0.029, col: SODIUM, I: 0.055, len: 0.15, fade: 0.0, refl: true });
+  reflColumn(L2, 0.30, 0.665, 0.13, 0.05, SODIUM, R);
+  // the wet ground mirrors the window lights, dimmer and broken
+  const GY = HORIZON + 0.05;
+  for (const l of L1.slice()) {
+    if (l.I < 0.03 || R() < 0.35) continue;
+    const y = GY + (GY - l.y) * 0.9 + 0.01 + R() * 0.02;
+    L1.push({ x: l.x + (R() - 0.5) * 0.006, y, R: l.R * 0.95, col: l.col, I: l.I * (0.10 + 0.10 * R()), len: 0.01 + R() * 0.04, fade: 0.2, refl: true });
+  }
   return { L0, L1, L2 };
 }
 
@@ -97,7 +112,7 @@ function boxLeft(t) { return 0.4 - BOX.W * 0.5 + BOX.V * (t - BOX.TC); }
 // ------------------------------------------------------------------ rain simulation
 const R_CRIT = 0.0122;
 const WIND = 0.20;          // slant of runners (radians), drops drift left/back
-const VS = 0.62, VMAX = 0.55, ABS_T = 0.07;
+const VS = 0.48, VMAX = 0.30, ABS_T = 0.07;
 const SPAN = 0.32;          // field of view of a drop lens, in frame units
 function pinField(x, y) { return clamp(0.15 + 0.85 * vnoise2(x * 34, y * 34, 11) * 0.9 + 0.3 * (vnoise2(x * 95, y * 95, 12) - 0.5), 0, 1); }
 
@@ -107,14 +122,14 @@ function pinField(x, y) { return clamp(0.15 + 0.85 * vnoise2(x * 34, y * 34, 11)
 //  2. the pinned beads, the trail residue and the rain that re-lands in the cleared tracks are then laid out
 //     on the circle of loop time from those tracks (a swept bead re-lands from the rain before it is needed again).
 const SEEDS = [
-  { t: 0.30, x: 0.63, y: 0.08, grow: 3 },
+  { t: 0.20, x: 0.64, y: 0.22, grow: 3, r0: 0.0105 },
   { t: 1.55, x: 0.36, y: -0.04, enter: 0.0162 },
   { t: 3.10, x: 0.50, y: 0.33, grow: 4 },
   { t: 4.60, x: 0.79, y: -0.04, enter: 0.0155 },
   { t: 6.00, x: 0.26, y: 0.17, grow: 3 },
   { t: 7.90, x: 0.71, y: 0.42, grow: 3 },
   { t: 9.40, x: 0.47, y: -0.04, enter: 0.0170 },
-  { t: 10.70, x: 0.19, y: 0.52, grow: 3 },
+  { t: 10.70, x: 0.13, y: 0.40, grow: 3, r0: 0.0105 },
 ];
 function simulate() {
   const rng = mulberry32(1234567);
@@ -150,7 +165,7 @@ function simulate() {
   const dt = 1 / HZ;
   function runOne(s) {
     const taken = new Set();
-    const ru = { x: s.x, y: s.y, V: s.enter ? s.enter ** 3 : 0.0088 ** 3, v: s.enter ? 0.12 : 0, moving: !!s.enter, tStop: 0, nPause: 0, nDep: 0, sAcc: 0, nextDep: 0.008,
+    const ru = { x: s.x, y: s.y, V: s.enter ? s.enter ** 3 : (s.r0 || 0.0088) ** 3, v: s.enter ? 0.12 : 0, moving: !!s.enter, tStop: 0, nPause: 0, nDep: 0, sAcc: 0, nextDep: 0.008,
       dirx: 0, diry: -1, tail: s.enter ? s.enter * 1.5 : 0 };
     const SC = R_CRIT / 0.0086;
     const track = [], absorbs = [], deps = [], imps = [];
@@ -260,16 +275,16 @@ function simulate() {
     resid.push({ x: d.x, y: d.y, r: d.r, a: td, b: td + best, by, h: hash2(Math.round(d.x * 1e5), Math.round(d.y * 1e5)) });
   }
   // runner-runner contacts (should be none: the seeds are chosen so the paths never meet in time)
-  let contacts = 0;
+  let contacts = 0; const contactList = [];
   for (let i = 0; i < runs.length; i++) for (let j = i + 1; j < runs.length; j++) {
     const A = runs[i], B = runs[j];
     for (let k = 0; k < A.n; k++) {
       const t = wrap(A.ts + k / HZ); const kb = Math.round(wrap(t - B.ts) * HZ);
       if (kb >= B.n) continue;
-      if (Math.hypot(A.track[k * 6] - B.track[kb * 6], A.track[k * 6 + 1] - B.track[kb * 6 + 1]) < A.track[k * 6 + 2] + B.track[kb * 6 + 2]) { contacts++; break; }
+      if (Math.hypot(A.track[k * 6] - B.track[kb * 6], A.track[k * 6 + 1] - B.track[kb * 6 + 1]) < A.track[k * 6 + 2] + B.track[kb * 6 + 2] + 0.004) { contacts++; contactList.push([i, j, t.toFixed(2)]); break; }
     }
   }
-  return { stat, resid, runs, contacts, durations: runs.map(r => (r.n / HZ).toFixed(2) + (r.exited ? '' : '!')), nSlots: slots.length, nDeps: resid.length };
+  return { stat, resid, runs, contacts, contactList, durations: runs.map(r => (r.n / HZ).toFixed(2) + (r.exited ? '' : '!')), nSlots: slots.length, nDeps: resid.length };
 }
 function runPos(ru, t) { const k = Math.round(((((t - ru.ts) % L) + L) % L) * HZ); if (k >= ru.n) return null; return k; }
 
@@ -365,7 +380,7 @@ uniform float uPx, uCat, uCA, uRing, uLensAmt; uniform vec2 uFC; uniform float u
 float cov(float d, float R, float e){ return smoothstep(R+e, R-e, d); }
 void main(){
   vec2 c = vI0.xy; float R = vI0.z, len = vI0.w; vec3 col = vI1.rgb;
-  float e = uPx*0.8 + R*uRing*0.035;
+  float e = uPx*0.8 + R*uRing*(0.035 + (len > 0.0 ? 0.0 : 0.16*(1.0 - vI1.w)));
   vec3 val;
   if(len > 0.0){
     float dx = abs(vP.x - c.x);
@@ -385,7 +400,8 @@ void main(){
     vec3 sc = vec3(1.0 + uCA, 1.0, 1.0 - uCA);
     vec3 m = vec3(cov(r,R*sc.r,e)*cov(r2,R*1.04*sc.r,e), cov(r,R*sc.g,e)*cov(r2,R*1.04*sc.g,e), cov(r,R*sc.b,e)*cov(r2,R*1.04*sc.b,e));
     float rn = r/R;
-    float ring = 1.0 + uRing*(0.045*sin(rn*36.0+1.0)*smoothstep(0.15,0.5,rn) + 0.17*smoothstep(0.6,0.985,rn) - 0.05);
+    float rs = uRing*vI1.w;
+    float ring = 1.0 + rs*(0.045*sin(rn*36.0+1.0)*smoothstep(0.15,0.5,rn) + 0.17*smoothstep(0.6,0.985,rn) - 0.05);
     float tx = 1.0 + uLensAmt*(texture(uLens, d/R*0.5+0.5).r - 0.5);
     val = col * m * ring * tx;
   }
@@ -430,6 +446,9 @@ const FS_DOWN = `#version 300 es
 precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uT; uniform vec2 uTexel;
 uniform float uK;
 void main(){ vec4 s = vec4(0.0); for(int j=0;j<2;j++) for(int i=0;i<2;i++) s += texture(uT, vUV + (vec2(i,j)*2.0-1.0)*uTexel*uK); o = s*0.25; }`;
+const FS_MIPDOWN = `#version 300 es
+precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uT; uniform vec2 uTexel; uniform float uLod;
+void main(){ vec4 s = vec4(0.0); for(int j=0;j<2;j++) for(int i=0;i<2;i++) s += textureLod(uT, vUV + (vec2(i,j)*2.0-1.0)*0.75*uTexel, uLod); o = s*0.25; }`;
 const FS_BLUR = `#version 300 es
 precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uT; uniform vec2 uDir; uniform float uSig;
 void main(){ int n = int(ceil(uSig*3.0)); vec4 s = vec4(0.0); float ws = 0.0;
@@ -444,7 +463,7 @@ const FS_TRAIL = HDR + `
 in vec2 vP; in vec2 vV; out vec4 o; uniform float uT, uL; uniform sampler2D uMist;
 void main(){
   float age = mod(uT - vV.y + 1e-4, uL); float a = age/uL;
-  float g = 1.0 - smoothstep(0.02, 0.96, a);
+  float g = 1.0 - pow(smoothstep(0.0, 0.62, a), 0.75);
   vec4 m = texture(uMist, vec2(vP.x/0.8, 1.0-vP.y));
   float n = m.a;
   float clr = smoothstep(n - 0.10, n + 0.10, g*1.18 - 0.09);
@@ -477,7 +496,7 @@ void main(){
 const FS_DROP = `#version 300 es
 precision highp float;
 in vec2 vP; flat in vec4 vA; flat in vec4 vB; flat in vec4 vC; flat in vec4 vD;
-uniform float uPx;
+uniform float uPx, uSDen;
 layout(location=0) out vec4 o0; layout(location=1) out vec4 o1;
 float sdUC(vec2 p, float r1, float r2, float h){
   p.x = abs(p.x); float b = (r1-r2)/h; float a = sqrt(max(1.0-b*b, 0.0)); float k = dot(p, vec2(-b,a));
@@ -505,15 +524,17 @@ void main(){
   vec2 samp = A - e*(vD.x*0.5)*f;
   vec2 D = samp - vP;
   float rim = smoothstep(0.76, 1.0, ur); rim *= rim*(3.0-2.0*rim);
-  vec2 hc = head + vec2(-0.30, -0.42)*r1;
-  float sig = 0.095*r1; float se = max(sig, 0.55*uPx);
-  vec2 dh = vP - hc;
-  float hl = vD.y * exp(-dot(dh,dh)/(2.0*se*se)) * (sig*sig)/(se*se);
-  // a faint second glint low on the far side (light that went through and bounced off the back)
-  vec2 hc2 = head + vec2(0.22, 0.55)*r1; vec2 dh2 = vP - hc2; float se2 = max(0.22*r1, 0.6*uPx);
-  hl += vD.y*0.10*exp(-dot(dh2,dh2)/(2.0*se2*se2)) * min(1.0, (0.22*r1*0.22*r1)/(se2*se2));
+  // reflection of the carriage's ceiling light tube: a small, crisp, slightly elongated glint
+  vec2 hc = head + vec2(-0.28, -0.44)*r1;
+  vec2 sg = vec2(0.105, 0.042)*r1; vec2 se = max(sg, vec2(0.55*uPx));
+  vec2 dh = (vP - hc)/se;
+  float hl = vD.y * 1.6 * exp(-0.5*dot(dh,dh)) * (sg.x*sg.y)/(se.x*se.y);
+  vec2 dh3 = (vP - hc)/max(sg*2.6, vec2(0.8*uPx));
+  hl += vD.y * 0.06 * exp(-0.5*dot(dh3,dh3));
   o0 = vec4(D, rim, 1.0)*a;
-  o1 = vec4(hl, ur, 0.0, 1.0)*a;
+  float mag = (vD.x*0.5/rho) * sqrt((0.78 + 0.88*ur*ur*ur)*(0.78 + 0.22*ur*ur*ur)) * uPx * uSDen;
+  float lod = log2(max(mag, 1.0));
+  o1 = vec4(hl, ur, lod, 1.0)*a;
 }`;
 
 // static mist base: R density, G micro-droplet coverage, B micro glint, A refog threshold noise
@@ -554,7 +575,7 @@ in vec2 vP; in vec2 vUV; out vec4 o;
 uniform sampler2D uC, uFs, uFl, uS, uFog, uMist, uW0, uW1;
 uniform vec4 uSReg; uniform float uPx, uT, uExp, uFrame, uDbg;
 uniform vec4 uWin; // frame opening: XL, YB, RC, GW
-vec3 sampS(vec2 p){ vec2 uv = vec2((p.x - uSReg.x)/uSReg.z, 1.0 - (p.y - uSReg.y)/uSReg.w); return texture(uS, uv).rgb; }
+vec3 sampS(vec2 p, float lod){ vec2 uv = vec2((p.x - uSReg.x)/uSReg.z, 1.0 - (p.y - uSReg.y)/uSReg.w); return textureLod(uS, uv, lod).rgb; }
 float frameSD(vec2 p){
   vec2 q = vec2(uWin.x + uWin.z - p.x, p.y - (uWin.y - uWin.z));
   if(q.x > 0.0 && q.y > 0.0) return length(q) - uWin.z;
@@ -568,7 +589,7 @@ void main(){
   float k = texture(uFog, vUV).r;
   float m = mb.r * k;
   vec3 scat = Fs*0.55 + Fl*0.45;
-  float T = mix(1.0, 0.20, m);
+  float T = mix(1.0, 0.26, m);
   vec3 veil = vec3(0.00045, 0.00060, 0.0011);
   vec3 bg = C*T + scat*(1.0 - T)*1.05 + veil*m;
   // micro droplets in the mist: darker lens bodies with tiny back-lit glints
@@ -578,7 +599,7 @@ void main(){
   vec4 w0 = texture(uW0, vUV); vec4 w1 = texture(uW1, vUV);
   float a = w0.a;
   vec2 D = a > 1e-4 ? w0.xy/a : vec2(0.0);
-  vec3 refr = sampS(p + D);
+  vec3 refr = sampS(p + D, a > 1e-4 ? w1.z/a : 0.0);
   if(a > 1e-4){
     float rim = w0.z/a, hl = w1.x/a, ur = w1.y/a;
     vec3 wc = refr*0.96*(1.0 - 0.88*rim) + vec3(0.0016,0.0021,0.0036)*rim*(1.0+2.0*rim) + hl*vec3(0.86,0.92,1.0);
@@ -612,7 +633,10 @@ void main(){
     }
     bg = mix(bg, fc, fa);
   }
-  if(uDbg > 0.5) bg = sampS(p);
+  if(uDbg > 0.5 && uDbg < 1.5) bg = sampS(p, 0.0);
+  if(uDbg > 1.5 && uDbg < 2.5) bg = vec3(length(D)*2.0, a, w1.x/max(a,1e-4)*0.1)*0.2;
+  if(uDbg > 2.5 && uDbg < 3.5) bg = refr*a;
+  if(uDbg > 3.5) bg = textureLod(uS, vUV, uDbg - 4.0).rgb;
   // gentle lens vignette
   vec2 vq = (p - vec2(0.4, 0.5))/vec2(0.4, 0.5);
   bg *= 1.0 - 0.18*dot(vq, vq)*0.5;
@@ -629,7 +653,7 @@ void main(){
   float lt2 = dot(tm, vec3(0.2126, 0.7152, 0.0722));
   tm = clamp(mix(vec3(lt2), tm, 1.12), 0.0, 1.0);
   vec3 srgb = mix(tm*12.92, 1.055*pow(tm, vec3(1.0/2.4)) - 0.055, step(0.0031308, tm));
-  vec3 dz = h3(ivec2(gl_FragCoord.xy), int(uFrame)) + h3(ivec2(gl_FragCoord.xy), int(uFrame)+7) - 1.0;
+  vec3 dz = h3(ivec2(gl_FragCoord.xy), 11) + h3(ivec2(gl_FragCoord.xy), 18) - 1.0;
   o = vec4(srgb + dz/255.0, 1.0);
 }`;
 
@@ -732,30 +756,24 @@ function makePatchTex() {
   c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
   const U = h; // px per unit
   c.lineCap = 'round'; c.lineJoin = 'round';
-  const strokes = [
-    { x: 0.66, y: 0.36, len: 0.42, wd: 0.075, a: 0.95 },
-    { x: 0.57, y: 0.40, len: 0.34, wd: 0.065, a: 0.95 },
-    { x: 0.50, y: 0.42, len: 0.28, wd: 0.05, a: 0.9 },
-    { x: 0.73, y: 0.44, len: 0.24, wd: 0.04, a: 0.85 },
-    { x: 0.44, y: 0.47, len: 0.20, wd: 0.03, a: 0.8 },
-  ];
-  c.filter = 'blur(2px)';
-  for (const s of strokes) {
-    c.strokeStyle = `rgba(0,0,0,${s.a})`;
-    c.beginPath();
-    let x = s.x, y = s.y; c.moveTo(x * U, y * U);
-    const n = 40;
-    for (let i = 0; i < n; i++) {
-      const th = WIND + 0.35 * vnoise1(y * 6.5 + s.x * 30, 15) + 0.1 * vnoise1(y * 20, 16);
-      x -= Math.sin(th) * s.len / n; y += Math.cos(th) * s.len / n;
-      c.lineWidth = s.wd * U * (0.75 + 0.5 * vnoise1(i * 0.3 + s.x * 9, 17));
+  // one irregular cleared area where the drops have merged and run off, at the height of the passing window,
+  // with an old wide track leaving it downwards
+  c.filter = 'blur(10px)';
+  c.fillStyle = 'rgba(0,0,0,0.88)';
+  for (const e of [[0.575, 0.528, 0.125, 0.062, -0.12], [0.505, 0.548, 0.07, 0.045, 0.3], [0.645, 0.512, 0.07, 0.05, -0.4], [0.60, 0.575, 0.06, 0.035, 0.2]]) {
+    c.beginPath(); c.ellipse(e[0] * U, e[1] * U, e[2] * U, e[3] * U, e[4], 0, 7); c.fill();
+  }
+  c.filter = 'blur(3px)';
+  c.strokeStyle = 'rgba(0,0,0,0.75)';
+  {
+    let x = 0.585, y = 0.58; c.beginPath(); c.moveTo(x * U, y * U);
+    for (let i = 0; i < 30; i++) {
+      const th = WIND + 0.16 * vnoise1(y * 7 + 3.3, 15) + 0.07 * vnoise1(y * 26, 16);
+      x -= Math.sin(th) * 0.32 / 30; y += Math.cos(th) * 0.32 / 30;
+      c.lineWidth = 0.026 * U * (1 - i / 40) * (0.85 + 0.3 * vnoise1(i * 0.4, 17));
       c.lineTo(x * U, y * U); c.stroke(); c.beginPath(); c.moveTo(x * U, y * U);
     }
   }
-  // a soft heart to the patch so it reads as one clear area, not stripes
-  c.filter = 'blur(18px)';
-  c.fillStyle = 'rgba(0,0,0,0.85)';
-  c.beginPath(); c.ellipse(0.585 * U, 0.53 * U, 0.10 * U, 0.075 * U, -0.2, 0, 7); c.fill();
   c.filter = 'none';
   // speckled re-misting near the edges
   const id = c.getImageData(0, 0, w, h), d = id.data;
@@ -776,7 +794,7 @@ function makePatchTex() {
 // ------------------------------------------------------------------ setup
 const P = {
   sky: prog(VS_FS, FS_SKY), bokeh: prog(VS_BOKEH, FS_BOKEH), box: prog(VS_FS, FS_BOX), copy: prog(VS_FS, FS_COPY),
-  down: prog(VS_FS, FS_DOWN), blur: prog(VS_FS, FS_BLUR), trail: prog(VS_TRAIL, FS_TRAIL), halo: prog(VS_HALO, FS_HALO),
+  down: prog(VS_FS, FS_DOWN), mipdown: prog(VS_FS, FS_MIPDOWN), blur: prog(VS_FS, FS_BLUR), trail: prog(VS_TRAIL, FS_TRAIL), halo: prog(VS_HALO, FS_HALO),
   drop: prog(VS_DROP, FS_DROP), mist: prog(VS_FS, FS_MIST), comp: prog(VS_FS, FS_COMP),
 };
 const REG_F = [0, 0, FW, 1];
@@ -823,14 +841,14 @@ const trailVAO = gl.createVertexArray(); let trailCount = 0;
       const a = pts[i], b = pts[i + 1];
       const tx = b[0] - a[0], ty = b[1] - a[1], tl = Math.hypot(tx, ty) || 1;
       const nx = -ty / tl, ny = tx / tl;
-      const wa = a[3] * 0.86 + mrg, wb = b[3] * 0.86 + mrg;
-      const sa = wa / (a[3] * 0.86), sb = wb / (b[3] * 0.86);
+      const wa = a[3] * 0.74 + mrg, wb = b[3] * 0.74 + mrg;
+      const sa = wa / (a[3] * 0.74), sb = wb / (b[3] * 0.74);
       const ex = 0.0006 * tx / tl, ey = 0.0006 * ty / tl;
       const A1 = [a[0] - ex + nx * wa, a[1] - ey + ny * wa, sa, a[2]], A2 = [a[0] - ex - nx * wa, a[1] - ey - ny * wa, -sa, a[2]];
       const B1 = [b[0] + ex + nx * wb, b[1] + ey + ny * wb, sb, b[2]], B2 = [b[0] + ex - nx * wb, b[1] + ey - ny * wb, -sb, b[2]];
       v.push(...A1, ...A2, ...B1, ...A2, ...B2, ...B1);
     }
-    const a = pts[0], r = a[3] * 0.86 + mrg, sc = r / (a[3] * 0.86);
+    const a = pts[0], r = a[3] * 0.74 + mrg, sc = r / (a[3] * 0.74);
     for (let k = 0; k < 16; k++) {
       const t0 = k / 16 * Math.PI * 2, t1 = (k + 1) / 16 * Math.PI * 2;
       v.push(a[0], a[1], 0, a[2], a[0] + Math.cos(t0) * r, a[1] + Math.sin(t0) * r, sc, a[2], a[0] + Math.cos(t1) * r, a[1] + Math.sin(t1) * r, sc, a[2]);
@@ -901,6 +919,24 @@ function boxPass(t, sharp, reg, pxu) {
   gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   drawFS();
   gl.disable(gl.BLEND);
+}
+
+// a tent-filtered pyramid (smoother than box mipmaps: the minified scene in the drops does not shimmer)
+const mipFB = gl.createFramebuffer();
+function buildMips(tx) {
+  const p = P.mipdown; gl.useProgram(p); setReg(p, REG_F);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tx); gl.uniform1i(p.u.uT, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, mipFB); gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+  let w = tx.w, h = tx.h, lv = 0;
+  while (w > 1 || h > 1) {
+    const sw = w, sh = h; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1); lv++;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, lv - 1); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, lv - 1);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, lv);
+    gl.viewport(0, 0, w, h);
+    gl.uniform2f(p.u.uTexel, 1 / sw, 1 / sh); gl.uniform1f(p.u.uLod, lv - 1);
+    drawFS();
+  }
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, lv);
 }
 
 function copyTo(src) { const p = P.copy; gl.useProgram(p); setReg(p, REG_F); bindT(p, 'uT', src, 0); drawFS(); }
@@ -1021,12 +1057,12 @@ function renderAt(t, opts) {
   target(FB.S); copyTo(T.Sst);
   bokehPass(moving, t, true, SREG, SREG[3] / SH);
   boxPass(t, true, SREG, SREG[3] / SH);
-  gl.bindTexture(gl.TEXTURE_2D, T.S); gl.generateMipmap(gl.TEXTURE_2D);
+  buildMips(T.S);
   if (PROF) { gl.finish(); PROF.push(performance.now()); }
   // 5. water
   target(FB.water); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  gl.useProgram(P.drop); setReg(P.drop, REG_F); gl.uniform1f(P.drop.u.uPx, PX);
+  gl.useProgram(P.drop); setReg(P.drop, REG_F); gl.uniform1f(P.drop.u.uPx, PX); gl.uniform1f(P.drop.u.uSDen, SH / SREG[3]);
   drawInst(dropVAO, dropData, nd);
   gl.disable(gl.BLEND);
   if (PROF) { gl.finish(); PROF.push(performance.now()); }
@@ -1055,6 +1091,7 @@ function grab() {
 window.__piece = {
   L, renderAt, ready: true, info: { contacts: sim.contacts, durations: sim.durations },
   frame(t, opts) { renderAt(t, opts); gl.finish(); return grab(); },
+  drops(t) { const r = fillDrops(t); return Array.from(dropData.subarray(0, r[0] * 16)); },
 };
 
 if (!EXPORT) {

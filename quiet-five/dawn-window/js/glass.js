@@ -165,11 +165,18 @@
           }
           // ---- one painted highlight down the left of the glass (window light caught in the wall) ----
           {
-            const hx = xi + 0.70;
+            // laid in like a single loaded stroke: slightly wavering, broken where it crosses the water line
             const v = clamp((y - yRimFront) / (yBotFront - yRimFront), 0, 1);
-            const a = Math.exp(-hx * hx / 0.0016) * smooth(0.0, 0.08, v) * (1 - smooth(0.62, 0.9, v)) * 0.55;
-            col[0] += a * 0.10; col[1] += a * 0.095; col[2] += a * 0.10;
-            h = Math.max(h, a * 0.6);
+            const hx = xi + 0.74 + 0.025 * Math.sin(v * 9 + 1) + (y > yWFront ? 0.05 : 0);
+            const wl = Math.abs(y - G.yw) / px;
+            const gap = 1 - Math.exp(-wl * wl / 30);
+            const a = Math.exp(-hx * hx / 0.0011) * smooth(0.02, 0.1, v) * (1 - smooth(0.55, 0.85, v)) * gap * 0.9;
+            col[0] += a * 0.16; col[1] += a * 0.15; col[2] += a * 0.155;
+            h = Math.max(h, a * 0.9);
+            // a fainter echo on the right wall
+            const hx2 = xi - 0.83;
+            const a2 = Math.exp(-hx2 * hx2 / 0.0007) * smooth(0.05, 0.2, v) * (1 - smooth(0.4, 0.75, v)) * gap * 0.5;
+            col[0] += a2 * 0.07; col[1] += a2 * 0.066; col[2] += a2 * 0.07;
           }
           ar += col[0]; ag += col[1]; ab += col[2]; acov += 1; aH += h;
         }
@@ -325,7 +332,7 @@
       const s = slopeAt(R.mx, R.mz);
       for (let hi = 0; hi < NH; hi++) {
         const h = ((hi + DW.hash2(r, hi, 5)) / NH) * hw;
-        const l = 0.6 + h * cotE * 1.35;
+        const l = 1.15 + h * cotE * 1.5;
         if (l <= R.c) continue;
         const go = l - R.c;
         // rays nearer the surface feel its tilt more
@@ -345,14 +352,14 @@
     // soften (the sky is a broad source): two box passes
     const blurred = DW.boxBlur(grid, CW, CH, 1, 2, 2);
     // normalise to "times the unobstructed light"
-    const norm = 1 / ((W.rays.length / 2) * (NH / hw) / (cotE * 1.35) / (sc * sc));
+    const norm = 1 / ((W.rays.length / 2) * (NH / hw) / (cotE * 1.5) / (sc * sc));
     // ---- composite onto the sill ----
     const gl = st.glass;
     const reg = st.S.region;
     const yb = G.yb, eb = ell(G.yb);
     const X0px = Math.floor((G.x + W.X0 * G.rb) * Wpx), X1px = Math.ceil((G.x + (W.X0 + W.SPAN) * G.rb) * Wpx);
     const Y0px = Math.floor((yb + W.Z0 * G.rb * eb) * Wpx), Y1px = Math.min(Hpx - 1, Math.ceil((yb + (W.Z0 + W.SPAN) * G.rb * eb) * Wpx));
-    const tint = [1.0, 0.80, 0.66];
+    const tint = [1.0, 0.78, 0.60];
     const cs = [0];
     for (let j = Y0px; j <= Y1px; j++) {
       const y = (j + 0.5) * px;
@@ -370,7 +377,7 @@
         const vis = 1 - gl.mask[p];
         // light on the painted board: modulate by the paint itself so the strokes show through
         const base = 0.3 * st.P[p * 3] + 0.6 * st.P[p * 3 + 1] + 0.1 * st.P[p * 3 + 2];
-        const k = I * vis * (0.055 + 0.35 * base);
+        const k = I * vis * (0.11 + 0.65 * base);
         F[p * 3] += k * tint[0]; F[p * 3 + 1] += k * tint[1]; F[p * 3 + 2] += k * tint[2];
         st.shade[p] = st.shade[p] * (1 - 0.5 * Math.min(1, I * 0.3)) + 0.0;
       }
@@ -391,7 +398,7 @@
         if (zz < -sq - 0.15 || zz > sq + 0.15) continue;
         const s = slopeAt(xi, clamp(zz, -0.99, 0.99));
         // brightness of the reflected window changes as the facets tilt
-        const g = 1 + 1.6 * (s[1] * 0.8 + s[0] * 0.3);
+        const g = 1 + 0.9 * (s[1] * 0.8 + s[0] * 0.3);
         const p = j * Wpx + i;
         const inBand = smooth(-sq - 0.12, -sq + 0.05, zz) * (1 - smooth(sq - 0.05, sq + 0.12, zz));
         const k = mix(1, Math.max(0.35, g), inBand * 0.85);

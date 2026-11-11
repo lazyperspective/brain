@@ -149,11 +149,12 @@
   if (EXPORT) {
     const res = parseInt(qs.get('res') || '2160', 10);
     let st = null, last = null;
+    const DETAIL = qs.has('detail');
     window.__piece = {
       duration: L,
       ready: false,
       lastMs: 0,
-      build() { if (!st) st = DW.build(res); this.ready = true; return st.buildMs; },
+      build() { if (!st) { st = DW.build(res); st.detail = DETAIL; } this.ready = true; return st.buildMs; },
       // opts.size: output width (1080 or 2160). Same t -> same pixels.
       renderAt(t, opts) {
         if (!st) this.build();
@@ -169,7 +170,9 @@
     };
     if (wait) wait.remove();
   } else {
-    // live: build at a resolution that suits the screen, then play in real time
+    // live: build at a resolution that suits the screen, then play in real time. Frames are cached as compressed
+    // images as they are painted (the first pass plays as fast as they can be made); once all 300 exist the loop
+    // plays smoothly at 30 fps from the cache.
     const want = Math.min(1080, Math.max(540, Math.round(Math.min(innerWidth, innerHeight * 0.8) * (devicePixelRatio || 1) / 2) * 2));
     setTimeout(() => {
       const st = DW.build(want);
@@ -178,10 +181,31 @@
         blit(canvas, DW.encode(DW.renderFrame(st, TFREEZE), st.Wpx, st.Hpx, false));
         return;
       }
+      const NF = Math.round(L * 30);
+      const cache = new Array(NF).fill(null);
+      let made = 0, next = 0;
+      const ctx = canvas.getContext('2d');
       const start = performance.now();
+      const work = () => {
+        if (made >= NF) return;
+        // paint the frame that is due soonest and not yet cached
+        const now = Math.floor((((performance.now() - start) / 1000) % L) * 30);
+        let f = now;
+        for (let k = 0; k < NF && cache[f]; k++) f = (f + 1) % NF;
+        if (cache[f]) return;
+        blit(canvas, DW.encode(DW.renderFrame(st, f / 30), st.Wpx, st.Hpx, false));
+        cache[f] = 'pending';
+        canvas.toBlob((b) => {
+          createImageBitmap(b).then((bm) => { cache[f] = bm; made++; });
+        }, 'image/webp', 0.94);
+        setTimeout(work, 0);
+      };
+      setTimeout(work, 0);
       const tick = () => {
-        const t = ((performance.now() - start) / 1000) % L;
-        blit(canvas, DW.encode(DW.renderFrame(st, t), st.Wpx, st.Hpx, false));
+        if (made >= NF) {
+          const f = Math.floor((((performance.now() - start) / 1000) % L) * 30) % NF;
+          if (cache[f] && cache[f] !== 'pending' && f !== next) { ctx.drawImage(cache[f], 0, 0); next = f; }
+        }
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
