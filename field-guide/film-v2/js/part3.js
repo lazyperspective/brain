@@ -5,7 +5,7 @@
 // Tip: every few steps, give a one-line update. Its head starts popping out with updates
 // while glowing moonstone slabs fly out and extend the bridge towards the moon.
 // ------------------------------------------------------------------
-const CAMKEYS3 = [[20, 182, 198, 1.5], [21.2, 174, 226, 1.7], [23.0, 174, 230, 1.72], [24.0, 198, 188, 1.0], [29.0, 198, 188, 1.0], [29.6, 206, 190, 1.12], [33.8, 206, 188, 1.08], [34.6, 206, 184, 1.05]];
+const CAMKEYS3 = [[20, 182, 198, 1.5], [21.2, 174, 226, 1.7], [23.0, 174, 230, 1.72], [24.0, 198, 188, 1.0], [29.0, 198, 188, 1.0], [29.6, 228, 176, 1.35], [33.8, 226, 178, 1.32], [34.6, 214, 182, 1.15]];
 const HOLE = { x: 30, y: 40, r: 12 };
 const PEEKS = [[29.2, 30.6, 'FOUND MOONSTONE.'], [30.8, 32.1, 'CUTTING SLABS.'], [32.3, 33.6, '4 SLABS DONE.']];
 const SLABS = [[2, 29.55, 30.05], [3, 31.0, 31.5], [4, 31.4, 31.9], [5, 32.5, 33.0]];     // [index, thrown, lands]
@@ -84,10 +84,10 @@ function slabsFlying(B, t) {
 // ---------------- hi-res: drumming fingers, update bubbles ----------------
 function drummingFingers(F, T) {
   if (T < 28.5 || T > 31.8) return; const inn = sm(28.5, 29.0, T) * (1 - sm(31.3, 31.8, T)), x0 = -460 + inn * 420, y0 = 560;
-  F.save(); F.translate(x0, y0); F.scale(1.8, 1.8); F.filter = 'blur(1.4px)'; F.fillStyle = '#07050d';
+  F.save(); F.translate(x0, y0); F.scale(1.8, 1.8); F.filter = 'blur(0.7px)'; { const g = F.createLinearGradient(160, 120, -200, -60); g.addColorStop(0, '#6a5578'); g.addColorStop(0.5, '#3a2c48'); g.addColorStop(1, '#120c1a'); F.fillStyle = g; }
   F.beginPath(); F.roundRect(-200, -60, 260, 130, 50); F.fill();
   for (let k = 0; k < 4; k++) { const ph = T * 16 - k * 1.1, lift = Math.max(0, Math.sin(ph)) * 22; F.beginPath(); F.roundRect(40 + k * 4, -40 + k * 34 - lift * 0.2, 120 - k * 10, 28, 14); F.fill();
-    F.strokeStyle = 'rgba(255,214,160,0.35)'; F.lineWidth = 2.5; F.beginPath(); F.arc(40 + k * 4 + 120 - k * 10 - 14, -40 + k * 34 + 14 - lift * 0.2, 13, -1.2, 1.2); F.stroke(); }
+    F.strokeStyle = 'rgba(255,214,160,0.75)'; F.lineWidth = 3; F.beginPath(); F.arc(40 + k * 4 + 120 - k * 10 - 14, -40 + k * 34 + 14 - lift * 0.2, 13, -1.4, 1.4); F.stroke(); F.fillStyle = 'rgba(255,230,205,0.25)'; F.beginPath(); F.roundRect(40 + k * 4 + 120 - k * 10 - 20, -40 + k * 34 + 6 - lift * 0.2, 12, 14, 4); F.fill(); { const g = F.createLinearGradient(160, 120, -200, -60); g.addColorStop(0, '#6a5578'); g.addColorStop(0.5, '#3a2c48'); g.addColorStop(1, '#120c1a'); F.fillStyle = g; } }
   F.restore();
 }
 function updateBubbles(F, t) {

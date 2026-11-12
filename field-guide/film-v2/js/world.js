@@ -29,19 +29,30 @@ function drawIslandW(B, cfg) {
   const leftW = (sx, sy, y1) => { const x = (sx + 0.5 - ISO.ox) / k + y1; return [x, (x + y1) / 2 - (sy + 0.5 - ISO.oy) / k]; };
   const rightW = (sx, sy, x1) => { const y = x1 - (sx + 0.5 - ISO.ox) / k; return [y, (x1 + y) / 2 - (sy + 0.5 - ISO.oy) / k]; };
   const DEEP = hex('24152e'), MOONG = hex('b8e3a4'), SHADEG = hex('1f4a48');
+  // side faces: stacked stone courses — each stone tinted, lit on its top edge, shadowed at its base, dark joints
   const side = (a, z, base, seed) => {
-    const zb = Math.floor((z + 400) / 5.5), off = (z + 400) % 5.5;
-    let c = base;
-    if (off < 0.9 && hash(zb, Math.floor(a / 6), seed) < 0.75) c = cols.strata;
-    else { const st = hash(Math.floor(a / 2.2), Math.floor((z + 400) / 1.6), seed + 3); if (st > 0.94) c = cols.stone; else if (st < 0.04) c = cols.strata; }
-    const depthK = clamp(-z / 58, 0, 1), ao = z > -3.5 ? 0.38 : 0, col = (hash(Math.floor(a / 16), 7, seed) - 0.5) * 0.12;
-    return [...mix(mix(c, DEEP, depthK * 0.55 + ao), hex('8f6f8c'), Math.max(0, col)), 10];
+    // irregular earth and rock: wavy strata, rounded embedded stones of varied size, few hard joints
+    const zz = z + 400 + Math.sin(a * 0.35 + seed) * 1.2 + Math.sin(a * 0.11 + seed * 2) * 2.2, rowH = 6.5, row = Math.floor(zz / rowH), fz = (zz % rowH) / rowH;
+    let c = mix(base, hash(row, 1, seed) > 0.5 ? cols.stone : cols.strata, 0.12 + hash(row, 2, seed) * 0.12);
+    if (fz < 0.14 && hash(Math.floor(a / 7), row, seed + 1) < 0.8) c = mix(c, cols.strata, 0.7);                  // wavy strata line
+    const cs = 4.2, ci = Math.floor(a / cs), cz = Math.floor(zz / cs);
+    for (let di = -1; di <= 1; di++) for (let dz = -1; dz <= 1; dz++) {                                          // rounded stones
+      const ii = ci + di, jj = cz + dz, hh = hash(ii, jj, seed + 5); if (hh < 0.72) continue;
+      const sx = (ii + 0.2 + hash(ii, jj, seed + 6) * 0.6) * cs, sz = (jj + 0.2 + hash(ii, jj, seed + 7) * 0.6) * cs, rr = 1.1 + hash(ii, jj, seed + 8) * 1.6;
+      const d = Math.hypot((a - sx) / 1.25, zz - sz); if (d < rr) { c = (zz - sz) > rr * 0.35 ? mix(cols.stone, hex('b9b2c4'), 0.25) : (zz - sz) < -rr * 0.4 ? mix(cols.strata, DEEP, 0.3) : cols.stone; if (hh > 0.995) c = hex('9b8fd6'); }
+      else if (d < rr + 0.5 && (zz - sz) < 0) c = mix(c, DEEP, 0.3);
+    }
+    const depthK = clamp(-z / 58, 0, 1), ao = z > -3.5 ? 0.38 : 0;
+    return [...mix(c, DEEP, depthK * 0.55 + ao), 8];
   };
+  // top: soft colour patches + blade-tuft marks on a jittered grid, lit by the moon from the back-right
   const top = (x, y) => {
-    const h = hash(Math.floor(x * 1.1), Math.floor(y * 1.1), 1), h2 = hash(Math.floor(x * 0.6), Math.floor(y * 1.3), 2);
-    if (cols.flower && h > 0.994) return cols.flower;
-    let c = h2 > 0.88 ? cols.topL : h2 < 0.08 ? cols.topD : cols.top;
-    const l = clamp(0.55 + (x - y) / 170 - (x + y) / 260, 0, 1);         // moonlight falls from the back-right
+    if (cols.flower && hash(Math.floor(x * 1.1), Math.floor(y * 1.1), 1) > 0.995) return cols.flower;
+    const patch = fbm(x * 0.07, y * 0.07, 9, 3);
+    let c = patch > 0.6 ? mix(cols.top, cols.topL, (patch - 0.6) * 2.2) : patch < 0.4 ? mix(cols.top, cols.topD, (0.4 - patch) * 2.4) : cols.top;
+    const gx = Math.floor(x / 2.6), gy = Math.floor(y / 2.6), jx = hash(gx, gy, 4) * 2.6, jy = hash(gx, gy, 5) * 2.6, dx = x - (gx * 2.6 + jx), dy = y - (gy * 2.6 + jy);
+    if (hash(gx, gy, 6) > 0.45 && Math.abs(dx + dy) < 0.55 && Math.abs(dx - dy) < 1.4) c = hash(gx, gy, 7) > 0.5 ? mix(c, cols.topL, 0.6) : mix(c, cols.topD, 0.7);
+    const l = clamp(0.55 + (x - y) / 170 - (x + y) / 260, 0, 1);
     c = mix(c, SHADEG, (1 - l) * 0.32); if (l > 0.62) c = mix(c, MOONG, (l - 0.62) * 0.7);
     return [...c, 9];
   };

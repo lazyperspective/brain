@@ -114,13 +114,14 @@ function handTurn(F, t) {
   const inn = ease(clamp((t - 14.3) / 0.75, 0, 1)), out = ease(clamp((t - 16.35) / 0.8, 0, 1)), c = S(DIAL.q, 0.9);
   const tx = c[0] * SC, ty = c[1] * SC, x = lerp(tx - 520, tx, inn) - out * 520, y = lerp(ty - 760, ty, inn) - out * 760;
   const twist = (dialAngle(t) - DETENTS.HIGH) * Math.PI / 180, sc = 2.2 * (1 + (CAM.z - 1) * 0.9);
-  F.save(); F.translate(x, y); F.rotate(-0.6 + twist * 0.8); F.scale(sc, sc); F.filter = 'blur(1.2px)'; F.fillStyle = '#07050d';
+  F.save(); F.translate(x, y); F.rotate(-0.6 + twist * 0.8); F.scale(sc, sc); F.filter = 'blur(0.7px)'; { const g = F.createLinearGradient(40, 0, -40, -260); g.addColorStop(0, '#6a5578'); g.addColorStop(0.4, '#3a2c48'); g.addColorStop(1, '#120c1a'); F.fillStyle = g; }
   F.beginPath(); F.ellipse(-14, -70, 40, 50, 0.1, 0, 7); F.fill();
   F.beginPath(); F.roundRect(-30, -260, 64, 210, 26); F.fill();                                   // forearm into the dark
   for (const [fx, fy, len, a] of [[6, -30, 46, -0.2], [-10, -26, 48, 0.15], [-22, -36, 40, 0.5]]) { F.save(); F.translate(fx, fy); F.rotate(a); F.beginPath(); F.roundRect(-7, -4, 14, len, 7); F.fill(); F.restore(); }
   F.save(); F.translate(22, -50); F.rotate(-0.9); F.beginPath(); F.roundRect(-7, -4, 14, 40, 7); F.fill(); F.restore(); // thumb pinching the knob
-  F.filter = 'blur(2.5px)'; F.strokeStyle = 'rgba(255,214,160,0.42)'; F.lineWidth = 2.5;
-  F.beginPath(); F.ellipse(-14, -70, 40, 50, 0.1, -0.4, 1.0); F.stroke();
+  F.filter = 'blur(1.4px)'; F.strokeStyle = 'rgba(255,214,160,0.7)'; F.lineWidth = 3;
+  F.beginPath(); F.ellipse(-14, -70, 40, 50, 0.1, -0.5, 1.2); F.stroke();
+  for (const [fx, fy, len, a] of [[6, -30, 46, -0.2], [-10, -26, 48, 0.15], [-22, -36, 40, 0.5]]) { F.save(); F.translate(fx, fy); F.rotate(a); F.beginPath(); F.arc(0, len - 7, 6.5, -0.3, Math.PI + 0.3); F.stroke(); F.fillStyle = 'rgba(255,230,205,0.22)'; F.beginPath(); F.roundRect(-3.5, len - 11, 7, 6, 3); F.fill(); F.restore(); }
   F.restore();
 }
 function tipCard(F, t, a, b, lines) {

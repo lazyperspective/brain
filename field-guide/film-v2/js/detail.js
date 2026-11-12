@@ -38,24 +38,33 @@ function pondW(B, t) {
   // lily pad with a flower
   const lp = [c[0] - rx * 0.35, c[1] + ry * 0.15 + Math.sin(t * 1.3) * 0.4]; B.ellipse(lp[0], lp[1], 3.4 * k / 1.4, 1.7 * k / 1.4, COL.leaf); B.put(lp[0] + 1, lp[1], COL.topD); B.put(lp[0], lp[1] - 2, COL.flag); B.put(lp[0] - 1, lp[1] - 2, COL.lampL);
 }
+let WF_MIST = null;   // hi-res mist anchor (set each frame)
 function waterfallW(B, t) {
-  const k = ISO.k, x = 40, lip = P(x, 96, 0), from = P(x, POND.y + POND.r * 0.85, 0), w = Math.max(3, Math.round(2.6 * k));
-  // channel across the grass from the pond to the edge
-  for (let s = 0; s <= 1; s += 0.04) { const p = [lerp(from[0], lip[0], s), lerp(from[1], lip[1], s)]; B.rect(Math.round(p[0] - w / 2), Math.round(p[1]) - 1, w, 2, (xx, yy) => ((yy * 3 + Math.floor(t * 20) + xx) % 7 < 2 ? hex('7fd7ff') : hex('4aa3d8'))); }
-  // the fall: down the island face and on into the dark
-  const top = Math.round(lip[1]), len = Math.round(118 * k / 1.4);
+  const k = ISO.k, x = 40, lip = P(x, 96, 0), from = P(x, POND.y + POND.r * 0.85, 0), W = Math.max(3, 2.8 * k);
+  const C = { deep: hex('2f6fa8'), edge: hex('4aa3d8'), core: hex('7fd7ff'), hi: hex('c9f1ff'), foam: hex('ffffff') };
+  // channel: a ribbon of flowing water with travelling glints
+  for (let s = 0; s <= 1; s += 0.025) { const p = [lerp(from[0], lip[0], s), lerp(from[1], lip[1], s)];
+    for (let q = -Math.round(W / 2); q <= Math.round(W / 2); q++) { const flow = (s * 12 - t * 3.2 + q * 0.13) % 1; B.put(p[0] + q, p[1] - 1, Math.abs(q) >= W / 2 - 0.5 ? C.edge : flow < 0.12 ? C.hi : C.core); B.put(p[0] + q, p[1], C.edge); } }
+  // the fall: bulges over the lip, accelerates, widens, breaks into droplets and spray
+  const top = Math.round(lip[1]), len = Math.round(122 * k / 1.4), g = 900;
   for (let s = 0; s < len; s++) {
-    const fade = s > len * 0.55 ? 1 - (s - len * 0.55) / (len * 0.45) : 1, spread = s * 0.03;
-    for (let q = -Math.ceil(w / 2 + spread); q <= Math.ceil(w / 2 + spread); q++) {
-      if (hash(q + 50, s, Math.floor(t * 24)) > fade * (Math.abs(q) > w / 2 ? 0.4 : 1)) continue;
-      const ph = (s - t * 70 + q * 3 + 400) % 13, c = ph < 2 ? 'c9f1ff' : Math.abs(q) >= w / 2 ? '4aa3d8' : ph < 6 ? '7fd7ff' : '4aa3d8';
-      B.put(Math.round(lip[0]) + q, top + s, hex(c));
+    const u = s / len, ox = -Math.min(s, 7 * k) * 0.28 - Math.sin(t * 2.3 + s * 0.05) * 0.6, w = W * (1 + u * 0.75), tau = Math.sqrt(2 * (s + 4) / g);
+    const brk = clamp((u - 0.5) / 0.5, 0, 1);
+    for (let q = -Math.ceil(w / 2); q <= Math.ceil(w / 2); q++) {
+      if (hash(q + 50, s, Math.floor(t * 30)) < brk * (0.55 + Math.abs(q) / w)) continue;
+      const lane = Math.floor((q + w / 2) / Math.max(1, w / 6)), streak = (tau * 40 - t * 3.0 + hash(lane, 1, 3)) % 1, edge = Math.abs(q) >= w / 2 - 0.7;
+      let c = edge ? C.edge : C.core; if (streak < 0.14) c = C.hi; else if (streak > 0.82 && !edge) c = C.edge; if (s < 3 * k) c = (hash(q, Math.floor(t * 18), s) > 0.5 ? C.foam : C.hi);
+      B.put(Math.round(lip[0] + ox) + q, top + s, c);
     }
   }
-  B.glow(lip[0] - 24, top - 10, lip[0] + 24, top + len * 0.7, hex('4aa3d8'), (px, py) => 0.22 * Math.max(0, 1 - Math.abs(px - lip[0]) / 20) * Math.max(0, 1 - (py - top) / (len * 0.7)), 14);
-  // splash at the lip and mist droplets
-  for (let q = 0; q < 10; q++) { const ph = (t * 1.4 + q / 10) % 1; B.put(lip[0] + Math.sin(q * 5.3) * (3 + ph * 6), top - ph * 4 + ph * ph * 10, hex('c9f1ff')); }
-  for (let q = 0; q < 16; q++) { const ph = (t * 0.6 + q / 16) % 1, s = len * (0.4 + ph * 0.6); if (hash(q, 3, 3) < 0.3) continue; B.put(lip[0] + Math.sin(q * 2.1 + t) * (5 + ph * 10), top + s, hex(ph > 0.6 ? '4aa3d8' : '7fd7ff')); }
+  // droplets peeling off the lower column, falling in arcs
+  for (let q = 0; q < 26; q++) { const ph = (t * 0.9 + hash(q, 2, 2)) % 1, s0 = len * (0.45 + hash(q, 3, 3) * 0.4), side = hash(q, 4, 4) < 0.5 ? -1 : 1, vx = side * (4 + hash(q, 5, 5) * 10) * k / 1.4;
+    const x0 = lip[0] - 7 * k * 0.28 + vx * ph, y0 = top + s0 + ph * 40 * k / 1.4 + ph * ph * 30; if (ph > 0.9) continue; B.put(x0, y0, ph < 0.5 ? C.hi : C.edge); if (q % 3 === 0) B.put(x0, y0 + 1, C.edge); }
+  // churning foam at the lip
+  for (let q = 0; q < 14; q++) { const ph = (t * 1.6 + q / 14) % 1; B.put(lip[0] + Math.sin(q * 5.3) * (2 + ph * 6) * k / 1.4, top - ph * 3 + ph * ph * 8, ph < 0.5 ? C.foam : C.hi); }
+  // glow on the rock face around the water
+  B.glow(lip[0] - 26, top - 10, lip[0] + 26, top + len * 0.75, hex('4aa3d8'), (px, py) => 0.24 * Math.max(0, 1 - Math.abs(px - lip[0]) / 22) * Math.max(0, 1 - (py - top) / (len * 0.75)), 14);
+  WF_MIST = [lip[0] - 7 * k * 0.28, top + len * 0.92, k];
 }
 // glowing vines with pulsing bulbs under the island
 const VINES = [[1, 4, 0.3], [2, 5, 0.6], [3, 4, 0.5], [4, 4, 0.7], [5, 3, 0.4], [4, 2, 0.2], [0, 3, 0.8]];

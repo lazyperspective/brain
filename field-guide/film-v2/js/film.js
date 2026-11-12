@@ -63,16 +63,20 @@ function planeAt(t) {
 }
 
 const st = (H, k) => H.st[k] || 0;
-// ---------------- pixel layer ----------------
-function drawWorld(B, t) {
-  wispsW(B, TA);
-  // distant islets (parallax, smaller scale), each with a tiny lantern: other islands, other jobs
-  for (const [qx, qy, par, sc, seed] of [[30, 214, 0.55, 0.55, 41], [336, 176, 0.5, 0.45, 42], [92, 128, 0.4, 0.32, 43]]) {
+// ---------------- far layer (rendered soft and hazed for depth) ----------------
+const FAR = [[30, 214, 0.55, 0.55, 41], [336, 176, 0.5, 0.45, 42], [92, 128, 0.4, 0.32, 43], [-10, 120, 0.3, 0.26, 44], [300, 268, 0.62, 0.5, 45], [196, 96, 0.22, 0.2, 46], [380, 70, 0.25, 0.22, 47], [140, 330, 0.7, 0.42, 48]];
+function drawFar(B, t) {
+  for (const [qx, qy, par, sc, seed] of FAR.slice().sort((a, b) => a[2] - b[2])) {
     const s = S([qx, qy + bob(TA, seed, 1.5)], par), sv = { ...ISO }; ISO.ox = Math.round(s[0]); ISO.oy = Math.round(s[1]); ISO.k = sc * (1 + (CAM.z - 1) * par);
     drawIslandW(B, { T: 16, N: 3, mask: (i, j) => hash(i, j, seed) > 0.15 || (i === 1 && j === 1), depth: (i, j) => Math.round(10 + hash(i, j, seed + 1) * 20), cols: COL });
+    if (seed % 2) { const tp = P(18, 14, 0); B.rect(tp[0], tp[1] - 6 * ISO.k, Math.max(1, ISO.k), 6 * ISO.k, COL.trunk); B.circle(tp[0], tp[1] - 8 * ISO.k, 3.5 * ISO.k, COL.leaf); }
     const lp = P(30, 30, 10); B.glow(lp[0] - 10, lp[1] - 10, lp[0] + 10, lp[1] + 10, COL.glow, (x, y) => 0.6 * Math.max(0, 1 - Math.hypot(x - lp[0], y - lp[1]) / 7)); B.put(lp[0], lp[1], COL.lampL);
     Object.assign(ISO, sv);
   }
+}
+// ---------------- pixel layer ----------------
+function drawWorld(B, t) {
+  wispsW(B, TA);
   applyCam();
   drawIslandW(B, { T: 16, N: 6, mask: MASK, depth: DEPTH, cols: COL });
   crystalsW(B, TA); vinesW(B, TA);
@@ -233,15 +237,16 @@ function noteCard(F, t, H) {
 function handerHand(F, t) {
   if (t > 2.2) return; const w = ease(clamp((t - 1.05) / 1.1, 0, 1)), base = S([92 - w * 110, 104 - w * 150], 0.7), sc = 3 * (1 + (CAM.z - 1) * 0.7) * 1.15;
   const x = base[0] * SC, y = base[1] * SC; if (y < -600 * sc / 3) return;
-  F.save(); F.translate(x, y); F.rotate(0.65 - w * 0.25); F.scale(sc, sc); F.filter = 'blur(1.6px)';
-  const fill = '#07050d';
+  F.save(); F.translate(x, y); F.rotate(0.65 - w * 0.25); F.scale(sc, sc); F.filter = 'blur(0.8px)';
+  const fill = F.createLinearGradient(40, 60, -60, -160); fill.addColorStop(0, '#6a5578'); fill.addColorStop(0.45, '#3a2c48'); fill.addColorStop(1, '#120c1a');
   F.fillStyle = fill; F.beginPath(); F.ellipse(-30, -40, 46, 56, 0.2, 0, 7); F.fill();                        // palm
   for (const [fx, fy, len, a] of [[-6, 4, 54, 0.05], [10, -6, 60, -0.1], [24, -20, 56, -0.25], [34, -38, 44, -0.4]]) { F.save(); F.translate(fx, fy); F.rotate(a); F.beginPath(); F.roundRect(-8, -4, 16, len, 8); F.fill(); F.restore(); }
   F.save(); F.translate(-50, 4); F.rotate(0.8); F.beginPath(); F.roundRect(-8, -4, 16, 40, 8); F.fill(); F.restore();   // thumb
   F.beginPath(); F.rect(-90, -170, 90, 120); F.fill();                                                      // wrist into the dark
   // warm rim of moonlight on the fingertips
-  F.filter = 'blur(3px)'; F.strokeStyle = 'rgba(255,214,160,0.45)'; F.lineWidth = 3;
-  for (const [fx, fy, len, a] of [[-6, 4, 54, 0.05], [10, -6, 60, -0.1], [24, -20, 56, -0.25], [34, -38, 44, -0.4]]) { F.save(); F.translate(fx, fy); F.rotate(a); F.beginPath(); F.arc(0, len - 8, 7, 0.2, Math.PI - 0.2); F.stroke(); F.restore(); }
+  F.filter = 'blur(1.6px)'; F.strokeStyle = 'rgba(255,214,160,0.75)'; F.lineWidth = 3.5;
+  for (const [fx, fy, len, a] of [[-6, 4, 54, 0.05], [10, -6, 60, -0.1], [24, -20, 56, -0.25], [34, -38, 44, -0.4]]) { F.save(); F.translate(fx, fy); F.rotate(a); F.beginPath(); F.arc(0, len - 8, 7.5, -0.2, Math.PI + 0.2); F.stroke(); F.fillStyle = 'rgba(255,230,205,0.22)'; F.beginPath(); F.roundRect(-4, len - 12, 8, 7, 3); F.fill(); F.strokeStyle = 'rgba(255,220,190,0.12)'; F.lineWidth = 1.5; F.beginPath(); F.moveTo(-6, len * 0.45); F.lineTo(6, len * 0.45); F.stroke(); F.strokeStyle = 'rgba(255,214,160,0.75)'; F.lineWidth = 3.5; F.restore(); }
+  F.strokeStyle = 'rgba(255,214,160,0.5)'; F.beginPath(); F.ellipse(-30, -40, 46, 56, 0.2, -0.3, 1.1); F.stroke();
   F.restore();
 }
 // the plane's shadow sweeps across the sleeping face (the hook)
