@@ -99,6 +99,7 @@ function heroW(B, hx, hy, hz, st, C = HERO, shadowCol) {
     if (closed) { B.rect(ex - 1, ey + 1, 4, 1, C.eye); B.put(ex - 2, ey, C.eye); B.put(ex + 3, ey, C.eye); }
     else if (st.eyes === 'wide') { B.rect(ex - 1, ey - 3, 4, 6, C.eye); B.rect(ex - 1, ey - 3, 2, 2, C.white); B.put(ex + 2, ey + 2, mix(C.eye, C.white, 0.35)); }
     else { B.rect(ex - 1, ey - 2, 3, 5, C.eye); B.rect(ex - 1, ey - 2, 1, 2, C.white); B.put(ex + 1, ey + 2, mix(C.eye, C.white, 0.35)); }
+    if (st.shine && !closed) { B.put(ex + 1, ey + 1, hex('fff1c4')); B.put(ex, ey + 2, hex('ffd88a')); }
   }
   const bl = P(x1, y0 + 12.5, ez - 3), bl2 = P(x1, y0 + 1.5, ez - 3);
   B.rect(Math.round(bl[0]), Math.round(bl[1]), 3, 1, C.light); B.rect(Math.round(bl2[0]), Math.round(bl2[1]), 2, 1, C.light);

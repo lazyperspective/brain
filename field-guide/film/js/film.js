@@ -6,7 +6,7 @@
 const PAL = [...['d97757', 'a8553b', 'f2a585', '6e2a1a', 'ffd9c2', '1b1426', 'fff6ea'],
   '3f9a7c', '2f7a6a', '6fc49a', '1f5450', '6b4766', '553858', '3e2848', '2a1a35', '8f6f8c', '4a3046', '5e3b28', '8a5a3a', 'b07a4f', '3a2420',
   '6a62b0', '9b8fd6', '463f80', 'e2574c', 'ffd88a', 'fff1c4', 'f5b45a', 'efe4d0', 'b9b2c4', '7d7790', 'ffe7a3', 'fff6d8', 'ffffff',
-  'f3ead6', 'd9cdb4', 'a8987c', '2a2350', 'e9e3f5', 'c3b9e0', '8e82b8', '1c1530', '140f22'];
+  'f3ead6', 'd9cdb4', 'a8987c', '2a2350', 'e9e3f5', 'c3b9e0', '8e82b8', '1c1530', '140f22', '7fd7ff', '4aa3d8', 'c9f1ff', '1c2348', '2f3c78', '4a5a9a', '6a5a8a', '4f3d6e', '3a2a55', 'b3a6d6'];
 const COL = {};
 ['top:3f9a7c', 'topD:2f7a6a', 'topL:6fc49a', 'lipL:6fc49a', 'lipR:3f9a7c', 'lipD:2f7a6a', 'dirtL:6b4766', 'dirtR:553858', 'strata:3e2848', 'stone:8f6f8c', 'root:4a3046', 'flower:ffe7a3',
   'trunk:5e3b28', 'trunkL:8a5a3a', 'trunkD:4a3046', 'leaf:2f7a6a', 'leafL:6fc49a', 'leafD:1f5450', 'wood:8a5a3a', 'woodL:b07a4f', 'woodD:5e3b28', 'shadow:1f5450',
@@ -30,15 +30,15 @@ function heroAt(t) {
   else if (t < 3.2) { const u = (t - 2.8) / 0.4; st.squash = 0.14 * Math.sin(Math.min(1, u * 2.5) * Math.PI) * (1 - u); st.look = [Math.round(sm(0.3, 0.8, u)), Math.round(sm(0.3, 0.8, u))]; st.blink = (t > 2.95 && t < 3.03) ? 1 : 0; }
   else if (t < 3.9) { const u = (t - 3.2) / 0.7; x = 52 + 8 * ease(u); st.walk = u * 3; st.look = [1, 1]; st.mouth = ''; }
   else if (t < 4.6) { x = 60; const u = (t - 3.9) / 0.7; st.arm = sm(0, 0.4, u); st.look = [1, 1]; st.squash = 0.06 * Math.sin(u * Math.PI); }
-  else if (t < 7.6) { x = 60; st.arm = 1; const sac = Math.floor((t - 4.6) / 0.45) % 2; st.look = [sac ? 1 : 0, 1]; st.mouth = t > 6.4 ? 'o' : 'flat'; st.blink = (t > 5.9 && t < 5.98) ? 1 : 0; }
-  else if (t < 8.3) { x = 60; const u = (t - 7.6) / 0.7; st.arm = 1 - sm(0, 0.5, u) * 0.6; st.look = [Math.round(lerp(1, 2, u)), Math.round(lerp(1, -2, sm(0, 0.6, u)))]; st.eyes = u > 0.55 ? 'wide' : 'open'; st.mouth = u > 0.55 ? 'o' : ''; st.squash = u > 0.5 ? -0.06 * Math.sin((u - 0.5) * 2 * Math.PI) : 0; }
+  else if (t < 7.6) { x = 60; st.arm = 1; const ln = Math.min(2, Math.floor(clamp((t - 4.8) / 0.95, 0, 0.999) * 3)), pr = ((t - 4.8) / 0.95 * 3) % 1; st.look = t < 4.8 || t > 5.75 ? [0, -1] : [Math.round(lerp(-1, 1, pr)), -2 + ln]; st.mouth = t > 6.4 ? 'o' : 'flat'; st.blink = (t > 5.9 && t < 5.98) ? 1 : 0; }
+  else if (t < 8.3) { x = 60; const u = (t - 7.6) / 0.7; st.arm = 1 - sm(0, 0.5, u) * 0.6; st.look = [Math.round(lerp(1, 2, u)), Math.round(lerp(1, -2, sm(0, 0.6, u)))]; st.eyes = u > 0.55 ? 'wide' : 'open'; st.mouth = u > 0.55 ? 'o' : ''; st.shine = u > 0.4; st.squash = u > 0.5 ? -0.06 * Math.sin((u - 0.5) * 2 * Math.PI) : 0; }
   else if (t < 9.0) { x = 60; const u = (t - 8.3) / 0.7; st.arm = 0.4; st.look = u < 0.45 ? [-1, 1] : [1, -2]; st.blink = (t > 8.62 && t < 8.7) ? 1 : 0; st.mouth = 'flat'; }
-  else { x = 60; st.arm = 0.4; st.look = [-1, -2]; st.mouth = 'flat'; st.squash = 0.03 * Math.sin((t - 9) * 6); }
+  else { x = 60; st.arm = 0.4; st.look = [-1, -2]; st.mouth = 'flat'; st.shine = true; st.squash = 0.03 * Math.sin((t - 9) * 6); }
   return { x, y: 50, st };
 }
 
 // ---------------- the paper plane ----------------
-const PLANE_KEYS = [[0.0, 20, 128], [0.5, 105, 72], [0.95, 205, 56], [1.32, 258, 90], [1.62, 296, 124], [1.9, 280, 176], [2.15, 234, 212], [2.4, 188, 236]];
+const PLANE_KEYS = [[0.0, 14, 150], [0.32, 78, 100], [0.62, 160, 74], [0.86, 222, 76], [1.02, 252, 104], [1.16, 282, 98], [1.3, 286, 72], [1.44, 262, 56], [1.58, 240, 74], [1.72, 252, 104], [1.92, 286, 142], [2.14, 244, 200], [2.4, 188, 236]];
 function catmull(keys, t) {
   let i = 0; while (i < keys.length - 2 && t > keys[i + 1][0]) i++;
   const p0 = keys[Math.max(0, i - 1)], p1 = keys[i], p2 = keys[i + 1], p3 = keys[Math.min(keys.length - 1, i + 2)];
@@ -47,16 +47,17 @@ function catmull(keys, t) {
   return [f(p0[1], p1[1], p2[1], p3[1]), f(p0[2], p1[2], p2[2], p3[2])];
 }
 function planeAt(t, hero) {
-  if (t < 2.4) { const a = catmull(PLANE_KEYS, t), b = catmull(PLANE_KEYS, Math.min(2.4, t + 0.02)); return { ref: a, ang: Math.atan2(b[1] - a[1], b[0] - a[0]), mode: 'fly' }; }
+  if (t < 2.4) { const a = catmull(PLANE_KEYS, t), b = catmull(PLANE_KEYS, Math.min(2.4, t + 0.02)), c = catmull(PLANE_KEYS, Math.max(0, t - 0.02)); const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), ang0 = Math.atan2(a[1] - c[1], a[0] - c[0]); let da = ang - ang0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI; return { ref: a, ang, roll: clamp(da * 6, -1.2, 1.2), mode: 'fly' }; }
   const head = PREF(52, 50, 17), land = PREF(70, 53, 0);
   if (t < 2.95) { const u = (t - 2.4) / 0.55; return { ref: [lerp(head[0] + 2, land[0], u), lerp(head[1] - 2, land[1], u) - Math.sin(u * Math.PI) * 22], ang: lerp(-2.4, 0.25, u) + Math.sin(u * 14) * 0.4 * (1 - u), mode: 'fall' }; }
   if (t < 3.9) return { ref: land, ang: 0.25, mode: 'ground' };
-  if (t < 4.3) { const u = ease((t - 3.9) / 0.4), hand = PREF(68, 61, 7); return { ref: [lerp(land[0], hand[0], u), lerp(land[1], hand[1], u)], ang: lerp(0.25, -0.1, u), mode: 'lift' }; }
-  return { ref: PREF(68, 61, 7), ang: 0, mode: 'note' };
+  if (t < 4.3) { const u = ease((t - 3.9) / 0.4), hand = PREF(63, 64, 5); return { ref: [lerp(land[0], hand[0], u), lerp(land[1], hand[1], u)], ang: lerp(0.25, -0.1, u), mode: 'lift' }; }
+  return { ref: PREF(63, 64, 5), ang: 0, mode: 'note' };
 }
 
 // ---------------- pixel layer ----------------
 function drawWorld(B, t) {
+  wispsW(B, t);
   // distant islets (parallax, smaller scale), each with a tiny lantern: other islands, other jobs
   for (const [qx, qy, par, sc, seed] of [[30, 214, 0.55, 0.55, 41], [336, 176, 0.5, 0.45, 42], [92, 128, 0.4, 0.32, 43]]) {
     const s = S([qx, qy + bob(t, seed, 1.5)], par), sv = { ...ISO }; ISO.ox = Math.round(s[0]); ISO.oy = Math.round(s[1]); ISO.k = sc * (1 + (CAM.z - 1) * par);
@@ -66,24 +67,32 @@ function drawWorld(B, t) {
   }
   applyCam();
   drawIslandW(B, { T: 16, N: 6, mask: MASK, depth: DEPTH, cols: COL });
+  crystalsW(B, t); vinesW(B, t);
   const H = heroAt(t);
+  pondW(B, t); waterfallW(B, t);
   const items = [
     [0, () => stonesW(B, [[22, 62], [30, 58], [38, 56]], COL)],
     [36, () => treeW(B, 16, 20, 0, COL)],
-    [39, () => mushW(B, [[24, 14, 0, 2], [28, 24, 0, 1], [10, 30, 0, 1]], COL)],
-    [80, () => drawMailbox(B, 12, 68, 0, COL, t - 1.15)],                 // flag pops as the plane arrives (t≈2.4)
-    [104, () => lanternW(B, 82, 22, 0, COL, t)],
+    [50, () => mushW(B, [[26, 24, 0, 2], [30, 30, 0, 1], [20, 34, 0, 1]], COL)],
+    [90, () => drawMailbox(B, 22, 68, 0, COL, t - 1.15)],
+    [98, () => lanternW(B, 72, 26, 0, COL, t)],
     [138, () => planksW(B, 68, 70, 0, COL)],
+    [140, () => { for (const [x, y] of [[94, 50], [94, 57], [94, 64]]) box(B, x, y, 0, 2, 2, 8, COL.postL, COL.post, COL.postD); const a = P(95, 51, 6), b = P(95, 65, 6); B.line(a[0], a[1], b[0], b[1], COL.postL); }],
     [H.x + H.y, () => { H.r = heroW(B, H.x, H.y, 0, H.st, HERO, COL.shadow); }],
   ];
+  for (const [x, y, r] of TUFTS) items.push([x + y + 0.5, () => tuftsW(B, t, v => Math.abs(v - (x + y)) < 0.01)]);
+  for (const [x, y] of FLOWERS) items.push([x + y + 0.4, () => flowersW(B, t, v => Math.abs(v - (x + y)) < 0.01)]);
   items.sort((a, b) => a[0] - b[0]); for (const [, f] of items) f();
+  blanketW(B, t, H); dustPuff(B, t, 2.78, P(H.x, H.y, 0));
+  const tc = P(16, 20, 26); fallingLeaf(B, t, tc); fireflyW(B, t, 6, tc[0] + 6, tc[1] + 6, 34, 1);
+  const lp = P(73, 27, 23); mothsW(B, t, lp);
   // plane / note
   const pl = planeAt(t, H), ps = S(pl.ref);
   if (pl.mode !== 'note') {
     const m = S(MOON.q, MOON.par), inMoon = Math.hypot(ps[0] - m[0], ps[1] - m[1]) < MOON.r * (1 + (CAM.z - 1) * MOON.par) + 2;
     const cols = inMoon ? { light: COL.sil, mid: COL.sil, dark: COL.sil } : { light: COL.planeL, mid: COL.planeM, dark: COL.planeD };
-    drawPlane(B, { x: ps[0], y: ps[1], ang: pl.ang, landed: pl.mode === 'ground' ? 1 : 0 }, cols, 1.35 * ISO.k);
-    if (pl.mode === 'fly') for (let q = 1; q < 10; q++) { const tt = t - q * 0.03; if (tt < 0) break; const a = S(catmull(PLANE_KEYS, tt)); if ((q + Math.floor(t * 30)) % 2) B.put(a[0], a[1], COL.zz); }
+    if (pl.mode === 'ground') drawPlane(B, { x: ps[0], y: ps[1], ang: pl.ang, landed: 1 }, cols, 1.35 * ISO.k); else planeW(B, ps[0], ps[1], pl.ang, pl.roll || 0, cols, 1.35 * ISO.k);
+    if (t < 2.9) for (let q = 1; q < 26; q++) { const tt = Math.min(2.39, t) - q * 0.035; if (tt < 0) break; const life = 1 - q / 26; if (hash(q, Math.floor(tt * 40), 5) > life) continue; const a = S(catmull(PLANE_KEYS, tt)); const j = [Math.sin(q * 2.3) * 2, Math.cos(q * 1.7) * 2 + q * 0.3]; B.put(a[0] + j[0], a[1] + j[1], (q + Math.floor(t * 20)) % 3 ? COL.zz : COL.lampL); }
   } else {
     // unfolded note held in front of the creature
     const u = sm(4.3, 4.55, t), back = 1 - sm(7.3, 7.55, t), w = Math.round(lerp(5, 15, u) * ISO.k / 1.4), h = Math.round(lerp(3, 11, u) * ISO.k / 1.4);
@@ -157,9 +166,17 @@ function chapterCard(F, t, a, b, num, title, cx = FW / 2, cy = 1110) {
 }
 function noteCard(F, t, H) {
   const inn = sm(4.55, 5.0, t), out = sm(7.05, 7.35, t), s = inn * (1 - out); if (s <= 0.001) return;
-  const src = SH(PREF(68, 61, 9)), cx = lerp(src[0], FW / 2, s), cy = lerp(src[1], 520, s);
-  const over = s < 1 ? 1 + Math.sin(inn * Math.PI) * 0.04 : 1, sc = s * over, W = 790, Hh = 520, rot = -0.035 + Math.sin(t * 0.7) * 0.006;
+  const src = SH(PREF(63, 64, 7)), cx = lerp(src[0], FW / 2, s), cy = lerp(src[1], 360, s);
+  const over = s < 1 ? 1 + Math.sin(inn * Math.PI) * 0.04 : 1, sc = s * over * 0.86, W = 790, Hh = 520, rot = -0.035 + Math.sin(t * 0.7) * 0.006;
   F.save(); F.translate(cx, cy); F.rotate(rot); F.scale(sc, sc);
+  // unfold: the paper opens from thirds (top and bottom flaps swing open)
+  const uf = sm(4.6, 5.05, t) * (1 - sm(7.05, 7.3, t));
+  if (uf < 0.999) { const fh = Hh / 3, open = uf, flap = fh * open;
+    F.shadowColor = 'rgba(0,0,0,0.5)'; F.shadowBlur = 30; F.shadowOffsetY = 12; F.fillStyle = '#f0e6cf'; F.fillRect(-W / 2, -fh / 2 - flap, W, fh + 2 * flap); F.shadowColor = 'transparent';
+    // the flaps still swinging open show their darker back side, with a crease at each fold
+    F.fillStyle = `rgb(${Math.round(200 + 40 * open)},${Math.round(186 + 38 * open)},${Math.round(156 + 34 * open)})`; F.fillRect(-W / 2, -fh / 2 - flap, W, flap); F.fillRect(-W / 2, fh / 2, W, flap);
+    F.fillStyle = 'rgba(120,100,70,0.45)'; F.fillRect(-W / 2, -fh / 2 - 1, W, 3); F.fillRect(-W / 2, fh / 2 - 1, W, 3);
+    F.fillStyle = 'rgba(255,250,235,0.7)'; F.fillRect(-W / 2, -fh / 2 - flap, W, 2); F.restore(); return; }
   F.shadowColor = 'rgba(0,0,0,0.55)'; F.shadowBlur = 40; F.shadowOffsetY = 18; F.fillStyle = '#f3ead6'; F.fillRect(-W / 2, -Hh / 2, W, Hh); F.shadowColor = 'transparent';
   // paper: fold creases from the plane, a little warm light from the moon
   const g = F.createLinearGradient(-W / 2, -Hh / 2, W / 2, Hh / 2); g.addColorStop(0, 'rgba(255,240,210,0.0)'); g.addColorStop(1, 'rgba(120,100,80,0.18)'); F.fillStyle = g; F.fillRect(-W / 2, -Hh / 2, W, Hh);
