@@ -162,7 +162,7 @@ if DUR > 12.7:
     tt = t_(0.3); add((np.sin(2 * np.pi * 150 * tt) + 0.6 * np.sin(2 * np.pi * 330 * tt) + 0.3 * np.sin(2 * np.pi * 610 * tt)) * np.exp(-tt * 22) + bp(noise(0.3), 400, 2500) * np.exp(-tt * 35) * 0.6, 19.22, 0.5, 0.35)
     for k, m in enumerate([79, 84, 88]): add(bell(m, 1.4, 0.6), 19.3 + k * 0.08, 0.09, 0.3)
     # chapter II card
-    add(whoosh(0.5, 300, 1200), 19.4, 0.07); add(bell(72, 2.2, 0.4), 19.5, 0.08)
+    add(bell(84, 1.6, 0.3), 19.5, 0.035)
 
 # ====================== PART 3 (story 20–34.5): dig, silence, updates, the bridge climbs ======================
 if DUR > 24.8:
@@ -201,7 +201,7 @@ if DUR > 24.8:
     # climbs out, proud chord; chapter III
     tt = t_(0.2); add(np.sin(2 * np.pi * np.cumsum(np.linspace(260, 700, len(tt))) / SR) * np.exp(-tt * 14), 33.62, 0.17)
     add(pad([60, 64, 67, 72, 76], 2.4, 0.3, 1.0), 33.95, 0.14)
-    add(whoosh(0.5, 300, 1200), 34.1, 0.07); add(bell(72, 2.2, 0.4), 34.2, 0.08)
+    add(bell(84, 1.6, 0.3), 34.2, 0.035)
 
 # ====================== PART 4 (story 34.2–51.8): the rules pile up, the gust, the rewrite ======================
 if DUR > 39.0:
@@ -236,7 +236,37 @@ if DUR > 39.0:
         a = 50.3 + k * 0.3; tt = t_(0.16); add(np.sin(2 * np.pi * np.cumsum(np.linspace(260 + k * 60, 520 + k * 120, len(tt))) / SR) * np.exp(-tt * 18), a, 0.14)
         add((np.sin(2 * np.pi * 330 * t_(0.1)) * np.exp(-t_(0.1) * 40)), a + 0.28, 0.15, 0.4)
     for k, m in enumerate([72, 74, 76, 79, 81, 84, 86, 88]): add(musicbox(m, 0.6), 50.3 + k * 0.18, 0.11, 0.3)
-    add(whoosh(0.5, 300, 1200), 51.5, 0.07); add(bell(72, 2.2, 0.4), 51.6, 0.08)
+    add(bell(84, 1.6, 0.3), 51.6, 0.035)
+
+# ====================== PART 5 (story 51.6–66.6): the staircase to the moon, one slab short ======================
+if DUR > 56.4:
+    for k, land in enumerate([52.2, 52.6, 53.0, 53.4, 53.8, 54.2, 54.6]):     # each slab pops in with a rising chime, a hop onto it
+        tt = t_(0.25); add((np.sin(2 * np.pi * 330 * tt) + 0.5 * np.sin(2 * np.pi * 880 * tt)) * np.exp(-tt * 25), land, 0.2, 0.4)
+        add(bell(76 + k * 2, 1.0, 0.5), land + 0.02, 0.08, 0.3); add(musicbox(72 + k * 2, 0.8), land + 0.05, 0.1, 0.2)
+        tt = t_(0.16); add(np.sin(2 * np.pi * np.cumsum(np.linspace(300 + k * 40, 600 + k * 80, len(tt))) / SR) * np.exp(-tt * 18), land + 0.2, 0.12)
+    add(pad([65, 69, 72, 77], 3.4, 0.6, 0.8), 52.0, 0.1)                          # the moon approaching: a widening, airy chord
+    # it stops; the sign goes up; crickets
+    tt = t_(0.4); add(np.sin(2 * np.pi * np.cumsum(np.linspace(500, 300, len(tt))) / SR) * np.exp(-tt * 8), 54.85, 0.08)
+    add(bp(noise(0.12), 2000, 6000) * np.exp(-t_(0.12) * 30), 55.45, 0.1)
+    d = 4.6; add(bp(noise(d), 4200, 5600, 4) * (0.5 + 0.5 * np.sin(2 * np.pi * 17 * t_(d)) ** 10) * np.sin(np.pi * t_(d) / d) ** 0.4, 55.6, 0.2, 0.3)
+    # the pencil taps it on the head twice, then the tip card
+    for a in (60.95, 61.35): tt = t_(0.1); add(np.sin(2 * np.pi * 700 * tt) * np.exp(-tt * 60) + bp(noise(0.1), 800, 4000) * np.exp(-tt * 80) * 0.4, a, 0.3, -0.2)
+    add(bell(84, 1.2, 0.5), 60.8, 0.07)
+    # wind-up and the final slab: a big slam and the moon's flare
+    tt = t_(0.5); add(np.sin(2 * np.pi * np.cumsum(np.linspace(200, 700, len(tt))) / SR) * np.sin(np.pi * tt / 0.5) * 0.6, 64.25, 0.12)
+    tt = t_(0.9); add((np.sin(2 * np.pi * 110 * tt) + 0.6 * np.sin(2 * np.pi * 220 * tt) + 0.3 * np.sin(2 * np.pi * 523 * tt)) * np.exp(-tt * 5) + lp(noise(0.9), 1200) * np.exp(-tt * 8) * 0.6, 64.75, 0.55, 0.3)
+    add(pad([53, 60, 65, 69, 72, 77], 4.0, 0.2, 1.6), 64.8, 0.2)
+    for k, m in enumerate([84, 88, 91, 96, 100, 103]): add(bell(m, 1.8, 0.7), 64.85 + k * 0.06, 0.06, -0.5 + k * 0.2)
+    add(bell(84, 1.6, 0.3), 66.4, 0.035)
+
+# ====================== continuous score bed: one film, one evolving harmony ======================
+# a soft chord progression under everything, faded out only in the two deliberate silences
+CH = [[53, 60, 65, 69], [50, 57, 62, 65], [46, 53, 58, 62], [48, 55, 60, 64]]
+at, k = 0.0, 0
+while unwarp(at) < DUR:
+    seg = 3.2
+    if not (19.8 < at < 29.0 or 35.5 < at < 39.5): add(pad(CH[k % 4], seg + 0.8, 0.9, 0.9), at, 0.045, 0.15 * np.sin(k))
+    k += 1; at += seg
 
 mix = np.stack([L, R], 1)
 mix = mix / (np.max(np.abs(mix)) + 1e-9) * 0.8

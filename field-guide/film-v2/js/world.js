@@ -13,6 +13,17 @@ const SH = (q, par = 1) => { const s = S(q, par); return [s[0] * SC, s[1] * SC];
 const PREF = (x, y, z) => [REF.ox + (x - y) * REF.k, REF.oy + ((x + y) / 2 - z) * REF.k];
 
 // keyframed value: keys [[t, value(s)...]] with smootherstep between keys
+// one smooth camera path through every key (monotone cubic: no stops between keys, no overshoot)
+function keyedSmooth(keys, t) {
+  const n = keys.length; if (t <= keys[0][0]) return keys[0].slice(1); if (t >= keys[n - 1][0]) return keys[n - 1].slice(1);
+  let i = 0; while (i < n - 2 && t > keys[i + 1][0]) i++;
+  const out = []; for (let c = 1; c < keys[0].length; c++) {
+    const m = (j) => { if (j === 0 || j === n - 1) return 0; const a = keys[j - 1], b = keys[j], e = keys[j + 1], d0 = (b[c] - a[c]) / (b[0] - a[0]), d1 = (e[c] - b[c]) / (e[0] - b[0]); if (d0 * d1 <= 0) return 0; return 2 / (1 / d0 + 1 / d1); };
+    const a = keys[i], b = keys[i + 1], h = b[0] - a[0], u = (t - a[0]) / h, u2 = u * u, u3 = u2 * u;
+    out.push((2 * u3 - 3 * u2 + 1) * a[c] + (u3 - 2 * u2 + u) * h * m(i) + (-2 * u3 + 3 * u2) * b[c] + (u3 - u2) * h * m(i + 1));
+  }
+  return out;
+}
 function keyed(keys, t) {
   if (t <= keys[0][0]) return keys[0].slice(1);
   for (let i = 0; i + 1 < keys.length; i++) { const a = keys[i], b = keys[i + 1]; if (t <= b[0]) { let u = (t - a[0]) / (b[0] - a[0]); u = u * u * u * (u * (u * 6 - 15) + 10); return a.slice(1).map((v, k) => v + (b[k + 1] - v) * u); } }

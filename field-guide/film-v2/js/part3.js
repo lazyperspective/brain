@@ -67,8 +67,8 @@ function tumbleweedW(B, t) {
 // moonstone slabs: placed ones (part of the bridge) and flying ones
 const MOONS = { t: hex('e9e3f5'), l: hex('c3b9e0'), r: hex('8e82b8') };
 function slabBox(B, k, z = 0) { box(B, 34, -18 * k, (k - 1) * 6 + z, 12, 18, 3, MOONS.t, MOONS.l, MOONS.r); const a = P(36, -18 * k + 4, (k - 1) * 6 + 3 + z), b = P(44, -18 * k + 14, (k - 1) * 6 + 3 + z); B.line(a[0], a[1], b[0], b[1], hex('ffffff')); }
-function slabsPlaced(B, t) {
-  for (const [k, , land] of SLABS) if (t >= land) {
+function slabsPlaced(B, t, only) {
+  for (const [k, , land] of SLABS) if (t >= land && (only === undefined || only === k)) {
     const pulse = Math.max(0, 1 - (t - land) / 0.6), c = P(40, -18 * k + 9, (k - 1) * 6 + 2);
     B.glow(c[0] - 40, c[1] - 26, c[0] + 40, c[1] + 26, hex('c3b9e0'), (x, y) => (0.28 + 0.5 * pulse) * Math.max(0, 1 - Math.hypot((x - c[0]) / 34, (y - c[1]) / 20)));
     slabBox(B, k, -(1 - sm(land, land + 0.08, t)) * 3);

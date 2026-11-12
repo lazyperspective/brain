@@ -1,4 +1,5 @@
 'use strict';
+let STORY_T = 0, CARD_ON = 0;
 let TA = 0;   // real (ambient) clock; t is the story clock
 // ------------------------------------------------------------------
 // FABLE 5.2 — A FIELD GUIDE.  Film timeline (seconds). Built 10 s at a time.
@@ -26,6 +27,7 @@ const CAMKEYS = [[0, 197, 254, 3.2], [0.45, 197, 252, 3.0], [2.0, 214, 198, 1.0]
 
 // ---------------- hero performance ----------------
 function heroAt(t) {
+  if (t >= 51.8) return heroAt5(t);
   if (t >= 34.2) return heroAt4(t);
   if (t >= 20) return heroAt3(t);
   if (t >= 10) return heroAt2(t);
@@ -98,8 +100,10 @@ function drawWorld(B, t) {
     [31, () => placedPlank(B, t)],
     [140, () => { for (const [x, y] of [[94, 50], [94, 57], [94, 64]]) box(B, x, y, 0, 2, 2, 8, COL.postL, COL.post, COL.postD); const a = P(95, 51, 6), b = P(95, 65, 6); B.line(a[0], a[1], b[0], b[1], COL.postL); }],
     [H.x + H.y, () => { if (H.hidden) { const p0 = P(H.x, H.y, -6); H.r = { head: p0, top: p0, face: p0, hand: p0 }; } else if (H.clip) H.r = heroClipped(B, H, t); else H.r = heroW(B, H.x, H.y, H.z || 0, H.st, HERO, COL.shadow); }],
-    [-60, () => slabsPlaced(B, t)],
+
   ];
+  for (let k = 2; k <= 5; k++) items.push([40 + (-18 * k + 9) - 0.2, () => slabsPlaced(B, t, k)]);
+  for (let k = 6; k <= 13; k++) items.push([40 + slabTop(k)[1] - 0.2, () => stairW(B, t, k)]);
   for (const [x, y, r] of TUFTS) items.push([x + y + 0.5, () => tuftsW(B, TA, v => Math.abs(v - (x + y)) < 0.01)]);
   for (const [x, y] of FLOWERS) items.push([x + y + 0.4, () => flowersW(B, TA, v => Math.abs(v - (x + y)) < 0.01)]);
   items.sort((a, b) => a[0] - b[0]); for (const [, f] of items) f();
@@ -145,7 +149,11 @@ function drawWorld(B, t) {
 }
 
 // ---------------- hi-res layers ----------------
-function moonScreen() { const s = S(MOON.q, MOON.par); return { x: s[0] * SC, y: s[1] * SC, r: MOON.r * (1 + (CAM.z - 1) * MOON.par) * SC }; }
+function moonScreen() {
+  const s = S(MOON.q, MOON.par), r0 = MOON.r * (1 + (CAM.z - 1) * MOON.par), b = typeof moonBlend === 'function' ? moonBlend(STORY_T) : 0;
+  if (b <= 0) return { x: s[0] * SC, y: s[1] * SC, r: r0 * SC };
+  const s1 = S(moonTarget(), 1), r1 = 40 * CAM.z; return { x: lerp(s[0], s1[0], b) * SC, y: lerp(s[1], s1[1], b) * SC, r: lerp(r0, r1, b) * SC };
+}
 function drawSky(F, t) {
   let g = F.createLinearGradient(0, 0, 0, FH); g.addColorStop(0, '#0d0a1c'); g.addColorStop(0.55, '#1a1430'); g.addColorStop(1, '#0b0812'); F.fillStyle = g; F.fillRect(0, 0, FW, FH);
   const m = moonScreen();
@@ -197,15 +205,14 @@ function caption(F, t, a, b, lines, y = 1150, px = 8, x = FW / 2, lineIn) {
 }
 function bug(F, t) {
   F.save(); F.globalAlpha = 0.7; hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
-  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : t < 51.6 ? 'CHAPTER III · THE RULES' : 'CHAPTER IV · ONE PLANK SHORT', a = t < 9.3 ? fadeIO(t, 0.2, 9.3, 0.3) : t < 19.5 ? fadeIO(t, 9.3, 19.5, 0.3) : t < 34.2 ? fadeIO(t, 19.5, 34.2, 0.3) : t < 51.6 ? fadeIO(t, 34.2, 51.6, 0.3) : sm(51.6, 51.9, t);
+  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : t < 51.6 ? 'CHAPTER III · THE RULES' : t < 66.4 ? 'CHAPTER IV · ONE PLANK SHORT' : 'EPILOGUE · THE REPORT', a = 1 - CARD_ON;
   F.save(); F.globalAlpha = 0.55 * a; hiText(F, ch, 44, 70, 3, '#d97757', {}); F.restore();
 }
-function chapterCard(F, t, a, b, num, title, cx = FW / 2, cy = 1110) {
-  const al = fadeIO(t, a, b, 0.3); if (al <= 0) return; F.save(); F.globalAlpha = al;
-  const y = cy - (1 - sm(a, a + 0.5, t)) * 16;
-  hiText(F, num, cx, y, 4, '#d97757', { align: 'c' });
-  const w = textW(title, 9); F.fillStyle = 'rgba(217,119,87,0.85)'; F.fillRect(cx - w / 2, y + 44, w * sm(a, a + 0.6, t), 4);
-  hiText(F, title, cx, y + 66, 9, '#fff6ea', { align: 'c' }); F.restore();
+function chapterCard(F, t, a, b, num, title) {
+  const al = fadeIO(t, a, b, 0.35); if (al <= 0) return; CARD_ON = Math.max(CARD_ON, al); F.save(); F.globalAlpha = al;
+  const slide = (1 - ease(sm(a, a + 0.5, t))) * -40, x = 44 + slide, y = 108;
+  hiText(F, num, x, y, 3, '#d97757', {}); const w = textW(title, 6); F.fillStyle = 'rgba(217,119,87,0.85)'; F.fillRect(x, y + 30, w * sm(a + 0.1, a + 0.6, t), 3);
+  hiText(F, title, x, y + 44, 6, '#fff6ea', {}); F.restore();
 }
 function noteCard(F, t, H) {
   const inn = sm(4.55, 4.95, t), out = sm(6.45, 6.7, t), s = inn * (1 - out); if (s <= 0.001) return;
