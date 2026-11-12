@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Fable 5.2 — A Field Guide</title>
+<style>html,body{margin:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center}canvas{height:96vh}</style></head>
+<body><canvas id="c" width="1080" height="1350"></canvas>
+<script src="js/core.js"></script><script src="js/helpers.js"></script><script src="js/font.js"></script><script src="js/world.js"></script><script src="js/film.js"></script>
+<script>
+const q=new URLSearchParams(location.search), F=document.getElementById('c').getContext('2d'), low=document.createElement('canvas'); low.width=LW; low.height=LH;
+function renderAt(t){
+  const k=keyed(CAMKEYS,t); CAM.cx=k[0]; CAM.cy=k[1]; CAM.z=k[2]; applyCam();
+  const B=new PBuf(PAL,22); const H=drawWorld(B,t); low.getContext('2d').clearRect(0,0,LW,LH); B.toCanvas(low);
+  F.setTransform(1,0,0,1,0,0); F.filter='none'; F.globalAlpha=1; F.globalCompositeOperation='source-over';
+  drawSky(F,t); pixelUp(F,low); drawGrade(F,t);
+  caption(F,t,0.25,2.35,['NIGHT.','THE CREATURE IS ASLEEP.']);
+  caption(F,t,7.75,9.1,['IT HAS BEEN GIVEN','A JOB.'],330,6,330);
+  chapterCard(F,t,9.15,11.6,'CHAPTER I','THE REQUEST',330,300);
+  noteCard(F,t,H); bug(F,t); grain(F,6,Math.floor(t*30)%7+1);
+}
+window.__piece={renderAt};
+if(q.has('t')) renderAt(+q.get('t')); else if(!q.has('export')){ const t0=performance.now(); (function loop(){ renderAt(((performance.now()-t0)/1000)%10); requestAnimationFrame(loop);})(); }
+</script></body></html>
