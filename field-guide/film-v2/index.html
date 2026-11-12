@@ -1,7 +1,7 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Fable 5.2 — A Field Guide</title>
 <style>html,body{margin:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center}canvas{height:96vh}</style></head>
 <body><canvas id="c" width="1080" height="1350"></canvas>
-<script src="js/core.js"></script><script src="js/helpers.js"></script><script src="js/font.js"></script><script src="js/world.js"></script><script src="js/film.js"></script><script src="js/detail.js"></script><script src="js/part2.js"></script><script src="js/part3.js"></script><script src="js/part4.js"></script>
+<script src="js/core.js"></script><script src="js/helpers.js"></script><script src="js/font.js"></script><script src="js/world.js"></script><script src="js/film.js"></script><script src="js/detail.js"></script><script src="js/part2.js"></script><script src="js/part3.js"></script><script src="js/part4.js"></script><script src="js/pencil.js"></script>
 <script>
 const q=new URLSearchParams(location.search), F=document.getElementById('c').getContext('2d'), low=document.createElement('canvas'); low.width=LW; low.height=LH; const lowF=document.createElement('canvas'); lowF.width=LW; lowF.height=LH; const hiF=document.createElement('canvas'); hiF.width=FW; hiF.height=FH;
 // story-time warp: new real time T -> story time t (holds for reading, slower plane loop); ambient life runs on T
@@ -12,7 +12,7 @@ function renderAt(T){ const t=warp(T); TA=T;
   const BF=new PBuf(PAL,22); drawFar(BF,t); const BFc=lowF; BFc.getContext('2d').clearRect(0,0,LW,LH); BF.toCanvas(BFc);
   const B=new PBuf(PAL,22); const H=drawWorld(B,t); low.getContext('2d').clearRect(0,0,LW,LH); B.toCanvas(low);
   F.setTransform(1,0,0,1,0,0); F.filter='none'; F.globalAlpha=1; F.globalCompositeOperation='source-over';
-  drawSky(F,T); farLayer(F,hiF,lowF,t); midMist(F,T); handerHand(F,t); pixelUp(F,low); waterMist(F,T); stormDark(F,t); shadowSweep(F,t); drawGrade(F,t); foreground(F,t); handTurn(F,t); dialLabels(F,t);
+  drawSky(F,T); farLayer(F,hiF,lowF,t); midMist(F,T); pencilPrologue(F,t); pixelUp(F,low); waterMist(F,T); stormDark(F,t); shadowSweep(F,t); drawGrade(F,t); foreground(F,t); pencilDial(F,t); dialLabels(F,t);
   caption(F,T,0.4,3.0,['FABLE 5.2.','NATURAL HABITAT:','ONE SMALL ISLAND.'],1040);
   caption(F,T,9.95,11.85,['IT HAS','THREE PLANKS.'],1100);
   chapterCard(F,T,12.0,14.4,'CHAPTER I','THE REQUEST',330,280);
@@ -20,11 +20,11 @@ function renderAt(T){ const t=warp(T); TA=T;
   tipCard(F,T,19.4,22.5,['FOR SIMPLE STEPS,','LOWER THE EFFORT.']);
   caption(F,T,23.3,24.95,['PLANK ONE.'],1150);
   chapterCard(F,T,24.75,27,'CHAPTER II','THE WORK',330,280);
-  drummingFingers(F,T);
+  pencilTap(F,T);
   caption(F,T,28.2,31.0,['ON LONG TASKS,','IT GOES QUIET.'],1100);
   tipCard(F,T,31.2,33.75,['EVERY FEW STEPS, GIVE','A ONE-LINE UPDATE.']);
   updateBubbles(F,t);
-  notesHi(F,t,H); mummyBubble(F,t,H); handSweep(F,T);
+  notesHi(F,t,H); eraserCrumbs(F,t,H); pencilEraser(F,t,H); mummyBubble(F,t,H);
   caption(F,T,42.0,44.0,['OLD RULES PILE UP.'],1150);
   caption(F,T,46.2,48.2,["IT TAKES 'NEVER'",'LITERALLY.'],1100);
   tipCard(F,T,49.6,52.8,['TRIM OLD RULES.',"WRITE 'ASK FIRST',","NOT 'NEVER'."]);

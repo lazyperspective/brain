@@ -33,7 +33,7 @@ function heroAt4(t) {
   return { x, y, z, st };
 }
 let GUST = 0;
-function gustAt(t) { return sm(43.55, 43.9, t) * (1 - sm(44.7, 45.3, t)); }
+function gustAt(t) { return 0; }
 // pixel wind streaks during the gust
 function windStreaks(B, t) {
   const g = gustAt(t); if (g <= 0.02) return;
@@ -69,9 +69,9 @@ function notesHi(F, t, H) {
       drawNote(F, x, y, base * lerp(2.2, 1, e), rot + Math.sin(u * 7 + k) * 0.6 * (1 - u), lines, col); return;
     }
     if (k === KEEP && t > 43.85) return;              // drawn separately below
-    if (gone > 0) {      // the gust: spin away up and towards the camera
-      const u = clamp((t - 43.85 - hash(k, 2, 2) * 0.25) / 0.9, 0, 1), x = ax + u * u * (500 + hash(k, 3, 3) * 600), y = ay - u * (300 + hash(k, 4, 4) * 500), s = base * (1 + u * 2.2), r = rot + u * (6 + k);
-      if (u < 1) drawNote(F, x, y, s, r, lines, col, 1 - u * 0.4); return;
+    if (t > 43.4) {      // erased: each note crumbles away as the eraser passes over it
+      const ek = 43.45 + hash(k, 2, 2) * 1.25, e = clamp((t - ek) / 0.18, 0, 1); if (e >= 1) return;
+      drawNote(F, ax + (hash(k, 5, 5) - 0.5) * 10 * e, ay + e * 14, base * (1 - e * 0.35), rot, lines, col, 1 - e); return;
     }
     const thwap = sm(land, land + 0.06, t) * (1 - sm(land + 0.06, land + 0.16, t));
     drawNote(F, ax, ay, base * (1 + thwap * 0.15), rot, lines, col);
@@ -81,9 +81,9 @@ function notesHi(F, t, H) {
     const n = NOTES[KEEP], ax = hs.x, ay = hs.y - 4 * hs.u * 0.6 - base * 0.35, big = 1 + sm(48.2, 48.5, t) * 0.55;
     const strike = sm(48.6, 48.95, t), rewritten = t > 49.05;
     drawNote(F, ax, ay, base * big, -0.04 + Math.sin(TA * 2) * 0.02, rewritten ? ['ASK BEFORE', 'DELETING', 'FILES.'] : n[0], rewritten ? 'G' : 'Y', 1, { strike: rewritten ? 0 : strike });
-    // the giant pencil tip doing the rewrite
-    if (t > 48.45 && t < 49.6) { const u = clamp((t - 48.5) / 0.95, 0, 1), px = ax - base * 0.4 * big + base * 0.8 * big * ((u * 3) % 1), py = ay - base * 0.1 + Math.floor(u * 3) * base * 0.15;
-      F.save(); F.translate(px, py); F.rotate(-0.7); F.fillStyle = '#2a2350'; F.beginPath(); F.moveTo(0, 0); F.lineTo(14, -10); F.lineTo(10, -16); F.fill(); F.fillStyle = '#f2d2a8'; F.beginPath(); F.moveTo(14, -10); F.lineTo(10, -16); F.lineTo(44, -60); F.lineTo(52, -50); F.fill(); F.fillStyle = '#e8b04a'; F.fillRect(44, -78, 26, 300); F.fillStyle = '#c98a2a'; F.fillRect(60, -78, 10, 300); F.restore(); }
+    // the Handler's pencil doing the rewrite
+    if (t > 48.4 && t < 49.75) { const u = clamp((t - 48.5) / 0.95, 0, 1), inn = sm(48.4, 48.55, t) * (1 - sm(49.55, 49.75, t)), px = ax - base * 0.4 * big + base * 0.8 * big * ((u * 3) % 1), py = ay - base * 0.1 + Math.floor(u * 3) * base * 0.15;
+      drawPencil(F, px + (1 - inn) * 500, py - (1 - inn) * 500, 2.35, 0.55); }
   }
 }
 // mummy speech bubble

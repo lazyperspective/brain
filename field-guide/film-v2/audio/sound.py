@@ -179,10 +179,12 @@ if DUR > 24.8:
     d = 6.2; amb2 = bp(noise(d), 4200, 5600, 4) * (0.5 + 0.5 * np.sin(2 * np.pi * 17 * t_(d)) ** 10) * np.sin(np.pi * t_(d) / d) ** 0.3; add(amb2, 23.05, 0.22, 0.4)
     add(lp(noise(2.1), 2500) * (0.5 + 0.5 * np.abs(np.sin(2 * np.pi * 2.4 * t_(2.1)))) * np.sin(np.pi * t_(2.1) / 2.1), 23.6, 0.08, -0.5)
     for k in range(5): add(lp(noise(0.05), 1200) * env(int(0.05 * SR), 0.001, 0.02), 23.6 + k * 0.42, 0.12, -0.5 + k * 0.25)
-    for k in range(int(2.9 * 4 * 3)):   # four fingers drumming on wood, a little irritated
-        at = 23.85 + (k // 4) * 0.36 + (k % 4) * 0.055
-        if at > 26.7: break
-        tt = t_(0.07); add(np.sin(2 * np.pi * (180 + (k % 4) * 25) * tt) * np.exp(-tt * 70) + bp(noise(0.07), 800, 3000) * np.exp(-tt * 90) * 0.4, at, 0.22, -0.7)
+    n = 0                                 # the Handler's pencil tapping impatiently
+    while True:
+        T_hit = (np.pi + 2 * np.pi * n) / 13; n += 1
+        if T_hit < 28.95: continue
+        if T_hit > 31.35: break
+        tt = t_(0.06); add(np.sin(2 * np.pi * 900 * tt) * np.exp(-tt * 90) + bp(noise(0.06), 1500, 6000) * np.exp(-tt * 120) * 0.6, T_hit - 4.8, 0.2, -0.7)
     add(bell(84, 1.2, 0.5), 26.45, 0.08, 0.0)   # tip card
     # the fix: each update pops up with a friendly notification blip; the work groove comes back
     for a in (29.2, 30.8, 32.3):
@@ -218,9 +220,10 @@ if DUR > 39.0:
         d = 0.16 if k < 3 else 0.26; tt = t_(d); f = np.linspace(f0, f1, len(tt)); add(lp(np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR)) * 0.4 + np.sin(2 * np.pi * np.cumsum(f) / SR), 1400) * np.sin(np.pi * tt / d), 39.68 + k * 0.2, 0.16, 0.25)
     d = 0.9; tt = t_(d); add(lp(np.sign(np.sin(2 * np.pi * np.cumsum(np.linspace(240, 150, len(tt)) * (1 + 0.03 * np.sin(2 * np.pi * 6 * tt))) / SR)), 900) * np.sin(np.pi * tt / d) ** 0.6, 41.45, 0.1)  # wah-wah
     # the Handler's sweep: whoosh, a gust of wind, a flurry of paper
-    add(whoosh(1.2, 150, 900, 1.0), 43.1, 0.3, -0.6)
-    d = 1.8; tt = t_(d); add(bp(noise(d), 200, 2500) * np.clip(tt / 0.3, 0, 1) * np.clip((d - tt) / 0.8, 0, 1), 43.5, 0.32, 0.2)
-    for k in range(14): add(flutter(0.5), 43.85 + k * 0.06, 0.05, -0.6 + k * 0.1)
+    add(whoosh(0.4, 300, 1400, 1.0), 43.0, 0.2, -0.2)          # the pencil swings in, eraser first
+    d = 1.45; tt = t_(d); rub = (0.5 + 0.5 * np.sin(2 * np.pi * 4.14 * tt)) ** 2
+    add((bp(noise(d), 300, 2200) * rub + np.sin(2 * np.pi * np.cumsum(900 + 300 * np.sin(2 * np.pi * 4.14 * tt)) / SR) * rub * 0.15), 43.35, 0.3, 0.1)   # rubbing out the notes
+    for k in range(12): add(bp(noise(0.05), 2000, 6000) * env(int(0.05 * SR), 0.001, 0.02), 43.5 + k * 0.1, 0.05, np.sin(k))       # crumbs
     add(bell(84, 1.2, 0.5), 44.8, 0.08)    # tip card
     # the rewrite: two strike-throughs, quick writing, a bright ding; two happy blinks
     for a in (48.62, 48.8): add(bp(noise(0.16), 2500, 9000) * np.sin(np.pi * t_(0.16) / 0.16), a, 0.14, 0.1)
