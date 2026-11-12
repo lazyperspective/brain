@@ -91,22 +91,27 @@ function heroW(B, hx, hy, hz, st, C = HERO, shadowCol) {
   // arm nub (raises with st.arm)
   const az = z0 + Math.round(bz * 0.35) + Math.round((st.arm || 0) * 6);
   box(B, x0 + bx * 0.45, y1, az, 4, 3, 4, C.light, C.body, C.shade);
-  // face on the +x face
-  const ez = z0 + Math.round(bz * 0.58), lk = st.look || [0, 0];
-  for (const e of [P(x1, y0 + 3.5, ez), P(x1, y0 + 9.5, ez)]) {
-    const ex = Math.round(e[0] + lk[0]), ey = Math.round(e[1] - 1 + lk[1]);
-    const closed = st.eyes === 'closed' || (st.blink || 0) > 0.5;
-    if (closed) { B.rect(ex - 1, ey + 1, 4, 1, C.eye); B.put(ex - 2, ey, C.eye); B.put(ex + 3, ey, C.eye); }
-    else if (st.eyes === 'wide') { B.rect(ex - 1, ey - 3, 4, 6, C.eye); B.rect(ex - 1, ey - 3, 2, 2, C.white); B.put(ex + 2, ey + 2, mix(C.eye, C.white, 0.35)); }
-    else { B.rect(ex - 1, ey - 2, 3, 5, C.eye); B.rect(ex - 1, ey - 2, 1, 2, C.white); B.put(ex + 1, ey + 2, mix(C.eye, C.white, 0.35)); }
-    if (st.shine && !closed) { B.put(ex + 1, ey + 1, hex('fff1c4')); B.put(ex, ey + 2, hex('ffd88a')); }
-  }
+  // soft form shading: darker band low on each face, moonlit rim along the back top edges
+  B.poly([P(x0, y1, z0 + bz * 0.28), P(x1 - ch, y1, z0 + bz * 0.28), P(x1 - ch, y1, z0), P(x0, y1, z0)], mix(C.body, C.shade, 0.35));
+  B.poly([P(x1, y0, z0 + bz * 0.28), P(x1, y1 - ch, z0 + bz * 0.28), P(x1, y1 - ch, z0), P(x1, y0, z0)], mix(C.shade, C.dark, 0.25));
+  { const r1 = P(x0 + 1, y0, zt), r2 = P(x1, y0, zt), r3 = P(x0, y0 + 1, zt), r4 = P(x0, y1, zt); B.line(r1[0], r1[1], r2[0], r2[1], C.hi); B.line(r3[0], r3[1], r4[0], r4[1], C.hi); }
+  // face on the +x face — every feature scales with the camera so close-ups stay crisp
+  const fk = Math.max(1, ISO.k / 1.4), G = Math.max(1, Math.round(fk)), EW = Math.max(3, Math.round(3 * fk)), EH = Math.max(5, Math.round(5 * fk));
+  const ez = z0 + Math.round(bz * 0.58), lk = st.look || [0, 0], lx = Math.round(lk[0] * fk), ly = Math.round(lk[1] * fk);
+  [P(x1, y0 + 3.5, ez), P(x1, y0 + 9.5, ez)].forEach((e, idx) => {
+    const ex = Math.round(e[0] + lx), ey = Math.round(e[1] - G + ly);
+    const closed = st.eyes === 'closed' || (st.blink || 0) > 0.5 || (st.squint && idx === 0);
+    if (closed) { B.rect(ex - Math.round(EW / 2) - G, ey, EW + 2 * G, G, C.eye); B.rect(ex - Math.round(EW / 2) - 2 * G, ey - G, G, G, C.eye); B.rect(ex + Math.round(EW / 2) + G, ey - G, G, G, C.eye); return; }
+    const wide = st.eyes === 'wide', w = EW + (wide ? G : 0), h = EH + (wide ? 2 * G : 0), x = ex - Math.round(w / 2), y = ey - Math.round(h / 2);
+    B.rect(x, y, w, h, C.eye); B.rect(x, y, G, 2 * G, C.white); if (w >= 4) B.rect(x + w - G, y + h - G, G, G, mix(C.eye, C.white, 0.35));
+    if (st.shine) { B.rect(x + w - 2 * G, y + h - 2 * G, G, G, hex('fff1c4')); B.rect(x + Math.round(w / 2), y + h - G, G, G, hex('ffd88a')); }
+  });
   const bl = P(x1, y0 + 12.5, ez - 3), bl2 = P(x1, y0 + 1.5, ez - 3);
-  B.rect(Math.round(bl[0]), Math.round(bl[1]), 3, 1, C.light); B.rect(Math.round(bl2[0]), Math.round(bl2[1]), 2, 1, C.light);
-  const m = P(x1, y0 + 6.5, ez - 4.5), mx = Math.round(m[0] + lk[0] * 0.5), my = Math.round(m[1] + lk[1] * 0.5);
-  if (st.mouth === 'o') B.rect(mx - 1, my, 3, 3, C.dark);
-  else if (st.mouth === 'smile') { B.rect(mx - 1, my + 1, 3, 1, C.dark); B.put(mx - 2, my, C.dark); B.put(mx + 2, my, C.dark); }
-  else if (st.mouth === 'flat') B.rect(mx - 1, my + 1, 3, 1, C.dark);
+  B.rect(Math.round(bl[0]), Math.round(bl[1]), 3 * G, G, C.light); B.rect(Math.round(bl2[0]), Math.round(bl2[1]), 2 * G, G, C.light);
+  const m = P(x1, y0 + 6.5, ez - 4.5), mx = Math.round(m[0] + lx * 0.5), my = Math.round(m[1] + ly * 0.5);
+  if (st.mouth === 'o') B.rect(mx - G, my, 3 * G, 3 * G, C.dark);
+  else if (st.mouth === 'smile') { B.rect(mx - G, my + G, 3 * G, G, C.dark); B.rect(mx - 2 * G, my, G, G, C.dark); B.rect(mx + 2 * G, my, G, G, C.dark); }
+  else if (st.mouth === 'flat') B.rect(mx - G, my + G, 3 * G, G, C.dark);
   return { head: P(hx, hy, zt), face: P(x1, y0 + 6.5, ez), hand: P(x1 + 3, y0 + 7, z0 + bz * 0.45), top: P(hx, hy, zt) };
 }
 

@@ -5,13 +5,14 @@
 <script>
 const q=new URLSearchParams(location.search), F=document.getElementById('c').getContext('2d'), low=document.createElement('canvas'); low.width=LW; low.height=LH;
 function renderAt(t){
-  const k=keyed(CAMKEYS,t); const sh=t>2.4&&t<2.75?Math.sin((t-2.4)*90)*2.2*(1-(t-2.4)/0.35):0; CAM.cx=k[0]+Math.sin(t*0.7)*0.8+sh; CAM.cy=k[1]+Math.sin(t*0.53+1)*0.6+sh*0.4; CAM.z=k[2]; REF.oy=196+Math.sin(t*2*Math.PI/4.2)*1.6; applyCam();
+  const k=keyed(CAMKEYS,t); const sh=t>2.6&&t<2.95?Math.sin((t-2.6)*90)*1.6*(1-(t-2.6)/0.35):0; CAM.cx=k[0]+Math.sin(t*0.7)*0.8+sh; CAM.cy=k[1]+Math.sin(t*0.53+1)*0.6+sh*0.4; CAM.z=k[2]; REF.oy=196+Math.sin(t*2*Math.PI/4.2)*1.6; applyCam();
   const B=new PBuf(PAL,22); const H=drawWorld(B,t); low.getContext('2d').clearRect(0,0,LW,LH); B.toCanvas(low);
   F.setTransform(1,0,0,1,0,0); F.filter='none'; F.globalAlpha=1; F.globalCompositeOperation='source-over';
-  drawSky(F,t); pixelUp(F,low); drawGrade(F,t);
-  caption(F,t,0.25,2.35,['NIGHT.','THE CREATURE IS ASLEEP.']);
-  caption(F,t,7.75,9.1,['IT HAS BEEN GIVEN','A JOB.'],330,6,330);
-  chapterCard(F,t,9.15,11.6,'CHAPTER I','THE REQUEST',330,300);
+  drawSky(F,t); handerHand(F,t); pixelUp(F,low); shadowSweep(F,t); drawGrade(F,t); foreground(F,t);
+  caption(F,t,0.75,2.45,['FABLE 5.2.','NATURAL HABITAT:','ONE SMALL ISLAND.']);
+  caption(F,t,6.85,7.95,['IT HAS BEEN GIVEN','A JOB.'],300,6,330);
+  caption(F,t,8.05,9.3,['IT HAS','THREE PLANKS.'],300,6,330);
+  chapterCard(F,t,9.35,11.6,'CHAPTER I','THE REQUEST',330,280);
   noteCard(F,t,H); bug(F,t); grain(F,6,Math.floor(t*30)%7+1);
 }
 window.__piece={renderAt};

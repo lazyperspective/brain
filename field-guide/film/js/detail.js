@@ -102,8 +102,8 @@ function wispsW(B, t) {
 // the sleeping creature's leaf blanket: flies off at the bonk and flutters down
 function blanketW(B, t, H) {
   if (!H.r) return; let x, y, ang, k = ISO.k / 1.4;
-  if (t < 2.4) { x = H.r.top[0] - 2; y = H.r.top[1] - 2; ang = 0; }
-  else { const u = clamp((t - 2.4) / 1.4, 0, 1), p0 = PREF(52, 50, 20), p1 = PREF(40, 62, 0); const s = S([lerp(p0[0], p1[0], u) - Math.sin(u * Math.PI) * 10, lerp(p0[1], p1[1], u) - Math.sin(u * Math.PI) * 30 + u * u * 6]); x = s[0]; y = s[1]; ang = Math.sin(u * 14) * 0.6 * (1 - u) + u * 0.3; }
+  if (t < 2.6) { x = H.r.top[0] - 2 * ISO.k / 1.4; y = H.r.top[1] - 2 * ISO.k / 1.4; ang = 0; }
+  else { const u = clamp((t - 2.6) / 1.4, 0, 1), p0 = PREF(52, 50, 20), p1 = PREF(40, 62, 0); const s = S([lerp(p0[0], p1[0], u) - Math.sin(u * Math.PI) * 10, lerp(p0[1], p1[1], u) - Math.sin(u * Math.PI) * 30 + u * u * 6]); x = s[0]; y = s[1]; ang = Math.sin(u * 14) * 0.6 * (1 - u) + u * 0.3; }
   const ca = Math.cos(ang), sa = Math.sin(ang), T = (u, v) => [x + (u * ca - v * sa) * k, y + (u * sa + v * ca) * k];
   B.poly([T(-12, 0), T(-4, -5), T(8, -4), T(13, 1), T(4, 5), T(-8, 4)], COL.leaf); B.poly([T(-12, 0), T(-4, -5), T(8, -4), T(13, 1)], COL.leafL);
   const a = T(-11, 0), b = T(12, 1); B.line(a[0], a[1], b[0], b[1], COL.leafD);
