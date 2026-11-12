@@ -35,23 +35,33 @@ function fighter(B, hx, hy, hz, st, Cc, face) {
   const k = ISO.k, sq = st.squash || 0, bz = 13 * (1 - sq), bx = 16 * (1 + sq * 0.5), by = 14 * (1 + sq * 0.5), T = st.T || 0;
   const hop = st.hop || 0, z0 = hz + 3 + hop, x0 = hx - bx / 2, y0 = hy - by / 2, x1 = x0 + bx, y1 = y0 + by, zt = z0 + bz, ch = 2;
   const fk = Math.max(1, k / 1.4), G = Math.max(1, Math.round(fk)), OX = ISO.ox, OY = ISO.oy;
-  if (st.shadow !== false) { const sp = P(hx, hy, 0), r = (12 - Math.min(7, hop * 0.3)) * k; B.ellipse(sp[0] + 1, sp[1] + 1, r, r * 0.45, hex('0b0814')); B.ellipse(sp[0] + 1, sp[1] + 1, r * 0.66, r * 0.28, hex('000000')); }
+  // flexible body: a lean vector bends the block (base planted, top displaced along a curve)
+  const lean = st.lean || [0, 0], off = z => { const h = clamp((z - z0) / bz, 0, 1.4), e = Math.pow(h, 1.6); return [lean[0] * e, lean[1] * e]; };
+  const Pf = (x, y, z) => { const o = off(z); return P(x + o[0], y + o[1], z); };
+  const boxF = (xa, ya, za, sx, sy, sz, ct, cl, cr) => { const xb = xa + sx, yb = ya + sy, zb = za + sz;
+    if (cl) B.poly([Pf(xa, yb, zb), Pf(xb, yb, zb), Pf(xb, yb, za), Pf(xa, yb, za)], cl); if (cr) B.poly([Pf(xb, ya, zb), Pf(xb, yb, zb), Pf(xb, yb, za), Pf(xb, ya, za)], cr); if (ct) B.poly([Pf(xa, ya, zb), Pf(xb, ya, zb), Pf(xb, yb, zb), Pf(xa, yb, zb)], ct); };
+  const vq = (xa, ya, xb, yb, za, zb) => { const pts = [], n = 5; for (let i = 0; i <= n; i++) pts.push(Pf(xb, yb, lerp(za, zb, i / n))); for (let i = n; i >= 0; i--) pts.push(Pf(xa, ya, lerp(za, zb, i / n))); return pts; };
+  if (st.shadow !== false) { const sp = Pf(hx, hy, 0), r = (12 - Math.min(7, hop * 0.3)) * k; B.ellipse(sp[0] + 1, sp[1] + 1, r, r * 0.45, hex('0b0814')); B.ellipse(sp[0] + 1, sp[1] + 1, r * 0.66, r * 0.28, hex('000000')); }
   // headband tails (behind the body): from the knot at the back corner, fluttering, streaming out when dashing
   const back = face === 'x' ? [-1, 0] : [0, -1], side = face === 'x' ? [0, 1] : [1, 0], wind = st.wind == null ? 0.25 : st.wind;
   const K = face === 'x' ? [x0 - 0.8, y1 - 1.2, zt - 2.2] : [x1 - 1.2, y0 - 0.8, zt - 2.2];
   Cc.tails.forEach((n, j) => {
-    let prev = P(...K);
+    let prev = Pf(...K);
     for (let i = 1; i <= n; i++) {
       const along = i * 1.9, wv = Math.sin(T * 17 - i * 0.85 + j * 1.9) * 0.32 * i * (0.45 + wind), spread = (j ? 0.55 : -0.35) * i;
       const p = [K[0] + back[0] * along * (0.55 + 0.45 * wind) + side[0] * (wv + spread), K[1] + back[1] * along * (0.55 + 0.45 * wind) + side[1] * (wv + spread), K[2] - i * (1 - wind) * 0.95 + Math.sin(T * 13 - i + j) * 0.22 * i];
-      const q = P(...p); thick(B, [prev[0], prev[1] + G * 0.5], [q[0], q[1] + G * 0.5], G, Cc.bandD); thick(B, prev, q, G, i === n ? Cc.bandD : Cc.band); prev = q;
+      const q = Pf(...p); thick(B, [prev[0], prev[1] + G * 0.5], [q[0], q[1] + G * 0.5], G, Cc.bandD); thick(B, prev, q, G, i === n ? Cc.bandD : Cc.band); prev = q;
     }
   });
   // feet
-  for (const [lx, ly] of [[x0 + 1, y0 + 1], [x0 + bx - 4, y0 + 1], [x0 + 1, y0 + by - 4], [x0 + bx - 4, y0 + by - 4]]) { box(B, lx, ly, hz + hop, 3, 3, 3.5, Cc.shade, Cc.shadeD, Cc.dark); }
+  for (const [lx, ly, ph] of [[x0 + 1, y0 + 1, 0], [x0 + bx - 4, y0 + 1, 1], [x0 + 1, y0 + by - 4, 1], [x0 + bx - 4, y0 + by - 4, 0]]) {
+    const sw = st.step != null ? Math.sin((st.step + ph * 0.5) * 2 * Math.PI) : 0, sd = st.stepDir || [0, 0], lift = Math.max(0, sw) * 2.4;
+    box(B, lx + sd[0] * sw * 1.8, ly + sd[1] * sw * 1.8, hz + hop + lift, 3, 3, 3.5, Cc.shade, Cc.shadeD, Cc.dark); }
   // side faces: vertical light gradient, contact shadow, waist seam, (alter ego) corrupted pixels
-  const zL = (sx, sy) => { const x = (sx + 0.5 - OX) / k + y1; return [x, (x + y1) / 2 - (sy + 0.5 - OY) / k]; };
-  const zR = (sx, sy) => { const y = x1 - (sx + 0.5 - OX) / k; return [y, (x1 + y) / 2 - (sy + 0.5 - OY) / k]; };
+  const unL = (sx, sy) => { const x = (sx + 0.5 - OX) / k + y1; return [x, (x + y1) / 2 - (sy + 0.5 - OY) / k]; }, unR = (sx, sy) => { const y = x1 - (sx + 0.5 - OX) / k; return [y, (x1 + y) / 2 - (sy + 0.5 - OY) / k]; };
+  const unbend = (fn, sx, sy) => { const o = off(fn(sx, sy)[1]); return fn(sx - (o[0] - o[1]) * k, sy - (o[0] + o[1]) / 2 * k); };
+  const zL = (sx, sy) => unbend(unL, sx, sy);
+  const zR = (sx, sy) => unbend(unR, sx, sy);
   const faceCol = (base, lo, hi, along, z, sd) => {
     const f = clamp((z - z0) / bz, 0, 1); let c = f > 0.55 ? mix(base, hi, (f - 0.55) * 1.6) : mix(lo, base, 0.25 + f / 0.55 * 0.75);
     if (f < 0.13) c = mix(c, Cc.dark, 0.45 * (1 - f / 0.13));
@@ -59,32 +69,32 @@ function fighter(B, hx, hy, hz, st, Cc, face) {
     if (Cc.corrupt) { const ia = Math.floor(along * 1.4), iz = Math.floor(z * 1.4), hh = hash(ia, iz + Math.floor(T * 6) * (hash(ia, 1, sd) > 0.7 ? 1 : 0), sd); if (hh > 0.972) c = hash(ia, iz, sd + 5) > 0.5 ? hex('ff3ab0') : hex('2af0ff'); }
     return [...c, 12];
   };
-  const wGeo = st.wpn ? weaponGeom(hx, hy, z0, bz, st.wpn) : null, wBehind = wGeo && wGeo.behind;
+  const wGeo = st.wpn ? (() => { const o = off(z0 + bz * 0.5); return weaponGeom(hx + o[0], hy + o[1], z0, bz, st.wpn); })() : null, wBehind = wGeo && wGeo.behind;
   if (wBehind) wieldW(B, wGeo, st.wpn, Cc, G);
-  const LF = [P(x0, y1, zt), P(x1 - ch, y1, zt), P(x1 - ch, y1, z0), P(x0, y1, z0)], RF = [P(x1, y0, zt), P(x1, y1 - ch, zt), P(x1, y1 - ch, z0), P(x1, y0, z0)];
+  const LF = vq(x0, y1, x1 - ch, y1, z0, zt), RF = vq(x1, y1 - ch, x1, y0, z0, zt);
   B.poly(LF, (sx, sy) => { const [a, z] = zL(sx, sy); return faceCol(Cc.body, Cc.bodyD, Cc.bodyL, a, z, 1); });
   B.poly(RF, (sx, sy) => { const [a, z] = zR(sx, sy); return faceCol(Cc.shade, Cc.shadeD, Cc.bodyD, a, z, 2); });
-  B.poly([P(x1 - ch, y1, zt), P(x1, y1 - ch, zt), P(x1, y1 - ch, z0), P(x1 - ch, y1, z0)], mix(Cc.body, Cc.shade, 0.45));
-  { const a = P(x1 - ch * 0.5, y1 - ch * 0.5, zt - 0.5), b = P(x1 - ch * 0.5, y1 - ch * 0.5, z0 + bz * 0.45); B.line(a[0], a[1], b[0], b[1], mix(Cc.light, Cc.body, 0.4)); }
+  B.poly(vq(x1 - ch, y1, x1, y1 - ch, z0, zt), mix(Cc.body, Cc.shade, 0.45));
+  for (let i = 0; i < 4; i++) { const za = lerp(z0 + bz * 0.45, zt - 0.5, i / 4), zb = lerp(z0 + bz * 0.45, zt - 0.5, (i + 1) / 4), a = Pf(x1 - ch * 0.5, y1 - ch * 0.5, za), b = Pf(x1 - ch * 0.5, y1 - ch * 0.5, zb); B.line(a[0], a[1], b[0], b[1], mix(Cc.light, Cc.body, 0.4)); }
   // headband around the brow (both visible faces + the bevel)
   const zb0 = zt - 3.1, zb1 = zt - 1.1;
-  B.poly([P(x0, y1, zb1), P(x1 - ch, y1, zb1), P(x1 - ch, y1, zb0), P(x0, y1, zb0)], Cc.band); B.poly([P(x1, y0, zb1), P(x1, y1 - ch, zb1), P(x1, y1 - ch, zb0), P(x1, y0, zb0)], Cc.bandD);
-  B.poly([P(x1 - ch, y1, zb1), P(x1, y1 - ch, zb1), P(x1, y1 - ch, zb0), P(x1 - ch, y1, zb0)], mix(Cc.band, Cc.bandD, 0.5));
-  { const a = P(x0, y1, zb0), b = P(x1 - ch, y1, zb0), c = P(x1, y1 - ch, zb0), d = P(x1, y0, zb0); B.line(a[0], a[1] + 1, b[0], b[1] + 1, mix(Cc.body, Cc.dark, 0.5)); B.line(c[0], c[1] + 1, d[0], d[1] + 1, Cc.shadeD); }
-  if (face === 'x') box(B, x0 - 0.8, y1 - 2.2, zb0 - 0.3, 1.6, 2.2, 2.6, Cc.band, Cc.band, Cc.bandD); else box(B, x1 - 2.2, y0 - 0.8, zb0 - 0.3, 2.2, 1.6, 2.6, Cc.band, Cc.band, Cc.bandD);
+  B.poly(vq(x0, y1, x1 - ch, y1, zb0, zb1), Cc.band); B.poly(vq(x1, y1 - ch, x1, y0, zb0, zb1), Cc.bandD);
+  B.poly(vq(x1 - ch, y1, x1, y1 - ch, zb0, zb1), mix(Cc.band, Cc.bandD, 0.5));
+  { const a = Pf(x0, y1, zb0), b = Pf(x1 - ch, y1, zb0), c = Pf(x1, y1 - ch, zb0), d = Pf(x1, y0, zb0); B.line(a[0], a[1] + 1, b[0], b[1] + 1, mix(Cc.body, Cc.dark, 0.5)); B.line(c[0], c[1] + 1, d[0], d[1] + 1, Cc.shadeD); }
+  if (face === 'x') boxF(x0 - 0.8, y1 - 2.2, zb0 - 0.3, 1.6, 2.2, 2.6, Cc.band, Cc.band, Cc.bandD); else boxF(x1 - 2.2, y0 - 0.8, zb0 - 0.3, 2.2, 1.6, 2.6, Cc.band, Cc.band, Cc.bandD);
   // top: light from the back-left, a soft specular spot
-  B.poly([P(x0 + 1, y0, zt), P(x1, y0, zt), P(x1, y1 - ch, zt), P(x1 - ch, y1, zt), P(x0, y1, zt), P(x0, y0 + 1, zt)], (sx, sy) => {
-    const u = (sx + 0.5 - OX) / k, v = (sy + 0.5 - OY) / k + zt, x = v + u / 2, y = v - u / 2, f = clamp(((x - x0) / bx + (y - y0) / by) / 2, 0, 1);
+  B.poly([Pf(x0 + 1, y0, zt), Pf(x1, y0, zt), Pf(x1, y1 - ch, zt), Pf(x1 - ch, y1, zt), Pf(x0, y1, zt), Pf(x0, y0 + 1, zt)], (sx, sy) => {
+    const ot = off(zt), u = (sx + 0.5 - OX) / k, v = (sy + 0.5 - OY) / k + zt, x = v + u / 2 - ot[0], y = v - u / 2 - ot[1], f = clamp(((x - x0) / bx + (y - y0) / by) / 2, 0, 1);
     let c = mix(Cc.lightL, Cc.light, f); if (Math.hypot(x - (x0 + bx * 0.3), (y - (y0 + by * 0.32)) * 1.2) < 2.1) c = Cc.spec || Cc.hi; return [...c, 12];
   });
-  { const a = P(x0 + 1, y1, zt), b = P(x1 - ch, y1, zt), c = P(x1, y1 - ch, zt), d = P(x1, y0, zt); B.line(a[0], a[1], b[0], b[1] - 1, Cc.hi); B.line(c[0], c[1], d[0], d[1], mix(Cc.hi, Cc.shade, 0.45)); }
-  { const r1 = P(x0 + 1, y0, zt), r2 = P(x1, y0, zt), r3 = P(x0, y0 + 1, zt), r4 = P(x0, y1, zt); B.line(r1[0], r1[1], r2[0], r2[1], Cc.rimN); B.line(r3[0], r3[1], r4[0], r4[1], mix(Cc.rimN, Cc.hi, 0.4)); }
-  { const a = P(x0, y1, zt), b = P(x0, y1, z0 + 1), c = P(x1, y0, zt), d = P(x1, y0, z0 + 1); B.line(a[0], a[1], b[0], b[1], Cc.rimN); B.line(c[0], c[1], d[0], d[1], Cc.rimN); }
+  { const a = Pf(x0 + 1, y1, zt), b = Pf(x1 - ch, y1, zt), c = Pf(x1, y1 - ch, zt), d = Pf(x1, y0, zt); B.line(a[0], a[1], b[0], b[1] - 1, Cc.hi); B.line(c[0], c[1], d[0], d[1], mix(Cc.hi, Cc.shade, 0.45)); }
+  { const r1 = Pf(x0 + 1, y0, zt), r2 = Pf(x1, y0, zt), r3 = Pf(x0, y0 + 1, zt), r4 = Pf(x0, y1, zt); B.line(r1[0], r1[1], r2[0], r2[1], Cc.rimN); B.line(r3[0], r3[1], r4[0], r4[1], mix(Cc.rimN, Cc.hi, 0.4)); }
+  for (let i = 0; i < 5; i++) { const za = lerp(z0 + 1, zt, i / 5), zb = lerp(z0 + 1, zt, (i + 1) / 5), a = Pf(x0, y1, za), b = Pf(x0, y1, zb), c = Pf(x1, y0, za), d = Pf(x1, y0, zb); B.line(a[0], a[1], b[0], b[1], Cc.rimN); B.line(c[0], c[1], d[0], d[1], Cc.rimN); }
   const eyes = [];
   if (!st.noFace) {
   // face
   const EW = Math.max(3, Math.round(3 * fk)), EH = Math.max(5, Math.round(5 * fk)), ez = z0 + bz * 0.56, lk = st.look || [0, 0];
-  const eyePts = face === 'x' ? [P(x1, y0 + 3.6, ez), P(x1, y0 + 9.4, ez)] : [P(x0 + 3.6, y1, ez), P(x0 + 9.4, y1, ez)], skin = face === 'x' ? Cc.shade : Cc.body;
+  const eyePts = face === 'x' ? [Pf(x1, y0 + 3.6, ez), Pf(x1, y0 + 9.4, ez)] : [Pf(x0 + 3.6, y1, ez), Pf(x0 + 9.4, y1, ez)], skin = face === 'x' ? Cc.shade : Cc.body;
   eyePts.forEach((e, idx) => {
     const ex = Math.round(e[0] + lk[0] * fk), ey = Math.round(e[1] - G + lk[1] * fk), other = eyePts[1 - idx], inward = Math.sign(other[0] - e[0]); eyes.push([ex, ey]);
     if (Cc.blush && st.eyes !== 'x') B.rect(ex - inward * 2 * G - G, ey + Math.round(EH / 2) + G, 2 * G, G, Cc.blush);
@@ -99,7 +109,7 @@ function fighter(B, hx, hy, hz, st, Cc, face) {
         B.rect(x + q, y - G, 1, Math.max(0, by_ - (y - G)), skin); B.rect(x + q, by_, 1, G, Cc.dark); }
     }
   });
-  const mp = face === 'x' ? P(x1, y0 + 6.5, ez - 4.4) : P(x0 + 6.5, y1, ez - 4.4), mx = Math.round(mp[0] + lk[0] * fk * 0.5), my = Math.round(mp[1] + lk[1] * fk * 0.5);
+  const mp = face === 'x' ? Pf(x1, y0 + 6.5, ez - 4.4) : Pf(x0 + 6.5, y1, ez - 4.4), mx = Math.round(mp[0] + lk[0] * fk * 0.5), my = Math.round(mp[1] + lk[1] * fk * 0.5);
   if (st.mouth === 'grit') { B.rect(mx - 3 * G, my, 6 * G, 2 * G, Cc.dark); for (let q = -2; q <= 1; q++) B.rect(mx + q * G + (q >= 0 ? G : 0) - G, my, G - (G > 1 ? 1 : 0) || 1, G, Cc.white); }
   else if (st.mouth === 'o') { B.rect(mx - G, my, 3 * G, 3 * G, Cc.dark); B.rect(mx - 2 * G, my + G, 5 * G, G, Cc.dark); }
   else if (st.mouth === 'smirk') { B.rect(mx - 2 * G, my + G, 4 * G, G, Cc.dark); B.rect(mx + 2 * G, my, G, G, Cc.dark); }
@@ -109,11 +119,16 @@ function fighter(B, hx, hy, hz, st, Cc, face) {
   // arm on the visible side; raises with st.arm, the fist shoots forward with st.punch
   if (wGeo) { if (!wBehind) wieldW(B, wGeo, st.wpn, Cc, G); }
   else {
-  const az = z0 + bz * 0.26 + (st.arm || 0) * 3, pu = st.punch || 0, fs = 3.6 + pu * 1.2;
-  if (face === 'x') { box(B, x0 + bx * 0.4 + pu * (bx * 0.62 + 3), y1 - 0.5 - pu * 1.5, az + pu * 1.5, fs, 3.2, fs, Cc.lightL, Cc.body, Cc.shade); if (pu > 0.3) { const kp = P(x0 + bx * 0.4 + pu * (bx * 0.62 + 3) + fs, y1 + 0.5, az + pu * 1.5 + fs * 0.6), kq = P(x0 + bx * 0.4 + pu * (bx * 0.62 + 3) + fs, y1 + 2.5, az + pu * 1.5 + fs * 0.6); B.line(kp[0], kp[1], kq[0], kq[1], Cc.dark); } }
-  else { box(B, x1 - 0.5 - pu * 1.5, y0 + by * 0.4 + pu * (by * 0.62 + 3), az + pu * 1.5, 3.2, fs, fs, Cc.lightL, Cc.body, Cc.shade); }
+  const az = z0 + bz * 0.26 + (st.arm || 0) * 3, pu = st.punch || 0, fs = 3.6 + pu * 1.4, reach = pu * (bx * 0.62 + 8);
+  const hose = (s0, s1) => { thick(B, Pf(...s0), Pf(...s1), G + 1, Cc.shade); thick(B, Pf(s0[0], s0[1], s0[2] + 0.6), Pf(s1[0], s1[1], s1[2] + 0.6), G, Cc.body); };
+  if (face === 'x') { const fx = x0 + bx * 0.4 + reach, fy = y1 - 0.5 - pu * 1.5, fz = az + pu * 1.5;
+    if (pu > 0.12) hose([x0 + bx * 0.55, y1 + 0.8, az + 1.8], [fx + fs * 0.3, fy + 1.6, fz + fs * 0.45]);
+    boxF(fx, fy, fz, fs, 3.2, fs, Cc.lightL, Cc.body, Cc.shade); if (pu > 0.3) { const kp = Pf(fx + fs, fy + 1, fz + fs * 0.6), kq = Pf(fx + fs, fy + 3, fz + fs * 0.6); B.line(kp[0], kp[1], kq[0], kq[1], Cc.dark); } }
+  else { const fx = x1 - 0.5 - pu * 1.5, fy = y0 + by * 0.4 + reach, fz = az + pu * 1.5;
+    if (pu > 0.12) hose([x1 + 0.8, y0 + by * 0.55, az + 1.8], [fx + 1.6, fy + fs * 0.3, fz + fs * 0.45]);
+    boxF(fx, fy, fz, 3.2, fs, fs, Cc.lightL, Cc.body, Cc.shade); }
   }
-  return { head: P(hx, hy, zt), center: P(hx, hy, z0 + bz / 2), foot: P(hx, hy, 0), eyes, wGeo, top: [hx, hy, zt] };
+  return { head: Pf(hx, hy, zt), center: Pf(hx, hy, z0 + bz / 2), foot: P(hx, hy, 0), eyes, wGeo, top: [hx + off(zt)[0], hy + off(zt)[1], zt] };
 }
 // draw a fighter into a scratch buffer, then composite: optional RGB fringe, glitch-tear rows, solid tint, ghost (checker) transparency
 function fighterFX(B, hx, hy, hz, st, Cc, face, o = {}) {

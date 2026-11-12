@@ -35,9 +35,45 @@ const AKS = [[0, 24, 0], [2.3, 24, 0], [2.55, -6, 0, 2, 'in'], [2.9, 4, 0, 5, 'o
   [7.05, 32, 0], [7.5, 44, 0, 7, 'out'], [8.6, 44, 0], [9.0, 28, 0, 7], [9.4, 16, 0, 16], [10.0, 16, 0], [10.35, 12, 0, 0, 'in'], [11.25, 12, 0], [11.6, 24, 0, 6, 'out'], [11.95, 24, 0],
   [12.35, 10, 0, 3, 'in'], [12.4, 10, 0], [12.9, 36, 0, 11, 'out'], [14.35, 36, 0]];
 const lockD = a => a > 10.35 && a < 11.25 ? 1.8 * Math.sin((a - 10.35) * 9) * sm(10.35, 10.5, a) : 0;
+// ---------------- flexible bodies: spring dynamics ----------------
+// Each body's top is a damped spring on its feet: it lags when the base accelerates, overshoots when it stops,
+// jiggles after landings (squash) and is thrown back by hits. Simulated from a second before 'a' (deterministic).
+const IMPULSE = { h: [[2.55, 42], [9.4, 55], [10.35, 22]], a: [[3.25, 50], [7.05, 55], [10.35, 22], [12.4, 62]] };
+function bodyDyn(fn, a, T, f, who) {
+  const dt = 1 / 200, a0 = Math.max(0, a - 1.0), n = Math.round((a - a0) / dt);
+  let L = [0, 0], V = [0, 0], s = 0, sv = 0, dist = 0;
+  const pz = t => { const r = fn(Math.max(0, t), T, true); return [r.x, r.y, r.st.hop || 0]; };
+  let p0 = pz(a0 - dt), p1 = pz(a0);
+  for (let i = 0; i < n; i++) {
+    const t = a0 + i * dt, p2 = pz(t + dt);
+    let ax = (p2[0] - 2 * p1[0] + p0[0]) / (dt * dt), ay = (p2[1] - 2 * p1[1] + p0[1]) / (dt * dt), az = (p2[2] - 2 * p1[2] + p0[2]) / (dt * dt);
+    const m = Math.hypot(ax, ay); if (m > 1600) { ax *= 1600 / m; ay *= 1600 / m; }
+    if (az > 0 && p1[2] - p0[2] >= 0) az = 0; az = clamp(az, -700, 6000);              // only landings squash
+    for (const [h, imp] of IMPULSE[who]) if (h > t && h <= t + dt) { V[0] -= f[0] * imp; V[1] -= f[1] * imp; sv += 2.0; }
+    V[0] += (-240 * L[0] - 12 * V[0] - ax * 0.5) * dt; V[1] += (-240 * L[1] - 12 * V[1] - ay * 0.5) * dt; L[0] += V[0] * dt; L[1] += V[1] * dt;
+    sv += (-300 * s - 14 * sv + az * 0.045) * dt; s += sv * dt;
+    if (p1[2] < 0.6) dist += Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    p0 = p1; p1 = p2;
+  }
+  const lm = Math.hypot(L[0], L[1]); if (lm > 3) L = [L[0] * 3 / lm, L[1] * 3 / lm];
+  const vel = [(p1[0] - p0[0]) / dt, (p1[1] - p0[1]) / dt], sp = Math.hypot(vel[0], vel[1]);
+  return { L, s: clamp(s, -0.18, 0.2), dist, sp, dir: sp > 0.01 ? [vel[0] / sp, vel[1] / sp] : [0, 0], ground: p1[2] < 0.6 };
+}
+// pose-driven bend on top of the spring: lean back to wind up, through on the follow-through, into punches, out with the spin
+function flex(st, w, d, f, th0, T) {
+  let lx = d.L[0], ly = d.L[1]; const sway = Math.sin(T * 2.4 + th0) * 0.45; lx += f[0] * sway; ly += f[1] * sway;
+  if (w && w.flat == null) { const q = clamp((th0 - w.th) / 90, -1.2, 1.4) * 1.7; lx += f[0] * q; ly += f[1] * q; }
+  if (w && w.flat != null) { lx += Math.cos(w.flat) * 2.2; ly += Math.sin(w.flat) * 2.2; }
+  if (st.punch) { lx += f[0] * st.punch * 2; ly += f[1] * st.punch * 2; }
+  if ((st.squash || 0) > 0.15) { lx -= f[0] * 1.2; ly -= f[1] * 1.2; }
+  const lm = Math.hypot(lx, ly); if (lm > 3.4) { lx *= 3.4 / lm; ly *= 3.4 / lm; }
+  st.lean = [lx, ly]; st.squash = clamp((st.squash || 0) + d.s, -0.24, 0.22);
+  if (d.ground && d.sp > 4) { st.step = d.dist / 10; st.stepDir = d.dir; }
+  st.wind = Math.max(st.wind || 0, clamp(d.sp / 70, 0, 1));
+}
 function faceForDir(d) { return d[0] >= 0.38 && d[0] >= d[1] ? 'x' : d[1] >= 0.38 ? 'y' : null; }
 
-function heroAt(a, T) {
+function heroAt(a, T, raw) {
   const tr = track(HK, a), s = tr.s * SPREAD + lockD(a), [x, y] = pos(s, tr.p);
   const st = { eyes: 'fierce', look: [1, -1], mouth: 'flat', arm: 0.5, hop: tr.hop, squash: 0.05 + 0.04 * Math.sin(a * 9), T, wind: 0.25 };
   let w = a >= 5.25 ? { kind: 'sword', th: 74, f: FWD_H, grow: sm(5.25, 5.5, a), glow: 0 } : null, face = 'x';
@@ -69,9 +105,10 @@ function heroAt(a, T) {
     face = fc || 'x'; st.noFace = !fc; st.hop = Math.sin(u * Math.PI) * 4; st.wind = 1; st.mouth = 'grit'; st.squash = -0.06; }
   else if (a < 13.3) { w.th = lerp(0, 80, sm(12.85, 13.1, a)); w.glow = 1 - sm(13.0, 13.3, a); st.mouth = 'smile'; st.squash = 0.15 * Math.sin(clamp((a - 12.85) / 0.2, 0, 1) * Math.PI); }
   else { w.th = 74; st.look = a > 13.8 ? [2, -1] : [1, -1]; st.mouth = a > 13.85 ? 'o' : 'flat'; st.eyes = a > 13.85 ? 'open' : 'fierce'; }
+  if (!raw) flex(st, w, bodyDyn(heroAt, a, T, FWD_H, 'h'), FWD_H, 74, T);
   return { x, y, s, st, w, face };
 }
-function alterAt(a, T) {
+function alterAt(a, T, raw) {
   const tr = track(AKS, a), s = tr.s * SPREAD + lockD(a), [x, y] = pos(s, tr.p);
   const st = { eyes: 'fierce', look: [-1, -1], mouth: 'smirk', arm: 0.5, hop: tr.hop, squash: 0.05 + 0.04 * Math.sin(a * 9 + 2), T: T + 0.7, wind: 0.25 };
   let show = true, tear = 0, fringe = 1, w = null;
@@ -114,9 +151,10 @@ function alterAt(a, T) {
     st.look = a < 13.75 ? [0, 2] : [-1, -1]; st.mouth = a < 13.75 ? 'flat' : a < 13.95 ? 'grit' : 'smirk'; st.arm = 0.3;
     if (a > 13.75) { st.squash = 0.08 * Math.sin(a * 30); tear = 0.15 + (hash(Math.floor(a * 15), 6, 6) > 0.7 ? 0.4 : 0) + 0.3 * sm(14.0, 14.35, a); fringe = 1 + Math.round(3 * sm(13.9, 14.35, a)); }
   }
+  if (!raw) flex(st, w, bodyDyn(alterAt, a, T, FWD_A, 'a'), FWD_A, 70, T);
   return { x, y, s, st, w, face: 'y', show, tear, fringe };
 }
-const geomOf = (f) => f && f.w ? weaponGeom(f.x, f.y, 3 + (f.st.hop || 0), 13 * (1 - (f.st.squash || 0)), f.w) : null;
+const geomOf = (f) => { if (!f || !f.w) return null; const l = f.st.lean || [0, 0]; return weaponGeom(f.x + l[0] * 0.33, f.y + l[1] * 0.33, 3 + (f.st.hop || 0), 13 * (1 - (f.st.squash || 0)), f.w); };
 
 // ---------------- low-res world ----------------
 const TILES = (() => { const c0 = [Math.floor(SLAM[0] / 8), Math.floor(SLAM[1] / 8)], out = [];
