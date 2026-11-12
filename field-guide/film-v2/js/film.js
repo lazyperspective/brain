@@ -111,7 +111,7 @@ function drawWorld(B, t) {
   blanketW(B, t, H); dustPuff(B, t, 2.98, P(H.x, H.y, 0)); dustPuff(B, t, 3.88, P(H.x, H.y, 0), 7); dustPuff(B, t, 4.18, P(H.x, H.y, 0), 7);
   const tc = P(16, 20, 26); fallingLeaf(B, TA, tc); fireflyW(B, TA, 6, tc[0] + 6, tc[1] + 6, 34, 1);
   const lp = P(73, 27, 23); mothsW(B, TA, lp);
-  carriedPlank(B, t, H); stormW(B, t, H); dialW(B, t); tumbleweedW(B, t); pickaxeW(B, t, H); dirtW(B, t); slabsFlying(B, t); windStreaks(B, t);
+  carriedPlank(B, t, H); requestPlane(B, t, H); signToss(B, t, H); stormW(B, t, H); dialW(B, t); tumbleweedW(B, t); pickaxeW(B, t, H); dirtW(B, t); slabsFlying(B, t); windStreaks(B, t);
   // plane / note
   const pl = planeAt(t), ps = S(pl.ref);
   if (pl.mode !== 'note') {
@@ -205,8 +205,8 @@ function caption(F, t, a, b, lines, y = 1150, px = 8, x = FW / 2, lineIn) {
   F.restore();
 }
 function bug(F, t) {
-  F.save(); F.globalAlpha = 0.7 * (1 - sm(77.8, 78.6, t)); hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
-  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : t < 51.6 ? 'CHAPTER III · THE RULES' : t < 66.4 ? 'CHAPTER IV · ONE PLANK SHORT' : 'EPILOGUE · THE REPORT', a = (1 - CARD_ON) * (1 - sm(77.8, 78.6, t));
+  F.save(); F.globalAlpha = 0.7 * (1 - sm(80.4, 81.2, t)); hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
+  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : t < 51.6 ? 'CHAPTER III · THE RULES' : t < 66.4 ? 'CHAPTER IV · ONE PLANK SHORT' : 'EPILOGUE · THE REPORT', a = (1 - CARD_ON) * (1 - sm(80.4, 81.2, t));
   F.save(); F.globalAlpha = 0.55 * a; hiText(F, ch, 44, 70, 3, '#d97757', {}); F.restore();
 }
 function chapterCard(F, t, a, b, num, title) {

@@ -25,7 +25,8 @@ function heroAt5(t) {
   else if (t < 55.4) { p = at(12); const u = (t - 54.8) / 0.6; st.squash = 0.12 * Math.sin(u * Math.PI); st.look = u < 0.5 ? [2, -2] : [1, 1]; st.mouth = 'o'; }
   else if (t < 58.2) { p = at(12); st.look = [0, 1]; st.mouth = 'smile'; st.arm = sm(55.4, 55.6, t); st.blink = (t > 56.6 && t < 56.68) || (t > 57.6 && t < 57.68) ? 1 : 0; }
   else if (t < 60.6) { p = at(12); st.look = [0, 1]; st.mouth = 'flat'; st.arm = 0.4; st.blink = (t > 59.3 && t < 59.38) ? 1 : 0; }
-  else if (t < 64.0) { p = at(12); const bonk = [60.95, 61.35].some(a => t > a && t < a + 0.12); st.squash = bonk ? 0.18 : 0.03; st.eyes = bonk ? 'closed' : 'open'; st.look = t > 61.6 ? [2, -2] : [0, -1]; st.mouth = t > 61.7 ? 'smile' : 'flat'; st.shine = t > 61.7; }
+  else if (t < 63.7) { p = at(12); const bonk = [60.95, 61.35].some(a => t > a && t < a + 0.12); st.squash = bonk ? 0.18 : 0.03; st.eyes = bonk ? 'closed' : 'open'; st.look = t > 61.6 ? [2, -2] : [0, -1]; st.mouth = t > 61.7 ? 'smile' : 'flat'; st.shine = t > 61.7; }
+  else if (t < 64.0) { p = at(12); const u = (t - 63.7) / 0.3; st.arm = Math.sin(u * Math.PI); st.look = [-1, 0]; st.mouth = 'smile'; st.squash = -0.06 * Math.sin(u * Math.PI); }
   else if (t < 65.0) { p = at(12); const u = (t - 64.0) / 1.0; st.hop = u > 0.55 ? Math.sin((u - 0.55) / 0.45 * Math.PI) * 9 : 0; st.squash = u < 0.5 ? 0.15 * sm(0, 0.5, u) : u > 0.95 ? 0.2 : -0.12; st.arm = 1; st.look = [2, -2]; st.mouth = 'o'; }
   else { const u = clamp((t - 65.0) / 0.6, 0, 1), a = at(12), b = at(13); p = [lerp(a[0], b[0], ease(u)), lerp(a[1], b[1], ease(u)), lerp(a[2], b[2], ease(u))]; st.hop = Math.sin(u * Math.PI) * 7; st.look = [2, -2]; st.mouth = 'smile'; st.shine = true; st.arm = 1; }
   return { x: p[0], y: p[1], z: p[2], st };
@@ -57,4 +58,10 @@ function pencilNudge(F, t, H) {
 function moonFlare(F, t) {
   if (t < 64.7 || t > 66.6) return; const m = moonScreen(), u = (t - 64.75) / 1.8, a = Math.max(0, Math.sin(clamp(u, 0, 1) * Math.PI)) * 0.55;
   F.save(); F.globalCompositeOperation = 'lighter'; const g = F.createRadialGradient(m.x, m.y, m.r * 0.6, m.x, m.y, m.r * 3.4); g.addColorStop(0, `rgba(255,236,190,${a})`); g.addColorStop(1, 'rgba(255,220,160,0)'); F.fillStyle = g; F.fillRect(0, 0, FW, FH); F.restore();
+}
+
+function signToss(B, t, H) {
+  if (t < 63.7 || t > 64.6) return; const u = (t - 63.7) / 0.9, hd = H.r ? H.r.head : P(H.x, H.y, 16), k = ISO.k / 1.4;
+  const x = hd[0] + 6 * k - u * 70 * k, y = hd[1] - 6 * k - Math.sin(u * Math.PI) * 50 * k + u * u * 120 * k, r = 4 * k;
+  B.circle(x, y, r, COL.paper); B.circle(x - r * 0.3, y - r * 0.3, r * 0.5, COL.planeL); B.put(x + r * 0.3, y + r * 0.2, COL.paperS); B.put(x - r * 0.4, y + r * 0.4, COL.paperD);
 }
