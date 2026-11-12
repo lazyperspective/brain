@@ -27,6 +27,7 @@ const CAMKEYS = [[0, 197, 254, 3.2], [0.45, 197, 252, 3.0], [2.0, 214, 198, 1.0]
 
 // ---------------- hero performance ----------------
 function heroAt(t) {
+  if (t >= 66.6) return heroAt6(t);
   if (t >= 51.8) return heroAt5(t);
   if (t >= 34.2) return heroAt4(t);
   if (t >= 20) return heroAt3(t);
@@ -204,8 +205,8 @@ function caption(F, t, a, b, lines, y = 1150, px = 8, x = FW / 2, lineIn) {
   F.restore();
 }
 function bug(F, t) {
-  F.save(); F.globalAlpha = 0.7; hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
-  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : t < 51.6 ? 'CHAPTER III · THE RULES' : t < 66.4 ? 'CHAPTER IV · ONE PLANK SHORT' : 'EPILOGUE · THE REPORT', a = 1 - CARD_ON;
+  F.save(); F.globalAlpha = 0.7 * (1 - sm(77.8, 78.6, t)); hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
+  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : t < 51.6 ? 'CHAPTER III · THE RULES' : t < 66.4 ? 'CHAPTER IV · ONE PLANK SHORT' : 'EPILOGUE · THE REPORT', a = (1 - CARD_ON) * (1 - sm(77.8, 78.6, t));
   F.save(); F.globalAlpha = 0.55 * a; hiText(F, ch, 44, 70, 3, '#d97757', {}); F.restore();
 }
 function chapterCard(F, t, a, b, num, title) {

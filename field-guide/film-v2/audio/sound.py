@@ -268,7 +268,30 @@ while unwarp(at) < DUR:
     if not (19.8 < at < 29.0 or 35.5 < at < 39.5): add(pad(CH[k % 4], seg + 0.8, 0.9, 0.9), at, 0.045, 0.15 * np.sin(k))
     k += 1; at += seg
 
+# ====================== EPILOGUE (story 66.6–84.8): the report, the check mark, the reveal ======================
+if DUR > 71.4:
+    tt = t_(0.2); add(np.sin(2 * np.pi * np.cumsum(np.linspace(280, 720, len(tt))) / SR) * np.exp(-tt * 14), 66.65, 0.16); add(bell(91, 1.4, 0.6), 67.55, 0.08)
+    d = 1.9; tt = t_(d); add(bp(noise(d), 1500, 6000) * (0.4 + 0.6 * np.abs(np.sin(2 * np.pi * 9 * tt))) * np.sin(np.pi * tt / d), 67.8, 0.09, -0.2)   # the scroll unrolls
+    at = 68.0                                                                                                  # jargon mumbling, faster and faster
+    while at < 72.3:
+        d = 0.06 + 0.05 * rng.random(); f0 = 260 + 220 * rng.random(); tt = t_(d); f = np.linspace(f0, f0 * (0.8 + 0.4 * rng.random()), len(tt))
+        add(lp(np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR)) * 0.4 + np.sin(2 * np.pi * np.cumsum(f) / SR), 1600) * np.sin(np.pi * tt / d), at, 0.07 if at < 69.8 else 0.045, rng.uniform(-0.4, 0.4))
+        at += d + 0.015 + 0.03 * max(0, 70 - at) / 2
+    add(bell(84, 1.2, 0.5), 72.0, 0.07)                                                                        # tip card
+    add(whoosh(0.9, 2400, 500), 72.45, 0.12, -0.2); add(bp(noise(0.9), 2000, 7000) * np.sin(np.pi * t_(0.9) / 0.9), 72.45, 0.06)   # zip back up
+    tt = t_(0.2); add(np.sin(2 * np.pi * np.cumsum(np.linspace(400, 800, len(tt))) / SR) * np.exp(-tt * 12), 75.42, 0.12)          # the card
+    for a in (76.4, 76.58): add(bp(noise(0.18), 2500, 9000) * np.sin(np.pi * t_(0.18) / 0.18), a, 0.13)                            # check mark
+    add(pad([60, 64, 67, 72, 76], 2.2, 0.15, 1.0), 76.8, 0.14); add(bell(96, 1.4, 0.7), 76.8, 0.1); add(bell(100, 1.4, 0.5), 76.88, 0.07)
+    # the reveal: the opening lullaby returns, warm and wide; a soft lamp hum
+    for at2, m in [(77.9, 77), (78.3, 74), (78.7, 72), (79.1, 69), (79.5, 72), (79.9, 74), (80.3, 77), (80.9, 81), (81.6, 79), (82.3, 77)]: add(musicbox(m, 2.2), at2, 0.2, 0.2)
+    for at2, m in [(77.9, 53), (78.7, 57), (79.5, 60), (80.3, 53), (81.6, 58), (82.3, 53)]: add(musicbox(m, 2.6), at2, 0.12, -0.2)
+    add(pad([41, 53, 60, 65, 69, 72], 7.5, 1.5, 3.0), 77.9, 0.2)
+    d = 7.0; tt = t_(d); add(np.sin(2 * np.pi * 60 * tt) * 0.6 + np.sin(2 * np.pi * 120 * tt) * 0.25, 78.2, 0.02 * 1.0)
+    add(bell(89, 3.0, 0.5), 80.25, 0.07); add(bell(96, 3.0, 0.4), 80.3, 0.05)
+
 mix = np.stack([L, R], 1)
+fade = int(1.6 * SR)
+if DUR > 85 and N > fade: mix[-fade:] = mix[-fade:] * np.linspace(1, 0, fade)[:, None]
 mix = mix / (np.max(np.abs(mix)) + 1e-9) * 0.8
 sf.write(OUT, mix, SR, subtype='PCM_24')
 print('wrote', OUT, mix.shape)
