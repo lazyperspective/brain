@@ -105,6 +105,58 @@ tt = t_(0.25); add(np.sin(2 * np.pi * np.cumsum(np.linspace(900, 1300, len(tt)))
 # the thought cloud puffs into being
 add(lp(noise(0.3), 1200) * np.sin(np.pi * t_(0.3) / 0.3), 9.0, 0.12, 0.2)
 
+# ====================== PART 2 (10–20 s): the storm, the dial, the first plank ======================
+if DUR > 10:
+    # tension: plucked minor figure that speeds up as the thinking runs away
+    at, step, k = 10.5, 0.42, 0
+    fig = [62, 65, 69, 65, 62, 64, 65, 64]
+    while at < 14.3:
+        add(musicbox(fig[k % len(fig)] - 12, 0.6), at, 0.16, -0.3 + 0.6 * (k % 2)); k += 1; at += step; step = max(0.11, step * 0.93)
+    add(pad([38, 45, 50], 4.2, 1.5, 0.6), 10.6, 0.16)
+    # storm rumble (sub + filtered noise), growing, gone when it deflates
+    d = 6.4; tt = t_(d); grow = np.clip((tt - 0.5) / 3.2, 0, 1) ** 1.5 * np.clip((5.9 - tt) / 0.6, 0, 1)
+    rum = (lp(noise(d), 160) * 0.7 + np.sin(2 * np.pi * 46 * tt) * 0.25) * grow; add(rum, 10.4, 0.5)
+    # gears ticking faster and faster
+    at, gap = 11.4, 0.2
+    while at < 16.3:
+        add(bp(noise(0.015), 3000, 8000) * env(int(0.015 * SR), 0.0003, 0.004), at, 0.16, 0.4 * np.sin(at * 7)); at += gap; gap = max(0.055, gap * 0.96)
+    # soft thunder with each lightning flicker
+    for at in (12.7, 13.6, 14.15):
+        d = 1.4; tt = t_(d); add(lp(noise(d), 300) * np.exp(-tt * 2.2) * np.minimum(1, tt / 0.02), at, 0.5, 0.2)
+        add(bp(noise(0.08), 1500, 6000) * env(int(0.08 * SR), 0.0005, 0.02), at, 0.12)
+    # question marks plinking
+    for k, at in enumerate(np.arange(12.4, 16.2, 0.37)): add(bell(88 + (k * 5) % 7, 0.3, 0.3), at, 0.03, np.sin(k))
+    # the hand descends out of the dark; suspense pad underneath
+    add(whoosh(0.9, 180, 700, 1.0), 14.25, 0.25, -0.5); add(pad([41, 48, 53], 2.2, 0.4, 0.8), 14.4, 0.12)
+    tt = t_(0.25); add(np.sin(2 * np.pi * np.cumsum(np.linspace(400, 900, len(tt))) / SR) * np.sin(np.pi * tt / 0.25), 14.6, 0.08)     # dial pops in
+    # three detent clicks: HIGH -> MED
+    for at in (15.55, 15.75, 15.95):
+        add(bp(noise(0.02), 2000, 9000) * env(int(0.02 * SR), 0.0003, 0.006), at, 0.5, -0.5)
+        tt = t_(0.06); add(np.sin(2 * np.pi * 120 * tt) * np.exp(-tt * 70), at, 0.4, -0.5)
+    # the storm deflates like a balloon
+    d = 0.75; tt = t_(d); f = np.linspace(950, 180, len(tt)) * (1 + 0.04 * np.sin(2 * np.pi * 22 * tt))
+    add((np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR)) * 0.3 + np.sin(2 * np.pi * np.cumsum(f) / SR) * 0.7) * np.sin(np.pi * tt / d) * 0.6, 16.3, 0.2, 0.3)
+    add(lp(noise(0.7), 900) * np.sin(np.pi * t_(0.7) / 0.7), 16.35, 0.12, 0.3)
+    # the moon comes back: warm major chord, sparkle; the idea: lightbulb ding
+    add(pad([53, 60, 65, 69, 72], 3.2, 0.35, 1.2), 16.85, 0.17)
+    for k, m in enumerate([84, 89, 93, 96, 101]): add(bell(m, 1.2, 0.6), 16.95 + k * 0.05, 0.05, -0.4 + k * 0.2)
+    add(bell(93, 1.4, 1.0), 17.15, 0.2, 0.3); add(bell(105, 0.8, 0.4), 17.17, 0.07, 0.3)
+    tt = t_(0.06); add(lp(noise(0.06), 3000) * np.exp(-tt * 60), 17.47, 0.25, 0.3)                                                    # the idea puff pops
+    # bright, faster music-box: it knows what to do
+    for k, (at, m) in enumerate([(17.3, 72), (17.5, 76), (17.7, 79), (17.9, 84), (18.2, 81), (18.4, 79), (18.6, 76), (18.8, 79), (19.0, 81), (19.25, 84)]): add(musicbox(m, 1.0), at, 0.15, 0.25 - 0.05 * k)
+    add(pad([60, 64, 67, 72], 2.8, 0.4, 0.8), 17.4, 0.08)
+    # idea hop, plank pick-up, three hops carrying it
+    tt = t_(0.18); add(np.sin(2 * np.pi * np.cumsum(np.linspace(300, 640, len(tt))) / SR) * np.exp(-tt * 16), 17.3, 0.18)
+    add(knock(), 17.62, 0.3, -0.2)
+    for at in (18.0, 18.33, 18.66):
+        tt = t_(0.16); add(np.sin(2 * np.pi * np.cumsum(np.linspace(240, 480, len(tt))) / SR) * np.exp(-tt * 18), at, 0.14, 0.2)
+        add(lp(noise(0.06), 700) * env(int(0.06 * SR), 0.001, 0.025), at + 0.3, 0.2, 0.2)
+    # PLANK ONE: a satisfying wooden thunk and a small reward chime
+    tt = t_(0.3); add((np.sin(2 * np.pi * 150 * tt) + 0.6 * np.sin(2 * np.pi * 330 * tt) + 0.3 * np.sin(2 * np.pi * 610 * tt)) * np.exp(-tt * 22) + bp(noise(0.3), 400, 2500) * np.exp(-tt * 35) * 0.6, 19.22, 0.5, 0.35)
+    for k, m in enumerate([79, 84, 88]): add(bell(m, 1.4, 0.6), 19.3 + k * 0.08, 0.09, 0.3)
+    # chapter II card
+    add(whoosh(0.5, 300, 1200), 19.4, 0.07); add(bell(72, 2.2, 0.4), 19.5, 0.08)
+
 mix = np.stack([L, R], 1)
 mix = mix / (np.max(np.abs(mix)) + 1e-9) * 0.8
 sf.write(OUT, mix, SR, subtype='PCM_24')

@@ -97,6 +97,7 @@ function box(B, x0, y0, z0, sx, sy, sz, ct, cl, cr, dith = 0) {
 const GLY = {
   z: ['####', '..#.', '.#..', '####'],
   '!': ['#', '#', '#', '.', '#'],
+  '?': ['###', '..#', '.#.', '...', '.#.'],
 };
 function glyph(B, g, x, y, col, s = 1) { const rows = GLY[g]; for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) if (rows[j][i] === '#') B.rect(x + i * s, y + j * s, s, s, col); }
 

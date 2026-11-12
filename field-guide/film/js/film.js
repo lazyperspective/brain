@@ -25,6 +25,7 @@ const CAMKEYS = [[0, 197, 254, 3.2], [0.45, 197, 252, 3.0], [2.0, 214, 198, 1.0]
 
 // ---------------- hero performance ----------------
 function heroAt(t) {
+  if (t >= 10) return heroAt2(t);
   const st = { eyes: 'open', look: [0, 0], mouth: '', arm: 0, hop: 0, squash: 0, walk: null, breathe: 0, blink: 0 };
   let x = 52;
   if (t < 2.6) { st.eyes = 'closed'; st.breathe = Math.sin(t * 2 * Math.PI / 1.6) > 0.3 ? 1 : 0; st.squash = 0.04 * Math.sin(t * 2 * Math.PI / 1.6); }
@@ -81,7 +82,8 @@ function drawWorld(B, t) {
     [50, () => mushW(B, [[26, 24, 0, 2], [30, 30, 0, 1], [20, 34, 0, 1]], COL)],
     [90, () => drawMailbox(B, 22, 68, 0, COL, t - 1.15)],
     [98, () => lanternW(B, 72, 26, 0, COL, t)],
-    [112, () => planksW(B, 50, 62, 0, COL, t > 7.85 && t < 8.85 ? 2 : 3)],
+    [112, () => planksW(B, 50, 62, 0, COL, t > 17.7 || (t > 7.85 && t < 8.85) ? 2 : 3)],
+    [31, () => placedPlank(B, t)],
     [140, () => { for (const [x, y] of [[94, 50], [94, 57], [94, 64]]) box(B, x, y, 0, 2, 2, 8, COL.postL, COL.post, COL.postD); const a = P(95, 51, 6), b = P(95, 65, 6); B.line(a[0], a[1], b[0], b[1], COL.postL); }],
     [H.x + H.y, () => { H.r = heroW(B, H.x, H.y, 0, H.st, HERO, COL.shadow); }],
   ];
@@ -91,6 +93,7 @@ function drawWorld(B, t) {
   blanketW(B, t, H); dustPuff(B, t, 2.98, P(H.x, H.y, 0)); dustPuff(B, t, 3.88, P(H.x, H.y, 0), 7); dustPuff(B, t, 4.18, P(H.x, H.y, 0), 7);
   const tc = P(16, 20, 26); fallingLeaf(B, t, tc); fireflyW(B, t, 6, tc[0] + 6, tc[1] + 6, 34, 1);
   const lp = P(73, 27, 23); mothsW(B, t, lp);
+  carriedPlank(B, t, H); stormW(B, t, H); dialW(B, t);
   // plane / note
   const pl = planeAt(t), ps = S(pl.ref);
   if (pl.mode !== 'note') {
@@ -122,7 +125,7 @@ function drawWorld(B, t) {
     if (up > 0.95 && t > 8.15 && t < 8.6) { const tip = T(L / 2, 0); B.put(tip[0] + 3, tip[1] - 3, COL.planeL); B.put(tip[0] + 4, tip[1] - 4, COL.planeL); B.put(tip[0] + 2, tip[1] - 4, COL.zz); B.put(tip[0] + 4, tip[1] - 2, COL.zz); }
   }
   // the first thought starts to form (it becomes a storm in chapter I)
-  if (t > 8.9) { const g = sm(8.9, 10.0, t), x = hd[0] + 10 * fk, y = hd[1] - (22 + g * 6) * fk, w = (18 + g * 22) * fk;
+  if (t > 8.9 && t < 10) { const g = sm(8.9, 10.0, t), x = hd[0] + 10 * fk, y = hd[1] - (22 + g * 6) * fk, w = (18 + g * 22) * fk;
     B.circle(hd[0] + 5 * fk, hd[1] - 7 * fk, 1.5 * fk, COL.cloudL); if (g > 0.15) B.circle(hd[0] + 8 * fk, hd[1] - 13 * fk, 2.5 * fk, COL.cloudL);
     if (g > 0.3) { pixCloud(B, x + w * 0.3, y, w, { light: COL.cloudL, mid: COL.cloud, dark: COL.cloudD }, 7); const dots = Math.floor((t - 9.2) / 0.22) % 4, G = Math.max(2, Math.round(fk * 1.4)); for (let q = 0; q < dots; q++) B.rect(Math.round(x + w * 0.3 - 3 * G + q * 2.5 * G), Math.round(y - G), G, G, COL.ink); } }
   return H;
@@ -173,7 +176,7 @@ function caption(F, t, a, b, lines, y = 1150, px = 6, x = FW / 2) {
 }
 function bug(F, t) {
   F.save(); F.globalAlpha = 0.7; hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
-  const ch = t < 9.3 ? 'PROLOGUE' : 'CHAPTER I · THE REQUEST', a = t < 9.3 ? fadeIO(t, 0.2, 9.3, 0.3) : sm(9.3, 9.6, t);
+  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : 'CHAPTER II · THE WORK', a = t < 9.3 ? fadeIO(t, 0.2, 9.3, 0.3) : t < 19.5 ? fadeIO(t, 9.3, 19.5, 0.3) : sm(19.5, 19.8, t);
   F.save(); F.globalAlpha = 0.55 * a; hiText(F, ch, 44, 70, 3, '#d97757', {}); F.restore();
 }
 function chapterCard(F, t, a, b, num, title, cx = FW / 2, cy = 1110) {

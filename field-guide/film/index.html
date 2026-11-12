@@ -1,18 +1,23 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Fable 5.2 — A Field Guide</title>
 <style>html,body{margin:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center}canvas{height:96vh}</style></head>
 <body><canvas id="c" width="1080" height="1350"></canvas>
-<script src="js/core.js"></script><script src="js/helpers.js"></script><script src="js/font.js"></script><script src="js/world.js"></script><script src="js/film.js"></script><script src="js/detail.js"></script>
+<script src="js/core.js"></script><script src="js/helpers.js"></script><script src="js/font.js"></script><script src="js/world.js"></script><script src="js/film.js"></script><script src="js/detail.js"></script><script src="js/part2.js"></script>
 <script>
 const q=new URLSearchParams(location.search), F=document.getElementById('c').getContext('2d'), low=document.createElement('canvas'); low.width=LW; low.height=LH;
 function renderAt(t){
-  const k=keyed(CAMKEYS,t); const sh=t>2.6&&t<2.95?Math.sin((t-2.6)*90)*1.6*(1-(t-2.6)/0.35):0; CAM.cx=k[0]+Math.sin(t*0.7)*0.8+sh; CAM.cy=k[1]+Math.sin(t*0.53+1)*0.6+sh*0.4; CAM.z=k[2]; REF.oy=196+Math.sin(t*2*Math.PI/4.2)*1.6; applyCam();
+  const k=keyed(t<10?CAMKEYS:CAMKEYS2,t); const sh=t>2.6&&t<2.95?Math.sin((t-2.6)*90)*1.6*(1-(t-2.6)/0.35):0; CAM.cx=k[0]+Math.sin(t*0.7)*0.8+sh; CAM.cy=k[1]+Math.sin(t*0.53+1)*0.6+sh*0.4; CAM.z=k[2]; REF.oy=196+Math.sin(t*2*Math.PI/4.2)*1.6; applyCam();
   const B=new PBuf(PAL,22); const H=drawWorld(B,t); low.getContext('2d').clearRect(0,0,LW,LH); B.toCanvas(low);
   F.setTransform(1,0,0,1,0,0); F.filter='none'; F.globalAlpha=1; F.globalCompositeOperation='source-over';
-  drawSky(F,t); handerHand(F,t); pixelUp(F,low); shadowSweep(F,t); drawGrade(F,t); foreground(F,t);
+  drawSky(F,t); handerHand(F,t); pixelUp(F,low); stormDark(F,t); shadowSweep(F,t); drawGrade(F,t); foreground(F,t); handTurn(F,t); dialLabels(F,t);
   caption(F,t,0.75,2.45,['FABLE 5.2.','NATURAL HABITAT:','ONE SMALL ISLAND.']);
   caption(F,t,6.85,7.95,['IT HAS BEEN GIVEN','A JOB.'],300,6,330);
   caption(F,t,8.05,9.3,['IT HAS','THREE PLANKS.'],300,6,330);
   chapterCard(F,t,9.35,11.6,'CHAPTER I','THE REQUEST',330,280);
+  caption(F,t,11.9,13.25,['AT HIGH EFFORT,','IT THINKS.'],1130);
+  caption(F,t,13.35,14.55,['...AND THINKS.'],1150);
+  tipCard(F,t,15.15,17.7,['FOR SIMPLE STEPS,','LOWER THE EFFORT.']);
+  caption(F,t,18.2,19.4,['PLANK ONE.'],300,6,330);
+  chapterCard(F,t,19.5,21.6,'CHAPTER II','THE WORK',330,280);
   noteCard(F,t,H); bug(F,t); grain(F,6,Math.floor(t*30)%7+1);
 }
 window.__piece={renderAt};
