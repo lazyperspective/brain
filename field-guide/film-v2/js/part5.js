@@ -52,7 +52,7 @@ function signHi(F, t, H) {
 function pencilNudge(F, t, H) {
   if (t < 60.4 || t > 62.0) return; const hs = heroScreen(H), inn = ease(clamp((t - 60.4) / 0.4, 0, 1)), out = ease(clamp((t - 61.6) / 0.4, 0, 1));
   const tap = [60.95, 61.35].reduce((m, a) => Math.max(m, Math.max(0, 1 - Math.abs(t - a - 0.05) / 0.12)), 0);
-  drawPencil(F, hs.x - 10 + (1 - inn) * 400 + out * 400, hs.y - 30 - (1 - tap) * 60 - (1 - inn) * 500 - out * 500, 2.0, 0.7, { eraser: true });
+  drawPencil(F, hs.x - 10 - (1 - inn) * 400 - out * 400, hs.y - 30 - (1 - tap) * 60 - (1 - inn) * 500 - out * 500, -2.1, 0.7, { eraser: true });
 }
 function moonFlare(F, t) {
   if (t < 64.7 || t > 66.6) return; const m = moonScreen(), u = (t - 64.75) / 1.8, a = Math.max(0, Math.sin(clamp(u, 0, 1) * Math.PI)) * 0.55;
