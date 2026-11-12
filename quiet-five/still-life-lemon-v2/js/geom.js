@@ -7,8 +7,8 @@
 // The geometry only informs the drawing (forms, value zones, cast shadows);
 // everything visible is made of brush strokes.
 // ---------------------------------------------------------------------------
-const K = 64, EL = 20 * Math.PI / 180, CE = Math.cos(EL), SE = Math.sin(EL);
-const OX = 1120, OY = 1900;
+const K = 77, EL = 20 * Math.PI / 180, CE = Math.cos(EL), SE = Math.sin(EL);
+const OX = 1150, OY = 1700;
 function proj(X, Y, Z) { return [OX + K * X, OY + K * (Z * SE - Y * CE)]; }
 function v3n(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
 function dot3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
@@ -24,12 +24,12 @@ function onPlaneZ(sx, sy, z) { const X = (sx - OX) / K, q = (sy - OY) / K; retur
 
 // ---------------------------------------------------------------- roemer
 // drawn in screen space (its ellipses follow a gentle perspective of their own)
-const G = { x: 676, base: 1706, footTop: 1622, stemTop: 1328, rim: 920, wine: 1096, yc: 1092, Rb: 198, Rv: 246 };
+const G = { x: 566, base: 1508, footTop: 1414, stemTop: 1085, rim: 628, wine: 825, yc: 821, Rb: 222, Rv: 276 };
 function gR(y) {
-  if (y >= G.footTop) { const t = clamp((y - G.footTop) / (G.base - G.footTop), 0, 1); return 92 + 64 * Math.pow(t, 1.6); }
-  if (y >= G.stemTop) return 86 + 5 * (y - G.stemTop) / (G.footTop - G.stemTop);
+  if (y >= G.footTop) { const t = clamp((y - G.footTop) / (G.base - G.footTop), 0, 1); return 103 + 72 * Math.pow(t, 1.6); }
+  if (y >= G.stemTop) return 96 + 6 * (y - G.stemTop) / (G.footTop - G.stemTop);
   const dy = (y - G.yc) / G.Rv;
-  return Math.max(90, G.Rb * Math.sqrt(Math.max(0, 1 - dy * dy)));
+  return Math.max(101, G.Rb * Math.sqrt(Math.max(0, 1 - dy * dy)));
 }
 function gEr(y) { return 0.16 + 0.11 * clamp((y - G.rim) / (G.base - G.rim), 0, 1); }
 // half width of the silhouette at screen row y (-1 outside)
@@ -165,7 +165,7 @@ function lemonHit(sx, sy) {
 }
 
 // ---------------------------------------------------------------- knife (lying on the table, handle over the edge)
-const KN = { tip: [6.2, -0.24, -3.6], bol: [10.6, -0.18, 3.0], end: [13.3, -0.1, 9.6], hr: 0.52, bw: 1.15 };
+const KN = { tip: [6.0, -0.24, -3.8], bol: [9.6, -0.18, 3.4], end: [11.4, -0.1, 9.8], hr: 0.52, bw: 1.1 };
 (function () {
   const d = v3n([KN.bol[0] - KN.tip[0], 0, KN.bol[2] - KN.tip[2]]);
   KN.dir = d;

@@ -58,7 +58,7 @@
   /* ---------------------------------------------------------------- captions
      obs: top (documentary observation); tip: bottom HANDLER'S TIP card. {thumb} is drawn as an icon. */
   TL.CAPS = [
-    { kind: 'obs', n: 1, t0: f(0.72), t1: f(3.05), text: 'It thinks before almost every reply.\nEven ‘hi’.' },
+    { kind: 'obs', n: 1, t0: f(0.72), t1: f(3.05), text: 'It thinks before almost\nevery reply. Even ‘hi’.' },
     { kind: 'obs', n: 2, t0: f(3.3), t1: f(5.25), text: 'Telling it not to think\ndoesn’t work.' },
     { kind: 'tip', n: 2, t0: f(4.85), t1: f(6.55), text: 'Lower the effort instead.' },
     { kind: 'obs', n: 3, t0: f(7.15), t1: f(9.4), text: 'Sometimes it stops\none plank short.' },

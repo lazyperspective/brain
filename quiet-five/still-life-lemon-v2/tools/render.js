@@ -51,7 +51,7 @@ function lumaRegion(buf, w, x0, y0, rw, rh, ch = 4) {
     savePng(still, 2160, 2700, path.join(OUT, 'still-4k.png'));
     execFileSync('python3', ['-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], "JPEG", quality=94, subsampling=0, optimize=True)', path.join(OUT, 'still-4k.png'), path.join(OUT, 'still-x.jpg')]);
     console.log('still', ((Date.now() - ts) / 1000).toFixed(1), 's');
-    const crops = { 'focal-lemon': [880, 1420, 900, 760], 'darkest-apron': [1200, 2180, 900, 520], 'busiest-roemer-prunts': [430, 1250, 600, 600], 'corner-top-left': [0, 0, 800, 800] };
+    const crops = { 'focal-lemon': [860, 1120, 900, 760], 'darkest-apron': [1200, 2180, 900, 520], 'busiest-roemer-prunts': [270, 1040, 600, 600], 'corner-top-left': [0, 0, 800, 800] };
     for (const [name, [x, y, w, h]] of Object.entries(crops)) ff(['-i', path.join(OUT, 'still-4k.png'), '-vf', `crop=${w}:${h}:${x}:${y}`, path.join(OUT, 'crops', name + '.png')]);
     if (SNAP) ff(['-i', path.join(OUT, 'still-4k.png'), '-vf', 'scale=1080:1350:flags=lanczos', path.join(OUT, 'snapshots', SNAP + '.png')]);
     log.push(`still: t=${STILL_T}s rendered natively at 2160x2700`);
@@ -63,9 +63,9 @@ function lumaRegion(buf, w, x0, y0, rw, rh, ch = 4) {
     for (let k = 0; k < 8; k++) frames.push(await grab(tA + k * 4 / FPS, 0.5));
     for (let k = 0; k < 8; k++) savePng(frames[k], 1080, 1350, path.join(work, `s${k}.png`));
     const inp = []; for (let k = 0; k < 8; k++) inp.push('-i', path.join(work, `s${k}.png`));
-    const fcB = Array.from({ length: 8 }, (_, k) => `[${k}]crop=150:220:330:490,scale=300:440:flags=neighbor[b${k}]`).join(';') + ';' + Array.from({ length: 8 }, (_, k) => `[b${k}]`).join('') + 'hstack=inputs=8[o]';
+    const fcB = Array.from({ length: 8 }, (_, k) => `[${k}]crop=150:220:300:380,scale=300:440:flags=neighbor[b${k}]`).join(';') + ';' + Array.from({ length: 8 }, (_, k) => `[b${k}]`).join('') + 'hstack=inputs=8[o]';
     ff([...inp, '-filter_complex', fcB, '-map', '[o]', path.join(work, 'strip-bubble.png')]);
-    const fcP = Array.from({ length: 8 }, (_, k) => `[${k}]crop=240:380:340:960[p${k}]`).join(';') + ';' + Array.from({ length: 8 }, (_, k) => `[p${k}]`).join('') + 'hstack=inputs=8[o]';
+    const fcP = Array.from({ length: 8 }, (_, k) => `[${k}]crop=240:380:300:930[p${k}]`).join(';') + ';' + Array.from({ length: 8 }, (_, k) => `[p${k}]`).join('') + 'hstack=inputs=8[o]';
     ff([...inp, '-filter_complex', fcP, '-map', '[o]', path.join(work, 'strip-peel.png')]);
     // peel over the whole loop (every 1.25 s)
     const fr2 = [];

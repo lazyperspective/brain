@@ -38,11 +38,11 @@ function shadowLook(x, y) {
 
 // ---------------------------------------------------------------- colour fields
 function wallCol(x, y) {
-  const gx = (x - 930) / 1150, gy = (y - 1150) / 900;
-  const gl = Math.exp(-(gx * gx + gy * gy) * 1.15);
-  let c = grad([[0, C(31, 28, 22)], [0.25, C(46, 42, 33)], [0.5, C(66, 60, 47)], [0.75, C(90, 83, 65)], [1, C(113, 105, 83)]], gl);
+  const gx = (x - 860) / 1000, gy = (y - 900) / 820;
+  const gl = Math.exp(-(gx * gx + gy * gy) * 1.2);
+  let c = grad([[0, C(20, 18, 14)], [0.3, C(34, 31, 25)], [0.55, C(55, 51, 40)], [0.8, C(82, 76, 58)], [1, C(106, 98, 76)]], gl);
   const ur = sm(-0.2, 1.0, (x / PW) * 0.95 - (y / PH) * 1.1 + 0.25);
-  c = mix(c, C(23, 21, 17), ur * 0.45);
+  c = mix(c, C(17, 15, 12), ur * 0.55);
   const n = fbm(x / 380 + 1.3, y / 380 + 4.1, 4);
   c = scl(c, 0.9 + 0.2 * n);
   const t = fbm(x / 900 + 5, y / 700 + 3, 3);
@@ -52,9 +52,13 @@ function wallCol(x, y) {
 }
 function tableCol(x, y) {
   const d = clamp((y - Y_BACK) / (Y_EDGE - Y_BACK), 0, 1);
-  let c = grad([[0, C(58, 42, 28)], [0.12, C(52, 37, 25)], [0.55, C(43, 30, 20)], [1, C(36, 25, 16)]], d);
-  const pool = Math.exp(-Math.pow((x - 820) / 760, 2) - Math.pow((y - (OY - 160)) / 330, 2));
-  c = scl(c, (1.04 + 0.16 * (1 - x / PW) - 0.08) * (0.72 + 0.28 * Math.exp(-Math.pow((x - 1000) / 950, 2))) * (1 + 0.55 * pool));
+  let c = grad([[0, C(46, 33, 22)], [0.15, C(42, 30, 20)], [0.55, C(35, 24, 15)], [1, C(28, 19, 12)]], d);
+  // boards: a little wood colour variation, redder and more olive planks
+  const pk = fbm(x / 520 + 3, y / 46 + 1, 3);
+  c = mix(c, mulc(c, [1.1, 0.94, 0.82]), sm(0.5, 0.7, pk) * 0.6);
+  c = mix(c, mulc(c, [0.94, 1.0, 0.9]), sm(0.45, 0.3, pk) * 0.5);
+  const pool = Math.exp(-Math.pow((x - 760) / 760, 2) - Math.pow((y - (OY - 140)) / 320, 2));
+  c = scl(c, (1.04 + 0.16 * (1 - x / PW) - 0.08) * (0.72 + 0.28 * Math.exp(-Math.pow((x - 1000) / 950, 2))) * (1 + 1.45 * pool));
   const sh = Math.exp(-Math.pow((x - 430) / 460, 2) - Math.pow((y - (Y_BACK + 70)) / 75, 2));
   c = mix(c, C(98, 78, 54), sh * 0.38);
   const g = fbm(x / 900 + 2 * fbm(x / 300, y / 40, 2), y / 6, 3);
@@ -67,7 +71,7 @@ function tableCol(x, y) {
 }
 function apronCol(x, y) {
   const d = clamp((y - Y_EDGE) / (PH - Y_EDGE), 0, 1);
-  let c = grad([[0, C(40, 27, 17)], [0.3, C(30, 20, 13)], [1, C(19, 13, 9)]], d);
+  let c = grad([[0, C(30, 20, 13)], [0.3, C(20, 14, 9)], [1, C(12, 9, 6)]], d);
   c = scl(c, 0.75 + 0.25 * Math.exp(-Math.pow((x - 1000) / 900, 2)));
   const sv = shadowLook(x, y);
   c = mix(mulc(c, [0.5, 0.48, 0.5]), c, sv[0] * (1 - sv[1]));
@@ -88,12 +92,12 @@ function plateCol(x, y) {
     const back = sm(0.45, -0.95, fz);
     c = grad([[0, C(62, 63, 59)], [0.35, C(96, 97, 91)], [0.7, C(140, 141, 132)], [1, C(158, 159, 148)]], back);
     let da = Math.atan2(fz, fx) + 2.2; da = Math.atan2(Math.sin(da), Math.cos(da));
-    c = mix(c, C(190, 190, 176), Math.exp(-Math.pow(da / 0.5, 2)) * 0.6);
+    c = mix(c, C(206, 206, 192), Math.exp(-Math.pow(da / 0.7, 2)) * 0.8);
     c = scl(c, 1 + 0.14 * (-fx));
     const rr = (h.r - PL.rRim) / (plRout(h.phi) - PL.rRim);
     c = scl(c, 1 + 0.12 * Math.exp(-Math.pow(rr / 0.1, 2)) * sm(0.6, -0.4, fz) + 0.12 * sm(0.7, 1, rr) * sm(0, 0.8, fz));
   } else if (h.zone === 'lip') {
-    c = mix(C(60, 60, 56), C(34, 34, 32), sm(0, 0.8, h.t));
+    c = mix(C(84, 84, 78), C(58, 57, 52), sm(0, 0.8, h.t));
     c = mix(c, C(84, 82, 74), sm(0.8, 1, h.t) * 0.6);
     c = scl(c, 1 + 0.15 * (-fx));
   } else if (h.zone === 'cone') {
@@ -105,7 +109,7 @@ function plateCol(x, y) {
     const back = sm(0.5, -0.9, h.Z / PL.rIn);
     c = mix(C(72, 73, 68), C(108, 109, 101), back);
     c = scl(c, 1 + 0.14 * (-h.X / PL.rIn));
-    c = mix(c, C(138, 138, 127), Math.exp(-Math.pow((h.X + 2.6) / 2.8, 2) - Math.pow((h.Z - 1.0) / 2.4, 2)) * 0.55);
+    c = mix(c, C(156, 156, 144), Math.exp(-Math.pow((h.X + 2.8) / 3.0, 2) - Math.pow((h.Z - 0.6) / 2.6, 2)) * 0.7);
     // the lemon's blurred, warm reflection in the dull metal (cached on a 6px grid)
     const ck = Math.floor(x / 6) * 10000 + Math.floor(y / 6);
     let rf = RFC.get(ck);
@@ -120,14 +124,16 @@ function plateCol(x, y) {
       }
     }
     rf /= 5; RFC.set(ck, rf); }
-    c = mix(c, C(138, 116, 46), rf * 0.6);
+    c = mix(c, C(156, 126, 44), Math.min(1, rf * 0.95));
   }
   // tarnish: soft darker clouds and a warm patina
   const tn = fbm(x / 90 + 2, y / 40 + 5, 4); c = scl(c, 1 - 0.12 * sm(0.55, 0.75, tn));
   const n = fbm(x / 140 + 7, y / 60 + 3, 4); c = scl(c, 0.92 + 0.16 * n);
   const p = fbm(x / 60 + 1, y / 26 + 9, 3); c = mix(c, mulc(c, [1.05, 0.98, 0.84]), sm(0.6, 0.8, p) * 0.5);
   const sv = shadowLook(x, y);
-  c = mix(mulc(c, [0.44, 0.44, 0.45]), c, sv[0]);
+  // away from the light the metal goes cooler
+  c = mix(c, mulc(c, [0.88, 0.94, 1.06]), sm(-0.1, 0.9, fx) * 0.55);
+  c = mix(mulc(c, [0.38, 0.41, 0.46]), c, sv[0]);
   return c;
 }
 
@@ -232,7 +238,7 @@ function paintScene(stage) {
   reseed(101);
   // ===== WALL: broad lay-in, blended body, dry scumbles in the light; thin in the darks
   const wallDir = (x, y) => { const h = hash2(Math.floor(x / 9), Math.floor(y / 9)); return (h < 0.55 ? -0.9 : h < 0.8 ? -1.4 : -0.35) + (vn(x / 500, y / 500) - 0.5) * 0.6 + gauss() * 0.12; };
-  const glowAt = (x, y) => { const gx = (x - 930) / 1150, gy = (y - 1150) / 900; return Math.exp(-(gx * gx + gy * gy) * 1.15); };
+  const glowAt = (x, y) => { const gx = (x - 860) / 1000, gy = (y - 900) / 820; return Math.exp(-(gx * gx + gy * gy) * 1.2); };
   const wallBox = [-120, -120, PW + 120, Y_BACK + 40];
   paintField(520, wallBox, wallCol, wallDir, { straight: true, curl: 0.6, len: [300, 700], w: [120, 220], cj: 0.015,
     s: { alpha: 0.8, thick: 0.05, dry: 0.35, bk: 0.35, wk: 0.6, soft: 0.7, rag: 0.5, flat: 0.5, mixv: 0.8, lf: 0.006, lj: 0.05, bs: 2.8 } });
@@ -263,11 +269,17 @@ function paintScene(stage) {
   });
   const tdir = (x, y) => (vn(x / 500, y / 60) - 0.5) * 0.06;
   const persp = (x, y) => 0.55 + 0.45 * clamp((y - Y_BACK) / (Y_EDGE - Y_BACK), 0, 1);
-  paintField(900, [-60, Y_BACK - 6, PW + 60, Y_EDGE + 6], tableCol, tdir, { straight: true, curl: 0.12, len: [200, 520], w: [22, 44], cj: 0.012, wscale: persp,
-    s: { alpha: 0.95, thick: 0.1, dry: 0.3, bk: 0.45, wk: 0.5, soft: 0.4, rag: 0.35, flat: 0.7, mixv: 0.8, lj: 0.08, m: mTable } });
-  blendPass([0, Y_BACK - 4, PW, Y_EDGE + 4], 5, 0.4, mTable);
-  paintField(2000, [-40, Y_BACK - 4, PW + 40, Y_EDGE + 4], tableCol, tdir, { straight: true, curl: 0.1, len: [90, 300], w: [8, 22], cj: 0.012, wscale: persp,
-    s: { alpha: 0.55, thick: 0.14, dry: 0.55, bk: 0.6, wk: 0.45, soft: 0.4, rag: 0.4, flat: 0.7, mixv: 0.8, lj: 0.1, m: mTable } });
+  mTable.box = [-10, Y_BACK - 10, PW + 10, Y_EDGE + 14];
+  fillMask(mTable, tableCol, 1, 0.05);
+  const tpool = (x, y) => Math.exp(-Math.pow((x - 760) / 760, 2) - Math.pow((y - (OY - 140)) / 320, 2));
+  paintField(420, [-60, Y_BACK - 6, PW + 60, Y_EDGE + 6], tableCol, tdir, { straight: true, curl: 0.2, len: [160, 380], w: [44, 90], cj: 0.012, wscale: persp,
+    s: { alpha: 0.85, thick: 0.1, dry: 0.25, bk: 0.3, wk: 0.5, soft: 0.55, rag: 0.4, flat: 0.7, mixv: 0.8, lj: 0.06, lf: 0.02, m: mTable } });
+  blendPass([0, Y_BACK - 4, PW, Y_EDGE + 4], 7, 0.35, mTable);
+  paintField(900, [-40, Y_BACK - 4, PW + 40, Y_EDGE + 4], tableCol, tdir, { straight: true, curl: 0.25, len: [70, 190], w: [18, 40], cj: 0.016, wscale: persp,
+    s: { alpha: 0.5, thick: 0.16, dry: 0.4, bk: 0.4, wk: 0.45, soft: 0.5, rag: 0.4, flat: 0.7, mixv: 0.8, lj: 0.08, lf: 0.02, m: mTable },
+    sfn: (x, y, so) => { const p = tpool(x, y); so.thick = 0.12 + 0.35 * p; so.alpha = 0.4 + 0.25 * p; } });
+  // glazes: warm red-brown in the light, umber deepening away from it
+  for (let k = 0; k < 10; k++) glaze(rnd(100, 2100), rnd(Y_BACK + 40, Y_EDGE - 30), rnd(150, 380), rnd(40, 110), R() < 0.5 ? C(120, 60, 30) : C(30, 22, 12), 0.12, 1.3, 'mix', mTable, 0.6);
   // the rounded front edge catching the light
   for (let x = -30; x < PW + 30; x += rnd(50, 150)) {
     const len = rnd(80, 260), y = Y_EDGE + 3 + gauss() * 1.2;
@@ -275,17 +287,18 @@ function paintScene(stage) {
     const P = seg(x, y + gauss() * 1.2, x + len, y + gauss() * 1.2, 1.6, 6);
     const sv = shadowLook(x + len / 2, Y_EDGE - 2);
     const lit = sv[0] * (1 - sv[1]);
-    const pool = Math.exp(-Math.pow((x + len / 2 - 900) / 800, 2));
-    const c = mix(C(38, 26, 16), C(96, 68, 42), lit * (0.35 + 0.65 * pool));
+    const pool = Math.exp(-Math.pow((x + len / 2 - 800) / 700, 2));
+    const c = mix(C(30, 20, 12), C(120, 86, 52), lit * (0.2 + 0.8 * pool));
     stroke(P, { w: rnd(4, 8), col: jit(c, 0.03), col2: scl(c, 0.75), alpha: rnd(0.45, 0.75), prof: 'tail', thick: 0.3, dry: 0.6, bk: 0.7, wk: 0.35, soft: 0.45, rag: 0.5 });
   }
   // apron: dark, thin, the weave showing through
   const mApron = makeMask(T, [-10, Y_EDGE + 4, PW + 10, PH + 10], (x, y) => sm(Y_EDGE + 6, Y_EDGE + 9, y));
+  fillMask(mApron, apronCol, 1, 0.03);
   paintField(700, [-60, Y_EDGE + 4, PW + 60, PH + 40], apronCol, tdir, { straight: true, curl: 0.1, len: [200, 520], w: [26, 60], cj: 0.015,
     s: { alpha: 0.85, thick: 0.05, dry: 0.5, bk: 0.6, wk: 0.8, soft: 0.45, rag: 0.4, flat: 0.6, m: mApron } });
   paintField(900, [-40, Y_EDGE + 4, PW + 40, PH + 20], apronCol, tdir, { straight: true, curl: 0.1, len: [100, 300], w: [12, 30], cj: 0.015,
     s: { alpha: 0.6, thick: 0.06, dry: 0.65, bk: 0.7, wk: 0.75, soft: 0.45, rag: 0.45, flat: 0.6, m: mApron } });
-  stroke(seg(-20, Y_EDGE + 10, PW + 20, Y_EDGE + 10, 1, 8), { w: 4, col: C(14, 9, 6), alpha: 0.55, thick: 0.02, dry: 0.4, bk: 0.5, wk: 0.4, soft: 0.5 });
+  blendPass([0, Y_EDGE + 4, PW, PH], 6, 0.5, mApron);
   glaze(1080, PH + 300, 1500, 700, C(10, 7, 5), 0.5, 1.0, 'mix', mApron, 0.9);
   if (stage < 3) return;
 
@@ -335,23 +348,24 @@ function paintGlass(T) {
   const wineCol = (x, y) => {
     const r = gR(y), e = clamp((x - gx) / r, -1, 1);
     const v = clamp((y - G.wine) / (G.stemTop - G.wine), 0, 1);
-    let c = grad([[-1, C(58, 56, 32)], [-0.72, C(86, 80, 44)], [-0.25, C(114, 104, 58)], [0.3, C(146, 130, 72)], [0.7, C(182, 160, 88)], [0.9, C(160, 138, 70)], [1, C(88, 78, 40)]], e);
-    c = mix(c, scl(c, 0.6), sm(0.5, 1, v) * 0.7);
-    const bg = pickB(gx - (x - gx) * 0.6, y - 40, 14);
-    c = mix(c, mulc(bg, [1.4, 1.32, 0.78]), 0.3);
+    let c = grad([[-1, C(60, 58, 38)], [-0.6, C(90, 86, 56)], [0, C(116, 108, 70)], [0.5, C(146, 134, 84)], [0.82, C(170, 152, 92)], [1, C(104, 96, 58)]], e);
+    c = mix(c, scl(c, 0.68), sm(0.55, 1, v) * 0.6);
+    const bg = pickB(gx - (x - gx) * 0.55, y - 40, 14);
+    c = mix(c, mulc(bg, [1.22, 1.18, 0.86]), 0.45);
     return c;
   };
   const menCol = (x, y) => {
     const dy = (y - G.wine) / wry, dx = (x - gx) / wr;
-    let c = mix(C(150, 138, 92), C(112, 100, 62), sm(-1, 1, dy));
+    let c = mix(C(146, 136, 96), C(118, 108, 70), sm(-1, 1, dy));
+    c = mix(c, mulc(pickB(x, y - 60, 12), [1.15, 1.12, 0.9]), 0.35);
     c = scl(c, 1 + 0.12 * (-dx));
     return c;
   };
   const stemCol = (x, y) => {
     const r = gR(y), e = clamp((x - gx) / r, -1, 1);
-    let c = grad([[-1, C(44, 48, 28)], [-0.6, C(70, 70, 40)], [0, C(100, 94, 52)], [0.55, C(134, 120, 62)], [0.85, C(114, 102, 52)], [1, C(56, 54, 30)]], e);
+    let c = grad([[-1, C(50, 54, 40)], [-0.6, C(74, 78, 58)], [0, C(98, 98, 72)], [0.55, C(124, 120, 84)], [0.85, C(110, 106, 76)], [1, C(60, 62, 44)]], e);
     const bg = pickB(gx - (x - gx) * 0.5, y, 10);
-    c = mix(c, mulc(bg, [1.3, 1.28, 0.78]), 0.32);
+    c = mix(c, mulc(bg, [1.18, 1.2, 0.95]), 0.45);
     return c;
   };
   const footCol = (x, y) => {
@@ -372,116 +386,81 @@ function paintGlass(T) {
   blendPass([gx - 260, G.wine - 10, gx + 260, G.stemTop + 6], 5, 0.5, mWine);
   paintField(200, [gx - 40, G.wine, gx + 260, G.stemTop], wineCol, arcDir(0.2), { straight: true, curl: 0.3, len: [20, 60], w: [6, 12], cj: 0.015,
     s: { alpha: 0.4, thick: 0.2, dry: 0.4, bk: 0.45, wk: 0.2, soft: 0.5, rag: 0.4, lj: 0.06, m: mWine } });
+  // visible brushing in the wine, following the bowl, not blended away
+  paintField(160, [gx - 260, G.wine + 10, gx + 260, G.stemTop - 20], (x, y) => scl(wineCol(x, y), rnd(0.95, 1.08)), arcDir(0.22), { straight: true, curl: 0.3, len: [40, 110], w: [14, 26], cj: 0.02,
+    s: { alpha: 0.32, thick: 0.35, dry: 0.5, bk: 0.5, wk: 0.1, soft: 0.5, rag: 0.4, lj: 0.08, m: mWine } });
   // luminous glow where the light comes through on the shadow side
   glaze(gx + 0.58 * gR(G.wine + 110), G.wine + 110, 80, 130, C(255, 214, 120), 0.26, 1.6, 'add', mWine, 0.2);
   // surface of the wine
-  paintField(150, [gx - 260, G.wine - wry - 4, gx + 260, G.wine + wry + 4], menCol, () => gauss() * 0.04, { straight: true, curl: 0.1, len: [40, 110], w: [6, 12], cj: 0.015,
-    s: { alpha: 0.75, thick: 0.15, dry: 0.3, bk: 0.4, wk: 0.2, soft: 0.45, rag: 0.3, m: mMen } });
+  fillMask(mMen, menCol, 1, 0.1);
+  paintField(60, [gx - 260, G.wine - wry - 4, gx + 260, G.wine + wry + 4], menCol, () => gauss() * 0.03, { straight: true, curl: 0.1, len: [60, 140], w: [10, 18], cj: 0.006,
+    s: { alpha: 0.4, thick: 0.12, dry: 0.2, bk: 0.2, wk: 0.1, soft: 0.6, rag: 0.3, lj: 0.03, m: mMen } });
+  blendPass([gx - 260, G.wine - wry - 4, gx + 260, G.wine + wry + 4], 4, 0.5, mMen);
   // stem (hollow, filled with wine)
   fillMask(mStem, stemCol, 1, 0.1);
   paintField(220, [gx - 110, G.stemTop - 6, gx + 110, G.footTop + 6], stemCol, () => Math.PI / 2 + gauss() * 0.05, { straight: true, curl: 0.15, len: [24, 60], w: [8, 16], cj: 0.008,
-    s: { alpha: 0.45, thick: 0.15, dry: 0.3, bk: 0.35, wk: 0.25, soft: 0.6, rag: 0.35, lj: 0.05, m: mStem } });
+    s: { alpha: 0.3, thick: 0.15, dry: 0.25, bk: 0.25, wk: 0.25, soft: 0.65, rag: 0.35, lj: 0.04, m: mStem } });
   blendPass([gx - 110, G.stemTop - 6, gx + 110, G.footTop + 6], 4, 0.5, mStem);
   // foot
   paintField(140, [gx - 170, G.footTop - 6, gx + 170, G.base + 50], footCol, () => gauss() * 0.06, { straight: true, curl: 0.2, len: [30, 80], w: [6, 12], cj: 0.015,
     s: { alpha: 0.7, thick: 0.08, dry: 0.3, bk: 0.4, wk: 0.35, soft: 0.45, rag: 0.4, m: mFoot } });
-  // foot: coiled thread ridges
+  // foot: the coiled thread catches the light in broken touches, nothing drawn round it
   for (let k = 0; k < 5; k++) {
-    const y = G.footTop + 10 + k * 14 + gauss() * 2, rx = gR(y) + 1, ry = rx * gEr(y);
-    const pts = [], ptsL = [];
-    for (let a = 0.04; a <= Math.PI - 0.04; a += 0.06) { pts.push(gx + rx * Math.cos(a), y + ry * Math.sin(a)); ptsL.push(gx + rx * Math.cos(a), y + ry * Math.sin(a) - 3.2); }
+    const y = G.footTop + 12 + k * 16 + gauss() * 2, rx = gR(y) + 1, ry = rx * gEr(y);
+    const pts = [];
+    for (let a = 0.15; a <= Math.PI - 0.15; a += 0.06) pts.push(gx + rx * Math.cos(a), y + ry * Math.sin(a) - 3);
     const segN = pts.length >> 1;
     for (let i0 = 0; i0 < segN - 2;) {
-      const i1 = Math.min(segN - 1, i0 + 3 + (R() * 6 | 0));
-      if (R() < 0.8) stroke(pts.slice(2 * i0, 2 * i1 + 2), { w: rnd(2.6, 4), col: jit(C(46, 48, 30), 0.02), alpha: rnd(0.22, 0.4), prof: 'lens', thick: 0.2, dry: 0.3, bk: 0.4, wk: 0.2, soft: 0.6, m: mFoot });
-      if (R() < 0.6) stroke(ptsL.slice(2 * i0, 2 * i1 + 2), { w: rnd(1.6, 2.6), col: jit(C(150, 152, 122), 0.03), alpha: rnd(0.2, 0.42), prof: 'lens', thick: 0.4, dry: 0.4, bk: 0.5, wk: 0.2, soft: 0.45, m: mFoot });
-      i0 = i1;
+      const i1 = Math.min(segN - 1, i0 + 2 + (R() * 5 | 0));
+      const lit = sm(0.3, 0.9, (pts[2 * i0] - (gx - rx)) / (2 * rx)) < 0.6;  // left side, toward the light
+      if (R() < (lit ? 0.6 : 0.25)) stroke(pts.slice(2 * i0, 2 * i1 + 2), { w: rnd(2.2, 3.4), col: jit(C(176, 178, 150), 0.03), alpha: rnd(0.25, 0.5), prof: 'lens', thick: 0.5, dry: 0.5, bk: 0.6, wk: 0.2, soft: 0.5, m: mFoot });
+      i0 = i1 + 1 + (R() * 3 | 0);
     }
   }
-  // foot base: light where the glass meets the table, a dark contact below
+  // the foot's shadow and contact on the table: a soft mass, not a line
   {
-    const y = G.base, rx = gR(y), ry = rx * gEr(y), pts = [], ptsD = [];
-    for (let a = 0.05; a <= Math.PI - 0.05; a += 0.05) { pts.push(gx + rx * 0.99 * Math.cos(a), y + ry * 0.99 * Math.sin(a) - 2); ptsD.push(gx + rx * Math.cos(a) + 3, y + ry * Math.sin(a) + 4); }
-    stroke(ptsD, { w: 7, col: C(18, 13, 9), alpha: 0.5, prof: 'lens', thick: 0.05, dry: 0.3, bk: 0.4, wk: 0.4, soft: 0.6 });
-    stroke(pts, { w: 3, col: C(160, 158, 120), alpha: 0.45, prof: 'lens', thick: 0.4, dry: 0.5, bk: 0.6, wk: 0.2, soft: 0.45 });
+    const y = G.base, rx = gR(y), ry = rx * gEr(y), ptsD = [];
+    for (let a = 0.1; a <= Math.PI - 0.1; a += 0.05) ptsD.push(gx + rx * 1.02 * Math.cos(a) + 10, y + ry * Math.sin(a) + 6);
+    stroke(ptsD, { w: 22, col: C(24, 17, 11), alpha: 0.32, prof: 'lens', thick: 0.02, dry: 0.3, bk: 0.3, wk: 0.4, soft: 0.95 });
   }
-  // the stem sits in the foot: a thick ring of glass
-  {
-    const y = G.footTop + 2, rx = gR(G.footTop) + 6, ry = rx * gEr(y), P = [], Pl = [];
-    for (let a = -0.05; a <= Math.PI + 0.05; a += 0.05) { P.push(gx + rx * Math.cos(a), y + ry * Math.sin(a)); Pl.push(gx + rx * 0.97 * Math.cos(a), y + ry * Math.sin(a) - 5); }
-    stroke(P, { w: 12, col: C(46, 50, 30), col2: C(70, 72, 42), alpha: 0.8, prof: 'lens', thick: 0.45, dry: 0.25, bk: 0.4, wk: 0.1, soft: 0.45 });
-    stroke(Pl, { w: 2.6, col: C(140, 142, 108), alpha: 0.45, prof: 'lens', thick: 0.5, dry: 0.45, bk: 0.5, wk: 0.1, soft: 0.45 });
+  // where the stem sits in the foot, and the collar under the bowl: thicker glass, a shade deeper
+  for (const [y, rx0] of [[G.footTop + 2, gR(G.footTop) + 6], [G.stemTop + 2, gR(G.stemTop) + 12]]) {
+    const ry = rx0 * gEr(y), P = [];
+    for (let a = 0.1; a <= Math.PI - 0.1; a += 0.05) P.push(gx + rx0 * 0.97 * Math.cos(a), y + ry * Math.sin(a));
+    const cc = scl(stemCol(gx + 10, y + 4), 0.82);
+    stroke(P, { w: 14, col: cc, col2: scl(cc, 1.15), alpha: 0.55, prof: 'lens', thick: 0.45, dry: 0.3, bk: 0.3, wk: 0.1, soft: 0.75 });
   }
-  // collar thread between stem and bowl
-  {
-    const y = G.stemTop + 2, rx = gR(G.stemTop) + 12, ry = rx * gEr(y), P = [], Pl = [];
-    for (let a = -0.05; a <= Math.PI + 0.05; a += 0.05) { P.push(gx + rx * Math.cos(a), y + ry * Math.sin(a)); Pl.push(gx + rx * 0.98 * Math.cos(a), y + ry * Math.sin(a) - 5); }
-    stroke(P, { w: 13, col: C(52, 58, 32), col2: C(80, 82, 44), alpha: 0.85, prof: 'lens', thick: 0.5, dry: 0.2, bk: 0.4, wk: 0.1, soft: 0.35 });
-    stroke(Pl, { w: 3, col: C(156, 156, 112), alpha: 0.55, prof: 'lens', thick: 0.6, dry: 0.4, bk: 0.5, wk: 0.1, soft: 0.4 });
-  }
-  // prunts: raised glass drops, dark shadow side, lit rim, dark core
+  // prunts: pale green drops, irregularly set, mostly transparent
   SCN.prunts = [];
-  const rows = [[G.stemTop + 58, [-64, 0, 64]], [G.stemTop + 138, [-90, -32, 32, 90]], [G.stemTop + 218, [-64, 0, 64]]];
-  for (const [ry0, angs] of rows) for (const ad of angs) {
+  reseed(3131);
+  const rows = [[G.stemTop + 66, [-62, 2, 60]], [G.stemTop + 156, [-88, -30, 34, 86]], [G.stemTop + 248, [-58, 4, 66]]];
+  for (const [ry0, angs] of rows) for (const ad0 of angs) {
+    const ad = ad0 + gauss() * 9;
     const a = ad * Math.PI / 180;
-    const rr = gR(ry0) + 6;
-    const px = gx + rr * Math.sin(a), py = ry0 + gR(ry0) * gEr(ry0) * Math.cos(a);
-    const fs = 0.4 + 0.6 * Math.cos(a);
-    const rx = 33 * fs + 4, ry = 31;
+    const yy = ry0 + gauss() * 8;
+    const rr = gR(yy) + 5;
+    const px = gx + rr * Math.sin(a), py = yy + gR(yy) * gEr(yy) * Math.cos(a);
+    const fs = 0.42 + 0.58 * Math.cos(a), sz = rnd(0.85, 1.15);
+    const rx = (34 * fs + 4) * sz, ry = 32 * sz;
     SCN.prunts.push([px, py, rx, ry, a]);
-    // a soft shadow on the stem, below right
-    stroke(seg(px + rx * 0.3, py + ry * 0.55, px + rx * 0.8, py + ry * 1.0, 0, 3), { w: ry * 1.1, col: C(34, 32, 14), alpha: 0.22, prof: 'lens', thick: 0.02, dry: 0.2, bk: 0.3, wk: 0.3, soft: 0.9 });
-    // body: a drop of green glass; the wine glows through it
-    const under = pick(px, py);
-    const bodyC = mix(mulc(under, [0.68, 0.84, 0.5]), C(66, 82, 38), 0.45);
-    dab(px, py, rx * 0.98, { col: bodyC, col2: scl(bodyC, 1.08), alpha: 0.92, thick: 0.75, dry: 0.05, bk: 0.12, lj: 0.03, wk: 0, soft: 0.3, rag: 0.12, el: (ry / rx - 1) * 0.5 }, Math.PI / 2);
-    const arcP = (r0, a0, a1) => { const P = []; for (let t = a0; t <= a1; t += 0.12) P.push(px + Math.cos(t) * rx * r0, py + Math.sin(t) * ry * r0); return P; };
-    // shadow side, lower right: a soft darker edge
-    stroke(arcP(0.8, -0.2, 2.0), { w: Math.max(3, rx * 0.3), col: C(36, 42, 18), alpha: 0.55, prof: 'lens', thick: 0.3, dry: 0.3, bk: 0.4, wk: 0, soft: 0.85 });
-    // light gathered inside the drop, opposite the source: a soft glow, not a line
-    dab(px + rx * 0.22, py + ry * 0.26, rx * 0.42, { col: C(196, 188, 108), alpha: 0.42, thick: 0.4, dry: 0.3, bk: 0.4, wk: 0, soft: 0.9, el: 0.3 }, 0.6);
-    // lit upper-left of the dome
-    dab(px - rx * 0.28, py - ry * 0.28, rx * 0.4, { col: C(150, 162, 116), alpha: 0.45, thick: 0.6, dry: 0.4, bk: 0.5, wk: 0, soft: 0.85, el: 0.3 }, -0.7);
-    // the little pulled point
-    dab(px - rx * 0.05, py - ry * 0.02, Math.max(1.5, rx * 0.13), { col: C(58, 66, 30), alpha: 0.45, thick: 0.6, dry: 0.2, bk: 0.4, wk: 0, soft: 0.6, el: 0.3 });
+    // the wine and wall behind, pulled a little by the drop
+    const under = pickB(px - (px - gx) * 0.18, py + 5, 4);
+    // shadow side first (lower right), then the lit body over it, offset toward the light
+    dab(px + rx * 0.16, py + ry * 0.16, rx * 0.95, { col: mulc(under, [0.46, 0.52, 0.38]), alpha: 0.62, thick: 0.4, dry: 0.1, bk: 0.12, lj: 0.03, wk: 0, soft: 0.75, rag: 0.1 }, Math.PI / 2);
+    const bodyC = mix(mulc(under, [1.12, 1.18, 1.0]), C(166, 176, 136), 0.22);
+    dab(px - rx * 0.08, py - ry * 0.08, rx * 0.8, { col: bodyC, col2: scl(bodyC, 0.94), alpha: 0.62, thick: 0.7, dry: 0.05, bk: 0.1, lj: 0.03, wk: 0, soft: 0.75, rag: 0.1 }, Math.PI / 2);
+    // light gathered inside the drop, opposite the source
+    dab(px + rx * 0.28, py + ry * 0.3, rx * 0.32, { col: C(214, 206, 140), alpha: 0.28, thick: 0.4, dry: 0.3, bk: 0.3, wk: 0, soft: 0.95, el: 0.3 }, 0.6);
   }
-  // the glass edges: lost into the wall in places, found in others
-  const edge = (sgn, y0, y1, col, w, a, off) => {
-    const P = [];
-    for (let y = y0; y <= y1; y += 6) P.push(gx + sgn * (gR(y) - off), y);
-    const n = P.length >> 1;
-    for (let i0 = 0; i0 < n - 1;) {
-      const i1 = Math.min(n - 1, i0 + 2 + (R() * 7 | 0));
-      const lost = vn(i0 * 0.3 + sgn * 9, 2) < 0.32;
-      if (!lost) stroke(P.slice(2 * i0, 2 * i1 + 2), { w: w * rnd(0.8, 1.2), col: jit(col, 0.02), alpha: a * rnd(0.7, 1), prof: 'lens', thick: 0.25, dry: 0.4, bk: 0.5, wk: 0.15, soft: 0.45 });
-      i0 = i1;
-    }
-  };
-  edge(-1, G.rim, G.stemTop, C(38, 42, 28), 4, 0.6, 1.5);
-  edge(-1, G.rim + 10, G.stemTop, C(126, 128, 104), 2.2, 0.35, 6);
-  edge(1, G.rim, G.wine, C(42, 46, 30), 3.5, 0.5, 1.5);
-  edge(1, G.wine + 20, G.stemTop - 10, C(224, 190, 104), 5, 0.6, 7);
-  edge(1, G.wine, G.stemTop, C(40, 36, 18), 3, 0.55, 1.2);
-  edge(-1, G.stemTop + 8, G.footTop, C(30, 34, 18), 4, 0.6, 1.5);
-  edge(1, G.stemTop + 8, G.footTop, C(30, 34, 18), 3.5, 0.5, 1.5);
-  edge(1, G.stemTop + 12, G.footTop - 8, C(190, 162, 84), 3.5, 0.45, 6);
-  // rim: back arc faint light, front arc = glass thickness
+  // light transmitted through the wine gathers along the shadow side of the bowl: a soft golden mass
+  for (let y = G.wine + 40; y < G.stemTop - 40; y += 34) glaze(gx + 0.78 * gR(y), y, 34, 52, C(255, 214, 120), 0.14, 1.4, 'add', mWine, 0.1);
+  // the far rim: a faint light, broken
   {
     const y = G.rim, rx = gR(y), ry = rx * gEr(y);
-    const back = [], front = [], frontL = [];
-    for (let a = Math.PI + 0.05; a <= 2 * Math.PI - 0.05; a += 0.04) back.push(gx + rx * 0.99 * Math.cos(a), y + ry * Math.sin(a));
-    for (let a = 0.02; a <= Math.PI - 0.02; a += 0.04) { front.push(gx + rx * Math.cos(a), y + ry * Math.sin(a)); frontL.push(gx + rx * 0.985 * Math.cos(a), y + ry * Math.sin(a) + 4); }
-    stroke(back, { w: 2.4, col: C(132, 134, 112), alpha: 0.4, prof: 'lens', thick: 0.3, dry: 0.5, bk: 0.6, wk: 0.2, soft: 0.45 });
-    stroke(front, { w: 5, col: C(52, 58, 38), col2: C(74, 78, 54), alpha: 0.55, prof: 'lens', thick: 0.3, dry: 0.3, bk: 0.5, wk: 0.2, soft: 0.4 });
-    stroke(frontL, { w: 2.4, col: C(140, 142, 118), alpha: 0.35, prof: 'lens', thick: 0.4, dry: 0.5, bk: 0.6, wk: 0.2, soft: 0.45 });
-  }
-  // meniscus: the front arc darker (seen through the glass), the back arc a pale line
-  {
-    const front = [], back = [];
-    for (let a = 0.06; a <= Math.PI - 0.06; a += 0.04) front.push(gx + wr * Math.cos(a), G.wine + wry * Math.sin(a));
-    for (let a = Math.PI + 0.06; a <= 2 * Math.PI - 0.06; a += 0.04) back.push(gx + wr * Math.cos(a), G.wine + wry * Math.sin(a));
-    stroke(front, { w: 3.5, col: C(70, 60, 28), alpha: 0.6, prof: 'lens', thick: 0.2, dry: 0.3, bk: 0.5, wk: 0.2, soft: 0.45 });
-    stroke(back, { w: 3, col: C(186, 172, 118), alpha: 0.5, prof: 'lens', thick: 0.4, dry: 0.4, bk: 0.5, wk: 0.2, soft: 0.45 });
+    const back = [];
+    for (let a = Math.PI + 0.25; a <= 2 * Math.PI - 0.25; a += 0.04) back.push(gx + rx * 0.99 * Math.cos(a), y + ry * Math.sin(a));
+    const n = back.length >> 1;
+    for (let i0 = 0; i0 < n - 2;) { const i1 = Math.min(n - 1, i0 + 4 + (R() * 8 | 0)); if (R() < 0.6) stroke(back.slice(2 * i0, 2 * i1 + 2), { w: 2.6, col: C(150, 152, 128), alpha: 0.35, prof: 'lens', thick: 0.3, dry: 0.5, bk: 0.6, wk: 0.2, soft: 0.5 }); i0 = i1 + 2; }
   }
 }
 
@@ -547,13 +526,19 @@ function paintKnife(T) {
     };
     const hdir = Math.atan2(uy, ux);
     fillMask(mH, boneCol, 1, 0.2);
-    paintField(160, [Math.min(a[0], b[0]) - r1, Math.min(a[1], b[1]) - r1, Math.max(a[0], b[0]) + r1, Math.max(a[1], b[1]) + r1], boneCol, () => hdir + gauss() * 0.03, { straight: true, curl: 0.06, len: [90, 220], w: [8, 16], cj: 0.01, place: (x, y) => maskAt(mH, x, y) > 0.6,
+    paintField(160, [Math.min(a[0], b[0]) - r1, Math.min(a[1], b[1]) - r1, Math.max(a[0], b[0]) + r1, Math.max(a[1], b[1]) + r1], boneCol, () => hdir + gauss() * 0.03, { straight: true, curl: 0.06, len: [90, 220], w: [12, 22], cj: 0.01, place: (x, y) => maskAt(mH, x, y) > 0.6,
       s: { alpha: 0.55, thick: 0.4, dry: 0.15, bk: 0.4, wk: 0.1, soft: 0.5, rag: 0.3, flat: 0.75, lj: 0.06, prof: 'lens', m: mH } });
     blendPass([Math.min(a[0], b[0]) - r1, Math.min(a[1], b[1]) - r1, Math.max(a[0], b[0]) + r1, Math.max(a[1], b[1]) + r1], 3, 0.4, mH);
     // grain and age lines
     for (let k = 0; k < 14; k++) {
       const o = rnd(-0.8, 0.8) * r0, t0 = rnd(0, 0.7), t1 = t0 + rnd(0.1, 0.3);
       stroke(seg(a[0] + ux * l * t0 + nx * o, a[1] + uy * l * t0 + ny * o, a[0] + ux * l * t1 + nx * o, a[1] + uy * l * t1 + ny * o, 1, 5), { w: rnd(1.2, 2.2), col: C(96, 80, 56), alpha: rnd(0.15, 0.3), prof: 'lens', thick: 0.1, dry: 0.5, bk: 0.6, wk: 0.1, soft: 0.5, m: mH });
+    }
+    // a few fuller strokes along the lit top of the bone
+    for (let k = 0; k < 9; k++) {
+      const t0 = rnd(0.02, 0.7), t1 = Math.min(0.97, t0 + rnd(0.12, 0.3)), o = rnd(0.1, 0.6) * r0 * (sgn > 0 ? 1 : -1) * -1;
+      const cc = boneCol(a[0] + ux * l * (t0 + t1) / 2 - nx * o, a[1] + uy * l * (t0 + t1) / 2 - ny * o);
+      stroke(seg(a[0] + ux * l * t0 - nx * o, a[1] + uy * l * t0 - ny * o, a[0] + ux * l * t1 - nx * o, a[1] + uy * l * t1 - ny * o, 1, 5), { w: rnd(9, 16), col: jit(scl(cc, rnd(1.0, 1.08)), 0.02), alpha: 0.45, prof: 'lens', thick: 0.7, dry: 0.5, bk: 0.6, wk: 0.05, soft: 0.45, rag: 0.4, lj: 0.08, m: mH });
     }
     // two iron pins through the scales, and old grime toward the end
     for (const t of [0.3, 0.68]) {
@@ -580,7 +565,7 @@ function paintPlate(T) {
     for (const dx of [-o, o]) for (const dy of [-o, o]) if (plateHit(x + dx + dw[0], y + dy + dw[1])) c++;
     return c / 4;
   });
-  softenMask(mP, box, 4, (x, y) => sm(0.15, 0.95, (x - OX) / (PL.rOut * K)) * 0.9);
+  softenMask(mP, box, 7, (x, y) => sm(0.2, 0.95, (x - OX) / (PL.rOut * K)) * 0.9);
   SCN.mPlate = mP;
   const ecx = OX, ecy = OY - K * PL.hRim * CE;
   const tdir = (x, y) => { const dx = x - ecx, dy = (y - ecy) / SE; return Math.atan2(SE * dx, -dy) + gauss() * 0.05; };
@@ -607,6 +592,13 @@ function paintPlate(T) {
       s: { alpha: 0.4, thick: 0.25, dry: 0.45, bk: 0.5, wk: 0.2, soft: 0.5, rag: 0.35, flat: 0.75, mixv: 0.7, lj: 0.07, ridge: 0.35, m: mz } });
   }
   blendPass(box, 3, 0.35, mP);
+  // the broad sheen, laid on with a loaded brush where the light strikes
+  {
+    const lum = (x, y) => { const c = plateCol(x, y); return c ? lumc(c) : 0; };
+    for (const z of ['rim', 'floor']) paintField(z === 'rim' ? 260 : 160, box, (x, y) => scl(pc(x, y), 1.07), tdir, { straight: true, curl: 0.4, len: [40, 120], w: [12, 28], cj: 0.02,
+      place: (x, y) => maskAt(zm[z], x, y) > 0.6 && lum(x, y) > 0.45,
+      s: { alpha: 0.45, thick: 0.55, dry: 0.5, bk: 0.55, wk: 0.1, soft: 0.5, rag: 0.4, flat: 0.7, lj: 0.08, m: zm[z] } });
+  }
   // ellipse helpers (screen) for rim lines
   const ell = (r, h, a0, a1, jitR) => {
     const P = [];
@@ -624,15 +616,6 @@ function paintPlate(T) {
       i0 = i1 + (R() < 0.3 ? 2 : 0);
     }
   };
-  // inner edge of the rim catches light at the back, dark crease at the front
-  broken(ell(PL.rRim + 0.05, PL.hRim, Math.PI, 2 * Math.PI, 0.03), { w: 3, col: C(176, 176, 160), alpha: 0.55, prof: 'lens', thick: 0.5, dry: 0.4, bk: 0.6, wk: 0.1, soft: 0.45 }, 0.8);
-  broken(ell(PL.rRim - 0.1, PL.hRim * 0.9, 0.1, Math.PI - 0.1, 0.03), { w: 3, col: C(46, 46, 42), alpha: 0.45, prof: 'lens', thick: 0.2, dry: 0.4, bk: 0.6, wk: 0.1, soft: 0.5 }, 0.8);
-  // where the well meets the floor: a soft dark line
-  broken(ell(PL.rIn + 0.1, 0.02, Math.PI + 0.1, 2 * Math.PI - 0.1, 0.05), { w: 5, col: C(44, 44, 40), alpha: 0.45, prof: 'lens', thick: 0.1, dry: 0.4, bk: 0.6, wk: 0.2, soft: 0.6 }, 0.85);
-  // outer edge: crisp and light at the back left, lost on the right
-  broken(ell(PL.rOut * 0.995, PL.hRim, Math.PI + 0.2, 2 * Math.PI - 0.6, 0.02), { w: 2.6, col: C(170, 170, 156), alpha: 0.45, prof: 'lens', thick: 0.4, dry: 0.5, bk: 0.6, wk: 0.1, soft: 0.4 }, 0.7);
-  // underside of the lip: the dark band below the front rim
-  broken(ell(PL.rOut * 1.0, PL.hLip + 0.04, 0.15, Math.PI - 0.15, 0.02), { w: 4, col: C(30, 30, 28), alpha: 0.55, prof: 'lens', thick: 0.1, dry: 0.3, bk: 0.5, wk: 0.2, soft: 0.5 }, 0.9);
   // dents: two soft, slightly lighter/darker swellings in the rim
   for (const [a, k] of [[2.9, 1], [0.9, -1], [-0.6, 1]]) {
     const p = proj(9.35 * Math.cos(a), PL.hRim, 9.35 * Math.sin(a));
@@ -662,7 +645,7 @@ function softenMask(M, box, radScene, softFn) {
 // ---------------------------------------------------------------- lemon
 function buildLemonCache(T) {
   const S = T.S, c = proj(...LEM.c);
-  const box = [c[0] - 380, c[1] - 270, c[0] + 380, c[1] + 260];
+  const box = [c[0] - 460, c[1] - 330, c[0] + 460, c[1] + 320];
   const x0 = Math.max(0, Math.floor(box[0] * S)), y0 = Math.max(0, Math.floor(box[1] * S));
   const x1 = Math.min(T.W - 1, Math.ceil(box[2] * S)), y1 = Math.min(T.H - 1, Math.ceil(box[3] * S));
   const w = x1 - x0 + 1, h = y1 - y0 + 1, n = w * h;
@@ -706,7 +689,7 @@ function paintLemon(T) {
     let sum = 0, n = 0;
     for (let dy = -rad; dy <= rad; dy += 1) for (let dx = -rad; dx <= rad; dx += 1) { sum += mL0[(y + dy) * W + x + dx]; n++; }
     const bl = sum / n, o = mL0[y * W + x];
-    const fx = (x / S - c[0]) / 260, fy = (y / S - c[1]) / 160;
+    const fx = (x / S - c[0]) / 320, fy = (y / S - c[1]) / 200;
     const soft = sm(-0.1, 0.9, fx * 0.6 + fy * 0.8);
     mL[y * W + x] = Math.round(o + (bl - o) * soft);
   }
@@ -716,7 +699,7 @@ function paintLemon(T) {
     const t = k / 9, u = lerp(-2.4, 3.2, t);
     const p = lemPoint(u, Math.PI, null);
     const q = proj(p[0], 0.02, p[2]);
-    dab(q[0] + 8, q[1] + 2, 30 + 10 * Math.sin(t * 3), { col: C(30, 30, 26), alpha: 0.4, thick: 0.02, flat: 0.5, dry: 0, bk: 0.3, wk: 0.3, soft: 0.9, el: 0.6 }, 0);
+    dab(q[0] + 10, q[1] + 2, 38 + 12 * Math.sin(t * 3), { col: C(24, 24, 22), alpha: 0.5, thick: 0.02, flat: 0.5, dry: 0, bk: 0.3, wk: 0.3, soft: 0.9, el: 0.6 }, 0);
   }
   // dead colouring
   fillMask(mL, (x, y) => { const h = lemonCached(x, y); return h ? lemonColHit(h) : null; }, 1, 0.12);
@@ -766,6 +749,8 @@ function paintLemon(T) {
   blendPass(box, 2, 0.2, mL);
   // fuller paint in the light of the rind
   body(500, [6, 12], [14, 40], { alpha: 0.5, thick: 0.5, dry: 0.5, bk: 0.6, wk: 0.05, soft: 0.45, rag: 0.4, flat: 0.7, lj: 0.08 }, (u, th) => zone(u, th) === 2 && dot3(lemNormalAt(u, th), LV) > 0.3);
+  // the lit planes, stated with fuller, visible strokes
+  body(260, [16, 28], [24, 60], { alpha: 0.38, thick: 0.75, dry: 0.55, bk: 0.6, wk: 0.05, soft: 0.45, rag: 0.4, flat: 0.65, lj: 0.1, cj: 0.03, lj2: 0.09 }, (u, th) => dot3(lemNormalAt(u, th), LV) > 0.35);
   // pith: soft lumpy dabs
   body(500, [5, 10], [8, 20], { alpha: 0.35, thick: 0.4, dry: 0.4, bk: 0.6, wk: 0.05, soft: 0.5, rag: 0.4, flat: 0.7, lj: 0.12 }, (u, th) => zone(u, th) === 1);
   // rind pores: tiny pits, and specks of light in the light
@@ -783,11 +768,10 @@ function paintLemon(T) {
     const pts = [], sh = [];
     for (let th = LEM.ths + 0.02; th < LEM.ths + 2 * Math.PI - 0.02; th += 0.02) {
       const u = lemUb(th);
-      if (!vis(u, th)) { if (pts.length > 4) flushEdge(pts, sh, mL); pts.length = 0; sh.length = 0; continue; }
+      if (!vis(u, th)) { pts.length = 0; sh.length = 0; continue; }
       const q = proj(...lemPoint(u + 0.03, th)), qs = proj(...lemPoint(u - 0.08, th));
       pts.push(q[0], q[1]); sh.push(qs[0], qs[1]);
     }
-    if (pts.length > 4) flushEdge(pts, sh, mL);
   }
   // ---- the cut face: pith ring, flesh segments, membranes, core
   const cc = LEM.cc, rc = LEM.rc;
@@ -822,10 +806,6 @@ function paintLemon(T) {
   { const q = facePt(0, 0); dab(q[0], q[1], rc * K * 0.13, { col: C(236, 226, 190), col2: C(222, 208, 160), alpha: 0.75, thick: 0.5, dry: 0.2, bk: 0.4, wk: 0, soft: 0.6, el: 0.4, m: mL }); }
   { const q0 = facePt(0.36, 1.1), q1 = facePt(0.5, 1.12); stroke([q0[0], q0[1], q1[0], q1[1]], { w: 9, col: C(236, 228, 196), col2: C(200, 188, 150), alpha: 0.8, prof: 'point', thick: 0.7, dry: 0.2, bk: 0.3, wk: 0, soft: 0.45, m: mL });
     stroke([q0[0] + 3, q0[1] + 3, q1[0] + 3, q1[1] + 3], { w: 4, col: C(150, 120, 40), alpha: 0.35, prof: 'point', thick: 0.1, dry: 0.2, bk: 0.3, wk: 0, soft: 0.6, m: mL }); }
-  {
-    const P = []; for (let a = 0; a <= 2 * Math.PI + 0.02; a += 0.03) { const q = facePt(0.995, a); P.push(q[0], q[1]); }
-    stroke(P, { w: 2.5, col: C(176, 166, 128), alpha: 0.4, prof: 'flat', thick: 0.3, dry: 0.4, bk: 0.5, wk: 0, soft: 0.45, m: mL });
-  }
   // a breath of shadow on the lower right of the body
   glaze(c[0] + 170, c[1] + 80, 200, 130, C(70, 56, 16), 0.22, 1.3, 'mix', mL, 0.1);
 }
@@ -852,7 +832,7 @@ function paintHighlights(hp) {
     for (let i0 = 0; i0 < n - 2;) {
       const i1 = Math.min(n - 1, i0 + 8 + (R() * 26 | 0));
       const mid = (i0 + i1) / 2 / n, wgt = Math.exp(-Math.pow((mid - 0.55) / 0.3, 2));
-      if (R() < 0.85) stroke(W(P.slice(2 * i0, 2 * i1 + 2)), { w: (2.2 + 2.6 * wgt) * kk, col: jit(LW, 0.01), col2: C(214, 214, 200), alpha: 0.6 + 0.35 * wgt, prof: 'lens', thick: 1.0 + 1.2 * wgt, dry: 0.45, bk: 0.6, wk: 0.05, soft: 0.35, rag: 0.4 });
+      if (R() < 0.85) stroke(W(P.slice(2 * i0, 2 * i1 + 2)), { w: (3.2 + 4.5 * wgt) * kk, col: jit(LW, 0.01), col2: C(214, 214, 200), alpha: 0.6 + 0.35 * wgt, prof: 'lens', thick: 1.0 + 1.2 * wgt, dry: 0.45, bk: 0.6, wk: 0.05, soft: 0.35, rag: 0.4 });
       i0 = i1 + (R() < 0.35 ? 2 + (R() * 4 | 0) : 0);
     }
   }
@@ -874,10 +854,10 @@ function paintHighlights(hp) {
         stroke(W(seg(xx + curve * 3, py + rnd(-2, 2), xx - curve * 4, py + h + rnd(-3, 3), 0.8, 3)), { w: w * 0.5 * kk, col: jit(C(226, 230, 220), 0.015), alpha: a * rnd(0.6, 0.85), prof: 'lens', thick: 0.7, dry: 0.5, bk: 0.6, wk: 0.05, soft: 0.6, rag: 0.5 });
       }
     };
-    pane(wx, wy, 19, 40, 0.75); pane(wx + 25, wy - 2, 20, 40, 0.5);
-    pane(wx - 2, wy + 47, 18, 36, 0.48); pane(wx + 24, wy + 45, 19, 36, 0.32);
+    pane(wx, wy, 24, 50, 0.8); pane(wx + 31, wy - 2, 25, 50, 0.55);
+    pane(wx - 2, wy + 59, 22, 45, 0.5); pane(wx + 30, wy + 56, 23, 45, 0.34);
     // brightest pane: one loaded lead-white touch
-    stroke(W(seg(wx - 3, wy + 6, wx - 5, wy + 33, 0.5, 3)), { w: 6.5 * kk, col: LW, alpha: 0.92, prof: 'lens', thick: 2.2, dry: 0.4, bk: 0.6, wk: 0, soft: 0.45, rag: 0.4 });
+    stroke(W(seg(wx - 3, wy + 6, wx - 6, wy + 44, 0.5, 3)), { w: 10 * kk, col: LW, alpha: 0.92, prof: 'lens', thick: 2.2, dry: 0.4, bk: 0.6, wk: 0, soft: 0.45, rag: 0.4 });
     // smaller window in the wine, lower left
     pane(gx - 0.72 * gR(G.wine + 70), G.wine + 60, 12, 22, 0.42);
     // rim accents, broken
@@ -896,7 +876,8 @@ function paintHighlights(hp) {
     for (let k = 0; k < 4; k++) { const yy = G.wine + 50 + k * 22; stroke(W(seg(gx + 0.62 * gR(yy) - 16, yy + gauss() * 3, gx + 0.62 * gR(yy) + 16, yy + 6 + gauss() * 3, 1, 4)), { w: rnd(10, 16) * kk, col: C(244, 214, 130), alpha: 0.16, prof: 'lens', thick: 0.3, dry: 0.6, bk: 0.6, wk: 0.1, soft: 0.8 }); }
     // prunts: a bright point on each, upper left
     for (const [px, py, prx, pry] of SCN.prunts) {
-      const r = Math.max(2.4, prx * 0.17);
+      if (R() < 0.2) continue;
+      const r = Math.max(2.0, prx * rnd(0.09, 0.15));
       dab(px - prx * 0.38 + dx, py - pry * 0.42 + dy, r * kk, { col: LW, alpha: 0.92, thick: 1.6, dry: 0.2, bk: 0.4, wk: 0, soft: 0.4, el: 0.35 }, -0.8);
     }
     // stem: a long vertical streak of reflected light, and the foot's glints
@@ -910,7 +891,7 @@ function paintHighlights(hp) {
   {
     const M = SCN.sm;
     let bx = 0, by = 0, bv = 0;
-    for (let j = 0; j < M.ny; j++) for (let i = 0; i < M.nx; i++) { const v = M.Cm[j * M.nx + i] * M.V[j * M.nx + i]; if (v > bv) { bv = v; bx = M.x0 + i * M.g; by = M.y0 + j * M.g; } }
+    for (let j = 0; j < M.ny; j++) for (let i = 0; i < M.nx; i++) { const xx = M.x0 + i * M.g, yy = M.y0 + j * M.g; if (xx < G.x || xx > G.x + 900 || Math.abs(yy - G.base) > 160 || plateHit(xx, yy)) continue; const v = M.Cm[j * M.nx + i] * M.V[j * M.nx + i]; if (v > bv) { bv = v; bx = M.x0 + i * M.g; by = M.y0 + j * M.g; } }
     SCN.caustic = [bx, by, bv];
     if (bv > 0.05) {
       for (let k = 0; k < 7; k++) stroke(W(seg(bx - rnd(14, 40), by + gauss() * 3, bx + rnd(14, 40), by + gauss() * 3, 1, 4)), { w: rnd(4, 9) * kk, col: C(255, 214, 120), alpha: 0.32, prof: 'lens', thick: 0.6, dry: 0.5, bk: 0.6, wk: 0.25, soft: 0.6 });
@@ -948,7 +929,7 @@ function paintHighlights(hp) {
         dab(q[0] + dx, q[1] + dy, rnd(1.0, 2.2) * kk, { col: C(255, 252, 228), alpha: rnd(0.4, 0.85), thick: 1.0, dry: 0.2, bk: 0.4, wk: 0, soft: 0.5, el: 0.4, m: SCN.mLemon });
       }
       const P = []; for (let k = -3; k <= 3; k++) { const q = proj(...lemPoint(u + k * 0.05, th + k * 0.03)); P.push(q[0], q[1]); }
-      stroke(W(P), { w: 8 * kk, col: C(255, 248, 214), alpha: 0.8, prof: 'lens', thick: 2.0, dry: 0.5, bk: 0.7, wk: 0, soft: 0.4, rag: 0.5, m: SCN.mLemon });
+      stroke(W(P), { w: 14 * kk, col: C(255, 248, 214), alpha: 0.85, prof: 'lens', thick: 2.4, dry: 0.5, bk: 0.7, wk: 0, soft: 0.4, rag: 0.5, m: SCN.mLemon });
     }
     // pith: two moist glints
     for (const [u, th] of [[-1.6, 2.6], [-0.9, 3.0]]) {
@@ -976,7 +957,7 @@ function paintHighlights(hp) {
     const P = [];
     for (let t = 0.04; t <= 0.8; t += 0.02) P.push(pB[0] + (pT[0] - pB[0]) * t + ox * (1 - t * 0.4), pB[1] + (pT[1] - pB[1]) * t + oy * (1 - t * 0.4));
     const n = P.length >> 1;
-    for (let i0 = 0; i0 < n - 2;) { const i1 = Math.min(n - 1, i0 + 4 + (R() * 10 | 0)); stroke(W(P.slice(2 * i0, 2 * i1 + 2)), { w: 2.6 * kk, col: LW, alpha: rnd(0.6, 0.95), prof: 'lens', thick: 1.3, dry: 0.4, bk: 0.5, wk: 0, soft: 0.35, m: SCN.mPlate, mi: true }); i0 = i1 + (R() < 0.3 ? 2 : 0); }
+    for (let i0 = 0; i0 < n - 2;) { const i1 = Math.min(n - 1, i0 + 4 + (R() * 10 | 0)); stroke(W(P.slice(2 * i0, 2 * i1 + 2)), { w: 3.6 * kk, col: LW, alpha: rnd(0.65, 0.95), prof: 'lens', thick: 1.6, dry: 0.4, bk: 0.5, wk: 0, soft: 0.35, m: SCN.mPlate, mi: true }); i0 = i1 + (R() < 0.3 ? 2 : 0); }
     const b0 = K0.pBol0, b1 = K0.pH0;
     stroke(W(seg(b0[0] - 3, b0[1] - 14, b1[0] - 3, b1[1] - 14, 0, 2)), { w: 3 * kk, col: C(236, 226, 196), alpha: 0.8, prof: 'lens', thick: 1.2, dry: 0.3, bk: 0.4, wk: 0, soft: 0.4 });
     // bone handle: a long soft light along the top, one firm touch
@@ -984,6 +965,6 @@ function paintHighlights(hp) {
     let nx = -uy, ny = ux; if (nx * -0.6 + ny * -0.8 < 0) { nx = -nx; ny = -ny; }
     const r = KN.hr * K * 0.98;
     stroke(W(seg(a[0] + ux * 20 + nx * r * 0.5, a[1] + uy * 20 + ny * r * 0.5, b[0] - ux * 30 + nx * r * 0.55, b[1] - uy * 30 + ny * r * 0.55, 1, 5)), { w: 6 * kk, col: C(244, 236, 210), alpha: 0.6, prof: 'lens', thick: 1.2, dry: 0.6, bk: 0.7, wk: 0.05, soft: 0.45, m: SCN.mHandle });
-    stroke(W(seg(a[0] + ux * l * 0.55 + nx * r * 0.55, a[1] + uy * l * 0.55 + ny * r * 0.55, a[0] + ux * l * 0.78 + nx * r * 0.56, a[1] + uy * l * 0.78 + ny * r * 0.56, 0.5, 4)), { w: 4.5 * kk, col: LW, alpha: 0.9, prof: 'lens', thick: 2.0, dry: 0.4, bk: 0.5, wk: 0, soft: 0.4, m: SCN.mHandle });
+    stroke(W(seg(a[0] + ux * l * 0.55 + nx * r * 0.55, a[1] + uy * l * 0.55 + ny * r * 0.55, a[0] + ux * l * 0.78 + nx * r * 0.56, a[1] + uy * l * 0.78 + ny * r * 0.56, 0.5, 4)), { w: 8 * kk, col: LW, alpha: 0.92, prof: 'lens', thick: 2.4, dry: 0.4, bk: 0.5, wk: 0, soft: 0.4, m: SCN.mHandle });
   }
 }

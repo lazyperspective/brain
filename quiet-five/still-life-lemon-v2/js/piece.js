@@ -250,11 +250,15 @@ function renderFrame(t, scale) {
   drawBubble(out, W, H, P.S, t, f);
   return toRGBA(out, W, H);
 }
+// tone: a gentle S -- darks sink, lights open (the oil's own range, under varnish)
+const TONE = new Float32Array(4097);
+for (let i = 0; i <= 4096; i++) { const v = i / 4096 * 1.25; TONE[i] = Math.min(1.2, Math.pow(v, 1.14) * 1.09); }
+function tone(v) { if (v <= 0) return 0; const f = v / 1.25 * 4096; if (f >= 4096) return TONE[4096]; const i = f | 0; return TONE[i] + (TONE[i + 1] - TONE[i]) * (f - i); }
 function toRGBA(buf, w, h) {
   const rgba = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x, d = (hash2(x * 7 + 13, y * 3 + 71) + hash2(x * 5 + 2, y * 11 + 9) - 1) / 255;
-    rgba[4 * i] = (buf[3 * i] + d) * 255 + 0.5; rgba[4 * i + 1] = (buf[3 * i + 1] + d) * 255 + 0.5; rgba[4 * i + 2] = (buf[3 * i + 2] + d) * 255 + 0.5; rgba[4 * i + 3] = 255;
+    rgba[4 * i] = (tone(buf[3 * i]) + d) * 255 + 0.5; rgba[4 * i + 1] = (tone(buf[3 * i + 1]) + d) * 255 + 0.5; rgba[4 * i + 2] = (tone(buf[3 * i + 2]) + d) * 255 + 0.5; rgba[4 * i + 3] = 255;
   }
   return { rgba, w, h };
 }

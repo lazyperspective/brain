@@ -192,15 +192,15 @@ const PT = {};
 function rindLit(ndl, ny) {
   // the painter's value bands for lemon rind
   let c;
-  if (ndl > 0) c = grad([[0, C(112, 92, 26)], [0.2, C(152, 124, 30)], [0.45, C(196, 160, 36)], [0.7, C(228, 190, 46)], [0.9, C(242, 208, 84)], [1, C(246, 220, 116)]], ndl);
-  else c = grad([[-1, C(58, 47, 15)], [-0.3, C(78, 63, 18)], [0, C(118, 94, 22)]], ndl);
+  if (ndl > 0) c = grad([[0, C(100, 78, 20)], [0.2, C(146, 118, 28)], [0.45, C(196, 160, 36)], [0.7, C(228, 190, 46)], [0.9, C(242, 208, 84)], [1, C(246, 220, 116)]], ndl);
+  else c = grad([[-1, C(40, 31, 10)], [-0.3, C(56, 44, 13)], [0, C(100, 78, 20)]], ndl);
   const refl = sm(-0.1, -0.85, ny) * sm(0.15, -0.3, ndl);
   return mix(c, C(122, 106, 50), refl * 0.5);
 }
 function pithLit(ndl, ny) {
   let c;
-  if (ndl > 0) c = grad([[0, C(128, 116, 84)], [0.25, C(174, 160, 120)], [0.55, C(214, 202, 164)], [0.85, C(236, 228, 198)], [1, C(242, 236, 210)]], ndl);
-  else c = grad([[-1, C(60, 53, 36)], [-0.4, C(84, 75, 52)], [0, C(128, 116, 84)]], ndl);
+  if (ndl > 0) c = grad([[0, C(112, 100, 72)], [0.25, C(166, 152, 112)], [0.55, C(212, 200, 162)], [0.85, C(238, 230, 200)], [1, C(246, 240, 216)]], ndl);
+  else c = grad([[-1, C(42, 37, 25)], [-0.4, C(62, 55, 38)], [0, C(112, 100, 72)]], ndl);
   const refl = sm(-0.1, -0.85, ny) * sm(0.15, -0.3, ndl);
   return mix(c, C(128, 118, 88), refl * 0.4);
 }
@@ -260,15 +260,6 @@ function peelPaintTextures(S) {
     const c = outerCol(u, v);
     dab(u, v, rnd(0.9, 1.6) * k, { col: scl(c, rnd(0.7, 0.82)), alpha: rnd(0.2, 0.42), thick: 0.05, flat: 0.3, dry: 0, bk: 0.3, wk: 0, soft: 0.6, el: 0.3 });
   }
-  // the knife's cut edges: a hair of white pith along both sides of the rind
-  for (const side of [-1, 1]) {
-    for (let u0 = -10; u0 < TL; u0 += rnd(30, 70)) {
-      const v = (side < 0 ? 0.035 : 0.965) * (TV - 1);
-      const len = rnd(40, 90);
-      const s = u0 / TS, n = peelRestNormal(s, side * 0.98), ndl = dot3(n, LV);
-      stroke(seg(u0, v + gauss() * k, u0 + len, v + gauss() * k, 1.2 * k, 4), { w: rnd(3, 5) * k, col: jit(pithLit(ndl * 0.9, n[1]), 0.03), alpha: 0.6, prof: 'lens', thick: 0.3, dry: 0.4, bk: 0.5, wk: 0, soft: 0.45, rag: 0.4 });
-    }
-  }
   // ---- rind-side highlights (waxy): their own layer so they can breathe
   reseed(7202);
   const outH = mk(); setTarget(outH);
@@ -313,15 +304,6 @@ function peelPaintTextures(S) {
     const u = rnd(0, TL), v = rnd(0.1, 0.9) * (TV - 1);
     const c = innerCol(u, v);
     stroke(seg(u, v, u + rnd(4, 12) * k, v + gauss() * 2 * k, 0.5, 3), { w: rnd(2, 4) * k, col: jit(scl(c, R() < 0.5 ? 1.05 : 0.92), 0.02), alpha: 0.35, prof: 'lens', thick: 0.5, dry: 0.5, bk: 0.6, wk: 0, soft: 0.5 });
-  }
-  // the yellow rind shows as a fine line at the pith side's edges
-  for (const side of [-1, 1]) {
-    for (let u0 = -10; u0 < TL; u0 += rnd(30, 70)) {
-      const v = (side < 0 ? 0.02 : 0.98) * (TV - 1);
-      const len = rnd(40, 90);
-      const s = u0 / TS, n = peelRestNormal(s, side * 0.98), ndl = dot3([-n[0], -n[1], -n[2]], LV);
-      stroke(seg(u0, v + gauss() * 0.6 * k, u0 + len, v + gauss() * 0.6 * k, 0.8 * k, 4), { w: rnd(2.5, 4) * k, col: jit(rindLit(ndl, -n[1]), 0.03), alpha: 0.8, prof: 'lens', thick: 0.3, dry: 0.4, bk: 0.5, wk: 0, soft: 0.4, rag: 0.4 });
-    }
   }
   PT.out = out; PT.outH = outH; PT.inn = inn;
   // ragged ends of the strip: alpha falls off at both ends
@@ -512,8 +494,8 @@ PEEL.raster = function (t, fl) {
         let aa = s / sstep; aa = clamp(aa, 0, ns - 1.001); const ia = aa | 0, fa = aa - ia;
         const lf = EL[ia * 2 + e] * (1 - fa) + EL[(ia + 1) * 2 + e] * fa;
         const nz = vn(s * 9 + e * 30, w * 3);
-        const cc = w < 0.25 ? C(214, 172, 34) : C(226, 216, 182);
-        const k = (0.45 + 0.55 * lf) * (0.92 + 0.16 * nz);
+        const cc = w < 0.3 ? C(206, 168, 40) : C(214, 202, 160);
+        const k = (0.72 + 0.28 * lf) * (0.94 + 0.12 * nz);
         const fade = Math.min(sm(0, 0.25, s), 1 - sm(P.Ltot - 0.12, P.Ltot, s));
         r += cc[0] * k * fade; g += cc[1] * k * fade; b += cc[2] * k * fade; al += fade; hh += 0.3 * fade;
       }
