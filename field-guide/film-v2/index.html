@@ -1,14 +1,14 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Fable 5.2 — A Field Guide</title>
 <style>html,body{margin:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center}canvas{height:96vh}</style></head>
 <body><canvas id="c" width="1080" height="1350"></canvas>
-<script src="js/core.js"></script><script src="js/helpers.js"></script><script src="js/font.js"></script><script src="js/world.js"></script><script src="js/film.js"></script><script src="js/detail.js"></script><script src="js/part2.js"></script><script src="js/part3.js"></script>
+<script src="js/core.js"></script><script src="js/helpers.js"></script><script src="js/font.js"></script><script src="js/world.js"></script><script src="js/film.js"></script><script src="js/detail.js"></script><script src="js/part2.js"></script><script src="js/part3.js"></script><script src="js/part4.js"></script>
 <script>
 const q=new URLSearchParams(location.search), F=document.getElementById('c').getContext('2d'), low=document.createElement('canvas'); low.width=LW; low.height=LH; const lowF=document.createElement('canvas'); lowF.width=LW; lowF.height=LH; const hiF=document.createElement('canvas'); hiF.width=FW; hiF.height=FH;
 // story-time warp: new real time T -> story time t (holds for reading, slower plane loop); ambient life runs on T
 const WARP=[[0,0],[3.2,2.6],[5.15,4.55],[6.3,5.7],[8.3,6.0],[9.0,6.7],[10.1,7.8],[11.6,8.9],[12.7,10.0],[14.6,11.9],[17.6,14.3],[19.6,16.3],[21.4,17.6],[21.8,18.0],[23.25,19.45],[24.6,19.8],[24.8,20.0]];
 function warp(T){ if(T>=24.8) return 20+(T-24.8); let i=0; while(i<WARP.length-2&&T>WARP[i+1][0]) i++; const a=WARP[i],b=WARP[i+1]; return a[1]+(b[1]-a[1])*(T-a[0])/(b[0]-a[0]); }
 function renderAt(T){ const t=warp(T); TA=T;
-  const k=keyed(t<10?CAMKEYS:t<20?CAMKEYS2:CAMKEYS3,t); const sh=t>2.6&&t<2.95?Math.sin((t-2.6)*90)*1.6*(1-(t-2.6)/0.35):0; CAM.cx=k[0]+Math.sin(T*0.7)*0.8+sh; CAM.cy=k[1]+Math.sin(T*0.53+1)*0.6+sh*0.4; CAM.z=k[2]; REF.oy=196+Math.sin(T*2*Math.PI/4.2)*1.6; applyCam();
+  const k=keyed(t<10?CAMKEYS:t<20?CAMKEYS2:t<34.2?CAMKEYS3:CAMKEYS4,t); const sh=t>2.6&&t<2.95?Math.sin((t-2.6)*90)*1.6*(1-(t-2.6)/0.35):0; CAM.cx=k[0]+Math.sin(T*0.7)*0.8+sh; CAM.cy=k[1]+Math.sin(T*0.53+1)*0.6+sh*0.4; CAM.z=k[2]; REF.oy=196+Math.sin(T*2*Math.PI/4.2)*1.6; applyCam();
   const BF=new PBuf(PAL,22); drawFar(BF,t); const BFc=lowF; BFc.getContext('2d').clearRect(0,0,LW,LH); BF.toCanvas(BFc);
   const B=new PBuf(PAL,22); const H=drawWorld(B,t); low.getContext('2d').clearRect(0,0,LW,LH); B.toCanvas(low);
   F.setTransform(1,0,0,1,0,0); F.filter='none'; F.globalAlpha=1; F.globalCompositeOperation='source-over';
@@ -24,6 +24,11 @@ function renderAt(T){ const t=warp(T); TA=T;
   caption(F,T,28.2,31.0,['ON LONG TASKS,','IT GOES QUIET.'],1100);
   tipCard(F,T,31.2,33.75,['EVERY FEW STEPS, GIVE','A ONE-LINE UPDATE.']);
   updateBubbles(F,t);
+  notesHi(F,t,H); mummyBubble(F,t,H); handSweep(F,T);
+  caption(F,T,42.0,44.0,['OLD RULES PILE UP.'],1150);
+  caption(F,T,46.2,48.2,["IT TAKES 'NEVER'",'LITERALLY.'],1100);
+  tipCard(F,T,49.6,52.8,['TRIM OLD RULES.',"WRITE 'ASK FIRST',","NOT 'NEVER'."]);
+  chapterCard(F,T,56.3,58.6,'CHAPTER IV','ONE PLANK SHORT',330,280);
   chapterCard(F,T,39.0,41.5,'CHAPTER III','THE RULES',330,280);
   noteCard(F,t,H); bug(F,t); grain(F,6,Math.floor(T*30)%7+1);
 }

@@ -201,6 +201,40 @@ if DUR > 24.8:
     add(pad([60, 64, 67, 72, 76], 2.4, 0.3, 1.0), 33.95, 0.14)
     add(whoosh(0.5, 300, 1200), 34.1, 0.07); add(bell(72, 2.2, 0.4), 34.2, 0.08)
 
+# ====================== PART 4 (story 34.2–51.8): the rules pile up, the gust, the rewrite ======================
+if DUR > 39.0:
+    def thwap(g=1.0):
+        tt = t_(0.12); return (bp(noise(0.12), 600, 4000) * np.exp(-tt * 45) + np.sin(2 * np.pi * 140 * tt) * np.exp(-tt * 40) * 0.6) * g
+    def flutter(d):
+        tt = t_(d); return bp(noise(d), 1500, 5500) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 13 * tt))) * np.sin(np.pi * tt / d)
+    for land in (36.0, 36.8, 37.55): add(flutter(1.0), land - 1.05, 0.06, 0.4); add(thwap(1.2), land, 0.42, 0.1)
+    for land in (37.7, 37.8, 37.9, 38.0, 38.1, 38.2, 38.3, 38.4, 38.48, 38.56, 38.64): add(thwap(0.8), land, 0.32, np.sin(land * 9) * 0.5)
+    add(flutter(1.2), 37.4, 0.07, -0.2)
+    at, step, k = 35.2, 0.36, 0           # comic plucks that speed up as the notes pile on
+    while at < 38.7:
+        add(musicbox([67, 71, 74, 77, 79, 77, 74, 71][k % 8], 0.45), at, 0.11, 0.3 * np.sin(k)); k += 1; at += step; step = max(0.1, step * 0.9)
+    # the mummy: silence, then a muffled little "may I blink?"
+    for k, (f0, f1) in enumerate([(380, 360), (420, 400), (360, 380), (440, 560)]):
+        d = 0.16 if k < 3 else 0.26; tt = t_(d); f = np.linspace(f0, f1, len(tt)); add(lp(np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR)) * 0.4 + np.sin(2 * np.pi * np.cumsum(f) / SR), 1400) * np.sin(np.pi * tt / d), 39.68 + k * 0.2, 0.16, 0.25)
+    d = 0.9; tt = t_(d); add(lp(np.sign(np.sin(2 * np.pi * np.cumsum(np.linspace(240, 150, len(tt)) * (1 + 0.03 * np.sin(2 * np.pi * 6 * tt))) / SR)), 900) * np.sin(np.pi * tt / d) ** 0.6, 41.45, 0.1)  # wah-wah
+    # the Handler's sweep: whoosh, a gust of wind, a flurry of paper
+    add(whoosh(1.2, 150, 900, 1.0), 43.1, 0.3, -0.6)
+    d = 1.8; tt = t_(d); add(bp(noise(d), 200, 2500) * np.clip(tt / 0.3, 0, 1) * np.clip((d - tt) / 0.8, 0, 1), 43.5, 0.32, 0.2)
+    for k in range(14): add(flutter(0.5), 43.85 + k * 0.06, 0.05, -0.6 + k * 0.1)
+    add(bell(84, 1.2, 0.5), 44.8, 0.08)    # tip card
+    # the rewrite: two strike-throughs, quick writing, a bright ding; two happy blinks
+    for a in (48.62, 48.8): add(bp(noise(0.16), 2500, 9000) * np.sin(np.pi * t_(0.16) / 0.16), a, 0.14, 0.1)
+    for k in range(10): add(bp(noise(0.03), 3000, 9000) * env(int(0.03 * SR), 0.001, 0.012), 49.05 + k * 0.045, 0.1, 0.1)
+    add(bell(91, 1.4, 0.8), 49.1, 0.14); add(bell(98, 1.0, 0.5), 49.14, 0.06)
+    for a in (49.33, 49.63): add(bell(100, 0.3, 0.3), a, 0.08, 0.2)
+    add(pad([60, 64, 67, 72], 2.0, 0.4, 0.8), 49.1, 0.1)
+    # racing up the bridge: rising hops on stone, a bright run
+    for k in range(5):
+        a = 50.3 + k * 0.3; tt = t_(0.16); add(np.sin(2 * np.pi * np.cumsum(np.linspace(260 + k * 60, 520 + k * 120, len(tt))) / SR) * np.exp(-tt * 18), a, 0.14)
+        add((np.sin(2 * np.pi * 330 * t_(0.1)) * np.exp(-t_(0.1) * 40)), a + 0.28, 0.15, 0.4)
+    for k, m in enumerate([72, 74, 76, 79, 81, 84, 86, 88]): add(musicbox(m, 0.6), 50.3 + k * 0.18, 0.11, 0.3)
+    add(whoosh(0.5, 300, 1200), 51.5, 0.07); add(bell(72, 2.2, 0.4), 51.6, 0.08)
+
 mix = np.stack([L, R], 1)
 mix = mix / (np.max(np.abs(mix)) + 1e-9) * 0.8
 sf.write(OUT, mix, SR, subtype='PCM_24')

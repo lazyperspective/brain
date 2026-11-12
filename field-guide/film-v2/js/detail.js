@@ -9,7 +9,7 @@ const POND = { x: 40, y: 76, r: 9 };
 const TUFTS = (() => { const R = mulberry(77), out = []; while (out.length < 46) { const x = 4 + R() * 88, y = 4 + R() * 88; if (!onIsland(x, y) || !onIsland(x + 3, y + 3) || !onIsland(x - 3, y - 3)) continue; if (Math.hypot(x - POND.x, y - POND.y) < POND.r + 3 || Math.hypot(x - 56, y - 50) < 13 || Math.hypot(x - 76, y - 74) < 12) continue; out.push([x, y, R()]); } return out; })();
 const FLOWERS = [[46, 66, 'flower'], [50, 70, 'cap'], [30, 70, 'flower'], [33, 86, 'boxL'], [60, 28, 'flower'], [64, 32, 'cap'], [86, 44, 'boxL'], [12, 52, 'flower'], [18, 58, 'cap']];
 
-function wind(t, x, y) { return Math.sin(t * 2.1 + x * 0.12 + y * 0.05) * 0.6 + Math.sin(t * 3.7 + x * 0.05) * 0.4; }
+function wind(t, x, y) { const g = typeof GUST === 'number' ? GUST : 0; return Math.sin(t * 2.1 + x * 0.12 + y * 0.05) * 0.6 * (1 + g) + Math.sin(t * 3.7 + x * 0.05) * 0.4 + g * 2.6; }
 function tuftsW(B, t, filt) {
   const k = ISO.k / 1.4;
   for (const [x, y, r] of TUFTS) {

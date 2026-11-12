@@ -26,6 +26,7 @@ const CAMKEYS = [[0, 197, 254, 3.2], [0.45, 197, 252, 3.0], [2.0, 214, 198, 1.0]
 
 // ---------------- hero performance ----------------
 function heroAt(t) {
+  if (t >= 34.2) return heroAt4(t);
   if (t >= 20) return heroAt3(t);
   if (t >= 10) return heroAt2(t);
   const st = { eyes: 'open', look: [0, 0], mouth: '', arm: 0, hop: 0, squash: 0, walk: null, breathe: 0, blink: 0 };
@@ -77,6 +78,7 @@ function drawFar(B, t) {
 // ---------------- pixel layer ----------------
 function drawWorld(B, t) {
   wispsW(B, TA);
+  GUST = typeof gustAt === 'function' ? gustAt(t) : 0;
   applyCam();
   drawIslandW(B, { T: 16, N: 6, mask: MASK, depth: DEPTH, cols: COL });
   crystalsW(B, TA); vinesW(B, TA);
@@ -104,7 +106,7 @@ function drawWorld(B, t) {
   blanketW(B, t, H); dustPuff(B, t, 2.98, P(H.x, H.y, 0)); dustPuff(B, t, 3.88, P(H.x, H.y, 0), 7); dustPuff(B, t, 4.18, P(H.x, H.y, 0), 7);
   const tc = P(16, 20, 26); fallingLeaf(B, TA, tc); fireflyW(B, TA, 6, tc[0] + 6, tc[1] + 6, 34, 1);
   const lp = P(73, 27, 23); mothsW(B, TA, lp);
-  carriedPlank(B, t, H); stormW(B, t, H); dialW(B, t); tumbleweedW(B, t); pickaxeW(B, t, H); dirtW(B, t); slabsFlying(B, t);
+  carriedPlank(B, t, H); stormW(B, t, H); dialW(B, t); tumbleweedW(B, t); pickaxeW(B, t, H); dirtW(B, t); slabsFlying(B, t); windStreaks(B, t);
   // plane / note
   const pl = planeAt(t), ps = S(pl.ref);
   if (pl.mode !== 'note') {
@@ -195,7 +197,7 @@ function caption(F, t, a, b, lines, y = 1150, px = 8, x = FW / 2, lineIn) {
 }
 function bug(F, t) {
   F.save(); F.globalAlpha = 0.7; hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
-  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : 'CHAPTER III · THE RULES', a = t < 9.3 ? fadeIO(t, 0.2, 9.3, 0.3) : t < 19.5 ? fadeIO(t, 9.3, 19.5, 0.3) : t < 34.2 ? fadeIO(t, 19.5, 34.2, 0.3) : sm(34.2, 34.5, t);
+  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : t < 51.6 ? 'CHAPTER III · THE RULES' : 'CHAPTER IV · ONE PLANK SHORT', a = t < 9.3 ? fadeIO(t, 0.2, 9.3, 0.3) : t < 19.5 ? fadeIO(t, 9.3, 19.5, 0.3) : t < 34.2 ? fadeIO(t, 19.5, 34.2, 0.3) : t < 51.6 ? fadeIO(t, 34.2, 51.6, 0.3) : sm(51.6, 51.9, t);
   F.save(); F.globalAlpha = 0.55 * a; hiText(F, ch, 44, 70, 3, '#d97757', {}); F.restore();
 }
 function chapterCard(F, t, a, b, num, title, cx = FW / 2, cy = 1110) {
