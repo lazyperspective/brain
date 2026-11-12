@@ -125,7 +125,7 @@ function handTurn(F, t) {
 }
 function tipCard(F, t, a, b, lines) {
   const al = fadeIO(t, a, b, 0.3); if (al <= 0) return; const rise = (1 - sm(a, a + 0.35, t)) * 30;
-  const W = 820, Hh = 84 + lines.length * 62, x = FW / 2 - W / 2, y = 1110 - Hh / 2 + rise;
+  const W = Math.min(FW - 60, Math.max(820, Math.max(...lines.map(L => textW(L, 7))) + 110)), Hh = 84 + lines.length * 62, x = FW / 2 - W / 2, y = 1110 - Hh / 2 + rise;
   F.save(); F.globalAlpha = al; F.shadowColor = 'rgba(0,0,0,0.5)'; F.shadowBlur = 24; F.shadowOffsetY = 10; F.fillStyle = '#f3ead6'; F.beginPath(); F.roundRect(x, y, W, Hh, 14); F.fill(); F.shadowColor = 'transparent';
   F.fillStyle = '#d97757'; F.beginPath(); F.roundRect(x, y, 12, Hh, [14, 0, 0, 14]); F.fill();
   // small pixel glove icon

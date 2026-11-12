@@ -164,6 +164,43 @@ if DUR > 12.7:
     # chapter II card
     add(whoosh(0.5, 300, 1200), 19.4, 0.07); add(bell(72, 2.2, 0.4), 19.5, 0.08)
 
+# ====================== PART 3 (story 20–34.5): dig, silence, updates, the bridge climbs ======================
+if DUR > 24.8:
+    for k, (at, m) in enumerate([(20.0, 72), (20.25, 76), (20.5, 79), (20.75, 76), (21.0, 74), (21.3, 72), (21.6, 74), (21.9, 76), (22.2, 74), (22.5, 72)]): add(musicbox(m, 0.9), at, 0.12, 0.2 * np.sin(k))
+    for at in (20.4, 20.67, 20.94):
+        tt = t_(0.16); add(np.sin(2 * np.pi * np.cumsum(np.linspace(240, 480, len(tt))) / SR) * np.exp(-tt * 18), at, 0.13, -0.2)
+    tt = t_(0.3); add(np.sin(2 * np.pi * 2400 * tt) * np.exp(-tt * 12) * 0.5 + bp(noise(0.3), 3000, 9000) * np.exp(-tt * 25) * 0.4, 21.2, 0.12, -0.3)  # pickaxe "shing"
+    for s0 in (21.4, 21.85, 22.3):   # swing whoosh + clink + dirt
+        add(whoosh(0.3, 400, 1500), s0 + 0.1, 0.06, -0.3)
+        tt = t_(0.25); add((np.sin(2 * np.pi * 1850 * tt) + 0.6 * np.sin(2 * np.pi * 2730 * tt)) * np.exp(-tt * 30), s0 + 0.42, 0.2, -0.3)
+        add(lp(noise(0.35), 1800) * np.exp(-t_(0.35) * 12), s0 + 0.43, 0.22, -0.3)
+    add(whoosh(0.25, 300, 1600), 22.8, 0.1); tt = t_(0.4); add(np.sin(2 * np.pi * np.cumsum(np.linspace(180, 70, len(tt))) / SR) * np.exp(-tt * 9) + lp(noise(0.4), 900) * np.exp(-tt * 10) * 0.5, 23.0, 0.45)  # plop
+    # the silence: the music stops, only night insects (louder), wind, a tumbleweed, drumming fingers
+    d = 6.2; amb2 = bp(noise(d), 4200, 5600, 4) * (0.5 + 0.5 * np.sin(2 * np.pi * 17 * t_(d)) ** 10) * np.sin(np.pi * t_(d) / d) ** 0.3; add(amb2, 23.05, 0.22, 0.4)
+    add(lp(noise(2.1), 2500) * (0.5 + 0.5 * np.abs(np.sin(2 * np.pi * 2.4 * t_(2.1)))) * np.sin(np.pi * t_(2.1) / 2.1), 23.6, 0.08, -0.5)
+    for k in range(5): add(lp(noise(0.05), 1200) * env(int(0.05 * SR), 0.001, 0.02), 23.6 + k * 0.42, 0.12, -0.5 + k * 0.25)
+    for k in range(int(2.9 * 4 * 3)):   # four fingers drumming on wood, a little irritated
+        at = 23.85 + (k // 4) * 0.36 + (k % 4) * 0.055
+        if at > 26.7: break
+        tt = t_(0.07); add(np.sin(2 * np.pi * (180 + (k % 4) * 25) * tt) * np.exp(-tt * 70) + bp(noise(0.07), 800, 3000) * np.exp(-tt * 90) * 0.4, at, 0.22, -0.7)
+    add(bell(84, 1.2, 0.5), 26.45, 0.08, 0.0)   # tip card
+    # the fix: each update pops up with a friendly notification blip; the work groove comes back
+    for a in (29.2, 30.8, 32.3):
+        tt = t_(0.12); add(np.sin(2 * np.pi * np.cumsum(np.linspace(500, 900, len(tt))) / SR) * np.exp(-tt * 14), a + 0.08, 0.14, -0.3)
+        add(bell(88, 0.6, 0.4), a + 0.16, 0.11, -0.2); add(bell(95, 0.6, 0.4), a + 0.26, 0.09, -0.1)
+    for k, (thr, land) in enumerate([(29.55, 30.05), (31.0, 31.5), (31.4, 31.9), (32.5, 33.0)]):
+        add(whoosh(land - thr, 500, 1800), thr, 0.08, 0.4)
+        tt = t_(0.3); add((np.sin(2 * np.pi * 330 * tt) + 0.5 * np.sin(2 * np.pi * 880 * tt)) * np.exp(-tt * 25) + bp(noise(0.3), 1500, 5000) * np.exp(-tt * 30) * 0.4, land, 0.32, 0.5)
+        add(bell(79 + k * 2, 1.0, 0.5), land + 0.04, 0.08, 0.5)
+    beat = 29.2
+    while beat < 34.4:
+        tt = t_(0.18); add(np.sin(2 * np.pi * np.cumsum(np.linspace(110, 50, len(tt))) / SR) * np.exp(-tt * 20), beat, 0.18); beat += 0.5
+    for k, (at, m) in enumerate([(29.3, 72), (29.55, 74), (29.8, 76), (30.3, 79), (30.9, 76), (31.15, 79), (31.4, 81), (31.9, 84), (32.4, 81), (32.65, 84), (32.9, 86), (33.4, 88)]): add(musicbox(m, 0.9), at, 0.12, 0.3 - 0.05 * k)
+    # climbs out, proud chord; chapter III
+    tt = t_(0.2); add(np.sin(2 * np.pi * np.cumsum(np.linspace(260, 700, len(tt))) / SR) * np.exp(-tt * 14), 33.62, 0.17)
+    add(pad([60, 64, 67, 72, 76], 2.4, 0.3, 1.0), 33.95, 0.14)
+    add(whoosh(0.5, 300, 1200), 34.1, 0.07); add(bell(72, 2.2, 0.4), 34.2, 0.08)
+
 mix = np.stack([L, R], 1)
 mix = mix / (np.max(np.abs(mix)) + 1e-9) * 0.8
 sf.write(OUT, mix, SR, subtype='PCM_24')

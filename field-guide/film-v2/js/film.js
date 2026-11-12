@@ -26,6 +26,7 @@ const CAMKEYS = [[0, 197, 254, 3.2], [0.45, 197, 252, 3.0], [2.0, 214, 198, 1.0]
 
 // ---------------- hero performance ----------------
 function heroAt(t) {
+  if (t >= 20) return heroAt3(t);
   if (t >= 10) return heroAt2(t);
   const st = { eyes: 'open', look: [0, 0], mouth: '', arm: 0, hop: 0, squash: 0, walk: null, breathe: 0, blink: 0 };
   let x = 52;
@@ -76,8 +77,8 @@ function drawWorld(B, t) {
   drawIslandW(B, { T: 16, N: 6, mask: MASK, depth: DEPTH, cols: COL });
   crystalsW(B, TA); vinesW(B, TA);
   const H = heroAt(t);
-  pondW(B, TA); waterfallW(B, TA);
-  for (const [x, y, len, w] of [[16, 20, 26, 9], [72, 26, 22, 4], [22, 68, 12, 4], [H.x, H.y, 16 + (H.st.hop || 0) * 0.3, 10], [59, 64, 6, 10]]) {
+  pondW(B, TA); waterfallW(B, TA); holeW(B, t);
+  for (const [x, y, len, w] of [[16, 20, 26, 9], [72, 26, 22, 4], [22, 68, 12, 4], ...(H.hidden || H.clip ? [] : [[H.x, H.y, 16 + (H.st.hop || 0) * 0.3, 10]]), [59, 64, 6, 10]]) {
     const a = P(x - 1, y + 3, 0), b = P(x - 3, y + 3 + len, 0), rx = w * ISO.k * 0.9, ry = rx * 0.5;
     B.glow(Math.min(a[0], b[0]) - rx, Math.min(a[1], b[1]) - ry, Math.max(a[0], b[0]) + rx, Math.max(a[1], b[1]) + ry, hex('1f4a48'), (px, py) => { const vx = b[0] - a[0], vy = b[1] - a[1], u = clamp(((px - a[0]) * vx + (py - a[1]) * vy) / (vx * vx + vy * vy), 0, 1), cx = a[0] + vx * u, cy = a[1] + vy * u, d = Math.hypot((px - cx) / rx, (py - cy) / ry); return d > 1 ? 0 : 0.42 * (1 - d) * (1 - u * 0.6); }, 14);
   }
@@ -90,7 +91,8 @@ function drawWorld(B, t) {
     [112, () => planksW(B, 50, 62, 0, COL, t > 17.7 || (t > 7.85 && t < 8.85) ? 2 : 3)],
     [31, () => placedPlank(B, t)],
     [140, () => { for (const [x, y] of [[94, 50], [94, 57], [94, 64]]) box(B, x, y, 0, 2, 2, 8, COL.postL, COL.post, COL.postD); const a = P(95, 51, 6), b = P(95, 65, 6); B.line(a[0], a[1], b[0], b[1], COL.postL); }],
-    [H.x + H.y, () => { H.r = heroW(B, H.x, H.y, 0, H.st, HERO, COL.shadow); }],
+    [H.x + H.y, () => { if (H.hidden) { const p0 = P(H.x, H.y, -6); H.r = { head: p0, top: p0, face: p0, hand: p0 }; } else if (H.clip) H.r = heroClipped(B, H, t); else H.r = heroW(B, H.x, H.y, H.z || 0, H.st, HERO, COL.shadow); }],
+    [-60, () => slabsPlaced(B, t)],
   ];
   for (const [x, y, r] of TUFTS) items.push([x + y + 0.5, () => tuftsW(B, TA, v => Math.abs(v - (x + y)) < 0.01)]);
   for (const [x, y] of FLOWERS) items.push([x + y + 0.4, () => flowersW(B, TA, v => Math.abs(v - (x + y)) < 0.01)]);
@@ -98,7 +100,7 @@ function drawWorld(B, t) {
   blanketW(B, t, H); dustPuff(B, t, 2.98, P(H.x, H.y, 0)); dustPuff(B, t, 3.88, P(H.x, H.y, 0), 7); dustPuff(B, t, 4.18, P(H.x, H.y, 0), 7);
   const tc = P(16, 20, 26); fallingLeaf(B, TA, tc); fireflyW(B, TA, 6, tc[0] + 6, tc[1] + 6, 34, 1);
   const lp = P(73, 27, 23); mothsW(B, TA, lp);
-  carriedPlank(B, t, H); stormW(B, t, H); dialW(B, t);
+  carriedPlank(B, t, H); stormW(B, t, H); dialW(B, t); tumbleweedW(B, t); pickaxeW(B, t, H); dirtW(B, t); slabsFlying(B, t);
   // plane / note
   const pl = planeAt(t), ps = S(pl.ref);
   if (pl.mode !== 'note') {
@@ -189,7 +191,7 @@ function caption(F, t, a, b, lines, y = 1150, px = 8, x = FW / 2, lineIn) {
 }
 function bug(F, t) {
   F.save(); F.globalAlpha = 0.7; hiText(F, 'FABLE 5.2 · A FIELD GUIDE', 44, 44, 3, '#f3e6cf', {}); F.restore();
-  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : 'CHAPTER II · THE WORK', a = t < 9.3 ? fadeIO(t, 0.2, 9.3, 0.3) : t < 19.5 ? fadeIO(t, 9.3, 19.5, 0.3) : sm(19.5, 19.8, t);
+  const ch = t < 9.3 ? 'PROLOGUE' : t < 19.5 ? 'CHAPTER I · THE REQUEST' : t < 34.2 ? 'CHAPTER II · THE WORK' : 'CHAPTER III · THE RULES', a = t < 9.3 ? fadeIO(t, 0.2, 9.3, 0.3) : t < 19.5 ? fadeIO(t, 9.3, 19.5, 0.3) : t < 34.2 ? fadeIO(t, 19.5, 34.2, 0.3) : sm(34.2, 34.5, t);
   F.save(); F.globalAlpha = 0.55 * a; hiText(F, ch, 44, 70, 3, '#d97757', {}); F.restore();
 }
 function chapterCard(F, t, a, b, num, title, cx = FW / 2, cy = 1110) {
