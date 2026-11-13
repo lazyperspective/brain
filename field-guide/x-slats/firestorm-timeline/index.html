@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Firestorm Timeline</title>
+    <style>
+      :root {
+        --bg: #050304;
+        --fg: #e8c9a8;
+        --dim: #8a6a55;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 13px/1.4 ui-monospace, Menlo, monospace;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 16px;
+      }
+      header label {
+        color: var(--dim);
+      }
+      input,
+      select,
+      button {
+        background: #1a0f0a;
+        color: var(--fg);
+        border: 1px solid #3a2216;
+        padding: 3px 6px;
+        font: inherit;
+      }
+      #wrap {
+        position: relative;
+        margin: 0 16px 16px;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 1000px;
+        height: auto;
+      }
+      #slats {
+        position: absolute;
+        inset: 0;
+        max-width: 1000px;
+        pointer-events: none;
+        display: none;
+        background: repeating-linear-gradient(90deg, transparent 0, transparent calc(5% - 1px), #000 calc(5% - 1px), #000 5%);
+      }
+      #log {
+        color: var(--dim);
+        white-space: pre;
+        padding: 0 16px 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>THE FIRESTORM TIMELINE</strong>
+      <label>seed <input id="seed" type="number" value="7" style="width: 5em" /></label>
+      <label
+        >scale
+        <select id="scale">
+          <option value="0.25">0.25 (1000px)</option>
+          <option value="0.5">0.5 (2000px)</option>
+          <option value="1">1 (4000px)</option>
+        </select></label
+      >
+      <label><input id="showSlats" type="checkbox" /> strip gaps</label>
+      <button id="go">render</button>
+    </header>
+    <div id="wrap"><canvas id="c"></canvas><div id="slats"></div></div>
+    <div id="log"></div>
+    <script src="js/core.js"></script>
+    <script src="js/sky.js"></script>
+    <script src="js/cyclone.js"></script>
+    <script src="js/city.js"></script>
+    <script src="js/fire.js"></script>
+    <script src="js/water.js"></script>
+    <script src="js/stories.js"></script>
+    <script src="js/post.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+      const q = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+      if (q.has('seed')) $('seed').value = q.get('seed');
+      if (q.has('scale')) $('scale').value = q.get('scale');
+      $('showSlats').onchange = (e) => ($('slats').style.display = e.target.checked ? 'block' : 'none');
+      async function go() {
+        $('log').textContent = '';
+        await FS.render($('c'), {
+          seed: +$('seed').value,
+          scale: +$('scale').value,
+          log: (m) => ($('log').textContent += m + '\n'),
+        });
+      }
+      $('go').onclick = go;
+      if (!q.has('norender')) go();
+    </script>
+  </body>
+</html>

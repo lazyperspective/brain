@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Phoenix Unfolds</title>
+<style>
+  :root { --bg: #050308; --fg: #e9d9c8; --dim: #8a7a70; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 system-ui, sans-serif; }
+  header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 16px; }
+  header b { letter-spacing: .08em; }
+  header span { color: var(--dim); }
+  .wrap { position: relative; margin: 0 auto 24px; width: min(96vw, 96vh); }
+  canvas { width: 100%; height: auto; display: block; }
+  .slats { position: absolute; inset: 0; pointer-events: none; display: none;
+    background: repeating-linear-gradient(90deg, transparent 0 calc(5% - 1px), rgba(0,0,0,.9) calc(5% - 1px) 5%); }
+  .wrap.show .slats { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <b>THE PHOENIX UNFOLDS</b>
+  <label>size <select id="size"><option>1000</option><option selected>2000</option><option>4000</option></select></label>
+  <label>seed <input id="seed" value="1789" size="6"></label>
+  <button id="go">render</button>
+  <label><input type="checkbox" id="sl"> strip gaps</label>
+  <span id="status"></span>
+</header>
+<div class="wrap" id="wrap"><canvas id="c"></canvas><div class="slats"></div></div>
+<script src="js/core.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/phoenix.js"></script>
+<script src="js/city.js"></script>
+<script src="js/water.js"></script>
+<script src="js/stories.js"></script>
+<script src="js/post.js"></script>
+<script src="js/main.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  async function go() {
+    $('status').textContent = 'rendering…';
+    await new Promise((r) => setTimeout(r, 30));
+    await PU.render($('c'), { seed: +$('seed').value, size: +$('size').value, log: (m) => ($('status').textContent = m) });
+    $('status').textContent = 'done';
+  }
+  $('go').onclick = go;
+  $('sl').onchange = () => $('wrap').classList.toggle('show', $('sl').checked);
+  if (!/noauto/.test(location.search)) go();
+</script>
+</body>
+</html>
