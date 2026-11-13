@@ -1,0 +1,12 @@
+const { chromium } = require('playwright'); const serve = require('./serve');
+(async () => { const s = await serve(); const br = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', ...(process.env.ACC ? [] : ['--disable-accelerated-2d-canvas'])] }); const pg = await br.newPage();
+  await pg.goto(`http://localhost:${s.address().port}/index.html?export&w=1920&h=1080`); await pg.waitForFunction(() => window.__ready, null, { timeout: 120000 });
+  for (const t of process.argv.slice(2).map(Number)) console.log(t, await pg.evaluate(t => { const P = window.__piece; const c = document.getElementById('c'), x = c.getContext('2d');
+    const T = (f) => { const a = performance.now(); f(); x.getImageData(0, 0, 1, 1); return (performance.now() - a) | 0; };
+    const r0 = T(() => P.renderAt(t)), r1 = T(() => P.renderAt(t + 1 / 30));
+    const oc = P.os.canvas.getContext('2d'); const o1 = (() => { const a = performance.now(); P.os.draw(t + 2 / 30, {}); oc.getImageData(0, 0, 1, 1); return (performance.now() - a) | 0; })();
+    const od = P.os.draw; P.os.draw = () => {}; const r2 = T(() => P.renderAt(t + 3 / 30)); P.os.draw = od;
+    const E = P.E; const g = (() => { const a = performance.now(); E.render(t); E.renderer.getContext().finish(); return (performance.now() - a) | 0; })();
+    const bp = E.bloom.enabled; E.bloom.enabled = false; const g2 = (() => { const a = performance.now(); E.render(t); E.renderer.getContext().finish(); return (performance.now() - a) | 0; })(); E.bloom.enabled = bp;
+    return `first ${r0} next ${r1} | osdraw ${o1} | noOS ${r2} | gl ${g} | gl-nobloom ${g2}`; }, t));
+  await br.close(); s.close(); })();
