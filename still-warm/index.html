@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Still Warm</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #211c20; }
+  #frame { height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #frame.near { display: block; overflow: auto; }
+  canvas { display: block; max-width: 100vw; max-height: 100vh; width: auto; height: auto; aspect-ratio: 16 / 9; cursor: zoom-in; }
+  #frame.near canvas { max-width: none; max-height: none; cursor: zoom-out; }
+  #bar { position: fixed; left: 14px; bottom: 10px; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; color: #b9aa98; opacity: .9; display: flex; gap: 12px; align-items: center; }
+  #bar button { font: inherit; color: inherit; background: none; border: 1px solid #5a4d50; border-radius: 3px; padding: 1px 7px; cursor: pointer; }
+  #bar button[aria-pressed="true"] { color: #211c20; background: #b9aa98; }
+</style>
+</head>
+<body>
+<div id="frame"><canvas id="sheet"></canvas></div>
+<div id="bar"><button data-size="1k">1920</button><button data-size="2k">2560</button><button data-size="4k">3840</button><span id="note"></span></div>
+<script src="js/engine.js"></script>
+<script src="js/world.js"></script>
+<script src="js/mound.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/earth.js"></script>
+<script src="js/last.js"></script>
+<script src="js/main.js"></script>
+<script src="js/view.js"></script>
+</body>
+</html>
