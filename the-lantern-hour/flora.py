@@ -40,7 +40,7 @@ def stalk_curve(x, y, hgt, bend, sway=0.0, n=40, face=1):
     return np.stack([px, py], 1), phi
 
 
-LANT_T = [0.40, 0.54, 0.67, 0.79, 0.90]
+LANT_T = [0.50, 0.62, 0.73, 0.83, 0.92]
 LANT_S = [1.0, 0.92, 0.78, 0.62, 0.46]
 LANT_RIPE = [1.0, 1.0, 0.85, 0.45, 0.1]
 
@@ -138,6 +138,21 @@ def lantern_plant(L, rng, x, y, hgt=300.0, bend=0.0, sway=0.0, lit=0.0, taken=()
     return out
 
 
+def lantern_tops(x, y, hgt, bend=0.0, sway=0.0, face=1, swing=0.0):
+    """where each lantern hangs: [(top_xy, width)]"""
+    cur, phi = stalk_curve(x, y, hgt, bend, sway, face=face)
+    n = len(cur)
+    out = []
+    for i, t in enumerate(LANT_T):
+        j = int(t * (n - 1))
+        side = -1 if i % 2 == 0 else 1
+        w = hgt * 0.165 * LANT_S[i]
+        ped = w * 0.55
+        sw = swing * math.sin(i * 1.7 + 0.6) * 0.5
+        out.append((cur[j] + np.array([side * face * ped * 0.75 + math.sin(sw) * ped, ped * 0.8]), w))
+    return out
+
+
 def lantern_glow(cv_, rng, cx, cy, r, strength=1.0, col=VERM_GLOW):
     """scumble of orange dust on the dark around a lit lantern"""
     if strength <= 0.02:
@@ -147,9 +162,9 @@ def lantern_glow(cv_, rng, cx, cy, r, strength=1.0, col=VERM_GLOW):
     for rr, v in [(1.0, 0.10), (0.62, 0.20), (0.36, 0.34)]:
         b.dot(cx + rng.normal(0, r * 0.03), cy + rng.normal(0, r * 0.03), r * rr, v * strength)
     items = list(b.items)
-    b.commit(col, grain=0.25, soft=1.0, blur=r * 0.22, op=0.55, gain=2.2)
+    b.commit(col, grain=0.25, soft=1.0, blur=r * 0.24, op=0.62, gain=2.4)
     b.items = items
-    b.commit(col, grain=1.0, soft=0.12, blur=r * 0.16, gain=0.8)
+    b.commit(col, grain=1.0, soft=0.14, blur=r * 0.16, gain=0.6)
 
 
 def husk_skeleton(L, rng, cx, cy, w, ang=0.0, berry=True, lit=0.0, col=STRAW, k=1.0, veil=0.0):

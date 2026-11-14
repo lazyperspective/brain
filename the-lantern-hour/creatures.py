@@ -104,7 +104,7 @@ STRIDE = 0.30
 
 
 def draw_tortoise(L, rng, x, y, s, age=1.0, face=1, ext=1.0, look=0.0, reach=0.0, tuck=0.0, phase=0.0,
-                  walk=0.0, rot=0.0, pivot=None, blink=0.0, breath=0.0, wave=0.0, chew=0.0, parts=None):
+                  walk=0.0, rot=0.0, pivot=None, blink=0.0, breath=0.0, wave=0.0, chew=0.0, paw=0.0, tap=0.0, yoff=0.0, rest=False):
     """returns dict of landmark sheet positions (head, mouth, crown, front)"""
     lk = look_for(age)
     stand = lk['legl'] * (1 - tuck)
@@ -112,12 +112,20 @@ def draw_tortoise(L, rng, x, y, s, age=1.0, face=1, ext=1.0, look=0.0, reach=0.0
     rock = 0.022 * math.sin(2 * math.pi * phase) * walk
     if pivot is None:
         pivot = (0.0, stand + 0.25)
-    X = Xf(x, y - bob * s, s, face, rot + rock, pivot)
+    fsgn = 1 if face >= 0 else -1
+    X = Xf(x, y - bob * s - yoff, s, face, (rot + rock) * fsgn, pivot)
+    if rest:
+        # let it lie on the ground whatever its attitude
+        uu_ = np.linspace(0, 1, 24)
+        P_ = shell_fn(lk['hd'], stand)
+        cand = np.vstack([P_(uu_, np.ones_like(uu_)), P_(uu_, np.zeros_like(uu_)), [(-0.3, 0.0), (0.3, 0.0)]])
+        low = X(cand)[:, 1].max()
+        X = Xf(x, y - bob * s - yoff - (low - y), s, face, (rot + rock) * fsgn, pivot)
     big = s > 70
     lw = max(1.0, s * 0.0085)            # outline weight
     hd = lk['hd'] * (1 + 0.025 * breath)
     P = shell_fn(hd, stand)
-    hatch_a = (0.9 if face > 0 else math.pi - 0.9) - rot * face
+    hatch_a = (0.9 if face > 0 else math.pi - 0.9) - rot * fsgn
 
     # ---------------- legs
     def leg(hx, off, far, o_phase):
@@ -136,11 +144,19 @@ def draw_tortoise(L, rng, x, y, s, age=1.0, face=1, ext=1.0, look=0.0, reach=0.0
         w = lk['legw'] * (0.9 if far else 1.0)
         hy = stand + 0.07
         fx, fy = hx + fo + off, lift
+        if paw and not far and hx > 0:
+            fx += (0.30 + 0.06 * tap) * paw; fy += (0.125 - 0.02 * tap) * paw
         if wave:
             fy = stand - legl + 0.02
         knee = 0.02 if hx > 0 else -0.015
-        poly = np.array([(hx - w / 2, hy), (hx - w / 2 + knee, (hy + fy) / 2), (fx - w * 0.46, fy + 0.012), (fx - w * 0.40, fy),
-                         (fx + w * 0.50, fy), (fx + w * 0.56, fy + 0.02), (hx + w / 2 + knee * 1.5, (hy + fy) / 2 + 0.01), (hx + w / 2, hy)])
+        A_ = np.array([hx, hy]); B_ = np.array([fx, fy])
+        dd = B_ - A_; dl = np.hypot(*dd) + 1e-9; dd = dd / dl
+        nn = np.array([-dd[1], dd[0]])
+        if nn[0] < 0 and abs(dd[1]) > 0.7:
+            nn = -nn
+        M_ = (A_ + B_) / 2 + np.array([knee, 0.0])
+        poly = np.array([A_ - nn * w / 2, M_ - nn * w * 0.48, B_ - nn * w * 0.45 - dd * 0.004, B_ - nn * w * 0.40 + dd * 0.012,
+                         B_ + nn * w * 0.50 + dd * 0.012, B_ + nn * w * 0.56 - dd * 0.012, M_ + nn * w * 0.52, A_ + nn * w / 2])
         pp = X(poly)
         col = lk['skin_d'] if far else lk['skin']
         fillp(L, pp, col, rng, ang=hatch_a + 0.5, w=max(1.5, s * 0.018), solid=0.72, grain=0.7, edge=max(0.6, s * 0.004))
@@ -154,9 +170,14 @@ def draw_tortoise(L, rng, x, y, s, age=1.0, face=1, ext=1.0, look=0.0, reach=0.0
             b.commit(lk['skin_l'] if not far else lk['skin'], grain=0.8, soft=0.2)
         oline(L, pp[[0, 1, 2, 3, 4, 5, 6, 7]], CHAR, lw * (0.8 if far else 1.0), rng, wob=s * 0.003, v=0.85 if not far else 0.6)
         if big and not far and not wave:
+            raised = abs(dd[1]) < 0.7
             for k in range(3):
-                cx_ = fx + w * (0.52 - 0.2 * k)
-                c0 = X(np.array([cx_, fy + 0.022])); c1 = X(np.array([cx_ + 0.022, fy - 0.004]))
+                if raised:
+                    q0 = B_ + nn * w * (0.34 - 0.30 * k) + dd * 0.004
+                    c0 = X(q0); c1 = X(q0 + dd * 0.030)
+                else:
+                    cx_ = fx + w * (0.52 - 0.2 * k)
+                    c0 = X(np.array([cx_, fy + 0.022])); c1 = X(np.array([cx_ + 0.022, fy - 0.004]))
                 oline(L, [c0, c1], CHAR, lw * 0.9, rng, wob=0, taper=(1, 0.5))
 
     fr_x, hi_x = 0.26, -0.29
@@ -273,6 +294,9 @@ def draw_tortoise(L, rng, x, y, s, age=1.0, face=1, ext=1.0, look=0.0, reach=0.0
     fillp(L, spoly, lk['base'], rng, ang=hatch_a, w=max(2.0, s * 0.030), solid=0.74, grain=0.7, edge=max(0.7, s * 0.004))
     # second colour, laid along the curve of the dome, leaving the first showing
     x0, y0, x1, y1 = L.roi(spoly[:, 0].min(), spoly[:, 1].min(), spoly[:, 0].max(), spoly[:, 1].max(), 3)
+    if x1 - x0 < 3 or y1 - y0 < 3:
+        info['bbox'] = (0, 0, 0, 0); info['X'] = X; info['stand'] = stand
+        return info
     clipm = polymask(y1 - y0, x1 - x0, spoly - np.array([x0, y0]), blur=max(0.7, s * 0.004))
     b = Batch(L, x0, y0, x1, y1)
     nv = int(clamp(s / 14, 5, 22))

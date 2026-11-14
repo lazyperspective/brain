@@ -334,6 +334,8 @@ class Batch:
 
 
 def polymask(h, w, pts, blur=0.0):
+    if h <= 0 or w <= 0:
+        return np.zeros((max(0, h), max(0, w)), F32)
     m = np.zeros((h, w), np.uint8)
     cv2.fillPoly(m, [_fix(pts)], 255, cv2.LINE_AA, 4)
     mf = m.astype(F32) * (1 / 255.0)
@@ -346,7 +348,7 @@ def polymask(h, w, pts, blur=0.0):
 _vig = None
 
 
-def shoot(C, rng, weave=0.45, flick=0.008, zoom=1.0, cx=W / 2, cy=H / 2, soft=0.72, grain=0.010, expo=1.0, tintc=None):
+def shoot(C, rng, weave=0.45, flick=0.008, zoom=1.0, cx=W / 2, cy=H / 2, soft=0.72, grain=0.010, expo=1.0, tintc=None, panx=0.0, pany=0.0):
     """photograph the sheet: a little gate weave, a breath of flicker, lens softness"""
     global _vig
     h, w = C.shape[:2]
@@ -355,7 +357,7 @@ def shoot(C, rng, weave=0.45, flick=0.008, zoom=1.0, cx=W / 2, cy=H / 2, soft=0.
         r2 = ((xx - W / 2) / (W * 0.72)) ** 2 + ((yy - H / 2) / (H * 0.78)) ** 2
         _vig = (1 - 0.20 * np.clip(r2, 0, 1.5) ** 1.3)[..., None].astype(F32)
     dx, dy = rng.normal(0, weave, 2)
-    M = np.array([[zoom, 0, W / 2 - zoom * cx + dx], [0, zoom, H / 2 - zoom * cy + dy]], np.float64)
+    M = np.array([[zoom, 0, cx * (1 - zoom) + dx + panx], [0, zoom, cy * (1 - zoom) + dy + pany]], np.float64)
     out = cv2.warpAffine(C, M, (W, H), flags=cv2.INTER_LINEAR if zoom < 1.5 else cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
     if soft > 0:
         out = cv2.GaussianBlur(out, (0, 0), soft)

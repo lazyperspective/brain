@@ -250,7 +250,7 @@ def fleck_geometry(u):
     cx = lerp(PLANT_X + 250, PLANT_X - 210, u)
     cy = float(ground_y(cx)) + 8
     st = sstep(0.0, 0.10, u) * (1 - sstep(0.90, 1.0, u))
-    return cx, cy, 190.0, 50.0, st
+    return cx, cy, 235.0, 56.0, st
 
 
 def fleck_field(paper, view, cx, cy, rx, ry, st, soft=0.55):
@@ -313,3 +313,105 @@ def draw_fleck(c, rng, view, cx, cy, rx, ry, st, flick=1.0):
         x = px + u * rx * k * 0.8 + (py - y) * 0.36
         b.dot(x, y, rng.uniform(0.8, 1.9) * k, rng.uniform(0.3, 0.9) * st)
     b.commit((0.98, 0.95, 0.72), grain=0.5, soft=0.3)
+
+
+# ------------------------------------------------------------------ the edge of the forest, from inside
+def edge_ground(x):
+    x = np.asarray(x, np.float64)
+    return 905 + 8 * np.sin(x / 170.0) - 10 * (x / 1920.0)
+
+
+def edge_plate(paper, seed=31):
+    rng = np.random.default_rng(seed)
+    c = Canvas(paper)
+    # the brightness beyond: laid on in upright strokes, thicker toward the way out
+    for col, x0, sp, n, pv in [((0.16, 0.34, 0.33), 900, 700, 320, (0.15, 0.5)), ((0.42, 0.62, 0.48), 1350, 480, 300, (0.2, 0.7)),
+                               ((0.78, 0.88, 0.62), 1650, 330, 300, (0.3, 0.9)), ((0.97, 0.98, 0.84), 1820, 240, 260, (0.4, 1.0))]:
+        b = Batch(c)
+        for i in range(n):
+            x = rng.normal(x0, sp)
+            if x < 250:
+                continue
+            y0 = rng.uniform(-20, 640); ln = rng.uniform(120, 360)
+            b.line(np.array([(x, y0), (x + rng.normal(0, 6), min(800.0, y0 + ln))]), rng.uniform(18, 44), rng.uniform(*pv))
+        b.commit(col, grain=0.9, soft=0.16, streak=(90, 0.45, 20), blur=1.5)
+    c.smudge(np.ones((820, paper.w), F32), 0, 0, sigma=4, strength=0.4)
+    # far trunks against it
+    b = Batch(c)
+    for i in range(24):
+        x = rng.uniform(300, 1900)
+        w = rng.uniform(10, 34) * (1.2 - 0.5 * x / 1900)
+        b.line(np.array([(x + rng.normal(0, 8), -10), (x, 400), (x + rng.normal(0, 4), 790)]), w, 0.9)
+    b.commit((0.07, 0.13, 0.15), grain=0.45, soft=0.2, blur=1.0)
+    # the floor: dark, then long tongues of light reaching in between the shadows
+    b = Batch(c)
+    for i in range(260):
+        y = rng.uniform(770, 1090); x = rng.uniform(-50, 1900)
+        b.line(np.array([(x, y), (x + rng.uniform(150, 420), y + rng.normal(0, 5))]), rng.uniform(18, 40), rng.uniform(0.4, 0.85))
+    b.commit((0.075, 0.075, 0.09), grain=0.75, soft=0.2, streak=(0, 0.5))
+    bs = [Batch(c) for _ in range(4)]
+    cols = [(0.16, 0.11, 0.11), (0.12, 0.17, 0.13), (0.17, 0.12, 0.17), (0.25, 0.19, 0.12)]
+    for i in range(2600):
+        x = rng.uniform(-20, 1940); y = rng.uniform(780, 1085); a = rng.normal(0, 0.3); ln = rng.uniform(5, 15)
+        bs[rng.integers(0, 4)].line(np.array([(x - ln, y - math.sin(a) * ln * 0.4), (x + ln, y + math.sin(a) * ln * 0.4)]), rng.uniform(3, 8), rng.uniform(0.3, 0.8))
+    for bb, col in zip(bs, cols):
+        bb.commit(col, grain=0.9, soft=0.15)
+    bs = [Batch(c) for _ in range(3)]
+    cols = [(0.30, 0.42, 0.20), (0.62, 0.70, 0.32), (0.93, 0.92, 0.62)]
+    for i in range(900):
+        x = rng.normal(1650, 520); y = rng.uniform(800, 1080)
+        lane = math.sin(y / 23.0 + 1.0) + 0.6 * math.sin(y / 9.0)
+        if x < 420 or lane < -0.2:
+            continue
+        j = 0 if x < 1150 else (1 if x < 1560 or rng.random() < 0.5 else 2)
+        ln = rng.uniform(20, 90)
+        bs[j].line(np.array([(x - ln, y), (x + ln, y + rng.normal(0, 2))]), rng.uniform(3, 8), rng.uniform(0.3, 0.9) * clamp((x - 420) / 700.0 + 0.25))
+    for bb, col in zip(bs, cols):
+        bb.commit(col, grain=0.95, soft=0.15, streak=(0, 0.4))
+    # near trunks, almost black, rimmed on the side that faces the day
+    for (x, w, yb) in [(110, 250, 880), (610, 120, 850), (1010, 78, 826), (1500, 54, 812)]:
+        pl = np.array([(x - w / 2, -10), (x - w / 2, 420), (x - w * 0.56, yb - 70), (x - w * 0.9, yb), (x - w * 1.4, yb + 30),
+                       (x + w * 1.5, yb + 34), (x + w * 0.95, yb), (x + w * 0.56, yb - 70), (x + w / 2, 420), (x + w / 2, -10)])
+        fillp(c, catmull(pl, 8), (0.035, 0.04, 0.05), rng, ang=math.pi / 2, w=8, solid=0.9, grain=0.45, edge=1.3, wob=3)
+        b = Batch(c); b2 = Batch(c)
+        for j in range(int(w * 1.3)):
+            u = rng.uniform(-0.46, 0.5); y0 = rng.uniform(-10, yb - 30); ln = rng.uniform(40, 170)
+            xx = x + u * w
+            if u > 0.30:
+                b2.line(np.array([(xx, y0), (xx + rng.normal(0, 3), y0 + ln)]), rng.uniform(2, 5), rng.uniform(0.3, 0.9) * (u + 0.3) * clamp(x / 900.0 + 0.3))
+            else:
+                b.line(np.array([(xx, y0), (xx + rng.normal(0, 3), y0 + ln)]), rng.uniform(2, 6), rng.uniform(0.2, 0.5))
+        b.commit((0.08, 0.09, 0.10), grain=0.95, soft=0.15)
+        b2.commit((0.62, 0.74, 0.46), grain=1.0, soft=0.14)
+    # ferns, and the leaves overhead with the day coming through them
+    for (x, y, n, l0, l1) in [(330, 915, 6, 70, 140), (820, 880, 6, 60, 110), (1280, 870, 6, 50, 100), (1700, 930, 7, 80, 160)]:
+        bd = Batch(c); bl = Batch(c)
+        for i in range(n):
+            fern(bd, bl, rng, x + rng.normal(0, 8), y, rng.uniform(l0, l1), rng.uniform(0.4, 2.7), curl=rng.uniform(0.4, 0.9), k=0.9)
+        bd.commit((0.06, 0.15, 0.11), grain=0.8, soft=0.16)
+        bl.commit(mix((0.12, 0.28, 0.18), (0.50, 0.66, 0.30), x / 1900.0), grain=0.92, soft=0.15)
+    b = Batch(c); b2 = Batch(c); b3 = Batch(c)
+    for i in range(1300):
+        x = rng.uniform(-20, 1940); y = abs(rng.normal(0, 95)) * (1 + 0.5 * math.sin(x / 230.0))
+        a = rng.uniform(0, 3.14); ln = rng.uniform(6, 16)
+        p = np.array([(x, y), (x + math.cos(a) * ln, y + math.sin(a) * ln * 0.7)])
+        b.line(p, rng.uniform(6, 12), rng.uniform(0.6, 1.0), taper=(1.0, 0.4))
+        if x > 900 and rng.random() < 0.35 * (x - 900) / 1000.0 + 0.05:
+            (b3 if rng.random() < 0.4 else b2).line(p + np.array([4, 6]), rng.uniform(4, 9), rng.uniform(0.4, 1.0), taper=(1.0, 0.4))
+    b.commit((0.03, 0.045, 0.05), grain=0.5, soft=0.2)
+    b2.commit((0.36, 0.56, 0.22), grain=0.85, soft=0.16)
+    b3.commit((0.78, 0.86, 0.36), grain=0.85, soft=0.16)
+    return c
+
+
+def light_plate(paper, seed=32):
+    """nothing but brightness: what the eye sees when it walks out of the dark"""
+    rng = np.random.default_rng(seed)
+    c = Canvas(paper)
+    for col, n, pv in [((0.90, 0.93, 0.74), 900, (0.5, 1.0)), ((0.98, 0.975, 0.86), 900, (0.5, 1.0)), ((1.0, 0.995, 0.93), 500, (0.4, 1.0))]:
+        b = Batch(c)
+        for i in range(n):
+            x = rng.uniform(-200, 1900); y = rng.uniform(-30, 1100); a = rng.normal(0.25, 0.2); ln = rng.uniform(120, 420)
+            b.line(np.array([(x, y), (x + math.cos(a) * ln, y - math.sin(a) * ln)]), rng.uniform(22, 50), rng.uniform(*pv))
+        b.commit(col, grain=0.8, soft=0.18, streak=(-15, 0.35, 20))
+    return c
