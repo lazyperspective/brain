@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Still Warm</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1b1a22; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; font: 13px/1.4 Georgia, serif; color: #b9b3a6; }
+  canvas { max-width: 96vw; max-height: 88vh; aspect-ratio: 16 / 9; box-shadow: 0 10px 40px rgba(0, 0, 0, .55); background: #f3ead9; }
+  #note { margin-top: 10px; letter-spacing: .04em; min-height: 1.4em; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="note">sharpening the pencils…</div>
+<!-- Every mark is made by the three scripts below, one hand-wobbled stroke at a time.
+     The canvas is only the sheet the finished grains are laid on. No SVG, no filters, no images.
+     ?w=3840 draws it at full size (needs ~400 MB and a minute or two); the default is 1920. -->
+<script src="engine.js"></script>
+<script src="scene.js"></script>
+<script src="paint.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var Wpx = Math.max(640, Math.min(3840, parseInt(q.get('w') || '1920', 10) || 1920));
+  var E = SW.createEngine(Wpx), Sc = SW.createScene(E), P = SW.createPainter(E, Sc);
+  var cv = document.getElementById('c'), note = document.getElementById('note');
+  cv.width = E.W; cv.height = E.H;
+  var ctx = cv.getContext('2d'), img = ctx.createImageData(E.W, E.H), it = P.stages();
+  function step() {
+    var r = it.next();
+    E.toRGBA(img.data); ctx.putImageData(img, 0, 0);
+    if (r.done || r.value === 'done') { note.innerHTML = 'Still Warm &nbsp;·&nbsp; wax crayon, coloured pencil, rubbed chalk dust, a pin and a kneaded eraser, on paper'; return; }
+    note.textContent = r.value + '…';
+    setTimeout(step, 30);
+  }
+  setTimeout(step, 60);
+})();
+</script>
+</body>
+</html>
