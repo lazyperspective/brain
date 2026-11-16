@@ -1,0 +1,56 @@
+// main.js -- the picture as a list of steps, in the order a hand would work.
+(function (G) {
+  'use strict';
+  const A = G.ART, S = A.S, Wd = A.Wd;
+  A.TITLE = 'She Said They Were Stars';
+  A.steps = function (W, H) {
+    const C = new A.Sheet(W, H, 20030816);
+    const rng = A.rng(19990807);
+    const r = []; for (let i = 0; i < 80; i++) r.push(rng.fork());
+    const all = [], add = (name, f) => { if (f) all.push([name, f]); };
+    add('finding the umbrella', () => { Wd.build(); Wd.buildLight(); Wd.stencil(C); Wd.place(); Wd.FLARES = []; });
+    add('the plan, in graphite', () => S.plan(C, r[0]));
+    add('the wet night, first glaze', () => S.nightWash(C, r[1], 0));
+    add('the wet night, second glaze', () => S.nightWash(C, r[2], 1));
+    add('the cloth, stained', () => S.clothWash(C, r[3], 0));
+    add('the cloth, stained again', () => S.clothWash(C, r[4], 1));
+    add('pastel into the rainy air', () => S.nightHatch(C, r[5]));
+    add('the lights of the street', () => S.discs(C, r[6]));
+    add('far rain', () => S.rain(C, r[7], 0));
+    add('pastel down the gores', () => S.clothPastel(C, r[8], 0));
+    add('pastel down the gores', () => S.clothPastel(C, r[9], 1));
+    add('the side of the hand', () => S.clothRub(C, r[13]));
+    add('pastel down the gores', () => S.clothPastel(C, r[10], 2));
+    add('the folds it keeps', () => S.creases(C, r[14]));
+    add('the weave, where light comes through', () => S.weave(C, r[15]));
+    add('rain on the far side of the cloth', () => S.rainShadow(C, r[34]));
+    add('rain', () => S.rain(C, r[11], 1));
+    add('rain', () => S.rain(C, r[12], 2));
+    add('what was mended', () => { S.patches(C, r[16]); S.darns(C, r[17]); });
+    add('the moon', () => S.moon(C, r[18]));
+    add('the holes', () => S.stars(C, r[19]));
+    add('the holes', () => S.slits(C, r[20]));
+    add('yellow chalk, pink chalk', () => S.chalk(C, r[31]));
+    add('two moths', () => S.moths(C, r[32]));
+    add('shadows of the frame', () => S.frameShadows(C, r[21]));
+    add('the hem', () => S.hem(C, r[22]));
+    add('ribs', () => { S.ribs(C, r[23]); S.crown(C, r[24]); });
+    add('stretchers', () => S.stretchers(C, r[25]));
+    add('the shaft, going down to a hand', () => S.shaft(C, r[26]));
+    add('a tear that is only pinned', () => S.pinned(C, r[27]));
+    add('the strap', () => { S.tips(C, r[28]); S.strap(C, r[29]); });
+    add('water', () => S.water(C, r[30]));
+    add('it leaks, of course', () => S.leaks(C, r[35]));
+    add('two sticks of chalk on their threads', () => S.sticks(C, r[36]));
+    add('the last small lights', () => S.flares(C, r[33]));
+    return { C, steps: all };
+  };
+  A.draw = function (W, H, o) {
+    o = o || {};
+    const log = o.log || (() => {}), stage = o.stage === undefined ? 999 : o.stage;
+    const { C, steps } = A.steps(W, H);
+    let last = '';
+    steps.forEach((st, i) => { if (i <= stage) { st[1](); if (st[0] !== last) log(st[0]); last = st[0]; } });
+    return C;
+  };
+})(typeof self !== 'undefined' ? self : globalThis);
