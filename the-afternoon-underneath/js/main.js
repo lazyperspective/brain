@@ -1,0 +1,57 @@
+// main.js -- the picture as a list of steps, in the order a hand would work.
+(function (G) {
+  'use strict';
+  const A = G.ART, S = A.S, Wd = A.Wd;
+  A.TITLE = 'The Afternoon Underneath';
+  A.steps = function (W, H) {
+    const C = new A.Sheet(W, H, 19990803); S._tips = [];
+    const rng = A.rng(30803);
+    const r = []; for (let i = 0; i < 60; i++) r.push(rng.fork());
+    const all = [], add = (name, f) => { if (f) all.push([name, f]); };
+    add('building the cloud', () => { Wd.build(); Wd.memGrid(C); });
+    add('the plan, in graphite', () => S.under(C, r[0]));
+    add('tonight, first wash', () => S.duskWash(C, r[1], 0));
+    add('tonight, second wash', () => S.duskWash(C, r[2], 1));
+    add('the water tonight', () => S.waterWash(C, r[3]));
+    add('the afternoon, kept', () => S.memWash(C, r[4], 0));
+    add('the afternoon, kept', () => S.memWash(C, r[4], 1));
+    add('pastel over the sky', () => S.duskHatch(C, r[5]));
+    add('the thunderhead', () => S.duskCloud(C, r[6]));
+    add('its last light', () => S.duskCloudStrokes(C, r[7]));
+    add('bars of cloud', () => S.duskBars(C, r[8]));
+    add('stars', () => S.stars(C, r[9]));
+    add('a thin moon', () => S.moon(C, r[10]));
+    add('pastel along the water', () => S.waterHatch(C, r[11]));
+    add('the same cloud, lit', () => S.memCloud(C, r[12]));
+    add('a finger, dragged along the water', () => S.soften(C, r[35]));
+    add('the far shore', () => S.shore(C, r[14]));
+    add('what the water kept: the poles', () => S.poles(C, r[15], true));
+    add('what the water kept: the seesaw, level', () => { S.seesaw(C, r[16], true); S.dome(C, r[17], true); });
+    add('what the water kept: the lamp, not needed yet', () => S.lamp(C, r[18], true));
+    add('what the water kept: a kite, a ball', () => { S.kite(C, r[19]); S.ball(C, r[20]); });
+    add('what the water kept: both swings, going', () => S.swings(C, r[21], true));
+    add('the skin of the water', () => S.ripples(C, r[27]));
+    add('the sun, where the moon is', () => S.sun(C, r[13]));
+    add('petals', () => S.floaters(C, r[28]));
+    add('tonight: the poles', () => S.poles(C, r[22], false));
+    add('tonight: the seesaw, the dome', () => { S.seesaw(C, r[23], false); S.dome(C, r[24], false); });
+    add('tonight: the lamp, still on', () => S.lamp(C, r[25], false));
+    add('tonight: the swings, hanging', () => S.swings(C, r[26], false));
+    add('reeds', () => S.reeds(C, r[29]));
+    add('the bank at our feet', () => S.bank(C, r[30], 0));
+    add('the bank at our feet', () => S.bank(C, r[31], 1));
+    add('foxtails, evening primroses', () => S.bankFlowers(C, r[32]));
+    add('what is nearest', () => S.nearest(C, r[36]));
+    add('one dragonfly', () => S.dragonfly(C, r[33]));
+    add('fireflies', () => S.fireflies(C, r[34]));
+    return { C, steps: all };
+  };
+  A.draw = function (W, H, o) {
+    o = o || {};
+    const log = o.log || (() => {}), stage = o.stage === undefined ? 999 : o.stage;
+    const { C, steps } = A.steps(W, H);
+    let last = '';
+    steps.forEach((st, i) => { if (i <= stage) { st[1](); if (st[0] !== last) log(st[0]); last = st[0]; } });
+    return C;
+  };
+})(typeof self !== 'undefined' ? self : globalThis);
