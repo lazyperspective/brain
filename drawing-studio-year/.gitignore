@@ -1,0 +1,6 @@
+.cache/
+chunks/
+*.log
+out/
+tests/*.png
+tests/*.jpg
