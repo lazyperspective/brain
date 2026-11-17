@@ -9,7 +9,7 @@
  * is carried sideways by the same wind that bends the grass.
  */
 'use strict';
-const { c01, sstep, lerp, hash1, HOR, KY } = require('./clock.js');
+const { c01, sstep, lerp, hash1, hz, HOR, KY } = require('./clock.js');
 const { PAPER, mix3 } = require('./look.js');
 const { createHand } = require('./hand.js');
 
@@ -108,8 +108,8 @@ function create(ctx) {
     const fc = st.fogCol;
     for (const b of FOG) {
       if (!!b.near !== !!near) continue;
-      const x = wrap(X0 - 450 + b.x * (Wn + 900) + C.Wint[st.f] * b.k + 9 * Math.sin(st.tau * 6.283185307 * 2 / 96 + b.ph), X0 - 450, Wn + 900);
-      const a = fg * b.wt * (0.65 + 0.35 * Math.sin(st.tau * 6.283185307 * 6 / 96 + b.ph)); if (a < 0.03) continue;
+      const x = wrap(X0 - 450 + b.x * (Wn + 900) + C.Wint[st.f] * b.k + 9 * Math.sin(st.tau * 6.283185307 * hz(0.021) + b.ph), X0 - 450, Wn + 900);
+      const a = fg * b.wt * (0.65 + 0.35 * Math.sin(st.tau * 6.283185307 * hz(0.0625) + b.ph)); if (a < 0.03) continue;
       H.line([[x - b.L / 2, b.y], [x, b.y + b.bend], [x + b.L / 2, b.y - b.bend * 0.4]], b.w, TOOLS.DUST, fc, { press: 0.62, p0: 0.05, p1: 0.05, wob: 1.5, step: 6, op: 0.34 * a }, 8400 + (b.L | 0));
     }
   }

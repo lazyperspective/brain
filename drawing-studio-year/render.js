@@ -8,7 +8,8 @@
  * renamed into place when it is complete, so the job can be stopped and started
  * again and loses at most the chunks that were in flight. Any frame can be drawn
  * on its own (film.js), so the chunks can be drawn in any order on any core.
- * When every chunk exists they are joined without re-encoding.
+ * The chunks are near-lossless working copies; when every one exists the film is
+ * encoded once, in a single pass, with its few keyframes placed at sunrises.
  */
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), { spawn, fork, spawnSync } = require('child_process');
@@ -23,7 +24,7 @@ if (process.env.YEAR_WORKER) {
     const { start, n, file } = job, tmp = file + '.part';
     const ff = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', film.W + 'x' + film.H, '-r', String(film.FPS), '-i', '-',
       '-vf', 'scale=in_range=full:out_range=tv:out_color_matrix=bt709:flags=accurate_rnd+full_chroma_int,format=yuv420p',
-      '-c:v', 'libx264', '-preset', o.preset, '-crf', String(o.crf), '-tune', 'film', '-g', String(film.FPS), '-bf', '2', '-threads', '2',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '10', '-g', String(n), '-threads', '2',          // a near-lossless working copy of the chunk
       '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-f', 'mp4', tmp], { stdio: ['pipe', 'inherit', 'inherit'] });
     let i = 0; const buf = Buffer.alloc(film.W * film.H * 3);
     const next = () => {
@@ -43,7 +44,7 @@ if (process.env.YEAR_WORKER) {
   const from = +arg('from', 0), to = +arg('to', F);
   // chunks are only reused by the very same film: a change to any source file starts a new set
   const srcs = ['clock.js', 'engine.js', 'world.js', 'look.js', 'patient.js', 'tree.js', 'meadow.js', 'sky.js', 'clouds.js', 'weather.js', 'life.js', 'hand.js', 'film.js'];
-  const h = crypto.createHash('md5'); for (const s of srcs) h.update(fs.readFileSync(path.join(__dirname, s))); h.update([scale, crf, preset].join('|'));
+  const h = crypto.createHash('md5'); for (const s of srcs) h.update(fs.readFileSync(path.join(__dirname, s))); h.update(String(scale));
   const tag = arg('tag', h.digest('hex').slice(0, 10));
   const dir = path.join(__dirname, 'chunks', `${fmt}-${tag}`); fs.mkdirSync(dir, { recursive: true });
   const outDir = path.join(__dirname, 'out'); fs.mkdirSync(outDir, { recursive: true });
@@ -56,9 +57,16 @@ if (process.env.YEAR_WORKER) {
   const finish = () => {
     if (failed) { console.error('some chunks failed; run again to retry'); process.exit(1); }
     const list = path.join(dir, 'list.txt'); fs.writeFileSync(list, chunks.map(c => `file '${c.file}'`).join('\n') + '\n');
-    const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', name], { stdio: 'inherit' });
+    // One encode for the whole film. On still, grainy paper every keyframe re-settles the grain for a
+    // frame, so keyframes are few and are put where the picture is changing anyway: at sunrises.
+    const { buildClock } = require('./clock.js'), C = buildClock().C, keys = [];
+    for (let f = from; f < to; f++) { const p = (f - 1 + F) % F; if ((f === from) || (C.alt[p] < 0.3 && C.alt[f] >= 0.3 && (f - from) - (keys.length ? keys[keys.length - 1] : -1e9) > 12 * FPS)) keys.push(f - from); }
+    const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list,
+      '-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-tune', 'film', '-bf', '2', '-threads', '4',
+      '-x264-params', `keyint=${to - from + 1}:min-keyint=${to - from + 1}:scenecut=0`, '-force_key_frames', keys.map(f => (f / FPS).toFixed(4)).join(','),
+      '-pix_fmt', 'yuv420p', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-movflags', '+faststart', name], { stdio: 'inherit' });
     if (r.status !== 0) process.exit(1);
-    console.log(`joined -> ${name} (${(fs.statSync(name).size / 1e6).toFixed(1)} MB) in ${((Date.now() - t0) / 60000).toFixed(1)} min`);
+    console.log(`joined -> ${name} (${(fs.statSync(name).size / 1e6).toFixed(1)} MB, keyframes at ${keys.map(f => (f / FPS).toFixed(1) + 's').join(' ')}) in ${((Date.now() - t0) / 60000).toFixed(1)} min`);
   };
   if (!todo.length) finish();
   else {

@@ -75,7 +75,7 @@ ok('the loop: the last frame differs from the first no more than neighbours do',
   assert(seam < near * 1.6 + 0.4, 'seam ' + seam.toFixed(3) + ' vs neighbours ' + near.toFixed(3));
 });
 ok('nothing pops: over two stretches of the year no frame differs wildly from the one before', () => {
-  for (const start of [1040, 1790]) {
+  for (const start of [980, 1680]) {
     let prev = null; const ds = [];
     for (let f = start; f < start + 24; f++) { film.renderFrame(f); const cur = Buffer.from(film.E.toRGB()); if (prev) { let s = 0; for (let i = 0; i < cur.length; i++) s += Math.abs(cur[i] - prev[i]); ds.push(s / cur.length); } prev = cur; }
     const sorted = ds.slice().sort((x, y) => x - y), med = sorted[ds.length >> 1];

@@ -13,7 +13,7 @@
  *   cirrus                a few pale combed lines, very high
  */
 'use strict';
-const { c01, sstep, lerp, hash1, KX, KY, XC, HOR, ND } = require('./clock.js');
+const { c01, sstep, lerp, hash1, hz, KX, KY, XC, HOR, ND } = require('./clock.js');
 const { PAPER, mix3 } = require('./look.js');
 const { createHand } = require('./hand.js');
 
@@ -83,15 +83,15 @@ function create(ctx) {
   { const main = [[34, 540, 46], [96, 528, 56], [165, 520, 62], [243, 516, 70], [322, 522, 60], [392, 534, 46], [440, 543, 30], [128, 468, 58], [208, 452, 66], [290, 460, 60], [352, 486, 44],
       [168, 398, 54], [244, 382, 60], [306, 408, 48], [198, 332, 48], [262, 316, 52], [312, 348, 36], [228, 268, 42], [276, 258, 36], [200, 288, 32], [252, 232, 26]];
     const f0 = frameAt(K.at(3, 10.2)), f1 = frameAt(K.at(3, 28.2));          // it is gone, unseen, in the small hours
-    const TS = 0.86, cl = { type: 'tower', seed: 5, f0, nF: (f1 - f0 + F) % F, x: 0, y: 0, speed: 16, dark: 0, puffs: [], slow: 1 };
+    const TS = 0.86, TX = 735, cl = { type: 'tower', seed: 5, f0, nF: (f1 - f0 + F) % F, x: 0, y: 0, speed: 16, dark: 0, puffs: [], slow: 1 };
     for (const m of main) {
       const born = 0.02 + 0.44 * c01((540 - m[1]) / 320) + 0.04 * hash2(m[0], m[1], 731);     // from the base up
-      m[0] = 712 + (m[0] - 236) * TS; m[1] = 556 + (m[1] - 556) * TS; m[2] *= TS;
+      m[0] = TX + (m[0] - 236) * TS; m[1] = 556 + (m[1] - 556) * TS; m[2] *= TS;
       addPuff(cl, m[0], m[1], m[2], born, { main: 1 });
       const k = m[2] > 40 ? 4 : 2;
       for (let i = 0; i < k; i++) { const a = -Math.PI * 1.05 + (Math.PI * 1.05 + 0.05) * hash2(m[0] + i, m[1], 732), rad = m[2] * (0.26 + 0.2 * hash2(m[0] + i, m[1], 733)); addPuff(cl, m[0] + Math.cos(a) * m[2] * 0.82, m[1] + Math.sin(a) * m[2] * 0.82, rad, born + 0.03 + 0.05 * hash2(m[0] + i, m[1], 734)); }
     }
-    cl.cx = 712; cl.cy = 556 - 156 * TS; cl.baseY = 556; cl.fadeOut = 0.26;
+    cl.cx = TX; cl.cy = 556 - 156 * TS; cl.baseY = 556; cl.fadeOut = 0.26;
     finish(cl);
   }
   // --- the storm's front and the ragged scud under it
@@ -151,10 +151,10 @@ function create(ctx) {
     const t = st.tau;
     for (let i = 0; i < np; i++) {
       const p = cl.puffs[i], g = isCum ? gAll * (0.75 + 0.25 * sstep(p.born * 0.6, p.born * 0.6 + 0.2, u)) : sstep(p.born, p.born + 0.2, u);
-      const br = 1 + 0.035 * Math.sin(6.283 * ((p.seed & 3) + 1) / 16 * t + p.seed);
+      const br = 1 + 0.035 * Math.sin(6.283185307 * hz(((p.seed & 3) + 1) / 16) * t + p.seed);
       rad[i] = p.r * g * br * (1 - 0.12 * dying);                  // a cloud does not shrink into beads as it goes: its hatching thins
       const rise = isCum ? 0 : (1 - g) * p.r * 0.7, sq = isCum ? 0.45 + 0.55 * gAll : 1;      // a small cloud swells as one thing, out of its own base
-      px[i] = cx0 + p.dx * sq + 1.5 * Math.sin(6.283 * ((p.seed >> 2 & 3) + 1) / 16 * t + p.seed * 0.7); py[i] = cy0 + p.dy * (isCum ? gAll : 1) + rise;
+      px[i] = cx0 + p.dx * sq + 1.5 * Math.sin(6.283185307 * hz(((p.seed >> 2 & 3) + 1) / 16) * t + p.seed * 0.7); py[i] = cy0 + p.dy * (isCum ? gAll : 1) + rise;
     }
     // light
     const bcx = cx0 + (cl.cx !== undefined ? cl.cx : cl.bx), bcy = cy0 + (cl.cy !== undefined ? cl.cy : cl.by);

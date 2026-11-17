@@ -15,7 +15,7 @@
  *     every tuft that still has leaves on it.
  */
 'use strict';
-const { c01, sstep, lerp, hash1, KX, KY, XC, HOR } = require('./clock.js');
+const { c01, sstep, lerp, hash1, hz, KX, KY, XC, HOR } = require('./clock.js');
 const { PAPER, mix3 } = require('./look.js');
 
 function create(ctx) {
@@ -320,12 +320,12 @@ function create(ctx) {
     // --- sway: every node and tuft leans with the wind where it is, and trembles at its own pace
     for (let i = 0; i < nodes.length; i++) {
       const nd = nodes[i]; if (nd.flex < 0.01) { ndx[i] = 0; ndy[i] = 0; continue; }
-      const wl = localWind(nd.x, nd.y), osc = Math.sin(TWO_PI * (2 + (i & 3)) / 8 * tau + i * 1.7);
-      ndx[i] = nd.flex * (1.5 * wl + 0.55 * Math.abs(wl) * osc); ndy[i] = nd.flex * 0.22 * Math.abs(wl) * Math.cos(TWO_PI * (3 + (i & 3)) / 8 * tau + i);
+      const wl = localWind(nd.x, nd.y), osc = Math.sin(TWO_PI * hz((2 + (i & 3)) / 8) * tau + i * 1.7);
+      ndx[i] = nd.flex * (1.5 * wl + 0.55 * Math.abs(wl) * osc); ndy[i] = nd.flex * 0.22 * Math.abs(wl) * Math.cos(TWO_PI * hz((3 + (i & 3)) / 8) * tau + i);
     }
     for (let i = 0; i < NT; i++) {
       const t = TUFT[i]; if (t.dead) continue;
-      const wl = localWind(t.x, t.y), aw = Math.abs(wl), osc = Math.sin(TWO_PI * t.f1 / 8 * tau + t.ph), osc2 = Math.cos(TWO_PI * t.f2 / 8 * tau + t.ph * 1.3);
+      const wl = localWind(t.x, t.y), aw = Math.abs(wl), osc = Math.sin(TWO_PI * hz(t.f1 / 8) * tau + t.ph), osc2 = Math.cos(TWO_PI * hz(t.f2 / 8) * tau + t.ph * 1.3);
       tdx[i] = t.flex * (1.5 * wl + 0.6 * aw * osc); tdy[i] = t.flex * (0.3 * aw * osc2 + 0.25 * aw);
       trot[i] = 0.5 * wl * (0.6 + 0.4 * osc2) * Math.min(1, t.flex / 5);
       tleaf[i] = 0;
@@ -511,7 +511,7 @@ function create(ctx) {
       const v = lvis[i]; if (v <= 0.01) continue;
       const ti = L_.tuft[i], layer = L_.layer[i], g = lgrow[i];
       // geometry: the stroke rides its tuft, turned a little by the wind
-      const rot = trot[ti] * (0.6 + 0.8 * L_.j1[i]) + 0.10 * Math.abs(st.wind) * Math.sin(TWO_PI * (2 + (i & 7)) / 4 * tau + i);
+      const rot = trot[ti] * (0.6 + 0.8 * L_.j1[i]) + 0.10 * Math.abs(st.wind) * Math.sin(TWO_PI * hz((2 + (i & 7)) / 4) * tau + i);
       const ca = Math.cos(rot), sa = Math.sin(rot), gs = 0.35 + 0.65 * g;
       const ox = L_.x[i] + tdx[ti], oy = L_.y[i] + tdy[ti], n = L_.pn[i];
       let p = L_.p0[i] * 3;

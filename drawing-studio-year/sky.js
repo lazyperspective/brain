@@ -7,7 +7,7 @@
  * seasons: far to the left in December, straight over the hollow at midsummer.
  */
 'use strict';
-const { c01, sstep, lerp, hash1, KX, KY, XC, HOR, ND } = require('./clock.js');
+const { c01, sstep, lerp, hash1, hz, KX, KY, XC, HOR, ND } = require('./clock.js');
 const { PAPER, mix3 } = require('./look.js');
 const { createHand } = require('./hand.js');
 
@@ -51,7 +51,7 @@ function create(ctx) {
       a *= 0.35 + 0.65 * sstep(1, 18, altd);
       const oc = Pt.ovcLocal(x, y, drift); if (oc > 0.02) a *= 1 - c01(oc * 1.5);
       if (st.moonI > 0.05) { const r2 = (x - st.moonX) * (x - st.moonX) + (y - my) * (y - my); if (r2 < 60 * 60) continue; }
-      a *= 0.72 + 0.28 * Math.sin(TWO_PI * s.fq / 16 * st.tau + s.ph);      // they breathe
+      a *= 0.72 + 0.28 * Math.sin(TWO_PI * hz(s.fq / 16) * st.tau + s.ph);      // they breathe
       if (a < 0.04) continue;
       H.pinDot(x, y, s.s * 1.5, 0.95 * a, starCol);
       if (s.s > 1.3) {
@@ -134,7 +134,7 @@ function create(ctx) {
     else return;
     I *= 1 - 0.6 * st.rough; if (I < 0.04) return;
     for (const g of GL) {
-      const tw = 0.5 + 0.5 * Math.sin(TWO_PI * g.fq / 16 * st.tau + g.ph); if (tw < 0.35) continue;
+      const tw = 0.5 + 0.5 * Math.sin(TWO_PI * hz(g.fq / 16) * st.tau + g.ph); if (tw < 0.35) continue;
       const y = HOR + 1.5 + 40 * g.yy, x = gx + g.g * (16 + (y - HOR) * 1.5), L = g.L * (0.6 + (y - HOR) / 40);
       PX[0] = x - L / 2; PY[0] = y; PP[0] = 0.4; PX[1] = x; PY[1] = y; PP[1] = 1; PX[2] = x + L / 2; PY[2] = y; PP[2] = 0.4;
       E.scratch(3, g.w, 0.92 * I * (tw - 0.35) / 0.65, col);

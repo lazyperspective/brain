@@ -16,7 +16,7 @@
  *   - dew, frost, rain-drops, puddles on the worn path.
  */
 'use strict';
-const { c01, sstep, lerp, hash1, HOR } = require('./clock.js');
+const { c01, sstep, lerp, hash1, hz, HOR } = require('./clock.js');
 const { PAPER, mix3, hex, BOX } = require('./look.js');
 const { createHand } = require('./hand.js');
 
@@ -199,7 +199,7 @@ function create(ctx) {
     const cov = st.snow > 0.002 ? Pt.snowCover(g.pn, g.pn2, b.j3, g.dn, g.dt, 0, false) : 0;
     if (cov > 0.02) { const sh = st.snow * 7.5 * sc * cov * (0.7 + 0.6 * b.j3); h -= sh; y0 -= sh * 0.5; if (h < 2.2 * Math.max(0.5, sc)) return; }
     const wl = gustAt(g), aw = Math.abs(wl);
-    let bend = h * (0.20 * wl + 0.07 * aw * Math.sin(TWO_PI * b.fq / 8 * st.tau + b.ph) + 0.012 * Math.sin(TWO_PI * (b.fq & 3) / 16 * st.tau + b.ph));
+    let bend = h * (0.20 * wl + 0.07 * aw * Math.sin(TWO_PI * hz(b.fq / 8) * st.tau + b.ph) + 0.012 * Math.sin(TWO_PI * hz((1 + (b.fq & 3)) / 16) * st.tau + b.ph));
     const lnv = b.ln + (b.ln > 0 ? 1 : -1) * 0.38 * st.sen + 0.25 * st.rain * (b.ln > 0 ? 1 : -1);
     const droop = 1 - 0.22 * Math.min(1, Math.abs(bend) / (h + 1)) - 0.12 * st.sen;
     const tx = b.x + lnv * h + bend, ty = y0 - h * droop;
@@ -221,7 +221,7 @@ function create(ctx) {
     }
     // a bead of dew, a rain-drop or a grain of frost at the tip, when there is light to wake it
     if (b.dewy && sparkle > 0.03) {
-      const tw = 0.5 + 0.5 * Math.sin(TWO_PI * (2 + b.fq) / 8 * st.tau + b.ph * 3);
+      const tw = 0.5 + 0.5 * Math.sin(TWO_PI * hz((2 + b.fq) / 8) * st.tau + b.ph * 3);
       const a = sparkle * tw * tw * (1 - cov); if (a > 0.06) H.pinDot(tx, ty + 1, 1.5 * Math.max(0.7, Math.min(1.5, sc)), Math.min(0.95, a), st.frost > st.dew ? [0.92, 0.96, 1.0] : null);
     }
   }
@@ -231,7 +231,7 @@ function create(ctx) {
     const grow = sstep(0.1, 0.9, st.Hg + 0.25 * (b.tint - 0.5));
     let h = b.h * (0.42 + 0.58 * grow) * (1 - 0.2 * st.sen) * (1 - 0.3 * c01(st.snow * 1.5));
     const wl = gustAt(g), aw = Math.abs(wl);
-    const bend = h * (0.24 * wl + 0.06 * aw * Math.sin(TWO_PI * b.fq / 8 * st.tau + b.ph) + 0.014 * Math.sin(TWO_PI * (b.fq & 1 ? 1 : 3) / 16 * st.tau + b.ph));
+    const bend = h * (0.24 * wl + 0.06 * aw * Math.sin(TWO_PI * hz(b.fq / 8) * st.tau + b.ph) + 0.014 * Math.sin(TWO_PI * hz((b.fq & 1 ? 1 : 3) / 16) * st.tau + b.ph));
     const ln = b.ln + (b.ln > 0 ? 1 : -1) * 0.3 * st.sen;
     Pt.albedoGround(al, g.pn, g.pn2, b.tint, 999, 999, 4, false, g.aux);
     al[0] *= b.dk; al[1] *= b.dk + 0.03; al[2] *= b.dk + 0.10;
@@ -262,7 +262,7 @@ function create(ctx) {
     // they close a little when it is dark and when it rains — less so near the small light
     b *= 1 - 0.30 * st.night * (1 - c01(st.glow * 1.2)) - 0.25 * st.rain;
     const cov = st.snow > 0.002 ? Pt.snowCover(g.pn, g.pn2, 0.5, g.dn, g.dt, 0.1, false) : 0; if (cov > 0.6) return;
-    const wl = gustAt(g), s = f.s, sway = (0.9 * wl + 0.25 * Math.abs(wl) * Math.sin(TWO_PI * 5 / 8 * st.tau + f.ph)) * s * 0.8;
+    const wl = gustAt(g), s = f.s, sway = (0.9 * wl + 0.25 * Math.abs(wl) * Math.sin(TWO_PI * hz(5 / 8) * st.tau + f.ph)) * s * 0.8;
     const droop = (0.35 * wilt + 0.2 * st.rain) * s;
     const bx = f.x + f.bx, by = f.y + f.by, fx = f.x + sway + droop * 0.6, fy = f.y - f.hgt * sg + droop;
     mix3(cGreen, [0.55, 0.45, 0.25], wilt * 0.8, al); lit(col, al, g, f.x, f.y);
@@ -289,7 +289,7 @@ function create(ctx) {
     const d = st.cal;
     const b = sstep(f.open, f.open + 0.4, d) * (1 - sstep(f.shut, f.shut + 0.5, d)); if (b < 0.04) return;
     const g = f.g, cov = st.snow > 0.002 ? Pt.snowCover(g.pn, g.pn2, 0.5, g.dn, g.dt, 0, false) : 0; if (cov > 0.5) return;
-    const wl = gustAt(g), sway = wl * f.hy * 0.35 + 0.08 * f.hy * Math.abs(wl) * Math.sin(TWO_PI * 5 / 8 * st.tau + f.ph);
+    const wl = gustAt(g), sway = wl * f.hy * 0.35 + 0.08 * f.hy * Math.abs(wl) * Math.sin(TWO_PI * hz(5 / 8) * st.tau + f.ph);
     const x = f.x + sway, hy = f.y - f.hy * (0.5 + 0.5 * b), s = f.s * (0.45 + 0.55 * b);
     lit(col, cGreen, g, f.x, f.y);
     PX[0] = f.x; PY[0] = f.y; PP[0] = 0.7; PX[1] = x; PY[1] = hy; PP[1] = 0.5; E.stroke(2, 0.9 * Math.min(1.6, f.sc), PENCIL, col, 0.8, f.seed);
@@ -300,7 +300,7 @@ function create(ctx) {
   function drawClock(c) {
     const d = st.cal, g = c.g;
     const up = sstep(c.gold0 - 0.5, c.gold0, d) * (1 - sstep(c.ready + 2.4, c.ready + 3.2, d)); if (up < 0.02) return;
-    const wl = gustAt(g), sway = (0.5 * wl + 0.12 * Math.abs(wl) * Math.sin(TWO_PI * 3 / 8 * st.tau + c.seed)) * c.stem * 0.3;
+    const wl = gustAt(g), sway = (0.5 * wl + 0.12 * Math.abs(wl) * Math.sin(TWO_PI * hz(3 / 8) * st.tau + c.seed)) * c.stem * 0.3;
     const hx = c.x + c.hxo + sway, hy = c.y - c.stem * up;
     lit(col, [0.22, 0.50, 0.36], g, c.x, c.y);
     H.line([[c.x, c.y], [(c.x + hx) / 2 + 2, c.y - c.stem * up * 0.5], [hx, hy]], 1.3 * Math.min(1.5, Math.max(0.8, c.r / 7)), PENCIL, col, { press: 0.8, wob: 0.2 }, c.seed);

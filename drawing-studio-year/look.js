@@ -81,8 +81,8 @@ function ramp(stops) {
   return t;
 }
 const SKY = {
-  NIGHT_S: ramp([[0, '#2a4486'], [3, '#253c82'], [8, '#1f3378'], [16, '#1a2a6c'], [28, '#162260'], [45, '#121a50'], [70, '#0e1442']]),
-  NIGHT_W: ramp([[0, '#263a78'], [3, '#203071'], [8, '#1a2866'], [16, '#15205a'], [28, '#111a4d'], [45, '#0e1541'], [70, '#0b1036']]),
+  NIGHT_S: ramp([[0, '#3a5aa2'], [3, '#32509c'], [8, '#2a4592'], [16, '#233a86'], [28, '#1e3078'], [45, '#1a2868'], [70, '#161f58']]),
+  NIGHT_W: ramp([[0, '#35509a'], [3, '#2e4692'], [8, '#273c88'], [16, '#21327c'], [28, '#1c2a6e'], [45, '#18235f'], [70, '#141c50']]),
   // the original drawing's dusk, near the glow and far from it
   DUSK_N: ramp([[0, '#ee7288'], [1.8, '#ff9c70'], [4.7, '#ffd596'], [8.4, '#c4cfaa'], [13.6, '#5fb0b4'], [21, '#2f7fae'], [30.5, '#25509e'], [41, '#1c2f7c'], [52.5, '#141a52'], [105, '#10143f']]),
   DUSK_F: ramp([[0, '#c66c94'], [1.4, '#d87a9c'], [3.8, '#c97cac'], [7.4, '#a476b6'], [12.6, '#7068b4'], [20, '#4458a8'], [29, '#27408f'], [39.5, '#1a2a72'], [52.5, '#121747'], [105, '#0f133c']]),
@@ -136,10 +136,10 @@ function createLook(K) {
     const tri = (a, b, c) => { const o = new Float32Array(NA * 3); for (let i = 0; i < NA * 3; i++) o[i] = (a[i] * wN + b[i] * fire + c[i] * cold) / (wN + fire + cold); return o; };
     if (pm || alt < -30) {
       const DN = tri(SKY.DUSK_N, SKY.FDUSK_N, SKY.CDUSK_N), DF = tri(SKY.DUSK_F, SKY.FDUSK_F, SKY.CDUSK_F), SN = tri(SKY.SET_N, SKY.FSET_N, SKY.CSET_N), SF = tri(SKY.SET_F, SKY.FSET_F, SKY.CSET_F);
-      keyed(skyN, alt, [[-17, NIGHT], [-10, mixT(NIGHT, DN, 0.42)], [-4.2, DN], [0, SN], [6, SKY.GOLD_N], [17, DAY]]);
-      keyed(skyF, alt, [[-17, NIGHT], [-10, mixT(NIGHT, DF, 0.42)], [-4.2, DF], [0, SF], [6, SKY.GOLD_F], [17, DAY]]);
+      keyed(skyN, alt, [[-24, NIGHT], [-12, mixT(NIGHT, DN, 0.42)], [-4.2, DN], [0, SN], [6, SKY.GOLD_N], [17, DAY]]);   // the afterglow is let go slowly: night's clock runs fast
+      keyed(skyF, alt, [[-24, NIGHT], [-12, mixT(NIGHT, DF, 0.42)], [-4.2, DF], [0, SF], [6, SKY.GOLD_F], [17, DAY]]);
     } else {
-      keyed(skyN, alt, [[-17, NIGHT], [-7, SKY.PRE], [-0.5, SKY.DAWN], [7, SKY.MORN], [17, DAY]]);
+      keyed(skyN, alt, [[-22, NIGHT], [-8, SKY.PRE], [-0.5, SKY.DAWN], [7, SKY.MORN], [17, DAY]]);
       skyF.set(skyN);
     }
     // --- the sun as a lamp
@@ -157,13 +157,13 @@ function createLook(K) {
     const z = 2 * 44 * 3, hz = 2 * 3 * 3;
     for (let c = 0; c < 3; c++) { st.zenith[c] = 0.5 * (skyN[z + c] + skyF[z + c]); st.horizon[c] = 0.5 * (skyN[hz + c] + skyF[hz + c]); }
     const ovc = st.ovc, storm = st.storm;
-    const ovcB = (0.16 + 0.84 * day) * (1 - 0.45 * storm);
+    const ovcB = (0.30 + 0.70 * day + 0.06 * c01(st.snow * 2) * (1 - day)) * (1 - 0.45 * storm);
     const oc = [SKY.OVC[25 * 6] * ovcB, SKY.OVC[25 * 6 + 1] * ovcB, SKY.OVC[25 * 6 + 2] * ovcB * (1 + 0.25 * (1 - day))];
     st.ovcB = ovcB;
     // night sky light is boosted: the artist never lets the night go black
     const nightK = 1 - day;
     const moonL = st.moonUp * sstep(0.3, 7, st.moonAlt);
-    const ambK = 0.42 * day + 0.34 * nightK + 0.30 * moonL * (1 - 0.9 * st.ovc) * nightK * (0.3 + 0.7 * Math.sin(Math.PI * Math.min(1, st.moonPhase * 2)) );
+    const ambK = 0.42 * day + 0.50 * nightK + 0.30 * moonL * (1 - 0.9 * st.ovc) * nightK * (0.3 + 0.7 * Math.sin(Math.PI * Math.min(1, st.moonPhase * 2)) );
     for (let c = 0; c < 3; c++) {
       const sky = (0.80 * st.zenith[c] + 0.20 * st.horizon[c]) * (1 + 0.5 * nightK) + 0.10 * day;
       st.Av[c] = lerp(sky * ambK, oc[c] * 0.62, ovc);
@@ -172,7 +172,7 @@ function createLook(K) {
     st.Gv[0] = 0.97 * st.glow; st.Gv[1] = 0.88 * st.glow; st.Gv[2] = 0.42 * st.glow;
     // --- the ink of the hour
     const tw = Math.exp(-Math.pow((alt + 2) / 7, 2)) * (1 - ovc);
-    const inkN = [0.060, 0.098, 0.262], inkD = [0.070, 0.170, 0.300], inkT = [0.120, 0.105, 0.300];
+    const inkN = [0.082, 0.132, 0.325], inkD = [0.070, 0.170, 0.300], inkT = [0.120, 0.105, 0.300];
     mix3(inkN, inkD, day, st.INK); mix3(st.INK, inkT, tw * 0.8, st.INK);
     if (ovc > 0) mix3(st.INK, [0.13, 0.15, 0.27], ovc * 0.5 * day, st.INK);
     // --- what distance dissolves into

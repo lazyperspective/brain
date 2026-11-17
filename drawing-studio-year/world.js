@@ -20,12 +20,12 @@ const { createEngine } = require('./engine.js');
 
 // the two sheets: where the window sits on the (extended) original design space
 const FORMATS = {
-  v: { name: '9x16', W: 1080, H: 1920, SC: 1.2, OX: 565, OY: -404 },     // tall: a great deal of sky
-  p: { name: '4x5', W: 1080, H: 1350, SC: 1.02, OX: 462, OY: -150 },     // portrait: stands a step further back, trims the sky
+  v: { name: '9x16', W: 1080, H: 1920, SC: 1.1, OX: 600, OY: -491 },     // tall: a great deal of sky; the tree runs off the right edge where the original sheet ended
+  p: { name: '4x5', W: 1080, H: 1350, SC: 1.0, OX: 510, OY: -205 },      // portrait: a step further back still, less sky, the whole height of the crown
 };
 const REG = { NONE: 0, SKY: 1, FAR: 3, WATER: 4, MID: 5, MEADOW: 6, PATH: 7, TRUNK: 8 };
 const KIND = { UDUST: 0, UCRAY: 1, DUST: 2, CRAYON: 3, PENCIL: 4, LINE: 5 };
-const VERSION = 'w7';
+const VERSION = 'w8';
 
 function createWorld(fmtKey, scale, opt) {
   opt = opt || {};
@@ -40,7 +40,7 @@ function createWorld(fmtKey, scale, opt) {
   // ---------- the path, worn by coming back; now it comes up from the bottom of the sheet
   const PATH = [];
   (function () {
-    const P = [[868, 763], [800, 786], [712, 818], [640, 862], [614, 915], [640, 985], [706, 1070], [768, 1160], [800, 1262], [816, 1340]];
+    const P = [[868, 763], [800, 786], [712, 818], [656, 862], [640, 915], [660, 985], [706, 1070], [768, 1160], [800, 1262], [816, 1340]];
     for (let i = 0; i < P.length - 1; i++) {
       const a = P[Math.max(0, i - 1)], b = P[i], c = P[i + 1], d = P[Math.min(P.length - 1, i + 2)];
       for (let j = 0; j < 24; j++) {

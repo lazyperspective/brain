@@ -16,7 +16,7 @@
  */
 'use strict';
 
-const FPS = 30, DUR = 96, F = FPS * DUR, ND = 12, CAL = 18, HOUR0 = 6.5;   // twelve days, one for each month; seasons are counted on an 18-part calendar (`cal`)
+const FPS = 30, DUR = 90, F = FPS * DUR, ND = 12, CAL = 18, HOUR0 = 6.5;   // twelve days, one for each month; seasons are counted on an 18-part calendar (`cal`)
 const LAT = 40 * Math.PI / 180, RAD = Math.PI / 180;
 const KX = 4.5, KY = 14, XC = 820, HOR = 556;      // sky -> sheet (o-units per degree)
 
@@ -24,6 +24,9 @@ const c01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 const sstep = (a, b, x) => { const t = c01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
 const frac = x => x - Math.floor(x);
+// every oscillation in the film is tuned to a whole number of cycles per film, so the loop closes exactly
+const hz = f => Math.round(f * DUR) / DUR;
+const pn = (tau, f, sd) => pnoise1(tau * hz(f), Math.max(1, Math.round(DUR * f)), sd);
 function hash1(i, sd) { let h = Math.imul(i | 0, 374761393) ^ Math.imul(sd | 0, 1274126177); h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
 // smooth 1-D noise that closes on itself after `period` lattice cells
 function pnoise1(x, period, sd) {
@@ -69,14 +72,14 @@ function channel(keys, base) {
 }
 const CH = {
   ovc: channel([
-    [at(0, 6.5), 0.08], [at(0, 9.5), 0.12], [at(0, 11), 0.80], [at(0, 11.8), 0.95], [at(0, 15.2), 0.90], [at(0, 16.6), 0.40], [at(0, 18), 0.16], [at(0, 22), 0.06],
+    [at(0, 6.5), 0.08], [at(0, 8.2), 0.12], [at(0, 10.6), 0.70], [at(0, 12), 0.95], [at(0, 15.2), 0.90], [at(0, 16.6), 0.40], [at(0, 18), 0.16], [at(0, 22), 0.06],
     [at(1, 8), 0.06], [at(1, 20), 0.06], [at(2, 6.5), 0.15], [at(2, 12), 0.08], [at(3, 8), 0.03], [at(3, 22), 0.03],
     [at(4, 6.5), 0.05], [at(4, 10.5), 0.10], [at(4, 12.4), 0.55], [at(4, 13.3), 1.0], [at(4, 17.6), 1.0], [at(4, 18.6), 0.5], [at(4, 19.6), 0.16], [at(4, 23), 0.05],
     [at(5, 12), 0.05], [at(6, 8), 0.10], [at(6, 14), 0.06], [at(7, 8), 0.12], [at(7, 12), 0.26], [at(7, 17), 0.14], [at(7, 23), 0.10], [at(7, 27), 0.40],
     [at(8, 6.5), 0.75], [at(8, 8), 0.97], [at(8, 14), 0.95], [at(8, 15.4), 0.5], [at(8, 16.5), 0.2], [at(8, 21), 0.08],
     [at(9, 7), 0.06], [at(9, 12), 0.10], [at(9, 16.4), 0.14], [at(9, 17.6), 0.6], [at(9, 19), 1.0], [at(9, 25.6), 1.0], [at(9, 27.2), 0.5], [at(9, 28.6), 0.06],
-    [at(10, 7), 0.04], [at(10, 8.4), 0.3], [at(10, 9.6), 1.0], [at(10, 14.2), 1.0], [at(10, 15.4), 0.45], [at(10, 16.4), 0.14], [at(10, 22), 0.04],
-    [at(11, 7), 0.05], [at(11, 10.5), 0.2], [at(11, 12.2), 0.85], [at(11, 15), 0.85], [at(11, 16.3), 0.4], [at(11, 17.4), 0.18], [at(11, 21), 0.08],
+    [at(10, 7), 0.04], [at(10, 8.8), 0.3], [at(10, 11.2), 1.0], [at(10, 14.2), 1.0], [at(10, 15.4), 0.45], [at(10, 16.4), 0.14], [at(10, 22), 0.04],
+    [at(11, 7), 0.05], [at(11, 9.6), 0.15], [at(11, 12.4), 0.85], [at(11, 15), 0.85], [at(11, 16.3), 0.4], [at(11, 17.4), 0.18], [at(11, 21), 0.08],
   ]),
   rain: channel([
     [at(0, 11.4), 0], [at(0, 12.2), 0.5], [at(0, 14.6), 0.5], [at(0, 15.5), 0],
@@ -86,14 +89,14 @@ const CH = {
   ]),
   snow: channel([
     [at(9, 18.6), 0], [at(9, 19.6), 0.4], [at(9, 21.5), 0.8], [at(9, 24.5), 0.9], [at(9, 26.3), 0.3], [at(9, 27.2), 0],
-    [at(10, 9.3), 0], [at(10, 10.2), 0.7], [at(10, 13.4), 0.8], [at(10, 14.6), 0],
+    [at(10, 10.4), 0], [at(10, 11.4), 0.7], [at(10, 13.6), 0.8], [at(10, 14.8), 0],
   ]),
   wind: channel([
     [at(0, 9), 0.2], [at(0, 12.5), 0.4], [at(0, 18), 0.15], [at(1, 12), 0.18], [at(2, 7), 0.05], [at(2, 10), 0.12], [at(2, 12.5), 0.75], [at(2, 16.5), 0.8], [at(2, 18.5), 0.15],
     [at(3, 10), 0.14], [at(3, 18), 0.05], [at(3, 27), 0.05], [at(4, 8), 0.03], [at(4, 11.6), 0.04], [at(4, 12.5), 0.5], [at(4, 13.4), 1.5], [at(4, 15.5), 1.2], [at(4, 17.5), 0.6], [at(4, 19), 0.15], [at(4, 23), 0.08],
     [at(5, 12), 0.28], [at(6, 7), 0.05], [at(6, 10), 0.08], [at(6, 14), 0.3], [at(7, 8), 0.45], [at(7, 10), 1.1], [at(7, 15.5), 1.05], [at(7, 17.5), 0.35], [at(7, 23), 0.15],
     [at(8, 9), 0.6], [at(8, 14), 0.5], [at(8, 18), 0.15], [at(9, 7), 0.04], [at(9, 13), 0.12], [at(9, 20), 0.25], [at(9, 26), 0.05],
-    [at(10, 6.6), 0.03], [at(10, 7.8), 0.0], [at(10, 9), -0.4], [at(10, 10.2), -1.2], [at(10, 13.4), -1.1], [at(10, 15), -0.3], [at(10, 18), -0.06], [at(10, 26), -0.03],
+    [at(10, 6.6), 0.03], [at(10, 8), 0.0], [at(10, 9.6), -0.4], [at(10, 11.2), -1.2], [at(10, 13.6), -1.1], [at(10, 15.2), -0.3], [at(10, 18), -0.06], [at(10, 26), -0.03],
     [at(11, 6.5), 0.0], [at(11, 10), 0.10], [at(11, 13), 0.3], [at(11, 21), 0.15],
   ]),
   fog: channel([
@@ -106,7 +109,7 @@ const CH = {
     [at(1, 8.5), 0.15], [at(1, 11), 0.5], [at(1, 17), 0.45], [at(1, 21), 0.08], [at(2, 10), 0.1], [at(2, 13), 0.5], [at(2, 18), 0.35], [at(2, 22), 0.08],
     [at(3, 12), 0.14], [at(3, 19), 0.08], [at(4, 9), 0.05], [at(4, 11.5), 0.25], [at(4, 13), 0], [at(4, 18.3), 0], [at(4, 19.2), 0.3], [at(4, 22), 0.05],
     [at(5, 12), 0.4], [at(5, 18), 0.3], [at(5, 21), 0.08], [at(6, 13), 0.16], [at(6, 18), 0.2], [at(7, 10), 0.5], [at(7, 16), 0.55], [at(7, 21), 0.1], [at(8, 8), 0], [at(8, 14.5), 0], [at(8, 15.6), 0.36], [at(8, 18), 0.12], [at(8, 22), 0.03],
-    [at(9, 9), 0.1], [at(9, 13), 0.06], [at(9, 16), 0.14], [at(9, 18), 0], [at(10, 7.5), 0.08], [at(10, 9), 0], [at(10, 14.6), 0], [at(10, 15.6), 0.3], [at(10, 18.5), 0.1], [at(10, 22), 0],
+    [at(9, 9), 0.1], [at(9, 13), 0.06], [at(9, 16), 0.14], [at(9, 18), 0], [at(10, 7.5), 0.08], [at(10, 9.6), 0], [at(10, 14.6), 0], [at(10, 15.6), 0.3], [at(10, 18.5), 0.1], [at(10, 22), 0],
     [at(11, 9), 0.12], [at(11, 12), 0], [at(11, 15.6), 0], [at(11, 16.4), 0.36], [at(11, 19), 0.14], [at(11, 23), 0.02],
   ]),
   cir: channel([
@@ -174,9 +177,9 @@ function buildClock() {
     C.cir[f] = c01(CH.cir(d)); C.storm[f] = c01(CH.storm(d)); C.haze[f] = c01(CH.haze(d)); C.fire[f] = c01(CH.fire(d)); C.cold[f] = c01(CH.cold(d));
     const wb = CH.wind(d); C.windBase[f] = wb;
     // gusts: a slow swell and a quicker flutter, in real seconds (they close on themselves at the loop)
-    const g = 0.55 * pnoise1(tau * 0.22, Math.round(DUR * 0.22), 11) + 0.30 * pnoise1(tau * 0.6, Math.round(DUR * 0.6), 12) + 0.15 * pnoise1(tau * 1.7, Math.round(DUR * 1.7), 13);
+    const g = 0.55 * pn(tau, 0.22, 11) + 0.30 * pn(tau, 0.6, 12) + 0.15 * pn(tau, 1.7, 13);
     C.gust[f] = g;
-    const breath = 0.035 + 0.03 * pnoise1(tau * 0.13, Math.round(DUR * 0.13), 14);        // the air is never quite still
+    const breath = 0.035 + 0.03 * pn(tau, 0.13, 14);        // the air is never quite still
     C.wind[f] = wb * (0.45 + 1.1 * g) + breath * wb / Math.sqrt(wb * wb + 0.004);
     C.night[f] = 1 - sstep(-9, -1.5, so.alt);
   }
@@ -240,8 +243,8 @@ function buildClock() {
   for (let f = 0; f < F; f++) {
     const tau = f / FPS, d = C.d[f];
     const season = 0.34 + 0.66 * sstep(0.08, 0.8, C.warm[f]);
-    const candle = 1 + (1 - season) * 0.9 * (0.10 * (pnoise1(tau * 2.3, Math.round(DUR * 2.3), 31) - 0.5) + 0.07 * (pnoise1(tau * 5.1, Math.round(DUR * 5.1), 32) - 0.5));
-    const breathe = 1 + 0.05 * Math.sin(tau * 2 * Math.PI / 6);
+    const candle = 1 + (1 - season) * 0.9 * (0.10 * (pn(tau, 2.3, 31) - 0.5) + 0.07 * (pn(tau, 5.1, 32) - 0.5));
+    const breathe = 1 + 0.05 * Math.sin(tau * 2 * Math.PI * hz(1 / 6));
     C.glow[f] = sstep(3, -5.5, C.alt[f]) * season * candle * breathe * (1 - 0.35 * C.rain[f]);
     // The moon turns its face three times a year. It keeps the western sky's manners (everything
     // sets, down and a little to the right) but is allowed to take its time about it.
@@ -266,4 +269,4 @@ function buildClock() {
   return { FPS, DUR, F, ND, CAL, HOUR0, KX, KY, XC, HOR, C, dAtTau, tauAtD, tauAtCal, sunAt, at, CH };
 }
 
-module.exports = { buildClock, FPS, DUR, F, ND, CAL, HOUR0, KX, KY, XC, HOR, at, sunAt, c01, sstep, lerp, frac, hash1, pnoise1 };
+module.exports = { buildClock, hz, FPS, DUR, F, ND, CAL, HOUR0, KX, KY, XC, HOR, at, sunAt, c01, sstep, lerp, frac, hash1, pnoise1 };
