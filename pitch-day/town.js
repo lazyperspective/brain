@@ -84,7 +84,10 @@ function drawFar(cv, seed) {
   const isl = (x0, x1, amp, sd, col) => {
     const top = []; for (let x = x0; x <= x1; x += 4) { const t = (x - x0) / (x1 - x0); top.push([x, HZ + 1 - amp * Math.pow(Math.sin(Math.PI * t), 0.8) * (0.5 + 0.5 * fbm(x / 60 + sd, sd, 3, 3))]); }
     const poly = top.concat([[x1, HZ + 3], [x0, HZ + 3]]);
-    fillPoly(cv, poly, { tool: T.ptip, w: 3.2, col, P: 1.0, ang: 0, sp: 0.6, cj: 0.015 }, R);
+    fillPoly(cv, poly, { tool: T.ptip, w: 3, col, P: 1.05, ang: 1.2, sp: 0.55, cj: 0.015, over: 0.2 }, R);
+    cv.stroke(top, { ...T.ptip, w: 2.4, col, P: 1.0, tin: 0.2, tout: 0.2 });
+    cv.stroke(top.map(p => [p[0] + 1, p[1] - 0.6]), { ...T.pencil, w: 1, col: mixc(col, hex('#ffd0b0'), 0.6), P: 0.5, tin: 0.3, tout: 0.3 });
+    for (let i = 0; i < (x1 - x0) / 14; i++) { const p = top[(R() * (top.length - 1)) | 0], L = 4 + R() * 9; cv.stroke([[p[0], p[1] + 2 + R() * 4], [p[0] + L, p[1] + 3 + R() * 6]], { ...T.pencil, w: 1, col: mixc(col, hex('#3c2f80'), 0.45), P: 0.4 }); }
   };
   isl(1180, 1420, 13, 1.3, hex('#b983ae')); isl(1560, 1800, 20, 4.2, hex('#a56f9f')); isl(1730, 1935, 30, 9.9, hex('#7f5f9c')); isl(940, 1120, 9, 6.1, hex('#b592c4'));
   // lights of the far shore
@@ -109,6 +112,7 @@ function seaCol(x, y) {
 function drawSea(cv, seed) {
   const R = rng32(seed);
   const yb = 900;
+  for (let y = HZ + 4; y < yb; y += 8) { let x = -80 * R(); while (x < 1930) { const L = 120 + R() * 220, yy = y + (R() - 0.5) * 6; cv.stroke(wob(x, yy, x + L, yy + (R() - 0.5) * 3, R, 1, 0.006), { ...T.pastel, w: 12 + R() * 5, col: jit(seaCol(x + L / 2, yy), 0.014, R), P: 1.02, sa: 0.2 }); x += L * (0.6 + R() * 0.3); } }
   for (let y = HZ + 1; y < yb; y += 3.2 + (y - HZ) * 0.018) {
     let x = -60 * R();
     const sc = 1 + (y - HZ) / 45;
@@ -136,6 +140,29 @@ function drawSea(cv, seed) {
     cv.stroke([[x - L / 2, y], [x + L / 2, y + (R() - 0.5) * 0.6]], { ...T.oil, w: 0.9 + t * 1.8 + R() * 0.8, col, P: 0.72 + R() * 0.35 - near * 0.2 });
   }
   cv.dust(SUN[0] - 60, HZ + 6, 150, hex('#ffd9a0'), 0.16, 9);
+  // small boats heading home, each with its lamp and a dropped thread of light
+  const boat = (x, y, s, lc) => {
+    const dk = mixc(seaCol(x, y), hex('#1c1c50'), 0.75);
+    cv.stroke(wob(x - 7 * s, y, x + 7 * s, y - 0.4 * s, R, 0.2, 0.01), { ...T.conte, w: 2.4 * s, col: dk, P: 1.1, tin: 0.2, tout: 0.1 });
+    cv.stroke([[x - 2 * s, y - 2.6 * s], [x + 2.4 * s, y - 2.6 * s]], { ...T.conte, w: 2.6 * s, col: dk, P: 1.05 });
+    cv.stroke([[x + 0.5 * s, y - 3.5 * s], [x + 0.5 * s, y - 8 * s]], { ...T.pencil, w: 0.9, col: dk, P: 0.8 });
+    cv.dust(x + 0.5 * s, y - 8 * s, 4 * s, lc, 0.4); cv.stroke([[x + 0.5 * s - 0.4, y - 8 * s], [x + 0.5 * s + 0.4, y - 8 * s]], { ...T.oil, w: 1.5 * s, col: hex('#fffbe8'), P: 1.2 });
+    for (let k = 0; k < 7; k++) { const yy = y + 2.5 * s + k * 2.1 * s, L = (2.5 - k * 0.25) * s * (0.6 + R()); cv.stroke([[x + 0.5 * s - L + (R() - 0.5) * s, yy], [x + 0.5 * s + L + (R() - 0.5) * s, yy]], { ...T.oil, w: 1 + 0.3 * s, col: lc, P: 0.85 - k * 0.09 }); }
+    for (let k = 0; k < 3; k++) cv.stroke(wob(x - (9 + k * 9) * s, y + (0.8 + k * 0.5) * s, x - (20 + k * 12) * s, y + (1.2 + k * 0.9) * s, R, 0.3, 0.02), { ...T.pencil, w: 1, col: mixc(seaCol(x, y), hex('#f4f0ff'), 0.55), P: 0.5, tout: 0.5 });
+  };
+  boat(1232, 694, 1.25, hex('#ffe2a0')); boat(452, 672, 0.95, hex('#ffd890')); boat(1508, 652, 0.7, hex('#fff0c0')); boat(716, 648, 0.6, hex('#ffe2a0')); boat(1772, 712, 1.5, hex('#ffcf8a')); boat(260, 645, 0.5, hex('#ffe9b0')); boat(1010, 742, 1.7, hex('#b8ffe0'));
+  { // the evening ferry
+    const x = 1068, y = 664, dk = mixc(seaCol(x, y), hex('#22225a'), 0.7);
+    cv.stroke(wob(x - 30, y, x + 32, y - 0.6, R, 0.3, 0.004), { ...T.conte, w: 4.2, col: dk, P: 1.1, tin: 0.1, tout: 0.05 });
+    cv.stroke(wob(x - 24, y - 4.6, x + 22, y - 4.8, R, 0.2, 0.004), { ...T.conte, w: 4.6, col: mixc(dk, hex('#c8c0e8'), 0.55), P: 1.05 });
+    cv.stroke(wob(x - 14, y - 9, x + 10, y - 9, R, 0.2, 0.004), { ...T.conte, w: 3.6, col: mixc(dk, hex('#c8c0e8'), 0.6), P: 1.05 });
+    cv.stroke([[x - 2, y - 11], [x - 3, y - 17]], { ...T.conte, w: 3.4, col: hex('#c8506a'), P: 1.05 });
+    for (let k = 0; k < 13; k++) cv.stroke([[x - 22 + k * 3.4, y - 4.8], [x - 20.6 + k * 3.4, y - 4.8]], { ...T.oil, w: 1.5, col: hex(k % 5 === 2 ? '#fff8e0' : '#ffe08a'), P: 1.15 });
+    for (let k = 0; k < 6; k++) cv.stroke([[x - 12 + k * 3.6, y - 9.2], [x - 10.6 + k * 3.6, y - 9.2]], { ...T.oil, w: 1.3, col: hex('#ffe9a8'), P: 1.1 });
+    cv.dust(x, y - 5, 30, hex('#ffdf9a'), 0.16, 7);
+    for (let k = 0; k < 40; k++) { const xx = x - 26 + R() * 54, yy = y + 3 + R() * R() * 22, L = 2 + R() * 6; cv.stroke([[xx - L, yy], [xx + L, yy]], { ...T.oil, w: 1 + R() * 0.6, col: hex(R() < 0.6 ? '#ffe08a' : '#ffc890'), P: 0.8 - (yy - y) / 40 }); }
+    for (let k = 0; k < 9; k++) cv.stroke(wob(x - 34 - k * 13, y + 1 + k * 0.7 + (R() - 0.5) * 2, x - 46 - k * 15 - R() * 20, y + 1.5 + k * 1.0, R, 0.4, 0.02), { ...T.pencil, w: 1.1, col: mixc(seaCol(x - 60, y), hex('#fbf4ff'), 0.6), P: 0.6 - k * 0.04, tout: 0.5 });
+  }
   // pink lane on the left reflecting the evening belt
   for (let i = 0; i < 260; i++) {
     const t = R(), y = HZ + 2 + t * 130, x = R() * 900, L = 6 + R() * 30;
@@ -156,7 +183,7 @@ function buildTown(seed) {
   const R = rng32(seed), objs = [];
   const add = (d, fn) => objs.push({ d, fn });
   const vis = (X, Y) => X > -60 && X < 1980 && Y > 400 && Y < 1140;
-  const xb = [-330].concat(SXS).concat([400]), zb = [36].concat(SZS).concat([700]);
+  const xb = [-330].concat(SXS).concat([400]), zb = [26].concat(SZS).concat([700]);
   // ---- ground cells and lots, block by block
   for (let bi = 0; bi < xb.length - 1; bi++) for (let bj = 0; bj < zb.length - 1; bj++) {
     const xa = xb[bi] + (bi > 0 ? hwx(xb[bi]) : 0), xe = xb[bi + 1] - (bi < xb.length - 2 ? hwx(xb[bi + 1]) : 0);
@@ -202,7 +229,7 @@ function buildTown(seed) {
     c = mixc(c, mixc(skyCol(X, HZ - 90), hex('#ffd0b0'), 0.35), 0.18 + 0.5 * sheen * (main ? 1 : 0.7));
     return c;
   };
-  for (let z = 30; z < 692; z += 9) {
+  for (let z = 21; z < 692; z += 9) {
     const z1 = Math.min(692, z + 9), hw = MR;
     const P = pr3([[-hw, terr(0, z), z], [hw, terr(0, z), z], [hw, terr(0, z1), z1], [-hw, terr(0, z1), z1]]); if (P[0][2] < 8) continue;
     const c = centroid(P), col = roadCol(c[0], c[1], P[0][2], true), zz = z;
@@ -240,6 +267,25 @@ function buildTown(seed) {
       const xa = -4.0 + k * 1.2, P = pr3([[xa, terr(0, zc - 1.4) + 0.02, zc - 1.4], [xa + 0.6, terr(0, zc - 1.4) + 0.02, zc - 1.4], [xa + 0.6, terr(0, zc + 1.4) + 0.02, zc + 1.4], [xa, terr(0, zc + 1.4) + 0.02, zc + 1.4]]);
       add(P[2][2] + 1.0, (cv, R) => face(cv, R, P.map(p => [p[0], p[1]]), atm(hex('#d8d4f0'), P[0][2], P[0][0], 0.5), { P: 0.9, ang: 1.5 }));
     }
+  }
+  // ---- puddles left by the afternoon shower, holding pieces of the sky
+  for (const [px, pz, rx, rz] of [[-1.6, 47, 1.7, 3.4], [2.2, 60, 1.3, 3.0], [-2.6, 74, 1.5, 3.6], [0.8, 90, 1.2, 3.4], [-0.8, 58, 0.6, 1.4], [3.0, 80, 0.7, 2.0], [-3.2, 100, 0.8, 2.6]]) {
+    const poly = []; for (let k = 0; k < 22; k++) { const a = k / 22 * 6.283, wv = 1 + 0.16 * Math.sin(a * 3 + px) + 0.1 * Math.sin(a * 5 + pz); const x = px + Math.cos(a) * rx * wv, z = pz + Math.sin(a) * rz * wv, q = proj(x, terr(0, z) + 0.02, z); poly.push([q[0], q[1]]); }
+    const c0 = proj(px, terr(0, pz), pz);
+    add(c0[2] - rz - 2, (cv, R) => {
+      fillPoly(cv, poly, { tool: T.ptip, w: 3.2, colFn: (x, y) => mixc(skyCol(x + 380, HZ - 40 - (1090 - y) * 1.5), hex('#2a2f6e'), 0.18), P: 1.1, ang: 0.05, sp: 0.5, over: 0.2, cj: 0.01 }, R);
+      const b = bbox(poly);
+      { // the big cloud, upside down and broken by the ripples
+        const cxp = b[0] + (b[2] - b[0]) * 0.58, cyp = (b[1] + b[3]) / 2, pw = (b[2] - b[0]) * 0.2, ph = (b[3] - b[1]) * 0.22;
+        for (const [dx, dy, c] of [[-0.9, -0.3, '#f48aa8'], [0, -0.5, '#ff9f90'], [0.8, -0.2, '#f07aa0'], [-0.3, 0.3, '#ffc89a'], [0.5, 0.5, '#fff0c8'], [-1.4, 0.1, '#8a7cc8']]) {
+          const x = cxp + dx * pw, y = cyp + dy * ph;
+          cv.stroke(wob(x - pw * 0.6, y, x + pw * 0.6, y + (R() - 0.5), R, 0.3, 0.01), { ...T.ptip, w: Math.max(1.6, ph * 0.75), col: hex(c), P: 0.95, tin: 0.2, tout: 0.2 });
+        }
+      }
+      for (let k = 0; k < 4; k++) { const y = b[1] + (b[3] - b[1]) * (0.2 + 0.6 * R()), xa = b[0] + (b[2] - b[0]) * (0.2 + R() * 0.3); cv.stroke(wob(xa, y, xa + (b[2] - b[0]) * (0.2 + R() * 0.3), y, R, 0.3, 0.01), { ...T.pencil, w: 1, col: hex(R() < 0.5 ? '#fff0dc' : '#ffb8b0'), P: 0.6 }); }
+      cv.stroke(poly.slice(11, 22).concat([poly[0]]), { ...T.pencil, w: 1.1, col: hex('#f4e0f0'), P: 0.55, tin: 0.2, tout: 0.2 });
+      cv.stroke(poly.slice(0, 12), { ...T.pencil, w: 1.2, col: hex('#23265e'), P: 0.6, tin: 0.2, tout: 0.2 });
+    });
   }
   // ---- poles, wires, lamps along the main road; signals at each crossing
   let prev = null;
@@ -284,7 +330,7 @@ function buildTown(seed) {
       const lr = Math.max(0.8, 0.17 * sc);
       for (const q of [y0, r0]) cv.stroke([[q[0] - 0.1, q[1]], [q[0] + 0.1, q[1]]], { ...T.oil, w: lr * 1.5, col: hex('#3a3a5e'), P: 1 });
       const GC = hex('#2fe8bc');
-      cv.dust(g0[0], g0[1], Math.max(11, 3.6 * sc), GC, 0.36); cv.dust(g0[0], g0[1], Math.max(4, 1.1 * sc), hex('#8cffe0'), 0.65);
+      cv.dust(g0[0], g0[1], Math.max(13, 3.6 * sc), GC, 0.4); cv.dust(g0[0], g0[1], Math.max(4.5, 1.1 * sc), hex('#8cffe0'), 0.7);
       cv.stroke([[g0[0] - 0.15, g0[1]], [g0[0] + 0.15, g0[1]]], { ...T.oil, w: Math.max(2.4, lr * 2.2), col: hex('#e4fff6'), P: 1.2 });
       const sl = Math.max(9, 2.2 * sc);
       cv.stroke(wob(g0[0] - sl, g0[1], g0[0] + sl, g0[1], R, 0.2, 0), { ...T.pencil, w: 0.9, col: hex('#b8fff0'), P: 0.8, tin: 0.45, tout: 0.45 });
@@ -300,6 +346,28 @@ function buildTown(seed) {
         cv.stroke([[x - L * 0.5, y], [x + L * 0.5, y]], { ...T.oil, w: clamp(ws * 0.22 * (0.6 + R()), 0.8, 3), col: hex(R() < 0.3 ? '#b8fff0' : '#35e0b6'), P: (0.9 - t * 0.45) * (0.7 + 0.4 * R()) });
       }
       cv.dust((far[0] + near[0]) / 2, (far[1] + near[1]) / 2, ws * 1.6, hex('#35e0b6'), 0.16, Math.abs(near[1] - far[1]) * 0.45 + 2);
+    });
+  }
+  // ---- a lamp-lit stair climbing the wooded hill, and the harbour light
+  for (let k = 0; k < 9; k++) {
+    const x = -118 - k * 13.5, z = 400 + k * 9 + 12 * Math.sin(k), g = terr(x, z), p = proj(x, g + 4.2, z), b = proj(x, g, z);
+    add(p[2] - 6, (cv, R) => { pline(cv, R, b, p, atm(hex('#1c2048'), p[2], p[0]), 1, 0.8); cv.dust(p[0], p[1], 7, hex('#ffd89a'), 0.34); cv.dust(p[0], p[1] + 5, 9, hex('#ffc880'), 0.12); cv.stroke([[p[0] - 0.5, p[1]], [p[0] + 0.5, p[1]]], { ...T.oil, w: 2.2, col: hex('#fff6dc'), P: 1.2 }); });
+  }
+  {
+    const a0 = [96, SEA + 1.2, 640], a1 = [176, SEA + 1.2, 742];
+    for (let k = 0; k < 10; k++) {
+      const t0 = k / 10, t1 = (k + 1) / 10, L3 = t => [a0[0] + (a1[0] - a0[0]) * t, a0[1], a0[2] + (a1[2] - a0[2]) * t];
+      const p0 = L3(t0), p1 = L3(t1), P = pr3([[p0[0] - 2.4, p0[1], p0[2]], [p0[0] + 2.4, p0[1], p0[2]], [p1[0] + 2.4, p1[1], p1[2]], [p1[0] - 2.4, p1[1], p1[2]]]);
+      add(P[2][2] + 1, (cv, R) => { face(cv, R, P.map(p => [p[0], p[1]]), atm(hex('#55598e'), P[0][2], P[0][0]), {}); pline(cv, R, P[1], P[2], atm(hex('#f0b8c0'), P[0][2], P[0][0], 0.4), 1, 0.7); });
+    }
+    const b = proj(a1[0], a1[1], a1[2]), t = proj(a1[0], a1[1] + 11, a1[2]), sc = F / b[2];
+    add(b[2] - 2, (cv, R) => {
+      cv.stroke([[b[0], b[1]], [t[0], t[1]]], { ...T.conte, w: Math.max(2, 2.2 * sc), col: hex('#d8d0ea'), P: 1.1, tin: 0, tout: 0 });
+      cv.stroke([[b[0], b[1] - (b[1] - t[1]) * 0.4], [t[0], t[1] + (b[1] - t[1]) * 0.25]], { ...T.conte, w: Math.max(2, 2.3 * sc), col: hex('#d0566e'), P: 1.1, tin: 0, tout: 0 });
+      cv.stroke([[b[0] + 0.8, b[1]], [t[0] + 0.8, t[1]]], { ...T.pencil, w: 0.9, col: hex('#ffd8c0'), P: 0.7 });
+      cv.dust(t[0], t[1] - 1, 12, hex('#ff7a6a'), 0.4); cv.dust(t[0], t[1] - 1, 4, hex('#ffd0c0'), 0.7);
+      cv.stroke([[t[0] - 0.6, t[1] - 1], [t[0] + 0.6, t[1] - 1]], { ...T.oil, w: 2.8, col: hex('#fff0e8'), P: 1.2 });
+      for (let k = 0; k < 9; k++) cv.stroke([[t[0] - 2 - R() * 2, b[1] + 3 + k * 2.4], [t[0] + 2 + R() * 2, b[1] + 3 + k * 2.4]], { ...T.oil, w: 1.2, col: hex('#ff8a78'), P: 0.8 - k * 0.07 });
     });
   }
   // ---- raised railway with an evening train (low town)
@@ -353,8 +421,8 @@ function tree(x, z, r, R0) {
         const px = c[0] + b[0] * rp + Math.cos(a) * rr, py = c[1] + b[1] * rp + Math.sin(a) * rr * 0.9;
         const up = (c[1] - py) / rp + (px - c[0]) / rp * 0.7; // upper-right is lit by the afterglow
         const hi = up > 0.8, col = hi ? (R() < 0.22 ? rim : lit) : up > 0.2 ? mid : dark;
-        const L = Math.max(1.2, rp * (0.2 + R() * 0.3)) * (hi ? 0.6 : 1), aa = R() * 6.283;
-        cv.stroke(hi ? [[px - Math.cos(aa * 0.2 - 0.6) * L * 0.5, py - Math.sin(aa * 0.2 - 0.6) * L * 0.5], [px + Math.cos(aa * 0.2 - 0.6) * L * 0.5, py + Math.sin(aa * 0.2 - 0.6) * L * 0.5]] : arc(px, py, L * 0.6, L * 0.45, aa, aa + 2 + R() * 3, R, 0.3), { ...T.ptip, w: clamp(rp * 0.2, 1.1, 5) * (0.7 + 0.6 * R()), col: jit(col, 0.02, R), P: 0.95 + R() * 0.15 });
+        const L = hi ? clamp(rp * 0.2, 1.5, 9) : Math.max(1.2, rp * (0.2 + R() * 0.3)), aa = R() * 6.283;
+        cv.stroke(hi ? [[px - Math.cos(aa * 0.2 - 0.6) * L * 0.5, py - Math.sin(aa * 0.2 - 0.6) * L * 0.5], [px + Math.cos(aa * 0.2 - 0.6) * L * 0.5, py + Math.sin(aa * 0.2 - 0.6) * L * 0.5]] : arc(px, py, L * 0.6, L * 0.45, aa, aa + 2 + R() * 3, R, 0.3), { ...T.ptip, w: (hi ? clamp(rp * 0.08, 1.1, 2.6) : clamp(rp * 0.2, 1.1, 5)) * (0.7 + 0.6 * R()), col: jit(col, 0.02, R), P: 0.95 + R() * 0.15 });
       }
     }
   };

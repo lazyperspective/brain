@@ -32,7 +32,7 @@ function plane(cv, R, X, Y, size, h, p, r, o) {
     let col;
     const amb = mixc(hex('#8d8fd2'), hex('#cfd0f4'), clamp(0.5 + n[1] * 0.6, 0, 1));
     const warm = sstep(120, 430, Y);
-    const litR = mixc(hex('#fffaea'), hex('#ffe0b4'), warm), litT = mixc(hex('#ffd9a2'), hex('#ff9f8c'), warm);
+    const litR = mixc(hex('#fffaea'), hex('#ffecc8'), warm), litT = mixc(hex('#ffe2b0'), hex('#ffb89c'), warm);
     const k = clamp(refl * 1.5 + trans * 1.25, 0, 1);
     const lit = refl >= trans ? litR : litT;
     col = mixc(mixc(amb, hex('#a58fd6'), 0.25 * sun), lit, sun * (0.12 + 0.88 * k));
@@ -41,7 +41,7 @@ function plane(cv, R, X, Y, size, h, p, r, o) {
     return { id, pts: ks.map(q => S(P[q])), z: (a[2] + b[2] + c[2]) / 3, col, n, k };
   });
   fs.sort((a, b) => b.z - a.z);
-  const ink = sun > 0.5 ? hex('#a8588a') : hex('#3a3c8c');
+  const ink = sun > 0.5 ? hex('#a9749c') : hex('#4a4c98');
   if (size < 5.2) {
     const a = S(P.N), b = S(P.L), c = S(P.Rr);
     const col = mixc(fs[fs.length - 1].col, hex('#fffbe8'), 0.25);
@@ -55,7 +55,7 @@ function plane(cv, R, X, Y, size, h, p, r, o) {
     if (size < 16) fillPoly(cv, f.pts, { tool: T.oil, w: clamp(size * 0.14, 1.1, 2.2), col: f.col, P: 1.12, ang, sp: 0.6, over: 0.2 }, R);
     else {
       fillPoly(cv, f.pts, { tool: T.ptip, w: clamp(size * 0.07, 2, 6), col: f.col, P: 1.12, ang, sp: 0.55, over: 0.4, cj: 0.01 }, R);
-      fillPoly(cv, f.pts, { tool: T.pencil, w: 1.2, col: mixc(f.col, f.k > 0.5 ? hex('#ffa27a') : hex('#5a5cb0'), 0.4), P: 0.5, ang: ang + 0.25, sp: 3.2, jit: 0.5 }, R);
+      fillPoly(cv, f.pts, { tool: T.pencil, w: 1.2, col: mixc(f.col, f.k > 0.5 ? hex('#ffa27a') : hex('#5a5cb0'), 0.4), P: 0.45, ang: ang + 0.25 + (R() - 0.5) * 0.3, sp: 3.6, jit: 0.8, wob: 0.8, bow: 0.02 }, R);
     }
   }
   if (size >= 16) {
@@ -67,12 +67,12 @@ function plane(cv, R, X, Y, size, h, p, r, o) {
         const at = (u, v) => [a[0] + (b[0] - a[0]) * u + (c[0] - a[0]) * v, a[1] + (b[1] - a[1]) * u + (c[1] - a[1]) * v];
         const col = mixc(cr, f.col, 0.3);
         if (style === 0) for (let k = 0; k < 3; k++) { const u = 0.45 + k * 0.15; const p0 = at(u * 0.82, u * 0.1), p1 = at(u * 0.36, u * 0.56); cv.stroke(wob(p0[0], p0[1], p1[0], p1[1], R, 0.6, 0.03), { ...T.oil, w: clamp(size * 0.028, 1.6, 4), col, P: 0.78 }); }
-        else if (style === 1) { const zz = []; for (let k = 0; k <= 7; k++) { const t = k / 7; zz.push(at(0.3 + 0.35 * t + (k % 2 ? 0.1 : 0), 0.22 + 0.3 * t + (k % 2 ? -0.06 : 0.06))); } cv.stroke(zz, { ...T.oil, w: clamp(size * 0.024, 1.5, 3.4), col, P: 0.78 }); }
-        else for (let k = 0; k < 5; k++) { const q = at(0.3 + R() * 0.4, 0.15 + R() * 0.3); cv.stroke(arc(q[0], q[1], size * 0.025, size * 0.02, 0, 6.3, R, 0.3), { ...T.oil, w: clamp(size * 0.022, 1.4, 3), col: mixc(CRAYON[(R() * 7) | 0], f.col, 0.3), P: 0.8 }); }
+        else if (style === 1) { const zz = []; for (let k = 0; k <= 7; k++) { const t = k / 7; zz.push(at(0.2 + 0.3 * t + (k % 2 ? 0.07 : 0), 0.16 + 0.26 * t + (k % 2 ? -0.05 : 0.05))); } cv.stroke(zz, { ...T.oil, w: clamp(size * 0.024, 1.5, 3.4), col, P: 0.78 }); }
+        else for (let k = 0; k < 5; k++) { const q = at(0.26 + R() * 0.26, 0.14 + R() * 0.22); cv.stroke(arc(q[0], q[1], size * 0.025, size * 0.02, 0, 6.3, R, 0.3), { ...T.oil, w: clamp(size * 0.022, 1.4, 3), col: mixc(CRAYON[(R() * 7) | 0], f.col, 0.3), P: 0.8 }); }
       }
     }
     const n = S(P.N), c = S(P.C), l = S(P.L), rr = S(P.Rr), kk = S(P.K);
-    const lw = clamp(size * 0.014, 1.1, 2.2);
+    const lw = clamp(size * 0.012, 1.0, 1.9);
     const ln = (a, b, col, P0, w) => cv.stroke(wob(a[0], a[1], b[0], b[1], R, Math.min(0.7, size * 0.006), 0.006), { ...T.pencil, w: w || lw, col, P: P0 });
     { const fl = S(P.FL), fr = S(P.FR); ln(n, fl, ink, 0.45, lw * 0.8); ln(n, fr, ink, 0.45, lw * 0.8); }
     ln(n, c, ink, 0.85); ln(l, c, ink, 0.6); ln(c, rr, ink, 0.6); ln(n, l, ink, 0.75); ln(n, rr, ink, 0.75); ln(n, kk, ink, 0.7); ln(kk, c, ink, 0.6);
@@ -125,21 +125,22 @@ function drawPlanes(cv, seed) {
   const hero = [
     { X: 800, Y: 232, size: 200, h: 0.85, p: 0.3, r: -0.75 },
     { X: 452, Y: 428, size: 104, h: 0.95, p: 0.2, r: 0.5 },
-    { X: 1326, Y: 716, size: 92, h: 0.2, p: 0.42, r: -0.6 },
+    { X: 1326, Y: 712, size: 92, h: 1.05, p: 0.3, r: -0.5 },
     { X: 96, Y: 250, size: 132, h: 1.2, p: 0.1, r: 0.25 },
     { X: 1790, Y: 250, size: 62, h: -0.5, p: 0.5, r: 0.5 },
     { X: 626, Y: 742, size: 58, h: 0.75, p: 0.3, r: -0.3 },
-    { X: 1608, Y: 566, size: 46, h: -0.3, p: 0.55, r: 0.7 },
+    { X: 1612, Y: 552, size: 46, h: 1.0, p: 0.35, r: 0.4 },
   ];
   list.sort((a, b) => a.size - b.size);
   for (const q of list) {
     if (q.X < -30 || q.X > 1950 || q.Y < -20) continue;
+    if (q.X > 580 && q.X < 660 && q.Y > 712 && q.Y < 780) continue; // keep the pole top clear
     plane(cv, R, q.X, q.Y, q.size, q.h, q.p, q.r);
   }
   for (const q of hero.sort((a, b) => a.size - b.size)) plane(cv, R, q.X, q.Y, q.size, q.h, q.p, q.r);
   // the very highest ones are only glints now
-  for (let i = 0; i < 26; i++) {
-    const t = 0.8 + R() * 0.2, a = river[Math.min(NR - 1, (t * (NR - 1)) | 0)], x = a[0] + (R() - 0.5) * 150, y = a[1] + (R() - 0.5) * 70, s = 3 + R() * 5;
+  for (let i = 0; i < 11; i++) {
+    const t = 0.78 + R() * 0.22, a = river[Math.min(NR - 1, (t * (NR - 1)) | 0)], x = a[0] + (R() - 0.5) * 170, y = a[1] + (R() - 0.5) * 80, s = 2 + R() * R() * 8;
     if (y < 4) continue;
     cv.stroke(wob(x - s, y, x + s, y, R, 0.2, 0), { ...T.pencil, w: 0.9, col: hex('#fff8dc'), P: 0.8, tin: 0.45, tout: 0.45 });
     cv.stroke(wob(x, y - s, x, y + s, R, 0.2, 0), { ...T.pencil, w: 0.9, col: hex('#fff8dc'), P: 0.8, tin: 0.45, tout: 0.45 });

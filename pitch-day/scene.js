@@ -9,7 +9,7 @@ const tick = n => console.log(n.padEnd(12), ((Date.now() - t0) / 1000).toFixed(1
 tick('paper');
 const sky = require('./sky');
 if (want('sky')) { sky.drawSky(cv, 11); tick('sky'); sky.drawHighSky(cv, 12); tick('highsky'); }
-if (want('cloud')) { sky.drawLowClouds(cv, 14); sky.drawCloud(cv, 13); tick('cloud'); }
+if (want('cloud')) { sky.drawLowClouds(cv, 14); for (const [x, y, r, a] of [[1350, 130, 150, 0.1], [1440, 230, 190, 0.08], [1300, 80, 90, 0.1], [1560, 300, 150, 0.06]]) cv.dust(x, y, r, hex('#93a4ea'), a); sky.drawCloud(cv, 13); tick('cloud'); }
 const town = require('./town');
 if (want('far')) { town.drawFar(cv, 21); town.drawSea(cv, 22); tick('sea'); }
 if (want('town')) { const n = town.drawTown(cv, 23); tick('town ' + n); }

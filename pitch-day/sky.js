@@ -58,6 +58,14 @@ function drawSky(cv, seed) {
       x += L * (0.9 + R() * 0.9);
     }
   }
+  for (let y = -8; y < 330; y += 15) {
+    let x = -160 * R();
+    while (x < 1930) {
+      const L = 110 + R() * 220, yy = y + (R() - 0.5) * 14, c = skyCol(x + L / 2, yy), lum = c[0] * 0.4 + c[1] * 0.6;
+      if (lum < 0.46) cv.stroke(wob(x, yy, x + L, yy + (R() - 0.5) * 10, R, 2, 0.03), { ...T.pastel, w: 16 + R() * 12, col: jit(mixc(pick(c, SKY_STICKS, R, 2.2), c, 0.5), 0.012, R), P: 0.62 + R() * 0.18, tin: 0.2, tout: 0.3, sa: 0.4 });
+      x += L * (0.55 + R() * 0.5);
+    }
+  }
   // --- crepuscular rays fanning from behind the big cloud (pastel dust rubbed in with a pad)
   for (let i = 0; i < 8; i++) {
     const a = Math.PI * (1.085 + i * 0.052 + (R() - 0.5) * 0.03), r0 = 380 + R() * 120, r1 = 760 + R() * 420;
@@ -81,7 +89,7 @@ function drawSky(cv, seed) {
   for (let i = 0; i < 520; i++) {
     const x = 900 + R() * 1040, y = HZ - R() * R() * 190;
     const L = 26 + R() * 50, a = -0.95 + (R() - 0.5) * 0.3;
-    cv.stroke(wob(x, y, x + Math.cos(a) * L, y + Math.sin(a) * L, R, 0.6, 0.02), { ...T.pencil, w: 1.4 + R(), col: wc[(R() * 4) | 0], P: 0.42 + R() * 0.2 });
+    cv.stroke(wob(x, y, x + Math.cos(a) * L, y + Math.sin(a) * L, R, 0.6, 0.02), { ...T.pencil, w: 1.4 + R(), col: wc[(R() * 4) | 0], P: 0.3 + R() * 0.16 });
   }
 }
 
@@ -90,30 +98,30 @@ function drawHighSky(cv, seed) {
   const R = rng32(seed);
   // high cirrus still in sunlight: long hooked wisps
   const cc = ['#ff9fa6', '#ffb8a0', '#f58bb0', '#ffd0a8', '#e89ac8'].map(hex);
-  const wisp = (x, y, L, a, w, col, P) => {
+  const wisp = (x, y, L, a, w, col, P, soft) => {
     const P0 = [];
     const n = 6;
     for (let k = 0; k <= n; k++) { const t = k / n; P0.push([x + Math.cos(a) * L * t + Math.sin(t * 3.0) * 6, y + Math.sin(a) * L * t - Math.pow(t, 2.2) * L * 0.16]); }
     const c = curve(P0, 8);
-    cv.stroke(c, { ...T.pastel, w, col, P, tin: 0.25, tout: 0.5, sa: 0.5 });
+    cv.stroke(c, soft ? { ...T.ptip, w, col, P, tin: 0.35, tout: 0.6, pv: 0.3 } : { ...T.pastel, w, col, P, tin: 0.25, tout: 0.5, sa: 0.5 });
   };
-  const groups = [[120, 318, 20], [560, 232, 13], [40, 105, 10], [380, 430, 9]];
+  const groups = [[120, 318, 12], [150, 210, 6], [40, 100, 7], [380, 440, 6]];
   for (const [gx, gy, n] of groups) {
     const a0 = -0.16 + (R() - 0.5) * 0.08;
+    // soft bodies first, laid lightly with the side of the stick and dragged out with a finger
     for (let i = 0; i < n; i++) {
       const x = gx + (R() - 0.3) * 420, y = gy + (R() - 0.5) * 70 + (x - gx) * Math.tan(a0) * 0.5;
-      const L = 70 + R() * 260;
-      const e = (HZ - y) / HZ, c = e > 0.6 ? mixc(cc[(R() * 5) | 0], hex('#c9a0e0'), 0.35) : cc[(R() * 5) | 0];
-      wisp(x, y, L, a0 + (R() - 0.5) * 0.12, 2.5 + R() * R() * 12, c, 0.4 + R() * 0.3);
-    }
-    for (let i = 0; i < 4; i++) {
-      const x = gx + (R() - 0.3) * 380, y = gy + (R() - 0.5) * 50;
-      cv.smudge([[x, y], [x + 120, y - 16], [x + 240, y - 40]], { r: 9 + R() * 6, str: 0.16, pick: 0.25 });
+      const L = 110 + R() * 260, a = a0 + (R() - 0.5) * 0.1;
+      const e = (HZ - y) / HZ, c = e > 0.6 ? mixc(cc[(R() * 5) | 0], hex('#c9a0e0'), 0.4) : cc[(R() * 5) | 0];
+      for (let q = 0; q < 3; q++) wisp(x + (R() - 0.5) * 20, y + (q - 1) * (2 + R() * 3), L * (0.7 + R() * 0.3), a + (R() - 0.5) * 0.03, 3 + R() * 5, c, 0.4 + R() * 0.2, 1);
+      const sm = []; for (let k = 0; k <= 4; k++) { const t = k / 4; sm.push([x + Math.cos(a) * L * t, y + Math.sin(a) * L * t - Math.pow(t, 2.2) * L * 0.16]); }
+      cv.smudge(sm, { r: 8 + R() * 6, str: 0.17, pick: 0.2 });
+      if (R() < 0.7) wisp(x + 10 + R() * 30, y - 2 + R() * 4, L * (0.5 + R() * 0.4), a, 2.5 + R() * 4, mixc(c, hex('#fff0e0'), 0.35), 0.5 + R() * 0.25);
     }
     // a few crisp pencil hairs on top
-    for (let i = 0; i < n * 0.5; i++) {
+    for (let i = 0; i < n * 0.45; i++) {
       const x = gx + (R() - 0.3) * 420, y = gy + (R() - 0.5) * 60, L = 60 + R() * 150;
-      wisp(x, y, L, a0 + (R() - 0.5) * 0.08, 1.4 + R(), hex(R() < 0.5 ? '#ffd9c0' : '#ffb0b8'), 0.6 + R() * 0.25);
+      wisp(x, y, L, a0 + (R() - 0.5) * 0.08, 1.3 + R(), hex(R() < 0.5 ? '#ffd9c0' : '#ffb0b8'), 0.55 + R() * 0.25);
     }
   }
   // stars
@@ -133,10 +141,10 @@ function drawHighSky(cv, seed) {
   }
   // thin crescent moon, lit limb toward the vanished sun
   const mx = 612, my = 152, mr = 27;
-  cv.dust(mx, my, 34, hex('#5a78c8'), 0.22);
+  cv.dust(mx, my, 30, hex('#4a64bc'), 0.14);
   for (let i = 0; i < 60; i++) { // earthshine, barely there
     const a = R() * 6.283, rr = Math.sqrt(R()) * (mr - 2);
-    cv.stroke(wob(mx + Math.cos(a) * rr - 4, my + Math.sin(a) * rr + 3, mx + Math.cos(a) * rr + 4, my + Math.sin(a) * rr - 3, R, 0.3, 0), { ...T.pencil, w: 1.6, col: hex('#5a6cc0'), P: 0.42 });
+    cv.stroke(wob(mx + Math.cos(a) * rr - 4, my + Math.sin(a) * rr + 3, mx + Math.cos(a) * rr + 4, my + Math.sin(a) * rr - 3, R, 0.3, 0), { ...T.pencil, w: 1.5, col: hex('#3c4aa6'), P: 0.34 });
   }
   const la = Math.atan2(SUN[1] - my, SUN[0] - mx);
   for (let k = 0; k < 4; k++) {
@@ -213,7 +221,7 @@ function drawCloud(cv, seed) {
   puffs.forEach((p, pi) => {
     const x0 = Math.max(0, Math.floor(p.x - p.r * 1.2 - X0)), x1 = Math.min(BW - 1, Math.ceil(p.x + p.r * 1.2 - X0));
     const y0 = Math.max(0, Math.floor(p.y - p.r * 1.2)), y1 = Math.min(Math.min(BH - 1, baseY), Math.ceil(p.y + p.r * 1.2));
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const dx = x + X0 - p.x, dy = y - p.y, d2 = dx * dx + dy * dy; if (d2 > p.r * p.r * 1.45) continue; const rr = prad(p, Math.atan2(dy, dx)); if (d2 < rr * rr) tid[y * BW + x] = pi; }
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (y > baseY - 3 + 2.6 * Math.sin((x + X0) / 61) + 2 * Math.sin((x + X0) / 19)) continue; const dx = x + X0 - p.x, dy = y - p.y, d2 = dx * dx + dy * dy; if (d2 > p.r * p.r * 1.45) continue; const rr = prad(p, Math.atan2(dy, dx)); if (d2 < rr * rr) tid[y * BW + x] = pi; }
   });
   for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) { const i = y * BW + x, t = tid[i]; if (t < 0) continue; const p = puffs[t]; cls[i] = toneClass(p, (x + X0 - p.x) / p.r, (y - p.y) / p.r, x + X0, y); }
   const at = (x, y) => { const xi = Math.round(x - X0), yi = Math.round(y); if (xi < 0 || yi < 0 || xi >= BW || yi >= BH) return -1; return yi * BW + xi; };
@@ -298,18 +306,30 @@ function drawCloud(cv, seed) {
       else if (sky && ci >= 2 && R() < 0.4) cv.stroke(pts, { ...T.pencil, w: 1.2 + R() * 0.7, col: hex(y < 300 ? '#6a58b4' : '#463f8e'), P: 0.45 + R() * 0.25, tin: 0.3, tout: 0.3 });
       else if (!sky && jo >= 0) {
         const co = cls[jo];
-        if (co === ci && R() < 0.5) cv.stroke(pts, { ...T.pencil, w: 1.1 + R() * 0.7, col: ci <= 1 ? hex(y < 250 ? '#f0a070' : '#e0607e') : hex('#4a4296'), P: 0.42 + R() * 0.25, tin: 0.3, tout: 0.3 });
+        if (co === ci && R() < 0.5) cv.stroke(pts, { ...T.pencil, w: 1.1 + R() * 0.7, col: ci <= 1 ? hex(y < 250 ? '#f0b080' : '#ea8a92') : hex('#4a4296'), P: 0.36 + R() * 0.22, tin: 0.3, tout: 0.3 });
         else if (ci < co && R() < 0.3) cv.stroke(pts, { ...T.oil, w: 1.2 + R() * 1.2, col: mixc(grad(LC, y - 60), hex('#fffdf0'), 0.4), P: 0.65 + R() * 0.25, tin: 0.3, tout: 0.3 });
       }
     }
   }
-  // base haze: the bottom of the tower dissolves into the evening band
-  for (let i = 0; i < 150; i++) {
-    const x = 720 + R() * 1200, y = 588 + R() * 36, L = 80 + R() * 200;
-    const c = mixc(skyCol(x + L / 2, y + 4), hex('#8a6fb4'), (0.42 + R() * 0.2) * (1 - sstep(592, 622, y) * 0.85));
-    cv.stroke(wob(x, y, x + L, y + (R() - 0.5) * 4, R, 1, 0.01), { ...T.pastel, w: 7 + R() * 9, col: c, P: 0.6 + R() * 0.2, tin: 0.2, tout: 0.3 });
+  // the flat base of the tower, in shadow, with the afterglow burning along its underside
+  const hasCloud = x => { const j = at(x, baseY - 5); return j >= 0 && tid[j] >= 0; };
+  for (let i = 0; i < 190; i++) {
+    const x = 730 + R() * 1190, y = 590 + R() * 13, L = 20 + R() * 70;
+    if (!hasCloud(x) || !hasCloud(x + L)) continue;
+    const dk = sstep(588, 603, y);
+    const c = mixc(mixc(hex('#7466b6'), hex('#b0649e'), sstep(1300, 1900, x) * 0.5), hex('#4d5096'), 0.1 + dk * 0.4);
+    cv.stroke(wob(x, y, x + L, y + (R() - 0.5) * 2.4, R, 0.7, 0.01), { ...T.pastel, w: 3 + R() * 4, col: jit(c, 0.015, R), P: 0.5 + R() * 0.25, tin: 0.2, tout: 0.3, sa: 0.5 });
   }
-  for (let k = 0; k < 4; k++) cv.smudge([[740, 598 + k * 7], [1200, 600 + k * 7], [1920, 598 + k * 7]], { r: 11, str: 0.18, pick: 0.3 });
+  for (let i = 0; i < 150; i++) {
+    const x = 740 + R() * 1180, L = 12 + R() * 60, y = baseY + 2.5 + (R() - 0.5) * 3; if (!hasCloud(x) || !hasCloud(x + L)) continue;
+    const wm = sstep(800, 1750, x);
+    cv.stroke(wob(x, y, x + L, y + (R() - 0.5) * 1.4, R, 0.5, 0.01), { ...T.oil, w: 1.3 + R() * 1.8, col: mixc(hex('#e889a6'), hex('#ffb86a'), wm * (0.6 + 0.4 * R())), P: 0.55 + wm * 0.3 + R() * 0.15, tin: 0.2, tout: 0.3 });
+  }
+  // a little ragged scud hanging under the base
+  for (let i = 0; i < 60; i++) {
+    const x = 760 + R() * 1150, y = baseY + 4 + R() * 9, L = 14 + R() * 50; if (!hasCloud(x)) continue;
+    cv.stroke(wob(x, y, x + L, y + (R() - 0.5) * 2, R, 0.6, 0.02), { ...T.pastel, w: 2.5 + R() * 3.5, col: mixc(hex('#7a62ac'), skyCol(x, y), 0.35 + R() * 0.3), P: 0.5 + R() * 0.25, tin: 0.25, tout: 0.35 });
+  }
   return puffs;
 }
 
@@ -325,7 +345,7 @@ function drawLowClouds(cv, seed) {
       const up = (yy - by) / (bh * 0.8); // -1 top .. 1 bottom
       let c = up > 0.15 ? mixc(hex('#ff8f7a'), hex('#ffc27a'), warm * 0.8 + R() * 0.2) : mixc(hex('#7b6fc0'), hex('#a57fc6'), R());
       if (up > 0.5 && R() < 0.5) c = mixc(hex('#ffd9a0'), hex('#ff9fa0'), 1 - warm);
-      cv.stroke(wob(x - L / 2, yy, x + L / 2, yy + (R() - 0.5) * 2, R, 0.8, 0.01), { ...T.pastel, w: 3 + R() * 6 * env + 1, col: jit(c, 0.02, R), P: 0.7 + R() * 0.25, tin: 0.2, tout: 0.3 });
+      cv.stroke(wob(x - L / 2, yy, x + L / 2, yy + (R() - 0.5) * 2, R, 0.8, 0.01), { ...T.ptip, w: 2.5 + R() * 5 * env + 1, col: jit(c, 0.02, R), P: 0.72 + R() * 0.25, tin: 0.3, tout: 0.4, pv: 0.25 });
     }
     cv.smudge([[bx, by], [bx + bl / 2, by + 1], [bx + bl, by]], { r: 6, str: 0.1, pick: 0.3 });
   }

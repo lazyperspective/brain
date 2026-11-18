@@ -14,11 +14,19 @@ function drawKnoll(cv, seed, mid) {
   const R = rng32(seed);
   const crest = curve(KNOLL, 10);
   const poly = crest.concat([[1935, 1100], [420, 1100]]);
+  // the verge between road and grass
+  fillPoly(cv, [[300, 1100], [440, 1100], [540, 1030], [620, 992], [700, 966], [640, 972], [560, 1000], [450, 1052]], { tool: T.ptip, w: 6, col: hex('#262c60'), P: 1.08, ang: -0.6, sp: 0.5, cj: 0.015 }, R);
   // 1. the dark mass, blocked in with the side of the stick
   fillPoly(cv, poly, { tool: T.pastel, w: 15, colFn: (x, y) => mixc(mixc(hex('#17364c'), hex('#1e4a4c'), vnoise(x / 80, y / 50, 3)), hex('#2a3266'), 0.5 * vnoise(x / 130, y / 60, 9)), P: 1.02, ang: -0.11, sp: 0.55, cj: 0.015, maxLen: 200 }, R);
   fillPoly(cv, poly, { tool: T.pastel, w: 11, colFn: (x, y) => mixc(hex('#122c44'), hex('#235650'), vnoise(x / 60, y / 40, 13)), P: 0.8, ang: -0.3, sp: 1.2, cj: 0.015, maxLen: 120 }, R);
   for (let y = 880; y < 1080; y += 26) cv.smudge([[500, y + 60], [900, y + 20], [1400, y - 10], [1920, y - 40]], { r: 14, str: 0.1, pick: 0.3 });
   fillPoly(cv, poly, { tool: T.pencil, w: 1.5, col: hex('#101c44'), P: 0.5, ang: -1.05, sp: 3.4, jit: 0.5, maxLen: 60 }, R);
+  for (let i = 0; i < 260; i++) {
+    const x = 560 + R() * 1380, ky = knollY(x), y = ky + 30 + R() * (1090 - ky - 30), a = -1.2 + (R() - 0.5) * 0.5;
+    let L = 40 + R() * 90; while (L > 8 && y + Math.sin(a) * L < knollY(x + Math.cos(a) * L) + 14) L -= 8; if (L <= 8) continue;
+    const c = [hex('#2a2f70'), hex('#1b3f66'), hex('#16454a'), hex('#34306e'), hex('#1f5a52')][(R() * 5) | 0];
+    cv.stroke(wob(x, y, x + Math.cos(a) * L, y + Math.sin(a) * L, R, 1, 0.05), { ...T.pastel, w: 8 + R() * 10, col: jit(c, 0.015, R), P: 0.62 + R() * 0.25, sa: 0.4, tin: 0.15, tout: 0.3 });
+  }
   // 2. the light patch
   for (const p of PATCH) {
     fillPoly(cv, p, { tool: T.pastel, w: 8, colFn: (x, y) => mixc(hex('#a89a50'), hex('#d8bc68'), vnoise(x / 30, y / 20, 4)), P: 0.74, ang: -0.6, sp: 0.8, cj: 0.02, over: 3 }, R);
@@ -90,6 +98,23 @@ function drawFlora(cv, seed) {
       cv.stroke([[tip[0] - 0.3, tip[1]], [tip[0] + 0.3, tip[1]]], { ...T.oil, w: Math.max(1.2, r * 0.42), col: hex(kind.n > 6 ? '#ffd24a' : '#ff9a3a'), P: 1.1 });
     }
   }
+  // a few big ones close to us, at the bottom edge
+  const big = (x, y, r, kind, h) => {
+    const tip = stem(x, y, h, r * 0.8, hex('#17404a'), 2.4);
+    cv.stroke(curve([[x + 2, y - h * 0.3], [x + r * 1.4, y - h * 0.42], [x + r * 2.4, y - h * 0.36]], 5), { ...T.ptip, w: 4.5, col: hex('#2a6658'), P: 0.95, tin: 0.1, tout: 0.5 });
+    const rot = R() * 6.283, sq = 0.62 + R() * 0.25;
+    for (let k = 0; k < kind.n; k++) {
+      const a = rot + k / kind.n * 6.283 + (R() - 0.5) * 0.15, ca = Math.cos(a), sa = Math.sin(a) * sq;
+      const lit = ca * 0.7 - sa * 0.7 > 0.1;
+      const p0 = [tip[0] + ca * r * 0.22, tip[1] + sa * r * 0.22], p1 = [tip[0] + ca * r, tip[1] + sa * r];
+      cv.stroke(wob(p0[0], p0[1], p1[0], p1[1], R, 0.4, 0.05), { ...T.oil, w: r * (kind.n > 6 ? 0.3 : 0.56), col: jit(hex(lit ? kind.c2 : kind.c), 0.02, R), P: 0.95, tin: 0.15, tout: 0.1 });
+      cv.stroke(wob(p0[0], p0[1], p1[0], p1[1], R, 0.3, 0.02), { ...T.pencil, w: 1, col: hex(kind.d), P: 0.5 });
+    }
+    cv.dust(tip[0], tip[1], r * 0.3, hex('#ffb040'), 0.8);
+    for (let k = 0; k < 8; k++) { const a = R() * 6.283, rr = R() * r * 0.2; cv.stroke([[tip[0] + Math.cos(a) * rr, tip[1] + Math.sin(a) * rr * sq], [tip[0] + Math.cos(a) * rr + 0.6, tip[1] + Math.sin(a) * rr * sq]], { ...T.oil, w: 2, col: hex(R() < 0.5 ? '#ffd24a' : '#e8882a'), P: 1.05 }); }
+  };
+  const KB = [{ c: '#cfc6f0', c2: '#fbf6ff', d: '#8a80c8', n: 11 }, { c: '#f0c850', c2: '#fff0a0', d: '#b88a30', n: 4 }, { c: '#e87aa8', c2: '#ffb8d0', d: '#a84a80', n: 6 }];
+  for (const [x, y, r, k, h] of [[1836, 1092, 25, 0, 96], [1762, 1098, 18, 1, 66], [1622, 1096, 21, 2, 70], [1890, 1050, 16, 1, 60], [1450, 1100, 19, 0, 62], [1284, 1098, 16, 1, 52], [1540, 1090, 13, 0, 40], [1130, 1100, 15, 2, 50], [1700, 1040, 12, 0, 44]]) big(x, y, r, KB[k], h);
   // fireflies
   for (let i = 0; i < 17; i++) {
     const x = 520 + R() * 1380, ky = knollY(x), y = ky - 30 + R() * 190;
@@ -217,7 +242,7 @@ function drawHedge(cv, seed) {
 
 // ---------------------------------------------------------------- the orange road mirror at the lip of the hill
 function drawMirror(cv, seed) {
-  const R = rng32(seed), x = 664, yb = knollY(664) + 16, yt = 838, mr = 23, my = yt - mr + 2;
+  const R = rng32(seed), x = 688, yb = knollY(688) + 16, yt = 868, mr = 19, my = yt - mr + 2;
   const or = hex('#ff8a3c'), orD = hex('#b8502c');
   cv.stroke(wob(x, yb, x + 1, my + mr, R, 0.4, 0.003), { ...T.conte, w: 4.2, col: orD, P: 1.1, tin: 0, tout: 0 });
   cv.stroke(wob(x + 1.6, yb - 4, x + 2.4, my + mr, R, 0.3, 0.003), { ...T.oil, w: 1.2, col: hex('#ffc08a'), P: 0.8 });
