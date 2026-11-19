@@ -330,6 +330,9 @@ class Tile:
         self.instant_kw = {}
         self.finale = []          # groups the timeline fires together when the map stands complete
         self.finale2 = []         # ... and again on the closing wide shot
+        self.marks = {'start': 0}  # named positions in the draw order, so later passes can slot detail in
+        self._ins = None
+        self.bob = None           # (amplitude px, period s, phase): the whole piece floats gently
 
     # ---- coordinates
     def P(self, u, v, z=0.0):
@@ -404,11 +407,33 @@ class Tile:
                 sh.dk = 0.01
             sh.under = self.instant_kw.get('under')
         sh.order = len(self.shapes)
+        if at is None and self._ins is not None:
+            at = self._ins
+            self._ins += 1
         if at is None:
             self.shapes.append(sh)
         else:
             self.shapes.insert(at, sh)
         return sh
+
+    def mark(self, name):
+        self.marks[name] = len(self.shapes)
+
+    @contextmanager
+    def at(self, name):
+        """Draw into the tile at a marked depth (so late detail still sits behind whatever was drawn after the mark)."""
+        idx = self.marks.get(name, len(self.shapes))
+        n0 = len(self.shapes)
+        old = self._ins
+        self._ins = idx
+        try:
+            yield
+        finally:
+            added = len(self.shapes) - n0
+            self._ins = old
+            for k, v in list(self.marks.items()):
+                if v >= idx and k != 'start':
+                    self.marks[k] = v + added
 
     def poly(self, pts, fill=None, ink=0.5, inkc=INK, closed=True, **kw):
         return self._add([[self.P3(p) for p in pts]], closed, fill, ink, inkc, **kw)
@@ -607,14 +632,43 @@ class Tile:
         pts += [(ac + w / 2, z0 + h - w / 2), (ac + w / 2, z0)]
         return self.poly([self.fpt(face, a, plane, z) for a, z in pts], fill, ink, stage=stage, **kw)
 
-    def house(self, u0, v0, du, dv, h, rh=0.03, wall=MARBLE, roof=TERRA, axis='u', ink=0.4, door=True, win=None, z=0.0, **kw):
+    def house(self, u0, v0, du, dv, h, rh=0.03, wall=MARBLE, roof=TERRA, axis='u', ink=0.4, door=True, win=None, z=0.0, chimney=True, **kw):
+        """A small house with a door, framed windows, a tiled roof and a chimney.  It rises out of the slab in the build."""
+        if self.cur_group is None:
+            with self.grp('rise', t0=0.46 + self.rng.uniform(0, 0.3), dur=0.3, pivot=self.P(u0 + du / 2, v0 + dv / 2, z), stage='struct',
+                          ink_now=True, under=PAPER):
+                self._house(u0, v0, du, dv, h, rh, wall, roof, axis, ink, door, win, z, chimney, **kw)
+        else:
+            self._house(u0, v0, du, dv, h, rh, wall, roof, axis, ink, door, win, z, chimney, **kw)
+
+    def _house(self, u0, v0, du, dv, h, rh, wall, roof, axis, ink, door, win, z, chimney, **kw):
         self.box(u0, v0, du, dv, h, z, c=wall, ink=ink, guide=False, **kw)
-        self.gable(u0, v0, du, dv, rh, z + h, c=roof, axis=axis, wall=wall, ink=ink, **kw)
+        self.gable(u0, v0, du, dv, rh, z + h, c=roof, axis=axis, wall=wall, ink=ink, over=0.004, **kw)
+        v1, u1 = v0 + dv, u0 + du
+        big = du * W > 4.5
+        # tile courses on the roof slope that faces us
+        if big:
+            if axis == 'u':
+                vm = (v0 + v1) / 2
+                self.lines([[(u0, v1 + (vm - v1) * q, z + h + rh * q), (u1, v1 + (vm - v1) * q, z + h + rh * q)] for q in (0.33, 0.66)], 0.2, shade(roof, 0.72), stage='detail', **kw)
+            else:
+                um = (u0 + u1) / 2
+                self.lines([[(u1 + (um - u1) * q, v0, z + h + rh * q), (u1 + (um - u1) * q, v1, z + h + rh * q)] for q in (0.33, 0.66)], 0.2, shade(roof, 0.66), stage='detail', **kw)
         if door:
-            self.poly([(u0 + du * 0.42, v0 + dv, z), (u0 + du * 0.42, v0 + dv, z + h * 0.55), (u0 + du * 0.58, v0 + dv, z + h * 0.55),
-                       (u0 + du * 0.58, v0 + dv, z)], DARK, 0.2, stage='detail', **kw)
+            self.poly([(u0 + du * 0.40, v1, z), (u0 + du * 0.40, v1, z + h * 0.62), (u0 + du * 0.60, v1, z + h * 0.62),
+                       (u0 + du * 0.60, v1, z)], shade(roof, 0.7), 0.24, stage='detail', **kw)
+            if big:
+                self.poly([(u0 + du * 0.34, v1, z), (u0 + du * 0.66, v1, z), (u0 + du * 0.66, v1 + 0.006, z), (u0 + du * 0.34, v1 + 0.006, z)], STONE, 0.2, stage='detail', **kw)
+                for q in (0.16, 0.84):          # windows either side of the door, with a sill
+                    self.poly([(u0 + du * (q - 0.09), v1, z + h * 0.34), (u0 + du * (q - 0.09), v1, z + h * 0.72), (u0 + du * (q + 0.09), v1, z + h * 0.72),
+                               (u0 + du * (q + 0.09), v1, z + h * 0.34)], (196, 222, 236), 0.2, stage='detail', **kw)
         if win:
-            self.rects('R', v0 + dv * 0.1, v0 + dv * 0.9, u0 + du, z + h * 0.35, z + h * 0.95, win, 1, fill=(196, 214, 226), **kw)
+            self.rects('R', v0 + dv * 0.1, v0 + dv * 0.9, u1, z + h * 0.35, z + h * 0.9, win, 1, fill=(176, 206, 226), **kw)
+            if big:
+                self.lines([[(u1, v0 + dv * 0.1, z + h * 0.33), (u1, v0 + dv * 0.9, z + h * 0.33)]], 0.2, shade(wall, 0.7), stage='detail', **kw)
+        if chimney and big:
+            cu, cv = (u0 + du * 0.72, v0 + dv * 0.5) if axis == 'u' else (u0 + du * 0.5, v0 + dv * 0.28)
+            self.box(cu - 0.005, cv - 0.005, 0.01, 0.01, rh * 0.75, z=z + h + rh * 0.55, c=TERRA_D, ink=0.26, guide=False, **kw)
 
     def rev(self, u, v, prof, z=0.0, c=STONE, ink=0.5, shade_f=0.84, cap=None, guide=None, band=0.42, **kw):
         """Surface of revolution from a profile [(radius, height), ...] bottom to top.
@@ -715,6 +769,29 @@ class Tile:
                 col = shade(col, 1.0 - 0.05 * abs(k - (nf - 1) / 2) + (0.03 if lit else 0))
             pts = ridges[k] + ridges[k + 1][::-1]
             out.append(self._add([pts], True, col, ink, raw=False, wob=0.15, **kw))
+            # the rock itself: bedding that follows the face, a spur down its middle, scree at its foot
+            ra, rb = ridges[k], ridges[k + 1]
+            hat = []
+            for q in range(1, nseg):
+                if q < snow * nseg + 0.5:
+                    continue
+                pa, pb = ra[q], rb[q]
+                for (f0, f1) in ((0.08, 0.36), (0.46, 0.66), (0.74, 0.93)):
+                    if r.random() < 0.72:
+                        g0, g1 = f0 + r.uniform(-0.04, 0.04), f1 + r.uniform(-0.04, 0.04)
+                        sag = np.array([0, 0.8 + 1.4 * r.random()])
+                        hat.append([pa + (pb - pa) * g0, pa + (pb - pa) * (g0 + g1) / 2 + sag, pa + (pb - pa) * g1])
+            mid = [(ra[q] + rb[q]) / 2 + np.array([r.uniform(-1.5, 1.5) * q * 0.4, 0]) for q in range(1, nseg + 1)]
+            if len(B) <= 4 and np.hypot(*(B[k] - B[k + 1])) > 16:
+                hat.append(mid[int(snow * nseg):])
+            if hat:
+                self._add(hat, False, None, 0.22, shade(col, 0.74), raw=True, **kw)
+            scr = []
+            for q in range(7):
+                f_ = r.uniform(0.05, 0.95)
+                p_ = ra[nseg] + (rb[nseg] - ra[nseg]) * f_ + np.array([r.uniform(-1, 1), r.uniform(-3.5, 0.5)])
+                scr.append([p_, p_ + np.array([r.uniform(0.5, 1.4), 0.2])])
+            self._add(scr, False, None, 0.55, shade(col, 0.8), raw=True, **kw)
         snows = []
         if snow > 0:
             ks = max(1, int(round(snow * nseg)))
@@ -735,6 +812,14 @@ class Tile:
                 pts = a + teeth + b[::-1]
                 with (self.grp('wipe', **snow_grp) if snow_grp else _null()):
                     snows.append(self._add([pts], True, sc if lit else scd, ridge_ink, raw=False, wob=0.1, **kw))
+                    # crevasses and wind-scour in the snow
+                    cv_ = []
+                    for q in range(1, ks):
+                        if r.random() < 0.8:
+                            f0 = r.uniform(0.15, 0.6)
+                            cv_.append([a[q] + (b[q] - a[q]) * f0, a[q] + (b[q] - a[q]) * (f0 + r.uniform(0.12, 0.3)) + np.array([0, 0.7])])
+                    if cv_:
+                        self._add(cv_, False, None, 0.22, (150, 186, 214), raw=True, **kw)
         return out, snows
 
     # ---- slab / bases
@@ -748,25 +833,113 @@ class Tile:
             if wall_r is None:
                 self.wallR = self.poly([(1, 0, 0), (1, 1, 0), (1, 1, -thick), (1, 0, -thick)], sd, 0.6, wob=0.2)
             if strata:
-                r = self.rng
-                segs = []
-                for face in ('L', 'R'):
-                    if (face == 'L' and wall_l is not None) or (face == 'R' and wall_r is not None):
-                        continue
-                    for zf in (0.38, 0.72):
-                        a = 0.0
-                        while a < 1.0:
-                            b = min(1.0, a + r.uniform(0.08, 0.3))
-                            zz = -thick * (zf + r.uniform(-0.05, 0.05))
-                            if face == 'L':
-                                segs.append([(a, 1, zz), (b, 1, zz)])
-                            else:
-                                segs.append([(1, a, zz), (1, b, zz)])
-                            a = b + r.uniform(0.03, 0.12)
-                if segs:
-                    self.lines(segs, 0.3, shade(side, 0.68), stage='detail')
+                if wall_l is None:
+                    self.wall_detail('L', 0.0, 1.0, thick, side)
+                if wall_r is None:
+                    self.wall_detail('R', 0.0, 1.0, thick, sd)
             self.top = self.poly([(0, 0), (1, 0), (1, 1), (0, 1)], ground, 0.6, wob=0.2)
         return self.top
+
+    def wall_detail(self, face, a0, a1, thick, side, top=0.0):
+        """What a slab is made of: dark topsoil, earth with stones and roots, a band of bedrock, and now and then a fossil or a burrow."""
+        r = self.rng
+
+        def fp(a, z):
+            return (a, 1, z) if face == 'L' else (1, a, z)
+        n = 14
+        zt = top - thick * 0.2
+        zr = top - thick * 0.74
+        wav1 = [zt + thick * 0.04 * math.sin(k * 1.7 + r.uniform(0, 0.6)) for k in range(n + 1)]
+        wav2 = [zr + thick * 0.07 * math.sin(k * 1.1 + 2 + r.uniform(0, 0.8)) for k in range(n + 1)]
+        aa = [a0 + (a1 - a0) * k / n for k in range(n + 1)]
+        with self.st('detail'):
+            self.poly([fp(a0, top)] + [fp(a, z) for a, z in zip(aa, wav1)] + [fp(a1, top)], shade(side, 0.74), 0.0, wave='g')
+            self.poly([fp(a0, top - thick)] + [fp(a, z) for a, z in zip(aa, wav2)] + [fp(a1, top - thick)], mix(shade(side, 0.9), ROCK, 0.45), 0.0, wave='g')
+            self.line([fp(a, z) for a, z in zip(aa, wav1)], 0.28, shade(side, 0.6), wave='g')
+            self.line([fp(a, z) for a, z in zip(aa, wav2)], 0.28, shade(side, 0.62), wave='g')
+            segs = []
+            for k in range(int(9 * (a1 - a0)) + 1):            # bedding cracks in the rock
+                a = r.uniform(a0 + 0.03, a1 - 0.08)
+                zz = top - thick * r.uniform(0.82, 0.95)
+                segs.append([fp(a, zz), fp(a + r.uniform(0.03, 0.07), zz + thick * r.uniform(-0.03, 0.03))])
+            self.lines(segs, 0.24, shade(side, 0.6), wave='g')
+            for k in range(int(7 * (a1 - a0)) + 1):            # stones
+                a = r.uniform(a0 + 0.03, a1 - 0.03)
+                zz = top - thick * r.uniform(0.3, 0.68)
+                ra, rz = r.uniform(0.007, 0.016), thick * r.uniform(0.05, 0.09)
+                self.poly([fp(a + ra * math.cos(q), zz + rz * math.sin(q)) for q in np.linspace(0, 2 * math.pi, 9)[:-1]], mix(STONE_D, side, 0.3), 0.22, wave='g', wob=0.12)
+            segs = []
+            for k in range(int(8 * (a1 - a0)) + 1):            # roots feeling their way down
+                a = r.uniform(a0 + 0.02, a1 - 0.02)
+                L = thick * r.uniform(0.25, 0.6)
+                pts = [fp(a + 0.006 * math.sin(q * 2.6 + k), top - L * q / 4.0) for q in range(5)]
+                segs.append(pts)
+                if r.random() < 0.5:
+                    segs.append([pts[2], fp(a + r.choice([-1, 1]) * 0.014, top - L * 0.75)])
+            self.lines(segs, 0.26, shade(side, 0.5), wave='g')
+            what = r.random()
+            a = r.uniform(a0 + 0.12, a1 - 0.12)
+            zz = top - thick * 0.5
+            if what < 0.4:                                    # an ammonite
+                sp = [fp(a + 0.0026 * q * math.cos(q * 1.5) / 2.2, zz + thick * 0.016 * q * math.sin(q * 1.5) / 2.2) for q in np.linspace(0.6, 9.5, 22)]
+                self.line(sp, 0.3, MARBLE, wave='g', wob=0)
+            elif what < 0.6:                                  # a bone
+                self.lines([[fp(a - 0.016, zz), fp(a + 0.016, zz + thick * 0.04)]], 0.7, MARBLE, wave='g')
+            elif what < 0.8:                                  # a burrow, somebody home
+                self.poly([fp(a + 0.012 * math.cos(q), zz + thick * 0.07 * math.sin(q)) for q in np.linspace(0, 2 * math.pi, 9)[:-1]], shade(side, 0.42), 0.22, wave='g', wob=0.1)
+
+    def underside(self, faces, thick=None, depth=30.0, chunks=3):
+        """The slab floats: a rough keel of rock hangs beneath its outer faces, with roots dangling and loose chunks adrift below."""
+        thick = self.thick if thick is None else thick
+        r = random.Random(hash(self.name) % 977 + 5)
+        both = len(faces) == 2
+        UR = (150, 136, 126)
+        n = 16
+        deepest = None
+        with self.at('start'), self.st('slab'):
+            for face in faces:
+                top, hang = [], []
+                for k in range(n + 1):
+                    a = k / n
+                    p = self.P3((a, 1, -thick) if face == 'L' else (1, a, -thick))
+                    env = (0.16 + 0.84 * a ** 0.75) if both else (math.sin(math.pi * min(1.0, a * 1.02)) ** 0.6)
+                    d = depth * env * (1.0 if (both and k == n) else r.uniform(0.62, 1.05) * (1.0 if k % 2 else 0.74))
+                    if not both and k in (0, n):
+                        d = 0.0
+                    top.append(p)
+                    q = p + np.array([r.uniform(-1.2, 1.2) if 0 < k < n else 0.0, d])
+                    hang.append(q)
+                    if deepest is None or q[1] > deepest[1]:
+                        deepest = q
+                col = UR if face == 'L' else shade(UR, 0.84)
+                self._add([top + hang[::-1]], True, col, 0.5, wob=0.25)
+                segs = []
+                for k in range(2, n - 1, 2):
+                    m = (top[k] + hang[k]) / 2
+                    segs.append([top[k] + np.array([0, 1.5]), m + np.array([r.uniform(-1.5, 1.5), 0])])
+                    if r.random() < 0.6:
+                        segs.append([m + np.array([1.5, 1.0]), hang[k] + np.array([0.5, -2.0])])
+                self._add(segs, False, None, 0.26, shade(UR, 0.62), stage='detail', wave='g')
+                roots = []
+                for k in range(1, n, 3):
+                    L = r.uniform(4, 9)
+                    b0 = hang[k]
+                    roots.append([b0, b0 + np.array([r.uniform(-1, 1), L * 0.5]), b0 + np.array([r.uniform(-2, 2), L])])
+                self._add(roots, False, None, 0.26, (120, 92, 66), stage='detail', wave='g')
+        # loose chunks drift beneath, bobbing out of step
+        if deepest is not None:
+            for k in range(chunks):
+                c = deepest + np.array([r.choice([-1, 1]) * r.uniform(12, 34), -r.uniform(0, 12) - 3 * k])
+                sz = r.uniform(1.6, 3.6)
+                per = r.uniform(4.5, 8.0)
+                ph = r.uniform(0, 6.28)
+
+                def mo(t, age, ph_, per=per, ph=ph):
+                    return (0.0, 1.6 * math.sin(2 * math.pi * t / per + ph), 4.0 * math.sin(2 * math.pi * t / (per * 1.7) + ph), 1.0, 1.0)
+                with self.at('start'), self.grp('drift', dur=0.5, pivot=c, off=(0, 14), motion=mo, stage='flora'):
+                    pts = [(sz * r.uniform(0.7, 1.2) * math.cos(q), sz * r.uniform(0.6, 1.0) * math.sin(q) * 0.8) for q in np.linspace(0, 2 * math.pi, 7)[:-1]]
+                    self.poly2(c, pts, shade(UR, r.uniform(0.86, 1.05)), 0.36, wob=0)
+                    self.poly2(c, [(-sz * 0.8, -sz * 0.35), (sz * 0.7, -sz * 0.4), (sz * 0.3, -sz * 0.75), (-sz * 0.4, -sz * 0.7)], GRASS_D, 0.26, wob=0)
 
     def wall_water(self, face, a, b, c=WATER_D, depth=0.8, fall=True):
         """Where a river meets the slab edge: a blue notch in the wall and a thread of falling water."""

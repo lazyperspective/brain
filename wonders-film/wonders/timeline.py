@@ -1,10 +1,12 @@
 """Timeline: when each piece of the world builds, the shot list, and the camera.
 
-Structure (the reference film's grammar; one musical bar = 100 frames = 3.333 s at 72 BPM):
+One musical bar = 100 frames = 3.333 s (72 BPM, 4/4).  Every shot is one bar:
 
     bars 1-2    0.00 -  6.67 s   the map builds itself (to ~4 s) and holds, alive
-    bars 3-15   6.67 - 50.00 s   thirteen hard-cut static close-ups, 100 frames each, clockwise
-    bar 16+    50.00 - 55.00 s   cut back to the whole finished world
+    bars 3-15   6.67 - 50.00 s   thirteen close-ups, clockwise.  Each holds for 80 frames (drifting very
+                                 slightly), then the camera swoops - pull out a little, fly, push in -
+                                 for 20 frames, landing on the next landmark exactly on the bar line
+    bar 16+    50.00 - 55.00 s   the last swoop opens out to the whole finished world
 """
 import math
 
@@ -15,9 +17,12 @@ BAR = 100                      # frames per bar / per close-up
 BUILD_FRAMES = 2 * BAR         # build + hold
 FINAL_FRAMES = 150
 
+HOLD = 80                      # frames each close-up rests
+MOVE = BAR - HOLD              # frames of swoop that carry the camera to the next shot
+
 # ---- the build -------------------------------------------------------------
 # The centre is finished before the film starts.  Then: the four inner slabs
-# (clockwise), the outer ring, and the satellites last.
+# (clockwise), the outer ring, the satellites, and last the dream: islets, sky creatures.
 STARTS = {
     'pyramids': -10.0,
     'colosseum': 0.08, 'greatwall': 0.26, 'taj': 0.44, 'rio': 0.62,
@@ -26,36 +31,113 @@ STARTS = {
     'reef': 0.80, 'halong': 0.99, 'machu': 1.18, 'fuji': 1.37,
     'chichen': 1.56, 'everest': 1.75, 'niagara': 1.94, 'eiffel': 2.13,
     'stonehenge': 2.72, 'aurora': 2.82, 'opera': 2.92, 'uluru': 3.02, 'moai': 3.12,
+    'sky_lo': 1.95, 'sky_mid': 2.7, 'sky_hi': 3.2,
+    'islet_a': 3.22, 'islet_b': 3.30, 'islet_c': 3.38, 'islet_d': 3.46, 'islet_e': 3.54,
 }
-RATE = {'stonehenge': 1.55, 'aurora': 1.55, 'opera': 1.55, 'uluru': 1.55, 'moai': 1.55}
+RATE = {'stonehenge': 1.55, 'aurora': 1.55, 'opera': 1.55, 'uluru': 1.55, 'moai': 1.55,
+        'islet_a': 1.7, 'islet_b': 1.7, 'islet_c': 1.7, 'islet_d': 1.7, 'islet_e': 1.7}
 LEAD = 0.55                    # pencil placeholders are ruled this long before a piece starts building
 FINALE = 3.72                  # glints ripple out from the centre once the map stands complete
 
 CAM0 = (0.0, 47.0, 3.5)
-WIDE = (0.0, 29.0, 2.2)
+WIDE = (0.0, 33.0, 2.2)
 CLOSE = WIDE[2] * 2.5          # every close-up is a 2.5x crop of the same world
 
 # ---- the tour: clockwise from the centre; each shot keeps a corner of the one before
 SHOTS = [
     # name,                 centre x, y (map px)
     ('pyramids',             4.0,   46.0),     # the centre, where the film began
-    ('eiffel_stonehenge',  -32.0,  -89.0),     # up to the crown of the map; the Pyramids' back corner stays at the foot of frame
-    ('aurora_everest',     168.0, -104.0),     # the tower stays at the left edge
+    ('eiffel_stonehenge',  -32.0,  -89.0),     # up to the crown of the map
+    ('aurora_everest',     172.0, -106.0),     # the tower stays at the left edge; the great sun behind the summit
     ('greatwall',          118.0,   -8.0),     # Everest's base camp stays top right
-    ('fuji',               232.0,   48.0),     # the Wall's end tower stays top left
-    ('opera_halong',       254.0,  142.0),     # Fuji's tea rows stay at the top
+    ('fuji',               236.0,   46.0),     # the Wall arcs in from the left; a lantern islet floats to the right
+    ('opera_halong',       262.0,  148.0),     # Fuji's tea rows stay at the top; a lighthouse islet and a paper crane fill the corner
     ('taj',                104.0,  100.0),     # Ha Long's karsts stay bottom right
-    ('reef_uluru',          52.0,  176.0),     # the Taj's gate stays at the top
+    ('reef_uluru',          40.0,  180.0),     # the Taj's gate stays at the top; a cherry islet drifts below
     ('rio',               -106.0,  102.0),     # the reef stays bottom right
-    ('machu_moai',        -254.0,  136.0),     # Rio's favela stays at the right edge
+    ('machu_moai',        -262.0,  140.0),     # Rio's favela stays at the right; a shepherd's islet at the left
     ('chichen',           -214.0,   50.0),     # Machu Picchu's peaks stay at the bottom
-    ('niagara',           -192.0,  -58.0),     # Chichen's jungle stays at the bottom
-    ('colosseum',          -98.0,   -8.0),     # Niagara stays at the left; the Pyramids return bottom right
+    ('niagara',           -236.0,  -24.0),     # Chichen's jungle stays at the bottom; the sky whale passes on the left
+    ('colosseum',          -98.0,    6.0),     # Niagara stays at the left; the Pyramids return bottom right
 ]
-CUTS = [BUILD_FRAMES + k * BAR for k in range(len(SHOTS) + 1)]     # frame numbers of the hard cuts
+CUTS = [BUILD_FRAMES + k * BAR for k in range(len(SHOTS) + 1)]     # the bar lines: frame on which each shot is reached
 TOTAL_FRAMES = CUTS[-1] + FINAL_FRAMES
 DURATION = TOTAL_FRAMES / FPS
 FINALE2 = CUTS[-1] / FPS + 0.35
+# each close-up's signature event peaks in the middle of its hold
+EV = {name: (CUTS[k] + HOLD / 2) / FPS for k, (name, _, _) in enumerate(SHOTS)}
+
+
+def _quint(x):
+    x = min(1.0, max(0.0, x))
+    return x * x * x * (x * (6 * x - 15) + 10)
+
+
+def _smooth(x):
+    x = min(1.0, max(0.0, x))
+    return x * x * (3 - 2 * x)
+
+
+def _build_cam(t):
+    """ease-out with a soft start; while the inner ring builds the camera leans toward whichever slab is
+    under construction (clockwise), then lets go; a very slow push through the hold"""
+    tt = max(0.0, t)
+    x = (tt + 0.18 * (math.exp(-tt / 0.18) - 1.0)) / 4.3
+    e = 1.0 - (1.0 - min(1.0, x)) ** 3.0
+    z = CAM0[2] * (WIDE[2] / CAM0[2]) ** e
+    cx = CAM0[0] + (WIDE[0] - CAM0[0]) * e
+    cy = CAM0[1] + (WIDE[1] - CAM0[1]) * e
+    env = math.sin(math.pi * min(1.0, tt / 1.9)) ** 2
+    phi = math.radians(206.0 + 300.0 * _smooth(tt / 1.7))
+    cx += 15.0 * env * math.cos(phi)
+    cy += 8.0 * env * math.sin(phi)
+    z *= 1.0 + 0.025 * _smooth((tt - 4.3) / 1.7)
+    return (cx, cy, z)
+
+
+def _hold_cam(k, s):
+    """a close-up at rest still breathes: a slight push in and a few pixels of slide"""
+    _, x, y = SHOTS[k]
+    sg = 1.0 if k % 2 == 0 else -1.0
+    return (x + sg * 3.0 * (s - 0.5), y - sg * 1.5 * (s - 0.5), CLOSE * (1.0 + 0.035 * s))
+
+
+def _swoop(a, b, u):
+    """a -> b: position and log-zoom on one quintic ease, with a pull-out in the middle of the flight"""
+    e = _quint(u)
+    dist = math.hypot(b[0] - a[0], b[1] - a[1])
+    both_close = min(a[2], b[2]) > WIDE[2] * 1.8
+    dip = math.log(2.5 / 1.72) * min(1.0, dist / 150.0) if both_close else 0.0
+    lz = math.log(a[2]) + (math.log(b[2]) - math.log(a[2])) * e - dip * math.sin(math.pi * e) ** 2
+    return (a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, math.exp(lz))
+
+
+def camera_at(f):
+    """camera for a (fractional) frame number"""
+    n = len(SHOTS)
+    if f <= CUTS[0] - MOVE:
+        return _build_cam(f / FPS)
+    k = int((f + MOVE - CUTS[0]) // BAR)            # which shot this frame is travelling to / resting on
+    if k >= n:
+        a = _hold_cam(n - 1, 1.0)
+        wide_in = (WIDE[0], WIDE[1], WIDE[2] * 1.03)
+        if f < CUTS[n]:
+            return _swoop(a, wide_in, (f - (CUTS[n] - MOVE)) / MOVE)
+        s = _smooth((f - CUTS[n]) / float(FINAL_FRAMES))
+        return (WIDE[0], WIDE[1], WIDE[2] * (1.03 - 0.03 * s))
+    if f < CUTS[k]:
+        a = _build_cam((CUTS[0] - MOVE) / FPS) if k == 0 else _hold_cam(k - 1, 1.0)
+        return _swoop(a, _hold_cam(k, 0.0), (f - (CUTS[k] - MOVE)) / MOVE)
+    return _hold_cam(k, _smooth((f - CUTS[k]) / float(HOLD)))
+
+
+def is_move(frame):
+    """frames in fast flight get motion blur"""
+    if frame <= CUTS[0] - MOVE:
+        return False
+    r = (frame + MOVE - CUTS[0]) % BAR
+    k = (frame + MOVE - CUTS[0]) // BAR
+    return k <= len(SHOTS) and 0 < r < MOVE
 
 
 class Timeline:
@@ -100,16 +182,4 @@ class Timeline:
         return k, SHOTS[k][0]
 
     def camera(self, t):
-        frame = int(round(t * FPS))
-        k, _ = self.shot(frame)
-        if k == -1:
-            # ease-out with a soft start: the frame opens quickly while the inner ring builds,
-            # then coasts to rest as the last satellites land; perfectly still for the hold
-            tt = max(0.0, t)
-            x = (tt + 0.18 * (math.exp(-tt / 0.18) - 1.0)) / 4.3
-            e = 1.0 - (1.0 - min(1.0, x)) ** 3.0
-            z = CAM0[2] * (WIDE[2] / CAM0[2]) ** e       # exponential zoom reads as constant speed
-            return (CAM0[0] + (WIDE[0] - CAM0[0]) * e, CAM0[1] + (WIDE[1] - CAM0[1]) * e, z)
-        if k == len(SHOTS):
-            return WIDE
-        return (SHOTS[k][1], SHOTS[k][2], CLOSE)
+        return camera_at(t * FPS)

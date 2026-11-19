@@ -184,6 +184,19 @@ class Renderer:
 
     def _tile(self, c, tile, t, sky):
         tau = (t - tile.start) * tile.rate
+        bobbed = False
+        if tile.bob is not None:
+            amp, per, ph = tile.bob
+            c.save()
+            c.translate(0.0, amp * math.sin(2 * math.pi * t / per + ph))
+            bobbed = True
+        try:
+            self._tile2(c, tile, t, sky, tau)
+        finally:
+            if bobbed:
+                c.restore()
+
+    def _tile2(self, c, tile, t, sky, tau):
         vb = self.view
         if not sky:
             for sh in tile.placeholder:

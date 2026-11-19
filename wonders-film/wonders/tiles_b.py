@@ -27,20 +27,42 @@ def eiffel(T):
     water(T, [(0.65, 0), (0.79, 0), (0.79, 1), (0.65, 1)], src=(0.72, 0.0), marks=18, t0=0.28, flow=(0, 1))
     T.wall_water('L', 0.65, 0.79)
 
+    T.mark('ground')
     # ---- far bank: Haussmann blocks under zinc roofs, Trocadero pool
     def haussmann(u0, v0, du, dv, h, axis='v'):
-        T.box(u0, v0, du, dv, h, c=(244, 234, 214), ink=0.42)
-        T.rects('L', u0, u0 + du, v0 + dv, 0.008, h - 0.004, max(2, int(du / 0.022)), 3, fill=(150, 170, 196), ink=0.14, fw=0.5, fh=0.62)
-        T.rects('R', v0, v0 + dv, u0 + du, 0.008, h - 0.004, max(2, int(dv / 0.022)), 3, fill=(132, 152, 180), ink=0.14, fw=0.5, fh=0.62)
-        m = 0.012
-        z = h
-        if True:
+        with T.grp('rise', t0=0.44 + 0.3 * r.random(), dur=0.32, pivot=T.P(u0 + du / 2, v0 + dv / 2), stage='struct', ink_now=True, under=PAPER):
+            STN = (246, 236, 214)
+            T.box(u0, v0, du, dv, h, c=STN, ink=0.42, guide=False)
+            nu, nv = max(2, int(du / 0.02)), max(2, int(dv / 0.02))
+            gf = h * 0.26                                           # ground floor: shopfronts under awnings
+            T.rects('L', u0, u0 + du, v0 + dv, 0.004, gf - 0.004, nu, 1, fill=(92, 110, 140), ink=0.14, fw=0.62, fh=1.0, arch=True)
+            T.rects('R', v0, v0 + dv, u0 + du, 0.004, gf - 0.004, nv, 1, fill=(76, 94, 124), ink=0.14, fw=0.62, fh=1.0, arch=True)
+            T.rects('L', u0, u0 + du, v0 + dv, gf + 0.004, h - 0.004, nu, 3, fill=(150, 176, 210), ink=0.14, fw=0.46, fh=0.68)
+            T.rects('R', v0, v0 + dv, u0 + du, gf + 0.004, h - 0.004, nv, 3, fill=(128, 154, 190), ink=0.14, fw=0.46, fh=0.68)
+            fl = (h - gf) / 3.0
+            lines = []
+            for q in range(3):                                     # string courses and wrought-iron balconies
+                zz = gf + fl * q
+                lines.append([(u0, v0 + dv, zz), (u0 + du, v0 + dv, zz)])
+                lines.append([(u0 + du, v0, zz), (u0 + du, v0 + dv, zz)])
+            lines.append([(u0, v0 + dv, h - 0.003), (u0 + du, v0 + dv, h - 0.003)])
+            T.lines(lines, 0.22, shade(STN, 0.7), stage='detail')
+            T.lines([[(u0 + du * (k + 0.5) / nu - 0.004, v0 + dv, gf + fl + 0.006), (u0 + du * (k + 0.5) / nu + 0.004, v0 + dv, gf + fl + 0.006)] for k in range(nu)] +
+                    [[(u0 + du, v0 + dv * (k + 0.5) / nv - 0.004, gf + fl + 0.006), (u0 + du, v0 + dv * (k + 0.5) / nv + 0.004, gf + fl + 0.006)] for k in range(nv)], 0.5, DARK, stage='detail')
+            m = 0.012
+            z = h
             T.poly([(u0, v0 + dv, z), (u0 + du, v0 + dv, z), (u0 + du - m, v0 + dv - m, z + 0.022), (u0 + m, v0 + dv - m, z + 0.022)], ZINC, 0.38)
             T.poly([(u0 + du, v0, z), (u0 + du, v0 + dv, z), (u0 + du - m, v0 + dv - m, z + 0.022), (u0 + du - m, v0 + m, z + 0.022)], shade(ZINC, 0.84), 0.38)
             T.poly([(u0 + m, v0 + m, z + 0.022), (u0 + du - m, v0 + m, z + 0.022), (u0 + du - m, v0 + dv - m, z + 0.022), (u0 + m, v0 + dv - m, z + 0.022)],
                    shade(ZINC, 1.1), 0.34)
+            for k in range(nu):                                    # dormers in the mansard
+                a_ = u0 + du * (k + 0.5) / nu
+                T.poly([(a_ - 0.004, v0 + dv - m * 0.45, z + 0.006), (a_ + 0.004, v0 + dv - m * 0.45, z + 0.006), (a_ + 0.004, v0 + dv - m * 0.45, z + 0.017), (a_ - 0.004, v0 + dv - m * 0.45, z + 0.017)],
+                       MARBLE, 0.18, stage='detail')
             for q in (0.25, 0.75):
                 T.box(u0 + du * q - 0.006, v0 + dv * 0.5 - 0.006, 0.012, 0.012, 0.016, z=z + 0.022, c=TERRA, ink=0.26, guide=False)
+                T.lines([[(u0 + du * q - 0.003, v0 + dv * 0.5 + 0.006, z + 0.038), (u0 + du * q - 0.003, v0 + dv * 0.5 + 0.006, z + 0.044)],
+                         [(u0 + du * q + 0.003, v0 + dv * 0.5 + 0.006, z + 0.038), (u0 + du * q + 0.003, v0 + dv * 0.5 + 0.006, z + 0.044)]], 0.5, TERRA_D, stage='detail')
     haussmann(0.86, 0.03, 0.11, 0.13, 0.085)
     haussmann(0.86, 0.19, 0.11, 0.12, 0.07)
     with T.st('ground'):
@@ -136,6 +158,7 @@ def eiffel(T):
         T.box(cu - 0.012, cv - 0.012, 0.024, 0.024, 0.018, z=0.76, c=A0, right=A1, top=ACCENT_L, ink=0.36, guide=False)
         T.rev(cu, cv, [(0.007, 0), (0.005, 0.02), (0.0, 0.03)], z=0.778, c=A0, ink=0.3, guide=False)
         T.line([(cu, cv, 0.80), (cu, cv, 0.86)], 0.4)
+    T.mark('tower')
     # lights come on up the tower
     for k, z in enumerate((0.148, 0.296, 0.45, 0.60, 0.775)):
         for sgn in ((-1, 1) if z < 0.3 else (0,)):
@@ -208,6 +231,7 @@ def everest(T):
     T.tufts([(0.8, 1.0), (0.82, 0.86), (1.0, 0.76), (1, 1)], 14)
     T.speckle([(0, 0), (1, 0), (1, 0.7), (0.6, 0.85), (0, 0.78)], 60, c=ROCK)
 
+    T.mark('ground')
     def peak(pk, base, snow, t0, seed, jag=1.3, c=ROCK, cd=ROCK_D):
         g = T.guide_axis(pk[0], pk[1], pk[2], ticks=max(4, int(pk[2] * 10)))
         g.tp = max(0.02, t0 - 0.24)
@@ -227,6 +251,7 @@ def everest(T):
     peak((0.82, 0.24, 0.58), [(0.56, 0.36), (0.72, 0.52), (0.94, 0.46), (1.0, 0.16)], 0.42, 0.38, 7)
     peak((0.13, 0.63, 0.36), [(0.0, 0.74), (0.10, 0.84), (0.30, 0.79), (0.33, 0.62)], 0.36, 0.44, 9)
 
+    T.mark('peaks')
     # ---- Khumbu glacier and its melt-water river
     gl = [(0.50, 0.58), (0.62, 0.56), (0.72, 0.70), (0.745, 0.88), (0.615, 0.88), (0.58, 0.80), (0.50, 0.74), (0.44, 0.66)]
     with T.st('detail'):
@@ -252,7 +277,6 @@ def everest(T):
     rope = [A + (B - A) * q for q in (0.36, 0.44, 0.52, 0.60)]
     for k, p in enumerate(rope):
         person(T, 0, 0, at=p, shirt=ACCENT if k % 2 == 0 else TERRA, s=0.72, walk=pr.walker_px((B - A) * 0.07, 11.0), ph=0.5)
-    pr.flag(T, B, ACCENT, 0.9, 5.0)
 
     # ---- base camp
     for k, (a, b) in enumerate(((0.30, 0.88), (0.38, 0.86), (0.46, 0.90), (0.35, 0.94), (0.44, 0.96), (0.52, 0.95))):
@@ -308,6 +332,7 @@ def fuji(T):
     water(T, north + south, src=(0.0, 0.46), marks=24, t0=0.30, dur=0.5, flow=(1, 0.6))
     T.wall_water('L', 0.72, 0.84)
 
+    T.mark('ground')
     # ---- Fuji: rises, then the snow settles on it
     cu, cv = 0.645, 0.245
     prof = [(0.228, 0), (0.178, 0.075), (0.132, 0.167), (0.091, 0.264), (0.06, 0.352), (0.04, 0.414), (0.03, 0.445)]
@@ -334,13 +359,15 @@ def fuji(T):
         T.poly2(C, left + right + teeth, SNOW, 0.4, wob=0.12)
         T.ell2(C + np.array([0, -0.445 * ZS]), 0.03 * k_, 0.015 * k_, fill=(236, 240, 244), ink=0.34, wob=0)
 
+    T.mark('cone')
     # ---- shinkansen on its viaduct
     for v in (0.06, 0.2, 0.34, 0.48, 0.62):
         T.box(0.895, v, 0.012, 0.012, 0.035, c=STONE, ink=0.28, guide=False)
     T.box(0.885, 0.0, 0.032, 0.70, 0.008, z=0.035, c=STONE, ink=0.38, guide=True)
 
     def train_m(t, age, ph):
-        s_ = ((t * 0.16 + 0.35) % 1.0)
+        from .timeline import EV as _EV
+        s_ = (((t - _EV['fuji']) / 3.4 + 0.5) % 1.0)
         d = pr.uvd(0, -0.25 + 0.75 * s_)
         return (d[0], d[1])
     with T.grp('fade', pivot=T.P(0.9, 0.1), motion=train_m, stage='life', dur=0.15):
@@ -417,6 +444,7 @@ def halong(T):
     r = T.rng
     water(T, [(0, 0), (1, 0), (1, 1), (0, 1)], src=(0.0, 0.33), marks=40, t0=0.24, dur=0.6, shore=0.0, c=(150, 214, 216), flow=(1, 0.4))
 
+    T.mark('ground')
     def karst(u, v, rr, h, t0, seed, cave=False):
         q = __import__('random').Random(seed)
         prof = [(rr, 0)]

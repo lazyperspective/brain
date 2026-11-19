@@ -27,22 +27,7 @@ def taj(T):
 
 
 def rio(T):
-    stroll(T, [(0.452, 0.335), (0.41, 0.455), (0.357, 0.58), (0.367, 0.705)], 10, spread=0.006)
-    crowd(T, [(0.475, 0.36), (0.50, 0.37), (0.43, 0.60), (0.40, 0.59)], 5, mind=0.02, dense=1.6)
-    # beach football
-    B = T.P(0.438, 0.535)
-    for (a, b, c_) in ((0.445, 0.50, ACCENT), (0.425, 0.555, MARBLE), (0.455, 0.545, ACCENT), (0.42, 0.515, MARBLE)):
-        person(T, a, b, shirt=c_, path=[(a, b), (a + 0.012, b + 0.02), (a - 0.01, b + 0.006)], loop=True, speed=5.0, pause=0.1, s=0.9)
-    with T.grp('pop', pivot=B, stage='life', dur=0.2,
-               motion=lambda t, age, ph: (4.0 * math.sin(t * 2.3), 2.0 * math.sin(t * 1.7) - 3.0 * abs(math.sin(t * 4.6)), 0.0, 1.0, 1.0)):
-        T.ell2(B, 0.7, fill=MARBLE, ink=0.24, n=8, wob=0)
-    stroll(T, [(0.07, 0.79), (0.24, 0.79)], 3)
-    stroll(T, [(0.24, 0.94), (0.36, 0.94)], 3)
-    pr.smoke(T, T.P(0.10, 0.86, 0.03), 0.7)
-    pr.smoke(T, T.P(0.17, 0.90, 0.03), 0.6)
-    pr.flock(T, 0.72, 0.44, 0.22, 8, orbit=(26, 9), c=(90, 90, 100))            # gulls over the bay
-    pr.rowboat(T, 0.56, 0.70, 'u', c=ACCENT, crew=2, motion=cruise(0.08, 0.03, 0.6))
-    pr.sparkles(T, [T.P(0.6 + 0.3 * math.sin(k * 2.4), 0.3 + 0.06 * k) for k in range(10)], t0=1.2, s=0.6, rate=0.8)
+    pass
 
 
 def eiffel(T):
@@ -80,8 +65,9 @@ def everest(T):
     A = T.P(0.40, 0.42, 0.52)
 
     def slide(t, age, ph):
-        f = (t / 9.0) % 1.0
-        if f > 0.3:
+        from .timeline import EV
+        f = (t - EV['aurora_everest'] - 0.5) / 4.5
+        if f < 0 or f > 0.3:
             return (0.0, 0.0, 0.0, 1.0, 1.0, 0.0)
         q = f / 0.3
         return (5.0 * q, 26.0 * q * q, 0.0, 0.5 + 1.2 * q, 0.5 + 1.2 * q, math.sin(math.pi * q))

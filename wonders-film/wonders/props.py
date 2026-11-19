@@ -52,19 +52,27 @@ def walker_px(d, period=6.0, bob=0.35):
 
 
 class Cruise:
-    """Boats under way: sail the reach, fade out at its far end, come round again - bobbing and rocking all the while."""
+    """Boats under way: sail the reach, ease up to the far end, wait a moment, and sail back - bobbing and rocking all the while."""
 
     def __init__(self, du, dv, speed=1.0, amp=0.3, rock=1.0, period=None):
         self.d = uvd(du, dv) * 2.2
         self.amp = amp
         self.rock = rock
-        self.period = period or 24.0 / max(0.3, speed)
+        self.period = period or 30.0 / max(0.3, speed)
         self.reach = float(np.hypot(*self.d)) + 20.0
 
+    def pos(self, t, ph):
+        """-> (s in 0..1 along the reach, signed speed -1..1)"""
+        x = ((t + 4.0) / self.period + ph * 0.11) % 1.0
+        tri = 1 - abs(2 * x - 1)                      # 0 -> 1 -> 0
+        k = min(1.0, max(0.0, (tri - 0.06) / 0.88))     # a pause at each end
+        s = k * k * (3 - 2 * k)
+        v = 6 * k * (1 - k) * (1 if x < 0.5 else -1) if 0 < k < 1 else 0.0
+        return s, v / 1.5
+
     def __call__(self, t, age, ph):
-        s = ((t + 4.0) / self.period + ph / TAU * 0.0) % 1.0
-        al = ease.smooth(min(s, 1.0 - s) / 0.06)
-        return (self.d[0] * s, self.d[1] * s + self.amp * math.sin(t * 2.1 + ph), self.rock * math.sin(t * 1.6 + ph), 1.0, 1.0, al)
+        s, _ = self.pos(t, ph)
+        return (self.d[0] * s, self.d[1] * s + self.amp * math.sin(t * 2.1 + ph), self.rock * math.sin(t * 1.6 + ph), 1.0, 1.0)
 
 
 def cruise(du, dv, speed=1.0, amp=0.3, rock=1.0):
@@ -199,6 +207,24 @@ def tree(T, u, v, s=1.0, c=FOREST, kind='round', z=0.0, t0=None, sw=None):
         elif kind == 'stonepine':
             T.poly2(P, [(-0.42 * s, 0), (0.42 * s, 0), (0.3 * s, -7.0 * s), (-0.3 * s, -7.0 * s)], WOOD, 0.3, wob=0)
             _canopy(T, P, 0, -8.6 * s, 4.6 * s, 2.3 * s, c, 6, ph=ph, amp=0.07)
+        elif kind == 'birch':
+            T.poly2(P, [(-0.4 * s, 0), (0.4 * s, 0), (0.3 * s, -6.2 * s), (-0.3 * s, -6.2 * s)], MARBLE, 0.3, wob=0)
+            T.lines2(P, [[(-0.3 * s, -1.4 * s), (0.1 * s, -1.5 * s)], [(0.0, -3.0 * s), (0.3 * s, -3.1 * s)], [(-0.3 * s, -4.4 * s), (0.0, -4.5 * s)]], 0.26, INK, wob=0)
+            _canopy(T, P, 0, -8.2 * s, 2.7 * s, 3.4 * s, c, 7, ph=ph, amp=0.11)
+        elif kind == 'willow':
+            T.poly2(P, [(-0.6 * s, 0), (0.6 * s, 0), (0.4 * s, -3.8 * s), (-0.4 * s, -3.8 * s)], WOOD, 0.3, wob=0)
+            _canopy(T, P, 0, -6.0 * s, 4.2 * s, 2.8 * s, c, 6, ph=ph)
+            T.lines2(P, [[(x * s, -5.0 * s), (x * s * 1.1, (-1.2 - 0.5 * abs(x) % 1.3) * s)] for x in (-3.4, -2.2, -1.0, 0.2, 1.4, 2.6, 3.5)], 0.42, shade(c, 0.8), wob=0)
+        elif kind == 'bamboo':
+            for x in (-1.4, 0.0, 1.3):
+                T.line2(P, [(x * s, 0), (x * s * 1.3, -9.5 * s - x)], 0.5 * s, (150, 190, 110), wob=0)
+                T.lines2(P, [[(x * s * 1.3 - 0.2, -9.0 * s - x), (x * s * 1.3 + 2.2 * s, -8.2 * s - x)], [(x * s * 1.15, -6.0 * s), (x * s * 1.15 - 2.0 * s, -5.4 * s)],
+                             [(x * s * 1.25, -7.6 * s), (x * s * 1.25 + 1.9 * s, -6.6 * s)]], 0.6 * s, c, wob=0)
+        elif kind == 'poplar':
+            T.poly2(P, [(-0.3 * s, 0), (0.3 * s, 0), (0.25 * s, -2.0 * s), (-0.25 * s, -2.0 * s)], WOOD, 0.28, wob=0)
+            pts = smooth_poly([(0, -14.0 * s), (1.3 * s, -9.0 * s), (1.6 * s, -4.0 * s), (0, -1.5 * s), (-1.6 * s, -4.0 * s), (-1.3 * s, -9.0 * s)], 2)
+            T.poly2(P, pts, c, 0.36, wob=0)
+            T.lines2(P, [[(0.3 * s, -12 * s), (0.8 * s, -4 * s)]], 0.24, shade(c, 0.8), wob=0)
         elif kind == 'bush':
             _canopy(T, P, 0, -1.7 * s, 2.5 * s, 1.9 * s, c, 5, ph=ph, ink=0.32)
     return P
@@ -332,27 +358,44 @@ def kangaroo(T, u, v, flip=False, s=1.0, hop=True, travel=0.05):
 
 # --------------------------------------------------------------- boats ----
 def wake(T, P, d, hl, s=1.0):
-    """A boat under way trails a spreading V of foam (drawn inside the boat's group, so it travels with it)."""
+    """A boat under way trails spreading chevrons of foam behind it, ripples ring it when it rests,
+    and a few strokes of reflection lie on the water beneath."""
     P = np.asarray(P, float)
     dr = np.asarray(d, float)
     dr = dr / (np.hypot(*dr) + 1e-9)
     nrm = np.array([-dr[1], dr[0]])
-    stern = P - dr * hl * 0.8
-    bow = P + dr * hl
     ph0 = T.rng.uniform(0, 1)
+    g = T.cur_group
+    mo = g.motion
+    gph = g.ph
 
     def draw(c, tau, t, a, R):
-        # chevrons of foam peel off the stern, widen and fade
-        for k in range(3):
-            f = (t * 0.42 + ph0 + k / 3.0) % 1.0
-            c0 = stern - dr * (0.6 + f * hl * 1.7)
-            w = (1.3 + f * hl * 0.6) * s
-            al = a * (1 - f) ** 0.9 * min(1.0, f * 6)
-            R.poly(c, [c0 + nrm * w - dr * w * 0.75, c0 + nrm * w * 0.45 - dr * w * 0.2, c0, c0 - nrm * w * 0.45 - dr * w * 0.2, c0 - nrm * w - dr * w * 0.75],
-                   ink=FOAM, w=0.55, a=al, closed=False)
-        R.poly(c, [bow + nrm * 1.5 - dr * 1.6, bow + dr * 0.7, bow - nrm * 1.5 - dr * 1.6], ink=FOAM, w=0.45, a=a * (0.6 + 0.3 * math.sin(t * 6 + ph0 * 9)), closed=False)
-    T.custom(draw, [stern - dr * hl * 3 - nrm * hl, stern - dr * hl * 3 + nrm * hl, bow + dr * 2], stage='life')
-
+        _, v = mo.pos(t, gph)
+        sp = min(1.0, abs(v))
+        sg = 1.0 if v >= 0 else -1.0
+        stern = P - dr * hl * 0.8 * sg
+        bow = P + dr * hl * sg
+        for k in range(3):                      # reflection strokes
+            y = 1.2 + k * 1.1
+            w = hl * (0.9 - 0.2 * k) + 0.4 * math.sin(t * 2.3 + k + ph0 * 6)
+            R.poly(c, [P + np.array([-w, y]), P + np.array([w, y])], ink=WATER_D, w=0.4, a=a * 0.55, closed=False)
+        if sp > 0.05:
+            for k in range(3):
+                f = (t * 0.42 + ph0 + k / 3.0) % 1.0
+                c0 = stern - dr * sg * (0.6 + f * hl * 1.7)
+                w = (1.3 + f * hl * 0.6) * s
+                al = a * sp * (1 - f) ** 0.9 * min(1.0, f * 6)
+                bk = dr * sg
+                R.poly(c, [c0 + nrm * w - bk * w * 0.75, c0 + nrm * w * 0.45 - bk * w * 0.2, c0, c0 - nrm * w * 0.45 - bk * w * 0.2, c0 - nrm * w - bk * w * 0.75],
+                       ink=FOAM, w=0.55, a=al, closed=False)
+            R.poly(c, [bow + nrm * 1.5 - dr * sg * 1.6, bow + dr * sg * 0.7, bow - nrm * 1.5 - dr * sg * 1.6], ink=FOAM, w=0.45, a=a * sp * (0.6 + 0.3 * math.sin(t * 6 + ph0 * 9)), closed=False)
+        if sp < 0.6:                            # at rest: rings
+            for k in range(2):
+                f = (t * 0.3 + ph0 + k / 2.0) % 1.0
+                rr = hl * (0.9 + 1.0 * f)
+                pts = [P + np.array([rr * math.cos(q), 1.0 + rr * 0.45 * math.sin(q)]) for q in np.linspace(0.2, math.pi - 0.2, 9)]
+                R.poly(c, pts, ink=FOAM, w=0.4, a=a * (1 - sp / 0.6) * (1 - f) * 0.8, closed=False)
+    T.custom(draw, [P - dr * hl * 4 - nrm * hl * 2, P - dr * hl * 4 + nrm * hl * 2, P + dr * hl * 4 + nrm * hl * 2, P + dr * hl * 4 - nrm * hl * 2], stage='life')
 
 
 def hull(T, u, v, L, B, h, d='u', c=WOOD, deck=None, n=9, z=0.0, blunt=0.0):
@@ -591,6 +634,34 @@ def water(T, pts, src=None, c=WATER, t0=0.34, dur=0.5, marks=16, shore=0.5, seed
     wv = Wave(o, t0, dur, rmax or far * 1.08, foam=True, seed=T.rng.random())
     with T.st(stage):
         f = T.poly([(p[0], p[1], z) for p in reg], c, shore, wave=wv, tk=max(0.05, t0 - 0.16))
+    # foam fringing the shore: a broken white line just inside the bank
+    if shore > 0 and len(reg) >= 4:
+        area = sum(reg[k][0] * reg[(k + 1) % len(reg)][1] - reg[(k + 1) % len(reg)][0] * reg[k][1] for k in range(len(reg)))
+        sg = 1.0 if area > 0 else -1.0
+        ins = []
+        m = len(reg)
+        for k in range(m):
+            a_, b_ = reg[k - 1], reg[(k + 1) % m]
+            dx, dy = b_[0] - a_[0], b_[1] - a_[1]
+            L_ = math.hypot(dx, dy) + 1e-9
+            ins.append((reg[k][0] - dy / L_ * 0.013 * sg, reg[k][1] + dx / L_ * 0.013 * sg))
+        segs, cur = [], []
+        for k in range(m + 1):
+            q = ins[k % m]
+            if not (0.012 < q[0] < 0.988 and 0.012 < q[1] < 0.988):
+                if len(cur) > 1:
+                    segs.append(cur)
+                cur = []
+                continue
+            cur.append((q[0], q[1], z))
+            if len(cur) >= T.rng.choice([3, 4, 6]):
+                segs.append(cur)
+                cur = []
+        if len(cur) > 1:
+            segs.append(cur)
+        segs = [sg_ for k, sg_ in enumerate(segs) if k % 4 != 3]
+        if segs:
+            T.lines(segs, 0.42, FOAM, stage='mark', wave=wv)
     r = T.rng
     mreg = region or reg
     if flow is None:
@@ -648,26 +719,37 @@ def flock(T, u, v, z, n=6, s=0.75, c=INK, orbit=(18.0, 7.0), speed=0.8, t0=None)
              orbit, speed, ph=base - k * 0.16 + r.uniform(-0.05, 0.05))
 
 
-def smoke(T, at, s=1.0, c=(246, 244, 240), lean=4.0, t0=1.25, n=5, rise=17.0, sky=False):
-    """Smoke that keeps rising: puffs swell, drift and thin out, one after another."""
+def smoke(T, at, s=1.0, c=(152, 156, 170), lean=4.0, t0=1.25, n=5, rise=17.0, sky=False):
+    """Smoke as a hand-drawn wisp: two curling strokes that widen, drift with the wind and thin away as they climb."""
     at = np.asarray(at, float)
-    ph0 = T.rng.uniform(0, 1)
-    edge = (168, 176, 190)
+    ph0 = T.rng.uniform(0, 6.28)
+    c = vivid(c)
 
     def draw(c_, tau, t, a, R):
         if tau < t0:
             return
-        on = min(1.0, (tau - t0) / 0.4)
-        for k in range(n):
-            f = (t * 0.2 + ph0 + k / float(n)) % 1.0
-            x = at[0] + lean * s * f * f + 1.3 * s * math.sin(f * 7.0 + k * 2.1 + t * 0.8)
-            y = at[1] - rise * s * f
-            rr = (0.7 + 2.6 * f) * s
-            al = on * a * min(1.0, f * 8.0) * (1 - f) ** 1.1
-            p = skia_circle(x, y, rr)
-            R.stroke(c_, p, edge, 0.5, al * 0.9)
-            R.fill(c_, p, c, al)
-    T.custom(draw, [at + np.array([-6 * s, -rise * s - 4]), at + np.array([lean * s + 6 * s, 2])], stage='sky' if sky else 'life', sky=sky)
+        on = min(1.0, (tau - t0) / 0.5) * a
+        ps = R.ps
+        for strand, (off, amp) in enumerate(((0.0, 1.0), (1.9, 0.6))):
+            K = 12
+            prev = None
+            for k in range(K + 1):
+                f = k / K
+                curl = (0.5 + 2.6 * f) * s * amp * math.sin(f * 6.0 - t * 1.5 + ph0 + off)
+                x = at[0] + lean * s * f * f + curl + 0.8 * off * f
+                y = at[1] - rise * s * f
+                if prev is not None:
+                    al = on * (0.75 if strand == 0 else 0.5) * (1 - f) ** 1.2 * min(1.0, f * 5 + 0.3)
+                    ps.setColor(argb_(c, al))
+                    ps.setStrokeWidth((0.5 + 1.5 * f) * s * (1.0 if strand == 0 else 0.7))
+                    c_.drawLine(prev[0], prev[1], x, y, ps)
+                prev = (x, y)
+    T.custom(draw, [at + np.array([-7 * s, -rise * s - 4]), at + np.array([lean * s + 9 * s, 2])], stage='sky' if sky else 'life', sky=sky)
+
+
+def argb_(c, a):
+    import skia
+    return skia.ColorSetARGB(int(max(0.0, min(1.0, a)) * 255), int(c[0]), int(c[1]), int(c[2]))
 
 
 def skia_circle(x, y, r):

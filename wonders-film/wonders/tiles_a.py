@@ -78,6 +78,7 @@ def pyramids(T):
     water(T, inner + outer[::-1], src=(0.0, 0.62), marks=20, t0=0.3, flow=(1, 1))
     T.wall_water('L', 0.31, 0.45)
 
+    T.mark('ground')
     # ---- the three pyramids (back to front)
     giza_pyramid(T, 0.115, 0.335, 0.155, 0.098, courses_n=4)
     for k in range(3):   # queens' pyramids
@@ -88,35 +89,50 @@ def pyramids(T):
     for (a, b) in ((0.60, 0.385), (0.66, 0.385), (0.72, 0.385), (0.78, 0.385), (0.63, 0.435), (0.69, 0.435), (0.75, 0.435)):
         T.box(a, b, 0.038, 0.026, 0.011, c=LIME, ink=0.32, guide=False)
 
+    T.mark('pyr')
     # ---- obelisk
     T.box(0.50, 0.625, 0.016, 0.016, 0.012, c=STONE, ink=0.3, guide=False)
     T.box(0.503, 0.628, 0.010, 0.010, 0.125, z=0.012, c=(238, 218, 196), ink=0.36, guide=True)
     T.pyr(0.503, 0.628, 0.010, 0.010, 0.018, z=0.137, c=ACCENT, left=ACCENT, right=ACCENT_D, ink=0.3, guide=False)
 
-    # ---- the Sphinx: a lion couchant in profile - haunch, swayed back, shoulder - paws out, head under its nemes
-    sx = (226, 190, 132)
-    su, sv = 0.585, 0.655
-    T.box(su - 0.012, sv - 0.012, 0.285, 0.094, 0.008, c=(236, 210, 160), ink=0.36, guide=True)         # plinth
-    T.box(su + 0.165, sv + 0.004, 0.10, 0.02, 0.022, z=0.008, c=sx, ink=0.36, guide=False)               # far paw
-    body = [(0.0, 0.0), (0.0, 0.046), (0.014, 0.066), (0.04, 0.07), (0.075, 0.056), (0.115, 0.054), (0.135, 0.07), (0.168, 0.07), (0.172, 0.0)]
-    T.prism([(su + a_, 0.008 + z_) for a_, z_ in body], sv + 0.066, 0.062, 'v', c=sx, ink=0.42)
-    T.box(su + 0.165, sv + 0.046, 0.10, 0.02, 0.022, z=0.008, c=sx, ink=0.36, guide=False)               # near paw
-    hz_ = 0.078
-    NEM = (240, 206, 140)
-    # nemes: lappets flaring down to the shoulders, striped; then the head
-    T.poly([(su + 0.112, sv + 0.068, hz_ - 0.004), (su + 0.166, sv + 0.068, hz_ - 0.004), (su + 0.160, sv + 0.062, hz_ + 0.05), (su + 0.122, sv + 0.062, hz_ + 0.05)], NEM, 0.4)
-    T.poly([(su + 0.166, sv - 0.002, hz_ - 0.004), (su + 0.166, sv + 0.068, hz_ - 0.004), (su + 0.160, sv + 0.062, hz_ + 0.05), (su + 0.160, sv + 0.006, hz_ + 0.05)],
-           shade(NEM, 0.86), 0.4)
-    T.box(su + 0.122, sv + 0.01, 0.04, 0.05, 0.03, z=hz_ + 0.05, c=NEM, ink=0.4, guide=False)
-    fu = su + 0.1655
-    T.poly([(fu, sv + 0.018, hz_ + 0.012), (fu, sv + 0.05, hz_ + 0.012), (fu, sv + 0.048, hz_ + 0.062), (fu, sv + 0.02, hz_ + 0.062)], (244, 214, 160), 0.34, stage='detail')
-    T.lines([[(fu, sv + 0.024, hz_ + 0.048), (fu, sv + 0.031, hz_ + 0.048)], [(fu, sv + 0.037, hz_ + 0.048), (fu, sv + 0.044, hz_ + 0.048)],
-             [(fu, sv + 0.034, hz_ + 0.046), (fu, sv + 0.034, hz_ + 0.034)], [(fu, sv + 0.028, hz_ + 0.027), (fu, sv + 0.040, hz_ + 0.027)],
-             [(fu, sv + 0.034, hz_ + 0.012), (fu, sv + 0.034, hz_ - 0.004)]], 0.26, stage='detail')
-    T.lines([[(su + 0.118 + k * 0.009, sv + 0.067, hz_ + 0.0), (su + 0.126 + k * 0.007, sv + 0.063, hz_ + 0.048)] for k in range(1, 5)] +
-            [[(su + 0.012, sv + 0.066, 0.016), (su + 0.022, sv + 0.066, 0.05), (su + 0.05, sv + 0.066, 0.058)],
-             [(su + 0.004, sv + 0.066, 0.03), (su - 0.014, sv + 0.066, 0.016)]], 0.24, shade(sx, 0.6), stage='detail')
-    T.guide([[(su + 0.147, sv + 0.035, 0), (su + 0.147, sv + 0.035, 0.17)]], ticks=4)
+    # ---- the Sphinx: a lion couchant - rounded haunch, long swayed back, deep chest, forelegs laid out
+    #      toward the river - with a human head under the striped, flaring nemes
+    sx = (228, 190, 128)
+    sxd = shade(sx, 0.86)
+    su, sv, sw = 0.575, 0.652, 0.07
+
+    def sp(pts, it=2):
+        return [(float(p[0]), float(p[1])) for p in smooth_poly([np.array(p, float) for p in pts], it)]
+    T.box(su - 0.014, sv - 0.014, 0.31, sw + 0.028, 0.008, c=(238, 212, 160), ink=0.36, guide=True)             # plinth
+    z0 = 0.008
+    # far foreleg, then the body, then the near foreleg and hind paw
+    T.prism([(su + a_, z0 + z_) for a_, z_ in sp([(0.15, 0), (0.15, 0.022), (0.20, 0.026), (0.268, 0.022), (0.28, 0.012), (0.278, 0)])], sv + 0.022, 0.02, 'v', c=sx, ink=0.36)
+    body = sp([(0.0, 0.0), (-0.004, 0.03), (0.004, 0.058), (0.03, 0.074), (0.062, 0.07), (0.092, 0.058), (0.122, 0.06), (0.146, 0.078), (0.172, 0.086),
+               (0.186, 0.07), (0.188, 0.03), (0.182, 0.0)], 2)
+    T.prism([(su + a_, z0 + z_) for a_, z_ in body], sv + sw - 0.006, sw - 0.012, 'v', c=sx, ink=0.42)
+    T.prism([(su + a_, z0 + z_) for a_, z_ in sp([(0.15, 0), (0.15, 0.024), (0.20, 0.028), (0.27, 0.024), (0.284, 0.012), (0.282, 0)])], sv + sw, 0.022, 'v', c=sx, ink=0.38)
+    T.prism([(su + a_, z0 + z_) for a_, z_ in sp([(0.03, 0), (0.028, 0.014), (0.06, 0.02), (0.098, 0.014), (0.102, 0)])], sv + sw, 0.016, 'v', c=sx, ink=0.34)
+    fv = sv + sw - 0.006
+    # haunch, ribs, tail curled along the flank, toes
+    T.lines([[(su + 0.012 + 0.034 * math.cos(q), fv, z0 + 0.03 + 0.036 * math.sin(q)) for q in np.linspace(-0.3, 2.6, 10)],
+             [(su + 0.10, fv, z0 + 0.018), (su + 0.103, fv, z0 + 0.05)], [(su + 0.116, fv, z0 + 0.016), (su + 0.119, fv, z0 + 0.05)],
+             [(su + 0.002, fv, z0 + 0.012), (su + 0.03, fv + 0.004, z0 + 0.006), (su + 0.074, fv + 0.004, z0 + 0.01)]], 0.26, shade(sx, 0.6), stage='detail')
+    T.lines([[(su + 0.262 + k * 0.006, sv + sw, z0 + 0.004), (su + 0.262 + k * 0.006, sv + sw, z0 + 0.016)] for k in range(3)], 0.22, shade(sx, 0.6), stage='detail')
+    # the head: nemes flaring to the shoulders, face looking out along the paws
+    hz_ = z0 + 0.078
+    NEM = (242, 206, 132)
+    nem = sp([(0.118, -0.012), (0.126, 0.03), (0.138, 0.062), (0.156, 0.07), (0.178, 0.066), (0.19, 0.05), (0.192, 0.012), (0.196, -0.012)], 1)
+    T.prism([(su + a_, hz_ + z_) for a_, z_ in nem], sv + sw - 0.004, sw - 0.016, 'v', c=NEM, ink=0.42)
+    T.lines([[(su + 0.126 + k * 0.011, sv + sw - 0.004, hz_ - 0.008), (su + 0.134 + k * 0.009, sv + sw - 0.004, hz_ + 0.05 + 0.004 * k)] for k in range(1, 6)] +
+            [[(su + 0.13, sv + sw - 0.004, hz_ + 0.03), (su + 0.19, sv + sw - 0.004, hz_ + 0.03)]], 0.24, shade(NEM, 0.62), stage='detail')
+    fu = su + 0.1935
+    T.poly([(fu, sv + 0.02, hz_ + 0.0), (fu, sv + sw - 0.022, hz_ + 0.0), (fu, sv + sw - 0.024, hz_ + 0.05), (fu, sv + 0.022, hz_ + 0.05)], (246, 216, 160), 0.34, stage='detail')
+    cv_ = sv + sw / 2 - 0.001
+    T.lines([[(fu, cv_ - 0.013, hz_ + 0.036), (fu, cv_ - 0.005, hz_ + 0.036)], [(fu, cv_ + 0.005, hz_ + 0.036), (fu, cv_ + 0.013, hz_ + 0.036)],
+             [(fu, cv_, hz_ + 0.034), (fu, cv_ - 0.003, hz_ + 0.02), (fu, cv_ + 0.003, hz_ + 0.02)], [(fu, cv_ - 0.007, hz_ + 0.012), (fu, cv_ + 0.007, hz_ + 0.012)],
+             [(fu, cv_, hz_ + 0.004), (fu, cv_, hz_ - 0.016)]], 0.26, stage='detail')
+    T.poly([(fu, cv_ - 0.004, hz_ + 0.05), (fu, cv_ + 0.004, hz_ + 0.05), (fu + 0.008, cv_, hz_ + 0.062)], ACCENT, 0.26, stage='detail')        # the uraeus
+    T.guide([[(su + 0.16, sv + sw / 2, 0), (su + 0.16, sv + sw / 2, 0.19)], [(su, sv + sw, 0), (su + 0.29, sv + sw, 0)]], ticks=5)
 
     # ---- village on the far bank
     for (a, b, hh) in ((0.05, 0.90, 0.03), (0.105, 0.925, 0.024), (0.02, 0.945, 0.022), (0.16, 0.95, 0.028)):
@@ -169,7 +185,7 @@ def pyramids(T):
     pr.car(T, 0.97, 0.965, 'u', c=MARBLE, motion=runner(-0.42, 0.0, 13.0))
     # more life: strollers on the causeway and round the Sphinx, villagers, smoke, ibis over the Nile
     stroll(T, [(0.485, 0.45), (0.40, 0.655)], 4, hat=MARBLE)
-    stroll(T, [(0.555, 0.785), (0.87, 0.785)], 7, hat=MARBLE, spread=0.012)
+    stroll(T, [(0.555, 0.80), (0.90, 0.80)], 7, hat=MARBLE, spread=0.012)
     stroll(T, [(0.05, 0.47), (0.22, 0.52), (0.40, 0.665), (0.515, 0.90)], 6, spread=0.008)
     stroll(T, [(0.03, 0.80), (0.15, 0.885), (0.23, 0.975)], 4)
     stroll(T, [(0.30, 0.52), (0.42, 0.50), (0.56, 0.46)], 4, hat=MARBLE)
@@ -209,6 +225,7 @@ def colosseum(T):
     water(T, inner + outer[::-1], src=(0.72, 0.0), marks=16, t0=0.30, flow=(0.5, 1))
     T.wall_water('R', 0.55, 0.69)
 
+    T.mark('ground')
     # ---- Trastevere roofs on the far bank
     for (a, b, du, dv, hh, ax) in ((0.83, 0.04, 0.07, 0.06, 0.04, 'u'), (0.92, 0.06, 0.06, 0.08, 0.05, 'v'), (0.84, 0.15, 0.06, 0.07, 0.035, 'v'),
                                    (0.915, 0.19, 0.07, 0.06, 0.045, 'u'), (0.88, 0.29, 0.06, 0.05, 0.035, 'u')):
@@ -294,6 +311,7 @@ def colosseum(T):
         subs.append([T.P3(rp(th + 1.3, 1, 0.152)), T.P3(rp(th + 1.3, 1, 0.176)), T.P3(rp(th - 1.3, 1, 0.176)), T.P3(rp(th - 1.3, 1, 0.152))])
     T._add(subs, True, ARCH_DK, 0.2, stage='detail')
 
+    T.mark('arena')
     # ---- triumphal arch + forum columns
     T.box(0.105, 0.84, 0.10, 0.035, 0.075, c=TRAV, ink=0.42)
     T.arch('L', 0.155, 0.875, 0.0, 0.03, 0.055, fill=ARCH_DK)
@@ -357,6 +375,7 @@ def greatwall(T):
     water(T, inner + outer[::-1], src=(0.68, 0.0), marks=14, t0=0.30, flow=(0.6, 1))
     T.wall_water('R', 0.40, 0.52)
 
+    T.mark('ground')
     hills = [  # cu, cv, r, h, colour
         (0.19, 0.19, 0.24, 0.25, FOREST), (0.92, 0.14, 0.14, 0.11, GRASS_D), (0.45, 0.30, 0.20, 0.16, (160, 192, 132)),
         (0.30, 0.55, 0.22, 0.18, GRASS_D), (0.14, 0.79, 0.16, 0.12, (160, 192, 132))]
@@ -421,7 +440,9 @@ def greatwall(T):
         with T.st('detail'):
             T._add([far + hi_[::-1]], True, (246, 240, 226), 0.34, wob=0.1)
             T._add([lo + hi_[::-1]], True, WALL, 0.5, wob=0.1)
-            T._add([[p + np.array([0, -WH * ZS * 0.42]) for p in lo]], False, None, 0.24, shade(WALL, 0.74), wob=0.1)
+            T._add([[p + np.array([0, -WH * ZS * f_]) for p in lo] for f_ in (0.25, 0.5, 0.75)], False, None, 0.2, shade(WALL, 0.74), wob=0.1)
+            if len(lo) > 2:
+                T._add([[lo[k] + np.array([0, -WH * ZS * (0.25 * (k % 3))]), lo[k] + np.array([0, -WH * ZS * (0.25 * (k % 3) + 0.25)])] for k in range(1, len(lo) - 1)], False, None, 0.2, shade(WALL, 0.74), raw=True)
             teeth, teeth2 = [], []
             for k in range(0, len(hi_) - 1, 2):
                 teeth.append([hi_[k], hi_[k] + np.array([0, -1.5]), hi_[k + 1] + np.array([0, -1.5]), hi_[k + 1]])
@@ -532,7 +553,17 @@ def greatwall(T):
     # dragon kite
     K = T.P(0.86, 0.80, 0.36)
     with T.st('sky'):
-        with T.grp('drift', dur=0.6, pivot=K, off=(-8, 22), motion=pr.floaty(5.0, 2.6, 1.6), stage='sky'):
+        from .timeline import EV as _EV
+        _fl = pr.floaty(5.0, 2.6, 1.6)
+
+        def kite_m(t, age, ph, ev=_EV['greatwall']):
+            # on camera, the dragon kite throws two loops
+            from . import ease as _e
+            a = 4 * math.pi * _e.in_out((t - (ev - 1.2)) / 2.4, 2.0)
+            b = _fl(t, age, ph)
+            return (b[0] + 8.0 * math.sin(a), b[1] - 8.0 * (1 - math.cos(a)), 14 * math.sin(a), 1.0, 1.0)
+        kite_m.reach = 50
+        with T.grp('drift', dur=0.6, pivot=K, off=(-8, 22), motion=kite_m, stage='sky'):
             T.line2(K, [(0, 0), (-6, 38)], 0.22, STONE_D, sky=True)
             T.line2(K, smooth_poly([(0, 0), (4, 3), (7, 1), (10, 4), (13, 2), (16, 5)], 2, closed=False), 1.1, ACCENT, sky=True, wob=0)
             T.poly2(K, [(-3.2, 0), (0, -3.6), (3.2, 0), (0, 3.2)], ACCENT, 0.34, wob=0, sky=True)
@@ -574,6 +605,7 @@ def taj(T):
     for (a, b) in ((0.90, 0.03), (0.96, 0.08), (0.985, 0.17)):
         tree(T, a, b, 0.85, FOREST, 'round')
 
+    T.mark('ground')
     # ---- mosque (left) and guest house (right), red sandstone
     def side_hall(u0, v0, du, dv):
         T.box(u0, v0, du, dv, 0.062, c=SANDSTONE, ink=0.42)
@@ -632,6 +664,7 @@ def taj(T):
     T.ell2(F + np.array([0, -2.0]), 0.9, fill=ACCENT, ink=0.24, n=8, wob=0, stage='detail')
     chhatri(0.478, 0.298)
     minaret(0.58, 0.38)
+    T.mark('tomb')
     T.box(0.385, 0.405, 0.05, 0.02, 0.012, c=MARBLE, ink=0.3, guide=False)       # steps
 
     # ---- garden furniture: marble tank, cypress avenue
@@ -727,129 +760,216 @@ def sea_wall(T, face, thick, t0=0.34, bed=0.26):
 
 
 def rio(T):
+    """Rio de Janeiro.  Corcovado stands in the middle of the slab (so Christ is seen against Rio's own
+    forest and sky, not against a neighbour), Copacabana curves round the bay below it, Sugarloaf guards the mouth."""
+    from . import extras as ex
+    from .timeline import EV
+    ev = EV['rio']
     sea_wall(T, 'L', 0.11)
     sea_wall(T, 'R', 0.11)
     T.slab(SAND, EARTH, walls=False)
     r = T.rng
-    coast = sm([(0.30, 0.0), (0.33, 0.12), (0.43, 0.22), (0.50, 0.33), (0.455, 0.46), (0.40, 0.58), (0.41, 0.70), (0.50, 0.76), (0.63, 0.80),
-                (0.665, 0.89), (0.60, 0.965), (0.50, 1.0)], 2)
+    coast = sm([(0.30, 0.0), (0.33, 0.10), (0.46, 0.18), (0.60, 0.28), (0.635, 0.40), (0.59, 0.52), (0.555, 0.63), (0.575, 0.72), (0.64, 0.78),
+                (0.72, 0.82), (0.745, 0.90), (0.69, 0.97), (0.61, 1.0)], 2)
     sea = coast + [(1, 1), (1, 0)]
     land = coast + [(0, 1), (0, 0)]
-    water(T, sea, src=(0.38, 0.0), marks=34, t0=0.26, dur=0.55, shore=0.0, flow=(1, 0.2),
-          region=[(0.5, 0.02), (0.98, 0.02), (0.98, 0.98), (0.70, 0.98), (0.68, 0.78), (0.52, 0.7), (0.5, 0.45)])
+    water(T, sea, src=(0.38, 0.0), marks=30, t0=0.26, dur=0.55, shore=0.0, flow=(1, 0.2),
+          region=[(0.5, 0.02), (0.98, 0.02), (0.98, 0.98), (0.80, 0.98), (0.78, 0.80), (0.66, 0.70), (0.68, 0.30)])
+    beach = sm([(0.635, 0.40), (0.59, 0.52), (0.555, 0.63), (0.575, 0.72)], 2)
+    back = sm([(0.535, 0.725), (0.515, 0.63), (0.55, 0.52), (0.595, 0.40)], 2)
     with T.st('ground'):
         T.poly(land, GRASS, 0.42)
-        beach = sm([(0.50, 0.33), (0.455, 0.46), (0.40, 0.58), (0.41, 0.70)], 2)
-        back = sm([(0.375, 0.705), (0.365, 0.58), (0.42, 0.455), (0.462, 0.33)], 2)
         T.poly(beach + back, SAND, 0.36)
-        T.line(sm([(0.452, 0.335), (0.41, 0.455), (0.357, 0.58), (0.367, 0.705)], 2), 0.5, (236, 230, 220))      # the promenade
-    T.tufts(land, 60)
-    # islets
-    T.blob(0.80, 0.30, 0.035, 0.03, GRANITE, 0.36, seed=3)
-    T.blob(0.86, 0.36, 0.02, 0.018, GRANITE, 0.36, seed=5)
+        T.line(back, 0.55, (240, 234, 222))                                           # the promenade, with its wave mosaic
+        T.lines([[(p[0] - 0.006, p[1]), (p[0] - 0.012, p[1] + 0.008)] for p in back[::2]], 0.24, DARK)
+        T.line(sm([(0.30, 0.02), (0.36, 0.16), (0.52, 0.26), (0.585, 0.36)], 2), 0.5, (236, 228, 212))      # the coast road
+        T.line(sm([(0.50, 0.74), (0.40, 0.80), (0.31, 0.80), (0.24, 0.90), (0.33, 1.0)], 2), 0.5, (236, 228, 212))
+        T.line(coast[2:-1], 0.45, FOAM)                                              # surf along the shore
+    water(T, [(0.15, 0.26), (0.21, 0.24), (0.26, 0.28), (0.25, 0.34), (0.19, 0.36), (0.15, 0.32)], src=(0.2, 0.3), c=WATER, marks=2, t0=0.45, dur=0.3, shore=0.36, smooth=2)
+    T.tufts(land, 70)
+    ex.flowers(T, [(0.02, 0.02), (0.28, 0.02), (0.3, 0.22), (0.12, 0.36), (0.02, 0.3)], 22)
+    T.mark('ground')
+    ex.rock_in_water(T, 0.80, 0.30, 1.2)
+    ex.rock_in_water(T, 0.86, 0.36, 0.8)
+    ex.rock_in_water(T, 0.52, 0.10, 0.7)
 
-    # ---- Corcovado, with the forest climbing it
-    cu, cv, rr, hh = 0.15, 0.19, 0.14, 0.215
-    T.guide_axis(cu, cv, hh + 0.12, ticks=8, r=rr).tp = 0.05
-    with T.grp('rise', t0=0.30, dur=0.5, pivot=T.P(cu, cv), stage='struct', ink_now=True, under=PAPER):
-        prof = [(rr, 0), (rr * 0.86, hh * 0.16), (rr * 0.66, hh * 0.42), (rr * 0.46, hh * 0.68), (rr * 0.30, hh * 0.86), (rr * 0.16, hh * 0.96), (0.03, hh)]
+    # ---- hills behind, then Corcovado
+    hills = ((0.10, 0.13, 0.10, 0.10, JUNGLE), (0.08, 0.50, 0.11, 0.11, JUNGLE), (0.10, 0.67, 0.10, 0.09, FOREST), (0.23, 0.72, 0.085, 0.075, JUNGLE))
+    for k, (a, b, r_, h_, c_) in enumerate(hills):
+        with T.grp('rise', t0=0.34 + 0.03 * k, dur=0.45, pivot=T.P(a, b), stage='struct', ink_now=True, under=PAPER):
+            T.hill(a, b, r_, h_, c=c_, guide=False)
+    cu, cv, rr, hh = 0.36, 0.44, 0.145, 0.20
+    T.guide_axis(cu, cv, hh + 0.2, ticks=8, r=rr).tp = 0.05
+    C = T.P(cu, cv)
+    with T.grp('rise', t0=0.30, dur=0.5, pivot=C, stage='struct', ink_now=True, under=PAPER):
+        prof = [(rr, 0), (rr * 0.88, hh * 0.14), (rr * 0.7, hh * 0.4), (rr * 0.5, hh * 0.66), (rr * 0.32, hh * 0.85), (rr * 0.17, hh * 0.96), (0.026, hh)]
         T.rev(cu, cv, prof, c=FOREST, ink=0.5, guide=False, cap=GRANITE)
-        C = T.P(cu, cv)
-        # bare granite face under the summit
-        T.poly2(C, smooth_poly([(-2, -hh * ZS + 1), (9, -hh * ZS * 0.84), (12, -hh * ZS * 0.62), (4, -hh * ZS * 0.5), (-1, -hh * ZS * 0.7)], 2), GRANITE, 0.34)
-        T.lines2(C, [[(3, -hh * ZS * 0.8), (5, -hh * ZS * 0.6)], [(7, -hh * ZS * 0.78), (8.5, -hh * ZS * 0.64)]], 0.26, STONE_D)
-    # the statue
-    S = T.P(cu, cv, hh)
+        T.poly2(C, smooth_poly([(-2, -hh * ZS + 1), (9, -hh * ZS * 0.84), (12, -hh * ZS * 0.6), (4, -hh * ZS * 0.46), (-1, -hh * ZS * 0.7)], 2), GRANITE, 0.34)
+        T.lines2(C, [[(3, -hh * ZS * 0.8), (5, -hh * ZS * 0.58)], [(7, -hh * ZS * 0.78), (8.5, -hh * ZS * 0.62)], [(1, -hh * ZS * 0.7), (2, -hh * ZS * 0.52)]], 0.26, STONE_D)
+        # the rack railway winding up through the forest, and the summit terrace
+        T.line2(C, smooth_poly([(-17, -3), (-9, -7), (-13, -12), (-5, -15), (-8, -19), (-2, -22)], 2, closed=False), 0.5, (236, 228, 212))
+        T.lines2(C, [[(-12 + k * 2.0, -5.0 - k * 2.2), (-11 + k * 2.0, -6.2 - k * 2.2)] for k in range(7)], 0.2, DARK)
+        T.poly2(C, [(-4.2, -hh * ZS + 0.4), (4.2, -hh * ZS + 0.4), (3.6, -hh * ZS - 1.6), (-3.6, -hh * ZS - 1.6)], MARBLE_D, 0.3, wob=0)
+    S = T.P(cu, cv, hh) + np.array([0, -1.2])
     with T.grp('drop', t0=0.86, dur=0.42, pivot=S, off=(0, 26), stage='struct'):
-        q = 1.3
+        q = 1.25
         T.poly2(S, [(-2.4 * q, 0), (2.4 * q, 0), (1.9 * q, -3.2 * q), (-1.9 * q, -3.2 * q)], STONE, 0.36, wob=0)
         T.poly2(S, [(x * q, y * q) for x, y in [(-1.6, -3.2), (1.6, -3.2), (1.3, -9.4), (7.8, -10.1), (7.8, -11.6), (1.1, -11.8), (0.9, -12.5), (-0.9, -12.5),
                     (-1.1, -11.8), (-7.8, -11.6), (-7.8, -10.1), (-1.3, -9.4)]], MARBLE, 0.42, wob=0)
         T.ell2(S + np.array([0, -13.7 * q]), 1.3 * q, 1.4 * q, fill=MARBLE, ink=0.38, n=10, wob=0)
-        T.lines2(S, [[(-0.5 * q, -4 * q), (-0.3 * q, -9 * q)], [(0.6 * q, -4 * q), (0.4 * q, -9 * q)]], 0.22, MARBLE_D, wob=0)
-    # hills behind the beach
-    for (a, b, r_, h_, c_) in ((0.08, 0.50, 0.12, 0.12, JUNGLE), (0.06, 0.66, 0.10, 0.10, FOREST), (0.20, 0.68, 0.09, 0.08, JUNGLE)):
-        with T.grp('rise', t0=0.36, dur=0.45, pivot=T.P(a, b), stage='struct', ink_now=True, under=PAPER):
-            T.hill(a, b, r_, h_, c=c_, guide=False)
+        T.lines2(S, [[(-0.5 * q, -4 * q), (-0.3 * q, -9 * q)], [(0.6 * q, -4 * q), (0.4 * q, -9 * q)], [(-6.5 * q, -10.4 * q), (-2 * q, -9.9 * q)],
+                     [(2 * q, -9.9 * q), (6.5 * q, -10.4 * q)], [(-0.9 * q, -11.9 * q), (0.9 * q, -11.9 * q)]], 0.22, MARBLE_D, wob=0)
+    crowd(T, [(cu - 0.02, cv + 0.012), (cu + 0.02, cv + 0.012), (cu + 0.02, cv + 0.03), (cu - 0.02, cv + 0.03)], 2, z=hh - 0.012, walk_frac=0, dense=1.0)
 
     # ---- the city along Copacabana
-    for k, (a, b, hgt) in enumerate(((0.385, 0.34, 0.06), (0.37, 0.395, 0.085), (0.345, 0.45, 0.05), (0.325, 0.505, 0.075), (0.305, 0.56, 0.055), (0.30, 0.615, 0.09),
-                                    (0.305, 0.67, 0.05), (0.27, 0.42, 0.04), (0.24, 0.50, 0.05), (0.23, 0.58, 0.04))):
-        T.box(a, b, 0.045, 0.04, hgt, c=r.choice([MARBLE, (240, 226, 204), ROSE, MARBLE]), ink=0.38, guide=(k in (1, 5)))
-        T.rects('L', a, a + 0.045, b + 0.04, 0.006, hgt - 0.004, 3, max(2, int(hgt / 0.014)), fill=(170, 196, 214), ink=0.12, fw=0.5, fh=0.5)
-        T.rects('R', b, b + 0.04, a + 0.045, 0.006, hgt - 0.004, 2, max(2, int(hgt / 0.014)), fill=(150, 178, 198), ink=0.12, fw=0.5, fh=0.5)
-    # favela steps up the hill: little boxes of colour
-    for k in range(14):
-        a = 0.07 + (k % 5) * 0.034 + r.uniform(-0.006, 0.006)
-        b = 0.80 + (k // 5) * 0.045 + r.uniform(-0.006, 0.006)
-        T.box(a, b, 0.026, 0.024, r.uniform(0.016, 0.03), c=r.choice([ROSE, ACCENT_L, WATER_L, MARBLE, TERRA, (190, 212, 160)]), ink=0.3, guide=False)
-    # stadium
-    T.rev(0.29, 0.86, [(0.058, 0), (0.062, 0.022), (0.05, 0.022)], c=MARBLE, ink=0.38, guide=False, cap=GRASS_D)
-    T.disk(0.29, 0.86, 0.03, 0.022, fill=(170, 200, 130), ink=0.26, stage='detail')
+    towers = ((0.535, 0.345, 0.06), (0.55, 0.40, 0.085), (0.535, 0.455, 0.05), (0.515, 0.51, 0.075), (0.495, 0.565, 0.055), (0.48, 0.62, 0.09),
+              (0.485, 0.675, 0.05), (0.425, 0.64, 0.04), (0.415, 0.70, 0.055))
+    for k, (a, b, hgt) in enumerate(towers):
+        col = [MARBLE, (244, 226, 200), ROSE, MARBLE, WATER_L, MARBLE, ACCENT_L, ROSE, MARBLE][k]
+        with T.grp('rise', t0=0.5 + 0.03 * k, dur=0.3, pivot=T.P(a + 0.02, b + 0.018), stage='struct', ink_now=True, under=PAPER):
+            T.box(a, b, 0.04, 0.036, hgt, c=col, ink=0.38, guide=False)
+            fl = max(2, int(hgt / 0.013))
+            T.rects('L', a, a + 0.04, b + 0.036, 0.006, hgt - 0.004, 3, fl, fill=(170, 200, 224), ink=0.12, fw=0.5, fh=0.5)
+            T.rects('R', b, b + 0.036, a + 0.04, 0.006, hgt - 0.004, 2, fl, fill=(144, 178, 204), ink=0.12, fw=0.5, fh=0.5)
+            T.lines([[(a, b + 0.036, 0.006 + (hgt - 0.01) * q / fl), (a + 0.04, b + 0.036, 0.006 + (hgt - 0.01) * q / fl)] for q in range(1, fl)], 0.16, shade(col, 0.78), stage='detail')
+            T.box(a + 0.012, b + 0.01, 0.012, 0.012, 0.008, z=hgt, c=STONE, ink=0.24, guide=False)        # lift housing / water tank
+    # favela climbing the western hill: boxes of colour, washing lines between them
+    for k in range(18):
+        a = 0.05 + (k % 6) * 0.03 + r.uniform(-0.005, 0.005)
+        b = 0.80 + (k // 6) * 0.042 + r.uniform(-0.005, 0.005)
+        hgt = r.uniform(0.016, 0.03)
+        T.box(a, b, 0.024, 0.022, hgt, c=r.choice([ROSE, ACCENT_L, WATER_L, MARBLE, TERRA, (190, 226, 150)]), ink=0.3, guide=False)
+        T.rects('L', a, a + 0.024, b + 0.022, 0.004, hgt - 0.003, 2, 1, fill=DARK, ink=0.1, fw=0.36, fh=0.6)
+    ex.laundry(T, (0.062, 0.84, 0.03), (0.125, 0.84, 0.026))
+    ex.laundry(T, (0.15, 0.885, 0.03), (0.21, 0.885, 0.028))
+    # the stadium
+    T.rev(0.33, 0.885, [(0.058, 0), (0.062, 0.022), (0.05, 0.022)], c=MARBLE, ink=0.38, guide=False, cap=GRASS_D)
+    T.disk(0.33, 0.885, 0.03, 0.022, fill=(140, 214, 120), ink=0.26, stage='detail')
+    T.lines([[(0.33, 0.857, 0.022), (0.33, 0.913, 0.022)], T.ring(0.33, 0.885, 0.008, 0.022, n=10)], 0.2, MARBLE, stage='detail')
+    T.lines([[(0.33 + 0.06 * math.cos(q), 0.885 + 0.06 * math.sin(q), 0.004), (0.33 + 0.06 * math.cos(q), 0.885 + 0.06 * math.sin(q), 0.021)]
+             for q in np.linspace(0.5, 3.4, 9)], 0.22, STONE_D, stage='detail')
 
     # ---- Sugarloaf and Urca, joined by the cable car
-    T.guide_axis(0.575, 0.875, 0.25, ticks=5, r=0.07).tp = 0.12
-    with T.grp('rise', t0=0.42, dur=0.45, pivot=T.P(0.47, 0.80), stage='struct', ink_now=True, under=PAPER):
-        T.hill(0.47, 0.80, 0.075, 0.085, c=FOREST, guide=False)
-    with T.grp('rise', t0=0.48, dur=0.5, pivot=T.P(0.575, 0.875), stage='struct', ink_now=True, under=PAPER):
+    ua, ub = (0.60, 0.86), (0.69, 0.905)
+    T.guide_axis(ub[0], ub[1], 0.25, ticks=5, r=0.07).tp = 0.12
+    with T.grp('rise', t0=0.42, dur=0.45, pivot=T.P(*ua), stage='struct', ink_now=True, under=PAPER):
+        T.hill(ua[0], ua[1], 0.07, 0.085, c=FOREST, guide=False)
+    with T.grp('rise', t0=0.48, dur=0.5, pivot=T.P(*ub), stage='struct', ink_now=True, under=PAPER):
         sl = [(0.074, 0), (0.07, 0.05), (0.062, 0.11), (0.05, 0.16), (0.034, 0.20), (0.016, 0.224), (0.0, 0.23)]
-        T.rev(0.575, 0.875, sl, c=GRANITE, ink=0.5, guide=False)
-        T.rev(0.575, 0.875, [(0.076, 0), (0.073, 0.035), (0.0, 0.035)], c=FOREST, ink=0.4, guide=False)
-    A, B = T.P(0.47, 0.80, 0.085), T.P(0.575, 0.875, 0.23)
-    T.line2((0, 0), [A, B], 0.3, stage='detail')
+        T.rev(ub[0], ub[1], sl, c=GRANITE, ink=0.5, guide=False)
+        T.rev(ub[0], ub[1], [(0.076, 0), (0.073, 0.035), (0.0, 0.035)], c=FOREST, ink=0.4, guide=False)
+        Cs = T.P(*ub)
+        T.lines2(Cs, [[(-5, -20), (-6.4, -9)], [(-1, -24), (-1.6, -11)], [(3, -22), (4.4, -10)], [(-3, -14), (-3.8, -6)]], 0.24, STONE_D)
+    A, B = T.P(ua[0], ua[1], 0.085), T.P(ub[0], ub[1], 0.23)
+    T.box(ua[0] - 0.01, ua[1] - 0.01, 0.02, 0.02, 0.012, z=0.08, c=MARBLE, ink=0.28, guide=False)
+    T.line2((0, 0), [A + np.array([0, -1.5]), B], 0.3, stage='detail')
+    T.line2((0, 0), [A + np.array([0, -1.5]), T.P(0.505, 0.775, 0.0)], 0.3, stage='detail')
 
     def car_m(t, age, ph):
-        s_ = 0.5 - 0.5 * math.cos(t * 0.9 + ph)
-        d = (B - A) * (0.15 + 0.7 * s_)
+        s_ = 0.5 - 0.5 * math.cos((t - ev) * 1.1 + math.pi * 0.5 + ph * 0.0)
+        d = (B - A) * (0.12 + 0.76 * s_)
         return (d[0], d[1])
+    car_m.reach = 40
     with T.grp('pop', pivot=A, motion=car_m, stage='life', dur=0.2):
-        T.poly2(A, [(-1.6, 0.4), (1.6, 0.4), (1.6, 2.6), (-1.6, 2.6)], ACCENT, 0.3, wob=0)
-        T.line2(A, [(0, 0), (0, 0.4)], 0.3)
+        T.poly2(A, [(-1.8, 0.2), (1.8, 0.2), (1.8, 2.8), (-1.8, 2.8)], ACCENT, 0.3, wob=0)
+        T.poly2(A, [(-1.3, 0.7), (1.3, 0.7), (1.3, 1.7), (-1.3, 1.7)], WATER_L, 0.16, wob=0)
+        T.line2(A, [(0, -1.4), (0, 0.2)], 0.3)
 
-    # ---- trees
-    jung = [(0.02, 0.02), (0.28, 0.02), (0.40, 0.24), (0.44, 0.33), (0.27, 0.40), (0.22, 0.72), (0.34, 0.76), (0.44, 0.74), (0.5, 0.80), (0.48, 0.98), (0.36, 0.98),
-            (0.36, 0.80), (0.24, 0.78), (0.02, 0.78)]
-    pts = T.scatter(jung, 34, mind=0.05)
-    pts = [p_ for p_ in pts if math.hypot(p_[0] - cu, p_[1] - cv) > 0.10 or (p_[0] + p_[1]) > cu + cv + 0.08]
+    # ---- forest
+    jung = [(0.02, 0.02), (0.27, 0.02), (0.32, 0.14), (0.50, 0.24), (0.56, 0.32), (0.46, 0.60), (0.38, 0.62), (0.34, 0.78), (0.02, 0.78)]
+    pts = [p_ for p_ in T.scatter(jung, 46, mind=0.045)
+           if not (0.13 < p_[0] < 0.28 and 0.22 < p_[1] < 0.38) and (math.hypot(p_[0] - cu, p_[1] - cv) > 0.075 or (p_[0] + p_[1]) > cu + cv + 0.05)]
     pts.sort(key=lambda p_: p_[0] + p_[1])
     for (a, b) in pts:
-        z = max(T.hill_z(a, b, 0.08, 0.50, 0.12, 0.12), T.hill_z(a, b, 0.06, 0.66, 0.10, 0.10), T.hill_z(a, b, 0.20, 0.68, 0.09, 0.08))
+        z = max(T.hill_z(a, b, hl[0], hl[1], hl[2], hl[3]) for hl in hills)
         d = math.hypot(a - cu, b - cv) / rr
         if d < 1:
-            z = max(z, hh * (1 - d) ** 1.25 * 0.9)
-        tree(T, a, b, r.uniform(0.7, 0.95), r.choice([JUNGLE, FOREST, FOREST]), r.choice(['jungle', 'round']), z=z)
-    for (a, b) in ((0.468, 0.36), (0.44, 0.44), (0.41, 0.52), (0.385, 0.60), (0.385, 0.68)):
-        tree(T, a, b, 0.72, FOREST, 'palm')
+            z = max(z, hh * (1 - d) ** 1.2 * 0.92)
+        tree(T, a, b, r.uniform(0.7, 0.95), r.choice([JUNGLE, FOREST, FOREST, (120, 190, 110)]), r.choice(['jungle', 'round', 'jungle', 'palm']), z=z)
+    for (a, b) in ((0.36, 0.95), (0.44, 0.93), (0.52, 0.96), (0.40, 0.76), (0.27, 0.96)):
+        tree(T, a, b, 0.8, FOREST, r.choice(['round', 'palm']))
+    for (a, b) in ((0.60, 0.385), (0.585, 0.44), (0.57, 0.50), (0.552, 0.56), (0.535, 0.62), (0.53, 0.69)):
+        tree(T, a, b, 0.7, FOREST, 'palm')
+    ex.jetty(T, 0.64, 0.765, 'u', 0.07)
+    ex.buoy(T, 0.78, 0.74)
+    ex.buoy(T, 0.86, 0.50, MARBLE)
+    for (a, b) in ((0.70, 0.735), (0.735, 0.76)):                                      # yachts on their moorings
+        pr.sailboat(T, a, b, 'u', s=0.6, jib=False)
 
     # ---- life
-    for k, (a, b) in enumerate(((0.475, 0.39), (0.455, 0.45), (0.432, 0.50), (0.412, 0.56), (0.402, 0.62), (0.405, 0.67))):
+    for k, (a, b) in enumerate(((0.615, 0.41), (0.60, 0.455), (0.585, 0.50), (0.572, 0.545), (0.56, 0.59), (0.552, 0.635), (0.553, 0.68))):
         U = T.P(a, b)
         with T.grp('pop', pivot=U, stage='life', dur=0.2):
+            T.poly2(U, [(-2.2, 0.6), (0.6, 0.0), (2.4, 1.0), (-0.4, 1.6)], [ROSE, WATER_L, MARBLE][k % 3], 0.2, wob=0)     # towel
             T.line2(U, [(0, 0), (0, -3.6)], 0.26)
             T.poly2(U, [(-2.6, -3.0), (0, -4.8), (2.6, -3.0), (0, -2.4)], ACCENT if k % 2 == 0 else MARBLE, 0.26, wob=0)
-    crowd(T, [(0.47, 0.36), (0.50, 0.37), (0.42, 0.62), (0.39, 0.61)], 7, mind=0.02, walk_frac=0.2)
-    for (a, b) in ((0.52, 0.42), (0.50, 0.50), (0.455, 0.60)):        # swimmers
+    crowd(T, [(0.60, 0.40), (0.63, 0.41), (0.57, 0.71), (0.545, 0.70)], 8, mind=0.02, walk_frac=0.3)
+    for (a, b) in ((0.66, 0.44), (0.635, 0.52), (0.60, 0.62), (0.62, 0.70), (0.69, 0.50)):            # swimmers
         W_ = T.P(a, b)
-        with T.grp('pop', pivot=W_, motion=bobber(0.3, 0), stage='life', dur=0.2):
+        with T.grp('pop', pivot=W_, motion=bobber(0.3, 0, 1.0, (0.02, 0.01), 6), stage='life', dur=0.2):
             T.ell2(W_ + np.array([0, -0.8]), 1.0, fill=r.choice(SKIN), ink=0.26, n=9, wob=0)
             T.line2(W_, [(-2.2, 0.3), (2.2, 0.3)], 0.36, FOAM, wob=0)
-    pr.sailboat(T, 0.60, 0.20, 'u', motion=cruise(0.12, 0.04, 0.9))
-    pr.sailboat(T, 0.84, 0.60, 'v', sail=ACCENT_L, motion=cruise(-0.03, 0.08, 0.8), s=0.9)
-    pr.sailboat(T, 0.62, 0.52, 'u', s=0.8, motion=cruise(0.06, -0.02, 0.7))
-    pr.steamer(T, 0.70, 0.90, 'u', L=0.16, motion=cruise(0.10, 0.0, 0.5, 0.2, 0.4))
-    pr.rowboat(T, 0.42, 0.07, 'v', c=TERRA, crew=1)
-    # hang glider
-    G = T.P(0.50, 0.26, 0.26)
+    # beach football
+    Bp = T.P(0.575, 0.585)
+    for k_, (a, b) in enumerate(((0.582, 0.56), (0.563, 0.60), (0.59, 0.595), (0.568, 0.57))):
+        person(T, a, b, shirt=ACCENT if k_ % 2 else MARBLE, path=[(a, b), (a + 0.01, b + 0.018), (a - 0.008, b + 0.006)], loop=True, speed=5.0, pause=0.1, s=0.9)
+    with T.grp('pop', pivot=Bp, stage='life', dur=0.2,
+               motion=lambda t, age, ph: (4.0 * math.sin(t * 2.3), 2.0 * math.sin(t * 1.7) - 3.0 * abs(math.sin(t * 4.6)), 0.0, 1.0, 1.0)):
+        T.ell2(Bp, 0.7, fill=MARBLE, ink=0.24, n=8, wob=0)
+    stroll(T, [(0.595, 0.40), (0.55, 0.52), (0.515, 0.63), (0.535, 0.725)], 8, spread=0.005)
+    stroll(T, [(0.07, 0.79), (0.24, 0.79)], 3)
+    stroll(T, [(0.50, 0.74), (0.40, 0.80), (0.31, 0.80)], 4)
+    stroll(T, [(0.30, 0.02), (0.36, 0.16), (0.52, 0.26)], 3)
+    pr.rowboat(T, 0.185, 0.30, 'u', c=ACCENT, crew=2, motion=cruise(0.02, 0.01, 0.6))
+    pr.smoke(T, T.P(0.10, 0.86, 0.03), 0.7)
+    pr.smoke(T, T.P(0.17, 0.90, 0.03), 0.6)
+
+    # ---- on camera: the samba school comes down the promenade, drums and plumes and a storm of confetti
+    dvec = pr.uvd(-0.07, 0.25)
+    wk = pr.Walk(dvec, 11.0, 0.9)
+    php = math.pi / 2 - 2 * math.pi * ev / 11.0
+    for k in range(11):
+        f = k / 10.0
+        a, b = 0.60 - 0.02 * f - 0.012 * (k % 2), 0.36 + 0.105 * f
+        col = [ACCENT, ROSE, (120, 200, 120), ACCENT_L, (178, 150, 220)][k % 5]
+        Q = person(T, a, b, shirt=col, pants=col, hat=[ACCENT, MARBLE, ROSE][k % 3], arms=True, walk=wk, ph=php, s=0.95)
+        with T.grp('pop', pivot=Q, motion=wk, stage='life', dur=0.2, ph=php):
+            T.lines2(Q, [[(0, -7.2), (-1.6, -10.2)], [(0, -7.2), (0, -10.8)], [(0, -7.2), (1.6, -10.2)]], 0.6, [ACCENT, ROSE, MARBLE][(k + 1) % 3], wob=0)   # plumes
+    cc = T.P(0.56, 0.52)
+    seeds = [(r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(0, 1), r.choice([ACCENT, ROSE, MARBLE, (120, 200, 120), ACCENT_L, WATER_L])) for _ in range(70)]
+
+    def confetti(c, tau, t, a, R):
+        x = t - ev + 1.3
+        if x <= 0 or x > 4.2:
+            return
+        for (sx, sy, ph, col) in seeds:
+            f = (x * 0.45 + ph) % 1.0
+            al = a * min(1.0, x * 2) * min(1.0, (4.2 - x) * 1.5) * math.sin(math.pi * f) ** 0.5
+            px = cc[0] + sx * 20 + dvec[0] * (x / 4.2 - 0.5) + 2 * math.sin(f * 12 + ph * 20)
+            py = cc[1] + sy * 9 - 20 + 22 * f + dvec[1] * (x / 4.2 - 0.5)
+            R.pf.setColor(argb(vivid(col), al))
+            c.drawRect(skia.Rect.MakeXYWH(float(px), float(py), 0.9, 0.6), R.pf)
+    import skia
+    from .core import argb
+    T.custom(confetti, [cc + np.array([-50, -40]), cc + np.array([50, 40])], stage='sky', sky=True)
+
+    pr.sailboat(T, 0.70, 0.14, 'u', motion=cruise(0.11, 0.03, 0.8))
+    pr.sailboat(T, 0.88, 0.62, 'v', sail=ACCENT_L, motion=cruise(-0.01, 0.10, 0.7), s=0.9)
+    pr.sailboat(T, 0.74, 0.40, 'u', s=0.8, motion=cruise(0.08, -0.02, 0.6))
+    pr.steamer(T, 0.80, 0.92, 'u', L=0.15, motion=cruise(0.07, -0.01, 0.5, 0.2, 0.4))
+    pr.rowboat(T, 0.42, 0.06, 'v', c=TERRA, crew=1)
+    G = T.P(0.60, 0.20, 0.30)
     with T.st('sky'):
         with T.grp('drift', dur=0.6, pivot=G, off=(-30, -14), motion=pr.floaty(11.0, 4.0, 0.9), stage='sky'):
             T.poly2(G, [(-6, 1.2), (0, -2.2), (6, 1.2), (0, 0.2)], ACCENT, 0.34, wob=0, sky=True)
             T.lines2(G, [[(0, 0), (0, 3.4)]], 0.24, sky=True)
             T.ell2(G + np.array([0, 3.9]), 0.8, fill=DARK, ink=0, n=8, wob=0, sky=True)
-    pr.bird(T, 0.70, 0.42, 0.20, 0.8, orbit=(8, 3))
-    pr.bird(T, 0.76, 0.46, 0.24, 0.7, orbit=(7, 2.5))
+    pr.flock(T, 0.78, 0.50, 0.22, 8, orbit=(26, 9), c=(90, 90, 100))
+    pr.sparkles(T, [T.P(0.72 + 0.2 * math.sin(k * 2.4), 0.2 + 0.07 * k) for k in range(10)], t0=1.2, s=0.6, rate=0.8)
+    ex.motes(T, S + np.array([0, -8]), 9, 12, 26)
     pr.glint(T, S + np.array([0, -20.0]), 0.9)
-    pr.cloud(T, 0.03, 0.30, 0.16, 0.8)
-    pr.cloud(T, 0.30, 0.10, 0.20, 0.7)
+    pr.cloud(T, 0.04, 0.30, 0.16, 0.8)
+    pr.cloud(T, 0.50, 0.50, 0.26, 0.75)
 
 
 BUILDERS = {'pyramids': pyramids, 'colosseum': colosseum, 'greatwall': greatwall, 'taj': taj, 'rio': rio}

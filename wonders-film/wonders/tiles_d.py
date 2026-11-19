@@ -13,17 +13,50 @@ from .tiles_a import sm, ARCH_DK, dune
 SARSEN = (200, 198, 192)
 
 
-def island(T, cu, cv, ru, rv, c, seed, ink=0.5, sea=None, sea_grow=1.5, t_sea=0.2):
-    """Organic base for a satellite: a patch of ground (and, optionally, sea) on the bare paper."""
+def island(T, cu, cv, ru, rv, c, seed, ink=0.5, sea=None, sea_grow=1.5, t_sea=0.2, keel=18.0):
+    """Organic base for a satellite: a patch of ground (and, optionally, sea) floating free of the map,
+    with a keel of rock and roots hanging beneath it."""
     T.foot = (cu, cv, ru * 1.05, rv * 1.05)
+    outer = None
     with T.st('slab'):
         if sea is not None:
             T.blob(cu + sea[0], cv + sea[1], ru * sea_grow, rv * sea_grow, None, 0.0, seed=seed + 7, irr=0.16)
             reg = list(T._last_blob)
             T.shapes.pop()
+            outer = reg
             water(T, reg, src=(cu, cv), marks=int(26 * ru * sea_grow), t0=t_sea, dur=0.4, shore=0.42, stage='slab')
         g = T.blob(cu, cv, ru, rv, c, ink, seed=seed, irr=0.2)
-    return list(T._last_blob)
+    ground = list(T._last_blob)
+    if keel:
+        _keel(T, outer or ground, keel, seed)
+    return ground
+
+
+def _keel(T, outline, depth, seed):
+    import random as _r
+    r = _r.Random(seed * 31 + 7)
+    P = [np.array(T.P(u, v)) for u, v in outline]
+    il = min(range(len(P)), key=lambda k: P[k][0])
+    ir = max(range(len(P)), key=lambda k: P[k][0])
+    n = len(P)
+    # walk from the leftmost to the rightmost point both ways; keep the chain that passes underneath
+    ch1 = [P[(il + k) % n] for k in range(((ir - il) % n) + 1)]
+    ch2 = [P[(il - k) % n] for k in range(((il - ir) % n) + 1)]
+    low = ch1 if np.mean([p[1] for p in ch1]) > np.mean([p[1] for p in ch2]) else ch2
+    low = low[::max(1, len(low) // 18)] + [low[-1]]
+    x0, x1 = low[0][0], low[-1][0]
+    UR = (150, 136, 126)
+    hang = []
+    for k, p in enumerate(low):
+        f = (p[0] - x0) / (x1 - x0 + 1e-9)
+        d = depth * math.sin(math.pi * min(1.0, max(0.0, f))) ** 0.6 * (r.uniform(0.7, 1.05) if k % 2 else r.uniform(0.45, 0.75))
+        hang.append(p + np.array([r.uniform(-1, 1) if 0 < k < len(low) - 1 else 0.0, d if 0 < k < len(low) - 1 else 0.0]))
+    mid = len(low) // 2
+    with T.at('start'), T.st('slab'):
+        T._add([low + hang[::-1]], True, UR, 0.5, wob=0.2)
+        T._add([low[mid:] + hang[mid:][::-1]], True, shade(UR, 0.85), 0.0, wob=0.2)
+        T._add([[low[k] + np.array([0, 1.5]), (low[k] + hang[k]) / 2 + np.array([r.uniform(-1.2, 1.2), 0])] for k in range(2, len(low) - 2, 2)], False, None, 0.26, shade(UR, 0.62), stage='detail')
+        T._add([[hang[k], hang[k] + np.array([r.uniform(-1.5, 1.5), r.uniform(3, 7)])] for k in range(1, len(low) - 1, 3)], False, None, 0.26, (120, 92, 66), stage='detail')
 
 
 # ========================================================== STONEHENGE ====
@@ -63,13 +96,16 @@ def stonehenge(T):
                 # lintel bridging to the next upright
                 mx, my = (u + u2) / 2, (v + v2) / 2
                 if abs(u2 - u) > abs(v2 - v):
-                    T.box(min(u, u2) - 0.014, my - 0.016, abs(u2 - u) + 0.028, 0.032, 0.022, z=0.105, c=shade(SARSEN, 1.04), ink=0.38, guide=False)
+                    with T.grp('drop', t0=0.9 + 0.03 * k, dur=0.34, pivot=T.P(mx, my, 0.105), off=(0, 18), stage='struct'):
+                        T.box(min(u, u2) - 0.014, my - 0.016, abs(u2 - u) + 0.028, 0.032, 0.022, z=0.105, c=shade(SARSEN, 1.04), ink=0.38, guide=False)
                 else:
-                    T.box(mx - 0.016, min(v, v2) - 0.014, 0.032, abs(v2 - v) + 0.028, 0.022, z=0.105, c=shade(SARSEN, 1.04), ink=0.38, guide=False)
+                    with T.grp('drop', t0=0.9 + 0.03 * k, dur=0.34, pivot=T.P(mx, my, 0.105), off=(0, 18), stage='struct'):
+                        T.box(mx - 0.016, min(v, v2) - 0.014, 0.032, abs(v2 - v) + 0.028, 0.022, z=0.105, c=shade(SARSEN, 1.04), ink=0.38, guide=False)
         else:
             stone(u - 0.022, v, 0.026, 0.03, 0.14, c=shade(SARSEN, 0.97))
             stone(u + 0.022, v, 0.026, 0.03, 0.14, c=shade(SARSEN, 0.97))
-            T.box(u - 0.04, v - 0.017, 0.08, 0.034, 0.024, z=0.14, c=SARSEN, ink=0.38, guide=False)
+            with T.grp('drop', t0=1.0 + 0.04 * k, dur=0.36, pivot=T.P(u, v, 0.14), off=(0, 20), stage='struct'):
+                T.box(u - 0.04, v - 0.017, 0.08, 0.034, 0.024, z=0.14, c=SARSEN, ink=0.38, guide=False)
     stone(0.80, 0.60, 0.03, 0.03, 0.06)        # heel stone
     for (a, b, f) in ((0.24, 0.66, False), (0.30, 0.74, True), (0.20, 0.52, False), (0.70, 0.80, True), (0.80, 0.44, True), (0.26, 0.38, False)):
         pr.sheep(T, a, b, flip=f, walk=walker(0.04 * (-1 if f else 1), 0.01, r.uniform(9, 15)))
@@ -113,6 +149,8 @@ def aurora(T):
 
     # ---- the aurora: a scrap of polar night hangs over the island, and across it curtains of light
     #      unfurl, ripple, drift sideways and slowly change colour
+    from .timeline import EV as _EV
+    EV_A = _EV['aurora_everest']
     base = T.P(0.5, 0.5, 0.36)
     NIGHT = vivid((44, 52, 104))
     nc = base + np.array([4.0, -16.0])
@@ -158,7 +196,7 @@ def aurora(T):
                     xx = ox + sl + width * q
                     wv_ = 3.0 * math.sin(q * 5.0 + t * 1.7 + ph) + 1.5 * math.sin(q * 11.0 - t * 2.6 + ph)
                     yb = oy + wv_ + 4.0 * math.sin(q * 3.1 + ph + t * 0.4)
-                    hgt = (17 + 7 * math.sin(q * 7 + ph * 2 + t * 1.1)) * grow
+                    hgt = (17 + 7 * math.sin(q * 7 + ph * 2 + t * 1.1)) * grow * (1.0 + 0.5 * math.exp(-((t - EV_A) / 1.2) ** 2))
                     bot.append(base + np.array([xx, yb - 9.0]))
                     top.append(base + np.array([xx + 2.5 * math.sin(t * 0.8 + q * 4), yb - 9.0 - hgt]))
                 m1 = [b_ + (t_ - b_) * 0.34 for b_, t_ in zip(bot, top)]

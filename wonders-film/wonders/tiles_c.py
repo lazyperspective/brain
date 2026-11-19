@@ -56,6 +56,7 @@ def reef(T):
         with T.grp('fade', t0=wv.time_at(d) + 0.05, dur=0.18, pivot=P, motion=pr.drifter((1.0, 0.15), 9.0, 1.4), stage='life'):
             T.line2(P, smooth_poly([(-l, 0.3), (-l * 0.45, -0.75), (0.1, 0.0), (l * 0.55, 0.6), (l, 0.05)], 1, closed=False), 0.42, FOAM if r.random() < 0.6 else WATER_D, wob=0)
 
+    T.mark('ground')
     # ---- sand cay with a palm and an umbrella
     with T.st('detail'):
         T.blob(0.47, 0.585, 0.075, 0.06, SAND, 0.4, seed=4, wave=wv)
@@ -169,6 +170,7 @@ def machu(T):
     r = T.rng
     T.tufts([(0, 0), (1, 0), (1, 1), (0, 1)], 70)
 
+    T.mark('ground')
     def peak_green(u, v, rr, h, t0, c=FOREST, steep=True):
         g = T.guide_axis(u, v, h, ticks=max(3, int(h * 12)), r=rr)
         g.tp = max(0.02, t0 - 0.22)
@@ -196,7 +198,12 @@ def machu(T):
         z = (n - k) * 0.019
         u0, v0 = 0.36 - 0.012 * k, 0.36 - 0.03 * k
         u1, v1 = 0.70 + 0.048 * k, 0.76 + 0.038 * k
-        T.box(u0, v0, u1 - u0, v1 - v0, 0.019, z=z, c=STONE, top=GRASS if k % 2 else (190, 212, 160), ink=0.4, guide=(k in (n, 1)))
+        with T.grp('drop', t0=0.42 + 0.05 * (n - k), dur=0.3, pivot=T.P((u0 + u1) / 2, (v0 + v1) / 2, z), off=(0, 14), stage='struct', ink_now=True, under=PAPER):
+            T.box(u0, v0, u1 - u0, v1 - v0, 0.019, z=z, c=STONE, top=GRASS if k % 2 else (190, 212, 160), ink=0.4, guide=False)
+            # dry-stone walling
+            T.lines([[(u0 + (u1 - u0) * q / 22.0, v1, z + (0.003 if q % 2 else 0.009)), (u0 + (u1 - u0) * q / 22.0, v1, z + (0.01 if q % 2 else 0.016))] for q in range(1, 22)]
+                    + [[(u1, v0 + (v1 - v0) * q / 22.0, z + (0.003 if q % 2 else 0.009)), (u1, v0 + (v1 - v0) * q / 22.0, z + (0.01 if q % 2 else 0.016))] for q in range(1, 22)]
+                    + [[(u0, v1, z + 0.0095), (u1, v1, z + 0.0095)], [(u1, v0, z + 0.0095), (u1, v1, z + 0.0095)]], 0.16, STONE_D)
     Z = n * 0.019
     with T.st('ground'):
         pass
@@ -224,6 +231,7 @@ def machu(T):
     T.box(0.612, 0.75, 0.026, 0.02, 0.008, z=Z + 0.008, c=STONE, ink=0.3, guide=False)
     T.box(0.622, 0.756, 0.008, 0.008, 0.014, z=Z + 0.016, c=MARBLE_D, ink=0.26, guide=False)
 
+    T.mark('terraces')
     # ---- trees on the lower slopes
     for (a, b) in ((0.10, 0.90), (0.04, 0.95), (0.18, 0.95), (0.24, 0.88), (0.86, 0.10), (0.96, 0.20), (0.52, 0.06), (0.30, 0.06), (0.97, 0.06), (0.66, 0.05), (0.40, 0.10),
                    (0.76, 0.08)):
@@ -270,6 +278,7 @@ def chichen(T):
     T.speckle(plaza, 80, c=SAND_D)
     T.tufts([(0, 0), (1, 0), (1, 1), (0, 1)], 60)
 
+    T.mark('ground')
     def jtree(a, b):
         tree(T, a, b, r.uniform(0.85, 1.15), r.choice([JUNGLE, FOREST, JUNGLE]), r.choice(['jungle', 'jungle', 'round', 'palm']))
     back = [(0.03, 0.04), (0.12, 0.03), (0.22, 0.05), (0.33, 0.03), (0.45, 0.04), (0.56, 0.03), (0.04, 0.14), (0.10, 0.22), (0.03, 0.30), (0.20, 0.12), (0.34, 0.10), (0.05, 0.42)]
@@ -299,7 +308,11 @@ def chichen(T):
     H = n * dz
     for k in range(n):
         s_ = s0 + (s1 - s0) * k / (n - 1)
-        T.box(cu - s_ / 2, cv - s_ / 2, s_, s_, dz, z=k * dz, c=LIMESTONE, ink=0.38, guide=(k == 0))
+        with T.grp('drop', t0=0.42 + 0.045 * k, dur=0.3, pivot=T.P(cu, cv, k * dz), off=(0, 16), stage='struct', ink_now=True, under=PAPER):
+            T.box(cu - s_ / 2, cv - s_ / 2, s_, s_, dz, z=k * dz, c=LIMESTONE, ink=0.38, guide=False)
+            # recessed panels on each terrace riser
+            T.lines([[(cu - s_ / 2 + s_ * q / 8.0, cv + s_ / 2, k * dz + 0.004), (cu - s_ / 2 + s_ * q / 8.0, cv + s_ / 2, k * dz + dz - 0.004)] for q in range(1, 8) if abs(q - 4) > 0]
+                    + [[(cu + s_ / 2, cv - s_ / 2 + s_ * q / 8.0, k * dz + 0.004), (cu + s_ / 2, cv - s_ / 2 + s_ * q / 8.0, k * dz + dz - 0.004)] for q in range(1, 8) if abs(q - 4) > 0], 0.18, STONE_D)
     T.guide_axis(cu, cv, H + 0.06, ticks=10)
     T.guide([[(cu - s0 / 2, cv + s0 / 2, 0), (cu - s1 / 2, cv + s1 / 2, H)], [(cu + s0 / 2, cv + s0 / 2, 0), (cu + s1 / 2, cv + s1 / 2, H)],
              [(cu + s0 / 2, cv - s0 / 2, 0), (cu + s1 / 2, cv - s1 / 2, H)]], over=0.06)
@@ -317,6 +330,7 @@ def chichen(T):
     for (a, b) in ((cu - sw - 0.008, cv + s0 / 2 + 0.03), (cu + sw + 0.008, cv + s0 / 2 + 0.03)):     # serpent heads
         T.box(a - 0.008, b, 0.016, 0.022, 0.012, c=(196, 206, 170), ink=0.26, guide=False)
 
+    T.mark('castillo')
     # ---- El Caracol, the round observatory
     T.box(0.05, 0.56, 0.13, 0.12, 0.022, c=LIMESTONE, ink=0.4)
     T.cyl(0.115, 0.62, 0.04, 0.05, z=0.022, c=LIMESTONE, guide=False, ink=0.4)
@@ -484,6 +498,7 @@ def niagara(T):
         R.poly(c, top, ink=INK, w=0.4, a=a, closed=False)
     T.custom(edge_fall, top + [top[0] + fall, top[-1] + fall], stage='detail')
 
+    T.mark('ground')
     # ---- rainbow bridge across the gorge
     bz = 0.0
     A, B = (0.335, 0.90), (0.705, 0.90)
@@ -519,7 +534,15 @@ def niagara(T):
     # ---- life
     # maid of the mist, nosing into the spray
     Mp = T.P(0.52, 0.66, -GD)
-    with T.grp('pop', pivot=Mp, t0=1.16, motion=cruise(0.0, -0.06, 0.9, 0.5, 1.5), stage='life', dur=0.28):
+    from .timeline import EV as _EV
+    _dm = pr.uvd(0.0, -0.20)
+
+    def mist_m(t, age, ph, ev=_EV['niagara']):
+        # the Maid of the Mist noses right up into the spray, timed to be deepest in on camera
+        s_ = 0.5 + 0.5 * math.cos((t - ev) * 0.5)
+        return (_dm[0] * s_, _dm[1] * s_ + 0.5 * math.sin(t * 2.4), 1.5 * math.sin(t * 1.8), 1.0, 1.0)
+    mist_m.reach = 40
+    with T.grp('pop', pivot=Mp, t0=1.16, motion=mist_m, stage='life', dur=0.28):
         pr.hull(T, 0.52, 0.66, 0.05, 0.11, 0.012, 'v', MARBLE, z=-GD, blunt=0.5)
         T.box(0.508, 0.635, 0.024, 0.05, 0.014, z=-GD + 0.013, c=ZINC, ink=0.3, guide=False)
         for k in range(5):
@@ -536,11 +559,23 @@ def niagara(T):
         pr.cloud(T, a, b, z, s_, t0=1.0 + 0.06 * k, drift=1.2, edge=(176, 196, 214), alpha=0.9)
     for k, (a, s_) in enumerate(((0.40, 0.7), (0.52, 0.9), (0.64, 0.7))):
         pr.cloud(T, a, 1.0, -TH - 0.05, s_, t0=1.2 + 0.05 * k, drift=1.5, edge=(176, 196, 214), alpha=0.9)
-    Rb = T.P(0.60, 0.70, -GD)
-    with T.st('sky'):
-        with T.grp('fade', t0=1.3, dur=0.5, pivot=Rb, stage='sky'):
-            for k, c_ in enumerate((TERRA, ACCENT, ACCENT_L, (160, 200, 150), WATER_D)):
-                T.ell2(Rb, 17 - k * 0.9, 15 - k * 0.9, fill=None, ink=0.9, inkc=c_, a0=math.pi * 1.08, a1=math.pi * 1.72, closed=False, wob=0, sky=True, alpha=0.75)
+    Rb = np.array(T.P(0.60, 0.70, -GD))
+    import skia as _sk2
+    from .core import argb as _argb
+    rcols = [vivid(c_) for c_ in (TERRA, ACCENT, ACCENT_L, (160, 200, 150), WATER_D, (178, 150, 220))]
+
+    def rainbow(c, tau, t, a, R, ev=_EV['niagara']):
+        # a stub of rainbow in the spray, which arcs right across the gorge as the boat goes in
+        if tau < 1.3:
+            return
+        p = 0.3 + 0.7 * ease.smooth((t - (ev - 1.6)) / 1.5)
+        on = min(1.0, (tau - 1.3) / 0.5) * a
+        for k, col in enumerate(rcols):
+            rx, ry = 20 - k * 0.95, 17.5 - k * 0.95
+            R.ps.setColor(_argb(col, on * 0.85))
+            R.ps.setStrokeWidth(0.95)
+            c.drawArc(_sk2.Rect.MakeLTRB(Rb[0] - rx, Rb[1] - ry, Rb[0] + rx, Rb[1] + ry), 196, 136 * p, False, R.ps)
+    T.custom(rainbow, [Rb + np.array([-22, -20]), Rb + np.array([22, 4])], stage='sky', sky=True)
     pr.glint(T, T.P(su, sv, 0.37), 0.8)
     pr.cloud(T, 0.10, 0.20, 0.36, 0.9)
 

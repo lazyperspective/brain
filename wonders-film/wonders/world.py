@@ -45,8 +45,9 @@ class World:
             t.finalize(WORLD_CENTER)
             t.ground_shapes = [s for s in t.shapes if not s.sky]
             t.sky_shapes = [s for s in t.shapes if s.sky]
-            _placeholder(t)
-        self.order = sorted(self.tiles.values(), key=lambda t: (t.i + t.j, t.i))
+            if t.kind in ('tile', 'sat'):
+                _placeholder(t)
+        self.order = sorted(self.tiles.values(), key=lambda t: getattr(t, 'zkey', (t.i + t.j, t.i)))
         return self
 
     def bounds(self):
@@ -90,20 +91,35 @@ def _placeholder(t):
 
 
 def build_world(only=None):
-    from . import tiles_a, tiles_b, tiles_c, tiles_d, life
+    from . import tiles_a, tiles_b, tiles_c, tiles_d, life, sky, extras, detail
     builders = {}
-    for m in (tiles_a, tiles_b, tiles_c, tiles_d):
+    for m in (tiles_a, tiles_b, tiles_c, tiles_d, sky):
         builders.update(m.BUILDERS)
     w = World()
-    for name, (i, j) in list(LAYOUT.items()) + list(SATELLITES.items()):
+    pieces = [(n, ij, 'tile') for n, ij in LAYOUT.items()] + [(n, ij, 'sat') for n, ij in SATELLITES.items()] + \
+             [(n, ij, 'islet') for n, ij in sky.ISLETS.items()] + [(n, (0.0, 0.0), 'sky') for n in sky.SKY_ORDER]
+    main = set(LAYOUT.values())
+    for name, (i, j), kind in pieces:
         if only and name not in only:
             continue
         if name not in builders:
             continue
-        kind = 'tile' if name in LAYOUT else 'sat'
         t = Tile(name, i, j, kind, seed=sum(map(ord, name)))
+        if kind == 'sky':
+            t.zkey = sky.SKY_ORDER[name]
         builders[name](t)
         if name in life.EXTRA:
             life.EXTRA[name](t)
+        if name in detail.EXTRA:
+            detail.EXTRA[name](t)
+        if kind == 'tile':
+            # the map's outer faces show what the slabs are: floating rock
+            faces = [f for f, nb in (('L', (i, j + 1)), ('R', (i + 1, j))) if nb not in main]
+            if faces:
+                t.underside(faces, depth=22.0 if i + j >= 2 else 28.0)
+        if kind == 'sat':
+            t.bob = (1.0, 7.0 + (sum(map(ord, name)) % 5), sum(map(ord, name)) * 0.7)
+        if kind in ('tile', 'sat'):
+            extras.construction_marks(t)
         w.add(t)
     return w.finalize()
