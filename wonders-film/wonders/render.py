@@ -17,6 +17,9 @@ from .pal import PAPER, PENCIL, mix, shade, vivid
 SETTLE = 0.34      # seconds for a wash to settle into its flat colour
 
 
+TOOTH = 0.034      # strength of the pigment texture on coloured surfaces (0 = flat fills, as before)
+
+
 class Paper:
     """Tileable paper grain + dry-brush flecks, in map space."""
     N = 2048
@@ -45,6 +48,9 @@ class Paper:
         fl = fl / fl.std()
         fleck = np.clip((fl - 1.7) * 1.5, 0, 1)
         self.fleck = blur(fleck, 0.6).astype(np.float32)
+        # pigment tooth: fine grain + soft crayon drag, felt only on coloured surfaces (not on bare paper or ink)
+        tooth = 0.62 * noise(0.75) + 0.45 * noise(2.4, 0.7) + 0.25 * noise(6.0)
+        self.tooth = (tooth / tooth.std() * TOOTH).astype(np.float32)
         self.paper = np.array(PAPER, np.float32)
 
     def apply(self, img, cam, size):
@@ -58,6 +64,11 @@ class Paper:
         fk = cv2.warpAffine(self.fleck, M, (w, h), flags=flags, borderMode=cv2.BORDER_WRAP)
         f = img.astype(np.float32)
         f += (self.paper - f) * (fk * 0.42)[:, :, None]
+        if TOOTH > 0:
+            th = cv2.warpAffine(self.tooth, M, (w, h), flags=flags, borderMode=cv2.BORDER_WRAP)
+            chroma = f.max(2) - f.min(2)
+            m = np.clip((chroma - 14.0) / 36.0, 0.0, 1.0) * np.clip((f.mean(2) - 50.0) / 60.0, 0.0, 1.0)
+            mo = mo + th * m
         f *= (1.0 + mo)[:, :, None]
         return np.clip(f + 0.5, 0, 255).astype(np.uint8)
 

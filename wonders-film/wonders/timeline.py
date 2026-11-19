@@ -14,7 +14,7 @@ from . import ease
 
 FPS = 30
 BAR = 100                      # frames per bar / per close-up
-BUILD_FRAMES = 2 * BAR         # build + hold
+BUILD_FRAMES = 3 * BAR         # build + hold (three bars: an unhurried, ASMR-paced construction)
 FINAL_FRAMES = 150
 
 HOLD = 80                      # frames each close-up rests
@@ -36,7 +36,8 @@ STARTS = {
 }
 # the whole build runs on a slightly slower clock (pieces start later and each one takes a little longer);
 # the bounces keep their shape, they just breathe a touch more.  1.0 = the earlier, brisker build.
-SLOW = 1.12
+SLOW = 1.6          # pieces start further apart: one at a time, unhurried (was 1.12)
+PIECE = 1.4         # and each piece draws, washes and settles more slowly (was 1.12); the bounces keep their shape
 STARTS = {k: (v * SLOW if v > 0 else v) for k, v in STARTS.items()}
 RATE = {'stonehenge': 1.55, 'aurora': 1.55, 'opera': 1.55, 'uluru': 1.55, 'moai': 1.55,
         'islet_a': 1.7, 'islet_b': 1.7, 'islet_c': 1.7, 'islet_d': 1.7, 'islet_e': 1.7}
@@ -97,7 +98,8 @@ def _build_cam(t):
     phi = math.radians(206.0 + 300.0 * _smooth(tt / 1.7))
     cx += 15.0 * env * math.cos(phi)
     cy += 8.0 * env * math.sin(phi)
-    z *= 1.0 + 0.025 * _smooth((t0 - 4.3 * SLOW) / (6.0 - 4.3 * SLOW))
+    t_end = (BUILD_FRAMES - MOVE) / FPS
+    z *= 1.0 + 0.025 * _smooth((t0 - 4.3 * SLOW) / (t_end - 4.3 * SLOW))
     return (cx, cy, z)
 
 
@@ -157,7 +159,7 @@ class Timeline:
     def apply(self, world):
         for name, t in world.tiles.items():
             t.start = self.starts.get(name, 0.0)
-            t.rate = RATE.get(name, 1.0) / SLOW
+            t.rate = RATE.get(name, 1.0) / PIECE
             lead = LEAD if t.kind == 'tile' else 0.4
             inner = name in ('colosseum', 'greatwall', 'taj', 'rio')
             for k, s in enumerate(t.placeholder):

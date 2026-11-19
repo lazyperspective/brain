@@ -286,8 +286,12 @@ MEL = {
 HARM = {11: -3, 12: -4, 13: -3, 14: -3, 16: 4}      # a second voice in thirds through the climax; a third above at the end
 
 
+PRE = TL.BUILD_FRAMES // TL.BAR - 2      # extra bars of build at the start (the slower, ASMR-paced construction)
+PROG[1] = [('Dadd9', 4 * (1 + PRE))]     # the opening pad simply lasts longer
+
+
 def bar_t(b, beat=0.0):
-    return (b - 1) * BAR + beat * BEAT
+    return (b - 1 + (PRE if b >= 2 else 0)) * BAR + beat * BEAT
 
 
 # ------------------------------------------------------------------- score ----
@@ -383,7 +387,7 @@ for b in range(1, 17):
 # ---- every hard cut lands on a bar line: a breath in, a bell on the cut
 for k, cut in enumerate(TL.CUTS):
     tc = cut / TL.FPS
-    b = int(round(tc / BAR)) + 1
+    b = int(round(tc / BAR)) + 1 - PRE
     root = CH[PROG[b][0][0]][0]
     last = (k == len(TL.CUTS) - 1)
     sw = swell(1.6 if (last or k == 0) else 0.5)
@@ -418,8 +422,8 @@ for k, (t, name) in enumerate(order):
     add(pluck(m, 1.6, 0.9), t + 0.02, pan=0.6 * math.sin(k * 1.9), gain=0.16)
     add(celesta(m + 12, 1.4), t + 0.02, pan=-0.6 * math.sin(k * 1.9), gain=0.07)
     add(pluck(m - 12, 1.6, 0.5), t + 0.02, pan=-0.3 * math.sin(k * 1.9), gain=0.07)
-    for j in range(3):
-        add(pencil(rng.uniform(0.12, 0.26)), t + 0.02 + j * 0.16 + rng.uniform(0, 0.05), pan=0.5 * math.sin(k * 1.9), gain=0.022)
+    for j in range(5):
+        add(pencil(rng.uniform(0.16, 0.34)), t + 0.02 + j * 0.24 + rng.uniform(0, 0.06), pan=0.5 * math.sin(k * 1.9), gain=0.03)
     if name in ('rio', 'reef', 'halong', 'niagara', 'colosseum', 'fuji', 'taj'):
         add(water(1.1), t + 0.25, pan=0.5 * math.sin(k * 1.9 + 1), gain=0.035)
 # little pops as trees and people spring up
@@ -563,7 +567,7 @@ xs = (np.arange(len(r)) * 0.1 / DUR * Wd).astype(int)
 ys = (380 + 170 - np.clip((r + 60) / 60, 0, 1) * 160).astype(int)
 for k in range(1, len(r)):
     cv2.line(pic, (int(xs[k - 1]), int(ys[k - 1])), (int(xs[k]), int(ys[k])), (120, 220, 255), 1, cv2.LINE_AA)
-for b in range(0, 17):
+for b in range(0, int(math.ceil(DUR / BAR)) + 1):
     x = int(b * BAR / DUR * Wd)
     cv2.line(pic, (x, 0), (x, Hd), (255, 255, 255) if (b * 100) in TL.CUTS else (110, 110, 110), 1)
     cv2.putText(pic, str(b + 1), (x + 4, 14), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
