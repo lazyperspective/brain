@@ -13,6 +13,11 @@ from .pal import *  # noqa
 
 TAU = 2 * math.pi
 DENSITY = 2.3           # crowd() multiplies its head-count by this
+# calmer crowds: a share of each crowd() stays home, walkers amble a little slower and pause more often.
+# All three leave the random sequence untouched, so every other placement in the world stays where it was.
+CALM_SKIP = 0.15        # fraction of crowd() figures not drawn
+CALM_SPEED = 0.84       # default walking speed multiplier
+CALM_PAUSE = 0.14       # added to every pause probability
 
 
 def _poly(pts, closed=True):
@@ -192,13 +197,15 @@ def person(T, u, v, z=0.0, shirt=None, skin=None, hair=None, hat=None, walk=None
     bb = [P + np.array([-3.0, -9.0]), P + np.array([3.0, 1.0])]
     if path is not None:
         pts = [T.P(p[0], p[1], p[2] if len(p) > 2 else z) for p in path]
-        track = Track(pts, speed or r.uniform(2.6, 4.2), r, loop=loop, pause=pause)
+        track = Track(pts, speed if speed else r.uniform(2.6, 4.2) * CALM_SPEED, r, loop=loop,
+                      pause=min(0.9, pause + CALM_PAUSE))
         bb = [np.array([track.bbox[0] - 3, track.bbox[1] - 9]), np.array([track.bbox[2] + 3, track.bbox[3] + 1])]
     elif walk is not None:
         sync = walk
         bb += [P + walk.d + np.array([-3.0, -9.0]), P + walk.d + np.array([3.0, 1.0])]
     f = Fig(P, s, shirt, skin, hair, hat, pants, arms, t0, ph, track, sync, bag, kind)
     sh = T.custom(f.draw, bb, stage='life')
+    T._last_fig = sh
     return P
 
 
@@ -224,6 +231,15 @@ def crowd(T, region, n, seed=None, walk_frac=0.62, z=0.0, hat=None, mind=0.03, d
                 path = None
         person(T, u, v, z, path=path, loop=(path is not None and len(path) > 2 and r.random() < 0.5),
                hat=(hat if (hat and r.random() < 0.5) else None), arms=(path is None and r.random() < 0.12))
+        # deterministic, position-based thinning (no draw from T.rng)
+        hsh = (math.sin(u * 127.1 + v * 311.7) * 43758.5453) % 1.0
+        if hsh < CALM_SKIP:
+            T._last_fig.draw = _hidden
+
+
+
+def _hidden(*a):
+    return None
 
 
 def _inside(poly, q):

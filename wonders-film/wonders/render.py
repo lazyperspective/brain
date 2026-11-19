@@ -132,13 +132,19 @@ class Renderer:
                 return
             e1 = ease.out_cubic(pd)
             e0 = ease.in_out(pe, 2.0) if pe > 0 else 0.0
-            al = 0.72 * (1 - 0.5 * max(0.0, pe))
+            al = 0.86 * (1 - 0.5 * max(0.0, pe))
             tr = None if (e1 >= 1 and e0 <= 0) else (e0, max(e0 + 1e-3, e1))
             self.stroke(c, sh.path, sh.inkc, sh.ink, al * a, tr)
-            c.save()
-            c.translate(0.45, 0.3)
-            self.stroke(c, sh.path, sh.inkc, sh.ink * 0.8, al * 0.38 * a, tr)
-            c.restore()
+            if sh.path2 is not None:
+                # the second pass trails the first a moment behind, as a hand would
+                e2 = ease.out_cubic(max(0.0, (tau - sh.tp - 0.05) / sh.dp))
+                if e2 > e0:
+                    self.stroke(c, sh.path2, sh.inkc, sh.ink * 0.7, al * 0.42 * a, (e0, max(e0 + 1e-3, e2)))
+            else:
+                c.save()
+                c.translate(0.45, 0.3)
+                self.stroke(c, sh.path, sh.inkc, sh.ink * 0.8, al * 0.38 * a, tr)
+                c.restore()
             return
         if sh.fill is not None:
             if sh.instant or tau >= sh.tw1 + SETTLE:

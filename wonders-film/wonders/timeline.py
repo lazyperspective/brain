@@ -34,10 +34,14 @@ STARTS = {
     'sky_lo': 1.95, 'sky_mid': 2.7, 'sky_hi': 3.2,
     'islet_a': 3.22, 'islet_b': 3.30, 'islet_c': 3.38, 'islet_d': 3.46, 'islet_e': 3.54,
 }
+# the whole build runs on a slightly slower clock (pieces start later and each one takes a little longer);
+# the bounces keep their shape, they just breathe a touch more.  1.0 = the earlier, brisker build.
+SLOW = 1.12
+STARTS = {k: (v * SLOW if v > 0 else v) for k, v in STARTS.items()}
 RATE = {'stonehenge': 1.55, 'aurora': 1.55, 'opera': 1.55, 'uluru': 1.55, 'moai': 1.55,
         'islet_a': 1.7, 'islet_b': 1.7, 'islet_c': 1.7, 'islet_d': 1.7, 'islet_e': 1.7}
 LEAD = 0.55                    # pencil placeholders are ruled this long before a piece starts building
-FINALE = 3.72                  # glints ripple out from the centre once the map stands complete
+FINALE = 3.72 * SLOW                  # glints ripple out from the centre once the map stands complete
 
 CAM0 = (0.0, 47.0, 3.5)
 WIDE = (0.0, 33.0, 2.2)
@@ -82,7 +86,8 @@ def _smooth(x):
 def _build_cam(t):
     """ease-out with a soft start; while the inner ring builds the camera leans toward whichever slab is
     under construction (clockwise), then lets go; a very slow push through the hold"""
-    tt = max(0.0, t)
+    t0 = max(0.0, t)
+    tt = t0 / SLOW                 # the ease-out and the lean follow the slower build
     x = (tt + 0.18 * (math.exp(-tt / 0.18) - 1.0)) / 4.3
     e = 1.0 - (1.0 - min(1.0, x)) ** 3.0
     z = CAM0[2] * (WIDE[2] / CAM0[2]) ** e
@@ -92,7 +97,7 @@ def _build_cam(t):
     phi = math.radians(206.0 + 300.0 * _smooth(tt / 1.7))
     cx += 15.0 * env * math.cos(phi)
     cy += 8.0 * env * math.sin(phi)
-    z *= 1.0 + 0.025 * _smooth((tt - 4.3) / 1.7)
+    z *= 1.0 + 0.025 * _smooth((t0 - 4.3 * SLOW) / (6.0 - 4.3 * SLOW))
     return (cx, cy, z)
 
 
@@ -152,7 +157,7 @@ class Timeline:
     def apply(self, world):
         for name, t in world.tiles.items():
             t.start = self.starts.get(name, 0.0)
-            t.rate = RATE.get(name, 1.0)
+            t.rate = RATE.get(name, 1.0) / SLOW
             lead = LEAD if t.kind == 'tile' else 0.4
             inner = name in ('colosseum', 'greatwall', 'taj', 'rio')
             for k, s in enumerate(t.placeholder):

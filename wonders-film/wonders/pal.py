@@ -3,7 +3,7 @@ handful of muted naturals and ONE signature accent (saffron) kept for heroes."""
 
 PAPER = (241.0, 236.0, 224.0)
 INK = (40.0, 35.0, 33.0)
-PENCIL = (104.0, 140.0, 182.0)        # non-photo blue construction pencil
+PENCIL = (64.0, 96.0, 146.0)          # blue construction pencil, pressed a little harder (was 104,140,182)
 
 WATER = (164, 207, 229)
 WATER_D = (124, 180, 215)
@@ -53,7 +53,7 @@ CLOTH = [(124, 160, 196), (236, 180, 172), (248, 244, 234), (112, 158, 108), (74
 # ---- vibrancy: every fill and coloured line passes through here once ------
 import colorsys
 
-VIVID = 1.75          # >1 pushes saturation; 1.0 = the original muted print
+VIVID = 2.05          # (was 1.75) >1 pushes saturation; 1.0 = the original muted print
 _KEEP = {PAPER, INK, PENCIL}
 _vcache = {}
 
@@ -75,7 +75,7 @@ def vivid(c):
             s2 = 1.0 - (1.0 - s) ** VIVID
             if s < 0.10:                         # near-neutrals (marble, snow, stone): keep them clean
                 s2 = s + (s2 - s) * (s / 0.10) ** 2
-            v2 = v ** 0.94 if s > 0.12 else v
+            v2 = v ** 0.92 if s > 0.12 else v
             r, g, b = colorsys.hsv_to_rgb(h, s2, v2)
             k = (r * 255.0, g * 255.0, b * 255.0)
         _vcache[c] = k

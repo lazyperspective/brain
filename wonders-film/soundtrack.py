@@ -424,7 +424,7 @@ for k, (t, name) in enumerate(order):
         add(water(1.1), t + 0.25, pan=0.5 * math.sin(k * 1.9 + 1), gain=0.035)
 # little pops as trees and people spring up
 for k in range(46):
-    t = 1.1 + 3.2 * (k / 46.0) ** 0.9 + rng.uniform(-0.03, 0.03)
+    t = (1.1 + 3.2 * (k / 46.0) ** 0.9) * TL.SLOW + rng.uniform(-0.03, 0.03)
     n = int(0.05 * SR)
     tt = np.arange(n) / SR
     f = rng.choice([880, 988, 1175, 1319, 1480, 1760])

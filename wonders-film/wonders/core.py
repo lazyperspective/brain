@@ -115,7 +115,7 @@ class Shape:
     __slots__ = ('subs', 'closed', 'fill', 'ink', 'inkc', 'stage', 'tk', 'dk', 'wave',
                  'wd0', 'wd1', 'tw1', 'group', 'path', 'bbox', 'cx', 'cy', 'layer',
                  'draw', 'length', 'tp', 'dp', 'te', 'de', 'link', 'sky', 'alpha',
-                 'instant', 'order', 'under', 'clip')
+                 'instant', 'order', 'under', 'clip', 'path2')
 
     def __init__(self, subs, closed, fill, ink, inkc, stage):
         self.subs = subs
@@ -140,6 +140,7 @@ class Shape:
         self.instant = False
         self.under = None
         self.clip = None
+        self.path2 = None
         self.wd0 = self.wd1 = 0.0
         self.tw1 = -1e9
         self.order = 0
@@ -479,7 +480,7 @@ class Tile:
         return self.poly(self.ring(u, v, r, z, rv=rv)[:-1], fill, ink, **kw)
 
     # ---- pencil construction
-    def guide(self, segs, ticks=0, over=0.14, link=None, tp=None, te=None, w=0.42, tick_len=1.5, px=False):
+    def guide(self, segs, ticks=0, over=0.14, link=None, tp=None, te=None, w=0.48, tick_len=1.5, px=False):
         """Pencil construction lines: overshooting ends + measuring ticks."""
         subs = []
         for seg in segs:
@@ -498,7 +499,18 @@ class Tile:
                         subs.append([c - nrm, c + nrm])
             else:
                 subs.append(pts)
-        sh = self._add(subs, False, None, w, PENCIL, layer='pencil', wob=0.3, instant=False)
+        sh = self._add(subs, False, None, w, PENCIL, layer='pencil', wob=0.4, instant=False)
+        # a second, lighter pass of the pencil that doesn't quite retrace the first: the hand going over a line
+        p2 = skia.Path()
+        for k, sub in enumerate(sh.subs):
+            off = np.array([31.7 + 5.3 * k, 17.3 - 3.1 * k])
+            s2 = wobble(sub + off, 0.38) - off
+            if len(s2) > 2:
+                n = len(s2)
+                a0, a1 = int(n * 0.04), n - int(n * 0.07)          # the second stroke starts late and lifts early
+                s2 = s2[a0:max(a0 + 2, a1)]
+            p2.addPoly([skia.Point(float(x), float(y)) for x, y in s2], False)
+        sh.path2 = p2
         sh.group = None
         sh.link = link
         sh.tp = tp
