@@ -165,7 +165,7 @@ class Shape:
 
 class Group:
     """A set of shapes that arrives (and afterwards lives) as one body."""
-    __slots__ = ('kind', 't0', 'dur', 'pivot', 'off', 'motion', 'stage', 'rank_pt', 'bbox', 'ph')
+    __slots__ = ('kind', 't0', 'dur', 'pivot', 'off', 'motion', 'stage', 'rank_pt', 'bbox', 'ph', 'reach', 'seed')
 
     def __init__(self, kind=None, t0=None, dur=0.3, pivot=(0.0, 0.0), off=(0.0, 0.0),
                  motion=None, stage='life'):
@@ -178,6 +178,8 @@ class Group:
         self.stage = stage
         self.bbox = None
         self.ph = 0.0
+        self.reach = 14.0 if motion is None else float(getattr(motion, 'reach', 40.0))
+        self.seed = 0.0
 
     def state(self, tau, t):
         """-> None (hidden) or (dx, dy, rot, sx, sy, alpha, wipe)"""
@@ -254,6 +256,10 @@ class Group:
                 rot += m[2]
                 sx *= m[3]
                 sy *= m[4]
+                if len(m) > 5:
+                    a *= m[5]
+                    if a <= 0.004:
+                        return None
         return (dx, dy, rot, sx, sy, a, wipe)
 
 
@@ -322,7 +328,8 @@ class Tile:
         self.placeholder = []
         self.hold = None          # optional tile-specific overrides
         self.instant_kw = {}
-        self.finale = []          # groups the timeline fires together at the very end
+        self.finale = []          # groups the timeline fires together when the map stands complete
+        self.finale2 = []         # ... and again on the closing wide shot
 
     # ---- coordinates
     def P(self, u, v, z=0.0):
@@ -351,6 +358,9 @@ class Tile:
         g = Group(kind, t0, dur, tuple(pivot) if pivot is not None else (0.0, 0.0), off, motion,
                   stage or self.stage)
         g.ph = self.rng.uniform(0, 6.283) if ph is None else ph
+        g.seed = self.rng.uniform(0, 100.0)
+        if kind in ('drift', 'condense', 'drop'):
+            g.reach = max(g.reach, 40.0)
         self.groups.append(g)
         old = (self.cur_group, self.instant_kw)
         self.cur_group = g
@@ -377,7 +387,7 @@ class Tile:
             elif closed:
                 sub = np.vstack([sub, sub[:1]])[:-1]
             out.append(sub)
-        sh = Shape(out, closed, fill, ink, inkc, stage or self.stage)
+        sh = Shape(out, closed, vivid(fill), ink, vivid(inkc), stage or self.stage)
         sh.tk = tk
         sh.dk = dk
         sh.wave = wave if wave is not None else self.cur_wave

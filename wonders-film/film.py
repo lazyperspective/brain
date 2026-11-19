@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Wonders of the World - opening 5 seconds.
+"""Wonders of the World - the film.
 
-  film.py film  [-o out/wonders_5s.mp4]        render all frames -> ffmpeg
-  film.py still T [T ...] [--zoom Z --at X,Y]  full-res stills at given times
-  film.py sheet                                contact sheet of the 5 s
-  film.py tile NAME [--t T] [--zoom Z]         debug: one tile, finished (or at tile-time T)
+  film.py film                      render every frame -> out/wonders_full_1080p.mp4 (+ soundtrack if present)
+  film.py film --frames 0 150 -o out/wonders_5s.mp4     any frame range
+  film.py share                     out/wonders_full_share.mp4 from the master
+  film.py still T [T ...] [--zoom Z --at=X,Y]            full-res stills at given times (film camera by default)
+  film.py shots                     one full-res still from the middle of every shot
+  film.py sheet                     contact sheet: the build sequence + one tile per shot
+  film.py tile NAME [--t T]         debug: one tile, finished (or at tile-time T)
 """
 import argparse
 import os
@@ -50,30 +53,51 @@ def save_png(path, img):
 
 
 def cmd_film(a):
-    n = int(round(5.0 * 30))
-    out = a.out or os.path.join(OUT, 'wonders_5s.mp4')
-    ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % SIZE,
-                           '-r', '30', '-i', '-', '-vf', 'scale=out_color_matrix=bt709:out_range=tv', '-c:v', 'libx264', '-preset', 'slow', '-crf', '13',
-                           '-pix_fmt', 'yuv420p', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
-                           '-movflags', '+faststart', out], stdin=subprocess.PIPE)
+    from wonders import timeline as TL
+    f0, f1 = a.frames if a.frames else (0, TL.TOTAL_FRAMES)
+    out = a.out or os.path.join(OUT, 'wonders_full_1080p.mp4')
+    wav = os.path.join(OUT, 'soundtrack.wav')
+    audio = (not a.frames) and os.path.exists(wav) and not a.silent
+    cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % SIZE, '-r', '30', '-i', '-']
+    if audio:
+        cmd += ['-i', wav]
+    # ONE x264 encoder; the renderer's four workers feed it in order
+    cmd += ['-vf', 'scale=out_color_matrix=bt709:out_range=tv', '-c:v', 'libx264', '-preset', 'slow', '-crf', str(a.crf),
+            '-pix_fmt', 'yuv420p', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-g', '50']
+    # a keyframe on every hard cut
+    cuts = [c for c in TL.CUTS if f0 < c < f1]
+    if cuts:
+        cmd += ['-force_key_frames', ','.join('%.5f' % ((c - f0) / 30.0) for c in cuts)]
+    if audio:
+        cmd += ['-c:a', 'aac', '-b:a', '256k', '-shortest']
+    cmd += ['-movflags', '+faststart', out]
+    ff = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     t0 = time.time()
-    frames_dir = os.path.join(OUT, 'frames')
-    os.makedirs(frames_dir, exist_ok=True)
     with Pool(a.jobs, initializer=_init) as pool:
-        for k, buf in pool.imap(_frame, range(n), chunksize=2):
+        for k, buf in pool.imap(_frame, range(f0, f1), chunksize=2):
             ff.stdin.write(buf)
-            if a.keep:
-                save_png(os.path.join(frames_dir, 'f%03d.png' % k), np.frombuffer(buf, np.uint8).reshape(SIZE[1], SIZE[0], 3))
-            if k % 15 == 0:
-                print('frame %3d/%d  %.1fs' % (k, n, time.time() - t0), flush=True)
+            if (k - f0) % 100 == 0:
+                print('frame %4d/%d  %.0fs' % (k, f1, time.time() - t0), flush=True)
     ff.stdin.close()
     ff.wait()
-    print('wrote', out, '%.1fs' % (time.time() - t0))
+    print('wrote', out, '%.0fs' % (time.time() - t0))
+
+
+def cmd_share(a):
+    src = os.path.join(OUT, 'wonders_full_1080p.mp4')
+    out = os.path.join(OUT, 'wonders_full_share.mp4')
+    subprocess.check_call(['ffmpeg', '-y', '-loglevel', 'error', '-i', src, '-c:v', 'libx264', '-preset', 'medium', '-crf', '25', '-pix_fmt', 'yuv420p',
+                           '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
+                           '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', out])
+    print('wrote', out, '%.1f MB' % (os.path.getsize(out) / 1e6))
 
 
 def cmd_still(a):
-    # paper grain is generated at a resolution that suits the zoom of the shot
-    setup(tpx=max(2.6, (a.zoom or 0) * 1.1))
+    if a.original_palette:
+        from wonders import pal
+        pal.VIVID = 1.0
+        pal.ACCENT, pal.ACCENT_D, pal.ACCENT_L = (243, 158, 30), (214, 126, 22), (250, 198, 104)
+    setup()
     for t in a.times:
         cam = _TL.camera(t)
         if a.zoom:
@@ -82,22 +106,45 @@ def cmd_still(a):
             x, y = map(float, a.at.split(','))
             cam = (x, y, cam[2])
         img = _R.frame(t, cam)
-        p = os.path.join(OUT, a.name % t if a.name else 'still_%05.2fs.png' % t)
+        p = os.path.join(OUT, (a.name % t if '%' in a.name else a.name) if a.name else 'still_%05.2fs.png' % t)
+        save_png(p, img)
+        print(p)
+
+
+def _shot_times():
+    from wonders import timeline as TL
+    out = [('00_build_hold', (TL.CUTS[0] - 40) / 30.0)]
+    for k, (name, _, _) in enumerate(TL.SHOTS):
+        out.append(('%02d_%s' % (k + 1, name), (TL.CUTS[k] + 50) / 30.0))
+    out.append(('%02d_final_wide' % (len(TL.SHOTS) + 1), (TL.CUTS[-1] + 75) / 30.0))
+    return out
+
+
+def cmd_shots(a):
+    setup()
+    os.makedirs(os.path.join(OUT, 'shots'), exist_ok=True)
+    for name, t in _shot_times():
+        img = _R.frame(t, _TL.camera(t))
+        p = os.path.join(OUT, 'shots', 'shot_%s_%05.2fs.png' % (name, t))
         save_png(p, img)
         print(p)
 
 
 def cmd_sheet(a):
     import cv2
-    setup(ss=1, size=SIZE)
-    times = [k * (5.0 / 30) for k in range(29)] + [149 / 30.0]
-    cols, rows = 6, 5
+    setup()
+    cols = 6
     tw, th = 640, 360
-    sheet = np.zeros((rows * th, cols * tw, 3), np.uint8)
-    for k, t in enumerate(times):
+    build = [k * (4.5 / 11) for k in range(12)]
+    shots = _shot_times()
+    tiles = [('build %.2fs' % t, t) for t in build] + [('%s  %.1fs' % (n, t), t) for n, t in shots]
+    rows = (len(tiles) + cols - 1) // cols
+    sheet = np.full((rows * th, cols * tw, 3), 236, np.uint8)
+    for k, (label, t) in enumerate(tiles):
         img = _R.frame(t, _TL.camera(t))
         im = cv2.resize(img, (tw, th), interpolation=cv2.INTER_AREA)
-        cv2.putText(im, '%.2fs' % t, (12, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (60, 55, 50), 2, cv2.LINE_AA)
+        cv2.rectangle(im, (0, 0), (len(label) * 13 + 16, 34), (241, 236, 224), -1)
+        cv2.putText(im, label, (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (50, 45, 40), 2, cv2.LINE_AA)
         r, c = divmod(k, cols)
         sheet[r * th:(r + 1) * th, c * tw:(c + 1) * tw] = im
     p = os.path.join(OUT, 'contact_sheet.jpg')
@@ -107,7 +154,7 @@ def cmd_sheet(a):
 
 def cmd_tile(a):
     names = a.name.split(',')
-    w = setup(only=names, starts={n: (-10.0 if a.t is None else 0.0) for n in names}, tpx=max(2.6, (a.zoom or 5) * 1.1))
+    w = setup(only=names, starts={n: (-10.0 if a.t is None else 0.0) for n in names}, tpx=5.8)
     x0, y0, x1, y1 = w.bounds()
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     z = a.zoom or min(SIZE[0] / (x1 - x0 + 24), SIZE[1] / (y1 - y0 + 24))
@@ -115,16 +162,20 @@ def cmd_tile(a):
         img = _R.frame(0.0 if t is None else t, (cx, cy, z))
         p = os.path.join(OUT, 'tile_%s%s.png' % (names[0], '' if t is None else '_%.2f' % t))
         save_png(p, img)
-        print(p, len(sum([list(tt.shapes) for tt in w.tiles.values()], [])), 'shapes')
+        print(p)
 
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest='cmd')
-    f = sub.add_parser('film'); f.add_argument('-o', '--out'); f.add_argument('-j', '--jobs', type=int, default=4); f.add_argument('--keep', action='store_true')
+    f = sub.add_parser('film'); f.add_argument('-o', '--out'); f.add_argument('-j', '--jobs', type=int, default=4)
+    f.add_argument('--frames', type=int, nargs=2); f.add_argument('--crf', type=int, default=15); f.add_argument('--silent', action='store_true')
+    sub.add_parser('share')
     s = sub.add_parser('still'); s.add_argument('times', type=float, nargs='+'); s.add_argument('--zoom', type=float); s.add_argument('--at'); s.add_argument('--name')
+    s.add_argument('--original-palette', action='store_true', help='render with the muted palette of the first 5 s test (for before/after)')
+    sub.add_parser('shots')
     sub.add_parser('sheet')
     t = sub.add_parser('tile'); t.add_argument('name'); t.add_argument('--t', type=float, nargs='*'); t.add_argument('--zoom', type=float)
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
-    {'film': cmd_film, 'still': cmd_still, 'sheet': cmd_sheet, 'tile': cmd_tile}[a.cmd](a)
+    {'film': cmd_film, 'share': cmd_share, 'still': cmd_still, 'shots': cmd_shots, 'sheet': cmd_sheet, 'tile': cmd_tile}[a.cmd](a)

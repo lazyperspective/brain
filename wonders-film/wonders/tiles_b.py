@@ -6,7 +6,7 @@ import numpy as np
 from .core import W, ZS, SLAB, smooth_poly, Wave
 from .pal import *  # noqa
 from . import props as pr
-from .props import person, tree, crowd, grove, water, walker, bobber, cruise
+from .props import person, tree, crowd, grove, water, walker, bobber, cruise, runner, stroll
 from .tiles_a import sm, sea_wall, ARCH_DK, lerp3
 
 
@@ -24,7 +24,7 @@ def eiffel(T):
             T.poly([(a, b), (c_, b), (c_, d_), (a, d_)], GRASS, 0.3)
     T.tufts([(0, 0), (0.55, 0), (0.55, 0.24), (0, 0.24)], 26)
     T.tufts([(0.85, 0), (1, 0), (1, 1), (0.85, 1)], 20)
-    water(T, [(0.65, 0), (0.79, 0), (0.79, 1), (0.65, 1)], src=(0.72, 0.0), marks=14, t0=0.28)
+    water(T, [(0.65, 0), (0.79, 0), (0.79, 1), (0.65, 1)], src=(0.72, 0.0), marks=18, t0=0.28, flow=(0, 1))
     T.wall_water('L', 0.65, 0.79)
 
     # ---- far bank: Haussmann blocks under zinc roofs, Trocadero pool
@@ -171,10 +171,12 @@ def eiffel(T):
         pr.lamp(T, Q + np.array([0, -5.6]), 0.9, ACCENT_L, t0=1.2 + 0.04 * k)
 
     # ---- life
-    pr.steamer(T, 0.72, 0.72, 'v', L=0.17, c=MARBLE, trim=ZINC, motion=cruise(0.0, -0.12, 0.8, 0.15, 0.3), decks=1)
+    pr.steamer(T, 0.72, 0.90, 'v', L=0.17, c=MARBLE, trim=ZINC, motion=cruise(0.0, -0.36, 0.8, 0.15, 0.3), decks=1)
     pr.rowboat(T, 0.70, 0.20, 'v', c=TERRA, crew=2)
-    pr.car(T, 0.20, 0.86, 'u', c=ZINC, motion=cruise(0.16, 0.0, 1.2, 0.0, 0.0))
-    pr.car(T, 0.46, 0.845, 'u', c=ROSE, motion=cruise(-0.14, 0.0, 1.0, 0.0, 0.0), s=0.9)
+    pr.car(T, 0.03, 0.875, 'u', c=ZINC, motion=runner(0.50, 0.0, 8.0))
+    pr.car(T, 0.03, 0.878, 'u', c=MARBLE, motion=runner(0.50, 0.0, 13.0), s=0.9)
+    pr.car(T, 0.53, 0.845, 'u', c=ROSE, motion=runner(-0.50, 0.0, 9.5), s=0.9)
+    pr.car(T, 0.53, 0.848, 'u', c=ACCENT, motion=runner(-0.50, 0.0, 15.0), s=0.85)
     crowd(T, [(0.24, 0.47), (0.56, 0.47), (0.56, 0.60), (0.24, 0.60)], 9, mind=0.025)
     crowd(T, [(0.02, 0.41), (0.22, 0.41), (0.22, 0.45), (0.02, 0.45)], 4)
     crowd(T, [(0.03, 0.775), (0.52, 0.775), (0.52, 0.815), (0.03, 0.815)], 8, walk_frac=0.3, mind=0.025)
@@ -190,8 +192,6 @@ def eiffel(T):
         for k, (dx, dy, c_) in enumerate(((-1.6, -11.0, ACCENT), (0.8, -12.4, ROSE), (2.4, -10.4, WATER_D))):
             T.line2(B_, [(1.2, -4.0), (dx, dy)], 0.18)
             T.ell2(B_ + np.array([dx, dy - 1.2]), 1.2, 1.4, fill=c_, ink=0.24, n=9, wob=0)
-    pr.bird(T, 0.30, 0.50, 0.50, 0.7, orbit=(9, 3))
-    pr.bird(T, 0.36, 0.46, 0.56, 0.6, orbit=(8, 2.5))
     pr.cloud(T, 0.10, 0.36, 0.62, 0.95)
     pr.cloud(T, 0.62, 0.20, 0.50, 0.75)
     pr.glint(T, T.P(cu, cv, 0.80), 1.3)
@@ -244,15 +244,14 @@ def everest(T):
         with T.grp('pop', pivot=T.P(a, b), stage='life', dur=0.25):
             T.dome(a, b, 0.02, 0.02, c=ACCENT if k == 0 else TERRA, guide=False, ink=0.34)
     for k in range(4):
-        person(T, 0.80 + k * 0.03, 0.74 + k * 0.012, shirt=[ACCENT, ZINC, TERRA, MARBLE][k], s=0.85, walk=walker(-0.04, -0.03, 8), ph=0.8)
+        person(T, 0.80 + k * 0.03, 0.74 + k * 0.012, shirt=[ACCENT, ZINC, TERRA, MARBLE][k], s=0.85, walk=walker(-0.07, -0.05, 12), ph=0.8, bag=TERRA)
 
     # ---- climbers roped up the west ridge
     A = np.array(T.P3((0.02, 0.52, 0.0)))
     B = np.array(T.P3(EV))
     rope = [A + (B - A) * q for q in (0.36, 0.44, 0.52, 0.60)]
-    T.line2((0, 0), [p + np.array([0, -2.0]) for p in rope], 0.22, stage='detail')
     for k, p in enumerate(rope):
-        person(T, 0, 0, at=p, shirt=ACCENT if k % 2 == 0 else TERRA, s=0.72, walk=pr.walker_px((B - A) * 0.03, 5.0), ph=0.5)
+        person(T, 0, 0, at=p, shirt=ACCENT if k % 2 == 0 else TERRA, s=0.72, walk=pr.walker_px((B - A) * 0.07, 11.0), ph=0.5)
     pr.flag(T, B, ACCENT, 0.9, 5.0)
 
     # ---- base camp
@@ -287,7 +286,6 @@ def everest(T):
     pr.cloud(T, 0.14, 0.46, 0.50, 1.0)
     pr.cloud(T, 0.74, 0.36, 0.42, 0.9)
     pr.cloud(T, 0.56, 0.10, 0.40, 0.7)
-    pr.bird(T, 0.60, 0.60, 0.40, 0.9, orbit=(10, 4), speed=0.7)
     pr.glint(T, B + np.array([0, -4.0]), 1.0)
 
 
@@ -307,7 +305,7 @@ def fuji(T):
         for k in range(7):
             v = 0.66 + k * 0.045
             T.poly([(0.80 + 0.012 * k, v), (0.985, v), (0.985, v + 0.02), (0.80 + 0.012 * k + 0.01, v + 0.02)], GRASS_D, 0.28)
-    water(T, north + south, src=(0.0, 0.46), marks=20, t0=0.30, dur=0.5)
+    water(T, north + south, src=(0.0, 0.46), marks=24, t0=0.30, dur=0.5, flow=(1, 0.6))
     T.wall_water('L', 0.72, 0.84)
 
     # ---- Fuji: rises, then the snow settles on it
@@ -389,8 +387,8 @@ def fuji(T):
 
     # ---- life
     pr.rowboat(T, 0.20, 0.56, 'u', c=MARBLE, crew=2, motion=cruise(0.06, 0.02, 0.8))
-    pr.rowboat(T, 0.56, 0.72, 'u', c=TERRA, crew=1)
-    pr.sailboat(T, 0.70, 0.90, 'v', s=0.7, motion=cruise(0.0, 0.05, 0.6))
+    pr.rowboat(T, 0.50, 0.70, 'u', c=TERRA, crew=1, motion=cruise(0.05, 0.03, 0.6))
+    pr.sailboat(T, 0.74, 0.86, 'v', s=0.7, motion=cruise(0.01, 0.05, 0.6))
     crowd(T, [(0.10, 0.78), (0.30, 0.90), (0.42, 0.96), (0.14, 0.97)], 7, mind=0.03, walk_frac=0.3)
     for (a, b) in ((0.27, 0.875), (0.50, 0.90)):                 # parasols
         Q = person(T, a, b, shirt=ROSE, pants=ROSE)
@@ -403,8 +401,6 @@ def fuji(T):
     pr.cloud(T, 0.50, 0.36, 0.26, 1.0)
     pr.cloud(T, 0.84, 0.22, 0.30, 0.9)
     pr.cloud(T, 0.20, 0.10, 0.22, 0.7)
-    pr.bird(T, 0.30, 0.60, 0.22, 0.8, c=INK, orbit=(9, 3))
-    pr.bird(T, 0.24, 0.56, 0.26, 0.7, c=INK, orbit=(8, 3))
     pr.glint(T, T.P((ta + tb) / 2, tv, 0.11), 0.9)
     pr.glint(T, T.P(pu, pv, 0.28), 0.7)
 
@@ -419,7 +415,7 @@ def halong(T):
     sea_wall(T, 'R', TH, t0=0.42)
     T.slab(SAND, EARTH, walls=False, thick=TH)
     r = T.rng
-    water(T, [(0, 0), (1, 0), (1, 1), (0, 1)], src=(0.0, 0.33), marks=34, t0=0.24, dur=0.6, shore=0.0, c=(160, 210, 220))
+    water(T, [(0, 0), (1, 0), (1, 1), (0, 1)], src=(0.0, 0.33), marks=40, t0=0.24, dur=0.6, shore=0.0, c=(150, 214, 216), flow=(1, 0.4))
 
     def karst(u, v, rr, h, t0, seed, cave=False):
         q = __import__('random').Random(seed)
@@ -446,33 +442,30 @@ def halong(T):
         g = T.guide_axis(u, v, h, ticks=4, r=rr)
         g.tp = max(0.02, t0 - 0.22)
         g.te = t0 + 0.45
-    ks = [(0.20, 0.12, 0.07, 0.28, 1, False), (0.46, 0.08, 0.055, 0.20, 2, False), (0.74, 0.14, 0.075, 0.33, 3, False), (0.93, 0.36, 0.05, 0.17, 4, False),
-          (0.10, 0.44, 0.06, 0.22, 5, True), (0.56, 0.36, 0.085, 0.36, 6, False), (0.34, 0.60, 0.05, 0.16, 7, False), (0.80, 0.62, 0.065, 0.26, 8, True),
-          (0.14, 0.84, 0.075, 0.24, 9, False), (0.60, 0.88, 0.045, 0.13, 10, False)]
+    ks = [(0.17, 0.21, 0.065, 0.19, 1, False), (0.43, 0.15, 0.055, 0.17, 2, False), (0.71, 0.19, 0.07, 0.21, 3, False), (0.93, 0.36, 0.05, 0.17, 4, False),
+          (0.13, 0.50, 0.06, 0.17, 5, True), (0.52, 0.43, 0.085, 0.40, 6, False), (0.30, 0.66, 0.05, 0.22, 7, False), (0.79, 0.64, 0.07, 0.34, 8, True),
+          (0.15, 0.86, 0.07, 0.19, 9, False), (0.90, 0.90, 0.045, 0.13, 10, False)]
     boats_mid = False
     for n_, (u, v, rr, h, sd, cave) in enumerate(ks):
         if u + v > 0.75 and not boats_mid:
             boats_mid = True
-            pr.junk(T, 0.34, 0.30, 'u', motion=cruise(0.06, 0.02, 0.6), s=1.1)
-            pr.rowboat(T, 0.74, 0.34, 'u', c=TERRA, crew=1)
+            pr.junk(T, 0.30, 0.32, 'u', motion=cruise(0.07, 0.0, 0.5), s=1.1)
+            pr.rowboat(T, 0.70, 0.38, 'u', c=TERRA, crew=1, motion=cruise(0.08, 0.0, 0.7))
         karst(u, v, rr, h, 0.30 + 0.045 * n_, sd, cave)
     # floating village
     for (a, b, c_) in ((0.40, 0.80, ACCENT_L), (0.46, 0.76, WATER_L), (0.45, 0.85, ROSE), (0.52, 0.80, MARBLE)):
         T.box(a, b, 0.045, 0.04, 0.004, c=WOOD, ink=0.28, guide=False)
         T.house(a + 0.006, b + 0.006, 0.032, 0.028, 0.016, 0.012, wall=c_, roof=TERRA, axis='u', ink=0.3)
     # ---- life
-    pr.junk(T, 0.74, 0.86, 'u', motion=cruise(0.07, 0.0, 0.7), s=1.35)
-    pr.junk(T, 0.30, 0.94, 'v', motion=cruise(0.0, -0.05, 0.5), s=0.8, sail=MARBLE)
+    pr.junk(T, 0.70, 0.87, 'u', motion=cruise(0.09, 0.0, 0.45), s=1.35)
+    pr.junk(T, 0.34, 0.96, 'v', motion=cruise(0.0, -0.08, 0.5), s=0.8, sail=MARBLE)
     pr.rowboat(T, 0.62, 0.66, 'v', c=ACCENT, crew=2, motion=cruise(0.03, 0.04, 0.9))
     pr.rowboat(T, 0.93, 0.80, 'u', c=MARBLE, crew=1, motion=cruise(-0.04, 0.02, 0.8))
     pr.rowboat(T, 0.24, 0.70, 'u', c=TERRA, crew=1)
     crowd(T, [(0.40, 0.82), (0.44, 0.82), (0.44, 0.84), (0.40, 0.84)], 1, z=0.004)
-    pr.bird(T, 0.56, 0.36, 0.42, 0.8, orbit=(10, 3))
-    pr.bird(T, 0.50, 0.40, 0.46, 0.7, orbit=(8, 3))
-    pr.bird(T, 0.24, 0.20, 0.34, 0.7, orbit=(7, 3))
     pr.cloud(T, 0.40, 0.18, 0.34, 0.9, alpha=0.95)
     pr.cloud(T, 0.86, 0.26, 0.30, 0.8)
-    pr.glint(T, T.P(0.74, 0.86, 0.13), 0.9)
+    pr.glint(T, T.P(0.52, 0.43, 0.42), 0.9)
     # under the surface
     fish_wall(T, 'L', TH, 5, corals=3)
     fish_wall(T, 'R', TH, 4, corals=2)
@@ -522,14 +515,15 @@ def fish_wall(T, face, thick, n=6, corals=4, seed=None, cols=None):
         a = r.uniform(0.08, 0.86)
         z = -thick * r.uniform(0.16, 0.62)
         flip = (r.random() < 0.5)
-        dirn = ax * (0.07 if not ((face == 'L') ^ (not flip)) else -0.07)
+        dirn = ax * (0.11 if not ((face == 'L') ^ (not flip)) else -0.11)
         # fish face the way they swim along the wall
         sgn = 1 if (ax[0] * dirn[0] > 0) else -1
         fl = (sgn * ax[0] < 0)
 
         def mo(t, age, ph, d=dirn, sp=r.uniform(0.5, 0.9)):
-            s_ = (t * 0.12 * sp + ph) % 1.0
-            return (d[0] * 2.4 * (s_ - 0.5), d[1] * 2.4 * (s_ - 0.5) + 0.5 * math.sin(t * 3 + ph * 9))
+            s_ = (t * 0.12 * sp + ph / 6.283) % 1.0
+            al = min(1.0, min(s_, 1.0 - s_) / 0.07)
+            return (d[0] * 2.4 * (s_ - 0.5), d[1] * 2.4 * (s_ - 0.5) + 0.5 * math.sin(t * 3 + ph * 9), 4.0 * math.sin(t * 9 + ph * 5), 1.0, 1.0, al)
         c_ = cols[k % len(cols)]
         fish(T, fp(a, z), r.uniform(0.75, 1.1) * (thick / 0.16) ** 0.4, c_, flip=fl, stripes=(c_ == ACCENT), motion=mo)
 

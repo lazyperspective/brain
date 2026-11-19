@@ -3,11 +3,11 @@ import math
 
 import numpy as np
 
-from .core import W, ZS, SLAB, smooth_poly, Wave
+from .core import W, ZS, SLAB, smooth_poly, Wave, argb
 from .pal import *  # noqa
 from . import props as pr
 from . import ease
-from .props import person, tree, crowd, grove, water, walker, bobber, cruise
+from .props import person, tree, crowd, grove, water, walker, bobber, cruise, runner, stroll
 from .tiles_a import sm, ARCH_DK, dune
 
 SARSEN = (200, 198, 192)
@@ -71,14 +71,15 @@ def stonehenge(T):
             stone(u + 0.022, v, 0.026, 0.03, 0.14, c=shade(SARSEN, 0.97))
             T.box(u - 0.04, v - 0.017, 0.08, 0.034, 0.024, z=0.14, c=SARSEN, ink=0.38, guide=False)
     stone(0.80, 0.60, 0.03, 0.03, 0.06)        # heel stone
-    for (a, b, f) in ((0.24, 0.66, False), (0.30, 0.74, True), (0.20, 0.52, False), (0.70, 0.80, True)):
-        pr.sheep(T, a, b, flip=f)
+    for (a, b, f) in ((0.24, 0.66, False), (0.30, 0.74, True), (0.20, 0.52, False), (0.70, 0.80, True), (0.80, 0.44, True), (0.26, 0.38, False)):
+        pr.sheep(T, a, b, flip=f, walk=walker(0.04 * (-1 if f else 1), 0.01, r.uniform(9, 15)))
     crowd(T, [(0.56, 0.70), (0.76, 0.66), (0.72, 0.80), (0.56, 0.82)], 5, mind=0.04)
     person(T, 0.47, 0.50, shirt=MARBLE, pants=MARBLE, arms=True)      # a druid at the altar stone
     Bk = T.P(0.36, 0.84)
     T.poly2(Bk, [(-3.4, 0), (0, -1.7), (3.4, 0), (0, 1.7)], ACCENT, 0.26, wob=0, stage='detail')
     person(T, 0.37, 0.85, shirt=ROSE)
-    pr.bird(T, 0.5, 0.5, 0.30, 0.8, orbit=(10, 4))
+    pr.flock(T, 0.5, 0.5, 0.30, 6, orbit=(22, 7))
+    stroll(T, [(0.30, 0.60), (0.50, 0.76), (0.72, 0.62)], 5)
     pr.cloud(T, 0.22, 0.26, 0.34, 0.8)
     pr.glint(T, T.P(cu, cv, 0.18), 0.8)
 
@@ -103,50 +104,88 @@ def aurora(T):
     pr.lamp(T, win, 1.1, ACCENT_L, t0=1.1)
     for (a, b) in ((0.70, 0.56), (0.76, 0.46), (0.30, 0.36), (0.24, 0.48)):
         tree(T, a, b, 0.85, JUNGLE, 'fir')
-    pr.bear(T, 0.50, 0.70, s=1.1, walk=walker(0.04, 0.0, 9))
-    pr.bear(T, 0.17, 0.865, s=0.6, flip=True)
+    pr.bear(T, 0.44, 0.71, s=1.2, walk=walker(0.12, 0.0, 14))
+    pr.bear(T, 0.165, 0.865, s=0.62, flip=True)
     person(T, 0.56, 0.50, shirt=ACCENT, hat=TERRA, arms=True)
     # sled with a dog
-    pr.quad(T, 0.34, 0.66, 3.6, 1.8, 1.4, (0.8, -0.8), (1.3, 0.9), (150, 150, 156), s=0.8)
+    pr.quad(T, 0.30, 0.62, 3.6, 1.8, 1.4, (0.8, -0.8), (1.3, 0.9), (150, 150, 156), s=0.8, walk=walker(0.07, -0.03, 6))
+    person(T, 0.66, 0.60, shirt=ZINC, hat=ACCENT, path=[(0.66, 0.60), (0.56, 0.64), (0.52, 0.56)])
 
-    # ---- the aurora: curtains of light that unfurl upward and keep rippling
+    # ---- the aurora: a scrap of polar night hangs over the island, and across it curtains of light
+    #      unfurl, ripple, drift sideways and slowly change colour
     base = T.P(0.5, 0.5, 0.36)
-    bands = [((112, 212, 160), -32, 1, 36, 0.0), ((124, 202, 222), -8, -8, 32, 1.7), ((190, 160, 220), 18, -2, 26, 3.1)]
+    NIGHT = vivid((44, 52, 104))
+    nc = base + np.array([4.0, -16.0])
+    rr_ = __import__('random').Random(5)
+    nb = []
+    for k in range(13):
+        a_ = 2 * math.pi * k / 13
+        q = 1 + rr_.uniform(-0.12, 0.12)
+        nb.append(np.array([47.0 * q * math.cos(a_), 21.0 * q * math.sin(a_)]))
+    nb = smooth_poly(nb, 3)
+    stars = [(rr_.uniform(-38, 38), rr_.uniform(-15, 13), rr_.uniform(0, 6.28)) for _ in range(16)]
+    bands = [((70, 232, 150), -36, 6, 30, 0.0), ((90, 214, 236), -14, -1, 30, 1.7), ((126, 236, 170), 6, 5, 26, 4.4), ((214, 120, 232), 18, -3, 22, 3.1)]
 
     def draw(c, tau, t, a, R):
-        x = (tau - 0.95) / 0.6
+        x = (tau - 0.9) / 0.5
         if x <= 0:
             return
-        grow = ease.out_back(min(1.0, x), 1.3)
-        al = min(1.0, x * 2.0)
-        for (col, ox, oy, width, ph) in bands:
-            n = 22
-            top, bot = [], []
-            for k in range(n + 1):
-                q = k / n
-                xx = ox + width * q
-                wave = 3.2 * math.sin(q * 5.0 + t * 1.6 + ph) + 1.6 * math.sin(q * 11.0 - t * 2.3 + ph)
-                yb = oy + wave + 5.0 * math.sin(q * 3.1 + ph)
-                hgt = (24 + 8 * math.sin(q * 7 + ph * 2 + t * 0.9)) * grow
-                bot.append(base + np.array([xx, yb]))
-                top.append(base + np.array([xx + 2.5 * math.sin(t * 0.8 + q * 4), yb - hgt]))
-            # light that is strongest at its hem and fades upward
-            m1 = [b_ + (t_ - b_) * 0.34 for b_, t_ in zip(bot, top)]
-            m2 = [b_ + (t_ - b_) * 0.68 for b_, t_ in zip(bot, top)]
-            R.poly(c, bot + m1[::-1], fill=col, a=0.86 * al * a)
-            R.poly(c, m1 + m2[::-1], fill=col, a=0.56 * al * a)
-            R.poly(c, m2 + top[::-1], fill=col, a=0.26 * al * a)
-            for k in range(0, n + 1, 2):
-                R.poly(c, [bot[k], m2[k] + (top[k] - m2[k]) * 0.6], ink=mix(col, MARBLE, 0.7), w=0.45, a=0.75 * al * a, closed=False)
-            R.poly(c, bot, ink=mix(col, MARBLE, 0.6), w=1.1, a=al * a, closed=False)
-            R.poly(c, bot, ink=shade(col, 0.8), w=0.35, a=al * a, closed=False)
-    T.custom(draw, [base + np.array([-34, -40]), base + np.array([44, 10])], sky=True, stage='sky')
-    for k, (dx, dy) in enumerate(((-36, -30), (-4, -40), (30, -34), (46, -18), (-22, -42))):      # stars
-        S = base + np.array([dx, dy])
-        with T.st('sky'):
-            with T.grp('light', t0=1.2 + 0.05 * k, dur=0.3, pivot=S, stage='sky',
-                       motion=lambda t, age, ph: (0, 0, 0, 0.8 + 0.3 * math.sin(t * 4 + ph), 0.8 + 0.3 * math.sin(t * 4 + ph))):
-                T.lines2(S, [[(-1.3, 0), (1.3, 0)], [(0, -1.3), (0, 1.3)]], 0.34, ACCENT, wob=0, sky=True)
+        g0 = ease.out_back(min(1.0, x), 1.4)
+        R.poly(c, [nc + p_ * g0 for p_ in nb], fill=NIGHT, ink=INK, w=0.5, a=a * min(1.0, x * 3))
+        if x < 0.5:
+            return
+        import skia as _sk
+        cp = _sk.Path()
+        cp.addPoly([_sk.Point(float(nc[0] + p_[0] * 0.965), float(nc[1] + p_[1] * 0.95)) for p_ in nb], True)
+        c.save()
+        c.clipPath(cp, _sk.ClipOp.kIntersect, True)
+        for (sx_, sy_, ph) in stars:
+            tw = 0.5 + 0.5 * math.sin(t * 3.1 + ph)
+            R.fill(c, pr.skia_circle(nc[0] + sx_, nc[1] + sy_, 0.3 + 0.3 * tw), (255, 250, 226), a * (0.45 + 0.55 * tw))
+        y2 = (tau - 1.15) / 0.6
+        if y2 > 0:
+            grow = ease.out_back(min(1.0, y2), 1.3)
+            al = min(1.0, y2 * 2.0)
+            for bi, (col, ox, oy, width, ph) in enumerate(bands):
+                # colours breathe: each band leans toward its neighbour's hue and back
+                col = mix(col, bands[(bi + 1) % 4][0], 0.5 + 0.5 * math.sin(t * 0.55 + ph))
+                col = vivid(col)
+                sl = 7.0 * math.sin(t * 0.33 + ph)                    # the whole curtain slides
+                n = 22
+                top, bot = [], []
+                for k in range(n + 1):
+                    q = k / n
+                    xx = ox + sl + width * q
+                    wv_ = 3.0 * math.sin(q * 5.0 + t * 1.7 + ph) + 1.5 * math.sin(q * 11.0 - t * 2.6 + ph)
+                    yb = oy + wv_ + 4.0 * math.sin(q * 3.1 + ph + t * 0.4)
+                    hgt = (17 + 7 * math.sin(q * 7 + ph * 2 + t * 1.1)) * grow
+                    bot.append(base + np.array([xx, yb - 9.0]))
+                    top.append(base + np.array([xx + 2.5 * math.sin(t * 0.8 + q * 4), yb - 9.0 - hgt]))
+                m1 = [b_ + (t_ - b_) * 0.34 for b_, t_ in zip(bot, top)]
+                m2 = [b_ + (t_ - b_) * 0.68 for b_, t_ in zip(bot, top)]
+                R.pf.setColor(argb(col, 0.92 * al * a)); c.drawPath(_pp(bot + m1[::-1]), R.pf)
+                R.pf.setColor(argb(col, 0.6 * al * a)); c.drawPath(_pp(m1 + m2[::-1]), R.pf)
+                R.pf.setColor(argb(col, 0.3 * al * a)); c.drawPath(_pp(m2 + top[::-1]), R.pf)
+                lite = mix(col, (255, 255, 255), 0.6)
+                for k in range(0, n + 1, 2):
+                    fl = 0.5 + 0.5 * math.sin(t * 4.0 + k * 1.3 + ph)
+                    R.ps.setColor(argb(lite, 0.8 * al * a * fl)); R.ps.setStrokeWidth(0.4)
+                    e_ = m2[k] + (top[k] - m2[k]) * 0.6
+                    c.drawLine(float(bot[k][0]), float(bot[k][1]), float(e_[0]), float(e_[1]), R.ps)
+                R.ps.setColor(argb(lite, al * a)); R.ps.setStrokeWidth(0.9)
+                c.drawPath(_pp(bot, False), R.ps)
+        c.restore()
+        R.poly(c, [nc + p_ * g0 for p_ in nb], ink=INK, w=0.5, a=a)
+    T.custom(draw, [nc + np.array([-52, -26]), nc + np.array([52, 26])], sky=True, stage='sky')
+    pr.smoke(T, T.P(0.62, 0.42, 0.064), 0.75, lean=5)
+    T.box(0.615, 0.415, 0.012, 0.012, 0.02, z=0.05, c=TERRA, ink=0.28, guide=False)
+
+
+def _pp(pts, closed=True):
+    import skia as _sk
+    p = _sk.Path()
+    p.addPoly([_sk.Point(float(x), float(y)) for x, y in pts], closed)
+    return p
 
 
 # ================================================================ MOAI ====
@@ -179,14 +218,14 @@ def moai(T):
         statue(u, s, hat)
     # one fallen, face down
     T.box(0.60, 0.68, 0.12, 0.035, 0.02, c=BASALT, ink=0.38, guide=False)
-    pr.horse(T, 0.30, 0.62, walk=walker(0.04, 0.01, 9))
-    pr.horse(T, 0.24, 0.70, col=(110, 84, 70), flip=True, s=0.9)
+    pr.horse(T, 0.32, 0.60, walk=walker(0.06, 0.0, 10))
+    pr.horse(T, 0.42, 0.69, col=(110, 84, 70), flip=True, s=0.9, walk=walker(-0.06, 0.0, 12))
+    stroll(T, [(0.22, 0.47), (0.50, 0.48), (0.76, 0.47)], 6, hat=MARBLE)
     crowd(T, [(0.40, 0.52), (0.70, 0.52), (0.70, 0.64), (0.40, 0.64)], 4, hat=MARBLE, mind=0.05)
     tree(T, 0.78, 0.56, 0.9, FOREST, 'palm')
     tree(T, 0.16, 0.44, 0.8, FOREST, 'palm')
-    pr.rowboat(T, 0.86, 0.22, 'u', c=TERRA, crew=2)
-    pr.bird(T, 0.5, 0.4, 0.34, 0.8, orbit=(10, 3))
-    pr.bird(T, 0.56, 0.36, 0.38, 0.7, orbit=(8, 3))
+    pr.rowboat(T, 0.78, 0.20, 'u', c=TERRA, crew=2, motion=cruise(0.06, 0.02, 0.6))
+    pr.flock(T, 0.5, 0.4, 0.36, 6, orbit=(20, 6))
     pr.glint(T, T.P(0.38, 0.385, 0.022) + np.array([0, -21]), 0.7)
 
 
@@ -220,12 +259,13 @@ def opera(T):
     tree(T, 0.27, 0.46, 0.8, FOREST, 'palm')
     tree(T, 0.72, 0.42, 0.7, FOREST, 'round')
     # harbour traffic
-    pr.steamer(T, 0.70, 0.90, 'u', L=0.15, c=(150, 186, 140), trim=ACCENT_L, motion=cruise(0.08, 0.0, 0.8, 0.2, 0.4))
-    pr.sailboat(T, 0.92, 0.50, 'v', s=0.9, motion=cruise(0.0, 0.07, 0.8))
-    pr.sailboat(T, 0.20, 0.86, 'u', s=0.75, sail=ACCENT_L, motion=cruise(0.06, 0.0, 0.7))
+    pr.steamer(T, 0.50, 0.90, 'u', L=0.15, c=(150, 186, 140), trim=ACCENT_L, motion=cruise(0.14, -0.02, 0.6, 0.2, 0.4))
+    pr.sailboat(T, 0.92, 0.40, 'v', s=0.9, motion=cruise(0.0, 0.11, 0.6))
+    pr.sailboat(T, 0.16, 0.86, 'u', s=0.75, sail=ACCENT_L, motion=cruise(0.09, 0.0, 0.5))
     pr.sailboat(T, 0.84, 0.24, 'u', s=0.7)
-    pr.bird(T, 0.5, 0.5, 0.30, 0.8, orbit=(11, 3))
-    pr.bird(T, 0.44, 0.54, 0.26, 0.7, orbit=(9, 3))
+    pr.flock(T, 0.5, 0.5, 0.32, 7, orbit=(24, 7), c=(90, 90, 100))
+    stroll(T, [(0.26, 0.695), (0.66, 0.695)], 6, spread=0.01)
+    stroll(T, [(0.70, 0.40), (0.70, 0.64)], 3, z=0.03, spread=0.006)
     pr.glint(T, T.P(0.53, 0.45, 0.03) + np.array([6, -19]), 0.8)
 
 
@@ -255,16 +295,18 @@ def uluru(T):
         dune(T, a, b, q, lit=(236, 196, 160), dark=(206, 150, 112))
     for (a, b, k) in ((0.30, 0.62, 'acacia'), (0.72, 0.60, 'acacia'), (0.20, 0.50, 'bush'), (0.80, 0.50, 'bush'), (0.36, 0.70, 'bush')):
         tree(T, a, b, 0.8, (150, 170, 120), k)
-    pr.kangaroo(T, 0.24, 0.56, s=1.2)
-    pr.kangaroo(T, 0.32, 0.60, s=1.0)
-    pr.kangaroo(T, 0.78, 0.54, flip=True, s=1.2)
+    pr.kangaroo(T, 0.18, 0.56, s=1.15, travel=0.10)
+    pr.kangaroo(T, 0.25, 0.62, s=0.9, travel=0.10)
+    pr.kangaroo(T, 0.84, 0.54, flip=True, s=1.15, travel=0.08)
     # camper van and a campfire
     pr.car(T, 0.62, 0.64, 'u', c=MARBLE, s=1.1, long=1.2)
     F = T.P(0.52, 0.70)
     with T.grp('light', t0=1.2, dur=0.3, pivot=F, stage='life', motion=lambda t, age, ph: (0, 0, 0, 1.0, 0.8 + 0.3 * math.sin(t * 11))):
         T.poly2(F, [(-1.1, 0), (0, -3.0), (1.1, 0)], ACCENT, 0.24, wob=0)
     crowd(T, [(0.54, 0.66), (0.60, 0.68), (0.60, 0.72), (0.54, 0.72)], 3, hat=(226, 200, 150), mind=0.03, walk_frac=0)
-    pr.bird(T, 0.5, 0.44, 0.30, 0.8, orbit=(12, 3))
+    pr.flock(T, 0.5, 0.44, 0.32, 6, orbit=(22, 6), c=(250, 244, 236))      # cockatoos
+    pr.smoke(T, F + np.array([0, -3.0]), 0.75, lean=6)
+    stroll(T, [(0.22, 0.66), (0.44, 0.72), (0.70, 0.66)], 4, hat=(226, 200, 150))
     pr.glint(T, C + np.array([4, -19]), 0.8)
 
 

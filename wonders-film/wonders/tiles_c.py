@@ -7,7 +7,7 @@ from .core import W, ZS, SLAB, smooth_poly, Wave
 from .pal import *  # noqa
 from . import props as pr
 from . import ease
-from .props import person, tree, crowd, grove, water, walker, bobber, cruise
+from .props import person, tree, crowd, grove, water, walker, bobber, cruise, runner, stroll
 from .tiles_a import sm, sea_wall, ARCH_DK, lerp3
 from .tiles_b import fish_wall, fish
 
@@ -22,28 +22,38 @@ def reef(T):
     T.slab(SAND, EARTH, walls=False, thick=TH)
     r = T.rng
     f, wv = water(T, [(0, 0), (1, 0), (1, 1), (0, 1)], src=(0.0, 0.0), marks=0, t0=0.24, dur=0.6, shore=0.0)
-    # reef flats seen through the water
+    # reef flats seen through the water: a pale lagoon, a sandy heart, and colonies of coral crowding the rim
     flats = [(0.30, 0.26, 0.17, 0.12, 2), (0.66, 0.40, 0.15, 0.17, 5), (0.24, 0.66, 0.14, 0.13, 8), (0.62, 0.80, 0.19, 0.10, 11), (0.86, 0.14, 0.09, 0.08, 14)]
-    corals = [ROSE, ACCENT_L, BLOSSOM, TERRA, MARBLE, ACCENT]
+    LAG = (150, 226, 214)
     with T.st('detail'):
-        for (a, b, ru, rv, sd) in flats:
-            T.blob(a, b, ru, rv, WATER_L, 0.34, inkc=WATER_D, seed=sd, wave=wv, irr=0.3)
-            reg = T._last_blob
-            T.blob(a + 0.01, b, ru * 0.62, rv * 0.6, (222, 238, 232), 0.0, seed=sd + 1, wave=wv, irr=0.3)
-            for (u, v) in T.scatter(reg, int(20 * ru / 0.15), mind=0.03):
+        for fi, (a, b, ru, rv, sd) in enumerate(flats):
+            T.blob(a, b, ru * 1.12, rv * 1.12, (120, 196, 226), 0.0, seed=sd, wave=wv, irr=0.3)          # the drop-off
+            T.blob(a, b, ru, rv, LAG, 0.36, inkc=(70, 150, 190), seed=sd, wave=wv, irr=0.3)
+            reg = list(T._last_blob)
+            T.blob(a + 0.008, b, ru * 0.5, rv * 0.48, (232, 236, 200), 0.0, seed=sd + 1, wave=wv, irr=0.3)       # sand
+            cols = [[ROSE, ACCENT_L, TERRA], [BLOSSOM, (150, 120, 200), ACCENT_L], [TERRA, ROSE, MARBLE], [ACCENT_L, BLOSSOM, (150, 120, 200)], [ROSE, TERRA, ACCENT_L]][fi]
+            m = len(reg)
+            ncol = max(5, int(11 * ru / 0.15))
+            for k in range(ncol):
+                q = reg[int((k + 0.5) * m / ncol) % m]
+                f_ = r.uniform(0.64, 0.84)
+                u, v = a + (q[0] - a) * f_, b + (q[1] - b) * f_
+                c_ = cols[k % 3]
                 P = T.P(u, v)
-                c_ = r.choice(corals)
-                s_ = r.uniform(0.6, 1.0)
-                if r.random() < 0.5:
-                    T.ell2(P, 1.5 * s_, 1.0 * s_, fill=c_, ink=0.2, inkc=shade(c_, 0.7), n=8, wob=0, wave=wv)
-                else:
-                    T.lines2(P, [[(-1.2 * s_, 0.5), (0, -0.6 * s_), (1.2 * s_, 0.4)], [(0, -0.6 * s_), (0.2, 0.9 * s_)]], 0.6, c_, wob=0, wave=wv, stage='mark')
+                for j in range(r.choice([3, 4, 5])):          # one colony = a huddle of heads of one colour
+                    ang = j * 2.4 + k
+                    d_ = 0.0 if j == 0 else r.uniform(1.4, 2.4)
+                    s_ = r.uniform(0.9, 1.35) if j == 0 else r.uniform(0.6, 0.95)
+                    T.ell2(P + np.array([d_ * math.cos(ang), d_ * 0.55 * math.sin(ang)]), 1.5 * s_, 1.0 * s_, fill=c_, ink=0.2, inkc=shade(c_, 0.62), n=8, wob=0, wave=wv)
+            # surf breaking on the windward edge
+            T.line([(q[0] + (q[0] - a) * 0.16, q[1] + (q[1] - b) * 0.16) for q in reg[int(m * 0.52):int(m * 0.86)]], 0.5, FOAM, wave=wv, stage='mark')
     # wave scribbles on the open water
-    for (u, v) in T.scatter([(0.02, 0.02), (0.98, 0.02), (0.98, 0.98), (0.02, 0.98)], 30, mind=0.06):
+    for (u, v) in [q_ for q_ in T.scatter([(0.02, 0.02), (0.98, 0.02), (0.98, 0.98), (0.02, 0.98)], 60, mind=0.06)
+                   if not any(((q_[0] - f_[0]) / (f_[2] * 1.2)) ** 2 + ((q_[1] - f_[1]) / (f_[3] * 1.2)) ** 2 < 1 for f_ in flats)]:
         P = T.P(u, v)
         d = float(wv.dist(P[None, :])[0])
         l = r.uniform(1.6, 3.0)
-        with T.grp('fade', t0=wv.time_at(d) + 0.05, dur=0.18, pivot=P, motion=pr.shimmer, stage='life'):
+        with T.grp('fade', t0=wv.time_at(d) + 0.05, dur=0.18, pivot=P, motion=pr.drifter((1.0, 0.15), 9.0, 1.4), stage='life'):
             T.line2(P, smooth_poly([(-l, 0.3), (-l * 0.45, -0.75), (0.1, 0.0), (l * 0.55, 0.6), (l, 0.05)], 1, closed=False), 0.42, FOAM if r.random() < 0.6 else WATER_D, wob=0)
 
     # ---- sand cay with a palm and an umbrella
@@ -70,9 +80,9 @@ def reef(T):
         T.lines2(Wp + np.array([5.5, -2.5]), [[(0, 0), (-0.8, -5.5), (-2.6, -7.4)], [(0, 0), (0.8, -5.8), (2.6, -7.6)], [(0, 0), (0, -6.6)]], 0.5, FOAM, wob=0)
         T.lines2(Wp + np.array([5.5, -2.5]), [[(0, 0), (-0.8, -5.5), (-2.6, -7.4)], [(0, 0), (0.8, -5.8), (2.6, -7.6)]], 0.2, WATER_D, wob=0)
     # turtles under the surface
-    for (a, b, fl) in ((0.14, 0.34, 1), (0.52, 0.20, -1)):
+    for (a, b, fl) in ((0.08, 0.40, 1), (0.56, 0.16, -1), (0.40, 0.90, 1)):
         Q = T.P(a, b)
-        with T.grp('pop', pivot=Q, motion=cruise(0.04 * fl, 0.02, 0.6, 0.2, 2.0), stage='life', dur=0.25):
+        with T.grp('pop', pivot=Q, motion=bobber(0.2, 2.0, 0.6, (0.05 * fl, 0.02), 16), stage='life', dur=0.25):
             T.lines2(Q, [[(-2.6, -1.4), (2.6, 1.4)], [(-2.6, 1.4), (2.6, -1.4)]], 0.9, (150, 186, 140), wob=0)
             T.ell2(Q, 2.4, 1.7, fill=(128, 168, 126), ink=0.28, n=10, wob=0)
             T.ell2(Q + np.array([3.0 * fl, 0.4]), 0.9, 0.7, fill=(150, 186, 140), ink=0.24, n=8, wob=0)
@@ -95,11 +105,8 @@ def reef(T):
             T.ell2(Q + np.array([0, -0.7]), 1.0, fill=r.choice(SKIN), ink=0.26, n=9, wob=0)
             T.line2(Q, [(1.0, -1.0), (1.4, -2.8)], 0.36, ACCENT, wob=0)
             T.line2(Q, [(-2.4, 0.4), (2.4, 0.4)], 0.36, FOAM, wob=0)
-    pr.sailboat(T, 0.74, 0.22, 'u', sail=MARBLE, motion=cruise(0.08, 0.04, 0.9), s=1.1)
-    pr.sailboat(T, 0.86, 0.90, 'v', sail=ACCENT_L, motion=cruise(-0.04, -0.05, 0.7), s=0.85)
-    pr.bird(T, 0.47, 0.585, 0.20, 0.8, orbit=(10, 3))
-    pr.bird(T, 0.53, 0.55, 0.24, 0.7, orbit=(8, 3))
-    pr.bird(T, 0.70, 0.30, 0.20, 0.7, orbit=(7, 3))
+    pr.sailboat(T, 0.62, 0.20, 'u', sail=MARBLE, motion=cruise(0.14, 0.03, 0.8), s=1.1)
+    pr.sailboat(T, 0.90, 0.94, 'v', sail=ACCENT_L, motion=cruise(0.0, -0.13, 0.7), s=0.85)
     pr.cloud(T, 0.20, 0.10, 0.20, 0.9)
     pr.glint(T, Wp + np.array([5.5, -9.0]), 0.8)
 
@@ -121,7 +128,7 @@ def reef_wall(T, face, TH):
         pts = [-ax * 1.1, -ax * 0.9 + hh * 0.5, -ax * 0.5 + hh * 0.95, ax * 0.1 + hh * 1.05, ax * 0.7 + hh * 0.8, ax * 1.0 + hh * 0.35, ax * 1.15]
         with T.grp('rise', t0=0.72 + 0.06 * k, dur=0.4, pivot=base, stage='struct'):
             T.poly2(base, smooth_poly(pts, 2, closed=False), (206, 190, 170) if face == 'L' else (190, 174, 156), 0.36, wob=0.1)
-    fish_wall(T, face, TH, n=9 if face == 'L' else 8, corals=9, cols=[ACCENT, ZINC, ACCENT, ROSE, ACCENT_L, MARBLE])
+    fish_wall(T, face, TH, n=15 if face == 'L' else 13, corals=11, cols=[ACCENT, ZINC, ACCENT, ROSE, ACCENT_L, MARBLE, (150, 120, 200)])
     # a turtle and a reef shark patrol the deep
     if face == 'L':
         Q = fp(0.62, -TH * 0.36)
@@ -224,16 +231,16 @@ def machu(T):
 
     # ---- life: llamas on the plaza, visitors on the terraces, a condor
     pr.llama(T, 0.49, 0.58, z=Z, blanket=ACCENT)
-    pr.llama(T, 0.56, 0.62, z=Z, col=(176, 132, 100), flip=True)
+    pr.llama(T, 0.58, 0.63, z=Z, col=(176, 132, 100), flip=True, walk=walker(-0.05, 0.01, 11))
     pr.llama(T, 0.52, 0.66, z=Z, blanket=TERRA, walk=walker(0.03, -0.01, 8))
-    pr.llama(T, 0.84, 0.80, z=3 * 0.019, col=MARBLE, flip=True)
+    pr.llama(T, 0.84, 0.80, z=3 * 0.019, col=MARBLE, flip=True, walk=walker(0.0, -0.10, 12))
     crowd(T, [(0.45, 0.53), (0.61, 0.53), (0.61, 0.69), (0.45, 0.69)], 7, z=Z, hat=(226, 200, 150), mind=0.03)
     for k in (1, 2, 3, 4):
         z = (6 - k) * 0.019
         crowd(T, [(0.72 + 0.048 * (k - 1), 0.5), (0.70 + 0.048 * k - 0.006, 0.5), (0.70 + 0.048 * k - 0.006, 0.76), (0.72 + 0.048 * (k - 1), 0.76)], 2, z=z,
-              hat=(226, 200, 150), walk_frac=0)
+              hat=(226, 200, 150), mind=0.02)
         crowd(T, [(0.40, 0.78 + 0.038 * (k - 1)), (0.70, 0.78 + 0.038 * (k - 1)), (0.70, 0.76 + 0.038 * k - 0.006), (0.40, 0.76 + 0.038 * k - 0.006)], 2, z=z,
-              walk_frac=0)
+              mind=0.02)
     person(T, 0.435, 0.60, z=Z, shirt=ACCENT, hat=DARK, arms=True)
     # clouds snagged on the peaks
     pr.cloud(T, 0.16, 0.50, 0.24, 1.1, drift=4.0)
@@ -351,8 +358,8 @@ def chichen(T):
             T.ell2(Q + np.array([0, -0.8]), 1.0, fill=r.choice(SKIN), ink=0.26, n=9, wob=0)
             T.line2(Q, [(-2.0, 0.3), (2.0, 0.3)], 0.34, FOAM, wob=0)
     # macaws
-    for k, (a, b, z) in enumerate(((0.30, 0.40, 0.34), (0.38, 0.36, 0.30), (0.74, 0.70, 0.22))):
-        pr.bird(T, a, b, z, 0.9, c=ACCENT if k != 1 else TERRA, orbit=(11, 4), speed=1.2)
+    for k, (a, b, z) in enumerate(((0.30, 0.40, 0.34), (0.38, 0.36, 0.30), (0.74, 0.70, 0.22), (0.20, 0.30, 0.26), (0.80, 0.40, 0.3))):
+        pr.bird(T, a, b, z, 0.9, c=ACCENT if k != 1 else TERRA, orbit=(18, 6), speed=1.2)
     pr.cloud(T, 0.10, 0.12, 0.30, 0.9)
     pr.glint(T, T.P(cu, cv, H + 0.06), 0.9)
 
@@ -378,7 +385,7 @@ def niagara(T):
     brink = [(0.34, 0.56), (0.36, 0.46), (0.43, 0.39), (0.52, 0.37), (0.61, 0.39), (0.68, 0.46), (0.70, 0.56)]
     brink = [(p[0], p[1]) for p in smooth_poly([np.array(p) for p in brink], 2, closed=False)]
     upper = [(0.24, 0), (0.80, 0), (0.80, 0.30), (0.76, 0.50), (0.70, 0.56)] + brink[::-1] + [(0.33, 0.62), (0.33, 0.80), (0.21, 0.74), (0.13, 0.58), (0.15, 0.36)]
-    water(T, upper, src=(0.52, 0.0), marks=16, t0=0.26, dur=0.4, region=[(0.28, 0.02), (0.78, 0.02), (0.74, 0.34), (0.3, 0.34), (0.16, 0.5), (0.2, 0.34)])
+    water(T, upper, src=(0.52, 0.0), marks=22, t0=0.26, dur=0.4, flow=(0.1, 1), region=[(0.28, 0.02), (0.78, 0.02), (0.74, 0.34), (0.3, 0.34), (0.16, 0.5), (0.2, 0.34)])
     with T.st('ground'):
         for (a, b) in ((0.40, 0.16), (0.60, 0.24), (0.50, 0.08), (0.68, 0.10)):          # rapids rocks
             T.blob(a, b, 0.018, 0.014, ROCKW, 0.3, seed=int(a * 100))
@@ -404,7 +411,7 @@ def niagara(T):
         T.line([(0.34, 1, -GD), (0.70, 1, -GD)], 0.4)
     for (a, b) in ((0.50, 0.60), (0.58, 0.72), (0.46, 0.80), (0.60, 0.90), (0.44, 0.94), (0.52, 0.50)):
         P_ = T.P(a, b, -GD)
-        with T.grp('fade', t0=1.05, dur=0.2, pivot=P_, motion=pr.shimmer, stage='life'):
+        with T.grp('fade', t0=1.05, dur=0.2, pivot=P_, motion=pr.drifter((-0.6, 0.8), 5.0, 2.2), stage='life'):
             T.line2(P_, smooth_poly([(-2.4, 0.3), (-1.1, -0.75), (0.1, 0.0), (1.3, 0.6), (2.4, 0.05)], 1, closed=False), 0.42, FOAM, wob=0)
     # left wall of the gorge (faces us): rock - american falls - rock
     def wallq(a, b, col, ink=0.36):
@@ -520,7 +527,7 @@ def niagara(T):
             T.poly2(pp, [(-0.8, 0), (0.8, 0), (0.7, -2.0), (-0.7, -2.0)], ACCENT, 0.24, wob=0)
             T.ell2(pp + np.array([0, -2.8]), 0.9, fill=SKIN[k % 5], ink=0.24, n=8, wob=0)
     crowd(T, [(0.745, 0.57), (0.795, 0.57), (0.795, 0.85), (0.745, 0.85)], 8, mind=0.025, walk_frac=0.3)
-    crowd(T, [(0.33, 0.888), (0.71, 0.888), (0.71, 0.908), (0.33, 0.908)], 5, z=0.008, walk_frac=0, mind=0.04)
+    stroll(T, [(0.33, 0.90), (0.71, 0.90)], 9, z=0.008, spread=0.008)
     crowd(T, [(0.12, 0.775), (0.30, 0.85), (0.30, 0.865), (0.11, 0.795)], 4, mind=0.03)
     for (a, b) in ((0.76, 0.64), (0.775, 0.74)):
         person(T, a, b, shirt=ACCENT, pants=ACCENT)
@@ -535,8 +542,6 @@ def niagara(T):
             for k, c_ in enumerate((TERRA, ACCENT, ACCENT_L, (160, 200, 150), WATER_D)):
                 T.ell2(Rb, 17 - k * 0.9, 15 - k * 0.9, fill=None, ink=0.9, inkc=c_, a0=math.pi * 1.08, a1=math.pi * 1.72, closed=False, wob=0, sky=True, alpha=0.75)
     pr.glint(T, T.P(su, sv, 0.37), 0.8)
-    pr.bird(T, 0.5, 0.2, 0.2, 0.8, orbit=(9, 3))
-    pr.bird(T, 0.56, 0.24, 0.24, 0.7, orbit=(8, 3))
     pr.cloud(T, 0.10, 0.20, 0.36, 0.9)
 
 

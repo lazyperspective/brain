@@ -1,5 +1,6 @@
 # Pure-Python pipeline: Skia rasterises the vector drawing, numpy/OpenCV grain and resample it,
-# ffmpeg (on PATH) encodes the frames piped to it.  No browser, no image assets.
+# scipy filters the synthesised soundtrack, ffmpeg (on PATH) encodes.  No browser, no image or audio assets.
 skia-python>=144
 numpy
+scipy
 opencv-python-headless

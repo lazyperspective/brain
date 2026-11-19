@@ -4,6 +4,7 @@ import math
 
 import numpy as np
 
+from . import ease
 from .core import W, ZS, Wave, smooth_poly, pip
 from .pal import *  # noqa
 
@@ -16,22 +17,58 @@ def uvd(du, dv):
 
 
 # ------------------------------------------------------------- motions ----
-def walker(du, dv, period=6.0, bob=0.35):
-    d = uvd(du, dv)
+# A group motion is f(t, age, phase) -> (dx, dy[, rot, sx, sy[, alpha]]).
+FILM = 53.4
 
-    def m(t, age, ph):
-        s = 0.5 - 0.5 * math.cos(TAU * t / period + ph)
-        b = -abs(math.sin(t * 8.5 + ph * 3)) * bob
-        return (d[0] * s, d[1] * s + b)
-    return m
+
+class Walk:
+    """There-and-back amble (animals, synchronised caravans).  Also understood by person()."""
+
+    def __init__(self, d, period=6.0, bob=0.35, face=1.0):
+        self.d = np.asarray(d, float)
+        self.period = period
+        self.bob = bob
+        self.face = face          # which way the drawing faces (+1 = right)
+        self.reach = float(np.hypot(*self.d)) + 16.0
+
+    def __call__(self, t, age, ph):
+        cyc = TAU * t / self.period + ph
+        s = 0.5 - 0.5 * math.cos(cyc)
+        vel = math.sin(cyc)
+        gait = abs(math.sin(t * 5.0 + ph * 3)) * abs(vel)
+        way = (1.0 if self.d[0] >= 0 else -1.0) * self.face
+        turn = max(-1.0, min(1.0, vel * 7.0)) * way          # the animal turns round to walk back
+        if abs(turn) < 0.08:
+            turn = 0.08
+        return (self.d[0] * s, self.d[1] * s - gait * self.bob, 2.0 * math.sin(t * 5.0 + ph * 3) * abs(vel) * way, turn, 1.0)
+
+
+def walker(du, dv, period=6.0, bob=0.35):
+    return Walk(uvd(du, dv), period, bob)
 
 
 def walker_px(d, period=6.0, bob=0.35):
-    def m(t, age, ph):
-        s = 0.5 - 0.5 * math.cos(TAU * t / period + ph)
-        b = -abs(math.sin(t * 8.5 + ph * 3)) * bob
-        return (d[0] * s, d[1] * s + b)
-    return m
+    return Walk(d, period, bob)
+
+
+class Cruise:
+    """Boats under way: sail the reach, fade out at its far end, come round again - bobbing and rocking all the while."""
+
+    def __init__(self, du, dv, speed=1.0, amp=0.3, rock=1.0, period=None):
+        self.d = uvd(du, dv) * 2.2
+        self.amp = amp
+        self.rock = rock
+        self.period = period or 24.0 / max(0.3, speed)
+        self.reach = float(np.hypot(*self.d)) + 20.0
+
+    def __call__(self, t, age, ph):
+        s = ((t + 4.0) / self.period + ph / TAU * 0.0) % 1.0
+        al = ease.smooth(min(s, 1.0 - s) / 0.06)
+        return (self.d[0] * s, self.d[1] * s + self.amp * math.sin(t * 2.1 + ph), self.rock * math.sin(t * 1.6 + ph), 1.0, 1.0, al)
+
+
+def cruise(du, dv, speed=1.0, amp=0.3, rock=1.0):
+    return Cruise(du, dv, speed, amp, rock)
 
 
 def bobber(amp=0.5, rock=1.5, speed=1.0, drift=(0.0, 0.0), period=9.0):
@@ -43,67 +80,49 @@ def bobber(amp=0.5, rock=1.5, speed=1.0, drift=(0.0, 0.0), period=9.0):
     return m
 
 
-def cruise(du, dv, speed=1.0, amp=0.3, rock=1.0):
-    """steady travel (boats, vehicles): eased at both ends of a long ping-pong"""
+def runner(du, dv, period=9.0, bump=0.25):
+    """Vehicles: drive the stretch one way, slip out at the far end, come in again at the start."""
     d = uvd(du, dv)
 
     def m(t, age, ph):
-        s = 0.5 - 0.5 * math.cos(TAU * t / (14.0 / speed) + ph)
-        return (d[0] * s, d[1] * s + amp * math.sin(t * 2.1 + ph), rock * math.sin(t * 1.6 + ph), 1.0, 1.0)
+        s = (t / period + ph / TAU) % 1.0
+        k = ease.smooth(min(s, 1.0 - s) / 0.05)
+        return (d[0] * s, d[1] * s - bump * abs(math.sin(t * 13 + ph)), 0.0, k, k, k)
+    m.reach = float(np.hypot(*d)) + 16.0
     return m
 
 
-def sway(deg=1.3, speed=1.0):
+def sway(deg=2.0, speed=1.0):
     def m(t, age, ph):
-        return (0.0, 0.0, deg * math.sin(t * 1.4 * speed + ph), 1.0, 1.0)
+        g = math.sin(t * 1.25 * speed + ph) + 0.45 * math.sin(t * 2.9 * speed + ph * 1.7)
+        return (0.0, 0.0, deg * g, 1.0, 1.0)
     return m
 
 
-def shimmer(t, age, ph):
-    a = 0.55 + 3.2 * math.exp(-3.0 * max(age, 0.0))
-    return (a * math.sin(TAU * 0.55 * t + ph), 0.12 * a * math.cos(TAU * 0.55 * t + ph))
+def drifter(flow=(1.0, 0.3), reach=7.0, speed=1.6):
+    """Wave scribbles: slosh hard as the water arrives, then drift with the flow, fading out and in."""
+    fx, fy = flow
+
+    def m(t, age, ph):
+        a = 3.2 * math.exp(-3.0 * max(age, 0.0))
+        q = (t * speed / (2 * reach) + ph / TAU) % 1.0
+        k = (q - 0.5) * 2 * reach
+        al = math.sin(math.pi * q) ** 0.6
+        return (fx * k + a * math.sin(TAU * 0.55 * t + ph), fy * k + 0.25 * math.sin(t * 1.7 + ph), 0.0, 1.0, 1.0, al)
+    return m
+
+
+shimmer = drifter()
 
 
 def floaty(ax=3.0, ay=1.2, speed=1.0):
     def m(t, age, ph):
-        return (ax * math.sin(t * 0.45 * speed + ph), ay * math.sin(t * 1.1 * speed + ph * 1.7))
+        return (ax * math.sin(t * 0.45 * speed + ph) + 0.4 * ax * math.sin(t * 0.17 * speed + ph * 2), ay * math.sin(t * 1.1 * speed + ph * 1.7))
     return m
 
 
 # -------------------------------------------------------------- people ----
-def person(T, u, v, z=0.0, shirt=None, skin=None, hair=None, hat=None, walk=None, s=1.0, pants=DARK,
-           arms=False, t0=None, kind='pop', at=None, ph=None):
-    r = T.rng
-    shirt = shirt or r.choice(CLOTH)
-    skin = skin or r.choice(SKIN)
-    hair = hair or r.choice(HAIR)
-    P = T.P(u, v, z) if at is None else np.asarray(at, float)
-    with T.grp(kind, t0=t0, dur=0.22, pivot=P, motion=walk, stage='life', ph=ph):
-        T.lines2(P, [[(-0.55 * s, 0), (-0.5 * s, -2.0 * s)], [(0.55 * s, 0), (0.5 * s, -2.0 * s)]], 0.62 * s, pants)
-        if arms:
-            T.lines2(P, [[(-0.9 * s, -3.9 * s), (-2.1 * s, -5.6 * s)], [(0.9 * s, -3.9 * s), (2.1 * s, -5.6 * s)]], 0.5 * s, skin)
-        T.poly2(P, [(-1.05 * s, -1.8 * s), (1.05 * s, -1.8 * s), (0.95 * s, -4.4 * s), (-0.95 * s, -4.4 * s)], shirt, 0.3, wob=0)
-        hc = np.array([0, -5.5 * s])
-        T.ell2(P + hc, 1.18 * s, fill=skin, ink=0.3, n=12, wob=0)
-        if hat is not None:
-            T.poly2(P + hc, [(-1.9 * s, -0.5 * s), (1.9 * s, -0.5 * s), (0.9 * s, -1.0 * s), (0.6 * s, -1.9 * s),
-                             (-0.6 * s, -1.9 * s), (-0.9 * s, -1.0 * s)], hat, 0.28, wob=0)
-        else:
-            T.ell2(P + hc + np.array([0, -0.25 * s]), 1.2 * s, 1.05 * s, fill=hair, ink=0, n=9, a0=math.pi * 1.02, a1=math.pi * 1.98, wob=0)
-    return P
-
-
-def crowd(T, region, n, seed=None, walk_frac=0.4, z=0.0, hat=None, mind=0.03):
-    pts = T.scatter(region, n, seed=seed, mind=mind)
-    pts.sort(key=lambda p: p[0] + p[1])
-    r = T.rng
-    for (u, v) in pts:
-        wk = None
-        if r.random() < walk_frac:
-            a = r.choice([(0.05, 0), (-0.05, 0), (0, 0.05), (0, -0.05)])
-            if pip(region, u + a[0], v + a[1]):
-                wk = walker(a[0], a[1], r.uniform(5, 9))
-        person(T, u, v, z, walk=wk, hat=(hat if (hat and r.random() < 0.5) else None))
+from .figures import person, crowd, stroll  # noqa  (figures that walk, pause, turn and wave)
 
 
 # --------------------------------------------------------------- trees ----
@@ -128,11 +147,13 @@ def _canopy(T, P, cx, cy, rx, ry, c, lobes=5, ink=0.38, ph=0.0, amp=0.09):
     T.poly2(P, pts, None, ink, wob=0)
 
 
-def tree(T, u, v, s=1.0, c=FOREST, kind='round', z=0.0, t0=None, sw=1.2):
+def tree(T, u, v, s=1.0, c=FOREST, kind='round', z=0.0, t0=None, sw=None):
     r = T.rng
     P = T.P(u, v, z)
     ph = r.uniform(0, 6.28)
-    with T.grp('pop', t0=t0, dur=0.26, pivot=P, motion=sway(sw), stage='flora'):
+    if sw is None:
+        sw = {'palm': 3.4, 'cypress': 1.6, 'fir': 1.5, 'bush': 2.6, 'stonepine': 1.8, 'acacia': 1.8}.get(kind, 2.1)
+    with T.grp('pop', t0=t0, dur=0.26, pivot=P, motion=sway(sw), stage='flora', ph=P[0] * 0.045 + P[1] * 0.03 + r.uniform(-0.5, 0.5)):
         if kind == 'round':
             T.poly2(P, [(-0.55 * s, 0), (0.55 * s, 0), (0.4 * s, -3.4 * s), (-0.4 * s, -3.4 * s)], WOOD, 0.3, wob=0)
             _canopy(T, P, 0, -6.0 * s, 3.5 * s, 3.3 * s, c, 5, ph=ph)
@@ -201,6 +222,8 @@ def quad(T, u, v, L=5.0, H=2.4, leg=2.6, neck=(1.6, -2.4), head=(1.5, 0.9), col=
 
     def X(pts):
         return [(x * f * s, y * s) for x, y in pts]
+    if isinstance(walk, Walk):
+        walk = Walk(walk.d, walk.period, walk.bob, face=f)
     with T.grp('pop', t0=t0, dur=0.24, pivot=P, motion=walk, stage='life', ph=ph):
         segs = []
         for x in (-L / 2 + 0.6, -L / 2 + 1.5, L / 2 - 1.5, L / 2 - 0.6):
@@ -251,34 +274,93 @@ def horse(T, u, v, flip=False, col=(150, 108, 80), s=1.0, **kw):
     return quad(T, u, v, 5.6, 2.3, 3.0, (1.6, -2.4), (2.0, 0.95), col, flip, 0, True, s, **kw)
 
 
-def bear(T, u, v, flip=False, s=1.0, **kw):
-    return quad(T, u, v, 6.4, 3.0, 1.7, (1.5, 0.3), (1.9, 1.5), (250, 244, 228), flip, 0, False, s, legc=(196, 190, 176), **kw)
+def bear(T, u, v, flip=False, s=1.0, walk=None, z=0.0, **kw):
+    """Polar bear: one heavy, low silhouette - sloping back, small head carried low, stubby legs."""
+    P = T.P(u, v, z)
+    f = -1.0 if flip else 1.0
+    col = (252, 248, 236)
+
+    def X(pts):
+        return [(x * f * s, y * s) for x, y in pts]
+    if isinstance(walk, Walk):
+        walk = Walk(walk.d, walk.period, walk.bob, face=f)
+    with T.grp('pop', dur=0.24, pivot=P, motion=walk, stage='life'):
+        for (x0, x1) in ((-3.3, -2.2), (-1.9, -0.9), (1.2, 2.2), (2.5, 3.5)):
+            T.poly2(P, X([(x0, 0), (x1, 0), (x1 + 0.1, -2.2), (x0 - 0.1, -2.2)]), (232, 226, 210), 0.3, wob=0)
+        body = smooth_poly(X([(-3.9, -1.9), (-4.0, -3.6), (-2.6, -4.9), (0.2, -5.0), (2.6, -4.5), (4.2, -4.4), (5.6, -3.9), (6.5, -3.0), (6.4, -2.3),
+                              (5.2, -2.0), (4.0, -1.6), (1.0, -1.5), (-2.0, -1.5)]), 2)
+        T.poly2(P, body, col, 0.36, wob=0)
+        T.ell2(P + np.array([4.5 * f * s, -4.5 * s]), 0.55 * s, fill=col, ink=0.28, n=8, wob=0)        # ear
+        T.ell2(P + np.array([6.45 * f * s, -2.7 * s]), 0.36 * s, fill=INK, ink=0, n=6, wob=0)           # nose
+        T.ell2(P + np.array([5.3 * f * s, -3.35 * s]), 0.2 * s, fill=INK, ink=0, n=6, wob=0)            # eye
+    return P
 
 
-def kangaroo(T, u, v, flip=False, s=1.0, hop=True):
+def kangaroo(T, u, v, flip=False, s=1.0, hop=True, travel=0.05):
+    """Kangaroo in profile: upright S-curve, big haunch and foot, heavy tail, ears up.  It hops across."""
     P = T.P(u, v)
     f = -1.0 if flip else 1.0
-    col = (196, 142, 104)
+    col = (206, 134, 88)
+    belly = (240, 206, 170)
+    d = uvd(travel * f, 0.0)
 
     def X(pts):
         return [(x * f * s, y * s) for x, y in pts]
 
     def m(t, age, ph):
-        k = abs(math.sin(t * 4.2 + ph))
-        return (0.0, -2.6 * k, -6 * f * (k - 0.5), 1.0, 1.0)
+        cyc = (t / 7.0 + ph / TAU) % 1.0
+        go = min(1.0, cyc / 0.55)                 # hop across, then sit and look about
+        hopping = cyc < 0.55
+        k = abs(math.sin(t * 5.2 + ph)) if hopping else 0.0
+        back = ease.smooth((cyc - 0.8) / 0.2) if cyc > 0.8 else 0.0
+        e = go * (1 - back)
+        return (d[0] * e, d[1] * e - 3.2 * s * k, (-9 * f * (k - 0.4)) if hopping else 0.0, 1.0, 1.0 - 0.06 * k if hopping else 1.0)
+    m.reach = float(np.hypot(*d)) + 16
     with T.grp('pop', pivot=P, motion=m if hop else None, stage='life', dur=0.24):
-        T.poly2(P, X([(-1.0, -1.4), (-5.0, 0.0), (-4.6, 0.6), (-0.6, -0.2)]), col, 0.26, wob=0)                  # tail
-        T.poly2(P, X([(-0.6, 0.0), (2.2, 0.0), (2.2, -0.6), (0.6, -0.8), (0.4, -2.2), (-0.8, -2.0)]), shade(col, 0.85), 0.26, wob=0)   # hind leg
-        T.poly2(P, smooth_poly(X([(-1.6, -1.0), (0.4, -0.8), (1.6, -3.6), (1.6, -5.6), (0.4, -6.2), (-0.9, -4.0)]), 2), col, 0.3, wob=0)
-        T.line2(P, X([(1.3, -4.4), (2.4, -3.4)]), 0.5 * s, shade(col, 0.85), wob=0)
-        T.ell2(P + np.array([1.5 * f * s, -6.9 * s]), 1.15 * s, 0.9 * s, fill=col, ink=0.3, n=9, wob=0)
-        T.poly2(P, X([(0.9, -7.5), (0.7, -9.3), (1.5, -7.8)]), col, 0.24, wob=0)
-        T.poly2(P, X([(1.6, -7.7), (1.9, -9.4), (2.3, -7.5)]), col, 0.24, wob=0)
+        T.poly2(P, smooth_poly(X([(-1.2, -2.6), (-3.6, -1.6), (-6.4, -0.2), (-6.6, 0.5), (-3.4, -0.2), (-0.6, -0.9)]), 1), col, 0.3, wob=0)      # tail
+        T.poly2(P, X([(-0.6, 0.1), (2.9, 0.1), (3.0, -0.5), (0.9, -0.8)]), shade(col, 0.86), 0.28, wob=0)                                # foot
+        T.poly2(P, smooth_poly(X([(-1.9, -1.4), (-0.4, -0.5), (1.3, -1.0), (2.2, -3.4), (2.6, -6.0), (2.0, -7.2), (0.8, -6.6), (-0.6, -4.4), (-1.7, -3.0)]), 2),
+                col, 0.34, wob=0)
+        T.poly2(P, smooth_poly(X([(1.0, -1.6), (1.9, -3.4), (2.2, -5.6), (1.4, -4.0), (0.6, -2.2)]), 1), belly, 0, wob=0)
+        T.ell2(P + np.array([-0.2 * f * s, -1.7 * s]), 1.55 * s, 1.25 * s, fill=col, ink=0.3, n=10, wob=0)                              # haunch
+        T.line2(P, X([(2.0, -5.0), (3.3, -4.1), (3.6, -3.3)]), 0.55 * s, shade(col, 0.86), wob=0)                                      # forearm
+        T.poly2(P, smooth_poly(X([(1.5, -7.0), (2.6, -8.3), (4.3, -7.9), (4.6, -7.2), (3.2, -6.6), (2.0, -6.4)]), 1), col, 0.32, wob=0)   # head
+        T.poly2(P, X([(1.9, -8.0), (1.5, -10.3), (2.6, -8.4)]), col, 0.26, wob=0)
+        T.poly2(P, X([(2.6, -8.3), (2.9, -10.5), (3.5, -8.2)]), col, 0.26, wob=0)
+        T.ell2(P + np.array([3.5 * f * s, -7.6 * s]), 0.2 * s, fill=INK, ink=0, n=6, wob=0)
 
 
 # --------------------------------------------------------------- boats ----
+def wake(T, P, d, hl, s=1.0):
+    """A boat under way trails a spreading V of foam (drawn inside the boat's group, so it travels with it)."""
+    P = np.asarray(P, float)
+    dr = np.asarray(d, float)
+    dr = dr / (np.hypot(*dr) + 1e-9)
+    nrm = np.array([-dr[1], dr[0]])
+    stern = P - dr * hl * 0.8
+    bow = P + dr * hl
+    ph0 = T.rng.uniform(0, 1)
+
+    def draw(c, tau, t, a, R):
+        # chevrons of foam peel off the stern, widen and fade
+        for k in range(3):
+            f = (t * 0.42 + ph0 + k / 3.0) % 1.0
+            c0 = stern - dr * (0.6 + f * hl * 1.7)
+            w = (1.3 + f * hl * 0.6) * s
+            al = a * (1 - f) ** 0.9 * min(1.0, f * 6)
+            R.poly(c, [c0 + nrm * w - dr * w * 0.75, c0 + nrm * w * 0.45 - dr * w * 0.2, c0, c0 - nrm * w * 0.45 - dr * w * 0.2, c0 - nrm * w - dr * w * 0.75],
+                   ink=FOAM, w=0.55, a=al, closed=False)
+        R.poly(c, [bow + nrm * 1.5 - dr * 1.6, bow + dr * 0.7, bow - nrm * 1.5 - dr * 1.6], ink=FOAM, w=0.45, a=a * (0.6 + 0.3 * math.sin(t * 6 + ph0 * 9)), closed=False)
+    T.custom(draw, [stern - dr * hl * 3 - nrm * hl, stern - dr * hl * 3 + nrm * hl, bow + dr * 2], stage='life')
+
+
+
 def hull(T, u, v, L, B, h, d='u', c=WOOD, deck=None, n=9, z=0.0, blunt=0.0):
     """Lens-shaped hull lying along an iso axis: visible side strake + deck."""
+    g = T.cur_group
+    if g is not None and hasattr(g.motion, 'd') and float(np.hypot(*g.motion.d)) > 1.0:
+        wake(T, T.P(u, v, z), g.motion.d, L * W * 0.62)
+
     def pt(a, b, zz):
         return (u + a, v + b, zz) if d == 'u' else (u + b, v + a, zz)
     side_top, side_bot, other = [], [], []
@@ -397,12 +479,12 @@ def car(T, u, v, d='u', c=ZINC, motion=None, t0=None, s=1.0, long=1.0):
 
 
 # ----------------------------------------------------------------- sky ----
-def cloud(T, u, v, z, s=1.0, t0=None, drift=3.0, c=SNOW, edge=(150, 168, 190), dur=0.42, alpha=1.0):
+def cloud(T, u, v, z, s=1.0, t0=None, drift=6.5, c=SNOW, edge=(150, 168, 190), dur=0.42, alpha=1.0):
     C = T.P(u, v, z)
     r = T.rng
     puffs = [(-5.2, 0.4, 3.0), (-1.6, -1.9, 4.1), (3.0, -0.9, 3.5), (6.6, 0.7, 2.5), (0.8, 1.0, 3.3), (-8.0, 1.3, 1.9)]
     ph = r.uniform(0, 6.28)
-    mo = floaty(drift, 0.6)
+    mo = floaty(drift, 0.7, 0.55)
     gs = []
     old = (T.cur_group, T.instant_kw, T.stage)
     T.stage = 'sky'
@@ -428,7 +510,7 @@ def cloud(T, u, v, z, s=1.0, t0=None, drift=3.0, c=SNOW, edge=(150, 168, 190), d
 def balloon(T, u, v, z, s=1.0, c=ACCENT, c2=MARBLE, t0=None, rise=26.0):
     C = T.P(u, v, z)
     with T.st('sky'):
-        with T.grp('drift', t0=t0, dur=0.7, pivot=C, off=(0, rise), motion=floaty(2.2, 1.4), stage='sky'):
+        with T.grp('drift', t0=t0, dur=0.7, pivot=C, off=(0, rise), motion=floaty(6.5, 2.4, 0.7), stage='sky'):
             env = []
             for k in range(13):
                 a = math.pi + math.pi * k / 12
@@ -455,15 +537,16 @@ def balloon(T, u, v, z, s=1.0, c=ACCENT, c2=MARBLE, t0=None, rise=26.0):
     return C
 
 
-def bird(T, u, v, z, s=1.0, c=INK, t0=None, orbit=(6.0, 2.5), speed=1.0):
+def bird(T, u, v, z, s=1.0, c=INK, t0=None, orbit=(6.0, 2.5), speed=1.0, ph=None):
     C = T.P(u, v, z)
 
     def m(t, age, ph):
         a = t * 0.7 * speed + ph
         fl = 0.25 + 0.75 * abs(math.sin(t * 7.0 + ph * 5))
-        return (orbit[0] * math.cos(a), orbit[1] * math.sin(a), 0.0, 1.0, fl)
+        return (orbit[0] * math.cos(a) + 0.35 * orbit[0] * math.sin(a * 0.37), orbit[1] * math.sin(a) + 0.5 * orbit[1] * math.sin(a * 0.53 + 1), 0.0, 1.0, fl)
+    m.reach = orbit[0] * 1.5 + 10
     with T.st('sky'):
-        with T.grp('fade', t0=t0, dur=0.3, pivot=C, motion=m, stage='sky'):
+        with T.grp('fade', t0=t0, dur=0.3, pivot=C, motion=m, stage='sky', ph=ph):
             T.lines2(C, [[(-2.2 * s, -1.3 * s), (-1.0 * s, -0.5 * s), (0, 0)], [(0, 0), (1.0 * s, -0.5 * s), (2.2 * s, -1.3 * s)]], 0.45, c, wob=0)
 
 
@@ -495,7 +578,7 @@ def lamp(T, at, r=1.0, c=ACCENT_L, t0=None, halo=True, sky=False, stage='life'):
 
 # --------------------------------------------------------------- water ----
 def water(T, pts, src=None, c=WATER, t0=0.34, dur=0.5, marks=16, shore=0.5, seed=None, z=0.0, rmax=None,
-          mark_c=(FOAM, WATER_D), stage='ground', region=None, smooth=0):
+          mark_c=(FOAM, WATER_D), stage='ground', region=None, smooth=0, flow=None):
     """A water body: pours in from `src` behind a foamy front, then its wave
     scribbles slosh and settle to a gentle shimmer."""
     reg = [(p[0], p[1]) for p in pts]
@@ -510,12 +593,18 @@ def water(T, pts, src=None, c=WATER, t0=0.34, dur=0.5, marks=16, shore=0.5, seed
         f = T.poly([(p[0], p[1], z) for p in reg], c, shore, wave=wv, tk=max(0.05, t0 - 0.16))
     r = T.rng
     mreg = region or reg
+    if flow is None:
+        flow = (0.9, 0.25)
+    else:
+        fd = uvd(*flow)
+        flow = tuple(fd / (np.hypot(*fd) + 1e-9))
+    drift = drifter(flow, 6.0 if marks < 8 else 8.0, 1.5)
     for (u, v) in T.scatter(mreg, marks, seed=seed, mind=0.045):
         P = T.P(u, v, z)
         d = float(wv.dist(P[None, :])[0])
         l = r.uniform(1.6, 3.0)
         col = mark_c[0] if r.random() < 0.55 else mark_c[1]
-        with T.grp('fade', t0=wv.time_at(d) + 0.05, dur=0.18, pivot=P, motion=shimmer, stage='life'):
+        with T.grp('fade', t0=wv.time_at(d) + 0.05, dur=0.18, pivot=P, motion=drift, stage='life'):
             T.line2(P, smooth_poly([(-l, 0.3), (-l * 0.45, -0.75), (0.1, 0.0), (l * 0.55, 0.6), (l, 0.05)], 1, closed=False), 0.42, col, wob=0)
     return f, wv
 
@@ -541,3 +630,113 @@ def glint(T, at, s=1.0, c=MARBLE):
         with T.grp('halo', t0=99.0, dur=0.75, pivot=at, stage='sky') as h:
             T.ell2(at, 3.2 * s, fill=None, ink=0.5, inkc=ACCENT, n=16, wob=0, sky=True)
     T.finale += [g, h]
+    # ... and once more on the closing wide shot
+    with T.st('sky'):
+        with T.grp('halo', t0=99.0, dur=0.7, pivot=at, stage='sky') as g2:
+            T.poly2(at, pts, c, 0.36, inkc=ACCENT_D, wob=0, sky=True)
+        with T.grp('halo', t0=99.0, dur=0.9, pivot=at, stage='sky') as h2:
+            T.ell2(at, 3.2 * s, fill=None, ink=0.5, inkc=ACCENT, n=16, wob=0, sky=True)
+    T.finale2 += [g2, h2]
+
+
+def flock(T, u, v, z, n=6, s=0.75, c=INK, orbit=(18.0, 7.0), speed=0.8, t0=None):
+    """Birds wheeling together: one orbit, a loose formation strung along it."""
+    r = T.rng
+    base = r.uniform(0, 6.283)
+    for k in range(n):
+        bird(T, u + r.uniform(-0.03, 0.03), v + r.uniform(-0.03, 0.03), z + r.uniform(-0.02, 0.02), s * r.uniform(0.8, 1.1), c, t0,
+             orbit, speed, ph=base - k * 0.16 + r.uniform(-0.05, 0.05))
+
+
+def smoke(T, at, s=1.0, c=(246, 244, 240), lean=4.0, t0=1.25, n=5, rise=17.0, sky=False):
+    """Smoke that keeps rising: puffs swell, drift and thin out, one after another."""
+    at = np.asarray(at, float)
+    ph0 = T.rng.uniform(0, 1)
+    edge = (168, 176, 190)
+
+    def draw(c_, tau, t, a, R):
+        if tau < t0:
+            return
+        on = min(1.0, (tau - t0) / 0.4)
+        for k in range(n):
+            f = (t * 0.2 + ph0 + k / float(n)) % 1.0
+            x = at[0] + lean * s * f * f + 1.3 * s * math.sin(f * 7.0 + k * 2.1 + t * 0.8)
+            y = at[1] - rise * s * f
+            rr = (0.7 + 2.6 * f) * s
+            al = on * a * min(1.0, f * 8.0) * (1 - f) ** 1.1
+            p = skia_circle(x, y, rr)
+            R.stroke(c_, p, edge, 0.5, al * 0.9)
+            R.fill(c_, p, c, al)
+    T.custom(draw, [at + np.array([-6 * s, -rise * s - 4]), at + np.array([lean * s + 6 * s, 2])], stage='sky' if sky else 'life', sky=sky)
+
+
+def skia_circle(x, y, r):
+    import skia
+    p = skia.Path()
+    p.addCircle(float(x), float(y), float(r))
+    return p
+
+
+def spray(T, pts, s=1.0, n=14, t0=1.0, up=9.0, c=FOAM):
+    """Churned spray along the foot of a waterfall: droplets leap in little arcs, endlessly."""
+    pts = [np.asarray(p, float) for p in pts]
+    r = T.rng
+    seeds = [(r.uniform(0, 1), r.uniform(0, 1), r.uniform(-1, 1), r.uniform(0.6, 1.3)) for _ in range(n)]
+
+    def draw(c_, tau, t, a, R):
+        if tau < t0:
+            return
+        on = min(1.0, (tau - t0) / 0.3)
+        for (q, ph, dx, hh) in seeds:
+            f = (t * 0.9 * hh + ph) % 1.0
+            i = min(len(pts) - 2, int(q * (len(pts) - 1)))
+            fr = q * (len(pts) - 1) - i
+            b = pts[i] + (pts[i + 1] - pts[i]) * fr
+            x = b[0] + dx * 4.0 * s * f
+            y = b[1] - up * s * hh * 4 * f * (1 - f)
+            p = skia_circle(x, y, (0.35 + 0.5 * (1 - f)) * s)
+            R.fill(c_, p, c, on * a * (1 - f * 0.6))
+            R.stroke(c_, p, WATER_D, 0.16, on * a * 0.5 * (1 - f))
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    T.custom(draw, [np.array([min(xs) - 6, min(ys) - up * s * 1.4]), np.array([max(xs) + 6, max(ys) + 2])], stage='life')
+
+
+def petals(T, region_px, n=14, c=BLOSSOM, t0=1.3, fall=16.0):
+    """Blossom drifting down on the breeze."""
+    x0, y0, x1, y1 = region_px
+    r = T.rng
+    seeds = [(r.uniform(x0, x1), r.uniform(y0, y1), r.uniform(0, 1), r.uniform(0.7, 1.3)) for _ in range(n)]
+
+    def draw(c_, tau, t, a, R):
+        if tau < t0:
+            return
+        on = min(1.0, (tau - t0) / 0.4)
+        for (x, y, ph, sp) in seeds:
+            f = (t * 0.16 * sp + ph) % 1.0
+            px = x + 5.0 * f + 1.6 * math.sin(f * 14 + ph * 20)
+            py = y + fall * f
+            R.fill(c_, skia_circle(px, py, 0.55), c, on * a * math.sin(math.pi * f) ** 0.5)
+    T.custom(draw, [np.array([x0 - 3, y0 - 3]), np.array([x1 + 9, y1 + fall + 3])], stage='life')
+
+
+def sparkles(T, pts, t0=1.5, c=MARBLE, s=1.0, rate=1.6):
+    """Lights that twinkle: each point flashes a little four-point star now and then."""
+    pts = [np.asarray(p, float) for p in pts]
+    r = T.rng
+    seeds = [(r.uniform(0, 1), r.uniform(0.7, 1.4)) for _ in pts]
+
+    def draw(c_, tau, t, a, R):
+        if tau < t0:
+            return
+        for p, (ph, sp) in zip(pts, seeds):
+            f = (t * rate * 0.5 * sp + ph) % 1.0
+            if f > 0.3:
+                continue
+            k = math.sin(math.pi * f / 0.3)
+            q = 2.3 * s * k
+            star = [p + np.array([0, -q]), p + np.array([q * 0.22, -q * 0.22]), p + np.array([q, 0]), p + np.array([q * 0.22, q * 0.22]),
+                    p + np.array([0, q]), p + np.array([-q * 0.22, q * 0.22]), p + np.array([-q, 0]), p + np.array([-q * 0.22, -q * 0.22])]
+            R.poly(c_, star, fill=c, ink=ACCENT_D, w=0.2, a=a * k)
+    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+    T.custom(draw, [np.array([min(xs) - 4, min(ys) - 4]), np.array([max(xs) + 4, max(ys) + 4])], stage='sky', sky=True)

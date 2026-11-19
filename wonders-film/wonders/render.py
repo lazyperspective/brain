@@ -12,7 +12,7 @@ import skia
 
 from . import ease
 from .core import argb
-from .pal import PAPER, PENCIL, mix, shade
+from .pal import PAPER, PENCIL, mix, shade, vivid
 
 SETTLE = 0.34      # seconds for a wash to settle into its flat colour
 
@@ -77,6 +77,9 @@ class Renderer:
         self.pt = skia.Paint(AntiAlias=True, Style=skia.Paint.kStroke_Style,
                              StrokeCap=skia.Paint.kRound_Cap, StrokeJoin=skia.Paint.kRound_Join)
         self._blob = {}
+        self._papers = {}
+        if self.paper is not None:
+            self._papers[tpx] = self.paper
         self.view = None
 
     # -- helpers usable by custom draw callbacks
@@ -101,9 +104,9 @@ class Renderer:
         path = skia.Path()
         path.addPoly([skia.Point(float(x), float(y)) for x, y in pts], closed)
         if fill is not None:
-            self.fill(c, path, fill, a)
+            self.fill(c, path, vivid(fill), a)
         if ink is not None:
-            self.stroke(c, path, ink, w, a)
+            self.stroke(c, path, vivid(ink), w, a)
 
     # -- one shape
     def _shape(self, c, sh, tau, t, ga):
@@ -201,6 +204,11 @@ class Renderer:
                 hidden = False
                 ga = 1.0
                 if g is not None:
+                    gb = g.bbox
+                    rc = g.reach
+                    if gb is not None and (gb[2] + rc < vb[0] or gb[0] - rc > vb[2] or gb[3] + rc < vb[1] or gb[1] - rc > vb[3]):
+                        hidden = True
+                        continue
                     st = g.state(tau, t)
                     if st is None:
                         hidden = True
@@ -217,8 +225,18 @@ class Renderer:
                                 c.scale(sx, sy)
                             c.translate(-px, -py)
                             if wipe is not None and g.bbox is not None:
+                                # snow settles behind a ragged, drifting edge - never a ruled line
                                 x0, y0, x1, y1 = g.bbox
-                                c.clipRect(skia.Rect.MakeLTRB(x0 - 2, y0 - 2, x1 + 2, y0 - 2 + (y1 - y0 + 4) * wipe))
+                                yc = y0 - 3 + (y1 - y0 + 9) * wipe
+                                n = max(6, int((x1 - x0 + 4) / 2.2))
+                                pts = [skia.Point(x0 - 3, y0 - 6), skia.Point(x1 + 3, y0 - 6)]
+                                for k in range(n, -1, -1):
+                                    xx = x0 - 3 + (x1 - x0 + 6) * k / n
+                                    zz = math.sin(k * 2.399 + g.seed) * 2.2 + math.sin(k * 0.71 + g.seed * 1.7 + tau * 5.0) * 1.5
+                                    pts.append(skia.Point(xx, yc + zz * (1.25 - wipe)))
+                                cp = skia.Path()
+                                cp.addPoly(pts, True)
+                                c.clipPath(cp, skia.ClipOp.kIntersect, True)
             if hidden:
                 continue
             b = sh.bbox
@@ -228,10 +246,19 @@ class Renderer:
         if saved:
             c.restore()
 
+    def set_grain(self, zoom):
+        """Paper grain is generated at a density that suits the zoom of the shot."""
+        tpx = 2.6 if zoom < 4.0 else 5.8
+        if self.paper is not None and abs(self.paper.TPX - tpx) > 1e-6:
+            self.paper = self._papers.setdefault(tpx, None) or Paper(tpx=tpx)
+            self._papers[tpx] = self.paper
+
     def frame(self, t, cam):
         w, h = self.size
         ss = self.ss
         cx, cy, zoom = cam
+        if self.paper is not None:
+            self.set_grain(zoom)
         c = self.surface.getCanvas()
         c.resetMatrix()
         c.clear(argb(PAPER))

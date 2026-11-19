@@ -26,7 +26,7 @@ LAYOUT = {
 }
 SATELLITES = {
     'stonehenge': (-2.02, -1.02), 'aurora': (-1.0, -2.04), 'moai': (-1.04, 2.0),
-    'opera': (2.02, -1.02), 'uluru': (2.10, 1.08),
+    'opera': (2.02, -1.02), 'uluru': (2.20, 1.16),
 }
 WORLD_CENTER = (0.0, 50.0)
 
@@ -90,7 +90,7 @@ def _placeholder(t):
 
 
 def build_world(only=None):
-    from . import tiles_a, tiles_b, tiles_c, tiles_d
+    from . import tiles_a, tiles_b, tiles_c, tiles_d, life
     builders = {}
     for m in (tiles_a, tiles_b, tiles_c, tiles_d):
         builders.update(m.BUILDERS)
@@ -103,5 +103,7 @@ def build_world(only=None):
         kind = 'tile' if name in LAYOUT else 'sat'
         t = Tile(name, i, j, kind, seed=sum(map(ord, name)))
         builders[name](t)
+        if name in life.EXTRA:
+            life.EXTRA[name](t)
         w.add(t)
     return w.finalize()
