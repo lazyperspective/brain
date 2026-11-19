@@ -798,7 +798,7 @@ def rio(T):
     for k, (a, b, r_, h_, c_) in enumerate(hills):
         with T.grp('rise', t0=0.34 + 0.03 * k, dur=0.45, pivot=T.P(a, b), stage='struct', ink_now=True, under=PAPER):
             T.hill(a, b, r_, h_, c=c_, guide=False)
-    cu, cv, rr, hh = 0.36, 0.44, 0.145, 0.20
+    cu, cv, rr, hh = 0.39, 0.47, 0.145, 0.19
     T.guide_axis(cu, cv, hh + 0.2, ticks=8, r=rr).tp = 0.05
     C = T.P(cu, cv)
     with T.grp('rise', t0=0.30, dur=0.5, pivot=C, stage='struct', ink_now=True, under=PAPER):

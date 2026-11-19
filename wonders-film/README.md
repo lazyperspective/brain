@@ -19,16 +19,19 @@ synthesised sample by sample in `soundtrack.py` (numpy only, no recordings).
 Four worker processes render frames (each holds one 3840x2160 surface, ~35 MB);
 exactly one x264 encoder runs (preset slow), so memory stays far below 15 GB.
 
-## Structure of the film (the reference's grammar)
+## Structure of the film
 
 One musical bar = one shot = 100 frames = 3.333 s (72 BPM, 4/4).
 
     0.00 -  6.67 s   the map builds itself (complete by ~4 s) and holds, alive
-    6.67 - 50.00 s   13 hard-cut static close-ups at 2.5x, clockwise, 100 frames each
-   50.00 - 55.00 s   cut back to the whole world; the music resolves
+    6.67 - 50.00 s   13 close-ups at 2.5x, clockwise.  Each rests for 80 frames (with a slight drift; its
+                     signature event peaks on beat 3), then the camera swoops for 20 frames - pulls out
+                     to ~1.8x, flies, pushes in - landing on the next landmark exactly on the bar line
+   50.00 - 55.00 s   the last swoop opens out to the whole world; the music resolves
 
-The shot list lives in `wonders/timeline.py` (`SHOTS`). Close-ups are crops of the same
-world at the same time - nothing is redrawn, and the life keeps moving through every cut.
+The shot list and the camera live in `wonders/timeline.py` (`SHOTS`, `camera_at`).  Frames in flight are
+motion-blurred: 5 sub-frame renders x 4 re-projections each, averaged (`film.py: blurred`).  Close-ups are
+views of the same world at the same time - nothing is redrawn, and the life keeps moving through every move.
 
 ## Architecture
 
@@ -39,6 +42,9 @@ world at the same time - nothing is redrawn, and the life keeps moving through e
     wonders/props.py      trees, animals, boats (+wakes), vehicles, clouds, smoke, flocks, spray, water
     wonders/tiles_a..d.py one function per wonder (13 slabs + 5 satellites)
     wonders/life.py       second pass of life per tile (strollers, smoke, flocks, sparkles)
+    wonders/extras.py     furniture, on-camera events, water arcs / bridges / spills between slabs, construction marks, cranes
+    wonders/detail.py     fourth pass per wonder: architectural detail, ground detail, each close-up's signature event
+    wonders/sky.py        the dream: sun, clouds between slabs, sky whale, paper cranes, floating islets
     wonders/world.py      LAYOUT: which wonder sits where; assembles and finalises the world
     wonders/timeline.py   build schedule, shot list, cuts, camera
     wonders/render.py     Renderer.frame(t, (cam_x, cam_y, zoom)) -> image; any place, zoom, time

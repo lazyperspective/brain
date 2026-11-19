@@ -99,7 +99,7 @@ def flute(m, dur, vib=0.006, breath=0.05):
     f = mtof(m)
     v = vib * np.minimum(1.0, np.maximum(0.0, (t - 0.18) / 0.3)) * np.sin(2 * np.pi * 5.1 * t)
     ph = 2 * np.pi * np.cumsum(f * (1 + v)) / SR
-    s = np.sin(ph) + 0.28 * np.sin(2 * ph + 0.4) + 0.10 * np.sin(3 * ph) + 0.04 * np.sin(4 * ph)
+    s = np.sin(ph) + 0.36 * np.sin(2 * ph + 0.4) + 0.18 * np.sin(3 * ph) + 0.09 * np.sin(4 * ph) + 0.05 * np.sin(5 * ph)
     air = rng.standard_normal(n)
     b, a = signal.butter(2, [f * 1.5 / (SR / 2), min(0.95, f * 4 / (SR / 2))], 'band')
     s += breath * signal.lfilter(b, a, air) * 6
@@ -125,6 +125,63 @@ def pad(ms, dur, bright=0.5):
     e = env_adsr(n, 0.9, 0.5, 0.9, 1.3)
     k = 1.0 / (len(ms) * 2.2)
     return outL * e * k, outR * e * k
+
+
+def celesta(m, dur=1.6):
+    """glassy and bright: the sparkle on top of the arpeggio"""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    f = mtof(m)
+    s = np.sin(2 * np.pi * f * t) * np.exp(-t * 4.0)
+    s += 0.55 * np.sin(2 * np.pi * f * 3.0 * t) * np.exp(-t * 7.0)
+    s += 0.35 * np.sin(2 * np.pi * f * 5.04 * t) * np.exp(-t * 11.0)
+    s += 0.22 * np.sin(2 * np.pi * f * 8.1 * t) * np.exp(-t * 18.0)
+    return s * np.minimum(1.0, t / 0.0015)
+
+
+def hat(open_=False):
+    n = int((0.16 if open_ else 0.05) * SR)
+    b, a = signal.butter(2, 6500 / (SR / 2), 'high')
+    s = signal.lfilter(b, a, rng.standard_normal(n))
+    t = np.arange(n) / SR
+    return s * np.exp(-t * (22 if open_ else 80)) * np.minimum(1.0, t / 0.001)
+
+
+def shimmer(ms, dur):
+    """high strings: a bright, slowly trembling halo two octaves up; returns (left, right)"""
+    n = int((dur + 1.0) * SR)
+    t = np.arange(n) / SR
+    outL = np.zeros(n)
+    outR = np.zeros(n)
+    for m in ms:
+        f = mtof(m + 24)
+        for det, pan in ((-0.003, -0.8), (0.003, 0.8)):
+            ph = rng.uniform(0, 6.28)
+            trem = 1 + 0.35 * np.sin(2 * np.pi * rng.uniform(5.0, 6.5) * t + ph)
+            sg = np.zeros(n)
+            for hh, amp in ((1, 1.0), (2, 0.6), (3, 0.45), (4, 0.3), (5, 0.2), (7, 0.1)):
+                if f * hh < 15000:
+                    sg += amp * np.sin(2 * np.pi * f * (1 + det) * hh * t + ph * hh)
+            sg *= trem
+            outL += sg * (0.5 - 0.5 * pan)
+            outR += sg * (0.5 + 0.5 * pan)
+    e = env_adsr(n, 0.7, 0.4, 0.9, 1.0)
+    k = 1.0 / (len(ms) * 3.0)
+    return outL * e * k, outR * e * k
+
+
+def whoosh(dur, direction=1.0):
+    """the camera's swoop: air that rises as it pulls out and flies, and closes as it lands; returns (L, R)"""
+    n = int(dur * SR)
+    x = np.linspace(0, 1, n)
+    w = rng.standard_normal(n)
+    layers = []
+    for (lo, hi, centre, width, g) in ((250, 900, 0.30, 0.30, 0.9), (900, 2800, 0.50, 0.26, 1.0), (2800, 7000, 0.66, 0.2, 0.8), (7000, 13000, 0.76, 0.14, 0.5)):
+        b, a = signal.butter(2, [lo / (SR / 2), hi / (SR / 2)], 'band')
+        layers.append(signal.lfilter(b, a, w) * np.exp(-((x - centre) / width) ** 2) * g)
+    sg = np.sum(layers, axis=0) * np.sin(np.pi * np.clip(x * 1.02, 0, 1)) ** 0.8
+    pan = direction * (-0.7 + 1.4 * x)
+    return sg * np.sqrt(0.5 * (1 - pan)), sg * np.sqrt(0.5 * (1 + pan))
 
 
 def bass(m, dur):
@@ -253,9 +310,18 @@ for b in range(1, 17):
         i = int(round(max(0.0, t0 - 0.25) * SR))
         L[i:i + len(pl)] += pl * g
         R[i:i + len(pr_)] += pr_ * g
+        # high strings: a halo that opens in the hold, returns as the theme climbs, and crowns the ending
+        if b == 2 or b >= 7:
+            hl, hr = shimmer(pad_ms[2:], dur)
+            gs = (0.08 + 0.13 * en) * (1.4 if b == 16 else 1.0)
+            if b == 2:
+                rmp = np.linspace(0.0, 1.0, len(hl)) ** 1.5
+                hl, hr = hl * rmp, hr * rmp
+            L[i:i + len(hl)] += hl * gs
+            R[i:i + len(hr)] += hr * gs
         # bass
         if b >= 2:
-            gb = 0.16 + 0.24 * en
+            gb = 0.12 + 0.18 * en
             if b == 2:
                 add(bass(root, dur), t0, 0.0, gb * 0.7)
             elif b == 16:
@@ -273,9 +339,12 @@ for b in range(1, 17):
                 hum = rng.uniform(-0.006, 0.006)
                 add(pluck(m, 1.2, 0.7 + 0.5 * en), t0 + k * BEAT / 2 + hum, pan=(-0.45 if k % 2 == 0 else 0.45),
                     gain=(0.10 + 0.10 * en) * (1.15 if k % 4 == 0 else 0.8))
+            for k in range(int(beats * 2)):                # celesta doubles the arpeggio an octave up: the sparkle
+                m = arp[patt[k % 8]] + 12
+                add(celesta(m, 1.4), t0 + k * BEAT / 2 + rng.uniform(-0.004, 0.004), pan=(0.5 if k % 2 == 0 else -0.5), gain=(0.06 + 0.08 * en) * (1.1 if k % 4 == 0 else 0.8))
             if b >= 11 and b <= 14:                      # sixteenth shimmer an octave up in the climax
                 for k in range(int(beats * 4)):
-                    add(pluck(arp[(k * 3) % 5] + 12, 0.5, 1.2), t0 + k * BEAT / 4, pan=0.7 * math.sin(k * 1.3), gain=0.035)
+                    add(celesta(arp[(k * 3) % 5] + 24, 0.6), t0 + k * BEAT / 4, pan=0.7 * math.sin(k * 1.3), gain=0.04)
         beat0 += beats
     # melody
     for (bt, bd, m) in MEL.get(b, []):
@@ -287,7 +356,7 @@ for b in range(1, 17):
         for k in range(8):
             add(shaker(0.09, 1.0 if k % 2 == 0 else 0.6), bar_t(b, k * 0.5), pan=0.35, gain=0.08 + 0.07 * en)
         for bt in ((0, 2) if b < 7 else (0, 2, 3.5)):
-            add(kick(), bar_t(b, bt), 0.0, 0.34 + 0.26 * en)
+            add(kick(), bar_t(b, bt), 0.0, 0.27 + 0.2 * en)
         if b >= 7:
             for bt in (1, 3):
                 add(brush(), bar_t(b, bt), pan=-0.25, gain=0.07 + 0.07 * en)
@@ -295,6 +364,16 @@ for b in range(1, 17):
             for k in range(16):
                 if k % 4 != 0:
                     add(shaker(0.05, 0.7), bar_t(b, k * 0.25), pan=-0.5, gain=0.035)
+    if 3 <= b <= 15:                                   # gentle hi-hat: off-beat eighths, sixteenths as it fills out
+        for k in range(16):
+            if k % 4 == 2:
+                add(hat(open_=(b >= 11 and k == 14)), bar_t(b, k * 0.25), pan=0.3, gain=0.075 + 0.07 * en)
+            elif b >= 7 and k % 2 == 1:
+                add(hat(), bar_t(b, k * 0.25) + rng.uniform(-0.004, 0.004), pan=0.3, gain=0.035 + 0.04 * en)
+        # each close-up's event peaks on beat 3: a little answer from the celesta
+        root_ = CH[PROG[b][0][0]][2]
+        for j, m in enumerate((root_[2] + 12, root_[4] + 12, root_[2] + 24)):
+            add(celesta(m, 1.8), bar_t(b, 2.0) + 0.07 * j, pan=-0.4 + 0.4 * j, gain=0.07)
     if b == 15:
         for bt in (0, 2):
             add(kick(), bar_t(b, bt), 0.0, 0.4)
@@ -313,13 +392,31 @@ for k, cut in enumerate(TL.CUTS):
     if last or k == 0:
         add(kick(), tc, 0.0, 0.5)
 
+# ---- every swoop of the camera: a rising whoosh that lands on the bar line, with a soft thud of arrival
+mv = TL.MOVE / TL.FPS
+for k, cut in enumerate(TL.CUTS):
+    tc = cut / TL.FPS
+    if k == 0:
+        direction = 1.0
+    elif k == len(TL.SHOTS):
+        direction = -1.0
+    else:
+        direction = 1.0 if TL.SHOTS[k][1] >= TL.SHOTS[k - 1][1] else -1.0
+    wl, wr = whoosh(mv + 0.12, direction)
+    g = 0.15 if k not in (0, len(TL.SHOTS)) else 0.19
+    i = int(round((tc - mv - 0.02) * SR))
+    L[i:i + len(wl)] += wl * g
+    R[i:i + len(wr)] += wr * g
+    add(kick(), tc, 0.0, 0.22)
+
 # ---- bar 1: the build.  One pluck as each piece of the world starts (rising through the pentatonic),
 #      pencil strokes under them, water when the rivers and seas pour in.
 PENTA = [62, 64, 66, 69, 71, 74, 76, 78, 81, 83, 86]
-order = sorted((t, n) for n, t in TL.STARTS.items() if t >= 0)
+order = sorted((t, n) for n, t in TL.STARTS.items() if t >= 0 and not n.startswith('sky'))
 for k, (t, name) in enumerate(order):
     m = PENTA[min(len(PENTA) - 1, (k * 2) % 7 + k // 4)]
     add(pluck(m, 1.6, 0.9), t + 0.02, pan=0.6 * math.sin(k * 1.9), gain=0.16)
+    add(celesta(m + 12, 1.4), t + 0.02, pan=-0.6 * math.sin(k * 1.9), gain=0.07)
     add(pluck(m - 12, 1.6, 0.5), t + 0.02, pan=-0.3 * math.sin(k * 1.9), gain=0.07)
     for j in range(3):
         add(pencil(rng.uniform(0.12, 0.26)), t + 0.02 + j * 0.16 + rng.uniform(0, 0.05), pan=0.5 * math.sin(k * 1.9), gain=0.022)
@@ -351,7 +448,7 @@ tt = np.arange(ir_n) / SR
 irs = []
 for seed in (1, 2):
     g = np.random.default_rng(seed).standard_normal(ir_n) * np.exp(-tt * 3.0)
-    b_, a_ = signal.butter(2, [220 / (SR / 2), 5200 / (SR / 2)], 'band')
+    b_, a_ = signal.butter(2, [220 / (SR / 2), 8500 / (SR / 2)], 'band')
     g = signal.lfilter(b_, a_, g)
     g[: int(0.012 * SR)] = 0
     irs.append(g / np.sqrt((g ** 2).sum()))
@@ -363,6 +460,9 @@ mixL, mixR = mixL[:N], mixR[:N]
 # gentle high-pass (no rumble), then a soft-knee limiter
 b_, a_ = signal.butter(2, 28 / (SR / 2), 'high')
 mixL, mixR = signal.lfilter(b_, a_, mixL), signal.lfilter(b_, a_, mixR)
+# 'air': a gentle high shelf, so it still sparkles on a phone speaker
+b_, a_ = signal.butter(1, 2800 / (SR / 2), 'high')
+mixL, mixR = mixL + 1.5 * signal.lfilter(b_, a_, mixL), mixR + 1.5 * signal.lfilter(b_, a_, mixR)
 t = np.arange(N) / SR
 fade_in = np.minimum(1.0, t / 0.06)
 fade_out = np.where(t > DUR - 3.8, np.cos(np.clip((t - (DUR - 3.8)) / 3.8, 0, 1) * math.pi / 2) ** 1.6, 1.0)
@@ -423,6 +523,7 @@ def report(st, label):
     # spectral balance + tonic check on the final chord
     f, tt_, S = signal.spectrogram(mono, SR, nperseg=8192, noverlap=4096)
     bands = [(30, 120), (120, 400), (400, 1500), (1500, 5000), (5000, 16000)]
+    print('energy above 1.5 kHz: %.1f%%' % (100 * S[f >= 1500].sum() / S.sum()))
     tot = S.sum()
     print('energy by band: ' + '  '.join('%d-%dHz %.1f%%' % (lo, hi, 100 * S[(f >= lo) & (f < hi)].sum() / tot) for lo, hi in bands))
     seg = mono[int((DUR - 4.2) * SR):int((DUR - 2.2) * SR)]

@@ -10,6 +10,7 @@
   film.py tile NAME [--t T]         debug: one tile, finished (or at tile-time T)
 """
 import argparse
+import math
 import os
 import subprocess
 import sys
@@ -38,13 +39,55 @@ def setup(only=None, ss=2, starts=None, size=SIZE, tpx=2.6):
     return w
 
 
+_RB = None          # a second, un-supersampled renderer for the sub-frames of motion blur
+BLUR_N = 5          # sub-frame renders averaged per frame while the camera is in flight
+SHUTTER = 0.62      # fraction of the frame interval the "shutter" stays open
+
+
 def _init():
     setup()
 
 
+def blurred(n):
+    """A frame in fast flight: average BLUR_N sub-frame renders across the shutter, each smeared along
+    the camera's travel by exactly the gap to the next sub-frame, so the blur is continuous."""
+    global _RB
+    import cv2
+    from wonders import timeline as TL
+    from wonders.render import Renderer
+    if _RB is None:
+        _RB = Renderer(_R.world, size=SIZE, ss=1, grain=False)
+    acc = np.zeros((SIZE[1], SIZE[0], 3), np.float32)
+    step = SHUTTER / BLUR_N
+    w, h = SIZE
+    WARPS = 4
+    for j in range(BLUR_N):
+        f = n + (j + 0.5) * step - SHUTTER / 2
+        cj = TL.camera_at(f)
+        img = _RB.frame(f / TL.FPS, cj)
+        # between renders, the picture is re-projected to four more instants (pan AND zoom), so the
+        # smear is continuous right out to the corners of the frame
+        for m in range(WARPS):
+            fm = f + ((m + 0.5) / WARPS - 0.5) * step
+            cm = TL.camera_at(fm)
+            sc = cm[2] / cj[2]
+            M = np.array([[sc, 0, w / 2 * (1 - sc) + (cj[0] - cm[0]) * cm[2]], [0, sc, h / 2 * (1 - sc) + (cj[1] - cm[1]) * cm[2]]], np.float32)
+            acc += cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    img = np.clip(acc / (BLUR_N * WARPS) + 0.5, 0, 255).astype(np.uint8)
+    cam = TL.camera_at(n)
+    _R.set_grain(cam[2])
+    return np.ascontiguousarray(_R.paper.apply(img, cam, SIZE))
+
+
+def render_frame(n):
+    from wonders import timeline as TL
+    if TL.is_move(n):
+        return blurred(n)
+    return _R.frame(n / TL.FPS, TL.camera_at(n))
+
+
 def _frame(n):
-    t = n / _TL.fps
-    return n, _R.frame(t, _TL.camera(t)).tobytes()
+    return n, render_frame(n).tobytes()
 
 
 def save_png(path, img):
@@ -64,7 +107,7 @@ def cmd_film(a):
     # ONE x264 encoder; the renderer's four workers feed it in order
     cmd += ['-vf', 'scale=out_color_matrix=bt709:out_range=tv', '-c:v', 'libx264', '-preset', 'slow', '-crf', str(a.crf),
             '-pix_fmt', 'yuv420p', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-g', '50']
-    # a keyframe on every hard cut
+    # a keyframe as each swoop lands
     cuts = [c for c in TL.CUTS if f0 < c < f1]
     if cuts:
         cmd += ['-force_key_frames', ','.join('%.5f' % ((c - f0) / 30.0) for c in cuts)]
@@ -105,7 +148,7 @@ def cmd_still(a):
         if a.at:
             x, y = map(float, a.at.split(','))
             cam = (x, y, cam[2])
-        img = _R.frame(t, cam)
+        img = _R.frame(t, cam) if (a.zoom or a.at) else render_frame(int(round(t * 30)))
         p = os.path.join(OUT, (a.name % t if '%' in a.name else a.name) if a.name else 'still_%05.2fs.png' % t)
         save_png(p, img)
         print(p)
@@ -113,9 +156,9 @@ def cmd_still(a):
 
 def _shot_times():
     from wonders import timeline as TL
-    out = [('00_build_hold', (TL.CUTS[0] - 40) / 30.0)]
+    out = [('00_build_hold', (TL.CUTS[0] - 50) / 30.0)]
     for k, (name, _, _) in enumerate(TL.SHOTS):
-        out.append(('%02d_%s' % (k + 1, name), (TL.CUTS[k] + 50) / 30.0))
+        out.append(('%02d_%s' % (k + 1, name), (TL.CUTS[k] + TL.EV_FRAME + 6) / 30.0))       # just after the shot's event peaks
     out.append(('%02d_final_wide' % (len(TL.SHOTS) + 1), (TL.CUTS[-1] + 75) / 30.0))
     return out
 
@@ -124,24 +167,28 @@ def cmd_shots(a):
     setup()
     os.makedirs(os.path.join(OUT, 'shots'), exist_ok=True)
     for name, t in _shot_times():
-        img = _R.frame(t, _TL.camera(t))
         p = os.path.join(OUT, 'shots', 'shot_%s_%05.2fs.png' % (name, t))
-        save_png(p, img)
+        save_png(p, render_frame(int(round(t * 30))))
+        print(p)
+    for t in (0.5, 1.5, 2.5):
+        p = os.path.join(OUT, 'build_%.1fs.png' % t)
+        save_png(p, render_frame(int(round(t * 30))))
         print(p)
 
 
 def cmd_sheet(a):
     import cv2
+    from wonders import timeline as TL
     setup()
     cols = 6
     tw, th = 640, 360
     build = [k * (4.5 / 11) for k in range(12)]
-    shots = _shot_times()
-    tiles = [('build %.2fs' % t, t) for t in build] + [('%s  %.1fs' % (n, t), t) for n, t in shots]
+    trans = [('swoop into shot %d, mid-flight' % (k + 1), (TL.CUTS[k] - TL.MOVE // 2) / 30.0) for k in (1, 5, 9)]
+    tiles = [('build %.2fs' % t, t) for t in build] + [('%s  %.1fs' % (n, t), t) for n, t in _shot_times()] + trans
     rows = (len(tiles) + cols - 1) // cols
     sheet = np.full((rows * th, cols * tw, 3), 236, np.uint8)
     for k, (label, t) in enumerate(tiles):
-        img = _R.frame(t, _TL.camera(t))
+        img = render_frame(int(round(t * 30)))
         im = cv2.resize(img, (tw, th), interpolation=cv2.INTER_AREA)
         cv2.rectangle(im, (0, 0), (len(label) * 13 + 16, 34), (241, 236, 224), -1)
         cv2.putText(im, label, (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (50, 45, 40), 2, cv2.LINE_AA)

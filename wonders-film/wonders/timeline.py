@@ -64,8 +64,9 @@ CUTS = [BUILD_FRAMES + k * BAR for k in range(len(SHOTS) + 1)]     # the bar lin
 TOTAL_FRAMES = CUTS[-1] + FINAL_FRAMES
 DURATION = TOTAL_FRAMES / FPS
 FINALE2 = CUTS[-1] / FPS + 0.35
-# each close-up's signature event peaks in the middle of its hold
-EV = {name: (CUTS[k] + HOLD / 2) / FPS for k, (name, _, _) in enumerate(SHOTS)}
+# each close-up's signature event peaks on the half-bar (beat 3), well inside its hold
+EV_FRAME = 50
+EV = {name: (CUTS[k] + EV_FRAME) / FPS for k, (name, _, _) in enumerate(SHOTS)}
 
 
 def _quint(x):

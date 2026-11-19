@@ -427,6 +427,61 @@ def gap_bridge(T, axis, pos, t_on, w=0.036, kind='stone', n_walk=2, h=0.022):
 
 
 # ------------------------------------------------------ construction marks ----
+def crane(T, u, v, s=1.0, t_in=0.25, flip=False):
+    """A draughtsman's crane, drawn in the same blue pencil as the guides: it rises as the slab is inked,
+    swings blocks into place while the structures go up, and folds away when the colour is dry."""
+    B = np.array(T.P(u, v))
+    pc = PENCIL
+    blk = vivid((244, 236, 214))
+    sg = -1.0 if flip else 1.0
+    H = 30.0 * s
+
+    def draw(c, tau, t, a, R):
+        x = tau - t_in
+        if x <= 0 or x >= 1.22:
+            return
+        up = ease.out_back(min(1.0, x / 0.22), 1.6) if x < 1.0 else max(0.0, 1 - (x - 1.0) / 0.2)
+        if up <= 0.01:
+            return
+        al = a * min(1.0, up * 1.5) * 0.95
+        top = B + np.array([0, -H * up])
+        ps = R.ps
+        ps.setColor(argb(pc, al))
+        ps.setStrokeWidth(0.5)
+        for dx in (-1.1, 1.1):
+            c.drawLine(float(B[0] + dx), float(B[1]), float(top[0] + dx), float(top[1]), ps)
+        ps.setStrokeWidth(0.28)
+        n = int(9 * up) + 1
+        for k in range(n):                                   # lattice of the mast
+            y0, y1 = B[1] - H * up * k / n, B[1] - H * up * (k + 1) / n
+            c.drawLine(float(B[0] - 1.1), float(y0), float(B[0] + 1.1), float(y1), ps)
+            c.drawLine(float(B[0] + 1.1), float(y0), float(B[0] - 1.1), float(y1), ps)
+        if up > 0.6:
+            ang = sg * (0.9 * math.sin(x * 5.2 + u * 7) + 0.4)
+            jx, jy = 20.0 * s * math.cos(ang), 20.0 * s * 0.42 * math.sin(ang)
+            tip = top + np.array([jx, jy - 1.0])
+            back = top + np.array([-jx * 0.32, -jy * 0.32 - 1.0])
+            ps.setStrokeWidth(0.5)
+            c.drawLine(float(back[0]), float(back[1]), float(tip[0]), float(tip[1]), ps)
+            ps.setStrokeWidth(0.26)
+            pk = top + np.array([0, -5.0 * s])
+            for q in (back, tip, top + np.array([jx * 0.5, jy * 0.5 - 1.0])):
+                c.drawLine(float(pk[0]), float(pk[1]), float(q[0]), float(q[1]), ps)
+            # the hook, lowering a block and coming up empty, over and over
+            f = (x * 2.6 + u) % 1.0
+            drop = (0.25 + 0.6 * (math.sin(math.pi * f) ** 2)) * H * up
+            hk = tip + np.array([0, drop])
+            c.drawLine(float(tip[0]), float(tip[1]), float(hk[0]), float(hk[1]), ps)
+            if f < 0.5:
+                R.pf.setColor(argb(blk, al))
+                c.drawRect(skia.Rect.MakeLTRB(hk[0] - 1.6, hk[1], hk[0] + 1.6, hk[1] + 2.2), R.pf)
+                ps.setColor(argb(INK, al))
+                ps.setStrokeWidth(0.26)
+                c.drawRect(skia.Rect.MakeLTRB(hk[0] - 1.6, hk[1], hk[0] + 1.6, hk[1] + 2.2), ps)
+    T.custom(draw, [B + np.array([-24 * s, -H - 8]), B + np.array([24 * s, 12])], stage='sky', sky=True)
+
+
+
 def construction_marks(T):
     """The draughtsman's working: dimension lines with arrowheads and scribbled figures, a grid of
     setting-out dots, hatching, compass arcs and a protractor - pencilled as each piece begins, erased as it is inked."""
@@ -476,7 +531,14 @@ def construction_marks(T):
         if label:
             glyphs((a + b) / 2 + off / np.hypot(*off) * 3.4 + np.array([-3.0, 1.2]), r.choice([3, 4]), tp + 0.08, te)
 
+    crane(T, 0.13, 0.86, 1.0, 0.24)
+    crane(T, 0.87, 0.14, 0.85, 0.36, flip=True)
     if T.kind == 'tile':
+        # the setting-out grid, ruled across the bare slab and rubbed out as the colour arrives
+        for k in range(1, 6):
+            f = k / 6.0
+            pen([T.P(f, 0.0), T.P(f, 1.0)], -0.42 + 0.03 * k, 0.26 + 0.05 * k, 0.26)
+            pen([T.P(0.0, f), T.P(1.0, f)], -0.36 + 0.03 * k, 0.30 + 0.05 * k, 0.26)
         A, B, C, D = T.P(0, 1, -th), T.P(1, 1, -th), T.P(1, 0, -th), T.P(1, 1, 0)
         dim(A, B, np.array([-2.6, 5.2]), 0.02, 0.9)
         dim(B, C, np.array([2.6, 5.2]), 0.06, 0.95)

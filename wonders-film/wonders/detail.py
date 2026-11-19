@@ -878,11 +878,8 @@ def niagara(T):
 
 
 def stonehenge(T):
-    # the avenue, barrows on the skyline, a fence and a signpost
+    # the avenue, a fence, wildflowers
     path_line(T, [(0.86, 0.62), (0.70, 0.60), (0.58, 0.72)], w=0.7)
-    for (a, b) in ((0.24, 0.30), (0.78, 0.36)):
-        with T.grp('rise', t0=0.5, dur=0.4, pivot=T.P(a, b), stage='struct', ink_now=True, under=PAPER):
-            T.hill(a, b, 0.05, 0.022, c=GRASS_D, guide=False)
     ex.fence(T, [(0.78, 0.70), (0.84, 0.64)], h=0.012, c=WOOD)
     ex.flowers(T, [(0.2, 0.4), (0.8, 0.4), (0.8, 0.76), (0.3, 0.8)], 22, cols=[MARBLE, ACCENT_L, (178, 150, 220)])
     ex.rocks(T, [(0.30, 0.80), (0.66, 0.84)], 0.7, c=(200, 198, 192))
