@@ -94,7 +94,7 @@ class Piece:
         """Unfold clock in units of din (0 folded, >=1 settled open); the fold plays the bloom in reverse."""
         u = (t - self.t_open) / self.din()
         if t > self.t_fold:
-            u = min(u, 1.0) * max(0.0, 1.0 - (t - self.t_fold) / self.d_fold)
+            u = min(u, 1.15) * max(0.0, 1.0 - (t - self.t_fold) / self.d_fold)   # 1.15: spring and life both settled
         return u
 
     def state(self, ctx):

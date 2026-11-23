@@ -12,7 +12,7 @@ import math
 import numpy as np
 from . import core, travellers
 from .core import ll_frame, spring, smooth, smoother, DEG_PER_S
-from .mech import NEVER
+from .mech import NEVER, Bird
 
 FPS = 30
 BPM = 100.0
@@ -49,6 +49,8 @@ def wide_turn(w):
 BURST_SPREAD = 0.50        # s for the wave to reach the rim
 PUNCH = (0.45, 1.5, 0.07)  # the camera punches in 7 % as the globe bursts (opening only; the cut comes before it matters)
 FOLD_T = (beat(36), 0.36, 0.50)
+NUDGE = {('africa', 'pyr_face', 1): (0.0, -6.0),      # the middle pyramid's base overlapped the great one's
+         ('southasia', 'peacock', 0): (-3.0, -5.0)}   # the Taj swept through the peacock as it rose
 GROW_WIDE = {'zebra': 1.7, 'lion': 1.4, 'flamingo': 1.4}   # fold: rim starts on the last downbeat, the centre 0.36 s later, each takes 0.5 s
 
 # ---------------------------------------------------------------------------------------------- the shots
@@ -62,25 +64,25 @@ GROW_WIDE = {'zebra': 1.7, 'lion': 1.4, 'flamingo': 1.4}   # fold: rim starts on
 # elevation, globe turn) the shot borrows; 'africa' borrows the finale's.
 SHOTS = [
     # name          beat  len  stop          hero                           fh    cy    push   drift(dlat,dlon) spin lead  bloom  extra
-    ('eiffel',       3,   3,  'europe',     ('europe', 'eiffel', 0),       0.70, 0.50, 0.045, (0.0, 0.0),   2.0, 0.10, 0.50, {}),
+    ('eiffel',       3,   3,  'europe',     ('europe', 'eiffel', 0),       0.70, 0.50, 0.045, (0.0, 0.0),   2.0, 0.10, 0.50, {'shut': ['bird_w']}),
     ('greatwave',    6,   3,  'pacific',    ('pacific', 'greatwave', 0),   0.48, 0.48, 0.035, (0.0, 1.2),   2.0, 0.10, 0.50, {}),
     ('aurora',       9,   3,  'arctic',     ('arctic', 'aurora', 0),       0.50, 0.48, -0.03, (0.0, -1.0),  2.0, -0.35, 0.95, {}),
     ('pyramids',    12,   2,  'africa',     ('africa', 'pyr_face', 0),     0.46, 0.52, 0.05, (0.0, 0.0),    2.5, 0.08, 0.52, {}),
     ('liberty',     14,   2,  'namerica',   ('namerica', 'liberty', 0),    0.64, 0.50, 0.06, (0.0, 0.0),    2.0, 0.08, 0.52, {}),
     ('taj',         16,   2,  'southasia',  ('southasia', 'taj', 0),       0.50, 0.52, 0.05, (0.0, 1.0),    2.0, 0.08, 0.52, {'open': ['himalaya_z']}),
     ('machu',       18,   1,  'samerica',   ('samerica', 'machu', 0),      0.40, 0.52, 0.08, (0.0, 0.0),    2.0, 0.03, 0.27, {}),
-    ('bigben',      19,   1,  'europe',     ('europe', 'bigben', 0),       0.62, 0.50, 0.08, (0.0, 0.0),    2.0, 0.03, 0.27, {'shut': ['eiffel']}),
+    ('bigben',      19,   1,  'europe',     ('europe', 'bigben', 0),       0.62, 0.50, 0.08, (0.0, 0.0),    2.0, 0.03, 0.27, {'shut': ['eiffel', 'bird_w']}),
     ('kilimanjaro', 20,   1,  'africa',     ('africa', 'kili_z', 0),       0.45, 0.52, 0.08, (0.0, 0.0),    2.5, 0.00, 0.30, {}),
     ('opera',       21,   1,  'oceania',    ('oceania', 'opera', 0),       0.36, 0.55, 0.08, (0.0, 0.0),    2.0, -0.03, 0.33, {}),
     # the whale (its own entry below), beats 22-26, then the flurry: half-beat shots
-    ('windmill',    26,  .5,  'europe',     ('europe', 'windmill', 0),     0.55, 0.50, 0.10, (0.0, 0.0),    2.0, 0.00, 0.15, {'shut': ['eiffel', 'bigben']}),
-    ('christ',     26.5, .5,  'samerica',   ('samerica', 'christ', 0),     0.60, 0.50, 0.10, (0.0, 0.0),    2.0, 0.00, 0.15, {}),
-    ('pagoda',      27,  .5,  'eastasia',   ('eastasia', 'pagoda', 0),     0.58, 0.50, 0.10, (0.0, 0.0),    2.0, 0.00, 0.15, {}),
-    ('giraffe',    27.5, .5,  'africa',     ('africa', 'giraffe', 0),      0.55, 0.50, 0.10, (0.0, 0.0),    2.5, 0.00, 0.15, {'shut': ['pyr_face']}),
-    ('penguins',    28,  .5,  'antarctica', ('antarctica', 'colony', 0),   0.40, 0.52, 0.10, (0.0, 0.0),    2.0, 0.00, 0.15, {'open': ['aurora_s', 'iceberg_z', 'penguin', 'seal']}),
-    ('goldengate', 28.5, .5,  'namerica',   ('namerica', 'goldengate', 0), 0.40, 0.50, 0.10, (0.0, 0.0),    2.0, 0.00, 0.15, {}),
-    ('kangaroo',    29,  .5,  'oceania',    ('oceania', 'kangaroo', 0),    0.50, 0.52, 0.10, (0.0, 0.0),    2.0, 0.00, 0.15, {'shut': ['opera', 'hbridge']}),
-    ('torii',      29.5, .5,  'eastasia',   ('eastasia', 'torii', 0),      0.40, 0.52, 0.10, (0.0, 0.0),    2.0, 0.00, 0.15, {'with': [('eastasia', 'fuji_z', 0)]}),
+    ('windmill',    26,  .5,  'europe',     ('europe', 'windmill', 0),     0.55, 0.50, 0.10, (0.0, 0.0),    2.0, -0.08, 0.23, {'shut': ['eiffel', 'bigben', 'bird_w']}),
+    ('christ',     26.5, .5,  'samerica',   ('samerica', 'christ', 0),     0.60, 0.50, 0.10, (0.0, 0.0),    2.0, -0.08, 0.23, {}),
+    ('pagoda',      27,  .5,  'eastasia',   ('eastasia', 'pagoda', 0),     0.58, 0.50, 0.10, (0.0, 0.0),    2.0, -0.08, 0.23, {}),
+    ('giraffe',    27.5, .5,  'africa',     ('africa', 'giraffe', 0),      0.55, 0.50, 0.10, (0.0, 0.0),    2.5, -0.08, 0.23, {'shut': ['pyr_face']}),
+    ('penguins',    28,  .5,  'antarctica', ('antarctica', 'colony', 0),   0.40, 0.52, 0.10, (0.0, 0.0),    2.0, -0.08, 0.23, {'open': ['aurora_s', 'iceberg_z', 'penguin', 'seal']}),
+    ('goldengate', 28.5, .5,  'namerica',   ('namerica', 'goldengate', 0), 0.40, 0.50, 0.10, (0.0, 0.0),    2.0, -0.08, 0.23, {}),
+    ('kangaroo',    29,  .5,  'oceania',    ('oceania', 'kangaroo', 0),    0.50, 0.52, 0.10, (0.0, 0.0),    2.0, -0.08, 0.23, {'shut': ['opera', 'hbridge']}),
+    ('torii',      29.5, .5,  'eastasia',   ('eastasia', 'torii', 0),      0.40, 0.52, 0.10, (0.0, 0.0),    2.0, -0.08, 0.23, {'with': [('eastasia', 'fuji_z', 0)]}),
 ]
 ZMAX, ZMIN = 2.5, 0.9
 MAX_DLON = 10.0            # deg: the hero sits at most this far from the facing meridian
@@ -116,11 +118,17 @@ class XCut:
         self.P = sc.pieces
         for p in self.P:
             p.t_fold = NEVER
+        # two v3 pieces whose cards pass through a neighbour; invisible from v3's distance, a flicker in a close-up
+        for (reg, nm, k), (dla, dlo) in NUDGE.items():
+            p = self._find(reg, nm, k)
+            p.lat += dla
+            p.lon += dlo
         self.orig = [(p.t_open, p.tempo, p.t_shrink, p.t_crown) for p in self.P]
         self.pos = [ll_frame(p.lat, p.lon)[0] for p in self.P]
         self._masks = {}
         self._wide_plan()
         self._crown_fix()
+        self._walk_offsets()
         self._build_shots()
 
     # -------------------------------------------------------------------------------- framing per format
@@ -165,6 +173,22 @@ class XCut:
             base = p.dur_in / DEG_PER_S
             din = 0.55 * math.sqrt(base)
             self.wplan.append((lock - 0.46 * din, din, self.fold_start(self.pos[i])))
+
+    def _walk_offsets(self):
+        """Walkers mirror-flip at the ends of their walks (as in v3). In the crowned hold a flip is a visible
+        snap, so each walker's life clock there starts at an offset that keeps it walking one way."""
+        self.woff = {}
+        w0, w1 = beat(CROWN_BEAT) - LOOP - 0.1, 0.1
+        for i, p in enumerate(self.P):
+            if getattr(p, 'mover', None) is None:
+                continue
+            best = 100.0
+            for o in np.arange(100.0, 160.0, 0.25):
+                fl = [p.mover(o + w, 1.0, T_W + w)[2] for w in np.linspace(w0, w1, 25)]
+                if all(f == fl[0] for f in fl):
+                    best = o
+                    break
+            self.woff[i] = best
 
     def _crown_fix(self):
         """v3's finale left edge-on slivers at the rim (pieces whose neighbours kept them from turning, walkers)
@@ -367,12 +391,12 @@ class XCut:
                 self.P[i].xyaw = v
             for i, v in self.xk.items():
                 self.P[i].xk = v
-            for p, (lift, din, fold) in zip(self.P, self.wplan):
+            for i, (p, (lift, din, fold)) in enumerate(zip(self.P, self.wplan)):
                 p.tempo = din / (p.dur_in / DEG_PER_S)
                 if opening:
                     p.t_open = T_W + lift
                 else:
-                    p.t_open = T_W - 100.0
+                    p.t_open = T_W - self.woff.get(i, 100.0)
                     p.t_fold = T_W + (fold - LOOP)
                     p.d_fold = FOLD_T[2]
         elif s.kind == 'whale':
@@ -382,11 +406,12 @@ class XCut:
             k[5] = self.syf(s.sy, False) if self.fmt != 'v' else 0.80
             core.CAM_OVERRIDE = k
         else:
+            travellers.CUT = CloseGate()
             for i in s.members:
                 p = self.P[i]
                 to, te, ts, tc = self.orig[i]
                 p.t_open = s.H + (to - s.h_open) * s.k * (PRE_GAP if to < s.h_open else 1.0)
-                p.tempo = te * s.k
+                p.tempo = te * (max(s.k, 0.7) if isinstance(p, Bird) else s.k)    # birds fly in, they do not pop
                 p.t_shrink = NEVER
                 p.t_crown = NEVER
             for i in s.force_open:
@@ -403,6 +428,20 @@ class XCut:
         self._restore()
         core.CAM_OVERRIDE = None
         travellers.CUT = None
+
+
+class CloseGate:
+    """Travellers in the close-ups behave as in v3, except the paper plane: at close-up zoom it can cross the
+    lens in a single frame, which reads as a flash."""
+
+    def rise(self, ctx, lat, lon, dur, default):
+        return default
+
+    def cycle_ok(self, ctx, lat, lon, c0, c1):
+        return True
+
+    def plane_ok(self, ctx):
+        return False
 
 
 class WideGate:

@@ -1,7 +1,8 @@
 """Checks for the X cut.
    python verify_x.py video out/paper_planet_x.mp4   cuts vs the beat grid, loop seam, pop/glitch scan inside shots
    python verify_x.py audio out/paper_planet_x_audio.wav   loudness, true peak, seam continuity, hits on the grid
-   python verify_x.py limb [fmt] [step]            limb occlusion over the cut (no rendering)"""
+   python verify_x.py limb [fmt] [step]            limb occlusion over the cut (no rendering)
+   python verify_x.py pops video out.jpg pair:x:y ...   before/after crops of pop candidates (x, y fractions)"""
 import sys, subprocess, re
 import numpy as np
 sys.path.insert(0, '.')
@@ -11,7 +12,7 @@ F = xcut.FPS
 
 
 def planned_cuts():
-    S = sorted([xcut.beat(b) for (_, b, *r) in xcut.SHOTS] + [xcut.beat(xcut.WHALE['beat']), xcut.beat(xcut.CROWN_BEAT), xcut.beat(3)])
+    S = sorted([xcut.beat(b) for (_, b, *r) in xcut.SHOTS] + [xcut.beat(xcut.WHALE['beat']), xcut.beat(xcut.CROWN_BEAT)])
     return [int(round(t * F)) for t in S]
 
 
@@ -178,8 +179,47 @@ def limb(fmt='x', step=3):
         print('  %-14s frames %d  points %d  deepest r=%.3f  e.g. %s' % (nm, len(l), sum(x[1] for x in l), min(x[2] for x in l), l[:4]))
 
 
+def pops(path, out, specs):
+    """Streams the video once and keeps only the frames it needs (memory-light)."""
+    import cv2
+    p = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', path],
+                       capture_output=True, text=True).stdout.strip().split(',')
+    W, H = int(p[0]), int(p[1])
+    want = {}
+    for sp in specs:
+        i, x, y = sp.split(':')
+        for d in (-1, 0, 1, 2):
+            want[int(i) + d] = None
+    pr = subprocess.Popen(['ffmpeg', '-loglevel', 'error', '-i', path, '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-'], stdout=subprocess.PIPE)
+    k = 0
+    while True:
+        b = pr.stdout.read(W * H * 3)
+        if len(b) < W * H * 3:
+            break
+        if k in want:
+            want[k] = np.frombuffer(b, np.uint8).reshape(H, W, 3).copy()
+        k += 1
+    rows = []
+    cw, ch = int(0.22 * W), int(0.22 * W * 0.75)
+    for sp in specs:
+        i, x, y = sp.split(':'); i = int(i); x = int(float(x) * W); y = int(float(y) * H)
+        x0, y0 = max(0, min(W - cw, x - cw // 2)), max(0, min(H - ch, y - ch // 2))
+        tl = []
+        for d in (-1, 0, 1, 2):
+            f = want.get(i + d)
+            f = np.zeros((H, W, 3), np.uint8) if f is None else f
+            f = cv2.resize(f[y0:y0 + ch, x0:x0 + cw], (400, 300))
+            cv2.putText(f, str(i + d), (4, 16), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            tl.append(f)
+        rows.append(np.concatenate(tl, 1))
+    cv2.imwrite(out, np.concatenate(rows, 0))
+
+
 if __name__ == '__main__':
     cmd = sys.argv[1]
+    if cmd == 'pops':
+        pops(sys.argv[2], sys.argv[3], sys.argv[4:])
+        sys.exit()
     if cmd == 'video':
         video(sys.argv[2])
     elif cmd == 'audio':
