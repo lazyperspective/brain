@@ -166,8 +166,13 @@ _CH = _build()
 LON0 = WIDE_OPEN[1]    # facing longitude at t=0
 
 
+CAM_OVERRIDE = None    # the X cut (pp/xcut.py) sets the 8 channels per frame; None = the v3 timeline
+
+
 def cam_keys(t):
     """Camera channels at film time t: a smooth function (cubic interpolation of a finely sampled table)."""
+    if CAM_OVERRIDE is not None:
+        return [float(v) for v in CAM_OVERRIDE]
     x = (t - _T0) / _DT
     n = len(_TS)
     x = min(max(x, 1.0), n - 3.0)
@@ -198,7 +203,8 @@ def center_lon(t):
 def globe_matrix(t):
     """3x3 matrix taking globe-local unit vectors to world."""
     lc = math.radians(center_lon(t))
-    return rot_z(-math.radians(ROLL)) @ BASE @ rot_z(-lc)
+    roll = ROLL if CAM_OVERRIDE is None or len(CAM_OVERRIDE) < 9 else CAM_OVERRIDE[8]    # the X cut levels its close-ups
+    return rot_z(-math.radians(roll)) @ BASE @ rot_z(-lc)
 
 
 def wrap180(a):
@@ -208,7 +214,7 @@ def wrap180(a):
 class Camera:
     def __init__(self, t, ss=2, w=W, h=H):
         tt = t
-        elev, zoom, llat, llon, sx, sy, kw, lonc = cam_keys(tt)
+        elev, zoom, llat, llon, sx, sy, kw, lonc = cam_keys(tt)[:8]
         self.kw = kw
         self.zoom = zoom
         self.elev = elev

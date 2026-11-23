@@ -82,16 +82,29 @@ class Piece:
     gk = 1.0              # hero growth already applied to the piece's size
     t_shrink = NEVER      # the camera leaves the piece's stop: it settles back from its hero size
     s_post = 1.0          # size (relative to the grown size) while it is only passing
+    t_fold = NEVER        # the X cut only: the bloom runs backwards from here, straight back into the map
+    d_fold = 0.5          # ... taking this long (s)
+    xyaw = 0.0            # the X cut's crowned globe only: an extra turn to face the lens at the rim
+    xk = 1.0              # the X cut's crowned globe only: an extra scale (small animals read better)
 
     def din(self):
         return self.dur_in / DEG_PER_S * self.tempo
+
+    def ueff(self, t):
+        """Unfold clock in units of din (0 folded, >=1 settled open); the fold plays the bloom in reverse."""
+        u = (t - self.t_open) / self.din()
+        if t > self.t_fold:
+            u = min(u, 1.0) * max(0.0, 1.0 - (t - self.t_fold) / self.d_fold)
+        return u
 
     def state(self, ctx):
         """-> (s open amount with spring, tau life clock seconds, act 0..1 life activity)"""
         dt = ctx.t - self.t_open
         if dt <= 0.0:
             return 0.0, 0.0, 0.0
-        u = dt / self.din()
+        u = self.ueff(ctx.t)
+        if u <= 0.0:
+            return 0.0, 0.0, 0.0
         return spring(u), dt, smooth((u - 0.55) / 0.6)
 
     def cur_stand(self, t):
@@ -100,11 +113,11 @@ class Piece:
         return self.stand + (self.stand_crown - self.stand) * smoother((t - self.t_crown) / RESTAND)
 
     def cur_scale(self, t):
-        sc = 1.0
+        sc = self.xk
         if t > self.t_shrink:
             sc += (self.s_post - 1.0) * smoother((t - self.t_shrink) / 1.4)
         if t > self.t_crown:
-            sc += (1.0 / self.gk - sc) * smoother((t - self.t_crown) / RESTAND)
+            sc += (self.xk / self.gk - sc) * smoother((t - self.t_crown) / RESTAND)
         return sc
 
     def cur_dyaw(self, t):
@@ -192,6 +205,7 @@ class Flap(Piece):
             yaw += yaw2
         else:
             yaw += self.cur_dyaw(ctx.t)
+        yaw += self.xyaw
         if self.hang:
             yaw += 180.0
         p, X, B = _basis(lat, lon, yaw)
@@ -381,7 +395,7 @@ class Zigzag(Piece):
         s, tau, act = self.state(ctx)
         if s <= 0.0:
             return
-        u = (ctx.t - self.t_open) / self.din()
+        u = self.ueff(ctx.t)
         s1 = smooth(u * 1.6)
         s2 = spring((u - 0.42) / 0.58)
         stand = self.cur_stand(ctx.t)

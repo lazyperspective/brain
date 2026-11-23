@@ -1,12 +1,15 @@
 """Parallel film renderer. Frames are rendered by worker processes and piped straight into one ffmpeg.
 Fast camera moves get motion blur: those frames are averaged from several sub-frames across a 180 degree
 shutter (the number follows the camera's on-screen speed); every other frame is a single render.
-   python render.py --out out/video.mp4 [--start 0 --end NF --step 1 --crf 16 --workers 4 --ss 2 --w 1920]"""
+   python render.py --out out/video.mp4 [--start 0 --end NF --step 1 --crf 16 --workers 4 --ss 2 --w 1920]
+The X cut (pp/xcut.py), a 23.4 s seamless loop for social, in one of three formats:
+   python render.py --cut x --fmt x|sq|v --out out/x_video.mp4 [--res 0.444 for a 480p animatic]"""
 import argparse, math, os, subprocess, sys, time
 import multiprocessing as mp
 import numpy as np
 
 R = None
+X = None                # the X cut's per-frame state (None: the v3 film)
 SHUTTER = 0.5          # fraction of a frame the shutter is open
 BLUR_PX = 2.2          # at most this many px of travel between sub-frames
 
@@ -46,13 +49,34 @@ def fade(t):
     return u * u * (3 - 2 * u)
 
 
-def init(ss, w, h, lock=None):
-    global R
+def init(ss, w, h, lock=None, cut=None, fmt='x'):
+    global R, X
     import cv2
     cv2.setNumThreads(1)
     from pp import render, scene, backdrop
-    R = render.Renderer(scene.Scene(), backdrop.Backdrop(ss=ss, w=w, h=h), ss=ss, w=w, h=h)
+    sc = scene.Scene()
+    if cut == 'x':
+        from pp import xcut
+        X = xcut.XCut(sc, fmt)
+    R = render.Renderer(sc, backdrop.Backdrop(ss=ss, w=w, h=h), ss=ss, w=w, h=h)
     R.sphere_lock = lock
+
+
+def work_x(job):
+    """X cut: frame fi of the loop; the whale's frames average sub-frames (kept inside their shot)."""
+    fi, n = job
+    from pp import xcut
+    tau = fi / xcut.FPS
+    s = X.shot_at(tau)
+    acc = None
+    for k in range(n):
+        tk = tau + (((k + 0.5) / n) - 0.5) * SHUTTER / xcut.FPS if n > 1 else tau
+        tk = min(max(tk, s.t0), s.t1 - 1e-4)
+        t = X.apply(tk, s)
+        im = R.render(fi, t=t).astype(np.float32)
+        acc = im if acc is None else acc + im
+    X.release()
+    return fi, np.clip(acc / n + 0.5, 0, 255).astype(np.uint8).tobytes()
 
 
 def work(job):
@@ -86,13 +110,33 @@ if __name__ == '__main__':
     ap.add_argument('--preset', default='slow')
     ap.add_argument('--noblur', action='store_true')
     ap.add_argument('--sphere_slots', type=int, default=2)
+    ap.add_argument('--cut', default=None, choices=[None, 'x'])
+    ap.add_argument('--fmt', default='x', choices=['x', 'sq', 'v'])
+    ap.add_argument('--res', type=float, default=1.0, help='X cut: fraction of the format size (animatics)')
     a = ap.parse_args()
     w, h = a.w, a.w * 9 // 16
     from pp import world
     world.bake()
-    sp = camera_speed()
-    frames = list(range(a.start, a.end, a.step))
-    jobs = [(fi, 1 if a.noblur else subframes(sp[fi])) for fi in frames]
+    if a.cut == 'x':
+        from pp import xcut
+        W0, H0 = xcut.FMT[a.fmt]
+        w, h = int(round(W0 * a.res / 2)) * 2, int(round(H0 * a.res / 2)) * 2
+        a.end = min(a.end, xcut.NF)
+        FPS = xcut.FPS
+        frames = list(range(a.start, a.end, a.step))
+        # sub-frame counts come from the shot table (no scene needed): the whale is blurred, nothing else moves fast
+        def nsub(fi):
+            tau = fi / xcut.FPS
+            if xcut.beat(xcut.WHALE['beat']) <= tau < xcut.beat(xcut.WHALE['beat'] + xcut.WHALE['len']):
+                return xcut.WHALE['sub']
+            return 1
+        jobs = [(fi, 1 if a.noblur else nsub(fi)) for fi in frames]
+        worker = work_x
+    else:
+        sp = camera_speed()
+        frames = list(range(a.start, a.end, a.step))
+        jobs = [(fi, 1 if a.noblur else subframes(sp[fi])) for fi in frames]
+        worker = work
     nsub = sum(n for _, n in jobs)
     print('%d frames, %d renders (%d blurred frames)' % (len(jobs), nsub, sum(1 for _, n in jobs if n > 1)), flush=True)
     fps = FPS / a.step
@@ -104,7 +148,7 @@ if __name__ == '__main__':
     done = 0
     from collections import deque
     lock = mp.Semaphore(a.sphere_slots)
-    with mp.Pool(a.workers, initializer=init, initargs=(a.ss, w, h, lock)) as pool:
+    with mp.Pool(a.workers, initializer=init, initargs=(a.ss, w, h, lock, a.cut, a.fmt)) as pool:
         # a bounded window of frames in flight, written in order: the parent never buffers more than WINDOW frames
         pending = deque()
         it = iter(enumerate(jobs))
@@ -115,7 +159,7 @@ if __name__ == '__main__':
                 nxt = next(it, None)
                 if nxt is None:
                     break
-                pending.append((nxt[0], pool.apply_async(work, (nxt[1],))))
+                pending.append((nxt[0], pool.apply_async(worker, (nxt[1],))))
             if not pending:
                 break
             kk, res = pending.popleft()

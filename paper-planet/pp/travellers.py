@@ -11,6 +11,7 @@ from .mech import stand_for, stand_cam, wing_pair, _basis
 from .render import place
 
 TAU = 2 * math.pi
+CUT = None    # the X cut's wide shots (pp/xcut.py) gate the travellers with the burst and the fold; None = v3
 # widest on-globe size each traveller sprite is drawn at (globe radii), for rasterisation density
 TRAVELLER_W = {'cloud': 0.40, 'tallship': 0.24, 'liner': 0.30, 'junk': 0.18, 'dhow': 0.18, 'canoe': 0.20, 'sail_y': 0.12,
                'smoke': 0.08, 'whale': 0.45, 'orca': 0.32, 'whale_tail': 0.22, 'splash': 0.25, 'moon': 0.30,
@@ -64,13 +65,15 @@ def clouds(sc):
             step = 360.0 / n
             for i in range(n):
                 rise = spring((ctx.t - CLOUD_RISE[0] - CLOUD_RISE[1] * ((ri * 3 + i * 5) % 8) / 7.0) / 1.6)
-                if rise <= 0.0:
-                    continue
                 lon = base + i * step + dirn * step * u
                 j = (i + dirn) % n
                 size = sizes[i] * (1 - u) + sizes[j] * u
                 lr = math.radians(lon)
                 lat = lat0 + 3.0 * math.sin(2.0 * lr + TAU * u)
+                if CUT is not None:
+                    rise = CUT.rise(ctx, lat, lon, 1.6, rise)
+                if rise <= 0.0:
+                    continue
                 p, e, nn = ll_frame(lat, lon)
                 spr = S['cloud'] if (i % 2 == 0) else S['cloud']
                 w = size * (0.35 + 0.65 * min(1.0, rise))
@@ -109,6 +112,8 @@ def ships(sc):
     def emit(ctx):
         for k, (name, w, lat0, lon0, dla, dlo, dirn, ph) in enumerate(fleet):
             rise = spring((ctx.t - gates[k]) / 1.5)
+            if CUT is not None:
+                rise = CUT.rise(ctx, lat0, lon0, 1.5, rise)
             if rise <= 0.0:
                 continue
             spr = S[name]
@@ -163,6 +168,8 @@ def whales(sc):
         for (kind, lat, lon, per, ph, size, yaw), g in zip(pods, gates):
             u = (ctx.t / per + ph) % 1.0
             if ctx.t - u * per < g:
+                continue
+            if CUT is not None and not CUT.cycle_ok(ctx, lat, lon, ctx.t - u * per, ctx.t - u * per + (0.6 if kind == 'tail' else 0.52) * per):
                 continue
             p, X, B = _basis(lat, lon, yaw)
             st = stand_cam(ctx, lat, lon)
@@ -261,6 +268,8 @@ def plane(sc):
     def emit(ctx):
         t = ctx.t
         g = (t - PLANE_T) / 0.9
+        if CUT is not None and not CUT.plane_ok(ctx):
+            return
         if g <= 0.0:
             return
         sc_ = spring(g)

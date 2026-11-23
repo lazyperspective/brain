@@ -98,7 +98,7 @@ class Backdrop:
             x = rng.uniform(0.02, 0.98) * W
             y = rng.uniform(0.02, 0.60) ** 1.25 * H
             # keep the area behind the globe calm
-            if math.hypot(x - W / 2, y - H / 2) < H * 0.40:
+            if math.hypot(x - W / 2, y - H / 2) < min(W, H) * 0.40:
                 continue
             if any(math.hypot(x - px, y - py) < H * 0.065 for px, py in placed):
                 continue
@@ -109,7 +109,7 @@ class Backdrop:
         for _ in range(110):
             x = rng.uniform(0, W)
             y = rng.uniform(0, 0.62) ** 1.3 * H
-            if math.hypot(x - W / 2, y - H / 2) < H * 0.36:
+            if math.hypot(x - W / 2, y - H / 2) < min(W, H) * 0.36:
                 continue
             p = skia.Paint(AntiAlias=True)
             p.setColor4f(skia.Color4f(1.0, 0.93, 0.78, float(rng.uniform(0.45, 0.9))))
