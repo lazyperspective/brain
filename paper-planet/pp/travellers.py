@@ -1,7 +1,12 @@
 """Things that are always alive regardless of fold state: clouds, ships, whales, the moon and the paper plane."""
 import math
 import numpy as np
-from .core import ll_frame, DUR, smooth, smoother, LON0, CAM_D
+from .core import ll_frame, DUR, smooth, smoother, CAM_D, spring, BREACH_PEAK
+from .mech import appear, skin_amt
+
+LOOP = 60.0      # period of the travellers' circuits (v2 speeds)
+CLOUD_RISE = (4.2, 2.6)   # clouds puff up from the map during the first push-in (start, spread s)
+PLANE_T = 9.4             # the paper plane unfolds and takes off
 from .mech import stand_for, stand_cam, wing_pair, _basis
 from .render import place
 
@@ -54,10 +59,13 @@ def clouds(sc):
         return need
 
     def emit(ctx):
-        u = ctx.t / DUR
-        for (n, lat0, alt, dirn, base, sizes) in rings:
+        u = ctx.t / LOOP
+        for ri, (n, lat0, alt, dirn, base, sizes) in enumerate(rings):
             step = 360.0 / n
             for i in range(n):
+                rise = spring((ctx.t - CLOUD_RISE[0] - CLOUD_RISE[1] * ((ri * 3 + i * 5) % 8) / 7.0) / 1.6)
+                if rise <= 0.0:
+                    continue
                 lon = base + i * step + dirn * step * u
                 j = (i + dirn) % n
                 size = sizes[i] * (1 - u) + sizes[j] * u
@@ -65,39 +73,46 @@ def clouds(sc):
                 lat = lat0 + 3.0 * math.sin(2.0 * lr + TAU * u)
                 p, e, nn = ll_frame(lat, lon)
                 spr = S['cloud'] if (i % 2 == 0) else S['cloud']
-                w = size
+                w = size * (0.35 + 0.65 * min(1.0, rise))
                 h = w * spr.aspect
-                alt_c = max(alt, clearance(ctx, p, w / 2))
+                alt_c = max(alt, clearance(ctx, p, w / 2)) * min(1.0, rise)
                 c = p * (1.0 + alt_c + 0.006 * math.sin(TAU * 2 * u + 3.0 * lr))
                 # two sheets hinged along the cloud's long axis like a shallow roof: reads from above and from the limb
                 ang = math.radians(24.0 + 4.0 * math.sin(TAU * 3 * u + 2.0 * lr))
                 for sgn in (1.0, -1.0):
                     Yv = math.cos(ang) * nn * sgn - math.sin(ang) * p
                     if sgn > 0:
-                        ctx.emit(c - e * (w / 2), e, Yv, w, h * 0.5, [(spr, place(spr, 0, -h * 0.5, w), 1.0)], ao=False, both=True, clip=True)
+                        ctx.emit(c - e * (w / 2), e, Yv, w, h * 0.5, [(spr, place(spr, 0, -h * 0.5, w), 1.0)], ao=False, both=True, clip=True,
+                                 alpha=smooth(rise / 0.25), cast=rise > 0.3)
                     else:
-                        ctx.emit(c - e * (w / 2), e, Yv, w, h * 0.5, [(spr, place(spr, 0, 0, w, sy=-1.0), 1.0)], ao=False, both=True, clip=True)
+                        ctx.emit(c - e * (w / 2), e, Yv, w, h * 0.5, [(spr, place(spr, 0, 0, w, sy=-1.0), 1.0)], ao=False, both=True, clip=True,
+                                 alpha=smooth(rise / 0.25), cast=rise > 0.3)
     sc.extras.append(emit)
 
 
 def ships(sc):
     S = sc.S
     fleet = [  # (sprite, width, lat, lon, half extent lat, half extent lon, direction, phase)
-        ('tallship', 0.22, 36.0, -44.0, 3.5, 13.0, 1, 0.0),
+        ('tallship', 0.22, 37.5, -44.0, 2.5, 13.0, 1, 0.0),
         ('liner', 0.28, -10.0, -24.0, 3.0, 9.0, -1, 0.3),
         ('junk', 0.16, 15.0, 114.5, 2.5, 3.2, -1, 0.1),
         ('dhow', 0.16, 11.0, 63.0, 3.0, 7.0, 1, 0.45),
         ('liner', 0.24, -24.0, 80.0, 3.0, 10.0, 1, 0.8),
         ('canoe', 0.18, -13.0, -146.0, 3.0, 9.0, -1, 0.2),
-        ('tallship', 0.20, 41.0, 156.0, 3.5, 11.0, -1, 0.55),
+        ('tallship', 0.20, 41.0, 168.0, 3.5, 7.0, -1, 0.55),
         ('sail_y', 0.10, -40.0, 161.0, 2.0, 5.0, 1, 0.0),
         ('sail_y', 0.095, 17.0, -66.0, 1.6, 4.0, -1, 0.35),
     ]
 
+    gates = [sc.gate(f[2], f[3]) for f in fleet]
+
     def emit(ctx):
         for k, (name, w, lat0, lon0, dla, dlo, dirn, ph) in enumerate(fleet):
+            rise = spring((ctx.t - gates[k]) / 1.5)
+            if rise <= 0.0:
+                continue
             spr = S[name]
-            a = dirn * TAU * (ctx.t / DUR + ph)
+            a = dirn * TAU * (ctx.t / LOOP + ph)
             lat = lat0 + dla * math.sin(a)
             lon = lon0 + dlo * math.cos(a)
             cl = math.cos(math.radians(lat0))
@@ -109,13 +124,17 @@ def ships(sc):
             fwd /= np.linalg.norm(fwd) + 1e-9
             # lean back towards the north as far as the heading allows; sailing due north/south the card stands upright
             Bn = nn - fwd * (fwd @ nn)
-            th = math.radians(stand_cam(ctx, lat, lon) + 4.0 * math.sin(TAU * (ctx.t / 3.0 + k * 0.3)))
+            th = math.radians((stand_cam(ctx, lat, lon) + 4.0 * math.sin(TAU * (ctx.t / 3.0 + k * 0.3))) * rise)
             Y = math.cos(th) * Bn + math.sin(th) * p
             Y /= np.linalg.norm(Y)
-            rock = 3.5 * math.sin(TAU * (ctx.t / 4.0 + k * 0.21))
+            rock = 3.5 * math.sin(TAU * (ctx.t / 4.0 + k * 0.21)) * min(1.0, rise)
             h = w * spr.aspect
             O = p * (1.0025 + 0.002 * math.sin(TAU * (ctx.t / 2.5 + k * 0.4))) - fwd * (w / 2)
-            ctx.emit(O, fwd, Y, w, h, [(spr, place(spr, 0, 0, w, rot=rock), 1.0)], both=True, contact=0.5)
+            m = skin_amt(rise)
+            ctx.emit(O, fwd, Y, w, h, [(spr, place(spr, 0, 0, w, rot=rock), 1.0)], both=True, contact=0.5 * min(1.0, rise),
+                     alpha=appear(rise), cast=rise > 0.1, skin=(m, O, fwd, Bn) if m > 0 else None)
+            if rise < 0.5:
+                continue
             if name == 'liner':
                 sm = S['smoke']
                 for q in range(3):
@@ -138,9 +157,13 @@ def whales(sc):
         ('orca', -61.0, -178.0, 10.0, 0.0, 0.30, 0),
     ]
 
+    gates = [sc.gate(pd[1], pd[2]) for pd in pods]
+
     def emit(ctx):
-        for (kind, lat, lon, per, ph, size, yaw) in pods:
+        for (kind, lat, lon, per, ph, size, yaw), g in zip(pods, gates):
             u = (ctx.t / per + ph) % 1.0
+            if ctx.t - u * per < g:
+                continue
             p, X, B = _basis(lat, lon, yaw)
             st = stand_cam(ctx, lat, lon)
             th = math.radians(st)
@@ -187,14 +210,11 @@ def whales(sc):
     sc.extras.append(emit)
 
 
-MOON_T0 = 10.0      # the moon crosses the top centre (behind the globe) at t0 and t0 + 30 s
-
-
 def moon_screen(t):
-    """Where the hanging moon is in the frame, as fractions of width/height: a slow swing from side to side
-    across the sky band, one cycle per loop, with a gentle bob."""
-    a = 2 * math.pi * (t - MOON_T0) / DUR
-    return 0.5 + 0.375 * math.sin(a), 0.165 + 0.035 * math.sin(2 * a + 0.8)
+    """Where the hanging moon is in the frame, as fractions of width/height: upper left of the globe in both
+    wide shots, a slow swing across the sky band during the montage (inside the square crop throughout)."""
+    a = 2 * math.pi * t / DUR
+    return 0.5 - 0.185 * math.cos(a), 0.165 + 0.03 * math.sin(2 * a + 0.8) - 0.012 * math.cos(a)
 
 
 def moon(sc):
@@ -225,13 +245,13 @@ def moon(sc):
 
 
 def plane_pos(t):
-    b = -TAU * (2.0 * t / DUR) + 2.2
+    b = -TAU * (2.0 * t / LOOP) + 2.2
     n = np.array([0.42, 1.0, -0.30])
     n /= np.linalg.norm(n)
     u1 = np.cross(n, [0.0, 0.0, 1.0]); u1 /= np.linalg.norm(u1)
     u2 = np.cross(n, u1)
-    r = 1.36 + 0.04 * math.sin(TAU * 3 * t / DUR)
-    return r * (math.cos(b) * u1 + math.sin(b) * u2) + n * 0.10 * math.sin(TAU * 4 * t / DUR)
+    r = 1.36 + 0.04 * math.sin(TAU * 3 * t / LOOP)
+    return r * (math.cos(b) * u1 + math.sin(b) * u2) + n * 0.10 * math.sin(TAU * 4 * t / LOOP)
 
 
 def plane(sc):
@@ -240,6 +260,10 @@ def plane(sc):
 
     def emit(ctx):
         t = ctx.t
+        g = (t - PLANE_T) / 0.9
+        if g <= 0.0:
+            return
+        sc_ = spring(g)
         pos = plane_pos(t)
         ahead = plane_pos(t + 0.05)
         fwd = ahead - pos
@@ -247,9 +271,12 @@ def plane(sc):
         up = pos / np.linalg.norm(pos)
         up = up - fwd * (up @ fwd)
         up /= np.linalg.norm(up)
-        L = 0.22
-        wing_pair(ctx, pos, fwd, up, spr, L, L * spr.aspect, math.radians(16.0 + 4.0 * math.sin(TAU * t / 5.0)), world=True)
+        L = 0.22 * min(1.0, 0.2 + 0.8 * sc_)
+        wing_pair(ctx, pos, fwd, up, spr, L, L * spr.aspect, math.radians(16.0 + 4.0 * math.sin(TAU * t / 5.0) + 70.0 * (1.0 - min(1.0, sc_))),
+                  world=True, alpha=appear(sc_ * 0.5))
         for k in range(1, 9):
+            if t - 0.42 * k - 0.1 < PLANE_T + 0.6:
+                break
             q = plane_pos(t - 0.42 * k - 0.1)
             q2 = plane_pos(t - 0.42 * k - 0.05)
             f2 = q2 - q
@@ -273,14 +300,14 @@ def build(sc):
 
 # ------------------------------------------------------------------------------------------- the breach
 BREACH_LAT, BREACH_LON = 30.0, -141.0
-BREACH_T = 25.0          # top of the leap (s); the camera's 'whale' close-up is keyed to the same moment
+BREACH_T = BREACH_PEAK   # top of the leap (s); the camera's 'whale' stop is keyed to the same moment
 BREACH_AIR = 3.6         # seconds out of the water
 BREACH_H = 0.62          # height of the arc's top above the sea (globe radii)
 
 
 def breach_times():
     """(blow, leave the water, re-enter) in loop seconds, for the soundtrack."""
-    return ((BREACH_T - 5.2) % DUR, (BREACH_T - BREACH_AIR / 2) % DUR, (BREACH_T + BREACH_AIR / 2) % DUR)
+    return (BREACH_T - 3.4, BREACH_T - BREACH_AIR / 2, BREACH_T + BREACH_AIR / 2)
 
 
 def breach(sc):
@@ -301,13 +328,13 @@ def breach(sc):
     WC, HC = 1.5, 1.05                        # clip card: the sea surface is its bottom edge
 
     def emit(ctx):
-        dt = (ctx.t - T + DUR / 2) % DUR - DUR / 2
+        dt = ctx.t - T
         cam_local = ctx.G.T @ ctx.cam.C
         nf = Nf if (Nf @ (cam_local - p)) > 0 else -Nf
         O = p * 1.002 - X * (WC / 2)
         # blow: a spout a few seconds before the leap
-        if -5.6 < dt < -3.6:
-            k = math.sin(math.pi * (dt + 5.6) / 2.0)
+        if -3.6 < dt < -2.0:
+            k = math.sin(math.pi * (dt + 3.6) / 1.6)
             sw = 0.16 * (0.6 + 0.4 * k)
             Os = p * 1.003 + X * (-0.05 - sw / 2) + nf * 0.004
             ctx.emit(Os, X, Y, sw, sw * spout.aspect * k, [(spout, place(spout, 0, 0, sw, sy=k), 0.95)], both=True, ao=False, cast=False)

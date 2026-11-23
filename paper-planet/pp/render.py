@@ -28,10 +28,10 @@ CLAMP = skia.TileMode.kClamp
 
 
 class Card:
-    __slots__ = ('O', 'X', 'Y', 'w', 'h', 'layers', 'clip', 'emis', 'cast', 'ao', 'tint', 'contact', 'sortz', 'noshade', 'alpha', 'both')
+    __slots__ = ('O', 'X', 'Y', 'w', 'h', 'layers', 'clip', 'emis', 'cast', 'ao', 'tint', 'contact', 'sortz', 'noshade', 'alpha', 'both', 'skin')
 
     def __init__(self, O, X, Y, w, h, layers, clip=False, emis=False, cast=True, ao=True, tint=1.0, contact=0.0,
-                 sortz=0.0, noshade=False, alpha=1.0, both=False):
+                 sortz=0.0, noshade=False, alpha=1.0, both=False, skin=None):
         self.O, self.X, self.Y, self.w, self.h = O, X, Y, w, h
         self.layers = layers
         self.clip = clip
@@ -44,6 +44,7 @@ class Card:
         self.noshade = noshade
         self.alpha = alpha
         self.both = both
+        self.skin = skin            # (amount, O, X, Y) in globe-local coords: the map print this card lay on
 
 
 def place(spr, x, y, wR, rot=0.0, pivot=(0.5, 0.0), flip=False, sy=1.0):
@@ -430,6 +431,23 @@ class Renderer:
             else:
                 canvas.drawImage(img, 0, 0, SAMP, paint)
             canvas.restore()
+        if cd.skin is not None and cd.skin[0] > 0.004 and not cd.emis:
+            sk = self._skin_shader(cd)
+            for L in cd.layers:
+                spr, A, al = L[0], L[1], L[2]
+                inv = skia.Matrix()
+                if not A.invert(inv):
+                    continue
+                paint.setShader(sk.makeWithLocalMatrix(inv))
+                paint.setAlphaf(min(1.0, al * cd.alpha * ealpha * cd.skin[0]))
+                canvas.save()
+                canvas.concat(A)
+                if len(L) > 3 and L[3] is not None:
+                    r = skia.Rect(L[3][0], 0, L[3][1], spr.ph)
+                    canvas.drawImageRect(spr.mask, r, r, SAMP, paint)
+                else:
+                    canvas.drawImage(spr.mask, 0, 0, SAMP, paint)
+                canvas.restore()
         if varying:
             simg = skia.Image.fromarray(shade, colorType=RGBA, alphaType=OPAQUE)
             p2 = skia.Paint()
@@ -437,6 +455,24 @@ class Renderer:
             p2.setShader(simg.makeShader(CLAMP, CLAMP, SAMP_LIN, skia.Matrix.Scale(w / G, h / G)))
             canvas.drawRect(skia.Rect(lx0 - 0.01, ly0 - 0.01, lx1 + 0.01, ly1 + 0.01), p2)
         canvas.restore()
+
+    def _skin_shader(self, cd, n=40):
+        """The globe's paper map as it lies under the card's folded pose, as a shader in card-local units."""
+        _, O, X, Y = cd.skin
+        g = (np.arange(n, dtype=np.float32) + 0.5) / n
+        U, V = np.meshgrid(g * cd.w, g * cd.h)
+        P = O[None, None, :] + U[..., None] * X[None, None, :] + V[..., None] * Y[None, None, :]
+        P = P / np.linalg.norm(P, axis=-1, keepdims=True)
+        lon = np.degrees(np.arctan2(P[..., 1], P[..., 0])).astype(np.float32)
+        lat = np.degrees(np.arcsin(np.clip(P[..., 2], -1, 1))).astype(np.float32)
+        mapx = (lon + 180.0) * (world.TW / 360.0) - 0.5 + self.PAD
+        mapy = (90.0 - lat) * (world.TH / 180.0) - 0.5
+        alb = cv2.remap(self.alb, mapx, mapy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        rgba = np.empty((n, n, 4), np.uint8)
+        rgba[..., :3] = alb[..., :3]
+        rgba[..., 3] = 255
+        img = skia.Image.fromarray(rgba, colorType=RGBA, alphaType=OPAQUE)
+        return img.makeShader(CLAMP, CLAMP, SAMP_LIN, skia.Matrix.Scale(cd.w / n, cd.h / n))
 
     @staticmethod
     def _clip_local(cd, a, b, c):
@@ -457,8 +493,9 @@ class Renderer:
         return out if len(out) >= 3 else None
 
     # ------------------------------------------------------------------ frame
-    def render(self, fi, post=True):
-        t = (fi % core.NF) / core.FPS
+    def render(self, fi, post=True, t=None):
+        if t is None:
+            t = fi / core.FPS
         cam = core.Camera(t, self.ss, self.w, self.h)
         self._set_light(cam.right, cam.up, cam.back)
         Gm = core.globe_matrix(t)
@@ -537,7 +574,12 @@ class Renderer:
             ac.drawLine(scr[i, 0, 0] / 2, scr[i, 0, 1] / 2, scr[i, 1, 0] / 2, scr[i, 1, 1] / 2, ap)
         ao_small = self.aosurf.toarray().reshape(self.Hp // 2, self.Wp // 2)
 
-        self._sphere(cam, Gm, lmap, ao_small)
+        lock = getattr(self, 'sphere_lock', None)
+        if lock is not None:
+            with lock:                    # the 4K sphere pass is the memory peak: bound how many run at once
+                self._sphere(cam, Gm, lmap, ao_small)
+        else:
+            self._sphere(cam, Gm, lmap, ao_small)
         run(np.nonzero(in_front)[0], True)
 
         if not post:

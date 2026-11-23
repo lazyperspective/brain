@@ -1,11 +1,12 @@
 import sys; sys.path.insert(0, '.')
 import numpy as np
 from pp import scene
+from pp.core import NF as scene_NF
 from pp.core import Camera, globe_matrix, center_lon
 from pp.travellers import plane_pos
 sc = scene.Scene()
 hits = []
-for fi in range(0, 1800, 3):
+for fi in range(0, scene_NF, 3):
     t = fi / 30
     cam = Camera(t, 1); G = globe_matrix(t)
     cards = sc.cards(t, G, cam)

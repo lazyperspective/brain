@@ -11,26 +11,26 @@ def flick(rate=5.0, base=0.75, amp=0.25, ph=0.0):
 
 def europe(sc):
     R = 'europe'
-    sc.flap(R, 45.5, 10.5, 'alps_z', 0.34, order=0)
-    sc.flap(R, 48.5, 2.0, 'eiffel', 0.19, order=1,
+    sc.flap(R, 44.5, 14.0, 'alps_z', 0.28, order=0)
+    sc.flap(R, 47.5, 1.5, 'eiffel', 0.19, order=1,
             emis_parts=[dict(spr='glow', x=0.5, y=2.22, w=0.5, flick=flick(5.0))])
-    sc.flap(R, 52.5, -2.5, 'bigben', 0.09, order=2)
-    sc.flap(R, 53.5, 9.5, 'windmill', 0.15, order=2,
+    sc.flap(R, 52.0, -9.0, 'bigben', 0.09, order=2)
+    sc.flap(R, 53.0, 17.5, 'windmill', 0.15, order=2,
             parts=[dict(spr='sails', x=-0.12, y=0.26, w=1.24, pivot=(0.5, 0.5), anim=spin(5.0))])
     sc.flap(R, 41.5, 13.5, 'colosseum', 0.17, order=3)
     sc.flap(R, 56.0, 38.0, 'basil', 0.21, order=1)
     sc.flap(R, 40.5, 31.0, 'hagia', 0.19, order=2)
     sc.flap(R, 63.5, 14.0, 'pine', 0.085, order=2)
     sc.flap(R, 62.0, 28.0, 'pine', 0.08, order=3)
-    sc.flap(R, 50.5, 20.0, 'tree', 0.10, order=2)
-    sc.flap(R, 49.5, 30.5, 'tree_autumn', 0.095, order=3)
-    sc.flap(R, 46.5, 23.0, 'balloon', 0.12, order=4, stand=84, strut=False,
-            mover=lambda tau, act, t: (46.5, 23.0, False, 0.15 * act + 0.012 * act * math.sin(tau * 1.1), 3 * math.sin(tau * 0.9) * act, 0.0))
-    sc.walk(R, 'person0', P, 45.8, -2.0, 45.8, 5.0, period=12)
+    sc.flap(R, 48.5, 25.5, 'tree', 0.10, order=2)
+    sc.flap(R, 51.0, 33.5, 'tree_autumn', 0.095, order=3)
+    sc.flap(R, 46.5, 37.0, 'balloon', 0.12, order=4, stand=84, strut=False,
+            mover=lambda tau, act, t: (46.5, 37.0, False, 0.15 * act + 0.012 * act * math.sin(tau * 1.1), 3 * math.sin(tau * 0.9) * act, 0.0))
+    sc.walk(R, 'person0', P, 44.0, -4.0, 44.0, 2.5, period=12)
     sc.walk(R, 'person1', P, 39.0, 10.0, 39.0, 16.5, period=11)
-    sc.walk(R, 'person5', P, 52.5, 32.0, 52.5, 42.0, period=14, phase=0.5)
-    sc.bird(R, 51.0, 3.0, 'bird_w', 0.10, radius=4.5, alt=0.62, period=7.0)
-    sc.bird(R, 51.0, 3.0, 'bird_w', 0.085, radius=4.5, alt=0.56, period=7.0, phase=2.4)
+    sc.walk(R, 'person5', P, 50.0, 39.0, 50.0, 46.0, period=14, phase=0.5)
+    sc.bird(R, 51.0, 6.0, 'bird_w', 0.10, radius=5.5, alt=0.62, period=7.0)
+    sc.bird(R, 51.0, 6.0, 'bird_w', 0.085, radius=5.5, alt=0.56, period=7.0, phase=2.4)
 
 
 def africa(sc):
@@ -38,7 +38,7 @@ def africa(sc):
     sc.pyramid(R, 29.5, 29.5, 'pyr_face', 0.26, order=1, yaw=24)
     sc.pyramid(R, 25.5, 20.5, 'pyr_face', 0.20, order=2, yaw=24)
     sc.pyramid(R, 21.5, 30.5, 'pyr_face', 0.15, order=3, yaw=24)
-    sc.flap(R, 18.5, 35.0, 'palm', 0.11, order=3)
+    sc.flap(R, 16.0, 37.5, 'palm', 0.11, order=3)
     sc.flap(R, 31.0, -6.0, 'palm', 0.10, order=3)
     sc.flap(R, 25.5, 1.0, 'dune_z', 0.30, order=1)
     for i in range(3):
@@ -58,7 +58,7 @@ def africa(sc):
     sc.flap(R, 11.5, -3.5, 'hut', 0.11, order=3)
     sc.flap(R, 8.5, 5.0, 'hut', 0.10, order=4)
     sc.walk(R, 'person2', P, 6.0, -6.0, 6.0, 1.0, period=12)
-    sc.walk(R, 'person4', P, 19.5, 22.5, 19.5, 28.5, period=11, phase=0.4)
+    sc.walk(R, 'person4', P, 13.5, 24.0, 13.5, 30.0, period=11, phase=0.4)
     for la, lo in [(-27.0, 30.0), (-29.0, 32.5)]:
         sc.flap(R, la, lo, 'flamingo', 0.06, order=5, strut=False)
     sc.flap(R, -32.0, 21.5, 'tablemt', 0.22, order=1)
@@ -91,7 +91,7 @@ def namerica(sc):
     sc.flap(R, 58.5, -114.0, 'moose', 0.17, order=3, strut=False)
     sc.walk(R, 'polarbear', 0.15, 62.0, -94.0, 62.0, -82.0, period=20, order=3)
     sc.walk(R, 'person1', P, 37.6, -81.0, 37.6, -74.5, period=12)
-    sc.walk(R, 'person3', P, 34.5, -122.0, 34.5, -116.0, period=12, phase=0.3)
+    sc.walk(R, 'person3', P, 30.0, -121.0, 30.0, -115.0, period=12, phase=0.3)
     sc.bird(R, 48.0, -112.0, 'eagle_w', 0.13, radius=6.0, alt=0.34, period=9.0)
 
 
@@ -109,28 +109,28 @@ def samerica(sc):
     sc.bird(R, -3.5, -61.0, 'macaw_w', 0.16, radius=6.5, alt=0.38, period=8.0)
     sc.bird(R, -3.5, -61.0, 'macaw_w', 0.13, radius=6.5, alt=0.25, period=8.0, phase=3.3)
     sc.flap(R, -49.0, -72.0, 'glacier_z', 0.19, order=1)
-    sc.flap(R, -53.0, -68.0, 'penguin', 0.065, order=3, hang=False)
-    sc.flap(R, -51.0, -64.0, 'penguin', 0.06, order=4, hang=False)
+    sc.flap(R, -55.5, -68.0, 'penguin', 0.065, order=3, hang=False)
+    sc.flap(R, -52.5, -60.0, 'penguin', 0.06, order=4, hang=False)
     for i, lo in enumerate((-113.0, -109.3, -105.6)):
         sc.flap('pacific', -27.0, lo, 'moai', 0.075, order=2 + i)
     sc.flap(R, -0.6, -90.6, 'tortoise', 0.12, order=3, strut=False)
-    sc.walk(R, 'person2', P, -26.0, -49.5, -26.0, -43.5, period=8)
+    sc.walk(R, 'person2', P, -30.5, -55.0, -30.5, -49.0, period=8)
     sc.walk(R, 'person5', P, -28.0, -47.0, -28.0, -52.5, period=9, phase=0.4)
     sc.bird(R, -20.0, -66.0, 'bird_d', 0.11, radius=6.0, alt=0.34, period=10.0)
 
 
 def asia(sc):
     R = 'southasia'
-    sc.zigzag(R, 31.0, 85.0, 'himalaya_z', 2, 0.56, order=0, beta=76)
-    sc.flap(R, 25.0, 77.5, 'taj', 0.30, order=1)
+    sc.zigzag(R, 29.5, 84.0, 'himalaya_z', 2, 0.46, order=0, beta=76)
+    sc.flap(R, 22.5, 76.5, 'taj', 0.30, order=1)
     sc.walk(R, 'tiger', 0.19, 19.0, 80.0, 19.0, 88.0, period=20)
     tr = dict(spr='trunk', x=0.75, y=0.02, w=0.23, pivot=(0.5, 0.93), anim=sway(13, 3.0))
     sc.flap(R, 13.0, 77.5, 'elephant', 0.17, order=3, parts=[dict(tr)], strut=False)
-    sc.flap(R, 21.0, 71.0, 'peacock', 0.13, order=4, strut=False)
+    sc.flap(R, 20.5, 66.5, 'peacock', 0.13, order=4, strut=False)
     sc.flap(R, 24.5, 54.5, 'burj', 0.075, order=1)
     sc.flap(R, 20.0, 46.5, 'dune_z', 0.25, order=2)
     sc.walk(R, 'camel', 0.12, 28.0, 41.5, 28.0, 49.5, period=22)
-    sc.walk(R, 'person4', P, 21.8, 74.0, 21.8, 81.0, period=12)
+    sc.walk(R, 'person4', P, 18.0, 71.5, 18.0, 77.0, period=12)
     R = 'eastasia'
     sc.zigzag(R, 41.5, 106.0, 'greatwall', 6, 0.60, order=1, beta=62)
     sc.flap(R, 36.0, 116.5, 'pagoda', 0.16, order=2)
@@ -147,7 +147,7 @@ def asia(sc):
     sc.walk(R, 'reindeer', 0.16, 67.5, 96.0, 67.5, 110.0, period=22, order=3)
     sc.walk(R, 'train', 0.36, 54.5, 66.0, 54.5, 98.0, period=40, order=2)
     sc.flap(R, 47.0, 103.0, 'yurt', 0.12, order=3)
-    sc.walk(R, 'person0', P, 37.0, 108.0, 37.0, 115.0, period=12)
+    sc.walk(R, 'person0', P, 27.5, 108.0, 27.5, 114.0, period=12)
     sc.walk(R, 'person3', P, 31.5, 135.5, 31.5, 140.5, period=10, phase=0.3)
     sc.bird(R, 37.0, 137.0, 'bird_w', 0.11, radius=5.5, alt=0.46, period=8.0)
     sc.bird(R, 37.0, 137.0, 'bird_w', 0.095, radius=5.5, alt=0.42, period=8.0, phase=2.6)
@@ -156,12 +156,12 @@ def asia(sc):
 def oceania(sc):
     R = 'oceania'
     sc.flap(R, -24.0, 131.0, 'uluru_z', 0.32, order=0)
-    sc.flap(R, -31.5, 149.0, 'hbridge', 0.34, order=0)
-    sc.flap(R, -34.5, 151.5, 'opera', 0.34, order=1)
-    sc.walk(R, 'kangaroo', 0.13, -30.5, 134.0, -30.5, 143.0, period=9, hop=0.03)
+    sc.flap(R, -30.0, 153.0, 'hbridge', 0.34, order=0)
+    sc.flap(R, -35.0, 149.5, 'opera', 0.34, order=1)
+    sc.walk(R, 'kangaroo', 0.13, -31.0, 130.0, -31.0, 138.0, period=9, hop=0.03)
     sc.walk(R, 'kangaroo', 0.11, -20.0, 122.5, -20.0, 131.0, period=9, hop=0.03, phase=0.35)
     sc.walk(R, 'kangaroo', 0.10, -32.5, 119.5, -32.5, 127.0, period=9, hop=0.03, phase=0.7)
-    sc.flap(R, -29.0, 144.0, 'gum', 0.15, order=2)
+    sc.flap(R, -26.5, 141.0, 'gum', 0.15, order=2)
     sc.flap(R, -17.0, 148.5, 'coral_a', 0.11, order=2)
     sc.flap(R, -13.0, 146.5, 'coral_b', 0.10, order=3)
     sc.flap(R, -20.5, 152.0, 'coral_c', 0.095, order=3)
@@ -177,22 +177,22 @@ def oceania(sc):
     sc.flap(R, -7.6, 110.5, 'volcano', 0.19, order=2,
             parts=[dict(spr='smoke', x=0.34, y=0.74, w=0.32, anim=bob(0.03, 2.8, 0.0))],
             emis_parts=[dict(spr='glow', x=0.5, y=0.66, w=0.5, flick=flick(4.0, 0.7, 0.3))])
-    sc.walk(R, 'person1', P, -30.5, 138.0, -30.5, 143.0, period=11)
+    sc.walk(R, 'person1', P, -34.5, 136.0, -34.5, 141.0, period=11)
     sc.bird(R, -6.5, 143.5, 'macaw_w', 0.13, radius=5.0, alt=0.25, period=8.0)
 
 
 def arctic(sc):
     R = 'arctic'
     sc.zigzag(R, 69.5, -40.0, 'aurora', 8, 0.56, order=0, beta=48, shimmer=1.0, follow=False, fade=True)
-    sc.flap(R, 73.0, -36.0, 'igloo', 0.16, order=2)
+    sc.flap(R, 65.5, -34.0, 'igloo', 0.16, order=2)
     sc.walk(R, 'polarbear', 0.16, 77.0, -50.0, 77.0, -30.0, period=20, order=3)
     sc.flap(R, 64.8, -19.0, 'geyser', 0.10, order=2)
     n0 = len(sc.pieces)
     sc.zigzag(R, 67.5, -150.0, 'aurora', 8, 0.52, order=0, beta=48, shimmer=1.0, follow=False, fade=True)
-    sc.flap(R, 63.5, -154.0, 'cabin', 0.15, order=2,
+    sc.flap(R, 62.0, -154.0, 'cabin', 0.15, order=2,
             emis_parts=[dict(spr='glow', x=0.32, y=0.25, w=0.55, flick=flick(3.0, 0.8, 0.2))])
     sc.flap(R, 61.0, -142.0, 'moose', 0.17, order=3, strut=False)
-    sc.flap(R, 65.5, -162.0, 'pine_snow', 0.09, order=2)
+    sc.flap(R, 62.5, -163.0, 'pine_snow', 0.09, order=2)
     sc.flap(R, 60.0, -134.5, 'pine_snow', 0.085, order=3)
     for p in sc.pieces[n0:]:
         p.hero_region = 'namerica'     # Alaska opens with the North American close-up, on the upper left
@@ -205,16 +205,17 @@ def antarctica(sc):
     sc.zigzag(R, -63.5, 165.0, 'aurora_s', 8, 0.50, order=0, beta=48, shimmer=1.0, follow=False, fade=True, glow=True)
     sc.flap(R, -70.5, 171.0, 'colony', 0.36, order=1)
     sc.flap(R, -77.8, 166.5, 'station', 0.17, order=2)
-    sc.flap(R, -66.5, -176.0, 'iceberg_z', 0.26, order=1)
-    sc.flap(R, -66.0, 154.0, 'iceberg_z', 0.20, order=1)
-    sc.flap(R, -71.5, 152.0, 'seal', 0.15, order=3, strut=False)
-    for i, (la, lo) in enumerate([(-72.8, 160.0), (-73.5, 178.5), (-68.8, -179.0), (-74.5, 168.0), (-69.0, 160.5)]):
-        sc.walk(R, 'penguin', 0.11, la, lo - 2.5, la, lo + 2.5, period=[6.0, 5.0, 7.5][i % 3], phase=i * 0.17, order=2 + i % 3)
+    sc.flap(R, -62.0, -172.0, 'iceberg_z', 0.26, order=1)
+    sc.flap(R, -62.0, 150.0, 'iceberg_z', 0.20, order=1)
+    sc.flap(R, -68.0, 139.0, 'seal', 0.15, order=3, strut=False)
+    # two rows of walkers on the camera side of the colony, spaced wider than they walk so they never cross
+    for i, (la, lo) in enumerate([(-65.0, 158.0), (-65.0, 180.0), (-68.5, 169.0), (-68.5, 191.0)]):
+        sc.walk(R, 'penguin', 0.085, la, lo - 1.5, la, lo + 1.5, period=[6.0, 5.0, 7.5][i % 3], phase=i * 0.17, order=2 + i % 3)
     # the rest of the coast, seen only in passing at the bottom of frame
-    for i, (la, lo) in enumerate([(-66.0, -62.0), (-68.5, -67.0), (-71.0, -61.0)]):
+    for i, (la, lo) in enumerate([(-66.0, -62.0), (-70.0, -72.0), (-73.0, -52.0)]):
         sc.walk(R, 'penguin', 0.075, la, lo - 2.0, la, lo + 2.0, period=[6.0, 5.0, 7.5][i], phase=i * 0.3, order=2 + i)
     sc.flap(R, -62.5, -48.0, 'iceberg_z', 0.17, order=1)
-    for i, (la, lo) in enumerate([(-68.0, 76.0), (-70.0, 84.0), (-68.5, 92.0)]):
+    for i, (la, lo) in enumerate([(-68.0, 70.0), (-70.5, 84.0), (-68.5, 98.0)]):
         sc.walk(R, 'penguin', 0.075, la, lo - 2.0, la, lo + 2.0, period=[6.0, 5.0, 7.5][i], phase=i * 0.3, order=2 + i)
     sc.flap(R, -63.0, 100.0, 'iceberg_z', 0.17, order=1)
     sc.flap(R, -64.0, 20.0, 'iceberg_z', 0.16, order=1)

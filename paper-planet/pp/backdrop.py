@@ -20,7 +20,7 @@ LAYERS = [  # (edge y as fraction of height, colour) from the warm back sheet up
 
 
 class Backdrop:
-    def __init__(self, ss=2, w=core.W, h=core.H, margin=1.10):
+    def __init__(self, ss=2, w=core.W, h=core.H, margin=1.16):
         self.ss = ss
         self.W, self.H = int(w * ss * margin), int(h * ss * margin)
         self.Wp, self.Hp = w * ss, h * ss
@@ -158,13 +158,14 @@ class Backdrop:
 
     def draw(self, canvas, buf, t, cam):
         # gentle parallax: the hanging sheets slide a little with the globe and with the camera's latitude
-        z = 1.0 + 0.10 * (cam.zoom - 1.0)
+        # the sheets hang far behind the globe: they scale a little with the zoom (less than the globe does)
+        z = 1.0 + 0.10 * (cam.zoom - 1.0) if cam.zoom >= 1.0 else 1.0 - 0.075 * (1.0 - cam.zoom)
         (gx, gy), gr = cam.globe_disc()
-        mx = (self.W - self.Wp) / 2.0
-        my = (self.H - self.Hp) / 2.0
+        w, h = self.W * z, self.H * z
+        mx = max(1.0, (w - self.Wp) / 2.0 - 2.0)
+        my = max(1.0, (h - self.Hp) / 2.0 - 2.0)
         ox = mx * math.tanh(0.05 * (gx - cam.cx) / mx)
         oy = my * math.tanh((0.05 * (gy - cam.cy) + 0.020 * self.Hp * cam.elev / 60.0) / my)
-        w, h = self.W * z, self.H * z
         x0 = (self.Wp - w) / 2 + ox
         y0 = (self.Hp - h) / 2 + oy
         canvas.drawImageRect(self.img, skia.Rect(0, 0, self.W, self.H), skia.Rect(x0, y0, x0 + w, y0 + h),

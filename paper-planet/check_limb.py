@@ -17,7 +17,7 @@ GU, GV = GU.ravel(), GV.ravel()
 tot = bad = 0
 worst = {}
 step = int(sys.argv[1]) if len(sys.argv) > 1 else 10
-for fi in range(0, 1800, step):
+for fi in range(0, core.NF, step):
     t = fi / 30
     cam = Camera(t, 1); G = globe_matrix(t)
     for c in sc.cards(t, G, cam):

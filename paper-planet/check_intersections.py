@@ -1,10 +1,11 @@
 import sys; sys.path.insert(0, '.')
 import numpy as np
 from pp import scene
+from pp.core import NF as scene_NF
 from pp.core import Camera, globe_matrix
 sc = scene.Scene()
 hits = {}
-for fi in range(0, 1800, 6):
+for fi in range(0, scene_NF, 6):
     t = fi / 30
     cam = Camera(t, 1); G = globe_matrix(t)
     cards = sc.cards(t, G, cam)
