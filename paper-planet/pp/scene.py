@@ -32,9 +32,9 @@ class Scene:
         self.extras = []
         from . import regions, travellers
         regions.build(self)
-        travellers.build(self)
         self._order_south_to_north()
         self.assign_heroes()
+        travellers.build(self)      # after the heroes: clouds need the pieces' final sizes
 
     def assign_heroes(self):
         """Give each piece a hero moment: the close-up of its region (or the nearest close-up), then re-time

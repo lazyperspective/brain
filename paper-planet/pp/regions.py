@@ -29,8 +29,8 @@ def europe(sc):
     sc.walk(R, 'person0', P, 45.8, -2.0, 45.8, 5.0, period=12)
     sc.walk(R, 'person1', P, 39.0, 10.0, 39.0, 16.5, period=11)
     sc.walk(R, 'person5', P, 52.5, 32.0, 52.5, 42.0, period=14, phase=0.5)
-    sc.bird(R, 51.0, 3.0, 'bird_w', 0.10, radius=4.5, alt=0.44, period=7.0)
-    sc.bird(R, 51.0, 3.0, 'bird_w', 0.085, radius=4.5, alt=0.39, period=7.0, phase=2.4)
+    sc.bird(R, 51.0, 3.0, 'bird_w', 0.10, radius=4.5, alt=0.62, period=7.0)
+    sc.bird(R, 51.0, 3.0, 'bird_w', 0.085, radius=4.5, alt=0.56, period=7.0, phase=2.4)
 
 
 def africa(sc):
@@ -63,7 +63,7 @@ def africa(sc):
         sc.flap(R, la, lo, 'flamingo', 0.06, order=5, strut=False)
     sc.flap(R, -32.0, 21.5, 'tablemt', 0.22, order=1)
     sc.flap(R, -19.5, 46.5, 'baobab', 0.13, order=2)
-    sc.bird(R, -4.0, 29.0, 'bird_d', 0.10, radius=6.5, alt=0.30, period=9.0)
+    sc.bird(R, -4.0, 29.0, 'bird_d', 0.10, radius=6.5, alt=0.38, period=9.0)
     sc.bird(R, -4.0, 29.0, 'bird_d', 0.085, radius=6.5, alt=0.26, period=9.0, phase=3.0)
 
 
@@ -106,7 +106,7 @@ def samerica(sc):
     sc.flap(R, 5.5, -61.5, 'palm', 0.10, order=3)
     sc.walk(R, 'jaguar', 0.17, -13.0, -61.0, -13.0, -52.0, period=20)
     sc.flap(R, -3.0, -49.5, 'toucan', 0.11, order=4, strut=False)
-    sc.bird(R, -3.5, -61.0, 'macaw_w', 0.16, radius=6.5, alt=0.30, period=8.0)
+    sc.bird(R, -3.5, -61.0, 'macaw_w', 0.16, radius=6.5, alt=0.38, period=8.0)
     sc.bird(R, -3.5, -61.0, 'macaw_w', 0.13, radius=6.5, alt=0.25, period=8.0, phase=3.3)
     sc.flap(R, -49.0, -72.0, 'glacier_z', 0.19, order=1)
     sc.flap(R, -53.0, -68.0, 'penguin', 0.065, order=3, hang=False)
@@ -149,8 +149,8 @@ def asia(sc):
     sc.flap(R, 47.0, 103.0, 'yurt', 0.12, order=3)
     sc.walk(R, 'person0', P, 37.0, 108.0, 37.0, 115.0, period=12)
     sc.walk(R, 'person3', P, 31.5, 135.5, 31.5, 140.5, period=10, phase=0.3)
-    sc.bird(R, 37.0, 137.0, 'bird_w', 0.11, radius=5.5, alt=0.36, period=8.0)
-    sc.bird(R, 37.0, 137.0, 'bird_w', 0.095, radius=5.5, alt=0.32, period=8.0, phase=2.6)
+    sc.bird(R, 37.0, 137.0, 'bird_w', 0.11, radius=5.5, alt=0.46, period=8.0)
+    sc.bird(R, 37.0, 137.0, 'bird_w', 0.095, radius=5.5, alt=0.42, period=8.0, phase=2.6)
 
 
 def oceania(sc):

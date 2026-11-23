@@ -198,10 +198,59 @@ def foley():
     return buf, count
 
 
+def breach_fx():
+    """The blue whale: a breathy blow, the rush of leaving the water, a low call in the air, a big paper
+    splash-down and a patter of falling drops. Times come from the same function the picture uses."""
+    from pp.travellers import breach_times
+    t_blow, t_up, t_down = breach_times()
+    buf = np.zeros((N, 2))
+
+    def noise(dur, lo, hi):
+        n = int(SR * dur)
+        x = rng.standard_normal(n)
+        X = np.fft.rfft(x)
+        X *= band(lo, hi, 2)(np.fft.rfftfreq(n, 1.0 / SR))
+        x = np.fft.irfft(X, n=n)
+        return x / (np.abs(x).max() + 1e-9)
+
+    # blow
+    n = int(SR * 1.6); t = np.arange(n) / SR
+    add(buf, t_blow + 0.2, noise(1.6, 300, 2400) * np.minimum(1, t / 0.12) * np.exp(-t / 0.55), gain=0.05, pan=-0.05)
+    # leaving the water: a rising rush with a paper crinkle on top
+    n = int(SR * 1.2); t = np.arange(n) / SR
+    rush = noise(1.2, 250, 4000) * np.minimum(1, t / 0.05) * np.exp(-t / 0.35)
+    add(buf, t_up - 0.05, rush, gain=0.10, pan=-0.15)
+    add(buf, t_up, rustle(0.9, 0.9), gain=0.07, pan=-0.2)
+    # the call while it hangs in the air
+    d = 2.4; n = int(SR * d); t = np.arange(n) / SR
+    f = 130 + 70 * np.sin(np.pi * t / d) + 4 * np.sin(2 * np.pi * 4.5 * t)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    call = (np.sin(ph) + 0.35 * np.sin(2 * ph) + 0.12 * np.sin(3 * ph)) * np.sin(np.pi * t / d) ** 1.4
+    add(buf, t_up + 0.5, call, gain=0.035, pan=0.0)
+    # splash-down: a thump, a broad wash and a big paper crumple
+    n = int(SR * 2.2); t = np.arange(n) / SR
+    thump = np.sin(2 * np.pi * (62 + 30 * np.exp(-t / 0.08)) * t) * np.exp(-t / 0.22) * np.minimum(1, t / 0.004)
+    wash = noise(2.2, 200, 5000) * np.minimum(1, t / 0.01) * (0.65 * np.exp(-t / 0.18) + 0.35 * np.exp(-t / 0.9))
+    add(buf, t_down, thump, gain=0.16, pan=0.15)
+    add(buf, t_down, wash, gain=0.13, pan=0.2)
+    add(buf, t_down + 0.05, rustle(1.4, 1.0), gain=0.10, pan=0.25)
+    # drops
+    for k in range(14):
+        tt = t_down + 0.35 + rng.uniform(0, 1.4)
+        add(buf, tt, snap(0.04) * 0.6, gain=0.03 * rng.uniform(0.4, 1.0), pan=rng.uniform(-0.2, 0.6))
+    return buf
+
+
 # ----------------------------------------------------------------------------- ambience
 def tcen(lon):
     from pp.core import LON0
     return ((LON0 - lon) / 6.0) % DUR
+
+
+def hero(region):
+    """Time of a region's close-up (the camera and the unfold timing are both keyed to it)."""
+    from pp.core import HERO_T
+    return HERO_T[region]
 
 
 def chirp(f0, f1, dur, wob=0.0):
@@ -218,7 +267,7 @@ def ambience():
     sea = np.stack([circ_noise(), circ_noise()], 1)
     sea = fft_filter(sea, band(180, 900, 2))
     swell = 0.55 + 0.45 * (0.5 + 0.5 * lfo(7, 0.2)) * (0.5 + 0.5 * lfo(11, 0.6))
-    g_sea = 0.30 + 0.9 * (bump(tcen(-150), 6.0) + 0.7 * bump(tcen(-30), 3.5) + 0.6 * bump(tcen(75), 3.5) + 0.5 * bump(tcen(175), 3.0))
+    g_sea = 0.30 + 0.9 * (bump(hero('whale') + 2.5, 5.5) + 0.8 * bump(hero('pacific'), 3.5) + 0.7 * bump(tcen(-30), 3.5) + 0.6 * bump(tcen(75), 3.5))
     buf += sea * (swell * g_sea)[:, None] * 0.030
     hiss = np.stack([circ_noise(), circ_noise()], 1)
     hiss = fft_filter(hiss, band(1800, 6000, 1))
@@ -227,12 +276,12 @@ def ambience():
     # wind for the poles and the high mountains
     wind = np.stack([circ_noise(), circ_noise()], 1)
     wind = fft_filter(wind, band(260, 1100, 2))
-    g_wind = bump(tcen(-40) - 1.5, 3.5) + bump(tcen(-150) - 1.0, 4.5) + 0.7 * bump(tcen(85) - 1.0, 3.0) + 0.5 * bump(tcen(170), 4.0)
+    g_wind = bump(hero('arctic'), 3.5) + 0.6 * bump(hero('namerica') + 1.5, 3.0) + 0.7 * bump(hero('southasia') - 1.0, 3.0) + bump(hero('antarctica'), 4.0)
     gust = 0.55 + 0.45 * lfo(8, 0.4) * lfo(3, 0.1)
     buf += wind * (g_wind * gust)[:, None] * 0.030
     # aurora shimmer: a faint glassy cluster
     t = np.arange(N) / SR
-    for tc, pan in ((tcen(-40) - 1.5, 0.2), (tcen(-150) - 1.0, 0.25)):
+    for tc, pan in ((hero('arctic'), 0.2), (hero('namerica') + 1.5, -0.25), (hero('antarctica'), 0.1)):
         env = bump(tc, 3.0)
         for k, m in enumerate((93, 98, 102, 105)):
             f = mtof(m)
@@ -254,14 +303,15 @@ def ambience():
                 else:
                     c = chirp(f0, f0 * 1.05, rng.uniform(0.12, 0.2), wob=220)
                 add(buf, tt + r * rng.uniform(0.11, 0.2), c, gain=gain * rng.uniform(0.5, 1.0), pan=rng.uniform(-0.7, 0.7))
-    birds(tcen(18), 2.6, 16, 2600, 4200, 0.010, 0)        # Europe / Africa
-    birds(tcen(28) + 1.0, 2.2, 10, 1800, 2600, 0.008, 2)  # savanna
-    birds(tcen(-62), 2.4, 22, 2400, 4800, 0.011, 1)       # Amazon
-    birds(tcen(-95), 2.4, 10, 2800, 4000, 0.008, 0)       # North America
-    birds(tcen(110), 2.6, 14, 3000, 4600, 0.009, 0)       # East Asia
-    birds(tcen(135) + 1.5, 2.2, 10, 2000, 3200, 0.009, 1)  # Oceania
+    birds(hero('europe'), 2.6, 16, 2600, 4200, 0.010, 0)        # Europe
+    birds(hero('africa'), 2.2, 10, 1800, 2600, 0.008, 2)        # savanna
+    birds(hero('samerica'), 2.4, 22, 2400, 4800, 0.011, 1)      # Amazon
+    birds(hero('namerica'), 2.4, 10, 2800, 4000, 0.008, 0)      # North America
+    birds(hero('eastasia'), 2.6, 14, 3000, 4600, 0.009, 0)      # East Asia
+    birds(hero('oceania'), 2.2, 10, 2000, 3200, 0.009, 1)       # Oceania
     # whale song over the Pacific
-    for tt, f0, f1, d in ((28.9, 190, 300, 2.4), (31.6, 280, 210, 2.0), (33.8, 170, 250, 2.6), (5.0, 220, 300, 2.0), (49.5, 200, 270, 2.2)):
+    hw = hero('whale')
+    for tt, f0, f1, d in ((hw - 6.5, 190, 300, 2.4), (hw - 3.6, 280, 210, 2.0), (hw - 1.4, 150, 230, 2.6), (hw + 5.5, 170, 250, 2.6), (5.0, 220, 300, 2.0), (49.5, 200, 270, 2.2)):
         n = int(SR * d)
         tq = np.arange(n) / SR
         f = f0 + (f1 - f0) * (tq / d) ** 1.5 + 6 * np.sin(2 * math.pi * 5.5 * tq)
@@ -290,6 +340,7 @@ def reverb(x, rt=2.3, wet=0.3, seed=3):
 def main(out):
     dry, pad = music()
     fol, count = foley()
+    fol = fol + breach_fx()
     amb = ambience()
     mus = reverb(dry, 2.4, 0.34) + reverb(pad, 2.8, 0.25, seed=5) * 1.0
     amb = amb * 1.8

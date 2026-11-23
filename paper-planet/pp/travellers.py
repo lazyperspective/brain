@@ -1,7 +1,7 @@
 """Things that are always alive regardless of fold state: clouds, ships, whales, the moon and the paper plane."""
 import math
 import numpy as np
-from .core import ll_frame, DUR, smooth, smoother, LON0
+from .core import ll_frame, DUR, smooth, smoother, LON0, CAM_D
 from .mech import stand_for, stand_cam, wing_pair, _basis
 from .render import place
 
@@ -20,6 +20,39 @@ def clouds(sc):
         (2, 54.0, 0.16, +1, -160.0, [0.28, 0.33]),
     ]
 
+    from .mech import Flap, Zigzag, Pyramid, Tent
+    tall = []     # (piece, unit position, footprint radius, top height when open)
+    for p in sc.pieces:
+        if getattr(p, 'mover', None) is not None:
+            continue
+        if isinstance(p, Flap):
+            hh = p.w * p.spr.aspect * math.sin(math.radians(p.stand)); rr = p.w / 2
+        elif isinstance(p, Zigzag):
+            hh = p.pw * p.n * p.spr.aspect * math.sin(math.radians(p.stand)); rr = p.size / 2
+        elif isinstance(p, Tent):
+            hh = p.w * p.spr.aspect * math.sin(math.radians(p.stand)); rr = p.w / 2
+        elif isinstance(p, Pyramid):
+            hh = p.slant * 0.85; rr = p.base * 0.7
+        else:
+            continue
+        if hh > 0.08:
+            tall.append((p, ll_frame(p.lat, p.lon)[0], rr, hh))
+
+    def clearance(ctx, q, rc):
+        """Height a cloud at unit position q (half-width rc) must float at to clear the open pieces below."""
+        need = 0.0
+        for p, pp_, rr, hh in tall:
+            dist = math.acos(max(-1.0, min(1.0, float(q @ pp_))))
+            reach = rc + rr + 0.08
+            if dist > reach + 0.10:
+                continue
+            s = p.state(ctx)[0]
+            if s <= 0.0:
+                continue
+            k = 1.0 - smooth((dist - reach) / 0.10)
+            need = max(need, math.sqrt(min(1.0, s)) * (hh + 0.06) * k)
+        return need
+
     def emit(ctx):
         u = ctx.t / DUR
         for (n, lat0, alt, dirn, base, sizes) in rings:
@@ -34,7 +67,8 @@ def clouds(sc):
                 spr = S['cloud'] if (i % 2 == 0) else S['cloud']
                 w = size
                 h = w * spr.aspect
-                c = p * (1.0 + alt + 0.006 * math.sin(TAU * 2 * u + 3.0 * lr))
+                alt_c = max(alt, clearance(ctx, p, w / 2))
+                c = p * (1.0 + alt_c + 0.006 * math.sin(TAU * 2 * u + 3.0 * lr))
                 # two sheets hinged along the cloud's long axis like a shallow roof: reads from above and from the limb
                 ang = math.radians(24.0 + 4.0 * math.sin(TAU * 3 * u + 2.0 * lr))
                 for sgn in (1.0, -1.0):
@@ -100,7 +134,7 @@ def whales(sc):
         ('whale', -27.0, -19.0, 10.0, 0.58, 0.38, 10),
         ('whale', -26.0, 73.0, 12.0, 0.917, 0.38, -10),
         ('tail', 47.0, -33.0, 7.5, 0.133, 0.18, 0),
-        ('tail', -42.0, 96.0, 7.5, 0.0, 0.18, 0),
+        ('tail', -54.0, 112.0, 7.5, 0.0, 0.18, 0),
         ('orca', -61.0, -178.0, 10.0, 0.0, 0.30, 0),
     ]
 
@@ -153,21 +187,40 @@ def whales(sc):
     sc.extras.append(emit)
 
 
-def moon_pos(t):
-    a = TAU * (t - 8.0) / DUR
-    return np.array([1.9 * math.sin(a), 0.45 - 1.0 * math.cos(a), 1.9 * math.cos(a)])
+MOON_T0 = 10.0      # the moon crosses the top centre (behind the globe) at t0 and t0 + 30 s
+
+
+def moon_screen(t):
+    """Where the hanging moon is in the frame, as fractions of width/height: a slow swing from side to side
+    across the sky band, one cycle per loop, with a gentle bob."""
+    a = 2 * math.pi * (t - MOON_T0) / DUR
+    return 0.5 + 0.375 * math.sin(a), 0.165 + 0.035 * math.sin(2 * a + 0.8)
 
 
 def moon(sc):
+    """A paper moon hung on a thread in front of the sky sheets, behind the globe: a theatre prop that lives
+    in the frame (so it stays in shot however close the camera is), occluded by the limb when it passes."""
     spr = sc.S['moon']
+    th = sc.S['thread']
+    DEPTH = 1.6                       # globe radii behind the camera's target plane
 
     def emit(ctx):
-        c = moon_pos(ctx.t)
         cam = ctx.cam
-        r = 0.13
-        wob = 4.0 * math.sin(TAU * ctx.t / 30.0)
+        mx, my = moon_screen(ctx.t)
+        z = CAM_D + DEPTH
+        # screen fraction -> point on the plane DEPTH behind the target
+        x = (mx * cam.Wp - cam.cx) * z / cam.f
+        y = (cam.cy - my * cam.Hp) * z / cam.f
+        c = cam.T + cam.right * x + cam.up * y - cam.back * DEPTH
+        r = 0.17
+        wob = 5.0 * math.sin(TAU * ctx.t / 12.0) + 3.0 * math.sin(TAU * ctx.t / 20.0)
         ctx.emit_world(c - cam.right * r - cam.up * r, cam.right, cam.up, 2 * r, 2 * r,
-                       [(spr, place(spr, 0, 0, 2 * r, rot=wob, pivot=(0.5, 0.5)), 1.0)], ao=False, both=True, tint=1.0, noshade=True)
+                       [(spr, place(spr, 0, 0, 2 * r, rot=wob, pivot=(0.5, 0.5)), 1.0)], ao=False, both=True, tint=1.0,
+                       noshade=True, cast=False)
+        L = 2.0
+        tw = 0.010
+        ctx.emit_world(c + cam.up * (r * 0.92) - cam.right * (tw / 2), cam.right, cam.up, tw, L,
+                       [(th, place(th, 0, 0, tw, sy=L / (tw * th.aspect)), 0.8)], ao=False, both=True, noshade=True, cast=False)
     sc.extras.append(emit)
 
 

@@ -1671,3 +1671,8 @@ def _ring(a):
     pb.addCircle(100, 100, 54)
     pb.setFillType(skia.PathFillType.kEvenOdd)
     a.path(pb, '#EAF7FF', rim=False, sh=False, alpha=0.6)
+
+
+@spr('thread', 0.01, 8, 400, back='#efe4cf', ground=False)
+def _thread(a):
+    a.line([(4, 0), (4, 400)], '#F3E7CF', 2.4)

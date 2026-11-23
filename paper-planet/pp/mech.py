@@ -27,7 +27,8 @@ def face_angle(cam, G, lat, lon):
     """Hinge angle (deg from the surface, leaning north) at which a card at lat/lon faces this camera."""
     p, e, n = ll_frame(lat, lon)
     v = G.T @ (cam.C - G @ p)
-    return math.degrees(math.atan2(-(v @ n), v @ p))
+    # past the horizon (v.p < 0) keep it continuous instead of wrapping through +-180
+    return math.degrees(math.atan2(-(v @ n), max(v @ p, 0.05 * np.linalg.norm(v))))
 
 
 class Ctx:
@@ -299,7 +300,8 @@ class Zigzag(Piece):
         self.stand_fixed = stand is not None
         self.stand = stand if stand is not None else stand_for(lat)
         self.size = total_w
-        self.dur_in = 16.0
+        self.dur_in = 24.0
+        self.dur_out = 20.0
         self.shimmer = shimmer
         self.follow = follow
         self.fade = fade
@@ -319,11 +321,11 @@ class Zigzag(Piece):
         u = (d - d_in) / self.dur_in
         if d >= d_out:
             u = (1.0 - smoother((d - d_out) / self.dur_out))
-            s1 = smooth(u * 1.6)
+            s1 = smooth(u * 1.25)
             s2 = smooth(u * 1.6 - 0.6)
         else:
-            s1 = smooth(u * 2.2)
-            s2 = spring((u - 0.32) / 0.68)
+            s1 = smooth(u * 1.6)
+            s2 = spring((u - 0.42) / 0.58)
         p0, X, B = _basis(self.lat, self.lon, self.yaw)
         # closed, the pack lies flat with its pages on the map: a neat pleated strip. Opening, it rolls up
         # onto its edge (a quarter turn about its long axis), swings up on its hinge, then fans open.
@@ -412,7 +414,7 @@ class Bird(Piece):
         p, e, n = ll_frame(lat, lon)
         fwd = (-math.sin(a) * e + math.cos(a) * n) * self.ccw
         side = np.cross(p, fwd)
-        alt = self.alt * s * (1.0 + 0.08 * math.sin(tau * 2.1 + self.phase))
+        alt = self.alt * math.sqrt(min(1.0, s)) * (1.0 + 0.08 * math.sin(tau * 2.1 + self.phase))
         wing = math.radians(18.0 + 34.0 * math.sin(tau * self.flap * 2 + self.phase * 3))
         L = self.span * 0.5 / self.spr.aspect       # body length (sprite width)
         hw = self.span * 0.5
