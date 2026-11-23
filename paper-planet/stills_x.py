@@ -27,8 +27,8 @@ if __name__ == '__main__':
                 if s.kind == 'close' and s.name in ('eiffel', 'greatwave', 'aurora', 'pyramids', 'liberty', 'taj', 'machu', 'kilimanjaro', 'opera', 'pagoda', 'torii'):
                     picks.append(('%02d_%s' % (k, s.name), min(s.t1 - 1.0 / 30, s.tref)))
                     k += 1
-            picks += [('20_whale_leaving', xcut.beat(xcut.WHALE['beat']) + 0.3), ('21_whale_top', None),
-                      ('30_crowned', 20.3), ('31_fold', 22.75)]
+            picks += [('40_whale_leaving', xcut.beat(xcut.WHALE['beat']) + 0.3), ('41_whale_top', None),
+                      ('50_crowned', 20.3), ('51_fold', 22.75)]
         R = render.Renderer(sc, backdrop.Backdrop(ss=2, w=w, h=h), ss=2, w=w, h=h)
         for name, tau in picks:
             if tau is None:
