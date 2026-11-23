@@ -77,6 +77,8 @@ def clouds(sc):
                 p, e, nn = ll_frame(lat, lon)
                 spr = S['cloud'] if (i % 2 == 0) else S['cloud']
                 w = size * (0.35 + 0.65 * min(1.0, rise))
+                if CUT is not None:
+                    w = size * min(1.0, rise)      # the X cut's burst and fold: grow from (and shrink to) a point, never sinking into the globe
                 h = w * spr.aspect
                 alt_c = max(alt, clearance(ctx, p, w / 2)) * min(1.0, rise)
                 c = p * (1.0 + alt_c + 0.006 * math.sin(TAU * 2 * u + 3.0 * lr))

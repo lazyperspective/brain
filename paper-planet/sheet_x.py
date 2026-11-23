@@ -14,7 +14,7 @@ def frames(video, idx, w):
     raw = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', video, '-vf', 'scale=%d:%d:flags=area' % (w, h), '-pix_fmt', 'bgr24', '-f', 'rawvideo', '-'],
                          capture_output=True).stdout
     f = np.frombuffer(raw, np.uint8).reshape(-1, h, w, 3)
-    return [f[i].copy() for i in idx], f
+    return [f[min(i, len(f) - 1)].copy() for i in idx], f
 
 def label(img, txt, sc=0.45):
     cv2.putText(img, txt, (6, 18), cv2.FONT_HERSHEY_SIMPLEX, sc, (0, 0, 0), 3, cv2.LINE_AA)

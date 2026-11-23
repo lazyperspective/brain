@@ -1,0 +1,175 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body style="margin:0;background:transparent">
+<script type="module">
+// Coral block hero, rebuilt in 3D from rgb-fight/js/base.js fighter():
+// body 16 (x) x 13 (up) x 14 (depth) units on 4 feet 3 units tall, chamfered/bevelled edges, vertical light gradient with a
+// dark base band and a waist seam, lit top with a soft specular spot, cream headband 2 units under the top with a knot at the
+// back corner and two fluttering tails (7 and 6 segments), face on the +x side: pill eyes with a white catch-light, blush,
+// small mouth; fist nubs. Same palette. Rim light colour is a parameter (neon pink in the fight; sky-matched for footage).
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+const C = { body: '#d97757', bodyL: '#e88a68', bodyD: '#c4664a', shade: '#a8553b', shadeD: '#8f3f28', light: '#f2a585', lightL: '#f7bfa0',
+  dark: '#6e2a1a', hi: '#ffd9c2', eye: '#1b1426', white: '#fff6ea', band: '#fff6ea', bandD: '#d9cbb5', blush: '#f07a6a' };
+const col = h => new THREE.Color(h);
+const BX = 16, BY = 13, BZ = 14, FOOT = 3;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+document.body.appendChild(renderer.domElement);
+
+// gradient for the body sides, like faceCol(): dark base band, waist seam at 30 %, lighter towards the top
+function sideTexture() {
+  const cv = document.createElement('canvas'); cv.width = 8; cv.height = 256; const g = cv.getContext('2d');
+  const gr = g.createLinearGradient(0, 256, 0, 0);
+  gr.addColorStop(0, '#9a4c34'); gr.addColorStop(0.13, C.bodyD); gr.addColorStop(0.55, C.body); gr.addColorStop(1, C.bodyL);
+  g.fillStyle = gr; g.fillRect(0, 0, 8, 256);
+  g.fillStyle = 'rgba(110,42,26,0.28)'; g.fillRect(0, 256 * (1 - 0.30) - 3, 8, 6);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function faceTexture(ex) {   // the +x face: eyes, blush, mouth (expression ex)
+  const W = 280, H = 260, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  const u = W / BZ;           // px per unit across the face (depth = 14 units)
+  const ez = H - (FOOT * 0 + BY * 0.56) * (H / BY);   // eye height from face bottom
+  const eyes = [BZ / 2 - 2.9, BZ / 2 + 2.9];
+  const ew = 2.2 * u, eh = (ex.eyes === 'wide' ? 4.6 : 3.8) * u;
+  for (const [i, cx0] of eyes.entries()) {
+    const cx = cx0 * u + (ex.look ? ex.look[0] * u : 0), cy = ez + (ex.look ? ex.look[1] * u : 0);
+    const inward = i === 0 ? 1 : -1;
+    g.fillStyle = 'rgba(240,122,106,0.85)'; g.beginPath(); g.ellipse(cx - inward * 1.9 * u, ez + eh * 0.62, 1.3 * u, 0.55 * u, 0, 0, 7); g.fill();
+    g.fillStyle = C.eye;
+    if (ex.eyes === 'closed' || ex.eyes === 'happy') {
+      g.lineWidth = 0.7 * u; g.strokeStyle = C.eye; g.lineCap = 'round'; g.beginPath();
+      if (ex.eyes === 'happy') g.arc(cx, cy + 0.6 * u, 1.2 * u, Math.PI * 1.1, Math.PI * 1.9); else { g.moveTo(cx - 1.3 * u, cy); g.lineTo(cx + 1.3 * u, cy); }
+      g.stroke(); continue;
+    }
+    g.beginPath(); g.roundRect(cx - ew / 2, cy - eh / 2, ew, eh, ew * 0.45); g.fill();
+    g.fillStyle = C.white; g.beginPath(); g.roundRect(cx - ew / 2 + 0.35 * u, cy - eh / 2 + 0.45 * u, 0.75 * u, 1.3 * u, 0.3 * u); g.fill();
+    g.fillStyle = 'rgba(255,246,234,0.45)'; g.beginPath(); g.arc(cx + ew / 2 - 0.55 * u, cy + eh / 2 - 0.6 * u, 0.32 * u, 0, 7); g.fill();
+    if (ex.eyes === 'fierce') { g.fillStyle = C.body; g.beginPath(); g.moveTo(cx - ew, cy - eh / 2 - 0.3 * u); g.lineTo(cx + ew, cy - eh / 2 - 0.3 * u);
+      g.lineTo(cx + ew * inward, cy - eh / 2 + 1.3 * u); g.closePath(); g.fill(); }
+  }
+  const mx = BZ / 2 * u, my = ez + 2.9 * u; g.fillStyle = C.dark; g.strokeStyle = C.dark; g.lineCap = 'round';
+  if (ex.mouth === 'o') { g.beginPath(); g.ellipse(mx, my + 0.4 * u, 0.85 * u, 1.05 * u, 0, 0, 7); g.fill(); }
+  else if (ex.mouth === 'smile') { g.lineWidth = 0.55 * u; g.beginPath(); g.arc(mx, my - 0.3 * u, 1.0 * u, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke(); }
+  else if (ex.mouth === 'grit') { g.fillRect(mx - 1.6 * u, my, 3.2 * u, 1.0 * u); g.fillStyle = C.white; g.fillRect(mx - 1.2 * u, my + 0.15 * u, 2.4 * u, 0.4 * u); }
+  else { g.lineWidth = 0.5 * u; g.beginPath(); g.moveTo(mx - 0.8 * u, my + 0.3 * u); g.lineTo(mx + 0.8 * u, my + 0.3 * u); g.stroke(); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function topTexture() {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256; const g = cv.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 256, 256); gr.addColorStop(0, C.lightL); gr.addColorStop(1, C.light); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  const sp = g.createRadialGradient(80, 84, 0, 80, 84, 46); sp.addColorStop(0, 'rgba(255,217,194,0.95)'); sp.addColorStop(1, 'rgba(255,217,194,0)'); g.fillStyle = sp; g.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// rim (fresnel) light added to every standard material
+function withRim(mat, U) {
+  mat.onBeforeCompile = s => {
+    s.uniforms.rimCol = U.rimCol; s.uniforms.rimK = U.rimK;
+    s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 rimCol; uniform float rimK;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n{ float fr = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.0); gl_FragColor.rgb += rimCol * fr * rimK; }');
+  };
+  return mat;
+}
+// bend: every vertex above the feet is pushed along `lean` by ((h)^1.6), like off() in fighter()
+function bendGeo(geo, lean, squash) {
+  if (!geo.userData.orig) geo.userData.orig = geo.attributes.position.array.slice();
+  const o = geo.userData.orig, p = geo.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    const y = o[i + 1]; const yy = y <= FOOT ? y : FOOT + (y - FOOT) * (1 - squash); const h = Math.max(0, (yy - FOOT) / BY), e = Math.pow(Math.min(h, 1.4), 1.6);
+    const sx = y > FOOT ? 1 + squash * 0.5 : 1;
+    p[i] = o[i] * sx + lean[0] * e; p[i + 1] = yy; p[i + 2] = o[i + 2] * sx + lean[1] * e;
+  }
+  geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
+}
+function bakeWorld(mesh) { mesh.updateMatrix(); mesh.geometry.applyMatrix4(mesh.matrix); mesh.position.set(0, 0, 0); mesh.rotation.set(0, 0, 0); mesh.scale.set(1, 1, 1); mesh.updateMatrix(); return mesh; }
+function ribbon(pts, w, mat) {   // a flat strip through pts (headband tails)
+  const pos = [], idx = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], d = new THREE.Vector3().subVectors(b, a).normalize();
+    const side = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)); if (side.lengthSq() < 1e-4) side.set(1, 0, 0); side.normalize();
+    const n = new THREE.Vector3().crossVectors(side, d).normalize(), ww = w * (1 - 0.35 * i / pts.length);
+    pos.push(...pts[i].clone().addScaledVector(n, ww / 2).toArray(), ...pts[i].clone().addScaledVector(n, -ww / 2).toArray());
+    if (i) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+
+window.renderChar = function (o) {
+  const W = o.size ? o.size[0] : 900, H = o.size ? o.size[1] : 900; renderer.setSize(W, H, false);
+  const scene = new THREE.Scene(), U = { rimCol: { value: col(o.rim || '#bcd2ff') }, rimK: { value: o.rimK == null ? 0.55 : o.rimK } };
+  const L = o.light || {};
+  scene.add(new THREE.HemisphereLight(col(L.sky || '#dfe8ff'), col(L.ground || '#7d7466'), L.hemi == null ? 1.9 : L.hemi));
+  const key = new THREE.DirectionalLight(col(L.keyCol || '#ffffff'), L.key == null ? 1.1 : L.key); key.position.set(...(L.keyDir || [-6, 10, 4])); scene.add(key);
+  scene.add(new THREE.AmbientLight('#ffffff', L.amb == null ? 0.15 : L.amb));
+  const pose = Object.assign({ eyes: 'open', mouth: 'line', squash: 0, lean: [0, 0], wind: 0.3, T: 0.4, arm: 'side', step: 0 }, o.pose || {});
+  const G = new THREE.Group(); scene.add(G);
+  const std = (c, extra = {}) => withRim(new THREE.MeshStandardMaterial(Object.assign({ color: col(c), roughness: 0.62, metalness: 0 }, extra)), U);
+  const sideM = std('#ffffff', { map: sideTexture(), emissive: col(C.bodyD) }), topM = std('#ffffff', { map: topTexture(), emissive: col(C.light) });
+  // body: rounded box; material groups: +x,-x,+y,-y,+z,-z
+  const bodyG = new RoundedBoxGeometry(BX, BY, BZ, 4, 1.35); bodyG.translate(0, FOOT + BY / 2, 0);
+  const body = new THREE.Mesh(bodyG, sideM);
+  // per-face materials via a top cap and side textures: use world-normal check -> two meshes: sides (gradient) + top decal
+  bendGeo(bodyG, pose.lean, pose.squash); G.add(body);
+  const cap = new THREE.Mesh(new THREE.PlaneGeometry(BX - 2.4, BZ - 2.4, 6, 6), topM); cap.rotation.x = -Math.PI / 2; cap.position.y = FOOT + BY + 0.02; bakeWorld(cap); bendGeo(cap.geometry, pose.lean, pose.squash); G.add(cap);
+  // face decal on +x side
+  const faceM = withRim(new THREE.MeshStandardMaterial({ map: faceTexture(pose), transparent: true, roughness: 0.6, color: '#ffffff', polygonOffset: true, polygonOffsetFactor: -2 }), U);
+  // only the features: make the canvas background transparent by drawing on clear canvas (faceTexture draws only features)
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(BZ, BY, 8, 8), faceM); face.rotation.y = Math.PI / 2; face.position.set(BX / 2 + 0.03, FOOT + BY / 2, 0); bakeWorld(face); bendGeo(face.geometry, pose.lean, pose.squash); G.add(face);
+  // headband: a slightly bigger rounded ring band 2 units tall, 1.1 below the top
+  const bandM = std(C.band, { roughness: 0.8 }), bandG = new RoundedBoxGeometry(BX + 0.5, 2.0, BZ + 0.5, 3, 0.9); bandG.translate(0, FOOT + BY - 2.1, 0);
+  bendGeo(bandG, pose.lean, pose.squash); G.add(new THREE.Mesh(bandG, bandM));
+  // knot at the back corner (-x,-z side = back-left as in the fight, face on +x)
+  const ytop = FOOT + BY * (1 - pose.squash), knotY = ytop - 2.0, e = Math.pow(Math.min((knotY - FOOT) / BY, 1.4), 1.6);
+  const K = new THREE.Vector3(-BX / 2 - 0.3 + pose.lean[0] * e, knotY, BZ / 2 - 1.0 + pose.lean[1] * e);
+  const knot = new THREE.Mesh(new RoundedBoxGeometry(1.8, 2.4, 2.2, 2, 0.5), bandM); knot.position.copy(K); G.add(knot);
+  // tails: stream back (-x) and flutter; wind 0..1 like st.wind
+  const wind = pose.wind, T = pose.T, back = new THREE.Vector3(-1, 0, 0.35).normalize();
+  [7, 6].forEach((n, j) => {
+    const pts = [K.clone()];
+    for (let i = 1; i <= n; i++) {
+      const along = i * 1.9 * (0.55 + 0.45 * wind), wv = Math.sin(T * 17 - i * 0.85 + j * 1.9) * 0.32 * i * (0.45 + wind), spread = (j ? 0.55 : -0.35) * i;
+      pts.push(new THREE.Vector3(K.x + back.x * along, K.y - i * (1 - wind) * 0.95 + Math.sin(T * 13 - i + j) * 0.22 * i + wv * 0.4, K.z + back.z * along + wv + spread));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts); G.add(ribbon(curve.getPoints(n * 4), 1.9, std(j ? C.bandD : C.band, { side: THREE.DoubleSide, roughness: 0.85 })));
+  });
+  // feet
+  const footM = std(C.shade, { roughness: 0.7 });
+  for (const [fx, fz, ph] of [[-BX / 2 + 2.5, -BZ / 2 + 2.5, 0], [BX / 2 - 2.5, -BZ / 2 + 2.5, 1], [-BX / 2 + 2.5, BZ / 2 - 2.5, 1], [BX / 2 - 2.5, BZ / 2 - 2.5, 0]]) {
+    const sw = pose.step ? Math.sin((pose.step + ph * 0.5) * 2 * Math.PI) : 0, lift = Math.max(0, sw) * 2.4, sd = pose.stepDir || [1, 0];
+    const f = new THREE.Mesh(new RoundedBoxGeometry(3.2, 3.6, 3.2, 2, 0.7), footM); f.position.set(fx + sd[0] * sw * 1.8, 1.8 + lift, fz + sd[1] * sw * 1.8); G.add(f);
+  }
+  // arms / fists: nubs on the +z side (viewer-left in the fight), configurable
+  const fistM = std(C.body, { roughness: 0.6 });
+  const fist = (p) => { const m = new THREE.Mesh(new RoundedBoxGeometry(3.6, 3.6, 3.6, 2, 0.9), fistM); m.position.set(...p); G.add(m); return m; };
+  const armLine = (a, b) => { const d = new THREE.Vector3(...b).sub(new THREE.Vector3(...a)), m = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, d.length(), 10), fistM);
+    m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); G.add(m); };
+  const sy = FOOT + BY * 0.3;
+  if (pose.arm === 'side') { fist([1, sy, BZ / 2 + 1.3]); fist([1, sy, -BZ / 2 - 1.3]); }
+  if (pose.arm === 'wave') { fist([1, sy, -BZ / 2 - 1.3]); armLine([1, sy + 2, BZ / 2], [2, ytop + 3.5, BZ / 2 + 3]); fist([2, ytop + 4.5, BZ / 2 + 3.4]); }
+  if (pose.arm === 'up2') { const sp = pose.spread || 2.2; for (const s of [1, -1]) { armLine([0, ytop - 4, s * BZ / 2], [0, ytop + 6, s * sp]); fist([0, ytop + 6.5, s * sp]); } }
+  if (pose.arm === 'binoc') {   // both fists up at the face holding binoculars on the +x side
+    for (const s of [1, -1]) { armLine([2, sy + 1, s * BZ / 2], [BX / 2 + 2.2, ytop - 5.5, s * 3.4]); fist([BX / 2 + 2.0, ytop - 6.2, s * 3.6]); }
+    const bm = std('#2a2433', { roughness: 0.35, metalness: 0.3 }), lens = std('#9fb7d9', { roughness: 0.05, metalness: 0.6 });
+    for (const s of [1, -1]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.5, 4.2, 18), bm); b.rotation.z = Math.PI / 2; b.position.set(BX / 2 + 2.1, ytop - 4.6, s * 2.9); G.add(b);
+      const l = new THREE.Mesh(new THREE.CircleGeometry(1.25, 18), lens); l.rotation.y = Math.PI / 2; l.position.set(BX / 2 + 4.25, ytop - 4.6, s * 2.9); G.add(l); }
+    const br = new THREE.Mesh(new RoundedBoxGeometry(1.6, 1.2, 3.2, 2, 0.4), bm); br.position.set(BX / 2 + 2.1, ytop - 4.6, 0); G.add(br);
+  }
+  // zip-line strap: a cream loop from the fists up over the wire (wire passes at strapTop)
+  if (pose.strap) { const top = new THREE.Vector3(0, ytop + 9, 0); for (const s of [1, -1]) { const a = new THREE.Vector3(0, ytop + 6.5, s * 2.2);
+    G.add(ribbon([a, a.clone().lerp(top, 0.5).add(new THREE.Vector3(0, 0, -s * 0.3)), top], 1.2, std(C.band, { side: THREE.DoubleSide }))); } }
+  // orientation: yaw turns the face (+x) relative to the camera; camera on a sphere: pitch above the horizon
+  G.rotation.y = THREE.MathUtils.degToRad(o.yaw == null ? -40 : o.yaw); G.rotation.z = THREE.MathUtils.degToRad(o.tilt || 0);
+  const fov = o.fov || 18, pitch = THREE.MathUtils.degToRad(o.pitch == null ? 20 : o.pitch), dist = o.dist || 150;
+  const cam = new THREE.PerspectiveCamera(fov, W / H, 1, 2000), tgt = new THREE.Vector3(0, o.lookY == null ? 10 : o.lookY, 0);
+  cam.position.set(0, tgt.y + Math.sin(pitch) * dist, Math.cos(pitch) * dist); cam.up.set(0, 1, 0); cam.lookAt(tgt);
+  if (o.roll) cam.rotateZ(THREE.MathUtils.degToRad(o.roll));
+  renderer.setClearColor(0x000000, 0); renderer.render(scene, cam);
+  const pr = v => { const p = new THREE.Vector3(...v).applyMatrix4(G.matrixWorld).project(cam); return [(p.x + 1) / 2 * W, (1 - p.y) / 2 * H]; };
+  G.updateMatrixWorld();
+  return { png: renderer.domElement.toDataURL('image/png'), foot: pr([0, 0, 0]), feet: [pr([-BX / 2 + 1, 0, -BZ / 2 + 1]), pr([BX / 2 - 1, 0, -BZ / 2 + 1]), pr([BX / 2 - 1, 0, BZ / 2 - 1]), pr([-BX / 2 + 1, 0, BZ / 2 - 1])],
+    head: pr([0, FOOT + BY, 0]), hands: pr([0, ytop + 6.5, 0]), strapTop: pr([0, FOOT + BY + 9, 0]), unitPx: (() => { const a = pr([0, 0, 0]), b = pr([0, 10, 0]); return Math.hypot(a[0] - b[0], a[1] - b[1]) / 10; })() };
+};
+window.ready = true;
+</script></body></html>

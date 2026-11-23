@@ -46,16 +46,20 @@ def wide_turn(w):
     return W_SPIN[0] * w + W_SPIN[1] * W_SPIN[2] * math.sqrt(math.pi) / 2 * math.erf(w / W_SPIN[2])
 
 
-BURST_SPREAD = 0.80        # s for the wave to reach the rim
+BURST_SPREAD = 0.50        # s for the wave to reach the rim
+PUNCH = (0.45, 1.5, 0.07)  # the camera punches in 7 % as the globe bursts (opening only; the cut comes before it matters)
 FOLD_T = (beat(36), 0.36, 0.50)
 GROW_WIDE = {'zebra': 1.7, 'lion': 1.4, 'flamingo': 1.4}   # fold: rim starts on the last downbeat, the centre 0.36 s later, each takes 0.5 s
 
 # ---------------------------------------------------------------------------------------------- the shots
 # Close-ups: (name, start beat, length in beats, stop (or 'africa'), hero (region, sprite, index),
-#             look lat, look lon, zoom, sy, push (log zoom /s), drift (dlat, dlon deg/s), spin deg/s,
-#             lead (s, hero lift after the cut), bloom (s, hero lift to lock), extras)
-# The 'stop' names the v3 stop whose staging (hinge angles, hero growth, camera elevation, globe turn) the shot
-# borrows; 'africa' borrows the finale's.
+#             fh (hero height as a fraction of the frame's short side), cy (where its centre sits, fraction of
+#             height), push (log zoom /s), drift (dlat, dlon deg/s), spin deg/s, lead (s from the cut to the hero's
+#             lift), bloom (s from lift to lock), extra: 'open'/'shut' sprite names among the stop's pieces, 'with'
+#             pieces framed together with the hero, 'elev' / 'dlonc' camera tweaks)
+# The camera is solved per format (_autoframe): zoom and offset so the hero, fully open, fills fh, and a roll
+# that stands it upright. The 'stop' names the v3 stop whose staging (hinge angles, hero growth, camera
+# elevation, globe turn) the shot borrows; 'africa' borrows the finale's.
 SHOTS = [
     # name          beat  len  stop          hero                           fh    cy    push   drift(dlat,dlon) spin lead  bloom  extra
     ('eiffel',       3,   3,  'europe',     ('europe', 'eiffel', 0),       0.70, 0.50, 0.045, (0.0, 0.0),   2.0, 0.10, 0.50, {}),
@@ -129,7 +133,8 @@ class XCut:
 
     # -------------------------------------------------------------------------------- the wide shot
     def wide_keys(self, w):
-        return [W_ELEV, W_ZOOM * self.zf(True) * (1.0 + W_PUSH * w), 0.0, 0.0, 0.5, self.syf(W_SY, True), 1.0, W_L0 - wide_turn(w)]
+        punch = 1.0 + PUNCH[2] * smoother((w - PUNCH[0]) / (PUNCH[1] - PUNCH[0])) if w > 0 else 1.0
+        return [W_ELEV, W_ZOOM * self.zf(True) * (1.0 + W_PUSH * w) * punch, 0.0, 0.0, 0.5, self.syf(W_SY, True), 1.0, W_L0 - wide_turn(w)]
 
     def _front(self, w):
         """Globe-local unit vector of the point facing the lens in the wide shot."""
@@ -158,7 +163,7 @@ class XCut:
             h = (i * 2654435761) % 1000 / 1000.0
             lock += 0.03 * p.order / 5.0 + 0.04 * (h - 0.5)
             base = p.dur_in / DEG_PER_S
-            din = 0.62 * math.sqrt(base)
+            din = 0.55 * math.sqrt(base)
             self.wplan.append((lock - 0.46 * din, din, self.fold_start(self.pos[i])))
 
     def _crown_fix(self):

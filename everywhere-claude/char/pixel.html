@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:transparent">
+<script src="../../field-guide/rgb-fight/js/core.js"></script>
+<script src="../../field-guide/rgb-fight/js/helpers.js"></script>
+<script src="../../field-guide/rgb-fight/js/world.js"></script>
+<script src="../../field-guide/rgb-fight/js/base.js"></script>
+<script>
+// Render the ORIGINAL fighter() (unchanged rgb-fight code) into its 360x450 pixel buffer, transparent background.
+// opts: {k, face, st, fringe, scale} -> PNG dataURL (nearest-neighbour upscaled) + foot point
+window.renderPixel = function (o) {
+  ISO.k = o.k || 1.4; ISO.ox = 180; ISO.oy = 300;
+  const B = new PBuf(PAL, 0);
+  const st = Object.assign({ T: o.T || 0.3, shadow: false }, o.st || {});
+  let r;
+  if (o.fringe) r = fighterFX(B, 0, 0, 0, st, HEROC, o.face || 'x', { fringe: o.fringe, tear: o.tear || 0, seed: 3 });
+  else r = fighter(B, 0, 0, 0, st, HEROC, o.face || 'x');
+  // crop to content
+  let x0 = LW, y0 = LH, x1 = 0, y1 = 0;
+  for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) if (B.d[(y * LW + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const s = o.scale || 3, cv = document.createElement('canvas'); B.toCanvas(Object.assign(document.createElement('canvas'), { width: LW, height: LH }));
+  const lo = document.createElement('canvas'); lo.width = LW; lo.height = LH; B.toCanvas(lo);
+  cv.width = (x1 - x0 + 1) * s; cv.height = (y1 - y0 + 1) * s; const c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+  c.drawImage(lo, x0, y0, x1 - x0 + 1, y1 - y0 + 1, 0, 0, cv.width, cv.height);
+  return { png: cv.toDataURL('image/png'), foot: [(r.foot[0] - x0) * s, (r.foot[1] - y0) * s], head: [(r.head[0] - x0) * s, (r.head[1] - y0) * s] };
+};
+</script></body></html>
