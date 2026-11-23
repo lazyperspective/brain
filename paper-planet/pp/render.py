@@ -137,17 +137,26 @@ class Renderer:
         info = skia.ImageInfo.Make(self.Wp // 2, self.Hp // 2, skia.ColorType.kAlpha_8_ColorType, PREMUL)
         self.aosurf = skia.Surface.MakeRaster(info)
         # light basis
-        L = LIGHT
-        lx = np.cross([0.0, 1.0, 0.0], L)
-        lx /= np.linalg.norm(lx)
-        ly = np.cross(L, lx)
-        self.lx, self.ly = lx, ly
+        self._set_light(np.array([1.0, 0, 0]), np.array([0, 1.0, 0]), np.array([0, 0, 1.0]))
         gy, gx = np.meshgrid((np.arange(G) + 0.5) / G, (np.arange(G) + 0.5) / G, indexing='ij')
         self.ggx, self.ggy = gx, gy
         # vignette (1x)
         yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
         rr = np.sqrt(((xx - w / 2) / (w / 2)) ** 2 + ((yy - h / 2) / (h / 2)) ** 2)
         self.vig = (1.0 - 0.20 * np.clip(rr - 0.55, 0, 1) ** 1.8)[..., None].astype(np.float32)
+
+    def _set_light(self, right, up, back):
+        """Key and rim lights live in camera space, so the paper is lit from the upper left front wherever the
+        camera has drifted (it orbits far south for Antarctica); the light map follows."""
+        L = LIGHT[0] * right + LIGHT[1] * up + LIGHT[2] * back
+        self.L = L / np.linalg.norm(L)
+        Rm = RIM[0] * right + RIM[1] * up + RIM[2] * back
+        self.Rim = Rm / np.linalg.norm(Rm)
+        self.U = np.asarray(up, float)
+        lx = np.cross(self.U, self.L)
+        lx /= np.linalg.norm(lx)
+        ly = np.cross(self.L, lx)
+        self.lx, self.ly = lx, ly
 
     # ------------------------------------------------------------------ light map
     def _lproj(self, P):
@@ -170,9 +179,9 @@ class Renderer:
             if not m.setPolyToPoly([skia.Point(0, 0), skia.Point(w, 0), skia.Point(w, h), skia.Point(0, h)],
                                    [skia.Point(*q[0]), skia.Point(*q[1]), skia.Point(*q[2]), skia.Point(*q[3])]):
                 continue
-            d0 = float(cd.O @ LIGHT) / LS + 0.5
-            gxl = float(cd.X @ LIGHT) / LS
-            gyl = float(cd.Y @ LIGHT) / LS
+            d0 = float(cd.O @ self.L) / LS + 0.5
+            gxl = float(cd.X @ self.L) / LS
+            gyl = float(cd.Y @ self.L) / LS
             gn = math.hypot(gxl, gyl)
             cx_, cy_ = w / 2, h / 2
             dc = d0 + gxl * cx_ + gyl * cy_
@@ -216,12 +225,12 @@ class Renderer:
         gx, gy = self.ggx, self.ggy
         P = (O[:, None, None, :] + X[:, None, None, :] * (gx[None, :, :, None] * wh[:, 0, None, None, None]) +
              Y[:, None, None, :] * (gy[None, :, :, None] * wh[:, 1, None, None, None]))     # (N,G,G,3)
-        ndl = nvis @ LIGHT
+        ndl = nvis @ self.L
         f = np.where(ndl > 0, 0.25 + 0.75 * np.clip(ndl, 0, 1) ** 0.7,
                      0.25 * (1.0 - 0.6 * np.clip(-ndl * 3.0, 0, 1)))
         Pb = P + nvis[:, None, None, :] * 0.006
         uv = self._lproj(Pb).astype(np.float32)
-        dep = ((Pb @ LIGHT) / LS + 0.5).astype(np.float32)
+        dep = ((Pb @ self.L) / LS + 0.5).astype(np.float32)
         mu = uv[..., 0].reshape(N * G, G)
         mv = uv[..., 1].reshape(N * G, G)
         sh = np.zeros((N * G, G), np.float32)
@@ -231,7 +240,7 @@ class Renderer:
             sh += (D > dep.reshape(N * G, G) + 0.006)
         S = 1.0 - 0.80 * sh.reshape(N, G, G) / len(taps)
         # sphere occlusion (analytic)
-        pl = P @ LIGHT
+        pl = P @ self.L
         m = np.sqrt(np.maximum((P * P).sum(-1) - pl * pl, 0)) - 1.0
         sph = np.where(pl < 0, np.clip((m + 0.012) / 0.05, 0, 1), 1.0)
         S = S * sph * sph * (3 - 2 * sph)
@@ -240,7 +249,7 @@ class Renderer:
             S[nos] = 1.0
         key = (f[:, None, None] * S)[..., None] * KEY_COL
         tint = np.array([c.tint for c in cards])[:, None, None, None]
-        bnc = (0.5 - 0.5 * nvis[:, 1])[:, None, None, None] * BOUNCE_COL
+        bnc = (0.5 - 0.5 * (nvis @ self.U))[:, None, None, None] * BOUNCE_COL
         colr = (AMB_COL + bnc + key) * tint
         out = np.empty((N, G, G, 4), np.uint8)
         out[..., :3] = np.clip(colr * 255.0, 0, 255).astype(np.uint8)
@@ -304,7 +313,7 @@ class Renderer:
         ny = clf * sof - (gxm * co + gym * (-zl * so))
         nz = slf - gym * cl
         inv = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
-        Ll = (GT @ LIGHT).astype(np.float32)
+        Ll = (GT @ self.L).astype(np.float32)
         ndl = (nx * Ll[0] + ny * Ll[1] + nz * Ll[2]) * inv
         ndl_geo = xl * Ll[0] + yl * Ll[1] + zl * Ll[2]
         dif = np.clip((ndl + 0.28) / 1.28, 0, 1)
@@ -312,7 +321,7 @@ class Renderer:
         dif *= np.clip((ndl_geo + 0.22) / 0.30, 0, 1)        # soft terminator on the true sphere
         # cast shadows from the light map
         lx, ly = self.lx.astype(np.float32), self.ly.astype(np.float32)
-        Lf = LIGHT.astype(np.float32)
+        Lf = self.L.astype(np.float32)
         mu = (px * lx[0] + py * lx[1] + pz * lx[2]) * (LM / LS) + LM / 2
         mv = LM / 2 - (px * ly[0] + py * ly[1] + pz * ly[2]) * (LM / LS)
         dep = (px * Lf[0] + py * Lf[1] + pz * Lf[2]) * (1.0 / LS) + 0.5
@@ -340,7 +349,7 @@ class Renderer:
         vx = Cl[0] - xl; vy = Cl[1] - yl; vz = Cl[2] - zl
         vinv = 1.0 / np.sqrt(vx * vx + vy * vy + vz * vz)
         ndv = np.clip((xl * vx + yl * vy + zl * vz) * vinv, 0, 1)
-        Rl = (GT @ RIM).astype(np.float32)
+        Rl = (GT @ self.Rim).astype(np.float32)
         rim = (1.0 - ndv) ** 2.6 * np.clip((xl * Rl[0] + yl * Rl[1] + zl * Rl[2]) * 0.7 + 0.45, 0, 1)
         # paper grain in gore-local (sinusoidal) coordinates so it never stretches at the poles
         K = 1500.0
@@ -350,7 +359,8 @@ class Renderer:
         S_ = self.fib.shape[0]
         grain = cv2.remap(self.fib, np.mod(fxm, S_ - 1).astype(np.float32), np.mod(fym, S_ - 1).astype(np.float32), cv2.INTER_LINEAR)
         gmul = 1.0 + 0.30 * (grain - 0.5)
-        up = (px * 0.0 + py)  # world up component for sky ambient
+        U = self.U.astype(np.float32)
+        up = px * U[0] + py * U[1] + pz * U[2]  # camera-up component for sky ambient
         amb = (0.82 + 0.18 * up) * aom
         colr = alb * (AMB_COL[None, None, :] * amb[..., None] + KEY_COL[None, None, :] * key[..., None] +
                       BOUNCE_COL[None, None, :] * ((0.5 - 0.5 * up) * aom)[..., None])
@@ -450,6 +460,7 @@ class Renderer:
     def render(self, fi, post=True):
         t = (fi % core.NF) / core.FPS
         cam = core.Camera(t, self.ss, self.w, self.h)
+        self._set_light(cam.right, cam.up, cam.back)
         Gm = core.globe_matrix(t)
         cards = self.scene.cards(t, Gm, cam)
         N = len(cards)

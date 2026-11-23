@@ -2,7 +2,7 @@
 import math
 from .mech import sway, spin, nod, bob
 
-P = 0.042   # person width
+P = 0.054   # person width (v2: larger so people read as characters)
 
 
 def flick(rate=5.0, base=0.75, amp=0.25, ph=0.0):
@@ -155,13 +155,13 @@ def asia(sc):
 
 def oceania(sc):
     R = 'oceania'
-    sc.flap(R, -25.0, 132.0, 'uluru_z', 0.40, order=0)
+    sc.flap(R, -24.0, 131.0, 'uluru_z', 0.32, order=0)
     sc.flap(R, -31.5, 149.0, 'hbridge', 0.34, order=0)
-    sc.flap(R, -34.5, 151.5, 'opera', 0.30, order=1)
+    sc.flap(R, -34.5, 151.5, 'opera', 0.34, order=1)
     sc.walk(R, 'kangaroo', 0.13, -30.5, 134.0, -30.5, 143.0, period=9, hop=0.03)
     sc.walk(R, 'kangaroo', 0.11, -20.0, 122.5, -20.0, 131.0, period=9, hop=0.03, phase=0.35)
     sc.walk(R, 'kangaroo', 0.10, -32.5, 119.5, -32.5, 127.0, period=9, hop=0.03, phase=0.7)
-    sc.flap(R, -37.5, 143.5, 'gum', 0.15, order=2)
+    sc.flap(R, -29.0, 144.0, 'gum', 0.15, order=2)
     sc.flap(R, -17.0, 148.5, 'coral_a', 0.11, order=2)
     sc.flap(R, -13.0, 146.5, 'coral_b', 0.10, order=3)
     sc.flap(R, -20.5, 152.0, 'coral_c', 0.095, order=3)
@@ -177,7 +177,7 @@ def oceania(sc):
     sc.flap(R, -7.6, 110.5, 'volcano', 0.19, order=2,
             parts=[dict(spr='smoke', x=0.34, y=0.74, w=0.32, anim=bob(0.03, 2.8, 0.0))],
             emis_parts=[dict(spr='glow', x=0.5, y=0.66, w=0.5, flick=flick(4.0, 0.7, 0.3))])
-    sc.walk(R, 'person1', P, -37.0, 146.5, -37.0, 152.0, period=11)
+    sc.walk(R, 'person1', P, -30.5, 138.0, -30.5, 143.0, period=11)
     sc.bird(R, -6.5, 143.5, 'macaw_w', 0.13, radius=5.0, alt=0.25, period=8.0)
 
 
@@ -187,26 +187,35 @@ def arctic(sc):
     sc.flap(R, 73.0, -36.0, 'igloo', 0.16, order=2)
     sc.walk(R, 'polarbear', 0.16, 77.0, -50.0, 77.0, -30.0, period=20, order=3)
     sc.flap(R, 64.8, -19.0, 'geyser', 0.10, order=2)
+    n0 = len(sc.pieces)
     sc.zigzag(R, 67.5, -150.0, 'aurora', 8, 0.52, order=0, beta=48, shimmer=1.0, follow=False, fade=True)
     sc.flap(R, 63.5, -154.0, 'cabin', 0.15, order=2,
             emis_parts=[dict(spr='glow', x=0.32, y=0.25, w=0.55, flick=flick(3.0, 0.8, 0.2))])
     sc.flap(R, 61.0, -142.0, 'moose', 0.17, order=3, strut=False)
     sc.flap(R, 65.5, -162.0, 'pine_snow', 0.09, order=2)
     sc.flap(R, 60.0, -134.5, 'pine_snow', 0.085, order=3)
+    for p in sc.pieces[n0:]:
+        p.hero_region = 'namerica'     # Alaska opens with the North American close-up, on the upper left
 
 
 def antarctica(sc):
     R = 'antarctica'
-    for i, (la, lo) in enumerate([(-72.0, 160.0), (-74.5, 170.0), (-72.5, -179.0), (-76.0, -170.0), (-77.0, -158.0), (-75.0, 150.0)]):
-        sc.walk(R, 'penguin', 0.10, la, lo - 3.5, la, lo + 3.5, period=[6.0, 5.0, 7.5][i % 3], phase=i * 0.17, order=2 + i % 3)
-    sc.flap(R, -65.0, -176.0, 'iceberg_z', 0.26, order=1)
-    sc.flap(R, -78.5, 166.0, 'station', 0.15, order=1)
-    sc.flap(R, -70.5, 146.0, 'seal', 0.13, order=3, strut=False)
+    # the Ross Sea, framed when the camera dips under the world: shelf, colony, aurora australis, station
+    sc.flap(R, -77.0, 179.0, 'iceshelf', 0.60, order=0)
+    sc.zigzag(R, -63.5, 165.0, 'aurora_s', 8, 0.50, order=0, beta=48, shimmer=1.0, follow=False, fade=True, glow=True)
+    sc.flap(R, -70.5, 171.0, 'colony', 0.36, order=1)
+    sc.flap(R, -77.8, 166.5, 'station', 0.17, order=2)
+    sc.flap(R, -66.5, -176.0, 'iceberg_z', 0.26, order=1)
+    sc.flap(R, -66.0, 154.0, 'iceberg_z', 0.20, order=1)
+    sc.flap(R, -71.5, 152.0, 'seal', 0.15, order=3, strut=False)
+    for i, (la, lo) in enumerate([(-72.8, 160.0), (-73.5, 178.5), (-68.8, -179.0), (-74.5, 168.0), (-69.0, 160.5)]):
+        sc.walk(R, 'penguin', 0.11, la, lo - 2.5, la, lo + 2.5, period=[6.0, 5.0, 7.5][i % 3], phase=i * 0.17, order=2 + i % 3)
+    # the rest of the coast, seen only in passing at the bottom of frame
     for i, (la, lo) in enumerate([(-66.0, -62.0), (-68.5, -67.0), (-71.0, -61.0)]):
-        sc.walk(R, 'penguin', 0.065, la, lo - 2.0, la, lo + 2.0, period=[6.0, 5.0, 7.5][i], phase=i * 0.3, order=2 + i)
+        sc.walk(R, 'penguin', 0.075, la, lo - 2.0, la, lo + 2.0, period=[6.0, 5.0, 7.5][i], phase=i * 0.3, order=2 + i)
     sc.flap(R, -62.5, -48.0, 'iceberg_z', 0.17, order=1)
     for i, (la, lo) in enumerate([(-68.0, 76.0), (-70.0, 84.0), (-68.5, 92.0)]):
-        sc.walk(R, 'penguin', 0.065, la, lo - 2.0, la, lo + 2.0, period=[6.0, 5.0, 7.5][i], phase=i * 0.3, order=2 + i)
+        sc.walk(R, 'penguin', 0.075, la, lo - 2.0, la, lo + 2.0, period=[6.0, 5.0, 7.5][i], phase=i * 0.3, order=2 + i)
     sc.flap(R, -63.0, 100.0, 'iceberg_z', 0.17, order=1)
     sc.flap(R, -64.0, 20.0, 'iceberg_z', 0.16, order=1)
 
@@ -217,19 +226,25 @@ def pacific(sc):
             parts=[dict(spr='smoke', x=0.34, y=0.74, w=0.32, anim=bob(0.03, 2.8, 0.0))],
             emis_parts=[dict(spr='glow', x=0.5, y=0.66, w=0.5, flick=flick(4.0, 0.7, 0.3))])
     sc.flap(R, 21.6, -160.0, 'palm', 0.10, order=3)
-    sc.flap(R, -7.0, -171.0, 'greatwave', 0.46, order=1)
-    sc.flap(R, -18.0, -149.5, 'atoll', 0.24, order=2)
-    sc.walk(R, 'turtle', 0.11, -24.0, -140.0, -24.0, -132.0, period=20, order=4)
-    sc.walk(R, 'fish_b', 0.06, 6.0, -126.0, 6.0, -119.0, period=10, order=4, hop=0.03)
     sc.flap(R, 17.8, -152.0, 'palm', 0.09, order=4)
+    # the great wave rises tall over a little fleet of paper boats
+    sc.flap(R, -11.0, -163.0, 'greatwave', 0.50, order=0)
+    for i, (la, lo, nm) in enumerate([(-15.0, -168.5, 'sail_r'), (-14.0, -160.0, 'sail_y'), (-16.8, -164.0, 'sail_g'), (-13.2, -165.0, 'sail_y')]):
+        ph = i * 1.9
+        sc.flap(R, la, lo, nm, 0.095 if i < 3 else 0.075, order=2 + i % 3, strut=False,
+                mover=(lambda la=la, lo=lo, ph=ph: (lambda tau, act, t: (la, lo, False, 0.006 * act * (0.5 + 0.5 * math.sin(tau * 2.2 + ph)),
+                                                                          7.0 * act * math.sin(tau * 1.7 + ph), 0.0)))())
+    sc.flap(R, -18.0, -149.5, 'atoll', 0.24, order=2)
+    sc.walk(R, 'turtle', 0.12, -24.0, -140.0, -24.0, -132.0, period=20, order=4)
+    sc.walk(R, 'fish_b', 0.07, 6.0, -126.0, 6.0, -119.0, period=10, order=4, hop=0.03)
 
 
 def oceans(sc):
     """Paper wave crests that pop up across the open sea, row after row."""
     spots = [
         # Pacific
-        (38, 178), (30, -150), (44, -160), (22, 172), (10, -132), (6, -152), (-6, 172), (-18, -128), (-24, -166),
-        (-32, -146), (-34, 178), (-46, -160), (-48, -118), (26, -132), (-2, -108), (48, -140), (-30, -102),
+        (38, 178), (30, -150), (44, -160), (22, 172), (10, -132), (6, -152), (-6, 172), (-18, -128),
+        (-32, -146), (-34, 178), (-48, -118), (26, -132), (-2, -108), (48, -140), (-30, -102),
         # Atlantic
         (30, -52), (20, -38), (6, -28), (-14, -8), (-26, -30), (-40, -22), (44, -38),
         # Indian

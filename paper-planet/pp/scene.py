@@ -7,15 +7,77 @@ from .mech import Ctx, Flap, Tent, Pyramid, Zigzag, Bird, walker, sway, spin, no
 from .render import place
 
 
+PX_PER_R = 1850.0     # sprite pixels per globe radius of on-globe width (the 4K buffer at a close-up)
+HERO_GROW = 0.55      # extra scale for pieces at the centre of a close-up
+HERO_RAD = 24.0       # deg: how far from the look point a piece still counts as part of the close-up
+
+
 class Scene:
     def __init__(self):
+        # pass 1 at nominal density to learn how large each sprite is drawn, pass 2 at the density it needs
         self.S = sprites.build()
+        self._populate()
+        need = {}
+        for p in self.pieces:
+            for name, w in p.sprite_widths() if hasattr(p, 'sprite_widths') else ():
+                need[name] = max(need.get(name, 0.0), w * PX_PER_R)
+        from .travellers import TRAVELLER_W
+        for name, w in TRAVELLER_W.items():
+            need[name] = max(need.get(name, 0.0), w * PX_PER_R)
+        self.S = sprites.build(px=need)
+        self._populate()
+
+    def _populate(self):
         self.pieces = []
         self.extras = []
         from . import regions, travellers
         regions.build(self)
         travellers.build(self)
         self._order_south_to_north()
+        self.assign_heroes()
+
+    def assign_heroes(self):
+        """Give each piece a hero moment: the close-up of its region (or the nearest close-up), then re-time
+        its unfold to it, set its hinge so it faces the lens then, and grow it if it is at the centre of view."""
+        from .core import HERO, Camera, globe_matrix, ll_frame, center_lon, cam_keys, wrap180
+        from .mech import face_angle, DEG_PER_S
+        keys = [(k[0], k[1]) for k in HERO]
+
+        def tw(x):
+            return (x + DUR / 2) % DUR - DUR / 2
+
+        for p in self.pieces:
+            t_c = ((center_lon(0.0) - p.lon) / DEG_PER_S) % DUR     # when the piece faces the camera
+            reg = getattr(p, 'hero_region', None) or p.region
+            mine = [k for k in keys if k[1] == reg and abs(tw(t_c - k[0])) <= 9.0]
+            if p.region == 'ocean':
+                mine = []
+            if mine:
+                Tk = mine[0][0]
+                T = Tk + max(-2.5, min(2.5, tw(t_c - Tk)))
+            else:
+                T = t_c
+            T = T % DUR
+            p.hero_t = T
+            p.d_hero = wrap180(p.lon - center_lon(T))
+            cam = Camera(T, 1)
+            G = globe_matrix(T)
+            el, z, llat, ldlon, sx, sy = cam_keys(T)
+            q, _, _ = ll_frame(llat, center_lon(T) + ldlon)
+            r, _, _ = ll_frame(p.lat, p.lon)
+            ang = math.degrees(math.acos(max(-1.0, min(1.0, float(q @ r)))))
+            p.hero_w = math.exp(-(ang / HERO_RAD) ** 2) if mine else 0.0
+            fa = face_angle(cam, G, p.lat, p.lon)
+            p.face = fa
+            if hasattr(p, 'stand') and not getattr(p, 'stand_fixed', True):
+                p.stand = float(min(86.0, max(52.0, fa + 42.0)))
+                if isinstance(p, Tent):
+                    p.stand = float(min(80.0, max(44.0, fa + 34.0)))
+            # small things grow most (people, animals), big set pieces only a little
+            small = min(1.0, max(0.0, (0.32 - p.size) / 0.22))
+            k = 1.0 + p.hero_w * (0.22 + (HERO_GROW - 0.22 + 0.15) * small)
+            if k > 1.01:
+                p.grow(k)
 
     def _order_south_to_north(self):
         """Folded cards lie back away from the equator-side hinge, so within a region the piece nearer the

@@ -4,11 +4,11 @@ import numpy as np
 from .core import ll_frame, wrap180, spring, smooth, smoother, DUR, LON0
 from .render import Card, place
 
-D_IN = -50.0     # facing angle (deg, negative = still left of centre) where unfolding starts
-D_OUT = 34.0     # facing angle where folding away starts
+LEAD_IN = 38.0   # unfolding starts this many degrees of turn before the piece's hero moment
+LAG_OUT = 30.0   # folding away starts this many degrees after it
+BETA0 = 4.0     # pleat angle of a closed concertina
 STEP_IN = 2.4
 STEP_OUT = 1.8
-SUBCAM = -6.0
 DEG_PER_S = 360.0 / DUR
 
 
@@ -18,11 +18,16 @@ def stand_for(lat):
     return float(max(30.0, 50.0 + 0.40 * lat))
 
 
-def vis_scale(lat):
-    a = (0.143 - math.sin(math.radians(lat)) * math.sin(math.radians(SUBCAM))) / \
-        max(1e-3, math.cos(math.radians(lat)) * math.cos(math.radians(SUBCAM)))
-    dv = math.degrees(math.acos(max(-1.0, min(1.0, a))))
-    return min(1.0, dv / 78.0)
+def stand_cam(ctx, lat, lon, extra=40.0, lo=50.0, hi=86.0):
+    """Hinge angle for always-alive things (ships, whales): lean so they present themselves to the lens."""
+    return float(min(hi, max(lo, face_angle(ctx.cam, ctx.G, lat, lon) + extra)))
+
+
+def face_angle(cam, G, lat, lon):
+    """Hinge angle (deg from the surface, leaning north) at which a card at lat/lon faces this camera."""
+    p, e, n = ll_frame(lat, lon)
+    v = G.T @ (cam.C - G @ p)
+    return math.degrees(math.atan2(-(v @ n), v @ p))
 
 
 class Ctx:
@@ -49,11 +54,12 @@ class Piece:
     dur_in = 13.0
     dur_out = 13.0
     quiet = False
+    d_hero = 0.0          # facing angle (deg) at this piece's hero moment, set by Scene.assign_heroes
+    hero_w = 0.0          # 0..1, how central the piece is in the camera's close-up
 
     def window(self):
-        vs = vis_scale(self.lat)
-        d_in = (D_IN + STEP_IN * self.order) * vs
-        d_out = (D_OUT + STEP_OUT * (6 - min(self.order, 6))) * vs
+        d_in = self.d_hero - LEAD_IN + STEP_IN * self.order
+        d_out = self.d_hero + LAG_OUT + STEP_OUT * (6 - min(self.order, 6))
         return d_in, d_out
 
     def state(self, ctx):
@@ -79,6 +85,12 @@ class Piece:
         t_close = ((d_out - (self.lon - LON0)) / DEG_PER_S) % DUR
         return t_open, t_lock, t_close, self.size, self.lat, self.lon
 
+    def grow(self, k):
+        pass
+
+    def sprite_widths(self):
+        return []
+
 
 def _basis(lat, lon, yaw):
     p, e, n = ll_frame(lat, lon)
@@ -100,8 +112,9 @@ class Flap(Piece):
         self.lat, self.lon, self.spr, self.w = lat, lon, spr, w
         self.order, self.yaw = order, yaw
         if hang is None:
-            hang = lat < -52
+            hang = False
         self.hang = hang
+        self.stand_fixed = stand is not None
         if stand is None:
             stand = 80.0 if hang else stand_for(lat)
         self.stand = stand
@@ -124,6 +137,16 @@ class Flap(Piece):
             self.dur_in = dur_in
         elif self.size < 0.12:
             self.dur_in = 10.0
+
+    def grow(self, k):
+        self.w *= k
+        self.size *= k
+
+    def sprite_widths(self):
+        out = [(self.spr.name, self.w)]
+        for pt in self.parts + self.emis_parts:
+            out.append((pt['spr'].name, pt['w'] * self.w))
+        return out
 
     def emit(self, ctx):
         s, tau, act = self.state(ctx)
@@ -187,6 +210,7 @@ class Tent(Piece):
     def __init__(self, lat, lon, spr, w, order=0, yaw=0.0, stand=None, back_ratio=0.85, region='', back_spr=None, lift=0.002):
         self.lat, self.lon, self.spr, self.w = lat, lon, spr, w
         self.order, self.yaw = order, yaw
+        self.stand_fixed = stand is not None
         self.stand = stand if stand is not None else max(40.0, stand_for(lat) - 8.0)
         self.back_ratio = back_ratio
         self.region = region
@@ -194,6 +218,13 @@ class Tent(Piece):
         self.size = w * max(0.8, spr.aspect)
         self.dur_in = 12.0
         self.lift = lift
+
+    def grow(self, k):
+        self.w *= k
+        self.size *= k
+
+    def sprite_widths(self):
+        return [(self.spr.name, self.w), (self.back_spr.name, self.w)]
 
     def emit(self, ctx):
         s, tau, act = self.state(ctx)
@@ -217,7 +248,9 @@ class Tent(Piece):
 
 
 class Pyramid(Piece):
-    """Four triangular faces hinged to a square base: a flat star that folds up to a point."""
+    """Four triangular faces hinged to a square base. Folded, they lie inward on the base like the flaps of
+    an envelope (top flap last folded, first to rise); unfolding, they rise one after another and meet at
+    the apex."""
 
     def __init__(self, lat, lon, spr, base, order=1, yaw=20.0, region='', slant=0.9):
         self.lat, self.lon, self.spr, self.base = lat, lon, spr, base
@@ -226,20 +259,32 @@ class Pyramid(Piece):
         self.size = base * 1.4
         self.dur_in = 14.0
 
+    def grow(self, k):
+        self.base *= k
+        self.slant *= k
+        self.size *= k
+
+    def sprite_widths(self):
+        return [(self.spr.name, self.base)]
+
     def emit(self, ctx):
         s, tau, act = self.state(ctx)
         s = min(s, 1.02)
         p, X0, B0 = _basis(self.lat, self.lon, self.yaw)
         b = self.base
         psi_in = math.acos((b / 2) / self.slant)
-        ang = max(0.012, s) * (math.pi - psi_in)
+        stack = (1, 3, 0, 2)              # stacking height of each face when folded (3 = on top)
         for k in range(4):
             a = k * math.pi / 2
+            kk = stack[k]
+            lag = 0.30 * (3 - kk) / 3.0
+            sk = s if s >= 1.0 else max(0.0, (s - lag) / (1.0 - lag))
             outd = math.cos(a) * (-B0) + math.sin(a) * X0      # outward dir of this face (k=0 faces south)
-            edge = np.cross(outd, p)                           # along the base edge, left->right seen from outside
-            edge = -edge
+            edge = -np.cross(outd, p)                          # along the base edge, left->right seen from outside
+            ang = math.pi - 0.010 - sk * (psi_in - 0.010)
             Y = math.cos(ang) * outd + math.sin(ang) * p
-            O = p * 1.003 + outd * (b / 2) - edge * (b / 2)
+            lift = 0.003 + (0.0016 * (kk + 1)) * max(0.0, 1.0 - sk * 3.0)
+            O = p * (1.0 + lift) + outd * (b / 2) - edge * (b / 2)
             ctx.emit(O, edge, Y, b, self.slant, [(self.spr, place(self.spr, 0, 0, b), 1.0)],
                      contact=0.8 * s, ao=False, both=True)
 
@@ -247,16 +292,25 @@ class Pyramid(Piece):
 class Zigzag(Piece):
     """Accordion strip: swings up as a closed stack, then concertinas open along its length."""
 
-    def __init__(self, lat, lon, spr, n, total_w, order=1, yaw=0.0, beta=60.0, stand=None, region='', shimmer=0.0, follow=True, fade=False):
+    def __init__(self, lat, lon, spr, n, total_w, order=1, yaw=0.0, beta=60.0, stand=None, region='', shimmer=0.0, follow=True, fade=False, glow=False):
         self.lat, self.lon, self.spr, self.n = lat, lon, spr, n
         self.pw = total_w / n / math.sin(math.radians(beta))
         self.order, self.yaw, self.beta, self.region = order, yaw, beta, region
+        self.stand_fixed = stand is not None
         self.stand = stand if stand is not None else stand_for(lat)
         self.size = total_w
         self.dur_in = 16.0
         self.shimmer = shimmer
         self.follow = follow
         self.fade = fade
+        self.glow = glow
+
+    def grow(self, k):
+        self.pw *= k
+        self.size *= k
+
+    def sprite_widths(self):
+        return [(self.spr.name, self.pw * self.n)]
 
     def emit(self, ctx):
         s, tau, act = self.state(ctx)
@@ -271,28 +325,34 @@ class Zigzag(Piece):
             s1 = smooth(u * 2.2)
             s2 = spring((u - 0.32) / 0.68)
         p0, X, B = _basis(self.lat, self.lon, self.yaw)
-        ph0 = self.pw * self.n * self.spr.aspect
-        half = min(0.5 * ph0, 0.35)
-        k0 = 1.0 - min(1.0, max(0.0, s1))
-        th = math.radians(s1 * self.stand) - 0.95 * half * k0
-        Yv = math.cos(th) * B + math.sin(th) * p0
-        Zd = np.cross(X, Yv)
-        p = p0 * (1.0 + (1.0 / math.cos(half) - 1.0) * k0)
-        beta = math.radians(5.0 + (self.beta - 5.0) * s2 + self.shimmer * act * 6.0 * math.sin(tau * 1.3))
+        # closed, the pack lies flat with its pages on the map: a neat pleated strip. Opening, it rolls up
+        # onto its edge (a quarter turn about its long axis), swings up on its hinge, then fans open.
+        s1c = min(1.0, max(0.0, s1))
+        phi = math.radians(90.0 * (1.0 - smooth(s1c / 0.55)))
+        th = math.radians(self.stand * smooth((s1c - 0.2) / 0.8))
+
+        def rot(v):     # rotation about the local north axis by phi, taking east -> up
+            ve, vn, vp = v @ X, v @ B, v @ p0
+            return X * (ve * math.cos(phi) - vp * math.sin(phi)) + B * vn + p0 * (vp * math.cos(phi) + ve * math.sin(phi))
+
+        Xf = rot(X)
+        Yv = rot(math.cos(th) * B + math.sin(th) * p0)
+        Zd = np.cross(Xf, Yv)
+        beta = math.radians(BETA0 + (self.beta - BETA0) * s2 + self.shimmer * act * 6.0 * math.sin(tau * 1.3))
         n, pw = self.n, self.pw
         ph = pw * n * self.spr.aspect
         L = n * pw * math.sin(beta)
         amp = pw * math.cos(beta)
         pts = []
         for i in range(n + 1):
-            q = p - X * (L / 2) + X * (i * pw * math.sin(beta)) + Zd * (amp * (0.5 if i % 2 else -0.5))
-            pts.append(q)
+            pts.append(p0 - Xf * (L / 2) + Xf * (i * pw * math.sin(beta)) + Zd * (amp * (0.5 if i % 2 else -0.5)))
+        panels = []
         for i in range(n):
             a, b = pts[i], pts[i + 1]
             up = Yv
             if self.follow:
                 # long strips settle onto the curve of the globe as they stand up
-                wf = smooth((s1 - 0.5) / 0.5)
+                wf = smooth((s1c - 0.5) / 0.5)
                 an = a / np.linalg.norm(a)
                 bn = b / np.linalg.norm(b)
                 a = a + (an - a) * wf
@@ -303,15 +363,22 @@ class Zigzag(Piece):
                 upl /= np.linalg.norm(upl)
                 up = Yv + (upl - Yv) * wf
                 up /= np.linalg.norm(up)
+            panels.append((a, b, up))
+        # keep every corner on or above the paper of the globe
+        low = min(min(np.linalg.norm(q) for q in (a, b, a + up * ph, b + up * ph)) for a, b, up in panels) - 1.0
+        lift = p0 * max(0.0, 0.003 - low)
+        for i, (a, b, up) in enumerate(panels):
             Xp = (b - a)
-            lw = np.linalg.norm(Xp)
-            Xp = Xp / lw
+            Xp = Xp / np.linalg.norm(Xp)
             A = place(self.spr, -i * pw, 0, pw * n)
             u0 = self.spr.pw * i / n
             u1 = self.spr.pw * (i + 1) / n
-            ctx.emit(a * 1.003, Xp, up, pw, ph, [(self.spr, A, 1.0, (u0, u1))], contact=0.6 * s1,
-                     alpha=(0.18 + 0.82 * min(1.0, s1)) if self.fade else 1.0,
-                     tint=1.0 if i % 2 == 0 else 0.93)
+            if self.glow:
+                ctx.emit(a + lift, Xp, up, pw, ph, [(self.spr, A, 1.0, (u0, u1))], emis=True, cast=False, ao=False,
+                         alpha=0.55 + 0.35 * s1c)
+            else:
+                ctx.emit(a + lift, Xp, up, pw, ph, [(self.spr, A, 1.0, (u0, u1))], contact=0.6 * s1c,
+                         tint=1.0 if i % 2 == 0 else 0.90)
 
 
 class Bird(Piece):
@@ -325,6 +392,14 @@ class Bird(Piece):
         self.size = span * 0.6
         self.quiet = True
         self.dur_in = 9.0
+
+    def grow(self, k):
+        self.span *= k
+        self.alt *= k
+        self.size *= k
+
+    def sprite_widths(self):
+        return [(self.spr.name, self.span * 0.5 / self.spr.aspect)]
 
     def emit(self, ctx):
         s, tau, act = self.state(ctx)

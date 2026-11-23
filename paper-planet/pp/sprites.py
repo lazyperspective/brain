@@ -39,12 +39,16 @@ def spr(name, wR, W, H, **kw):
     return deco
 
 
-def build(names=None):
+def build(names=None, px=None):
+    """px: optional {name: pixel width}; a sprite is never drawn coarser than its nominal density."""
     out = {}
     for name, (fn, wR, W, H, kw) in REG.items():
         if names and name not in names:
             continue
-        a = Art(W, H, wR * PPU, seed=zlib.crc32(name.encode()) % 100000, back=kw.get('back', '#efe4cf'))
+        pw = wR * PPU
+        if px and name in px:
+            pw = min(2400.0, max(pw, px[name]))
+        a = Art(W, H, pw, seed=zlib.crc32(name.encode()) % 100000, back=kw.get('back', '#efe4cf'))
         fn(a)
         out[name] = a.done(name, emissive=kw.get('emissive', False), ground=kw.get('ground', True))
     return out
@@ -1538,3 +1542,132 @@ def _atoll(a):
     a.rect(24, 14, 26, 18, '#C98B4B', r=2)
     a.poly([(18, 30), (56, 30), (37, 50)], '#F2C057')
     a.poly([(0, 0), (220, 0), (190, 8), (30, 8)], '#5FD6D0', sh=False, rim=False)
+
+
+# =========================================================================== v2: Pacific breach and the far south
+@spr('bluewhale', 0.62, 420, 170, back='#9cc4f0', ground=False)
+def _bluewhale(a):
+    """A blue whale side-on, head to the right, drawn to leap along an arc."""
+    body = smooth_path([(10, 70), (40, 96), (100, 124), (180, 146), (270, 152), (340, 140), (392, 112), (414, 84), (404, 62),
+                        (360, 48), (300, 40), (220, 42), (150, 52), (90, 60), (44, 64)], tension=0.42)
+    a.path(body, '#3170CF')
+    a.clip(body)
+    # pale throat grooves along the belly
+    a.path(smooth_path([(200, 40), (290, 30), (370, 40), (420, 70), (400, 92), (340, 82), (270, 76), (210, 70)], tension=0.42), '#BFDDF8', sh=False)
+    for k in range(10):
+        x = 236 + k * 17
+        a.line([(x, 44), (x - 6, 80 - k * 1.2)], '#8DB8EA', 1.8)
+    # dappled back
+    for (x, y, r) in [(120, 104, 4), (160, 122, 5), (200, 132, 3.5), (240, 140, 4.5), (290, 140, 3.5), (330, 132, 4), (180, 110, 3), (260, 126, 3)]:
+        a.oval(x, y, r * 1.6, r, '#4C88DD', sh=False, rim=False)
+    a.unclip()
+    # tail flukes
+    a.poly([(16, 72), (-4, 118), (14, 112), (34, 92), (46, 66), (30, 30), (8, 22), (20, 52)], '#3170CF', smooth=True)
+    a.line([(30, 64), (6, 104)], '#2459B0', 2)
+    # flipper and small dorsal fin
+    a.path(smooth_path([(300, 70), (262, 22), (250, 10), (262, 14), (290, 40), (318, 66)], tension=0.4), '#2A62BE')
+    a.poly([(92, 116), (110, 138), (122, 124)], '#2A62BE')
+    a.circ(370, 92, 5.5, WHITE, sh=False, rim=False)
+    a.circ(371.5, 92, 3, INK, sh=False, rim=False)
+    a.line([(380, 70), (412, 76)], '#24539E', 2)
+
+
+@spr('spray', 0.30, 260, 150, back='#ffffff', ground=False)
+def _spray(a):
+    """A crown of paper water: curling white and pale-blue tongues with cut-paper droplets."""
+    crown = smooth_path([(0, 0), (16, 30), (6, 62), (30, 52), (44, 96), (62, 64), (84, 120), (104, 70), (130, 140), (154, 72),
+                         (178, 118), (196, 66), (218, 92), (230, 54), (254, 58), (244, 28), (260, 0)], tension=0.42)
+    a.path(crown, '#DDF2FF')
+    a.clip(crown)
+    for k, c in enumerate(['#FFFFFF', '#BFE3F8', '#FFFFFF']):
+        o = 20 + k * 30
+        a.path(smooth_path([(o, 0), (o + 30, 50 - k * 6), (130, 96 - k * 18), (230 - o, 50 - k * 6), (260 - o, 0)], tension=0.4), c, sh=True)
+    a.unclip()
+    for (x, y, r) in [(44, 104, 6), (84, 132, 7), (130, 148, 6), (178, 128, 7), (218, 104, 5.5), (16, 76, 4.5), (246, 74, 4.5),
+                      (110, 122, 4), (152, 112, 4)]:
+        a.circ(x, y, r, '#FFFFFF')
+
+
+@spr('iceshelf', 0.50, 420, 120, back='#f4faff')
+def _iceshelf(a):
+    """Tabular ice: a long flat snow top over a blue, cracked cliff face."""
+    cliff = poly_path([(0, 0), (6, 70), (40, 78), (90, 74), (150, 80), (230, 76), (300, 82), (360, 76), (414, 72), (420, 0)])
+    a.path(cliff, '#9ED3F3')
+    a.clip(cliff)
+    for x in range(14, 420, 26):
+        a.line([(x, 0), (x + 5, 30 + 30 * abs(math.sin(x * 0.7))), (x + 2, 82)], '#7CBDE8', 2.2)
+    a.path(poly_path([(0, 0), (420, 0), (420, 14), (0, 18)]), '#5FA9DE', sh=False, rim=False)
+    a.unclip()
+    top = smooth_path([(0, 66), (4, 88), (60, 96), (130, 92), (200, 100), (270, 94), (330, 100), (400, 92), (420, 70), (300, 76), (150, 72)], tension=0.4)
+    a.path(top, '#FFFFFF')
+    a.line([(30, 86), (120, 86)], '#E3F2FD', 2)
+    a.line([(220, 92), (330, 90)], '#E3F2FD', 2)
+
+
+def _peng(a, x, y, s, flip=False, chick=False):
+    k = -1 if flip else 1
+    body = '#8E8BA8' if chick else '#2B2B45'
+    a.path(smooth_path([(x - 18 * s, y + 6 * s), (x - 22 * s, y + 40 * s), (x - 10 * s, y + 70 * s), (x, y + 78 * s),
+                        (x + 10 * s, y + 70 * s), (x + 22 * s, y + 40 * s), (x + 18 * s, y + 6 * s)], tension=0.45), body)
+    a.path(smooth_path([(x - 12 * s, y + 6 * s), (x - 14 * s, y + 36 * s), (x - 6 * s, y + 56 * s), (x + 6 * s, y + 56 * s),
+                        (x + 14 * s, y + 36 * s), (x + 12 * s, y + 6 * s)], tension=0.45), WHITE if not chick else '#D9D6E6', sh=False)
+    if not chick:
+        a.oval(x + 9 * s * k, y + 62 * s, 6 * s, 3 * s, GOLD, sh=False, rim=False)
+        a.poly([(x + 4 * s * k, y + 68 * s), (x + 16 * s * k, y + 64 * s), (x + 4 * s * k, y + 62 * s)], ORANGE, sh=False)
+    a.circ(x + 5 * s * k, y + 70 * s, 2.2 * s, WHITE, sh=False, rim=False)
+    a.poly([(x - 10 * s, y), (x - 2 * s, y), (x - 4 * s, y + 6 * s)], ORANGE, sh=False)
+    a.poly([(x + 2 * s, y), (x + 10 * s, y), (x + 4 * s, y + 6 * s)], ORANGE, sh=False)
+
+
+@spr('colony', 0.30, 300, 150, back='#f4faff')
+def _colony(a):
+    """An emperor colony on a floe: rows of penguins, small grey chicks between the grown-ups."""
+    a.path(smooth_path([(0, 0), (6, 22), (60, 30), (150, 26), (240, 30), (294, 20), (300, 0)], tension=0.4), '#F4FAFF')
+    a.path(poly_path([(0, 0), (300, 0), (296, 8), (4, 10)]), '#9ED3F3', sh=False, rim=False)
+    rows = [  # back row first (smaller, higher), front row last
+        [(40, 44, 0.62, False, False), (92, 48, 0.66, True, False), (150, 46, 0.6, False, False), (206, 48, 0.64, True, False), (258, 44, 0.6, False, False)],
+        [(66, 26, 0.80, True, False), (124, 28, 0.84, False, False), (182, 26, 0.80, True, False), (238, 28, 0.82, False, False)],
+        [(26, 12, 0.92, False, False), (98, 10, 0.42, False, True), (150, 10, 1.0, True, False), (204, 10, 0.44, True, True), (272, 12, 0.92, True, False)],
+    ]
+    for row in rows:
+        for (x, y, s, fl, ch) in row:
+            _peng(a, x, y, s, fl, ch)
+
+
+@spr('aurora_s', 0.60, 600, 300, back='#f0a0e0', ground=False)
+def _aurora_s(a):
+    top = [(x, 250 + 36 * math.sin(x * 0.019 + 2.2) + 12 * math.sin(x * 0.047 + 1.0)) for x in range(0, 601, 30)]
+    bot = [(x, 24 + 16 * math.sin(x * 0.021 + 0.4)) for x in range(600, -1, -30)]
+    pth = smooth_path(top + bot, tension=0.4)
+    p = skia.Paint(AntiAlias=True)
+    p.setShader(skia.GradientShader.MakeLinear([skia.Point(0, 20), skia.Point(0, 290)],
+                [skia.Color4f(0.45, 1.0, 0.70, 0.95), skia.Color4f(0.95, 0.55, 0.90, 0.92), skia.Color4f(0.98, 0.42, 0.72, 0.82), skia.Color4f(0.58, 0.36, 0.98, 0.55)],
+                [0.0, 0.3, 0.65, 1.0]))
+    a.c.drawPath(pth, p)
+    a.clip(pth)
+    for x in range(8, 600, 13):
+        hh = 100 + 80 * abs(math.sin(x * 0.29))
+        a.line([(x, 20), (x + 2, 20 + hh)], '#FFE3F6', 2.2, alpha=0.5)
+    for x in range(14, 600, 29):
+        a.line([(x, 130), (x + 1, 290)], '#C9A8FF', 3.0, alpha=0.35)
+    a.unclip()
+
+
+@spr('drop', 0.03, 40, 48, back='#ffffff', ground=False)
+def _drop(a):
+    a.path(smooth_path([(20, 2), (6, 16), (8, 30), (20, 46), (32, 30), (34, 16)], tension=0.45), '#F4FBFF')
+    a.oval(15, 20, 4, 6, '#CFE9FA', sh=False, rim=False)
+
+
+@spr('ring', 0.30, 200, 200, back='#ffffff', ground=False)
+def _ring(a):
+    pa = skia.Path()
+    pa.addCircle(100, 100, 96)
+    pa.addCircle(100, 100, 80)
+    pa.setFillType(skia.PathFillType.kEvenOdd)
+    a.path(pa, '#EAF7FF', rim=False, alpha=0.85)
+    pb = skia.Path()
+    pb.addCircle(100, 100, 62)
+    pb.addCircle(100, 100, 54)
+    pb.setFillType(skia.PathFillType.kEvenOdd)
+    a.path(pb, '#EAF7FF', rim=False, sh=False, alpha=0.6)

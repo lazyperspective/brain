@@ -20,7 +20,7 @@ LAYERS = [  # (edge y as fraction of height, colour) from the warm back sheet up
 
 
 class Backdrop:
-    def __init__(self, ss=2, w=core.W, h=core.H, margin=1.07):
+    def __init__(self, ss=2, w=core.W, h=core.H, margin=1.10):
         self.ss = ss
         self.W, self.H = int(w * ss * margin), int(h * ss * margin)
         self.Wp, self.Hp = w * ss, h * ss
@@ -91,6 +91,7 @@ class Backdrop:
             p.setColor4f(skia.Color4f(float(cc[0]), float(cc[1]), float(cc[2]), a))
             c.drawPath(pa, p)
         placed = []
+        self.stars = []
         tries = 0
         while len(placed) < 46 and tries < 4000:
             tries += 1
@@ -103,6 +104,7 @@ class Backdrop:
                 continue
             placed.append((x, y))
             r = ss * rng.choice([5, 6, 7, 9, 12, 15], p=[0.25, 0.25, 0.2, 0.15, 0.1, 0.05])
+            self.stars.append((x, y, r))
             star(x, y, r, 5 if rng.random() < 0.45 else 4, rng.uniform(-0.4, 0.4), '#FFF1C4' if rng.random() < 0.7 else '#FFD98A')
         for _ in range(110):
             x = rng.uniform(0, W)
@@ -111,7 +113,9 @@ class Backdrop:
                 continue
             p = skia.Paint(AntiAlias=True)
             p.setColor4f(skia.Color4f(1.0, 0.93, 0.78, float(rng.uniform(0.45, 0.9))))
-            c.drawCircle(x, y, ss * rng.uniform(0.9, 1.9), p)
+            rd = ss * rng.uniform(0.9, 1.9)
+            c.drawCircle(x, y, rd, p)
+            self.stars.append((x, y, rd * 2.2))
         arr = surf.toarray().astype(np.float32) / 255.0
         f = paper.fibre()
         S = f.shape[0]
@@ -136,20 +140,47 @@ class Backdrop:
         blob[..., 2] = (0.18 * al * 255).astype(np.uint8)
         blob[..., 3] = (al * 255).astype(np.uint8)
         self.blob = skia.Image.fromarray(blob, colorType=paper.RGBA, alphaType=paper.PREMUL)
+        # twinkle: each star gets a soft additive glint on its own slow rhythm, a whole number of cycles per loop
+        g = 64
+        yy, xx = np.mgrid[0:g, 0:g].astype(np.float32)
+        d = np.hypot(xx - g / 2 + 0.5, yy - g / 2 + 0.5) / (g / 2)
+        core_ = np.clip(1.0 - d, 0, 1) ** 2.2
+        cross = (np.exp(-((xx - g / 2 + 0.5) / 1.6) ** 2) + np.exp(-((yy - g / 2 + 0.5) / 1.6) ** 2)) * np.clip(1.0 - d, 0, 1) ** 1.5
+        a = np.clip(0.75 * core_ + 0.45 * cross, 0, 1)
+        gl = np.zeros((g, g, 4), np.uint8)
+        gl[..., 0] = (a * 1.00 * 255).astype(np.uint8)
+        gl[..., 1] = (a * 0.94 * 255).astype(np.uint8)
+        gl[..., 2] = (a * 0.80 * 255).astype(np.uint8)
+        gl[..., 3] = (a * 255).astype(np.uint8)
+        self.glint = skia.Image.fromarray(gl, colorType=paper.RGBA, alphaType=paper.PREMUL)
+        tr = np.random.default_rng(77)
+        self.tw = [(x, y, r, int(tr.integers(4, 13)), float(tr.uniform(0, 6.283)), float(tr.uniform(0.55, 1.0))) for (x, y, r) in self.stars]
 
     def draw(self, canvas, buf, t, cam):
-        z = 1.0 + 0.22 * (cam.zoom - 1.0)
-        pxR = cam.f / core.CAM_D
-        ox = -cam.pan[0] * pxR * 0.30
-        oy = cam.pan[1] * pxR * 0.30 + math.radians(cam.elev) * pxR * 0.18
+        # gentle parallax: the hanging sheets slide a little with the globe and with the camera's latitude
+        z = 1.0 + 0.10 * (cam.zoom - 1.0)
+        (gx, gy), gr = cam.globe_disc()
+        mx = (self.W - self.Wp) / 2.0
+        my = (self.H - self.Hp) / 2.0
+        ox = mx * math.tanh(0.05 * (gx - cam.cx) / mx)
+        oy = my * math.tanh((0.05 * (gy - cam.cy) + 0.020 * self.Hp * cam.elev / 60.0) / my)
         w, h = self.W * z, self.H * z
         x0 = (self.Wp - w) / 2 + ox
         y0 = (self.Hp - h) / 2 + oy
-        x0 = min(0.0, max(self.Wp - w, x0))
-        y0 = min(0.0, max(self.Hp - h, y0))
         canvas.drawImageRect(self.img, skia.Rect(0, 0, self.W, self.H), skia.Rect(x0, y0, x0 + w, y0 + h),
                              skia.SamplingOptions(skia.FilterMode.kLinear), skia.Paint())
-        (gx, gy), gr = cam.globe_disc()
+        gp = skia.Paint()
+        gp.setBlendMode(skia.BlendMode.kPlus)
+        smp = skia.SamplingOptions(skia.FilterMode.kLinear)
+        for (sx, sy, sr, k, ph, amp) in self.tw:
+            v = 0.5 + 0.5 * math.sin(2 * math.pi * k * t / core.DUR + ph)
+            v = v ** 3 * amp
+            if v < 0.02:
+                continue
+            cx_, cy_ = x0 + sx * z, y0 + sy * z
+            rr = sr * z * (1.6 + 1.2 * v)
+            gp.setAlphaf(min(1.0, 0.85 * v))
+            canvas.drawImageRect(self.glint, skia.Rect(0, 0, 64, 64), skia.Rect(cx_ - rr, cy_ - rr, cx_ + rr, cy_ + rr), smp, gp)
         r = gr * 1.75
         cx, cy = gx + gr * 0.22, gy + gr * 0.30
         canvas.drawImageRect(self.blob, skia.Rect(0, 0, 256, 256), skia.Rect(cx - r, cy - r, cx + r, cy + r),
