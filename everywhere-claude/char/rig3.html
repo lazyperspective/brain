@@ -1,0 +1,459 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body style="margin:0;background:transparent">
+<script type="module">
+// Coral block hero, 3D rig v3 (v2 + image-based lighting from the plate, red winter scarf, sweat drop, log / camera / flag props,
+// wet-ground reflection pass).
+// Coral block hero, 3D rig v2 (from rgb-fight/js/base.js fighter()).
+// Character local frame: face on +z, up +y, x across the face. Body 14 (x) x 13 (y, above 3-unit feet) x 16 (z, depth),
+// bevelled, vertex-colour gradients exactly like faceCol() (dark base band, waist seam at 30 %, light upper part, lit top with a
+// specular spot and a highlight edge), cream headband 1.1-3.1 under the top, knot at the back corner, two tails (7 + 6 segments)
+// whose points come from the Python cloth sim, pill eyes with catch-lights, blush, mouths, noodle arms + fists, 4 feet.
+// It is rendered THROUGH THE PLATE CAMERA (fov, pitch, roll of the shot) with setViewOffset() for a crop window, so the result is
+// pixel-registered to the plate. Pass 2 renders the ground shadow (R) and contact AO (G) for the comp.
+import * as THREE from 'three';
+const C = { body: '#d97757', bodyL: '#e88a68', bodyD: '#c4664a', shade: '#a8553b', shadeD: '#8f3f28', light: '#f2a585', lightL: '#f7bfa0',
+  dark: '#6e2a1a', hi: '#ffd9c2', eye: '#1b1426', white: '#fff6ea', band: '#fff6ea', bandD: '#d9cbb5', blush: '#f07a6a', scarf: '#c8323a', scarfD: '#8e1d27', scarfL: '#e0525a' };
+const col = h => new THREE.Color(h);
+const lin = h => new THREE.Color(h);            // THREE.Color parses sRGB hex into linear working space
+const mixC = (a, b, t) => a.clone().lerp(b, Math.min(1, Math.max(0, t)));
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const BW = 14, BH = 13, BD = 16, FOOT = 3, TOP = FOOT + BH;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true, premultipliedAlpha: false });
+renderer.setPixelRatio(1); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// ---------- geometry helpers ----------
+// subdivided rounded block centred at the origin; analytic normals; returns geo with userData.orig (pos, nrm)
+function roundedBlock(w, h, d, r, seg, faces = [0, 1, 2, 3, 4, 5]) {
+  const pos = [], nrm = [], idx = [], hw = w / 2, hh = h / 2, hd = d / 2;
+  const F = [ // axis u, axis v, normal axis, sign
+    [2, 1, 0, 1], [2, 1, 0, -1], [0, 2, 1, 1], [0, 2, 1, -1], [0, 1, 2, 1], [0, 1, 2, -1]];
+  const half = [hw, hh, hd];
+  for (const fi of faces) {
+    const [ua, va, na, sg] = F[fi], base = pos.length / 3, su = Math.max(10, Math.round(seg * half[ua] / 8)), sv = Math.max(10, Math.round(seg * half[va] / 8));
+    for (let j = 0; j <= sv; j++) for (let i = 0; i <= su; i++) {
+      // concentrate samples near the edges (bevel) with a smooth remap
+      const remap = t => { const x = t * 2 - 1; return (Math.sign(x) * Math.pow(Math.abs(x), 0.75) + 1) / 2; };
+      const p = [0, 0, 0]; p[ua] = (remap(i / su) * 2 - 1) * half[ua]; p[va] = (remap(j / sv) * 2 - 1) * half[va]; p[na] = sg * half[na];
+      const inner = p.map((x, k) => Math.max(-half[k] + r, Math.min(half[k] - r, x))), dv = p.map((x, k) => x - inner[k]);
+      const L = Math.hypot(...dv) || 1, n = dv.map(x => x / L), q = inner.map((x, k) => x + n[k] * r);
+      pos.push(...q); nrm.push(...n);
+    }
+    for (let j = 0; j < sv; j++) for (let i = 0; i < su; i++) {
+      const a = base + j * (su + 1) + i, b = a + 1, c = a + su + 1, e = c + 1;
+      // winding so the face points outward
+      const flip = (fi === 0 || fi === 3 || fi === 4) ? false : true;
+      if (!flip) idx.push(a, b, e, a, e, c); else idx.push(a, e, b, a, c, e);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setIndex(idx);
+  return g;
+}
+// make sure winding is outward: compare face normal with analytic normal and flip triangles that disagree
+function fixWinding(g) {
+  const p = g.attributes.position.array, n = g.attributes.normal.array, I = g.index.array;
+  for (let t = 0; t < I.length; t += 3) {
+    const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+    const ux = p[b] - p[a], uy = p[b + 1] - p[a + 1], uz = p[b + 2] - p[a + 2], vx = p[c] - p[a], vy = p[c + 1] - p[a + 1], vz = p[c + 2] - p[a + 2];
+    const fx = uy * vz - uz * vy, fy = uz * vx - ux * vz, fz = ux * vy - uy * vx;
+    if (fx * (n[a] + n[b] + n[c]) + fy * (n[a + 1] + n[b + 1] + n[c + 1]) + fz * (n[a + 2] + n[b + 2] + n[c + 2]) < 0) { const k = I[t + 1]; I[t + 1] = I[t + 2]; I[t + 2] = k; }
+  }
+  return g;
+}
+function translateGeo(g, x, y, z) { g.translate(x, y, z); return g; }
+function snapshot(g) { g.userData.op = g.attributes.position.array.slice(); g.userData.on = g.attributes.normal.array.slice(); return g; }
+function setColors(g, fn) {
+  const p = g.attributes.position.array, n = g.attributes.normal.array, c = new Float32Array(p.length);
+  for (let i = 0; i < p.length; i += 3) { const k = fn(p[i], p[i + 1], p[i + 2], n[i], n[i + 1], n[i + 2]); c[i] = k.r; c[i + 1] = k.g; c[i + 2] = k.b; }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3)); return g;
+}
+// body deform: squash about the feet line, then the bend (lean * h^1.6) like off() in fighter(); normals by the inverse-transpose
+function deform(g, D) {
+  const op = g.userData.op, on = g.userData.on, p = g.attributes.position.array, n = g.attributes.normal.array;
+  const s = D.squash, sx = 1 + s * 0.5, sy = 1 - s, lx = D.lean[0], lz = D.lean[1], tw = D.twist || 0;
+  for (let i = 0; i < p.length; i += 3) {
+    let x = op[i], y = op[i + 1], z = op[i + 2], nx = on[i], ny = on[i + 1], nz = on[i + 2];
+    if (y > FOOT - 0.01) { x *= sx; z *= sz(sx); y = FOOT + (y - FOOT) * sy; nx /= sx; ny /= sy; nz /= sx; }
+    const h = Math.max(0, (y - FOOT) / BH), hc = Math.min(h, 1.4), e = Math.pow(hc, 1.6), de = h > 0 && h < 1.4 ? 1.6 * Math.pow(hc, 0.6) / BH : 0;
+    // twist about y (head turn independent of the feet) grows with height
+    if (tw) { const a = tw * Math.pow(hc, 1.2), ca = Math.cos(a), sa = Math.sin(a); const X = x * ca + z * sa, Z = -x * sa + z * ca; x = X; z = Z; const NX = nx * ca + nz * sa, NZ = -nx * sa + nz * ca; nx = NX; nz = NZ; }
+    p[i] = x + lx * e; p[i + 1] = y; p[i + 2] = z + lz * e;
+    const ny2 = ny - lx * de * nx - lz * de * nz, L = Math.hypot(nx, ny2, nz) || 1; n[i] = nx / L; n[i + 1] = ny2 / L; n[i + 2] = nz / L;
+  }
+  g.attributes.position.needsUpdate = true; g.attributes.normal.needsUpdate = true; g.computeBoundingSphere();
+}
+function sz(sx) { return sx; }
+// position of a body-attached point after deform (for knot, arms' shoulders, props)
+function deformPt(D, x, y, z) {
+  const s = D.squash, sx = 1 + s * 0.5, sy = 1 - s;
+  if (y > FOOT) { x *= sx; z *= sx; y = FOOT + (y - FOOT) * sy; }
+  const h = Math.max(0, (y - FOOT) / BH), e = Math.pow(Math.min(h, 1.4), 1.6), tw = D.twist || 0;
+  if (tw) { const a = tw * Math.pow(Math.min(h, 1.4), 1.2), ca = Math.cos(a), sa = Math.sin(a); const X = x * ca + z * sa, Z = -x * sa + z * ca; x = X; z = Z; }
+  return new THREE.Vector3(x + D.lean[0] * e, y, z + D.lean[1] * e);
+}
+
+// ---------- materials ----------
+const U = { rimCol: { value: col('#bcd2ff') }, rimK: { value: 0.4 }, emK: { value: 0.25 }, glowCol: { value: col('#000000') } };
+function patch(mat, useVC) {
+  mat.onBeforeCompile = s => {
+    Object.assign(s.uniforms, { rimCol: U.rimCol, rimK: U.rimK, emK: U.emK, glowCol: U.glowCol });
+    s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 rimCol; uniform float rimK; uniform float emK; uniform vec3 glowCol;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n' + (useVC ? 'totalEmissiveRadiance += diffuseColor.rgb * emK;' : 'totalEmissiveRadiance += diffuseColor.rgb * emK;'))
+      .replace('#include <opaque_fragment>', `{ vec3 nv = normalize(vNormal); float fr = pow(1.0 - clamp(dot(nv, normalize(vViewPosition)), 0.0, 1.0), 3.0); outgoingLight += rimCol * fr * rimK; outgoingLight += glowCol * diffuseColor.rgb * clamp(nv.z * 0.5 + 0.5, 0.0, 1.0); }\n#include <opaque_fragment>`);
+  };
+  return mat;
+}
+const vcMat = (rough = 0.62) => patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: 0 }), true);
+const plainMat = (c, rough = 0.62, extra = {}) => patch(new THREE.MeshStandardMaterial(Object.assign({ color: lin(c), roughness: rough, metalness: 0 }, extra)), false);
+
+// ---------- build the hero once ----------
+const hero = new THREE.Group();          // root: at the ground point between the feet
+const bodyG = snapshot(setColors(fixWinding(translateGeo(roundedBlock(BW, BH, BD, 1.35, 34), 0, FOOT + BH / 2, 0)), (x, y, z, nx, ny, nz) => {
+  const f = Math.min(1, Math.max(0, (y - FOOT) / BH)), base = lin(C.body), lo = lin(C.bodyD), hi = lin(C.bodyL), dark = lin(C.dark);
+  let c = f > 0.55 ? mixC(base, hi, (f - 0.55) * 1.6) : mixC(lo, base, 0.25 + f / 0.55 * 0.75);
+  if (f < 0.13) c = mixC(c, dark, 0.45 * (1 - f / 0.13));
+  c = mixC(c, dark, 0.3 * Math.exp(-Math.pow((f - 0.3) / 0.018, 2)));            // waist seam
+  // lit top: gradient back-left -> front-right, soft specular spot, highlight edge on the bevel
+  const fd = Math.min(1, Math.max(0, ((x + BW / 2) / BW + (z + BD / 2) / BD) / 2));
+  let tc = mixC(lin(C.lightL), lin(C.light), fd);
+  const spot = Math.exp(-(Math.pow((x + BW * 0.2) / 2.4, 2) + Math.pow((z + BD * 0.18) / 2.6, 2)));
+  tc = mixC(tc, lin(C.hi), spot * 0.9);
+  const edge = sstep(0.45, 0.8, ny) * (1 - sstep(0.88, 0.99, ny));
+  tc = mixC(tc, lin(C.hi), edge * 0.7);
+  c = mixC(c, tc, sstep(0.45, 0.8, ny));
+  if (ny < -0.5) c = lin(C.shadeD);
+  return c;
+}));
+const bodyM = vcMat(0.6); const body = new THREE.Mesh(bodyG, bodyM); body.castShadow = true; body.receiveShadow = true; hero.add(body);
+// headband: a slightly larger rounded block 2 units tall, top 1.1 under the top
+const bandY0 = TOP - 3.1, bandY1 = TOP - 1.1;
+const bandG = snapshot(setColors(fixWinding(translateGeo(roundedBlock(BW + 0.5, bandY1 - bandY0, BD + 0.5, 1.45, 26, [0, 1, 4, 5]), 0, (bandY0 + bandY1) / 2, 0)), (x, y, z) => {
+  const f = (y - bandY0) / (bandY1 - bandY0); let c = mixC(lin(C.bandD), lin(C.band), sstep(0.0, 0.45, f)); c = mixC(c, lin(C.bandD), 0.5 * sstep(0.9, 1.0, f)); return c; }));
+const bandM = vcMat(0.85); const band = new THREE.Mesh(bandG, bandM); band.castShadow = true; band.receiveShadow = true; hero.add(band);
+// red winter scarf: a chunky knitted band low on the body (below the mouth), knot on the front-right corner, two short ends
+const scY0 = FOOT + 1.35, scY1 = FOOT + 2.85;
+const scarfG = snapshot(setColors(fixWinding(translateGeo(roundedBlock(BW + 1.1, scY1 - scY0, BD + 1.1, 0.72, 22, [0, 1, 2, 3, 4, 5]), 0, (scY0 + scY1) / 2, 0)), (x, y, z, nx, ny) => {
+  const f = (y - scY0) / (scY1 - scY0), rib = 0.5 + 0.5 * Math.cos((x + z * 0.7) * 2.4);           // knit ribs
+  let c = mixC(lin(C.scarfD), lin(C.scarf), 0.35 + 0.65 * Math.sin(Math.PI * Math.min(1, Math.max(0, f))));
+  c = mixC(c, lin(C.scarfD), 0.28 * rib); if (ny > 0.6) c = mixC(c, lin(C.scarfL), 0.35); if (ny < -0.6) c = lin(C.scarfD); return c; }));
+const scarfM = vcMat(0.95); const scarf = new THREE.Mesh(scarfG, scarfM); scarf.castShadow = true; scarf.receiveShadow = true; hero.add(scarf);
+const sknotG = setColors(fixWinding(roundedBlock(2.3, 2.0, 2.3, 0.8, 8)), (x, y) => mixC(lin(C.scarfD), lin(C.scarf), (y + 1) / 2));
+const sknot = new THREE.Mesh(sknotG, scarfM); sknot.castShadow = true; hero.add(sknot);
+const sEndMs = [plainMat(C.scarf, 0.95, { side: THREE.DoubleSide }), plainMat(C.scarfD, 0.95, { side: THREE.DoubleSide })];
+const sEnds = [0, 1].map(j => { const m = new THREE.Mesh(new THREE.BufferGeometry(), sEndMs[j]); m.castShadow = true; hero.add(m); return m; });
+const fringeM = plainMat('#f3e6d4', 0.9, { side: THREE.DoubleSide });
+const fringes = [0, 1].map(() => { const m = new THREE.Mesh(new THREE.BufferGeometry(), fringeM); hero.add(m); return m; });
+// band rims (top & bottom thin caps so it has thickness from above/below)
+// face decal
+const faceCv = document.createElement('canvas'); faceCv.width = 448; faceCv.height = 416; const faceTex = new THREE.CanvasTexture(faceCv); faceTex.colorSpace = THREE.SRGBColorSpace; faceTex.anisotropy = 8;
+const faceG = snapshot((() => { const g = new THREE.PlaneGeometry(BW, BH, 14, 13); g.translate(0, FOOT + BH / 2, BD / 2 + 0.04); return g; })());
+const faceM = patch(new THREE.MeshStandardMaterial({ map: faceTex, transparent: true, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false }), false);
+const face = new THREE.Mesh(faceG, faceM); hero.add(face);
+// knot + tails
+const knotM = vcMat(0.85);
+const knotG = setColors(fixWinding(roundedBlock(2.2, 2.6, 2.0, 0.6, 8)), (x, y) => mixC(lin(C.bandD), lin(C.band), (y + 1.3) / 2.6));
+const knot = new THREE.Mesh(knotG, knotM); knot.castShadow = true; hero.add(knot);
+const tailMs = [plainMat(C.band, 0.85, { side: THREE.DoubleSide }), plainMat(C.bandD, 0.85, { side: THREE.DoubleSide })];
+const tails = [new THREE.Mesh(new THREE.BufferGeometry(), tailMs[0]), new THREE.Mesh(new THREE.BufferGeometry(), tailMs[1])];
+tails.forEach(t => { t.castShadow = true; hero.add(t); });
+// feet
+const footG = setColors(fixWinding(translateGeo(roundedBlock(3.2, 3.6, 3.4, 0.75, 8), 0, 1.8, 0)), (x, y, z, nx, ny) => { let c = mixC(lin(C.shadeD), lin(C.shade), y / 3.6); if (ny > 0.6) c = mixC(c, lin(C.bodyD), 0.5); if (y < 0.5) c = mixC(c, lin(C.dark), 0.4); return c; });
+const footM = vcMat(0.7); const feet = [0, 1, 2, 3].map(() => { const m = new THREE.Mesh(footG, footM); m.castShadow = true; hero.add(m); return m; });
+// fists + arms
+const fistG = setColors(fixWinding(roundedBlock(3.4, 3.4, 3.4, 0.95, 8)), (x, y, z, nx, ny) => { let c = mixC(lin(C.bodyD), lin(C.body), (y + 1.7) / 3.4); if (ny > 0.5) c = mixC(c, lin(C.lightL), 0.6 * ny); if (ny < -0.5) c = lin(C.shade); return c; });
+const fistM = vcMat(0.6); const fists = [0, 1].map(() => { const m = new THREE.Mesh(fistG, fistM); m.castShadow = true; hero.add(m); return m; });
+const armM = plainMat(C.body, 0.6); const arms = [0, 1].map(() => { const m = new THREE.Mesh(new THREE.BufferGeometry(), armM); m.castShadow = true; hero.add(m); return m; });
+// props
+const props = new THREE.Group(); hero.add(props);
+const darkM = plainMat('#2a2433', 0.35, { metalness: 0.3 }), lensM = plainMat('#9fb7d9', 0.08, { metalness: 0.6 });
+const binoc = new THREE.Group(); {
+  for (const s of [1, -1]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.75, 4.2, 22), darkM); b.rotation.x = Math.PI / 2; b.position.set(s * 2.9, 0, 0); binoc.add(b);
+    const l = new THREE.Mesh(new THREE.CircleGeometry(1.45, 22), lensM); l.position.set(s * 2.9, 0, -2.12); l.rotation.y = Math.PI; binoc.add(l);
+    const l2 = new THREE.Mesh(new THREE.CircleGeometry(1.3, 22), lensM); l2.position.set(s * 2.9, 0, 2.12); binoc.add(l2); }
+  const br = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.0, 2.4), darkM); binoc.add(br); binoc.traverse(o => { if (o.isMesh) o.castShadow = true; });
+}
+props.add(binoc);
+const phoneScreenM = new THREE.MeshBasicMaterial({ color: lin('#cfe4ff') });
+const phone = new THREE.Group(); { const b = new THREE.Mesh(new THREE.BoxGeometry(3.8, 6.2, 0.6), darkM); phone.add(b); const s = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 5.6), phoneScreenM); s.position.z = 0.31; phone.add(s); phone.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
+props.add(phone);
+const barkM = plainMat('#5b4130', 0.9), woodM = plainMat('#cfa06a', 0.8), ringM = plainMat('#a87a4c', 0.85);
+const logP = new THREE.Group(); { const b = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.45, 26, 18), barkM); b.rotation.z = Math.PI / 2; logP.add(b);
+  for (const s of [1, -1]) { const e = new THREE.Mesh(new THREE.CircleGeometry(2.25, 18), woodM); e.position.x = s * 13.01; e.rotation.y = s * Math.PI / 2; logP.add(e);
+    const r = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.15, 18), ringM); r.position.x = s * 13.03; r.rotation.y = s * Math.PI / 2; logP.add(r); }
+  logP.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
+props.add(logP);
+const camBodyM = plainMat('#2b2a33', 0.4, { metalness: 0.2 }), camTopM = plainMat('#c9ccd4', 0.35, { metalness: 0.6 });
+const flashM = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffffff') });
+const camP = new THREE.Group(); { const b = new THREE.Mesh(new THREE.BoxGeometry(6.0, 3.8, 2.4), camBodyM); camP.add(b);
+  const t = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.7, 2.4), camTopM); t.position.y = 2.2; camP.add(t);
+  const l = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.35, 1.4, 20), darkM); l.rotation.x = Math.PI / 2; l.position.set(0.6, -0.1, 1.9); camP.add(l);
+  const g = new THREE.Mesh(new THREE.CircleGeometry(1.0, 20), lensM); g.position.set(0.6, -0.1, 2.62); camP.add(g);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.8), flashM); fl.position.set(-2.0, 1.2, 1.22); camP.add(fl);
+  const bt = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.5, 10), camTopM); bt.position.set(2.1, 2.75, 0); camP.add(bt);
+  camP.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
+props.add(camP);
+const poleM = plainMat('#e9e2d6', 0.5), flagM = plainMat(C.body, 0.8, { side: THREE.DoubleSide });
+const flagP = new THREE.Group(); const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1, 8), poleM); flagPole.castShadow = true; flagP.add(flagPole);
+const flagCloth = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 12, 6), flagM); flagCloth.castShadow = true; flagP.add(flagCloth);
+const flagTip = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), camTopM); flagP.add(flagTip);
+hero.add(flagP);   // the flag is in the hero's space but can be planted (world-fixed) via P.flag.world
+const strapM = plainMat(C.band, 0.85, { side: THREE.DoubleSide }); const strap = new THREE.Mesh(new THREE.BufferGeometry(), strapM); strap.castShadow = true; hero.add(strap);
+
+// ribbon through points (local coords); width tapers; normal: perpendicular to the path and to `up`
+function ribbonGeo(pts, w0, w1, upHint, eye) {
+  const pos = [], idx = [], nrm = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], d = new THREE.Vector3().subVectors(b, a).normalize();
+    let side, n;
+    if (eye) {   // camera-facing ribbon: width perpendicular to the path and to the view ray (a twisting cloth strip)
+      const v = new THREE.Vector3().subVectors(eye, pts[i]).normalize();
+      n = new THREE.Vector3().crossVectors(d, v); if (n.lengthSq() < 1e-5) n.set(1, 0, 0); n.normalize();
+      side = new THREE.Vector3().crossVectors(n, d).normalize();
+    } else {
+      side = new THREE.Vector3().crossVectors(d, upHint || new THREE.Vector3(0, 1, 0)); if (side.lengthSq() < 1e-4) side.set(1, 0, 0); side.normalize();
+      n = new THREE.Vector3().crossVectors(side, d).normalize();
+    }
+    const w = w0 + (w1 - w0) * i / (pts.length - 1);
+    pos.push(...pts[i].clone().addScaledVector(n, w / 2).toArray(), ...pts[i].clone().addScaledVector(n, -w / 2).toArray()); nrm.push(...side.toArray(), ...side.toArray());
+    if (i) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setIndex(idx); return g;
+}
+function tubeGeo(pts, r) { const curve = new THREE.CatmullRomCurve3(pts); return new THREE.TubeGeometry(curve, 16, r, 10, false); }
+
+// ---------- face drawing ----------
+function drawFace(F) {
+  const g = faceCv.getContext('2d'), W = faceCv.width, H = faceCv.height, u = W / BW;   // px per unit
+  g.clearRect(0, 0, W, H);
+  const X = x => W / 2 + x * u, Y = y => H - (y - FOOT) * u;            // local x,y on the face -> canvas
+  const look = F.look || [0, 0], ey = FOOT + BH * 0.56 + look[1] * 0.8, open = F.open == null ? 1 : F.open;
+  const shape = F.eyes || 'open', wide = shape === 'wide' ? 1.22 : shape === 'small' ? 0.8 : 1;
+  const ew = 2.2 * u * (shape === 'wide' ? 1.08 : 1), ehFull = 3.8 * u * wide;
+  if (F.glow) { const gr = g.createRadialGradient(W / 2, Y(ey - 1), 0, W / 2, Y(ey - 1), W * 0.6); gr.addColorStop(0, `rgba(190,220,255,${0.35 * F.glow})`); gr.addColorStop(1, 'rgba(190,220,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
+  for (const s of [-1, 1]) {
+    const cx = X(s * 2.9 + look[0] * 1.0), cy = Y(ey);
+    // blush (outside-below the eye)
+    if ((F.blush == null ? 1 : F.blush) > 0) { g.fillStyle = `rgba(240,122,106,${0.8 * (F.blush == null ? 1 : F.blush)})`; g.beginPath(); g.ellipse(X(s * 4.6 + look[0] * 0.6), Y(ey - 2.5), 1.35 * u, 0.6 * u, 0, 0, 7); g.fill(); }
+    g.fillStyle = C.eye; g.strokeStyle = C.eye; g.lineCap = 'round'; g.lineJoin = 'round';
+    if (shape === 'happy') { g.lineWidth = 0.7 * u; g.beginPath(); g.arc(cx, cy + 0.7 * u, 1.25 * u, Math.PI * 1.12, Math.PI * 1.88); g.stroke(); continue; }
+    const openE = open * (s < 0 ? (F.openL == null ? 1 : F.openL) : (F.openR == null ? 1 : F.openR));
+    if (shape === 'closed' || openE < 0.14) { g.lineWidth = 0.6 * u; g.beginPath(); g.moveTo(cx - 1.3 * u, cy + 0.2 * u); g.quadraticCurveTo(cx, cy + 0.75 * u, cx + 1.3 * u, cy + 0.2 * u); g.stroke(); continue; }
+    if (shape === 'squeeze') { g.lineWidth = 0.62 * u; g.beginPath(); g.moveTo(cx - s * 1.2 * u, cy - 1.0 * u); g.lineTo(cx + s * 0.9 * u, cy); g.lineTo(cx - s * 1.2 * u, cy + 1.0 * u); g.stroke(); continue; }
+    if (shape === 'x') { g.lineWidth = 0.6 * u; g.beginPath(); g.moveTo(cx - u, cy - u); g.lineTo(cx + u, cy + u); g.moveTo(cx + u, cy - u); g.lineTo(cx - u, cy + u); g.stroke(); continue; }
+    const eh = Math.max(0.45 * u, ehFull * openE), top = cy - eh / 2 + (ehFull - eh) * 0.15;
+    g.save(); g.beginPath(); g.roundRect(cx - ew / 2, top, ew, eh, Math.min(ew, eh) * 0.48); g.fill(); g.clip();
+    // lids: fierce (inner low), worried (outer low), squint (flat top), sleepy (half)
+    const lid = (inLow, amt) => { g.fillStyle = 'rgba(0,0,0,0)'; g.globalCompositeOperation = 'destination-out'; g.beginPath();
+      const inner = -s, xa = cx - ew, xb = cx + ew, ya = top - 0.2 * u, yi = top + amt * u, yo = top + amt * 0.1 * u;
+      if (inLow) { g.moveTo(xa, ya); g.lineTo(xb, ya); g.lineTo(xb, inner > 0 ? yi : yo); g.lineTo(xa, inner > 0 ? yo : yi); }
+      else { g.moveTo(xa, ya); g.lineTo(xb, ya); g.lineTo(xb, inner > 0 ? yo : yi); g.lineTo(xa, inner > 0 ? yi : yo); }
+      g.closePath(); g.fillStyle = '#000'; g.fill(); g.globalCompositeOperation = 'source-over'; };
+    if (shape === 'fierce') lid(true, 1.8); if (shape === 'worried') lid(false, 1.6); if (shape === 'squint') { g.globalCompositeOperation = 'destination-out'; g.fillRect(cx - ew, top - u, 2 * ew, u + eh * 0.42); g.globalCompositeOperation = 'source-over'; }
+    // catch-lights (follow the pupil a little)
+    if (eh > 1.2 * u) { g.fillStyle = C.white; g.beginPath(); g.roundRect(cx - ew / 2 + 0.33 * u, top + 0.42 * u, 0.78 * u, Math.min(1.35 * u, eh * 0.38), 0.3 * u); g.fill();
+      g.fillStyle = 'rgba(255,246,234,0.5)'; g.beginPath(); g.arc(cx + ew / 2 - 0.55 * u, top + eh - 0.6 * u, 0.3 * u, 0, 7); g.fill(); }
+    g.restore();
+    if (shape === 'fierce' || shape === 'worried') { // brow line
+      g.lineWidth = 0.45 * u; g.strokeStyle = C.dark; const inner = -s, lo = shape === 'fierce' ? 1 : -1; g.beginPath();
+      g.moveTo(cx - ew * 0.75, top - 0.5 * u + (inner < 0 ? lo : -lo) * 0.45 * u); g.lineTo(cx + ew * 0.75, top - 0.5 * u + (inner > 0 ? lo : -lo) * 0.45 * u); g.stroke(); }
+  }
+  // sweat drop (F.sweat = 0..1 life: appears at the upper corner, swells, slides down the side of the face)
+  if (F.sweat > 0) { const L = F.sweat, sx = X(BW / 2 - 1.5), sy = Y(TOP - 1.6 - L * 4.5), r = (0.55 + 0.35 * Math.min(1, L * 3)) * u, a = Math.min(1, (1 - L) * 4);
+    g.save(); g.globalAlpha = a; g.fillStyle = '#a9d4f5'; g.beginPath(); g.moveTo(sx, sy - 2.1 * r); g.quadraticCurveTo(sx + 1.05 * r, sy - 0.4 * r, sx + r, sy + 0.25 * r);
+    g.arc(sx, sy + 0.25 * r, r, 0, Math.PI); g.quadraticCurveTo(sx - 1.05 * r, sy - 0.4 * r, sx, sy - 2.1 * r); g.fill();
+    g.strokeStyle = '#5f9fd0'; g.lineWidth = 0.18 * u; g.stroke(); g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(sx - 0.35 * r, sy + 0.05 * r, 0.22 * r, 0.38 * r, -0.4, 0, 7); g.fill(); g.restore(); }
+  // mouth
+  const mx = X(look[0] * 0.5), my = Y(ey - 2.9 + look[1] * 0.1), m = F.mouth || 'line', mo = F.mouthOpen == null ? 1 : F.mouthOpen;
+  g.fillStyle = C.dark; g.strokeStyle = C.dark; g.lineCap = 'round'; g.lineJoin = 'round';
+  if (m === 'o') { g.beginPath(); g.ellipse(mx, my + 0.3 * u, 0.8 * u * (0.6 + 0.4 * mo), 1.05 * u * mo + 0.2 * u, 0, 0, 7); g.fill(); }
+  else if (m === 'yawn') { g.beginPath(); g.ellipse(mx, my + 0.6 * u * mo, 1.25 * u, (0.4 + 1.7 * mo) * u, 0, 0, 7); g.fill(); g.fillStyle = '#c2495a'; g.beginPath(); g.ellipse(mx, my + (0.6 + 1.0) * u * mo, 0.8 * u, 0.6 * u * mo, 0, 0, 7); g.fill(); }
+  else if (m === 'smile') { g.lineWidth = 0.5 * u; g.beginPath(); g.arc(mx, my - 0.4 * u, 1.05 * u, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke(); }
+  else if (m === 'grin') { g.beginPath(); g.moveTo(mx - 1.5 * u, my - 0.2 * u); g.lineTo(mx + 1.5 * u, my - 0.2 * u); g.quadraticCurveTo(mx + 1.4 * u, my + 1.6 * u * mo, mx, my + 1.7 * u * mo); g.quadraticCurveTo(mx - 1.4 * u, my + 1.6 * u * mo, mx - 1.5 * u, my - 0.2 * u); g.fill();
+    g.fillStyle = '#c2495a'; g.beginPath(); g.ellipse(mx, my + 1.15 * u * mo, 0.75 * u, 0.4 * u * mo, 0, 0, 7); g.fill(); }
+  else if (m === 'grit') { g.fillRect(mx - 1.6 * u, my, 3.2 * u, 1.0 * u); g.fillStyle = C.white; g.fillRect(mx - 1.25 * u, my + 0.18 * u, 2.5 * u, 0.38 * u); }
+  else if (m === 'wavy') { g.lineWidth = 0.42 * u; g.beginPath(); for (let i = 0; i <= 8; i++) { const x = mx - 1.4 * u + i * 0.35 * u, y = my + 0.3 * u + (i % 2 ? -0.28 : 0.28) * u; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  else if (m === 'frown') { g.lineWidth = 0.5 * u; g.beginPath(); g.arc(mx, my + 1.2 * u, 0.9 * u, 1.2 * Math.PI, 1.8 * Math.PI); g.stroke(); }
+  else if (m === 'smirk') { g.lineWidth = 0.5 * u; g.beginPath(); g.moveTo(mx - 0.9 * u, my + 0.4 * u); g.quadraticCurveTo(mx + 0.3 * u, my + 0.6 * u, mx + 1.1 * u, my - 0.1 * u); g.stroke(); }
+  else if (m === 'ouch') { g.beginPath(); g.moveTo(mx - 1.5 * u, my); for (let i = 0; i <= 6; i++) g.lineTo(mx - 1.5 * u + i * 0.5 * u, my + (i % 2 ? -0.35 : 0.2) * u); g.lineTo(mx + 1.3 * u, my + 1.3 * u * mo); g.quadraticCurveTo(mx, my + 1.9 * u * mo, mx - 1.3 * u, my + 1.3 * u * mo); g.closePath(); g.fill(); }
+  else if (m === 'none') { }
+  else { g.lineWidth = 0.5 * u; g.beginPath(); g.moveTo(mx - 0.8 * u, my + 0.3 * u); g.lineTo(mx + 0.8 * u, my + 0.3 * u); g.stroke(); }
+  faceTex.needsUpdate = true;
+}
+
+// ---------- scene, lights, camera, ground ----------
+const scene = new THREE.Scene(); scene.add(hero);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x777777, 1.8); scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 1.0); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0008; key.shadow.normalBias = 0.05; scene.add(key); scene.add(key.target);
+const fill = new THREE.DirectionalLight(0xffffff, 0.0); scene.add(fill); scene.add(fill.target);
+const amb = new THREE.AmbientLight(0xffffff, 0.15); scene.add(amb);
+const pt = new THREE.PointLight(0xffffff, 0, 0, 2); scene.add(pt);
+const cam = new THREE.PerspectiveCamera(65, 1080 / 1920, 1, 1e6); cam.rotation.order = 'YXZ'; scene.add(cam);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ color: 0x000000, opacity: 1 })); ground.receiveShadow = true; ground.layers.set(1); scene.add(ground);
+const aoCv = document.createElement('canvas'); aoCv.width = 256; aoCv.height = 256; const aoTex = new THREE.CanvasTexture(aoCv);
+const aoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, alphaMap: aoTex, depthWrite: false })); aoPlane.layers.set(2); scene.add(aoPlane);
+
+function rd(a) { return THREE.MathUtils.degToRad(a); }
+function readRGBA(w, h) {
+  const gl = renderer.getContext(), px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  return px;
+}
+function toPNG(px, w, h) {   // flip rows (GL is bottom-up)
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const c = cv.getContext('2d'), id = c.createImageData(w, h);
+  for (let y = 0; y < h; y++) id.data.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
+  c.putImageData(id, 0, 0); return cv.toDataURL('image/png');
+}
+
+// ---------- image-based lighting: an equirect environment built from the plate itself (Python: tools/env.py) ----------
+const pmrem = new THREE.PMREMGenerator(renderer); pmrem.compileEquirectangularShader();
+const envCache = {};
+async function envTex(url, flip) {
+  const key = (flip ? 'F' : 'N') + url.length + url.slice(-64);
+  if (envCache[key]) return envCache[key];
+  for (const k of Object.keys(envCache)) { envCache[k].dispose(); delete envCache[k]; }
+  const img = new Image(); img.src = url; await img.decode();
+  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const c = cv.getContext('2d');
+  if (flip) { c.translate(0, img.height); c.scale(1, -1); } c.drawImage(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv); t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace;
+  const rt = pmrem.fromEquirectangular(t); t.dispose(); envCache[key] = rt.texture; return rt.texture;
+}
+// world-space props (log, flag) live in the scene, placed either in hero-local coords or in world coords
+const worldProps = new THREE.Group(); worldProps.add(logP); worldProps.add(flagP);
+function propMatrix(spec, heroM, sc) {
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...(spec.rot || [0, 0, 0]).map(rd), 'XYZ'));
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(...spec.pos), q, new THREE.Vector3(1, 1, 1));
+  if (spec.world) { const s = new THREE.Matrix4().makeScale(sc, sc, sc); return new THREE.Matrix4().makeTranslation(...spec.pos).multiply(new THREE.Matrix4().makeRotationFromQuaternion(q)).multiply(s); }
+  return heroM.clone().multiply(m);
+}
+
+window.renderFrame = async function (J) {
+  const P = J.pose || {}, L = J.light || {};
+  const D = { squash: P.squash || 0, lean: P.lean || [0, 0], twist: rd(P.twist || 0) };
+  deform(bodyG, D); deform(bandG, D); deform(faceG, D); deform(scarfG, D);
+  drawFace(P);
+  // knot at the back-left corner; tails from Python (local coords, relative to the knot) or a default flutter
+  const K = deformPt(D, -BW / 2 + 1.0, TOP - 2.1, -BD / 2 - 0.5); knot.position.copy(K); knot.rotation.set(0, 0.5, 0);
+  const EYE = (() => { const R = J.root, sc = R.scale || 1; const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion(); if (R.mat) { const a = R.mat; q.setFromRotationMatrix(new THREE.Matrix4().set(a[0][0], a[0][1], a[0][2], 0, a[1][0], a[1][1], a[1][2], 0, a[2][0], a[2][1], a[2][2], 0, 0, 0, 0, 1)); }
+    else q.setFromEuler(new THREE.Euler(rd(R.rot[0] || 0), rd(R.rot[1] || 0), rd(R.rot[2] || 0), 'YXZ'));
+    m.compose(new THREE.Vector3(...R.pos), q, new THREE.Vector3(sc, sc, sc)); return new THREE.Vector3(0, 0, 0).applyMatrix4(m.invert()); })();
+  const tailPts = P.tails || [0, 1].map(j => Array.from({ length: [7, 6][j] + 1 }, (_, i) => [-(j ? 0.5 : -0.3) * i * 0.3, -i * 0.9, -i * 1.6]));
+  tailPts.forEach((pts, j) => { const V = pts.map(p => new THREE.Vector3(K.x + p[0], K.y + p[1], K.z + p[2]));
+    const curve = new THREE.CatmullRomCurve3(V); tails[j].geometry.dispose(); tails[j].geometry = ribbonGeo(curve.getPoints(V.length * 4), 1.9, 1.1, null, EYE); });
+  // scarf knot on the front-right corner + two short ends (points from the Python cloth sim, relative to the knot)
+  const SK = deformPt(D, BW / 2 + 0.2, (scY0 + scY1) / 2, BD / 2 + 0.2); sknot.position.copy(SK); sknot.rotation.set(0, 0.785, 0.2);
+  const sPts = P.scarf || [[[0, 0, 0], [0.5, -1.3, 0.6], [0.8, -2.6, 1.0], [1.0, -3.8, 1.3]], [[0, 0, 0], [0.9, -1.1, 0.2], [1.5, -2.2, 0.3]]];
+  sPts.forEach((pts, j) => { const V = pts.map(p => new THREE.Vector3(SK.x + p[0], SK.y + p[1], SK.z + p[2]));
+    const cv = new THREE.CatmullRomCurve3(V), pp = cv.getPoints(V.length * 4); sEnds[j].geometry.dispose(); sEnds[j].geometry = ribbonGeo(pp, 1.6, 1.3, null, EYE);
+    const a = pp[pp.length - 2], b = pp[pp.length - 1], d = b.clone().sub(a).normalize(); fringes[j].geometry.dispose();
+    fringes[j].geometry = ribbonGeo([b.clone().addScaledVector(d, -0.05), b.clone().addScaledVector(d, 0.5), b.clone().addScaledVector(d, 0.9)], 1.3, 1.2, null, EYE); });
+  scarf.visible = sknot.visible = P.noScarf ? false : true; sEnds.forEach(m => m.visible = !P.noScarf); fringes.forEach(m => m.visible = !P.noScarf);
+  // feet: [x, y, z] per foot (local) or default stance with stepping
+  const step = P.step, sd = P.stepDir || [0, 1], fp = P.feet || [[-4.4, 0, -5.4, 0], [4.4, 0, -5.4, 1], [-4.4, 0, 5.4, 1], [4.4, 0, 5.4, 0]].map(([x, y, z, ph]) => {
+    if (step == null) return [x, y, z]; const sw = Math.sin((step + ph * 0.5) * 2 * Math.PI), am = P.stepAmp || 1.8, lf = P.stepLift || 2.2;
+    return [x + sd[0] * sw * am, Math.max(0, Math.cos((step + ph * 0.5) * 2 * Math.PI)) * lf, z + sd[1] * sw * am]; });
+  feet.forEach((f, i) => { f.position.set(...fp[i]); f.rotation.set(rd((P.footRot || [])[i] || 0), 0, 0); });
+  // arms: fist positions (local), shoulder on the body side; 'tuck' = fist pressed to the side with no visible arm
+  const defFist = [[-BW / 2 - 1.2, 6.6, 1.6], [BW / 2 + 1.2, 6.6, 1.6]];
+  [0, 1].forEach(i => {
+    const a = (P.arms || [])[i], fpos = a && a.fist ? a.fist : defFist[i];
+    fists[i].position.set(...fpos); fists[i].rotation.set(...(a && a.rot ? a.rot.map(rd) : [0, 0, 0])); fists[i].visible = !(a && a.hide);
+    const sh = deformPt(D, (i ? 1 : -1) * (BW / 2 - 1.2), FOOT + BH * 0.42, 0.5);
+    const fv = new THREE.Vector3(...fpos), dist = fv.distanceTo(sh);
+    if (dist > 3.2 && !(a && a.hide)) { const mid = sh.clone().lerp(fv, 0.5); mid.x += (i ? 1 : -1) * Math.min(2.2, dist * 0.18); if (a && a.bend) mid.add(new THREE.Vector3(...a.bend));
+      arms[i].geometry.dispose(); arms[i].geometry = tubeGeo([sh, mid, fv], 0.95); arms[i].visible = true; } else arms[i].visible = false;
+  });
+  // props
+  binoc.visible = !!P.binoc; if (P.binoc) { binoc.position.set(...(P.binoc.pos || [0, FOOT + BH * 0.56, BD / 2 + 2.2])); binoc.rotation.set(rd(P.binoc.pitch || 0), 0, 0); }
+  phone.visible = !!P.phone; if (P.phone) { phone.position.set(...P.phone.pos); phone.rotation.set(rd(P.phone.rot[0]), rd(P.phone.rot[1]), rd(P.phone.rot[2])); }
+  camP.visible = !!P.camera; if (P.camera) { camP.position.set(...P.camera.pos); camP.rotation.set(...(P.camera.rot || [0, 0, 0]).map(rd)); }
+  flashM.color.setScalar(P.flash ? 1 + 6 * P.flash : 0.85);
+  strap.visible = !!P.strap; if (P.strap) { const s = P.strap.map(p => new THREE.Vector3(...p)); strap.geometry.dispose(); strap.geometry = ribbonGeo(new THREE.CatmullRomCurve3(s).getPoints(24), 1.1, 1.1, new THREE.Vector3(0, 0, 1)); }
+  hero.visible = J.hide ? false : true;
+  // root transform (world): position, rotation (YXZ, deg), scale
+  const R = J.root; hero.position.set(...R.pos);
+  if (R.mat) { const m = R.mat; hero.quaternion.setFromRotationMatrix(new THREE.Matrix4().set(m[0][0], m[0][1], m[0][2], 0, m[1][0], m[1][1], m[1][2], 0, m[2][0], m[2][1], m[2][2], 0, 0, 0, 0, 1)); }
+  else hero.rotation.set(rd(R.rot[0] || 0), rd(R.rot[1] || 0), rd(R.rot[2] || 0), 'YXZ'); hero.scale.setScalar(R.scale || 1);
+  hero.updateMatrixWorld(true);
+  const placeProps = (pre) => {
+    for (const [obj, spec] of [[logP, P.log], [flagP, P.flag]]) {
+      obj.visible = !!spec && !J.hide; if (!spec) continue;
+      let m = propMatrix(spec, hero.matrixWorld, R.scale || 1); if (pre && spec.world) m = pre.clone().multiply(m);   // hero-local props already carry the mirror via hero.matrixWorld
+      obj.matrixAutoUpdate = false; obj.matrix.copy(m); obj.updateMatrixWorld(true);
+    }
+    if (P.flag) { const h = P.flag.h || 12, fw = P.flag.w || 6, fh = P.flag.hh || 4, ph = P.flag.phase || 0, amp = P.flag.amp == null ? 0.9 : P.flag.amp, sag = P.flag.sag || 0;
+      flagPole.scale.set(1, h, 1); flagPole.position.set(0, h / 2, 0); flagTip.position.set(0, h + 0.3, 0);
+      const g = flagCloth.geometry, pa = g.attributes.position, base = g.userData.base || (g.userData.base = pa.array.slice());
+      for (let i = 0; i < pa.count; i++) { const u = base[i * 3] + 0.5, v = base[i * 3 + 1];
+        pa.setXYZ(i, u * fw, h - fh / 2 + v * fh - sag * u * u * fh, amp * u * Math.sin(u * 5.5 - ph) + 0.25 * amp * u * Math.sin(v * 3 + u * 3 - ph * 1.3)); }
+      pa.needsUpdate = true; g.computeVertexNormals(); }
+  };
+  if (!worldProps.parent) scene.add(worldProps);
+  placeProps(null);
+  // image-based lighting from the plate
+  if (J.env) { scene.environment = await envTex(J.env, false); scene.environmentIntensity = L.envK == null ? 1.0 : L.envK; } else scene.environment = null;
+  // lights (world directions are FROM the object TOWARD the light)
+  hemi.color.set(L.sky || '#dfe8ff'); hemi.groundColor.set(L.ground || '#7d7466'); hemi.intensity = L.hemi == null ? (J.env ? 0 : 1.8) : L.hemi;
+  const ctr = new THREE.Vector3(0, 9, 0).applyMatrix4(hero.matrixWorld), sc = R.scale || 1;
+  const kd = new THREE.Vector3(...(L.keyDir || [-0.5, 0.8, 0.3])).normalize();
+  key.color.set(L.keyCol || '#ffffff'); key.intensity = L.key == null ? 1.0 : L.key; key.position.copy(ctr).addScaledVector(kd, 200 * sc); key.target.position.copy(ctr);
+  const sc2 = key.shadow.camera; sc2.left = -34 * sc; sc2.right = 34 * sc; sc2.top = 34 * sc; sc2.bottom = -34 * sc; sc2.near = 1; sc2.far = 420 * sc; sc2.updateProjectionMatrix(); key.target.updateMatrixWorld();
+  const fd = new THREE.Vector3(...(L.fillDir || [0.6, 0.2, 0.6])).normalize(); fill.color.set(L.fillCol || '#ffffff'); fill.intensity = L.fill || 0; fill.position.copy(ctr).addScaledVector(fd, 200 * sc); fill.target.position.copy(ctr); fill.target.updateMatrixWorld();
+  amb.intensity = L.amb == null ? (J.env ? 0 : 0.15) : L.amb; amb.color.set(L.ambCol || '#ffffff');
+  if (L.point) { pt.color.set(L.point.col); pt.intensity = L.point.k; pt.position.set(...L.point.pos); pt.distance = 0; pt.decay = 0; } else pt.intensity = 0;
+  U.rimCol.value.set(L.rim || '#bcd2ff'); U.rimK.value = L.rimK == null ? 0.35 : L.rimK; U.emK.value = L.emK == null ? 0.22 : L.emK;
+  U.glowCol.value.set(P.glow ? '#9fc4ff' : '#000000').multiplyScalar(P.glow ? P.glow * 0.22 : 0);
+  phoneScreenM.color.set('#cfe4ff');
+  // camera: plate camera at the origin, pitch (x) and roll (z), yaw 0
+  const Cm = J.cam; cam.fov = Cm.fov; cam.aspect = 1080 / 1920; cam.rotation.set(rd(Cm.pitch || 0), rd(Cm.yaw || 0), rd(Cm.roll || 0), 'YXZ');
+  const dist = hero.position.length(); cam.near = Math.max(0.5, dist - 80 * sc); cam.far = dist + 120 * sc;
+  const [x0, y0, w, h] = J.crop, ss = J.ss || 2, RW = Math.round(w * ss), RH = Math.round(h * ss);
+  cam.setViewOffset(1080 * ss, 1920 * ss, x0 * ss, y0 * ss, RW, RH); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+  renderer.setSize(RW, RH, false);
+  const out = {};
+  // pass 1: the character
+  renderer.setClearColor(0x000000, 0); cam.layers.set(0); renderer.render(scene, cam); out.char = toPNG(readRGBA(RW, RH), RW, RH);
+  // pass 2: ground shadow (R) + contact AO (G)
+  if (J.ground) {
+    const G = J.ground, gp = new THREE.Vector3(...G.pos), gn = new THREE.Vector3(...(G.normal || [0, 1, 0])).normalize();
+    ground.position.copy(gp); ground.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gn); ground.scale.setScalar(260 * sc); ground.updateMatrixWorld();
+    aoPlane.position.copy(gp).addScaledVector(gn, 0.02 * sc); aoPlane.quaternion.copy(ground.quaternion);
+    // AO texture: footprint of the body (rounded rect) + blobs under feet, drawn in the hero's yaw frame, fading with height
+    const g = aoCv.getContext('2d'); g.clearRect(0, 0, 256, 256); const S = 256 / 48; // canvas covers 48x48 units
+    aoPlane.scale.setScalar(48 * sc); aoPlane.updateMatrixWorld(); const inv2 = new THREE.Matrix4().copy(aoPlane.matrixWorld).invert();
+    const tc = v => { const l = v.clone().applyMatrix4(hero.matrixWorld).applyMatrix4(inv2); return [128 + l.x * 256, 128 - l.y * 256, l.z * 48]; };
+    const blob = (c, r, a) => { const gr = g.createRadialGradient(c[0], c[1], 0, c[0], c[1], r); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(c[0] - r, c[1] - r, 2 * r, 2 * r); };
+    const hb = tc(new THREE.Vector3(0, FOOT, 0)), lift = Math.max(0, hb[2]); const ka = Math.exp(-lift / 6);
+    blob(hb, 11 * S * (1 + lift / 20), 0.75 * Math.exp(-lift / 10));
+    for (const f of feet) { const c = tc(f.position.clone().setY(f.position.y)); const lf = Math.max(0, c[2]); blob(c, 2.6 * S * (1 + lf / 4), 0.95 * Math.exp(-lf / 2.5)); }
+    aoTex.needsUpdate = true;
+    const keepVis = hero.visible;
+    const hs = new Set(); worldProps.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => hs.add(m)); }); hero.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => hs.add(m)); }); const hm = [...hs];
+    hm.forEach(m => { m.userData.cw = m.colorWrite; m.userData.dw = m.depthWrite; m.colorWrite = false; m.depthWrite = false; });
+    cam.layers.set(0); cam.layers.enable(1); renderer.setClearColor(0x000000, 0); renderer.render(scene, cam); const sh = readRGBA(RW, RH);
+    hm.forEach(m => { m.colorWrite = m.userData.cw; m.depthWrite = m.userData.dw; });
+    cam.layers.set(2); renderer.render(scene, cam); const ao = readRGBA(RW, RH);
+    const pk = new Uint8Array(RW * RH * 4); for (let i = 0; i < RW * RH; i++) { pk[i * 4] = sh[i * 4 + 3]; pk[i * 4 + 1] = ao[i * 4 + 3]; pk[i * 4 + 2] = 0; pk[i * 4 + 3] = 255; }
+    out.shadow = toPNG(pk, RW, RH); cam.layers.set(0);
+  }
+  // pass 3: mirror image in a wet ground plane (reflected hero + props, environment flipped, key mirrored)
+  if (J.reflect) {
+    const n = new THREE.Vector3(...(J.reflect.normal || [0, 1, 0])).normalize(), p0 = new THREE.Vector3(...J.reflect.pos), d = n.dot(p0);
+    const Mr = new THREE.Matrix4().set(1 - 2 * n.x * n.x, -2 * n.x * n.y, -2 * n.x * n.z, 2 * d * n.x, -2 * n.y * n.x, 1 - 2 * n.y * n.y, -2 * n.y * n.z, 2 * d * n.y,
+      -2 * n.z * n.x, -2 * n.z * n.y, 1 - 2 * n.z * n.z, 2 * d * n.z, 0, 0, 0, 1);
+    const keep = hero.matrix.clone(); hero.matrixAutoUpdate = false; hero.updateMatrix(); hero.matrix.premultiply(Mr); hero.updateMatrixWorld(true); placeProps(Mr);
+    if (J.env) scene.environment = await envTex(J.env, true);
+    const kd0 = key.position.clone().sub(ctr), kr = kd0.clone().sub(n.clone().multiplyScalar(2 * kd0.dot(n))); key.position.copy(ctr).add(kr); key.castShadow = false;
+    renderer.setClearColor(0x000000, 0); cam.layers.set(0); renderer.render(scene, cam); out.refl = toPNG(readRGBA(RW, RH), RW, RH);
+    key.castShadow = true; hero.matrixAutoUpdate = true; hero.matrix.copy(keep); hero.updateMatrixWorld(true); placeProps(null);
+  }
+  // projected points (plate px)
+  const pr = v => { const p = v.clone().applyMatrix4(hero.matrixWorld); const q = p.clone(); cam.clearViewOffset(); cam.updateProjectionMatrix(); q.project(cam); return [(q.x + 1) / 2 * 1080, (1 - q.y) / 2 * 1920]; };
+  out.pts = { scarfKnot: pr(SK), root: pr(new THREE.Vector3(0, 0, 0)), head: pr(new THREE.Vector3(0, TOP, 0)), face: pr(new THREE.Vector3(0, FOOT + BH * 0.56, BD / 2)), fistL: pr(fists[0].position), fistR: pr(fists[1].position) };
+  return out;
+};
+window.ready = true;
+</script></body></html>
