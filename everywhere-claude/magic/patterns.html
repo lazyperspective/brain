@@ -1,0 +1,234 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// Hand-drawn "natural symmetry" overlays for Everywhere Claude.
+// window.render(scene, imgDataUrl, progress) draws the frame plus a pattern.
+// progress 0..1 reveals strokes in order (for draw-on animation).
+const W = 1080, H = 1920;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let R = rng(7);
+
+// ---------- stroke queue (so progress can reveal strokes in order) ----------
+let Q = [];
+function queue(fn) { Q.push(fn); }
+function flush(progress) {
+  const n = Q.length, upto = progress * n;
+  for (let i = 0; i < n; i++) {
+    const f = Math.max(0, Math.min(1, upto - i));
+    if (f > 0) Q[i](f);
+  }
+  Q = [];
+}
+
+// resample a polyline at ~step px and add smooth hand wobble
+function wobble(pts, amp, step = 5) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+    const d = Math.hypot(x1 - x0, y1 - y0), k = Math.max(1, Math.ceil(d / step));
+    for (let j = 0; j < k; j++) out.push([x0 + (x1 - x0) * j / k, y0 + (y1 - y0) * j / k]);
+  }
+  out.push(pts[pts.length - 1]);
+  const p1 = R() * 6.28, p2 = R() * 6.28, f1 = 0.02 + R() * 0.02, f2 = 0.07 + R() * 0.05;
+  let s = 0;
+  return out.map((p, i) => {
+    if (i) s += Math.hypot(p[0] - out[i - 1][0], p[1] - out[i - 1][1]);
+    const q = out[Math.min(i + 1, out.length - 1)], o = out[Math.max(i - 1, 0)];
+    let nx = -(q[1] - o[1]), ny = q[0] - o[0]; const L = Math.hypot(nx, ny) || 1; nx /= L; ny /= L;
+    const w = amp * (Math.sin(s * f1 + p1) * 0.7 + Math.sin(s * f2 + p2) * 0.3);
+    return [p[0] + nx * w, p[1] + ny * w];
+  });
+}
+
+// ink style
+let STYLE = { color: '#fff3d6', glow: 'rgba(255,214,140,0.85)', width: 3.2, alpha: 0.92, blur: 14 };
+function inkPath(pts, frac, st) {
+  const n = Math.max(2, Math.floor(pts.length * frac));
+  const draw = (w, a, blur, off) => {
+    ctx.save(); ctx.globalAlpha = a; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = st.color; ctx.shadowColor = st.glow; ctx.shadowBlur = blur;
+    ctx.beginPath(); ctx.moveTo(pts[0][0] + off, pts[0][1] + off);
+    for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0] + off, pts[i][1] + off);
+    ctx.stroke(); ctx.restore();
+  };
+  draw(st.width, st.alpha, st.blur, 0);          // main stroke with glow
+  draw(st.width * 0.45, st.alpha * 0.55, 0, 0.9); // second pen pass, slightly offset
+}
+// line with optional mirror around x = ax (mirrored copy uses the same wobble = true symmetry)
+function line(pts, { ax = null, amp = 1.6, st = STYLE } = {}) {
+  const w = wobble(pts, amp), s = { ...st };
+  queue(f => { inkPath(w, f, s); if (ax !== null) inkPath(w.map(([x, y]) => [2 * ax - x, y]), f, s); });
+}
+function curve(fn, t0, t1, n, opts) { const p = []; for (let i = 0; i <= n; i++) p.push(fn(t0 + (t1 - t0) * i / n)); line(p, opts); }
+function circle(cx, cy, r, opts = {}) { curve(t => [cx + r * Math.cos(t), cy + r * Math.sin(t)], -Math.PI / 2, 1.5 * Math.PI + 0.12, 90, opts); }
+function dot(x, y, r, { ax = null, st = STYLE } = {}) {
+  const s = { ...st };
+  queue(f => { for (const xx of ax === null ? [x] : [x, 2 * ax - x]) {
+    ctx.save(); ctx.globalAlpha = s.alpha * f; ctx.fillStyle = s.color; ctx.shadowColor = s.glow; ctx.shadowBlur = s.blur;
+    ctx.beginPath(); ctx.arc(xx, y, r, 0, 6.283); ctx.fill(); ctx.restore(); } });
+}
+function star(x, y, r, pts = 8, opts = {}) {
+  for (let i = 0; i < pts; i++) { const a = i / pts * 6.283 - Math.PI / 2, rr = i % 2 ? r * 0.55 : r;
+    line([[x + Math.cos(a) * r * 0.12, y + Math.sin(a) * r * 0.12], [x + Math.cos(a) * rr, y + Math.sin(a) * rr]], { amp: 0.6, ...opts }); }
+  dot(x, y, r * 0.09, opts);
+}
+function spiral(cx, cy, r0, turns, dir, opts) {
+  curve(t => { const r = r0 * (1 - t / (turns * 6.283)) ; return [cx + dir * r * Math.cos(t), cy + r * Math.sin(t)]; }, 0, turns * 6.283 * 0.92, 80, opts);
+}
+
+// ---------- image helpers ----------
+let IMG = null;
+function lumaGrid(sc) { // downscaled luminance grid
+  const w = W / sc | 0, h = H / sc | 0, t = document.createElement('canvas'); t.width = w; t.height = h;
+  const c = t.getContext('2d'); c.drawImage(IMG, 0, 0, w, h); const d = c.getImageData(0, 0, w, h).data;
+  const L = new Float32Array(w * h); for (let i = 0; i < w * h; i++) L[i] = (0.3 * d[4 * i] + 0.59 * d[4 * i + 1] + 0.11 * d[4 * i + 2]) / 255;
+  return { w, h, L, rgb: d };
+}
+function blur(g, passes) {
+  const { w, h } = g; let a = g.L, b = new Float32Array(w * h);
+  for (let p = 0; p < passes; p++) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let s = 0, n = 0;
+      for (let k = -2; k <= 2; k++) { const xx = x + k; if (xx >= 0 && xx < w) { s += a[y * w + xx]; n++; } } b[y * w + x] = s / n; }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let s = 0, n = 0;
+      for (let k = -2; k <= 2; k++) { const yy = y + k; if (yy >= 0 && yy < h) { s += b[yy * w + x]; n++; } } a[y * w + x] = s / n; }
+  }
+  g.L = a; return g;
+}
+
+// ---------- scenes ----------
+const SCENES = {
+  // Spruce: tiered fir-branch chevrons mirrored on the trunk axis, twin crossing light garlands, star on the tip.
+  spruce() {
+    const ax = 578, top = 486, bot = 1720, hw = y => 20 + (y - top) / (bot - top) * 330;
+    star(ax, top - 40, 70, 8, { st: { ...STYLE, color: '#ffe2a0', width: 3.6 } });
+    const tiers = 8;
+    for (let i = 0; i < tiers; i++) {
+      const y0 = top + 60 + i * (bot - top - 120) / tiers, L = hw(y0) * 0.92;
+      const pts = []; for (let k = 0; k <= 12; k++) { const t = k / 12; pts.push([ax + t * L, y0 + 95 * t * t - 30 * Math.pow(t, 5)]); }
+      line(pts, { ax });
+      for (let k = 3; k <= 10; k += 1.5) { const t = k / 12, x = ax + t * L, y = y0 + 95 * t * t - 30 * Math.pow(t, 5);
+        line([[x, y], [x + 14, y + 22]], { ax, amp: 0.4, st: { ...STYLE, width: 2 } }); }
+      dot(ax + L + 8, y0 + 72, 4.5, { ax, st: { ...STYLE, color: '#ffd98a' } });
+    }
+    // twin garlands (a lattice of dotted helix arcs, symmetric)
+    for (let g = 0; g < 2; g++) for (let i = 0; i < 26; i++) {
+      const t = i / 25, y = top + 140 + t * (bot - top - 220), x = ax + Math.sin(t * 9.4 + g * Math.PI) * hw(y) * 0.78;
+      dot(x, y, 3.2, { st: { ...STYLE, color: '#ffe7b0', blur: 18 } });
+    }
+  },
+
+  // Palace: the iron railing's scrollwork "grows" up the lamp post as a mirrored lyre that blooms around the lamp head.
+  palace() {
+    const ax = 514, head = 468;
+    const iron = { color: '#20242e', glow: 'rgba(255,215,150,0.9)', width: 4.2, alpha: 0.95, blur: 6 };
+    const gold = { color: '#e9b85a', glow: 'rgba(255,220,150,0.9)', width: 3, alpha: 0.95, blur: 10 };
+    // wrought-iron brackets: S-scrolls leaving the pole and curling outward, two tiers, mirrored
+    for (const [y0, sx, sy, r] of [[760, 150, 150, 34], [930, 105, 110, 26], [1090, 70, 80, 20]]) {
+      const pts = []; for (let k = 0; k <= 20; k++) { const t = k / 20;
+        pts.push([ax + 10 + sx * (1 - Math.cos(t * Math.PI / 2)) , y0 - sy * Math.sin(t * Math.PI / 2) + 30 * t * (1 - t)]); }
+      line(pts, { ax, st: iron });
+      const [ex, ey] = pts[pts.length - 1];
+      spiral(ex, ey + r, r, 1.5, -1, { ax, st: iron });
+      line([[ax + 10, y0], [ax + 10 + sx * 0.55, y0 + 26], [ax + 10 + sx * 0.8, y0 + 4]], { ax, amp: 0.6, st: { ...iron, width: 2.6 } });
+      dot(ax + 10 + sx * 0.82, y0 + 2, 5, { ax, st: gold });
+    }
+    // halo crown around the lamp head
+    curve(t => [ax + 150 * Math.cos(t), head - 10 + 70 * Math.sin(t)], Math.PI, 2 * Math.PI, 50, { st: gold });
+    for (let i = 0; i <= 8; i++) { const a = Math.PI + i / 8 * Math.PI;
+      line([[ax + 165 * Math.cos(a), head - 10 + 80 * Math.sin(a)], [ax + 215 * Math.cos(a), head - 10 + 120 * Math.sin(a)]], { amp: 0.4, st: gold }); }
+    spiral(ax - 40, head - 140, 40, 1.4, 1, { ax, st: gold });
+    dot(ax, head - 200, 7, { st: gold });
+  },
+
+  // Pylon: a sacred-geometry circle (hexagram + 12-chord star) hung on the pylon's axis, guy-lines to its legs.
+  pylons() {
+    const ax = 543, cy = 300, r = 250;
+    const st = { ...STYLE, width: 2.6 };
+    circle(ax, cy, r, { st }); circle(ax, cy, r * 0.62, { st });
+    for (let k = 0; k < 2; k++) { const p = []; for (let i = 0; i <= 3; i++) { const a = -Math.PI / 2 + k * Math.PI + i * 2.0944; p.push([ax + r * 0.62 * Math.cos(a), cy + r * 0.62 * Math.sin(a)]); } line(p, { st }); }
+    for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + i / 12 * 6.283, b = a + 5 / 12 * 6.283;
+      line([[ax + r * Math.cos(a), cy + r * Math.sin(a)], [ax + r * Math.cos(b), cy + r * Math.sin(b)]], { amp: 0.8, st: { ...st, width: 1.6, alpha: 0.7 } }); }
+    for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + i / 12 * 6.283; dot(ax + r * Math.cos(a), cy + r * Math.sin(a), 4.5); }
+    line([[ax + r * 0.5, cy + r * 0.87], [ax + 70, 900]], { ax, st: { ...st, width: 1.8, alpha: 0.75 } });
+    star(ax, 38, 34, 8);
+  },
+
+  // Summit: trace the real snow ridge in gold, reflect it upside down into the sky as a ghost mountain, star at the mirror point.
+  summit() {
+    const g = lumaGrid(4), { w, h, rgb } = g, ridge = [];
+    const px_ = (x, y) => { const i = 4 * (y * w + x); return [rgb[i], rgb[i + 1], rgb[i + 2]]; };
+    const dist = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+    for (let x = 0; x < w; x++) {
+      let yy = h - 1;
+      for (let y = 40; y < h - 8; y++) { const ref = px_(x, y - 12);
+        let ok = true; for (let k = 0; k < 8; k++) if (dist(px_(x, y + k), ref) < 55) { ok = false; break; }
+        if (ok) { yy = y; break; } }
+      ridge.push(yy * 4);
+    }
+    for (let it = 0; it < 2; it++) { const c = ridge.slice(); for (let i = 0; i < w; i++) { const win = []; for (let k = -6; k <= 6; k++) if (c[i + k] !== undefined) win.push(c[i + k]); win.sort((p, q) => p - q); ridge[i] = win[win.length >> 1]; } }
+    const sm = ridge.map((_, i) => { let s = 0, n = 0; for (let k = -3; k <= 3; k++) { const v = ridge[i + k]; if (v !== undefined) { s += v; n++; } } return s / n; });
+    const pts = sm.map((y, i) => [i * 4 + 2, y]);
+    let pk = 75; for (let i = 75; i < 225; i++) if (pts[i][1] < pts[pk][1]) pk = i;
+    const [px, py] = pts[pk], mirrorY = py - 330;
+    line(pts.filter((_, i) => i % 2 === 0), { amp: 1.2, st: { ...STYLE, color: '#ffe0a0', width: 3.4 } });
+    line(pts.filter((_, i) => i % 2 === 0).map(([x, y]) => [x, 2 * mirrorY - y]), { amp: 1.6, st: { ...STYLE, width: 2.2, alpha: 0.6 } });
+    star(px, mirrorY, 48, 8, { st: { ...STYLE, color: '#ffe0a0' } });
+    circle(px, mirrorY, 110, { st: { ...STYLE, width: 1.8, alpha: 0.65 } });
+    for (let i = 0; i < 18; i++) { const a = R() * 6.283, d = 160 + R() * 260; dot(px + Math.cos(a) * d * 1.3, mirrorY + Math.sin(a) * d * 0.7, 1.5 + R() * 2.5); }
+    line([[px, py - 12], [px, mirrorY + 120]], { amp: 0.6, st: { ...STYLE, width: 1.4, alpha: 0.5 } });
+  },
+
+  // Wires: string-art parabolas stitched between the converging wires (mirrored), starburst where they meet the A-frame pole.
+  wires() {
+    const P = [402, 1032];
+    const A = [[236, 0], P], B = [[412, 0], [404, 1030]], C = [[590, 0], P];
+    const lerp = (L, t) => [L[0][0] + (L[1][0] - L[0][0]) * t, L[0][1] + (L[1][1] - L[0][1]) * t];
+    const n = 20, st = { ...STYLE, width: 1.6, alpha: 0.62, blur: 9 };
+    for (const [L1, L2] of [[A, B], [C, B]]) for (let i = 1; i < n; i++) {
+      const t = i / n * 0.92; line([lerp(L1, t), lerp(L2, 0.92 - t)], { amp: 0.7, st });
+    }
+    star(P[0], P[1] - 4, 60, 12, { st: { ...STYLE, color: '#ffe2a0', width: 2.6 } });
+  },
+
+  // Clouds: evenly spaced contour streamlines that follow the clouds' own light (isophotes), with curls.
+  clouds() {
+    const g = blur(lumaGrid(4), 4), { w, h, L } = g, sc = 4, yMax = 1330;
+    const at = (x, y) => { const xi = Math.max(1, Math.min(w - 2, x / sc | 0)), yi = Math.max(1, Math.min(h - 2, y / sc | 0));
+      return [(L[yi * w + xi + 1] - L[yi * w + xi - 1]) / 2, (L[(yi + 1) * w + xi] - L[(yi - 1) * w + xi]) / 2]; };
+    const occ = new Uint8Array((W / 12 | 0) * (H / 12 | 0)), ow = W / 12 | 0;
+    const free = (x, y) => occ[(y / 12 | 0) * ow + (x / 12 | 0)] === 0;
+    const mark = (x, y) => { occ[(y / 12 | 0) * ow + (x / 12 | 0)] = 1; };
+    const st = { ...STYLE, color: '#fffaf0', glow: 'rgba(255,255,255,0.7)', width: 2.4, alpha: 0.72, blur: 8 };
+    const seeds = []; for (let y = 40; y < yMax - 40; y += 70) for (let x = 30; x < W - 30; x += 70) seeds.push([x + R() * 40, y + R() * 40]);
+    seeds.sort(() => R() - 0.5);
+    let made = 0;
+    for (const [sx, sy] of seeds) {
+      if (!free(sx, sy) || made > 46) continue;
+      const trace = dir => { const p = []; let x = sx, y = sy, pd = null;
+        for (let k = 0; k < 120; k++) { const [gx, gy] = at(x, y), m = Math.hypot(gx, gy); if (m < 0.0009) break;
+          let dx = -gy / m * dir, dy = gx / m * dir; if (pd && dx * pd[0] + dy * pd[1] < 0) { dx = -dx; dy = -dy; }
+          x += dx * 6; y += dy * 6; pd = [dx, dy];
+          if (x < 5 || x > W - 5 || y < 5 || y > yMax || (k > 3 && !free(x, y))) break; p.push([x, y]); }
+        return p; };
+      const a = trace(1), b = trace(-1), pts = [...b.reverse(), [sx, sy], ...a];
+      if (pts.length < 22) continue;
+      pts.forEach(([x, y]) => mark(x, y)); made++;
+      line(pts.filter((_, i) => i % 2 === 0), { amp: 1.0, st });
+      if (R() < 0.35) { const [ex, ey] = pts[pts.length - 1]; spiral(ex, ey + 18, 18, 1.3, R() < 0.5 ? 1 : -1, { st }); }
+    }
+  },
+};
+
+window.render = async (scene, url, progress = 1) => {
+  IMG = new Image(); IMG.src = url; await IMG.decode();
+  ctx.clearRect(0, 0, W, H); ctx.drawImage(IMG, 0, 0, W, H);
+  R = rng(7); Q = []; SCENES[scene](); flush(progress);
+  return true;
+};
+</script></body></html>
