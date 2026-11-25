@@ -1,0 +1,617 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000;overflow:hidden}</style>
+<script type="importmap">
+{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}
+</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const P = new URLSearchParams(location.search);
+const W = +(P.get('w') || 1080), Hpx = +(P.get('h') || 1080);
+const FPS = 30, DUR = 3.0;
+
+// ---------- seeded rng ----------
+let seed = 12345;
+function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+function rr(a, b) { return a + (b - a) * rnd(); }
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const lerp = (a, b, t) => a + (b - a) * t;
+function easeOutBack(t) { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+function spring(t) { // 0..1 with soft overshoot
+  if (t <= 0) return 0; if (t >= 1.6) return 1;
+  return 1 - Math.exp(-6 * t) * Math.cos(7.5 * t);
+}
+function hex(h) { const c = new THREE.Color(h); return [c.r, c.g, c.b]; }
+function jitterCol(c, a = 0.05) { const k = 1 + rr(-a, a); return [c[0] * k * (1 + rr(-a, a) * 0.5), c[1] * k, c[2] * k * (1 + rr(-a, a) * 0.5)]; }
+
+// ---------- renderer ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, Hpx);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.5;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1420);
+const camera = new THREE.PerspectiveCamera(36, W / Hpx, 1, 80);
+
+// ---------- textures ----------
+function makeFiberTex() {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, c.width, c.height);
+  const id = g.getImageData(0, 0, c.width, c.height); const d = id.data;
+  for (let i = 0; i < d.length; i += 4) { const n = 225 + (rnd() - 0.5) * 26; d[i] = d[i + 1] = d[i + 2] = n; }
+  g.putImageData(id, 0, 0);
+  // fibres along length
+  for (let k = 0; k < 900; k++) {
+    const x = rnd() * c.width, y = rnd() * c.height, l = rr(20, 120);
+    g.strokeStyle = rnd() < 0.5 ? `rgba(255,255,255,${rr(0.05, 0.22)})` : `rgba(120,110,100,${rr(0.04, 0.14)})`;
+    g.lineWidth = rr(0.6, 1.6);
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + l / 2, y + rr(-4, 4), x + l, y + rr(-3, 3)); g.stroke();
+  }
+  // slightly darker cut top edge + lighter just under it (v=1 is top)
+  const gr = g.createLinearGradient(0, 0, 0, c.height);
+  gr.addColorStop(0, 'rgba(60,50,40,0.25)'); gr.addColorStop(0.05, 'rgba(255,255,255,0.1)'); gr.addColorStop(0.3, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+const fiberTex = makeFiberTex();
+
+// base card: 24 x 24 units mapped to 2048 canvas
+const BASE = 26, BTEX = 2048;
+const baseCanvas = document.createElement('canvas'); baseCanvas.width = baseCanvas.height = BTEX;
+const paperCanvas = document.createElement('canvas'); paperCanvas.width = paperCanvas.height = BTEX;
+function toPx(x, y) { return [(x / BASE + 0.5) * BTEX, (0.5 - y / BASE) * BTEX]; }
+function makePaper() {
+  const g = paperCanvas.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, BTEX);
+  // top of picture (y=+13) -> bottom (y=-13)
+  const stops = [[0, '#2a2348'], [0.25, '#3b2b55'], [0.42, '#6a3a5e'], [0.53, '#a35a5a'], [0.555, '#2c5a78'], [0.75, '#244c70'], [1, '#1c3d62']];
+  for (const [o, col] of stops) gr.addColorStop(o, col);
+  g.fillStyle = gr; g.fillRect(0, 0, BTEX, BTEX);
+  const id = g.getImageData(0, 0, BTEX, BTEX); const d = id.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (rnd() - 0.5) * 14; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  g.putImageData(id, 0, 0);
+  g.fillStyle = '#5e4032'; g.beginPath(); cliffPoly.forEach((p, i) => { const q = toPx(p[0], p[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.fill();
+  for (let k = 0; k < 14000; k++) {
+    const x = rnd() * BTEX, y = rnd() * BTEX, l = rr(6, 40), a = rnd() * Math.PI * 2;
+    g.strokeStyle = rnd() < 0.6 ? `rgba(255,240,230,${rr(0.03, 0.09)})` : `rgba(0,0,0,${rr(0.03, 0.08)})`;
+    g.lineWidth = rr(0.5, 1.4);
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * l / 2 + rr(-3, 3), y + Math.sin(a) * l / 2 + rr(-3, 3), x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+}
+const baseTex = new THREE.CanvasTexture(baseCanvas); baseTex.colorSpace = THREE.SRGBColorSpace; baseTex.anisotropy = 8;
+
+// ---------- strip geometry ----------
+const STRIP_H = 0.26, THICK = 0.026;
+// strip: {pts:[[x,y],...], col:[r,g,b], h, emissive}
+function buildGeometry(strips) {
+  let nseg = 0; for (const s of strips) if (s.pts.length > 1) nseg += s.pts.length - 1;
+  // per point: 2 walls x 2 verts + cap 2 verts = 6 verts per point
+  let npt = 0; for (const s of strips) if (s.pts.length > 1) npt += s.pts.length;
+  const pos = new Float32Array(npt * 6 * 3), nor = new Float32Array(npt * 6 * 3), col = new Float32Array(npt * 6 * 3), uv = new Float32Array(npt * 6 * 2);
+  const idx = new Uint32Array(nseg * 6 * 3 + strips.length * 12);
+  let v = 0, ii = 0;
+  for (const s of strips) {
+    const p = s.pts, n = p.length; if (n < 2) continue;
+    const base = v;
+    let arc = s.u0 || 0;
+    const h0 = s.h;
+    for (let i = 0; i < n; i++) {
+      const a = p[Math.max(0, i - 1)], b = p[Math.min(n - 1, i + 1)];
+      let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      const nx = -ty, ny = tx;
+      if (i > 0) arc += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+      const hh = (p[i][2] !== undefined ? p[i][2] : 1) * h0;
+      const lean = s.lean ? s.lean * Math.sin(arc * 0.9 + s.leanPh) * hh : 0; // hand-made wobble of the top edge
+      const x = p[i][0], y = p[i][1];
+      const T = THICK * 0.5;
+      const u = arc * 0.5;
+      // wall A (+n)
+      const ax = x + nx * T, ay = y + ny * T;
+      const verts = [
+        [ax, ay, 0, nx, ny, 0, u, 0, 0.45], [ax + nx * lean, ay + ny * lean, hh, nx, ny, 0, u, 1, 1.0],
+        [x - nx * T, y - ny * T, 0, -nx, -ny, 0, u, 0, 0.45], [x - nx * T + nx * lean, y - ny * T + ny * lean, hh, -nx, -ny, 0, u, 1, 1.0],
+        [ax + nx * lean, ay + ny * lean, hh, 0, 0, 1, u, 0.98, 1.08], [x - nx * T + nx * lean, y - ny * T + ny * lean, hh, 0, 0, 1, u, 0.98, 1.08],
+      ];
+      for (const q of verts) {
+        pos[v * 3] = q[0]; pos[v * 3 + 1] = q[1]; pos[v * 3 + 2] = q[2];
+        nor[v * 3] = q[3]; nor[v * 3 + 1] = q[4]; nor[v * 3 + 2] = q[5];
+        uv[v * 2] = q[6]; uv[v * 2 + 1] = q[7];
+        // ambient-occlusion style darkening toward the base of the strip
+        const ao = q[8];
+        col[v * 3] = s.col[0] * ao; col[v * 3 + 1] = s.col[1] * ao; col[v * 3 + 2] = s.col[2] * ao;
+        v++;
+      }
+    }
+    for (let i = 0; i < n - 1; i++) {
+      const a = base + i * 6, b = base + (i + 1) * 6;
+      // wall A: a0,a1,b0,b1
+      idx[ii++] = a; idx[ii++] = b; idx[ii++] = a + 1; idx[ii++] = a + 1; idx[ii++] = b; idx[ii++] = b + 1;
+      idx[ii++] = a + 2; idx[ii++] = a + 3; idx[ii++] = b + 2; idx[ii++] = a + 3; idx[ii++] = b + 3; idx[ii++] = b + 2;
+      idx[ii++] = a + 4; idx[ii++] = b + 4; idx[ii++] = a + 5; idx[ii++] = a + 5; idx[ii++] = b + 4; idx[ii++] = b + 5;
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos.subarray(0, v * 3), 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor.subarray(0, v * 3), 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col.subarray(0, v * 3), 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv.subarray(0, v * 2), 2));
+  g.setIndex(new THREE.BufferAttribute(idx.subarray(0, ii), 1));
+  return g;
+}
+
+// ---------- shape primitives ----------
+// integrate a curvature profile; c scales curvature (0 = straight strip, 1 = final curl)
+function curvePath(x0, y0, th0, L, kfun, c, reveal = 1, ds = 0.04) {
+  const pts = [[x0, y0]]; let x = x0, y = y0, th = th0;
+  const n = Math.max(2, Math.ceil(L * reveal / ds));
+  const step = L * reveal / n;
+  for (let i = 0; i < n; i++) {
+    const s = (i + 0.5) * step;
+    th += kfun(s) * c * step;
+    x += Math.cos(th) * step; y += Math.sin(th) * step; pts.push([x, y]);
+  }
+  return pts;
+}
+// Rising-edge height profile for a strip being laid down
+function heightRamp(pts, reveal) {
+  if (reveal >= 1) return pts;
+  const n = pts.length;
+  return pts.map((p, i) => [p[0], p[1], smooth(0, 0.25, (n - 1 - i) / Math.max(1, n - 1) + 0.02) * 0.85 + 0.15]);
+}
+// loose coil (closed outer loop + inner spiral), shape function rho(phi) multiplies radius
+function looseCoil(cx, cy, R, turns, rhoFn, rot, e, wob = 0.03) {
+  const pts = []; const tot = Math.PI * 2 * (turns + 1);
+  const scale = lerp(0.28, 1, e), pinch = e;
+  const spin = (1 - e) * 2.2;
+  const ds = 0.035;
+  let th = 0;
+  while (th < tot) {
+    const u = Math.max(0, th - Math.PI * 2) / (tot - Math.PI * 2); // 0 on outer loop, ->1 at centre
+    const rr0 = R * scale * (1 - 0.92 * u);
+    const phi = th;
+    const shape = lerp(1, rhoFn(phi), pinch * (1 - u * 0.7));
+    const r = rr0 * shape * (1 + wob * Math.sin(phi * 3 + cx));
+    const a = -phi + rot + spin * u;
+    // off-centre the inner spiral slightly (loose coils drift)
+    const ox = R * 0.18 * u * Math.cos(rot + 1), oy = R * 0.18 * u * Math.sin(rot + 1);
+    pts.push([cx + Math.cos(a) * r + ox * e, cy + Math.sin(a) * r + oy * e]);
+    th += ds / Math.max(0.05, r);
+  }
+  return pts;
+}
+const teardrop = (tip, amt = 0.9) => (phi) => { const c = Math.cos(phi - tip); return 1 + amt * Math.pow(Math.max(0, c), 10) - 0.08 * Math.max(0, -c); };
+const marquise = (ax, amt = 0.7) => (phi) => { const c = Math.abs(Math.cos(phi - ax)); return 0.75 + amt * Math.pow(c, 12); };
+const roundS = () => 1;
+// tight coil (solid disc spiral)
+function tightCoil(cx, cy, R, pitch, rot = 0) {
+  const pts = []; let r = R, th = rot;
+  while (r > 0.02) { pts.push([cx + Math.cos(th) * r, cy + Math.sin(th) * r]); const d = 0.035 / Math.max(r, 0.05); th -= d; r -= pitch * d / (Math.PI * 2); }
+  return pts;
+}
+function catmull(ctrl, perSeg = 14, closed = false) {
+  const out = []; const n = ctrl.length;
+  const get = (i) => closed ? ctrl[(i + n) % n] : ctrl[clamp(i, 0, n - 1)];
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const p0 = get(i - 1), p1 = get(i), p2 = get(i + 1), p3 = get(i + 2);
+    for (let k = 0; k < perSeg; k++) {
+      const t = k / perSeg, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map(j => 0.5 * ((2 * p1[j]) + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
+    }
+  }
+  out.push(closed ? [...ctrl[0]] : [...ctrl[n - 1]]);
+  return out;
+}
+function resample(pts, ds = 0.04) {
+  const out = [pts[0]]; let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    let a = out[out.length - 1]; const b = pts[i];
+    let d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    while (d >= ds) { const t = ds / d; a = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; out.push(a); d = Math.hypot(b[0] - a[0], b[1] - a[1]); }
+  }
+  out.push(pts[pts.length - 1]); return out;
+}
+function revealPts(pts, r) { if (r >= 1) return pts; const n = Math.max(2, Math.floor(pts.length * clamp(r, 0, 1))); return heightRamp(pts.slice(0, n), r); }
+function offsetPath(pts, d) {
+  return pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; return [p[0] - ty / l * d, p[1] + tx / l * d]; });
+}
+// split polyline into runs where keep(x,y) is true
+function clipRuns(pts, keep) {
+  const runs = []; let cur = [];
+  for (const p of pts) { if (keep(p[0], p[1])) cur.push(p); else { if (cur.length > 2) runs.push(cur); cur = []; } }
+  if (cur.length > 2) runs.push(cur); return runs;
+}
+function inPoly(x, y, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) c = !c; } return c; }
+
+// ---------- scene layout (panel units, x right, y up the picture) ----------
+const HORIZON = -1.6;
+const MOON = [-5.6, 7.0];
+const LH = { x: 6.0, base: 1.25, top: 6.6 };
+const LAMP = [LH.x, 7.35];
+const WHALE = [-0.6, -5.6];
+const BOAT = [-4.9, -3.3];
+const cliffFace = catmull([[4.9, -13], [4.4, -9], [3.6, -7.2], [3.9, -5.6], [3.0, -3.8], [3.3, -2.2], [2.5, -0.6], [2.7, 0.6], [2.3, 1.05]], 10);
+const cliffTop = catmull([[2.3, 1.05], [3.6, 1.35], [5.0, 1.2], [6.8, 1.35], [8.5, 1.6], [10.5, 1.5], [13, 1.7]], 10);
+const cliffPoly = [...cliffFace, ...cliffTop, [13, -13]];
+const lhPoly = [[LH.x - 1.15, LH.base - 0.2], [LH.x + 1.15, LH.base - 0.2], [LH.x + 0.9, 9.0], [LH.x - 0.9, 9.0]];
+const clouds = [
+  { x: -1.4, y: 6.3, w: 2.6, h: 0.9 }, { x: 2.6, y: 8.9, w: 2.0, h: 0.7 }, { x: -8.4, y: 3.6, w: 2.2, h: 0.75 }, { x: 0.8, y: 3.2, w: 1.5, h: 0.5 },
+];
+let BEAM_ANG = 2.6, BEAM_HALF = 0.075;
+function inBeam(x, y, m = 0) { const dx = x - LAMP[0], dy = y - LAMP[1]; const d = Math.hypot(dx, dy); if (d < 1.2) return false; let a = Math.atan2(dy, dx) - BEAM_ANG; a = Math.atan2(Math.sin(a), Math.cos(a)); return Math.abs(a) < BEAM_HALF + m / d; }
+function skyFree(x, y, m = 0) {
+  if (Math.hypot(x - MOON[0], y - MOON[1]) < 2.75 + m) return false;
+  for (const c of clouds) if (((x - c.x) / (c.w + 0.35 + m)) ** 2 + ((y - c.y) / (c.h + 0.35 + m)) ** 2 < 1) return false;
+  if (inPoly(x, y, cliffPoly)) return false;
+  if (x > LH.x - 1.4 - m && x < LH.x + 1.4 + m && y > 0 && y < 9.3) return false;
+  return true;
+}
+function seaFree(x, y, rad) {
+  if (Math.hypot((x - WHALE[0]) / 1.5, (y - WHALE[1] - 0.9) / 1.6) < 1 + rad) return false;
+  if (Math.hypot((x - BOAT[0]) / 1.5, (y - BOAT[1] - 0.6) / 1.2) < 1 + rad) return false;
+  if (inPoly(x + 0.3, y, cliffPoly) || inPoly(x + rad, y, cliffPoly)) return false;
+  return true;
+}
+
+makePaper();
+// static random choices, generated once
+const SKYCOLS = ['#f6c768', '#f3a85a', '#ee8a5c', '#e06c66', '#c95a78', '#a54f86', '#7d4d8f', '#5d4a8e', '#47448a', '#383d7c'].map(hex);
+const SEACOLS = ['#3f8fb0', '#3577a6', '#52a6bd', '#2e6a9a', '#74c0c8', '#2a5d92', '#9ad6d4', '#4a86b8'].map(hex);
+const waves = [];
+{
+  for (let row = 0; row < 7; row++) {
+    const y = HORIZON - 0.75 - row * 1.32 - row * row * 0.02;
+    const sc = 0.8 + row * 0.08;
+    const dx = 1.55 * sc;
+    for (let x = -12.5 + (row % 2) * dx * 0.5 + rr(-0.3, 0.3); x < 6; x += dx * rr(0.9, 1.1)) {
+      if (!seaFree(x + sc, y + sc * 0.6, sc * 0.5)) continue;
+      waves.push({ x, y: y + rr(-0.12, 0.12), sc: sc * rr(0.85, 1.12), row, col: jitterCol(SEACOLS[Math.floor(rnd() * SEACOLS.length)], 0.06), d: rr(0, 0.6), ph: rr(0, 6.28), lean: rr(0.01, 0.05), leanPh: rr(0, 6) });
+    }
+  }
+}
+// horizon-ish long wave lines
+const waveLines = [];
+for (let row = 0; row < 7; row++) {
+  const y = HORIZON - 0.15 - row * 1.32 - row * row * 0.02;
+  waveLines.push({ y, row, amp: 0.08 + row * 0.015, f: rr(0.9, 1.3), ph: rr(0, 6), col: jitterCol(SEACOLS[(row * 3) % SEACOLS.length], 0.05) });
+}
+const skyBands = [];
+for (let k = 0, y = HORIZON + 0.25; y < 12.5; k++, y += 0.42 + k * 0.012) {
+  const ci = clamp(Math.floor(k * SKYCOLS.length / 22), 0, SKYCOLS.length - 1);
+  skyBands.push({ y, col: jitterCol(SKYCOLS[ci], 0.04), amp: rr(0.04, 0.1), f: rr(0.5, 0.9), ph: rr(0, 6), d: rr(0, 0.3), lean: 0.03, leanPh: rr(0, 6) });
+}
+const stars = [];
+for (let k = 0; k < 400 && stars.length < 26; k++) {
+  const x = rr(-11, 11), y = rr(3.0, 12);
+  if (!skyFree(x, y, 0.2)) continue;
+  stars.push({ x, y, r: rr(0.1, 0.17), d: rr(0, 1.2), rot: rr(0, 6) });
+}
+const cloudCoils = [];
+for (const c of clouds) {
+  const n = Math.round(c.w * 2.6);
+  for (let i = 0; i < n; i++) {
+    const t = n == 1 ? 0.5 : i / (n - 1);
+    const x = c.x - c.w * 0.85 + t * c.w * 1.7;
+    const bump = Math.sqrt(Math.max(0, 1 - ((t - 0.5) * 2) ** 2));
+    const y = c.y - c.h * 0.3 + bump * c.h * 0.6 + rr(-0.12, 0.12);
+    const R = (0.38 + bump * 0.3) * rr(0.85, 1.1) * (c.h / 0.8);
+    cloudCoils.push({ x, y, R, kind: rnd() < 0.55 ? 'tear' : 'round', rot: rr(0, 6.28), tip: Math.PI / 2 + (t - 0.5) * 2.2, d: rr(0.0, 0.9), col: jitterCol(hex(rnd() < 0.5 ? '#d9b8d6' : '#c7a6cf'), 0.05) });
+  }
+  // a lower teardrop row
+  for (let i = 0; i < n - 1; i++) {
+    const x = c.x - c.w * 0.6 + (i / Math.max(1, n - 2)) * c.w * 1.2;
+    cloudCoils.push({ x, y: c.y - c.h * 0.75, R: 0.3 * (c.h / 0.8), kind: 'marq', rot: 0, tip: 0, d: rr(0.2, 1.0), col: jitterCol(hex('#e6c4c8'), 0.05) });
+  }
+}
+const cliffCoils = [];
+{
+  const CC = ['#c48a5a', '#a86f48', '#d4a06a', '#93643f', '#b77d52', '#8a5a3c'].map(hex);
+  for (let k = 0; k < 6000 && cliffCoils.length < 120; k++) {
+    const R = rr(0.2, 0.5), x = rr(2.4, 12), y = rr(-12, 0.9);
+    if (!inPoly(x - R * 1.05, y, cliffPoly) || !inPoly(x, y + R * 1.1, cliffPoly) || !inPoly(x, y - R, cliffPoly)) continue;
+    if (y + R > 0.95) continue;
+    let ok = true; for (const c of cliffCoils) if (Math.hypot(c.x - x, c.y - y) < c.R + R + 0.04) { ok = false; break; }
+    if (!ok) continue;
+    const kind = rnd();
+    cliffCoils.push({ x, y, R, kind: kind < 0.4 ? 'marq' : kind < 0.7 ? 'tear' : 'round', ax: rr(-0.4, 0.4), tip: rr(0, 6.28), rot: rr(0, 6.28), col: jitterCol(CC[Math.floor(rnd() * CC.length)], 0.05), d: rr(0, 1) });
+  }
+}
+const bushes = [];
+for (let k = 0; k < 14; k++) { const x = rr(2.8, 11); if (Math.abs(x - LH.x) < 1.3) continue; bushes.push({ x, R: rr(0.2, 0.42), d: rr(0, 0.8), col: jitterCol(hex(rnd() < 0.5 ? '#4f7a4a' : '#6b8f4e'), 0.06), tip: rr(1.2, 1.9) }); }
+const rocks = [];
+for (let k = 0; k < 9; k++) rocks.push({ x: rr(3.0, 5.5), y: rr(-9.5, -3.0), R: rr(0.18, 0.35), col: jitterCol(hex('#5b4f4a'), 0.08) });
+
+// whale tail outline in local coords (base of stalk at origin, height ~2.6)
+const flukeCtrl = [[-0.38, -0.6], [-0.3, 0.6], [-0.42, 1.3], [-0.9, 1.75], [-1.75, 2.35], [-1.55, 2.6], [-0.75, 2.38], [-0.1, 2.15], [0.0, 2.05], [0.1, 2.15], [0.75, 2.38], [1.55, 2.6], [1.75, 2.35], [0.9, 1.75], [0.42, 1.3], [0.3, 0.6], [0.38, -0.6]];
+const flukeOutline = resample(catmull(flukeCtrl.map(p => [p[0] * 1.25, p[1] * 1.25]), 16), 0.035);
+const FLUKE_SIGN = (() => { const o = offsetPath(flukeOutline, 0.1); let n = 0; for (const p of o) if (inPoly(p[0], p[1], flukeOutline)) n++; return n > o.length / 2 ? 1 : -1; })();
+function minDist(p, pts) { let m = 1e9; for (const q of pts) { const d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2; if (d < m) m = d; } return Math.sqrt(m); }
+function splitJumps(pts) { const out = []; for (let i = 0; i < pts.length; i++) { if (i > 0 && Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) > 0.15) out.push([1e9, 1e9]); out.push(pts[i]); } return out; }
+
+// ---------- per-frame strip build ----------
+function buildStrips(t) {
+  const S = []; // strips
+  const E = []; // emissive strips
+  const push = (pts, col, opt = {}) => { if (pts.length > 1) S.push({ pts, col, h: (opt.h || STRIP_H), lean: opt.lean ?? 0.025, leanPh: opt.leanPh ?? (pts[0][0] * 3.1), u0: opt.u0 ?? rnd() * 5 }); };
+  const live = Math.sin(t * 2.2);
+  seed = 777; // keep per-frame random (u offsets) stable
+
+  // --- sky bands: laid down left to right in the first 0.6 s, already mostly placed
+  for (const b of skyBands) {
+    const raw = []; for (let x = -13; x <= 13; x += 0.05) raw.push([x, b.y + b.amp * Math.sin(x * b.f + b.ph)]);
+    const r = smooth(0, 0.9, t * 1.6 + 0.55 - b.d);
+    const n = Math.max(2, Math.floor(raw.length * r));
+    for (const run of clipRuns(raw.slice(0, n), (x, y) => skyFree(x, y) && !inBeam(x, y, 0.12))) push(run, b.col, { h: STRIP_H * 0.85, lean: b.lean, leanPh: b.leanPh });
+  }
+  // moon: tight disc coil + halo rings
+  {
+    const e = spring(t * 1.2 + 0.25);
+    const R = 1.3 * lerp(0.35, 1, e);
+    push(tightCoil(MOON[0], MOON[1], R, lerp(0.035, 0.11, e), t * 0.3), hex('#f7ecc6'), { h: STRIP_H * 1.05 });
+    push(catmull([0, 1, 2, 3, 4, 5, 6, 7].map(i => [MOON[0] + Math.cos(i * 0.785) * 1.36, MOON[1] + Math.sin(i * 0.785) * 1.36]), 18, true), hex('#fff6dc'), { h: STRIP_H * 1.15 });
+    const rings = [[1.8, '#f3d58a'], [2.2, '#e9b28a'], [2.6, '#c99ab8']];
+    rings.forEach(([rad, c], i) => {
+      const r = smooth(0, 1, t * 1.4 - i * 0.15 + 0.3);
+      const a0 = 0.3 + i, span = Math.PI * 2 * 0.86 * r;
+      const pts = []; for (let a = a0; a < a0 + span; a += 0.03 / rad) pts.push([MOON[0] + Math.cos(a) * rad, MOON[1] + Math.sin(a) * rad]);
+      push(revealPts(pts, 1), hex(c), { h: STRIP_H * 0.9 });
+    });
+  }
+  // stars: tiny tight coils that pop up
+  for (const s of stars) {
+    const e = spring(t * 1.5 - s.d * 0.6 + 0.2);
+    if (e <= 0.02) continue;
+    push(tightCoil(s.x, s.y, s.r * e, 0.045, s.rot + t), hex('#fbe7a8'), { h: STRIP_H * 0.8 * Math.min(1, e) });
+  }
+  // clouds
+  for (const c of cloudCoils) {
+    const e = spring(t * 1.25 - c.d * 0.5 + 0.15);
+    if (e <= 0.02) continue;
+    const fn = c.kind == 'tear' ? teardrop(c.tip, 0.75) : c.kind == 'marq' ? marquise(0, 0.9) : roundS;
+    const turns = Math.round(c.R * 9);
+    push(looseCoil(c.x + 0.05 * Math.sin(t * 0.8 + c.x), c.y, c.R, turns, fn, c.rot, Math.min(1.08, e)), c.col);
+  }
+  // cliff
+  {
+    push(resample(cliffFace, 0.04), hex('#4a3328'), { h: STRIP_H * 1.15 });
+    push(resample(cliffTop, 0.04), hex('#5d7d43'), { h: STRIP_H * 1.1 });
+    // crimped grass strip along the top
+    const grass = resample(cliffTop, 0.03).map((p, i) => [p[0], p[1] - 0.18 + 0.06 * Math.sin(i * 1.7)]);
+    push(grass, hex('#7aa052'));
+    for (const c of cliffCoils) {
+      const e = Math.min(1.06, spring(t * 1.4 - c.d * 0.35 + 0.35));
+      if (e < 0.02) continue;
+      const fn = c.kind == 'marq' ? marquise(c.ax, 0.6) : c.kind == 'tear' ? teardrop(c.tip, 0.5) : roundS;
+      push(looseCoil(c.x, c.y, c.R, Math.max(3, Math.round(c.R * 11)), fn, c.rot, e), c.col);
+    }
+    for (const b of bushes) {
+      const e = spring(t * 1.3 - b.d * 0.5 + 0.2); if (e < 0.02) continue;
+      const yy = 1.25 + 0.2 * Math.sin(b.x * 2) + b.R * 0.9;
+      push(looseCoil(b.x, yy, b.R, Math.round(b.R * 12), teardrop(b.tip, 0.8), b.x, Math.min(1.08, e)), b.col);
+    }
+    for (const r of rocks) push(tightCoil(r.x, r.y, r.R, 0.06, r.x), r.col);
+  }
+  // lighthouse
+  {
+    const x = LH.x, yb = LH.base, yt = LH.top;
+    const wB = 0.95, wT = 0.62;
+    const L = [[x - wB, yb], [x - wT, yt]], R = [[x + wB, yb], [x + wT, yt]];
+    const white = hex('#f4efe6'), red = hex('#c2403a');
+    push(resample([[x - wB, yb], [x - wT, yt], [x + wT, yt], [x + wB, yb], [x - wB, yb]], 0.04), white, { h: STRIP_H * 1.2 });
+    // horizontal ribs: red / white bands
+    for (let k = 1; k < 18; k++) {
+      const f = k / 18, y = lerp(yb, yt, f), w = lerp(wB, wT, f) - 0.05;
+      const band = Math.floor(f * 6) % 2 == 1;
+      push(resample([[x - w, y], [x + w, y]], 0.04), band ? red : white, { h: STRIP_H * 0.95 });
+    }
+    // door
+    push(resample(catmull([[x - 0.22, yb], [x - 0.22, yb + 0.45], [x, yb + 0.62], [x + 0.22, yb + 0.45], [x + 0.22, yb]], 8), 0.035), hex('#5a3a2c'));
+    // gallery
+    push(resample([[x - 0.95, yt], [x - 0.95, yt + 0.28], [x + 0.95, yt + 0.28], [x + 0.95, yt], [x - 0.95, yt]], 0.04), hex('#3c3a40'), { h: STRIP_H * 1.25 });
+    // lamp room
+    push(resample([[x - 0.55, yt + 0.28], [x - 0.55, yt + 1.15], [x + 0.55, yt + 1.15], [x + 0.55, yt + 0.28]], 0.04), hex('#3c3a40'), { h: STRIP_H * 1.2 });
+    // roof
+    push(resample([[x - 0.78, yt + 1.15], [x, yt + 1.95], [x + 0.78, yt + 1.15], [x - 0.78, yt + 1.15]], 0.04), red, { h: STRIP_H * 1.2 });
+    push(tightCoil(x, yt + 2.05, 0.12, 0.05), red);
+    // lamp coils (emissive)
+    E.push({ pts: tightCoil(LAMP[0], LAMP[1] - 0.05, 0.32, 0.07, t * 0.8), col: hex('#ffd77a'), h: STRIP_H * 1.0, lean: 0, u0: 0 });
+    // beam: radial pale strips laid inside the wedge cut through the sky bands
+    for (let k = -2; k <= 2; k++) {
+      const a = BEAM_ANG + k * BEAM_HALF * 0.42; const len = 13 - Math.abs(k) * 1.5;
+      const pts = []; for (let d = 1.25; d < len; d += 0.05) { const x = LAMP[0] + Math.cos(a) * d, y = LAMP[1] + Math.sin(a) * d; if (!skyFree(x, y, -0.3) && !(Math.abs(x - LH.x) < 1.5)) break; pts.push([x, y, 1 - 0.5 * d / len]); }
+      if (pts.length > 2) push(pts, hex(Math.abs(k) == 2 ? '#f1cf86' : '#fbe9b8'), { h: STRIP_H * 0.9, lean: 0.02 });
+    }
+  }
+  // sea: long wave lines
+  for (const wl of waveLines) {
+    const raw = []; for (let x = -13; x <= 6; x += 0.05) raw.push([x, wl.y + wl.amp * Math.sin(x * wl.f + wl.ph + t * 1.2)]);
+    for (const run of clipRuns(raw, (x, y) => seaFree(x, y, 0) && !inPoly(x + 0.15, y, cliffPoly))) push(run, wl.col, { h: STRIP_H * 0.9 });
+  }
+  // sea: curling waves (Euler-spiral curls that coil into place, then breathe)
+  for (const w of waves) {
+    const start = 0.05 + (w.x + 13) / 19 * 0.9 + w.d * 0.4 - w.row * 0.03;
+    const c = clamp(spring((t - start) * 1.6), 0, 1.12);
+    const r = smooth(start - 0.35, start + 0.1, t);
+    if (r <= 0.01) continue;
+    const L = 3.3 * w.sc;
+    const kEnd = 1 / (0.07 * w.sc + 0.02);
+    const kfun = (s) => -kEnd * Math.pow(s / L, 1.7);
+    const breathe = 1 + 0.03 * Math.sin(t * 2.6 + w.ph);
+    const pts = curvePath(w.x, w.y, 0.95 + 0.04 * Math.sin(t * 2 + w.ph), L, kfun, Math.max(0.0, c) * breathe, 1, 0.035);
+    push(revealPts(pts, r), w.col, { lean: w.lean, leanPh: w.leanPh });
+    // inner echo curl on the bigger waves (paired strips are typical in quilling)
+    const nest = [[0.16, 0.8, '#7fc4cc'], [0.31, 0.6, '#c9ecea']];
+    for (const [o, lf, cc] of nest) {
+      const L2 = L * lf;
+      const pts2 = curvePath(w.x + o * w.sc, w.y - 0.03, 0.95, L2, (s) => -kEnd * (L / L2) * 0.9 * Math.pow(s / L2, 1.7), Math.max(0, c) * breathe, 1, 0.035);
+      push(revealPts(pts2, smooth(start - 0.25, start + 0.2, t)), jitterCol(hex(cc), 0.05), { h: STRIP_H * (o > 0.2 ? 0.75 : 0.88) });
+    }
+  }
+  // whale tail rising out of the sea
+  {
+    const rise = smooth(0.9, 2.5, t);
+    const lift = -3.3 + rise * 3.3;  // local y offset
+    const tilt = 0.18 * (1 - rise) + 0.05 * Math.sin(t * 2.4);
+    const wl = WHALE[1]; // waterline
+    const xf = (p, s = 1) => { const x = p[0] * s, y = p[1] * s + lift; return [WHALE[0] + x * Math.cos(tilt) - y * Math.sin(tilt), wl + x * Math.sin(tilt) + y * Math.cos(tilt)]; };
+    const hRise = smooth(0.9, 1.6, t);
+    const keep = (x, y) => Math.abs(x) < 1e5 && Math.abs(y) < 1e5 && y > wl + 0.05 * Math.sin(x * 4 + t * 3);
+    const dark = hex('#3e4f66'), mid = hex('#5b6f88');
+    for (const run of clipRuns(flukeOutline.map(p => xf(p)), keep)) push(run, dark, { h: STRIP_H * 1.15 * hRise + 0.01 });
+    for (const [o, cc] of [[0.12, mid], [0.24, hex('#71859e')], [0.36, hex('#8798ad')]]) {
+      const inner = offsetPath(flukeOutline, FLUKE_SIGN * o).filter(p => inPoly(p[0], p[1], flukeOutline) && minDist(p, flukeOutline) > o * 0.75);
+      for (const run of clipRuns(splitJumps(inner).map(p => xf(p)), keep)) push(run, cc, { h: STRIP_H * (1.05 - o * 0.6) * hRise + 0.01 });
+    }
+    // lobe fill: marquise coils
+    for (const sgn of [-1, 1]) {
+      const cpos = xf([sgn * 1.25, 2.85]);
+      if (keep(cpos[0], cpos[1])) push(looseCoil(cpos[0], cpos[1], 0.26, 4, marquise(sgn * -0.45 + tilt, 0.8), tilt, smooth(1.3, 2.1, t) * 0.7 + 0.3), hex('#7f93ad'), { h: STRIP_H * hRise });
+    }
+    // splash ring + water drops springing up around the stalk
+    const sp = spring((t - 1.0) * 1.4);
+    if (sp > 0.02) {
+      for (const sgn of [-1, 1]) {
+        const pts = curvePath(WHALE[0] + sgn * 0.5, wl + 0.02, sgn < 0 ? Math.PI - 0.5 : 0.5, 1.3, (s) => -sgn * 5.5 * Math.pow(s / 1.3, 1.5), Math.min(1.1, sp), 1, 0.03);
+        push(pts, hex('#bfe6ea'), { h: STRIP_H * 0.9 });
+      }
+      for (let k = 0; k < 6; k++) {
+        const a = Math.PI * (0.15 + 0.7 * k / 5), d = 0.6 + 1.2 * sp + 0.15 * (k % 2);
+        const dp = [WHALE[0] + Math.cos(a) * d * 1.1, wl + 0.2 + Math.sin(a) * d * 0.8 - 0.25 * Math.max(0, t - 2.2) ** 2 * 4];
+        if (dp[1] > wl) push(tightCoil(dp[0], dp[1], 0.1 * Math.min(1, sp) + 0.02, 0.04, k), hex('#d8f1f2'), { h: STRIP_H * 0.7 });
+      }
+    }
+  }
+  // boat bobbing
+  {
+    const bob = 0.07 * Math.sin(t * 2.4), roll = 0.07 * Math.sin(t * 2.4 + 1.1);
+    const xf = (p) => { const x = p[0], y = p[1]; return [BOAT[0] + x * Math.cos(roll) - y * Math.sin(roll), BOAT[1] + bob + x * Math.sin(roll) + y * Math.cos(roll)]; };
+    const hull = catmull([[-1.2, 0.35], [-0.95, -0.05], [-0.4, -0.3], [0.5, -0.3], [1.05, -0.05], [1.3, 0.38]], 10);
+    push(resample([...hull, [-1.2, 0.35]].map(xf), 0.035), hex('#8a4b2e'), { h: STRIP_H * 1.1 });
+    for (let k = 1; k < 4; k++) { const y = 0.33 - k * 0.15, w = 1.12 - k * 0.12; push(resample([[-w, y], [w, y]].map(xf), 0.04), hex(k % 2 ? '#b0683d' : '#9a5634')); }
+    push(resample([[0.05, 0.35], [0.05, 2.0]].map(xf), 0.04), hex('#5a3a2a'), { h: STRIP_H * 1.15 });
+    const sail = [[0.15, 0.55], [0.15, 1.9], [1.05, 0.55], [0.15, 0.55]];
+    push(resample(sail.map(xf), 0.035), hex('#f1e6cf'), { h: STRIP_H * 1.1 });
+    push(resample([[0.28, 0.68], [0.28, 1.5], [0.82, 0.68], [0.28, 0.68]].map(xf), 0.035), hex('#e9c9a0'));
+    push(resample([[-0.05, 0.55], [-0.05, 1.55], [-0.75, 0.55], [-0.05, 0.55]].map(xf), 0.035), hex('#efe0c4'), { h: STRIP_H * 1.05 });
+    // flag
+    push(resample([[0.05, 2.0], [0.45, 1.9 + 0.04 * Math.sin(t * 6)], [0.05, 1.8]].map(xf), 0.03), hex('#c2403a'));
+  }
+  return { S, E };
+}
+
+// ---------- scene objects ----------
+const baseMat = new THREE.MeshStandardMaterial({ map: baseTex, roughness: 0.95, metalness: 0 });
+const edgeMat = new THREE.MeshStandardMaterial({ color: 0x3a3048, roughness: 0.95, map: fiberTex });
+const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(BASE, BASE, 0.1), [edgeMat, edgeMat, edgeMat, edgeMat, baseMat, edgeMat]);
+baseMesh.position.z = -0.05; baseMesh.receiveShadow = true; baseMesh.castShadow = true; scene.add(baseMesh);
+const linen = (() => { const c = document.createElement('canvas'); c.width = c.height = 1024; const g = c.getContext('2d');
+  g.fillStyle = '#4a3a30'; g.fillRect(0, 0, 1024, 1024);
+  for (let y = 0; y < 1024; y += 2) { g.fillStyle = `rgba(${rnd() < 0.5 ? '255,235,210' : '0,0,0'},${rr(0.02, 0.09)})`; g.fillRect(0, y, 1024, 1); }
+  for (let x = 0; x < 1024; x += 2) { g.fillStyle = `rgba(${rnd() < 0.5 ? '255,235,210' : '0,0,0'},${rr(0.02, 0.08)})`; g.fillRect(x, 0, 1, 1024); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 6); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const table = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: linen, roughness: 1, color: 0x6a5a50 }));
+table.position.z = -0.1; table.receiveShadow = true; scene.add(table);
+const stripMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: fiberTex, roughness: 0.82, metalness: 0, side: THREE.DoubleSide, shadowSide: THREE.DoubleSide });
+const lampMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: fiberTex, roughness: 0.8, emissive: new THREE.Color('#ffc65a'), emissiveIntensity: 1.6, side: THREE.DoubleSide });
+let stripMesh = null, lampMesh = null;
+
+scene.add(new THREE.HemisphereLight(0xb0a8dc, 0x40303a, 0.75));
+const key = new THREE.DirectionalLight(0xffd2a6, 4.6);
+key.position.set(-10, 6, 6.5); key.castShadow = true;
+key.shadow.mapSize.set(4096, 4096);
+Object.assign(key.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 40 });
+key.shadow.bias = -0.0004; key.shadow.normalBias = 0.01; key.shadow.radius = 2.5;
+scene.add(key); scene.add(key.target);
+const fill = new THREE.DirectionalLight(0x8090d0, 0.35); fill.position.set(10, -6, 6); scene.add(fill);
+// lighthouse beam: a real spotlight skimming the paper from the lamp
+const beam = new THREE.SpotLight(0xffd890, 220, 30, 0.16, 0.6, 1.2);
+beam.position.set(LAMP[0], LAMP[1], 2.2); beam.castShadow = true;
+beam.shadow.mapSize.set(2048, 2048); beam.shadow.bias = -0.0005; beam.shadow.radius = 2; beam.shadow.camera.near = 0.2; beam.shadow.camera.far = 30;
+scene.add(beam); scene.add(beam.target);
+const lampGlow = new THREE.PointLight(0xffc062, 6, 3.5, 1.5); lampGlow.position.set(LAMP[0], LAMP[1], 0.9); scene.add(lampGlow);
+const moonLight = new THREE.PointLight(0xfff0c8, 4, 5, 1.5); moonLight.position.set(MOON[0], MOON[1], 1.4); scene.add(moonLight);
+
+// ---------- post ----------
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(1); composer.setSize(W, Hpx);
+composer.addPass(new RenderPass(scene, camera));
+const bokeh = new BokehPass(scene, camera, { focus: 20, aperture: 0.0022, maxblur: 0.006 });
+composer.addPass(bokeh);
+const finish = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime; varying vec2 vUv;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uTime*7.0)*43758.5453); }
+    void main(){ vec4 c = texture2D(tDiffuse, vUv); vec2 d = vUv-0.5; float v = smoothstep(0.85, 0.25, length(d*vec2(1.0,1.05)));
+      c.rgb *= mix(0.62, 1.0, v); c.rgb += (h(vUv*1000.0)-0.5)*0.022; gl_FragColor = c; }`,
+});
+composer.addPass(finish);
+composer.addPass(new OutputPass());
+
+// ---------- frame ----------
+function updateBase(S) {
+  const g = baseCanvas.getContext('2d');
+  g.globalCompositeOperation = 'source-over'; g.filter = 'none';
+  g.drawImage(paperCanvas, 0, 0);
+  // baked contact occlusion where strips meet the card (soft, a few px)
+  const pxu = BTEX / BASE;
+  g.globalCompositeOperation = 'multiply';
+  g.filter = `blur(${(0.06 * pxu).toFixed(1)}px)`;
+  g.strokeStyle = 'rgb(95,85,95)'; g.lineWidth = 0.09 * pxu; g.lineJoin = 'round'; g.lineCap = 'round';
+  g.beginPath();
+  for (const s of S) { const p = s.pts; if (s.h < 0.12) continue; let q = toPx(p[0][0], p[0][1]); g.moveTo(q[0], q[1]); for (let i = 1; i < p.length; i++) { q = toPx(p[i][0], p[i][1]); g.lineTo(q[0], q[1]); } }
+  g.stroke();
+  g.filter = `blur(${(0.22 * pxu).toFixed(1)}px)`;
+  g.strokeStyle = 'rgb(175,165,175)'; g.lineWidth = 0.3 * pxu; g.stroke();
+  g.filter = 'none'; g.globalCompositeOperation = 'source-over';
+  baseTex.needsUpdate = true;
+}
+
+window.renderFrame = function (i) {
+  const t = i / FPS;
+  BEAM_ANG = Math.PI * (0.935 + 0.1 * t / 3);
+  const { S, E } = buildStrips(t);
+  if (stripMesh) { stripMesh.geometry.dispose(); scene.remove(stripMesh); }
+  if (lampMesh) { lampMesh.geometry.dispose(); scene.remove(lampMesh); }
+  stripMesh = new THREE.Mesh(buildGeometry(S), stripMat); stripMesh.castShadow = stripMesh.receiveShadow = true; scene.add(stripMesh);
+  lampMesh = new THREE.Mesh(buildGeometry(E), lampMat); scene.add(lampMesh);
+  updateBase([...S, ...E]);
+
+  // beam sweep (turning lamp): sweeps across sky toward the sea
+  const ang = BEAM_ANG;
+  beam.target.position.set(LAMP[0] + Math.cos(ang) * 8, LAMP[1] + Math.sin(ang) * 8, 0.0);
+  const flick = 1 + 0.06 * Math.sin(t * 31) + 0.04 * Math.sin(t * 17.3);
+  beam.intensity = 260 * flick; lampGlow.intensity = 7 * flick; lampMat.emissiveIntensity = 1.6 * flick;
+
+  // camera: slow dolly + slight orbit
+  const u = smooth(0, 3, t) * 0.7 + t / 3 * 0.3;
+  const cx = lerp(-2.0, 1.0, u), cy = lerp(-19.0, -18.0, u), cz = lerp(18.6, 17.8, u);
+  camera.position.set(cx, cy, cz);
+  camera.up.set(0, 0, 1);
+  const tgt = new THREE.Vector3(lerp(0.0, 0.5, u), lerp(-0.3, 0.0, u), 0);
+  camera.lookAt(tgt);
+  const focusPt = new THREE.Vector3(WHALE[0], WHALE[1] + 1.5, 0.2);
+  bokeh.uniforms['focus'].value = camera.position.distanceTo(focusPt);
+  finish.uniforms.uTime.value = t;
+  composer.render();
+  return renderer.domElement.toDataURL('image/png');
+};
+window.ready = true;
+</script>
+</body></html>
