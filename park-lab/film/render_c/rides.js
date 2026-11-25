@@ -407,8 +407,8 @@ export function buildTrains(W) {
     for (let ti = 0; ti < nTr; ti++) for (let c = 0; c < nCars; c++) {
       const g = new THREE.Group(); group('trains').add(g); let col = Array.isArray(tcols) ? tcols[(c + (r.id === 'hero_coaster' ? 1 : 0)) % tcols.length] : (tp.color || '#ffffff');
       if (isCoaster) {
-        const lead = c === 0; const body = carGeo(S, carL, carW, lead && (tp.nose_cone_on_lead || r.type === 'family_coaster'), r.type === 'family_coaster');
-        const m = new THREE.Mesh(body, K.M(col, { vc: true, pattern: S === 'tin' ? (c % 2 ? 'stars' : 'stripes') : 'plain', acc: S === 'tin' ? '#F4EBD9' : undefined, forceMap: S === 'tin' })); m.castShadow = m.receiveShadow = true; g.add(m);
+        const lead = c === 0; const body = carGeo(S, carL, carW, lead && (tp.nose_cone_on_lead || r.type === 'family_coaster'), r.type === 'family_coaster', col);
+        const m = new THREE.Mesh(body, K.M('#ffffff', { vc: true, pattern: S === 'tin' ? (c % 2 ? 'stars' : 'stripes') : 'plain', acc: S === 'tin' ? '#F4EBD9' : undefined, forceMap: S === 'tin' })); m.castShadow = m.receiveShadow = true; g.add(m);
         if (r.type === 'family_coaster' && lead) { const hd = new THREE.Mesh(G.sph(0.65, 16), K.M('#7BC96F')); hd.position.set(0, 1.1, carL / 2 + 0.3); g.add(hd); for (const sx of [-0.25, 0.25]) { const e = new THREE.Mesh(G.sph(0.14, 8), K.M('#ffffff')); e.position.set(sx, 1.35, carL / 2 + 0.85); g.add(e); const pu = new THREE.Mesh(G.sph(0.07, 6), K.M('#1c1c1c')); pu.position.set(sx, 1.37, carL / 2 + 0.97); g.add(pu); const an = new THREE.Mesh(G.cyl(0.03, 0.03, 0.6, 4), K.M('#1c1c1c')); an.position.set(sx, 1.85, carL / 2 + 0.2); g.add(an); } }
         const rows = tp.rows_per_car || 1, seats = tp.seats_per_row || 2;
         for (let rw = 0; rw < rows; rw++) for (let sx = 0; sx < seats; sx++) { const lx = (sx - (seats - 1) / 2) * (carW * (rw === 0 && c === 0 && r.type === 'steel_looping_coaster' ? 0.56 : 0.45)); const lz = rows === 1 ? 0 : (rw === 0 ? 0.4 : -0.6) * carL / 2.2; riders.push({ car: g, lx, lz, ci: (ti * 31 + c * 7 + rw * 3 + sx) % pal.length, skin: ['#F3D2B5', '#C99068', '#E8BC98', '#704A32'][(c + sx + rw) % 4], hair: ['#2B1D14', '#D9B56A', '#8A5A2E', '#1C1C1C'][(c * 3 + sx) % 4], ride: r.id, lead: c === 0 && rw === 0, train: ti, seatY: 0.05 }); }
@@ -435,17 +435,17 @@ export function buildTrains(W) {
   return trains;
 }
 // car body: open-top car with seats (unit around origin; y=0 at rail centre plane)
-function carGeo(S, L, Wd, nose, family) {
+function carGeo(S, L, Wd, nose, family, bc = '#ffffff') {
   const G = geoKit(S); const P = []; const w = Wd * 0.95, h0 = 0.22;
   const B = (bw, bh, bd, c, p, r) => P.push(tint(xf(G.box(bw, bh, bd, Math.min(bw, bh, bd) * (S === 'felt' ? 0.35 : 0.12)), { p, r }), c));
   B(w * 0.9, 0.22, L * 0.92, '#3a3a3a', [0, h0 - 0.05, 0]); // chassis
-  B(w, 0.12, L * 0.95, '#ffffff', [0, h0 + 0.12, 0]); // floor
-  for (const sx of [-1, 1]) B(0.12, 0.5, L * 0.95, '#ffffff', [sx * (w / 2 - 0.06), h0 + 0.38, 0]); // sides
-  B(w, 0.3, 0.14, '#ffffff', [0, h0 + 0.22, L * 0.47]); B(w, 0.5, 0.14, '#ffffff', [0, h0 + 0.4, -L * 0.47]);
+  B(w, 0.12, L * 0.95, bc, [0, h0 + 0.12, 0]); // floor
+  for (const sx of [-1, 1]) B(0.12, 0.5, L * 0.95, bc, [sx * (w / 2 - 0.06), h0 + 0.38, 0]); // sides
+  B(w, 0.3, 0.14, bc, [0, h0 + 0.22, L * 0.47]); B(w, 0.5, 0.14, bc, [0, h0 + 0.4, -L * 0.47]);
   const rows = family ? [0] : [0.4 * L / 2.2, -0.6 * L / 2.2];
   for (const rz of rows) { B(w * 0.86, 0.14, 0.42, '#3B3566', [0, h0 + 0.3, rz - 0.08]); B(w * 0.86, 0.75, 0.14, '#2E294E', [0, h0 + 0.7, rz - 0.32]); for (const sx of family ? [-0.3, 0.3] : [-0.45, 0.45]) { B(0.36, 0.3, 0.12, '#2E294E', [sx * Wd / 2 * 1.9 / 1.9, h0 + 1.22, rz - 0.34]); B(0.34, 0.06, 0.06, '#F4B942', [sx, h0 + 0.58, rz + 0.3]); B(0.05, 0.3, 0.05, '#F4B942', [sx, h0 + 0.45, rz + 0.3]); } }
   for (const sz of [-L * 0.35, L * 0.35]) for (const sx of [-0.55, 0.55]) P.push(tint(xf(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 10), { p: [sx * (Wd / 2) / 1.0 * 0.55 / 0.55, 0.05, sz], r: [0, 0, Math.PI / 2] }), '#555555'));
-  if (nose) { const n = new THREE.SphereGeometry(0.7, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2); n.rotateX(Math.PI / 2); n.scale(w / 1.4, 0.3, 1.4); P.push(tint(xf(n, { p: [0, h0 + 0.12, L * 0.48] }), '#ffffff')); P.push(tint(xf(new THREE.CylinderGeometry(0.16, 0.16, 0.08, 12), { p: [0, h0 + 0.3, L * 0.48 + 0.92], r: [Math.PI / 2, 0, 0] }), '#F4B942')); }
+  if (nose) { const n = new THREE.SphereGeometry(0.7, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2); n.rotateX(Math.PI / 2); n.scale(w / 1.4, 0.24, 1.0); P.push(tint(xf(n, { p: [0, h0 + 0.1, L * 0.48] }), bc)); P.push(tint(xf(new THREE.CylinderGeometry(0.16, 0.16, 0.08, 12), { p: [0, h0 + 0.18, L * 0.48 + 0.66], r: [Math.PI / 2, 0, 0] }), '#F4B942')); }
   for (const sx of [-1, 1]) P.push(tint(xf(new THREE.BoxGeometry(0.04, 0.12, L * 0.9), { p: [sx * (w / 2 + 0.01), h0 + 0.6, 0] }), '#F4B942'));
   return merge(P);
 }
@@ -467,7 +467,7 @@ export function updateTrains(W, t, shot, o = {}) {
     _m.copy(g.matrix).multiply(_m2.makeTranslation(rd.lx, seatY, rd.lz));
     const hide = (o.hideRider && o.hideRider(rd)) || !g.visible;
     const set = (inst, M) => { if (hide) M = _m2.makeScale(0, 0, 0); inst.mesh.setMatrixAt(i, M); };
-    set(R.torso, _m); set(R.head, _m); set(R.hair, _m);
+    set(R.torso, _m); const noHead = o.povHideHeads && rd.lead && rd.train === 0; set(R.head, noHead ? _m2.makeScale(0, 0, 0) : _m); set(R.hair, noHead ? _m2.makeScale(0, 0, 0) : _m);
     for (const [arm, hand, sg] of [[R.armL, R.hands, 1], [R.armR, R.handsR, -1]]) {
       const M = _m.clone().multiply(_m2.makeTranslation(sg * 0.25, 1.15, 0.02));
       if (up && rd.lead && rd.train === 0) { const side = Math.sign(rd.lx) || 1; M.multiply(_m2.makeRotationZ(-side * (0.75 + wave * 0.5) - (sg === side ? 0.25 : -0.05) * side)).multiply(new THREE.Matrix4().makeRotationX(0.75 + wave)); }

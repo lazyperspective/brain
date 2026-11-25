@@ -166,12 +166,12 @@ function buildSky(W, scene) {
 function buildTable(W, scene) {
   const K = W.K;
   const wood = canvasTex(2048, 2048, (g, w, h) => { const R = rng(3); g.fillStyle = '#5a3420'; g.fillRect(0, 0, w, h); const pw = 256;
-    for (let p = 0; p < w / pw; p++) { const base = ['#6b3f26', '#5e3721', '#704429', '#633a23'][p % 4]; g.fillStyle = base; g.fillRect(p * pw, 0, pw - 3, h);
+    for (let p = 0; p < w / pw; p++) { const base = ['#5c3e2f', '#523629', '#614232', '#573a2c'][p % 4]; g.fillStyle = base; g.fillRect(p * pw, 0, pw - 3, h);
       for (let i = 0; i < 90; i++) { const x = p * pw + R() * pw; g.strokeStyle = `rgba(${R() < 0.5 ? '30,15,5' : '150,95,55'},${0.08 + R() * 0.14})`; g.lineWidth = 1 + R() * 3; g.beginPath(); g.moveTo(x, 0); for (let y = 0; y <= h; y += 32) g.lineTo(x + Math.sin(y / 180 + i) * 6 + Math.sin(y / 37 + i * 3) * 1.5, y); g.stroke(); }
       for (let k = 0; k < 2; k++) { const cx = p * pw + 40 + R() * (pw - 80), cy = R() * h; for (let r = 4; r < 40; r += 5) { g.strokeStyle = 'rgba(40,20,8,0.18)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(cx, cy, r * 0.6, r * 1.8, 0, 0, 7); g.stroke(); } }
       g.fillStyle = 'rgba(20,10,5,0.55)'; g.fillRect(p * pw + pw - 3, 0, 3, h); }
   });
-  wood.repeat.set(4, 4); const tm = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.42, metalness: 0.0 }); K.detail(tm);
+  wood.repeat.set(4, 4); const tm = new THREE.MeshStandardMaterial({ map: wood, color: new THREE.Color(0.66, 0.68, 1.45), roughness: 0.42, metalness: 0.0 }); K.detail(tm);
   const table = new THREE.Mesh(new THREE.PlaneGeometry(4800, 4800), tm); table.rotation.x = -Math.PI / 2; table.position.set(0, -0.05, 0); table.rotation.z = Math.PI / 2; table.receiveShadow = true; scene.add(table);
   // table edge + room backdrop
   const edge = new THREE.Mesh(new THREE.BoxGeometry(4800, 60, 4800), new THREE.MeshStandardMaterial({ color: '#3a2214', roughness: 0.6 })); edge.position.y = -30.1; scene.add(edge);
@@ -273,7 +273,7 @@ function setupPOV(ctx, o) {
     update(t, c) {
       if (S === 'felt') { const k = Math.round(t * 15); const br = rng(k * 97 + 3); ctx.boilU.value.set(br() * 0.3, br() * 0.3, br() * 0.3); }
       for (const a of W.anims) a(t, {});
-      updateTrains(W, t, shot, { armsUp: rd => rd.ride === 'hero_coaster' && rd.train === 0 });
+      updateTrains(W, t, shot, { armsUp: rd => rd.ride === 'hero_coaster' && rd.train === 0, povHideHeads: true });
       updateGuests(W, t, { offset: () => [0, W.slab, 0, 1] });
     },
     shadow(t, c) { const p = new THREE.Vector3(...c.position), tg = new THREE.Vector3(...c.target); const d = tg.clone().sub(p).setY(0).normalize(); const ctr = p.clone().addScaledVector(d, 70).setY(0); return { center: ctr, radius: 130 }; },
@@ -367,7 +367,7 @@ function setup06(ctx) {
   const rimM = K.M('#E3A537', { pattern: 'plain', forceMap: true });
   // ---- clockwork motor box with brass key
   const motor = new THREE.Group(); motor.position.set(176, 0, 84); scene.add(motor);
-  motor.add(Object.assign(new THREE.Mesh(G.box(10, 7, 8, 0.4), K.M('#233a66', { pattern: 'gears', acc: '#E3A537' })), { castShadow: true, receiveShadow: true })).position.y = 3.5;
+  { const body = new THREE.Mesh(G.box(10, 7, 8, 0.4), K.M('#233a66', { pattern: 'gears', acc: '#E3A537' })); body.castShadow = body.receiveShadow = true; body.position.y = 3.5; motor.add(body); }
   const mtop = new THREE.Mesh(G.box(10.6, 0.6, 8.6, 0.2), K.M('#C63A2C', { pattern: 'check', acc: '#F2E4C4' })); mtop.position.y = 7.2; mtop.castShadow = true; motor.add(mtop);
   const rv = []; for (let i = 0; i < 8; i++) rv.push([-4.6 + i * 9.2 / 7, 6.6, 4.05], [-4.6 + i * 9.2 / 7, 0.5, 4.05]); const rvi = new Inst(new THREE.SphereGeometry(0.16, 8, 6), K.M('#fff', { kind: 'chrome' }), rv.map(p => ({ p }))); motor.add(rvi.mesh);
   const brass = K.M('#d9a948', { kind: 'brass' });
@@ -383,7 +383,7 @@ function setup06(ctx) {
   const boothsX = W.pieces.filter(p => p.userData.piece.kind === 'booth').map(p => p.userData.piece.x).sort((a, b) => a - b);
   for (const p of W.pieces) { const i = p.userData.piece; i.inBox = inBox(i.x, i.z) && i.cat !== 'track';
     if (!i.inBox) continue; i.t1 = land[i.id] ?? (i.kind === 'booth' ? 21.75 + boothsX.indexOf(i.x) % 16 * (0.25 / 16) : 22.0 + hash1(i.x) * 0.2); }
-  const HIDE_T = [[168.21, 78.44], [179.23, 87.29], [182.12, 90.21], [175.79, 102.78], [183.96, 104.12]]; // trees colliding with the clockwork set / camera
+  const HIDE_T = [[168.21, 78.44], [179.23, 87.29], [182.12, 90.21], [175.79, 102.78], [183.96, 104.12], [193.11, 101.3]]; // trees colliding with the clockwork set / camera
   for (const [name, inst] of allSets(W)) for (const it of inst.items) { const x = it.x ?? it.p[0], z = it.z ?? it.p[2]; const isTree = /tree/.test(name) || /tree/.test(inst.mesh.userData.cat || '');
     it.inBox = inBox(x, z) && !/tree|shrub|hedge|topiary|blooms|leaves/.test(name) && !isTree; it.t1 = 22.0 + hash1(x * 1.7 + z) * 0.25;
     if (isTree && x > 84 && x < 156 && z > 38 && z < 86) { it.inBox = true; it.t1 = 21.9 + hash1(x) * 0.2; }
@@ -416,7 +416,7 @@ function setup06(ctx) {
       for (const p of W.pieces) { const i = p.userData.piece; if (!i.wrapper) continue; if (!i.inBox) { setWrap(i, null); continue; } const m = flight(t, i.t1, i.wrapper.userData.base, 0.45, i.kind === 'booth' ? 10 : 22); i.wrapper.visible = !!m; if (m) setWrap(i, m); }
       for (const [name, inst] of allSets(W)) inst.update((it) => { if (it.hideT) return false; if (!it.inBox) return null; const m = flight(t, it.t1, new THREE.Vector3(...it.p), 0.4, 8); return m || false; });
       // motor: bumped up by the east wall landing
-      const bump = t > 20.95 ? Math.abs(Math.sin((t - 20.95) * 14)) * Math.exp(-(t - 20.95) * 7) * 1.6 + TH : 0; motor.position.y = bump;
+      const bump = t > 20.95 ? Math.abs(Math.sin((t - 20.95) * 14)) * Math.exp(-(t - 20.95) * 7) * 1.6 : 0; motor.position.y = bump;
       // key: 6 ratchet clicks on 8ths 22.5..23.25 -> 1.5 turns; then slowly unwinds while running
       let ka = 0; for (let k = 0; k < 6; k++) { const u = (t - (22.5 + k * 0.125)) / 0.1; if (u > 0) ka += eOutBack(clamp(u), 2.2) * Math.PI / 2; }
       if (t > 23.25) ka -= (t - 23.25) * 1.2; key.rotation.z = -ka; keyG.position.z = 4.0 + ((t > 22.5 && t < 23.25) ? Math.abs(Math.sin((t - 22.5) * 8 * Math.PI)) * 0.08 : 0);

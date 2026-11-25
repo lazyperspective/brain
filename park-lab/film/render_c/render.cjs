@@ -49,7 +49,7 @@ srv.listen(0, async () => {
     let last = null; const ts = Date.now();
     for (let i = 0; i < n; i++) {
       const t = shot.render.t_start + i / fps;
-      if (!twos || i % 2 === 0) { const a = Date.now(); last = await grab(t); log(`frame ${i}/${n} t=${t.toFixed(3)} ${((Date.now() - a) / 1000).toFixed(1)}s elapsed ${((Date.now() - ts) / 60000).toFixed(1)}min`); }
+      if (!twos || i % 2 === 0) { const a = Date.now(); last = await grab(t); if (i % 22 === 0 || i === 6 || i === n - 8) { const pd = path.join(__dirname, 'scratch/preview'); fs.mkdirSync(pd, { recursive: true }); fs.writeFileSync(path.join(pd, `${shotId.slice(0, 2)}_${String(i).padStart(3, '0')}.png`), last); } log(`frame ${i}/${n} t=${t.toFixed(3)} ${((Date.now() - a) / 1000).toFixed(1)}s elapsed ${((Date.now() - ts) / 60000).toFixed(1)}min`); }
       await write(last);
     }
     ff.stdin.end(); await new Promise(r => ff.on('close', r));
