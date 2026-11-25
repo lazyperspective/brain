@@ -136,15 +136,15 @@ def beam_mask(t):
 
 def whale_shapes(t):
     rise = float(sm(0.25, 2.6, np.float32(t)))
-    x0, x1, wl, H = 0.27, 0.75, 0.81, rise * 0.15
+    x0, x1, wl, H = 0.05, 0.50, 0.81, rise * 0.15
     s = np.linspace(0, 1, 80)
     sh = np.sin(np.pi * s ** 0.8) ** 0.7
     top = [(x0 + (x1 - x0) * si, wl - H * hi + 0.006) for si, hi in zip(s, sh)]
     body = polymask(top + [(x1, wl + 0.02), (x0, wl + 0.02)], 1.8) if H > 0.002 else np.zeros((N, N), np.float32)
-    fin = polymask([(x0 + (x1 - x0) * 0.64, wl - H * 0.9), (x0 + (x1 - x0) * 0.72, wl - H * 1.32 - 0.008 * rise), (x0 + (x1 - x0) * 0.78, wl - H * 0.7)], 1.5) if H > 0.01 else 0
+    fin = polymask([(x0 + (x1 - x0) * 0.62, wl - H * 0.9), (x0 + (x1 - x0) * 0.73, wl - H * 1.45 - 0.012 * rise), (x0 + (x1 - x0) * 0.735, wl - H * 1.40 - 0.012 * rise), (x0 + (x1 - x0) * 0.79, wl - H * 0.68)], 1.5) if H > 0.01 else 0
     body = np.clip(body + fin, 0, 1) * sm(wl + 0.012, wl - 0.004, V)
     # rim of light along the wet back: band just under the top edge
-    inner = ndi.gaussian_filter(body, 6)
+    inner = ndi.gaussian_filter(body, 9)
     rim = np.clip(body - inner * 1.1, 0, 1) * sm(wl - 0.01, wl - 0.04, V) * 3.0
     return body, np.clip(rim, 0, 1), rise, (x0, x1, wl, H)
 
@@ -166,7 +166,7 @@ class Layer:
         if init:
             self.P = Pn.copy(); self.T = Tt * (1 + 0.28 * br); return
         self.P += (Pn - self.P) * a[..., None]
-        self.T += (Tt * (1 + 0.28 * br) - self.T) * a
+        self.T += (Tt * (1 + (0.14 if self.kind == 'mid' else 0.28) * br) - self.T) * a
         self.T = np.maximum(self.T, 0)
 
 sky, mid, sea = Layer('sky'), Layer('mid'), Layer('sea')
@@ -249,7 +249,7 @@ def paint_frame(t, f, warm=False):
     Pt = Pt * (1 - hull[..., None]) + np.array([0.2, 0.1, 0.08], np.float32) * hull[..., None]; Tt = Tt * (1 - hull) + 3.2 * hull
     Pt = Pt * (1 - sail[..., None]) + np.array([1.0, 0.86, 0.62], np.float32) * sail[..., None]; Tt = Tt * (1 - sail) + 0.5 * sail
     Tt = Tt + 2.5 * mast
-    cis = np.clip(mid_in_sea(cliffW, t) * 1.05, 0, 1)
+    cis = np.clip(mid_in_sea(cliffW, t) * 1.05, 0, 1) * (1 - np.clip(ndi.maximum_filter(body, 9), 0, 1))
     ring = np.clip(ndi.gaussian_filter(ndi.maximum_filter(cis, 15), 3) - cis, 0, 1) * seaM * (TEX['sea'][0][(f + 1) % 3] > -0.3)
     Tt = Tt * (1 - cis) * (1 - 0.75 * ring)
     Pt = Pt + (np.array([0.95, 0.85, 0.78], np.float32) - Pt) * (0.7 * ring)[..., None]
