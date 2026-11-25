@@ -1,0 +1,10 @@
+precompute
+warm
+frame 0
+frame 10
+frame 20
+frame 30
+frame 40
+frame 50
+frame 60
+frame 70

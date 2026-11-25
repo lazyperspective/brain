@@ -110,7 +110,7 @@ seaM = sm(HOR - 0.003, HOR + 0.006, V)
 WX, WY = fnoise(60, 11, 2) * 3.0, fnoise(60, 12, 2) * 3.0
 def warp(m): return ndi.map_coordinates(m, [yy + WY, xx + WX], order=1, mode='nearest')
 cliff = warp(cliff); tower = warp(tower); bands = warp(bands); lantern = warp(lantern); roof = warp(roof)
-cliffW = cliff * sm(0.80, 0.70, V)
+cliffW = cliff
 topedge = np.clip(cliff - ndi.gaussian_filter(cliff, 6) * 1.1, 0, 1) * sm(0.56, 0.48, V) * 2.0
 topedge = np.clip(topedge, 0, 1)
 CLIFFHUE = fnoise(90, 21, 3); SEAHUE = fnoise(220, 22, 2)
@@ -170,6 +170,18 @@ class Layer:
         self.T = np.maximum(self.T, 0)
 
 sky, mid, sea = Layer('sky'), Layer('mid'), Layer('sea')
+
+def camp(t):
+    e = float(sm(0, 3, np.float32(max(t, 0)))); e = 0.5 * e + 0.5 * e * e * (3 - 2 * e)
+    return np.array([-64 * e, -22 * e]), e
+
+def mid_in_sea(m, t):
+    # where a mid-plane mask lands on the front plane for this frame's camera (so the front paint can be wiped there)
+    cam, e = camp(t); c = N / 2
+    sm_, ss = 1.0 + 0.03 * e, 1.0 + 0.06 * e
+    shm, shs = cam * 0.55, cam * 1.0
+    py = (yy - c + shs[1]) * ss / sm_ + c - shm[1]; px = (xx - c + shs[0]) * ss / sm_ + c - shm[0]
+    return ndi.map_coordinates(m, [py, px], order=1, mode='nearest')
 
 def paint_frame(t, f, warm=False):
     rate = 1.0 if warm else None
@@ -237,6 +249,10 @@ def paint_frame(t, f, warm=False):
     Pt = Pt * (1 - hull[..., None]) + np.array([0.2, 0.1, 0.08], np.float32) * hull[..., None]; Tt = Tt * (1 - hull) + 3.2 * hull
     Pt = Pt * (1 - sail[..., None]) + np.array([1.0, 0.86, 0.62], np.float32) * sail[..., None]; Tt = Tt * (1 - sail) + 0.5 * sail
     Tt = Tt + 2.5 * mast
+    cis = np.clip(mid_in_sea(cliffW, t) * 1.05, 0, 1)
+    ring = np.clip(ndi.gaussian_filter(ndi.maximum_filter(cis, 15), 3) - cis, 0, 1) * seaM * (TEX['sea'][0][(f + 1) % 3] > -0.3)
+    Tt = Tt * (1 - cis) * (1 - 0.75 * ring)
+    Pt = Pt + (np.array([0.95, 0.85, 0.78], np.float32) - Pt) * (0.7 * ring)[..., None]
     region = np.clip(seaM + sail + mast + body, 0, 1)
     # paint near the whale is dragged upward as it rises
     lift = np.exp(-((U - (x0 + x1) / 2) / 0.22) ** 2) * np.exp(-((V - wl + H * 0.5) / 0.08) ** 2) * (2.5 * (rise > 0) * (1 - rise * 0.6))
@@ -245,7 +261,7 @@ def paint_frame(t, f, warm=False):
     # protect the boat / sail / whale rim from smearing away completely
     hold = np.clip(np.clip(hull + sail + mast, 0, 1) * 0.7 + body * 0.32 + rim * 0.4, 0, 0.8)
     sea.P += (Pt - sea.P) * hold[..., None]; sea.T += (Tt - sea.T) * hold
-    keep = np.clip(sm(HOR - 0.012, HOR + 0.002, V) + ndi.maximum_filter(np.clip(hull + sail + mast, 0, 1), 5), 0, 1) * (1 - 0.85 * cliffW * sm(HOR + 0.01, HOR + 0.04, V))
+    keep = np.clip(sm(HOR - 0.012, HOR + 0.002, V) + ndi.maximum_filter(np.clip(hull + sail + mast, 0, 1), 5), 0, 1) * (1 - 0.97 * cis)
     sea.T *= keep
     sea.T *= (1 - 0.7 * path)
     return bm, ang
@@ -281,8 +297,7 @@ def sheen(T, shift, scale, strength):
     return view(s[..., None], shift, scale, 0)
 
 def render(t, bm, ang):
-    e = float(sm(0, 3, np.float32(t))); e = 0.5 * e + 0.5 * e * e * (3 - 2 * e)
-    cam = np.array([-64 * e, -22 * e])
+    cam, e = camp(t)
     T0 = view(transmit(sky), cam * 0.25, 1.0 + 0.012 * e, 3.2)
     T1 = view(transmit(mid), cam * 0.55, 1.0 + 0.03 * e, 1.1)
     T2 = view(transmit(sea), cam * 1.0, 1.0 + 0.06 * e, 0.0)
