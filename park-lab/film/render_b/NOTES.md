@@ -15,4 +15,26 @@ All shots are rendered with three.js r160 in headless Chromium (SwiftShader) thr
 | `style_lowpoly.js`, `blueprint.js` | low-poly tycoon look; blueprint linework and the wave |
 | `style_mini.js`, `globe_room.js`, `common.js` | tilt-shift dusk->night; snow globe, room, ticket, glass, snow, DOF |
 
-(see report section below)
+## Status (all verified with ffprobe: 1920x1080, 30/1 fps, yuv420p, exact frame counts)
+| shot | file | frames | render time | still |
+|---|---|---|---|---|
+| 04 | `film/shots/04_lowpoly_blueprint.mp4` | 132 | 19.0 min (second pass; first pass 27.9) | `check/04_lowpoly_blueprint_still.jpg` |
+| 08 | `film/shots/08_pov_lift_lowpoly.mp4` | 72 | 8.6 min | `check/08_pov_lift_lowpoly_still.jpg` |
+| 13 | `film/shots/13_pov_loop_lowpoly.mp4` | 42 | 5.5 min | `check/13_pov_loop_lowpoly_still.jpg` |
+| 15 | `film/shots/15_tiltshift_dusk.mp4` | 132 | 50.4 min (rendered 1600x900, lanczos to 1080p) | `check/15_tiltshift_dusk_still.jpg` |
+| 16 | `film/shots/16_globe_shake.mp4` | 132 | 44.1 min (rendered 1600x900, lanczos to 1080p) | `check/16_globe_shake_still.jpg` |
+
+Cut frames (frame 6 and frames-7): `check/<id>_in.jpg`, `check/<id>_out.jpg`. Times are with the other two agents rendering at the same time.
+
+## The looks
+- **04 blueprint wave:** everything starts as a cyan construction drawing (grid ground, wireframe tracks with ties, supports, bents, buildings, rides, lollipop trees, kerb outlines). A front sweeps SW->NE (s = (x - z)/sqrt2): fast pre-sweep 12.22-12.5, enters at (-50,-50) at 12.5, reaches the NE corner of Skyline Thrills at 14.5, then speeds up so all of the frame is real by ~15.4. Geometry rises out of the ground with an overshoot, flashes cyan and settles; unbuilt objects cast no shadows. Matched to shot 05: the frontier (wooden coaster and frontier buildings) and the midway stay unbuilt (05 builds them / shows the lot); their ghost linework fades out 14.6-15.6, trees and grass there are built, and the midway lot is a bare dirt pad (150 x 92 m at (121, 66), trees cleared) like 05's first frame. Mild tilt-shift fades out before 16.0. The end frame was compared side by side with 05's first frame: same framing, tower, coaster, drop tower, pad.
+- **08/13 POV:** front car with sculpted nose, padded front, lap bars, headrests, neighbouring riders; lift with chain, anti-rollback, stair catwalks and handrails both sides; loop shows the inverted park with ties, supports and shadows.
+- **15 tilt-shift:** golden low sun from the west (az ~260, 12 deg -> -8 deg by 37.5), sky gold -> rose -> violet -> navy with stars; glossy plastic materials + room env reflections fading at night; one-pass 40-tap disc tilt blur with bokeh weighting, bloom, saturated S-curve grade, CA, grain, vignette. Lights pop per land with a stutter + flash (37.5 main street/entrance, 38.0 hub, 38.5 midway + carousel, 39.0 seaside wheel + kiddie, 39.5 thrill lift/loop bulbs, frontier, jungle). Outside the globe disc darkens 39.3-40.0 so the cut to 16 is seamless (checked side by side: practically identical).
+- **16 snow globe:** analytic glass (refraction with dispersion, Fresnel lamp/window reflections, highlight arcs, rim) fading in 39.95-40.35; clear-coated lathe base with brass rings, walnut table, bokeh wall, lamp key from [-0.5,0.8,-0.35]; jolt at 41.0 (damped shake + hop + tilt), 3,200 swirling flakes, milky haze 41.0-42.15, winter swaps under the haze (coats/hats, snow cover). The too-white prototype winter is fixed: snow strength is capped (0.62) and per material (rides 0.18, track 0.12, trees 0.55, ground 0.8), lights are boosted after the shake, so rides, bulbs and colours stay readable. Depth-of-field follows the park, then the ticket; the last frame is the closed ticket (ticket_print.png, print up, image top north) at (0,-157,648), camera ticket+(0,297,22).
+
+## What I'm unhappy with
+- **Loop seam 16 -> 01:** ticket pose and size match shot 01 exactly, but my walnut table is darker and redder than agent C's lighter honey-walnut table, so the table tone jumps at the loop. Easiest fix: a colour match on the last ~0.5 s of 16 in assembly, or I re-render 16 with C's table texture (~45 min).
+- **15 at 37.5:** the main-street/entrance pop happens out of frame (the director's camera is over Skyline Thrills then), so the first visible pop is the hub at 38.0. Light pools still read a bit as discs.
+- **08:** the director's head turn mostly shows sky and the front car; the panorama only appears at the right edge. The front car is clean but blocky up close.
+- **04:** the far ground ring outside the site shows a pale circular edge in the top-right corner. People are tiny at this scale (low LOD there).
+- **16:** the snowfall reads as fine grain at 1080p. Parts of the winter park are soft because of the DOF. Not rendered at native 1080p (1600x900 upscaled) to save CPU.
