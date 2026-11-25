@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/lib/three/three.module.js"}}</script>
+<script src="/plan/park.js"></script>
+</head><body><script type="module">
+import * as THREE from 'three';
+import { buildGreybox } from '/plan/greybox.js';
+const qs = new URLSearchParams(location.search);
+const W = +(qs.get('w') || 1920), H = +(qs.get('h') || 1080);
+try {
+  const park = await ParkPlan.load('/plan/park.json');
+  let shots = null; try { shots = await (await fetch('/plan/shots.json')).json(); } catch (e) {}
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1); renderer.setSize(W, H); document.body.appendChild(renderer.domElement);
+  renderer.shadowMap.enabled = qs.get('shadows') !== '0'; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0xbfd9ff); scene.fog = new THREE.Fog(0xbfd9ff, 600, 2400);
+  const L = park.data.lighting; const d = L.sun_day.direction_to_sun;
+  const sun = new THREE.DirectionalLight(0xfff1dc, 2.6); sun.position.set(d[0] * 800, d[1] * 800, d[2] * 800);
+  sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); const sc = sun.shadow.camera; sc.left = -420; sc.right = 420; sc.top = 420; sc.bottom = -420; sc.near = 10; sc.far = 2000; sun.shadow.bias = -0.0004;
+  scene.add(sun); scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x7a9a5a, 0.9));
+  const gb = buildGreybox(THREE, park, { detail: 1 });
+  scene.add(gb.root);
+  const pcam = new THREE.PerspectiveCamera(40, W / H, 0.3, 6000);
+  const ocam = new THREE.OrthographicCamera(-1, 1, 1, -1, -2000, 4000);
+  window.renderView = (v) => {   // v: {pos,target,fov,ortho,t, shotId}
+    let c = v; let shot = null;
+    if (v.shotId && shots) { shot = shots.shots.find(s => s.id === v.shotId); c = park.camera(shot, v.t); c = { pos: c.position, target: c.target, fov: c.fov, ortho: c.orthoHalfHeight, up: c.up }; }
+    gb.update(v.t || 0, shot);
+    let cam;
+    if (c.ortho) { cam = ocam; cam.left = -c.ortho * W / H; cam.right = c.ortho * W / H; cam.top = c.ortho; cam.bottom = -c.ortho; cam.updateProjectionMatrix(); }
+    else { cam = pcam; cam.fov = c.fov || 40; cam.aspect = W / H; cam.updateProjectionMatrix(); }
+    cam.position.set(...c.pos); cam.up.set(...(c.up || [0, 1, 0])); cam.lookAt(...c.target);
+    if (c.ortho) { const dir = new THREE.Vector3(...c.target).sub(cam.position).normalize(); cam.position.copy(new THREE.Vector3(...c.target).addScaledVector(dir, -1500)); cam.lookAt(...c.target); }
+    renderer.render(scene, cam);
+    return renderer.domElement.toDataURL('image/jpeg', 0.92);
+  };
+  window.__ready = true;
+} catch (e) { window.__err = e.stack || String(e); }
+</script></body></html>

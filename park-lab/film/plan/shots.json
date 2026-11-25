@@ -1,0 +1,2698 @@
+{
+ "title": "park film montage",
+ "fps": 30,
+ "size": [
+  1920,
+  1080
+ ],
+ "duration": 44.0,
+ "frames": 1320,
+ "loop": true,
+ "music": {
+  "bpm": 120,
+  "beat_s": 0.5,
+  "beat_frames": 15,
+  "bar_s": 2.0,
+  "bars": 22,
+  "time_signature": "4/4",
+  "score": "film/audio/score.wav"
+ },
+ "camera_conventions": {
+  "world": "park.json world (metres, y up, z south)",
+  "keys": "keys[i] = {t, pos, target, fov | ortho, ease, roll?}; ease applies to the segment from this key to the next; interp catmull (uniform Catmull-Rom through pos/target, endpoint keys duplicated) or linear; step = hold until the next key",
+  "ortho": "orthographic half-height in metres (visible world height = 2*ortho); camera looks from pos toward target; iso = 2:1 dimetric, elevation 30 deg, from the south-east",
+  "pov": "ride-along: eye 1.25 m above the track centre of the front row (s_front - 0.7), look target 14 m ahead along the track; camera up = track up (horizon banks, inverts in the loop); head = yaw/pitch keyframes in degrees (yaw + = look left)",
+  "evaluate": "use ParkPlan.camera(shot, t) in park.js or park.camera(shot, t) in park.py so all styles get identical cameras",
+  "up": "world up (0,1,0) except straight-down views (0,0,-1) and POV"
+ },
+ "shots": [
+  {
+   "id": "01_paper_ticket",
+   "n": 1,
+   "style": "paper",
+   "agent": "c",
+   "start": 0.0,
+   "end": 4.0,
+   "start_frame": 0,
+   "end_frame": 120,
+   "film_frames": 120,
+   "bars": "1-3",
+   "render": {
+    "t_start": -0.2,
+    "t_end": 4.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 132,
+    "output": "film/shots/01_paper_ticket.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "ticket unfolds into the park (paper pop-up)",
+    "start": 0.0,
+    "end": 3.6
+   },
+   "action": "Top-down on a folded paper ticket lying on the walnut table. It unfolds flap by flap on the beat into the full park map; pop-ups ripple out from the hub; the hero coaster strip springs up last. The camera rises and swings to a high south-east 3/4 view and starts to dive toward the gate.",
+   "beats": [
+    {
+     "t": 0.0,
+     "e": "FRAME 0 = LOOP FRAME: closed ticket, still. Left flap starts flipping on frame 1 (paper thwack hit)"
+    },
+    {
+     "t": 0.5,
+     "e": "right flap lands"
+    },
+    {
+     "t": 1.0,
+     "e": "rows +-1 roll open"
+    },
+    {
+     "t": 1.5,
+     "e": "rows +-2 roll open; sheet lies flat"
+    },
+    {
+     "t": 2.0,
+     "e": "pop-up ripple starts at the hub tower and spreads outward by distance (~250 m/s)"
+    },
+    {
+     "t": 2.5,
+     "e": "main street facades, Ferris wheel and carousel are up"
+    },
+    {
+     "t": 3.0,
+     "e": "hero coaster strip springs up with overshoot (boing); other coasters 3.0-3.25"
+    },
+    {
+     "t": 3.5,
+     "e": "train drops off the crest; flags flutter"
+    }
+   ],
+   "camera": {
+    "mode": "perspective",
+    "interp": "catmull",
+    "fov": 34,
+    "keys": [
+     {
+      "t": -0.2,
+      "pos": [
+       0,
+       300,
+       30
+      ],
+      "target": [
+       0,
+       0,
+       8
+      ],
+      "fov": 30,
+      "ease": "linear"
+     },
+     {
+      "t": 0.0,
+      "pos": [
+       0,
+       300,
+       30
+      ],
+      "target": [
+       0,
+       0,
+       8
+      ],
+      "fov": 30,
+      "ease": "inOut"
+     },
+     {
+      "t": 1.6,
+      "pos": [
+       10,
+       470,
+       150
+      ],
+      "target": [
+       0,
+       0,
+       10
+      ],
+      "fov": 32,
+      "ease": "inOut"
+     },
+     {
+      "t": 3.0,
+      "pos": [
+       150,
+       380,
+       420
+      ],
+      "target": [
+       0,
+       0,
+       0
+      ],
+      "fov": 34,
+      "ease": "in"
+     },
+     {
+      "t": 4.0,
+      "pos": [
+       140,
+       250,
+       390
+      ],
+      "target": [
+       0,
+       0,
+       60
+      ],
+      "fov": 38,
+      "ease": "linear"
+     },
+     {
+      "t": 5.2,
+      "pos": [
+       36,
+       60,
+       290
+      ],
+      "target": [
+       0,
+       8,
+       180
+      ],
+      "fov": 44,
+      "ease": "out"
+     },
+     {
+      "t": 6.3,
+      "pos": [
+       0,
+       5.0,
+       198
+      ],
+      "target": [
+       0,
+       4.5,
+       120
+      ],
+      "fov": 52,
+      "ease": "linear"
+     },
+     {
+      "t": 7.0,
+      "pos": [
+       0,
+       2.8,
+       152
+      ],
+      "target": [
+       0,
+       3.5,
+       90
+      ],
+      "fov": 55,
+      "ease": "out"
+     },
+     {
+      "t": 7.75,
+      "pos": [
+       0,
+       7,
+       96
+      ],
+      "target": [
+       0,
+       16,
+       0
+      ],
+      "fov": 55,
+      "ease": "in"
+     },
+     {
+      "t": 8.0,
+      "pos": [
+       -3,
+       8,
+       92
+      ],
+      "target": [
+       -60,
+       10,
+       40
+      ],
+      "fov": 58,
+      "ease": "linear"
+     },
+     {
+      "t": 8.2,
+      "pos": [
+       -5,
+       8,
+       90
+      ],
+      "target": [
+       -90,
+       6,
+       80
+      ],
+      "fov": 60,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": [
+     0,
+     0,
+     8
+    ],
+    "dof": "shallow on the table at t<1.6 (ticket sharp, table edges soft), then deep"
+   },
+   "must_show": [
+    "ticket print (plan/ticket_print.png) on the closed stack",
+    "whole park layout incl. car park",
+    "hero_coaster spring-up",
+    "observation_tower first"
+   ],
+   "transition_in": {
+    "type": "loop",
+    "note": "frame 0 must equal the last frame of shot 16 (same ticket, same pose relative to the ticket, same table/light)"
+   },
+   "transition_out": {
+    "type": "match_cut",
+    "note": "camera keeps moving on PATH_ARRIVAL; style changes to gouache at t=4.0 (downbeat bar 3)"
+   },
+   "rides": {},
+   "lighting": "tabletop: warm key #FFD9A0 from upper-left-back (dir to light [-0.5,0.8,-0.35]), soft cool fill; sun direction for the pop-up park shadows the same",
+   "notes": "SET: the map sheet covers x -300..300, z -232..248 (600 x 480 world units) and lies on the table (table top y=0). Panels 3 x 5 (each 200 x 96). Folded stack sits on the centre panel x -100..100, z -40..56, centre (0, 8). Pop-up heights are the real park heights."
+  },
+  {
+   "id": "02_gouache_arrival",
+   "n": 2,
+   "style": "gouache",
+   "agent": "a",
+   "start": 4.0,
+   "end": 8.0,
+   "start_frame": 120,
+   "end_frame": 240,
+   "film_frames": 120,
+   "bars": "3-5",
+   "render": {
+    "t_start": 3.8,
+    "t_end": 8.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 132,
+    "output": "film/shots/02_gouache_arrival.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "Continuous dive: from high over the car park down to eye level, through the entrance arch, under the railway bridge into the town square, then a push up main street toward the hub tower. Busy, joyful, alive. Ends with a whip pan left.",
+   "beats": [
+    {
+     "t": 5.0,
+     "e": "trams in the car park, crowd streaming through the turnstiles"
+    },
+    {
+     "t": 6.0,
+     "e": "pass between ticket booths, under the arch (bulbs, flags)"
+    },
+    {
+     "t": 7.0,
+     "e": "under the railway bridge; a train crosses overhead (railway clock override)"
+    },
+    {
+     "t": 7.5,
+     "e": "emerge on main street, bunting overhead, tower ahead"
+    },
+    {
+     "t": 7.8,
+     "e": "whip pan left begins (motion blur)"
+    }
+   ],
+   "camera": {
+    "mode": "perspective",
+    "interp": "catmull",
+    "fov": 44,
+    "keys": [
+     {
+      "t": -0.2,
+      "pos": [
+       0,
+       300,
+       30
+      ],
+      "target": [
+       0,
+       0,
+       8
+      ],
+      "fov": 30,
+      "ease": "linear"
+     },
+     {
+      "t": 0.0,
+      "pos": [
+       0,
+       300,
+       30
+      ],
+      "target": [
+       0,
+       0,
+       8
+      ],
+      "fov": 30,
+      "ease": "inOut"
+     },
+     {
+      "t": 1.6,
+      "pos": [
+       10,
+       470,
+       150
+      ],
+      "target": [
+       0,
+       0,
+       10
+      ],
+      "fov": 32,
+      "ease": "inOut"
+     },
+     {
+      "t": 3.0,
+      "pos": [
+       150,
+       380,
+       420
+      ],
+      "target": [
+       0,
+       0,
+       0
+      ],
+      "fov": 34,
+      "ease": "in"
+     },
+     {
+      "t": 4.0,
+      "pos": [
+       140,
+       250,
+       390
+      ],
+      "target": [
+       0,
+       0,
+       60
+      ],
+      "fov": 38,
+      "ease": "linear"
+     },
+     {
+      "t": 5.2,
+      "pos": [
+       36,
+       60,
+       290
+      ],
+      "target": [
+       0,
+       8,
+       180
+      ],
+      "fov": 44,
+      "ease": "out"
+     },
+     {
+      "t": 6.3,
+      "pos": [
+       0,
+       5.0,
+       198
+      ],
+      "target": [
+       0,
+       4.5,
+       120
+      ],
+      "fov": 52,
+      "ease": "linear"
+     },
+     {
+      "t": 7.0,
+      "pos": [
+       0,
+       2.8,
+       152
+      ],
+      "target": [
+       0,
+       3.5,
+       90
+      ],
+      "fov": 55,
+      "ease": "out"
+     },
+     {
+      "t": 7.75,
+      "pos": [
+       0,
+       7,
+       96
+      ],
+      "target": [
+       0,
+       16,
+       0
+      ],
+      "fov": 55,
+      "ease": "in"
+     },
+     {
+      "t": 8.0,
+      "pos": [
+       -3,
+       8,
+       92
+      ],
+      "target": [
+       -60,
+       10,
+       40
+      ],
+      "fov": 58,
+      "ease": "linear"
+     },
+     {
+      "t": 8.2,
+      "pos": [
+       -5,
+       8,
+       90
+      ],
+      "target": [
+       -90,
+       6,
+       80
+      ],
+      "fov": 60,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": "camera target",
+    "dof": "deep; painterly"
+   },
+   "must_show": [
+    "car park",
+    "tram",
+    "ticket_booth_*",
+    "turnstile_line",
+    "entrance_arch",
+    "railway bridge + train",
+    "town square bandstand",
+    "main street facades, bunting, lamps, crowds",
+    "observation_tower"
+   ],
+   "transition_in": {
+    "type": "match_cut",
+    "note": "continues shot 01 camera"
+   },
+   "transition_out": {
+    "type": "whip_left",
+    "frames": 6
+   },
+   "rides": {
+    "railway": {
+     "t0": 7.0,
+     "tau0": 12.0,
+     "rate": 1.0
+    }
+   },
+   "lighting": "day",
+   "notes": "Railway override: at t=7.0 the loco front is just west of the bridge (x~-12) and the coaches are on the bridge as we pass under."
+  },
+  {
+   "id": "03_felt_kiddie",
+   "n": 3,
+   "style": "felt",
+   "agent": "c",
+   "start": 8.0,
+   "end": 12.0,
+   "start_frame": 240,
+   "end_frame": 360,
+   "film_frames": 120,
+   "bars": "5-7",
+   "render": {
+    "t_start": 7.8,
+    "t_end": 12.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": true,
+    "unique_frames": 66,
+    "output": "film/shots/03_felt_kiddie.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "felt puff-up",
+    "start": 8.0,
+    "end": 11.5
+   },
+   "action": "Kiddie Meadow starts as a flat felt applique picture and puffs up into soft 3D ride by ride on the beat; the camera drifts in toward the family coaster.",
+   "beats": [
+    {
+     "t": 8.0,
+     "e": "flat felt applique (pieces lying flat in side profile)"
+    },
+    {
+     "t": 8.5,
+     "e": "kiddie_planes puffs"
+    },
+    {
+     "t": 9.0,
+     "e": "kiddie_boats + playground"
+    },
+    {
+     "t": 9.5,
+     "e": "kiddie_trucks + kiddie_drop"
+    },
+    {
+     "t": 10.0,
+     "e": "trees, topiary, hedges puff (8ths)"
+    },
+    {
+     "t": 10.5,
+     "e": "family_coaster track inflates (big puff)"
+    },
+    {
+     "t": 11.0,
+     "e": "guests sit up"
+    },
+    {
+     "t": 11.5,
+     "e": "everything moves; train leaves the station"
+    },
+    {
+     "t": 11.85,
+     "e": "whip pan right begins"
+    }
+   ],
+   "camera": {
+    "mode": "perspective",
+    "interp": "catmull",
+    "fov": 40,
+    "keys": [
+     {
+      "t": 7.8,
+      "pos": [
+       -27,
+       31,
+       153
+      ],
+      "target": [
+       40,
+       12,
+       110
+      ],
+      "fov": 40,
+      "ease": "out"
+     },
+     {
+      "t": 8.3,
+      "pos": [
+       -28,
+       30,
+       152
+      ],
+      "target": [
+       -88,
+       3,
+       92
+      ],
+      "fov": 40,
+      "ease": "inOut"
+     },
+     {
+      "t": 11.5,
+      "pos": [
+       -52,
+       17,
+       126
+      ],
+      "target": [
+       -94,
+       4,
+       98
+      ],
+      "fov": 36,
+      "ease": "in"
+     },
+     {
+      "t": 12.0,
+      "pos": [
+       -53,
+       17,
+       125
+      ],
+      "target": [
+       -60,
+       10,
+       60
+      ],
+      "fov": 38,
+      "ease": "linear"
+     },
+     {
+      "t": 12.2,
+      "pos": [
+       -53,
+       17,
+       125
+      ],
+      "target": [
+       -10,
+       14,
+       70
+      ],
+      "fov": 40,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": [
+     -83,
+     4,
+     93
+    ],
+    "dof": "shallow macro (felt miniature), focus pulls to the family coaster station"
+   },
+   "must_show": [
+    "family_coaster",
+    "kiddie_planes",
+    "kiddie_boats",
+    "kiddie_trucks",
+    "kiddie_drop",
+    "playground",
+    "kiddie plaza",
+    "topiary",
+    "lake in background"
+   ],
+   "transition_in": {
+    "type": "whip_left",
+    "frames": 6
+   },
+   "transition_out": {
+    "type": "whip_right",
+    "frames": 6
+   },
+   "rides": {
+    "family_coaster": {
+     "t0": 11.5,
+     "tau0": 0.0,
+     "rate": 1.0
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "04_lowpoly_blueprint",
+   "n": 4,
+   "style": "lowpoly",
+   "agent": "b",
+   "start": 12.0,
+   "end": 16.0,
+   "start_frame": 360,
+   "end_frame": 480,
+   "film_frames": 120,
+   "bars": "7-9",
+   "render": {
+    "t_start": 11.8,
+    "t_end": 16.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 132,
+    "output": "film/shots/04_lowpoly_blueprint.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "blueprint to real",
+    "start": 12.25,
+    "end": 15.0
+   },
+   "action": "Orthographic tycoon view of Skyline Thrills as a cyan blueprint; a wave front sweeps from south-west to north-east and extrudes the real land: coaster supports, track, station, drop tower, trees. The train starts as the wave passes the crest and dives. The camera then slides east and widens to the exact pixel-art framing.",
+   "beats": [
+    {
+     "t": 12.0,
+     "e": "whip-in settles; blueprint grid + wireframes"
+    },
+    {
+     "t": 12.5,
+     "e": "wave enters at the SW corner of the land (x=-50,z=-50)"
+    },
+    {
+     "t": 13.5,
+     "e": "wave passes the station and lift; lift supports rise"
+    },
+    {
+     "t": 14.0,
+     "e": "loop + corkscrew extrude"
+    },
+    {
+     "t": 14.5,
+     "e": "wave reaches the NE corner; train crests"
+    },
+    {
+     "t": 15.0,
+     "e": "train drops; land fully real"
+    },
+    {
+     "t": 15.0,
+     "e": "camera slides east and widens (ortho 86 -> 120)"
+    }
+   ],
+   "camera": {
+    "mode": "ortho",
+    "interp": "linear",
+    "keys": [
+     {
+      "t": 11.8,
+      "pos": [
+       580,
+       310,
+       -125
+      ],
+      "target": [
+       60,
+       10,
+       -125
+      ],
+      "ortho": 95,
+      "ease": "out"
+     },
+     {
+      "t": 12.3,
+      "pos": [
+       427.4,
+       310.0,
+       242.4
+      ],
+      "target": [
+       60,
+       10,
+       -125
+      ],
+      "ortho": 95,
+      "ease": "inOut"
+     },
+     {
+      "t": 15.0,
+      "pos": [
+       437.4,
+       310.0,
+       257.4
+      ],
+      "target": [
+       70,
+       10,
+       -110
+      ],
+      "ortho": 86,
+      "ease": "inOut"
+     },
+     {
+      "t": 16.0,
+      "pos": [
+       497.4,
+       300.0,
+       307.4
+      ],
+      "target": [
+       130,
+       0,
+       -60
+      ],
+      "ortho": 120,
+      "ease": "linear"
+     },
+     {
+      "t": 17.45,
+      "pos": [
+       582.4,
+       300.0,
+       337.4
+      ],
+      "target": [
+       215,
+       0,
+       -30
+      ],
+      "ortho": 120,
+      "ease": "step"
+     },
+     {
+      "t": 17.5,
+      "pos": [
+       582.4,
+       300.0,
+       337.4
+      ],
+      "target": [
+       215,
+       0,
+       -30
+      ],
+      "ortho": 60,
+      "ease": "linear"
+     },
+     {
+      "t": 18.95,
+      "pos": [
+       567.4,
+       300.0,
+       392.4
+      ],
+      "target": [
+       200,
+       0,
+       25
+      ],
+      "ortho": 60,
+      "ease": "step"
+     },
+     {
+      "t": 19.0,
+      "pos": [
+       552.4,
+       300.0,
+       412.4
+      ],
+      "target": [
+       185,
+       0,
+       45
+      ],
+      "ortho": 40,
+      "ease": "linear"
+     },
+     {
+      "t": 19.45,
+      "pos": [
+       527.4,
+       300.0,
+       425.4
+      ],
+      "target": [
+       160,
+       0,
+       58
+      ],
+      "ortho": 40,
+      "ease": "step"
+     },
+     {
+      "t": 19.5,
+      "pos": [
+       495.4,
+       300.0,
+       429.4
+      ],
+      "target": [
+       128,
+       0,
+       62
+      ],
+      "ortho": 20,
+      "ease": "linear"
+     },
+     {
+      "t": 20.2,
+      "pos": [
+       491.4,
+       300.0,
+       429.4
+      ],
+      "target": [
+       124,
+       0,
+       62
+      ],
+      "ortho": 20,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": [
+     60,
+     10,
+     -125
+    ],
+    "dof": "none (ortho); optional mild tilt-shift band"
+   },
+   "must_show": [
+    "hero_coaster full circuit",
+    "supports + footers",
+    "station + queue",
+    "drop_tower",
+    "thrill shop",
+    "coaster plaza crowd"
+   ],
+   "transition_in": {
+    "type": "whip_right",
+    "frames": 6
+   },
+   "transition_out": {
+    "type": "iso_match_cut",
+    "note": "identical ortho camera at t=16.0; pixel art takes over"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 14.5,
+     "tau0": 63.0,
+     "rate": 1.0
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "05_pixel_build",
+   "n": 5,
+   "style": "pixel",
+   "agent": "a",
+   "start": 16.0,
+   "end": 20.0,
+   "start_frame": 480,
+   "end_frame": 600,
+   "film_frames": 120,
+   "bars": "9-11",
+   "render": {
+    "t_start": 15.8,
+    "t_end": 20.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 132,
+    "output": "film/shots/05_pixel_build.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "build mode",
+    "start": 16.0,
+    "end": 19.0
+   },
+   "action": "Isometric pixel-art build mode on Frontier Ridge: the wooden coaster is laid piece by piece from its station with the train chasing the build head; frontier buildings and the water tower pop in with dust puffs; guests stream in at fast-forward. Snap zooms on the beat (x2, x3, x6) dive onto the empty midway lot where a single toy-box crate waits.",
+   "beats": [
+    {
+     "t": 16.0,
+     "e": "track build head starts at the wooden coaster station (s=0) and advances to s=612 by 18.5 (linear)"
+    },
+    {
+     "t": 16.2,
+     "e": "train follows 8 m behind the build head until the circuit closes, then free-runs"
+    },
+    {
+     "t": 16.5,
+     "e": "saloon pops"
+    },
+    {
+     "t": 16.75,
+     "e": "general store"
+    },
+    {
+     "t": 17.0,
+     "e": "assay office + livery"
+    },
+    {
+     "t": 17.25,
+     "e": "water tower"
+    },
+    {
+     "t": 17.5,
+     "e": "SNAP ZOOM x2"
+    },
+    {
+     "t": 17.5,
+     "e": "pines pop along the ridge (16ths)"
+    },
+    {
+     "t": 18.0,
+     "e": "guests stream in fast-forward, easing to walking speed by 19.0"
+    },
+    {
+     "t": 19.0,
+     "e": "SNAP ZOOM x3"
+    },
+    {
+     "t": 19.5,
+     "e": "SNAP ZOOM x6 onto the midway lot: empty dirt pad + one closed toy-box crate at (120,0,62)"
+    }
+   ],
+   "camera": {
+    "mode": "ortho",
+    "interp": "linear",
+    "keys": [
+     {
+      "t": 11.8,
+      "pos": [
+       580,
+       310,
+       -125
+      ],
+      "target": [
+       60,
+       10,
+       -125
+      ],
+      "ortho": 95,
+      "ease": "out"
+     },
+     {
+      "t": 12.3,
+      "pos": [
+       427.4,
+       310.0,
+       242.4
+      ],
+      "target": [
+       60,
+       10,
+       -125
+      ],
+      "ortho": 95,
+      "ease": "inOut"
+     },
+     {
+      "t": 15.0,
+      "pos": [
+       437.4,
+       310.0,
+       257.4
+      ],
+      "target": [
+       70,
+       10,
+       -110
+      ],
+      "ortho": 86,
+      "ease": "inOut"
+     },
+     {
+      "t": 16.0,
+      "pos": [
+       497.4,
+       300.0,
+       307.4
+      ],
+      "target": [
+       130,
+       0,
+       -60
+      ],
+      "ortho": 120,
+      "ease": "linear"
+     },
+     {
+      "t": 17.45,
+      "pos": [
+       582.4,
+       300.0,
+       337.4
+      ],
+      "target": [
+       215,
+       0,
+       -30
+      ],
+      "ortho": 120,
+      "ease": "step"
+     },
+     {
+      "t": 17.5,
+      "pos": [
+       582.4,
+       300.0,
+       337.4
+      ],
+      "target": [
+       215,
+       0,
+       -30
+      ],
+      "ortho": 60,
+      "ease": "linear"
+     },
+     {
+      "t": 18.95,
+      "pos": [
+       567.4,
+       300.0,
+       392.4
+      ],
+      "target": [
+       200,
+       0,
+       25
+      ],
+      "ortho": 60,
+      "ease": "step"
+     },
+     {
+      "t": 19.0,
+      "pos": [
+       552.4,
+       300.0,
+       412.4
+      ],
+      "target": [
+       185,
+       0,
+       45
+      ],
+      "ortho": 40,
+      "ease": "linear"
+     },
+     {
+      "t": 19.45,
+      "pos": [
+       527.4,
+       300.0,
+       425.4
+      ],
+      "target": [
+       160,
+       0,
+       58
+      ],
+      "ortho": 40,
+      "ease": "step"
+     },
+     {
+      "t": 19.5,
+      "pos": [
+       495.4,
+       300.0,
+       429.4
+      ],
+      "target": [
+       128,
+       0,
+       62
+      ],
+      "ortho": 20,
+      "ease": "linear"
+     },
+     {
+      "t": 20.2,
+      "pos": [
+       491.4,
+       300.0,
+       429.4
+      ],
+      "target": [
+       124,
+       0,
+       62
+      ],
+      "ortho": 20,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": "n/a",
+    "dof": "none"
+   },
+   "must_show": [
+    "wooden_coaster lattice",
+    "frontier buildings",
+    "water_tower",
+    "frontier street guests",
+    "midway lot with crate"
+   ],
+   "transition_in": {
+    "type": "iso_match_cut"
+   },
+   "transition_out": {
+    "type": "snap_zoom_cut",
+    "note": "cut on the downbeat 20.0 to the tin toy box (same spot)"
+   },
+   "rides": {
+    "wooden_coaster": {
+     "t0": 16.2,
+     "tau0": 0.0,
+     "rate": 1.6
+    }
+   },
+   "lighting": "day",
+   "notes": "Native pixel grid: 480x270 upscaled x4 (nearest). ortho = half the visible world height in metres (2:1 dimetric). Snap zooms change the pixel scale, not the native grid. The midway (rides, booths, food court) is NOT built in this shot."
+  },
+  {
+   "id": "06_tin_toybox",
+   "n": 6,
+   "style": "tin",
+   "agent": "c",
+   "start": 20.0,
+   "end": 24.0,
+   "start_frame": 600,
+   "end_frame": 720,
+   "film_frames": 120,
+   "bars": "11-13",
+   "render": {
+    "t_start": 19.8,
+    "t_end": 24.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": true,
+    "unique_frames": 66,
+    "output": "film/shots/06_tin_toybox.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "out of the toy box + wind-up key",
+    "start": 20.0,
+    "end": 23.3
+   },
+   "action": "A lithographed tin toy box sits on the empty midway. It rattles, the lid flips open, the walls fall flat and become the printed midway board; carousel, teacups, bumper-car pavilion, booth rows, food court and peg-doll guests spring out and land on the beat. Close on the brass wind-up key: it ratchets 1.5 turns, then the whole midway runs on clockwork. Tilt up to the sky.",
+   "beats": [
+    {
+     "t": 20.0,
+     "e": "box hop 1"
+    },
+    {
+     "t": 20.25,
+     "e": "box hop 2"
+    },
+    {
+     "t": 20.5,
+     "e": "lid flips open (hinged on the north edge)"
+    },
+    {
+     "t": 21.0,
+     "e": "walls fall flat"
+    },
+    {
+     "t": 21.0,
+     "e": "carousel lands"
+    },
+    {
+     "t": 21.25,
+     "e": "teacups"
+    },
+    {
+     "t": 21.5,
+     "e": "bumper car pavilion"
+    },
+    {
+     "t": 21.75,
+     "e": "booth rows (left to right, 16ths)"
+    },
+    {
+     "t": 22.0,
+     "e": "food court + umbrellas; peg-doll guests hop out 22.0-22.4"
+    },
+    {
+     "t": 22.5,
+     "e": "wind-up key starts: 6 ratchet clicks on 8ths 22.5-23.25"
+    },
+    {
+     "t": 23.25,
+     "e": "release: everything runs at 6 ticks/s clockwork"
+    },
+    {
+     "t": 23.5,
+     "e": "tilt up to the sky"
+    }
+   ],
+   "camera": {
+    "mode": "perspective",
+    "interp": "catmull",
+    "fov": 40,
+    "keys": [
+     {
+      "t": 19.8,
+      "pos": [
+       158,
+       46,
+       140
+      ],
+      "target": [
+       120,
+       6,
+       62
+      ],
+      "fov": 42,
+      "ease": "out"
+     },
+     {
+      "t": 20.0,
+      "pos": [
+       156,
+       44,
+       136
+      ],
+      "target": [
+       120,
+       6,
+       62
+      ],
+      "fov": 40,
+      "ease": "inOut"
+     },
+     {
+      "t": 22.2,
+      "pos": [
+       170,
+       30,
+       128
+      ],
+      "target": [
+       130,
+       5,
+       66
+      ],
+      "fov": 40,
+      "ease": "inOut"
+     },
+     {
+      "t": 22.6,
+      "pos": [
+       184,
+       9,
+       104
+      ],
+      "target": [
+       176,
+       4.5,
+       88
+      ],
+      "fov": 38,
+      "ease": "linear"
+     },
+     {
+      "t": 23.3,
+      "pos": [
+       186,
+       10,
+       106
+      ],
+      "target": [
+       176,
+       5,
+       86
+      ],
+      "fov": 38,
+      "ease": "in"
+     },
+     {
+      "t": 24.0,
+      "pos": [
+       188,
+       14,
+       112
+      ],
+      "target": [
+       170,
+       70,
+       50
+      ],
+      "fov": 44,
+      "ease": "linear"
+     },
+     {
+      "t": 24.2,
+      "pos": [
+       188,
+       15,
+       113
+      ],
+      "target": [
+       168,
+       120,
+       40
+      ],
+      "fov": 46,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": [
+     120,
+     6,
+     62
+    ],
+    "dof": "shallow toy macro; pull focus to the key (176, 4.5, 88) at 22.4"
+   },
+   "must_show": [
+    "carousel",
+    "teacups",
+    "bumper_cars",
+    "midway_booths",
+    "food_court_pavilion",
+    "string lights",
+    "wind-up key"
+   ],
+   "transition_in": {
+    "type": "cut",
+    "note": "on the downbeat after the pixel snap zoom"
+   },
+   "transition_out": {
+    "type": "tilt_up_sky",
+    "note": "ends on plain sky for the sky wipe"
+   },
+   "rides": {},
+   "lighting": "day",
+   "notes": "SET: toy box 70 x 46 x 30 centred (120, 0, 62), lid hinged on its north edge. Clockwork motor box 10 x 8 x 7 at (176, 0, 84); brass key on its south face at (176, 4.5, 88.5), key axis along z."
+  },
+  {
+   "id": "07_gouache_revival",
+   "n": 7,
+   "style": "gouache",
+   "agent": "a",
+   "start": 24.0,
+   "end": 28.0,
+   "start_frame": 720,
+   "end_frame": 840,
+   "film_frames": 120,
+   "bars": "13-15",
+   "render": {
+    "t_start": 23.8,
+    "t_end": 28.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 132,
+    "output": "film/shots/07_gouache_revival.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "abandoned -> alive",
+    "start": 24.5,
+    "end": 27.5,
+    "origin": [
+     -218,
+     16,
+     52
+    ],
+    "note": "arrival map = distance from the lighthouse + fbm; ~90 m/s"
+   },
+   "action": "Tilt down from the painted sky onto the forgotten corner: the Seaside Pier across the lake, abandoned, grey, misty, overgrown, wheel and swings still. The lighthouse on Gull Island flickers on and a wave of colour and life blooms outward: swings, pier bunting, boats, the Ferris wheel lights up and turns, the galleon swings, guests fill the promenade. Ends with a whip up and right.",
+   "beats": [
+    {
+     "t": 24.5,
+     "e": "lighthouse lamp ignites (bloom)"
+    },
+    {
+     "t": 25.0,
+     "e": "swing_ride + pier deck colour"
+    },
+    {
+     "t": 25.5,
+     "e": "pier bunting + lake boats start"
+    },
+    {
+     "t": 26.0,
+     "e": "ferris_wheel bulbs on"
+    },
+    {
+     "t": 26.5,
+     "e": "wheel starts turning, pirate_ship swings"
+    },
+    {
+     "t": 27.0,
+     "e": "colour reaches the camera; guests on promenade"
+    },
+    {
+     "t": 27.6,
+     "e": "whip up-right"
+    }
+   ],
+   "camera": {
+    "mode": "perspective",
+    "interp": "catmull",
+    "fov": 44,
+    "keys": [
+     {
+      "t": 23.8,
+      "pos": [
+       -170,
+       12,
+       97
+      ],
+      "target": [
+       -185,
+       100,
+       0
+      ],
+      "fov": 46,
+      "ease": "out"
+     },
+     {
+      "t": 24.4,
+      "pos": [
+       -171,
+       11,
+       95
+      ],
+      "target": [
+       -196,
+       13,
+       10
+      ],
+      "fov": 46,
+      "ease": "inOut"
+     },
+     {
+      "t": 27.4,
+      "pos": [
+       -180,
+       8,
+       80
+      ],
+      "target": [
+       -198,
+       15,
+       -5
+      ],
+      "fov": 42,
+      "ease": "in"
+     },
+     {
+      "t": 28.0,
+      "pos": [
+       -180,
+       8,
+       80
+      ],
+      "target": [
+       -140,
+       30,
+       30
+      ],
+      "fov": 46,
+      "ease": "linear"
+     },
+     {
+      "t": 28.2,
+      "pos": [
+       -180,
+       8,
+       80
+      ],
+      "target": [
+       -110,
+       40,
+       60
+      ],
+      "fov": 48,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": [
+     -189,
+     8,
+     10
+    ],
+    "dof": "deep painterly"
+   },
+   "must_show": [
+    "ferris_wheel",
+    "swing_ride on pier end",
+    "pier",
+    "lighthouse_folly on gull_island",
+    "lake_boats",
+    "pirate_ship",
+    "boathouse",
+    "promenade railing"
+   ],
+   "transition_in": {
+    "type": "tilt_down_sky"
+   },
+   "transition_out": {
+    "type": "whip_up_right",
+    "frames": 6
+   },
+   "rides": {},
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "08_pov_lift_lowpoly",
+   "n": 8,
+   "style": "lowpoly",
+   "agent": "b",
+   "start": 28.0,
+   "end": 30.0,
+   "start_frame": 840,
+   "end_frame": 900,
+   "film_frames": 60,
+   "bars": "15-16",
+   "render": {
+    "t_start": 27.8,
+    "t_end": 30.2,
+    "frames": 72,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 72,
+    "output": "film/shots/08_pov_lift_lowpoly.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "POV from the front seat of the Red Comet climbing the chain lift; the head turns right to watch the park fall away (hub tower, midway, wooden coaster).",
+   "beats": [
+    {
+     "t": 28.0,
+     "e": "chain clacks on 8ths (lift x4 time-lapse)"
+    }
+   ],
+   "camera": {
+    "mode": "pov",
+    "ride": "hero_coaster",
+    "train": 0,
+    "seat_back_m": 0.7,
+    "eye": [
+     0,
+     1.25,
+     0
+    ],
+    "look_ahead_m": 14,
+    "fov": 80,
+    "head": [
+     {
+      "t": 27.8,
+      "yaw": 0,
+      "pitch": 10
+     },
+     {
+      "t": 29.3,
+      "yaw": -40,
+      "pitch": -10
+     },
+     {
+      "t": 30.2,
+      "yaw": -15,
+      "pitch": 0
+     }
+    ]
+   },
+   "focus": {
+    "dof": "deep"
+   },
+   "must_show": [
+    "lift chain + catwalk",
+    "train nose + lap bars in the bottom of frame",
+    "park panorama"
+   ],
+   "transition_in": {
+    "type": "whip_up_right"
+   },
+   "transition_out": {
+    "type": "cut",
+    "note": "POV match cut, same rig"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 28.0,
+     "tau0": 44.0,
+     "rate": 4.0
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "09_pov_crest_gouache",
+   "n": 9,
+   "style": "gouache",
+   "agent": "a",
+   "start": 30.0,
+   "end": 31.0,
+   "start_frame": 900,
+   "end_frame": 930,
+   "film_frames": 30,
+   "bars": "16-16.5",
+   "render": {
+    "t_start": 29.8,
+    "t_end": 31.2,
+    "frames": 42,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 42,
+    "output": "film/shots/09_pov_crest_gouache.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "POV: the last metres of the lift; the horizon opens over the painted park.",
+   "beats": [],
+   "camera": {
+    "mode": "pov",
+    "ride": "hero_coaster",
+    "train": 0,
+    "seat_back_m": 0.7,
+    "eye": [
+     0,
+     1.25,
+     0
+    ],
+    "look_ahead_m": 14,
+    "fov": 80,
+    "head": [
+     {
+      "t": 29.8,
+      "yaw": -15,
+      "pitch": 0
+     },
+     {
+      "t": 31.2,
+      "yaw": 0,
+      "pitch": -4
+     }
+    ]
+   },
+   "focus": null,
+   "must_show": [
+    "lift top",
+    "sky",
+    "park below"
+   ],
+   "transition_in": {
+    "type": "cut"
+   },
+   "transition_out": {
+    "type": "cut"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 30.0,
+     "tau0": 53.0,
+     "rate": 3.6
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "10_pov_crest_paper",
+   "n": 10,
+   "style": "paper",
+   "agent": "c",
+   "start": 31.0,
+   "end": 32.0,
+   "start_frame": 930,
+   "end_frame": 960,
+   "film_frames": 30,
+   "bars": "16.5-17",
+   "render": {
+    "t_start": 30.8,
+    "t_end": 32.2,
+    "frames": 42,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 42,
+    "output": "film/shots/10_pov_crest_paper.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "POV: the crest turn, hanging at the top. The paper park lies spread on the table far below; the nose tips over the edge on the last frames. Music drops out.",
+   "beats": [
+    {
+     "t": 31.0,
+     "e": "silence, wind"
+    },
+    {
+     "t": 31.75,
+     "e": "nose tips over"
+    }
+   ],
+   "camera": {
+    "mode": "pov",
+    "ride": "hero_coaster",
+    "train": 0,
+    "seat_back_m": 0.7,
+    "eye": [
+     0,
+     1.25,
+     0
+    ],
+    "look_ahead_m": 14,
+    "fov": 80,
+    "head": [
+     {
+      "t": 30.8,
+      "yaw": 0,
+      "pitch": -4
+     },
+     {
+      "t": 31.6,
+      "yaw": 0,
+      "pitch": -10
+     },
+     {
+      "t": 32.2,
+      "yaw": 0,
+      "pitch": -28
+     }
+    ]
+   },
+   "focus": null,
+   "must_show": [
+    "paper park below",
+    "drop ahead"
+   ],
+   "transition_in": {
+    "type": "cut"
+   },
+   "transition_out": {
+    "type": "cut",
+    "note": "THE DROP hits on 32.0"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 31.0,
+     "tau0": 59.3,
+     "rate": 4.2
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "11_pov_drop_felt",
+   "n": 11,
+   "style": "felt",
+   "agent": "c",
+   "start": 32.0,
+   "end": 33.0,
+   "start_frame": 960,
+   "end_frame": 990,
+   "film_frames": 30,
+   "bars": "17-17.5",
+   "render": {
+    "t_start": 31.8,
+    "t_end": 33.2,
+    "frames": 42,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": true,
+    "unique_frames": 21,
+    "output": "film/shots/11_pov_drop_felt.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "POV: the first drop, plunging toward the felt valley.",
+   "beats": [
+    {
+     "t": 32.0,
+     "e": "DROP (bar 17 downbeat), whoop"
+    }
+   ],
+   "camera": {
+    "mode": "pov",
+    "ride": "hero_coaster",
+    "train": 0,
+    "seat_back_m": 0.7,
+    "eye": [
+     0,
+     1.25,
+     0
+    ],
+    "look_ahead_m": 14,
+    "fov": 80,
+    "head": [
+     {
+      "t": 31.8,
+      "yaw": 0,
+      "pitch": -25
+     },
+     {
+      "t": 33.2,
+      "yaw": 0,
+      "pitch": -5
+     }
+    ]
+   },
+   "focus": null,
+   "must_show": [
+    "drop",
+    "felt valley + trees"
+   ],
+   "transition_in": {
+    "type": "cut"
+   },
+   "transition_out": {
+    "type": "cut"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 32.0,
+     "tau0": 63.5,
+     "rate": 2.8
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "12_ext_loop_pixel",
+   "n": 12,
+   "style": "pixel",
+   "agent": "a",
+   "start": 33.0,
+   "end": 34.0,
+   "start_frame": 990,
+   "end_frame": 1020,
+   "film_frames": 30,
+   "bars": "17.5-18",
+   "render": {
+    "t_start": 32.8,
+    "t_end": 34.2,
+    "frames": 42,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 42,
+    "output": "film/shots/12_ext_loop_pixel.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "Isometric pixel shot: the train screams through the vertical loop, sparkle trail.",
+   "beats": [],
+   "camera": {
+    "mode": "ortho",
+    "interp": "linear",
+    "keys": [
+     {
+      "t": 32.8,
+      "pos": [
+       447.4,
+       318.0,
+       220.4
+      ],
+      "target": [
+       80,
+       18,
+       -147
+      ],
+      "ortho": 27,
+      "ease": "linear"
+     },
+     {
+      "t": 34.2,
+      "pos": [
+       441.4,
+       318.0,
+       222.4
+      ],
+      "target": [
+       74,
+       18,
+       -145
+      ],
+      "ortho": 25,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": null,
+   "must_show": [
+    "loop",
+    "train",
+    "corkscrew",
+    "crowd at the fence"
+   ],
+   "transition_in": {
+    "type": "cut"
+   },
+   "transition_out": {
+    "type": "cut"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 33.0,
+     "tau0": 75.6,
+     "rate": 4.0
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "13_pov_loop_lowpoly",
+   "n": 13,
+   "style": "lowpoly",
+   "agent": "b",
+   "start": 34.0,
+   "end": 35.0,
+   "start_frame": 1020,
+   "end_frame": 1050,
+   "film_frames": 30,
+   "bars": "18-18.5",
+   "render": {
+    "t_start": 33.8,
+    "t_end": 35.2,
+    "frames": 42,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 42,
+    "output": "film/shots/13_pov_loop_lowpoly.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "POV: inside the loop, upside down at the top on beat 34.5; the park hangs overhead.",
+   "beats": [],
+   "camera": {
+    "mode": "pov",
+    "ride": "hero_coaster",
+    "train": 0,
+    "seat_back_m": 0.7,
+    "eye": [
+     0,
+     1.25,
+     0
+    ],
+    "look_ahead_m": 14,
+    "fov": 80,
+    "head": [
+     {
+      "t": 33.8,
+      "yaw": 0,
+      "pitch": 5
+     },
+     {
+      "t": 35.2,
+      "yaw": 0,
+      "pitch": 0
+     }
+    ]
+   },
+   "focus": null,
+   "must_show": [
+    "inverted horizon",
+    "loop track ahead"
+   ],
+   "transition_in": {
+    "type": "cut"
+   },
+   "transition_out": {
+    "type": "cut"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 34.0,
+     "tau0": 77.15,
+     "rate": 1.7
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "14_pov_corkscrew_tin",
+   "n": 14,
+   "style": "tin",
+   "agent": "c",
+   "start": 35.0,
+   "end": 36.0,
+   "start_frame": 1050,
+   "end_frame": 1080,
+   "film_frames": 30,
+   "bars": "18.5-19",
+   "render": {
+    "t_start": 34.8,
+    "t_end": 36.2,
+    "frames": 42,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": true,
+    "unique_frames": 21,
+    "output": "film/shots/14_pov_corkscrew_tin.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": null,
+   "action": "POV: the corkscrew; the tin-toy world spins 360 degrees.",
+   "beats": [],
+   "camera": {
+    "mode": "pov",
+    "ride": "hero_coaster",
+    "train": 0,
+    "seat_back_m": 0.7,
+    "eye": [
+     0,
+     1.25,
+     0
+    ],
+    "look_ahead_m": 14,
+    "fov": 80,
+    "head": [
+     {
+      "t": 34.8,
+      "yaw": 0,
+      "pitch": 0
+     }
+    ]
+   },
+   "focus": null,
+   "must_show": [
+    "corkscrew roll"
+   ],
+   "transition_in": {
+    "type": "cut"
+   },
+   "transition_out": {
+    "type": "cut",
+    "note": "downbeat 36.0"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 35.0,
+     "tau0": 80.7,
+     "rate": 2.4
+    }
+   },
+   "lighting": "day",
+   "notes": ""
+  },
+  {
+   "id": "15_tiltshift_dusk",
+   "n": 15,
+   "style": "tiltshift",
+   "agent": "b",
+   "start": 36.0,
+   "end": 40.0,
+   "start_frame": 1080,
+   "end_frame": 1200,
+   "film_frames": 120,
+   "bars": "19-21",
+   "render": {
+    "t_start": 35.8,
+    "t_end": 40.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 132,
+    "output": "film/shots/15_tiltshift_dusk.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "dusk to night, lights on",
+    "start": 36.0,
+    "end": 40.0
+   },
+   "action": "Tilt-shift miniature: start low in the coaster plaza crowd as the train circles the helix in golden light; the sun sets, then the park lights pop on land by land on the beat while the camera cranes up and back to the whole park glittering at night.",
+   "beats": [
+    {
+     "t": 36.0,
+     "e": "golden hour, sun 12 deg in the WEST"
+    },
+    {
+     "t": 37.5,
+     "e": "sun gone; main street + entrance lights"
+    },
+    {
+     "t": 38.0,
+     "e": "hub tower + hub ring"
+    },
+    {
+     "t": 38.5,
+     "e": "midway string lights + carousel"
+    },
+    {
+     "t": 39.0,
+     "e": "seaside wheel chase + kiddie"
+    },
+    {
+     "t": 39.5,
+     "e": "coaster lift bulbs, frontier, jungle torches"
+    },
+    {
+     "t": 40.0,
+     "e": "whole park lit"
+    }
+   ],
+   "camera": {
+    "mode": "perspective",
+    "interp": "catmull",
+    "fov": 40,
+    "keys": [
+     {
+      "t": 35.8,
+      "pos": [
+       56,
+       8,
+       -50
+      ],
+      "target": [
+       5,
+       11,
+       -120
+      ],
+      "fov": 38,
+      "ease": "linear"
+     },
+     {
+      "t": 36.6,
+      "pos": [
+       55,
+       9,
+       -50
+      ],
+      "target": [
+       5,
+       11,
+       -120
+      ],
+      "fov": 38,
+      "ease": "inOut"
+     },
+     {
+      "t": 38.0,
+      "pos": [
+       40,
+       70,
+       40
+      ],
+      "target": [
+       5,
+       4,
+       -70
+      ],
+      "fov": 40,
+      "ease": "inOut"
+     },
+     {
+      "t": 40.0,
+      "pos": [
+       20,
+       330,
+       470
+      ],
+      "target": [
+       0,
+       0,
+       -20
+      ],
+      "fov": 40,
+      "ease": "out"
+     },
+     {
+      "t": 40.9,
+      "pos": [
+       60,
+       520,
+       1350
+      ],
+      "target": [
+       0,
+       60,
+       -20
+      ],
+      "fov": 36,
+      "ease": "linear"
+     },
+     {
+      "t": 42.6,
+      "pos": [
+       40,
+       470,
+       1300
+      ],
+      "target": [
+       0,
+       80,
+       -20
+      ],
+      "fov": 36,
+      "ease": "inOut"
+     },
+     {
+      "t": 44.0,
+      "pos": [
+       0,
+       140,
+       670
+      ],
+      "target": [
+       0,
+       -160,
+       648
+      ],
+      "fov": 30,
+      "ease": "linear"
+     },
+     {
+      "t": 44.2,
+      "pos": [
+       0,
+       140,
+       670
+      ],
+      "target": [
+       0,
+       -160,
+       648
+      ],
+      "fov": 30,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": "camera target",
+    "dof": "tilt-shift band through the target, strong blur top and bottom"
+   },
+   "must_show": [
+    "hero_coaster helix + train",
+    "coaster plaza crowd",
+    "whole park lit at the end"
+   ],
+   "transition_in": {
+    "type": "cut",
+    "note": "POV -> exterior on the downbeat"
+   },
+   "transition_out": {
+    "type": "match_cut",
+    "note": "camera keeps pulling back on PATH_FINALE; at 40.0 the glass appears"
+   },
+   "rides": {
+    "hero_coaster": {
+     "t0": 36.0,
+     "tau0": 85.0,
+     "rate": 1.0
+    }
+   },
+   "lighting": "dusk -> night (see park.json lighting.dusk/night)",
+   "notes": ""
+  },
+  {
+   "id": "16_globe_shake",
+   "n": 16,
+   "style": "snowglobe",
+   "agent": "b",
+   "start": 40.0,
+   "end": 44.0,
+   "start_frame": 1200,
+   "end_frame": 1320,
+   "film_frames": 120,
+   "bars": "21-23",
+   "render": {
+    "t_start": 39.8,
+    "t_end": 44.2,
+    "frames": 132,
+    "handles": 6,
+    "frame_time": "frame i (0-based) shows film time t = t_start + i/30",
+    "on_twos": false,
+    "unique_frames": 132,
+    "output": "film/shots/16_globe_shake.mp4",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   "transformation": {
+    "name": "shake: summer night -> winter night",
+    "start": 41.0,
+    "end": 42.6
+   },
+   "action": "The pull-back continues and reveals the lit night park inside a snow globe on a table. The globe is shaken: snow erupts, haze, the season swaps to winter. Snow settles over the glowing park, then the camera cranes down onto the folded paper ticket lying on the table in front of the globe: the loop frame.",
+   "beats": [
+    {
+     "t": 40.0,
+     "e": "glass rim + reflections appear (match cut)"
+    },
+    {
+     "t": 41.0,
+     "e": "SHAKE jolt, snow erupts"
+    },
+    {
+     "t": 41.5,
+     "e": "season swaps under the haze"
+    },
+    {
+     "t": 42.0,
+     "e": "haze clears: winter park, warm lights"
+    },
+    {
+     "t": 43.0,
+     "e": "chime; crane down to the ticket"
+    },
+    {
+     "t": 44.0,
+     "e": "LOOP FRAME (= shot 01 frame 0)"
+    }
+   ],
+   "camera": {
+    "mode": "perspective",
+    "interp": "catmull",
+    "fov": 36,
+    "keys": [
+     {
+      "t": 35.8,
+      "pos": [
+       56,
+       8,
+       -50
+      ],
+      "target": [
+       5,
+       11,
+       -120
+      ],
+      "fov": 38,
+      "ease": "linear"
+     },
+     {
+      "t": 36.6,
+      "pos": [
+       55,
+       9,
+       -50
+      ],
+      "target": [
+       5,
+       11,
+       -120
+      ],
+      "fov": 38,
+      "ease": "inOut"
+     },
+     {
+      "t": 38.0,
+      "pos": [
+       40,
+       70,
+       40
+      ],
+      "target": [
+       5,
+       4,
+       -70
+      ],
+      "fov": 40,
+      "ease": "inOut"
+     },
+     {
+      "t": 40.0,
+      "pos": [
+       20,
+       330,
+       470
+      ],
+      "target": [
+       0,
+       0,
+       -20
+      ],
+      "fov": 40,
+      "ease": "out"
+     },
+     {
+      "t": 40.9,
+      "pos": [
+       60,
+       520,
+       1350
+      ],
+      "target": [
+       0,
+       60,
+       -20
+      ],
+      "fov": 36,
+      "ease": "linear"
+     },
+     {
+      "t": 42.6,
+      "pos": [
+       40,
+       470,
+       1300
+      ],
+      "target": [
+       0,
+       80,
+       -20
+      ],
+      "fov": 36,
+      "ease": "inOut"
+     },
+     {
+      "t": 44.0,
+      "pos": [
+       0,
+       140,
+       670
+      ],
+      "target": [
+       0,
+       -160,
+       648
+      ],
+      "fov": 30,
+      "ease": "linear"
+     },
+     {
+      "t": 44.2,
+      "pos": [
+       0,
+       140,
+       670
+      ],
+      "target": [
+       0,
+       -160,
+       648
+      ],
+      "fov": 30,
+      "ease": "linear"
+     }
+    ]
+   },
+   "focus": {
+    "target": "globe, then ticket",
+    "dof": "shallow product-shot; ticket sharp at the end"
+   },
+   "must_show": [
+    "globe with whole park",
+    "wooden base",
+    "table",
+    "closed ticket (plan/ticket_print.png) at the end"
+   ],
+   "transition_in": {
+    "type": "match_cut"
+   },
+   "transition_out": {
+    "type": "loop",
+    "note": "last frame = shot 01 frame 0"
+   },
+   "rides": {},
+   "lighting": "night room, warm lamp key from the left-back (same as shot 01 table light)",
+   "notes": "SET (world units): globe sphere centre (0,120,-20) r=400; park content clipped to r=350 around (0,-20); wooden base lathe from y=0 (r 385) to the table at y=-160 (r 440), brass rings. Table top y=-160 (walnut). Closed ticket stack 200 x 96 x 6, centre (0,-157,648), long side along x, print up, same orientation as shot 01. Final camera = ticket centre + (0, 297, 22), fov 30."
+  }
+ ],
+ "render_budget": {
+  "written_frames": 1512,
+  "unique_frames": 1338,
+  "agents": {
+   "c": {
+    "shots": [
+     "01_paper_ticket",
+     "03_felt_kiddie",
+     "06_tin_toybox",
+     "10_pov_crest_paper",
+     "11_pov_drop_felt",
+     "14_pov_corkscrew_tin"
+    ],
+    "frames": 522,
+    "unique_frames": 348
+   },
+   "a": {
+    "shots": [
+     "02_gouache_arrival",
+     "05_pixel_build",
+     "07_gouache_revival",
+     "09_pov_crest_gouache",
+     "12_ext_loop_pixel"
+    ],
+    "frames": 480,
+    "unique_frames": 480
+   },
+   "b": {
+    "shots": [
+     "04_lowpoly_blueprint",
+     "08_pov_lift_lowpoly",
+     "13_pov_loop_lowpoly",
+     "15_tiltshift_dusk",
+     "16_globe_shake"
+    ],
+    "frames": 510,
+    "unique_frames": 510
+   }
+  }
+ }
+}
