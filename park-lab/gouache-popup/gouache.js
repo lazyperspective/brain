@@ -22,7 +22,7 @@ function fbm(x, y, o = 4) { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i 
 const v3 = { sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k], dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], norm: a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; } };
 
 // ---------------------------------------------------------------- camera
-const CAM = { pos: [0, 50, 100], tgt: [0, 0, -2.5], f: 870 };
+const CAM = { pos: [0, 50, 100], tgt: [0, 3, -2.5], f: 870 };
 let CR, CU, CF;
 (function () { const f = v3.norm(v3.sub(CAM.tgt, CAM.pos)); const r = v3.norm(v3.cross(f, [0, 1, 0])); CF = f; CR = r; CU = v3.cross(r, f); })();
 function P(x, y, z) { const dx = x - CAM.pos[0], dy = y - CAM.pos[1], dz = z - CAM.pos[2]; const xc = dx * CR[0] + dy * CR[1] + dz * CR[2], yc = dx * CU[0] + dy * CU[1] + dz * CU[2], zc = dx * CF[0] + dy * CF[1] + dz * CF[2]; const s = CAM.f / zc; return [W / 2 + xc * s, H / 2 - yc * s, zc, s]; }
@@ -43,7 +43,7 @@ const ORIG = [540, 990];
   }
 })();
 function arrAt(sx, sy) { const fx = clamp(sx / W * AW - 0.5, 0, AW - 1.001), fy = clamp(sy / H * AW - 0.5, 0, AW - 1.001); const i = fx | 0, j = fy | 0, u = fx - i, v = fy - j; const a = ARR[j * AW + i], b = ARR[j * AW + i + 1], c = ARR[(j + 1) * AW + i], d = ARR[(j + 1) * AW + i + 1]; return lerp(lerp(a, b, u), lerp(c, d, u), v); }
-const T0 = 0.12, TW = 1.3;
+const T0 = 0.12, TW = 1.4;
 const prog = t => (t - T0) / TW * 1.22 - 0.1;
 const wakeAt = (sx, sy, t) => sstep(0, 0.1, prog(t) - arrAt(sx, sy));
 const wakeTime = (sx, sy) => T0 + (arrAt(sx, sy) + 0.05 + 0.1) / 1.22 * TW;
@@ -183,7 +183,7 @@ function buildFar() {
   for (let k = 0; k < 14; k++) { const x = 760 + k * 14 + R() * 6, y = HORIZON + 42 - R() * 4; const c = mixc(hx(['#e6d2b7', '#d9b49a', '#c9a48a'][k % 3]), hx('#e9d6c3'), 0.4); fac.fillStyle = C(c); fac.fillRect(x, y - 9, 11, 9); fac.fillStyle = C(mixc(hx('#b0644e'), hx('#e9d6c3'), 0.45)); fac.beginPath(); fac.moveTo(x - 1, y - 9); fac.lineTo(x + 5.5, y - 15); fac.lineTo(x + 12, y - 9); fac.fill(); }
   fac.fillStyle = C(mixc(hx('#e0cdb4'), hx('#e9d6c3'), 0.4)); fac.fillRect(845, HORIZON + 6, 6, 30); fac.beginPath(); fac.moveTo(843, HORIZON + 6); fac.lineTo(848, HORIZON - 10); fac.lineTo(853, HORIZON + 6); fac.fill();
   // haze wash over the far land
-  const g = fac.createLinearGradient(0, HORIZON - 40, 0, YBACK + 40); g.addColorStop(0, 'rgba(240,220,200,0.55)'); g.addColorStop(0.6, 'rgba(240,220,200,0.18)'); g.addColorStop(1, 'rgba(240,220,200,0.0)');
+  const g = fac.createLinearGradient(0, HORIZON - 40, 0, YBACK + 40); g.addColorStop(0, 'rgba(240,220,200,0.35)'); g.addColorStop(0.6, 'rgba(240,220,200,0.08)'); g.addColorStop(1, 'rgba(240,220,200,0.0)');
   fac.fillStyle = g; fac.fillRect(0, 0, 1160, 600);
 }
 
@@ -248,7 +248,7 @@ const TRAIN_S = [];
   const s0 = ti * COASTER.ds + 13; // head already tipped over the crest
   const crest = P(...COASTER.S[ti]); const tStart = wakeTime(crest[0], crest[1]) - 0.12;
   const avgY = s => { let y = 0; for (let c = 0; c < TRAIN.cars; c++) y += trackAt(s - c * TRAIN.gap).p[1]; return y / TRAIN.cars; };
-  const yRef = avgY(s0) + 0.6, g = 95; let s = s0, v = 0; const dt = 1 / 600;
+  const yRef = avgY(s0) + 1.2, g = 120; let s = s0, v = 0; const dt = 1 / 600;
   for (let k = 0; k <= 3 * 600 + 10; k++) {
     const t = k * dt; if (k % 20 === 0) TRAIN_S.push(s);
     if (t > tStart) { const u = Math.min(1, (t - tStart) / 0.25); v = Math.sqrt(Math.max(4, 2 * g * (yRef - avgY(s)))) * (0.35 + 0.65 * u); s += v * dt; }
@@ -277,6 +277,14 @@ const STALLS = [];
   STALLS.push({ x: -40, z: 22, c: PAL.pink, kind: 'tent', r: 2.6 }); STALLS.push({ x: 26, z: 22, c: PAL.lilac, kind: 'stall', side: 1 });
   STALLS.push({ x: 8, z: -18, c: PAL.mustard, kind: 'tent', r: 2.8 });
 })();
+const BLANKETS = [[-34, 54, 0.3], [-22, 60, -0.2], [26, 56, 0.4], [36, 52, -0.1], [-44, 30, 0.2], [48, 44, 0.3], [-14, 64, 0.1], [16, 64, -0.3]].map(([x, z, r], i) => ({ x, z, r, c: [PAL.red, PAL.blue, PAL.mustard, PAL.teal][i % 4], i }));
+function drawBlanket(b, t, wk) {
+  const vis = sstep(0.4, 0.7, wk); if (vis <= 0) return; const c = P(b.x, 0, b.z); FOG = fogAt(c[2]); const s = c[3];
+  const ca = Math.cos(b.r), sa = Math.sin(b.r); const Q = (u, v) => P(b.x + u * ca - v * sa, 0.05, b.z + u * sa + v * ca);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { const u0 = -2 + i, v0 = -1.5 + j; pathPoly(sc, [Q(u0, v0), Q(u0 + 1, v0), Q(u0 + 1, v0 + 1), Q(u0, v0 + 1)]); sc.fillStyle = C((i + j) % 2 ? b.c : PAL.cream, vis); sc.fill(); }
+  const bk = Q(1.2, -0.6); sc.fillStyle = C('#b07a40', vis); sc.fillRect(bk[0] - s * 0.5, bk[1] - s * 0.5, s, s * 0.6);
+  for (let k = 0; k < 3; k++) { const p = Q(-1.4 + k * 1.1, 0.4 - (k % 2) * 0.9); const bob = Math.sin(t * 3 + k + b.i) * s * 0.05; sc.fillStyle = C(SHIRTS[(b.i * 3 + k) % 12], vis); sc.beginPath(); sc.ellipse(p[0], p[1] - s * 0.5 + bob, s * 0.32, s * 0.42, 0, 0, 6.283); sc.fill(); sc.fillStyle = C(SKIN[(b.i + k) % 5], vis); sc.beginPath(); sc.arc(p[0], p[1] - s * 1.05 + bob, s * 0.21, 0, 6.283); sc.fill(); }
+}
 const UMBRELLAS = [[-17, 46], [-20, 50], [-15, 52], [17, 50], [20, 46], [-30, 16], [-28, 22], [16, 6], [-6, 4], [44, 40]].map(([x, z], i) => ({ x, z, c: [PAL.coral, PAL.teal, PAL.mustard, PAL.pink, PAL.blue][i % 5] }));
 // guests
 const GUESTS = [];
@@ -413,14 +421,14 @@ function drawStall(st, t, wk) {
     return;
   }
   // booth with striped awning; side=+1 faces +x
-  const w = 3.6, d = 2.6, h = 2.6, x = st.x, z = st.z;
+  const w = 4.4, d = 2.8, h = 2.1, x = st.x, z = st.z;
   const box = (x0, x1, z0, z1, y0, y1, col, seed) => {
     const fr = [P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)]; paint(sc, fr, col, seed, { n: 6 });
     const sd = st.side > 0 ? [P(x1, y0, z1), P(x1, y0, z0), P(x1, y1, z0), P(x1, y1, z1)] : [P(x0, y0, z1), P(x0, y0, z0), P(x0, y1, z0), P(x0, y1, z1)];
     paint(sc, sd, lit(col, st.side > 0 ? 0.12 : -0.18), seed + 1, { n: 6 });
     paint(sc, [P(x0, y1, z0), P(x1, y1, z0), P(x1, y1, z1), P(x0, y1, z1)], lit(col, 0.2), seed + 2, { n: 4 });
   };
-  box(x - d / 2, x + d / 2, z - w / 2, z + w / 2, 0, h, PAL.cream, x * 7 + z | 0);
+  box(x - d / 2, x + d / 2, z - w / 2, z + w / 2, 0, h, mixc(hx(st.c), hx(PAL.cream), 0.45), x * 7 + z | 0);
   // counter opening on the side facing the path
   const sx = st.side > 0 ? x + d / 2 : x - d / 2;
   pathPoly(sc, [P(sx, 1.1, z - w * 0.38), P(sx, 1.1, z + w * 0.38), P(sx, 2.0, z + w * 0.38), P(sx, 2.0, z - w * 0.38)]); sc.fillStyle = C('#4a2c34', 0.85); sc.fill();
@@ -429,7 +437,7 @@ function drawStall(st, t, wk) {
   const ax0 = sx, ax1 = sx + st.side * 1.4;
   for (let i = 0; i < 6; i++) { const z0 = z - w / 2 + i * w / 6, z1 = z0 + w / 6; paint(sc, [P(ax0, h + 0.1, z0), P(ax0, h + 0.1, z1), P(ax1, h - 0.6, z1), P(ax1, h - 0.6, z0)], lit(i % 2 ? st.c : PAL.cream, 0.08), i + x * 3 | 0, { n: 2 }); const m = P(ax1, h - 0.6, (z0 + z1) / 2); sc.fillStyle = C(i % 2 ? st.c : PAL.cream); sc.beginPath(); sc.arc(m[0], m[1], s * w / 12, 0, Math.PI); sc.fill(); }
   // roof sign shape (blank decorative)
-  const sg = P(x, h + 0.9, z); sc.fillStyle = C(st.c); sc.beginPath(); sc.ellipse(sg[0], sg[1], s * 1.1, s * 0.6, 0, 0, 6.283); sc.fill(); sc.strokeStyle = C(PAL.cream); sc.lineWidth = Math.max(1, s * 0.15); sc.stroke();
+  const sg = P(x, h + 1.6, z); line(sc, P(x, h, z), sg, Math.max(1, s * 0.12), '#5b4a3a'); const fl = Math.sin(t * 7 + z) * s * 0.25; pathPoly(sc, [sg, [sg[0] + s * 1.2, sg[1] + s * 0.3 + fl], [sg[0], sg[1] + s * 0.7]]); sc.fillStyle = C(st.c); sc.fill();
   if (wk > 0.7) fxBulb(sg[0], sg[1] - s * 0.6, s * 0.18, (wk - 0.7) / 0.3, '#ffe9a8');
 }
 function drawUmbrella(u, t) { const b = P(u.x, 0, u.z); FOG = fogAt(b[2]); const s = b[3]; const top = P(u.x, 2.6, u.z); line(sc, b, top, Math.max(1, s * 0.12), '#5b4a3a'); const tb = P(u.x, 0.8, u.z); sc.fillStyle = C(PAL.cream); sc.beginPath(); sc.ellipse(tb[0], tb[1], s * 0.9, s * 0.35, 0, 0, 6.283); sc.fill(); const pts = []; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283; pts.push(P(u.x + Math.cos(a) * 1.8, 2.2, u.z + Math.sin(a) * 1.8)); } for (let i = 0; i < 10; i++) { pathPoly(sc, [pts[i], pts[(i + 1) % 10], P(u.x, 2.9, u.z)]); sc.fillStyle = C(lit(i % 2 ? u.c : PAL.cream, Math.cos(i / 10 * 6.283 + 0.8) * 0.15)); sc.fill(); } }
@@ -807,7 +815,7 @@ function drawScene(t) {
   const zoom = 1 + 0.045 * ez;
   sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, W, H); fx.setTransform(1, 0, 0, 1, 0, 0); fx.clearRect(0, 0, W, H);
   // sky (slow) + far (medium) parallax
-  sc.drawImage(skyv, -60 - t * 14, -40 - t * 2, 1240, 520);
+  sc.drawImage(skyv, -60 - t * 14, -100 - t * 2, 1240, 520);
   const fz = 1 + 0.02 * ez; sc.save(); sc.translate(540, 560); sc.scale(fz, fz); sc.translate(-540, -560); sc.drawImage(farv, -40, 0); sc.restore();
   // park plane
   const cx = 540, cy = 560; const T = (ctx) => { ctx.setTransform(zoom, 0, 0, zoom, cx * (1 - zoom), cy * (1 - zoom)); };
@@ -829,6 +837,7 @@ function drawScene(t) {
   IVY.forEach(v => { const p = P(v.x, 0, v.z); const g = 1 - sstep(0.05, 0.75, wakeAt(p[0], p[1] - 10, t)); if (g <= 0.02) return; push(p[2] - 0.8, () => drawIvy(v, g)); });
   TREES.forEach(tr => { const p = P(tr.x, 0, tr.z); push(p[2], () => drawTree(tr, t, wakeAt(p[0], p[1], t))); });
   STALLS.forEach(st => { const p = P(st.x, 0, st.z); push(p[2], () => drawStall(st, t, wakeAt(p[0], p[1] - 20, t))); });
+  BLANKETS.forEach(b => { const p = P(b.x, 0, b.z); push(p[2], () => drawBlanket(b, t, wakeAt(p[0], p[1], t))); });
   UMBRELLAS.forEach(u => { const p = P(u.x, 0, u.z); push(p[2], () => drawUmbrella(u, t)); });
   LAMPS.forEach((l, i) => { const p = P(l[0], 0, l[1]); push(p[2] - 0.5, () => drawLamp(l[0], l[1], t, wakeAt(p[0], p[1], t), i)); });
   push(P(0, 4, 40)[2] - 30, () => drawStrings(t, wk(0, 30, 4)));
@@ -897,8 +906,8 @@ void main(){
   // bristle streaks: anisotropic noise along a slowly varying stroke direction
   float ang = fbm(v*3.3)*6.2832; vec2 dv = vec2(cos(ang), sin(ang));
   vec2 q = vec2(dot(v,dv), dot(v,vec2(-dv.y,dv.x)));
-  float br = n(q*vec2(70.,900.)) - .5; float blk = n(q*vec2(18.,60.)+3.1) - .5;
-  c *= 1. + br*.07 + blk*.06;
+  float br = n(q*vec2(60.,700.)) - .5;
+  c *= 1. + br*.035;
   // pigment pooling at edges
   float l1=dot(S(uv+vec2(2.,0.)*PX),vec3(.3,.59,.11)), l2=dot(S(uv-vec2(2.,0.)*PX),vec3(.3,.59,.11));
   float l3=dot(S(uv+vec2(0.,2.)*PX),vec3(.3,.59,.11)), l4=dot(S(uv-vec2(0.,2.)*PX),vec3(.3,.59,.11));

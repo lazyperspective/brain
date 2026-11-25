@@ -33,8 +33,8 @@ const PAL = TIN ? {
   red: '#c63a2c', cream: '#f2e4c4', teal: '#2f8088', mustard: '#e3a537', navy: '#233a66',
   green: '#4f8a3c', pink: '#d9737f', sky: '#5fa2c8', orange: '#e0702e', brown: '#8a5a33', white: '#f6efe0', purple: '#6b4c8a'
 } : {
-  red: '#e07a6a', cream: '#f5ead4', teal: '#5ea7a2', mustard: '#ebbd55', navy: '#5c77a8',
-  green: '#93b86a', pink: '#f2a7b3', sky: '#8fbfe0', orange: '#ef9a5c', brown: '#a77d5a', white: '#fbf5ea', purple: '#b39ad0'
+  red: '#d65a4a', cream: '#f3e6cc', teal: '#3f948f', mustard: '#e8a93a', navy: '#41609a',
+  green: '#78a450', pink: '#ec8a9b', sky: '#6aa6d6', orange: '#e98443', brown: '#9a6c48', white: '#f8f0e2', purple: '#9a7cc0'
 };
 const BRIGHTS = ['red', 'teal', 'mustard', 'navy', 'pink', 'sky', 'orange', 'green', 'purple'].map(k => PAL[k]);
 
@@ -42,7 +42,7 @@ const BRIGHTS = ['red', 'teal', 'mustard', 'navy', 'pink', 'sky', 'orange', 'gre
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(SIZE, SIZE);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = TIN ? 0.92 : 1.0;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = TIN ? 0.92 : 0.86;
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(TIN ? '#3a2618' : '#4a3424');
@@ -165,7 +165,7 @@ function mat(color, o = {}) {
     const map = feltTex(color, acc, pattern === 'gears' ? 'plain' : pattern);
     if (o.rep) { /* repeat handled by clone */ }
     m = new THREE.MeshPhysicalMaterial({ map, roughness: 1, metalness: 0, bumpMap: bumpNoise, bumpScale: 2.5,
-      sheen: 1, sheenRoughness: 0.55, sheenColor: new THREE.Color(color).lerp(new THREE.Color('#fff4e6'), 0.6) });
+      sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(color).lerp(new THREE.Color('#fff4e6'), 0.35) });
   } else if (kind === 'tin') {
     const { map, mr } = tinTextures(color, acc, pattern, o.border !== false);
     m = new THREE.MeshStandardMaterial({ map, metalnessMap: mr, roughnessMap: mr, metalness: 1, roughness: 1, envMapIntensity: 1 });
@@ -365,10 +365,10 @@ function buildGround() {
       for (let i = 0; i < 260; i++) { const x = r() * S, y = r() * S; g.fillStyle = pick(['#f5ead4', '#f2a7b3', '#ebbd55', '#b39ad0']); for (let k = 0; k < 5; k++) { g.beginPath(); g.arc(x + Math.cos(k * 1.26) * 6, y + Math.sin(k * 1.26) * 6, 5, 0, 7); g.fill(); } g.fillStyle = '#ebbd55'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); }
       feltOverlay(g, S, 5, 1.2);
     });
-    const sheet = mesh(rbox(32, 0.3, 32, 0.14), mat(PAL.green), false); sheet.position.y = -0.17; scene.add(sheet); sheet.userData.fuzz = 2;
+    const sheet = mesh(rbox(32, 0.3, 32, 0.14), mat(PAL.green), false); sheet.position.y = -0.17; scene.add(sheet); sheet.userData.fuzz = 1;
     const topM = new THREE.MeshPhysicalMaterial({ map: topTex, roughness: 1, bumpMap: bumpNoise, bumpScale: 2, sheen: 1, sheenRoughness: 0.6, sheenColor: new THREE.Color('#e8f0d0') });
     const top = mesh(new THREE.PlaneGeometry(31.7, 31.7, 1, 1), topM, false); top.rotation.x = -Math.PI / 2; top.position.y = 0.0; scene.add(top);
-    top.userData.fuzz = 3;
+    top.userData.fuzz = 2;
     // yarn balls on the table
     for (const [x, z, c, r] of [[-19, 9, PAL.red, 1.6], [19.5, -4, PAL.sky, 1.3], [-18.5, -12, PAL.mustard, 1.2]]) {
       const yb = mesh(sph(r, 24), mat(c, { acc: PAL.white, pattern: 'hstripes' })); yb.position.set(x, -0.32 + r * 0.9, z); scene.add(yb);
@@ -935,7 +935,7 @@ buildGuests();
 const boilU = { value: new THREE.Vector3() };
 if (FELT) {
   const shellCache = new Map();
-  const LEVELS = 4, LEN = 0.075, DENS = 16.0;
+  const LEVELS = 3, LEN = 0.11, DENS = 11.0;
   const shellMat = (base, lv) => {
     const key = base.uuid + lv; if (shellCache.has(key)) return shellCache.get(key);
     const m = new THREE.MeshStandardMaterial({ map: base.map, color: base.color, roughness: 1, metalness: 0 });
@@ -964,12 +964,12 @@ if (FELT) {
       const sm = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, shellMat(o.material, l / n), o.count) : new THREE.Mesh(o.geometry, shellMat(o.material, l / n));
       if (o.isInstancedMesh) { sm.instanceMatrix = o.instanceMatrix; sm.instanceColor = o.instanceColor; sm.frustumCulled = false; }
       sm.castShadow = false; sm.receiveShadow = true; sm.userData.shell = true;
-      if (o.isInstancedMesh) { scene.add(sm); } else o.add(sm);
+      if (o.isInstancedMesh) { sm.position.copy(o.position); sm.quaternion.copy(o.quaternion); sm.scale.copy(o.scale); o.parent.add(sm); } else o.add(sm);
     }
     if (o.isInstancedMesh || o.userData.fuzz) continue;
     // stray hairs
     const pos = o.geometry.attributes.position, nor = o.geometry.attributes.normal; if (!nor) continue;
-    o.geometry.computeBoundingSphere(); const rad = o.geometry.boundingSphere.radius;
+    o.geometry.computeBoundingSphere(); const rad = o.geometry.boundingSphere.radius; if (rad > 3.5 || o.geometry.type === 'TubeGeometry') continue;
     const cnt = Math.min(60, Math.round(rad * 14) + 4); const arr = [];
     const hr = rng(pos.count + cnt);
     for (let i = 0; i < cnt; i++) {
@@ -980,19 +980,19 @@ if (FELT) {
     }
     const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
     const col = new THREE.Color(o.material.sheenColor || '#ffffff');
-    const hk = col.getHexString(); if (!hairMats.has(hk)) hairMats.set(hk, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(1.05), transparent: true, opacity: 0.55 }));
+    const hk = col.getHexString(); if (!hairMats.has(hk)) hairMats.set(hk, new THREE.LineBasicMaterial({ color: col.clone(), transparent: true, opacity: 0.4 }));
     const ls = new THREE.LineSegments(hg, hairMats.get(hk)); ls.userData.shell = true; o.add(ls);
   }
 }
 
 // ---------------------------------------------------------------- lights & camera
-const sun = new THREE.DirectionalLight(TIN ? '#ffc98c' : '#ffd2a0', TIN ? 4.2 : 3.6);
+const sun = new THREE.DirectionalLight(TIN ? '#ffc98c' : '#ffc890', TIN ? 4.2 : 4.3);
 sun.position.set(-34, 24, 6); sun.target.position.set(0, 0, 0); scene.add(sun.target);
 sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 5, far: 90 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; sun.shadow.radius = FELT ? 6 : 3;
 scene.add(sun);
-scene.add(new THREE.HemisphereLight(TIN ? '#e8ecff' : '#f4ecff', TIN ? '#5a3a22' : '#6a4a30', TIN ? 0.42 : 0.6));
+scene.add(new THREE.HemisphereLight(TIN ? '#e8ecff' : '#f4ecff', TIN ? '#5a3a22' : '#6a4a30', TIN ? 0.42 : 0.38));
 const rim = new THREE.DirectionalLight(TIN ? '#b8d0ff' : '#ffe6d0', TIN ? 0.6 : 0.8); rim.position.set(20, 14, -24); scene.add(rim);
 
 const camera = new THREE.PerspectiveCamera(30, 1, 5, 400);
@@ -1019,7 +1019,7 @@ const grade = new ShaderPass({
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uSeed) * 43758.5453); }
     void main(){ vec4 c = texture2D(tDiffuse, vUv); vec2 d = vUv - 0.5; float v = smoothstep(0.85, 0.25, length(d));
       c.rgb *= mix(0.72, 1.0, v); c.rgb = mix(c.rgb, c.rgb * vec3(1.05, 0.98, 0.9), 0.5);
-      c.rgb += (h(vUv * 1000.0) - 0.5) * ${TIN ? '0.025' : '0.035'}; gl_FragColor = c; }`
+      c.rgb += (h(vUv * 1000.0) - 0.5) * ${TIN ? '0.025' : '0.028'}; gl_FragColor = c; }`
 });
 composer.addPass(grade);
 
