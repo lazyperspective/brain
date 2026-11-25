@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"/film/lib/three/three.module.js","three/addons/":"/jsm/"}}</script>
+<script src="/film/plan/park.js"></script></head><body><script type="module">
+import * as THREE from 'three';
+import { buildGreybox } from '/film/plan/greybox.js';
+try {
+const t0=performance.now();
+const park = await ParkPlan.load('/film/plan/park.json');
+const shots = await (await fetch('/film/plan/shots.json')).json();
+const W=1920,H=1080;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W,H); document.body.appendChild(renderer.domElement);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xbfd9ff);
+const d = park.data.lighting.sun_day.direction_to_sun;
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.6); sun.position.set(d[0]*800,d[1]*800,d[2]*800); sun.castShadow=true; sun.shadow.mapSize.set(4096,4096);
+Object.assign(sun.shadow.camera,{left:-420,right:420,top:420,bottom:-420,near:10,far:2000}); scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xbfd9ff,0x7a9a5a,0.9));
+const gb = buildGreybox(THREE, park, {detail:1}); scene.add(gb.root);
+const cam = new THREE.PerspectiveCamera(80, W/H, 0.3, 6000);
+window.info = {build: performance.now()-t0, gl: renderer.getContext().getParameter(renderer.getContext().VERSION), renderer: (()=>{const g=renderer.getContext(); const e=g.getExtension('WEBGL_debug_renderer_info'); return e? g.getParameter(e.UNMASKED_RENDERER_WEBGL):'?'})()};
+window.go = (id, t) => { const shot = shots.shots.find(s=>s.id===id); const c = park.camera(shot,t); gb.update(t,shot);
+  let camx=cam; if (c.orthoHalfHeight){ camx=new THREE.OrthographicCamera(-c.orthoHalfHeight*W/H,c.orthoHalfHeight*W/H,c.orthoHalfHeight,-c.orthoHalfHeight,-2000,4000);} else {cam.fov=c.fov; cam.updateProjectionMatrix();}
+  camx.position.set(...c.position); camx.up.set(...c.up); camx.lookAt(...c.target);
+  const a=performance.now(); renderer.render(scene,camx); renderer.getContext().finish(); const b=performance.now(); const u=renderer.domElement.toDataURL('image/jpeg',0.92); return {render:b-a, enc:performance.now()-b, url:u}; };
+window.ready=true;
+} catch(e){ window.err = e.stack||String(e); }
+</script></body></html>

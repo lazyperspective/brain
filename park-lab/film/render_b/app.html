@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/film/lib/three/three.module.js","three/addons/":"/jsm/"}}</script>
+<script src="/film/plan/park.js"></script>
+</head><body><script type="module">
+const qs = new URLSearchParams(location.search);
+try {
+  const park = await ParkPlan.load('/film/plan/park.json');
+  const shots = await (await fetch('/film/plan/shots.json')).json();
+  const shot = shots.shots.find(s => s.id === qs.get('shot'));
+  const W = +(qs.get('w') || 1920), H = +(qs.get('h') || 1080);
+  const styleMod = { lowpoly: './style_lowpoly.js', tiltshift: './style_mini.js', snowglobe: './style_mini.js' }[shot.style];
+  const mod = await import(styleMod + '?v=' + Date.now());
+  const app = await mod.setup({ park, shot, shots, W, H, qs });
+  window.renderAt = (t, i) => { app.renderAt(t, i); return app.canvas.toDataURL('image/jpeg', +(qs.get('q') || 0.95)); };
+  window.info = app.info || {};
+  window.__ready = true;
+} catch (e) { window.__err = e.stack || String(e); }
+</script></body></html>
