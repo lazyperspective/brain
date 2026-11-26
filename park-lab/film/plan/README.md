@@ -94,6 +94,8 @@ park.edgePoint(edgeId, u), park.landAt(x, z), ParkPlan.sagLine(a, b, sag, n)
 ```
 **Always use `park.camera(shot, t)` for the camera.** It does Catmull-Rom or linear interpolation with easing, ortho iso, and POV ride-along with head turns. Then the match cuts line up exactly between agents.
 
+POV fields (`shot.camera` with `mode: 'pov'`): `seat_back_m` (eye station behind the train front), `eye` [left, up, fwd] in the track frame, `aim_ahead_m` (polish pass: look along the track tangent this far ahead; without it the camera aims at the point `look_ahead_m` ahead, the original rig), `fov`, and `head` keys `{t, yaw, pitch, roll?, ease?}` in degrees (yaw + = look left, pitch + = look up, roll rotates the head about the view axis; ease defaults to inOut).
+
 ## greybox.js
 ```js
 import * as THREE from 'three';

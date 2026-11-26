@@ -21,7 +21,7 @@
   "world": "park.json world (metres, y up, z south)",
   "keys": "keys[i] = {t, pos, target, fov | ortho, ease, roll?}; ease applies to the segment from this key to the next; interp catmull (uniform Catmull-Rom through pos/target, endpoint keys duplicated) or linear; step = hold until the next key",
   "ortho": "orthographic half-height in metres (visible world height = 2*ortho); camera looks from pos toward target; iso = 2:1 dimetric, elevation 30 deg, from the south-east",
-  "pov": "ride-along: eye 1.25 m above the track centre of the front row (s_front - 0.7), look target 14 m ahead along the track; camera up = track up (horizon banks, inverts in the loop); head = yaw/pitch keyframes in degrees (yaw + = look left)",
+  "pov": "ride-along (polish rig): eye 1.6 m above the track centre at the front of the lead car (s_front - 0.1), looking along the track tangent 4 m ahead (aim_ahead_m; older shots without it aim at the point look_ahead_m ahead); camera up = track up (horizon banks, inverts in the loop); head = yaw/pitch/roll keyframes in degrees (yaw + = look left, pitch + = look up), optional per-key ease (default inOut)",
   "evaluate": "use ParkPlan.camera(shot, t) in park.js or park.camera(shot, t) in park.py so all styles get identical cameras",
   "up": "world up (0,1,0) except straight-down views (0,0,-1) and POV"
  },
@@ -1710,29 +1710,37 @@
     "mode": "pov",
     "ride": "hero_coaster",
     "train": 0,
-    "seat_back_m": 0.7,
+    "seat_back_m": 0.3,
     "eye": [
      0,
-     1.25,
+     1.6,
      0
     ],
     "look_ahead_m": 14,
-    "fov": 80,
+    "aim_ahead_m": 4,
+    "fov": 84,
     "head": [
      {
       "t": 27.8,
-      "yaw": 0,
-      "pitch": 10
+      "yaw": -5,
+      "pitch": -4
      },
      {
-      "t": 29.3,
-      "yaw": -40,
-      "pitch": -10
+      "t": 28.6,
+      "yaw": -80,
+      "pitch": -10,
+      "roll": -28
+     },
+     {
+      "t": 29.5,
+      "yaw": -76,
+      "pitch": -8,
+      "roll": -26
      },
      {
       "t": 30.2,
-      "yaw": -15,
-      "pitch": 0
+      "yaw": -10,
+      "pitch": -6
      }
     ]
    },
@@ -1793,24 +1801,25 @@
     "mode": "pov",
     "ride": "hero_coaster",
     "train": 0,
-    "seat_back_m": 0.7,
+    "seat_back_m": 0.3,
     "eye": [
      0,
-     1.25,
+     1.6,
      0
     ],
     "look_ahead_m": 14,
-    "fov": 80,
+    "aim_ahead_m": 4,
+    "fov": 84,
     "head": [
      {
       "t": 29.8,
-      "yaw": -15,
-      "pitch": 0
+      "yaw": -10,
+      "pitch": -6
      },
      {
       "t": 31.2,
-      "yaw": 0,
-      "pitch": -4
+      "yaw": -18,
+      "pitch": -10
      }
     ]
    },
@@ -1877,29 +1886,30 @@
     "mode": "pov",
     "ride": "hero_coaster",
     "train": 0,
-    "seat_back_m": 0.7,
+    "seat_back_m": 0.3,
     "eye": [
      0,
-     1.25,
+     1.6,
      0
     ],
     "look_ahead_m": 14,
-    "fov": 80,
+    "aim_ahead_m": 4,
+    "fov": 84,
     "head": [
      {
       "t": 30.8,
-      "yaw": 0,
-      "pitch": -4
-     },
-     {
-      "t": 31.6,
-      "yaw": 0,
+      "yaw": -20,
       "pitch": -10
      },
      {
+      "t": 31.5,
+      "yaw": -22,
+      "pitch": -12
+     },
+     {
       "t": 32.2,
-      "yaw": 0,
-      "pitch": -28
+      "yaw": -6,
+      "pitch": -4
      }
     ]
    },
@@ -1962,24 +1972,35 @@
     "mode": "pov",
     "ride": "hero_coaster",
     "train": 0,
-    "seat_back_m": 0.7,
+    "seat_back_m": 0.3,
     "eye": [
      0,
-     1.25,
+     1.6,
      0
     ],
     "look_ahead_m": 14,
-    "fov": 80,
+    "aim_ahead_m": 4,
+    "fov": 84,
     "head": [
      {
       "t": 31.8,
       "yaw": 0,
-      "pitch": -25
+      "pitch": -2
+     },
+     {
+      "t": 32.15,
+      "yaw": -5,
+      "pitch": 12
+     },
+     {
+      "t": 32.6,
+      "yaw": -10,
+      "pitch": 18
      },
      {
       "t": 33.2,
-      "yaw": 0,
-      "pitch": -5
+      "yaw": -10,
+      "pitch": 14
      }
     ]
    },
@@ -2123,24 +2144,35 @@
     "mode": "pov",
     "ride": "hero_coaster",
     "train": 0,
-    "seat_back_m": 0.7,
+    "seat_back_m": 0.3,
     "eye": [
      0,
-     1.25,
+     1.6,
      0
     ],
     "look_ahead_m": 14,
-    "fov": 80,
+    "aim_ahead_m": 4,
+    "fov": 84,
     "head": [
      {
       "t": 33.8,
       "yaw": 0,
-      "pitch": 5
+      "pitch": -6
+     },
+     {
+      "t": 34.35,
+      "yaw": 0,
+      "pitch": -22
+     },
+     {
+      "t": 34.65,
+      "yaw": 0,
+      "pitch": -22
      },
      {
       "t": 35.2,
       "yaw": 0,
-      "pitch": 0
+      "pitch": -4
      }
     ]
    },
@@ -2197,19 +2229,25 @@
     "mode": "pov",
     "ride": "hero_coaster",
     "train": 0,
-    "seat_back_m": 0.7,
+    "seat_back_m": 0.3,
     "eye": [
      0,
-     1.25,
+     1.6,
      0
     ],
     "look_ahead_m": 14,
-    "fov": 80,
+    "aim_ahead_m": 4,
+    "fov": 84,
     "head": [
      {
       "t": 34.8,
       "yaw": 0,
-      "pitch": 0
+      "pitch": -8
+     },
+     {
+      "t": 36.2,
+      "yaw": 0,
+      "pitch": -8
      }
     ]
    },
@@ -2574,31 +2612,46 @@
      {
       "t": 40.9,
       "pos": [
-       60,
-       520,
-       1350
+       45,
+       560,
+       1150
       ],
       "target": [
        0,
-       60,
+       70,
        -20
       ],
       "fov": 36,
-      "ease": "linear"
+      "ease": "inOut"
      },
      {
-      "t": 42.6,
+      "t": 42.3,
       "pos": [
-       40,
-       470,
-       1300
+       30,
+       560,
+       860
       ],
       "target": [
        0,
-       80,
+       30,
        -20
       ],
-      "fov": 36,
+      "fov": 34,
+      "ease": "inOut"
+     },
+     {
+      "t": 42.75,
+      "pos": [
+       24,
+       540,
+       840
+      ],
+      "target": [
+       0,
+       25,
+       -20
+      ],
+      "fov": 34,
       "ease": "inOut"
      },
      {

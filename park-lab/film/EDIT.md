@@ -49,7 +49,7 @@ The "Frames" column is the frames to render, including 6 handle frames at each e
 | 20.0 | snap-zoom cut | Pixel ends on a ×6 snap onto the crate; tin opens on that same box. |
 | 24.0 | sky wipe | 06 tilts up to plain sky and 07 tilts down from painted sky. `assemble.py` adds a vertical smear. |
 | 28.0 | whip up and right | 07 whips toward the coaster, cutting to the POV on the lift. |
-| 30–36 | POV match cuts | The same POV rig is used each time: eye 1.25 m above the front row, 14 m look-ahead, camera up = track up. Each cut jumps forward along the ride (an ellipsis) and lands on a downbeat. |
+| 30–36 | POV match cuts | The same POV rig is used each time (polish pass, see `POLISH.md`): eye 1.6 m above the rail centre at the front of the lead car (s_front − 0.3), looking along the track tangent 4 m ahead, vertical fov 84°, camera up = track up. Only the nose tip shows at the bottom edge; our own front-row neighbours are not drawn. Each cut jumps forward along the ride (an ellipsis) and lands on a downbeat. |
 | 36.0 | POV to exterior | Hard cut on the downbeat (the helix, from the crowd). |
 | 40.0 | match cut | 15 and 16 share `PATH_FINALE`. The tilt-shift miniature becomes a model inside glass. |
 | 44.0 to 0.0 | loop | The last frame equals the first frame. |

@@ -86,10 +86,29 @@ PATH_FINALE = [    # shots 15 (tilt-shift) + 16 (snow globe): match cut at 40.0
     k(44.2, (0, 140, 670), (0, -160, 648), 30, 'linear'),
 ]
 
+# Polish: shot 16 gets its own keys after the 40.0 match-cut key (shot 15 keeps PATH_FINALE untouched; the frame at
+# exactly 40.0 is the shared key, so the cut still matches). The globe is framed closer and higher during the shake
+# and the winter reveal so the park inside reads, then the camera cranes down onto the ticket (LOOP frame, unchanged).
+PATH_GLOBE = PATH_FINALE[:4] + [
+    k(40.9, (45, 560, 1150), (0, 70, -20), 36, 'inOut'),
+    k(42.3, (30, 560, 860), (0, 30, -20), 34, 'inOut'),
+    k(42.75, (24, 540, 840), (0, 25, -20), 34, 'inOut'),
+    k(44.0, (0, 140, 670), (0, -160, 648), 30, 'linear'),
+    k(44.2, (0, 140, 670), (0, -160, 648), 30, 'linear'),
+]
 
-def pov(tau0, t0, rate, head, fov=80, look=14):
-    return {'mode': 'pov', 'ride': 'hero_coaster', 'train': 0, 'seat_back_m': 0.7, 'eye': [0, 1.25, 0], 'look_ahead_m': look, 'fov': fov,
-            'head': head}, {'hero_coaster': {'t0': t0, 'tau0': tau0, 'rate': rate}}
+
+# Ride-along rig, polish pass (shared by shots 08, 09, 10, 11, 13, 14 so the beat cuts stay consistent).
+# The eye sits at the front of the lead car (seat_back 0.1 m from the nose joint), 1.6 m above the rail centre,
+# and looks along the track tangent AIM m ahead (no chord dive at the brink), so only the nose tip shows at the
+# bottom edge; the front-row riders and their raised arms are behind the lens. Head keys add yaw/pitch/roll on top.
+POV_RIG = {"seat_back_m": 0.3, "eye": [0, 1.6, 0], "aim_ahead_m": 4, "fov": 84}
+
+
+def pov(tau0, t0, rate, head, fov=None, look=14):
+    cam = {'mode': 'pov', 'ride': 'hero_coaster', 'train': 0, 'seat_back_m': POV_RIG['seat_back_m'], 'eye': list(POV_RIG['eye']),
+           'look_ahead_m': look, 'aim_ahead_m': POV_RIG['aim_ahead_m'], 'fov': fov or POV_RIG['fov'], 'head': head}
+    return cam, {'hero_coaster': {'t0': t0, 'tau0': tau0, 'rate': rate}}
 
 
 SHOTS = []
@@ -206,29 +225,29 @@ shot(7, 'gouache_revival', 'gouache', 'a', 24.0, 28.0,
      tin={'type': 'tilt_down_sky'}, tout={'type': 'whip_up_right', 'frames': 6})
 
 # ------------------------------------------------------------------ climax: one ride, styles change on the beat
-cam, rides = pov(44.0, 28.0, 4.0, [{'t': 27.8, 'yaw': 0, 'pitch': 10}, {'t': 29.3, 'yaw': -40, 'pitch': -10}, {'t': 30.2, 'yaw': -15, 'pitch': 0}])
+cam, rides = pov(44.0, 28.0, 4.0, [{"t": 27.8, "yaw": -5, "pitch": -4}, {"t": 28.6, "yaw": -80, "pitch": -10, "roll": -28}, {"t": 29.5, "yaw": -76, "pitch": -8, "roll": -26}, {"t": 30.2, "yaw": -10, "pitch": -6}])
 shot(8, 'pov_lift_lowpoly', 'lowpoly', 'b', 28.0, 30.0,
      'POV from the front seat of the Red Comet climbing the chain lift; the head turns right to watch the park fall away (hub tower, midway, wooden coaster).',
      cam, beats=[{'t': 28.0, 'e': 'chain clacks on 8ths (lift x4 time-lapse)'}], focus={'dof': 'deep'},
      must=['lift chain + catwalk', 'train nose + lap bars in the bottom of frame', 'park panorama'],
      tin={'type': 'whip_up_right'}, tout={'type': 'cut', 'note': 'POV match cut, same rig'}, rides=rides)
-cam, rides = pov(53.0, 30.0, 3.6, [{'t': 29.8, 'yaw': -15, 'pitch': 0}, {'t': 31.2, 'yaw': 0, 'pitch': -4}])
+cam, rides = pov(53.0, 30.0, 3.6, [{"t": 29.8, "yaw": -10, "pitch": -6}, {"t": 31.2, "yaw": -18, "pitch": -10}])
 shot(9, 'pov_crest_gouache', 'gouache', 'a', 30.0, 31.0, 'POV: the last metres of the lift; the horizon opens over the painted park.', cam,
      must=['lift top', 'sky', 'park below'], tin={'type': 'cut'}, tout={'type': 'cut'}, rides=rides)
-cam, rides = pov(59.3, 31.0, 4.2, [{'t': 30.8, 'yaw': 0, 'pitch': -4}, {'t': 31.6, 'yaw': 0, 'pitch': -10}, {'t': 32.2, 'yaw': 0, 'pitch': -28}])
+cam, rides = pov(59.3, 31.0, 4.2, [{"t": 30.8, "yaw": -20, "pitch": -10}, {"t": 31.5, "yaw": -22, "pitch": -12}, {"t": 32.2, "yaw": -6, "pitch": -4}])
 shot(10, 'pov_crest_paper', 'paper', 'c', 31.0, 32.0,
      'POV: the crest turn, hanging at the top. The paper park lies spread on the table far below; the nose tips over the edge on the last frames. Music drops out.', cam,
      beats=[{'t': 31.0, 'e': 'silence, wind'}, {'t': 31.75, 'e': 'nose tips over'}], must=['paper park below', 'drop ahead'], tin={'type': 'cut'}, tout={'type': 'cut', 'note': 'THE DROP hits on 32.0'}, rides=rides)
-cam, rides = pov(63.5, 32.0, 2.8, [{'t': 31.8, 'yaw': 0, 'pitch': -25}, {'t': 33.2, 'yaw': 0, 'pitch': -5}])
+cam, rides = pov(63.5, 32.0, 2.8, [{"t": 31.8, "yaw": 0, "pitch": -2}, {"t": 32.15, "yaw": -5, "pitch": 12}, {"t": 32.6, "yaw": -10, "pitch": 18}, {"t": 33.2, "yaw": -10, "pitch": 14}])
 shot(11, 'pov_drop_felt', 'felt', 'c', 32.0, 33.0, 'POV: the first drop, plunging toward the felt valley.', cam, beats=[{'t': 32.0, 'e': 'DROP (bar 17 downbeat), whoop'}],
      must=['drop', 'felt valley + trees'], tin={'type': 'cut'}, tout={'type': 'cut'}, rides=rides, twos=True)
 shot(12, 'ext_loop_pixel', 'pixel', 'a', 33.0, 34.0, 'Isometric pixel shot: the train screams through the vertical loop, sparkle trail.',
      {'mode': 'ortho', 'interp': 'linear', 'keys': PATH_LOOP_EXT}, must=['loop', 'train', 'corkscrew', 'crowd at the fence'],
      tin={'type': 'cut'}, tout={'type': 'cut'}, rides={'hero_coaster': {'t0': 33.0, 'tau0': 75.6, 'rate': 4.0}})
-cam, rides = pov(77.15, 34.0, 1.7, [{'t': 33.8, 'yaw': 0, 'pitch': 5}, {'t': 35.2, 'yaw': 0, 'pitch': 0}])
+cam, rides = pov(77.15, 34.0, 1.7, [{"t": 33.8, "yaw": 0, "pitch": -6}, {"t": 34.35, "yaw": 0, "pitch": -22}, {"t": 34.65, "yaw": 0, "pitch": -22}, {"t": 35.2, "yaw": 0, "pitch": -4}])
 shot(13, 'pov_loop_lowpoly', 'lowpoly', 'b', 34.0, 35.0, 'POV: inside the loop, upside down at the top on beat 34.5; the park hangs overhead.', cam,
      must=['inverted horizon', 'loop track ahead'], tin={'type': 'cut'}, tout={'type': 'cut'}, rides=rides)
-cam, rides = pov(80.7, 35.0, 2.4, [{'t': 34.8, 'yaw': 0, 'pitch': 0}])
+cam, rides = pov(80.7, 35.0, 2.4, [{"t": 34.8, "yaw": 0, "pitch": -8}, {"t": 36.2, "yaw": 0, "pitch": -8}])
 shot(14, 'pov_corkscrew_tin', 'tin', 'c', 35.0, 36.0, 'POV: the corkscrew; the tin-toy world spins 360 degrees.', cam,
      must=['corkscrew roll'], tin={'type': 'cut'}, tout={'type': 'cut', 'note': 'downbeat 36.0'}, rides=rides, twos=True)
 
@@ -246,7 +265,7 @@ shot(15, 'tiltshift_dusk', 'tiltshift', 'b', 36.0, 40.0,
 
 shot(16, 'globe_shake', 'snowglobe', 'b', 40.0, 44.0,
      'The pull-back continues and reveals the lit night park inside a snow globe on a table. The globe is shaken: snow erupts, haze, the season swaps to winter. Snow settles over the glowing park, then the camera cranes down onto the folded paper ticket lying on the table in front of the globe: the loop frame.',
-     {'mode': 'perspective', 'interp': 'catmull', 'fov': 36, 'keys': PATH_FINALE},
+     {'mode': 'perspective', 'interp': 'catmull', 'fov': 36, 'keys': PATH_GLOBE},
      transform={'name': 'shake: summer night -> winter night', 'start': 41.0, 'end': 42.6},
      beats=[{'t': 40.0, 'e': 'glass rim + reflections appear (match cut)'}, {'t': 41.0, 'e': 'SHAKE jolt, snow erupts'}, {'t': 41.5, 'e': 'season swaps under the haze'},
             {'t': 42.0, 'e': 'haze clears: winter park, warm lights'}, {'t': 43.0, 'e': 'chime; crane down to the ticket'}, {'t': 44.0, 'e': 'LOOP FRAME (= shot 01 frame 0)'}],
@@ -276,7 +295,7 @@ out = {
         'world': 'park.json world (metres, y up, z south)',
         'keys': 'keys[i] = {t, pos, target, fov | ortho, ease, roll?}; ease applies to the segment from this key to the next; interp catmull (uniform Catmull-Rom through pos/target, endpoint keys duplicated) or linear; step = hold until the next key',
         'ortho': 'orthographic half-height in metres (visible world height = 2*ortho); camera looks from pos toward target; iso = 2:1 dimetric, elevation 30 deg, from the south-east',
-        'pov': 'ride-along: eye 1.25 m above the track centre of the front row (s_front - 0.7), look target 14 m ahead along the track; camera up = track up (horizon banks, inverts in the loop); head = yaw/pitch keyframes in degrees (yaw + = look left)',
+        'pov': 'ride-along (polish rig): eye 1.6 m above the track centre at the front of the lead car (s_front - 0.1), looking along the track tangent 4 m ahead (aim_ahead_m; older shots without it aim at the point look_ahead_m ahead); camera up = track up (horizon banks, inverts in the loop); head = yaw/pitch/roll keyframes in degrees (yaw + = look left, pitch + = look up), optional per-key ease (default inOut)',
         'evaluate': 'use ParkPlan.camera(shot, t) in park.js or park.camera(shot, t) in park.py so all styles get identical cameras',
         'up': 'world up (0,1,0) except straight-down views (0,0,-1) and POV',
     },

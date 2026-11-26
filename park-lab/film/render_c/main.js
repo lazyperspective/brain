@@ -273,7 +273,7 @@ function setupPOV(ctx, o) {
     update(t, c) {
       if (S === 'felt') { const k = Math.round(t * 15); const br = rng(k * 97 + 3); ctx.boilU.value.set(br() * 0.3, br() * 0.3, br() * 0.3); }
       for (const a of W.anims) a(t, {});
-      updateTrains(W, t, shot, { armsUp: rd => rd.ride === 'hero_coaster' && rd.train === 0, povHideHeads: true });
+      updateTrains(W, t, shot, { armsUp: rd => rd.ride === 'hero_coaster' && rd.train === 0, povHideHeads: true, hideRider: rd => rd.lead && rd.train === 0 && rd.ride === 'hero_coaster' }); // polish: our own front-row neighbours are hidden (their raised arms swung past the lens)
       updateGuests(W, t, { offset: () => [0, W.slab, 0, 1] });
     },
     shadow(t, c) { const p = new THREE.Vector3(...c.position), tg = new THREE.Vector3(...c.target); const d = tg.clone().sub(p).setY(0).normalize(); const ctr = p.clone().addScaledVector(d, 70).setY(0); return { center: ctr, radius: 130 }; },
@@ -295,11 +295,15 @@ function setup03(ctx) {
   const puff = (t, t0, mode) => { const lt = (t - t0) / 0.5; if (mode === 'squash') { const s = lt <= 0 ? 0.04 : lerp(0.04, 1, spring(lt, 5.5, 9.5)); return new THREE.Matrix4().makeScale(1 + (lt > 0 ? Math.sin(clamp(lt) * Math.PI) * 0.05 : 0), Math.max(0.03, s), 1 + (lt > 0 ? Math.sin(clamp(lt) * Math.PI) * 0.05 : 0)); }
     const stand = lt <= 0 ? 0 : clamp(eOutBack(lt * 1.25, 1.6), 0, 1.15); const depth = lt <= 0 ? 0.08 : lerp(0.08, 1, clamp(spring(lt, 5, 10), 0, 1.3)); const sq = lt <= 0 ? 0 : Math.sin(lt * 9) * Math.exp(-lt * 4) * 0.1; return layM(1 - stand, depth, sq, v); };
   const famT = W.trains.find(T => T.r.id === 'family_coaster');
+  // polish: hide only the park trees that stand between the camera and the kiddie rides while they puff up (found by
+  // ray-testing park.camera(shot, t) for t = 8.3..11.85 against every tree crown in park.json; >= 18 hits), as in shot 06
+  const HIDE03 = [[-102.64, 51.65], [-90.07, 51.04], [-111.52, 57.17], [-110.18, 35.29], [-46.21, 118.46], [-111.26, 58.81], [-59.39, 45.45], [-81.57, 103.23], [-113.37, 33.02], [-123.17, 46.68], [-59.14, 116.02], [-63.4, 40.75], [-49.43, 63.12]];
+  for (const [name, inst] of allSets(W)) if (name === 'trees') for (const it of inst.items) if (HIDE03.some(([a, b]) => Math.abs(a - it.x) < 0.05 && Math.abs(b - it.z) < 0.05)) it.hideT = true;
   return {
     update(t) {
       const k = Math.round(t * 15); const br = rng(k * 97 + 3); ctx.boilU.value.set(br() * 0.3, br() * 0.3, br() * 0.3);
       for (const p of W.pieces) { const i = p.userData.piece; if (!i.wrapper) continue; let m = puff(t, i.t0, i.mode); const j = new THREE.Matrix4().makeRotationY((br() - 0.5) * 0.01); m.premultiply(j); setWrap(i, m); }
-      for (const [name, inst] of allSets(W)) inst.update(it => puff(t, it.t0, it.mode));
+      for (const [name, inst] of allSets(W)) inst.update(it => it.hideT ? false : puff(t, it.t0, it.mode));
       const moving = t >= 11.5; const ctxA = { frozen: () => !moving, clock: tt => tt };
       for (const a of W.anims) a(t, ctxA);
       updateTrains(W, t, shot, { trainFronts: (T, fr, tt) => T.r.id === 'family_coaster' ? [T.tr.sAtTime(Math.max(0, park.rideTime('family_coaster', t, 0, shot)))] : fr,

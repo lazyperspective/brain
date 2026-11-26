@@ -232,16 +232,24 @@
       const eye = c.eye || [0, 1.25, 0];  // [left, up, forward] in track frame
       const left = cross(f.up, f.tangent);
       const position = add(add(add(f.pos, mul(left, eye[0])), mul(f.up, eye[1])), mul(f.tangent, eye[2]));
-      const la = tr.sample(se + (c.look_ahead_m || 14));
-      let target = add(la.pos, mul(la.up, eye[1] * 0.8));
-      let up = f.up;
-      // head turn keyframes: [{t, yaw, pitch}] degrees (yaw + = look left)
+      let target, up = f.up;
+      if (c.aim_ahead_m != null) {
+        // polish rig: look along the track tangent a few metres ahead (gentle anticipation, no chord dive at the brink)
+        const a = tr.sample(se + c.aim_ahead_m);
+        target = add(position, mul(a.tangent, 14));
+      } else {
+        const la = tr.sample(se + (c.look_ahead_m || 14));
+        target = add(la.pos, mul(la.up, eye[1] * 0.8));
+      }
+      // head turn keyframes: [{t, yaw, pitch, roll?, ease?}] degrees (yaw + = look left, pitch + = look up, roll + = counter-clockwise)
       if (c.head && c.head.length) {
         const H = c.head; let i = 0; while (i < H.length - 1 && H[i + 1].t <= t) i++;
-        const a = H[i], b = H[Math.min(i + 1, H.length - 1)]; const u = b.t > a.t ? EASE.inOut(clamp((t - a.t) / (b.t - a.t), 0, 1)) : 0;
+        const a = H[i], b = H[Math.min(i + 1, H.length - 1)]; const u = b.t > a.t ? (EASE[a.ease || 'inOut'] || EASE.inOut)(clamp((t - a.t) / (b.t - a.t), 0, 1)) : 0;
         const yaw = lerp(a.yaw || 0, b.yaw || 0, u) * Math.PI / 180, pitch = lerp(a.pitch || 0, b.pitch || 0, u) * Math.PI / 180;
+        const roll = lerp(a.roll || 0, b.roll || 0, u) * Math.PI / 180;
         let dir = sub(target, position); dir = rotAxis(dir, up, yaw); const side = norm(cross(dir, up)); dir = rotAxis(dir, side, pitch);
         target = add(position, dir);
+        if (roll) up = rotAxis(up, norm(dir), roll);
       }
       return { mode: 'perspective', position, target, up, fov: c.fov || 78, orthoHalfHeight: null, focusDistance: 12, sFront, trackSample: f };
     }

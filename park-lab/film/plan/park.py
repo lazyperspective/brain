@@ -206,22 +206,30 @@ class Park:
         eye = c.get('eye', [0, 1.25, 0])
         left = np.cross(f['up'], f['tangent'])
         pos = f['pos'] + left * eye[0] + f['up'] * eye[1] + f['tangent'] * eye[2]
-        la = tr.sample(se + c.get('look_ahead_m', 14))
-        tgt = la['pos'] + la['up'] * eye[1] * 0.8
-        up = f['up']
+        if c.get('aim_ahead_m') is not None:
+            # polish rig: look along the track tangent a few metres ahead (mirrors park.js)
+            a_ = tr.sample(se + c['aim_ahead_m'])
+            tgt = pos + np.asarray(a_['tangent'], float) * 14
+        else:
+            la = tr.sample(se + c.get('look_ahead_m', 14))
+            tgt = la['pos'] + la['up'] * eye[1] * 0.8
+        up = np.asarray(f['up'], float)
         H = c.get('head') or []
         if H:
             i = 0
             while i < len(H) - 1 and H[i + 1]['t'] <= t:
                 i += 1
             a, b = H[i], H[min(i + 1, len(H) - 1)]
-            u = EASE['inOut'](min(max((t - a['t']) / (b['t'] - a['t']), 0), 1)) if b['t'] > a['t'] else 0
+            u = EASE.get(a.get('ease', 'inOut'), EASE['inOut'])(min(max((t - a['t']) / (b['t'] - a['t']), 0), 1)) if b['t'] > a['t'] else 0
             yaw = math.radians(a.get('yaw', 0) + (b.get('yaw', 0) - a.get('yaw', 0)) * u)
             pitch = math.radians(a.get('pitch', 0) + (b.get('pitch', 0) - a.get('pitch', 0)) * u)
+            roll = math.radians(a.get('roll', 0) + (b.get('roll', 0) - a.get('roll', 0)) * u)
             d = _rot(tgt - pos, up, yaw)
             side = _n(np.cross(d, up))
             d = _rot(d, side, pitch)
             tgt = pos + d
+            if roll:
+                up = _rot(up, _n(d), roll)
         return {'mode': 'perspective', 'position': pos, 'target': tgt, 'up': up, 'fov': c.get('fov', 78), 'ortho_half_height': None,
                 'focus_distance': 12.0, 's_front': s_front}
 

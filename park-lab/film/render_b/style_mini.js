@@ -144,7 +144,7 @@ export async function setup({ park, shot, W, H, qs }) {
       globeState.center = GC.clone().applyMatrix4(globe.matrixWorld);
       globeState.haze = smooth(41.0, 41.3, t) * (1 - smooth(41.75, 42.15, t)) * 0.8;
       globeState.glassK = smooth(39.95, 40.35, t);
-      const winter = smooth(41.35, 41.6, t); U.uSnow.value = smooth(41.4, 42.3, t) * 0.62; Wd.winter = winter;
+      const winter = smooth(41.35, 41.6, t); U.uSnow.value = smooth(41.4, 42.3, t) * 0.44; Wd.winter = winter; // polish: lighter snow cover so colours survive
       snow.update(t, globe);
     }
     if (!GLOBE) U.uClip.value.set(0, -20, 350, 2 + 0.92 * smooth(39.3, 40.0, t));
@@ -160,7 +160,7 @@ export async function setup({ park, shot, W, H, qs }) {
     const mv = new THREE.Vector3(...L0.night.moon).normalize(); moon.intensity = st.moonI; moon.color.set(0x8a98ff);
     renderer.toneMappingExposure = st.exposure;
     let levels = lightLevels(t);
-    if (GLOBE) { for (const k in levels) levels[k] = 1 + 0.25 * smooth(41.8, 42.4, t); levels = Object.assign({}, levels); }
+    if (GLOBE) { for (const k in levels) levels[k] = 1 + 0.9 * smooth(41.8, 42.4, t); levels = Object.assign({}, levels); } // polish: warmer, brighter windows/bulbs in winter
     Wd.setLights(levels, 1, t);
     pts.forEach(l => { const v = levels[l.userData.land] || 0; l.intensity = Math.min(1.4, v) * 70 * (GLOBE ? 0.6 : 1); });
     const envK = GLOBE ? lerp(0.05, 0.14, smooth(40.0, 40.8, t)) : lerp(0.45, 0.05, smooth(36.6, 37.7, t)); U.uNight.value = GLOBE ? 1 : smooth(37.0, 38.0, t); for (const m of envMats) m.envMapIntensity = envK;
@@ -174,13 +174,13 @@ export async function setup({ park, shot, W, H, qs }) {
     if (GLOBE) {
       const rk = smooth(40.0, 40.8, t);
       room.key.intensity = lerp(0.0, 2.0, rk); hemi.intensity = lerp(st.hemiI, 0.25, rk); hemi.color.lerp(new THREE.Color(0x6a5040), rk); hemi.groundColor.set(0x1a120c);
-      moon.intensity = lerp(st.moonI, 0.15, rk); renderer.toneMappingExposure = lerp(st.exposure, 1.05, rk);
+      moon.intensity = lerp(st.moonI, 0.15, rk); renderer.toneMappingExposure = lerp(st.exposure, 1.05, rk) + 0.12 * smooth(41.8, 42.4, t) * (1 - smooth(42.9, 43.5, t)); // polish: winter park a touch brighter
       room.update(t, cam);
       // focus: globe then ticket
       const ticket = new THREE.Vector3(0, -157, 648);
       const parkC = new THREE.Vector3(0, 15, -20).applyMatrix4(globe.matrixWorld); const fd = lerp(cam.position.distanceTo(parkC), cam.position.distanceTo(ticket), smooth(42.9, 43.9, t));
       dof.uniforms.focus.value = fd; dof.uniforms.near.value = cam.near; dof.uniforms.far.value = cam.far;
-      dof.uniforms.amount.value = lerp(0.0, 1.0, smooth(40.1, 40.9, t)) * lerp(1, 0.55, smooth(43.2, 44.0, t));
+      dof.uniforms.amount.value = lerp(0.0, lerp(0.35, 1.0, smooth(42.85, 43.4, t)), smooth(40.1, 40.9, t)) * lerp(1, 0.55, smooth(43.2, 44.0, t)); // polish: keep the park sharp until the crane
       dof.uniforms.maxR.value = lerp(9, 16, smooth(42.9, 43.6, t));
     }
     // ---- tilt-shift
@@ -191,7 +191,7 @@ export async function setup({ park, shot, W, H, qs }) {
     tilt1.enabled = tilt2.enabled = tsK > 0.01;
     bloom.strength = lerp(0.18, 0.75, smooth(37.3, 38.5, t)); bloom.threshold = lerp(1.6, 0.95, smooth(37.3, 38.5, t)); bloom.radius = 0.55;
     // ---- grade: miniature-photo look
-    const gu = grade.uniforms; gu.uSat.value = 1.28; gu.uContrast.value = 0.32; gu.uWarm.value = st.warm * 1.2; gu.uNight.value = st.night * (GLOBE ? 0.4 : 0.85); gu.uVig.value = 0.45; gu.uGrain.value = 0.03; gu.uSeed.value = i * 1.37; gu.uCA.value = 0.0025;
+    const gu = grade.uniforms; gu.uSat.value = 1.28 + (GLOBE ? 0.14 * smooth(41.8, 42.4, t) * (1 - smooth(42.9, 43.5, t)) : 0); gu.uContrast.value = 0.32; gu.uWarm.value = st.warm * 1.2; gu.uNight.value = st.night * (GLOBE ? 0.4 : 0.85); gu.uVig.value = 0.45; gu.uGrain.value = 0.03; gu.uSeed.value = i * 1.37; gu.uCA.value = GLOBE ? 0.0008 : 0.0025;
     composer.render();
   }
   return { renderAt, canvas: renderer.domElement, info: { buildMs: Wd.buildMs } };

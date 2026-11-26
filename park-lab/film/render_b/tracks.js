@@ -286,7 +286,14 @@ function makeTrain(W, park, r, tr, tp, nTr, kind) {
         m4.fromArray(tr.matrix(s, [0, kind === 'log' ? -0.35 : kind === 'raft' ? -0.2 : kind === 'rail' ? 0 : 0, 0]));
         if (kind === 'raft') m4.multiply(m5.makeRotationY(Math.sin(t * 0.3 + ti * 2.1) * 2.5 + ti));
         bodyIM.setMatrixAt(k, m4); darkIM.setMatrixAt(k, m4); if (metalIM) metalIM.setMatrixAt(k, m4);
-        if (c === 0 && leadIM) leadIM.setMatrixAt(ti, m4);
+        if (c === 0 && leadIM) {
+          // polish: in a ride-along shot, our own lead car gets a shorter nose (0.55x) so only its tip shows at the bottom edge,
+          // matching the render_a / render_c cars that cut against it
+          if (kind === 'hero' && shot && shot.camera && shot.camera.mode === 'pov' && shot.camera.ride === r.id && ti === (shot.camera.train || 0)) {
+            const pz = carL / 2 - 0.1; m5.copy(m4).multiply(sc.makeTranslation(0, 0, pz)).multiply(new THREE.Matrix4().makeScale(1, 1, 0.55)).multiply(new THREE.Matrix4().makeTranslation(0, 0, -pz));
+            leadIM.setMatrixAt(ti, m5);
+          } else leadIM.setMatrixAt(ti, m4);
+        }
         if (ridersIM) {
           const tag = tr.sample(s).tag; const up = armsTags.has(tag) ? 1 : 0;
           for (let q = 0; q < ridersPerCar; q++) {
@@ -294,6 +301,8 @@ function makeTrain(W, park, r, tr, tp, nTr, kind) {
             m5.copy(m4).multiply(sc.makeTranslation(so[0], so[1] - 0.86 * 0.94, so[2])).multiply(new THREE.Matrix4().makeRotationY(so[3] != null ? -so[3] - Math.PI / 2 : 0)).multiply(new THREE.Matrix4().makeScale(0.94, 0.94, 0.94));
             const seed = ti * 97 + c * 7 + q;
             const armsUp = kind === 'rail' ? 0 : up * (hash(seed) < 0.75 ? 1 : 0.0) + (kind === 'log' && tag === 'drop' ? 1 : 0);
+            // polish: ride-along shots hide our own front-row neighbours (their heads and raised arms sat next to the lens)
+            if (kind === 'hero' && c === 0 && q < 2 && shot && shot.camera && shot.camera.mode === 'pov' && shot.camera.ride === r.id && ti === (shot.camera.train || 0)) m5.makeScale(0, 0, 0);
             W.setPerson(ridersIM, kr++, m5, seed, -1, Math.min(1, armsUp), 0);
           }
         }
