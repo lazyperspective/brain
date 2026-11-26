@@ -4,14 +4,20 @@ All six shots are rendered to `film/shots/<id>.mp4`: 1920×1080, 30 fps, H.264 y
 
 | shot | frames | unique | render time (frames only; + ~5–8 min scene build) | check frames |
 |---|---|---|---|---|
-| 01_paper_ticket | 132 | 132 | ~36 min | `check/01_in.jpg`, `01_out.jpg`, `01_still.jpg` |
+| 01_paper_ticket | 132 | 132 | ~36 min under full load (final re-render: 16.5 min) | `check/01_in.jpg`, `01_out.jpg`, `01_still.jpg` |
 | 03_felt_kiddie | 132 | 66 | ~28 min | `check/03_*` |
-| 06_tin_toybox | 132 | 66 | ~21 min | `check/06_*` |
+| 06_tin_toybox | 132 | 66 | ~19–21 min | `check/06_*` |
 | 10_pov_crest_paper | 42 | 42 | ~4 min | `check/10_*` |
 | 11_pov_drop_felt | 42 | 21 | ~4 min | `check/11_*` |
 | 14_pov_corkscrew_tin | 42 | 21 | ~5 min | `check/14_*` |
 
 The machine was shared with two other render agents (load 8–12 on 4 cores; mine ran at nice 5). The fixed ~5–8 min per run is SwiftShader compiling the shader programs on the GPU thread; the page itself builds the whole park in ~5 s.
+
+## Cut checks against neighbours
+- **Loop (16 → 01):** my frame 0 and render_b's `16_globe_shake_out` show the same ticket pose and framing. I re-rendered 01 with a darker, neutral walnut so the table tone matches: table RGB is now ≈104,50,25 against their 93,53,34, and the ticket is ≈193,149,111 against 185,157,120.
+- **05 → 06:** the pixel shot ends on a brown wooden crate with stars, so my tin box is printed as that crate (wood-grain litho, blue/red stars, corner caps).
+- **09 → 10:** render_a's POV shows a red lead car, so my hero lead car is red (cars alternate red/white).
+- **06 → 07:** 06 ends on plain blue sky, with only the drop tower's tip at the bottom edge on the cut frame.
 
 ## How it works (`render_c/`)
 - `render.cjs`: the Playwright harness. It serves `film/`, opens `page.html?shot=…`, renders each unique frame at `t = t_start + i/30`, and pipes PNGs into ffmpeg (no frames on disk). The `--stills t1,t2 --scale 0.5` option writes test stills. It also writes a few preview PNGs to `scratch/preview/`.
