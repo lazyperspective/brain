@@ -72,7 +72,7 @@
   }
 
   // ---- head frame: local coords, snout along -x, y down, eye at origin ---------------------
-  const ANG = 30 * Math.PI / 180, CA = Math.cos(ANG), SA = Math.sin(ANG), S = 1.45, EX = 51, EY = 85;
+  const ANG = 30 * Math.PI / 180, CA = Math.cos(ANG), SA = Math.sin(ANG), S = 1.52, EX = 50, EY = 87;
   const toL = (x, y) => { const dx = (x - EX) / S, dy = (y - EY) / S; return [dx * CA + dy * SA, -dx * SA + dy * CA]; };
   const toS = (lx, ly) => [EX + S * (lx * CA - ly * SA), EY + S * (lx * SA + ly * CA)];
 
@@ -194,18 +194,17 @@
       const { lx, ly } = s;
       let v, R = FUR;
       if (s.layer === 'head') {
-        const n1 = vn(lx / 4, ly / 1.5, 1), n2 = vn(lx / 1.8, ly / 1.1, 2);
+        const n1 = vn(lx / 5.5, ly / 2, 1), n2 = vn(lx / 2.6, ly / 1.4, 2);
         v = 0.46 + lit * 1.3 + (n1 - 0.5) * 0.4 + (n2 - 0.5) * 0.2;
         const cheekEdge = s.dCk + (vn(lx / 1.6, ly / 1.6, 7) - 0.5) * 1.8;
         const lip = ly > yAt(LIP_TOP, lx) && lx < -4;
         if (cheekEdge < 0 || lip) {
           R = CRM;
-          v = 0.7 + lit * 0.9 + (n2 - 0.5) * 0.35;
+          v = 0.7 + lit * 0.9 + (n2 - 0.5) * 0.35 - clamp((lx - 10) / 14, 0, 1) * 0.2;
           if (ly > 10 && lx < 10) v -= 0.25;                    // underside of the jaw in shade
         } else if (s.dJw < 0) {
           v -= 0.2;
         }
-        if (lx > 12 && ly > -6 && cheekEdge > 0) v -= 0.12;     // back of head turns away
       } else if (s.layer === 'earN') {
         const a = ((lx - EAR_PIV[0]) * ax + (ly - EAR_PIV[1]) * ay) / (al * al);
         const u = ((lx - EAR_PIV[0]) * ay - (ly - EAR_PIV[1]) * ax) / al;   // >0 toward the snout side
@@ -223,10 +222,10 @@
         const dh = Math.min(s.dHd, s.dCk) * S, rag = vn(x / 2.2, y / 1.6, 9);
         if (dh < 6 + rag * 6) v = Math.min(v, 0.32 + (n2 - 0.5) * 0.25);
         if (s.dNk > -1.6 && x > 62) v = Math.max(v, vn(x / 2, y / 2.5, 13) > 0.55 ? 0.1 : 0.25);   // ragged shadowed edge, not an outline
-        if (dh < 1.6 + rag * 2.2) v = 0.1;
+        if (dh < 1.6 + rag * 2.2 && vn(x / 1.6, y / 1.6, 14) > 0.3) v = 0.1;
         if (s.dCs < 0) { R = CRM; v = 0.7 + lit * 0.8 + (n2 - 0.5) * 0.35; }
         else if (y > 137 + vn(x / 7, 0, 10) * 6) {                  // simplified body: big flat tones
-          v = x > 84 + vn(0, y / 6, 11) * 5 ? 0.3 : x < 40 + vn(0, y / 5, 12) * 4 ? 0.7 : 0.5;
+          v = x > 80 + (y - 137) * 0.35 + vn(0, y / 6, 11) * 5 ? 0.3 : x < 40 + vn(0, y / 5, 12) * 4 ? 0.7 : 0.5;
         }
       }
       tone[y * GW + x] = clamp(Math.floor(v * 5), 0, 4); ramp[y * GW + x] = R;
@@ -258,7 +257,6 @@
       const len = 2 + (hash(x, y, 24) * 2.5 | 0);
       mark(px, py, px + Math.round(len * 0.3), py + len);
     }
-    if (window.__dbg) window.__dbg(info, tone, ramp);
     for (let i = 0; i < GW * GH; i++) if (tone[i] >= 0) g.a[i] = ramp[i][tone[i]];
     // tidy: a lone stitch whose 4 neighbours all agree takes their colour (cleaner posterized patches)
     const src = g.a.slice();
