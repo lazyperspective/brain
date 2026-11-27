@@ -11,7 +11,7 @@
     '#ee8b2f', // 4 light orange
     '#f9c58c', // 5 pale apricot highlight
     '#fcf1dc', // 6 cream
-    '#ffc81e', // 7 amber eye
+    '#ffb821', // 7 amber eye
   ];
   const FUR = [K, D, M, L, H];   // 5-tone fur ramp (index 0..4)
   const CRM = [D, M, L, H, W];   // cream fur, shaded with the light tones
@@ -72,7 +72,7 @@
   }
 
   // ---- head frame: local coords, snout along -x, y down, eye at origin ---------------------
-  const ANG = 30 * Math.PI / 180, CA = Math.cos(ANG), SA = Math.sin(ANG), S = 1.45, EX = 51, EY = 81;
+  const ANG = 30 * Math.PI / 180, CA = Math.cos(ANG), SA = Math.sin(ANG), S = 1.45, EX = 51, EY = 85;
   const toL = (x, y) => { const dx = (x - EX) / S, dy = (y - EY) / S; return [dx * CA + dy * SA, -dx * SA + dy * CA]; };
   const toS = (lx, ly) => [EX + S * (lx * CA - ly * SA), EY + S * (lx * SA + ly * CA)];
 
@@ -95,8 +95,8 @@
   const EAR_PIV = [11, -9.5], EAR_TIP = [13, -36.5];
 
   // neck & chest ruff (screen coords)
-  const NECK = [[44, 92], [70, 78], [83, 86], [88, 100], [92, 118], [95, 136], [97, 153], [29, 153], [31, 138], [35, 122], [39, 106]];
-  const CHEST = [[32, 128], [35, 124], [37, 129], [40, 125], [42, 131], [45, 128], [46, 135], [44, 143], [46, 153], [28, 153], [30, 140]];
+  const NECK = [[44, 96], [70, 82], [83, 90], [88, 104], [92, 120], [95, 137], [97, 153], [28, 153], [30, 140], [34, 125], [39, 110]];
+  const CHEST = [[31, 131], [34, 127], [36, 132], [39, 128], [41, 134], [44, 131], [45, 138], [43, 145], [45, 153], [27, 153], [29, 142]];
 
   const LX = -0.5, LY = -0.62, LZ = 0.6;
 
@@ -110,8 +110,8 @@
       r.layer = 'earN'; r.dEN = dEN; r.h = 30 + dome(dEN, 2.5); return r;
     }
     if (dHd < 0 || dCk < 0) {
-      const dCr = sdEll(lx, ly, 7, -2, 15, 11);
-      const dSn = sdPoly(lx, ly, SNOUT), dJw = sdPoly(lx, ly, JAW), dCh = sdEll(lx, ly, 9, 5.5, 13, 9);
+      const dCr = sdEll(lx, ly, 14, -1, 22, 11.5);
+      const dSn = sdPoly(lx, ly, SNOUT), dJw = sdPoly(lx, ly, JAW), dCh = sdEll(lx, ly, 16, 6, 20, 9);
       let h = dome(dCr, 13) + 2;
       h = smax(h, dome(dSn, 6) + 1, 3);
       h = smax(h, dome(dCh, 9) + 1, 3);
@@ -132,30 +132,27 @@
   }
 
   // ---- eye: hand-placed pixel map (screen space), the focal point -------------------------
-  // k near-black  l shaded amber (under the heavy smug lid)  y amber  w specular  . leave fur
+  // k near-black  p pupil  l shaded amber (under the heavy smug lid)  y amber  w specular  . leave fur
   const EYE = [
-    '.....dkkkkkd.....',
-    '...kkkkkkkkkkkd..',
-    '.kkklllkllllkkkk.',
-    'kkyyyywkyyyyyykkk',
-    '.kkyyyykyyyyyyk..',
-    '...kyyykyyyyykk..',
-    '....kkyyyyykk....',
-    '......kkkkk......',
+    '......dkkkkkd......',
+    '...kkkkkkkkkkkkd...',
+    '.kkkllllplllllkkkk.',
+    'kkyyyyywpyyyyyyykkk',
+    '.kkyyyyypyyyyyyyk..',
+    '..kyyyyypyyyyyyyk..',
+    '...kyyyypyyyyyykk..',
+    '....kkyyyyyyykk....',
+    '......kkkkkkk......',
   ];
-  const EYE_X = EX - 8, EYE_Y = EY - 4;
+  const EYE_X = EX - 9, EYE_Y = EY - 4;
   function drawEye(g, lid) {
-    // lid: 0 open (smug half-lid), 1 closed. The lid edge sweeps down rows 2..6.
-    const lidRow = 2 + Math.round(lid * 5);
+    // lid: 0 = open (smug half-lid), 1 = closed. The lid edge sweeps down over rows 2..7.
+    const lidRow = 2 + Math.round(lid * 6);
     for (let r = 0; r < EYE.length; r++) for (let c = 0; c < EYE[r].length; c++) {
       const ch = EYE[r][c]; if (ch === '.') continue;
-      let col = { k: K, d: D, l: L, y: Y, w: W }[ch];
-      if (lid > 0 && r >= 2 && r < 7 && ch !== 'k' && ch !== 'd') {
-        if (r < lidRow - 1) col = D; else if (r === lidRow - 1) col = K;
-      }
-      if (lid > 0 && r >= 2 && r < lidRow - 1 && ch === 'k' && c > 1 && c < 15 && EYE[r].slice(0, c).includes('y') === false && r > 1) {
-        // keep rim
-      }
+      let col = { k: K, d: D, l: L, y: Y, w: W, p: K }[ch];
+      // closing lid: orange fur above a dark lash line
+      if (lid > 0 && r >= 2 && r < 8 && ch !== 'k' && ch !== 'd') col = r < lidRow - 1 ? (r < 3 ? D : M) : r === lidRow - 1 ? K : col;
       g.set(EYE_X + c, EYE_Y + r, col);
     }
   }
@@ -163,10 +160,10 @@
   function draw(g, t) {
     // ---- animation ----
     let earA = 0;
-    const te = t - 1.4;                           // ear flick: 2-frame twitch back, 1-frame rebound, settle
-    if (te >= 0 && te < 0.067) earA = 0.2;
-    else if (te >= 0.067 && te < 0.1) earA = 0.09;
-    else if (te >= 0.1 && te < 0.134) earA = -0.04;
+    const te = t - 1.4 + 0.016;                   // ear flick (30 fps): 2 frames back, 1 half way, 1 rebound, settle
+    if (te >= 0 && te < 0.066) earA = 0.16;
+    else if (te >= 0.066 && te < 0.1) earA = 0.07;
+    else if (te >= 0.1 && te < 0.133) earA = -0.03;
     const breath = Math.sin(2 * Math.PI * t / 6) > 0 ? 1 : 0;     // chest ruff up 1 cell for half the loop
     let lid = 0; const tb = t - 4.1;               // one slow blink
     if (tb >= 0 && tb < 0.7) lid = tb < 0.2 ? tb / 0.2 : tb < 0.35 ? 1 : 1 - (tb - 0.35) / 0.35;
@@ -192,17 +189,18 @@
         return o && o.layer !== s.layer ? hc : v;
       };
       const gx = (nb(x + 1, y) - nb(x - 1, y)) * 0.32, gy = (nb(x, y + 1) - nb(x, y - 1)) * 0.32;
-      const lit = (-gx * LX - gy * LY + LZ) / Math.hypot(gx, gy, 1) - LZ;   // 0 = flat, + lit, - shade
+      let lit = (-gx * LX - gy * LY + LZ) / Math.hypot(gx, gy, 1) - LZ;   // 0 = flat, + lit, - shade
+      if (lit < 0) lit *= 0.55;                                          // shadows stay readable (dark rust, not black)
       const { lx, ly } = s;
       let v, R = FUR;
       if (s.layer === 'head') {
         const n1 = vn(lx / 4, ly / 1.5, 1), n2 = vn(lx / 1.8, ly / 1.1, 2);
-        v = 0.5 + lit * 1.3 + (n1 - 0.5) * 0.4 + (n2 - 0.5) * 0.2;
+        v = 0.46 + lit * 1.3 + (n1 - 0.5) * 0.4 + (n2 - 0.5) * 0.2;
         const cheekEdge = s.dCk + (vn(lx / 1.6, ly / 1.6, 7) - 0.5) * 1.8;
         const lip = ly > yAt(LIP_TOP, lx) && lx < -4;
         if (cheekEdge < 0 || lip) {
           R = CRM;
-          v = 0.62 + lit * 1.1 + (n2 - 0.5) * 0.35;
+          v = 0.7 + lit * 0.9 + (n2 - 0.5) * 0.35;
           if (ly > 10 && lx < 10) v -= 0.25;                    // underside of the jaw in shade
         } else if (s.dJw < 0) {
           v -= 0.2;
@@ -220,10 +218,16 @@
         if (ly < -26) v = 0;
       } else {
         const n1 = vn(x / 2.2, y / 5, 5), n2 = vn(x / 1.3, y / 2.5, 6);
-        v = 0.48 + lit * 1.3 + (n1 - 0.5) * 0.4 + (n2 - 0.5) * 0.18;
-        if (s.dHd < 3 + vn(x / 2, y / 2, 9) * 3 && s.dCk > -1) v -= 0.3;   // ragged shadow under the jaw / ruff
-        if (s.dCs < 0) { R = CRM; v = 0.62 + lit * 1.0 + (n2 - 0.5) * 0.35; }
-        if (y > 140) v = 0.15 + Math.round(v * 2.4) / 3;           // simplified body
+        v = 0.5 + lit * 1.1 + (n1 - 0.5) * 0.3 + (n2 - 0.5) * 0.14 - clamp((x - 70) / 26, 0, 1) * 0.25;
+        // the raised head casts a big ragged shadow onto the throat and neck
+        const dh = Math.min(s.dHd, s.dCk) * S, rag = vn(x / 2.2, y / 1.6, 9);
+        if (dh < 6 + rag * 6) v = Math.min(v, 0.32 + (n2 - 0.5) * 0.25);
+        if (s.dNk > -1.6 && x > 62) v = Math.max(v, vn(x / 2, y / 2.5, 13) > 0.55 ? 0.1 : 0.25);   // ragged shadowed edge, not an outline
+        if (dh < 1.6 + rag * 2.2) v = 0.1;
+        if (s.dCs < 0) { R = CRM; v = 0.7 + lit * 0.8 + (n2 - 0.5) * 0.35; }
+        else if (y > 137 + vn(x / 7, 0, 10) * 6) {                  // simplified body: big flat tones
+          v = x > 84 + vn(0, y / 6, 11) * 5 ? 0.3 : x < 40 + vn(0, y / 5, 12) * 4 ? 0.7 : 0.5;
+        }
       }
       tone[y * GW + x] = clamp(Math.floor(v * 5), 0, 4); ramp[y * GW + x] = R;
     }
@@ -248,13 +252,21 @@
       mark(sx, sy, ex, ey);
     }
     for (let y = 86; y < 140; y += 3) for (let x = 28; x < 100; x += 3) {
-      if (hash(x, y, 21) > 0.45) continue;
+      if (hash(x, y, 21) > 0.32) continue;
       const px = x + (hash(x, y, 22) * 3 | 0), py = y + (hash(x, y, 23) * 3 | 0), k = py * GW + px;
       if (!info[k] || info[k].layer !== 'neck' || ramp[k] !== FUR) continue;
       const len = 2 + (hash(x, y, 24) * 2.5 | 0);
       mark(px, py, px + Math.round(len * 0.3), py + len);
     }
+    if (window.__dbg) window.__dbg(info, tone, ramp);
     for (let i = 0; i < GW * GH; i++) if (tone[i] >= 0) g.a[i] = ramp[i][tone[i]];
+    // tidy: a lone stitch whose 4 neighbours all agree takes their colour (cleaner posterized patches)
+    const src = g.a.slice();
+    for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+      const i = y * GW + x, c = src[i]; if (c === BG) continue;
+      const n0 = src[i - 1];
+      if (n0 !== c && n0 !== BG && src[i + 1] === n0 && src[i - GW] === n0 && src[i + GW] === n0) g.a[i] = n0;
+    }
 
     // ---- details over the fur ----
     for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
@@ -269,7 +281,7 @@
           let c = n > 0.6 ? D : K;
           const hair = vn(a * 22, u * 0.6, 32);
           if (inner > -1.6 && u > 0 && a < 0.62 && hair > 0.42) c = hair > 0.62 ? H : L;
-          if (a < 0.24 && inner > -3 && hair > 0.5) c = hair > 0.66 ? W : H;
+          if (a < 0.24 && inner > -3 && hair > 0.5) c = hair > 0.72 ? W : H;
           g.set(x, y, c);
         } else if (u < 0 && inner < 1.6) {
           g.set(x, y, a > 0.5 ? K : D);                                       // black back rim of the ear

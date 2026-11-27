@@ -98,6 +98,21 @@
     const A = new Uint8Array(W * H);
     const get = (x, y) => (x >= 0 && y >= 0 && x < W && y < H ? A[y * W + x] : 0);
     const set = (x, y, i) => { x = Math.round(x); y = Math.round(y); if (x >= 0 && y >= 0 && x < W && y < H) A[y * W + x] = i; };
+    // despeckle: lone base-tone cells join their neighbours (keeps patches, drops salt-and-pepper);
+    // run on the base tones only, before the deliberate feather marks go on
+    function despeckle(keep) {
+      const B = A.slice();
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const v = B[y * W + x];
+        if (v < 1 || v > 5 || !keep(x, y)) continue;
+        const nb = [B[y * W + x - 1], B[y * W + x + 1], B[(y - 1) * W + x], B[(y + 1) * W + x]];
+        if (nb.includes(v) || nb.includes(0)) continue;
+        const cnt = {};
+        let best = v, bc = 0;
+        for (const n of nb) { cnt[n] = (cnt[n] || 0) + 1; if (cnt[n] > bc) { bc = cnt[n]; best = n; } }
+        if (bc >= 2) A[y * W + x] = best;
+      }
+    }
 
     // ---- body ----
     for (let y = 85; y < H; y++) for (let x = 0; x < W; x++) {
@@ -109,7 +124,7 @@
       const lam = clamp(-0.6 * dx + 0.6 * nz + top * 0.25, 0, 1);
       const n = fbm(x * 0.13, y * 0.13, 17) - 0.5;
       let L;
-      if (side === 0) L = 0.42 + 0.45 * lam + n * 0.45;
+      if (side === 0) L = 0.37 + 0.45 * lam + n * 0.45;
       else if (side < 0) L = 0.12 + 0.55 * lam + n * 0.45;
       else L = 0.14 + 0.36 * lam + n * 0.4 - clamp((dx - 0.85) / 0.15, 0, 1) * 0.12;
       // cast shadow under the head
@@ -120,12 +135,15 @@
       L = L * (1 - flat) + flatL * flat + (fbm(x * 0.09, y * 0.09, 19) - 0.5) * 0.12 * flat;
       set(x, y, tone(clamp(L, 0, 1)));
     }
+    despeckle(inBody);
     // dark crevice along the folded wing edges
     for (let y = 96; y < H; y++) {
-      const xl = Math.round(wingL(y)), xr = Math.round(wingR(y));
+      // broken into short runs that jog sideways, like a real fold between feather masses
+      const seg = Math.floor(y / 3);
       const flat = y > 128;
-      if (inBody(xl, y) && hash(xl, y, 2) > 0.3) set(xl + (hash(xl, y, 3) > 0.7 ? -1 : 0), y, flat ? 2 : 1);
-      if (inBody(xr, y) && hash(xr, y, 4) > 0.3) set(xr + (hash(xr, y, 5) > 0.7 ? 1 : 0), y, flat ? 1 : 2);
+      const xl = Math.round(wingL(y)) + (hash(seg, 1, 6) > 0.7 ? -1 : 0), xr = Math.round(wingR(y)) + (hash(seg, 2, 6) > 0.7 ? 1 : 0);
+      if (inBody(xl, y) && hash(seg, 3, 6) > 0.3) set(xl, y, flat ? 2 : 1);
+      if (inBody(xr, y) && hash(seg, 4, 6) > 0.3) set(xr, y, flat ? 1 : 2);
     }
     // chest barring: jittered small chevrons, darker than the local tone, thinning out low down
     for (let gy = 100; gy < 140; gy += 3.2) for (let gx = 28; gx < 90; gx += 5) {
@@ -134,15 +152,19 @@
       const cy = Math.round(gy + (hash(gx | 0, r, 34) - 0.5) * 1.6);
       if (!inBody(cx, cy) || wingSide(cx, cy) !== 0 || wingSide(cx - 3, cy) !== 0 || wingSide(cx + 3, cy) !== 0) continue;
       const fade = clamp((cy - 118) / 16, 0, 1);
-      if (hash(cx, cy, 35) < 0.08 + fade * 0.85) continue;
-      const w = 1 + Math.floor(hash(cx, cy, 36) * 2.4);
-      for (let i = -w; i <= w; i++) {
-        const yy = cy - (Math.abs(i) === w && w > 1 ? 1 : 0);
-        if (hash(cx + i, yy, 38) < 0.1) continue;
-        const base = get(cx + i, yy);
+      if (fade > 0.75 || hash(cx, cy, 35) < 0.08 + fade * 0.85) continue;
+      // small feather marks: U scallops, V chevrons and short drooping bars
+      const kind = hash(cx, cy, 36);
+      const shape = kind < 0.4 ? [[-2, 0], [-1, 1], [0, 1], [1, 1], [2, 0]]
+        : kind < 0.7 ? [[-1, 0], [0, 1], [1, 0]]
+        : kind < 0.85 ? [[-2, 0], [-1, 0], [0, 0], [1, 1]]
+        : [[-1, 1], [0, 0], [1, 0], [2, 0]];
+      for (const [i, j] of shape) {
+        const base = get(cx + i, cy + j);
         if (base < 2 || base > 5) continue;
-        set(cx + i, yy, Math.max(1, base - 2));
+        set(cx + i, cy + j, Math.max(1, base - 2));
       }
+      if (hash(cx, cy, 39) > 0.55) { const base = get(cx, cy - 1); if (base >= 3 && base <= 4) set(cx, cy - 1, base + 1); }
     }
     // wing coverts: rows of rounded feathers, each a pale crown over a dark U-shaped tip
     for (let gy = 95; gy < 140; gy += 4.6) for (let gx = 0; gx < 108; gx += 6) {
@@ -172,11 +194,12 @@
       const { u, v } = hl(x, y);
       const nz = Math.sqrt(Math.max(0, 1 - 0.75 * (u * u + v * v)));
       const lam = clamp(-0.55 * u - 0.55 * v + 0.6 * nz, 0, 1);
-      let L = 0.04 + 0.78 * lam + (fbm(x * 0.2, y * 0.2, 11) - 0.5) * 0.5;
+      let L = 0.0 + 0.78 * lam + (fbm(x * 0.2, y * 0.2, 11) - 0.5) * 0.5;
       // edges of the head fall into shadow (no outline, just darker)
       L -= clamp((headField(x, y) - 0.78) / 0.22, 0, 1) * 0.22;
       set(x, y, tone(clamp(L, 0, 1)));
     }
+    despeckle(inHead);
     // crown + side scallops, rows following the head curvature
     for (let gv = -1.0; gv < 0.9; gv += 0.17) for (let gu = -1.1; gu < 1.1; gu += 0.18) {
       const r = Math.round((gv + 1) / 0.17);
@@ -256,20 +279,6 @@
       else if (d < 1.25 && v > 0 && get(x, y) > 1) set(x, y, Math.max(1, get(x, y) - 1));
     }
 
-    // ---- despeckle: lone plumage cells join their neighbours (keeps patches, drops salt-and-pepper) ----
-    {
-      const B = A.slice();
-      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-        const v = B[y * W + x];
-        if (v < 2 || v > 5) continue;
-        const nb = [B[y * W + x - 1], B[y * W + x + 1], B[(y - 1) * W + x], B[(y + 1) * W + x]];
-        if (nb.includes(v) || nb.includes(0)) continue;
-        const cnt = {};
-        let best = v, bc = 0;
-        for (const n of nb) { cnt[n] = (cnt[n] || 0) + 1; if (cnt[n] > bc && n >= 1 && n <= 6) { bc = cnt[n]; best = n; } }
-        if (bc >= 2) A[y * W + x] = best;
-      }
-    }
     // ---- beak (small, dark, hooked) ----
     const beak = [
       '.1111.',
@@ -287,7 +296,7 @@
 
   // ---------- animation ----------
   // blink: lid fraction 0 (open, heavy grumpy hood) .. 1 (closed), pixel-stepped in 6 positions
-  const B0 = 2.0, BC = 0.55, BH = 0.3, BO = 0.75;
+  const B0 = 2.0, BC = 0.45, BH = 0.25, BO = 0.65;
   function lidAt(t) {
     let f = 0;
     if (t >= B0 && t < B0 + BC) f = (t - B0) / BC;
@@ -315,7 +324,8 @@
     const top = e.y - R - 1, span = 2 * R + 2;
     for (let x = Math.floor(e.x - R - 1); x <= e.x + R + 1; x++) {
       const k = ((x - e.x) / R) * e.inner; // +1 at the inner corner
-      const edge = top + span * (0.27 + 0.8 * lid) + k * 2.2 * (1 - lid);
+      const q = (x - e.x) / R;
+      const edge = top + span * (0.27 + 0.45 * lid) + k * 2.2 * (1 - lid) + (1 - q * q) * 1.8 * lid; // sags into an arc as it closes
       for (let y = Math.floor(top); y <= e.y + R + 1; y++) {
         const d = Math.hypot(x - e.x, y - e.y);
         if (d > R + 0.6) continue;
@@ -325,6 +335,7 @@
           const L = 0.38 + dl * 0.5 - ((x - e.x) / R) * 0.12 + (fbm(x * 0.45, y * 0.45, 72) - 0.5) * 0.35 + (e.inner < 0 ? -0.08 : 0);
           g.set(x, y, L > 0.62 ? 5 : L > 0.45 ? 4 : L > 0.28 ? 3 : 2);
         } else if (y < edge) g.set(x, y, 1);
+        else if (lid > 0.99) g.set(x, y, hash(x, y, 73) > 0.5 ? 3 : 4); // lower lid when shut
         else if (y < edge + 1.2 && g.get(x, y) === 7) g.set(x, y, 8); // lid shadow on the iris
       }
     }
@@ -350,7 +361,7 @@
           const q = i / 80;
           pts.push({
             q,
-            x: (1 - q) * (1 - q) * tf.base.x + 2 * q * (1 - q) * mx + q * q * tf.tip.x + (q > 0.55 ? s : 0),
+            x: (1 - q) * (1 - q) * tf.base.x + 2 * q * (1 - q) * mx + q * q * tf.tip.x + s * clamp((q - 0.35) / 0.65, 0, 1) ** 2,
             y: (1 - q) * (1 - q) * tf.base.y + 2 * q * (1 - q) * my + q * q * tf.tip.y,
           });
         }
